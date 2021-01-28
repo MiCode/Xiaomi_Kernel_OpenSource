@@ -364,7 +364,10 @@ int32_t mddp_sm_msg_hdlr(
 
 #if defined MDDP_TETHERING_SUPPORT
 	case MDFPM_USER_ID_DPFM:
-		ret = mddp_u_msg_hdlr(msg_id, buf, buf_len);
+		ret = mddp_f_msg_hdlr(msg_id, buf, buf_len);
+		if (ret)
+			ret = mddp_u_msg_hdlr(msg_id, buf, buf_len);
+
 		goto _done;
 #endif
 

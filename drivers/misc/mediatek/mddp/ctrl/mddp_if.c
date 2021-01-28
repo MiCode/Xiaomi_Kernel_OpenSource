@@ -38,25 +38,6 @@ static uint8_t mddp_md_version_s = 0xff;
 //------------------------------------------------------------------------------
 // Private functions.
 //------------------------------------------------------------------------------
-int32_t _mddp_ct_update(struct ipc_ilm *ilm)
-{
-	struct mddp_ct_timeout_ind_t   *ct_ind;
-	struct mddp_ct_nat_table_t     *entry;
-	uint32_t                        i;
-
-	ct_ind = (struct mddp_ct_timeout_ind_t *)
-			&(ilm->local_para_ptr->data[0]);
-
-	for (i = 0; i < ct_ind->entry_num; i++) {
-		entry = &(ct_ind->nat_table[i]);
-		mddp_dev_response(MDDP_APP_TYPE_ALL, MDDP_CMCMD_CT_IND,
-				true, (uint8_t *)entry,
-				sizeof(struct mddp_ct_nat_table_t));
-	}
-
-	return 0;
-}
-
 
 //------------------------------------------------------------------------------
 // Public functions.
@@ -206,6 +187,24 @@ int32_t mddp_on_set_data_limit(
 	 * MDDP GET_OFFLOAD_STATISTICS command.
 	 */
 	ret = mddp_u_set_data_limit(buf, buf_len);
+
+	return ret;
+}
+
+int32_t mddp_on_set_ct_value(
+		enum mddp_app_type_e type,
+		uint8_t *buf,
+		uint32_t buf_len)
+{
+	int32_t                 ret;
+
+	if (type != MDDP_APP_TYPE_ALL)
+		return -EINVAL;
+
+	/*
+	 * MDDP GET_OFFLOAD_STATISTICS command.
+	 */
+	ret = mddp_f_set_ct_value(buf, buf_len);
 
 	return ret;
 }

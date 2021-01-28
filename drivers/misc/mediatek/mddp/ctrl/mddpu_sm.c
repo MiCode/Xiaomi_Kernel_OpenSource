@@ -217,8 +217,8 @@ void mddpu_sm_rsp_disable(struct mddp_app_t *app)
 void mddpu_sm_act(struct mddp_app_t *app)
 {
 	struct mddp_md_msg_t   *md_msg;
-	uint8_t                 usb_buf[MAX_USB_RET_BUF_SZ];
-	uint32_t                usb_buf_len = MAX_USB_RET_BUF_SZ;
+	uint8_t                 usb_buf[MDDP_MAX_USB_RET_BUF_SZ];
+	uint32_t                usb_buf_len = MDDP_MAX_USB_RET_BUF_SZ;
 	int32_t                 ret;
 
 	// 1. Register filter model
@@ -294,8 +294,8 @@ void mddpu_sm_rsp_act_fail(struct mddp_app_t *app)
 void mddpu_sm_deact(struct mddp_app_t *app)
 {
 	struct mddp_md_msg_t   *md_msg;
-	uint8_t                 usb_buf[MAX_USB_RET_BUF_SZ];
-	uint32_t                usb_buf_len = MAX_USB_RET_BUF_SZ;
+	uint8_t                 usb_buf[MDDP_MAX_USB_RET_BUF_SZ];
+	uint32_t                usb_buf_len = MDDP_MAX_USB_RET_BUF_SZ;
 	int32_t                 ret;
 
 	// 1. Send DEACTIVATING to USB

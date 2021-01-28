@@ -138,7 +138,7 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	}
 
 	memset(&limit, 0, sizeof(limit));
-	limit.cmd = MSG_ID_MDT_SET_IQUOTA_REQ;
+	limit.cmd = MSG_ID_DPFM_SET_IQUOTA_REQ;
 	limit.trans_id = MDDP_U_GET_IQ_TRANS_ID();
 	limit.limit_buffer_size = in_req->limit_size;
 	limit.id = id;
@@ -156,13 +156,21 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 
 int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 {
-	struct mddp_u_iq_entry_t               *iq;
+	int32_t                     ret = -EINVAL;
+	struct mddp_u_iquota_ind_t *ind;
 
-	iq = &((struct mddp_u_iquota_ind_t *)buf)->iq;
+	if (msg_id == IPC_MSG_ID_DPFM_DATA_USAGE_CMD) {
+		ind = buf;
+		switch (ind->cmd) {
+		case MSG_ID_DPFM_ALERT_IQUOTA_IND:
+			mddp_dev_response(MDDP_APP_TYPE_ALL,
+				MDDP_CMCMD_LIMIT_IND, true, NULL, 0);
+			ret = 0;
+			break;
+		default:
+			break;
+		}
+	}
 
-	// Send IND to upper module.
-	mddp_dev_response(MDDP_APP_TYPE_ALL, MDDP_CMCMD_LIMIT_IND,
-						true, NULL, 0);
-
-	return 0;
+	return ret;
 }

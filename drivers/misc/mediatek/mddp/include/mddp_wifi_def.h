@@ -33,6 +33,29 @@ struct mddpw_net_stat_t {
 	uint64_t        rx_errors;
 };
 
+#define NW_IF_NAME_LEN_MAX      16
+struct mddpw_net_stat_elem_ext_t {
+	uint8_t         nw_if_name[NW_IF_NAME_LEN_MAX];
+	uint32_t        reserved[2];
+	uint64_t        tx_packets;
+	uint64_t        rx_packets;
+	uint64_t        tx_bytes;
+	uint64_t        rx_bytes;
+	uint64_t        tx_errors;
+	uint64_t        rx_errors;
+	uint64_t        tx_dropped;
+	uint64_t        rx_dropped;
+};
+
+#define MDDP_DOUBLE_BUFFER      2
+#define NW_IF_NUM_MAX           4
+struct mddpw_net_stat_ext_t {
+	uint32_t                         version;
+	uint32_t                         reserved;
+	uint32_t                         check_flag[2];
+	struct mddpw_net_stat_elem_ext_t ifs[MDDP_DOUBLE_BUFFER][NW_IF_NUM_MAX];
+};
+
 #define MAX_STAREC_NUM          32 // Max driver support station records
 #define MAX_CLIENT_NUM          16 // AP client only support 16 station records
 #define VIRTUAL_BUF_SIZE        512 // 4096 bits
@@ -105,6 +128,7 @@ typedef int32_t (*mddpw_cbf_get_md_rx_reorder_buf_t)(
 		struct mddpw_md_reorder_sync_table_t **);
 typedef int32_t (*mddpw_cbf_notify_drv_info_t)(
 		struct mddpw_drv_notify_info_t *);
+typedef int32_t (*mddpw_cbf_get_net_stat_ext_t)(struct mddpw_net_stat_ext_t *);
 
 struct mddpw_drv_handle_t {
 	/* MDDPW invokes these APIs provided by driver. */
@@ -116,12 +140,14 @@ struct mddpw_drv_handle_t {
 	mddpw_cbf_get_ap_rx_reorder_buf_t      get_ap_rx_reorder_buf;
 	mddpw_cbf_get_md_rx_reorder_buf_t      get_md_rx_reorder_buf;
 	mddpw_cbf_notify_drv_info_t            notify_drv_info;
+	mddpw_cbf_get_net_stat_ext_t           get_net_stat_ext;
 };
 
 enum mddp_md_smem_user_id_e {
 	MDDP_MD_SMEM_USER_RX_REORDER_TO_MD,
 	MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD,
 	MDDP_MD_SMEM_USER_WIFI_STATISTICS,
+	MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT,
 
 	MDDP_MD_SMEM_USER_NUM,
 };

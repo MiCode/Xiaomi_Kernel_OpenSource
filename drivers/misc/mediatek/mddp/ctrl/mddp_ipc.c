@@ -23,12 +23,18 @@
 static int32_t mddp_ipc_tty_port_s = -1;
 static struct task_struct *rx_task;
 static struct wfpm_smem_info_t smem_info_s[] = {
-	{MDDP_MD_SMEM_USER_RX_REORDER_TO_MD, WFPM_SM_E_ATTRI_WO,
-		0, 0, 0},
-	{MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD, WFPM_SM_E_ATTRI_RO,
-		0, 0, 0},
-	{MDDP_MD_SMEM_USER_WIFI_STATISTICS, WFPM_SM_E_ATTRI_RO,
-		0, 0, (sizeof(struct mddpw_net_stat_t))},
+	{MDDP_MD_SMEM_USER_RX_REORDER_TO_MD, 0, WFPM_SM_E_ATTRI_WO,
+		0,
+		0},
+	{MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD, 0, WFPM_SM_E_ATTRI_RO,
+		0,
+		0},
+	{MDDP_MD_SMEM_USER_WIFI_STATISTICS, 0, WFPM_SM_E_ATTRI_RO,
+		0,
+		sizeof(struct mddpw_net_stat_t)},
+	{MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT, 0, WFPM_SM_E_ATTRI_RO,
+		sizeof(struct mddpw_net_stat_t),
+		sizeof(struct mddpw_net_stat_ext_t)},
 };
 
 static struct mddp_ipc_rx_msg_entry_t mddp_rx_msg_table_s[] = {
@@ -64,15 +70,24 @@ static uint32_t mddp_rx_msg_table_cnt = ARRAY_SIZE(mddp_rx_msg_table_s);
 //------------------------------------------------------------------------------
 static int32_t mddp_ipc_md_smem_layout_config(void)
 {
-	struct wfpm_smem_info_t    *smem_entry;
+	struct wfpm_smem_info_t    *entry;
 	uint32_t                    i;
 	uint32_t                    total_len = 0;
+	uint32_t                    size;
+	uint8_t                    *addr;
+	uint8_t                     attr;
 
 	// Adjust offset of wfpm share memory
 	for (i = 0; i < MDDP_MD_SMEM_USER_NUM; i++) {
-		smem_entry = &smem_info_s[i];
-		smem_entry->offset = total_len;
-		total_len += smem_entry->size;
+		entry = &smem_info_s[i];
+		entry->offset = total_len;
+		total_len += entry->size;
+
+		size = 0;
+		if (!mddp_ipc_get_md_smem_by_id(entry->user_id,
+				(void **)&addr, &attr, &size) && size > 0) {
+			memset(addr, 0, size);
+		}
 	}
 
 	pr_info("%s: smem total_len(%d)\n!", __func__, total_len);
@@ -250,3 +265,4 @@ bool mddp_ipc_rx_msg_validation(enum MDDP_MDFPM_MSG_ID_CODE msg_id,
 
 	return true;
 }
+

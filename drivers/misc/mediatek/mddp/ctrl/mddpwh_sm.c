@@ -68,12 +68,12 @@ void mddpwh_sm_enable(struct mddp_app_t *app)
 	if (app->drv_hdlr.change_state != NULL)
 		app->drv_hdlr.change_state(MDDP_STATE_ENABLING, NULL, NULL);
 
+	// 2. Send ENABLE to MD
 	if (wfpm_ipc_get_smem_list((void **)&smem_info, &smem_num)) {
 		pr_notice("%s: Failed to get smem info!\n", __func__);
 		smem_num = 0;
 	}
 
-	// 2. Send ENABLE to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 			 sizeof(struct wfpm_enable_md_func_req_t) +
 			smem_num * sizeof(struct wfpm_smem_info_t), GFP_ATOMIC);
@@ -350,7 +350,10 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	struct mddp_app_t                *app;
 	struct mddp_md_msg_t             *md_msg;
 	struct mddpw_md_notify_info_t     md_info;
+	struct wfpm_enable_md_func_req_t *enable_req;
+	struct wfpm_smem_info_t          *smem_info;
 	uint32_t                          timer;
+	uint32_t                          smem_num;
 
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
@@ -361,12 +364,12 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	}
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
-
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
 	}
 
+	// 1. Send RESET_IND to MD
 	md_msg->msg_id = IPC_MSG_ID_WFPM_RESET_IND;
 	md_msg->data_len = 0;
 	if (unlikely(mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) >= 0)) {
@@ -389,6 +392,37 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 				wifi_handle->notify_md_info(&md_info);
 			}
 		}
+
+		// 2. Send SMEM_LAYOUT to MD
+		if (wfpm_ipc_get_smem_list((void **)&smem_info, &smem_num)) {
+			pr_notice("%s: Failed to get smem info!\n", __func__);
+			smem_num = 0;
+		}
+		pr_info("%s: smem_info(%llx), smem_num(%u)\n",
+				__func__, (unsigned long long)smem_info, smem_num);
+
+		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
+				sizeof(struct wfpm_enable_md_func_req_t) +
+				smem_num * sizeof(struct wfpm_smem_info_t),
+				GFP_ATOMIC);
+		if (unlikely(!md_msg)) {
+			WARN_ON(1);
+			return;
+		}
+
+		md_msg->msg_id = IPC_MSG_ID_WFPM_SEND_SMEM_LAYOUT_NOTIFY;
+		md_msg->data_len = sizeof(struct wfpm_enable_md_func_req_t) +
+				smem_num * sizeof(struct wfpm_smem_info_t);
+		enable_req = (struct wfpm_enable_md_func_req_t *)
+				&(md_msg->data);
+		enable_req->mode = WFPM_FUNC_MODE_TETHER;
+		enable_req->version = __MDDP_VERSION__;
+		enable_req->smem_num = smem_num;
+		memcpy(&(enable_req->smem_info), smem_info,
+				smem_num * sizeof(struct wfpm_smem_info_t));
+
+		mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
+
 		mddpw_reset_ongoing = 0;
 	} else {
 		timer = 100;
@@ -418,7 +452,6 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 
 	switch (msg_id) {
 	case IPC_MSG_ID_WFPM_ENABLE_MD_FAST_PATH_RSP:
-
 		enable_rsp = (struct wfpm_enable_md_func_rsp_t *) buf;
 		pr_info("%s: set (%u), (%u), MD version(%u), (%u).\n",
 		__func__, enable_rsp->mode, enable_rsp->result,
@@ -602,6 +635,37 @@ int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
 	return 0;
 }
 
+int32_t mddpw_drv_get_net_stat_ext(struct mddpw_net_stat_ext_t *usage)
+{
+	struct mddpw_net_stat_ext_t       *md_stats = NULL;
+	uint8_t                            smem_attr;
+	uint32_t                           smem_size;
+
+	if (!usage) {
+		pr_notice("%s: usage is NULL!\n", __func__);
+		return -EINVAL;
+	}
+	memset(usage, 0, sizeof(struct mddpw_net_stat_ext_t));
+
+	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT,
+				(void **)&md_stats, &smem_attr, &smem_size)) {
+		pr_notice("%s: Failed to get smem_id (%d)!\n",
+				__func__,
+				MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT);
+		return -EFAULT;
+	}
+
+	if (!md_stats || smem_size != sizeof(struct mddpw_net_stat_ext_t)) {
+		pr_notice("%s: Invalid share memory data, md_stats(%llx), smem_size(%u)!\n",
+				__func__, (unsigned long long)md_stats, smem_size);
+		return -EFAULT;
+	}
+
+	/* OK */
+	memcpy(usage, md_stats, smem_size);
+	return 0;
+}
+
 int32_t mddpw_drv_get_ap_rx_reorder_buf(
 	struct mddpw_ap_reorder_sync_table_t **ap_table)
 {
@@ -684,6 +748,7 @@ int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	wifi_handle->get_ap_rx_reorder_buf = mddpw_drv_get_ap_rx_reorder_buf;
 	wifi_handle->get_md_rx_reorder_buf = mddpw_drv_get_md_rx_reorder_buf;
 	wifi_handle->notify_drv_info = mddpw_drv_notify_info;
+	wifi_handle->get_net_stat_ext = mddpw_drv_get_net_stat_ext;
 
 	return 0;
 }
