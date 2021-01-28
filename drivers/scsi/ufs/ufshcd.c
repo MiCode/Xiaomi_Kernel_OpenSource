@@ -6544,19 +6544,6 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 	int retries = hba->nutrs;
 
 	spin_lock(hba->host->host_lock);
-	/* MTK PATCH */
-	if (unlikely(hba->clk_gating.state == CLKS_OFF)) {
-		/* trigger kernel panic if clock is not enabled */
-		dev_err(hba->dev, "%s: clock not on.\n");
-#if defined(CONFIG_MTK_GIC_EXT)
-		mt_irq_dump_status(irq);
-#endif
-		ufshcd_generic_log(hba,
-			0, 0, __LINE__, NULL,
-			UFS_TRACE_GENERIC);
-		BUG();
-	}
-
 	intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
 
 	/*
