@@ -21,7 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/of_irq.h>
 #include <linux/sched.h>
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
 #include <mt-plat/upmu_common.h>
@@ -347,7 +347,7 @@ static void oc_int_handler(enum PMIC_IRQ_ENUM intNo, const char *int_name)
 {
 	unsigned int spNo, sp_conNo, sp_irqNo;
 	unsigned int times;
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 	char oc_str[30] = "";
 #endif
 
@@ -381,7 +381,7 @@ static void oc_int_handler(enum PMIC_IRQ_ENUM intNo, const char *int_name)
 			pmic_get_register_value(PMIC_RG_LDO_VIO18_OCFB_EN));
 		vio18_oc_times++;
 		if (vio18_oc_times >= 2) {
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 			snprintf(oc_str, 30, "PMIC OC:%s", int_name);
 			aee_kernel_warning(
 				oc_str,
@@ -395,7 +395,7 @@ static void oc_int_handler(enum PMIC_IRQ_ENUM intNo, const char *int_name)
 	default:
 		/* issue AEE exception and disable OC interrupt */
 		kernel_dump_exception_reg();
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 		snprintf(oc_str, 30, "PMIC OC:%s", int_name);
 		aee_kernel_warning(oc_str,
 			"\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
@@ -412,7 +412,7 @@ static void md_oc_int_handler(enum PMIC_IRQ_ENUM intNo, const char *int_name)
 {
 	int ret = 0;
 	int data_int32 = 0;
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 	char oc_str[30] = "";
 #endif
 
@@ -433,7 +433,7 @@ static void md_oc_int_handler(enum PMIC_IRQ_ENUM intNo, const char *int_name)
 		break;
 	}
 #ifdef CONFIG_MTK_CCCI_DEVICES
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 	snprintf(oc_str, 30, "PMIC OC:%s", int_name);
 	aee_kernel_warning(oc_str, "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s"
 			, int_name);

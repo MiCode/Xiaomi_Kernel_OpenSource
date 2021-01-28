@@ -18,7 +18,7 @@
 #include <linux/platform_device.h>
 
 /* just use in suspend flow for important log due to console suspend */
-#if defined(CONFIG_MTK_SELINUX_AEE_WARNING)
+#ifdef CONFIG_MTK_AEE_FEATURE
 #if defined PMIC_DEBUG_PR_DBG
 #define pmic_spm_crit2(fmt, args...)		\
 do {					\
