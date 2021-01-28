@@ -113,8 +113,12 @@ static int __init mt6761_sspm_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cfgreg");
-	sspmreg.cfg = devm_ioremap_resource(dev, res);
+	if (!res) {
+		pr_err("[SSPM] cfgreg IO resource not found\n");
+		return -ENODEV;
+	}
 
+	sspmreg.cfg = devm_ioremap_resource(dev, res);
 	if (IS_ERR((void const *) sspmreg.cfg)) {
 		pr_err("[SSPM] Unable to ioremap registers\n");
 		return -1;

@@ -194,8 +194,13 @@ static int sspm_mbox_group_activate(int mbox, unsigned int is64d,
 		snprintf(name, sizeof(name), "mbox%d_base", mbox);
 		res = platform_get_resource_byname(sspm_pdev,
 						IORESOURCE_MEM, name);
-		desc->base = devm_ioremap_resource(dev, res);
+		if (!res) {
+			pr_err("[SSPM] mbox%d_base IO resource not found\n",
+					mbox);
+			goto fail;
+		}
 
+		desc->base = devm_ioremap_resource(dev, res);
 		if (IS_ERR((void const *) desc->base)) {
 			pr_err("[SSPM] MBOX %d can't remap BASE\n", mbox);
 			goto fail;
@@ -204,6 +209,12 @@ static int sspm_mbox_group_activate(int mbox, unsigned int is64d,
 		snprintf(name, sizeof(name), "mbox%d_ctrl", mbox);
 		res = platform_get_resource_byname(sspm_pdev, IORESOURCE_MEM,
 						name);
+		if (!res) {
+			pr_err("[SSPM] mbox%d_ctrl IO resource not found\n",
+					mbox);
+			goto fail;
+		}
+
 		desc->in_out = devm_ioremap_resource(dev, res);
 		if (IS_ERR((void const *) desc->in_out)) {
 			pr_err("[SSPM] MBOX %d can't find IN_OUT_IRQ\n", mbox);

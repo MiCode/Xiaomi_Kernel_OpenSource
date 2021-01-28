@@ -211,8 +211,10 @@ int sspm_sbuf_init(void)
 	if (sspm_pdev) {
 		res = platform_get_resource_byname(sspm_pdev,
 			IORESOURCE_MEM, "sspm_base");
-		sspm_base = devm_ioremap_resource(dev, res);
+		if (!res)
+			return -1;
 
+		sspm_base = devm_ioremap_resource(dev, res);
 		if (IS_ERR((void const *) sspm_base))
 			return -1;
 	}
