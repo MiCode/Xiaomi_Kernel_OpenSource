@@ -225,7 +225,7 @@ err:
 
 int vpu_get_algo_id_by_name(int core, char *name, struct vpu_user *user)
 {
-	struct vpu_algo *algo;
+	struct vpu_algo *algo = NULL;
 	int algo_id = -1;
 	int ret = 0;
 
@@ -235,7 +235,7 @@ int vpu_get_algo_id_by_name(int core, char *name, struct vpu_user *user)
 	LOG_DBG("%s core:%d\n", __func__, core);
 	ret = vpu_find_algo_by_name(core, name, &algo, false, user);
 	LOG_DBG("ret:%d\n", ret);
-	if (ret) {
+	if (ret || !algo) {
 		LOG_ERR("vpu_find_algo_by_name fail, name=%s\n", name);
 		goto out;
 	}
