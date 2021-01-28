@@ -276,6 +276,49 @@ endmenu # Other Peripheral
 
 menu "Memory"
 
+config MTK_GMO_RAM_OPTIMIZE
+	bool "MTK RAM Optimize"
+	select MTK_ENABLE_GMO
+	select MTK_ENABLE_AGO
+	help
+	  Provide centeral config to use memory efficiently.
+	  GMO mechanism must set both in kernel & project config
+	  to prevent different flow.
+	  Select "y" if need to enable GMO RAM optimization mechanism.
+	  Select "n" if you are not familiar with GMO mechanism.
+
+config MTK_ENABLE_GMO
+	bool "Enable/Disable GMO related feautre"
+	select CC_OPTIMIZE_FOR_SIZE
+	select ZRAM_LZ4K_COMPRESS
+	help
+	  Enable/Disable GMO related feautre.
+	  This is a group kernel setting of GMO mechanism,
+	  Select "y" separately is not suggested.
+	  Select "n" by default.
+
+config MTK_ENABLE_AGO
+	bool "Enable/Disable A-Go related feautre"
+	select ZRAM
+	select CRYPTO_LZ4
+	select DM_VERITY
+	select DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED
+	select DM_VERITY_FEC
+	select HZ_300
+	select PSI
+	select ZRAM_WRITEBACK
+	select SWAP
+	select SDCARD_FS
+	select F2FS_FS
+	select F2FS_FS_SECURITY
+	select F2FS_FS_ENCRYPTION
+	select UID_CPUTIME
+	help
+	  Enable/Disable AGO related feautre.
+	  This is a group kernel setting of AGO mechanism.
+	  Select "y" separately is not suggested.
+	  Select "n" by default.
+
 endmenu # Memory
 
 menu "Performance, Power, and Thermal"
