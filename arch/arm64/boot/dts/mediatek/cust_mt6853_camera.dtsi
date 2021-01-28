@@ -482,6 +482,8 @@
 	cam2_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam4_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 
+	cam1_enable_sensor = "imx576_mipi_raw";
+
 	status = "okay";
 };
 /* CAMERA GPIO end */
