@@ -48,7 +48,7 @@ struct regname {
 
 struct cmd_fn {
 	const char	*cmd;
-	int (*fn)(struct seq_file *, void *);
+	int (*fn)(struct seq_file *s, void *v);
 };
 
 #define CMDFN(_cmd, _fn) {	\
