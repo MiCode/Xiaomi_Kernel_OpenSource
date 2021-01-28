@@ -30,7 +30,7 @@
 #include "inc/mt6370_pmu.h"
 #include <tcpm.h>
 
-#define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.28_MTK"
+#define MT6370_PMU_CHARGER_DRV_VERSION	"1.1.29_MTK"
 
 static bool dbg_log_en;
 module_param(dbg_log_en, bool, 0644);
@@ -150,6 +150,7 @@ struct mt6370_pmu_charger_data {
 #else
 	struct work_struct chgdet_work;
 #endif /* CONFIG_TCPC_CLASS */
+	struct delayed_work mivr_dwork;
 	struct power_supply_desc psy_desc;
 	struct power_supply *psy;
 	struct regulator_dev *otg_rdev;
@@ -3056,12 +3057,19 @@ static irqreturn_t mt6370_pmu_chg_aicr_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static void mt6370_pmu_chg_mivr_dwork_handler(struct work_struct *work)
+{
+	struct mt6370_pmu_charger_data *chg_data = container_of(work,
+		struct mt6370_pmu_charger_data, mivr_dwork.work);
+
+	mt6370_enable_irq(chg_data, "chg_mivr", true);
+}
+
 static irqreturn_t mt6370_pmu_chg_mivr_irq_handler(int irq, void *data)
 {
 	int ret = 0, ibus = 0;
-	bool mivr_stat = 0;
-	struct mt6370_pmu_charger_data *chg_data =
-		(struct mt6370_pmu_charger_data *)data;
+	bool mivr_stat = false;
+	struct mt6370_pmu_charger_data *chg_data = data;
 
 	mt_dbg(chg_data->dev, "%s\n", __func__);
 	ret = mt6370_pmu_reg_test_bit(chg_data->chip, MT6370_PMU_REG_CHGSTAT1,
@@ -3091,6 +3099,8 @@ static irqreturn_t mt6370_pmu_chg_mivr_irq_handler(int irq, void *data)
 	}
 
 out:
+	mt6370_enable_irq(chg_data, "chg_mivr", false);
+	schedule_delayed_work(&chg_data->mivr_dwork, msecs_to_jiffies(500));
 	return IRQ_HANDLED;
 }
 
@@ -4516,6 +4526,8 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 	if (chg_data->chg_desc->bc12_sel == 0)
 		INIT_WORK(&chg_data->chgdet_work, mt6370_chgdet_work_handler);
 #endif /* !CONFIG_TCPC_CLASS */
+	INIT_DELAYED_WORK(&chg_data->mivr_dwork,
+			  mt6370_pmu_chg_mivr_dwork_handler);
 
 	/* Do initial setting */
 	ret = mt6370_chg_init_setting(chg_data);
@@ -4720,6 +4732,9 @@ MODULE_VERSION(MT6370_PMU_CHARGER_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.1.29_MTK
+ * (1) Masks mivr irq for 500ms after mivr irq gets handled
+ *
  * 1.1.28_MTK
  * (1) mutex_unlock() once in mt6370_pmu_attachi_irq_handler()
  * (2) Do not do the workaround for VSYS overshoot if ichg <= 500mA
