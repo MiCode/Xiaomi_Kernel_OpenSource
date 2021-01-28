@@ -20,7 +20,8 @@ extern unsigned int gpu_block;
 extern unsigned int gpu_idle;
 extern unsigned int gpu_av_loading;
 
-GED_ERROR ged_notify_sw_vsync(GED_VSYNC_TYPE eType, GED_DVFS_UM_QUERY_PACK *psQueryData);
+GED_ERROR ged_notify_sw_vsync(GED_VSYNC_TYPE eType,
+	struct GED_DVFS_UM_QUERY_PACK *psQueryData);
 
 GED_ERROR ged_notify_sw_vsync_system_init(void);
 

@@ -23,11 +23,14 @@
 #define GED_LOGI(...)
 #endif
 #define GED_LOGE(...) pr_debug("GED:" __VA_ARGS__)
-#define GED_CONTAINER_OF(ptr, type, member) ((type *)(((char *)ptr) - offsetof(type, member)))
+#define GED_CONTAINER_OF(ptr, type, member) \
+	((type *)(((char *)ptr) - offsetof(type, member)))
 
-unsigned long ged_copy_to_user(void __user *pvTo, const void *pvFrom, unsigned long ulBytes);
+unsigned long ged_copy_to_user(void __user *pvTo,
+	const void *pvFrom, unsigned long ulBytes);
 
-unsigned long ged_copy_from_user(void *pvTo, const void __user *pvFrom, unsigned long ulBytes);
+unsigned long ged_copy_from_user(void *pvTo,
+	const void __user *pvFrom, unsigned long ulBytes);
 
 void *ged_alloc(int i32Size);
 
@@ -39,8 +42,8 @@ long ged_get_pid(void);
 
 unsigned long long ged_get_time(void);
 
-typedef struct {
-	void (*free_func)(void *);
-} GED_FILE_PRIVATE_BASE;
+struct GED_FILE_PRIVATE_BASE {
+	void (*free_func)(void *f);
+};
 
 #endif
