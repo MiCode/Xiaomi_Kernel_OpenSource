@@ -101,12 +101,6 @@ static ssize_t show_eas_info_attr(struct kobject *kobj,
 	unsigned int max_len = 4096;
 
 	len += show_cpu_info(buf+len, max_len - len);
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-	len += snprintf(buf+len, max_len - len,
-		"turning_point=%d\n",
-			cpu_eff_tp);
-
-#endif
 
 #if defined(CONFIG_ENERGY_MODEL) && defined(CONFIG_CPU_FREQ_GOV_SCHEDUTIL)
 	len += show_perf_order_domain_info(buf+len, max_len - len);

@@ -4,9 +4,6 @@
  */
 #include "sched.h"
 #include <trace/events/sched.h>
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-#include "mt-plat/upower_v2/mtk_unified_power.h"
-#endif
 
 DEFINE_PER_CPU(struct task_struct*, migrate_task);
 static int idle_pull_cpu_stop(void *data)
@@ -232,116 +229,6 @@ bool is_intra_domain(int prev, int target)
 	perf_domain = per_cpu(perf_order_cpu_domain, prev);
 
 	return cpumask_test_cpu(target, &perf_domain->cpus);
-}
-#endif
-
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-int cpu_eff_tp = 1024;
-int min_cap_orig_cpu = -1;
-
-static struct perf_domain *find_pd(int cpu)
-{
-	struct root_domain *rd = cpu_rq(cpu)->rd;
-	struct perf_domain *pd;
-
-	rcu_read_lock();
-	pd = rcu_dereference(rd->pd);
-	if (!pd)
-		return NULL;
-
-	while (pd) {
-		if (cpumask_test_cpu(cpu, perf_domain_span(pd))) {
-			rcu_read_unlock();
-			return pd;
-		}
-		pd = pd->next;
-	}
-
-	rcu_read_unlock();
-
-	return NULL;
-}
-
-void set_sched_turn_point_cap(void)
-{
-	int turn_point_idx;
-	struct perf_order_domain *domain;
-	struct perf_domain *pd;
-	struct em_perf_domain *em_pd;
-	struct em_cap_state *cs;
-	unsigned long scale_cpu, max_freq;
-
-	turn_point_idx = max(upower_get_turn_point() - 1, 0);
-
-	if (!pod_is_ready()) {
-		pr_info("%s: Perf order domain is not ready!\n", __func__);
-		return;
-	}
-
-	domain = list_last_entry(&perf_order_domains, typeof(*domain),
-			perf_order_domains);
-	min_cap_orig_cpu = cpumask_any(&domain->cpus);
-
-	pd = find_pd(min_cap_orig_cpu);
-
-	if (!pd) {
-		pr_info("%s: Perf domain is not ready!\n", __func__);
-		return;
-	}
-
-	em_pd = pd->em_pd;
-	cs = &em_pd->table[turn_point_idx];
-	max_freq = em_pd->table[em_pd->nr_cap_states - 1].frequency;
-
-	scale_cpu = arch_scale_cpu_capacity(NULL, min_cap_orig_cpu);
-	cpu_eff_tp = scale_cpu * cs->frequency / max_freq;
-}
-
-int check_freq_turning(void)
-{
-	unsigned long capacity_curr_little;
-
-	if (min_cap_orig_cpu < 0)
-		return false;
-
-	capacity_curr_little = capacity_curr_of(min_cap_orig_cpu);
-
-	if (capacity_curr_little > cpu_eff_tp)
-		return true;
-
-	return false;
-}
-
-static int big_cluster_is_not_full(void)
-{
-	struct perf_order_domain *domain;
-	int total_nr_running = 0, cpu_count = 0;
-	int i;
-
-	if (!pod_is_ready())
-		return false;
-
-	domain = list_last_entry(&perf_order_domains, typeof(*domain),
-			perf_order_domains);
-	cpu_count = cpumask_weight(&domain->cpus);
-	for_each_cpu(i, &domain->cpus) {
-		struct rq *rq = cpu_rq(i);
-
-		total_nr_running += rq->nr_running;
-	}
-
-	if (total_nr_running < cpu_count)
-		return true;
-
-	return false;
-}
-
-int check_freq_turning_with_limit(void)
-{
-	if (check_freq_turning() && big_cluster_is_not_full())
-		return true;
-
-	return false;
 }
 #endif
 
@@ -676,9 +563,6 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 #ifdef CONFIG_UCLAMP_TASK
 	int target_capacity;
 #endif
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-	int turning;
-#endif
 
 	perf_domain = per_cpu(perf_order_cpu_domain, this_cpu);
 
@@ -789,9 +673,6 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 	 *     order: target->next to slow perf domain
 	 * 3. turning = true, pick a runnable task from slower domain
 	 */
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-	turning = check_freq_turning();
-#endif
 	list_for_each(pos, &perf_domain->perf_order_domains) {
 		domain = list_entry(pos, struct perf_order_domain,
 				perf_order_domains);
@@ -848,30 +729,6 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 			}
 #endif
 
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-			if (turning && !backup_task) {
-				const struct cpumask *target_mask = NULL;
-				struct cfs_rq *cfs_rq;
-				struct sched_entity *se;
-
-				raw_spin_lock_irqsave(&rq->lock, flags);
-
-				target_mask = cpumask_of(this_cpu);
-				cfs_rq = &rq->cfs;
-				se = __pick_first_entity(cfs_rq);
-				if (se && entity_is_task(se) &&
-					    cpumask_intersects(target_mask,
-						&(task_of(se)->cpus_allowed))) {
-					backup_cpu = cpu;
-					/* get task and selection inside
-					 * rq lock
-					 */
-					backup_task = task_of(se);
-					get_task_struct(backup_task);
-				}
-				raw_spin_unlock_irqrestore(&rq->lock, flags);
-			}
-#endif
 		}
 
 		if (list_is_last(pos, &perf_order_domains))

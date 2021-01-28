@@ -67,14 +67,5 @@ config MTK_SCHED_BIG_TASK_MIGRATE
 	      Migrate current task to big core if it is misfit.
 	   2. Big task rotation: swap two misfit task between big cores and
 	      little core, equally distributed runtime for each misfit task.
-
-config MTK_SCHED_TURNING_POINT
-	bool "mtk turning point"
-	depends on MTK_SCHED_EXTENSION && MTK_UNIFY_POWER
-	help
-	  Mediatek turning point for power efficiency
-	  When the power efficiency of little core high frequency is
-	  less than the big core low frequency,
-	  scheduler will prefer to put task on big core.
 endmenu
 

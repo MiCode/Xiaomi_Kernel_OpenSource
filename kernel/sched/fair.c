@@ -7136,13 +7136,6 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 	unsigned int min_exit_lat = UINT_MAX;
 	int cpu, max_spare_cap_cpu;
 	struct cpuidle_state *idle;
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-	int turning = false;
-
-	turning = check_freq_turning_with_limit();
-	if (turning)
-		target_cap = 0;
-#endif
 
 	for (; pd; pd = pd->next) {
 		max_spare_cap_cpu = -1;
@@ -7165,16 +7158,6 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 			if (cpu_cap * 1024 < util * capacity_margin)
 				continue;
 
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-			/* Favor CPUs with higher capacity hitting turning */
-			if (turning && cpu_cap < target_cap)
-				continue;
-
-			/* Favor CPUs with smaller capacity */
-			if (!turning && cpu_cap > target_cap)
-				continue;
-#endif
-
 			/*
 			 * Find the CPU with the maximum spare capacity in
 			 * the performance domain
@@ -7190,19 +7173,11 @@ static void select_cpu_candidates(struct sched_domain *sd, cpumask_t *cpus,
 
 			if (idle_cpu(cpu)) {
 				cpu_cap = capacity_orig_of(cpu);
-#ifdef CONFIG_MTK_SCHED_TURNING_POINT
-				if ((boosted || turning) &&
-						cpu_cap < target_cap)
-					continue;
-				if (!boosted && !turning &&
-						cpu_cap > target_cap)
-					continue;
-#else
 				if (boosted && cpu_cap < target_cap)
 					continue;
 				if (!boosted && cpu_cap > target_cap)
 					continue;
-#endif
+
 				idle = idle_get_state(cpu_rq(cpu));
 				if (idle && idle->exit_latency > min_exit_lat &&
 						cpu_cap == target_cap)
