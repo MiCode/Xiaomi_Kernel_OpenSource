@@ -31,9 +31,9 @@
 /********************************************************************
  * dpidle/sodi3/sodi default feature enable/disable
  *******************************************************************/
-#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (0)
-#define MTK_IDLE_FEATURE_ENABLE_SODI    (0)
-#define MTK_IDLE_FEATURE_ENABLE_SODI3   (0)
+#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (1)
+#define MTK_IDLE_FEATURE_ENABLE_SODI    (1)
+#define MTK_IDLE_FEATURE_ENABLE_SODI3   (1)
 
 
 /**************************************
@@ -85,6 +85,10 @@ extern struct pwr_ctrl pwrctrl_dp;
 extern struct pwr_ctrl pwrctrl_so3;
 extern struct pwr_ctrl pwrctrl_so;
 
+struct mt6357_priv {
+	struct device *dev;
+	struct regmap *regmap;
+};
 
 /* SMC: defined parameters for MTK_SIP_KERNEL_SPM_ARGS */
 enum {

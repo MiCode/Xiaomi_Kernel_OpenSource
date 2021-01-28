@@ -26,6 +26,13 @@
 
 #include <mtk_idle_sysfs.h>
 //#include <mach/upmu_sw.h>
+#include <linux/soc/mediatek/pmic_wrap.h>
+#include <linux/regmap.h>
+#include <linux/mfd/mt6357/registers.h>
+#include <linux/mfd/mt6357/core.h>
+
+/* PMICWRAP Reg */
+#define PMIC_RG_TOP2_RSV0_ADDR             (0x15A)
 
 DEFINE_SPINLOCK(__spm_lock);
 
@@ -87,6 +94,7 @@ void __iomem *sleep_reg_md_base;
 
 static struct platform_device *pspmdev;
 static struct wakeup_source *spm_wakelock;
+static struct mt6357_priv *spm_priv;
 
 /* FIXME: should not used externally !!! */
 void *mt_spm_base_get(void)
@@ -98,6 +106,22 @@ EXPORT_SYMBOL(mt_spm_base_get);
 void spm_pm_stay_awake(int sec)
 {
 	__pm_wakeup_event(spm_wakelock, HZ * sec);
+}
+
+static int is_pmic_mrv(void)
+{
+	int ret, tmp_val;
+	struct regmap *regmap = spm_priv->regmap;
+
+	ret = regmap_read(regmap, PMIC_RG_TOP2_RSV0_ADDR, &tmp_val);
+
+	if (ret)
+		return -1;
+
+	if (tmp_val & (1 << 15))
+		return 1;
+	else
+		return 0;
 }
 
 static void spm_register_init(unsigned int *spm_irq_0_ptr)
@@ -149,12 +173,35 @@ static ssize_t debug_log_store(
 }
 
 static DEVICE_ATTR_RW(debug_log);
+static int spm_init_done;
 
 static int spm_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct device_node *pwrap_node;
+
+	if (spm_init_done)
+		return 0;
+
+	pwrap_node = of_parse_phandle(pdev->dev.of_node,
+					"mediatek,pwrap-regmap", 0);
+
+	if (!pwrap_node)
+		return -ENODEV;
 
 	ret = device_create_file(&(pdev->dev), &dev_attr_debug_log);
+
+	spm_priv = devm_kzalloc(&pdev->dev,
+				sizeof(struct mt6357_priv),
+				GFP_KERNEL);
+
+	if (!spm_priv)
+		return -ENOMEM;
+
+	spm_priv->regmap = pwrap_node_to_regmap(pwrap_node);
+
+	/* Do initialization only one time */
+	spm_init_done = 1;
 
 	return 0;
 }
@@ -165,7 +212,7 @@ static int spm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id spm_of_ids[] = {
-	{.compatible = "mediatek,SLEEP",},
+	{.compatible = "mediatek,sleep",},
 	{}
 };
 
@@ -305,8 +352,8 @@ static int spm_module_init(void)
 
 	SMC_CALL(ARGS, SPM_ARGS_SPMFW_IDX, spm_get_spmfw_idx(), 0);
 
-	// FIXME if (is_pmic_mrv())
-	//	SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
+	if (is_pmic_mrv())
+		SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
 
 	return 0;
 }
