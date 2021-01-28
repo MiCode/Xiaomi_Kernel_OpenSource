@@ -27,7 +27,6 @@ __acquires(mep->mtu->lock)
 	mep->busy = 1;
 
 	trace_mtu3_req_complete(mreq);
-	spin_unlock(&mtu->lock);
 
 	/* ep0 makes use of PIO, needn't unmap it */
 	if (mep->epnum)
@@ -35,6 +34,8 @@ __acquires(mep->mtu->lock)
 
 	dev_dbg(mtu->dev, "%s complete req: %p, sts %d, %d/%d\n", mep->name,
 		req, req->status, mreq->request.actual, mreq->request.length);
+
+	spin_unlock(&mtu->lock);
 
 	usb_gadget_giveback_request(&mep->ep, &mreq->request);
 
@@ -60,6 +61,17 @@ static void nuke(struct mtu3_ep *mep, const int status)
 		mreq = list_first_entry(&mep->req_list,
 					struct mtu3_request, list);
 		mtu3_req_complete(mep, &mreq->request, status);
+	}
+}
+
+void mtu3_nuke_all_ep(struct mtu3 *mtu)
+{
+	int i;
+
+	nuke(mtu->ep0, -ESHUTDOWN);
+	for (i = 1; i < mtu->num_eps; i++) {
+		nuke(mtu->in_eps + i, -ESHUTDOWN);
+		nuke(mtu->out_eps + i, -ESHUTDOWN);
 	}
 }
 
@@ -254,9 +266,14 @@ struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtu3_request *mreq = to_mtu3_request(req);
+	struct mtu3_ep *mep = to_mtu3_ep(ep);
+	struct mtu3 *mtu = mep->mtu;
+	unsigned long flags;
 
 	trace_mtu3_free_request(mreq);
+	spin_lock_irqsave(&mtu->lock, flags);
 	kfree(mreq);
+	spin_unlock_irqrestore(&mtu->lock, flags);
 }
 
 static int mtu3_gadget_queue(struct usb_ep *ep,
@@ -523,6 +540,9 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	} else if (is_on != mtu->softconnect) {
 		mtu->softconnect = is_on;
 		mtu3_dev_on_off(mtu, is_on);
+
+		if (!is_on)
+			mtu3_nuke_all_ep(mtu);
 	}
 
 	spin_unlock_irqrestore(&mtu->lock, flags);
@@ -563,7 +583,6 @@ static int mtu3_gadget_start(struct usb_gadget *gadget,
 static void stop_activity(struct mtu3 *mtu)
 {
 	struct usb_gadget_driver *driver = mtu->gadget_driver;
-	int i;
 
 	/* don't disconnect if it's not connected */
 	if (mtu->g.speed == USB_SPEED_UNKNOWN)
@@ -581,11 +600,7 @@ static void stop_activity(struct mtu3 *mtu)
 	 * killing any outstanding requests will quiesce the driver;
 	 * then report disconnect
 	 */
-	nuke(mtu->ep0, -ESHUTDOWN);
-	for (i = 1; i < mtu->num_eps; i++) {
-		nuke(mtu->in_eps + i, -ESHUTDOWN);
-		nuke(mtu->out_eps + i, -ESHUTDOWN);
-	}
+	mtu3_nuke_all_ep(mtu);
 
 	if (driver) {
 		spin_unlock(&mtu->lock);
