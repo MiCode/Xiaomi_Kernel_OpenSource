@@ -203,8 +203,8 @@ void *ged_hashtable_find(GED_HASHTABLE_HANDLE hHashTable, unsigned long ulID)
 			return psHN->pvoid;
 #ifdef GED_DEBUG
 		if (ulID != 0)
-			GED_LOGE(
-			"%s: ulID=%lu ulHash=%lu fail\n", __func__,
+			GED_LOGD(
+			"@%s: ulID=%lu ulHash=%lu fail\n", __func__,
 			ulID, ulHash);
 #endif
 	}

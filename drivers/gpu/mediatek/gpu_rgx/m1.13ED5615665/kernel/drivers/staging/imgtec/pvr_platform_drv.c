@@ -172,6 +172,7 @@ static int pvr_probe(struct platform_device *pdev)
 	ddev->platformdev = pdev;
 #endif
 
+	MTK_LOGI("@%s: pvrsrvkm driver probe\n", __func__);
 	/*
 	 * The load callback, called from drm_dev_register, is deprecated,
 	 * because of potential race conditions. Calling the function here,
@@ -284,6 +285,7 @@ static int __init pvr_init(void)
 	int err;
 
 	DRM_DEBUG_DRIVER("\n");
+	MTK_LOGI("@%s: start to initialize pvrsrvkm driver\n", __func__);
 
 #if defined(MODULE)
 	err = mtk_mfg_async_init();

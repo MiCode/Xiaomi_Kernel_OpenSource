@@ -454,7 +454,7 @@ static ssize_t ged_vsync_offset_enable_write_entry(const char __user *pszBuffer,
 			ged_dvfs_vsync_offset_event_switch(
 				GED_DVFS_VSYNC_OFFSET_DEBUG_CLEAR_EVENT, true);
 	} else
-		GED_LOGE("unknown command:%s %c", pcCMD, *pcValue);
+		GED_LOGE("Unknown command:%s %c", pcCMD, *pcValue);
 
 normal_exit:
 	return uiCount;
@@ -566,7 +566,7 @@ static ssize_t ged_vsync_offset_level_write_entry(
 	acBuffer[uiCount] = '\n';
 	acBuffer[uiCount+1] = 0;
 	i = tokenizer(acBuffer, uiCount, aint32Indx, NUM_TOKEN);
-	GED_LOGE("i=%d", i);
+	GED_LOGD("i=%d", i);
 	if (i == NUM_TOKEN) {
 		pcCMD = acBuffer+aint32Indx[0];
 
@@ -734,7 +734,7 @@ static ssize_t ged_gpu_info_write_entry(
 	if (strcmp(pcCMD, "query") == 0)
 		ged_get_gpu_info(NULL, value);
 	else
-		GED_LOGE("unknown command:%s %c", pcCMD, *pcValue);
+		GED_LOGE("Unknown command:%s %c", pcCMD, *pcValue);
 
 normal_exit:
 	return uiCount;
@@ -1039,7 +1039,7 @@ static void *ged_fps_ub_seq_next(struct seq_file *seq, void *v, loff_t *pos)
 
 static int ged_fps_ub_seq_show(struct seq_file *seq, void *v)
 {
-	GED_LOGI("+%s", __func__);
+	GED_LOGD("@%s", __func__);
 	seq_printf(seq, "%u\n", _fps_upper_bound);
 	return 0;
 }
@@ -1066,7 +1066,7 @@ static ssize_t ged_fps_ub_write(const char __user *pszBuffer, size_t uiCount,
 			return uiCount;
 		_fps_upper_bound = ulTmp;
 		ged_dvfs_probe_signal(GED_FPS_CHANGE_SIGNAL_EVENT);
-		GED_LOGI("GED: fps is set to %d", _fps_upper_bound);
+		GED_LOGD("FPS is set to %d", _fps_upper_bound);
 	}
 
 	return uiCount;
@@ -1863,7 +1863,7 @@ GED_ERROR ged_hal_init(void)
 
 	if (unlikely(err != GED_OK)) {
 		err = GED_ERROR_FAIL;
-		GED_LOGE("ged: failed to create hal dir!\n");
+		GED_LOGE("Failed to create hal dir!\n");
 		goto ERROR;
 	}
 
@@ -1878,7 +1878,7 @@ GED_ERROR ged_hal_init(void)
 
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-		"ged: failed to create total_gpu_freq_level_count entry!\n");
+		"Failed to create total_gpu_freq_level_count entry!\n");
 		goto ERROR;
 	}
 
@@ -1893,7 +1893,7 @@ GED_ERROR ged_hal_init(void)
 
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-		"ged: failed to create custom_boost_gpu_freq entry!\n");
+		"Failed to create custom_boost_gpu_freq entry!\n");
 		goto ERROR;
 	}
 
@@ -1908,7 +1908,7 @@ GED_ERROR ged_hal_init(void)
 
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-		"ged: failed to create custom_upbound_gpu_freq entry!\n");
+		"Failed to create custom_upbound_gpu_freq entry!\n");
 		goto ERROR;
 	}
 
@@ -1939,7 +1939,7 @@ GED_ERROR ged_hal_init(void)
 			&gpsVsyncOffsetLevelEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create vsync_offset_level entry!\n");
+		GED_LOGE("Failed to create vsync_offset_level entry!\n");
 		goto ERROR;
 	}
 
@@ -1953,7 +1953,7 @@ GED_ERROR ged_hal_init(void)
 			&gpsGPUInfoEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gpu_info entry!\n");
+		GED_LOGE("Failed to create gpu_info entry!\n");
 		goto ERROR;
 	}
 
@@ -2033,7 +2033,7 @@ GED_ERROR ged_hal_init(void)
 			&gpsDvfsMarginValueEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create dvfs_margin_value entry!\n");
+		GED_LOGE("Failed to create dvfs_margin_value entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2050,7 +2050,7 @@ GED_ERROR ged_hal_init(void)
 
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-		"ged: failed to create loading_base_dvfs_step entry!\n");
+		"Failed to create loading_base_dvfs_step entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2066,7 +2066,7 @@ GED_ERROR ged_hal_init(void)
 			&gpsTimerBaseDvfsMarginEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create tb dvfs_margin entry!\n");
+		GED_LOGE("Failed to create tb dvfs_margin entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2082,7 +2082,7 @@ GED_ERROR ged_hal_init(void)
 		&gpsDvfsLoadingModeEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gpu loading mode entry!\n");
+		GED_LOGE("Failed to create gpu loading mode entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2097,14 +2097,14 @@ GED_ERROR ged_hal_init(void)
 			&gpsIntegrationReportReadEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create integration_report entry!\n");
+		GED_LOGE("Failed to create integration_report entry!\n");
 		goto ERROR;
 	}
 #endif /* GED_DEBUG_FS */
 
 	err = ged_sysfs_create_dir(NULL, "hal", &hal_kobj);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create hal dir!\n");
+		GED_LOGE("Failed to create hal dir!\n");
 		goto ERROR;
 	}
 
@@ -2112,14 +2112,14 @@ GED_ERROR ged_hal_init(void)
 		&kobj_attr_total_gpu_freq_level_count);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-			"ged: failed to create total_gpu_freq_level_count entry!\n");
+			"Failed to create total_gpu_freq_level_count entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_custom_boost_gpu_freq);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-			"ged: failed to create custom_boost_gpu_freq entry!\n");
+			"Failed to create custom_boost_gpu_freq entry!\n");
 		goto ERROR;
 	}
 
@@ -2127,38 +2127,38 @@ GED_ERROR ged_hal_init(void)
 		&kobj_attr_custom_upbound_gpu_freq);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-			"ged: failed to create custom_upbound_gpu_freq entry!\n");
+			"Failed to create custom_upbound_gpu_freq entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_current_freqency);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create current_freqency entry!\n");
+		GED_LOGE("Failed to create current_freqency entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_previous_freqency);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create previous_freqency entry!\n");
+		GED_LOGE("Failed to create previous_freqency entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_gpu_utilization);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gpu_utilization entry!\n");
+		GED_LOGE("Failed to create gpu_utilization entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_gpu_boost_level);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gpu_boost_level entry!\n");
+		GED_LOGE("Failed to create gpu_boost_level entry!\n");
 		goto ERROR;
 	}
 
 #ifdef MTK_GED_KPI
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_ged_kpi);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create ged_kpi entry!\n");
+		GED_LOGE("Failed to create ged_kpi entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2166,7 +2166,7 @@ GED_ERROR ged_hal_init(void)
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_margin_value);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create dvfs_margin_value entry!\n");
+		GED_LOGE("Failed to create dvfs_margin_value entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2176,7 +2176,7 @@ GED_ERROR ged_hal_init(void)
 		&kobj_attr_loading_base_dvfs_step);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-			"ged: failed to create loading_base_dvfs_step entry!\n");
+			"Failed to create loading_base_dvfs_step entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2186,7 +2186,7 @@ GED_ERROR ged_hal_init(void)
 		&kobj_attr_timer_base_dvfs_margin);
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE(
-			"ged: failed to create timer_base_dvfs_margin entry!\n");
+			"Failed to create timer_base_dvfs_margin entry!\n");
 		goto ERROR;
 	}
 #endif
@@ -2194,14 +2194,14 @@ GED_ERROR ged_hal_init(void)
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_dvfs_loading_mode);
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create dvfs_loading_mode entry!\n");
+		GED_LOGE("Failed to create dvfs_loading_mode entry!\n");
 		goto ERROR;
 	}
 #endif
 
 	ged_fb_notifier.notifier_call = ged_fb_notifier_callback;
 	if (fb_register_client(&ged_fb_notifier))
-		GED_LOGE("register fb_notifier fail!\n");
+		GED_LOGE("Register fb_notifier fail!\n");
 
 	return err;
 

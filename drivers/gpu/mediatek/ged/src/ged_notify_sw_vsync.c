@@ -294,11 +294,11 @@ GED_ERROR ged_notify_sw_vsync(GED_VSYNC_TYPE eType,
 	}
 #ifdef GED_DVFS_DEBUG
 	if (eType == GED_VSYNC_HW_EVENT)
-		GED_LOGE("[5566] HW VSYNC: llDiff=",
+		GED_LOGD("HW VSYNC: llDiff=",
 		"%lld, hw_vsync_ts=%llu, sw_vsync_ts=%llu\n", llDiff,
 		hw_vsync_ts, sw_vsync_ts);
 	else
-		GED_LOGE("[5566] SW VSYNC: llDiff=",
+		GED_LOGD("SW VSYNC: llDiff=",
 		"%lld, hw_vsync_ts=%llu, sw_vsync_ts=%llu\n", llDiff,
 		hw_vsync_ts, sw_vsync_ts);
 #endif		///	#ifdef GED_DVFS_DEBUG
@@ -329,7 +329,7 @@ GED_ERROR ged_notify_sw_vsync(GED_VSYNC_TYPE eType,
 	} else {
 		if (bHWEventKick) {
 #ifdef GED_DVFS_DEBUG
-			GED_LOGE("[5566] HW Event: kick!\n");
+			GED_LOGD("HW Event: kick!\n");
 #endif							/// GED_DVFS_DEBUG
 			ged_log_buf_print(ghLogBuf_DVFS,
 				"[GED_K] HW VSync: mending kick!");

@@ -480,7 +480,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	psGEDLogBuf = (struct GED_LOG_BUF *)
 		ged_alloc(sizeof(struct GED_LOG_BUF));
 	if (psGEDLogBuf == NULL) {
-		GED_LOGE("ged: failed to allocate log buf!\n");
+		GED_LOGE("Failed to allocate psGEDLogBuf!\n");
 		return (GED_LOG_BUF_HANDLE)0;
 	}
 
@@ -504,7 +504,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	psGEDLogBuf->pMemory = ged_alloc(psGEDLogBuf->i32MemorySize);
 	if (psGEDLogBuf->pMemory == NULL) {
 		ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
-		GED_LOGE("ged: failed to allocate log buf!\n");
+		GED_LOGE("Failed to allocate psGEDLogBuf->pMemory!\n");
 		return (GED_LOG_BUF_HANDLE)0;
 	}
 
@@ -546,7 +546,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		cx = snprintf(psGEDLogBuf->acNodeName,
 			GED_LOG_BUF_NODE_NAME_LENGTH, "%s", pszNodeName);
 		if (cx < 0 || cx >= GED_LOG_BUF_NODE_NAME_LENGTH) {
-			GED_LOGE("ged: failed to snprintf (%s)!\n",
+			GED_LOGE("Failed to snprintf (%s)!\n",
 				pszNodeName);
 			ged_log_buf_free(psGEDLogBuf->ulHashNodeID);
 			return (GED_LOG_BUF_HANDLE)0;
@@ -561,7 +561,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			&psGEDLogBuf->psEntry);
 
 		if (unlikely(err)) {
-			GED_LOGE("ged: failed to create %s entry, err(%d)!\n",
+			GED_LOGE("Failed to create %s entry, err(%d)!\n",
 				pszNodeName, err);
 			ged_log_buf_free(psGEDLogBuf->ulHashNodeID);
 			return (GED_LOG_BUF_HANDLE)0;
@@ -572,13 +572,13 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	error = ged_hashtable_insert(ghHashTable, psGEDLogBuf,
 		&psGEDLogBuf->ulHashNodeID);
 	if (error != GED_OK) {
-		GED_LOGE("ged: failed to insert into a hash table, err(%d)!\n",
+		GED_LOGE("Failed to insert into a hash table, err(%d)!\n",
 			error);
 		ged_log_buf_free(psGEDLogBuf->ulHashNodeID);
 		return (GED_LOG_BUF_HANDLE)0;
 	}
 
-	GED_LOGI("%s OK\n", __func__);
+	GED_LOGD("@%s OK\n", __func__);
 
 	while (__ged_log_buf_check_get_early_list(
 		psGEDLogBuf->ulHashNodeID, pszName)) {
@@ -812,7 +812,7 @@ void ged_log_buf_free(GED_LOG_BUF_HANDLE hLogBuf)
 		ged_free(psGEDLogBuf->pMemory, psGEDLogBuf->i32MemorySize);
 		ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
 
-		GED_LOGI("%s OK\n", __func__);
+		GED_LOGD("@%s OK\n", __func__);
 	}
 }
 EXPORT_SYMBOL(ged_log_buf_free);
@@ -990,7 +990,7 @@ GED_ERROR ged_log_system_init(void)
 			&gpsGEDLogEntry);
 
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gedlog entry!\n");
+		GED_LOGE("Failed to create gedlog entry!\n");
 		goto ERROR;
 	}
 
@@ -1001,7 +1001,7 @@ GED_ERROR ged_log_system_init(void)
 
 	if (unlikely(err != GED_OK)) {
 		err = GED_ERROR_FAIL;
-		GED_LOGE("ged: failed to create logbufs dir!\n");
+		GED_LOGE("Failed to create logbufs dir!\n");
 		goto ERROR;
 	}
 #endif /* GED_DEBUG_FS */
@@ -1009,7 +1009,7 @@ GED_ERROR ged_log_system_init(void)
 	ghHashTable = ged_hashtable_create(5);
 	if (!ghHashTable) {
 		err = GED_ERROR_OOM;
-		GED_LOGE("ged: failed to create a hash table!\n");
+		GED_LOGE("Failed to create a hash table!\n");
 		goto ERROR;
 	}
 

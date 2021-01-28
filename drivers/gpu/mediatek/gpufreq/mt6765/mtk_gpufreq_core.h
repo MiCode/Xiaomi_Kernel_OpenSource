@@ -126,7 +126,7 @@
 /**************************************************
  * Log Setting
  **************************************************/
-#define GPUFERQ_TAG "[GPU/DVFS]"
+#define GPUFERQ_TAG "[GPU/FREQ]"
 #define gpufreq_perr(fmt, args...)\
 	pr_err(GPUFERQ_TAG"[ERROR]"fmt, ##args)
 #define gpufreq_pwarn(fmt, args...)\

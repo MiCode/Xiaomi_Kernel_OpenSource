@@ -647,11 +647,11 @@ void mt_gpufreq_enable_by_ptpod(void)
 
 #if defined(CONFIG_ARM64) && \
 	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	pr_info("[GPU DVFS] flavor name: %s\n",
+	gpufreq_pr_info("Flavor name: %s\n",
 				CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 	if ((strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
 		"k79v1_64_aging") != NULL)) {
-		pr_info("[GPU_DVFS]: AGING flavor !!!\n");
+		gpufreq_pr_info("AGING flavor !!!\n");
 		g_enable_aging_test = 1;
 	}
 #endif
@@ -2643,14 +2643,20 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return PTR_ERR(g_clk->mtcmos_mfg_core1);
 	}
 
-	pr_info("[GPU/DVFS][INFO]@%s: clk_mux is at 0x%p, ",
+	gpufreq_pr_info("@%s: clk_mux is at 0x%p, ",
 		__func__, g_clk->clk_mux);
-	pr_info("clk_sub_parent is at 0x%p, ", g_clk->clk_sub_parent);
-	pr_info("clk_main_parent is at 0x%p, ", g_clk->clk_main_parent);
-	pr_info("mtcmos_mfg_async is at 0x%p, ", g_clk->mtcmos_mfg_async);
-	pr_info("mtcmos_mfg is at 0x%p, ", g_clk->mtcmos_mfg);
-	pr_info("mtcmos_mfg_core0 is at 0x%p, ", g_clk->mtcmos_mfg_core0);
-	pr_info("mtcmos_mfg_core1 is at 0x%p\n", g_clk->mtcmos_mfg_core1);
+	gpufreq_pr_info("clk_sub_parent is at 0x%p, ",
+		g_clk->clk_sub_parent);
+	gpufreq_pr_info("clk_main_parent is at 0x%p, ",
+		g_clk->clk_main_parent);
+	gpufreq_pr_info("mtcmos_mfg_async is at 0x%p, ",
+		g_clk->mtcmos_mfg_async);
+	gpufreq_pr_info("mtcmos_mfg is at 0x%p, ",
+		g_clk->mtcmos_mfg);
+	gpufreq_pr_info("mtcmos_mfg_core0 is at 0x%p, ",
+		g_clk->mtcmos_mfg_core0);
+	gpufreq_pr_info("mtcmos_mfg_core1 is at 0x%p\n",
+		g_clk->mtcmos_mfg_core1);
 
 #ifdef CONFIG_MTK_DEVINFO
 	/*
@@ -2764,7 +2770,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* setup initial opp */
 	__mt_gpufreq_set_initial();
 
-	/*pr_info("[GPU/DVFS][INFO]@%s: VGPU is enabled = %d (%d mV),"
+	/*
+	 * gpufreq_pr_info("@%s: VGPU is enabled = %d (%d mV),"
 	 *		" VSRAM is enabled = %d (%d mV)\n",
 	 *		__func__, regulator_is_enabled(g_pmic->reg_vgpu),
 	 *		(regulator_get_voltage(g_pmic->reg_vgpu) / 1000),
@@ -2773,7 +2780,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	 */
 
 	/*
-	 * pr_info("[GPU/DVFS][INFO]@%s: current freq = %d KHz,"
+	 * gpufreq_pr_info("@%s: current freq = %d KHz,"
 	 *		" current volt = %d uV, \t"
 	 *		"g_cur_opp_freq = %d, g_cur_opp_volt = %d,"
 	 *		"g_cur_opp_vsram_volt = %d, \t"

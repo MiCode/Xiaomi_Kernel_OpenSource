@@ -421,9 +421,9 @@ void ged_dvfs_get_bw_record(unsigned int *pui32MaxBW,
 		}
 
 /* Reserved for debug
- * GED_LOGE("@%s: Frame-based: ui64MaxBW:%llu, ui64AvgBW:%llu h/t %u/%u\n",
+ * GED_LOGD("@%s: Frame-based: ui64MaxBW:%llu, ui64AvgBW:%llu h/t %u/%u\n",
  * __func__, ui64MaxBW, ui64AvgBW, g_bw_head, g_bw_tail);
- * GED_LOGE("@%s: Frame-based: ui32MaxBW:%u, ui32AvgBW:%u, inst:%d\n",
+ * GED_LOGD("@%s: Frame-based: ui32MaxBW:%u, ui32AvgBW:%u, inst:%d\n",
  * __func__, ui32MaxBW, ui32AvgBW, cur_max_inst);
  */
 	} else {
@@ -480,13 +480,13 @@ unsigned int ged_dvfs_vcore(unsigned int prev_freq_khz,
 
 
 	/* Reserved for debug
-	 * GED_LOGE("@%s: Freq(%d): %u/%u avgBW: %u/%u maxBW: %u/%u\n"
+	 * GED_LOGD("@%s: Freq(%d): %u/%u avgBW: %u/%u maxBW: %u/%u\n"
 	 * , __func__, bFB,cur_freq_mhz,
 	 * prev_freq_mhz, g_ui32NextAvBW, g_ui32CurAvBW, g_ui32NextMaxBW,
 	 * g_ui32CurMaxBW);
 	 */
 	if (gpu_bw_err_debug)
-		GED_LOGE("@%s: Freq(%d): %u/%u maxBW: %u/%u\n", __func__,
+		GED_LOGD("@%s: Freq(%d): %u/%u maxBW: %u/%u\n", __func__,
 			bFB, cur_freq_mhz,
 		prev_freq_mhz, g_ui32NextMaxBW, g_ui32CurMaxBW);
 
@@ -1442,7 +1442,7 @@ static void ged_dvfs_freq_thermal_limitCB(unsigned int ui32LimitFreqID)
 void ged_dvfs_boost_gpu_freq(void)
 {
 	if (gpu_debug_enable)
-		GED_LOGE("%s", __func__);
+		GED_LOGD("@%s", __func__);
 
 	ged_dvfs_freq_input_boostCB(0);
 }
@@ -1453,7 +1453,7 @@ static void ged_dvfs_set_bottom_gpu_freq(unsigned int ui32FreqLevel)
 	static unsigned int s_bottom_freq_id;
 
 	if (gpu_debug_enable)
-		GED_LOGE("%s: freq = %d", __func__, ui32FreqLevel);
+		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
 	ui32MaxLevel = mt_gpufreq_get_dvfs_table_num() - 1;
 	if (ui32MaxLevel < ui32FreqLevel)
@@ -1496,7 +1496,7 @@ static void ged_dvfs_custom_boost_gpu_freq(unsigned int ui32FreqLevel)
 	unsigned int ui32MaxLevel;
 
 	if (gpu_debug_enable)
-		GED_LOGE("%s: freq = %d", __func__, ui32FreqLevel);
+		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
 	ui32MaxLevel = mt_gpufreq_get_dvfs_table_num() - 1;
 	if (ui32MaxLevel < ui32FreqLevel)
@@ -1522,7 +1522,7 @@ static void ged_dvfs_custom_ceiling_gpu_freq(unsigned int ui32FreqLevel)
 	unsigned int ui32MaxLevel;
 
 	if (gpu_debug_enable)
-		GED_LOGE("%s: freq = %d", __func__, ui32FreqLevel);
+		GED_LOGD("@%s: freq = %d", __func__, ui32FreqLevel);
 
 	ui32MaxLevel = mt_gpufreq_get_dvfs_table_num() - 1;
 	if (ui32MaxLevel < ui32FreqLevel)
@@ -1883,7 +1883,7 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 	}
 
 	if (gpu_debug_enable)
-		GED_LOGE("%s:gpu_loading=%d %d, g_iSkipCount=%d", __func__,
+		GED_LOGD("@%s: gpu_loading=%d %d, g_iSkipCount=%d", __func__,
 			gpu_loading, mt_gpufreq_get_cur_freq_index(),
 			g_iSkipCount);
 

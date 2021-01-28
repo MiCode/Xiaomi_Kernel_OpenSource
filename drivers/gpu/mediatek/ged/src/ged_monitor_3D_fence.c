@@ -92,7 +92,7 @@ static void ged_monitor_3D_fence_work_cb(struct work_struct *psWork)
 	}
 
 	if (ged_monitor_3D_fence_debug > 0)
-		GED_LOGI("[-]3D fences count = %d\n", atomic_read(&g_i32Count));
+		GED_LOGD("[-]3D fences count = %d\n", atomic_read(&g_i32Count));
 
 	psMonitor = GED_CONTAINER_OF(psWork,
 		struct GED_MONITOR_3D_FENCE, sWork);
@@ -177,7 +177,7 @@ GED_ERROR ged_monitor_3D_fence_add(int fence_fd)
 	}
 
 	if (ged_monitor_3D_fence_debug > 0)
-		GED_LOGI("[+]3D fences count = %d\n", atomic_read(&g_i32Count));
+		GED_LOGD("[+]3D fences count = %d\n", atomic_read(&g_i32Count));
 
 #ifdef GED_DEBUG_MONITOR_3D_FENCE
 	ged_log_buf_print(ghLogBuf_GED,

@@ -128,7 +128,7 @@ static const struct file_operations ged_fops = {
 static int ged_open(struct inode *inode, struct file *filp)
 {
 	filp->private_data = NULL;
-	GED_LOGE("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev),
+	GED_LOGD("@%s: %d:%d\n", __func__, MAJOR(inode->i_rdev),
 		MINOR(inode->i_rdev));
 	return 0;
 }
@@ -142,7 +142,7 @@ static int ged_release(struct inode *inode, struct file *filp)
 
 		free_func(filp->private_data);
 	}
-	GED_LOGE("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev),
+	GED_LOGD("@%s: %d:%d\n", __func__, MAJOR(inode->i_rdev),
 		MINOR(inode->i_rdev));
 	return 0;
 }
@@ -195,7 +195,7 @@ static long ged_dispatch(struct file *pFile,
 			if (ged_copy_from_user(pvIn,
 				psBridgePackageKM->pvParamIn,
 				psBridgePackageKM->i32InBufferSize) != 0) {
-				GED_LOGE("ged_copy_from_user fail\n");
+				GED_LOGE("Failed to ged_copy_from_user\n");
 				goto dispatch_exit;
 			}
 		}
@@ -216,7 +216,7 @@ static long ged_dispatch(struct file *pFile,
 		> psBridgePackageKM->i32InBufferSize ||\
 		sizeof(struct GED_BRIDGE_OUT_##struct_name)\
 		> psBridgePackageKM->i32OutBufferSize) {\
-		GED_LOGE("GED_BRIDGE_COMMAND_##cmd fail io_size:",\
+		GED_LOGE("GED_BRIDGE_COMMAND_##cmd failed io_size:",\
 		"%d/%d, expected: %zu/%zu",\
 		psBridgePackageKM->i32InBufferSize,\
 		psBridgePackageKM->i32OutBufferSize,\
@@ -334,7 +334,7 @@ ged_ioctl(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 	psBridgePackageKM = &sBridgePackageKM;
 	if (ged_copy_from_user(psBridgePackageKM, psBridgePackageUM,
 		sizeof(struct GED_BRIDGE_PACKAGE)) != 0) {
-		GED_LOGE("Fail to ged_copy_from_user\n");
+		GED_LOGE("Failed to ged_copy_from_user\n");
 		goto unlock_and_return;
 	}
 
@@ -369,7 +369,7 @@ ged_ioctl_compat(struct file *pFile, unsigned int ioctlCmd, unsigned long arg)
 	if (ged_copy_from_user(psBridgePackageKM32,
 		psBridgePackageUM32,
 		sizeof(struct GED_BRIDGE_PACKAGE_32)) != 0) {
-		GED_LOGE("Fail to ged_copy_from_user\n");
+		GED_LOGE("Failed to ged_copy_from_user\n");
 		goto unlock_and_return;
 	}
 
@@ -475,63 +475,63 @@ static int ged_init(void)
 	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_fops)
 		== NULL) {
 		err = GED_ERROR_FAIL;
-		GED_LOGE("ged: failed to register ged proc entry!\n");
+		GED_LOGE("Failed to register ged proc entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_sysfs_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init sys FS!\n");
+		GED_LOGE("Failed to init sys FS!\n");
 		goto ERROR;
 	}
 
 #ifdef GED_DEBUG_FS
 	err = ged_debugFS_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init debug FS!\n");
+		GED_LOGE("Failed to init debug FS!\n");
 		goto ERROR;
 	}
 #endif
 
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create gedlog entry!\n");
+		GED_LOGE("Failed to create gedlog entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_hal_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create hal entry!\n");
+		GED_LOGE("Failed to create hal entry!\n");
 		goto ERROR;
 	}
 
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init notify sw vsync!\n");
+		GED_LOGE("Failed to init notify sw vsync!\n");
 		goto ERROR;
 	}
 
 	err = ged_dvfs_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init common dvfs!\n");
+		GED_LOGE("Failed to init common dvfs!\n");
 		goto ERROR;
 	}
 
 	err = ged_ge_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init gralloc_extra!\n");
+		GED_LOGE("Failed to init gralloc_extra!\n");
 		goto ERROR;
 	}
 
 	err = ged_kpi_system_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init KPI!\n");
+		GED_LOGE("Failed to init KPI!\n");
 		goto ERROR;
 	}
 
 	err = ged_gpu_tuner_init();
 	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init GPU Tuner!\n");
+		GED_LOGE("Failed to init GPU Tuner!\n");
 		goto ERROR;
 	}
 
@@ -587,7 +587,7 @@ static int ged_init(void)
 	/* register platform driver */
 	err = platform_driver_register(&g_ged_pdrv);
 	if (err) {
-		GED_LOGE("@%s: fail to register ged driver\n",
+		GED_LOGE("@%s: failed to register ged driver\n",
 		__func__);
 		goto ERROR;
 	}

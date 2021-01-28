@@ -2170,6 +2170,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
 			__func__, mt_get_ckgen_freq(9));
+#else
+	gpufreq_pr_info("@%s: gpufreq driver probe\n", __func__);
 #endif /* CONFIG_MTK_GPU_SUPPORT */
 #endif /* CONFIG_COMMON_CLK_MT6765 */
 
@@ -2223,11 +2225,13 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return PTR_ERR(g_clk->mtcmos_mfg_core0);
 	}
 
-	pr_info("[GPU/DVFS][INFO]@%s: clk_mux is at 0x%p, ",
+	gpufreq_pr_info("@%s: clk_mux is at 0x%p\n",
 		__func__, g_clk->clk_mux);
-	pr_info("clk_main_parent is at 0x%p, \t", g_clk->clk_main_parent);
-	pr_info("mtcmos_mfg_async is at 0x%p, \t", g_clk->mtcmos_mfg_async);
-	pr_info("mtcmos_mfg is at 0x%p, mtcmos_mfg_core0 is at 0x%p, ",
+	gpufreq_pr_info("clk_main_parent is at 0x%p\n",
+		g_clk->clk_main_parent);
+	gpufreq_pr_info("mtcmos_mfg_async is at 0x%p\n",
+		g_clk->mtcmos_mfg_async);
+	gpufreq_pr_info("mtcmos_mfg is at 0x%p, mtcmos_mfg_core0 is at 0x%p\n",
 		g_clk->mtcmos_mfg, g_clk->mtcmos_mfg_core0);
 
 
@@ -2324,7 +2328,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		g_fixed_vsram_volt_idx = 2;
 	}
 
-	/*pr_info("[GPU/DVFS][INFO]@%s: VGPU is enabled = %d (%d mV),"
+	/*
+	 * gpufreq_pr_info("@%s: VGPU is enabled = %d (%d mV),"
 	 *		" VSRAM_GPU is enabled = %d (%d mV)\n",
 	 *		__func__, regulator_is_enabled(g_pmic->reg_vgpu),
 	 *		(regulator_get_voltage(g_pmic->reg_vgpu) / 1000),
@@ -2346,7 +2351,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* setup initial frequency */
 	__mt_gpufreq_set_initial();
 	/*
-	 * pr_info("[GPU/DVFS][INFO]@%s: current freq = %d KHz,"
+	 * gpufreq_pr_info("@%s: current freq = %d KHz,"
 	 *		" current volt = %d uV, \t"
 	 *		"g_cur_opp_freq = %d, g_cur_opp_volt = %d,"
 	 *		"g_cur_opp_vsram_volt = %d, \t"
@@ -2397,18 +2402,16 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		BATTERY_OC_PRIO_GPU);
 #endif /* CONFIG_MTK_BATTERY_OC_POWER_THROTTLING */
 
-	pr_info(
-		"[GPU/DVFS][INFO]@%s: VGPU sfchg raising rate: %d us,",
+	gpufreq_pr_info("@%s: VGPU sfchg raising rate: %d us\n",
 		__func__, g_vgpu_sfchg_rrate);
-	pr_info(
-		"VGPU sfchg falling rate: %d us, \t", g_vgpu_sfchg_frate);
-	pr_info(
-		"VSRAM_GPU sfchg raising rate: %d us,", g_vsram_sfchg_rrate);
-	pr_info(
-		"VSRAM_GPU sfchg falling rate: %d us, \t",
+	gpufreq_pr_info("VGPU sfchg falling rate: %d us\n",
+		g_vgpu_sfchg_frate);
+	gpufreq_pr_info("VSRAM_GPU sfchg raising rate: %d us\n",
+		g_vsram_sfchg_rrate);
+	gpufreq_pr_info("VSRAM_GPU sfchg falling rate: %d us\n",
 		g_vsram_sfchg_frate);
-	pr_info(
-		"PMIC SRCLKEN_HIGH time: %d us\n", PMIC_SRCLKEN_HIGH_TIME_US);
+	gpufreq_pr_info("PMIC SRCLKEN_HIGH time: %d us\n",
+		PMIC_SRCLKEN_HIGH_TIME_US);
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
 	mt_gpu_bw_init();

@@ -455,7 +455,7 @@ static void ged_kpi_PushCurFps_and_DetectAppSelfFrc(int fps)
 				|| afrc_rst_cnt_down == 120) {
 				ged_kpi_frc_detection_main_head_reset(60);
 #ifdef GED_KPI_DEBUG
-				GED_LOGE("[AFRC] reset:",
+				GED_LOGD("[AFRC] reset:",
 					"%d, %d, afrc_rst: %d, %d\n",
 					fps, target_fps_4_main_head + 1,
 					afrc_rst_cnt_down,
@@ -493,7 +493,7 @@ static void ged_kpi_PushCurFps_and_DetectAppSelfFrc(int fps)
 					is_game_control_frame_rate = 1;
 					afrc_rst_over_target_cnt = 0;
 #ifdef GED_KPI_DEBUG
-					GED_LOGE("[AFRC] retarget to %d",
+					GED_LOGD("[AFRC] retarget to %d",
 						fps_grp[0],
 						"FPS due to",
 						"over target detection\n");
@@ -550,7 +550,7 @@ static void ged_kpi_PushCurFps_and_DetectAppSelfFrc(int fps)
 				}
 
 #ifdef GED_KPI_DEBUG
-				GED_LOGE("[AFRC] fps_grp: %d, %d, %d\n",
+				GED_LOGD("[AFRC] fps_grp: %d, %d, %d\n",
 					fps_grp[0], fps_grp[1], fps_grp[2]);
 #endif /* GED_KPI_DEBUG */
 				if (reset == 0 && fps_grp[0] < 60) {
@@ -572,7 +572,7 @@ static void ged_kpi_PushCurFps_and_DetectAppSelfFrc(int fps)
 	}
 #ifdef GED_KPI_DEBUG
 	/* debug AFRC detection */
-	GED_LOGE("[AFRC]: cur_fps:",
+	GED_LOGD("[AFRC]: cur_fps:",
 		"%d, fps_records: %d, %d, %d, target_fps: %d\n",
 		fps, fps_records[0],
 		fps_records[1], fps_records[2], target_fps_4_main_head);
@@ -610,7 +610,7 @@ static GED_BOOL ged_kpi_find_main_head_func(unsigned long ulID,
 
 	if (psHead) {
 #ifdef GED_KPI_DEBUG
-		GED_LOGE("[GED_KPI] psHead->i32Count: %d, isSF: %d\n",
+		GED_LOGD("[GED_KPI] psHead->i32Count: %d, isSF: %d\n",
 			psHead->i32Count, psHead->isSF);
 #endif /* GED_KPI_DEBUG */
 		if (psHead->isSF == 0) {
@@ -618,7 +618,7 @@ static GED_BOOL ged_kpi_find_main_head_func(unsigned long ulID,
 				|| psHead->i32Count > main_head->i32Count) {
 				if (main_head && psHead) {
 #ifdef GED_KPI_DEBUG
-					GED_LOGE("[GED_KPI] main_head",
+					GED_LOGD("[GED_KPI] main_head",
 					"changes from",
 					"%p to %p\n", main_head, psHead);
 #endif /* GED_KPI_DEBUG */
@@ -641,12 +641,12 @@ static inline void ged_kpi_calc_kpi_info(u64 ulID, struct GED_KPI *psKPI
 	/* check if there is a main rendering thread */
 	/* only SF is excluded from the group of considered candidates */
 	if (main_head)
-		GED_LOGE("[GED_KPI] main_head =",
+		GED_LOGD("[GED_KPI] main_head =",
 			"%p, i32Count= %d, i32QedBuffer_length=%d\n",
 			main_head, main_head->i32Count,
 			main_head->i32QedBuffer_length);
 	else
-		GED_LOGE("[GED_KPI] main_head = NULL\n");
+		GED_LOGD("[GED_KPI] main_head = NULL\n");
 #endif /* GED_KPI_DEBUG */
 
 	if (main_head != prev_main_head && main_head == psHead) {
@@ -926,7 +926,7 @@ static inline void ged_kpi_cpu_boost(struct GED_KPI_HEAD *psHead,
 	if (ged_kpi_cpu_boost_policy_fp != cpu_boost_policy_fp) {
 		ged_kpi_cpu_boost_policy_fp = cpu_boost_policy_fp;
 #ifdef GED_KPI_DEBUG
-		GED_LOGE("[GED_KPI] use cpu_boost_policy %d\n",
+		GED_LOGD("[GED_KPI] use cpu_boost_policy %d\n",
 			cpu_boost_policy);
 #endif /* GED_KPI_DEBUG */
 	}
@@ -935,7 +935,7 @@ static inline void ged_kpi_cpu_boost(struct GED_KPI_HEAD *psHead,
 		ged_kpi_cpu_boost_policy_fp(psHead, psKPI);
 #ifdef GED_KPI_DEBUG
 	else
-		GED_LOGE("[GED_KPI] no such cpu_boost_policy %d\n",
+		GED_LOGD("[GED_KPI] no such cpu_boost_policy %d\n",
 			cpu_boost_policy);
 #endif /* GED_KPI_DEBUG */
 }
@@ -982,7 +982,7 @@ static GED_BOOL ged_kpi_tag_type_s(u64 ulID, struct GED_KPI_HEAD *psHead
 				ged_kpi_statistics_and_remove(psHead, psKPI);
 		} else {
 #ifdef GED_KPI_DEBUG
-			GED_LOGE("[GED_KPI][Exception] TYPE_S:",
+			GED_LOGD("[GED_KPI][Exception] TYPE_S:",
 				"psKPI NULL, frameID: %lu\n",
 				psTimeStamp->i32FrameID);
 #endif /* GED_KPI_DEBUG */
@@ -1107,7 +1107,7 @@ static GED_BOOL ged_kpi_update_TargetTimeAndTargetFps(
 			psHead->frc_mode = GED_KPI_FRC_DEFAULT_MODE;
 			vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
 #ifdef GED_KPI_DEBUG
-			GED_LOGE("[GED_KPI][Exception]: no invalid",
+			GED_LOGD("[GED_KPI][Exception]: no invalid",
 				"FRC mode is specified, use default mode\n");
 #endif /* GED_KPI_DEBUG */
 		}
@@ -1224,7 +1224,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 #endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
 
 #ifdef GED_KPI_DEBUG
-	GED_LOGE("[GED_KPI] ts type = %d, pid = %d, wnd = %llu, frame = %lu\n",
+	GED_LOGD("[GED_KPI] ts type = %d, pid = %d, wnd = %llu, frame = %lu\n",
 		psTimeStamp->eTimeStampType,
 		psTimeStamp->pid,
 		psTimeStamp->ullWnd,
@@ -1369,7 +1369,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						GED_KPI_DEFAULT_FPS_MARGIN,
 						mode, client);
 #ifdef GED_KPI_DEBUG
-				GED_LOGE(
+				GED_LOGD(
 					"[GED_KPI] psHead: %p, fps: %d, mode: %d, client: %d\n",
 					psHead, d_target_fps, mode, client);
 #endif /* GED_KPI_DEBUG */
@@ -1476,7 +1476,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				ged_kpi_tag_type_s(ulID, psHead, psTimeStamp);
 				psHead->i32DebugQedBuffer_length -= 1;
 #ifdef GED_KPI_DEBUG
-				GED_LOGE("[GED_KPI] timestamp matched, Type_S:",
+				GED_LOGD("[GED_KPI] timestamp matched, Type_S:",
 					"psHead: %p\n", psHead);
 #endif /* GED_KPI_DEBUG */
 
@@ -1484,7 +1484,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 					(main_head->t_cpu_remained >
 						(-1)*SCREEN_IDLE_PERIOD)) {
 #ifdef GED_KPI_DEBUG
-					GED_LOGE("[GED_KPI] t_cpu_remained",
+					GED_LOGD("[GED_KPI] t_cpu_remained",
 						": %lld, main_head: %p\n",
 						main_head->t_cpu_remained,
 						main_head);
@@ -1497,14 +1497,14 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 #ifdef GED_KPI_DEBUG
 			if (psHead->isSF != psTimeStamp->isSF)
-				GED_LOGE("[GED_KPI][Exception] psHead->isSF !=",
+				GED_LOGD("[GED_KPI][Exception] psHead->isSF !=",
 					"psTimeStamp->isSF\n");
 			if (psHead->pid != psTimeStamp->pid) {
-				GED_LOGE("[GED_KPI][Exception] psHead->pid !=",
+				GED_LOGD("[GED_KPI][Exception] psHead->pid !=",
 					"psTimeStamp->pid: (%d, %d)\n",
 					psHead->pid, psTimeStamp->pid);
 			}
-			GED_LOGE("[GED_KPI] TimeStamp1, i32QedBuffer_length:",
+			GED_LOGD("[GED_KPI] TimeStamp1, i32QedBuffer_length:",
 				"%d, ts: %llu, psHead: %p\n",
 				psTimeStamp->i32QedBuffer_length,
 					psTimeStamp->ullTimeStamp, psHead);
@@ -1796,16 +1796,16 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 				0, psTimeStamp->pid, psTimeStamp->i32FrameID
 				, ulID);
 #ifdef GED_KPI_DEBUG
-				GED_LOGE(
+				GED_LOGD(
 		"[GED_KPI][Exception] TYPE_P: psKPI NULL, frameID: %lu\n",
 				psTimeStamp->i32FrameID);
 #endif /* GED_KPI_DEBUG */
 			}
 		} else {
 #ifdef GED_KPI_DEBUG
-			GED_LOGE(
-			"[GED_KPI][Exception] no hashtable head for ulID: %lu\n"
-			, ulID);
+			GED_LOGD(
+			"[GED_KPI][Exception] no hashtable head for ulID: %lu\n",
+			ulID);
 #endif /* GED_KPI_DEBUG */
 		}
 		break;
@@ -1825,7 +1825,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 		if (ged_kpi_tag_type_s(ulID, psHead, psTimeStamp) != GED_TRUE) {
 #ifdef GED_KPI_DEBUG
-			GED_LOGE("[GED_KPI] TYPE_S timestamp miss, ",
+			GED_LOGD("[GED_KPI] TYPE_S timestamp miss, ",
 				"ulID: %lu\n", ulID);
 #endif /* GED_KPI_DEBUG */
 			ged_kpi_record_miss_tag(ulID, psTimeStamp->i32FrameID,
@@ -1833,7 +1833,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		} else {
 			psHead->i32DebugQedBuffer_length -= 1;
 #ifdef GED_KPI_DEBUG
-			GED_LOGE(
+			GED_LOGD(
 			"[GED_KPI] timestamp matched, Type_S: psHead: %p\n",
 			psHead);
 #endif /* GED_KPI_DEBUG */
@@ -1842,7 +1842,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		if ((main_head != NULL && gx_game_mode == 1) &&
 			(main_head->t_cpu_remained > (-1)*SCREEN_IDLE_PERIOD)) {
 #ifdef GED_KPI_DEBUG
-			GED_LOGE(
+			GED_LOGD(
 			"[GED_KPI] t_cpu_remained: %lld, main_head: %p\n",
 			main_head->t_cpu_remained, main_head);
 #endif /* GED_KPI_DEBUG */
@@ -1861,7 +1861,7 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 
 			ged_kpi_get_latest_perf_state(&t_cpu_remained,
 				&t_gpu_remained, &t_cpu_target, &t_gpu_target);
-			GED_LOGE(
+			GED_LOGD(
 			"[GED_KPI] t_cpu: %ld, %lld, t_gpu: %ld, %lld\n",
 			t_cpu_target,
 			t_cpu_remained,
@@ -1884,8 +1884,8 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 		}
 #ifdef GED_KPI_DEBUG
 		else
-			GED_LOGE("%s: no such renderer for BQ_ID: %llu\n"
-				, __func__, ulID);
+			GED_LOGD("@%s: no such renderer for BQ_ID: %llu\n",
+				__func__, ulID);
 #endif /* GED_KPI_DEBUG */
 		break;
 	default:
@@ -1996,7 +1996,7 @@ static GED_ERROR ged_kpi_push_timestamp(
 	}
 #ifdef GED_KPI_DEBUG
 	else {
-		GED_LOGE("[GED_KPI][Exception]: g_psWorkQueue: ",
+		GED_LOGD("[GED_KPI][Exception]: g_psWorkQueue: ",
 			"NULL or GED KPI is disabled\n");
 		return GED_ERROR_FAIL;
 	}
