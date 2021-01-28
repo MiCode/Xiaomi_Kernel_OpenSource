@@ -358,20 +358,20 @@ void amms_pos_stress_timer_control(int operation)
 	}
 }
 
-static ssize_t amms_version_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+static ssize_t amms_version_show(struct module_attribute *attr,
+		struct module_kobject *kobj, char *buf)
 {
 	return snprintf(buf, 5, "%s\n", "1.0");
 }
 
-static ssize_t amms_pos_stress_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+static ssize_t amms_pos_stress_show(struct module_attribute *attr,
+		struct module_kobject *kobj, char *buf)
 {
 	return snprintf(buf, 3, "%d\n", amms_pos_stress_operation);
 }
 
-static ssize_t amms_pos_stress_store(struct kobject *kobj,
-		struct kobj_attribute *attr, const char *buf, size_t count)
+static ssize_t amms_pos_stress_store(struct module_attribute *attr,
+		struct module_kobject *kobj, const char *buf, size_t count)
 {
 	unsigned long operation = 0;
 	int status;
@@ -405,10 +405,10 @@ static ssize_t amms_pos_stress_store(struct kobject *kobj,
 	return count;
 }
 
-static struct kobj_attribute amms_version_attribute =
-	__ATTR(amms_version, 0600, amms_version_show, NULL);
+static struct module_attribute amms_version_attribute =
+	__ATTR(amms_version, 0400, amms_version_show, NULL);
 
-static struct kobj_attribute amms_pos_stress_attribute =
+static struct module_attribute amms_pos_stress_attribute =
 	__ATTR(amms_pos_stress, 0600,
 	amms_pos_stress_show, amms_pos_stress_store);
 static struct attribute *attrs[] = {
