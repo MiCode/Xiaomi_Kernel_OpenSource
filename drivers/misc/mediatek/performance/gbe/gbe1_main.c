@@ -421,7 +421,7 @@ static ssize_t gbe_boost_list1_store(struct kobject *kobj,
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
 			acBuffer[count] = '\0';
-			if (sscanf(acBuffer, "%16s %16s %llu",
+			if (sscanf(acBuffer, "%15s %15s %llu",
 						proc_name,
 						thrd_name,
 						&runtime_thrs) != 3) {

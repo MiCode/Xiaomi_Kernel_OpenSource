@@ -79,7 +79,7 @@ void switch_time_to_last_touch(int duration)
 
 void switch_deboost_when_render(int enable)
 {
-	deboost_when_render = enable;
+	deboost_when_render = !!enable;
 }
 
 /*--------------------TIMER------------------------*/
