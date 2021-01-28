@@ -318,3 +318,14 @@ bool mtk_audio_condition_enter_suspend(void)
 	return true;
 }
 EXPORT_SYMBOL(mtk_audio_condition_enter_suspend);
+
+bool mtk_get_speech_status(void)
+{
+	int speech_en = 0;
+
+	regmap_read(local_afe->regmap,
+		    PCM2_INTF_CON, &speech_en);
+
+	return (speech_en & PCM2_EN_MASK_SFT) ? true : false;
+}
+EXPORT_SYMBOL(mtk_get_speech_status);
