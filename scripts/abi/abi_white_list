@@ -1,6 +1,8 @@
 #Add symbols to bypass ABI Monitor here
 bypass_arr=(\
 "function long int __probe_kernel_read" \
+"function void ion_device_add_heap" \
+"function int v4l2_" \
 "struct net " \
 "struct net_device " \
 "struct musb " \
