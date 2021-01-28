@@ -234,5 +234,5 @@
 
 #include <k69v1_2g_hdp/cust.dtsi>
 #include "cust_mt6768_camera.dtsi"
-#include "cust_mt6769_touch_1080x2160.dtsi"
+#include "cust_k69_touch_1080x2160.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
