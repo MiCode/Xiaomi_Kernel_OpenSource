@@ -31,7 +31,7 @@ int kh_get_hint(struct kh_dev *dev, const char *key,
 int kh_register(struct kh_dev *dev, unsigned int key_bits,
 		unsigned int key_slot);
 int kh_release_hint(struct kh_dev *dev, int slot);
-int kh_reset(struct kh_dev *dev);
+int kh_suspend(struct kh_dev *dev);
 #else
 static inline int kh_get_hint(struct kh_dev *dev, const char *key,
 			      int *need_update)
