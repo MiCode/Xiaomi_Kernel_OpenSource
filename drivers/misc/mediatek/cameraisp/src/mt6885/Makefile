@@ -11,20 +11,13 @@
 # GNU General Public License for more details.
 #
 
-obj-y := cameraisp_dummy.o
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+ccflags-y += -I$(srctree)/drivers/staging/android/ion \
+             -I$(srctree)/drivers/staging/android/ion/mtk
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
 
-ifeq ($(CONFIG_MACH_MT6775),y)
-  obj-y += isp_50/
-endif
-
-ifeq ($(CONFIG_MACH_MT6739),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-endif
-
-ifeq ($(CONFIG_MACH_MT6885),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-endif
-
-ifeq ($(CONFIG_MACH_MT6771),y)
-  obj-y += isp_50/
-endif
+obj-y += camera_isp.o
+obj-y += cam_qos.o
