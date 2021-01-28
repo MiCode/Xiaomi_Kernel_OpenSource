@@ -27,7 +27,7 @@
 };
 
 &touch {
-	tpd-resolution = <1080 1920>;
+	tpd-resolution = <720 1280>;
 	lcm-resolution = <720 1280>;
 	tpd-cfg-version = "config17";
 	tpd-max-touch-num = <10>;
