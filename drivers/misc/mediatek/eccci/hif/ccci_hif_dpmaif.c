@@ -3221,6 +3221,10 @@ static int dpmaif_resume(unsigned char hif_id)
 
 static void dpmaif_sysresume(void)
 {
+	if ((dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) &&
+		(dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_EXCEPTION))
+		return;
+
 	dpmaif_resume(dpmaif_ctrl->hif_id);
 }
 /* =======================================================
