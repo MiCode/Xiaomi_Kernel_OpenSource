@@ -2297,19 +2297,45 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			#clock-cells = <1>;
 		};
 
-		emi_mpu@10226000 {
-			compatible = "mediatek,emi_mpu";
-			reg = <0 0x10226000 0 0x1000>;
+		emichn: emichn@10235000 {
+			compatible = "mediatek,mt6779-emichn",
+				     "mediatek,common-emichn";
+			reg = <0 0x10235000 0 0x1000>,
+			      <0 0x10245000 0 0x1000>;
 		};
 
-		emi@10219000 {
-			compatible = "mediatek,emi";
-			reg = <0 0x10219000 0 0x1000>,   /* CEN EMI */
-				<0 0x10226000 0 0x1000>, /* MPU */
-				<0 0x10235000 0 0x1000>, /* CH0 EMI */
-				<0 0x10245000 0 0x1000>, /* CH1 EMI */
-				<0 0x1020e000 0 0x1000>; /* dbg0 */
+		emicen: emicen@10219000 {
+			compatible = "mediatek,mt6779-emicen",
+				     "mediatek,common-emicen";
+			reg = <0 0x10219000 0 0x1000>;
+			mediatek,emi-reg = <&emichn>;
+		};
+
+		emiisu {
+			compatible = "mediatek,mt6779-emiisu",
+				     "mediatek,common-emiisu";
+			ctrl_intf = <1>;
+		};
+
+		emimpu@10226000 {
+			compatible = "mediatek,mt6779-emimpu",
+				     "mediatek,common-emimpu";
+			reg = <0 0x10226000 0 0x1000>;
+			mediatek,emi-reg = <&emicen>;
 			interrupts = <GIC_SPI 170 IRQ_TYPE_LEVEL_LOW>;
+			region_cnt = <32>;
+			domain_cnt = <16>;
+			addr_align = <16>;
+			ap_region = <31>;
+			ap_apc = <0 5 5 5 0 5 6 5>,
+				 <0 0 5 0 0 0 5 5>;
+			dump = <0x1f0 0x1f8 0x1fc>;
+			clear = <0x160 0xffffffff 16>,
+				<0x200 0x00000003 16>,
+				<0x1f0 0x80000000 1>;
+			clear_md = <0x1fc 0x80000000 1>;
+			ctrl_intf = <1>;
+			slverr = <0>;
 		};
 
 		sys_timer@10017000 {
