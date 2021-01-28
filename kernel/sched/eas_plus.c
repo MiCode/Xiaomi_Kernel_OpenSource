@@ -1433,6 +1433,19 @@ void set_sched_rotation_enable(bool enable)
 	sysctl_sched_rotation_enable = enable;
 }
 
+bool is_min_capacity_cpu(int cpu)
+{
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+
+	if (rd->min_cap_orig_cpu < 0)
+		return false;
+
+	if (capacity_orig_of(cpu) == capacity_orig_of(rd->min_cap_orig_cpu))
+		return true;
+
+	return false;
+}
+
 static void task_rotate_work_func(struct work_struct *work)
 {
 	struct task_rotate_work *wr = container_of(work,
@@ -1489,7 +1502,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 
-		if (is_max_capacity_cpu(i))
+		if (!is_min_capacity_cpu(i))
 			continue;
 
 		if (is_reserved(i))
