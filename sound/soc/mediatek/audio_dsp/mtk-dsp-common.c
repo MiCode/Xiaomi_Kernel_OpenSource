@@ -224,6 +224,36 @@ int get_dsp_task_attr(int dsp_id, int task_attr)
 	return get_task_attr(dsp_id, task_attr);
 }
 
+int get_dsp_task_id_from_str(const char *task_name)
+{
+	int ret = -1;
+
+	if (strstr(task_name, "primary"))
+		ret = AUDIO_TASK_PRIMARY_ID;
+	else if (strstr(task_name, "deepbuffer"))
+		ret = AUDIO_TASK_DEEPBUFFER_ID;
+	else if (strstr(task_name, "voip"))
+		ret = AUDIO_TASK_VOIP_ID;
+	else if (strstr(task_name, "playback"))
+		ret = AUDIO_TASK_PLAYBACK_ID;
+	else if (strstr(task_name, "call_final"))
+		ret = AUDIO_TASK_CALL_FINAL_ID;
+	else if (strstr(task_name, "ktv"))
+		ret = AUDIO_TASK_KTV_ID;
+	else if (strstr(task_name, "offload"))
+		ret = AUDIO_TASK_OFFLOAD_ID;
+	else if (strstr(task_name, "capture"))
+		ret = AUDIO_TASK_CAPTURE_UL1_ID;
+	else if (strstr(task_name, "a2dp"))
+		ret = AUDIO_TASK_DATAPROVIDER_ID;
+	else if (strstr(task_name, "fast"))
+		ret = AUDIO_TASK_FAST_ID;
+	else
+		pr_info("%s(), %s has no task id, ret %d",
+			__func__, task_name, ret);
+
+	return ret;
+}
 
 static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 			    struct snd_pcm_substream *substream,
