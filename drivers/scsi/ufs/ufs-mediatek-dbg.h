@@ -66,6 +66,8 @@ struct utp_cmd_struct {
 	u8 crypt_en;
 	u8 crypt_keyslot;
 	u16 tag;
+	u32 doorbell;
+	u32 intr;
 	int transfer_len;
 	u64 lba;
 };

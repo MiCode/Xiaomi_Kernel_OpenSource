@@ -15,6 +15,7 @@
 #include <linux/sysfs.h>
 #include <linux/tracepoint.h>
 #include "ufshcd.h"
+#include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
 
 #define MAX_CMD_HIST_ENTRY_CNT (500)
@@ -33,6 +34,130 @@ static unsigned int cmd_hist_cnt;
 static unsigned int cmd_hist_ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
 static struct cmd_hist_struct *cmd_hist;
 static char ufs_aee_buffer[UFS_AEE_BUFFER_SIZE];
+
+static void ufsdbg_print_err_hist(char **buff, unsigned long *size,
+				  struct seq_file *m,
+				  struct ufs_err_reg_hist *err_hist,
+				  char *err_name)
+{
+	int i;
+	bool found = false;
+
+	for (i = 0; i < UFS_ERR_REG_HIST_LENGTH; i++) {
+		int p = (i + err_hist->pos) % UFS_ERR_REG_HIST_LENGTH;
+
+		if (err_hist->tstamp[p] == 0)
+			continue;
+		SPREAD_PRINTF(buff, size, m,
+			      "%s[%d] = 0x%x at %lld us\n", err_name, p,
+			      err_hist->reg[p],
+			      ktime_to_us(err_hist->tstamp[p]));
+		found = true;
+	}
+
+	if (!found)
+		SPREAD_PRINTF(buff, size, m,
+			      "No record of %s errors\n", err_name);
+}
+
+void ufsdbg_print_info(char **buff, unsigned long *size, struct seq_file *m)
+{
+	struct ufs_hba *hba = ufs_mtk_get_hba();
+
+	if (!hba)
+		return;
+
+	/* Host state */
+	SPREAD_PRINTF(buff, size, m,
+		      "UFS Host state=%d\n", hba->ufshcd_state);
+	SPREAD_PRINTF(buff, size, m,
+		      "lrb in use=0x%lx, outstanding reqs=0x%lx tasks=0x%lx\n",
+		      hba->lrb_in_use, hba->outstanding_reqs,
+		      hba->outstanding_tasks);
+	SPREAD_PRINTF(buff, size, m,
+		      "saved_err=0x%x, saved_uic_err=0x%x\n",
+		      hba->saved_err, hba->saved_uic_err);
+	SPREAD_PRINTF(buff, size, m,
+		      "Device power mode=%d, UIC link state=%d\n",
+		      hba->curr_dev_pwr_mode, hba->uic_link_state);
+	SPREAD_PRINTF(buff, size, m,
+		      "PM in progress=%d, sys. suspended=%d\n",
+		      hba->pm_op_in_progress, hba->is_sys_suspended);
+	SPREAD_PRINTF(buff, size, m,
+		      "Auto BKOPS=%d, Host self-block=%d\n",
+		      hba->auto_bkops_enabled, hba->host->host_self_blocked);
+	if (ufshcd_is_clkgating_allowed(hba))
+		SPREAD_PRINTF(buff, size, m,
+			      "Clk gate=%d, suspended=%d, active_reqs=%d\n",
+			      hba->clk_gating.state,
+			      hba->clk_gating.is_suspended,
+			      hba->clk_gating.active_reqs);
+	else
+		SPREAD_PRINTF(buff, size, m,
+			      "clk_gating is disabled\n");
+#ifdef CONFIG_PM
+	SPREAD_PRINTF(buff, size, m,
+		      "Runtime PM: req=%d, status:%d, err:%d\n",
+		      hba->dev->power.request, hba->dev->power.runtime_status,
+		      hba->dev->power.runtime_error);
+#endif
+	SPREAD_PRINTF(buff, size, m,
+		      "error handling flags=0x%x, req. abort count=%d\n",
+		      hba->eh_flags, hba->req_abort_count);
+	SPREAD_PRINTF(buff, size, m,
+		      "Host capabilities=0x%x, caps=0x%x\n",
+		      hba->capabilities, hba->caps);
+	SPREAD_PRINTF(buff, size, m,
+		      "quirks=0x%x, dev. quirks=0x%x\n", hba->quirks,
+		      hba->dev_quirks);
+	SPREAD_PRINTF(buff, size, m,
+		      "hba->ufs_version = 0x%x, hba->capabilities = 0x%x\n",
+		      hba->ufs_version, hba->capabilities);
+	SPREAD_PRINTF(buff, size, m,
+		      "last_hibern8_exit_tstamp at %lld us, hibern8_exit_cnt = %d\n",
+		      ktime_to_us(hba->ufs_stats.last_hibern8_exit_tstamp),
+		      hba->ufs_stats.hibern8_exit_cnt);
+
+	/* PWR info */
+	SPREAD_PRINTF(buff, size, m,
+		      "[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%d, %d], rate = %d\n",
+		      hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
+		      hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
+		      hba->pwr_info.pwr_rx,
+		      hba->pwr_info.pwr_tx,
+		      hba->pwr_info.hs_rate);
+
+	/* Error history */
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.pa_err, "pa_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.dl_err, "dl_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.nl_err, "nl_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.tl_err, "tl_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.dme_err, "dme_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.auto_hibern8_err,
+			      "auto_hibern8_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.fatal_err, "fatal_err");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.link_startup_err,
+			      "link_startup_fail");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.resume_err, "resume_fail");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.suspend_err,
+			      "suspend_fail");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.dev_reset, "dev_reset");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.host_reset, "host_reset");
+	ufsdbg_print_err_hist(buff, size, m,
+			      &hba->ufs_stats.task_abort, "task_abort");
+}
 
 static int cmd_hist_advance_ptr(void)
 {
@@ -98,6 +223,8 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	cmd_hist[ptr].cmd.utp.transfer_len = transfer_len;
 	cmd_hist[ptr].cmd.utp.lba = lba;
 	cmd_hist[ptr].cmd.utp.opcode = opcode;
+	cmd_hist[ptr].cmd.utp.doorbell = doorbell;
+	cmd_hist[ptr].cmd.utp.intr = intr;
 	cmd_hist[ptr].cmd.utp.crypt_en = crypt_en;
 	cmd_hist[ptr].cmd.utp.crypt_keyslot = crypt_keyslot;
 
@@ -244,7 +371,7 @@ static void cmd_hist_cleanup(void)
 	vfree(cmd_hist);
 }
 
-void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
+void ufsdbg_print_cmd_hist(char **buff, unsigned long *size, u32 latest_cnt,
 		   struct seq_file *m)
 {
 	int ptr;
@@ -273,17 +400,21 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 	while (cnt) {
 		dur = ns_to_timespec64(cmd_hist[ptr].time);
 		if (cmd_hist[ptr].event < CMD_UIC_SEND) {
+			if (cmd_hist[ptr].cmd.utp.lba == 0xFFFFFFFFFFFFFFFF)
+				cmd_hist[ptr].cmd.utp.lba = 0;
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-r(%d),%5d,%2d,0x%2x,t=%2d,crypt:%d,%d,lba=%llu,len=%6d,%llu.%lu,\t%llu\n",
+				"%3d-r(%d),%5d,%2d,0x%2x,t=%2d,db:0x%8x,is:0x%8x,crypt:%d,%d,lba=%10llu,len=%6d,%6llu.%lu,\t%llu\n",
 				ptr,
 				cmd_hist[ptr].cpu,
 				cmd_hist[ptr].pid,
 				cmd_hist[ptr].event,
 				cmd_hist[ptr].cmd.utp.opcode,
 				cmd_hist[ptr].cmd.utp.tag,
+				cmd_hist[ptr].cmd.utp.doorbell,
+				cmd_hist[ptr].cmd.utp.intr,
 				cmd_hist[ptr].cmd.utp.crypt_en,
 				cmd_hist[ptr].cmd.utp.crypt_keyslot,
-				cmd_hist[ptr].cmd.utp.lba,
+				cmd_hist[ptr].cmd.utp.lba >> 3,
 				cmd_hist[ptr].cmd.utp.transfer_len,
 				dur.tv_sec, dur.tv_nsec,
 				cmd_hist[ptr].duration
@@ -324,7 +455,8 @@ void get_ufs_aee_buffer(unsigned long *vaddr, unsigned long *size)
 	}
 
 	buff = ufs_aee_buffer;
-	cmd_hist_dump(&buff, &free_size, MAX_CMD_HIST_ENTRY_CNT, NULL);
+	ufsdbg_print_info(&buff, &free_size, NULL);
+	ufsdbg_print_cmd_hist(&buff, &free_size, MAX_CMD_HIST_ENTRY_CNT, NULL);
 
 	/* retrun start location */
 	*vaddr = (unsigned long)ufs_aee_buffer;
@@ -368,7 +500,8 @@ static ssize_t ufs_debug_proc_write(struct file *file, const char *buf,
 
 static int ufs_debug_proc_show(struct seq_file *m, void *v)
 {
-	cmd_hist_dump(NULL, NULL, MAX_CMD_HIST_ENTRY_CNT, m);
+	ufsdbg_print_info(NULL, NULL, m);
+	ufsdbg_print_cmd_hist(NULL, NULL, MAX_CMD_HIST_ENTRY_CNT, m);
 	return 0;
 }
 

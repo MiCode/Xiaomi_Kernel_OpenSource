@@ -550,6 +550,19 @@ static void ufshcd_print_pwr_info(struct ufs_hba *hba)
 		 hba->pwr_info.hs_rate);
 }
 
+void ufshcd_print_info(struct ufs_hba *hba, enum ufs_info_item flags)
+{
+	if (flags & UFS_INFO_HOST_STATE)
+		ufshcd_print_host_state(hba);
+	if (flags & UFS_INFO_HOST_REGS)
+		ufshcd_print_host_regs(hba);
+	if (flags & UFS_INFO_PWR)
+		ufshcd_print_pwr_info(hba);
+	if (flags & UFS_INFO_TMRS)
+		ufshcd_print_tmrs(hba, hba->outstanding_tasks);
+}
+EXPORT_SYMBOL_GPL(ufshcd_print_info);
+
 void ufshcd_delay_us(unsigned long us, unsigned long tolerance)
 {
 	if (!us)
@@ -3873,11 +3886,9 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		ret = (status != PWR_OK) ? status : -1;
 	}
 out:
-	if (ret) {
-		ufshcd_print_host_state(hba);
-		ufshcd_print_pwr_info(hba);
-		ufshcd_print_host_regs(hba);
-	}
+	if (ret)
+		ufshcd_print_info(hba, UFS_INFO_HOST_STATE |
+				  UFS_INFO_HOST_REGS | UFS_INFO_PWR);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
@@ -4254,7 +4265,7 @@ int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 
 	ret = ufshcd_change_power_mode(hba, &final_params);
 	if (!ret)
-		ufshcd_print_pwr_info(hba);
+		ufshcd_print_info(hba, UFS_INFO_PWR);
 
 	return ret;
 }
@@ -4544,7 +4555,7 @@ link_startup:
 
 	/* Mark that link is up in PWM-G1, 1-lane, SLOW-AUTO mode */
 	ufshcd_init_pwr_info(hba);
-	ufshcd_print_pwr_info(hba);
+	ufshcd_print_info(hba, UFS_INFO_PWR);
 
 	if (hba->quirks & UFSHCD_QUIRK_BROKEN_LCC) {
 		ret = ufshcd_disable_device_tx_lcc(hba);
@@ -4561,9 +4572,8 @@ link_startup:
 out:
 	if (ret) {
 		dev_err(hba->dev, "link startup failed %d\n", ret);
-		ufshcd_print_host_state(hba);
-		ufshcd_print_pwr_info(hba);
-		ufshcd_print_host_regs(hba);
+		ufshcd_print_info(hba, UFS_INFO_HOST_STATE |
+				  UFS_INFO_HOST_REGS | UFS_INFO_PWR);
 	}
 	return ret;
 }
@@ -4912,8 +4922,8 @@ ufshcd_transfer_rsp_status(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		dev_err(hba->dev,
 				"OCS error from controller = %x for tag %d\n",
 				ocs, lrbp->task_tag);
-		ufshcd_print_host_regs(hba);
-		ufshcd_print_host_state(hba);
+		ufshcd_print_info(hba, UFS_INFO_HOST_STATE |
+				  UFS_INFO_HOST_REGS);
 		break;
 	} /* end of switch */
 
@@ -5717,9 +5727,9 @@ static irqreturn_t ufshcd_check_errors(struct ufs_hba *hba)
 					__func__, hba->saved_err,
 					hba->saved_uic_err);
 
-				ufshcd_print_host_regs(hba);
-				ufshcd_print_pwr_info(hba);
-				ufshcd_print_tmrs(hba, hba->outstanding_tasks);
+				ufshcd_print_info(hba, UFS_INFO_HOST_REGS |
+						  UFS_INFO_PWR |
+						  UFS_INFO_TMRS);
 				ufshcd_print_trs(hba, hba->outstanding_reqs,
 							pr_prdt);
 			}
@@ -6295,9 +6305,8 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 	scsi_print_command(hba->lrb[tag].cmd);
 	if (!hba->req_abort_count) {
 		ufshcd_update_reg_hist(&hba->ufs_stats.task_abort, 0);
-		ufshcd_print_host_regs(hba);
-		ufshcd_print_host_state(hba);
-		ufshcd_print_pwr_info(hba);
+		ufshcd_print_info(hba, UFS_INFO_HOST_STATE |
+				  UFS_INFO_HOST_REGS | UFS_INFO_PWR);
 		ufshcd_print_trs(hba, 1 << tag, true);
 	} else {
 		ufshcd_print_trs(hba, 1 << tag, false);
@@ -7237,7 +7246,7 @@ static int ufshcd_probe_hba(struct ufs_hba *hba, bool async)
 					__func__, ret);
 			goto out;
 		}
-		ufshcd_print_pwr_info(hba);
+		ufshcd_print_info(hba, UFS_INFO_PWR);
 	}
 
 	/*
@@ -8685,8 +8694,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	err = ufshcd_hba_enable(hba);
 	if (err) {
 		dev_err(hba->dev, "Host controller enable failed\n");
-		ufshcd_print_host_regs(hba);
-		ufshcd_print_host_state(hba);
+		ufshcd_print_info(hba, UFS_INFO_HOST_STATE |
+				  UFS_INFO_HOST_REGS);
 		goto out_remove_scsi_host;
 	}
 
