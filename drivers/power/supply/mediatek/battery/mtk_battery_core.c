@@ -911,7 +911,69 @@ static void fg_custom_parse_table(const struct device_node *np,
 	}
 }
 
+/* struct FUELGAUGE_TEMPERATURE Fg_Temperature_Table[21]; */
+static void fg_custom_part_ntc_table(const struct device_node *np,
+		struct FUELGAUGE_TEMPERATURE *profile_struct)
+{
+	struct FUELGAUGE_TEMPERATURE *p_fg_temp_table;
+	int bat_temp = 0, temperature_r = 0;
+	int saddles = 0, idx = 0, ret = 0, ret_a = 0;
+#if 0
+	int i;
+#endif
+	p_fg_temp_table = profile_struct;
 
+#if 0 /* dump */
+	bm_err("[before]Fg_Temperature_Table - bat_temp : temperature_r\n");
+	for (i = 0; i < 21; i++) {
+		bm_err("%d : %d %d\n", i, Fg_Temperature_Table[i].BatteryTemp,
+			Fg_Temperature_Table[i].TemperatureR);
+	}
+#endif
+
+	ret = fg_read_dts_val(np, "RBAT_TYPE", &(gm.rbat.type), 1);
+	ret_a = fg_read_dts_val(np, "RBAT_PULL_UP_R",
+			&(gm.rbat.rbat_pull_up_r), 1);
+	if ((ret == -1) || (ret_a == -1)) {
+		bm_err("Fail to get ntc type from dts.Keep default value\t");
+		bm_err("RBAT_TYPE=%d, RBAT_PULL_UP_R=%d\n",
+			gm.rbat.type, gm.rbat.rbat_pull_up_r);
+		return;
+	}
+	bm_err("From DTS. RBAT_TYPE = %d, RBAT_PULL_UP_R=%d\n",
+		gm.rbat.type, gm.rbat.rbat_pull_up_r);
+
+	fg_read_dts_val(np, "rbat_temperature_table_num", &saddles, 1);
+	bm_err("%s : rbat_temperature_table_num(%d)\n", __func__, saddles);
+
+	idx = 0;
+
+	while (1) {
+		ret = of_property_read_u32_index(np, "rbat_battery_temperature",
+							idx, &bat_temp);
+
+		idx++;
+		if (!of_property_read_u32_index(
+			np, "rbat_battery_temperature", idx, &temperature_r))
+			bm_debug("bat_temp = %d, temperature_r=%d\n",
+					bat_temp, temperature_r);
+
+		p_fg_temp_table->BatteryTemp = bat_temp;
+		p_fg_temp_table->TemperatureR = temperature_r;
+
+		p_fg_temp_table++;
+		if ((idx++) >= (saddles * 2))
+			break;
+	}
+
+#if 0 /* dump */
+	bm_err("[after]Fg_Temperature_Table - bat_temp : temperature_r\n");
+	for (i = 0; i < saddles; i++) {
+		bm_err("%d : %d %d\n", i, Fg_Temperature_Table[i].BatteryTemp,
+			Fg_Temperature_Table[i].TemperatureR);
+	}
+#endif
+}
 
 void fg_custom_init_from_dts(struct platform_device *dev)
 {
@@ -967,6 +1029,8 @@ void fg_custom_init_from_dts(struct platform_device *dev)
 		&(fg_cust_data.com_r_fg_value), UNIT_TRANS_10);
 	if (ret == -1)
 		fg_cust_data.com_r_fg_value = fg_cust_data.r_fg_value;
+
+	fg_custom_part_ntc_table(np, Fg_Temperature_Table);
 
 	fg_read_dts_val(np, "FULL_TRACKING_BAT_INT2_MULTIPLY",
 		&(fg_cust_data.full_tracking_bat_int2_multiply), 1);
