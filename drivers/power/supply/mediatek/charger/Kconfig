@@ -161,3 +161,12 @@ config CHARGER_BQ25601
 	  It depends on config MTK_SMART_BATTERY
 	  and config MTK_SWCHR_SUPPORT
 	  Set to Yes if BQ25601 is used.
+
+config LOAD_SWITCH_RT9750
+	bool "Load Switch Driver for Richtek RT9750"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable Richtek RT9750 driver.
+	  It is a load switch,
+	  which is good for direct charge.
+	  It depends on config MTK_CHARGER.
