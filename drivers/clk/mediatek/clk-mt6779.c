@@ -6,6 +6,7 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/slab.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
@@ -19,34 +20,26 @@
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
-
 static DEFINE_SPINLOCK(mipi_lock);
 #define apmixed_mipi_lock(flags)   spin_lock_irqsave(&mipi_lock, flags)
 #define apmixed_mipi_unlock(flags) spin_unlock_irqrestore(&mipi_lock, flags)
-
 #define mt_reg_sync_writel(v, a) \
 	do { \
 		__raw_writel((v), IOMEM(a)); \
 		/* sync up */ \
 		mb(); } \
 while (0)
-
 #define clk_readl(addr)			__raw_readl(IOMEM(addr))
-
 #define clk_writel(addr, val)   \
 	mt_reg_sync_writel(val, addr)
-
 #define clk_setl(addr, val) \
 	mt_reg_sync_writel(clk_readl(addr) | (val), addr)
-
 #define clk_clrl(addr, val) \
 	mt_reg_sync_writel(clk_readl(addr) & ~(val), addr)
-
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
 #define ADSPPLL_DIV_RSTB  (0x1 << 23)
-
 static DEFINE_SPINLOCK(mt6779_clk_lock);
 
 void __iomem *cksys_base;
@@ -82,8 +75,6 @@ void __iomem *apu_mdla_base;
 #define CLK_SCP_CFG_1		(cksys_base + 0x210)
 #define CLK26CALI_0		(cksys_base + 0x220)
 #define CLK26CALI_1		(cksys_base + 0x224)
-
-/* CG */
 #define INFRA_PDN_SET0		(infracfg_base + 0x0080)
 #define INFRA_PDN_CLR0		(infracfg_base + 0x0084)
 #define INFRA_PDN_STA0		(infracfg_base + 0x0090)
@@ -97,7 +88,6 @@ void __iomem *apu_mdla_base;
 #define INFRA_PDN_CLR3		(infracfg_base + 0x00C4)
 #define INFRA_PDN_STA3		(infracfg_base + 0x00C8)
 #define INFRA_TOPAXI_SI0_CTL	(infracfg_base + 0x0200)
-
 #define AP_PLL_CON2		(apmixed_base + 0x0008)
 #define AP_PLL_CON3		(apmixed_base + 0x000C)
 #define AP_PLL_CON4		(apmixed_base + 0x0010)
@@ -138,59 +128,46 @@ void __iomem *apu_mdla_base;
 #define APLL2_CON1		(apmixed_base + 0x02D8)
 #define APLL2_CON2		(apmixed_base + 0x02DC)
 #define APLL2_PWR_CON0		(apmixed_base + 0x02E4)
-
 #define AUDIO_TOP_CON0		(audio_base + 0x0000)
 #define AUDIO_TOP_CON1		(audio_base + 0x0004)
-
 #define CAMSYS_CG_CON		(cam_base + 0x0000)
 #define CAMSYS_CG_SET		(cam_base + 0x0004)
 #define CAMSYS_CG_CLR		(cam_base + 0x0008)
 #define CAMSYS_SW_RST		(cam_base + 0x000C)
-
 #define IMG_CG_CON		(img_base + 0x0000)
 #define IMG_CG_SET		(img_base + 0x0004)
 #define IMG_CG_CLR		(img_base + 0x0008)
-
 #define IPE_CG_CON		(ipe_base + 0x0000)
 #define IPE_CG_SET		(ipe_base + 0x0004)
 #define IPE_CG_CLR		(ipe_base + 0x0008)
-
 #define MFG_CG_CON              (mfgcfg_base + 0x0000)
 #define MFG_CG_SET              (mfgcfg_base + 0x0004)
 #define MFG_CG_CLR              (mfgcfg_base + 0x0008)
-
 #define MM_CG_CON0            (mmsys_config_base + 0x100)
 #define MM_CG_SET0            (mmsys_config_base + 0x104)
 #define MM_CG_CLR0            (mmsys_config_base + 0x108)
 #define MM_CG_CON1            (mmsys_config_base + 0x110)
 #define MM_CG_SET1            (mmsys_config_base + 0x114)
 #define MM_CG_CLR1            (mmsys_config_base + 0x118)
-
 #define VENC_CG_CON		(venc_gcon_base + 0x0000)
 #define VENC_CG_SET		(venc_gcon_base + 0x0004)
 #define VENC_CG_CLR		(venc_gcon_base + 0x0008)
-
 #define VDEC_CKEN_SET           (vdec_gcon_base + 0x0000)
 #define VDEC_CKEN_CLR           (vdec_gcon_base + 0x0004)
 #define LARB1_CKEN_SET          (vdec_gcon_base + 0x0008)
 #define LARB1_CKEN_CLR          (vdec_gcon_base + 0x000C)
-
 #define APU_VCORE_CG_CON              (apu_vcore_base + 0x0000)
 #define APU_VCORE_CG_SET              (apu_vcore_base + 0x0004)
 #define APU_VCORE_CG_CLR              (apu_vcore_base + 0x0008)
-
 #define APU_CONN_CG_CON              (apu_conn_base + 0x0000)
 #define APU_CONN_CG_SET              (apu_conn_base + 0x0004)
 #define APU_CONN_CG_CLR              (apu_conn_base + 0x0008)
-
 #define APU_CORE0_CG_CON              (apu0_base + 0x0000)
 #define APU_CORE0_CG_SET              (apu0_base + 0x0004)
 #define APU_CORE0_CG_CLR              (apu0_base + 0x0008)
-
 #define APU_CORE1_CG_CON              (apu1_base + 0x0000)
 #define APU_CORE1_CG_SET              (apu1_base + 0x0004)
 #define APU_CORE1_CG_CLR              (apu1_base + 0x0008)
-
 #define APU_MDLA_CG_CON              (apu_mdla_base + 0x0000)
 #define APU_MDLA_CG_SET              (apu_mdla_base + 0x0004)
 #define APU_MDLA_CG_CLR              (apu_mdla_base + 0x0008)
@@ -213,8 +190,6 @@ void __iomem *apu_mdla_base;
 #define APU_CORE1_CG 0x7
 #define APU_VCORE_CG 0xf
 #define APU_MDLA_CG 0x3FFF
-
-
 #define CK_CFG_UPDATE	0x04
 #define CK_CFG_UPDATE1	0x08
 #define CK_CFG_0	0x20
@@ -2229,6 +2204,14 @@ static int clk_mt6779_apmixed_probe(struct platform_device *pdev)
 {
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return PTR_ERR(base);
+	}
 
 	clk_data = mtk_alloc_clk_data(CLK_APMIXED_NR_CLK);
 
@@ -2236,8 +2219,40 @@ static int clk_mt6779_apmixed_probe(struct platform_device *pdev)
 
 	mtk_clk_register_gates(node, apmixed_clks, ARRAY_SIZE(apmixed_clks),
 		clk_data);
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	} else {
+		/* for legacy APIs*/
+
+		apmixed_base = base;
+		clk_writel(AP_PLL_CON3, clk_readl(AP_PLL_CON3) & 0x00044440);
+		clk_writel(AP_PLL_CON4, clk_readl(AP_PLL_CON4) & 0x004);
+		/* [17] = 0 */
+		clk_writel(AP_PLL_CON6, clk_readl(AP_PLL_CON6) & 0xfffdffff);
+		/*MSDCPLL*/
+		clk_clrl(MSDCPLL_CON0, PLL_EN);
+		clk_setl(MSDCPLL_PWR_CON0, PLL_ISO_EN);
+		clk_clrl(MSDCPLL_PWR_CON0, PLL_PWR_ON);
+		/*APLL1*/
+		clk_clrl(APLL1_CON0, PLL_EN);
+		clk_setl(APLL1_PWR_CON0, PLL_ISO_EN);
+		clk_clrl(APLL1_PWR_CON0, PLL_PWR_ON);
+		/*APLL2*/
+		clk_clrl(APLL2_CON0, PLL_EN);
+		clk_setl(APLL2_PWR_CON0, PLL_ISO_EN);
+		clk_clrl(APLL2_PWR_CON0, PLL_PWR_ON);
+		/*ADSPPLL*/
+		clk_clrl(ADSPPLL_CON0, PLL_EN);
+		clk_setl(ADSPPLL_PWR_CON0, PLL_ISO_EN);
+		clk_clrl(ADSPPLL_PWR_CON0, PLL_PWR_ON);
+		clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB);
+	}
+
+	return r;
 }
 
 static int clk_mt6779_top_probe(struct platform_device *pdev)
@@ -2246,6 +2261,7 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 	void __iomem *base;
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
+	int r;
 
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base))
@@ -2267,20 +2283,113 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 	mtk_clk_register_composites(top_aud_divs, ARRAY_SIZE(top_aud_divs),
 		base, &mt6779_clk_lock, clk_data);
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	} else {
+		/* for legacy APIs*/
+
+		cksys_base = base;
+
+		/* Need Confirm */
+		clk_writel(CLK_SCP_CFG_0, clk_readl(CLK_SCP_CFG_0) | 0x3FF);
+		clk_writel(CLK_SCP_CFG_1, clk_readl(CLK_SCP_CFG_1) | 0x11);
+
+		clk_writel(cksys_base + CK_CFG_0_CLR, 0x80000000);
+		clk_writel(cksys_base + CK_CFG_0_SET, 0x80000000);
+
+		clk_writel(cksys_base + CK_CFG_1_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_1_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_2_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_2_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_3_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_3_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_4_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_4_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_5_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_5_SET, 0x80808080);
+
+		/*pwrap_ulposc*/
+		clk_writel(cksys_base + CK_CFG_6_CLR, 0x00808080);
+		clk_writel(cksys_base + CK_CFG_6_SET, 0x00808080);
+
+		clk_writel(cksys_base + CK_CFG_7_CLR, 0x80800080);/*sspm*/
+		clk_writel(cksys_base + CK_CFG_7_SET, 0x80800080);
+
+		clk_writel(cksys_base + CK_CFG_8_CLR, 0x00808080);/*spm*/
+		clk_writel(cksys_base + CK_CFG_8_SET, 0x00808080);
+
+		clk_writel(cksys_base + CK_CFG_9_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_9_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_10_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_10_SET, 0x80808000);/*dxcc*/
+
+		clk_writel(cksys_base + CK_CFG_11_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_11_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_12_CLR, 0x80808080);
+		clk_writel(cksys_base + CK_CFG_12_SET, 0x80808080);
+
+		clk_writel(cksys_base + CK_CFG_13_CLR, 0x80008080);/*busaximem*/
+		clk_writel(cksys_base + CK_CFG_13_SET, 0x80008080);
+	}
+
+	return r;
 }
+
 
 static int clk_mt6779_infra_probe(struct platform_device *pdev)
 {
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
+	void __iomem *base;
+	int r;
+
+	base = of_iomap(node, 0);
+	if (!base) {
+		pr_notice("%s(): ioremap failed\n", __func__);
+		return PTR_ERR(base);
+	}
 
 	clk_data = mtk_alloc_clk_data(CLK_INFRA_NR_CLK);
 
 	mtk_clk_register_gates(node, infra_clks, ARRAY_SIZE(infra_clks),
 		clk_data);
+	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (r) {
+		pr_notice("%s(): could not register clock provider: %d\n",
+			__func__, r);
+		kfree(clk_data);
+	} else {
+		/* for legacy APIs*/
+		infracfg_base = base;
+
+		/* Need Confirm */
+		clk_writel(INFRA_TOPAXI_SI0_CTL,
+				clk_readl(INFRA_TOPAXI_SI0_CTL) | 0x2);
+		pr_notice("%s: infra mfg debug: %08x\n",
+				__func__, clk_readl(INFRA_TOPAXI_SI0_CTL));
+
+		/*mtk_clk_enable_critical();*/
+#if MT_CCF_BRINGUP
+#else
+		clk_writel(INFRA_PDN_SET0, INFRA_CG0);
+		clk_writel(INFRA_PDN_SET1, INFRA_CG1);
+		clk_writel(INFRA_PDN_SET2, INFRA_CG2);
+		clk_writel(INFRA_PDN_SET3, INFRA_CG3);
+#endif
+	}
+
+	return r;
 }
 
 static const struct of_device_id of_match_clk_mt6779[] = {

@@ -5394,8 +5394,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 	void __iomem *smi_common_reg;
 	int r;
 
-	infracfg_reg = get_reg(node, 0);
-	spm_reg = get_reg(node, 1);
+	spm_reg = get_reg(node, 0);
+	infracfg_reg = get_reg(node, 1);
 	infra_reg = get_reg(node, 2);
 	ckgen_reg = get_reg(node, 3);
 	smi_common_reg = get_reg(node, 4);
@@ -5440,7 +5440,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 #endif				/* !MT_CCF_BRINGUP */
 }
 
-CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
+CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,mt6779-scpsys", mt_scpsys_init);
 
 
 static const char * const *get_cam_clk_names(size_t *num)
