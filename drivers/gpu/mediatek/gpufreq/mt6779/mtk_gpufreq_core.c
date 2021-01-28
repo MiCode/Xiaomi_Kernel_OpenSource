@@ -2563,9 +2563,9 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	struct device_node *apmixed_node;
 	struct device_node *node;
 #ifdef CONFIG_MTK_DEVINFO
-	struct nvmem_cell *efuse_cell;
-	unsigned int *efuse_buf;
-	size_t efuse_len;
+	//struct nvmem_cell *efuse_cell;
+	//unsigned int *efuse_buf;
+	//size_t efuse_len;
 #endif
 	int i;
 
