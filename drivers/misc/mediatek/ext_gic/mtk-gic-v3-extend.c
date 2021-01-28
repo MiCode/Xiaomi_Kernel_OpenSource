@@ -44,11 +44,13 @@
 #define GICD_IROUTER_SPI_MODE_ANY	  (1U << 31)
 /* for cirq use */
 void __iomem *GIC_DIST_BASE;
+#ifdef CONFIG_MTK_SYSIRQ
 void __iomem *INT_POL_CTL0;
 void __iomem *INT_POL_CTL1;
+static u32 reg_len_pol0;
+#endif
 void __iomem *MCUSYS_BASE_SWMODE;
 static void __iomem *GIC_REDIST_BASE;
-static u32 reg_len_pol0;
 
 unsigned int __attribute__((weak)) irq_sw_mode_support(void)
 {
@@ -136,6 +138,7 @@ build_mask:
 	return true;
 }
 
+#ifdef CONFIG_MTK_SYSIRQ
 u32 mt_irq_get_pol_hw(u32 hwirq)
 {
 	u32 reg;
@@ -170,6 +173,7 @@ u32 mt_irq_get_pol(u32 irq)
 
 	return mt_irq_get_pol_hw(hwirq);
 }
+#endif
 
 /*
  * mt_irq_mask_all: disable all interrupts
@@ -435,7 +439,6 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 		return NULL;
 
 	ptr += sprintf(ptr, "[mt gic dump] irq = %d\n", irq);
-
 	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0, 0);
 
 	if (rc < 0) {
@@ -469,11 +472,13 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 	result = (rc >> 12) & 0x1;
 	ptr += sprintf(ptr, "[mt gic dump] active status = %x\n", result);
 
+#ifdef CONFIG_MTK_SYSIRQ
 	/* get polarity */
 	result = (rc >> 13) & 0x1;
 	ptr += sprintf(ptr,
 		"[mt gic dump] polarity = %x (0x0: high, 0x1:low)\n",
 		result);
+#endif
 
 	/* get target cpu mask */
 	result = (rc >> 14) & 0xffff;
@@ -514,6 +519,7 @@ void mt_irq_dump_status(int irq)
 }
 EXPORT_SYMBOL(mt_irq_dump_status);
 
+#ifdef CONFIG_MTK_SYSIRQ
 static void _mt_set_pol_reg(void __iomem *add, u32 val)
 {
 	writel_relaxed(val, add);
@@ -556,6 +562,7 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 	/* some platforms has to write POL register in secure world */
 	_mt_set_pol_reg(base + reg*4, value);
 }
+#endif
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
 	defined(CONFIG_MACH_MT6853)
@@ -577,6 +584,9 @@ int add_cpu_to_prefer_schedule_domain(unsigned int cpu)
 	unsigned long domain;
 
 	if (irq_sw_mode_support() != 1)
+		return 0;
+
+	if (!MCUSYS_BASE_SWMODE)
 		return 0;
 
 	spin_lock(&domain_lock);
@@ -638,8 +648,13 @@ void irq_sw_mode_init(void)
 		pr_notice("### IRQ SW mode not support ###\n");
 		return;
 	}
+
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mcucfg");
-	MCUSYS_BASE_SWMODE = of_iomap(node, 0);
+	if (node)
+		MCUSYS_BASE_SWMODE = of_iomap(node, 0);
+	else
+		pr_info("[gic_ext] fail to find mcucfg node\n");
+
 	spin_lock_init(&domain_lock);
 	gic_sched_pm_init();
 
@@ -669,6 +684,7 @@ int __init mt_gic_ext_init(void)
 	if (IS_ERR(GIC_REDIST_BASE))
 		return -EINVAL;
 
+#ifdef CONFIG_MTK_SYSIRQ
 	INT_POL_CTL0 = of_iomap(node, 2);
 	if (IS_ERR(INT_POL_CTL0))
 		return -EINVAL;
@@ -682,6 +698,7 @@ int __init mt_gic_ext_init(void)
 	if (of_property_read_u32(node, "mediatek,reg_len_pol0",
 				&reg_len_pol0))
 		reg_len_pol0 = 0;
+#endif
 
 	irq_sw_mode_init();
 	pr_warn("### gic-v3 init done. ###\n");

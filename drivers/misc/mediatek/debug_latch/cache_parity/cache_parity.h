@@ -17,6 +17,7 @@
 #define ECC_UE_BIT		(0x1 << 29)
 #define ECC_CE_BIT		(0x3 << 24)
 #define ECC_DE_BIT		(0x1 << 23)
+#define ECC_SERR_BIT	(0x1F)
 
 #define FAULTIRQ_START			32
 #define ECC_IRQ_TRIGGER_THRESHOLD	1

@@ -27,6 +27,7 @@
 #include <linux/sched/clock.h>
 #include <mt-plat/aee.h>
 #include <cache_parity.h>
+#include <asm/cputype.h>
 #include <linux/irqchip/mtk-gic-extend.h>
 
 /*
@@ -188,6 +189,13 @@ static void handle_error(struct work_struct *w)
 
 static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 {
+#ifdef CONFIG_ARM64_ERRATUM_1800710
+	static const struct midr_range erratum_1800710_cpu_list[] = {
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A76),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A77),
+	};
+#endif
+
 	u32 hwirq = virq_to_hwirq(irq);
 
 	ecc_dump_debug_info();
@@ -227,6 +235,16 @@ static irqreturn_t default_parity_isr_v2(int irq, void *dev_id)
 	       "irq_index", cache_parity_wd.data.v2.irq_index,
 	       "misc0_el1", cache_parity_wd.data.v2.misc0_el1,
 	       "status_el1", cache_parity_wd.data.v2.status_el1);
+
+#ifdef CONFIG_ARM64_ERRATUM_1800710
+	if (is_midr_in_range_list(read_cpuid_id(), erratum_1800710_cpu_list)) {
+		if ((cache_parity_wd.data.v2.status_el1 & ECC_CE_BIT) == 0x2 &&
+		 (cache_parity_wd.data.v2.status_el1 & ECC_SERR_BIT) == 0x2) {
+			ECC_LOG("%s %s hit, may cause stale translation\n",
+					__func__, "Erratum 1800710");
+		}
+	}
+#endif
 
 	if (cache_error_times > ECC_IRQ_TRIGGER_THRESHOLD) {
 		disable_irq_nosync(irq);

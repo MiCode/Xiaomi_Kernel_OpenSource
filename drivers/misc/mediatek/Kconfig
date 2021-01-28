@@ -401,6 +401,7 @@ source "drivers/misc/mediatek/Kconfig.default"
 source "drivers/misc/mediatek/timer/Kconfig"
 source "drivers/misc/mediatek/cmo/Kconfig"
 source "drivers/misc/mediatek/debug_latch/Kconfig"
+source "drivers/misc/mediatek/debug_tracer/Kconfig"
 
 config MTK_DM_VERITY_OFF
 	bool "Disable dm-verity"
