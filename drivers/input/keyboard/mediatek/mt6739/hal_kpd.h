@@ -42,7 +42,7 @@ void kpd_auto_test_for_factorymode(void);
 void kpd_wakeup_src_setting(int enable);
 void kpd_get_keymap_state(u16 state[]);
 void kpd_set_debounce(u16 val);
-void kpd_init_keymap(u16 keymap[]);
+void kpd_init_keymap(u32 keymap[]);
 void kpd_init_keymap_state(u16 keymap_state[]);
 void kpd_pmic_rstkey_hal(unsigned long pressed);
 void kpd_pmic_pwrkey_hal(unsigned long pressed);
@@ -62,4 +62,5 @@ void sb_kpd_disable(void);
 #define KPD_MEM5_BITS	8
 
 #define KPD_NUM_KEYS	72	/* 4 * 16 + KPD_MEM5_BITS */
+#define KPD_HAS_SLIDE_QWERTY    0
 #endif

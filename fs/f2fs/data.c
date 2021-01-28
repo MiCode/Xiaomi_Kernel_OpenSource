@@ -525,7 +525,7 @@ static int f2fs_crypt_bio_not_mergeable(struct bio *bio struct page *nxt)
 }
 #endif
 
-int f2fs_submit_page_write(struct f2fs_io_info *fio)
+void f2fs_submit_page_write(struct f2fs_io_info *fio)
 {
 	struct f2fs_sb_info *sbi = fio->sbi;
 	enum page_type btype = PAGE_TYPE_OF_BIO(fio->type);
@@ -622,7 +622,7 @@ static struct bio *f2fs_grab_read_bio(struct inode *inode, block_t blkaddr,
 	bio_set_op_attrs(bio, REQ_OP_READ, op_flag);
 
 	if (fscrypt_is_hw_encrypt(inode)) {
-		f2fs_wait_on_block_writeback(sbi, blkaddr);
+		f2fs_wait_on_block_writeback(inode, blkaddr);
 		return bio;
 	}
 
