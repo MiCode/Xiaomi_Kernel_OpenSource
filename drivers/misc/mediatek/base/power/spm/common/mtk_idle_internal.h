@@ -136,12 +136,12 @@ void mtk_sodi_disable(void);
 bool mtk_sodi_enabled(void);
 bool sodi_can_enter(int reason);
 
-#define MTK_SYSFS_IDLE        "/sys/kernel/mtk_lpm/cpuidle/idle_state"
-#define MTK_SYSFS_DPIDLE      "/sys/kernel/mtk_lpm/cpuidle/dpidle_state"
-#define MTK_SYSFS_SODI3       "/sys/kernel/mtk_lpm/cpuidle/soidle3_state"
-#define MTK_SYSFS_SODI        "/sys/kernel/mtk_lpm/cpuidle/soidle_state"
-#define MTK_SYSFS_SUSPEND     "/sys/kernel/mtk_lpm/cpuidle/slp/suspend_state"
-#define MTK_SYSFS_RESOURCE    "/sys/kernel/mtk_lpm/cpuidle/spm_resource_req"
+#define MTK_PROCFS_IDLE        "/proc/mtk_lpm/cpuidle/idle_state"
+#define MTK_PROCFS_DPIDLE      "/proc/mtk_lpm/cpuidle/dpidle_state"
+#define MTK_PROCFS_SODI3       "/proc/mtk_lpm/cpuidle/soidle3_state"
+#define MTK_PROCFS_SODI        "/proc/mtk_lpm/cpuidle/soidle_state"
+#define MTK_PROCFS_SUSPEND     "/proc/mtk_lpm/cpuidle/slp/suspend_state"
+#define MTK_PROCFS_RESOURCE    "/proc/mtk_lpm/cpuidle/spm_resource_req"
 /********************************************************************
  * mtk_idle_internal.c
  *******************************************************************/

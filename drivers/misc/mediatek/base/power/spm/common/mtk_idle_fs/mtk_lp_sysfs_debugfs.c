@@ -10,9 +10,13 @@
 
 #include "mtk_lp_sysfs.h"
 
-#define MTK_LP_SYSFS_INIT			NULL
-#define MTK_LP_SYSFS_BUF_READSZ		4096
-#define MTK_LP_SYSFS_BUF_WRITESZ	512
+
+#define MTK_LP_DEBUGFS_ROOT_NAME	MTK_LP_SYSFS_ENTRY_NAME
+#define MTK_LP_DEBUGFS_ROOT_MODE	0644
+
+#if MTK_LP_SYSFS_HAS_ENTRY
+static struct mtk_lp_sysfs_handle mtk_lp_debugfs_root;
+#endif
 
 static int lp_sys_debugfs_offset;
 void *mtk_lp_sysfs_debugfs_seq_start(struct seq_file *sf, loff_t *ppos)
@@ -30,10 +34,6 @@ void *mtk_lp_sysfs_debugfs_seq_start(struct seq_file *sf, loff_t *ppos)
 void *mtk_lp_sysfs_debugfs_seq_next(struct seq_file *sf
 			, void *v, loff_t *ppos)
 {
-	int *g_offset = (int *)v;
-
-	if (g_offset)
-		*g_offset += 1;
 
 	return NULL;
 }
@@ -89,7 +89,7 @@ static int mtk_lp_sysfs_debugfs_open(
 static int mtk_lp_sysfs_debugfs_close(
 	struct inode *inode, struct file *filp)
 {
-	return 0;
+	return seq_release(inode, filp);
 }
 
 static ssize_t mtk_lp_sysfs_debugfs_read(
@@ -128,6 +128,35 @@ static const struct file_operations mtk_lpsysfs_debug_op = {
 	.release = mtk_lp_sysfs_debugfs_close,
 };
 
+#if MTK_LP_SYSFS_HAS_ENTRY
+int mtk_lp_debugfs_root_get(void)
+{
+	struct dentry *p = NULL;
+	int ret = 0;
+
+	if (IS_MTK_LP_SYS_HANDLE_VALID(&mtk_lp_debugfs_root))
+		return ret;
+
+	p = debugfs_create_dir(MTK_LP_DEBUGFS_ROOT_NAME, NULL);
+
+	if (p)
+		mtk_lp_debugfs_root._current = (void *)p;
+	else
+		ret = -EPERM;
+	return ret;
+}
+
+int mtk_lp_debugfs_root_put(void)
+{
+	if (!IS_MTK_LP_SYS_HANDLE_VALID(&mtk_lp_debugfs_root)) {
+		debugfs_remove((struct dentry *)
+			     mtk_lp_debugfs_root._current);
+		mtk_lp_debugfs_root._current = NULL;
+	}
+	return 0;
+}
+#endif
+
 int mtk_lp_sysfs_entry_create_plat(const char *name
 		, int mode, struct mtk_lp_sysfs_handle *parent
 		, struct mtk_lp_sysfs_handle *handle)
@@ -137,16 +166,30 @@ int mtk_lp_sysfs_entry_create_plat(const char *name
 	(void)mode;
 
 	if (!handle)
-		return -1;
-	if (parent && parent->_current)
-		pHandle = (struct dentry *)parent->_current;
+		return -EINVAL;
 
-	if (pHandle)
-		handle->_current =
-			(void *)debugfs_create_dir(name, pHandle);
-	else
-		handle->_current =
-			(void *)debugfs_create_dir(name, NULL);
+#if MTK_LP_SYSFS_HAS_ENTRY
+	bRet = mtk_lp_debugfs_root_get();
+#endif
+	if (!bRet) {
+		if (parent && parent->_current)
+			pHandle = (struct dentry *)parent->_current;
+#if MTK_LP_SYSFS_HAS_ENTRY
+		else
+			pHandle = (struct dentry *)
+				  mtk_lp_debugfs_root._current;
+#endif
+
+		if (pHandle)
+			handle->_current =
+				(void *)debugfs_create_dir(name, pHandle);
+		else
+			handle->_current =
+				(void *)debugfs_create_dir(name, NULL);
+
+		if (!handle->_current)
+			bRet = -EPERM;
+	}
 	return bRet;
 }
 int mtk_lp_sysfs_entry_node_add_plat(const char *name
@@ -155,10 +198,25 @@ int mtk_lp_sysfs_entry_node_add_plat(const char *name
 		, struct mtk_lp_sysfs_handle *node)
 {
 	struct dentry *c = NULL;
+	struct dentry *pHandle = NULL;
+
 	int bRet = 0;
 
-	if (!parent || !parent->_current)
-		return -1;
+	if (!op)
+		return -EINVAL;
+
+	if (!parent || !parent->_current) {
+#if MTK_LP_SYSFS_HAS_ENTRY
+		if (!mtk_lp_debugfs_root_get()) {
+			pHandle = (struct dentry *)
+				  mtk_lp_debugfs_root._current;
+		} else
+			return -EINVAL;
+#else
+		return -EINVAL;
+#endif
+	} else
+		pHandle = (struct dentry *)parent->_current;
 
 	c = debugfs_create_file(name, mode
 		, (struct dentry *)parent->_current
@@ -166,6 +224,17 @@ int mtk_lp_sysfs_entry_node_add_plat(const char *name
 
 	if (node)
 		node->_current = (void *)c;
+
+	return bRet;
+}
+
+int mtk_lp_sysfs_entry_node_remove_plat(
+		struct mtk_lp_sysfs_handle *node)
+{
+	int bRet = 0;
+
+	debugfs_remove((struct dentry *)node->_current);
+	node->_current = NULL;
 	return bRet;
 }
 

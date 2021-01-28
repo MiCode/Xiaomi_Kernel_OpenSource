@@ -37,6 +37,12 @@ int mtk_idle_sysfs_entry_node_add(const char *name
 			, mode, op, &mtk_idle_fs_root, handle);
 }
 
+int mtk_idle_sysfs_entry_node_remove(
+		struct mtk_lp_sysfs_handle *handle)
+{
+	return mtk_lp_sysfs_entry_func_node_remove(handle);
+}
+
 int mtk_idle_sysfs_root_entry_create(void)
 {
 	int bRet = 0;

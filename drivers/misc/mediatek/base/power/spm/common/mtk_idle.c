@@ -17,7 +17,7 @@
 #include <mtk_idle_internal.h>
 #include <mtk_spm_internal.h>
 #include <mtk_spm_resource_req_internal.h>
-#include "mtk_idle_sysfs.h"
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 
 #include "mtk_lp_dts.h"
 /* Change sodi3 */
@@ -105,16 +105,16 @@ static ssize_t idle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 	log("\n");
 
 	log("*************** idle command help ****************\n");
-	log("status help:          cat %s\n", MTK_SYSFS_IDLE);
-	log("dpidle help:          cat %s\n", MTK_SYSFS_DPIDLE);
-	log("sodi help:            cat %s\n", MTK_SYSFS_SODI);
-	log("sodi3 help:           cat %s\n", MTK_SYSFS_SODI3);
-	log("idle ratio profile:   echo ratio 1/0 > %s\n", MTK_SYSFS_IDLE);
-	log("idle latency profile: echo latency 1/0 > %s\n", MTK_SYSFS_IDLE);
+	log("status help:          cat %s\n", MTK_PROCFS_IDLE);
+	log("dpidle help:          cat %s\n", MTK_PROCFS_DPIDLE);
+	log("sodi help:            cat %s\n", MTK_PROCFS_SODI);
+	log("sodi3 help:           cat %s\n", MTK_PROCFS_SODI3);
+	log("idle ratio profile:   echo ratio 1/0 > %s\n", MTK_PROCFS_IDLE);
+	log("idle latency profile: echo latency 1/0 > %s\n", MTK_PROCFS_IDLE);
 	log("cgmon off/dp/so3/so:  echo cgmon 0/1/2/3 > %s\n",
-		MTK_SYSFS_IDLE);
+		MTK_PROCFS_IDLE);
 	log("mtk_spm_arch_type:    echo spm_arch_type 0/1 > %s\n",
-		MTK_SYSFS_IDLE);
+		MTK_PROCFS_IDLE);
 	log("\n");
 
 	return p - ToUserBuf;

@@ -31,6 +31,9 @@ int mtk_idle_sysfs_entry_node_add(const char *name, int mode
 			, const struct mtk_lp_sysfs_op *op
 			, struct mtk_lp_sysfs_handle *node);
 
+int mtk_idle_sysfs_entry_node_remove(
+		struct mtk_lp_sysfs_handle *handle);
+
 int mtk_idle_sysfs_root_entry_create(void);
 
 int mtk_idle_sysfs_power_create_group(struct attribute_group *grp);

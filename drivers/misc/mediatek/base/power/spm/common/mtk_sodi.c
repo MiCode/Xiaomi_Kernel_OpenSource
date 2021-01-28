@@ -9,7 +9,7 @@
 #include <mtk_idle_internal.h>
 #include <mtk_spm_internal.h> /* mtk_idle_cond_check */
 
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 
 static bool sodi_feature_enable = MTK_IDLE_FEATURE_ENABLE_SODI;
 static bool sodi_bypass_idle_cond;
@@ -134,11 +134,11 @@ static ssize_t soidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 	log("\n");
 
 	log("*************** sodi command *********************\n");
-	log("sodi state:    cat %s\n", MTK_SYSFS_SODI);
-	log("sodi on/off:   echo 1/0 > %s\n", MTK_SYSFS_SODI);
-	log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_SYSFS_SODI);
-	log("cg monitor:    echo cgmon 1/0 > %s\n", MTK_SYSFS_SODI);
-	log("set log_flag:  echo log [hex] > %s\n", MTK_SYSFS_SODI);
+	log("sodi state:    cat %s\n", MTK_PROCFS_SODI);
+	log("sodi on/off:   echo 1/0 > %s\n", MTK_PROCFS_SODI);
+	log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_PROCFS_SODI);
+	log("cg monitor:    echo cgmon 1/0 > %s\n", MTK_PROCFS_SODI);
+	log("set log_flag:  echo log [hex] > %s\n", MTK_PROCFS_SODI);
 	log("               [0] reduced [1] spm res usage [2] disable\n");
 	log("\n");
 
@@ -260,12 +260,12 @@ static ssize_t soidle3_state_read(char *ToUserBuf, size_t sz, void *priv)
 	log("\n");
 
 log("*************** sodi3 command ********************\n");
-log("sodi3 state:	cat %s\n", MTK_SYSFS_SODI3);
-log("sodi3 on/off:	echo 1/0 > %s\n", MTK_SYSFS_SODI3);
-log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_SYSFS_SODI3);
-log("bypass pwm:	echo bypass_pwm 1/0 > %s\n", MTK_SYSFS_SODI3);
-log("cg monitor:	echo cgmon 1/0 > %s\n", MTK_SYSFS_SODI3);
-log("set log_flag:	echo log [hex_value] > %s\n", MTK_SYSFS_SODI3);
+log("sodi3 state:	cat %s\n", MTK_PROCFS_SODI3);
+log("sodi3 on/off:	echo 1/0 > %s\n", MTK_PROCFS_SODI3);
+log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_PROCFS_SODI3);
+log("bypass pwm:	echo bypass_pwm 1/0 > %s\n", MTK_PROCFS_SODI3);
+log("cg monitor:	echo cgmon 1/0 > %s\n", MTK_PROCFS_SODI3);
+log("set log_flag:	echo log [hex_value] > %s\n", MTK_PROCFS_SODI3);
 log("				[0] reduced [1] spm res usage [2] disable\n");
 log("\n");
 

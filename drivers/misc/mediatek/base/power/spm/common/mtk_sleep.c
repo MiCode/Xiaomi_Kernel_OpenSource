@@ -13,7 +13,7 @@
 #include <mtk_sleep_internal.h>
 #include <mtk_spm_internal.h> /* mtk_idle_cond_check */
 #include <mtk_spm_suspend_internal.h>
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 #include <mtk_power_gs_api.h>
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
@@ -326,7 +326,7 @@ static ssize_t suspend_state_read(char *ToUserBuf, size_t sz, void *priv)
 		log("cpu%d: slp_dp=%lu\n", i, slp_dp_cnt[i]);
 
 	log("*********** suspend command ************\n");
-	log("echo suspend 1/0 > %s\n", MTK_SYSFS_SUSPEND);
+	log("echo suspend 1/0 > %s\n", MTK_PROCFS_SUSPEND);
 
 	return p - ToUserBuf;
 }

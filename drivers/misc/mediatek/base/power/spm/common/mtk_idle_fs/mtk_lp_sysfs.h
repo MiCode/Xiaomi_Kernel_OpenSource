@@ -6,19 +6,26 @@
 #ifndef __MTK_LP_SYSFS__
 #define __MTK_LP_SYSFS__
 
+#define MTK_LP_SYSFS_HAS_ENTRY		(1)
+
+#define MTK_LP_SYSFS_ENTRY_NAME		"mtk_lpm"
+#define MTK_LP_SYSFS_BUF_READSZ		8192
+#define MTK_LP_SYSFS_BUF_WRITESZ	512
+
+
 typedef ssize_t (*f_mtk_idle_sysfs_show)(char *ToUserBuf
 			, size_t sz, void *priv);
 typedef ssize_t (*f_mtk_idle_sysfs_write)(char *FromUserBuf
 			, size_t sz, void *priv);
 
+struct mtk_lp_sysfs_handle {
+	void *_current;
+};
+
 struct mtk_lp_sysfs_op {
 	f_mtk_idle_sysfs_show	fs_read;
 	f_mtk_idle_sysfs_write	fs_write;
 	void *priv;
-};
-
-struct mtk_lp_sysfs_handle {
-	void *_current;
 };
 
 struct mtk_lp_sysfs_attr {
@@ -84,7 +91,8 @@ struct mtk_lp_sysfs_group {
 #define IS_MTK_LP_SYS_HANDLE_VALID(x)\
 	({ struct mtk_lp_sysfs_handle *Po = x;\
 	if ((Po == NULL) || (Po->_current == NULL))\
-		Po = NULL; (Po != NULL); })
+		Po = NULL;\
+	(Po != NULL); })
 
 int mtk_lp_sysfs_entry_func_create(const char *name, int mode
 			, struct mtk_lp_sysfs_handle *parent
@@ -94,6 +102,9 @@ int mtk_lp_sysfs_entry_func_node_add(const char *name
 		, int mode, const struct mtk_lp_sysfs_op *op
 		, struct mtk_lp_sysfs_handle *parent
 		, struct mtk_lp_sysfs_handle *node);
+
+int mtk_lp_sysfs_entry_func_node_remove(
+		struct mtk_lp_sysfs_handle *node);
 
 int mtk_lp_sysfs_entry_func_group_create(const char *name
 		, int mode, struct mtk_lp_sysfs_group *_group

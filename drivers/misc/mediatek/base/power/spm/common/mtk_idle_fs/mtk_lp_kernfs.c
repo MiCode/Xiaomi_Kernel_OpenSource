@@ -187,12 +187,11 @@ int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 		ops = &mtk_lp_kernfs_kfops_rw;
 
 /* FIXME
-	kn = __kernfs_create_file(parent, attr->name
-				, attr->mode & 0755, 4096
-				, &mtk_lp_kernfs_kfops_rw
-				, (void *)attr, NULL, NULL);
-
-*/
+ *	kn = __kernfs_create_file(parent, attr->name
+ *				, attr->mode & 0755, 4096
+ *				, &mtk_lp_kernfs_kfops_rw
+ *				, (void *)attr, NULL, NULL);
+ */
 
 	kn = __kernfs_create_file(parent, name,
 				  mode & 0755,

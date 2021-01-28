@@ -24,7 +24,7 @@
 #include <mtk_spm_internal.h>
 #include <mtk_sspm.h>
 
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 DEFINE_SPINLOCK(__spm_lock);
 
 void __attribute__ ((weak)) mtk_idle_cond_check_init(void)

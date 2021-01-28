@@ -10,7 +10,7 @@
 
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 #include <mtk_lp_dts.h>
 #include <mtk_idle_internal.h>
 #define NF_SPM_USER_USAGE_STRUCT	2
@@ -222,11 +222,11 @@ static ssize_t resource_req_read(char *ToUserBuf, size_t sz, void *priv)
 
 	p += scnprintf(p, sz - strlen(ToUserBuf), "enable:\n");
 	p += scnprintf(p, sz - strlen(ToUserBuf),
-			"echo enable [bit] > %s\n", MTK_SYSFS_RESOURCE);
+			"echo enable [bit] > %s\n", MTK_PROCFS_RESOURCE);
 	p += scnprintf(p, sz - strlen(ToUserBuf),
 			"bypass:\n");
 	p += scnprintf(p, sz - strlen(ToUserBuf),
-			"echo bypass [bit] > %s\n", MTK_SYSFS_RESOURCE);
+			"echo bypass [bit] > %s\n", MTK_PROCFS_RESOURCE);
 	p += scnprintf(p, sz - strlen(ToUserBuf), "\n");
 	p += scnprintf(p, sz - strlen(ToUserBuf),
 			"[0]SPM, [1] UFS, [2] SSUSB, [3] AUDIO, [4] UART, ");

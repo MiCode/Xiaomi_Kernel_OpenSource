@@ -10,7 +10,7 @@
 #include <mtk_idle_internal.h>
 #include <mtk_spm_internal.h> /* mtk_idle_cond_check */
 
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 
 static bool dpidle_feature_enable = MTK_IDLE_FEATURE_ENABLE_DPIDLE;
 static bool dpidle_bypass_idle_cond;
@@ -106,11 +106,11 @@ static ssize_t dpidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 	log("\n");
 
 	log("*************** dpidle command *******************\n");
-	log("dpidle state:  cat %s\n", MTK_SYSFS_DPIDLE);
-	log("dpidle on/off: echo 1/0 > %s\n", MTK_SYSFS_DPIDLE);
-	log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_SYSFS_DPIDLE);
-	log("cg monitor:    echo cgmon 1/0 > %s\n", MTK_SYSFS_DPIDLE);
-	log("set log_flag:  echo log [hex] > %s\n", MTK_SYSFS_DPIDLE);
+	log("dpidle state:  cat %s\n", MTK_PROCFS_DPIDLE);
+	log("dpidle on/off: echo 1/0 > %s\n", MTK_PROCFS_DPIDLE);
+	log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_PROCFS_DPIDLE);
+	log("cg monitor:    echo cgmon 1/0 > %s\n", MTK_PROCFS_DPIDLE);
+	log("set log_flag:  echo log [hex] > %s\n", MTK_PROCFS_DPIDLE);
 	log("               [0] reduced [1] spm res usage [2] disable\n");
 	log("\n");
 

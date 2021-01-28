@@ -44,6 +44,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/mach
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 endif
 
+
+obj-y += mtk_idle_fs/
+
 obj-y += mtk_idle.o
 obj-y += mtk_idle_select.o
 obj-y += mtk_idle_internal.o
@@ -55,7 +58,3 @@ obj-y += mtk_spm_resource_req.o
 obj-y += mtk_sleep.o
 obj-y += mtk_sleep_init.o
 obj-y += mtk_vcore_dvfs.o
-obj-y += mtk_idle_sysfs.o
-obj-y += mtk_lp_kernfs.o
-obj-y += mtk_lp_sysfs.o
-obj-y += mtk_lp_sysfs_kernfs.o

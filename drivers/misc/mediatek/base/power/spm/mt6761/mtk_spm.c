@@ -24,7 +24,7 @@
 #include <mtk_spm_internal.h>
 #include <mtk_sspm.h>
 
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 //#include <mach/upmu_sw.h>
 #include <linux/soc/mediatek/pmic_wrap.h>
 #include <linux/regmap.h>
