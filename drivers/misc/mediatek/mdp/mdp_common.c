@@ -860,7 +860,7 @@ static s32 cmdq_mdp_find_free_thread(struct cmdqRecStruct *handle)
 		thread = cmdq_mdp_get_sec_thread();
 
 		if (threads[thread].task_count >=
-			CMDQ_MAX_SECURE_THREAD_COUNT) {
+			CMDQ_MAX_TASK_IN_SECURE_THREAD) {
 			CMDQ_LOG(
 				"[warn] too many task for secure path thread:%d count:%u\n",
 				thread, threads[thread].task_count);
