@@ -17,34 +17,25 @@
 #include <asm/arch_timer.h>
 
 #define SSPM_MBOX_MAX		5
-#define MBOX_IN_IRQ_OFS		0x0
-#define MBOX_OUT_IRQ_OFS	0x4
-#define MBOX_SLOT_SIZE		0x4
+#define SSPM_MBOX_IN_IRQ_OFS	0x0
+#define SSPM_MBOX_OUT_IRQ_OFS	0x4
+#define SSPM_MBOX_SLOT_SIZE	0x4
 
 #define SSPM_CFG_OFS_SEMA	0x048
-#define SSPM_MPU_REGION_ID  4
+#define SSPM_MPU_REGION_ID	5
+
+#define SSPM_SHARE_BUFFER_SUPPORT
 
 #define SSPM_PLT_SERV_SUPPORT       (1)
 #define SSPM_LOGGER_SUPPORT         (1)
 #define SSPM_LASTK_SUPPORT          (0)
 #define SSPM_COREDUMP_SUPPORT       (0)
 #define SSPM_EMI_PROTECTION_SUPPORT (0)
-
-/*
- * TimeSync v2
- *   - Enabled if CONFIG_MTK_TIMER_TIMESYNC is defined.
- *   - Timesync shall be trigered by timer module only, thus
- *     SSPM_TIMESYNC_SUPPORT shall be disabled.
- */
-#ifdef CONFIG_MTK_TIMER_TIMESYNC
 #define SSPM_TIMESYNC_SUPPORT       (0)
-#else
-#define SSPM_TIMESYNC_SUPPORT       (1)
-#endif
 
 #define TIMESYNC_TIMEOUT	(60 * 60 * HZ)
 
-#define PLT_INIT			0x504C5401
+#define PLT_INIT		0x504C5401
 #define PLT_LOG_ENABLE		0x504C5402
 #define PLT_TIMESYNC_SYNC	0x504C5405
 #define PLT_TIMESYNC_SRAM_TEST	0x504C5406
