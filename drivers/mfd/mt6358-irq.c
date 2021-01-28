@@ -188,6 +188,10 @@ static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 				sta_reg, irq_status,
 				irqd->irq_name[hwirq], hwirq,
 				irq_get_trigger_type(virq));
+			if (!strncmp(irqd->irq_name[hwirq].name, "chrdet_edge", 11)) {
+				regmap_write(chip->regmap, sta_reg, BIT(j));
+				irq_status &= ~BIT(j);
+			}
 			log_threaded_irq_wakeup_reason(virq, chip->irq);
 #endif
 			if (virq)
