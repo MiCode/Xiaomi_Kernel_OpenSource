@@ -2913,10 +2913,12 @@ int do_swap_page(struct vm_fault *vmf)
 	if (!page) {
 		if (vma_readahead)
 			page = do_swap_page_readahead(entry,
-				GFP_HIGHUSER_MOVABLE, vmf, &swap_ra);
+				GFP_HIGHUSER_MOVABLE | __GFP_CMA, vmf,
+						&swap_ra);
 		else
 			page = swapin_readahead(entry,
-				GFP_HIGHUSER_MOVABLE, vma, vmf->address);
+				GFP_HIGHUSER_MOVABLE | __GFP_CMA, vma,
+						vmf->address);
 		if (!page) {
 			/*
 			 * Back out if somebody else faulted in this pte
