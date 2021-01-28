@@ -747,6 +747,10 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 		clk_src = clk_top_apupll_ck;
 		break;
 
+	case DVFS_FREQ_00_900000_F:
+		clk_src = clk_top_apupll_ck;
+		break;
+
 	case DVFS_FREQ_NOT_SUPPORT:
 	default:
 		clk_src = clk_top_clk26m;
@@ -772,7 +776,8 @@ int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain)
 
 static bool isApupll_freq(enum DVFS_FREQ freq)
 {
-	if (freq == DVFS_FREQ_00_880000_F ||
+	if (freq == DVFS_FREQ_00_900000_F ||
+		freq == DVFS_FREQ_00_880000_F ||
 		freq == DVFS_FREQ_00_850000_F ||
 		freq == DVFS_FREQ_00_800000_F ||
 		freq == DVFS_FREQ_00_700000_F ||

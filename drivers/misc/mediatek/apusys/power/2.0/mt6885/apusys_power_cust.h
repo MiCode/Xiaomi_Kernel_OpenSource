@@ -132,6 +132,11 @@ struct apusys_dvfs_constraint {
 	enum DVFS_VOLTAGE voltage1;
 };
 
+struct apusys_aging_steps {
+	enum DVFS_FREQ freq;
+	int volt;
+};
+
 #if SUPPORT_VCORE_TO_IPUIF
 struct ipuif_opp_table {
 	unsigned int ipuif_khz;

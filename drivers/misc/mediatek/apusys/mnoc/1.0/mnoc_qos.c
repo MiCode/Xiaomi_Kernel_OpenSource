@@ -81,7 +81,7 @@ enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
 #endif /* CONFIG_MACH_MT6873 */
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6885)
 #define NR_APU_VCORE_OPP (4)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
 	20400, /* 3733 Mhz -> 0.725v */
@@ -95,7 +95,24 @@ enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_600000_V,  // VCORE_OPP_2
 	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
-#endif /* CONFIG_MACH_MT6885 */
+#elif defined(CONFIG_MACH_MT6893) || defined(CONFIG_MTK_DVFSRC_MT6893_PRETEST)
+#define NR_APU_VCORE_OPP (5)
+static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
+	23800, /* 4266 Mhz -> 0.75v */
+	20400, /* 3733 Mhz -> 0.725v */
+	15300, /* 3068 Mhz -> 0.65v */
+	11900, /* 2366 Mhz -> 0.6v */
+	0,     /* 800~1866 Mhz -> 0.575v */
+};
+enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
+	DVFS_VOLT_00_750000_V,	// VCORE_OPP_0
+	DVFS_VOLT_00_725000_V,	// VCORE_OPP_1
+	DVFS_VOLT_00_650000_V,	// VCORE_OPP_2
+	DVFS_VOLT_00_600000_V,  // VCORE_OPP_3
+	DVFS_VOLT_00_575000_V   // VCORE_OPP_4
+};
+#endif /* CONFIG_MACH_MT6893 */
+
 unsigned int apu_bw_vcore_opp;
 #endif /* APU_QOS_IPUIF_ADJUST */
 

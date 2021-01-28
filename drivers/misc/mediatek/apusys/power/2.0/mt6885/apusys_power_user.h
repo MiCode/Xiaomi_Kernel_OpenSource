@@ -14,6 +14,41 @@
 #ifndef _APUSYS_POWER_USER_H_
 #define _APUSYS_POWER_USER_H_
 
+#if defined(CONFIG_MACH_MT6893)
+/* Aging marging voltage */
+#define MG_VOLT_18750  (18750)
+#define MG_VOLT_12500  (12500)
+#define MG_VOLT_06250  (6250)
+#define MARGIN_VOLT_0	(0)
+#define MARGIN_VOLT_1	(0)
+#define MARGIN_VOLT_2	(0)
+#define MARGIN_VOLT_3	(0)
+#define MARGIN_VOLT_4	(0)
+#define MARGIN_VOLT_5	(0)
+#define MARGIN_VOLT_6	(0)
+#define MARGIN_VOLT_7	(0)
+/*
+ * While aging, default volt will minus MG_VOLT_06250
+ *
+ * Aging table focuss on freq, but every time DVFS policy
+ * will change apusys_opps.next_buck_volt as 575MV.
+ *
+ * Suppsely user takes opp 5, the smallest one, apusys_final_volt_check
+ * will use MAX(apusys_opps.next_buck_volt[buck_index],
+		apusys_opps.user_path_volt[user_index][path_index])
+ * and that will never let aging voltage working.
+ *
+ * That is why default 525mv minus MG_VOLT_06250 first.
+ * (the precondition is VPU/MDLA aging voltage on 525mv are the same)
+ */
+#ifdef AGING_MARGIN
+#define MARGIN_VOLT_8	(MG_VOLT_06250)
+#else
+#define MARGIN_VOLT_8	(0)
+#endif
+#define MARGIN_VOLT_9	(0)
+
+#else /* mt6885 */
 #ifdef AGING_MARGIN
 #if 0
 #define MARGIN_VOLT_0	(18750 + 41250)
@@ -50,7 +85,7 @@
 #define MARGIN_VOLT_8	(0)
 #define MARGIN_VOLT_9	(0)
 #endif
-
+#endif
 
 enum POWER_CALLBACK_USER {
 	IOMMU = 0,
@@ -102,10 +137,13 @@ enum DVFS_VOLTAGE {
 	DVFS_VOLT_00_550000_V = 550000 - MARGIN_VOLT_9,
 	DVFS_VOLT_00_575000_V = 575000 - MARGIN_VOLT_8,
 	DVFS_VOLT_00_600000_V = 600000 - MARGIN_VOLT_7,
+	DVFS_VOLT_00_625000_V = 625000 - MARGIN_VOLT_7,
 	DVFS_VOLT_00_650000_V = 650000 - MARGIN_VOLT_6,
 	DVFS_VOLT_00_700000_V = 700000 - MARGIN_VOLT_5,
 	DVFS_VOLT_00_725000_V = 725000 - MARGIN_VOLT_4,
+	DVFS_VOLT_00_737500_V = 737500 - MARGIN_VOLT_3,
 	DVFS_VOLT_00_750000_V = 750000 - MARGIN_VOLT_3,
+	DVFS_VOLT_00_762500_V = 762500 - MARGIN_VOLT_2,
 	DVFS_VOLT_00_775000_V = 775000 - MARGIN_VOLT_2,
 	DVFS_VOLT_00_800000_V = 800000 - MARGIN_VOLT_1,
 	DVFS_VOLT_00_825000_V = 825000 - MARGIN_VOLT_0,
@@ -142,6 +180,7 @@ enum DVFS_FREQ {
 	DVFS_FREQ_00_832000_F = 832000,
 	DVFS_FREQ_00_850000_F = 850000,
 	DVFS_FREQ_00_880000_F = 880000,
+	DVFS_FREQ_00_900000_F = 900000,
 	DVFS_FREQ_MAX,
 };
 
