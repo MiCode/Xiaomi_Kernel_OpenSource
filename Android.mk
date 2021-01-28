@@ -55,5 +55,12 @@ menuconfig-kernel savedefconfig-kernel:
 clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(INSTALLED_KERNEL_TARGET)
 
+### DTB
+INSTALLED_MTK_DTB_TARGET := $(BOARD_PREBUILT_DTBIMAGE_DIR)/mtk_dtb
+$(shell if [ ! -f $(INSTALLED_MTK_DTB_TARGET) ]; then mkdir -p $(dir $(INSTALLED_MTK_DTB_TARGET)); touch $(INSTALLED_MTK_DTB_TARGET);fi)
+$(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET)
+	@mkdir -p $(dir $@)
+	@cp -f $(KERNEL_DTB_FILE) $@
+
 endif #TARGET_NO_KERNEL
 endif #LINUX_KERNEL_VERSION
