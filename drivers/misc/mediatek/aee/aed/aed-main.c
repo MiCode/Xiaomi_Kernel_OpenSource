@@ -998,15 +998,11 @@ static int aed_ee_open(struct inode *inode, struct file *filp)
 {
 	if (strncmp(current->comm, "aee_aed", 7))
 		return -1;
-	pr_debug("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev),
-						MINOR(inode->i_rdev));
 	return 0;
 }
 
 static int aed_ee_release(struct inode *inode, struct file *filp)
 {
-	pr_debug("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev),
-						MINOR(inode->i_rdev));
 	return 0;
 }
 
@@ -1650,8 +1646,6 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case AEEIOCTL_GET_THREAD_REG:
 		{
 			struct aee_thread_reg *tmp;
-
-			pr_debug("%s: get thread registers ioctl\n", __func__);
 
 			tmp = kzalloc(sizeof(struct aee_thread_reg),
 					GFP_KERNEL);
