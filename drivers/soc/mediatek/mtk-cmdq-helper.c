@@ -1540,7 +1540,7 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 	char text[txt_len];
 	char text_gpr[30] = {0};
 	void *base;
-	u32 gprid, val;
+	u32 gprid, val, len;
 
 	cmdq_buf_print_wfe(text, txt_len, (u32)(pc & 0xFFFF), (void *)inst);
 
@@ -1550,8 +1550,11 @@ static void cmdq_print_wait_summary(void *chan, dma_addr_t pc,
 		gprid = inst->arg_a - CMDQ_EVENT_GPR_TIMER;
 		val = readl(base + CMDQ_GPR_R0_OFF + gprid * 4);
 
-		snprintf(text_gpr, ARRAY_SIZE(text_gpr),
+		len = snprintf(text_gpr, ARRAY_SIZE(text_gpr),
 			" GPR R%u:%#x", gprid, val);
+		if (len >= ARRAY_SIZE(text_gpr))
+			cmdq_log("len:%d over text_gpr size:%d",
+				len, ARRAY_SIZE(text_gpr));
 	}
 
 	cmdq_util_msg("curr inst: %s value:%u%s",
@@ -1914,39 +1917,41 @@ EXPORT_SYMBOL(cmdq_pkt_flush);
 static void cmdq_buf_print_read(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 addr;
+	u32 addr, len;
 
 	if (cmdq_inst->arg_b_type == CMDQ_IMMEDIATE_VALUE &&
 		(cmdq_inst->arg_b & CMDQ_ADDR_LOW_BIT)) {
 		/* 48bit format case */
 		addr = cmdq_inst->arg_b & 0xfffc;
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Read ] Reg Index %#010x = addr(low) %#06x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a, addr);
 	} else {
 		addr = ((u32)(cmdq_inst->arg_b |
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Read ] Reg Index %#010x = %s%#010x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_inst->arg_b_type ? "*Reg Index " : "SubSys Reg ",
 			addr);
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_write(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 addr;
+	u32 addr, len;
 
 	if (cmdq_inst->arg_a_type == CMDQ_IMMEDIATE_VALUE &&
 		(cmdq_inst->arg_a & CMDQ_ADDR_LOW_BIT)) {
 		/* 48bit format case */
 		addr = cmdq_inst->arg_a & 0xfffc;
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Write] addr(low) %#06x = %s%#010x%s",
 			offset, *((u64 *)cmdq_inst),
 			addr, CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
@@ -1958,7 +1963,7 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 		addr = ((u32)(cmdq_inst->arg_a |
 			(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Write] %s%#010x = %s%#010x%s",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
@@ -1968,6 +1973,8 @@ static void cmdq_buf_print_write(char *text, u32 txt_sz,
 			cmdq_inst->op == CMDQ_CODE_WRITE_S_W_MASK ?
 			" with mask" : "");
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 void cmdq_buf_print_wfe(char *text, u32 txt_sz,

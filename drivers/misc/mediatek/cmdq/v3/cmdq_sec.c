@@ -1198,11 +1198,9 @@ s32 cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
  */
 s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread)
 {
-	struct cmdq_client *cl = cmdq_helper_mbox_client(thread);
-	struct cmdq_sec_thread *sec_thread = (
-		(struct mbox_chan *)cl->chan)->con_priv;
-	const u32 regAddr = (u32)(sec_thread->gce_pa + CMDQ_THR_BASE +
-		CMDQ_THR_SIZE * thread + CMDQ_THR_EXEC_CNT_PA);
+	struct cmdq_client *cl;
+	struct cmdq_sec_thread *sec_thread;
+	u32 regAddr;
 	struct ContextStruct *context = cmdq_core_get_context();
 	u64 addrCookieOffset = CMDQ_SEC_SHARED_THR_CNT_OFFSET + thread *
 		sizeof(u32);
@@ -1218,6 +1216,15 @@ s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread)
 
 	CMDQ_VERBOSE("backup secure cookie for thread:%d task:0x%p\n",
 		thread, task);
+
+	cl = cmdq_helper_mbox_client(thread);
+	if (!cl) {
+		CMDQ_ERR("no client, thread:%d\n", thread);
+		return -EINVAL;
+	}
+	sec_thread = ((struct mbox_chan *)cl->chan)->con_priv;
+	regAddr = (u32)(sec_thread->gce_pa + CMDQ_THR_BASE +
+		CMDQ_THR_SIZE * thread + CMDQ_THR_EXEC_CNT_PA);
 
 	err = cmdq_pkt_read(task->pkt, cmdq_helper_mbox_base(), regAddr,
 		CMDQ_THR_SPR_IDX1);
@@ -1909,7 +1916,7 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 
 static bool cmdq_sec_thread_timeout_excceed(struct cmdq_sec_thread *thread)
 {
-	struct cmdq_task *task;
+	struct cmdq_task *task = NULL;
 	struct cmdqRecStruct *handle;
 	u64 duration, now, timeout;
 	s32 i, last_idx;
