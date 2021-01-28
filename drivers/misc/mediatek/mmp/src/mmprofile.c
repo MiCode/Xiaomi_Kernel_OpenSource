@@ -566,7 +566,7 @@ static int mmprofile_get_event_name(mmp_event event, char *name, size_t *size)
 	mmp_event curr_event = event;
 	/* event info for all level of the event */
 	struct mmprofile_eventinfo_t *event_info[32];
-	int info_cnt = 0;
+	unsigned int info_cnt = 0;
 	int found = 0;
 	int ret = -1;
 
@@ -1467,6 +1467,9 @@ static ssize_t mmprofile_dbgfs_start_read(struct file *file, char __user *buf,
 
 	MMP_LOG(ANDROID_LOG_DEBUG, "start=%d", mmprofile_globals.start);
 	r = sprintf(str, "start = %d\n", mmprofile_globals.start);
+	if (r < 0)
+		pr_debug("sprintf error\n");
+
 	return simple_read_from_buffer(buf, size, ppos, str, r);
 }
 
@@ -1495,6 +1498,9 @@ static ssize_t mmprofile_dbgfs_enable_read(struct file *file, char __user *buf,
 
 	MMP_LOG(ANDROID_LOG_DEBUG, "enable=%d", mmprofile_globals.enable);
 	r = sprintf(str, "enable = %d\n", mmprofile_globals.enable);
+	if (r < 0)
+		pr_debug("sprintf error\n");
+
 	return simple_read_from_buffer(buf, size, ppos, str, r);
 }
 
