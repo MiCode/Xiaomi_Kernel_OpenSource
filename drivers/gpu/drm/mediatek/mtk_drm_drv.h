@@ -41,7 +41,8 @@
 	defined(CONFIG_MACH_MT6853) || \
 	defined(CONFIG_MACH_MT6833)) &&\
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-#define MTK_DRM_DELAY_PRESENT_FENCE
+//#define MTK_DRM_DELAY_PRESENT_FENCE
+/* Delay present fence would cause config merge */
 #endif
 
 
