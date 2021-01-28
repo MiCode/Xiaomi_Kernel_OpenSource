@@ -2911,22 +2911,11 @@ struct mtk_power_gate scp_clks[] __initdata = {
 	PGATE2(SCP_SYS_VCODEC, pg_vcodec, pg_dis, NULL, NULL, SYS_VCODEC),
 };
 
-static void __init init_clk_scpsys(struct clk_onecell_data *clk_data)
+static int init_clk_scpsys(struct clk_onecell_data *clk_data)
 {
-	int i;
 	struct clk *clk;
-
-	syss[SYS_MD1].ctl_addr = MD1_PWR_CON;
-	syss[SYS_CONN].ctl_addr = CONN_PWR_CON;
-	syss[SYS_DPY].ctl_addr = DPY_PWR_CON;
-	syss[SYS_DIS].ctl_addr = DIS_PWR_CON;
-	syss[SYS_MFG].ctl_addr = MFG_PWR_CON;
-	syss[SYS_ISP].ctl_addr = ISP_PWR_CON;
-	syss[SYS_IFR].ctl_addr = IFR_PWR_CON;
-	syss[SYS_MFG_CORE0].ctl_addr = MFG_CORE0_PWR_CON;
-	syss[SYS_MFG_ASYNC].ctl_addr = MFG_ASYNC_PWR_CON;
-	syss[SYS_CAM].ctl_addr = CAM_PWR_CON;
-	syss[SYS_VCODEC].ctl_addr = VCODEC_PWR_CON;
+	int ret = 0;
+	int i;
 
 	for (i = 0; i < ARRAY_SIZE(scp_clks); i++) {
 		struct mtk_power_gate *pg = &scp_clks[i];
@@ -2953,6 +2942,8 @@ static void __init init_clk_scpsys(struct clk_onecell_data *clk_data)
 		pr_notice("[CCF] %s: pgate %3d: %s\n", __func__, i, pg->name);
 #endif				/* MT_CCF_DEBUG */
 	}
+
+	return ret;
 }
 
 /*
@@ -2993,10 +2984,13 @@ static void __iomem *get_reg(struct device_node *np, int index)
 #endif
 }
 
-static void __init mt_scpsys_init(struct device_node *node)
+static int clk_mt6765_scpsys_probe(struct platform_device *pdev)
 {
+	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
-	int r;
+	int ret = 0;
+
+	pr_notice("%s: start\n", __func__);
 
 	infracfg_base = get_reg(node, 0);
 	spm_base = get_reg(node, 1);
@@ -3007,18 +3001,24 @@ static void __init mt_scpsys_init(struct device_node *node)
 
 	if (!infracfg_base || !spm_base || !smi_common_base || !infra_base ||
 		!conn_base || !conn_mcu_base) {
-		pr_debug("clk-pg-mt6758: missing reg\n");
-		return;
+		pr_err("clk-pg-mt6758: missing reg\n");
+
+		return -EINVAL;
 	}
 
 	clk_data = alloc_clk_data(SCP_NR_SYSS);
+	if (!clk_data)
+		return -ENOMEM;
 
 	init_clk_scpsys(clk_data);
 
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-	if (r)
-		pr_notice("[CCF] %s:could not register clock provide\n",
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (ret) {
+		pr_err("[CCF] %s:could not register clock provide\n",
 			__func__);
+
+		return ret;
+	}
 
 	if (mtk_is_mtcmos_enable()) {
 		/* subsys init: per modem owner request,
@@ -3047,83 +3047,35 @@ static void __init mt_scpsys_init(struct device_node *node)
 		spm_mtcmos_ctrl_vcodec_pwr(STA_POWER_ON);
 #endif
 	}
+
+	pr_notice("%s done(%d)\n", __func__, ret);
+
+	return ret;
 }
 
-CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
+static const struct of_device_id of_match_clk_mt6765_scpsys[] = {
+	{ .compatible = "mediatek,mt6765-scpsys", },
+	{}
+};
 
-void subsys_if_on(void)
+static struct platform_driver clk_mt6765_scpsys_drv = {
+	.probe = clk_mt6765_scpsys_probe,
+	.driver = {
+		.name = "clk-mt6765-scpsys",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_clk_mt6765_scpsys,
+	},
+};
+
+static int __init clk_mt6765_scpsys_init(void)
 {
-#if SUBSYS_IF_ON
-	unsigned int sta = spm_read(PWR_STATUS);
-	unsigned int sta_s = spm_read(PWR_STATUS_2ND);
-	int ret = 0;
-
-	if ((sta & (1U << 0)) && (sta_s & (1U << 0)))
-		pr_debug("suspend warning: SYS_MD1 is on!!!\n");
-
-	if ((sta & (1U << 1)) && (sta_s & (1U << 1))) {
-		pr_notice("suspend warning: SYS_CONN is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 2)) && (sta_s & (1U << 2)))
-		pr_debug("suspend warning: SYS_DPY is on!!!\n");
-
-	if ((sta & (1U << 3)) && (sta_s & (1U << 3))) {
-		pr_notice("suspend warning: SYS_DIS is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 4)) && (sta_s & (1U << 4))) {
-		pr_notice("suspend warning: SYS_MFG is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 5)) && (sta_s & (1U << 5))) {
-		pr_notice("suspend warning: SYS_ISP is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 6)) && (sta_s & (1U << 6)))
-		pr_debug("suspend warning: SYS_IFR is on!!!\n");
-
-	if ((sta & (1U << 7)) && (sta_s & (1U << 7))) {
-		pr_notice("suspend warning: SYS_MFG_CORE0 is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 23)) && (sta_s & (1U << 23))) {
-		pr_notice("suspend warning: SYS_MFG_ASYNC is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 25)) && (sta_s & (1U << 25))) {
-		pr_notice("suspend warning: SYS_CAM is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 26)) && (sta_s & (1U << 26))) {
-		pr_notice("suspend warning: SYS_VCODEC is on!!!\n");
-		ret++;
-	}
-	if (ret > 0)
-		WARN_ON(1);
-#endif
+	return platform_driver_register(&clk_mt6765_scpsys_drv);
 }
 
-#if MTCMOS_FORCE_OFF
-void mtcmos_force_off(void)
+static void __exit clk_mt6765_scpsys_exit(void)
 {
-	spm_mtcmos_ctrl_md1_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_md1_pwr(STA_POWER_DOWN);/*do after ccif*/
-	spm_mtcmos_ctrl_conn_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_conn_pwr(STA_POWER_DOWN);
-	/* spm_mtcmos_ctrl_dpy(STA_POWER_DOWN); */
-	spm_mtcmos_ctrl_isp_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_isp_pwr(STA_POWER_DOWN);
-	/* spm_mtcmos_ctrl_ifr(STA_POWER_DOWN); */
-	spm_mtcmos_ctrl_mfg_core0_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_async_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_cam_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_cam_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_vcodec_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_dis_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_dis_pwr(STA_POWER_DOWN);
-
 }
-#endif
+
+arch_initcall(clk_mt6765_scpsys_init);
+module_exit(clk_mt6765_scpsys_exit);
+MODULE_LICENSE("GPL");
