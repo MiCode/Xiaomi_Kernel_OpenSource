@@ -27,7 +27,6 @@
 module_param(mtk_v4l2_dbg_level, int, 0644);
 module_param(mtk_vcodec_dbg, bool, 0644);
 module_param(mtk_vcodec_perf, bool, 0644);
-struct mtk_vcodec_dev *vdec_dev;
 
 static int fops_vcodec_open(struct file *file)
 {
@@ -185,14 +184,15 @@ static const struct v4l2_file_operations mtk_vcodec_fops = {
 static int mtk_vcodec_dec_suspend(struct device *pDev)
 {
 	int val, i;
+	struct mtk_vcodec_dev *dev = dev_get_drvdata(pDev);
 
 	for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
-		val = down_trylock(&vdec_dev->dec_sem[i]);
+		val = down_trylock(&dev->dec_sem[i]);
 		if (val == 1) {
 			mtk_v4l2_debug(0, "fail due to videocodec activity");
 			return -EBUSY;
 		}
-		up(&vdec_dev->dec_sem[i]);
+		up(&dev->dec_sem[i]);
 	}
 
 	mtk_v4l2_debug(1, "done");
@@ -211,13 +211,15 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 	int wait_cnt = 0;
 	int val = 0;
 	int i;
+	struct mtk_vcodec_dev *dev =
+		container_of(nb, struct mtk_vcodec_dev, pm_notifier);
 
 	mtk_v4l2_debug(1, "action = %ld", action);
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
-		vdec_dev->is_codec_suspending = 1;
+		dev->is_codec_suspending = 1;
 		for (i = 0; i < MTK_VDEC_HW_NUM; i++) {
-			val = down_trylock(&vdec_dev->dec_sem[i]);
+			val = down_trylock(&dev->dec_sem[i]);
 			while (val == 1) {
 				usleep_range(10000, 20000);
 				wait_cnt++;
@@ -228,13 +230,13 @@ static int mtk_vcodec_dec_suspend_notifier(struct notifier_block *nb,
 					mtk_v4l2_err("waiting fail");
 					return NOTIFY_DONE;
 				}
-				val = down_trylock(&vdec_dev->dec_sem[i]);
+				val = down_trylock(&dev->dec_sem[i]);
 			}
-			up(&vdec_dev->dec_sem[i]);
+			up(&dev->dec_sem[i]);
 		}
 		return NOTIFY_OK;
 	case PM_POST_SUSPEND:
-		vdec_dev->is_codec_suspending = 0;
+		dev->is_codec_suspending = 0;
 		return NOTIFY_OK;
 	default:
 		return NOTIFY_DONE;
@@ -376,10 +378,10 @@ static int mtk_vcodec_dec_probe(struct platform_device *pdev)
 
 	mtk_prepare_vdec_dvfs();
 	mtk_prepare_vdec_emi_bw();
-	pm_notifier(mtk_vcodec_dec_suspend_notifier, 0);
+	dev->pm_notifier.notifier_call = mtk_vcodec_dec_suspend_notifier;
+	register_pm_notifier(&dev->pm_notifier);
 	dev->is_codec_suspending = 0;
 	dev->dec_cnt = 0;
-	vdec_dev = dev;
 
 	return 0;
 

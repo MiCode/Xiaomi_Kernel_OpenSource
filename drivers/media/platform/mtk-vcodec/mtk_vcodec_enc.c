@@ -1563,6 +1563,9 @@ static int vb2ops_venc_buf_prepare(struct vb2_buffer *vb)
 	struct mtk_video_enc_buf *mtkbuf;
 	struct vb2_v4l2_buffer *vb2_v4l2;
 
+	if (vb->vb2_queue->memory != VB2_MEMORY_DMABUF)
+		return 0;
+
 	q_data = mtk_venc_get_q_data(ctx, vb->vb2_queue->type);
 
 	// Check if need to proceed cache operations
@@ -1625,7 +1628,8 @@ static void vb2ops_venc_buf_finish(struct vb2_buffer *vb)
 			ctx->id, vb->vb2_queue->type, vb2_v4l2->flags,
 			vb->index, vb->timestamp);
 
-	if (!(mtkbuf->flags & NO_CAHCE_INVALIDATE)) {
+	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
+		!(mtkbuf->flags & NO_CAHCE_INVALIDATE)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
 			struct mtk_vcodec_mem dst_mem;
 			struct dma_buf_attachment *buf_att;

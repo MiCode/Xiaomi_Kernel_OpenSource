@@ -1987,7 +1987,8 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 			mtkbuf->frame_buffer.dma_general_buf,
 			(unsigned long)mtkbuf->frame_buffer.dma_general_addr);
 	}
-	if (!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
+	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
+		!(mtkbuf->flags & NO_CAHCE_CLEAN) &&
 		!(ctx->dec_params.svp_mode)) {
 		if (vb->vb2_queue->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
 			struct mtk_vcodec_mem src_mem;
@@ -2304,7 +2305,8 @@ static void vb2ops_vdec_buf_finish(struct vb2_buffer *vb)
 	// Check if need to proceed cache operations for Capture Queue
 	vb2_v4l2 = container_of(vb, struct vb2_v4l2_buffer, vb2_buf);
 	mtkbuf = container_of(vb2_v4l2, struct mtk_video_dec_buf, vb);
-	if (!(mtkbuf->flags & NO_CAHCE_INVALIDATE) &&
+	if (vb->vb2_queue->memory == VB2_MEMORY_DMABUF &&
+		!(mtkbuf->flags & NO_CAHCE_INVALIDATE) &&
 		!(ctx->dec_params.svp_mode)) {
 		for (plane = 0; plane < buf->frame_buffer.num_planes; plane++) {
 			struct vdec_fb dst_mem;
