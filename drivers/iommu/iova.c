@@ -56,10 +56,6 @@ init_iova_domain(struct iova_domain *iovad, unsigned long granule,
 	iovad->flush_cb = NULL;
 	iovad->fq = NULL;
 	init_iova_rcaches(iovad);
-#ifdef IOMMU_DEBUG_ENABLED
-	pr_notice("%s, %d, start:0x%lx, end:0x%lx\n",
-		  __func__, __LINE__, iovad->start_pfn, iovad->dma_32bit_pfn);
-#endif
 }
 EXPORT_SYMBOL_GPL(init_iova_domain);
 
@@ -636,9 +632,7 @@ void queue_iova(struct iova_domain *iovad,
 
 	spin_unlock_irqrestore(&fq->lock, flags);
 
-	/* Avoid false sharing as much as possible. */
-	if (!atomic_read(&iovad->fq_timer_on) &&
-	    !atomic_cmpxchg(&iovad->fq_timer_on, 0, 1))
+	if (atomic_cmpxchg(&iovad->fq_timer_on, 0, 1) == 0)
 		mod_timer(&iovad->fq_timer,
 			  jiffies + msecs_to_jiffies(IOVA_FQ_TIMEOUT));
 
@@ -797,7 +791,9 @@ EXPORT_SYMBOL_GPL(copy_reserved_iova);
 void iovad_scan_reserved_iova(void *arg,
 		struct iova_domain *iovad,
 		void (*f)(void *domain, unsigned long start,
-			unsigned long end, unsigned long size))
+			unsigned long end, unsigned long size,
+			unsigned long target),
+		unsigned long target)
 {
 	unsigned long flags;
 	struct rb_node *node;
@@ -810,7 +806,7 @@ void iovad_scan_reserved_iova(void *arg,
 		end = ((iova->pfn_hi + 1) << iova_shift(iovad)) - 1;
 		size = end - start + 1;
 
-		f(arg, start, end, size);
+		f(arg, start, end, size, target);
 	}
 	spin_unlock_irqrestore(&iovad->iova_rbtree_lock, flags);
 }
@@ -1023,9 +1019,6 @@ static bool iova_rcache_insert(struct iova_domain *iovad, unsigned long pfn,
 	unsigned int log_size = order_base_2(size);
 
 	if (log_size >= IOVA_RANGE_CACHE_MAX_SIZE) {
-		pr_notice("%s, %d, size:0x%lx, MAX:0x%lx\n",
-			  __func__, __LINE__, log_size,
-			  IOVA_RANGE_CACHE_MAX_SIZE);
 		return false;
 	}
 

@@ -284,8 +284,6 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 		return -EINVAL;
 
 	/* Use the smallest supported page size for IOVA granularity */
-	dev_notice(dev, "%s, %d, start:0x%lx, size:0x%lx\n",
-		  __func__, __LINE__, base, size);
 	order = __ffs(domain->pgsize_bitmap);
 	base_pfn = max_t(unsigned long, 1, base >> order);
 	end_pfn = (base + size - 1) >> order;
@@ -303,8 +301,6 @@ int iommu_dma_init_domain(struct iommu_domain *domain, dma_addr_t base,
 			base = domain->geometry.aperture_start;
 			size = domain->geometry.aperture_end -
 				domain->geometry.aperture_start + 1;
-			pr_notice("correct the domain base/size to 0x%lx+0x%lx\n",
-				base, size);
 #endif
 		}
 		/* ...then finally give it a kicking to make sure it fits */
@@ -732,8 +728,10 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
 		unsigned int s_iova_len = s->length;
 
 #ifdef CONFIG_MTK_IOMMU_V2
-		if (!sg_page(s))
+		if (!sg_page(s)) {
+			pr_info("%s, page is null\n", __func__);
 			s_iova_off = 0;
+		}
 #endif
 		s->offset += s_iova_off;
 		s->length = s_length;
@@ -748,7 +746,7 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
 		 * - and wouldn't make the resulting output segment too long
 		 */
 		if (cur_len && !s_iova_off && (dma_addr & seg_mask) &&
-		    (max_len - cur_len >= s_length)) {
+		    (cur_len + s_length <= max_len)) {
 			/* ...then concatenate it with the previous one */
 			cur_len += s_length;
 		} else {
@@ -765,6 +763,11 @@ static int __finalise_sg(struct device *dev, struct scatterlist *sg, int nents,
 
 		if (s_length + s_iova_off < s_iova_len)
 			cur_len = 0;
+
+		if (s_iova_off)
+			pr_info("[M4U] %s warning, 0x%x--0x%x, offset:%u, count:%d\n",
+				__func__, s_iova_len,
+				s_length, s_iova_off, count);
 	}
 	return count;
 }
@@ -829,16 +832,45 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 			s->length = s_length;
 			iova_len += s_length;
 			prev = s;
+			pr_info("%s, page is error\n", __func__);
 			continue;
 		}
-#endif
 #endif
 		sg_dma_address(s) = s_iova_off;
 		sg_dma_len(s) = s_length;
 		s->offset -= s_iova_off;
 		s_length = iova_align(iovad, s_length + s_iova_off);
 		s->length = s_length;
-
+		if (s->length != sg_dma_len(s))
+			pr_info("%s, length is not equal dma_length, 0x%x--0x%x\n",
+				__func__, s->length,
+				(unsigned int)sg_dma_len(s));
+#else
+#ifndef CONFIG_MTK_PSEUDO_M4U
+		sg_dma_address(s) = s_iova_off;
+		sg_dma_len(s) = s_length;
+		s->offset -= s_iova_off;
+		s_length = iova_align(iovad, s_length + s_iova_off);
+		s->length = s_length;
+#else
+		if (!sg_dma_address(s) && !sg_dma_len(s)) {
+			sg_dma_address(s) = s_iova_off;
+			sg_dma_len(s) = s_length;
+			s->offset -= s_iova_off;
+			s_length = iova_align(iovad, s_length + s_iova_off);
+			s->length = s_length;
+		} else {
+			/*
+			 * pseudo m4u store the s_length in sg_dma_len, it may
+			 * be in different field depend on the
+			 * CONFIG_NEED_SG_DMA_LENGTH, get the length from the
+			 * macro.
+			 */
+			s_length = sg_dma_len(s);
+			s->length = s_length;
+		}
+#endif
+#endif
 		/*
 		 * Due to the alignment of our single IOVA allocation, we can
 		 * depend on these assumptions about the segment boundary mask:
@@ -873,8 +905,9 @@ int iommu_dma_map_sg(struct device *dev, struct scatterlist *sg,
 	 * implementation - it knows better than we do.
 	 */
 	if (iommu_map_sg(domain, iova, sg, nents, prot) < iova_len) {
-		pr_notice("%s, %d, dev:%s domain:%p failed at map sg\n",
-			    __func__, __LINE__, dev_name(dev), domain);
+		pr_notice("%s, %d, dev:%s domain:%p failed at map sg, iova:0x%pa, len:%lx\n",
+			    __func__, __LINE__, dev_name(dev),
+			    domain, &iova, iova_len);
 		goto out_free_iova;
 	}
 
@@ -999,8 +1032,11 @@ void iommu_dma_map_msi_msg(int irq, struct msi_msg *msg)
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
+static unsigned int domain_used_size;
+static unsigned int domain_resev_size;
 void iommu_dma_dump_iova(void *domain, unsigned long start,
-	unsigned long end, unsigned long size)
+	unsigned long end, unsigned long size,
+	unsigned long target)
 {
 	phys_addr_t p_start, p_end;
 	struct iommu_dma_cookie *cookie =
@@ -1015,30 +1051,49 @@ void iommu_dma_dump_iova(void *domain, unsigned long start,
 	    (order_base_2(size >> iova_shift(iovad)) <
 	    IOVA_RANGE_CACHE_MAX_SIZE))
 		return;
+
+	domain_used_size += size / 1024;
+	if (!p_start)
+		domain_resev_size += size / 1024;
+
+	if (target &&
+	    ((start >= target + SZ_16M) ||
+	    (end <= target - SZ_16M)))
+		return;
+
 	// the reserved region will not be managed in current domain
-	else if (!p_start)
-		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx (reserved region, check the other domain?)\n",
-		  start, end, p_start, p_end, size);
+	if (!p_start)
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx (reserved region, check the other domain?)\n",
+		  start, end, &p_start, &p_end, size);
 	else if (!p_end)
-		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx (size not aligned, check IOVA list)\n",
-		  start, end, p_start, p_end, size);
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx (size not aligned, check IOVA list)\n",
+		  start, end, &p_start, &p_end, size);
 	else
-		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%lx/0x%lx, size:0x%lx\n",
-			  start, end, p_start, p_end, size);
+		pr_notice(">>>    iova:0x%lx~0x%lx, pa:0x%pa/0x%pa, size:0x%lx\n",
+			  start, end, &p_start, &p_end, size);
 }
 
-void iommu_dma_dump_iovad(struct iommu_domain *domain)
+void iommu_dma_dump_iovad(struct iommu_domain *domain,
+	unsigned long target)
 {
 	struct iommu_dma_cookie *cookie = domain->iova_cookie;
 	struct iova_domain *iovad = &cookie->iovad;
 	unsigned long base = iovad->start_pfn << iova_shift(iovad);
 	unsigned long max = domain->geometry.aperture_end;
+	unsigned int domain_size = (max - base + 1) / 1024;
 
-	pr_notice("(0x%lx, 0x%lx) size:0x%lx\n",
-		  base, max, max - base + 1);
+	domain_used_size = 0;
+	domain_resev_size = 0;
 
 	iovad_scan_reserved_iova((void *)domain, iovad,
-		iommu_dma_dump_iova);
+		iommu_dma_dump_iova, target);
+	pr_notice("(0x%lx, 0x%lx) total:%uKB, used:(%uKB/%dper), resev:(%uKB/%dper), target:0x%lx\n",
+		  base, max, domain_size,
+		  domain_used_size,
+		  domain_used_size * 100 / domain_size,
+		  domain_resev_size,
+		  domain_resev_size * 100 / domain_size,
+		  target);
 }
 EXPORT_SYMBOL(iommu_dma_dump_iovad);
 

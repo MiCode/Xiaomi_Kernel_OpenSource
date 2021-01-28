@@ -72,6 +72,7 @@ struct ion_buffer {
 	struct ion_heap *heap;
 	unsigned long flags;
 	unsigned long private_flags;
+	unsigned long long timestamp;
 	size_t size;
 	void *priv_virt;
 	struct mutex lock; /* mutex */
@@ -85,6 +86,8 @@ struct ion_buffer {
 	int handle_count;
 	char task_comm[TASK_COMM_LEN];
 	pid_t pid;
+	char thread_comm[TASK_COMM_LEN];
+	pid_t tid;
 	char alloc_dbg[ION_MM_DBG_NAME_LEN];
 #ifdef MTK_ION_DMABUF_SUPPORT
 	struct list_head attachments;
@@ -146,6 +149,10 @@ struct ion_client {
 	pid_t pid;
 	struct dentry *debug_root;
 	char dbg_name[ION_MM_DBG_NAME_LEN]; /* add by K for debug! */
+	atomic64_t total_size[HEAP_NUM];
+	int hnd_cnt;
+	int dbg_hnd_cnt;
+	unsigned long long threshold_size;
 };
 
 struct ion_handle_debug {
@@ -203,6 +210,16 @@ struct ion_heap_ops {
 	int (*phys)(struct ion_heap *heap, struct ion_buffer *buffer,
 		    ion_phys_addr_t *addr, size_t *len);
 	int (*page_pool_total)(struct ion_heap *heap);
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+	void (*get_table)(struct ion_buffer *buffer, struct sg_table *table);
+#endif
+#ifdef MTK_ION_DMABUF_SUPPORT
+	/* For user with dma-buf standard flow to get iova, we can get port
+	 * id from struct device*, users no need to do config buffer.
+	 */
+	int (*dma_buf_config)(struct ion_buffer *buffer, struct device *dev);
+#endif
 };
 
 /**

@@ -28,8 +28,16 @@
 #include <mmprofile.h>
 
 #define mmu_translation_log_format \
-	"\nCRDISPATCH_KEY:M4U_%s\ntranslation fault:port=%s,mva=0x%lx,pa=0x%lx\n"
+	"\nCRDISPATCH_KEY:M4U_%s\n<<TRANSLATION FAULT>> port=%s,iova=0x%lx,pa=0x%lx\n"
 
+#define mmu_translation_log_format_secure \
+	"\nCRDISPATCH_KEY:M4U_%s\n<<SECURE TRANSLATION FAULT>> port=%s,iova=0x%lx\n"
+
+#define mmu_leakage_log_format \
+	"\nCRDISPATCH_KEY:M4U_%s\n<<IOVA LEAKAGE>> port=%s size=%uKB\n"
+
+#define config_port_log_format \
+	"\nCRDISPATCH_KEY:M4U_%s\n<<CONFIG INVALID PORT NAME>> name=%s id=%u\n"
 
 #define ERROR_LARB_PORT_ID M4U_PORT_NR
 
@@ -48,9 +56,9 @@ struct iommu_event_t {
 	unsigned int event_id;
 	unsigned int time_low;
 	unsigned int time_high;
-	unsigned int data1;
-	unsigned int data2;
-	unsigned int data3;
+	unsigned long data1;
+	unsigned long data2;
+	unsigned long data3;
 };
 
 
@@ -65,12 +73,19 @@ struct iommu_global_t {
 
 static struct iommu_global_t iommu_globals;
 
-static inline int mtk_iommu_get_tf_larb_port_idx(int tf_id)
+static inline int mtk_iommu_get_tf_larb_port_idx(unsigned int m4uid, int tf_id)
 {
 	int i;
 
 	for (i = 0; i < (M4U_PORT_NR + 1); i++) {
-		if (iommu_port[i].tf_id == tf_id)
+		if (iommu_port[i].tf_id == tf_id &&
+		    iommu_port[i].m4u_id == m4uid)
+			return i;
+		if (((iommu_port[i].tf_id & 0xf80) >> 7) == TF_CCU_DISP &&
+		    iommu_port[i].m4u_id == m4uid)
+			return i;
+		if (((iommu_port[i].tf_id & 0xf80) >> 7) == TF_CCU_MDP &&
+		    iommu_port[i].m4u_id == m4uid)
 			return i;
 	}
 	pr_notice("%s, %d err tf_id:0x%x", __func__, __LINE__, tf_id);
@@ -89,7 +104,7 @@ int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 	}
 #endif
 
-	idx = mtk_iommu_get_tf_larb_port_idx(tf_id);
+	idx = mtk_iommu_get_tf_larb_port_idx(m4uid, tf_id);
 	if (idx == ERROR_LARB_PORT_ID) {
 		pr_notice("%s, %d err tf_id:0x%x", __func__, __LINE__, tf_id);
 		return -1;
@@ -101,13 +116,14 @@ int mtk_iommu_get_larb_port(unsigned int tf_id, unsigned int m4uid,
 	return MTK_M4U_ID(*larb, *port);
 }
 
-char *mtk_iommu_get_mm_port_name(unsigned int tf_id)
+char *mtk_iommu_get_mm_port_name(unsigned int m4uid, unsigned int tf_id)
 {
 	unsigned int idx;
 
-	idx = mtk_iommu_get_tf_larb_port_idx(tf_id);
+	idx = mtk_iommu_get_tf_larb_port_idx(m4uid, tf_id);
 	if (idx == ERROR_LARB_PORT_ID) {
-		pr_notice("%s, %d err tf_id:0x%x", __func__, __LINE__, tf_id);
+		pr_notice("%s, %d err tf_id:0x%x, m4u:%d",
+			  __func__, __LINE__, tf_id, m4uid);
 		return "m4u_port_unknown";
 	}
 
@@ -134,13 +150,13 @@ char *mtk_iommu_get_port_name(unsigned int m4u_id,
 		return mtk_iommu_get_vpu_port_name(tf_id);
 #endif
 
-	return mtk_iommu_get_mm_port_name(tf_id);
+	return mtk_iommu_get_mm_port_name(m4u_id, tf_id);
 }
 
 static inline int mtk_iommu_larb_port_idx(int id)
 {
 	unsigned int larb, port;
-	int index;
+	int index = -1;
 
 	larb = MTK_IOMMU_TO_LARB(id);
 	port = MTK_IOMMU_TO_PORT(id);
@@ -148,15 +164,18 @@ static inline int mtk_iommu_larb_port_idx(int id)
 	if (larb >= MTK_IOMMU_LARB_NR)
 		return ERROR_LARB_PORT_ID;
 
-	index = mtk_iommu_larb_distance[larb] + port;
-	if ((index >= M4U_PORT_NR) || (index < port))
+	if (mtk_iommu_larb_distance[larb] >= 0)
+		index = mtk_iommu_larb_distance[larb] + port;
+
+	if ((index >= M4U_PORT_NR) ||
+	    (index < 0))
 		return ERROR_LARB_PORT_ID;
 
 	if ((iommu_port[index].larb_id == larb) &&
 		(iommu_port[index].larb_port == port))
 		return index;
 
-	pr_info("[MTK_IOMMU] do not find index for id %d", id);
+	pr_info("[MTK_IOMMU] do not find index for id %d\n", id);
 	return ERROR_LARB_PORT_ID;
 }
 
@@ -169,11 +188,13 @@ char *iommu_get_port_name(int port)
 }
 
 bool report_custom_iommu_fault(
+	unsigned int m4uid,
 	void __iomem	*base,
-	unsigned int	int_state,
 	unsigned long	fault_iova,
 	unsigned long	fault_pa,
-	unsigned int	fault_id, bool is_vpu)
+	unsigned int	fault_id,
+	bool is_vpu,
+	bool is_sec)
 {
 	int idx;
 	int port;
@@ -184,7 +205,7 @@ bool report_custom_iommu_fault(
 		idx = mtk_iommu_larb_port_idx(port);
 		name = mtk_iommu_get_vpu_port_name(fault_id);
 	} else {
-		idx = mtk_iommu_get_tf_larb_port_idx(fault_id);
+		idx = mtk_iommu_get_tf_larb_port_idx(m4uid, fault_id);
 		if (idx == ERROR_LARB_PORT_ID) {
 			pr_info("[MTK_IOMMU] fail,iova 0x%lx, port %d\n",
 				fault_iova, fault_id);
@@ -202,10 +223,36 @@ bool report_custom_iommu_fault(
 				fault_iova,
 				iommu_port[idx].fault_data);
 
-	mmu_aee_print(mmu_translation_log_format,
+	if (is_sec)
+		mmu_aee_print(mmu_translation_log_format_secure,
+		       name, name, fault_iova);
+	else
+		mmu_aee_print(mmu_translation_log_format,
 		       name, name,
 		       fault_iova, fault_pa);
+
 	return true;
+}
+
+void report_custom_iommu_leakage(char *port_name,
+	unsigned int size)
+{
+	if (!port_name)
+		return;
+
+	mmu_aee_print(mmu_leakage_log_format,
+		      port_name, port_name, size);
+}
+
+void report_custom_config_port(char *port_name,
+	char *err_name,
+	unsigned int portid)
+{
+	if (!port_name || !err_name)
+		return;
+
+	mmu_aee_print(config_port_log_format,
+		      port_name, err_name, portid);
 }
 
 bool enable_custom_tf_report(void)
@@ -431,7 +478,7 @@ void mtk_iommu_log_dump(void *seq_file)
 	seq_puts(s, "---------------------------------------------------\n");
 	seq_puts(s, "Time  | Action |iova_start | size  | port |iova_end\n");
 	for (i = 0; i < IOMMU_MAX_EVENT_COUNT; i++) {
-		unsigned int end_iova = 0;
+		unsigned long end_iova = 0;
 
 		if ((iommu_globals.record[i].time_low == 0) &&
 		    (iommu_globals.record[i].time_high == 0))
@@ -441,7 +488,7 @@ void mtk_iommu_log_dump(void *seq_file)
 			end_iova = iommu_globals.record[i].data1 +
 				iommu_globals.record[i].data2 - 1;
 
-		seq_printf(s, "%d.%-7d |%10s |0x%-8x |%9u |0x%-8x |0x%-8x\n",
+		seq_printf(s, "%d.%-7d |%10s |0x%-8lx |%9lu |0x%-8lx |0x%-8lx\n",
 			   iommu_globals.record[i].time_high,
 			   iommu_globals.record[i].time_low,
 			   event_mgr[event_id].name,
@@ -463,9 +510,9 @@ static void mtk_iommu_system_time(unsigned int *low, unsigned int *high)
 }
 
 void mtk_iommu_trace_rec_write(int event,
-			       unsigned int data1,
-			       unsigned int data2,
-			       unsigned int data3)
+			       unsigned long data1,
+			       unsigned long data2,
+			       unsigned long data3)
 {
 	unsigned int index;
 	struct iommu_event_t *p_event = NULL;
@@ -474,7 +521,7 @@ void mtk_iommu_trace_rec_write(int event,
 	if (iommu_globals.enable == 0)
 		return;
 	if (event_mgr[event].dump_log)
-		pr_info("[MTK_IOMMU] _trace %10s |0x%-8x |%9u |0x%-8x |0x%-8x\n",
+		pr_info("[MTK_IOMMU] _trace %10s |0x%-8lx |%9lu |0x%-8lx |0x%-8lx\n",
 			event_mgr[event].name,
 			data1, data2, data3, data1 + data3);
 
@@ -491,8 +538,8 @@ void mtk_iommu_trace_rec_write(int event,
 		&(iommu_globals.record[index]);
 	mtk_iommu_system_time(&(p_event->time_low), &(p_event->time_high));
 	p_event->event_id = event;
-	p_event->data1 = (unsigned int)data1;
-	p_event->data2 = (unsigned int)data2;
+	p_event->data1 = data1;
+	p_event->data2 = data2;
 	p_event->data3 = data3;
 
 	spin_unlock_irqrestore(&iommu_globals.lock, flags);
@@ -524,9 +571,9 @@ void mtk_iommu_trace_register(int event, const char *name)
 }
 
 void mtk_iommu_trace_log(int event,
-			 unsigned int data1,
-			 unsigned int data2,
-			 unsigned int data3)
+			 unsigned long data1,
+			 unsigned long data2,
+			 unsigned long data3)
 {
 	if (event >= IOMMU_EVENT_MAX)
 		return;
