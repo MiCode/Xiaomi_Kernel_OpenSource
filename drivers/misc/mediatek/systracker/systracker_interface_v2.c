@@ -29,8 +29,6 @@
 #include <mt-plat/sync_write.h>
 #include "systracker_v2.h"
 
-#define TRACKER_DEBUG 1
-
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
