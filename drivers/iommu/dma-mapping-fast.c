@@ -14,6 +14,7 @@
 #include <linux/pci.h>
 #include <linux/iova.h>
 #include <linux/io-pgtable.h>
+#include <linux/rwlock.h>
 #include <linux/qcom-iommu-util.h>
 #include "qcom-dma-iommu-generic.h"
 
@@ -21,6 +22,83 @@
 #define FAST_PAGE_SHIFT		12
 #define FAST_PAGE_SIZE (1UL << FAST_PAGE_SHIFT)
 #define FAST_PAGE_MASK (~(PAGE_SIZE - 1))
+
+static struct rb_root mappings;
+static DEFINE_RWLOCK(mappings_lock);
+
+static int fast_smmu_add_mapping(struct dma_fast_smmu_mapping *fast)
+{
+	struct rb_node **new = &mappings.rb_node, *parent = NULL;
+	struct dma_fast_smmu_mapping *entry;
+	int ret = 0;
+	unsigned long flags;
+
+	write_lock_irqsave(&mappings_lock, flags);
+	while (*new) {
+		entry = rb_entry(*new, struct dma_fast_smmu_mapping, node);
+
+		parent = *new;
+		if (fast->domain < entry->domain) {
+			new = &((*new)->rb_left);
+		} else if (fast->domain > entry->domain) {
+			new = &((*new)->rb_right);
+		} else {
+			ret = -EEXIST;
+			break;
+		}
+	}
+
+	if (!ret) {
+		rb_link_node(&fast->node, parent, new);
+		rb_insert_color(&fast->node, &mappings);
+	}
+	write_unlock_irqrestore(&mappings_lock, flags);
+
+	return ret;
+}
+
+static struct dma_fast_smmu_mapping *__fast_smmu_lookup_mapping(struct iommu_domain *domain)
+{
+	struct rb_node *node = mappings.rb_node;
+	struct dma_fast_smmu_mapping *entry;
+
+	while (node) {
+		entry = rb_entry(node, struct dma_fast_smmu_mapping, node);
+
+		if (domain < entry->domain)
+			node = node->rb_left;
+		else if (domain > entry->domain)
+			node = node->rb_right;
+		else
+			return entry;
+	}
+
+	return NULL;
+}
+
+static struct dma_fast_smmu_mapping *fast_smmu_lookup_mapping(struct iommu_domain *domain)
+{
+	struct dma_fast_smmu_mapping *fast;
+	unsigned long flags;
+
+	read_lock_irqsave(&mappings_lock, flags);
+	fast = __fast_smmu_lookup_mapping(domain);
+	read_unlock_irqrestore(&mappings_lock, flags);
+	return fast;
+}
+
+static struct dma_fast_smmu_mapping *fast_smmu_remove_mapping(struct iommu_domain *domain)
+{
+	struct dma_fast_smmu_mapping *fast;
+	unsigned long flags;
+
+	write_lock_irqsave(&mappings_lock, flags);
+	fast = __fast_smmu_lookup_mapping(domain);
+	if (fast)
+		rb_erase(&fast->node, &mappings);
+	write_unlock_irqrestore(&mappings_lock, flags);
+	return fast;
+}
 
 static pgprot_t __get_dma_pgprot(unsigned long attrs, pgprot_t prot,
 				 bool coherent)
@@ -53,7 +131,7 @@ static struct dma_fast_smmu_mapping *dev_get_mapping(struct device *dev)
 	domain = iommu_get_domain_for_dev(dev);
 	if (!domain)
 		return ERR_PTR(-EINVAL);
-	return domain->iova_cookie;
+	return fast_smmu_lookup_mapping(domain);
 }
 
 static dma_addr_t __fast_smmu_alloc_iova(struct dma_fast_smmu_mapping *mapping,
@@ -865,7 +943,7 @@ static void fast_smmu_reserve_iommu_regions(struct device *dev,
 
 void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 {
-	struct dma_fast_smmu_mapping *fast = domain->iova_cookie;
+	struct dma_fast_smmu_mapping *fast = fast_smmu_remove_mapping(domain);
 
 	if (!fast)
 		return;
@@ -882,7 +960,6 @@ void fast_smmu_put_dma_cookie(struct iommu_domain *domain)
 		kvfree(fast->clean_bitmap);
 
 	kfree(fast);
-	domain->iova_cookie = NULL;
 }
 EXPORT_SYMBOL(fast_smmu_put_dma_cookie);
 
@@ -905,12 +982,10 @@ int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 			   struct io_pgtable_ops *pgtable_ops)
 {
 	u64 dma_base, dma_end, size;
-	struct dma_fast_smmu_mapping *fast;
+	struct dma_fast_smmu_mapping *fast = fast_smmu_lookup_mapping(domain);
 
-	if (domain->iova_cookie) {
-		fast = domain->iova_cookie;
+	if (fast)
 		goto finish;
-	}
 
 	if (!pgtable_ops)
 		return -EINVAL;
@@ -930,7 +1005,7 @@ int fast_smmu_init_mapping(struct device *dev, struct iommu_domain *domain,
 
 	fast->domain = domain;
 	fast->dev = dev;
-	domain->iova_cookie = fast;
+	fast_smmu_add_mapping(fast);
 
 	fast->pgtbl_ops = pgtable_ops;
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef __LINUX_DMA_MAPPING_FAST_H
@@ -8,6 +8,7 @@
 
 #include <linux/iommu.h>
 #include <linux/io-pgtable-fast.h>
+#include <linux/rbtree.h>
 
 struct dma_iommu_mapping;
 struct io_pgtable_ops;
@@ -35,6 +36,7 @@ struct dma_fast_smmu_mapping {
 
 	spinlock_t	lock;
 	struct notifier_block notifier;
+	struct rb_node node;
 };
 
 #ifdef CONFIG_IOMMU_IO_PGTABLE_FAST
