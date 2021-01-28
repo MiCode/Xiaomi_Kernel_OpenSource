@@ -62,9 +62,6 @@ static struct dentry *gpsLoadingBaseDvfsStepEntry;
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 static struct dentry *gpsTimerBaseDvfsMarginEntry;
 #endif
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_FB_DVFS_CWAITG))
-static struct dentry *gpsDvfsCWaitGEntry;
-#endif
 
 int tokenizer(char *pcSrc, int i32len, int *pi32IndexArray, int i32NumToken)
 {
@@ -1290,72 +1287,6 @@ const struct seq_operations gsTimerBaseDvfsMarginReadOps = {
 };
 #endif
 
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_FB_DVFS_CWAITG))
-/* --------------------------------------------------------------- */
-static ssize_t ged_dvfs_cwaitg_write_entry
-(const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
-{
-#define GED_HAL_DEBUGFS_SIZE 64
-	char acBuffer[GED_HAL_DEBUGFS_SIZE];
-
-	int i32Value;
-
-	if ((uiCount > 0) && (uiCount < GED_HAL_DEBUGFS_SIZE)) {
-		if (ged_copy_from_user(acBuffer, pszBuffer, uiCount) == 0) {
-			acBuffer[uiCount] = '\0';
-			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
-				mtk_dvfs_cwaitg((unsigned int) i32Value);
-		}
-	}
-
-	return uiCount;
-}
-//-------------------------------------------------------------------
-static void *ged_dvfs_cwaitg_seq_start(struct seq_file *psSeqFile,
-			loff_t *puiPosition)
-{
-	if (*puiPosition == 0)
-		return SEQ_START_TOKEN;
-
-	return NULL;
-}
-//-------------------------------------------------------------------
-static void ged_dvfs_cwaitg_seq_stop(struct seq_file *psSeqFile,
-			void *pvData)
-{
-
-}
-//-------------------------------------------------------------------
-static void *ged_dvfs_cwaitg_seq_next(struct seq_file *psSeqFile,
-			void *pvData, loff_t *puiPosition)
-{
-	return NULL;
-}
-//-------------------------------------------------------------------
-static int ged_dvfs_cwaitg_seq_show(struct seq_file *psSeqFile,
-			void *pvData)
-{
-	if (pvData != NULL) {
-		unsigned int ui32DvfsCWaitG;
-
-		if (false == mtk_get_dvfs_cwaitg(&ui32DvfsCWaitG)) {
-			ui32DvfsCWaitG = 0;
-			seq_puts(psSeqFile, "call mtk_get_dvfs_cwaitg false\n");
-		}
-		seq_printf(psSeqFile, "%d\n", ui32DvfsCWaitG);
-	}
-
-	return 0;
-}
-/* --------------------------------------------------------------- */
-const struct seq_operations gsDvfsCWaitGReadOps = {
-	.start = ged_dvfs_cwaitg_seq_start,
-	.stop = ged_dvfs_cwaitg_seq_stop,
-	.next = ged_dvfs_cwaitg_seq_next,
-	.show = ged_dvfs_cwaitg_seq_show,
-};
-#endif
-
 static struct notifier_block ged_fb_notifier;
 
 static int ged_fb_notifier_callback(struct notifier_block *self, unsigned long event, void *data)
@@ -1702,23 +1633,7 @@ GED_ERROR ged_hal_init(void)
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to create tb dvfs_margin entry!\n");
 		goto ERROR;
-}
-#endif
-
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_FB_DVFS_CWAITG))
-			/* Control the dvfs cwaitg mode */
-					err = ged_debugFS_create_entry(
-					"dvfs_cwaitg",
-					gpsHALDir,
-					&gsDvfsCWaitGReadOps,
-					ged_dvfs_cwaitg_write_entry,
-					NULL,
-					&gpsDvfsCWaitGEntry);
-
-		if (unlikely(err != GED_OK)) {
-			GED_LOGE("ged: failed to create dvfs_cwaitg entry!\n");
-			goto ERROR;
-		}
+	}
 #endif
 
 	/* Report Integration Status */
@@ -1771,8 +1686,8 @@ void ged_hal_exit(void)
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
 	ged_debugFS_remove_entry(gpsLoadingBaseDvfsStepEntry);
 #endif
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_FB_DVFS_CWAITG))
-	ged_debugFS_remove_entry(gpsDvfsCWaitGEntry);
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+	ged_debugFS_remove_entry(gpsTimerBaseDvfsMarginEntry);
 #endif
 
 }

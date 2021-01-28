@@ -773,3 +773,87 @@ bool mtk_get_gpu_pmu_swapnreset_stop(void)
 	return false;
 }
 EXPORT_SYMBOL(mtk_get_gpu_pmu_swapnreset_stop);
+/* ------------------------------------------------------------------------ */
+void (*mtk_dvfs_margin_value_fp)(int i32MarginValue) = NULL;
+EXPORT_SYMBOL(mtk_dvfs_margin_value_fp);
+
+bool mtk_dvfs_margin_value(int i32MarginValue)
+{
+	if (mtk_dvfs_margin_value_fp != NULL) {
+		mtk_dvfs_margin_value_fp(i32MarginValue);
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_dvfs_margin_value);
+
+int (*mtk_get_dvfs_margin_value_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_dvfs_margin_value_fp);
+
+bool mtk_get_dvfs_margin_value(int *pi32MarginValue)
+{
+	if ((mtk_get_dvfs_margin_value_fp != NULL) &&
+		(pi32MarginValue != NULL)) {
+
+		*pi32MarginValue = mtk_get_dvfs_margin_value_fp();
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_dvfs_margin_value);
+
+/* -------------------------------------------------------------------------*/
+void (*mtk_loading_base_dvfs_step_fp)(int i32StepValue) = NULL;
+EXPORT_SYMBOL(mtk_loading_base_dvfs_step_fp);
+
+bool mtk_loading_base_dvfs_step(int i32StepValue)
+{
+	if (mtk_loading_base_dvfs_step_fp != NULL) {
+		mtk_loading_base_dvfs_step_fp(i32StepValue);
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_loading_base_dvfs_step);
+
+int (*mtk_get_loading_base_dvfs_step_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_loading_base_dvfs_step_fp);
+
+bool mtk_get_loading_base_dvfs_step(int *pi32StepValue)
+{
+	if ((mtk_get_loading_base_dvfs_step_fp != NULL) &&
+		(pi32StepValue != NULL)) {
+		*pi32StepValue = mtk_get_loading_base_dvfs_step_fp();
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_loading_base_dvfs_step);
+/* ------------------------------------------------------------------------ */
+void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue) = NULL;
+EXPORT_SYMBOL(mtk_timer_base_dvfs_margin_fp);
+
+bool mtk_timer_base_dvfs_margin(int i32MarginValue)
+{
+	if (mtk_timer_base_dvfs_margin_fp != NULL) {
+		mtk_timer_base_dvfs_margin_fp(i32MarginValue);
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_timer_base_dvfs_margin);
+
+int (*mtk_get_timer_base_dvfs_margin_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_timer_base_dvfs_margin_fp);
+
+bool mtk_get_timer_base_dvfs_margin(int *pi32MarginValue)
+{
+	if ((mtk_get_timer_base_dvfs_margin_fp != NULL) &&
+		(pi32MarginValue != NULL)) {
+
+		*pi32MarginValue = mtk_get_timer_base_dvfs_margin_fp();
+		return true;
+	}
+	return false;
+}
+EXPORT_SYMBOL(mtk_get_timer_base_dvfs_margin);

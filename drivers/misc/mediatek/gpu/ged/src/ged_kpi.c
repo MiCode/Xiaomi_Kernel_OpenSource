@@ -1388,11 +1388,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			static unsigned long long last_3D_done, cur_3D_done;
 			int time_spent;
 			static int gpu_freq_pre;
-
-#ifdef GED_ENABLE_FB_DVFS_CWAITG
-			struct GED_DVFS_CWAITG Info;
-			unsigned int cwaitg_mode = 0;
-#endif
 #endif
 
 			list_for_each_prev_safe(psListEntry, psListEntryTemp, psList) {
@@ -1459,20 +1454,6 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						= time_spent
 						= psHead->t_gpu_latest;
 				}
-
-#ifdef GED_ENABLE_FB_DVFS_CWAITG
-					Info.i32CpuWallTime =
-						cur_3D_done - last_3D_done;
-					Info.i32GpuRealTime = time_spent;
-					Info.i32GpuTargetTime =
-						psKPI->t_gpu_target;
-					Info.ui32GpuLoading =
-						psTimeStamp->i32GPUloading;
-					Info.ullGpuPipeTime =
-						psKPI->t_gpu;
-					Info.i32GpuRealTime_Modify = 0;
-#endif
-
 				/* Detect if there are multi renderers by */
 				/* checking if there is GED_KPI info
 				 * resource monopoly
@@ -1500,32 +1481,11 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 			if (!g_force_gpu_dvfs_fallback)
 				psKPI->cpu_gpu_info.gpu.gpu_dvfs |= (0x8000);
 #endif
-
-#ifdef GED_ENABLE_FB_DVFS_CWAITG
-				if (!g_force_gpu_dvfs_fallback)
-					cwaitg_mode =
-					ged_dvfs_cwaitg_check(&Info);
-
-				if (main_head == psHead) {
-					if (cwaitg_mode != 0)
-						gpu_freq_pre = ged_kpi_gpu_dvfs(
-						Info.i32GpuRealTime_Modify
-						, psKPI->t_gpu_target
-						, psKPI->target_fps_margin
-						, g_force_gpu_dvfs_fallback);
-					else
-						gpu_freq_pre = ged_kpi_gpu_dvfs(
-						time_spent, psKPI->t_gpu_target
-						, psKPI->target_fps_margin
-						, g_force_gpu_dvfs_fallback);
-				}
-#else
 				if (main_head == psHead)
 					gpu_freq_pre = ged_kpi_gpu_dvfs(
 						time_spent, psKPI->t_gpu_target
 						, psKPI->target_fps_margin
 						, g_force_gpu_dvfs_fallback);
-#endif
 				else
 					gpu_freq_pre = ged_kpi_gpu_dvfs(
 						time_spent, psKPI->t_gpu_target
