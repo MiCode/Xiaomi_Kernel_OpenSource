@@ -5,7 +5,7 @@
 
 #include <linux/types.h>
 
-#ifdef CONFIG_MTK_MDLA_ION
+#ifdef CONFIG_MTK_ION
 void mdla_ion_init(void);
 void mdla_ion_exit(void);
 int mdla_ion_kmap(unsigned long arg);

@@ -107,7 +107,6 @@ enum MDLA_DEBUG_MASK {
 	MDLA_DBG_DVFS = 0x80,
 };
 
-#ifdef CONFIG_MTK_MDLA_DEBUG
 extern u32 mdla_klog;
 #define mdla_debug(mask, ...) do { if (mdla_klog & mask) \
 		pr_debug(__VA_ARGS__); \
@@ -117,26 +116,6 @@ void mdla_dump_ce(struct command_entry *ce);
 void mdla_dump_buf(int mask, void *kva, int group, u32 size);
 void mdla_debugfs_init(void);
 void mdla_debugfs_exit(void);
-#else
-#define mdla_debug(mask, ...)
-static inline void mdla_dump_reg(void)
-{
-}
-static inline
-void mdla_dump_ce(struct command_entry *ce)
-{
-}
-static inline
-void mdla_dump_buf(int mask, void *kva, int group, u32 size)
-{
-}
-static inline void mdla_debugfs_init(void)
-{
-}
-static inline void mdla_debugfs_exit(void)
-{
-}
-#endif
 
 #define mdla_drv_debug(...) mdla_debug(MDLA_DBG_DRV, __VA_ARGS__)
 #define mdla_mem_debug(...) mdla_debug(MDLA_DBG_MEM, __VA_ARGS__)

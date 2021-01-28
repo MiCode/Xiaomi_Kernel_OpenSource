@@ -340,7 +340,7 @@ static void mdla_reset(int res)
 	mdla_reg_write(cfg_eng2, MREG_TOP_ENG2);
 	mdla_reg_write(cfg_eng11, MREG_TOP_ENG11);
 
-#ifdef CONFIG_MTK_MDLA_ION
+#ifdef CONFIG_MTK_ION
 	mdla_cfg_set(MDLA_AXI_CTRL_MASK, MDLA_AXI_CTRL);
 	mdla_cfg_set(MDLA_AXI_CTRL_MASK, MDLA_AXI1_CTRL);
 #endif

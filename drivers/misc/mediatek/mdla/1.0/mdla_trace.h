@@ -23,8 +23,6 @@ enum {
 };
 extern u32 cfg_pmu_event[MDLA_PMU_COUNTERS];
 
-#ifdef CONFIG_MTK_MDLA_DEBUG
-
 #define MDLA_MET_READY 1
 
 #include <linux/sched.h>
@@ -45,61 +43,6 @@ void mdla_trace_tag_end(void);
 void mdla_met_event_enter(int core, int vmdla_opp,
 	int dsp_freq, int ipu_if_freq, int mdla_freq);
 void mdla_met_event_leave(int core);
-
-#else
-
-static inline int mdla_profile_init(void)
-{
-	return 0;
-}
-static inline int mdla_profile_exit(void)
-{
-	return 0;
-}
-static inline int mdla_profile_reset(const char *str)
-{
-	return 0;
-}
-static inline int mdla_profile_start(void)
-{
-	return 0;
-}
-static inline int mdla_profile_stop(int type)
-{
-	return 0;
-}
-static inline
-int mdla_profile_power_mode(u32 *stat)
-{
-	return 1;
-}
-static inline void mdla_dump_prof(struct seq_file *s)
-{
-}
-static inline void mdla_trace_begin(struct command_entry *ce)
-{
-}
-void mdla_trace_iter(void)
-{
-}
-static inline void mdla_trace_end(struct command_entry *ce)
-{
-}
-static inline void mdla_trace_tag_begin(const char *format, ...)
-{
-}
-static inline void mdla_trace_tag_end(void)
-{
-}
-static inline void mdla_met_event_enter(int core, int vmdla_opp,
-	int dsp_freq, int ipu_if_freq, int mdla_freq)
-{
-}
-static inline void mdla_met_event_leave(int core)
-{
-}
-
-#endif
 
 #endif
 
