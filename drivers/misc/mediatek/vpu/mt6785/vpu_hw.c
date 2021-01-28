@@ -837,8 +837,10 @@ int get_vpu_opp(void)
 }
 EXPORT_SYMBOL(get_vpu_opp);
 
-int get_vpu_dspcore_opp(int core)
+int get_vpu_dspcore_opp(int core_s)
 {
+	unsigned int core = (unsigned int)core_s;
+
 	LOG_DBG("[vpu_%d] get opp:%d\n", core, opps.dspcore[core].index);
 	return opps.dspcore[core].index;
 }
@@ -850,8 +852,9 @@ int get_vpu_platform_floor_opp(void)
 }
 EXPORT_SYMBOL(get_vpu_platform_floor_opp);
 
-int get_vpu_ceiling_opp(int core)
+int get_vpu_ceiling_opp(int core_s)
 {
+	unsigned int core = (unsigned int)core_s;
 	return max_opp[core];
 }
 EXPORT_SYMBOL(get_vpu_ceiling_opp);
@@ -939,13 +942,14 @@ static void get_segment_from_efuse(void)
 /* expected range, vvpu_index: 0~15 */
 /* expected range, freq_index: 0~15 */
 //static void vpu_opp_check(int core, uint8_t vcore_index, uint8_t freq_index)
-static void vpu_opp_check(int core, uint8_t vvpu_index, uint8_t freq_index)
+static void vpu_opp_check(int core_s, uint8_t vvpu_index, uint8_t freq_index)
 {
 	int i = 0;
 	bool freq_check = false;
 	int log_freq = 0, log_max_freq = 0;
 	//int get_vcore_opp = 0;
 	int get_vvpu_opp = 0;
+	unsigned int core = (unsigned int)core_s;
 
 	if (is_power_debug_lock) {
 		force_change_vcore_opp[core] = false;
@@ -2635,7 +2639,7 @@ static int vpu_service_routine(void *arg)
 	struct vpu_user *user_in_list = NULL;
 	struct list_head *head = NULL;
 	int *d = (int *)arg;
-	int service_core = (*d);
+	unsigned int service_core = (*d);
 	bool get = false;
 	int i = 0, j = 0, cnt = 0;
 
@@ -3246,9 +3250,10 @@ out:
 
 #endif
 
-int vpu_get_default_algo_num(int core, vpu_id_t *algo_num)
+int vpu_get_default_algo_num(int core_s, vpu_id_t *algo_num)
 {
 	int ret = 0;
+	unsigned int core = (unsigned int)core_s;
 
 	*algo_num = vpu_service_cores[core].default_algo_num;
 
@@ -3997,13 +4002,12 @@ int vpu_init_hw(int core, struct vpu_device *device)
 		/* pmqos  */
 		#ifdef ENABLE_PMQOS
 		for (i = 0 ; i < MTK_VPU_CORE ; i++) {
+			pm_qos_add_request(&vpu_qos_vvpu_request[i],
+				PM_QOS_VVPU_OPP,
+				PM_QOS_VVPU_OPP_DEFAULT_VALUE);
 
-		    pm_qos_add_request(&vpu_qos_vvpu_request[i],
-					    PM_QOS_VVPU_OPP,
-					    PM_QOS_VVPU_OPP_DEFAULT_VALUE);
-
-		pm_qos_update_request(&vpu_qos_vvpu_request[i],
-							VVPU_OPP_3);
+			pm_qos_update_request(&vpu_qos_vvpu_request[i],
+				VVPU_OPP_3);
 		}
 		#endif
 
@@ -4061,9 +4065,8 @@ int vpu_uninit_hw(void)
 	cancel_delayed_work(&opp_keep_work);
 	/* pmqos  */
 	#ifdef ENABLE_PMQOS
-	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
+	for (i = 0 ; i < MTK_VPU_CORE ; i++)
 		pm_qos_remove_request(&vpu_qos_vvpu_request[i]);
-	}
 	#endif
 
 	vpu_unprepare_regulator_and_clock();
@@ -4154,7 +4157,7 @@ int vpu_hw_enable_jtag(bool enabled)
 	return ret;
 }
 
-int vpu_hw_boot_sequence(int core)
+int vpu_hw_boot_sequence(int core_s)
 {
 	int ret;
 	uint64_t ptr_ctrl;
@@ -4163,6 +4166,7 @@ int vpu_hw_boot_sequence(int core)
 	uint64_t ptr_axi_1;
 	unsigned int reg_value = 0;
 	bool is_hw_fail = true;
+	unsigned int core = (unsigned int)core_s;
 
 	vpu_trace_begin("%s", __func__);
 	LOG_INF("[vpu_%d] boot-seq core(%d)\n", core, core);
@@ -4573,9 +4577,10 @@ int vpu_debug_func_core_state(int core, enum VpuCoreState state)
 	return 0;
 }
 
-int vpu_boot_up(int core, bool secure)
+int vpu_boot_up(int core_s, bool secure)
 {
 	int ret = 0;
+	unsigned int core = (unsigned int)core_s;
 
 	/*secure flag is for sdsp force shut down*/
 
@@ -4677,9 +4682,10 @@ int vpu_shut_down(int core)
 	return vpu_shut_down_ex(core, 1);
 }
 
-int vpu_shut_down_ex(int core, int logbackup)
+int vpu_shut_down_ex(int core_s, int logbackup)
 {
 	int ret = 0;
+	unsigned int core = (unsigned int)core_s;
 #ifdef ENABLE_EARA_QOS
 
 	vpu_qos_counter_end(core);
@@ -5667,6 +5673,7 @@ int vpu_dump_vpu(struct seq_file *s)
 int vpu_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
+	unsigned int lv = 0;
 
 	switch (param) {
 	case VPU_POWER_PARAM_FIX_OPP:
@@ -5702,7 +5709,9 @@ int vpu_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		ret = args[0] >= opps.count;
+		lv = (unsigned int)args[0];
+		ret = lv >= opps.count;
+
 		if (ret) {
 			LOG_ERR("opp step(%d) is out-of-bound, count:%d\n",
 					(int)(args[0]), opps.count);
@@ -5925,7 +5934,7 @@ uint8_t vpu_boost_value_to_opp(uint8_t boost_value)
 bool vpu_update_lock_power_parameter(struct vpu_lock_power *vpu_lock_power)
 {
 	bool ret = true;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 	unsigned int priority = vpu_lock_power->priority;
 
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
@@ -5959,7 +5968,7 @@ LOG_INF("power_parameter core %d, maxb:%d, minb:%d priority %d\n",
 bool vpu_update_unlock_power_parameter(struct vpu_lock_power *vpu_lock_power)
 {
 	bool ret = true;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 	unsigned int priority = vpu_lock_power->priority;
 
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
@@ -6005,7 +6014,7 @@ uint8_t max_of(uint8_t value1, uint8_t value2)
 bool vpu_update_max_opp(struct vpu_lock_power *vpu_lock_power)
 {
 	bool ret = true;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 	uint8_t first_priority = NORMAL;
 	uint8_t first_priority_max_boost_value = 100;
 	uint8_t first_priority_min_boost_value = 0;
