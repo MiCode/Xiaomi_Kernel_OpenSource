@@ -33,7 +33,7 @@
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
-#define TCPC_CORE_VERSION		"2.0.10_MTK"
+#define TCPC_CORE_VERSION		"2.0.11_MTK"
 
 static ssize_t tcpc_show_property(struct device *dev,
 				  struct device_attribute *attr, char *buf);
@@ -385,7 +385,7 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	tcpc->dev.release = tcpc_device_release;
 	dev_set_drvdata(&tcpc->dev, tcpc);
 	tcpc->drv_data = drv_data;
-	dev_set_name(&tcpc->dev, tcpc_desc->name);
+	dev_set_name(&tcpc->dev, "%s", tcpc_desc->name);
 	tcpc->desc = *tcpc_desc;
 	tcpc->ops = ops;
 	tcpc->typec_local_rp_level = tcpc_desc->rp_lvl;
@@ -527,7 +527,7 @@ static void tcpc_event_init_work(struct work_struct *work)
 	tcpci_lock_typec(tcpc);
 	tcpci_event_init(tcpc);
 	tcpc->pd_inited_flag = 1; /* MTK Only */
-	pr_info("%s typec attache new = %d\n",
+	pr_info("%s typec attach new = %d\n",
 			__func__, tcpc->typec_attach_new);
 	if (tcpc->typec_attach_new)
 		pd_put_cc_attached_event(tcpc, tcpc->typec_attach_new);
@@ -928,6 +928,12 @@ MODULE_VERSION(TCPC_CORE_VERSION);
 MODULE_LICENSE("GPL");
 
 /* Release Version
+ * 2.0.11_MTK
+ * (1) Fix PD compliance failures of Ellisys and MQP
+ * (2) Wait the result of BC1.2 before starting PD policy engine
+ * (3) Fix compile warnings
+ * (4) Fix NoRp.SRC support
+ *
  * 2.0.10_MTK
  * (1) fix battery noitifier plug out cause recursive locking detected in
  *     nh->srcu.
