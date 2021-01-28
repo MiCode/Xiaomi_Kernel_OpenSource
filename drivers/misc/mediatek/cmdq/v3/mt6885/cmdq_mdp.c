@@ -1435,24 +1435,6 @@ int32_t cmdqMdpResetEng(uint64_t engineFlag)
 	}
 
 
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ0)) {
-		mout_bits |= (1 << MOUT_BITS_MDP_PRZ0);
-		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_RSZ0)) {
-			CMDQ_REG_SET32(MDP_RSZ0_BASE, 0x0);
-			CMDQ_REG_SET32(MDP_RSZ0_BASE, 0x10000);
-			CMDQ_REG_SET32(MDP_RSZ0_BASE, 0x0);
-		}
-	}
-
-	if (engineFlag & (1LL << CMDQ_ENG_MDP_RSZ1)) {
-		mout_bits |= (1 << MOUT_BITS_MDP_PRZ1);
-		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_RSZ1)) {
-			CMDQ_REG_SET32(MDP_RSZ1_BASE, 0x0);
-			CMDQ_REG_SET32(MDP_RSZ1_BASE, 0x10000);
-			CMDQ_REG_SET32(MDP_RSZ1_BASE, 0x0);
-		}
-	}
-
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP0)) {
 			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x0);
@@ -1547,9 +1529,9 @@ int32_t cmdqMdpClockOff(uint64_t engineFlag)
 
 	if (engineFlag & (1LL << CMDQ_ENG_MDP_TDSHP0)) {
 		if (cmdq_mdp_get_func()->mdpClockIsOn(CMDQ_ENG_MDP_TDSHP0)) {
-			CMDQ_REG_SET32(MDP_TDSHP_BASE0 + 0x100, 0x0);
-			CMDQ_REG_SET32(MDP_TDSHP_BASE0 + 0x100, 0x2);
-			CMDQ_REG_SET32(MDP_TDSHP_BASE0 + 0x100, 0x0);
+			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x0);
+			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x2);
+			CMDQ_REG_SET32(MDP_TDSHP0_BASE + 0x100, 0x0);
 			CMDQ_MSG("Disable MDP_TDSHP0 clock\n");
 			cmdq_mdp_get_func()->enableMdpClock(false,
 				CMDQ_ENG_MDP_TDSHP0);
