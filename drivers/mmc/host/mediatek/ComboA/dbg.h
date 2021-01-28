@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -91,7 +91,7 @@ do { \
 	if (print_nums == 0) { \
 		print_nums++; \
 		msdc_print_start_time = sched_clock(); \
-		pr_info(TAGMSDC"MSDC", TAG"%d -> "fmt" <- %s() : L<%d> " \
+		pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> " \
 			"PID<%s><0x%x>\n", \
 			host->id, ##args, __func__, __LINE__, \
 			current->comm, current->pid); \
@@ -99,18 +99,17 @@ do { \
 		msdc_print_end_time = sched_clock();    \
 		if ((msdc_print_end_time - msdc_print_start_time) >= \
 			MAX_PRINT_PERIOD) { \
-			pr_info( \
-			TAGMSDC"MSDC", TAG"%d -> "fmt" <- %s() : L<%d> " \
+			pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> " \
 				"PID<%s><0x%x>\n", \
 				host->id, ##args, __func__, __LINE__, \
 				current->comm, current->pid); \
 			print_nums = 0; \
 		} \
 		if (print_nums <= MAX_PRINT_NUMS_OVER_PERIOD) { \
-			pr_info(TAGMSDC"MSDC", TAG"%d -> "fmt" <- %s() : " \
-				"L<%d> PID<%s><0x%x>\n", \
-				host->id, ##args, __func__, \
-				__LINE__, current->comm, current->pid); \
+			pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> " \
+				"PID<%s><0x%x>\n", \
+				host->id, ##args, __func__, __LINE__, \
+				current->comm, current->pid); \
 			print_nums++;   \
 		} \
 	} \
@@ -123,7 +122,7 @@ do { \
 		current->pid)
 
 #define INFO_MSG(fmt, args...) \
-	pr_debug(TAGMSDC"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
+	pr_info(TAGMSDC"%d -> "fmt" <- %s() : L<%d> PID<%s><0x%x>\n", \
 		host->id, ##args, __func__, __LINE__, current->comm, \
 		current->pid)
 
@@ -176,7 +175,8 @@ void msdc_error_tune_debug2(struct msdc_host *host,
 	struct mmc_command *stop, u32 *intsts);
 int multi_rw_compare(struct seq_file *m, int host_num,
 	uint address, int count, uint type, int multi_thread);
-void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg);
+void mmc_cmd_log(struct mmc_host *mmc, int type, int cmd, int arg,
+	struct mmc_command *sbc);
 void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		struct mmc_host *mmc, u32 latest_cnt);
 void msdc_dump_host_state(char **buff, unsigned long *size,

@@ -14,11 +14,11 @@
 #ifndef _AUTOK_DVFS_H_
 #define _AUTOK_DVFS_H_
 
-//#define VOREFS_READY
+#define VCOREFS_READY
 
 #include "autok.h"
 
-#ifdef VOREFS_READY
+#ifdef VCOREFS_READY
 #include <mtk_vcorefs_manager.h>
 #include <mtk_spm_vcore_dvfs.h>
 
@@ -85,10 +85,10 @@ extern int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode);
 extern void sdio_execute_dvfs_autok(struct msdc_host *host);
 
 extern int autok_res_check(u8 *res_h, u8 *res_l);
-extern void msdc_dump_autok(char **buff, unsigned long *size,
-	struct seq_file *m, struct msdc_host *host);
 extern void msdc_dvfs_reg_backup_init(struct msdc_host *host);
 extern void msdc_dvfs_reg_restore(struct msdc_host *host);
+extern void msdc_dump_autok(char **buff, unsigned long *size,
+	struct seq_file *m, struct msdc_host *host);
 extern int msdc_vcorefs_get_hw_opp(struct msdc_host *host);
 
 #endif /* _AUTOK_DVFS_H_ */

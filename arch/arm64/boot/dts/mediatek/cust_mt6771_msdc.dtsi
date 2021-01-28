@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -25,6 +25,8 @@
 	mmc-hs400-1_8v;
 	non-removable;
 	pinctl = <&msdc0_pins_default>;
+	pinctl_hs400 = <&msdc0_pins_default>;
+	pinctl_hs200 = <&msdc0_pins_default>;
 	register_setting = <&msdc0_register_setting_default>;
 	host_function = /bits/ 8 <MSDC_EMMC>;
 	bootable;
@@ -63,7 +65,7 @@
 	hw_dvfs = /bits/ 8 <0>;
 };
 
-&pio {
+&msdc0 {
 	msdc0_pins_default: msdc0@default {
 		pins_cmd {
 			drive-strength = /bits/ 8 <4>;
@@ -87,7 +89,9 @@
 		rdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
 		wdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
 	};
+};
 
+&msdc1 {
 	msdc1_pins_default: msdc1@default {
 		pins_cmd {
 			drive-strength = /bits/ 8 <3>;

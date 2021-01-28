@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -80,7 +80,10 @@ extern void msdc_dump_dvfs_reg(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
 void msdc_dump_clock_sts(char **buff, unsigned long *size,
 	struct seq_file *m, struct msdc_host *host);
-#define msdc_get_hclk(id, src)		hclks_msdc_all[id][src]
+#define msdc_get_hclk(id, src)          hclks_msdc_all[id][src]
+int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
+	struct msdc_host *host);
+void msdc_clk_enable_and_stable(struct msdc_host *host);
 
 //#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
 #if 1
@@ -105,9 +108,6 @@ void msdc_dump_clock_sts(char **buff, unsigned long *size,
 #define msdc_clk_disable(host)
 #endif
 
-int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
-	struct msdc_host *host);
-void msdc_clk_enable_and_stable(struct msdc_host *host);
 #endif
 
 /**************************************************************/

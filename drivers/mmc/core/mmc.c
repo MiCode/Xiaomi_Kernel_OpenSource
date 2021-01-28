@@ -1903,12 +1903,10 @@ err:
 	return err;
 }
 
-#ifdef CONFIG_MMC_FFU
 int mmc_reinit_oldcard(struct mmc_host *host)
 {
 	return mmc_init_card(host, host->card->ocr, host->card);
 }
-#endif
 
 static int mmc_cache_ctrl(struct mmc_host *host, u8 enable)
 {

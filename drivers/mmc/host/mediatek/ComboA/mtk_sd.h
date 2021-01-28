@@ -32,9 +32,17 @@
 #include "autok.h"
 #include "autok_dvfs.h"
 
-#if defined(CONFIG_MTK_HW_FDE) && defined(CONFIG_MTK_HW_FDE_AES)
-#include <fde_aes.h>
-#include <fde_aes_dbg.h>
+
+#ifdef CONFIG_PWR_LOSS_MTK_TEST
+#include <mach/power_loss_test.h>
+#else
+#define MVG_EMMC_CHECK_BUSY_AND_RESET(...)
+#define MVG_EMMC_SETUP(...)
+#define MVG_EMMC_RESET(...)
+#define MVG_EMMC_WRITE_MATCH(...)
+#define MVG_EMMC_ERASE_MATCH(...)
+#define MVG_EMMC_ERASE_RESET(...)
+#define MVG_EMMC_DECLARE_INT32(...)
 #endif
 
 /* #define MSDC_SWITCH_MODE_WHEN_ERROR */
@@ -50,9 +58,12 @@
 
 #ifdef CONFIG_MTK_MMC_DEBUG
 #define MSDC_DMA_ADDR_DEBUG
+#define MTK_MSDC_LOW_IO_DEBUG
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+#undef MTK_MSDC_LOW_IO_DEBUG
+#endif
 #endif
 /* #define MTK_MMC_SDIO_DEBUG */
-
 
 #define MTK_MSDC_USE_CMD23
 #if !defined(CONFIG_PWR_LOSS_MTK_TEST) && defined(MTK_MSDC_USE_CMD23)
@@ -409,8 +420,7 @@ struct msdc_host {
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	atomic_t                cq_error_need_stop;
 #endif
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
-	&& !defined(CONFIG_MTK_HW_FDE_AES)
+#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE))
 	bool                    is_crypto_init;
 	u32                     key_idx;
 #endif
@@ -662,13 +672,6 @@ void msdc_set_smpl_all(struct msdc_host *host, u32 clock_mode);
 void msdc_set_check_endbit(struct msdc_host *host, bool enable);
 int msdc_switch_part(struct msdc_host *host, char part_id);
 
-/* Function provided by msdc_tune.c */
-int sdcard_hw_reset(struct mmc_host *mmc);
-int sdcard_reset_tuning(struct mmc_host *mmc);
-int emmc_reinit_tuning(struct mmc_host *mmc);
-void msdc_restore_timing_setting(struct msdc_host *host);
-void msdc_save_timing_setting(struct msdc_host *host);
-
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 unsigned int msdc_do_cmdq_command(struct msdc_host *host,
 	struct mmc_command *cmd,
@@ -676,9 +679,6 @@ unsigned int msdc_do_cmdq_command(struct msdc_host *host,
 #endif
 
 /* Function provided by msdc_partition.c */
-#ifdef CONFIG_PWR_LOSS_MTK_TEST
-void msdc_proc_emmc_create(void);
-#endif
 int msdc_can_apply_cache(unsigned long long start_addr,
 	unsigned int size);
 int msdc_check_otp_ops(unsigned int opcode, unsigned long long start_addr,
@@ -688,10 +688,15 @@ u64 msdc_get_user_capacity(struct msdc_host *host);
 u32 msdc_get_other_capacity(struct msdc_host *host, char *name);
 
 /* Function provided by msdc_tune.c */
+int sdcard_hw_reset(struct mmc_host *mmc);
+int sdcard_reset_tuning(struct mmc_host *mmc);
+int emmc_reinit_tuning(struct mmc_host *mmc);
 void msdc_init_tune_setting(struct msdc_host *host);
 void msdc_ios_tune_setting(struct msdc_host *host, struct mmc_ios *ios);
 void msdc_init_tune_path(struct msdc_host *host, unsigned char timing);
 void msdc_sdio_restore_after_resume(struct msdc_host *host);
+void msdc_restore_timing_setting(struct msdc_host *host);
+void msdc_save_timing_setting(struct msdc_host *host);
 void msdc_set_bad_card_and_remove(struct msdc_host *host);
 void msdc_remove_card(struct work_struct *work);
 #ifdef CONFIG_HIE
