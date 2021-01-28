@@ -215,18 +215,18 @@ static int MTEE_mem_reg_cfg_notify_tee(enum TRUSTED_MEM_TYPE mem_type, u64 pa,
 #else
 		return TMEM_OK;
 #endif
+	case TRUSTED_MEM_HAPP:
+	case TRUSTED_MEM_HAPP_EXTRA:
+	case TRUSTED_MEM_SDSP:
 	case TRUSTED_MEM_SDSP_SHARED:
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
-		return secmem_set_sdsp_shared_region(pa, size);
+#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
+		return secmem_set_mchunks_region(pa, size, mem_type);
 #else
 		return TMEM_OK;
 #endif
 	case TRUSTED_MEM_SVP:
 	case TRUSTED_MEM_WFD:
 	case TRUSTED_MEM_SVP_VIRT_2D_FR:
-	case TRUSTED_MEM_HAPP_EXTRA:
-	case TRUSTED_MEM_HAPP:
-	case TRUSTED_MEM_SDSP:
 	default:
 		return TMEM_OK;
 	}

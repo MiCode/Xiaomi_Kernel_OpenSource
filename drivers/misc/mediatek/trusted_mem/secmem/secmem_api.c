@@ -58,14 +58,50 @@ int secmem_fr_dump_info(void)
 }
 #endif
 
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
-int secmem_set_sdsp_shared_region(u64 pa, u32 size)
+#if defined(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)
+/* Refer to drSecMemApi.h */
+enum SMEM_TYPE {
+	SMEM_SVP = 0,
+	SMEM_PROT = 1,
+	SMEM_2D_FR = 2,
+	SMEM_WFD = 3,
+	SMEM_SDSP_TEE = 4,
+	SMEM_SDSP_FIRMWARE = 5,
+	SMEM_HAPP_ELF = 6,
+	SMEM_HAPP_EXTRA = 7,
+};
+static int get_smem_type(enum TRUSTED_MEM_TYPE mem_type)
+{
+	switch (mem_type) {
+	case TRUSTED_MEM_SVP:
+		return SMEM_SVP;
+	case TRUSTED_MEM_PROT:
+		return SMEM_PROT;
+	case TRUSTED_MEM_WFD:
+		return SMEM_WFD;
+	case TRUSTED_MEM_HAPP:
+		return SMEM_HAPP_ELF;
+	case TRUSTED_MEM_HAPP_EXTRA:
+		return SMEM_HAPP_EXTRA;
+	case TRUSTED_MEM_SDSP:
+		return SMEM_SDSP_FIRMWARE;
+	case TRUSTED_MEM_SDSP_SHARED:
+		return SMEM_SDSP_TEE;
+	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+		return SMEM_2D_FR;
+	default:
+		return SMEM_SVP;
+	}
+}
+
+int secmem_set_mchunks_region(u64 pa, u32 size, enum TRUSTED_MEM_TYPE mem_type)
 {
 	struct trusted_driver_cmd_params cmd_params = {0};
 
-	cmd_params.cmd = CMD_SEC_MEM_SET_SDSP_REGION;
+	cmd_params.cmd = CMD_SEC_MEM_SET_MCHUNKS_REGION;
 	cmd_params.param0 = pa;
 	cmd_params.param1 = size;
+	cmd_params.param2 = get_smem_type(mem_type);
 
 #ifdef TCORE_UT_FWK_SUPPORT
 	if (is_multi_type_alloc_multithread_test_locked()) {
