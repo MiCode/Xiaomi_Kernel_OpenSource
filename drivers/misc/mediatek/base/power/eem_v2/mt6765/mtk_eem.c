@@ -299,7 +299,7 @@ static int get_devinfo(void)
 		if (det->pi_efuse_count)
 			idx = i % det->pi_efuse_count;
 
-		if (!det->pi_efuse[idx])
+		if ((idx >= NR_PI_SHARED_CTRL) || !det->pi_efuse[idx])
 			continue;
 
 		p = &pi_efuse_idx[i];
