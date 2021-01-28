@@ -247,12 +247,6 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 		break;
 	}
 
-
-	/* collect dump info */
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-		/* fill data to aee_log_buf */
-	}
-
 	if (str_len > 0)
 		memcpy(buf, aee_log_buf, str_len+1);
 
