@@ -98,6 +98,8 @@ config ANDROID_DEFAULT_SETTING
 	select MAGIC_SYSRQ
 	select MD
 	select MEMBARRIER
+	select MEMCG
+	select MEMCG_SWAP
 	select MMU
 	select MODULES
 	select MODULE_UNLOAD
