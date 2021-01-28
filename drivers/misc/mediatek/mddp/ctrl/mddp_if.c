@@ -305,3 +305,5 @@ static void __exit mddp_exit(void)
 }
 module_init(mddp_init);
 module_exit(mddp_exit);
+
+MODULE_LICENSE("GPL v2");
