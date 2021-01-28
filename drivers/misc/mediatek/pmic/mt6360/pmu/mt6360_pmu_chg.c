@@ -2922,8 +2922,16 @@ void mt6360_recv_batoc_callback(BATTERY_OC_LEVEL tag)
 static int mt6360_charger_get_online(struct mt6360_pmu_chg_info *mpci,
 				     union power_supply_propval *val)
 {
+#ifndef CONFIG_TCPC_CLASS
 	int ret;
+#endif
 	bool uvp_d_stat;
+
+#ifdef CONFIG_TCPC_CLASS
+	mutex_lock(&mpci->attach_lock);
+	uvp_d_stat = mpci->attach;
+	mutex_unlock(&mpci->attach_lock);
+#else
 	/*uvp_d_stat=true => vbus_on=1*/
 	ret = mt6360_get_chrdet_ext_stat(mpci, &uvp_d_stat);
 	if (ret < 0) {
@@ -2931,6 +2939,8 @@ static int mt6360_charger_get_online(struct mt6360_pmu_chg_info *mpci,
 			"%s: read uvp_d_stat fail\n", __func__);
 		return ret;
 	}
+#endif
+	dev_info(mpci->dev, "%s: online = %d\n", __func__, uvp_d_stat);
 	val->intval = uvp_d_stat;
 
 	return 0;
