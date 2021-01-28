@@ -1839,6 +1839,9 @@ int layering_rule_start(struct disp_layer_info *disp_info_user,
 		layering_info.hrt_num = 0;
 
 	ret = dispatch_ovl_id(&layering_info);
+	if (l_rule_ops->clear_layer)
+		l_rule_ops->clear_layer(&layering_info);
+
 	check_layering_result(&layering_info);
 
 	HRT_SET_PATH_SCENARIO(layering_info.hrt_num, l_rule_info->disp_path);

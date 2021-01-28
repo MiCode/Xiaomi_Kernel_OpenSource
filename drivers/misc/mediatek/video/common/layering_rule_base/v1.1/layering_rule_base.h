@@ -147,6 +147,7 @@ struct layering_rule_ops {
 				    int disp_idx);
 	bool (*adaptive_dc_enabled)(void);
 	bool (*rollback_all_to_GPU_for_idle)(void);
+	void (*clear_layer)(struct disp_layer_info *disp_info);
 };
 
 #define HRT_GET_DVFS_LEVEL(hrt_num) (hrt_num & 0xF)
