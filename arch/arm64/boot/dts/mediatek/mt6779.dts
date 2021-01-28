@@ -3419,6 +3419,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			dr_mode = "otg";
 			mediatek,force-vbus = <1>;
 			mediatek,clk-mgr = <1>;
+			mediatek,spm-mgr = <1>;
 			maximum-speed = "high-speed";
 			usb-role-switch;
 			status = "okay";
