@@ -1840,14 +1840,14 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 #ifdef Rdy_ReqDump
 	/* Module DebugInfo when no p1_done */
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
-		ISP_WR32(CAM_REG_DBG_SET(regModule),
+		ISP_WR32(CAM_REG_DBG_SET(inner_regModule),
 			 (0x00040101 + (i * 0x100)));
 		moduleReqStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
 	}
 
 	for (i = 0; i < ISP_MODULE_GROUPS; i++) {
-		ISP_WR32(CAM_REG_DBG_SET(regModule),
+		ISP_WR32(CAM_REG_DBG_SET(inner_regModule),
 			 (0x00041101 + (i * 0x100)));
 		moduleRdyStatus[i] =
 			ISP_RD32(CAM_REG_DBG_PORT(inner_regModule));
@@ -4530,6 +4530,9 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 					ISP_WR32(
 						CAM_REG_TG_VF_CON(DebugFlag[1]),
 						(vf + 0x1));
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_A_IDX), 0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_B_IDX), 0x00040000);
+					ISP_WR32(CAM_REG_DBG_SET(ISP_CAM_C_IDX), 0x00040000);
 				}
 
 #if (TIMESTAMP_QUEUE_EN == 1)
