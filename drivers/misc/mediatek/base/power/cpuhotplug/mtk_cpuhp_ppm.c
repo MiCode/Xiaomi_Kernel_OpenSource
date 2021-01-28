@@ -154,9 +154,6 @@ void ppm_notifier(void)
 		}
 	}
 
-	/* register PPM callback */
-	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
-
 	/* create a kthread to serve the requests from PPM */
 	ppm_kthread = kthread_create(ppm_thread_fn, NULL, "cpuhp-ppm");
 	if (IS_ERR(ppm_kthread)) {
@@ -164,6 +161,9 @@ void ppm_notifier(void)
 		       PTR_ERR(ppm_kthread));
 		return;
 	}
+
+	/* register PPM callback */
+	mt_ppm_register_client(PPM_CLIENT_HOTPLUG, &ppm_limit_callback);
 
 	hps_ws = wakeup_source_register(NULL, "hps");
 	if (!hps_ws)
