@@ -1476,7 +1476,8 @@ static struct clk_ops mtk_mipi_tx_pll_ops = {
 static int mtk_mipi_tx_power_on_signal(struct phy *phy)
 {
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
-	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853)
+	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
+	&& !defined(CONFIG_MACH_MT6833)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 
@@ -1868,7 +1869,8 @@ static int mtk_mipi_tx_power_on(struct phy *phy)
 static void mtk_mipi_tx_power_off_signal(struct phy *phy)
 {
 #if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
-	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853)
+	&& !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6853) \
+	&& !defined(CONFIG_MACH_MT6833)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 

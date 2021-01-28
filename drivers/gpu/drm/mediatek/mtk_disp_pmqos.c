@@ -133,7 +133,7 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 		return M4U_PORT_L0_DISP_WDMA0;
 #endif
 
-#if defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6833)
 	case DDP_COMPONENT_OVL0:
 		return M4U_PORT_L0_OVL_RDMA0;
 	case DDP_COMPONENT_OVL0_2L:
