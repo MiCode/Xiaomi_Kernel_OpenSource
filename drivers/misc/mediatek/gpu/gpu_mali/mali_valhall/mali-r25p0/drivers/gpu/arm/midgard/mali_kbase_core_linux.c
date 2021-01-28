@@ -1975,7 +1975,7 @@ static ssize_t show_core_mask(struct device *dev, struct device_attribute *attr,
  * @dev:	The device with sysfs file is for
  * @attr:	The attributes of the sysfs file
  * @buf:	The value written to the sysfs file
- * @count:	The number of bytes written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
  *
  * Return: @count if the function succeeded. An error code on failure.
  */
@@ -2070,7 +2070,7 @@ static DEVICE_ATTR(core_mask, S_IRUGO | S_IWUSR, show_core_mask, set_core_mask);
  * @dev: The device this sysfs file is for.
  * @attr: The attributes of the sysfs file.
  * @buf: The value written to the sysfs file.
- * @count: The number of bytes written to the sysfs file.
+ * @count: The number of bytes to write to the sysfs file.
  *
  * This allows setting the timeout for software jobs. Waiting soft event wait
  * jobs will be cancelled after this period expires, while soft fence wait jobs
@@ -2163,7 +2163,7 @@ static u32 timeout_ms_to_ticks(struct kbase_device *kbdev, long timeout_ms,
  * @dev:	The device with sysfs file is for
  * @attr:	The attributes of the sysfs file
  * @buf:	The value written to the sysfs file
- * @count:	The number of bytes written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
  *
  * Return: @count if the function succeeded. An error code on failure.
  */
@@ -2340,7 +2340,7 @@ static u32 get_new_js_timeout(
  * @dev:   The device the sysfs file is for
  * @attr:  The attributes of the sysfs file
  * @buf:   The value written to the sysfs file
- * @count: The number of bytes written to the sysfs file
+ * @count: The number of bytes to write to the sysfs file
  *
  * This function is called when the js_scheduling_period sysfs file is written
  * to. It checks the data written, and if valid updates the js_scheduling_period
@@ -2580,7 +2580,7 @@ static ssize_t show_debug(struct device *dev, struct device_attribute *attr, cha
  * @dev:	The device with sysfs file is for
  * @attr:	The attributes of the sysfs file
  * @buf:	The value written to the sysfs file
- * @count:	The number of bytes written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
  *
  * Return: @count if the function succeeded. An error code on failure.
  */
@@ -3181,7 +3181,6 @@ static DEVICE_ATTR(js_ctx_scheduling_mode, S_IRUGO | S_IWUSR,
 		set_js_ctx_scheduling_mode);
 
 #ifdef MALI_KBASE_BUILD
-#ifdef CONFIG_DEBUG_FS
 
 /* Number of entries in serialize_jobs_settings[] */
 #define NR_SERIALIZE_JOBS_SETTINGS 5
@@ -3202,8 +3201,47 @@ static struct
 };
 
 /**
- * kbasep_serialize_jobs_seq_show - Show callback for the serialize_jobs debugfs
- *                                  file
+ * update_serialize_jobs_setting - Update the serialization setting for the
+ *                                 submission of GPU jobs.
+ *
+ * This function is called when the serialize_jobs sysfs/debugfs file is
+ * written to. It matches the requested setting against the available settings
+ * and if a matching setting is found updates kbdev->serialize_jobs.
+ *
+ * @kbdev:  An instance of the GPU platform device, allocated from the probe
+ *          method of the driver.
+ * @buf:    Buffer containing the value written to the sysfs/debugfs file.
+ * @count:  The number of bytes to write to the sysfs/debugfs file.
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t update_serialize_jobs_setting(struct kbase_device *kbdev,
+					     const char *buf, size_t count)
+{
+	int i;
+	bool valid = false;
+
+	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
+		if (sysfs_streq(serialize_jobs_settings[i].name, buf)) {
+			kbdev->serialize_jobs =
+				serialize_jobs_settings[i].setting;
+			valid = true;
+			break;
+		}
+	}
+
+	if (!valid) {
+		dev_err(kbdev->dev, "serialize_jobs: invalid setting");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+#ifdef CONFIG_DEBUG_FS
+/**
+ * kbasep_serialize_jobs_seq_debugfs_show - Show callback for the serialize_jobs
+ *					    debugfs file
  * @sfile: seq_file pointer
  * @data:  Private callback data
  *
@@ -3213,7 +3251,8 @@ static struct
  *
  * Return: 0 on success, or an error code on error
  */
-static int kbasep_serialize_jobs_seq_show(struct seq_file *sfile, void *data)
+static int kbasep_serialize_jobs_seq_debugfs_show(struct seq_file *sfile,
+						  void *data)
 {
 	struct kbase_device *kbdev = sfile->private;
 	int i;
@@ -3254,8 +3293,6 @@ static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
 	struct seq_file *s = file->private_data;
 	struct kbase_device *kbdev = s->private;
 	char buf[MAX_SERIALIZE_JOBS_NAME_LEN];
-	int i;
-	bool valid = false;
 
 	CSTD_UNUSED(ppos);
 
@@ -3265,21 +3302,7 @@ static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
 
 	buf[count] = 0;
 
-	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
-		if (sysfs_streq(serialize_jobs_settings[i].name, buf)) {
-			kbdev->serialize_jobs =
-					serialize_jobs_settings[i].setting;
-			valid = true;
-			break;
-		}
-	}
-
-	if (!valid) {
-		dev_err(kbdev->dev, "serialize_jobs: invalid setting\n");
-		return -EINVAL;
-	}
-
-	return count;
+	return update_serialize_jobs_setting(kbdev, buf, count);
 }
 
 /**
@@ -3293,7 +3316,8 @@ static ssize_t kbasep_serialize_jobs_debugfs_write(struct file *file,
 static int kbasep_serialize_jobs_debugfs_open(struct inode *in,
 		struct file *file)
 {
-	return single_open(file, kbasep_serialize_jobs_seq_show, in->i_private);
+	return single_open(file, kbasep_serialize_jobs_seq_debugfs_show,
+			   in->i_private);
 }
 
 static const struct file_operations kbasep_serialize_jobs_debugfs_fops = {
@@ -3306,6 +3330,72 @@ static const struct file_operations kbasep_serialize_jobs_debugfs_fops = {
 };
 
 #endif /* CONFIG_DEBUG_FS */
+
+/**
+ * show_serialize_jobs_sysfs - Show callback for serialize_jobs sysfs file.
+ *
+ * This function is called to get the contents of the serialize_jobs sysfs
+ * file. This is a list of the available settings with the currently active
+ * one surrounded by square brackets.
+ *
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The output buffer for the sysfs file contents
+ *
+ * Return: The number of bytes output to @buf.
+ */
+static ssize_t show_serialize_jobs_sysfs(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	struct kbase_device *kbdev = to_kbase_device(dev);
+	ssize_t ret = 0;
+	int i;
+
+	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
+		if (kbdev->serialize_jobs ==
+				serialize_jobs_settings[i].setting)
+			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "[%s]",
+					 serialize_jobs_settings[i].name);
+		else
+			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%s ",
+					 serialize_jobs_settings[i].name);
+	}
+
+	if (ret < PAGE_SIZE - 1) {
+		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "\n");
+	} else {
+		buf[PAGE_SIZE - 2] = '\n';
+		buf[PAGE_SIZE - 1] = '\0';
+		ret = PAGE_SIZE - 1;
+	}
+
+	return ret;
+}
+
+/**
+ * store_serialize_jobs_sysfs - Store callback for serialize_jobs sysfs file.
+ *
+ * This function is called when the serialize_jobs sysfs file is written to.
+ * It matches the requested setting against the available settings and if a
+ * matching setting is found updates kbdev->serialize_jobs.
+ *
+ * @dev:	The device this sysfs file is for
+ * @attr:	The attributes of the sysfs file
+ * @buf:	The value written to the sysfs file
+ * @count:	The number of bytes to write to the sysfs file
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t store_serialize_jobs_sysfs(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	return update_serialize_jobs_setting(to_kbase_device(dev), buf, count);
+}
+
+static DEVICE_ATTR(serialize_jobs, 0600, show_serialize_jobs_sysfs,
+		   store_serialize_jobs_sysfs);
 #endif /* MALI_KBASE_BUILD */
 
 static void kbasep_protected_mode_hwcnt_disable_worker(struct work_struct *data)
@@ -4104,6 +4194,11 @@ void buslog_term(struct kbase_device *kbdev)
 }
 #endif
 
+static struct attribute *kbase_scheduling_attrs[] = {
+	&dev_attr_serialize_jobs.attr,
+	NULL
+};
+
 static struct attribute *kbase_attrs[] = {
 #ifdef CONFIG_MALI_DEBUG
 	&dev_attr_debug_command.attr,
@@ -4126,6 +4221,12 @@ static struct attribute *kbase_attrs[] = {
 	NULL
 };
 
+#define SYSFS_SCHEDULING_GROUP "scheduling"
+static const struct attribute_group kbase_scheduling_attr_group = {
+	.name = SYSFS_SCHEDULING_GROUP,
+	.attrs = kbase_scheduling_attrs,
+};
+
 static const struct attribute_group kbase_attr_group = {
 	.attrs = kbase_attrs,
 };
@@ -4141,11 +4242,23 @@ int kbase_sysfs_init(struct kbase_device *kbdev)
 	kbdev->mdev.mode = 0666;
 
 	err = sysfs_create_group(&kbdev->dev->kobj, &kbase_attr_group);
+	if (!err) {
+		err = sysfs_create_group(&kbdev->dev->kobj,
+					 &kbase_scheduling_attr_group);
+		if (err) {
+			dev_err(kbdev->dev, "Creation of %s sysfs group failed",
+				SYSFS_SCHEDULING_GROUP);
+			sysfs_remove_group(&kbdev->dev->kobj,
+					   &kbase_attr_group);
+		}
+	}
+
 	return err;
 }
 
 void kbase_sysfs_term(struct kbase_device *kbdev)
 {
+	sysfs_remove_group(&kbdev->dev->kobj, &kbase_scheduling_attr_group);
 	sysfs_remove_group(&kbdev->dev->kobj, &kbase_attr_group);
 	put_device(kbdev->dev);
 }
