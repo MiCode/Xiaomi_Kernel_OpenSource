@@ -587,12 +587,16 @@ struct hwmsen_convert map[] = {
 /*----------------------------------------------------------------------------*/
 int hwmsen_get_convert(int direction, struct hwmsen_convert *cvt)
 {
+	unsigned int dir;
+
 	if (!cvt)
 		return -EINVAL;
-	else if (direction >= ARRAY_SIZE(map))
+	else if (direction < 0 || direction >= ARRAY_SIZE(map))
 		return -EINVAL;
+	else
+		dir = direction;
 
-	*cvt = map[direction];
+	*cvt = map[dir];
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
