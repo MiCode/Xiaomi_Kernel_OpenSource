@@ -255,6 +255,9 @@ static ssize_t mix_write(struct file *filp,
 {
 	char temp_buf[500];
 
+	if (size >= 500)
+		return -ENOMEM;
+
 	if (copy_from_user(temp_buf, buf, size))
 		return -EFAULT;
 	temp_buf[size] = '\0';
