@@ -382,6 +382,7 @@ int mdw_usr_dev_sec_alloc(int type, struct mdw_usr *u)
 	if (req.num[type + APUSYS_DEVICE_RT])
 		req.acq_bmp |= (1ULL << (type + APUSYS_DEVICE_RT));
 
+	req.total_num = req.num[type] + req.num[type + APUSYS_DEVICE_RT];
 	req.mode = MDW_DEV_INFO_GET_MODE_SYNC;
 	req.policy = MDW_DEV_INFO_GET_POLICY_RR;
 
@@ -396,6 +397,10 @@ int mdw_usr_dev_sec_alloc(int type, struct mdw_usr *u)
 	list_for_each_safe(list_ptr, tmp, &req.d_list) {
 		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
 		mdw_flw_debug("pwn on dev(%s%d)\n", d->name, d->idx);
+		/* don't control power of rt device  */
+		if (d->type >= APUSYS_DEVICE_RT)
+			goto next;
+
 		ret = d->pwr_off(d);
 		if (ret) {
 			mdw_drv_warn("pwr down dev(%s%d) fail(%d)\n",
@@ -409,7 +414,7 @@ int mdw_usr_dev_sec_alloc(int type, struct mdw_usr *u)
 				d->name, d->idx, ret);
 			goto fail_pwr_on;
 		}
-
+next:
 		list_del(&d->r_item);
 		list_add_tail(&d->u_item, &u->sdev_list);
 	}
@@ -434,8 +439,9 @@ fail_pwr_on:
 fail_pwr_down:
 	list_for_each_safe(list_ptr, tmp, &req.d_list) {
 		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
+		if (d->type < APUSYS_DEVICE_RT)
+			d->pwr_off(d);
 
-		d->pwr_off(d);
 		list_del(&d->r_item);
 		mdw_rsc_put_dev(d);
 	}
@@ -445,7 +451,9 @@ fail_pwr_down:
 
 		if (d->type != type && d->type != type + APUSYS_DEVICE_RT)
 			continue;
-		d->pwr_off(d);
+
+		if (d->type < APUSYS_DEVICE_RT)
+			d->pwr_off(d);
 		list_del(&d->u_item);
 		mdw_rsc_put_dev(d);
 	}
@@ -479,10 +487,12 @@ int mdw_usr_dev_sec_free(int type, struct mdw_usr *u)
 		if (d->type != type && d->type != type + APUSYS_DEVICE_RT)
 			continue;
 
-		ret = d->pwr_off(d);
+		if (d->type < APUSYS_DEVICE_RT)
+			ret = d->pwr_off(d);
 		if (ret)
 			mdw_drv_warn("pwr down dev(%s%d) fail(%d)\n",
 				d->name, d->idx, ret);
+
 		list_del(&d->u_item);
 		mdw_rsc_put_dev(d);
 	}

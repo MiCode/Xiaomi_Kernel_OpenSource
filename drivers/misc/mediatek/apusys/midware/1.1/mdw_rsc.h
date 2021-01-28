@@ -99,12 +99,12 @@ struct mdw_rsc_tab {
 };
 
 struct mdw_rsc_req {
-	uint8_t num[APUSYS_DEVICE_MAX];
-	uint8_t get_num[APUSYS_DEVICE_MAX];
+	uint8_t num[APUSYS_DEVICE_MAX]; //in
+	uint8_t get_num[APUSYS_DEVICE_MAX]; //in
+	uint32_t total_num; //in
+	uint64_t acq_bmp; //in
 
 	uint32_t ready_num;
-	uint32_t total_num;
-	uint64_t acq_bmp;
 
 	int mode;
 	int policy;
