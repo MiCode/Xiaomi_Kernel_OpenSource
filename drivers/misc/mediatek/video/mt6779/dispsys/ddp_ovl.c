@@ -684,6 +684,7 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 	if (!is_engine_sec) {
 		DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR + Lx_addr_base,
 			     cfg->real_addr);
+		DISP_REG_SET(handle, DISP_REG_OVL_SECURE + baddr, 0);
 	} else {
 #ifdef MTKFB_M4U_SUPPORT
 		unsigned int size;
@@ -692,16 +693,18 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 		size = (dst_h - 1) * cfg->src_pitch + dst_w * Bpp;
 		m4u_port = module_to_m4u_port(module);
 		if (cfg->security != DISP_SECURE_BUFFER) {
-			/*
-			 * OVL is sec but this layer is non-sec
-			 * we need to tell cmdq to help map non-sec mva
-			 * to sec mva
-			 */
-			cmdqRecWriteSecure(handle,
-					disp_addr_convert(DISP_REG_OVL_L0_ADDR +
-							  Lx_addr_base),
-					CMDQ_SAM_NMVA_2_MVA, cfg->addr + offset,
-					0, size, m4u_port);
+			/* use layer secure bit */
+			DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR +
+				Lx_addr_base, cfg->real_addr);
+			if (is_ext_layer)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 0);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 0);
 		} else {
 			/*
 			 * for sec layer, addr variable stores sec handle
@@ -714,6 +717,15 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 							  Lx_addr_base),
 					CMDQ_SAM_H_2_MVA, cfg->addr, offset,
 					size, m4u_port);
+			if (is_ext_layer)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 1);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 1);
 		}
 #endif /* MTKFB_M4U_SUPPORT */
 	}
@@ -976,26 +988,29 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 	if (!is_engine_sec) {
 		DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR + Lx_addr_base,
 			     buf_addr + tile_offset * 256);
+		DISP_REG_SET(handle, DISP_REG_OVL_SECURE + baddr, 0);
 	} else {
 
 #ifdef MTKFB_M4U_SUPPORT
 		unsigned int size;
 		int m4u_port;
+		int is_ext_layer = (cfg->ext_layer != -1);
 
 		size = (dst_h - 1) * cfg->src_pitch + dst_w * Bpp;
 		m4u_port = module_to_m4u_port(module);
 		if (cfg->security != DISP_SECURE_BUFFER) {
-			/*
-			 * OVL is sec but this layer is non-sec
-			 * we need to tell cmdq to help map non-sec mva
-			 * to sec mva
-			 */
-			cmdqRecWriteSecure(handle,
-				disp_addr_convert(DISP_REG_OVL_L0_ADDR +
-						  Lx_addr_base),
-				CMDQ_SAM_NMVA_2_MVA,
-				buf_addr + tile_offset * 256,
-				0, size, m4u_port);
+			/* use layer secure bit */
+			DISP_REG_SET(handle, DISP_REG_OVL_L0_ADDR +
+				Lx_addr_base, buf_addr + tile_offset * 256);
+			if (is_ext_layer)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 0);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 0);
 		} else {
 			/*
 			 * for sec layer, addr variable stores sec handle
@@ -1009,6 +1024,15 @@ static int ovl_layer_config_compress(enum DISP_MODULE_ENUM module,
 				CMDQ_SAM_H_2_MVA,
 				buf_addr + tile_offset * 256,
 				0, size, m4u_port);
+			if (is_ext_layer)
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(cfg->ext_layer + 4,
+					cfg->ext_layer + 4),
+					baddr + DISP_REG_OVL_SECURE, 1);
+			else
+				DISP_REG_SET_FIELD(handle,
+					REG_FLD_MSB_LSB(phy_layer, phy_layer),
+					baddr + DISP_REG_OVL_SECURE, 1);
 		}
 #endif /* MTKFB_M4U_SUPPORT */
 	}
@@ -1245,7 +1269,7 @@ static inline int ovl_switch_to_sec(enum DISP_MODULE_ENUM module, void *handle)
 	 * set engine as sec port, it will to access
 	 * the sec memory EMI_MPU protected
 	 */
-	cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
+	//cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
 	/* enable DAPC to protect the engine register */
 	/* cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine)); */
 	if (ovl_is_sec[ovl_idx] == 0) {
@@ -1261,68 +1285,7 @@ static inline int ovl_switch_to_sec(enum DISP_MODULE_ENUM module, void *handle)
 int ovl_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 {
 	unsigned int ovl_idx = ovl_to_index(module);
-	enum CMDQ_ENG_ENUM cmdq_engine;
-	enum CMDQ_EVENT_ENUM cmdq_event_nonsec_end;
 
-	cmdq_engine = ovl_to_cmdq_engine(module);
-
-	if (ovl_is_sec[ovl_idx] == 1) {
-		/* OVL is in sec stat, we need to switch it to nonsec */
-		struct cmdqRecStruct *nonsec_switch_handle = NULL;
-		int ret;
-
-		ret = cmdqRecCreate(
-				CMDQ_SCENARIO_DISP_PRIMARY_DISABLE_SECURE_PATH,
-				&(nonsec_switch_handle));
-		if (ret)
-			DDPAEE("[SVP]fail to create disable_handle %s ret=%d\n",
-			       __func__, ret);
-
-		cmdqRecReset(nonsec_switch_handle);
-
-		if (module != DISP_MODULE_OVL1_2L) {
-			/* Primary Mode */
-			if (primary_display_is_decouple_mode())
-				cmdqRecWaitNoClear(nonsec_switch_handle,
-						   CMDQ_EVENT_DISP_WDMA0_EOF);
-			else
-				_cmdq_insert_wait_frame_done_token_mira(
-							nonsec_switch_handle);
-		} else {
-			/* External Mode */
-			cmdqRecWaitNoClear(nonsec_switch_handle,
-					   CMDQ_SYNC_DISP_EXT_STREAM_EOF);
-		}
-		cmdqRecSetSecure(nonsec_switch_handle, 1);
-
-		/*
-		 * we should disable OVL before new (nonsec) setting takes
-		 * effect, or translation fault may happen.
-		 * if we switch OVL to nonsec BUT its setting is still sec
-		 */
-		disable_ovl_layers(module, nonsec_switch_handle);
-		/* in fact, dapc/port_sec will be disabled by cmdq */
-		cmdqRecSecureEnablePortSecurity(nonsec_switch_handle,
-						(1LL << cmdq_engine));
-
-		if (handle) {
-			/* async flush method */
-			cmdq_event_nonsec_end = ovl_to_cmdq_event_nonsec_end(
-									module);
-			cmdqRecSetEventToken(nonsec_switch_handle,
-					     cmdq_event_nonsec_end);
-			cmdqRecFlushAsync(nonsec_switch_handle);
-			cmdqRecWait(handle, cmdq_event_nonsec_end);
-		} else {
-			/* sync flush method */
-			cmdqRecFlush(nonsec_switch_handle);
-		}
-
-		cmdqRecDestroy(nonsec_switch_handle);
-		DDPSVPMSG("[SVP] switch ovl%d to nonsec\n", ovl_idx);
-		mmprofile_log_ex(ddp_mmp_get_events()->svp_module[module],
-				 MMPROFILE_FLAG_END, 0, 0);
-	}
 	ovl_is_sec[ovl_idx] = 0;
 
 	return 0;
