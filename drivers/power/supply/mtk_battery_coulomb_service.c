@@ -189,8 +189,10 @@ void gauge_coulomb_start(struct gauge_consumer *coulomb, int car)
 	if (car == 0)
 		return;
 
-	if (cs->init == false)
+	if (cs->init == false) {
+		cs = NULL;
 		return;
+	}
 
 	mutex_lock(&cs->coulomb_lock);
 	gauge_get_property(GAUGE_PROP_COULOMB, &val);
@@ -269,8 +271,10 @@ void gauge_coulomb_stop(struct gauge_consumer *coulomb)
 	gm = get_mtk_battery();
 	cs = &gm->cs;
 
-	if (cs->init == false)
+	if (cs->init == false) {
+		cs = NULL;
 		return;
+	}
 
 	bm_debug("%s name:%s %ld %ld %d\n",
 	__func__,
