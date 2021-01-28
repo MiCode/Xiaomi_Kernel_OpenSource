@@ -3128,6 +3128,18 @@ page_owner=on";
 			<&iommu0 M4U_PORT_L22_CCU0>;
 	};
 
+	ccu@1a101000 {
+		compatible = "mediatek,ccu";
+		reg = <0 0x1a101000 0 0x1000>;
+		interrupts = <GIC_SPI 331 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&camsys_main CLK_CAM_M_CCU0>,
+					<&topckgen CLK_TOP_CCU_SEL>,
+					<&scpsys SCP_SYS_CAM>;
+		clock-names = "CCU_CLK_CAM_CCU",
+						"CCU_CLK_TOP_MUX",
+						"CAM_PWR";
+	};
+
 	pseudo_m4u-ccu1 {
 		compatible = "mediatek,mt-pseudo_m4u-port";
 		mediatek,larbid = <CCU1_PSEUDO_LARBID>;
