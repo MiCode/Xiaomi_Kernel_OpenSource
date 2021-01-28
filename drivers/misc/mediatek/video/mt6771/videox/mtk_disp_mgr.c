@@ -578,7 +578,7 @@ void dump_input_cfg_info(struct disp_input_config *input_cfg,
 			 unsigned int session, int is_err)
 {
 	_DISP_PRINT_FENCE_OR_ERR(is_err,
-		"S+/%sL%d/e%d/id%d/(%d,%d,%dx%d)(%d,%d,%dx%d)/%s/%d/mva%p/t%d/s%d\n",
+		"S+/%sL%d/e%d/id%d/(%d,%d,%dx%d)(%d,%d,%dx%d)/%s/%d/mva0x%08lx/t%d/s%d\n",
 		disp_session_type_str(session),
 		input_cfg->layer_id, input_cfg->layer_enable,
 		input_cfg->next_buff_idx,
@@ -587,7 +587,8 @@ void dump_input_cfg_info(struct disp_input_config *input_cfg,
 		input_cfg->tgt_offset_x, input_cfg->tgt_offset_y,
 		input_cfg->tgt_width, input_cfg->tgt_height,
 		_disp_format_str(input_cfg->src_fmt),
-		input_cfg->src_pitch, input_cfg->src_phy_addr,
+		input_cfg->src_pitch,
+		(unsigned long)(input_cfg->src_phy_addr),
 		get_ovl2mem_ticket(), input_cfg->security);
 }
 
