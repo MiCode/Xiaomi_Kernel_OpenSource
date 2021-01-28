@@ -70,6 +70,7 @@ struct mtk_adsp_task_attr {
 	int afe_memif_ref;
 	int adsp_feature_id;
 	int runtime_enable;
+	int ref_runtime_enable;
 	unsigned int spk_protect_in_dsp;
 };
 

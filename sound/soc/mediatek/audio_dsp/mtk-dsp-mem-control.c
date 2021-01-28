@@ -438,6 +438,9 @@ int set_task_attr(int dsp_id, int task_enum, int param)
 	case ADSP_TASK_ATTR_RUMTIME:
 		task_attr->runtime_enable = param;
 		break;
+	case ADSP_TASK_ATTR_REF_RUNTIME:
+		task_attr->ref_runtime_enable = param;
+		break;
 	case ADSP_TASK_ATTR_SMARTPA:
 		task_attr->spk_protect_in_dsp = param;
 		break;
@@ -474,6 +477,8 @@ int get_task_attr(int dsp_id, int task_enum)
 		return task_attr->afe_memif_ref;
 	case ADSP_TASK_ATTR_RUMTIME:
 		return task_attr->runtime_enable;
+	case ADSP_TASK_ATTR_REF_RUNTIME:
+		return task_attr->ref_runtime_enable;
 	case ADSP_TASK_ATTR_SMARTPA:
 		return task_attr->spk_protect_in_dsp;
 	default:
@@ -565,13 +570,14 @@ int get_taskid_by_afe_daiid(int task_dai_id)
 
 	for (i = 0; i < AUDIO_TASK_DAI_NUM; i++) {
 		task_attr = mtk_get_adsp_task_attr(i);
-		if (task_attr == NULL)
+		if ((task_attr == NULL) || !(task_attr->default_enable & 0x1))
 			continue;
 		if ((task_attr->afe_memif_dl == task_dai_id ||
-		     task_attr->afe_memif_ul == task_dai_id ||
-		     task_attr->afe_memif_ref == task_dai_id) &&
-		     ((task_attr->default_enable & 0x1) &&
-		      task_attr->runtime_enable))
+		     task_attr->afe_memif_ul == task_dai_id) &&
+		     (task_attr->runtime_enable))
+			return i;
+		else if ((task_attr->afe_memif_ref == task_dai_id) &&
+			 (task_attr->ref_runtime_enable))
 			return i;
 	}
 
