@@ -14,8 +14,9 @@
 
 /* Legacy PMIC SSPM/IPI driver interface */
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-#if IS_ENABLED(CONFIG_MACH_MT6761) || IS_ENABLED(CONFIG_MACH_MT6779)
-//#define IPIMB
+#if IS_ENABLED(CONFIG_MACH_MT6761)
+/*|| IS_ENABLED(CONFIG_MACH_MT6779)*/
+#define IPIMB
 /* disable for Bring up */
 #endif
 #endif
@@ -107,13 +108,17 @@ static int pmic_ipi_reg_read(void *context,
 			     void *val_buf, size_t val_size)
 {
 	unsigned short reg = *(unsigned short *)reg_buf;
+	unsigned int val = 0;
+	int ret = 0;
 
 	if (reg_size != 2 || val_size != 2) {
 		pr_notice("%s: reg=0x%x, reg_size=%zu, val_size=%zu\n",
 			__func__, reg, reg_size, val_size);
 		return -EINVAL;
 	}
-	return regmap_read(pmic_read_regmap, reg, val_buf);
+	ret = regmap_read(pmic_read_regmap, reg, &val);
+	*(u16 *)val_buf = val;
+	return ret;
 }
 
 static int pmic_ipi_reg_update_bits(void *context, unsigned int reg,
@@ -138,6 +143,7 @@ static const struct regmap_config pmic_ipi_regmap_config = {
 	.max_register = 0xffff,
 	.reg_format_endian = REGMAP_ENDIAN_NATIVE,
 	.val_format_endian = REGMAP_ENDIAN_NATIVE,
+	.use_single_rw = true,
 };
 
 static struct regmap_bus regmap_pmic_ipi_bus = {
