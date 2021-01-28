@@ -24,6 +24,9 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(NT36672AH_HDP_DSI_VDO_TCL_CSOT)
 	&nt36672ah_hdp_dsi_vdo_tcl_csot_lcm_drv,
 #endif
+#if defined(NT36672AH_HDP_DSI_VDO_TCL_CSOT_FWVPLUS)
+	&nt36672ah_hdp_dsi_vdo_tcl_csot_fwvplus_lcm_drv,
+#endif
 #if defined(OTM1284A_HD720_DSI_VDO_TM)
 	&otm1284a_hd720_dsi_vdo_tm_lcm_drv,
 #endif
