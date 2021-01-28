@@ -2800,7 +2800,7 @@ int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
 				&mtk_vcodec_dec_ctrl_ops,
 				V4L2_CID_MPEG_MTK_OPERATING_RATE,
-				0, 1024, 1, 0);
+				0, 4096, 1, 0);
 
 	ctrl = v4l2_ctrl_new_std(&ctx->ctrl_hdl,
 				&mtk_vcodec_dec_ctrl_ops,
