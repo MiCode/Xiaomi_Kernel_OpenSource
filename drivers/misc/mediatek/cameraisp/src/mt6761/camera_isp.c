@@ -1033,7 +1033,11 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = {0};
 						[gSvLog[irq]._cnt[ppb][logT]]);        \
 			avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];           \
 			if (avaLen > 1) {                                              \
-				snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+				if (snprintf((char *)(pDes), avaLen,                   \
+					     fmt, ##__VA_ARGS__)  < 0) {               \
+					log_err("[Error] %s: snprintf failed",         \
+						__func__);                             \
+				}                                                      \
 				if ('\0' !=                                            \
 				    gSvLog[irq]._str[ppb][logT][str_leng - 1]) {       \
 					log_err("(%d)(%d)log str over flow", irq,      \
@@ -4161,7 +4165,7 @@ static signed int ISP_RTBC_ENQUE(signed int dma,
 				struct ISP_RT_BUF_INFO_STRUCT *prt_buf_info)
 {
 	signed int Ret = 0;
-	signed int rt_dma = dma;
+	unsigned int rt_dma = dma;
 	unsigned int buffer_exist = 0;
 	unsigned int i = 0;
 	unsigned int index = 0;
@@ -4641,7 +4645,7 @@ static signed int ISP_RTBC_DEQUE(signed int dma,
 				struct ISP_DEQUE_BUF_INFO_STRUCT *pdeque_buf)
 {
 	signed int Ret = 0;
-	signed int rt_dma = dma;
+	unsigned int rt_dma = dma;
 	unsigned int i = 0;
 	unsigned int index = 0, out = 0;
 
@@ -4772,7 +4776,7 @@ static unsigned int m_LastMNum[_rt_dma_max_] = {0}; /* imgo/rrzo */
 static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 {
 	signed int Ret = 0;
-	signed int rt_dma;
+	unsigned int rt_dma;
 	unsigned int reg_val = 0;
 	unsigned int reg_val2 = 0;
 	unsigned int camsv_reg_cal[2] = {0, 0};
@@ -6490,11 +6494,6 @@ LOG_BYPASS:
 			}
 		} else {
 			log_err("[rtbc][DMA_EN]:copy_from_user failed");
-			kfree((unsigned int *)p1_fbc);
-			kfree(p1_fbc_reg);
-			kfree(p1_dma_addr_reg);
-			kfree(rt_buf_info);
-			kfree(deque_buf);
 			Ret = -EFAULT;
 		}
 		kfree(array);
@@ -8518,6 +8517,9 @@ static signed int ISP_REGISTER_IRQ_USERKEY(char *userName)
 							.userName,
 						m_UserName,
 						USERKEY_STR_LEN - 1);
+					IrqUserKey_UserInfo[i].userName
+						[sizeof(IrqUserKey_UserInfo[i]
+						.userName)-1] = '\0';
 					IrqUserKey_UserInfo[i].userKey =
 						FirstUnusedIrqUserKey;
 					key = FirstUnusedIrqUserKey;
