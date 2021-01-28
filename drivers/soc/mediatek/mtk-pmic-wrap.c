@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -66,6 +67,9 @@
 #define PWRAP_DEW_READ_TEST_VAL		0x5aa5
 #define PWRAP_DEW_WRITE_TEST_VAL	0xa55a
 
+/* marco for hw monitor set */
+#define PMIC_WRAP_HW_MONITOR_SET	1  /* valid value: 1~8 */
+
 /* macro for manual command */
 #define PWRAP_MAN_CMD_SPI_WRITE_NEW	(1 << 14)
 #define PWRAP_MAN_CMD_SPI_WRITE		(1 << 13)
@@ -102,9 +106,16 @@
 #define PWRAP_CAP_ARB_V1	BIT(7)
 #define PWRAP_CAP_ARB_V2	BIT(8)
 #define PWRAP_CAP_ARB_V3	BIT(9)
+
 #define PWRAP_CAP_MPU_V1	BIT(10)
-#define PWRAP_CAP_ULPOSC_CLK	BIT(11)
+#define PWRAP_CAP_ULPOSC_CLK	BIT(10)
 #define PWRAP_CAP_SYS_CLK	BIT(12)
+/* Marco and Struct for kernel thread */
+#define pwrap_init_wake_lock(lock, name)	wakeup_source_init(lock, name)
+#define pwrap_wake_lock(lock)	__pm_stay_awake(lock)
+#define pwrap_wake_unlock(lock)	__pm_relax(lock)
+struct task_struct *pwrap_thread_handle;
+struct wakeup_source pwrapThread_lock;
 
 /* defines for slave device wrapper registers */
 enum dew_regs {
@@ -542,6 +553,9 @@ enum pwrap_regs {
 	PMIF_SPI_PMIF_IRQ_EVENT_EN_3,
 	PMIF_SPI_PMIF_IRQ_FLAG_3,
 	PMIF_SPI_PMIF_IRQ_CLR_3,
+	PMIF_SPI_PMIF_IRQ_EVENT_EN_4,
+	PMIF_SPI_PMIF_IRQ_FLAG_4,
+	PMIF_SPI_PMIF_IRQ_CLR_4,
 	PMIF_SPI_PMIF_SWINF_2_STA,
 	PMIF_SPI_PMIF_SWINF_2_ACC,
 	PMIF_SPI_PMIF_SWINF_2_RDATA_31_0,
@@ -549,13 +563,48 @@ enum pwrap_regs {
 	PMIF_SPI_PMIF_SWINF_2_VLD_CLR,
 	PMIF_SPI_PMIF_MONITOR_CTRL,
 	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_1,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_2,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_3,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_4,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_5,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_6,
+	PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_7,
 	PMIF_SPI_PMIF_MONITOR_TARGET_WRITE,
 	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_1,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_2,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_3,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_4,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_5,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_6,
+	PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_7,
 	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_1,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_2,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_3,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_4,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_5,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_6,
+	PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_7,
 	PMIF_SPI_PMIF_MONITOR_STA,
 	PMIF_SPI_PMIF_MONITOR_RECORD_0_0,
 	PMIF_SPI_PMIF_MONITOR_RECORD_0_1,
 	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4,
+	PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4,
+	PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5,
+	PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0,
+	PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1,
+	PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2,
 
 	/* MT8167 only regs */
 	PWRAP_SW_RST,
@@ -1173,6 +1222,129 @@ static int mt6785_regs[] = {
 	[PWRAP_MPU_PWRAP_ACC_VIO_INFO_1] =	0xF60,
 };
 
+static int mt6853_regs[] = {
+	[PMIF_SPI_PMIF_INIT_DONE] =		0x0,
+	[PMIF_SPI_PMIF_STAUPD_CTRL] =		0x4C,
+	[PMIF_SPI_PMIF_CRC_CTRL] =		0x39C,
+	[PMIF_SPI_PMIF_TIMER_CTRL] =		0x3E4,
+	[PMIF_SPI_PMIF_IRQ_EVENT_EN_3] =	0x450,
+	[PMIF_SPI_PMIF_IRQ_FLAG_3] =		0x458,
+	[PMIF_SPI_PMIF_IRQ_CLR_3] =		0x45C,
+	[PMIF_SPI_PMIF_IRQ_EVENT_EN_4] =	0x460,
+	[PMIF_SPI_PMIF_IRQ_FLAG_4] =		0x464,
+	[PMIF_SPI_PMIF_IRQ_CLR_4] =		0x468,
+	[PMIF_SPI_PMIF_MONITOR_CTRL] =		0x484,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0] =	0x488,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_1] =	0x48C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_2] =	0x490,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_3] =	0x494,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_4] =	0x498,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_5] =	0x49C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_6] =	0x4A0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_7] =	0x4A4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WRITE] =	0x4A8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0] =	0x4B4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_1] =	0x4B8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_2] =	0x4BC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_3] =	0x4C0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_4] =	0x4C4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_5] =	0x4C8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_6] =	0x4CC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_7] =	0x4D0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0] = 0x4D4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_1] = 0x4D8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_2] = 0x4DC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_3] = 0x4E0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_4] = 0x4E4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_5] = 0x4E8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_6] = 0x4EC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_7] = 0x4F0,
+	[PMIF_SPI_PMIF_MONITOR_STA] =		0x4F4,
+	[PMIF_SPI_PMIF_MONITOR_RECORD_0_0] =	0x4F8,
+	[PMIF_SPI_PMIF_MONITOR_RECORD_0_1] =	0x4FC,
+	[PMIF_SPI_PMIF_SWINF_2_ACC] =		0xC80,
+	[PMIF_SPI_PMIF_SWINF_2_WDATA_31_0] =	0xC84,
+	[PMIF_SPI_PMIF_SWINF_2_RDATA_31_0] =	0xC94,
+	[PMIF_SPI_PMIF_SWINF_2_VLD_CLR] =	0xCA4,
+	[PMIF_SPI_PMIF_SWINF_2_STA] =		0xCA8,
+	[PWRAP_WACS2_RDATA] =			0xCA8,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0] =	0xF50,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1] =	0xF54,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2] =	0xF58,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3] =	0xF5C,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4] =	0xF60,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5] =	0xF64,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0] = 0xF68,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1] = 0xF6C,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2] = 0xF70,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3] = 0xF74,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4] = 0xF78,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5] = 0xF7C,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0] =	0xF80,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1] =	0xF84,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2] =	0xF88,
+};
+
+static int mt6873_regs[] = {
+	[PMIF_SPI_PMIF_INIT_DONE] =		0x0,
+	[PMIF_SPI_PMIF_STAUPD_CTRL] =		0x4C,
+	[PMIF_SPI_PMIF_CRC_CTRL] =		0x398,
+	[PMIF_SPI_PMIF_TIMER_CTRL] =		0x3E0,
+	[PMIF_SPI_PMIF_IRQ_EVENT_EN_3] =	0x448,
+	[PMIF_SPI_PMIF_IRQ_FLAG_3] =		0x450,
+	[PMIF_SPI_PMIF_IRQ_CLR_3] =		0x454,
+	[PMIF_SPI_PMIF_MONITOR_CTRL] =		0x47C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0] =	0x480,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_1] =	0x484,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_2] =	0x488,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_3] =	0x48C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_4] =	0x490,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_5] =	0x494,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_6] =	0x498,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_7] =	0x49C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WRITE] =	0x4A0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0] =	0x4AC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_1] =	0x4B0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_2] =	0x4B4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_3] =	0x4B8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_4] =	0x4BC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_5] =	0x4C0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_6] =	0x4C4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_7] =	0x4C8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0] = 0x4CC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_1] = 0x4D0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_2] = 0x4D4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_3] = 0x4D8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_4] = 0x4DC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_5] = 0x4E0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_6] = 0x4E4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_7] = 0x4E8,
+	[PMIF_SPI_PMIF_MONITOR_STA] =		0x4EC,
+	[PMIF_SPI_PMIF_MONITOR_RECORD_0_0] =	0x4F0,
+	[PMIF_SPI_PMIF_MONITOR_RECORD_0_1] =	0x4F4,
+	[PMIF_SPI_PMIF_SWINF_2_ACC] =		0xC80,
+	[PMIF_SPI_PMIF_SWINF_2_WDATA_31_0] =	0xC84,
+	[PMIF_SPI_PMIF_SWINF_2_RDATA_31_0] =	0xC94,
+	[PMIF_SPI_PMIF_SWINF_2_VLD_CLR] =	0xCA4,
+	[PMIF_SPI_PMIF_SWINF_2_STA] =		0xCA8,
+	[PWRAP_WACS2_RDATA] =			0xCA8,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0] =	0xF50,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1] =	0xF54,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2] =	0xF58,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3] =	0xF5C,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4] =	0xF60,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5] =	0xF64,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0] = 0xF68,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1] = 0xF6C,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2] = 0xF70,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3] = 0xF74,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4] = 0xF78,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5] = 0xF7C,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0] =	0xF80,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1] =	0xF84,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2] =	0xF88,
+};
+
 static int mt6885_regs[] = {
 	[PMIF_SPI_PMIF_INIT_DONE] =		0x0,
 	[PMIF_SPI_PMIF_STAUPD_CTRL] =		0x4C,
@@ -1183,9 +1355,30 @@ static int mt6885_regs[] = {
 	[PMIF_SPI_PMIF_IRQ_CLR_3] =		0x454,
 	[PMIF_SPI_PMIF_MONITOR_CTRL] =		0x47C,
 	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0] =	0x480,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_1] =	0x484,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_2] =	0x488,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_3] =	0x48C,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_4] =	0x490,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_5] =	0x494,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_6] =	0x498,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_7] =	0x49C,
 	[PMIF_SPI_PMIF_MONITOR_TARGET_WRITE] =	0x4A0,
 	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0] =	0x4A4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_1] =	0x4A8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_2] =	0x4AC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_3] =	0x4B0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_4] =	0x4B4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_5] =	0x4B8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_6] =	0x4BC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_7] =	0x4C0,
 	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0] = 0x4C4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_1] = 0x4C8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_2] = 0x4CC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_3] = 0x4D0,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_4] = 0x4D4,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_5] = 0x4D8,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_6] = 0x4DC,
+	[PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_7] = 0x4E0,
 	[PMIF_SPI_PMIF_MONITOR_STA] =		0x4E4,
 	[PMIF_SPI_PMIF_MONITOR_RECORD_0_0] =	0x4E8,
 	[PMIF_SPI_PMIF_MONITOR_RECORD_0_1] =	0x4EC,
@@ -1196,6 +1389,20 @@ static int mt6885_regs[] = {
 	[PMIF_SPI_PMIF_SWINF_2_STA] =		0xCA8,
 	[PWRAP_WACS2_RDATA] =			0xCA8,
 	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0] =	0xF50,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_1] =	0xF54,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_2] =	0xF58,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_3] =	0xF5C,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_4] =	0xF60,
+	[PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_5] =	0xF64,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0] = 0xF68,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_1] = 0xF6C,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_2] = 0xF70,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_3] = 0xF74,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_4] = 0xF78,
+	[PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_5] = 0xF7C,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0] =	0xF80,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_1] =	0xF84,
+	[PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_2] =	0xF88,
 };
 
 static int mt8173_regs[] = {
@@ -1537,6 +1744,8 @@ enum pwrap_type {
 	PWRAP_MT6768,
 	PWRAP_MT6771,
 	PWRAP_MT6785,
+	PWRAP_MT6853,
+	PWRAP_MT6873,
 	PWRAP_MT6885,
 	PWRAP_MT8135,
 	PWRAP_MT8167,
@@ -2053,6 +2262,86 @@ static void pwrap_swinf_info(void)
 		dev_dbg(wrp->dev, "SWINF_2_STA=0x%x\n",
 			pwrap_readl(wrp, PMIF_SPI_PMIF_SWINF_2_STA));
 	}
+}
+
+static void pwrap_monitor_setting(void)
+{
+	dev_notice(wrp->dev, "MONITOR_CTRL=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_CTRL));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WRITE=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WRITE));
+	dev_notice(wrp->dev, "MONITOR_STA=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_STA));
+
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_0=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_0));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_0=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_0));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_0=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_0));
+
+#if PMIC_WRAP_HW_MONITOR_SET > 1
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_1=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_1));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_1=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_1));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_1=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_1));
+#endif
+
+#if PMIC_WRAP_HW_MONITOR_SET > 2
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_2=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_2));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_2=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_2));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_2=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_2));
+#endif
+
+#if PMIC_WRAP_HW_MONITOR_SET > 3
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_3=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_3));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_3=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_3));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_3=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_3));
+#endif
+
+#if PMIC_WRAP_HW_MONITOR_SET > 4
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_4=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_4));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_4=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_4));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_4=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_4));
+#endif
+
+#if PMIC_WRAP_HW_MONITOR_SET > 5
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_5=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_5));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_5=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_5));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_5=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_5));
+#endif
+
+#if PMIC_WRAP_HW_MONITOR_SET > 6
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_6=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_6));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_6=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_6));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_6=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_6));
+#endif
+
+#if PMIC_WRAP_HW_MONITOR_SET > 7
+	dev_notice(wrp->dev, "MONITOR_TARGET_CHAN_7=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_CHAN_7));
+	dev_notice(wrp->dev, "MONITOR_TARGET_ADDR_7=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_ADDR_7));
+	dev_notice(wrp->dev, "MONITOR_TARGET_WDATA_7=0x%x\n",
+		pwrap_readl(wrp, PMIF_SPI_PMIF_MONITOR_TARGET_WDATA_7));
+#endif
 }
 
 static void pwrap_monitor_info(void)
@@ -2707,6 +2996,53 @@ static int pwrap_mt8168_init_soc_specific(struct pmic_wrapper *wrp)
 	return 0;
 }
 
+void wake_up_pwrap(void)
+{
+	dev_notice(wrp->dev, "[PWRAP] %s\n", __func__);
+	if (pwrap_thread_handle != NULL) {
+		pwrap_wake_lock(&pwrapThread_lock);
+		wake_up_process(pwrap_thread_handle);
+	} else {
+		dev_notice(wrp->dev,
+		"[PWRAP] pwrap_thread_handle not ready\n");
+		return;
+	}
+}
+
+int pwrap_thread_kthread(void *x)
+{
+	dev_notice(wrp->dev, "[PWRAP] enter kernel thread\n");
+
+	/* Run on a process content */
+	while (1) {
+		pwrap_reenable_pmic_logging();
+		pwrap_monitor_info();
+		pwrap_sw_monitor_clr();
+		aee_kernel_warning("PWRAP:HW Monitor match",
+				   "PWRAP:HW Monitor match");
+		pwrap_wake_unlock(&pwrapThread_lock);
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule();
+	}
+	dev_notice(wrp->dev, "[PWRAP] kernel thread error\n");
+	return 0;
+}
+
+static void pwrap_irq_thread_init(void)
+{
+	pwrap_init_wake_lock(&pwrapThread_lock, "pwrapThread_lock wakelock");
+
+	/* create pwrap irq thread handler*/
+	pwrap_thread_handle = kthread_create(pwrap_thread_kthread,
+					    (void *)NULL, "pwrap_thread");
+	if (IS_ERR(pwrap_thread_handle)) {
+		pwrap_thread_handle = NULL;
+		dev_notice(wrp->dev, "[PWRAP] kthread_create fails\n");
+	} else {
+		dev_notice(wrp->dev, "[PWRAP] kthread_create done\n");
+	}
+}
+
 static int pwrap_init(struct pmic_wrapper *wrp)
 {
 	int ret = 0;
@@ -2899,6 +3235,65 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 		if ((int3_flg & 0xffffffff) != 0) {
 			dev_notice(wrp->dev,
 				   "[PWRAP] INT3 error:0x%x\n", int3_flg);
+#if defined(CONFIG_MACH_MT6853)
+			if ((int3_flg & (0x1 << 17)) != 0) {
+				dev_dbg(wrp->dev, "[PWRAP] CRC Error\n");
+				pwrap_reenable_pmic_logging();
+				pwrap_swinf_info();
+				pwrap_monitor_info();
+				pwrap_sw_monitor_clr();
+
+				pwrap_writel(wrp, wrp->master->int_en_all,
+						PMIF_SPI_PMIF_IRQ_EVENT_EN_3);
+
+				/* Clear spislv CRC state */
+				ret = pwrap_write(wrp,
+				      slv->dew_regs[PWRAP_DEW_CRC_SWRST], 0x1);
+				if (ret != 0)
+					dev_dbg(wrp->dev,
+						"clr fail, ret=%x\n", ret);
+				ret = pwrap_write(wrp,
+				      slv->dew_regs[PWRAP_DEW_CRC_SWRST], 0x0);
+				if (ret != 0)
+					dev_dbg(wrp->dev,
+						"clr fail, ret=%x\n", ret);
+				pwrap_write(wrp,
+					  slv->dew_regs[PWRAP_DEW_CRC_EN], 0x0);
+				pwrap_writel(wrp, 0x0, PMIF_SPI_PMIF_CRC_CTRL);
+				pwrap_writel(wrp, pwrap_readl(wrp,
+						  PMIF_SPI_PMIF_STAUPD_CTRL) &
+						  0x1fe,
+						  PMIF_SPI_PMIF_STAUPD_CTRL);
+			} else if ((int3_flg & (0x3 << 19)) != 0) {
+				dev_notice(wrp->dev,
+					   "[PWRAP] MPU Access Violation\n");
+				pwrap_mpu_info();
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
+
+				aee_kernel_warning("PWRAP:MPU Violation",
+						   "PWRAP:MPU Violation");
+
+			}
+
+			pwrap_writel(wrp, int3_flg, PMIF_SPI_PMIF_IRQ_CLR_3);
+#else
 			if ((int3_flg & (0x1 << 2)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] CRC Error\n");
 				pwrap_reenable_pmic_logging();
@@ -2931,19 +3326,49 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 				dev_notice(wrp->dev,
 					   "[PWRAP] MPU Access Violation\n");
 				pwrap_mpu_info();
-				pwrap_reenable_pmic_logging();
-				pwrap_swinf_info();
-				pwrap_sw_monitor_clr();
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIC_ACC_VIO_INFO_0);
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIC_ACC_SCP_VIO_INFO_0);
+
+				rdata = pwrap_readl(wrp,
+					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
+				if (rdata & 0x80000000)
+					pwrap_writel(wrp, rdata | 0x80000000,
+					PMIF_SPI_PMIF_PMIF_ACC_VIO_INFO_0);
+
 				aee_kernel_warning("PWRAP:MPU Violation",
 						   "PWRAP:MPU Violation");
 			} else if ((int3_flg & (0x1 << 27)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] HW Monitor match\n");
+				wake_up_pwrap();
 			} else if ((int3_flg & (0x1 << 28)) != 0) {
 				dev_dbg(wrp->dev, "[PWRAP] WDT Timeout\n");
 			}
 
 			pwrap_writel(wrp, int3_flg, PMIF_SPI_PMIF_IRQ_CLR_3);
+#endif
 		}
+#if defined(CONFIG_MACH_MT6853)
+		int4_flg = pwrap_readl(wrp, PMIF_SPI_PMIF_IRQ_FLAG_4);
+		if ((int4_flg & 0xffffffff) != 0) {
+			if ((int4_flg & (0x1 << 10)) != 0) {
+				dev_notice(wrp->dev, "[PWRAP] HW Monitor match\n");
+				wake_up_pwrap();
+			} else if ((int4_flg & (0x1 << 11)) != 0) {
+				dev_dbg(wrp->dev, "[PWRAP] WDT Timeout\n");
+			}
+			pwrap_writel(wrp, int4_flg, PMIF_SPI_PMIF_IRQ_CLR_4);
+		}
+#endif
 	} else {
 		rdata = pwrap_readl(wrp, PWRAP_INT_FLG);
 
@@ -3139,16 +3564,46 @@ static struct pmic_wrapper_type pwrap_mt6785 = {
 	.init_soc_specific = NULL,
 };
 
-static struct pmic_wrapper_type pwrap_mt6885 = {
-	.regs = mt6885_regs,
-	.type = PWRAP_MT6885,
+static struct pmic_wrapper_type pwrap_mt6853 = {
+	.regs = mt6853_regs,
+	.type = PWRAP_MT6853,
 	.arb_en_all = 0x777f,
-	.int_en_all = 0x34,
+	.int_en_all = 0x180000,
 	.int1_en_all = 0,
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
 	.has_bridge = 0,
-	.caps = PWRAP_CAP_ARB_V3,
+	.caps = PWRAP_CAP_ARB_V3 | PWRAP_CAP_ULPOSC_CLK,
+	.init_done = PWRAP_STATE_INIT_DONE0_V3,
+	.init_reg_clock = pwrap_common_init_reg_clock,
+	.init_soc_specific = NULL,
+};
+
+static struct pmic_wrapper_type pwrap_mt6873 = {
+	.regs = mt6873_regs,
+	.type = PWRAP_MT6873,
+	.arb_en_all = 0x777f,
+	.int_en_all = 0x30,
+	.int1_en_all = 0,
+	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
+	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
+	.has_bridge = 0,
+	.caps = PWRAP_CAP_ARB_V3 | PWRAP_CAP_ULPOSC_CLK,
+	.init_done = PWRAP_STATE_INIT_DONE0_V3,
+	.init_reg_clock = pwrap_common_init_reg_clock,
+	.init_soc_specific = NULL,
+};
+
+static struct pmic_wrapper_type pwrap_mt6885 = {
+	.regs = mt6885_regs,
+	.type = PWRAP_MT6885,
+	.arb_en_all = 0x777f,
+	.int_en_all = 0x30,
+	.int1_en_all = 0,
+	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
+	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
+	.has_bridge = 0,
+	.caps = PWRAP_CAP_ARB_V3 | PWRAP_CAP_ULPOSC_CLK,
 	.init_done = PWRAP_STATE_INIT_DONE0_V3,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
@@ -3235,6 +3690,12 @@ static const struct of_device_id of_pwrap_match_tbl[] = {
 	}, {
 		.compatible = "mediatek,mt6785-pwrap",
 		.data = &pwrap_mt6785,
+	}, {
+		.compatible = "mediatek,mt6853-pwrap",
+		.data = &pwrap_mt6853,
+	}, {
+		.compatible = "mediatek,mt6873-pwrap",
+		.data = &pwrap_mt6873,
 	}, {
 		.compatible = "mediatek,mt6885-pwrap",
 		.data = &pwrap_mt6885,
