@@ -78,8 +78,10 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	struct regulator *preg = NULL;
 	struct device *pdevice = gimgsensor_device;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
-	int i = 0, ret = 0;
-
+	int i = 0;
+#ifndef NO_OC
+	int ret = 0;
+#endif
 	gimgsensor.status.oc = 0;
 
 	if (enable) {
@@ -98,7 +100,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 				/* oc notifier callback function */
 				reg_oc_debug[i].nb.notifier_call =
 				regulator_oc_notify;
-
+#ifndef NO_OC
 			ret = devm_regulator_register_notifier(preg,
 				&reg_oc_debug[i].nb);
 
@@ -106,7 +108,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 				pr_info(
 				"regulator notifier request error\n");
 			}
-
+#endif
 			pr_debug(
 				"[regulator] %s idx=%d %s enable=%d\n",
 				__func__,
@@ -132,11 +134,13 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 					pdevice, str_regulator_name);
 			if (IS_ERR(preg))
 				preg = NULL;
+#ifndef NO_OC
 			if (preg) {
 				/* oc notifier callback function */
 				devm_regulator_unregister_notifier(preg,
 				&reg_oc_debug[i].nb);
 			}
+#endif
 		}
 
 	}

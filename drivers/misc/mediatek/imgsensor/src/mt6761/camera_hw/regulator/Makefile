@@ -12,3 +12,4 @@
 #
 
 obj-y				+= regulator.o
+subdir-ccflags-y +=  -DNO_OC
