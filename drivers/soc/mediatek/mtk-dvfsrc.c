@@ -372,7 +372,6 @@ static void mt6779_set_dram_hrtbw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 
 static void mt6779_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	dev_dbg(dvfsrc->dev, "vcore_level: %d\n", level);
 	mutex_lock(&dvfsrc->sw_req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x7, 4);
 	mutex_unlock(&dvfsrc->sw_req_lock);
@@ -380,13 +379,11 @@ static void mt6779_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 
 static void mt6779_set_vscp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	dev_dbg(dvfsrc->dev, "vscp_level: %d\n", level);
 	dvfsrc_rmw(dvfsrc, DVFSRC_VCORE_REQUEST, level, 0x7, 12);
 }
 
 static void mt6779_set_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	dev_dbg(dvfsrc->dev, "dram_opp: %d\n", level);
 	mutex_lock(&dvfsrc->sw_req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x7, 12);
 	mutex_unlock(&dvfsrc->sw_req_lock);
@@ -489,7 +486,6 @@ static void mt6761_set_dram_ext_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 
 static void mt6761_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	dev_dbg(dvfsrc->dev, "vcore_level: %d\n", level);
 	mutex_lock(&dvfsrc->sw_req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x3, 2);
 	mutex_unlock(&dvfsrc->sw_req_lock);
@@ -497,13 +493,11 @@ static void mt6761_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 
 static void mt6761_set_vscp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	dev_dbg(dvfsrc->dev, "vscp_level: %d\n", level);
 	dvfsrc_rmw(dvfsrc, DVFSRC_VCORE_REQUEST, level, 0x3, 30);
 }
 
 static void mt6761_set_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	dev_dbg(dvfsrc->dev, "dram_opp: %d\n", level);
 	mutex_lock(&dvfsrc->sw_req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x3, 0);
 	mutex_unlock(&dvfsrc->sw_req_lock);
@@ -736,8 +730,6 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 {
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 	int ret = 0;
-
-	dev_dbg(dvfsrc->dev, "cmd: %d, data: %llu\n", cmd, data);
 
 	if (cmd == MTK_DVFSRC_CMD_FORCE_OPP_REQUEST) {
 		if (dvfsrc->dvd->set_force_opp_level)
