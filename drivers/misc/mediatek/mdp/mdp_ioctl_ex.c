@@ -568,12 +568,18 @@ static int mdp_implement_read_v1(struct mdp_submit *user_job,
 	/* insert commands to read back regs into slot */
 	for (i = 0; i < count; i++) {
 		reg_addr = cmdq_mdp_get_hw_reg(hw_metas[i].engine,
-						hw_metas[i].offset);
-		CMDQ_MSG("%s: read[%d] engine[%d], offset[%x], addr[%x]\n",
+			hw_metas[i].offset);
+		if (unlikely(!reg_addr)) {
+			CMDQ_ERR("%s read:%d engine:%d offset:%#x addr:%#x\n",
+				__func__, i, hw_metas[i].engine,
+				hw_metas[i].offset, reg_addr);
+			continue;
+		}
+		CMDQ_MSG("%s read:%d engine:%d offset:%#x addr:%#x\n",
 			__func__, i, hw_metas[i].engine,
 			hw_metas[i].offset, reg_addr);
 		cmdq_op_read_reg_to_mem_ex(handle, cmd_buf,
-				handle->reg_values_pa, i, reg_addr);
+			handle->reg_values_pa, i, reg_addr);
 	}
 
 	kfree(hw_metas);
