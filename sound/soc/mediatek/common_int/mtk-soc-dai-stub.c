@@ -829,7 +829,7 @@ static int mtk_dai_stub_dev_probe(struct platform_device *pdev)
 
 	pr_debug("%s(), name %s\n", __func__, dev_name(&pdev->dev));
 
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
 	if (pdev->dev.dma_mask == NULL)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;

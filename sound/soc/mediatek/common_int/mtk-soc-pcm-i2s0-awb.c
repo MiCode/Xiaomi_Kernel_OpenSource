@@ -311,7 +311,7 @@ static int mtk_i2s0_awb_probe(struct platform_device *pdev)
 {
 	pr_debug("mtk_i2s0_awb_probe\n");
 
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 

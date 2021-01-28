@@ -612,7 +612,7 @@ static struct snd_soc_component_driver mtk_soc_voice_ultra_component = {
 
 static int mtk_voice_ultra_probe(struct platform_device *pdev)
 {
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;

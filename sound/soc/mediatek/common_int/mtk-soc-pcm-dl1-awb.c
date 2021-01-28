@@ -313,7 +313,7 @@ static int mtk_dl1_awb_probe(struct platform_device *pdev)
 			"%s(), invalid mem blk io %d, no need to set intercon between awb and deep buffer output\n",
 			__func__, deep_buffer_mem_blk_io);
 	}
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 
 	if (pdev->dev.dma_mask == NULL)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;

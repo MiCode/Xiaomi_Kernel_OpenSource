@@ -6024,7 +6024,7 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 
 	mt63xx_set_local_priv(mCodec_priv);
 
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	if (pdev->dev.dma_mask == NULL)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 	if (pdev->dev.of_node) {

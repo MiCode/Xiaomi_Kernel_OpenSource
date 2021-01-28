@@ -360,7 +360,7 @@ static int mtk_mod_dai_probe(struct platform_device *pdev)
 {
 	pr_debug("%s\n", __func__);
 
-	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
+	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
 	if (!pdev->dev.dma_mask)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
 
