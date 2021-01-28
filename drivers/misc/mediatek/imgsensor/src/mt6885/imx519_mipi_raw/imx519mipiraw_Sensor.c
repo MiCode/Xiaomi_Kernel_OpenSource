@@ -4721,11 +4721,11 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
 		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
 			*(feature_data + 0) =
-				sizeof(imx519_ana_gain_table)/sizeof(char);
+				sizeof(imx519_ana_gain_table);
 		} else {
 			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
 			(void *)imx519_ana_gain_table,
-			sizeof(imx519_ana_gain_table)/sizeof(char));
+			sizeof(imx519_ana_gain_table));
 		}
 		break;
 	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
