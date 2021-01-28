@@ -2958,13 +2958,14 @@ static int __primary_check_trigger(void)
 		static struct cmdqRecStruct *handle;
 		struct disp_ddp_path_config *data_config = NULL;
 
-		if (!handle)
+		if (!handle) {
 			ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP,
 				&handle);
 			if (ret) {
 				DISPERR("%s CMDQ create fail\n", __func__);
 				goto out;
 			}
+		}
 		cmdqRecReset(handle);
 
 		primary_display_idlemgr_kick((char *)__func__, 0);
