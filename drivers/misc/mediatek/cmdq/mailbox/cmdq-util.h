@@ -8,6 +8,20 @@
 
 #include <aee.h>
 
+extern u8 *g_cmdq_util_log_feat;
+enum {
+	CMDQ_LOG_FEAT_SECURE,
+	CMDQ_LOG_FEAT_PERF,
+	CMDQ_LOG_FEAT_NUM,
+};
+
+#define cmdq_util_log(feat, fmt, args...) \
+	do { \
+		cmdq_util_save_first_error("[cmdq] "fmt"\n", ##args); \
+		if (*g_cmdq_util_log_feat & (1 << feat)) \
+			cmdq_msg(fmt, ##args); \
+	} while (0)
+
 #define cmdq_aee(fmt, args...) \
 	pr_notice("[cmdq][aee] "fmt"\n", ##args)
 

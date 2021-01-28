@@ -19,8 +19,12 @@ struct cmdq_util {
 
 	struct dentry *fs_status;
 	struct dentry *fs_record;
+	struct dentry *fs_log_feat;
+	u8 log_feat;
 };
 static struct cmdq_util *g_util;
+
+u8 *g_cmdq_util_log_feat;
 
 void cmdq_util_enable(void)
 {
@@ -98,6 +102,37 @@ static const struct file_operations cmdq_util_record_fops = {
 	.open = cmdq_util_record_open,
 };
 
+static int cmdq_util_log_feat_get(void *data, u64 *val)
+{
+	cmdq_msg("data:%p val:%#llx log_feat:%#x",
+		data, *val, g_util->log_feat);
+	return g_util->log_feat;
+}
+
+static int cmdq_util_log_feat_set(void *data, u64 val)
+{
+	if (val == ~0) {
+		g_util->log_feat = 0;
+		cmdq_msg("clean log_feat:%#x", g_util->log_feat);
+		return 0;
+	}
+
+	if (val >= CMDQ_LOG_FEAT_NUM) {
+		cmdq_msg("log_feat:%#x cannot over %u",
+			g_util->log_feat, CMDQ_LOG_FEAT_NUM);
+		return -EINVAL;
+	}
+
+	g_util->log_feat |= (1 << val);
+
+	cmdq_err("data:%p val:%#llx log_feat:%#x",
+		data, val, g_util->log_feat);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(cmdq_util_log_feat_fops,
+	cmdq_util_log_feat_get, cmdq_util_log_feat_set, "%llu");
+
 static int __init cmdq_util_init(void)
 {
 	struct cmdq_util *util;
@@ -136,6 +171,15 @@ static int __init cmdq_util_init(void)
 			PTR_ERR(util->fs_record));
 		return PTR_ERR(util->fs_record);
 	}
+
+	util->fs_log_feat = debugfs_create_file(
+		"cmdq-log-feat", 0444, dir, util, &cmdq_util_log_feat_fops);
+	if (IS_ERR(util->fs_record)) {
+		cmdq_err("debugfs_create_file cmdq-log-feat failed:%d",
+			PTR_ERR(util->fs_log_feat));
+		return PTR_ERR(util->fs_log_feat);
+	}
+	g_cmdq_util_log_feat = &util->log_feat;
 	return 0;
 }
 late_initcall(cmdq_util_init);
