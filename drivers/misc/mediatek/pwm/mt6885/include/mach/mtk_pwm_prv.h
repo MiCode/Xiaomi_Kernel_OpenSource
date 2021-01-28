@@ -19,12 +19,20 @@
 #ifndef __MT_PWM_PRV_H__
 #define __MT_PWM_PRV_H__
 
+#ifdef CONFIG_OF
 extern void __iomem *pwm_base;
-/* unsigned int pwm_irqnr; */
+extern void __iomem *pwm_infracfg_base;
 
 #undef PWM_BASE
 #define PWM_BASE pwm_base
+#define PWM_INFRACFG_BASE pwm_infracfg_base
+#endif
 
+/* This variable is for pwm new hw change.
+ * 1. change 8G DRAM enable from PERICFG domain to PWM internal register
+ * 2. change 26M clock source to use INFRA domain control
+ */
+#define PWM_HW_V_1_0
 /***********************************
  * PWM register address
  ************************************/
@@ -68,6 +76,10 @@ extern void __iomem *pwm_base;
 
 #define BLOCK_CLK     (66UL*1000*1000)
 #define PWM_26M_CLK   (26UL*1000*1000)
+
+/* PWM infracfg control register */
+#define PWM_CLK_SRC_CTRL  (pwm_infracfg_base + 0x410)
+#define PWM_BCLK_SW_CTRL_OFFSET     12
 
 void mt_pwm_platform_init(void);
 #endif
