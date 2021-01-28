@@ -142,16 +142,7 @@ static void xfrm_hash_transfer(struct hlist_head *list,
 			h = __xfrm_spi_hash(&x->id.daddr, x->id.spi,
 					    x->id.proto, x->props.family,
 					    nhashmask);
-#ifdef CONFIG_MTK_ENG_BUILD
-			pr_info("[mtk_net][xfrm_state] add list %s x %px byspi %px  h %d\n",
-				__func__, x, nspitable, h);
-#endif
-			xfrm_state_get_back_trace(&x->xfrm_transfer_trace);
-			format_trace_info();
-			xfrm_state_check_add_byspi_hlish(nspitable + h, x, dmsg);
 			hlist_add_head_rcu(&x->byspi, nspitable + h);
-			format_trace_info();
-			xfrm_state_check_add_byspi_hlish(nspitable + h, NULL, dmsg);
 		}
 	}
 }
