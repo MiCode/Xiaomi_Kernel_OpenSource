@@ -246,6 +246,35 @@ static ssize_t ccci_ft_inf_show(char *buf)
 
 CCCI_ATTR(ft_info, 0444, &ccci_ft_inf_show, NULL);
 
+static int get_md_image_type(void)
+{
+	struct md_check_header *buf;
+	int ret, type = 0;
+
+	if (!curr_ubin_id) {
+		buf = kmalloc(1024, GFP_KERNEL);
+		if (buf == NULL) {
+			CCCI_UTIL_INF_MSG_WITH_ID(-1,
+				"fail to allocate memor for md_check_header\n");
+			return -1;
+		}
+
+		ret = get_raw_check_hdr(MD_SYS1, (char *)buf, 1024);
+		if (ret < 0) {
+			CCCI_UTIL_INF_MSG_WITH_ID(-1,
+				"fail to load header(%d)!\n", ret);
+			kfree(buf);
+			return -1;
+		}
+
+		type = buf->image_type;
+		kfree(buf);
+	} else if (curr_ubin_id <= MAX_IMG_NUM)
+		type = curr_ubin_id;
+
+	return type;
+}
+
 static ssize_t kcfg_setting_show(char *buf)
 {
 	unsigned int curr = 0;
@@ -289,6 +318,11 @@ static ssize_t kcfg_setting_show(char *buf)
 		actual_write = snprintf(&buf[curr], 4096 - curr,
 			"[ccci_drv_ver]:V1\n");
 	curr += actual_write;
+
+	actual_write = snprintf(&buf[curr],
+			4096 - curr, "[MTK_MD_CAP]:%d\n", get_md_image_type());
+	if (actual_write > 0 && actual_write < (4096 - curr))
+		curr += actual_write;
 
 	/* Add total size to tail */
 	actual_write = snprintf(&buf[curr],
