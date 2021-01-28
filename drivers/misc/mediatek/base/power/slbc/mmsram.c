@@ -90,6 +90,8 @@ enum smc_mmsram_request {
 	MMSRAM_ENABLE_SECURE,
 };
 
+static struct work_struct dump_reg_work;
+
 static struct mmsram_dev *mmsram;
 static atomic_t clk_ref = ATOMIC_INIT(0);
 static bool is_secure_on;
@@ -232,20 +234,20 @@ void mmsram_get_info(struct mmsram_data *data)
 	data->paddr = mmsram->sram_paddr;
 	data->vaddr = mmsram->sram_vaddr;
 	data->size = mmsram->sram_size;
-	pr_notice("%s: pa:%p va:%p size:%#lx\n",
+	pr_notice("%s: pa:%#x va:%#x size:%#lx\n",
 		__func__, data->paddr, data->vaddr,
 		data->size);
 }
 EXPORT_SYMBOL_GPL(mmsram_get_info);
 
-static irqreturn_t mmsram_irq_handler(int irq, void *data)
+static void dump_reg_func(struct work_struct *work)
 {
 	u32 interrupt_monitor0, interrupt_monitor1;
 	void __iomem *ctrl_base = mmsram->ctrl_base;
 
 	if (before_reg_rw()) {
 		pr_notice("%s: error before reg rw\n", __func__);
-		return IRQ_NONE;
+		return;
 	}
 
 	/* Print debug log */
@@ -297,6 +299,12 @@ static irqreturn_t mmsram_irq_handler(int irq, void *data)
 	after_reg_rw();
 
 	aee_kernel_warning("MMSRAM", "MMSRAM Violation.");
+}
+
+static irqreturn_t mmsram_irq_handler(int irq, void *data)
+{
+	pr_notice("handle mmsram irq!\n");
+	schedule_work(&dump_reg_work);
 	return IRQ_HANDLED;
 }
 
@@ -368,6 +376,9 @@ static int mmsram_probe(struct platform_device *pdev)
 			"failed to register ISR %d (%d)", irq, err);
 		return err;
 	}
+
+	INIT_WORK(&dump_reg_work, dump_reg_func);
+
 	return 0;
 }
 
