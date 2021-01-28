@@ -562,13 +562,11 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 
 	chan_vbus = devm_iio_channel_get(
 		&pdev->dev, "pmic_vbus");
-#ifdef FIXME
 	if (IS_ERR(chan_vbus)) {
 		pr_notice("mt6357 charger type requests probe deferral ret:%d\n",
 			chan_vbus);
 		return -EPROBE_DEFER;
 	}
-#endif
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info),
 		GFP_KERNEL);
