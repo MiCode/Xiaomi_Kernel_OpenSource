@@ -62,7 +62,7 @@ static struct ccci_clk_node clk_table[] = {
 static struct pinctrl *mdcldma_pinctrl;
 #endif
 
-unsigned int devapc_check_flag = 1;
+unsigned int devapc_check_flag;
 
 static void __iomem *md_sram_pd_psmcusys_base;
 static void __iomem *md_cldma_misc_base;

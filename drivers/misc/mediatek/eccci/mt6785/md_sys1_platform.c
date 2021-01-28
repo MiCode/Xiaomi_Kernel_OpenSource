@@ -60,7 +60,7 @@ static struct ccci_clk_node clk_table[] = {
 	{ NULL, "infra-ccif4-md"},
 };
 
-unsigned int devapc_check_flag = 1;
+unsigned int devapc_check_flag;
 #define TAG "mcd"
 
 #define ROr2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)|c))
