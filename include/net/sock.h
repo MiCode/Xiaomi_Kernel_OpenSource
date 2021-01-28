@@ -1691,7 +1691,8 @@ static inline void sk_set_socket(struct sock *sk, struct socket *sock)
 	sk->sk_socket = sock;
 }
 
-static inline wait_queue_head_t *sk_sleep(struct sock *sk)
+static inline wait_queue_head_t __attribute__((no_sanitize("null")))
+	*sk_sleep(struct sock *sk)
 {
 	BUILD_BUG_ON(offsetof(struct socket_wq, wait) != 0);
 	return &rcu_dereference_raw(sk->sk_wq)->wait;
