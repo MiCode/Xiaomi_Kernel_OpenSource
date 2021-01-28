@@ -720,26 +720,6 @@ static int iddig_int_init(void)
 
 void mt_usb_otg_init(struct musb *musb)
 {
-
-#if defined(CONFIG_R_PORTING)
-	/* BYPASS OTG function in special mode */
-	if (get_boot_mode() == META_BOOT
-#ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
-			|| get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
-			|| get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT
-#endif
-	   ) {
-#ifdef CONFIG_MTK_USB_TYPEC
-		DBG(0, "with TYPEC in special mode %d, keep going\n",
-			get_boot_mode());
-#else
-		DBG(0, "w/o TYPEC in special mode %d, skip\n",
-			get_boot_mode());
-		return;
-#endif
-	}
-#endif
-
 	/* test */
 	INIT_DELAYED_WORK(&host_plug_test_work, do_host_plug_test_work);
 	ktime_start = ktime_get();
