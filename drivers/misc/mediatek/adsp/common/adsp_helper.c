@@ -697,13 +697,11 @@ static int adsp_device_probe(struct platform_device *pdev)
 	if (IS_ERR(adspreg.dram))
 		goto ERROR;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
-	adspreg.infracfg_ao = devm_ioremap_resource(dev, res);
+	adspreg.infracfg_ao = of_iomap(dev->of_node, 3);
 	if (IS_ERR(adspreg.infracfg_ao))
 		goto ERROR;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 4);
-	adspreg.pericfg = devm_ioremap_resource(dev, res);
+	adspreg.pericfg = of_iomap(dev->of_node, 4);
 	if (IS_ERR(adspreg.pericfg))
 		goto ERROR;
 
