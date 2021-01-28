@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2018 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -22,13 +22,18 @@ extern "C" {
 #include "mtk_ppm_api.h"
 #include "mach/mtk_cpufreq_api.h"
 
+#if 0 /* No PPM in SSPM @ 6885 */
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #define PPM_SSPM_SUPPORT        (1)
 #endif
+#endif /* No PPM in SSPM @ 6885 */
 
 /*==============================================================*/
 /* Macros							*/
 /*==============================================================*/
+/* TODO: remove these workaround for k49 migration */
+#define NO_MTK_TRACE		(1)
+
 #define DYNAMIC_TABLE2REAL_PERCENTAGE	(58)
 
 /* for COBRA algo */
@@ -44,18 +49,17 @@ extern "C" {
 #define CORE_NUM_L	(4)
 #define CORE_NUM_B	(4)
 
-
 #define PPM_COBRA_TBL_SRAM_ADDR	(0x0011B800)
-#define PPM_COBRA_TBL_SRAM_SIZE	 \
-	(sizeof(struct ppm_cobra_basic_pwr_data)*TOTAL_CORE_NUM*COBRA_OPP_NUM)
+#define PPM_COBRA_TBL_SRAM_SIZE \
+	(sizeof(struct ppm_cobra_basic_pwr_data) \
+	*TOTAL_CORE_NUM*COBRA_OPP_NUM)
 #ifdef PPM_SSPM_SUPPORT
 /* online core to SSPM */
 #define PPM_ONLINE_CORE_SRAM_ADDR \
-		(PPM_COBRA_TBL_SRAM_ADDR + PPM_COBRA_TBL_SRAM_SIZE)
+	(PPM_COBRA_TBL_SRAM_ADDR + PPM_COBRA_TBL_SRAM_SIZE)
 #endif
 
 /* other policy settings */
-
 #define PTPOD_FREQ_IDX		(7)
 #define PWRTHRO_BAT_PER_MW	(600)
 #define PWRTHRO_BAT_OC_MW	(600)
@@ -64,6 +68,9 @@ extern "C" {
 
 #define DVFS_OPP_NUM		(16)
 #define get_cluster_ptpod_fix_freq_idx(id)	(mt_cpufreq_find_Vboot_idx(id))
+#define get_cluster_cpu_core(id)	\
+		(id ? CORE_NUM_B : CORE_NUM_L)
+
 /*==============================================================*/
 /* Enum								*/
 /*==============================================================*/
@@ -117,7 +124,8 @@ extern int cobra_init_done;
 /*==============================================================*/
 extern unsigned int ppm_calc_total_power(
 			struct ppm_cluster_status *cluster_status,
-			unsigned int cluster_num, unsigned int percentage);
+			unsigned int cluster_num,
+			unsigned int percentage);
 extern int ppm_platform_init(void);
 
 /* COBRA algo */
@@ -126,15 +134,38 @@ extern void ppm_cobra_update_freq_limit(unsigned int cluster, int limit);
 extern void ppm_cobra_update_limit(void *user_req);
 extern void ppm_cobra_init(void);
 extern void ppm_cobra_dump_tbl(struct seq_file *m);
-extern void ppm_cobra_lookup_get_result
-			(struct seq_file *m, enum ppm_cobra_lookup_type type);
+extern void ppm_cobra_lookup_get_result(
+		struct seq_file *m, enum ppm_cobra_lookup_type type);
 
-unsigned int __attribute__((weak)) mt_cpufreq_get_cur_phy_freq_no_lock
-					(unsigned int id)
+unsigned int __attribute__((weak))
+	mt_cpufreq_get_cur_phy_freq_no_lock(unsigned int id)
 {
 	return 0;
 }
 
+unsigned int __attribute__((weak))
+	mt_cpufreq_find_Vboot_idx(unsigned int id)
+{
+	return 0;
+}
+
+static inline int ppm_get_nr_clusters(void) { return NR_PPM_CLUSTERS; }
+static inline void ppm_get_cl_cpus(struct cpumask *cpu_mask, unsigned int cid)
+{
+	if (cid == 0) {
+		cpumask_setall(cpu_mask);
+		cpumask_clear_cpu(4, cpu_mask);
+		cpumask_clear_cpu(5, cpu_mask);
+		cpumask_clear_cpu(6, cpu_mask);
+		cpumask_clear_cpu(7, cpu_mask);
+	} else if (cid == 1) {
+		cpumask_clear(cpu_mask);
+		cpumask_set_cpu(4, cpu_mask);
+		cpumask_set_cpu(5, cpu_mask);
+		cpumask_set_cpu(6, cpu_mask);
+		cpumask_set_cpu(7, cpu_mask);
+	}
+}
 #ifdef __cplusplus
 }
 #endif
