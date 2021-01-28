@@ -1921,11 +1921,11 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			}
 			break;
 		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
+			DDPINFO("free:(0x%x,0x%x), cnt:%d\n",
+				 lyeblob_ids->free_cnt_mask,
+				 crtc_mask,
+				 lyeblob_ids->ref_cnt);
 			if (lyeblob_ids->ref_cnt) {
-				DDPINFO("free:(0x%x,0x%x), cnt:%d\n",
-					 lyeblob_ids->free_cnt_mask,
-					 crtc_mask,
-					 lyeblob_ids->ref_cnt);
 				if (lyeblob_ids->free_cnt_mask & crtc_mask) {
 					lyeblob_ids->free_cnt_mask &=
 						(~crtc_mask);

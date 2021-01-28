@@ -1775,7 +1775,7 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 
 	if (no_disp) {
 		DDPINFO("There is no disp need dispatch\n");
-		return 0;
+		return -EINVAL;
 	}
 
 	/* Dispatch gles range if necessary */
@@ -2543,7 +2543,10 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 *		 layering_info.layer_num[1]);
 	 */
 	crtc_num = get_crtc_num(disp_info_user, &crtc_mask);
-	lye_add_blob_ids(&layering_info, lyeblob_ids, dev, crtc_num, crtc_mask);
+	if (ret)
+		kfree(lyeblob_ids);
+	else
+		lye_add_blob_ids(&layering_info, lyeblob_ids, dev, crtc_num, crtc_mask);
 
 	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++)
 		DRM_MMP_MARK(layering, layering_info.hrt_num,
