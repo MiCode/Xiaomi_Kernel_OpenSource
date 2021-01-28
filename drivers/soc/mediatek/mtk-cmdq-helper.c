@@ -328,6 +328,7 @@ s32 cmdq_dev_get_event(struct device *dev, const char *name)
 
 	return result;
 }
+EXPORT_SYMBOL(cmdq_dev_get_event);
 
 struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 {

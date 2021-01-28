@@ -532,12 +532,14 @@ static void vcu_gce_flush_callback(struct cmdq_cb_data data)
 	kfree(cmds);
 	kfree(buff);
 
+// TODO:
+// Disable unprepare temporarily for building ko
 	mutex_lock(&vcu->vcu_mutex[i]);
 	if (atomic_dec_and_test(&vcu->gce_job_cnt[i]) &&
 		vcu->codec_ctx[i] != NULL) {
-		if (i == VCU_VENC)
-			venc_encode_unprepare(vcu->codec_ctx[i],
-				&vcu->flags[i]);
+		//if (i == VCU_VENC)
+			//venc_encode_unprepare(vcu->codec_ctx[i],
+				//&vcu->flags[i]);
 	}
 	mutex_unlock(&vcu->vcu_mutex[i]);
 
@@ -589,11 +591,15 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	i = buff->cmdq_buff.codec_type ? VCU_VDEC : VCU_VENC;
 
 #ifdef CONFIG_MTK_CMDQ
+
+// TODO:
+// Disable prepare temporarily for building ko
 	mutex_lock(&vcu->vcu_mutex[i]);
 	if (atomic_read(&vcu->gce_job_cnt[i]) == 0 &&
 		vcu->codec_ctx[i] != NULL){
-		if (i == VCU_VENC)
-			venc_encode_prepare(vcu->codec_ctx[i], &vcu->flags[i]);
+		//if (i == VCU_VENC)
+			//venc_encode_prepare(vcu->codec_ctx[i],
+				//&vcu->flags[i]);
 	}
 	atomic_inc(&vcu->gce_job_cnt[i]);
 	mutex_unlock(&vcu->vcu_mutex[i]);
@@ -674,6 +680,7 @@ int vcu_set_codec_ctx(struct platform_device *pdev,
 
 	return 0;
 }
+EXPORT_SYMBOL(vcu_set_codec_ctx);
 
 unsigned int vcu_get_vdec_hw_capa(struct platform_device *pdev)
 {

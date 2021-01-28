@@ -20,7 +20,7 @@
 #include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_util.h"
 #include "vdec_ipi_msg.h"
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "vdec_vcu_if.h"
 
 /**

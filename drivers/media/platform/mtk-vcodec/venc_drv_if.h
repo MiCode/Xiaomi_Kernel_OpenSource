@@ -21,7 +21,7 @@
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_util.h"
 #include "venc_ipi_msg.h"
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "venc_vcu_if.h"
 #endif
 
@@ -39,7 +39,7 @@ struct venc_inst {
 	bool work_buf_allocated;
 	unsigned int frm_cnt;
 	unsigned int prepend_hdr;
-	#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+	#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	struct venc_vcu_inst vcu_inst;
 	#endif
 	struct venc_vsi *vsi;

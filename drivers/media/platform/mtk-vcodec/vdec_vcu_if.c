@@ -99,8 +99,9 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 #endif
 	return target_fd;
 }
+EXPORT_SYMBOL(get_mapped_fd);
 
-inline void close_mapped_fd(unsigned int target_fd)
+void close_mapped_fd(unsigned int target_fd)
 {
 #ifndef CONFIG_MTK_IOMMU_V2
 	struct task_struct *task = NULL;
@@ -113,6 +114,7 @@ inline void close_mapped_fd(unsigned int target_fd)
 	__close_fd(f, target_fd);
 #endif
 }
+EXPORT_SYMBOL(close_mapped_fd);
 
 /*
  * This function runs in interrupt context and it means there's a IPI MSG

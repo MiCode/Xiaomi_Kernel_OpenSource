@@ -71,7 +71,7 @@ static const struct mtk_vcodec_fw_ops mtk_vcodec_vpu_msg = {
 	.ipi_send = mtk_vcodec_vpu_ipi_send,
 };
 #endif
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 static int mtk_vcodec_vcu_load_firmware(struct mtk_vcodec_fw *fw)
 {
 	return vcu_load_firmware(fw->pdev);
@@ -201,7 +201,7 @@ struct mtk_vcodec_fw *mtk_vcodec_fw_select(struct mtk_vcodec_dev *dev,
 		#endif
 		break;
 	case VCU:
-		#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+		#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 		ops = &mtk_vcodec_vcu_msg;
 		fw_pdev = vcu_get_plat_device(dev->plat_dev);
 		#endif

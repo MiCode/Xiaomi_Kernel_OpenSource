@@ -7,7 +7,7 @@
 
 #include <linux/interrupt.h>
 #include "mtk_vcodec_mem.h"
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "mtk_vcu.h"
 #endif
 #include "venc_ipi_msg.h"

@@ -13,7 +13,7 @@
 #include "mtk_vcodec_enc.h"
 #include "mtk_vcodec_enc_pm.h"
 
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "mtk_vcu.h"
 const struct venc_common_if *get_enc_common_if(void);
 #endif
@@ -30,7 +30,7 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 
 	ctx->oal_vcodec = 0;
 	ctx->slowmotion = 0;
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_H265:
@@ -78,7 +78,7 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 		inst = kzalloc(sizeof(struct venc_inst), GFP_KERNEL);
 		inst->ctx = ctx;
 		ctx->drv_handle = (void *)(inst);
-		#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+		#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 		ctx->enc_if = get_enc_common_if();
 		#endif
 		drv_handle_exist = 0;

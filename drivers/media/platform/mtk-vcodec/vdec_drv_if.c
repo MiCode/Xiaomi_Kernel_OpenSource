@@ -22,7 +22,7 @@
 #include "vdec_drv_base.h"
 #include "mtk_vcodec_dec_pm.h"
 
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 #include "mtk_vcu.h"
 const struct vdec_common_if *get_dec_common_if(void);
 #endif
@@ -40,7 +40,7 @@ int vdec_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 {
 	int ret = 0;
 
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_H265:
@@ -151,7 +151,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 		return -EIO;
 #endif
 
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	struct vdec_inst *inst = NULL;
 	int drv_handle_exist = 1;
 
@@ -167,7 +167,7 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 	ret = ctx->dec_if->get_param(ctx->drv_handle, type, out);
 	mtk_vdec_unlock(ctx);
 
-#ifdef CONFIG_VIDEO_MEDIATEK_VCU
+#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
 	if (!drv_handle_exist) {
 		kfree(inst);
 		ctx->drv_handle = 0;
