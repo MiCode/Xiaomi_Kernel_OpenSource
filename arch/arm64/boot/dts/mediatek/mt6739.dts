@@ -41,7 +41,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 
 	pmu {
-		compatible = "arm,cortex-a7-pmu";
+		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 	};
@@ -181,7 +181,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "trustkernel,tkcore";
 		interrupts = <GIC_SPI 111 IRQ_TYPE_EDGE_RISING>;
 	};
-
 	psci {
 		compatible	= "arm,psci-0.2";
 		method		= "smc";
@@ -341,19 +340,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x10002000 0 0x200>;
 	};
 
-	syscfg_pctl_lt: syscfg_pctl_lt@10002000 {
-		compatible = "mediatek,pctl-lt-syscfg", "syscon";
-		reg = <0 0x10002000 0 0x1000>;
-	};
-
 	io_cfg_lm@10002200 {
 		compatible = "mediatek,io_cfg_lm";
 		reg = <0 0x10002200 0 0x200>;
-	};
-
-	syscfg_pctl_lm: syscfg_pctl_lm@10002200 {
-		compatible = "mediatek,pctl-lm-syscfg", "syscon";
-		reg = <0 0x10002200 0 0x1000>;
 	};
 
 	io_cfg_lb@10002400 {
@@ -361,19 +350,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x10002400 0 0x200>;
 	};
 
-	syscfg_pctl_lb: syscfg_pctl_lb@10002400 {
-		compatible = "mediatek,pctl-lb-syscfg", "syscon";
-		reg = <0 0x10002400 0 0x1000>;
-	};
-
 	io_cfg_bl@10002600 {
 		compatible = "mediatek,io_cfg_bl";
 		reg = <0 0x10002600 0 0x200>;
-	};
-
-	syscfg_pctl_bl: syscfg_pctl_bl@10002600 {
-		compatible = "mediatek,pctl-bl-syscfg", "syscon";
-		reg = <0 0x10002600 0 0x1000>;
 	};
 
 	io_cfg_bm@10002800 {
@@ -381,29 +360,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x10002800 0 0x200>;
 	};
 
-	syscfg_pctl_bm: syscfg_pctl_bm@10002800 {
-		compatible = "mediatek,pctl-bm-syscfg", "syscon";
-		reg = <0 0x10002800 0 0x1000>;
-	};
-
 	io_cfg_rb@10002a00 {
 		compatible = "mediatek,io_cfg_rb";
 		reg = <0 0x10002a00 0 0x200>;
 	};
 
-	syscfg_pctl_rb: syscfg_pctl_rb@10002a00 {
-		compatible = "mediatek,pctl-rb-syscfg", "syscon";
-		reg = <0 0x10002a00 0 0x1000>;
-	};
-
 	io_cfg_rt@10002c00 {
 		compatible = "mediatek,io_cfg_rt";
 		reg = <0 0x10002c00 0 0x200>;
-	};
-
-	syscfg_pctl_rt: syscfg_pctl_bl@10002c00 {
-		compatible = "mediatek,pctl-rt-syscfg", "syscon";
-		reg = <0 0x10002c00 0 0x1000>;
 	};
 
 	pericfg@10003000 {
@@ -497,7 +461,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	fhctl@1000ce00 {
 		compatible = "mediatek,fhctl";
-		reg = <0 0x1000ce00 0 0x100>;
+		reg = <0 0x1000ce00 0 0x0>;
 	};
 
 	pwrap@1000d000 {
@@ -746,9 +710,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x10219000 0 0x1000>, /* CEN EMI */
 			<0 0x1021a000 0 0x1000>, /* CHA EMI */
 			<0 0x10226000 0 0x1000>; /* EMI MPU */
-		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>, /* MPU */
-				<GIC_SPI 145 IRQ_TYPE_LEVEL_HIGH>, /* CGM */
-				<GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>; /* ELM */
+		interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	apcldmain@1021b000 {
@@ -967,8 +929,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		mdp_wdma0 = <&mdp_wdma0>;
 		mdp_wrot0 = <&mdp_wrot0>;
 		mdp_tdshp0 = <&mdp_tdshp0>;
-		mm_mutex = <&disp_mutex>;
 		disp_ovl0 = <&disp_ovl0>;
+		mm_mutex = <&disp_mutex>;
 		sram_share_cnt = <1>;
 		sram_share_engine = <8>;
 		sram_share_event = <710>;
@@ -2155,6 +2117,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		/* common */
 		battery_cv = <4350000>;
 		max_charger_voltage = <6500000>;
+		min_charger_voltage = <4600000>;
 
 		/* charging current */
 		usb_charger_current_suspend = <0>;
@@ -2242,10 +2205,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			<GIC_SPI 235 IRQ_TYPE_EDGE_FALLING>; /*WDT_EINT */
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
-	};
-
-	goodix_fp: fingerprint {
-		compatible = "mediatek,goodix-fp";
 	};
 
 	gps {
@@ -2369,11 +2328,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 #ifndef CONFIG_MTK_LATE_MOUNT
 				vendor {
 					compatible = "android,vendor";
-#ifdef CONFIG_MNTL_SUPPORT
-					dev = "/dev/block/mntlblk_d2";
-#else
 					dev = "/dev/block/platform/bootdevice/by-name/vendor";
-#endif
 					type = "ext4";
 					mnt_flags = "ro";
 #ifndef CONFIG_MTK_AB_OTA_UPDATER
@@ -2423,7 +2378,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	dynamic_options: dynamic_options {
 		compatible = "mediatek,dynamic_options";
 	};
-
 };
 
 #include "cust_mt6739_msdc.dtsi"
