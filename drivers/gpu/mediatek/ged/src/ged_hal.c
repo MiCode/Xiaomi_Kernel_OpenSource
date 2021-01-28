@@ -185,9 +185,9 @@ static ssize_t gpu_utilization_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
 {
-	unsigned int loading;
-	unsigned int block;
-	unsigned int idle;
+	unsigned int loading = 0;
+	unsigned int block = 0;
+	unsigned int idle = 0;
 
 	mtk_get_gpu_loading(&loading);
 	mtk_get_gpu_block(&block);
