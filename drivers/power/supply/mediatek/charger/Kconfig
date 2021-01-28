@@ -149,9 +149,9 @@ config CHARGER_RT9471
 	bool "Charger Driver for Richtek RT9471 Charger IC"
 	depends on MTK_CHARGER
 	help
-	  Say Yes to enable Richtek RT9471 driver.
-	  It supports RT9470/RT9470D/RT9471/RT9471D,
-	  which RT9470D and RT9471D support BC1.2
+	  Say Yes to enable Richtek RT9471 charger driver.
+	  It supports RT9470/RT9470D/RT9471/RT9471D/RT9472/RT9472D,
+	  which RT9470D, RT9471D and RT9472D support BC1.2
 	  It depends on config MTK_CHARGER.
 
 config CHARGER_RT9759

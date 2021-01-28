@@ -14,7 +14,7 @@
 #ifndef __RT9471_CHARGER_H
 #define __RT9471_CHARGER_H
 
-#define RT9471_SLAVE_ADDR	0x53
+#define RT9471_DEVICE_ADDR	0x53
 #define RT9470_DEVID		0x09
 #define RT9470D_DEVID		0x0A
 #define RT9471_DEVID		0x0D
@@ -74,6 +74,8 @@ enum rt9471_reg_addr {
 /* ========== FUNCTION 0x02 ============ */
 #define RT9471_BATFETDIS_SHIFT	7
 #define RT9471_BATFETDIS_MASK	BIT(7)
+#define RT9471_HZ_SHIFT		5
+#define RT9471_HZ_MASK		BIT(5)
 #define RT9471_OTG_EN_SHIFT	1
 #define RT9471_OTG_EN_MASK	BIT(1)
 #define RT9471_CHG_EN_SHIFT	0
