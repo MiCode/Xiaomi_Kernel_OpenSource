@@ -21,6 +21,9 @@
 #elif defined(CONFIG_MACH_MT6768)
 
 #include "udi_v2/mtk_udi_mt6768.h"
+#elif defined(CONFIG_MACH_MT6765)
+
+#include "udi_v1/mtk_udi_mt6765.h"
 
 #else
 

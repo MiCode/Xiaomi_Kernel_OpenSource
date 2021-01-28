@@ -132,9 +132,9 @@ struct upower_tbl *upower_get_core_tbl(unsigned int cpu)
 
 #ifdef FIRST_CLUSTER_IS_L
 	if (cpu < 4) /* cpu 0-3 */
-		bank = UPOWER_BANK_L;
+		bank = UPOWER_BANK_0;
 	else if (cpu < 8) /* cpu 4-7 */
-		bank = UPOWER_BANK_B;
+		bank = UPOWER_BANK_1;
 #else
 	if (cpu < 4) /* cpu 0-3 */
 		bank = UPOWER_BANK_LL;

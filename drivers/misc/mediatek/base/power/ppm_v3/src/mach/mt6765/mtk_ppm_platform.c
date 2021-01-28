@@ -108,6 +108,7 @@ static struct notifier_block ppm_cpu_freq_notifier = {
 };
 #endif
 
+#if 0
 static int ppm_cpu_hotplug_callback(struct notifier_block *nfb,
 			unsigned long action, void *hcpu)
 {
@@ -134,10 +135,13 @@ static int ppm_cpu_hotplug_callback(struct notifier_block *nfb,
 
 	return NOTIFY_OK;
 }
+#endif
 
+#if 0
 static struct notifier_block __refdata ppm_cpu_hotplug_notifier = {
 	.notifier_call = ppm_cpu_hotplug_callback,
 };
+#endif
 
 #ifdef CONFIG_THERMAL
 static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
@@ -195,8 +199,9 @@ int ppm_platform_init(void)
 	cpufreq_register_notifier(&ppm_cpu_freq_notifier,
 		CPUFREQ_TRANSITION_NOTIFIER);
 #endif
+#if 0
 	register_hotcpu_notifier(&ppm_cpu_hotplug_notifier);
-
+#endif
 	return 0;
 }
 

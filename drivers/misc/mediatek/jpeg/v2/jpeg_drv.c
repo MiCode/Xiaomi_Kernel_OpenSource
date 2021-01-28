@@ -458,12 +458,10 @@ void jpeg_drv_enc_power_on(void)
 
 		#elif defined(PLATFORM_MT6765)
 
-		smi_bus_prepare_enable(SMI_LARB1_REG_INDX,
-			"JPEG", true);
+		smi_bus_prepare_enable(SMI_LARB1, "JPEG");
 		#elif defined(PLATFORM_MT6761)
 
-		smi_bus_prepare_enable(SMI_LARB1_REG_INDX,
-			"JPEG", true);
+		smi_bus_prepare_enable(SMI_LARB1, "JPEG");
 		#elif defined(PLATFORM_MT6739)
 
 		smi_bus_prepare_enable(SMI_LARB1, "JPEG");
@@ -533,13 +531,11 @@ void jpeg_drv_enc_power_off(void)
 
 		#elif defined(PLATFORM_MT6765)
 
-		smi_bus_disable_unprepare(SMI_LARB1_REG_INDX,
-		"JPEG", true);
+		smi_bus_disable_unprepare(SMI_LARB1, "JPEG");
 
 		#elif defined(PLATFORM_MT6761)
 
-		smi_bus_disable_unprepare(SMI_LARB1_REG_INDX,
-		"JPEG", true);
+		smi_bus_disable_unprepare(SMI_LARB1, "JPEG");
 
 		#elif defined(PLATFORM_MT6739)
 

@@ -33,6 +33,10 @@
 #include "mtk_static_power_mt6739.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6765)
+#include "mtk_static_power_mt6765.h"
+#endif
+
 #if defined(CONFIG_MACH_MT6771)
 #include "mtk_static_power_mt6771.h"
 #endif

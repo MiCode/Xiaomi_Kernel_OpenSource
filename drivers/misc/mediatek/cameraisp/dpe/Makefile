@@ -28,6 +28,10 @@ ifeq ($(CONFIG_MACH_MT6771),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_50/camera_dpe.o
 else ifeq ($(CONFIG_MACH_MT6775),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_50/camera_dpe.o
+else ifeq ($(CONFIG_MACH_MT6765),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += mt6765/camera_dpe.o
+else ifeq ($(CONFIG_MACH_MT6762),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += mt6765/camera_dpe.o
 else ifeq ($(CONFIG_MACH_MT6785),y)
   obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += isp_50/camera_dpe.o
 else ifeq ($(CONFIG_MACH_MT6768),y)
