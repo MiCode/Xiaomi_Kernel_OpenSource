@@ -29,8 +29,7 @@ config DEVMPU_MT6885
 config DEVMPU_MT6873
 	bool "Mediatek MT6873 Device MPU driver"
 	depends on MACH_MT6873
-	select MTK_DEVMPU if (MTK_EMI || MEDIATEK_EMI)
-	select MTK_DEVMPU_EMI if (MTK_EMI || MEDIATEK_EMI)
+	select MTK_DEVMPU
 	help
 	  Say yes here to enable support Mediatek MT6873
 	  Device MPU driver. This driver is combined with
