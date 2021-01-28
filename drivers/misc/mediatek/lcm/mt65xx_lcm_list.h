@@ -236,6 +236,7 @@ extern struct LCM_DRIVER nt35695_fhd_dsi_vdo_truly_nt50358_lcm_drv;
 extern struct LCM_DRIVER nt35695B_fhd_dsi_cmd_truly_nt50358_lcm_drv;
 extern struct LCM_DRIVER nt35695_fhd_dsi_cmd_truly_rt4801_lcm_drv;
 extern struct LCM_DRIVER nt35695_fhd_dsi_cmd_truly_rt5081_lcm_drv;
+extern struct LCM_DRIVER nt35695_fhd_dsi_cmd_truly_rt5081_720p_lcm_drv;
 extern struct LCM_DRIVER nt35695_fhd_dsi_vdo_truly_rt5081_lcm_drv;
 extern struct LCM_DRIVER nt35695_fhd_dsi_vdo_truly_rt5081_hdp_lcm_drv;
 extern struct LCM_DRIVER nt35695_fhd_dsi_vdo_truly_rt5081_hdp_19_9_lcm_drv;
