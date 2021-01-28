@@ -1148,7 +1148,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	dvfs_min_margin_inc_step);
 #else
 	ged_log_buf_print(ghLogBuf_DVFS,
-"[GED_K][FB_DVFS] FB DVFS mode, t_gpu: %d, t_gpu_target: %d, gpu_freq_tar: %d, gpu_freq_pre: %d"
+		"[GED_K][FB_DVFS] FB DVFS mode, t_gpu: %d, t_gpu_target: %d, gpu_freq_tar: %d, gpu_freq_prev: %d"
 		, t_gpu, t_gpu_target, gpu_freq_tar, gpu_freq_pre);
 #endif
 	g_CommitType = MTK_GPU_DVFS_TYPE_VSYNCBASED;
