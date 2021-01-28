@@ -1322,4 +1322,14 @@ config TOUCHSCREEN_MTK_GT1151
 
 source "drivers/input/touchscreen/GT1151/Kconfig"
 
+config TOUCHSCREEN_MTK_FOCALTECH_HD
+	bool "Focaltech Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Focaltech touch panel.
+	  If unsure, say N.
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
+
 endif
