@@ -18,7 +18,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 
-#include "charger_class.h"
+#include <mt-plat/charger_class.h>
 
 static struct class *charger_class;
 
@@ -174,6 +174,16 @@ int charger_dev_kick_direct_charging_wdt(struct charger_device *chg_dev)
 	return -ENOTSUPP;
 }
 EXPORT_SYMBOL(charger_dev_kick_direct_charging_wdt);
+
+int charger_dev_get_vbus(struct charger_device *chg_dev, u32 *vbus)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->get_vbus_adc)
+		return chg_dev->ops->get_vbus_adc(chg_dev, vbus);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_get_vbus);
 
 int charger_dev_get_ibus(struct charger_device *chg_dev, u32 *ibus)
 {
@@ -590,8 +600,7 @@ struct charger_device *charger_device_register(const char *name,
 	struct srcu_notifier_head *head;
 	int rc;
 
-	pr_debug("%s: name=%s\n",
-		, __func__, name);
+	pr_debug("%s: name=%s\n", __func__, name);
 	chg_dev = kzalloc(sizeof(*chg_dev), GFP_KERNEL);
 	if (!chg_dev)
 		return ERR_PTR(-ENOMEM);

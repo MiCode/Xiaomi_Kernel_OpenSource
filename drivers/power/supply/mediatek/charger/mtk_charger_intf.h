@@ -27,16 +27,16 @@
 
 #include <mtk_gauge_time_service.h>
 
-#include "charger_class.h"
+#include <mt-plat/charger_class.h>
 
 /* PD */
-//#include <tcpm.h>
+#include <tcpm.h>
 
 struct charger_manager;
 #include "mtk_pe_intf.h"
 #include "mtk_pe20_intf.h"
-//#include "mtk_pe40_intf.h"
-//#include "mtk_pdc_intf.h"
+#include "mtk_pe40_intf.h"
+#include "mtk_pdc_intf.h"
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
