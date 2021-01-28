@@ -443,7 +443,7 @@ static void mtk_cpuidle_set_timer(struct mtk_cpuidle_device *mtk_idle)
 	index = mtk_idle->info.idle_index;
 
 	/* Only support WFI/CPU_OFF state */
-	if (index > 1)
+	if (index != 1)
 		return;
 
 	drv = cpuidle_get_driver();
