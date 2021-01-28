@@ -140,14 +140,10 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dsp);
 	pm_runtime_enable(&pdev->dev);
 
-	if (pdev->dev.of_node)
-		dev_set_name(&pdev->dev, "%s", "snd_audio_dsp");
-
-	/*
-	 * fix uaf(use afer free) issue:backup pdev->name,
-	 * device_rename will free pdev->name
-	 */
-	pdev->name = pdev->dev.kobj.name;
+	if (pdev->dev.of_node) {
+		pr_info("%s of_node->name:%s fullname:%s\n", __func__,
+			pdev->dev.of_node->name, pdev->dev.of_node->full_name);
+	}
 
 	ret = snd_soc_register_component(&pdev->dev,
 					 &mtk_dsp_pcm_platform, NULL, 0);
