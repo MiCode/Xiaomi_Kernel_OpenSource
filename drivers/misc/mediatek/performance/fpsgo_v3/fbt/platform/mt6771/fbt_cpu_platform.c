@@ -33,8 +33,8 @@ void fbt_reg_dram_request(int reg)
 {
 	if (reg) {
 		if (!pm_qos_request_active(&dram_req))
-			pm_qos_add_request(&dram_req, PM_QOS_DDR_OPP,
-					PM_QOS_DDR_OPP_DEFAULT_VALUE);
+			pm_qos_add_request(&dram_req, PM_QOS_EMI_OPP,
+					PM_QOS_EMI_OPP_DEFAULT_VALUE);
 	} else {
 		if (pm_qos_request_active(&dram_req))
 			pm_qos_remove_request(&dram_req);
@@ -55,7 +55,7 @@ void fbt_boost_dram(int boost)
 		pm_qos_update_request(&dram_req, 0);
 	else
 		pm_qos_update_request(&dram_req,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
+				PM_QOS_EMI_OPP_DEFAULT_VALUE);
 
 	fpsgo_systrace_c_fbt_gm(-100, boost, "dram_boost");
 }
