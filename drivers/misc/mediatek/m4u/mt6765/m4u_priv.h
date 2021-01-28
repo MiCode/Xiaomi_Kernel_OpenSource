@@ -204,6 +204,7 @@ int m4u_domain_init(struct m4u_device *m4u_dev, void *priv_reserve);
 /*int config_mau(struct M4U_MAU_STRUCT mau);*/
 int m4u_enable_tf(int port, bool fgenable);
 
+int m4u_dump_rs_info(int m4u_index, int m4u_slave_id);
 
 extern int gM4U_4G_DRAM_Mode;
 
@@ -222,6 +223,11 @@ unsigned long m4u_mva_to_pa(struct m4u_client_t *client,
 	M4U_PORT_ID port, unsigned int mva);
 int m4u_query_mva_info(unsigned int mva, unsigned int size,
 	unsigned int *real_mva, unsigned int *real_size);
+int mau_start_monitor(unsigned int m4u_id,
+	int m4u_slave_id, unsigned int mau_set,
+	int wr, int vir, int io, int bit32,
+	unsigned int start, unsigned int end,
+	unsigned int port_mask, unsigned int larb_mask);
 
 /* ================================= */
 /* ==== define in m4u_debug.c ===== */

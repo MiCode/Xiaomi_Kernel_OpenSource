@@ -138,7 +138,7 @@ static int __m4u_dump_rs_info(unsigned int va[], unsigned int pa[], unsigned int
 	return 0;
 }
 
-static int m4u_dump_rs_info(int m4u_index, int m4u_slave_id)
+int m4u_dump_rs_info(int m4u_index, int m4u_slave_id)
 {
 	unsigned long m4u_base = gM4UBaseAddr[m4u_index];
 	int i;
@@ -202,9 +202,11 @@ struct mau_config_info {
 	unsigned int end_bit32;	/* :1; */
 };
 
-int mau_start_monitor(int m4u_id, int m4u_slave_id, int mau_set,
-		      int wr, int vir, int io, int bit32,
-		      unsigned int start, unsigned int end, unsigned int port_mask, unsigned int larb_mask)
+int mau_start_monitor(unsigned int m4u_id,
+	int m4u_slave_id, unsigned int mau_set,
+	int wr, int vir, int io, int bit32,
+	unsigned int start, unsigned int end,
+	unsigned int port_mask, unsigned int larb_mask)
 {
 	unsigned long m4u_base = gM4UBaseAddr[m4u_id];
 
@@ -1194,7 +1196,8 @@ void m4u_port_array_init(struct m4u_port_array *port_array)
 	memset(port_array, 0, sizeof(struct m4u_port_array));
 }
 
-int m4u_port_array_add(struct m4u_port_array *port_array, int port, int m4u_en, int secure)
+int m4u_port_array_add(struct m4u_port_array *port_array,
+		       unsigned int port, int m4u_en, int secure)
 {
 	if (port >= M4U_PORT_NR) {
 		M4UMSG("error: port_array_add, port=%d, v(%d), s(%d)\n", port, m4u_en, secure);
