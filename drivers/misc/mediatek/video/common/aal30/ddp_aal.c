@@ -1564,6 +1564,12 @@ static void disp_aal_dre3_config(void *cmdq,
 	const struct DISP_AAL_INITREG *init_regs)
 {
 #ifdef CONFIG_MTK_DRE30_SUPPORT
+
+#if defined(CONFIG_MACH_MT6785)
+	int hist_int, hist_apb;
+	unsigned int reg_value;
+#endif
+
 	DISP_REG_MASK(cmdq, DISP_AAL_DRE_BLOCK_INFO_00,
 		init_regs->act_win_x_end << 13, 0x1FFF << 13);
 	DISP_REG_SET(cmdq, DISP_AAL_DRE_BLOCK_INFO_01,
@@ -1589,6 +1595,24 @@ static void disp_aal_dre3_config(void *cmdq,
 		init_regs->dre_blk_area_min);
 	DISP_REG_MASK(cmdq, DISP_AAL_SRAM_CFG,
 		init_regs->hist_bin_type, 0x1);
+
+#if defined(CONFIG_MACH_MT6785)
+	//adjust hist_int = 0 hist_apb = 1
+	//when init reg DISP_AAL_SRAM_CFG
+	//to fix bootup flash black
+	disp_aal_reg_get(DISP_MODULE_AAL0, DISP_AAL_SRAM_CFG, &reg_value);
+	hist_int = (reg_value & 0x40) >> 6;
+	hist_apb = (reg_value & 0x20) >> 5;
+	AAL_DBG("[INIT_REG] hist_int(%d), hist_apb(%d), reg_value(0x%08x)",
+		hist_int, hist_apb, reg_value);
+	if (hist_int == 1 && hist_apb == 0) {
+		hist_int = 0;
+		hist_apb = 1;
+	}
+	disp_aal_reg_mask(DISP_MODULE_AAL0, cmdq,
+		DISP_AAL_SRAM_CFG,
+		(hist_int << 6)|(hist_apb << 5)|(1 << 4), (0x7 << 4));
+#endif
 
 #if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 	DISP_REG_SET(cmdq, DISP_AAL_DUAL_PIPE_INFO_00,
