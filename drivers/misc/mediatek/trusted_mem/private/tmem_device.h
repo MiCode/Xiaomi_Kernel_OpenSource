@@ -156,8 +156,6 @@ struct trusted_mem_configs {
 	u32 minimal_chunk_size;
 	u32 phys_mem_shift_bits;
 	u32 phys_limit_min_alloc_size;
-	bool mock_ssmr_enable;
-	bool mock_peer_enable;
 	bool session_keep_alive_enable;
 	bool min_size_check_enable;
 	bool alignment_check_enable;
@@ -173,9 +171,6 @@ struct profile_mgr_desc {
 #endif
 
 struct trusted_mem_device {
-	struct ssmr_operations *mock_ssmr_ops;
-	struct trusted_driver_operations *mock_peer_ops;
-
 	struct ssmr_operations *ssmr_ops;
 	struct trusted_driver_operations *peer_ops;
 	void *peer_priv;

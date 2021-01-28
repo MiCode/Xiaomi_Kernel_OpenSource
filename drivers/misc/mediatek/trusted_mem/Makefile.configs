@@ -25,12 +25,6 @@ TCORE_PROFILING_AUTO_DUMP := n
 TCORE_MEMORY_LEAK_DETECTION_SUPPORT := n
 
 #==========================================================================
-# Protected Memory Driver Options
-#==========================================================================
-# Enable mock function support
-PMEM_MOCK_OBJECT_SUPPORT := n
-
-#==========================================================================
 # Feature Dependency Auto Changes
 #==========================================================================
 # Force enable option for ENG build only
@@ -39,12 +33,6 @@ TCORE_UT_FWK_SUPPORT := y
 TCORE_PROFILING_SUPPORT := y
 TCORE_PROFILING_AUTO_DUMP := n
 TCORE_MEMORY_LEAK_DETECTION_SUPPORT := y
-PMEM_MOCK_OBJECT_SUPPORT := y
-endif
-
-# Force enable proc entry support if mock object is supported
-ifeq ($(PMEM_MOCK_OBJECT_SUPPORT), y)
-TCORE_UT_FWK_SUPPORT := y
 endif
 
 #==========================================================================
@@ -53,5 +41,4 @@ endif
 $(info TCORE_UT_FWK_SUPPORT = $(TCORE_UT_FWK_SUPPORT))
 $(info TCORE_PROFILING_SUPPORT = $(TCORE_PROFILING_SUPPORT))
 $(info TCORE_PROFILING_AUTO_DUMP = $(TCORE_PROFILING_AUTO_DUMP))
-$(info PMEM_MOCK_OBJECT_SUPPORT = $(PMEM_MOCK_OBJECT_SUPPORT))
 $(info TCORE_MEMORY_LEAK_DETECTION_SUPPORT = $(TCORE_MEMORY_LEAK_DETECTION_SUPPORT))
