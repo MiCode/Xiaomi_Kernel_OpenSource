@@ -14,6 +14,7 @@
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/	\
 	-I$(srctree)/drivers/misc/mediatek/mcupm/mt6893	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/mt6893/inc	\
 	-I$(srctree)/include/linux/	\
 	-I$(PTP3_ROOT_DIR)/mt6893/inc	\
 

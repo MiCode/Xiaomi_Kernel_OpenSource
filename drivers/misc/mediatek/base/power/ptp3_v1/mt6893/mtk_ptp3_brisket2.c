@@ -70,7 +70,7 @@
  * Debug print
  ************************************************/
 
-#define BRISKET2_DEBUG
+//#define BRISKET2_DEBUG
 #define BRISKET2_TAG	 "[BRISKET2]"
 
 #define brisket2_err(fmt, args...)	\
@@ -140,6 +140,8 @@ void brisket2_save_memory_info(char *buf, unsigned long long ptp3_mem_size)
 int brisket2_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	enum BRISKET2_TRIGGER_STAGE brisket2_tri_stage)
 {
+	unsigned int cfg = 0;
+	unsigned int cpu, value, option;
 	int str_len = 0;
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
@@ -173,6 +175,45 @@ int brisket2_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 		break;
 	}
 
+	/* collect dump info */
+	for (cpu = BRISKET2_CPU_START_ID; cpu <= BRISKET2_CPU_END_ID; cpu++) {
+		str_len += snprintf(
+			aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			BRISKET2_TAG"[CPU%d]", cpu);
+
+		for (option = 0; option < NR_BRISKET2_RW_GROUP; option++) {
+
+			/* encode cfg */
+			/*
+			 *	cfg[15:8] option
+			 *	cfg[31:28] cpu
+			 */
+			cfg = (option << BRISKET2_CFG_OFFSET_OPTION) &
+				BRISKET2_CFG_BITMASK_OPTION;
+			cfg |= (cpu << BRISKET2_CFG_OFFSET_CPU) & BRISKET2_CFG_BITMASK_CPU;
+
+			/* update via atf */
+			value = ptp3_smc_handle(
+				PTP3_FEATURE_BRISKET2,
+				BRISKET2_NODE_RW_REG_READ,
+				cfg,
+				0);
+
+			if (option != NR_BRISKET2_RW_GROUP-1)
+				str_len += snprintf(
+					aee_log_buf + str_len,
+					ptp3_mem_size - str_len,
+					" %s:0x%08x,", BRISKET2_RW_REG_NAME[option], value);
+			else
+				str_len += snprintf(
+					aee_log_buf + str_len,
+					ptp3_mem_size - str_len,
+					" %s:0x%08x,\n", BRISKET2_RW_REG_NAME[option], value);
+		}
+	}
+
+	/* fill data to aee_log_buf */
 	if (str_len > 0)
 		memcpy(buf, aee_log_buf, str_len+1);
 

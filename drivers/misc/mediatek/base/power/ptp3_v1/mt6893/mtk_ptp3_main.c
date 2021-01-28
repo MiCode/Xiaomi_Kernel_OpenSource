@@ -64,6 +64,9 @@
 	#include "mtk_ptp3_dt.h"
 	#include "mtk_ptp3_adcc.h"
 	#include "mtk_ptp3_iglre.h"
+#ifdef PICACHU_READY
+	#include "mtk_picachu.h"
+#endif
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -89,7 +92,7 @@
  * Debug print
  ************************************************/
 
-#define PTP3_DEBUG
+// #define PTP3_DEBUG
 #define PTP3_TAG	 "[PTP3]"
 
 #define ptp3_err(fmt, args...)	\
@@ -126,6 +129,9 @@
 
 static unsigned long long ptp3_reserve_memory_init(void)
 {
+#ifdef PICACHU_READY
+	return picachu_reserve_mem_get_virt(0); /* picachu_log_buffer_id_PTP3 */
+#else
 	/* GAT log use */
 	phys_addr_t ptp3_mem_base_phys = ptp3_read(ioremap(EEM_TEMPSPARE0, 0));
 	phys_addr_t ptp3_mem_size = PTP3_MEM_SIZE;
@@ -143,8 +149,8 @@ static unsigned long long ptp3_reserve_memory_init(void)
 		(unsigned long long)ptp3_mem_size,
 		(unsigned long long)ptp3_mem_base_virt);
 
-	return (unsigned long long)ptp3_mem_base_virt;
-
+	return ptp3_mem_base_virt;
+#endif
 }
 
 #endif /* CONFIG_OF_RESERVED_MEM */
@@ -298,42 +304,43 @@ static int ptp3_probe(struct platform_device *pdev)
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
 	/* probe trigger for ptp3 features */
-	brisket2_probe(pdev);
+	adcc_probe(pdev);
 	fll_probe(pdev);
+	ctt_probe(pdev);
+	drcc_probe(pdev);
+	brisket2_probe(pdev);
+	cinst_probe(pdev);
 	pdp_probe(pdev);
 	dt_probe(pdev);
-
-/* TO BE FIXED: avoid system reboot */
-#if 0
-	cinst_probe(pdev);
-	drcc_probe(pdev);
-	ctt_probe(pdev);
-	adcc_probe(pdev);
-#endif
 	iglre_probe(pdev);
+
 	return 0;
 }
 
 static int ptp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	adcc_suspend(pdev, state);
 	fll_suspend(pdev, state);
-	cinst_suspend(pdev, state);
 	ctt_suspend(pdev, state);
+	drcc_suspend(pdev, state);
+	brisket2_suspend(pdev, state);
+	cinst_suspend(pdev, state);
 	pdp_suspend(pdev, state);
 	dt_suspend(pdev, state);
-	adcc_suspend(pdev, state);
 	iglre_suspend(pdev, state);
 	return 0;
 }
 
 static int ptp3_resume(struct platform_device *pdev)
 {
+	adcc_resume(pdev);
 	fll_resume(pdev);
-	cinst_resume(pdev);
 	ctt_resume(pdev);
+	drcc_resume(pdev);
+	brisket2_resume(pdev);
+	cinst_resume(pdev);
 	pdp_resume(pdev);
 	dt_resume(pdev);
-	adcc_resume(pdev);
 	iglre_resume(pdev);
 	return 0;
 }

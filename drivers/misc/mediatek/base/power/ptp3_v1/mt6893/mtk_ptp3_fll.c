@@ -71,7 +71,7 @@
  * Debug print
  ************************************************/
 
-/* #define FLL_DEBUG */
+//#define FLL_DEBUG
 #define FLL_TAG	 "[FLL]"
 
 #define fll_err(fmt, args...)	\
@@ -201,6 +201,8 @@ void fll_save_memory_info(char *buf, unsigned long long ptp3_mem_size)
 int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	enum FLL_TRIGGER_STAGE fll_tri_stage)
 {
+	unsigned int cfg = 0;
+	unsigned int cpu, value, group;
 	int str_len = 0;
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
@@ -235,8 +237,42 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	}
 
 	/* collect dump info */
-	/* fill data to aee_log_buf */
+	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
+		str_len += snprintf(
+			aee_log_buf + str_len,
+			ptp3_mem_size - str_len,
+			FLL_TAG"[CPU%d]", cpu);
+		for (group = 0; group < NR_FLL_RW_GROUP; group++) {
 
+			/* encode cfg */
+			/*
+			 *	cfg[15:8] option
+			 *	cfg[31:28] cpu
+			 */
+			cfg = (group << FLL_CFG_OFFSET_OPTION) & FLL_CFG_BITMASK_OPTION;
+			cfg |= (cpu << FLL_CFG_OFFSET_CPU) & FLL_CFG_BITMASK_CPU;
+
+			/* update via atf */
+			value = ptp3_smc_handle(
+				PTP3_FEATURE_FLL,
+				FLL_NODE_RW_REG_READ,
+				cfg,
+				0);
+
+			if (group != NR_FLL_RW_GROUP-1)
+				str_len += snprintf(
+					aee_log_buf + str_len,
+					ptp3_mem_size - str_len,
+					" %s:0x%08x,", FLL_RW_REG_NAME[group], value);
+			else
+				str_len += snprintf(
+					aee_log_buf + str_len,
+					ptp3_mem_size - str_len,
+					" %s:0x%08x\n", FLL_RW_REG_NAME[group], value);
+		}
+	}
+
+	/* fill data to aee_log_buf */
 	if (str_len > 0)
 		memcpy(buf, aee_log_buf, str_len+1);
 
