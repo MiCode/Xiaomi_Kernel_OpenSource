@@ -521,7 +521,7 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 			*adapter_ibus = pe40->cap.pdp * 1000000
 					/ adapter_mv;
 			ret = pe4_hal_set_adapter_cap(alg,
-				adapter_mv, adapter_ma);
+				adapter_mv, *adapter_ibus);
 
 			pe4_err("pe40_pd_req:vbus:%d new_ibus:%d pdp:%d ret:%d\n",
 				adapter_mv, *adapter_ibus,
