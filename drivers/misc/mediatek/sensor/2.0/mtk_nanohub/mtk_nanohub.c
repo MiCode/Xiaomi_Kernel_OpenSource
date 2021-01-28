@@ -92,6 +92,7 @@ struct mtk_nanohub_device {
 	int32_t mag_config_data[9];
 	int32_t light_config_data[1];
 	int32_t proximity_config_data[2];
+	int32_t pressure_config_data[2];
 	int32_t sar_config_data[4];
 	int32_t ois_config_data[2];
 };
@@ -1746,6 +1747,16 @@ static void mtk_nanohub_restoring_config(void)
 		vfree(data);
 	}
 
+	length = sizeof(device->pressure_config_data);
+	data = vzalloc(length);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->pressure_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_PRESSURE, data, length);
+		vfree(data);
+	}
+
 	length = sizeof(device->sar_config_data);
 	data = vzalloc(length);
 	if (data) {
@@ -1948,6 +1959,12 @@ static int mtk_nanohub_config(struct hf_device *hfdev,
 		memcpy(device->proximity_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
+	case ID_PRESSURE:
+		length = sizeof(device->pressure_config_data);
+		spin_lock(&config_data_lock);
+		memcpy(device->pressure_config_data, data, length);
+		spin_unlock(&config_data_lock);
+		break;
 	case ID_SAR:
 		length = sizeof(device->sar_config_data);
 		spin_lock(&config_data_lock);
@@ -2043,6 +2060,15 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->proximity_config_data,
 					sizeof(device->proximity_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+		case SENSOR_TYPE_PRESSURE:
+			if (sizeof(cust_cmd->data) <
+					sizeof(device->pressure_config_data))
+				return -EINVAL;
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->pressure_config_data,
+					sizeof(device->pressure_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_SAR:
@@ -2300,6 +2326,13 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
 			event.word[0] = data->data[0];
+			break;
+		case ID_PRESSURE:
+			event.timestamp = data->time_stamp;
+			event.sensor_type = id_to_type(data->sensor_type);
+			event.action = data->flush_action;
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
 			break;
 		case ID_SAR:
 			event.timestamp = data->time_stamp;
