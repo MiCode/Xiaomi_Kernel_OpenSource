@@ -8673,6 +8673,32 @@ int ufshcd_runtime_idle(struct ufs_hba *hba)
 }
 EXPORT_SYMBOL(ufshcd_runtime_idle);
 
+static void ufshcd_device_quiesce(struct ufs_hba *hba)
+{
+	struct scsi_device *scsi_d;
+	int i;
+
+	/*
+	 * Wait all cmds done & block user issue cmds to
+	 * general LUs, wlun device, and wlun boot.
+	 * To avoid new cmds coming after device has been
+	 * stopped by SSU cmd in ufshcd_suspend().
+	 */
+	for (i = 0; i < hba->dev_info.max_lu_supported; i++) {
+		scsi_d = scsi_device_lookup(hba->host, 0, 0, i);
+		if (scsi_d)
+			scsi_device_quiesce(scsi_d);
+	}
+
+	scsi_d = scsi_device_lookup(hba->host, 0, 0,
+		ufshcd_upiu_wlun_to_scsi_wlun(UFS_UPIU_BOOT_WLUN));
+	if (scsi_d)
+		scsi_device_quiesce(scsi_d);
+
+	if (hba->sdev_ufs_device)
+		scsi_device_quiesce(hba->sdev_ufs_device);
+}
+
 /**
  * ufshcd_shutdown - shutdown routine
  * @hba: per adapter instance
@@ -8692,6 +8718,8 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 		goto out;
 
 	pm_runtime_get_sync(hba->dev);
+
+	ufshcd_device_quiesce(hba);
 
 	ret = ufshcd_suspend(hba, UFS_SHUTDOWN_PM);
 out:
