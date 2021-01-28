@@ -17,7 +17,7 @@ config ANDROID_DEFAULT_SETTING
 	select BLK_DEV_RAM
 	select BLOCK
 	select BPF_JIT
-	select BPF_JIT_ALWAYS_ON
+	select BPF_JIT_ALWAYS_ON if ARM64
 	select BPF_SYSCALL
 	select CGROUP_BPF
 	select CGROUP_CPUACCT
