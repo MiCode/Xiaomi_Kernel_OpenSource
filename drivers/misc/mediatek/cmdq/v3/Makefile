@@ -79,25 +79,26 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_dr \
 
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 obj-y += cmdq_sec.o
+ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
+endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
 
-ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
-ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
-obj-y += cmdq_sec_gp.o
-else ifeq ($(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)),y)
-ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
-obj-y += cmdq_sec_trustonic.o
-endif
-
-ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
+ifeq ($(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT)),y)
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
 obj-y += cmdq_sec_mtee.o
 endif
+else
+ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
+obj-y += cmdq_sec_gp.o
+endif
 endif
 
-ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
-endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
+ifeq ($(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)),y)
+ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
+obj-y += cmdq_sec_gp.o
+endif
 
 # platform dependent definition
 ccflags-y += -DCMDQ_SPECIAL_ESD_PRIORITY
