@@ -3955,6 +3955,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 		}
 	}
 
+
 	CRTC_MMP_EVENT_START(index, resume,
 			mtk_crtc->enabled, index);
 
@@ -6720,15 +6721,14 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_handle =
 				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-			if (atomic_read(&mtk_crtc->already_config))
+			if (atomic_read(&mtk_crtc->already_config)) {
 				mtk_crtc_wait_frame_done(mtk_crtc,
 					cmdq_handle, DDP_FIRST_PATH, 0);
-			/* Disconnect addon component */
-			_mtk_crtc_atmoic_addon_module_disconnect(
-				crtc, mtk_crtc->ddp_mode,
-				&crtc_state->lye_state, cmdq_handle);
-			/* Stop ovl 2l */
-			if (atomic_read(&mtk_crtc->already_config)) {
+				/* Disconnect addon component */
+				_mtk_crtc_atmoic_addon_module_disconnect(
+					crtc, mtk_crtc->ddp_mode,
+					&crtc_state->lye_state, cmdq_handle);
+				/* Stop ovl 2l */
 				comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
 				mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
 				mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
@@ -6739,11 +6739,13 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_pkt_write(cmdq_handle, comp_ovl0->cmdq_base,
 				comp_ovl0->regs_pa + DISP_OVL_DATAPATH_CON, 0x0, 0x4);
 			/* Disconnect current path and remove component mutexs */
-			mtk_ddp_remove_comp_from_path_with_cmdq(
-				mtk_crtc, DDP_COMPONENT_OVL0_2L,
-				DDP_COMPONENT_OVL0, cmdq_handle);
-			mtk_disp_mutex_remove_comp_with_cmdq(
+			if (atomic_read(&mtk_crtc->already_config)) {
+				mtk_ddp_remove_comp_from_path_with_cmdq(
+					mtk_crtc, DDP_COMPONENT_OVL0_2L,
+					DDP_COMPONENT_OVL0, cmdq_handle);
+				mtk_disp_mutex_remove_comp_with_cmdq(
 					mtk_crtc, DDP_COMPONENT_OVL0_2L, cmdq_handle, 0);
+			}
 
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
@@ -6801,24 +6803,26 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 				comp_ovl0_2l->regs_pa + DISP_OVL_ROI_SIZE,
 				height << 16 | width, ~0);
 
-			/* Connect cur path components */
-			mtk_ddp_add_comp_to_path_with_cmdq(
-				mtk_crtc, DDP_COMPONENT_OVL0_2L,
-				DDP_COMPONENT_OVL0, cmdq_handle);
-			mtk_disp_mutex_add_comp_with_cmdq(
-				mtk_crtc, DDP_COMPONENT_OVL0_2L,
-				mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
-				cmdq_handle, 0);
+			if (atomic_read(&mtk_crtc->already_config)) {
+				/* Connect cur path components */
+				mtk_ddp_add_comp_to_path_with_cmdq(
+					mtk_crtc, DDP_COMPONENT_OVL0_2L,
+					DDP_COMPONENT_OVL0, cmdq_handle);
+				mtk_disp_mutex_add_comp_with_cmdq(
+					mtk_crtc, DDP_COMPONENT_OVL0_2L,
+					mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base),
+					cmdq_handle, 0);
 
-			/* Switch back need reprepare ovl0_2l */
-			mtk_ddp_comp_prepare(comp_ovl0_2l);
-			mtk_ddp_comp_start(comp_ovl0_2l, cmdq_handle);
-			/* ovl 2l should not have old config, so disable
-			 * all ovl 2l layer when flush first frame after
-			 * switch ovl 2l back to main disp
-			 */
-			mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
-				OVL_ALL_LAYER_OFF, &keep_first_layer);
+				/* Switch back need reprepare ovl0_2l */
+				mtk_ddp_comp_prepare(comp_ovl0_2l);
+				mtk_ddp_comp_start(comp_ovl0_2l, cmdq_handle);
+				/* ovl 2l should not have old config, so disable
+				 * all ovl 2l layer when flush first frame after
+				 * switch ovl 2l back to main disp
+				 */
+				mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
+					OVL_ALL_LAYER_OFF, &keep_first_layer);
+			}
 
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
