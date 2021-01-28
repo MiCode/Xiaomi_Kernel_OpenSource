@@ -53,6 +53,10 @@ struct mtk_clk_pll {
 	const struct mtk_pll_data *data;
 };
 
+bool (*mtk_fh_set_rate)(int pll_id, unsigned long dds, int postdiv) = NULL;
+EXPORT_SYMBOL(mtk_fh_set_rate);
+
+
 static inline struct mtk_clk_pll *to_mtk_clk_pll(struct clk_hw *hw)
 {
 	return container_of(hw, struct mtk_clk_pll, hw);
@@ -207,12 +211,9 @@ static int mtk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 postdiv;
 
 	mtk_pll_calc_values(pll, &pcw, &postdiv, rate, parent_rate);
-#if defined(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING)
-	if (!mtk_fh_set_rate(pll->data->id, pcw, postdiv))
+	if (!mtk_fh_set_rate || !mtk_fh_set_rate(pll->data->id, pcw, postdiv))
 		mtk_pll_set_rate_regs(pll, pcw, postdiv);
-#else
 	mtk_pll_set_rate_regs(pll, pcw, postdiv);
-#endif
 
 	return 0;
 }

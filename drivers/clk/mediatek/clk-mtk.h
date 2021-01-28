@@ -248,6 +248,6 @@ struct clk *mtk_clk_register_ref2usb_tx(const char *name,
 void mtk_register_reset_controller(struct device_node *np,
 			unsigned int num_regs, int regofs);
 
-bool mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv);
+extern bool (*mtk_fh_set_rate)(int pll_id, unsigned long dds, int postdiv);
 
 #endif /* __DRV_CLK_MTK_H */

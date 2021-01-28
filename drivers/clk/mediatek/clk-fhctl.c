@@ -22,6 +22,7 @@
 #include <linux/string.h>
 #include "clk-fhctl.h"
 #include "clk-fhctl-debug.h"
+#include "clk-mtk.h"
 
 
 /************************************************
@@ -182,7 +183,7 @@ EXPORT_SYMBOL(mtk_fh_get_fh_obj_tbl);
 /*********************************************************
  * For clock driver control
  ********************************************************/
-bool mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv)
+bool _mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv)
 {
 	struct mtk_fhctl *fhctl;
 	struct clk_mt_fhctl *fh;
@@ -255,7 +256,6 @@ bool mtk_fh_set_rate(int pll_id, unsigned long dds, int postdiv)
 
 	return false;
 }
-EXPORT_SYMBOL(mtk_fh_set_rate);
 
 /****************************************************
  * CLK FHCTL reg init
@@ -439,6 +439,8 @@ static int mt_fh_plt_drv_probe(struct platform_device *pdev)
 
 	mt_fhctl_init_debugfs(fhctl);
 
+	mtk_fh_set_rate = _mtk_fh_set_rate;
+
 	dev_info(&pdev->dev, "FHCTL Init Done");
 
 	for (i = 0; i < fhctl->pll_num; i++)
@@ -474,6 +476,7 @@ static int mt_fh_plt_drv_remove(struct platform_device *pdev)
 {
 	struct mtk_fhctl *fhctl = platform_get_drvdata(pdev);
 
+	mtk_fh_set_rate = NULL;
 	mt_fhctl_exit_debugfs(fhctl);
 	return 0;
 }
