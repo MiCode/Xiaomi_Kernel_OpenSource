@@ -1136,7 +1136,7 @@ void mt_gpufreq_thermal_protect(unsigned int limited_power)
 }
 
 /* API : set limited OPP table index by PBM */
-void mt_gpufreq_pbm_set_power_limit(unsigned int limited_power)
+void mt_gpufreq_set_power_limit_by_pbm(unsigned int limited_power)
 {
 	int i = -1;
 	unsigned int limited_freq;
@@ -1428,7 +1428,8 @@ static ssize_t mt_gpufreq_power_limited_proc_write(struct file *file,
 				ret = 0;
 				if (!strncmp(array[i], "pbm_limited_power",
 						strlen(array[i]))) {
-					mt_gpufreq_pbm_set_power_limit(value);
+					mt_gpufreq_set_power_limit_by_pbm(
+						value);
 					break;
 				} else if (!strncmp(array[i],
 					"thermal_protect_power",
