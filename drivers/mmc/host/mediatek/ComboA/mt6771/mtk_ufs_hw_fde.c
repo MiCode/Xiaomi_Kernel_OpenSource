@@ -11,10 +11,7 @@
  * GNU General Public License for more details.
  */
 
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE))
-#include <linux/hie.h>
 #include "mtk_secure_api.h"
-#endif
 #include <mmc/core/queue.h>
 
 /* map from AES Spec */
@@ -48,7 +45,7 @@ static void msdc_crypto_switch_config(struct msdc_host *host,
 	/* 1. set ctr */
 	aes_sw_reg = MSDC_READ32(EMMC52_AES_EN);
 
-	hw_hie_iv_num = hie_get_iv(req);
+	hw_hie_iv_num = 0; //hie_get_iv(req); /*need to check*/
 
 	if (aes_sw_reg & EMMC52_AES_SWITCH_VALID0)
 		MSDC_GET_FIELD(EMMC52_AES_CFG_GP0,
@@ -147,9 +144,6 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 #ifdef CONFIG_MTK_HW_FDE
 	unsigned int key_idx;
 #endif
-#ifdef CONFIG_HIE
-	int err;
-#endif
 	struct request *req = NULL;
 	struct mmc_queue_req *mq_rq = NULL;
 	struct mmc_blk_request *brq;
@@ -196,10 +190,6 @@ check_hw_crypto:
 		key_idx = req->bio->bi_key_idx;
 	}
 #endif
-#ifdef CONFIG_HIE
-	if (hie_request_crypted(req))
-		is_fbe = 1;
-#endif
 
 	if (is_fde || is_fbe) {
 #ifdef CONFIG_MTK_HW_FDE
@@ -213,44 +203,7 @@ check_hw_crypto:
 			host->key_idx = key_idx;
 		}
 #endif
-#ifdef CONFIG_HIE
-		if (is_fbe) {
-			if (!host->is_crypto_init) {
-				/* fbe init */
-				mt_secure_call(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-					(1 << 0), 4, 1, 0);
-				host->is_crypto_init = true;
-			}
-			if (dir == DMA_TO_DEVICE)
-				err = hie_encrypt(msdc_hie_get_dev(),
-					req, host);
-			else
-				err = hie_decrypt(msdc_hie_get_dev(),
-					req, host);
-			if (err) {
-				err = -EIO;
-				ERR_MSG(
-			"%s: fail in crypto hook,req: %p, err %d\n",
-				__func__, req, err);
-				WARN_ON(1);
-				return;
-			}
-			if (hie_is_nocrypt())
-				return;
-			if (hie_is_dummy()) {
-				struct mmc_data *data = cmd->data;
 
-				if (dir == DMA_TO_DEVICE &&
-				    msdc_use_async_dma(data->host_cookie)) {
-					dma_unmap_sg(mmc_dev(mmc), data->sg,
-						data->sg_len, dir);
-					dma_map_sg(mmc_dev(mmc), data->sg,
-						data->sg_len, dir);
-				}
-				return;
-			}
-		}
-#endif
 		if (!mmc_card_blockaddr(mmc->card))
 			blk_addr = blk_addr >> 9;
 
@@ -270,80 +223,3 @@ static void msdc_post_crypto(struct msdc_host *host)
 	/* disable AES path by set bypass bit */
 	MSDC_SET_BIT32(EMMC52_AES_SWST, EMMC52_AES_BYPASS);
 }
-
-#ifdef CONFIG_HIE
-/* configure request for HIE */
-static int msdc_hie_cfg_request(unsigned int mode, const char *key,
-	int len, struct request *req, void *priv)
-{
-	struct msdc_host *host = (struct msdc_host *)priv;
-	void __iomem *base = host->base;
-	u32 iv[4] = {0}, aes_key[8] = {0}, aes_tkey[8] = {0};
-	u32 data_unit_size, i, half_len;
-	u8 key_bit, aes_mode;
-
-	if (mode & BC_AES_256_XTS) {
-		aes_mode = MSDC_CRYPTO_XTS_AES;
-		key_bit = BIT_256;
-		WARN_ON(len != 64);
-	} else if (mode & BC_AES_128_XTS) {
-		aes_mode = MSDC_CRYPTO_XTS_AES;
-		key_bit = BIT_128;
-		WARN_ON(len != 32);
-	} else {
-		ERR_MSG("%s: unknown mode 0x%x\n", __func__, mode);
-		WARN_ON(1);
-		return -EIO;
-}
-
-	/*
-	 * limit half_len as u32 * 8
-	 * prevent local buffer overflow
-	 */
-	half_len = min_t(u32, len / 2, sizeof(u32) * 8);
-
-	/* Split key into key & tkey */
-	memcpy(aes_key, &key[0], half_len);
-	memcpy(aes_tkey, &key[half_len], half_len);
-
-	/* eMMC block size 512bytes */
-	data_unit_size = (1 << 9);
-
-	/* AES config */
-	MSDC_WRITE32(EMMC52_AES_CFG_GP1,
-		(data_unit_size << 16 | key_bit << 8 | aes_mode << 0));
-
-	/* IV */
-	for (i = 0; i < 4; i++)
-		MSDC_WRITE32((EMMC52_AES_IV0_GP1 + i * 4), iv[i]);
-
-	/* KEY */
-	for (i = 0; i < 8; i++)
-		MSDC_WRITE32((EMMC52_AES_KEY0_GP1 + i * 4), aes_key[i]);
-
-	/* TKEY */
-	for (i = 0; i < 8; i++)
-		MSDC_WRITE32((EMMC52_AES_TKEY0_GP1 + i * 4), aes_tkey[i]);
-
-	return 0;
-}
-
-struct hie_dev msdc_hie_dev = {
-	.name = "msdc",
-	.mode = (BC_AES_256_XTS | BC_AES_128_XTS),
-	.encrypt = msdc_hie_cfg_request,
-	.decrypt = msdc_hie_cfg_request,
-	.priv = NULL,
-};
-
-struct hie_dev *msdc_hie_get_dev(void)
-{
-	return &msdc_hie_dev;
-}
-
-static void msdc_hie_register(struct msdc_host *host)
-{
-	if (host->hw->host_function == MSDC_EMMC)
-		hie_register_device(&msdc_hie_dev);
-}
-#endif
