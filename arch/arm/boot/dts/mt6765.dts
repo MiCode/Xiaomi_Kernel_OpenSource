@@ -2076,13 +2076,13 @@
 	msdc0:msdc@11230000 {
 		compatible = "mediatek,msdc";
 		reg = <0 0x11230000 0 0x10000>;
-		interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	msdc1:msdc@11240000 {
 		compatible = "mediatek,msdc";
 		reg = <0 0x11240000 0 0x10000>;
-		interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	msdc2:msdc@11250000 {
@@ -2096,7 +2096,7 @@
 	};
 
 	msdc1_ins:msdc1_ins@0 {
-		compatible = "mediatek,mt6761-sdcard-ins";
+		compatible = "mediatek,mt6765-sdcard-ins";
 	};
 
 	msdc0_top@11cd0000 {
