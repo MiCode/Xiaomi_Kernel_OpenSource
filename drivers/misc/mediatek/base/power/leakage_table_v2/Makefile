@@ -49,6 +49,7 @@ obj-$(CONFIG_MACH_MT6771) += mtk_static_power_mt6771.o
 obj-$(CONFIG_MACH_MT6775) += mtk_static_power.o
 
 obj-$(CONFIG_MACH_MT6775) += mtk_static_power_mt6775.o
+
 # MT6768
 obj-$(CONFIG_MACH_MT6768) += mtk_static_power.o
 
@@ -78,3 +79,8 @@ obj-$(CONFIG_MACH_MT6873) += mtk_static_power_mt6873.o
 obj-$(CONFIG_MACH_MT6853) += mtk_static_power.o
 
 obj-$(CONFIG_MACH_MT6853) += mtk_static_power_mt6853.o
+
+# MT8168
+obj-$(CONFIG_MACH_MT8168) += mtk_static_power.o
+
+obj-$(CONFIG_MACH_MT8168) += mtk_static_power_mt8168.o
