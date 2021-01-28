@@ -121,6 +121,8 @@ static int teei_bind_current_cpu(void)
 	cpumask_set_cpu(cpu_id, &mask);
 	set_cpus_allowed_ptr(teei_switch_task, &mask);
 
+	set_current_cpuid(cpu_id);
+
 	if (last_cpu_id != cpu_id) {
 		teei_move_cpu_context(cpu_id, last_cpu_id);
 		last_cpu_id = cpu_id;
