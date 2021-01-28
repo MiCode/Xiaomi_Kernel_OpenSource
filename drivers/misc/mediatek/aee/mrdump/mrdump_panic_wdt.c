@@ -460,7 +460,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_TIME);
 #endif
-	t = cpu_clock(get_HW_cpuid());
+	t = cpu_clock(cpu);
 	nanosec_rem = do_div(t, 1000000000);
 	aee_wdt_printf("\nQwdt at [%5lu.%06lu]\n", (unsigned long)t,
 			nanosec_rem / 1000);
@@ -547,11 +547,11 @@ void notrace aee_wdt_atf_entry(void)
 #endif
 
 	/* for per-cpu control registers */
-	mrdump_save_ctrlreg();
+	mrdump_save_ctrlreg(cpu);
 
 	dis_D_inner_fL1L2();
 
-	if (atf_aee_debug_virt_addr) {
+	if (atf_aee_debug_virt_addr && cpu >= 0) {
 		regs = (void *)(atf_aee_debug_virt_addr +
 				(cpu * sizeof(struct atf_aee_regs)));
 
@@ -614,7 +614,8 @@ void notrace aee_wdt_atf_entry(void)
 #endif
 		aee_wdt_atf_info(cpu, &pregs);
 	} else {
-		aee_wdt_atf_info(cpu, 0);
+		if (cpu >= 0)
+			aee_wdt_atf_info(cpu, 0);
 	}
 }
 
