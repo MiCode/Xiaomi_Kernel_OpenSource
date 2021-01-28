@@ -118,6 +118,12 @@ static unsigned int cinst_doe_ls_credit;
 static unsigned int cinst_doe_vx_enable;
 static unsigned int cinst_doe_vx_period;
 static unsigned int cinst_doe_vx_credit;
+static unsigned int cinst_doe_ls_low_en;
+static unsigned int cinst_doe_ls_low_period;
+static unsigned int cinst_doe_vx_low_en;
+static unsigned int cinst_doe_vx_low_period;
+static unsigned int cinst_doe_ls_const_en;
+static unsigned int cinst_doe_vx_const_en;
 
 #endif /* CONFIG_OF */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -539,12 +545,267 @@ static int cinst_vx_period_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static ssize_t cinst_ls_low_en_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable, cinst_n;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &enable)) {
+		cinst_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
+		goto out;
+	}
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++)
+		cinst_smc_handle(CINST_GROUP_LS_LOW_EN, (enable >> cinst_n) & 0x01, cinst_n);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int cinst_ls_low_en_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0, cinst_n = 0;
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+		value = cinst_smc_handle(CINST_GROUP_LS_LOW_EN_R, 0, cinst_n);
+		seq_printf(m, "[CINST][%d] %x\n", cinst_n, value);
+	}
+
+	return 0;
+}
+
+static ssize_t cinst_ls_low_period_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int value, cinst_n;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%u %u", &value, &cinst_n) != 2) {
+		cinst_debug("bad argument!! Should input 2 arguments.\n");
+		goto out;
+	}
+
+	cinst_smc_handle(CINST_GROUP_LS_LOW_PERIOD, value, cinst_n);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int cinst_ls_low_period_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0, cinst_n = 0;
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+		value = cinst_smc_handle(CINST_GROUP_LS_LOW_PERIOD_R, 0, cinst_n);
+		seq_printf(m, "[CINST][%d] %x\n", cinst_n, value);
+	}
+
+	return 0;
+}
+
+static ssize_t cinst_vx_low_en_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable, cinst_n;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &enable)) {
+		cinst_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
+		goto out;
+	}
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++)
+		cinst_smc_handle(CINST_GROUP_VX_LOW_EN, (enable >> cinst_n) & 0x01, cinst_n);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int cinst_vx_low_en_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0, cinst_n = 0;
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+		value = cinst_smc_handle(CINST_GROUP_VX_LOW_EN_R, 0, cinst_n);
+		seq_printf(m, "[CINST][%d] %x\n", cinst_n, value);
+	}
+
+	return 0;
+}
+
+static ssize_t cinst_vx_low_period_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int value, cinst_n;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (sscanf(buf, "%u %u", &value, &cinst_n) != 2) {
+		cinst_debug("bad argument!! Should input 2 arguments.\n");
+		goto out;
+	}
+
+	cinst_smc_handle(CINST_GROUP_VX_LOW_PERIOD, value, cinst_n);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int cinst_vx_low_period_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0, cinst_n = 0;
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+		value = cinst_smc_handle(CINST_GROUP_VX_LOW_PERIOD_R, 0, cinst_n);
+		seq_printf(m, "[CINST][%d] %x\n", cinst_n, value);
+	}
+
+	return 0;
+}
+
+
+static ssize_t cinst_ls_const_en_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable, cinst_n;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &enable)) {
+		cinst_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
+		goto out;
+	}
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++)
+		cinst_smc_handle(CINST_GROUP_LS_CONST_EN, (enable >> cinst_n) & 0x01, cinst_n);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int cinst_ls_const_en_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0, cinst_n = 0;
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+		value = cinst_smc_handle(CINST_GROUP_LS_CONST_EN_R, 0, cinst_n);
+		seq_printf(m, "[CINST][%d] %x\n", cinst_n, value);
+	}
+
+	return 0;
+}
+
+static ssize_t cinst_vx_const_en_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable, cinst_n;
+	char *buf = (char *) __get_free_page(GFP_USER);
+
+	if (!buf)
+		return -ENOMEM;
+
+	if (count >= PAGE_SIZE)
+		goto out;
+
+	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	buf[count] = '\0';
+
+	if (kstrtoint(buf, 10, &enable)) {
+		cinst_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
+		goto out;
+	}
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++)
+		cinst_smc_handle(CINST_GROUP_VX_CONST_EN, (enable >> cinst_n) & 0x01, cinst_n);
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+}
+
+static int cinst_vx_const_en_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int value = 0, cinst_n = 0;
+
+	for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+		value = cinst_smc_handle(CINST_GROUP_VX_CONST_EN_R, 0, cinst_n);
+		seq_printf(m, "[CINST][%d] %x\n", cinst_n, value);
+	}
+
+	return 0;
+}
+
 static int cinst_cfg_proc_show(struct seq_file *m, void *v)
 {
-	unsigned int value;
+	unsigned int value = 0, cinst_n = 0, temp = 0;
 
 	value = cinst_smc_handle(CINST_GROUP_CFG, 0, CINST_CPU_START_ID);
-	seq_printf(m, "%08x\n", value);
+
+	for (cinst_n = 0; cinst_n <= CINST_CPU_END_ID; cinst_n++)
+		temp |= (((value & (0x1 << cinst_n)) >> cinst_n) << (cinst_n * 4));
+
+	seq_printf(m, "%08x\n", temp);
 
 	return 0;
 }
@@ -609,6 +870,12 @@ PROC_FOPS_RW(cinst_ls_period);
 PROC_FOPS_RW(cinst_vx_enable);
 PROC_FOPS_RW(cinst_vx_credit);
 PROC_FOPS_RW(cinst_vx_period);
+PROC_FOPS_RW(cinst_ls_low_en);
+PROC_FOPS_RW(cinst_ls_low_period);
+PROC_FOPS_RW(cinst_vx_low_en);
+PROC_FOPS_RW(cinst_vx_low_period);
+PROC_FOPS_RW(cinst_ls_const_en);
+PROC_FOPS_RW(cinst_vx_const_en);
 PROC_FOPS_RO(cinst_cfg);
 PROC_FOPS_RO(cinst_dump);
 
@@ -629,6 +896,12 @@ int cinst_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 		PROC_ENTRY(cinst_vx_enable),
 		PROC_ENTRY(cinst_vx_credit),
 		PROC_ENTRY(cinst_vx_period),
+		PROC_ENTRY(cinst_ls_low_en),
+		PROC_ENTRY(cinst_ls_low_period),
+		PROC_ENTRY(cinst_vx_low_en),
+		PROC_ENTRY(cinst_vx_low_period),
+		PROC_ENTRY(cinst_ls_const_en),
+		PROC_ENTRY(cinst_vx_const_en),
 		PROC_ENTRY(cinst_cfg),
 		PROC_ENTRY(cinst_dump),
 	};
@@ -777,6 +1050,97 @@ int cinst_probe(struct platform_device *pdev)
 				cinst_doe_vx_period, cinst_n);
 		}
 	}
+	/* ls low en control */
+	rc = of_property_read_u32(node,
+		"cinst_doe_ls_low_en", &cinst_doe_ls_low_en);
+
+	if (!rc) {
+		cinst_msg(
+			"cinst_doe_ls_low_en from DTree; rc(%d) cinst_doe_ls_low_en(0x%x)\n",
+			rc,
+			cinst_doe_ls_low_en);
+
+		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+			cinst_smc_handle(CINST_GROUP_LS_LOW_EN,
+				(cinst_doe_ls_low_en >> cinst_n) & 0x01, cinst_n);
+		}
+	}
+	/* ls low period control */
+	rc = of_property_read_u32(node,
+		"cinst_doe_ls_low_period", &cinst_doe_ls_low_period);
+
+	if (!rc) {
+		cinst_msg(
+			"cinst_doe_ls_low_period from DTree; rc(%d) cinst_doe_ls_low_period(0x%x)\n",
+			rc,
+			cinst_doe_ls_low_period);
+
+		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+			cinst_smc_handle(CINST_GROUP_LS_LOW_PERIOD,
+				cinst_doe_ls_low_period, cinst_n);
+		}
+	}
+	/* vx low en control */
+	rc = of_property_read_u32(node,
+		"cinst_doe_vx_low_en", &cinst_doe_vx_low_en);
+
+	if (!rc) {
+		cinst_msg(
+			"cinst_doe_vx_low_en from DTree; rc(%d) cinst_doe_vx_low_en(0x%x)\n",
+			rc,
+			cinst_doe_vx_low_en);
+		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+			cinst_smc_handle(CINST_GROUP_VX_LOW_EN,
+				(cinst_doe_vx_low_en >> cinst_n) & 0x01, cinst_n);
+		}
+	}
+	/* vx low period control */
+	rc = of_property_read_u32(node,
+		"cinst_doe_vx_low_period", &cinst_doe_vx_low_period);
+
+	if (!rc) {
+		cinst_msg(
+			"cinst_doe_vx_low_period from DTree; rc(%d) cinst_doe_vx_low_period(0x%x)\n",
+			rc,
+			cinst_doe_vx_low_period);
+
+		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+			cinst_smc_handle(CINST_GROUP_VX_LOW_PERIOD,
+				cinst_doe_vx_low_period, cinst_n);
+		}
+	}
+	/* ls const en control */
+	rc = of_property_read_u32(node,
+		"cinst_doe_ls_const_en", &cinst_doe_ls_const_en);
+
+	if (!rc) {
+		cinst_msg(
+			"cinst_doe_ls_const_en from DTree; rc(%d) cinst_doe_ls_const_en(0x%x)\n",
+			rc,
+			cinst_doe_ls_const_en);
+
+		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+			cinst_smc_handle(CINST_GROUP_LS_CONST_EN,
+				(cinst_doe_ls_const_en >> cinst_n) & 0x01, cinst_n);
+		}
+	}
+	/* vx const en control */
+	rc = of_property_read_u32(node,
+		"cinst_doe_vx_const_en", &cinst_doe_vx_const_en);
+
+	if (!rc) {
+		cinst_msg(
+			"cinst_doe_vx_const_en from DTree; rc(%d) cinst_doe_vx_const_en(0x%x)\n",
+			rc,
+			cinst_doe_vx_const_en);
+
+		for (cinst_n = CINST_CPU_START_ID; cinst_n <= CINST_CPU_END_ID; cinst_n++) {
+			cinst_smc_handle(CINST_GROUP_VX_CONST_EN,
+				(cinst_doe_vx_const_en >> cinst_n) & 0x01, cinst_n);
+		}
+	}
+
+
 /* TO BE FIXED: avoid system reboot */
 #if 0
 	/* dump reg status into PICACHU dram for DB */
