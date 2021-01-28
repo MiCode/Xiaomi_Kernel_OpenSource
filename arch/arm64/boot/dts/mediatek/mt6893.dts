@@ -3114,7 +3114,6 @@ page_owner=on loop.max_part=7";
 	mali_dvfs_hint@13fbb000 {
 		compatible = "mediatek,mali_dvfs_hint", "syscon";
 		reg = <0 0x13fbb000 0 0x1000>;
-		#clock-cells = <1>;
 	};
 
 	g3d_secure_reg@13fbc000 {
@@ -3125,7 +3124,6 @@ page_owner=on loop.max_part=7";
 	g3d_testbench@13fbd000 {
 		compatible = "mediatek,g3d_testbench", "syscon";
 		reg = <0 0x13fbd000 0 0x1000>;
-		#clock-cells = <1>;
 	};
 
 	g3d_config: g3d_config@13fbf000 {
