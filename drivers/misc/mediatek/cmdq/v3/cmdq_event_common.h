@@ -578,6 +578,9 @@ enum cmdq_event {
 	CMDQ_SYNC_TOKEN_APPEND_THR22,			/* 692 */
 	CMDQ_SYNC_TOKEN_APPEND_THR23,			/* 693 */
 
+	/* secure world notify normal world task done */
+	CMDQ_SYNC_TOKEN_SEC_DONE,			/* 694 */
+
 	/* token after 700 sync user space header */
 
 	/* GPR access tokens (for HW register backup)

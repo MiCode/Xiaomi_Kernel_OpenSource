@@ -35,6 +35,7 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/pm.h>
+#include <linux/pm_runtime.h>
 #include <linux/suspend.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/sched/clock.h>
@@ -1234,6 +1235,9 @@ static int cmdq_probe(struct platform_device *pDevice)
 	/* init cmdq context */
 	cmdq_mdp_init();
 
+	/* register mdp power domain control. */
+	pm_runtime_enable(&pDevice->dev);
+
 	status = alloc_chrdev_region(&gCmdqDevNo, 0, 1,
 		CMDQ_DRIVER_DEVICE_NAME);
 	if (status != 0) {
@@ -1288,6 +1292,8 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 static int cmdq_remove(struct platform_device *pDevice)
 {
+	/* unregister mdp power domain control. */
+	pm_runtime_disable(&pDevice->dev);
 	disable_irq(cmdq_dev_get_irq_id());
 
 	device_remove_file(&pDevice->dev, &dev_attr_error);
