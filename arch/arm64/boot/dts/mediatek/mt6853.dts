@@ -4940,7 +4940,7 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,apusys_reviser";
 		reg = <0 0x19021000 0 0x1000>,		/* apu_sctrl_reviser  */
 			  <0 0x1d800000 0 0x200000>,	/* VLM          */
-			  <0 0x1d000000 0 0x100000>,	/* TCM          */
+			  <0 0x1d000000 0 0x000000>,	/* TCM          */
 			  <0 0x19001000 0 0x1000>;		/* apusys int */
 		interrupts = <GIC_SPI 408 IRQ_TYPE_LEVEL_HIGH>;
 #ifdef CONFIG_MTK_IOMMU_V2
