@@ -18,6 +18,7 @@
 
 #if ENC_DVFS
 #include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <mmdvfs_pmqos.h>
 #include <mmdvfs_config_util.h>
 #include "vcodec_dvfs.h"
@@ -34,6 +35,7 @@ static struct codec_job *venc_jobs;
 
 #if ENC_EMI_BW
 #include <mtk_smi.h>
+#include <smi_master_port.h>
 #include <mtk_qos_bound.h>
 #include "vcodec_bw.h"
 static long long venc_start_time;
@@ -133,10 +135,10 @@ void mtk_venc_deinit_ctx_pm(struct mtk_vcodec_ctx *ctx)
 void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
-	struct mtk_vcodec_pm *pm = ctx->dev->pm;
+	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 	int ret;
 
-	smi_bus_prepare_enable(SMI_LARB3_REG_INDX, "VENC", true);
+	smi_bus_prepare_enable(SMI_LARB3, "VENC");
 	ret = clk_prepare_enable(pm->clk_MT_CG_VENC);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
@@ -146,10 +148,10 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_ctx *ctx, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
-	struct mtk_vcodec_pm *pm = ctx->dev->pm;
+	struct mtk_vcodec_pm *pm = &ctx->dev->pm;
 
 	clk_disable_unprepare(pm->clk_MT_CG_VENC);
-	smi_bus_disable_unprepare(SMI_LARB3_REG_INDX, "VENC", true);
+	smi_bus_disable_unprepare(SMI_LARB3, "VENC");
 #endif
 }
 

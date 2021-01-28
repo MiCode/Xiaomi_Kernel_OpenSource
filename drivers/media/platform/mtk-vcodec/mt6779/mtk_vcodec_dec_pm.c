@@ -18,6 +18,7 @@
 
 #if DEC_DVFS
 #include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <mmdvfs_pmqos.h>
 #include <mmdvfs_config_util.h>
 #include "vcodec_dvfs.h"
@@ -32,6 +33,7 @@ static struct codec_job *vdec_jobs;
 
 #if DEC_EMI_BW
 #include <mtk_smi.h>
+#include <smi_master_port.h>
 static unsigned int h264_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int h265_frm_scale[4] = {12, 24, 40, 12};
 static unsigned int vp9_frm_scale[4] = {12, 24, 40, 12};
@@ -143,7 +145,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 #ifndef FPGA_PWRCLK_API_DISABLE
 	int ret;
 
-	smi_bus_prepare_enable(SMI_LARB2_REG_INDX, "VDEC", true);
+	smi_bus_prepare_enable(SMI_LARB2, "VDEC");
 	ret = clk_prepare_enable(pm->clk_MT_CG_VDEC);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VDEC fail %d", ret);
@@ -154,7 +156,7 @@ void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
 	clk_disable_unprepare(pm->clk_MT_CG_VDEC);
-	smi_bus_disable_unprepare(SMI_LARB2_REG_INDX, "VDEC", true);
+	smi_bus_disable_unprepare(SMI_LARB2, "VDEC");
 #endif
 }
 

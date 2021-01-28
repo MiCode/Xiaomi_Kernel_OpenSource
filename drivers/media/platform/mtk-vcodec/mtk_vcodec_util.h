@@ -10,7 +10,7 @@
 #include <linux/types.h>
 #include <linux/dma-direction.h>
 
-#define FPGA_PWRCLK_API_DISABLE
+/* #define FPGA_PWRCLK_API_DISABLE */
 /* #define FPGA_INTERRUPT_API_DISABLE */
 
 struct mtk_vcodec_mem {
