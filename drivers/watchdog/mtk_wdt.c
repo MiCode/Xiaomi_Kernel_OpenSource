@@ -152,8 +152,7 @@ static void mtk_wdt_mark_stage(struct mtk_wdt_dev *mtk_wdt)
 	if (!wdt_base)
 		return;
 
-	readl(wdt_base + WDT_NONRST2);
-
+	reg = readl(wdt_base + WDT_NONRST2);
 	reg = (reg & ~(RGU_STAGE_MASK << WDT_NONRST2_STAGE_OFS)) |
 	      (RGU_STAGE_KERNEL << WDT_NONRST2_STAGE_OFS);
 
