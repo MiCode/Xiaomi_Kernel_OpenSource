@@ -19,7 +19,6 @@
 #include <linux/math64.h>
 #include <linux/regulator/driver.h>
 
-#include <mt-plat/charger_type.h>
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_boot.h>
 
@@ -119,7 +118,6 @@ struct mt6370_pmu_charger_data {
 	struct mutex tchg_lock;
 	struct device *dev;
 	wait_queue_head_t wait_queue;
-	enum charger_type chg_type;
 	bool pwr_rdy;
 	u8 irq_flag[MT6370_CHG_IRQIDX_MAX];
 	int aicr_limit;
@@ -799,7 +797,6 @@ static int __maybe_unused mt6370_enable_chgdet_flow(
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(chg_data->dev, "force Standard USB Host in meta\n");
 		chg_data->pwr_rdy = true;
-		chg_data->chg_type = STANDARD_HOST;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		power_supply_changed(chg_data->psy);
@@ -815,7 +812,9 @@ static int __maybe_unused mt6370_enable_chgdet_flow(
 #endif /* CONFIG_MT6370_DCDTOUT_SUPPORT */
 		/* Workaround for CDP port */
 		for (i = 0; i < max_wait_cnt; i++) {
+#ifdef FIXME /* TODO: wait is_usb_rdy() */
 			if (is_usb_rdy())
+#endif
 				break;
 			dev_info(chg_data->dev, "%s: CDP block\n", __func__);
 #ifndef CONFIG_TCPC_CLASS
@@ -944,7 +943,6 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 
 	/* plug out */
 	if (!pwr_rdy) {
-		chg_data->chg_type = CHARGER_UNKNOWN;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		atomic_set(&chg_data->bc12_cnt, 0);
@@ -955,7 +953,6 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 
 	/* plug in */
 	if (chg_data->dcd_timeout) {
-		chg_data->chg_type = NONSTANDARD_CHARGER;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		chg_data->dcd_timeout = false;
@@ -974,38 +971,33 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 		dev_info(chg_data->dev, "%s: under going...\n", __func__);
 		return ret;
 	case MT6370_CHG_TYPE_SDP:
-		chg_data->chg_type = STANDARD_HOST;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		break;
 	case MT6370_CHG_TYPE_SDPNSTD:
-		chg_data->chg_type = NONSTANDARD_CHARGER;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		break;
 	case MT6370_CHG_TYPE_CDP:
-		chg_data->chg_type = CHARGING_HOST;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
 		break;
 	case MT6370_CHG_TYPE_DCP:
-		chg_data->chg_type = STANDARD_CHARGER;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
 	default:
-		chg_data->chg_type = CHARGER_UNKNOWN;
 		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 		break;
 	}
 
 	dev_info(chg_data->dev, "%s chg_type:%d, pwr_rdy:%d\n",
-		__func__, chg_data->chg_type, chg_data->pwr_rdy);
+		__func__, chg_data->psy_usb_type, chg_data->pwr_rdy);
 
 	/* BC12 workaround (NONSTD -> STD) */
 	if (atomic_read(&chg_data->bc12_cnt) < 3 &&
-		chg_data->chg_type == STANDARD_HOST) {
+		chg_data->psy_usb_type == POWER_SUPPLY_USB_TYPE_SDP) {
 		ret = mt6370_bc12_workaround(chg_data);
 		/* Workaround success, wait for next event */
 		if (ret >= 0) {
@@ -1026,10 +1018,10 @@ out:
 	atomic_set(&chg_data->bc12_wkard, 0);
 
 dcd_timeout:
-	if (chg_data->chg_type != CHARGER_UNKNOWN)
+	if (chg_data->psy_usb_type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
 		mt6370_enable_power_path(chg_data->chg_dev, true);
 	/* Turn off USB charger detection */
-	if (!pwr_rdy || chg_data->chg_type != STANDARD_CHARGER) {
+	if (!pwr_rdy || chg_data->psy_usb_type != POWER_SUPPLY_USB_TYPE_DCP) {
 		ret = __mt6370_enable_chgdet_flow(chg_data, false);
 		if (ret < 0)
 			dev_notice(chg_data->dev, "%s: disable chgdet fail\n",
@@ -2878,13 +2870,13 @@ static int mt6370_detect_apple_samsung_ta(
 	bool dp_0_9v = false, dp_1_5v = false, dp_2_3v = false, dm_2_3v = false;
 
 	/* Only SDP/CDP/DCP could possibly be Apple/Samsung TA */
-	if (chg_data->chg_type != STANDARD_HOST &&
-	    chg_data->chg_type != CHARGING_HOST &&
-	    chg_data->chg_type != STANDARD_CHARGER)
+	if (chg_data->psy_usb_type != POWER_SUPPLY_USB_TYPE_SDP &&
+	    chg_data->psy_usb_type != POWER_SUPPLY_USB_TYPE_CDP &&
+	    chg_data->psy_usb_type != POWER_SUPPLY_USB_TYPE_DCP)
 		return -EINVAL;
 
-	if (chg_data->chg_type == STANDARD_HOST ||
-	    chg_data->chg_type == CHARGING_HOST) {
+	if (chg_data->psy_usb_type == POWER_SUPPLY_USB_TYPE_SDP ||
+	    chg_data->psy_usb_type == POWER_SUPPLY_USB_TYPE_CDP) {
 		ret = mt6370_pmu_reg_test_bit(chg_data->chip,
 			MT6370_PMU_REG_QCSTAT, MT6370_SHIFT_DCDTI_STAT,
 			&dcd_timeout);
@@ -2927,7 +2919,7 @@ static int mt6370_detect_apple_samsung_ta(
 	/* Samsung charger */
 	if (!dp_1_5v) {
 		dev_info(chg_data->dev, "%s: 0.9V < DP < 1.5V\n", __func__);
-		chg_data->chg_type = SAMSUNG_CHARGER;
+		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 		return ret;
 	}
 
@@ -2959,19 +2951,19 @@ static int mt6370_detect_apple_samsung_ta(
 	if (!dp_2_3v && !dm_2_3v) {
 		dev_info(chg_data->dev, "%s: 1.5V < DP < 2.3V && DM < 2.3V\n",
 			__func__);
-		chg_data->chg_type = APPLE_0_5A_CHARGER;
+		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 	} else if (!dp_2_3v && dm_2_3v) {
 		dev_info(chg_data->dev, "%s: 1.5V < DP < 2.3V && 2.3V < DM\n",
 			__func__);
-		chg_data->chg_type = APPLE_1_0A_CHARGER;
+		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 	} else if (dp_2_3v && !dm_2_3v) {
 		dev_info(chg_data->dev, "%s: 2.3V < DP && DM < 2.3V\n",
 			__func__);
-		chg_data->chg_type = APPLE_2_1A_CHARGER;
+		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 	} else {
 		dev_info(chg_data->dev, "%s: 2.3V < DP && 2.3V < DM\n",
 			__func__);
-		chg_data->chg_type = APPLE_2_4A_CHARGER;
+		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
 	}
 
 	return 0;
@@ -4186,7 +4178,7 @@ static enum power_supply_property mt6370_charger_properties[] = {
 };
 
 static const struct power_supply_desc mt6370_charger_desc = {
-	.type			= POWER_SUPPLY_TYPE_UNKNOWN,
+	.type			= POWER_SUPPLY_TYPE_USB,
 	.properties		= mt6370_charger_properties,
 	.num_properties		= ARRAY_SIZE(mt6370_charger_properties),
 	.get_property		= mt6370_charger_get_property,
@@ -4346,7 +4338,25 @@ static int get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 			prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 
 		pr_notice("%s type:%d\n", __func__, prop2.intval);
-		chg_data->psy_usb_type = prop2.intval;
+
+		switch (prop2.intval) {
+		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+			break;
+		case POWER_SUPPLY_USB_TYPE_SDP:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+			break;
+		case POWER_SUPPLY_USB_TYPE_CDP:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
+			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
+			break;
+		case POWER_SUPPLY_USB_TYPE_DCP:
+			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
+			break;
+		}
 		power_supply_changed(chg_data->psy);
 	}
 	return prop2.intval;
@@ -4459,7 +4469,6 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 	mutex_init(&chg_data->tchg_lock);
 	chg_data->chip = dev_get_drvdata(pdev->dev.parent);
 	chg_data->dev = &pdev->dev;
-	chg_data->chg_type = CHARGER_UNKNOWN;
 	chg_data->aicr_limit = -1;
 	chg_data->adc_hang = false;
 	chg_data->bc12_en = true;
