@@ -1402,10 +1402,12 @@ void musb_flush_dma_transcation(struct musb *musb)
 	 * TQCSR0(0xA00) ~ TQCSR7(0xA70)
 	 * RQCSR0(0x810) ~ RQCSR7(0x880)
 	 */
+#ifdef CONFIG_MTK_MUSB_QMU_SUPPORT
 	for (i = 1; i < musb->nr_endpoints; i++) {
 		mtk_qmu_stop(i, 0);
 		mtk_qmu_stop(i, 1);
 	}
+#endif
 
 	/* 2. Set DMA_CNTL = 0, DMA_CNT = 0, DMA_ADDRESS = 0
 	 * DMA_CNTL_0(0x204) ~ DMA_CNTL_7(0x274)
