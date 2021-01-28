@@ -59,6 +59,8 @@ struct tz_log_state {
 int tz_log_probe(struct platform_device *pdev);
 int tz_log_remove(struct platform_device *pdev);
 int tz_driver_read_logs(char *buffer, unsigned long count);
-
+int teei_log_fn(void *work);
+int init_tlog_comp_fn(void);
+void teei_notify_log_fn(void);
 #endif
 

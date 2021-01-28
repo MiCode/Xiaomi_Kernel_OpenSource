@@ -191,6 +191,7 @@ struct timeval stime;
 struct timeval etime;
 struct task_struct *teei_switch_task;
 struct task_struct *teei_bdrv_task;
+struct task_struct *teei_log_task;
 static struct cpumask mask = { CPU_BITS_NONE };
 static struct class *driver_class;
 static dev_t teei_client_device_no;
@@ -204,30 +205,6 @@ static struct tz_driver_state *tz_drv_state;
 struct tz_driver_state *get_tz_drv_state(void)
 {
 	return tz_drv_state;
-}
-
-int tz_call_notifier_register(struct notifier_block *n)
-{
-	struct tz_driver_state *s = get_tz_drv_state();
-
-	if (!s) {
-		IMSG_ERROR("tz_driver_state is NULL\n");
-		return -EFAULT;
-	}
-
-	return atomic_notifier_chain_register(&s->notifier, n);
-}
-
-int tz_call_notifier_unregister(struct notifier_block *n)
-{
-	struct tz_driver_state *s = get_tz_drv_state();
-
-	if (!s) {
-		IMSG_ERROR("tz_driver_state is NULL\n");
-		return -EFAULT;
-	}
-
-	return atomic_notifier_chain_unregister(&s->notifier, n);
 }
 
 void *tz_malloc(size_t size, int flags)
@@ -1160,6 +1137,19 @@ static int teei_client_init(void)
 	}
 
 	wake_up_process(teei_bdrv_task);
+
+	init_tlog_comp_fn();
+
+	/* create the teei log thread */
+	teei_log_task = kthread_create(teei_log_fn, NULL, "teei_log_thread");
+	if (IS_ERR(teei_log_task)) {
+		IMSG_ERROR("create teei log thread failed: %ld\n",
+						PTR_ERR(teei_log_task));
+		teei_log_task = NULL;
+		goto class_device_destroy;
+	}
+
+	wake_up_process(teei_log_task);
 
 	IMSG_DEBUG("create the sub_thread successfully!\n");
 

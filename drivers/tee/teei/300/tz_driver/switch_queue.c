@@ -29,6 +29,7 @@
 #include "irq_register.h"
 #include "teei_smc_call.h"
 #include "teei_cancel_cmd.h"
+#include "tz_log.h"
 
 #include "teei_task_link.h"
 
@@ -167,8 +168,7 @@ static int handle_all_switch_task(void)
 
 		vfree(entry);
 
-		atomic_notifier_call_chain(&s->notifier,
-						TZ_CALL_RETURNED, NULL);
+		teei_notify_log_fn();
 	}
 
 	return 0;

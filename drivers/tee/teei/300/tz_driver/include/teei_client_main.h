@@ -36,8 +36,6 @@ struct tz_driver_state {
 };
 
 struct tz_driver_state *get_tz_drv_state(void);
-int tz_call_notifier_register(struct notifier_block *n);
-int tz_call_notifier_unregister(struct notifier_block *n);
 
 extern unsigned int soter_error_flag;
 
