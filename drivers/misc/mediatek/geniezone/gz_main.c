@@ -1152,8 +1152,8 @@ static TZ_RESULT _reg_shmem_from_userspace(
 
 	pin->pageArray = NULL;
 	cret = _map_user_pages(pin,
-			untagged_addr((unsigned long)(*shm_data).param.buffer),
-			(*shm_data).param.size, 0);
+		untagged_addr((unsigned long)(*shm_data).param.buffer),
+		(*shm_data).param.size, 0);
 	if (cret) {
 		pin->pageArray = NULL;
 		KREE_DEBUG("[%s]_map_user_pages fail. map user pages = 0x%x\n",
@@ -1210,7 +1210,7 @@ static TZ_RESULT _reg_shmem_from_userspace(
 	KREE_DEBUG("[%s]reg shmem ret hd=0x%x\n", __func__, *shm_handle);
 	if ((cret != TZ_RESULT_SUCCESS) || (*shm_handle == 0)) {
 		KREE_ERR("[%s]RegisterSharedmem fail\n", __func__);
-		KREE_ERR("ret=0x%x, shm_hd=0x%x)\n", cret, *shm_handle);
+		KREE_ERR("ret=0x%lx, shm_hd=0x%x)\n", cret, *shm_handle);
 	}
 
 	/*after reg. shmem, free PA list array*/
