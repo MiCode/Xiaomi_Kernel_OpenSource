@@ -886,8 +886,12 @@ int ssmr_probe(struct platform_device *pdev)
 	/* ssmr region init */
 	finalize_scenario_size();
 
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 	/* check svp statis reserved status */
 	get_svp_memory_info();
+#endif
 
 	for (i = 0; i < __MAX_NR_SSMR_FEATURES; i++) {
 		memory_ssmr_init_feature(_ssmr_feats[i].feat_name,
