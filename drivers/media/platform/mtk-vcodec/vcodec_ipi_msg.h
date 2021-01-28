@@ -58,6 +58,7 @@ struct mtk_color_desc {
 	__u32	min_display_mastering_luminance;
 	__u32	max_content_light_level;
 	__u32	max_pic_light_level;
+	__u32	is_hdr;
 };
 
 /**
@@ -68,7 +69,7 @@ struct mtk_color_desc {
  * @buf_h   : picture buffer heiht (codec aligned up from pic_h)
  * @fb_sz: frame buffer size
  * @bitdepth: Sequence bitdepth
- * @ufo_mode: mediatek block mode
+ * @layout_mode: mediatek frame layout mode
  * @fourcc: frame buffer color format
  * E.g. suppose picture size is 176x144,
  *      buffer size will be aligned to 176x160.
@@ -80,7 +81,7 @@ struct vdec_pic_info {
 	__u32 buf_h;
 	__u32 fb_sz[VIDEO_MAX_PLANES];
 	__u32 bitdepth;
-	__u32 ufo_mode;
+	__u32 layout_mode;
 	__u32 fourcc;
 };
 
