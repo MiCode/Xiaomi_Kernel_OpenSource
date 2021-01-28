@@ -348,9 +348,9 @@ static int get_devinfo(void)
 	}
 
 #ifdef CONFIG_EEM_AEE_RR_REC
-	aee_rr_rec_ptp_devinfo_1(turbocode || (turbo_bininfo.CPU_T_BIN >> 1) ||
-				 (turbo_bininfo.GPU_OPP0_T_BIN >> 4) ||
-				 (turbo_bininfo.GPU_OPP1_T_BIN >> 7));
+	aee_rr_rec_ptp_devinfo_1(turbocode || (turbo_bininfo.CPU_T_BIN << 1) ||
+				 (turbo_bininfo.GPU_OPP0_T_BIN << 4) ||
+				 (turbo_bininfo.GPU_OPP1_T_BIN << 7));
 
 #if 0
 	eem_error("t:%d, tbin:%d, g0bin:%d, g1bin:%d, bin data: 0x%x",
@@ -1590,6 +1590,8 @@ static void eem_set_eem_volt(struct eem_det *det)
 		ctrl = id_to_eem_ctrl(det->ctrl_id);
 	}
 #endif
+	if (ctrl == NULL)
+		return;
 	det->temp = det->ops->get_temp(det);
 
 #if UPDATE_TO_UPOWER
@@ -1811,6 +1813,8 @@ static void eem_restore_eem_volt(struct eem_det *det)
 #if SET_PMIC_VOLT
 	struct eem_ctrl *ctrl = id_to_eem_ctrl(det->ctrl_id);
 
+	if (ctrl == NULL)
+		return;
 	ctrl->volt_update |= EEM_VOLT_RESTORE;
 	wake_up_interruptible(&ctrl->wq);
 #endif
