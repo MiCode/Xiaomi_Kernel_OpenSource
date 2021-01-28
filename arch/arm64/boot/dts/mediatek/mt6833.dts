@@ -216,7 +216,9 @@ page_owner=on";
 	};
 
 	reserved-memory {
-		/*TODO: add reserved memory node here*/
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
 
 		ion-carveout-heap {
 			compatible = "mediatek,ion-carveout-heap";
