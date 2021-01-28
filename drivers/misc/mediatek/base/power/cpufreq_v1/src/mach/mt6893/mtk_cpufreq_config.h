@@ -17,6 +17,7 @@
 enum mt_cpu_dvfs_id {
 	MT_CPU_DVFS_LL,
 	MT_CPU_DVFS_L,
+	MT_CPU_DVFS_B,
 	MT_CPU_DVFS_CCI,
 
 	NR_MT_CPU_DVFS,
@@ -24,9 +25,6 @@ enum mt_cpu_dvfs_id {
 
 enum cpu_level {
 	CPU_LEVEL_0, /* FY */
-	CPU_LEVEL_1, /* TURBO */
-	CPU_LEVEL_2, /* 6885T */
-	CPU_LEVEL_3, /* 6883 */
 
 	NUM_CPU_LEVEL,
 };
@@ -52,6 +50,7 @@ enum mt_cpu_dvfs_pmic_type {
 enum mt_cpu_dvfs_pll_id {
 	PLL_LL_CLUSTER,
 	PLL_L_CLUSTER,
+	PLL_B_CLUSTER,
 	PLL_CCI_CLUSTER,
 
 	NR_MT_PLL,
