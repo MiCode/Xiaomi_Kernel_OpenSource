@@ -14,6 +14,11 @@
 #include <linux/spinlock.h>
 #include <linux/debug_locks.h>
 
+#ifdef CONFIG_LOCKDEP
+#include <linux/sched/clock.h>
+unsigned long long debug_locks_off_ts;
+#endif
+
 /*
  * We want to turn all lock-debugging facilities on/off at once,
  * via a global flag. The reason is that once a single bug has been
@@ -38,6 +43,9 @@ EXPORT_SYMBOL_GPL(debug_locks_silent);
 int debug_locks_off(void)
 {
 	if (debug_locks && __debug_locks_off()) {
+#ifdef CONFIG_LOCKDEP
+		debug_locks_off_ts = sched_clock();
+#endif
 		if (!debug_locks_silent) {
 			console_verbose();
 			return 1;
