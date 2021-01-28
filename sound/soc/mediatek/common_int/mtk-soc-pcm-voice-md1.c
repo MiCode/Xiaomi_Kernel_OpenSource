@@ -129,8 +129,6 @@ static int speech_md_status;
 static int Audio_Speech_MD_Status_Get(struct snd_kcontrol *kcontrol,
 				      struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s(), speech_md_status=0x%x\n", __func__,
-		 speech_md_status);
 	ucontrol->value.integer.value[0] = speech_md_status;
 	return 0;
 }
@@ -147,8 +145,6 @@ static int Audio_Speech_MD_Status_Set(struct snd_kcontrol *kcontrol,
 static int Audio_Speech_Msg_ID_Get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
-	pr_debug("%s(), speech_a2m_msg_id=0x%x\n", __func__,
-		 speech_a2m_msg_id);
 	ucontrol->value.integer.value[0] = speech_a2m_msg_id;
 	return 0;
 }
