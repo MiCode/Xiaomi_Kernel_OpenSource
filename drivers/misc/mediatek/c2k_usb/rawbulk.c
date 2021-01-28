@@ -146,7 +146,7 @@ static ssize_t rawbulk_attr_show(struct device *dev, struct device_attribute
 static ssize_t rawbulk_attr_store(struct device *dev, struct device_attribute
 				  *attr, const char *buf, size_t count);
 
-static inline void add_device_attr(struct rawbulk_function *fn, int n,
+static inline void add_device_attr(struct rawbulk_function *fn, unsigned int n,
 				const char *name, int mode)
 {
 	if (n < MAX_ATTRIBUTES) {
