@@ -23,7 +23,7 @@
 #include <mtk_mcdi_state.h>
 #include <mtk_mcdi_profile.h>
 
-/* #include <trace/events/mtk_idle_event.h> */
+#include <trace/events/mtk_idle_event.h>
 
 #define BOOT_TIME_LIMIT             10      /* sec */
 #define TMR_RESIDENCY_US           200
@@ -463,7 +463,7 @@ int any_core_deepidle_sodi_check(int cpu)
 	/* Check residency */
 	if (!any_core_deepidle_sodi_residency_check(cpu)) {
 
-		/* trace_any_core_residency_rcuidle(cpu); */
+		trace_any_core_residency_rcuidle(cpu);
 
 		any_core_cpu_cond_inc(RESIDENCY_CNT);
 

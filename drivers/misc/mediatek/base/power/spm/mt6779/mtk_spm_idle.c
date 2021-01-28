@@ -14,7 +14,7 @@
 #include <mt-plat/mtk_wd_api.h> /* ap wdt related definitons */
 #endif
 
-//#include <trace/events/mtk_idle_event.h>
+#include <trace/events/mtk_idle_event.h>
 
 #include <mtk_idle.h>
 #include <mtk_idle_internal.h>
@@ -131,23 +131,24 @@ static void mtk_idle_gs_dump(int idle_type)
  * dp/so3/so trigger wfi
  *******************************************************************/
 
-//static void print_ftrace_tag(int idle_type, int cpu, int enter)
-//{
-//#if MTK_IDLE_TRACE_TAG_ENABLE
-//	switch (idle_type) {
-//	case IDLE_TYPE_DP:
-//		trace_dpidle_rcuidle(cpu, enter);
-//		break;
-//	case IDLE_TYPE_SO:
-//		trace_sodi_rcuidle(cpu, enter);
-//		break;
-//	case IDLE_TYPE_SO3:
-//		trace_sodi3_rcuidle(cpu, enter);
-//		break;
-//	default:
-//		break;
-//	}
-//#endif
+static void print_ftrace_tag(int idle_type, int cpu, int enter)
+{
+#if MTK_IDLE_TRACE_TAG_ENABLE
+	switch (idle_type) {
+	case IDLE_TYPE_DP:
+		trace_dpidle_rcuidle(cpu, enter);
+		break;
+	case IDLE_TYPE_SO:
+		trace_sodi_rcuidle(cpu, enter);
+		break;
+	case IDLE_TYPE_SO3:
+		trace_sodi3_rcuidle(cpu, enter);
+		break;
+	default:
+		break;
+	}
+#endif
+}
 
 int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 {
@@ -181,7 +182,7 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 	}
 
 
-	//print_ftrace_tag(idle_type, cpu, 1);
+	print_ftrace_tag(idle_type, cpu, 1);
 
 	if (is_cpu_pdn(pwrctrl->pcm_flags))
 		spm_dormant_sta = mtk_enter_idle_state(cpuidle_mode[idle_type]);
@@ -194,7 +195,7 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 					, leave_flag[idle_type], 0, 0, 0);
 	}
 
-	//print_ftrace_tag(idle_type, cpu, 0);
+	print_ftrace_tag(idle_type, cpu, 0);
 
 	if (spm_dormant_sta < 0)
 		pr_info("mtk_enter_idle_state(%d) ret %d\n",

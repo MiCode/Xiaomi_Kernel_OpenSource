@@ -11,7 +11,7 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 
-//#include <trace/events/mtk_idle_event.h>
+#include <trace/events/mtk_idle_event.h>
 
 #include <mtk_idle.h> /* IDLE_TYPE_xxx */
 #include <mtk_idle_internal.h>
@@ -1185,36 +1185,36 @@ void mtk_idle_cg_monitor(int sel)
 	spin_unlock_irqrestore(&cgmon_spin_lock, flags);
 }
 
-//#define TRACE_CGMON(_g, _n, _cond)\
-//	trace_idle_cg(_g * 32 + _n, ((1 << _n) & _cond) ? 1 : 0)
+#define TRACE_CGMON(_g, _n, _cond)\
+	trace_idle_cg(_g * 32 + _n, ((1 << _n) & _cond) ? 1 : 0)
 
-//static void mtk_idle_cgmon_trace_log(void)
-//{
+static void mtk_idle_cgmon_trace_log(void)
+{
 	// Note: trace tag is defined at trace/events/mtk_idle_event.h
-//	#if MTK_IDLE_TRACE_TAG_ENABLE
-//	unsigned int diff, block, g, n;
+	#if MTK_IDLE_TRACE_TAG_ENABLE
+	unsigned int diff, block, g, n;
 
-//	if (cgmon_sel == IDLE_TYPE_DP ||
-//		cgmon_sel == IDLE_TYPE_SO3 ||
-//		cgmon_sel == IDLE_TYPE_SO) {
+	if (cgmon_sel == IDLE_TYPE_DP ||
+		cgmon_sel == IDLE_TYPE_SO3 ||
+		cgmon_sel == IDLE_TYPE_SO) {
 
-//		for (g = 0; g < NR_CG_GRPS + 1; g++) {/
-//			block = (g < NR_CG_GRPS) ?
-//				(spm_resource_arch ?
-//				 idle_block_mask_resource[cgmon_sel][g] :
-//				 idle_block_mask_scenario[cgmon_sel][g]) :
-//				idle_pll_block_mask[cgmon_sel];
-//			diff = cgmon_sta[g] ^ block;
-//			if (diff) {
-//				cgmon_sta[g] = block;
-//				for (n = 0; n < 32; n++)
-//					if (diff & (1U << n))
-//						TRACE_CGMON(g, n, cgmon_sta[g]);
-//			}
-//		}
-//	}
-//	#endif
-//}
+		for (g = 0; g < NR_CG_GRPS + 1; g++) {
+			block = (g < NR_CG_GRPS) ?
+				(spm_resource_arch ?
+				 idle_block_mask_resource[cgmon_sel][g] :
+				 idle_block_mask_scenario[cgmon_sel][g]) :
+				idle_pll_block_mask[cgmon_sel];
+			diff = cgmon_sta[g] ^ block;
+			if (diff) {
+				cgmon_sta[g] = block;
+				for (n = 0; n < 32; n++)
+					if (diff & (1U << n))
+						TRACE_CGMON(g, n, cgmon_sta[g]);
+			}
+		}
+	}
+	#endif
+}
 
 /* update secure cg state by secure call */
 static void update_secure_cg_state(unsigned int clk[NR_CG_GRPS])
@@ -1323,7 +1323,7 @@ void mtk_idle_cond_update_state(void)
 
 	/* cg monitor: print cg change info to ftrace log */
 
-	/* mtk_idle_cgmon_trace_log(); */
+	mtk_idle_cgmon_trace_log();
 
 	mtk_spm_res_level_set();
 }

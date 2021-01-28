@@ -34,7 +34,8 @@
 
 #include <mtk_mcdi_governor_hint.h>
 
-/* #include <trace/events/mtk_idle_event.h> */
+#define CREATE_TRACE_POINTS
+#include <trace/events/mtk_idle_event.h>
 /* #include <linux/irqchip/mtk-gic-extend.h> */
 
 #define MCDI_DEBUG_INFO_MAGIC_NUM           0x1eef9487
@@ -535,14 +536,14 @@ static void __go_to_wfi(int cpu)
 {
 	/* remove_cpu_from_prefer_schedule_domain(cpu); */
 
-	/* trace_rgidle_rcuidle(cpu, 1); */
+	trace_rgidle_rcuidle(cpu, 1);
 
 	isb();
 	/* memory barrier before WFI */
 	mb();
 	wfi();
 
-	/* trace_rgidle_rcuidle(cpu, 0); */
+	trace_rgidle_rcuidle(cpu, 0);
 
 	/* add_cpu_to_prefer_schedule_domain(cpu); */
 }
@@ -689,7 +690,7 @@ int mcdi_enter(int cpu)
 		break;
 	case MCDI_STATE_CPU_OFF:
 
-		/* trace_mcdi_rcuidle(cpu, 1); */
+		trace_mcdi_rcuidle(cpu, 1);
 
 		aee_rr_rec_mcdi_val(cpu, MCDI_STATE_CPU_OFF << 16 | 0xff);
 
@@ -697,14 +698,14 @@ int mcdi_enter(int cpu)
 
 		aee_rr_rec_mcdi_val(cpu, 0x0);
 
-		/* trace_mcdi_rcuidle(cpu, 0); */
+		trace_mcdi_rcuidle(cpu, 0);
 
 		mcdi_cnt_cpu[cpu]++;
 
 		break;
 	case MCDI_STATE_CLUSTER_OFF:
 
-		/* trace_mcdi_rcuidle(cpu, 1); */
+		trace_mcdi_rcuidle(cpu, 1);
 
 		aee_rr_rec_mcdi_val(cpu, MCDI_STATE_CLUSTER_OFF << 16 | 0xff);
 
@@ -712,7 +713,7 @@ int mcdi_enter(int cpu)
 
 		aee_rr_rec_mcdi_val(cpu, 0x0);
 
-		/* trace_mcdi_rcuidle(cpu, 0); */
+		trace_mcdi_rcuidle(cpu, 0);
 
 		mcdi_cnt_cpu[cpu]++;
 
@@ -776,7 +777,7 @@ bool _mcdi_task_pause(bool paused)
 
 	if (paused) {
 
-		/* trace_mcdi_task_pause_rcuidle(smp_processor_id(), true); */
+		trace_mcdi_task_pause_rcuidle(smp_processor_id(), true);
 
 		/* Notify SSPM to disable MCDI */
 		mcdi_mbox_write(MCDI_MBOX_PAUSE_ACTION, 1);
@@ -792,7 +793,7 @@ bool _mcdi_task_pause(bool paused)
 		while (!(mcdi_mbox_read(MCDI_MBOX_PAUSE_ACK) == 0))
 			;
 
-		/* trace_mcdi_task_pause_rcuidle(smp_processor_id(), 0); */
+		trace_mcdi_task_pause_rcuidle(smp_processor_id(), 0);
 	}
 
 	return true;
