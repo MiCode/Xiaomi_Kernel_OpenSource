@@ -109,6 +109,7 @@ struct cmdq_sec_data {
 s32 cmdq_sec_pkt_set_data(struct cmdq_pkt *pkt, const u64 dapc_engine,
 	const u64 port_sec_engine, const enum CMDQ_SEC_SCENARIO scenario,
 	const enum cmdq_sec_meta_type meta_type);
+void cmdq_sec_pkt_free_data(struct cmdq_pkt *pkt);
 s32 cmdq_sec_pkt_set_payload(struct cmdq_pkt *pkt, u8 idx,
 	const u32 meta_size, u32 *meta);
 s32 cmdq_sec_pkt_write_reg(struct cmdq_pkt *pkt, u32 addr, u64 base,

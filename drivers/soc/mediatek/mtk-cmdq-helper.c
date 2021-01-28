@@ -528,6 +528,12 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 		mutex_lock(&client->chan_mutex);
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+	cmdq_sec_pkt_free_data(pkt);
+#endif
+#endif
 	kfree(pkt);
 	if (client)
 		mutex_unlock(&client->chan_mutex);
