@@ -167,6 +167,10 @@ void mtk_drm_crtc_dump(struct drm_crtc *crtc)
 			__func__);
 		return;
 	}
+	if (crtc_id < 0) {
+		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
+		return;
+	}
 	DDPINFO("%s\n", __func__);
 
 	switch (priv->data->mmsys_id) {
@@ -295,6 +299,12 @@ void mtk_drm_crtc_analysis(struct drm_crtc *crtc)
 		return;
 	}
 	state = to_mtk_crtc_state(crtc->state);
+
+	if (crtc_id < 0) {
+		DDPPR_ERR("%s: Invalid crtc_id:%d\n", __func__, crtc_id);
+		return;
+	}
+
 	addon_data = mtk_addon_get_scenario_data(__func__, crtc,
 					state->lye_state.scn[crtc_id]);
 	if (!addon_data)
@@ -422,6 +432,9 @@ static int mtk_drm_crtc_set_property(struct drm_crtc *crtc,
 	int index = drm_crtc_index(crtc);
 	int ret = 0;
 	int i;
+
+	if (index < 0)
+		return -EINVAL;
 
 	for (i = 0; i < CRTC_PROP_MAX; i++) {
 		if (private->crtc_property[index][i] == property) {
@@ -722,7 +735,7 @@ int mtk_drm_setbacklight_grp(struct drm_crtc *crtc, unsigned int level)
 		mtk_crtc_wait_frame_done(mtk_crtc, cmdq_handle,
 			DDP_FIRST_PATH, 0);
 
-	if (comp->funcs && comp->funcs->io_cmd)
+	if (comp && comp->funcs && comp->funcs->io_cmd)
 		comp->funcs->io_cmd(comp, cmdq_handle, DSI_SET_BL_GRP, &level);
 
 	if (is_frame_mode) {
@@ -2406,8 +2419,8 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 	struct mtk_ddp_fb_info fb_info;
 	struct mtk_drm_private *priv = mtk_crtc->base.dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem = to_mtk_gem_obj(priv->fbdev_bo);
-	unsigned int vramsize, fps;
-	phys_addr_t fb_base;
+	unsigned int vramsize = 0, fps = 0;
+	phys_addr_t fb_base = 0;
 
 	mtk_crtc_enable_iommu(mtk_crtc, handle);
 
@@ -2964,6 +2977,9 @@ int mtk_crtc_attach_ddp_comp(struct drm_crtc *crtc, int ddp_mode,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_ddp_comp *comp;
 	int i, j;
+
+	if (ddp_mode < 0)
+		return -EINVAL;
 
 	for_each_comp_in_crtc_target_mode(comp, mtk_crtc, i, j, ddp_mode) {
 		if (is_attach)
@@ -5362,6 +5378,11 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 			 drm_crtc_index(&mtk_crtc->base));
 		len = snprintf(buf, sizeof(buf), "%s%d", crtc_gce_client_str[i],
 			       drm_crtc_index(&mtk_crtc->base));
+		if (len < 0) {
+			/* Handle snprintf() error */
+			DDPPR_ERR("%s:snprintf error\n", __func__);
+			return;
+		}
 		index = of_property_match_string(dev->of_node,
 						 "gce-client-names", buf);
 		if (index < 0)
@@ -5401,6 +5422,12 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 	cmdq_buf->va_base = cmdq_mbox_buf_alloc(
 		mtk_crtc->gce_obj.client[CLIENT_CFG]->chan->mbox->dev,
 		&(cmdq_buf->pa_base));
+
+	if (!cmdq_buf->va_base) {
+		DDPPR_ERR("va base is NULL\n");
+		return;
+	}
+
 	memset(cmdq_buf->va_base, 0, DISP_SLOT_SIZE);
 
 	mtk_crtc_init_color_matrix_data_slot(mtk_crtc);
@@ -5527,6 +5554,12 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL)
 			continue;
+
+		if (comp_id < 0) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return 0;
+		}
+
 		node = priv->comp_node[comp_id];
 		if (!node) {
 			dev_info(
@@ -5592,6 +5625,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 		struct device_node *node;
 		bool *rdma_memory_mode;
 
+		if (comp_id < 0) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return 0;
+		}
+
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL) {
 			struct mtk_ddp_comp *comp;
 
@@ -5640,6 +5678,11 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 	for_each_wb_comp_id_in_path_data(comp_id, path_data, i, p_mode) {
 		struct mtk_ddp_comp *comp;
 		struct device_node *node;
+
+		if (comp_id < 0) {
+			DDPPR_ERR("%s: Invalid comp_id:%d\n", __func__, comp_id);
+			return 0;
+		}
 
 		if (mtk_ddp_comp_get_type(comp_id) == MTK_DISP_VIRTUAL) {
 			struct mtk_ddp_comp *comp;

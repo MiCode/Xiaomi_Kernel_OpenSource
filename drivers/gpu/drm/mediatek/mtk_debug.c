@@ -323,7 +323,7 @@ int mtk_dprec_logger_get_buf(enum DPREC_LOGGER_PR_TYPE type, char *stringbuf,
 	int c = dprec_logger_buffer[type].id;
 	char **buf_arr;
 
-	if (type >= DPREC_LOGGER_PR_NUM || len < 0)
+	if (type >= DPREC_LOGGER_PR_NUM || type < 0 || len < 0)
 		return 0;
 
 	if (!is_buffer_init)
@@ -911,6 +911,10 @@ void ddic_dsi_send_cmd_test(unsigned int case_num)
 
 	DDPMSG("%s start case_num:%d\n", __func__, case_num);
 
+	if (!cmd_msg) {
+		DDPPR_ERR("cmd msg is NULL\n");
+		return;
+	}
 	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
 
 	switch (case_num) {
@@ -1051,6 +1055,10 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 
 	DDPMSG("%s start case_num:%d\n", __func__, case_num);
 
+	if (!cmd_msg) {
+		DDPPR_ERR("cmd msg is NULL\n");
+		return;
+	}
 	memset(cmd_msg, 0, sizeof(struct mtk_ddic_dsi_msg));
 
 	switch (case_num) {

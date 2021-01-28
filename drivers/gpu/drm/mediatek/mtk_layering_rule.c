@@ -495,7 +495,7 @@ static int layering_get_valid_hrt(struct drm_crtc *crtc,
 {
 	unsigned long long dvfs_bw = 0;
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	unsigned long long tmp;
+	unsigned long long tmp = 0;
 	struct mtk_ddp_comp *output_comp;
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
@@ -705,6 +705,9 @@ static int get_below_ext_layer(struct drm_mtk_layering_info *disp_info,
 {
 	struct drm_mtk_layer_config *c, *tmp_c;
 	int phy_id = -1, ext_id = -1, l_dst_offset_y = -1, i;
+
+	if (disp_idx < 0)
+		return -1;
 
 	c = &(disp_info->input_config[disp_idx][cur]);
 

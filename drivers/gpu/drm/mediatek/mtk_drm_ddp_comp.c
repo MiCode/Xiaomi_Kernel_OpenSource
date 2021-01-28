@@ -363,6 +363,8 @@ bool mtk_ddp_comp_is_output(struct mtk_ddp_comp *comp)
 
 void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 {
+	int r;
+
 	if (comp->id < 0 || comp->id >= DDP_COMPONENT_ID_MAX) {
 		DDPPR_ERR("%s(), invalid id %d, set buf to 0\n",
 			  __func__, comp->id);
@@ -373,9 +375,13 @@ void mtk_ddp_comp_get_name(struct mtk_ddp_comp *comp, char *buf, int buf_len)
 	if (buf_len > sizeof(buf))
 		buf_len = sizeof(buf);
 
-	snprintf(buf, buf_len, "%s%d",
+	r = snprintf(buf, buf_len, "%s%d",
 		  mtk_ddp_comp_stem[mtk_ddp_matches[comp->id].type],
 		  mtk_ddp_matches[comp->id].alias_id);
+	if (r < 0) {
+		/* Handle snprintf() error */
+		DDPPR_ERR("snprintf error\n");
+	}
 }
 
 int mtk_ddp_comp_get_type(enum mtk_ddp_comp_id comp_id)
@@ -409,8 +415,13 @@ static bool mtk_drm_find_comp_in_ddp(struct mtk_ddp_comp ddp_comp,
 enum mtk_ddp_comp_id mtk_ddp_comp_get_id(struct device_node *node,
 					 enum mtk_ddp_comp_type comp_type)
 {
-	int id = of_alias_get_id(node, mtk_ddp_comp_stem[comp_type]);
+	int id;
 	int i;
+
+	if (comp_type < 0)
+		return -EINVAL;
+
+	id = of_alias_get_id(node, mtk_ddp_comp_stem[comp_type]);
 
 	DDPINFO("id:%d, comp_type:%d\n", id, comp_type);
 	for (i = 0; i < ARRAY_SIZE(mtk_ddp_matches); i++) {
@@ -584,6 +595,9 @@ int mtk_ddp_comp_register(struct drm_device *drm, struct mtk_ddp_comp *comp)
 
 	if (private->ddp_comp[comp->id])
 		return -EBUSY;
+
+	if (comp->id < 0)
+		return -EINVAL;
 
 	private->ddp_comp[comp->id] = comp;
 	return 0;

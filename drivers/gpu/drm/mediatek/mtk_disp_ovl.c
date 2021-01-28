@@ -928,6 +928,11 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 
 static const char *mtk_ovl_get_transfer_str(enum mtk_ovl_transfer transfer)
 {
+	if (transfer < 0) {
+		DDPPR_ERR("%s: Invalid ovl transfer:%d\n", __func__, transfer);
+		transfer = 0;
+	}
+
 	return mtk_ovl_transfer_str[transfer];
 }
 
@@ -1024,6 +1029,11 @@ static u32 *mtk_get_ovl_csc(enum mtk_ovl_colorspace in,
 
 	if (inited)
 		goto done;
+
+	if (in < 0) {
+		DDPPR_ERR("%s: Invalid ovl colorspace in:%d\n", __func__, in);
+		in = 0;
+	}
 
 	ovl_csc[OVL_SRGB][OVL_P3] = sRGB_to_DCI_P3;
 	ovl_csc[OVL_P3][OVL_SRGB] = DCI_P3_to_sRGB;

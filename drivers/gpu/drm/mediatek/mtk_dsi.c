@@ -591,6 +591,9 @@ CONFIG_REG:
 static void mtk_dsi_phy_timconfig(struct mtk_dsi *dsi)
 {
 	dsi->ext = find_panel_ext(dsi->panel);
+	if (!dsi->ext)
+		return;
+
 	if (dsi->ext->params->is_cphy)
 		mtk_dsi_cphy_timconfig(dsi);
 	else
@@ -1071,6 +1074,9 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 		dsi_tmp_buf_bpp = 3;
 
 	dsi->ext = find_panel_ext(dsi->panel);
+	if (!dsi->ext)
+		return;
+
 	if (dsi->ext->params->is_cphy) {
 		if (t_hsa * dsi_tmp_buf_bpp < 10 * dsi->lanes + 26 + 5)
 			horizontal_sync_active_byte = 4;
@@ -1748,11 +1754,12 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 		/* add for ESD recovery */
 		if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) && mode_id != 0) {
 			if (dsi->ext && dsi->ext->funcs &&
-				dsi->ext->funcs->mode_switch)
+				dsi->ext->funcs->mode_switch) {
 				DDPMSG("%s do lcm mode_switch to %u\n",
 					__func__, mode_id);
 				dsi->ext->funcs->mode_switch(dsi->panel, 0,
 					mode_id, AFTER_DSI_POWERON);
+			}
 		}
 
 		if (new_doze_state && !dsi->doze_enabled) {
@@ -2717,6 +2724,10 @@ bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 
 static const char *mtk_dsi_get_porch_str(enum dsi_porch_type type)
 {
+	if (type < 0) {
+		DDPPR_ERR("%s: Invalid dsi porch type:%d\n", __func__, type);
+		type = 0;
+	}
 	return mtk_dsi_porch_str[type];
 }
 
@@ -4326,6 +4337,20 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 
 		cmdq_pkt_wait_no_clear(handle,
 			mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			comp = mtk_ddp_comp_request_output(mtk_crtc);
+
+			if (!comp) {
+				DDPPR_ERR("ddp comp is NULL\n");
+				return;
+			}
+
+			if (dsi->mipi_hopping_sta) {
+				DDPINFO("%s,mipi_clk_change_sta\n", __func__);
+				vfp = dsi->ext->params->dyn.vfp;
+			} else
+				vfp = adjusted_mode.vsync_start -
+					adjusted_mode.vdisplay;
+			dsi->vm.vfront_porch = vfp;
 
 		if (dsi->mipi_hopping_sta) {
 			DDPINFO("%s,mipi_clk_change_sta\n", __func__);
@@ -4403,6 +4428,12 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
 	data_rate = mtk_dsi_default_rate(dsi);
+
+	if (!dsi->ext) {
+		DDPPR_ERR("DSI panel ext is NULL\n");
+		return;
+	}
+
 	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 
 	if (!data_rate) {

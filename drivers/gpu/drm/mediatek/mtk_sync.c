@@ -196,7 +196,13 @@ static void mtk_sync_timeline_fence_value_str(
 					      char *str,
 					      int size)
 {
-	snprintf(str, size, "%d", fence->seqno);
+	int r;
+
+	r = snprintf(str, size, "%d", fence->seqno);
+	if (r < 0) {
+		/* Handle snprintf() error */
+		pr_debug("snprintf error\n");
+	}
 }
 
 static void mtk_sync_timeline_fence_timeline_value_str(struct dma_fence *fence,

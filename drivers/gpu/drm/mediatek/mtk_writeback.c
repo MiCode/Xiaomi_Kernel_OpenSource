@@ -189,6 +189,8 @@ void mtk_wb_atomic_commit(struct mtk_drm_crtc *mtk_crtc)
 		void *cmdq_handle = NULL;
 #endif
 		wdma = mtk_wb_find_wdma(mtk_crtc);
+		if (!wdma)
+			return;
 		mtk_crtc->wb_enable = true;
 
 		drm_writeback_queue_job(wb_conn, conn_state->writeback_job);
