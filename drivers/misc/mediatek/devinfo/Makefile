@@ -11,10 +11,4 @@
 # GNU General Public License for more details.
 #
 
-ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6761/inc/mach/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-
-obj-y += mtk_gpufreq_core.o
-
+obj-y += devinfo.o
