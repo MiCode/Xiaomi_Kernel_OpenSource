@@ -5240,11 +5240,11 @@ static signed int __init DIP_Init(void)
 		return 0;
 	}
 	proc_entry = proc_create("dip_dump",
-		0444, dip_p2_dir, &dip_dump_proc_fops);
+		0440, dip_p2_dir, &dip_dump_proc_fops);
 	proc_entry = proc_create("isp_p2_dump",
-		0444, dip_p2_dir, &dip_p2_dump_proc_fops);
+		0440, dip_p2_dir, &dip_p2_dump_proc_fops);
 	proc_entry = proc_create("isp_p2_kedump",
-		0444, dip_p2_dir, &dip_p2_ke_dump_proc_fops);
+		0440, dip_p2_dir, &dip_p2_ke_dump_proc_fops);
 	for (j = 0; j < DIP_IRQ_TYPE_AMOUNT; j++) {
 		switch (j) {
 		default:
