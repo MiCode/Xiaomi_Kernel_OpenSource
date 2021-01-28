@@ -2452,13 +2452,13 @@ EXIT:
 /*******************************************************************************
  *
  ******************************************************************************/
-/*
 static signed int RSC_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
 	unsigned int pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
+	/*  */
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
@@ -2485,10 +2485,10 @@ static signed int RSC_mmap(struct file *pFile, struct vm_area_struct *pVma)
 							pVma->vm_page_prot)) {
 		return -EAGAIN;
 	}
-
+	/*  */
 	return 0;
 }
-*/
+
 /*******************************************************************************
  *
  ******************************************************************************/
@@ -2502,7 +2502,7 @@ static const struct file_operations RSCFileOper = {
 	.open = RSC_open,
 	.release = RSC_release,
 	/* .flush   = mt_RSC_flush, */
-	/* .mmap = RSC_mmap, */
+	.mmap = RSC_mmap,
 	.unlocked_ioctl = RSC_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = RSC_ioctl_compat,
