@@ -12,6 +12,7 @@
 #include "mddp_ctrl.h"
 #include "mddp_filter.h"
 
+#include "mddp_debug.h"
 #include "mddp_dev.h"
 #include "mddp_if.h"
 #include "mddp_ipc.h"
@@ -70,7 +71,8 @@ void mddpwh_sm_enable(struct mddp_app_t *app)
 
 	// 2. Send ENABLE to MD
 	if (wfpm_ipc_get_smem_list((void **)&smem_info, &smem_num)) {
-		pr_notice("%s: Failed to get smem info!\n", __func__);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+		"%s: Failed to get smem info!\n", __func__);
 		smem_num = 0;
 	}
 
@@ -133,7 +135,8 @@ void mddpwh_sm_disable(struct mddp_app_t *app)
 			sizeof(struct wfpm_md_fast_path_common_req_t),
 			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
-		pr_notice("%s: Failed to alloc md_msg bug!\n", __func__);
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
 		return;
 	}
@@ -358,8 +361,9 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
 	if (!app->is_config) {
-		pr_notice("%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
-		__func__);
+		MDDP_S_LOG(MDDP_LL_ERR,
+			"%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
+			__func__);
 		return;
 	}
 
@@ -373,7 +377,7 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	md_msg->msg_id = IPC_MSG_ID_WFPM_RESET_IND;
 	md_msg->data_len = 0;
 	if (unlikely(mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL) >= 0)) {
-		pr_info("%s: send_success.\n", __func__);
+		MDDP_S_LOG(MDDP_LL_INFO, "%s: send_success.\n", __func__);
 #ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 		app->state_machines[app->state] = prev_mddpwh_state_machines_s;
 		if (app->state != MDDP_STATE_UNINIT &&
@@ -395,10 +399,13 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 
 		// 2. Send SMEM_LAYOUT to MD
 		if (wfpm_ipc_get_smem_list((void **)&smem_info, &smem_num)) {
-			pr_notice("%s: Failed to get smem info!\n", __func__);
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: Failed to get smem info!\n",
+					__func__);
 			smem_num = 0;
 		}
-		pr_info("%s: smem_info(%llx), smem_num(%u)\n",
+		MDDP_S_LOG(MDDP_LL_INFO,
+				"%s: smem_info(%llx), smem_num(%u)\n",
 				__func__, (unsigned long long)smem_info, smem_num);
 
 		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
@@ -426,7 +433,8 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 		mddpw_reset_ongoing = 0;
 	} else {
 		timer = 100;
-		pr_info("%s: timer start (%d).\n", __func__, timer);
+		MDDP_S_LOG(MDDP_LL_DEBUG,
+				"%s: timer start (%d).\n", __func__, timer);
 		mod_timer(&mddpw_timer, jiffies + msecs_to_jiffies(timer));
 	}
 }
@@ -453,20 +461,23 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	switch (msg_id) {
 	case IPC_MSG_ID_WFPM_ENABLE_MD_FAST_PATH_RSP:
 		enable_rsp = (struct wfpm_enable_md_func_rsp_t *) buf;
-		pr_info("%s: set (%u), (%u), MD version(%u), (%u).\n",
-		__func__, enable_rsp->mode, enable_rsp->result,
+		MDDP_S_LOG(MDDP_LL_INFO,
+				"%s: set (%u), (%u), MD version(%u), (%u).\n",
+				__func__, enable_rsp->mode, enable_rsp->result,
 		enable_rsp->version, enable_rsp->reserved);
 		mddp_set_md_version(enable_rsp->version);
 
 		if (rsp->result) {
 			/* ENABLE OK. */
-			pr_info("%s: ENABLE RSP OK, result(%d).\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: ENABLE RSP OK, result(%d).\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ENABLING, true);
 		} else {
 			/* ENABLE FAIL. */
-			pr_notice("%s: ENABLE RSP FAIL, result(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: ENABLE RSP FAIL, result(%d)!\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ENABLING, false);
@@ -476,13 +487,15 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	case IPC_MSG_ID_WFPM_DISABLE_MD_FAST_PATH_RSP:
 		if (rsp->result) {
 			/* DISABLE OK. */
-			pr_info("%s: DISABLE RSP OK, result(%d).\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: DISABLE RSP OK, result(%d).\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, true);
 		} else {
 			/* DISABLE FAIL. */
-			pr_notice("%s: DISABLE RSP FAIL, result(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: DISABLE RSP FAIL, result(%d)!\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, false);
@@ -492,13 +505,15 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	case IPC_MSG_ID_WFPM_ACTIVATE_MD_FAST_PATH_RSP:
 		if (rsp->result) {
 			/* ACT OK. */
-			pr_info("%s: ACT RSP OK, result(%d).\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: ACT RSP OK, result(%d).\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ACTIVATING, true);
 		} else {
 			/* ACT FAIL. */
-			pr_notice("%s: ACT RSP FAIL, result(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: ACT RSP FAIL, result(%d)!\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ACTIVATING, false);
@@ -508,7 +523,8 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	case IPC_MSG_ID_WFPM_DEACTIVATE_MD_FAST_PATH_RSP:
 		if (rsp->result) {
 			/* DEACT OK. */
-			pr_info("%s: DEACT RSP OK, result(%d)\n",
+			MDDP_S_LOG(MDDP_LL_INFO,
+					"%s: DEACT RSP OK, result(%d)\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DEACTIVATING, true);
@@ -518,7 +534,8 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 					sizeof(deact_rsp_metadata_s));
 		} else {
 			/* DEACT FAIL. */
-			pr_notice("%s: DEACT RSP FAIL, result(%d)\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: DEACT RSP FAIL, result(%d)\n",
 					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DEACTIVATING, false);
@@ -530,7 +547,8 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		break;
 
 	case IPC_MSG_ID_WFPM_RESET_IND:
-		pr_notice("%s: Received WFPM RESET IND\n", __func__);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: Received WFPM RESET IND\n", __func__);
 		if (mddpw_reset_ongoing == 0) {
 			mddpw_reset_ongoing = 1;
 #ifdef CONFIG_MTK_MDDP_WH_SUPPORT
@@ -542,24 +560,28 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 			mod_timer(&mddpw_timer,
 					jiffies + msecs_to_jiffies(100));
 		} else
-			pr_notice("%s: WFPM RESET ongoing", __func__);
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: WFPM RESET ongoing", __func__);
 		break;
 	case IPC_MSG_ID_WFPM_MD_NOTIFY:
-		pr_notice("%s: Received WFPM MD NOTIFY\n", __func__);
+		MDDP_S_LOG(MDDP_LL_DEBUG,
+				"%s: Received WFPM MD NOTIFY\n", __func__);
 		md_info = (struct mddpw_md_notify_info_t *) buf;
 		if (app->drv_hdlr.wifi_handle != NULL)
 			if (app->drv_hdlr.wifi_handle->notify_md_info) {
-				pr_notice("%s: MD NOTIFY info_type[%d] len[%d]\n",
-					__func__, md_info->info_type,
-					md_info->buf_len);
+				MDDP_S_LOG(MDDP_LL_NOTICE,
+						"%s: MD NOTIFY info_type[%d] len[%d]\n",
+						__func__, md_info->info_type,
+						md_info->buf_len);
 				app->drv_hdlr.wifi_handle->notify_md_info(
 						md_info);
 			}
 		break;
 
 	default:
-		pr_notice("%s: Unsupported RSP MSG_ID[%d] from WFPM.\n",
-					__func__, msg_id);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: Unsupported RSP MSG_ID[%d] from WFPM.\n",
+				__func__, msg_id);
 		break;
 	}
 
@@ -575,8 +597,9 @@ int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
 	if (!app->is_config) {
-		pr_notice("%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
-		__func__);
+		MDDP_S_LOG(MDDP_LL_ERR,
+			"%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
+			__func__);
 		return -ENODEV;
 	}
 
@@ -607,14 +630,15 @@ int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
 	uint32_t                           smem_size;
 
 	if (!usage) {
-		pr_notice("%s: usage is NULL!\n", __func__);
+		MDDP_S_LOG(MDDP_LL_ERR, "%s: usage is NULL!\n", __func__);
 		return -EINVAL;
 	}
 	memset(usage, 0, sizeof(struct mddpw_net_stat_t));
 
 	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_WIFI_STATISTICS,
 				(void **)&md_stats, &smem_attr, &smem_size)) {
-		pr_notice("%s: Failed to get smem_id (%d)!\n",
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Failed to get smem_id (%d)!\n",
 				__func__, MDDP_MD_SMEM_USER_WIFI_STATISTICS);
 		return -EFAULT;
 	}
@@ -642,21 +666,23 @@ int32_t mddpw_drv_get_net_stat_ext(struct mddpw_net_stat_ext_t *usage)
 	uint32_t                           smem_size;
 
 	if (!usage) {
-		pr_notice("%s: usage is NULL!\n", __func__);
+		MDDP_S_LOG(MDDP_LL_ERR, "%s: usage is NULL!\n", __func__);
 		return -EINVAL;
 	}
 	memset(usage, 0, sizeof(struct mddpw_net_stat_ext_t));
 
 	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT,
 				(void **)&md_stats, &smem_attr, &smem_size)) {
-		pr_notice("%s: Failed to get smem_id (%d)!\n",
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Failed to get smem_id (%d)!\n",
 				__func__,
 				MDDP_MD_SMEM_USER_WIFI_STATISTICS_EXT);
 		return -EFAULT;
 	}
 
 	if (!md_stats || smem_size != sizeof(struct mddpw_net_stat_ext_t)) {
-		pr_notice("%s: Invalid share memory data, md_stats(%llx), smem_size(%u)!\n",
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Invalid share memory data, md_stats(%llx), smem_size(%u)!\n",
 				__func__, (unsigned long long)md_stats, smem_size);
 		return -EFAULT;
 	}
@@ -674,7 +700,8 @@ int32_t mddpw_drv_get_ap_rx_reorder_buf(
 
 	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_RX_REORDER_TO_MD,
 				(void **)ap_table, &smem_attr, &smem_size)) {
-		pr_notice("%s: Failed to get smem_id (%d)!\n",
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Failed to get smem_id (%d)!\n",
 				__func__, MDDP_MD_SMEM_USER_RX_REORDER_TO_MD);
 		return -EINVAL;
 	}
@@ -690,7 +717,8 @@ int32_t mddpw_drv_get_md_rx_reorder_buf(
 
 	if (mddp_ipc_get_md_smem_by_id(MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD,
 				(void **)md_table, &smem_attr, &smem_size)) {
-		pr_notice("%s: Failed to get smem_id (%d)!\n",
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Failed to get smem_id (%d)!\n",
 				__func__, MDDP_MD_SMEM_USER_RX_REORDER_FROM_MD);
 		return -EINVAL;
 	}
@@ -708,8 +736,9 @@ int32_t mddpw_drv_notify_info(
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
 	if (!app->is_config) {
-		pr_notice("%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
-		__func__);
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: app_type(MDDP_APP_TYPE_WH) not configured!\n",
+				__func__);
 		return -ENODEV;
 	}
 
@@ -736,8 +765,7 @@ int32_t mddpw_drv_reg_callback(struct mddp_drv_handle_t *handle)
 	struct mddpw_drv_handle_t         *wifi_handle;
 
 	if (handle->wifi_handle == NULL) {
-		pr_notice("%s: handle NULL\n",
-		__func__);
+		MDDP_S_LOG(MDDP_LL_ERR, "%s: handle NULL\n", __func__);
 		return -EINVAL;
 	}
 
@@ -758,8 +786,7 @@ int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 	struct mddpw_drv_handle_t         *wifi_handle;
 
 	if (handle->wifi_handle == NULL) {
-		pr_notice("%s: handle NULL\n",
-		__func__);
+		MDDP_S_LOG(MDDP_LL_ERR, "%s: handle NULL\n", __func__);
 		return -EINVAL;
 	}
 
@@ -774,7 +801,6 @@ int32_t mddpw_drv_dereg_callback(struct mddp_drv_handle_t *handle)
 	return 0;
 }
 
-#ifdef CONFIG_MTK_ENG_BUILD
 ssize_t mddpwh_sysfs_callback(
 	struct mddp_app_t *app,
 	enum mddp_sysfs_cmd_e cmd,
@@ -790,29 +816,14 @@ ssize_t mddpwh_sysfs_callback(
 	struct mddp_md_msg_t           *md_msg;
 #endif
 
-	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
-		if (sysfs_streq(buf, "1")) {
-			app->state_machines[MDDP_STATE_DEACTIVATED] =
-				mddpwh_deactivated_state_machine_s;
-			mddpwh_state = 1;
-			pr_notice("%s: enable!\n", __func__);
-		} else if (sysfs_streq(buf, "0")) {
-			app->state_machines[MDDP_STATE_DEACTIVATED] =
-				mddpwh_dead_state_machine_s;
-			mddpwh_state = 0;
-			pr_notice("%s: disable!\n", __func__);
-		} else
-			buf_len = 0;
-		return buf_len;
-	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
-		return scnprintf(buf, PAGE_SIZE,
-					"wh_enable(%d)\n", mddpwh_state);
-	else if (cmd == MDDP_SYSFS_CMD_STATISTIC_READ) {
+	if (cmd == MDDP_SYSFS_CMD_STATISTIC_READ) {
 		if (mddp_ipc_get_md_smem_by_id(
 				MDDP_MD_SMEM_USER_WIFI_STATISTICS,
 				(void **)&md_stats, &smem_attr, &smem_size)) {
-			pr_notice("%s: Failed to get smem_id (%d)!\n",
-				__func__, MDDP_MD_SMEM_USER_WIFI_STATISTICS);
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: Failed to get smem_id (%d)!\n",
+					__func__,
+					MDDP_MD_SMEM_USER_WIFI_STATISTICS);
 			return -EINVAL;
 		}
 
@@ -831,8 +842,28 @@ ssize_t mddpwh_sysfs_callback(
 			md_stats->tx_bytes, md_stats->rx_bytes,
 			md_stats->tx_errors, md_stats->rx_errors);
 		return show_cnt;
+	}
+#ifdef CONFIG_MTK_ENG_BUILD
+	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
+		if (sysfs_streq(buf, "1")) {
+			app->state_machines[MDDP_STATE_DEACTIVATED] =
+				mddpwh_deactivated_state_machine_s;
+			mddpwh_state = 1;
+			MDDP_S_LOG(MDDP_LL_NOTICE, "%s: enable!\n", __func__);
+		} else if (sysfs_streq(buf, "0")) {
+			app->state_machines[MDDP_STATE_DEACTIVATED] =
+				mddpwh_dead_state_machine_s;
+			mddpwh_state = 0;
+			MDDP_S_LOG(MDDP_LL_NOTICE, "%s: disable!\n", __func__);
+		} else
+			buf_len = 0;
+		return buf_len;
+	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
+		return scnprintf(buf, PAGE_SIZE,
+					"wh_enable(%d)\n", mddpwh_state);
+#endif
 #ifdef MDDP_EM_SUPPORT
-	} else if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
+	if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
 		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 					buf_len + 4, GFP_ATOMIC);
 		if (md_msg) {
@@ -843,11 +874,11 @@ ssize_t mddpwh_sysfs_callback(
 		}
 
 		return buf_len;
+	}
 #endif
-	} else
-		return 0;
+
+	return 0;
 }
-#endif
 
 int32_t mddpwh_sm_init(struct mddp_app_t *app)
 {
@@ -855,16 +886,16 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 		&mddpwh_state_machines_s,
 		sizeof(mddpwh_state_machines_s));
 
-	pr_info("%s: %p, %p\n",
-		__func__, &(app->state_machines), &mddpwh_state_machines_s);
+	MDDP_S_LOG(MDDP_LL_INFO,
+			"%s: %p, %p\n",
+			__func__,
+			&(app->state_machines), &mddpwh_state_machines_s);
 	mddp_dump_sm_table(app);
 
 	app->md_recv_msg_hdlr = mddpw_wfpm_msg_hdlr;
 	app->reg_drv_callback = mddpw_drv_reg_callback;
 	app->dereg_drv_callback = mddpw_drv_dereg_callback;
-#ifdef CONFIG_MTK_ENG_BUILD
 	app->sysfs_callback = mddpwh_sysfs_callback;
-#endif
 	memcpy(&app->md_cfg, &mddpw_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 	app->is_config = 1;
 

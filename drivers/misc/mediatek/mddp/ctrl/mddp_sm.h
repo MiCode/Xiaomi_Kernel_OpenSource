@@ -38,7 +38,6 @@ enum mddp_event_e {
 	MDDP_EVT_DUMMY = 0x7fff  /* Make it a 2-byte enum */
 };
 
-#ifdef CONFIG_MTK_ENG_BUILD
 enum mddp_sysfs_cmd_e {
 	MDDP_SYSFS_CMD_ENABLE_READ,  /* User read ENABLE sysfs */
 	MDDP_SYSFS_CMD_ENABLE_WRITE,  /* User write ENABLE sysfs */
@@ -49,7 +48,6 @@ enum mddp_sysfs_cmd_e {
 	MDDP_SYSFS_EM_CMD_TEST_WRITE,
 #endif
 };
-#endif
 
 /*!
  * Structure of state machine entry.
@@ -59,11 +57,9 @@ typedef void (*mddp_sm_action_t)(struct mddp_app_t *);
 typedef int32_t (*mddp_md_recv_msg_hdlr_t)(uint32_t msg_id,
 		void *buf, uint32_t buf_len);
 typedef int32_t (*mddp_reg_drv_cbf_t)(struct mddp_drv_handle_t *);
-#ifdef CONFIG_MTK_ENG_BUILD
 typedef ssize_t (*mddp_sysfs_cbf_t)(struct mddp_app_t *app,
 				    enum mddp_sysfs_cmd_e,
 				    char *buf, size_t buf_len);
-#endif
 
 struct mddp_sm_entry_t {
 	enum mddp_event_e       event;
@@ -106,9 +102,7 @@ struct mddp_app_t {
 	mddp_reg_drv_cbf_t          dereg_drv_callback; /**< DeReg callback. */
 	struct mddp_drv_handle_t    drv_hdlr; /**< Driver handler. */
 
-#ifdef CONFIG_MTK_ENG_BUILD
 	mddp_sysfs_cbf_t            sysfs_callback; /**< Sysfs callback. */
-#endif
 
 	struct mddp_sm_entry_t     *state_machines[MDDP_STATE_CNT];
 };

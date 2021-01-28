@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/skbuff.h>
 
+#include "mddp_debug.h"
 #include "mddp_dev.h"
 #include "mddp_export.h"
 #include "mddp_filter.h"
@@ -92,7 +93,8 @@ void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 
 		memcpy(&cur_stats, md_stats, *buf_len);
 	} else {
-		pr_notice("%s: Failed to copy data stats, sm_len(%d), buf_len(%d)!\n",
+		MDDP_U_LOG(MDDP_LL_ERR,
+				"%s: Failed to copy data stats, sm_len(%d), buf_len(%d)!\n",
 				__func__, sm_len, *buf_len);
 		*buf_len = 0;
 	}
@@ -107,7 +109,8 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	int8_t                                  id;
 
 	if (buf_len != sizeof(struct mddp_dev_req_set_data_limit_t)) {
-		pr_notice("%s: Invalid parameter, buf_len(%d)!\n",
+		MDDP_U_LOG(MDDP_LL_ERR,
+				"%s: Invalid parameter, buf_len(%d)!\n",
 				__func__, buf_len);
 		WARN_ON(1);
 		return -EINVAL;
@@ -116,7 +119,8 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	md_status = exec_ccci_kern_func_by_md_id(0, ID_GET_MD_STATE, NULL, 0);
 
 	if (md_status != MD_STATE_READY) {
-		pr_notice("%s: Invalid state, md_status(%d)!\n",
+		MDDP_U_LOG(MDDP_LL_NOTICE,
+				"%s: Invalid state, md_status(%d)!\n",
 				__func__, md_status);
 		return -ENODEV;
 	}
@@ -131,7 +135,8 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	in_req = (struct mddp_dev_req_set_data_limit_t *)buf;
 	id = mddp_f_data_usage_wan_dev_name_to_id(in_req->ul_dev_name);
 	if (unlikely(id < 0)) {
-		pr_notice("%s: Invalid dev_name, dev_name(%s)!\n",
+		MDDP_U_LOG(MDDP_LL_ERR,
+				"%s: Invalid dev_name, dev_name(%s)!\n",
 				__func__, in_req->ul_dev_name);
 		WARN_ON(1);
 		return -EINVAL;
@@ -142,9 +147,10 @@ int32_t mddp_u_set_data_limit(uint8_t *buf, uint32_t buf_len)
 	limit.trans_id = MDDP_U_GET_IQ_TRANS_ID();
 	limit.limit_buffer_size = in_req->limit_size;
 	limit.id = id;
-	pr_notice("%s: Send cmd(%d)/id(%d)/name(%s) limit(%llx) to MD.\n",
-		__func__, limit.cmd, limit.id, in_req->ul_dev_name,
-		limit.limit_buffer_size);
+	MDDP_U_LOG(MDDP_LL_NOTICE,
+			"%s: Send cmd(%d)/id(%d)/name(%s) limit(%llx) to MD.\n",
+			__func__, limit.cmd, limit.id, in_req->ul_dev_name,
+			limit.limit_buffer_size);
 
 	md_msg->msg_id = IPC_MSG_ID_DPFM_DATA_USAGE_CMD;
 	md_msg->data_len = sizeof(limit);

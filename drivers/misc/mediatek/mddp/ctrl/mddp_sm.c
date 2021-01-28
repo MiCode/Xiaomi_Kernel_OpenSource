@@ -7,6 +7,7 @@
 
 #include <linux/types.h>
 
+#include "mddp_debug.h"
 #include "mddp_filter.h"
 #include "mddp_sm.h"
 #include "mddp_ipc.h"
@@ -101,18 +102,22 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 	switch (msg_id) {
 #if defined MDDP_TETHERING_SUPPORT
 	case IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND:
-		pr_notice("%s: MDDP suspend indication.\n", __func__);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: MDDP suspend indication.\n", __func__);
 		ret = mddp_f_suspend_tag();
 		break;
 
 	case IPC_MSG_ID_MDFPM_RESUME_TAG_IND:
-		pr_notice("%s: MDDP resume indication.\n", __func__);
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: MDDP resume indication.\n", __func__);
 		ret = mddp_f_resume_tag();
 		break;
 #endif
 
 	default:
-		pr_notice("%s: Unaccepted msg_id(%d)!\n", __func__, msg_id);
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Unaccepted msg_id(%d)!\n",
+				__func__, msg_id);
 		ret = -EINVAL;
 		break;
 	}
@@ -219,7 +224,8 @@ bool mddp_is_acted_state(enum mddp_app_type_e type)
 		}
 	} else if (type < 0 || type > MDDP_APP_TYPE_ALL) {
 		/* NG! */
-		pr_notice("%s: Invalid app_type(%d)!\n", __func__, type);
+		MDDP_S_LOG(MDDP_LL_ERR,
+				"%s: Invalid app_type(%d)!\n", __func__, type);
 	} else {
 		/* OK. Check single app state. */
 		app = mddp_get_app_inst(type);
@@ -247,7 +253,8 @@ enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 		 */
 		new_state = mddp_sm_on_event(app, event);
 
-		pr_notice("%s: OK. event(%d), prev_state(%d) -> new_state(%d).\n",
+		MDDP_S_LOG(MDDP_LL_NOTICE,
+				"%s: OK. event(%d), prev_state(%d) -> new_state(%d).\n",
 				__func__, event, prev_state, new_state);
 
 		return new_state;
@@ -257,7 +264,8 @@ enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 	 * There are interrupt events from upper module
 	 * when MD handles this request.
 	 */
-	pr_notice("%s: DC. event(%d), prev_state(%d) -> new_state(%d).\n",
+	MDDP_S_LOG(MDDP_LL_NOTICE,
+			"%s: DC. event(%d), prev_state(%d) -> new_state(%d).\n",
 			__func__, event, prev_state, new_state);
 
 	return MDDP_STATE_DUMMY;
@@ -270,11 +278,13 @@ void mddp_dump_sm_table(struct mddp_app_t *app)
 	struct mddp_sm_entry_t         *state_machine;
 	struct mddp_sm_entry_t         *entry;
 
-	pr_notice("\n\n\t%s:\n==============================\n", __func__);
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"\n\n\t%s:\n==============================\n",
+			__func__);
 
 	for (i = 0; i < MDDP_STATE_CNT; i++) {
 		state_machine = app->state_machines[i];
-		pr_notice("\n=====(%d)=====\n", i);
+		MDDP_S_LOG(MDDP_LL_DEBUG, "\n=====(%d)=====\n", i);
 
 		for (j = 0; j < MDDP_EVT_CNT; j++) {
 			entry = state_machine + j;
@@ -282,12 +292,14 @@ void mddp_dump_sm_table(struct mddp_app_t *app)
 			if (entry->event == MDDP_EVT_DUMMY)
 				break;
 
-			pr_notice("\tevt(%d), new_state(%d)\n",
+			MDDP_S_LOG(MDDP_LL_DEBUG,
+					"\tevt(%d), new_state(%d)\n",
 					entry->event, entry->new_state);
 		}
 	}
 
-	pr_notice("\n ==============================\n\n");
+	MDDP_S_LOG(MDDP_LL_DEBUG,
+			"\n ==============================\n\n");
 }
 #endif
 
@@ -315,7 +327,8 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 				_mddp_set_state(app, new_state);
 
 			mddp_dump_sm_table(app);
-			pr_notice("%s: event(%d), old_state(%d) -> new_state(%d).\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: event(%d), old_state(%d) -> new_state(%d).\n",
 					__func__, event, old_state, new_state);
 
 			if (entry->action)
@@ -326,7 +339,8 @@ enum mddp_state_e mddp_sm_on_event(struct mddp_app_t *app,
 			/*
 			 * NG. Unexpected event for this state!
 			 */
-			pr_notice("%s: Invalid event(%d) for current state(%d)!\n",
+			MDDP_S_LOG(MDDP_LL_NOTICE,
+					"%s: Invalid event(%d) for current state(%d)!\n",
 					__func__, event, old_state);
 
 			break;
@@ -375,7 +389,9 @@ int32_t mddp_sm_msg_hdlr(
 		/*
 		 * NG. Receive invalid ctrl_msg!
 		 */
-		pr_notice("%s: Unaccepted user_id(%d)!\n", __func__, user_id);
+		MDDP_S_LOG(MDDP_LL_WARN,
+				"%s: Unaccepted user_id(%d)!\n",
+				__func__, user_id);
 		ret = -EINVAL;
 		goto _done;
 	}
@@ -391,7 +407,8 @@ int32_t mddp_sm_msg_hdlr(
 	/*
 	 * NG. This app_type is not configured!
 	 */
-	pr_notice("%s: app is not configured, app(%p), user_id(%d), msg_id(%d)!\n",
+	MDDP_S_LOG(MDDP_LL_ERR,
+			"%s: app is not configured, app(%p), user_id(%d), msg_id(%d)!\n",
 			__func__, app, user_id, msg_id);
 
 _done:
@@ -421,7 +438,8 @@ int32_t mddp_sm_reg_callback(
 	/*
 	 * NG. MDDP is not ready!
 	 */
-	pr_notice("%s: Failed to reg callback, type(%d), config(%d)!\n",
+	MDDP_S_LOG(MDDP_LL_ERR,
+			"%s: Failed to reg callback, type(%d), config(%d)!\n",
 			__func__, conf->app_type, app->is_config);
 	return -EPERM;
 }
@@ -449,7 +467,8 @@ void mddp_sm_dereg_callback(
 	/*
 	 * NG. MDDP is not ready!
 	 */
-	pr_notice("%s: Failed to dereg callback, type(%d), config(%d)!\n",
+	MDDP_S_LOG(MDDP_LL_ERR,
+			"%s: Failed to dereg callback, type(%d), config(%d)!\n",
 			__func__, conf->app_type, app->is_config);
 	return;
 
