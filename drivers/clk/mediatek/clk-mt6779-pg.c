@@ -14,17 +14,18 @@
 
 #include <linux/clk-provider.h>
 #include <linux/clk.h>
+#include <linux/platform_device.h>
 #include "clk-mtk-v1.h"
 #include "clk-mt6779-pg.h"
 
 #include <dt-bindings/clock/mt6779-clk.h>
 
 
-#define MT_CCF_DEBUG	0
-#define MT_CCF_BRINGUP  0
-#define CONTROL_LIMIT 1
+#define MT_CCF_PG_DEBUG		1
+#define MT_CCF_BRINGUP		0
+#define CONTROL_LIMIT		1
 
-#define	CHECK_PWR_ST	1
+#define CHECK_PWR_ST	1
 
 #define CONN_TIMEOUT_RECOVERY	6
 #define CONN_TIMEOUT_STEP1	5
@@ -93,7 +94,7 @@ void __iomem *clk_apu_conn_base;
 #define SUBSYS_PWR_DOWN		0
 #define SUBSYS_PWR_ON		1
 
-	struct subsys;
+struct subsys;
 
 struct subsys_ops {
 	int (*enable)(struct subsys *sys);
@@ -2492,8 +2493,10 @@ int spm_mtcmos_ctrl_cam(int state)
 		/* TINFO="Finish to turn off CAM" */
 		clk_disable_unprepare(ccu_mux);
 	} else {    /* STA_POWER_ON */
+
 		if (clk_prepare_enable(ccu_mux))
-			pr_debug("%s: prepare ccu fail\r\n", __func__);
+			pr_notice("%s: [CCF] prepare ccu fail\r\n", __func__);
+
 		/* TINFO="Start to turn on CAM" */
 		/* TINFO="Set PWR_ON = 1" */
 		spm_write(CAM_PWR_CON, spm_read(CAM_PWR_CON) | PWR_ON);
@@ -4869,9 +4872,9 @@ static int subsys_is_on(enum subsys_id id)
 
 	r = sys->ops->get_state(sys);
 
-#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s:%d, sys=%s, id=%d\n", __func__, r, sys->name, id);
-#endif				/* MT_CCF_DEBUG */
+#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s:%d, sys=%s, id=%d\n", __func__, r, sys->name, id);
+#endif				/* MT_CCF_PG_DEBUG */
 
 	return r;
 }
@@ -4934,12 +4937,13 @@ static int enable_subsys(enum subsys_id id)
 #endif				/* MT_CCF_BRINGUP */
 
 #if CONTROL_LIMIT
-	#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
+	#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
 	#endif
+
 	if (allow[id] == 0) {
-		#if MT_CCF_DEBUG
-		pr_debug("[CCF] %s: do nothing return\n", __func__);
+		#if MT_CCF_PG_DEBUG
+		pr_info("[CCF] %s: do nothing return\n", __func__);
 		#endif
 		return 0;
 	}
@@ -4995,19 +4999,19 @@ static int disable_subsys(enum subsys_id id)
 	}
 	return 0;
 #endif				/* MT_CCF_BRINGUP */
+
 #if CONTROL_LIMIT
-	#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
+	#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
 	#endif
+
 	if (allow[id] == 0) {
-		#if MT_CCF_DEBUG
-		pr_debug("[CCF] %s: do nothing return\n", __func__);
+		#if MT_CCF_PG_DEBUG
+		pr_info("[CCF] %s: do nothing return\n", __func__);
 		#endif
 		return 0;
 	}
 #endif
-
-
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
@@ -5049,10 +5053,10 @@ static int pg_enable(struct clk_hw *hw)
 {
 	struct mt_power_gate *pg = to_power_gate(hw);
 
-#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
+#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
 		 __clk_get_name(hw->clk), pg->pd_id);
-#endif				/* MT_CCF_DEBUG */
+#endif				/* MT_CCF_PG_DEBUG */
 
 	return enable_subsys(pg->pd_id);
 }
@@ -5061,10 +5065,10 @@ static void pg_disable(struct clk_hw *hw)
 {
 	struct mt_power_gate *pg = to_power_gate(hw);
 
-#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
+#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
 		 __clk_get_name(hw->clk), pg->pd_id);
-#endif				/* MT_CCF_DEBUG */
+#endif				/* MT_CCF_PG_DEBUG */
 
 	disable_subsys(pg->pd_id);
 }
@@ -5081,11 +5085,11 @@ int pg_prepare(struct clk_hw *hw)
 	int r;
 	struct mt_power_gate *pg = to_power_gate(hw);
 
-#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s: sys=%s, pre_sys=%s\n", __func__,
+#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: sys=%s, pre_sys=%s\n", __func__,
 		 __clk_get_name(hw->clk),
 		 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
-#endif				/* MT_CCF_DEBUG */
+#endif				/* MT_CCF_PG_DEBUG */
 
 	if (pg->pre_clk) {
 		r = clk_prepare_enable(pg->pre_clk);
@@ -5101,11 +5105,11 @@ void pg_unprepare(struct clk_hw *hw)
 {
 	struct mt_power_gate *pg = to_power_gate(hw);
 
-#if MT_CCF_DEBUG
-	pr_debug("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
+#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
 		 __clk_get_name(hw->clk),
 		 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
-#endif				/* MT_CCF_DEBUG */
+#endif				/* MT_CCF_PG_DEBUG */
 
 	pg_disable(hw);
 
@@ -5279,9 +5283,9 @@ static void __init init_clk_scpsys(void __iomem *infracfg_reg,
 		if (clk_data)
 			clk_data->clks[pg->id] = clk;
 
-#if MT_CCF_DEBUG
-		pr_debug("[CCF] %s: pgate %3d: %s\n", __func__, i, pg->name);
-#endif				/* MT_CCF_DEBUG */
+#if MT_CCF_PG_DEBUG
+		pr_info("[CCF] %s: pgate %3d: %s\n", __func__, i, pg->name);
+#endif				/* MT_CCF_PG_DEBUG */
 	}
 }
 
@@ -5324,109 +5328,128 @@ void iomap_mm(void)
 {
 	struct device_node *node;
 
-/*mmsys_config*/
+	/* mmsys_config */
 	node = of_find_compatible_node(NULL, NULL,
 				"mediatek,mt6779-mmsys");
 	if (!node)
-		pr_debug("[CLK_MMSYS] find node failed\n");
+		pr_notice("[CLK_MMSYS] find node failed\n");
+
+	pr_info("mmsys: %d\n", node->name);
 	clk_mmsys_config_base = of_iomap(node, 0);
 	if (!clk_mmsys_config_base)
-		pr_debug("[CLK_MMSYS] base failed\n");
-/*imgsys*/
+		pr_notice("[CLK_MMSYS] base failed\n");
+
+	/* imgsys */
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-imgsys");
 	if (!node)
-		pr_debug("[CLK_IMGSYS_CONFIG] find node failed\n");
+		pr_notice("[CLK_IMGSYS_CONFIG] find node failed\n");
+
 	clk_imgsys_base = of_iomap(node, 0);
 	if (!clk_imgsys_base)
-		pr_debug("[CLK_IMGSYS_CONFIG] base failed\n");
-/*ipesys*/
+		pr_notice("[CLK_IMGSYS_CONFIG] base failed\n");
+
+	/* ipesys */
 	node = of_find_compatible_node(NULL, NULL,
 				"mediatek,mt6779-ipesys");
 	if (!node)
-		pr_debug("[CLK_IPESYS_CONFIG] find node failed\n");
+		pr_info("[CLK_IPESYS_CONFIG] find node failed\n");
+
 	clk_ipesys_base = of_iomap(node, 0);
 	if (!clk_ipesys_base)
-		pr_debug("[CLK_IPESYS_CONFIG] base failed\n");
-/*vdec_gcon*/
+		pr_notice("[CLK_IPESYS_CONFIG] base failed\n");
+
+	/* vdec_gcon */
 	node = of_find_compatible_node(NULL, NULL,
 				"mediatek,mt6779-vdecsys");
 	if (!node)
-		pr_debug("[CLK_VDEC_GCON] find node failed\n");
+		pr_notice("[CLK_VDEC_GCON] find node failed\n");
+
 	clk_vdec_gcon_base = of_iomap(node, 0);
 	if (!clk_vdec_gcon_base)
-		pr_debug("[CLK_VDEC_GCON] base failed\n");
-/*venc_gcon*/
+		pr_notice("[CLK_VDEC_GCON] base failed\n");
+
+	/* venc_gcon */
 	node = of_find_compatible_node(NULL, NULL,
 				"mediatek,mt6779-vencsys");
 	if (!node)
-		pr_debug("[CLK_VENC_GCON] find node failed\n");
+		pr_notice("[CLK_VENC_GCON] find node failed\n");
+
 	clk_venc_gcon_base = of_iomap(node, 0);
 	if (!clk_venc_gcon_base)
-		pr_debug("[CLK_VENC_GCON] base failed\n");
+		pr_notice("[CLK_VENC_GCON] base failed\n");
 
-/*cam*/
+	/* cam */
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-camsys");
 	if (!node)
-		pr_debug("[CLK_CAM] find node failed\n");
+		pr_notice("[CLK_CAM] find node failed\n");
+
 	clk_camsys_base = of_iomap(node, 0);
 	if (!clk_camsys_base)
-		pr_debug("[CLK_CAM] base failed\n");
-/*apu vcore*/
+		pr_notice("[CLK_CAM] base failed\n");
+
+	/* apu vcore */
 	node = of_find_compatible_node(NULL, NULL,
 				"mediatek,mt6779-apu_vcore");
 	if (!node)
-		pr_debug("[CLK_APU_VCORE] find node failed\n");
+		pr_notice("[CLK_APU_VCORE] find node failed\n");
 	clk_apu_vcore_base = of_iomap(node, 0);
 	if (!clk_apu_vcore_base)
-		pr_debug("[CLK_APU_VCORE] base failed\n");
-/*apu conn*/
+		pr_notice("[CLK_APU_VCORE] base failed\n");
+
+	/* apu conn */
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-apu_conn");
 	if (!node)
-		pr_debug("[CLK_APU_CONN] find node failed\n");
+		pr_notice("[CLK_APU_CONN] find node failed\n");
+
 	clk_apu_conn_base = of_iomap(node, 0);
 	if (!clk_apu_conn_base)
-		pr_debug("[CLK_APU_VCORE] base failed\n");
+		pr_notice("[CLK_APU_VCORE] base failed\n");
 }
 #endif
 
-static void __init mt_scpsys_init(struct device_node *node)
+static int clk_mt6779_scpsys_probe(struct platform_device *pdev)
 {
+	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
 	void __iomem *infracfg_reg;
 	void __iomem *spm_reg;
 	void __iomem *infra_reg;
 	void __iomem *ckgen_reg;
 	void __iomem *smi_common_reg;
-	int r;
+	int ret = 0;
 
-	spm_reg = get_reg(node, 0);
-	infracfg_reg = get_reg(node, 1);
+#if MT_CCF_PG_DEBUG
+	pr_info("enter %s\n", __func__);
+#endif
+
+	infracfg_reg = get_reg(node, 0);
+	spm_reg = get_reg(node, 1);
 	infra_reg = get_reg(node, 2);
 	ckgen_reg = get_reg(node, 3);
 	smi_common_reg = get_reg(node, 4);
 
-
-
 	if (!infracfg_reg || !spm_reg || !infra_reg  ||
 		!ckgen_reg || !smi_common_reg) {
-		pr_notice("clk-pg-mt3967: missing reg\n");
-		return;
+		pr_notice("%s(): clk-mt6779-scpsys: missing reg\n", __func__);
+
+		return -EINVAL;
 	}
 
-/*
- *   pr_debug("[CCF] %s: sys: %s, reg: 0x%p, 0x%p\n",
- *		__func__, node->name, infracfg_reg, spm_reg);
- */
+#if MT_CCF_PG_DEBUG
+	pr_info("[CCF] %s: sys: %s, reg: 0x%x, 0x%x\n",
+				__func__, node->name, infracfg_reg, spm_reg);
+#endif
 
 	clk_data = alloc_clk_data(SCP_NR_SYSS);
 
 	init_clk_scpsys(infracfg_reg, spm_reg, infra_reg,
 		smi_common_reg, clk_data);
 
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
-	if (r) {
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	if (ret) {
 		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
+			__func__, ret);
+
 		kfree(clk_data);
 	}
 
@@ -5443,10 +5466,13 @@ static void __init mt_scpsys_init(struct device_node *node)
 	/*spm_mtcmos_ctrl_md1(STA_POWER_DOWN);*/
 	/*spm_mtcmos_ctrl_audio(STA_POWER_ON);*/
 #endif				/* !MT_CCF_BRINGUP */
+
+#if MT_CCF_PG_DEBUG
+	pr_info("exit %s\n", __func__);
+#endif
+
+	return ret;
 }
-
-CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,mt6779-scpsys", mt_scpsys_init);
-
 
 static const char * const *get_cam_clk_names(size_t *num)
 {
@@ -5707,6 +5733,7 @@ void subsys_if_on(void)
 			dump_cg_state(vdec_clks[i]);
 		ret++;
 	}
+
 	if (ret > 0)
 		WARN_ON(1);
 }
@@ -5717,3 +5744,25 @@ void mtcmos_force_off(void)
 	spm_mtcmos_ctrl_conn(STA_POWER_DOWN);
 	spm_mtcmos_ctrl_md1(STA_POWER_DOWN);
 }
+
+static const struct of_device_id of_match_clk_mt6779_scpsys[] = {
+	{ .compatible = "mediatek,mt6779-scpsys", },
+	{}
+};
+
+static struct platform_driver clk_mt6779_scpsys_drv = {
+	.probe = clk_mt6779_scpsys_probe,
+	.driver = {
+			.name = "clk-mt6779-scpsys",
+			.owner = THIS_MODULE,
+			.of_match_table = of_match_clk_mt6779_scpsys,
+	},
+};
+
+static int __init clk_mt6779_scpsys_init(void)
+{
+	pr_info("%s()\n", __func__);
+	return platform_driver_register(&clk_mt6779_scpsys_drv);
+}
+
+arch_initcall(clk_mt6779_scpsys_init);

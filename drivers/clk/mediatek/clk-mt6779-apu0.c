@@ -11,7 +11,8 @@
 #include "clk-mtk.h"
 #include "clk-gate.h"
 
-#define MT_CLKMGR_MODULE_INIT 0
+#define MT_CLKMGR_MODULE_INIT	0
+#define CCF_SUBSYS_DEBUG	1
 
 static const struct mtk_gate_regs apu0_cg_regs = {
 	.set_ofs = 0x0004,
@@ -43,13 +44,24 @@ static int clk_mt6779_apu0_probe(struct platform_device *pdev)
 {
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
+	int ret;
 
 	clk_data = mtk_alloc_clk_data(CLK_APU0_NR_CLK);
+
+#if CCF_SUBSYS_DEBUG
+	pr_info("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
+#endif
 
 	mtk_clk_register_gates(node, apu0_clks, ARRAY_SIZE(apu0_clks),
 			       clk_data);
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (ret)
+		pr_notice("%s(): could not register clock provider: %d\n",
+					__func__, ret);
+
+	return ret;
 }
 
 

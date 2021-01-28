@@ -16,19 +16,20 @@
 
 #include <dt-bindings/clock/mt6779-clk.h>
 
-#define MT_CCF_BRINGUP	0
+#define MT_CCF_BRINGUP		0
+#define MT_CCF_DEBUG_LOG	1
+
 #ifdef CONFIG_ARM64
 #define IOMEM(a)	((void __force __iomem *)((a)))
 #endif
-static DEFINE_SPINLOCK(mipi_lock);
-#define apmixed_mipi_lock(flags)   spin_lock_irqsave(&mipi_lock, flags)
-#define apmixed_mipi_unlock(flags) spin_unlock_irqrestore(&mipi_lock, flags)
+
 #define mt_reg_sync_writel(v, a) \
 	do { \
 		__raw_writel((v), IOMEM(a)); \
 		/* sync up */ \
 		mb(); } \
 while (0)
+
 #define clk_readl(addr)			__raw_readl(IOMEM(addr))
 #define clk_writel(addr, val)   \
 	mt_reg_sync_writel(val, addr)
@@ -36,11 +37,18 @@ while (0)
 	mt_reg_sync_writel(clk_readl(addr) | (val), addr)
 #define clk_clrl(addr, val) \
 	mt_reg_sync_writel(clk_readl(addr) & ~(val), addr)
+
 #define PLL_EN  (0x1 << 0)
 #define PLL_PWR_ON  (0x1 << 0)
 #define PLL_ISO_EN  (0x1 << 1)
 #define ADSPPLL_DIV_RSTB  (0x1 << 23)
+
 static DEFINE_SPINLOCK(mt6779_clk_lock);
+static DEFINE_SPINLOCK(mipi_lock);
+
+#define apmixed_mipi_lock(flags)   spin_lock_irqsave(&mipi_lock, flags)
+#define apmixed_mipi_unlock(flags) spin_unlock_irqrestore(&mipi_lock, flags)
+
 
 void __iomem *cksys_base;
 void __iomem *infracfg_base;
@@ -1966,9 +1974,7 @@ void mp_enter_suspend(int id, int suspend)
 	}
 }
 
-#define UNIV_192M            ((0x1 << 29) \
-					  |(0x1 << 30) \
-					  |(0x1 << 31))
+#define UNIV_192M	((0x1 << 29)|(0x1 << 30)|(0x1 << 31))
 
 void univpll_192m_en(int en)
 {
@@ -1983,32 +1989,42 @@ void pll_if_on(void)
 	int ret = 0;
 	if (clk_readl(ARMPLL_LL_CON0) & 0x1)
 		pr_notice("suspend warning: ARMPLL_LL is on!!!\n");
+
 	if (clk_readl(ARMPLL_BL_CON0) & 0x1)
 		pr_notice("suspend warning: ARMPLL_BL is on!!!\n");
+
 	if (clk_readl(UNIVPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: UNIVPLL is on!!!\n");
 		ret++;
 	}
+
 	if (clk_readl(MFGPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: MFGPLL is on!!!\n");
 		ret++;
 	}
+
 	if (clk_readl(MMPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: MMPLL is on!!!\n");
 		ret++;
 	}
+
 	if (clk_readl(ADSPPLL_CON0) & 0x1)
 		pr_notice("suspend warning: ADSPPLL is on!!!\n");
+
 	if (clk_readl(MSDCPLL_CON0) & 0x1)
 		pr_notice("suspend warning: MSDCPLL is on!!!\n");
+
 	if (clk_readl(TVDPLL_CON0) & 0x1) {
 		pr_notice("suspend warning: TVDPLL is on!!!\n");
 		ret++;
 	}
+
 	if (clk_readl(APLL1_CON0) & 0x1)
 		pr_notice("suspend warning: APLL1 is on!!!\n");
+
 	if (clk_readl(APLL2_CON0) & 0x1)
 		pr_notice("suspend warning: APLL2 is on!!!\n");
+
 	if (ret > 0)
 		WARN_ON(1);
 }
@@ -2205,7 +2221,7 @@ static int clk_mt6779_apmixed_probe(struct platform_device *pdev)
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
 	void __iomem *base;
-	int r;
+	int ret;
 
 	base = of_iomap(node, 0);
 	if (!base) {
@@ -2215,15 +2231,20 @@ static int clk_mt6779_apmixed_probe(struct platform_device *pdev)
 
 	clk_data = mtk_alloc_clk_data(CLK_APMIXED_NR_CLK);
 
+#if MT_CCF_DEBUG_LOG
+	pr_notice("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
+#endif
+
 	mtk_clk_register_plls(node, plls, ARRAY_SIZE(plls), clk_data);
 
 	mtk_clk_register_gates(node, apmixed_clks, ARRAY_SIZE(apmixed_clks),
 		clk_data);
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r) {
+	if (ret) {
 		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
+			__func__, ret);
+
 		kfree(clk_data);
 	} else {
 		/* for legacy APIs*/
@@ -2252,7 +2273,7 @@ static int clk_mt6779_apmixed_probe(struct platform_device *pdev)
 		clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB);
 	}
 
-	return r;
+	return ret;
 }
 
 static int clk_mt6779_top_probe(struct platform_device *pdev)
@@ -2261,13 +2282,21 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 	void __iomem *base;
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
-	int r;
+	int ret;
 
 	base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(base))
+	if (IS_ERR(base)) {
+		pr_notice("%s(): ioremap resource failed: %d\n",
+					__func__, PTR_ERR(base));
+
 		return PTR_ERR(base);
+	}
 
 	clk_data = mtk_alloc_clk_data(CLK_TOP_NR_CLK);
+
+#if MT_CCF_DEBUG_LOG
+	pr_notice("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
+#endif
 
 	mtk_clk_register_fixed_clks(top_fixed_clks, ARRAY_SIZE(top_fixed_clks),
 		clk_data);
@@ -2283,11 +2312,12 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 	mtk_clk_register_composites(top_aud_divs, ARRAY_SIZE(top_aud_divs),
 		base, &mt6779_clk_lock, clk_data);
 
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r) {
+	if (ret) {
 		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
+			__func__, ret);
+
 		kfree(clk_data);
 	} else {
 		/* for legacy APIs*/
@@ -2342,7 +2372,7 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 		clk_writel(cksys_base + CK_CFG_13_SET, 0x80008080);
 	}
 
-	return r;
+	return ret;
 }
 
 
@@ -2351,7 +2381,7 @@ static int clk_mt6779_infra_probe(struct platform_device *pdev)
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
 	void __iomem *base;
-	int r;
+	int ret;
 
 	base = of_iomap(node, 0);
 	if (!base) {
@@ -2361,13 +2391,19 @@ static int clk_mt6779_infra_probe(struct platform_device *pdev)
 
 	clk_data = mtk_alloc_clk_data(CLK_INFRA_NR_CLK);
 
+#if MT_CCF_DEBUG_LOG
+	pr_notice("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
+#endif
+
 	mtk_clk_register_gates(node, infra_clks, ARRAY_SIZE(infra_clks),
 		clk_data);
-	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r) {
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (ret) {
 		pr_notice("%s(): could not register clock provider: %d\n",
-			__func__, r);
+			__func__, ret);
+
 		kfree(clk_data);
 	} else {
 		/* for legacy APIs*/
@@ -2376,6 +2412,7 @@ static int clk_mt6779_infra_probe(struct platform_device *pdev)
 		/* Need Confirm */
 		clk_writel(INFRA_TOPAXI_SI0_CTL,
 				clk_readl(INFRA_TOPAXI_SI0_CTL) | 0x2);
+
 		pr_notice("%s: infra mfg debug: %08x\n",
 				__func__, clk_readl(INFRA_TOPAXI_SI0_CTL));
 
@@ -2389,7 +2426,7 @@ static int clk_mt6779_infra_probe(struct platform_device *pdev)
 #endif
 	}
 
-	return r;
+	return ret;
 }
 
 static const struct of_device_id of_match_clk_mt6779[] = {

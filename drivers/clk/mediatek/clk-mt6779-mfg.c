@@ -13,6 +13,7 @@
 #include <dt-bindings/clock/mt6779-clk.h>
 
 #define MT_CLKMGR_MODULE_INIT	0
+#define CCF_SUBSYS_DEBUG		1
 
 static const struct mtk_gate_regs mfg_cg_regs = {
 	.set_ofs = 0x4,
@@ -37,13 +38,24 @@ static int clk_mt6779_mfg_probe(struct platform_device *pdev)
 {
 	struct clk_onecell_data *clk_data;
 	struct device_node *node = pdev->dev.of_node;
+	int ret;
 
 	clk_data = mtk_alloc_clk_data(CLK_MFGCFG_NR_CLK);
+
+#if CCF_SUBSYS_DEBUG
+	pr_info("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
+#endif
 
 	mtk_clk_register_gates(node, mfg_clks, ARRAY_SIZE(mfg_clks),
 			clk_data);
 
-	return of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
+
+	if (ret)
+		pr_notice("%s(): could not register clock provider: %d\n",
+					__func__, ret);
+
+	return ret;
 }
 
 static const struct of_device_id of_match_clk_mt6779_mfg[] = {
