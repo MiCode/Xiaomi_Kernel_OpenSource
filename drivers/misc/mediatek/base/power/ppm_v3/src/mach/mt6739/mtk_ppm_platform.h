@@ -26,7 +26,7 @@ extern "C" {
 /*==============================================================*/
 /* Macros							*/
 /*==============================================================*/
-#ifdef CONFIG_MTK_FPSGO_FBT_GAME
+#ifdef CONFIG_MTK_FPSGO_V3
 #define PPM_CPI_CHECK_ENABLE		(1)
 #endif
 
