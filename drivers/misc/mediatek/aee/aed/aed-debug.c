@@ -209,7 +209,7 @@ static ssize_t proc_generate_wdt_write(struct file *file,
 	for (i = 0; i < nr_cpu_ids; i++) {
 		n = sprintf(name, "wd-test-%d", i);
 		if (n < 0 || n >= sizeof(name))
-			strcpy(name, "unknown error");
+			strncpy(name, "unknown error", sizeof(name));
 		pr_notice("[WDK]thread name: %s\n", name);
 		wk_tsk[i] = kthread_create(kwdt_thread_test, NULL, name);
 		if (IS_ERR(wk_tsk[i])) {
@@ -634,7 +634,7 @@ static ssize_t proc_generate_adsp_read(struct file *file,
 
 	n = sprintf(buffer, "ADSP EE log here\n");
 	if (n < 0 || n >= sizeof(buffer))
-		strcpy(buffer, "unknown error");
+		strncpy(buffer, "unknown error", sizeof(buffer));
 	aed_common_exception("adsp", (int *)buffer, (int)sizeof(buffer),
 				(int *)ptr, TEST_ADSP_PHY_SIZE, __FILE__);
 	kfree(ptr);
@@ -731,7 +731,7 @@ static ssize_t proc_generate_dal_read(struct file *file,
 	aee_kernel_dal_show("Test for DAL\n");
 	len = sprintf(buffer, "DAL Generated\n");
 	if (len < 0 || len >= sizeof(buffer))
-		strcpy(buffer, "unknown error");
+		strncpy(buffer, "unknown error", sizeof(buffer));
 
 	return len;
 }
