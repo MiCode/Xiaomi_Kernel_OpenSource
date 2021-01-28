@@ -3566,6 +3566,8 @@ signed int battery_meter_meta_tool_cali_car_tune(int meta_current)
 static long compat_adc_cali_ioctl(
 struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	int adc_out_datas[2] = { 1, 1 };
+
 	bm_notice("%s 32bit IOCTL, cmd=0x%08x\n",
 		__func__, cmd);
 	if (!filp->f_op || !filp->f_op->unlocked_ioctl) {
@@ -3573,6 +3575,9 @@ struct file *filp, unsigned int cmd, unsigned long arg)
 			__func__);
 		return -ENOTTY;
 	}
+
+	if (sizeof(arg) != sizeof(adc_out_datas))
+		return -EFAULT;
 
 	switch (cmd) {
 	case BAT_STATUS_READ:
@@ -3593,8 +3598,8 @@ struct file *filp, unsigned int cmd, unsigned long arg)
 	}
 		break;
 	default:
-		bm_err("%s unknown IOCTL: 0x%08x\n",
-			__func__, cmd);
+		bm_err("%s unknown IOCTL: 0x%08x, %d\n",
+			__func__, cmd, adc_out_datas[0]);
 		break;
 	}
 
@@ -3615,6 +3620,9 @@ static long adc_cali_ioctl(
 	int isdisNAFG = 0;
 
 	bm_notice("%s enter\n", __func__);
+
+	if (sizeof(arg) != sizeof(adc_out_data))
+		return -EFAULT;
 
 	mutex_lock(&gm.fg_mutex);
 
@@ -3771,14 +3779,25 @@ static long adc_cali_ioctl(
 		user_data_addr = (int *)arg;
 		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		adc_out_data[0] = battery_get_bat_voltage();
-		ret = copy_to_user(user_data_addr, adc_out_data, 8);
+		if (copy_to_user(user_data_addr, adc_out_data,
+			sizeof(adc_out_data))) {
+			mutex_unlock(&gm.fg_mutex);
+			return -EFAULT;
+		}
+
 		bm_notice("**** unlocked_ioctl :Get_META_BAT_VOL Done!\n");
 		break;
 	case Get_META_BAT_SOC:
 		user_data_addr = (int *)arg;
 		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		adc_out_data[0] = battery_get_uisoc();
-		ret = copy_to_user(user_data_addr, adc_out_data, 8);
+
+		if (copy_to_user(user_data_addr, adc_out_data,
+			sizeof(adc_out_data))) {
+			mutex_unlock(&gm.fg_mutex);
+			return -EFAULT;
+		}
+
 		bm_notice("**** unlocked_ioctl :Get_META_BAT_SOC Done!\n");
 		break;
 
@@ -3787,7 +3806,13 @@ static long adc_cali_ioctl(
 		ret = copy_from_user(adc_in_data, user_data_addr, 8);
 		adc_out_data[0] = fg_cust_data.car_tune_value;
 		bm_err("Get_BAT_CAR_TUNE_VALUE, res=%d\n", adc_out_data[0]);
-		ret = copy_to_user(user_data_addr, adc_out_data, 8);
+
+		if (copy_to_user(user_data_addr, adc_out_data,
+			sizeof(adc_out_data))) {
+			mutex_unlock(&gm.fg_mutex);
+			return -EFAULT;
+		}
+
 		bm_notice("**** unlocked_ioctl :Get_META_BAT_CAR_TUNE_VALUE Done!\n");
 		break;
 
@@ -3808,7 +3833,14 @@ static long adc_cali_ioctl(
 			temp_car_tune);
 
 		adc_out_data[0] = temp_car_tune;
-		ret = copy_to_user(user_data_addr, adc_out_data, 8);
+
+		if (copy_to_user(user_data_addr, adc_out_data,
+			sizeof(adc_out_data))) {
+			mutex_unlock(&gm.fg_mutex);
+			return -EFAULT;
+		}
+
+
 		bm_err("**** unlocked_ioctl Set_BAT_CAR_TUNE_VALUE[%d], result=%d, ret=%d\n",
 			adc_in_data[1], adc_out_data[0], ret);
 
@@ -3848,7 +3880,8 @@ static long adc_cali_ioctl(
 	default:
 		bm_err("**** unlocked_ioctl unknown IOCTL: 0x%08x\n", cmd);
 		g_ADC_Cali = false;
-		break;
+		mutex_unlock(&gm.fg_mutex);
+		return -EINVAL;
 	}
 
 	mutex_unlock(&gm.fg_mutex);
