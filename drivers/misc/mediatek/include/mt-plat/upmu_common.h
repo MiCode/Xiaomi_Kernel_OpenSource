@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -135,7 +135,7 @@ extern signed int g_I_SENSE_offset;
 /*
  * PMIC extern functions
  */
-#ifndef CONFIG_MTK_PMIC_COMMON
+#if (!defined(CONFIG_MTK_PMIC_COMMON) && !defined(CONFIG_MACH_MT8167))
 static inline unsigned int pmic_read_interface(unsigned int RegNum,
 	unsigned int *val, unsigned int MASK, unsigned int SHIFT)
 {
@@ -183,6 +183,7 @@ extern unsigned int pmic_config_interface_nospinlock(unsigned int RegNum,
 	unsigned int val,
 	unsigned int MASK,
 	unsigned int SHIFT);
+#ifndef CONFIG_MACH_MT8167
 extern unsigned short pmic_set_register_value(PMU_FLAGS_LIST_ENUM flagname,
 					      unsigned int val);
 extern unsigned short pmic_get_register_value(PMU_FLAGS_LIST_ENUM flagname);
@@ -197,6 +198,7 @@ extern unsigned short pmic_set_register_value_nospinlock(
 extern unsigned short bc11_set_register_value(PMU_FLAGS_LIST_ENUM flagname,
 					      unsigned int val);
 extern unsigned short bc11_get_register_value(PMU_FLAGS_LIST_ENUM flagname);
+#endif
 extern void upmu_set_reg_value(unsigned int reg, unsigned int reg_val);
 extern unsigned int upmu_get_reg_value(unsigned int reg);
 #endif

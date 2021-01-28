@@ -116,6 +116,8 @@ obj-$(CONFIG_MTK_CQDMA) += cqdma/
 
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
 obj-y += power/
+else
+obj-$(CONFIG_MACH_MT8167)+= power/
 endif
 obj-y += log_store/
 obj-y += mmdvfs/
