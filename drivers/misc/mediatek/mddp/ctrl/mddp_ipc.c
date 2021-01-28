@@ -214,10 +214,12 @@ int32_t mddp_ipc_get_md_smem_by_id(enum mddp_md_smem_user_id_e app_id,
 	*smem_size = smem_entry->size;
 
 	*smem_addr = (uint8_t *)get_smem_start_addr(MD_SYS1,
-		SMEM_USER_RAW_USB, &smem_total_len) + smem_entry->offset;
+		SMEM_USER_RAW_USB, &smem_total_len);
 
 	if (!(*smem_addr))
 		return -EINVAL;
+
+	*smem_addr += smem_entry->offset;
 
 	return 0;
 }
