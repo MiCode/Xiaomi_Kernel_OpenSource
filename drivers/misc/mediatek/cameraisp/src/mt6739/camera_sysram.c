@@ -829,7 +829,7 @@ static int SYSRAM_mmap(
 	struct vm_area_struct *pVma)
 {
 	long length = 0;
-	unsigned int pfn = 0x0;
+	unsigned long pfn = 0x0;
 	/* LOG_MSG(""); */
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 
@@ -840,7 +840,7 @@ static int SYSRAM_mmap(
 			pVma->vm_pgoff, pVma->vm_pgoff<<PAGE_SHIFT, pVma->vm_start, pVma->vm_end, length);
 	if ((length > ISP_VALID_REG_RANGE) ||
 		(pfn < IMGSYS_BASE_ADDR) ||
-		(pfn > (IMGSYS_BASE_ADDR+ISP_VALID_REG_RANGE))) {
+		((pfn + length) > (IMGSYS_BASE_ADDR+ISP_VALID_REG_RANGE))) {
 		LOG_MSG("mmap range error : vm_start(0x%lx), vm_end(0x%lx), length(%lx), pfn(%u)!",
 		pVma->vm_start, pVma->vm_end, length, (unsigned int)pfn);
 		return -EAGAIN;
