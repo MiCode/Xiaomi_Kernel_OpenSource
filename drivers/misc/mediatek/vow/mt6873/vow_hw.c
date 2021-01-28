@@ -23,14 +23,14 @@
 #include "scp_mbox_layout.h"  /* for IPI mbox size */
 #endif
 
-static void vow_ipi_recv_handler(int id,
-				 void *prdata,
-				 void *data,
-				 unsigned int len);
-static void vow_ipi_ack_handler(int id,
+static int vow_ipi_recv_handler(unsigned int id,
 				void *prdata,
 				void *data,
 				unsigned int len);
+static int vow_ipi_ack_handler(unsigned int id,
+			       void *prdata,
+			       void *data,
+			       unsigned int len);
 
 unsigned int ipi_ack_return;
 unsigned int ipi_ack_id;
@@ -68,21 +68,22 @@ void vow_ipi_register(void (*ipi_rx_call)(unsigned int, void *),
 	ipi_tx_ack_handle = ipi_tx_ack_call;
 }
 
-static void vow_ipi_recv_handler(int id,
-				 void *prdata,
-				 void *data,
-				 unsigned int len)
+static int vow_ipi_recv_handler(unsigned int id,
+				void *prdata,
+				void *data,
+				unsigned int len)
 {
 	struct vow_ipi_receive_info *ipi_info =
 		(struct vow_ipi_receive_info *)data;
 
 	ipi_rx_handle(ipi_info->msg_id, (void *)ipi_info->msg_data);
+	return 0;
 }
 
-static void vow_ipi_ack_handler(int id,
-				void *prdata,
-				void *data,
-				unsigned int len)
+static int vow_ipi_ack_handler(unsigned int id,
+			       void *prdata,
+			       void *data,
+			       unsigned int len)
 {
 	struct vow_ipi_ack_info *ipi_info =
 		(struct vow_ipi_ack_info *)data;
@@ -91,6 +92,7 @@ static void vow_ipi_ack_handler(int id,
 	ipi_ack_return = ipi_info->msg_need_ack;
 	ipi_ack_id = ipi_info->msg_id;
 	ipi_ack_data = ipi_info->msg_data;
+	return 0;
 }
 
 bool vow_ipi_send(unsigned int msg_id,
