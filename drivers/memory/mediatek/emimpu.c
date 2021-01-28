@@ -305,12 +305,14 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	bool violation, mpu_violation;
 	char *aee_msg;
 	ssize_t aee_msg_cnt;
+	int ret_temp;
 
 	if (emimpu_dev_ptr->in_msg_dump)
 		goto ignore_violation;
 
 	aee_msg = emimpu_dev_ptr->violation_msg;
-	aee_msg_cnt = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
+	ret_temp = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
+	aee_msg_cnt = (ret_temp < 0) ? 0 : (ssize_t)ret_temp;
 
 	mpu_violation = false;
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
