@@ -307,24 +307,6 @@ void set_sched_turn_point_cap(void)
  */
 static DEFINE_SPINLOCK(hmp_force_migration);
 
-int hmp_should_migrate_task(struct task_struct *p, struct rq *busiest_rq)
-{
-	/*
-	 * If stopper thread are made to move specific task
-	 */
-	if (busiest_rq->migrate_task) {
-		struct task_struct *pm;
-
-		pm = busiest_rq->migrate_task;
-		if (p != pm)
-			return false;
-
-		busiest_rq->migrate_task = NULL;
-		return true;
-	}
-	return true;
-}
-
 /*
  * For debugging purpose,
  * to depart functions of cpu_stop to make call_stack clear.
