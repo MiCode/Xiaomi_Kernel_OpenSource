@@ -35,39 +35,39 @@ void mtk_dp_debug(const char *opt)
 	if (strncmp(opt, "fakecablein:", 12) == 0) {
 		if (strncmp(opt + 12, "enable", 6) == 0) {
 			if (strncmp(opt + 12, "enable4k30P6", 12) == 0)
-				mtk_dp_fake_plugin(SINK_4K2K30, 0);
+				mtk_dp_fake_plugin(SINK_3840_2160_30, 0);
 			else if (strncmp(opt + 12, "enable4k30p8", 12) == 0)
-				mtk_dp_fake_plugin(SINK_4K2K30, 1);
+				mtk_dp_fake_plugin(SINK_3840_2160_30, 1);
 			else if (strncmp(opt + 12, "enable4k30p10", 13) == 0)
-				mtk_dp_fake_plugin(SINK_4K2K30, 2);
+				mtk_dp_fake_plugin(SINK_3840_2160_30, 2);
 
 			else if (strncmp(opt + 12, "enable4k60p6", 12) == 0)
-				mtk_dp_fake_plugin(SINK_4K2K60R, 0);
+				mtk_dp_fake_plugin(SINK_3840_2160, 0);
 			else if (strncmp(opt + 12, "enable4k60p8", 12) == 0)
-				mtk_dp_fake_plugin(SINK_4K2K60R, 1);
+				mtk_dp_fake_plugin(SINK_3840_2160, 1);
 			else if (strncmp(opt + 12, "enable4k60p10", 13) == 0)
-				mtk_dp_fake_plugin(SINK_4K2K60R, 2);
+				mtk_dp_fake_plugin(SINK_3840_2160, 2);
 
 			else if (strncmp(opt + 12, "enable720p6", 11) == 0)
-				mtk_dp_fake_plugin(SINK_720P60, 0);
+				mtk_dp_fake_plugin(SINK_1280_720, 0);
 			else if (strncmp(opt + 12, "enable720p8", 11) == 0)
-				mtk_dp_fake_plugin(SINK_720P60, 1);
+				mtk_dp_fake_plugin(SINK_1280_720, 1);
 			else if (strncmp(opt + 12, "enable720p10", 12) == 0)
-				mtk_dp_fake_plugin(SINK_720P60, 2);
+				mtk_dp_fake_plugin(SINK_1280_720, 2);
 
 			else if (strncmp(opt + 12, "enable480p6", 11) == 0)
-				mtk_dp_fake_plugin(SINK_480P, 0);
+				mtk_dp_fake_plugin(SINK_640_480, 0);
 			else if (strncmp(opt + 12, "enable480p8", 11) == 0)
-				mtk_dp_fake_plugin(SINK_480P, 1);
+				mtk_dp_fake_plugin(SINK_640_480, 1);
 			else if (strncmp(opt + 12, "enable480p10", 12) == 0)
-				mtk_dp_fake_plugin(SINK_480P, 2);
+				mtk_dp_fake_plugin(SINK_640_480, 2);
 
 			else if (strncmp(opt + 12, "enable1080p6", 12) == 0)
-				mtk_dp_fake_plugin(SINK_1080P60, 0);
+				mtk_dp_fake_plugin(SINK_1920_1080, 0);
 			else if (strncmp(opt + 12, "enable1080p8", 12) == 0)
-				mtk_dp_fake_plugin(SINK_1080P60, 1);
+				mtk_dp_fake_plugin(SINK_1920_1080, 1);
 			else if (strncmp(opt + 12, "enable1080p10", 13) == 0)
-				mtk_dp_fake_plugin(SINK_1080P60, 2);
+				mtk_dp_fake_plugin(SINK_1920_1080, 2);
 		} else
 			DDPINFO("fakecablein error msg\n");
 	} else if (strncmp(opt, "fec:", 4) == 0) {
@@ -150,6 +150,19 @@ void mtk_dp_debug(const char *opt)
 		mtk_dp_SWInterruptSet(2);
 		mdelay(100);
 		mtk_dp_SWInterruptSet(4);
+	} else if (strncmp(opt, "pattern:", 8) == 0) {
+		int ret = 0;
+		uint8_t enable, resolution;
+
+		ret = sscanf(opt, "pattern:%d,%d\n", &enable, &resolution);
+		if (ret != 2) {
+			DPTXMSG("ret = %s\n", ret);
+			return;
+		}
+
+		DPTXMSG("Paterrn Gen:enable = %d, resolution =%d\n",
+			enable, resolution);
+		mdrv_DPTx_PatternSet(enable, resolution);
 	}
 }
 

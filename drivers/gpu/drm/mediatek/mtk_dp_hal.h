@@ -163,6 +163,42 @@ enum DPTx_PG_PURECOLOR {
 	DPTX_PG_PURECOLOR_MAX,
 };
 
+enum DPTx_PG_LOCATION {
+	DPTX_PG_LOCATION_NONE            = 0x0,
+	DPTX_PG_LOCATION_ALL             = 0x1,
+	DPTX_PG_LOCATION_TOP             = 0x2,
+	DPTX_PG_LOCATION_BOTTOM          = 0x3,
+	DPTX_PG_LOCATION_LEFT_OF_TOP     = 0x4,
+	DPTX_PG_LOCATION_LEFT_OF_BOTTOM  = 0x5,
+	DPTX_PG_LOCATION_LEFT            = 0x6,
+	DPTX_PG_LOCATION_RIGHT           = 0x7,
+	DPTX_PG_LOCATION_LEFT_OF_LEFT    = 0x8,
+	DPTX_PG_LOCATION_RIGHT_OF_LEFT   = 0x9,
+	DPTX_PG_LOCATION_LEFT_OF_RIGHT   = 0xA,
+	DPTX_PG_LOCATION_RIGHT_OF_RIGHT  = 0xB,
+	DPTX_PG_LOCATION_MAX,
+};
+
+enum DPTx_PG_PIXEL_MASK {
+	DPTX_PG_PIXEL_MASK_NONE         = 0x0,
+	DPTX_PG_PIXEL_ODD_MASK          = 0x1,
+	DPTX_PG_PIXEL_EVEN_MASK         = 0x2,
+	DPTX_PG_PIXEL_MASK_MAX,
+};
+
+enum DPTx_PG_TYPESEL {
+	DPTX_PG_NONE                    = 0x0,
+	DPTX_PG_PURE_COLOR              = 0x1,
+	DPTX_PG_VERTICAL_RAMPING        = 0x2,
+	DPTX_PG_HORIZONTAL_RAMPING      = 0x3,
+	DPTX_PG_VERTICAL_COLOR_BAR      = 0x4,
+	DPTX_PG_HORIZONTAL_COLOR_BAR    = 0x5,
+	DPTX_PG_CHESSBOARD_PATTERN      = 0x6,
+	DPTX_PG_SUB_PIXEL_PATTERN       = 0x7,
+	DPTX_PG_FRAME_PATTERN           = 0x8,
+	DPTX_PG_MAX,
+};
+
 
 u32 mtk_dp_read(struct mtk_dp *mtk_dp, u32 offset);
 void mtk_dp_write_byte(struct mtk_dp *mtk_dp, u32 addr, u8 val, u32 mask);
@@ -191,8 +227,7 @@ void mhal_DPTx_Fake_Plugin(struct mtk_dp *mtk_dp, bool conn);
 void mhal_dump_reg(struct mtk_dp *mtk_dp);
 void mhal_DPTx_Verify_Clock(struct mtk_dp *mtk_dp);
 void mhal_DPTx_ISR(struct mtk_dp *mtk_dp);
-BYTE mhal_DPTx_GetColorBpp(struct mtk_dp *mtk_dp,
-	BYTE ubDPTXColorDepth, BYTE ubDPTXColorFormat);
+BYTE mhal_DPTx_GetColorBpp(struct mtk_dp *mtk_dp);
 bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp,
 	BYTE ubCmd, DWORD usDPCDADDR, size_t ubLength, BYTE *pRxBuf);
 bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
@@ -247,6 +282,18 @@ void mhal_DPTx_SetFreeSync(struct mtk_dp *mtk_dp, bool bENABLE);
 void mhal_DPTx_Set_VideoInterlance(struct mtk_dp *mtk_dp, bool bENABLE);
 void mhal_DPTx_EnableBypassMSA(struct mtk_dp *mtk_dp, bool bENABLE);
 void mhal_DPTx_PGEnable(struct mtk_dp *mtk_dp, bool bENABLE);
+void mhal_DPTx_PG_Pure_Color(struct mtk_dp *mtk_dp, BYTE BGR, DWORD ColorDepth);
+void mhal_DPTx_PG_VerticalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
+	DWORD ColorDepth, BYTE Location);
+void mhal_DPTx_PG_HorizontalRamping(struct mtk_dp *mtk_dp, BYTE BGR,
+	DWORD ColorDepth, BYTE Location);
+void mhal_DPTx_PG_VerticalColorBar(struct mtk_dp *mtk_dp, BYTE Location);
+void mhal_DPTx_PG_HorizontalColorBar(struct mtk_dp *mtk_dp, BYTE Location);
+void mhal_DPTx_PG_Chessboard(struct mtk_dp *mtk_dp, BYTE Location,
+	WORD Hde, WORD Vde);
+void mhal_DPTx_PG_SubPixel(struct mtk_dp *mtk_dp, BYTE Location);
+void mhal_DPTx_PG_Frame(struct mtk_dp *mtk_dp, BYTE Location,
+	WORD Hde, WORD Vde);
 void mhal_DPTx_Set_MVIDx2(struct mtk_dp *mtk_dp, bool bEnable);
 bool mhal_DPTx_OverWrite_MN(struct mtk_dp *mtk_dp,
 	bool bEnable, DWORD ulVideo_M, DWORD ulVideo_N);
@@ -255,8 +302,7 @@ void mhal_DPTx_SetSDP_DownCntinitInHblanking(struct mtk_dp *mtk_dp,
 	WORD uwValue);
 void mhal_DPTx_SetSDP_DownCntinit(struct mtk_dp *mtk_dp, WORD uwValue);
 void mhal_DPTx_SetTU_SetEncoder(struct mtk_dp *mtk_dp);
-void mhal_DPTx_SetMSA(struct mtk_dp *mtk_dp,
-	struct DPTX_TIMING_PARAMETER *DPTX_TBL);
+void mhal_DPTx_SetMSA(struct mtk_dp *mtk_dp);
 void mhal_DPTx_SetMISC(struct mtk_dp *mtk_dp, BYTE ucMISC[2]);
 void mhal_DPTx_SetColorDepth(struct mtk_dp *mtk_dp, BYTE coloer_depth);
 void mhal_DPTx_SetColorFormat(struct mtk_dp *mtk_dp, BYTE enOutColorFormat);

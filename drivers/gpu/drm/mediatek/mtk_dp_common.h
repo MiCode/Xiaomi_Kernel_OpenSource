@@ -164,25 +164,25 @@ union MISC_T {
 };
 
 struct DPTX_TIMING_PARAMETER {
-	WORD	Htt;
-	WORD	Hde;
-	WORD	Hbk;
-	WORD	Hfp;
-	WORD	Hsw;
+	WORD Htt;
+	WORD Hde;
+	WORD Hbk;
+	WORD Hfp;
+	WORD Hsw;
 
-	bool	bHsp : 1;
-	WORD	Hbp;
-	WORD	Vtt;
-	WORD	Vde;
-	WORD	Vbk;
-	WORD	Vfp;
-	WORD	Vsw;
+	bool bHsp;
+	WORD Hbp;
+	WORD Vtt;
+	WORD Vde;
+	WORD Vbk;
+	WORD Vfp;
+	WORD Vsw;
 
-	bool	bVsp : 1;
-	WORD	Vbp;
-	BYTE	FrameRate;
-	DWORD	PixRateKhz;
-	int    Video_ip_mode;
+	bool bVsp;
+	WORD Vbp;
+	BYTE FrameRate;
+	DWORD PixRateKhz;
+	int Video_ip_mode;
 };
 
 struct DPTX_TRAINING_INFO {
@@ -210,30 +210,21 @@ struct DPTX_TRAINING_INFO {
 };
 
 struct DPTX_INFO {
-	int  ubDPTXInPutTypeSel;
-	union MISC_T DPTX_MISC;
-	BYTE ubDPTXColorDepthSel;
-	BYTE ubDPTXColorFormatSel;
+	uint8_t input_src;
+	uint8_t depth;
+	uint8_t format;
+	uint8_t resolution;
 	unsigned int audio_caps;
 	unsigned int audio_config;
 	struct DPTX_TIMING_PARAMETER DPTX_OUTBL;
-	BYTE ubDPTX_PatternIdx;
-	DWORD DPTX_VPLLx_M;
-	DWORD DPTX_VPLLx_N;
-	DWORD DPTX_Video_M;
-	DWORD DPTX_Video_N;
 
-	bool bUseTopTimingTBL : 1;
-	bool bFixFrameRate : 1;
-	bool bSetFreeSync : 1;
+	bool bPatternGen : 1;
 	bool bSinkSSC_En : 1;
 	bool bSetAudioMute : 1;
 	bool bSetVideoMute : 1;
 	bool bAudioMute : 1;
 	bool bVideoMute : 1;
 	bool bForceHDCP1x : 1;
-
-	unsigned int uiVideoConfig;
 
 #ifdef DPTX_HDCP_ENABLE
 	BYTE bAuthStatus;
