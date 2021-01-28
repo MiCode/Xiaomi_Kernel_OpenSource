@@ -444,8 +444,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
 	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
-//smart phone m4u/iommu
-#if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_IOMMU_V2)
 		ret = m4u_mva_map_kernel(
 				(unsigned int)sync_va,
 				sync_size, &kernel_va, &kernel_size);
@@ -453,13 +451,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 			goto err;
 		sync_va = kernel_va;
 		break;
-//tablet iommu
-#elif defined(CONFIG_MTK_IOMMU)
-		//this flow not support mva cache sync, put handle and return
-		ret = -EINVAL;
-		goto err;
-#endif
-
 	default:
 		ret = -EINVAL;
 		goto err;
@@ -474,18 +465,8 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	if (sync_type == ION_CACHE_CLEAN_BY_RANGE_USE_PA ||
 	    sync_type == ION_CACHE_INVALID_BY_RANGE_USE_PA ||
 	    sync_type == ION_CACHE_FLUSH_BY_RANGE_USE_PA) {
-		//smart phone m4u/iommu
-#if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_IOMMU_V2)
 		m4u_mva_unmap_kernel((unsigned long)param->va,
 				     (unsigned int)sync_size, sync_va);
-		//tablet iommu
-#elif defined(CONFIG_MTK_IOMMU)
-		//this flow not support mva cache sync, put handle and return
-		IONMSG("%s err\n", __func__);
-		ret = -EINVAL;
-		goto err;
-#endif
-
 	} else if (ion_need_unmap_flag) {
 		ion_unmap_kernel(client, kernel_handle);
 		ion_need_unmap_flag = 0;
