@@ -177,7 +177,6 @@
 				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <2200000>;
 				regulator-enable-ramp-delay = <0>;
-				regulator-always-on;
 			};
 			mt_pmic_vgpu11_buck_reg: buck_vgpu11 {
 				regulator-name = "vgpu11";
@@ -185,7 +184,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <5000>;
 				regulator-enable-ramp-delay = <200>;
-				regulator-always-on;
 				regulator-allowed-modes = <0 1 2>;
 			};
 			mt_pmic_vmodem_buck_reg: buck_vmodem {
@@ -194,7 +192,6 @@
 				regulator-max-microvolt = <1100000>;
 				regulator-ramp-delay = <10760>;
 				regulator-enable-ramp-delay = <200>;
-				regulator-always-on;
 			};
 			mt_pmic_vpu_buck_reg: buck_vpu {
 				regulator-name = "vpu";
@@ -210,7 +207,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <5000>;
 				regulator-enable-ramp-delay = <200>;
-				regulator-always-on;
 				regulator-allowed-modes = <0 1 2>;
 			};
 			mt_pmic_vs2_buck_reg: buck_vs2 {
@@ -218,7 +214,6 @@
 				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <1600000>;
 				regulator-enable-ramp-delay = <0>;
-				regulator-always-on;
 			};
 			mt_pmic_vpa_buck_reg: buck_vpa {
 				regulator-name = "vpa";
@@ -232,7 +227,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <7500>;
 				regulator-enable-ramp-delay = <200>;
-				regulator-always-on;
 				regulator-allowed-modes = <0 1 2>;
 			};
 			mt_pmic_vproc1_buck_reg: buck_vproc1 {
@@ -241,7 +235,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <7500>;
 				regulator-enable-ramp-delay = <200>;
-				regulator-always-on;
 				regulator-allowed-modes = <0 1 2>;
 			};
 			mt_pmic_vcore_sshub_buck_reg: buck_vcore_sshub {
@@ -278,7 +271,6 @@
 				regulator-min-microvolt = <3000000>;
 				regulator-max-microvolt = <3000000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vsram_proc2_ldo_reg: ldo_vsram_proc2 {
 				regulator-name = "vsram_proc2";
@@ -286,14 +278,12 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <7500>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vio18_ldo_reg: ldo_vio18 {
 				regulator-name = "vio18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
 				regulator-enable-ramp-delay = <960>;
-				regulator-always-on;
 			};
 			mt_pmic_vcamio_ldo_reg: ldo_vcamio {
 				regulator-name = "vcamio";
@@ -312,7 +302,6 @@
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				regulator-enable-ramp-delay = <120>;
-				regulator-always-on;
 			};
 			mt_pmic_vcn13_ldo_reg: ldo_vcn13 {
 				regulator-name = "vcn13";
@@ -337,7 +326,6 @@
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <1800000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vsram_others_ldo_reg: ldo_vsram_others {
 				regulator-name = "vsram_others";
@@ -345,7 +333,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <5000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vefuse_ldo_reg: ldo_vefuse {
 				regulator-name = "vefuse";
@@ -358,7 +345,6 @@
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <2200000>;
 				regulator-enable-ramp-delay = <120>;
-				regulator-always-on;
 			};
 			mt_pmic_vrfck_ldo_reg: ldo_vrfck {
 				regulator-name = "vrfck";
@@ -371,14 +357,12 @@
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <2800000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vio28_ldo_reg: ldo_vio28 {
 				regulator-name = "vio28";
 				regulator-min-microvolt = <2800000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vemc_ldo_reg: ldo_vemc {
 				regulator-name = "vemc";
@@ -403,21 +387,18 @@
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <1300000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_va09_ldo_reg: ldo_va09 {
 				regulator-name = "va09";
 				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <1200000>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vrf18_ldo_reg: ldo_vrf18 {
 				regulator-name = "vrf18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1810000>;
 				regulator-enable-ramp-delay = <120>;
-				regulator-always-on;
 			};
 			mt_pmic_vsram_md_ldo_reg: ldo_vsram_md {
 				regulator-name = "vsram_md";
@@ -425,7 +406,6 @@
 				regulator-max-microvolt = <1100000>;
 				regulator-ramp-delay = <10760>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vufs_ldo_reg: ldo_vufs {
 				regulator-name = "vufs";
@@ -433,14 +413,12 @@
 				regulator-max-microvolt = <1900000>;
 				regulator-enable-ramp-delay = <1920>;
 				regulator-allowed-modes = <0 1>;
-				regulator-always-on;
 			};
 			mt_pmic_vm18_ldo_reg: ldo_vm18 {
 				regulator-name = "vm18";
 				regulator-min-microvolt = <1700000>;
 				regulator-max-microvolt = <1900000>;
 				regulator-enable-ramp-delay = <1920>;
-				regulator-always-on;
 			};
 			mt_pmic_vbbck_ldo_reg: ldo_vbbck {
 				regulator-name = "vbbck";
@@ -454,7 +432,6 @@
 				regulator-max-microvolt = <1193750>;
 				regulator-ramp-delay = <7500>;
 				regulator-enable-ramp-delay = <240>;
-				regulator-always-on;
 			};
 			mt_pmic_vsim2_ldo_reg: ldo_vsim2 {
 				regulator-name = "vsim2";
