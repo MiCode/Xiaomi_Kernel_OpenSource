@@ -38,6 +38,15 @@
 	clock-frequency = <150000000>;
 };
 
+&mt6360_pmu {
+	mt6360,intr_gpio_num = <10>; /* direct defined GPIO num */
+	mt6360,intr_gpio = <&pio 10 0x0>;
+};
+
+&mt6360_pmic {
+	pwr_off_seq = [04 00 00 02];
+};
+
 /* #include <k6833v1_64/cust.dtsi> */
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 

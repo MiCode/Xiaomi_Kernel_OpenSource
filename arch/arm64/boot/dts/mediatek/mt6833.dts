@@ -26,6 +26,7 @@
 #include <dt-bindings/memory/mt6833-larb-port.h>
 #include <dt-bindings/pinctrl/mt6833-pinfunc.h>
 #include <dt-bindings/gce/mt6833-gce.h>
+#include "mediatek/mt6360.dtsi"
 
 / {
 	model = "MT6833";
@@ -318,6 +319,9 @@ page_owner=on";
 			<0 0x1020e000 0 0x1000>,	/* infracfg */
 			<0 0x10215000 0 0x1000>;	/* infracfg_pdn */
 		#clock-cells = <1>;
+	};
+
+	subpmic_pmu_eint:subpmic_pmu_eint {
 	};
 
 	infracfg_ao_mem@10002000 {
@@ -3394,6 +3398,12 @@ page_owner=on";
 			interrupt-parent = <&pio>;
 			interrupts = <0 IRQ_TYPE_LEVEL_HIGH 0 0>;
 		};
+	};
+};
+
+&mt6360_pmic {
+	buck2 {
+		/delete-property/ regulator-always-on;
 	};
 };
 
