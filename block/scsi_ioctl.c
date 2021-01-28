@@ -337,7 +337,7 @@ static int sg_io(struct request_queue *q, struct gendisk *bd_disk,
 	/* MTK PATCH for SPOH */
 	#ifdef MTK_UFS_HQA
 	if (hdr->flags & SG_FLAG_POWER_LOSS)
-		req->cmd_flags |= REQ_POWER_LOSS;
+		rq->cmd_flags |= REQ_POWER_LOSS;
 	#endif
 
 	if (hdr->cmd_len > BLK_MAX_CDB) {
@@ -532,7 +532,7 @@ int sg_scsi_ioctl(struct request_queue *q, struct gendisk *disk, fmode_t mode,
 		if (copy_to_user(sic->data, buffer, out_len))
 			err = -EFAULT;
 	}
-	
+
 error:
 	blk_put_request(rq);
 
