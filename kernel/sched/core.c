@@ -1237,10 +1237,16 @@ int set_task_util_min(pid_t pid, unsigned int util_min)
 EXPORT_SYMBOL(set_task_util_min);
 
 #ifdef CONFIG_SMP
+#ifdef CONFIG_SCHED_TUNE
+long schedtune_task_margin(struct task_struct *task);
+#endif
 unsigned int uclamp_task(struct task_struct *p)
 {
 	unsigned long util;
 
+#ifdef CONFIG_SCHED_TUNE
+	util += schedtune_task_margin(p);
+#endif
 	util = task_util_est(p);
 	util = max(util, uclamp_eff_value(p, UCLAMP_MIN));
 	util = min(util, uclamp_eff_value(p, UCLAMP_MAX));
@@ -1250,7 +1256,11 @@ unsigned int uclamp_task(struct task_struct *p)
 
 bool uclamp_boosted(struct task_struct *p)
 {
-	return uclamp_eff_value(p, UCLAMP_MIN) > 0;
+	bool st_boosted = false;
+#ifdef CONFIG_SCHED_TUNE
+	st_boosted = schedtune_task_boost(p) > 0;
+#endif
+	return uclamp_eff_value(p, UCLAMP_MIN) > 0 || st_boosted;
 }
 
 bool uclamp_latency_sensitive(struct task_struct *p)
