@@ -1250,7 +1250,7 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	int i = 0, ret;
 	struct device_node *toprgu_np;
 	struct device_node *np = tscpu_pdev->dev.of_node;
-	unsigned int val;
+	unsigned int val = 0;
 
 	tscpu_dprintk(
 	"tscpu_config_all_tc_hw_protect,temperature=%d,temperature2=%d,\n",
