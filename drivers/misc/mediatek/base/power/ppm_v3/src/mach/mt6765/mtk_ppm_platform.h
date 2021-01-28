@@ -35,7 +35,6 @@ extern "C" {
 #define CORE_LL	(4)
 #define CORE_L	(4)
 
-#define TOTAL_CORE_NUM	(CORE_LL+CORE_L)
 #define CORE_NUM_L	CORE_LL
 #define CORE_NUM_B	COREL_L
 
