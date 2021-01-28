@@ -290,7 +290,7 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
-	MUINT32 pfn = 0x0;
+	unsigned long pfn = 0x0;
 
 	/*PK_DBG("- E."); */
 	length = (pVma->vm_end - pVma->vm_start);
@@ -307,30 +307,30 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 	case SENINF_MAP_BASE_REG:
 		if (length > SENINF_MAP_LENGTH_REG) {
 			pr_info(
-			"mmap range error :module(0x%x),length(0x%lx),SENINF_BASE_RANGE(0x%x)!\n",
+			"mmap range error :module(0x%lx),length(0x%lx),SENINF_BASE_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_REG);
-			return -EAGAIN;
+			return -EINVAL;
 		}
 		break;
 	case SENINF_MAP_BASE_ANA:
 		if (length > SENINF_MAP_LENGTH_ANA) {
 			pr_info(
-			"mmap range error :module(0x%x),length(0x%lx),MIPI_RX_RANGE(0x%x)!\n",
+			"mmap range error :module(0x%lx),length(0x%lx),MIPI_RX_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_ANA);
-			return -EAGAIN;
+			return -EINVAL;
 		}
 		break;
 	case SENINF_MAP_BASE_GPIO:
 		if (length > SENINF_MAP_LENGTH_GPIO) {
 			pr_info(
-			"mmap range error :module(0x%x),length(0x%lx),GPIO_RX_RANGE(0x%x)!\n",
+			"mmap range error :module(0x%lx),length(0x%lx),GPIO_RX_RANGE(0x%x)!\n",
 			pfn, length, SENINF_MAP_LENGTH_GPIO);
-			return -EAGAIN;
+			return -EINVAL;
 		}
 		break;
 	default:
 		pr_info("Illegal starting HW addr for mmap!\n");
-		return -EAGAIN;
+		return -EINVAL;
 
 	}
 
@@ -340,7 +340,7 @@ static MINT32 seninf_mmap(struct file *pFile, struct vm_area_struct *pVma)
 		pVma->vm_pgoff,
 		pVma->vm_end - pVma->vm_start,
 		pVma->vm_page_prot))
-		return -EAGAIN;
+		return -EINVAL;
 
 	return 0;
 }
