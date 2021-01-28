@@ -173,8 +173,8 @@ static long ged_dispatch(struct file *pFile,
 
 	/* We make sure the both size are GE 0 integer.
 	 */
-	if (psBridgePackageKM->i32InBufferSize >= 0
-		&& psBridgePackageKM->i32OutBufferSize >= 0) {
+	if (psBridgePackageKM->i32InBufferSize > 0
+		&& psBridgePackageKM->i32OutBufferSize > 0) {
 
 		if (psBridgePackageKM->i32InBufferSize > 0) {
 			int32_t inputBufferSize =
@@ -283,11 +283,11 @@ static long ged_dispatch(struct file *pFile,
 			break;
 		case GED_BRIDGE_COMMAND_GE_GET:
 			VALIDATE_ARG(GE_GET);
-			ret = ged_bridge_ge_get(pvIn, pvOut);
+			ret = ged_bridge_ge_get(pvIn, pvOut, psBridgePackageKM->i32OutBufferSize);
 			break;
 		case GED_BRIDGE_COMMAND_GE_SET:
 			VALIDATE_ARG(GE_SET);
-			ret = ged_bridge_ge_set(pvIn, pvOut);
+			ret = ged_bridge_ge_set(pvIn, pvOut, psBridgePackageKM->i32InBufferSize);
 			break;
 		case GED_BRIDGE_COMMAND_GE_INFO:
 			VALIDATE_ARG(GE_INFO);
