@@ -23,31 +23,26 @@ enum mt_cpu_dvfs_id {
 };
 
 enum cpu_level {
-	CPU_LEVEL_0,	/* V3 */
-	CPU_LEVEL_1,	/* V4 */
-	CPU_LEVEL_2,	/* V5_1 */
-	CPU_LEVEL_3,	/* V5_2 */
-	CPU_LEVEL_4,	/* V5_3 */
-	CPU_LEVEL_5,	/* V6 */
-	CPU_LEVEL_6,	/* V5_T */
-	CPU_LEVEL_7,	/* V5_4 */
+	CPU_LEVEL_0, /* 6785 */
+	CPU_LEVEL_1, /* 6785T */
+	CPU_LEVEL_2, /* 6783 */
 
 	NUM_CPU_LEVEL,
 };
 
 /* PMIC Config */
 enum mt_cpu_dvfs_buck_id {
-	CPU_DVFS_VPROC12,
-	CPU_DVFS_VPROC11,
-	CPU_DVFS_VSRAM12,
-	CPU_DVFS_VSRAM11,
+	CPU_DVFS_VPROC2,
+	CPU_DVFS_VPROC1,
+	CPU_DVFS_VSRAM2,
+	CPU_DVFS_VSRAM1,
 
 	NR_MT_BUCK,
 };
 
 enum mt_cpu_dvfs_pmic_type {
-	BUCK_MT6358_VPROC,
-	BUCK_MT6358_VSRAM,
+	BUCK_mt6359_VPROC,
+	BUCK_mt6359_VSRAM,
 
 	NR_MT_PMIC,
 };

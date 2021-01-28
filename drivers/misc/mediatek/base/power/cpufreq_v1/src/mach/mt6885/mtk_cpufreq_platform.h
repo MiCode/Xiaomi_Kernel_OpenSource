@@ -16,21 +16,36 @@
 
 #include "mtk_cpufreq_internal.h"
 
+#define CPU_DVFS_DT_REG	1
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #define CONFIG_HYBRID_CPU_DVFS	1
-/* #define PPM_AP_SIDE	1 */
+#define PPM_AP_SIDE	1
 #define EEM_AP_SIDE	1
+#define CCI_MAP_TBL_SUPPORT	1
+#define ENABLE_DOE              1
+#define MET_READY              1
+#define IMAX_ENABLE             1
+#define IMAX_INIT_STATE         1
 /* #define CPU_DVFS_NOT_READY	1 */
-#define DRCC_SUPPORT 1
 #define REPORT_IDLE_FREQ	1
 #else
 #define SUPPORT_VOLT_HW_AUTO_TRACK 1
-#define CPU_DVFS_NOT_READY	1
+/*#define CPU_DVFS_NOT_READY	1  */
 #endif
+
+#define NR_FREQ		16
+#define NR_CCI_TBL		2
+
+/* ARMv8.2 */
+#define SINGLE_CLUSTER 1
+
+/* EEM VBOOT */
+#define VBOOT_VOLT 80000
 
 /* buck ctrl configs */
 #define NORMAL_DIFF_VRSAM_VPROC		10000
-#define MAX_DIFF_VSRAM_VPROC		26250
+#define MAX_DIFF_VSRAM_VPROC		22500
 #define MIN_VSRAM_VOLT			85000
 #define MAX_VSRAM_VOLT			112000
 #define MIN_VPROC_VOLT			60000
@@ -44,15 +59,18 @@
 #define PLL_SETTLE_TIME		20
 #define POS_SETTLE_TIME		1
 
-#define DVFSP_DT_NODE		"mediatek,mt6885-dvfsp"
+#define DVFSP_DT_NODE		"mediatek,mt6785-dvfsp"
 
 #define CSRAM_BASE		0x0011bc00
 #define CSRAM_SIZE		0x1400		/* 5K bytes */
 
 #define DVFS_LOG_NUM		150
 #define ENTRY_EACH_LOG		5
+#define REG_LEN                 4
+
 
 extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];
+extern struct cpudvfs_doe dvfs_doe;
 extern struct buck_ctrl_t buck_ctrl[NR_MT_BUCK];
 extern struct pll_ctrl_t pll_ctrl[NR_MT_PLL];
 extern struct hp_action_tbl cpu_dvfs_hp_action[];
@@ -64,6 +82,9 @@ extern unsigned int _cpu_dds_calc(unsigned int khz);
 extern unsigned int get_cur_phy_freq(struct pll_ctrl_t *pll_p);
 extern unsigned char get_clkdiv(struct pll_ctrl_t *pll_p);
 extern unsigned char get_posdiv(struct pll_ctrl_t *pll_p);
+
+extern void cpufreq_get_imax_reg(unsigned int *imax_addr,
+		unsigned int *reg_val);
 
 #ifdef ENABLE_TURBO_MODE_AP
 extern void mt_cpufreq_turbo_action(unsigned long action,
