@@ -1770,15 +1770,17 @@ static int find_lowest_rq(struct task_struct *task)
 		!cpu_isolated(cpu))
 		return cpu;
 
-	for_each_perf_domain_ascending(domain) {
-		tmp_domain[domain_cnt] = domain;
-		domain_cnt++;
-	}
-	for (i = 0; i < domain_cnt; i++) {
-		for_each_cpu(iter_cpu, &tmp_domain[i]->possible_cpus) {
-			if (cpumask_test_cpu(iter_cpu, lowest_mask) &&
-				idle_cpu(iter_cpu) && !cpu_isolated(iter_cpu))
-				return iter_cpu;
+	if (pod_is_ready()) {
+		for_each_perf_domain_ascending(domain) {
+			tmp_domain[domain_cnt] = domain;
+			domain_cnt++;
+		}
+		for (i = 0; i < domain_cnt; i++) {
+			for_each_cpu(iter_cpu, &tmp_domain[i]->possible_cpus) {
+				if (cpumask_test_cpu(iter_cpu, lowest_mask) &&
+					idle_cpu(iter_cpu) && !cpu_isolated(iter_cpu))
+					return iter_cpu;
+			}
 		}
 	}
 #endif
