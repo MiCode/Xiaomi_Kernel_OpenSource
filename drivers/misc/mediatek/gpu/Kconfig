@@ -22,6 +22,16 @@ config MTK_GPU_COMMON_DVFS_SUPPORT
 	  It is nice method to save power.
 	  It is recommended to enable it when MTK_GPU_SUPPORT is enabled.
 
+config MTK_GPU_OPP_STATS_SUPPORT
+	bool "Support GPU opp stat"
+	depends on MTK_GPU_COMMON_DVFS_SUPPORT
+	default y
+	help
+	  This config supports to enable opp stat during DVFS.
+	  This also provides to track DevFreq like in debugFS and add
+	  idle stats at runtime. Provides API set that can query in
+	  other kernel modules.
+
 config MTK_GPU_R5P0
 	bool "Force to use r5p0 driver"
 	default n

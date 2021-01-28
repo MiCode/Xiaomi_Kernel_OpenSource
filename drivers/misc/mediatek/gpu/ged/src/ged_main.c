@@ -354,6 +354,7 @@ unlock_and_return:
  */
 static int ged_pdrv_probe(struct platform_device *pdev)
 {
+#ifdef CONFIG_MTK_GPU_OPP_STATS_SUPPORT
 	int ret;
 
 	ret = ged_dvfs_init_opp_cost();
@@ -363,6 +364,9 @@ static int ged_pdrv_probe(struct platform_device *pdev)
 	}
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static const struct of_device_id g_ged_of_match[] = {
