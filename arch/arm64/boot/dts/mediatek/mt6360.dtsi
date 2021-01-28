@@ -38,6 +38,7 @@
 				      <&mt6360_adc 8>, <&mt6360_adc 10>;
 			io-channel-names = "USBID", "VBUSDIV5", "VSYS", "VBAT",
 					   "IBUS", "IBAT", "TEMP_JC", "TS";
+			bootmode = <&chosen>;
 			chg_name = "primary_chg";
 			ichg = <2000000>;		/* uA */
 			aicr = <500000>;		/* uA */
