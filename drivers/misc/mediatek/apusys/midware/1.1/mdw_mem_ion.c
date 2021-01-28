@@ -108,6 +108,9 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 	return 0;
 
 fail_map_kernel:
+	mdw_drv_err("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 	ion_free(ion_ma.client, ion_hnd);
 	return ret;
 }
@@ -157,6 +160,9 @@ static int mdw_mem_ion_map_iova(struct apusys_kmem *mem)
 	return ret;
 
 free_import:
+	mdw_drv_err("mem(%d/0x%llx/0x%x/%d/0x%x/0x%llx/0x%llx)\n",
+			mem->fd, mem->uva, mem->iova, mem->size,
+			mem->iova_size, mem->khandle, mem->kva);
 	ion_free(ion_ma.client, ion_hnd);
 	return ret;
 }

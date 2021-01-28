@@ -145,8 +145,8 @@ static const struct file_operations mdw_dbg_fops_devinfo = {
 static int mdw_dbg_dump_mem(struct seq_file *s, void *unused)
 {
 	//mdw_user_print_log();
-	//TODO
-	//mdw_user_show_log(s);
+	//TODO Change to Tag
+	mdw_usr_aee_mem(s);
 	return 0;
 }
 

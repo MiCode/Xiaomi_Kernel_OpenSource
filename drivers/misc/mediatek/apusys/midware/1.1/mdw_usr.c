@@ -16,6 +16,7 @@
 #include <linux/delay.h>
 #include <linux/list.h>
 #include <linux/slab.h>
+#include <linux/list_sort.h>
 #ifdef CONFIG_PM_SLEEP
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
@@ -29,10 +30,16 @@
 #include "mdw_usr.h"
 #include "mdw_rsc.h"
 #include "mdw_sched.h"
+#include "mdw_mem_aee.h"
 
 #define MDW_CMD_DEFAULT_TIMEOUT (30*1000) //30s
 
 struct mdw_usr_mgr {
+	struct list_head list;
+	struct mutex mtx;
+};
+
+struct mdw_usr_stat {
 	struct list_head list;
 	struct mutex mtx;
 };
@@ -45,10 +52,171 @@ static struct mutex ws_mtx;
 
 static struct mdw_usr_mgr u_mgr;
 static struct mdw_cmd_parser *cmd_parser;
+static struct mdw_usr_stat u_stat;
+static struct mdw_usr_mem_aee u_mem_aee;
 
 #define LINEBAR \
 	"|--------------------------------------------------------"\
 	"---------------------------------------------------------|\n"
+static int mdw_usr_pid_cmp(void *priv, struct list_head *a,
+					struct list_head *b)
+{
+	struct mdw_usr *ua = NULL;
+	struct mdw_usr *ub = NULL;
+
+	ua = list_entry(a, struct mdw_usr, m_item);
+	ub = list_entry(b, struct mdw_usr, m_item);
+
+	/**
+	 * List_sort is a stable sort, so it is not necessary to distinguish
+	 * the @a < @b and @a == @b cases.
+	 */
+	if (ua->pid > ub->pid)
+		return 1;
+
+	return -1;
+
+}
+
+static int mdw_usr_mem_size_cmp(void *priv, struct list_head *a,
+					struct list_head *b)
+{
+	struct mdw_usr *ua = NULL;
+	struct mdw_usr *ub = NULL;
+
+	ua = list_entry(a, struct mdw_usr, m_item);
+	ub = list_entry(b, struct mdw_usr, m_item);
+
+	/**
+	 * List_sort is a stable sort, so it is not necessary to distinguish
+	 * the @a < @b and @a == @b cases.
+	 */
+	if (ua->iova_size > ub->iova_size)
+		return 1;
+
+	return -1;
+
+}
+void mdw_usr_print_mem_usage(void)
+{
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	struct mdw_usr *user = NULL;
+	struct mdw_usr *u = NULL;
+	struct mdw_usr u_tmp;
+	unsigned int total_size = 0;
+	unsigned int percentage = 0;
+	char *cur, *end;
+
+
+	memset(&u_tmp, 0, sizeof(struct mdw_usr));
+
+	mutex_lock(&u_mem_aee.mtx);
+	cur = u_mem_aee.log_buf;
+	end = u_mem_aee.log_buf + DUMP_LOG_SIZE;
+
+	mdw_drv_err("name, id, pid, tgid, iova_size, iova_size_max\n");
+	DUMP_LOG(cur, end, "name, id, pid, tgid, iova_size, iova_size_max\n");
+
+	mutex_lock(&u_mgr.mtx);
+	mutex_lock(&u_stat.mtx);
+
+	/* Sort by PID*/
+	list_sort(NULL, &u_mgr.list, mdw_usr_pid_cmp);
+	mdw_drv_err("----- APUSYS user -----\n");
+	DUMP_LOG(cur, end, "----- APUSYS user -----\n");
+	list_for_each_safe(list_ptr, tmp, &u_mgr.list) {
+		user = list_entry(list_ptr, struct mdw_usr, m_item);
+
+		total_size = total_size + user->iova_size;
+		mdw_drv_err("%s, %llx, %d, %d, %u, %u\n",
+				user->comm, user->id, user->pid,
+				user->tgid, user->iova_size,
+				user->iova_size_max);
+		DUMP_LOG(cur, end, "%s, %llx, %d, %d, %u, %u\n",
+				user->comm, user->id, user->pid,
+				user->tgid, user->iova_size,
+				user->iova_size_max);
+
+		if (u_tmp.pid != user->pid) {
+
+			u = kzalloc(sizeof(struct mdw_usr), GFP_KERNEL);
+			if (u == NULL)
+				goto free_mutex;
+			memcpy(u, user, sizeof(struct mdw_usr));
+
+			list_add_tail(&u->m_item, &u_stat.list);
+
+			u_tmp.pid = user->pid;
+		} else {
+			if (u == NULL)
+				goto free_mutex;
+			u->iova_size = u->iova_size + user->iova_size;
+			u->iova_size_max =
+					u->iova_size_max + user->iova_size_max;
+		}
+	}
+
+	if (!list_empty(&u_stat.list)) {
+		/* Sort by PID*/
+		list_sort(NULL, &u_stat.list, mdw_usr_mem_size_cmp);
+
+		mdw_drv_err("----- APUSYS statistics -----\n");
+		DUMP_LOG(cur, end, "----- APUSYS statistics -----\n");
+
+		list_for_each_safe(list_ptr, tmp, &u_stat.list) {
+			u = list_entry(list_ptr, struct mdw_usr, m_item);
+
+			if (total_size != 0) {
+				percentage = (uint64_t) u->iova_size * 100
+					/ (uint64_t)total_size;
+			} else {
+				percentage = 0;
+			}
+
+		mdw_drv_err("%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+			u->comm, u->id, u->pid,
+			u->tgid, u->iova_size,
+			u->iova_size_max, total_size, percentage);
+		DUMP_LOG(cur, end, "%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+			u->comm, u->id, u->pid,
+			u->tgid, u->iova_size,
+			u->iova_size_max, total_size, percentage);
+		}
+
+		/* The last one is the top memory user*/
+		mdw_drv_err("----- APUSYS top user -----\n");
+		DUMP_LOG(cur, end, "----- APUSYS top user -----\n");
+		mdw_drv_err("%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+				u->comm, u->id, u->pid,
+				u->tgid, u->iova_size,
+				u->iova_size_max, total_size, percentage);
+		DUMP_LOG(cur, end, "%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+				u->comm, u->id, u->pid,
+				u->tgid, u->iova_size,
+				u->iova_size_max, total_size, percentage);
+		/*delete statistics list*/
+		list_for_each_safe(list_ptr, tmp, &u_stat.list) {
+			u = list_entry(list_ptr, struct mdw_usr, m_item);
+			list_del(list_ptr);
+			kfree(u);
+		}
+	}
+
+
+free_mutex:
+	mutex_unlock(&u_stat.mtx);
+	mutex_unlock(&u_mgr.mtx);
+	mutex_unlock(&u_mem_aee.mtx);
+}
+
+void mdw_usr_aee_mem(void *s_file)
+{
+	struct seq_file *s = (struct seq_file *)s_file;
+
+	mutex_lock(&u_mem_aee.mtx);
+	seq_printf(s, "%s", u_mem_aee.log_buf);
+	mutex_unlock(&u_mem_aee.mtx);
+}
 
 static void mdw_usr_dump_sdev(struct seq_file *s, struct mdw_usr *u)
 {
@@ -266,6 +434,9 @@ static struct mdw_mem *mdw_usr_mem_create(struct apusys_mem *um, int mem_op)
 	}
 
 	if (ret) {
+		mdw_usr_print_mem_usage();
+		//TODO Change to Tag
+		apusys_aee_print("mem fail");
 		vfree(mm);
 		mm = NULL;
 	} else {
@@ -807,6 +978,7 @@ struct mdw_usr *mdw_usr_create(void)
 	get_task_comm(u->comm, current);
 	u->pid = current->pid;
 	u->tgid = current->tgid;
+	u->id = (uint64_t)u;
 
 	mutex_lock(&u_mgr.mtx);
 	list_add_tail(&u->m_item, &u_mgr.list);
@@ -858,6 +1030,14 @@ void mdw_usr_destroy(struct mdw_usr *u)
 
 int mdw_usr_init(void)
 {
+	/*mem aee init*/
+	memset(&u_mem_aee, 0, sizeof(struct mdw_usr_mem_aee));
+	mutex_init(&u_mem_aee.mtx);
+	/*stat init*/
+	memset(&u_stat, 0, sizeof(u_stat));
+	INIT_LIST_HEAD(&u_stat.list);
+	mutex_init(&u_stat.mtx);
+	/*mgr init*/
 	memset(&u_mgr, 0, sizeof(u_mgr));
 	INIT_LIST_HEAD(&u_mgr.list);
 	mutex_init(&u_mgr.mtx);
