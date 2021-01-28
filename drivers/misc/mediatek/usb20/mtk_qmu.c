@@ -181,7 +181,6 @@ int qmu_init_gpd_pool(struct device *dev)
 	struct TGPD *ptr, *io_ptr;
 	dma_addr_t dma_handle;
 	u32 gpd_sz;
-	unsigned long addr;
 	u64 coherent_dma_mask;
 
 	/* make sure GPD address no longer than 32-bit */
@@ -224,9 +223,6 @@ int qmu_init_gpd_pool(struct device *dev)
 		if (!ptr)
 			return -ENOMEM;
 
-		/* covert to physical address  for check only */
-		addr = virt_to_phys(ptr);
-
 		memset_io(ptr, 0, size);
 		io_ptr = (struct TGPD *)(uintptr_t)(dma_handle);
 
@@ -236,12 +232,10 @@ int qmu_init_gpd_pool(struct device *dev)
 		Rx_gpd_free_count[i] = Rx_gpd_max_count[i] - 1;
 		TGPD_CLR_FLAGS_HWO(Rx_gpd_end[i]);
 		gpd_ptr_align(RXQ, i, Rx_gpd_end[i]);
-		QMU_DBG(
-				"RX GPD HEAD[%d], VIRT<%p>, DMA<%p>, PHY<%p>, RQSAR<%p>\n"
-				, i
-				, Rx_gpd_head[i], io_ptr, (void *)addr,
-				(void *)(uintptr_t)
-				gpd_virt_to_phys(Rx_gpd_end[i], RXQ, i));
+		QMU_DBG("RXGPD HEAD[%d] VIRT<0x%lx> DMA<0x%lx> RQSAR<0x%lx>\n",
+			i, Rx_gpd_head[i], io_ptr,
+			(void *)(uintptr_t) gpd_virt_to_phys(
+				Rx_gpd_end[i], RXQ, i));
 	}
 
 	for (i = 1; i <= TXQ_NUM; i++) {
@@ -253,9 +247,6 @@ int qmu_init_gpd_pool(struct device *dev)
 		if (!ptr)
 			return -ENOMEM;
 
-		/* covert to physical address  for check only */
-		addr = virt_to_phys(ptr);
-
 		memset_io(ptr, 0, size);
 		io_ptr = (struct TGPD *)(uintptr_t)(dma_handle);
 
@@ -265,12 +256,10 @@ int qmu_init_gpd_pool(struct device *dev)
 		Tx_gpd_free_count[i] = Tx_gpd_max_count[i] - 1;
 		TGPD_CLR_FLAGS_HWO(Tx_gpd_end[i]);
 		gpd_ptr_align(TXQ, i, Tx_gpd_end[i]);
-		QMU_DBG(
-				"TX GPD HEAD[%d], VIRT<%p>, DMA<%p>, PHY<%p>, TQSAR<%p>\n",
-				i,
-				Tx_gpd_head[i], io_ptr, (void *)addr,
-				(void *)(uintptr_t)gpd_virt_to_phys
-				(Tx_gpd_end[i], TXQ, i));
+		QMU_DBG("TXGPD HEAD[%d] VIRT<0x%lx> DMA<0x%lx> TQSAR<0x%lx>\n",
+			i, Tx_gpd_head[i], io_ptr,
+			(void *)(uintptr_t)gpd_virt_to_phys(
+				Tx_gpd_end[i], TXQ, i));
 	}
 
 #ifdef CONFIG_MTK_UAC_POWER_SAVING
