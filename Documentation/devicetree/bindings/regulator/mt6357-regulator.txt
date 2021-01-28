@@ -7,6 +7,11 @@ Required properties:
   The definition for each of these nodes is defined using the standard binding
   for regulators at Documentation/devicetree/bindings/regulator/regulator.txt.
 
+Optional properties in the sub-node:
+- mediatek,oc-irq-enable-delay-ms: Time to delay in milliseconds between
+  re-enable over current interrupt after it triggered and be disabled.
+  If it's not specified, the default value of this property is set to 10.
+
 The valid names for regulators are:
 BUCK:
   buck_vs1, buck_vmodem, buck_vcore, buck_vproc, buck_vpa
