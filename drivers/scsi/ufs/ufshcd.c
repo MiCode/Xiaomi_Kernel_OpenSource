@@ -5597,7 +5597,7 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 		 * To know whether this error is fatal or not, DB timeout
 		 * must be checked but this error is handled separately.
 		 */
-		dev_dbg(hba->dev, "%s: UIC Lane error reported\n", __func__);
+		dev_err(hba->dev, "%s: UIC Lane error reported\n", __func__);
 		ufshcd_update_reg_hist(&hba->ufs_stats.pa_err, reg);
 		retval |= IRQ_HANDLED;
 	}
@@ -5646,7 +5646,7 @@ static irqreturn_t ufshcd_update_uic_error(struct ufs_hba *hba)
 		retval |= IRQ_HANDLED;
 	}
 
-	dev_dbg(hba->dev, "%s: UIC error flags = 0x%08x\n",
+	dev_err(hba->dev, "%s: UIC error flags = 0x%08x\n",
 			__func__, hba->uic_error);
 	return retval;
 }
@@ -5820,6 +5820,13 @@ static irqreturn_t ufshcd_intr(int irq, void *__hba)
 	int retries = hba->nutrs;
 
 	spin_lock(hba->host->host_lock);
+
+	if (unlikely(hba->clk_gating.state == CLKS_OFF)) {
+		/* trigger kernel panic if clock is not enabled */
+		dev_err(hba->dev, "%s: clock not on.\n");
+		BUG();
+	}
+
 	intr_status = ufshcd_readl(hba, REG_INTERRUPT_STATUS);
 
 	/*
@@ -8536,6 +8543,10 @@ out:
 	trace_ufshcd_system_suspend(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+
+	dev_info(hba->dev, "ss,ret %d,%d us\n", ret,
+		(int)ktime_to_us(ktime_sub(ktime_get(), start)));
+
 	if (!ret)
 		hba->is_sys_suspended = true;
 	return ret;
@@ -8569,6 +8580,10 @@ out:
 	trace_ufshcd_system_resume(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+
+	dev_info(hba->dev, "sr,ret %d,%d us\n", ret,
+		(int)ktime_to_us(ktime_sub(ktime_get(), start)));
+
 	if (!ret)
 		hba->is_sys_suspended = false;
 	return ret;
@@ -8599,6 +8614,10 @@ out:
 	trace_ufshcd_runtime_suspend(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+
+	dev_info(hba->dev, "rs,ret %d,%d us\n", ret,
+		(int)ktime_to_us(ktime_sub(ktime_get(), start)));
+
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_runtime_suspend);
@@ -8640,6 +8659,10 @@ out:
 	trace_ufshcd_runtime_resume(dev_name(hba->dev), ret,
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
+
+	dev_info(hba->dev, "rr,ret %d,%d us\n", ret,
+		(int)ktime_to_us(ktime_sub(ktime_get(), start)));
+
 	return ret;
 }
 EXPORT_SYMBOL(ufshcd_runtime_resume);
