@@ -45,7 +45,9 @@ obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_COMBO) += connectivity/
 obj-$(CONFIG_MTK_BTIF) += btif/
 obj-$(CONFIG_MTK_CONN_MD) += conn_md/
+ifneq ($(CONFIG_MACH_MT6779), y)
 obj-$(CONFIG_MTK_DCM_COMMON) += dcm/
+endif
 obj-$(CONFIG_MTK_SMI) += smi/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
 obj-$(CONFIG_MTK_PERFORMANCE_MODULE) += performance/
