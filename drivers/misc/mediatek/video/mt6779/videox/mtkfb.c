@@ -2470,13 +2470,9 @@ static int mtkfb_probe(struct platform_device *pdev)
 	int init_state;
 	int ret = 0;
 
-#ifdef CONFIG_MTK_IOMMU_V2
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
-#else
-	int fd;
-#endif
 	size_t temp_va = 0;
 #endif
 	/* struct platform_device *pdev; */
@@ -2664,12 +2660,13 @@ cleanup:
 
 static int mtkfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
+	int ret = -1;
+#ifdef CONFIG_MTK_IOMMU_V2
 	struct mtkfb_device *fbdev = (struct mtkfb_device *)mtkfb_fbi->par;
-	int ret;
 
 	ret = disp_aosp_mmap(vma, (unsigned long)fbdev->fb_va_base,
 		fb_mva, vramsize);
-
+#endif
 	return ret;
 }
 

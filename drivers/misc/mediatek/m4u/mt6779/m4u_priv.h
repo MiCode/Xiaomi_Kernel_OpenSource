@@ -66,12 +66,15 @@ extern void show_pte(struct mm_struct *mm, unsigned long addr);
 #define dmac_flush_range __dma_flush_range
 #endif
 
+// remove it, cache sync use ion
 #ifdef M4U_FPGAPORTING /*ION_TO_BE_IMPL*/
 #define smp_inner_dcache_flush_all(...)
 #define outer_clean_all(...)
 #define outer_flush_all(...)
 #else
 extern void smp_inner_dcache_flush_all(void);
+#define outer_clean_all(...)
+#define outer_flush_all(...)
 #endif
 
 #include <linux/clk.h>

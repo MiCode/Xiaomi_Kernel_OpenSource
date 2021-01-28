@@ -29,8 +29,8 @@
 #include "m4u.h"
 #include "m4u_priv.h"
 #endif
-#include "ddp_m4u.h"
 #include "disp_drv_platform.h"
+#include "ddp_m4u.h"
 #include "debug.h"
 #include "disp_drv_log.h"
 #include "disp_lcm.h"

@@ -22,7 +22,6 @@
 #include "cmdq_core.h"
 #endif
 
-
 #define OCCUPIED_BW_RATIO 1330
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
@@ -80,6 +79,7 @@ void disp_pm_qos_init(void)
 	__init_cmdq_slots(&(dispsys_slot), DISP_SLOT_NUM, 0);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
+#if IS_ENABLED(CONFIG_INTERCONNECT_MTK_MMQOS_MT6779)
 	/* Initialize owner list */
 	INIT_LIST_HEAD(&bw_request_list);
 
@@ -108,6 +108,7 @@ void disp_pm_qos_init(void)
 			   SMI_PORT_DISP_WDMA0);
 	mm_qos_add_request(&hrt_request_list, &hrt_bw_request,
 			   PORT_VIRTUAL_DISP);
+#endif
 #endif
 
 	disp_pm_qos_set_default_bw(&bandwidth);

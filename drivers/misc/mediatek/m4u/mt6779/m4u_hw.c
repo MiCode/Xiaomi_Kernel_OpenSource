@@ -14,8 +14,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#include <mt-plat/mtk_lpae.h>
+//#include <mt-plat/mtk_lpae.h>
+
+#ifndef M4U_WORDAROUND_FOR_BUILD_PASS
 #include <mt-plat/mtk_secure_api.h>
+#endif
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -1858,7 +1861,7 @@ int m4u_enable_tf(int port, bool fgenable)
 
 static struct timer_list m4u_isr_pause_timer;
 
-static void m4u_isr_restart(unsigned long unused)
+static void m4u_isr_restart(struct timer_list *unused)
 {
 	M4UMSG("restart m4u irq\n");
 	m4u_intr_modify_all(1);
@@ -1866,8 +1869,11 @@ static void m4u_isr_restart(unsigned long unused)
 
 static int m4u_isr_pause_timer_init(void)
 {
-	init_timer(&m4u_isr_pause_timer);
-	m4u_isr_pause_timer.function = m4u_isr_restart;
+	timer_setup(&m4u_isr_pause_timer, m4u_isr_restart, 0);
+/*
+ * init_timer(&m4u_isr_pause_timer);
+ * m4u_isr_pause_timer.function = m4u_isr_restart;
+ */
 	return 0;
 }
 
@@ -2212,12 +2218,14 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 void m4u_call_atf_debug(int m4u_debug_id)
 {
+#ifndef M4U_WORDAROUND_FOR_BUILD_PASS
 	size_t tf_port = 0;
 	size_t tf_en = 0;
 
 	M4UMSG("M4U CALL ATF ID:%d\n", m4u_debug_id);
 	tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
 				m4u_debug_id, 0, 0, 0, &tf_port);
+#endif
 }
 
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
@@ -2237,23 +2245,23 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 		return -1;
 	}
 
-	M4UMSG(
-			"secure bank irq in normal world!\n");
-		tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-				m4u_id, 0, 0, 0, &tf_port);
-		M4UMSG(
-			"secure bank go back form secure world! en:%zu\n",
-				tf_en);
-		if (tf_en) {
-			if (m4u_id == 0)
-				m4u_aee_print(
-					"CRDISPATCH_KEY:M4U_%s translation fault(mm secure): port=%s\n",
-						 m4u_get_port_name(tf_port),
-						m4u_get_port_name(tf_port));
-			else if (m4u_id == 1)
-				m4u_aee_print(
-					"CRDISPATCH_KEY:M4U_VPU_PORT translation fault(vpu secure)\n");
-		}
+	M4UMSG("secure bank irq in normal world!\n");
+#ifndef M4U_WORDAROUND_FOR_BUILD_PASS
+	tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
+			m4u_id, 0, 0, 0, &tf_port);
+#endif
+	M4UMSG("secure bank go back form secure world! en:%zu\n",
+	       tf_en);
+	if (tf_en) {
+		if (m4u_id == 0)
+			m4u_aee_print(
+				"CRDISPATCH_KEY:M4U_%s translation fault(mm secure): port=%s\n",
+					 m4u_get_port_name(tf_port),
+					m4u_get_port_name(tf_port));
+		else if (m4u_id == 1)
+			m4u_aee_print(
+				"CRDISPATCH_KEY:M4U_VPU_PORT translation fault(vpu secure)\n");
+	}
 
 	return IRQ_HANDLED;
 }

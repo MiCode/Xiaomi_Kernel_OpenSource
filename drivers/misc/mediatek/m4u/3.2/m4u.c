@@ -926,7 +926,7 @@ int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 
 	if (port_info->flags & M4U_FLAGS_FIX_MVA) {
 		if (port_info->iova_end >
-			port_info->iova_start + port_info->BufSize) {
+			port_info->iova_start + port_info->buf_size) {
 			port_info->mva = port_info->iova_start;
 			flags = M4U_FLAGS_START_FROM;
 		} else
@@ -937,8 +937,8 @@ int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 	else
 		port_info->va = 0;
 	ret = m4u_alloc_mva(ion_m4u_client,
-		port_info->module_id, port_info->va, sg_table,
-		port_info->BufSize, prot, flags, &port_info->mva);
+		port_info->emoduleid, port_info->va, sg_table,
+		port_info->buf_size, prot, flags, &port_info->mva);
 	return ret;
 }
 

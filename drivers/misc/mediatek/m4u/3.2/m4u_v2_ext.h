@@ -83,9 +83,9 @@ struct m4u_client_t {
 };
 
 struct port_mva_info_t {
-	int module_id;
+	int emoduleid;
 	unsigned long va;
-	unsigned int BufSize;
+	unsigned int buf_size;
 	int security;
 	int cache_coherent;
 	unsigned int flags;

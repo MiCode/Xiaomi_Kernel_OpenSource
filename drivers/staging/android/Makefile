@@ -5,18 +5,17 @@ ccflags-y += -I$(src)			# needed for trace events
 obj-$(CONFIG_ASHMEM)			+= ashmem.o
 obj-$(CONFIG_ANDROID_VSOC)		+= vsoc.o
 
-##   check if it's common-kenrel project
-##   6779 is common-kernel project,
-## we keep it as common-kernel code
+## once CONFIG_MTK_ION is set as y, means this project
+##     will use MTK_ION, NOT aosp ION.
 
-# ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6765"))
-# $(info GM-T sample test pass 2 mtk ion)
-# endif
+## CONFIG_ION will always equals to y when use ION
 
 ifeq ($(CONFIG_MTK_ION),y)
-$(info ION_DEBUG mtk ion)
-obj-y += mtk_ion/
+  $(info ION:enable mtk ion)
+  obj-$(CONFIG_MTK_ION)             += mtk_ion/
+else ifeq ($(CONFIG_ION),y)
+  $(info ION: enable aosp ion)
+  obj-$(CONFIG_ION)                 += aosp_ion/
 else
-$(info ION_DEBUG aosp ion)
-obj-y += aosp_ion/
+  $(info ION: ION disable)
 endif

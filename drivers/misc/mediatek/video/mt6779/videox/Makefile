@@ -88,8 +88,12 @@ else
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/aosp_ion \
 		    -I$(srctree)/drivers/staging/android/aosp_ion/mtk
 endif
+
+ifeq ($(CONFIG_MTK_M4U),y)
+###6779 USE M4U 3.2
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
-		    -I$(srctree)/drivers/misc/mediatek/m4u/2.0
+		    -I$(srctree)/drivers/misc/mediatek/m4u/3.2
+endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
 		    -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/

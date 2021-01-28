@@ -13,16 +13,25 @@
 #include "ddp_log.h"
 #include "disp_helper.h"
 #include "disp_drv_platform.h"
+
+#include <soc/mediatek/smi.h>
+
 #ifdef CONFIG_MTK_IOMMU_V2
+//6779 common kernel  project don't support this mtk modify
+//#include "mach/mt_iommu.h"
+//#include "mtk_iommu_ext.h"
+#endif
+
+#ifdef CONFIG_ION
+#include "ion.h"
+#endif
+
+#ifdef CONFIG_MTK_M4U
+#include "m4u.h"
+#endif
+
 #if defined(CONFIG_MTK_ION)
 #include <ion_priv.h>
-#include "mach/mt_iommu.h"
-#include "mtk_iommu_ext.h"
-#endif
-#include <soc/mediatek/smi.h>
-#include "ion.h"
-#elif defined(CONFIG_MTK_M4U)
-#include "m4u.h"
 #endif
 
 /**
@@ -322,14 +331,14 @@ fail_put:
 int disp_aosp_mmap(struct vm_area_struct *vma, unsigned long va,
 	unsigned long mva, unsigned int size)
 {
-	int ret;
-
+	int ret = -1;
+#ifdef CONFIG_MTK_IOMMU_V2
 	vma->vm_flags &= ~VM_PFNMAP;
 	vma->vm_pgoff = 0;
 
 	ret = dma_mmap_attrs(ddp_m4u_dev, vma, va, mva,
 		size, DMA_ATTR_WRITE_COMBINE);
-
+#endif
 	return ret;
 }
 
