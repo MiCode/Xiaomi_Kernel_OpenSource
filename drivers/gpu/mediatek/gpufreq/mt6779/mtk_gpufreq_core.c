@@ -51,7 +51,7 @@
 #include "mt_fhreg.h"
 #endif
 
-#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#if IS_ENABLED(CONFIG_MTK_PBM)
 #include "mt-plat/mtk_pbm.h"
 #endif
 
@@ -1360,7 +1360,7 @@ static int mt_gpufreq_power_limited_proc_show(struct seq_file *m, void *v)
 #endif
 	seq_printf(m, "g_thermal_protect_limit_ignore_state = %d\n",
 		g_thermal_protect_limit_ignore_state);
-#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#if IS_ENABLED(CONFIG_MTK_PBM)
 	seq_printf(m, "g_pbm_limited_ignore_state = %d\n",
 		g_pbm_limited_ignore_state);
 #endif
@@ -2370,7 +2370,7 @@ static void __mt_gpufreq_low_batt_protect(unsigned int limited_index)
 
 static void __mt_gpufreq_kick_pbm(int enable)
 {
-#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#if IS_ENABLED(CONFIG_MTK_PBM)
 	unsigned int power;
 	unsigned int cur_freq;
 	unsigned int cur_volt;
@@ -2429,7 +2429,7 @@ static void __mt_gpufreq_kick_pbm(int enable)
 	} else {
 		kicker_pbm_by_gpu(false, 0, cur_volt / 100);
 	}
-#endif /* CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING */
+#endif /* CONFIG_MTK_PBM */
 }
 
 

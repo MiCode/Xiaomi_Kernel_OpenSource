@@ -21,4 +21,4 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 
-obj-$(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING) += mtk_pbm.o
+obj-$(CONFIG_MTK_PBM) += mtk_pbm.o

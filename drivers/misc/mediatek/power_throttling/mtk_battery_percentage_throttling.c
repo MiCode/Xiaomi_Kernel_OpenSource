@@ -49,7 +49,7 @@ void register_battery_percent_notify(
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 
 	if ((g_battery_percent_stop == 0) && (g_battery_percent_level == 1)) {
-#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#if !IS_ENABLED(CONFIG_MTK_PBM)
 		pr_info("[%s] level 1 happen\n", __func__);
 		if (bp_cb != NULL)
 			bp_cb(BATTERY_PERCENT_LEVEL_1);
@@ -72,7 +72,7 @@ void exec_battery_percent_callback(
 		pr_info("[%s] g_battery_percent_stop=%d\n"
 			, __func__, g_battery_percent_stop);
 	} else {
-#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#if !IS_ENABLED(CONFIG_MTK_PBM)
 		for (i = 0; i < BPCB_MAX_NUM; i++) {
 			if (bpcb_tb[i].bpcb != NULL) {
 				bpcb_tb[i].bpcb(battery_percent_level);

@@ -10,7 +10,7 @@
 #include "mtk_dlpt.h"
 #include "mtk_mdpm_api.h"
 
-#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#if !IS_ENABLED(CONFIG_MTK_PBM)
 #define DISABLE_PBM_FEATURE
 #endif
 
