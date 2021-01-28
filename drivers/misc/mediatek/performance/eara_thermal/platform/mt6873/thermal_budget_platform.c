@@ -16,7 +16,6 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include "mtk_gpufreq.h"
-#include "thermal_budget_platform.h"
 #include "thermal_budget.h"
 
 #if defined(CONFIG_MTK_APUSYS_SUPPORT)
@@ -156,5 +155,10 @@ int eara_thrm_mdla_onoff(void)
 #else
 	return 0;
 #endif
+}
+
+int eara_thrm_keep_little_core(void)
+{
+	return 1;
 }
 
