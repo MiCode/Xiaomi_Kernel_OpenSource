@@ -67,5 +67,13 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6765) $(CONFIG_MACH_MT6761)))
 endif
 
 ifeq ($(CONFIG_MACH_MT6779), y)
+    ccflags-y += -DAAL_HAS_YHIST
+endif
+
+ifeq ($(CONFIG_MACH_MT6779), y)
+    ccflags-y += -DAAL_HAS_DRE3
+endif
+
+ifeq ($(CONFIG_MACH_MT6779), y)
     ccflags-y += -DCONFIG_MACH_MT6779
 endif
