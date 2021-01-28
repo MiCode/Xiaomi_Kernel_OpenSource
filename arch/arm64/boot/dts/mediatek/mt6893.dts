@@ -5525,7 +5525,7 @@ page_owner=on loop.max_part=7";
 	};
 
 	consys: consys@18000000 {
-		compatible = "mediatek,mt6885-consys";
+		compatible = "mediatek,mt6893-consys";
 			/* conn_infra_rgu */
 		reg = <0 0x18000000 0 0x1000>,
 			/* conn_infra_cfg */
