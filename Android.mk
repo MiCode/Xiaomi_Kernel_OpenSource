@@ -73,9 +73,9 @@ clean-kernel:
 
 ### DTB build template
 ifeq ($(KERNEL_TARGET_ARCH),arm64)
-MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_PLATFORM_DIR)$(if $(filter $(MTK_PLATFORM),MT8167),_dtbo).dts
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_PLATFORM_DIR)$(if $(filter $(MTK_PLATFORM),MT8167 MT8168),_dtbo).dts
 else
-MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_PLATFORM_DIR)$(if $(filter $(MTK_PLATFORM),MT8167),_dtbo).dts
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_PLATFORM_DIR)$(if $(filter $(MTK_PLATFORM),MT8167 MT8168),_dtbo).dts
 endif
 include device/mediatek/build/core/build_dtbimage.mk
 ifeq ($(KERNEL_TARGET_ARCH),arm64)
