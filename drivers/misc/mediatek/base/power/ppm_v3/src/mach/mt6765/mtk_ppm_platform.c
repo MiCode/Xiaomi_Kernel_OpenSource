@@ -362,7 +362,7 @@ unsigned int get_cluster_ptpod_fix_freq_idx(unsigned int id)
 {
 	int val = mt_cpufreq_get_cpu_level();
 
-	if (val == 5)
+	if (val == 5 || val == 8)
 		return PTPOD_FREQ_IDX_LY;
 	else
 		return PTPOD_FREQ_IDX;
