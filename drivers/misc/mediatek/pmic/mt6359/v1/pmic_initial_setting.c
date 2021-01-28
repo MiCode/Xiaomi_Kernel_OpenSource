@@ -134,7 +134,7 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vrf18_lp(SRCLKEN1, 1, 1, HW_OFF);
 	pmic_ldo_vio18_lp(SW, 1, 1, SW_ON);
 	pmic_ldo_vefuse_lp(SW, 1, 1, SW_OFF);
-	pmic_ldo_vrf12_lp(SRCLKEN1, 1, 1, HW_OFF);
+	pmic_ldo_vrf12_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vrfck_lp(SRCLKEN14, 1, 1, HW_OFF);
 	pmic_ldo_va12_lp(SRCLKEN0, 1, 1, HW_LP);
 	pmic_ldo_va09_lp(SRCLKEN0, 1, 1, HW_LP);
@@ -176,7 +176,7 @@ void PMIC_LP_INIT_SETTING(void)
 	pmic_ldo_vrf18_lp(SRCLKEN1, 1, 1, HW_OFF);
 	pmic_ldo_vio18_lp(SW, 1, 1, SW_ON);
 	pmic_ldo_vefuse_lp(SW, 1, 1, SW_OFF);
-	pmic_ldo_vrf12_lp(SRCLKEN1, 1, 1, HW_OFF);
+	pmic_ldo_vrf12_lp(SW, 1, 1, SW_OFF);
 	pmic_ldo_vrfck_lp(SRCLKEN14, 1, 1, HW_OFF);
 	pmic_ldo_va12_lp(SRCLKEN2, 1, 1, HW_LP);
 	pmic_ldo_va09_lp(SRCLKEN2, 1, 1, HW_LP);
