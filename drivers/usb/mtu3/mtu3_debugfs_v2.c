@@ -50,7 +50,7 @@ static void mac_write32(struct ssusb_mtk *ssusb, int offset,
 	struct platform_device *pdev = to_platform_device(ssusb->dev);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mac");
-	if (offset >= resource_size(res)) {
+	if (!res || offset >= resource_size(res)) {
 		pr_info("%s error range\n", __func__);
 		return;
 	}
