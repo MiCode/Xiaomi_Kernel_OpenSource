@@ -866,7 +866,7 @@ static int _rt_regmap_update_bits(struct rt_regmap_device *rd,
 {
 	const rt_register_map_t *rm = rd->props.rm;
 	struct reg_index_offset rio;
-	int ret, new, old;
+	int ret = 0, new, old;
 	bool change = false;
 
 	rio = find_register_index(rd, rrd->reg);
@@ -1135,17 +1135,25 @@ EXPORT_SYMBOL(rt_regmap_reg_read);
 
 void rt_cache_getlasterror(struct rt_regmap_device *rd, char *buf)
 {
+	int ret = 0;
+
 	down(&rd->semaphore);
-	snprintf(buf, PAGE_SIZE, "%s\n", rd->err_msg);
+	ret = snprintf(buf, PAGE_SIZE, "%s\n", rd->err_msg);
+	if (!ret)
+		dev_info(&rd->dev, "%s: format error string fail\n", __func__);
 	up(&rd->semaphore);
 }
 EXPORT_SYMBOL(rt_cache_getlasterror);
 
 void rt_cache_clrlasterror(struct rt_regmap_device *rd)
 {
+	int ret = 0;
+
 	down(&rd->semaphore);
 	rd->error_occurred = 0;
-	snprintf(rd->err_msg, PAGE_SIZE, "%s", "No Error");
+	ret = snprintf(rd->err_msg, PAGE_SIZE, "%s", "No Error");
+	if (!ret)
+		dev_info(&rd->dev, "%s: format error string fail\n", __func__);
 	up(&rd->semaphore);
 }
 EXPORT_SYMBOL(rt_cache_clrlasterror);
@@ -1319,14 +1327,16 @@ static void rt_show_regs(struct rt_regmap_device *rd, struct seq_file *seq_file)
 		if (ret < 0) {
 			dev_err(&rd->dev, "regmap block read fail\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
-				PAGE_SIZE, "Error block read fail at 0x%02x\n",
-				rm[i]->addr);
+				ret = snprintf(
+					rd->err_msg + strlen(rd->err_msg),
+					PAGE_SIZE,
+					"Error block read fail at 0x%02x\n",
+					rm[i]->addr);
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
-				"Error block read fail at 0x%02x\n",
-				rm[i]->addr);
-				rd->error_occurred = 1;
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
+					"Error block read fail at 0x%02x\n",
+					rm[i]->addr);
+					rd->error_occurred = 1;
 			}
 			goto err_show_regs;
 		}
@@ -1490,7 +1500,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 	struct reg_index_offset rio;
 	long param[5] = {0};
 	unsigned char *reg_data;
-	int rc, size = 0;
+	int ret, rc, size = 0;
 	char lbuf[128];
 	ssize_t res;
 
@@ -1529,13 +1539,13 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			if ((size - 1) * 3 + 5 != count) {
 				dev_err(&rd->dev, "wrong input length\n");
 				if (rd->error_occurred) {
-					snprintf(rd->err_msg +
+					ret = snprintf(rd->err_msg +
 						strlen(rd->err_msg), PAGE_SIZE,
 						"Error, wrong input length\n");
 				} else {
-					snprintf(rd->err_msg, PAGE_SIZE,
+					ret = snprintf(rd->err_msg, PAGE_SIZE,
 						"Error, wrong input length\n");
-					rd->error_occurred = 1;
+						rd->error_occurred = 1;
 				}
 				kfree(reg_data);
 				return -EINVAL;
@@ -1545,11 +1555,11 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			if (rc < 0) {
 				dev_err(&rd->dev, "get datas fail\n");
 				if (rd->error_occurred) {
-					snprintf(rd->err_msg +
+					ret = snprintf(rd->err_msg +
 					strlen(rd->err_msg), PAGE_SIZE,
 					"Error, get datas fail\n");
 				} else {
-					snprintf(rd->err_msg, PAGE_SIZE,
+					ret = snprintf(rd->err_msg, PAGE_SIZE,
 						"Error, get datas fail\n");
 					rd->error_occurred = 1;
 				}
@@ -1563,13 +1573,13 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			if (rc < 0) {
 				dev_err(&rd->dev, "chip block write fail\n");
 				if (rd->error_occurred) {
-					snprintf(rd->err_msg +
+					ret = snprintf(rd->err_msg +
 					strlen(rd->err_msg), PAGE_SIZE,
-				"Error chip block write fail at 0x%02x\n",
+					"Error chip block write fail at 0x%02x\n",
 					rd->dbg_data.reg_addr);
 				} else {
 					snprintf(rd->err_msg, PAGE_SIZE,
-				"Error chip block write fail at 0x%02x\n",
+					"Error chip block write fail at 0x%02x\n",
 					rd->dbg_data.reg_addr);
 					rd->error_occurred = 1;
 				}
@@ -1584,13 +1594,14 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 		if ((size - 1)*3 + 5 != count) {
 			dev_err(&rd->dev, "wrong input length\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
+				ret = snprintf(
+					rd->err_msg + strlen(rd->err_msg),
 					PAGE_SIZE,
 					"Error, wrong input length\n");
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
 					"Error, wrong input length\n");
-				rd->error_occurred = 1;
+					rd->error_occurred = 1;
 			}
 			kfree(reg_data);
 			return -EINVAL;
@@ -1600,12 +1611,13 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 		if (rc < 0) {
 			dev_err(&rd->dev, "get datas fail\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
-				PAGE_SIZE, "Error, get datas fail\n");
+				ret = snprintf(
+					rd->err_msg + strlen(rd->err_msg),
+					PAGE_SIZE, "Error, get datas fail\n");
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
-				"Error, get datas fail\n");
-				rd->error_occurred = 1;
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
+					"Error, get datas fail\n");
+					rd->error_occurred = 1;
 			}
 			kfree(reg_data);
 			return -EINVAL;
@@ -1618,15 +1630,16 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 		if (rc < 0) {
 			dev_err(&rd->dev, "regmap block write fail\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
-				PAGE_SIZE,
-				"Error regmap block write fail at 0x%02x\n",
-				rd->dbg_data.reg_addr);
+				ret = snprintf(
+					rd->err_msg + strlen(rd->err_msg),
+					PAGE_SIZE,
+					"Error regmap block write fail at 0x%02x\n",
+					rd->dbg_data.reg_addr);
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
-				"Error regmap block write fail at 0x%02x\n",
-				rd->dbg_data.reg_addr);
-				rd->error_occurred = 1;
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
+					"Error regmap block write fail at 0x%02x\n",
+					rd->dbg_data.reg_addr);
+					rd->error_occurred = 1;
 			}
 			kfree(reg_data);
 			return -EIO;
@@ -1651,12 +1664,13 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			up(&rd->semaphore);
 		} else {
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
-				PAGE_SIZE, "Error, size must > 0\n");
+				ret = snprintf(
+					rd->err_msg + strlen(rd->err_msg),
+					PAGE_SIZE, "Error, size must > 0\n");
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
-				"Error, size must > 0\n");
-				rd->error_occurred = 1;
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
+					"Error, size must > 0\n");
+					rd->error_occurred = 1;
 			}
 			return -EINVAL;
 		}
@@ -1882,7 +1896,7 @@ static const struct file_operations eachreg_ops = {
 static void rt_create_every_debug(struct rt_regmap_device *rd,
 				  struct dentry *dir)
 {
-	int i;
+	int i, ret;
 	char buf[10];
 
 	rd->rt_reg_file = devm_kzalloc(&rd->dev,
@@ -1891,8 +1905,8 @@ static void rt_create_every_debug(struct rt_regmap_device *rd,
 		rd->props.register_num*sizeof(struct rt_debug_st *),
 								GFP_KERNEL);
 	for (i = 0; i < rd->props.register_num; i++) {
-		snprintf(buf, sizeof(buf),
-			 "reg0x%02x", (rd->props.rm[i])->addr);
+		ret = snprintf(buf, sizeof(buf),
+			"reg0x%02x", (rd->props.rm[i])->addr);
 		rd->rt_reg_file[i] = devm_kzalloc(&rd->dev,
 						  sizeof(*rd->rt_reg_file[i]),
 						  GFP_KERNEL);
@@ -2037,7 +2051,9 @@ struct rt_regmap_device *rt_regmap_device_register_ex
 	rd->client = client;
 	rd->dev.release = rt_regmap_device_release;
 	dev_set_drvdata(&rd->dev, drvdata);
-	snprintf(device_name, 32, "rt_regmap_%s", props->name);
+	ret = snprintf(device_name, 32, "rt_regmap_%s", props->name);
+	if (!ret)
+		return NULL;
 	dev_set_name(&rd->dev, device_name);
 	memcpy(&rd->props, props, sizeof(struct rt_regmap_properties));
 	rd->props.cache_mode_ori = rd->props.rt_regmap_mode&RT_CACHE_MODE_MASK;
