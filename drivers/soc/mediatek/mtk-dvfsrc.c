@@ -522,7 +522,6 @@ static void mt6761_set_ext_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	if (level > max_dram_opp)
 		level = 0;
 
-	dev_dbg(dvfsrc->dev, "dram_opp: %d\n", level);
 	dvfsrc_rmw(dvfsrc, DVFSRC_EXT_SW_REQ, level, 0x3, 0);
 }
 
