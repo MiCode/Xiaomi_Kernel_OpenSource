@@ -129,6 +129,11 @@
 /* Support QoS */
 #include <linux/pm_qos.h>
 
+#if ENABLE_MMQOS
+#include "smi_port.h"
+#include "mmdvfs_pmqos.h"
+#endif
+
 /* -------------------------------------------------------------------------- */
 /*  */
 /* -------------------------------------------------------------------------- */
@@ -192,6 +197,14 @@ static DEFINE_MUTEX(jpeg_enc_power_lock);
 static DEFINE_MUTEX(DriverOpenCountLock);
 static int Driver_Open_Count;
 
+#if ENABLE_MMQOS
+static struct plist_head jpegenc_rlist;
+static struct mm_qos_request jpeg_y_rdma;
+static struct mm_qos_request jpeg_c_rdma;
+static struct mm_qos_request jpeg_qtbl;
+static struct mm_qos_request jpeg_bsdma;
+static unsigned int cshot_spec_dts;
+#endif
 
 /* Support QoS */
 struct pm_qos_request jpgenc_qos_request;
@@ -209,6 +222,7 @@ struct pm_qos_request jpgenc_qos_request;
 /* -------------------------------------------------------------------------- */
 
 #ifdef FPGA_VERSION
+
 
 void jpeg_drv_dec_power_on(void)
 {
@@ -235,6 +249,86 @@ void jpeg_drv_enc_power_off(void)
 }
 
 #else
+
+void jpeg_drv_enc_prepare_bw_request(void)
+{
+#if ENABLE_MMQOS
+	plist_head_init(&jpegenc_rlist);
+	mm_qos_add_request(&jpegenc_rlist, &jpeg_y_rdma, SMI_JPGENC_Y_RDMA);
+	mm_qos_add_request(&jpegenc_rlist, &jpeg_c_rdma, SMI_JPGENC_C_RDMA);
+	mm_qos_add_request(&jpegenc_rlist, &jpeg_qtbl, SMI_JPGENC_Q_TABLE);
+	mm_qos_add_request(&jpegenc_rlist, &jpeg_bsdma, SMI_JPGENC_BSDMA);
+#endif
+
+}
+
+void jpegenc_drv_enc_update_bw_request(struct JPEG_ENC_DRV_IN cfgEnc)
+{
+#if ENABLE_MMQOS
+	/* No spec, considering [picture size] x [target fps] */
+	unsigned int cshot_spec = 0xffffffff;
+	/* limiting FPS, Upper Bound FPS = 20 */
+	unsigned int target_fps = 20;
+
+	/* Support QoS */
+	unsigned int emi_bw = 0;
+	unsigned int picSize = 0;
+	unsigned int limitedFPS = 0;
+
+
+	/* Support QoS */
+	picSize = (cfgEnc.encWidth * cfgEnc.encHeight) / 1000000;
+	/* BW = encode width x height x bpp x 1.6 */
+	/* Assume compress ratio is 0.6 */
+	#if 0
+	if (cfgEnc.encFormat == 0x0 || cfgEnc.encFormat == 0x1)
+		picCost = ((picSize * 2) * 8/5) + 1;
+	else
+		picCost = ((picSize * 3/2) * 8/5) + 1;
+	#endif
+
+
+	cshot_spec = cshot_spec_dts;
+
+	if ((picSize * target_fps) < cshot_spec) {
+		emi_bw = picSize * target_fps;
+	} else {
+		limitedFPS = cshot_spec / picSize;
+		emi_bw = (limitedFPS + 1) * picSize;
+	}
+
+	/* QoS requires Occupied BW */
+	/* Data BW x 1.33 */
+	emi_bw = emi_bw * 4/3;
+
+	JPEG_MSG("Width %d Height %d emi_bw %d cshot_spec %d\n",
+		 cfgEnc.encWidth, cfgEnc.encHeight, emi_bw, cshot_spec);
+
+	mm_qos_set_request(&jpeg_y_rdma, emi_bw, 0, BW_COMP_NONE);
+
+	if (cfgEnc.encFormat == 0x0 || cfgEnc.encFormat == 0x1)
+		mm_qos_set_request(&jpeg_c_rdma, emi_bw, 0, BW_COMP_NONE);
+	else
+		mm_qos_set_request(&jpeg_c_rdma, emi_bw * 1/2, 0, BW_COMP_NONE);
+
+
+	mm_qos_set_request(&jpeg_qtbl, 10, 0, BW_COMP_NONE);
+	mm_qos_set_request(&jpeg_bsdma, emi_bw, 0, BW_COMP_NONE);
+	mm_qos_update_all_request(&jpegenc_rlist);
+
+
+#endif
+}
+
+
+
+void jpegenc_drv_enc_remove_bw_request(void)
+{
+#if ENABLE_MMQOS
+	mm_qos_remove_all_request(&jpegenc_rlist);
+#endif
+}
+
 
 static irqreturn_t jpeg_drv_enc_isr(int irq, void *dev_id)
 {
@@ -350,6 +444,10 @@ void jpeg_drv_enc_power_on(void)
 		#if defined(PLATFORM_MT6779)
 		smi_bus_prepare_enable(SMI_LARB3_REG_INDX,
 			"JPEG", true);
+		#elif defined(PLATFORM_MT6785)
+
+		smi_bus_prepare_enable(SMI_LARB3, "JPEG");
+
 		#elif defined(PLATFORM_MT6768)
 
 		smi_bus_prepare_enable(SMI_LARB4, "JPEG");
@@ -420,6 +518,10 @@ void jpeg_drv_enc_power_off(void)
 
 		smi_bus_disable_unprepare(SMI_LARB3_REG_INDX,
 		"JPEG", true);
+
+		#elif defined(PLATFORM_MT6785)
+
+		smi_bus_disable_unprepare(SMI_LARB3, "JPEG");
 
 		#elif defined(PLATFORM_MT6768)
 
@@ -996,9 +1098,13 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg,
 		/* Data BW x 1.33 */
 		emi_bw = emi_bw * 4/3;
 
+
+#if ENABLE_MMQOS
+		jpegenc_drv_enc_update_bw_request(cfgEnc);
+#else
 		/* update BW request before trigger HW */
 		pm_qos_update_request(&jpgenc_qos_request, emi_bw);
-
+#endif
 		/* 1. set src config */
 		JPEG_MSG("[JPEGDRV]SRC_IMG:%x %x, DU:%x, fmt:%x\n",
 			 cfgEnc.encWidth, cfgEnc.encHeight,
@@ -1637,6 +1743,15 @@ static int jpeg_probe(struct platform_device *pdev)
 				JPEG_ERR("get MT_CG_VENC_JPGDEC err");
 		#endif
 	#endif
+
+	#if ENABLE_MMQOS
+	if (of_property_read_u32(node, "cshot-spec", &cshot_spec_dts)) {
+		JPEG_ERR("cshot spec read failed\n");
+		JPEG_ERR("init cshot spec as 0xFFFFFFFF\n");
+		cshot_spec_dts = 0xFFFFFFFF;
+	}
+	#endif
+
 	gJpegqDev = *jpegDev;
 
 	/* Support QoS */
@@ -1935,6 +2050,8 @@ static int __init jpeg_init(void)
 			 cmdqJpegClockOff);
 #endif
 	Driver_Open_Count = 0;
+	jpeg_drv_enc_prepare_bw_request();
+
 	return 0;
 }
 
@@ -1968,6 +2085,7 @@ static void __exit jpeg_exit(void)
 	platform_device_unregister(pjenc_dev);
 	JPEG_MSG("%s jdec remove\n", __func__);
 #endif
+	jpegenc_drv_enc_remove_bw_request();
 	JPEG_MSG("%s -\n", __func__);
 }
 module_init(jpeg_init);
