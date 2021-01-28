@@ -63,3 +63,15 @@ obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
 endif
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
+ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
+    obj-$(CONFIG_THERMAL) += mtk_cooler_mutt.o
+endif
+
+obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_VR_FPS.o
+endif

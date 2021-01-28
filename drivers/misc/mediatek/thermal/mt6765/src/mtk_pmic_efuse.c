@@ -17,15 +17,23 @@
 #include <linux/seq_file.h>
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
-#include <mt-plat/upmu_common.h>
-#include <mt-plat/mtk_auxadc_intf.h>
-#include <mach/mtk_pmic.h>
+
+//#include <mt-plat/upmu_common.h>
+//#include <mt-plat/mtk_auxadc_intf.h>
+//#include <mach/mtk_pmic.h>
+
 #include <tspmic_settings.h>
+#if defined(THERMAL_USE_IIO_CHANNEL)
+#include <iio/mt635x-auxadc.h>
+#include <linux/iio/consumer.h>
+#endif
+#include <linux/mfd/mt6357/registers.h>
+
 /*=============================================================
  *Local variable definition
  *=============================================================
  */
-int mtktspmic_debug_log;
+int mtktspmic_debug_log = 1;
 /* Cali */
 static __s32 g_o_vts;
 static __s32 g_o_vts_2;
@@ -49,6 +57,12 @@ static DEFINE_MUTEX(TSPMIC_lock);
 static int pre_temp1 = 0, PMIC_counter;
 static int pre_tsbuck1_temp1 = 0, tsbuck1_cnt;
 static int pre_tsbuck2_temp1 = 0, tsbuck2_cnt;
+#if defined(THERMAL_USE_IIO_CHANNEL)
+struct iio_channel *chan_chip_temp;
+struct iio_channel *chan_vcore_temp;
+struct iio_channel *chan_vproc_temp;
+#endif
+
 /*=============================================================*/
 
 static __s32 pmic_raw_to_temp(__u32 ret)
@@ -72,8 +86,8 @@ static __s32 tsbuck1_raw_to_temp(__u32 ret)
 	t_current = g_tsbuck1_intercept +
 		((g_tsbuck1_slope1 * y_curr) / (g_tsbuck1_slope2));
 
-	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n",
-		__func__, y_curr, g_tsbuck1_intercept, g_tsbuck1_slope1,
+	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n", __func__,
+		y_curr, g_tsbuck1_intercept, g_tsbuck1_slope1,
 		g_tsbuck1_slope2);
 
 	mtktspmic_dprintk("[%s] t_current=%d\n", __func__, t_current);
@@ -89,27 +103,43 @@ static __s32 tsbuck2_raw_to_temp(__u32 ret)
 	t_current = g_tsbuck2_intercept +
 		((g_tsbuck2_slope1 * y_curr) / (g_tsbuck2_slope2));
 
-	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n",
-		__func__, y_curr, g_tsbuck2_intercept, g_tsbuck2_slope1,
+	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n", __func__,
+		y_curr, g_tsbuck2_intercept, g_tsbuck2_slope1,
 		g_tsbuck2_slope2);
 
-	mtktspmic_dprintk("[%s] t_current=%d\n", __func__,  t_current);
+	mtktspmic_dprintk("[%s] t_current=%d\n", __func__, t_current);
 	return t_current;
 }
 
-static void mtktspmic_read_efuse(void)
+static void mtktspmic_read_efuse(struct regmap *pmic_map)
 {
-	mtktspmic_info("[pmic_debug]  start\n");
-	g_adc_cali_en = pmic_get_register_value(PMIC_AUXADC_EFUSE_ADC_CALI_EN);
-	g_degc_cali = pmic_get_register_value(PMIC_AUXADC_EFUSE_DEGC_CALI);
-	g_o_vts = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS);
-	g_o_vts_2 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_2);
-	g_o_vts_3 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_3);
+	__s32 efuse_temp = 0;
 
-	g_o_slope_sign = pmic_get_register_value(
-				PMIC_AUXADC_EFUSE_O_SLOPE_SIGN);
-	g_o_slope = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_SLOPE);
-	g_id = pmic_get_register_value(PMIC_AUXADC_EFUSE_ID);
+	mtktspmic_info("[pmic_debug]  start\n");
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR7, &efuse_temp);
+	g_o_vts = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR10, &efuse_temp);
+	g_o_vts_2 = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR11, &efuse_temp);
+	g_o_vts_3 = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR6, &efuse_temp);
+	g_degc_cali = (efuse_temp & _BITMASK_(5:0));
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR6, &efuse_temp);
+	g_adc_cali_en = ((efuse_temp & _BIT_(8)) >> 8);
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_o_slope_sign = ((efuse_temp & _BIT_(8)) >> 8);
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_o_slope = (efuse_temp & _BITMASK_(5:0));
+
+	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR9, &efuse_temp);
+	g_id = ((efuse_temp & _BIT_(4)) >> 4);
+
 
 	mtktspmic_info("[pmic_debug] 6357_efuse: g_o_vts = %d\n",
 								g_o_vts);
@@ -130,9 +160,9 @@ static void mtktspmic_read_efuse(void)
 	mtktspmic_info("[pmic_debug]  end\n");
 }
 
-void mtktspmic_cali_prepare(void)
+void mtktspmic_cali_prepare(struct regmap *pmic_map)
 {
-	mtktspmic_read_efuse();
+	mtktspmic_read_efuse(pmic_map);
 
 	if (g_id == 0)
 		g_o_slope = 0;
@@ -244,36 +274,71 @@ void mtktspmic_cali_prepare2(void)
 	"[Thermal calibration] SLOPE1=%d SLOPE2=%d INTERCEPT=%d, Vbe = %d\n",
 	g_tsbuck2_slope1, g_tsbuck2_slope2, g_tsbuck2_intercept, vbe_t);
 }
+#if defined(THERMAL_USE_IIO_CHANNEL)
+void mtktspmic_get_from_dts(struct platform_device *pdev)
+{
+	int ret;
+
+	chan_chip_temp = devm_iio_channel_get(&pdev->dev, "pmic_chip_temp");
+	if (IS_ERR(chan_chip_temp)) {
+		ret = PTR_ERR(chan_chip_temp);
+		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
+	}
+
+	chan_vcore_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck1_temp");
+	if (IS_ERR(chan_vcore_temp)) {
+		ret = PTR_ERR(chan_vcore_temp);
+		pr_notice("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
+	}
+
+	chan_vproc_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck2_temp");
+	if (IS_ERR(chan_vproc_temp)) {
+		ret = PTR_ERR(chan_vproc_temp);
+		pr_notice("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
+	}
+}
+#endif
 
 int mtktspmic_get_hw_temp(void)
 {
 	int temp = 0, temp1 = 0;
+#if defined(THERMAL_USE_IIO_CHANNEL)
+		int ret;
+#endif
 
 	mutex_lock(&TSPMIC_lock);
-
+#if defined(THERMAL_USE_IIO_CHANNEL)
+	if (!IS_ERR(chan_chip_temp)) {
+		ret = iio_read_channel_processed(chan_chip_temp, &temp);
+		if (ret < 0)
+			pr_notice("pmic_chip_temp read fail, ret=%d\n", ret);
+	}
+#else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_MT6357_CHIP_TEMP);
-
+#endif
 	temp1 = pmic_raw_to_temp(temp);
 
 	mtktspmic_dprintk("[pmic_debug] Raw=%d, T=%d\n", temp, temp1);
 
 	if ((temp1 > 100000) || (temp1 < -30000))
-		mtktspmic_info("[%s] raw=%d, PMIC T=%d", __func__, temp, temp1);
+		mtktspmic_info("[%s] raw=%d, PMIC T=%d", __func__,
+								temp, temp1);
 
 	if ((temp1 > 150000) || (temp1 < -50000)) {
 		mtktspmic_info("[%s] temp(%d) too high, drop this data!\n",
-		__func__, temp1);
+			__func__, temp1);
 		temp1 = pre_temp1;
 	} else if ((PMIC_counter != 0)
 			&& (((pre_temp1 - temp1) > 30000)
 			|| ((temp1 - pre_temp1) > 30000))) {
 		mtktspmic_info("[%s] temp diff too large, drop this data\n",
-		__func__);
+				__func__);
 		temp1 = pre_temp1;
 	} else {
 		/* update previous temp */
 		pre_temp1 = temp1;
-		mtktspmic_dprintk("[%s] pre_temp1=%d\n", __func__, pre_temp1);
+		mtktspmic_dprintk("[%s] pre_temp1=%d\n", __func__,
+								pre_temp1);
 
 		if (PMIC_counter == 0)
 			PMIC_counter++;
@@ -287,11 +352,20 @@ int mtktspmic_get_hw_temp(void)
 int mt6357tsbuck1_get_hw_temp(void)
 {
 	int temp = 0, temp1 = 0;
+#if defined(THERMAL_USE_IIO_CHANNEL)
+		int ret;
+#endif
 
 	mutex_lock(&TSPMIC_lock);
-
+#if defined(THERMAL_USE_IIO_CHANNEL)
+	if (!IS_ERR(chan_vcore_temp)) {
+		ret = iio_read_channel_processed(chan_vcore_temp, &temp);
+		if (ret < 0)
+			pr_notice("pmic_vcore_temp read fail, ret=%d\n", ret);
+	}
+#else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_MT6357_BUCK1_TEMP);
-
+#endif
 	temp1 = tsbuck1_raw_to_temp(temp);
 
 	mtktspmic_dprintk("%s raw=%d T=%d\n", __func__, temp, temp1);
@@ -326,11 +400,20 @@ int mt6357tsbuck1_get_hw_temp(void)
 int mt6357tsbuck2_get_hw_temp(void)
 {
 	int temp = 0, temp1 = 0;
+#if defined(THERMAL_USE_IIO_CHANNEL)
+		int ret;
+#endif
 
 	mutex_lock(&TSPMIC_lock);
-
+#if defined(THERMAL_USE_IIO_CHANNEL)
+	if (!IS_ERR(chan_vproc_temp)) {
+		ret = iio_read_channel_processed(chan_vproc_temp, &temp);
+		if (ret < 0)
+			pr_notice("pmic_vproc_temp read fail, ret=%d\n", ret);
+	}
+#else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_MT6357_BUCK2_TEMP);
-
+#endif
 	temp1 = tsbuck2_raw_to_temp(temp);
 
 	mtktspmic_dprintk("%s raw=%d T=%d\n", __func__, temp, temp1);

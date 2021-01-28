@@ -2,7 +2,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
  */
-
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -18,10 +17,12 @@
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
 #include "mtk_thermal_timer.h"
-#include <mt-plat/upmu_common.h>
+//#include <mt-plat/upmu_common.h>
 #include <tspmic_settings.h>
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#include <linux/mfd/mt6397/core.h>/* PMIC MFD core header */
+#include <linux/regmap.h>
 
 /*=============================================================
  *Local variable definition
@@ -67,7 +68,7 @@ static char g_bind7[20] = { 0 };
 static char g_bind8[20] = { 0 };
 static char g_bind9[20] = { 0 };
 
-static int mt6357tsbuck1_cur_temp;
+static long mt6357tsbuck1_cur_temp;
 /*
  *static long int mt6357tsbuck1_start_temp;
  *static long int mt6357tsbuck1_end_temp;
@@ -259,9 +260,6 @@ static int mt6357tsbuck1_sysrst_set_cur_state(
 		mtktspmic_info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 		mtktspmic_info("*****************************************");
 		mtktspmic_info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-
-
-		BUG();
 	}
 	return 0;
 }
@@ -276,8 +274,8 @@ static int mt6357tsbuck1_read(struct seq_file *m, void *v)
 {
 	seq_printf(m,
 		"[%s] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,\n",
-		__func__, trip_temp[0], trip_temp[1], trip_temp[2],
-		trip_temp[3]);
+		__func__,
+		trip_temp[0], trip_temp[1], trip_temp[2], trip_temp[3]);
 	seq_printf(m,
 		"trip_4_temp=%d,trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d, trip_8_temp=%d,trip_9_temp=%d,\n",
 		trip_temp[4], trip_temp[5], trip_temp[6], trip_temp[7],
@@ -418,7 +416,7 @@ static ssize_t mt6357tsbuck1_write(struct file *file,
 			g_THERMAL_TRIP[9]);
 		mtktspmic_dprintk(
 			"[%s] cooldev0=%s,cooldev1=%s,cooldev2=%s,cooldev3=%s,cooldev4=%s,",
-			__func__, g_bind0, g_bind1, g_bind2, g_bind3, g_bind4);
+			 __func__, g_bind0, g_bind1, g_bind2, g_bind3, g_bind4);
 		mtktspmic_dprintk(
 			"cooldev5=%s,cooldev6=%s,cooldev7=%s,cooldev8=%s,cooldev9=%s\n",
 			g_bind5, g_bind6, g_bind7, g_bind8, g_bind9);
@@ -430,8 +428,8 @@ static ssize_t mt6357tsbuck1_write(struct file *file,
 
 		mtktspmic_dprintk(
 			"[%s] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,",
-			__func__, trip_temp[0], trip_temp[1], trip_temp[2],
-			trip_temp[3]);
+			__func__,
+			trip_temp[0], trip_temp[1], trip_temp[2], trip_temp[3]);
 		mtktspmic_dprintk(
 			"trip_4_temp=%d,trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,",
 			trip_temp[4], trip_temp[5], trip_temp[6], trip_temp[7],
@@ -545,17 +543,16 @@ static const struct file_operations mt6357tsbuck1_fops = {
 	.write = mt6357tsbuck1_write,
 	.release = single_release,
 };
-
-static int __init mt6357tsbuck1_init(void)
+static int mt6357_ts_buck1_probe(struct platform_device *pdev)
 {
 	int err = 0;
-
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mt6357tsbuck1_dir = NULL;
+	struct mt6397_chip *chip;
 
+	chip = (struct mt6397_chip *)dev_get_drvdata(pdev->dev.parent);
 	mtktspmic_info("[%s]\n", __func__);
-
-	mtktspmic_cali_prepare();
+	mtktspmic_cali_prepare(chip->regmap);
 	mtktspmic_cali_prepare2();
 
 	err = mt6357tsbuck1_register_cooler();
@@ -576,15 +573,37 @@ static int __init mt6357tsbuck1_init(void)
 		if (entry)
 			proc_set_user(entry, uid, gid);
 	}
-
-	mtkTTimer_register("mt6357tsbuck1", mt6357tsbuck1_start_thermal_timer,
-		mt6357tsbuck1_cancel_thermal_timer);
+	mtkTTimer_register("mt6357tsbuck1",
+		mt6357tsbuck1_start_thermal_timer,
+			mt6357tsbuck1_cancel_thermal_timer);
 
 	return 0;
 
 err_unreg:
-	mt6357tsbuck1_unregister_cooler();
-	return err;
+		mt6357tsbuck1_unregister_cooler();
+		return err;
+
+}
+
+static const struct of_device_id mt6357_ts_buck1_of_match[] = {
+	{.compatible = "mediatek,mt6357_ts_buck1",},
+	{},
+};
+
+
+MODULE_DEVICE_TABLE(of, mt6357_ts_buck1_of_match);
+
+static struct platform_driver mt6357_ts_buck1_driver = {
+	.probe = mt6357_ts_buck1_probe,
+	.driver = {
+		.name = "mt6357_ts_buck1",
+		.of_match_table = mt6357_ts_buck1_of_match,
+		},
+};
+
+static int __init mt6357tsbuck1_init(void)
+{
+	return platform_driver_register(&mt6357_ts_buck1_driver);
 }
 
 static void __exit mt6357tsbuck1_exit(void)
@@ -593,6 +612,10 @@ static void __exit mt6357tsbuck1_exit(void)
 	mt6357tsbuck1_unregister_thermal();
 	mt6357tsbuck1_unregister_cooler();
 	mtkTTimer_unregister("mt6357tsbuck1");
+	platform_driver_unregister(&mt6357_ts_buck1_driver);
 }
 module_init(mt6357tsbuck1_init);
 module_exit(mt6357tsbuck1_exit);
+
+MODULE_DESCRIPTION("MEDIATEK Thermal zone PMIC buck1 temperature sensor");
+MODULE_LICENSE("GPL v2");

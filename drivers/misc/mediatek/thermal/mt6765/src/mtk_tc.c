@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include "mach/mtk_thermal.h"
 #include <linux/bug.h>
+#include <linux/nvmem-consumer.h>
 
 #if defined(CONFIG_MTK_CLKMGR)
 #include <mach/mtk_clkmgr.h>
@@ -29,7 +30,7 @@
 #endif
 
 
-#include <mt-plat/mtk_wd_api.h>
+//#include <mt-plat/mtk_wd_api.h>
 #include <linux/time.h>
 
 #define __MT_MTK_TS_CPU_C__
@@ -58,6 +59,7 @@
 #include "mtk_thermal_ipi.h"
 #endif
 
+static struct device *tscpu_dev;
 /*=============================================================
  * Local variable definition
  *=============================================================
@@ -221,14 +223,45 @@ mt_ptp_unlock(unsigned long *flags)
 	pr_notice("[Power/CPU_Thermal]%s doesn't exist\n", __func__);
 }
 
-	int __attribute__ ((weak))
-get_wd_api(struct wd_api **obj)
-{
-	pr_notice("[Power/CPU_Thermal]%s doesn't exist\n", __func__);
-	return -1;
-}
-
 /*=============================================================*/
+static int read_nvmem_cell(char *cell_name, u8 *buf, int len)
+{
+	struct nvmem_cell *cell;
+	size_t size = 0;
+	u8 *tmp = NULL;
+
+	if (IS_ERR(buf)) {
+		tscpu_warn("[%s] buffer fail\n", __func__);
+		return -EINVAL;
+	}
+
+	cell = nvmem_cell_get(tscpu_dev, cell_name);
+	if ((cell == NULL) || (IS_ERR(cell))) {
+		tscpu_warn("[%s] nvmem_cell_get fail\n", __func__);
+		return -EINVAL;
+	}
+
+	tmp = (u8 *)nvmem_cell_read(cell, &size);
+	if ((tmp == NULL) || (size <= 0)) {
+		tscpu_warn("[%s] nvmem_cell_read error\n", __func__);
+		return -EINVAL;
+	}
+
+	nvmem_cell_put(cell);
+
+	if (len < size) {
+		tscpu_warn("[%s] buffer too small(%d<%d)\n",
+			__func__, len, size);
+		kfree(tmp);
+		return -EINVAL;
+	}
+
+	memcpy(buf, tmp, size);
+
+	kfree(tmp);
+
+	return 0;
+}
 
 /* chip dependent */
 int tscpu_thermal_clock_on(void)
@@ -422,15 +455,17 @@ void eDataCorrector(void)
 void tscpu_thermal_cal_prepare(void)
 {
 	__u32 temp0, temp1, temp2;
+	int efuse_len = 12;
+	__u32 thermal_efuse[3] = {0};
 #if CFG_THERM_LVTS
 	__u32 lvtsdevinfo1, lvtsdevinfo2, lvtsdevinfo3;
+	__u32 lvts_efuse[3] = {0};
 #endif
-
-
-	temp0 = get_devinfo_with_index(ADDRESS_INDEX_0);
-	temp1 = get_devinfo_with_index(ADDRESS_INDEX_1);
-	temp2 = get_devinfo_with_index(ADDRESS_INDEX_2);
-
+	tscpu_dev = &tscpu_pdev->dev;
+	read_nvmem_cell("thermal_efuse_cell", (u8 *)&thermal_efuse, efuse_len);
+	temp1 = thermal_efuse[0];
+	temp0 = thermal_efuse[1];
+	temp2 = thermal_efuse[2];
 	pr_notice("[calibration] temp0=0x%x, temp1=0x%x, temp2=0x%x\n",
 							temp0, temp1, temp2);
 	/*
@@ -1017,8 +1052,14 @@ static void set_tc_trigger_hw_protect
 
 	offset = tscpu_g_tc[tc_num].tc_offset;
 
+	/* set temp offset to 0x3FF to avoid interrupt false triggered */
+	mt_reg_sync_writel(
+			readl(offset + TEMPPROTCTL) | 0x3FF,
+				offset + TEMPPROTCTL);
+
 	/* temperature2=80000;  test only */
-	tscpu_dprintk("%s t1=%d t2=%d\n", __func__, temperature, temperature2);
+	tscpu_dprintk("%s t1=%d t2=%d\n", __func__,
+					temperature, temperature2);
 
 	ts_name = tscpu_g_tc[tc_num].ts[0];
 
@@ -1037,11 +1078,19 @@ static void set_tc_trigger_hw_protect
 
 	/* enable trigger Hot SPM interrupt */
 	mt_reg_sync_writel(temp | 0x80000000, offset + TEMPMONINT);
+
+	/* clear temp offset */
+	mt_reg_sync_writel(
+			readl(offset + TEMPPROTCTL) & ~0xFFF,
+				offset + TEMPPROTCTL);
 }
 
 static int read_tc_raw_and_temp(u32 *tempmsr_name, enum thermal_sensor ts_name)
 {
 	int temp = 0, raw = 0;
+
+	if (thermal_base == 0)
+		return 0;
 
 	if (tempmsr_name == 0)
 		return 0;
@@ -1399,11 +1448,10 @@ void tscpu_thermal_initial_all_tc(void)
 void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 {
 	int i = 0;
-	int wd_api_ret;
-	struct wd_api *wd_api;
 
-	tscpu_dprintk("%s,temperature=%d,temperature2=%d,\n",
-	__func__, temperature, temperature2);
+	tscpu_dprintk(
+	"%s,temperature=%d,temperature2=%d,\n", __func__,
+	temperature, temperature2);
 
 #if THERMAL_PERFORMANCE_PROFILE
 	struct timeval begin, end;
@@ -1415,14 +1463,7 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	/* Thermal need to config to direct reset mode
 	 * this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	wd_api_ret = get_wd_api(&wd_api);
-	if (wd_api_ret >= 0) {
-		wd_api->wd_thermal_direct_mode_config(WD_REQ_DIS,
-					WD_REQ_RST_MODE);	/* reset mode */
-	} else {
-		tscpu_warn("%d FAILED TO GET WD API\n", __LINE__);
-		WARN_ON_ONCE(1);
-	}
+	//TODO
 #if THERMAL_PERFORMANCE_PROFILE
 	do_gettimeofday(&end);
 
@@ -1442,13 +1483,7 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	/*Thermal need to config to direct reset mode
 	 *  this API provide by Weiqi Fu(RGU SW owner).
 	 */
-	if (wd_api_ret >= 0) {
-		wd_api->wd_thermal_direct_mode_config(WD_REQ_EN,
-					WD_REQ_RST_MODE);	/* reset mode */
-	} else {
-		tscpu_warn("%d FAILED TO GET WD API\n", __LINE__);
-		WARN_ON_ONCE(1);
-	}
+	//TODO
 }
 
 void tscpu_reset_thermal(void)

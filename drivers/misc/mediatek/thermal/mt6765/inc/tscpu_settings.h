@@ -13,6 +13,7 @@
 
 #include "tzcpu_initcfg.h"
 #include "clatm_initcfg.h"
+#include <linux/platform_device.h>
 
 /*=============================================================
  * Genernal
@@ -189,7 +190,7 @@
 #define CPU_COOLER_NUM 34
 #define MTK_TS_CPU_RT                       (0)
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 #define CONFIG_THERMAL_AEE_RR_REC (1)
 #else
 #define CONFIG_THERMAL_AEE_RR_REC (0)
@@ -208,7 +209,7 @@
 #define MTKTSCPU_TEMP_CRIT 120000 /* 120.000 degree Celsius */
 
 #define y_curr_repeat_times 1
-#define THERMAL_NAME    "mtk-thermal"
+#define THERMAL_NAME    "mtk-thermal-legacy"
 
 #define TS_MS_TO_NS(x) (x * 1000 * 1000)
 
@@ -311,6 +312,7 @@ extern int fast_polling_factor;
 extern int tscpu_cur_fp_factor;
 extern int tscpu_next_fp_factor;
 #endif
+extern struct platform_device *tscpu_pdev;
 
 /*In common/thermal_zones/mtk_ts_cpu.c*/
 extern long long thermal_get_current_time_us(void);
@@ -319,6 +321,7 @@ extern void tscpu_workqueue_start_timer(void);
 
 extern void __iomem  *therm_clk_infracfg_ao_base;
 extern int Num_of_GPU_OPP;
+extern int gpu_max_opp;
 extern struct mt_gpufreq_power_table_info *mtk_gpu_power;
 extern int tscpu_read_curr_temp;
 #if MTKTSCPU_FAST_POLLING
@@ -426,8 +429,8 @@ extern bool mtk_get_gpu_loading(unsigned int *pLoading);
 extern int IMM_IsAdcInitReady(void);
 /*aee related*/
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
-extern void aee_rr_init_thermal_temp(int num);
-extern void aee_rr_rec_thermal_temp(int index, s8 val);
+extern int aee_rr_init_thermal_temp(int num);
+extern int aee_rr_rec_thermal_temp(int index, s8 val);
 extern void aee_rr_rec_thermal_status(u8 val);
 extern void aee_rr_rec_thermal_ATM_status(u8 val);
 extern void aee_rr_rec_thermal_ktime(u64 val);
@@ -437,7 +440,6 @@ extern u8 aee_rr_curr_thermal_status(void);
 extern u8 aee_rr_curr_thermal_ATM_status(void);
 extern u64 aee_rr_curr_thermal_ktime(void);
 #endif
-
 /*=============================================================
  * Register macro for internal use
  *=============================================================
