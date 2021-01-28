@@ -183,8 +183,7 @@ static int init_power_resource(enum DVFS_USER user, void *param)
 	if (!is_apu_power_initilized) {
 		prepare_apu_regulator(dev, 1);
 #ifndef MTK_FPGA_PORTING
-		vpu_prepare_clock(dev);
-		mdla_prepare_clock(dev);
+		prepare_apu_clock(dev);
 #endif
 		is_apu_power_initilized = 1;
 	}
@@ -326,21 +325,10 @@ static int set_power_clock(enum DVFS_USER user, void *param)
 
 	LOG_INF("%s , user: %d , enable: %d\n", __func__, user, enable);
 
-	if (enable) {
-		if (VPU0 == user || VPU1 == user || VPU2 == user)
-			vpu_enable_clock(user);
-		else if (MDLA0 == user || MDLA1 == user)
-			mdla_enable_clock(user);
-		else
-			LOG_ERR("%s not support user : %d\n", __func__, user);
-	} else {
-		if (VPU0 == user || VPU1 == user || VPU2 == user)
-			vpu_disable_clock(user);
-		else if (MDLA0 == user || MDLA1 == user)
-			mdla_disable_clock(user);
-		else
-			LOG_ERR("%s not support user : %d\n", __func__, user);
-	}
+	if (enable)
+		enable_apu_clock(user);
+	else
+		disable_apu_clock(user);
 #endif
 	return 0;
 }
@@ -348,34 +336,16 @@ static int set_power_clock(enum DVFS_USER user, void *param)
 static int set_power_frequency(enum DVFS_USER user, void *param)
 {
 	enum DVFS_VOLTAGE_DOMAIN domain = 0;
-	int target_opp = 0;
+	enum DVFS_FREQ freq = 0;
 	int ret = 0;
 
+	freq = ((struct hal_param_freq *)param)->target_freq;
 	domain = ((struct hal_param_freq *)param)->target_volt_domain;
-	target_opp = ((struct hal_param_freq *)param)->target_opp;
 
-	if (domain < APUSYS_BUCK_DOMAIN_NUM) {
-		switch (domain) {
-		case V_VPU0:
-		case V_VPU1:
-		case V_VPU2:
-			ret = vpu_set_clock_source(target_opp, domain);
-			break;
-		case V_MDLA0:
-		case V_MDLA1:
-			ret = mdla_set_clock_source(target_opp, domain);
-			break;
-		case V_APU_CONN:
-		case V_VCORE:
-			ret = set_if_clock_source(target_opp, domain);
-			break;
-		default:
-			LOG_ERR("%s not support power domain : %d\n",
-							__func__, domain);
-		}
-	} else {
+	if (domain < APUSYS_BUCK_DOMAIN_NUM)
+		ret = set_apu_clock_source(freq, domain);
+	else
 		LOG_ERR("%s not support power domain : %d\n", __func__, domain);
-	}
 
 	return ret;
 }
@@ -410,8 +380,7 @@ static int uninit_power_resource(enum DVFS_USER user, void *param)
 {
 	if (is_apu_power_initilized) {
 #ifndef MTK_FPGA_PORTING
-		vpu_unprepare_clock();
-		mdla_unprepare_clock();
+		unprepare_apu_clock();
 #endif
 		prepare_apu_regulator(NULL, 0);
 		is_apu_power_initilized = 0;
@@ -466,7 +435,7 @@ static int set_power_boot_up(enum DVFS_USER user, void *param)
 	mtcmos_data.enable = 1;
 	ret |= set_power_mtcmos(user, (void *)&mtcmos_data);
 
-	// Set cg disable
+	// Set cg enable
 	clk_data.enable = 1;
 	ret |= set_power_clock(user, (void *)&clk_data);
 

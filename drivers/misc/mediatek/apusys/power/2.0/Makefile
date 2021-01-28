@@ -30,9 +30,8 @@ endif
 
 obj-m += apu_power.o
 apu_power-objs:= apusys_power_driver.o apusys_power_ctl.o apusys_power_debug.o \
-		$(PDIR)/hal_config_power.o  $(PDIR)/apu_power_regulator.o \
-		$(PDIR)/vpu_power_clock.o $(PDIR)/mdla_power_clock.o \
-		$(PDIR)/apusys_power_cust.o
+		$(PDIR)/hal_config_power.o $(PDIR)/apu_power_regulator.o \
+		$(PDIR)/apu_power_clock.o $(PDIR)/apusys_power_cust.o
 
 #obj-m += vpu_dummy_driver.o
 #vpu_dummy_driver-objs:= $(PDIR)/dummy_vpu_driver.o

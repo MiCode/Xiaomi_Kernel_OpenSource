@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _VPU_POWER_API_H_
-#define _VPU_POWER_API_H_
+#ifndef _APU_POWER_API_H_
+#define _APU_POWER_API_H_
 
 #include "apusys_power_cust.h"
 
@@ -45,20 +45,10 @@ int config_regulator_mode(enum DVFS_BUCK buck, int is_normal);
 int config_vcore(enum DVFS_USER user, int vcore_opp);
 void dump_voltage(struct apu_power_info *info);
 void dump_frequency(struct apu_power_info *info);
-int set_if_clock_source(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain);
+int set_apu_clock_source(enum DVFS_FREQ freq, enum DVFS_VOLTAGE_DOMAIN domain);
+int prepare_apu_clock(struct device *dev);
+void unprepare_apu_clock(void);
+void disable_apu_clock(enum DVFS_USER);
+void enable_apu_clock(enum DVFS_USER);
 
-//VPU
-int vpu_set_clock_source(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain);
-int vpu_prepare_clock(struct device *dev);
-void vpu_unprepare_clock(void);
-void vpu_disable_clock(int core);
-void vpu_enable_clock(int core);
-
-//MDLA
-int mdla_set_clock_source(int target_opp, enum DVFS_VOLTAGE_DOMAIN domain);
-int mdla_prepare_clock(struct device *dev);
-void mdla_unprepare_clock(void);
-void mdla_disable_clock(int core);
-void mdla_enable_clock(int core);
-
-#endif // _VPU_POWER_API_H_
+#endif // _APU_POWER_API_H_
