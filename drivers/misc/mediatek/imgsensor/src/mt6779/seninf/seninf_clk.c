@@ -9,8 +9,8 @@
 
 static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
 #ifndef SENINF_USE_RPM
-	{"SCP_SYS_DIS"},
-	{"SCP_SYS_CAM"},
+	//{"SCP_SYS_DIS"},
+	//{"SCP_SYS_CAM"},
 #endif
 	{"CAMSYS_SENINF_CGPDN"},
 	{"TOP_MUX_SENINF"},
