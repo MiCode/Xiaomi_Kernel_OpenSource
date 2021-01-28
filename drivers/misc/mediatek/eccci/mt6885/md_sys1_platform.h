@@ -62,6 +62,8 @@ struct cldma_hw_info {
 	unsigned long cldma_irq_flags;
 };
 
+void ccci_md_dump_in_interrupt(char *user_info);
+void ccci_md_devapc_register_cb(void);
 int ccci_modem_remove(struct platform_device *dev);
 void ccci_modem_shutdown(struct platform_device *dev);
 int ccci_modem_suspend(struct platform_device *dev, pm_message_t state);
