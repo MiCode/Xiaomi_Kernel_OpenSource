@@ -826,8 +826,8 @@ static int mcdi_hotplug_cb_init(void)
 				mcdi_cpuhp_notify_enter,
 				mcdi_cpuhp_notify_leave);
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "mcdi_cb",
-				mcdi_cpuhp_notify_enter,
-				mcdi_cpuhp_notify_leave);
+				mcdi_cpuhp_notify_leave,
+				mcdi_cpuhp_notify_enter);
 
 	return 0;
 }
