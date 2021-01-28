@@ -10612,7 +10612,6 @@ unsigned int primary_display_is_support_DynFPS(void)
 {
 
 	if (disp_helper_get_option(DISP_OPT_DYNAMIC_FPS) &&
-		primary_display_is_video_mode() &&
 		disp_lcm_is_dynfps_support(pgc->plcm)) {
 		DISPDBG("%s,support DynFPS\n", __func__);
 		return 1;

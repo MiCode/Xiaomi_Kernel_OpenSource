@@ -1738,10 +1738,8 @@ int disp_lcm_is_dynfps_support(struct disp_lcm_handle *plcm)
 	else
 		return 0;
 
-	if (lcm_param->type != LCM_TYPE_DSI ||
-		lcm_param->dsi.mode == CMD_MODE) {
+	if (lcm_param->type != LCM_TYPE_DSI)
 		return 0;
-	}
 
 	dfps_enable = lcm_param->dsi.dfps_enable;
 	dfps_num = lcm_param->dsi.dfps_num;
