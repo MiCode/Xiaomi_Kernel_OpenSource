@@ -287,8 +287,11 @@ int fscrypt_policy_from_context(union fscrypt_policy *policy_u,
 		struct fscrypt_policy_v1 *policy = &policy_u->v1;
 
 		policy->version = FSCRYPT_POLICY_V1;
-		policy->contents_encryption_mode =
-			ctx->contents_encryption_mode;
+		if (ctx->contents_encryption_mode == 127)
+			policy->contents_encryption_mode = 1;
+		else
+			policy->contents_encryption_mode =
+				ctx->contents_encryption_mode;
 		policy->filenames_encryption_mode =
 			ctx->filenames_encryption_mode;
 		policy->flags = ctx->flags;

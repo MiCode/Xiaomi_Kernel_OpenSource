@@ -269,7 +269,8 @@ static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 	u8 *derived_key = NULL;
 	int err;
 
-	if (ci->ci_policy.version == FSCRYPT_POLICY_V1) {
+	if ((ci->ci_policy.version == FSCRYPT_POLICY_V1) &&
+	    S_ISREG(ci->ci_inode->i_mode)) {
 		err = fscrypt_set_per_file_enc_key(ci, raw_master_key);
 	} else {
 	/*
