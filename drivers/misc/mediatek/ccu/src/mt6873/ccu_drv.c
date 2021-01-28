@@ -78,6 +78,9 @@
 #define CCU_DEV_NAME            "ccu"
 
 #define CCU_CLK_PWR_NUM 4
+
+static int32_t _user_count;
+
 /* [0]: CCU_CLK_TOP_MUX, [1]: MDP_PWR, [2]: CAM_PWR, [3]: CCU_CLK_CAM_CCU */
 struct clk *ccu_clk_pwr_ctrl[CCU_CLK_PWR_NUM];
 
@@ -319,19 +322,48 @@ static int ccu_open(struct inode *inode, struct file *flip)
 
 	struct ccu_user_s *user;
 
-	_clk_count = 0;
+	mutex_lock(&g_ccu_device->dev_mutex);
+
+	LOG_INF_MUST("%s pid:%d tid:%d cnt:%d+\n",
+		__func__, current->pid, current->tgid, _user_count);
+
 	ccu_create_user(&user);
 	if (IS_ERR_OR_NULL(user)) {
 		LOG_ERR("fail to create user\n");
+		mutex_unlock(&g_ccu_device->dev_mutex);
 		return -ENOMEM;
 	}
 
 	flip->private_data = user;
+
+	_user_count++;
+
+	if (_user_count > 1) {
+		LOG_INF_MUST("%s clean legacy data flow-\n", __func__);
+		ccu_force_powerdown();
+
+		for (i = 0; i < CCU_IMPORT_BUF_NUM; i++) {
+			if (import_buffer_handle[i] == (struct ion_handle *)
+			    CCU_IMPORT_BUF_UNDEF) {
+				LOG_INF_MUST("freed buffer count: %d\n", i);
+				break;
+			}
+
+			ccu_ion_free_import_handle(
+				import_buffer_handle[i]);/*can't in spin_lock*/
+		}
+
+		ccu_ion_uninit();
+	}
+
+	_clk_count = 0;
 	ccu_ion_init();
 
 	for (i = 0; i < CCU_IMPORT_BUF_NUM; i++)
 		import_buffer_handle[i] =
 			(struct ion_handle *)CCU_IMPORT_BUF_UNDEF;
+
+	mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return ret;
 }
@@ -1006,8 +1038,22 @@ static int ccu_release(struct inode *inode, struct file *flip)
 {
 	struct ccu_user_s *user = flip->private_data;
 	int i = 0;
+	struct CcuMemHandle handle;
 
-	LOG_INF_MUST("%s +\n", __func__);
+	mutex_lock(&g_ccu_device->dev_mutex);
+
+	LOG_INF_MUST("%s pid:%d tid:%d cnt:%d+\n",
+		__func__, user->open_pid, user->open_tgid, _user_count);
+
+	ccu_delete_user(user);
+	_user_count--;
+
+	if (_user_count > 0) {
+		LOG_INF_MUST("%s bypass release flow-", __func__);
+		mutex_unlock(&g_ccu_device->dev_mutex);
+		return 0;
+	}
+
 	ccu_force_powerdown();
 
 	for (i = 0; i < CCU_IMPORT_BUF_NUM; i++) {
@@ -1021,11 +1067,16 @@ static int ccu_release(struct inode *inode, struct file *flip)
 		ccu_ion_free_import_handle(import_buffer_handle[i]);
 	}
 
-	ccu_delete_user(user);
+	handle.meminfo.cached = 0;
+	ccu_deallocate_mem(&handle);
+	handle.meminfo.cached = 1;
+	ccu_deallocate_mem(&handle);
 
 	ccu_ion_uninit();
 
 	LOG_INF_MUST("%s -\n", __func__);
+
+	mutex_unlock(&g_ccu_device->dev_mutex);
 
 	return 0;
 }
@@ -1425,6 +1476,7 @@ static int __init CCU_INIT(void)
 	/*g_ccu_device = dma_cache_coherent();*/
 
 	INIT_LIST_HEAD(&g_ccu_device->user_list);
+	mutex_init(&g_ccu_device->dev_mutex);
 	mutex_init(&g_ccu_device->user_mutex);
 	mutex_init(&g_ccu_device->clk_mutex);
 	mutex_init(&g_ccu_device->ion_client_mutex);
