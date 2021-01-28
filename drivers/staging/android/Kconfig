@@ -70,6 +70,7 @@ config MTK_ENABLE_AGO
 	select F2FS_FS_SECURITY
 	select F2FS_FS_ENCRYPTION
 	select DM_ANDROID_VERITY_AT_MOST_ONCE_DEFAULT_ENABLED
+	select PGTABLE_MAPPING if ZSMALLOC && (ARM || ARM64)
 	---help---
 	  Enable/Disable GMO related feautre
 	  Do not use this options in Kernel
