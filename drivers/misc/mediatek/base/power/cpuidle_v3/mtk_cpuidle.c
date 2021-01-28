@@ -4,7 +4,7 @@
  */
 
 #include <linux/cpu_pm.h>
-#include <linux/irqchip/mtk-gic.h>
+//#include <linux/irqchip/mtk-gic.h>
 #include <linux/of_irq.h>
 #include <linux/of.h>
 #include <linux/psci.h>
@@ -15,7 +15,8 @@
 
 #include <asm/cpuidle.h>
 
-#include <mt-plat/mtk_secure_api.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <mtk_spm.h>
 #include <mtk_cpuidle.h>
 
@@ -52,8 +53,9 @@ static void cpuidle_ts_init(void)
 
 	p = dma_zalloc_coherent(cpu_dev, PAGE_SIZE, &atf_addr, GFP_KERNEL);
 	WARN_ON(!p);
-
+/*FIXME
 	rc = mt_secure_call(MTK_SIP_POWER_FLOW_DEBUG, 0, 1, atf_addr, 0);
+*/
 	WARN_ON(rc);
 
 	ts_pool = p;
@@ -210,13 +212,13 @@ static void cpuidle_fp_init(void)
 {
 	cpuidle_fp_va = (u32 *) aee_rr_rec_mtk_cpuidle_footprint_va();
 	cpuidle_fp_pa = (u32 *) aee_rr_rec_mtk_cpuidle_footprint_pa();
-
+/* FIXME
 	if (cpuidle_fp_va && cpuidle_fp_pa) {
 		mt_secure_call(MTK_SIP_POWER_FLOW_DEBUG,
 			       0, 2, (ulong) cpuidle_fp_pa, 0);
 		return;
 	}
-
+*/
 	WARN(1, "Invalid footprint address va(%p), pa(%p)\n",
 	     cpuidle_fp_va, cpuidle_fp_pa);
 }
