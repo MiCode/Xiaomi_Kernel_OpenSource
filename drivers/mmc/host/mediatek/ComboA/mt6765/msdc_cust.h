@@ -59,6 +59,7 @@
 
 #ifndef CODE_DEPEND_OK
 #define VOL_1800  1800
+#define VOL_1860  1860
 #define VOL_3000  3000
 #else
 //#if !defined(FPGA_PLATFORM)

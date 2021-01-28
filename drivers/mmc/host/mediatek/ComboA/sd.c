@@ -4993,6 +4993,12 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (!mmc)
 		return -ENOMEM;
 
+	ret = mmc_regulator_get_supply(mmc);
+	if (ret) {
+		mmc_free_host(mmc);
+		return ret;
+	}
+
 	ret = msdc_dt_init(pdev, mmc);
 	if (ret) {
 		mmc_free_host(mmc);

@@ -198,17 +198,9 @@ void msdc_sd_power_switch(struct msdc_host *host, u32 on)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
 	if (host->id == 1) {
-		#ifdef CODE_DEPEND_OK
-		if (on) {
-			/* VMC calibration +60mV. According to SA's request. */
-			pmic_config_interface(REG_VMC_VOSEL_CAL,
-				6,
-				MASK_VMC_VOSEL_CAL,
-				SHIFT_VMC_VOSEL_CAL);
-		}
-		#endif
-		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1800,
-			&host->power_io);
+		/* VMC calibration +60mV. According to SA's request. */
+		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1860,
+		&host->power_io);
 		msdc_set_tdsel(host, MSDC_TDRDSEL_1V8, 0);
 		msdc_set_rdsel(host, MSDC_TDRDSEL_1V8, 0);
 		host->hw->driving_applied = &host->hw->driving_sdr50;
@@ -258,8 +250,7 @@ void msdc_emmc_power(struct msdc_host *host, u32 on)
 
 void msdc_sd_power(struct msdc_host *host, u32 on)
 {
-//#if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
-#ifdef CODE_DEPEND_OK
+#if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
 	u32 card_on = on;
 
 	switch (host->id) {
@@ -271,8 +262,8 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 			card_on = 1;
 
 		/* Disable VMCH OC */
-		if (!card_on)
-			pmic_enable_interrupt(INT_VMCH_OC, 0, "sdcard");
+		//if (!card_on)
+		//	pmic_enable_interrupt(INT_VMCH_OC, 0, "sdcard");
 
 		/* VMCH VOLSEL */
 		msdc_ldo_power(card_on, host->mmc->supply.vmmc, VOL_3000,
@@ -280,18 +271,11 @@ void msdc_sd_power(struct msdc_host *host, u32 on)
 
 
 		/* Enable VMCH OC */
-		if (card_on) {
-			mdelay(3);
-			pmic_enable_interrupt(INT_VMCH_OC, 1, "sdcard");
-		}
+		//if (card_on) {
+		//	mdelay(3);
+		//	pmic_enable_interrupt(INT_VMCH_OC, 1, "sdcard");
+		//}
 
-		/* VMC VOLSEL */
-		/* rollback to 0mv in REG_VMC_VOSEL_CAL
-		 * in case of SD3.0 setting
-		 */
-		pmic_config_interface(REG_VMC_VOSEL_CAL,
-			SD_VOL_ACTUAL - VOL_3000,
-			MASK_VMC_VOSEL_CAL, SHIFT_VMC_VOSEL_CAL);
 		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_3000,
 			&host->power_io);
 
@@ -328,6 +312,22 @@ void msdc_sd_power_off(void)
 }
 EXPORT_SYMBOL(msdc_sd_power_off);
 #endif /*if !defined(FPGA_PLATFORM)*/
+
+static int msdc_sd_event(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+#if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
+	switch (event) {
+	case REGULATOR_EVENT_OVER_CURRENT:
+	case REGULATOR_EVENT_FAIL:
+		msdc_sd_power_off();
+		break;
+	default:
+		break;
+	};
+#endif
+	return NOTIFY_OK;
+}
 
 void msdc_pmic_force_vcore_pwm(bool enable)
 {
@@ -1144,6 +1144,8 @@ static int msdc_get_register_settings(struct msdc_host *host,
  *	@host: host whose node should be parsed.
  *
  */
+
+static struct notifier_block sd_oc_nb;
 int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 {
 	struct device_node *np;
@@ -1216,19 +1218,6 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 
 #if !defined(FPGA_PLATFORM)
 	msdc_get_pinctl_settings(host, np);
-
-	mmc->supply.vmmc = regulator_get(mmc_dev(mmc), "vmmc");
-	if (IS_ERR(mmc->supply.vmmc)) {
-		pr_info("err=%ld,failed to get vmmc\n",
-			PTR_ERR(mmc->supply.vmmc));
-		//goto vmmc_fail;
-	}
-	mmc->supply.vqmmc = regulator_get(mmc_dev(mmc), "vqmmc");
-	if (IS_ERR(mmc->supply.vqmmc)) {
-		pr_info("err=%ld ,failed to get vqmmc\n",
-			PTR_ERR(mmc->supply.vqmmc));
-		//goto vqmmc_fail;
-	}
 #else
 	msdc_fpga_pwr_init();
 #endif
@@ -1272,11 +1261,12 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	dup_name = pdev->name;
 	pdev->name = pdev->dev.kobj.name;
 	kfree_const(dup_name);
-#ifdef CODE_DEPEND_OK
-	if (host->id == 1)
-		pmic_register_interrupt_callback(INT_VMCH_OC,
-			msdc_sd_power_off);
-#endif
+
+	if (host->id == 1) {
+		sd_oc_nb.notifier_call = msdc_sd_event;
+		devm_regulator_register_notifier(mmc->supply.vmmc,
+			&sd_oc_nb);
+	}
 
 	return host->id;
 }
