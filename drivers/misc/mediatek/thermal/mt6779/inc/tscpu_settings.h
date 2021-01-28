@@ -552,8 +552,8 @@ extern bool mtk_get_gpu_loading(unsigned int *pLoading);
 extern int IMM_IsAdcInitReady(void);
 /*aee related*/
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
-extern void aee_rr_init_thermal_temp(int num);
-extern void aee_rr_rec_thermal_temp(int index, s8 val);
+extern int aee_rr_init_thermal_temp(int num);
+extern int aee_rr_rec_thermal_temp(int index, s8 val);
 extern void aee_rr_rec_thermal_lvts_config(u8 val);
 extern void aee_rr_rec_thermal_status(u8 val);
 extern void aee_rr_rec_thermal_ATM_status(u8 val);
