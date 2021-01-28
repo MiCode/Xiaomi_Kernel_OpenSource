@@ -45,6 +45,8 @@ SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885"))
+BUILD_MMDVFS := true
 endif
 
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)

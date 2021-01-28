@@ -100,7 +100,7 @@ static struct smi_driver_t	smi_drv;
 static struct smi_record_t	smi_record[SMI_LARB_NUM][2];
 static struct smi_dram_t	smi_dram;
 
-static struct mtk_smi_dev	*smi_dev[SMI_LARB_NUM + 1];
+static struct mtk_smi_dev	*smi_dev[SMI_DEV_NUM];
 
 static bool smi_reg_first, smi_bwc_conf_dis;
 static u32 smi_subsys_on, smi_mm_first;
@@ -116,13 +116,6 @@ static void smi_clk_record(const u32 id, const bool en, const char *user)
 	struct smi_record_t *record;
 	u64 sec;
 	u32 nsec;
-
-	if (id >= SMI_LARB_NUM && user) {
-		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u, user=%s\n",
-			id, SMI_LARB_NUM, user);
-		return;
-	} else if (id == SMI_LARB_NUM)
-		return;
 
 	record = &smi_record[id][en ? 1 : 0];
 	sec = sched_clock();
@@ -157,13 +150,14 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 {
 	s32 ret;
 
-	if (id > SMI_LARB_NUM) {
-		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u, user=%s\n",
-			id, SMI_LARB_NUM, user);
+	if (id >= SMI_DEV_NUM) {
+		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u, user=%s\n",
+			id, SMI_DEV_NUM, user);
 		return -EINVAL;
 	} else if (id < SMI_LARB_NUM)
 		smi_clk_record(id, true, user);
 
+	// TODO
 	ret = smi_unit_prepare_enable(SMI_LARB_NUM);
 	if (ret || id == SMI_LARB_NUM)
 		return ret;
@@ -179,12 +173,12 @@ static inline void smi_unit_disable_unprepare(const u32 id)
 
 s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 {
-	if (id > SMI_LARB_NUM) {
-		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u, user=%s\n",
-			id, SMI_LARB_NUM, user);
+	if (id >= SMI_DEV_NUM) {
+		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u, user=%s\n",
+			id, SMI_DEV_NUM, user);
 		return -EINVAL;
-	} else if (id == SMI_LARB_NUM) {
-		smi_unit_disable_unprepare(SMI_LARB_NUM);
+	} else if (id >= SMI_LARB_NUM) {
+		smi_unit_disable_unprepare(id);
 		return 0;
 	} else if (id < SMI_LARB_NUM)
 		smi_clk_record(id, false, user);
@@ -192,7 +186,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	if (ATOMR_CLK(id) == 1 && readl(smi_dev[id]->base + SMI_LARB_STAT))
 		SMIWRN(1, "LARB%u OFF by %s but busy\n", id, user);
 	smi_unit_disable_unprepare(id);
-	smi_unit_disable_unprepare(SMI_LARB_NUM);
+	smi_unit_disable_unprepare(SMI_LARB_NUM); // TODO
 	return 0;
 }
 EXPORT_SYMBOL_GPL(smi_bus_disable_unprepare);
@@ -206,7 +200,7 @@ smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u\n", id, SMI_LARB_NUM);
 		return;
 	}
-
+	// TODO
 	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
 	smi_scen_pair[SMI_LARB_NUM][SMI_ESL_INIT][id].val = val;
 
@@ -289,17 +283,17 @@ static s32 smi_debug_dumper(const bool gce, const bool off, const u32 id)
 	u32 nr_debugs, *debugs, temp[MAX_INPUT];
 	s32 i, j;
 
-	if (id > SMI_LARB_NUM + 1) {
-		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u\n", id, SMI_LARB_NUM);
+	if (id > SMI_DEV_NUM) {
+		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u\n", id, SMI_DEV_NUM);
 		return -EINVAL;
 	}
-	j = (id > SMI_LARB_NUM ? SMI_LARB_NUM : id);
-	name = (id > SMI_LARB_NUM ? "MMSYS" :
+	j = (id == SMI_DEV_NUM ? SMI_LARB_NUM : id);
+	name = (id == SMI_DEV_NUM ? "MMSYS" :
 		(id < SMI_LARB_NUM ? "LARB" : "COMM"));
-	base = (id > SMI_LARB_NUM ? smi_mmsys_base : smi_dev[id]->base);
-	nr_debugs = (id > SMI_LARB_NUM ? SMI_MMSYS_DEBUG_NUM :
+	base = (id == SMI_DEV_NUM ? smi_mmsys_base : smi_dev[id]->base);
+	nr_debugs = (id == SMI_DEV_NUM ? SMI_MMSYS_DEBUG_NUM :
 		(id < SMI_LARB_NUM ? SMI_LARB_DEBUG_NUM : SMI_COMM_DEBUG_NUM));
-	debugs = (id > SMI_LARB_NUM ?
+	debugs = (id == SMI_DEV_NUM ?
 		smi_mmsys_debug_offset : (id < SMI_LARB_NUM ?
 		smi_larb_debug_offset : smi_comm_debug_offset));
 	if (!base || !nr_debugs || !debugs) {
@@ -330,7 +324,7 @@ static void smi_debug_dump_status(const bool gce)
 {
 	s32 on, i;
 
-	for (i = 0; i <= SMI_LARB_NUM + 1; i++)
+	for (i = 0; i <= SMI_DEV_NUM; i++)
 		smi_debug_dumper(gce, false, i);
 
 	SMIWRN(gce, "SCEN=%s(%d), SMI_SCEN=%d\n",
@@ -350,7 +344,7 @@ static void smi_debug_dump_status(const bool gce)
 
 s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 {
-	u32 time = 5, busy[SMI_LARB_NUM + 1] = {0};
+	u32 time = 5, busy[SMI_DEV_NUM] = {0};
 	s32 i, j, ret = 0;
 
 	/* dump_emi_outstanding(); */
@@ -362,8 +356,10 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 			busy[j] += ((ATOMR_CLK(j) > 0 &&
 			readl(smi_dev[j]->base + SMI_LARB_STAT)) ? 1 : 0);
 		/* COMM */
-		busy[j] += ((ATOMR_CLK(j) > 0 &&
-		!(readl(smi_dev[j]->base + SMI_DEBUG_MISC) & 0x1)) ? 1 : 0);
+		for (j = SMI_LARB_NUM; j < SMI_DEV_NUM; j++)
+			busy[j] += ((ATOMR_CLK(j) > 0 &&
+				!(readl(smi_dev[j]->base + SMI_DEBUG_MISC) &
+				0x1)) ? 1 : 0);
 	}
 
 	for (i = 0; i < SMI_LARB_NUM && !ret; i++)
@@ -375,19 +371,19 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	}
 
 	SMIWRN(gce, "SMI MM bus may hang by %s/M4U/EMI/DVFS\n", user);
-	for (i = 0; i < time; i++)
-		for (j = 0; j <= SMI_LARB_NUM + 1; j++) {
-			if (!i && j && j < SMI_LARB_NUM) /* larb offset once */
-				continue;
-			smi_debug_dumper(gce, !i, j);
-		}
+	for (i = 0; i <= SMI_DEV_NUM; i++)
+		if (!i || i == SMI_LARB_NUM || i == SMI_DEV_NUM)
+			smi_debug_dumper(gce, true, i);
+
+	for (i = 1; i < time; i++)
+		for (j = 0; j <= SMI_DEV_NUM; j++)
+			smi_debug_dumper(gce, false, j);
 	smi_debug_dump_status(gce);
 
-	for (i = 0; i < SMI_LARB_NUM; i++)
-		SMIWRN(gce,
-			"LARB%u=%u/%u busy with clk:%d, COMMON=%u/%u busy with clk:%d\n",
-			i, busy[i], time, ATOMR_CLK(i),
-			busy[SMI_LARB_NUM], time, ATOMR_CLK(SMI_LARB_NUM));
+	for (i = 0; i < SMI_DEV_NUM; i++)
+		SMIWRN(gce, "%s%u=%u/%u busy with clk:%d\n",
+			i < SMI_LARB_NUM ? "LARB" : "COMMON",
+			i, busy[i], time, ATOMR_CLK(i));
 	return 0;
 }
 EXPORT_SYMBOL_GPL(smi_debug_bus_hang_detect);
@@ -474,7 +470,7 @@ static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 			smi_drv.scen, smi_scen);
 		return 0;
 	}
-	for (i = 0; i <= SMI_LARB_NUM; i++) {
+	for (i = 0; i < SMI_DEV_NUM; i++) {
 		mtk_smi_conf_set(smi_dev[i], smi_scen);
 		smi_larb_port_set(smi_dev[i]);
 	}
@@ -593,7 +589,7 @@ static void smi_subsys_after_on(enum subsys_id sys)
 #if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log(smi_mmp_event[sys], MMPROFILE_FLAG_START);
 #endif
-	for (i = SMI_LARB_NUM; i >= 0; i--)
+	for (i = SMI_DEV_NUM - 1; i >= 0; i--)
 		if (subsys & (1 << i)) {
 			smi_clk_record(i, true, NULL);
 			mtk_smi_clk_enable(smi_dev[i]);
@@ -612,7 +608,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 		return;
 
 	smi_subsys_sspm_ipi(false, subsys);
-	for (i = 0; i <= SMI_LARB_NUM; i++)
+	for (i = 0; i < SMI_DEV_NUM; i++)
 		if (subsys & (1 << i)) {
 			if (sys != SYS_DIS || !(smi_mm_first & subsys))
 				mtk_smi_clk_disable(smi_dev[i]);
@@ -632,8 +628,8 @@ static struct pg_callbacks smi_clk_subsys_handle = {
 
 static s32 smi_conf_get(const u32 id)
 {
-	if (id > SMI_LARB_NUM) {
-		SMIDBG("Invalid id:%u, SMI_LARB_NUM=%u\n", id, SMI_LARB_NUM);
+	if (id >= SMI_DEV_NUM) {
+		SMIDBG("Invalid id:%u, SMI_DEV_NUM=%u\n", id, SMI_DEV_NUM);
 		return -EINVAL;
 	}
 
@@ -710,7 +706,7 @@ s32 smi_register(void)
 	spin_lock(&(smi_drv.lock));
 	smi_subsys_on = smi_subsys_to_larbs[SYS_DIS];
 	spin_unlock(&(smi_drv.lock));
-	for (i = SMI_LARB_NUM; i >= 0; i--) {
+	for (i = SMI_DEV_NUM - 1; i >= 0; i--) {
 		smi_conf_get(i);
 		if (smi_subsys_on & (1 << i)) {
 			smi_bus_prepare_enable(i, DEV_NAME);
@@ -722,7 +718,7 @@ s32 smi_register(void)
 
 #ifdef MMDVFS_HOOK
 	mmdvfs_init();
-	mmdvfs_clks_init(smi_dev[SMI_LARB_NUM]->dev->of_node);
+	mmdvfs_clks_init(smi_dev[SMI_LARB_NUM]->dev->of_node); // TODO
 #endif
 
 	smi_debug_dump_status(false);
@@ -808,7 +804,7 @@ static s32 __init smi_late_init(void)
 
 	smi_mmp_init();
 	smi_dram_init();
-	for (i = 0; i <= SMI_LARB_NUM; i++)
+	for (i = 0; i < SMI_DEV_NUM; i++)
 		if (smi_subsys_on & (1 << i))
 			smi_bus_disable_unprepare(i, DEV_NAME);
 	smi_reg_first = true;

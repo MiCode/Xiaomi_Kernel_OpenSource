@@ -17,15 +17,32 @@
 #define SMI_OSTD_MAX		(0x1f)
 
 #define SMI_COMM_MASTER_NUM	(8)
-#define SMI_LARB_NUM		(7)
-#define SMI_LARB0_PORT_NUM	(10)	/* SYS_DIS */
-#define SMI_LARB1_PORT_NUM	(7)	/* SYS_VDE */
-#define SMI_LARB2_PORT_NUM	(3)	/* SYS_ISP */
-#define SMI_LARB3_PORT_NUM	(5)	/* SYS_CAM */
-#define SMI_LARB4_PORT_NUM	(11)	/* SYS_VEN */
-#define SMI_LARB5_PORT_NUM	(25)	/* SYS_ISP */
-#define SMI_LARB6_PORT_NUM	(31)	/* SYS_CAM */
+#define SMI_LARB_NUM		(21)
+#define SMI_LARB0_PORT_NUM	(15)	/* SYS_DIS */
+#define SMI_LARB1_PORT_NUM	(15)	/* SYS_DIS */
+#define SMI_LARB2_PORT_NUM	(6)	/* SYS_DIS */
+#define SMI_LARB3_PORT_NUM	(6)	/* SYS_DIS */
+#define SMI_LARB4_PORT_NUM	(11)	/* SYS_VDE */
+#define SMI_LARB5_PORT_NUM	(8)	/* SYS_VDE */
+#define SMI_LARB6_PORT_NUM	(0)	/* SYS_VDE */
+#define SMI_LARB7_PORT_NUM	(27)	/* SYS_VEN */
+#define SMI_LARB8_PORT_NUM	(27)	/* SYS_VEN */
+#define SMI_LARB9_PORT_NUM	(29)	/* SYS_IMG1 */
+#define SMI_LARB10_PORT_NUM	(0)	/* SYS_IMG1 */
+#define SMI_LARB11_PORT_NUM	(29)	/* SYS_IMG2 */
+#define SMI_LARB12_PORT_NUM	(0)	/* SYS_IMG2 */
+#define SMI_LARB13_PORT_NUM	(12)	/* SYS_CAM1 */
+#define SMI_LARB14_PORT_NUM	(6)	/* SYS_CAM1 */
+#define SMI_LARB15_PORT_NUM	(5)	/* SYS_CAM1 */
+#define SMI_LARB16_PORT_NUM	(17)	/* SYS_CAM2 */
+#define SMI_LARB17_PORT_NUM	(17)	/* SYS_CAM3 */
+#define SMI_LARB18_PORT_NUM	(17)	/* SYS_CAM4 */
+#define SMI_LARB19_PORT_NUM	(4)	/* SYS_IPE */
+#define SMI_LARB20_PORT_NUM	(6)	/* SYS_IPE */
+#define SMI_COMM_NUM		(3 + 7)
+#define SMI_DEV_NUM		((SMI_LARB_NUM) + (SMI_COMM_NUM))
 
+// TODO
 static const bool
 SMI_COMM_BUS_SEL[SMI_COMM_MASTER_NUM] = {0, 1, 1, 0, 0, 1, 0, 1,};
 
