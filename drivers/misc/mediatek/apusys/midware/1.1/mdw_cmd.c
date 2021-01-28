@@ -173,6 +173,7 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 	if (c->multi > HDR_FLAG_MULTI_MULTI)
 		return -EINVAL;
 
+	/* Create Fence FD */
 	if (c->hdr->flags & HDR_FLAG_MASK_FENCE_EXEC) {
 		c->uf_hdr = (struct apu_fence_hdr *)(
 			(uint64_t)c->u_hdr + sizeof(struct apu_cmd_hdr) +
@@ -181,7 +182,6 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 		if (apu_sync_file_create(c) < 0)
 			return -EINVAL;
 	}
-
 	return 0;
 }
 
@@ -358,7 +358,7 @@ static bool mdw_cmd_is_deadline(struct mdw_apu_sc *sc)
 }
 
 static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
-	uint32_t size, uint32_t ofs)
+	uint32_t size, uint32_t ofs, struct mdw_usr *u)
 {
 	struct mdw_apu_cmd *c;
 
@@ -393,6 +393,7 @@ static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
 	c->size = size;
 	c->kid = (uint64_t)c;
 	refcount_set(&c->ref.refcount, c->hdr->num_sc);
+	c->usr = u;
 
 	/* init cmd completion */
 	init_completion(&c->cmplt);
