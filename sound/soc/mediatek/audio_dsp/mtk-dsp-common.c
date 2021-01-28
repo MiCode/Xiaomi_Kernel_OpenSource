@@ -340,7 +340,6 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		return -1;
 
 	dsp_memif = (struct mtk_base_dsp_mem *)&dsp->dsp_mem[task_id];
-	payload = (char *)&dsp->dsp_mem[task_id].msg_atod_share_buf.phy_addr;
 
 	/* send msg by task , unsing common function*/
 	switch (command) {
