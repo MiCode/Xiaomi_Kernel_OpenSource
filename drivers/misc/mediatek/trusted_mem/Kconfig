@@ -14,7 +14,7 @@
 #
 config MTK_PROT_MEM_SUPPORT
 	tristate "MTK Protect Memory Support"
-	depends on MTK_GZ_KREE
+	depends on MTK_GZ_KREE && MTK_CAM_SECURITY_SUPPORT
 	default y
 	help
 	  Enable the support of MediaTek protect memory driver.
