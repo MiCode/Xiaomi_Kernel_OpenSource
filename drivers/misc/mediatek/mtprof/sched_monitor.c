@@ -387,7 +387,7 @@ static void __show_irq_count_info(int output)
 			      sec_high(irq_cnt->t_end), sec_low(irq_cnt->t_end),
 			      msec_high(irq_cnt->t_end - irq_cnt->t_start));
 
-		for (irq = 0; min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
+		for (irq = 0; irq < min_t(int, nr_irqs, MAX_IRQ_NUM); irq++) {
 			unsigned int count;
 
 			count = kstat_irqs_cpu(irq, cpu);
