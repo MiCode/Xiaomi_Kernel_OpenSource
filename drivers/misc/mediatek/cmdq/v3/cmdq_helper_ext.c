@@ -256,8 +256,7 @@ bool cmdq_core_check_user_valid(void *src, u32 size)
 
 	mutex_unlock(&cmdq_inst_check_mutex);
 
-	cost = sched_clock() - cost;
-	do_div(cost, 1000);
+	cost = div_u64(sched_clock() - cost, 1000);
 
 	CMDQ_MSG("%s size:%u cost:%lluus ret:%s\n", __func__, size, (u64)cost,
 		ret ? "true" : "false");
@@ -2550,7 +2549,7 @@ ssize_t cmdq_core_print_error(struct device *dev,
 		i++) {
 		struct ErrorStruct *pError = &cmdq_ctx.error[i];
 		u64 ts = pError->ts_nsec;
-		unsigned long rem_nsec = do_div(ts, 1000000000);
+		unsigned long rem_nsec = (unsigned long)div_u64(ts, 1000000000);
 
 		length += snprintf(buf + length,
 			PAGE_SIZE - length, "[%5lu.%06lu] ",
