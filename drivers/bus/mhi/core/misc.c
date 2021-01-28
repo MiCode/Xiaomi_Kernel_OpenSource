@@ -978,3 +978,12 @@ struct mhi_device *mhi_get_device_for_channel(struct mhi_controller *mhi_cntrl,
 	return mhi_cntrl->mhi_chan[channel].mhi_dev;
 }
 EXPORT_SYMBOL(mhi_get_device_for_channel);
+
+#if !IS_ENABLED(CONFIG_MHI_DTR)
+long mhi_device_ioctl(struct mhi_device *mhi_dev, unsigned int cmd,
+		      unsigned long arg)
+{
+	return -EIO;
+}
+EXPORT_SYMBOL(mhi_device_ioctl);
+#endif
