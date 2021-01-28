@@ -1163,6 +1163,9 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 
 u8 clk_buf_get_xo_en_sta(enum xo_id id)
 {
+	if (id < 0 || id >= XO_NUMBER)
+		return 0;
+
 	clk_buf_get_xo_en();
 
 	return xo_en_stat[id];
