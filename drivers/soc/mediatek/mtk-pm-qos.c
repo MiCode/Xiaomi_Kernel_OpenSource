@@ -711,6 +711,7 @@ void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req)
 	mtk_pm_qos_update_target_req_list(
 		mtk_pm_qos_array[req->pm_qos_class],
 		req, PM_QOS_REMOVE_REQ);
+	memset(req, 0, sizeof(*req));
 }
 EXPORT_SYMBOL_GPL(mtk_pm_qos_remove_request);
 
