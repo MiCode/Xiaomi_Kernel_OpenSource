@@ -366,13 +366,15 @@ struct hd_struct *add_partition(struct gendisk *disk, int partno,
 	pdev->devt = devt;
 
 	if (!p->policy) {
-		if (disk->fops->check_disk_range_wp) {
+		if (p->info && p->info->volname[0]
+			&& memcmp(p->info->volname, "otp", 3) == 0)
+			err = 0;
+		else if (disk->fops->check_disk_range_wp)
 			err = disk->fops->check_disk_range_wp(disk, start, len);
-			if (err > 0)
-				p->policy = 1;
-			else if (err != 0)
-				goto out_free_info;
-		}
+		if (err > 0)
+			p->policy = 1;
+		else if (err != 0)
+			goto out_free_info;
 	}
 
 	/* delay uevent until 'holders' subdir is created */
