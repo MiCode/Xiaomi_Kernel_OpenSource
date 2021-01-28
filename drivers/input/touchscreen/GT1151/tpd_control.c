@@ -36,39 +36,88 @@ const struct of_device_id touch_of_match[] = {
 	{},
 };
 
+struct tag_videolfb {
+	u64 fb_base;
+	u32 islcmfound;
+	u32 fps;
+	u32 vram;
+	char lcmname[1];
+};
+
 void tpd_get_dts_info(void)
 {
 	struct device_node *node1 = NULL;
 	int key_dim_local[16], i;
+	struct device_node *lcm_name_node;
+	struct tag_videolfb *videolfb_tag = NULL;
+	int convert_err = -EINVAL;
+	unsigned long size = 0;
 
 	node1 = of_find_matching_node(node1, touch_of_match);
+
+	TPD_DEBUG("start to parse lcm name");
+	lcm_name_node = of_find_node_by_path("/chosen");
+	if (lcm_name_node) {
+		videolfb_tag = (struct tag_videolfb *)
+			of_get_property(lcm_name_node,
+			"atag,videolfb",
+			(int *)&size);
+		if (!videolfb_tag)
+			TPD_ERR("Invalid lcm name");
+	}
+
+	TPD_DEBUG("read lcm name : %s", videolfb_tag->lcmname);
 
 	if (!node1) {
 		TPD_ERR("can't find touch compatible custom node\n");
 	} else {
 		of_property_read_u32(node1,
 			"tpd-max-touch-num", &tpd_dts_data.touch_max_num);
-		if (of_property_read_u32_array(node1, "tpd-resolution",
-			tpd_dts_data.tpd_resolution,
-			ARRAY_SIZE(tpd_dts_data.tpd_resolution))) {
-			pr_debug("[tpd] resulution is %d %d",
-				tpd_dts_data.tpd_resolution[0],
-				tpd_dts_data.tpd_resolution[1]);
+
+
+		if (strcmp("nt35695B_fhd_dsi_vdo_auo_rt5081_drv",
+					videolfb_tag->lcmname) == 0) {
+			of_property_read_u32_array(node1, "tpd-resolution",
+				tpd_dts_data.tpd_resolution,
+				ARRAY_SIZE(tpd_dts_data.tpd_resolution));
+			tpd_dts_data.flag_use_fhdp = false;
+		} else {
+			of_property_read_u32_array(node1, "tpd-resolution-fhdp",
+				tpd_dts_data.tpd_resolution,
+				ARRAY_SIZE(tpd_dts_data.tpd_resolution));
+			tpd_dts_data.flag_use_fhdp = true;
 		}
-		if (of_property_read_u32_array(node1, "lcm-resolution",
+		TPD_DEBUG("[tpd] resulution is %d %d",
+					tpd_dts_data.tpd_resolution[0],
+					tpd_dts_data.tpd_resolution[1]);
+
+#if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
+		convert_err = kstrtou32(CONFIG_LCM_WIDTH, 10,
+			&tpd_dts_data.lcm_resolution[0]);
+		if (convert_err)
+			TPD_ERR("GET LCM WIDTH failed!\n");
+		convert_err = kstrtou32(CONFIG_LCM_HEIGHT, 10,
+			&tpd_dts_data.lcm_resolution[1]);
+		if (convert_err)
+			TPD_ERR("GET LCM HEIGHT failed!\n");
+#else
+		TPD_DEBUG("Set Default lcm-resolution!");
+		of_property_read_u32_array(node1, "lcm-resolution",
 			tpd_dts_data.lcm_resolution,
-			ARRAY_SIZE(tpd_dts_data.lcm_resolution))) {
-			pr_debug("[lcm] resulution is %d %d",
-				tpd_dts_data.lcm_resolution[0],
-				tpd_dts_data.lcm_resolution[1]);
-		}
+			ARRAY_SIZE(tpd_dts_data.lcm_resolution));
+#endif
+
+		TPD_DEBUG("[lcm] resulution is %d %d",
+					tpd_dts_data.lcm_resolution[0],
+					tpd_dts_data.lcm_resolution[1]);
+
 		if (tpd_dts_data.use_tpd_button) {
 			of_property_read_u32(node1,
 				"tpd-key-num", &tpd_dts_data.tpd_key_num);
 			if (of_property_read_u32_array(node1, "tpd-key-local",
 				tpd_dts_data.tpd_key_local,
 				ARRAY_SIZE(tpd_dts_data.tpd_key_local)))
-				pr_debug("tpd-key-local: %d %d %d %d",
+				TPD_DEBUG("tpd-key-local: %d %d %d %d",
 					tpd_dts_data.tpd_key_local[0],
 					tpd_dts_data.tpd_key_local[1],
 					tpd_dts_data.tpd_key_local[2],
@@ -79,22 +128,22 @@ void tpd_get_dts_info(void)
 				memcpy(tpd_dts_data.tpd_key_dim_local,
 					key_dim_local, sizeof(key_dim_local));
 				for (i = 0; i < 4; i++) {
-					pr_debug("[tpd]key[%d].key_x = %d\n", i,
-						tpd_dts_data
-							.tpd_key_dim_local[i]
-							.key_x);
-					pr_debug("[tpd]key[%d].key_y = %d\n", i,
-						tpd_dts_data
-							.tpd_key_dim_local[i]
-							.key_y);
-					pr_debug("[tpd]key[%d].key_W = %d\n", i,
-						tpd_dts_data
-							.tpd_key_dim_local[i]
-							.key_width);
-					pr_debug("[tpd]key[%d].key_H = %d\n", i,
-						tpd_dts_data
-							.tpd_key_dim_local[i]
-							.key_height);
+					pr_info("[tpd]key[%d].key_x = %d\n",
+						i, tpd_dts_data
+						.tpd_key_dim_local[i]
+						.key_x);
+					pr_info("[tpd]key[%d].key_y = %d\n",
+						i, tpd_dts_data
+						.tpd_key_dim_local[i]
+						.key_y);
+					pr_info("[tpd]key[%d].key_W = %d\n",
+						i, tpd_dts_data
+						.tpd_key_dim_local[i]
+						.key_width);
+					pr_info("[tpd]key[%d].key_H = %d\n",
+						i, tpd_dts_data
+						.tpd_key_dim_local[i]
+						.key_height);
 				}
 			}
 		}
@@ -108,18 +157,18 @@ void tpd_get_dts_info(void)
 				"tpd-filter-custom-prameters",
 				(u32 *)tpd_dts_data.touch_filter.W_W,
 				ARRAY_SIZE(tpd_dts_data.touch_filter.W_W)))
-				pr_debug("get tpd-filter-custom-parameters");
+				TPD_DEBUG("get tpd-filter-custom-parameters");
 			if (of_property_read_u32_array(node1,
 				"tpd-filter-custom-speed",
 				tpd_dts_data.touch_filter.VECLOCITY_THRESHOLD,
 				ARRAY_SIZE(tpd_dts_data
 						.touch_filter
 						.VECLOCITY_THRESHOLD)))
-				pr_debug("get tpd-filter-custom-speed");
+				TPD_DEBUG("get tpd-filter-custom-speed");
 		}
 		memcpy(&tpd_filter,
 			&tpd_dts_data.touch_filter, sizeof(tpd_filter));
-		pr_debug("[tpd]tpd-filter-enable = %d, pixel_density = %d\n",
+		TPD_DEBUG("[tpd]tpd-filter-enable = %d, pixel_density = %d\n",
 				tpd_filter.enable, tpd_filter.pixel_density);
 		tpd_dts_data.tpd_use_ext_gpio =
 			of_property_read_bool(node1, "tpd-use-ext-gpio");
@@ -139,16 +188,14 @@ void tpd_get_dts_info(void)
 				tpd_dts_data.rst_gpio_num);
 		}
 		if (of_property_read_string(node1,
-			"tpd-cfg-version",
-			&tpd_dts_data.cfg_version))
+			"tpd-cfg-version", &tpd_dts_data.cfg_version))
 			TPD_DEBUG("tpd-cfg-version: %s\n",
 				tpd_dts_data.cfg_version);
+
 		tpd_dts_data.x2x = of_property_read_bool(node1,
 			"goodix,x2x");
-
 		tpd_dts_data.y2y = of_property_read_bool(node1,
 			"goodix,y2y");
-
 	}
 }
 

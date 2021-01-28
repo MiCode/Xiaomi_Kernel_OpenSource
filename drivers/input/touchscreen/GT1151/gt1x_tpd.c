@@ -378,26 +378,19 @@ void tpd_gpio_as_int(int pin)
 void tpd_gpio_output(int pin, int level)
 {
 	mutex_lock(&tpd_set_gpio_mutex);
+
+	GTP_DEBUG("%s pin = EINT, level = %d\n", __func__, level);
+
 	if (pin == 1) {
-		GTP_DEBUG("%s pin = EINT, level = %d\n", __func__, level);
 		if (level)
 			pinctrl_select_state(pinctrl1, eint_output1);
 		else
 			pinctrl_select_state(pinctrl1, eint_output0);
 	} else {
-		if (tpd_dts_data.tpd_use_ext_gpio) {
-#ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
-			mt6306_set_gpio_dir(
-				tpd_dts_data.rst_ext_gpio_num, 1);
-			mt6306_set_gpio_out(
-				tpd_dts_data.rst_ext_gpio_num, level);
-#endif
-		} else {
-			if (level)
-				pinctrl_select_state(pinctrl1, rst_output1);
-			else
-				pinctrl_select_state(pinctrl1, rst_output0);
-		}
+		if (level)
+			pinctrl_select_state(pinctrl1, rst_output1);
+		else
+			pinctrl_select_state(pinctrl1, rst_output0);
 	}
 	mutex_unlock(&tpd_set_gpio_mutex);
 }
@@ -470,6 +463,7 @@ static int tpd_power_on(void)
 	gt1x_power_switch(SWITCH_ON);
 
 	gt1x_select_addr();
+	msleep(20);
 
 	if (gt1x_get_chip_type() != 0)
 		return -1;
@@ -761,8 +755,6 @@ static int tpd_registration(void *client)
 	input_set_capability(tpd->dev, EV_KEY, KEY_GESTURE);
 #endif
 
-	GTP_GPIO_AS_INT(GTP_INT_PORT);
-	msleep(50);
 	/* EINT device tree, default EINT enable */
 	tpd_irq_registration();
 

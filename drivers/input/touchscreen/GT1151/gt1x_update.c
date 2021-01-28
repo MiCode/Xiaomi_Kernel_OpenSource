@@ -125,6 +125,7 @@ struct fw_update_info update_info = {
 	.max_progress = 9
 };
 
+static int flag_need_update;
 
 /**
  * @return: return 0 if success, otherwise return a negative number
@@ -446,8 +447,10 @@ int gt1x_update_judge(void)
 	}
 	if (fw_ver_info.patch_id <= ver_info.patch_id) {
 		GTP_ERROR("The version of the fw is not high than the IC's!");
+		flag_need_update = 0;
 		return ERROR_CHECK;
 	}
+	flag_need_update = 1;
 	return 0;
 }
 
@@ -870,9 +873,9 @@ int gt1x_update_firmware(char *filename)
 	}
 	update_info.progress = 6;
 
-	gt1x_irq_disable();
-	gt1x_reset_guitar();
-	gt1x_irq_enable();
+	GTP_INFO("flag_need_update = %d!", flag_need_update);
+	if (flag_need_update)
+		gt1x_reset_guitar();
 
 	p = gt1x_get_fw_data(update_info.firmware->subsystem[0].offset,
 				update_info.firmware->subsystem[0].length);
@@ -914,7 +917,7 @@ int gt1x_update_firmware(char *filename)
 
 	update_info.status = UPDATE_STATUS_IDLE;
 	if (ret) {
-		GTP_ERROR("Update firmware failed!");
+		GTP_ERROR("Update firmware failed, ret = %d!", ret);
 	} else if (gt1x_init_failed) {
 		gt1x_read_version(&gt1x_version);
 		gt1x_init_panel();
@@ -1020,7 +1023,8 @@ int gt1x_hold_ss51_dsp(void)
 void gt1x_leave_update_mode(void)
 {
 	GTP_DEBUG("[leave_update_mode]reset chip.");
-	gt1x_reset_guitar();
+	if (flag_need_update)
+		gt1x_reset_guitar();
 
 #ifdef CONFIG_GTP_ESD_PROTECT
 	gt1x_esd_switch(SWITCH_ON);

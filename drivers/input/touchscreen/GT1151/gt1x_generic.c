@@ -23,6 +23,7 @@ static struct workqueue_struct *gt1x_workqueue;
 
 u8 gt1x_config[GTP_CONFIG_MAX_LENGTH] = { 0 };
 
+/* For 1080 * 1920 */
 static u8 gt1151_cfg16[] = {
 0x1F, 0x38, 0x04, 0x80, 0x07, 0x05, 0x3D, 0x08, 0x00, 0x08,
 0x00, 0x7F, 0x46, 0x37, 0x5E, 0x00, 0x11, 0x00, 0x01, 0x23,
@@ -48,7 +49,7 @@ static u8 gt1151_cfg16[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x71, 0x3A, 0x01 };
-
+/* For 1080 * 1920 */
 static u8 gt1151_cfg17[] = {
 0x0A, 0xD0, 0x02, 0x00, 0x05, 0x05, 0x3D, 0x08, 0x00, 0x08,
 0x00, 0x7F, 0x46, 0x2D, 0x5E, 0x00, 0x11, 0x00, 0x01, 0x02,
@@ -74,7 +75,7 @@ static u8 gt1151_cfg17[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x20, 0x88, 0x01 };
-
+/* For 1080 * 2160 */
 static u8 gt1151_cfg18[] = {
 0x03, 0x38, 0x04, 0x70, 0x08, 0x0A, 0x3D, 0x08, 0x00, 0x08,
 0x00, 0x7F, 0x46, 0x37, 0x5E, 0x00, 0x22, 0x00, 0x01, 0x23,
@@ -100,7 +101,7 @@ static u8 gt1151_cfg18[] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x27, 0x3F, 0x01, };
-
+/* For 1080 * 2160 */
 static u8 gt1151_cfg19[] = {
 0x03, 0x38, 0x04, 0x70, 0x08, 0x0A, 0x3D, 0x08, 0x00, 0x08,
 0x00, 0x7F, 0x46, 0x37, 0x5E, 0x00, 0x22, 0x00, 0x01, 0x23,
@@ -363,12 +364,12 @@ static ssize_t gt1x_debug_write_proc(struct file *file,
 	}
 
 	if (strcmp(mode_str, "poweron") == 0) {
-		gt1x_power_switch(1);
+		gt1x_power_switch(SWITCH_ON);
 		return count;
 	}
 
 	if (strcmp(mode_str, "poweroff") == 0) {
-		gt1x_power_switch(0);
+		gt1x_power_switch(SWITCH_OFF);
 		return count;
 	}
 
@@ -644,6 +645,14 @@ s32 gt1x_init_panel(void)
 	} else if (!strcmp(tpd_dts_data.cfg_version, "config19")) {
 		cfgs[0] = gt1151_cfg19;
 		cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg19);
+	} else if (!strcmp(tpd_dts_data.cfg_version, "config16&config18")) {
+		if (tpd_dts_data.flag_use_fhdp == false) {
+			cfgs[0] = gt1151_cfg16;
+			cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg16);
+		} else {
+			cfgs[0] = gt1151_cfg18;
+			cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg18);
+		}
 	} else if (!strcmp(tpd_dts_data.cfg_version, "FHDP_AMOLED")) {
 		cfgs[0] = gt1151_cfg_fhdp_amoled;
 		cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg_fhdp_amoled);
@@ -789,12 +798,12 @@ s32 gt1x_init_panel(void)
 void gt1x_select_addr(void)
 {
 	GTP_GPIO_OUTPUT(GTP_RST_PORT, 0);
-	msleep(20);
+	GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+	udelay(1000);
 	GTP_GPIO_OUTPUT(GTP_INT_PORT, gt1x_i2c_client->addr == 0x14);
-	msleep(20);
+	usleep_range(5000, 5100);
 	GTP_GPIO_OUTPUT(GTP_RST_PORT, 1);
-	msleep(20);
-	addr_selected = 1;
+	usleep_range(8000, 8100);
 }
 
 s32 gt1x_reset_guitar(void)
@@ -811,14 +820,10 @@ s32 gt1x_reset_guitar(void)
 		msleep(20);		/*must >= 6ms*/
 	}
 
-	/* int synchronization */
-	if (gt1x_chip_type == CHIP_TYPE_GT2X) {
-		/* for GT2X */
-	} else {
-		GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
-		msleep(50);
-		GTP_GPIO_AS_INT(GTP_INT_PORT);
-	}
+	GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
+	msleep(50);
+	GTP_GPIO_AS_INT(GTP_INT_PORT);
+
 
 #ifdef CONFIG_GTP_ESD_PROTECT
 	ret = gt1x_init_ext_watchdog();
@@ -954,26 +959,6 @@ s32 gt1x_enter_sleep(void)
 	gt1x_power_switch(SWITCH_OFF);
 	GTP_INFO("GTP enter sleep by poweroff!");
 	return 0;
-#else
-	{
-		s32 retry = 0;
-
-		if (gt1x_wakeup_level == 1) {	/* high level wakeup */
-			GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
-		}
-		msleep(20);
-
-		while (retry++ < 5) {
-			if (!gt1x_send_cmd(GTP_CMD_SLEEP, 0)) {
-				GTP_INFO("GTP enter sleep!");
-				return 0;
-			}
-			msleep(20);
-		}
-
-		GTP_ERROR("GTP send sleep cmd failed.");
-		return -1;
-	}
 #endif
 }
 
@@ -995,52 +980,7 @@ s32 gt1x_wakeup_sleep(void)
 	gt1x_power_reset2();
 	GTP_INFO("Ic wakeup by poweron");
 	return 0;
-#else
-	/* gesture wakeup & int port wakeup */
-	while (retry++ < 2) {
-		/* wake up through int port */
-		GTP_GPIO_OUTPUT(GTP_INT_PORT, gt1x_wakeup_level);
-		msleep(20);
-
-		if (gt1x_chip_type == CHIP_TYPE_GT2X) {
-			/* for GT2X */
-		} else {
-			/* Synchronize int IO */
-			GTP_GPIO_OUTPUT(GTP_INT_PORT, 0);
-			msleep(50);
-			GTP_GPIO_AS_INT(GTP_INT_PORT);
-		}
-
-		/* test i2c */
-		ret = gt1x_i2c_test();
-		if (!ret) {
-
-			/* i2c test succeed, init externl watchdog */
-#ifdef CONFIG_GTP_ESD_PROTECT
-			ret = gt1x_init_ext_watchdog();
-			if (!ret)
-				break;
-#else
-			break;
 #endif
-			}
-	}
-
-	if (ret) {		/* wakeup failed , try waking up by resetting */
-		while (retry--) {
-			ret = gt1x_reset_guitar();
-			if (!ret)
-				break;
-		}
-	}
-
-	if (ret) {
-		GTP_ERROR("GTP wakeup sleep failed.");
-		return -1;
-	}
-	GTP_INFO("GTP wakeup sleep.");
-	return 0;
-#endif				/* END GTP_POWER_CTRL_SLEEP */
 }
 
 /**
@@ -1083,8 +1023,6 @@ void gt1x_power_reset2(void)
 		return;
 	GTP_INFO("force_reset_guitar");
 	is_resetting = 1;
-	gt1x_power_switch(SWITCH_OFF);
-	msleep(30);
 	gt1x_power_switch(SWITCH_ON);
 	msleep(30);
 
@@ -1278,12 +1216,12 @@ s32 gt1x_touch_event_handler(u8 *data, struct input_dev *dev,
 		input_y = coor_data[3] | (coor_data[4] << 8);
 		input_w = coor_data[5] | (coor_data[6] << 8);
 
-		if (!tpd_dts_data.x2x)
+		if (tpd_dts_data.x2x)
 			input_x =
-			tpd_dts_data.lcm_resolution[0] - input_x;
-		if (!tpd_dts_data.y2y)
+			tpd_dts_data.tpd_resolution[0] - input_x;
+		if (tpd_dts_data.y2y)
 			input_y =
-			tpd_dts_data.lcm_resolution[1] - input_y;
+			tpd_dts_data.tpd_resolution[1] - input_y;
 
 		GTP_DEBUG("Pen touch DOWN.");
 		gt1x_pen_down(input_x, input_y, input_w, 0);
@@ -1318,13 +1256,13 @@ s32 gt1x_touch_event_handler(u8 *data, struct input_dev *dev,
 				input_y = coor_data[3] | (coor_data[4] << 8);
 				input_w = coor_data[5] | (coor_data[6] << 8);
 
-				if (!tpd_dts_data.x2x)
+				if (tpd_dts_data.x2x)
 					input_x =
-					tpd_dts_data.lcm_resolution[0] -
+					tpd_dts_data.tpd_resolution[0] -
 						input_x;
-				if (!tpd_dts_data.y2y)
+				if (tpd_dts_data.y2y)
 					input_y =
-					tpd_dts_data.lcm_resolution[1] -
+					tpd_dts_data.tpd_resolution[1] -
 						input_y;
 				GTP_DEBUG("(%d)(%d, %d)[%d]",
 						id, input_x, input_y, input_w);
@@ -1820,7 +1758,7 @@ s32 gt1x_init(void)
 	u8 reg_val[1];
 
 	GTP_INFO("start %s ++", __func__);
-
+	addr_selected = 1;
 	while (retry++ < 5) {
 		gt1x_init_failed = 0;
 		/* get chip type */
