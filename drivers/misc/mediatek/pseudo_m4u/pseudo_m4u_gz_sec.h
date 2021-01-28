@@ -30,7 +30,7 @@ struct m4u_sec_ty_context {
 
 struct m4u_gz_sec_context {
 	const char *name;
-	struct m4u_msg *m4u_msg;
+	struct gz_m4u_msg *gz_m4u_msg;
 	void *imp;
 };
 
