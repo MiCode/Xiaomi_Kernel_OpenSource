@@ -31,11 +31,10 @@
 
 #include "mtk_gpufreq_core.h"
 
-/* Todo: When thermal ready, change to CONFIG_THERMAL */
-#ifdef MT_GPUFREQ_THERMAL_SUPPORT
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 /* #include "mtk_thermal_typedefs.h" */
 #include "mtk_thermal.h"
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 #ifdef FHCTL_READY
 #include "mt_freqhopping.h"
@@ -593,9 +592,9 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
 	temp = 40;
-#ifdef MT_GPUFREQ_THERMAL_SUPPORT
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	temp = get_immediate_gpu_wrap() / 1000;
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 #ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
 	leak_power = mt_spower_get_leakage(MTK_SPOWER_GPU, cur_vcore, temp);
@@ -1454,14 +1453,11 @@ static void __mt_gpufreq_set(unsigned int freq_old, unsigned int freq_new,
 #endif
 	}
 
-	/* [Eric] Todo:
-	 * Because clk module is in module init before GKI ready,
-	 * comment their function for now.
-	 */
-	// gpufreq_pr_debug(
-	//	"@%s: real_freq = %d, real_volt = %d, real_vsram_volt = %d\n",
-	//	__func__, mt_get_ckgen_freq(9), __mt_gpufreq_get_cur_volt(),
-	//	__mt_gpufreq_get_cur_vsram_volt());
+
+	gpufreq_pr_debug(
+		"@%s: real_freq = %d, real_volt = %d, real_vsram_volt = %d\n",
+		__func__, mt_get_ckgen_freq(9), __mt_gpufreq_get_cur_volt(),
+		__mt_gpufreq_get_cur_vsram_volt());
 
 	g_cur_opp_freq = freq_new;
 	g_cur_opp_volt = volt_new;
@@ -2002,9 +1998,9 @@ static void __mt_update_gpufreqs_power_table(void)
 	unsigned int volt = 0;
 
 	temp = 40;
-#ifdef MT_GPUFREQ_THERMAL_SUPPORT
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	temp = get_immediate_gpu_wrap() / 1000;
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
 
@@ -2224,9 +2220,9 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 		return;
 
 	temp = 40;
-#ifdef MT_GPUFREQ_THERMAL_SUPPORT
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	temp = get_immediate_gpu_wrap() / 1000;
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
 
@@ -2248,9 +2244,9 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 				g_power_table[i].gpufreq_power);
 	}
 
-#ifdef MT_GPUFREQ_THERMAL_SUPPORT
+#ifdef CONFIG_MTK_LEGACY_THERMAL
 	mtk_gpufreq_register(g_power_table, num);
-#endif /* ifdef CONFIG_THERMAL */
+#endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 }
 
 /*
@@ -2305,12 +2301,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	GPUFREQ_UNREFERENCED(g_efuse_base);
 	GPUFREQ_UNREFERENCED(__mt_gpufreq_get_opp_idx_by_volt);
 
-	/* [Eric] Todo:
-	 * Because clk module is in module init before GKI ready,
-	 * comment their function for now.
-	 */
-	// gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
-	//		__func__, mt_get_ckgen_freq(9));
+	gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
+			__func__, mt_get_ckgen_freq(9));
 
 	g_opp_stress_test_state = false;
 	g_DVFS_off_by_ptpod_idx = 0;
