@@ -2187,6 +2187,7 @@ static int vpu_probe(struct platform_device *pdev)
 	init_waitqueue_head(&vpu_device->req_wait);
 	INIT_LIST_HEAD(&vpu_device->device_debug_list);
 	mutex_init(&vpu_device->debug_list_mutex);
+	idr_init(&vpu_device->addr_idr);
 
 	ret = vpu_initialize(pdev, vpu_device);
 	if (ret)
@@ -2215,6 +2216,8 @@ static int vpu_remove(struct platform_device *pdev)
 	}
 
 	vpu_deinitialize(vpu_device);
+
+	idr_destroy(&vpu_device->addr_idr);
 
 	ret = vpu_core_detach(pdev, vpu_device);
 	if (ret)

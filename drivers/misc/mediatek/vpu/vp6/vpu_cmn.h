@@ -195,6 +195,7 @@ struct vpu_device {
 
 	/* algo binary data */
 	struct vpu_shared_memory *algo_binary_data;
+	struct idr addr_idr;
 };
 
 struct vpu_user {
