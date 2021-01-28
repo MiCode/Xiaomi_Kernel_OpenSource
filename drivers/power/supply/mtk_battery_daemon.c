@@ -102,8 +102,11 @@ int gauge_get_average_current(struct mtk_battery *gm, bool *valid)
 		if (ver >= GAUGE_HW_V1000 &&
 			ver < GAUGE_HW_V2000)
 			iavg = gm->sw_iavg;
-		else
+		else {
 			*valid = gm->gauge->fg_hw_info.current_avg_valid;
+			iavg =
+			gauge_get_int_property(GAUGE_PROP_AVERAGE_CURRENT);
+		}
 	}
 
 	return iavg;

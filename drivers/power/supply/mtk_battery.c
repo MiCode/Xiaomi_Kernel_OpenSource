@@ -208,6 +208,22 @@ bool is_kernel_power_off_charging(void)
 /* ============================================================ */
 /* power supply: battery */
 /* ============================================================ */
+int check_cap_level(int uisoc)
+{
+	if (uisoc >= 100)
+		return POWER_SUPPLY_CAPACITY_LEVEL_FULL;
+	else if (uisoc >= 80 && uisoc < 100)
+		return POWER_SUPPLY_CAPACITY_LEVEL_HIGH;
+	else if (uisoc >= 20 && uisoc < 80)
+		return POWER_SUPPLY_CAPACITY_LEVEL_NORMAL;
+	else if (uisoc >= 5 && uisoc < 20)
+		return POWER_SUPPLY_CAPACITY_LEVEL_LOW;
+	else if (uisoc >= 0 && uisoc < 5)
+		return POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
+	else
+		return POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
+}
+
 static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
@@ -221,6 +237,9 @@ static enum power_supply_property battery_props[] = {
 	POWER_SUPPLY_PROP_CHARGE_FULL,
 	POWER_SUPPLY_PROP_CHARGE_COUNTER,
 	POWER_SUPPLY_PROP_TEMP,
+	POWER_SUPPLY_PROP_CAPACITY_LEVEL,
+	POWER_SUPPLY_PROP_TIME_TO_FULL_NOW,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
 };
 
 static int battery_psy_get_property(struct power_supply *psy,
@@ -289,6 +308,52 @@ static int battery_psy_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = force_get_tbat(gm, true) * 10;
 		break;
+	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
+		val->intval = check_cap_level(bs_data->bat_capacity);
+		break;
+	case POWER_SUPPLY_PROP_TIME_TO_FULL_NOW:
+		/* full or unknown must return 0 */
+		ret = check_cap_level(bs_data->bat_capacity);
+		if ((ret == POWER_SUPPLY_CAPACITY_LEVEL_FULL) ||
+			(ret == POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN))
+			val->intval = 0;
+		else {
+			int q_max_now = gm->fg_table_cust_data.fg_profile[
+						gm->battery_id].q_max;
+			int remain_ui = 100 - bs_data->bat_capacity;
+			int remain_mah = remain_ui * q_max_now / 10;
+			int current_now =
+			gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT);
+
+			int time_to_full = 0;
+
+			time_to_full = remain_mah * 360 / current_now;
+			val->intval = time_to_full;
+		}
+		ret = 0;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		if (check_cap_level(bs_data->bat_capacity) ==
+			POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN)
+			val->intval = 0;
+		else {
+			int q_max_mah = 0;
+			int q_max_uah = 0;
+
+			q_max_mah =
+				gm->fg_table_cust_data.fg_profile[
+				gm->battery_id].q_max / 10;
+
+			q_max_uah = q_max_mah * 1000;
+			if (q_max_uah <= 100000) {
+				bm_debug("%s q_max_mah:%d q_max_uah:%d\n",
+					__func__, q_max_mah, q_max_uah);
+				q_max_uah = 100001;
+			}
+			val->intval = q_max_uah;
+		}
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -352,7 +417,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 
 		/* plug in out */
 		cur_chr_type = prop_type.intval;
-/*
+
 		if (cur_chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
 			if (gm->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_OUT);
@@ -360,7 +425,6 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 			if (gm->chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
 		}
-*/
 
 	}
 
@@ -2961,7 +3025,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
-	gm->log_level = BMLOG_ERROR_LEVEL;
+	gm->log_level = BMLOG_DEBUG_LEVEL;
 	gm->sw_iavg_gap = 3000;
 
 	init_waitqueue_head(&gm->wait_que);
