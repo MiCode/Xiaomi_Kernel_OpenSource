@@ -778,8 +778,6 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		return -EFAULT;	/* Invalid buffer */
 	}
 
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	if ((buffer_info->module_id == -1) &&
 	    (buffer_info->fix_module_id == -1)) {
 		IONMSG("[%s] warning. Buffer:0x%p not configured.\n",
@@ -787,7 +785,6 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		ion_buffer_dump(buffer, NULL);
 		return -EDOM;
 	}
-#endif
 
 	memset((void *)&port_info, 0, sizeof(port_info));
 	port_info.cache_coherent = buffer_info->coherent;
@@ -965,13 +962,12 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	ret = 0;
 
 out:
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+
 	if ((port_info.flags & M4U_FLAGS_FIX_MVA) == 0)
 		buffer_info->module_id = -1;
 	else
 		buffer_info->fix_module_id = -1;
-#endif
+
 	return ret;
 }
 
@@ -1795,30 +1791,23 @@ static int mtk_ion_copy_param(unsigned int type,
 				    param.config_buffer_param.module_id;
 			break;
 		}
-#ifndef CONFIG_MTK_IOMMU_V2
-		if ((buffer_info->MVA[domain_idx] == 0 &&
-		     mm_cmd == ION_MM_CONFIG_BUFFER) ||
-		    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
-			mm_cmd == ION_MM_CONFIG_BUFFER_EXT)) {
-#endif
-			buffer_info->security =
-			    param.config_buffer_param.security;
-			buffer_info->coherent =
-			    param.config_buffer_param.coherent;
-			if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT) {
-				buffer_info->iova_start[domain_idx] =
-				param.config_buffer_param.reserve_iova_start;
-				buffer_info->iova_end[domain_idx] =
-				param.config_buffer_param.reserve_iova_end;
-				buffer_info->fix_module_id =
-					param.config_buffer_param.module_id;
-			} else if (mm_cmd == ION_MM_CONFIG_BUFFER) {
-				buffer_info->module_id =
-				    param.config_buffer_param.module_id;
-			}
-#ifndef CONFIG_MTK_IOMMU_V2
+
+		buffer_info->security =
+		    param.config_buffer_param.security;
+		buffer_info->coherent =
+		    param.config_buffer_param.coherent;
+		if (mm_cmd == ION_MM_CONFIG_BUFFER_EXT) {
+			buffer_info->iova_start[domain_idx] =
+			param.config_buffer_param.reserve_iova_start;
+			buffer_info->iova_end[domain_idx] =
+			param.config_buffer_param.reserve_iova_end;
+			buffer_info->fix_module_id =
+				param.config_buffer_param.module_id;
+		} else if (mm_cmd == ION_MM_CONFIG_BUFFER) {
+			buffer_info->module_id =
+			    param.config_buffer_param.module_id;
 		}
-#endif
+
 		break;
 	case 2:
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
@@ -1851,30 +1840,23 @@ static int mtk_ion_copy_param(unsigned int type,
 				    param.get_phys_param.module_id;
 			break;
 		}
-#ifndef CONFIG_MTK_IOMMU_V2
-		if ((buffer_info->MVA[domain_idx] == 0 &&
-		     mm_cmd == ION_MM_GET_IOVA) ||
-		    (buffer_info->FIXED_MVA[domain_idx] == 0 &&
-			mm_cmd == ION_MM_GET_IOVA_EXT)) {
-#endif
-			buffer_info->security =
-			    param.get_phys_param.security;
-			buffer_info->coherent =
-			    param.get_phys_param.coherent;
-			if (mm_cmd == ION_MM_GET_IOVA_EXT) {
-				buffer_info->iova_start[domain_idx] =
-					param.get_phys_param.reserve_iova_start;
-				buffer_info->iova_end[domain_idx] =
-					param.get_phys_param.reserve_iova_end;
-				buffer_info->fix_module_id =
-				    param.get_phys_param.module_id;
-			} else if (mm_cmd == ION_MM_GET_IOVA) {
-				buffer_info->module_id =
-				    param.get_phys_param.module_id;
-			}
-#ifndef CONFIG_MTK_IOMMU_V2
+
+		buffer_info->security =
+		    param.get_phys_param.security;
+		buffer_info->coherent =
+		    param.get_phys_param.coherent;
+		if (mm_cmd == ION_MM_GET_IOVA_EXT) {
+			buffer_info->iova_start[domain_idx] =
+				param.get_phys_param.reserve_iova_start;
+			buffer_info->iova_end[domain_idx] =
+				param.get_phys_param.reserve_iova_end;
+			buffer_info->fix_module_id =
+			    param.get_phys_param.module_id;
+		} else if (mm_cmd == ION_MM_GET_IOVA) {
+			buffer_info->module_id =
+			    param.get_phys_param.module_id;
 		}
-#endif
+
 		break;
 	default:
 		break;
