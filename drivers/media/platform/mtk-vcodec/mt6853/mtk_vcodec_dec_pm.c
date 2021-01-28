@@ -444,9 +444,9 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
 					BW_COMP_DEFAULT);
 	} else {
-		mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
 		mm_qos_set_request(&vdec_pp, emi_bw_output, 0, BW_COMP_NONE);
 	}
+	mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_pred_rd, 1, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
