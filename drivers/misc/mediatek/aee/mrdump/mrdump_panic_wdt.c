@@ -148,6 +148,10 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 #ifndef CONFIG_ARM64
 	cur_frame.sp = regs->reg_sp;
 	cur_frame.lr = regs->reg_lr;
+#else
+#ifdef CONFIG_FUNCTION_GRAPH_TRACER
+	cur_frame.graph = current->curr_ret_stack;
+#endif
 #endif
 	wdt_percpu_stackframe[cpu][0] = regs->reg_pc;
 	for (i = 1; i < MAX_EXCEPTION_FRAME; i++) {
