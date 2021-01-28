@@ -645,8 +645,6 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	spinlock_t				sGPUUtilLock;
 #endif
 
-	POS_LOCK				hGPUUtilLock;
-
 	/* Register configuration */
 	RGX_REG_CONFIG			sRegCongfig;
 
