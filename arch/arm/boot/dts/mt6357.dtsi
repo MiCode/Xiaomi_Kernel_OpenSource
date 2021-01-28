@@ -105,6 +105,7 @@
 	mtk_gauge: mtk_gauge {
 		compatible = "mediatek,mt6357-gauge";
 		charger = <&mt6370_chg>;
+		bootmode = <&chosen>;
 		io-channels = <&pmic_auxadc AUXADC_BAT_TEMP>,
 				<&pmic_auxadc AUXADC_BATADC>,
 				<&pmic_auxadc AUXADC_VBIF>,
