@@ -3995,7 +3995,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	init_cmdq_slots(&(pgc->dsi_vfp_line), 1, 0);
 	init_cmdq_slots(&(pgc->night_light_params), 17, 0);
 	init_cmdq_slots(&(pgc->hrt_idx_id), 1, 0);
-	init_cmdq_slots(&(pgc->ovl_dummy_info), OVL_NUM, 0);
+	init_cmdq_slots(&(pgc->ovl_sbch_info), OVL_NUM, 0);
 
 	/* init night light params */
 	mem_config.m_ccorr_config.is_dirty = 1;
@@ -5496,10 +5496,17 @@ done:
 int primary_display_aod_backlight(int level)
 {
 	int ret;
+	enum mtkfb_power_mode cur_pm;
 
 	_primary_path_lock(__func__);
 
-	DISPDBG("hold the wakelock...\n");
+	cur_pm = primary_display_get_power_mode_nolock();
+
+	if (cur_pm != DOZE_SUSPEND && cur_pm != DOZE) {
+		DISP_PR_INFO("%s not in AOD, skip it\n", __func__);
+		_primary_path_unlock(__func__);
+		return 0;
+	}
 	__pm_stay_awake(pri_wk_lock);
 
 	if (pgc->state == DISP_ALIVE) {
@@ -5595,6 +5602,11 @@ int primary_display_aod_backlight(int level)
 		/* goto done; */
 	}
 
+	/* Wait a non-used token for dummy trigger loop to prevent that
+	 * the busy trigger loop affects other modules
+	 */
+	cmdqRecWait(pgc->cmdq_handle_trigger, CMDQ_SYNC_TOKEN_FREEZE_EOF);
+
 	DISPCHECK("%s start trig loop\n", __func__);
 	cmdqRecReset(pgc->cmdq_handle_trigger);
 	cmdqRecStartLoop(pgc->cmdq_handle_trigger);
@@ -5606,6 +5618,12 @@ int primary_display_aod_backlight(int level)
 skip_resume:
 
 	primary_display_setbacklight_nolock(level);
+
+	/* If set backlight under DOZE mode, skip power down display */
+	if (cur_pm == DOZE)
+		goto skip_suspend;
+
+	/* Power down display if cur_pm is DOZE_SUSPEND */
 
 	/* blocking flush before stop trigger loop */
 	_blocking_flush();
@@ -5664,6 +5682,7 @@ skip_resume:
 	DISPDBG("release wakelock...\n");
 	__pm_relax(pri_wk_lock);
 
+skip_suspend:
 	_primary_path_unlock(__func__);
 
 	DISPCHECK("%s end\n", __func__);
@@ -6910,9 +6929,9 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 
 			/* full transparent layer */
 			cmdqRecBackupRegisterToSlot(cmdq_handle,
-				pgc->ovl_dummy_info, i,
+				pgc->ovl_sbch_info, i,
 				disp_addr_convert
-				(DISP_REG_OVL_DUMMY_REG + ovl_base));
+				(DISP_REG_OVL_SBCH_STS + ovl_base));
 		}
 	}
 
@@ -8417,55 +8436,6 @@ int primary_display_ccci_osc_callback(int en, unsigned int usrdata)
 	return 0;
 }
 EXPORT_SYMBOL(primary_display_ccci_osc_callback);
-
-int primary_display_mipi_clk_change(unsigned int clk_value)
-{
-	struct cmdqRecStruct *cmdq_handle = NULL;
-
-	if (pgc->state == DISP_SLEPT) {
-		DISPCHECK("Sleep State clk change invalid\n");
-		return 0;
-	}
-
-	_primary_path_lock(__func__);
-
-	if (!primary_display_is_video_mode()) {
-		DISPCHECK("clk change CMD Mode return\n");
-		return 0;
-	}
-
-	cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
-	cmdqRecReset(cmdq_handle);
-
-	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
-	pgc->plcm->params->dsi.PLL_CLOCK = clk_value;
-
-	dpmgr_path_build_cmdq(pgc->dpmgr_handle, cmdq_handle,
-			      CMDQ_STOP_VDO_MODE, 0);
-
-	dpmgr_path_ioctl(primary_get_dpmgr_handle(), cmdq_handle,
-			 DDP_PHY_CLK_CHANGE, &clk_value);
-
-	dpmgr_path_build_cmdq(pgc->dpmgr_handle, cmdq_handle,
-			      CMDQ_START_VDO_MODE, 0);
-
-	cmdqRecClearEventToken(cmdq_handle, CMDQ_EVENT_MUTEX0_STREAM_EOF);
-	cmdqRecClearEventToken(cmdq_handle, CMDQ_EVENT_DISP_RDMA0_EOF);
-
-	dpmgr_path_trigger(pgc->dpmgr_handle, cmdq_handle, CMDQ_ENABLE);
-	ddp_mutex_set_sof_wait(dpmgr_path_get_mutex(pgc->dpmgr_handle),
-			       pgc->cmdq_handle_config_esd, 0);
-	_cmdq_flush_config_handle_mira(cmdq_handle, 1);
-
-	cmdqRecDestroy(cmdq_handle);
-	cmdq_handle = NULL;
-
-	DISPCHECK("%s return\n", __func__);
-
-	_primary_path_unlock(__func__);
-
-	return 0;
-}
 
 /********************** Legacy DISP API ****************************/
 UINT32 DISP_GetScreenWidth(void)

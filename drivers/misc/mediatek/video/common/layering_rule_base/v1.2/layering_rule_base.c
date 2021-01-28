@@ -1999,6 +1999,7 @@ int layering_rule_start(struct disp_layer_info *disp_info_user, int debug_mode)
 		roll_gpu_for_idle = 1;
 		rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
+		layering_info.hrt_weight = 2;
 	} else if (l_rule_ops->adaptive_dc_enabled == NULL ||
 		   !l_rule_ops->adaptive_dc_enabled() ||
 		   l_rule_info->dal_enable ||

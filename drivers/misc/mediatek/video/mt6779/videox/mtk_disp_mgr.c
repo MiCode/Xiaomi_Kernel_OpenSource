@@ -1513,7 +1513,7 @@ int _ioctl_wait_self_refresh_trigger(unsigned long arg)
 	ret = wait_event_interruptible(repaint_wq,
 			!list_empty(&repaint_job_queue));
 	if (ret < 0) {
-		DISP_PR_ERR("[REPAINT] wait_event unexpectedly, ret:%d\n", ret);
+		DISPINFO("[REPAINT] wait_event unexpectedly, ret:%d\n", ret);
 		return ret;
 	}
 

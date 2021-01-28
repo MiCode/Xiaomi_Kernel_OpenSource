@@ -185,6 +185,7 @@ static int __set_bw(enum DISP_MODULE_ENUM module,
 		return -1;
 	}
 
+	bandwidth = bandwidth * OCCUPIED_BW_RATIO / 1000;
 	mm_qos_set_bw_request(request, bandwidth, BW_COMP_NONE);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
@@ -213,6 +214,7 @@ static int __set_fbdc_bw(enum DISP_MODULE_ENUM module,
 		return -1;
 	}
 
+	bandwidth = bandwidth * OCCUPIED_BW_RATIO / 1000;
 	mm_qos_set_bw_request(request, bandwidth, BW_COMP_DEFAULT);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
@@ -296,7 +298,7 @@ int prim_disp_request_hrt_bw(int overlap_num,
 		__set_hrt_bw(DISP_MODULE_OVL0, tmp);
 		__set_hrt_bw(DISP_MODULE_OVL0_2L, tmp);
 		__set_hrt_bw(DISP_MODULE_WDMA0, wdma_bw);
-		__set_hrt_bw(DISP_MODULE_RDMA0, 0);
+		__set_hrt_bw(DISP_MODULE_RDMA0, wdma_bw);
 		break;
 	default:
 		DISPINFO("invalid HRT scenario %s\n",

@@ -219,6 +219,9 @@ int ovl_start(enum DISP_MODULE_ENUM module, void *handle)
 	SET_VAL_MASK(value, mask, 1, FLD_FBDC_8XE_MODE);
 	SET_VAL_MASK(value, mask, 1, FLD_FBDC_FILTER_EN);
 	DISP_REG_MASK(handle, baddr + DISP_REG_OVL_FBDC_CFG1, value, mask);
+
+	DISP_REG_SET_FIELD(handle, SRC_CON_FORCE_RELAY_MODE,
+			   baddr + DISP_REG_OVL_SRC_CON, 1);
 	return 0;
 }
 
@@ -1640,7 +1643,7 @@ static unsigned long long full_trans_bw_calc(struct sbch *data,
 {
 	unsigned long long bw_sum = 0;
 	unsigned int bpp = 0;
-	unsigned int dum_val = 0;
+	unsigned int sbch_info = 0;
 	/* don't check status for cmd mode */
 	unsigned int status = 0;
 
@@ -1652,10 +1655,10 @@ static unsigned long long full_trans_bw_calc(struct sbch *data,
 			cmdqBackupReadSlot(pgc->ovl_status_info,
 					0, &status);
 		if (!(0x01 & status)) {
-			cmdqBackupReadSlot(pgc->ovl_dummy_info,
-				module, &dum_val);
+			cmdqBackupReadSlot(pgc->ovl_sbch_info,
+				module, &sbch_info);
 			data->full_trans_en =
-				((0x01 << cfg->phy_layer) & dum_val);
+				((0x01 << (cfg->phy_layer * 4)) & sbch_info);
 
 			if (data->full_trans_en)
 				DISPINFO("trans layer %d\n", cfg->phy_layer);
@@ -1667,6 +1670,10 @@ static unsigned long long full_trans_bw_calc(struct sbch *data,
 		bpp = ufmt_get_Bpp(cfg->fmt);
 		bw_sum = (unsigned long long)cfg->dst_w * cfg->dst_h * bpp;
 	}
+	DISPDBG(
+		"%s cnt:%llu, sts:0x%x, info:0x%x, tr_en:%d, l:%d, bw:%llu\n",
+		__func__, data->sbch_en_cnt, status, sbch_info,
+		data->full_trans_en, cfg->phy_layer, bw_sum);
 
 	return bw_sum;
 }
@@ -1964,7 +1971,7 @@ static int sbch_calc(enum DISP_MODULE_ENUM module,
 	DISP_REG_SET(handle, ovl_base_addr(module) + DISP_REG_OVL_SBCH_EXT,
 		ext_bit[UPDATE] | ext_bit[TRANS_EN] | ext_bit[CNST_EN]);
 	/* clear slot */
-	cmdqBackupWriteSlot(pgc->ovl_dummy_info, module, 0);
+	cmdqBackupWriteSlot(pgc->ovl_sbch_info, module, 0);
 
 	sbch_bw_data->trans_bw = trans_bw;
 	sbch_bw_data->trans_fbdc_bw = trans_fbdc_bw;

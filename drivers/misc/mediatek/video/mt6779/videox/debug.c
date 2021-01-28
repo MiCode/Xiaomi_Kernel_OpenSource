@@ -758,18 +758,6 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "dsi_mode:vdo", 12) == 0) {
 		DISPMSG("switch vdo\n");
 		lcm_mode_status = 2;
-	} else if (strncmp(opt, "clk_change:", 11) == 0) {
-		char *p = (char *)opt + 11;
-		unsigned int clk = 0;
-
-		ret = kstrtouint(p, 0, &clk);
-		if (ret) {
-			DISP_PR_INFO("%d error to parse cmd %s\n",
-				     __LINE__, opt);
-			return;
-		}
-		DISPCHECK("clk_change:%d\n", clk);
-		primary_display_mipi_clk_change(clk);
 	} else if (strncmp(opt, "dsipattern:", 11) == 0) {
 		char *p = (char *)opt + 11;
 		unsigned int pattern;

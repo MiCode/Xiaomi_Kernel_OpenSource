@@ -226,7 +226,7 @@ struct display_primary_path_context {
 	cmdqBackupSlotHandle subtractor_when_free;
 	cmdqBackupSlotHandle rdma_buff_info;
 	cmdqBackupSlotHandle ovl_status_info;
-	cmdqBackupSlotHandle ovl_dummy_info;
+	cmdqBackupSlotHandle ovl_sbch_info;
 	cmdqBackupSlotHandle ovl_config_time;
 	cmdqBackupSlotHandle dither_status_info;
 	cmdqBackupSlotHandle dsi_vfp_line;
@@ -395,7 +395,6 @@ int primary_display_cmdq_set_reg(unsigned int addr, unsigned int val);
 int primary_display_vsync_switch(int method);
 int primary_display_setlcm_cmd(unsigned int *lcm_cmd, unsigned int *lcm_count,
 			       unsigned int *lcm_value);
-int primary_display_mipi_clk_change(unsigned int clk_value);
 int primary_display_ccci_mipi_callback(int en, unsigned int userdata);
 
 void _cmdq_insert_wait_frame_done_token_mira(void *handle);
@@ -465,6 +464,7 @@ int primary_display_set_scenario(int scenario);
 enum DISP_MODULE_ENUM _get_dst_module_by_lcm(struct disp_lcm_handle *plcm);
 extern void check_mm0_clk_sts(void);
 int primary_display_get_dvfs_last_req(void);
+int primary_display_is_directlink_mode(void);
 
 extern struct lcm_fps_ctx_t lcm_fps_ctx;
 int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx);

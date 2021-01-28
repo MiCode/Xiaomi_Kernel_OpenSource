@@ -10,9 +10,9 @@
 #include "ddp_hal.h"
 #include "ddp_info.h"
 
-/*limit 18:9 */
+/*limit 21:9 */
 #define SBCH_WIDTH      (1080)
-#define SBCH_HEIGHT     (2160)
+#define SBCH_HEIGHT     (2520)
 
 #define OVL_MAX_WIDTH  (4095)
 #define OVL_MAX_HEIGHT (4095)

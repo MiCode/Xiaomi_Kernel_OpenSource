@@ -727,6 +727,7 @@ static void _vdo_mode_enter_idle(void)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 	unsigned int out_fps = 60;
+	unsigned int in_fps = 0;
 #endif
 
 	DISPDBG("[LP]%s\n", __func__);
@@ -802,7 +803,9 @@ static void _vdo_mode_enter_idle(void)
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* update bandwidth */
-	disp_pm_qos_set_rdma_bw(out_fps, &bandwidth);
+	if (primary_display_is_directlink_mode())
+		in_fps = 60;
+	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
 }
