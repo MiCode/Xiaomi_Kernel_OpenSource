@@ -33,10 +33,10 @@
 	/* chosen */
 	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 \
-			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
-			cgroup.memory=nosocket,nokmem \
-			androidboot.hardware=mt6771 \
-			firmware_class.path=/vendor/firmware";
+vmalloc=400M slub_debug=OFZPU swiotlb=noforce page_owner=on \
+cgroup.memory=nosocket,nokmem \
+androidboot.hardware=mt6771 \
+firmware_class.path=/vendor/firmware";
 		kaslr-seed = <0 0>;
 	};
 
