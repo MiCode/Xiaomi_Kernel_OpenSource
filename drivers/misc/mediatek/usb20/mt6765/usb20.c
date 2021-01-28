@@ -207,26 +207,21 @@ static int mt_usb_psy_notifier(struct notifier_block *nb,
 
 static int mt_usb_psy_init(struct musb *musb)
 {
-	int ret;
-	struct device_node *node = NULL;
+	int ret = 0;
+	struct device *dev = musb->controller->parent;
 
-	node = of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6761-usb20");
-	musb->usb_psy = power_supply_get_by_phandle(node, "charger");
+	musb->usb_psy = devm_power_supply_get_by_phandle(dev, "charger");
 	if (IS_ERR_OR_NULL(musb->usb_psy)) {
 		DBG(0, "couldn't get usb_psy\n");
-		ret = PTR_ERR(musb->usb_psy);
-		return ret;
+		return -EINVAL;
 	}
 
 	musb->psy_nb.notifier_call = mt_usb_psy_notifier;
 	ret = power_supply_reg_notifier(&musb->psy_nb);
-	if (ret) {
+	if (ret)
 		DBG(0, "failed to reg notifier: %d\n", ret);
-		return ret;
-	}
 
-	return 0;
+	return ret;
 }
 
 static struct delayed_work idle_work;
