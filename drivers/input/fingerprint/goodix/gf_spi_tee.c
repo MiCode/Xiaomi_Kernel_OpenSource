@@ -27,6 +27,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
+#include <linux/pm_wakeup.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #else
@@ -101,6 +102,7 @@ u32 gf_spi_speed = 1*1000000;
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
+static struct wakeup_source fp_wakeup_source;
 static unsigned int bufsiz = (25 * 1024);
 module_param(bufsiz, uint, 0444);
 MODULE_PARM_DESC(bufsiz, "maximum data bytes for SPI message");
@@ -739,6 +741,8 @@ static irqreturn_t gf_irq(int irq, void *handle)
 	struct gf_device *gf_dev = (struct gf_device *)handle;
 
 	FUNC_ENTRY();
+
+	__pm_wakeup_event(&fp_wakeup_source, 500);
 
 	gf_netlink_send(gf_dev, GF_NETLINK_IRQ);
 	gf_dev->sig_count++;
@@ -2352,6 +2356,9 @@ static int gf_probe(struct spi_device *spi)
 		status = -ENODEV;
 		goto err_input_2;
 	}
+
+	/* wakeup source init */
+	wakeup_source_init(&fp_wakeup_source, "fingerprint wakelock");
 
 	/* netlink interface init */
 	status = gf_netlink_init(gf_dev);
