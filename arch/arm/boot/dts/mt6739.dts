@@ -1295,6 +1295,7 @@
 		idvfs = /bits/ 8 <0>;
 		set_dt_div = /bits/ 8 <1>;
 		check_max_freq = /bits/ 8 <1>;
+		ver = /bits/ 8 <1>;
 		set_ltiming = /bits/ 8 <1>;
 		set_aed = /bits/ 8 <1>;
 		ext_time_config = /bits/ 16 <0x1801>;
