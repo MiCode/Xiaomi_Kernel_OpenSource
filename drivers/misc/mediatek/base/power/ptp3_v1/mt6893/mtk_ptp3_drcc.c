@@ -163,23 +163,23 @@ int drcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 				PTP3_FEATURE_DRCC, DRCC_GROUP_READ,
 				DRCC_L_AOREG_OFFSET, drcc_n);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"[DRCC][CPU%d] ", drcc_n);
 			str_len += snprintf(aee_log_buf + str_len,
-					(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"drcc_enable:0x%x, ", drcc_l.drcc_enable);
 			str_len += snprintf(aee_log_buf + str_len,
-					(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"drcc_code:0x%x, ", drcc_l.drcc_code);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"drcc_hwgatepct:0x%x, ", drcc_l.drcc_hwgatepct);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"drcc_verffilt:0x%x, ", drcc_l.drcc_verffilt);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
-				"drcc_autocalibdelay:0x%x\n ", drcc_l.drcc_autocalibdelay);
+				drcc_mem_size - str_len,
+				"drcc_autocalibdelay:0x%x\n", drcc_l.drcc_autocalibdelay);
 		} else {
 			for (i = 0; i < DRCC_REG_CNT ; i++) {
 				value_b[i] = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
@@ -187,73 +187,73 @@ int drcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 					DRFC_V101_OFFSET + (i * 4), drcc_n);
 			}
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"[DRCC][CPU%d] ", drcc_n);
 			str_len += snprintf(aee_log_buf + str_len,
-					(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"SamplerEn:0x%x, ", drcc_b.drcc_SamplerEn);
 			str_len += snprintf(aee_log_buf + str_len,
-					(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccGateEn:0x%x, ", drcc_b.drcc_DrccGateEn);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"ConfigComplete:0x%x, ", drcc_b.drcc_ConfigComplete);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccCode:0x%x, ", drcc_b.drcc_DrccCode);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccVrefFilt:0x%x, ", drcc_b.drcc_DrccVrefFilt);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccClockEdgeSel:0x%x, ", drcc_b.drcc_DrccClockEdgeSel);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccForceTrim:0x%x, ", drcc_b.drcc_DrccForceTrim);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"ForceTrimEn:0x%x, ", drcc_b.drcc_ForceTrimEn);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"AutoCalibDelay:0x%x, ", drcc_b.drcc_AutoCalibDelay);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccCMP:0x%x, ", drcc_b.drcc_DrccCMP);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccAutoCalibDone:0x%x, ", drcc_b.drcc_DrccAutoCalibDone);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccAutoCalibError:0x%x, ", drcc_b.drcc_DrccAutoCalibError);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"DrccAutoCalibTrim:0x%x, ", drcc_b.drcc_DrccAutoCalibTrim);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"EventSource0:0x%x, ", drcc_b.drcc_EventSource0);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"EventType0:0x%x, ", drcc_b.drcc_EventType0);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"EventSource1:0x%x, ", drcc_b.drcc_EventSource1);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"EventType1:0x%x, ", drcc_b.drcc_EventType1);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"EventFreeze:0x%x, ", drcc_b.drcc_EventFreeze);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
+				drcc_mem_size - str_len,
 				"EventCount0:0x%x, ", drcc_b.drcc_EventCount0);
 			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)drcc_mem_size - str_len,
-				"EventCount1:0x%x,\n ", drcc_b.drcc_EventCount1);
+				drcc_mem_size - str_len,
+				"EventCount1:0x%x,\n", drcc_b.drcc_EventCount1);
 		}
 	}
 
 	if (str_len > 0)
-		memcpy(buf, aee_log_buf, str_len+1);
+		memcpy(buf, aee_log_buf, str_len + 1);
 
 	drcc_debug("\n%s", aee_log_buf);
 	drcc_debug("\n%s", buf);
