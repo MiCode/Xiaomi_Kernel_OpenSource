@@ -2940,6 +2940,7 @@ MSDC_PROC_SHOW(size, "%d\n", ((u32)card->ext_csd.raw_sectors[3]<<24)
 	+ ((u32)card->ext_csd.raw_sectors[2]<<16) +
 ((u32)card->ext_csd.raw_sectors[1]<<8)+((u32)card->ext_csd.raw_sectors[0]));
 
+#ifdef CONFIG_MTK_MMC_DEBUG
 static const struct file_operations *proc_fops_list[] = {
 	&cid_fops,
 	&life_time_est_typ_a_fops,
@@ -3022,4 +3023,16 @@ int msdc_debug_proc_init(void)
 #endif
 	return 0;
 }
+#else
+int msdc_debug_proc_init_bootdevice(void)
+{
+	pr_notice("[%s]: CONFIG_MTK_MMC_DEBUG is not set\n", __func__);
+	return 0;
+}
+int msdc_debug_proc_init(void)
+{
+	pr_notice("[%s]: CONFIG_MTK_MMC_DEBUG is not set\n", __func__);
+	return 0;
+}
+#endif
 EXPORT_SYMBOL_GPL(msdc_debug_proc_init);
