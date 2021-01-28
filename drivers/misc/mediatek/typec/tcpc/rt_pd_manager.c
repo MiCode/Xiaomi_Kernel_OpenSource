@@ -14,13 +14,13 @@
 #include <linux/pm.h>
 #include <linux/reboot.h>
 #include <linux/workqueue.h>
+#include <linux/power_supply.h>
 
 #ifdef CONFIG_MTK_BOOT
 #include <mt-plat/mtk_boot.h>
 #endif
 #ifdef CONFIG_MTK_CHARGER
-#include <mt-plat/mtk_charger.h>
-#include <mt-plat/charger_class.h>
+#include <charger_class.h>
 #endif
 
 #include "inc/tcpm.h"
@@ -29,7 +29,7 @@
 
 struct rt_pd_manager_data {
 	struct charger_device *chg_dev;
-	struct charger_consumer *chg_consumer;
+	struct power_supply *chg_psy;
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block pd_nb;
 	struct mutex param_lock;
@@ -58,6 +58,9 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 		struct rt_pd_manager_data, pd_nb);
 	int pd_sink_mv_new, pd_sink_ma_new;
 	u8 pd_sink_type;
+#ifdef CONFIG_MTK_CHARGER
+	union power_supply_propval propval;
+#endif
 
 	switch (event) {
 	case TCP_NOTIFY_SINK_VBUS:
@@ -110,8 +113,9 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			if (rpmd->tcpc_kpoc) {
 				pr_info("Water is detected in KPOC, disable HV charging\n");
 #ifdef CONFIG_MTK_CHARGER
-				charger_manager_enable_high_voltage_charging(
-						   rpmd->chg_consumer, false);
+			propval.intval = false;
+			power_supply_set_property(rpmd->chg_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX, &propval);
 #endif
 			}
 		} else {
@@ -119,8 +123,9 @@ static int pd_tcp_notifier_call(struct notifier_block *nb,
 			if (rpmd->tcpc_kpoc) {
 				pr_info("Water is removed in KPOC, enable HV charging\n");
 #ifdef CONFIG_MTK_CHARGER
-				charger_manager_enable_high_voltage_charging(
-						    rpmd->chg_consumer, true);
+			propval.intval = true;
+			power_supply_set_property(rpmd->chg_psy,
+				POWER_SUPPLY_PROP_VOLTAGE_MAX, &propval);
 #endif
 			}
 		}
@@ -175,11 +180,10 @@ static int rt_pd_manager_probe(struct platform_device *pdev)
 		goto err_mutex;
 	}
 
-	rpmd->chg_consumer = charger_manager_get_by_name(&pdev->dev,
-							 "charger_port1");
-	if (!rpmd->chg_consumer) {
-		pr_err("%s: get charger consumer device failed\n", __func__);
-		ret = -ENODEV;
+	rpmd->chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (IS_ERR(rpmd->chg_psy)) {
+		dev_notice(&pdev->dev, "Failed to get charger psy\n");
+		ret = PTR_ERR(rpmd->chg_psy);
 		goto err_mutex;
 	}
 #endif

@@ -1311,7 +1311,7 @@ static struct tcpc_ops mt6370_tcpc_ops = {
 
 static int mt_parse_dt(struct mt6370_chip *chip, struct device *dev)
 {
-	struct device_node *np = dev->of_node;
+	struct device_node *np = NULL;
 	int ret;
 
 	if (!np)
@@ -1324,6 +1324,7 @@ static int mt_parse_dt(struct mt6370_chip *chip, struct device *dev)
 		pr_err("%s find node mt6370 fail\n", __func__);
 		return -ENODEV;
 	}
+	dev->of_node = np;
 
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
 	ret = of_get_named_gpio(np, "mt6370pd,intr_gpio", 0);

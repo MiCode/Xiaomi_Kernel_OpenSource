@@ -143,6 +143,7 @@ static const char *const tcpc_timer_name[] = {
 	"PD_TIMER_SENDER_RESPONSE",
 	"PD_TIMER_SINK_ACTIVITY",
 	"PD_TIMER_SINK_REQUEST",
+	"PD_TIMER_SINK_WAIT_BC12",
 	"PD_TIMER_SINK_WAIT_CAP",
 	"PD_TIMER_SOURCE_ACTIVITY",
 	"PD_TIMER_SOURCE_CAPABILITY",
@@ -259,6 +260,7 @@ DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_PS_TRANSITION, 450, 550),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SENDER_RESPONSE, 24, 30),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SINK_ACTIVITY, 120, 150),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SINK_REQUEST, 100, 100),
+DECL_TCPC_TIMEOUT(PD_TIMER_SINK_WAIT_BC12, 50),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SINK_WAIT_CAP, 310, 620),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SOURCE_ACTIVITY, 40, 50),
 DECL_TCPC_TIMEOUT_RANGE(PD_TIMER_SOURCE_CAPABILITY, 100, 200),
@@ -543,6 +545,16 @@ static enum hrtimer_restart tcpc_timer_sink_activity(struct hrtimer *timer)
 static enum hrtimer_restart tcpc_timer_sink_request(struct hrtimer *timer)
 {
 	int index = PD_TIMER_SINK_REQUEST;
+	struct tcpc_device *tcpc_dev =
+		container_of(timer, struct tcpc_device, tcpc_timer[index]);
+
+	TCPC_TIMER_TRIGGER();
+	return HRTIMER_NORESTART;
+}
+
+static enum hrtimer_restart tcpc_timer_sink_wait_bc12(struct hrtimer *timer)
+{
+	int index = PD_TIMER_SINK_WAIT_BC12;
 	struct tcpc_device *tcpc_dev =
 		container_of(timer, struct tcpc_device, tcpc_timer[index]);
 
@@ -1098,6 +1110,7 @@ static tcpc_hrtimer_call tcpc_timer_call[PD_TIMER_NR] = {
 	tcpc_timer_sender_response,
 	tcpc_timer_sink_activity,
 	tcpc_timer_sink_request,
+	tcpc_timer_sink_wait_bc12,
 	tcpc_timer_sink_wait_cap,
 	tcpc_timer_source_activity,
 	tcpc_timer_source_capability,

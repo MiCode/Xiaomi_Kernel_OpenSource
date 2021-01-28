@@ -3157,6 +3157,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
+		charger = <&mt6370_chg>;
 	};
 
 	subpmic_pmu_eint: mt6370_pmu_eint {

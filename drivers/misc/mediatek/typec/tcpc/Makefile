@@ -1,3 +1,5 @@
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply
+
 obj-$(CONFIG_DUAL_ROLE_USB_INTF)	+= tcpci_dual_role.o
 obj-$(CONFIG_TCPC_MT6360)		+= tcpc_mt6360.o
 obj-$(CONFIG_TCPC_MT6370)	+= tcpc_mt6370.o

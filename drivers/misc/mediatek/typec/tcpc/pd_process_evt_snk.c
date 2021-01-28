@@ -7,6 +7,7 @@
 #include "inc/pd_dpm_core.h"
 #include "inc/tcpci_event.h"
 #include "inc/pd_process_evt.h"
+#include <linux/power_supply.h>
 
 /* PD Control MSG reactions */
 
@@ -353,6 +354,35 @@ static inline void pd_report_typec_only_charger(struct pd_port *pd_port)
 	pd_update_connect_state(pd_port, state);
 }
 
+static void pd_sink_wait_bc12_result(struct pd_port *pd_port)
+{
+	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
+	union power_supply_propval prop;
+	int ret;
+
+	pd_port->chg_psy = devm_power_supply_get_by_phandle(
+					tcpc_dev->dev.parent, "charger");
+	if (IS_ERR(pd_port->chg_psy)) {
+		PE_INFO("wait bc12, fail to get chg_psy\r\n");
+		goto out;
+	}
+
+	ret = power_supply_get_property(pd_port->chg_psy,
+					POWER_SUPPLY_PROP_USB_TYPE, &prop);
+	if (ret < 0)
+		goto out;
+
+	PE_INFO("chg_type is %d\r\n", prop.intval);
+	if (prop.intval != POWER_SUPPLY_USB_TYPE_UNKNOWN ||
+		pd_port->wait_bc12_cnt >= 20) {
+		pd_port->wait_bc12_cnt++;
+		pd_enable_vbus_valid_detection(pd_port, true);
+		return;
+	}
+out:
+	pd_enable_pe_state_timer(pd_port, PD_TIMER_SINK_WAIT_BC12);
+}
+
 static inline bool pd_process_timer_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
@@ -360,7 +390,9 @@ static inline bool pd_process_timer_msg(
 	case PD_TIMER_SINK_REQUEST:
 		return PE_MAKE_STATE_TRANSIT_SINGLE(
 			PE_SNK_READY, PE_SNK_SELECT_CAPABILITY);
-
+	case PD_TIMER_SINK_WAIT_BC12:
+		pd_sink_wait_bc12_result(pd_port);
+		break;
 #ifndef CONFIG_USB_PD_DBG_IGRONE_TIMEOUT
 	case PD_TIMER_SINK_WAIT_CAP:
 	case PD_TIMER_PS_TRANSITION:
