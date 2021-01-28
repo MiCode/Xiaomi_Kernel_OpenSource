@@ -2774,16 +2774,22 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		};
 	};
 
+	vcodecsys: vcodecsys@17000000 {
+		compatible =  "mediatek,mt6761-vcodecsys", "syscon";
+		reg = <0 0x17000000 0 0x10000>;
+		#clock-cells = <1>;
+	};
+
 	venc_gcon: venc_gcon@17000000 {
-		compatible = "mediatek,mt6761-vcodecsys", "syscon";
+		compatible = "mediatek,venc_gcon", "syscon";
 		reg = <0 0x17000000 0 0x10000>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&scpsys SCP_SYS_VCODEC>,
 			<&mmsys_config CLK_MM_SMI_COMM0>,
 			<&mmsys_config CLK_MM_SMI_COMM1>,
 			<&mmsys_config CLK_MM_SMI_COMMON>,
-			<&venc_gcon CLK_VENC_SET3_VDEC>,
-			<&venc_gcon CLK_VENC_SET1_VENC>;
+			<&vcodecsys CLK_VENC_SET3_VDEC>,
+			<&vcodecsys CLK_VENC_SET1_VENC>;
 		clock-names = "MT_SCP_SYS_DIS",
 			"MT_SCP_SYS_VCODEC",
 			"MT_CG_MM_SMI_COMM0",
@@ -2800,7 +2806,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 			     "mediatek,mt6761-smi-larb";
 		reg = <0 0x17010000 0 0x1000>;
 		clocks = <&scpsys SCP_SYS_VCODEC>,
-			 <&venc_gcon CLK_VENC_SET1_VENC>;
+			 <&vcodecsys CLK_VENC_SET1_VENC>;
 		clock-names = "apb", "smi";
 		mediatek,smi = <&smi_common>;
 		mediatek,larb-id = <1>;
@@ -2817,7 +2823,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		reg = <0 0x17030000 0 0x10000>;
 		interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_LOW>;
 		clocks =
-			<&venc_gcon CLK_VENC_SET2_JPGENC>;
+			<&vcodecsys CLK_VENC_SET2_JPGENC>;
 		clock-names =
 			"MT_CG_VENC_JPGENC";
 	};
