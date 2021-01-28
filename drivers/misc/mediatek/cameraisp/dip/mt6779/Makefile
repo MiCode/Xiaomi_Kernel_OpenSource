@@ -12,12 +12,14 @@
 #
 
 $(info $(srctree))
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/iommu
+ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 
-obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += camera_rsc.o
-camera_rsc-objs += engine_request.o
-camera_rsc-objs += isp50/camera_rsc.o
+obj-m += camera_dip.o

@@ -18,6 +18,6 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
              -I$(srctree)/drivers/staging/android/ion/mtk
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 
-obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += camera_rsc.o
-camera_rsc-objs += engine_request.o
-camera_rsc-objs += isp50/camera_rsc.o
+obj-$(CONFIG_MTK_CAMERA_ISP_DPE_SUPPORT) += camera_dpe.o
+camera_dpe-objs += engine_request.o
+camera_dpe-objs += isp50/camera_dpe.o

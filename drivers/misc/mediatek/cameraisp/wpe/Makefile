@@ -11,13 +11,4 @@
 # GNU General Public License for more details.
 #
 
-$(info $(srctree))
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-             -I$(srctree)/drivers/staging/android/ion/mtk
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
-
-obj-$(CONFIG_MTK_CAMERA_ISP_RSC_SUPPORT) += camera_rsc.o
-camera_rsc-objs += engine_request.o
-camera_rsc-objs += isp50/camera_rsc.o
+obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += mt6779/
