@@ -291,9 +291,9 @@ static long AF_ControlParam(unsigned long a_u4Param)
 		LOG_INF("copy to user failed\n");
 
 	switch (CtrlCmd.i8CmdID) {
-#if defined(CONFIG_MACH_MT6779)
 	case CONVERT_CCU_TIMESTAMP:
 		{
+#if defined(CONFIG_MACH_MT6779)
 		long long monotonicTime = 0;
 		long long hwTickCnt     = 0;
 
@@ -306,10 +306,10 @@ static long AF_ControlParam(unsigned long a_u4Param)
 		monotonicTime = archcounter_timesync_to_monotonic(hwTickCnt);
 		/* do_div(monotonicTime, 1000); */ /* ns to us */
 		CtrlCmd.i8Param[1] = monotonicTime;
+#endif
 		}
 		i4RetValue = 1;
 		break;
-#endif
 	default:
 		i4RetValue = -1;
 		break;
