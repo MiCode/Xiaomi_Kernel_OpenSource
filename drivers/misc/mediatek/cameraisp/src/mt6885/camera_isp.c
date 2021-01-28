@@ -1460,17 +1460,31 @@ static void ISP_DumpDmaDeepDbg(enum ISP_IRQ_TYPE_ENUM module)
 
 	IRQ_LOG_KEEPER(
 		module, m_CurrentPPB, _LOG_ERR,
-		"%s:IMGO:0x%x,LTMSO:0x%x,RRZO:0x%x,LCSO=0x%x,LCESHO=0x%x,AAO=0x%x,AAHO=0x%x,FLKO=0x%x,UFEO=0x%x,AFO=0x%x,\n"
-		"UFGO=0x%x,RSSO=0x%x,EISO=0x%x,YUVBO=0x%x,TSFSO=0x%x,PDO=0x%x,CRZO=0x%x,CRZBO=0x%x,\n"
-		"YUVCO=0x%x,CRZO_R2=0x%x,RSSO_R2=0x%x,YUVO=0x%x,DMA_DBG_SEL=0x%x TOP_DBG_PORT=0x%x\n",
-		"AAHO=0x%x\n",
+		"%s:IMGO:0x%x,LTMSO:0x%x,RRZO:0x%x,LCSO=0x%x,LCESHO=0x%x,AAO=0x%x,",
 		cam, dmaerr[_imgo_], dmaerr[_ltmso_], dmaerr[_rrzo_],
-		dmaerr[_lcso_], dmaerr[_lcesho_], dmaerr[_aao_], dmaerr[_aaho_],
-		dmaerr[_flko_], dmaerr[_ufeo_], dmaerr[_afo_], dmaerr[_ufgo_],
-		dmaerr[_rsso_], dmaerr[_lmvo_], dmaerr[_yuvbo_],
-		dmaerr[_tsfso_], dmaerr[_pdo_], dmaerr[_crzo_],
-		dmaerr[_crzbo_], dmaerr[_yuvco_], dmaerr[_crzo_r2_],
-		dmaerr[_rsso_r2_], dmaerr[_yuvo_], dmaerr[_aaho_],
+		dmaerr[_lcso_], dmaerr[_lcesho_], dmaerr[_aao_]);
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"AAHO=0x%x,FLKO=0x%x,UFEO=0x%x,AFO=0x%x,UFGO=0x%x,RSSO=0x%x\n",
+		dmaerr[_aaho_], dmaerr[_flko_], dmaerr[_ufeo_], dmaerr[_afo_],
+		dmaerr[_ufgo_], dmaerr[_rsso_]);
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"EISO=0x%x,YUVBO=0x%x,TSFSO=0x%x,PDO=0x%x,CRZO=0x%x,CRZBO=0x%x\n",
+		dmaerr[_lmvo_], dmaerr[_yuvbo_], dmaerr[_tsfso_], dmaerr[_pdo_],
+		dmaerr[_crzo_], dmaerr[_crzbo_]);
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"YUVCO=0x%x,CRZO_R2=0x%x,RSSO_R2=0x%x,YUVO=0x%x\n",
+		dmaerr[_yuvco_], dmaerr[_crzo_r2_],	dmaerr[_rsso_r2_],
+		dmaerr[_yuvo_]);
+
+	IRQ_LOG_KEEPER(
+		module, m_CurrentPPB, _LOG_ERR,
+		"DMA_DBG_SEL=0x%x,TOP_DBG_PORT=0x%x\n",
 		(unsigned int)ISP_RD32(CAM_REG_DMA_DEBUG_SEL(regModule)), 0);
 
 	IRQ_LOG_KEEPER(
@@ -6844,8 +6858,8 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_ERR,
-				"CAM_A:raw_int_err:0x%x_0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
-				WarnStatus, ErrStatus, warnTwo);
+				"CAM_A:raw_int_err:0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
+				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
 			if (ErrStatus & DMA_ERR_ST)
@@ -6871,8 +6885,8 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_ERR,
-				"CAM_B:raw_int_err:0x%x_0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
-				WarnStatus, ErrStatus, warnTwo);
+				"CAM_B:raw_int_err:0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
+				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
 			if (ErrStatus & DMA_ERR_ST)
@@ -6898,8 +6912,8 @@ void IRQ_INT_ERR_CHECK_CAM(unsigned int WarnStatus, unsigned int ErrStatus,
 
 			IRQ_LOG_KEEPER(
 				module, m_CurrentPPB, _LOG_ERR,
-				"CAM_C:raw_int_err:0x%x_0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
-				WarnStatus, ErrStatus, warnTwo);
+				"CAM_C:raw_int_err:0x%x, raw_int5_wrn:0x%x,lsci_wrn:0x%x\n",
+				ErrStatus, WarnStatus, warnTwo);
 
 			/* DMA ERR print */
 			if (ErrStatus & DMA_ERR_ST)
@@ -8866,26 +8880,32 @@ unsigned int *reg_module_count)
 			"disable double buffer CAM%d to do CQ recover",
 			tmp_module);
 	}
+	index = *reg_module - ISP_CAM_A_IDX;
+	if (index > (ISP_CAM_C_IDX - ISP_CAM_A_IDX)) {
+		LOG_NOTICE(
+			"index is invalid! recover fail");
+			return -1;
+	}
 	LOG_NOTICE("start HW recover due to CQ over Vsync ...\n");
 	LOG_NOTICE("fbc:imgo:0x%x,rrzo:0x%x,ufeo:0x%x,ufgo:0x%x\n",
-		   g_fbc_ctrl2[*reg_module][_imgo_].Raw,
-		   g_fbc_ctrl2[*reg_module][_rrzo_].Raw,
-		   g_fbc_ctrl2[*reg_module][_ufeo_].Raw,
-		   g_fbc_ctrl2[*reg_module][_ufgo_].Raw);
+		   g_fbc_ctrl2[index][_imgo_].Raw,
+		   g_fbc_ctrl2[index][_rrzo_].Raw,
+		   g_fbc_ctrl2[index][_ufeo_].Raw,
+		   g_fbc_ctrl2[index][_ufgo_].Raw);
 	LOG_NOTICE("fbc:rsso:0x%x,lmvo:0x%x,lcso:0x%x\n",
-		   g_fbc_ctrl2[*reg_module][_rsso_].Raw,
-		   g_fbc_ctrl2[*reg_module][_lmvo_].Raw,
-		   g_fbc_ctrl2[*reg_module][_lcso_].Raw);
+		   g_fbc_ctrl2[index][_rsso_].Raw,
+		   g_fbc_ctrl2[index][_lmvo_].Raw,
+		   g_fbc_ctrl2[index][_lcso_].Raw);
 
 	LOG_NOTICE("fbc:aao:0x%x,aaho:0x%x,afo:0x%x,flko:0x%x\n",
-		   g_fbc_ctrl2[*reg_module][_aao_].Raw,
-		   g_fbc_ctrl2[*reg_module][_aaho_].Raw,
-		   g_fbc_ctrl2[*reg_module][_afo_].Raw,
-		   g_fbc_ctrl2[*reg_module][_flko_].Raw
+		   g_fbc_ctrl2[index][_aao_].Raw,
+		   g_fbc_ctrl2[index][_aaho_].Raw,
+		   g_fbc_ctrl2[index][_afo_].Raw,
+		   g_fbc_ctrl2[index][_flko_].Raw
 		   );
 	LOG_NOTICE("fbc:pdo:0x%x,tsfso:0x%x\n",
-		   g_fbc_ctrl2[*reg_module][_pdo_].Raw,
-		   g_fbc_ctrl2[*reg_module][_tsfso_].Raw);
+		   g_fbc_ctrl2[index][_pdo_].Raw,
+		   g_fbc_ctrl2[index][_tsfso_].Raw);
 	return 0;
 }
 
@@ -8929,7 +8949,8 @@ unsigned int *reg_module_array, unsigned int reg_module_count)
 					"index is invalid! recover fail");
 					return -1;
 			}
-
+			ISP_GetDmaPortsStatus(tmp_module,
+				&DmaEnStatus[index][0]);
 			if (DmaEnStatus[index][_aao_])
 				ISP_WR32(CAM_REG_FBC_AAO_CTL2(tmp_module),
 					g_fbc_ctrl2[index][_aao_].Raw);
