@@ -3077,10 +3077,6 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		compatible = "mediatek,mt_soc_pcm_voice_usb_echoref";
 	};
 
-	mt_charger: mt_charger {
-		compatible = "mediatek,mt-charger";
-	};
-
 	lk_charger: lk_charger {
 		compatible = "mediatek,lk_charger";
 		enable_anime;
@@ -3142,12 +3138,16 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		ta_start_battery_soc = <0>;
 		ta_stop_battery_soc = <85>;
 		min_charger_voltage = <4600000>;
-		pe2_input_current = <3200000>;
-		pe2_charger_current = <3000000>;
 
-		/* dual charger */
-		chg1_ta_ac_charger_current = <1500000>;
-		chg2_ta_ac_charger_current = <1500000>;
+		/* single charger */
+		sc_input_current = <3200000>;
+		sc_charger_current = <3000000>;
+
+		/* dual charger in series*/
+		dcs_input_current = <3200000>;
+		dcs_chg1_charger_current = <1500000>;
+		dcs_chg2_charger_current = <1500000>;
+		dual_polling_ieoc = <450000>;
 		pe2_slave_mivr_diff = <100000>;
 	};
 
@@ -3160,8 +3160,33 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		ibus_err = <14>;
 		vsys_watt = <5000000>;
 		min_charger_voltage = <4600000>;
-		pd_input_current = <3200000>;
-		pd_charger_current = <3000000>;
+
+		/* single charger */
+		sc_input_current = <3200000>;
+		sc_charger_current = <3000000>;
+
+		/* dual charger in series*/
+		dcs_input_current = <3200000>;
+		dcs_chg1_charger_current = <1500000>;
+		dcs_chg2_charger_current = <1500000>;
+		dual_polling_ieoc = <450000>;
+		slave_mivr_diff = <100000>;
+
+		pe2_slave_mivr_diff = <100000>;
+	};
+
+	pe4: pe4 {
+		compatible = "mediatek,charger,pe4";
+		gauge = <&mtk_gauge>;
+
+		min_charger_voltage = <4600000>;
+		pe40_stop_battery_soc = <80>;
+
+		pd_vbus_low_bound = <5000000>;
+		pd_vbus_upper_bound = <10000000>;
+		ibus_err = <14>;
+
+		pe4_charger_current = <3000000>;
 
 		/* dual charger */
 		chg1_ta_ac_charger_current = <1500000>;
@@ -3175,6 +3200,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		gauge = <&mtk_gauge>;
 		charger = <&mt6370_chg>;
 		bootmode = <&chosen>;
+		pmic = <&main_pmic>;
 
 		/* enable_sw_jeita; */
 		/* enable_pe_plus; */
@@ -3185,6 +3211,8 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		power_path_support;
 		enable_dynamic_mivr;
 		disable_pd_dual;
+
+		charger_configuration= <0>;
 
 		/* common */
 		battery_cv = <4350000>;
