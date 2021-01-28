@@ -828,7 +828,7 @@ static void dsi_wait_not_busy(enum DISP_MODULE_ENUM module,
 enum DSI_STATUS DSI_BIST_Pattern_Test(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, bool enable, unsigned int color)
 {
-	int i = 0, module_num;
+	unsigned int i = 0, module_num;
 
 	if (module == DISP_MODULE_DSI0 ||
 		module == DISP_MODULE_DSI1)
@@ -1367,7 +1367,7 @@ static int _dsi_get_pcw(int data_rate, int pcw_ratio)
 static void _DSI_PHY_clk_setting(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, struct LCM_DSI_PARAMS *dsi_params)
 {
-	int i = 0, module_num;
+	unsigned int i = 0, module_num;
 	unsigned int j = 0;
 	unsigned int data_Rate = dsi_params->data_rate != 0 ?
 		dsi_params->data_rate : dsi_params->PLL_CLOCK * 2;
@@ -2239,7 +2239,7 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, UINT8 cmd, UINT8 *buffer,
 	UINT8 buffer_size)
 {
-	int d = 0;
+	unsigned int d = 0;
 	UINT32 max_try_count = 5;
 	UINT32 recv_data_cnt = 0;
 	unsigned char packet_type;
@@ -2526,7 +2526,7 @@ UINT32 DSI_dcs_read_lcm_reg_v3(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, char *out, struct dsi_cmd_desc *cmds,
 	unsigned int len)
 {
-	int d = 0;
+	unsigned int d = 0;
 	UINT32 max_try_count = 5;
 	UINT32 recv_data_cnt = 0;
 	unsigned char packet_type;
@@ -3099,6 +3099,9 @@ void DSI_set_cmdq_V3(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	unsigned char *para_list;
 	UINT32 d;
 
+	memset(&t0, 0, sizeof(struct DSI_T0_INS));
+	memset(&t2, 0, sizeof(struct DSI_T2_INS));
+
 	if (module == DISP_MODULE_DSI0)
 		d = 0;
 	else if (module == DISP_MODULE_DSI1)
@@ -3248,7 +3251,7 @@ void DSI_set_cmdq_V4(enum DISP_MODULE_ENUM module,
 	struct dsi_cmd_desc *cmds)
 {
 	UINT32 i = 0;
-	int d = 0;
+	unsigned int d = 0;
 	unsigned long goto_addr, mask_para, set_para;
 	unsigned int cmd;
 	unsigned char count;
@@ -5369,8 +5372,8 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 	void *cmdq_trigger_handle, enum CMDQ_STATE state)
 {
 	int ret = 0;
-	int i = 0, j = 0;
-	int dsi_i = 0;
+	unsigned int i = 0, j = 0;
+	unsigned int dsi_i = 0;
 	struct LCM_DSI_PARAMS *dsi_params = NULL;
 	struct DSI_T0_INS t0, t1;
 	struct DSI_RX_DATA_REG read_data0;
@@ -5763,8 +5766,8 @@ int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 	struct ddp_lcm_read_cmd_table *read_table)
 {
 	int ret = 0;
-	int i = 0;
-	int dsi_i = 0;
+	unsigned int i = 0;
+	unsigned int dsi_i = 0;
 
 	struct DSI_T0_INS t0;
 
