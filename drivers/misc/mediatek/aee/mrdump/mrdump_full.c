@@ -280,14 +280,14 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 }
 
 #if IS_ENABLED(CONFIG_SYSFS)
-static ssize_t mrdump_version_show(struct kobject *kobj,
-		struct kobj_attribute *attr, char *buf)
+static ssize_t mrdump_version_show(struct module_attribute *attr,
+		struct module_kobject *kobj, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "%s\n", MRDUMP_GO_DUMP);
 }
 
-static struct kobj_attribute mrdump_version_attribute =
-	__ATTR(version, 0600, mrdump_version_show, NULL);
+static struct module_attribute mrdump_version_attribute =
+	__ATTR(version, 0400, mrdump_version_show, NULL);
 
 static struct attribute *attrs[] = {
 	&mrdump_version_attribute.attr,
