@@ -332,7 +332,7 @@ static inline bool mddp_f_check_pkt_need_track_nat_tuple_ip4(
 		*matched_tuple = found_nat_tuple;
 		found_nat_tuple->curr_cnt++;
 
-		pr_debug("%s: check tcpudp nat tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
+		MDDP_DEBUG("%s: check tcpudp nat tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
 			__func__, found_nat_tuple,
 			found_nat_tuple->last_cnt,
 			found_nat_tuple->curr_cnt,
@@ -623,7 +623,7 @@ static inline bool mddp_f_check_pkt_need_track_router_tuple(
 		*matched_tuple = found_router_tuple;
 		found_router_tuple->curr_cnt++;
 
-		pr_debug("%s: check tcpudp router tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
+		MDDP_DEBUG("%s: check tcpudp router tuple[%p], last_cnt[%d], curr_cnt[%d], need_tag[%d].\n",
 			__func__, found_router_tuple,
 			found_router_tuple->last_cnt,
 			found_router_tuple->curr_cnt,

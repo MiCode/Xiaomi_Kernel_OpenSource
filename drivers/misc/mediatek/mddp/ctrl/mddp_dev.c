@@ -110,6 +110,7 @@ static struct cdev mddp_cdev_s;
 struct class *mddp_dev_class_s;
 
 
+#ifdef CONFIG_MTK_ENG_BUILD
 //------------------------------------------------------------------------------
 // Sysfs APIs
 //------------------------------------------------------------------------------
@@ -294,6 +295,7 @@ static struct attribute *mddp_attrs[] = {
 	NULL,
 };
 ATTRIBUTE_GROUPS(mddp);
+#endif
 
 //------------------------------------------------------------------------------
 // Private functions.
@@ -390,7 +392,9 @@ void _mddp_dev_create_dev_node(void)
 		goto create_class_error;
 
 	mddp_dev_class_s->devnode = __mddp_dev_devnode;
+#ifdef CONFIG_MTK_ENG_BUILD
 	mddp_dev_class_s->dev_groups = mddp_groups;
+#endif
 
 	alloc_err = alloc_chrdev_region(&dev,
 			MDDP_DEV_MINOR_BASE,
