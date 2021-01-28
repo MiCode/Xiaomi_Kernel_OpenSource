@@ -52,6 +52,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
 
+#include <scsi/ufs/ufs-mtk-ioctl.h>
+
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
 				 UFSHCD_ERROR_MASK)
@@ -7303,6 +7305,220 @@ out:
 	}
 }
 
+
+int ufshcd_query_ioctl(struct ufs_hba *hba, u8 lun, void __user *buf_user)
+{
+	struct ufs_ioctl_query_data *idata;
+	void __user *user_buf_ptr;
+	int err = 0;
+	int length = 0;
+	void *data_ptr;
+	bool flag;
+	u32 att = 0;
+	u8 *desc = NULL;
+	u8 read_desc, read_attr, write_attr, read_flag;
+
+	idata = kzalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
+	if (!idata) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	/* extract params from user buffer */
+	err = copy_from_user(idata, buf_user,
+			sizeof(struct ufs_ioctl_query_data));
+	if (err) {
+		dev_err(hba->dev,
+			"%s: failed copying buffer from user, err %d\n",
+			__func__, err);
+		goto out_release_mem;
+	}
+
+	user_buf_ptr = idata->buf_ptr;
+
+	/*
+	 * save idata->idn to specific local variable to avoid
+	 * confusion by comapring idata->idn with different enums below.
+	 */
+	switch (idata->opcode) {
+	case UPIU_QUERY_OPCODE_READ_DESC:
+		read_desc = idata->idn;
+		break;
+	case UPIU_QUERY_OPCODE_READ_ATTR:
+		read_attr = idata->idn;
+		break;
+	case UPIU_QUERY_OPCODE_WRITE_ATTR:
+		write_attr = idata->idn;
+		break;
+	case UPIU_QUERY_OPCODE_READ_FLAG:
+		read_flag = idata->idn;
+		break;
+	default:
+		goto out_einval;
+	}
+
+	/* verify legal parameters & send query */
+	switch (idata->opcode) {
+	case UPIU_QUERY_OPCODE_READ_DESC:
+		switch (read_desc) {
+		case QUERY_DESC_IDN_DEVICE:
+		case QUERY_DESC_IDN_STRING:
+			break;
+		default:
+			goto out_einval;
+		}
+
+		length = min_t(int, QUERY_DESC_MAX_SIZE,
+				idata->buf_byte);
+
+		desc = kzalloc(length, GFP_KERNEL);
+
+		if (!desc) {
+			err = -ENOMEM;
+			goto out_release_mem;
+		}
+
+		err = ufshcd_query_descriptor_retry(hba, idata->opcode,
+				read_desc, idata->idx, 0, desc, &length);
+		break;
+	case UPIU_QUERY_OPCODE_READ_ATTR:
+		switch (read_attr) {
+		case QUERY_ATTR_IDN_BOOT_LU_EN:
+			break;
+		case QUERY_ATTR_IDN_FFU_STATUS:
+			break;
+		default:
+			goto out_einval;
+		}
+		err = ufshcd_query_attr(hba, idata->opcode,
+					read_attr, idata->idx, 0, &att);
+		break;
+	case UPIU_QUERY_OPCODE_WRITE_ATTR:
+		switch (write_attr) {
+		case QUERY_ATTR_IDN_BOOT_LU_EN:
+			break;
+		default:
+			goto out_einval;
+		}
+
+		length = min_t(int, sizeof(int), idata->buf_byte);
+
+		if (copy_from_user(&att, (void __user *)(unsigned long)
+					idata->buf_ptr, length)) {
+			err = -EFAULT;
+			goto out_release_mem;
+		}
+
+		err = ufshcd_query_attr(hba, idata->opcode,
+					write_attr, idata->idx, 0, &att);
+		break;
+	case UPIU_QUERY_OPCODE_READ_FLAG:
+		switch (read_flag) {
+		case QUERY_FLAG_IDN_PERMANENTLY_DISABLE_FW_UPDATE:
+			break;
+		default:
+			goto out_einval;
+		}
+		err = ufshcd_query_flag(hba, idata->opcode,
+					read_flag, &flag);
+		break;
+	default:
+		goto out_einval;
+	}
+
+	if (err) {
+		dev_err(hba->dev, "%s: query for idn %d failed\n", __func__,
+					idata->idn);
+		goto out_release_mem;
+	}
+
+	/*
+	 * copy response data
+	 * As we might end up reading less data then what is specified in
+	 * "ioct_data->buf_byte". So we are updating "ioct_data->
+	 * buf_byte" to what exactly we have read.
+	 */
+	switch (idata->opcode) {
+	case UPIU_QUERY_OPCODE_READ_DESC:
+		idata->buf_byte = min_t(int, idata->buf_byte, length);
+		data_ptr = desc;
+		break;
+	case UPIU_QUERY_OPCODE_READ_ATTR:
+		idata->buf_byte = sizeof(att);
+		data_ptr = &att;
+		break;
+	case UPIU_QUERY_OPCODE_READ_FLAG:
+		idata->buf_byte = 1;
+		data_ptr = &flag;
+		break;
+	case UPIU_QUERY_OPCODE_WRITE_ATTR:
+		/* write attribute does not require coping response data */
+		goto out_release_mem;
+	default:
+		goto out_einval;
+	}
+
+	/* copy to user */
+	err = copy_to_user(buf_user, idata,
+			sizeof(struct ufs_ioctl_query_data));
+	if (err)
+		dev_err(hba->dev, "%s: failed copying back to user.\n",
+			__func__);
+
+	err = copy_to_user(user_buf_ptr, data_ptr, idata->buf_byte);
+	if (err)
+		dev_err(hba->dev, "%s: err %d copying back to user.\n",
+				__func__, err);
+	goto out_release_mem;
+
+out_einval:
+	dev_err(hba->dev,
+		"%s: illegal ufs query ioctl data, opcode 0x%x, idn 0x%x\n",
+		__func__, idata->opcode, (unsigned int)idata->idn);
+	err = -EINVAL;
+out_release_mem:
+	kfree(idata);
+	kfree(desc);
+out:
+	return err;
+}
+
+/**
+ * ufshcd_ioctl - ufs ioctl callback registered in scsi_host
+ * @dev: scsi device required for per LUN queries
+ * @cmd: command opcode
+ * @buffer: user space buffer for transferring data
+ *
+ * Supported commands:
+ * UFS_IOCTL_RPMB: RPMB read/write
+ */
+static int ufshcd_ioctl(struct scsi_device *dev, int cmd, void __user *buffer)
+{
+	struct ufs_hba *hba = shost_priv(dev->host);
+	int err = 0;
+
+	if (!buffer) {
+		dev_err(hba->dev, "%s: user buffer is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (cmd) {
+	case UFS_IOCTL_QUERY:
+		pm_runtime_get_sync(hba->dev);
+		err = ufshcd_query_ioctl(hba,
+			ufshcd_scsi_to_upiu_lun(dev->lun), buffer);
+		pm_runtime_put_sync(hba->dev);
+		break;
+	default:
+		err = -ENOIOCTLCMD;
+		dev_dbg(hba->dev, "%s: Unsupported ioctl cmd %d\n",
+			__func__, cmd);
+		break;
+	}
+
+	return err;
+}
+
 static enum blk_eh_timer_return ufshcd_eh_timed_out(struct scsi_cmnd *scmd)
 {
 	unsigned long flags;
@@ -7357,6 +7573,7 @@ static struct scsi_host_template ufshcd_driver_template = {
 	.eh_device_reset_handler = ufshcd_eh_device_reset_handler,
 	.eh_host_reset_handler   = ufshcd_eh_host_reset_handler,
 	.eh_timed_out		= ufshcd_eh_timed_out,
+	.ioctl                   = ufshcd_ioctl,
 	.this_id		= -1,
 	.sg_tablesize		= SG_ALL,
 	.cmd_per_lun		= UFSHCD_CMD_PER_LUN,
