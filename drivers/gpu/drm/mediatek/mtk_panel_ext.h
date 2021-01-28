@@ -21,6 +21,7 @@
 #define MAX_TX_CMD_NUM 20
 #define MAX_RX_CMD_NUM 20
 #define READ_DDIC_SLOT_NUM 4
+#define MAX_DYN_CMD_NUM 20
 
 
 struct mtk_dsi;
@@ -195,9 +196,16 @@ struct dynamic_mipi_params {
 	unsigned int hfp;
 };
 
+struct dfps_switch_cmd {
+	unsigned int src_fps;
+	unsigned int cmd_num;
+	unsigned char para_list[64];
+};
+
 struct dynamic_fps_params {
 	unsigned int switch_en;
 	unsigned int vact_timing_fps;
+	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
 };
 
 struct mtk_panel_params {
