@@ -47,6 +47,8 @@ config ANDROID_DEFAULT_SETTING
 	select EMBEDDED
 	select EPOLL
 	select EVENTFD
+	select EXT4_FS_POSIX_ACL if EXT4_FS
+	select F2FS_FS_POSIX_ACL if F2FS_FS
 	select FILE_LOCKING
 	select FS_ENCRYPTION
 	select FS_VERITY
