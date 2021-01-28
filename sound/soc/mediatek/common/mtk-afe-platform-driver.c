@@ -88,6 +88,7 @@ unsigned int word_size_align(unsigned int in_size)
 	align_size = in_size & 0xFFFFFFF0;
 	return align_size;
 }
+EXPORT_SYMBOL_GPL(word_size_align);
 
 static snd_pcm_uframes_t mtk_afe_pcm_pointer
 			 (struct snd_pcm_substream *substream)

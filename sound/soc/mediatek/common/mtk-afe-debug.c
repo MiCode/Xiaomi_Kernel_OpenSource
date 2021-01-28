@@ -23,6 +23,7 @@ int mtk_afe_debugfs_open(struct inode *inode, struct file *file)
 	file->private_data = inode->i_private;
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_afe_debugfs_open);
 
 ssize_t mtk_afe_debugfs_write(struct file *f, const char __user *buf,
 			      size_t count, loff_t *offset)
@@ -74,6 +75,7 @@ ssize_t mtk_afe_debugfs_write(struct file *f, const char __user *buf,
 exit:
 	return count;
 }
+EXPORT_SYMBOL_GPL(mtk_afe_debugfs_write);
 
 /* debug function */
 void mtk_afe_debug_write_reg(struct file *file, void *arg)
@@ -108,6 +110,7 @@ void mtk_afe_debug_write_reg(struct file *file, void *arg)
 		dev_warn(afe->dev, "token1 or token2 is NULL!\n");
 	}
 }
+EXPORT_SYMBOL_GPL(mtk_afe_debug_write_reg);
 
 MODULE_DESCRIPTION("Mediatek AFE Debug");
 MODULE_AUTHOR("Kai Chieh Chuang <kaichieh.chuang@mediatek.com>");

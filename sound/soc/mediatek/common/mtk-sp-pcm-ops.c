@@ -48,6 +48,7 @@ int mtk_sp_clean_written_buffer_ack(struct snd_pcm_substream *substream)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_sp_clean_written_buffer_ack);
 
 MODULE_DESCRIPTION("Mediatek Smart Phone PCM Operation");
 MODULE_AUTHOR("Kai Chieh Chuang <kaichieh.chuang@mediatek.com>");

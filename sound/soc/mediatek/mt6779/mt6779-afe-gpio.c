@@ -241,4 +241,5 @@ int mt6779_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 	mutex_unlock(&gpio_request_mutex);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mt6779_afe_gpio_request);
 

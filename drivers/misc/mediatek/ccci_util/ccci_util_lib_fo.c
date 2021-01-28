@@ -1494,6 +1494,7 @@ int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(get_md_resv_mem_info);
 
 int get_md1_md3_resv_smem_info(int md_id, phys_addr_t *rw_base,
 	unsigned int *rw_size)
