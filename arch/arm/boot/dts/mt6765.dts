@@ -1308,6 +1308,20 @@
 			"infra-ccif2-md";
 	};
 
+	cldmadriver:cldmadriver@10014000 {
+		compatible = "mediatek,ccci_cldma";
+		reg = <0 0x10014000 0 0x1000>, /*AP_CLDMA_AO "mediatek,apcldmain_ao*/
+			  <0 0x1021b000 0 0x1000>; /*AP_CLDMA_PDN "mediatek,apcldmain*/
+		/*CCIF0 174/206, IRQ_CLDMA "mediatek,apcldmamisc"*/
+		interrupts = <GIC_SPI 165 IRQ_TYPE_LEVEL_HIGH>;
+		mediatek,cldma_capability = <6>;
+		mediatek,md_generation = <6293>;
+		mediatek,platform = <6765>;
+		clocks = <&infracfg_ao CLK_IFR_CLDMA_BCLK>;
+		clock-names = "infra-cldma-bclk";
+		cldma-infracfg = <&infracfg_ao>;
+	};
+
 	mddriver:mddriver@10014000 {
 		compatible = "mediatek,mddriver", "mediatek,mddriver-mt6765";
 		/*
