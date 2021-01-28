@@ -20,6 +20,11 @@ enum adsp_clk {
 	ADSP_CLK_NUM
 };
 
+enum scp_clk {
+	CLK_TOP_SCP_SEL,
+	SCP_CLK_NUM
+};
+
 void adsp_set_clock_freq(enum adsp_clk clk);
 int adsp_set_top_mux(enum adsp_clk clk);
 int adsp_enable_clock(void);

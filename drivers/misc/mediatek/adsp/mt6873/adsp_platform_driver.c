@@ -103,9 +103,10 @@ int adsp_core0_init(struct adsp_priv *pdata)
 {
 	int ret = 0;
 
+#ifdef CONFIG_DEBUG_FS
 	pdata->debugfs = debugfs_create_file("audiodsp0", S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
-
+#endif
 	adsp_wq = alloc_workqueue("adsp_wq", WORK_CPU_UNBOUND | WQ_HIGHPRI, 0);
 	pdata->wq = adsp_wq;
 	init_waitqueue_head(&adsp_waitq);
@@ -149,8 +150,10 @@ int adsp_core1_init(struct adsp_priv *pdata)
 {
 	int ret = 0;
 
+#ifdef CONFIG_DEBUG_FS
 	pdata->debugfs = debugfs_create_file("audiodsp1", S_IFREG | 0644, NULL,
 					     pdata, &adsp_debug_ops);
+#endif
 	pdata->wq = adsp_wq;
 	init_adsp_feature_control(pdata->id, pdata->feature_set, 900,
 				adsp_wq,

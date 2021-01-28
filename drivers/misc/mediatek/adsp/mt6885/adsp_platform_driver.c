@@ -537,6 +537,12 @@ static int adsp_common_drv_probe(struct platform_device *pdev)
 		goto ERROR;
 	}
 
+	ret = adsp_mem_device_probe(pdev);
+	if (ret) {
+		pr_info("%s(), memory probe fail, %d\n", __func__, ret);
+		goto ERROR;
+	}
+
 	ret = adsp_mbox_probe(pdev);
 	if (ret) {
 		pr_warn("%s(), mbox probe fail, %d\n", __func__, ret);

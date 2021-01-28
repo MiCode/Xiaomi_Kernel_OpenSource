@@ -1160,12 +1160,12 @@ static int scp_send_msg_to_scp(
 			   (enum dsp_id_t)dsp_id == AUDIO_OPENDSP_USE_HIFI3_B) {
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 			the_adsp_ipi_id = (enum adsp_ipi_id)p_scp_msg->ipi_id;
-			retval = adsp_ipi_send_ipc(
+			retval = adsp_send_message(
 					 the_adsp_ipi_id,
 					 p_scp_msg->buf,
 					 p_scp_msg->len,
 					 1, /* wait until sent or timeout */
-					 ADSP_A_ID);
+					 dsp_id - AUDIO_OPENDSP_USE_HIFI3_A);
 #endif
 		}
 
