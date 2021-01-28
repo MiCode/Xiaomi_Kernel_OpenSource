@@ -261,9 +261,9 @@ int pe_hal_get_uisoc(struct chg_alg_device *alg)
 
 int pe_hal_get_charger_type(struct chg_alg_device *alg)
 {
-	struct mtk_charger *info;
+	struct mtk_charger *info = NULL;
 	struct power_supply *chg_psy = NULL;
-	int ret;
+	int ret = 0;
 
 	if (alg == NULL)
 		return -EINVAL;
@@ -312,7 +312,7 @@ int pe_hal_get_charger_cnt(struct chg_alg_device *alg)
 bool pe_hal_is_chip_enable(struct chg_alg_device *alg, enum chg_idx chgidx)
 {
 	struct pe_hal *hal;
-	bool is_chip_enable;
+	bool is_chip_enable = false;
 
 	if (alg == NULL)
 		return -EINVAL;
