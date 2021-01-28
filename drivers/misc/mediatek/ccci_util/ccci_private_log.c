@@ -281,9 +281,17 @@ static const struct file_operations ccci_log_fops = {
 /******************************************************************************/
 #define CCCI_INIT_SETTING_BUF	(4096*2)
 #define CCCI_BOOT_UP_BUF		(4096*16)
+
+#ifdef CCCI_LOG_DISABLE
+#define CCCI_NORMAL_BUF			(0)
+#define CCCI_REPEAT_BUF			(0)
+#define CCCI_HISTORY_BUF		(0)
+#else
 #define CCCI_NORMAL_BUF			(4096*2)
 #define CCCI_REPEAT_BUF			(4096*32)
 #define CCCI_HISTORY_BUF		(4096*128)
+#endif
+
 #define CCCI_REG_DUMP_BUF		(4096*64 * 2)
 
 #define MD3_CCCI_INIT_SETTING_BUF   (4096*2)
