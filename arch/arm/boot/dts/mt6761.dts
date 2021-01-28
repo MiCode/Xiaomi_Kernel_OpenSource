@@ -688,22 +688,6 @@
 		compatible = "mediatek,pmic-accdet";
 	};
 
-	mt6357_gauge {
-		compatible = "mediatek,mt6357_gauge";
-		gauge_name = "gauge";
-		alias_name = "mt6357";
-	};
-
-	gauge_timer {
-		compatible = "mediatek,gauge_timer_service";
-	};
-
-#if (CONFIG_MTK_ADDITIONAL_BATTERY_TABLE == 1)
-	#include "bat_setting/mt6761_battery_prop_ext.dtsi"
-#else
-	#include "bat_setting/mt6761_battery_prop.dtsi"
-#endif
-
 	topmisc@10011000 {
 		compatible = "mediatek,topmisc";
 		reg = <0 0x10011000 0 0x1000>;
@@ -3127,6 +3111,11 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		mediatek,clkbuf-config = <2 1 1 2 0 0 0>;
 		mediatek,clkbuf-driving-current = <1 1 1 1 1 1 1>;
 	};
+
+	bat_gm30: battery {
+		compatible = "mediatek,bat_gm30";
+	};
+
 	pseudo_m4u {
 		compatible = "mediatek,mt-pseudo_m4u";
 		iommus = <&iommu M4U_PORT_DISP_RDMA0>;

@@ -14,7 +14,7 @@ bat_gm30: battery{
 	KEEP_100_PERCENT = <(1)>;
 	R_FG_VALUE = <(10)>;	/*	R_sense resistance.*/
 	/*	Configures whether using embedded battery or not.*/
-	EMBEDDED_SEL = <(1>;
+	EMBEDDED_SEL = <(0)>;
 	PMIC_SHUTDOWN_CURRENT = <(20)>;	/*	System shutdown current.*/
 	FG_METER_RESISTANCE = <(75)>;	/*	The resistance of PCB*/
 	/*	Tune value for current measurement.*/
