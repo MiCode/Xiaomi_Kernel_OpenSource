@@ -678,7 +678,7 @@ static unsigned int md_mtee_support;
 
 static void nc_smem_info_parsing(void)
 {
-	unsigned int size, num, i;
+	unsigned int size, num = 0, i;
 
 	if (find_ccci_tag_inf("nc_smem_info_ext_num", (char *)&num,
 		sizeof(unsigned int)) != sizeof(unsigned int)) {
