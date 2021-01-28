@@ -3,8 +3,8 @@
 # and is generally not a function of system call inputs.
 KCOV_INSTRUMENT		:= n
 UBSAN_SANITIZE_lockdep.o	:= n
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
-subdir-ccflags-y += -I$(srctree)/kernel/sched/
+ccflags-y += -I$(srctree)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 obj-y += mutex.o semaphore.o rwsem.o percpu-rwsem.o
 
 ifdef CONFIG_FUNCTION_TRACER
@@ -15,20 +15,22 @@ CFLAGS_REMOVE_rtmutex-debug.o = $(CC_FLAGS_FTRACE)
 endif
 
 ifeq ($(CONFIG_PROVE_LOCKING),y)
-ccflags-y += -DMTK_LOCK_DEBUG
+ccflags-y += -DMTK_LOCK_DEBUG_NEW_DEPENDENCY
+endif
+
+ifeq ($(CONFIG_LOCKDEP),y)
+ifneq (y, $(filter y, $(CONFIG_KASAN) $(CONFIG_UBSAN)))
+ccflags-y += -DMTK_LOCK_MONITOR
+endif
+ccflags-y += -DMTK_ENHANCE_LOCKDEP_PROC
+endif
+
+ifeq ($(CONFIG_DEBUG_SPINLOCK),y)
 ifeq ($(CONFIG_MACH_MT6771),y)
 ccflags-y += -DMTK_DEBUG_SPINLOCK_V2
 else
 ccflags-y += -DMTK_DEBUG_SPINLOCK_V1
 endif
-ccflags-y += -DMTK_LOCK_DEBUG_NEW_DEPENDENCY
-ifneq (y, $(filter y, $(CONFIG_KASAN) $(CONFIG_UBSAN)))
-ccflags-y += -DMTK_LOCK_MONITOR
-endif
-endif
-
-ifeq ($(CONFIG_LOCKDEP),y)
-ccflags-y += -DMTK_ENHANCE_LOCKDEP_PROC
 endif
 
 obj-$(CONFIG_DEBUG_MUTEXES) += mutex-debug.o

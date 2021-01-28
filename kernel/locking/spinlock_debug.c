@@ -12,7 +12,7 @@
 #include <linux/debug_locks.h>
 #include <linux/delay.h>
 #include <linux/export.h>
-#include "sched.h"
+#include <kernel/sched/sched.h>
 
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
