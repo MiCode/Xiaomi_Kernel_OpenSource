@@ -282,6 +282,7 @@ struct compat_ccu_power_s {
 struct ccu_run_s {
 	uint32_t log_level;
 	uint32_t log_taglevel;
+	uint32_t CtrlBufMva;
 	uint32_t CpuRefBufMva;
 	uint32_t CpuRefBufSz;
 	uint32_t bkdata_ddr_buf_mva;
