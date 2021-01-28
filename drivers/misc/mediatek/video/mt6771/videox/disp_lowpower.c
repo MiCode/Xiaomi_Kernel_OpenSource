@@ -32,6 +32,7 @@
 #ifdef MTK_FB_SPM_SUPPORT
 #include "mtk_spm_idle.h"
 #endif
+#include "mt-plat/mtk_smi.h"
 
 #include "debug.h"
 #include "disp_drv_log.h"
@@ -90,6 +91,7 @@ static atomic_t ext_idlemgr_task_wakeup = ATOMIC_INIT(1);
 #ifdef MTK_FB_MMDVFS_SUPPORT
 /* dvfs */
 static atomic_t dvfs_ovl_req_status = ATOMIC_INIT(HRT_LEVEL_LEVEL0);
+static int dvfs_before_idle = HRT_LEVEL_NUM - 1;
 #endif
 static int register_share_sram;
 
@@ -999,6 +1001,10 @@ static void _cmd_mode_leave_idle(void)
 			 MMPROFILE_FLAG_END,
 			 !primary_display_is_decouple_mode(), bandwidth);
 #endif
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
+					  dvfs_before_idle);
+#endif
 }
 
 void primary_display_idlemgr_enter_idle_nolock(void)
@@ -1054,9 +1060,9 @@ int primary_display_request_dvfs_perf(int scenario, int req)
 		}
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
-		emi_opp =
-		    (opp_level >= HRT_OPP_LEVEL_DEFAULT) ?
-				PM_QOS_EMI_OPP_DEFAULT_VALUE : opp_level;
+		emi_opp = (opp_level >= HRT_OPP_LEVEL_DEFAULT) ?
+			PM_QOS_EMI_OPP_DEFAULT_VALUE :
+			layering_rule_get_emi_freq_table(opp_level);
 		mm_freq =
 		    (opp_level >= HRT_OPP_LEVEL_DEFAULT) ?
 		    PM_QOS_MM_FREQ_DEFAULT_VALUE :
@@ -1160,6 +1166,7 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 		}
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
+		dvfs_before_idle = atomic_read(&dvfs_ovl_req_status);
 		/* when screen idle: LP4 enter ULPM; LP3 enter LPM */
 		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
 						  HRT_LEVEL_LEVEL0);
@@ -1170,11 +1177,6 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 		wait_event_interruptible(idlemgr_pgc->idlemgr_wait_queue,
 					 !primary_display_is_idle());
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
-		/* when leave screen idle: reset to default */
-		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
-						  HRT_LEVEL_DEFAULT);
-#endif
 		if (kthread_should_stop())
 			break;
 	}
