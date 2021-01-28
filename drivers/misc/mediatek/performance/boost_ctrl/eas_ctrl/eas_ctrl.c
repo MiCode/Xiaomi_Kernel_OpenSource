@@ -156,7 +156,6 @@ static ssize_t perfmgr_set_sched_isolation_proc_write(struct file *filp,
 {
 	unsigned int cpu_id = -1;
 	char buf[64];
-	int err = 0;
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -165,7 +164,9 @@ static ssize_t perfmgr_set_sched_isolation_proc_write(struct file *filp,
 		return -EFAULT;
 	buf[cnt] = '\0';
 
-	err = sscanf(buf, "%iu", &cpu_id);
+	if (sscanf(buf, "%iu", &cpu_id) != 1)
+		return -EINVAL;
+
 	if (cpu_id >= nr_cpu_ids)
 		return cnt;
 
@@ -183,7 +184,6 @@ static ssize_t perfmgr_set_sched_deisolation_proc_write(struct file *filp,
 {
 	unsigned int cpu_id = -1;
 	char buf[64];
-	int err = 0;
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -192,7 +192,9 @@ static ssize_t perfmgr_set_sched_deisolation_proc_write(struct file *filp,
 		return -EFAULT;
 	buf[cnt] = '\0';
 
-	err = sscanf(buf, "%iu", &cpu_id);
+	if (sscanf(buf, "%iu", &cpu_id) != 1)
+		return -EINVAL;
+
 	if (cpu_id >= nr_cpu_ids)
 		return cnt;
 
