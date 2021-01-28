@@ -116,6 +116,16 @@ config CHARGER_RT9458
 	  It depends on
 	  the config MTK_SWCHR_SUPPORT.
 
+config CHARGER_RT9466
+	bool "Charger Driver for Richtek RT9466 Charger IC"
+	default n
+	depends on MTK_SWCHR_SUPPORT
+	help
+	  Say Yes to enable
+	  Say No to disable
+	  Richtek RT9466 driver.
+	  It depends on config  MTK_SWCHR_SUPPORT.
+
 config CHARGER_RT9467
 	bool "Charger Driver for Richtek RT9467 Charger IC"
 	default n
