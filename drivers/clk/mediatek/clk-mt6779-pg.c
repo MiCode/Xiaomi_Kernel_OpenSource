@@ -983,11 +983,7 @@ static void ram_console_update(void)
 
 		mtk_pgcb_lock(flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-			if (!pgcb) {
-				pr_notice("pgcb(%d) null\r\n", DBG_ID);
-				WARN_ON(1);
-			}
-			if (pgcb && pgcb->debug_dump)
+			if (pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
 		mtk_pgcb_unlock(flags);
@@ -4997,11 +4993,7 @@ static int enable_subsys(enum subsys_id id)
 
 	mtk_pgcb_lock(pgcb_flags);
 	list_for_each_entry(pgcb, &pgcb_list, list) {
-		if (!pgcb) {
-			pr_notice("pgcb(%d) null\r\n", id);
-			WARN_ON(1);
-		}
-		if (pgcb && pgcb->after_on)
+		if (pgcb->after_on)
 			pgcb->after_on(id);
 	}
 	mtk_pgcb_unlock(pgcb_flags);
@@ -5066,11 +5058,7 @@ static int disable_subsys(enum subsys_id id)
 	/* could be power off or not */
 	mtk_pgcb_lock(pgcb_flags);
 	list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-		if (!pgcb) {
-			pr_notice("pgcb(%d) null\r\n", id);
-			WARN_ON(1);
-		}
-		if (pgcb && pgcb->before_off)
+		if (pgcb->before_off)
 			pgcb->before_off(id);
 	}
 	mtk_pgcb_unlock(pgcb_flags);
@@ -5132,7 +5120,7 @@ static int pg_prepare(struct clk_hw *hw)
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
-	if (sys->ops->get_state(sys) == SUBSYS_PWR_ON)
+	if (sys != NULL && sys->ops->get_state(sys) == SUBSYS_PWR_ON)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
 
@@ -5190,7 +5178,7 @@ static void pg_unprepare(struct clk_hw *hw)
 	mtk_mtcmos_lock(flags);
 
 #if CHECK_PWR_ST
-	if (sys->ops->get_state(sys) == SUBSYS_PWR_DOWN)
+	if (sys != NULL && sys->ops->get_state(sys) == SUBSYS_PWR_DOWN)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
 
