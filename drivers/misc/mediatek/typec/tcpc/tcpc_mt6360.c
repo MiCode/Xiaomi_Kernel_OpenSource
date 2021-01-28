@@ -2210,12 +2210,6 @@ static int mt6360_parse_dt(struct mt6360_chip *chip, struct device *dev,
 
 	pr_info("%s\n", __func__);
 
-	np = of_find_node_by_name(NULL, "type_c_port0");
-	if (!np) {
-		dev_err(dev, "%s find node fail\n", __func__);
-		return -ENODEV;
-	}
-
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
 	ret = of_get_named_gpio(np, "mt6360pd,intr_gpio", 0);
 	if (ret < 0) {
@@ -2331,15 +2325,12 @@ static void check_printk_performance(void)
 static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 {
 	struct tcpc_desc *desc;
-	struct device_node *np;
+	struct device_node *np = dev->of_node;
 	u32 val, len;
 	const char *name = "default";
 
-	np = of_find_node_by_name(NULL, "type_c_port0");
-	if (!np) {
-		dev_err(dev, "%s find type_c_port0 fail\n", __func__);
-		return -ENODEV;
-	}
+	if (!np)
+		return -EINVAL;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
