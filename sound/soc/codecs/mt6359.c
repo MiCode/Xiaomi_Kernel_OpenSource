@@ -6360,7 +6360,19 @@ static int mt6359_codec_init_reg(struct mt6359_priv *priv)
 static int get_hp_current_calibrate_val(struct mt6359_priv *priv)
 {
 	int ret = 0;
-	int value, sign;
+	int value, sign, hpdet_efuse_addr;
+
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+	/* HPDET_COMP[6:0] @ efuse bit 1904 ~ 1910 */
+	/* HPDET_COMP_SIGN @ efuse bit 1911 */
+	/* 1904 / 8 = 238 --> 0xee */
+	hpdet_efuse_addr = 0xee;
+#else
+	/* HPDET_COMP[6:0] @ efuse bit 1792 ~ 1798 */
+	/* HPDET_COMP_SIGN @ efuse bit 1799 */
+	/* 1792 / 8 = 224 --> 0xe0 */
+	hpdet_efuse_addr = 0xe0;
+#endif
 
 	/* 1. enable efuse ctrl engine clock */
 	regmap_update_bits(priv->regmap, MT6359_TOP_CKHWEN_CON0, 0x1 << 2, 0x0);
@@ -6370,10 +6382,8 @@ static int get_hp_current_calibrate_val(struct mt6359_priv *priv)
 	regmap_update_bits(priv->regmap, MT6359_OTP_CON11, 0x0001, 0x0001);
 
 	/* 3. set EFUSE addr */
-	/* HPDET_COMP[6:0] @ efuse bit 1792 ~ 1798 */
-	/* HPDET_COMP_SIGN @ efuse bit 1799 */
-	/* 1792 / 8 = 224 --> 0xE0 */
-	regmap_update_bits(priv->regmap, MT6359_OTP_CON0, 0xff, 0xe0);
+	regmap_update_bits(priv->regmap, MT6359_OTP_CON0,
+			   0xff, hpdet_efuse_addr);
 
 	/* 4. Toggle RG_OTP_RD_TRIG */
 	regmap_read(priv->regmap, MT6359_OTP_CON8, &ret);
