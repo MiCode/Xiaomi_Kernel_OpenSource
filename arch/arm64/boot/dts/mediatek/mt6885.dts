@@ -2307,21 +2307,6 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x1030d000 0 0x1000>;
 	};
 
-	sys_cirq@10312000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10312000 0 0x1000>;
-	};
-
-	sys_cirq@10313000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10313000 0 0x1000>;
-	};
-
-	sys_cirq@10314000 {
-		compatible = "mediatek,sys_cirq";
-		reg = <0 0x10314000 0 0x1000>;
-	};
-
 	mdp_gce_clock: mdp_gce_clock@10318000 {
 		compatible = "mediatek,mdp_gce_clock", "syscon";
 		reg = <0 0x10318000 0 0x1000>;
