@@ -655,6 +655,9 @@ static void musb_host_work(struct work_struct *data)
 		if (!typec_control && !host_plug_test_triggered)
 			switch_int_to_device(mtk_musb);
 
+		/* for some signal issue */
+		mdelay(5);
+
 		mt_usb_set_vbus(mtk_musb, 1);
 
 		if (check_vbus() < 0)
