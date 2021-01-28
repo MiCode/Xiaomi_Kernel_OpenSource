@@ -21,7 +21,7 @@
 #include <linux/of.h>
 #include <linux/sched.h>
 #include <linux/sched/topology.h>
-#include <linux/sched_energy.h>
+#include <linux/sched/energy.h>
 #include <linux/slab.h>
 #include <linux/string.h>
 
@@ -188,8 +188,6 @@ static int __init parse_dt_topology(void)
 	if (!map)
 		goto out;
 
-	init_sched_energy_costs();
-
 	ret = parse_cluster(map, 0);
 	if (ret != 0)
 		goto out_map;
@@ -308,50 +306,19 @@ static int cpu_flags(void)
 static inline
 const struct sched_group_energy * const cpu_core_energy(int cpu)
 {
-	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL0];
-	unsigned long capacity;
-	int max_cap_idx;
-
-	if (!sge) {
-		pr_warn("Invalid sched_group_energy for CPU%d\n", cpu);
-		return NULL;
-	}
-
-	max_cap_idx = sge->nr_cap_states - 1;
-	capacity = sge->cap_states[max_cap_idx].cap;
-
-	printk_deferred("cpu=%d set cpu scale %lu from energy model\n",
-			cpu, capacity);
-
-	topology_set_cpu_scale(cpu, capacity);
-
-	return sge;
+	return sge_array[cpu][SD_LEVEL0];
 }
 
 static inline
 const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 {
-	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL1];
-
-	if (!sge) {
-		pr_warn("Invalid sched_group_energy for Cluster%d\n", cpu);
-		return NULL;
-	}
-
-	return sge;
+	return sge_array[cpu][SD_LEVEL1];
 }
 
 static inline
 const struct sched_group_energy * const cpu_system_energy(int cpu)
 {
-	struct sched_group_energy *sge = sge_array[cpu][SD_LEVEL2];
-
-	if (!sge) {
-		pr_warn("Invalid sched_group_energy for System%d\n", cpu);
-		return NULL;
-	}
-
-	return sge;
+	return sge_array[cpu][SD_LEVEL2];
 }
 
 static struct sched_domain_topology_level arm64_topology[] = {
