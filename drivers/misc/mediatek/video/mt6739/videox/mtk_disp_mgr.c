@@ -787,7 +787,7 @@ static int input_config_preprocess(struct disp_frame_cfg_t *cfg)
 			}
 			dst_mva = (unsigned long)(c->src_phy_addr);
 			if (!dst_mva) {
-				disp_sync_query_buf_info_nosync(
+				disp_sync_query_buf_info(
 					session_id, layer_id,
 					(unsigned int)c->next_buff_idx,
 					&dst_mva, &dst_size);

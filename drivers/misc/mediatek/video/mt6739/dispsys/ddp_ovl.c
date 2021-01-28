@@ -210,6 +210,8 @@ int ovl_reset(enum DISP_MODULE_ENUM module, void *handle)
 			ret = -1;
 			break;
 		}
+		ovl_flow_ctrl_dbg = DISP_REG_GET(ovl_base
+						 + DISP_REG_OVL_FLOW_CTRL_DBG);
 	}
 	return ret;
 }
@@ -607,6 +609,7 @@ void ovl_get_info(enum DISP_MODULE_ENUM module, void *data)
 			DDPDBG("%s:layer%d,en %d,w %d,h %d,bpp %d,addr %lu\n",
 			       __func__, i, p->layer_en, p->src_w, p->src_h,
 			       p->bpp, p->addr);
+			return;
 		}
 
 		val = DISP_REG_GET(DISP_REG_OVL_L0_CON + layer_off);
