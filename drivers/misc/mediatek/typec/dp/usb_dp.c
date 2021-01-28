@@ -55,6 +55,11 @@ static u8 eq_fg_sw[8][6];
 static struct i2c_client *usbdp_client;
 static struct notifier_block dp_nb;
 static struct tcpc_device *dp_tcpc_dev;
+static int hdp_state;
+static bool dp_sw_connect;
+
+#define CHECK_HPD_DELAY 1000
+static struct delayed_work check_wk;
 
 /*
  * Read PI3DPX1205A I2C reg from BYTE0 to BYTE len-1
@@ -377,6 +382,9 @@ static int chg_tcp_notifier_call(struct notifier_block *nb,
 					__func__);
 			}
 		}
+
+		hdp_state = 0;
+		schedule_delayed_work(&check_wk, msecs_to_jiffies(CHECK_HPD_DELAY));
 	} else if (event == TCP_NOTIFY_AMA_DP_HPD_STATE) {
 		uint8_t irq = noti->ama_dp_hpd_state.irq;
 		uint8_t state = noti->ama_dp_hpd_state.state;
@@ -384,15 +392,25 @@ static int chg_tcp_notifier_call(struct notifier_block *nb,
 		usbc_dbg(K_INFO, "TCP_NOTIFY_AMA_DP_HPD_STATE irq:%x state:%x\n",
 			irq, state);
 
+		hdp_state = state;
+
 		if (state) {
 			pi3dpx1205a_hpd(usbdp_client, 1);
-			if (irq)
+			if (irq) {
+				if (dp_sw_connect == false) {
+					usbc_dbg(K_INFO, "Force connect\n");
+					mtk_dp_SWInterruptSet(0x4);
+					dp_sw_connect = true;
+				}
 				mtk_dp_SWInterruptSet(0x8);
-			else
+			} else {
 				mtk_dp_SWInterruptSet(0x4);
+				dp_sw_connect = true;
+			}
 		} else {
 			pi3dpx1205a_hpd(usbdp_client, 0);
 			mtk_dp_SWInterruptSet(0x2);
+			dp_sw_connect = false;
 		}
 	} else if (event == TCP_NOTIFY_TYPEC_STATE) {
 		if ((noti->typec_state.old_state == TYPEC_ATTACHED_SRC ||
@@ -400,6 +418,7 @@ static int chg_tcp_notifier_call(struct notifier_block *nb,
 			noti->typec_state.new_state == TYPEC_UNATTACHED) {
 			usbc_dbg(K_INFO, "Plug out\n");
 			mtk_dp_SWInterruptSet(0x2);
+			dp_sw_connect = false;
 			pi3dpx1205a_set_eq_fg_sw(usbdp_client, 0);
 		}
 	}
@@ -436,6 +455,15 @@ static struct i2c_driver usb_dp_driver = {
 	.id_table = pi3dpx1205a_id_table,
 };
 
+static void check_hpd(struct work_struct *work)
+{
+	if (hdp_state == 0) {
+		usbc_dbg(K_INFO, "%s No HPD connection event", __func__);
+		pi3dpx1205a_hpd(usbdp_client, 1);
+		mtk_dp_SWInterruptSet(0x4);
+	}
+}
+
 static int __init usb_dp_init(void)
 {
 	struct device_node *np;
@@ -459,6 +487,9 @@ static int __init usb_dp_init(void)
 		usbc_dbg(K_INFO, "usb_dp node found...\n");
 	else
 		usbc_dbg(K_ERR, "usb_dp node not found...\n");
+
+	INIT_DEFERRABLE_WORK(&check_wk, check_hpd);
+	dp_sw_connect = false;
 
 	return i2c_add_driver(&usb_dp_driver);
 }
