@@ -1136,13 +1136,14 @@ static TZ_RESULT _reg_shmem_from_userspace(
 	/*check alloc size if <= 32KB*/
 	pin_sz = sizeof(struct MTIOMMU_PIN_RANGE_T);
 	if (pin_sz >= SZ_32KB) {
-		KREE_ERR("[%s]alloc fail:pin sz(0x%llx)>=32KB\n",
+		KREE_INFO("[%s]alloc pin sz(0x%llx)>=32KB\n",
 			__func__, pin_sz);
-		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		//return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 	}
 
 	/*pin = kzalloc(sizeof(struct MTIOMMU_PIN_RANGE_T), GFP_KERNEL);*/
-	pin = vmalloc(pin_sz);
+	/*pin = vmalloc(pin_sz);*/
+	pin = kvmalloc(pin_sz, GFP_KERNEL);
 	if (!pin) {
 		KREE_DEBUG("[%s]zalloc fail: pin is null.\n", __func__);
 		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
@@ -1170,14 +1171,15 @@ static TZ_RESULT _reg_shmem_from_userspace(
 	/*check alloc size if <= 32KB*/
 	map_p_sz = sizeof(uint64_t) * (pin->nrPages + 1);
 	if (map_p_sz >= SZ_32KB) {
-		KREE_ERR("[%s]alloc fail:map_p sz(0x%llx)>=32KB\n",
+		KREE_INFO("[%s]alloc map_p sz(0x%llx)>=32KB\n",
 			__func__, map_p_sz);
-		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
-		goto us_map_fail;
+		//cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		//goto us_map_fail;
 	}
 
 	/*map_p = kzalloc(map_p_sz, GFP_KERNEL);*/
-	map_p = vmalloc(map_p_sz);
+	/*map_p = vmalloc(map_p_sz);*/
+	map_p = kvmalloc(map_p_sz, GFP_KERNEL);
 	if (!map_p) {
 		KREE_DEBUG("[%s]alloc fail: map_p is null.\n", __func__);
 		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
@@ -1212,7 +1214,8 @@ static TZ_RESULT _reg_shmem_from_userspace(
 
 	/*after reg. shmem, free PA list array*/
 	if (map_p != NULL)
-		vfree(map_p);
+		kvfree(map_p);
+		//vfree(map_p);
 		/*kfree(map_p);*/
 
 us_map_fail:
@@ -1226,7 +1229,8 @@ us_map_fail:
 			kfree(pin->pageArray);
 		}
 		/*kfree(pin);*/
-		vfree(pin);
+		//vfree(pin);
+		kvfree(pin);
 	}
 
 	return cret;
