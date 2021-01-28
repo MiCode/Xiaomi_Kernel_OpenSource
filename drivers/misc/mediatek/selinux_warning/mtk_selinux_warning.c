@@ -50,6 +50,7 @@ static const char *aee_filter_list[AEE_FILTER_NUM] = {
 	"u:r:hal_graphics_composer_default:s0",
 	"u:r:hal_graphics_allocator_default:s0",
 	"u:r:mtk_hal_audio:s0",
+	"u:r:priv_app:s0",
 };
 #ifdef NEVER
 static const char * const aee_filter_unused[] = {
@@ -103,7 +104,7 @@ static const char * const ne_list[] = {
 	"u:r:system_server:s0",
 	"u:r:system_app:s0",
 	"u:r:platform_app:s0",
-	NULL,
+	"u:r:priv_app:s0",
 };
 
 static int mtk_check_filter(char *scontext);
@@ -201,12 +202,13 @@ static void mtk_check_av(char *data)
 static void mtk_check_ne(char *data)
 {
 	int i;
+	int size = sizeof(ne_list)/sizeof(char *);
 	char scontext[AEE_FILTER_LEN] = { '\0' };
 
 	if (!mtk_get_scontext(data, scontext))
 		return;
 
-	for (i = 0; ne_list[i] != NULL; i++) {
+	for (i = 0; i < size; i++) {
 		if (strcmp(scontext,
 					ne_list[i]) == 0) {
 			pr_notice("SIGQUIT and sleep\n");
