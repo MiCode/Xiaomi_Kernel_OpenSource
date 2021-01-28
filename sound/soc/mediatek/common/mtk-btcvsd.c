@@ -383,6 +383,7 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 		/* bt return 0xdeadfeed if read register during bt sleep */
 		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed, readable %d\n",
 			 __func__, is_readable);
+		spin_unlock_irqrestore(&bt->tx_lock, flags);
 		return -EIO;
 	}
 
