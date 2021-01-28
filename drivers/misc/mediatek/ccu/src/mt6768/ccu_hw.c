@@ -86,10 +86,8 @@ struct ap_task_manage_t ap_task_manage;
 
 
 static struct CCU_INFO_STRUCT ccuInfo;
-static  bool bWaitCond;
-static bool AFbWaitCond[2];
+static bool bWaitCond;
 static unsigned int g_LogBufIdx = 1;
-static unsigned int AFg_LogBufIdx[2] = {1, 1};
 static struct ccu_cmd_s *_fast_cmd_ack;
 
 static int _ccu_powerdown(void);
@@ -378,38 +376,6 @@ irqreturn_t ccu_isr_handler(int irq, void *dev_id)
 				LOG_ERR("wakeup ccuInfo.WaitQueueHead done\n");
 				break;
 			}
-		case MSG_TO_APMCU_CAM_A_AFO_i:
-			{
-				LOG_DBG
-					("AFWaitQueueHead:%d\n",
-					receivedCcuCmd.in_data_ptr);
-				LOG_DBG
-					("======AFO_A_done_from_CCU =====\n");
-				AFbWaitCond[0] = true;
-				AFg_LogBufIdx[0] = 3;
-
-				wake_up_interruptible
-					(&ccuInfo.AFWaitQueueHead[0]);
-				LOG_DBG("wakeup %s done\n",
-					"ccuInfo.AFWaitQueueHead");
-				break;
-			}
-		case MSG_TO_APMCU_CAM_B_AFO_i:
-			{
-				LOG_DBG
-				    ("AFBWaitQueueHead:%d\n",
-					receivedCcuCmd.in_data_ptr);
-				LOG_DBG
-				    ("===== AFO_B_done_from_CCU ======n");
-				AFbWaitCond[1] = true;
-				AFg_LogBufIdx[1] = 4;
-
-				wake_up_interruptible(
-					&ccuInfo.AFWaitQueueHead[1]);
-				LOG_DBG("wakeup %s done\n",
-					"ccuInfo.AFBWaitQueueHead");
-				break;
-			}
 
 		default:
 			{
@@ -588,8 +554,6 @@ int ccu_init_hw(struct ccu_device_s *device)
 	/* init waitqueue */
 	init_waitqueue_head(&cmd_wait);
 	init_waitqueue_head(&ccuInfo.WaitQueueHead);
-	init_waitqueue_head(&ccuInfo.AFWaitQueueHead[0]);
-	init_waitqueue_head(&ccuInfo.AFWaitQueueHead[1]);
 	/* init atomic task counter */
 	/*ccuInfo.taskCount = ATOMIC_INIT(0);*/
 
@@ -1099,7 +1063,8 @@ int ccu_run(void)
 
 int ccu_waitirq(struct CCU_WAIT_IRQ_STRUCT *WaitIrq)
 {
-	signed int ret = 0, Timeout = WaitIrq->EventInfo.Timeout;
+	signed int ret = 0;
+	long Timeout = WaitIrq->EventInfo.Timeout;
 
 	LOG_DBG("Clear(%d),bWaitCond(%d),Timeout(%d)\n",
 		WaitIrq->EventInfo.Clear, bWaitCond, Timeout);
@@ -1138,63 +1103,9 @@ int ccu_waitirq(struct CCU_WAIT_IRQ_STRUCT *WaitIrq)
 	}
 
 	if (Timeout > 0) {
-		LOG_DBG("remain timeout:%d, task: %d\n", Timeout, g_LogBufIdx);
+		LOG_DBG("remain timeout:%ld, task: %d\n", Timeout, g_LogBufIdx);
 		/*send to user if not timeout*/
 		WaitIrq->EventInfo.TimeInfo.passedbySigcnt = (int)g_LogBufIdx;
-	}
-	/*EXIT:*/
-
-	return ret;
-}
-
-int ccu_AFwaitirq(struct CCU_WAIT_IRQ_STRUCT *WaitIrq, int tg_num)
-{
-	signed int ret = 0, Timeout = WaitIrq->EventInfo.Timeout;
-
-	LOG_DBG("Clear(%d),AFbWaitCond(%d),Timeout(%d)\n",
-		WaitIrq->EventInfo.Clear, AFbWaitCond[tg_num-1], Timeout);
-	LOG_DBG("arg is struct CCU_WAIT_IRQ_STRUCT, size:%zu\n",
-		sizeof(struct CCU_WAIT_IRQ_STRUCT));
-
-	if (Timeout != 0) {
-		/* 2. start to wait signal */
-		LOG_DBG("+:wait_event_interruptible_timeout\n");
-	AFbWaitCond[tg_num-1] = false;
-		Timeout = wait_event_interruptible_timeout(
-			ccuInfo.AFWaitQueueHead[tg_num-1],
-			AFbWaitCond[tg_num-1],
-			CCU_MsToJiffies(WaitIrq->EventInfo.Timeout));
-
-		LOG_DBG("-:wait_event_interruptible_timeout\n");
-	} else {
-		LOG_DBG("+:ccu wait_event_interruptible\n");
-		/*task_count_temp = atomic_read(&(ccuInfo.taskCount))*/
-		/*if(task_count_temp == 0)*/
-		/*{*/
-
-		mutex_unlock(&ap_task_manage.ApTaskMutex);
-		LOG_DBG("unlock ApTaskMutex\n");
-		wait_event_interruptible(ccuInfo.AFWaitQueueHead[tg_num-1],
-			AFbWaitCond[tg_num-1]);
-		LOG_DBG("accuiring ApTaskMutex\n");
-		mutex_lock(&ap_task_manage.ApTaskMutex);
-		LOG_DBG("got ApTaskMutex\n");
-		/*}*/
-		/*else*/
-		/*{*/
-		/*LOG_DBG("ccuInfo.taskCount is not zero: %d\n",*/
-		/*	task_count_temp);*/
-		/*}*/
-		AFbWaitCond[tg_num-1] = false;
-		LOG_DBG("-:ccu wait_event_interruptible\n");
-	}
-
-	if (Timeout > 0) {
-		LOG_DBG("remain timeout:%d, task: %d\n",
-			Timeout, AFg_LogBufIdx[tg_num-1]);
-		/*send to user if not timeout*/
-		WaitIrq->EventInfo.TimeInfo.passedbySigcnt =
-			(int)AFg_LogBufIdx[tg_num-1];
 	}
 	/*EXIT:*/
 
