@@ -4,6 +4,8 @@
  */
 
 #include <asm/memory.h>
+#include <asm/setup.h>
+
 #include <linux/init.h>
 #include <linux/kobject.h>
 #include <linux/mm.h>
@@ -13,6 +15,7 @@
 #include <linux/seq_file.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/uaccess.h>
 
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG)
 #include <mtk_wd_api.h>
@@ -25,6 +28,33 @@
 #define RR_PROC_NAME "reboot-reason"
 
 static struct proc_dir_entry *aee_rr_file;
+
+static char aee_cmdline[COMMAND_LINE_SIZE];
+
+static const char *mrdump_get_cmd(void)
+{
+	struct file *fd;
+	mm_segment_t fs;
+	loff_t pos = 0;
+
+	if (aee_cmdline[0] != 0)
+		return aee_cmdline;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+	fd = filp_open("/proc/cmdline", O_RDONLY, 0);
+	if (IS_ERR(fd)) {
+		pr_info("kedump: Unable to open /proc/cmdline (%ld)",
+			PTR_ERR(fd));
+		set_fs(fs);
+		return aee_cmdline;
+	}
+	vfs_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
+	filp_close(fd, NULL);
+	fd = NULL;
+	set_fs(fs);
+	return aee_cmdline;
+}
 
 static int aee_rr_reboot_reason_proc_open(struct inode *inode,
 		struct file *file)

@@ -46,44 +46,6 @@ static char *modules_info_buf;
 
 static bool dump_all_cpus;
 
-#ifdef MODULE
-static char __aee_cmdline[COMMAND_LINE_SIZE];
-static char *aee_cmdline = __aee_cmdline;
-
-const char *mrdump_get_cmd(void)
-{
-	struct file *fd;
-	mm_segment_t fs;
-	loff_t pos = 0;
-
-	if (__aee_cmdline[0] != 0)
-		return aee_cmdline;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-	fd = filp_open("/proc/cmdline", O_RDONLY, 0);
-	if (IS_ERR(fd)) {
-		pr_info("kedump: Unable to open /proc/cmdline (%ld)",
-			PTR_ERR(fd));
-		set_fs(fs);
-		return aee_cmdline;
-	}
-	vfs_read(fd, (void *)aee_cmdline, COMMAND_LINE_SIZE, &pos);
-	filp_close(fd, NULL);
-	fd = NULL;
-	set_fs(fs);
-	return aee_cmdline;
-}
-EXPORT_SYMBOL(mrdump_get_cmd);
-#else
-const char *mrdump_get_cmd(void)
-{
-	return saved_command_line;
-}
-EXPORT_SYMBOL(mrdump_get_cmd);
-
-#endif
-
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 			unsigned long *size, unsigned long *start)
 {
@@ -297,7 +259,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 {
 	unsigned int i;
 
-	strncpy(psinfo->pr_psargs, mrdump_get_cmd(), ELF_PRARGSZ - 1);
+	strncpy(psinfo->pr_psargs, "vmlinux", ELF_PRARGSZ - 1);
 	for (i = 0; i < ELF_PRARGSZ - 1; i++)
 		if (psinfo->pr_psargs[i] == 0)
 			psinfo->pr_psargs[i] = ' ';
@@ -545,7 +507,6 @@ void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs,
 {
 	mrdump_mini_cpu_regs(cpu, regs, tsk, 0);
 }
-EXPORT_SYMBOL(mrdump_mini_per_cpu_regs);
 
 static void mrdump_mini_build_task_info(struct pt_regs *regs)
 {
@@ -945,7 +906,6 @@ void mrdump_mini_ke_cpu_regs(struct pt_regs *regs)
 	mrdump_modules_info(NULL, -1);
 	mrdump_mini_add_extra_misc();
 }
-EXPORT_SYMBOL(mrdump_mini_ke_cpu_regs);
 
 static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
 {
