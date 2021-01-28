@@ -36,7 +36,7 @@ struct tpd_dts_info tpd_dts_data;
  *		*eint_output1, *rst_output0, *rst_output1;
  */
 const struct of_device_id touch_of_match[] = {
-	{ .compatible = "goodix,touch", },
+	{ .compatible = "mediatek,touch", },
 	{},
 };
 
@@ -453,7 +453,6 @@ static int tpd_probe(struct platform_device *pdev)
 	int ret = 0;
 #endif
 #endif
-
 	TPD_DMESG("enter %s, %d\n", __func__, __LINE__);
 
 	if (misc_register(&tpd_misc_device))
@@ -634,14 +633,15 @@ static int tpd_remove(struct platform_device *pdev)
 /* called when loaded into kernel */
 static void tpd_init_work_callback(struct work_struct *work)
 {
-	TPD_DEBUG("MediaTek touch panel driver init\n");
 	if (platform_driver_register(&tpd_driver) != 0)
 		TPD_DMESG("unable to register touch panel driver.\n");
 }
+extern int tpd_driver_init(void);
 static int __init tpd_device_init(void)
 {
 	int res = 0;
 
+	tpd_driver_init();
 	tpd_init_workqueue = create_singlethread_workqueue("mtk-tpd");
 	INIT_WORK(&tpd_init_work, tpd_init_work_callback);
 

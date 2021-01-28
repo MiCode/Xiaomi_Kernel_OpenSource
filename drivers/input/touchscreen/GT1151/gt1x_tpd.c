@@ -76,7 +76,7 @@ static unsigned short force[] = {
 static const unsigned short *const forces[] = { force, NULL };
 
 static const struct of_device_id tpd_of_match[] = {
-	{.compatible = "goodix,gt1151"},
+	{.compatible = "mediatek,cap_touch"},
 	{},
 };
 static struct i2c_driver tpd_i2c_driver = {
@@ -1107,9 +1107,9 @@ static int tpd_local_init(void)
 #if !defined CONFIG_MTK_LEGACY
 	GTP_INFO("Device Tree get regulator!");
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_ARCH_MT6758)
-	tpd->reg = regulator_get(tpd->tpd_dev, "vldo28");
+	tpd->reg = regulator_get_optional(tpd->tpd_dev, "vldo28");
 #else
-	tpd->reg = regulator_get(NULL, "vtp");
+	tpd->reg = regulator_get_optional(tpd->tpd_dev, "vtouch");
 #endif
 	if (IS_ERR(tpd->reg)) {
 		GTP_ERROR("regulator_get() failed!\n");
@@ -1387,13 +1387,17 @@ void tpd_on(void)
 	tpd_halt = 0;
 }
 /* called when loaded into kernel */
-static int __init tpd_driver_init(void)
+int tpd_driver_init(void)
 {
 	GTP_INFO("Goodix touch panel driver init.");
 	tpd_get_dts_info();
 	if (tpd_driver_add(&tpd_device_driver) < 0)
 		GTP_INFO("add generic driver failed\n");
 
+	return 0;
+}
+int tpd_driver_init_dummy(void)
+{
 	return 0;
 }
 
@@ -1404,5 +1408,5 @@ static void __exit tpd_driver_exit(void)
 	tpd_driver_remove(&tpd_device_driver);
 }
 
-module_init(tpd_driver_init);
+module_init(tpd_driver_init_dummy);
 module_exit(tpd_driver_exit);
