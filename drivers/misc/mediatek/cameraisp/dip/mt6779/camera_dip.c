@@ -1953,127 +1953,6 @@ EXIT:
 	return Ret;
 }
 
-
-/**************************************************************
- *
- **************************************************************/
-static signed int DIP_WriteRegToHw(
-	struct DIP_REG_STRUCT *pReg,
-	unsigned int         Count)
-{
-	signed int Ret = 0;
-	unsigned int i;
-	bool dbgWriteReg;
-	unsigned int module;
-	void __iomem *regBase;
-
-	/* Use local variable to store IspInfo.DebugMask & */
-	/* DIP_DBG_WRITE_REG for saving lock time*/
-	spin_lock(&(IspInfo.SpinLockIsp));
-	dbgWriteReg = IspInfo.DebugMask & DIP_DBG_WRITE_REG;
-	spin_unlock(&(IspInfo.SpinLockIsp));
-
-	module = pReg->module;
-
-
-	switch (module) {
-	case DIP_DIP_A_IDX:
-		regBase = DIP_A_BASE;
-		break;
-	default:
-		LOG_ERR("Unsupported module(%x) !!!\n", module);
-		return -EFAULT;
-	}
-
-	/*  */
-	if (dbgWriteReg)
-		LOG_DBG("- E.\n");
-
-	/*  */
-	for (i = 0; i < Count; i++) {
-		if (dbgWriteReg)
-			LOG_DBG("module(%d) base(0x%lx),",
-				module,
-				(unsigned long)regBase);
-			LOG_DBG(" Addr(0x%lx),Val(0x%x)\n",
-				(unsigned long)(pReg[i].Addr),
-				(unsigned int)(pReg[i].Val));
-
-		if (((regBase + pReg[i].Addr) < (regBase + PAGE_SIZE))
-			&& ((pReg[i].Addr & 0x3) == 0))
-			DIP_WR32(regBase + pReg[i].Addr, pReg[i].Val);
-		else
-			LOG_ERR("wrong address(0x%lx)\n",
-				(unsigned long)(regBase + pReg[i].Addr));
-
-	}
-
-	/*  */
-	return Ret;
-}
-
-
-
-/**************************************************************
- *
- **************************************************************/
-static signed int DIP_WriteReg(struct DIP_REG_IO_STRUCT *pRegIo)
-{
-	signed int Ret = 0;
-	/*    signed int TimeVd = 0;*/
-	/*    signed int TimeExpdone = 0;*/
-	/*    signed int TimeTasklet = 0;*/
-	/* unsigned char* pData = NULL; */
-	struct DIP_REG_STRUCT *pData = NULL;
-
-	/*  */
-	if (IspInfo.DebugMask & DIP_DBG_WRITE_REG)
-		LOG_DBG("Data(0x%p), Count(%d)\n",
-			(pRegIo->pData),
-			(pRegIo->Count));
-
-	if ((pRegIo->pData == NULL) ||
-	(pRegIo->Count == 0) ||
-	(pRegIo->Count > (DIP_REG_RANGE>>2))) {
-		LOG_INF("ERROR: pRegIo->pData is NULL or Count:%d\n",
-			pRegIo->Count);
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-	pData = kmalloc((pRegIo->Count) *
-		sizeof(struct DIP_REG_STRUCT),
-		GFP_KERNEL); /* Use GFP_KERNEL instead of GFP_ATOMIC */
-	if (pData == NULL) {
-		LOG_INF("ERROR: kmalloc failed,(process, pid, tgid)=(%s,",
-			current->comm);
-		LOG_INF("%d,%d)\n",
-			current->pid,
-			current->tgid);
-		Ret = -ENOMEM;
-		goto EXIT;
-	}
-	/*  */
-	if (copy_from_user(pData,
-		(void __user *)(pRegIo->pData),
-		pRegIo->Count * sizeof(struct DIP_REG_STRUCT)) != 0) {
-		LOG_INF("copy_from_user failed\n");
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-
-	/*  */
-	Ret = DIP_WriteRegToHw(
-		      pData,
-		      pRegIo->Count);
-	/*  */
-EXIT:
-	if (pData != NULL) {
-		kfree(pData);
-		pData = NULL;
-	}
-	return Ret;
-}
-
 /**************************************************************
  *
  **************************************************************/
@@ -3492,18 +3371,6 @@ static long DIP_ioctl(
 		}
 		break;
 	}
-	case DIP_WRITE_REGISTER: {
-		if (copy_from_user(&RegIo,
-			(void *)Param,
-			sizeof(struct DIP_REG_IO_STRUCT)) == 0) {
-/* 2nd layer behavoir of copy from user is implemented in DIP_WriteReg(...) */
-			Ret = DIP_WriteReg(&RegIo);
-		} else {
-			LOG_ERR("copy_from_user failed\n");
-			Ret = -EFAULT;
-		}
-		break;
-	}
 	case DIP_WAIT_IRQ: {
 		if (copy_from_user(&IrqInfo,
 			(void *)Param,
@@ -3808,27 +3675,6 @@ static long DIP_ioctl_compat(
 		}
 		return ret;
 	}
-	case COMPAT_DIP_WRITE_REGISTER: {
-		struct compat_DIP_REG_IO_STRUCT __user *data32;
-		struct DIP_REG_IO_STRUCT __user *data;
-
-		int err = 0;
-
-		data32 = compat_ptr(arg);
-		data = compat_alloc_user_space(sizeof(*data));
-		if (data == NULL)
-			return -EFAULT;
-
-		err = compat_get_dip_read_register_data(data32, data);
-		if (err) {
-			LOG_INF("COMPAT_DIP_WRITE_REGISTER error!!!\n");
-			return err;
-		}
-		ret = filp->f_op->unlocked_ioctl(filp, DIP_WRITE_REGISTER,
-			(unsigned long)data);
-		return ret;
-	}
-
 	case COMPAT_DIP_DEBUG_FLAG: {
 		/* compat_ptr(arg) will convert the arg */
 		ret = filp->f_op->unlocked_ioctl(filp, DIP_DEBUG_FLAG,
