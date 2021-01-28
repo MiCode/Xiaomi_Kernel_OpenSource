@@ -144,8 +144,8 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_pm *pm, int core_id)
 void mtk_vcodec_enc_clock_off(struct mtk_vcodec_pm *pm, int core_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
-	//clk_disable_unprepare(pm->clk_MT_CG_VENC);
-	//smi_bus_disable_unprepare(SMI_LARB3, "VENC");
+	clk_disable_unprepare(pm->clk_MT_CG_VENC);
+	smi_bus_disable_unprepare(SMI_LARB3, "VENC");
 #endif
 }
 
