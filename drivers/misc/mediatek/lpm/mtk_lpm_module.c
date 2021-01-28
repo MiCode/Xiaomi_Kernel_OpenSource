@@ -405,9 +405,10 @@ static int __init mtk_lpm_init(void)
 	if (!(mtk_lpm_system.suspend.flag &
 		MTK_LP_REQ_NOSYSCORE_CB))
 		register_syscore_ops(&mtk_lpm_suspend);
+#ifdef CONFIG_SUSPEND
 	else
 		mem_sleep_current = PM_SUSPEND_TO_IDLE;
-
+#endif
 	return 0;
 }
 device_initcall(mtk_lpm_init);
