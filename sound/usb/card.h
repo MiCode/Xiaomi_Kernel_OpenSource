@@ -9,6 +9,7 @@
 #define SYNC_URBS	4	/* always four urbs for sync */
 #define MAX_QUEUE	18	/* try not to exceed this queue length, in ms */
 #define US_PER_FRAME	125	/* high speed has 125 us per (micro) frame */
+#define PM_QOS_COUNT	8	/* pm qos requested count */
 
 struct audioformat {
 	struct list_head list;
