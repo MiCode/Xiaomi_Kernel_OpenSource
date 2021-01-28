@@ -305,10 +305,27 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx)
 	int target_freq = 0;
 	u64 target_freq_64 = 0;
 	struct codec_job *vdec_cur_job = 0;
+	long long op_rate_to_freq = 0;
 
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	vdec_cur_job = move_job_to_head(&ctx->id, &vdec_jobs);
-	if (vdec_cur_job != 0) {
+
+	if (ctx->dec_params.operating_rate > 0) {
+		op_rate_to_freq = 312LL *
+				ctx->q_data[MTK_Q_DATA_DST].coded_width *
+				ctx->q_data[MTK_Q_DATA_DST].coded_height *
+				ctx->dec_params.operating_rate /
+				3840LL / 2160LL / 30LL;
+		target_freq_64 = match_freq((int)op_rate_to_freq,
+					&vdec_freq_steps[0],
+					vdec_freq_step_size);
+
+		vdec_freq = target_freq_64;
+		if (vdec_cur_job != 0)
+			vdec_cur_job->mhz = (int)target_freq_64;
+
+		pm_qos_update_request(&vdec_qos_req_f, target_freq_64);
+	} else if (vdec_cur_job != 0) {
 		vdec_cur_job->start = get_time_us();
 		target_freq = est_freq(vdec_cur_job->handle, &vdec_jobs,
 					vdec_hists);

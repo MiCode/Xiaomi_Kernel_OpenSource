@@ -395,6 +395,9 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 	mutex_unlock(&ctx->dev->dec_dvfs_mutex);
 #endif
 #if DEC_DVFS
+	long long op_rate_to_freq = 0;
+	u64 target_freq_64 = 0;
+
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	if ((ctx->q_data[MTK_Q_DATA_DST].coded_width *
 		ctx->q_data[MTK_Q_DATA_DST].coded_height) >=
@@ -406,6 +409,19 @@ void mtk_vdec_dvfs_begin(struct mtk_vcodec_ctx *ctx, int hw_id)
 
 	if (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_VP8)
 		vdec_req_freq[hw_id] = 416;
+
+	if (ctx->dec_params.operating_rate > 0) {
+		op_rate_to_freq = 416LL *
+				ctx->q_data[MTK_Q_DATA_DST].coded_width *
+				ctx->q_data[MTK_Q_DATA_DST].coded_height *
+				ctx->dec_params.operating_rate /
+				3840LL / 2160LL / 60LL;
+		target_freq_64 = match_freq((int)op_rate_to_freq,
+					&vdec_freq_steps[0],
+					vdec_freq_step_size);
+
+		vdec_req_freq[hw_id] = target_freq_64;
+	}
 
 	if (ctx->dev->dec_cnt > 1 ||
 		ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_HEIF) {
