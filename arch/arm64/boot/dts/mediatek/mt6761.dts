@@ -1988,6 +1988,12 @@ firmware_class.path=/vendor/firmware";
 		io-channel-names = "thermistor-ch1";
 		interconnects = <&auxadc 1>;
 	};
+	tboard_thermistor3: thermal-sensor3 {
+		compatible = "mediatek,mtboard-thermistor3";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "thermistor-ch2";
+		interconnects = <&auxadc 2>;
+	};
 	eem_fsm@1100b000 {
 		compatible = "mediatek,eem_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
