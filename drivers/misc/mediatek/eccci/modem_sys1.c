@@ -297,7 +297,7 @@ static irqreturn_t md_cd_ccif_isr(int irq, void *data)
 	}
 #endif
 	if (md_info->channel_id & (1<<AP_MD_PEER_WAKEUP))
-		__pm_wakeup_event(&md_info->peer_wake_lock,
+		__pm_wakeup_event(md_info->peer_wake_lock,
 			jiffies_to_msecs(HZ));
 	if (md_info->channel_id & (1<<AP_MD_SEQ_ERROR)) {
 		CCCI_ERROR_LOG(md->index, TAG, "MD check seq fail\n");
@@ -1498,13 +1498,25 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 
 	snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
 		"md%d_cldma_trm", md_id + 1);
-	wakeup_source_init(&md->trm_wake_lock, md->trm_wakelock_name);
+	md->trm_wake_lock = wakeup_source_register(md->trm_wakelock_name);
+	if (!md->trm_wake_lock) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s %d: init wakeup source fail",
+			__func__, __LINE__);
+		return -1;
+	}
 	snprintf(md_info->peer_wakelock_name,
 		sizeof(md_info->peer_wakelock_name),
 		"md%d_cldma_peer", md_id + 1);
-	wakeup_source_init(&md_info->peer_wake_lock,
-		md_info->peer_wakelock_name);
 
+	md_info->peer_wake_lock =
+		wakeup_source_register(md_info->peer_wakelock_name);
+	if (!md_info->peer_wake_lock) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s %d: init wakeup source fail",
+			__func__, __LINE__);
+		return -1;
+	}
 	/* Copy HW info */
 	md_info->ap_ccif_base = (void __iomem *)md_hw->ap_ccif_base;
 	md_info->md_ccif_base = (void __iomem *)md_hw->md_ccif_base;

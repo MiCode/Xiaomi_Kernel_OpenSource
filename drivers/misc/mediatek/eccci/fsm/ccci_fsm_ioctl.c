@@ -508,7 +508,7 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 	case CCCI_IOC_LEAVE_DEEP_FLIGHT:
 		CCCI_NORMAL_LOG(md_id, FSM,
 		"MD leave flight mode ioctl called by %s\n", current->comm);
-		__pm_wakeup_event(&ctl->wakelock, jiffies_to_msecs(10 * HZ));
+		__pm_wakeup_event(ctl->wakelock, jiffies_to_msecs(10 * HZ));
 		ret = fsm_monitor_send_message(ctl->md_id,
 				CCCI_MD_MSG_FLIGHT_START_REQUEST, 0);
 		inject_md_status_event(md_id, MD_STA_EV_LEAVE_FLIGHT_REQUEST,
@@ -529,7 +529,7 @@ long ccci_fsm_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 		CCCI_NORMAL_LOG(md_id, FSM,
 		"MD leave flight mode enhanced ioctl called by %s\n",
 		current->comm);
-		__pm_wakeup_event(&ctl->wakelock, jiffies_to_msecs(10 * HZ));
+		__pm_wakeup_event(ctl->wakelock, jiffies_to_msecs(10 * HZ));
 		ret = fsm_monitor_send_message(ctl->md_id,
 				CCCI_MD_MSG_FLIGHT_START_REQUEST, 0);
 		fsm_monitor_send_message(GET_OTHER_MD_ID(ctl->md_id),

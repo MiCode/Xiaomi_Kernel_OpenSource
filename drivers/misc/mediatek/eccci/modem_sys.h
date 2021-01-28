@@ -121,7 +121,7 @@ struct md_sys1_info {
 		void __iomem *md_peer_wakeup;
 #endif
 		char peer_wakelock_name[32];
-		struct wakeup_source peer_wake_lock;
+		struct wakeup_source *peer_wake_lock;
 
 		void __iomem *md_bus_status;
 		void __iomem *md_pc_monitor;
@@ -174,7 +174,7 @@ struct ccci_modem {
 	unsigned long md_wdt_irq_flags;
 	atomic_t wdt_enabled;
 	char trm_wakelock_name[32];
-	struct wakeup_source trm_wake_lock;
+	struct wakeup_source *trm_wake_lock;
 	atomic_t reset_on_going;
 
 	unsigned int hif_flag;

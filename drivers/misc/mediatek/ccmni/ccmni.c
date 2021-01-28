@@ -1209,7 +1209,12 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 	}
 	snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
 			"ccmni_md%d", (md_id + 1));
-	wakeup_source_init(&ctlb->ccmni_wakelock, ctlb->wakelock_name);
+	ctlb->ccmni_wakelock = wakeup_source_register(ctlb->wakelock_name);
+	if (!ctlb->ccmni_wakelock) {
+		CCMNI_PR_DBG(md_id, "%s %d: init wakeup source fail!",
+			__func__, __LINE__);
+		return -1;
+	}
 
 	return 0;
 
@@ -1363,7 +1368,7 @@ static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 	}
 #endif
 
-	__pm_wakeup_event(&ctlb->ccmni_wakelock, jiffies_to_msecs(HZ));
+	__pm_wakeup_event(ctlb->ccmni_wakelock, jiffies_to_msecs(HZ));
 
 	return 0;
 }
@@ -1402,7 +1407,7 @@ static void ccmni_queue_state_callback(int md_id, int ccmni_idx,
 	case RX_IRQ:
 		mod_timer(ccmni->timer, jiffies + HZ);
 		napi_schedule(ccmni->napi);
-		__pm_wakeup_event(&ctlb->ccmni_wakelock, jiffies_to_msecs(HZ));
+		__pm_wakeup_event(ctlb->ccmni_wakelock, jiffies_to_msecs(HZ));
 		break;
 #endif
 

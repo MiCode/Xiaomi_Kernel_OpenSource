@@ -249,7 +249,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	}
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_STARTING;
-	__pm_stay_awake(&ctl->wakelock);
+	__pm_stay_awake(ctl->wakelock);
 	/* 2. poll for critical users exit */
 	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
 		if (ccci_port_check_critical_user(ctl->md_id) == 0) {
@@ -351,7 +351,7 @@ fail:
 	else
 		fsm_routine_exception(ctl, NULL, EXCEPTION_HS1_TIMEOUT);
 	fsm_finish_command(ctl, cmd, -1);
-	__pm_relax(&ctl->wakelock);
+	__pm_relax(ctl->wakelock);
 	return;
 
 fail_ee:
@@ -359,7 +359,7 @@ fail_ee:
 	 * let md_init have chance to start MD logger service
 	 */
 	fsm_finish_command(ctl, cmd, -1);
-	__pm_relax(&ctl->wakelock);
+	__pm_relax(ctl->wakelock);
 	return;
 
 success:
@@ -367,8 +367,8 @@ success:
 	ctl->curr_state = CCCI_FSM_READY;
 	ccci_md_post_start(ctl->md_id);
 	fsm_finish_command(ctl, cmd, 1);
-	__pm_relax(&ctl->wakelock);
-	__pm_wakeup_event(&ctl->wakelock, jiffies_to_msecs(10 * HZ));
+	__pm_relax(ctl->wakelock);
+	__pm_wakeup_event(ctl->wakelock, jiffies_to_msecs(10 * HZ));
 }
 
 static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
@@ -694,7 +694,13 @@ int ccci_fsm_init(int md_id)
 	atomic_set(&ctl->fs_ongoing, 0);
 	snprintf(ctl->wakelock_name, sizeof(ctl->wakelock_name),
 		"md%d_wakelock", ctl->md_id + 1);
-	wakeup_source_init(&ctl->wakelock, ctl->wakelock_name);
+	ctl->wakelock = wakeup_source_register(ctl->wakelock_name);
+	if (!ctl->wakelock) {
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"%s %d: init wakeup source fail",
+			__func__, __LINE__);
+		return -1;
+	}
 
 	ctl->fsm_thread = kthread_run(fsm_main_thread, ctl,
 		"ccci_fsm%d", md_id + 1);
@@ -756,7 +762,7 @@ int ccci_fsm_recv_md_interrupt(int md_id, enum MD_IRQ_TYPE type)
 	if (!ctl)
 		return -CCCI_ERR_INVALID_PARAM;
 
-	__pm_wakeup_event(&ctl->wakelock, jiffies_to_msecs(10 * HZ));
+	__pm_wakeup_event(ctl->wakelock, jiffies_to_msecs(10 * HZ));
 
 	if (type == MD_IRQ_WDT) {
 		fsm_append_command(ctl, CCCI_COMMAND_WDT, 0);

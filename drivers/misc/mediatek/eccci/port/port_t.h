@@ -101,7 +101,7 @@ struct port_t {
 	wait_queue_head_t rx_wq;	/* for uplayer user */
 	int rx_length;
 	int rx_length_th;
-	struct wakeup_source rx_wakelock;
+	struct wakeup_source *rx_wakelock;
 	unsigned int tx_busy_count;
 	unsigned int rx_busy_count;
 	int interception;

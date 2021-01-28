@@ -159,7 +159,7 @@ struct ccmni_ctl_block {
 	struct ccmni_ccci_ops   *ccci_ops;
 	struct ccmni_instance   *ccmni_inst[32];
 	unsigned int       md_sta;
-	struct wakeup_source   ccmni_wakelock;
+	struct wakeup_source   *ccmni_wakelock;
 	char               wakelock_name[16];
 	unsigned long long net_rx_delay[4];
 };

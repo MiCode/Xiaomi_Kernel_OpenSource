@@ -236,7 +236,7 @@ struct ccci_fsm_ctl {
 	struct task_struct *fsm_thread;
 	atomic_t fs_ongoing;
 	char wakelock_name[32];
-	struct wakeup_source wakelock;
+	struct wakeup_source *wakelock;
 
 	unsigned long boot_count; /* for throttling feature */
 

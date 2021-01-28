@@ -400,7 +400,7 @@ long port_dev_compat_ioctl(struct file *filp, unsigned int cmd,
  * these APIs are valiable for every port
  */
 /**************************************************************************/
-static inline void port_struct_init(struct port_t *port,
+static inline int port_struct_init(struct port_t *port,
 	struct port_proxy *port_p)
 {
 	INIT_LIST_HEAD(&port->entry);
@@ -414,7 +414,14 @@ static inline void port_struct_init(struct port_t *port,
 	port->port_proxy = port_p;
 	port->md_id = port_p->md_id;
 
-	wakeup_source_init(&port->rx_wakelock, port->name);
+	port->rx_wakelock = wakeup_source_register(port->name);
+	if (!port->rx_wakelock) {
+		CCCI_ERROR_LOG(port->md_id, TAG,
+			"%s %d: init wakeup source fail",
+			__func__, __LINE__);
+		return -1;
+	}
+	return 0;
 }
 
 static void port_dump_string(struct port_t *port, int dir,
@@ -619,7 +626,7 @@ int port_recv_skb(struct port_t *port, struct sk_buff *skb)
 			set_udc_status(skb);
 		port->rx_pkg_cnt++;
 		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
-		__pm_wakeup_event(&port->rx_wakelock, jiffies_to_msecs(HZ/2));
+		__pm_wakeup_event(port->rx_wakelock, jiffies_to_msecs(HZ/2));
 		spin_lock_irqsave(&port->rx_wq.lock, flags);
 		wake_up_all_locked(&port->rx_wq);
 		spin_unlock_irqrestore(&port->rx_wq.lock, flags);
