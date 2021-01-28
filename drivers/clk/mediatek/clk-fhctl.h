@@ -118,7 +118,7 @@ struct mtk_fhctl {
 
 	struct clk_mt_fhctl **fh_tbl;
 	const struct mtk_fhctl_compatible *dev_comp;
-#if defined(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_DEBUG)
+#if defined(CONFIG_DEBUG_FS)
 	struct dentry *debugfs_root;
 #endif
 };

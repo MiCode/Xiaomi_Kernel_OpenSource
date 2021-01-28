@@ -8,7 +8,7 @@
 #ifndef __DRV_CLK_FHCTL_DEBUG_H
 #define __DRV_CLK_FHCTL_DEBUG_H
 
-#if defined(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING_DEBUG)
+#if defined(CONFIG_DEBUG_FS)
 void mt_fhctl_init_debugfs(struct mtk_fhctl *fhctl);
 void mt_fhctl_exit_debugfs(struct mtk_fhctl *fhctl);
 #else
