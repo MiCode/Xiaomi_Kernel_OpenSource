@@ -589,7 +589,7 @@ void GZ_RewriteParamMemAddr(struct gz_syscall_cmd_param *param)
 
 		if (type == TZPT_MEM_OUTPUT || type == TZPT_MEM_INOUT) {
 			size = param_p[i]
-				       .mem32
+				       .mem
 				       .size; /* GZ use mem rather than mem64 */
 			KREE_DEBUG("RPMA: param %d mem size: %u\n", i, size);
 
