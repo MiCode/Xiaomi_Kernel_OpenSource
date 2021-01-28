@@ -288,7 +288,7 @@ static void push_table(struct LCM_setting_table *table, unsigned int count,
 	unsigned int i;
 
 	for (i = 0; i < count; i++) {
-		unsigned char cmd;
+		unsigned int cmd;
 
 		cmd = table[i].cmd;
 		switch (cmd) {
