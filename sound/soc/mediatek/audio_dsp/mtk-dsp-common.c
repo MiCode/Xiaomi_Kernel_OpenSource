@@ -276,7 +276,7 @@ static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 {
 	int ret = 0;
 
-	ret = set_afe_audio_pcmbuf(audio_hwbuf, substream, params);
+	ret = set_afe_audio_pcmbuf(audio_hwbuf, substream);
 	if (ret < 0) {
 		pr_info("set_afe_audio_pcmbuf fail\n");
 		return -1;
