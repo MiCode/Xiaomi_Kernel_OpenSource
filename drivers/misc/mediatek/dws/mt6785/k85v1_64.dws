@@ -2290,30 +2290,20 @@
                 <address>0x6B</address>
             </device21>
             <device22>
-                <varName>CCU_SENSOR_I2C_MAIN_HW</varName>
+                <varName>CCU_SENSOR_I2C_2_HW</varName>
                 <channel>I2C_CHANNEL_2</channel>
                 <address>0x33</address>
             </device22>
             <device23>
-                <varName>CCU_SENSOR_I2C_MAIN2_HW</varName>
+                <varName>CCU_SENSOR_I2C_4_HW</varName>
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x36</address>
             </device23>
             <device24>
-                <varName>CCU_SENSOR_I2C_SUB_HW</varName>
-                <channel>I2C_CHANNEL_4</channel>
+                <varName>CCU_SENSOR_I2C_7_HW</varName>
+                <channel>I2C_CHANNEL_7</channel>
                 <address>0x43</address>
             </device24>
-            <device25>
-                <varName>CCU_SENSOR_I2C_MAIN3_HW</varName>
-                <channel>I2C_CHANNEL_7</channel>
-                <address>0x11</address>
-            </device25>
-            <device26>
-                <varName>CCU_SENSOR_I2C_SUB2_HW</varName>
-                <channel>I2C_CHANNEL_4</channel>
-                <address>0x12</address>
-            </device26>
         </module>
         <module name="md1_eint">
             <count>3</count>
