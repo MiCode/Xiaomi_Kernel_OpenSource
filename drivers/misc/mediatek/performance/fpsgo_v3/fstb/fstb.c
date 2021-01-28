@@ -11,7 +11,6 @@
 #include <linux/err.h>
 #include <linux/syscalls.h>
 #include <linux/slab.h>
-#include <linux/debugfs.h>
 #include <linux/sort.h>
 #include <linux/string.h>
 #include <linux/average.h>
@@ -23,6 +22,7 @@
 #include "../fbt/include/fbt_cpu.h"
 #include "../fbt/include/xgf.h"
 #include "fpsgo_base.h"
+#include "fpsgo_sysfs.h"
 #include "fstb.h"
 #include "fstb_usedext.h"
 #include "../fbt/include/fbt_fteh.h"
@@ -45,8 +45,7 @@
 
 #define fpsgo_systrace_c_fstb_man(pid, val, fmt...) \
 	fpsgo_systrace_c(FPSGO_DEBUG_MANDATORY, pid, val, fmt)
-
-#define API_READY 0
+static struct kobject *fstb_kobj;
 
 static int max_fps_limit = DEFAULT_DFPS;
 static int dfps_ceiling = DEFAULT_DFPS;
@@ -68,7 +67,6 @@ static HLIST_HEAD(fstb_fteh_list);
 
 static struct hrtimer hrt;
 static struct workqueue_struct *wq;
-static struct dentry *fstb_debugfs_dir;
 
 static struct fps_level fps_levels[MAX_NR_FPS_LEVELS];
 static int nr_fps_levels = MAX_NR_FPS_LEVELS;
@@ -332,7 +330,7 @@ out:
 
 #define MAX_FTEH_LENGTH 20
 static int fteh_list_length;
-static int set_fteh_list(char *proc_name,
+int set_fteh_list(char *proc_name,
 	char *thrd_name)
 {
 	struct FSTB_FTEH_LIST *new_fteh_list;
@@ -1514,574 +1512,428 @@ static void reset_fps_level(void)
 	set_soft_fps_level(1, level);
 }
 
-static int fstb_soft_level_read(struct seq_file *m, void *v)
+static ssize_t fstb_soft_level_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
 	int i;
 
-	seq_printf(m, "%d ", nr_fps_levels);
-	for (i = 0; i < nr_fps_levels; i++)
-		seq_printf(m, "%d-%d ", fps_levels[i].start, fps_levels[i].end);
-	seq_puts(m, "\n");
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d ", nr_fps_levels);
+	pos += length;
 
-	return 0;
+	for (i = 0; i < nr_fps_levels; i++) {
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%d-%d ", fps_levels[i].start, fps_levels[i].end);
+		pos += length;
+	}
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"\n");
+	pos += length;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-/* format example: 1 60-45
- * compatible: 1 45
- */
-static ssize_t fstb_soft_level_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
+static ssize_t fstb_soft_level_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	char *buf, *sepstr, *substr;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	char *sepstr, *substr;
 	int ret = -EINVAL, new_nr_fps_levels, i, start_fps, end_fps;
 	struct fps_level *new_levels;
 
-	/* we do not allow change fps_level during fps throttling,
-	 * because fps_levels would be changed.
-	 */
-
-	if (count > 256)
-		return -ENOMEM;
-
-	buf = kmalloc(count + 1, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-
 	new_levels = kmalloc(sizeof(fps_levels), GFP_KERNEL);
 	if (new_levels == NULL) {
-		ret = -ENOMEM;
-		goto err_freebuf;
+		return count;
 	}
 
-	if (copy_from_user(buf, buffer, count)) {
-		ret = -EFAULT;
-		goto err;
-	}
-	buf[count] = '\0';
-	sepstr = buf;
 
-	substr = strsep(&sepstr, " ");
-	if (!substr || kstrtoint(substr, 10, &new_nr_fps_levels) != 0 ||
-			new_nr_fps_levels > MAX_NR_FPS_LEVELS) {
-		ret = -EINVAL;
-		goto err;
-	}
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			acBuffer[count] = '\0';
+			sepstr = acBuffer;
 
-	for (i = 0; i < new_nr_fps_levels; i++) {
-		substr = strsep(&sepstr, " ");
-		if (!substr) {
-			ret = -EINVAL;
-			goto err;
-		}
-		if (strchr(substr, '-')) { /* maybe contiguous */
-			if (sscanf(substr, "%d-%d",
-				&start_fps, &end_fps) != 2) {
+			substr = strsep(&sepstr, " ");
+			if (!substr ||
+					kstrtoint(substr, 10,
+					&new_nr_fps_levels) != 0 ||
+					new_nr_fps_levels > MAX_NR_FPS_LEVELS) {
 				ret = -EINVAL;
 				goto err;
 			}
-			new_levels[i].start = start_fps;
-			new_levels[i].end = end_fps;
-		} else { /* discrete */
-			if (kstrtoint(substr, 10, &start_fps) != 0) {
-				ret = -EINVAL;
-				goto err;
+
+			for (i = 0; i < new_nr_fps_levels; i++) {
+				substr = strsep(&sepstr, " ");
+				if (!substr) {
+					ret = -EINVAL;
+					goto err;
+				}
+				/* maybe contiguous */
+				if (strchr(substr, '-')) {
+					if (sscanf(substr, "%d-%d",
+						&start_fps, &end_fps) != 2) {
+						ret = -EINVAL;
+						goto err;
+					}
+					new_levels[i].start = start_fps;
+					new_levels[i].end = end_fps;
+				} else { /* discrete */
+					if (kstrtoint(substr,
+						10, &start_fps) != 0) {
+						ret = -EINVAL;
+						goto err;
+					}
+					new_levels[i].start = start_fps;
+					new_levels[i].end = start_fps;
+				}
 			}
-			new_levels[i].start = start_fps;
-			new_levels[i].end = start_fps;
+
+			ret = !set_soft_fps_level(
+				new_nr_fps_levels, new_levels);
+
+			if (ret == 1)
+				ret = count;
+			else
+				ret = -EINVAL;
 		}
 	}
-
-	ret = !set_soft_fps_level(new_nr_fps_levels, new_levels);
-
-	if (ret == 1)
-		ret = count;
-	else
-		ret = -EINVAL;
 
 err:
 	kfree(new_levels);
-err_freebuf:
-	kfree(buf);
 
-	return ret;
+	return count;
 }
 
-static int fstb_soft_level_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, fstb_soft_level_read, NULL);
-}
+static KOBJ_ATTR_RW(fstb_soft_level);
 
-static const struct file_operations fstb_soft_level_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_soft_level_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_soft_level_write,
-	.release = single_release,
-};
-
-static int fstb_fteh_list_read(struct seq_file *m, void *v)
-{
-	struct FSTB_FTEH_LIST *ftehiter = NULL;
-
-	hlist_for_each_entry(ftehiter, &fstb_fteh_list, hlist) {
-		seq_printf(m, "%s %s\n",
-				ftehiter->process_name, ftehiter->thread_name);
-	}
-
-	return 0;
-}
-
-static ssize_t fstb_fteh_list_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret = count;
-	char *buf;
-	char proc_name[16], thrd_name[16];
-
-	if (count > 256)
-		return -ENOMEM;
-
-	buf = kmalloc(count + 1, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-
-	if (copy_from_user(buf, buffer, count)) {
-		ret = -EFAULT;
-		goto err;
-	}
-	buf[count] = '\0';
-
-	if (sscanf(buf, "%15s %15s", proc_name, thrd_name) != 2) {
-		ret = -EINVAL;
-		goto err;
-	}
-
-	if (set_fteh_list(proc_name, thrd_name))
-		ret = -EINVAL;
-
-err:
-	kfree(buf);
-	return ret;
-}
-
-static int fstb_fteh_list_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, fstb_fteh_list_read, NULL);
-}
-
-static const struct file_operations fstb_fteh_list_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_fteh_list_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_fteh_list_write,
-	.release = single_release,
-};
-
-static int fstb_fps_list_read(struct seq_file *m, void *v)
+static ssize_t fstb_fps_list_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	int i;
 	struct FSTB_RENDER_TARGET_FPS *rtfiter = NULL;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
+
 
 	hlist_for_each_entry(rtfiter, &fstb_render_target_fps, hlist) {
-		seq_printf(m, "%s %d %d ",
-			rtfiter->process_name, rtfiter->pid, rtfiter->nr_level);
-		for (i = 0; i < rtfiter->nr_level; i++)
-			seq_printf(m, "%d-%d ",
-				rtfiter->level[i].start, rtfiter->level[i].end);
-		seq_puts(m, "\n");
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"%s %d %d ",
+			rtfiter->process_name,
+			rtfiter->pid,
+			rtfiter->nr_level);
+		pos += length;
+		for (i = 0; i < rtfiter->nr_level; i++) {
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d-%d ",
+				rtfiter->level[i].start,
+				rtfiter->level[i].end);
+			pos += length;
+		}
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"\n");
+		pos += length;
 	}
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t fstb_fps_list_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
+static ssize_t fstb_fps_list_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	int ret = count;
-	char *sepstr, *substr, *buf;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	char *sepstr, *substr;
 	char proc_name[16];
 	int i;
 	int  nr_level, start_fps, end_fps;
 	int mode = 1;
 	int pid = 0;
+	int ret = 0;
 	struct fps_level level[MAX_NR_RENDER_FPS_LEVELS];
 
-	if (count > 256)
-		return -ENOMEM;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			acBuffer[count] = '\0';
+			sepstr = acBuffer;
 
-	buf = kmalloc(count + 1, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
+			substr = strsep(&sepstr, " ");
+			if (!substr || !strncpy(proc_name, substr, 16)) {
+				ret = -EINVAL;
+				goto err;
+			}
+			proc_name[15] = '\0';
 
+			if (kstrtoint(proc_name, 10, &pid) != 0)
+				mode = 0; /* process mode*/
 
-	if (copy_from_user(buf, buffer, count)) {
-		ret = -EFAULT;
-		goto err;
-	}
-	buf[count] = '\0';
-	sepstr = buf;
+			substr = strsep(&sepstr, " ");
 
-	substr = strsep(&sepstr, " ");
-	if (!substr || !strncpy(proc_name, substr, 16)) {
-		ret = -EINVAL;
-		goto err;
-	}
-	proc_name[15] = '\0';
+			if (!substr || kstrtoint(substr, 10, &nr_level) != 0 ||
+					nr_level > MAX_NR_RENDER_FPS_LEVELS ||
+					nr_level < 0) {
+				ret = -EINVAL;
+				goto err;
+			}
 
-	if (kstrtoint(proc_name, 10, &pid) != 0)
-		mode = 0; /* process mode*/
+			for (i = 0; i < nr_level; i++) {
+				substr = strsep(&sepstr, " ");
+				if (!substr) {
+					ret = -EINVAL;
+					goto err;
+				}
 
-	substr = strsep(&sepstr, " ");
+				if (sscanf(substr, "%d-%d",
+					&start_fps, &end_fps) != 2) {
+					ret = -EINVAL;
+					goto err;
+				}
+				level[i].start = start_fps;
+				level[i].end = end_fps;
+			}
 
-	if (!substr || kstrtoint(substr, 10, &nr_level) != 0 ||
-			nr_level > MAX_NR_RENDER_FPS_LEVELS ||
-			nr_level < 0) {
-		ret = -EINVAL;
-		goto err;
-	}
+			if (mode == 0) {
+				if (switch_process_fps_range(proc_name,
+					nr_level, level))
+					ret = -EINVAL;
+			} else {
+				if (switch_thread_fps_range(pid,
+					nr_level, level))
+					ret = -EINVAL;
+			}
 
-	for (i = 0; i < nr_level; i++) {
-		substr = strsep(&sepstr, " ");
-		if (!substr) {
-			ret = -EINVAL;
-			goto err;
 		}
-
-		if (sscanf(substr, "%d-%d", &start_fps, &end_fps) != 2) {
-			ret = -EINVAL;
-			goto err;
-		}
-		level[i].start = start_fps;
-		level[i].end = end_fps;
-	}
-
-	if (mode == 0) {
-		if (switch_process_fps_range(proc_name, nr_level, level))
-			ret = -EINVAL;
-	} else {
-		if (switch_thread_fps_range(pid, nr_level, level))
-			ret = -EINVAL;
 	}
 
 err:
-	kfree(buf);
-	return ret;
+	return count;
 }
 
-static int fstb_fps_list_open(struct inode *inode, struct file *file)
+static KOBJ_ATTR_RW(fstb_fps_list);
+
+static ssize_t fstb_tune_window_size_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return single_open(file, fstb_fps_list_read, NULL);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", FRAME_TIME_WINDOW_SIZE_US);
 }
 
-static const struct file_operations fstb_fps_list_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_fps_list_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_fps_list_write,
-	.release = single_release,
-};
-
-static int fstb_tune_window_size_read(struct seq_file *m, void *v)
+static ssize_t fstb_tune_window_size_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%lld ", FRAME_TIME_WINDOW_SIZE_US);
-	return 0;
-}
-
-static ssize_t fstb_tune_window_size_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
-	long long arg;
-
-	if (!kstrtoll_from_user(buffer, count, 0, &arg))
-		ret = switch_sample_window(arg);
-	else
-		ret = -EINVAL;
-
-	return (ret < 0) ? ret : count;
-}
-
-static int fstb_tune_window_size_open(struct inode *inode,
-		struct file *file)
-{
-	return single_open(file, fstb_tune_window_size_read, NULL);
-}
-
-static const struct file_operations fstb_tune_window_size_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_tune_window_size_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_tune_window_size_write,
-	.release = single_release,
-};
-
-static int fstb_margin_mode_read(struct seq_file *m, void *v)
-{
-	seq_printf(m, "%d\n", margin_mode);
-	return 0;
-}
-
-static ssize_t fstb_margin_mode_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
-	if (!kstrtoint_from_user(buffer, count, 0, &arg))
-		ret = switch_margin_mode(arg);
-	else
-		ret = -EINVAL;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_sample_window(arg);
+		}
+	}
 
-	return (ret < 0) ? ret : count;
+	return count;
 }
 
-static int fstb_margin_mode_open(struct inode *inode,
-		struct file *file)
+static KOBJ_ATTR_RW(fstb_tune_window_size);
+
+static ssize_t margin_mode_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return single_open(file, fstb_margin_mode_read, NULL);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", margin_mode);
 }
 
-static const struct file_operations fstb_margin_mode_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_margin_mode_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_margin_mode_write,
-	.release = single_release,
-};
-
-static int fstb_margin_mode_dbnc_a_read(struct seq_file *m, void *v)
+static ssize_t margin_mode_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%d\n", margin_mode_dbnc_a);
-	return 0;
-}
-
-static ssize_t fstb_margin_mode_dbnc_a_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
-	if (!kstrtoint_from_user(buffer, count, 0, &arg))
-		ret = switch_margin_mode_dbnc_a(arg);
-	else
-		ret = -EINVAL;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_margin_mode(arg);
+		}
+	}
 
-	return (ret < 0) ? ret : count;
+	return count;
 }
 
-static int fstb_margin_mode_dbnc_a_open(struct inode *inode,
-		struct file *file)
+static KOBJ_ATTR_RW(margin_mode);
+
+static ssize_t margin_mode_dbnc_a_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return single_open(file, fstb_margin_mode_dbnc_a_read, NULL);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", margin_mode_dbnc_a);
 }
 
-static const struct file_operations fstb_margin_mode_dbnc_a_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_margin_mode_dbnc_a_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_margin_mode_dbnc_a_write,
-	.release = single_release,
-};
-
-static int fstb_margin_mode_dbnc_b_read(struct seq_file *m, void *v)
+static ssize_t margin_mode_dbnc_a_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%d\n", margin_mode_dbnc_b);
-	return 0;
-}
-
-static ssize_t fstb_margin_mode_dbnc_b_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
-	if (!kstrtoint_from_user(buffer, count, 0, &arg))
-		ret = switch_margin_mode_dbnc_b(arg);
-	else
-		ret = -EINVAL;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_margin_mode_dbnc_a(arg);
+		}
+	}
 
-	return (ret < 0) ? ret : count;
+	return count;
 }
 
-static int fstb_margin_mode_dbnc_b_open(struct inode *inode,
-		struct file *file)
+static KOBJ_ATTR_RW(margin_mode_dbnc_a);
+
+static ssize_t margin_mode_dbnc_b_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return single_open(file, fstb_margin_mode_dbnc_b_read, NULL);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", margin_mode_dbnc_b);
 }
 
-static const struct file_operations fstb_margin_mode_dbnc_b_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_margin_mode_dbnc_b_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_margin_mode_dbnc_b_write,
-	.release = single_release,
-};
-
-static int fstb_tune_quantile_read(struct seq_file *m, void *v)
+static ssize_t margin_mode_dbnc_b_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%d ", QUANTILE);
-	return 0;
-}
-
-static ssize_t fstb_tune_quantile_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
-	if (!kstrtoint_from_user(buffer, count, 0, &arg))
-		ret = switch_percentile_frametime(arg);
-	else
-		ret = -EINVAL;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_margin_mode_dbnc_b(arg);
+		}
+	}
 
-	return (ret < 0) ? ret : count;
+	return count;
 }
 
-static int fstb_tune_quantile_open(struct inode *inode, struct file *file)
+static KOBJ_ATTR_RW(margin_mode_dbnc_b);
+
+static ssize_t fstb_tune_quantile_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return single_open(file, fstb_tune_quantile_read, NULL);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", QUANTILE);
 }
 
-static const struct file_operations fstb_tune_quantile_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_tune_quantile_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_tune_quantile_write,
-	.release = single_release,
-};
-
-static int fstb_tune_error_threshold_read(struct seq_file *m, void *v)
+static ssize_t fstb_tune_quantile_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	seq_printf(m, "%d ", fps_error_threshold);
-	return 0;
-}
-
-static ssize_t fstb_tune_error_threshold_write(struct file *file,
-		const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
-	if (!kstrtoint_from_user(buffer, count, 0, &arg))
-		ret = switch_fps_error_threhosld(arg);
-	else
-		ret = -EINVAL;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_percentile_frametime(arg);
+		}
+	}
 
-	return (ret < 0) ? ret : count;
+	return count;
 }
 
-static int fstb_tune_error_threshold_open(struct inode *inode,
-		struct file *file)
+static KOBJ_ATTR_RW(fstb_tune_quantile);
+
+
+static ssize_t fstb_tune_error_threshold_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	return single_open(file, fstb_tune_error_threshold_read, NULL);
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fps_error_threshold);
 }
 
-static const struct file_operations fstb_tune_error_threshold_fops = {
-	.owner = THIS_MODULE,
-	.open = fstb_tune_error_threshold_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fstb_tune_error_threshold_write,
-	.release = single_release,
-};
-
-static int mtk_fstb_fps_proc_read(struct seq_file *m, void *v)
+static ssize_t fstb_tune_error_threshold_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	/**
-	 * The format to print out:
-	 *  fstb_enable <0 or 1>
-	 *  kernel_log <0 or 1>
-	 */
-	seq_printf(m, "fstb_enable %d\n", fstb_enable);
-	seq_printf(m, "fstb_log %d\n", fstb_fps_klog_on);
-	seq_printf(m, "fstb_active %d\n", fstb_active);
-	seq_printf(m, "fstb_idle_cnt %d\n", fstb_idle_cnt);
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-	return 0;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				switch_fps_error_threhosld(arg);
+		}
+	}
+
+	return count;
 }
 
-static ssize_t mtk_fstb_fps_proc_write(struct file *filp,
-		const char __user *buffer, size_t count, loff_t *data)
+static KOBJ_ATTR_RW(fstb_tune_error_threshold);
+
+static ssize_t fstb_debug_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	int len = 0;
-	char desc[128];
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_enable %d\n", fstb_enable);
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_log %d\n", fstb_fps_klog_on);
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_active %d\n", fstb_active);
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_idle_cnt %d\n", fstb_idle_cnt);
+	pos += length;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+
+static ssize_t fstb_debug_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int k_enable, klog_on;
 
-	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	if (copy_from_user(desc, buffer, len))
-		return 0;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (sscanf(acBuffer, "%d %d",
+				&k_enable, &klog_on) >= 1) {
+				if (k_enable == 0 || k_enable == 1)
+					fpsgo_ctrl2fstb_switch_fstb(k_enable);
 
-	desc[len] = '\0';
-
-	/**
-	 * sscanf format <fstb_enable> <klog_on>
-	 * <klog_on> can only be 0 or 1
-	 */
-
-	if (data == NULL) {
-		mtk_fstb_dprintk("[%s] null data\n", __func__);
-		return -EINVAL;
+				if (klog_on == 0 || klog_on == 1)
+					fstb_fps_klog_on = klog_on;
+			}
+		}
 	}
 
-	if (sscanf(desc, "%d %d", &k_enable, &klog_on) >= 1) {
-		if (k_enable == 0 || k_enable == 1)
-			fpsgo_ctrl2fstb_switch_fstb(k_enable);
-
-		if (klog_on == 0 || klog_on == 1)
-			fstb_fps_klog_on = klog_on;
-
-		return count;
-	}
-
-	mtk_fstb_dprintk("[%s] bad arg\n", __func__);
-	return -EINVAL;
+	return count;
 }
+static KOBJ_ATTR_RW(fstb_debug);
 
-static int mtk_fstb_fps_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, mtk_fstb_fps_proc_read, NULL);
-}
 
-static const struct file_operations fstb_fps_fops = {
-	.owner = THIS_MODULE,
-	.open = mtk_fstb_fps_proc_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = mtk_fstb_fps_proc_write,
-	.release = single_release,
-};
-
-static ssize_t fpsgo_status_write(struct file *filp,
-		const char __user *buf, size_t len, loff_t *data)
-{
-	char tmp[32] = {0};
-
-	len = (len < (sizeof(tmp) - 1)) ? len : (sizeof(tmp) - 1);
-	return len;
-}
-
-static int fpsgo_status_read(struct seq_file *m, void *v)
+static ssize_t fpsgo_status_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	struct FSTB_FRAME_INFO *iter;
 	int fteh_pid;
 	int fteh_state;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
 
 	mutex_lock(&fstb_lock);
 
@@ -2090,54 +1942,49 @@ static int fpsgo_status_read(struct seq_file *m, void *v)
 		return 0;
 	}
 
-	seq_puts(m,
-	"tid\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tfteh_list\n"
-	);
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+	"tid\tname\t\tcurrentFPS\ttargetFPS\tFPS_margin\tfteh_list\n");
+	pos += length;
 
 	hlist_for_each_entry(iter, &fstb_frame_infos, hlist) {
-		seq_printf(m, "%d\t", iter->pid);
-		seq_printf(m, "%s\t", iter->proc_name);
-
-		seq_printf(m, "%d\t\t",
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d\t%s\t%d\t\t%d\t\t%d\t\t%d\n",
+				iter->pid,
+				iter->proc_name,
 				iter->queue_fps > max_fps_limit ?
-				max_fps_limit : iter->queue_fps);
-
-		seq_printf(m, "%d\t\t", iter->target_fps);
-
-		seq_printf(m, "%d\t\t", iter->target_fps_margin);
-
-		seq_printf(m, "%d\t\t",
-			fpsgo_fbt2fstb_query_fteh_list(iter->pid));
-
-		seq_puts(m, "\n");
+				max_fps_limit : iter->queue_fps,
+				iter->target_fps,
+				iter->target_fps_margin,
+				fpsgo_fbt2fstb_query_fteh_list(iter->pid));
+		pos += length;
 
 	}
 
 	mutex_unlock(&fstb_lock);
 
 	fteh_state = fpsgo_fteh_get_state(&fteh_pid);
-	seq_puts(m, "\nFTEH\tstate\tcur_pid\n");
-	seq_printf(m, "\t%d\t%d\n", fteh_state, fteh_pid);
 
-	seq_printf(m, "fstb_is_cam_active:%d\n", fstb_is_cam_active);
-	seq_printf(m, "dfps_ceiling:%d\n", dfps_ceiling);
 
-	return 0;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"\nFTEH\tstate\tcur_pid\n");
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"\t%d\t%d\n", fteh_state, fteh_pid);
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"fstb_is_cam_active:%d\n", fstb_is_cam_active);
+	pos += length;
+
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"dfps_ceiling:%d\n", dfps_ceiling);
+	pos += length;
+
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
-
-static int fpsgo_status_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, fpsgo_status_read, NULL);
-}
-
-static const struct file_operations fpsgo_status_fops = {
-	.owner = THIS_MODULE,
-	.open = fpsgo_status_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.write = fpsgo_status_write,
-	.release = single_release,
-};
+static KOBJ_ATTR_RO(fpsgo_status);
 
 int mtk_fstb_init(void)
 {
@@ -2149,84 +1996,30 @@ int mtk_fstb_init(void)
 
 	ged_kpi_output_gfx_info2_fp = gpu_time_update;
 
-	/* create debugfs file */
-	if (!fpsgo_debugfs_dir)
-		goto err;
 
-	fstb_debugfs_dir = debugfs_create_dir("fstb",
-			fpsgo_debugfs_dir);
-	if (!fstb_debugfs_dir) {
-		mtk_fstb_dprintk_always(
-				"[%s]: mkdir /sys/kernel/debug/fpsgo/fstb failed\n",
-				__func__);
-		goto err;
+	if (!fpsgo_sysfs_create_dir(NULL, "fstb", &fstb_kobj)) {
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fpsgo_status);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_debug);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_tune_error_threshold);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_tune_quantile);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_margin_mode_dbnc_b);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_margin_mode_dbnc_a);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_margin_mode);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_tune_window_size);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_fps_list);
+		fpsgo_sysfs_create_file(fstb_kobj,
+				&kobj_attr_fstb_soft_level);
 	}
 
-	debugfs_create_file("fpsgo_status",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fpsgo_status_fops);
-
-	debugfs_create_file("fstb_debug",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_fps_fops);
-
-	debugfs_create_file("fstb_soft_level",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_soft_level_fops);
-
-	debugfs_create_file("fstb_fps_list",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_fps_list_fops);
-
-	debugfs_create_file("fstb_fteh_list",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_fteh_list_fops);
-
-	debugfs_create_file("fstb_tune_error_threshold",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_tune_error_threshold_fops);
-
-	debugfs_create_file("fstb_tune_quantile",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_tune_quantile_fops);
-
-	debugfs_create_file("fstb_tune_window_size",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_tune_window_size_fops);
-
-	debugfs_create_file("margin_mode",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_margin_mode_fops);
-
-	debugfs_create_file("margin_mode_dbnc_a",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_margin_mode_dbnc_a_fops);
-
-	debugfs_create_file("margin_mode_dbnc_b",
-			0664,
-			fstb_debugfs_dir,
-			NULL,
-			&fstb_margin_mode_dbnc_b_fops);
 
 	reset_fps_level();
 
@@ -2251,7 +2044,28 @@ int __exit mtk_fstb_exit(void)
 
 	disable_fstb_timer();
 
-	/* remove the debugfs file */
-	debugfs_remove_recursive(fstb_debugfs_dir);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fpsgo_status);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_debug);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_tune_error_threshold);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_tune_quantile);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_margin_mode_dbnc_b);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_margin_mode_dbnc_a);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_margin_mode);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_tune_window_size);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_fps_list);
+	fpsgo_sysfs_remove_file(fstb_kobj,
+			&kobj_attr_fstb_soft_level);
+
+	fpsgo_sysfs_remove_dir(&fstb_kobj);
+
 	return 0;
 }

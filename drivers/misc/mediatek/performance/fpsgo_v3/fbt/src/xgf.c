@@ -8,7 +8,6 @@
 #include <linux/rbtree.h>
 #include <linux/preempt.h>
 #include <linux/proc_fs.h>
-#include <linux/debugfs.h>
 #include <linux/vmalloc.h>
 #include <linux/trace_events.h>
 #include <linux/module.h>
@@ -24,6 +23,7 @@
 
 #include "xgf.h"
 #include "fpsgo_base.h"
+#include "fpsgo_sysfs.h"
 
 FPSFO_DECLARE_SYSTRACE(x, irq_handler_entry)
 FPSFO_DECLARE_SYSTRACE(x, irq_handler_exit)
@@ -39,7 +39,7 @@ FPSFO_DECLARE_SYSTRACE(x, sched_switch)
 static DEFINE_MUTEX(xgf_main_lock);
 static int xgf_enable;
 static int xgf_ko_ready;
-static struct dentry *debugfs_xgf_dir;
+static struct kobject *xgf_kobj;
 static unsigned long long last_check2recycle_ts;
 static atomic_t xgf_atomic_val_0 = ATOMIC_INIT(0);
 static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
@@ -1572,28 +1572,18 @@ qudeq_notify_err:
 	return ret;
 }
 
-#define FPSGO_DEBUGFS_ENTRY(name) \
-static int fpsgo_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, fpsgo_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations fpsgo_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = fpsgo_##name##_open, \
-	.read = seq_read, \
-	.write = fpsgo_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
-
-static int fpsgo_deplist_show(struct seq_file *m, void *unused)
+static ssize_t deplist_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	struct xgf_render *r_iter;
 	struct hlist_node *r_tmp;
 	struct rb_root *r;
 	struct xgf_dep *iter;
 	struct rb_node *n;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
 
 	xgf_lock(__func__);
 
@@ -1601,52 +1591,45 @@ static int fpsgo_deplist_show(struct seq_file *m, void *unused)
 		r = &r_iter->deps_list;
 		for (n = rb_first(r); n != NULL; n = rb_next(n)) {
 			iter = rb_entry(n, struct xgf_dep, rb_node);
-			seq_printf(m, "render tid:%d inner_deps_tid:%d idx:%d\n",
-				   r_iter->render, iter->tid, iter->frame_idx);
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"rtid:%d itid:%d idx:%d\n",
+				r_iter->render, iter->tid, iter->frame_idx);
+			pos += length;
 		}
 
 		r = &r_iter->out_deps_list;
 		for (n = rb_first(r); n != NULL; n = rb_next(n)) {
 			iter = rb_entry(n, struct xgf_dep, rb_node);
-			seq_printf(m, "render tid:%d out_deps_tid:%d idx:%d\n",
-				   r_iter->render, iter->tid, iter->frame_idx);
+
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"rtid:%d otid:%d idx:%d\n",
+				 r_iter->render, iter->tid, iter->frame_idx);
+			pos += length;
 		}
 
 		r = &r_iter->prev_deps_list;
 		for (n = rb_first(r); n != NULL; n = rb_next(n)) {
 			iter = rb_entry(n, struct xgf_dep, rb_node);
-			seq_printf(m, "render tid:%d prev_deps_tid:%d idx:%d\n",
-				   r_iter->render, iter->tid, iter->frame_idx);
+			length = scnprintf(temp + pos,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"rtid:%d ptid:%d idx:%d\n",
+				 r_iter->render, iter->tid, iter->frame_idx);
+			pos += length;
 		}
 	}
 
 	xgf_unlock(__func__);
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t fpsgo_deplist_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
-{
-	return cnt;
-}
-
-FPSGO_DEBUGFS_ENTRY(deplist);
+static KOBJ_ATTR_RO(deplist);
 
 int __init init_xgf(void)
 {
-	if (!fpsgo_debugfs_dir)
-		return -ENODEV;
-
-	debugfs_xgf_dir = debugfs_create_dir("xgf",
-					     fpsgo_debugfs_dir);
-	if (!debugfs_xgf_dir)
-		return -ENODEV;
-
-	debugfs_create_file("deplist",
-			    0664,
-			    debugfs_xgf_dir,
-			    NULL,
-			    &fpsgo_deplist_fops);
+	if (!fpsgo_sysfs_create_dir(NULL, "xgf", &xgf_kobj))
+		fpsgo_sysfs_create_file(xgf_kobj, &kobj_attr_deplist);
 
 	return 0;
 }

@@ -8,7 +8,6 @@
 #include <linux/slab.h>
 #include <linux/rbtree.h>
 #include <linux/math64.h>
-#include <linux/debugfs.h>
 #include <linux/sort.h>
 #include <linux/sched/clock.h>
 #include <linux/sched/task.h>
@@ -18,6 +17,7 @@
 #include <mt-plat/fpsgo_common.h>
 
 #include "fpsgo_base.h"
+#include "fpsgo_sysfs.h"
 #include "fbt_cpu.h"
 #include "fstb.h"
 #include "xgf.h"
@@ -38,7 +38,7 @@ static int __thrs_heavy;
 
 static DEFINE_MUTEX(minitop_mlock);
 static DEFINE_MUTEX(minitop_qlock);
-static struct dentry *debugfs_minitop_dir;
+static struct kobject *minitop_kobj;
 static unsigned int minitop_life;
 
 static int nr_cpus __read_mostly;
@@ -919,146 +919,192 @@ int fpsgo_fbt2minitop_query_single(pid_t pid)
 	return -1;
 }
 
-#define MINITOP_DEBUGFS_ENTRY(name) \
-static int minitop_##name##_open(struct inode *i, struct file *file) \
+#define MINITOP_SYSFS_WRITE(name, lb, ub); \
+static ssize_t name##_store(struct kobject *kobj, \
+		struct kobj_attribute *attr, \
+		const char *buf, size_t count) \
 { \
-	return single_open(file, minitop_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations minitop_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = minitop_##name##_open, \
-	.read = seq_read, \
-	.write = minitop_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
-
-#define MINITOP_DEBUGFS_WRITE(name, lb, ub); \
-static ssize_t minitop_##name##_write(struct file *flip, \
-		const char *ubuf, size_t cnt, loff_t *data) \
-{ \
-	int ret; \
 	int val; \
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE]; \
+	int arg; \
 \
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val); \
-	if (ret) \
-		return ret; \
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) { \
+		if (scnprintf(acBuffer, \
+				FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) { \
+			if (kstrtoint(acBuffer, 0, &arg) == 0) { \
+				val = arg; \
+			} else \
+				return count; \
+		} \
+	} \
 \
 	if ((val < (lb)) || (val > (ub))) \
-		return -EINVAL; \
+		return count; \
 \
 	if (!minitop_if_active_then_lock()) \
-		return -EAGAIN; \
+		return count; \
 	__##name = val; \
 	__minitop_cleanup(); \
 	minitop_unlock(__func__); \
 \
-	/* Switch ceiling on for safety */ \
 	fbt_switch_ceiling(1); \
-	return cnt; \
+	return count; \
 }
 
-static int minitop_list_show(struct seq_file *m, void *unused)
+static ssize_t list_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
 	struct rb_node *n;
 	struct minitop_rec *mr;
 
 	if (!minitop_if_active_then_lock())
-		return -EAGAIN;
+		return scnprintf(buf, PAGE_SIZE, "%s", temp);
 
 	for (n = rb_first(&minitop_root); n; n = rb_next(n)) {
 		mr = rb_entry(n, struct minitop_rec, node);
-		seq_printf(m, " %5d %3llu%% src-0x%2x life-%d debnc-%d/%d/%d\n",
-			   mr->tid, mr->ratio, (unsigned int)mr->source,
-			   mr->life, mr->debnc, mr->debnc_fteh, mr->debnc_fbt);
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" %5d %3llu%% src-0x%2x life-%d debnc-%d/%d/%d\n",
+			mr->tid, mr->ratio, (unsigned int)mr->source,
+			mr->life, mr->debnc, mr->debnc_fteh,
+			mr->debnc_fbt);
+		pos += length;
 	}
 
 	minitop_unlock(__func__);
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t minitop_list_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
-	return cnt;
-}
+static KOBJ_ATTR_RO(list);
 
-MINITOP_DEBUGFS_ENTRY(list);
-
-static int minitop_minitop_n_show(struct seq_file *m, void *unused)
+static ssize_t minitop_n_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
 	minitop_lock(__func__);
-	seq_printf(m, " Top %d is tracked\n", __minitop_n);
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" Top %d is tracked\n", __minitop_n);
+	pos += length;
 	minitop_unlock(__func__);
-	return 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-MINITOP_DEBUGFS_WRITE(minitop_n, 1, nr_cpus);
+MINITOP_SYSFS_WRITE(minitop_n, 1, nr_cpus);
 
-MINITOP_DEBUGFS_ENTRY(minitop_n);
+static KOBJ_ATTR_RW(minitop_n);
 
-static int minitop_warmup_order_show(struct seq_file *m, void *unused)
+static ssize_t warmup_order_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
 	minitop_lock(__func__);
-	seq_printf(m, " Slot size is 2^%d=%d tick(s)\n",
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" Slot size is 2^%d=%d tick(s)\n",
 		   __warmup_order, (1 << __warmup_order));
+	pos += length;
 	minitop_unlock(__func__);
-	return 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-MINITOP_DEBUGFS_WRITE(warmup_order, 0, 20)
+MINITOP_SYSFS_WRITE(warmup_order, 0, 20)
 
-MINITOP_DEBUGFS_ENTRY(warmup_order);
+static KOBJ_ATTR_RW(warmup_order);
 
-static int minitop_cooldn_order_show(struct seq_file *m, void *unused)
+static ssize_t cooldn_order_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
 	minitop_lock(__func__);
-	seq_printf(m, " Debounce slot is 2^%d=%d\n",
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" Debounce slot is 2^%d=%d\n",
 		   __cooldn_order, (1 << __cooldn_order));
+	pos += length;
 	minitop_unlock(__func__);
-	return 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-MINITOP_DEBUGFS_WRITE(cooldn_order, 0, 10)
+MINITOP_SYSFS_WRITE(cooldn_order, 0, 10)
 
-MINITOP_DEBUGFS_ENTRY(cooldn_order);
+static KOBJ_ATTR_RW(cooldn_order);
 
-static int minitop_thrs_heavy_show(struct seq_file *m, void *unused)
+static ssize_t thrs_heavy_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
 	minitop_lock(__func__);
-	seq_printf(m, " Threshold of heavy is %d\n", __thrs_heavy);
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" Threshold of heavy is %d\n", __thrs_heavy);
+	pos += length;
 	minitop_unlock(__func__);
-	return 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-MINITOP_DEBUGFS_WRITE(thrs_heavy, 0, 100)
+MINITOP_SYSFS_WRITE(thrs_heavy, 0, 100)
 
-MINITOP_DEBUGFS_ENTRY(thrs_heavy);
+static KOBJ_ATTR_RW(thrs_heavy);
 
 
-static int minitop_enable_show(struct seq_file *m, void *unused)
+static ssize_t enable_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
 	minitop_lock(__func__);
-	seq_printf(m, " Mini TOP is %s\n",
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" Mini TOP is %s\n",
 		   atomic_read(&__minitop_enable) ? "ON" : "OFF");
+	pos += length;
 	minitop_unlock(__func__);
-	return 0;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t minitop_enable_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
+static ssize_t enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	int ret;
 	int val;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
 	if ((val < 0) || (val > 1))
-		return -EINVAL;
+		return count;
 
 	minitop_lock(__func__);
 	atomic_set(&__minitop_enable, val);
@@ -1067,27 +1113,28 @@ static ssize_t minitop_enable_write(struct file *flip,
 
 	/* Switch ceiling on for safety */
 	fbt_switch_ceiling(1);
-	return cnt;
+	return count;
 }
 
-MINITOP_DEBUGFS_ENTRY(enable);
+static KOBJ_ATTR_RW(enable);
 
 void __exit minitop_exit(void)
 {
 	minitop_cleanup();
+
+	fpsgo_sysfs_remove_file(minitop_kobj, &kobj_attr_list);
+	fpsgo_sysfs_remove_file(minitop_kobj, &kobj_attr_minitop_n);
+	fpsgo_sysfs_remove_file(minitop_kobj, &kobj_attr_warmup_order);
+	fpsgo_sysfs_remove_file(minitop_kobj, &kobj_attr_cooldn_order);
+	fpsgo_sysfs_remove_file(minitop_kobj, &kobj_attr_thrs_heavy);
+	fpsgo_sysfs_remove_file(minitop_kobj, &kobj_attr_enable);
+
+	fpsgo_sysfs_remove_dir(&minitop_kobj);
 }
 
 int __init minitop_init(void)
 {
 	int i;
-
-	if (!fpsgo_debugfs_dir)
-		return -ENODEV;
-
-	debugfs_minitop_dir = debugfs_create_dir("minitop",
-						 fpsgo_debugfs_dir);
-	if (!debugfs_minitop_dir)
-		return -ENODEV;
 
 	/* Configurable */
 	__minitop_n    = 3;
@@ -1105,43 +1152,15 @@ int __init minitop_init(void)
 		list_add_tail(&mwa[i].link, &minitop_mws);
 	}
 
+	if (!fpsgo_sysfs_create_dir(NULL, "minitop", &minitop_kobj)) {
+		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_list);
+		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_minitop_n);
+		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_warmup_order);
+		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_cooldn_order);
+		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_thrs_heavy);
+		fpsgo_sysfs_create_file(minitop_kobj, &kobj_attr_enable);
+	}
 
-	debugfs_create_file("list",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_list_fops);
-
-	debugfs_create_file("minitop_n",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_minitop_n_fops);
-
-	debugfs_create_file("warmup_order",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_warmup_order_fops);
-
-	debugfs_create_file("cooldn_order",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_cooldn_order_fops);
-
-	debugfs_create_file("thrs_heavy",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_thrs_heavy_fops);
-
-
-	debugfs_create_file("enable",
-			    0664,
-			    debugfs_minitop_dir,
-			    NULL,
-			    &minitop_enable_fops);
 
 	wq = create_singlethread_workqueue("mt_mini_top");
 	if (!wq)

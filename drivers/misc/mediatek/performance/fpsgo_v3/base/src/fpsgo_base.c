@@ -16,6 +16,7 @@
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_usedext.h"
+#include "fpsgo_sysfs.h"
 #include "fbt_cpu.h"
 #include "fbt_cpu_platform.h"
 #include "fps_composer.h"
@@ -23,13 +24,13 @@
 #include <linux/preempt.h>
 #include <linux/trace_events.h>
 #include <linux/fs.h>
-#include <linux/debugfs.h>
 #include <linux/rbtree.h>
 #include <trace/events/fpsgo.h>
 
 #define TIME_1S  1000000000ULL
 #define TIME_90S  90000000000ULL
 
+static struct kobject *base_kobj;
 static struct rb_root render_pid_tree;
 static struct rb_root BQ_id_list;
 static struct rb_root linger_tree;
@@ -71,30 +72,13 @@ unsigned long long fpsgo_get_time(void)
 }
 
 uint32_t fpsgo_systrace_mask;
-struct dentry *fpsgo_debugfs_dir;
 
 static unsigned long __read_mostly mark_addr;
-static struct dentry *debugfs_common_dir;
 
 #define GENERATE_STRING(name, unused) #name
 static const char * const mask_string[] = {
 	FPSGO_SYSTRACE_LIST(GENERATE_STRING)
 };
-
-#define FPSGO_DEBUGFS_ENTRY(name) \
-static int fpsgo_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, fpsgo_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations fpsgo_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = fpsgo_##name##_open, \
-	.read = seq_read, \
-	.write = fpsgo_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
 
 void __fpsgo_systrace_c(pid_t pid, int val, const char *fmt, ...)
 {
@@ -727,69 +711,108 @@ int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
 	return 0;
 }
 
-static int fpsgo_systrace_mask_show(struct seq_file *m, void *unused)
+static ssize_t systrace_mask_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	int i;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
 
-	seq_puts(m, " Current enabled systrace:\n");
-	for (i = 0; (1U << i) < FPSGO_DEBUG_MAX; i++)
-		seq_printf(m, "  %-*s ... %s\n", 12, mask_string[i],
-			   fpsgo_systrace_mask & (1U << i) ?
-			     "On" : "Off");
-	return 0;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			" Current enabled systrace:\n");
+	pos += length;
+
+	for (i = 0; (1U << i) < FPSGO_DEBUG_MAX; i++) {
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"  %-*s ... %s\n", 12, mask_string[i],
+		   fpsgo_systrace_mask & (1U << i) ?
+		   "On" : "Off");
+		pos += length;
+
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t fpsgo_systrace_mask_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
+static ssize_t systrace_mask_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
 	uint32_t val;
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	uint32_t arg;
 
-	ret = kstrtou32_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtou32(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
 	fpsgo_systrace_mask = val & (FPSGO_DEBUG_MAX - 1U);
-	return cnt;
+	return count;
 }
 
-FPSGO_DEBUGFS_ENTRY(systrace_mask);
+static KOBJ_ATTR_RW(systrace_mask);
 
-static int fpsgo_benchmark_hint_show(struct seq_file *m, void *unused)
+static ssize_t fpsgo_enable_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	seq_printf(m, "%d\n", fpsgo_is_enable());
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", fpsgo_is_enable());
 }
 
-static ssize_t fpsgo_benchmark_hint_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
+static ssize_t fpsgo_enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
 	int val;
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
 	if (val > 1 || val < 0)
-		return cnt;
+		return count;
 
 	fpsgo_switch_enable(val);
 
-	return cnt;
+	return count;
 }
 
-FPSGO_DEBUGFS_ENTRY(benchmark_hint);
+static KOBJ_ATTR_RW(fpsgo_enable);
 
-static int fpsgo_render_info_show(struct seq_file *m, void *unused)
+static ssize_t render_info_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	struct rb_node *n;
 	struct render_info *iter;
 	struct task_struct *tsk;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
 
-	seq_puts(m, "\n  PID  NAME  TGID  TYPE  API  BufferID");
-	seq_puts(m, "    FRAME_L    ENQ_L    ENQ_S    ENQ_E");
-	seq_puts(m, "    DEQ_L     DEQ_S    DEQ_E\n");
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"\n  PID  NAME  TGID  TYPE  API  BufferID");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"    FRAME_L    ENQ_L    ENQ_S    ENQ_E");
+	pos += length;
+	length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+			"    DEQ_L     DEQ_S    DEQ_E\n");
+	pos += length;
 
 	fpsgo_render_tree_lock(__func__);
 	rcu_read_lock();
@@ -799,15 +822,22 @@ static int fpsgo_render_info_show(struct seq_file *m, void *unused)
 		tsk = find_task_by_vpid(iter->tgid);
 		if (tsk) {
 			get_task_struct(tsk);
-			seq_printf(m, "%5d %4s %4d %4d %4d %4llu",
+
+			length = scnprintf(temp + pos,
+					FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+					"%5d %4s %4d %4d %4d %4llu",
 				iter->pid, tsk->comm,
 				iter->tgid, iter->frame_type,
 				iter->api, iter->buffer_id);
-			seq_printf(m, "  %4llu %4llu %4llu %4llu %4llu %4llu\n",
+			pos += length;
+			length = scnprintf(temp + pos,
+					FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+					"  %4llu %4llu %4llu %4llu %4llu %4llu\n",
 				iter->enqueue_length,
 				iter->t_enqueue_start, iter->t_enqueue_end,
 				iter->dequeue_length, iter->t_dequeue_start,
 				iter->t_dequeue_end);
+			pos += length;
 			put_task_struct(tsk);
 		}
 	}
@@ -815,122 +845,137 @@ static int fpsgo_render_info_show(struct seq_file *m, void *unused)
 	rcu_read_unlock();
 	fpsgo_render_tree_unlock(__func__);
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t fpsgo_render_info_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
-{
-	int val;
-	int ret;
+static KOBJ_ATTR_RO(render_info);
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	return cnt;
-}
-
-FPSGO_DEBUGFS_ENTRY(render_info);
-
-static int fpsgo_force_onoff_show(struct seq_file *m, void *unused)
+static ssize_t force_onoff_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	int result = fpsgo_is_force_enable();
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+
 
 	switch (result) {
 	case FPSGO_FORCE_OFF:
-		seq_puts(m, "force off\n");
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"force off\n");
+		pos += length;
 		break;
 	case FPSGO_FORCE_ON:
-		seq_puts(m, "force on\n");
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"force on\n");
+		pos += length;
 		break;
 	case FPSGO_FREE:
-		seq_puts(m, "free\n");
+		length = scnprintf(temp + pos, FPSGO_SYSFS_MAX_BUFF_SIZE - pos,
+				"free\n");
+		pos += length;
 		break;
 	default:
 		break;
 	}
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t fpsgo_force_onoff_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
+static ssize_t force_onoff_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
 	int val;
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
 	if (val > 2 || val < 0)
-		return cnt;
+		return count;
 
 	fpsgo_force_switch_enable(val);
 
-	return cnt;
+	return count;
 }
 
-FPSGO_DEBUGFS_ENTRY(force_onoff);
+static KOBJ_ATTR_RW(force_onoff);
 
 
-static int fpsgo_BQid_show(struct seq_file *m, void *unused)
+static ssize_t BQid_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	struct rb_node *n;
 	struct BQ_id *pos;
+	char temp[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int posi = 0;
+	int length;
 
 	fpsgo_render_tree_lock(__func__);
 
 	for (n = rb_first(&BQ_id_list); n; n = rb_next(n)) {
 		pos = rb_entry(n, struct BQ_id, entry);
-		seq_printf(m,
-		"pid %d, tgid %d, key %llu, buffer_id %llu, queue_SF %d\n",
-		pos->pid, fpsgo_get_tgid(pos->pid),
-		pos->key, pos->buffer_id, pos->queue_SF);
+		length = scnprintf(temp + posi,
+				FPSGO_SYSFS_MAX_BUFF_SIZE - posi,
+				"pid %d, tgid %d, key %llu, buffer_id %llu, queue_SF %d\n",
+				pos->pid, fpsgo_get_tgid(pos->pid),
+				pos->key, pos->buffer_id, pos->queue_SF);
+		posi += length;
+
 	}
 
 	fpsgo_render_tree_unlock(__func__);
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t fpsgo_BQid_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
-{
-	return 0;
-}
+static KOBJ_ATTR_RO(BQid);
 
-FPSGO_DEBUGFS_ENTRY(BQid);
-
-static int fpsgo_gpu_block_boost_show(struct seq_file *m, void *unused)
+static ssize_t gpu_block_boost_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	seq_printf(m, "%d %d %d\n",
+	return scnprintf(buf, PAGE_SIZE, "%d %d %d\n",
 		fpsgo_is_gpu_block_boost_enable(),
 		fpsgo_is_gpu_block_boost_perf_enable(),
 		fpsgo_is_gpu_block_boost_camera_enable());
-
-	return 0;
 }
 
-static ssize_t fpsgo_gpu_block_boost_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
+static ssize_t gpu_block_boost_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
 	int val;
-	int ret;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
 	if (val > 101 || val < -1)
-		return cnt;
+		return count;
 
 	fpsgo_gpu_block_boost_enable_perf(val);
 
-	return cnt;
+	return count;
 }
 
-FPSGO_DEBUGFS_ENTRY(gpu_block_boost);
+static KOBJ_ATTR_RW(gpu_block_boost);
 
 
 int init_fpsgo_common(void)
@@ -940,50 +985,14 @@ int init_fpsgo_common(void)
 	BQ_id_list = RB_ROOT;
 	linger_tree = RB_ROOT;
 
-	fpsgo_debugfs_dir = debugfs_create_dir("fpsgo", NULL);
-	if (!fpsgo_debugfs_dir)
-		return -ENODEV;
-
-	debugfs_common_dir = debugfs_create_dir("common",
-						fpsgo_debugfs_dir);
-	if (!debugfs_common_dir)
-		return -ENODEV;
-
-	debugfs_create_file("systrace_mask",
-			    0644,
-			    debugfs_common_dir,
-			    NULL,
-			    &fpsgo_systrace_mask_fops);
-
-	debugfs_create_file("fpsgo_enable",
-			    0644,
-			    debugfs_common_dir,
-			    NULL,
-			    &fpsgo_benchmark_hint_fops);
-
-	debugfs_create_file("force_onoff",
-			    0644,
-			    debugfs_common_dir,
-			    NULL,
-			    &fpsgo_force_onoff_fops);
-
-	debugfs_create_file("render_info",
-			    0644,
-			    debugfs_common_dir,
-			    NULL,
-			    &fpsgo_render_info_fops);
-
-	debugfs_create_file("BQid",
-			    0644,
-			    debugfs_common_dir,
-			    NULL,
-			    &fpsgo_BQid_fops);
-
-	debugfs_create_file("gpu_block_boost",
-			    0644,
-			    debugfs_common_dir,
-			    NULL,
-			    &fpsgo_gpu_block_boost_fops);
+	if (!fpsgo_sysfs_create_dir(NULL, "common", &base_kobj)) {
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_systrace_mask);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_fpsgo_enable);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_force_onoff);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_render_info);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_BQid);
+		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_gpu_block_boost);
+	}
 
 	mark_addr = kallsyms_lookup_name("tracing_mark_write");
 	fpsgo_systrace_mask = FPSGO_DEBUG_MANDATORY;
