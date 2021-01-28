@@ -1809,24 +1809,10 @@ s32 cmdq_op_write_mem(struct cmdqRecStruct *handle,
 	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 value)
 {
 	const dma_addr_t dram_addr = h_backup_slot + slot_index * sizeof(u32);
-	CMDQ_VARIABLE var_mem_addr = CMDQ_TASK_TEMP_CPR_VAR;
-	s32 status;
 
 	if (!handle)
 		return -EINVAL;
-
-	do {
-		status = cmdq_op_assign(handle, &handle->arg_value, value);
-		CMDQ_CHECK_AND_BREAK_STATUS(status);
-
-		status = cmdq_op_assign(handle, &var_mem_addr, (u32)dram_addr);
-		CMDQ_CHECK_AND_BREAK_STATUS(status);
-
-		status = cmdq_append_command(handle, CMDQ_CODE_WRITE_S,
-			var_mem_addr, handle->arg_value, 1, 1);
-	} while (0);
-
-	return status;
+	return cmdq_pkt_write_value_addr(handle->pkt, dram_addr, value, ~0);
 }
 
 s32 cmdq_op_finalize_command(struct cmdqRecStruct *handle, bool loop)
@@ -2692,7 +2678,6 @@ s32 cmdq_op_assign(struct cmdqRecStruct *handle,
 		CMDQ_ERR("Assign only use value, can not append new command");
 		return -EFAULT;
 	}
-
 	return cmdq_append_logic_command(handle, arg_out, arg_b,
 		CMDQ_LOGIC_ASSIGN, arg_c);
 }
