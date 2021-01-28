@@ -94,9 +94,10 @@ TRACE_EVENT(group_norm_util,
 TRACE_EVENT(sched_share_buck,
 
 	TP_PROTO(int cpu_idx, int cid, int cap_idx, int co_buck_cid,
-			int co_buck_cap_idx),
+			int co_buck_cap_idx, unsigned long co_buck_volt),
 
-	TP_ARGS(cpu_idx, cid, cap_idx, co_buck_cid, co_buck_cap_idx),
+	TP_ARGS(cpu_idx, cid, cap_idx, co_buck_cid, co_buck_cap_idx,
+		co_buck_volt),
 
 	TP_STRUCT__entry(
 		__field(int, cpu_idx)
@@ -104,6 +105,7 @@ TRACE_EVENT(sched_share_buck,
 		__field(int, cap_idx)
 		__field(int, co_buck_cid)
 		__field(int, co_buck_cap_idx)
+		__field(unsigned long, co_buck_volt)
 	),
 
 	TP_fast_assign(
@@ -112,11 +114,13 @@ TRACE_EVENT(sched_share_buck,
 		__entry->cap_idx        = cap_idx;
 		__entry->co_buck_cid    = co_buck_cid;
 		__entry->co_buck_cap_idx = co_buck_cap_idx;
+		__entry->co_buck_volt   = co_buck_volt;
 	),
 
-	TP_printk("cpu_idx=%d cid%d=%d co_cid%d=%d",
+	TP_printk("cpu_idx=%d cid%d=%d co_cid%d=%d co_volt=%lu",
 		__entry->cpu_idx, __entry->cid, __entry->cap_idx,
-		__entry->co_buck_cid, __entry->co_buck_cap_idx)
+		__entry->co_buck_cid, __entry->co_buck_cap_idx,
+		__entry->co_buck_volt)
 );
 
 /*
