@@ -683,7 +683,7 @@ static void mtk_rtc_irq_handler(void)
 
 static int rtc_ops_read_time(struct device *dev, struct rtc_time *tm)
 {
-	time64_t time;
+	unsigned long long time;
 	unsigned long flags;
 	struct mt6358_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
@@ -698,7 +698,9 @@ static int rtc_ops_read_time(struct device *dev, struct rtc_time *tm)
 	tm->tm_mon--;
 	time = rtc_tm_to_time64(tm);
 
-	tm->tm_wday = (time / 86400 + 4) % 7;	/* 1970/01/01 is Thursday */
+	do_div(time, 86400);
+	time += 4;
+	tm->tm_wday = do_div(time,  7);	/* 1970/01/01 is Thursday */
 
 	if (rtc_show_time) {
 		pr_notice("read tc time = %04d/%02d/%02d (%d) %02d:%02d:%02d\n",
