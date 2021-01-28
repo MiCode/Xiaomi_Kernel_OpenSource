@@ -4422,13 +4422,11 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		return 0;
 
 	case MMC_SIGNAL_VOLTAGE_180:
-		/*
-		 * guarantee clock during voltage switch.
-		 */
-		msdc_clk_enable_and_stable(host);
 		/* switch voltage */
-		if (host->power_switch)
-			host->power_switch(host, 1);
+		if (host->power_switch) {
+			if (host->power_switch(host, 1))
+				return -EAGAIN;
+		}
 		/* Clock is gated by HW after CMD11,
 		 * Must keep clock gate 5ms before switch voltage
 		 */
@@ -4443,7 +4441,6 @@ static int msdc_ops_switch_volt(struct mmc_host *mmc, struct mmc_ios *ios)
 		while ((status =
 			MSDC_READ32(MSDC_CFG)) & MSDC_CFG_BV18SDT)
 			;
-		msdc_clk_disable(host);
 		if (status & MSDC_CFG_BV18PSS)
 			return 0;
 

@@ -24,6 +24,13 @@
 #include "dbg.h"
 //#include "include/pmic_api_buck.h"
 
+#if defined(CONFIG_MTK_PMIC_WRAP)
+#include <linux/regmap.h>
+#include <linux/soc/mediatek/pmic_wrap.h>
+#include <linux/mfd/mt6357/registers.h>
+
+static struct regmap *regmap;
+#endif
 
 struct msdc_host *mtk_msdc_host[] = { NULL, NULL, NULL};
 EXPORT_SYMBOL(mtk_msdc_host);
@@ -194,19 +201,35 @@ void msdc_dump_ldo_sts(char **buff, unsigned long *size,
 #endif
 }
 
-void msdc_sd_power_switch(struct msdc_host *host, u32 on)
+int msdc_sd_power_switch(struct msdc_host *host, u32 on)
 {
 #if !defined(CONFIG_MTK_MSDC_BRING_UP_BYPASS)
+
 	if (host->id == 1) {
-		/* VMC calibration +60mV. According to SA's request. */
-		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1860,
+		if (on) {
+#if defined(CONFIG_MTK_PMIC_WRAP)
+			/* VMC calibration +60mV. According to SA's request. */
+			regmap_update_bits(regmap, MT6357_VMC_ANA_CON0,
+				MT6357_RG_VMC_VOCAL_MASK, 6);
+#endif
+		}
+
+		msdc_ldo_power(on, host->mmc->supply.vqmmc, VOL_1800,
 		&host->power_io);
+		/* double check if vmc is configured to the expected value */
+		if (regulator_get_voltage(host->mmc->supply.vqmmc) !=
+			VOL_1800 * 1000) {
+			pr_notice("WARN: sdcard switch voltage fail,VMC:%d\n",
+				regulator_get_voltage(host->mmc->supply.vqmmc));
+			return 1;
+		}
 		msdc_set_tdsel(host, MSDC_TDRDSEL_1V8, 0);
 		msdc_set_rdsel(host, MSDC_TDRDSEL_1V8, 0);
 		host->hw->driving_applied = &host->hw->driving_sdr50;
 		msdc_set_driving(host, host->hw->driving_applied);
 	}
 #endif
+	return 0;
 }
 
 void msdc_sdio_power(struct msdc_host *host, u32 on)
@@ -1154,6 +1177,9 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	int len = 0;
 	u8 id;
 	const char *dup_name;
+#if defined(CONFIG_MTK_PMIC_WRAP)
+	struct device_node *pwrap_node;
+#endif
 
 	np = mmc->parent->of_node; /* mmcx node in project dts */
 
@@ -1164,7 +1190,16 @@ int msdc_of_parse(struct platform_device *pdev, struct mmc_host *mmc)
 	}
 	host->id = id;
 	pdev->id = id;
+#if defined(CONFIG_MTK_PMIC_WRAP)
+	if (host->id == 1) {
+		pwrap_node = of_parse_phandle(pdev->dev.of_node,
+			"mediatek,pwrap-regmap", 0);
+		if (!pwrap_node)
+			return -ENODEV;
 
+		regmap = pwrap_node_to_regmap(pwrap_node);
+	}
+#endif
 	pr_notice("DT probe %s%d!\n", pdev->dev.of_node->name, id);
 
 	ret = mmc_of_parse(mmc);

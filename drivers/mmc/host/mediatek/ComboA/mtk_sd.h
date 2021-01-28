@@ -410,7 +410,7 @@ struct msdc_host {
 	int                     sdio_error;     /* sdio error can't recovery */
 #endif
 	void    (*power_control)(struct msdc_host *host, u32 on);
-	void    (*power_switch)(struct msdc_host *host, u32 on);
+	int    (*power_switch)(struct msdc_host *host, u32 on);
 	u32                     power_io;
 	u32                     power_flash;
 
