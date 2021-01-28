@@ -1919,8 +1919,8 @@ static int compat_copy_struct(
 		if (eDirection == COPY_FROM_USER) {
 			struct COMPAT_VAL_HW_LOCK_T __user *from32 =
 				(struct COMPAT_VAL_HW_LOCK_T *)data32;
-			struct unsigned char __user *to =
-				(struct unsigned char *)data;
+			struct VAL_HW_LOCK_T __user *to =
+				(struct VAL_HW_LOCK_T *)data;
 
 			err = get_user(p, &(from32->pvHandle));
 			err |= put_user(compat_ptr(p), &(to->pvHandle));
@@ -1941,8 +1941,8 @@ static int compat_copy_struct(
 		} else {
 			struct COMPAT_VAL_HW_LOCK_T __user *to32 =
 				(struct COMPAT_VAL_HW_LOCK_T *)data32;
-			struct unsigned char __user *from =
-				(struct unsigned char *)data;
+			struct VAL_HW_LOCK_T __user *from =
+				(struct VAL_HW_LOCK_T *)data;
 
 			err = get_uptr_to_32(&p, &(from->pvHandle));
 			err |= put_user(p, &(to32->pvHandle));
@@ -2172,11 +2172,11 @@ static long vcodec_unlocked_compat_ioctl(struct file *file, unsigned int cmd, un
 	case VCODEC_UNLOCKHW:
 	{
 		struct COMPAT_VAL_HW_LOCK __user *data32;
-		struct unsigned char __user *data;
+		struct VAL_HW_LOCK_T __user *data;
 		int err;
 
 		data32 = compat_ptr(arg);
-		data = compat_alloc_user_space(sizeof(struct unsigned char));
+		data = compat_alloc_user_space(sizeof(struct VAL_HW_LOCK_T));
 		if (data == NULL)
 			return -EFAULT;
 
