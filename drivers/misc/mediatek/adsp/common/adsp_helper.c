@@ -647,7 +647,7 @@ static int adsp_syscore_suspend(void)
 {
 	if ((is_adsp_ready(ADSP_A_ID) != 1) && !adsp_feature_is_active()) {
 		adsp_bus_sleep_protect(true);
-		//spm_adsp_mem_protect();
+		spm_adsp_mem_protect();
 	}
 	return 0;
 }
@@ -655,7 +655,7 @@ static int adsp_syscore_suspend(void)
 static void adsp_syscore_resume(void)
 {
 	if ((is_adsp_ready(ADSP_A_ID) != 1) && !adsp_feature_is_active()) {
-		//spm_adsp_mem_unprotect();
+		spm_adsp_mem_unprotect();
 		adsp_bus_sleep_protect(false);
 		/* release adsp sw_reset,
 		 * let ap is able to write adsp cfg/dtcm
