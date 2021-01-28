@@ -1196,11 +1196,3 @@ dtb-$(CONFIG_ARCH_ASPEED) += \
 	aspeed-bmc-opp-zaius.dtb \
 	aspeed-bmc-portwell-neptune.dtb \
 	aspeed-bmc-quanta-q71l.dtb
-DTB_PLATFORM :=  $(subst $\",,$(CONFIG_MTK_PLATFORM))
-ifneq ($(DTB_PLATFORM),)
-dtb-$(CONFIG_ARCH_MEDIATEK) += $(DTB_PLATFORM).dtb
-endif
-DTB_PROJECT := $(subst $\",,$(CONFIG_ARCH_MTK_PROJECT))
-ifneq ($(DTB_PROJECT),)
-dtb-$(CONFIG_ARCH_MEDIATEK) += $(DTB_PROJECT).dtb
-endif
