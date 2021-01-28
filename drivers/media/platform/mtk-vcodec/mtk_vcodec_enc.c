@@ -1400,10 +1400,7 @@ static int vidioc_try_encoder_cmd(struct file *file, void *priv,
 	switch (cmd->cmd) {
 	case V4L2_ENC_CMD_STOP:
 	case V4L2_ENC_CMD_START:
-		if (cmd->flags != 0) {
-			mtk_v4l2_err("cmd->flags=%u", cmd->flags);
-			return -EINVAL;
-		}
+		cmd->flags = 0; // don't support flags
 		break;
 	default:
 		return -EINVAL;

@@ -814,11 +814,13 @@ static int vidioc_try_decoder_cmd(struct file *file, void *priv,
 {
 	switch (cmd->cmd) {
 	case V4L2_DEC_CMD_STOP:
+		cmd->flags = 0; // don't support flags
+		break;
 	case V4L2_DEC_CMD_START:
-		if (cmd->flags != 0) {
-			mtk_v4l2_err("cmd->flags=%u", cmd->flags);
-			return -EINVAL;
-		}
+		cmd->flags = 0; // don't support flags
+		if (cmd->start.speed < 0)
+			cmd->start.speed = 0;
+		cmd->start.format = V4L2_DEC_START_FMT_NONE;
 		break;
 	default:
 		return -EINVAL;
@@ -1331,15 +1333,25 @@ static int vidioc_try_fmt(struct v4l2_format *f, struct mtk_video_fmt *fmt)
 			pix_fmt_mp->height,
 			pix_fmt_mp->width * pix_fmt_mp->height);
 
-		pix_fmt_mp->num_planes = fmt->num_planes;
+		if (fmt->num_planes > 2)
+			pix_fmt_mp->num_planes = 2;
+		else
+			pix_fmt_mp->num_planes = fmt->num_planes;
 
-		for (i = 0; i < pix_fmt_mp->num_planes; i++) {
-			pix_fmt_mp->plane_fmt[i].sizeimage =
-				(pix_fmt_mp->width *
-				 pix_fmt_mp->height) >> i;
-			pix_fmt_mp->plane_fmt[i].bytesperline =
+		pix_fmt_mp->plane_fmt[0].sizeimage =
+				pix_fmt_mp->width * pix_fmt_mp->height;
+		pix_fmt_mp->plane_fmt[0].bytesperline = pix_fmt_mp->width;
+
+		if (pix_fmt_mp->num_planes == 2) {
+			pix_fmt_mp->plane_fmt[1].sizeimage =
+				(pix_fmt_mp->width * pix_fmt_mp->height) / 2;
+			pix_fmt_mp->plane_fmt[1].bytesperline =
 				pix_fmt_mp->width;
+		} else if (pix_fmt_mp->num_planes == 1) {
+			pix_fmt_mp->plane_fmt[0].sizeimage +=
+				(pix_fmt_mp->width * pix_fmt_mp->height) / 2;
 		}
+
 	}
 
 	for (i = 0; i < pix_fmt_mp->num_planes; i++)
@@ -1356,8 +1368,17 @@ static int vidioc_vdec_g_crop(struct file *file, void *priv,
 {
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 
-	if (ctx->state < MTK_STATE_HEADER)
-		return -EINVAL;
+	if (ctx->state < MTK_STATE_HEADER) {
+		struct mtk_q_data *q_data;
+
+		q_data = &ctx->q_data[MTK_Q_DATA_DST];
+		/* set to default value if header info not ready yet*/
+		cr->c.left = 0;
+		cr->c.top = 0;
+		cr->c.width = q_data->visible_width;
+		cr->c.height = q_data->visible_height;
+		return 0;
+	}
 
 	if ((ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H264) ||
 	  (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc == V4L2_PIX_FMT_H265) ||
