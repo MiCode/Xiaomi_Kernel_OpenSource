@@ -19,8 +19,6 @@
 #include <linux/device.h>
 #include <linux/pagemap.h>
 
-
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
 #ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 extern void handle_trusty_ipi(int ipinr);
 #endif	/* CONFIG_GZ_TRUSTY_INTERRUPT_MAP */
@@ -29,27 +27,6 @@ s32 trusty_fast_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
 #ifdef CONFIG_64BIT
 s64 trusty_fast_call64(struct device *dev, u64 smcnr, u64 a0, u64 a1, u64 a2);
 #endif	/* CONFIG_64BIT */
-#else /* CONFIG_MTK_ENABLE_GENIEZONE */
-static inline s32 trusty_std_call32(struct device *dev, u32 smcnr,
-				    u32 a0, u32 a1, u32 a2)
-{
-	return SM_ERR_UNDEFINED_SMC;
-}
-
-static inline s32 trusty_fast_call32(struct device *dev, u32 smcnr,
-				     u32 a0, u32 a1, u32 a2)
-{
-	return SM_ERR_UNDEFINED_SMC;
-}
-
-#ifdef CONFIG_64BIT
-static inline s64 trusty_fast_call64(struct device *dev,
-				     u64 smcnr, u64 a0, u64 a1, u64 a2)
-{
-	return SM_ERR_UNDEFINED_SMC;
-}
-#endif	/* CONFIG_64BIT */
-#endif	/* CONFIG_MTK_ENABLE_GENIEZONE */
 
 struct notifier_block;
 enum {

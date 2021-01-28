@@ -632,7 +632,8 @@ static int trusty_init_api_version(struct trusty_state *s, struct device *dev)
 	u32 smcnr_api_version = SMC_FC_API_VERSION;
 
 	api_version = trusty_fast_call32(dev, smcnr_api_version,
-					 TRUSTY_API_VERSION_CURRENT, 0, 0);
+					 TRUSTY_API_VERSION_CURRENT,
+					 s->tee_id, 0);
 	if (api_version == SM_ERR_UNDEFINED_SMC)
 		api_version = 0;
 
@@ -797,13 +798,15 @@ static int trusty_probe(struct platform_device *pdev)
 	}
 
 	/* For multiple TEEs */
-	ret = of_property_read_u32(node, "tee_id", &tee_id);
+	ret = of_property_read_u32(node, "tee-id", &tee_id);
 	if (ret != 0 && !is_tee_id(tee_id)) {
 		dev_info(&pdev->dev,
 			 "[%s] ERROR: tee_id is not set on device tree\n",
 			 __func__);
 		return -EINVAL;
 	}
+
+	dev_info(&pdev->dev, "--- init trusty-smc for MTEE %d ---\n", tee_id);
 
 	s = kzalloc(sizeof(*s), GFP_KERNEL);
 	if (!s) {
@@ -956,13 +959,10 @@ static int __init trusty_driver_init(void)
 {
 	int ret = 0;
 
-	pr_info("======= register the gz-trusty main driver =======\n");
-
 	ret = platform_driver_register(&trusty_driver);
 	if (ret)
 		goto err_trusty_driver;
 
-	pr_info("======= register the gz-nebula main driver =======\n");
 	ret = platform_driver_register(&nebula_driver);
 	if (ret)
 		goto err_nebula_driver;
