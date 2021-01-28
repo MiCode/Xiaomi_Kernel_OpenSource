@@ -55,6 +55,6 @@ obj-$(CONFIG_MACH_MT6785) += mtk_static_power.o
 obj-$(CONFIG_MACH_MT6785) += mtk_static_power_mt6785.o
 
 # MT6885
-obj-$(CONFIG_MACH_MT6785) += mtk_static_power.o
+obj-$(CONFIG_MACH_MT6885) += mtk_static_power.o
 
-obj-$(CONFIG_MACH_MT6785) += mtk_static_power_mt6885.o
+obj-$(CONFIG_MACH_MT6885) += mtk_static_power_mt6885.o
