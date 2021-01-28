@@ -33,13 +33,12 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
-#include <linux/pm_qos.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/pm_runtime.h>
 #include <linux/module.h>
 #include <linux/string.h>
-
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 /* #define BRING_UP */
 
 #include "mtk_gpufreq_core.h"
@@ -63,10 +62,9 @@
 #ifdef MT_GPUFREQ_OPP_STRESS_TEST
 #include <linux/random.h>
 #endif /* ifdef MT_GPUFREQ_OPP_STRESS_TEST */
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
-#include "mtk_static_power.h"
-#include "mtk_static_power_mt6779.h"
-#endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
+#ifdef CONFIG_MTK_STATIC_POWER
+#include "leakage_table_v2/mtk_static_power.h"
+#endif /* ifdef CONFIG_MTK_STATIC_POWER */
 
 #ifdef MT_GPUFREQ_BATT_OC_PROTECT
 #include "mtk_battery_oc_throttling.h"
@@ -751,7 +749,7 @@ mt_gpufreq_update_volt(unsigned int pmic_volt[], unsigned int array_size)
 
 			if (g_ptpod_opp_idx_table
 				== g_ptpod_opp_idx_table_segment2)
-				idx_for_2_itp_pts = 8;
+				idx_for_2_itp_pts = 6;
 			else
 				idx_for_2_itp_pts = 6;
 
@@ -857,10 +855,10 @@ unsigned int mt_gpufreq_get_min_power(void)
 unsigned int mt_gpufreq_get_leakage_mw(void)
 {
 	int temp = 0;
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
+#ifdef CONFIG_MTK_STATIC_POWER
 	unsigned int cur_vcore = __mt_gpufreq_get_cur_volt() / 100;
 	int leak_power;
-#endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
+#endif /* ifdef CONFIG_MTK_STATIC_POWER */
 
 	temp = 40;
 #ifdef CONFIG_MTK_LEGACY_THERMAL
@@ -869,7 +867,7 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 #endif
 #endif /* ifdef CONFIG_MTK_LEGACY_THERMAL */
 
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
+#ifdef CONFIG_MTK_STATIC_POWER
 	leak_power = mt_spower_get_leakage(MTK_SPOWER_GPU, cur_vcore, temp);
 	if (g_volt_enable_state && leak_power > 0)
 		return leak_power;
@@ -877,7 +875,7 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 		return 0;
 #else
 	return 130;
-#endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
+#endif /* ifdef CONFIG_MTK_STATIC_POWER */
 }
 
 /*
@@ -1815,9 +1813,9 @@ void __mt_gpufreq_volt_up(unsigned int vgpu_old,
 		(100 * SLEW_RATE_UP) + 1 + 3 + 5);
 
 	if (vsram_new >= VSRAM_RELAY_MAX_POINT)
-		regulator_set_voltage(g_pmic->reg_vcore, VCORE_OPP_0, INT_MAX);
+		mtk_pm_qos_update_request(&g_pmic->pm_vcore, VCORE_OPP_0);
 	else
-		regulator_set_voltage(g_pmic->reg_vcore, VCORE_OPP_1, INT_MAX);
+		mtk_pm_qos_update_request(&g_pmic->pm_vcore, VCORE_OPP_1);
 
 	if (vgpu_old < VSRAM_RELAY_POINT) {
 		regulator_set_voltage(g_pmic->reg_vgpu,
@@ -1867,13 +1865,12 @@ void __mt_gpufreq_volt_down(unsigned int vgpu_old,
 	udelay((vsram_old - vsram_new)
 		* 110 / (100 * SLEW_RATE_DOWN) + 1 + 3 + 5);
 
-	if (vsram_new <= VSRAM_RELAY_POINT) {
-		regulator_set_voltage(g_pmic->reg_vcore,
-					VCORE_OPP_UNREQ, INT_MAX);
-	} else if (vsram_new >= VSRAM_RELAY_MAX_POINT)
-		regulator_set_voltage(g_pmic->reg_vcore, VCORE_OPP_0, INT_MAX);
+	if (vsram_new <= VSRAM_RELAY_POINT)
+		mtk_pm_qos_update_request(&g_pmic->pm_vcore, VCORE_OPP_UNREQ);
+	else if (vsram_new >= VSRAM_RELAY_MAX_POINT)
+		mtk_pm_qos_update_request(&g_pmic->pm_vcore, VCORE_OPP_0);
 	else
-		regulator_set_voltage(g_pmic->reg_vcore, VCORE_OPP_1, INT_MAX);
+		mtk_pm_qos_update_request(&g_pmic->pm_vcore, VCORE_OPP_1);
 
 	regulator_set_voltage(g_pmic->reg_vapu,
 		vapu_req * 10, VSRAM_MAX_VOLT * 10 + 125);
@@ -2050,13 +2047,13 @@ static void __mt_gpufreq_calculate_power(unsigned int idx,
 			((volt * 100) / ref_volt) *
 			((volt * 100) / ref_volt) / (100 * 100 * 100);
 
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
+#ifdef CONFIG_MTK_STATIC_POWER
 	p_leakage = mt_spower_get_leakage(MTK_SPOWER_GPU, (volt / 100), temp);
 	if (!g_volt_enable_state || p_leakage < 0)
 		p_leakage = 0;
 #else
 	p_leakage = 71;
-#endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
+#endif /* ifdef CONFIG_MTK_STATIC_POWER */
 
 	p_total = p_dynamic + p_leakage;
 
@@ -2700,8 +2697,10 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	if (g_pmic == NULL)
 		return -ENOMEM;
 
+	mtk_pm_qos_add_request(&g_pmic->pm_vcore,
+		MTK_PM_QOS_VCORE_OPP, MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 
-	g_pmic->reg_vcore = regulator_get(&pdev->dev, "dvfsrc-vcore");
+	g_pmic->reg_vcore = regulator_get(&pdev->dev, "vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
 		gpufreq_perr("@%s: cannot get VCORE\n", __func__);
 		return PTR_ERR(g_pmic->reg_vcore);
@@ -2727,10 +2726,10 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return PTR_ERR(g_pmic->reg_vapu);
 	}
 
-#ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
+#ifdef CONFIG_MTK_STATIC_POWER
 	/* Initial leackage power usage */
 	mt_spower_init();
-#endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
+#endif /* ifdef CONFIG_MTK_STATIC_POWER */
 
 	/* setup OPP table by device ID */
 	__mt_gpufreq_setup_opp_table(g_opp_table_segment2,

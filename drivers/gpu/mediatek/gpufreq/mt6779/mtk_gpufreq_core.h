@@ -476,7 +476,6 @@
  * Condition Setting
  **************************************************/
 #define MT_GPUFREQ_OPP_STRESS_TEST
-// #define MT_GPUFREQ_STATIC_PWR_READY2USE /* find pbm owner */
 #define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT
 // #define MT_GPUFREQ_BATT_PERCENT_PROTECT /* todo: disable it */
 #define MT_GPUFREQ_BATT_OC_PROTECT
@@ -604,12 +603,14 @@ struct g_pmic_info {
 	struct regulator *reg_vmdla;
 	struct regulator *reg_vapu;
 	struct regulator *reg_vcore;
+	struct mtk_pm_qos_request pm_vcore;
 };
 
 /**************************************************
  * External functions declaration
  **************************************************/
 extern bool mtk_get_gpu_loading(unsigned int *pLoading);
+extern u32 get_devinfo_with_index(u32 index);
 extern int mt_dfs_general_pll(unsigned int pll_id, unsigned int dds);
 
 #endif /* _MT_GPUFREQ_CORE_H_ */
