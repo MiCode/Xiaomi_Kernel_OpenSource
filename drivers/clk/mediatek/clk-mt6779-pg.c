@@ -5349,7 +5349,7 @@ void iomap_mm(void)
 		pr_debug("[CLK_IPESYS_CONFIG] base failed\n");
 /*vdec_gcon*/
 	node = of_find_compatible_node(NULL, NULL,
-				"mediatek,mt6779-vdec_gcon");
+				"mediatek,mt6779-vdecsys");
 	if (!node)
 		pr_debug("[CLK_VDEC_GCON] find node failed\n");
 	clk_vdec_gcon_base = of_iomap(node, 0);
@@ -5357,7 +5357,7 @@ void iomap_mm(void)
 		pr_debug("[CLK_VDEC_GCON] base failed\n");
 /*venc_gcon*/
 	node = of_find_compatible_node(NULL, NULL,
-				"mediatek,mt6779-venc_gcon");
+				"mediatek,mt6779-vencsys");
 	if (!node)
 		pr_debug("[CLK_VENC_GCON] find node failed\n");
 	clk_venc_gcon_base = of_iomap(node, 0);
