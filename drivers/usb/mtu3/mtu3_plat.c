@@ -299,6 +299,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 
 	ssusb->force_vbus = of_property_read_bool(node, "mediatek,force-vbus");
 	ssusb->clk_mgr = of_property_read_bool(node, "mediatek,clk-mgr");
+	ssusb->spm_mgr = of_property_read_bool(node, "mediatek,spm-mgr");
 
 	ssusb->dr_mode = usb_get_dr_mode(dev);
 	if (ssusb->dr_mode == USB_DR_MODE_UNKNOWN)

@@ -275,6 +275,7 @@ struct ssusb_mtk {
 	u32 uwk_vers;
 	bool clk_on;
 	bool clk_mgr;
+	bool spm_mgr;
 };
 
 /**

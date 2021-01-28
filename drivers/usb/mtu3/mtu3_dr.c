@@ -14,6 +14,10 @@
 #include "mtu3_dr.h"
 #include "mtu3_debug.h"
 
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+#include "mtk_spm_resource_req.h"
+#endif
+
 #define USB2_PORT 2
 #define USB3_PORT 3
 
@@ -399,6 +403,17 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 			}
 		}
 	}
+
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+	if (!ssusb->spm_mgr)
+		return 0;
+
+	/* control spm resource */
+	if (role == USB_ROLE_NONE)
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB, 0);
+	else
+		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
+#endif
 
 	return 0;
 }
