@@ -55,5 +55,4 @@ extern int mt_spower_get_efuse_lkg(int dev);
 
 extern int mt_spower_init(void);
 
-
 #endif
