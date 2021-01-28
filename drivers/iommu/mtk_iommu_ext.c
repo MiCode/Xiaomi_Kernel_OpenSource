@@ -17,7 +17,12 @@
 
 #include <linux/slab.h>
 #include <linux/sched/clock.h>
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 #include <linux/uaccess.h>
 #include <linux/string.h>
 #include <linux/types.h>
@@ -378,7 +383,7 @@ int mtk_iommu_iova_to_va(struct device *dev,
 	return 0;
 }
 
-
+#if IS_ENABLED(CONFIG_DEBUG_FS) || IS_ENABLED(CONFIG_PROC_FS)
 static void process_dbg_opt(const char *opt)
 {
 
@@ -394,16 +399,8 @@ static void process_dbg_cmd(char *cmd)
 		process_dbg_opt(tok);
 }
 
-/* Debug FileSystem Routines */
-struct dentry *mtk_iomu_dbgfs;
-static int debug_open(struct inode *inode, struct file *file)
-{
-	file->private_data = inode->i_private;
-	return 0;
-}
-
 static char debug_buffer[128];
-static ssize_t debug_write(struct file *file, const char __user *ubuf,
+static ssize_t process_write(struct file *file, const char __user *ubuf,
 			   size_t count, loff_t *ppos)
 {
 	const int debug_bufmax = sizeof(debug_buffer) - 1;
@@ -424,18 +421,66 @@ static ssize_t debug_write(struct file *file, const char __user *ubuf,
 	return ret;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+/* Debug FileSystem Routines */
+struct dentry *mtk_iomu_dbgfs;
+static int debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static ssize_t debug_write(struct file *file, const char __user *ubuf,
+			   size_t count, loff_t *ppos)
+{
+	process_write(file, ubuf, count, ppos);
+}
+
 static const struct file_operations debug_fops = {
 	.write = debug_write,
 	.open = debug_open,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+/* Proc FileSystem Routines */
+struct proc_dir_entry *mtk_iomu_procfs;
+static int proc_open(struct inode *inode, struct file *file)
+{
+	file->private_data = PDE_DATA(inode);
+	return 0;
+}
+
+static ssize_t proc_write(struct file *file, const char __user *ubuf,
+			   size_t count, loff_t *ppos)
+{
+	process_write(file, ubuf, count, ppos);
+}
+
+static const struct file_operations proc_fops = {
+	.write = proc_write,
+	.open = proc_open,
+};
+#endif
+#endif
 
 void mtk_iommu_debug_init(void)
 {
 	int total_size = IOMMU_MAX_EVENT_COUNT * sizeof(struct iommu_event_t);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	mtk_iomu_dbgfs = debugfs_create_file("mtk_iommu", S_IFREG | 0444, NULL,
 					     (void *)0,
 					     &debug_fops);
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	mtk_iomu_procfs = proc_create_data("mtk_iommu",
+					   S_IFREG | 0444,
+					   NULL,
+					   &proc_fops,
+					   (void *)0);
+#endif
+
 	strncpy(event_mgr[IOMMU_ALLOC].name, "alloc", 10);
 	strncpy(event_mgr[IOMMU_DEALLOC].name, "dealloc", 10);
 	strncpy(event_mgr[IOMMU_MAP].name, "map", 10);
