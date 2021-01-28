@@ -16,8 +16,11 @@
 #include <linux/clk.h>
 //xuxin-pbm//#include <mach/mtk_pbm.h>
 #include <mt-plat/mtk-clkbuf-bridge.h>
+#ifdef USING_PM_RUNTIME
 #include <linux/pm_runtime.h>
-
+#else
+#include <dt-bindings/clock/mt6779-clk.h>
+#endif
 #ifdef CONFIG_MTK_EMI_BWL
 #include <emi_mbw.h>
 #endif
@@ -26,10 +29,6 @@
 #include <mach/mt6605.h>
 #endif
 
-//xuxin-pmic//#include "include/pmic_api_buck.h"
-//xuxin-upmu_common//#include <mt-plat/upmu_common.h>
-//xuxin-spm-sleep//#include <mtk_spm_sleep.h>
-
 #ifdef CONFIG_MTK_QOS_SUPPORT
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
@@ -37,7 +36,6 @@
 
 #include <linux/regulator/consumer.h> /* for MD PMIC */
 
-//xuxin-clk-pg//#include <clk-mt6779-pg.h>
 #include "ccci_core.h"
 #include "ccci_platform.h"
 
@@ -49,6 +47,9 @@
 static struct regulator *reg_vmodem, *reg_vsram;
 
 static struct ccci_clk_node clk_table[] = {
+/* #ifdef USING_PM_RUNTIME */
+	{ NULL, "scp-sys-md1-main"},
+/* #endif */
 	{ NULL, "infra-dpmaif-clk"},
 	{ NULL, "infra-ccif-ap"},
 	{ NULL, "infra-ccif-md"},
@@ -155,7 +156,9 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 	struct device_node *node = NULL;
 	struct device_node *node_infrao = NULL;
 	int idx = 0;
+#ifdef USING_PM_RUNTIME
 	int retval = 0;
+#endif
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -276,6 +279,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		hw_info->ap_ccif_irq0_id, hw_info->ap_ccif_irq1_id,
 		hw_info->md_wdt_irq_id);
 	//xuxin-clk-pg//register_pg_callback(&md1_subsys_handle);
+#ifdef USING_PM_RUNTIME
 	pm_runtime_enable(&dev_ptr->dev);
 	dev_pm_syscore_device(&dev_ptr->dev, true);
 
@@ -286,6 +290,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 			"md mtcmos pm getfail: ret = %d\n", retval);
 
 	CCCI_BOOTUP_LOG(dev_cfg->index, TAG, "md mtcmos pm get done\n");
+#endif
 
 	return 0;
 }
@@ -572,6 +577,9 @@ static int md_start_platform(struct ccci_modem *md)
 	void __iomem *sec_ao_base = NULL;
 	int timeout = 100; /* 100 * 20ms = 2s */
 	int ret = -1;
+#ifndef USING_PM_RUNTIME
+	int retval = 0;
+#endif
 
 	if ((md->per_md_data.config.setting&MD_SETTING_FIRST_BOOT) == 0)
 		return 0;
@@ -622,6 +630,14 @@ static int md_start_platform(struct ccci_modem *md)
 		timeout--;
 		msleep(20);
 	}
+#ifndef USING_PM_RUNTIME
+	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
+	retval = clk_prepare_enable(clk_table[0].clk_ref); /* match lk on */
+	if (retval)
+		CCCI_ERROR_LOG(md->index, TAG,
+			"dummy md sys clk fail: ret = %d\n", retval);
+	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk done\n");
+#endif
 
 	md_cd_dump_md_bootup_status(md);
 
@@ -666,7 +682,12 @@ static int md_cd_power_on(struct ccci_modem *md)
 	case MD_SYS1:
 		clk_buf_set_by_flightmode(false);
 		CCCI_BOOTUP_LOG(md->index, TAG, "enable md sys clk\n");
+#ifdef USING_PM_RUNTIME
 		pm_runtime_get_sync(&md->plat_dev->dev);
+#else
+		ret = clk_prepare_enable(clk_table[0].clk_ref);
+#endif
+
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"enable md sys clk done,ret = %d\n", ret);
 		//xuxin-pbm//kicker_pbm_by_md(KR_MD1, true);
@@ -717,7 +738,13 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	switch (md->index) {
 	case MD_SYS1:
 		/* 1. power off MD MTCMOS */
+#ifdef USING_PM_RUNTIME
 		pm_runtime_put_sync(&md->plat_dev->dev);
+		CCCI_BOOTUP_LOG(md->index, TAG, "PM:disable md1 clk\n");
+#else
+		clk_disable_unprepare(clk_table[0].clk_ref);
+		CCCI_BOOTUP_LOG(md->index, TAG, "CCF:disable md1 clk\n");
+#endif
 		/* 2. disable srcclkena */
 
 		CCCI_BOOTUP_LOG(md->index, TAG, "disable md1 clk\n");
