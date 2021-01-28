@@ -125,7 +125,6 @@ config HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	bool "HAVE MTK Trusted Memory Subsystem Support"
 	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
 		   MTK_MTEE_MULTI_CHUNK_SUPPORT
-	select CMA
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This option is been used to be auto selected by other option.
@@ -141,6 +140,20 @@ config MTK_TRUSTED_MEMORY_SUBSYSTEM
 	  This driver provide a general subsystem layer for trusted peer memory
 	  manager such as EL2 hypervisor or TEE. New type of trusted memory can
 	  be registered to this subsystem easily.
+	  Say Y if you would like to build it in kernel image.
+	  Say M if you would like to build it as a kernel module.
+	  If unsure, say N.
+
+config MTK_SSMR
+	tristate "MTK Shareable Secure Memory Region"
+	default y
+	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
+	select CMA
+	select ZONE_MOVABLE_CMA
+	help
+	  Enable the support of MediaTek shareable secure memory region.
+	  This driver provide a interface for trust driver to allocate /free
+	  secure memory from linux kernel system.
 	  Say Y if you would like to build it in kernel image.
 	  Say M if you would like to build it as a kernel module.
 	  If unsure, say N.
