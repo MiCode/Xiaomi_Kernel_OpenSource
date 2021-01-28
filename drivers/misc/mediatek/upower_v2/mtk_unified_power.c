@@ -26,9 +26,11 @@
 
 /* local include */
 #include "mtk_upower.h"
-#ifdef UPOWER_NUM_LARGER
-#include "mtk_eem.h"
-#endif
+/*
+ * #ifdef UPOWER_NUM_LARGER
+ * #include "mtk_eem.h"
+ * #endif
+ */
 
 #if UPOWER_ENABLE_TINYSYS_SSPM
 #include <sspm_reservedmem_define.h>
