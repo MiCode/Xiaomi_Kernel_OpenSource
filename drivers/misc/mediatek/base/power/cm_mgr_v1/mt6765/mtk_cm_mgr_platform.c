@@ -42,7 +42,10 @@
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
 #include <trace/events/mtk_events.h>
+#include <linux/sched/clock.h>
+#ifdef MET_SUPPORT
 #include <mt-plat/met_drv.h>
+#endif /* MET_SUPPORT */
 
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -60,6 +63,7 @@
 #include "mtk_idle.h"
 #endif /* USE_IDLE_NOTIFY */
 
+#ifdef MET_SUPPORT
 struct cm_mgr_met_data {
 	unsigned int cm_mgr_power[14];
 	unsigned int cm_mgr_count[4];
@@ -97,9 +101,11 @@ CM_MGR_MET_REG_FN_VALUE(cm_mgr_ratio);
 CM_MGR_MET_REG_FN_VALUE(cm_mgr_bw);
 CM_MGR_MET_REG_FN_VALUE(cm_mgr_valid);
 /********************* MET END *********************/
+#endif /* MET_SUPPORT */
 
 void cm_mgr_update_met(void)
 {
+#ifdef MET_SUPPORT
 	int cpu;
 
 	met_data.cm_mgr_power[0] = cpu_power_up_array[0];
@@ -175,6 +181,7 @@ void cm_mgr_update_met(void)
 		cm_mgr_bw_dbg_handler(1, &met_data.cm_mgr_bw);
 	if (cm_mgr_valid_dbg_handler)
 		cm_mgr_valid_dbg_handler(1, &met_data.cm_mgr_valid);
+#endif /* MET_SUPPORT */
 }
 
 #include <linux/cpu_pm.h>
@@ -418,8 +425,10 @@ static void init_cpu_stall_counter(int cluster)
 {
 	unsigned int val;
 
-	cm_mgr_init_time = ktime_get();
-	cm_mgr_init_flag = 1;
+	if (!timekeeping_suspended) {
+		cm_mgr_init_time = ktime_get();
+		cm_mgr_init_flag = 1;
+	}
 
 	if (cluster == 0) {
 		val = 0x11000;
@@ -476,27 +485,48 @@ static void init_cpu_stall_counter(int cluster)
 	}
 }
 
-#ifdef CONFIG_CPU_PM
-static int cm_mgr_sched_pm_notifier(struct notifier_block *self,
-			       unsigned long cmd, void *v)
+static int cm_mgr_cpuhp_online(unsigned int cpu)
 {
-	unsigned int cur_cpu = smp_processor_id();
 	unsigned long spinlock_save_flags;
 
 	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
 
-	if (cmd == CPU_PM_EXIT) {
-		if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
-				(cur_cpu < CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(0);
-		else if (((cm_mgr_idle_mask & CLUSTER1_MASK) == 0x0) &&
-				(cur_cpu >= CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(1);
-		cm_mgr_idle_mask |= (1 << cur_cpu);
-	} else if (cmd == CPU_PM_ENTER)
-		cm_mgr_idle_mask &= ~(1 << cur_cpu);
+	if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
+			(cpu < CM_MGR_CPU_LIMIT))
+		init_cpu_stall_counter(0);
+	else if (((cm_mgr_idle_mask & CLUSTER1_MASK) == 0x0) &&
+			(cpu >= CM_MGR_CPU_LIMIT))
+		init_cpu_stall_counter(1);
+	cm_mgr_idle_mask |= (1 << cpu);
 
 	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
+
+	return 0;
+}
+
+static int cm_mgr_cpuhp_offline(unsigned int cpu)
+{
+	unsigned long spinlock_save_flags;
+
+	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
+
+	cm_mgr_idle_mask &= ~(1 << cpu);
+
+	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
+
+	return 0;
+}
+
+#ifdef CONFIG_CPU_PM
+static int cm_mgr_sched_pm_notifier(struct notifier_block *self,
+			       unsigned long cmd, void *v)
+{
+	unsigned int cpu = smp_processor_id();
+
+	if (cmd == CPU_PM_EXIT)
+		cm_mgr_cpuhp_online(cpu);
+	else if (cmd == CPU_PM_ENTER)
+		cm_mgr_cpuhp_offline(cpu);
 
 	return NOTIFY_OK;
 }
@@ -513,47 +543,6 @@ static void cm_mgr_sched_pm_init(void)
 #else
 static inline void cm_mgr_sched_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
-
-static int cm_mgr_cpu_callback(struct notifier_block *nfb,
-				   unsigned long action, void *hcpu)
-{
-	unsigned int cur_cpu = (long)hcpu;
-	unsigned long spinlock_save_flags;
-
-	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-
-	switch (action) {
-	case CPU_ONLINE:
-		if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
-				(cur_cpu < CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(0);
-		else if (((cm_mgr_idle_mask & CLUSTER1_MASK) == 0x0) &&
-				(cur_cpu >= CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(1);
-		cm_mgr_idle_mask |= (1 << cur_cpu);
-		break;
-	case CPU_DOWN_PREPARE:
-		cm_mgr_idle_mask &= ~(1 << cur_cpu);
-		break;
-	}
-
-	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-
-	return NOTIFY_OK;
-}
-
-/* FIXME: */
-#define CPU_PRI_PERF 20
-
-static struct notifier_block cm_mgr_cpu_notifier = {
-	.notifier_call = cm_mgr_cpu_callback,
-	.priority = CPU_PRI_PERF + 1,
-};
-
-static void cm_mgr_hotplug_cb_init(void)
-{
-	register_cpu_notifier(&cm_mgr_cpu_notifier);
-}
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 		unsigned long event, void *data)
@@ -773,7 +762,10 @@ int cm_mgr_platform_init(void)
 		return r;
 	}
 
-	cm_mgr_hotplug_cb_init();
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+			"cm_mgr:online",
+			cm_mgr_cpuhp_online,
+			cm_mgr_cpuhp_offline);
 
 #ifdef USE_IDLE_NOTIFY
 	mtk_idle_notifier_register(&cm_mgr_idle_notify);
