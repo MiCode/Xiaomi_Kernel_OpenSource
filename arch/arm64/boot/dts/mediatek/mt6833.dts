@@ -261,6 +261,14 @@ page_owner=on";
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
+		consys-reserve-memory {
+			compatible = "mediatek,consys-reserve-memory";
+			no-map;
+			size = <0 0x500000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 		wifi-reserve-memory {
 			compatible = "mediatek,wifi-reserve-memory";
 			no-map;
@@ -533,6 +541,66 @@ page_owner=on";
 			"mediatek,mt6833-pericfg", "syscon";
 		reg = <0 0x10003000 0 0x1000>;
 		#clock-cells=<1>;
+	};
+
+	btif@1100c000 {
+		compatible = "mediatek,btif";
+			/*btif base*/
+		reg = <0 0x1100c000 0 0x1000>,
+			/*btif tx dma base*/
+			<0 0x10217d80 0 0x80>,
+			/*btif rx dma base*/
+			<0 0x10217e00 0 0x80>;
+			/*btif irq, IRQS_Sync ID, btif_irq_b*/
+		interrupts = <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
+			/*btif tx dma irq*/
+			<GIC_SPI 152 IRQ_TYPE_LEVEL_HIGH>,
+			/*btif rx dma irq*/
+			<GIC_SPI 153 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&infracfg_ao CLK_IFRAO_BTIF>,
+			/*btif clock*/
+			<&infracfg_ao CLK_IFRAO_AP_DMA>;
+			/*ap dma clock*/
+		clock-names = "btifc","apdmac";
+	};
+
+	consys: consys@18002000 {
+		compatible = "mediatek,mt6833-consys";
+		#address-cells = <2>;
+		#size-cells = <2>;
+			/*CONN_MCU_CONFIG_BASE */
+		reg = <0 0x18002000 0 0x1000>,
+			/*TOP_RGU_BASE */
+			<0 0x10007000 0 0x0100>,
+			/*INFRACFG_AO_BASE */
+			<0 0x10001000 0 0x1000>,
+			/*SPM_BASE */
+			<0 0x10006000 0 0x1000>,
+			/*ONN_HIF_ON_BASE */
+			<0 0x18007000 0 0x1000>,
+			/*CONN_TOP_MISC_OFF_BASE */
+			<0 0x180b1000 0 0x1000>,
+			/*CONN_MCU_CFG_ON_BASE */
+			<0 0x180a3000 0 0x1000>,
+			/*CONN_MCU_CIRQ_BASE */
+			<0 0x180a5000 0 0x800>,
+			/*CONN_TOP_MISC_ON_BASE */
+			<0 0x180c1000 0 0x1000>,
+			/*CONN_HIF_PDMA_BASE */
+			<0 0x18004000 0 0x1000>,
+			/* INFRASYS_COMMON AP2MD_PCCIF4_BASE */
+			<0 0x1024C000 0 0x40>,
+			/*INFRA_AO_PERICFG_BASE */
+			<0 0x10003000 0 0x1000>;
+			/*BGF_EINT */
+		interrupts = <GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>,
+			/*WDT_EINT */
+			<GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
+			/*conn2ap_sw_irq*/
+			<GIC_SPI 379 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&scpsys SCP_SYS_CONN>,
+			<&infracfg_ao CLK_IFRAO_CCIF4_AP>;
+		clock-names = "conn", "ccif";
 	};
 
 	auxadc: auxadc@11001000 {
