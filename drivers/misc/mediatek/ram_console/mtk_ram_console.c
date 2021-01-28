@@ -3383,8 +3383,8 @@ void aee_rr_show_last_bus(struct seq_file *m)
 
 	if (reg_buf) {
 		if (mt_lastbus_dump) {
-			mt_lastbus_dump(reg_buf);
-			seq_printf(m, "%s\n", reg_buf);
+			if (mt_lastbus_dump(reg_buf) == 0)
+				seq_printf(m, "%s\n", reg_buf);
 		}
 		kfree(reg_buf);
 	}
