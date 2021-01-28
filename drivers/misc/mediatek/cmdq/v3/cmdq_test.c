@@ -2067,12 +2067,16 @@ static void testcase_thread_dispatch(void)
 		(0x1 << CMDQ_ENG_MDP_CAMIN);
 	const long long engineFlag2 = (0x1 << CMDQ_ENG_MDP_RDMA0) |
 		(0x1 << CMDQ_ENG_MDP_WROT0);
+	int len;
 
 	CMDQ_LOG("%s\n", __func__);
 	CMDQ_MSG(
 		"=============== 2 THREAD with different engines ===============\n");
 
-	sprintf(threadName, "cmdqKTHR_%llx", engineFlag1);
+	len = sprintf(threadName, "cmdqKTHR_%llx", engineFlag1);
+	if (len >= 20)
+		pr_debug("%s:%d len:%d threadName:%s\n",
+			__func__, __LINE__, len, threadName);
 	pKThread1 = kthread_run(_testcase_thread_dispatch,
 		(void *)(&engineFlag1), threadName);
 	if (IS_ERR(pKThread1)) {
@@ -2080,7 +2084,10 @@ static void testcase_thread_dispatch(void)
 		return;
 	}
 
-	sprintf(threadName, "cmdqKTHR_%llx", engineFlag2);
+	len = sprintf(threadName, "cmdqKTHR_%llx", engineFlag2);
+	if (len >= 20)
+		pr_debug("%s:%d len:%d threadName:%s\n",
+			__func__, __LINE__, len, threadName);
 	pKThread2 = kthread_run(_testcase_thread_dispatch,
 		(void *)(&engineFlag2), threadName);
 	if (IS_ERR(pKThread2)) {
@@ -2149,10 +2156,14 @@ static void testcase_full_thread_array(void)
 {
 	char threadName[20];
 	struct task_struct *pKThread;
+	int len;
 
 	CMDQ_LOG("%s\n", __func__);
 
-	sprintf(threadName, "cmdqKTHR");
+	len = sprintf(threadName, "cmdqKTHR");
+	if (len >= 20)
+		pr_debug("%s:%d len:%d threadName:%s\n",
+			__func__, __LINE__, len, threadName);
 	pKThread = kthread_run(_testcase_full_thread_array, NULL, threadName);
 	if (IS_ERR(pKThread)) {
 		/* create thread failed */
