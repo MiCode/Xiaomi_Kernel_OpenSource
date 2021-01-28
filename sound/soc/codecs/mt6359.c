@@ -1032,6 +1032,20 @@ static const struct soc_enum mic_type_mux_enum[] = {
 	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mic_type_mux_map), mic_type_mux_map),
 };
 
+static int dmic_used_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	ucontrol->value.integer.value[0] =
+		priv->mux_select[MUX_MIC_TYPE_0] == MIC_TYPE_MUX_DMIC ||
+		priv->mux_select[MUX_MIC_TYPE_1] == MIC_TYPE_MUX_DMIC ||
+		priv->mux_select[MUX_MIC_TYPE_2] == MIC_TYPE_MUX_DMIC;
+
+	return 0;
+}
+
 static int mic_type_get(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
 {
@@ -6296,6 +6310,7 @@ static const struct snd_kcontrol_new mt6359_snd_misc_controls[] = {
 		     mt6359_codec_debug_get, mt6359_codec_debug_set),
 	SOC_ENUM_EXT("PMIC_REG_CLEAR", misc_control_enum[0],
 		     mt6359_rcv_dcc_get, mt6359_rcv_dcc_set),
+	SOC_ENUM_EXT("DMic Used", misc_control_enum[0], dmic_used_get, NULL),
 };
 
 static int mt6359_codec_init_reg(struct mt6359_priv *priv)
