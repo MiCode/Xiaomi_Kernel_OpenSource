@@ -91,6 +91,7 @@ static void trusted_mem_device_chunk_free(enum TRUSTED_MEM_TYPE mem_type)
 		g_common_mem_handle[mem_type] = 0;
 }
 
+#if defined(CONFIG_MTK_ION)
 static unsigned int get_ion_heap_mask_id(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
@@ -114,6 +115,7 @@ static unsigned int get_ion_heap_mask_id(enum TRUSTED_MEM_TYPE mem_type)
 		return ION_HEAP_MULTIMEDIA_SEC_MASK;
 	}
 }
+#endif
 
 static void trusted_mem_device_ion_alloc_free(enum TRUSTED_MEM_TYPE mem_type)
 {
