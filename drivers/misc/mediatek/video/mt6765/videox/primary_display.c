@@ -174,6 +174,7 @@ atomic_t decouple_update_rdma_event = ATOMIC_INIT(0);
 DECLARE_WAIT_QUEUE_HEAD(decouple_update_rdma_wq);
 atomic_t decouple_trigger_event = ATOMIC_INIT(0);
 DECLARE_WAIT_QUEUE_HEAD(decouple_trigger_wq);
+static bool pf_thread_init;
 wait_queue_head_t primary_display_present_fence_wq;
 atomic_t primary_display_pt_fence_update_event = ATOMIC_INIT(0);
 static unsigned int _need_lfr_check(void);
@@ -3686,56 +3687,17 @@ static int _present_fence_release_worker_thread(void *data)
 
 	sched_setscheduler(current, SCHED_RR, &param);
 
-	dpmgr_enable_event(pgc->dpmgr_handle, DISP_PATH_EVENT_IF_VSYNC);
-
 	while (1) {
-		int fence_increment = 0;
-		int timeline_id;
-		struct disp_sync_info *layer_info;
+		unsigned int pf_idx = 0;
 
 		wait_event_interruptible(primary_display_present_fence_wq,
 			atomic_read(&primary_display_pt_fence_update_event));
-		mmprofile_log_ex(ddp_mmp_get_events()->present_fence_release,
-			MMPROFILE_FLAG_PULSE, 0, 0);
 		atomic_set(&primary_display_pt_fence_update_event, 0);
 
-		if (!islcmconnected && !primary_display_is_video_mode()) {
-			DISPCHECK("LCM Not Connected && CMD Mode\n");
-			msleep(20);
-		} else if (disp_helper_get_option(DISP_OPT_ARR_PHASE_1)) {
-			dpmgr_wait_event_timeout(pgc->dpmgr_handle,
-				DISP_PATH_EVENT_FRAME_START, HZ/10);
-		} else {
-			dpmgr_wait_event_timeout(pgc->dpmgr_handle,
-				DISP_PATH_EVENT_IF_VSYNC, HZ/10);
-			mmprofile_log_ex(
-				ddp_mmp_get_events()->present_fence_release,
-				MMPROFILE_FLAG_PULSE, 1, 1);
-		}
-
-		timeline_id = disp_sync_get_present_timeline_id();
-		layer_info = _get_sync_info(primary_session_id, timeline_id);
-		if (layer_info == NULL) {
-			mmprofile_log_ex(
-				ddp_mmp_get_events()->present_fence_release,
-				MMPROFILE_FLAG_PULSE, -1, 0x5a5a5a5a);
-			continue;
-		}
-
 		_primary_path_lock(__func__);
-		fence_increment =
-			gPresentFenceIndex - layer_info->timeline->value;
-		if (fence_increment > 0) {
-			timeline_inc(layer_info->timeline, fence_increment);
-			DISPPR_FENCE("R+/%s%d/L%d/id%d\n",
-				disp_session_mode_spy(primary_session_id),
-				DISP_SESSION_DEV(primary_session_id),
-				timeline_id,
-				gPresentFenceIndex);
-		}
-		mmprofile_log_ex(ddp_mmp_get_events()->present_fence_release,
-				 MMPROFILE_FLAG_PULSE,
-				 gPresentFenceIndex, fence_increment);
+		cmdqBackupReadSlot(pgc->cur_config_fence, disp_sync_get_present_timeline_id(),
+		&pf_idx);
+		mtkfb_release_present_fence(primary_session_id, pf_idx);
 		_primary_path_unlock(__func__);
 
 		if (atomic_read(&od_trigger_kick)) {
@@ -4182,6 +4144,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			kthread_create(_present_fence_release_worker_thread,
 				NULL, "present_fence_worker");
 		wake_up_process(present_fence_release_worker_task);
+		pf_thread_init = true;
 	}
 #endif
 
@@ -5420,11 +5383,20 @@ done:
 	return ret;
 }
 
-void primary_display_update_present_fence(unsigned int fence_idx)
+void primary_display_update_present_fence(struct cmdqRecStruct *cmdq_handle,
+	unsigned int fence_idx)
 {
+	cmdqRecBackupUpdateSlot(cmdq_handle, pgc->cur_config_fence,
+		disp_sync_get_present_timeline_id(), fence_idx);
+
 	gPresentFenceIndex = fence_idx;
-	mmprofile_log_ex(ddp_mmp_get_events()->present_fence_set,
-		MMPROFILE_FLAG_PULSE, fence_idx, 1);
+}
+
+void primary_display_wakeup_pf_thread(void)
+{
+	if (!pf_thread_init)
+		return;
+
 	atomic_set(&primary_display_pt_fence_update_event, 1);
 	if (disp_helper_get_option(DISP_OPT_PRESENT_FENCE))
 		wake_up_interruptible(&primary_display_present_fence_wq);
@@ -6940,6 +6912,9 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		primary_show_basic_debug_info(cfg);
 
 	_config_ovl_input(cfg, disp_handle, cmdq_handle);
+	if (cfg->present_fence_idx != (unsigned int)-1)
+		primary_display_update_present_fence(cmdq_handle,
+			cfg->present_fence_idx);
 
 	/* handle night light in DL, DC separately */
 	if (m_ccorr_config.is_dirty) {
@@ -7112,8 +7087,6 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 
 	primary_display_trigger_nolock(0, NULL, 0);
 
-	if (cfg->present_fence_idx != (unsigned int)-1)
-		primary_display_update_present_fence(cfg->present_fence_idx);
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 		/*DynFPS*/
 		/*check whether need change fps according cfg*/
