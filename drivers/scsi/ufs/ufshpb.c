@@ -724,8 +724,8 @@ int ufshpb_prepare_pre_req(struct ufsf_feature *ufsf, struct scsi_cmnd *cmd,
 	add_lrbp->intr_cmd = !ufshcd_is_intr_aggr_allowed(hba) ? true : false;
 	add_lrbp->req_abort_skip = false;
 
-	/* MTK patch: reset crypto_en */
-	add_lrbp->crypto_en = 0;
+	/* MTK patch: reset crypto_enable */
+	add_lrbp->crypto_enable = false;
 
 	orig_lrbp->hpb_ctx_id = hpb_ctx_id;
 

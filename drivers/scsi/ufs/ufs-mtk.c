@@ -513,10 +513,9 @@ void ufs_mtk_hwfde_cfg_cmd(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 		ufs_mtk_crypto_cal_dun(UFS_CRYPTO_ALGO_ESSIV_AES_CBC,
 			lba, &dunl, &dunu);
 
-		lrbp->crypto_cfgid = 0;
-		lrbp->crypto_dunl = dunl;
-		lrbp->crypto_dunu = dunu;
-		lrbp->crypto_en = 1;
+		lrbp->crypto_key_slot = 0;
+		lrbp->crypto_enable = true;
+		lrbp->data_unit_num = ((u64)dunu << 32 || dunl);
 
 		/* mark data has ever gone through encryption/decryption path */
 		hba->crypto_feature |= UFS_CRYPTO_HW_FDE_ENCRYPTED;
