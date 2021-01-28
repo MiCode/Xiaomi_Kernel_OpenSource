@@ -231,7 +231,7 @@ static const struct file_operations fops = {
 };
 
 
-void mdla_reset_lock(int core, int res)
+void mdla_reset_lock(unsigned int core, int res)
 {
 	mdla_reset(core, res);
 

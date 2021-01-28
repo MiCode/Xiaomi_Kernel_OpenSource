@@ -88,7 +88,7 @@ void mdla_wakeup_source_init(void)
  * 2. setup delay power off timer
  * this function is protected by cmd_list_lock
  */
-void mdla_command_done(int core_id)
+void mdla_command_done(unsigned int core_id)
 {
 	mutex_lock(&mdla_devices[core_id].power_lock);
 	mdla_profile_stop(core_id, 1);
@@ -183,7 +183,7 @@ int mdla_run_command_sync(
 	struct mdla_scheduler *sched;
 	unsigned long flags;
 	long status;
-	int core_id;
+	unsigned int core_id;
 	/*forward compatibility temporary, This will be replaced by apusys*/
 	struct mdla_wait_cmd mdla_wt;
 	struct mdla_wait_cmd *wt = &mdla_wt;

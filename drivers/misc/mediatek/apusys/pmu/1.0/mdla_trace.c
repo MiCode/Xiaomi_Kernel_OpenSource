@@ -148,7 +148,7 @@ static void mdla_profile_register_read(int core_id)
 	mdla_profile_pmu_counter(core_id);
 }
 
-void mdla_trace_iter(int core_id)
+void mdla_trace_iter(unsigned int core_id)
 {
 	mutex_lock(&mdla_devices[core_id].power_lock);
 	if (cfg_timer_en)
