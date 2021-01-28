@@ -57,6 +57,7 @@ static atomic_t xgf_atomic_val_1 = ATOMIC_INIT(0);
 static unsigned long long last_update2spid_ts;
 static char *xgf_sp_name = SP_ALLOW_NAME;
 static int xgf_extra_sub;
+static int cur_xgf_extra_sub;
 static int xgf_dep_frames = XGF_DEP_FRAMES_MIN;
 static int xgf_prev_dep_frames = XGF_DEP_FRAMES_MIN;
 static int xgf_spid_sub = XGF_DO_SP_SUB;
@@ -148,7 +149,7 @@ EXPORT_SYMBOL(xgf_atomic_val_assign);
 
 int *xgf_extra_sub_assign(void)
 {
-	return (int *)(&xgf_extra_sub);
+	return (int *)(&cur_xgf_extra_sub);
 }
 EXPORT_SYMBOL(xgf_extra_sub_assign);
 
@@ -1528,6 +1529,8 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 	struct hlist_node *hr;
 	unsigned long long raw_runtime = 0;
 	int new_spid;
+	unsigned long long t_dequeue_time = 0;
+	int do_extra_sub = 0;
 
 	if (rpid <= 0 || ts == 0)
 		return XGF_PARAM_ERR;
@@ -1557,13 +1560,28 @@ int fpsgo_comp2xgf_qudeq_notify(int rpid, unsigned long long bufID, int cmd,
 			goto qudeq_notify_err;
 		}
 		r->queue.end_ts = ts;
+		cur_xgf_extra_sub = xgf_extra_sub;
 
 		new_spid = xgf_get_spid(r);
 		if (new_spid != -1) {
 			xgf_trace("xgf spid:%d => %d", r->spid, new_spid);
 			r->spid = new_spid;
 		}
+
+		t_dequeue_time = r->deque.end_ts - r->deque.start_ts;
+		if (r->deque.start_ts && r->deque.end_ts
+			&& (r->deque.end_ts > r->deque.start_ts)
+			&& (t_dequeue_time > 2500000)
+			&& !cur_xgf_extra_sub) {
+			do_extra_sub = 1;
+			cur_xgf_extra_sub = 1;
+			xgf_trace("xgf extra_sub:%d => %llu", rpid, t_dequeue_time);
+		}
+
 		ret = xgf_enter_est_runtime(rpid, r, &raw_runtime, ts);
+
+		if (do_extra_sub)
+			cur_xgf_extra_sub = 0;
 
 		if (!raw_runtime)
 			*run_time = raw_runtime;
