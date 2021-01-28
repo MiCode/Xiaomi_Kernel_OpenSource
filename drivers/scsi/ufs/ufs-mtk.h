@@ -21,7 +21,6 @@
 
 #include <linux/of.h>
 #include <linux/rpmb.h>
-#include <linux/hie.h>
 #include <linux/pm_qos.h>
 #include "ufshcd.h"
 
