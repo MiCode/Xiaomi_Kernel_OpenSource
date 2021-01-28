@@ -414,7 +414,13 @@ int disable_ovl_layers(enum DISP_MODULE_ENUM module, void *handle)
 	unsigned int ovl_idx = ovl_to_index(module);
 
 	/* physical layer control */
-	DISP_REG_SET(handle,
+	DISP_REG_SET_FIELD(handle, SRC_CON_FLD_L0_EN,
+		ovl_base_addr(module) + DISP_REG_OVL_SRC_CON, 0);
+	DISP_REG_SET_FIELD(handle, SRC_CON_FLD_L1_EN,
+		ovl_base_addr(module) + DISP_REG_OVL_SRC_CON, 0);
+	DISP_REG_SET_FIELD(handle, SRC_CON_FLD_L2_EN,
+		ovl_base_addr(module) + DISP_REG_OVL_SRC_CON, 0);
+	DISP_REG_SET_FIELD(handle, SRC_CON_FLD_L3_EN,
 		ovl_base_addr(module) + DISP_REG_OVL_SRC_CON, 0);
 	/* ext layer control */
 	DISP_REG_SET(handle,
@@ -1732,6 +1738,11 @@ static int ovl_config_l(enum DISP_MODULE_ENUM module,
 			ovl_base_addr(module) + DISP_REG_OVL_SBCH_EXT, 0);
 	}
 
+	/* Enable SMI GDRDY */
+	DISP_REG_SET(handle,
+				ovl_base_addr(module) + DISP_REG_OVL_GDRDY_PRD,
+				0xFFFFFFFF);
+
 	DDPDBG("%s transparent bw:%llu, total bw:%llu\n",
 		ddp_get_module_name(module), full_trans_bw, ovl_bw);
 
@@ -2228,6 +2239,19 @@ void ovl_dump_reg(enum DISP_MODULE_ENUM module)
 			DISP_REG_GET(DISP_REG_OVL_SBCH + offset),
 			DISP_REG_GET(DISP_REG_OVL_SBCH_EXT + offset),
 			DISP_REG_GET(DISP_REG_OVL_SBCH_EXT + offset));
+
+		DDPDUMP(
+			"OVL: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n",
+			0x238, INREG32(offset + 0x238),
+			0x240, INREG32(offset + 0x240),
+			0x244, INREG32(offset + 0x244),
+			0x24c, INREG32(offset + 0x24c));
+		DDPDUMP(
+			"OVL: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n",
+			0x250, INREG32(offset + 0x250),
+			0x254, INREG32(offset + 0x254),
+			0x258, INREG32(offset + 0x258),
+			0x25c, INREG32(offset + 0x25c));
 	}
 }
 

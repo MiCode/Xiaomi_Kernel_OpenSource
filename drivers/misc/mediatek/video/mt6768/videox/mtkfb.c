@@ -311,10 +311,15 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 
 int mtkfb_set_backlight_level(unsigned int level)
 {
+	bool aal_is_support = disp_aal_is_support();
 	MTKFB_FUNC();
 	DISPDBG("mtkfb_set_backlight_level:%d Start\n",
 		level);
-	primary_display_setbacklight(level);
+
+	if (aal_is_support)
+		primary_display_setbacklight_nolock(level);
+	else
+		primary_display_setbacklight(level);
 	DISPDBG("mtkfb_set_backlight_level End\n");
 	return 0;
 }
@@ -955,7 +960,7 @@ unsigned int mtkfb_fm_auto_test(void)
 	struct fb_var_screeninfo var;
 
 	int idle_state_backup =
-		disp_helper_get_option(DISP_OPT_IDLE_MGR);
+		disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS);
 
 	if (primary_display_is_sleepd()) {
 		DISPWARN("primary display path is already sleep, skip\n");
@@ -964,7 +969,7 @@ unsigned int mtkfb_fm_auto_test(void)
 
 	if (idle_state_backup) {
 		primary_display_idlemgr_kick(__func__, 0);
-		disp_helper_set_option(DISP_OPT_IDLE_MGR, 0);
+		disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS, 0);
 	}
 	fbVirAddr = (unsigned long)fbdev->fb_va_base;
 	fb_buffer = (unsigned int *)fbVirAddr;
@@ -997,11 +1002,11 @@ unsigned int mtkfb_fm_auto_test(void)
 
 	mtkfb_pan_display_impl(&mtkfb_fbi->var, mtkfb_fbi);
 	msleep(100);
-
+	primary_display_idlemgr_kick(__func__, 0);
 	result = primary_display_lcm_ATA();
 
 	if (idle_state_backup)
-		disp_helper_set_option(DISP_OPT_IDLE_MGR, idle_state_backup);
+		disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS, 1);
 
 	if (result == 0)
 		DISPERR("ATA LCM failed\n");
@@ -1010,6 +1015,49 @@ unsigned int mtkfb_fm_auto_test(void)
 
 
 	return result;
+}
+
+int mtkfb_aod_mode_switch(enum mtkfb_aod_power_mode aod_pm)
+{
+	int ret = 0;
+	enum mtkfb_power_mode prev_pm = primary_display_get_power_mode();
+
+	DISPCHECK("AOD: ioctl: %s\n",
+		aod_pm ? "AOD_DOZE_SUSPEND" : "AOD_DOZE");
+	if (!primary_is_aod_supported()) {
+		DISPCHECK("AOD: feature not support\n");
+		return ret;
+	}
+
+	if (aod_pm == MTKFB_AOD_DOZE_SUSPEND) {
+		/*
+		 * First DOZE to power on dispsys and LCM(low power mode);
+		 * then DOZE_SUSPEND to power off dispsys.
+		 */
+		if (primary_display_is_sleepd() &&
+			primary_display_get_lcm_power_state()) {
+			primary_display_set_power_mode(DOZE);
+			primary_display_resume();
+
+			debug_print_power_mode_check(prev_pm, DOZE);
+		}
+
+		primary_display_set_power_mode(DOZE_SUSPEND);
+		ret = primary_display_suspend();
+
+		debug_print_power_mode_check(prev_pm, DOZE_SUSPEND);
+	} else if (aod_pm == MTKFB_AOD_DOZE) {
+		primary_display_set_power_mode(DOZE);
+		ret = primary_display_resume();
+
+		debug_print_power_mode_check(prev_pm, DOZE);
+	} else {
+		DISPERR("AOD: error: unknown AOD power mode %d\n", aod_pm);
+	}
+	if (ret < 0)
+		DISPERR("AOD: set %s failed\n",
+			aod_pm ? "AOD_SUSPEND" : "AOD_RESUME");
+	return ret;
 }
 
 static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
@@ -1071,48 +1119,9 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 	case MTKFB_SET_AOD_POWER_MODE:
 	{
 		enum mtkfb_aod_power_mode aod_pm = MTKFB_AOD_POWER_MODE_ERROR;
-		enum mtkfb_power_mode prev_pm =
-			primary_display_get_power_mode();
 
 		aod_pm = (enum mtkfb_aod_power_mode)arg;
-		DISPCHECK("AOD: ioctl: %s\n",
-			aod_pm ? "AOD_DOZE_SUSPEND" : "AOD_DOZE");
-
-		if (!primary_is_aod_supported()) {
-			DISPCHECK("AOD: feature not support\n");
-			return r;
-		}
-
-		if (aod_pm == MTKFB_AOD_DOZE_SUSPEND) {
-			/*
-			 * First DOZE to power on dispsys and
-			 * LCM(low power mode). Then DOZE_SUSPEND to
-			 * power off dispsys.
-			 */
-			if (primary_display_is_sleepd() &&
-				primary_display_get_lcm_power_state()) {
-				primary_display_set_power_mode(DOZE);
-				primary_display_resume();
-
-				debug_print_power_mode_check(prev_pm, DOZE);
-			}
-
-			primary_display_set_power_mode(DOZE_SUSPEND);
-			ret = primary_display_suspend();
-
-			debug_print_power_mode_check(prev_pm, DOZE_SUSPEND);
-		} else if (aod_pm == MTKFB_AOD_DOZE) {
-			primary_display_set_power_mode(DOZE);
-			ret = primary_display_resume();
-
-			debug_print_power_mode_check(prev_pm, DOZE);
-		} else {
-			DISPERR("AOD: error: unknown AOD power mode %d\n",
-				aod_pm);
-		}
-		if (ret < 0)
-			DISPERR("AOD: set %s failed\n",
-				aod_pm ? "AOD_SUSPEND" : "AOD_RESUME");
+		ret = mtkfb_aod_mode_switch(arg);
 
 		break;
 	}
@@ -1188,6 +1197,7 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 	}
 	case MTKFB_CAPTURE_FRAMEBUFFER:
 	{
+#if 0  /* comment this for iofuzzer security issue */
 		unsigned long *src_pbuf = 0;
 		unsigned int pixel_bpp = primary_display_get_bpp() / 8;
 		unsigned int fbsize = DISP_GetScreenHeight() *
@@ -1214,6 +1224,7 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			r = -EFAULT;
 		}
 		vfree(src_pbuf);
+#endif
 		return r;
 	}
 	case MTKFB_SLT_AUTO_CAPTURE:
@@ -1325,6 +1336,15 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		/* in early suspend mode ,will not update buffer index,
 		 * info SF by return value
 		 */
+
+		if (layerInfo->layer_id >= TOTAL_OVL_LAYER_NUM) {
+			DISPWARN(
+				"MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
+				layerInfo->layer_id);
+			kfree(layerInfo);
+			return -1;
+		}
+
 		if (primary_display_is_sleepd()) {
 			DISPWARN("[FB] set overlay in early suspend ,skip!\n");
 			kfree(layerInfo);
@@ -1396,7 +1416,8 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 				DISPWARN(
 					"MTKFB_SET_VIDEO_LAYERS, layer_id invalid=%d\n",
 				     layerInfo[i].layer_id);
-				continue;
+				kfree(layerInfo);
+				return -EFAULT;
 			}
 
 			layer_num = session_input.config_layer_num;
@@ -2541,7 +2562,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	DISPMSG("%s: fb_pa = %pa\n", __func__, &fb_base);
 
 #ifdef CONFIG_MTK_IOMMU_V2
-	temp_va = (size_t)ioremap_nocache(fb_base,
+	temp_va = (size_t)ioremap_wc(fb_base,
 		(fb_base + vramsize - fb_base));
 	fbdev->fb_va_base = (void *)temp_va;
 	ion_display_client = disp_ion_create("disp_fb0");
@@ -2562,7 +2583,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	disp_ion_get_mva(ion_display_client,
 		ion_display_handle,
-		&fb_pa, fb_base,
+		&fb_pa, 0,
 		DISP_M4U_PORT_DISP_OVL0);
 #else
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
@@ -2729,11 +2750,6 @@ static int mtkfb_resume(struct platform_device *pdev)
 static void mtkfb_shutdown(struct platform_device *pdev)
 {
 	MTKFB_LOG("[FB Driver] %s()\n", __func__);
-	/* mt65xx_leds_brightness_set(MT65XX_LED_TYPE_LCD, LED_OFF); */
-	if (!lcd_fps)
-		msleep(30);
-	else
-		msleep(2 * 100000 / lcd_fps);	/* Delay 2 frames. */
 
 	if (primary_display_is_sleepd()) {
 		MTKFB_LOG("mtkfb has been power off\n");
