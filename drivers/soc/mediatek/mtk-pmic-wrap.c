@@ -102,6 +102,7 @@
 #define PWRAP_CAP_ARB_V1	BIT(7)
 #define PWRAP_CAP_ARB_V2	BIT(8)
 #define PWRAP_CAP_ARB_V3	BIT(9)
+#define PWRAP_CAP_MPU_V1	BIT(10)
 
 /* defines for slave device wrapper registers */
 enum dew_regs {
@@ -1028,6 +1029,14 @@ static int mt6771_regs[] = {
 	[PWRAP_WACS2_CMD] =		0xC20,
 	[PWRAP_WACS2_RDATA] =		0xC24,
 	[PWRAP_WACS2_VLDCLR] =		0xC28,
+	[PWRAP_MPU_PMIC_ACC_VIO_INFO_0] =	0xF60,
+	[PWRAP_MPU_PMIC_ACC_VIO_INFO_1] =	0xF64,
+	[PWRAP_MPU_PMIC_ACC_VIO_INFO_2] =	0xF68,
+	[PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_0] =	0xF6C,
+	[PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_1] =	0xF70,
+	[PWRAP_MPU_PMIC_ACC_VIO_P2P_INFO_2] =	0xF74,
+	[PWRAP_MPU_PWRAP_ACC_VIO_INFO_0] =	0xF78,
+	[PWRAP_MPU_PWRAP_ACC_VIO_INFO_1] =	0xF7C,
 };
 
 static int mt6785_regs[] = {
@@ -2127,7 +2136,10 @@ static int pwrap_wait_for_state(struct pmic_wrapper *wrp,
 		vio_offset = 0x80000000;
 	} else {
 		vio_addr = PWRAP_MPU_PMIC_ACC_VIO_INFO_0;
-		vio_offset = 0x20000000;
+		if (HAS_CAP(wrp->master->caps, PWRAP_CAP_MPU_V1))
+			vio_offset = 0x80000000;
+		else
+			vio_offset = 0x20000000;
 	}
 
 	start_time_ns = sched_clock();
@@ -2712,7 +2724,9 @@ static irqreturn_t pwrap_interrupt(int irqno, void *dev_id)
 			dev_notice(wrp->dev,
 				   "[PWRAP] INT1 error:0x%x\n", int1_flg);
 
-			if ((int1_flg & (0x3 << 11)) != 0) {
+			if (((int1_flg & (0x3 << 11)) != 0) ||
+				(HAS_CAP(wrp->master->caps, PWRAP_CAP_MPU_V1) &&
+				((int1_flg & (0x3 << 26)) != 0))) {
 				dev_notice(wrp->dev,
 					   "[PWRAP] MPU Access Violation\n");
 				pwrap_mpu_info();
@@ -3004,7 +3018,8 @@ static struct pmic_wrapper_type pwrap_mt6771 = {
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
 	.has_bridge = 0,
-	.caps = PWRAP_CAP_INT1_EN | PWRAP_CAP_MONITOR_V1 | PWRAP_CAP_ARB_V1,
+	.caps = PWRAP_CAP_INT1_EN | PWRAP_CAP_MONITOR_V1 | PWRAP_CAP_ARB_V1 |
+		PWRAP_CAP_MPU_V1,
 	.init_done = PWRAP_STATE_INIT_DONE0,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
