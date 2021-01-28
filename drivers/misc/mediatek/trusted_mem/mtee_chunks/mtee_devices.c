@@ -31,12 +31,10 @@
 #include <memory_ssmr.h>
 #endif
 
-#define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-#include "mtee_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
 #include "private/tmem_priv.h"
+#include "private/tmem_utils.h"
 /* clang-format off */
 #include "mtee_impl/mtee_priv.h"
 /* clang-format on */
@@ -50,18 +48,14 @@ struct mtee_chunk_memory_configs {
 };
 
 static struct trusted_mem_configs mchunk_general_configs = {
-#ifdef MTEE_MCHUNKS_SESSION_KEEP_ALIVE
-	.session_keep_alive_enable = true,
-#endif
-	.minimal_chunk_size = MTEE_MCHUNKS_MIN_ALLOC_CHUNK_SIZE,
-	.phys_mem_shift_bits = MTEE_64BIT_PHYS_SHIFT,
-	.phys_limit_min_alloc_size = (1 << MTEE_64BIT_PHYS_SHIFT),
-#if defined(MTEE_MCHUNKS_MIN_SIZE_CHECK)
+	.mock_peer_enable = false,
+	.mock_ssmr_enable = false,
+	.session_keep_alive_enable = false,
+	.minimal_chunk_size = SIZE_4K,
+	.phys_mem_shift_bits = 10,
+	.phys_limit_min_alloc_size = (1 << 10),
 	.min_size_check_enable = true,
-#endif
-#if defined(MTEE_MCHUNKS_ALIGNMENT_CHECK)
 	.alignment_check_enable = true,
-#endif
 	.caps = 0,
 };
 

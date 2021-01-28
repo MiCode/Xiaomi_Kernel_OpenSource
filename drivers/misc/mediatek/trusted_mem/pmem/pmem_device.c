@@ -31,13 +31,11 @@
 #include <memory_ssmr.h>
 #endif
 
-#define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-#include "pmem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-
 #include "pmem/pmem_mock.h"
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
 #include "private/tmem_priv.h"
+#include "private/tmem_utils.h"
 /* clang-format off */
 #include "mtee_impl/mtee_priv.h"
 /* clang-format on */
@@ -45,24 +43,14 @@
 #define PMEM_DEVICE_NAME "PMEM"
 
 static struct trusted_mem_configs pmem_configs = {
-#if defined(PMEM_MOCK_MTEE)
-	.mock_peer_enable = true,
-#endif
-#if defined(PMEM_MOCK_SSMR)
-	.mock_ssmr_enable = true,
-#endif
-#if defined(PMEM_MTEE_SESSION_KEEP_ALIVE)
-	.session_keep_alive_enable = true,
-#endif
-	.minimal_chunk_size = PMEM_MIN_ALLOC_CHUNK_SIZE,
-	.phys_mem_shift_bits = PMEM_64BIT_PHYS_SHIFT,
-	.phys_limit_min_alloc_size = (1 << PMEM_64BIT_PHYS_SHIFT),
-#if defined(PMEM_MIN_SIZE_CHECK)
+	.mock_peer_enable = false,
+	.mock_ssmr_enable = false,
+	.session_keep_alive_enable = false,
+	.minimal_chunk_size = SIZE_4K,
+	.phys_mem_shift_bits = 10,
+	.phys_limit_min_alloc_size = (1 << 10),
 	.min_size_check_enable = true,
-#endif
-#if defined(PMEM_ALIGNMENT_CHECK)
 	.alignment_check_enable = true,
-#endif
 	.caps = 0,
 };
 

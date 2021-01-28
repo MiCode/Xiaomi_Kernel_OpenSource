@@ -23,12 +23,10 @@
 #include <linux/unistd.h>
 #include <linux/mutex.h>
 
-#define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-#include "pmem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
-
 #include "pmem/pmem_mock.h"
 #include "pmem/memmgr_buddy.h"
 #include "private/tmem_error.h"
+#include "private/tmem_utils.h"
 #if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
 	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #include "private/secmem_ext.h"

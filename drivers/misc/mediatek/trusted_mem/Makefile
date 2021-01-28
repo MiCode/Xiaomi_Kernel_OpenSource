@@ -147,11 +147,6 @@ endif
 #==========================================================================
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public/
-ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/trusted_mem/$(MTK_PLATFORM)/),)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/$(MTK_PLATFORM)/
-else
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/common/
-endif
 
 #==========================================================================
 # Other Modules Include Header Paths
