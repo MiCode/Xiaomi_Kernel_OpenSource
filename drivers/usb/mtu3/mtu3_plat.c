@@ -367,6 +367,14 @@ static int mtu3_probe(struct platform_device *pdev)
 		return -ENOTSUPP;
 	}
 
+	ret = device_rename(dev, node->name);
+	if (ret)
+		dev_info(&pdev->dev, "failed to rename\n");
+	/* fix uaf(use after free) issue: backup pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev->name = pdev->dev.kobj.name;
+
 	platform_set_drvdata(pdev, ssusb);
 	ssusb->dev = dev;
 
