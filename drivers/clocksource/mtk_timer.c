@@ -28,6 +28,12 @@
 #include <linux/of_irq.h>
 #include <linux/sched_clock.h>
 #include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/mm.h>
+#include <linux/miscdevice.h>
+#include <linux/init.h>
+#include <linux/module.h>
+
 
 #define CONFIG_MTK_TIMER_AEE_DUMP
 
@@ -63,16 +69,19 @@ static char gpt_clkevt_aee_dump_buf[128];
 #define TIMER_CLK_DIV2		(0x1)
 
 #define TIMER_CNT_REG(val)	(0x08 + (0x10 * (val)))
+#define TIMER_CNT_REG_H(val)	(0x08 + (0x10 * (val+1)))
 #define TIMER_CMP_REG(val)	(0x0C + (0x10 * (val)))
 
 #define GPT_CLK_EVT	1
 #define GPT_CLK_SRC	2
+#define GPT_SYSCNT_ID	6
 
 struct mtk_clock_event_device {
 	void __iomem *gpt_base;
 	u32 ticks_per_jiffy;
 	bool clk32k_exist;
 	struct clock_event_device dev;
+	struct resource res;
 };
 static struct mtk_clock_event_device *gpt_devs;
 
@@ -81,6 +90,7 @@ static inline struct mtk_clock_event_device *to_mtk_clk(
 {
 	return container_of(c, struct mtk_clock_event_device, dev);
 }
+
 #if defined(CONFIG_MTK_TIMER_AEE_DUMP)
 static uint64_t gpt_clkevt_last_interrupt_time;
 static uint64_t gpt_clkevt_last_setting_next_event_time;
@@ -265,7 +275,6 @@ static irqreturn_t mtk_timer_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-
 static void mtk_timer_setup(struct mtk_clock_event_device *evt, u8 timer,
 			    u8 option, u8 clk_src, bool enable)
 {
@@ -299,6 +308,22 @@ static void mtk_timer_enable_irq(struct mtk_clock_event_device *evt,
 	val = readl(evt->gpt_base + GPT_IRQ_EN_REG);
 	writel(val | GPT_IRQ_ENABLE(timer),
 			evt->gpt_base + GPT_IRQ_EN_REG);
+}
+
+u64 mtk_timer_get_cnt(u8 timer)
+{
+	u32 val[2];
+	u64 cnt;
+
+	val[0] = readl(gpt_devs->gpt_base + TIMER_CNT_REG(timer));
+	if (timer == GPT_SYSCNT_ID) {
+		val[1] = readl(gpt_devs->gpt_base + TIMER_CNT_REG_H(timer));
+		cnt = (((u64)val[1] << 32) | (u64)val[0]);
+		return cnt;
+	}
+
+	cnt = ((u64)val[0]) & 0x00000000FFFFFFFFULL;
+	return cnt;
 }
 
 static int __init mtk_timer_init(struct device_node *node)
@@ -336,6 +361,11 @@ static int __init mtk_timer_init(struct device_node *node)
 	if (IS_ERR(evt->gpt_base)) {
 		pr_err("Can't get resource\n");
 		goto err_kzalloc;
+	}
+
+	if (of_address_to_resource(node, 0, &evt->res)) {
+		pr_err("of_address_to_resource fail\n");
+		goto err_mem;
 	}
 
 	evt->dev.irq = irq_of_parse_and_map(node, 0);
@@ -405,6 +435,10 @@ static int __init mtk_timer_init(struct device_node *node)
 
 	mtk_timer_enable_irq(evt, GPT_CLK_EVT);
 
+	/* use GPT6 timer as syscnt */
+	mtk_timer_setup(evt, GPT_SYSCNT_ID, TIMER_CTRL_OP_FREERUN,
+				TIMER_CLK_SRC_SYS13M, true);
+
 	return 0;
 
 err_clk_disable_evt:
@@ -435,4 +469,55 @@ err_kzalloc:
 CLOCKSOURCE_OF_DECLARE(mtk_mt6577, "mediatek,mt6577-timer", mtk_timer_init);
 CLOCKSOURCE_OF_DECLARE(mtk_mt6758, "mediatek,mt6758-timer", mtk_timer_init);
 CLOCKSOURCE_OF_DECLARE(mtk_apxgpt, "mediatek,apxgpt", mtk_timer_init);
+
+static int mt_xgpt_mmap(struct file *file, struct vm_area_struct *vma)
+{
+	unsigned long start_addr;
+	unsigned long end_addr;
+
+	if (vma->vm_end - vma->vm_start != PAGE_SIZE)
+		return -EINVAL;
+
+	if (vma->vm_flags & VM_WRITE)
+		return -EPERM;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+	start_addr = gpt_devs->res.start;
+	end_addr = gpt_devs->res.end;
+	pr_notice("%s physical address: %p - %p\n",
+				__func__, (int *)start_addr, (int *)end_addr);
+
+	if (remap_pfn_range(vma, vma->vm_start, start_addr >> PAGE_SHIFT,
+					PAGE_SIZE, vma->vm_page_prot)) {
+		pr_err("remap_pfn_range failed in %s\n", __func__);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+static const struct file_operations mt_xgpt_fops = {
+	.owner = THIS_MODULE,
+	.mmap = mt_xgpt_mmap,
+};
+
+static struct miscdevice mt_xgpt_miscdev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "mt_xgpt",
+	.fops = &mt_xgpt_fops,
+};
+
+static int __init mtk_timer_mod_init(void)
+{
+	pr_info("%s\n", __func__);
+
+	/* register miscdev node for userspace accessing */
+	if (misc_register(&mt_xgpt_miscdev))
+		pr_err("failed to register misc device: %s\n", "mt_xgpt");
+
+	return 0;
+}
+
+module_init(mtk_timer_mod_init);
 
