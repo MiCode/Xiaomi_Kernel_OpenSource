@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
+#include <linux/rtc.h>
 
 #include <mt-plat/mtk_ccci_common.h> /* exec_ccci_kern_func_by_md_id */
 
@@ -439,12 +440,22 @@ static bool check_print_log_duration(void)
 	static unsigned long  pre_time;
 	unsigned long  cur_time;
 	bool ret = false;
+	struct timespec ts;
+	struct rtc_time tm;
 
 	cur_time = spm_get_current_time_ms();
 	ret = (cur_time - pre_time > IDLE_PRINT_LOG_DURATION);
 
-	if (ret)
+	if (ret) {
 		pre_time = cur_time;
+
+		getnstimeofday(&ts);
+		rtc_time_to_tm(ts.tv_sec, &tm);
+		pr_info(
+		"[name:spm&][SPM] idle: %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+	}
 
 	return ret;
 }
