@@ -50,13 +50,63 @@ static int mtk_cg_bit_is_set(struct clk_hw *hw)
 static void mtk_cg_set_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+#ifdef CONFIG_MACH_MT6853
+	int val = 0;
+	int i = 0;
+#endif
 
 	regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
+#ifdef CONFIG_MACH_MT6853
+	regmap_read(cg->regmap, cg->sta_ofs, &val);
+	while ((val & BIT(cg->bit)) != BIT(cg->bit)) {
+		regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
+		regmap_read(cg->regmap, cg->sta_ofs, &val);
+
+		if (i > 5)
+			break;
+		i++;
+	}
+#endif
 }
 
 static void mtk_cg_clr_bit(struct clk_hw *hw)
 {
 	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+#ifdef CONFIG_MACH_MT6853
+	int val = 0;
+	int i = 0;
+#endif
+
+	regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+#ifdef CONFIG_MACH_MT6853
+	regmap_read(cg->regmap, cg->sta_ofs, &val);
+	while ((val & BIT(cg->bit)) != 0) {
+		regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
+		regmap_read(cg->regmap, cg->sta_ofs, &val);
+
+		if (i > 5)
+			break;
+		i++;
+	}
+#endif
+}
+
+static void mtk_cg_set_bit_unused(struct clk_hw *hw)
+{
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	const char *c_n = clk_hw_get_name(hw);
+
+	pr_notice("disable_unused - %s\n", c_n);
+
+	regmap_write(cg->regmap, cg->set_ofs, BIT(cg->bit));
+}
+
+static void mtk_cg_clr_bit_unused(struct clk_hw *hw)
+{
+	struct mtk_clk_gate *cg = to_mtk_clk_gate(hw);
+	const char *c_n = clk_hw_get_name(hw);
+
+	pr_notice("disable_unused - %s\n", c_n);
 
 	regmap_write(cg->regmap, cg->clr_ofs, BIT(cg->bit));
 }

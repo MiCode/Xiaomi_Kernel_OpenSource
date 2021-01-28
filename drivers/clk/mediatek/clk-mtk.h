@@ -288,6 +288,7 @@ struct clk_onecell_data *mtk_alloc_clk_data(unsigned int clk_num);
 
 #define HAVE_RST_BAR	BIT(0)
 #define PLL_AO		BIT(1)
+#define HAVE_RST_BAR_4_TIMES	(BIT(2) | BIT(0))
 
 struct mtk_pll_div_table {
 	u32 div;
@@ -310,6 +311,7 @@ struct mtk_pll_data {
 	int pd_shift;
 	unsigned int flags;
 	const struct clk_ops *ops;
+	uint32_t rst_bar_reg;
 	u32 rst_bar_mask;
 	unsigned long fmax;
 	unsigned long fmin;
