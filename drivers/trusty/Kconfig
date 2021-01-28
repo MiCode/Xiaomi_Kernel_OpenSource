@@ -61,6 +61,7 @@ config MTK_ENABLE_GENIEZONE
 config MTK_NEBULA_VM_SUPPORT
 	tristate "Nebula VM OS Enable"
 	depends on MTK_ENABLE_GENIEZONE
+	select MT_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
 	default n
 	help
 	  This is used for MTK Geniezone to Support Nebula VM OS.
