@@ -327,7 +327,7 @@ static ssize_t ged_log_buf_write_entry(const char __user *pszBuffer,
 	return (ssize_t)__ged_log_buf_write((struct GED_LOG_BUF *)pvData,
 		pszBuffer, (int)uiCount);
 }
-#endif
+
 //-----------------------------------------------------------------------------
 static void *ged_log_buf_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
@@ -456,6 +456,7 @@ static const struct seq_operations gsGEDLogBufReadOps = {
 	.next = ged_log_buf_seq_next,
 	.show = ged_log_buf_seq_show,
 };
+#endif
 //-----------------------------------------------------------------------------
 GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		int i32MaxLineCount,
@@ -856,7 +857,6 @@ GED_ERROR ged_log_buf_reset(GED_LOG_BUF_HANDLE hLogBuf)
 	return GED_OK;
 }
 EXPORT_SYMBOL(ged_log_buf_reset);
-
 #ifdef GED_DEBUG_FS
 //-----------------------------------------------------------------------------
 //
@@ -897,7 +897,6 @@ static ssize_t ged_log_write_entry(const char __user *pszBuffer, size_t uiCount,
 
 	return uiCount;
 }
-#endif
 //-----------------------------------------------------------------------------
 static void *ged_log_seq_start(struct seq_file *psSeqFile, loff_t *puiPosition)
 {
@@ -955,6 +954,7 @@ static const struct seq_operations gsGEDLogReadOps = {
 	.next = ged_log_seq_next,
 	.show = ged_log_buf_seq_show,
 };
+#endif
 //-----------------------------------------------------------------------------
 GED_ERROR ged_log_system_init(void)
 {

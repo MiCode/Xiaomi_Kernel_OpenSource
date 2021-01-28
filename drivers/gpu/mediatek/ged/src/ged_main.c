@@ -233,10 +233,12 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(GPU_TIMESTAMP);
 			ret = ged_bridge_gpu_timestamp(pvIn, pvOut);
 			break;
+#ifdef GED_DEBUG_FS
 		case GED_BRIDGE_COMMAND_GPU_TUNER_STATUS:
 			VALIDATE_ARG(GPU_TUNER_STATUS);
 			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
+#endif
 		default:
 			GED_LOGE("Unknown Bridge ID: %u\n",
 			GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
@@ -379,11 +381,12 @@ static void ged_exit(void)
 	ged_log_system_exit();
 #ifdef GED_DEBUG_FS
 	ged_hal_exit();
+
 	ged_debugFS_exit();
-#endif
-	ged_ge_exit();
 
 	ged_gpu_tuner_exit();
+#endif
+	ged_ge_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
 
@@ -412,6 +415,11 @@ static int ged_init(void)
 		goto ERROR;
 	}
 
+	err = ged_gpu_tuner_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to init GPU Tuner!\n");
+		goto ERROR;
+	}
 #endif
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
@@ -475,11 +483,6 @@ static int ged_init(void)
 	gpufreq_ged_log = ged_log_buf_alloc(1024, 64 * 1024,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
 
-	err = ged_gpu_tuner_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init GPU Tuner!\n");
-		goto ERROR;
-	}
 
 	return 0;
 

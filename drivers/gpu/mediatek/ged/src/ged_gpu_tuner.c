@@ -590,7 +590,7 @@ GED_ERROR ged_gpu_tuner_init(void)
 
 	gpu_tuner_status.status.feature = gpu_tuner_status.status.value = 0;
 	debug = false;
-#ifdef GED_DEBUG_FS
+
 	err = ged_debugFS_create_entry_dir(
 			"gpu_tuner",
 			NULL,
@@ -638,7 +638,6 @@ GED_ERROR ged_gpu_tuner_init(void)
 
 		goto ERROR;
 	}
-#endif
 
 ERROR:
 
