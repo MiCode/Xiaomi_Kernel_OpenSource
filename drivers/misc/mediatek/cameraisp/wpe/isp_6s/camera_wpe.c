@@ -160,6 +160,9 @@ unsigned int ver;
 /*#define WPE_DEBUG_USE */
 /* #define WPE_MULTIPROCESS_TIMEING_ISSUE  */
 /*I can' test the situation in FPGA, because the velocity of FPGA is so slow. */
+
+#define WPE_IOCTL_RW	(0)//0:disable ioctl write register
+
 #define MyTag "[WPE]"
 #define IRQTag "KEEPER"
 
@@ -3129,7 +3132,7 @@ EXIT:
 	return Ret;
 }
 
-
+#if (WPE_IOCTL_RW == 1)
 /***********************************************************************
  *
  ***********************************************************************/
@@ -3232,7 +3235,7 @@ EXIT:
 	}
 	return Ret;
 }
-
+#endif /*WPE_IOCTL_RW*/
 
 /***********************************************************************
  *
@@ -3615,7 +3618,12 @@ static long WPE_ioctl(struct file *pFile,
 				sizeof(struct WPE_REG_IO_STRUCT)) == 0) {
 				/* 2nd layer behavoir of copy from*/
 				/*user is implemented in WPE_WriteReg(...) */
+#if (WPE_IOCTL_RW == 1)
 				Ret = WPE_WriteReg(&RegIo);
+#else
+				LOG_ERR("Not Support WPE_WRITE_REGISTER");
+#endif
+				Ret = -EFAULT;
 			} else {
 				LOG_ERR(
 					"WPE_WRITE_REGISTER copy_from_user failed"
@@ -4898,14 +4906,15 @@ EXIT:
 /***********************************************************************
  *
  ***********************************************************************/
-static signed int WPE_mmap(
+/*
+ * static signed int WPE_mmap(
 	struct file *pFile, struct vm_area_struct *pVma)
 {
 	unsigned long length = 0;
 	unsigned int pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
-	/*  */
+
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
@@ -4943,9 +4952,9 @@ static signed int WPE_mmap(
 		pVma->vm_end - pVma->vm_start, pVma->vm_page_prot)) {
 		return -EAGAIN;
 	}
-	/*  */
 	return 0;
 }
+*/
 
 /***********************************************************************
  *
@@ -4960,7 +4969,7 @@ static const struct file_operations WPEFileOper = {
 	.open = WPE_open,
 	.release = WPE_release,
 	/* .flush   = mt_WPE_flush, */
-	.mmap = WPE_mmap,
+	/*.mmap = WPE_mmap,*/
 	.unlocked_ioctl = WPE_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = WPE_ioctl_compat,
