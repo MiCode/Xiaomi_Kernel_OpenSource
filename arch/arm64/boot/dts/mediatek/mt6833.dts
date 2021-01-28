@@ -3679,6 +3679,7 @@ page_owner=on";
 };
 
 #include "mediatek/mt6359p.dtsi"
+#include "mediatek/cust_mt6833_msdc.dtsi"
 
 &spmi_bus {
 	grpid = <11>;
