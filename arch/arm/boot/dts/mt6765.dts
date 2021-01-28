@@ -414,7 +414,7 @@
 	};
 
 	pio: pinctrl@10005000 {
-		compatible = "mediatek,mt6761-pinctrl";
+		compatible = "mediatek,mt6765-pinctrl";
 		reg_bases = <&gpio>,
 			<&io_cfg_lt>,
 			<&io_cfg_lm>,
@@ -429,7 +429,7 @@
 		#gpio-cells = <2>;
 		interrupt-controller;
 		#interrupt-cells = <2>;
-		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
 	};
 
@@ -767,36 +767,6 @@
 	topckgen_ao@1001b000 {
 		compatible = "mediatek,topckgen_ao";
 		reg = <0 0x1001b000 0 0x1000>;
-	};
-
-	iocfg_0@10002000 {
-		compatible = "mediatek,iocfg_0";
-		reg = <0 0x10002000 0 0x200>;
-	};
-
-	iocfg_1@10002200 {
-		compatible = "mediatek,iocfg_1";
-		reg = <0 0x10002200 0 0x200>;
-	};
-
-	iocfg_2@10002400 {
-		compatible = "mediatek,iocfg_2";
-		reg = <0 0x10002400 0 0x200>;
-	};
-
-	iocfg_3@10002600 {
-		compatible = "mediatek,iocfg_3";
-		reg = <0 0x10002600 0 0x200>;
-	};
-
-	iocfg_4@10002800 {
-		compatible = "mediatek,iocfg_4";
-		reg = <0 0x10002800 0 0x200>;
-	};
-
-	iocfg_5@10002a00 {
-		compatible = "mediatek,iocfg_5";
-		reg = <0 0x10002a00 0 0x200>;
 	};
 
 	mdcldmain_ao@10015000 {

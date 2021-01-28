@@ -83,9 +83,7 @@ config PINCTRL_MT6761
 
 config PINCTRL_MT6765
 	bool "Mediatek MT6765 pin control"
-	depends on OF
-	depends on ARM64 || COMPILE_TEST
-	default MACH_MT6765
+	depends on OF || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT6779
