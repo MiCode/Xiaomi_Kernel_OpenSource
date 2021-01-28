@@ -1,6 +1,5 @@
 config MTK_MDDP_SUPPORT
 	tristate "Support Mediatek MD Direct Path"
-	default y
 	help
 	  This config is used to enable or disable direct path
 	  between Mediatek Modem and WiFi/USB dirver,
@@ -25,21 +24,4 @@ config MTK_MDDP_WH_SUPPORT
 	  can be transferred between Modem and WiFi coprocessor
 	  directly instead of crossing application processor
 	  all the time.
-
-config MTK_MDDP_USB_SUPPORT
-	bool "Support Mediatek MD Direct Path USB Hotspot"
-	depends on MTK_MDDP_SUPPORT
-	help
-	  This config is used to enable or disable USB Tethering
-	  through MD direct path. When config is enabled, tethering
-	  traffic can be transferred between Modem and USB directly
-	  instead of crossing application processor all the time.
-
-config MTK_MD_DIRECT_TETHERING_SUPPORT
-	bool "MediaTek MD Direct Tethering"
-	help
-	  This selects the MediaTek MD Direct Tethering support.
-	  Say Y here if you want to enable MD Direct Tethering.
-	  Say N here if you want to disable MD Direct Tethering.
-	  If unsure, say N.
 
