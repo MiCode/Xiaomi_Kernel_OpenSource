@@ -1643,12 +1643,13 @@ int ion_share_dma_buf_fd(struct ion_client *client, struct ion_handle *handle)
 	}
 
 	fd = dma_buf_fd(dmabuf, O_CLOEXEC);
-	mmprofile_log_ex(ion_mmp_events[PROFILE_SHARE],
-			 MMPROFILE_FLAG_END, (unsigned long)client, fd);
 	if (fd < 0) {
 		IONMSG("%s dma_buf_fd failed %d.\n", __func__, fd);
 		dma_buf_put(dmabuf);
 	}
+	mmprofile_log_ex(ion_mmp_events[PROFILE_SHARE],
+			 MMPROFILE_FLAG_END, (unsigned long)client, fd);
+
 	handle->dbg.fd = fd;
 	return fd;
 }
