@@ -1166,6 +1166,7 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		mutex_lock(&debug_list_mutex);
 		list_for_each(head, &device_debug_list)
 		{
 			dbg_info = vlist_node_of(head,
@@ -1197,7 +1198,9 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 			list_del_init(vlist_link(dbg_info,
 						struct vpu_dev_debug_info));
 			vpu_free_debug_info(dbg_info);
+			mutex_unlock(&debug_list_mutex);
 		} else {
+			mutex_unlock(&debug_list_mutex);
 			LOG_ERR("[%s] want to close wrong fd(%d)\n",
 				"VPU_IOCTL_CLOSE_DEV_NOTICE", dev_fd);
 			ret = -ESPIPE;
@@ -1308,7 +1311,7 @@ static int vpu_release(struct inode *inode, struct file *flip)
 	vpu_num_users--;
 	mutex_unlock(&debug_list_mutex);
 
-	if (vpu_num_users > 10)
+	if ((vpu_num_users > 10) && (g_vpu_log_level > Log_ALGO_OPP_INFO))
 		vpu_dump_device_dbg(NULL);
 
 	return 0;
