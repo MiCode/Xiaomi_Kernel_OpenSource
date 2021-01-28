@@ -1999,8 +1999,6 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 		break;
 	}
 	case SENSOR_FEATURE_SET_I2C_BUF_MODE_EN:
-		imgsensor_i2c_buffer_mode(
-		    (*(unsigned long long *)pFeaturePara));
 
 		break;
 	case SENSOR_FEATURE_SET_ESHUTTER:
