@@ -1156,7 +1156,7 @@ static int mt6853_mt6359_dev_probe(struct platform_device *pdev)
 			continue;
 		/* no platform assign and with dsp playback node. */
 		name = mt6853_mt6359_dai_links[i].name;
-		if (!strncmp(name, "DSP", strlen("DSP") &&
+		if (!strncmp(name, "DSP", strlen("DSP")) &&
 		    mt6853_mt6359_dai_links[i].platform_name == NULL) {
 			mt6853_mt6359_dai_links[i].platform_of_node = dsp_node;
 			continue;
