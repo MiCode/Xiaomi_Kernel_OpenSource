@@ -1811,10 +1811,10 @@ static int get_nvmem_cell_efuse(struct device *dev)
 			return PTR_ERR(buf);
 		}
 
-		g_efuse_ptpod = *buf;
-
-		if (buf != NULL)
+		if (buf != NULL) {
+			g_efuse_ptpod = *buf;
 			kfree(buf);
+		}
 	} else
 		LOG_ERR("[%s] cell was null\n", __func__);
 
