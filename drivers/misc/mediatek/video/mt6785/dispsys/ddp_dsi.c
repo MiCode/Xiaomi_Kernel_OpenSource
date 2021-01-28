@@ -2606,15 +2606,15 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 
 	hs_trail_m = 1;
 	hs_trail_n = (dsi_params->HS_TRAIL == 0) ?
-				NS_TO_CYCLE(((hs_trail_m * 0x4 * ui) + 0x50),
-					    cycle_time) :
+				(NS_TO_CYCLE(((hs_trail_m * 0x4 * ui) + 0x50)
+				* dsi_params->PLL_CLOCK * 2, 0x1F40) + 0x1) :
 				dsi_params->HS_TRAIL;
 	/* +3 is recommended from designer becauase of HW latency */
 	timcon0.HS_TRAIL = (hs_trail_m > hs_trail_n) ? hs_trail_m : hs_trail_n;
 
 	timcon0.HS_PRPR = (dsi_params->HS_PRPR == 0) ?
-				NS_TO_CYCLE((0x40 + 0x5 * ui), cycle_time) :
-				dsi_params->HS_PRPR;
+			(NS_TO_CYCLE((0x40 + 0x5 * ui), cycle_time) + 0x1) :
+			dsi_params->HS_PRPR;
 	/* HS_PRPR can't be 1. */
 	if (timcon0.HS_PRPR < 1)
 		timcon0.HS_PRPR = 1;
@@ -2626,7 +2626,8 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 	if (timcon_temp < timcon0.HS_ZERO)
 		timcon0.HS_ZERO -= timcon0.HS_PRPR;
 
-	timcon0.LPX = (dsi_params->LPX == 0) ?  NS_TO_CYCLE(0x55, cycle_time) :
+	timcon0.LPX = (dsi_params->LPX == 0) ?
+		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 0x4B, 0x1F40)  + 0x1) :
 								dsi_params->LPX;
 	if (timcon0.LPX < 1)
 		timcon0.LPX = 1;
@@ -2647,8 +2648,8 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 				(0x2 * timcon0.LPX) : dsi_params->DA_HS_EXIT;
 
 	timcon2.CLK_TRAIL = ((dsi_params->CLK_TRAIL == 0) ?
-						NS_TO_CYCLE(0x60, cycle_time) :
-						dsi_params->CLK_TRAIL) + 0x01;
+				NS_TO_CYCLE(0x64 * dsi_params->PLL_CLOCK * 2,
+				0x1F40) : dsi_params->CLK_TRAIL) + 0x01;
 	/* CLK_TRAIL can't be 1. */
 	if (timcon2.CLK_TRAIL < 2)
 		timcon2.CLK_TRAIL = 2;
@@ -2659,8 +2660,8 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq
 						dsi_params->CLK_ZERO;
 
 	timcon3.CLK_HS_PRPR = (dsi_params->CLK_HS_PRPR == 0) ?
-						NS_TO_CYCLE(0x40, cycle_time) :
-						dsi_params->CLK_HS_PRPR;
+				NS_TO_CYCLE(0x50 * dsi_params->PLL_CLOCK * 2,
+				0x1F40) : dsi_params->CLK_HS_PRPR;
 
 	if (timcon3.CLK_HS_PRPR < 1)
 		timcon3.CLK_HS_PRPR = 1;

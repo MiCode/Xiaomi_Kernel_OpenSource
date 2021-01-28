@@ -202,6 +202,10 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 	unsigned int index = 0;
 	unsigned int reg_temp_val = 0;
 
+	if (!dpmgr_is_power_on()) {
+		DISP_LOG_I("disp power off, no irq should be handled\n");
+		return IRQ_NONE;
+	}
 	if (irq == ddp_get_module_irq(DISP_MODULE_DSI0)) {
 		if (ddp_get_module_irq(DISP_MODULE_DSI0) == irq) {
 			index = 0;

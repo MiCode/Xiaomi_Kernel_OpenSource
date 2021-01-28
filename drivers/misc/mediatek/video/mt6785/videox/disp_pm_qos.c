@@ -212,10 +212,6 @@ static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
 
 	mm_qos_set_hrt_request(request, bandwidth);
 #endif
-	mmprofile_log_ex(ddp_mmp_get_events()->primary_hrt_bw,
-			MMPROFILE_FLAG_PULSE,
-			module, bandwidth);
-
 	return 0;
 }
 
@@ -243,7 +239,7 @@ static int __set_bw(enum DISP_MODULE_ENUM module,
 			ddp_get_module_name(module), module);
 		return -1;
 	}
-
+	bandwidth = bandwidth * OCCUPIED_BW_RATIO / 1000;
 	mm_qos_set_bw_request(request, bandwidth, BW_COMP_NONE);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
@@ -271,7 +267,7 @@ static int __set_fbdc_bw(enum DISP_MODULE_ENUM module,
 			ddp_get_module_name(module), module);
 		return -1;
 	}
-
+	bandwidth = bandwidth * OCCUPIED_BW_RATIO / 1000;
 	mm_qos_set_bw_request(request, bandwidth, BW_COMP_DEFAULT);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
@@ -355,7 +351,7 @@ int prim_disp_request_hrt_bw(int overlap_num,
 		__set_hrt_bw(DISP_MODULE_OVL0, tmp);
 		__set_hrt_bw(DISP_MODULE_OVL0_2L, tmp);
 		__set_hrt_bw(DISP_MODULE_WDMA0, wdma_bw);
-		__set_hrt_bw(DISP_MODULE_RDMA0, 0);
+		__set_hrt_bw(DISP_MODULE_RDMA0, wdma_bw);
 		break;
 	default:
 		DISPINFO("invalid HRT scenario %s\n",
@@ -366,7 +362,9 @@ int prim_disp_request_hrt_bw(int overlap_num,
 
 	DISPINFO("%s report HRT BW %u MB overlap %d, %llu/s, scen:%u\n",
 		caller, tmp, overlap_num, bw_base, scenario);
-
+	mmprofile_log_ex(ddp_mmp_get_events()->primary_hrt_bw,
+			MMPROFILE_FLAG_PULSE,
+			overlap_num, tmp);
 	mm_qos_update_all_request(&hrt_request_list);
 #endif
 	return 0;

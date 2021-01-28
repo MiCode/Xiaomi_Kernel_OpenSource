@@ -799,6 +799,7 @@ static void _vdo_mode_enter_idle(void)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 	unsigned int out_fps = 60;
+	unsigned int in_fps = 0;
 #endif
 
 	DISPDBG("[LP]%s\n", __func__);
@@ -812,7 +813,8 @@ static void _vdo_mode_enter_idle(void)
 	    (disp_helper_get_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE) ||
 	     disp_helper_get_option(DISP_OPT_SMART_OVL))) {
 		/* switch to decouple mode */
-		if (!disp_idle_check_rsz() &&
+		if ((!disp_idle_check_rsz()) &&
+			(!disp_input_has_yuv()) &&
 			disp_helper_get_option(DISP_OPT_IDLEMGR_BY_REPAINT)) {
 			if (atomic_read(&real_input_layer) > 1) {
 				atomic_set(&idle_need_repaint, 1);
@@ -875,7 +877,8 @@ static void _vdo_mode_enter_idle(void)
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* update bandwidth */
-	disp_pm_qos_set_rdma_bw(out_fps, &bandwidth);
+	in_fps = primary_display_is_directlink_mode() ? 60 : 0;
+	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
 
