@@ -1,0 +1,10 @@
+# SELinux
+config MTK_SELINUX_AEE_WARNING
+	bool "Enable SELinux AEE Warning "
+	depends on SECURITY_SELINUX
+	default n
+	help
+	  This option enables SELinux violation AEE warning.
+	  The warning will be shown as yellow screen with information
+	  indicating which module triggers this violation so that
+	  tester can easily identify there is a violation and the module.

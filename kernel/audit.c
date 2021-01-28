@@ -546,6 +546,16 @@ static void kauditd_printk_skb(struct sk_buff *skb)
 		pr_notice("type=%d %s\n", nlh->nlmsg_type, data);
 }
 
+#ifdef CONFIG_MTK_SELINUX_AEE_WARNING
+struct sk_buff *audit_get_skb(struct audit_buffer *ab)
+{
+	if (ab)
+		return (struct sk_buff *)(ab->skb);
+	else
+		return NULL;
+}
+#endif
+
 /**
  * kauditd_rehold_skb - Handle a audit record send failure in the hold queue
  * @skb: audit record
