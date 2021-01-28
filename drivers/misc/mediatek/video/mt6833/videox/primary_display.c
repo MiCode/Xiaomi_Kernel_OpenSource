@@ -1555,6 +1555,7 @@ void disp_spm_enter_power_down_mode(void)
 		MMPROFILE_FLAG_PULSE, 0, 0);
 }
 
+#if 0
 s32 cmdqRecStartLoop(struct cmdqRecStruct *handle)
 {
 	return 0;
@@ -1564,6 +1565,7 @@ s32 cmdqRecStopLoop(struct cmdqRecStruct *handle)
 {
 	return 0;
 }
+#endif
 void _cmdq_start_trigger_loop(void)
 {
 	int ret = 0;

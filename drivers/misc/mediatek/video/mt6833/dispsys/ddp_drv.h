@@ -19,6 +19,7 @@
 #include "ddp_info.h"
 #include "ddp_aal.h"
 #include "ddp_gamma.h"
+#include "ddp_pq.h"
 
 struct DISP_WRITE_REG {
 	unsigned int reg;
@@ -42,7 +43,7 @@ struct DISP_EXEC_COMMAND {
 	uint32_t blockSize;
 };
 
-
+#if 0
 /* PQ */
 #define COLOR_TUNING_INDEX 19
 #define THSHP_TUNING_INDEX 12
@@ -234,6 +235,7 @@ struct DISP_OD_CMD {
 	unsigned int param2;
 	unsigned int param3;
 };
+#endif
 
 enum DISP_INTERLACE_FORMAT {
 	DISP_INTERLACE_FORMAT_NONE,
@@ -334,6 +336,9 @@ struct disp_iommu_device *disp_get_iommu_dev(void);
 /* Get CCORR interrupt */
 #define DISP_IOCTL_CCORR_GET_IRQ \
 	_IOR(DISP_IOCTL_MAGIC, 111, int)
+/* Get color transform support */
+#define DISP_IOCTL_SUPPORT_COLOR_TRANSFORM \
+	_IOW(DISP_IOCTL_MAGIC, 112, struct DISP_COLOR_TRANSFORM)
 
 /*---------------------------------------------------------------------------*/
 /*  DDP Kernel Mode API  (for Kernel Trap) */

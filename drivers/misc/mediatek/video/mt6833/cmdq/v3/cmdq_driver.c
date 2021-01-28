@@ -58,7 +58,6 @@ static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,gce",},
 	{}
 };
-
 static dev_t gCmdqDevNo;
 static struct cdev *gCmdqCDev;
 static struct class *gCMDQClass;
@@ -1129,7 +1128,6 @@ static struct notifier_block cmdq_pm_notifier_block = {
 	.priority = 5,
 };
 
-
 static int cmdq_create_debug_entries(void)
 {
 	struct proc_dir_entry *debugDirEntry = NULL;
@@ -1265,7 +1263,6 @@ static int cmdq_remove(struct platform_device *pDevice)
 	return 0;
 }
 
-
 static int cmdq_suspend(struct device *pDevice)
 {
 	CMDQ_LOG("%s ignore\n", __func__);
@@ -1292,7 +1289,6 @@ static const struct dev_pm_ops cmdq_pm_ops = {
 	.restore = NULL,
 	.restore_noirq = cmdq_pm_restore_noirq,
 };
-
 
 static struct platform_driver gCmdqDriver = {
 	.probe = cmdq_probe,
@@ -1386,9 +1382,8 @@ static void __exit cmdq_exit(void)
 	CMDQ_LOG("CMDQ driver exit end\n");
 }
 
-//subsys_initcall(cmdq_init);
+//subsys_initcall(_cmdq_init);
 module_exit(cmdq_exit);
-
 MODULE_DESCRIPTION("MTK CMDQ driver");
 MODULE_AUTHOR("Pablo<pablo.sun@mediatek.com>");
 MODULE_LICENSE("GPL");

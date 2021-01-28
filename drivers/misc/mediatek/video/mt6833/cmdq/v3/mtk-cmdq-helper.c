@@ -566,7 +566,7 @@ dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset)
 }
 EXPORT_SYMBOL(cmdq_pkt_get_pa_by_offset);
 
-static dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
+dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
 {
 	struct cmdq_pkt_buffer *buf;
 
@@ -886,7 +886,7 @@ s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset)
 }
 EXPORT_SYMBOL(cmdq_pkt_jump);
 
-s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, u32 addr)
+s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, dma_addr_t addr)
 {
 	dma_addr_t to_addr = CMDQ_REG_SHIFT_ADDR(addr);
 
