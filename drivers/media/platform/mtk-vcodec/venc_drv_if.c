@@ -71,6 +71,8 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 
 	if (!ctx->drv_handle) {
 		inst = kzalloc(sizeof(struct venc_inst), GFP_KERNEL);
+		if (!inst)
+			return -ENOMEM;
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->enc_if = get_enc_common_if();

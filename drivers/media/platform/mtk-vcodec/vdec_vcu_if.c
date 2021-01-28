@@ -17,6 +17,7 @@
 #include "vdec_vcu_if.h"
 #include "vdec_drv_if.h"
 #include "smi_public.h"
+#include "mtk_vcodec_mem.h"
 
 
 static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)
@@ -75,8 +76,6 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	unsigned long irqs;
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
-	struct sighand_struct *sighand;
-	spinlock_t      siglock, flock;
 	unsigned long flags = 0;
 
 	if (dmabuf == NULL || dmabuf->file == NULL)
@@ -85,10 +84,7 @@ inline int get_mapped_fd(struct dma_buf *dmabuf)
 	vcu_get_file_lock();
 
 	vcu_get_task(&task, &f, 0);
-	if (task == NULL || f == NULL ||
-		probe_kernel_address(&task->sighand, sighand) ||
-		probe_kernel_address(&task->sighand->siglock, siglock) ||
-		probe_kernel_address(&f->file_lock, flock)) {
+	if (task == NULL || f == NULL) {
 		vcu_put_file_lock();
 		return -EMFILE;
 	}
@@ -200,6 +196,18 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	long timeout_jiff;
 	int ret = 0;
 	int i = 0;
+
+	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_cmd) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_init) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_dec_start) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_set_param) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct vdec_ap_ipi_query_cap) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct vdec_vcu_ipi_ack) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct vdec_vcu_ipi_init_ack) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(
+		sizeof(struct vdec_vcu_ipi_query_cap_ack) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(
+		sizeof(struct vdec_vcu_ipi_query_cap_ack) > SHARE_BUF_SIZE);
 
 	vcu_get_file_lock();
 	vcu_get_task(&task, &f, 0);

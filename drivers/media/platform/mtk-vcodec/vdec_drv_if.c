@@ -133,6 +133,8 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 
 	if (!ctx->drv_handle) {
 		inst = kzalloc(sizeof(struct vdec_inst), GFP_KERNEL);
+		if (inst == NULL)
+			return -ENOMEM;
 		inst->ctx = ctx;
 		ctx->drv_handle = (unsigned long)(inst);
 		ctx->dec_if = get_dec_common_if();

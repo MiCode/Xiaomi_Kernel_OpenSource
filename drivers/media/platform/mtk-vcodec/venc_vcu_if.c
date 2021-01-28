@@ -6,7 +6,6 @@
 #include <linux/interrupt.h>
 #include "mtk_vcodec_mem.h"
 #include "mtk_vcu.h"
-#include "venc_ipi_msg.h"
 #include "venc_vcu_if.h"
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_enc_pm.h"
@@ -74,6 +73,21 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	struct task_struct *task = NULL;
 	struct files_struct *f = NULL;
 
+	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_init) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_query_cap) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_set_param) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_enc) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_ap_ipi_msg_deinit) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(
+		sizeof(struct venc_vcu_ipi_query_cap_ack) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_common) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_init) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(
+		sizeof(struct venc_vcu_ipi_msg_set_param) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_enc) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_deinit) > SHARE_BUF_SIZE);
+	BUILD_BUG_ON(sizeof(struct venc_vcu_ipi_msg_waitisr) > SHARE_BUF_SIZE);
+
 	vcu_get_file_lock();
 	vcu_get_task(&task, &f, 0);
 	vcu_put_file_lock();
@@ -97,12 +111,6 @@ int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		return -EINVAL;
 
 	ctx = vcu->ctx;
-	if (sizeof(msg) > SHARE_BUF_SIZE) {
-		mtk_vcodec_err(vcu, "venc_ap_ipi_msg_deint cannot be large than %d",
-					   SHARE_BUF_SIZE);
-		return -EINVAL;
-	}
-
 	switch (msg->msg_id) {
 	case VCU_IPIMSG_ENC_INIT_DONE:
 		handle_enc_init_msg(vcu, data);
