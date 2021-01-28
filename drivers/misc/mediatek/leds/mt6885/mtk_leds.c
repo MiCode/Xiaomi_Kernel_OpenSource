@@ -62,10 +62,6 @@ u16 pmic_set_register_value(u32 flagname, u32 val)
 #endif
 
 /* #ifndef CONFIG_BACKLIGHT_SUPPORT_LM3697 */
-int mtkfb_set_backlight_level(unsigned int level)
-{
-	return 0;
-}
 
 int disp_bls_set_backlight(int level_1024)
 {
