@@ -18,8 +18,17 @@
 #include "mtk_spm_resource_req.h"
 #endif
 
+#if defined(CONFIG_MACH_MT6779)
+#include <linux/soc/mediatek/mtk-pm-qos.h>
+#endif
+
 #define USB2_PORT 2
 #define USB3_PORT 3
+
+#if defined(CONFIG_MACH_MT6779)
+#define VCORE_OPP 1 //0:0.825V 1:0.725V 2:0.65V
+struct mtk_pm_qos_request vcore_pm_qos;
+#endif
 
 enum mtu3_vbus_id_state {
 	MTU3_ID_FLOAT = 1,
@@ -382,6 +391,21 @@ static void ssusb_phy_set_mode(struct ssusb_mtk *ssusb, enum phy_mode mode)
 	}
 }
 
+#if defined(CONFIG_MACH_MT6779)
+static void ssusb_set_vcore(bool enable)
+{
+	if (enable) {
+		mtk_pm_qos_update_request(&vcore_pm_qos, VCORE_OPP);
+		pr_info("%s: Vcore Qos update %d\n", __func__,
+				VCORE_OPP);
+	} else {
+		mtk_pm_qos_update_request(&vcore_pm_qos,
+				MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+		pr_info("%s: Vcore QOS update default\n", __func__);
+	}
+}
+#endif
+
 static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
@@ -445,6 +469,9 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 #endif
 			if (ssusb->clk_mgr) {
 				pm_stay_awake(ssusb->dev);
+				#if defined(CONFIG_MACH_MT6779)
+				ssusb_set_vcore(true);
+				#endif
 				ssusb_clks_enable(ssusb);
 				ssusb_phy_set_mode(ssusb, PHY_MODE_USB_HOST);
 				ssusb_phy_power_on(ssusb);
@@ -474,6 +501,9 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_ip_sleep(ssusb);
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
+				#if defined(CONFIG_MACH_MT6779)
+				ssusb_set_vcore(false);
+				#endif
 				pm_relax(ssusb->dev);
 			} else
 				ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
@@ -597,12 +627,20 @@ int ssusb_otg_switch_init(struct ssusb_mtk *ssusb)
 	/* default as host, update state */
 	otg_sx->sw_state = ssusb->is_host ?
 				MTU3_SW_ID_GROUND : MTU3_SW_VBUS_VALID;
+
 	/* initial operation mode */
 	otg_sx->op_mode = MTU3_DR_OPERATION_NORMAL;
 
 	ret = sysfs_create_group(&ssusb->dev->kobj, &ssusb_dr_group);
 	if (ret)
 		dev_info(ssusb->dev, "error creating sysfs attributes\n");
+
+	#if defined(CONFIG_MACH_MT6779)
+	/* add vcore quest */
+	mtk_pm_qos_add_request(&vcore_pm_qos, MTK_PM_QOS_VCORE_OPP,
+			MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+	pr_info("%s: add default Vcore QOS request\n", __func__);
+	#endif
 
 	if (otg_sx->manual_drd_enabled)
 		ssusb_dr_debugfs_init(ssusb);
