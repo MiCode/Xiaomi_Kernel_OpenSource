@@ -554,6 +554,9 @@ static uint64_t _tick_broadcast_enter_count[NR_CPUS];
 static uint64_t _tick_broadcast_fail_count[NR_CPUS];
 static uint64_t _tick_broadcast_success_count[NR_CPUS];
 static uint64_t _tick_broadcast_interrupt_count[NR_CPUS];
+static struct cpumask _tb_dbg_oneshot_mask;
+static struct cpumask _tb_dbg_pending_mask;
+static struct cpumask _tb_dbg_force_mask;
 
 #define LOG_BUF_LEN         1024
 struct tick_broadcast_dump_buf {
@@ -1025,6 +1028,13 @@ out:
 				tick_broadcast_fail_count[i] = 0;
 				tick_broadcast_success_count[i] = 0;
 				tick_broadcast_interrupt_count[i] = 0;
+
+				cpumask_copy(&_tb_dbg_oneshot_mask,
+					tick_broadcast_oneshot_mask);
+				cpumask_copy(&_tb_dbg_pending_mask,
+					tick_broadcast_pending_mask);
+				cpumask_copy(&_tb_dbg_force_mask,
+					tick_broadcast_force_mask);
 			}
 		}
 	}
@@ -1080,7 +1090,34 @@ out:
 			bc_dump_buf_append(bc_dump_buf, "%lld, ",
 				_tick_broadcast_interrupt_count[i]);
 		}
-		pr_info("%s\n", get_bc_dump_buf(bc_dump_buf));
+
+		bc_dump_buf_append(bc_dump_buf,
+			"o: %*pbl",
+			cpumask_pr_args(&_tb_dbg_oneshot_mask));
+		bc_dump_buf_append(bc_dump_buf,
+			", p: %*pbl",
+			cpumask_pr_args(&_tb_dbg_pending_mask));
+		bc_dump_buf_append(bc_dump_buf,
+			", f: %*pbl",
+			cpumask_pr_args(&_tb_dbg_force_mask));
+		bc_dump_buf_append(bc_dump_buf,
+			", t: ");
+		for_each_possible_cpu(i) {
+			struct tick_device *td;
+
+			td = &per_cpu(tick_cpu_device, i);
+			if (!td || !td->evtdev) {
+				if (!td)
+					bc_dump_buf_append(bc_dump_buf,
+							     " N,");
+				else if (!td->evtdev)
+					bc_dump_buf_append(bc_dump_buf,
+							     " N:%p,", td);
+			} else
+				bc_dump_buf_append(bc_dump_buf, " %lld,",
+					td->evtdev->next_event);
+		}
+		printk_deferred("[name:bc&]%s\n", get_bc_dump_buf(bc_dump_buf));
 	}
 #endif
 	return ret;
