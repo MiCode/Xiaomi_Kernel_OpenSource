@@ -139,25 +139,6 @@ static unsigned long long ptp3_reserve_memory_init(void)
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
 /************************************************
- * SMC between kernel and atf
- ************************************************/
-static unsigned int ptp3_smc_handle(
-	unsigned int rw, unsigned int addr, unsigned int val)
-{
-	unsigned int ret;
-	unsigned int ptp3_cfg = rw << 4;
-
-	/* update atf via smc */
-	ret = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
-		PTP3_FEATURE_PTP3,
-		addr,
-		ptp3_cfg,
-		val);
-
-	return ret;
-}
-
-/************************************************
  * IPI between kernel and mcupm/cpu_eb
  ************************************************/
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -191,174 +172,16 @@ unsigned int ptp3_ipi_handle(struct ptp3_ipi_data *ptp3_data)
 #endif
 
 /************************************************
- * update ptp3 status with ATF
- ************************************************/
-static void mtk_ptp3_reg_w(unsigned int addr, unsigned int value)
-{
-	ptp3_msg("[%s]:addr(%d) value(%d)\n", __func__, addr, value);
-
-	ptp3_smc_handle(PTP3_RW_REG_WRITE, addr, value);
-}
-
-static unsigned int mtk_ptp3_reg_r(unsigned int addr)
-{
-	ptp3_msg("[%s]:addr(%d)\n", __func__, addr);
-
-	return ptp3_smc_handle(PTP3_RW_REG_READ, addr, 0);
-}
-/************************************************
  * Kernel driver nodes
  ************************************************/
-static unsigned int ptp3_addr_w, ptp3_value_w;
-static int ptp3_reg_w_proc_show(struct seq_file *m, void *v)
-{
-	unsigned int value;
-
-	if ((ptp3_addr_w >= 0x0c530000) && (ptp3_addr_w < 0x0c540000)) {
-		value = mtk_ptp3_reg_r(ptp3_addr_w);
-
-		seq_printf(m, "input (addr, value) = (0x%x,0x%x)\n",
-			ptp3_addr_w, ptp3_value_w);
-		seq_printf(m, "output (addr, value) = (0x%x,0x%x)\n",
-			ptp3_addr_w, value);
-	} else {
-		seq_printf(m, "addr(0x%x) is illegal\n", ptp3_addr_w);
-	}
-
-	return 0;
-}
-static ssize_t ptp3_reg_w_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	int ret;
-	char *buf = (char *) __get_free_page(GFP_USER);
-	char *addr, *val;
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	/* Convert str to hex */
-	addr = strsep(&buf, " ");
-	val = strsep(&buf, " ");
-	ptp3_msg("addr(%s) val(%s)\n", addr, val);
-	if (addr)
-		ret = kstrtou32(addr, 16, (unsigned int *)&ptp3_addr_w);
-	if (val)
-		ret = kstrtou32(val, 16, (unsigned int *)&ptp3_value_w);
-	ptp3_msg("ptp3_addr_w(0x%08x) ptp3_value_w(0x%08x)\n",
-		ptp3_addr_w, ptp3_value_w);
-
-	mtk_ptp3_reg_w(ptp3_addr_w, ptp3_value_w);
-
-out:
-	free_page((unsigned long)buf);
-
-	return count;
-}
-
-unsigned int ptp3_addr_r;
-static int ptp3_reg_r_proc_show(struct seq_file *m, void *v)
-{
-	unsigned int value;
-
-	if ((ptp3_addr_r >= 0x0c530000) && (ptp3_addr_r < 0x0c540000)) {
-		value = mtk_ptp3_reg_r(ptp3_addr_r);
-		seq_printf(m, "(addr, value) = (0x%x,0x%x)\n",
-			ptp3_addr_r, value);
-	} else {
-		seq_printf(m, "addr(0x%x) is illegal\n",
-			ptp3_addr_r);
-	}
-
-	return 0;
-}
-static ssize_t ptp3_reg_r_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	int ret;
-	char *buf = (char *) __get_free_page(GFP_USER);
-	char *addr;
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	/* Convert str to hex */
-	addr = strsep(&buf, " ");
-	ptp3_msg("addr(%s)\n", addr);
-	if (addr)
-		ret = kstrtou32(addr, 16, (unsigned int *)&ptp3_addr_r);
-
-	ptp3_msg("ptp3_addr_r(0x%08x)\n", ptp3_addr_r);
-out:
-	free_page((unsigned long)buf);
-
-	return count;
-}
-
-PROC_FOPS_RW(ptp3_reg_w);
-PROC_FOPS_RW(ptp3_reg_r);
-
-int ptp3_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
-{
-	int i;
-
-	struct pentry {
-		const char *name;
-		const struct file_operations *fops;
-	};
-
-	struct pentry ptp3_entries[] = {
-		PROC_ENTRY(ptp3_reg_w),
-		PROC_ENTRY(ptp3_reg_r),
-	};
-
-	for (i = 0; i < ARRAY_SIZE(ptp3_entries); i++) {
-		if (!proc_create(ptp3_entries[i].name,
-			0664,
-			dir,
-			ptp3_entries[i].fops)) {
-			ptp3_err(
-				"[%s]: create /proc/%s/%s failed\n",
-				__func__,
-				proc_name,
-				ptp3_entries[i].name);
-			return -3;
-		}
-	}
-	return 0;
-}
-
-
 static int create_procfs(void)
 {
 	const char *proc_name = "ptp3";
 	struct proc_dir_entry *dir = NULL;
-	int i;
 
 	struct pentry {
 		const char *name;
 		const struct file_operations *fops;
-	};
-
-	struct pentry ptp3_entries[] = {
-		PROC_ENTRY(ptp3_reg_w),
-		PROC_ENTRY(ptp3_reg_r),
 	};
 
 	/* create proc dir */
@@ -369,26 +192,12 @@ static int create_procfs(void)
 		return -1;
 	}
 
-	/* create proc node */
-	for (i = 0; i < ARRAY_SIZE(ptp3_entries); i++) {
-		if (!proc_create(ptp3_entries[i].name,
-			0664,
-			dir,
-			ptp3_entries[i].fops)) {
-			ptp3_err(
-				"[%s]: create /proc/%s/%s failed\n",
-				__func__,
-				proc_name,
-				ptp3_entries[i].name);
-			return -3;
-		}
-	}
-
 	fll_create_procfs(proc_name, dir);
 	cinst_create_procfs(proc_name, dir);
 	drcc_create_procfs(proc_name, dir);
 	return 0;
 }
+
 
 static int ptp3_probe(struct platform_device *pdev)
 {
