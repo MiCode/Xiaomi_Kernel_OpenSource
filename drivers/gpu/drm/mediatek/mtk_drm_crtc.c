@@ -27,6 +27,7 @@
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
 
+#include "mtk_drm_arr.h"
 #include "mtk_drm_drv.h"
 #include "mtk_drm_crtc.h"
 #include "mtk_drm_ddp.h"
@@ -473,6 +474,16 @@ struct mtk_ddp_comp *mtk_crtc_get_comp(struct drm_crtc *crtc,
 		return NULL;
 	}
 	return ddp_ctx[mtk_crtc->ddp_mode].ddp_comp[path_id][comp_idx];
+}
+
+static void mtk_drm_crtc_lfr_update(struct drm_crtc *crtc,
+					struct cmdq_pkt *cmdq_handle)
+{
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_ddp_comp *output_comp =
+		mtk_ddp_comp_request_output(mtk_crtc);
+
+	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_LFR_UPDATE, NULL);
 }
 
 static bool mtk_drm_crtc_mode_fixup(struct drm_crtc *crtc,
@@ -1763,6 +1774,7 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 			mtk_ddp_comp_io_cmd(comp, cmdq_handle,
 				MTK_IO_CMD_RDMA_GOLDEN_SETTING, &cfg);
 	}
+	mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, DSI_LFR_SET, NULL);
 	/* pull up mm clk if dst fps is higher than src fps */
 	if (output_comp && fps_dst >= fps_src)
 		mtk_ddp_comp_io_cmd(output_comp, NULL, SET_MMCLK_BY_DATARATE,
@@ -1802,7 +1814,6 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	int crtc_mask = 0x1 << index;
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
-
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
@@ -2068,12 +2079,10 @@ void mtk_crtc_wait_frame_done(struct mtk_drm_crtc *mtk_crtc,
 	if (gce_event == mtk_crtc->gce_obj.event[EVENT_STREAM_EOF] ||
 	    gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF]) {
 		struct mtk_drm_private *priv;
-
 		if (clear_event)
 			cmdq_pkt_wfe(cmdq_handle, gce_event);
 		else
 			cmdq_pkt_wait_no_clear(cmdq_handle, gce_event);
-
 		priv = mtk_crtc->base.dev->dev_private;
 		if (gce_event == mtk_crtc->gce_obj.event[EVENT_VDO_EOF] &&
 		    mtk_drm_helper_get_opt(priv->helper_opt,
@@ -2954,7 +2963,6 @@ bool mtk_crtc_set_status(struct drm_crtc *crtc, bool status)
 	bool old_status = mtk_crtc->enabled;
 	struct drm_device *dev = crtc->dev;
 	struct mtk_drm_private *private = dev->dev_private;
-
 	mtk_crtc->enabled = status;
 	wake_up(&mtk_crtc->crtc_status_wq);
 
@@ -3269,7 +3277,6 @@ void mtk_crtc_restore_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 }
-
 static void mtk_crtc_disable_plane_setting(struct mtk_drm_crtc *mtk_crtc)
 {
 	unsigned int i;
@@ -4033,7 +4040,6 @@ void mtk_crtc_first_enable_ddp_config(struct mtk_drm_crtc *mtk_crtc)
 	}
 	cfg.p_golden_setting_context =
 			__get_golden_setting_context(mtk_crtc);
-
 	mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 		mtk_crtc->gce_obj.client[CLIENT_CFG]);
 	cmdq_pkt_clear_event(cmdq_handle,
@@ -5083,6 +5089,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 
 	/* This refcnt would be release in ddp_cmdq_cb */
 	mtk_atomic_state_get(old_crtc_state->state);
+	mtk_drm_crtc_lfr_update(crtc, cmdq_handle);
 #ifdef MTK_DRM_CMDQ_ASYNC
 	ret = mtk_crtc_gce_flush(crtc, ddp_cmdq_cb, cb_data, cmdq_handle);
 	if (ret) {

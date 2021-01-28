@@ -206,6 +206,9 @@ struct dynamic_fps_params {
 	unsigned int switch_en;
 	unsigned int vact_timing_fps;
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
+
+	unsigned int lfr_enable;
+	unsigned int lfr_minimum_fps;
 };
 
 struct mtk_panel_params {
