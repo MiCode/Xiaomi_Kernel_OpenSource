@@ -238,6 +238,8 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_TOSHIBA, "THGLF2G9D8KBADG",
 		UFS_DEVICE_QUIRK_PA_TACTIVATE),
+	UFS_FIX(UFS_VENDOR_SAMSUNG, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_PA_TACTIVATE),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL, UFS_DEVICE_NO_VCCQ),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
 		UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME),
@@ -7575,9 +7577,13 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 		ufshcd_tune_pa_hibern8time(hba);
 	}
 
-	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
-		/* set 1ms timeout for PA_TACTIVATE */
-		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE) {
+		/* set timeout for PA_TACTIVATE by vender */
+		if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+			ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 6);
+		else
+			ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
+	}
 
 	if (hba->dev_quirks & UFS_DEVICE_QUIRK_HOST_PA_TACTIVATE)
 		ufshcd_quirk_tune_host_pa_tactivate(hba);
