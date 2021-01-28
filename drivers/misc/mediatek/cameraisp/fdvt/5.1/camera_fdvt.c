@@ -354,8 +354,8 @@ struct FDVT_REQUEST_STRUCT {
 	unsigned int caller_id; /* caller thread ID */
 	/* to judge it belongs to which frame package */
 	unsigned int enque_req_num;
-	signed int frame_wr_idx; /* Frame write Index */
-	signed int frame_rd_idx; /* Frame read Index */
+	unsigned int frame_wr_idx; /* Frame write Index */
+	unsigned int frame_rd_idx; /* Frame read Index */
 	enum FDVT_FRAME_STATUS_ENUM
 	fdvt_frame_status[MAX_FDVT_FRAME_REQUEST];
 	struct fdvt_config frame_config[MAX_FDVT_FRAME_REQUEST];
