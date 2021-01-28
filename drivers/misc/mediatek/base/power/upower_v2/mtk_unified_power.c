@@ -559,7 +559,7 @@ static int upower_debug_proc_show(struct seq_file *m, void *v)
 		for (j = 0; j < UPOWER_OPP_NUM; j++) {
 			seq_printf(
 				m,
-				" cap = %llu, volt = %u, dyn = %u, lkg = {%u, %u, %u, %u, %u, %u}\n",
+	"cap = %lu, volt = %u, dyn = %u, lkg = {%u, %u, %u, %u, %u, %u}\n",
 				ptr_tbl->row[j].cap, ptr_tbl->row[j].volt,
 				ptr_tbl->row[j].dyn_pwr,
 				ptr_tbl->row[j].lkg_pwr[0],
