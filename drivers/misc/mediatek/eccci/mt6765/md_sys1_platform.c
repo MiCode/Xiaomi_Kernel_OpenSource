@@ -15,7 +15,7 @@
 #include "ccci_config.h"
 #include "ccci_common_config.h"
 #include <linux/clk.h>
-//#include <mach/mtk_pbm.h>
+#include <mtk_pbm.h>
 //#include <mtk_clkbuf_ctl.h>
 #include <mt-plat/mtk-clkbuf-bridge.h>
 #include <linux/pm_runtime.h>
@@ -1192,7 +1192,7 @@ static int md_cd_power_on(struct ccci_modem *md)
 		ret = clk_prepare_enable(clk_table[0].clk_ref);
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"enable md sys clk done,ret = %d\n", ret);
-		//yubing-maskkicker_pbm_by_md(KR_MD1, true);
+		kicker_pbm_by_md(KR_MD1, true);
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"Call end kicker_pbm_by_md(0,true)\n");
 		break;
@@ -1300,7 +1300,7 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 			ccci_read32(hw_info->ap_topclkgen_base, 0));
 
 		/* 5. DLPT */
-		//yubing-maskkicker_pbm_by_md(KR_MD1, false);
+		kicker_pbm_by_md(KR_MD1, false);
 		CCCI_BOOTUP_LOG(md->index, TAG,
 			"Call end kicker_pbm_by_md(0,false)\n");
 		break;
