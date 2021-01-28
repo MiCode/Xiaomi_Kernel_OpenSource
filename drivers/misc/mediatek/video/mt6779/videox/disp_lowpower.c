@@ -1108,6 +1108,35 @@ int hrt_bw_set_state(int sta)
 	return 0;
 }
 
+bool pri_disp_leave_privilege(bool need_lock)
+{
+	if (need_lock)
+		primary_display_manual_lock();
+
+	if (hrt_bw_privilege != 1) {
+		if (need_lock)
+			primary_display_manual_unlock();
+		return 0;
+	}
+
+	DISPMSG("%s, switch from DC to DL\n", __func__);
+	do_primary_display_switch_mode(DISP_SESSION_DIRECT_LINK_MODE,
+			primary_get_sess_id(), 0, NULL, 0);
+	hrt_bw_privilege = 0;
+
+	set_is_dc(0);
+
+	/* enable idlemgr */
+	DISPCHECK("[disp_lowpower]enable idlemgr\n");
+	atomic_set(&idlemgr_task_active, 1);
+	wake_up_interruptible(&(idlemgr_pgc->idlemgr_wait_queue));
+
+	if (need_lock)
+		primary_display_manual_unlock();
+
+	return 1;
+}
+
 static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 		unsigned long value, void *v)
 {
@@ -1121,6 +1150,12 @@ static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 	switch (value) {
 	case BW_THROTTLE_START: /* CAM on */
 		DISPMSG("DISP BW Throttle start\n");
+
+		if (get_has_hrt_bw() == 0) {
+			DISPMSG("DISP has no HRT BW... return throttle\n");
+			break;
+		}
+
 		/* switch to decouple mode */
 		if (disp_mgr_has_mem_session() ||
 				layering_get_valid_hrt() >= 400) {
@@ -1156,22 +1191,9 @@ static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 		break;
 	case BW_THROTTLE_END: /* CAM off */
 		DISPMSG("DISP BW Throttle end\n");
-		if (hrt_bw_privilege != 1) {
-			/* privilege has taken during cam scenario */
-			/* no need path switch */
-			break;
-		}
 
-		do_primary_display_switch_mode(DISP_SESSION_DIRECT_LINK_MODE,
-				primary_get_sess_id(), 0, NULL, 0);
-		hrt_bw_privilege = 0;
+		pri_disp_leave_privilege(0);
 
-		set_is_dc(0);
-
-		/* enable idlemgr */
-		DISPCHECK("[disp_lowpower]enable idlemgr\n");
-		atomic_set(&idlemgr_task_active, 1);
-		wake_up_interruptible(&(idlemgr_pgc->idlemgr_wait_queue));
 		break;
 	default:
 		break;

@@ -43,6 +43,7 @@ static struct mm_qos_request hrt_bw_request;
 
 cmdqBackupSlotHandle dispsys_slot;
 
+static unsigned int has_hrt_bw;
 
 static int __init_cmdq_slots(cmdqBackupSlotHandle *pSlot,
 	int count, int init_val)
@@ -251,6 +252,10 @@ int disp_pm_qos_update_hrt(unsigned long long bandwidth)
 	return 0;
 }
 
+unsigned int get_has_hrt_bw(void)
+{
+	return has_hrt_bw;
+}
 
 int prim_disp_request_hrt_bw(int overlap_num,
 			enum DDP_SCENARIO_ENUM scenario, const char *caller)
@@ -262,8 +267,11 @@ int prim_disp_request_hrt_bw(int overlap_num,
 	/* overlap_num in PAN_DISP ioctl or Assert layer is 0 */
 	if (overlap_num == HRT_BW_BYPASS)
 		return 0;
-	else if (overlap_num == HRT_BW_UNREQ)
+	else if (overlap_num == HRT_BW_UNREQ) {
 		overlap_num = 0;
+		has_hrt_bw = 0;
+	} else
+		has_hrt_bw = 1;
 
 	bw_base = layering_get_frame_bw();
 	bw_base /= 2;

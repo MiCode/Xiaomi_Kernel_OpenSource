@@ -357,6 +357,10 @@ int ovl2mem_init(unsigned int session)
 
 	dpmgr_init();
 
+#ifdef MTK_FB_SHARE_WDMA0_SUPPORT
+	pri_disp_leave_privilege(1);
+#endif
+
 	ovl2mem_path_lock(__func__);
 
 	if (pgcl->state > 0) {

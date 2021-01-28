@@ -60,6 +60,7 @@ int hrt_bw_cond_state(void);
 int hrt_bw_set_state(int sta);
 void hrt_bw_sync_idx(unsigned int cur_idx);
 void hrt_bw_debug(unsigned int v);
+bool pri_disp_leave_privilege(bool need_lock);
 
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
