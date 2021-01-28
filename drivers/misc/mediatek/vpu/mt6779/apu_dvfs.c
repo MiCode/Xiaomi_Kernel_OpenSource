@@ -1697,30 +1697,49 @@ static int commit_data(int type, int data)
 	return ret;
 }
 
-static void get_pm_qos_info(char *p)
+static void get_pm_qos_info(char *p, size_t n)
 {
 	char timestamp[20];
+	int start, remain;
 
 	dvfs_get_timestamp(timestamp);
-	p += sprintf(p, "%-24s: 0x%x\n",
+	// Fix Coverity defect, don't call sprintf
+	remain = n;
+	start = snprintf(p, remain, "%-24s: 0x%x\n",
 			"PM_QOS_VVPU_OPP",
 			mtk_pm_qos_request(MTK_PM_QOS_VVPU_OPP));
-	p += sprintf(p, "%-24s: 0x%x\n",
+	if (start >= 0 && start < remain) {
+		p += start;
+		remain -= start;
+		start = snprintf(p, remain, "%-24s: 0x%x\n",
 			"PM_QOS_VMDLA_OPP",
 			mtk_pm_qos_request(MTK_PM_QOS_VMDLA_OPP));
-	p += sprintf(p, "%-24s: %s\n",
+	}
+	if (start >= 0 && start < remain) {
+		p += start;
+		remain -= start;
+		start = snprintf(p, remain, "%-24s: %s\n",
 			"Current Timestamp", timestamp);
-	p += sprintf(p, "%-24s: %s\n",
+	}
+	if (start >= 0 && start < remain) {
+		p += start;
+		remain -= start;
+		start = snprintf(p, remain, "%-24s: %s\n",
 			"Force Start Timestamp", dvfs->force_start);
-	p += sprintf(p, "%-24s: %s\n",
+	}
+	if (start >= 0 && start < remain) {
+		p += start;
+		remain -= start;
+		start = snprintf(p, remain, "%-24s: %s\n",
 			"Force End Timestamp", dvfs->force_end);
+	}
 }
 
 char *apu_dvfs_dump_reg(char *ptr)
 {
 	char buf[1024];
 
-	get_pm_qos_info(buf);
+	get_pm_qos_info(buf, 1024);
 	// Fix Coverity defect, don't call sprintf
 	if (ptr)
 		ptr += snprintf(ptr, 1024, "%s\n", buf);
