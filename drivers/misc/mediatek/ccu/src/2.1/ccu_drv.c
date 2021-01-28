@@ -1024,8 +1024,6 @@ static int ccu_release(struct inode *inode, struct file *flip)
 			import_buffer_handle[i]);/*can't in spin_lock*/
 	}
 
-	ccu_delete_user(user);
-
 	ccu_ion_uninit();
 
 	LOG_INF_MUST("%s -", __func__);
