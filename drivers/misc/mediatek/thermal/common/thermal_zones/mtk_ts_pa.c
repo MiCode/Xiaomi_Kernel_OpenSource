@@ -112,7 +112,8 @@ static unsigned long get_tx_bytes(void)
 				/* mtktspa_dprintk("%s tx_bytes: %lu\n",
 				 * dev->name, (unsigned long)stats->tx_bytes);
 				 */
-				tx_bytes = tx_bytes + stats->tx_bytes;
+				if (stats)
+					tx_bytes = tx_bytes + stats->tx_bytes;
 			}
 		}
 	}
