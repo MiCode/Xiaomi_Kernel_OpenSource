@@ -954,10 +954,10 @@ s32 mm_qos_set_request(struct mm_qos_request *req, u32 bw_value,
 		return -EINVAL;
 	}
 
-	if (req->bw_value > max_bw_bound || req->hrt_value > max_bw_bound) {
+	if (bw_value > max_bw_bound || hrt_value > max_bw_bound) {
 		pr_notice("mm_set(0x%08x) invalid bw=%d hrt=%d bw_bound=%d\n",
-			req->master_id, req->bw_value,
-			req->hrt_value, max_bw_bound);
+			req->master_id, bw_value,
+			hrt_value, max_bw_bound);
 		return -EINVAL;
 	}
 
