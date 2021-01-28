@@ -104,14 +104,8 @@ unsigned short int RD_I2C(unsigned char slvadr, unsigned char size,
 	unsigned short int read_data = 0;
 	unsigned short int read_data_h = 0;
 
-	if (size == 1) {
-		dat[1] = 0;
-		s4AF_ReadReg_BU63169AF(slvadr << 1, dat, 2,
-				       (unsigned char *)&read_data, 2);
-	} else if (size == 2) {
-		s4AF_ReadReg_BU63169AF(slvadr << 1, dat, 2,
-				       (unsigned char *)&read_data, 2);
-	}
+	s4AF_ReadReg_BU63169AF(slvadr << 1, dat, 2,
+		(unsigned char *)&read_data, 2);
 
 	read_data_h = read_data >> 8;
 	read_data = read_data << 8;
