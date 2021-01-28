@@ -1072,7 +1072,7 @@ static int SCP_sensorHub_report_data(struct data_unit_t *data_t)
 	} else if (need_send == true && alt) {
 		if (alt_enable && data_t->flush_action == DATA_ACTION)
 			err = obj->dispatch_data_cb[alt_id](data_t, NULL);
-		else if (alt_enable && data_t->flush_action == FLUSH_ACTION) {
+		else if (data_t->flush_action == FLUSH_ACTION) {
 			p_flush_count = &mSensorState[alt].flushCnt;
 			if (atomic_dec_if_positive(p_flush_count) >= 0)
 				err = obj->dispatch_data_cb[alt_id](data_t,
@@ -1080,7 +1080,7 @@ static int SCP_sensorHub_report_data(struct data_unit_t *data_t)
 		}
 		if (raw_enable && data_t->flush_action == DATA_ACTION)
 			err = obj->dispatch_data_cb[sensor_id](data_t, NULL);
-		else if (raw_enable && data_t->flush_action == FLUSH_ACTION) {
+		else if (data_t->flush_action == FLUSH_ACTION) {
 			p_flush_count = &mSensorState[sensor_type].flushCnt;
 			if (atomic_dec_if_positive(p_flush_count) >= 0)
 				err = obj->dispatch_data_cb[sensor_id](data_t,
