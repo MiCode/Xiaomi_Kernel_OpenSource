@@ -33,6 +33,48 @@ config ANDROID_INTF_ALARM_DEV
 	  Espically for wake up alarm ioctl.
 	  Also exports the alarm interface to user-space.
 
+config MTK_GMO_RAM_OPTIMIZE
+	bool "MTK ram optimize"
+	default n
+	select MTK_ENABLE_GMO
+	select MTK_ENABLE_AGO
+	---help---
+	  Provide for phone to use memory efficiently.
+	  it will select MTK_ENABLE_GMO
+	  and MTK_ENABLE_AGO
+	  default.
+
+config MTK_ENABLE_GMO
+	bool "Enable/Disable GMO related feautre"
+	default n
+	select CC_OPTIMIZE_FOR_SIZE
+	select CRYPTO_LZ4K
+	---help---
+	  Enable/Disable GMO related feautre
+	  Do not use this options in Kernel directly
+	  this is a group kernel setting of GMO
+	  must set CONFIG_LOG_BUF_SHIFT=17 manually
+
+config MTK_ENABLE_AGO
+	bool "Enable/Disable A-Go related feautre"
+	default n
+	select SWAP
+	select ZRAM
+	select CRYPTO_LZ4
+	select MEMCG
+	select MEMCG_SWAP
+	select HZ_300
+	select UID_CPUTIME
+	select SDCARD_FS
+	select F2FS_FS
+	select F2FS_FS_SECURITY
+	select F2FS_FS_ENCRYPTION
+	---help---
+	  Enable/Disable GMO related feautre
+	  Do not use this options in Kernel
+	  directly.
+	  this is a group kernel setting of AGO
+
 source "drivers/staging/android/ion/Kconfig"
 
 source "drivers/staging/android/fiq_debugger/Kconfig"
