@@ -6,7 +6,7 @@
 #ifndef _MTK_BLOCKTAG_H
 #define _MTK_BLOCKTAG_H
 
-#include <linux/types.h>
+#include <linux/blk_types.h>
 #include <linux/sched.h>
 
 #if defined(CONFIG_MTK_BLOCK_TAG)
