@@ -57,21 +57,14 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     KERNEL_OUT ?= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
     KERNEL_ROOT_OUT := $(if $(filter /% ~%,$(KERNEL_OUT)),,$(KERNEL_ROOT_DIR)/)$(KERNEL_OUT)
     ifeq ($(KERNEL_TARGET_ARCH), arm64)
-      ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
-        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz-dtb
-      else
         KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
-      endif
+        KERNEL_DTB_TARGET := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(TARGET_BOARD_PLATFORM).dtb
     else
-      ifeq ($(MTK_APPENDED_DTB_SUPPORT), yes)
-        KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/zImage-dtb
-      else
         KERNEL_ZIMAGE_OUT := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/zImage
-      endif
+        KERNEL_DTB_TARGET := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(TARGET_BOARD_PLATFORM).dtb
     endif
 
     KERNEL_DTB_FILE := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/mtk.dtb
-    KERNEL_DTB_TARGET := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(TARGET_BOARD_PLATFORM).dtb
     INSTALLED_MTK_DTB_TARGET := $(BOARD_PREBUILT_DTBIMAGE_DIR)/mtk_dtb
     BUILT_KERNEL_TARGET := $(KERNEL_ZIMAGE_OUT).bin
     INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
@@ -89,15 +82,6 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   ifneq ($(KERNEL_MAKE_PATH_OPTION),)
     KERNEL_MAKE_OPTION += PATH=$(KERNEL_MAKE_PATH_OPTION):$$PATH
   endif
-
-    IMAGE_GZ_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz
-    ifeq ($(MTK_APPEND_DTB),)
-        MTK_APPEND_DTB_PATH :=
-    else
-        MTK_APPEND_DTB_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_APPEND_DTB)
-    endif
-    MTK_IMAGE_GZ_DTB_PATH := $(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/Image.gz-dtb
-
   else
     BUILT_KERNEL_TARGET := $(TARGET_PREBUILT_KERNEL)
   endif #TARGET_PREBUILT_KERNEL is empty

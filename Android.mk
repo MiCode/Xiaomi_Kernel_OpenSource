@@ -24,7 +24,6 @@ $(KERNEL_ZIMAGE_OUT): $(TARGET_KERNEL_CONFIG) $(KERNEL_MAKE_DEPENDENCIES)
 	$(hide) mkdir -p $(dir $@)
 	$(PREBUILT_MAKE_PREFIX)$(MAKE) -C $(PRIVATE_DIR) $(KERNEL_MAKE_OPTION)
 	$(hide) $(call fixup-kernel-cmd-file,$(KERNEL_OUT)/arch/$(KERNEL_TARGET_ARCH)/boot/compressed/.piggy.xzkern.cmd)
-	cat $(IMAGE_GZ_PATH) $(MTK_APPEND_DTB_PATH) > $(MTK_IMAGE_GZ_DTB_PATH)
 
 $(BUILT_KERNEL_TARGET): $(KERNEL_ZIMAGE_OUT) $(TARGET_KERNEL_CONFIG) $(LOCAL_PATH)/Android.mk | $(ACP)
 	$(copy-file-to-target)
