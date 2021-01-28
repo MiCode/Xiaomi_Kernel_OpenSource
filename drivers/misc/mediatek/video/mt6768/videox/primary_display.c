@@ -6194,12 +6194,12 @@ static void rsz_in_out_roi(struct disp_frame_cfg_t *cfg,
 			if (input_cfg->src_width < input_cfg->tgt_width ||
 				input_cfg->src_height < input_cfg->tgt_height) {
 				rect_make(&src_layer_roi,
-					(input_cfg->tgt_offset_x
-					* input_cfg->src_width)
-					/ input_cfg->tgt_width,
-					(input_cfg->tgt_offset_y
-					* input_cfg->src_height)
-					/ input_cfg->tgt_height,
+					((input_cfg->tgt_offset_x
+					* input_cfg->src_width * 10)
+					/ input_cfg->tgt_width + 5) / 10,
+					((input_cfg->tgt_offset_y
+					* input_cfg->src_height * 10)
+					/ input_cfg->tgt_height + 5) / 10,
 					input_cfg->src_width,
 					input_cfg->src_height);
 				rect_make(&dst_layer_roi,

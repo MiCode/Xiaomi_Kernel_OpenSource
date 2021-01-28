@@ -309,9 +309,9 @@ static int _ovl_get_rsz_layer_roi(const struct OVL_CONFIG_STRUCT * const oc,
 	}
 
 	if (oc->src_w < oc->dst_w || oc->src_h < oc->dst_h) {
-		*dst_x = ((oc->dst_x * oc->src_w) / oc->dst_w)
+		*dst_x = ((oc->dst_x * oc->src_w * 10) / oc->dst_w + 5) / 10
 			- src_total_roi.x;
-		*dst_y = ((oc->dst_y * oc->src_h) / oc->dst_h)
+		*dst_y = ((oc->dst_y * oc->src_h * 10) / oc->dst_h + 5) / 10
 			- src_total_roi.y;
 		*dst_w = oc->src_w;
 		*dst_h = oc->src_h;
