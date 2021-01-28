@@ -63,7 +63,7 @@ static int kernelmode;
 static int g_THERMAL_TRIP[10] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 static int num_trip = 1;
-static char g_bind0[20] = "sysrst.6358buck2";
+static char g_bind0[20] = { 0 };
 static char g_bind1[20] = { 0 };
 static char g_bind2[20] = { 0 };
 static char g_bind3[20] = { 0 };
@@ -74,17 +74,17 @@ static char g_bind7[20] = { 0 };
 static char g_bind8[20] = { 0 };
 static char g_bind9[20] = { 0 };
 
-static long int mt6358tsbuck2_cur_temp;
+static long int mt6359vproc_cur_temp;
 /*
- *static long int mt6358tsbuck2_start_temp;
- *static long int mt6358tsbuck2_end_temp;
+ *static long int mt6359vproc_start_temp;
+ *static long int mt6359vproc_end_temp;
  */
 /*=============================================================*/
 
-static int mt6358tsbuck2_get_temp(struct thermal_zone_device *thermal, int *t)
+static int mt6359vproc_get_temp(struct thermal_zone_device *thermal, int *t)
 {
-	*t = mt6358tsbuck2_get_hw_temp();
-	mt6358tsbuck2_cur_temp = *t;
+	*t = mt6359vproc_get_hw_temp();
+	mt6359vproc_cur_temp = *t;
 
 	if ((int)*t >= polling_trip_temp1)
 		thermal->polling_delay = interval * 1000;
@@ -96,7 +96,7 @@ static int mt6358tsbuck2_get_temp(struct thermal_zone_device *thermal, int *t)
 	return 0;
 }
 
-static int mt6358tsbuck2_bind
+static int mt6359vproc_bind
 (struct thermal_zone_device *thermal, struct thermal_cooling_device *cdev)
 {
 	int table_val = 0;
@@ -145,7 +145,7 @@ static int mt6358tsbuck2_bind
 	return 0;
 }
 
-static int mt6358tsbuck2_unbind(struct thermal_zone_device *thermal,
+static int mt6359vproc_unbind(struct thermal_zone_device *thermal,
 			    struct thermal_cooling_device *cdev)
 {
 	int table_val = 0;
@@ -193,35 +193,35 @@ static int mt6358tsbuck2_unbind(struct thermal_zone_device *thermal,
 	return 0;
 }
 
-static int mt6358tsbuck2_get_mode
+static int mt6359vproc_get_mode
 (struct thermal_zone_device *thermal, enum thermal_device_mode *mode)
 {
 	*mode = (kernelmode) ? THERMAL_DEVICE_ENABLED : THERMAL_DEVICE_DISABLED;
 	return 0;
 }
 
-static int mt6358tsbuck2_set_mode
+static int mt6359vproc_set_mode
 (struct thermal_zone_device *thermal, enum thermal_device_mode mode)
 {
 	kernelmode = mode;
 	return 0;
 }
 
-static int mt6358tsbuck2_get_trip_type
+static int mt6359vproc_get_trip_type
 (struct thermal_zone_device *thermal, int trip, enum thermal_trip_type *type)
 {
 	*type = g_THERMAL_TRIP[trip];
 	return 0;
 }
 
-static int mt6358tsbuck2_get_trip_temp
+static int mt6359vproc_get_trip_temp
 (struct thermal_zone_device *thermal, int trip, int *temp)
 {
 	*temp = trip_temp[trip];
 	return 0;
 }
 
-static int mt6358tsbuck2_get_crit_temp
+static int mt6359vproc_get_crit_temp
 (struct thermal_zone_device *thermal, int *temperature)
 {
 	*temperature = mtktspmic_TEMP_CRIT;
@@ -229,37 +229,37 @@ static int mt6358tsbuck2_get_crit_temp
 }
 
 /* bind callback functions to thermalzone */
-static struct thermal_zone_device_ops mt6358tsbuck2_dev_ops = {
-	.bind = mt6358tsbuck2_bind,
-	.unbind = mt6358tsbuck2_unbind,
-	.get_temp = mt6358tsbuck2_get_temp,
-	.get_mode = mt6358tsbuck2_get_mode,
-	.set_mode = mt6358tsbuck2_set_mode,
-	.get_trip_type = mt6358tsbuck2_get_trip_type,
-	.get_trip_temp = mt6358tsbuck2_get_trip_temp,
-	.get_crit_temp = mt6358tsbuck2_get_crit_temp,
+static struct thermal_zone_device_ops mt6359vproc_dev_ops = {
+	.bind = mt6359vproc_bind,
+	.unbind = mt6359vproc_unbind,
+	.get_temp = mt6359vproc_get_temp,
+	.get_mode = mt6359vproc_get_mode,
+	.set_mode = mt6359vproc_set_mode,
+	.get_trip_type = mt6359vproc_get_trip_type,
+	.get_trip_temp = mt6359vproc_get_trip_temp,
+	.get_crit_temp = mt6359vproc_get_crit_temp,
 };
 
-static int mt6358tsbuck2_sysrst_get_max_state
+static int mt6359vproc_sysrst_get_max_state
 (struct thermal_cooling_device *cdev, unsigned long *state)
 {
 	*state = 1;
 	return 0;
 }
 
-static int mt6358tsbuck2_sysrst_get_cur_state
+static int mt6359vproc_sysrst_get_cur_state
 (struct thermal_cooling_device *cdev, unsigned long *state)
 {
 	*state = cl_dev_sysrst_state;
 	return 0;
 }
 
-static int mt6358tsbuck2_sysrst_set_cur_state
+static int mt6359vproc_sysrst_set_cur_state
 (struct thermal_cooling_device *cdev, unsigned long state)
 {
 	cl_dev_sysrst_state = state;
 	if (cl_dev_sysrst_state == 1) {
-		mtktspmic_info("MT6358TSBUCK2 OT: reset, reset, reset!!!");
+		mtktspmic_info("mt6359vproc OT: reset, reset, reset!!!");
 		mtktspmic_info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 		mtktspmic_info("*****************************************");
 		mtktspmic_info("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
@@ -272,18 +272,18 @@ static int mt6358tsbuck2_sysrst_set_cur_state
 	return 0;
 }
 
-static struct thermal_cooling_device_ops mt6358tsbuck2_cooling_sysrst_ops = {
-	.get_max_state = mt6358tsbuck2_sysrst_get_max_state,
-	.get_cur_state = mt6358tsbuck2_sysrst_get_cur_state,
-	.set_cur_state = mt6358tsbuck2_sysrst_set_cur_state,
+static struct thermal_cooling_device_ops mt6359vproc_cooling_sysrst_ops = {
+	.get_max_state = mt6359vproc_sysrst_get_max_state,
+	.get_cur_state = mt6359vproc_sysrst_get_cur_state,
+	.set_cur_state = mt6359vproc_sysrst_set_cur_state,
 };
 
-static int mt6358tsbuck2_read(struct seq_file *m, void *v)
+static int mt6359vproc_read(struct seq_file *m, void *v)
 {
 	seq_printf(m,
 		"[%s] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,\n",
-		__func__,
-		trip_temp[0], trip_temp[1], trip_temp[2], trip_temp[3]);
+		__func__, trip_temp[0], trip_temp[1], trip_temp[2],
+		trip_temp[3]);
 
 	seq_printf(m,
 		"trip_4_temp=%d,trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,trip_9_temp=%d,\n",
@@ -314,16 +314,16 @@ static int mt6358tsbuck2_read(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int mt6358tsbuck2_register_thermal(void);
-static void mt6358tsbuck2_unregister_thermal(void);
+static int mt6359vproc_register_thermal(void);
+static void mt6359vproc_unregister_thermal(void);
 
-static ssize_t mt6358tsbuck2_write
+static ssize_t mt6359vproc_write
 (struct file *file, const char __user *buffer, size_t count, loff_t *data)
 {
 	int len = 0;
 	int i;
 
-	struct mt6358tsbuck2_data {
+	struct mt6359vproc_data {
 		int trip[10];
 		int t_type[10];
 	char bind0[20], bind1[20], bind2[20], bind3[20], bind4[20];
@@ -332,104 +332,102 @@ static ssize_t mt6358tsbuck2_write
 	char desc[512];
 	};
 
-	struct mt6358tsbuck2_data *ptr_mt6358tsbuck2_data;
+	struct mt6359vproc_data *ptr_mt6359vproc_data;
 
-	ptr_mt6358tsbuck2_data =
-			kmalloc(sizeof(*ptr_mt6358tsbuck2_data), GFP_KERNEL);
+	ptr_mt6359vproc_data =
+			kmalloc(sizeof(*ptr_mt6359vproc_data), GFP_KERNEL);
 
-	if (ptr_mt6358tsbuck2_data == NULL)
+	if (ptr_mt6359vproc_data == NULL)
 		return -ENOMEM;
 
-	len = (count < (sizeof(ptr_mt6358tsbuck2_data->desc) - 1)) ?
-			count : (sizeof(ptr_mt6358tsbuck2_data->desc) - 1);
+	len = (count < (sizeof(ptr_mt6359vproc_data->desc) - 1)) ?
+			count : (sizeof(ptr_mt6359vproc_data->desc) - 1);
 
-	if (copy_from_user(ptr_mt6358tsbuck2_data->desc, buffer, len)) {
-		kfree(ptr_mt6358tsbuck2_data);
+	if (copy_from_user(ptr_mt6359vproc_data->desc, buffer, len)) {
+		kfree(ptr_mt6359vproc_data);
 		return 0;
 	}
 
-	ptr_mt6358tsbuck2_data->desc[len] = '\0';
+	ptr_mt6359vproc_data->desc[len] = '\0';
 
 	if (sscanf
-	    (ptr_mt6358tsbuck2_data->desc,
+	    (ptr_mt6359vproc_data->desc,
 	     "%d %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d %d %19s %d",
 		&num_trip,
-		&ptr_mt6358tsbuck2_data->trip[0],
-		&ptr_mt6358tsbuck2_data->t_type[0],
-		ptr_mt6358tsbuck2_data->bind0,
-		&ptr_mt6358tsbuck2_data->trip[1],
-		&ptr_mt6358tsbuck2_data->t_type[1],
-		ptr_mt6358tsbuck2_data->bind1,
-		&ptr_mt6358tsbuck2_data->trip[2],
-		&ptr_mt6358tsbuck2_data->t_type[2],
-		ptr_mt6358tsbuck2_data->bind2,
-		&ptr_mt6358tsbuck2_data->trip[3],
-		&ptr_mt6358tsbuck2_data->t_type[3],
-		ptr_mt6358tsbuck2_data->bind3,
-		&ptr_mt6358tsbuck2_data->trip[4],
-		&ptr_mt6358tsbuck2_data->t_type[4],
-		ptr_mt6358tsbuck2_data->bind4,
-		&ptr_mt6358tsbuck2_data->trip[5],
-		&ptr_mt6358tsbuck2_data->t_type[5],
-		ptr_mt6358tsbuck2_data->bind5,
-		&ptr_mt6358tsbuck2_data->trip[6],
-		&ptr_mt6358tsbuck2_data->t_type[6],
-		ptr_mt6358tsbuck2_data->bind6,
-		&ptr_mt6358tsbuck2_data->trip[7],
-		&ptr_mt6358tsbuck2_data->t_type[7],
-		ptr_mt6358tsbuck2_data->bind7,
-		&ptr_mt6358tsbuck2_data->trip[8],
-		&ptr_mt6358tsbuck2_data->t_type[8],
-		ptr_mt6358tsbuck2_data->bind8,
-		&ptr_mt6358tsbuck2_data->trip[9],
-		&ptr_mt6358tsbuck2_data->t_type[9],
-		ptr_mt6358tsbuck2_data->bind9,
-		&ptr_mt6358tsbuck2_data->time_msec) == 32) {
+		&ptr_mt6359vproc_data->trip[0],
+		&ptr_mt6359vproc_data->t_type[0],
+		ptr_mt6359vproc_data->bind0,
+		&ptr_mt6359vproc_data->trip[1],
+		&ptr_mt6359vproc_data->t_type[1],
+		ptr_mt6359vproc_data->bind1,
+		&ptr_mt6359vproc_data->trip[2],
+		&ptr_mt6359vproc_data->t_type[2],
+		ptr_mt6359vproc_data->bind2,
+		&ptr_mt6359vproc_data->trip[3],
+		&ptr_mt6359vproc_data->t_type[3],
+		ptr_mt6359vproc_data->bind3,
+		&ptr_mt6359vproc_data->trip[4],
+		&ptr_mt6359vproc_data->t_type[4],
+		ptr_mt6359vproc_data->bind4,
+		&ptr_mt6359vproc_data->trip[5],
+		&ptr_mt6359vproc_data->t_type[5],
+		ptr_mt6359vproc_data->bind5,
+		&ptr_mt6359vproc_data->trip[6],
+		&ptr_mt6359vproc_data->t_type[6],
+		ptr_mt6359vproc_data->bind6,
+		&ptr_mt6359vproc_data->trip[7],
+		&ptr_mt6359vproc_data->t_type[7],
+		ptr_mt6359vproc_data->bind7,
+		&ptr_mt6359vproc_data->trip[8],
+		&ptr_mt6359vproc_data->t_type[8],
+		ptr_mt6359vproc_data->bind8,
+		&ptr_mt6359vproc_data->trip[9],
+		&ptr_mt6359vproc_data->t_type[9],
+		ptr_mt6359vproc_data->bind9,
+		&ptr_mt6359vproc_data->time_msec) == 32) {
 
 		down(&sem_mutex);
-		mtktspmic_dprintk(
-			"[%s] mt6358tsbuck2_unregister_thermal\n", __func__);
+		mtktspmic_dprintk("[%s] mt6359vproc_unregister_thermal\n",
+			__func__);
 
-		mt6358tsbuck2_unregister_thermal();
+		mt6359vproc_unregister_thermal();
 
 		if (num_trip < 0 || num_trip > 10) {
 			#ifdef CONFIG_MTK_AEE_FEATURE
 			aee_kernel_warning_api(__FILE__, __LINE__,
-					DB_OPT_DEFAULT, "mt6358tsbuck2_write",
+					DB_OPT_DEFAULT, "mt6359vproc_write",
 					"Bad argument");
 			#endif
-			mtktspmic_dprintk(
-					"[%s] bad argument\n", __func__);
+			mtktspmic_dprintk("[%s] bad argument\n", __func__);
 
-			kfree(ptr_mt6358tsbuck2_data);
+			kfree(ptr_mt6359vproc_data);
 			up(&sem_mutex);
 			return -EINVAL;
 		}
 
 		for (i = 0; i < num_trip; i++)
-			g_THERMAL_TRIP[i] = ptr_mt6358tsbuck2_data->t_type[i];
+			g_THERMAL_TRIP[i] = ptr_mt6359vproc_data->t_type[i];
 
 		g_bind0[0] = g_bind1[0] = g_bind2[0] = g_bind3[0] = g_bind4[0]
 		= g_bind5[0] = g_bind6[0] = g_bind7[0] = g_bind8[0] = g_bind9[0]
 		= '\0';
 
 		for (i = 0; i < 20; i++) {
-			g_bind0[i] = ptr_mt6358tsbuck2_data->bind0[i];
-			g_bind1[i] = ptr_mt6358tsbuck2_data->bind1[i];
-			g_bind2[i] = ptr_mt6358tsbuck2_data->bind2[i];
-			g_bind3[i] = ptr_mt6358tsbuck2_data->bind3[i];
-			g_bind4[i] = ptr_mt6358tsbuck2_data->bind4[i];
-			g_bind5[i] = ptr_mt6358tsbuck2_data->bind5[i];
-			g_bind6[i] = ptr_mt6358tsbuck2_data->bind6[i];
-			g_bind7[i] = ptr_mt6358tsbuck2_data->bind7[i];
-			g_bind8[i] = ptr_mt6358tsbuck2_data->bind8[i];
-			g_bind9[i] = ptr_mt6358tsbuck2_data->bind9[i];
+			g_bind0[i] = ptr_mt6359vproc_data->bind0[i];
+			g_bind1[i] = ptr_mt6359vproc_data->bind1[i];
+			g_bind2[i] = ptr_mt6359vproc_data->bind2[i];
+			g_bind3[i] = ptr_mt6359vproc_data->bind3[i];
+			g_bind4[i] = ptr_mt6359vproc_data->bind4[i];
+			g_bind5[i] = ptr_mt6359vproc_data->bind5[i];
+			g_bind6[i] = ptr_mt6359vproc_data->bind6[i];
+			g_bind7[i] = ptr_mt6359vproc_data->bind7[i];
+			g_bind8[i] = ptr_mt6359vproc_data->bind8[i];
+			g_bind9[i] = ptr_mt6359vproc_data->bind9[i];
 		}
 
 		mtktspmic_dprintk(
 			"[%s] g_THERMAL_TRIP_0=%d,g_THERMAL_TRIP_1=%d,g_THERMAL_TRIP_2=%d,",
-			__func__,
-			g_THERMAL_TRIP[0], g_THERMAL_TRIP[1],
+			__func__, g_THERMAL_TRIP[0], g_THERMAL_TRIP[1],
 			g_THERMAL_TRIP[2]);
 
 		mtktspmic_dprintk(
@@ -444,22 +442,21 @@ static ssize_t mt6358tsbuck2_write
 
 		mtktspmic_dprintk(
 			"[%s] cooldev0=%s,cooldev1=%s,cooldev2=%s,cooldev3=%s,cooldev4=%s,",
-			__func__,
-			g_bind0, g_bind1, g_bind2, g_bind3, g_bind4);
+			__func__, g_bind0, g_bind1, g_bind2, g_bind3, g_bind4);
 
 		mtktspmic_dprintk(
 			"cooldev5=%s,cooldev6=%s,cooldev7=%s,cooldev8=%s,cooldev9=%s\n",
 			g_bind5, g_bind6, g_bind7, g_bind8, g_bind9);
 
 		for (i = 0; i < num_trip; i++)
-			trip_temp[i] = ptr_mt6358tsbuck2_data->trip[i];
+			trip_temp[i] = ptr_mt6359vproc_data->trip[i];
 
-		interval = ptr_mt6358tsbuck2_data->time_msec / 1000;
+		interval = ptr_mt6359vproc_data->time_msec / 1000;
 
 		mtktspmic_dprintk(
 			"[%s] trip_0_temp=%d,trip_1_temp=%d,trip_2_temp=%d,trip_3_temp=%d,",
-			__func__,
-			trip_temp[0], trip_temp[1], trip_temp[2], trip_temp[3]);
+			__func__, trip_temp[0], trip_temp[1], trip_temp[2],
+			trip_temp[3]);
 
 		mtktspmic_dprintk(
 			"trip_4_temp=%d,trip_5_temp=%d,trip_6_temp=%d,trip_7_temp=%d,trip_8_temp=%d,",
@@ -469,29 +466,26 @@ static ssize_t mt6358tsbuck2_write
 		mtktspmic_dprintk("trip_9_temp=%d,time_ms=%d\n",
 						trip_temp[9], interval * 1000);
 
-		mtktspmic_dprintk(
-			"[%s] mt6358tsbuck2_register_thermal\n", __func__);
+		mtktspmic_dprintk("[%s] mt6359vproc_register_thermal\n",
+			__func__);
 
-		mt6358tsbuck2_register_thermal();
+		mt6359vproc_register_thermal();
 		up(&sem_mutex);
-		kfree(ptr_mt6358tsbuck2_data);
+		kfree(ptr_mt6359vproc_data);
 		return count;
 	}
 
 	mtktspmic_dprintk("[%s] bad argument\n", __func__);
     #ifdef CONFIG_MTK_AEE_FEATURE
 	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-					"mt6358tsbuck2_write", "Bad argument");
+					"mt6359vproc_write", "Bad argument");
     #endif
-	kfree(ptr_mt6358tsbuck2_data);
+	kfree(ptr_mt6359vproc_data);
 	return -EINVAL;
 }
 
-static void mt6358tsbuck2_cancel_thermal_timer(void)
+static void mt6359vproc_cancel_thermal_timer(void)
 {
-	/* cancel timer */
-	/* pr_debug("mtkts_pmic_cancel_thermal_timer\n"); */
-
 	/* stop thermal framework polling when entering deep idle */
 	if (down_trylock(&sem_mutex))
 		return;
@@ -504,11 +498,9 @@ static void mt6358tsbuck2_cancel_thermal_timer(void)
 	up(&sem_mutex);
 }
 
-static void mt6358tsbuck2_start_thermal_timer(void)
+static void mt6359vproc_start_thermal_timer(void)
 {
-	/* pr_debug("mtkts_pmic_start_thermal_timer\n"); */
 	/* resume thermal framework polling when leaving deep idle */
-
 	if (!isTimerCancelled)
 		return;
 
@@ -525,27 +517,27 @@ static void mt6358tsbuck2_start_thermal_timer(void)
 	up(&sem_mutex);
 }
 
-static int mt6358tsbuck2_register_cooler(void)
+static int mt6359vproc_register_cooler(void)
 {
 	cl_dev_sysrst = mtk_thermal_cooling_device_register(
-			"sysrst.6358buck2", NULL,
-			&mt6358tsbuck2_cooling_sysrst_ops);
+			"mt6359vproc-sysrst", NULL,
+			&mt6359vproc_cooling_sysrst_ops);
 	return 0;
 }
 
-static int mt6358tsbuck2_register_thermal(void)
+static int mt6359vproc_register_thermal(void)
 {
 	mtktspmic_dprintk("[%s]\n", __func__);
 
 	/* trips : trip 0~2 */
 	thz_dev = mtk_thermal_zone_device_register(
-			"mt6358tsbuck2", num_trip, NULL,
-			&mt6358tsbuck2_dev_ops, 0, 0, 0, interval * 1000);
+			"mt6359vproc", num_trip, NULL,
+			&mt6359vproc_dev_ops, 0, 0, 0, interval * 1000);
 
 	return 0;
 }
 
-static void mt6358tsbuck2_unregister_cooler(void)
+static void mt6359vproc_unregister_cooler(void)
 {
 	if (cl_dev_sysrst) {
 		mtk_thermal_cooling_device_unregister(cl_dev_sysrst);
@@ -553,7 +545,7 @@ static void mt6358tsbuck2_unregister_cooler(void)
 	}
 }
 
-static void mt6358tsbuck2_unregister_thermal(void)
+static void mt6359vproc_unregister_thermal(void)
 {
 	mtktspmic_dprintk("[%s]\n", __func__);
 
@@ -563,67 +555,57 @@ static void mt6358tsbuck2_unregister_thermal(void)
 	}
 }
 
-static int mt6358tsbuck2_open(struct inode *inode, struct file *file)
+static int mt6359vproc_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, mt6358tsbuck2_read, NULL);
+	return single_open(file, mt6359vproc_read, NULL);
 }
 
-static const struct file_operations mt6358tsbuck2_fops = {
+static const struct file_operations mt6359vproc_fops = {
 	.owner = THIS_MODULE,
-	.open = mt6358tsbuck2_open,
+	.open = mt6359vproc_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.write = mt6358tsbuck2_write,
+	.write = mt6359vproc_write,
 	.release = single_release,
 };
 
-static int __init mt6358tsbuck2_init(void)
+static int __init mt6359vproc_init(void)
 {
 	int err = 0;
 
 	struct proc_dir_entry *entry = NULL;
-	struct proc_dir_entry *mt6358tsbuck2_dir = NULL;
+	struct proc_dir_entry *mt6359vproc_dir = NULL;
 
 	mtktspmic_info("[%s]\n", __func__);
 
-	mtktspmic_cali_prepare();
-	mtktspmic_cali_prepare2();
-
-	err = mt6358tsbuck2_register_cooler();
+	err = mt6359vproc_register_cooler();
 	if (err)
 		return err;
-	err = mt6358tsbuck2_register_thermal();
-	if (err)
-		goto err_unreg;
 
-	mt6358tsbuck2_dir = mtk_thermal_get_proc_drv_therm_dir_entry();
-	if (!mt6358tsbuck2_dir) {
+	mt6359vproc_dir = mtk_thermal_get_proc_drv_therm_dir_entry();
+	if (!mt6359vproc_dir) {
 		mtktspmic_info("[%s]: mkdir /proc/driver/thermal failed\n",
 								__func__);
 	} else {
 		entry =
-		    proc_create("tz6358buck2", 664, mt6358tsbuck2_dir,
-				&mt6358tsbuck2_fops);
+		    proc_create("tz6359vproc", 664, mt6359vproc_dir,
+				&mt6359vproc_fops);
 		if (entry)
 			proc_set_user(entry, uid, gid);
 	}
 
-	mtkTTimer_register("mt6358tsbuck2", mt6358tsbuck2_start_thermal_timer,
-					mt6358tsbuck2_cancel_thermal_timer);
+	mtkTTimer_register("mt6359vproc", mt6359vproc_start_thermal_timer,
+					mt6359vproc_cancel_thermal_timer);
 
 	return 0;
-
-err_unreg:
-	mt6358tsbuck2_unregister_cooler();
-	return err;
 }
 
-static void __exit mt6358tsbuck2_exit(void)
+static void __exit mt6359vproc_exit(void)
 {
 	mtktspmic_info("[%s]\n", __func__);
-	mt6358tsbuck2_unregister_thermal();
-	mt6358tsbuck2_unregister_cooler();
-	mtkTTimer_unregister("mt6358tsbuck2");
+	mt6359vproc_unregister_thermal();
+	mt6359vproc_unregister_cooler();
+	mtkTTimer_unregister("mt6359vproc");
 }
-module_init(mt6358tsbuck2_init);
-module_exit(mt6358tsbuck2_exit);
+module_init(mt6359vproc_init);
+module_exit(mt6359vproc_exit);
