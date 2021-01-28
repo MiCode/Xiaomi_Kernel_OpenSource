@@ -1116,7 +1116,7 @@ int larb_clock_on(int larb, bool config_mtcmos)
 #ifdef CONFIG_MTK_SMI_EXT
 	int ret = -1;
 
-	if (larb < SMI_LARB_NR)
+	if ((unsigned int)larb < SMI_LARB_NR)
 		ret = smi_bus_prepare_enable(larb, smi_clk_name[larb]);
 	if (ret != 0)
 		M4UMSG("%s error: larb %d\n", __func__, larb);
@@ -1131,7 +1131,7 @@ int larb_clock_off(int larb, bool config_mtcmos)
 #ifdef CONFIG_MTK_SMI_EXT
 	int ret = -1;
 
-	if (larb < SMI_LARB_NR)
+	if ((unsigned int)larb < SMI_LARB_NR)
 		ret = smi_bus_disable_unprepare(larb, smi_clk_name[larb]);
 	if (ret != 0)
 		M4UMSG("%s error: larb %d\n", __func__, larb);
@@ -2431,7 +2431,7 @@ int m4u_reclaim_notify(unsigned int port, unsigned int mva, unsigned int size)
 
 int m4u_register_fault_callback(int port, m4u_fault_callback_t *fn, void *data)
 {
-	if (port >= M4U_PORT_UNKNOWN) {
+	if ((unsigned int)port >= (unsigned int)M4U_PORT_UNKNOWN) {
 		M4UMSG("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -2442,7 +2442,7 @@ int m4u_register_fault_callback(int port, m4u_fault_callback_t *fn, void *data)
 
 int m4u_unregister_fault_callback(int port)
 {
-	if (port >= M4U_PORT_UNKNOWN) {
+	if ((unsigned int)port >= (unsigned int)M4U_PORT_UNKNOWN) {
 		M4UMSG("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}

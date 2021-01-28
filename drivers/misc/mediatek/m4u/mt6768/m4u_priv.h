@@ -318,23 +318,23 @@ extern int gM4U_log_to_uart;
 		aee_kernel_exception("M4U", "[M4U] error:"string, ##args);  \
 	} while (0)
 
-#define m4u_aee_print(string, args...) do {\
-		char m4u_name[100] = {0};\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
-	aee_kernel_warning_api(__FILE__, __LINE__, \
-		DB_OPT_MMPROFILE_BUFFER | DB_OPT_DUMP_DISPLAY, \
-		m4u_name, "[M4U] error"string, ##args); \
-	pr_info("[M4U] error:"string, ##args);  \
+#define m4u_aee_print(string, args...) do {                             \
+		char m4u_name[100] = {0};                                     \
+		int ret;                                                \
+		ret = snprintf(m4u_name, 100, "[M4U]"string, ##args);   \
+		if (ret < 0)                                            \
+			m4u_name[0] = '\0';                             \
+		aee_kernel_warning_api(__FILE__, __LINE__,              \
+					DB_OPT_MMPROFILE_BUFFER |       \
+					DB_OPT_DUMP_DISPLAY,            \
+					m4u_name,                       \
+					"[M4U] error"string, ##args);   \
+		pr_info("[M4U] error:"string, ##args);                  \
 	} while (0)
+/*aee_kernel_warning(m4u_name, "[M4U] error:"string,##args); */
 #else
-#define M4UERR(string, args...) \
-	pr_debug("[M4U] error:"string, ##args)
-
-#define m4u_aee_print(string, args...) do {\
-		char m4u_name[100] = {0};\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
-	pr_debug("[M4U] error:"string, ##args);  \
-	} while (0)
+#define M4UERR(string, args...)        pr_debug("[M4U] error:"string, ##args)
+#define m4u_aee_print(string, args...) pr_debug("[M4U] error:"string, ##args)
 
 #endif
 #define M4U_PRINT_SEQ(seq_file, fmt, args...) \
