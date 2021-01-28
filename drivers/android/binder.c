@@ -5480,7 +5480,6 @@ static void binder_deferred_release(struct binder_proc *proc)
 		kfree(context->name);
 		kfree(device);
 	}
-	proc->context = NULL;
 	binder_inner_proc_lock(proc);
 	/*
 	 * Make sure proc stays alive after we
@@ -5533,6 +5532,7 @@ static void binder_deferred_release(struct binder_proc *proc)
 		binder_free_ref(ref);
 		binder_proc_lock(proc);
 	}
+	proc->context = NULL;
 	binder_proc_unlock(proc);
 
 	binder_release_work(proc, &proc->todo);
