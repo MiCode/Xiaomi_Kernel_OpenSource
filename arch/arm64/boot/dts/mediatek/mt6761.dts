@@ -2271,9 +2271,16 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		reg = <0 0x11c30000 0 0x10000>;
 	};
 
-	efusec@11c50000 {
+	efuse: efuse@11c50000 {
 		compatible = "mediatek,devinfo";
 		reg = <0 0x11c50000 0 0x10000>;
+
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		efuse_segment: segment@78 {
+			reg = <0x78 0x4>;
+		};
 	};
 
 	mipi_tx0@11c80000 {
