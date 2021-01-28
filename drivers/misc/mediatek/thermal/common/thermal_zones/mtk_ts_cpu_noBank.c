@@ -2201,7 +2201,12 @@ static void init_thermal(void)
 
 	aee_rr_rec_thermal_status(TSCPU_INIT);
 #endif
-
+/*get efuse via nvmem*/
+/*access nvmem need platform_device point*/
+/*move mtk_thermal_get_turbo function from atm to cpu driver*/
+#if defined(CATM_TPCB_EXTEND)
+	mtk_thermal_get_turbo();
+#endif
 	tscpu_thermal_cal_prepare();
 	tscpu_thermal_cal_prepare_2(0);
 

@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include "mach/mtk_thermal.h"
 #include <linux/bug.h>
+#include <linux/nvmem-consumer.h>
 
 #if defined(CONFIG_MTK_CLKMGR)
 #include <mach/mtk_clkmgr.h>
@@ -57,6 +58,10 @@
 #if DEBUG_THERMAL_SSPM
 #include "mtk_thermal_ipi.h"
 #endif
+
+static struct device *tscpu_dev;
+int g_turbo_bin;
+EXPORT_SYMBOL_GPL(g_turbo_bin);
 
 /*=============================================================
  * Local variable definition
@@ -218,6 +223,58 @@ mt_ptp_unlock(unsigned long *flags)
 }
 
 /*=============================================================*/
+static int read_nvmem_cell(char *cell_name, u8 *buf, int len)
+{
+	struct nvmem_cell *cell;
+	size_t size;
+	u8 *tmp;
+
+	cell = nvmem_cell_get(tscpu_dev, cell_name);
+	if (IS_ERR(cell)) {
+		if (PTR_ERR(cell) == -EPROBE_DEFER) {
+			tscpu_warn("[%s] nvmem_cell_get fail\n", __func__);
+			return PTR_ERR(cell);
+		}
+		return 0;
+	}
+
+	tmp = (u8 *)nvmem_cell_read(cell, &size);
+
+	nvmem_cell_put(cell);
+
+	if (IS_ERR(buf)) {
+		tscpu_warn("[%s] nvmem_cell_read fail\n", __func__);
+		return PTR_ERR(buf);
+	}
+
+	if (len < size) {
+		tscpu_warn("[%s] buffer too small(%d<%d)\n",
+			__func__, len, size);
+		kfree(tmp);
+		return -EINVAL;
+	}
+
+	memcpy(buf, tmp, size);
+
+	kfree(tmp);
+
+	return 0;
+}
+#if defined(CATM_TPCB_EXTEND)
+#define CPUFREQ_SEG_CODE_IDX_0 7
+
+void mtk_thermal_get_turbo(void)
+{
+	int cpu_freq_segment_len = 4;
+	u32 cpu_freq_segment[1] = {0};
+
+	tscpu_dev = &tscpu_pdev->dev;
+	read_nvmem_cell("cpu_freq_segment_cell",
+		(u8 *)&cpu_freq_segment, cpu_freq_segment_len);
+	g_turbo_bin = (cpu_freq_segment[0] >> 3) & 0x1;
+	tscpu_printk("%s: turbo: %d\n", __func__, g_turbo_bin);
+}
+#endif
 
 /* chip dependent */
 int tscpu_thermal_clock_on(void)
@@ -393,14 +450,17 @@ void eDataCorrector(void)
 void tscpu_thermal_cal_prepare(void)
 {
 	__u32 temp0, temp1, temp2;
+	int efuse_len = 12;
+	__u32 thermal_efuse[3] = {0};
 #if CFG_THERM_LVTS
 	__u32 lvtsdevinfo1, lvtsdevinfo2, lvtsdevinfo3;
+	__u32 lvts_efuse[3] = {0};
 #endif
-
-	temp0 = get_devinfo_with_index(ADDRESS_INDEX_0);
-	temp1 = get_devinfo_with_index(ADDRESS_INDEX_1);
-	temp2 = get_devinfo_with_index(ADDRESS_INDEX_2);
-
+	tscpu_dev = &tscpu_pdev->dev;
+	read_nvmem_cell("thermal_efuse_cell", (u8 *)&thermal_efuse, efuse_len);
+	temp1 = thermal_efuse[0];
+	temp0 = thermal_efuse[1];
+	temp2 = thermal_efuse[2];
 	pr_notice("[calibration] temp0=0x%x, temp1=0x%x, temp2=0x%x\n",
 							temp0, temp1, temp2);
 	/*

@@ -54,6 +54,7 @@
 #include "mdla_dvfs.h"
 #endif
 #endif
+
 #if defined(CATM_TPCB_EXTEND)
 #include <mt-plat/mtk_devinfo.h>
 #endif
@@ -312,7 +313,6 @@ static int COEF_AX = -1;
 static int COEF_BX = -1;
 #if defined(CATM_TPCB_EXTEND)
 static int TPCB_EXTEND = -1;
-static int g_turbo_bin;
 #endif
 
 /* static int current_TTJ = -1; */
@@ -2105,18 +2105,7 @@ static int decide_ttj(void)
 }
 #endif
 
-#if defined(CATM_TPCB_EXTEND)
-#define CPUFREQ_SEG_CODE_IDX_0 7
 
-static void mtk_thermal_get_turbo(void)
-{
-
-	g_turbo_bin =
-		(get_devinfo_with_index(CPUFREQ_SEG_CODE_IDX_0) >> 3) & 0x1;
-
-	tscpu_printk("%s: turbo: %d\n", __func__, g_turbo_bin);
-}
-#endif
 
 #if CPT_ADAPTIVE_AP_COOLER
 static int adp_cpu_get_max_state
@@ -3735,10 +3724,6 @@ static int __init mtk_cooler_atm_init(void)
 	atm_hrtimer_init();
 #elif KRTATM_SCH == KRTATM_NORMAL
 	atm_timer_init();
-#endif
-
-#if defined(CATM_TPCB_EXTEND)
-	mtk_thermal_get_turbo();
 #endif
 
 	tscpu_dprintk("%s creates krtatm\n", __func__);

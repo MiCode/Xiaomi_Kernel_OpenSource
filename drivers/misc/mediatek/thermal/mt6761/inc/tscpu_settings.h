@@ -14,6 +14,7 @@
 
 #include "tzcpu_initcfg.h"
 #include "clatm_initcfg.h"
+#include <linux/platform_device.h>
 
 /*=============================================================
  * Genernal
@@ -438,6 +439,10 @@ extern bool mtk_get_gpu_loading(unsigned int *pLoading);
  *It's not our api, ask them to provide header file
  */
 extern int IMM_IsAdcInitReady(void);
+#if defined(CATM_TPCB_EXTEND)
+extern void mtk_thermal_get_turbo(void);
+extern int g_turbo_bin;
+#endif
 /*aee related*/
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
 extern void aee_rr_init_thermal_temp(int num);
@@ -451,7 +456,6 @@ extern u8 aee_rr_curr_thermal_status(void);
 extern u8 aee_rr_curr_thermal_ATM_status(void);
 extern u64 aee_rr_curr_thermal_ktime(void);
 #endif
-
 /*=============================================================
  * Register macro for internal use
  *=============================================================
