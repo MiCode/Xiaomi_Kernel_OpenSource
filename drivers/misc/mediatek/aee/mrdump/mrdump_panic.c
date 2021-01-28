@@ -313,8 +313,6 @@ static int __init mrdump_panic_init(void)
 			  __func__, mparams.lk_version);
 	}
 
-	mrdump_wdt_init();
-
 	atomic_notifier_chain_register(&panic_notifier_list, &panic_blk);
 	register_die_notifier(&die_blk);
 	pr_debug("ipanic: startup\n");
