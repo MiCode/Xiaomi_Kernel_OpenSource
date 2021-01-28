@@ -350,7 +350,7 @@ static ssize_t reviser_dbg_read_mem_dram(struct file *filp, char *buffer,
 				g_reviser_mem_dram_bank);
 		return res;
 	}
-	if (g_reviser_mem_dram_ctxid >= VLM_CTXT_CTX_ID_MAX) {
+	if (g_reviser_mem_dram_ctxid >= VLM_CTXT_CTX_ID_COUNT) {
 		LOG_ERR("copy dram ctxid out of range. %d\n",
 				g_reviser_mem_dram_ctxid);
 		return res;
@@ -392,7 +392,7 @@ static ssize_t reviser_dbg_read_mem_swap(struct file *filp, char *buffer,
 				g_reviser_mem_dram_bank);
 		return res;
 	}
-	if (g_reviser_mem_dram_ctxid >= VLM_CTXT_CTX_ID_MAX) {
+	if (g_reviser_mem_dram_ctxid >= VLM_CTXT_CTX_ID_COUNT) {
 		LOG_ERR("copy dram ctxid out of range. %d\n",
 				g_reviser_mem_dram_ctxid);
 		return res;
