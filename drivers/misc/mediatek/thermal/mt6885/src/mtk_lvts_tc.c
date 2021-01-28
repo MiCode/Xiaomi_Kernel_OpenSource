@@ -1702,7 +1702,7 @@ static void lvts_tscpu_thermal_read_tc_temp(
 {
 	__u32 offset;
 
-	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num > 0)) {
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
 		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
 		if (lvts_rawdata_debug_log)
