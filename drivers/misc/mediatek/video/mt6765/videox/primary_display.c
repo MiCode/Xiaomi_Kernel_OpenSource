@@ -1090,7 +1090,7 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 			islcmconnected ? "Y" : "N");
 	len += scnprintf(stringbuf + len, buf_len - len,
 		"|State=%s\tlcm_fps=%d\tmax_layer=%d\tmode:%s\tvsync_drop=%d\n",
-		pgc->state == DISP_ALIVE ? "Alive" : "Sleep", pgc->lcm_fps,
+		pgc->state == DISP_ALIVE ? "Alive" : "Sleep", primary_display_get_fps_nolock(),
 		pgc->max_layer, session_mode_spy(pgc->session_mode),
 		pgc->vsync_drop);
 	len += scnprintf(stringbuf + len, buf_len - len,
