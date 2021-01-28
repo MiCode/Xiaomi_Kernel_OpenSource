@@ -1067,7 +1067,7 @@ void cal_fps_for_debug(void)
 		fps_high_tmp = l->total_fps * 1000 * 1000 * 1000;
 	fps_low_tmp = do_div(fps_high_tmp, total);
 	fps_low_tmp *= 10;
-	do_div(fps_low_tmp, total);
+	fps_low_tmp /= total;
 	fps_info_debug.total_fps_high = fps_high_tmp;
 	fps_info_debug.total_fps_low = fps_low_tmp;
 
@@ -1079,7 +1079,7 @@ void cal_fps_for_debug(void)
 			fps_high_tmp = l->layer_fps[i] * 1000 * 1000 * 1000;
 		fps_low_tmp = do_div(fps_high_tmp, total);
 		fps_low_tmp *= 10;
-		do_div(fps_low_tmp, total);
+		fps_low_tmp /= total;
 		fps_info_debug.layer_fps_high[i] = fps_high_tmp;
 		fps_info_debug.layer_fps_low[i] = fps_low_tmp;
 		fps_high_tmp = 0;
@@ -1136,7 +1136,7 @@ int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source,
 	    source == DPREC_LOGGER_OVL_FRAME_COMPLETE_1SECOND ||
 	    source == DPREC_LOGGER_PQ_TRIGGER_1SECOND) {
 		fps_low *= 1000;
-		do_div(fps_low, total);
+		fps_low /= total;
 	}
 	if (fps) {
 		fps->fps = fps_high;

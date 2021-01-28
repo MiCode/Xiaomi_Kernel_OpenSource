@@ -75,6 +75,9 @@
 #ifndef _UAPI__ASMARM_SETUP_H
 #define _UAPI__ASMARM_SETUP_H
 #endif
+#ifndef __ASMARM_SETUP_H
+#define __ASMARM_SETUP_H
+#endif
 #include <mt-plat/mtk_ccci_common.h>
 #include "ddp_dsi.h"
 

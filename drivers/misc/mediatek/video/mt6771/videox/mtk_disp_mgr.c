@@ -1306,7 +1306,7 @@ int set_session_mode(struct disp_session_config *cfg, int force)
 			primary_display_switch_mode(cfg->mode,
 						    cfg->session_id, 0);
 		else
-			DISPPR_ERROR("[FB]: session(0x%08x) set mode(%d) fail\n",
+			DISPPR_ERROR("%s: session(0x%08x) set mode(%d) fail\n",
 				__func__, cfg->session_id, cfg->mode);
 	} else {
 		if (has_memory_session)
