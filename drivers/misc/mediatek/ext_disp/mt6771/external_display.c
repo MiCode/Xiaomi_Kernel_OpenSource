@@ -67,6 +67,7 @@ enum EXT_DISP_PATH_MODE ext_disp_mode;
 
 static int is_context_inited;
 static int init_roi;
+static unsigned int gCurrentPresentFenceIndex = -1;
 
 struct ext_disp_path_context {
 	enum EXTD_POWER_STATE state;
@@ -1096,6 +1097,10 @@ int ext_fence_release_callback(unsigned long userdata)
 		mmprofile_log_ex(ddp_mmp_get_events()->Extd_UsedBuff,
 				 MMPROFILE_FLAG_PULSE, fence_idx, i);
 	}
+	/* Release present fence */
+	if (gCurrentPresentFenceIndex != -1)
+		mtkfb_release_present_fence(pgc->session,
+				 gCurrentPresentFenceIndex);
 
 #ifdef EXTD_DEBUG_SUPPORT
 	/* check last ovl/rdma status: should be idle when config */
@@ -1400,6 +1405,9 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 				pgc->ext_input_config_info, 0,
 				(input_source << 8) |
 				(cfg->input_cfg[0].layer_type));
+	/* Update present fence index */
+	if (cfg->present_fence_idx != (unsigned int)-1)
+		gCurrentPresentFenceIndex = cfg->present_fence_idx;
 
 #ifdef EXTD_DEBUG_SUPPORT
 	if (_should_config_ovl_input()) {
