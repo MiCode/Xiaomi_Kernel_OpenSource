@@ -49,9 +49,8 @@
 #include <mt-plat/upmu_common.h>
 #endif
 #include <dbgtop.h>
-#if 0
+
 #include <mtk_koro.h>
-#endif
 
 void __iomem *toprgu_base;
 int	wdt_irq_id;
@@ -668,6 +667,10 @@ void wdt_arch_reset(char mode)
 	wdt_dump_reg();
 
 	mt_reg_sync_writel(wdt_mode_val, MTK_WDT_MODE);
+
+	mt_reg_sync_writel(__raw_readl(MTK_WDT_STATUS), MTK_WDT_NONRST_REG);
+	pr_info("wdt_status before %s %x\n", __func__,
+		 __raw_readl(MTK_WDT_STATUS));
 
 	if (__raw_readl(MTK_WDT_STATUS) == 0) {
 		pr_info("Normal boot disable koro\n");
