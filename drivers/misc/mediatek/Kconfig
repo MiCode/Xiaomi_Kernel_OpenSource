@@ -356,6 +356,16 @@ config MTK_SSMR
 	  different DRAM mode dynamically. It's a
 	  platform-dependent feature.
 
+config MTK_AMMS
+	bool "Support Mediatek AP and Modem Sharing Memory techonology"
+	select CMA
+	select ZONE_MOVABLE_CMA
+	default n
+	help
+		Mediatek Memory Sharing techonology
+		It tries to free MD memory once not
+		used.
+
 config DMAUSER_PAGES
 	bool "allocate highuser movable pages from dma zone"
 	depends on MTK_LM_MODE && !MTK_MEMORY_LOWPOWER
