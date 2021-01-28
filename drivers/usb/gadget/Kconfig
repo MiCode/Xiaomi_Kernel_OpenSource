@@ -191,6 +191,9 @@ config USB_F_MASS_STORAGE
 config USB_F_BICR
 	tristate
 
+config USB_F_MTK_FASTMETA
+	tristate
+
 config USB_F_FS
 	tristate
 
@@ -372,6 +375,19 @@ config USB_CONFIGFS_BICR
 	  As its storage repository it can use a regular file or a block
 	  device (in much the same way as the "loop" device driver),
 	  specified as a module parameter or sysfs option.
+
+config USB_CONFIGFS_MTK_FASTMETA
+	bool "Mediatek's Fast META mode"
+	depends on USB_CONFIGFS
+	depends on BLOCK
+	depends on USB_CONFIGFS_MASS_STORAGE
+	depends on USB_CONFIGFS_ACM
+	select USB_F_MTK_FASTMETA
+	help
+	  Mediatek's Fast META mode allow manufacturer be able to
+	  connect phone's META faction functions. Which allow user to
+	  saving time when doing MODEM calibration or download RF parameters
+	  in mass production in factory.
 
 config USB_CONFIGFS_F_LB_SS
 	bool "Loopback and sourcesink function (for testing)"
