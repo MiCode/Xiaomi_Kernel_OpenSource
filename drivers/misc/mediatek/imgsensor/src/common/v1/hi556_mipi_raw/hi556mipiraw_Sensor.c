@@ -318,7 +318,7 @@ static void write_shutter(kal_uint32 shutter)
 		if (realtime_fps > 300 && realtime_fps < 320)
 			set_max_framerate(300, 0);
 		// ADD END
-			write_cmos_sensor(0x0006, imgsensor.frame_length);
+		write_cmos_sensor(0x0006, imgsensor.frame_length);
 	}
 
 	// Update Shutter
