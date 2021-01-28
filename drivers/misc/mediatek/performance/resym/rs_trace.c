@@ -28,12 +28,13 @@ void __rs_systrace_c(pid_t pid, int val, const char *fmt, ...)
 {
 	char log[LOGSIZE];
 	va_list args;
+	int len;
 
 	if (unlikely(!mark_addr))
 		return;
 
 	va_start(args, fmt);
-	vsnprintf(log, LOGSIZE, fmt, args);
+	len = vsnprintf(log, LOGSIZE, fmt, args);
 	va_end(args);
 
 	preempt_disable();
@@ -45,12 +46,13 @@ void __rs_systrace_c_uint64(pid_t pid, uint64_t val, const char *fmt, ...)
 {
 	char log[LOGSIZE];
 	va_list args;
+	int len;
 
 	if (unlikely(!mark_addr))
 		return;
 
 	va_start(args, fmt);
-	vsnprintf(log, LOGSIZE, fmt, args);
+	len = vsnprintf(log, LOGSIZE, fmt, args);
 	va_end(args);
 
 	preempt_disable();
@@ -62,12 +64,13 @@ void __rs_systrace_b(pid_t tgid, const char *fmt, ...)
 {
 	char log[LOGSIZE];
 	va_list args;
+	int len;
 
 	if (unlikely(!mark_addr))
 		return;
 
 	va_start(args, fmt);
-	vsnprintf(log, LOGSIZE, fmt, args);
+	len = vsnprintf(log, LOGSIZE, fmt, args);
 	va_end(args);
 
 	preempt_disable();
