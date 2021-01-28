@@ -5,5 +5,5 @@ CC=clang
 LD=ld.lld
 # DEFCONFIG=defconfig
 KERNEL_DIR=kernel-4.19
-CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r377782c/bin
+CLANG_PREBUILT_BIN=prebuilts/clang/host/linux-x86/clang-r370808/bin
 LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin
