@@ -1063,7 +1063,7 @@ int dpmgr_path_reset(disp_path_handle dp_handle, int encmdq)
 	struct cmdqRecStruct *cmdqHandle;
 	struct DDP_MODULE_DRIVER *mod_drv;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	modules = ddp_get_scenario_list(handle->scenario);
 	module_num = ddp_get_module_num(handle->scenario);
