@@ -2416,7 +2416,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 
 	chip->tcpc_desc = desc;
 	chip->tcpc = tcpc_device_register(dev, desc, &mt6360_tcpc_ops, chip);
-	if (IS_ERR(chip->tcpc))
+	if (IS_ERR(chip->tcpc) || !chip->tcpc)
 		return -EINVAL;
 
 	/* Init tcpc_flags */
