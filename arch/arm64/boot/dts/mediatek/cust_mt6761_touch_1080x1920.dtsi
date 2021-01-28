@@ -27,8 +27,8 @@
 };
 
 &touch {
-	tpd-resolution = <720 1280>;
-	lcm-resolution = <720 1280>;
+	tpd-resolution = <1080 1920>;
+	lcm-resolution = <1080 1920>;
 	tpd-cfg-version = "config17";
 	tpd-max-touch-num = <10>;
 	interrupt-parent = <&pio>;
@@ -42,7 +42,7 @@
 	/*goodix,y2y;*/
 
 	tpd-filter-enable = <1>;
-	tpd-filter-pixel-density = <106>;
+	tpd-filter-pixel-density = <146>;
 	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 	tpd-filter-custom-speed = <0 0 0>;
 	status = "okay";

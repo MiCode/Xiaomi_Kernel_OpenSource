@@ -363,5 +363,5 @@
 
 #include <k61v1_32_bsp_hdp/cust.dtsi>
 #include "cust_mt6761_camera.dtsi"
-#include "cust_mt6761_touch_hdp.dtsi"
+#include "cust_mt6761_touch_1080x1920.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

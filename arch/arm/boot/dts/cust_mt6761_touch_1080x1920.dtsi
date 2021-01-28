@@ -28,7 +28,7 @@
 
 &touch {
 	tpd-resolution = <1080 1920>;
-	lcm-resolution = <720 1440>;
+	lcm-resolution = <1080 1920>;
 	tpd-cfg-version = "config17";
 	tpd-max-touch-num = <10>;
 	interrupt-parent = <&pio>;
@@ -37,9 +37,9 @@
 	goodix,reset-gpio = <&pio 174 0x0>;
 	vtouch-supply = <&mt_pmic_vldo28_ldo_reg>;
 
-	/* goodix rotate cord should close for hw rotate */
-	goodix,x2x;
-	goodix,y2y;
+	/* Rotate cord when open blew lables */
+	/*goodix,x2x;*/
+	/*goodix,y2y;*/
 
 	tpd-filter-enable = <1>;
 	tpd-filter-pixel-density = <146>;

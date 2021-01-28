@@ -4,7 +4,7 @@
  *
  */
 
-/* Touch Start */
+/* TOUCH start */
 &i2c0 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "ts_int_active",
@@ -37,9 +37,9 @@
 	goodix,reset-gpio = <&pio 174 0x0>;
 	vtouch-supply = <&mt_pmic_vldo28_ldo_reg>;
 
-	/* goodix rotate cord should close for hw rotate */
-	goodix,x2x;
-	goodix,y2y;
+	/* Rotate cord when open blew lables */
+	/*goodix,x2x;*/
+	/*goodix,y2y;*/
 
 	tpd-filter-enable = <1>;
 	tpd-filter-pixel-density = <106>;
