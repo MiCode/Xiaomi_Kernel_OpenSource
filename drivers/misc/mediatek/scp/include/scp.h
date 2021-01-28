@@ -94,26 +94,57 @@ enum scp_reserve_mem_id_t {
 	NUMS_MEM_ID,
 };
 
+/* scp feature ID list */
+enum feature_id {
+	VOW_FEATURE_ID,
+	OPEN_DSP_FEATURE_ID,
+	SENS_FEATURE_ID,
+	MP3_FEATURE_ID,
+	FLP_FEATURE_ID,
+	RTOS_FEATURE_ID,
+	SPEAKER_PROTECT_FEATURE_ID,
+	VCORE_TEST_FEATURE_ID,
+	VOW_BARGEIN_FEATURE_ID,
+	VOW_DUMP_FEATURE_ID,
+	NUM_FEATURE_ID,
+};
+
+/* An API to get scp status */
+extern unsigned int is_scp_ready(enum scp_core_id scp_id);
+
+/* APIs to register new IPI handlers */
 extern enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name);
 extern enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id);
+
+/* A common API to send message to SCP */
 extern enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	unsigned int len, unsigned int wait, enum scp_core_id scp_id);
 
+
+/* APIs to lock scp and make scp awaken */
 extern int scp_awake_lock(enum scp_core_id scp_id);
 extern int scp_awake_unlock(enum scp_core_id scp_id);
-extern unsigned int is_scp_ready(enum scp_core_id scp_id);
 
+/* APIs for register notification */
 extern void scp_A_register_notify(struct notifier_block *nb);
 extern void scp_A_unregister_notify(struct notifier_block *nb);
+
+/* APIs for hardware semaphore */
 extern int get_scp_semaphore(int flag);
 extern int release_scp_semaphore(int flag);
 extern int scp_get_semaphore_3way(int flag);
 extern int scp_release_semaphore_3way(int flag);
+
+/* APIs for reserved memory */
 extern phys_addr_t scp_get_reserve_mem_phys(enum scp_reserve_mem_id_t id);
 extern phys_addr_t scp_get_reserve_mem_virt(enum scp_reserve_mem_id_t id);
 extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
+
+/* APIs for registering function of features */
+extern void scp_register_feature(enum feature_id id);
+extern void scp_deregister_feature(enum feature_id id);
 
 #endif
 

@@ -6,6 +6,7 @@
 #ifndef __SCP_FEATURE_DEFINE_H__
 #define __SCP_FEATURE_DEFINE_H__
 
+#include <include/scp.h>
 
 /* scp platform configs*/
 #define SCP_BOOT_TIME_OUT_MONITOR	(1)
@@ -31,20 +32,6 @@
 #define ENABLE_SCP_EMI_PROTECTION	(0)
 #define MPU_REGION_ID_SCP_SMEM		(6)
 
-/* scp feature ID list */
-enum feature_id {
-	VOW_FEATURE_ID,
-	OPEN_DSP_FEATURE_ID,
-	SENS_FEATURE_ID,
-	MP3_FEATURE_ID,
-	FLP_FEATURE_ID,
-	RTOS_FEATURE_ID,
-	SPEAKER_PROTECT_FEATURE_ID,
-	VCORE_TEST_FEATURE_ID,
-	VOW_BARGEIN_FEATURE_ID,
-	VOW_DUMP_FEATURE_ID,
-	NUM_FEATURE_ID,
-};
 
 /* scp sensor type ID list */
 enum scp_sensor_id {
@@ -115,8 +102,6 @@ struct scp_sub_feature_tb {
 
 extern struct scp_feature_tb feature_table[NUM_FEATURE_ID];
 extern struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE];
-extern void scp_register_feature(enum feature_id id);
-extern void scp_deregister_feature(enum feature_id id);
 extern void scp_register_sensor(enum feature_id id,
 		enum scp_sensor_id sensor_id);
 extern void scp_deregister_sensor(enum feature_id id,
