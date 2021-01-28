@@ -344,14 +344,18 @@ static void kbase_gpu_release_atom(struct kbase_device *kbdev,
 				(katom->protected_state.enter !=
 				KBASE_ATOM_ENTER_PROTECTED_CHECK) &&
 				(katom->protected_state.enter !=
-				KBASE_ATOM_ENTER_PROTECTED_HWCNT))
+				KBASE_ATOM_ENTER_PROTECTED_HWCNT)) {
 			kbase_pm_protected_override_disable(kbdev);
+			kbase_pm_update_cores_state_nolock(kbdev);
+		}
 		if (!kbase_jd_katom_is_protected(katom) &&
 				(katom->protected_state.exit !=
 				KBASE_ATOM_EXIT_PROTECTED_CHECK) &&
 				(katom->protected_state.exit !=
-				KBASE_ATOM_EXIT_PROTECTED_RESET_WAIT))
+				KBASE_ATOM_EXIT_PROTECTED_RESET_WAIT)) {
 			kbase_pm_protected_override_disable(kbdev);
+			kbase_pm_update_cores_state_nolock(kbdev);
+		}
 
 		if (katom->protected_state.enter !=
 				KBASE_ATOM_ENTER_PROTECTED_CHECK ||
