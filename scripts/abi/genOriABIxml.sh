@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 
 green='\e[0;32m'
@@ -100,6 +100,16 @@ fi
 
 if [ "$mode" == "m" ] || [ "$mode" == "p" ]
 then
+	#Check Terminal server support "mosesq" or "dockerq"
+	echo "Start to test sever queue..."
+	mosesq ls -al
+	if [ $? -eq 0 ];
+	then
+		SERVER_QUEUE=mosesq
+	else
+		SERVER_QUEUE=dockerq
+	fi
+	echo "This sever is using queue: $SERVER_QUEUE"
 	#Build libabigail first
 	$ABIGAIL_BUILD_SCRIPT
 	#remove temp files first
@@ -121,7 +131,7 @@ with commit id:$target_commit"
 	mkdir $TARGET_KERNEL_DIR
 	cd $TARGET_KERNEL_DIR
 	repo init -u http://gerrit.mediatek.inc:8080/kernel/manifest -b $target_branch
-	mosesq mtk_repo sync -f -j8 --no-clone-bundle -c --no-tags
+	$SERVER_QUEUE mtk_repo sync -f -j8 --no-clone-bundle -c --no-tags
 
 	export PATH=\
 $PWD/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9/bin/:\
@@ -144,7 +154,7 @@ $PWD/arch/arm64/configs/$TARGET_DEFCONFIG"
 
 	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
 	CROSS_COMPILE=aarch64-linux-android- CC=clang $TARGET_DEFCONFIG O=out
-	mosesq make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
+	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
 	CROSS_COMPILE=aarch64-linux-android- CC=clang O=out -j24 -k
 
 	#Only use vmlinux to generate ABI xml

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 
 green='\e[0;32m'
@@ -96,6 +96,17 @@ fi
 
 if [ "$mode" == "m" ]
 then
+	#Check Terminal server support "mosesq" or "dockerq"
+	echo "Start to test sever queue..."
+	mosesq ls -al
+	if [ $? -eq 0 ];
+	then
+		SERVER_QUEUE=mosesq
+	else
+		SERVER_QUEUE=dockerq
+	fi
+	echo "This sever is using queue: $SERVER_QUEUE"
+
 	#Build libabigail first
 	$ABIGAIL_BUILD_SCRIPT
 	#remove temp files first
@@ -108,7 +119,7 @@ $PWD/prebuilts/clang/host/linux-x86/clang-r377782c/bin/:$PATH
 	cd $BASE_DIR
 	make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
 	CROSS_COMPILE=aarch64-linux-android- CC=clang $src_defconfig O=out
-	mosesq make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
+	$SERVER_QUEUE make ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- \
 	CROSS_COMPILE=aarch64-linux-android- CC=clang O=out -j24 -k
 
 
