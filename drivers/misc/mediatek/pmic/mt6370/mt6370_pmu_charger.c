@@ -21,6 +21,7 @@
 
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_boot.h>
+#include <mtk_musb.h>
 
 #include <charger_class.h>
 
@@ -783,11 +784,14 @@ static int __maybe_unused __mt6370_enable_chgdet_flow(
 static int __maybe_unused mt6370_enable_chgdet_flow(
 			      struct mt6370_pmu_charger_data *chg_data, bool en)
 {
-	int i, ret = 0;
+	int ret = 0;
+#if IS_ENABLED(CONFIG_USB_MTK_HDRC)
+	int i;
 #ifndef CONFIG_TCPC_CLASS
 	int vbus = 0;
 #endif /* !CONFIG_TCPC_CLASS */
 	const int max_wait_cnt = 200;
+#endif /* CONFIG_USB_MTK_HDRC */
 #ifndef CONFIG_MT6370_DCDTOUT_SUPPORT
 	bool dcd_en = false;
 #endif /* CONFIG_MT6370_DCDTOUT_SUPPORT */
@@ -810,11 +814,10 @@ static int __maybe_unused mt6370_enable_chgdet_flow(
 		if (!dcd_en)
 			msleep(180);
 #endif /* CONFIG_MT6370_DCDTOUT_SUPPORT */
+#if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 		/* Workaround for CDP port */
 		for (i = 0; i < max_wait_cnt; i++) {
-#ifdef FIXME /* TODO: wait is_usb_rdy() */
 			if (is_usb_rdy())
-#endif
 				break;
 			dev_info(chg_data->dev, "%s: CDP block\n", __func__);
 #ifndef CONFIG_TCPC_CLASS
@@ -839,6 +842,7 @@ static int __maybe_unused mt6370_enable_chgdet_flow(
 			dev_err(chg_data->dev, "%s: CDP timeout\n", __func__);
 		else
 			dev_info(chg_data->dev, "%s: CDP free\n", __func__);
+#endif /* CONFIG_USB_MTK_HDRC */
 	}
 
 	mutex_lock(&chg_data->bc12_access_lock);
@@ -4275,7 +4279,7 @@ static int mt6370_boost_get_current_limit(struct regulator_dev *rdev)
 	if (ret < 0)
 		return ret;
 	ret = (ret & desc->csel_mask) >> shift;
-	if (ret > ARRAY_SIZE(mt6370_otg_oc_threshold))
+	if (ret >= ARRAY_SIZE(mt6370_otg_oc_threshold))
 		return -EINVAL;
 	return mt6370_otg_oc_threshold[ret];
 }
