@@ -89,8 +89,10 @@ static struct GED_LOG_BUF_LIST gsGEDLogBufList = {
 	.sList_listen   = LIST_HEAD_INIT(gsGEDLogBufList.sList_listen),
 };
 
+#ifdef GED_DEBUG_FS
 static struct dentry *gpsGEDLogEntry;
 static struct dentry *gpsGEDLogBufsDir;
+#endif
 
 static GED_HASHTABLE_HANDLE ghHashTable;
 
@@ -318,12 +320,14 @@ static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf,
 	return !!psFound;
 }
 
+#ifdef GED_DEBUG_FS
 static ssize_t ged_log_buf_write_entry(const char __user *pszBuffer,
 	size_t uiCount, loff_t uiPosition, void *pvData)
 {
 	return (ssize_t)__ged_log_buf_write((struct GED_LOG_BUF *)pvData,
 		pszBuffer, (int)uiCount);
 }
+#endif
 //-----------------------------------------------------------------------------
 static void *ged_log_buf_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
@@ -853,6 +857,7 @@ GED_ERROR ged_log_buf_reset(GED_LOG_BUF_HANDLE hLogBuf)
 }
 EXPORT_SYMBOL(ged_log_buf_reset);
 
+#ifdef GED_DEBUG_FS
 //-----------------------------------------------------------------------------
 //
 //  GED Log System
@@ -892,6 +897,7 @@ static ssize_t ged_log_write_entry(const char __user *pszBuffer, size_t uiCount,
 
 	return uiCount;
 }
+#endif
 //-----------------------------------------------------------------------------
 static void *ged_log_seq_start(struct seq_file *psSeqFile, loff_t *puiPosition)
 {

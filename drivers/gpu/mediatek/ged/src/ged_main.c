@@ -376,10 +376,9 @@ static void ged_exit(void)
 
 	ged_notify_sw_vsync_system_exit();
 
-	ged_hal_exit();
-
 	ged_log_system_exit();
 #ifdef GED_DEBUG_FS
+	ged_hal_exit();
 	ged_debugFS_exit();
 #endif
 	ged_ge_exit();
@@ -406,6 +405,13 @@ static int ged_init(void)
 		GED_LOGE("ged: failed to init debug FS!\n");
 		goto ERROR;
 	}
+
+	err = ged_hal_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create hal entry!\n");
+		goto ERROR;
+	}
+
 #endif
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
@@ -413,11 +419,6 @@ static int ged_init(void)
 		goto ERROR;
 	}
 
-	err = ged_hal_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create hal entry!\n");
-		goto ERROR;
-	}
 
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {

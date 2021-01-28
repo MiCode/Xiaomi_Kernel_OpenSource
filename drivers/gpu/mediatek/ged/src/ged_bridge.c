@@ -168,7 +168,11 @@ int ged_bridge_gpu_hint_to_cpu(
 #endif
 	out->eError = GED_OK;
 	out->boost_flag = ret;
+#ifdef GED_DEBUG_FS
 	out->boost_value = ged_dvfs_boost_value();
+#else
+	out->boost_value = 0;
+#endif
 	return 0;
 }
 

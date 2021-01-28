@@ -36,10 +36,13 @@ struct GEEntry {
 	pr_debug("[GRALLOC_EXTRA,%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 static struct kmem_cache *gPoolCache;
+#ifdef GED_DEBUG_FS
 static struct dentry *gDFSEntry;
+static int num_entry;
+#endif
 static LIST_HEAD(ge_entry_list_head);
 static DEFINE_SPINLOCK(ge_entry_list_lock);
-static int num_entry;
+
 
 /* region alloc and free lock */
 static DEFINE_SPINLOCK(ge_raf_lock);
@@ -60,7 +63,7 @@ static uint64_t gen_unique_id(void)
 
 	return ret;
 }
-
+#ifdef GED_DEBUG_FS
 static void *_ge_debugfs_seq_start(struct seq_file *m, loff_t *pos)
 {
 	if (*pos == 0) {
@@ -118,6 +121,7 @@ static ssize_t _ge_debugfs_write_entry(const char __user *pszBuffer,
 {
 	return uiCount;
 }
+#endif
 
 static int ge_entry_release(struct inode *inode, struct file *file)
 {
@@ -156,6 +160,7 @@ int ged_ge_init(void)
 			NULL,
 			&gDFSEntry);
 #endif
+
 	return 0;
 }
 

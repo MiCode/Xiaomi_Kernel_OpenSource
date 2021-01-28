@@ -1478,7 +1478,7 @@ void mtk_ged_event_notify(int events)
 GED_ERROR ged_hal_init(void)
 {
 	GED_ERROR err = GED_OK;
-#ifdef GED_DEBUG_FS
+
 	err = ged_debugFS_create_entry_dir(
 			"hal",
 			NULL,
@@ -1737,7 +1737,7 @@ GED_ERROR ged_hal_init(void)
 		GED_LOGE("ged: failed to create integration_report entry!\n");
 		goto ERROR;
 	}
-#endif
+
 	return err;
 
 ERROR:
@@ -1749,7 +1749,6 @@ ERROR:
 //-----------------------------------------------------------------------------
 void ged_hal_exit(void)
 {
-#ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gpsIntegrationReportReadEntry);
 	ged_debugFS_remove_entry(gpsFpsUpperBoundEntry);
 	ged_debugFS_remove_entry(gpsVsyncOffsetLevelEntry);
@@ -1776,7 +1775,6 @@ void ged_hal_exit(void)
 #endif
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 	ged_debugFS_remove_entry(gpsDvfsLoadingModeEntry);
-#endif
 #endif
 }
 //-----------------------------------------------------------------------------
