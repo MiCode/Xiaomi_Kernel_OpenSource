@@ -3394,9 +3394,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				   <GIC_SPI 78 IRQ_TYPE_LEVEL_LOW>,
 				/*conn2ap_sw_irq_b*/
 				   <GIC_SPI 318 IRQ_TYPE_EDGE_RISING>;
-			clocks = <&infracfg_ao CLK_INFRA_CCIF4_AP>;
-			clock-names = "ccif";
-			power-domains = <&scpsys MT6779_POWER_DOMAIN_CONN>;
+			clocks = <&scpsys SCP_SYS_CONN>,
+				<&infracfg_ao INFRACFG_AO_CCIF4_AP_CG>;
+			clock-names = "conn", "ccif";
 			pmic = <&main_pmic>;
 			memory-region = <&consys_mem>;
 		};
