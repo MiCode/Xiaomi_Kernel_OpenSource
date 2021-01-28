@@ -319,7 +319,7 @@ static int __init usip_init(void)
 
 #ifdef CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT
 #ifdef CFG_RECOVERY_SUPPORT
-	adsp_A_register_notify(&audio_call_notifier);
+	adsp_register_notify(&audio_call_notifier);
 #endif
 	usip_send_emi_info_to_dsp();
 #endif

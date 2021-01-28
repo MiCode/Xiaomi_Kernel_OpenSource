@@ -297,12 +297,8 @@ sys_timer_timesync_sync_base_internal(unsigned int flag)
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
 	if (freeze == 0 && unfreeze == 0) {
 	/* sync with adsp */
-		adsp_enable_dsp_clk(true);
-
 		sys_timer_timesync_update_ram(ADSP_A_OSTIMER_BUFFER,
 			freeze, tick, ts);
-
-		adsp_enable_dsp_clk(false);
 	}
 #endif
 	/* sync with sspm */
