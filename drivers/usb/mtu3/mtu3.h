@@ -223,6 +223,11 @@ struct otg_switch_mtk {
 	bool is_u3_drd;
 	bool manual_drd_enabled;
 	u32 sw_state;
+#ifdef CONFIG_TCPC_CLASS
+	struct notifier_block tcpc_nb;
+	struct tcpc_device *tcpc_dev;
+	struct delayed_work dwork;
+#endif
 };
 
 /**

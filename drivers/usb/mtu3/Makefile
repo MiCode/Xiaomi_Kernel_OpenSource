@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 
 ccflags-$(CONFIG_USB_MTU3_DEBUG)	+= -DDEBUG
+ccflags-$(CONFIG_TCPC_CLASS) += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 
 # define_trace.h needs to know how to find our header
 CFLAGS_mtu3_trace.o	:= -I$(src)
