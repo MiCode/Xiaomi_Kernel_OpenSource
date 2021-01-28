@@ -123,7 +123,6 @@ config MACH_MT6739
 	select ARM_CRYPTO
 	select CRYPTO_SHA2_ARM_CE
 	select CRYPTO_AES_ARM_CE
-	select MTK_PMIC_CHIP_MT6357
 	help
 	  This enables support for MediaTek MT6739
 	  Support for arm Architecture
