@@ -284,7 +284,7 @@ static int mtk_wdt_start(struct watchdog_device *wdt_dev)
 		return ret;
 
 	reg = ioread32(wdt_base + WDT_MODE);
-	reg |= (WDT_MODE_EN | WDT_MODE_KEY);
+	reg |= (WDT_MODE_EN | WDT_MODE_KEY | WDT_MODE_DDR_RSVD);
 	iowrite32(reg, wdt_base + WDT_MODE);
 
 	set_bit(WDOG_HW_RUNNING, &mtk_wdt->wdt_dev.status);
