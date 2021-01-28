@@ -114,7 +114,7 @@ static struct adc_cali_info adc_cali;
 static void mt_auxadc_update_cali(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-#if IS_ENABLED(CONFIG_MTK_EFUSE)
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
 	struct nvmem_device *nvmem_dev;
 #endif
 	u32 reg;
@@ -136,7 +136,7 @@ static void mt_auxadc_update_cali(struct device *dev)
 		if (ret)
 			goto err;
 
-#if IS_ENABLED(CONFIG_MTK_EFUSE)
+#if IS_ENABLED(CONFIG_MTK_DEVINFO)
 		ret = of_property_read_u32(np, "mediatek,cali-efuse-reg-offset",
 			&adc_cali.efuse_reg_offset);
 		if (ret)
