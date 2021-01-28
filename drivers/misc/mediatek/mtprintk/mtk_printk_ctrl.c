@@ -25,18 +25,26 @@ extern unsigned long long sched_clock(void);
 
 #ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
 /*
- * printk_disable_uart:
+ * printk_ctrl:
  * 0: uart printk enable
  * 1: uart printk disable
  * 2: uart printk always enable
  * 2 only set in lk phase by cmline
  */
 
+#ifdef CONFIG_MTK_ENG_BUILD
+int printk_ctrl;
+#else
+int printk_ctrl = 1;
+#endif
+
+module_param_named(disable_uart, printk_ctrl, int, 0644);
+
 bool mt_get_uartlog_status(void)
 {
-	if (printk_disable_uart == 1)
+	if (printk_ctrl == 1)
 		return false;
-	else if ((printk_disable_uart == 0) || (printk_disable_uart == 2))
+	else if ((printk_ctrl == 0) || (printk_ctrl == 2))
 		return true;
 	return true;
 }
@@ -44,13 +52,16 @@ bool mt_get_uartlog_status(void)
 void mt_disable_uart(void)
 {
 	/* uart print not always enable */
-	if (printk_disable_uart != 2)
-		printk_disable_uart = 1;
+	if (printk_ctrl != 2)
+		printk_ctrl = 1;
 }
+EXPORT_SYMBOL_GPL(mt_disable_uart);
+
 void mt_enable_uart(void)
 {
-	printk_disable_uart = 0;
+	printk_ctrl = 0;
 }
+EXPORT_SYMBOL_GPL(mt_enable_uart);
 #endif
 
 static int mt_printk_ctrl_show(struct seq_file *m, void *v)
