@@ -34,6 +34,8 @@
 #include <linux/compat.h>
 #endif
 
+#define EEPROM_I2C_MSG_SIZE_READ 2
+
 static DEFINE_SPINLOCK(g_spinLock);
 static struct i2c_client *g_pstI2CclientG;
 
@@ -47,20 +49,28 @@ static int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
 		u8 *a_pRecvData, u16 a_sizeRecvData, u16 i2cId)
 {
 	int  i4RetValue = 0;
+	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
 
 	spin_lock(&g_spinLock);
 	g_pstI2CclientG->addr = (i2cId >> 1);
-
 	spin_unlock(&g_spinLock);
-	i4RetValue = i2c_master_send(g_pstI2CclientG,
-		a_pSendData, a_sizeSendData);
-	if (i4RetValue != a_sizeSendData) {
-		pr_debug("I2C send failed!!, Addr = 0x%x\n", a_pSendData[0]);
-		return -1;
-	}
-	i4RetValue = i2c_master_recv(g_pstI2CclientG,
-		(char *)a_pRecvData, a_sizeRecvData);
-	if (i4RetValue != a_sizeRecvData) {
+
+	msg[0].addr = g_pstI2CclientG->addr;
+	msg[0].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[0].len = a_sizeSendData;
+	msg[0].buf = a_pSendData;
+
+	msg[1].addr = g_pstI2CclientG->addr;
+	msg[1].flags = g_pstI2CclientG->flags & I2C_M_TEN;
+	msg[1].flags |= I2C_M_RD;
+	msg[1].len = a_sizeRecvData;
+	msg[1].buf = a_pRecvData;
+
+	i4RetValue = i2c_transfer(g_pstI2CclientG->adapter,
+				msg,
+				EEPROM_I2C_MSG_SIZE_READ);
+
+	if (i4RetValue != EEPROM_I2C_MSG_SIZE_READ) {
 		pr_debug("I2C read failed!!\n");
 		return -1;
 	}
