@@ -131,12 +131,41 @@
 #define SCP_BUS_DBG_AW_TRACK7_L		(scpreg.bus_tracker + 0x338)
 
 /* clk reg*/
-#define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
-#define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x002C)
-#define SCP_CLK_HIGH_CORE_CG		(scpreg.clkctrl + 0x005C)
+#define SCP_A_SLEEP_DEBUG_REG	(scpreg.clkctrl + 0x0028)
+#define SCP_CLK_CTRL_L1_SRAM_PD	(scpreg.clkctrl + 0x002C)
+#define SCP_CLK_HIGH_CORE_CG	(scpreg.clkctrl + 0x005C)
 #define SCP_CPU0_SRAM_PD		(scpreg.clkctrl + 0x0080)
 #define SCP_CPU1_SRAM_PD		(scpreg.clkctrl + 0x0084)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)
+
+#define CLK_SW_SEL					(scpreg.clkctrl + 0x0)
+#define CLK_SW_SEL_O_BIT			8
+#define CLK_SW_SEL_O_MASK			0xf
+#define CLK_SW_SEL_O_ULPOSC_CORE	0x4
+#define CLK_SW_SEL_O_ULPOSC_PERI	0x8
+
+#define CLK_ENABLE				(scpreg.clkctrl + 0x0004)
+#define CLK_SYS_EN_BIT			0
+#define CLK_HIGH_EN_BIT			1
+#define CLK_HIGH_CG_BIT			2
+#define CLK_SYS_IRQ_EN_BIT		16
+#define CLK_HIGH_IRQ_EN_BIT		17
+
+#define CLK_SAFE_ACK			(scpreg.clkctrl + 0x0008)
+#define CLK_SYS_SAFE_ACK_BIT	0
+#define CLK_HIGH_SAFE_ACK_BIT	1
+
+#define CLK_HIGH_CORE			(scpreg.clkctrl + 0x005C)
+#define HIGH_CORE_CG_BIT		1
+
+#define CLK_ON_CTRL				(scpreg.clkctrl + 0x006C)
+#define HIGH_AO_BIT				0
+#define HIGH_CG_AO_BIT			2
+#define HIGH_CORE_AO_BIT		4
+#define HIGH_CORE_DIS_SUB_BIT	5
+#define HIGH_CORE_CG_AO_BIT		6
+#define HIGH_FINAL_VAL_BIT		8
+#define HIGH_FINAL_VAL_MASK		0x1f
 
 #define R_SEC_CTRL			(scpreg.cfg_sec + 0x0000)
 	#define B_CORE0_CACHE_DBG_EN	(1 << 28)
