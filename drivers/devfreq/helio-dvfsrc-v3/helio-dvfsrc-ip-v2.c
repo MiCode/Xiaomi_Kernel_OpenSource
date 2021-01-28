@@ -38,7 +38,6 @@
 #endif
 #if IS_ENABLED(CONFIG_MMPROFILE)
 #include <mmprofile.h>
-#include <mmprofile_function.h>
 struct dvfsrc_mmp_events_t {
 	mmp_event dvfs_event;
 	mmp_event level_change;

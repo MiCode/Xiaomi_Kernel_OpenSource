@@ -52,6 +52,9 @@
 #include "mtk-soc-pcm-common.h"
 #include "mtk-soc-pcm-platform.h"
 #include <linux/compat.h>
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+#include "adsp_feature_define.h"
+#endif
 #ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
 #include <audio_dma_buf_control.h>
 #include <audio_ipi_client_playback.h>

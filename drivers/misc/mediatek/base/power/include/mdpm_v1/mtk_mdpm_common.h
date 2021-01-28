@@ -11,13 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MTK_SWPM_H_
-#define _MTK_SWPM_H_
+#ifndef _MTK_MDPM_COMMON_H_
+#define _MTK_MDPM_COMMON_H_
 
-#if defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6785)
+extern bool mt_mdpm_debug;
 
-#include "swpm_v1/mtk_swpm.h"
-
+#ifdef MD_POWER_UT
+extern u32 fake_share_reg;
+extern u32 fake_share_mem[SHARE_MEM_BLOCK_NUM];
 #endif
 
-#endif /* __MTK_SWPM_H__ */
+#endif
