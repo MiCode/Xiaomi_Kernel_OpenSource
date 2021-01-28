@@ -121,6 +121,17 @@ config MTK_FLASHLIGHT_MT6360
 
 	  Say M here if you want to compile this driver as a module.
 
+config MTK_FLASHLIGHT_SYWT78
+	tristate "Mediatek flashlight sywt78 gpio driver"
+	depends on MTK_FLASHLIGHT
+	help
+	  This is flashlight sywt78 gpio driver for camera.
+
+	  Say Y here if you want a driver IC with GPIO interface.
+	  Select this only if your board has this IC.
+
+	  Say M here if you want to compile this driver as a module.
+
 config MTK_FLASHLIGHT_DUMMY
 	tristate "Mediatek flashlight dummy driver"
 	depends on MTK_FLASHLIGHT
