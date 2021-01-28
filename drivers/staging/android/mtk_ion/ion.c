@@ -1258,6 +1258,11 @@ void ion_pages_sync_for_device(struct device *dev, struct page *page,
 {
 	struct scatterlist sg;
 
+	if (!page) {
+		IONMSG("%s failed, page is null!\n", __func__);
+		return;
+	}
+
 	sg_init_table(&sg, 1);
 	sg_set_page(&sg, page, size, 0);
 	/*
@@ -1746,6 +1751,14 @@ int ion_query_heaps(struct ion_client *client, struct ion_heap_query *query)
 	down_read(&dev->lock);
 	if (!buffer) {
 		query->cnt = dev->heap_cnt;
+		plist_for_each_entry(heap, &dev->heaps, node) {
+			if (heap->id > ION_HEAP_TYPE_MULTIMEDIA &&
+			    heap->id != ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA) {
+				IONMSG("%s donot support query %s\n", __func__,
+				       heap->name);
+				query->cnt--;
+			}
+		}
 		ret = 0;
 		goto out;
 	}
@@ -1756,6 +1769,12 @@ int ion_query_heaps(struct ion_client *client, struct ion_heap_query *query)
 	max_cnt = query->cnt;
 
 	plist_for_each_entry(heap, &dev->heaps, node) {
+		if (heap->id > ION_HEAP_TYPE_MULTIMEDIA &&
+		    heap->id != ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA) {
+			IONMSG("%s donot support query %s\n", __func__,
+			       heap->name);
+			continue;
+		}
 		strncpy(hdata.name, heap->name, MAX_HEAP_NAME);
 		hdata.name[sizeof(hdata.name) - 1] = '\0';
 		hdata.type = heap->type;
