@@ -2137,7 +2137,7 @@ static int sec_buf_ion_alloc(int buf_size)
 {
 #ifdef MTK_FB_ION_SUPPORT
 	size_t mva_size = 0;
-	unsigned int sec_hnd = 0;
+	unsigned long int sec_hnd = 0;
 	/* ion_phys_addr_t sec_hnd = 0; */
 	unsigned long align = 0; /* 4096 alignment */
 	struct ion_mm_data mm_data;
@@ -3587,8 +3587,8 @@ static int _decouple_update_rdma_config_nolock(void)
 	if (primary_get_state() != DISP_ALIVE) {
 		/* don't trigger RDMA */
 		/* release interface fence */
-		_rdma_update_callback(interface_fence > 1 ?
-				interface_fence - 1 : 0);
+		_Interface_fence_release_callback(
+			interface_fence > 1 ? interface_fence - 1 : 0);
 
 		return -1;
 	}
@@ -4646,8 +4646,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 	primary_display_lowpower_init();
 
 	primary_set_state(DISP_ALIVE);
-
-#ifdef CONFIG_TRUSTONIC_TRUSTED_UI
+#if 0 //def CONFIG_TRUSTONIC_TRUSTED_UI
 	disp_switch_data.name = "disp";
 	disp_switch_data.index = 0;
 	disp_switch_data.state = DISP_ALIVE;
@@ -10117,6 +10116,7 @@ void restart_smart_ovl_nolock(void)
 
 static enum DISP_POWER_STATE tui_power_stat_backup;
 static int tui_session_mode_backup;
+static struct DDP_MODULE_DRIVER *ddp_module_backup;
 
 /*
  * Now the normal display vsync is DDP_IRQ_RDMA0_DONE in vdo mode, but when
@@ -10178,12 +10178,26 @@ int display_enter_tui(void)
 		tui_session_mode_backup = DISP_SESSION_DIRECT_LINK_MODE;
 	}
 
-	do_primary_display_switch_mode(DISP_SESSION_DECOUPLE_MODE,
-				       pgc->session_id, 0, NULL, 0);
+	if (disp_helper_get_option(DISP_OPT_TUI_MODE)
+			== TUI_SINGLE_WINDOW_MODE) {
+		do_primary_display_switch_mode(DISP_SESSION_DECOUPLE_MODE,
+			pgc->session_id, 0, NULL, 0);
+	} else if (disp_helper_get_option(DISP_OPT_TUI_MODE)
+			== TUI_MULTIPLE_WINDOW_MODE) {
+		do_primary_display_switch_mode(DISP_SESSION_DIRECT_LINK_MODE,
+			pgc->session_id, 0, NULL, 0);
+		ddp_module_backup = ddp_get_module_driver(DISP_MODULE_OVL0_2L);
+		ddp_set_module_driver(DISP_MODULE_OVL0_2L, 0);
+		DISPMSG("[cc]%s:set module driver(OVL0_2L):%p\n",
+			__func__, ddp_get_module_driver(DISP_MODULE_OVL0_2L));
+	} else {
+		DISP_PR_INFO("Unsupport TUI mode: %d\n",
+			disp_helper_get_option(DISP_OPT_TUI_MODE));
+	}
 
 	display_vsync_switch_to_dsi(1);
 	mmprofile_log_ex(ddp_mmp_get_events()->tui, MMPROFILE_FLAG_PULSE, 0, 1);
-
+	_cmdq_flush_config_handle(1, NULL, 0);
 	_primary_path_unlock(__func__);
 	return 0;
 
@@ -10211,6 +10225,10 @@ int display_exit_tui(void)
 	/* msleep(32); */
 	do_primary_display_switch_mode(tui_session_mode_backup, pgc->session_id,
 				       0, NULL, 0);
+	if (disp_helper_get_option(DISP_OPT_TUI_MODE)
+		== TUI_MULTIPLE_WINDOW_MODE)
+		ddp_set_module_driver(DISP_MODULE_OVL0_2L, ddp_module_backup);
+
 	/* DISP_REG_SET(NULL, DISP_REG_RDMA_INT_ENABLE, 0xffffffff); */
 
 	restart_smart_ovl_nolock();

@@ -543,6 +543,8 @@ unsigned int is_ddp_module_has_reg_info(enum DISP_MODULE_ENUM module);
 const char *ddp_get_module_name(enum DISP_MODULE_ENUM module);
 unsigned int _can_connect(enum DISP_MODULE_ENUM module);
 struct DDP_MODULE_DRIVER *ddp_get_module_driver(enum DISP_MODULE_ENUM module);
+void ddp_set_module_driver(enum DISP_MODULE_ENUM module,
+	struct DDP_MODULE_DRIVER *drv);
 const char *ddp_get_module_dtname(enum DISP_MODULE_ENUM module);
 unsigned int ddp_get_module_checkirq(enum DISP_MODULE_ENUM module);
 unsigned long ddp_get_module_pa(enum DISP_MODULE_ENUM module);
