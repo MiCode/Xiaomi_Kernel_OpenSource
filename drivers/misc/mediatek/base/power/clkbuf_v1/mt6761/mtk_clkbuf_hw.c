@@ -12,7 +12,6 @@
 #include <mtk_spm.h>
 #include <mtk_clkbuf_ctl.h>
 #include <mtk_clkbuf_common.h>
-#include <mtk-clkbuf-bridge.h>
 
 static void __iomem *pwrap_base;
 
@@ -436,32 +435,6 @@ bool clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 			break;
 		}
 		break;
-	case CLK_BUF_AUDIO:
-		if (CLK_BUF6_STATUS_PMIC != CLOCK_BUFFER_SW_CONTROL) {
-			ret = -1;
-			pr_info("%s: id=%d isn't controlled by SW\n",
-				__func__, id);
-			break;
-		}
-		if (onoff)
-			clkbuf_ctrl_stat |= (0x1 << CLK_BUF_AUDIO);
-		else
-			clkbuf_ctrl_stat &= ~(0x1 << CLK_BUF_AUDIO);
-
-		break;
-	case CLK_BUF_CHG:
-		if (CLK_BUF6_STATUS_PMIC != CLOCK_BUFFER_SW_CONTROL) {
-			ret = -1;
-			pr_info("%s: id=%d isn't controlled by SW\n",
-				__func__, id);
-			break;
-		}
-		if (onoff)
-			clkbuf_ctrl_stat |= (0x1 << CLK_BUF_CHG);
-		else
-			clkbuf_ctrl_stat &= ~(0x1 << CLK_BUF_CHG);
-
-		break;
 	case CLK_BUF_UFS:
 		if (CLK_BUF7_STATUS_PMIC != CLOCK_BUFFER_SW_CONTROL) {
 			ret = -1;
@@ -486,6 +459,7 @@ bool clk_buf_ctrl(enum clk_buf_id id, bool onoff)
 	else
 		return true;
 }
+EXPORT_SYMBOL(clk_buf_ctrl);
 
 static u32 dcxo_dbg_read_auxout(u16 sel)
 {
@@ -960,14 +934,6 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 			clkbuf_debug = false;
 		else if (debug == 1)
 			clkbuf_debug = true;
-		else if (debug == 2)
-			clk_buf_ctrl(CLK_BUF_AUDIO, true);
-		else if (debug == 3)
-			clk_buf_ctrl(CLK_BUF_AUDIO, false);
-		else if (debug == 4)
-			clk_buf_ctrl(CLK_BUF_CHG, true);
-		else if (debug == 5)
-			clk_buf_ctrl(CLK_BUF_CHG, false);
 		else if (debug == 6)
 			clk_buf_ctrl(CLK_BUF_UFS, true);
 		else if (debug == 7)

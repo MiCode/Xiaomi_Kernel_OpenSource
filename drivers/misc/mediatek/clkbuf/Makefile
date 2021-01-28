@@ -7,6 +7,8 @@ else
     ccflags-y += -D BBLPM_SUPPORT=0
 endif
 
+ifneq ($(CONFIG_MTK_BASE_POWER),y)
+
 ifeq ($(CONFIG_MTK_CLK_BUFFER),y)
     ccflags-y += -I$(src)/src \
 	     -I$(srctree)/include/ \
@@ -22,5 +24,7 @@ else
     ccflags-y += -I$(srctree)/include/ \
 	     -I$(PLAT_TOP)/
     obj-y += mtk-clkbuf-bridge.o
+endif
+
 endif
 
