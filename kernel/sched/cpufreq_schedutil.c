@@ -109,8 +109,7 @@ static bool sugov_should_update_freq(struct sugov_policy *sg_policy, u64 time)
 	delta_ns = time - sg_policy->last_freq_update_time;
 	return delta_ns >= sg_policy->min_rate_limit_ns;
 }
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#else
+
 static bool sugov_up_down_rate_limit(struct sugov_policy *sg_policy, u64 time,
 				     unsigned int next_freq)
 {
@@ -144,6 +143,8 @@ static bool sugov_update_next_freq(struct sugov_policy *sg_policy, u64 time,
 	return true;
 }
 
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#else
 static void sugov_fast_switch(struct sugov_policy *sg_policy, u64 time,
 			      unsigned int next_freq)
 {
@@ -538,6 +539,7 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	}
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	sugov_update_next_freq(sg_policy, time, next_f);
 	mt_cpufreq_set_by_wfi_load_cluster(cid, next_f);
 	policy->cur = next_f;
 #else
@@ -615,9 +617,9 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 		next_f = sugov_next_freq_shared(sg_cpu, time);
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+		sugov_update_next_freq(sg_policy, time, next_f);
 		cid = arch_cpu_cluster_id(sg_policy->policy->cpu);
 		next_f = mt_cpufreq_find_close_freq(cid, next_f);
-
 		mt_cpufreq_set_by_wfi_load_cluster(cid, next_f);
 #else
 		if (sg_policy->policy->fast_switch_enabled)
