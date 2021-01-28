@@ -3412,7 +3412,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 {
 	struct drm_crtc *crtc = &mtk_crtc->base;
 	int index = 0;
-	struct mtk_crtc_state *mtk_state = to_mtk_crtc_state(crtc->state);
+	struct mtk_crtc_state *mtk_state;
 	struct mtk_panel_ext *panel_ext;
 
 	if (!mtk_crtc) {
@@ -3446,6 +3446,7 @@ void mtk_crtc_check_trigger(struct mtk_drm_crtc *mtk_crtc, bool delay,
 	}
 
 	panel_ext = mtk_crtc->panel_ext;
+	mtk_state = to_mtk_crtc_state(crtc->state);
 	if (mtk_crtc_is_frame_trigger_mode(crtc) &&
 		mtk_state->prop_val[CRTC_PROP_DOZE_ACTIVE] &&
 		panel_ext && panel_ext->params->doze_delay > 1){
