@@ -21,6 +21,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/kernel.h>
 
 #include "nt36xxx.h"
 #include "nt36xxx_mp_ctrlram.h"
@@ -2106,7 +2107,7 @@ int32_t nvt_mp_proc_init(void)
 		 * Ex. nvt_pid = 500A
 		 *     mpcriteria = "novatek-mp-criteria-500A"
 		 */
-		snprintf(mpcriteria, PAGE_SIZE,
+		snprintf(mpcriteria, ARRAY_SIZE(mpcriteria),
 			"novatek-mp-criteria-%04X", ts->nvt_pid);
 
 		nvt_mp_parse_dt(np, mpcriteria);
