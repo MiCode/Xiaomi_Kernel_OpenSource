@@ -1527,7 +1527,7 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 
 		break;
 	}
-#ifdef CONFIG_GZ_SUPPORT_SDSP
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
 
 	case VPU_IOCTL_SDSP_SEC_LOCK:
 	{
