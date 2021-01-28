@@ -537,15 +537,24 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 #ifdef GED_DEBUG_FS
 	if (pszNodeName) {
 		int err;
-		snprintf(psGEDLogBuf->acNodeName,
+		int cx;
+
+		cx = snprintf(psGEDLogBuf->acNodeName,
 			GED_LOG_BUF_NODE_NAME_LENGTH, "%s", pszNodeName);
+		if (cx < 0 || cx >= GED_LOG_BUF_NODE_NAME_LENGTH) {
+			GED_LOGE("ged: failed to snprintf (%s)!\n",
+				pszNodeName);
+			ged_log_buf_free(psGEDLogBuf->ulHashNodeID);
+			return (GED_LOG_BUF_HANDLE)0;
+		}
+
 		err = ged_debugFS_create_entry(
-				psGEDLogBuf->acNodeName,
-				gpsGEDLogBufsDir,
-				&gsGEDLogBufReadOps,
-				ged_log_buf_write_entry,
-				psGEDLogBuf,
-				&psGEDLogBuf->psEntry);
+			psGEDLogBuf->acNodeName,
+			gpsGEDLogBufsDir,
+			&gsGEDLogBufReadOps,
+			ged_log_buf_write_entry,
+			psGEDLogBuf,
+			&psGEDLogBuf->psEntry);
 
 		if (unlikely(err)) {
 			GED_LOGE("ged: failed to create %s entry, err(%d)!\n",
@@ -715,6 +724,7 @@ int ged_log_buf_get_early(const char *pszName,
 	GED_LOG_BUF_HANDLE *callback_set_handle)
 {
 	int err = 0;
+	int cx;
 
 	if (pszName == NULL)
 		return GED_ERROR_INVALID_PARAMS;
@@ -760,8 +770,13 @@ int ged_log_buf_get_early(const char *pszName,
 			goto exit_unlock;
 		}
 		psGEDLogListen->pCBHnd = callback_set_handle;
-		snprintf(psGEDLogListen->acName,
+		cx = snprintf(psGEDLogListen->acName,
 			GED_LOG_BUF_NAME_LENGTH, "%s", pszName);
+		if (cx < 0 || cx >= GED_LOG_BUF_NAME_LENGTH) {
+			ged_free(psGEDLogListen, sizeof(struct GED_LOG_LISTEN));
+			return GED_ERROR_INVALID_PARAMS;
+		}
+
 		INIT_LIST_HEAD(&psGEDLogListen->sList);
 		list_add(&psGEDLogListen->sList, &gsGEDLogBufList.sList_listen);
 
