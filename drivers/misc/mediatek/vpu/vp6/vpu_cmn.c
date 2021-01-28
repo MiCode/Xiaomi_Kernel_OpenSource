@@ -4379,7 +4379,7 @@ int vpu_dump_util(struct seq_file *s, struct vpu_device *gvpu_device)
 }
 
 int vpu_set_power_parameter(struct vpu_device *vpu_device, uint8_t param,
-				int argc, int *args)
+				int argc, unsigned int *args)
 {
 	int ret = 0;
 
