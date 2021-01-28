@@ -51,8 +51,8 @@
 
 #define WDT_NONRST2		0x24
 #define RGU_REBOOT_MASK		0xF
-#define WDT_NONRST2_STAGE_OFS	30
-#define RGU_STAGE_MASK		0x3
+#define WDT_NONRST2_STAGE_OFS	29
+#define RGU_STAGE_MASK		0x7
 #define RGU_STAGE_KERNEL	0x3
 #define WDT_BYPASS_PWR_KEY	(1 << 13)
 
@@ -140,11 +140,19 @@ static const struct reset_control_ops mtk_reset_ops = {
 	.status     = mtk_reset_status,
 };
 
-static void mtk_wdt_mark_stage(struct watchdog_device *wdt_dev)
+static void mtk_wdt_mark_stage(struct mtk_wdt_dev *mtk_wdt)
 {
-	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
-	void __iomem *wdt_base = mtk_wdt->wdt_base;
-	u32 reg = readl(wdt_base + WDT_NONRST2);
+	void __iomem *wdt_base = NULL;
+	u32 reg = 0;
+
+	if (!mtk_wdt)
+		return;
+
+	wdt_base = mtk_wdt->wdt_base;
+	if (!wdt_base)
+		return;
+
+	readl(wdt_base + WDT_NONRST2);
 
 	reg = (reg & ~(RGU_STAGE_MASK << WDT_NONRST2_STAGE_OFS)) |
 	      (RGU_STAGE_KERNEL << WDT_NONRST2_STAGE_OFS);
@@ -153,9 +161,9 @@ static void mtk_wdt_mark_stage(struct watchdog_device *wdt_dev)
 }
 
 static void mtk_wdt_parse_dt(struct device_node *np,
-				struct mtk_wdt_dev *mtk_wdt)
+			     struct mtk_wdt_dev *mtk_wdt)
 {
-	int ret;
+	int ret = 0;
 	void __iomem *wdt_base = NULL;
 	unsigned int reg = 0, tmp = 0;
 
@@ -167,7 +175,7 @@ static void mtk_wdt_parse_dt(struct device_node *np,
 
 	wdt_base = mtk_wdt->wdt_base;
 
-	if (!ret && mtk_wdt->dfd_timeout) {
+	if (wdt_base && !ret && mtk_wdt->dfd_timeout) {
 		tmp = mtk_wdt->dfd_timeout & WDT_DFD_TIMEOUT_MASK;
 
 		/* enable dfd_en and setup timeout */
@@ -179,50 +187,27 @@ static void mtk_wdt_parse_dt(struct device_node *np,
 	}
 }
 
-static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
-			   unsigned long action, void *cmd)
+static void mtk_wdt_hw_init(struct device_node *np,
+			    struct mtk_wdt_dev *mtk_wdt)
 {
-	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
-	void __iomem *wdt_base;
-	u32 mode = 0, nonrst2 = 0, latch_ctrl = 0;
+	int reg = 0;
+	void __iomem *wdt_base = NULL;
+
+	if (!mtk_wdt)
+		return;
+
+	mtk_wdt_mark_stage(mtk_wdt);
+
+	if (np)
+		mtk_wdt_parse_dt(np, mtk_wdt);
 
 	wdt_base = mtk_wdt->wdt_base;
-	mode = readl(wdt_base + WDT_MODE) & ~WDT_MODE_DDR_RSVD;
-	nonrst2 = readl(wdt_base + WDT_MODE) & ~RGU_REBOOT_MASK;
-	latch_ctrl = readl(wdt_base + WDT_LATCH_CTL2) & ~WDT_DFD_EN;
+	if (!wdt_base)
+		return;
 
-	if (cmd && !strcmp(cmd, "charger"))
-		nonrst2 |= BOOT_CHARGER;
-	else if (cmd && !strcmp(cmd, "recovery"))
-		nonrst2 |= BOOT_RECOVERY;
-	else if (cmd && !strcmp(cmd, "bootloader"))
-		nonrst2 |= BOOT_BOOTLOADER;
-	else if (cmd && !strcmp(cmd, "dm-verity device corrupted"))
-		nonrst2 |= BOOT_DM_VERITY | WDT_BYPASS_PWR_KEY;
-	else if (cmd && !strcmp(cmd, "kpoc"))
-		nonrst2 |= BOOT_KPOC;
-	else if (cmd && !strcmp(cmd, "ddr-reserve"))
-		nonrst2 |= BOOT_DDR_RSVD;
-	else
-		nonrst2 |= WDT_BYPASS_PWR_KEY;
-
-	if ((nonrst2 & RGU_REBOOT_MASK) == BOOT_DDR_RSVD) {
-		latch_ctrl |= WDT_DFD_EN;
-		mode |= WDT_MODE_DDR_RSVD;
-	}
-
-	mode &= ~(WDT_MODE_DUAL_EN | WDT_MODE_IRQ_EN);
-
-	writel(WDT_MODE_KEY | mode, wdt_base + WDT_MODE);
-	writel(nonrst2, wdt_base + WDT_NONRST2);
-	writel(WDT_LATCH_CTL2_KEY | latch_ctrl, wdt_base + WDT_LATCH_CTL2);
-
-	while (1) {
-		writel(WDT_SWRST_KEY, wdt_base + WDT_SWRST);
-		mdelay(5);
-	}
-
-	return 0;
+	reg = readl(wdt_base + WDT_MODE);
+	reg |= WDT_MODE_DDR_RSVD | WDT_MODE_KEY;
+	writel(reg, wdt_base + WDT_MODE);
 }
 
 static int mtk_wdt_ping(struct watchdog_device *wdt_dev)
@@ -284,7 +269,7 @@ static int mtk_wdt_start(struct watchdog_device *wdt_dev)
 		return ret;
 
 	reg = ioread32(wdt_base + WDT_MODE);
-	reg |= (WDT_MODE_EN | WDT_MODE_KEY | WDT_MODE_DDR_RSVD);
+	reg |= (WDT_MODE_EN | WDT_MODE_KEY);
 	iowrite32(reg, wdt_base + WDT_MODE);
 
 	set_bit(WDOG_HW_RUNNING, &mtk_wdt->wdt_dev.status);
@@ -305,7 +290,6 @@ static const struct watchdog_ops mtk_wdt_ops = {
 	.stop		= mtk_wdt_stop,
 	.ping		= mtk_wdt_ping,
 	.set_timeout	= mtk_wdt_set_timeout,
-	.restart	= mtk_wdt_restart,
 };
 
 static int mtk_wdt_probe(struct platform_device *pdev)
@@ -340,9 +324,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 
 	watchdog_set_drvdata(&mtk_wdt->wdt_dev, mtk_wdt);
 
-	mtk_wdt_mark_stage(&mtk_wdt->wdt_dev);
-
-	mtk_wdt_parse_dt(pdev->dev.of_node, mtk_wdt);
+	mtk_wdt_hw_init(pdev->dev.of_node, mtk_wdt);
 
 	if (readl(mtk_wdt->wdt_base + WDT_MODE) & WDT_MODE_EN)
 		mtk_wdt_start(&mtk_wdt->wdt_dev);
