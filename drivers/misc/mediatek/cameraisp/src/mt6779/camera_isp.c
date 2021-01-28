@@ -2113,9 +2113,18 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 
 	void __iomem *regBase;
 
-	/*  */
 	struct ISP_REG_STRUCT reg;
 	struct ISP_REG_STRUCT *pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
+
+	if ((pRegIo->pData == NULL) ||
+			(pRegIo->Count == 0) ||
+			(pRegIo->Count > ISP_REG_RANGE)) {
+		LOG_NOTICE(
+			"pRegIo->pData is NULL, Count:%d!!\n",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
 
 	switch (pData->module) {
 	case ISP_CAM_A_IDX:
@@ -3617,6 +3626,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case ISP_REGISTER_IRQ_USER_KEY:
 		if (copy_from_user(&RegUserKey, (void *)Param,
 			sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
+			RegUserKey.userName[sizeof(RegUserKey.userName) - 1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,

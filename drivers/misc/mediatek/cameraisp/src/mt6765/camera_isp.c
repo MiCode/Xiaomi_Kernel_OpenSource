@@ -4191,11 +4191,20 @@ static signed int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	unsigned int module;
 	void __iomem *regBase;
 
-
 	/*  */
 	struct ISP_REG_STRUCT reg;
 	/* unsigned int* pData = (unsigned int*)pRegIo->Data; */
 	struct ISP_REG_STRUCT *pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
+
+	if ((pRegIo->pData == NULL) ||
+			(pRegIo->Count == 0) ||
+			(pRegIo->Count > ISP_REG_RANGE)) {
+		pr_err(
+			"pRegIo->pData is NULL, Count:%d!!\n",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
 
 	if (get_user(module, (unsigned int *)&pData->module) != 0) {
 		pr_err("get_user failed\n");
@@ -7345,6 +7354,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 		if (copy_from_user(&RegUserKey, (void *)Param,
 		    sizeof(struct ISP_REGISTER_USERKEY_STRUCT)) == 0) {
+			RegUserKey.userName[sizeof(RegUserKey.userName) - 1] = '\0';
 			userKey = ISP_REGISTER_IRQ_USERKEY(RegUserKey.userName);
 			RegUserKey.userKey = userKey;
 			if (copy_to_user((void *)Param, &RegUserKey,
