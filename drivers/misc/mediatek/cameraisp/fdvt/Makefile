@@ -34,9 +34,21 @@ ifeq ($(CONFIG_MACH_MT6763),y)
   MTK_FD_LARB := 1
 else ifeq ($(CONFIG_MACH_MT6761),y)
   MTK_FD_LARB := 2
+else ifeq ($(CONFIG_MACH_MT6765),y)
+  MTK_FD_LARB := 2
+endif
+
+ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
+ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+  MTK_SECURE_FD_SUPPORT := 1
+else
+  MTK_SECURE_FD_SUPPORT := 0
+endif
+else
+  MTK_SECURE_FD_SUPPORT := 0
 endif
 
 subdir-ccflags-y += -DMTK_FD_LARB=$(MTK_FD_LARB)
-
+subdir-ccflags-y += -DMTK_SECURE_FD_SUPPORT=$(MTK_SECURE_FD_SUPPORT)
 #$(info FDVT: makefile end)
 

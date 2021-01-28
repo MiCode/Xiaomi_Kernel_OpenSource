@@ -41,6 +41,14 @@
 
 #include <asm/cacheflush.h>
 
+#define FDVT_USE_GCE
+
+#ifdef FDVT_USE_GCE
+#include <cmdq_core.h>
+#include <cmdq_record.h>
+#define CMDQ_REG_MASK 0xffffffff
+#endif
+
 #ifdef CONFIG_COMPAT
 /* 64 bit */
 #include <linux/fs.h>
@@ -143,8 +151,11 @@ static unsigned long gFDVT_Reg[FDVT_BASEADDR_NUM];
 #define FDVT_ADDR                        FDVT_BASE
 #endif
 
+#define FDVT_BASE_HW   0x1502B000
+
 static FDVTDBuffRegMap pFDVTReadBuffer;
 static FDVTDBuffRegMap pFDVTWriteBuffer;
+static FDVTSecureMeta  g_fdvt_secmeta;
 
 /* register map */
 #define FDVT_START                 (FDVT_ADDR+0x0)
@@ -240,9 +251,9 @@ static FDVTDBuffRegMap pFDVTWriteBuffer;
 #define FDVT_DEBUG_INFO_2          (FDVT_ADDR+0x170)
 #define FDVT_DEBUG_INFO_3          (FDVT_ADDR+0x174)
 #define FDVT_RESULT                (FDVT_ADDR+0x178)
-#define FDVT_SPARE_CELL			   (FDVT_ADDR+0x198)
-#define FDVT_CTRL				   (FDVT_ADDR+0x19C)
-#define FDVT_VERSION			   (FDVT_ADDR+0x1A0)
+#define FDVT_SPARE_CELL	           (FDVT_ADDR+0x198)
+#define FDVT_CTRL                  (FDVT_ADDR+0x19C)
+#define FDVT_VERSION               (FDVT_ADDR+0x1A0)
 
 #define FDVT_FF_NUM_4              (FDVT_ADDR+0x1C4)
 #define FDVT_FF_NUM_5              (FDVT_ADDR+0x1C8)
@@ -261,6 +272,121 @@ static FDVTDBuffRegMap pFDVTWriteBuffer;
 #define FDVT_FF_BASE_ADR_16        (FDVT_ADDR+0x1D8)
 #define FDVT_FF_BASE_ADR_17        (FDVT_ADDR+0x1DC)
 
+/* register map for HW usage*/
+#define FDVT_START_HW              (FDVT_BASE_HW+0x0)
+#define FDVT_ENABLE_HW             (FDVT_BASE_HW+0x4)
+#define FDVT_RS_HW                 (FDVT_BASE_HW+0x8)
+#define FDVT_RSCON_BASE_ADR_HW     (FDVT_BASE_HW+0xC)
+#define FDVT_RGB2Y0_HW             (FDVT_BASE_HW+0x10)
+#define FDVT_RGB2Y1_HW             (FDVT_BASE_HW+0x14)
+#define FDVT_INVG0_HW              (FDVT_BASE_HW+0x18)
+#define FDVT_INVG1_HW              (FDVT_BASE_HW+0x1C)
+#define FDVT_INVG2_HW              (FDVT_BASE_HW+0x20)
+#define FDVT_FNUM_0_HW             (FDVT_BASE_HW+0x24)
+#define FDVT_FNUM_1_HW             (FDVT_BASE_HW+0x28)
+#define FDVT_FNUM_2_HW             (FDVT_BASE_HW+0x2C)
+#define FDVT_FNUM_3_HW             (FDVT_BASE_HW+0x30)
+#define FDVT_T_FNUM_4_HW           (FDVT_BASE_HW+0x34)
+#define FDVT_T_FNUM_5_HW           (FDVT_BASE_HW+0x38)
+#define FDVT_T_FNUM_6_HW           (FDVT_BASE_HW+0x3C)
+#define FDVT_T_FNUM_7_HW           (FDVT_BASE_HW+0x40)
+#define FDVT_FF_NUM_0_HW           (FDVT_BASE_HW+0x44)
+#define FDVT_FF_NUM_1_HW           (FDVT_BASE_HW+0x48)
+#define FDVT_FF_NUM_2_HW           (FDVT_BASE_HW+0x4C)
+#define FDVT_FF_NUM_3_HW           (FDVT_BASE_HW+0x50)
+#define FDVT_FF_BASE_ADR_0_HW      (FDVT_BASE_HW+0x54)
+#define FDVT_FF_BASE_ADR_1_HW      (FDVT_BASE_HW+0x58)
+#define FDVT_FF_BASE_ADR_2_HW      (FDVT_BASE_HW+0x5C)
+#define FDVT_FF_BASE_ADR_3_HW      (FDVT_BASE_HW+0x60)
+#define FDVT_FF_BASE_ADR_4_HW      (FDVT_BASE_HW+0x64)
+#define FDVT_FF_BASE_ADR_5_HW      (FDVT_BASE_HW+0x68)
+#define FDVT_FF_BASE_ADR_6_HW      (FDVT_BASE_HW+0x6C)
+#define FDVT_FF_BASE_ADR_7_HW      (FDVT_BASE_HW+0x70)
+#define FDVT_RMAP_0_HW             (FDVT_BASE_HW+0x74)
+#define FDVT_RMAP_1_HW             (FDVT_BASE_HW+0x78)
+#define FDVT_FD_HW                 (FDVT_BASE_HW+0x7C)
+#define FDVT_FD_CON_BASE_ADR_HW    (FDVT_BASE_HW+0x80)
+#define FDVT_GFD_HW                (FDVT_BASE_HW+0x84)
+#define FDVT_LFD_HW                (FDVT_BASE_HW+0x88)
+#define FDVT_GFD_POS_0_HW          (FDVT_BASE_HW+0x8C)
+#define FDVT_GFD_POS_1_HW          (FDVT_BASE_HW+0x90)
+#define FDVT_GFD_DET0_HW           (FDVT_BASE_HW+0x94)
+#define FDVT_GFD_DET1_HW           (FDVT_BASE_HW+0x98)
+#define FDVT_FD_RLT_BASE_ADR_HW    (FDVT_BASE_HW+0x9C)
+#define FDVT_LFD_INFO_CTRL_0_HW    (FDVT_BASE_HW+0xA4)
+#define FDVT_LFD_INFO_XPOS_0_HW    (FDVT_BASE_HW+0xA8)
+#define FDVT_LFD_INFO_YPOS_0_HW    (FDVT_BASE_HW+0xAC)
+#define FDVT_LFD_INFO_CTRL_1_HW    (FDVT_BASE_HW+0xB0)
+#define FDVT_LFD_INFO_XPOS_1_HW    (FDVT_BASE_HW+0xB4)
+#define FDVT_LFD_INFO_YPOS_1_HW    (FDVT_BASE_HW+0xB8)
+#define FDVT_LFD_INFO_CTRL_2_HW    (FDVT_BASE_HW+0xBC)
+#define FDVT_LFD_INFO_XPOS_2_HW    (FDVT_BASE_HW+0xC0)
+#define FDVT_LFD_INFO_YPOS_2_HW    (FDVT_BASE_HW+0xC4)
+#define FDVT_LFD_INFO_CTRL_3_HW    (FDVT_BASE_HW+0xC8)
+#define FDVT_LFD_INFO_XPOS_3_HW    (FDVT_BASE_HW+0xCC)
+#define FDVT_LFD_INFO_YPOS_3_HW    (FDVT_BASE_HW+0xD0)
+#define FDVT_LFD_INFO_CTRL_4_HW    (FDVT_BASE_HW+0xD4)
+#define FDVT_LFD_INFO_XPOS_4_HW    (FDVT_BASE_HW+0xD8)
+#define FDVT_LFD_INFO_YPOS_4_HW    (FDVT_BASE_HW+0xDC)
+#define FDVT_LFD_INFO_CTRL_5_HW    (FDVT_BASE_HW+0xE0)
+#define FDVT_LFD_INFO_XPOS_5_HW    (FDVT_BASE_HW+0xE4)
+#define FDVT_LFD_INFO_YPOS_5_HW    (FDVT_BASE_HW+0xE8)
+#define FDVT_LFD_INFO_CTRL_6_HW    (FDVT_BASE_HW+0xEC)
+#define FDVT_LFD_INFO_XPOS_6_HW    (FDVT_BASE_HW+0xF0)
+#define FDVT_LFD_INFO_YPOS_6_HW    (FDVT_BASE_HW+0xF4)
+#define FDVT_LFD_INFO_CTRL_7_HW    (FDVT_BASE_HW+0xF8)
+#define FDVT_LFD_INFO_XPOS_7_HW    (FDVT_BASE_HW+0xFC)
+#define FDVT_LFD_INFO_YPOS_7_HW    (FDVT_BASE_HW+0x100)
+#define FDVT_LFD_INFO_CTRL_8_HW    (FDVT_BASE_HW+0x104)
+#define FDVT_LFD_INFO_XPOS_8_HW    (FDVT_BASE_HW+0x108)
+#define FDVT_LFD_INFO_YPOS_8_HW    (FDVT_BASE_HW+0x10C)
+#define FDVT_LFD_INFO_CTRL_9_HW    (FDVT_BASE_HW+0x110)
+#define FDVT_LFD_INFO_XPOS_9_HW    (FDVT_BASE_HW+0x114)
+#define FDVT_LFD_INFO_YPOS_9_HW    (FDVT_BASE_HW+0x118)
+#define FDVT_LFD_INFO_CTRL_10_HW   (FDVT_BASE_HW+0x11C)
+#define FDVT_LFD_INFO_XPOS_10_HW   (FDVT_BASE_HW+0x120)
+#define FDVT_LFD_INFO_YPOS_10_HW   (FDVT_BASE_HW+0x124)
+#define FDVT_LFD_INFO_CTRL_11_HW   (FDVT_BASE_HW+0x128)
+#define FDVT_LFD_INFO_XPOS_11_HW   (FDVT_BASE_HW+0x12C)
+#define FDVT_LFD_INFO_YPOS_11_HW   (FDVT_BASE_HW+0x130)
+#define FDVT_LFD_INFO_CTRL_12_HW   (FDVT_BASE_HW+0x134)
+#define FDVT_LFD_INFO_XPOS_12_HW   (FDVT_BASE_HW+0x138)
+#define FDVT_LFD_INFO_YPOS_12_HW   (FDVT_BASE_HW+0x13C)
+#define FDVT_LFD_INFO_CTRL_13_HW   (FDVT_BASE_HW+0x140)
+#define FDVT_LFD_INFO_XPOS_13_HW   (FDVT_BASE_HW+0x144)
+#define FDVT_LFD_INFO_YPOS_13_HW   (FDVT_BASE_HW+0x148)
+#define FDVT_LFD_INFO_CTRL_14_HW   (FDVT_BASE_HW+0x14C)
+#define FDVT_LFD_INFO_XPOS_14_HW   (FDVT_BASE_HW+0x150)
+#define FDVT_LFD_INFO_YPOS_14_HW   (FDVT_BASE_HW+0x154)
+#define FDVT_TC_ENABLE_RESULT_HW   (FDVT_BASE_HW+0x158)
+#define FDVT_INT_EN_HW             (FDVT_BASE_HW+0x15C)
+#define FDVT_SRC_WD_HT_HW          (FDVT_BASE_HW+0x160)
+#define FDVT_INT_HW                (FDVT_BASE_HW+0x168)
+#define FDVT_DEBUG_INFO_1_HW       (FDVT_BASE_HW+0x16C)
+#define FDVT_DEBUG_INFO_2_HW       (FDVT_BASE_HW+0x170)
+#define FDVT_DEBUG_INFO_3_HW       (FDVT_BASE_HW+0x174)
+#define FDVT_RESULT_HW             (FDVT_BASE_HW+0x178)
+#define FDVT_SPARE_CELL_HW	   (FDVT_BASE_HW+0x198)
+#define FDVT_CTRL_HW               (FDVT_BASE_HW+0x19C)
+#define FDVT_VERSION_HW            (FDVT_BASE_HW+0x1A0)
+
+#define FDVT_FF_NUM_4_HW           (FDVT_BASE_HW+0x1C4)
+#define FDVT_FF_NUM_5_HW           (FDVT_BASE_HW+0x1C8)
+#define FDVT_FF_NUM_6_HW           (FDVT_BASE_HW+0x1CC)
+#define FDVT_FF_NUM_7_HW           (FDVT_BASE_HW+0x1D0)
+#define FDVT_FF_NUM_8_HW           (FDVT_BASE_HW+0x1D4)
+
+#define FDVT_FF_BASE_ADR_8_HW      (FDVT_BASE_HW+0x1A4)
+#define FDVT_FF_BASE_ADR_9_HW      (FDVT_BASE_HW+0x1A8)
+#define FDVT_FF_BASE_ADR_10_HW     (FDVT_BASE_HW+0x1AC)
+#define FDVT_FF_BASE_ADR_11_HW     (FDVT_BASE_HW+0x1B0)
+#define FDVT_FF_BASE_ADR_12_HW     (FDVT_BASE_HW+0x1B4)
+#define FDVT_FF_BASE_ADR_13_HW     (FDVT_BASE_HW+0x1B8)
+#define FDVT_FF_BASE_ADR_14_HW     (FDVT_BASE_HW+0x1BC)
+#define FDVT_FF_BASE_ADR_15_HW     (FDVT_BASE_HW+0x1C0)
+#define FDVT_FF_BASE_ADR_16_HW     (FDVT_BASE_HW+0x1D8)
+#define FDVT_FF_BASE_ADR_17_HW     (FDVT_BASE_HW+0x1DC)
+
 #define FDVT_MAX_OFFSET            0x1DC
 
 #ifdef CONFIG_OF
@@ -275,6 +401,7 @@ static int nr_fdvt_devs;
 #endif
 
 bool haveConfig;
+bool g_isSecure;
 
 void FDVT_basic_config(void)
 {
@@ -452,6 +579,132 @@ static int mt_fdvt_clk_ctrl(int en)
 	return 0;
 }
 
+/*****************************************************************************
+ *
+ *****************************************************************************/
+#if (MTK_SECURE_FD_SUPPORT == 1)
+static inline int FDVT_switchCmdqToSecure(void *handle)
+{
+	enum CMDQ_ENG_ENUM cmdq_engine;
+	/*enum CMDQ_EVENT_ENUM cmdq_event;*/
+
+	/*cmdq_engine = module_to_cmdq_engine(module);*/
+	cmdq_engine = CMDQ_ENG_FDVT;
+	/*cmdq_event	= CMDQ_EVENT_DVE_EOF;*/
+
+	cmdqRecSetSecure(handle, 1);
+	/* set engine as sec */
+	cmdqRecSecureEnablePortSecurity(handle, (1LL << cmdq_engine));
+	//cmdqRecSecureEnableDAPC(handle, (1LL << cmdq_engine));
+	/* Set fdvt with mtee Task */
+	cmdq_task_set_mtee(handle, true);
+
+	return 0;
+}
+
+/*****************************************************************************
+ *
+ *****************************************************************************/
+
+static inline int FDVT_switchPortToNonSecure(void)
+{
+	struct cmdqRecStruct *handle;
+	uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
+
+	cmdq_task_create(CMDQ_SCENARIO_ISP_FDVT_OFF, &handle);
+	cmdq_task_set_secure(handle, true);
+	cmdqRecSetEngine(handle, engineFlag);
+	//cmdq_task_secure_enable_dapc(handle, engineFlag);
+	cmdq_task_secure_enable_port_security(handle, engineFlag);
+	/* Set fdvt with mtee Task */
+	cmdq_task_set_mtee(handle, true);
+	cmdq_task_flush(handle);
+
+	return 0;
+}
+#endif
+/***********************************************************
+ * Set FDVT Meta Data
+ ************************************************************/
+static int FDVT_SetMetaData(FDVTMetaData *pMetaData)
+{
+	int ret = 0;
+	/* int i = 0; */
+	/* FDVTMetaData fdvt_meta; */
+
+	if (pMetaData == NULL) {
+		LOG_DBG("Null input argrment\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&g_fdvt_secmeta, (void *)pMetaData->SecureMeta,
+		sizeof(FDVTSecureMeta)) != 0) {
+		LOG_DBG("secmeta copy_from_user failed\n");
+		return -EFAULT;
+	}
+
+	/*
+	 *LOG_INF("SecureMeta->fd_mode: %d\n", g_fdvt_secmeta.fd_mode);
+	 *for (i = 0; i < 15; i ++) {
+	 *LOG_INF("SecureMeta->source img width/height[%d]: (%d, %d)\n",
+	 *	i,
+	 *	g_fdvt_secmeta.source_img_width[i],
+	 *	g_fdvt_secmeta.source_img_height[i]);
+	 *}
+	 *LOG_INF("SecureMeta->Learning_Type: %d\n",
+	 *	g_fdvt_secmeta.Learning_Type);
+	 *LOG_INF("SecureMeta->RIP_feature: %d\n",
+	 *	g_fdvt_secmeta.RIP_feature);
+	 *LOG_INF("SecureMeta->GFD_skip: %d\n",
+	 *	g_fdvt_secmeta.GFD_skip);
+	 *LOG_INF("SecureMeta->GFD_skip_V: %d\n",
+	 *	g_fdvt_secmeta.GFD_skip_V);
+	 *LOG_INF("SecureMeta->feature_threshold: %d\n",
+	 *	g_fdvt_secmeta.feature_threshold);
+	 *LOG_INF("SecureMeta->source_img_fmt: %d\n",
+	 *	g_fdvt_secmeta.source_img_fmt);
+	 *LOG_INF("SecureMeta->scale_from_original: %d\n",
+	 *	g_fdvt_secmeta.scale_from_original);
+	 *LOG_INF("SecureMeta->scale_manual_mode: %d\n",
+	 *	g_fdvt_secmeta.scale_manual_mode);
+	 *LOG_INF("SecureMeta->scale_num_from_user: %d\n",
+	 *	g_fdvt_secmeta.scale_num_from_user);
+	 *LOG_INF("SecureMeta->SecMemType: %d\n",
+	 *	g_fdvt_secmeta.SecMemType);
+	 *LOG_INF("SecureMeta->ImgSrcY_Handler: 0x%x, Size: %d\n",
+	 *	g_fdvt_secmeta.ImgSrcY_Handler,
+	 *	g_fdvt_secmeta.ImgSrc_Y_Size);
+	 *LOG_INF("SecureMeta->ImgSrcUV_Handler: 0x%x, Size: %d\n",
+	 *	g_fdvt_secmeta.ImgSrcUV_Handler,
+	 *	g_fdvt_secmeta.ImgSrc_UV_Size);
+	 *LOG_INF("SecureMeta->RSConfig_Handler: 0x%x, Size: %d\n",
+	 *	g_fdvt_secmeta.RSConfig_Handler,
+	 *	g_fdvt_secmeta.RSConfigSize);
+	 *LOG_INF("SecureMeta->FDConfig_Handler: 0x%x, Size: %d\n",
+	 *	g_fdvt_secmeta.FDConfig_Handler,
+	 *	g_fdvt_secmeta.FDConfigSize);
+	 *LOG_INF("SecureMeta->FDResultBuf_PA: 0x%llx, Size: %d\n",
+	 *	g_fdvt_secmeta.FDResultBuf_PA,
+	 *	g_fdvt_secmeta.FDResultBufSize);
+	 *for (i = 0; i < 18; i ++) {
+	 *LOG_INF("SecureMeta->Learning_Data_Handler[%d]: 0x%x\n",
+	 *	i,
+	 *	g_fdvt_secmeta.Learning_Data_Handler[i]);
+	 *LOG_INF("SecureMeta->Learning_Data_Handler_Extra[%d]: 0x%x\n",
+	 *	i,
+	 *	g_fdvt_secmeta.Extra_Learning_Data_Handler[i]);
+	 *LOG_INF("SecureMeta->Learning_Data_Size[%d]: %d\n",
+	 *	i,
+	 *	g_fdvt_secmeta.Learning_Data_Size[i]);
+	 *LOG_INF("SecureMeta->dynamic_change_model[%d]: %d\n",
+	 *	i,
+	 *	g_fdvt_secmeta.dynamic_change_model[i]);
+	 *}
+	 */
+
+	return ret;
+}
+
 /*=======================================================================*/
 /* FDVT FD Config Registers */
 /*=======================================================================*/
@@ -505,12 +758,12 @@ void FDVT_DUMPREG(void)
 	unsigned int u4RegValue = 0;
 	unsigned int u4Index = 0;
 
-	LOG_DBG("FDVT REG:\n ********************\n");
+	LOG_INF("FDVT REG:\n ********************\n");
 
 	/* for(u4Index = 0; u4Index < 0x180; u4Index += 4) { */
-	for (u4Index = 0x158; u4Index < 0x180; u4Index += 4) {
+	for (u4Index = 0x0; u4Index < FDVT_MAX_OFFSET; u4Index += 4) {
 		u4RegValue = ioread32((void *)(FDVT_ADDR + u4Index));
-		LOG_DBG("+0x%x 0x%x\n", u4Index, u4RegValue);
+		LOG_INF("+0x%x 0x%x\n", u4Index, u4RegValue);
 	}
 }
 
@@ -519,6 +772,10 @@ void FDVT_DUMPREG(void)
 /*=======================================================================*/
 static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 {
+	#ifdef FDVT_USE_GCE
+		struct cmdqRecStruct *handle;
+		uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_FDVT);
+	#endif
 	FDVTRegIO *pREGIO = NULL;
 	u32 i = 0;
 
@@ -555,12 +812,221 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 		return -EFAULT;
 	}
 
+#ifdef FDVT_USE_GCE
+	cmdqRecCreate(CMDQ_SCENARIO_ISP_FDVT, &handle);
+
+	LOG_DBG("FDVT isSecure: %d\n", g_isSecure);
+
+#if (MTK_SECURE_FD_SUPPORT == 1)
+	if (g_isSecure != 0)
+		FDVT_switchCmdqToSecure(handle);
+#endif
+
+	cmdqRecSetEngine(handle, engineFlag);
+
+	for (i = 0; i < pREGIO->u4Count; i++) {
+		if ((FDVT_BASE_HW + pFDVTWriteBuffer.u4Addr[i]) >=
+		FDVT_BASE_HW &&
+		(FDVT_BASE_HW + pFDVTWriteBuffer.u4Addr[i]) <=
+		(FDVT_BASE_HW + FDVT_MAX_OFFSET)) {
+		/*LOG_DBG("Write: FDVT[0x%03lx](0x%08lx) = 0x%08lx\n",*/
+		/*(unsigned long)pFDVTWriteBuffer.u4Addr[i], */
+		/*(unsigned long)(FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]),*/
+		/*(unsigned long)pFDVTWriteBuffer.u4Data[i]); */
+			cmdqRecWrite(
+				handle,
+				FDVT_BASE_HW + pFDVTWriteBuffer.u4Addr[i],
+				pFDVTWriteBuffer.u4Data[i],
+				CMDQ_REG_MASK);
+		} else {
+		/* LOG_DBG("Error: Writing Addr(0x%8x) Excess FDVT Range!*/
+		/* FD Offset: 0x%x\n",*/
+		/* FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i],*/
+		/* pFDVTWriteBuffer.u4Addr[i]);*/
+		}
+	}
+
+#if (MTK_SECURE_FD_SUPPORT == 1)
+	if (g_isSecure == 1) {
+		unsigned int LearningData_Chosen[18];
+		unsigned int secMemType2MVA = 1;
+		int ret = 0;
+
+		for (i = 0; i < 18; i++) {
+			LearningData_Chosen[i] =
+			(g_fdvt_secmeta.dynamic_change_model[i] == 1) ?
+			(g_fdvt_secmeta.Extra_Learning_Data_Handler[i]) :
+			(g_fdvt_secmeta.Learning_Data_Handler[i]);
+		}
+
+		if (g_fdvt_secmeta.SecMemType == 2)
+			secMemType2MVA = CMDQ_SAM_H_2_MVA;
+		else if (g_fdvt_secmeta.SecMemType == 1)
+			secMemType2MVA = CMDQ_SAM_PH_2_MVA;
+		else
+			LOG_INF("Unknown Sec Mem Type\n");
+
+		cmdqRecWriteSecure(handle,
+			FDVT_RSCON_BASE_ADR_HW,
+			secMemType2MVA,
+			g_fdvt_secmeta.RSConfig_Handler,
+			0,
+			g_fdvt_secmeta.RSConfigSize,
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FD_CON_BASE_ADR_HW,
+			secMemType2MVA,
+			g_fdvt_secmeta.FDConfig_Handler,
+			0,
+			g_fdvt_secmeta.FDConfigSize,
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_0_HW,
+			secMemType2MVA,
+			LearningData_Chosen[0],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[0],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_1_HW,
+			secMemType2MVA,
+			LearningData_Chosen[1],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[1],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_2_HW,
+			secMemType2MVA,
+			LearningData_Chosen[2],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[2],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_3_HW,
+			secMemType2MVA,
+			LearningData_Chosen[3],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[3],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_4_HW,
+			secMemType2MVA,
+			LearningData_Chosen[4],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[4],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_5_HW,
+			secMemType2MVA,
+			LearningData_Chosen[5],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[5],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_6_HW,
+			secMemType2MVA,
+			LearningData_Chosen[6],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[6],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_7_HW,
+			secMemType2MVA,
+			LearningData_Chosen[7],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[7],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_8_HW,
+			secMemType2MVA,
+			LearningData_Chosen[8],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[8],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_9_HW,
+			secMemType2MVA,
+			LearningData_Chosen[9],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[9],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_10_HW,
+			secMemType2MVA,
+			LearningData_Chosen[10],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[10],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_11_HW,
+			secMemType2MVA,
+			LearningData_Chosen[11],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[11],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_12_HW,
+			secMemType2MVA,
+			LearningData_Chosen[12],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[12],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_13_HW,
+			secMemType2MVA,
+			LearningData_Chosen[13],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[13],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_14_HW,
+			secMemType2MVA,
+			LearningData_Chosen[14],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[14],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_15_HW,
+			secMemType2MVA,
+			LearningData_Chosen[15],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[15],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_16_HW,
+			secMemType2MVA,
+			LearningData_Chosen[16],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[16],
+			M4U_PORT_CAM_FD_RB);
+		cmdqRecWriteSecure(handle,
+			FDVT_FF_BASE_ADR_17_HW,
+			secMemType2MVA,
+			LearningData_Chosen[17],
+			0,
+			g_fdvt_secmeta.Learning_Data_Size[17],
+			M4U_PORT_CAM_FD_RB);
+
+		ret = cmdq_task_set_secure_meta(
+			handle,
+			CMDQ_SEC_METAEX_FD,
+			&(g_fdvt_secmeta),
+			sizeof(FDVTSecureMeta));
+	}
+#endif
+	cmdqRecWrite(handle, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
+	cmdqRecWrite(handle, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
+
+	cmdq_task_flush_async_destroy(handle);	/* flush and destroy in cmdq */
+#else
 	/* pFDVTWriteBuffer.u4Counter=pREGIO->u4Count; */
 	/* LOG_DBG("Count = %d\n", pREGIO->u4Count); */
 
 	for (i = 0; i < pREGIO->u4Count; i++) {
 		if ((FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]) >=
-		FDVT_ENABLE &&
+		FDVT_ADDR &&
 		(FDVT_ADDR + pFDVTWriteBuffer.u4Addr[i]) <=
 		(FDVT_ADDR + FDVT_MAX_OFFSET)) {
 		/*LOG_DBG("Write: FDVT[0x%03lx](0x%08lx) = 0x%08lx\n",*/
@@ -576,7 +1042,7 @@ static int FDVT_SetRegHW(FDVTRegIO *a_pstCfg)
 		/* pFDVTWriteBuffer.u4Addr[i]);*/
 		}
 	}
-
+#endif
 	return 0;
 }
 
@@ -656,13 +1122,14 @@ static int FDVT_WaitIRQ(u32 *u4IRQMask)
 		LOG_ERR("wait_event_interruptible_timeout timeout, %d, %d\n",
 			g_FDVTIRQMSK,
 			g_FDVTIRQ);
+		FDVT_DUMPREG();
 		FDVT_WR32(0x00030000, FDVT_START);  /* LDVT Disable */
 		FDVT_WR32(0x00000000, FDVT_START);  /* LDVT Disable */
 		return -EAGAIN;
 	}
 
 	*u4IRQMask = g_FDVTIRQ;
-	/*LOG_DBG("[FDVT] IRQ : 0x%8x\n",g_FDVTIRQ);*/
+	LOG_INF("[FDVT] Receive IRQ : 0x%x\n", g_FDVTIRQ);
 
 	/* check if user is interrupted by system signal */
 	if (timeout != 0 && !(g_FDVTIRQMSK & g_FDVTIRQ)) {
@@ -678,7 +1145,10 @@ static int FDVT_WaitIRQ(u32 *u4IRQMask)
 		FDVT_DUMPREG();
 		return -1;
 	}
-
+#if (MTK_SECURE_FD_SUPPORT == 1)
+	if (g_isSecure != 0)
+		FDVT_switchPortToNonSecure();
+#endif
 	g_FDVTIRQ = 0;
 
 	return 0;
@@ -697,7 +1167,6 @@ static irqreturn_t FDVT_irq(int irq, void *dev_id)
 static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
-
 	if (_IOC_SIZE(cmd) > buf_size) {
 		LOG_DBG("Buffer Size Exceeded!\n");
 		return -EFAULT;
@@ -726,13 +1195,24 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		haveConfig = 0;
 		FDVT_basic_config();
 		break;
+	case FDVT_IOC_INIT_SETNORMAL_CMD:
+		LOG_DBG("[FDVT] FDVT_INIT_SETNORMAL_CMD\n");
+		g_isSecure = 0;
+		break;
+	case FDVT_IOC_INIT_SETSECURE_CMD:
+		LOG_DBG("[FDVT] FDVT_INIT_SETSECURE_CMD\n");
+		g_isSecure = 1;
+		break;
 	case FDVT_IOC_STARTFD_CMD:
 		/* LOG_DBG("[FDVT] FDVTIOC_STARTFD_CMD\n"); */
 		if (haveConfig) {
+			#ifdef FDVT_USE_GCE
+			#else
 			FDVT_WR32(0x00000001, FDVT_INT_EN);
 			FDVT_WR32(0x00000000, FDVT_START);
 			FDVT_WR32(0x00000001, FDVT_START);
 			FDVT_WR32(0x00000000, FDVT_START);
+			#endif
 			haveConfig = 0;
 		}
 		/* FDVT_DUMPREG(); */
@@ -764,12 +1244,16 @@ static long FDVT_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		/* LOG_DBG("[FDVT] FDVT read FD config\n"); */
 		ret = FDVT_ReadRegHW((FDVTRegIO *)pBuff);
 		break;
+	case FDVT_IOC_SETMETA_CMD:
+		LOG_DBG("[FDVT] FDVT set meta data\n");
+		ret = FDVT_SetMetaData((FDVTMetaData *)pBuff);
+		break;
 	case FDVT_IOC_T_DUMPREG:
 		LOG_DBG("[FDVT] FDVT_DUMPREG\n");
 		FDVT_DUMPREG();
 		break;
 	default:
-		LOG_DBG("[FDVT][ERROR] ioctl default case\n");
+		LOG_DBG("[FDVT][ERROR] default case\n");
 		break;
 	}
 	/* NOT_REFERENCED(ret); */
@@ -832,6 +1316,17 @@ static int compat_FD_put_register_data(
 	return err;
 }
 
+static int compat_FD_get_meta_data(compat_FDVTMetaData __user *data32,
+					      FDVTMetaData __user *data)
+{
+	compat_uptr_t uptr;
+	int err = 0;
+
+	err = get_user(uptr, &data32->SecureMeta);
+	err |= put_user(compat_ptr(uptr), &data->SecureMeta);
+	return err;
+}
+
 static long compat_FD_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
 {
@@ -841,6 +1336,16 @@ static long compat_FD_ioctl(
 		return -ENOTTY;
 
 	switch (cmd) {
+	case COMPAT_FDVT_IOC_INIT_SETSECURE_CMD:
+	{
+	return
+	file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
+	}
+	case COMPAT_FDVT_IOC_INIT_SETNORMAL_CMD:
+	{
+	return
+	file->f_op->unlocked_ioctl(file, cmd, (unsigned long)compat_ptr(arg));
+	}
 	case COMPAT_FDVT_IOC_INIT_SETPARA_CMD:
 	{
 	return
@@ -933,6 +1438,26 @@ static long compat_FD_ioctl(
 			(unsigned long)data);
 		return ret ? ret : err;
 	}
+	case COMPAT_FDVT_IOC_SETMETA_CMD:
+	{
+		compat_FDVTMetaData __user *data32;
+		FDVTMetaData __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_FD_get_meta_data(data32, data);
+		if (err)
+			return err;
+		ret = file->f_op->unlocked_ioctl(
+			file,
+			FDVT_IOC_SETMETA_CMD,
+			(unsigned long)data);
+		return ret ? ret : err;
+	}
 	case COMPAT_FDVT_IOC_T_DUMPREG:
 	{
 	return
@@ -951,7 +1476,7 @@ static int FDVT_open(struct inode *inode, struct file *file)
 {
 	signed int ret = 0;
 
-	LOG_DBG("[FDVT_DEBUG] FDVT open\n");
+	LOG_DBG("[FDVT_DEBUG]\n");
 
 	spin_lock(&g_spinLock);
 	if (g_drvOpened) {
@@ -1011,7 +1536,7 @@ static int FDVT_open(struct inode *inode, struct file *file)
  */
 static int FDVT_release(struct inode *inode, struct file *file)
 {
-	LOG_DBG("[FDVT_DEBUG] FDVT release\n");
+	LOG_DBG("[FDVT_DEBUG]\n");
 	/*if (pBuff) {*/
 		kfree(pBuff);
 		pBuff = NULL;
@@ -1096,7 +1621,7 @@ static int FDVT_probe(struct platform_device *dev)
 	LOG_INF("FDVT PROBE!!!\n");
 #ifdef CONFIG_OF
 
-	LOG_DBG("[FDVT_DEBUG] FDVT probe\n");
+	LOG_DBG("[FDVT_DEBUG]\n");
 
 	if (dev == NULL) {
 		dev_info(&dev->dev, "dev is NULL");
@@ -1216,7 +1741,7 @@ static int FDVT_probe(struct platform_device *dev)
 	fdvt_wake_lock =
 		wakeup_source_register(NULL, "fdvt_lock_wakelock");
 
-	LOG_DBG("[FDVT_DEBUG] FDVT probe Done\n");
+	LOG_DBG("[FDVT_DEBUG] Done\n");
 
 	return 0;
 }
@@ -1259,7 +1784,7 @@ static int FDVT_suspend(struct platform_device *dev, pm_message_t state)
 {
 	spin_lock(&g_spinLock);
 	if (g_drvOpened > 0) {
-		LOG_INF("[FDVT_DEBUG] FDVT suspend\n");
+		LOG_INF("[FDVT_DEBUG]\n");
 		mt_fdvt_clk_ctrl(0);
 		g_isSuspend = 1;
 	}
@@ -1271,7 +1796,7 @@ static int FDVT_resume(struct platform_device *dev)
 {
 	spin_lock(&g_spinLock);
 	if (g_isSuspend) {
-		LOG_INF("[FDVT_DEBUG] FDVT resume\n");
+		LOG_INF("[FDVT_DEBUG]\n");
 		mt_fdvt_clk_ctrl(1);
 		g_isSuspend = 0;
 	}
@@ -1310,14 +1835,14 @@ static struct platform_driver FDVT_driver = {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void FDVT_early_suspend(struct early_suspend *h)
 {
-	/* LOG_DBG("[FDVT_DEBUG] FDVT_suspend\n"); */
+	/* LOG_DBG("[FDVT_DEBUG]\n"); */
 	/* mt_fdvt_clk_ctrl(0); */
 
 }
 
 static void FDVT_early_resume(struct early_suspend *h)
 {
-	/* LOG_DBG("[FDVT_DEBUG] FDVT_suspend\n"); */
+	/* LOG_DBG("[FDVT_DEBUG]\n"); */
 	/* mt_fdvt_clk_ctrl(1); */
 }
 
@@ -1332,7 +1857,7 @@ static int __init FDVT_driver_init(void)
 {
 	int ret;
 
-	LOG_DBG("[FDVT_DEBUG] FDVT driver init\n");
+	LOG_DBG("[FDVT_DEBUG]\n");
 
 	if (platform_driver_register(&FDVT_driver)) {
 		LOG_DBG("[FDVT_DEBUG][ERROR] failed to register FDVT Driver\n");
@@ -1350,7 +1875,7 @@ static int __init FDVT_driver_init(void)
 
 static void __exit FDVT_driver_exit(void)
 {
-	LOG_DBG("[FDVT_DEBUG] FDVT driver exit\n");
+	LOG_DBG("[FDVT_DEBUG]\n");
 
 	device_destroy(FDVT_class, FDVT_devno);
 	class_destroy(FDVT_class);
