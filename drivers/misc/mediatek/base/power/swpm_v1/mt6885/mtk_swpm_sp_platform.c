@@ -55,11 +55,11 @@ static uint64_t total_suspend_us;
 #define MAX_IP_NAME_LENGTH (16)
 static char core_ip_str[NR_CORE_IP][MAX_IP_NAME_LENGTH] = {
 	"CAM", "IMG1", "IMG2", "IPE", "DISP",
-	"VENC", "VDEC", "GPU", "SCP", "ADSP",
+	"VENC", "VDEC", "SCP",
 };
 /* ddr bw ip (total r/total w/cpu/gpu/mm/md) */
 static char ddr_bw_ip_str[NR_DDR_BC_IP][MAX_IP_NAME_LENGTH] = {
-	"TOTAL_R", "TOTAL_W", "CPU", "GPU", "MM", "MD",
+	"TOTAL_R", "TOTAL_W", "CPU", "GPU", "MM", "OTHERS",
 };
 
 /* critical section function */
