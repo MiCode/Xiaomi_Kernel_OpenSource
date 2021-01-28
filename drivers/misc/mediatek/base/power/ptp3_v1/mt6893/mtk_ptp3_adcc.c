@@ -126,7 +126,7 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	enum ADCC_TRIGGER_STAGE adcc_tri_stage)
 {
 	int str_len = 0;
-	unsigned int core, temp;
+	unsigned int core, temp, dump_efuse;
 	unsigned int dump_set, dump_PLL, dump_FLL;
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
 
@@ -161,9 +161,10 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	}
 	/* collect dump info */
 	for (core = ADCC_CPU_START_ID; core <= ADCC_CPU_END_ID; core++) {
-		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 0);
-		dump_PLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 1);
-		dump_FLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 2);
+		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 8);
+		dump_PLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 9);
+		dump_FLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 10);
+		dump_efuse = adcc_smc_handle(ADCC_DUMP_INFO, core, 3);
 
 		str_len += snprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
@@ -198,10 +199,6 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 				str_len += snprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
 				" FllDuty:%d%%%%,", ((512+(512-temp))*5000)/512);
-		} else {
-			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)adcc_mem_size - str_len,
-				" FllDuty:0,");
 		}
 
 		str_len += snprintf(aee_log_buf + str_len,
@@ -218,16 +215,39 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 			if (temp >= 512)
 				str_len += snprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
-				" PLLDuty:%d%%%%\n", ((512-(temp-512))*5000)/512);
+				" PLLDuty:%d%%%%", ((512-(temp-512))*5000)/512);
 			else
 				str_len += snprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
-				" PLLDuty:%d%%%%\n", ((512+(512-temp))*5000)/512);
-		} else {
-			str_len += snprintf(aee_log_buf + str_len,
-				(unsigned long long)adcc_mem_size - str_len,
-				" PLLDuty:0\n");
+				" PLLDuty:%d%%%%", ((512+(512-temp))*5000)/512);
 		}
+
+		str_len += snprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" PLL_efuse:0x%x,", GET_BITS_VAL(3:0, dump_efuse));
+		str_len += snprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" FLL_efuse:0x%x,", GET_BITS_VAL(7:4, dump_efuse));
+		if (core == 4)
+			str_len += snprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(12:8, dump_efuse));
+		else if (core == 5)
+			str_len += snprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(17:13, dump_efuse));
+		else if (core == 6)
+			str_len += snprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(22:18, dump_efuse));
+		else if (core == 7)
+			str_len += snprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(27:23, dump_efuse));
 
 	}
 
@@ -276,7 +296,6 @@ static ssize_t adcc_cfg_proc_write(struct file *file,
 
 	for (core = ADCC_CPU_START_ID; core <= ADCC_CPU_END_ID; core++) {
 		enable = (value >> (core * 4)) & 0xF;
-		adcc_smc_handle(ADCC_SET_SHAPER, core, enable);
 		adcc_smc_handle(ADCC_ENABLE, core, enable);
 	}
 out:
@@ -295,45 +314,6 @@ static int adcc_cfg_proc_show(struct seq_file *m, void *v)
 	}
 	seq_printf(m, "%08x\n", status);
 
-	return 0;
-}
-
-static ssize_t adcc_set_Shaper_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	unsigned int core, value;
-	char *buf = (char *) __get_free_page(GFP_USER);
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	if (sscanf(buf, "%u %u", &core, &value) != 2) {
-		adcc_debug("bad argument!! Should input 2 arguments.\n");
-		goto out;
-	}
-
-	if ((core < ADCC_CPU_START_ID) || (core > ADCC_CPU_END_ID)) {
-		adcc_debug("core(%d) is illegal\n", core);
-		goto out;
-	}
-
-	adcc_smc_handle(ADCC_SET_SHAPER, core, value);
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-}
-
-static int adcc_set_Shaper_proc_show(struct seq_file *m, void *v)
-{
 	return 0;
 }
 
@@ -465,12 +445,13 @@ static int adcc_set_DcTarget_proc_show(struct seq_file *m, void *v)
 static int adcc_dump_proc_show(struct seq_file *m, void *v)
 {
 	unsigned int dump_set, dump_PLL, dump_FLL, core;
-	unsigned int temp;
+	unsigned int temp, dump_efuse;
 
 	for (core = ADCC_CPU_START_ID; core <= ADCC_CPU_END_ID; core++) {
-		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 0);
-		dump_PLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 1);
-		dump_FLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 2);
+		dump_set = adcc_smc_handle(ADCC_DUMP_INFO, core, 8);
+		dump_PLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 9);
+		dump_FLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 10);
+		dump_efuse = adcc_smc_handle(ADCC_DUMP_INFO, core, 3);
 
 		seq_printf(m, ADCC_TAG"[CPU%d]", core);
 		seq_printf(m, " Shaper:0x%x,", GET_BITS_VAL(20:17, dump_set));
@@ -490,8 +471,6 @@ static int adcc_dump_proc_show(struct seq_file *m, void *v)
 			else
 				seq_printf(m, " FllDuty:%d%%%%,",
 					((512+(512-temp))*5000)/512);
-		} else {
-			seq_puts(m, " FllDuty:0,");
 		}
 
 		seq_printf(m, " PllCalDone:0x%x,", GET_BITS_VAL(5:5, dump_PLL));
@@ -500,14 +479,27 @@ static int adcc_dump_proc_show(struct seq_file *m, void *v)
 		if (GET_BITS_VAL(16:16, dump_PLL) == 1) {
 			temp = GET_BITS_VAL(15:6, dump_PLL);
 			if (temp >= 512)
-				seq_printf(m, " PllDuty:%d%%%%\n",
+				seq_printf(m, " PllDuty:%d%%%%",
 					((512-(temp-512))*5000)/512);
 			else
-				seq_printf(m, " PllDuty:%d%%%%\n",
+				seq_printf(m, " PllDuty:%d%%%%",
 					((512+(512-temp))*5000)/512);
-		} else {
-			seq_puts(m, " PllDuty:0\n");
 		}
+
+		seq_printf(m, " PLL_efuse:0x%x,", GET_BITS_VAL(3:0, dump_efuse));
+		seq_printf(m, " FLL_efuse:0x%x,", GET_BITS_VAL(7:4, dump_efuse));
+		if (core == 4)
+			seq_printf(m, " FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(12:8, dump_efuse));
+		else if (core == 5)
+			seq_printf(m, " FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(17:13, dump_efuse));
+		else if (core == 6)
+			seq_printf(m, " FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(22:18, dump_efuse));
+		else if (core == 7)
+			seq_printf(m, " FLL_efuse_calout:0x%x\n",
+				GET_BITS_VAL(27:23, dump_efuse));
 
 	}
 
@@ -523,10 +515,14 @@ static int adcc_dump_reg_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "SET:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 0));
 		seq_printf(m, "PLL:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 1));
 		seq_printf(m, "FLL:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 2));
-		seq_printf(m, "109:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 3));
-		seq_printf(m, "110:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 4));
-		seq_printf(m, "114:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 5));
-		seq_printf(m, "DCD:0x%x\n", adcc_smc_handle(ADCC_DUMP_INFO, core, 6));
+		seq_printf(m, "ATE:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 3));
+		seq_printf(m, "109:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 4));
+		seq_printf(m, "110:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 5));
+		seq_printf(m, "114:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 6));
+		seq_printf(m, "DCD:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 7));
+		seq_printf(m, "DOS:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 8));
+		seq_printf(m, "DOP:0x%x,", adcc_smc_handle(ADCC_DUMP_INFO, core, 9));
+		seq_printf(m, "DOF:0x%x\n", adcc_smc_handle(ADCC_DUMP_INFO, core, 10));
 	}
 
 	return 0;
@@ -534,7 +530,6 @@ static int adcc_dump_reg_proc_show(struct seq_file *m, void *v)
 
 
 PROC_FOPS_RW(adcc_cfg);
-PROC_FOPS_RW(adcc_set_Shaper);
 PROC_FOPS_RW(adcc_set_Calin);
 PROC_FOPS_RW(adcc_set_DcdSelect);
 PROC_FOPS_RW(adcc_set_DcTarget);
@@ -553,7 +548,6 @@ int adcc_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	struct pentry adcc_entries[] = {
 		PROC_ENTRY(adcc_cfg),
-		PROC_ENTRY(adcc_set_Shaper),
 		PROC_ENTRY(adcc_set_Calin),
 		PROC_ENTRY(adcc_set_DcdSelect),
 		PROC_ENTRY(adcc_set_DcTarget),
