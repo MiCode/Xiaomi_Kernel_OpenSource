@@ -417,8 +417,6 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_GROUND);
 		} else {
-			/* FIXME: debounce time for xhci finish disconnection */
-			mdelay(200);
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
 			if (ssusb->clk_mgr) {
