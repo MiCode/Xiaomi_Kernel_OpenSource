@@ -592,7 +592,9 @@ config MACH_MT6833
 	select MTK_GIC_V3_EXT
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_LPM
+	select MTK_LOW_POWER_MODULE
 	select MTK_TIMER_SYSTIMER
+	select MTK_LPM_MT6833
 	select OVERLAY_FS
 	select EXT4_FS
 	select EXT4_FS_SECURITY
