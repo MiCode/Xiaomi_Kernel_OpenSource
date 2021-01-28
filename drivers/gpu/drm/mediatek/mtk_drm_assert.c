@@ -223,7 +223,10 @@ static struct mtk_plane_state *drm_set_dal_plane_state(struct drm_crtc *crtc,
 	struct mtk_plane_pending_state *pending;
 	struct mtk_ddp_comp *ovl_comp = _handle_phy_top_plane(mtk_crtc);
 	struct MFC_CONTEXT *ctxt = (struct MFC_CONTEXT *)mfc_handle;
-	int layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
+	int layer_id = -1;
+
+	if (ovl_comp)
+		layer_id = mtk_ovl_layer_num(ovl_comp) - 1;
 
 	if (!ctxt) {
 		DDPPR_ERR("%s MFC_CONTEXT is NULL\n", __func__);
