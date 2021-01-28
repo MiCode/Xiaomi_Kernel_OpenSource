@@ -102,69 +102,6 @@
 		vsel_pin = <2>;
 	};
 };
-/* TOUCH start */
-&touch {
-	tpd-resolution = <1080 1920>;
-	use-tpd-button = <0>;
-	tpd-key-num = <3>;
-	tpd-key-local= <139 172 158 0>;
-	tpd-key-dim-local = <90 883 100 40 230
-				 883 100 40 370 883 100 40 0 0 0 0>;
-	tpd-max-touch-num = <5>;
-	tpd-filter-enable = <1>;
-	tpd-filter-pixel-density = <146>;
-	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
-	tpd-filter-custom-speed = <0 0 0>;
-	pinctrl-names = "default", "state_eint_as_int", "state_eint_output0",
-		"state_eint_output1", "state_rst_output0", "state_rst_output1";
-	pinctrl-0 = <&ctp_pins_default>;
-	pinctrl-1 = <&ctp_pins_eint_as_int>;
-	pinctrl-2 = <&ctp_pins_eint_output0>;
-	pinctrl-3 = <&ctp_pins_eint_output1>;
-	pinctrl-4 = <&ctp_pins_rst_output0>;
-	pinctrl-5 = <&ctp_pins_rst_output1>;
-	status = "okay";
-};
-&pio {
-	ctp_pins_default: eint0default {
-	};
-	ctp_pins_eint_as_int: eint@0 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
-			slew-rate = <0>;
-			bias-disable;
-		};
-	};
-	ctp_pins_eint_output0: eintoutput0 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
-			slew-rate = <1>;
-			output-low;
-		};
-	};
-	ctp_pins_eint_output1: eintoutput1 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
-			slew-rate = <1>;
-			output-high;
-		};
-	};
-	ctp_pins_rst_output0: rstoutput0 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO174__FUNC_GPIO174>;
-			slew-rate = <1>;
-			output-low;
-		};
-	};
-	ctp_pins_rst_output1: rstoutput1 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO174__FUNC_GPIO174>;
-			slew-rate = <1>;
-			output-high;
-		};
-	};
-};
-/* TOUCH end */
 
 /* CONSYS GPIO standardization */
 &pio {
@@ -466,4 +403,5 @@
 
 #include <k62v1_32_bsp/cust.dtsi>
 #include "cust_mt6765_camera.dtsi"
+#include "cust_mt6762_touch_1080x1920.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
