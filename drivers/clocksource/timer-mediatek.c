@@ -319,8 +319,11 @@ static int __init mtk_gpt_init(struct device_node *node)
 	 * guaranteed to be opened so that GPT continues to work.
 	 */
 	clk_bus = of_clk_get_by_name(node, "bus");
-	if (!IS_ERR(clk_bus))
-		clk_prepare_enable(clk_bus);
+	if (!IS_ERR(clk_bus)) {
+		ret = clk_prepare_enable(clk_bus);
+		if (ret)
+			pr_debug("prepare bus clk fail.\n");
+	}
 
 	/*
 	 * CLOCK_EVT_FEAT_DYNIRQ: Core shall set the interrupt affinity
