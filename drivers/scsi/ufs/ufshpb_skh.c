@@ -348,6 +348,7 @@ void skhpb_prep_fn(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	unsigned long long rq_pos;
 	unsigned int rq_sectors;
 	unsigned char cmd;
+	unsigned long flags;
 
 	/* WKLU could not be HPB-LU */
 	if (lrbp->lun >= UFS_UPIU_MAX_GENERAL_LUN)
@@ -386,10 +387,10 @@ void skhpb_prep_fn(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		if (cb->region_state == SKHPB_REGION_INACTIVE) {
 			return;
 		}
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		skhpb_set_dirty(hpb, lrbp, region, subregion,
 						subregion_offset);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 		return;
 	}
 
@@ -404,34 +405,34 @@ void skhpb_prep_fn(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 		return;
 	}
 
-	spin_lock_bh(&hpb->hpb_lock);
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
 	if (cb->region_state == SKHPB_REGION_INACTIVE) {
 		atomic64_inc(&hpb->region_miss);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 		return;
 	} else if (cp->subregion_state != SKHPB_SUBREGION_CLEAN){
 		atomic64_inc(&hpb->subregion_miss);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 		return;
 	}
 	if (rq_sectors <= SKHPB_SECTORS_PER_BLOCK) {
 		if (skhpb_ppn_dirty_check(hpb, cp, subregion_offset)) {
 			atomic64_inc(&hpb->entry_dirty_miss);
-			spin_unlock_bh(&hpb->hpb_lock);
+			spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 			return;
 		}
 	}
 #if defined(SKHPB_READ_LARGE_CHUNK_SUPPORT)
 	else {
 		if (skhpb_lc_dirty_check(hpb, lpn, rq_sectors)) {
-			spin_unlock_bh(&hpb->hpb_lock);
+			spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 			return;
  		}
 		atomic64_inc(&hpb->lc_hit);
 	}
 #endif
 	ppn = skhpb_get_ppn(cp->mctx, subregion_offset);
-	spin_unlock_bh(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 
 	//SKHPB_DRIVER_D("XXX ufs ppn %016llx, lba %u\n", (unsigned long long)ppn, lpn);
 	skhpb_ppn_prep(hpb, lrbp, ppn, rq_sectors);
@@ -507,14 +508,16 @@ static void skhpb_error_active_subregion(
 static void skhpb_map_compl_process(struct skhpb_lu *hpb,
 		struct skhpb_map_req *map_req)
 {
+	unsigned long flags;
+
 	SKHPB_MAP_REQ_TIME(map_req, map_req->RSP_end, 1);
 	SKHPB_DRIVER_D("SKHPB RB COMPL BUFFER %d - %d\n", map_req->region, map_req->subregion);
 
-	spin_lock(&hpb->hpb_lock);
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
 	skhpb_clean_active_subregion(hpb,
 			hpb->region_tbl[map_req->region].subregion_tbl +
 							map_req->subregion);
-	spin_unlock(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 }
 
 /*
@@ -546,6 +549,7 @@ static void skhpb_map_req_compl_fn(struct request *req, blk_status_t error)
 	struct scsi_sense_hdr sshdr = {0};
 	struct skhpb_region *cb;
 	struct scsi_request *scsireq = scsi_req(req);
+	unsigned long flags;
 
 	/* shut up "bio leak" warning */
 	memcpy(map_req->sense, scsireq->sense, SCSI_SENSE_BUFFERSIZE);
@@ -594,9 +598,9 @@ static void skhpb_map_req_compl_fn(struct request *req, blk_status_t error)
 	}
 	// Only change subregion status at here.
 	// Do not put map_ctx, it will re-use when it is activated again.
-	spin_lock(&hpb->hpb_lock);
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
 	skhpb_error_active_subregion(hpb, cb->subregion_tbl + map_req->subregion);
-	spin_unlock(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 free_map_req:
 	spin_lock(&hpb->map_list_lock);
 	INIT_LIST_HEAD(&map_req->list_map_req);
@@ -979,11 +983,12 @@ static int skhpb_check_lru_evict(struct skhpb_lu *hpb, struct skhpb_region *cb)
 {
 	struct skhpb_victim_select_info *lru_info = &hpb->lru_info;
 	struct skhpb_region *victim_cb;
+	unsigned long flags;
 
 	if (cb->is_pinned)
 		return 0;
 
-	spin_lock_bh(&hpb->hpb_lock);
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
 	if (!list_empty(&cb->list_region)) {
 		skhpb_hit_lru_info(lru_info, cb);
 		goto out;
@@ -1010,10 +1015,10 @@ static int skhpb_check_lru_evict(struct skhpb_lu *hpb, struct skhpb_region *cb)
 
 
 out:
-	spin_unlock_bh(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 	return 0;
 unlock_error:
-	spin_unlock_bh(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 	return -ENOMEM;
 }
 
@@ -1022,6 +1027,7 @@ static int skhpb_evict_load_region(struct skhpb_lu *hpb,
 {
 	struct skhpb_region *cb;
 	int region, iter;
+	unsigned long flags;
 
 	for (iter = 0; iter < rsp_info->inactive_cnt; iter++) {
 		region = rsp_info->inactive_list.region[iter];
@@ -1039,9 +1045,9 @@ static int skhpb_evict_load_region(struct skhpb_lu *hpb,
 		if (list_empty(&cb->list_region))
 			continue;
 
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		skhpb_evict_region(hpb, cb);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 	}
 
 	for (iter = 0; iter < rsp_info->active_cnt; iter++) {
@@ -1067,6 +1073,7 @@ static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 	int region, subregion;
 	int iter;
 	int ret;
+	unsigned long flags;
 
 		/*
 		 *  Before Issue read buffer CMD for active active block,
@@ -1096,9 +1103,9 @@ static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 			 * active_page has already been added to list,
 			 * so it just ends function.
 			 */
-			spin_lock_bh(&hpb->hpb_lock);
+			spin_lock_irqsave(&hpb->hpb_lock, flags);
 			if (cp->subregion_state == SKHPB_SUBREGION_ISSUED) {
-				spin_unlock_bh(&hpb->hpb_lock);
+				spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 				continue;
 			}
 
@@ -1106,7 +1113,7 @@ static void skhpb_rsp_map_cmd_req(struct skhpb_lu *hpb,
 
 			ret = skhpb_clean_dirty_bitmap(hpb, cp);
 
-			spin_unlock_bh(&hpb->hpb_lock);
+			spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 
 			if (ret)
 				continue;
@@ -1384,14 +1391,14 @@ static int skhpb_execute_req(struct skhpb_lu *hpb, unsigned char *cmd,
 		SKHPB_DRIVER_E("byte4 %x byte5 %x byte6 %x additional_len %x",
 				sshdr.byte4, sshdr.byte5, sshdr.byte6,
 				sshdr.additional_length);
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		skhpb_error_active_subregion(hpb, cp);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 		ret = -EIO;
 	} else {
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		skhpb_clean_dirty_bitmap(hpb, cp);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 		ret = 0;
 	}
 
@@ -1408,12 +1415,13 @@ static int skhpb_issue_map_req_from_list(struct skhpb_lu *hpb)
 {
 	struct skhpb_subregion *cp, *next_cp;
 	int ret;
+	unsigned long flags;
 
 	LIST_HEAD(req_list);
 
-	spin_lock_bh(&hpb->hpb_lock);
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
 	list_splice_init(&hpb->lh_subregion_req, &req_list);
-	spin_unlock_bh(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 
 	list_for_each_entry_safe(cp, next_cp, &req_list, list_subregion) {
 		int subregion_mem_size =
@@ -1433,10 +1441,10 @@ static int skhpb_issue_map_req_from_list(struct skhpb_lu *hpb)
 			continue;
 		}
 
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		skhpb_clean_active_subregion(hpb, cp);
 		list_del_init(&cp->list_subregion);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 	}
 
 	return 0;
@@ -1595,6 +1603,7 @@ static int skhpb_init_pinned_active_block(struct skhpb_lu *hpb,
 	struct skhpb_subregion *cp;
 	int subregion, j;
 	int err = 0;
+	unsigned long flags;
 
 	for (subregion = 0 ; subregion < cb->subregion_count ; subregion++) {
 		cp = cb->subregion_tbl + subregion;
@@ -1604,9 +1613,9 @@ static int skhpb_init_pinned_active_block(struct skhpb_lu *hpb,
 			err = PTR_ERR(cp->mctx);
 			goto release;
 		}
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		skhpb_add_subregion_to_req_list(hpb, cp);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 	}
 	return 0;
 
@@ -2306,6 +2315,7 @@ static void skhpb_map_loading_trigger(struct skhpb_lu *hpb,
 		bool only_pinned, bool do_work_handler)
 {
 	int region, subregion;
+	unsigned long flags;
 
 	if (do_work_handler)
 		goto work_out;
@@ -2321,12 +2331,12 @@ static void skhpb_map_loading_trigger(struct skhpb_lu *hpb,
 
 		if ((only_pinned && cb->is_pinned) ||
 				!only_pinned) {
-			spin_lock_bh(&hpb->hpb_lock);
+			spin_lock_irqsave(&hpb->hpb_lock, flags);
 			for (subregion = 0; subregion < cb->subregion_count;
 								subregion++)
 				skhpb_add_subregion_to_req_list(hpb,
 						cb->subregion_tbl + subregion);
-			spin_unlock_bh(&hpb->hpb_lock);
+			spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 			do_work_handler = true;
 		}
 	}
@@ -2341,8 +2351,9 @@ static void skhpb_purge_active_block(struct skhpb_lu *hpb)
 	int state;
 	struct skhpb_region *cb;
 	struct skhpb_subregion *cp;
+	unsigned long flags;
 
-	spin_lock_bh(&hpb->hpb_lock);
+	spin_lock_irqsave(&hpb->hpb_lock, flags);
 	for (region = 0 ; region < hpb->regions_per_lu ; region++) {
 		cb = hpb->region_tbl + region;
 
@@ -2372,7 +2383,7 @@ static void skhpb_purge_active_block(struct skhpb_lu *hpb)
 		SKHPB_DRIVER_D("region %d state %d dft %d\n",
 				region, state, hpb->debug_free_table);
 	}
-	spin_unlock_bh(&hpb->hpb_lock);
+	spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 }
 
 static void skhpb_retrieve_rsp_info(struct skhpb_lu *hpb)
@@ -2687,6 +2698,7 @@ static ssize_t skhpb_sysfs_info_from_lba_store(struct skhpb_lu *hpb,
 	struct skhpb_region *cb;
 	struct skhpb_subregion *cp;
 	int dirty;
+	unsigned long flags;
 
 	if (kstrtoull(buf, 0, &value)) {
 		SKHPB_DRIVER_E("kstrtoul error\n");
@@ -2708,9 +2720,9 @@ static ssize_t skhpb_sysfs_info_from_lba_store(struct skhpb_lu *hpb,
 
 	if (cb->region_state != SKHPB_REGION_INACTIVE) {
 		ppn = skhpb_get_ppn(cp->mctx, subregion_offset);
-		spin_lock_bh(&hpb->hpb_lock);
+		spin_lock_irqsave(&hpb->hpb_lock, flags);
 		dirty = skhpb_ppn_dirty_check(hpb, cp, subregion_offset);
-		spin_unlock_bh(&hpb->hpb_lock);
+		spin_unlock_irqrestore(&hpb->hpb_lock, flags);
 	} else {
 		ppn = 0;
 		dirty = -1;
