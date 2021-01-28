@@ -68,7 +68,9 @@ static DEFINE_MUTEX(leds_pmic_mutex);
 #define CLK_DIV1 0
 
 static unsigned int bl_brightness_hal = 102;
+#ifdef CONFIG_MTK_PWM
 static unsigned int bl_duty_hal = 21;
+#endif
 static unsigned int bl_div_hal = CLK_DIV1;
 
 /* for button led don't do ISINK disable first time */
@@ -103,10 +105,9 @@ static int debug_enable_led_hal = 1;
 static int time_array_hal[PWM_DIV_NUM] = {
 	256, 512, 1024, 2048, 4096, 8192, 16384, 32768 };
 static unsigned int backlight_PWM_div_hal = CLK_DIV1;
-#endif
-
 static unsigned int div_array_hal[PWM_DIV_NUM] = {
 	1, 2, 4, 8, 16, 32, 64, 128 };
+#endif
 
 /****************************************************************************
  * func:return global variables
