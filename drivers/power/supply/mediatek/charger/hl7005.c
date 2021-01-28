@@ -11,6 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#include <linux/alarmtimer.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/fs.h>
@@ -87,7 +88,7 @@ struct hl7005_info {
 	struct charger_device *chg_dev;
 	struct charger_properties chg_props;
 	struct device *dev;
-	struct gtimer otg_kthread_gtimer;
+	struct alarm otg_kthread_gtimer;
 	struct workqueue_struct *otg_boost_workq;
 	struct work_struct kick_work;
 	unsigned int polling_interval;
@@ -105,7 +106,8 @@ static const struct i2c_device_id hl7005_i2c_id[] = { {"hl7005", 0}, {} };
 
 static void enable_boost_polling(bool poll_en);
 static void usbotg_boost_kick_work(struct work_struct *work);
-static int usbotg_gtimer_func(struct gtimer *data);
+static enum alarmtimer_restart usbotg_gtimer_func(struct alarm *alarm,
+						 ktime_t now);
 
 unsigned int charging_value_to_parameter(const unsigned int *parameter,
 					const unsigned int array_size,
@@ -776,21 +778,29 @@ static int hl7005_charger_enable_otg(struct charger_device *chg_dev, bool en)
 
 static void enable_boost_polling(bool poll_en)
 {
+	struct timespec time, time_now, end_time;
+	ktime_t ktime;
+
 	if (g_info) {
 		if (poll_en) {
-			gtimer_start(&g_info->otg_kthread_gtimer,
-				     g_info->polling_interval);
+			get_monotonic_boottime(&time_now);
+			time.tv_sec = g_info->polling_interval;
+			time.tv_nsec = 0;
+			timespec_add(time_now, time);
+			ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
+			alarm_start(&g_info->otg_kthread_gtimer, ktime);
 			g_info->polling_enabled = true;
 		} else {
 			g_info->polling_enabled = false;
-			gtimer_stop(&g_info->otg_kthread_gtimer);
+			alarm_cancel(&g_info->otg_kthread_gtimer);
 		}
 	}
 }
 
 static void usbotg_boost_kick_work(struct work_struct *work)
 {
-
+	ktime_t ktime;
+	struct timespec time, time_now, end_time;
 	struct hl7005_info *boost_manager =
 		container_of(work, struct hl7005_info, kick_work);
 
@@ -798,21 +808,27 @@ static void usbotg_boost_kick_work(struct work_struct *work)
 
 	hl7005_set_tmr_rst(1);
 
-	if (boost_manager->polling_enabled == true)
-		gtimer_start(&boost_manager->otg_kthread_gtimer,
-			     boost_manager->polling_interval);
+	if (boost_manager->polling_enabled == true) {
+		get_monotonic_boottime(&time_now);
+		time.tv_sec = boost_manager->polling_interval;
+		time.tv_nsec = 0;
+		timespec_add(time_now, time);
+		ktime = ktime_set(end_time.tv_sec, end_time.tv_nsec);
+		alarm_start(&boost_manager->otg_kthread_gtimer, ktime);
+	}
 }
 
-static int usbotg_gtimer_func(struct gtimer *data)
+static enum alarmtimer_restart usbotg_gtimer_func(struct alarm *alarm,
+						 ktime_t now)
 {
 	struct hl7005_info *boost_manager =
-		container_of(data, struct hl7005_info,
+		container_of(alarm, struct hl7005_info,
 			     otg_kthread_gtimer);
 
 	queue_work(boost_manager->otg_boost_workq,
 		   &boost_manager->kick_work);
 
-	return 0;
+	return ALARMTIMER_NORESTART;
 }
 
 static struct charger_ops hl7005_chg_ops = {
@@ -885,8 +901,8 @@ static int hl7005_driver_probe(struct i2c_client *client,
 
 	hl7005_dump_register(info->chg_dev);
 
-	gtimer_init(&info->otg_kthread_gtimer, info->dev, "otg_boost");
-	info->otg_kthread_gtimer.callback = usbotg_gtimer_func;
+	alarm_init(&info->otg_kthread_gtimer, ALARM_BOOTTIME,
+		  usbotg_gtimer_func);
 
 	info->otg_boost_workq =
 			create_singlethread_workqueue("otg_boost_workq");
