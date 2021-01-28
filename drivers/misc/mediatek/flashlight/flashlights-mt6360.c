@@ -17,8 +17,8 @@
 #include <linux/of.h>
 #include <linux/list.h>
 #include <linux/delay.h>
+#include <linux/power_supply.h>
 
-#include "richtek/rt-flashlight.h"
 #include "mtk_charger.h"
 
 #include "flashlight-core.h"
@@ -67,10 +67,6 @@ static struct flashlight_device *flashlight_dev_ch2;
 #define RT_FLED_DEVICE_CH1  "mt-flash-led1"
 #define RT_FLED_DEVICE_CH2  "mt-flash-led2"
 
-/* define charger consumer */
-static struct charger_consumer *flashlight_charger_consumer;
-#define CHARGER_SUPPLY_NAME "charger_port1"
-
 /* is decrease voltage */
 static int is_decrease_voltage;
 
@@ -80,6 +76,30 @@ struct mt6360_platform_data {
 	struct flashlight_device_id *dev_id;
 };
 
+/******************************************************************************
+ * Charger power supply class
+ *****************************************************************************/
+static int mt6360_high_voltage_supply(int enable)
+{
+	union power_supply_propval prop;
+	static struct power_supply *chg_psy;
+	int ret;
+
+	if (chg_psy == NULL)
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		ret = -1;
+	} else {
+		prop.intval = enable;
+		ret = power_supply_set_property(chg_psy,
+			 POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+		pr_notice("%s enable_hv:%d\n", __func__, prop.intval);
+		power_supply_changed(chg_psy);
+	}
+
+	return ret;
+}
 
 /******************************************************************************
  * mt6360 operations
@@ -325,28 +345,17 @@ static int mt6360_set_scenario(int scenario)
 	mt6360_decouple_mode = scenario & FLASHLIGHT_SCENARIO_DECOUPLE_MASK;
 
 	/* notify charger to increase or decrease voltage */
-	if (!flashlight_charger_consumer) {
-		pr_info("Failed with no charger consumer handler.\n");
-		return -1;
-	}
-
 	mutex_lock(&mt6360_mutex);
 	if (scenario & FLASHLIGHT_SCENARIO_CAMERA_MASK) {
 		if (!is_decrease_voltage) {
-#ifdef CONFIG_MTK_CHARGER
 			pr_info("Decrease voltage level.\n");
-			charger_manager_enable_high_voltage_charging(
-					flashlight_charger_consumer, false);
-#endif
+			mt6360_high_voltage_supply(0);
 			is_decrease_voltage = 1;
 		}
 	} else {
 		if (is_decrease_voltage) {
-#ifdef CONFIG_MTK_CHARGER
 			pr_info("Increase voltage level.\n");
-			charger_manager_enable_high_voltage_charging(
-					flashlight_charger_consumer, true);
-#endif
+			mt6360_high_voltage_supply(1);
 			is_decrease_voltage = 0;
 		}
 	}
@@ -630,11 +639,8 @@ static int mt6360_release(void)
 	pr_debug("close driver: %d\n", fd_use_count);
 	/* If camera NE, we need to enable pe by ourselves*/
 	if (fd_use_count == 0 && is_decrease_voltage) {
-#ifdef CONFIG_MTK_CHARGER
 		pr_info("Increase voltage level.\n");
-		charger_manager_enable_high_voltage_charging(
-				flashlight_charger_consumer, true);
-#endif
+		mt6360_high_voltage_supply(1);
 		is_decrease_voltage = 0;
 	}
 	mutex_unlock(&mt6360_mutex);
@@ -819,14 +825,6 @@ static int mt6360_probe(struct platform_device *pdev)
 	if (flashlight_set_strobe_timeout(flashlight_dev_ch1,
 				MT6360_HW_TIMEOUT, MT6360_HW_TIMEOUT + 200) < 0)
 		pr_info("Failed to set strobe timeout.\n");
-
-	/* get charger consumer manager */
-	flashlight_charger_consumer = charger_manager_get_by_name(
-			&flashlight_dev_ch1->dev, CHARGER_SUPPLY_NAME);
-	if (!flashlight_charger_consumer) {
-		pr_info("Failed to get charger manager.\n");
-		return -EFAULT;
-	}
 
 	/* register flashlight device */
 	if (pdata->channel_num) {
