@@ -89,7 +89,8 @@ const char *cmdq_event_module_dispatch(phys_addr_t gce_pa, const u16 event,
 u32 cmdq_util_hw_id(u32 pa);
 const char *cmdq_util_hw_name(void *chan);
 
-#if IS_ENABLED(CONFIG_MACH_MT6873)
+
+#if IS_ENABLED(CONFIG_MACH_MT6873) || IS_ENABLED(CONFIG_MACH_MT6853)
 bool cmdq_thread_ddr_user_check(const s32 thread);
 #endif
 
