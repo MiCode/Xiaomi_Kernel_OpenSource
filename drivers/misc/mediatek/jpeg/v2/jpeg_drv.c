@@ -143,6 +143,8 @@
 #include "mmdvfs_pmqos.h"
 #endif
 
+#include <ion_drv.h>
+
 /* -------------------------------------------------------------------------- */
 /*  */
 /* -------------------------------------------------------------------------- */
@@ -251,6 +253,9 @@ static struct pm_qos_request jpgdec_qos_request;
 static u64 g_freq_steps[MAX_FREQ_STEP];  //index 0 is max
 static u32 freq_step_size;
 #endif
+
+static struct ion_client *g_jpeg_ion_client;
+
 
 /* ========================================== */
 /* CMDQ */
@@ -1420,18 +1425,22 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg,
 		}
 
 		/* 2. set src buffer info */
-		JPEG_MSG("[JPEGDRV]SRC_BUF: addr %x, %x, stride %x, %x!!\n",
+		JPEG_MSG("[JPEGDRV]SRC_BUF: addr %x, %x, stride %x, %x fd %d %d!!\n",
 			 cfgEnc.srcBufferAddr,
 			 cfgEnc.srcChromaAddr,
 			 cfgEnc.imgStride,
-			 cfgEnc.memStride);
+			 cfgEnc.memStride,
+			 cfgEnc.srcFd,
+			 cfgEnc.srcFd2);
 
 		ret =
-		    jpeg_drv_enc_set_src_buf(cfgEnc.encFormat,
+		    jpeg_drv_enc_set_src_buf(g_jpeg_ion_client,
+						 cfgEnc.encFormat,
 					     cfgEnc.imgStride,
 					     cfgEnc.memStride,
-					     cfgEnc.srcBufferAddr,
-					     cfgEnc.srcChromaAddr);
+					     cfgEnc.memHeight,
+					     cfgEnc.srcFd,
+					     cfgEnc.srcFd2);
 		if (ret == 0) {
 			JPEG_MSG("[JPGDRV]Enc set srouce buffer failed\n");
 			return -EFAULT;
@@ -1444,14 +1453,17 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg,
 		/* } */
 
 		/* 3. set dst buffer info */
-		JPEG_MSG("[JPGDRV]DST_BUF: addr:%x, size:%x, ofs:%x, mask:%x\n",
+		JPEG_MSG("[JPGDRV]DST_BUF: addr:%x, size:%x, ofs:%x, mask:%x Fd 0x%x\n",
 			 cfgEnc.dstBufferAddr,
 			 cfgEnc.dstBufferSize,
 			 cfgEnc.dstBufAddrOffset,
-			 cfgEnc.dstBufAddrOffsetMask);
+			 cfgEnc.dstBufAddrOffsetMask,
+			 cfgEnc.dstFd);
+
 
 		ret =
-		    jpeg_drv_enc_set_dst_buff(cfgEnc.dstBufferAddr,
+		    jpeg_drv_enc_set_dst_buff(g_jpeg_ion_client,
+						  cfgEnc.dstFd,
 					      cfgEnc.dstBufferSize,
 					      cfgEnc.dstBufAddrOffset,
 					      cfgEnc.dstBufAddrOffsetMask);
@@ -2785,6 +2797,11 @@ static int __init jpeg_init(void)
 #ifdef JPEG_ENC_DRIVER
 	jpeg_drv_enc_prepare_bw_request();
 #endif
+
+	if (!g_jpeg_ion_client && g_ion_device) {
+		JPEG_MSG("create ion client\n");
+		g_jpeg_ion_client = ion_client_create(g_ion_device, "jpegenc");
+	}
 	return 0;
 }
 
@@ -2821,6 +2838,9 @@ static void __exit jpeg_exit(void)
 #ifdef JPEG_ENC_DRIVER
 	jpegenc_drv_enc_remove_bw_request();
 #endif
+	if (g_jpeg_ion_client)
+		ion_client_destroy(g_jpeg_ion_client);
+	g_jpeg_ion_client = NULL;
 	JPEG_MSG("%s -\n", __func__);
 }
 module_init(jpeg_init);
