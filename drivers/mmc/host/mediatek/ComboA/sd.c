@@ -1146,16 +1146,18 @@ static int check_enable_cqe(void)
 	enum boot_mode_t mode;
 
 	mode = get_boot_mode();
-	if ((mode == NORMAL_BOOT) || (mode == ALARM_BOOT)
-		|| (mode == SW_REBOOT))
-		return 1;
 	/*
-	 * Disable cqe in other mode, for bypass flush
+	 * Disable cqe in recovery/power off mode, for bypass flush
 	 *
 	 * Device will return switch error if flush cache
 	 * with cache disabled.
 	 */
-	return 0;
+	if ((mode == RECOVERY_BOOT) ||
+		(mode == KERNEL_POWER_OFF_CHARGING_BOOT) ||
+		(mode == LOW_POWER_OFF_CHARGING_BOOT))
+		return 0;
+
+	return 1;
 #else
 	return 1;
 #endif
@@ -1171,13 +1173,12 @@ static int msdc_cache_onoff(struct mmc_data *data)
 	enum boot_mode_t mode;
 
 	/*
-	 * Enable cache by boot mode
-	 * only enable emmc cache in normal boot up, alarm, and sw reboot,
-	 * disable cache in other modes
+	 * disable cache in recovery and charger modes
 	 */
 	mode = get_boot_mode();
-	if ((mode != NORMAL_BOOT) && (mode != ALARM_BOOT)
-		&& (mode != SW_REBOOT)) {
+	if ((mode == RECOVERY_BOOT) ||
+		(mode == KERNEL_POWER_OFF_CHARGING_BOOT) ||
+		(mode == LOW_POWER_OFF_CHARGING_BOOT)) {
 		/* Set cache_size as 0 so that mmc layer won't enable cache */
 		*(ptr + 252) = *(ptr + 251) = *(ptr + 250) = *(ptr + 249) = 0;
 		return 0;
