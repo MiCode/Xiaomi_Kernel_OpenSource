@@ -61,7 +61,7 @@ $(KERNEL_DTB_FILE): $(INSTALLED_KERNEL_TARGET)
 	@echo 'DTB: Copy to $@'
 	@mkdir -p $(dir $@)
 	@cp -f $(KERNEL_DTB_TARGET) $@
-$(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET)
+$(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET) $(KERNEL_DTB_FILE)
 	@echo 'DTB: Copy to $@'
 	@mkdir -p $(dir $@)
 	@cp -f $(KERNEL_DTB_FILE) $@
