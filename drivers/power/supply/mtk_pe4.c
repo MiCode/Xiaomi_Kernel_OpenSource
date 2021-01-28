@@ -238,7 +238,7 @@ int mtk_pe40_get_setting_by_watt(struct chg_alg_device *alg, int *voltage,
 	int *adapter_ibus, int *actual_current, int watt,
 	int *ibus_current_setting)
 {
-	int i;
+	int i = 0;
 	struct mtk_pe40 *pe40;
 	struct pe4_power_cap *pe40_cap;
 	int vbus = 0, ibus = 0, ibus_setting = 0;
