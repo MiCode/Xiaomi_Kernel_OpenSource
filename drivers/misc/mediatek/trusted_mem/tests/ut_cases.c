@@ -425,19 +425,6 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 	if (tmem_core_is_device_registered(TRUSTED_MEM_PROT))
 		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_PROT),
 			  "pmem ssmr allocate check");
-	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP)) {
-		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
-			  "svp ssmr allocate check");
-		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
-			  "svp ssmr release check");
-	}
-	if (tmem_core_is_device_registered(TRUSTED_MEM_PROT))
-		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_PROT),
-			  "pmem ssmr release check");
-
-	if (tmem_core_is_device_registered(TRUSTED_MEM_PROT))
-		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_PROT),
-			  "pmem ssmr allocate check");
 	if (tmem_core_is_device_registered(TRUSTED_MEM_2D_FR)) {
 		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_2D_FR),
 			  "FR ssmr allocate check");
@@ -448,192 +435,34 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_PROT),
 			  "pmem ssmr release check");
 
-	return UT_STATE_PASS;
-}
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
+			  "svp ssmr allocate check");
+	if (tmem_core_is_device_registered(TRUSTED_MEM_WFD)) {
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_WFD),
+			  "wfd ssmr allocate check");
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_WFD),
+			  "wfd ssmr release check");
+	}
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
+			  "svp ssmr release check");
 
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-static enum UT_RET_STATE device_share_region_basic(struct ut_params *params,
-						   char *test_desc)
-{
-	pr_info("%s:%d\n", __func__, __LINE__);
-	if (ut_is_halt())
-		return UT_STATE_FAIL;
-
-	ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
-		  "svp ssmr allocate check");
-	ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
-		  "svp ssmr release check");
-	ASSERT_EQ(0, tmem_core_regmgr_online(TRUSTED_MEM_SVP),
-		  "svp regmgr region online check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		    "svp region state check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state check");
-	ASSERT_EQ(0, tmem_core_regmgr_offline(TRUSTED_MEM_SVP),
-		  "svp regmgr region offline check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		    "svp region state on check");
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state off check");
-
-	ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_2D_FR),
-		  "FR ssmr allocate check");
-	ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_2D_FR),
-		  "FR ssmr release check");
-	ASSERT_EQ(0, tmem_core_regmgr_online(TRUSTED_MEM_2D_FR),
-		  "FR regmgr region online check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		    "FR region state check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state check");
-	ASSERT_EQ(0, tmem_core_regmgr_offline(TRUSTED_MEM_2D_FR),
-		  "FR regmgr region offline check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		    "FR region state on check");
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state off check");
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
+			  "svp ssmr allocate check");
+	if (tmem_core_is_device_registered(TRUSTED_MEM_2D_FR)) {
+		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_2D_FR),
+			  "FR ssmr allocate check");
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_2D_FR),
+			  "FR ssmr release check");
+	}
+	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
+		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
+			  "svp ssmr release check");
 
 	return UT_STATE_PASS;
 }
-
-static enum UT_RET_STATE device_share_region_switch(struct ut_params *params,
-						    char *test_desc)
-{
-	pr_info("%s:%d\n", __func__, __LINE__);
-	if (ut_is_halt())
-		return UT_STATE_FAIL;
-
-	ASSERT_EQ(0, tmem_core_regmgr_online(TRUSTED_MEM_SVP),
-		  "svp regmgr region online check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		    "svp region state check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state check");
-	ASSERT_NE(0, tmem_core_regmgr_online(TRUSTED_MEM_2D_FR),
-		  "FR regmgr region online fail check");
-	ASSERT_EQ(0, tmem_core_regmgr_offline(TRUSTED_MEM_SVP),
-		  "svp regmgr region offline check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		    "svp region state on check");
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state off check");
-
-	ASSERT_EQ(0, tmem_core_regmgr_online(TRUSTED_MEM_2D_FR),
-		  "FR regmgr region online check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		    "FR region state check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state check");
-	ASSERT_NE(0, tmem_core_regmgr_online(TRUSTED_MEM_SVP),
-		  "svp regmgr region online fail check");
-	ASSERT_EQ(0, tmem_core_regmgr_offline(TRUSTED_MEM_2D_FR),
-		  "FR regmgr region offline check");
-	ASSERT_TRUE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		    "FR region state on check");
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state off check");
-
-	return UT_STATE_PASS;
-}
-
-static enum UT_RET_STATE device_share_region_alloc(struct ut_params *params,
-						   char *test_desc)
-{
-	int ret;
-	u32 secmem_handle, secmem_ref_count;
-	u32 fr_handle, fr_ref_count;
-	u32 pmem_handle, pmem_ref_count;
-
-	pr_info("%s:%d\n", __func__, __LINE__);
-	if (ut_is_halt())
-		return UT_STATE_FAIL;
-
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state off check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state off check");
-
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_SVP, 0, SZ_64K,
-				    &secmem_ref_count, &secmem_handle, NULL, 0,
-				    0);
-	ASSERT_EQ(0, ret, "svp alloc chunk memory check");
-	ASSERT_EQ(1, secmem_ref_count, "svp reference count check");
-	ASSERT_NE(0, secmem_handle, "svp handle check");
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_2D_FR, 0, SZ_64K, &fr_ref_count,
-				    &fr_handle, NULL, 0, 0);
-	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
-		  "fr alloc chunk memory fail check");
-
-	ret = tmem_core_unref_chunk(TRUSTED_MEM_SVP, secmem_handle, NULL, 0);
-	ASSERT_EQ(0, ret, "svp free chunk memory check");
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_2D_FR, 0, SZ_64K, &fr_ref_count,
-				    &fr_handle, NULL, 0, 0);
-	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
-		  "fr alloc chunk memory check");
-
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state off check");
-
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_2D_FR, 0, SZ_64K, &fr_ref_count,
-				    &fr_handle, NULL, 0, 0);
-	ASSERT_EQ(0, ret, "fr alloc chunk memory check");
-	ASSERT_EQ(1, fr_ref_count, "fr reference count check");
-	ASSERT_NE(0, fr_handle, "fr handle check");
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_SVP, 0, SZ_64K,
-				    &secmem_ref_count, &secmem_handle, NULL, 0,
-				    0);
-	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
-		  "svp alloc chunk memory fail check");
-	ret = tmem_core_unref_chunk(TRUSTED_MEM_2D_FR, fr_handle, NULL, 0);
-	ASSERT_EQ(0, ret, "fr free chunk memory check");
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_SVP, 0, SZ_64K,
-				    &secmem_ref_count, &secmem_handle, NULL, 0,
-				    0);
-	ASSERT_EQ(TMEM_REGION_POWER_ON_FAILED, ret,
-		  "svp alloc chunk memory fail check");
-
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state off check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state off check");
-
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_PROT, 0, SZ_64K,
-				    &pmem_ref_count, &pmem_handle, NULL, 0, 0);
-	ASSERT_EQ(0, ret, "pmem alloc chunk memory check");
-	ASSERT_EQ(1, pmem_ref_count, "pmem reference count check");
-	ASSERT_NE(0, pmem_handle, "pmem handle check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_2D_FR),
-		     "FR region state off check");
-	ret = tmem_core_alloc_chunk(TRUSTED_MEM_SVP, 0, SZ_64K,
-				    &secmem_ref_count, &secmem_handle, NULL, 0,
-				    0);
-	ASSERT_EQ(0, ret, "svp alloc chunk memory check");
-	ASSERT_EQ(1, secmem_ref_count, "svp reference count check");
-	ASSERT_NE(0, secmem_handle, "svp handle check");
-	ret = tmem_core_unref_chunk(TRUSTED_MEM_SVP, secmem_handle, NULL, 0);
-	ASSERT_EQ(0, ret, "svp free chunk memory check");
-	ret = tmem_core_unref_chunk(TRUSTED_MEM_PROT, pmem_handle, NULL, 0);
-	ASSERT_EQ(0, ret, "pmem free chunk memory check");
-
-	mdelay(REGMGR_REGION_DEFER_OFF_DONE_DELAY_MS);
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_SVP),
-		     "svp region state off check");
-	ASSERT_FALSE(tmem_core_is_regmgr_region_on(TRUSTED_MEM_PROT),
-		     "pmem region state off check");
-
-	ASSERT_EQ(0, all_regmgr_state_off_check(),
-		  "all region state off check");
-
-	return UT_STATE_PASS;
-}
-#endif
 
 #if MULTIPLE_REGION_MULTIPLE_THREAD_TEST_ENABLE
 static enum UT_RET_STATE
@@ -906,16 +735,6 @@ static struct test_case test_cases[] = {
 	CASE(TMEM_UT_CORE_MULTIPLE_SSMR_REGION_REQUEST,
 	     "Multiple SSMR Region Request", 0, 0, 0,
 	     multiple_ssmr_region_request),
-
-#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
-	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	CASE(TMEM_UT_CORE_DEVICE_VIRT_REGION_BASIC, "Share Region Basic Test",
-	     0, 0, 0, device_share_region_basic),
-	CASE(TMEM_UT_CORE_DEVICE_VIRT_REGION_SWITCH, "Share Region Switch Test",
-	     0, 0, 0, device_share_region_switch),
-	CASE(TMEM_UT_CORE_DEVICE_VIRT_REGION_ALLOC, "Share Region Alloc Test",
-	     0, 0, 0, device_share_region_alloc),
-#endif
 
 #if MULTIPLE_REGION_MULTIPLE_THREAD_TEST_ENABLE
 	CASE(TMEM_UT_CORE_MULTIPLE_REGION_MULTIPLE_THREAD_ALLOC,

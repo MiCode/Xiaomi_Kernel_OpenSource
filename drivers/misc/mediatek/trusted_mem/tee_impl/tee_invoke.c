@@ -98,7 +98,7 @@ int secmem_fr_dump_info(void)
 {
 	struct trusted_driver_cmd_params cmd_params = {0};
 
-	cmd_params.cmd = CMD_SEC_MEM_DUMP_MEM_INFO;
+	cmd_params.cmd = CMD_2D_FR_SMEM_DUMP_MEM_INFO;
 	return tee_directly_invoke_cmd(&cmd_params);
 }
 #endif

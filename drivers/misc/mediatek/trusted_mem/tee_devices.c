@@ -73,11 +73,13 @@ static struct tmem_device_description tee_smem_devs[] = {
 		.ssmr_feature_id = SSMR_FEAT_2D_FR,
 		/* clang-format off */
 		.u_ops_data.tee = {
-			.tee_cmds[TEE_OP_ALLOC] = CMD_SEC_MEM_ALLOC,
-			.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_SEC_MEM_ALLOC_ZERO,
-			.tee_cmds[TEE_OP_FREE] = CMD_SEC_MEM_UNREF,
-			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_SEC_MEM_ENABLE,
-			.tee_cmds[TEE_OP_REGION_DISABLE] = CMD_SEC_MEM_DISABLE,
+			.tee_cmds[TEE_OP_ALLOC] = CMD_2D_FR_SMEM_ALLOC,
+			.tee_cmds[TEE_OP_ALLOC_ZERO] =
+				CMD_2D_FR_SMEM_ALLOC_ZERO,
+			.tee_cmds[TEE_OP_FREE] = CMD_2D_FR_SMEM_UNREF,
+			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_2D_FR_SMEM_ENABLE,
+			.tee_cmds[TEE_OP_REGION_DISABLE] =
+				CMD_2D_FR_SMEM_DISABLE,
 		},
 		/* clang-format on */
 		.notify_remote = false,
