@@ -2528,7 +2528,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	ion_display_handle = disp_ion_alloc(ion_display_client,
 					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
 					    temp_va, vramsize);
-	if (ret) {
+	if (ion_display_handle) {
 		DISP_PR_ERR("%s: fail to allocate buffer\n", __func__);
 		ret = -1;
 		goto cleanup;
