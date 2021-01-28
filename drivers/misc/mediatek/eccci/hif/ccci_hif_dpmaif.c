@@ -2706,7 +2706,9 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	unsigned long flags;
 	unsigned short prio_count = 0;
 	s64 curr_tick;
+#ifdef MT6297
 	int total_size = 0;
+#endif
 
 	/* 1. parameters check*/
 	if (!skb)
@@ -2934,7 +2936,9 @@ retry:
 		record_drb_skb(txq->index, cur_idx, skb, 0, is_frag,
 			is_last_one, phy_addr, data_len);
 		cur_idx = ringbuf_get_next_idx(txq->drb_size_cnt, cur_idx, 1);
+#ifdef MT6297
 		total_size += data_len;
+#endif
 	}
 	/* debug: tx on ccci_channel && HW Q */
 	ccci_channel_update_packet_counter(
@@ -2966,8 +2970,10 @@ retry:
 		tx_force_md_assert("HW_REG_CHK_FAIL");
 		ret = 0;
 	}
+#ifdef MT6297
 	if (ret == 0)
 		mtk_ccci_add_ul_pkt_size(total_size);
+#endif
 
 	spin_unlock_irqrestore(&txq->tx_lock, flags);
 __EXIT_FUN:
