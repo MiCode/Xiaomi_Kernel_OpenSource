@@ -309,6 +309,24 @@ page_owner=on";
 		#clock-cells=<1>;
 	};
 
+	auxadc: auxadc@11001000 {
+		compatible = "mediatek,mt6768-auxadc";
+		reg = <0 0x11001000 0 0x1000>;
+		interrupts = <GIC_SPI 64 IRQ_TYPE_EDGE_RISING>;
+		clocks = <&infracfg_ao CLK_IFRAO_AUXADC>;
+		clock-names = "main";
+		#io-channel-cells = <1>;
+		/* Auxadc efuse calibration */
+		/* 1. Auxadc cali on/off bit shift */
+		mediatek,cali-en-bit = <20>;
+		/* 2. Auxadc cali ge bits shift */
+		mediatek,cali-ge-bit = <10>;
+		/* 3. Auxadc cali oe bits shift */
+		mediatek,cali-oe-bit = <0>;
+		/* 4. Auxadc cali efuse index */
+		mediatek,cali-efuse-index = <113>;
+	};
+
 	iocfg_rb: iocfg_rb@11c30000 {
 		compatible = "mediatek,iocfg_rb";
 		reg = <0 0x11c30000 0 0x1000>;
