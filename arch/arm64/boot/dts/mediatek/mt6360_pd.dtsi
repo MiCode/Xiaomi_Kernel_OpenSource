@@ -12,7 +12,7 @@
 		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
 		/* 0: SNK Only, 1: SRC Only, 2: DRP, 3: Try.SRC, 4: Try.SNK */
 		mt-tcpc,role_def = <4>;
-		mt-tcpc,rp_level = <0>; /* 0: Default, 1: 1.5, 2: 3.0 */
+		mt-tcpc,rp_level = <1>; /* 0: Default, 1: 1.5, 2: 3.0 */
 		/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
 		mt-tcpc,vconn_supply  = <1>;
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
@@ -32,31 +32,43 @@
 		charger = <&mt6360_chg>;
 		bootmode = <&chosen>;
 		pd-data {
+			pd,vid = <0x29cf>;
+			pd,pid = <0x6360>;
+			pd,source-cap-ext = <0x636029cf 0x00000000 0x00000000
+					     0x00000000 0x00000000 0x07000000>;
+			pd,mfrs = "RichtekTCPC";
+
 			/*
 			 *	VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
 			 *	MAX_POWER_LV = 0x21, MAX_POWER_LVIC = 0x31
 			 *	MAX_POWER_HV = 0x41, MAX_POWER_HVIC = 0x51
 			 */
-			pd,charging_policy= <0x21>;
+			pd,charging_policy= <0x31>;
 
 			pd,source-pdo-size = <1>;
-			pd,source-pdo-data = <0x00019032>; /* 5V, 500 mA */
-			pd,sink-pdo-size = <2>;
-			pd,sink-pdo-data = <0x000190c8 0x000190c8> ;
-			/* 0x0002d0c8 : 9V, 2A<0x04019032 0x04019064> */
+			pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
+			pd,sink-pdo-size = <1>;
+			pd,sink-pdo-data = <0x000190c8>;
 
 			/*
 			 * No DP, host + device
 			 *	pd,id-vdo-size = <3>;
-			 *	pd,id-vdo-data = <0xd00029cf 0x0 0x00010000>;
+			 *	pd,id-vdo-data = <0xd10029cf 0x0 0x63600000>;
 			 * With DP
-			 *	pd,id-vdo-size = <4>;
-			 *	pd,id-vdo-data =
-			 *		<0xec0029cf 0x0 0x00010000 0x11000001>;
+			 *	pd,id-vdo-size = <3>;
+			 *	pd,id-vdo-data = <0xd60029cf 0x0 0x63600000>;
 			 */
 
 			pd,id-vdo-size = <3>;
-			pd,id-vdo-data = <0xd00029cf 0x0 0x00010000>;
+			pd,id-vdo-data = <0xd10029cf 0x0 0x63600000>;
+
+			bat,nr = <1>;
+			bat-info0 {
+				bat,vid = <0x29cf>;
+				bat,pid = <0x6360>;
+				bat,mfrs = "bat1";
+				bat,design_cap = <3000>;
+			};
 		};
 		dpm_caps {
 			local_dr_power;

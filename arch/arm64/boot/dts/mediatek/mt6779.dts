@@ -4189,7 +4189,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	rt-pd-manager {
 		compatible = "mediatek,rt-pd-manager";
-		charger = <&mt6360_chg>;
 	};
 
 	subpmic_pmu_eint: mt6360_pmu_eint {
