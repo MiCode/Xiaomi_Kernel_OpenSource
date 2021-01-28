@@ -494,17 +494,6 @@ config CMA
 
 	  If unsure, say "n".
 
-config ZONE_MOVABLE_CMA
-	bool "Contiguous Memory Allocator by ZONE_MOVABLE"
-	depends on CMA
-	help
-	  This enable the support of ZONE MOVALBE Contiguous Memory Allocator.
-	  Traditional CMA is based on a "fallback logic". The system takes
-	  CMA memory only when it runs out of normal memory and makes the
-	  utilization of CMA low. With ZONE_MOVABLE_CMA, we use a movable zone
-	  to manage CMA memory, all movable pages will be allocated from this
-	  zone first and make utilization of CMA memory high.
-
 config CMA_DEBUG
 	bool "CMA debug messages (DEVELOPMENT)"
 	depends on DEBUG_KERNEL && CMA

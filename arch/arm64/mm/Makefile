@@ -13,4 +13,3 @@ KASAN_SANITIZE_physaddr.o	+= n
 obj-$(CONFIG_KASAN)		+= kasan_init.o
 obj-$(CONFIG_MEDIATEK_SOLUTION) += cache-mtk-v8.o
 KASAN_SANITIZE_kasan_init.o	:= n
-KBUILD_CPPFLAGS += -Werror -I$(srctree)/drivers/misc/mediatek/include

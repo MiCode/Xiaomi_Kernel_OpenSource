@@ -53,10 +53,6 @@
 #include <asm/tlb.h>
 #include <asm/alternative.h>
 
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-#include <mt-plat/mtk_zmc.h>
-#endif
-
 /*
  * We need to be able to catch inadvertent references to memstart_addr
  * that occur (potentially in generic code) before arm64_memblock_init()
@@ -252,37 +248,15 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 	struct memblock_region *reg;
 	unsigned long zone_size[MAX_NR_ZONES], zhole_size[MAX_NR_ZONES];
 	unsigned long max_dma = min;
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	phys_addr_t cma_base = ULONG_MAX, cma_size = 0x0;
-	unsigned long cma_base_pfn = ULONG_MAX;
-
-	if (is_zmc_inited())
-		zmc_get_range(&cma_base, &cma_size);
-
-	if (cma_size)
-		cma_base_pfn = PFN_DOWN(cma_base);
-#endif
 
 	memset(zone_size, 0, sizeof(zone_size));
 
 	/* 4GB maximum for 32-bit only capable devices */
 #ifdef CONFIG_ZONE_DMA32
 	max_dma = PFN_DOWN(arm64_dma_phys_limit);
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	max_dma = min(max_dma, cma_base_pfn);
-#endif
 	zone_size[ZONE_DMA32] = max_dma - min;
 #endif
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	if (cma_size) {
-		zone_size[ZONE_NORMAL] = cma_base_pfn - max_dma;
-		zone_size[ZONE_MOVABLE] = max - cma_base_pfn;
-	} else {
-		zone_size[ZONE_NORMAL] = max - max_dma;
-	}
-#else
 	zone_size[ZONE_NORMAL] = max - max_dma;
-#endif
 
 	memcpy(zhole_size, zone_size, sizeof(zhole_size));
 
@@ -299,28 +273,11 @@ static void __init zone_sizes_init(unsigned long min, unsigned long max)
 			zhole_size[ZONE_DMA32] -= dma_end - start;
 		}
 #endif
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-		if (zone_size[ZONE_NORMAL] && end > max_dma &&
-				start < cma_base_pfn) {
-			unsigned long normal_end = min(end, cma_base_pfn);
-			unsigned long normal_start = max(start, max_dma);
-
-			zhole_size[ZONE_NORMAL] -= normal_end - normal_start;
-		}
-
-		if (cma_size && end > cma_base_pfn) {
-			unsigned long movable_end = min(end, max);
-			unsigned long movable_start = max(start, cma_base_pfn);
-
-			zhole_size[ZONE_MOVABLE] -= movable_end - movable_start;
-		}
-#else
 		if (end > max_dma) {
 			unsigned long normal_end = min(end, max);
 			unsigned long normal_start = max(start, max_dma);
 			zhole_size[ZONE_NORMAL] -= normal_end - normal_start;
 		}
-#endif
 	}
 
 	free_area_init_node(0, zone_size, min, zhole_size);
