@@ -175,18 +175,15 @@ int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot)
 
 void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
 {
-	static long nice;
+	long nice;
 	size_t free_list_size = 0;
 	size_t unit = 200 * 1024 * 1024; //200M
 
 	spin_lock(&heap->free_lock);
 	list_add(&buffer->list, &heap->free_list);
 	heap->free_list_size += buffer->size;
+
 	free_list_size = heap->free_list_size;
-	if (free_list_size > unit) {
-		ion_info("[ion_dbg] warning: free_list_size=%zu, heap_id:%u, nice:%ld\n",
-			 heap->free_list_size, heap->id, nice);
-	}
 	switch (free_list_size / unit) {
 	case 0:
 	case 1:
@@ -203,6 +200,10 @@ void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
 	}
 	spin_unlock(&heap->free_lock);
 
+	if (free_list_size > unit) {
+		ion_info("[ion_dbg] warning: free_list_size=%zu, heap_id:%u, nice:%ld\n",
+			 heap->free_list_size, heap->id, nice);
+	}
 	set_user_nice(heap->task, nice);
 	wake_up(&heap->waitqueue);
 }

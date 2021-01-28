@@ -1645,7 +1645,8 @@ static int __ion_share_dma_buf_fd(struct ion_client *client,
 			 (unsigned long)client, (unsigned long)handle);
 	dmabuf = __ion_share_dma_buf(client, handle, lock_client);
 	if (IS_ERR(dmabuf)) {
-		IONMSG("%s dmabuf is err 0x%p.\n", __func__, dmabuf);
+		IONMSG("%s dmabuf is err 0x%lx.\n",
+		       __func__, (unsigned long)dmabuf);
 		return PTR_ERR(dmabuf);
 	}
 
@@ -1701,7 +1702,8 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client,
 	handle = ion_handle_create(client, buffer);
 	if (IS_ERR(handle)) {
 		mutex_unlock(&client->lock);
-		IONMSG("%s handle is error 0x%p.\n", __func__, handle);
+		IONMSG("%s handle is error 0x%lx.\n",
+		       __func__, (unsigned long)handle);
 		goto end;
 	}
 
@@ -1728,8 +1730,8 @@ struct ion_handle *ion_import_dma_buf_fd(struct ion_client *client, int fd)
 
 	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf)) {
-		IONMSG("%s dma_buf_get fail fd=%d ret=0x%p\n",
-		       __func__, fd, dmabuf);
+		IONMSG("%s dma_buf_get fail fd=%d ret=0x%lx\n",
+		       __func__, fd, (unsigned long)dmabuf);
 		return ERR_CAST(dmabuf);
 	}
 
@@ -1753,8 +1755,8 @@ int ion_sync_for_device(struct ion_client *client, int fd)
 
 	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf)) {
-		IONMSG("%s dma_buf_get failed dmabuf is err %d, 0x%p.\n",
-		       __func__, fd, dmabuf);
+		IONMSG("%s dma_buf_get failed dmabuf is err %d, 0x%lx.\n",
+		       __func__, fd, (unsigned long)dmabuf);
 		return PTR_ERR(dmabuf);
 	}
 
@@ -1885,7 +1887,8 @@ static int ion_open(struct inode *inode, struct file *file)
 	start = sched_clock();
 	client = ion_client_create(dev, debug_name);
 	if (IS_ERR(client)) {
-		IONMSG("%s ion client create failed 0x%p.\n", __func__, client);
+		IONMSG("%s ion client create failed 0x%lx.\n",
+		       __func__, (unsigned long)client);
 		return PTR_ERR(client);
 	}
 	file->private_data = client;
@@ -2450,17 +2453,17 @@ struct ion_handle *ion_drv_get_handle(struct ion_client *client,
 		handle = kernel_handle;
 
 		if (IS_ERR_OR_NULL(handle)) {
-			IONMSG("%s handle invalid, handle = 0x%p.\n",
+			IONMSG("%s handle invalid, handle = 0x%lx.\n",
 			       __func__,
-			       handle);
+			       (unsigned long)handle);
 			return ERR_PTR(-EINVAL);
 		}
 
 		mutex_lock(&client->lock);
 		if (!ion_handle_validate(client, handle)) {
-			IONMSG("%s handle invalid, handle=0x%p\n",
+			IONMSG("%s handle invalid, handle=0x%lx\n",
 			       __func__,
-			       handle);
+			       (unsigned long)handle);
 			mutex_unlock(&client->lock);
 			return ERR_PTR(-EINVAL);
 		}
