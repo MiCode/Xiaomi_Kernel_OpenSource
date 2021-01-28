@@ -99,14 +99,19 @@ static void led_debug_log(struct mtk_led_data *s_led,
 
 	s_led->debug.current_t = sched_clock();
 	cur_time_display = s_led->debug.current_t;
-	cur_time_mod = do_div(cur_time_display, 1000000000);
+	do_div(cur_time_display, 1000000);
+	cur_time_mod = do_div(cur_time_display, 1000);
 
-	sprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		"T:%lld.%ld,L:%d map:%d    ",
-		cur_time_display, cur_time_mod/1000000,
-		level, mappingLevel);
+	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
+		4096, "T:%lld.%ld,L:%d map:%d    ",
+		cur_time_display, cur_time_mod, level, mappingLevel);
 
 	s_led->debug.count++;
+
+	if (ret < 0 || ret >= 4096) {
+		pr_info("print log error!");
+		s_led->debug.count == 5;
+	}
 
 	if (level == 0 || s_led->debug.count >= 5 ||
 		(s_led->debug.current_t - s_led->debug.last_t) > 1000000000) {
@@ -283,6 +288,8 @@ static int led_pwm_level_set(struct led_classdev *led_cdev,
 
 static void led_data_init(struct mtk_led_data *s_led)
 {
+	int ret = 0;
+
 	if (!strcmp(s_led->info.config.name, "lcd-backlight")) {
 		s_led->limit.last_l = 0;
 		s_led->limit.limit_l = 255;
@@ -290,8 +297,13 @@ static void led_data_init(struct mtk_led_data *s_led)
 		s_led->limit.current_l = 0;
 	}
 	INIT_WORK(&s_led->work, mtk_led_work);
-	sprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		"[Light] Set %s directly ", s_led->info.config.name);
+	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
+		4096, "[Light] Set %s directly ", s_led->info.config.name);
+
+	s_led->debug.count++;
+
+	if (ret < 0 || ret >= 4096)
+		pr_info("print log init error!");
 
 }
 
