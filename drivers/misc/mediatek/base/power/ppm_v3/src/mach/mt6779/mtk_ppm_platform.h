@@ -134,6 +134,7 @@ unsigned int __attribute__((weak))
 {
 	return 0;
 }
+extern unsigned int ppm_get_cur_freq(enum ppm_cluster cluster);
 
 #ifdef __cplusplus
 }

@@ -293,6 +293,11 @@ int ppm_get_max_pwr_idx(void)
 	return ppm_find_pwr_idx(status);
 }
 
+unsigned int ppm_get_cur_freq(enum ppm_cluster cluster)
+{
+	return mt_cpufreq_get_cur_phy_freq_no_lock(cluster);
+}
+
 unsigned int ppm_calc_total_power(struct ppm_cluster_status *cluster_status,
 	unsigned int cluster_num, unsigned int percentage)
 {
