@@ -110,6 +110,8 @@
 #define AGING6_UPDATE_SOC			30
 #define AGING6_LOAD_SOC				70
 #define AGING_TEMP_DIFF				10
+#define AGING_TEMP_LOW_LIMIT			15
+#define AGING_TEMP_HIGH_LIMIT			50
 #define AGING_100_EN				1
 
 /* Aging Compensation 2*/

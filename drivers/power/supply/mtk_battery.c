@@ -868,6 +868,8 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->aging6_update_soc = UNIT_TRANS_100 * AGING6_UPDATE_SOC;
 	fg_cust_data->aging6_load_soc = UNIT_TRANS_100 * AGING6_LOAD_SOC;
 	fg_cust_data->aging_temp_diff = AGING_TEMP_DIFF;
+	fg_cust_data->aging_temp_low_limit = AGING_TEMP_LOW_LIMIT;
+	fg_cust_data->aging_temp_high_limit = AGING_TEMP_HIGH_LIMIT;
 	fg_cust_data->aging_100_en = AGING_100_EN;
 	fg_cust_data->difference_voltage_update = DIFFERENCE_VOLTAGE_UPDATE;
 	fg_cust_data->aging_factor_min = UNIT_TRANS_100 * AGING_FACTOR_MIN;
