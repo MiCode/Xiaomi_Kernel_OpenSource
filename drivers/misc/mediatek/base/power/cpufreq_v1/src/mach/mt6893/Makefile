@@ -13,9 +13,9 @@
 
 ccflags-y +=	\
 	-I$(CPUFREQ_ROOT_DIR)/inc	\
-	-I$(CPUFREQ_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM)	\
+	-I$(CPUFREQ_ROOT_DIR)/src/mach/mt6893	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/include	\
-	-I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(CONFIG_MTK_PLATFORM)/inc	\
+	-I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/mt6893/inc	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping	\
 	-I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
 
