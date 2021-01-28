@@ -360,7 +360,7 @@ static int alloc_buffer_from_ion(size_t size, struct test_buf_info *buf_info)
 	struct ion_mm_data mm_data;
 	struct ion_handle *handle;
 	size_t mva_size;
-	ion_phys_addr_t phy_addr;
+	ion_phys_addr_t phy_addr = 0;
 
 	client = ion_client_create(g_ion_device, "disp_test");
 	buf_info->ion_client = client;
