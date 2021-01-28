@@ -3062,6 +3062,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			      <0 0x10001000 0 0x1000>;   /* Infracfg_ao  */
 			interrupts = <GIC_SPI 322 IRQ_TYPE_LEVEL_LOW>;
 
+			nvmem-cells = <&apu_segment>;
+			nvmem-cell-names = "efuse_segment";
+
 			clocks = <&topckgen TOP_MUX_DSP>,
 				<&topckgen TOP_MUX_DSP1>,
 				<&topckgen TOP_MUX_DSP2>,
@@ -3465,8 +3468,21 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			reg = <0 0x11c10000 0 0x10000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+
 			efuse_segment: segment@78 {
 				reg = <0x78 0x4>;
+			};
+
+			apu_efuse_data: apu_efuse1 {
+				reg = <0x0c 0x4>;
+			};
+
+			apu_segment: apu_efuse2 {
+				reg = <0x1c 0x4>;
+			};
+
+			apu_ptpod: apu_efuse3 {
+				reg = <0xfc 0x4>;
 			};
 		};
 
@@ -3876,6 +3892,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,vpu_core0";
 		reg = <0 0x19100000 0 0x94000>;
 		interrupts = <GIC_SPI 320 IRQ_TYPE_LEVEL_LOW>;
+
+		nvmem-cells = <&apu_efuse_data &apu_segment>;
+		nvmem-cell-names = "efuse_data","efuse_segment";
+
 		clocks = <&topckgen TOP_MUX_DSP>,
 			<&topckgen TOP_MUX_DSP1>,
 			<&topckgen TOP_MUX_DSP2>,
@@ -4034,6 +4054,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	apu_dvfs@19180000 {
 		compatible = "mediatek,apu_dvfs";
 		reg = <0 0x19180000 0 0x1000>;
+
+		nvmem-cells = <&apu_ptpod>;
+		nvmem-cell-names = "efuse_ptpod";
 	};
 
 	odm: odm {
