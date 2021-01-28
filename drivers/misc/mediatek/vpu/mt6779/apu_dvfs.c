@@ -1739,6 +1739,8 @@ static void get_pm_qos_info(char *p, size_t n)
 		start = snprintf(p, remain, "%-24s: %s\n",
 			"Force End Timestamp", dvfs->force_end);
 	}
+	if (start < 0)
+		LOG_ERR("[%s] snprintf failed!\n", __func__);
 }
 
 char *apu_dvfs_dump_reg(char *ptr)
