@@ -771,6 +771,33 @@ static int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 	return ret;
 }
 
+void ccci_modem_plt_resume(struct ccci_modem *md)
+{
+	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
+
+	CCCI_NORMAL_LOG(0, TAG, "[%s] md->hif_flag = %d\n",
+			__func__, md->hif_flag);
+
+	if (md_state == GATED || md_state == WAITING_TO_STOP ||
+		md_state == INVALID) {
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"Resume no need restore for md_state=%d\n", md_state);
+		return;
+	}
+
+	ccci_hif_resume(md->index, md->hif_flag);
+}
+
+int ccci_modem_plt_suspend(struct ccci_modem *md)
+{
+	CCCI_NORMAL_LOG(0, TAG, "[%s] md->hif_flag = %d\n",
+			__func__, md->hif_flag);
+
+	ccci_hif_suspend(md->index, md->hif_flag);
+
+	return 0;
+}
+
 static int ccci_modem_remove(struct platform_device *dev)
 {
 	return 0;

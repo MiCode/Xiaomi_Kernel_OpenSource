@@ -1354,6 +1354,152 @@ void cldma_dump_register(struct md_cd_ctrl *md_ctrl)
 		CLDMA_AP_L2RIMSR0 - CLDMA_AP_L2RIMR0 + 4);
 }
 
+void ccci_cldma_restore_reg(struct ccci_modem *md)
+{
+	struct md_cd_ctrl *md_ctrl =
+	 (struct md_cd_ctrl *)ccci_hif_get_by_id(CLDMA_HIF_ID);
+	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
+	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
+	int i;
+	unsigned long flags;
+	unsigned int val = 0;
+	dma_addr_t bk_addr = 0;
+
+	if (md_state == GATED ||
+			md_state == WAITING_TO_STOP ||
+			md_state == INVALID) {
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"Resume no need reset cldma for md_state=%d\n"
+			, md_state);
+		return;
+	}
+	cldma_write32(md_info->ap_ccif_base,
+		APCCIF_CON, 0x01);	/* arbitration */
+
+	if (cldma_read32(md_ctrl->cldma_ap_pdn_base, CLDMA_AP_TQSAR(0))
+		|| cldma_reg_get_4msb_val(md_ctrl->cldma_ap_ao_base,
+		CLDMA_AP_UL_START_ADDR_4MSB, md_ctrl->txq[0].index)) {
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"Resume cldma pdn register: No need  ...\n");
+		spin_lock_irqsave(&md_ctrl->cldma_timeout_lock, flags);
+		if (!(cldma_read32(md_ctrl->cldma_ap_ao_base,
+			CLDMA_AP_SO_STATUS))) {
+			cldma_write32(md_ctrl->cldma_ap_pdn_base,
+				CLDMA_AP_SO_RESUME_CMD,
+				CLDMA_BM_ALL_QUEUE & 0x1);
+			cldma_read32(md_ctrl->cldma_ap_pdn_base,
+				CLDMA_AP_SO_RESUME_CMD); /* dummy read */
+		} else
+			CCCI_NORMAL_LOG(md->index, TAG,
+				"Resume cldma ao register: No need  ...\n");
+		spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
+	} else {
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"Resume cldma pdn register ...11\n");
+		spin_lock_irqsave(&md_ctrl->cldma_timeout_lock, flags);
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+		/* re-config 8G mode flag for pd register*/
+		cldma_write32(md_ctrl->cldma_ap_pdn_base, CLDMA_AP_UL_CFG,
+		cldma_read32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_UL_CFG) | 0x40);
+#endif
+		cldma_write32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_SO_RESUME_CMD, CLDMA_BM_ALL_QUEUE & 0x1);
+		cldma_read32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_SO_RESUME_CMD); /* dummy read */
+
+		/* set start address */
+		for (i = 0; i < QUEUE_LEN(md_ctrl->txq); i++) {
+			if (cldma_read32(md_ctrl->cldma_ap_ao_base,
+				CLDMA_AP_TQCPBAK(md_ctrl->txq[i].index)) == 0
+				&& cldma_reg_get_4msb_val(
+					md_ctrl->cldma_ap_ao_base,
+					CLDMA_AP_UL_CURRENT_ADDR_BK_4MSB,
+					md_ctrl->txq[i].index) == 0) {
+				if (i != 7) /* Queue 7 not used currently */
+					CCCI_DEBUG_LOG(md->index, TAG,
+					"Resume CH(%d) current bak:== 0\n", i);
+				cldma_reg_set_tx_start_addr(
+					md_ctrl->cldma_ap_pdn_base,
+					md_ctrl->txq[i].index,
+					md_ctrl->txq[i].tr_done->gpd_addr);
+				cldma_reg_set_tx_start_addr_bk(
+					md_ctrl->cldma_ap_ao_base,
+					md_ctrl->txq[i].index,
+					md_ctrl->txq[i].tr_done->gpd_addr);
+			} else {
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+				val = cldma_reg_get_4msb_val(
+					md_ctrl->cldma_ap_ao_base,
+					 CLDMA_AP_UL_CURRENT_ADDR_BK_4MSB,
+					 md_ctrl->txq[i].index);
+				/*set high bits*/
+				bk_addr = val;
+				bk_addr <<= 32;
+#else
+				bk_addr = 0;
+#endif
+				/*set low bits*/
+				val = cldma_read32(md_ctrl->cldma_ap_ao_base,
+				 CLDMA_AP_TQCPBAK(md_ctrl->txq[i].index));
+				bk_addr |= val;
+				cldma_reg_set_tx_start_addr(
+					md_ctrl->cldma_ap_pdn_base,
+					md_ctrl->txq[i].index, bk_addr);
+				cldma_reg_set_tx_start_addr_bk(
+					md_ctrl->cldma_ap_ao_base,
+					md_ctrl->txq[i].index, bk_addr);
+			}
+		}
+		/* wait write done*/
+		wmb();
+		/* start all Tx and Rx queues */
+		md_ctrl->txq_started = 0;
+		md_ctrl->txq_active |= CLDMA_BM_ALL_QUEUE;
+		/* cldma_write32(md_ctrl->cldma_ap_pdn_base,
+		 * CLDMA_AP_SO_START_CMD, CLDMA_BM_ALL_QUEUE);
+		 */
+		/* cldma_read32(md_ctrl->cldma_ap_pdn_base,
+		 * CLDMA_AP_SO_START_CMD); // dummy read
+		 */
+		/* md_ctrl->rxq_active |= CLDMA_BM_ALL_QUEUE; */
+		/* enable L2 DONE and ERROR interrupts */
+		ccci_write32(md_ctrl->cldma_ap_pdn_base, CLDMA_AP_L2TIMCR0,
+			CLDMA_TX_INT_DONE |
+			CLDMA_TX_INT_QUEUE_EMPTY |
+			CLDMA_TX_INT_ERROR);
+		/* enable all L3 interrupts */
+		cldma_write32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_L3TIMCR0, CLDMA_BM_INT_ALL);
+		cldma_write32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_L3TIMCR1, CLDMA_BM_INT_ALL);
+		cldma_write32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_L3RIMCR0, CLDMA_BM_INT_ALL);
+		cldma_write32(md_ctrl->cldma_ap_pdn_base,
+			CLDMA_AP_L3RIMCR1, CLDMA_BM_INT_ALL);
+		spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
+		CCCI_NORMAL_LOG(md->index, TAG,
+			"Resume cldma pdn register done\n");
+	}
+}
+
+void ccci_modem_plt_resume(struct ccci_modem *md)
+{
+	CCCI_NORMAL_LOG(0, TAG, "[%s] md->hif_flag = %d\n",
+			__func__, md->hif_flag);
+
+	if (md->hif_flag & (1 << CLDMA_HIF_ID))
+		ccci_cldma_restore_reg(md);
+}
+
+int ccci_modem_plt_suspend(struct ccci_modem *md)
+{
+	CCCI_NORMAL_LOG(0, TAG, "[%s] md->hif_flag = %d\n",
+			__func__, md->hif_flag);
+
+	return 0;
+}
+
 static int ccci_modem_remove(struct platform_device *dev)
 {
 	return 0;

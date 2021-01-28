@@ -1301,35 +1301,17 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 			ccci_md_attr_parameter.attr.name, ret);
 }
 
-void ccci_hif_cldma_restore_reg(struct ccci_modem *md)
-{
-}
-
-static void ccci_modem_restore_reg(struct ccci_modem *md)
-{
-	enum MD_STATE md_state = ccci_fsm_get_md_state(md->index);
-
-	if (md_state == GATED || md_state == WAITING_TO_STOP ||
-		md_state == INVALID) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"Resume no need restore for md_state=%d\n", md_state);
-		return;
-	}
-
-	if (md->hif_flag & (1 << CLDMA_HIF_ID))
-		ccci_hif_cldma_restore_reg(md);
-
-	ccci_hif_resume(md->index, md->hif_flag);
-}
-
 int ccci_modem_syssuspend(void)
 {
 	struct ccci_modem *md;
 
-	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
 	if (md != NULL)
-		ccci_hif_suspend(md->index, md->hif_flag);
+		ccci_modem_plt_suspend(md);
+	else
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: md is NULL.\n", __func__);
+
 	return 0;
 }
 
@@ -1337,12 +1319,13 @@ void ccci_modem_sysresume(void)
 {
 	struct ccci_modem *md;
 
-	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
 	if (md != NULL)
-		ccci_modem_restore_reg(md);
+		ccci_modem_plt_resume(md);
+	else
+		CCCI_ERROR_LOG(0, TAG,
+			"[%s] error: md is NULL.\n", __func__);
 }
-
 
 static struct syscore_ops ccci_modem_sysops = {
 	.suspend = ccci_modem_syssuspend,

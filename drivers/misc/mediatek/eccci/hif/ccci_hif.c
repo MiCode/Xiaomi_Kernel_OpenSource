@@ -9,6 +9,8 @@
 #include "ccci_debug.h"
 #include "ccci_core.h"
 #include "ccci_hif_cldma.h"
+#include "ccci_hif_dpmaif.h"
+
 #define TAG "hif"
 
 void *ccci_hif[CCCI_HIF_NUM];
@@ -365,10 +367,26 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 
 void ccci_hif_resume(unsigned char md_id, unsigned int hif_flag)
 {
+	struct hif_dpmaif_ctrl *hif_ctrl;
+
+	if (hif_flag & (1 << DPMAIF_HIF_ID)) {
+		hif_ctrl =
+		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(DPMAIF_HIF_ID);
+
+		hif_ctrl->ops->resume(DPMAIF_HIF_ID);
+	}
 }
 
 void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag)
 {
+	struct hif_dpmaif_ctrl *hif_ctrl;
+
+	if (hif_flag & (1 << DPMAIF_HIF_ID)) {
+		hif_ctrl =
+		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(DPMAIF_HIF_ID);
+
+		hif_ctrl->ops->suspend(DPMAIF_HIF_ID);
+	}
 }
 
 void ccci_hif_register(unsigned char hif_id, void *hif_per_data,

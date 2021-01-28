@@ -264,5 +264,7 @@ extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern int ccci_modem_init_common(struct platform_device *plat_dev,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *md_hw);
 
+extern void ccci_modem_plt_resume(struct ccci_modem *md);
+extern int ccci_modem_plt_suspend(struct ccci_modem *md);
 
 #endif				/* __CLDMA_PLATFORM_H__ */
