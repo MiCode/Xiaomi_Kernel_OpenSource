@@ -6,6 +6,15 @@ config MTK_DEVAPC
 	  device, it cannot access the device and will get a violation
 	  interrupt. Device APC prevents malicious access to internal devices.
 
+config DEVAPC_LEGACY
+	tristate "Mediatek Device APC driver for legacy platform"
+	select MTK_DEVAPC
+	help
+	  Say yes here to enable support Mediatek legacy
+	  Device APC driver.
+	  This driver do not split common handle flow
+	  into different files.
+
 config DEVAPC_ARCH_V1
 	tristate "Mediatek Device APC driver architecture v1"
 	help
