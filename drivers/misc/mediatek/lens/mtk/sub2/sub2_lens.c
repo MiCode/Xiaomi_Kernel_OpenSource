@@ -204,6 +204,8 @@ static long AF_SetMotorName(__user struct stAF_MotorName *pstMotorName)
 			   sizeof(struct stAF_MotorName)))
 		LOG_INF("copy to user failed when getting motor information\n");
 
+	stMotorName.uMotorName[sizeof(stMotorName.uMotorName) - 1] = '\0';
+
 	for (i = 0; i < MAX_NUM_OF_LENS; i++) {
 		if (g_stAF_DrvList[i].uEnable != 1)
 			break;
@@ -294,6 +296,8 @@ static long AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 	if (copy_from_user(&stMotorName, pstMotorName,
 			   sizeof(struct stAF_MotorName)))
 		LOG_INF("copy to user failed when getting motor information\n");
+
+	stMotorName.uMotorName[sizeof(stMotorName.uMotorName) - 1] = '\0';
 
 	LOG_INF("GETDRVNAME : set driver name(%s)\n", stMotorName.uMotorName);
 
