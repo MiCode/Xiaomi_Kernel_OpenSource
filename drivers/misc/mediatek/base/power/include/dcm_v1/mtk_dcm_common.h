@@ -39,9 +39,20 @@
 #define or(v, o) ((v) | (o))
 #define aor(v, a, o) (((v) & (a)) | (o))
 
+#define DCM_BASE_INFO(_name) \
+{ \
+	.name = #_name, \
+	.base = &_name, \
+}
 /*****************************************************/
 typedef int (*DCM_FUNC)(int);
+typedef bool (*DCM_FUNC_IS_ON)(void);
 typedef void (*DCM_PRESET_FUNC)(void);
+
+struct DCM_BASE {
+	char *name;
+	unsigned long *base;
+};
 
 struct DCM {
 	int current_state;
@@ -49,6 +60,7 @@ struct DCM {
 	int disable_refcnt;
 	int default_state;
 	DCM_FUNC func;
+	DCM_FUNC_IS_ON func_is_on;
 	DCM_PRESET_FUNC preset_func;
 	int typeid;
 	char *name;
