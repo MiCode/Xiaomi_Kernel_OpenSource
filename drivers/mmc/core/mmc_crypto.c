@@ -121,8 +121,8 @@ static void program_key(struct mmc_host *host,
 
 	/* please note that we used 512 rather than cfg.data_unit_size */
 	u32 aes_config = (512) << 16 |
-		host->crypto_cap_array[slot].key_size << 8 |
-		host->crypto_cap_array[slot].algorithm_id << 0;
+		host->crypto_cap_array[0].key_size << 8 |
+		host->crypto_cap_array[0].algorithm_id << 0;
 
 	/* if cqe enabled, skip program key here,
 	 * we will do it in low level driver
@@ -131,7 +131,7 @@ static void program_key(struct mmc_host *host,
 		return;
 
 	/* limit half_len as sizeof(u32)*8, avoid local buffer overflow */
-	size = host->crypto_cap_array[slot].key_size;
+	size = host->crypto_cap_array[0].key_size;
 	key_size_bytes = get_keysize_bytes(size);
 
 	/* split key into key & tkey */
