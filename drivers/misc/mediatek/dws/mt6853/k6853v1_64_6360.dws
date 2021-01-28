@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="03.16.2020.21:39:25"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="05.18.2020.21:39:25"-->
 <dct_cfg>
     <general chip="MT6853">
         <proj>Mouton_Phone_0224</proj>
@@ -50,6 +50,13 @@
                 <sensitive_level>Level</sensitive_level>
                 <debounce_en>Enable</debounce_en>
             </eint1>
+            <eint9>
+                <varName>TCPC_PD</varName>
+                <debounce_time>0</debounce_time>
+                <polarity>Low</polarity>
+                <sensitive_level>Edge</sensitive_level>
+                <debounce_en>Disable</debounce_en>
+            </eint9>
             <eint10>
                 <varName>SUBPMIC_PMU_EINT</varName>
                 <debounce_time>0</debounce_time>
@@ -162,6 +169,7 @@
                 <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
+                <varName0>GPIO_TCPC_PD_IRQB</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio9>
@@ -1459,7 +1467,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_USB_TYPEC_SW_EN_PIN</varName0>
+                <varName0>GPIO_U3_PD_PWR_EN_PIN</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio132>
@@ -2242,6 +2250,11 @@
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x1A</address>
             </device11>
+            <device15>
+                <varName>USB_TYPE_C</varName>
+                <channel>I2C_CHANNEL_5</channel>
+                <address>0x4E</address>
+            </device15>
             <device19>
                 <varName>I2C_LCD_BIAS</varName>
                 <channel>I2C_CHANNEL_6</channel>
