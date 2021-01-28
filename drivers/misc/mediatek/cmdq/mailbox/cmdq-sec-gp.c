@@ -26,9 +26,6 @@ void cmdq_sec_setup_tee_context(struct cmdq_sec_tee_context *tee)
 		{ 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } };
 }
 
-#include <linux/atomic.h>
-static atomic_t m4u_init = ATOMIC_INIT(0);
-
 s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 {
 	s32 status;
@@ -46,11 +43,6 @@ s32 cmdq_sec_init_context(struct cmdq_sec_tee_context *tee)
 	}
 #endif
 	cmdq_log("[SEC]TEE is ready");
-	/* do m4u sec init */
-	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
-		m4u_sec_init();
-		cmdq_log("[SEC] M4U_sec_init is called\n");
-	}
 
 	status = TEEC_InitializeContext(NULL, &tee->gp_context);
 	if (status != TEEC_SUCCESS)
