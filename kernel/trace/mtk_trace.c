@@ -33,8 +33,8 @@ bool boot_ftrace_check(unsigned long trace_en)
 	if (boot_trace != true || trace_en)
 		return false;
 
-#ifdef CONFIG_MTPROF
-	boot_complete = boot_finish;
+#if IS_BUILTIN(CONFIG_MTPROF)
+	boot_complete = mt_boot_finish();
 #endif
 	if (!boot_complete) {
 		pr_info("Capturing boot ftrace,Ignore tracing off.\n");
