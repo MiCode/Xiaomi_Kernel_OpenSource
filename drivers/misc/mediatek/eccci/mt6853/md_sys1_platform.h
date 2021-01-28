@@ -101,7 +101,6 @@ void ccci_set_clk_by_id(int id, unsigned int on);
 
 extern unsigned long infra_ao_base;
 extern unsigned long infra_ao_mem_base;
-extern unsigned int devapc_callback_flag;
 extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern void dump_emi_outstanding(void);

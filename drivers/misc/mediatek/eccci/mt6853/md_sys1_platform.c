@@ -65,7 +65,6 @@ static struct ccci_clk_node clk_table[] = {
 	{ NULL, "infra-ccif4-md"},
 };
 
-unsigned int devapc_callback_flag;
 unsigned int devapc_check_flag;
 spinlock_t devapc_flag_lock;
 
@@ -124,9 +123,6 @@ struct pg_callbacks md1_subsys_handle = {
 static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
 {
 	int count;
-
-	/* set devapc_callback_flag for skip check */
-	devapc_callback_flag = 1;
 
 	CCCI_NORMAL_LOG(0, TAG,
 		"[%s] vio_addr: 0x%x; is normal mdee: %d\n",
@@ -614,13 +610,9 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF)))
 		return;
 
-	/* reset devapc_callback_flag after interrupt check */
-	devapc_callback_flag = 0;
-
 	md_cd_lock_modem_clock_src(1);
 
-	/* This function needs to be cancelled temporarily */
-	/* for margaux bringup */
+	/* This function needs to be cancelled temporarily for bringup */
 	internal_md_dump_debug_register(md->index);
 
 	md_cd_lock_modem_clock_src(0);
