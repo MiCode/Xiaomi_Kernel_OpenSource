@@ -156,4 +156,4 @@ config MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	  Set y to enable it.
 	  Set n to disable it.
 
-#source "drivers/misc/mediatek/pmic/mt6370/Kconfig"
+source "drivers/misc/mediatek/pmic/mt6370/Kconfig"
