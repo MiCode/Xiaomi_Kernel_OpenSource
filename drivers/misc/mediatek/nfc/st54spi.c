@@ -408,9 +408,9 @@ st54spi_power_off(struct st54spi_data	*st54spi)
 		struct mtk_chip_config *orig_chip_config =
 			st54spi->spi->controller_data;
 		struct mtk_chip_config st54spi_chip_info = {
-			.rx_mlsb = orig_chip_config->rx_mlsb,
-			.tx_mlsb = orig_chip_config->tx_mlsb,
-			.cs_pol = 1 - orig_chip_config->cs_pol,
+			//.rx_mlsb = orig_chip_config->rx_mlsb,
+			//.tx_mlsb = orig_chip_config->tx_mlsb,
+			//.cs_pol = 1 - orig_chip_config->cs_pol,
 			.sample_sel = orig_chip_config->sample_sel,
 		};
 		struct spi_transfer	t = {
@@ -419,12 +419,12 @@ st54spi_power_off(struct st54spi_data	*st54spi)
 				.speed_hz	= st54spi->speed_hz,
 			};
 		struct spi_message	m;
-
+		st54spi->spi->mode = SPI_MODE_0 | SPI_LSB_FIRST;
 		spi_message_init(&m);
 		spi_message_add_tail(&t, &m);
 
-		pr_info("%s : change NSS polarity to %d\n", __func__,
-			st54spi_chip_info.cs_pol);
+		//pr_info("%s : change NSS polarity to %d\n", __func__,
+			//st54spi_chip_info.cs_pol);
 		st54spi->spi->controller_data = &st54spi_chip_info;
 		st54spi_sync(st54spi, &m);
 		st54spi->spi->controller_data = orig_chip_config;
