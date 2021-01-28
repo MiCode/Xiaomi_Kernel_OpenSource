@@ -55,7 +55,6 @@ enum _global_cmd_id {
 /* add by lodovico */
 /* void printff(); */
 
-#if 1
 int service_smc_call(u32 teei_cmd_type, u32 dev_file_id, u32 svc_id,
 			u32 cmd_id, u32 context, u32 enc_id,
 			const void *cmd_buf,
@@ -66,7 +65,6 @@ int service_smc_call(u32 teei_cmd_type, u32 dev_file_id, u32 svc_id,
 			int *ret_resp_len,
 			void *wq,
 			void *arg_lock, int *error_code);
-#endif
 
 enum teei_cmd_type {
 	TEEI_CMD_TYPE_INVALID = 0x0,

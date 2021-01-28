@@ -75,6 +75,11 @@ static int soter_open(struct tee_context *ctx)
 	struct soter_context_data *ctxdata;
 	int ret;
 
+#ifdef CONFIG_MICROTRUST_KM4_SUPPORT
+	down(&keymaster_api_lock);
+	up(&keymaster_api_lock);
+#endif
+
 	ctxdata = kzalloc(sizeof(*ctxdata), GFP_KERNEL);
 	if (!ctxdata)
 		return -ENOMEM;

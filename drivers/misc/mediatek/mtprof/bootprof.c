@@ -104,9 +104,6 @@ void log_boot(char *str)
 out:
 	mutex_unlock(&bootprof_lock);
 }
-#ifdef CONFIG_MICROTRUST_TEE_SUPPORT
-EXPORT_SYMBOL(log_boot);
-#endif
 
 void bootprof_initcall(initcall_t fn, unsigned long long ts)
 {

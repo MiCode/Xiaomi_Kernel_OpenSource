@@ -116,6 +116,8 @@ int teei_forward_call(u32 cmd, unsigned long cmd_addr, int size)
 	ret = add_work_entry(NEW_CAPI_CALL, (unsigned long)&params);
 	if (ret) {
 		up(&smc_lock);
+		mutex_unlock(&capi_mutex);
+		ut_pm_mutex_unlock(&pm_mutex);
 		return ret;
 	}
 
@@ -170,18 +172,7 @@ int __teei_smc_call(unsigned long local_smc_cmd,
 	struct teei_shared_mem *temp_shared_mem = NULL;
 	struct teei_context *temp_cont = NULL;
 
-#if 0
-	smc_cmd = (struct teei_smc_cmd *)tz_malloc_shared_mem(
-				sizeof(struct teei_smc_cmd), GFP_KERNEL);
-
-	if (!smc_cmd) {
-		IMSG_ERROR("tz_malloc failed for smc command");
-		ret = -ENOMEM;
-		goto out;
-	}
-#else
 	smc_cmd = (struct teei_smc_cmd *)local_smc_cmd;
-#endif
 
 	if (ret_resp_len)
 		*ret_resp_len = 0;
@@ -298,89 +289,7 @@ int teei_smc_call(u32 teei_cmd_type,
 		int *error_code,
 		struct semaphore *psema)
 {
-#if 1
 	IMSG_ERROR("[%s][%d] NOT Support! Please use new client api\n",
 						__func__, __LINE__);
 	return -1;
-#else
-	int retVal = 0;
-	struct teei_smc_cmd *local_smc_cmd = NULL;
-
-	local_smc_cmd = (struct teei_smc_cmd *)tz_malloc_shared_mem(
-				sizeof(struct teei_smc_cmd), GFP_KERNEL);
-
-	if ((unsigned char *)local_smc_cmd == NULL) {
-		IMSG_ERROR("[%s][%d] tz_malloc_shared_mem failed!\n",
-						__func__, __LINE__);
-		return -1;
-	}
-
-	smc_call_entry.local_cmd = (unsigned long)local_smc_cmd;
-	smc_call_entry.teei_cmd_type = teei_cmd_type;
-	smc_call_entry.dev_file_id = dev_file_id;
-	smc_call_entry.svc_id = svc_id;
-	smc_call_entry.cmd_id = cmd_id;
-	smc_call_entry.context = context;
-	smc_call_entry.enc_id = enc_id;
-	smc_call_entry.cmd_buf = cmd_buf;
-	smc_call_entry.cmd_len = cmd_len;
-	smc_call_entry.resp_buf = resp_buf;
-	smc_call_entry.resp_len = resp_len;
-	smc_call_entry.meta_data = meta_data;
-	smc_call_entry.info_data = info_data;
-	smc_call_entry.info_len = info_len;
-	smc_call_entry.ret_resp_len = ret_resp_len;
-	smc_call_entry.error_code = error_code;
-	smc_call_entry.psema = psema;
-
-	down(&smc_lock);
-
-	if (teei_config_flag == 1)
-		complete(&global_down_lock);
-
-	/* with a wmb() */
-	wmb();
-
-	Flush_Dcache_By_Area((unsigned long)&smc_call_entry,
-		(unsigned long)&smc_call_entry + sizeof(smc_call_entry));
-
-	retVal = add_work_entry(CAPI_CALL, (unsigned long)(&smc_call_entry));
-	if (retVal != 0) {
-		tz_free_shared_mem(local_smc_cmd, sizeof(struct teei_smc_cmd));
-		return retVal;
-	}
-
-	down(psema);
-
-	Invalidate_Dcache_By_Area((unsigned long)local_smc_cmd,
-		(unsigned long)local_smc_cmd + sizeof(struct teei_smc_cmd));
-
-	if (cmd_buf)
-		Invalidate_Dcache_By_Area((unsigned long)cmd_buf,
-					(unsigned long)cmd_buf + cmd_len);
-
-	if (resp_buf)
-		Invalidate_Dcache_By_Area((unsigned long)resp_buf,
-					(unsigned long)resp_buf + resp_len);
-
-	if (meta_data)
-		Invalidate_Dcache_By_Area((unsigned long)meta_data,
-					(unsigned long)meta_data +
-					sizeof(struct teei_encode_meta) *
-				(TEEI_MAX_RES_PARAMS + TEEI_MAX_REQ_PARAMS));
-
-	if (info_data)
-		Invalidate_Dcache_By_Area((unsigned long)info_data,
-					(unsigned long)info_data + info_len);
-
-	/* with a rmb() */
-	rmb();
-
-	if (ret_resp_len)
-		*ret_resp_len = local_smc_cmd->ret_resp_buf_len;
-
-	tz_free_shared_mem(local_smc_cmd, sizeof(struct teei_smc_cmd));
-
-	return smc_call_entry.retVal;
-#endif
 }
