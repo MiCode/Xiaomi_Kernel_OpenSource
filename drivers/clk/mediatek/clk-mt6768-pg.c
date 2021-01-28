@@ -784,9 +784,9 @@ static void ram_console_update(void)
 			if (!pgcb) {
 				pr_notice("pgcb(%d) null\r\n", DBG_ID);
 				WARN_ON(1);
-			}
-			if (pgcb && pgcb->debug_dump)
+			} else if (pgcb->debug_dump) {
 				pgcb->debug_dump(id);
+			}
 		}
 		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
