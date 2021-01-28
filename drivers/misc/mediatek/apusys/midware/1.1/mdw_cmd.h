@@ -62,7 +62,6 @@ struct mdw_apu_cmd {
 
 	/* perf info */
 	struct timespec ts_create;
-	struct timespec ts_delete;
 };
 
 struct mdw_apu_sc {
@@ -115,7 +114,6 @@ struct mdw_apu_sc {
 	struct timespec ts_deque;
 	struct timespec ts_start;
 	struct timespec ts_end;
-	struct timespec ts_delete;
 };
 
 struct mdw_cmd_parser {
