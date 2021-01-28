@@ -4332,12 +4332,12 @@ static int __init pwrap_soc_init(void)
 
 void pwrap_disable(void)
 {
-	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V3)) {
-		dev_dbg(wrp->dev, "pmic wrap disable\n");
+	dev_dbg(wrp->dev, "pmic wrap disable\n");
+	if (HAS_CAP(wrp->master->caps, PWRAP_CAP_ARB_V3))
 		pwrap_writel_1(wrp, 0, PMICSPI_MST_SPIWRAP_EN);
-		udelay(10);
-	} else
-		dev_info(wrp->dev, "pmic wrap do nothing at this platform\n");
+	else
+		pwrap_writel(wrp, 0, PWRAP_WRAP_EN);
+	udelay(10);
 }
 postcore_initcall(pwrap_soc_init);
 
