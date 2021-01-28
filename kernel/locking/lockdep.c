@@ -171,8 +171,8 @@ static unsigned int lock_mon_enable = 1;
 static unsigned int lock_mon_1st_th_ms = 2000; /* show name */
 static unsigned int lock_mon_2nd_th_ms = 5000; /* show backtrace */
 static unsigned int lock_mon_3rd_th_ms = 15000; /* trigger Kernel API dump */
-static unsigned int lock_mon_period_ms = 1000; /* check held locks */
-static unsigned int lock_mon_show_more_s = 8; /* show more information */
+static unsigned int lock_mon_period_ms = 2500; /* check held locks */
+static unsigned int lock_mon_period_cnt = 3; /* show more information */
 static unsigned int lock_mon_door;
 static struct delayed_work lock_mon_work;
 
@@ -5555,15 +5555,9 @@ void check_held_locks(int force)
 	struct task_struct *g, *p;
 	int count = 10;
 	int unlock = 1;
-	unsigned long long time_sec = sec_high(sched_clock());
-	bool en = !(do_div(time_sec, lock_mon_show_more_s));
-	static int force_bt; /* show backtrace */
 
 	if (unlikely(!debug_locks))
 		return;
-
-	force_bt = force ? 1 : force_bt;
-	en = force_bt ? 1 : en;
 
 	if (!spin_trylock(&lockdep_mon_lock))
 		return;
@@ -5586,7 +5580,7 @@ retry:
 
 	do_each_thread(g, p) {
 		if (p->lockdep_depth)
-			lockdep_check_held_locks(p, en, 0);
+			lockdep_check_held_locks(p, force, 0);
 		if (!unlock)
 			if (read_trylock(&tasklist_lock))
 				unlock = 1;
@@ -5596,7 +5590,6 @@ retry:
 		read_unlock(&tasklist_lock);
 
 	spin_unlock(&lockdep_mon_lock);
-	force_bt = 0;
 }
 EXPORT_SYMBOL_GPL(check_held_locks);
 
@@ -5642,9 +5635,18 @@ static void check_debug_locks_stats(void)
 
 static void lock_monitor_work(struct work_struct *work)
 {
+	static int count;
+	int force = 0;
+
+	/* print backtrace or not */
+	if (++count == lock_mon_period_cnt) {
+		count = 0;
+		force = 1;
+	}
+
 	check_debug_locks_stats();
 	if (lock_mon_enable)
-		check_held_locks(0);
+		check_held_locks(force);
 	queue_delayed_work(system_unbound_wq, &lock_mon_work,
 		msecs_to_jiffies(lock_mon_period_ms));
 }
@@ -5695,7 +5697,7 @@ DECLARE_LOCK_MONITOR_MATCH(period, lock_mon_period_ms);
 DECLARE_LOCK_MONITOR_MATCH(1st_th, lock_mon_1st_th_ms);
 DECLARE_LOCK_MONITOR_MATCH(2nd_th, lock_mon_2nd_th_ms);
 DECLARE_LOCK_MONITOR_MATCH(3rd_th, lock_mon_3rd_th_ms);
-DECLARE_LOCK_MONITOR_MATCH(show_more, lock_mon_show_more_s);
+DECLARE_LOCK_MONITOR_MATCH(period_cnt, lock_mon_period_cnt);
 
 static ssize_t lock_monitor_door_write(struct file *filp,
 	const char *ubuf, size_t cnt, loff_t *data)
@@ -5754,7 +5756,7 @@ void lock_monitor_init(void)
 	pe = proc_create("3rd_th_ms", 0664, root, &lock_mon_3rd_th_fops);
 	if (!pe)
 		return;
-	pe = proc_create("show_more", 0664, root, &lock_mon_show_more_fops);
+	pe = proc_create("period_cnt", 0664, root, &lock_mon_period_cnt_fops);
 	if (!pe)
 		return;
 

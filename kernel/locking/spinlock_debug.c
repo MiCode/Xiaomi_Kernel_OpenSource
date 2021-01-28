@@ -57,6 +57,14 @@ static unsigned long sec_low(unsigned long long nsec)
 	/* exclude part of nsec */
 	return do_div(nsec, 1000000000)/1000;
 }
+
+struct spinlock_debug_info {
+	int detector_cpu;
+	raw_spinlock_t lock;
+};
+
+static DEFINE_PER_CPU(struct spinlock_debug_info, sp_dbg) = {
+	-1, __RAW_SPIN_LOCK_UNLOCKED(sp_dbg.lock) };
 #endif
 
 static bool is_critical_spinlock(raw_spinlock_t *lock)
@@ -197,6 +205,7 @@ debug_spin_lock_before(raw_spinlock_t *lock)
 
 static inline void debug_spin_lock_after(raw_spinlock_t *lock)
 {
+	lock->lock_t = sched_clock();
 	lock->owner_cpu = raw_smp_processor_id();
 	lock->owner = current;
 }
@@ -258,8 +267,10 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 {
 	u64 one_second = loops_per_jiffy * LOOP_HZ;
 	u64 loops = one_second;
-	u32 owner_cpu = -1;
+	int owner_cpu = -1;
+	int curr_cpu = raw_smp_processor_id();
 	int print_once = 1, cnt = 0;
+	int is_warning_owner = 0;
 	char lock_name[MAX_LOCK_NAME];
 	unsigned long long t1, t2, t3;
 	struct task_struct *owner = NULL;
@@ -277,8 +288,15 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 
 	for (;;) {
 		while ((get_cycles() - start) < loops) {
-			if (arch_spin_trylock(&lock->raw_lock))
+			if (arch_spin_trylock(&lock->raw_lock)) {
+				if (is_warning_owner) {
+					struct spinlock_debug_info *sdi;
+
+					sdi = per_cpu_ptr(&sp_dbg, owner_cpu);
+					sdi->detector_cpu = -1;
+				}
 				return;
+			}
 		}
 		loops += one_second;
 
@@ -312,22 +330,29 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 			continue;
 
 		/* print held lock information per 5 sec */
-		if (print_once || cnt == 5) {
-			debug_show_held_locks(owner);
-			cnt = 0;
+		if (cnt == 0) {
+			struct spinlock_debug_info *sdi;
+
+			sdi = per_cpu_ptr(&sp_dbg, owner_cpu);
+			if (sdi->detector_cpu == -1 &&
+				raw_spin_trylock(&sdi->lock)) {
+				is_warning_owner = 1;
+				sdi->detector_cpu = curr_cpu;
+				raw_spin_unlock(&sdi->lock);
+			}
+
+			if (sdi->detector_cpu == curr_cpu)
+				debug_show_held_locks(owner);
 		}
-		cnt++;
+		cnt = (++cnt == 5) ? 0 : cnt;
 
 		if (oops_in_progress != 0)
 			/* in exception follow, printk maybe spinlock error */
 			continue;
 
-		if (!print_once)
+		if (!print_once || !is_warning_owner)
 			continue;
 		print_once = 0;
-
-		pr_info("========== The call trace of spinning task ==========\n");
-		dump_stack();
 
 		if (owner_cpu != raw_smp_processor_id()) {
 			call_single_data_t *csd;
@@ -377,7 +402,6 @@ void do_raw_spin_lock(raw_spinlock_t *lock)
 #else
 	arch_spin_lock(&lock->raw_lock);
 #endif
-	lock->lock_t = sched_clock();
 	debug_spin_lock_after(lock);
 #ifdef CONFIG_MTK_SCHED_MONITOR
 	mt_trace_lock_spinning_end(lock);
