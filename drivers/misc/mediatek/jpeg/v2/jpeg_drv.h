@@ -602,7 +602,9 @@ struct JPEG_ENC_DRV_IN {
 	unsigned int totalEncDU;
 	unsigned int dstBufAddrOffset;
 	unsigned int dstBufAddrOffsetMask;
+#ifdef CONFIG_MTK_SEC_JPEG_SUPPORT
 	bool		 bSecure;
+#endif
 };
 
 
