@@ -3102,10 +3102,12 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 				is_in ? "in" : "out",
 				qh);
 
-	snprintf(info + pos, 256, ",rdy<%d>,prev<%d>,cur<%d>",
+	if (pos < 256) {
+		snprintf(info + pos, 256 - pos, ",rdy<%d>,prev<%d>,cur<%d>",
 				qh->is_ready,
 				urb->urb_list.prev != &qh->hep->urb_list,
 				musb_ep_get_qh(qh->hw_ep, is_in) == qh);
+	}
 
 	if (strstr(current->comm, "usb_call"))
 		DBG_LIMIT(5, "%s", info);
