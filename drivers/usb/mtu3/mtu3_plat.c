@@ -28,11 +28,13 @@ int ssusb_check_clocks(struct ssusb_mtk *ssusb, u32 ex_clks)
 	check_val = ex_clks | SSUSB_SYS125_RST_B_STS | SSUSB_SYSPLL_STABLE |
 			SSUSB_REF_RST_B_STS;
 
-	ret = readl_poll_timeout(ibase + U3D_SSUSB_IP_PW_STS1, value,
+	if (ssusb->u3d->max_speed > USB_SPEED_HIGH) {
+		ret = readl_poll_timeout(ibase + U3D_SSUSB_IP_PW_STS1, value,
 			(check_val == (value & check_val)), 100, 20000);
-	if (ret) {
-		dev_err(ssusb->dev, "clks of sts1 are not stable!\n");
-		return ret;
+		if (ret) {
+			dev_err(ssusb->dev, "clks of sts1 are not stable!\n");
+			return ret;
+		}
 	}
 
 	ret = readl_poll_timeout(ibase + U3D_SSUSB_IP_PW_STS2, value,
