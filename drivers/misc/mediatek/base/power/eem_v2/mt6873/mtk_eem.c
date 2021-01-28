@@ -133,7 +133,7 @@ static unsigned int record_tbl_locked[NR_FREQ];
 #if SUPPORT_PICACHU
 #define PICACHU_SIG					(0xA5)
 #define PICACHU_SIGNATURE_SHIFT_BIT	(24)
-#define EEM_PHY_TEMPSPARE1		0x112788F4
+#define EEM_PHY_TEMPSPARE1		0x11278F24
 
 #endif
 /******************************************
