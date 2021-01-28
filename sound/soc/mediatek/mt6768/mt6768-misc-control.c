@@ -92,8 +92,8 @@ static int mt6768_sgen_set(struct snd_kcontrol *kcontrol,
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int mode;
-	int mode_idx;
+	int mode = 0;
+	int mode_idx = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
@@ -142,7 +142,7 @@ static int mt6768_sgen_rate_set(struct snd_kcontrol *kcontrol,
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int rate;
+	int rate = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
@@ -181,7 +181,7 @@ static int mt6768_sgen_amplitude_set(struct snd_kcontrol *kcontrol,
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int amplitude;
+	unsigned int amplitude = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
@@ -212,7 +212,7 @@ static int mt6768_sgen_mute_get(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int mute;
+	unsigned int mute = 0;
 
 	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &mute);
 
@@ -228,7 +228,7 @@ static int mt6768_sgen_mute_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int mute;
+	unsigned int mute = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
@@ -985,7 +985,7 @@ static int mt6768_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 
 		/* reallocate if needed */
 		if (size != dl_memif->dma_bytes) {
-			unsigned char *dma_area;
+			unsigned char *dma_area = NULL;
 
 			if (afe_priv->usb_call_echo_ref_reallocate) {
 				/* free previous allocate */

@@ -133,9 +133,9 @@ static int mt6768_i2s_hd_set(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mtk_afe_i2s_priv *i2s_priv;
+	struct mtk_afe_i2s_priv *i2s_priv = NULL;
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	int hd_en;
+	int hd_en = 0;
 
 	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
@@ -335,7 +335,7 @@ static int mtk_mclk_en_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	struct mtk_afe_i2s_priv *i2s_priv;
+	struct mtk_afe_i2s_priv *i2s_priv = NULL;
 
 	dev_info(cmpnt->dev, "%s(), name %s, event 0x%x\n",
 		 __func__, w->name, event);
@@ -1088,9 +1088,9 @@ int mt6768_dai_i2s_get_share(struct mtk_base_afe *afe)
 {
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
 	const struct device_node *of_node = afe->dev->of_node;
-	const char *of_str;
-	const char *property_name;
-	struct mtk_afe_i2s_priv *i2s_priv;
+	const char *of_str = NULL;
+	const char *property_name = NULL;
+	struct mtk_afe_i2s_priv *i2s_priv = NULL;
 	int i;
 
 	for (i = 0; i < DAI_I2S_NUM; i++) {
@@ -1107,7 +1107,7 @@ int mt6768_dai_i2s_get_share(struct mtk_base_afe *afe)
 int mt6768_dai_i2s_set_priv(struct mtk_base_afe *afe)
 {
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_i2s_priv *i2s_priv;
+	struct mtk_afe_i2s_priv *i2s_priv = NULL;
 	int i;
 
 	for (i = 0; i < DAI_I2S_NUM; i++) {
@@ -1117,7 +1117,8 @@ int mt6768_dai_i2s_set_priv(struct mtk_base_afe *afe)
 		if (!i2s_priv)
 			return -ENOMEM;
 
-		memcpy(i2s_priv, &mt6768_i2s_priv[i],
+		memcpy(i2s_priv,
+		       &mt6768_i2s_priv[i],
 		       sizeof(struct mtk_afe_i2s_priv));
 
 		afe_priv->dai_priv[mt6768_i2s_priv[i].id] = i2s_priv;
@@ -1128,8 +1129,8 @@ int mt6768_dai_i2s_set_priv(struct mtk_base_afe *afe)
 
 int mt6768_dai_i2s_register(struct mtk_base_afe *afe)
 {
-	struct mtk_base_afe_dai *dai;
-	int ret;
+	struct mtk_base_afe_dai *dai = NULL;
+	int ret = 0;
 
 	dev_info(afe->dev, "%s()\n", __func__);
 

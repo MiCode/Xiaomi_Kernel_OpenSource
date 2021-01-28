@@ -137,11 +137,11 @@ static int mt6768_mt6358_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 {
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
 	struct mt6768_afe_private *afe_priv = afe->platform_priv;
-	int phase;
-	unsigned int monitor;
-	int test_done_1, test_done_2;
-	int cycle_1, cycle_2, prev_cycle_1, prev_cycle_2;
-	int counter;
+	int phase = 0;
+	unsigned int monitor = 0;
+	int test_done_1, test_done_2 = 0;
+	int cycle_1, cycle_2, prev_cycle_1, prev_cycle_2 = 0;
+	int counter = 0;
 
 	dev_info(afe->dev, "%s(), start\n", __func__);
 
@@ -306,8 +306,8 @@ static int mt6768_mt6358_vow_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
-	struct snd_soc_component *component;
-	struct snd_soc_rtdcom_list *rtdcom;
+	struct snd_soc_component *component = NULL;
+	struct snd_soc_rtdcom_list *rtdcom = NULL;
 
 	dev_info(afe->dev, "%s(), start\n", __func__);
 	snd_soc_set_runtime_hwparams(substream, &mt6768_mt6358_vow_hardware);
@@ -326,8 +326,8 @@ static void mt6768_mt6358_vow_shutdown(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_base_afe *afe = snd_soc_platform_get_drvdata(rtd->platform);
-	struct snd_soc_component *component;
-	struct snd_soc_rtdcom_list *rtdcom;
+	struct snd_soc_component *component = NULL;
+	struct snd_soc_rtdcom_list *rtdcom = NULL;
 
 	dev_info(afe->dev, "%s(), end\n", __func__);
 	mt6768_afe_gpio_request(afe, false, MT6768_DAI_VOW, 0);
@@ -772,11 +772,11 @@ static struct snd_soc_card mt6768_mt6358_soc_card = {
 static int mt6768_mt6358_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6768_mt6358_soc_card;
-	struct device_node *platform_node, *codec_node, *spk_node;
-	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
-	int ret;
-	int i;
-	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
+	struct device_node *platform_node, *codec_node, *spk_node = NULL;
+	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link = NULL;
+	int ret = 0;
+	int i = 0;
+	int spk_out_dai_link_idx, spk_iv_dai_link_idx = 0;
 
 	ret = mtk_spk_update_info(card, pdev,
 				  &spk_out_dai_link_idx, &spk_iv_dai_link_idx,
