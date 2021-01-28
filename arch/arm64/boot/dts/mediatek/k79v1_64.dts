@@ -106,21 +106,23 @@
 
 &touch {
 	tpd-resolution = <1080 2160>;
-	use-tpd-button = <0>;
-	tpd-key-num = <3>;
-	tpd-key-local= <139 172 158 0>;
-	tpd-key-dim-local = <90 883 100 40 230
-				883 100 40 370 883 100 40 0 0 0 0>;
+	lcm-resolution = <1080 2160>;
+	tpd-cfg-version = "config18";
 	tpd-max-touch-num = <10>;
+	interrupt-parent = <&pio>;
+	interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
+	goodix,eint-gpio = <&pio 1 0x0>;
+	goodix,reset-gpio = <&pio 2 0x0>;
+	vtouch-supply = <&mt_pmic_vldo28_ldo_reg>;
+
+	/* goodix rotate cord should close for hw rotate */
+	goodix,x2x;
+	goodix,y2y;
+
 	tpd-filter-enable = <0>;
 	tpd-filter-pixel-density = <168>;
 	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 	tpd-filter-custom-speed = <0 0 0>;
-	goodix,eint-gpio = <&pio 1 0x0>;
-	goodix,reset-gpio = <&pio 2 0x0>;
-
-	interrupt-parent = <&pio>;
-	interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
 	status = "okay";
 };
 
@@ -142,37 +144,47 @@
 
 &pio {
 	/* set touch eint and reset gpio status*/
-	ctp_pins_default: eint0default {
+	ctp_pins_default: eintdefault {
 	};
-	ctp_pins_eint_as_int: eint@0 {
+	ctp_ts_int_active: int_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			input-enable;
+			bias-pull-up;
+		};
+	};
+	ctp_ts_reset_active: reset_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_ts_int_suspend: int_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
+			input-enable;
+			bias-pull-down;
+		};
+	};
+	ctp_ts_reset_suspend: reset_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO2_FUNC_GPIO2>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_ts_i2c_mode: i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51_FUNC_SCL0>,
+				<PINMUX_GPIO52__FUNC_SDA0>;
+		};
+	};
+	ctp_ts_eint_as_int: eint_init_status {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
 			input-enable;
 			bias-disable;
-		};
-	};
-	ctp_pins_eint_output0: eintoutput0 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
-			output-low;
-		};
-	};
-	ctp_pins_eint_output1: eintoutput1 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
-			output-high;
-		};
-	};
-	ctp_pins_rst_output0: rstoutput0 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
-			output-low;
-		};
-	};
-	ctp_pins_rst_output1: rstoutput1 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
-			output-high;
 		};
 	};
 	kpd_gpios_def_cfg: kpdgpiodefault {
