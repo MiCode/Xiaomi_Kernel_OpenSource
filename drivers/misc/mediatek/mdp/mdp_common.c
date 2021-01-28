@@ -2484,6 +2484,10 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 
 	pmqos_curr_record =
 		kzalloc(sizeof(struct mdp_pmqos_record), GFP_KERNEL);
+	if (unlikely(!pmqos_curr_record)) {
+		CMDQ_ERR("alloc pmqos_curr_record fail\n");
+		return;
+	}
 	handle->user_private = pmqos_curr_record;
 
 	do_gettimeofday(&curr_time);
@@ -2774,6 +2778,10 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	do_gettimeofday(&curr_time);
 	mdp_curr_pmqos = (struct mdp_pmqos *)handle->prop_addr;
 	pmqos_curr_record = (struct mdp_pmqos_record *)handle->user_private;
+	if (unlikely(!pmqos_curr_record)) {
+		CMDQ_ERR("alloc pmqos_curr_record fail\n");
+		return;
+	}
 	pmqos_curr_record->submit_tm = curr_time;
 
 	expired = curr_time.tv_sec > mdp_curr_pmqos->tv_sec ||
