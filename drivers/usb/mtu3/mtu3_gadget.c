@@ -6,7 +6,6 @@
  *
  * Author: Chunfeng Yun <chunfeng.yun@mediatek.com>
  */
-
 #include "mtu3.h"
 #include "mtu3_trace.h"
 
@@ -484,6 +483,28 @@ static int mtu3_gadget_set_self_powered(struct usb_gadget *gadget,
 	return 0;
 }
 
+static void mtu3_gadget_set_ready(struct usb_gadget *gadget)
+{
+	struct mtu3 *mtu = gadget_to_mtu3(gadget);
+	struct of_changeset chgset;
+	struct property *prop;
+
+	dev_info(mtu->dev, "update gadget-ready property\n");
+
+	prop = kzalloc(sizeof(*prop), GFP_KERNEL);
+	if (!prop)
+		return;
+
+	prop->name = "gadget-ready";
+
+	of_changeset_init(&chgset);
+	of_changeset_update_property(&chgset, mtu->dev->of_node, prop);
+	of_changeset_apply(&chgset);
+	of_changeset_destroy(&chgset);
+
+	mtu->is_gadget_ready = 1;
+}
+
 static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct mtu3 *mtu = gadget_to_mtu3(gadget);
@@ -505,6 +526,9 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	}
 
 	spin_unlock_irqrestore(&mtu->lock, flags);
+
+	if (!mtu->is_gadget_ready && is_on)
+		mtu3_gadget_set_ready(gadget);
 
 	return 0;
 }
