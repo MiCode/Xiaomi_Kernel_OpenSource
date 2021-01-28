@@ -1681,6 +1681,12 @@ static int mt_usb_probe(struct platform_device *pdev)
 	if (ret)
 		dev_notice(&pdev->dev, "failed to rename\n");
 
+	/*
+	 * fix uaf(use afer free) issue:backup pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev->name = pdev->dev.kobj.name;
+
 	platform_set_drvdata(pdev, glue);
 
 	ret = platform_device_add_resources(musb,
