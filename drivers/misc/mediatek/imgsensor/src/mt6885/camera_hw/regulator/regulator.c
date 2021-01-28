@@ -40,7 +40,10 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 	{"vcamio_main2"},
 	{"vcama_sub2"},
 	{"vcamd_sub2"},
-	{"vcamio_sub2"}
+	{"vcamio_sub2"},
+	{"vcama_main3"},
+	{"vcamd_main3"},
+	{"vcamio_main3"}
 };
 
 static struct REGULATOR reg_instance;
@@ -100,18 +103,21 @@ static enum IMGSENSOR_RETURN regulator_set(
 	    pin_state >= IMGSENSOR_HW_PIN_STATE_LEVEL_HIGH)
 		return IMGSENSOR_RETURN_ERROR;
 
-	reg_type_offset =
-		(sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN) ?
-			REGULATOR_TYPE_MAIN_VCAMA :
-			(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB) ?
-			REGULATOR_TYPE_SUB_VCAMA :
-			(sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2) ?
-			REGULATOR_TYPE_MAIN2_VCAMA : REGULATOR_TYPE_SUB2_VCAMA;
+	reg_type_offset = (sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN)
+		? REGULATOR_TYPE_MAIN_VCAMA
+		: (sensor_idx == IMGSENSOR_SENSOR_IDX_SUB)
+		? REGULATOR_TYPE_SUB_VCAMA
+		: (sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN2)
+		? REGULATOR_TYPE_MAIN2_VCAMA
+		: (sensor_idx == IMGSENSOR_SENSOR_IDX_SUB2)
+		? REGULATOR_TYPE_SUB2_VCAMA
+		: REGULATOR_TYPE_MAIN3_VCAMA;
 
-	pregulator = preg->pregulator[reg_type_offset +
-				pin - IMGSENSOR_HW_PIN_AVDD];
-	enable_cnt = preg->enable_cnt +
-				(reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD);
+	pregulator =
+		preg->pregulator[reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD];
+	enable_cnt =
+		preg->enable_cnt +
+		(reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD);
 
 	if (pregulator) {
 		if (pin_state != IMGSENSOR_HW_PIN_STATE_LEVEL_0) {
@@ -131,8 +137,8 @@ static enum IMGSENSOR_RETURN regulator_set(
 				PK_PR_ERR(
 				    "[regulator]fail to regulator_enable, powertype:%d powerId:%d\n",
 				    pin,
-				    regulator_voltage[pin_state -
-					IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
+				regulator_voltage[
+				  pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
 				return IMGSENSOR_RETURN_ERROR;
 			}
 			atomic_inc(enable_cnt);

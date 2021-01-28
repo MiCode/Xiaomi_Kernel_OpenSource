@@ -90,7 +90,7 @@ struct imgsensor_struct {
 	kal_uint16 current_fps;	/* current max fps */
 	kal_bool autoflicker_en; /* record autoflicker enable or disable */
 	kal_bool test_pattern;	/* record test pattern mode or not */
-	enum MSDK_SCENARIO_ID_ENUM current_scenario_id;/* current scenario id */
+	enum MSDK_SCENARIO_ID_ENUM current_scenario_id; /* current scenario id*/
 	kal_uint8 hdr_mode;	/* HDR mode */
 	kal_uint8 pdaf_mode;	/* ihdr enable or disable */
 	kal_uint8 i2c_write_id;	/* record current sensor's i2c write id */
@@ -124,7 +124,7 @@ struct imgsensor_info_struct {
 	kal_uint8 ihdr_le_firstline;	/* 1,le first ; 0, se first */
 	kal_uint8 temperature_support;	/* 1, support; 0,not support */
 	kal_uint8 sensor_mode_num;	/* support sensor mode num */
-
+	kal_uint8 frame_time_delay_frame;
 	kal_uint8 cap_delay_frame;	/* enter capture delay frame num */
 	kal_uint8 pre_delay_frame;	/* enter preview delay frame num */
 	kal_uint8 video_delay_frame;	/* enter video delay frame num */

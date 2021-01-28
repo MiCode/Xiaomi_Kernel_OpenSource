@@ -73,10 +73,12 @@ static enum IMGSENSOR_RETURN mt6306_set(
 		list_idx = MT6306_PIN_CAM_EXT_PWR_EN;
 
 	} else {
-		pin_offset = (sensor_idx ==
-			IMGSENSOR_SENSOR_IDX_MAIN) ? MT6306_PIN_CAM_PDN0 :
-			(sensor_idx == IMGSENSOR_SENSOR_IDX_SUB) ?
-			MT6306_PIN_CAM_PDN1 : MT6306_PIN_CAM_PDN2;
+		pin_offset =
+			(sensor_idx == IMGSENSOR_SENSOR_IDX_MAIN)
+			? MT6306_PIN_CAM_PDN0
+			: (sensor_idx == IMGSENSOR_SENSOR_IDX_SUB)
+			? MT6306_PIN_CAM_PDN1
+			: MT6306_PIN_CAM_PDN2;
 
 		list_idx = pin_offset + pin - IMGSENSOR_HW_PIN_PDN;
 	}

@@ -23,8 +23,7 @@
 #include "kd_camera_typedef.h"
 
 #define PFX "imx350_pdafotp"
-#define LOG_INF(format, args...) \
-	pr_debug(PFX "[%s] " format, __func__, ##args)
+#define LOG_INF(format, args...) pr_debug(PFX "[%s] " format, __func__, ##args)
 
 #include "kd_imgsensor.h"
 #include "kd_imgsensor_define.h"
@@ -60,8 +59,8 @@ static bool imx350_selective_read_eeprom(kal_uint16 addr, BYTE *data)
 
 	if (addr > imx350_MAX_OFFSET)
 		return false;
-	if (iReadRegI2C(pu_send_cmd, 2,
-		(u8 *) data, 1, imx350_EEPROM_READ_ID) < 0)
+	if (iReadRegI2C(pu_send_cmd, 2, (u8 *) data,
+			1, imx350_EEPROM_READ_ID) < 0)
 		return false;
 	return true;
 }

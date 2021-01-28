@@ -100,6 +100,13 @@ static enum IMGSENSOR_RETURN imgsensor_hw_power_sequence(
 
 	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 30);
 
+#ifdef CONFIG_FPGA_EARLY_PORTING  /*for FPGA*/
+	if (1) {
+		PK_DBG("FPGA return true for power control\n");
+		return IMGSENSOR_RETURN_SUCCESS;
+	}
+#endif
+
 	while (ppwr_seq->idx != NULL &&
 		ppwr_seq < ppower_sequence + IMGSENSOR_HW_SENSOR_MAX_NUM &&
 		strcmp(ppwr_seq->idx, pcurr_idx)) {
