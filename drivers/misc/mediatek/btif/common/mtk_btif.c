@@ -747,7 +747,7 @@ static ssize_t driver_flag_set(struct device_driver *drv,
 	struct _mtk_btif_ *p_btif = &g_btif[0];
 #endif
 
-	BTIF_INFO_FUNC("buffer = %s, count = %zd\n", buffer, count);
+	BTIF_INFO_FUNC("buffer = %s, count = %zu\n", buffer, count);
 	if (len >= sizeof(buf)) {
 		BTIF_ERR_FUNC("input handling fail!\n");
 		len = sizeof(buf) - 1;
@@ -840,13 +840,13 @@ static ssize_t driver_flag_set(struct device_driver *drv,
 	case 0x10:
 		y = y > G_MAX_PKG_LEN ? G_MAX_PKG_LEN : y;
 		y = y < 1024 ? 1024 : y;
-		BTIF_INFO_FUNC("g_max_pkg_len is set to %d\n", y);
+		BTIF_INFO_FUNC("g_max_pkg_len is set to %ld\n", y);
 		g_max_pkg_len = y;
 		break;
 	case 0x11:
 		y = y > BTIF_RX_BUFFER_SIZE ? BTIF_RX_BUFFER_SIZE : y;
 		y = y < 1024 ? 1024 : y;
-		BTIF_INFO_FUNC("g_max_pding_data_size is set to %d\n", y);
+		BTIF_INFO_FUNC("g_max_pding_data_size is set to %ld\n", y);
 		g_max_pding_data_size = y;
 		break;
 #if BTIF_DBG_SUPPORT
@@ -1609,7 +1609,7 @@ int _btif_exit_dpidle(struct _mtk_btif_ *p_btif)
 		break;
 	default:
 		i_ret = E_BTIF_INVAL_PARAM;
-		BTIF_INFO_FUNC("invalid state change:%d->\n", state, B_S_ON);
+		BTIF_INFO_FUNC("invalid state change:%d->%d\n", state, B_S_ON);
 		break;
 	}
 
@@ -1874,10 +1874,10 @@ static int _btif_vfifo_init(struct _mtk_btif_dma_ *p_dma)
 	}
 
 	if (sizeof(dma_addr_t) == sizeof(unsigned long long))
-		BTIF_INFO_FUNC("alloc vFIFO succeed in arch64,vir addr:0x%p,",
+		BTIF_INFO_FUNC("alloc vFIFO succeed in arch64,vir addr:0x%p,"
 		"phy addr:0x%llx\n", p_vfifo->p_vir_addr, p_vfifo->phy_addr);
 	else
-		BTIF_INFO_FUNC("alloc vFIFO succeed in arch32,vir addr:0x%p,",
+		BTIF_INFO_FUNC("alloc vFIFO succeed in arch32,vir addr:0x%p,"
 		"phy addr:0x%08x\n", p_vfifo->p_vir_addr, p_vfifo->phy_addr);
 
 	return 0;
@@ -2210,7 +2210,6 @@ static int mtk_btif_rxd_be_blocked_by_data(void)
 	unsigned int out_index = 0;
 	unsigned int in_index = 0;
 	unsigned int dump_size = 0;
-	unsigned int len = 0;
 	unsigned long flags;
 	unsigned int sync_pkt_n = 0;
 	struct _btif_log_buf_t_ *p_log_buf = NULL;
@@ -2228,9 +2227,6 @@ static int mtk_btif_rxd_be_blocked_by_data(void)
 	if (dump_size != 0) {
 		while (dump_size--) {
 			p_log_buf = p_log_que->p_queue + out_index;
-			len = p_log_buf->len;
-			if (len > BTIF_LOG_SZ)
-				len = BTIF_LOG_SZ;
 			if ((0x7f == *(p_log_buf->buffer)) &&
 					(0x7f == *(p_log_buf->buffer + 1))) {
 				sync_pkt_n++;
@@ -2840,9 +2836,7 @@ int btif_dump_reg(struct _mtk_btif_ *p_btif, enum _ENUM_BTIF_REG_ID_ flag)
 	if (ori_state == B_S_OFF) {
 		i_ret = E_BTIF_INVAL_STATE;
 		BTIF_ERR_FUNC
-		    ("BTIF in OFF state, ",
-		     "should no need to dump register, ",
-		     "please check wmt's operation is okay or not.\n");
+		    ("BTIF in OFF state, shouldn't dump register\n");
 		goto dmp_reg_err;
 	}
 

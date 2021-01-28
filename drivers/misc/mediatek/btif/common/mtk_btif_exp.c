@@ -30,7 +30,7 @@ struct _mtk_btif_ *btif_exp_srh_id(unsigned long u_id)
 			if (u_id == p_user->u_id) {
 				p_btif = p_user->p_btif;
 				BTIF_DBG_FUNC
-				    ("BTIF's user id(%d), p_btif(0x%p)\n",
+				    ("BTIF's user id(%lu), p_btif(0x%p)\n",
 				     p_user->u_id, p_btif);
 				break;
 			}
