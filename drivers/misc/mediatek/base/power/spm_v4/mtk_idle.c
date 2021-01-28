@@ -470,6 +470,8 @@ static void enable_idle_by_mask(int idle_type, int grp, unsigned int mask)
 {
 	unsigned long flags;
 
+	if (!(idle_type >= 0 && idle_type < NR_TYPES))
+		return;
 	spin_lock_irqsave(&idle_condition_mask_spin_lock, flags);
 	idle_condition_mask[idle_type][grp] &= ~mask;
 	spin_unlock_irqrestore(&idle_condition_mask_spin_lock, flags);
@@ -479,6 +481,8 @@ static void disable_idle_by_mask(int idle_type, int grp, unsigned int mask)
 {
 	unsigned long flags;
 
+	if (!(idle_type >= 0 && idle_type < NR_TYPES))
+		return;
 	spin_lock_irqsave(&idle_condition_mask_spin_lock, flags);
 	idle_condition_mask[idle_type][grp] |= mask;
 	spin_unlock_irqrestore(&idle_condition_mask_spin_lock, flags);
@@ -1384,6 +1388,9 @@ static ssize_t idle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 	int i;
 	char *p = ToUserBuf;
 	size_t sz = sz_t;
+	struct mtk_idle_twam *cur_twam;
+
+	cur_twam = mtk_idle_get_twam();
 
 	#undef mt_idle_log
 	#define mt_idle_log(fmt, args...) \
@@ -1412,12 +1419,13 @@ static ssize_t idle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 	mt_idle_log("idle_ratio_en = %u\n", mtk_idle_get_ratio_status());
 	mt_idle_log("idle_latency_en = %d\n",
 		    mtk_idle_latency_profile_is_on() ? 1 : 0);
-	mt_idle_log("twam_handler:%s (clk:%s)\n",
-					(mtk_idle_get_twam()->running) ?
-					"on":"off",
-					(mtk_idle_get_twam()->speed_mode) ?
-					"speed":"normal");
-
+	if (cur_twam != NULL) {
+		mt_idle_log("twam_handler:%s (clk:%s)\n",
+						(cur_twam->running) ?
+						"on":"off",
+						(cur_twam->speed_mode) ?
+						"speed":"normal");
+	}
 	mt_idle_log("bypass_secure_cg = %u\n", idle_by_pass_secure_cg);
 	mt_idle_log("force VCORE lp mode = %u\n", idle_force_vcore_lp_mode);
 
@@ -1441,6 +1449,7 @@ static ssize_t idle_state_write(char *FromUserBuf, size_t sz, void *priv)
 {
 	char cmd[128];
 	int param, idx;
+	struct mtk_idle_twam *cur_twam;
 
 	if (sscanf(FromUserBuf, "%127s %x", cmd, &param) == 2) {
 		if (!strcmp(cmd, "switch")) {
@@ -1455,9 +1464,13 @@ static ssize_t idle_state_write(char *FromUserBuf, size_t sz, void *priv)
 		} else if (!strcmp(cmd, "latency")) {
 			mtk_idle_latency_profile_enable(param ? true : false);
 		} else if (!strcmp(cmd, "spmtwam_clk")) {
-			mtk_idle_get_twam()->speed_mode = param;
+			cur_twam = mtk_idle_get_twam();
+			if (cur_twam != NULL)
+				cur_twam->speed_mode = param;
 		} else if (!strcmp(cmd, "spmtwam_sel")) {
-			mtk_idle_get_twam()->sel = param;
+			cur_twam = mtk_idle_get_twam();
+			if (cur_twam != NULL)
+				cur_twam->sel = param;
 		} else if (!strcmp(cmd, "spmtwam")) {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 			idle_dbg("spmtwam_event = %d\n", param);
