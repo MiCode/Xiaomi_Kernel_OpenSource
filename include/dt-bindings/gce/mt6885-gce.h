@@ -67,21 +67,29 @@
 /* GCE General Purpose Register (GPR) support
  * Leave note for scenario usage here
  */
+/* GCE: write mask */
 #define CMDQ_GPR_R00		0x00
 #define CMDQ_GPR_R01		0x01
+/* MDP: P1: JPEG dest */
 #define CMDQ_GPR_R02		0x02
 #define CMDQ_GPR_R03		0x03
+/* MDP: PQ color */
 #define CMDQ_GPR_R04		0x04
+/* MDP: 2D sharpness */
 #define CMDQ_GPR_R05		0x05
+/* DISP: poll esd */
 #define CMDQ_GPR_R06		0x06
 #define CMDQ_GPR_R07		0x07
+/* MDP: P4: 2D sharpness dst */
 #define CMDQ_GPR_R08		0x08
 #define CMDQ_GPR_R09		0x09
 /* VCU: poll with timeout for GPR timer */
 #define CMDQ_GPR_R10		0x0A
 #define CMDQ_GPR_R11		0x0B
+/* CMDQ: debug */
 #define CMDQ_GPR_R12		0x0C
 #define CMDQ_GPR_R13		0x0D
+/* CMDQ: P7: debug */
 #define CMDQ_GPR_R14		0x0E
 #define CMDQ_GPR_R15		0x0F
 
