@@ -762,7 +762,7 @@ void serial8250_suspend_port(int line)
 	struct uart_port *port = &up->port;
 
 	if (!console_suspend_enabled && uart_console(port) &&
-	    port->type != PORT_8250) {
+	    port->type != PORT_8250 && port->type != PORT_16650V2) {
 		unsigned char canary = 0xa5;
 		serial_out(up, UART_SCR, canary);
 		if (serial_in(up, UART_SCR) == canary)
