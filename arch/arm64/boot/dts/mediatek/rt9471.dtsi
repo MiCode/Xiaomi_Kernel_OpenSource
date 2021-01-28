@@ -30,8 +30,8 @@
 			rm-slave-addr = /bits/ 8 <0x53>;
 			rm-name = "rt9471";
 			interrupt-names = "wdt", "chg_mivr", "vbus_gd",
-					  "bc12_done", "detach", "vac_ov",
-					  "otg_fault";
+					  "chg_rdy", "bc12_done", "detach",
+					  "vac_ov", "otg_fault";
 			ichg = <1000000>;		/* uA */
 			aicr = <500000>;		/* uA */
 			mivr = <4400000>;		/* uV */
@@ -46,6 +46,7 @@
 			 * >= 3: MIVR = VBAT + 300mV
 			 */
 			mivr-track = <0>;
+			en-safe-tmr;
 			en-te;
 			/* en-jeita; */
 			/* ceb-invert; */
