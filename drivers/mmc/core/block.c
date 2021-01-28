@@ -732,10 +732,11 @@ cmd_err:
 #define MMC_SEND_WRITE_PROT_TYPE        31
 #define EXT_CSD_USR_WP                  171     /* R/W */
 #define US_PERM_WP_EN                   4
+
 static int is_otp_dev(struct block_device *bdev)
 {
-	if (!bdev || !bdev->bd_part || !bdev->bd_part->info
-	|| strcmp(bdev->bd_part->info->volname, "otp"))
+	if (bdev && bdev->bd_part && bdev->bd_part->info
+		&& !strcmp(bdev->bd_part->info->volname, "otp"))
 		return 1;
 	return 0;
 }
