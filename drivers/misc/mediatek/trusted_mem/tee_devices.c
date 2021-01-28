@@ -37,6 +37,9 @@
 #include "private/tmem_utils.h"
 #include "private/tmem_dev_desc.h"
 #include "tee_impl/tee_ops.h"
+#if defined(CONFIG_MTK_GZ_KREE)
+#include "mtee_impl/mtee_invoke.h"
+#endif
 
 static struct trusted_mem_configs tee_smem_general_configs = {
 	.session_keep_alive_enable = false,
