@@ -191,7 +191,7 @@
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
 		};
 
-		consys-reserve-memory {
+		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
 			size = <0 0x400000>;
@@ -1913,6 +1913,8 @@
 			   <GIC_SPI 214 IRQ_TYPE_EDGE_RISING>;
 		clocks = <&scpsys SCP_SYS_CONN>;
 		clock-names = "conn";
+		pmic = <&main_pmic>;
+		memory-region = <&consys_mem>;
 	};
 
 	wifi@18000000 {

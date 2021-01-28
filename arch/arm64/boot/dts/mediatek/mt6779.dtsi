@@ -501,7 +501,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
 
-		consys-reserve-memory {
+		consys_mem: consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
 			size = <0 0x400000>;
@@ -3207,6 +3207,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clocks = <&infracfg_ao CLK_INFRA_CCIF4_AP>;
 			clock-names = "ccif";
 			power-domains = <&scpsys MT6779_POWER_DOMAIN_CONN>;
+			pmic = <&pmic>;
+			memory-region = <&consys_mem>;
 		};
 
 		apu_conn: clock-controller@19000000 {
