@@ -316,7 +316,7 @@ static int auxadc_get_imp_ibat(struct mt635x_auxadc_device *adc_dev)
 /* Using non-sleep delay time for polling IRQ status before suspend */
 #define auxadc_imp_poll_timeout(map, addr, val, cond, delay_us, timeout_us) \
 ({ \
-	int __ret, __cnt; \
+	int __ret = 0, __cnt = 0; \
 	int __max_cnt = (timeout_us) / (delay_us); \
 	for (;;) { \
 		__ret = regmap_read((map), (addr), &(val)); \
