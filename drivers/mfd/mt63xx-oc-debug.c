@@ -111,6 +111,7 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 {
 	char oc_str[30] = "";
 	struct reg_oc_debug_t *reg_oc_dbg;
+	int ret = 0;
 
 	reg_oc_dbg = container_of(nb, struct reg_oc_debug_t, nb);
 
@@ -120,7 +121,9 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 	if (reg_oc_dbg->times > NOTIFY_TIMES_MAX)
 		return NOTIFY_OK;
 
-	snprintf(oc_str, 30, "PMIC OC:%s", reg_oc_dbg->name);
+	ret = snprintf(oc_str, 30, "PMIC OC:%s", reg_oc_dbg->name);
+	if (ret < 0)
+		pr_info("%s error\n", __func__);
 	pr_notice("regulator:%s OC %d times\n",
 		  reg_oc_dbg->name, reg_oc_dbg->times);
 	if (reg_oc_dbg->is_md_reg) {
@@ -171,7 +174,7 @@ static int register_all_oc_notifier(struct platform_device *pdev,
 static int mt63xx_oc_debug_probe(struct platform_device *pdev)
 {
 	struct mt6397_chip *pmic = dev_get_drvdata(pdev->dev.parent);
-	int ret;
+	int ret = 0;
 
 	if (!of_device_is_available(pdev->dev.of_node)) {
 		dev_info(&pdev->dev,
@@ -190,6 +193,7 @@ static int mt63xx_oc_debug_probe(struct platform_device *pdev)
 
 	default:
 		dev_info(&pdev->dev, "unsupported chip: 0x%x\n", pmic->chip_id);
+		ret = -ENODEV;
 		break;
 	}
 
