@@ -5221,7 +5221,7 @@
 		chg1_ta_ac_charger_current = <1500000>;
 		chg2_ta_ac_charger_current = <1500000>;
 		slave_mivr_diff = <100000>;
-		dual_polling_eoc = <750000>;
+		dual_polling_ieoc = <750000>;
 
 		/* cable measurement impedance */
 		cable_imp_threshold = <699>;
