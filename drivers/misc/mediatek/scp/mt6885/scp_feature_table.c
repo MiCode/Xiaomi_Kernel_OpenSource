@@ -13,7 +13,7 @@
 
 #include <linux/module.h>       /* needed by all modules */
 #include "scp_feature_define.h"
-#include "scp_ipi.h"
+#include "scp_ipi_pin.h"
 /*scp feature list*/
 struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	{
