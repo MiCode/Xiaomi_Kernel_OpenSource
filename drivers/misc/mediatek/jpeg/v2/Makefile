@@ -46,6 +46,14 @@ ifeq ($(CONFIG_MACH_MT6768),y)
   ccflags-y += -DPLATFORM_MT6767
 endif
 
+ifeq ($(CONFIG_MACH_MT6739),y)
+  ccflags-y += -DPLATFORM_MT6739
+endif
+
+ifeq ($(CONFIG_MACH_MT6771),y)
+  ccflags-y += -DPLATFORM_MT6771
+endif
+
 ifeq ($(CONFIG_MACH_MT6767),y)
   ccflags-y += -DSMI_CG_SUPPORT
   ccflags-y += -DPLATFORM_MT6768
