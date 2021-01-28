@@ -2407,23 +2407,23 @@ static int __init MTK_M4U_Init(void)
 	return 0;
 }
 
-#if !(defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761))
+// #if !(defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761))
 static int __init mtk_m4u_late_init(void)
 {
 	return 0;
 }
-#endif
+// #endif
 
 static void __exit MTK_M4U_Exit(void)
 {
 	platform_driver_unregister(&m4uDrv);
 }
-#if !(defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761))
+// #if !(defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761))
 subsys_initcall(MTK_M4U_Init);
 late_initcall(mtk_m4u_late_init);
-#else
-module_init(MTK_M4U_Init);
-#endif
+// #else
+// module_init(MTK_M4U_Init);
+// #endif
 module_exit(MTK_M4U_Exit);
 
 MODULE_DESCRIPTION("MTKM4Udriver");
