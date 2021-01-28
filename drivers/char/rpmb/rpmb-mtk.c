@@ -39,11 +39,13 @@
 #include "queue.h"
 #include "mmc_ops.h"
 #include "core.h"
-#include "mtk_sd.h"
 #include "card.h"
 
+#if defined(CONFIG_MMC_MTK_PRO)
+#include "mtk_sd.h"
+#endif
 #ifdef CONFIG_SCSI_UFS_MEDIATEK
-#include "ufs-mtk.h"
+#include "ufs-mediatek.h"
 #endif
 #include <mt-plat/mtk_boot.h>
 
@@ -2189,6 +2191,7 @@ static int rpmb_gp_execute_ufs(u32 cmdId)
 #endif
 
 #ifndef CONFIG_TEE
+#if defined(CONFIG_MMC_MTK_PRO)
 static int rpmb_execute_emmc(u32 cmdId)
 {
 	int ret;
@@ -2354,6 +2357,7 @@ static int rpmb_gp_execute_emmc(u32 cmdId)
 
 	return 0;
 }
+#endif
 
 #ifndef CONFIG_TEE
 int rpmb_listenDci(void *data)
@@ -2381,11 +2385,13 @@ int rpmb_listenDci(void *data)
 		MSG(INFO, "%s: wait notification done!! cmdId = %x\n",
 			__func__, cmdId);
 
+#if defined(CONFIG_MMC_MTK_PRO)
 		/* Received exception. */
 		if (mtk_msdc_host[0] && mtk_msdc_host[0]->mmc
 			&& mtk_msdc_host[0]->mmc->card)
 			mc_ret = rpmb_execute_emmc(cmdId);
 		else
+#endif
 #ifdef CONFIG_SCSI_UFS_MEDIATEK
 			mc_ret = rpmb_execute_ufs(cmdId);
 #else
@@ -2513,11 +2519,13 @@ int rpmb_gp_listenDci(void *data)
 		MSG(INFO, "%s: wait notification done!! cmdId = %x\n",
 			__func__, cmdId);
 
+#if defined(CONFIG_MMC_MTK_PRO)
 		/* Received exception. */
 		if (mtk_msdc_host[0] && mtk_msdc_host[0]->mmc
 			&& mtk_msdc_host[0]->mmc->card)
 			mc_ret = rpmb_gp_execute_emmc(cmdId);
 		else
+#endif
 #ifdef CONFIG_SCSI_UFS_MEDIATEK
 			mc_ret = rpmb_gp_execute_ufs(cmdId);
 #else
@@ -3195,10 +3203,12 @@ static int __init rpmb_init(void)
 
 	major = MAJOR(dev);
 
+#if defined(CONFIG_MMC_MTK_PRO)
 	if (mtk_msdc_host[0] && mtk_msdc_host[0]->mmc
 		&& mtk_msdc_host[0]->mmc->card)
 		cdev_init(&rpmb_dev, &rpmb_fops_emmc);
 	else
+#endif
 #ifdef CONFIG_SCSI_UFS_MEDIATEK
 
 		cdev_init(&rpmb_dev, &rpmb_fops_ufs);

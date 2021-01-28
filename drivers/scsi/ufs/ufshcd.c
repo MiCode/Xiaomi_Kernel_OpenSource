@@ -53,6 +53,7 @@
 #include <trace/events/ufs.h>
 
 #include <scsi/ufs/ufs-mtk-ioctl.h>
+#include "ufs-mediatek.h"
 
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
@@ -229,6 +230,9 @@ static struct ufs_dev_fix ufs_fixups[] = {
 		UFS_DEVICE_QUIRK_HOST_PA_SAVECONFIGTIME),
 	UFS_FIX(UFS_VENDOR_SKHYNIX, "hB8aL1" /*H28U62301AMR*/,
 		UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME),
+
+	UFS_FIX(UFS_VENDOR_SKHYNIX, UFS_ANY_MODEL,
+		UFS_DEVICE_QUIRK_LIMITED_RPMB_MAX_RW_SIZE),
 
 	END_FIX
 };
@@ -6708,6 +6712,9 @@ static int ufshcd_scsi_add_wlus(struct ufs_hba *hba)
 		ret = PTR_ERR(sdev_rpmb);
 		goto remove_sdev_ufs_device;
 	}
+	/* Register RPMB char device */
+	ufs_mtk_rpmb_add(hba, sdev_rpmb);
+
 	scsi_device_put(sdev_rpmb);
 
 	sdev_boot = __scsi_add_device(hba->host, 0, 0,
@@ -7514,6 +7521,11 @@ static int ufshcd_ioctl(struct scsi_device *dev, int cmd, void __user *buffer)
 		pm_runtime_get_sync(hba->dev);
 		err = ufshcd_query_ioctl(hba,
 			ufshcd_scsi_to_upiu_lun(dev->lun), buffer);
+		pm_runtime_put_sync(hba->dev);
+		break;
+	case UFS_IOCTL_RPMB:
+		pm_runtime_get_sync(hba->dev);
+		err = ufs_mtk_ioctl_rpmb(hba, buffer);
 		pm_runtime_put_sync(hba->dev);
 		break;
 	default:
@@ -8697,6 +8709,8 @@ static void ufshcd_device_quiesce(struct ufs_hba *hba)
 
 	if (hba->sdev_ufs_device)
 		scsi_device_quiesce(hba->sdev_ufs_device);
+
+	ufs_mtk_rpmb_quiesce(hba);
 }
 
 /**
@@ -8720,6 +8734,12 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 	pm_runtime_get_sync(hba->dev);
 
 	ufshcd_device_quiesce(hba);
+
+	/*
+	 * Remove Unregister RPMB
+	 * device during shutdown and UFSHCD removal
+	 */
+	ufs_mtk_rpmb_remove(hba);
 
 	ret = ufshcd_suspend(hba, UFS_SHUTDOWN_PM);
 out:

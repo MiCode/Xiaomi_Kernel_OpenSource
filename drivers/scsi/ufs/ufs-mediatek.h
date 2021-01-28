@@ -108,8 +108,21 @@ struct ufs_mtk_host {
 	u16 ref_clk_ungating_wait_us;
 	u16 ref_clk_gating_wait_us;
 	u32 refclk_ctrl;
+
+	/*
+	 * RPMB device
+	 */
+	struct scsi_device *sdev_ufs_rpmb;
+	struct rpmb_dev *rawdev_ufs_rpmb;
+	struct mutex rpmb_lock;
 };
 
 struct ufs_hba *ufs_mtk_get_hba(void);
+
+struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev(void);
+void ufs_mtk_rpmb_add(struct ufs_hba *hba, struct scsi_device *sdev_rpmb);
+void ufs_mtk_rpmb_remove(struct ufs_hba *hba);
+void ufs_mtk_rpmb_quiesce(struct ufs_hba *hba);
+int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, void __user *buf_user);
 
 #endif /* !_UFS_MEDIATEK_H */

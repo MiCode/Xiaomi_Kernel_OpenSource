@@ -164,6 +164,11 @@ static inline int rpmb_cmd_req(struct rpmb_dev *rdev, struct rpmb_data *data)
 	return 0;
 }
 
+static inline int rpmb_get_rw_size(struct rpmb_dev *rdev)
+{
+	return 0;
+}
+
 #endif /* CONFIG_RPMB */
 
 #endif /* __RPMB_H__ */

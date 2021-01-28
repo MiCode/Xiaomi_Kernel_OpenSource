@@ -6,6 +6,7 @@
  *	Peter Wang <peter.wang@mediatek.com>
  */
 
+#include <asm/unaligned.h>
 #include <linux/arm-smccc.h>
 #include <linux/bitfield.h>
 #include <linux/of.h>
@@ -13,6 +14,7 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
+#include <linux/rpmb.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "ufshcd.h"
@@ -42,6 +44,404 @@
 
 int ufsdbg_perf_dump = 0;
 static struct ufs_hba *ufs_mtk_hba;
+
+struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev()
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(ufs_mtk_hba);
+
+	return host->rawdev_ufs_rpmb;
+}
+
+/* Read Geometry Descriptor for RPMB initialization */
+static inline int ufshcd_read_geometry_desc_param(struct ufs_hba *hba,
+				enum geometry_desc_param param_offset,
+				u8 *param_read_buf, u32 param_size)
+{
+	return ufshcd_read_desc_param(hba, QUERY_DESC_IDN_GEOMETRY, 0,
+				      param_offset, param_read_buf, param_size);
+}
+
+/*
+ * RPMB feature
+ */
+#define SEC_PROTOCOL_UFS  0xEC
+#define SEC_SPECIFIC_UFS_RPMB 0x0001
+
+#define SEC_PROTOCOL_CMD_SIZE 12
+#define SEC_PROTOCOL_RETRIES 3
+#define SEC_PROTOCOL_RETRIES_ON_RESET 10
+#define SEC_PROTOCOL_TIMEOUT msecs_to_jiffies(30000)
+int ufs_mtk_rpmb_security_out(struct scsi_device *sdev,
+			 struct rpmb_frame *frames, u32 cnt)
+{
+	struct scsi_sense_hdr sshdr;
+	u32 trans_len = cnt * sizeof(struct rpmb_frame);
+	int reset_retries = SEC_PROTOCOL_RETRIES_ON_RESET;
+	int ret;
+	u8 cmd[SEC_PROTOCOL_CMD_SIZE];
+
+	memset(cmd, 0, SEC_PROTOCOL_CMD_SIZE);
+	cmd[0] = SECURITY_PROTOCOL_OUT;
+	cmd[1] = SEC_PROTOCOL_UFS;
+	put_unaligned_be16(SEC_SPECIFIC_UFS_RPMB, cmd + 2);
+	cmd[4] = 0;                              /* inc_512 bit 7 set to 0 */
+	put_unaligned_be32(trans_len, cmd + 6);  /* transfer length */
+
+	/* Ensure device is resumed before RPMB operation */
+	scsi_autopm_get_device(sdev);
+
+retry:
+	ret = scsi_execute_req(sdev, cmd, DMA_TO_DEVICE,
+				     frames, trans_len, &sshdr,
+				     SEC_PROTOCOL_TIMEOUT, SEC_PROTOCOL_RETRIES,
+				     NULL);
+
+	if (ret && scsi_sense_valid(&sshdr) &&
+	    sshdr.sense_key == UNIT_ATTENTION &&
+	    sshdr.asc == 0x29 && sshdr.ascq == 0x00)
+		/*
+		 * Device reset might occur several times,
+		 * give it one more chance
+		 */
+		if (--reset_retries > 0)
+			goto retry;
+
+	if (ret)
+		dev_err(&sdev->sdev_gendev, "%s: failed with err %0x\n",
+			__func__, ret);
+
+	if (driver_byte(ret) & DRIVER_SENSE)
+		scsi_print_sense_hdr(sdev, "rpmb: security out", &sshdr);
+
+	/* Allow device to be runtime suspended */
+	scsi_autopm_put_device(sdev);
+
+	return ret;
+}
+
+int ufs_mtk_rpmb_security_in(struct scsi_device *sdev,
+			struct rpmb_frame *frames, u32 cnt)
+{
+	struct scsi_sense_hdr sshdr;
+	u32 alloc_len = cnt * sizeof(struct rpmb_frame);
+	int reset_retries = SEC_PROTOCOL_RETRIES_ON_RESET;
+	int ret;
+	u8 cmd[SEC_PROTOCOL_CMD_SIZE];
+
+	memset(cmd, 0, SEC_PROTOCOL_CMD_SIZE);
+	cmd[0] = SECURITY_PROTOCOL_IN;
+	cmd[1] = SEC_PROTOCOL_UFS;
+	put_unaligned_be16(SEC_SPECIFIC_UFS_RPMB, cmd + 2);
+	cmd[4] = 0;                             /* inc_512 bit 7 set to 0 */
+	put_unaligned_be32(alloc_len, cmd + 6); /* allocation length */
+
+	/* Ensure device is resumed before RPMB operation */
+	scsi_autopm_get_device(sdev);
+
+retry:
+	ret = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE,
+				     frames, alloc_len, &sshdr,
+				     SEC_PROTOCOL_TIMEOUT, SEC_PROTOCOL_RETRIES,
+				     NULL);
+
+	if (ret && scsi_sense_valid(&sshdr) &&
+	    sshdr.sense_key == UNIT_ATTENTION &&
+	    sshdr.asc == 0x29 && sshdr.ascq == 0x00)
+		/*
+		 * Device reset might occur several times,
+		 * give it one more chance
+		 */
+		if (--reset_retries > 0)
+			goto retry;
+
+	/* Allow device to be runtime suspended */
+	scsi_autopm_put_device(sdev);
+
+	if (ret)
+		dev_err(&sdev->sdev_gendev, "%s: failed with err %0x\n",
+			__func__, ret);
+
+	if (driver_byte(ret) & DRIVER_SENSE)
+		scsi_print_sense_hdr(sdev, "rpmb: security in", &sshdr);
+
+	return ret;
+}
+
+static int ufs_mtk_rpmb_cmd_seq(struct device *dev,
+			       struct rpmb_cmd *cmds, u32 ncmds)
+{
+	unsigned long flags;
+	struct ufs_hba *hba = dev_get_drvdata(dev);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct scsi_device *sdev;
+	struct rpmb_cmd *cmd;
+	int i;
+	int ret;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	sdev = host->sdev_ufs_rpmb;
+	if (sdev) {
+		ret = scsi_device_get(sdev);
+		if (!ret && !scsi_device_online(sdev)) {
+			ret = -ENODEV;
+			scsi_device_put(sdev);
+		}
+	} else {
+		ret = -ENODEV;
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	if (ret)
+		return ret;
+
+	/*
+	 * Send all command one by one.
+	 * Use rpmb lock to prevent other rpmb read/write threads cut in line.
+	 * Use mutex not spin lock because in/out function might sleep.
+	 */
+	mutex_lock(&host->rpmb_lock);
+	for (ret = 0, i = 0; i < ncmds && !ret; i++) {
+		cmd = &cmds[i];
+		if (cmd->flags & RPMB_F_WRITE)
+			ret = ufs_mtk_rpmb_security_out(sdev, cmd->frames,
+						       cmd->nframes);
+		else
+			ret = ufs_mtk_rpmb_security_in(sdev, cmd->frames,
+						      cmd->nframes);
+	}
+	mutex_unlock(&host->rpmb_lock);
+
+	scsi_device_put(sdev);
+	return ret;
+}
+
+static struct rpmb_ops ufs_mtk_rpmb_dev_ops = {
+	.cmd_seq = ufs_mtk_rpmb_cmd_seq,
+	.type = RPMB_TYPE_UFS,
+};
+
+void ufs_mtk_rpmb_add(struct ufs_hba *hba, struct scsi_device *sdev_rpmb)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct rpmb_dev *rdev;
+	u8 rw_size;
+	int ret;
+
+	host->sdev_ufs_rpmb = sdev_rpmb;
+	ret = ufshcd_read_geometry_desc_param(hba,
+		GEOMETRY_DESC_PARAM_RPMB_RW_SIZE,
+		&rw_size, sizeof(rw_size));
+	if (ret) {
+		dev_warn(hba->dev, "%s: cannot get rpmb rw limit %d\n",
+			 dev_name(hba->dev), ret);
+		/* fallback to singel frame write */
+		rw_size = 1;
+	}
+
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_LIMITED_RPMB_MAX_RW_SIZE) {
+		if (rw_size > 8)
+			rw_size = 8;
+	}
+
+	dev_info(hba->dev, "rpmb rw_size: %d\n", rw_size);
+
+	ufs_mtk_rpmb_dev_ops.reliable_wr_cnt = rw_size;
+
+	/* MTK PATCH: Add handling for scsi_device_get */
+	if (unlikely(scsi_device_get(host->sdev_ufs_rpmb)))
+		goto out_put_dev;
+
+	rdev = rpmb_dev_register(hba->dev, &ufs_mtk_rpmb_dev_ops);
+	if (IS_ERR(rdev)) {
+		dev_warn(hba->dev, "%s: cannot register to rpmb %ld\n",
+			 dev_name(hba->dev), PTR_ERR(rdev));
+		goto out_put_dev;
+	}
+
+	/*
+	 * MTK PATCH: Preserve rpmb_dev to globals for connection of legacy
+	 *            rpmb ioctl solution.
+	 */
+	host->rawdev_ufs_rpmb = rdev;
+
+	return;
+
+out_put_dev:
+	scsi_device_put(host->sdev_ufs_rpmb);
+	host->sdev_ufs_rpmb = NULL;
+	host->rawdev_ufs_rpmb = NULL;
+}
+
+void ufs_mtk_rpmb_remove(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	unsigned long flags;
+
+	if (!host->sdev_ufs_rpmb || !hba->host)
+		return;
+
+	rpmb_dev_unregister(hba->dev);
+
+	/*
+	 * MTK Bug Fix:
+	 *
+	 * To prevent calling schedule() with preemption disabled,
+	 * spin_lock_irqsave shall be behind rpmb_dev_unregister().
+	 */
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	scsi_device_put(host->sdev_ufs_rpmb);
+	host->sdev_ufs_rpmb = NULL;
+	host->rawdev_ufs_rpmb = NULL;
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+}
+
+void ufs_mtk_rpmb_quiesce(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	if (host->sdev_ufs_rpmb)
+		scsi_device_quiesce(host->sdev_ufs_rpmb);
+}
+
+/**
+ * ufs_mtk_ioctl_rpmb - perform user rpmb read/write request
+ * @hba: per-adapter instance
+ * @buf_user: user space buffer for ioctl rpmb_cmd data
+ * @return: 0 for success negative error code otherwise
+ *
+ * Expected/Submitted buffer structure is struct rpmb_cmd.
+ * It will read/write data to rpmb
+ */
+int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, void __user *buf_user)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct rpmb_cmd cmd[3];
+	struct rpmb_frame *frame_buf = NULL;
+	struct rpmb_frame *frames = NULL;
+	int size = 0;
+	int nframes = 0;
+	unsigned long flags;
+	struct scsi_device *sdev;
+	int ret;
+	int i;
+
+	/* Get scsi device */
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	sdev = host->sdev_ufs_rpmb;
+	if (sdev) {
+		ret = scsi_device_get(sdev);
+		if (!ret && !scsi_device_online(sdev)) {
+			ret = -ENODEV;
+			scsi_device_put(sdev);
+		}
+	} else {
+		ret = -ENODEV;
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	if (ret) {
+		dev_info(hba->dev,
+			"%s: failed get rpmb device, ret %d\n",
+			__func__, ret);
+		goto out;
+	}
+
+	/* Get cmd params from user buffer */
+	ret = copy_from_user((void *) cmd,
+		buf_user, sizeof(struct rpmb_cmd) * 3);
+	if (ret) {
+		dev_info(hba->dev,
+			"%s: failed copying cmd buffer from user, ret %d\n",
+			__func__, ret);
+		goto out_put;
+	}
+
+	/* Check number of rpmb frames */
+	for (i = 0; i < 3; i++) {
+		ret = (int)rpmb_get_rw_size(ufs_mtk_rpmb_get_raw_dev());
+		if (cmd[i].nframes > ret) {
+			dev_info(hba->dev,
+				"%s: number of rpmb frames %u exceeds limit %d\n",
+				__func__, cmd[i].nframes, ret);
+			ret = -EINVAL;
+			goto out_put;
+		}
+	}
+
+	/* Prepaer frame buffer */
+	for (i = 0; i < 3; i++)
+		nframes += cmd[i].nframes;
+	frame_buf = kcalloc(nframes, sizeof(struct rpmb_frame), GFP_KERNEL);
+	if (!frame_buf) {
+		ret = -ENOMEM;
+		goto out_put;
+	}
+	frames = frame_buf;
+
+	/*
+	 * Send all command one by one.
+	 * Use rpmb lock to prevent other rpmb read/write threads cut in line.
+	 * Use mutex not spin lock because in/out function might sleep.
+	 */
+	mutex_lock(&host->rpmb_lock);
+	for (i = 0; i < 3; i++) {
+		if (cmd[i].nframes == 0)
+			break;
+
+		/* Get frames from user buffer */
+		size = sizeof(struct rpmb_frame) * cmd[i].nframes;
+		ret = copy_from_user((void *) frames, cmd[i].frames, size);
+		if (ret) {
+			dev_err(hba->dev,
+				"%s: failed from user, ret %d\n",
+				__func__, ret);
+			break;
+		}
+
+		/* Do rpmb in out */
+		if (cmd[i].flags & RPMB_F_WRITE) {
+			ret = ufs_mtk_rpmb_security_out(sdev, frames,
+						       cmd[i].nframes);
+			if (ret) {
+				dev_err(hba->dev,
+					"%s: failed rpmb out, err %d\n",
+					__func__, ret);
+				break;
+			}
+
+		} else {
+			ret = ufs_mtk_rpmb_security_in(sdev, frames,
+						      cmd[i].nframes);
+			if (ret) {
+				dev_err(hba->dev,
+					"%s: failed rpmb in, err %d\n",
+					__func__, ret);
+				break;
+			}
+
+			/* Copy frames to user buffer */
+			ret = copy_to_user((void *) cmd[i].frames,
+				frames, size);
+			if (ret) {
+				dev_err(hba->dev,
+					"%s: failed to user, err %d\n",
+					__func__, ret);
+				break;
+			}
+		}
+
+		frames += cmd[i].nframes;
+	}
+	mutex_unlock(&host->rpmb_lock);
+
+	kfree(frame_buf);
+
+out_put:
+	scsi_device_put(sdev);
+out:
+	return ret;
+}
 
 static void ufs_mtk_auto_hibern8_enable(struct ufs_hba *hba, bool enable)
 {
