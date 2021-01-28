@@ -24,13 +24,8 @@
 #include <linux/uidgid.h>
 #include <linux/slab.h>
 #include "tzbatt_initcfg.h"
-#define CONFIG_MTK_GAUGE_VERSION 30
+#include <linux/power_supply.h>
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-//#include <mtk_battery.h>
-#else
-#include <tmp_battery.h>
-#endif
 
 /* ************************************ */
 /* Function prototype*/
@@ -161,53 +156,20 @@ pr_debug("[Thermal/TZ/BATTERY]" fmt, ##args)
  */
 static int get_hw_battery_temp(void)
 {
-/*
- *	int fd;
- *    char buf[64];
- *    char *pmtdbufp = NULL;
- *    ssize_t pmtdsize;
- *
- *    char *pvalue = NULL;
- *    int got_value=0;
- *
- *    //open file and read current value
- *    fd = my_open("/sys/class/power_supply/battery/batt_temp", O_RDONLY);
- *    if (fd < 0)
- *    {
- *	mtktsbattery_dprintk("[get_hw_battery_temp]: open file fail");
- *	return 0;
- *    }
- *    mtktsbattery_dprintk("[get_hw_battery_temp]: open file ok");
- *    buf[sizeof(buf) - 1] = '\0';
- *    pmtdsize = sys_read(fd, buf, sizeof(buf) - 1);
- *    pmtdbufp = buf;
- *    got_value = simple_strtol(pmtdbufp,&pvalue,10);
- *
- *    // close file
- *    my_close(fd);
- *
- *    // debug
- *    mtktsbattery_dprintk("[get_hw_battery_temp]: got_value=%d\n", got_value);
- *
- *    return got_value;
- */
+	union power_supply_propval prop;
+	struct power_supply *psy;
 	int ret = 0;
-#if defined(CONFIG_POWER_EXT)
-	/* EVB */
-	ret = -1270;
-#else
-	/* Phone */
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-	ret = battery_get_bat_temperature();
-#else
-	/* MTK_GAUGE_VERSION = 10 or 20 */
-	ret = read_tbat_value();
-#endif
-	ret = ret * 10;
-#endif
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL)
+		return -1270;
+	ret = power_supply_get_property(psy,
+		POWER_SUPPLY_PROP_TEMP, &prop);
+		mtktsbattery_dprintk("%s %d\n", __func__, prop.intval);
+	if (ret != 0)
+		return -1270;
 
-	return ret;
+	return prop.intval;
 }
 
 static DEFINE_MUTEX(Battery_lock);

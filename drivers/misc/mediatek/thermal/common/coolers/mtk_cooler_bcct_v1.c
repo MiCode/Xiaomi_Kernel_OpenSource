@@ -19,204 +19,11 @@
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #include "mach/mtk_thermal.h"
+#include <linux/power_supply.h>
 
 
-#define CONFIG_MTK_GAUGE_VERSION 30
-/* ************************************ */
-/* Weak functions */
-/* ************************************ */
-	int __attribute__ ((weak))
-get_bat_charging_current_level(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 500;
-}
-	int __attribute__ ((weak))
-mt_get_charger_type(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
+static int cl_bcct_klog_on;
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-	int __attribute__ ((weak))
-charger_manager_set_charging_current_limit(
-struct charger_consumer *consumer, int idx, int charging_current_uA)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-	int __attribute__ ((weak))
-charger_manager_set_input_current_limit(
-struct charger_consumer *consumer, int idx, int input_current_uA)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-charger_manager_enable_high_voltage_charging(
-struct charger_consumer *consumer, bool en)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	signed int __attribute__ ((weak))
-battery_get_soc(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-	signed int __attribute__ ((weak))
-battery_get_uisoc(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-	signed int __attribute__ ((weak))
-battery_get_bat_voltage(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-	signed int __attribute__ ((weak))
-battery_get_bat_current(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-	signed int __attribute__ ((weak))
-battery_get_vbus(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-/* mtk_chr_get_aicr() */
-	int __attribute__ ((weak))
-mtk_chr_get_aicr(unsigned int *aicr)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_tchr(int *min_temp, int *max_temp)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-/* mtk_chr_get_tchr() */
-
-	int __attribute__ ((weak))
-charger_manager_get_current_charging_type(struct charger_consumer *consumer)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -1;
-}
-#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT
-	int __attribute__ ((weak))
-charger_manager_get_pe30_input_current_limit(
-struct charger_consumer *consumer, int idx, int *input_current_uA,
-		int *min_current_uA, int *max_current_uA)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -1;
-}
-
-	int __attribute__ ((weak))
-charger_manager_set_pe30_input_current_limit(
-struct charger_consumer *consumer, int idx, int input_current_uA)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -1;
-}
-#endif /* CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT */
-
-#else
-	int __attribute__ ((weak))
-set_bat_charging_current_limit(int current_limit)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-	unsigned int __attribute__ ((weak))
-set_chr_input_current_limit(int current_limit)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_soc(unsigned int *soc)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_ui_soc(unsigned int *ui_soc)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_vbat(unsigned int *vbat)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_ibat(unsigned int *ibat)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_vbus(unsigned int *vbus)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_aicr(unsigned int *aicr)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_tchr(int *min_temp, int *max_temp)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return 0;
-}
-
-	int __attribute__ ((weak))
-mtk_chr_get_current_charging_type(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -1;
-}
-
-	int __attribute__ ((weak))
-mtk_pep30_get_charging_current_limit(void)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return -1;
-}
-
-	void __attribute__ ((weak))
-mtk_pep30_set_charging_current_limit(int cur)
-{
-	pr_notice("E_WF: %s doesn't exist\n", __func__);
-}
-#endif
 /* ************************************ */
 
 #define mtk_cooler_bcct_dprintk_always(fmt, args...) \
@@ -225,7 +32,7 @@ mtk_pep30_set_charging_current_limit(int cur)
 #define mtk_cooler_bcct_dprintk(fmt, args...) \
 	do { \
 		if (cl_bcct_klog_on == 1) \
-			pr_debug("[Thermal/TC/bcct]" fmt, ##args); \
+			pr_notice("[Thermal/TC/bcct]" fmt, ##args); \
 	}  while (0)
 
 #define MAX_NUM_INSTANCE_MTK_COOLER_BCCT  3
@@ -254,7 +61,6 @@ static kgid_t gid = KGIDT_INIT(1000);
 #define MAX(_a_, _b_) ((_a_) > (_b_) ? (_a_) : (_b_))
 
 /* Battery & Charger Status*/
-static int bat_info_soc; /* battery soc */
 static int bat_info_uisoc; /* battery UI soc */
 static int bat_info_vbat; /* battery voltage */
 static int bat_info_ibat; /* charging current */
@@ -265,12 +71,6 @@ static int bat_info_aicr; /* input current */
 static int bat_info_charging_type; /* type 0: none or normal,
 				    * 1: pep1.0 2: pep2.0 3: pep3.0
 				    */
-
-static int bat_info_pep30_curr_limit; /* pep30 input current limit */
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-static struct charger_consumer *pthermal_consumer;
-#endif
-
 /* Charger Limiter
  * Charger Limiter provides API to limit charger IC input current and
  * battery charging current. It arbitrates the limitation from users and sets
@@ -278,20 +78,38 @@ static struct charger_consumer *pthermal_consumer;
  *	set_chr_input_current_limit()
  *	set_bat_charging_current_limit()
  */
-int chrlmt_chr_input_curr_limit = -1; /**< -1 is unlimit, unit is mA. */
-int chrlmt_bat_chr_curr_limit = -1; /**< -1 is unlimit, unit is mA. */
-int chrlmt_pep30_input_curr_limit = -1; /**< -1 is unlimit, unit is mA. */
+static int chrlmt_chr_input_curr_limit = -1; /**< -1 is unlimit, unit is mA. */
+static int chrlmt_bat_chr_curr_limit = -1; /**< -1 is unlimit, unit is mA. */
 static bool chrlmt_is_lcmoff; /**0 is lcm on, 1 is lcm off */
 static int chrlmt_lcmoff_policy_enable; /**0: No lcmoff abcct */
 
 struct chrlmt_handle {
 	int chr_input_curr_limit;
 	int bat_chr_curr_limit;
-	int pep30_input_curr_limit;
 };
 
 static struct workqueue_struct *bcct_chrlmt_queue;
 static struct work_struct      bcct_chrlmt_work;
+
+static int get_battery_current(void)
+{
+	union power_supply_propval prop;
+	struct power_supply *psy;
+	int ret = 0;
+
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL)
+		return -1;
+	ret = power_supply_get_property(psy,
+		POWER_SUPPLY_PROP_CURRENT_NOW, &prop);
+	mtk_cooler_bcct_dprintk("%s %d\n",
+		__func__, prop.intval);
+	if (ret != 0)
+		return -1;
+
+	return prop.intval;
+
+}
 
 /* temp solution, use list instead */
 #define CHR_LMT_MAX_USER_COUNT	(4)
@@ -308,8 +126,6 @@ static int chrlmt_register(struct chrlmt_handle *handle)
 
 	handle->chr_input_curr_limit = -1;
 	handle->bat_chr_curr_limit = -1;
-	handle->pep30_input_curr_limit = -1;
-
 	/* find an empty entry */
 	for (i = CHR_LMT_MAX_USER_COUNT; --i >= 0; )
 		if (!chrlmt_registered_users[i]) {
@@ -337,67 +153,75 @@ int clbcct_get_input_curr_limit(void)
 
 static void chrlmt_set_limit_handler(struct work_struct *work)
 {
-	if (bat_info_charging_type == 3) {
-		mtk_cooler_bcct_dprintk_always("%s %d\n", __func__
-				, chrlmt_pep30_input_curr_limit);
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT
-		charger_manager_set_pe30_input_current_limit(pthermal_consumer,
-				0, chrlmt_pep30_input_curr_limit * 1000);
-#endif /* CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT */
-#else
-		mtk_pep30_set_charging_current_limit(
-					chrlmt_pep30_input_curr_limit);
-#endif
-	} else {
-		mtk_cooler_bcct_dprintk_always("%s %d %d\n", __func__,
-						chrlmt_chr_input_curr_limit,
-						chrlmt_bat_chr_curr_limit);
+	union power_supply_propval prop;
+	static struct power_supply *chg_psy;
+	int ret;
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-		/* idx: 0 for main charger*/
-		charger_manager_set_input_current_limit(pthermal_consumer, 0,
-				((chrlmt_chr_input_curr_limit != -1) ?
-				chrlmt_chr_input_curr_limit * 1000 : -1));
+	mtk_cooler_bcct_dprintk("%s %d %d\n", __func__,
+					chrlmt_chr_input_curr_limit,
+					chrlmt_bat_chr_curr_limit);
 
-		charger_manager_set_charging_current_limit(pthermal_consumer, 0,
-				((chrlmt_bat_chr_curr_limit != -1) ?
-				chrlmt_bat_chr_curr_limit * 1000 : -1));
-
-		/* High Voltage (Vbus) control*/
-		if (chrlmt_bat_chr_curr_limit == 0)
-			charger_manager_enable_high_voltage_charging(
-						pthermal_consumer, false);
-
-		if (chrlmt_bat_chr_curr_limit == -1)
-			charger_manager_enable_high_voltage_charging(
-						pthermal_consumer, true);
-
-#else
-#ifdef CONFIG_MTK_SWITCH_INPUT_OUTPUT_CURRENT_SUPPORT
-		set_chr_input_current_limit(chrlmt_chr_input_curr_limit);
-#endif
-		set_bat_charging_current_limit(chrlmt_bat_chr_curr_limit);
-#endif
+	if (chg_psy == NULL)
+		chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		mtk_cooler_bcct_dprintk_always("%s Couldn't get chg_psy\n",
+			__func__);
+		return;
 	}
+	if (chrlmt_bat_chr_curr_limit != -1)
+		prop.intval = chrlmt_bat_chr_curr_limit * 1000;
+	else
+		prop.intval = -1;
+	ret = power_supply_set_property(chg_psy,
+		POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+		&prop);
+	if (ret != 0)
+		pr_notice("%s bat curr fail\n", __func__);
+
+	if (chrlmt_chr_input_curr_limit != -1)
+		prop.intval = chrlmt_chr_input_curr_limit * 1000;
+	else
+		prop.intval = -1;
+	ret = power_supply_set_property(chg_psy,
+		POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &prop);
+	if (ret != 0)
+		pr_notice("%s input curr fail\n", __func__);
+
+	/* High Voltage (Vbus) control*/
+	/*Only master charger need to control Vbus*/
+	/*prop.intval = 0, vbus 5V*/
+	/*prop.intval = 1, vbus 9V*/
+	if (chrlmt_bat_chr_curr_limit == 0) {
+		prop.intval = 0;
+		ret = power_supply_set_property(chg_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+		if (ret != 0)
+			pr_notice("%s vbus fail\n", __func__);
+	}
+	if (chrlmt_bat_chr_curr_limit == -1) {
+		prop.intval = 1;
+		ret = power_supply_set_property(chg_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_MAX, &prop);
+		if (ret != 0)
+			pr_notice("%s set vbus fail\n",
+			__func__);
+	}
+
+	power_supply_changed(chg_psy);
+
 }
 
 static int chrlmt_set_limit(
-struct chrlmt_handle *handle, int chr_input_curr_limit, int bat_char_curr_limit,
-int pep30_input_curr_limit)
+struct chrlmt_handle *handle, int chr_input_curr_limit, int bat_char_curr_limit)
 {
 	int i;
 	int min_char_input_curr_limit = 0xFFFFFF;
 	int min_bat_char_curr_limit = 0xFFFFFF;
-	int min_pep30_input_curr_limit = 0xFFFFFF;
-
 	if (!handle)
 		return -1;
 
 	handle->chr_input_curr_limit = chr_input_curr_limit;
 	handle->bat_chr_curr_limit = bat_char_curr_limit;
-	handle->pep30_input_curr_limit = pep30_input_curr_limit;
-
 	for (i = CHR_LMT_MAX_USER_COUNT; --i >= 0; )
 		if (chrlmt_registered_users[i]) {
 			if (chrlmt_registered_users[i]->chr_input_curr_limit
@@ -412,50 +236,30 @@ int pep30_input_curr_limit)
 					MIN(chrlmt_registered_users[i]
 					->bat_chr_curr_limit
 						, min_bat_char_curr_limit);
-
-			if (chrlmt_registered_users[i]->pep30_input_curr_limit
-			> -1)
-				min_pep30_input_curr_limit =
-					MIN(chrlmt_registered_users[i]
-					->pep30_input_curr_limit
-						, min_pep30_input_curr_limit);
 		}
 
 	if (min_char_input_curr_limit == 0xFFFFFF)
 		min_char_input_curr_limit = -1;
 	if (min_bat_char_curr_limit == 0xFFFFFF)
 		min_bat_char_curr_limit = -1;
-	if (min_pep30_input_curr_limit == 0xFFFFFF)
-		min_pep30_input_curr_limit = 5000;
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-	if (pthermal_consumer == NULL) {
-		mtk_cooler_bcct_dprintk_always(
-				"%s wait pthermal_consumer ready!\n", __func__);
-		return 0;
-	}
-#endif
 	if ((min_char_input_curr_limit != chrlmt_chr_input_curr_limit)
-	|| (min_pep30_input_curr_limit != chrlmt_pep30_input_curr_limit)
 	|| (min_bat_char_curr_limit != chrlmt_bat_chr_curr_limit)) {
 
 		chrlmt_chr_input_curr_limit = min_char_input_curr_limit;
 		chrlmt_bat_chr_curr_limit = min_bat_char_curr_limit;
-		chrlmt_pep30_input_curr_limit = min_pep30_input_curr_limit;
-
 		if (bcct_chrlmt_queue)
 			queue_work(bcct_chrlmt_queue, &bcct_chrlmt_work);
 
-		mtk_cooler_bcct_dprintk_always("%s %p %d %d %d\n", __func__
+		mtk_cooler_bcct_dprintk_always("%s %p %d %d\n", __func__
 					, handle, chrlmt_chr_input_curr_limit
-					, chrlmt_bat_chr_curr_limit
-					, chrlmt_pep30_input_curr_limit);
+					, chrlmt_bat_chr_curr_limit);
 	}
 
 	return 0;
 }
 
-static int cl_bcct_klog_on;
+
 static struct thermal_cooling_device
 			*cl_bcct_dev[MAX_NUM_INSTANCE_MTK_COOLER_BCCT] = { 0 };
 
@@ -488,18 +292,18 @@ static void mtk_cl_bcct_set_bcct_limit(void)
 		cl_bcct_cur_limit = min_limit;
 
 		if (cl_bcct_cur_limit >= 65535) {
-			chrlmt_set_limit(&cl_bcct_chrlmt_handle, -1, -1, -1);
+			chrlmt_set_limit(&cl_bcct_chrlmt_handle, -1, -1);
 			mtk_cooler_bcct_dprintk("%s limit=-1\n", __func__);
 		} else {
 			chrlmt_set_limit(&cl_bcct_chrlmt_handle, -1,
-							cl_bcct_cur_limit, -1);
+							cl_bcct_cur_limit);
 
 			mtk_cooler_bcct_dprintk("%s limit=%d\n", __func__
 					, cl_bcct_cur_limit);
 		}
 
 		mtk_cooler_bcct_dprintk("%s real limit=%d\n", __func__
-				, get_bat_charging_current_level() / 100);
+				, get_battery_current());
 
 	}
 }
@@ -518,7 +322,7 @@ struct thermal_cooling_device *cdev, unsigned long *state)
 	MTK_CL_BCCT_GET_CURR_STATE(*state, *((unsigned long *)cdev->devdata));
 	mtk_cooler_bcct_dprintk("%s %s %lu\n", __func__, cdev->type, *state);
 	mtk_cooler_bcct_dprintk("%s %s limit=%d\n", __func__, cdev->type,
-			get_bat_charging_current_level() / 100);
+			get_battery_current());
 	return 0;
 }
 
@@ -533,7 +337,7 @@ struct thermal_cooling_device *cdev, unsigned long state)
 	MTK_CL_BCCT_SET_CURR_STATE(state, *((unsigned long *)cdev->devdata));
 	mtk_cl_bcct_set_bcct_limit();
 	mtk_cooler_bcct_dprintk("%s %s limit=%d\n", __func__, cdev->type,
-			get_bat_charging_current_level() / 100);
+			get_battery_current());
 
 	return 0;
 }
@@ -608,81 +412,57 @@ static int abcct_min_chr_input_curr_limit = 200;
 static int abcct_cur_chr_input_curr_limit;
 static long abcct_iterm;
 static int abcct_times_of_ts_polling_interval = 1;
-static int abcct_pep30_max_input_curr_limit = 5000;
-static int abcct_pep30_min_input_curr_limit = 2000;
-static int abcct_pep30_cur_input_curr_limit = 5000;
-
 static void bat_chg_info_update(void)
 {
+	union power_supply_propval prop;
+	struct power_supply *psy;
+	struct power_supply *chr_psy;
 	int ret = 0;
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-	int pep30_max_input_curr_limit_uA = 0;
-	int pep30_min_input_curr_limit_uA = 0;
+	psy = power_supply_get_by_name("battery");
+	if (psy == NULL) {
+		pr_notice("%s Couldn't get psy\n", __func__);
+	} else {
+		ret = power_supply_get_property(psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
+		if (ret == 0)
+			bat_info_vbat = prop.intval;
 
-	bat_info_soc = battery_get_soc();
-	bat_info_uisoc = battery_get_uisoc();
-	if (cl_bcct_klog_on == 1) {
-		bat_info_vbat = battery_get_bat_voltage();
-		bat_info_ibat = battery_get_bat_current();
-		bat_info_vbus = battery_get_vbus();
-		ret = mtk_chr_get_aicr(&bat_info_aicr);
-		if (ret)
-			mtk_cooler_bcct_dprintk("bat_info_aicr: %d err: %d\n",
-							bat_info_aicr, ret);
+		ret = power_supply_get_property(psy,
+			POWER_SUPPLY_PROP_CAPACITY, &prop);
+		if (ret == 0)
+			bat_info_uisoc = prop.intval;
+
+		ret = power_supply_get_property(psy,
+			POWER_SUPPLY_PROP_CURRENT_NOW, &prop);
+		if (ret == 0)
+			bat_info_ibat = prop.intval;
+		mtk_cooler_bcct_dprintk("vbat:%d,uisoc:%d,ibat:%d\n",
+				bat_info_vbat,
+				bat_info_uisoc,
+				bat_info_ibat);
 	}
-#ifdef CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT
-	charger_manager_get_pe30_input_current_limit(pthermal_consumer, 0,
-						&bat_info_pep30_curr_limit,
-						&pep30_min_input_curr_limit_uA,
-						&pep30_max_input_curr_limit_uA);
-#endif /* CONFIG_MTK_PUMP_EXPRESS_PLUS_30_SUPPORT */
-
-	abcct_pep30_max_input_curr_limit = pep30_max_input_curr_limit_uA / 1000;
-	abcct_pep30_min_input_curr_limit = pep30_min_input_curr_limit_uA / 1000;
-#else
-	ret = mtk_chr_get_soc(&bat_info_soc);
-	if (ret)
-		mtk_cooler_bcct_dprintk("mtk_chr_get_soc: %d err: %d\n",
-							bat_info_soc, ret);
-
-	ret = mtk_chr_get_ui_soc(&bat_info_uisoc);
-
-	if (ret)
-		mtk_cooler_bcct_dprintk("bat_info_uisoc: %d err: %d\n",
-							bat_info_uisoc, ret);
-
-	ret = mtk_chr_get_vbat(&bat_info_vbat);
-
-	if (ret)
-		mtk_cooler_bcct_dprintk("bat_info_vbat: %d err: %d\n",
-							bat_info_vbat, ret);
-	ret = mtk_chr_get_ibat(&bat_info_ibat);
 
 
-	if (ret)
-		mtk_cooler_bcct_dprintk("bat_info_ibat: %d err: %d\n",
-							bat_info_ibat, ret);
+	chr_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chr_psy == NULL) {
+		pr_notice("%s Couldn't get chr_psy\n", __func__);
+	} else {
+		ret = power_supply_get_property(psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
+		if (ret == 0)
+			bat_info_vbus = prop.intval;
+		mtk_cooler_bcct_dprintk("vbus %d\n",
+					bat_info_vbus);
+		ret = power_supply_get_property(psy,
+			POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &prop);
+		if (ret == 0)
+			bat_info_aicr = prop.intval;
+		mtk_cooler_bcct_dprintk("aicr %d\n",
+					bat_info_aicr);
+	}
 
-	ret = mtk_chr_get_vbus(&bat_info_vbus);
 
-	if (ret)
-		mtk_cooler_bcct_dprintk("bat_info_vbus: %d err: %d\n",
-							bat_info_vbus, ret);
-
-	ret = mtk_chr_get_aicr(&bat_info_aicr);
-
-	if (ret)
-		mtk_cooler_bcct_dprintk("bat_info_aicr: %d err: %d\n",
-							bat_info_aicr, ret);
-	/*
-	 * ret = mtk_chr_get_tchr(&bat_info_mintchr, &bat_info_maxtchr);
-	 * if (ret)
-	 *	mtk_cooler_bcct_dprintk("mtk_chr_get_tchr: %d %d err: %d\n",
-	 *			bat_info_mintchr, bat_info_maxtchr, ret);
-	 */
-	bat_info_pep30_curr_limit = mtk_pep30_get_charging_current_limit();
-#endif
 }
 
 static int mtk_cl_abcct_get_max_state(
@@ -735,22 +515,10 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 	long delta, pterm, dterm;
 	int limit;
 	static int i;
-	static int pep30_reset_to_normal;
-
 	if (++i < abcct_times_of_ts_polling_interval)
 		return 0;
 
 	i = 0;
-
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-	if (pthermal_consumer != NULL)
-		bat_info_charging_type =
-				charger_manager_get_current_charging_type(
-				pthermal_consumer);
-#else
-	bat_info_charging_type = mtk_chr_get_current_charging_type();
-#endif
-
 	/* based on temp and state to do ATM */
 	abcct_prev_temp = abcct_curr_temp;
 	abcct_curr_temp = (long) temp;
@@ -759,11 +527,7 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 		abcct_iterm = 0;
 		abcct_cur_bat_chr_curr_limit = abcct_max_bat_chr_curr_limit;
 		abcct_cur_chr_input_curr_limit = -1;
-		abcct_pep30_cur_input_curr_limit =
-					abcct_pep30_max_input_curr_limit;
-
-		chrlmt_set_limit(&abcct_chrlmt_handle, -1, -1, -1);
-		pep30_reset_to_normal = 0;
+		chrlmt_set_limit(&abcct_chrlmt_handle, -1, -1);
 		return 0;
 	}
 
@@ -789,33 +553,6 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 		delta = 50;
 	else if (delta > -50 && delta < 0)
 		delta = -50;
-
-	/* start: update PEP30 input current limit */
-	limit = abcct_pep30_cur_input_curr_limit + (int) delta;
-	/* Align limit to 50mA to avoid redundant calls to chrlmt. */
-	limit = (limit / 50) * 50;
-	limit = MIN(abcct_pep30_max_input_curr_limit, limit);
-	limit = MAX(abcct_pep30_min_input_curr_limit - 100, limit);
-
-	if ((limit < abcct_pep30_min_input_curr_limit)
-	&& (bat_info_charging_type != 3))
-		limit = abcct_pep30_min_input_curr_limit;
-
-	if (limit < abcct_pep30_min_input_curr_limit)
-		pep30_reset_to_normal = 1;
-
-	abcct_pep30_cur_input_curr_limit = limit;
-
-	if ((bat_info_charging_type == 0) && (pep30_reset_to_normal)) {
-		/* reset to normal charger.
-		 * go to do the normal charger thermal limit
-		 */
-		abcct_cur_bat_chr_curr_limit = 2000;
-		abcct_cur_chr_input_curr_limit = -1;
-		pep30_reset_to_normal = 0;
-	}
-	/* end: update PEP30 input current limit */
-
 	if (abcct_cur_chr_input_curr_limit == -1) {
 		limit = abcct_cur_bat_chr_curr_limit + (int) delta;
 		/* Align limit to 50mA to avoid redundant calls to chrlmt. */
@@ -849,10 +586,8 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 			, __func__, abcct_curr_temp, pterm, abcct_iterm, dterm,
 			delta, abcct_cur_chr_input_curr_limit,
 			abcct_cur_bat_chr_curr_limit);
-
 	chrlmt_set_limit(&abcct_chrlmt_handle, abcct_cur_chr_input_curr_limit,
-					abcct_cur_bat_chr_curr_limit,
-					abcct_pep30_cur_input_curr_limit);
+					abcct_cur_bat_chr_curr_limit);
 
 	return 0;
 }
@@ -874,10 +609,6 @@ static int abcct_lcmoff_max_bat_chr_curr_limit = 3000;
 static int abcct_lcmoff_min_bat_chr_curr_limit = 200;
 static int abcct_lcmoff_cur_bat_chr_curr_limit;
 static long abcct_lcmoff_iterm;
-static int abcct_lcmoff_pep30_max_input_curr_limit = 5000;
-static int abcct_lcmoff_pep30_min_input_curr_limit = 2000;
-static int abcct_lcmoff_pep30_cur_input_curr_limit = 5000;
-
 static int mtk_cl_abcct_lcmoff_get_max_state(
 struct thermal_cooling_device *cdev, unsigned long *state)
 {
@@ -919,16 +650,6 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 {
 	long delta, pterm, dterm;
 	int limit;
-	static int pep30_reset_to_normal;
-
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-	if (pthermal_consumer != NULL)
-		bat_info_charging_type =
-			charger_manager_get_current_charging_type(
-							pthermal_consumer);
-#else
-	bat_info_charging_type = mtk_chr_get_current_charging_type();
-#endif
 
 	/* based on temp and state to do ATM */
 	abcct_lcmoff_prev_temp = abcct_lcmoff_curr_temp;
@@ -938,12 +659,7 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 		abcct_lcmoff_iterm = 0;
 		abcct_lcmoff_cur_bat_chr_curr_limit =
 					abcct_lcmoff_max_bat_chr_curr_limit;
-
-		abcct_lcmoff_pep30_cur_input_curr_limit =
-					abcct_lcmoff_pep30_max_input_curr_limit;
-
-		chrlmt_set_limit(&abcct_lcmoff_chrlmt_handle, -1, -1, -1);
-		pep30_reset_to_normal = 0;
+		chrlmt_set_limit(&abcct_lcmoff_chrlmt_handle, -1, -1);
 		return 0;
 	}
 
@@ -972,31 +688,6 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 		delta = 50;
 	else if (delta > -50 && delta < 0)
 		delta = -50;
-
-	/* start: update PEP30 input current limit */
-	limit = abcct_lcmoff_pep30_cur_input_curr_limit + (int) delta;
-	/* Align limit to 50mA to avoid redundant calls to chrlmt. */
-	limit = (limit / 50) * 50;
-	limit = MIN(abcct_lcmoff_pep30_max_input_curr_limit, limit);
-	limit = MAX(abcct_lcmoff_pep30_min_input_curr_limit - 100, limit);
-
-	if ((limit < abcct_pep30_min_input_curr_limit)
-	&& (bat_info_charging_type != 3))
-		limit = abcct_pep30_min_input_curr_limit;
-	if (limit < abcct_pep30_min_input_curr_limit)
-		pep30_reset_to_normal = 1;
-
-	abcct_lcmoff_pep30_cur_input_curr_limit = limit;
-
-	if ((bat_info_charging_type == 0) && (pep30_reset_to_normal)) {
-		/* reset to normal charger.
-		 * go to do the normal charger thermal limit
-		 */
-		abcct_lcmoff_cur_bat_chr_curr_limit = 2000;
-		pep30_reset_to_normal = 0;
-	}
-	/* end: update PEP30 input current limit */
-
 	limit = abcct_lcmoff_cur_bat_chr_curr_limit + (int) delta;
 	/* Align limit to 50mA to avoid redundant calls to chrlmt. */
 	limit = (limit / 50) * 50;
@@ -1007,9 +698,7 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 	mtk_cooler_bcct_dprintk("%s %ld %ld %ld %ld %ld %d\n"
 				, __func__, abcct_lcmoff_curr_temp, pterm,
 				abcct_lcmoff_iterm, dterm, delta, limit);
-
-	chrlmt_set_limit(&abcct_lcmoff_chrlmt_handle, -1, limit,
-				abcct_lcmoff_pep30_cur_input_curr_limit);
+	chrlmt_set_limit(&abcct_lcmoff_chrlmt_handle, -1, limit);
 
 	return 0;
 }
@@ -1222,17 +911,8 @@ struct file *filp, const char __user *buf, size_t len, loff_t *data)
 			abcct_times_of_ts_polling_interval =
 						_times_of_ts_polling_inteval;
 		}
-
-		if (scan_count > 10) {
-			abcct_pep30_max_input_curr_limit = _pep30_max_input;
-			abcct_pep30_min_input_curr_limit = _pep30_min_input;
-		}
-
 		abcct_cur_chr_input_curr_limit = -1;
 		abcct_cur_bat_chr_curr_limit = abcct_max_bat_chr_curr_limit;
-		abcct_pep30_cur_input_curr_limit =
-					abcct_pep30_max_input_curr_limit;
-
 		abcct_iterm = 0;
 
 		return len;
@@ -1257,10 +937,6 @@ static int _cl_abcct_read(struct seq_file *m, void *v)
 
 	seq_printf(m, "abcct_cur_chr_input_curr_limit %d\n",
 						abcct_cur_chr_input_curr_limit);
-
-	seq_printf(m, "abcct_pep30_cur_input_curr_limit %d\n",
-					abcct_pep30_cur_input_curr_limit);
-
 	seq_printf(m, "abcct_target_temp %ld\n", abcct_target_temp);
 	seq_printf(m, "abcct_kp %ld\n", abcct_kp);
 	seq_printf(m, "abcct_ki %ld\n", abcct_ki);
@@ -1282,13 +958,6 @@ static int _cl_abcct_read(struct seq_file *m, void *v)
 
 	seq_printf(m, "abcct_times_of_ts_polling_interval %d\n",
 					abcct_times_of_ts_polling_interval);
-
-	seq_printf(m, "abcct_pep30_max_input_curr_limit %d\n",
-					abcct_pep30_max_input_curr_limit);
-
-	seq_printf(m, "abcct_pep30_min_input_curr_limit %d\n",
-					abcct_pep30_min_input_curr_limit);
-
 	return 0;
 }
 
@@ -1347,15 +1016,6 @@ struct file *filp, const char __user *buf, size_t len, loff_t *data)
 					abcct_lcmoff_max_bat_chr_curr_limit;
 
 		abcct_lcmoff_iterm = 0;
-
-		if (scan_count > 7) {
-			abcct_lcmoff_pep30_max_input_curr_limit =
-							_pep30_max_input;
-
-			abcct_lcmoff_pep30_min_input_curr_limit =
-							_pep30_min_input;
-		}
-
 		return len;
 	}
 
@@ -1373,10 +1033,6 @@ static int _cl_abcct_lcmoff_read(struct seq_file *m, void *v)
 	seq_printf(m, "%d\n", abcct_lcmoff_cur_bat_chr_curr_limit);
 	seq_printf(m, "abcct_lcmoff_cur_bat_chr_curr_limit %d\n",
 					abcct_lcmoff_cur_bat_chr_curr_limit);
-
-	seq_printf(m, "abcct_lcmoff_pep30_cur_input_curr_limit %d\n",
-				abcct_lcmoff_pep30_cur_input_curr_limit);
-
 	seq_printf(m, "abcct_lcmoff_target_temp %ld\n",
 						abcct_lcmoff_target_temp);
 
@@ -1388,13 +1044,6 @@ static int _cl_abcct_lcmoff_read(struct seq_file *m, void *v)
 
 	seq_printf(m, "abcct_lcmoff_min_bat_chr_curr_limit %d\n",
 					abcct_lcmoff_min_bat_chr_curr_limit);
-
-	seq_printf(m, "abcct_lcmoff_pep30_max_input_curr_limit %d\n",
-				abcct_lcmoff_pep30_max_input_curr_limit);
-
-	seq_printf(m, "abcct_lcmoff_pep30_min_input_curr_limit %d\n",
-				abcct_lcmoff_pep30_min_input_curr_limit);
-
 	return 0;
 }
 
@@ -1469,13 +1118,8 @@ static int _cl_chrlmt_read(struct seq_file *m, void *v)
 {
 	mtk_cooler_bcct_dprintk("%s\n", __func__);
 
-	seq_printf(m, "%d,%d,%d\n", chrlmt_chr_input_curr_limit,
-						chrlmt_bat_chr_curr_limit,
-						chrlmt_pep30_input_curr_limit);
-
-	seq_printf(m, "chrlmt_pep30_input_curr_limit %d\n",
-						chrlmt_pep30_input_curr_limit);
-
+	seq_printf(m, "%d,%d\n", chrlmt_chr_input_curr_limit,
+						chrlmt_bat_chr_curr_limit);
 	seq_printf(m, "chrlmt_chr_input_curr_limit %d\n",
 						chrlmt_chr_input_curr_limit);
 
@@ -1507,11 +1151,10 @@ static int _cl_battery_status_read(struct seq_file *m, void *v)
 {
 	mtk_cooler_bcct_dprintk("%s\n", __func__);
 
-	seq_printf(m, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
-			bat_info_soc, bat_info_uisoc, bat_info_vbat,
+	seq_printf(m, "%d,%d,%d,%d,%d,%d,%d,%d\n",
+			bat_info_uisoc, bat_info_vbat,
 			bat_info_ibat, bat_info_mintchr, bat_info_maxtchr,
-			bat_info_vbus, bat_info_aicr, bat_info_charging_type,
-			bat_info_pep30_curr_limit);
+			bat_info_vbus, bat_info_aicr, bat_info_charging_type);
 
 	return 0;
 }
@@ -1535,12 +1178,10 @@ int mtk_cooler_is_abcct_unlimit(void)
 }
 EXPORT_SYMBOL(mtk_cooler_is_abcct_unlimit);
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
+
 static int mtkcooler_bcct_pdrv_probe(struct platform_device *pdev)
 {
 	mtk_cooler_bcct_dprintk_always("%s\n", __func__);
-	pthermal_consumer = charger_manager_get_by_name(&pdev->dev, "charger");
-
 	return 0;
 }
 
@@ -1593,7 +1234,7 @@ reg_platform_driver_fail:
 fail:
 	return ret;
 }
-#endif
+
 
 static int __init mtk_cooler_bcct_init(void)
 {
@@ -1707,14 +1348,14 @@ static void __exit mtk_cooler_bcct_exit(void)
 
 	fb_unregister_client(&bcct_lcmoff_fb_notifier);
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
+
 	platform_driver_unregister(&mtk_cooler_bcct_driver);
 	platform_device_unregister(&mtk_cooler_bcct_device);
-#endif
+
 }
 
 module_init(mtk_cooler_bcct_init);
 module_exit(mtk_cooler_bcct_exit);
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
+
 late_initcall(mtkcooler_bcct_late_init);
-#endif
+

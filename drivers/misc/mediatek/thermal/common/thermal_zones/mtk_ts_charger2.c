@@ -19,17 +19,18 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#include <linux/power_supply.h>
 
 #define mtktscharger2_TEMP_CRIT (150000) /* 150.000 degree Celsius */
 
 #define mtktscharger2_dprintk(fmt, args...) \
 do { \
 	if (mtktscharger2_debug_log) \
-		pr_debug("[Thermal/tzcharger2]" fmt, ##args); \
+		pr_notice("[Thermal/tzcharger2]" fmt, ##args); \
 } while (0)
 
 #define mtktscharger2_dprintk_always(fmt, args...) \
-	pr_debug("[Thermal/tzcharger2]" fmt, ##args)
+	pr_notice("[Thermal/tzcharger2]" fmt, ##args)
 
 #define mtktscharger2_pr_notice(fmt, args...) \
 	pr_notice("[Thermal/tzcharger2]" fmt, ##args)
@@ -70,6 +71,7 @@ static int mtktscharger2_debug_log;
  */
 static unsigned long prev_temp = 30000;
 
+
 /**
  * If curr_temp >= polling_trip_temp1, use interval
  * else if cur_temp >= polling_trip_temp2 && curr_temp < polling_trip_temp1,
@@ -80,9 +82,6 @@ static int polling_trip_temp1 = 40000;
 static int polling_trip_temp2 = 20000;
 static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
-
-static struct charger_consumer *pthermal_consumer;
-
 struct charger_consumer __attribute__ ((weak))
 *charger_manager_get_by_name(struct device *dev,
 	const char *supply_name)
@@ -98,6 +97,23 @@ charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 	mtktscharger2_dprintk_always("%s not found.\n", __func__);
 	return -ENODEV;
 }
+static struct power_supply *get_charger2_handle(void)
+{
+	static struct power_supply *chg_psy_slave;
+	static struct power_supply *chg_psy_master;
+
+	/*check if support slave charger*/
+	if (chg_psy_slave == NULL)
+		chg_psy_slave = power_supply_get_by_name("mtk-slave-charger");
+	if (chg_psy_master == NULL)
+		chg_psy_master = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy_slave && chg_psy_master)
+		return chg_psy_master;
+
+	pr_notice("%s is not dual charger project\n",
+				__func__);
+	return NULL;
+}
 
 #define MAIN_CHARGER 0
 /**
@@ -111,28 +127,25 @@ charger_manager_get_charger_temperature(struct charger_consumer *consumer,
  */
 static int mtktscharger2_get_hw_temp(void)
 {
-	int charger_idx = MAIN_CHARGER;
-	int tmax = 0, tmin = 0;
 	int ret = -1;
 	int t = -127000;
+	union power_supply_propval prop;
+	struct power_supply *chg_psy;
 
-	if (!pthermal_consumer)
+
+	chg_psy = get_charger2_handle();
+	if (chg_psy == NULL)
 		return t;
-
-
-	ret = charger_manager_get_charger_temperature(pthermal_consumer,
-		charger_idx, &tmin, &tmax);
-
-	if (ret >= 0) {
-		t = tmax * 1000;
+	ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_TEMP, &prop);
+	if (ret == 0) {
+		t = 1000 * prop.intval;
 		prev_temp = t;
-	} else if (ret == -ENODEV) {
-	} else {
+	} else
 		t = prev_temp;
-	}
 
-	mtktscharger2_dprintk_always("%s t=%d min=%d max=%d ret=%d\n", __func__,
-							t, tmin, tmax, ret);
+	mtktscharger2_dprintk_always("%s t=%d ret=%d\n", __func__,
+							t, ret);
 
 	return t;
 }
@@ -561,15 +574,6 @@ static int mtktscharger2_pdrv_probe(struct platform_device *pdev)
 	struct proc_dir_entry *mtktscharger2_dir = NULL;
 
 	mtktscharger2_dprintk_always("%s\n", __func__);
-
-	pthermal_consumer = charger_manager_get_by_name(&pdev->dev, "charger");
-
-	if (!pthermal_consumer) {
-		mtktscharger2_pr_notice("%s get get_by_name fails.\n",
-								__func__);
-		return -EPERM;
-	}
-
 	err = mtktscharger2_register_thermal();
 	if (err)
 		goto err_unreg;

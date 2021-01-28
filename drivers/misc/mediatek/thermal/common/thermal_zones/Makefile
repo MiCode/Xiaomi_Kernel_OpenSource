@@ -47,7 +47,7 @@ endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))
 
-#obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
 
 obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
 obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
