@@ -148,8 +148,7 @@ static void mtk_idle_gs_dump(int idle_type)
 //		break;
 //	}
 //#endif
-*}
-*/
+
 int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 {
 	int spm_dormant_sta = 0;
