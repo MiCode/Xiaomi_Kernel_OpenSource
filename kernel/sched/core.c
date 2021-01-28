@@ -1150,7 +1150,8 @@ static inline unsigned int uclamp_effective_group_id(struct task_struct *p,
 
 		/* Use group clamp value restrict task clamp value */
 		if (!p->uclamp[clamp_id].user_defined ||
-			(clamp_max > 0 && clamp_value != clamp_max)) {
+			(clamp_max != uclamp_none(clamp_id) &&
+			clamp_value != clamp_max)) {
 			clamp_value = clamp_max;
 			group_id = group_max;
 		}
@@ -1763,6 +1764,58 @@ int set_task_util_min_pct(pid_t pid, unsigned int pct)
 }
 EXPORT_SYMBOL(set_task_util_min_pct);
 
+int set_task_util_max(pid_t pid, unsigned int util_max)
+{
+	unsigned int lower_bound;
+	struct task_struct *p;
+	int ret = 0;
+
+	if (!opp_capacity_tbl_ready)
+		init_opp_capacity_tbl();
+
+	util_max = find_fit_capacity(util_max);
+
+	mutex_lock(&uclamp_mutex);
+	rcu_read_lock();
+	p = find_process_by_pid(pid);
+
+	if (!p) {
+		ret = -ESRCH;
+		goto out;
+	}
+
+	lower_bound = p->uclamp[UCLAMP_MIN].value;
+
+	if (util_max < lower_bound || util_max > 1024) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	p->uclamp[UCLAMP_MAX].user_defined = true;
+	uclamp_group_get(p, NULL, &p->uclamp[UCLAMP_MAX],
+			UCLAMP_MAX, util_max);
+
+out:
+	rcu_read_unlock();
+	mutex_unlock(&uclamp_mutex);
+
+	return ret;
+}
+EXPORT_SYMBOL(set_task_util_max);
+
+int set_task_util_max_pct(pid_t pid, unsigned int pct)
+{
+	unsigned int util_max;
+
+	if (pid <= 0)
+		return -EINVAL;
+	if (pct < 0 || pct > 100)
+		return -ERANGE;
+
+	util_max = scale_from_percent(pct);
+	return set_task_util_max(pid, util_max);
+}
+EXPORT_SYMBOL(set_task_util_max_pct);
 /**
  * init_uclamp: initialize data structures required for utilization clamping
  */
