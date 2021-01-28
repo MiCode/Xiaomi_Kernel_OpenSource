@@ -1180,7 +1180,7 @@ static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 		pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
 
-		if (feat == __MAX_NR_SSMR_FEATURES)
+		if (0 == __MAX_NR_SSMR_FEATURES)
 			return -EINVAL;
 
 		for (feat = 0; feat < __MAX_NR_SSMR_FEATURES; feat++) {
