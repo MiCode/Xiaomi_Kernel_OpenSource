@@ -62,6 +62,9 @@ void pob_trace(const char *fmt, ...)
 	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
 
+	if (len == TRACELOG_SIZE)
+		log[TRACELOG_SIZE - 1] = '\0';
+
 	preempt_disable();
 	trace_pob_log(log);
 	preempt_enable();
@@ -70,10 +73,14 @@ void pob_trace(const char *fmt, ...)
 void pob_sysfs_create_file(struct kobject *parent,
 			struct kobj_attribute *kobj_attr)
 {
+	int ret;
+
 	if (kobj_attr == NULL || pob_kobj == NULL)
 		return;
 
-	sysfs_create_file(pob_kobj, &(kobj_attr->attr));
+	ret = sysfs_create_file(pob_kobj, &(kobj_attr->attr));
+	if (ret)
+		pr_debug("Failed to create sysfs file\n");
 }
 
 void pob_sysfs_remove_file(struct kobject *parent,
