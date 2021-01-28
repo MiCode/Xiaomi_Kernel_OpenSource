@@ -63,23 +63,23 @@ int  __attribute__ ((weak)) vcorefs_get_curr_vcore(void)
 
 void __attribute__ ((weak)) mtk8250_backup_dev(void)
 {
-	pr_debug("NO %s !!!\n", __func__);
+	//pr_debug("NO %s !!!\n", __func__);
 }
 
 void __attribute__ ((weak)) mtk8250_restore_dev(void)
 {
-	pr_debug("NO %s !!!\n", __func__);
+	//pr_debug("NO %s !!!\n", __func__);
 }
 
 int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
 {
-	pr_debug("NO %s !!!\n", __func__);
+	//pr_debug("NO %s !!!\n", __func__);
 	return 0;
 }
 
 int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
 {
-	pr_debug("NO %s !!!\n", __func__);
+	//pr_debug("NO %s !!!\n", __func__);
 	return 0;
 }
 
