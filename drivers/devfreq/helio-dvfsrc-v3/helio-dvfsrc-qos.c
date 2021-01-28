@@ -37,9 +37,7 @@ struct helio_dvfsrc *dvfsrc;
 
 #define DVFSRC_REG(offset) (dvfsrc->regs + offset)
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
-	|| defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)\
-	|| defined(CONFIG_MACH_MT6833)
+#if defined(DVFSRC_SMC_CONTROL)
 #define SPM_REG(offset) (dvfsrc->spm_regs + offset)
 
 u32 spm_reg_read(u32 offset)
