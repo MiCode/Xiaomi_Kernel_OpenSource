@@ -8422,7 +8422,8 @@ pick_cpu:
 
 	} else {
 		if (energy_sd) {
-			new_cpu = find_energy_efficient_cpu(energy_sd, p, cpu, prev_cpu, sync);
+			new_cpu = __find_energy_efficient_cpu(energy_sd, p, cpu,
+					prev_cpu, sync);
 			select_reason = LB_EAS;
 		}
 

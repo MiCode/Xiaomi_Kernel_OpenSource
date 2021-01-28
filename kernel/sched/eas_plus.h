@@ -30,6 +30,8 @@ static unsigned int aggressive_idle_pull(int this_cpu);
 bool idle_lb_enhance(struct task_struct *p, int cpu);
 static int
 ___select_idle_sibling(struct task_struct *p, int prev_cpu, int new_cpu);
+static int __find_energy_efficient_cpu(struct sched_domain *sd,
+		struct task_struct *p, int cpu, int prev_cpu, int sync);
 extern int find_best_idle_cpu(struct task_struct *p, bool prefer_idle);
 
 static int start_cpu(struct task_struct *p, bool prefer_idle,
