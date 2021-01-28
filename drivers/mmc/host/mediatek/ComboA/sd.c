@@ -888,7 +888,7 @@ int msdc_get_card_status(struct mmc_host *mmc, struct msdc_host *host,
 	if (!lock)
 		spin_lock(&host->lock);
 
-	err = msdc_do_command(host, &cmd, CMD_TIMEOUT);
+	err = msdc_do_command(host, &cmd, CMD_CQ_TIMEOUT);
 
 	if (!lock)
 		spin_unlock(&host->lock);
@@ -3421,7 +3421,7 @@ static int msdc_do_request_cq(struct mmc_host *mmc,
 	}
 #endif
 
-	(void)msdc_do_cmdq_command(host, cmd, CMD_TIMEOUT);
+	(void)msdc_do_cmdq_command(host, cmd, CMD_CQ_TIMEOUT);
 
 	if (cmd->error == (unsigned int)-EILSEQ)
 		host->error |= REQ_CMD_EIO;
@@ -3430,7 +3430,7 @@ static int msdc_do_request_cq(struct mmc_host *mmc,
 
 	cmd  = mrq->cmd;
 
-	(void)msdc_do_cmdq_command(host, cmd, CMD_TIMEOUT);
+	(void)msdc_do_cmdq_command(host, cmd, CMD_CQ_TIMEOUT);
 
 	if (cmd->error == (unsigned int)-EILSEQ)
 		host->error |= REQ_CMD_EIO;
@@ -3633,7 +3633,7 @@ int msdc_error_tuning(struct mmc_host *mmc,  struct mmc_request *mrq)
 	}
 
 	if (host->hw->host_function == MSDC_SD) {
-		if  (autok_err_type == CRC_STATUS_ERROR) {
+		if (autok_err_type == CRC_STATUS_ERROR) {
 			pr_notice("%s: reset sdcard\n",
 				__func__);
 			(void)sdcard_hw_reset(mmc);
@@ -3822,7 +3822,7 @@ static void msdc_post_req(struct mmc_host *mmc, struct mmc_request *mrq,
 	data = mrq->data;
 	if (data && (msdc_use_async_dma(data->host_cookie))) {
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-		if (!mmc_card_cmdq(mmc->card))
+		if (!mmc->card || !mmc_card_cmdq(mmc->card))
 #endif
 			host->xfer_size = data->blocks * data->blksz;
 		dir = data->flags & MMC_DATA_READ ?
@@ -5207,9 +5207,12 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	/* Set host parameters to mmc */
 	mmc->ops        = &mt_msdc_ops;
-	mmc->f_min      = HOST_MIN_MCLK;
-	mmc->f_max      = HOST_MAX_MCLK;
 	mmc->ocr_avail  = MSDC_OCR_AVAIL;
+	/* set clock when dts is not defined */
+	if (!mmc->f_min)
+		mmc->f_min = HOST_MIN_MCLK;
+	if (!mmc->f_max)
+		mmc->f_max = HOST_MAX_MCLK;
 
 	if ((hw->flags & MSDC_SDIO_IRQ) || (hw->flags & MSDC_EXT_SDIO_IRQ))
 		mmc->caps |= MMC_CAP_SDIO_IRQ;  /* yes for sdio */
