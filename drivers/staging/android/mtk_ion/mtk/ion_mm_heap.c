@@ -370,27 +370,6 @@ static int ion_mm_heap_allocate(struct ion_heap *heap,
 		goto map_mva_exit;
 	}
 
-	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_PA2MVA) {
-		table = kzalloc(sizeof(*table), GFP_KERNEL);
-		if (!table) {
-			IONMSG("%s kzalloc failed table is null.\n", __func__);
-			goto err;
-		}
-		ret = sg_alloc_table(table, 1, GFP_KERNEL);
-		if (ret) {
-			IONMSG("%s PA2MVA sg table fail %d\n", __func__, ret);
-			goto err1;
-		}
-		sg_dma_address(table->sgl) = align;
-		sg_dma_len(table->sgl) = size;
-		table->sgl->length = size;
-#ifdef CONFIG_MTK_PSEUDO_M4U
-		page = phys_to_page(align);
-		sg_set_page(table->sgl, page, size, 0);
-#endif
-
-		goto map_mva_exit;
-	}
 #endif
 	if (align > PAGE_SIZE) {
 		IONMSG("%s align %lu is larger than PAGE_SIZE.\n", __func__,
@@ -641,8 +620,7 @@ void ion_mm_heap_free(struct ion_buffer *buffer)
 	int i;
 
 #if (defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U))
-	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA ||
-	    heap->id == ION_HEAP_TYPE_MULTIMEDIA_PA2MVA) {
+	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
 		ion_mm_heap_free_buffer_info(buffer);
 #if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
 	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
@@ -870,8 +848,7 @@ static int ion_mm_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		}
 
 #if (defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_PSEUDO_M4U))
-		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA ||
-		    heap->id == ION_HEAP_TYPE_MULTIMEDIA_PA2MVA) {
+		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
 			port_info.va = (unsigned long)buffer_info->VA;
 			port_info.flags |= M4U_FLAGS_SG_READY;
 			/*userspace va without vmalloc, has no page struct */

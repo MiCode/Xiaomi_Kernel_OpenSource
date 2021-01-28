@@ -1005,15 +1005,6 @@ static struct ion_platform_heap ion_drv_platform_heaps[] = {
 	 .priv = NULL,
 	 },
 	{
-	 .type = (unsigned int)ION_HEAP_TYPE_MULTIMEDIA,
-	 .id = ION_HEAP_TYPE_MULTIMEDIA_PA2MVA,
-	 .name = "ion_mm_heap_for_pa2mva",
-	 .base = 0,
-	 .size = 0,
-	 .align = 0,
-	 .priv = NULL,
-	 },
-	{
 	 .type = (unsigned int)ION_HEAP_TYPE_CARVEOUT,
 	 .id = ION_HEAP_TYPE_CARVEOUT,
 	 .name = "ion_carveout_heap",

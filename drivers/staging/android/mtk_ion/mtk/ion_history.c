@@ -704,9 +704,7 @@ static int ion_history_record(void *data)
 				*buffer = rb_entry(n, struct ion_buffer, node);
 				heap_id = buffer->heap->id;
 				if (heap_id ==
-					ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA ||
-					heap_id ==
-					ION_HEAP_TYPE_MULTIMEDIA_PA2MVA)
+					ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA)
 					continue;
 				total_size += buffer->size;
 				if (!buffer->handle_count)
