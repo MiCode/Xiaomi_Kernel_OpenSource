@@ -2818,7 +2818,20 @@ int spi_setup(struct spi_device *spi)
 	if (spi->controller->setup)
 		status = spi->controller->setup(spi);
 
-	spi_set_cs(spi, false);
+	if (spi->master->auto_runtime_pm && spi->master->set_cs) {
+		status = pm_runtime_get_sync(spi->master->dev.parent);
+		if (status < 0) {
+			pm_runtime_put_noidle(spi->master->dev.parent);
+			dev_err(&spi->dev, "Failed to power device: %d\n",
+				status);
+			return status;
+		}
+		spi_set_cs(spi, false);
+		pm_runtime_mark_last_busy(spi->master->dev.parent);
+		pm_runtime_put_autosuspend(spi->master->dev.parent);
+	} else {
+		spi_set_cs(spi, false);
+	}
 
 	dev_dbg(&spi->dev, "setup mode %d, %s%s%s%s%u bits/w, %u Hz max --> %d\n",
 			(int) (spi->mode & (SPI_CPOL | SPI_CPHA)),
