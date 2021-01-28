@@ -13,16 +13,30 @@
 #ifndef __APUSYS_MNOC_QOS_H__
 #define __APUSYS_MNOC_QOS_H__
 
+#include "mnoc_option.h"
 
-void notify_sspm_apusys_on(void);
-void notify_sspm_apusys_off(void);
+#if MNOC_TIME_PROFILE
+extern unsigned long sum_start, sum_suspend, sum_end, sum_work_func;
+extern unsigned int cnt_start, cnt_suspend, cnt_end, cnt_work_func;
+#endif
 
-int apu_cmd_qos_start(uint64_t cmd_id, uint64_t sub_cmd_id, unsigned int core);
-int apu_cmd_qos_suspend(uint64_t cmd_id, uint64_t sub_cmd_id);
-int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id);
+#if MNOC_QOS_BOOST_ENABLE
+extern bool apu_qos_boost_flag;
+extern struct mutex apu_qos_boost_mtx;
+#endif
+
+void apu_qos_on(void);
+void apu_qos_off(void);
+
 void apu_qos_counter_init(void);
 void apu_qos_counter_destroy(void);
 
 void print_cmd_qos_list(struct seq_file *m);
+
+void apu_qos_suspend(void);
+void apu_qos_resume(void);
+
+void apu_qos_boost_start(void);
+void apu_qos_boost_end(void);
 
 #endif

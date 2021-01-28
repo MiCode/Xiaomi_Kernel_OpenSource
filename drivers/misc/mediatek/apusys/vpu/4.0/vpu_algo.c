@@ -11,8 +11,10 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/string.h>
+#include "vpu_cmd.h"
 #include "vpu_cmn.h"
 #include "vpu_algo.h"
 #include "vpu_debug.h"
@@ -60,50 +62,8 @@ int vpu_init_algo(void)
 	return 0;
 }
 
-static int vpu_calc_prop_offset(struct vpu_prop_desc *descs,
-	uint32_t count, uint32_t *length)
-{
-
-	struct vpu_prop_desc *prop_desc;
-	uint32_t offset = 0;
-	uint32_t alignment = 1;
-	uint32_t i, tmp;
-	size_t type_size;
-
-	/* get the alignment of struct packing */
-	for (i = 0; i < count; i++) {
-		prop_desc = &descs[i];
-		type_size = g_vpu_prop_type_size[prop_desc->type];
-
-		if (alignment < type_size)
-			alignment = type_size;
-	}
-
-	/* calculate every prop's offset  */
-	for (i = 0; i < count; i++) {
-		prop_desc = &descs[i];
-		type_size = g_vpu_prop_type_size[prop_desc->type];
-
-		/* align offset with next data type */
-		tmp = offset % type_size;
-		if (tmp)
-			offset += type_size - tmp;
-
-		/* padding if the remainder is not enough */
-		tmp = alignment - offset % alignment;
-		if (tmp < type_size)
-			offset += tmp;
-
-		prop_desc->offset = offset;
-		offset += prop_desc->count * type_size;
-	}
-	*length = offset;
-
-	return 0;
-}
-
-struct __vpu_algo *vpu_alg_get(struct vpu_device *dev, const char *name,
-	struct __vpu_algo *alg)
+static struct __vpu_algo *vpu_alg_get(struct vpu_algo_list *al,
+	const char *name, struct __vpu_algo *alg)
 {
 	if (alg) {
 		kref_get(&alg->ref);
@@ -111,103 +71,123 @@ struct __vpu_algo *vpu_alg_get(struct vpu_device *dev, const char *name,
 	}
 
 	if (!name)
-		goto not_found;
+		goto out;
 
 	/* search from tail, so that existing algorithm can be
 	 * overidden by dynamic loaded ones.
 	 **/
-	list_for_each_entry_reverse(alg, &dev->algo, list) {
+	spin_lock(&al->lock);
+	list_for_each_entry_reverse(alg, &al->a, list) {
 		if (!strcmp(alg->a.name, name)) {
 			/* found, reference count++ */
 			kref_get(&alg->ref);
+			goto unlock;
+		}
+	}
+	alg = NULL;
+unlock:
+	spin_unlock(&al->lock);
+out:
+	if (alg)
+		vpu_alg_debug("%s: vpu%d: %s: %s: ref: %d builtin: %d\n",
+			__func__, al->vd->id, al->name, alg->a.name,
+			kref_read(&alg->ref), alg->builtin);
+	else
+		vpu_alg_debug("%s: vpu%d: %s: %s was not found\n",
+			__func__, al->vd->id, al->name, name);
+
+	return alg;
+}
+
+static void vpu_alg_release(struct kref *ref)
+{
+	struct __vpu_algo *alg
+		= container_of(ref, struct __vpu_algo, ref);
+	struct vpu_algo_list *al = alg->al;
+
+	spin_lock(&al->lock);
+	list_del(&alg->list);
+	al->cnt--;
+	spin_unlock(&al->lock);
+
+	vpu_alg_debug("%s: vpu%d: %s: %s, algo_cnt: %d builtin: %d\n",
+		__func__, al->vd->id, al->name, alg->a.name,
+		al->cnt, alg->builtin);
+
+	/* free __vpu_algo memory */
+	vpu_alg_free(container_of(ref, struct __vpu_algo, ref));
+}
+
+static void vpu_alg_put(struct __vpu_algo *alg)
+{
+	vpu_alg_debug("%s: vpu%d: %s: %s: ref: %d builtin: %d\n",
+		__func__, alg->al->vd->id, alg->al->name, alg->a.name,
+		kref_read(&alg->ref), alg->builtin);
+	kref_put(&alg->ref, alg->al->ops->release);
+}
+
+/**
+ * vpu_alg_unload() - unload currently loaded algorithm of
+ *                    command priority "prio" from vpu
+ * @vd: vpu device
+ * @prio: command priority
+ *
+ * vpu_cmd_lock() must be locked before calling this function
+ */
+static void vpu_alg_unload(struct vpu_algo_list *al, int prio)
+{
+	struct __vpu_algo *alg;
+
+	if (!al)
+		return;
+
+	alg = vpu_cmd_alg(al->vd, prio);
+	if (!alg)
+		return;
+
+	al->ops->put(alg);
+	vpu_cmd_alg_clr(al->vd, prio);
+}
+
+/**
+ * vpu_alg_load() - load an algortihm for normal priority(0)
+ *                  d2d execution
+ * @vd: vpu device
+ *
+ * Automatically unload currently loaded algortihm, and
+ * load given one.
+ * vpu_cmd_lock() must be locked before calling this function
+ */
+static int vpu_alg_load(struct vpu_algo_list *al, const char *name,
+	struct __vpu_algo *alg, int prio)
+{
+	int ret = 0;
+
+	alg = al->ops->get(al, name, alg);
+	if (!alg) {
+		vpu_alg_debug("%s: vpu%d: %s: \"%s\" was not found\n",
+			__func__, al->vd->id, al->name, name);
+		return -ENOENT;
+	}
+
+	al->ops->unload(al, prio);
+
+	if (al->ops->hw_init) {
+		ret = al->ops->hw_init(al, alg);
+		if (ret) {
+			pr_info("%s: vpu%d: %s: hw_init: %d\n",
+				__func__, al->vd->id, al->name, ret);
+			al->ops->put(alg);
 			goto out;
 		}
 	}
 
-not_found:
-	alg = NULL;
+	vpu_cmd_alg_set(al->vd, prio, alg);
 out:
-	return alg;
-}
-
-void vpu_alg_release(struct kref *ref)
-{
-	kfree(container_of(ref, struct __vpu_algo, ref));
-}
-
-void vpu_alg_put(struct __vpu_algo *alg)
-{
-	kref_put(&alg->ref, vpu_alg_release);
-}
-
-// dev->cmd_lock, should be acquired before calling this function
-static int vpu_alg_load_info(struct vpu_device *dev, struct __vpu_algo *alg)
-{
-	int ret;
-
-	ret = vpu_hw_alg_info(dev, alg);  // vpu_hw_get_algo_info
-	if (ret) {
-		pr_info("%s: vpu_hw_alg_info: %d\n", __func__, ret);
-		goto err;
-	}
-	vpu_calc_prop_offset(alg->a.info.desc,
-		alg->a.info.desc_cnt, &alg->a.info.length);
-	vpu_alg_debug("%s: vpu%d: sett.len: 0x%x\n",
-		__func__, dev->id, alg->a.info.length);
-	vpu_calc_prop_offset(alg->a.sett.desc,
-		alg->a.sett.desc_cnt, &alg->a.sett.length);
-	vpu_alg_debug("%s: vpu%d: sett.len: 0x%x\n",
-		__func__, dev->id, alg->a.sett.length);
-
-	alg->info_valid = true;
-
-err:
 	return ret;
 }
 
-// dev->cmd_lock, should be acquired before calling this function
-int vpu_alg_load(struct vpu_device *dev, const char *name,
-	struct __vpu_algo *alg)
-{
-	int ret = 0;
-
-	alg = vpu_alg_get(dev, name, alg);
-	if (!alg) {
-		pr_info("%s: \"%s\" was not found\n", __func__, name);
-		return -ENOENT;
-	}
-
-	if (dev->algo_curr) {
-		vpu_alg_put(dev->algo_curr);
-		dev->algo_curr = NULL;
-	}
-
-	ret = vpu_hw_alg_init(dev, alg);  // vpu_hw_load_algo
-	if (ret) {
-		pr_info("%s: vpu_hw_alg_init: %d\n", __func__, ret);
-		goto err;
-	}
-
-	dev->algo_curr = alg;
-
-	// get algo info when
-	// info is invalid and not from vpu_execute()
-	if (!name && !alg->info_valid) {
-		ret = vpu_alg_load_info(dev, alg);
-		if (ret)
-			goto err;
-	}
-
-	goto out;
-
-err:
-	vpu_alg_put(alg);
-out:
-	vpu_alg_debug("%s: %d\n", __func__, ret);  // debug
-	return ret;
-}
-
-struct __vpu_algo *vpu_alg_alloc(void)
+struct __vpu_algo *vpu_alg_alloc(struct vpu_algo_list *al)
 {
 	struct __vpu_algo *algo;
 
@@ -218,12 +198,131 @@ struct __vpu_algo *vpu_alg_alloc(void)
 
 	algo->a.info.ptr = (uintptr_t) algo + sizeof(struct __vpu_algo);
 	algo->a.info.length = prop_info_data_length;
-	algo->info_valid = false;
+	algo->builtin = false;
+	algo->al = al;
 
 	INIT_LIST_HEAD(&algo->list);
 	kref_init(&algo->ref);  /* init count = 1 */
 
 	return algo;
+}
+
+void vpu_alg_free(struct __vpu_algo *alg)
+{
+	struct device *dev = alg->al->vd->dev;
+
+	vpu_iova_free(dev, &alg->prog);
+	vpu_iova_free(dev, &alg->iram);
+	kfree(alg);
+}
+
+/*
+ * vpu_alg_add - add fw to apusys
+ * @vd: vpu device.
+ * @fw: firmware pass to apusys
+ */
+static int vpu_alg_add(struct vpu_algo_list *al, struct apusys_firmware_hnd *fw)
+{
+	struct vpu_device *vd = al->vd;
+	struct __vpu_algo *alg = NULL;
+	struct __vpu_algo *tmp = NULL;
+
+	int ret = 0;
+
+	if (fw->magic != VPU_FW_MAGIC)
+		return -EINVAL;
+
+	alg = al->ops->get(al, fw->name, NULL);
+	if (alg) {
+		/* found only built-in => create dynamic one */
+		if (alg->builtin)
+			al->ops->put(alg);
+		/* simply increase reference count and return,
+		 * if the algorithm is already exist in dynamic
+		 * loaded list (builtin = false)
+		 */
+		else
+			goto out;
+	}
+
+	alg = vpu_alg_alloc(al);
+	if (!alg)
+		return -ENOMEM;
+
+	alg->prog.bin = VPU_MEM_ALLOC;
+	alg->prog.size = fw->size;
+	alg->a.mva = vpu_iova_alloc(to_platform_device(vd->dev), &alg->prog);
+	if (!alg->a.mva) {
+		ret = -ENOMEM;
+		goto algo_free;
+	}
+
+	/* copy apusys algo content to vpu iova and sync to vpu device*/
+	memcpy((void *)alg->prog.m.va, (void *)fw->kva, fw->size);
+	vpu_iova_sync_for_device(vd->dev, &alg->prog);
+	alg->a.len = alg->prog.size;
+
+	/* make sure alg->a.name will full-filled null byte first */
+	memset(alg->a.name, 0, sizeof(alg->a.name));
+	strncpy(alg->a.name, fw->name,
+		min(sizeof(alg->a.name), sizeof(fw->name)) - 1);
+
+	spin_lock(&al->lock);
+	list_for_each_entry_reverse(tmp, &al->a, list) {
+		if (!strcmp(tmp->a.name, fw->name) && !tmp->builtin) {
+			ret = -EEXIST;
+			vpu_alg_get(al, NULL, tmp);
+			goto unlock;
+		}
+	}
+
+	list_add_tail(&alg->list, &al->a);
+	al->cnt++;
+unlock:
+	spin_unlock(&al->lock);
+
+	if (!ret) {
+		vpu_alg_debug("%s: %s: name %s, len %d, mva 0x%lx alg_cnt: %d builtin: %d\n",
+			__func__, al->name, alg->a.name, alg->a.len,
+			(unsigned long)alg->a.mva, al->cnt,
+			alg->builtin);
+	} else if (ret == -EEXIST) {
+		vpu_alg_debug("%s: %s: name %s already exist\n",
+			__func__, al->name, fw->name);
+algo_free:
+		vpu_alg_free(alg);
+		ret = 0;
+	}
+out:
+	return ret;
+}
+
+/*
+ * vpu_alg_del - remove fw from apusys
+ * @vd: vpu device.
+ * @fw: firmware pass to apusys
+ */
+static int vpu_alg_del(struct vpu_algo_list *al, struct apusys_firmware_hnd *fw)
+{
+	struct __vpu_algo *alg;
+
+	if (fw->magic != VPU_FW_MAGIC)
+		return -EINVAL;
+
+	/* search from tail, so that existing algorithm can be
+	 * overidden by dynamic loaded ones.
+	 */
+	list_for_each_entry_reverse(alg, &al->a, list) {
+		if (!strcmp(alg->a.name, fw->name)) {
+			vpu_alg_debug("%s: %s: name %s len %d mva 0x%lx\n",
+				__func__, al->name, alg->a.name,
+				alg->a.len, (unsigned long)alg->a.mva);
+			al->ops->put(alg);
+			return 0;
+		}
+	}
+
+	return -ENOENT;
 }
 
 int vpu_alloc_request(struct vpu_request **rreq)
@@ -245,4 +344,41 @@ int vpu_free_request(struct vpu_request *req)
 		kfree(req);
 	return 0;
 }
+
+int vpu_firmware(struct vpu_device *vd, struct apusys_firmware_hnd *fw)
+{
+	struct vpu_algo_list *al = &vd->aln;
+
+	/* Support only normal algogirthm */
+	if (fw->op == APUSYS_FIRMWARE_LOAD)
+		return al->ops->add(al, fw);
+	else if (fw->op == APUSYS_FIRMWARE_UNLOAD)
+		return al->ops->del(al, fw);
+
+	vpu_cmd_debug("%s: unknown op: %d\n", __func__, fw->op);
+	return -EINVAL;
+}
+
+struct vpu_algo_ops vpu_normal_aops = {
+	.load = vpu_alg_load,
+	.unload = vpu_alg_unload,
+	.get = vpu_alg_get,
+	.put = vpu_alg_put,
+	.release = vpu_alg_release,
+	.hw_init = vpu_hw_alg_init,
+	.add = vpu_alg_add,
+	.del = vpu_alg_del,
+};
+
+struct vpu_algo_ops vpu_prelaod_aops = {
+	.load = vpu_alg_load,
+	.unload = vpu_alg_unload,
+	.get = vpu_alg_get,
+	.put = vpu_alg_put,
+	.release = vpu_alg_release,
+	.hw_init = NULL,
+	.add = NULL,
+	.del = NULL,
+};
+
 

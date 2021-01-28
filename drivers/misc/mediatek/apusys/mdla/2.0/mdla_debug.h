@@ -20,6 +20,19 @@
 #include <linux/types.h>
 #include <linux/printk.h>
 #include <linux/seq_file.h>
+#include <aee.h>
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+#define mdla_aee_warn(key, format, args...) \
+	do { \
+		pr_info(format, ##args); \
+		aee_kernel_warning("MDLA", \
+			"\nCRDISPATCH_KEY:" key "\n" format, ##args); \
+	} while (0)
+#else
+#define mdla_aee_warn(key, format, args...)
+#endif
+
 extern int g_vpu_log_level;
 extern unsigned int g_mdla_func_mask;
 extern void *apu_conn_top;
@@ -84,7 +97,7 @@ int mdla_dump_register(struct seq_file *s);
 int mdla_dump_image_file(struct seq_file *s);
 
 /**
- * mdla_dump_mesg - dump the log buffer, which is wroted by VPU
+ * mdla_dump_mesg - dump the log buffer, which is wroted by MDLA
  * @s:          the pointer to seq_file.
  */
 int mdla_dump_mesg(struct seq_file *s);
@@ -101,6 +114,18 @@ int mdla_dump_mdla(struct seq_file *s);
  */
 int mdla_dump_device_dbg(struct seq_file *s);
 
+/**
+ * mdla_dump_memory - dump the mdla code code buffer
+ * @s:		the pointer to seq_file.
+ */
+int mdla_dump_mdla_memory(struct seq_file *s);
+
+int mdla_dump_dbg(struct mdla_dev *mdla_info, struct command_entry *ce);
+
+void mdla_dump_cmd_buf_free(int core_id);
+
+int mdla_create_dmp_cmd_buf(struct command_entry *ce,
+	struct mdla_dev *mdla_info);
 
 enum MDLA_DEBUG_MASK {
 	MDLA_DBG_DRV = 0x01,
@@ -111,6 +136,7 @@ enum MDLA_DEBUG_MASK {
 	MDLA_DBG_QOS = 0x20,
 	MDLA_DBG_TIMEOUT = 0x40,
 	MDLA_DBG_DVFS = 0x80,
+	MDLA_DBG_TIMEOUT_ALL = 0x100,
 };
 
 #if 1
@@ -157,6 +183,8 @@ static inline void mdla_debugfs_exit(void)
 #define mdla_qos_debug(...) mdla_debug(MDLA_DBG_QOS, __VA_ARGS__)
 #define mdla_timeout_debug(...) mdla_debug(MDLA_DBG_TIMEOUT, __VA_ARGS__)
 #define mdla_dvfs_debug(...) mdla_debug(MDLA_DBG_DVFS, __VA_ARGS__)
+#define mdla_timeout_all_debug(...) \
+	mdla_debug(MDLA_DBG_TIMEOUT_ALL, __VA_ARGS__)
 #define dump_reg_top(core_id, name) \
 	mdla_timeout_debug("%s: %d: %.8x\n", #name,\
 	core_id, mdla_reg_read_with_mdlaid(core_id, name))

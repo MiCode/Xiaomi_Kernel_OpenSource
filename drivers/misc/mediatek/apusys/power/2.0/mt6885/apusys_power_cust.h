@@ -14,111 +14,72 @@
 #ifndef _APUSYS_POWER_CUST_H_
 #define _APUSYS_POWER_CUST_H_
 
+#include <linux/delay.h>
 #include <linux/types.h>
+#include "apusys_power_user.h"
+#include <linux/sched/clock.h>
+#include <linux/platform_device.h>
+
+#include "apusys_power.h"
 
 #ifdef BUILD_POLICY_TEST
 #include "test.h"
 #endif
 
-#define APUSYS_MAX_NUM_OPPS                (23)
+#define APUPWR_TASK_DEBOUNCE
+
+#define BYPASS_POWER_OFF	(0)	// 1: bypass power off (return directly)
+#define BYPASS_POWER_CTL	(0)	// 1: bypass power on/off feature
+#define BYPASS_DVFS_CTL		(0)	// 1: bypass set DVFS opp feature
+#define DEFAULT_POWER_ON	(0)	// 1: default power on in power probe
+#define AUTO_BUCK_OFF_SUSPEND	(0)
+#define AUTO_BUCK_OFF_DEEPIDLE	(0)
+#define ASSERTIOM_CHECK (1)
+#define DVFS_ASSERTION_CHECK (1)
+#define VCORE_DVFS_SUPPORT	(0)
+#define ASSERTION_PERCENTAGE	(1)	// 1%
+#define BINNING_VOLTAGE_SUPPORT (1)
+#define SUPPORT_HW_CONTROL_PMIC	(1)
+#define TIME_PROFILING		(0)
+#define APUSYS_SETTLE_TIME_TEST (0)
+#define VOLTAGE_RAISE_UP	    (1)
+#define SUPPORT_VCORE_TO_IPUIF	(1)
+
+#define APUSYS_MAX_NUM_OPPS                (10)
 #define APUSYS_PATH_USER_NUM               (4)   // num of DVFS_XXX_PATH
-#define APUSYS_DVFS_CONSTRAINT_NUM			(3)
+#define APUSYS_DVFS_CONSTRAINT_NUM			(4)
 #define APUSYS_VPU_NUM						(3)
 #define APUSYS_MDLA_NUM						(2)
 #define APUSYS_DEFAULT_OPP					(9)
 
-#define SUPPORT_HW_CONTROL_PMIC	(1)
+#define VOLTAGE_CHECKER		(0)
 
 // FIXME: check default value
 #define VCORE_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
-#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_750000_V
 #define VVPU_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
 #define VMDLA_DEFAULT_VOLT	DVFS_VOLT_00_575000_V
+#define VSRAM_DEFAULT_VOLT	DVFS_VOLT_00_750000_V
+
+#define VCORE_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
+#define VVPU_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
+#define VMDLA_SHUTDOWN_VOLT	DVFS_VOLT_00_575000_V
+#define VSRAM_SHUTDOWN_VOLT	DVFS_VOLT_00_750000_V
+
+
+#define BUCK_DOMAIN_DEFAULT_FREQ DVFS_FREQ_00_208000_F
+#define VCORE_ON_FREQ		DVFS_FREQ_00_273000_F
+#define VCORE_OFF_FREQ		DVFS_FREQ_00_026000_F
+
 
 #define VSRAM_TRANS_VOLT	DVFS_VOLT_00_750000_V
-
-enum POWER_CALLBACK_USER {
-	IOMMU = 0,
-	REVISOR = 1,
-	MNOC = 2,
-	APUSYS_POWER_CALLBACK_USER_NUM,
-};
-
-enum DVFS_USER {
-	VPU0 = 0,
-	VPU1 = 1,
-	VPU2 = 2,
-	MDLA0 = 3,
-	MDLA1 = 4,
-	APUSYS_DVFS_USER_NUM,
-};
+#define VSRAM_LOW_VOLT		DVFS_VOLT_00_750000_V
+#define VSRAM_HIGH_VOLT		DVFS_VOLT_00_825000_V
 
 
-enum DVFS_VOLTAGE_DOMAIN {
-	V_VPU0 = 0,
-	V_VPU1 = 1,
-	V_VPU2 = 2,
-	V_MDLA0 = 3,
-	V_MDLA1 = 4,
-	V_APU_CONN = 5,
-	V_TOP_IOMMU = 6,
-	V_VCORE = 7,
-	APUSYS_BUCK_DOMAIN_NUM,
-};
-
-
-enum DVFS_BUCK {
-	SRAM_BUCK = -1,	// sepcial case for VSRAM constraint
-	VPU_BUCK = 0,
-	MDLA_BUCK = 1,
-	VCORE_BUCK = 2,
-	APUSYS_BUCK_NUM,
-};
-
-
-enum DVFS_VOLTAGE {
-	DVFS_VOLT_NOT_SUPPORT = 0,
-	DVFS_VOLT_00_550000_V = 550000,
-	DVFS_VOLT_00_575000_V = 575000,
-	DVFS_VOLT_00_600000_V = 600000,
-	DVFS_VOLT_00_650000_V = 650000,
-	DVFS_VOLT_00_700000_V = 700000,
-	DVFS_VOLT_00_725000_V = 725000,
-	DVFS_VOLT_00_750000_V = 750000,
-	DVFS_VOLT_00_800000_V = 800000,
-	DVFS_VOLT_00_825000_V = 825000,
-	DVFS_VOLT_MAX,
-};
-
-
-enum DVFS_FREQ {
-	DVFS_FREQ_NOT_SUPPORT = 0,
-	DVFS_FREQ_00_026000_F = 26000,
-	DVFS_FREQ_00_104000_F = 104000,
-	DVFS_FREQ_00_136500_F = 136500,
-	DVFS_FREQ_00_208000_F = 208000,
-	DVFS_FREQ_00_273000_F = 273000,
-	DVFS_FREQ_00_280000_F = 280000,
-	DVFS_FREQ_00_306000_F = 306000,
-	DVFS_FREQ_00_312000_F = 312000,
-	DVFS_FREQ_00_364000_F = 364000,
-	DVFS_FREQ_00_392857_F = 392857,
-	DVFS_FREQ_00_416000_F = 416000,
-	DVFS_FREQ_00_457000_F = 457000,
-	DVFS_FREQ_00_458333_F = 458333,
-	DVFS_FREQ_00_499200_F = 499200,
-	DVFS_FREQ_00_546000_F = 546000,
-	DVFS_FREQ_00_550000_F = 550000,
-	DVFS_FREQ_00_572000_F = 572000,
-	DVFS_FREQ_00_594000_F = 594000,
-	DVFS_FREQ_00_624000_F = 624000,
-	DVFS_FREQ_00_687500_F = 687500,
-	DVFS_FREQ_00_700000_F = 700000,
-	DVFS_FREQ_00_728000_F = 728000,
-	DVFS_FREQ_00_750000_F = 750000,
-	DVFS_FREQ_00_832000_F = 832000,
-	DVFS_FREQ_00_850000_F = 850000,
-	DVFS_FREQ_MAX,
+enum SEGMENT_INFO {
+	SEGMENT_0 = 0,	// 5G_l
+	SEGMENT_1 = 1,	// 5G
+	SEGMENT_2 = 2,	// 5G_H
 };
 
 
@@ -171,35 +132,52 @@ struct apusys_dvfs_constraint {
 	enum DVFS_VOLTAGE voltage1;
 };
 
+#if SUPPORT_VCORE_TO_IPUIF
+struct ipuif_opp_table {
+	unsigned int ipuif_khz;
+	unsigned int ipuif_vcore;
+};
+#endif
 
 struct apusys_dvfs_opps {
 	// map to dvfs_table
 	struct apusys_dvfs_steps (*opps)[APUSYS_BUCK_DOMAIN_NUM];
 	enum DVFS_VOLTAGE user_path_volt[APUSYS_DVFS_USER_NUM]
 					[APUSYS_PATH_USER_NUM];
+	enum DVFS_VOLTAGE next_buck_volt[APUSYS_BUCK_NUM];
 	enum DVFS_VOLTAGE cur_buck_volt[APUSYS_BUCK_NUM];
-	enum DVFS_VOLTAGE prev_buck_volt[APUSYS_BUCK_NUM];
+	uint8_t next_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t cur_opp_index[APUSYS_BUCK_DOMAIN_NUM];
-	uint8_t prev_opp_index[APUSYS_BUCK_DOMAIN_NUM];
 	uint8_t power_lock_max_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t power_lock_min_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t thermal_opp[APUSYS_DVFS_USER_NUM];
 	uint8_t user_opp_index[APUSYS_DVFS_USER_NUM];
 	uint8_t driver_opp_index[APUSYS_DVFS_USER_NUM];
-	bool is_power_on[APUSYS_DVFS_USER_NUM];
-	uint8_t power_bit_mask;
+	bool is_power_on[APUSYS_POWER_USER_NUM];
+	uint32_t power_bit_mask;
 	uint64_t id;
 	enum DVFS_VOLTAGE vsram_volatge;
+#if APUSYS_SETTLE_TIME_TEST
+	/* Here +1 is due to profile Vsram settle time */
+	struct profiling_timestamp st[APUSYS_BUCK_NUM + 1];
+#endif
+#if SUPPORT_VCORE_TO_IPUIF
+	int qos_apu_vcore;
+	int driver_apu_vcore;
+#endif
 };
 
 extern char *user_str[APUSYS_DVFS_USER_NUM];
 extern char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM];
 extern char *buck_str[APUSYS_BUCK_NUM];
+extern bool apusys_dvfs_user_support[APUSYS_DVFS_USER_NUM];
+extern bool apusys_dvfs_buck_domain_support[APUSYS_BUCK_DOMAIN_NUM];
 extern enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain
 					[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM];
 extern enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM];
 extern enum DVFS_BUCK apusys_buck_domain_to_buck[APUSYS_BUCK_DOMAIN_NUM];
+extern enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM];
 extern uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM];
 extern uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM];
 extern enum DVFS_VOLTAGE
@@ -210,7 +188,19 @@ extern bool buck_shared[APUSYS_BUCK_NUM]
 extern struct apusys_dvfs_constraint dvfs_constraint_table
 					[APUSYS_DVFS_CONSTRAINT_NUM];
 extern enum DVFS_VOLTAGE vcore_opp_mapping[];
-extern struct apusys_dvfs_steps dvfs_table[APUSYS_MAX_NUM_OPPS]
+extern struct apusys_dvfs_steps dvfs_table_0[APUSYS_MAX_NUM_OPPS]
 						[APUSYS_BUCK_DOMAIN_NUM];
-
+extern struct apusys_dvfs_steps dvfs_table_1[APUSYS_MAX_NUM_OPPS]
+						[APUSYS_BUCK_DOMAIN_NUM];
+extern struct apusys_dvfs_steps dvfs_table_2[APUSYS_MAX_NUM_OPPS]
+						[APUSYS_BUCK_DOMAIN_NUM];
+#if SUPPORT_VCORE_TO_IPUIF
+extern struct ipuif_opp_table g_ipuif_opp_table[];
+#endif
+#ifdef APUPWR_TASK_DEBOUNCE
+static inline void task_debounce(void)
+{
+	msleep_interruptible(20);
+}
+#endif
 #endif

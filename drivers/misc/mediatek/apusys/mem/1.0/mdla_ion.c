@@ -10,20 +10,21 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifdef CONFIG_MTK_MDLA_ION
+
 #include <linux/types.h>
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
 #include <linux/uaccess.h>
 #include <linux/err.h>
-#include <m4u.h>
 
 #include "mdla_ioctl.h"
+#include "mdla.h"
 #include "mdla_ion.h"
 #include "mdla_debug.h"
-#include "mdla.h"
 
+#ifdef CONFIG_MTK_MDLA_ION
+//#include <m4u.h>
 
 static struct ion_client *ion_client;
 
@@ -48,7 +49,6 @@ int mdla_ion_kmap(unsigned long arg)
 	struct ioctl_ion ion_data;
 	struct ion_mm_data mm_data;
 	struct ion_handle *hndl;
-	ion_phys_addr_t mva;
 	void *kva;
 	int ret;
 
@@ -70,14 +70,16 @@ int mdla_ion_kmap(unsigned long arg)
 
 	mdla_mem_debug("%s: ion_import_dma_buf_fd(): %p\n", __func__, hndl);
 
-	/*	set memory port */
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = hndl;
-	mm_data.config_buffer_param.module_id = M4U_PORT_VPU;
+	/* use get_iova replace config_buffer & get_phys*/
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.kernel_handle = hndl;
+//	mm_data.get_phys_param.module_id = M4U_PORT_VPU;
+	mm_data.get_phys_param.len = ion_data.len;
 	ret = ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
 		(unsigned long) &mm_data);
 	if (ret < 0) {
-		mdla_mem_debug("%s: ion_kernel_ioctl(%p, %p): %d\n",
+		mdla_mem_debug("%s: ion_phys(%p, %p): %d\n",
 			__func__, ion_client, hndl, ret);
 		return -EINVAL;
 	}
@@ -90,18 +92,10 @@ int mdla_ion_kmap(unsigned long arg)
 		return -EINVAL;
 	}
 
-	/*  Get the phyiscal address (mva) to the buffer */
-	ret = ion_phys(ion_client, hndl, &mva, &ion_data.len);
-	if (ret < 0) {
-		mdla_mem_debug("%s: ion_phys(%p, %p): %d\n",
-			__func__, ion_client, hndl, ret);
-
-		return -EINVAL;
-	}
-
 	ion_data.kva = (__u64) kva;
-	ion_data.mva = mva;
+	ion_data.mva = mm_data.get_phys_param.phy_addr;
 	ion_data.khandle = (__u64) hndl;
+	ion_data.len = mm_data.get_phys_param.len;
 
 	if (copy_to_user((void * __user) arg, &ion_data, sizeof(ion_data)))
 		return -EFAULT;
