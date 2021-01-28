@@ -15,6 +15,7 @@
 #include <linux/kernel.h>
 #include <linux/pm_qos.h>
 #include <linux/sysfs.h>
+#include <linux/mutex.h>
 
 #include <helio-dvfsrc-qos.h>
 #include <helio-dvfsrc-opp.h>
@@ -28,6 +29,7 @@ static struct pm_qos_request dvfsrc_power_model_vcore_req;
 static struct pm_qos_request dvfsrc_vcore_dvfs_opp_force;
 static struct pm_qos_request dvfsrc_isphrt_bw_req;
 
+static DEFINE_MUTEX(dump_lock);
 
 static ssize_t dvfsrc_enable_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -219,14 +221,14 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 	if (!dvfsrc)
 		return sprintf(buf, "Failed to access dvfsrc\n");
 
-	mutex_lock(&dvfsrc->devfreq->lock);
+	mutex_lock(&dump_lock);
 	for (i = 0; i < VCORE_DVFS_OPP_NUM; i++) {
 		p += snprintf(p, buff_end - p, "[OPP%-2d]: %-8u uv %-8u khz\n",
 				i, get_vcore_uv(i), get_ddr_khz(i));
 	}
 
 	p += snprintf(p, buff_end - p, "\n");
-	mutex_unlock(&dvfsrc->devfreq->lock);
+	mutex_unlock(&dump_lock);
 
 	return p - buf;
 }

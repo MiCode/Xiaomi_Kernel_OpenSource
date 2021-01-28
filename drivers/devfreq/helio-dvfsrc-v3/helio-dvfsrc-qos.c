@@ -11,7 +11,6 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/devfreq.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -23,7 +22,6 @@
 #include <linux/spinlock.h>
 #include <linux/of.h>
 
-#include "governor.h"
 #include <spm/mtk_spm.h>
 
 
@@ -276,35 +274,10 @@ u32 dvfsrc_dump_reg(char *ptr, u32 count)
 	return index;
 }
 
-static struct devfreq_dev_profile helio_devfreq_profile = {
-	.polling_ms	= 0,
-};
-
 void dvfsrc_set_power_model_ddr_request(unsigned int level)
 {
 	commit_data(DVFSRC_QOS_POWER_MODEL_DDR_REQUEST, level, 1);
 }
-
-static int helio_governor_event_handler(struct devfreq *devfreq,
-					unsigned int event, void *data)
-{
-	switch (event) {
-	case DEVFREQ_GOV_SUSPEND:
-		break;
-
-	case DEVFREQ_GOV_RESUME:
-		break;
-
-	default:
-		break;
-	}
-	return 0;
-}
-
-static struct devfreq_governor helio_dvfsrc_governor = {
-	.name = "helio_dvfsrc",
-	.event_handler = helio_governor_event_handler,
-};
 
 static int pm_qos_memory_bw_notify(struct notifier_block *b,
 		unsigned long l, void *v)
@@ -505,11 +478,6 @@ static int helio_dvfsrc_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, dvfsrc);
 	dvfsrc->dev = &pdev->dev;
 
-	dvfsrc->devfreq = devm_devfreq_add_device(&pdev->dev,
-						 &helio_devfreq_profile,
-						 "helio_dvfsrc",
-						 NULL);
-
 	ret = helio_dvfsrc_add_interface(&pdev->dev);
 	if (ret)
 		return ret;
@@ -555,12 +523,6 @@ static __maybe_unused int helio_dvfsrc_suspend(struct device *dev)
 			return ret;
 	}
 
-	ret = devfreq_suspend_device(dvfsrc->devfreq);
-	if (ret < 0) {
-		dev_err(dev, "failed to suspend the devfreq devices\n");
-		return ret;
-	}
-
 	return 0;
 }
 
@@ -574,11 +536,6 @@ static __maybe_unused int helio_dvfsrc_resume(struct device *dev)
 			return ret;
 	}
 
-	ret = devfreq_resume_device(dvfsrc->devfreq);
-	if (ret < 0) {
-		dev_err(dev, "failed to resume the devfreq devices\n");
-		return ret;
-	}
 	return ret;
 }
 
@@ -599,29 +556,14 @@ static int __init helio_dvfsrc_init(void)
 {
 	int ret = 0;
 
-	ret = devfreq_add_governor(&helio_dvfsrc_governor);
-	if (ret) {
-		pr_err("%s: failed to add governor: %d\n", __func__, ret);
-		return ret;
-	}
-
 	ret = platform_driver_register(&helio_dvfsrc_driver);
-	if (ret)
-		devfreq_remove_governor(&helio_dvfsrc_governor);
-
 	return ret;
 }
 late_initcall_sync(helio_dvfsrc_init)
 
 static void __exit helio_dvfsrc_exit(void)
 {
-	int ret = 0;
-
 	platform_driver_unregister(&helio_dvfsrc_driver);
-
-	ret = devfreq_remove_governor(&helio_dvfsrc_governor);
-	if (ret)
-		pr_err("%s: failed to remove governor: %d\n", __func__, ret);
 }
 module_exit(helio_dvfsrc_exit)
 
