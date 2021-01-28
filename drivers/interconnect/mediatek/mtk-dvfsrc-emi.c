@@ -4,6 +4,7 @@
  */
 
 #include <dt-bindings/interconnect/mtk,mt6779-emi.h>
+#include <dt-bindings/interconnect/mtk,mt6761-emi.h>
 #include <linux/device.h>
 #include <linux/interconnect-provider.h>
 #include <linux/module.h>
@@ -111,6 +112,26 @@ static struct mtk_icc_node *mt6779_icc_nodes[] = {
 static struct mtk_icc_desc mt6779_icc = {
 	.nodes = mt6779_icc_nodes,
 	.num_nodes = ARRAY_SIZE(mt6779_icc_nodes),
+};
+
+static struct mtk_icc_node *mt6761_icc_nodes[] = {
+	[MT6761_SLAVE_DDR_EMI] = &ddr_emi,
+	[MT6761_MASTER_MCUSYS] = &mcusys,
+	[MT6761_MASTER_GPUSYS]	 = &gpu,
+	[MT6761_MASTER_MMSYS]	 = &mmsys,
+	[MT6761_MASTER_MM_VPU] = &mm_vpu,
+	[MT6761_MASTER_MM_DISP] = &mm_disp,
+	[MT6761_MASTER_MM_VDEC] = &mm_vdec,
+	[MT6761_MASTER_MM_VENC] = &mm_venc,
+	[MT6761_MASTER_MM_CAM] = &mm_cam,
+	[MT6761_MASTER_MM_IMG] = &mm_img,
+	[MT6761_MASTER_MM_MDP] = &mm_mdp,
+	[MT6761_MASTER_DEBUGSYS] = &debugsys,
+};
+
+static struct mtk_icc_desc mt6761_icc = {
+	.nodes = mt6761_icc_nodes,
+	.num_nodes = ARRAY_SIZE(mt6761_icc_nodes),
 };
 
 static int emi_icc_aggregate(struct icc_node *node, u32 avg_bw,
@@ -237,6 +258,7 @@ static int emi_icc_remove(struct platform_device *pdev)
 
 static const struct of_device_id emi_icc_of_match[] = {
 	{ .compatible = "mediatek,dvfsrc-mt6779-emi", .data = &mt6779_icc },
+	{ .compatible = "mediatek,dvfsrc-mt6761-emi", .data = &mt6761_icc },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, emi_icc_of_match);
