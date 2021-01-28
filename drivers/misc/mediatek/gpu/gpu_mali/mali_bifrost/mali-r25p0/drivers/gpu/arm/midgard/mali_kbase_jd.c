@@ -465,8 +465,6 @@ static inline void jd_resolve_dep(struct list_head *out_list,
 	}
 }
 
-KBASE_EXPORT_TEST_API(jd_resolve_dep);
-
 /**
  * is_dep_valid - Validate that a dependency is valid for early dependency
  *                submission

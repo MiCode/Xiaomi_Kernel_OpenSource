@@ -1607,6 +1607,9 @@ static kbasep_js_release_result kbasep_js_runpool_release_ctx_internal(
 				kbdev, kctx, katom_retained_state);
 
 	if (new_ref_count == 2 && kbase_ctx_flag(kctx, KCTX_PRIVILEGED) &&
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+			!kbase_pm_is_gpu_lost(kbdev) &&
+#endif
 			!kbase_pm_is_suspending(kbdev)) {
 		/* Context is kept scheduled into an address space even when
 		 * there are no jobs, in this case we have to handle the
@@ -1624,7 +1627,10 @@ static kbasep_js_release_result kbasep_js_runpool_release_ctx_internal(
 	 * which was previously acquired by kbasep_js_schedule_ctx(). */
 	if (new_ref_count == 1 &&
 		(!kbasep_js_is_submit_allowed(js_devdata, kctx) ||
-							kbdev->pm.suspending)) {
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+			kbase_pm_is_gpu_lost(kbdev) ||
+#endif
+			kbase_pm_is_suspending(kbdev))) {
 		int num_slots = kbdev->gpu_props.num_job_slots;
 		int slot;
 
@@ -1934,7 +1940,11 @@ static bool kbasep_js_schedule_ctx(struct kbase_device *kbdev,
 	 * kbasep_js_suspend() code will cleanup this context instead (by virtue
 	 * of it being called strictly after the suspend flag is set, and will
 	 * wait for this lock to drop) */
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	if (kbase_pm_is_suspending(kbdev) || kbase_pm_is_gpu_lost(kbdev)) {
+#else
 	if (kbase_pm_is_suspending(kbdev)) {
+#endif
 		/* Cause it to leave at some later point */
 		bool retained;
 
@@ -2011,13 +2021,30 @@ void kbasep_js_schedule_privileged_ctx(struct kbase_device *kbdev,
 	js_devdata = &kbdev->js_data;
 	js_kctx_info = &kctx->jctx.sched_info;
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	/* This should only happen in response to a system call
 	 * from a user-space thread.
-	 * In a non-virtualized environment this can never happen
+	 * In a non-arbitrated environment this can never happen
+	 * whilst suspending.
+	 *
+	 * In an arbitrated environment, user-space threads can run
+	 * while we are suspended (for example GPU not available
+	 * to this VM), however in that case we will block on
+	 * the wait event for KCTX_SCHEDULED, since no context
+	 * can be scheduled until we have the GPU again.
+	 */
+	if (kbdev->arb.arb_if == NULL)
+		if (WARN_ON(kbase_pm_is_suspending(kbdev)))
+			return;
+#else
+	/* This should only happen in response to a system call
+	 * from a user-space thread.
+	 * In a non-arbitrated environment this can never happen
 	 * whilst suspending.
 	 */
 	if (WARN_ON(kbase_pm_is_suspending(kbdev)))
 		return;
+#endif
 
 	mutex_lock(&js_devdata->queue_mutex);
 	mutex_lock(&js_kctx_info->ctx.jsctx_mutex);
@@ -2140,6 +2167,7 @@ void kbasep_js_resume(struct kbase_device *kbdev)
 			struct kbase_context *kctx, *n;
 			unsigned long flags;
 
+#ifndef CONFIG_MALI_ARBITER_SUPPORT
 			spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
 			list_for_each_entry_safe(kctx, n,
@@ -2177,6 +2205,30 @@ void kbasep_js_resume(struct kbase_device *kbdev)
 				spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 			}
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#else
+			bool timer_sync = false;
+
+			spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+
+			list_for_each_entry_safe(kctx, n,
+				 &kbdev->js_data.ctx_list_unpullable[js][prio],
+				 jctx.sched_info.ctx.ctx_list_entry[js]) {
+
+				if (!kbase_ctx_flag(kctx, KCTX_SCHEDULED) &&
+					kbase_js_ctx_pullable(kctx, js, false))
+					timer_sync |=
+						kbase_js_ctx_list_add_pullable_nolock(
+							kbdev, kctx, js);
+			}
+
+			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+			if (timer_sync) {
+				mutex_lock(&js_devdata->runpool_mutex);
+				kbase_backend_ctx_count_changed(kbdev);
+				mutex_unlock(&js_devdata->runpool_mutex);
+			}
+#endif
 		}
 	}
 	mutex_unlock(&js_devdata->queue_mutex);
@@ -2393,7 +2445,11 @@ struct kbase_jd_atom *kbase_js_pull(struct kbase_context *kctx, int js)
 			(void *)kctx);
 		return NULL;
 	}
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+	if (kbase_pm_is_suspending(kbdev) || kbase_pm_is_gpu_lost(kbdev))
+#else
 	if (kbase_pm_is_suspending(kbdev))
+#endif
 		return NULL;
 
 	katom = jsctx_rb_peek(kctx, js);

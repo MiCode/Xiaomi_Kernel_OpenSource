@@ -230,6 +230,10 @@ config MALI_DMA_BUF_LEGACY_COMPAT
 	  maintenance where MALI_DMA_BUF_MAP_ON_DEMAND would do the mapping,
 	  including a cache flush.
 
+	  This option might work-around issues related to missing cache
+	  flushes in other drivers. This only has an effect for clients using
+	  UK 11.18 or older. For later UK versions it is not possible.
+
 config MALI_HW_ERRATA_1485982_NOT_AFFECTED
 	bool "Disable workaround for BASE_HW_ISSUE_GPU2017_1336"
 	depends on MALI_MIDGARD && MALI_EXPERT
