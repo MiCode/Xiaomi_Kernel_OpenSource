@@ -18,8 +18,6 @@
 #include <mtk_spm_internal.h>
 #include <mtk_power_gs_api.h>
 
-#define WORLD_CLK_CNTCV_L        (0x10017008)
-#define WORLD_CLK_CNTCV_H        (0x1001700C)
 static u32 pcm_timer_ramp_max_sec_loop = 1;
 u64 ap_pd_count;
 u64 ap_slp_duration;
