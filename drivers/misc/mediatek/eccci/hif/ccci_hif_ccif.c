@@ -34,6 +34,7 @@
 #include "ccci_platform.h"
 #include "ccci_hif_ccif.h"
 #include "md_sys1_platform.h"
+#include "ccci_debug_info.h"
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -1245,13 +1246,17 @@ static irqreturn_t md_ccif_isr(int irq, void *data)
 {
 	struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)data;
 	unsigned int ch_id, i;
+	u64 cur_time = local_clock();
+
 	/*disable_irq_nosync(md_ctrl->ccif_irq_id); */
 	/*must ack first, otherwise IRQ will rush in */
 	ch_id = ccif_read32(md_ctrl->ccif_ap_base, APCCIF_RCHNUM);
 
 	for (i = 0; i < CCIF_CH_NUM; i++)
-		if (ch_id & 0x1 << i)
+		if (ch_id & 0x1 << i) {
 			set_bit(i, &md_ctrl->channel_id);
+			ccif_debug_save_irq(i, cur_time);
+		}
 	/* for 91/92, HIF CCIF is for C2K, only 16 CH;
 	 * for 93, only lower 16 CH is for data
 	 */
@@ -1288,6 +1293,8 @@ static inline void md_ccif_queue_struct_init(struct md_ccif_queue *queue,
 	queue->wakeup = 0;
 	queue->resume_cnt = 0;
 	queue->budget = RX_BUGDET;
+
+	ccif_debug_info_init();
 }
 
 static int md_ccif_op_write_room(unsigned char hif_id, unsigned char qno)
