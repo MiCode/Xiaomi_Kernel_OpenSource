@@ -11,12 +11,20 @@
 # GNU General Public License for more details.
 #
 
+ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt8168))
+obj-y += vp6/
+obj-y += vp6/$(subst ",,$(CONFIG_MTK_PLATFORM))/
+MTK_VPU_CORE := 1
+subdir-ccflags-y += -DMTK_VPU_SMI_DEBUG_ON
+else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6771) += 2.0/
 obj-$(CONFIG_MACH_MT6785) += 3.0/
 #subdir-ccflags-y += -DMTK_VPU_EMULATOR
 
 MTK_VPU_CORE := 2
+endif
+
 #subdir-ccflags-y += -DMTK_VPU_SMI_DEBUG_ON
 subdir-ccflags-y += -DMTK_VPU_CORE=$(MTK_VPU_CORE)
 subdir-ccflags-y += -DMTK_VPU_DVT
