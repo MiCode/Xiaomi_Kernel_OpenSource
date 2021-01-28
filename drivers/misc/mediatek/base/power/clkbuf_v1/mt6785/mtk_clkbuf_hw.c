@@ -963,40 +963,40 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 
 	clk_buf_get_xo_en();
 
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"********** PMIC clock buffer state (%s) **********\n",
 			(is_pmic_clkbuf ? "on" : "off"));
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_SOC   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF1_STATUS, pmic_clk_buf_swctrl[XO_SOC],
 			xo_en_stat[XO_SOC]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_WCN   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF2_STATUS, pmic_clk_buf_swctrl[XO_WCN],
 			xo_en_stat[XO_WCN]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_NFC   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF3_STATUS, pmic_clk_buf_swctrl[XO_NFC],
 			xo_en_stat[XO_NFC]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_CEL   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF4_STATUS, pmic_clk_buf_swctrl[XO_CEL],
 			xo_en_stat[XO_CEL]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_AUD   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF5_STATUS, pmic_clk_buf_swctrl[XO_AUD],
 			xo_en_stat[XO_AUD]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_PD    SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF6_STATUS, pmic_clk_buf_swctrl[XO_PD],
 			xo_en_stat[XO_PD]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"XO_EXT   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
 			CLK_BUF7_STATUS, pmic_clk_buf_swctrl[XO_EXT],
 			xo_en_stat[XO_EXT]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			".********** clock buffer debug info **********\n");
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"clkbuf_ctrl_stat=0x%x\n",
 		clkbuf_ctrl_stat);
 
@@ -1026,11 +1026,11 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 	pmic_read_interface_nolock(PMIC_RG_LDO_VBBCK_EN_ADDR, &ldo_vbbck_en,
 			    PMIC_RG_LDO_VBBCK_EN_MASK,
 			    PMIC_RG_LDO_VBBCK_EN_SHIFT);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"DCXO_CW00/09/12/13/15/19=0x%x %x %x %x %x %x\n",
 		pmic_cw00, pmic_cw09, pmic_cw12, pmic_cw13, pmic_cw15,
 		pmic_cw19);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"LDO vrfck_op/en=%x %x vbb_en/ldo_bb_en=%x %x\n",
 		ldo_vrfck_op_en, ldo_vrfck_en, ldo_vbbck_op_en, ldo_vbbck_en);
 
@@ -1054,22 +1054,22 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 		& PMIC_XO_EXTBUF6_EN_M_MASK;
 	buf7_en_m = (pmic_cw09 >> PMIC_XO_EXTBUF7_EN_M_SHIFT)
 		& PMIC_XO_EXTBUF7_EN_M_MASK;
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"buf2/3/4/6/7 mode=%d/%d/%d/%d/%d, buf2/3/4/6/7 en_m=%d/%d/%d/%d/%d\n",
 		buf2_mode, buf3_mode, buf4_mode, buf6_mode, buf7_mode,
 		buf2_en_m, buf3_en_m, buf4_en_m, buf6_en_m, buf7_en_m);
 	pmic_read_interface_nolock(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &top_spi_con1,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"SRCLKEN_IN3_EN(srclken_conn)=0x%x\n", top_spi_con1);
 
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"DCXO_CONN_ADR0/WDATA0/ADR1/WDATA1=0x%x %x %x %x\n",
 		clkbuf_readl(DCXO_CONN_ADR0),
 		clkbuf_readl(DCXO_CONN_WDATA0),
 		clkbuf_readl(DCXO_CONN_ADR1),
 		clkbuf_readl(DCXO_CONN_WDATA1));
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"DCXO_NFC_ADR0/WDATA0/ADR1/WDATA1/EN=0x%x %x %x %x %x\n",
 		clkbuf_readl(DCXO_NFC_ADR0),
 		clkbuf_readl(DCXO_NFC_WDATA0),
@@ -1077,23 +1077,23 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 		clkbuf_readl(DCXO_NFC_WDATA1),
 		clkbuf_readl(DCXO_ENABLE));
 
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"bblpm_switch=%u, bblpm_cnt=%u, bblpm_cond=0x%x\n",
 		bblpm_switch, bblpm_cnt, clk_buf_bblpm_enter_cond());
 
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"MD1_PWR_CON=0x%x, PWR_STATUS=0x%x, PCM_REG13_DATA=0x%x,",
 			mtk_spm_read_register(SPM_MD1_PWR_CON),
 			mtk_spm_read_register(SPM_PWRSTA),
 			mtk_spm_read_register(SPM_REG13));
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"SPARE_ACK_MASK=0x%x, flight mode = %d\n",
 			mtk_spm_read_register(SPM_SPARE_ACK_MASK),
 			is_clk_buf_under_flightmode());
 
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			".********** clock buffer command help **********\n");
-	len += snprintf(buf+len, PAGE_SIZE-len,
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 			"PMIC switch on/off: echo pmic en1 en2 en3 en4 en5 en6 en7 > /sys/power/clk_buf/clk_buf_ctrl\n");
 
 	return len;
@@ -1107,13 +1107,14 @@ u8 clk_buf_get_xo_en_sta(enum xo_id id)
 void clk_buf_show_status_info(void)
 {
 	int len;
-	char *buf, *str;
+	char *buf, *str, *str_sep;
 
 	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
 	if (buf) {
 		len = clk_buf_show_status_info_internal(buf);
-		while ((str = strsep(&buf, ".")) != NULL)
-			pr_info("%s\n", str);
+		str = buf;
+		while ((str_sep = strsep(&str, ".")) != NULL)
+			pr_info("%s\n", str_sep);
 
 		vfree(buf);
 	} else
