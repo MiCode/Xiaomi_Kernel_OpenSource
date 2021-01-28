@@ -106,11 +106,11 @@ static ssize_t dpidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 	log("\n");
 
 	log("*************** dpidle command *******************\n");
-	log("dpidle state:  cat /d/cpuidle/dpidle_state\n");
-	log("dpidle on/off: echo 1/0 > /d/cpuidle/dpidle_state\n");
-	log("bypass cg/pll: echo bypass 1/0 > /d/cpuidle/dpidle_state\n");
-	log("cg monitor:    echo cgmon 1/0 > /d/cpuidle/dpidle_state\n");
-	log("set log_flag:  echo log [hex] > /d/cpuidle/dpidle_state\n");
+	log("dpidle state:  cat %s\n", MTK_SYSFS_DPIDLE);
+	log("dpidle on/off: echo 1/0 > %s\n", MTK_SYSFS_DPIDLE);
+	log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_SYSFS_DPIDLE);
+	log("cg monitor:    echo cgmon 1/0 > %s\n", MTK_SYSFS_DPIDLE);
+	log("set log_flag:  echo log [hex] > %s\n", MTK_SYSFS_DPIDLE);
 	log("               [0] reduced [1] spm res usage [2] disable\n");
 	log("\n");
 

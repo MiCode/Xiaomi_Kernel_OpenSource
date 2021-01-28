@@ -60,12 +60,15 @@ int mtk_lp_sysfs_entry_node_add_plat(const char *name,
 		struct mtk_lp_sysfs_handle *node)
 {
 	struct kernfs_node *c = NULL;
-	struct kernfs_node *p =
-		(struct kernfs_node *)parent->_current;
-
+	struct kernfs_node *p = NULL;
 	int bRet = 0;
 
-	if (!parent || !p || (kernfs_type(p) != KERNFS_DIR))
+	if (!parent)
+		return -EINVAL;
+
+	p = (struct kernfs_node *)parent->_current;
+
+	if (kernfs_type(p) != KERNFS_DIR)
 		return -EINVAL;
 
 	bRet = mtk_lp_kernfs_create_file(p, &c, MTK_LP_KERNFS_IDIOTYPE,

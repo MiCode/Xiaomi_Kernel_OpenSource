@@ -129,7 +129,9 @@ unsigned long long idle_get_current_time_ms(void)
 {
 	u64 idle_current_time = sched_clock();
 
-	do_div(idle_current_time, 1000000);
+	if (idle_current_time > 0)
+		do_div(idle_current_time, 1000000);
+
 	return idle_current_time;
 }
 

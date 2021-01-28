@@ -134,11 +134,11 @@ static ssize_t soidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 	log("\n");
 
 	log("*************** sodi command *********************\n");
-	log("sodi state:    cat /d/cpuidle/soidle_state\n");
-	log("sodi on/off:   echo 1/0 > /d/cpuidle/soidle_state\n");
-	log("bypass cg/pll: echo bypass 1/0 > /d/cpuidle/soidle_state\n");
-	log("cg monitor:    echo cgmon 1/0 > /d/cpuidle/soidle_state\n");
-	log("set log_flag:  echo log [hex] > /d/cpuidle/soidle_state\n");
+	log("sodi state:    cat %s\n", MTK_SYSFS_SODI);
+	log("sodi on/off:   echo 1/0 > %s\n", MTK_SYSFS_SODI);
+	log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_SYSFS_SODI);
+	log("cg monitor:    echo cgmon 1/0 > %s\n", MTK_SYSFS_SODI);
+	log("set log_flag:  echo log [hex] > %s\n", MTK_SYSFS_SODI);
 	log("               [0] reduced [1] spm res usage [2] disable\n");
 	log("\n");
 
@@ -260,12 +260,12 @@ static ssize_t soidle3_state_read(char *ToUserBuf, size_t sz, void *priv)
 	log("\n");
 
 log("*************** sodi3 command ********************\n");
-log("sodi3 state:	cat /d/cpuidle/soidle3_state\n");
-log("sodi3 on/off:	echo 1/0 > /d/cpuidle/soidle3_state\n");
-log("bypass cg/pll: echo bypass 1/0 > /d/cpuidle/soidle3_state\n");
-log("bypass pwm:	echo bypass_pwm 1/0 > /d/cpuidle/soidle3_state\n");
-log("cg monitor:	echo cgmon 1/0 > /d/cpuidle/soidle3_state\n");
-log("set log_flag:	echo log [hex_value] > /d/cpuidle/soidle3_state\n");
+log("sodi3 state:	cat %s\n", MTK_SYSFS_SODI3);
+log("sodi3 on/off:	echo 1/0 > %s\n", MTK_SYSFS_SODI3);
+log("bypass cg/pll: echo bypass 1/0 > %s\n", MTK_SYSFS_SODI3);
+log("bypass pwm:	echo bypass_pwm 1/0 > %s\n", MTK_SYSFS_SODI3);
+log("cg monitor:	echo cgmon 1/0 > %s\n", MTK_SYSFS_SODI3);
+log("set log_flag:	echo log [hex_value] > %s\n", MTK_SYSFS_SODI3);
 log("				[0] reduced [1] spm res usage [2] disable\n");
 log("\n");
 

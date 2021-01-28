@@ -326,7 +326,7 @@ static ssize_t suspend_state_read(char *ToUserBuf, size_t sz, void *priv)
 		log("cpu%d: slp_dp=%lu\n", i, slp_dp_cnt[i]);
 
 	log("*********** suspend command ************\n");
-	log("echo suspend 1/0 > /sys/kernel/debug/cpuidle/slp/suspend_state\n");
+	log("echo suspend 1/0 > %s\n", MTK_SYSFS_SUSPEND);
 
 	return p - ToUserBuf;
 }
