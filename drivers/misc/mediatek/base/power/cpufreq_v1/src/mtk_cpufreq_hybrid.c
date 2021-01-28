@@ -95,11 +95,17 @@ void parse_time_log_content(unsigned int time_stamp_l_log,
 		(unsigned long long)(time_stamp_l_log);
 }
 
-void parse_log_content(unsigned int *local_buf, int idx)
+void parse_log_content(unsigned int *local_buf, unsigned int idx)
 {
 	struct cpu_dvfs_log *log_box = (struct cpu_dvfs_log *)local_buf;
 	struct mt_cpu_dvfs *p;
 	int i;
+
+	if (idx > MAX_LOG_FETCH) {
+		tag_pr_notice
+		("Error: %s wrong idx %d\n", __func__, idx);
+		idx = 0;
+	}
 
 	for_each_cpu_dvfs(i, p) {
 		log_box_parsed[idx].cluster_opp_cfg[i].limit_idx =
