@@ -384,7 +384,7 @@ static void _cmdq_build_trigger_loop(void)
 {
 	int ret = 0;
 
-	cmdqRecCreate(CMDQ_SCENARIO_TRIGGER_LOOP, &(pgc->cmdq_handle_trigger));
+	cmdqRecCreate(CMDQ_SCENARIO_TRIGGER_LOOP_SUB, &(pgc->cmdq_handle_trigger));
 	EXT_DISP_LOG("ext_disp path trigger thread cmd handle=%p\n",
 		     pgc->cmdq_handle_trigger);
 	cmdqRecReset(pgc->cmdq_handle_trigger);
@@ -1148,16 +1148,16 @@ int ext_disp_trigger(int blocking, void *callback, unsigned int userdata,
 	int ret = 0;
 
 	/* EXT_DISP_FUNC(); */
-
+	_ext_disp_path_lock();
 	if (pgc->state == EXTD_DEINIT || pgc->state == EXTD_SUSPEND ||
 	    pgc->need_trigger_overlay < 1) {
 		EXT_DISP_LOG("trigger ext display is already slept\n");
 		mmprofile_log_ex(ddp_mmp_get_events()->Extd_ErrorInfo,
 				 MMPROFILE_FLAG_PULSE, Trigger, 0);
+		_ext_disp_path_unlock();
 		return -1;
 	}
 
-	_ext_disp_path_lock();
 
 	if (_should_trigger_interface()) {
 		if (DISP_SESSION_TYPE(session) == DISP_SESSION_EXTERNAL &&
