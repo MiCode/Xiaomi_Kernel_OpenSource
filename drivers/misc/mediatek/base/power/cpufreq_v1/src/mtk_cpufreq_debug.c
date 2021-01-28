@@ -86,6 +86,11 @@ void aee_record_cpu_volt(struct mt_cpu_dvfs *p, unsigned int volt)
 #ifdef CONFIG_MTK_AEE_IPANIC
 	struct buck_ctrl_t *vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
 
+	if (vproc_p == NULL) {
+		tag_pr_notice("%s get buck ctrl id failed\n", __func__);
+		return;
+	}
+
 	if (p->Vproc_buck_id == 0)
 		aee_rr_rec_cpu_dvfs_vproc_big(
 				vproc_p->buck_ops->transfer2pmicval(volt));
