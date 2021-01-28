@@ -3735,8 +3735,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		seninf_top@1a004000 {
 			compatible = "mediatek,seninf_top";
 			reg = <0 0x1a004000 0 0x1000>;
-			power-domains = <&scpsys MT6779_POWER_DOMAIN_CAM>;
-			clocks = <&camsys CLK_CAM_SENINF>,
+			clocks = <&scpsys SCP_SYS_DIS>,
+				<&scpsys SCP_SYS_CAM>,
+				<&camsys CLK_CAM_SENINF>,
 				<&topckgen CLK_TOP_SENINF>,
 				<&topckgen CLK_TOP_SENINF1>,
 				<&topckgen CLK_TOP_SENINF2>,
@@ -3752,7 +3753,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<&topckgen CLK_TOP_F26M_CK_D2>,
 				<&topckgen CLK_TOP_UNIVP_192M_D16>,
 				<&topckgen CLK_TOP_UNIVP_192M_D32>;
-			clock-names = "CAMSYS_SENINF_CGPDN",
+			clock-names = "SCP_SYS_DIS",
+				"SCP_SYS_CAM",
+				"CAMSYS_SENINF_CGPDN",
 				"TOP_MUX_SENINF",
 				"TOP_MUX_SENINF1",
 				"TOP_MUX_SENINF2",
@@ -3768,8 +3771,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"TOP_F26M_CK_D2",
 				"TOP_UNIVP_192M_D16",
 				"TOP_UNIVP_192M_D32";
-			operating-points-v2 = <&opp_table_cam>;
-			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
 		};
 
 		seninf1@1a004000 {
