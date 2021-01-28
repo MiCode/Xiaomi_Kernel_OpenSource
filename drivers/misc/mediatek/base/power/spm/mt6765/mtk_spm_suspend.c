@@ -259,7 +259,7 @@ u32 spm_get_sleep_wakesrc(void)
 
 bool spm_is_enable_sleep(void)
 {
-	return false;
+	return true;
 }
 
 bool spm_suspend_condition_check(void)
