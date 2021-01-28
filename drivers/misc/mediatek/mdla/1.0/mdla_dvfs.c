@@ -1381,11 +1381,6 @@ mdla_dvfs_debug("[mdla_%d] adjust(%d,%d) result vmdla=%d\n",
 	ENABLE_MDLA_CLK(clk_mmsys_gals_comm1);
 	ENABLE_MDLA_CLK(clk_mmsys_smi_common);
 
-
-	ENABLE_MDLA_CLK(clk_apu_vcore_ahb_cg);
-	ENABLE_MDLA_CLK(clk_apu_vcore_axi_cg);
-	ENABLE_MDLA_CLK(clk_apu_vcore_adl_cg);
-	ENABLE_MDLA_CLK(clk_apu_vcore_qos_cg);
 	/*move vcore cg ctl to atf*/
 	vcore_cg_ctl(1);
 	ENABLE_MDLA_CLK(clk_apu_conn_apu_cg);
@@ -1538,10 +1533,6 @@ static int mdla_disable_regulator_and_clock(int core)
 	DISABLE_MDLA_CLK(clk_apu_conn_img_adl_cg);
 	DISABLE_MDLA_CLK(clk_apu_conn_emi_26m_cg);
 	DISABLE_MDLA_CLK(clk_apu_conn_vpu_udi_cg);
-	DISABLE_MDLA_CLK(clk_apu_vcore_ahb_cg);
-	DISABLE_MDLA_CLK(clk_apu_vcore_axi_cg);
-	DISABLE_MDLA_CLK(clk_apu_vcore_adl_cg);
-	DISABLE_MDLA_CLK(clk_apu_vcore_qos_cg);
 	DISABLE_MDLA_CLK(clk_mmsys_gals_ipu2mm);
 	DISABLE_MDLA_CLK(clk_mmsys_gals_ipu12mm);
 	DISABLE_MDLA_CLK(clk_mmsys_gals_comm0);
