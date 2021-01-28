@@ -19,14 +19,14 @@
 #include "mtk_spm_sleep.h"
 
 
-#define TAG     "SPM-Idle"
+#define TAG     "[name:spm&]SPM-Idle"
 
-#define spm_idle_err(fmt, args...)		pr_emerg(TAG fmt, ##args)
-#define spm_idle_warn(fmt, args...)		pr_warn(TAG fmt, ##args)
+#define spm_idle_err(fmt, args...)		printk_deferred(TAG fmt, ##args)
+#define spm_idle_warn(fmt, args...)		printk_deferred(TAG fmt, ##args)
 /* pr_debug show nothing */
-#define spm_idle_dbg(fmt, args...)		pr_debug(TAG fmt, ##args)
-#define spm_idle_info(fmt, args...)		pr_debug(TAG fmt, ##args)
-#define spm_idle_ver(fmt, args...)		pr_debug(TAG fmt, ##args)
+#define spm_idle_dbg(fmt, args...)		printk_deferred(TAG fmt, ##args)
+#define spm_idle_info(fmt, args...)		printk_deferred(TAG fmt, ##args)
+#define spm_idle_ver(fmt, args...)		printk_deferred(TAG fmt, ##args)
 
 /*
  * for SPM common part

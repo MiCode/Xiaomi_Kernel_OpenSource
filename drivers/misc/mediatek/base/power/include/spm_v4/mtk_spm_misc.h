@@ -149,7 +149,7 @@ unsigned int pmic_read_interface_nolock(unsigned int RegNum,
 					unsigned int MASK,
 					unsigned int SHIFT)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return 0;
 }
 
@@ -159,7 +159,7 @@ unsigned int pmic_config_interface(unsigned int RegNum,
 				   unsigned int MASK,
 				   unsigned int SHIFT)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return 0;
 }
 __attribute__ ((weak))
@@ -168,7 +168,7 @@ unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 					  unsigned int MASK,
 					  unsigned int SHIFT)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return 0;
 }
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -176,7 +176,7 @@ unsigned int pmic_config_interface_nolock(unsigned int RegNum,
 __attribute__ ((weak))
 int vcorefs_get_curr_ddr(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return -1;
 }
 

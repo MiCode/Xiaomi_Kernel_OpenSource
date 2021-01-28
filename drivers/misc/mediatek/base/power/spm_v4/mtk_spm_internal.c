@@ -377,7 +377,7 @@ int __attribute__ ((weak)) get_dynamic_period(int first_use,
 					      int first_wakeup_time,
 					      int battery_capacity_level)
 {
-	/* pr_err("NO %s !!!\n", __func__); */
+	/* printk_deferred("[name:spm&]NO %s !!!\n", __func__); */
 	return 5401;
 }
 

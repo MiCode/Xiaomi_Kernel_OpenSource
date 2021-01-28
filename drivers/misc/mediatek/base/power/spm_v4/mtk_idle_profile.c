@@ -28,29 +28,29 @@
 #include <core/met_drv.h>
 #endif
 
-#define IDLE_PROF_TAG                   "Power/swap "
+#define IDLE_PROF_TAG                   "[name:spm&]Power/swap "
 #define idle_prof_emerg(fmt, args...)   \
-	pr_emerg(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_alert(fmt, args...)   \
-	pr_alert(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_crit(fmt, args...)	\
-	pr_crit(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_err(fmt, args...)     \
-	pr_err(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_warn(fmt, args...)    \
-	pr_warn(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_notice(fmt, args...)	\
-	pr_notice(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_info(fmt, args...)    \
-	pr_debug(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_ver(fmt, args...)     \
-	pr_debug(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 #define idle_prof_dbg(fmt, args...)     \
-	pr_debug(IDLE_PROF_TAG fmt, ##args)
+	printk_deferred(IDLE_PROF_TAG fmt, ##args)
 
-#define LATENCY_PROF_TAG		"Power/latency_profile "
+#define LATENCY_PROF_TAG		"[name:spm&]Power/latency_profile "
 #define latency_prof_crit(fmt, args...) \
-	pr_crit(LATENCY_PROF_TAG fmt, ##args)
+	printk_deferred(LATENCY_PROF_TAG fmt, ##args)
 
 
 /* idle ratio */

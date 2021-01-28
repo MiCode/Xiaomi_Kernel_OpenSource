@@ -33,7 +33,7 @@ static int qos_recv_thread(void *arg)
 	ret = sspm_ipi_recv_registration(IPI_ID_QOS, &qos_isr);
 
 	if (ret) {
-		pr_info("@%s: sspm_ipi_recv_registration failed (%d)\n",
+		printk_deferred("[name:spm&]@%s: sspm_ipi_recv_registration failed (%d)\n",
 			__func__, ret);
 		return 0;
 	}

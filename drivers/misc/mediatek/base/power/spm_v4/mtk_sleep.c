@@ -65,15 +65,24 @@
  **************************************/
 #define slp_read(addr)		__raw_readl((void __force __iomem *)(addr))
 #define slp_write(addr, val)        mt65xx_reg_sync_writel(val, addr)
-#define slp_emerg(fmt, args...)     pr_debug("[SLP] " fmt, ##args)
-#define slp_alert(fmt, args...)     pr_debug("[SLP] " fmt, ##args)
-#define slp_crit(fmt, args...)      pr_debug("[SLP] " fmt, ##args)
-#define slp_crit2(fmt, args...)     pr_debug("[SLP] " fmt, ##args)
-#define slp_error(fmt, args...)     pr_err("[SLP] " fmt, ##args)
-#define slp_warning(fmt, args...)   pr_debug("[SLP] " fmt, ##args)
-#define slp_notice(fmt, args...)    pr_debug("[SLP] " fmt, ##args)
-#define slp_info(fmt, args...)      pr_debug("[SLP] " fmt, ##args)
-#define slp_debug(fmt, args...)     pr_debug("[SLP] " fmt, ##args)
+#define slp_emerg(fmt, args...)     \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_alert(fmt, args...)     \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_crit(fmt, args...)      \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_crit2(fmt, args...)     \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_error(fmt, args...)     \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_warning(fmt, args...)   \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_notice(fmt, args...)    \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_info(fmt, args...)      \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
+#define slp_debug(fmt, args...)     \
+	printk_deferred("[name:spm&][SLP] " fmt, ##args)
 static DEFINE_SPINLOCK(slp_lock);
 
 static unsigned int slp_wake_reason = WR_NONE;
@@ -243,7 +252,7 @@ static int slp_suspend_ops_prepare(void)
 #ifdef CONFIG_MTK_SND_SOC_NEW_ARCH
 bool __attribute__ ((weak)) ConditionEnterSuspend(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return true;
 }
 #endif /* MTK_SUSPEND_AUDIO_SUPPORT */
@@ -251,32 +260,32 @@ bool __attribute__ ((weak)) ConditionEnterSuspend(void)
 #ifdef CONFIG_MTK_SYSTRACKER
 void __attribute__ ((weak)) systracker_enable(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 #endif /* CONFIG_MTK_SYSTRACKER */
 
 #ifdef CONFIG_MTK_BUS_TRACER
 void __attribute__ ((weak)) bus_tracer_enable(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 #endif /* CONFIG_MTK_BUS_TRACER */
 
 __attribute__ ((weak))
 unsigned int spm_go_to_sleep_dpidle(u32 spm_flags, u32 spm_data)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return WR_NONE;
 }
 
 void __attribute__((weak)) subsys_if_on(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) pll_if_on(void)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak))
@@ -435,7 +444,7 @@ static const struct platform_suspend_ops slp_suspend_ops = {
 __attribute__ ((weak))
 int spm_set_dpidle_wakesrc(u32 wakesrc, bool enable, bool replace)
 {
-	pr_err("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 	return 0;
 }
 

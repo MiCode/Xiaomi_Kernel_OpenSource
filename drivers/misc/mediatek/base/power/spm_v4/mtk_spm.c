@@ -459,7 +459,7 @@ static int spm_pm_event(struct notifier_block *notifier,
 		ret = spm_to_sspm_command(SPM_SUSPEND_PREPARE, &spm_d);
 		spin_unlock_irqrestore(&__spm_lock, flags);
 		if (ret < 0) {
-			pr_err("#@# %s(%d) PM_SUSPEND_PREPARE return %d!!!\n",
+			printk_deferred("[name:spm&]#@# %s(%d) PM_SUSPEND_PREPARE return %d!!!\n",
 			       __func__, __LINE__, ret);
 			return NOTIFY_BAD;
 		}
@@ -469,7 +469,7 @@ static int spm_pm_event(struct notifier_block *notifier,
 		ret = spm_to_sspm_command(SPM_POST_SUSPEND, &spm_d);
 		spin_unlock_irqrestore(&__spm_lock, flags);
 		if (ret < 0) {
-			pr_err("#@# %s(%d) PM_POST_SUSPEND return %d!!!\n",
+			printk_deferred("[name:spm&]#@# %s(%d) PM_POST_SUSPEND return %d!!!\n",
 			       __func__, __LINE__, ret);
 			return NOTIFY_BAD;
 		}
@@ -562,7 +562,7 @@ static void __spm_check_dram_type(void)
 		__spmfw_idx = SPMFW_LP4X_1CH;
 	else if (ddr_type == TYPE_LPDDR3 && emi_ch_num == 1)
 		__spmfw_idx = SPMFW_LP3_1CH;
-	pr_info("#@# %s(%d) __spmfw_idx 0x%x\n",
+	printk_deferred("[name:spm&]#@# %s(%d) __spmfw_idx 0x%x\n",
 		__func__, __LINE__, __spmfw_idx);
 };
 #elif defined(CONFIG_MACH_MT6771)
@@ -583,7 +583,7 @@ static void __spm_check_dram_type(void)
 		__spmfw_idx = SPMFW_LP3_1CH_1866;
 	else if (ddr_type == TYPE_LPDDR4 && ddr_hz == 2400)
 		__spmfw_idx = SPMFW_LP4_2CH_2400;
-	pr_info("#@# %s(%d) __spmfw_idx 0x%x (type:%d freq:%d)\n",
+	printk_deferred("[name:spm&]#@# %s(%d) __spmfw_idx 0x%x (type:%d freq:%d)\n",
 		__func__, __LINE__, __spmfw_idx, ddr_type, ddr_hz);
 };
 #elif defined(CONFIG_MACH_MT6739)
@@ -676,19 +676,19 @@ int __init spm_module_init(void)
 
 	ret = platform_driver_register(&spm_dev_drv);
 	if (ret) {
-		pr_debug("fail to register platform driver\n");
+		printk_deferred("[name:spm&]fail to register platform driver\n");
 		return ret;
 	}
 
 	pspmdev = platform_device_register_simple("spm", -1, NULL, 0);
 	if (IS_ERR(pspmdev)) {
-		pr_debug("Failed to register platform device.\n");
+		printk_deferred("[name:spm&]Failed to register platform device.\n");
 		return -EINVAL;
 	}
 
 	spm_dir = debugfs_create_dir("spm", NULL);
 	if (spm_dir == NULL) {
-		pr_debug("Failed to create spm dir in debugfs.\n");
+		printk_deferred("[name:spm&]Failed to create spm dir in debugfs.\n");
 		return -EINVAL;
 	}
 
@@ -712,7 +712,7 @@ int __init spm_module_init(void)
 #ifdef CONFIG_PM
 	ret = register_pm_notifier(&spm_pm_notifier_func);
 	if (ret) {
-		pr_debug("Failed to register PM notifier.\n");
+		printk_deferred("[name:spm&]Failed to register PM notifier.\n");
 		return ret;
 	}
 #endif /* CONFIG_PM */
@@ -723,7 +723,7 @@ int __init spm_module_init(void)
 	is_ext_buck = is_ext_buck_exist();
 #endif
 #endif
-	pr_info("#@# %s(%d) is_ext_buck_exist() 0x%x\n",
+	printk_deferred("[name:spm&]#@# %s(%d) is_ext_buck_exist() 0x%x\n",
 		__func__, __LINE__, is_ext_buck);
 	SMC_CALL(MTK_SIP_KERNEL_SPM_ARGS, SPM_ARGS_SPMFW_IDX,
 		 __spm_get_dram_type(), is_ext_buck);
@@ -1170,7 +1170,7 @@ void spm_pmic_power_mode(int mode, int force, int lock)
 	static int prev_mode = -1;
 
 	if (mode < PMIC_PWR_NORMAL || mode >= PMIC_PWR_NUM) {
-		pr_debug("wrong spm pmic power mode");
+		printk_deferred("[name:spm&]wrong spm pmic power mode");
 		return;
 	}
 
@@ -1222,7 +1222,9 @@ void spm_pmic_power_mode(int mode, int force, int lock)
 #endif
 		break;
 	default:
-		pr_debug("spm pmic power mode (%d) is not configured\n", mode);
+		printk_deferred(
+		"[name:spm&]spm pmic power mode (%d) is not configured\n",
+		mode);
 	}
 #endif
 
@@ -1240,7 +1242,7 @@ void mt_spm_for_gps_only(int enable)
 {
 	spm_for_gps_flag = !!enable;
 #if 0
-	pr_debug("#@# %s(%d) spm_for_gps_flag %d\n",
+	printk_deferred("[name:spm&]#@# %s(%d) spm_for_gps_flag %d\n",
 		 __func__, __LINE__, spm_for_gps_flag);
 #endif
 }
@@ -1278,11 +1280,11 @@ int spm_to_sspm_command_async(u32 cmd, struct spm_data *spm_d)
 		ret = sspm_ipi_send_async(IPI_ID_SPM_SUSPEND,
 					  IPI_OPT_DEFAUT, spm_d, SPM_D_LEN);
 		if (ret != 0)
-			pr_err("#@# %s(%d) sspm_ipi_send_async(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_async(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		break;
 	default:
-		pr_err("#@# %s(%d) cmd(%d) wrong!!!\n",
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
 		       __func__, __LINE__, cmd);
 		break;
 	}
@@ -1306,16 +1308,16 @@ int spm_to_sspm_command_async_wait(u32 cmd)
 					       IPI_OPT_DEFAUT, &ack_data);
 
 		if (ret != 0) {
-			pr_err("#@# %s(%d) sspm_ipi_send_async_wait(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_async_wait(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_err("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 			       __func__, __LINE__, cmd, ret);
 		}
 		break;
 	default:
-		pr_err("#@# %s(%d) cmd(%d) wrong!!!\n",
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
 		       __func__, __LINE__, cmd);
 		break;
 	}
@@ -1344,11 +1346,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 					 spm_d, SPM_D_LEN,
 					 &ack_data, 1);
 		if (ret != 0) {
-			pr_err("#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_err("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 			       __func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -1358,11 +1360,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 					 IPI_OPT_POLLING, spm_d,
 					 SPM_D_LEN, &ack_data, 1);
 		if (ret != 0) {
-			pr_err("#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_err("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 			       __func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -1373,11 +1375,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 					 IPI_OPT_POLLING, spm_d,
 					 SPM_D_LEN, &ack_data, 1);
 		if (ret != 0) {
-			pr_err("#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_err("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 			       __func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -1388,11 +1390,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 					 IPI_OPT_POLLING, spm_d,
 					 SPM_D_LEN, &ack_data, 1);
 		if (ret != 0) {
-			pr_err("#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_err("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 			       __func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -1403,16 +1405,16 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 					 IPI_OPT_POLLING, spm_d,
 					 SPM_D_LEN, &ack_data, 1);
 		if (ret != 0) {
-			pr_err("#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_sync(cmd:0x%x) ret %d\n",
 			       __func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_err("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 			       __func__, __LINE__, cmd, ret);
 		}
 		break;
 	default:
-		pr_err("#@# %s(%d) cmd(%d) wrong!!!\n",
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
 		       __func__, __LINE__, cmd);
 		break;
 	}
