@@ -29,6 +29,10 @@
 #include <mt-plat/turbo_common.h>
 #endif
 
+#ifdef CONFIG_MACH_MT6873
+#include "mtk_devinfo.h"
+#endif
+
 #define SCHED_HINT_THROTTLE_NSEC 10000000 /* 10ms for throttle */
 
 struct sched_hint_data {
@@ -483,6 +487,87 @@ task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu)
 	return 0;
 }
 
+#ifdef CONFIG_MACH_MT6873
+int calc_cpu_util(const struct sched_group_energy *sge, int cpu,
+		struct task_struct *p, int calc_dvfs_opp)
+{
+	unsigned long wake_util, new_util;
+	unsigned long max_capacity = cluster_max_capacity();
+	unsigned long min_util = uclamp_task_effective_util(p, UCLAMP_MIN);
+	unsigned long max_util = uclamp_task_effective_util(p, UCLAMP_MAX);
+	int opp_idx;
+
+	wake_util = cpu_util_without(cpu, p);
+	new_util = wake_util + task_util_est(p);
+	max_util = min(max_capacity, max_util);
+	new_util = clamp(new_util, min_util, max_util);
+
+	new_util = new_util * capacity_margin >> SCHED_CAPACITY_SHIFT;
+	new_util = min_t(unsigned long, new_util,
+		(unsigned long) sge->cap_states[sge->nr_cap_states-1].cap);
+
+	if (calc_dvfs_opp) {
+		for (opp_idx = 0; opp_idx < sge->nr_cap_states ; opp_idx++) {
+			if (sge->cap_states[opp_idx].cap >= new_util) {
+				new_util = sge->cap_states[opp_idx].cap;
+				break;
+			}
+		}
+	}
+
+	return new_util;
+}
+
+int aware_big_thermal(int cpu, struct task_struct *p)
+{
+	struct hmp_domain *hmp_domain = NULL;
+	struct sched_domain *sd;
+	struct sched_group *sg;
+	const unsigned long *cpus;
+	const struct sched_group_energy *sge;
+	int cpu_idx, last_cpu;
+	int new_cpu = cpu;
+	unsigned long min_new_util, new_util;
+
+	if (hmp_cpu_is_fastest(cpu)) {
+		hmp_domain = hmp_cpu_domain(cpu);
+		cpus = cpumask_bits(&hmp_domain->possible_cpus);
+		last_cpu = find_last_bit(cpus, num_possible_cpus());
+
+		if (cpu == last_cpu)
+			return cpu;
+
+		rcu_read_lock();
+		sd = rcu_dereference_check_sched_domain(cpu_rq(cpu)->sd);
+
+		if (sd) {
+			sg = sd->groups;
+			sge = sg->sge;
+		} else{
+			printk_deferred("sched: %s no sd", __func__);
+			goto out;
+		}
+
+		min_new_util = calc_cpu_util(sge, cpu, p, 1);
+		for (cpu_idx = last_cpu; cpu_idx > cpu; --cpu_idx) {
+
+			if (idle_cpu(cpu_idx)) {
+				new_util = calc_cpu_util(sge, cpu_idx, p, 0);
+
+				if (min_new_util >= new_util) {
+					new_cpu = cpu_idx;
+					break;
+				}
+			}
+		}
+out:
+		rcu_read_unlock();
+	}
+
+	return new_cpu;
+}
+#endif
+
 int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 {
 	int task_prefer;
@@ -499,7 +584,7 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 	task_prefer = cpu_prefer(p);
 
 	if (!hinted_cpu_prefer(task_prefer))
-		return new_cpu;
+		goto out;
 
 	for_each_hmp_domain_L_first(domain) {
 		tmp_domain[domain_cnt] = domain;
@@ -518,7 +603,7 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 #endif
 
 		if (cpumask_test_cpu(new_cpu, &domain->possible_cpus))
-			return new_cpu;
+			goto out;
 
 		for_each_cpu(iter_cpu, &domain->possible_cpus) {
 
@@ -530,8 +615,11 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 			/* favoring tasks that prefer idle cpus
 			 * to improve latency.
 			 */
-			if (idle_cpu(iter_cpu))
-				return iter_cpu;
+			if (idle_cpu(iter_cpu)) {
+				new_cpu = iter_cpu;
+				goto out;
+			}
+
 #ifdef CONFIG_MTK_TASK_TURBO
 			if (is_turbo_task(p)) {
 				spare_cap = capacity_spare_without(iter_cpu, p);
@@ -547,8 +635,16 @@ int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
 
 #ifdef CONFIG_MTK_TASK_TURBO
 	if (is_turbo_task(p) && (max_spare_cpu > 0))
-		return max_spare_cpu;
+		new_cpu = max_spare_cpu;
 #endif
+
+out:
+
+#ifdef CONFIG_MACH_MT6873
+	if ((get_devinfo_with_index(7) & 0xFF) == 0x30)
+		new_cpu = aware_big_thermal(new_cpu, p);
+#endif
+
 	return new_cpu;
 }
 

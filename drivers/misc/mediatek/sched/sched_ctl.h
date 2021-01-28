@@ -40,3 +40,8 @@ extern unsigned int hmp_cpu_is_slowest(int cpu);
 extern unsigned int hmp_cpu_is_fastest(int cpu);
 extern bool is_intra_domain(int prev, int target);
 extern unsigned long capacity_spare_without(int cpu, struct task_struct *p);
+#ifdef CONFIG_MACH_MT6873
+extern unsigned long cpu_util_without(int cpu, struct task_struct *p);
+extern unsigned long task_util_est(struct task_struct *p);
+#endif
+
