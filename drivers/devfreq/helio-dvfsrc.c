@@ -422,7 +422,7 @@ static int commit_data(struct helio_dvfsrc *dvfsrc, int type, int data)
 
 		if (vcore_reg_id) {
 			vcore_uv = regulator_get_voltage(vcore_reg_id);
-			opp_uv = get_vcore_opp_volt(get_min_opp_for_vcore(opp));
+			opp_uv = get_vcore_opp_volt(opp);
 				if (vcore_uv < opp_uv) {
 					pr_info("DVFS FAIL= %d %d 0x%08x %08x\n",
 					vcore_uv, opp_uv,
