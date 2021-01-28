@@ -507,6 +507,11 @@ int set_audiobuffer_threshold(struct audio_hw_buffer *audio_hwbuf,
 {
 	int ret = 0;
 
+	if (audio_hwbuf == NULL) {
+		AUD_LOG_D("%s audio_hwbuf == NULL", __func__);
+		return -1;
+	}
+
 	audio_hwbuf->aud_buffer.start_threshold =
 		substream->runtime->start_threshold;
 	audio_hwbuf->aud_buffer.stop_threshold =
@@ -523,8 +528,7 @@ int set_audiobuffer_threshold(struct audio_hw_buffer *audio_hwbuf,
 }
 
 int set_afe_audio_pcmbuf(struct audio_hw_buffer *audio_hwbuf,
-			 struct snd_pcm_substream *substream,
-			 struct snd_pcm_hw_params *params)
+			 struct snd_pcm_substream *substream)
 {
 	int ret = 0;
 
@@ -542,6 +546,13 @@ int set_audiobuffer_attribute(struct audio_hw_buffer *audio_hwbuf,
 			      int direction)
 {
 	int ret = 0;
+
+	if (audio_hwbuf == NULL) {
+		AUD_LOG_D("%s audio_hwbuf == NULL", __func__);
+		return -1;
+	}
+
+	audio_hwbuf->aud_buffer.buffer_attr.direction = direction;
 
 	if (params == NULL)
 		return 0;
