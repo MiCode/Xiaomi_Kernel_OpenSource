@@ -486,6 +486,7 @@ config MACH_MT6885
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
 	select ARM64_ERRATUM_1542418
+	select ARM64_ERRATUM_1800710
 	select MTK_CPU_KORO
         help
 	  This enables support for MediaTek MT6885
