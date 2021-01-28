@@ -63,11 +63,11 @@
 
 
 #define DEVINFO_IDX_0 50
-#define DEVINFO_IDX_1 62
-#define DEVINFO_IDX_2 63
-#define DEVINFO_IDX_3 64
-#define DEVINFO_IDX_4 65
-#define DEVINFO_IDX_5 66
+#define DEVINFO_IDX_1 63
+#define DEVINFO_IDX_2 64
+#define DEVINFO_IDX_3 65
+#define DEVINFO_IDX_4 66
+
 
 
 #define DEVINFO_IDX_FAB4 134
@@ -86,42 +86,37 @@
 
 #if defined(CMD_LOAD)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x1B031B03
-#define DEVINFO_2 0x1B031B03
-#define DEVINFO_3 0x48EF0043
-#define DEVINFO_4 0x60E50043
-#define DEVINFO_5 0x2F110009
-
+#define DEVINFO_1 0xA8FB1B03
+#define DEVINFO_2 0x2D15247F
+#define DEVINFO_3 0x7AE3247F
+#define DEVINFO_4 0x0F192439
 
 #elif defined(MC50_LOAD)
 
 #if defined(MT6885)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x1B031B03
-#define DEVINFO_2 0x1B031B03
-#define DEVINFO_3 0x48EF0043
-#define DEVINFO_4 0x60E50043
-#define DEVINFO_5 0x2F110009
-
+#define DEVINFO_1 0xA8FB1B03
+#define DEVINFO_2 0x2D15247F
+#define DEVINFO_3 0x7AE3247F
+#define DEVINFO_4 0x0F192439
 
 #elif defined(MT6889)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x1B031B03
-#define DEVINFO_2 0x1B031B03
-#define DEVINFO_3 0x48EF0043
-#define DEVINFO_4 0x60E50043
-#define DEVINFO_5 0x2F110009
+#define DEVINFO_1 0xA8FB1B03
+#define DEVINFO_2 0x2D15247F
+#define DEVINFO_3 0x7AE3247F
+#define DEVINFO_4 0x0F192439
 
 #endif
 
 #else
 
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x1B031B03
-#define DEVINFO_2 0x1B031B03
-#define DEVINFO_3 0x48EF0043
-#define DEVINFO_4 0x60E50043
-#define DEVINFO_5 0x2F110009
+#define DEVINFO_1 0xA8FB1B03
+#define DEVINFO_2 0x2D15247F
+#define DEVINFO_3 0x7AE3247F
+#define DEVINFO_4 0x0F192439
+
 #endif
 
 
@@ -129,7 +124,7 @@
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(6) /* real eem banks for efuse */
+#define NR_HW_RES_FOR_BANK	(5) /* real eem banks for efuse */
 #define EEMG_INIT01_FLAG (0x01) /* 0x01=> [0]:GPU */
 #define EEMG_CORNER_FLAG (0x30) /* 0x30=> [5]:VPU, [4]:MDLA */
 #if 0
@@ -149,21 +144,12 @@
 #define NR_FREQ_VPU 16
 #define NR_FREQ_CPU 16
 
-#define L_FREQ_BASE			2000000
-#define B_FREQ_BASE			2300000
-#define	CCI_FREQ_BASE		1540000
+
 #define GPU_FREQ_BASE		836000
-#define B_M_FREQ_BASE		1750000
 #define GPU_M_FREQ_BASE		675000
 
-#define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	6
-#if ENABLE_LOO_B
-#define BANK_B_TURN_PT		6
-#if 0
-#define EEMG_B_INIT02_FLAG (0x22) /* should be 0x022=> [5]:B_HI, [1]:B */
-#endif
-#endif
+
 
 /*
  * 100 us, This is the EEM Detector sampling time as represented in
@@ -203,11 +189,6 @@
 #define DVTFIXED_M_VAL	(0x6)
 
 
-#define VMAX_VAL_B		(0x60) /* volt domain: 1v*/
-#define VMIN_VAL_B		(0x20) /* volt domain: 0.6v*/
-#define VCO_VAL_B		(0x18) /* volt domain: 0.55v*/
-#define DVTFIXED_VAL_B	(0x6)
-
 #define DTHI_VAL		(0x01) /* positive */
 #define DTLO_VAL		(0xfe) /* negative (2's compliment) */
 /* This timeout value is in cycles of bclk_ck. */
@@ -216,19 +197,15 @@
 #define AGEM_VAL		(0x0)
 #define DCCONFIG_VAL	(0x1)
 
-/* different for CCI */
-#define VMAX_VAL_CCI		(0x60) /* volt domain: 1v*/
-#define VMIN_VAL_CCI		(0x20)
-#define VCO_VAL_CCI			(0x18)
-#define DVTFIXED_VAL_CCI	(0x6)
+
 
 
 /* different for GPU */
 #define VMAX_VAL_GPU                    (0x60) /* eem domain: 1v*/
-#define VMIN_VAL_GPU                    (0x1B) /* eem domain: 0.56875v*/
-#define VMIN_VAL_GPU_SEG2               (0x23) /* eem domain: 0.61875v*/
-
+#define VMIN_VAL_GPU                    (0x18) /* eem domain: 0.55v*/
+#define VMIN_VAL_GPU_SEG2               (0x20) /* volt domain: 0.6v*/
 #define VCO_VAL_GPU                     (0x18) /* eem domain: 0.55v*/
+
 
 /* different for GPU_L */
 #define VMAX_VAL_GL                     (0x60)
@@ -241,36 +218,6 @@
 #define VMAX_VAL_GH                     (0x60) /* volt domain: 1.11875v*/
 #define VMIN_VAL_GH                     (0x1B) /* eem domain: 0.56875v*/
 #define VCO_VAL_GH                      (0x18)
-
-/* different for L_L */
-#define VMAX_VAL_LL                     (0x37)
-#define VMIN_VAL_LL                     (0x15)
-#define VCO_VAL_LL                      (0x15)
-
-/* different for B_L */
-#define VMAX_VAL_BL                     (0x60) /* volt domain: 1.11875v*/
-#define VMIN_VAL_BL                     (0x20)
-#define VCO_VAL_BL                      (0x18)
-#define DVTFIXED_VAL_BL					(0x6)
-
-/* different for L_H */
-#define VMAX_VAL_H			(0x50)
-#define VMIN_VAL_H			(0x30)
-#define VCO_VAL_H			(0x30)
-#define DVTFIXED_VAL_H			(0x03)
-
-/* different for B_H */
-#define VMAX_VAL_BH			(0x73) /* volt domain: 1.11875v*/
-#define VMIN_VAL_BH			(0x20)
-#define VCO_VAL_BH			(0x18)
-#define DVTFIXED_VAL_BH		(0x6)
-
-/* different for APU */
-#define VBOOT_VAL_VPU		(0x40) /* eem domain: 0x40, volt domain: 0.8v */
-#define VMAX_VAL_VPU		(0xFF) /* eem domain: 0x60, volt domain: 1.0v */
-#define VMIN_VAL_VPU		(0x00) /* eem domain: 0x60, volt domain: 1.0v */
-#define VCO_VAL_VPU             (0x10)
-#define DVTFIXED_VAL_VPU	(0x06)
 
 
 /* use in base_ops_mon_mode */
@@ -286,10 +233,6 @@
 #define HIGH_TEMP_VAL		(85000)
 
 #define LOW_TEMP_OFF_DEFAULT	(0)
-#define LOW_TEMP_OFF_L		(8)
-#define HIGH_TEMP_OFF_L		(3)
-#define LOW_TEMP_OFF_B		(8)
-#define HIGH_TEMP_OFF_B		(3)
 #define LOW_TEMP_OFF_GPU		(4)
 #define HIGH_TEMP_OFF_GPU		(0)
 #define EXTRA_LOW_TEMP_OFF_GPU	(7)
@@ -299,48 +242,11 @@
 
 
 /* for EEMCTL0's setting */
-#define EEMG_CTL0_L			(0xBA98000F)
-#define EEMG_CTL0_B			(0x00540003)
-#define EEMG_CTL0_CCI		(0xBA98000F)
 #define EEMG_CTL0_GPU		(0x00540003)
 #define EEMG_CTL0_VPU		(0x00210003)
 
 
-#define AGING_VAL_CPU		(0x0) /* CPU aging margin : 31mv*/
-#define AGING_VAL_CPU_B		(0x0) /* CPU aging margin : 37mv*/
 #define AGING_VAL_GPU		(0x0) /* GPU aging margin : 43.75mv*/
 
-
-#if SEC_MOD_SEL == 0x00
-#define SEC_DCBDET 0xCC
-#define SEC_DCMDET 0xE6
-#define SEC_BDES 0xF5
-#define SEC_MDES 0x97
-#define SEC_MTDES 0xAC
-#elif SEC_MOD_SEL == 0x10
-#define SEC_DCBDET 0xE5
-#define SEC_DCMDET 0xB
-#define SEC_BDES 0x31
-#define SEC_MDES 0x53
-#define SEC_MTDES 0x68
-#elif SEC_MOD_SEL == 0x20
-#define SEC_DCBDET 0x39
-#define SEC_DCMDET 0xFE
-#define SEC_BDES 0x18
-#define SEC_MDES 0x8F
-#define SEC_MTDES 0xB4
-#elif SEC_MOD_SEL == 0x30
-#define SEC_DCBDET 0xDF
-#define SEC_DCMDET 0x18
-#define SEC_BDES 0x0B
-#define SEC_MDES 0x7A
-#define SEC_MTDES 0x52
-#elif SEC_MOD_SEL == 0x40
-#define SEC_DCBDET 0x36
-#define SEC_DCMDET 0xF1
-#define SEC_BDES 0xE2
-#define SEC_MDES 0x80
-#define SEC_MTDES 0x41
-#endif
 
 #endif

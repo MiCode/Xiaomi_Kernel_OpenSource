@@ -161,17 +161,11 @@ struct eemg_devinfo {
 	unsigned int FT_BIN:4;
 	unsigned int RSV0_1:20;
 
-	/* M_HW_RES12 */
+	/* M_HW_RES13 */
 	unsigned int GPU_DCBDET:8;
 	unsigned int GPU_DCMDET:8;
 	unsigned int CCI_DCBDET:8;
 	unsigned int CCI_DCMDET:8;
-
-	/* M_HW_RES13 */
-	unsigned int GPU_LO_DCBDET:8;
-	unsigned int GPU_LO_DCMDET:8;
-	unsigned int GPU_HI_DCBDET:8;
-	unsigned int GPU_HI_DCMDET:8;
 
 	/* M_HW_RES14 */
 	unsigned int GPU_MTDES:8;
@@ -199,9 +193,6 @@ struct eemg_devinfo {
 	unsigned int GPU_LO_SPEC:3;
 	unsigned int GPU_LO_BDES:8;
 	unsigned int GPU_LO_MDES:8;
-
-
-
 
 };
 

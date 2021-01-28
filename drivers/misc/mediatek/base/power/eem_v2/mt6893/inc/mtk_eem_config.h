@@ -35,7 +35,8 @@
 #define ENABLE_CPU			(1)
 #define ENABLE_GPU                      (0)
 #define EN_EEM_THERM_CLK	(0)
-#define SUPPORT_PICACHU		(0)
+#define SUPPORT_PICACHU		(1)
+#define SUPPORT_BL_ULV		(0)
 
 
 
@@ -84,6 +85,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_10 60
 #define DEVINFO_IDX_11 61
 #define DEVINFO_IDX_12 62
+#define DEVINFO_IDX_13 63
 
 
 
@@ -106,71 +108,78 @@ enum mt_cpu_dvfs_id {
 
 #if defined(CMD_LOAD)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0xBCF7005C /* CPU_L_HIGH */
-#define DEVINFO_2 0x300100DC /* CPU_L_MID */
-#define DEVINFO_3 0x7D1B0025 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x771B0028 /* CPU_BL_MID */
-#define DEVINFO_5 0x541B0076 /* CPU_BL_LOW */
-#define DEVINFO_6 0x541B0076 /* CPU_BL_ULV */
-#define DEVINFO_7 0x711E0025 /* CPU_B_HIGH */
-#define DEVINFO_8 0x791B0029 /* CPU_B_MID */
-#define DEVINFO_9 0x59180075 /* CPU_B_LOW */
-#define DEVINFO_10 0x8CFC005C /* CPU_CCI_HIGH */
-#define DEVINFO_11 0x60100053 /* CPU_CCI_MID */
-#define DEVINFO_12 0x1B031B03 /* LCPU/GPU */
+#define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
+#define DEVINFO_2 0x97A52597 /* CPU_L_MID */
+#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
+#define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
+#define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
+#define DEVINFO_9 0xE2A925E3 /* CPU_B_LOW */
+#define DEVINFO_10 0xA28D2589 /* CPU_CCI_HIGH */
+#define DEVINFO_11 0xC2592589 /* CPU_CCI_MID */
+#define DEVINFO_12 0xECA62597 /* CPU_CCI_LOW */
+#define DEVINFO_13 0xA8FB1B03 /* LCPU/GPU */
 
 
 #elif defined(MC50_LOAD)
 
 #if defined(MT6885)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0xBCF7005C /* CPU_L_HIGH */
-#define DEVINFO_2 0x300100DC /* CPU_L_MID */
-#define DEVINFO_3 0x7D1B0025 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x771B0028 /* CPU_BL_MID */
-#define DEVINFO_5 0x541B0076 /* CPU_BL_LOW */
-#define DEVINFO_6 0x541B0076 /* CPU_BL_ULV */
-#define DEVINFO_7 0x711E0025 /* CPU_B_HIGH */
-#define DEVINFO_8 0x791B0029 /* CPU_B_MID */
-#define DEVINFO_9 0x59180075 /* CPU_B_LOW */
-#define DEVINFO_10 0x8CFC005C /* CPU_CCI_HIGH */
-#define DEVINFO_11 0x60100053 /* CPU_CCI_MID */
-#define DEVINFO_12 0x1B031B03 /* LCPU/GPU */
+#define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
+#define DEVINFO_2 0x97A52597 /* CPU_L_MID */
+#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
+#define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
+#define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
+#define DEVINFO_9 0xE2A925E3 /* CPU_B_LOW */
+#define DEVINFO_10 0xA28D2589 /* CPU_CCI_HIGH */
+#define DEVINFO_11 0xC2592589 /* CPU_CCI_MID */
+#define DEVINFO_12 0xECA62597 /* CPU_CCI_LOW */
+#define DEVINFO_13 0xA8FB1B03 /* LCPU/GPU */
+
 
 
 
 #elif defined(MT6889)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0xBCF7005C /* CPU_L_HIGH */
-#define DEVINFO_2 0x300100DC /* CPU_L_MID */
-#define DEVINFO_3 0x7D1B0025 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x771B0028 /* CPU_BL_MID */
-#define DEVINFO_5 0x541B0076 /* CPU_BL_LOW */
-#define DEVINFO_6 0x541B0076 /* CPU_BL_ULV */
-#define DEVINFO_7 0x711E0025 /* CPU_B_HIGH */
-#define DEVINFO_8 0x791B0029 /* CPU_B_MID */
-#define DEVINFO_9 0x59180075 /* CPU_B_LOW */
-#define DEVINFO_10 0x8CFC005C /* CPU_CCI_HIGH */
-#define DEVINFO_11 0x60100053 /* CPU_CCI_MID */
-#define DEVINFO_12 0x1B031B03 /* LCPU/GPU */
+#define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
+#define DEVINFO_2 0x97A52597 /* CPU_L_MID */
+#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
+#define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
+#define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
+#define DEVINFO_9 0xE2A925E3 /* CPU_B_LOW */
+#define DEVINFO_10 0xA28D2589 /* CPU_CCI_HIGH */
+#define DEVINFO_11 0xC2592589 /* CPU_CCI_MID */
+#define DEVINFO_12 0xECA62597 /* CPU_CCI_LOW */
+#define DEVINFO_13 0xA8FB1B03 /* LCPU/GPU */
+
 
 #endif
 
 #else
 
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0xBCF7005C /* CPU_L_HIGH */
-#define DEVINFO_2 0x300100DC /* CPU_L_MID */
-#define DEVINFO_3 0x7D1B0025 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x771B0028 /* CPU_BL_MID */
-#define DEVINFO_5 0x541B0076 /* CPU_BL_LOW */
-#define DEVINFO_6 0x541B0076 /* CPU_BL_ULV */
-#define DEVINFO_7 0x711E0025 /* CPU_B_HIGH */
-#define DEVINFO_8 0x791B0029 /* CPU_B_MID */
-#define DEVINFO_9 0x59180075 /* CPU_B_LOW */
-#define DEVINFO_10 0x8CFC005C /* CPU_CCI_HIGH */
-#define DEVINFO_11 0x60100053 /* CPU_CCI_MID */
-#define DEVINFO_12 0x1B031B03 /* LCPU/GPU */
+#define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
+#define DEVINFO_2 0x97A52597 /* CPU_L_MID */
+#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
+#define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
+#define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
+#define DEVINFO_9 0xE2A925E3 /* CPU_B_LOW */
+#define DEVINFO_10 0xA28D2589 /* CPU_CCI_HIGH */
+#define DEVINFO_11 0xC2592589 /* CPU_CCI_MID */
+#define DEVINFO_12 0xECA62597 /* CPU_CCI_LOW */
+#define DEVINFO_13 0xA8FB1B03 /* LCPU/GPU */
+
 
 #endif
 
@@ -180,25 +189,31 @@ enum mt_cpu_dvfs_id {
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(13) /* real eem banks for efuse */
+#define NR_HW_RES_FOR_BANK	(14) /* real eem banks for efuse */
 
 #define NR_FREQ 16
 #define NR_FREQ_CPU 16
 
+#define L_MAX_FREQ_BASE		1000
 #define L_FREQ_BASE			2000
 #define L_M2_FREQ_BASE		1600
 
+#define BL_MAX_FREQ_BASE	1000
 #define BL_FREQ_BASE		2800
 #define BL_M2_FREQ_BASE		2600
-#define BL_M3_FREQ_BASE		1750
-#define BL_M4_FREQ_BASE		730
+#define BL_M3_FREQ_BASE		1740
+#define BL_M4_FREQ_BASE		700
 
+#define B_MAX_FREQ_BASE		2000
 #define B_FREQ_BASE			3000
-#define B_M2_FREQ_BASE		2800
-#define B_M3_FREQ_BASE		1900
+#define B_M2_FREQ_BASE		2600
+#define B_M3_FREQ_BASE		1820
 
-#define	CCI_FREQ_BASE		1540
-#define	CCI_M2_FREQ_BASE	1200
+#define CCI_MAX_FREQ_BASE	1000
+#define	CCI_FREQ_BASE		1700
+#define	CCI_M2_FREQ_BASE	1400
+#define	CCI_M3_FREQ_BASE	1200
+
 
 #define	OPP_FREQ_NOT_FOUND	NR_FREQ_CPU
 
@@ -223,7 +238,7 @@ enum mt_cpu_dvfs_id {
 /* CPU */
 #define CPU_PMIC_BASE_6315	(0)
 #define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
-#define CPU_PMIC_VMAX_CLAMP	(0xA0) /* volt domain: 1v*/
+#define CPU_PMIC_VMAX_CLAMP	(0xB3) /* volt domain: 1.11875v*/
 
 
 #define DTHI_VAL		(0x01) /* positive */
@@ -239,26 +254,25 @@ enum mt_cpu_dvfs_id {
 #define VBOOT_PMIC_VAL	(75000)
 #define VBOOT_PMIC_CLR	(0)
 #define VBOOT_VAL		(0x38) /* volt domain: 0.75v */
-#define VMAX_VAL		(0x60) /* volt domain: 1v*/
-#define VMIN_VAL		(0x18) /* volt domain: 0.55v*/
-#define VCO_VAL			(0x18)
+#define VMAX_VAL		(0x73) /* volt domain: 1.11875v*/
+#define VMIN_VAL		(0x10) /* volt domain: 0.5v*/
+#define VCO_VAL			(0x10)
 #define DVTFIXED_VAL	(0x6)
 
 /* different for B_L */
-#define VMAX_VAL_BL		(0x68) /* volt domain: 1.05v*/
-#define VMIN_VAL_BL		(0x20)
-#define VCO_VAL_BL		(0x18)
+#define VMAX_VAL_BL		(0x73) /* volt domain: 1.11875v*/
+#define VMIN_VAL_BL		(0x18) /* volt domain: 0.55v*/
+#define VCO_VAL_BL		(0x10) /* volt domain: 0.5v*/
 
-
-#define VMAX_VAL_B		(0x68) /* volt domain: 1.05v */
+#define VMAX_VAL_B		(0x73) /* volt domain: 1.11875v*/
 #define VMIN_VAL_B		(0x18) /* volt domain: 0.55v*/
-#define VCO_VAL_B		(0x18) /* volt domain: 0.55v*/
+#define VCO_VAL_B		(0x10) /* volt domain: 0.5v*/
 
 
 /* different for CCI */
-#define VMAX_VAL_CCI		(0x60) /* volt domain: 1v*/
-#define VMIN_VAL_CCI		(0x18)
-#define VCO_VAL_CCI			(0x18)
+#define VMAX_VAL_CCI		(0x73) /* volt domain: 1.11875v*/
+#define VMIN_VAL_CCI		(0x10) /* volt domain: 0.5v*/
+#define VCO_VAL_CCI			(0x10) /* volt domain: 0.5v*/
 
 
 
@@ -289,8 +303,10 @@ enum mt_cpu_dvfs_id {
 
 /* for EEMCTL0's setting */
 #define EEM_CTL0_L			(0xBA98000F)
-#define EEM_CTL0_B			(0x00540003)
+#define EEM_CTL0_BL		(0x00010001)
+#define EEM_CTL0_B			(0x05400007)
 #define EEM_CTL0_CCI		(0xBA98000F)
+
 
 
 #define AGING_VAL_CPU		(0x0) /* CPU aging margin : 31mv*/

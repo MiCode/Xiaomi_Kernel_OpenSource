@@ -129,7 +129,8 @@ struct eem_det {
 	/* could be got @ the same time with freq_tbl[] */
 	unsigned int num_freq_tbl;
 	/* maximum frequency used to calculate percentage */
-	unsigned int max_freq_khz[NR_EEM_PHASE];
+	unsigned int max_freq_khz;
+	unsigned int turn_freq_khz[NR_EEM_PHASE];
 	unsigned char freq_tbl[NR_FREQ]; /* percentage to maximum freq */
 	/* orig volt table for restoreing to dvfs*/
 	unsigned int volt_tbl_orig[NR_FREQ];
@@ -153,7 +154,6 @@ struct eem_det {
 	unsigned char init2_phase;
 	unsigned char total2_phase;
 
-	int volt_dcv:8;
 	int volt_offset:8;
 	int volt_clamp:8;
 
@@ -273,10 +273,21 @@ struct eem_devinfo {
 	unsigned int CCI_MID_MDES:8;
 
 	/* M_HW_RES12 */
+	unsigned int CCI_LO_MTDES:8;
+	unsigned int CCI_LO_INITEN:1;
+	unsigned int CCI_LO_MONEN:1;
+	unsigned int CCI_LO_DVFS_LOW:3;
+	unsigned int CCI_LO_SPEC:3;
+	unsigned int CCI_LO_BDES:8;
+	unsigned int CCI_LO_MDES:8;
+
+	/* M_HW_RES13 */
 	unsigned int GPU_DCBDET:8;
 	unsigned int GPU_DCMDET:8;
 	unsigned int CPU_L_HI_DCBDET:8;
 	unsigned int CPU_L_HI_DCMDET:8;
+
+
 #if 0
 	/* M_HW_RES13 */
 	unsigned int GPU_MID_DCBDET:8;

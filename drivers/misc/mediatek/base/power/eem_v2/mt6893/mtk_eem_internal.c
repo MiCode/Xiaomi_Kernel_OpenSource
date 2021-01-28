@@ -89,7 +89,8 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 #endif
 		.ctrl_id	= EEM_CTRL_L,
 		.features	= FEA_INIT020 | FEA_INIT021 | FEA_MON,
-		.max_freq_khz	= {L_FREQ_BASE, L_M2_FREQ_BASE},
+		.max_freq_khz	= L_MAX_FREQ_BASE,
+		.turn_freq_khz	= {L_FREQ_BASE, L_M2_FREQ_BASE},
 		.eem_v_base	= EEM_V_BASE,
 		.eem_step	= EEM_STEP,
 		.pmic_base	= CPU_PMIC_BASE_6315,
@@ -117,10 +118,18 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEM_CTRL_BL,
+		.max_freq_khz	= BL_MAX_FREQ_BASE,
+#if SUPPORT_BL_ULV
 		.features	= FEA_INIT020 | FEA_INIT021 | FEA_INIT022 |
 						FEA_INIT023 | FEA_MON,
-		.max_freq_khz	= {BL_FREQ_BASE, BL_M2_FREQ_BASE,
+		.turn_freq_khz	= {BL_FREQ_BASE, BL_M2_FREQ_BASE,
 					BL_M3_FREQ_BASE, BL_M4_FREQ_BASE},
+#else
+		.features	= FEA_INIT020 | FEA_INIT021 | FEA_INIT022 |
+						FEA_MON,
+		.turn_freq_khz	= {BL_FREQ_BASE, BL_M2_FREQ_BASE,
+					BL_M3_FREQ_BASE},
+#endif
 		.eem_v_base = EEM_V_BASE,
 		.eem_step	= EEM_STEP,
 		.pmic_base	= CPU_PMIC_BASE_6315,
@@ -136,7 +145,7 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.VCO		= VCO_VAL_B,
 		.DVTFIXED	= DVTFIXED_VAL,
 		.DCCONFIG	= DCCONFIG_VAL,
-		.EEMCTL0	= EEM_CTL0_B,
+		.EEMCTL0	= EEM_CTL0_BL,
 		.low_temp_off	= LOW_TEMP_OFF_B,
 		.high_temp_off	= HIGH_TEMP_OFF_B,
 	},
@@ -150,7 +159,8 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.ctrl_id	= EEM_CTRL_B,
 		.features	= FEA_INIT020 | FEA_INIT021 | FEA_INIT022 |
 						FEA_MON,
-		.max_freq_khz	= {B_FREQ_BASE, B_M2_FREQ_BASE, B_M3_FREQ_BASE},
+		.max_freq_khz	= B_MAX_FREQ_BASE,
+		.turn_freq_khz	= {B_FREQ_BASE, B_M2_FREQ_BASE, B_M3_FREQ_BASE},
 		.eem_v_base = EEM_V_BASE,
 		.eem_step	= EEM_STEP,
 		.pmic_base	= CPU_PMIC_BASE_6315,
@@ -178,8 +188,11 @@ struct eem_det eem_detectors[NR_EEM_DET] = {
 		.volt_offset = 0,
 #endif
 		.ctrl_id	= EEM_CTRL_CCI,
-		.features	= FEA_INIT020 | FEA_INIT021 | FEA_MON,
-		.max_freq_khz	= {CCI_FREQ_BASE, CCI_M2_FREQ_BASE},
+		.features	= FEA_INIT020 | FEA_INIT021 | FEA_INIT022 |
+						FEA_MON,
+		.max_freq_khz	= CCI_MAX_FREQ_BASE,
+		.turn_freq_khz	= {CCI_FREQ_BASE, CCI_M2_FREQ_BASE,
+						CCI_M3_FREQ_BASE},
 		.VMAX		= VMAX_VAL_CCI,
 		.VMIN		= VMIN_VAL_CCI,
 		.eem_v_base	= EEM_V_BASE,
