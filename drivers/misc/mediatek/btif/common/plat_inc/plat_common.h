@@ -45,15 +45,17 @@ extern int mtk_btif_hal_get_log_lvl(void);
 static int hal_log_print(const char *str, ...)
 {
 	va_list args;
+	int ret;
 	char temp_sring[DBG_LOG_STR_SIZE];
 
 	va_start(args, str);
-	vsnprintf(temp_sring, DBG_LOG_STR_SIZE, str, args);
+	ret = vsnprintf(temp_sring, DBG_LOG_STR_SIZE, str, args);
 	va_end(args);
 
-	pr_debug("%s", temp_sring);
+	if (ret > 0)
+		pr_debug("%s", temp_sring);
 
-	return 0;
+	return ret;
 }
 
 #define BTIF_LOG_LOUD    4
