@@ -48,7 +48,7 @@ struct cdvfs_data {
 	} u;
 };
 
-int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
+static int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 {
 	unsigned int len = DVFS_D_LEN;
 	int ack_data;

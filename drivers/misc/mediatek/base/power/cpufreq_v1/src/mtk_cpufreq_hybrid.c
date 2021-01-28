@@ -307,7 +307,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 	return 0;
 }
 
-int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
+static int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 {
 #define OPT				(0) /* reserve for extensibility */
 #define DVFS_D_LEN		(4) /* # of cmd + arg0 + arg1 + ... */
