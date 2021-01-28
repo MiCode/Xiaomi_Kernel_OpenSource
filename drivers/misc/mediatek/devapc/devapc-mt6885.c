@@ -7,9 +7,10 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <asm-generic/io.h>
 
 #include "devapc-mt6885.h"
-#include "devapc-mtk-multi-3.h"
+#include "devapc-mtk-multi-ao.h"
 
 static struct mtk_device_info mt6885_devices_infra[] = {
 	/* sys_idx, ctrl_idx, vio_idx, device, vio_irq */
@@ -1305,7 +1306,11 @@ static struct PERIAXI_ID_INFO peri_mi_id_to_master[] = {
 };
 
 static struct INFRAAXI_ID_INFO infra_mi_id_to_master[] = {
-	{"CONNSYS",           { 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_WFDMA",     { 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_ICAP",      { 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_WF_MCU",    { 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_BT_MCU",    { 0, 0, 0, 0, 1, 0, 0, 1, 2, 2, 2, 2, 2 } },
+	{"CONNSYS_GPS",       { 0, 0, 0, 0, 1, 0, 0, 0, 2, 2, 2, 2, 2 } },
 	{"Tinysys",           { 0, 1, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 0 } },
 	{"GCE_M2",            { 0, 0, 1, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0 } },
 	{"CQ_DMA",            { 0, 0, 1, 0, 1, 0, 0, 2, 2, 2, 0, 0, 0 } },
@@ -1407,16 +1412,44 @@ static const char *peri_mi_trans(int bus_id)
 	return master;
 }
 
-static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr)
+static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr,
+		int slave_type, int shift_sta_bit, int domain)
 {
 	uint16_t h_2byte;
 	uint8_t h_1byte;
 
+	UNUSED(slave_type);
+	UNUSED(shift_sta_bit);
+
 	pr_debug(PFX "[DEVAPC] bus_id:0x%x, vio_addr:0x%x\n",
 		bus_id, vio_addr);
 
+	if (bus_id == 0x0 && vio_addr == 0x0)
+		return NULL;
+
+	/* bus only reference bit 0~29 */
+	vio_addr = vio_addr & 0x3FFFFFFF;
+
 	h_1byte = (vio_addr >> 24) & 0xFF;
 	h_2byte = (vio_addr >> 16) & 0xFFFF;
+
+	if ((vio_addr >= TINYSYS_START_ADDR && vio_addr <= TINYSYS_END_ADDR) ||
+	    (vio_addr >= MD_START_ADDR && vio_addr <= MD_END_ADDR)) {
+		pr_info(PFX "[DEVAPC] bus_id might be wrong\n");
+
+		if (domain == 0x1)
+			return "SSPM";
+		else if (domain == 0x2)
+			return "CONNSYS";
+
+	} else if (vio_addr >= CONN_START_ADDR && vio_addr <= CONN_END_ADDR) {
+		pr_info(PFX "[DEVAPC] bus_id might be wrong\n");
+
+		if (domain == 0x1)
+			return "MD";
+		else if (domain == 0x2)
+			return "ADSP";
+	}
 
 	if (h_2byte < 0x0C51 || (h_2byte >= 0x0C80 && h_2byte < 0x0CC0)) {
 		pr_debug(PFX "vio_addr is from L3C or on-chip SRAMROM\n");
@@ -1480,16 +1513,59 @@ static const char *mt6885_bus_id_to_master(int bus_id, uint32_t vio_addr)
 }
 
 /* violation index corresponds to subsys */
-const char *index_to_subsys(int slave_type, uint32_t vio_index)
+const char *index_to_subsys(int slave_type, uint32_t vio_index,
+		uint32_t vio_addr)
 {
 	if (slave_type == SLAVE_TYPE_INFRA &&
 			vio_index < VIO_SLAVE_NUM_INFRA) {
+
+		/* check violation address */
+		if (vio_addr >= MFG_START_ADDR && vio_addr <= MFG_END_ADDR)
+			return "MFGSYS";
+
+		/* check violation index */
+		if (vio_index == SMI_LARB0_VIO_INDEX ||
+				vio_index == SMI_LARB1_VIO_INDEX ||
+				vio_index == SMI_LARB2_VIO_INDEX ||
+				vio_index == SMI_LARB3_VIO_INDEX ||
+				vio_index == SMI_LARB4_VIO_INDEX ||
+				vio_index == SMI_LARB5_VIO_INDEX ||
+				vio_index == SMI_LARB6_VIO_INDEX ||
+				vio_index == SMI_LARB7_VIO_INDEX ||
+				vio_index == SMI_LARB8_VIO_INDEX ||
+				vio_index == SMI_LARB9_VIO_INDEX ||
+				vio_index == SMI_LARB10_VIO_INDEX ||
+				vio_index == SMI_LARB11_VIO_INDEX ||
+				vio_index == SMI_LARB12_VIO_INDEX ||
+				vio_index == SMI_LARB13_VIO_INDEX ||
+				vio_index == SMI_LARB14_VIO_INDEX ||
+				vio_index == SMI_LARB15_VIO_INDEX ||
+				vio_index == SMI_LARB16_VIO_INDEX ||
+				vio_index == SMI_LARB17_VIO_INDEX ||
+				vio_index == SMI_LARB18_VIO_INDEX ||
+				vio_index == SMI_LARB19_VIO_INDEX ||
+				vio_index == SMI_LARB20_VIO_INDEX)
+			return "SMI";
+
+		if (vio_index == IOMMU0_VIO_INDEX ||
+				vio_index == IOMMU1_VIO_INDEX ||
+				vio_index == IOMMU0_SEC_VIO_INDEX ||
+				vio_index == IOMMU1_SEC_VIO_INDEX)
+			return "IOMMU";
+
+		else if (vio_index >= CAM_SENINF_START &&
+				vio_index <= CAM_SENINF_END)
+			return "CAMSYS_SENINF";
+
 		switch (vio_index) {
 		case MFG_START ... MFG_END:
 			return "MFGSYS";
+		case MM_DISP_START ... MM_DISP_END:
+		case MM_DISP2_START ... MM_DISP2_END:
+			return "MMSYS_DISP";
 		case MM_SSRAM_VIO_INDEX:
-		case MM_START ... MM_END:
-			return "MMSYS";
+		case MM_MDP_START ... MM_MDP_END:
+			return "MMSYS_MDP";
 		case IMG_START ... IMG_END:
 			return "IMGSYS";
 		case VDEC_START ... VDEC_END:
@@ -1499,18 +1575,22 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 		case APU_SSRAM_VIO_INDEX:
 		case APU_START ... APU_END:
 			return "APUSYS";
+		case CAM_CCU_START ... CAM_CCU_END:
+			return "CAMSYS_CCU";
 		case CAM_START ... CAM_END:
 			return "CAMSYS";
 		case IPE_START ... IPE_END:
 			return "IPESYS";
 		case MDP_START ... MDP_END:
-			return "MDPSYS";
+			return "MMSYS_MDP";
 		default:
 			return mt6885_devices_infra[vio_index].device;
 		}
 
 	} else if (slave_type == SLAVE_TYPE_PERI &&
 			vio_index < VIO_SLAVE_NUM_PERI) {
+
+		/* check violation index */
 		switch (vio_index) {
 		case TINY_START ... TINY_END:
 			return "TINYSYS";
@@ -1523,12 +1603,245 @@ const char *index_to_subsys(int slave_type, uint32_t vio_index)
 		}
 
 	} else if (slave_type == SLAVE_TYPE_PERI2 &&
-			vio_index < VIO_SLAVE_NUM_PERI) {
+			vio_index < VIO_SLAVE_NUM_PERI2) {
+
+		/* check violation address */
+		if ((vio_addr >= GCE_START_ADDR && vio_addr <= GCE_END_ADDR) ||
+				(vio_addr >= GCE_M2_START_ADDR &&
+				 vio_addr <= GCE_M2_END_ADDR))
+			return "GCE";
+
 		return mt6885_devices_peri2[vio_index].device;
 	}
 
 	return "OUT_OF_BOUND";
 }
+
+static void mm2nd_vio_handler(void __iomem *infracfg,
+			      struct mtk_devapc_vio_info *vio_info,
+			      bool mdp_vio, bool disp2_vio, bool mmsys_vio)
+{
+	uint32_t vio_sta, vio_dbg, rw;
+	uint32_t vio_sta_num;
+	uint32_t vio0_offset;
+	char mm_str[64] = {0};
+	void __iomem *reg;
+	int i;
+
+	if (!infracfg) {
+		pr_err(PFX "%s, param check failed, infracfg ptr is NULL\n",
+				__func__);
+		return;
+	}
+
+	if (mdp_vio) {
+		vio_sta_num = INFRACFG_MDP_VIO_STA_NUM;
+		vio0_offset = INFRACFG_MDP_SEC_VIO0_OFFSET;
+
+		strncpy(mm_str, "INFRACFG_MDP_SEC_VIO", sizeof(mm_str));
+
+	} else if (disp2_vio) {
+		vio_sta_num = INFRACFG_DISP2_VIO_STA_NUM;
+		vio0_offset = INFRACFG_DISP2_SEC_VIO0_OFFSET;
+
+		strncpy(mm_str, "INFRACFG_DISP2_SEC_VIO", sizeof(mm_str));
+
+	} else if (mmsys_vio) {
+		vio_sta_num = INFRACFG_MM_VIO_STA_NUM;
+		vio0_offset = INFRACFG_MM_SEC_VIO0_OFFSET;
+
+		strncpy(mm_str, "INFRACFG_MM_SEC_VIO", sizeof(mm_str));
+
+	} else {
+		pr_err(PFX "%s: param check failed, %s:%s, %s:%s, %s:%s\n",
+				__func__,
+				"mdp_vio", mdp_vio ? "true" : "false",
+				"disp2_vio", disp2_vio ? "true" : "false",
+				"mmsys_vio", mmsys_vio ? "true" : "false");
+		return;
+	}
+
+	/* Get mm2nd violation status */
+	for (i = 0; i < vio_sta_num; i++) {
+		reg = infracfg + vio0_offset + i * 4;
+		vio_sta = readl(reg);
+		if (vio_sta)
+			pr_info(PFX "MM 2nd violation: %s%d:0x%x\n",
+					mm_str, i, vio_sta);
+	}
+
+	/* Get mm2nd violation address */
+	reg = infracfg + vio0_offset + i * 4;
+	vio_info->vio_addr = readl(reg);
+
+	/* Get mm2nd violation information */
+	reg = infracfg + vio0_offset + (i + 1) * 4;
+	vio_dbg = readl(reg);
+
+	vio_info->domain_id = (vio_dbg & INFRACFG_MM2ND_VIO_DOMAIN_MASK) >>
+		INFRACFG_MM2ND_VIO_DOMAIN_SHIFT;
+
+	vio_info->master_id = (vio_dbg & INFRACFG_MM2ND_VIO_ID_MASK) >>
+		INFRACFG_MM2ND_VIO_ID_SHIFT;
+
+	rw = (vio_dbg & INFRACFG_MM2ND_VIO_RW_MASK) >>
+		INFRACFG_MM2ND_VIO_RW_SHIFT;
+	vio_info->read = (rw == 0);
+	vio_info->write = (rw == 1);
+}
+
+static uint32_t mt6885_shift_group_get(int slave_type, uint32_t vio_idx)
+{
+	if (slave_type == SLAVE_TYPE_INFRA) {
+		if ((vio_idx >= 0 && vio_idx <= 8) || vio_idx == 412)
+			return 0;
+		else if ((vio_idx >= 9 && vio_idx <= 14) || vio_idx == 413)
+			return 1;
+		else if ((vio_idx >= 15 && vio_idx <= 16) || vio_idx == 414)
+			return 2;
+		else if ((vio_idx >= 17 && vio_idx <= 18) || vio_idx == 415)
+			return 3;
+		else if (vio_idx >= 19 && vio_idx <= 70)
+			return 4;
+		else if (vio_idx >= 71 && vio_idx <= 369)
+			return 5;
+		else if (vio_idx >= 370 && vio_idx <= 409)
+			return 6;
+		else if (vio_idx == 410 || vio_idx == 416)
+			return 7;
+		else if (vio_idx == 411 || vio_idx == 417)
+			return 8;
+
+		pr_err(PFX "%s:%d Wrong vio_idx:0x%x\n",
+				__func__, __LINE__, vio_idx);
+
+	} else if (slave_type == SLAVE_TYPE_PERI) {
+		if (vio_idx >= 0 && vio_idx <= 4)
+			return 0;
+		else if (vio_idx >= 5 && vio_idx <= 6)
+			return 1;
+		else if ((vio_idx >= 7 && vio_idx <= 38) || vio_idx == 216 ||
+				(vio_idx >= 217 && vio_idx <= 248) ||
+				vio_idx == 346)
+			return 2;
+		else if ((vio_idx >= 39 && vio_idx <= 61) || vio_idx == 249)
+			return 3;
+		else if ((vio_idx >= 62 && vio_idx <= 72) || vio_idx == 250)
+			return 4;
+		else if ((vio_idx >= 73 && vio_idx <= 74) || vio_idx == 251)
+			return 5;
+		else if ((vio_idx >= 75 && vio_idx <= 78) || vio_idx == 252)
+			return 6;
+		else if ((vio_idx >= 79 && vio_idx <= 121) || vio_idx == 253)
+			return 7;
+		else if ((vio_idx >= 122 && vio_idx <= 124) || vio_idx == 254)
+			return 8;
+		else if (vio_idx == 125 || vio_idx == 255 ||
+				vio_idx == 256 || vio_idx == 347)
+			return 9;
+		else if (vio_idx == 126 || vio_idx == 257)
+			return 10;
+		else if (vio_idx == 127 || vio_idx == 128)
+			return 11;
+		else if (vio_idx == 129 || vio_idx == 130)
+			return 12;
+		else if ((vio_idx >= 131 && vio_idx <= 142) ||
+				(vio_idx >= 258 && vio_idx <= 269) ||
+				vio_idx == 348)
+			return 13;
+		else if ((vio_idx >= 143 && vio_idx <= 172) || vio_idx == 270 ||
+				(vio_idx >= 271 && vio_idx <= 300) ||
+				vio_idx == 349)
+			return 14;
+		else if ((vio_idx >= 173 && vio_idx <= 202) || vio_idx == 301 ||
+				(vio_idx >= 302 && vio_idx <= 331) ||
+				vio_idx == 350)
+			return 15;
+		else if ((vio_idx >= 203 && vio_idx <= 215) ||
+				(vio_idx >= 332 && vio_idx <= 345) ||
+				vio_idx == 351)
+			return 16;
+
+		pr_err(PFX "%s:%d Wrong vio_idx:0x%x\n",
+				__func__, __LINE__, vio_idx);
+
+	} else if (slave_type == SLAVE_TYPE_PERI2) {
+		if ((vio_idx >= 0 && vio_idx <= 8) ||
+				(vio_idx >= 130 && vio_idx <= 139) ||
+				vio_idx == 252)
+			return 0;
+		else if (vio_idx >= 9 && vio_idx <= 12)
+			return 1;
+		else if (vio_idx >= 13 && vio_idx <= 16)
+			return 2;
+		else if (vio_idx >= 17 && vio_idx <= 20)
+			return 3;
+		else if (vio_idx >= 21 && vio_idx <= 24)
+			return 4;
+		else if ((vio_idx >= 25 && vio_idx <= 40) ||
+				(vio_idx >= 140 && vio_idx <= 156) ||
+				vio_idx == 253)
+			return 5;
+		else if ((vio_idx >= 41 && vio_idx <= 48) ||
+				(vio_idx >= 157 && vio_idx <= 165) ||
+				vio_idx == 254)
+			return 6;
+		else if ((vio_idx >= 49 && vio_idx <= 64) ||
+				(vio_idx >= 166 && vio_idx <= 182) ||
+				vio_idx == 255)
+			return 7;
+		else if ((vio_idx >= 65 && vio_idx <= 80) ||
+				(vio_idx >= 183 && vio_idx <= 199) ||
+				vio_idx == 256)
+			return 8;
+		else if ((vio_idx >= 81 && vio_idx <= 88) ||
+				(vio_idx >= 200 && vio_idx <= 208) ||
+				vio_idx == 257)
+			return 9;
+		else if ((vio_idx >= 89 && vio_idx <= 111) ||
+				(vio_idx >= 209 && vio_idx <= 232) ||
+				vio_idx == 258)
+			return 10;
+		else if ((vio_idx >= 112 && vio_idx <= 40) ||
+				(vio_idx >= 233 && vio_idx <= 251) ||
+				vio_idx == 259)
+			return 11;
+
+		pr_err(PFX "%s:%d Wrong vio_idx:0x%x\n",
+				__func__, __LINE__, vio_idx);
+
+	} else {
+		pr_err(PFX "%s:%d Wrong slave_type:0x%x\n",
+				__func__, __LINE__, slave_type);
+	}
+
+	return 31;
+}
+
+void devapc_catch_illegal_range(phys_addr_t phys_addr, size_t size)
+{
+	phys_addr_t test_pa = 0x17a54c50;
+
+	/*
+	 * Catch BROM addr mapped
+	 */
+	if (phys_addr >= 0x0 && phys_addr < SRAM_START_ADDR) {
+		pr_err(PFX "%s %s:(%pa), %s:(0x%lx)\n",
+				"catch BROM address mapped!",
+				"phys_addr", &phys_addr,
+				"size", size);
+		BUG_ON(1);
+	}
+
+	if ((phys_addr <= test_pa) && (phys_addr + size > test_pa)) {
+		pr_err(PFX "%s %s:(%pa), %s:(0x%lx), %s:(%pa)\n",
+				"catch VENCSYS address mapped!",
+				"phys_addr", &phys_addr,
+				"size", size, "test_pa", &test_pa);
+		BUG_ON(1);
+	}
+}
+EXPORT_SYMBOL(devapc_catch_illegal_range);
 
 static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
 	.enable_ut = PLAT_DBG_UT_DEFAULT,
@@ -1538,11 +1851,25 @@ static struct mtk_devapc_dbg_status mt6885_devapc_dbg_stat = {
 	.enable_dapc = PLAT_DBG_DAPC_DEFAULT,
 };
 
+static const char * const slave_type_to_str[] = {
+	"SLAVE_TYPE_INFRA",
+	"SLAVE_TYPE_PERI",
+	"SLAVE_TYPE_PERI2",
+	"WRONG_SLAVE_TYPE",
+};
+
+static int mtk_vio_mask_sta_num[] = {
+	VIO_MASK_STA_NUM_INFRA,
+	VIO_MASK_STA_NUM_PERI,
+	VIO_MASK_STA_NUM_PERI2,
+};
+
 static struct mtk_devapc_vio_info mt6885_devapc_vio_info = {
-	.vio_mask_sta_num_infra = VIO_MASK_STA_NUM_INFRA,
-	.vio_mask_sta_num_peri = VIO_MASK_STA_NUM_PERI,
-	.vio_mask_sta_num_peri2 = VIO_MASK_STA_NUM_PERI2,
+	.vio_mask_sta_num = mtk_vio_mask_sta_num,
 	.sramrom_vio_idx = SRAMROM_VIO_INDEX,
+	.mdp_vio_idx = MDP_VIO_INDEX,
+	.disp2_vio_idx = DISP2_VIO_INDEX,
+	.mmsys_vio_idx = MMSYS_VIO_INDEX,
 };
 
 static const struct mtk_infra_vio_dbg_desc mt6885_vio_dbgs = {
@@ -1581,9 +1908,11 @@ static const uint32_t mt6885_devapc_pds[] = {
 
 static struct mtk_devapc_soc mt6885_data = {
 	.dbg_stat = &mt6885_devapc_dbg_stat,
-	.device_info_infra = mt6885_devices_infra,
-	.device_info_peri = mt6885_devices_peri,
-	.device_info_peri2 = mt6885_devices_peri2,
+	.slave_type_arr = slave_type_to_str,
+	.slave_type_num = SLAVE_TYPE_NUM,
+	.device_info[SLAVE_TYPE_INFRA] = mt6885_devices_infra,
+	.device_info[SLAVE_TYPE_PERI] = mt6885_devices_peri,
+	.device_info[SLAVE_TYPE_PERI2] = mt6885_devices_peri2,
 	.ndevices = mtk6885_devices_num,
 	.vio_info = &mt6885_devapc_vio_info,
 	.vio_dbgs = &mt6885_vio_dbgs,
@@ -1591,6 +1920,8 @@ static struct mtk_devapc_soc mt6885_data = {
 	.devapc_pds = mt6885_devapc_pds,
 	.subsys_get = &index_to_subsys,
 	.master_get = &mt6885_bus_id_to_master,
+	.mm2nd_vio_handler = &mm2nd_vio_handler,
+	.shift_group_get = mt6885_shift_group_get,
 };
 
 static const struct of_device_id mt6885_devapc_dt_match[] = {

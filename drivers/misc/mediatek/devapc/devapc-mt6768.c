@@ -573,10 +573,6 @@ const char *bus_id_to_master(int bus_id, uint32_t vio_addr, int vio_idx)
 		DEVAPC_DBG_MSG("vio addr is from MFG\n");
 		master = topaxi_mi0_trans(bus_id);
 
-	} else if (h_byte == 0x12) {
-		DEVAPC_DBG_MSG("vio addr is from reserved region\n");
-		master = topaxi_mi0_trans(bus_id);
-
 	} else {
 		DEVAPC_MSG("[FAILED] Cannot decode vio addr\n");
 		master = "UNKNOWN_MASTER";
