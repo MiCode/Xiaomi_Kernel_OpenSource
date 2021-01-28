@@ -173,6 +173,7 @@ struct mtk_drm_private {
 	int need_vds_path_switch;
 	int vds_path_switch_dirty;
 	int vds_path_switch_done;
+	int need_vds_path_switch_back;
 	int vds_path_enable;
 
 	/* Due to 2nd display share 1 secure gce client, need store here */

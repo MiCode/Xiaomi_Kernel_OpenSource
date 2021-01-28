@@ -83,6 +83,7 @@ done:
 		private->vds_path_switch_dirty = 1;
 		private->vds_path_switch_done = 0;
 		private->vds_path_enable = 0;
+		private->need_vds_path_switch_back = 0;
 
 		DDPMSG("Switch vds: crtc2 vds session create\n");
 		/* Close RPO */
@@ -159,8 +160,10 @@ int mtk_session_set_mode(struct drm_device *dev, unsigned int session_mode)
 		mtk_set_layering_opt(LYE_OPT_RPO, 1);
 
 		/* OVL0_2l switch back to main path */
-		DDPMSG("Switch vds: crtc2 vds set ddp mode to DL\n");
-		mtk_need_vds_path_switch(private->crtc[0]);
+		if (private->need_vds_path_switch_back) {
+			DDPMSG("Switch vds: crtc2 vds set ddp mode to DL\n");
+			mtk_need_vds_path_switch(private->crtc[0]);
+		}
 	}
 
 	/* For releasing HW resource purpose, the ddp mode should
