@@ -3128,10 +3128,8 @@ page_owner=on";
 		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
 		#pwm-cells = <2>;
 		clocks = <&infracfg_ao CLK_IFRAO_DISP_PWM>,
-			<&topckgen CLK_TOP_DISP_PWM_SEL>,
-			<&topckgen CLK_TOP_OSC_D4>;
-		clock-names = "main", "mm", "pwm_src";
-		pwm_src_fmeter_id = <39>;
+			<&topckgen CLK_TOP_DISP_PWM_SEL>;
+		clock-names = "main", "mm";
 	};
 
 	dispsys_config: dispsys_config@14000000 {
