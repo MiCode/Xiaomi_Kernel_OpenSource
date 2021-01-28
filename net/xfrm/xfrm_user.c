@@ -755,6 +755,8 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 	if (x == NULL)
 		return err;
 
+	x->user_del_flag = true;
+
 	if ((err = security_xfrm_state_delete(x)) != 0)
 		goto out;
 
@@ -762,7 +764,10 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 		err = -EPERM;
 		goto out;
 	}
-
+#ifdef CONFIG_MTK_ENG_BUILD
+	pr_info("[xfrm_state]:xfrm_del_sa_lookup ,x: %px refcnt: %d\n",
+		x, refcount_read(&x->refcnt));
+#endif
 	err = xfrm_state_delete(x);
 
 	if (err < 0)
@@ -775,6 +780,7 @@ static int xfrm_del_sa(struct sk_buff *skb, struct nlmsghdr *nlh,
 
 out:
 	xfrm_audit_state_delete(x, err ? 0 : 1, true);
+	x->user_del_flag = false;
 	xfrm_state_put(x);
 	return err;
 }

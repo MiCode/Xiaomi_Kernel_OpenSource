@@ -31,11 +31,6 @@
 #define xfrm_state_deref_prot(table, net) \
 	rcu_dereference_protected((table), lockdep_is_held(&(net)->xfrm.xfrm_state_lock))
 
-#undef MTK_XFM_DEBUG
-#ifdef CONFIG_MTK_ENG_BUILD
-#define MTK_XFM_DEBUG
-#endif
-
 static char dmsg[128];
 #define format_trace_info()				\
 do {							\
@@ -51,6 +46,7 @@ xfrm_state_check_add_byspi_hlish(struct hlist_head *head, struct xfrm_state *new
 static void xfrm_state_check_del_byspi_hlish(struct xfrm_state *x, char *func_name);
 static void xfrm_state_get_back_trace(struct xfrm_state_trace *trace);
 static void xfrm_state_print_back_trace(struct xfrm_state *x);
+static void xfrm_state_print_refcount_back_trace(struct xfrm_state *x);
 
 static void xfrm_state_gc_task(struct work_struct *work);
 
@@ -69,6 +65,30 @@ static HLIST_HEAD(xfrm_state_gc_list);
 
 static inline bool xfrm_state_hold_rcu(struct xfrm_state __rcu *x)
 {
+#ifdef CONFIG_MTK_ENG_BUILD
+	unsigned int cpu, idx;
+	struct stack_trace stack_trace;
+	u64 ts_nsc = sched_clock();
+
+	cpu = get_cpu();
+	idx = x->xfrm_refcount_trace_idx;
+	if (++x->xfrm_refcount_trace_idx >= MAX_TRACE_LEN) {
+		x->xfrm_refcount_trace_idx = 0;
+		x->xfrm_refcount_trace_overwrite++;
+	}
+
+	stack_trace.max_entries = XFRM_TRACK_ADDRS_COUNT;
+	stack_trace.nr_entries = 0;
+	stack_trace.entries = (x->xfrm_refcount_trace)[idx].addrs;
+	stack_trace.skip = 0;
+	save_stack_trace(&stack_trace);
+	(x->xfrm_refcount_trace)[idx].cpu = cpu;
+	(x->xfrm_refcount_trace)[idx].pid = current->pid | XFRM_HOLD_FLAG;
+	(x->xfrm_refcount_trace)[idx].count = refcount_read(&x->refcnt);
+	(x->xfrm_refcount_trace)[idx].when_nsec = do_div(ts_nsc, 1000000000);
+	(x->xfrm_refcount_trace)[idx].when_sec = ts_nsc;
+	put_cpu();
+#endif
 	return refcount_inc_not_zero(&x->refcnt);
 }
 
@@ -122,7 +142,7 @@ static void xfrm_hash_transfer(struct hlist_head *list,
 			h = __xfrm_spi_hash(&x->id.daddr, x->id.spi,
 					    x->id.proto, x->props.family,
 					    nhashmask);
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 			pr_info("[mtk_net][xfrm_state] add list %s x %px byspi %px  h %d\n",
 				__func__, x, nspitable, h);
 #endif
@@ -457,8 +477,13 @@ static void xfrm_put_mode(struct xfrm_mode *mode)
 
 static void xfrm_state_gc_destroy(struct xfrm_state *x)
 {
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 	pr_info("[mtk_net][xfrm_state] %s  free x %px\n", __func__, x);
+	if (x->user_del_flag) {
+		pr_info("[mtk_net][xfrm_state] WARNING3.... x %px\n", x);
+		xfrm_state_print_refcount_back_trace(x);
+		BUG_ON(1);
+	}
 #endif
 	xfrm_state_get_back_trace(&x->xfrm_free_trace);
 	tasklet_hrtimer_cancel(&x->mtimer);
@@ -600,7 +625,7 @@ struct xfrm_state *xfrm_state_alloc(struct net *net)
 	struct xfrm_state *x;
 
 	x = kzalloc(sizeof(struct xfrm_state), GFP_ATOMIC);
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 	pr_info("[mtk_net][xfrm_state] %s alloc x: %px\n", __func__, x);
 #endif
 	if (x) {
@@ -630,6 +655,10 @@ struct xfrm_state *xfrm_state_alloc(struct net *net)
 		x->xfrm_transfer_trace.count = 0;
 		x->xfrm_find_trace.count = 0;
 		x->xfrm_insert_trace.count = 0;
+#ifdef CONFIG_MTK_ENG_BUILD
+		x->xfrm_refcount_trace_idx = 0;
+		x->xfrm_refcount_trace_overwrite = 0;
+#endif
 	}
 	return x;
 }
@@ -660,7 +689,7 @@ int __xfrm_state_delete(struct xfrm_state *x)
 		if (x->id.spi) {
 			xfrm_state_check_del_byspi_hlish(x, NULL);
 			hlist_del_rcu(&x->byspi);
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 			pr_info("[mtk_net][xfrm_state] %s delete x %px from byspi list\n",
 				__func__, x);
 #endif
@@ -917,6 +946,42 @@ static void xfrm_state_print_back_trace(struct xfrm_state *x)
 	__printf_back_trace(&x->xfrm_find_trace, logtag);
 	logtag = "insert";
 	__printf_back_trace(&x->xfrm_insert_trace, logtag);
+}
+
+static void xfrm_state_print_refcount_back_trace(struct xfrm_state *x)
+{
+#ifdef CONFIG_MTK_ENG_BUILD
+	int i, idx, size;
+	unsigned int tmp, pid;
+	struct xfrm_state_trace *trace;
+
+	if (!x->xfrm_refcount_trace_idx && !x->xfrm_refcount_trace_overwrite) {
+		pr_info("[xfrm_state]  %s no backtrace\n", __func__);
+		return;
+	}
+
+	if (!x->xfrm_refcount_trace_overwrite)
+		size = x->xfrm_refcount_trace_idx;
+	else
+		size = MAX_TRACE_LEN;
+
+	pr_info("[xfrm_state] ====[ xfrm refcnt backtrace begin x :%px ]===========\n", x);
+	for (idx = 0; idx < size; idx++) {
+		trace = &x->xfrm_refcount_trace[idx];
+		pid = trace->pid;
+		tmp = (pid & 0xf0000000) >> 28;
+		pr_info("[xfrm_state][%s][time %5lu.%06lu] [pid %d] [cpu %d] [refcount %d]\n",
+			tmp == 1 ? "xfrm_put" :	"xfrm_hold",
+			trace->when_sec, trace->when_nsec / 1000,
+			(trace->pid & 0xfffffff), trace->cpu, trace->count);
+		for (i = 0; i < XFRM_TRACK_ADDRS_COUNT; i++) {
+			if (trace->addrs[i] != 0)
+				pr_info("[xfrm_state][%d][<%p>] %pS\n", trace->count,
+					(void *)trace->addrs[i], (void *)trace->addrs[i]);
+		}
+	}
+	pr_info("[xfrm_state]====[ xfrm refcnt backtrace end x :%px ]===========\n", x);
+#endif
 }
 
 static  void
@@ -1291,7 +1356,7 @@ found:
 				format_trace_info();
 				xfrm_state_check_add_byspi_hlish(net->xfrm.state_byspi + h, x, dmsg);
 				hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 				pr_info("[mtk_net][xfrm_state] add list %s x %px byspi %px  h %d\n",
 					__func__, x, net->xfrm.state_byspi, h);
 #endif
@@ -1411,7 +1476,7 @@ static void __xfrm_state_insert(struct xfrm_state *x)
 		format_trace_info();
 		xfrm_state_check_add_byspi_hlish(net->xfrm.state_byspi + h, x, dmsg);
 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 		pr_info("[mtk_net][xfrm_state] add list  %s x %px byspi %px  h %d\n",
 			__func__, x, net->xfrm.state_byspi, h);
 #endif
@@ -2083,7 +2148,7 @@ int xfrm_alloc_spi(struct xfrm_state *x, u32 low, u32 high)
 		format_trace_info();
 		xfrm_state_check_add_byspi_hlish(net->xfrm.state_byspi + h, x, dmsg);
 		hlist_add_head_rcu(&x->byspi, net->xfrm.state_byspi + h);
-#ifdef MTK_XFM_DEBUG
+#ifdef CONFIG_MTK_ENG_BUILD
 		pr_info("[mtk_net][xfrm_state]add list  %s x %px byspi %px  h %d\n",
 			__func__, x, net->xfrm.state_byspi, h);
 #endif
