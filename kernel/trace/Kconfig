@@ -94,7 +94,6 @@ config RING_BUFFER_ALLOW_SWAP
 
 config TRACING
 	bool
-	select DEBUG_FS
 	select RING_BUFFER
 	select STACKTRACE if STACKTRACE_SUPPORT
 	select TRACEPOINTS

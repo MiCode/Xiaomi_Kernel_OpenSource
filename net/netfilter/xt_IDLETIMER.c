@@ -246,6 +246,7 @@ static int idletimer_resume(struct notifier_block *notifier,
 		if (!timer->suspend_time_valid)
 			break;
 		timer->suspend_time_valid = false;
+
 		spin_lock_bh(&timestamp_lock);
 		if (!timer->active) {
 			spin_unlock_bh(&timestamp_lock);

@@ -16,6 +16,8 @@ data-integrity.txt
 	- Block data integrity
 deadline-iosched.txt
 	- Deadline IO scheduler tunables
+inline-encryption.rst
+	- Blk-crypto internals and inline encryption
 ioprio.txt
 	- Block io priorities (in CFQ scheduler)
 pr.txt

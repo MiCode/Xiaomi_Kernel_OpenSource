@@ -1362,81 +1362,15 @@ static void lapic_setup_esr(void)
 			oldvalue, value);
 }
 
-/**
- * setup_local_APIC - setup the local APIC
- *
- * Used to setup local APIC while initializing BSP or bringing up APs.
- * Always called with preemption disabled.
- */
-void setup_local_APIC(void)
+static void apic_pending_intr_clear(void)
 {
-	int cpu = smp_processor_id();
+	long long max_loops = cpu_khz ? cpu_khz : 1000000;
+	unsigned long long tsc = 0, ntsc;
 	unsigned int value, queued;
 	int i, j, acked = 0;
-	unsigned long long tsc = 0, ntsc;
-	long long max_loops = cpu_khz ? cpu_khz : 1000000;
 
 	if (boot_cpu_has(X86_FEATURE_TSC))
 		tsc = rdtsc();
-
-	if (disable_apic) {
-		disable_ioapic_support();
-		return;
-	}
-
-	/*
-	 * If this comes from kexec/kcrash the APIC might be enabled in
-	 * SPIV. Soft disable it before doing further initialization.
-	 */
-	value = apic_read(APIC_SPIV);
-	value &= ~APIC_SPIV_APIC_ENABLED;
-	apic_write(APIC_SPIV, value);
-
-#ifdef CONFIG_X86_32
-	/* Pound the ESR really hard over the head with a big hammer - mbligh */
-	if (lapic_is_integrated() && apic->disable_esr) {
-		apic_write(APIC_ESR, 0);
-		apic_write(APIC_ESR, 0);
-		apic_write(APIC_ESR, 0);
-		apic_write(APIC_ESR, 0);
-	}
-#endif
-	perf_events_lapic_init();
-
-	/*
-	 * Double-check whether this APIC is really registered.
-	 * This is meaningless in clustered apic mode, so we skip it.
-	 */
-	BUG_ON(!apic->apic_id_registered());
-
-	/*
-	 * Intel recommends to set DFR, LDR and TPR before enabling
-	 * an APIC.  See e.g. "AP-388 82489DX User's Manual" (Intel
-	 * document number 292116).  So here it goes...
-	 */
-	apic->init_apic_ldr();
-
-#ifdef CONFIG_X86_32
-	/*
-	 * APIC LDR is initialized.  If logical_apicid mapping was
-	 * initialized during get_smp_config(), make sure it matches the
-	 * actual value.
-	 */
-	i = early_per_cpu(x86_cpu_to_logical_apicid, cpu);
-	WARN_ON(i != BAD_APICID && i != logical_smp_processor_id());
-	/* always use the value from LDR */
-	early_per_cpu(x86_cpu_to_logical_apicid, cpu) =
-		logical_smp_processor_id();
-#endif
-
-	/*
-	 * Set Task Priority to 'accept all'. We never change this
-	 * later on.
-	 */
-	value = apic_read(APIC_TASKPRI);
-	value &= ~APIC_TPRI_MASK;
-	apic_write(APIC_TASKPRI, value);
-
 	/*
 	 * After a crash, we no longer service the interrupts and a pending
 	 * interrupt from previous kernel might still have ISR bit set.
@@ -1476,6 +1410,84 @@ void setup_local_APIC(void)
 		}
 	} while (queued && max_loops > 0);
 	WARN_ON(max_loops <= 0);
+}
+
+/**
+ * setup_local_APIC - setup the local APIC
+ *
+ * Used to setup local APIC while initializing BSP or bringing up APs.
+ * Always called with preemption disabled.
+ */
+void setup_local_APIC(void)
+{
+	int cpu = smp_processor_id();
+	unsigned int value;
+
+
+	if (disable_apic) {
+		disable_ioapic_support();
+		return;
+	}
+
+	/*
+	 * If this comes from kexec/kcrash the APIC might be enabled in
+	 * SPIV. Soft disable it before doing further initialization.
+	 */
+	value = apic_read(APIC_SPIV);
+	value &= ~APIC_SPIV_APIC_ENABLED;
+	apic_write(APIC_SPIV, value);
+
+#ifdef CONFIG_X86_32
+	/* Pound the ESR really hard over the head with a big hammer - mbligh */
+	if (lapic_is_integrated() && apic->disable_esr) {
+		apic_write(APIC_ESR, 0);
+		apic_write(APIC_ESR, 0);
+		apic_write(APIC_ESR, 0);
+		apic_write(APIC_ESR, 0);
+	}
+#endif
+	perf_events_lapic_init();
+
+	/*
+	 * Double-check whether this APIC is really registered.
+	 * This is meaningless in clustered apic mode, so we skip it.
+	 */
+	BUG_ON(!apic->apic_id_registered());
+
+	/*
+	 * Intel recommends to set DFR, LDR and TPR before enabling
+	 * an APIC.  See e.g. "AP-388 82489DX User's Manual" (Intel
+	 * document number 292116).  So here it goes...
+	 */
+	apic->init_apic_ldr();
+
+#ifdef CONFIG_X86_32
+	if (apic->dest_logical) {
+		int logical_apicid, ldr_apicid;
+
+		/*
+		 * APIC LDR is initialized.  If logical_apicid mapping was
+		 * initialized during get_smp_config(), make sure it matches
+		 * the actual value.
+		 */
+		logical_apicid = early_per_cpu(x86_cpu_to_logical_apicid, cpu);
+		ldr_apicid = GET_APIC_LOGICAL_ID(apic_read(APIC_LDR));
+		if (logical_apicid != BAD_APICID)
+			WARN_ON(logical_apicid != ldr_apicid);
+		/* Always use the value from LDR. */
+		early_per_cpu(x86_cpu_to_logical_apicid, cpu) = ldr_apicid;
+	}
+#endif
+
+	/*
+	 * Set Task Priority to 'accept all'. We never change this
+	 * later on.
+	 */
+	value = apic_read(APIC_TASKPRI);
+	value &= ~APIC_TPRI_MASK;
+	apic_write(APIC_TASKPRI, value);
+
+	apic_pending_intr_clear();
 
 	/*
 	 * Now that we are all set up, enable the APIC

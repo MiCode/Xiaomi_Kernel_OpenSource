@@ -609,6 +609,17 @@ config HID_MULTITOUCH
 	  To compile this driver as a module, choose M here: the
 	  module will be called hid-multitouch.
 
+config HID_NINTENDO
+	tristate "Nintendo Joy-Con and Pro Controller support"
+	depends on HID
+	help
+	Adds support for the Nintendo Switch Joy-Cons and Pro Controller.
+	All controllers support bluetooth, and the Pro Controller also supports
+	its USB mode.
+
+	To compile this driver as a module, choose M here: the
+	module will be called hid-nintendo.
+
 config HID_NTI
 	tristate "NTI keyboard adapters"
 	---help---
@@ -812,6 +823,14 @@ config HID_SPEEDLINK
 	depends on HID
 	---help---
 	Support for Speedlink Vicious and Divine Cezanne mouse.
+
+config HID_STEAM
+	tristate "Steam Controller support"
+	depends on HID
+	---help---
+	Say Y here if you have a Steam Controller if you want to use it
+	without running the Steam Client. It supports both the wired and
+	the wireless adaptor.
 
 config HID_STEELSERIES
 	tristate "Steelseries SRW-S1 steering wheel support"

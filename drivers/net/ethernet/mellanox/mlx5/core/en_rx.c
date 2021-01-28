@@ -1093,8 +1093,11 @@ int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget)
 	if (unlikely(!MLX5E_TEST_BIT(rq->state, MLX5E_RQ_STATE_ENABLED)))
 		return 0;
 
-	if (cq->decmprs_left)
+	if (cq->decmprs_left) {
 		work_done += mlx5e_decompress_cqes_cont(rq, cq, 0, budget);
+		if (cq->decmprs_left || work_done >= budget)
+			goto out;
+	}
 
 	cqe = mlx5_cqwq_get_cqe(&cq->wq);
 	if (!cqe) {
