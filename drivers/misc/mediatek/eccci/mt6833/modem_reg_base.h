@@ -19,7 +19,7 @@
 /* ============================================================ */
 
 #define MD_BOOT_VECTOR_EN 0x20000024
-#define INFRA_AO_MD_SRCCLKENA    (0xF0C) /* SRC CLK ENA */
+//#define INFRA_AO_MD_SRCCLKENA    (0xF0C) /* SRC CLK ENA */
 
 #define MD_PCORE_PCCIF_BASE 0x20510000
 

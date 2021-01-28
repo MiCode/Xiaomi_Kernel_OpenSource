@@ -22,9 +22,6 @@
 #include "ccci_config.h"
 #include <linux/clk.h>
 #include <mach/mtk_pbm.h>
-#ifdef FEATURE_CLK_BUF
-#include <mtk_clkbuf_ctl.h>
-#endif
 #ifdef CONFIG_MTK_EMI_BWL
 #include <emi_mbw.h>
 #endif
@@ -120,6 +117,7 @@ struct pg_callbacks md1_subsys_handle = {
 	.debug_dump = md1_subsys_debug_dump,
 };
 
+#ifdef DEVAPC_MD_DEBUG
 /*devapc_violation_triggered*/
 static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
 {
@@ -161,6 +159,7 @@ void ccci_md_devapc_register_cb(void)
 	/*register handle function*/
 	register_devapc_vio_callback(&devapc_test_handle);
 }
+#endif
 
 void ccci_md_dump_in_interrupt(char *user_info)
 {
@@ -822,22 +821,12 @@ static int md_cd_topclkgen_on(struct ccci_modem *md)
 int md_cd_power_on(struct ccci_modem *md)
 {
 	int ret = 0;
-	unsigned int reg_value;
 
 	/* step 1: PMIC setting */
 	md1_pmic_setting_on();
 
 	/* modem topclkgen on setting */
 	md_cd_topclkgen_on(md);
-
-	/* step 2: MD srcclkena setting */
-	reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
-	reg_value &= ~(0xFF);
-	reg_value |= 0x21;
-	ccci_write32(infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
-	CCCI_BOOTUP_LOG(md->index, CORE,
-		"%s: set md1_srcclkena bit(0x1000_0F0C)=0x%x\n",
-		__func__, ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
 
 	mtk_ccci_cfg_srclken_o1_on(md);
 	/* steip 3: power on MD_INFRA and MODEM_TOP */
@@ -905,7 +894,6 @@ static int md_cd_topclkgen_off(struct ccci_modem *md)
 int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 {
 	int ret = 0;
-	unsigned int reg_value;
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 	/* notify NFC */
@@ -918,13 +906,6 @@ int md_cd_power_off(struct ccci_modem *md, unsigned int timeout)
 		/* 1. power off MD MTCMOS */
 		clk_disable_unprepare(clk_table[0].clk_ref);
 		/* 2. disable srcclkena */
-		CCCI_BOOTUP_LOG(md->index, TAG, "disable md1 clk\n");
-		reg_value = ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA);
-		reg_value &= ~(0xFF);
-		ccci_write32(infra_ao_base, INFRA_AO_MD_SRCCLKENA, reg_value);
-		CCCI_BOOTUP_LOG(md->index, CORE,
-			"%s: set md1_srcclkena=0x%x\n", __func__,
-			ccci_read32(infra_ao_base, INFRA_AO_MD_SRCCLKENA));
 		CCCI_BOOTUP_LOG(md->index, TAG, "Call md1_pmic_setting_off\n");
 #ifdef FEATURE_CLK_BUF
 		flight_mode_set_by_atf(md, true);

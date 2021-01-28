@@ -246,7 +246,9 @@ static void fsm_routine_exception(struct ccci_fsm_ctl *ctl,
 		ccci_md_exception_handshake(ctl->md_id,
 			MD_EX_CCIF_TIMEOUT);
 #if (MD_GENERATION >= 6297)
+#ifndef MTK_EMI_MPU_DISABLE
 		mtk_clear_md_violation();
+#endif
 #endif
 		count = 0;
 		while (count < MD_EX_REC_OK_TIMEOUT/EVENT_POLL_INTEVAL) {

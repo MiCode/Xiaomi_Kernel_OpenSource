@@ -88,5 +88,7 @@
 
 #define CCCI_USE_DFD_OFFSET_0
 //define CCCI_ENABLE_MPU_MEMORY_API
-
+#define MTK_EMI_MPU_DISABLE
+//#define DEVAPC_MD_DEBUG
+#define DISABLE_PBM_FEATURE
 #endif

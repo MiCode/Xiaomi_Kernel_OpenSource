@@ -229,8 +229,10 @@ int ccci_platform_init(struct ccci_modem *md)
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_mem_base:0x%p\n",
 			(void *)infra_ao_mem_base);
 
+#ifdef DEVAPC_MD_DEBUG
 	ccci_md_devapc_register_cb();
 	CCCI_INIT_LOG(-1, TAG, "ccci_md_devapc_register_callback success\n");
+#endif
 
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
 	register_low_battery_notify_ext(
