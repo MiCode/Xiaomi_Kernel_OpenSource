@@ -109,8 +109,6 @@ struct spm_wakesrc_irq_list mt6885_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 5, 0},
 	/* gps */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6885-gps", 6, 0},
-	/* mt6358-irq */
-	{ WAKE_SRC_STA1_EINT_EVENT_B, "mediatek,apirq", 0, 0},
 	/* CCIF_AP_DATA */
 	{ WAKE_SRC_STA1_CCIF0_EVENT_B, "mediatek,ap_ccif0", 0, 0},
 	/* SCP IPC0 */
