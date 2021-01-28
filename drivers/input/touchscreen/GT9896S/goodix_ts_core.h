@@ -765,7 +765,7 @@ void gt9896s_msg_printf(const char *fmt, ...);
 
 int gt9896s_do_fw_update(int mode);
 
-static int gt9896s_ts_remove(struct platform_device *pdev);
+int gt9896s_ts_remove(struct platform_device *pdev);
 
 int gt9896s_start_later_init(struct gt9896s_ts_core *ts_core);
 

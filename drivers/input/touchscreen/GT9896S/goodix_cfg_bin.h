@@ -115,14 +115,14 @@ int gt9896s_ts_stage2_init(struct gt9896s_ts_core *core_data);
 
 int gt9896s_ts_core_release(struct gt9896s_ts_core *core_data);
 
-static int gt9896s_parse_cfg_bin(struct gt9896s_cfg_bin *cfg_bin);
+int gt9896s_parse_cfg_bin(struct gt9896s_cfg_bin *cfg_bin);
 
-static int gt9896s_get_reg_and_cfg(struct gt9896s_ts_device *ts_dev,
+int gt9896s_get_reg_and_cfg(struct gt9896s_ts_device *ts_dev,
 				  struct gt9896s_cfg_bin *cfg_bin);
 
-static int gt9896s_read_cfg_bin(struct device *dev,
+int gt9896s_read_cfg_bin(struct device *dev,
 			       struct gt9896s_cfg_bin *cfg_bin);
 
-static void gt9896s_cfg_pkg_leToCpu(struct gt9896s_cfg_package *pkg);
+void gt9896s_cfg_pkg_leToCpu(struct gt9896s_cfg_package *pkg);
 
 #endif

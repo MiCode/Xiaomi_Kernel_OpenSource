@@ -16,7 +16,7 @@
  */
 #include "goodix_cfg_bin.h"
 
-static int gt9896s_parse_cfg_bin(struct gt9896s_cfg_bin *cfg_bin)
+int gt9896s_parse_cfg_bin(struct gt9896s_cfg_bin *cfg_bin)
 {
 	u8 checksum;
 	int i, r;
@@ -273,7 +273,7 @@ static int gt9896s_extract_cfg_pkg(struct gt9896s_ts_device *ts_dev,
 	return 0;
 }
 
-static int gt9896s_get_reg_and_cfg(struct gt9896s_ts_device *ts_dev,
+int gt9896s_get_reg_and_cfg(struct gt9896s_ts_device *ts_dev,
 			   struct gt9896s_cfg_bin *cfg_bin)
 {
 	int i;
@@ -423,7 +423,7 @@ get_default_pkg:
 	return r;
 }
 
-static int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_bin)
+int gt9896s_read_cfg_bin(struct device *dev, struct gt9896s_cfg_bin *cfg_bin)
 {
 	const struct firmware *firmware = NULL;
 	char cfg_bin_name[32] = {0x00};
@@ -481,7 +481,7 @@ exit:
 	return r;
 }
 
-static void gt9896s_cfg_pkg_leToCpu(struct gt9896s_cfg_package *pkg)
+void gt9896s_cfg_pkg_leToCpu(struct gt9896s_cfg_package *pkg)
 {
 	if (!pkg) {
 		ts_err("cfg package is NULL");

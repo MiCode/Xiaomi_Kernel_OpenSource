@@ -1693,7 +1693,7 @@ int gt9896s_ts_esd_init(struct gt9896s_ts_core *core)
 	return 0;
 }
 
-static void gt9896s_ts_release_connects(struct gt9896s_ts_core *core_data)
+void gt9896s_ts_release_connects(struct gt9896s_ts_core *core_data)
 {
 	struct input_dev *input_dev = core_data->input_dev;
 	struct input_mt *mt = input_dev->mt;
@@ -2152,7 +2152,7 @@ out:
 	return r;
 }
 
-static int gt9896s_ts_remove(struct platform_device *pdev)
+int gt9896s_ts_remove(struct platform_device *pdev)
 {
 	struct gt9896s_ts_core *core_data = platform_get_drvdata(pdev);
 
