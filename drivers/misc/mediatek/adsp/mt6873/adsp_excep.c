@@ -336,12 +336,18 @@ void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
 	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
 		w_pos = 0;
 		pdata = get_adsp_core_by_id(id);
+		if (!pdata)
+			goto ERROR;
+
 		ctrl = pdata->log_ctrl;
 		addr = (void *)ctrl;
+		if (!addr)
+			goto ERROR;
+
 		buf_info = (struct buffer_info_s *)(addr + ctrl->info_ofs);
 
 		if (!ctrl->inited)
-			return;
+			goto ERROR;
 
 		memcpy_fromio(&w_pos, &buf_info->w_pos, sizeof(w_pos));
 
@@ -367,6 +373,12 @@ void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
 	/* return value */
 	*vaddr = (unsigned long)buf;
 	*size = len;
+	return;
+
+ERROR:
+	/* return value */
+	*vaddr = (unsigned long)buf;
+	*size = 0;
 }
 EXPORT_SYMBOL(get_adsp_misc_buffer);
 
