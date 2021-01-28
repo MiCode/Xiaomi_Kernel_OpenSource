@@ -663,6 +663,10 @@ static const struct pinctrl_ops mtk_pctlops = {
 
 static int mtk_pmx_get_funcs_cnt(struct pinctrl_dev *pctldev)
 {
+	struct mtk_pinctrl *hw = pinctrl_dev_get_drvdata(pctldev);
+
+	if (hw->soc->nfuncs)
+		return (int)hw->soc->nfuncs;
 	return ARRAY_SIZE(mtk_gpio_functions);
 }
 
