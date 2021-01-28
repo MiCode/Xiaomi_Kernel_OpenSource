@@ -4098,7 +4098,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	charger: charger {
 		compatible = "mediatek,charger";
-		algorithm_name = "SwitchCharging";
+		algorithm_name = "SwitchCharging2";
 		/* enable_sw_jeita; */
 		enable_pe_plus;
 		enable_pe_2;
