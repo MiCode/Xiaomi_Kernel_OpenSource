@@ -21,6 +21,9 @@ static const struct mtk_gate_regs venc_cg_regs = {
 #define GATE_VENC(_id, _name, _parent, _shift)			\
 	GATE_VENC_FLAGS(_id, _name, _parent, _shift, 0)
 
+#define GATE_VENC_DUMMY(_id, _name, _parent, _shift)	\
+	GATE_VENC_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+
 #define GATE_VENC_FLAGS(_id, _name, _parent, _shift, _flags) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -31,10 +34,10 @@ static const struct mtk_gate_regs venc_cg_regs = {
 	}
 
 static const struct mtk_gate venc_clks[] = {
-	GATE_VENC(CLK_VENC_GCON_LARB, "venc_larb", "venc_sel", 0),
-	GATE_VENC(CLK_VENC_GCON_VENC, "venc_venc", "venc_sel", 4),
-	GATE_VENC(CLK_VENC_GCON_JPGENC, "venc_jpgenc", "venc_sel", 8),
-	GATE_VENC(CLK_VENC_GCON_GALS, "venc_gals", "venc_sel", 28),
+	GATE_VENC_DUMMY(CLK_VENC_GCON_LARB, "venc_larb", "venc_sel", 0),
+	GATE_VENC_DUMMY(CLK_VENC_GCON_VENC, "venc_venc", "venc_sel", 4),
+	GATE_VENC_DUMMY(CLK_VENC_GCON_JPGENC, "venc_jpgenc", "venc_sel", 8),
+	GATE_VENC_DUMMY(CLK_VENC_GCON_GALS, "venc_gals", "venc_sel", 28),
 };
 
 static const struct of_device_id of_match_clk_mt6779_venc[] = {

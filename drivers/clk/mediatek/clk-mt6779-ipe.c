@@ -20,6 +20,9 @@ static const struct mtk_gate_regs ipe_cg_regs = {
 #define GATE_IPE(_id, _name, _parent, _shift)			\
 	GATE_IPE_FLAGS(_id, _name, _parent, _shift, 0)
 
+#define GATE_IPE_DUMMY(_id, _name, _parent, _shift)			\
+	GATE_IPE_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+
 #define GATE_IPE_FLAGS(_id, _name, _parent, _shift, _flags) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -31,8 +34,8 @@ static const struct mtk_gate_regs ipe_cg_regs = {
 	}
 
 static const struct mtk_gate ipe_clks[] = {
-	GATE_IPE(CLK_IPE_LARB7, "ipe_larb7", "ipe_sel", 0),
-	GATE_IPE(CLK_IPE_LARB8, "ipe_larb8", "ipe_sel", 1),
+	GATE_IPE_DUMMY(CLK_IPE_LARB7, "ipe_larb7", "ipe_sel", 0),
+	GATE_IPE_DUMMY(CLK_IPE_LARB8, "ipe_larb8", "ipe_sel", 1),
 	GATE_IPE(CLK_IPE_SMI_SUBCOM, "ipe_smi_subcom", "ipe_sel", 2),
 	GATE_IPE(CLK_IPE_FD, "ipe_fd", "ipe_sel", 3),
 	GATE_IPE(CLK_IPE_FE, "ipe_fe", "ipe_sel", 4),

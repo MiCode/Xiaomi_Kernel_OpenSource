@@ -20,6 +20,10 @@ static const struct mtk_gate_regs img_cg_regs = {
 #define GATE_IMG(_id, _name, _parent, _shift)			\
 	GATE_IMG_FLAGS(_id, _name, _parent, _shift, 0)
 
+#define GATE_IMG_DUMMY(_id, _name, _parent, _shift)			\
+	GATE_IMG_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+
+
 #define GATE_IMG_FLAGS(_id, _name, _parent, _shift, _flags) {	\
 		.id = _id,				\
 		.name = _name,				\
@@ -31,8 +35,8 @@ static const struct mtk_gate_regs img_cg_regs = {
 	}
 
 static const struct mtk_gate img_clks[] = {
-	GATE_IMG(CLK_IMG_LARB5, "imgsys_larb5", "img_sel", 0),
-	GATE_IMG(CLK_IMG_LARB6, "imgsys_larb6", "img_sel", 1),
+	GATE_IMG_DUMMY(CLK_IMG_LARB5, "imgsys_larb5", "img_sel", 0),
+	GATE_IMG_DUMMY(CLK_IMG_LARB6, "imgsys_larb6", "img_sel", 1),
 	GATE_IMG(CLK_IMG_DIP, "imgsys_dip", "img_sel", 2),
 	GATE_IMG(CLK_IMG_MFB, "imgsys_mfb", "img_sel", 6),
 	GATE_IMG(CLK_IMG_WPE_A, "imgsys_wpe_a", "img_sel", 7),

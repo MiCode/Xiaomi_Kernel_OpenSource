@@ -26,6 +26,9 @@ static const struct mtk_gate_regs mm1_cg_regs = {
 #define GATE_MM0(_id, _name, _parent, _shift)			\
 	GATE_MM0_FLAGS(_id, _name, _parent, _shift, 0)
 
+#define GATE_MM0_DUMMY(_id, _name, _parent, _shift)			\
+	GATE_MM0_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+
 #define GATE_MM0_FLAGS(_id, _name, _parent, _shift, _flags) {	\
 	.id = _id,					\
 	.name = _name,					\
@@ -46,18 +49,18 @@ static const struct mtk_gate_regs mm1_cg_regs = {
 }
 
 static const struct mtk_gate mm_clks[] = {
-	GATE_MM0(CLK_MM_SMI_COMMON, "mm_smi_common", "mm_sel", 0),
-	GATE_MM0(CLK_MM_SMI_LARB0, "mm_smi_larb0", "mm_sel", 1),
-	GATE_MM0(CLK_MM_SMI_LARB1, "mm_smi_larb1", "mm_sel", 2),
-	GATE_MM0(CLK_MM_GALS_COMM0, "mm_gals_comm0", "mm_sel", 3),
-	GATE_MM0(CLK_MM_GALS_COMM1, "mm_gals_comm1", "mm_sel", 4),
+	GATE_MM0_DUMMY(CLK_MM_SMI_COMMON, "mm_smi_common", "mm_sel", 0),
+	GATE_MM0_DUMMY(CLK_MM_SMI_LARB0, "mm_smi_larb0", "mm_sel", 1),
+	GATE_MM0_DUMMY(CLK_MM_SMI_LARB1, "mm_smi_larb1", "mm_sel", 2),
+	GATE_MM0_DUMMY(CLK_MM_GALS_COMM0, "mm_gals_comm0", "mm_sel", 3),
+	GATE_MM0_DUMMY(CLK_MM_GALS_COMM1, "mm_gals_comm1", "mm_sel", 4),
 
-	GATE_MM0(CLK_MM_GALS_CCU2MM, "mm_gals_ccu2mm", "mm_sel", 5),
-	GATE_MM0(CLK_MM_GALS_IPU12MM, "mm_gals_ipu12mm", "mm_sel", 6),
-	GATE_MM0(CLK_MM_GALS_IMG2MM, "mm_gals_img2mm", "mm_sel", 7),
+	GATE_MM0_DUMMY(CLK_MM_GALS_CCU2MM, "mm_gals_ccu2mm", "mm_sel", 5),
+	GATE_MM0_DUMMY(CLK_MM_GALS_IPU12MM, "mm_gals_ipu12mm", "mm_sel", 6),
+	GATE_MM0_DUMMY(CLK_MM_GALS_IMG2MM, "mm_gals_img2mm", "mm_sel", 7),
 
-	GATE_MM0(CLK_MM_GALS_CAM2MM, "mm_gals_cam2mm", "mm_sel", 8),
-	GATE_MM0(CLK_MM_GALS_IPU2MM, "mm_gals_ipu2mm", "mm_sel", 9),
+	GATE_MM0_DUMMY(CLK_MM_GALS_CAM2MM, "mm_gals_cam2mm", "mm_sel", 8),
+	GATE_MM0_DUMMY(CLK_MM_GALS_IPU2MM, "mm_gals_ipu2mm", "mm_sel", 9),
 	GATE_MM0(CLK_MM_MDP_DL_TXCK, "mm_mdp_dl_txck", "mm_sel", 10),
 	GATE_MM0(CLK_MM_IPU_DL_TXCK, "mm_ipu_dl_txck", "mm_sel", 11),
 	GATE_MM0(CLK_MM_MDP_RDMA0, "mm_mdp_rdma0", "mm_sel", 12),
