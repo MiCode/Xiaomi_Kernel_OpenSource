@@ -20,7 +20,8 @@
 #include <trace/events/fpsgo.h>
 
 #define API_READY 0
-#define TARGET_UNLIMITED_FPS 60
+
+#define TARGET_UNLIMITED_FPS 240
 
 enum FPSGO_NOTIFIER_PUSH_TYPE {
 	FPSGO_NOTIFIER_SWITCH_FPSGO			= 0x00,
@@ -103,6 +104,7 @@ static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
 	FPSGO_LOGI("[FPSGO_CB] dfrc_fps %d\n", dfrc_fps);
 
 	fpsgo_ctrl2fstb_dfrc_fps(dfrc_fps);
+	fpsgo_ctrl2fbt_dfrc_fps(dfrc_fps);
 }
 
 static void fpsgo_notifier_wq_cb_connect(int pid,
@@ -700,8 +702,12 @@ static int __init fpsgo_init(void)
 	fpsgo_notify_connect_fp = fpsgo_notify_connect;
 	fpsgo_notify_bqid_fp = fpsgo_notify_bqid;
 
+#ifdef CONFIG_DRM_MEDIATEK
+	drm_register_fps_chg_callback(dfrc_fps_limit_cb);
+#else
 #if API_READY
 	disp_register_fps_chg_callback(dfrc_fps_limit_cb);
+#endif
 #endif
 
 	return 0;

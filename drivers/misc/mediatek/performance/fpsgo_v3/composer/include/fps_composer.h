@@ -19,7 +19,7 @@ struct connect_api_info {
 	int pid;
 	int tgid;
 	unsigned long long buffer_id;
-	int buffer_key;
+	unsigned long long buffer_key;
 	int api;
 };
 

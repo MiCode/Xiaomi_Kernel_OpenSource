@@ -28,9 +28,11 @@
 #include <trace/events/fpsgo.h>
 
 #define TIME_1S  1000000000ULL
+#define TIME_90S  90000000000ULL
 
 static struct rb_root render_pid_tree;
 static struct rb_root BQ_id_list;
+static struct rb_root linger_tree;
 
 static DEFINE_MUTEX(fpsgo_render_lock);
 
@@ -199,6 +201,87 @@ int fpsgo_get_tgid(int pid)
 	return tgid;
 }
 
+void fpsgo_add_linger(struct render_info *thr)
+{
+	struct rb_node **p = &linger_tree.rb_node;
+	struct rb_node *parent = NULL;
+	struct render_info *tmp = NULL;
+
+	fpsgo_lockprove(__func__);
+
+	if (!thr)
+		return;
+
+	while (*p) {
+		parent = *p;
+		tmp = rb_entry(parent, struct render_info, linger_node);
+		if ((uintptr_t)thr < (uintptr_t)tmp)
+			p = &(*p)->rb_left;
+		else if ((uintptr_t)thr > (uintptr_t)tmp)
+			p = &(*p)->rb_right;
+		else {
+			FPSGO_LOGE("linger exist %d(%p)\n", thr->pid, thr);
+			return;
+		}
+	}
+
+	rb_link_node(&thr->linger_node, parent, p);
+	rb_insert_color(&thr->linger_node, &linger_tree);
+	thr->linger_ts = fpsgo_get_time();
+	FPSGO_LOGI("add to linger %d(%p)(%llu)\n",
+			thr->pid, thr, thr->linger_ts);
+}
+
+void fpsgo_del_linger(struct render_info *thr)
+{
+	fpsgo_lockprove(__func__);
+
+	if (!thr)
+		return;
+
+	rb_erase(&thr->linger_node, &linger_tree);
+	FPSGO_LOGI("del from linger %d(%p)\n", thr->pid, thr);
+}
+
+void fpsgo_traverse_linger(unsigned long long cur_ts)
+{
+	struct rb_node *n;
+	struct render_info *pos;
+	unsigned long long expire_ts;
+
+	fpsgo_lockprove(__func__);
+
+	if (cur_ts < TIME_90S)
+		return;
+
+	expire_ts = cur_ts - TIME_90S;
+
+	n = rb_first(&linger_tree);
+	while (n) {
+		int tofree = 0;
+
+		pos = rb_entry(n, struct render_info, linger_node);
+		FPSGO_LOGI("-%d(%p)(%llu),", pos->pid, pos, pos->linger_ts);
+
+		fpsgo_thread_lock(&pos->thr_mlock);
+
+		if (pos->linger_ts && pos->linger_ts < expire_ts) {
+			FPSGO_LOGI("timeout %d(%p)(%llu),",
+				pos->pid, pos, pos->linger_ts);
+			fpsgo_base2fbt_cancel_jerk(pos);
+			fpsgo_del_linger(pos);
+			tofree = 1;
+			n = rb_first(&linger_tree);
+		} else
+			n = rb_next(n);
+
+		fpsgo_thread_unlock(&pos->thr_mlock);
+
+		if (tofree)
+			kfree(pos);
+	}
+}
+
 struct render_info *fpsgo_search_and_add_render_info(int pid, int force)
 {
 	struct rb_node **p = &render_pid_tree.rb_node;
@@ -272,6 +355,11 @@ void fpsgo_delete_render_info(int pid)
 	else {
 		delete = 0;
 		data->linger = 1;
+		FPSGO_LOGE("set %d linger since (%d, %d) is rescuing.\n",
+			data->pid,
+			data->boost_info.proc.jerks[0].jerking,
+			data->boost_info.proc.jerks[1].jerking);
+		fpsgo_add_linger(data);
 	}
 	fpsgo_thread_unlock(&data->thr_mlock);
 
@@ -327,6 +415,24 @@ static void fpsgo_check_BQid_status(void)
 	}
 }
 
+void fpsgo_clear_llf_cpu_policy(int policy)
+{
+	struct rb_node *n;
+	struct render_info *iter;
+
+	fpsgo_render_tree_lock(__func__);
+
+	for (n = rb_first(&render_pid_tree); n; n = rb_next(n)) {
+		iter = rb_entry(n, struct render_info, pid_node);
+
+		fpsgo_thread_lock(&iter->thr_mlock);
+		fpsgo_base2fbt_clear_llf_policy(iter, policy);
+		fpsgo_thread_unlock(&iter->thr_mlock);
+	}
+
+	fpsgo_render_tree_unlock(__func__);
+}
+
 static void fpsgo_clear_uclamp_boost_locked(int check)
 {
 	struct rb_node *n;
@@ -338,7 +444,7 @@ static void fpsgo_clear_uclamp_boost_locked(int check)
 		iter = rb_entry(n, struct render_info, pid_node);
 
 		fpsgo_thread_lock(&iter->thr_mlock);
-		fpsgo_fbt_set_min_cap(iter, 0, check);
+		fpsgo_base2fbt_set_min_cap(iter, 0, check);
 		fpsgo_thread_unlock(&iter->thr_mlock);
 	}
 }
@@ -397,6 +503,12 @@ void fpsgo_check_thread_status(void)
 			else {
 				delete = 0;
 				iter->linger = 1;
+				FPSGO_LOGE(
+				"set %d linger since (%d, %d) is rescuing\n",
+				iter->pid,
+				iter->boost_info.proc.jerks[0].jerking,
+				iter->boost_info.proc.jerks[1].jerking);
+				fpsgo_add_linger(iter);
 			}
 
 			fpsgo_thread_unlock(&iter->thr_mlock);
@@ -418,6 +530,7 @@ void fpsgo_check_thread_status(void)
 	}
 
 	fpsgo_check_BQid_status();
+	fpsgo_traverse_linger(ts);
 
 	fpsgo_render_tree_unlock(__func__);
 
@@ -462,6 +575,12 @@ void fpsgo_clear(void)
 		else {
 			delete = 0;
 			iter->linger = 1;
+			FPSGO_LOGE(
+				"set %d linger since (%d, %d) is rescuing\n",
+				iter->pid,
+				iter->boost_info.proc.jerks[0].jerking,
+				iter->boost_info.proc.jerks[1].jerking);
+			fpsgo_add_linger(iter);
 		}
 
 		fpsgo_thread_unlock(&iter->thr_mlock);
@@ -819,6 +938,7 @@ int init_fpsgo_common(void)
 	render_pid_tree = RB_ROOT;
 
 	BQ_id_list = RB_ROOT;
+	linger_tree = RB_ROOT;
 
 	fpsgo_debugfs_dir = debugfs_create_dir("fpsgo", NULL);
 	if (!fpsgo_debugfs_dir)

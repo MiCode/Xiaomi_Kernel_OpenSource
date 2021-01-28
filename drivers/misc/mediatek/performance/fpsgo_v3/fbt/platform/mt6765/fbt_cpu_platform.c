@@ -170,6 +170,7 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 {
 #if defined(CONFIG_MTK_SCHED_CPU_PREFER)
+
 	long ret;
 
 	if (!pid)
@@ -182,12 +183,12 @@ void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 
 int fbt_get_L_cluster_num(void)
 {
-	return 0;
+	return 1;
 }
 
 int fbt_get_L_min_ceiling(void)
 {
-	return 0;
+	return 1100000;
 }
 
 int fbt_get_default_boost_ta(void)

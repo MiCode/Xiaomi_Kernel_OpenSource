@@ -15,6 +15,10 @@
 #define EMA_DIVIDEND 7
 #define EMA_REST_DIVIDEND (EMA_DIVISOR - EMA_DIVIDEND)
 #define SP_ALLOW_NAME "UnityMain"
+#define SP_ALLOW_NAME2 "Thread-"
+#define XGF_DEP_FRAMES_MIN 2
+#define XGF_DEP_FRAMES_MAX 20
+#define XGF_DO_SP_SUB 0
 
 enum XGF_ERROR {
 	XGF_NOTIFY_OK,
@@ -80,6 +84,7 @@ struct xgf_render {
 	unsigned long long ema_runtime;
 
 	int spid;
+	int dep_frames;
 };
 
 struct xgf_dep {
@@ -87,6 +92,7 @@ struct xgf_dep {
 
 	pid_t tid;
 	int render_dep;
+	int frame_idx;
 };
 
 struct xgf_runtime_sect {
@@ -164,6 +170,8 @@ int xgf_stat_xchg(int enable);
 void *xgf_alloc(int size);
 void xgf_free(void *block);
 void *xgf_atomic_val_assign(int select);
+int *xgf_extra_sub_assign(void);
+int *xgf_spid_sub_assign(void);
 int xgf_atomic_read(atomic_t *val);
 int xgf_atomic_inc_return(atomic_t *val);
 void xgf_atomic_set(atomic_t *val, int i);
@@ -175,6 +183,7 @@ long xgf_get_task_state(struct task_struct *t);
 unsigned long xgf_lookup_name(const char *name);
 void notify_xgf_ko_ready(void);
 unsigned long long xgf_get_time(void);
+int xgf_dep_frames_mod(struct xgf_render *render, int pos);
 struct xgf_dep *xgf_get_dep(pid_t tid, struct xgf_render *render,
 	int pos, int force);
 void xgf_clean_deps_list(struct xgf_render *render, int pos);

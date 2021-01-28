@@ -81,6 +81,7 @@ struct fbt_boost_info {
 struct render_info {
 	struct rb_node pid_node;
 	struct list_head bufferid_list;
+	struct rb_node linger_node;
 
 	/*render basic info pid bufferId..etc*/
 	int pid;
@@ -109,6 +110,7 @@ struct render_info {
 	struct fpsgo_loading *dep_arr;
 	int dep_valid_size;
 	unsigned long long dep_loading_ts;
+	unsigned long long linger_ts;
 
 	/*TODO: EARA mid list*/
 	unsigned long long mid;
@@ -129,6 +131,13 @@ struct BQ_id {
 struct fpsgo_loading {
 	int pid;
 	int loading;
+	int prefer_type;
+};
+
+struct gbe_runtime {
+	int pid;
+	unsigned long long runtime;
+	unsigned long long loading;
 };
 
 #ifdef FPSGO_DEBUG
@@ -162,6 +171,8 @@ int fpsgo_get_BQid_pair(int pid, int tgid, long long identifier,
 		unsigned long long *buffer_id, int *queue_SF, int enqueue);
 void fpsgo_main_trace(const char *fmt, ...);
 void fpsgo_clear_uclamp_boost(int check);
+void fpsgo_clear_llf_cpu_policy(int orig_llf);
+void fpsgo_del_linger(struct render_info *thr);
 
 int init_fpsgo_common(void);
 
@@ -195,12 +206,6 @@ enum FPSGO_FORCE {
 	FPSGO_FORCE_OFF = 0,
 	FPSGO_FORCE_ON = 1,
 	FPSGO_FREE = 2,
-};
-
-enum FPSGO_BLACK_LIST {
-	NOT_ASKED = 0,
-	ASKED_IN = 1,
-	ASKED_OUT = 2,
 };
 
 enum FPSGO_BQID_ACT {
