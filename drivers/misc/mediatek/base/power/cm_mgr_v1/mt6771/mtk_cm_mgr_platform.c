@@ -846,6 +846,9 @@ int cm_mgr_platform_init(void)
 	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status);
 #endif /* CONFIG_MTK_CPU_FREQ */
 
+	pm_qos_add_request(&ddr_opp_req, PM_QOS_EMI_OPP,
+			PM_QOS_EMI_OPP_DEFAULT_VALUE);
+
 	return r;
 }
 
