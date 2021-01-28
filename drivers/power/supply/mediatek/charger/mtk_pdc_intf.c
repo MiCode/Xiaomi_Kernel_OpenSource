@@ -263,8 +263,8 @@ int mtk_pdc_setup(struct charger_manager *info, int idx)
 {
 	int ret = -100;
 	unsigned int mivr;
-	unsigned int oldmivr;
-	unsigned int oldmA;
+	unsigned int oldmivr = 4600000;
+	unsigned int oldmA = 3000000;
 	bool chg2_chip_enabled = false;
 	bool force_update = false;
 
