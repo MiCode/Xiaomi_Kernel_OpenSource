@@ -16,7 +16,7 @@
 
 #include <dt-bindings/pinctrl/mt65xx.h>
 
-#include "mtk-eint-v2.h"
+#include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
 
 /**
@@ -363,7 +363,7 @@ int mtk_build_eint(struct mtk_pinctrl *hw, struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node, *node;
 	struct resource *res;
 
-	if (!IS_ENABLED(CONFIG_EINT_MTK_V2))
+	if (!IS_ENABLED(CONFIG_EINT_MTK))
 		return 0;
 
 	hw->eint = devm_kzalloc(hw->dev, sizeof(*hw->eint), GFP_KERNEL);

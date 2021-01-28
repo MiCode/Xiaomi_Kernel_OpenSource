@@ -484,7 +484,7 @@
 		reg = <0 0x11f30000 0 0x1000>;
 	};
 
-	pio: pinctrl@1000b000 {
+	pio: 1000b000.pinctrl {
 		compatible = "mediatek,mt6771-pinctrl";
 		reg_bases = <&gpio>,
 			<&iocfg_0>,
@@ -495,7 +495,7 @@
 			<&iocfg_5>,
 			<&iocfg_6>,
 			<&iocfg_7>;
-		eint_base = <&eint>;
+		reg_base_eint = <&eint>;
 		pins-are-numbered;
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 191>;

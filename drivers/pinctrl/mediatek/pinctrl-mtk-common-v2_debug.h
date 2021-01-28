@@ -16,6 +16,5 @@
 #define __PINCTRL_MTK_COMMON_V2_DEBUG_H
 
 int gpio_get_tristate_input(unsigned int pin);
-int mtk_gpio_create_attr(struct device *dev);
 
 #endif /* __PINCTRL_MTK_COMMON_V2_DEBUG_H */
