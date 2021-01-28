@@ -1648,7 +1648,7 @@ static void lcm_setbacklight_cmdq(void *handle, unsigned int level)
 
 	bl_level[0].para_list[0] = level;
 
-	push_table(handle, bl_level, ARRAY_SZIE(bl_level), 1);
+	push_table(handle, bl_level, ARRAY_SIZE(bl_level), 1);
 }
 
 static void *lcm_switch_mode(int mode)
