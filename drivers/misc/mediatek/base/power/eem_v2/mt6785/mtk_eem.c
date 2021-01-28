@@ -1392,6 +1392,9 @@ static void get_volt_table_in_thread(struct eem_det *det)
 
 	ndet = (det->loo_role == HIGH_BANK) ?
 		id_to_eem_det(det->loo_couple) : det;
+	if (ndet == NULL)
+		return;
+
 #endif
 	eem_debug("@@! In %s\n", __func__);
 	read_volt_from_VOP(det);
