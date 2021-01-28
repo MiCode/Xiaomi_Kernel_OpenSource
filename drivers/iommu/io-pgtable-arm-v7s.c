@@ -908,7 +908,10 @@ static int arm_v7s_set_acp(struct arm_v7s_io_pgtable *data,
 		goto out;
 	}
 
-	__arm_v7s_set_pte(ptep_curr, pte, 1, cfg);
+	if (arm_v7s_pte_is_cont(pte, lvl))
+		__arm_v7s_set_pte(ptep_curr, pte, ARM_V7S_CONT_PAGES, cfg);
+	else
+		__arm_v7s_set_pte(ptep_curr, pte, 1, cfg);
 #if 1 //def MTK_PGTABLE_DEBUG_ENABLED
 	dma_addr = __arm_v7s_dma_addr(ptep_curr);
 	pr_notice("%s, %d, iova=0x%lx, mask=0x%x, ptep=0x%lx/0x%lx, pte=0x%lx, level=%d, size=%lu\n",
