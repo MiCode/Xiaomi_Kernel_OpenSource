@@ -272,7 +272,7 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			return -EINVAL;
 		p->profile = ctrl->val;
 		break;
-	case V4L2_CID_MPEG_VIDEO_H265_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_HEVC_PROFILE val = %d",
 			       ctrl->val);
 		if (!vidioc_venc_check_supported_profile_level(
@@ -296,13 +296,18 @@ static int vidioc_venc_s_ctrl(struct v4l2_ctrl *ctrl)
 			return -EINVAL;
 		p->level = ctrl->val;
 		break;
-	case V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL:
-		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_H265_TIER_LEVEL val = %d",
+	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
+		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_HEVC_LEVEL val = %d",
 			       ctrl->val);
 		if (!vidioc_venc_check_supported_profile_level(
 				V4L2_PIX_FMT_H265, ctrl->val, 0))
 			return -EINVAL;
 		p->level = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_HEVC_TIER:
+		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_HEVC_TIER val = %d",
+			ctrl->val);
+		p->tier = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
 		mtk_v4l2_debug(2, "V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL val = %d",
@@ -971,6 +976,7 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 	}
 	param->profile = enc_params->profile;
 	param->level = enc_params->level;
+	param->tier = enc_params->tier;
 
 	/* Config visible resolution */
 	param->width = q_data_src->visible_width;
@@ -2407,6 +2413,10 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 		V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
 		V4L2_MPEG_VIDEO_HEVC_LEVEL_4,
 		0, V4L2_MPEG_VIDEO_HEVC_LEVEL_4);
+	v4l2_ctrl_new_std_menu(handler, ops,
+		V4L2_CID_MPEG_VIDEO_HEVC_TIER,
+		V4L2_MPEG_VIDEO_HEVC_TIER_HIGH,
+		0, V4L2_MPEG_VIDEO_HEVC_TIER_MAIN);
 	v4l2_ctrl_new_std_menu(handler, ops, V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL,
 		V4L2_MPEG_VIDEO_MPEG4_LEVEL_5,
 		0, V4L2_MPEG_VIDEO_MPEG4_LEVEL_0);
@@ -2498,19 +2508,6 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
-	/* g_volatile_ctrl */
-	memset(&cfg, 0, sizeof(cfg));
-	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP;
-	cfg.type = V4L2_CTRL_TYPE_INTEGER;
-	cfg.flags = V4L2_CTRL_FLAG_VOLATILE;
-	cfg.name = "Video encode roi rc qp";
-	cfg.min = 0;
-	cfg.max = 2048;
-	cfg.step = 1;
-	cfg.def = 0;
-	cfg.ops = ops;
-	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
-
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_GRID_SIZE;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -2538,8 +2535,6 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
-
-
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_MAX_HEIGHT;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
@@ -2556,7 +2551,8 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_ENCODE_ROI_RC_QP;
 	cfg.type = V4L2_CTRL_TYPE_INTEGER;
-	cfg.flags = V4L2_CTRL_FLAG_VOLATILE;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE |
+		V4L2_CTRL_FLAG_READ_ONLY;
 	cfg.name = "Video encode roi rc qp";
 	cfg.min = 0;
 	cfg.max = 2048;
@@ -2565,11 +2561,11 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	cfg.ops = ops;
 	ctrl = v4l2_ctrl_new_custom(handler, &cfg, NULL);
 
-	/* g_volatile_ctrl */
 	memset(&cfg, 0, sizeof(cfg));
 	cfg.id = V4L2_CID_MPEG_MTK_RESOLUTION_CHANGE;
 	cfg.type = V4L2_CTRL_TYPE_U32;
-	cfg.flags = V4L2_CTRL_FLAG_VOLATILE;
+	cfg.flags = V4L2_CTRL_FLAG_VOLATILE |
+		V4L2_CTRL_FLAG_READ_ONLY;
 	cfg.name = "Video encode resolution change";
 	cfg.min = 0x00000000;
 	cfg.max = 0x00ffffff;

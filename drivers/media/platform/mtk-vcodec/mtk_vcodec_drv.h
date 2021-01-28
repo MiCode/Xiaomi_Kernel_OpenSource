@@ -202,6 +202,7 @@ struct mtk_enc_params {
 	unsigned int    h264_max_qp;
 	unsigned int    profile;
 	unsigned int    level;
+	unsigned int    tier;
 	unsigned int    force_intra;
 	unsigned int    scenario;
 	unsigned int    nonrefp;
@@ -241,6 +242,7 @@ struct venc_enc_param {
 	enum venc_yuv_fmt input_yuv_fmt;
 	unsigned int profile;
 	unsigned int level;
+	unsigned int tier;
 	unsigned int width;
 	unsigned int height;
 	unsigned int buf_width;

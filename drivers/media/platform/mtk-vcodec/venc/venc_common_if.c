@@ -36,61 +36,35 @@ static unsigned int venc_h265_get_profile(struct venc_inst *inst,
 }
 
 static unsigned int venc_h265_get_level(struct venc_inst *inst,
-	unsigned int level)
+	unsigned int level, unsigned int tier)
 {
 	switch (level) {
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_1:
-		return 0;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_1:
-		return 1;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_2:
-		return 2;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_2:
-		return 3;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_2_1:
-		return 4;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_2_1:
-		return 5;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_3:
-		return 6;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_3:
-		return 7;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_3_1:
-		return 8;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_3_1:
-		return 9;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_4:
-		return 10;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_4:
-		return 11;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_4_1:
-		return 12;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_4_1:
-		return 13;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_5:
-		return 14;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_5:
-		return 15;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_5_1:
-		return 16;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_5_1:
-		return 17;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_5_2:
-		return 18;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_5_2:
-		return 19;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_6:
-		return 20;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_6:
-		return 21;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_6_1:
-		return 22;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_6_1:
-		return 23;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_MAIN_TIER_LEVEL_6_2:
-		return 24;
-	case V4L2_MPEG_VIDEO_H265_LEVEL_HIGH_TIER_LEVEL_6_2:
-		return 25;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_1:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 0 : 1;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 2 : 3;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 4 : 5;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 6 : 7;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 8 : 9;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 10 : 11;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 12 : 13;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 14 : 15;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 16 : 17;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 18 : 19;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 20 : 21;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_1:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 22 : 23;
+	case V4L2_MPEG_VIDEO_HEVC_LEVEL_6_2:
+		return (tier == V4L2_MPEG_VIDEO_HEVC_TIER_MAIN) ? 24 : 25;
 	default:
 		mtk_vcodec_debug(inst, "unsupported level %d", level);
 		return 26;
@@ -522,7 +496,8 @@ static int venc_set_param(unsigned long handle,
 			inst->vsi->config.profile =
 				venc_h265_get_profile(inst, enc_prm->profile);
 			inst->vsi->config.level =
-				venc_h265_get_level(inst, enc_prm->level);
+				venc_h265_get_level(inst, enc_prm->level,
+					enc_prm->tier);
 		} else if (inst->vcu_inst.id == IPI_VENC_MPEG4) {
 			inst->vsi->config.profile =
 				venc_mpeg4_get_profile(inst, enc_prm->profile);
