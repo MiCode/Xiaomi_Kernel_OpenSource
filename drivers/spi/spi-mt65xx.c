@@ -664,7 +664,7 @@ static int mtk_spi_probe(struct platform_device *pdev)
 	struct mtk_spi *mdata;
 	const struct of_device_id *of_id;
 	struct resource *res;
-	int i, irq, ret, addr_bits;
+	int i, irq, ret, addr_bits, value;
 
 	master = spi_alloc_master(&pdev->dev, sizeof(*mdata));
 	if (!master) {
@@ -697,6 +697,18 @@ static int mtk_spi_probe(struct platform_device *pdev)
 
 	if (mdata->dev_comp->must_tx)
 		master->flags = SPI_MASTER_MUST_TX;
+
+	ret = of_property_read_u32(pdev->dev.of_node,
+		"mediatek,kthread-rt", &value);
+	if (ret < 0)
+		dev_notice(&pdev->dev,
+			"No 'mediatek,kthread-rt' property\n");
+	else {
+		if (value == 1)
+			master->rt = true;
+		else
+			master->rt = false;
+	}
 
 	if (mdata->dev_comp->need_pad_sel) {
 		mdata->pad_num = of_property_count_u32_elems(
