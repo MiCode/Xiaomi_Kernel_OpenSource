@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
+#include <linux/slab.h>
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
 #include <linux/io.h>
@@ -14,6 +15,7 @@
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "mtk-scpsys.h"
+#include <linux/regulator/consumer.h>
 
 #define DVFSRC_IDLE		0x00
 #define DVFSRC_GET_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
@@ -23,6 +25,12 @@
 #define MT8183_DVFSRC_OPP_LP4	0
 #define MT8183_DVFSRC_OPP_LP4X	1
 #define MT8183_DVFSRC_OPP_LP3	2
+
+/**  VCORE UV table */
+static u32 num_vopp;
+static u32 *vopp_uv_tlb;
+#define MTK_SIP_VCOREFS_VCORE_NUM  0x6
+#define MTK_SIP_VCOREFS_VCORE_UV  0x4
 
 struct dvfsrc_opp {
 	u32 vcore_opp;
@@ -39,6 +47,8 @@ struct dvfsrc_soc_data {
 	const int *regs;
 	u32 num_opp;
 	const struct dvfsrc_opp **opps;
+	bool vcore_check;
+	bool vopp_table_init;
 	int (*get_target_level)(struct mtk_dvfsrc *dvfsrc);
 	int (*get_current_level)(struct mtk_dvfsrc *dvfsrc);
 	u32 (*get_vcore_level)(struct mtk_dvfsrc *dvfsrc);
@@ -65,13 +75,88 @@ struct mtk_dvfsrc {
 	void __iomem *regs;
 	struct mutex lock;
 	struct notifier_block scpsys_notifier;
+	struct regulator *vcore_power;
 	bool opp_forced;
+	bool is_dvfsrc_enable;
 };
 
 static DEFINE_MUTEX(pstate_lock);
 static DEFINE_SPINLOCK(force_req_lock);
 
 static bool is_dvfsrc_init_complete;
+
+int mtk_dvfsrc_vcore_uv_table(u32 opp)
+{
+	if ((!vopp_uv_tlb) || (opp >= num_vopp))
+		return 0;
+
+	return vopp_uv_tlb[num_vopp - opp - 1];
+}
+EXPORT_SYMBOL(mtk_dvfsrc_vcore_uv_table);
+
+int mtk_dvfsrc_vcore_opp_count(void)
+{
+	return num_vopp;
+}
+EXPORT_SYMBOL(mtk_dvfsrc_vcore_opp_count);
+
+static void mtk_dvfsrc_setup_vopp_table(struct mtk_dvfsrc *dvfsrc)
+{
+	int i;
+	struct arm_smccc_res ares;
+	u32 num_opp = dvfsrc->dvd->num_opp;
+
+	num_vopp =
+		dvfsrc->dvd->opps[dvfsrc->dram_type][num_opp - 1].vcore_opp + 1;
+	vopp_uv_tlb = kcalloc(num_vopp, sizeof(u32), GFP_KERNEL);
+
+	if (!vopp_uv_tlb)
+		return;
+
+	for (i = 0; i < num_vopp; i++) {
+		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+			MTK_SIP_VCOREFS_VCORE_UV,
+			i, 0, 0, 0, 0, 0,
+			&ares);
+
+		if (!ares.a0)
+			vopp_uv_tlb[i] = ares.a1;
+		else {
+			kfree(vopp_uv_tlb);
+			vopp_uv_tlb = NULL;
+			break;
+		}
+	}
+	for (i = 0; i < num_vopp; i++)
+		dev_info(dvfsrc->dev, "dvfsrc vopp[%d] = %d\n",
+			i, mtk_dvfsrc_vcore_uv_table(i));
+
+}
+
+static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 level)
+{
+	int opp_uv;
+	int vcore_uv = 0;
+
+	if (!vopp_uv_tlb)
+		return;
+
+	if (!dvfsrc->vcore_power) {
+		dvfsrc->vcore_power =
+			regulator_get_optional(dvfsrc->dev, "vcore");
+		if (IS_ERR(dvfsrc->vcore_power))
+			dvfsrc->vcore_power = NULL;
+	} else {
+		opp_uv = vopp_uv_tlb[level];
+		vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
+		if (vcore_uv < opp_uv) {
+			pr_info("DVFS FAIL= %d, %d %d 0x%08x 0x%08x\n",
+			level, opp_uv, vcore_uv,
+			dvfsrc->dvd->get_current_level(dvfsrc),
+			dvfsrc->dvd->get_target_level(dvfsrc));
+		}
+	}
+}
 
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 offset)
 {
@@ -331,7 +416,7 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 
 	if (cmd == MTK_DVFSRC_CMD_FORCE_OPP_REQUEST) {
 		if (dvfsrc->dvd->set_force_opp_level)
-			dvfsrc->dvd->set_force_opp_level(dvfsrc, data);
+			ret = dvfsrc->dvd->set_force_opp_level(dvfsrc, data);
 		goto out;
 	}
 
@@ -359,7 +444,7 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		break;
 	}
 
-	if (dvfsrc->opp_forced)
+	if (dvfsrc->opp_forced || !dvfsrc->is_dvfsrc_enable)
 		goto out;
 
 	dvfsrc_wait_for_idle(dvfsrc);
@@ -377,6 +462,9 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 			ret = dvfsrc->dvd->wait_for_vcore_level(dvfsrc, data);
 		else
 			ret = dvfsrc_wait_for_idle(dvfsrc);
+
+		if (dvfsrc->dvd->vcore_check)
+			mtk_dvfsrc_vcore_check(dvfsrc, data);
 		break;
 	case MTK_DVFSRC_CMD_HRTBW_REQUEST:
 		ret = dvfsrc_wait_for_idle(dvfsrc);
@@ -486,19 +574,6 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	if (IS_ERR(dvfsrc->regs))
 		return PTR_ERR(dvfsrc->regs);
 
-	dvfsrc->clk_dvfsrc = devm_clk_get(dvfsrc->dev, "dvfsrc");
-	if (IS_ERR(dvfsrc->clk_dvfsrc)) {
-		dev_err(dvfsrc->dev, "failed to get clock: %ld\n",
-			PTR_ERR(dvfsrc->clk_dvfsrc));
-		return PTR_ERR(dvfsrc->clk_dvfsrc);
-	}
-
-	ret = clk_prepare_enable(dvfsrc->clk_dvfsrc);
-	if (ret)
-		return ret;
-
-	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->mode);
-	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
 	dvfsrc->num_domains = of_count_phandle_with_args(node,
 		"perf-domains", NULL);
 
@@ -516,6 +591,20 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	} else
 		dvfsrc->num_domains = 0;
 
+	dvfsrc->clk_dvfsrc = devm_clk_get(dvfsrc->dev, "dvfsrc");
+	if (IS_ERR(dvfsrc->clk_dvfsrc)) {
+		dev_err(dvfsrc->dev, "failed to get clock: %ld\n",
+			PTR_ERR(dvfsrc->clk_dvfsrc));
+		return PTR_ERR(dvfsrc->clk_dvfsrc);
+	}
+
+	ret = clk_prepare_enable(dvfsrc->clk_dvfsrc);
+	if (ret)
+		return ret;
+
+	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->mode);
+	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
+
 	mutex_init(&dvfsrc->lock);
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
 		dvfsrc->mode, dvfsrc->flag, 0, 0, 0, 0,
@@ -523,22 +612,23 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 
 	if (!ares.a0) {
 		dvfsrc->dram_type = ares.a1;
-	} else {
-		dev_err(dvfsrc->dev, "init fails: %lu\n", ares.a0);
-		clk_disable_unprepare(dvfsrc->clk_dvfsrc);
-		return ares.a0;
-	}
+		dvfsrc->is_dvfsrc_enable = true;
+	} else
+		dev_info(dvfsrc->dev, "spm init fails: %lx\n", ares.a0);
 
 	platform_set_drvdata(pdev, dvfsrc);
 	pstate_notifier_register(dvfsrc);
 
-	ret = devm_of_platform_populate(&pdev->dev);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to populate dvfsrc context\n");
-		return ret;
-	}
+	if ((dvfsrc->dvd->vopp_table_init) || (dvfsrc->dvd->vcore_check))
+		mtk_dvfsrc_setup_vopp_table(dvfsrc);
 
-	is_dvfsrc_init_complete = true;
+	ret = devm_of_platform_populate(&pdev->dev);
+	if (ret)
+		dev_err(&pdev->dev, "Failed to populate dvfsrc context\n");
+
+	if (dvfsrc->is_dvfsrc_enable)
+		is_dvfsrc_init_complete = true;
+
 	return 0;
 }
 
@@ -581,6 +671,8 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.opps = dvfsrc_opp_mt6779,
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6779_lp4),
 	.regs = mt6779_regs,
+	.vcore_check = true,
+	.vopp_table_init = true,
 	.get_target_level = mt6779_get_target_level,
 	.get_current_level = mt6779_get_current_level,
 	.get_vcore_level = mt6779_get_vcore_level,
