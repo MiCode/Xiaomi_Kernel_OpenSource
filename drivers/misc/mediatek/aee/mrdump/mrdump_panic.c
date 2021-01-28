@@ -249,7 +249,7 @@ static __init int mrdump_parse_chosen(void)
 					       reg, ARRAY_SIZE(reg)) == 0) {
 			mrdump_sram_cb.start_addr = reg[0];
 			mrdump_sram_cb.size = reg[1];
-			pr_notice("%s: mrdump_cbaddr=%x, mrdump_cbsize=%x\n",
+			pr_notice("%s: mrdump_cbaddr=%llx, mrdump_cbsize=%llx\n",
 				  __func__, mrdump_sram_cb.start_addr,
 				  mrdump_sram_cb.size);
 		}
