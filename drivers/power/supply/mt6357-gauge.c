@@ -382,7 +382,7 @@ static int reg_to_current(struct mtk_gauge *gauge,
 /* ============================================================ */
 /* pmic control end*/
 /* ============================================================ */
-int get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
+u8 get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
 	u8 *buf;
@@ -399,7 +399,7 @@ int get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 		bm_err("[%s]read rtc cell fail\n", __func__);
 		return 0;
 	}
-	bm_debug("[%s] val=%d\n", __func__, *buf);
+	bm_debug("[%s] val=0x%x, %d\n", __func__, *buf, *buf);
 	return *buf;
 }
 
@@ -421,7 +421,7 @@ void set_rtc_spare0_fg_value(struct mtk_gauge *gauge, u8 val)
 		bm_err("[%s] write rtc cell fail\n", __func__);
 }
 
-int get_rtc_spare_fg_value(struct mtk_gauge *gauge)
+u8 get_rtc_spare_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
 	u8 *buf;
@@ -1369,9 +1369,9 @@ static int psy_gauge_set_property(struct power_supply *psy,
 static void fgauge_read_RTC_boot_status(struct mtk_gauge *gauge)
 {
 	unsigned int hw_id;
-	unsigned int spare0_reg = 0;
+	u8 spare0_reg = 0;
 	unsigned int spare0_reg_b13 = 0;
-	int spare3_reg = 0;
+	u8 spare3_reg = 0;
 	int spare3_reg_valid = 0;
 
 	regmap_read(gauge->regmap, PMIC_HWCID_ADDR, &hw_id);
@@ -1414,8 +1414,8 @@ static int reset_fg_rtc_set(struct mtk_gauge *gauge,
 {
 	int hw_id;
 	int temp_value;
-	int spare0_reg, after_rst_spare0_reg;
-	int spare3_reg, after_rst_spare3_reg;
+	u8 spare0_reg, after_rst_spare0_reg;
+	u8 spare3_reg, after_rst_spare3_reg;
 
 	regmap_read(gauge->regmap, PMIC_HWCID_ADDR, &hw_id);
 	hw_id =	(hw_id & (PMIC_HWCID_MASK << PMIC_HWCID_SHIFT))
@@ -1930,7 +1930,10 @@ static int hw_version_get(struct mtk_gauge *gauge,
 static int rtc_ui_soc_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
-	*val = get_rtc_spare_fg_value(gauge);
+	u8 rtc_value;
+
+	rtc_value = get_rtc_spare_fg_value(gauge);
+	*val = (int)rtc_value;
 
 	return 0;
 }

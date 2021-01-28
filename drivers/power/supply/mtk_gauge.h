@@ -124,7 +124,7 @@ struct gauge_hw_status {
 	/* boot status */
 	int pl_charger_status; /* for GM2.5 */
 
-	int gspare0_reg, gspare3_reg;
+	u8 gspare0_reg, gspare3_reg;
 	int rtc_invalid;
 	int is_bat_plugout;
 	int bat_plug_out_time;
