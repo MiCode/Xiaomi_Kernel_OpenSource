@@ -3172,12 +3172,7 @@ int dpmaif_late_init(unsigned char hif_id)
 	/* set sw control data flow cb: isr/tx/rx/etc. */
 	/* request IRQ */
 	ret = request_irq(dpmaif_ctrl->dpmaif_irq_id, dpmaif_isr,
-#ifdef MT6297
-		dpmaif_ctrl->dpmaif_irq_flags | IRQF_NO_SUSPEND, "DPMAIF_AP",
-		dpmaif_ctrl);
-#else
 		dpmaif_ctrl->dpmaif_irq_flags, "DPMAIF_AP", dpmaif_ctrl);
-#endif
 	if (ret) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"request DPMAIF IRQ(%d) error %d\n",
