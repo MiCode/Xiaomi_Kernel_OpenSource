@@ -1643,6 +1643,7 @@ size_t ion_mm_heap_total_memory(void)
 {
 	return (size_t)(atomic64_read(&page_sz_cnt) * 4096);
 }
+EXPORT_SYMBOL(ion_mm_heap_total_memory);
 
 struct ion_heap *ion_mm_heap_create(struct ion_platform_heap *unused)
 {
