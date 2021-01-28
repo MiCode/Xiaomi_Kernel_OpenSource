@@ -17,7 +17,7 @@
  */
 
 #include <linux/pm_qos.h>
-#include <sspm_ipi.h>
+#include <v1/sspm_ipi.h>
 #include <sspm_ipi_pin.h>
 #include <spm_v4/mtk_spm_vcore_dvfs_ipi_mt6771.h>
 #include "mtk_gpufreq_core.h"

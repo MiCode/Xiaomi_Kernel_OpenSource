@@ -210,6 +210,13 @@ static int sspm_device_probe(struct platform_device *pdev)
 
 	pr_info("SSPM is ready to service IPI\n");
 
+#ifdef SSPM_SHARE_BUFFER_SUPPORT
+	if (sspm_sbuf_init()) {
+		pr_err("[SSPM] Shared Buffer Init Failed\n");
+		return -1;
+	}
+#endif
+
 	return 0;
 }
 
@@ -269,12 +276,6 @@ static int __init sspm_init(void)
 
 	pr_debug("[SSPM] Helper Init\n");
 
-#if 0
-	if (sspm_irq_init(sspmreg.irq)) {
-		pr_err("[SSPM] IRQ Init Failed\n");
-		return -1;
-	}
-#endif
 	sspm_ready = 1;
 
 	atomic_set(&sspm_inited, 1);

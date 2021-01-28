@@ -34,7 +34,7 @@
 #include <helio-dvfsrc-qos.h>
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-#include <sspm_ipi.h>
+#include <v1/sspm_ipi.h>
 #include <sspm_ipi_pin.h>
 #endif
 
