@@ -1323,9 +1323,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	if (vcu_queue == NULL)
 		return -ENOMEM;
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
-	INIT_LIST_HEAD(&vcu_queue->pa_pages.list);
 	file->private_data = vcu_queue;
-
 	vcu_ptr->vpud_killed.count = 0;
 	vcu_ptr->open_cnt++;
 	vcu_ptr->abort = false;
@@ -1530,6 +1528,10 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 				(vcu_ptr->iommu_padding) ?
 				((pa_start + pos) | 0x100000000UL) :
 				(pa_start + pos));
+			if (vma->vm_pgoff == 0) {
+				dev_info(vcu_dev->dev, "[VCU] iommu_iova_to_phys fail\n");
+				return -EINVAL;
+			}
 			vma->vm_pgoff >>= PAGE_SHIFT;
 			if (pa_start_base < MAP_SHMEM_MM_CACHEABLE_BASE) {
 				vma->vm_page_prot =
@@ -1549,8 +1551,7 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		return 0;
 #endif
 	}
-
-	dev_dbg(vcu_dev->dev, "[VCU] Invalid argument\n");
+	dev_info(vcu_dev->dev, "[VCU] Invalid argument\n");
 
 	return -EINVAL;
 
@@ -1574,15 +1575,12 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 	long ret = -1;
 	void *mem_priv;
 	unsigned char *user_data_addr = NULL;
-	dma_addr_t temp_pa = 0;
 	struct mtk_vcu *vcu_dev;
 	struct device *dev;
 	struct share_obj share_buff_data;
 	struct mem_obj mem_buff_data;
 	struct mtk_vcu_queue *vcu_queue =
 		(struct mtk_vcu_queue *)file->private_data;
-	struct vcu_pa_pages *tmp;
-	struct list_head *p, *q;
 
 	vcu_dev = (struct mtk_vcu *)vcu_queue->vcu;
 	dev = vcu_dev->dev;
@@ -1626,36 +1624,19 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		if (cmd == VCU_MVA_ALLOCATION) {
 			mem_priv =
 				mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
-			mem_buff_data.va = CODEC_MSK((unsigned long)mem_buff_data.va);
-			mem_buff_data.pa = 0;
-			if (IS_ERR_OR_NULL(mem_priv) == true) {
-				pr_info("[VCU] Dma alloc buf failed!\n");
-				return PTR_ERR(mem_priv);
-			}
 		} else {
 			mem_priv =
-				cmdq_mbox_buf_alloc(
-					vcu_dev->clt_vdec[0]->chan->mbox->dev,
-					&temp_pa);
-			mem_buff_data.va = CODEC_MSK((unsigned long)mem_priv);
-			mem_buff_data.pa = (unsigned long)temp_pa;
-			mem_buff_data.iova = 0;
-			if (IS_ERR_OR_NULL(mem_priv) == true) {
-				mem_buff_data.va = (unsigned long)-1;
-				mem_buff_data.pa = (unsigned long)-1;
-				ret = (long)copy_to_user(user_data_addr,
-					&mem_buff_data,
-					(unsigned long)sizeof(struct mem_obj));
-				pr_info("[VCU] GCE alloc PA buf failed!\n");
-				return PTR_ERR(mem_priv);
-			}
-			tmp = kmalloc(sizeof(struct vcu_pa_pages), GFP_KERNEL);
-			if (!tmp)
-				return -ENOMEM;
-			tmp->pa = temp_pa;
-			tmp->kva = (unsigned long)mem_priv;
-			atomic_set(&tmp->ref_cnt, 1);
-			list_add_tail(&tmp->list, &vcu_queue->pa_pages.list);
+				mtk_vcu_get_page(vcu_queue, &mem_buff_data);
+		}
+		if (IS_ERR_OR_NULL(mem_priv) == true) {
+			mem_buff_data.va = (unsigned long)-1;
+			mem_buff_data.pa = (unsigned long)-1;
+			mem_buff_data.iova = (unsigned long)-1;
+			ret = (long)copy_to_user(user_data_addr,
+				&mem_buff_data,
+				(unsigned long)sizeof(struct mem_obj));
+			pr_info("[VCU] ALLOCATION %d failed!\n", cmd == VCU_MVA_ALLOCATION);
+			return PTR_ERR(mem_priv);
 		}
 
 		vcu_dbg_log("[VCU] ALLOCATION %d va %llx, pa %llx, iova %llx\n",
@@ -1672,7 +1653,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 
 		/* store map pa buffer type flag which will use in mmap*/
 		if (cmd == VCU_PA_ALLOCATION)
-			vcu_queue->map_buf_pa = temp_pa + MAP_SHMEM_PA_BASE;
+			vcu_queue->map_buf_pa = mem_buff_data.pa + MAP_SHMEM_PA_BASE;
 
 		ret = 0;
 		break;
@@ -1694,28 +1675,8 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 				mem_buff_data.iova |= 0x100000000UL;
 			ret = mtk_vcu_free_buffer(vcu_queue, &mem_buff_data);
 		} else {
-			ret = -1;
-			list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
-				tmp = list_entry(p, struct vcu_pa_pages, list);
-				if (tmp->pa == mem_buff_data.pa &&
-					CODEC_MSK(tmp->kva) == mem_buff_data.va &&
-					atomic_read(&tmp->ref_cnt) == 1) {
-					ret = 0;
-					cmdq_mbox_buf_free(
-					  vcu_dev->clt_vdec[0]->chan->mbox->dev,
-					  (void *)(unsigned long)
-					  tmp->kva,
-					  (dma_addr_t)mem_buff_data.pa);
-					atomic_dec(&tmp->ref_cnt);
-					list_del(p);
-					kfree(tmp);
-				}
-			}
+			ret = mtk_vcu_free_page(vcu_queue, &mem_buff_data);
 		}
-
-		vcu_dbg_log("[VCU] FREE %d va %llx, pa %llx, iova %llx\n",
-			cmd == VCU_MVA_FREE, mem_buff_data.va,
-			mem_buff_data.pa, mem_buff_data.iova);
 
 		if (ret != 0L) {
 			pr_info("[VCU] VCU_FREE failed %d va %llx, pa %llx, iova %llx\n",
@@ -1723,6 +1684,11 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 				mem_buff_data.pa, mem_buff_data.iova);
 			return -EINVAL;
 		}
+
+		vcu_dbg_log("[VCU] FREE %d va %llx, pa %llx, iova %llx\n",
+			cmd == VCU_MVA_FREE, mem_buff_data.va,
+			mem_buff_data.pa, mem_buff_data.iova);
+
 		mem_buff_data.va = 0;
 		mem_buff_data.iova = 0;
 		mem_buff_data.pa = 0;

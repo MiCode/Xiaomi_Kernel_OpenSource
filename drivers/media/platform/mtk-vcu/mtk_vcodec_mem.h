@@ -113,7 +113,7 @@ void *mtk_vcu_set_buffer(struct mtk_vcu_queue *vcu_queue,
 	struct vb2_buffer *dst_vb);
 
 /**
- * mtk_vcu_get_buffer - get the allocated buffer iova/va
+ * mtk_vcu_get_buffer/mtk_vcu_get_page - get the allocated buffer iova/va/pa
  *
  * @vcu_queue:  the queue to store allocated buffer.
  * @mem_buff_data:      store iova/va.
@@ -122,9 +122,11 @@ void *mtk_vcu_set_buffer(struct mtk_vcu_queue *vcu_queue,
  **/
 void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 						 struct mem_obj *mem_buff_data);
+void *mtk_vcu_get_page(struct mtk_vcu_queue *vcu_queue,
+						 struct mem_obj *mem_buff_data);
 
 /**
- * mtk_vcu_free_buffer - just free unused buffer iova/va
+ * mtk_vcu_free_buffer/mtk_vcu_free_page - just free unused buffer iova/va/pa
  *
  * @vcu_queue:  the queue to store allocated buffer.
  * @mem_buff_data:      store iova/va to free.
@@ -132,6 +134,8 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
  * Return:      Return 0 if it is ok, otherwise failed
  **/
 int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
+						struct mem_obj *mem_buff_data);
+int mtk_vcu_free_page(struct mtk_vcu_queue *vcu_queue,
 						struct mem_obj *mem_buff_data);
 
 /**

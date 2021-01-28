@@ -21,7 +21,7 @@ struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
 		pr_info("Allocate new vcu queue fail!\n");
 		return NULL;
 	}
-
+	INIT_LIST_HEAD(&vcu_queue->pa_pages.list);
 	vcu_queue->mem_ops = &vb2_dma_contig_memops;
 	vcu_queue->dev = dev;
 	vcu_queue->cmdq_dev = cmdq_dev;
@@ -188,7 +188,8 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 
 	mem_buff_data->iova = *(dma_addr_t *)dma_addr;
 	vcu_buffer->iova = *(dma_addr_t *)dma_addr;
-	mem_buff_data->va = (unsigned long)cook;
+	mem_buff_data->va = CODEC_MSK((unsigned long)cook);
+	mem_buff_data->pa = 0;
 	vcu_queue->num_buffers++;
 	mutex_unlock(&vcu_queue->mmap_lock);
 	atomic_set(&vcu_buffer->ref_cnt, 1);
@@ -199,6 +200,32 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 		(unsigned long)vcu_buffer->mem_priv);
 
 	return vcu_buffer->mem_priv;
+}
+
+void *mtk_vcu_get_page(struct mtk_vcu_queue *vcu_queue,
+						 struct mem_obj *mem_buff_data)
+{
+	dma_addr_t temp_pa = 0;
+	void *mem_priv;
+	struct vcu_pa_pages *tmp;
+
+	mem_priv =
+		cmdq_mbox_buf_alloc(vcu_queue->cmdq_dev, &temp_pa);
+	tmp = kmalloc(sizeof(struct vcu_pa_pages), GFP_KERNEL);
+	if (!tmp)
+		return ERR_PTR(-ENOMEM);
+
+	mutex_lock(&vcu_queue->mmap_lock);
+	tmp->pa = temp_pa;
+	mem_buff_data->pa = temp_pa;
+	tmp->kva = (unsigned long)mem_priv;
+	mem_buff_data->va = CODEC_MSK((unsigned long)mem_priv);
+	mem_buff_data->iova = 0;
+	atomic_set(&tmp->ref_cnt, 1);
+	list_add_tail(&tmp->list, &vcu_queue->pa_pages.list);
+	mutex_unlock(&vcu_queue->mmap_lock);
+
+	return mem_priv;
 }
 
 int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
@@ -250,6 +277,41 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 	if (ret != 0)
 		pr_info("Can not free memory va %llx iova %llx len %u!\n",
 			   mem_buff_data->va, mem_buff_data->iova,
+			   mem_buff_data->len);
+
+	return ret;
+}
+
+int mtk_vcu_free_page(struct mtk_vcu_queue *vcu_queue,
+						struct mem_obj *mem_buff_data)
+{
+	int ret = -EINVAL;
+	struct vcu_pa_pages *tmp;
+	struct list_head *p, *q;
+
+	mutex_lock(&vcu_queue->mmap_lock);
+	list_for_each_safe(p, q, &vcu_queue->pa_pages.list) {
+		tmp = list_entry(p, struct vcu_pa_pages, list);
+		if (tmp->pa == mem_buff_data->pa &&
+			CODEC_MSK(tmp->kva) == mem_buff_data->va &&
+			atomic_read(&tmp->ref_cnt) == 1) {
+			ret = 0;
+			cmdq_mbox_buf_free(
+				vcu_queue->cmdq_dev,
+				(void *)(unsigned long)
+				tmp->kva,
+				(dma_addr_t)mem_buff_data->pa);
+			atomic_dec(&tmp->ref_cnt);
+			list_del(p);
+			kfree(tmp);
+			break;
+		}
+	}
+	mutex_unlock(&vcu_queue->mmap_lock);
+
+	if (ret != 0)
+		pr_info("Can not free memory va %llx pa %llx len %u!\n",
+			   mem_buff_data->va, mem_buff_data->pa,
 			   mem_buff_data->len);
 
 	return ret;
