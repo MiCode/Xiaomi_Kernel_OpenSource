@@ -3,7 +3,7 @@
  * Copyright (c) 2016 MediaTek Inc.
  */
 #include <mmdvfs_pmqos.h>
-#include "smi_master_mt6779.h"
+#include "smi_port.h"
 #include "ccu_qos.h"
 #include "ccu_cmn.h"
 #include "ccu_hw.h"
