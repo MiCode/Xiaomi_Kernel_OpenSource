@@ -137,7 +137,7 @@
 #define GPU_ACT_REF_POWER			(1285)		/* mW  */
 #define GPU_ACT_REF_FREQ			(900000)	/* KHz */
 #define GPU_ACT_REF_VOLT			(90000)		/* mV x 100 */
-#define GPU_DVFS_PTPOD_DISABLE_VOLT		(80000)		/* mV x 100 */
+#define GPU_DVFS_PTPOD_DISABLE_VOLT		(65000)		/* mV x 100 */
 
 /**************************************************
  * Log Setting
