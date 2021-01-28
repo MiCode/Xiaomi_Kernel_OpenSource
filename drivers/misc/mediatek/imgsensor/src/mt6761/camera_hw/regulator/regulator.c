@@ -10,9 +10,21 @@
 #include <mt-plat/aee.h>
 #endif
 
-#include <asm/siginfo.h>
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
+#include <linux/notifier.h>
+#include <linux/regulator/consumer.h>
+#include <linux/sched/signal.h>
+
+struct reg_oc_debug_t {
+	const char *name;
+	struct notifier_block nb;
+	unsigned int times;
+	unsigned int md_reg_idx;
+	bool is_md_reg;
+};
+
+static struct reg_oc_debug_t reg_oc_debug[REGULATOR_TYPE_MAX_NUM];
 
 static const int regulator_voltage[] = {
 	REGULATOR_VOLTAGE_0,
@@ -36,53 +48,27 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 
 static struct REGULATOR reg_instance;
 
-#ifndef NO_OC
-static const int int_oc_type[REGULATOR_TYPE_MAX_NUM] = {
-	INT_VCAMA_OC,
-	INT_VCAMD_OC,
-	INT_VCAMIO_OC,
-};
-
-static void imgsensor_oc_handler1(void)
+static int regulator_oc_notify(
+	struct notifier_block *nb, unsigned long event, void *data)
 {
-	pr_debug("[regulator]%s enter vcama oc %d\n",
-		__func__,
-		gimgsensor.status.oc);
-	gimgsensor.status.oc = 1;
-	aee_kernel_warning("Imgsensor OC", "Over current");
-	if (reg_instance.pid != -1 &&
-		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
-		force_sig(SIGKILL,
-				pid_task(find_get_pid(reg_instance.pid),
-						PIDTYPE_PID));
+		struct reg_oc_debug_t *reg_oc_dbg =
+			container_of(nb, struct reg_oc_debug_t, nb);
 
-}
-static void imgsensor_oc_handler2(void)
-{
-	pr_debug("[regulator]%s enter vcamd oc %d\n",
-		__func__,
-		gimgsensor.status.oc);
-	gimgsensor.status.oc = 1;
-	aee_kernel_warning("Imgsensor OC", "Over current");
-	if (reg_instance.pid != -1 &&
-		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
-		force_sig(SIGKILL,
-				pid_task(find_get_pid(reg_instance.pid),
-						PIDTYPE_PID));
-}
-static void imgsensor_oc_handler3(void)
-{
-	pr_debug("[regulator]%s enter vcamio oc %d\n",
-		__func__,
-		gimgsensor.status.oc);
-	gimgsensor.status.oc = 1;
-	aee_kernel_warning("Imgsensor OC", "Over current");
-	if (reg_instance.pid != -1 &&
-		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL)
-		force_sig(SIGKILL,
-				pid_task(find_get_pid(reg_instance.pid),
-						PIDTYPE_PID));
+		if (event != REGULATOR_EVENT_OVER_CURRENT)
+			return NOTIFY_OK;
 
+		/* Do OC handling */
+		pr_info("notify regulator: %s OC\n", reg_oc_dbg->name);
+
+		gimgsensor.status.oc = 1;
+		aee_kernel_warning("Imgsensor OC", "Over current");
+		if (reg_instance.pid != -1 &&
+		pid_task(find_get_pid(reg_instance.pid), PIDTYPE_PID) != NULL) {
+			force_sig(SIGKILL,
+				pid_task(find_get_pid(reg_instance.pid),
+				PIDTYPE_PID));
+		}
+		return NOTIFY_OK;
 }
 
 #define OC_MODULE "camera"
@@ -92,7 +78,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	struct regulator *preg = NULL;
 	struct device *pdevice = gimgsensor_device;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
-	int i = 0;
+	int i = 0, ret = 0;
 
 	gimgsensor.status.oc = 0;
 
@@ -109,15 +95,24 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 			if (IS_ERR(preg))
 				preg = NULL;
 			if (preg && regulator_is_enabled(preg)) {
-				pmic_enable_interrupt(
-					int_oc_type[i], 1, OC_MODULE);
-				regulator_put(preg);
-				pr_debug(
-					"[regulator] %s idx=%d %s enable=%d\n",
-					__func__,
-					sensor_idx,
-					regulator_control[i].pregulator_type,
-					enable);
+				/* oc notifier callback function */
+				reg_oc_debug[i].nb.notifier_call =
+				regulator_oc_notify;
+
+			ret = devm_regulator_register_notifier(preg,
+				&reg_oc_debug[i].nb);
+
+			if (ret) {
+				pr_info(
+				"regulator notifier request error\n");
+			}
+
+			pr_debug(
+				"[regulator] %s idx=%d %s enable=%d\n",
+				__func__,
+				sensor_idx,
+				regulator_control[i].pregulator_type,
+				enable);
 			}
 		}
 		rcu_read_lock();
@@ -126,7 +121,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	} else {
 		reg_instance.pid = -1;
 		/* Disable interrupt before power off */
-
+		pr_debug("Unregister OC notifier");
 		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
 			snprintf(str_regulator_name,
 					sizeof(str_regulator_name),
@@ -138,14 +133,9 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 			if (IS_ERR(preg))
 				preg = NULL;
 			if (preg) {
-				pmic_enable_interrupt(
-					int_oc_type[i], 0, OC_MODULE);
-				regulator_put(preg);
-				pr_debug("[regulator] %s idx=%d %s enable=%d\n",
-					__func__,
-					sensor_idx,
-					regulator_control[i].pregulator_type,
-					enable);
+				/* oc notifier callback function */
+				devm_regulator_unregister_notifier(preg,
+				&reg_oc_debug[i].nb);
 			}
 		}
 
@@ -157,9 +147,6 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 enum IMGSENSOR_RETURN imgsensor_oc_init(void)
 {
 	/* Register your interrupt handler of OC interrupt at first */
-	pmic_register_interrupt_callback(INT_VCAMA_OC, imgsensor_oc_handler1);
-	pmic_register_interrupt_callback(INT_VCAMD_OC, imgsensor_oc_handler2);
-	pmic_register_interrupt_callback(INT_VCAMIO_OC, imgsensor_oc_handler3);
 
 	gimgsensor.status.oc  = 0;
 	gimgsensor.imgsensor_oc_irq_enable = imgsensor_oc_interrupt;
@@ -167,7 +154,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_init(void)
 
 	return IMGSENSOR_RETURN_SUCCESS;
 }
-#endif
+
 
 static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 {
