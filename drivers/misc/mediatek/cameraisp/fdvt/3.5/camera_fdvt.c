@@ -60,17 +60,9 @@
 #include <mach/mt_clkmgr.h>
 #endif
 
-#ifdef CONFIG_PM_WAKELOCKS
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
-#endif
 
-#ifdef CONFIG_PM_WAKELOCKS
-struct wakeup_source fdvt_wake_lock;
-#else
-struct wake_lock fdvt_wake_lock;
-#endif
+struct wakeup_source *fdvt_wake_lock;
 
 /* #define FDVT_SMI_READY */
 #ifdef FDVT_SMI_READY
@@ -941,19 +933,11 @@ static int FDVT_open(struct inode *inode, struct file *file)
 	g_drvOpened = 1;
 	spin_unlock(&g_spinLock);
 
-#ifdef CONFIG_PM_WAKELOCKS
-	__pm_stay_awake(&fdvt_wake_lock);
-#else
-	wake_lock(&fdvt_wake_lock);
-#endif
+	__pm_stay_awake(fdvt_wake_lock);
 
 	mt_fdvt_clk_ctrl(1);
 
-#ifdef CONFIG_PM_WAKELOCKS
-	__pm_relax(&fdvt_wake_lock);
-#else
-	wake_unlock(&fdvt_wake_lock);
-#endif
+	__pm_relax(fdvt_wake_lock);
 
 	if (pBuff != NULL)
 		log_dbg("pBuff is not null\n");
@@ -1011,19 +995,11 @@ static int FDVT_release(struct inode *inode, struct file *file)
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	g_FDVTIRQ = ioread32((void *)FDVT_INT);
 
-#ifdef CONFIG_PM_WAKELOCKS
-	__pm_stay_awake(&fdvt_wake_lock);
-#else
-	wake_lock(&fdvt_wake_lock);
-#endif
+	__pm_stay_awake(fdvt_wake_lock);
 
 	mt_fdvt_clk_ctrl(0);
 
-#ifdef CONFIG_PM_WAKELOCKS
-	__pm_relax(&fdvt_wake_lock);
-#else
-	wake_unlock(&fdvt_wake_lock);
-#endif
+	__pm_relax(fdvt_wake_lock);
 
 	spin_lock(&g_spinLock);
 	g_drvOpened = 0;
@@ -1236,14 +1212,7 @@ static int FDVT_probe(struct platform_device *dev)
 	/* Initialize waitqueue */
 	init_waitqueue_head(&g_FDVTWQ);
 
-#ifdef CONFIG_PM_WAKELOCKS
-			wakeup_source_init(&fdvt_wake_lock,
-							"fdvt_lock_wakelock");
-#else
-			wake_lock_init(&fdvt_wake_lock,
-							WAKE_LOCK_SUSPEND,
-							"fdvt_lock_wakelock");
-#endif
+	fdvt_wake_lock = wakeup_source_register("fdvt_lock_wakelock");
 
 	log_dbg("[FDVT_DEBUG] %s Done\n", __func__);
 
@@ -1258,19 +1227,11 @@ static int FDVT_remove(struct platform_device *dev)
 	FDVT_WR32(0x00000000, FDVT_INT_EN);
 	g_FDVTIRQ = ioread32((void *)FDVT_INT);
 
-#ifdef CONFIG_PM_WAKELOCKS
-	__pm_stay_awake(&fdvt_wake_lock);
-#else
-	wake_lock(&fdvt_wake_lock);
-#endif
+	__pm_stay_awake(fdvt_wake_lock);
 
 	mt_fdvt_clk_ctrl(0);
 
-#ifdef CONFIG_PM_WAKELOCKS
-	__pm_relax(&fdvt_wake_lock);
-#else
-	wake_unlock(&fdvt_wake_lock);
-#endif
+	__pm_relax(fdvt_wake_lock);
 
 	device_destroy(FDVT_class, FDVT_devno);
 	class_destroy(FDVT_class);
