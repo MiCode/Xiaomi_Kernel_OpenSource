@@ -481,7 +481,8 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	/* mipi hopping part sample */
 	params->dsi.dynamic_switch_mipi = 1;
 	//params->dsi.vertical_backporch_dyn = 12;
-	params->dsi.data_rate_dyn = 1029;
+	//PLL_CLOCK * 2, clock no change
+	params->dsi.data_rate_dyn = 980;
 
 	/* for ARR 2.0 */
 	params->max_refresh_rate = 60;
