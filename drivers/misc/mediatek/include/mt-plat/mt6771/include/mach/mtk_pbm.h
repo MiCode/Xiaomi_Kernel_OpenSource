@@ -79,7 +79,7 @@ enum pbm_kicker {
 	KR_FLASH		/* 5 */
 };
 
-#define MD_POWER_METER_ENABLE 0 /* FIXME: remove for build pass */
+#define MD_POWER_METER_ENABLE 1 /* FIXME: remove for build pass */
 /*#define TEST_MD_POWER*/
 
 #define SECTION_LEN	0xFFFFFFFF
