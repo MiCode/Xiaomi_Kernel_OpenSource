@@ -206,13 +206,13 @@ static ssize_t debug_enable_show(char *buf)
 {
 	int curr = 0;
 
-	curr = snprintf(buf, 16, "%d\n", ccci_debug_enable);
+	curr = snprintf(buf, 16, "%d\n", 2);/* ccci_debug_enable); */
 	return curr;
 }
 
 static ssize_t debug_enable_store(const char *buf, size_t count)
 {
-	ccci_debug_enable = buf[0] - '0';
+	/* ccci_debug_enable = buf[0] - '0'; */
 	return count;
 }
 
@@ -360,6 +360,7 @@ int ccci_sysfs_add_modem(int md_id, void *kobj, void *ktype,
 
 	return ret;
 }
+EXPORT_SYMBOL(ccci_sysfs_add_modem);
 
 int ccci_common_sysfs_init(void)
 {

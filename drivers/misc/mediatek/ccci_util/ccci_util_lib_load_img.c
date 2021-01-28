@@ -84,6 +84,13 @@ static struct md_check_header_v6 md_img_header_v6[MAX_MD_NUM];
 /*static struct ccci_image_info		img_info[MAX_MD_NUM][IMG_NUM]; */
 char md_img_info_str[MAX_MD_NUM][256];
 
+#define AP_PLATFORM_INFO    "MT6779"
+
+char *ccci_get_ap_platform(void)
+{
+	return AP_PLATFORM_INFO;
+}
+
 /*--- MD header check ------------ */
 static int check_dsp_header(int md_id, void *parse_addr,
 	struct ccci_image_info *image)
@@ -793,6 +800,7 @@ char *ccci_get_md_info_str(int md_id)
 {
 	return md_img_info_str[md_id];
 }
+EXPORT_SYMBOL(ccci_get_md_info_str);
 
 void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 {
@@ -1124,6 +1132,7 @@ int ccci_init_security(void)
 #endif
 	return ret;
 }
+EXPORT_SYMBOL(ccci_init_security);
 
 #define IMG_MAGIC		0x58881688
 #define EXT_MAGIC		0x58891689
@@ -1236,6 +1245,7 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 
 	return 0;
 }
+EXPORT_SYMBOL(ccci_get_md_check_hdr_inf);
 
 int check_if_bypass_header(void *buf, int *img_size)
 {

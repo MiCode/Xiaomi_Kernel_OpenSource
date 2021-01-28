@@ -1,7 +1,6 @@
 config MTK_ECCCI_DRIVER
 	tristate "Enable Evolved CCCI Driver as interface for modem"
 	depends on MTK_CCCI_DEVICES
-	default n
 	select MTK_NET_CCMNI
 	help
 	  This option enables ECCCI device driver support, if yes,
@@ -22,7 +21,6 @@ config MTK_ECCCI_CLDMA
 config MTK_ECCCI_CCIF
 	tristate "ECCCI driver using CCIF HW to communicate wtih LTE modem"
 	depends on MTK_ECCCI_DRIVER
-	default n
 	help
 	  This option enables ECCCI CCIF driver, if yes,
 	  then modem1 is using ccif hardware, if no,
@@ -30,9 +28,8 @@ config MTK_ECCCI_CCIF
 	  The option default disabled.
 
 config MTK_ECCCI_C2K
-	tristate "ECCCI driver using CCIF HW to communicate wtih C2K modem"
+	bool "ECCCI driver using CCIF HW to communicate wtih C2K modem"
 	depends on MTK_ECCCI_DRIVER
-	default n
 	help
 	  This option enables ECCCI CCIF C2K driver, if yes,
 	  c2k modem is enabled, if no,
@@ -41,7 +38,6 @@ config MTK_ECCCI_C2K
 
 config MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
 	bool "sim lock poweron write protect"
-	default n
 	help
 	  To support SIM lock power on write protect  feature, if yes,
 	  then it is supported, if no,

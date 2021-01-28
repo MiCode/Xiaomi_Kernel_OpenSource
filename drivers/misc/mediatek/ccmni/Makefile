@@ -12,15 +12,22 @@
 #
 
 ifeq ($(CONFIG_MTK_NET_CCMNI), y)
+CCCI_CCMNI_OBJ=y
+else ifeq ($(CONFIG_MTK_NET_CCMNI), m)
+CCCI_CCMNI_OBJ=m
+ccflags-y += -DCCCI_CCMNI_MODULE
+else
+CCCI_CCMNI_OBJ=n
+endif
 
-obj-y := eccmni.o
+ifneq ($(CCCI_CCMNI_OBJ), n)
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccmni/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/c2k_ccci/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
-eccmni-y := ccmni.o
+obj-$(CCCI_CCMNI_OBJ) += ccmni.o
 
 ccflags-y += -DMET_USER_EVENT_SUPPORT
 

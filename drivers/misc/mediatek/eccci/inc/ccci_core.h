@@ -573,10 +573,11 @@ enum md_bc_event {
 /* ========================================================================= */
 /* common API */
 /* ========================================================================= */
-void ccci_sysfs_add_md(int md_id, void *kobj);
-int ccci_register_dev_node(const char *name, int major_id, int minor);
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 extern void fsm_scp_init0(void);
+#endif
+#ifdef CCCI_KMODULE_ENABLE
+int ccci_init(void);
 #endif
 #endif	/* __CCCI_CORE_H__ */

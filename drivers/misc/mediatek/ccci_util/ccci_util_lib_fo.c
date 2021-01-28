@@ -104,7 +104,6 @@ static unsigned int meta_boot_arguments[MAX_MD_NUM_AT_LK];
 static unsigned int md_type_at_lk[MAX_MD_NUM_AT_LK];
 
 static unsigned int s_g_lk_load_img_status;
-static unsigned long s_g_dt_chosen_node;
 static int s_g_lk_ld_md_errno;
 static unsigned int s_g_tag_inf_size;
 
@@ -395,6 +394,7 @@ int ccci_get_opt_val(char *opt_name)
 	CCCI_UTIL_INF_MSG("%s:%s->-1\n", __func__, opt_name);
 	return -1;
 }
+EXPORT_SYMBOL(ccci_get_opt_val);
 
 /* ccci option relate private function for option */
 static int ccci_update_opt_tbl(char *opt_name, int val)
@@ -929,6 +929,7 @@ void __iomem *ccci_map_phy_addr(phys_addr_t phy_addr, unsigned int size)
 	}
 	return map_addr;
 }
+EXPORT_SYMBOL(ccci_map_phy_addr);
 
 static void md_chk_hdr_info_parse(void)
 {
@@ -1191,32 +1192,21 @@ static void dump_retrieve_info(void)
 	}
 }
 
-static int __init early_init_dt_get_chosen(unsigned long node,
-	const char *uname, int depth, void *data)
-{
-	if (depth != 1 || (strcmp(uname, "chosen") != 0
-			&& strcmp(uname, "chosen@0") != 0))
-		return 0;
-	s_g_dt_chosen_node = node;
-	return 1;
-}
-
 static int __init collect_lk_boot_arguments(void)
 {
 	/* Device tree method */
+	struct device_node *node = NULL;
 	int ret;
 	unsigned int *raw_ptr;
 
-	/* This function will initialize s_g_dt_chosen_node */
-	ret = of_scan_flat_dt(early_init_dt_get_chosen, NULL);
-	if (ret == 0) {
-		CCCI_UTIL_INF_MSG("device node no chosen node\n");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
+	if (!node) {
+		CCCI_UTIL_INF_MSG("device node no mediatek,mddriver node\n");
 		return -1;
 	}
 
-	raw_ptr =
-		(unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-						"ccci,modem_info_v2", NULL);
+	raw_ptr = (unsigned int *)of_get_property(node, "ccci,modem_info_v2",
+			NULL);
 	if (raw_ptr != NULL) {
 		if (lk_info_parsing_v2(raw_ptr) == 1) /* No md enabled in LK */
 			return 0;
@@ -1224,8 +1214,8 @@ static int __init collect_lk_boot_arguments(void)
 	}
 
 	CCCI_UTIL_INF_MSG("ccci,modem_info_v2 not found, try v1\n");
-	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-				"ccci,modem_info", NULL);
+	raw_ptr = (unsigned int *)of_get_property(node, "ccci,modem_info",
+			NULL);
 	if (raw_ptr != NULL) {
 		lk_info_parsing_v1(raw_ptr);
 		goto _common_process;
@@ -1247,8 +1237,7 @@ _common_process:
 	s_g_curr_ccci_fo_version = CCCI_FO_VER_02;
 
 	/* Get META settings at device tree, only MD1 use this */
-	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-				"atag,mdinfo", NULL);
+	raw_ptr = (unsigned int *)of_get_property(node, "atag,mdinfo", NULL);
 	if (raw_ptr == NULL)
 		CCCI_UTIL_INF_MSG("atag,mdinfo not found\n");
 	else
@@ -1340,6 +1329,7 @@ unsigned int get_mtee_is_enabled(void)
 {
 	return md_mtee_support;
 }
+EXPORT_SYMBOL(get_mtee_is_enabled);
 
 int get_md_img_raw_size(int md_id)
 {
@@ -1405,6 +1395,7 @@ int get_md_resv_udc_info(int md_id, unsigned int *udc_noncache_size,
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md_resv_udc_info);
 
 unsigned int get_md_resv_phy_cap_size(int md_id)
 {
@@ -1413,6 +1404,7 @@ unsigned int get_md_resv_phy_cap_size(int md_id)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md_resv_phy_cap_size);
 
 int get_md_smem_dfd_size(int md_id)
 {
@@ -1421,6 +1413,7 @@ int get_md_smem_dfd_size(int md_id)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md_smem_dfd_size);
 
 int get_smem_amms_pos_size(int md_id)
 {
@@ -1429,6 +1422,7 @@ int get_smem_amms_pos_size(int md_id)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_smem_amms_pos_size);
 
 int get_smem_align_padding_size(int md_id)
 {
@@ -1437,6 +1431,7 @@ int get_smem_align_padding_size(int md_id)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_smem_align_padding_size);
 
 unsigned int get_md_smem_cachable_offset(int md_id)
 {
@@ -1445,6 +1440,7 @@ unsigned int get_md_smem_cachable_offset(int md_id)
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md_smem_cachable_offset);
 
 int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
 	unsigned int *buf_size)
@@ -1454,6 +1450,7 @@ int get_md_resv_csmem_info(int md_id, phys_addr_t *buf_base,
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md_resv_csmem_info);
 
 int get_md_cache_region_info(int region_id, unsigned int *buf_base,
 	unsigned int *buf_size)
@@ -1474,6 +1471,7 @@ int get_md_cache_region_info(int region_id, unsigned int *buf_base,
 	}
 	return 0;
 }
+EXPORT_SYMBOL(get_md_cache_region_info);
 
 int get_md_resv_mem_info(int md_id, phys_addr_t *r_rw_base,
 	unsigned int *r_rw_size, phys_addr_t *srw_base,
@@ -1511,6 +1509,7 @@ int get_md1_md3_resv_smem_info(int md_id, phys_addr_t *rw_base,
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md1_md3_resv_smem_info);
 
 unsigned int get_md_smem_align(int md_id)
 {
@@ -1521,6 +1520,7 @@ unsigned int get_modem_is_enabled(int md_id)
 {
 	return !!(s_g_md_usage_case & (1 << md_id));
 }
+EXPORT_SYMBOL(get_modem_is_enabled);
 
 int get_modem_support_cap(int md_id)
 {
@@ -1570,6 +1570,7 @@ int set_modem_support_cap(int md_id, int new_val)
 	}
 	return -1;
 }
+EXPORT_SYMBOL(set_modem_support_cap);
 
 int get_md_type_from_lk(int md_id)
 {
@@ -1577,6 +1578,7 @@ int get_md_type_from_lk(int md_id)
 		return md_type_at_lk[md_id];
 	return 0;
 }
+EXPORT_SYMBOL(get_md_type_from_lk);
 
 struct _mpu_cfg *get_mpu_region_cfg_info(int region_id)
 {
@@ -1598,19 +1600,16 @@ struct _mpu_cfg *get_mpu_region_cfg_info(int region_id)
 int __init ccci_parse_meta_md_setting(void)
 {
 	/* Device tree method */
-	int ret;
+	struct device_node *node = NULL;
 	unsigned int *raw_ptr;
 
-	/* This function will initialize s_g_dt_chosen_node */
-	ret = of_scan_flat_dt(early_init_dt_get_chosen, NULL);
-	if (ret == 0) {
-		CCCI_UTIL_INF_MSG("device node no chosen node\n");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
+	if (!node) {
+		CCCI_UTIL_INF_MSG("device node no mediatek,mddriver node\n");
 		return -1;
 	}
 
-	/* Get META settings at device tree, only MD1 use this */
-	raw_ptr = (unsigned int *)of_get_flat_dt_prop(s_g_dt_chosen_node,
-				"atag,mdinfo", NULL);
+	raw_ptr = (unsigned int *)of_get_property(node, "atag,mdinfo", NULL);
 	if (raw_ptr == NULL)
 		CCCI_UTIL_INF_MSG("atag,mdinfo not found\n");
 	else
@@ -1862,6 +1861,7 @@ _get_wm_id_done:
 	rat_cfg = compatible_convert(rat_cfg);
 	return ap_rat_bitmap_to_md_bitmap(rat_cfg);
 }
+EXPORT_SYMBOL(get_wm_bitmap_for_ubin);
 
 int get_ubin_img_type(void)
 {
@@ -1914,6 +1914,7 @@ int get_md_img_type(int md_id)
 		return md_support_val;
 	return 0;
 }
+EXPORT_SYMBOL(get_md_img_type);
 
 int check_md_type(int data)
 {
@@ -1936,6 +1937,7 @@ int check_md_type(int data)
 	}
 	return 0;
 }
+EXPORT_SYMBOL(check_md_type);
 
 int get_legacy_md_type(int md_id)
 {
@@ -1961,6 +1963,7 @@ int get_legacy_md_type(int md_id)
 	}
 	return val;
 }
+EXPORT_SYMBOL(get_legacy_md_type);
 
 void ccci_md_mem_reserve(void)
 {

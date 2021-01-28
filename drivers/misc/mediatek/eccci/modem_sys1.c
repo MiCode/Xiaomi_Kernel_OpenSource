@@ -47,6 +47,15 @@
 
 #define TAG "mcd"
 
+#ifdef CCCI_KMODULE_ENABLE
+bool spm_is_md1_sleep(void)
+{
+	pr_notice("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+
+#endif
+
 void ccif_enable_irq(struct ccci_modem *md)
 {
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
@@ -589,7 +598,11 @@ static int md_cd_pre_stop(struct ccci_modem *md, unsigned int stop_type)
 			md_cd_lock_cldma_clock_src(0);
 			msleep(20);
 		}
+#ifdef CCCI_KMODULE_ENABLE
+		pending = 0;
+#else
 		pending = mt_irq_get_pending(md->md_wdt_irq_id);
+#endif
 		if (pending) {
 			CCCI_NORMAL_LOG(md->index, TAG, "WDT IRQ occur.");
 			CCCI_MEM_LOG_TAG(md->index, TAG, "Dump MD EX log\n");
@@ -1256,6 +1269,22 @@ static struct ccci_modem_ops md_cd_ops = {
 	.send_ccb_tx_notify = &md_cd_send_ccb_tx_notify,
 };
 
+static ssize_t md_cd_debug_show(struct ccci_modem *md, char *buf)
+{
+	int curr = 0;
+
+	curr = snprintf(buf, 16, "%d\n", ccci_debug_enable);
+	return curr;
+}
+
+static ssize_t md_cd_debug_store(struct ccci_modem *md,
+	const char *buf, size_t count)
+{
+	ccci_debug_enable = buf[0] - '0';
+
+	return count;
+}
+
 static ssize_t md_cd_dump_show(struct ccci_modem *md, char *buf)
 {
 	int count = 0;
@@ -1405,7 +1434,7 @@ static ssize_t md_cd_parameter_store(struct ccci_modem *md,
 {
 	return count;
 }
-
+CCCI_MD_ATTR(NULL, debug, 0660, md_cd_debug_show, md_cd_debug_store);
 CCCI_MD_ATTR(NULL, dump, 0660, md_cd_dump_show, md_cd_dump_store);
 CCCI_MD_ATTR(NULL, control, 0660, md_cd_control_show, md_cd_control_store);
 CCCI_MD_ATTR(NULL, parameter, 0660, md_cd_parameter_show,
@@ -1414,6 +1443,13 @@ CCCI_MD_ATTR(NULL, parameter, 0660, md_cd_parameter_show,
 static void md_cd_sysfs_init(struct ccci_modem *md)
 {
 	int ret;
+
+	ccci_md_attr_debug.modem = md;
+	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_debug.attr);
+	if (ret)
+		CCCI_ERROR_LOG(md->index, TAG,
+			"fail to add sysfs node %s %d\n",
+			ccci_md_attr_debug.attr.name, ret);
 
 	ccci_md_attr_dump.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_dump.attr);
@@ -1452,6 +1488,10 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 	struct ccci_dev_cfg dev_cfg;
 	int ret;
 	struct md_hw_info *md_hw;
+
+#ifdef CCCI_KMODULE_ENABLE
+	ccci_init();
+#endif
 
 	/* Allocate modem hardware info structure memory */
 	md_hw = kzalloc(sizeof(struct md_hw_info), GFP_KERNEL);

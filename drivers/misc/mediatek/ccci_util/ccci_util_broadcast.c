@@ -197,6 +197,7 @@ void inject_md_status_event(int md_id, int event_type, char reason[])
 	}
 	spin_unlock_irqrestore(&s_event_update_lock, flag);
 }
+EXPORT_SYMBOL(inject_md_status_event);
 
 int get_lock_rst_user_cnt(int md_id)
 {

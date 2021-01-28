@@ -106,6 +106,7 @@ void ccci_md_add_log_history(struct ccci_hif_traffic *tinfo,
 		enum DIRECTION dir, int queue_index,
 		struct ccci_header *msg, int is_droped);
 
+#ifndef CCCI_KMODULE_ENABLE
 static inline void *ccci_hif_get_by_id(unsigned char hif_id)
 {
 	if (hif_id >= CCCI_HIF_NUM) {
@@ -115,6 +116,9 @@ static inline void *ccci_hif_get_by_id(unsigned char hif_id)
 	} else
 		return ccci_hif[hif_id];
 }
+#else
+extern void *ccci_hif_get_by_id(unsigned char hif_id);
+#endif
 
 static inline void ccci_hif_queue_status_notify(int md_id, int hif_id,
 	int qno, int dir, int state)
@@ -235,17 +239,7 @@ static inline unsigned int ccci_md_get_seq_num(
 	return traffic_info->seq_nums[dir][ch];
 }
 
-static inline void ccci_hif_register(unsigned char hif_id, void *hif_per_data,
-	struct ccci_hif_ops *ops)
-{
-	CCCI_NORMAL_LOG(0, CORE, "hif register: %d\n", hif_id);
-	CCCI_HISTORY_TAG_LOG(0, CORE,
-			"hif register: %d\n", hif_id);
-
-	if (hif_id < CCCI_HIF_NUM) {
-		ccci_hif[hif_id] = hif_per_data;
-		ccci_hif_op[hif_id] = ops;
-	}
-}
+extern void ccci_hif_register(unsigned char hif_id, void *hif_per_data,
+	struct ccci_hif_ops *ops);
 
 #endif

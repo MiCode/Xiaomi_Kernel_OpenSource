@@ -314,6 +314,7 @@ struct hif_dpmaif_ctrl {
 
 };
 
+#ifndef CCCI_KMODULE_ENABLE
 static inline int ccci_dpma_hif_send_skb(unsigned char hif_id, int tx_qno,
 	struct sk_buff *skb, int from_pool, int blocking)
 {
@@ -377,6 +378,33 @@ static inline int ccci_dpmaif_hif_set_wakeup_src(unsigned char hif_id,
 
 }
 
+#else
+
+#define ccci_write32(b, a, v)  \
+do { \
+	writel(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write16(b, a, v)  \
+do { \
+	writew(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write8(b, a, v)  \
+do { \
+	writeb(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
+#define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
+#define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
+#endif
 
 int ccci_dpmaif_hif_init(struct device *dev);
 int dpmaif_late_init(unsigned char hif_id);

@@ -1183,7 +1183,10 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 		/*init net device */
 		ccmni_dev_init(md_id, dev);
 		/*ccmni-lan packet displays correct in netlog */
+#ifndef CCCI_CCMNI_MODULE
+		/* just for KO: build pass; ccmni-lan closed in ccci. */
 		dev->header_ops = &eth_header_ops;
+#endif
 		/*ccmni-lan need handle ARP packet */
 		dev->flags = IFF_BROADCAST | IFF_MULTICAST;
 		sprintf(dev->name, "ccmni-lan");
@@ -1500,16 +1503,13 @@ static void ccmni_md_state_callback(int md_id, int ccmni_idx,
 			ccmni_idx, state);
 		return;
 	}
-
 	ccmni_tmp = ctlb->ccmni_inst[ccmni_idx];
 	dev = ccmni_tmp->dev;
 	ccmni = (struct ccmni_instance *)netdev_priv(dev);
-
 	if (atomic_read(&ccmni->usage) > 0)
 		CCMNI_DBG_MSG(md_id,
 			"md_state_cb: CCMNI%d, md_sta=%d, usage=%d\n",
 			ccmni_idx, state, atomic_read(&ccmni->usage));
-
 	switch (state) {
 	case READY:
 		/* Only do carrier on for ccmni-lan.
@@ -1645,3 +1645,8 @@ struct ccmni_dev_ops ccmni_ops = {
 	.get_ch = ccmni_get_ch,
 	.is_ack_skb = is_ack_skb,
 };
+EXPORT_SYMBOL(ccmni_ops);
+
+MODULE_AUTHOR("MTK CCCI");
+MODULE_DESCRIPTION("CCCI ccmni driver v0.1");
+MODULE_LICENSE("GPL");

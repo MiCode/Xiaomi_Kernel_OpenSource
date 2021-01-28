@@ -314,7 +314,7 @@ struct ccmni_ccci_ops eccci_ccmni_ops = {
 	.ccmni_num = 21,
 	.name = "ccmni",
 	.md_ability = MODEM_CAP_DATA_ACK_DVD | MODEM_CAP_CCMNI_MQ
-		| MODEM_CAP_DIRECT_TETHERING,
+		| MODEM_CAP_DIRECT_TETHERING, /* CCCI_KMODULE_ENABLE: todo */
 	.irat_md_id = -1,
 	.napi_poll_weigh = NAPI_POLL_WEIGHT,
 	.send_pkt = ccmni_send_pkt,
@@ -386,6 +386,14 @@ static int port_net_init(struct port_t *port)
 	}
 	return 0;
 }
+
+#ifdef CCCI_KMODULE_ENABLE
+int mbim_start_xmit(struct sk_buff *skb, int ifid)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+#endif
 
 static int port_net_recv_skb(struct port_t *port, struct sk_buff *skb)
 {

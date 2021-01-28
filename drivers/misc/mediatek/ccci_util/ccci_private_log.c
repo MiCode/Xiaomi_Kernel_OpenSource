@@ -498,6 +498,7 @@ int ccci_dump_write(int md_id, int buf_type,
 
 	return write_len;
 }
+EXPORT_SYMBOL(ccci_dump_write);
 
 static void format_separate_str(char str[], int type)
 {
@@ -914,6 +915,7 @@ void ccci_util_mem_dump(int md_id, int buf_type, void *start_addr, int len)
 				*(curr_p + 2), *(curr_p + 3));
 	}
 }
+EXPORT_SYMBOL(ccci_util_mem_dump);
 
 void ccci_util_cmpt_mem_dump(int md_id, int buf_type,
 	void *start_addr, int len)
@@ -1086,6 +1088,7 @@ int ccci_event_log(const char *fmt, ...)
 
 	return write_len;
 }
+EXPORT_SYMBOL(ccci_event_log);
 
 int ccci_event_log_cpy(char buf[], int size)
 {

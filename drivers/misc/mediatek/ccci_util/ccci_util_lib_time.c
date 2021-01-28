@@ -50,6 +50,7 @@ int wait_time_update_notify(void)
 
 	return ret;
 }
+EXPORT_SYMBOL(wait_time_update_notify);
 
 void notify_time_update(void)
 {

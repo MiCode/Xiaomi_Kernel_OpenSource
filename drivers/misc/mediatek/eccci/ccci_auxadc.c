@@ -21,6 +21,18 @@ static struct iio_channel *md_channel;
 static int adc_num;
 static int adc_val;
 
+#ifdef CCCI_KMODULE_ENABLE
+/*
+ * for debug log:
+ * 0 to disable; 1 for print to ram; 2 for print to uart
+ * other value to desiable all log
+ */
+#ifndef CCCI_LOG_LEVEL /* for platform override */
+#define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
+#endif
+unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
+#endif
+
 static int ccci_get_adc_info(struct device *dev)
 {
 	int ret, val;
@@ -50,7 +62,7 @@ static int ccci_get_adc_info(struct device *dev)
 	}
 
 	adc_val = val;
-	CCCI_NORMAL_LOG(0, TAG, "md_ch = %d, val = %d", adc_num, adc_val);
+	CCCI_NORMAL_LOG(0, TAG, "md_ch = %d, val = %d\n", adc_num, adc_val);
 	return ret;
 Fail:
 	return -1;
@@ -61,11 +73,13 @@ int ccci_get_adc_num(void)
 {
 	return adc_num;
 }
+EXPORT_SYMBOL(ccci_get_adc_num);
 
 int ccci_get_adc_val(void)
 {
 	return adc_val;
 }
+EXPORT_SYMBOL(ccci_get_adc_val);
 
 signed int battery_get_bat_voltage(void)
 {
@@ -94,6 +108,7 @@ BAT_Fail:
 	return -1;
 
 }
+EXPORT_SYMBOL(battery_get_bat_voltage);
 
 int get_auxadc_probe(struct platform_device *pdev)
 {

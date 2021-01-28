@@ -33,6 +33,7 @@
 #include <linux/clk.h>
 
 #include "ccci_config.h"
+#ifndef CCCI_KMODULE_ENABLE
 #include "ccci_core.h"
 #include "modem_sys.h"
 #include "ccci_bm.h"
@@ -44,12 +45,19 @@
 #include "modem_reg_base.h"
 #include "ccci_fsm.h"
 #include "ccci_port.h"
+#else
+#include "ccci_hif_dpmaif.h"
+#include "dpmaif_reg.h"
+#include "dpmaif_drv.h"
+#endif
 
+#ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM ccci
 
 #include <linux/tracepoint.h>
+#endif
 #endif
 
 #define UIDMASK 0x80000000
@@ -57,13 +65,31 @@
 
 struct hif_dpmaif_ctrl *dpmaif_ctrl;
 
+#ifdef CCCI_KMODULE_ENABLE
+/*
+ * for debug log:
+ * 0 to disable; 1 for print to ram; 2 for print to uart
+ * other value to desiable all log
+ */
+#ifndef CCCI_LOG_LEVEL /* for platform override */
+#define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
+#endif
+unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
+void __iomem *infra_ao_base;
+
+static inline struct device *ccci_md_get_dev_by_id(int md_id)
+{
+	return &dpmaif_ctrl->plat_dev->dev;
+}
+#endif
+
 /* =======================================================
  *
  * Descriptions: Debug part
  *
  * ========================================================
  */
-
+#ifndef CCCI_KMODULE_ENABLE
 #if defined(CCCI_SKB_TRACE)
 TRACE_EVENT(ccci_skb_rx,
 	TP_PROTO(unsigned long long *dl_delay),
@@ -85,7 +111,7 @@ TRACE_EVENT(ccci_skb_rx,
 		__entry->dl_delay[6], __entry->dl_delay[7])
 );
 #endif
-
+#endif
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
 	if (hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
@@ -327,8 +353,7 @@ static int dpmaif_dump_status(unsigned char hif_id,
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 static void dpmaif_clear_traffic_data(unsigned char hif_id)
 {
-	struct hif_dpmaif_ctrl *hif_ctrl =
-		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(hif_id);
+	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
 
 	memset(hif_ctrl->tx_traffic_monitor, 0,
 		sizeof(hif_ctrl->tx_traffic_monitor));
@@ -526,8 +551,10 @@ static int dpmaif_net_rx_push_thread(void *arg)
 	struct sk_buff *skb = NULL;
 	struct dpmaif_rx_queue *queue = (struct dpmaif_rx_queue *)arg;
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
+#ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(hif_ctrl->md_id);
+#endif
 #endif
 	int count = 0;
 	int ret;
@@ -548,19 +575,23 @@ static int dpmaif_net_rx_push_thread(void *arg)
 		skb = ccci_skb_dequeue(&queue->skb_list);
 		if (!skb)
 			continue;
-
+#ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock();
 		if (count > 0)
 			skb->tstamp = sched_clock();
 #endif
-		ccci_md_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb);
+#endif
+		ccci_port_recv_skb(hif_ctrl->md_id, hif_ctrl->hif_id, skb,
+			CLDMA_NET_DATA);
 		count++;
+#ifndef CCCI_KMODULE_ENABLE
 #ifdef CCCI_SKB_TRACE
 		per_md_data->netif_rx_profile[6] = sched_clock() -
 			per_md_data->netif_rx_profile[6];
 		per_md_data->netif_rx_profile[5] = count;
 		trace_ccci_skb_rx(per_md_data->netif_rx_profile);
+#endif
 #endif
 	}
 	return 0;
@@ -1446,8 +1477,7 @@ static void dpmaif_rxq0_work(struct work_struct *work)
 {
 	struct dpmaif_rx_queue *rxq =
 		container_of(work, struct dpmaif_rx_queue, dpmaif_rxq0_work);
-	struct hif_dpmaif_ctrl *hif_ctrl =
-		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(DPMAIF_HIF_ID);
+	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
 	int ret;
 
 	atomic_set(&rxq->rx_processing, 1);
@@ -3261,6 +3291,23 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		ret = -3;
 		goto DPMAIF_INIT_FAIL;
 	}
+#ifdef CCCI_KMODULE_ENABLE
+	/* Get infra cfg ao base */
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,mt6779-infracfg_ao");
+	if (!node) {
+		CCCI_ERROR_LOG(-1, TAG, "No infra_ao node in dtsi\n");
+		ret = -3;
+		goto DPMAIF_INIT_FAIL;
+	}
+	infra_ao_base = of_iomap(node, 0);
+	if (!infra_ao_base) {
+		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
+		ret = -4;
+		goto DPMAIF_INIT_FAIL;
+	}
+#endif
+
 	node = dev->of_node;
 	if (!node) {
 		CCCI_ERROR_LOG(-1, TAG, "No dpmaif driver in dtsi\n");
@@ -3355,7 +3402,7 @@ int ccci_hif_dpmaif_probe(struct platform_device *pdev)
 		CCCI_ERROR_LOG(-1, TAG, "ccci dpmaif init fail");
 		return ret;
 	}
-	dpmaif_ctrl->plat_dev = pdev; /* maybe no need */
+	dpmaif_ctrl->plat_dev = pdev;
 	return 0;
 }
 

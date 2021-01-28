@@ -231,6 +231,7 @@ void fsm_scp_init0(void)
 	ccci_skb_queue_init(&scp_ipi_rx_skb_list, 16, 16, 0);
 	atomic_set(&scp_state, SCP_CCCI_STATE_BOOTING);
 }
+EXPORT_SYMBOL(fsm_scp_init0);
 #endif
 
 int fsm_scp_init(struct ccci_fsm_scp *scp_ctl)

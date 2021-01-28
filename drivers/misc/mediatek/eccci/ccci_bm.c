@@ -275,6 +275,7 @@ struct sk_buff *ccci_skb_dequeue(struct ccci_skb_queue *queue)
 
 	return result;
 }
+EXPORT_SYMBOL(ccci_skb_dequeue);
 
 void ccci_skb_enqueue(struct ccci_skb_queue *queue, struct sk_buff *newsk)
 {
@@ -324,6 +325,7 @@ void ccci_skb_queue_init(struct ccci_skb_queue *queue, unsigned int skb_size,
 	}
 	queue->max_history = 0;
 }
+EXPORT_SYMBOL(ccci_skb_queue_init);
 
 /* may return NULL, caller should check, network should always use blocking
  * as we do not want it consume our own pool
@@ -426,6 +428,7 @@ void ccci_free_skb(struct sk_buff *skb)
 		break;
 	};
 }
+EXPORT_SYMBOL(ccci_free_skb);
 
 void ccci_dump_skb_pool_usage(int md_id)
 {

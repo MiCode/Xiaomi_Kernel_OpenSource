@@ -238,6 +238,7 @@ void ccci_md_add_log_history(struct ccci_hif_traffic *tinfo,
 	}
 #endif
 }
+EXPORT_SYMBOL(ccci_md_add_log_history);
 
 void ccci_md_dump_log_history(unsigned char md_id,
 	struct ccci_hif_traffic *tinfo, int dump_multi_rec,
@@ -285,6 +286,7 @@ void ccci_md_dump_log_history(unsigned char md_id,
 		}
 #endif
 }
+EXPORT_SYMBOL(ccci_md_dump_log_history);
 
 void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage)
 {
@@ -356,3 +358,29 @@ void ccci_hif_resume(unsigned char md_id, unsigned int hif_flag)
 void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag)
 {
 }
+
+void ccci_hif_register(unsigned char hif_id, void *hif_per_data,
+	struct ccci_hif_ops *ops)
+{
+	CCCI_NORMAL_LOG(0, CORE, "hif register: %d\n", hif_id);
+	CCCI_HISTORY_TAG_LOG(0, CORE,
+			"hif register: %d\n", hif_id);
+
+	if (hif_id < CCCI_HIF_NUM) {
+		ccci_hif[hif_id] = hif_per_data;
+		ccci_hif_op[hif_id] = ops;
+	}
+}
+EXPORT_SYMBOL(ccci_hif_register);
+
+#ifdef CCCI_KMODULE_ENABLE
+void *ccci_hif_get_by_id(unsigned char hif_id)
+{
+	if (hif_id >= CCCI_HIF_NUM) {
+		CCCI_ERROR_LOG(-1, CORE,
+		"%s  hif_id = %u\n", __func__, hif_id);
+		return NULL;
+	} else
+		return ccci_hif[hif_id];
+}
+#endif

@@ -20,6 +20,17 @@
 
 static int g_ccci_rtc_val;
 
+#ifdef CCCI_KMODULE_ENABLE
+/*
+ * for debug log:
+ * 0 to disable; 1 for print to ram; 2 for print to uart
+ * other value to desiable all log
+ */
+#ifndef CCCI_LOG_LEVEL /* for platform override */
+#define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
+#endif
+unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
+#endif
 
 int mtk_crystal_exist_status(void)
 {
@@ -28,6 +39,7 @@ int mtk_crystal_exist_status(void)
 
 	return g_ccci_rtc_val;
 }
+EXPORT_SYMBOL(mtk_crystal_exist_status);
 
 static int ccci_get_rtc_info(struct platform_device *pdev)
 {
@@ -50,7 +62,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 	nvmem_cell_put(cell);
 
 	if (IS_ERR(buf)) {
-		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_read fail: %zu",
+		CCCI_ERROR_LOG(-1, TAG, "[%s] nvmem_cell_read fail: %zu\n",
 				__func__, PTR_ERR(buf));
 		goto fail;
 	}
@@ -59,7 +71,7 @@ static int ccci_get_rtc_info(struct platform_device *pdev)
 
 	kfree(buf);
 
-	CCCI_NORMAL_LOG(-1, TAG, "[%s] g_ccci_rtc_val = %d; len = %zu",
+	CCCI_NORMAL_LOG(-1, TAG, "[%s] g_ccci_rtc_val = %d; len = %zu\n",
 			__func__, g_ccci_rtc_val, len);
 
 	return 0;

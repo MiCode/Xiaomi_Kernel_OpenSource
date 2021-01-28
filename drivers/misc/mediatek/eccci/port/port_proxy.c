@@ -1457,6 +1457,7 @@ void ccci_port_queue_status_notify(int md_id, int hif_id, int qno,
 	proxy_dispatch_queue_status(proxy_p, hif_id, qno,
 		dir, (unsigned int)state);
 }
+EXPORT_SYMBOL(ccci_port_queue_status_notify);
 
 /*
  * This API is called by HIF,
@@ -1471,6 +1472,7 @@ int ccci_port_recv_skb(int md_id, int hif_id, struct sk_buff *skb,
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_dispatch_recv_skb(proxy_p, hif_id, skb, flag);
 }
+EXPORT_SYMBOL(ccci_port_recv_skb);
 
 /*
  * This API is called by ccci fsm,

@@ -299,7 +299,6 @@ struct md_check_header_v6 {
 #define MD_LWG_FLAG (MD_LTE_FLAG|MD_FDD_FLAG|MD_2G_FLAG)
 #define MD_LTG_FLAG (MD_LTE_FLAG|MD_TDD_FLAG|MD_2G_FLAG)
 
-extern char *ccci_get_ap_platform(void);
 extern int ccci_common_sysfs_init(void);
 extern void ccci_log_init(void);
 extern int __init ccci_util_fo_init(void);

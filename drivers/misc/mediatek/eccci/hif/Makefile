@@ -13,38 +13,26 @@
 
 ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
 
-ifndef MTK_PLATFORM
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/mt6779/
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/mt6779/
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6779/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include/
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/mt6779/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 
+
 # hif objects
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci_hif_all.o
-ccci_hif_all-y := ccci_hif.o
-ccci_hif_all-y += ccci_hif_cldma.o
-ccci_hif_all-y += ccci_hif_dpmaif.o
-ccci_hif_all-y += dpmaif_drv.o
+ccci_hif_all-y := ccci_hif.o \
+		ccci_hif_cldma.o \
+		ccci_hif_dpmaif.o dpmaif_drv.o
 
 ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
 ccci_hif_all-y += ccci_ringbuf.o ccci_hif_ccif.o
 endif
 
-
 endif
-
-
-
 

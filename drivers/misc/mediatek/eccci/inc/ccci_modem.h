@@ -424,5 +424,6 @@ struct ccci_runtime_feature *ccci_md_get_rt_feature_by_id(unsigned char md_id,
 
 int ccci_md_parse_rt_feature(unsigned char md_id,
 	struct ccci_runtime_feature *rt_feature, void *data, u32 data_len);
+extern int ccci_register_dev_node(const char *name, int major_id, int minor);
 
 #endif

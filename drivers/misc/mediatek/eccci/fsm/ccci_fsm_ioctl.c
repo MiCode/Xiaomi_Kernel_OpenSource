@@ -16,6 +16,20 @@ signed int __weak battery_get_bat_voltage(void)
 	return 0;
 }
 
+#ifdef CCCI_KMODULE_ENABLE
+int switch_sim_mode(int id, char *buf, unsigned int len)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+
+unsigned int get_sim_switch_type(void)
+{
+	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
+	return 0;
+}
+#endif
+
 static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0, retry;

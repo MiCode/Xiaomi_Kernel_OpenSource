@@ -43,6 +43,7 @@ clean-files += $(patsubst $(obj)/%,%,$(wildcard auth/*.o))
 endif
 endif
 
+
 ifeq ($(CONFIG_MTK_SECURITY_SW_SUPPORT), y)
 ifeq ($(CONFIG_CUSTOM_SEC_AUTH_SUPPORT), y)
 CCCI_CUSTOM_DRIVER_DIR := $(MTK_PATH_CUSTOM)/$(call lc,$(MTK_PROJECT))/kernel/ccci
@@ -61,9 +62,7 @@ endif
 obj-$(CONFIG_MTK_ECCCI_DRIVER) := ccci_plat_all.o
 
 # platform dependent parts
-ccci_plat_all-y := ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj)
-ccci_plat_all-y += ap_md_reg_dump.o
-ccci_plat_all-y += md_sys1_platform.o
-
-
+ccci_plat_all-y := ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj) \
+		ap_md_reg_dump.o \
+		md_sys1_platform.o
 endif
