@@ -855,6 +855,11 @@ static ssize_t nvt_flash_read(struct file *file, char __user *buff,
 		return -EFAULT;
 	}
 
+	if (str[1] > (sizeof(str) - 2) || str[1] < 1) {
+		NVT_ERR("i2c transfer lens invalid\n");
+		return -EFAULT;
+	}
+
 	i2c_wr = str[0] >> 7;
 
 	if (i2c_wr == 0) {	//I2C write

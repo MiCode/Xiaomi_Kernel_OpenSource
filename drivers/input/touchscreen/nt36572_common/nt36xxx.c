@@ -722,6 +722,11 @@ static ssize_t nvt_flash_read(struct file *file, char __user *buff, size_t count
 		return -EFAULT;
 	}
 
+	if (str[1] > (sizeof(str) - 2) || str[1] < 1) {
+		NVT_ERR("i2c transfer lens invalid\n");
+		return -EFAULT;
+	}
+
 #if NVT_TOUCH_ESD_PROTECT
 	/*
 	 * stop esd check work to avoid case that 0x77 report righ after here to enable esd check again
