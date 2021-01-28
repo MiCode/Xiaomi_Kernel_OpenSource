@@ -50,7 +50,7 @@ static uint8_t power_info_force_print;
 
 bool apusys_power_check(void)
 {
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6885)
 	char *pwr_ptr;
 	bool pwr_status = true;
 
