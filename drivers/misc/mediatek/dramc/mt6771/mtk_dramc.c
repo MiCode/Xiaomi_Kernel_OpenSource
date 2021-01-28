@@ -85,13 +85,11 @@ struct dram_info *g_dram_info_dummy_read, *get_dram_info;
 struct dram_info dram_info_dummy_read;
 
 static unsigned int cbt_mode_rank[2];
-#ifdef TRIGGER_DB
 #define DRAMC_RSV_TAG "[DRAMC_RSV]"
 #define dramc_rsv_aee_warn(string, args...) do {\
 	pr_err("[ERR]"string, ##args); \
 	aee_kernel_warning(DRAMC_RSV_TAG, "[ERR]"string, ##args);  \
 } while (0)
-#endif
 __weak void *mt_spm_base_get(void)
 {
 	return 0;
@@ -164,10 +162,8 @@ const char *uname, int depth, void *data)
 			if (dram_rank1_addr == 0 &&
 			dram_dummy_read_fixup() != 0) {
 				No_DummyRead = 1;
-#ifdef TRIGGER_DB
 				dramc_rsv_aee_warn(
 					"dram dummy read reserve fail on rank1\n");
-#endif
 			}
 
 			dram_info_dummy_read.rank_info[0].start =
@@ -1427,7 +1423,7 @@ RESERVEDMEM_OF_DECLARE(dram_reserve_r1_dummy_read_init,
 DRAM_R1_DUMMY_READ_RESERVED_KEY,
 			dram_dummy_read_reserve_mem_of_init);
 #endif
-#ifdef INTERFACE_MEM_TEST
+
 static ssize_t complex_mem_test_show(struct device_driver *driver, char *buf)
 {
 	int ret;
@@ -1445,8 +1441,7 @@ const char *buf, size_t count)
 	/*snprintf(buf, "do nothing\n");*/
 	return count;
 }
-#endif
-#ifdef INTERFACE_READ_DRAM_DATA_RATE
+
 static ssize_t read_dram_data_rate_show(struct device_driver *driver, char *buf)
 {
 	return snprintf(buf, PAGE_SIZE, "DRAM data rate = %d\n",
@@ -1458,7 +1453,7 @@ const char *buf, size_t count)
 {
 	return count;
 }
-#endif
+
 #ifdef INTERFACE_READ_MR4
 static ssize_t read_mr4_show(struct device_driver *driver, char *buf)
 {
@@ -1530,20 +1525,13 @@ const char *buf, size_t count)
 	return count;
 }
 #endif
-#ifdef INTERFACE_MEM_TEST
-DRIVER_ATTR(emi_clk_mem_test, 0664,
-complex_mem_test_show, complex_mem_test_store);
-#endif
-#ifdef INTERFACE_READ_DRAM_DATA_RATE
-DRIVER_ATTR(read_dram_data_rate, 0664,
-read_dram_data_rate_show, read_dram_data_rate_store);
-#endif
+
+static DRIVER_ATTR_RW(complex_mem_test);
+static DRIVER_ATTR_RW(read_dram_data_rate);
 #ifdef INTERFACE_READ_MR4
-DRIVER_ATTR(read_mr4, 0664,
-read_mr4_show, read_mr4_store);
+static DRIVER_ATTR_RW(read_mr4);
 #endif
 
-/*DRIVER_ATTR(dram_dfs, 0664, dram_dfs_show, dram_dfs_store);*/
 static struct timer_list zqcs_timer;
 static unsigned char low_freq_counter;
 DEFINE_SPINLOCK(sw_zq_tx_lock);
@@ -1943,22 +1931,19 @@ static int dram_probe(struct platform_device *pdev)
 			pr_info("[DRAMC Driver] Error in ZQCS mod_timer\n");
 	}
 
-#ifdef INTERFACE_MEM_TEST
 	ret = driver_create_file(pdev->dev.driver,
-	&driver_attr_emi_clk_mem_test);
+	&driver_attr_complex_mem_test);
 	if (ret) {
-		pr_warn("fail to create the emi_clk_mem_test sysfs files\n");
+		pr_warn("fail to create the complex_mem_test sysfs files\n");
 		return ret;
 	}
-#endif
-#ifdef INTERFACE_READ_DRAM_DATA_RATE
+
 	ret = driver_create_file(pdev->dev.driver,
 	&driver_attr_read_dram_data_rate);
 	if (ret) {
 		pr_warn("fail to create the read dram data rate sysfs files\n");
 		return ret;
 	}
-#endif
 #ifdef INTERFACE_READ_MR4
 	ret = driver_create_file(pdev->dev.driver,
 	&driver_attr_read_mr4);
