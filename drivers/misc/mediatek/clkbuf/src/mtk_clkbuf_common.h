@@ -56,6 +56,10 @@ static struct kobj_attribute _name##_attr = {	\
 #define __ATTR_OF(_name)	(&_name##_attr.attr)
 #endif /* CONFIG_PM */
 
+#define NOT_VALID		0xffff
+
+/* #define CLKBUF_DEBUG */
+
 extern struct mutex clk_buf_ctrl_lock;
 
 #endif

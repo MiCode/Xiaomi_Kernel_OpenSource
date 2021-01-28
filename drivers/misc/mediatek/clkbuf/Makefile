@@ -22,6 +22,7 @@ ifneq (,$(filter y m, $(CONFIG_MTK_CLK_BUFFER)))
     obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf.o
 
     clkbuf-$(CONFIG_MTK_CLK_BUFFER) += mtk-clkbuf-bridge.o \
+		src/mtk-clkbuf-pmic.o \
                 src/mtk-clkbuf-ctl.o \
 		src/mtk-clkbuf-hw.o
 

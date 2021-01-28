@@ -39,6 +39,14 @@ enum MTK_CLK_BUF_CONTROLS_FOR_DESENSE {
 	CLK_BUF_CONTROLS_FOR_DESENSE_7,
 };
 
+enum MTK_CLK_BUF_DRIVING_CURR {
+	CLK_BUF_DRIVING_CURR_AUTO_K = -1,
+	CLK_BUF_DRIVING_CURR_0,
+	CLK_BUF_DRIVING_CURR_1,
+	CLK_BUF_DRIVING_CURR_2,
+	CLK_BUF_DRIVING_CURR_3
+};
+
 enum cmd_type {
 	CLK_BUF_OFF,
 	CLK_BUF_ON,
@@ -64,6 +72,7 @@ enum {
 enum reg_type {
 	PMIC_R = 0,
 	PWRAP_R,
+	SPM,
 	REGMAP_NUM,
 };
 
@@ -87,21 +96,21 @@ enum dts_arg {
 
 	MISC_START = BBLPM_END,
 	MISC_SRCLKENI_EN = MISC_START,
-	MISC_DRV_CURR,
+	//MISC_DRV_CURR,
 	MISC_END,
 
-	AUXOUT_START = MISC_END,
-	AUXOUT_SEL = AUXOUT_START,
-	AUXOUT_XO_SOC_WCN_EN,
-	AUXOUT_XO_NFC_CEL_EN,
-	AUXOUT_XO_PD_EN,
-	AUXOUT_XO_EXT_EN,
-	AUXOUT_BBLPM_EN,
-	AUXOUT_XO_SOC_WCN_CURR,
-	AUXOUT_XO_NFC_CEL_CURR,
-	AUXOUT_XO_PD_EXT_CURR,
-	AUXOUT_END,
-	DCXO_END = AUXOUT_END,
+	//AUXOUT_START = MISC_END,
+	//AUXOUT_SEL = AUXOUT_START,
+	//AUXOUT_XO_SOC_WCN_EN,
+	//AUXOUT_XO_NFC_CEL_EN,
+	//AUXOUT_XO_PD_EN,
+	//AUXOUT_XO_EXT_EN,
+	//AUXOUT_BBLPM_EN,
+	//AUXOUT_XO_SOC_WCN_CURR,
+	//AUXOUT_XO_NFC_CEL_CURR,
+	//AUXOUT_XO_PD_EXT_CURR,
+	//AUXOUT_END,
+	DCXO_END = MISC_END,
 
 	PWRAP_START = DCXO_END,
 	PWRAP_DCXO_EN = PWRAP_START,
@@ -113,7 +122,12 @@ enum dts_arg {
 
 	GPIO_START = PWRAP_END,
 	GPIO_END = GPIO_START,
-	DTS_NUM = GPIO_END,
+
+	SPM_START = GPIO_END,
+	SPM_MD_PWR_STA = SPM_START,
+	SPM_CONN_PWR_STA,
+	SPM_END,
+	DTS_NUM = SPM_END,
 };
 
 struct dts_predef {
@@ -141,11 +155,12 @@ struct clk_buf_op {
 	bool		(*get_clkbuf_init_sta)(void);
 	bool		(*get_flight_mode)(void);
 	int		(*get_xo_sta)(enum xo_id id);
+	void		(*get_bblpm_enter_cond)(u32 *bblpm_cond);
 	int		(*get_bblpm_sta)(void);
 	/* dump log */
 	void		(*get_main_log)(void);
-	char *		(*get_dws_log)(void);
-	char *		(*get_misc_log)(void);
+	int		(*get_dws_log)(char *buf);
+	int		(*get_misc_log)(char *buf);
 	/* set state */
 	void		(*set_bringup_sta)(bool on);
 	void		(*set_clkbuf_init_sta)(bool on);

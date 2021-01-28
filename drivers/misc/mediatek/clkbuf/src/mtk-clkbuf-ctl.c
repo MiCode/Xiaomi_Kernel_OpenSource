@@ -98,6 +98,15 @@ u8 clk_buf_get_xo_ctrl(enum xo_id id)
 	return CLK_BUF_NOT_SUPPORT;
 }
 
+int clk_buf_get_bblpm_enter_cond(u32 *bblpm_cond)
+{
+	if (_clk_buf_check()) {
+		clk_buf_core->ops->get_bblpm_enter_cond(bblpm_cond);
+		return CLK_BUF_OK;
+	}
+	return CLK_BUF_NOT_SUPPORT;
+}
+
 int mtk_register_clk_buf(struct device *dev, struct clk_buf_op *ops)
 {
 	struct clk_buf_bridge pbridge;
@@ -118,6 +127,7 @@ int mtk_register_clk_buf(struct device *dev, struct clk_buf_op *ops)
 	clk_buf_core->name = dev->driver->name;
 
 	pbridge.get_xo_ctrl_cb = clk_buf_get_xo_ctrl;
+	pbridge.get_bblpm_enter_cond_cb = clk_buf_get_bblpm_enter_cond;
 	pbridge.set_bblpm_cb = clk_buf_set_bblpm;
 	pbridge.set_flight_mode_cb = clk_buf_set_flight_mode;
 	pbridge.set_xo_ctrl_cb = clk_buf_set_xo_ctrl;
