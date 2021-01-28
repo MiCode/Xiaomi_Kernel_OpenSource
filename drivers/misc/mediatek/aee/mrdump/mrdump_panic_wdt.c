@@ -388,7 +388,6 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 			cpu_relax();
 	}
 
-	show_kaslr();
 	/* Wait for other cpu dump */
 	mdelay(1000);
 
