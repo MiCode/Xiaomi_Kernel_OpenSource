@@ -1119,7 +1119,7 @@ void AudDrv_APLL2Tuner_Clk_On(void)
 #else
 		Afe_Set_Reg(AUDIO_TOP_CON0, 0x0 << 18, 0x1 << 18);
 #endif
-		SetApmixedCfg(AP_PLL_CON3, 0x0, 0x1);
+		SetApmixedCfg(AP_PLL_CON3, 0x1, 0x1);
 	}
 	Aud_APLL2_Tuner_cntr++;
 EXIT:
