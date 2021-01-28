@@ -2149,7 +2149,7 @@ MTK_M4U_COMPAT_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
  ************************************************************/
 int m4u_mva_map_kernel(unsigned int mva,
 	unsigned long size, unsigned long *map_va,
-	unsigned long *map_size)
+	unsigned int *map_size)
 {
 	struct m4u_buf_info_t *pMvaInfo;
 	struct sg_table *table;
@@ -2223,7 +2223,7 @@ get_pages_done:
 	kernel_va += ((unsigned long)mva & (M4U_PAGE_MASK));
 
 	*map_va = (unsigned long)kernel_va;
-	*map_size = size;
+	*map_size = (unsigned int)size;
 
 error_out:
 	vfree(pages);
