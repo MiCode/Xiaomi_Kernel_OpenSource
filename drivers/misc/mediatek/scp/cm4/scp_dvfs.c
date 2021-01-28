@@ -110,6 +110,10 @@ static int scp_get_sub_feature_idx(enum subsys_enum sys_e,
 {
 	int i;
 
+	if ((sys_e < 0 || sys_e >= SYS_NUM)
+			&& (comp_e < 0 || comp_e >= SUB_FEATURE_NUM))
+		return -EINVAL;
+
 	for (i = 0; i < sd[sys_e].num; i++) {
 		if (!strcmp(sd[sys_e].fd[i].name,
 				sub_feature_name[comp_e]))
@@ -940,7 +944,9 @@ static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
 	if (!buf)
 		return -ENOMEM;
 
-	snprintf(buf, 25, "%s-reg", fd->name);
+	ret = snprintf(buf, 25, "%s-reg", fd->name);
+	if (ret < 0 || ret >= 25)
+		goto fail_1;
 
 	fd->num = of_property_count_u32_elems(node, buf) / 4;
 	if (fd->num <= 0)
@@ -982,7 +988,10 @@ static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
 
 	fd->reg = reg;
 
-	snprintf(buf, 25, "%s-cfg", fd->name);
+	ret = snprintf(buf, 25, "%s-cfg", fd->name);
+	if (ret < 0 || ret >= 25)
+		goto fail_2;
+
 	cfg_num = of_property_count_u32_elems(node, buf) / 2;
 	if (cfg_num != fd->num) {
 		pr_notice("cfg number is not matched(%d)\n", cfg_num);
@@ -1039,10 +1048,9 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 
 	/* init  feature data struct */
 	sys->num = of_property_count_strings(node, str);
-	if (sys->num <= 0) {
-		kfree(fd);
+	if (sys->num <= 0)
 		goto pass;
-	}
+
 	/* init feature data structure */
 	fd = kcalloc(sys->num, sizeof(*fd), GFP_KERNEL);
 	buf = kzalloc(sizeof(char) * 25, GFP_KERNEL);
@@ -1052,12 +1060,7 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 	}
 
 	for (i = 0; i < sys->num; i++) {
-		const char *name = kzalloc(sizeof(char) * 20, GFP_KERNEL);
-
-		if (!name) {
-			ret = -ENOMEM;
-			goto fail_2;
-		}
+		const char *name;
 
 		ret = of_property_read_string_index(node, str, i,
 				&name);
@@ -1076,7 +1079,10 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 		}
 
 		/* init feature cfg */
-		snprintf(buf, 25, "%s-cfg", str);
+		ret = snprintf(buf, 25, "%s-cfg", str);
+		if (ret < 0 || ret >= 25)
+			goto fail_2;
+
 		ret = of_property_read_u32_index(node, buf, i,
 				&fd[i].onoff);
 		if (ret) {
@@ -1086,9 +1092,9 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 	}
 
 	sys->fd = fd;
-pass:
-	kfree(buf);
 
+	kfree(buf);
+pass:
 	return 0;
 fail_2:
 	for (j = i - 1; j >= 0; j--)
@@ -1203,7 +1209,10 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 	/* init gpio/pmic feature data */
 	for (i = 0; i < SYS_NUM; i++) {
-		snprintf(buf, 15, "%s-feature", subsys_name[i]);
+		ret = snprintf(buf, 15, "%s-feature", subsys_name[i]);
+		if (ret < 0 || ret >= 15)
+			goto fail;
+
 		ret = mt_scp_sub_feature_init(node, &sd[i], buf);
 		if (ret)
 			goto fail;
@@ -1225,7 +1234,10 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 	/* scp_sel has most 8 member of clk source */
 	for (i = 0; i < 8; i++) {
-		snprintf(buf, 15, "clk_pll_%d", i);
+		ret = snprintf(buf, 15, "clk_pll_%d", i);
+		if (ret < 0 || ret >= 15)
+			goto fail;
+
 		mt_scp_pll->clk_pll[i] = devm_clk_get(&pdev->dev, buf);
 		if (IS_ERR(mt_scp_pll->clk_pll[i])) {
 			dev_notice(&pdev->dev,
@@ -1238,21 +1250,17 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 	/* check if GPIO is configured correctly for SCP VREQ */
 	if (scp_get_sub_feature_onoff(SYS_GPIO, GPIO_MODE)) {
-		gpio_mode = kzalloc(sizeof(int), GFP_KERNEL);
-		if (!gpio_mode) {
-			ret = -ENOMEM;
-			goto fail;
-		}
-
 		gpio_mode = scp_get_sub_register_cfg(SYS_GPIO, GPIO_MODE);
 
 		if (*gpio_mode == 1)
-			pr_debug("v_req muxpin setting is correct\n");
+			pr_notice("v_req muxpin setting is correct\n");
 		else {
 			pr_notice("wrong V_REQ muxpin setting - %d\n",
 					*gpio_mode);
 			WARN_ON(1);
 		}
+
+		kfree(gpio_mode);
 	}
 
 	/* get each dvfs opp data from dts node */

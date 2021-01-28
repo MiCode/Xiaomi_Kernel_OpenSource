@@ -54,7 +54,7 @@ static void mtk_clk_mux_disable_setclr(struct clk_hw *hw)
 static int mtk_clk_mux_is_enabled(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
-	u32 val;
+	u32 val = 0;
 
 	regmap_read(mux->regmap, mux->data->mux_ofs, &val);
 
@@ -65,7 +65,7 @@ static u8 mtk_clk_mux_get_parent(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
-	u32 val;
+	u32 val = 0;
 
 	regmap_read(mux->regmap, mux->data->mux_ofs, &val);
 	val = (val >> mux->data->mux_shift) & mask;
@@ -99,7 +99,7 @@ static int mtk_clk_mux_set_parent_setclr_lock(struct clk_hw *hw, u8 index)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 mask = GENMASK(mux->data->mux_width - 1, 0);
-	u32 val, orig;
+	u32 val = 0, orig = 0;
 	unsigned long flags = 0;
 
 	if (mux->lock)

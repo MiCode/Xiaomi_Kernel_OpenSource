@@ -492,6 +492,9 @@ static void ram_console_update(void)
 	static int k;
 	static bool print_once = true;
 
+	if (DBG_ID < 0 || DBG_ID >= DBG_ID_NUM)
+		return;
+
 	data[i] = ((DBG_ID << 24) & ID_MADK)
 		| ((DBG_STA << 20) & STA_MASK)
 		| (DBG_STEP & STEP_MASK);
@@ -2391,7 +2394,10 @@ static int subsys_is_on(enum subsys_id id)
 	int r;
 	struct subsys *sys = id_to_sys(id);
 
-	WARN_ON(!sys);
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 	r = sys->ops->get_state(sys);
 
@@ -2423,7 +2429,10 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
-	WARN_ON(!sys);
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 	if (!mtk_is_mtcmos_enable()) {
 #if MT_CCF_DEBUG
@@ -2460,10 +2469,17 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	mtk_clk_lock(flags);
 
-	if (action == MTCMOS_BUS_PROT)
-		r = sys->ops->prepare(sys);
-	else if (action == MTCMOS_PWR)
-		r = sys->ops->enable(sys);
+	if (action == MTCMOS_BUS_PROT) {
+		if (sys->ops->prepare)
+			r = sys->ops->prepare(sys);
+		else
+			pr_notice("%s: prepare function is NULL\n", __func__);
+	} else if (action == MTCMOS_PWR) {
+		if (sys->ops->enable)
+			r = sys->ops->enable(sys);
+		else
+			pr_notice("%s: enable function is NULL\n", __func__);
+	}
 
 	WARN_ON(r);
 
@@ -2486,7 +2502,10 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
-	WARN_ON(!sys);
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
 
 	if (!mtk_is_mtcmos_enable()) {
 #if MT_CCF_DEBUG
@@ -2532,10 +2551,17 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 
 	mtk_clk_lock(flags);
 
-	if (action == MTCMOS_BUS_PROT)
-		r = sys->ops->unprepare(sys);
-	else if (action == MTCMOS_PWR)
-		r = sys->ops->disable(sys);
+	if (action == MTCMOS_BUS_PROT) {
+		if (sys->ops->unprepare)
+			r = sys->ops->unprepare(sys);
+		else
+			pr_notice("%s: unprepare function is NULL\n", __func__);
+	} else if (action == MTCMOS_PWR) {
+		if (sys->ops->disable)
+			r = sys->ops->disable(sys);
+		else
+			pr_notice("%s: disable function is NULL\n", __func__);
+	}
 
 	WARN_ON(r);
 
@@ -2583,6 +2609,11 @@ static int pg_prepare(struct clk_hw *hw)
 	int ret = 0;
 	int i = 0;
 
+	if (!sys) {
+		WARN_ON(!sys);
+		return -EINVAL;
+	}
+
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
 	if (sys->ops->get_state(sys) == SUBSYS_PWR_ON)
@@ -2626,10 +2657,11 @@ static int pg_prepare(struct clk_hw *hw)
 #endif				/* MT_CCF_DEBUG */
 	}
 
-	if (!skip_pg && sys->ops->prepare)
+	if (!skip_pg) {
 		ret = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
 		if (ret)
 			goto fail;
+	}
 
 fail:
 	mtk_mtcmos_unlock(flags);
@@ -2642,15 +2674,24 @@ static void pg_unprepare(struct clk_hw *hw)
 	struct subsys *sys =  id_to_sys(pg->pd_id);
 	unsigned long flags;
 	int skip_pg = 0;
+	int ret = 0;
 	int i = 0;
+
+	if (!sys) {
+		WARN_ON(!sys);
+		return;
+	}
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
 	if (sys->ops->get_state(sys) == SUBSYS_PWR_DOWN)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
-	if (!skip_pg && sys->ops->unprepare)
-		disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
+	if (!skip_pg) {
+		ret = disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
+		if (ret)
+			return;
+	}
 
 	for (i = 0; i < pg->sub_clk_num; i++) {
 		if (pg->subsys_clks[i] == NULL)
@@ -2799,13 +2840,15 @@ static int init_subsys_clks(struct platform_device *pdev,
 {
 	struct device_node *node = pdev->dev.of_node;
 	struct property *prop;
-	const char *prefix = clk_names[clk_id];
 	const char *clk_name;
+	const char *prefix;
 	u32 prefix_len;
 	u32 clk_cnt = 0;
 
-	if (clk_id == CLK_NONE)
+	if (clk_id <= CLK_NONE || clk_id >= CLK_MAX)
 		return clk_cnt;
+
+	prefix = clk_names[clk_id];
 
 	if (!node) {
 		dev_err(&pdev->dev, "Cannot find scpsys node: %ld\n",
@@ -2867,7 +2910,7 @@ static int init_clks(struct platform_device *pdev, struct clk **clk)
 static int init_clk_scpsys(struct platform_device *pdev,
 		struct clk_onecell_data *clk_data)
 {
-	struct clk *clk[CLK_MAX];
+	struct clk *clk[CLK_MAX] = {NULL};
 	struct clk *ret_clk;
 	int clk_num;
 	int ret = 0;
