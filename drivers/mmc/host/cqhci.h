@@ -303,5 +303,7 @@ int cqhci_init(struct cqhci_host *cq_host, struct mmc_host *mmc, bool dma64);
 struct cqhci_host *cqhci_pltfm_init(struct platform_device *pdev);
 int cqhci_suspend(struct mmc_host *mmc);
 int cqhci_resume(struct mmc_host *mmc);
+void msdc_gate_clock(struct mmc_host *mmc);
+void msdc_ungate_clock(struct mmc_host *mmc);
 
 #endif

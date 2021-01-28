@@ -750,7 +750,7 @@ static void msdc_set_busy_timeout(struct msdc_host *host, u64 ns, u64 clks)
 		(u32)(timeout > 8191 ? 8191 : timeout));
 }
 
-static void msdc_gate_clock(struct mmc_host *mmc)
+void msdc_gate_clock(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 
@@ -765,7 +765,7 @@ static void msdc_gate_clock(struct mmc_host *mmc)
 	clk_disable_unprepare(host->h_clk);
 }
 
-static void msdc_ungate_clock(struct mmc_host *mmc)
+void msdc_ungate_clock(struct mmc_host *mmc)
 {
 	struct msdc_host *host = mmc_priv(mmc);
 

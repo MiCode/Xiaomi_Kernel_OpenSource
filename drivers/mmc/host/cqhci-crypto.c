@@ -30,6 +30,7 @@ static void cqhci_crypto_program_key(struct cqhci_host *host,
 	u32 slot_offset = host->crypto_cfg_register + slot * sizeof(*cfg);
 	int i;
 
+	msdc_ungate_clock(host->mmc);
 	/* Ensure that CFGE is cleared before programming the key */
 	cqhci_writel(host, 0, slot_offset + 16 * sizeof(cfg->reg_val[0]));
 	for (i = 0; i < 16; i++) {
@@ -42,6 +43,7 @@ static void cqhci_crypto_program_key(struct cqhci_host *host,
 	/* Write dword 16 */
 	cqhci_writel(host, le32_to_cpu(cfg->reg_val[16]),
 		     slot_offset + 16 * sizeof(cfg->reg_val[0]));
+	msdc_gate_clock(host->mmc);
 }
 
 static int cqhci_crypto_keyslot_program(struct keyslot_manager *ksm,
