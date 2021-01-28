@@ -84,6 +84,10 @@ typedef struct {
 	IMG_CHAR sName[IMG_SF_STRING_MAX_SIZE];
 } RGXFW_STID_FMT; /*  pair of string format id and string formats */
 
+typedef struct {
+	IMG_UINT32 ui32Id;
+	IMG_CHAR   *psName;
+} RGXKM_STID_FMT; /*  pair of string format id and string formats */
 
 /* Table of String Format specifiers, the group they belong and the number of
  * arguments each expects. Xmacro styled macros are used to generate what is
