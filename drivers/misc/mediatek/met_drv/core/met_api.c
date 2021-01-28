@@ -19,6 +19,8 @@
 #include <asm/cpu.h>
 #include <linux/smp.h> /* arch_send_call_function_single_ipi */
 
+#include "met_api.h"
+
 /******************************************************************************
  * Tracepoints
  ******************************************************************************/
@@ -29,207 +31,16 @@
 #define MET_UNREGISTER_TRACE(probe_name) \
 		unregister_trace_##probe_name(probe_##probe_name, NULL)
 
-struct met_api_tbl {
-	int (*met_tag_start)(unsigned int class_id,
-			     const char *name);
-	int (*met_tag_end)(unsigned int class_id,
-			   const char *name);
-	int (*met_tag_async_start)(unsigned int class_id,
-				   const char *name,
-				   unsigned int cookie);
-	int (*met_tag_async_end)(unsigned int class_id,
-				 const char *name,
-				 unsigned int cookie);
-	int (*met_tag_oneshot)(unsigned int class_id,
-			       const char *name,
-			       unsigned int value);
-	int (*met_tag_userdata)(char *pData);
-	int (*met_tag_dump)(unsigned int class_id,
-			    const char *name,
-			    void *data,
-			    unsigned int length);
-	int (*met_tag_disable)(unsigned int class_id);
-	int (*met_tag_enable)(unsigned int class_id);
-	int (*met_set_dump_buffer)(int size);
-	int (*met_save_dump_buffer)(const char *pathname);
-	int (*met_save_log)(const char *pathname);
-	int (*met_show_bw_limiter)(void);
-	int (*met_reg_bw_limiter)(void *fp);
-	int (*met_show_clk_tree)(const char *name,
-				 unsigned int addr,
-				 unsigned int status);
-	int (*met_reg_clk_tree)(void *fp);
-	void (*met_sched_switch)(struct task_struct *prev,
-				 struct task_struct *next);
-	void (*met_pm_qos_update_request)(int pm_qos_class, s32 value);
-	void (*met_pm_qos_update_target)(unsigned int action,
-		int prev_value, int curr_value);
-
-	int (*enable_met_backlight_tag)(void);
-	int (*output_met_backlight_tag)(int level);
-};
-
-struct met_api_tbl met_ext_api;
-EXPORT_SYMBOL(met_ext_api);
-
-#ifndef MTK_MET_BUILT_IN
-int met_tag_init(void)
-{
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_init);
-
-int met_tag_uninit(void)
-{
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_uninit);
-#endif
-
-int met_tag_start(unsigned int class_id, const char *name)
-{
-	if (met_ext_api.met_tag_start)
-		return met_ext_api.met_tag_start(class_id, name);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_start);
-
-int met_tag_end(unsigned int class_id, const char *name)
-{
-	if (met_ext_api.met_tag_end)
-		return met_ext_api.met_tag_end(class_id, name);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_end);
-
-int met_tag_async_start(unsigned int class_id,
-			const char *name,
-			unsigned int cookie)
-{
-	if (met_ext_api.met_tag_async_start)
-		return met_ext_api.met_tag_async_start(class_id, name, cookie);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_async_start);
-
-int met_tag_async_end(unsigned int class_id,
-		      const char *name,
-		      unsigned int cookie)
-{
-	if (met_ext_api.met_tag_async_end)
-		return met_ext_api.met_tag_async_end(class_id, name, cookie);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_async_end);
-
-int met_tag_oneshot(unsigned int class_id, const char *name, unsigned int value)
-{
-	if (met_ext_api.met_tag_oneshot)
-		return met_ext_api.met_tag_oneshot(class_id, name, value);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_oneshot);
-
-int met_tag_userdata(char *pData)
-{
-	if (met_ext_api.met_tag_userdata)
-		return met_ext_api.met_tag_userdata(pData);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_userdata);
-
-int met_tag_dump(unsigned int class_id,
-		 const char *name,
-		 void *data,
-		 unsigned int length)
-{
-	if (met_ext_api.met_tag_dump)
-		return met_ext_api.met_tag_dump(class_id, name, data, length);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_dump);
-
-int met_tag_disable(unsigned int class_id)
-{
-	if (met_ext_api.met_tag_disable)
-		return met_ext_api.met_tag_disable(class_id);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_disable);
-
-int met_tag_enable(unsigned int class_id)
-{
-	if (met_ext_api.met_tag_enable)
-		return met_ext_api.met_tag_enable(class_id);
-	return 0;
-}
-EXPORT_SYMBOL(met_tag_enable);
-
-int met_set_dump_buffer(int size)
-{
-	if (met_ext_api.met_set_dump_buffer)
-		return met_ext_api.met_set_dump_buffer(size);
-	return 0;
-}
-EXPORT_SYMBOL(met_set_dump_buffer);
-
-int met_save_dump_buffer(const char *pathname)
-{
-	if (met_ext_api.met_save_dump_buffer)
-		return met_ext_api.met_save_dump_buffer(pathname);
-	return 0;
-}
-EXPORT_SYMBOL(met_save_dump_buffer);
-
-int met_save_log(const char *pathname)
-{
-	if (met_ext_api.met_save_log)
-		return met_ext_api.met_save_log(pathname);
-	return 0;
-}
-EXPORT_SYMBOL(met_save_log);
-
-int met_show_bw_limiter(void)
-{
-	if (met_ext_api.met_show_bw_limiter)
-		return met_ext_api.met_show_bw_limiter();
-	return 0;
-}
-EXPORT_SYMBOL(met_show_bw_limiter);
-
-int met_reg_bw_limiter(void *fp)
-{
-	if (met_ext_api.met_reg_bw_limiter)
-		return met_ext_api.met_reg_bw_limiter(fp);
-	return 0;
-}
-EXPORT_SYMBOL(met_reg_bw_limiter);
-
-int met_show_clk_tree(const char *name,
-				unsigned int addr,
-				unsigned int status)
-{
-	if (met_ext_api.met_show_clk_tree)
-		return met_ext_api.met_show_clk_tree(name, addr, status);
-	return 0;
-}
-EXPORT_SYMBOL(met_show_clk_tree);
-
-int met_reg_clk_tree(void *fp)
-{
-	if (met_ext_api.met_reg_clk_tree)
-		return met_ext_api.met_reg_clk_tree(fp);
-	return 0;
-}
-EXPORT_SYMBOL(met_reg_clk_tree);
+struct met_register_tbl met_register_api;
+EXPORT_SYMBOL(met_register_api);
 
 MET_DEFINE_PROBE(sched_switch,
 		 TP_PROTO(bool preempt,
 			  struct task_struct *prev,
 			  struct task_struct *next))
 {
-	if (met_ext_api.met_sched_switch)
-		met_ext_api.met_sched_switch(prev, next);
+	if (met_register_api.met_sched_switch)
+		met_register_api.met_sched_switch(prev, next);
 }
 
 int met_reg_switch(void)
@@ -240,26 +51,24 @@ int met_reg_switch(void)
 	} else
 		return 0;
 }
-EXPORT_SYMBOL(met_reg_switch);
 
 void met_unreg_switch(void)
 {
 	MET_UNREGISTER_TRACE(sched_switch);
 }
-EXPORT_SYMBOL(met_unreg_switch);
 
 MET_DEFINE_PROBE(pm_qos_update_request,
 	TP_PROTO(int pm_qos_class, s32 value))
 {
-	if (met_ext_api.met_pm_qos_update_request)
-		met_ext_api.met_pm_qos_update_request(pm_qos_class, value);
+	if (met_register_api.met_pm_qos_update_request)
+		met_register_api.met_pm_qos_update_request(pm_qos_class, value);
 }
 
 MET_DEFINE_PROBE(pm_qos_update_target,
 	TP_PROTO(enum pm_qos_req_action action, int prev_value, int curr_value))
 {
-	if (met_ext_api.met_pm_qos_update_target)
-		met_ext_api.met_pm_qos_update_target((unsigned int)action,
+	if (met_register_api.met_pm_qos_update_target)
+		met_register_api.met_pm_qos_update_target((unsigned int)action,
 			prev_value, curr_value);
 }
 
@@ -272,145 +81,50 @@ int met_reg_event_power(void)
 		}
 		if (MET_REGISTER_TRACE(pm_qos_update_target)) {
 			pr_debug("can not register callback of pm_qos_update_target\n");
-			MET_UNREGISTER_TRACE(pm_qos_update_request);
+			MET_UNREGISTER_TRACE(pm_qos_update_target);
 			return -ENODEV;
 		}
 	} while (0);
 	return 0;
 }
-EXPORT_SYMBOL(met_reg_event_power);
 
 void met_unreg_event_power(void)
 {
 	MET_UNREGISTER_TRACE(pm_qos_update_request);
 	MET_UNREGISTER_TRACE(pm_qos_update_target);
 }
-EXPORT_SYMBOL(met_unreg_event_power);
 
-#if	defined(CONFIG_MET_ARM_32BIT)
-void met_get_cpuinfo(int cpu, struct cpuinfo_arm **cpuinfo)
-{
-	*cpuinfo = &per_cpu(cpu_data, cpu);
-}
-#else
+#if	!defined(CONFIG_MET_ARM_32BIT)
 void met_get_cpuinfo(int cpu, struct cpuinfo_arm64 **cpuinfo)
 {
 	*cpuinfo = &per_cpu(cpu_data, cpu);
 }
 #endif
-EXPORT_SYMBOL(met_get_cpuinfo);
 
 void met_cpu_frequency(unsigned int frequency, unsigned int cpu_id)
 {
 	trace_cpu_frequency(frequency, cpu_id);
 }
-EXPORT_SYMBOL(met_cpu_frequency);
-
-void met_tracing_record_cmdline(struct task_struct *tsk)
-{
-#ifdef CONFIG_TRACING
-	tracing_record_cmdline(tsk);
-#endif
-}
-EXPORT_SYMBOL(met_tracing_record_cmdline);
 
 void met_set_kptr_restrict(int value)
 {
 	kptr_restrict = value;
 }
-EXPORT_SYMBOL(met_set_kptr_restrict);
 
 int met_get_kptr_restrict(void)
 {
 	return kptr_restrict;
 }
-EXPORT_SYMBOL(met_get_kptr_restrict);
 
 void met_arch_setup_dma_ops(struct device *dev)
 {
 	arch_setup_dma_ops(dev, 0, 0, NULL, false);
 }
-EXPORT_SYMBOL(met_arch_setup_dma_ops);
 
-int enable_met_backlight_tag(void)
+int met_perf_event_read_local(struct perf_event *ev, u64 *value)
 {
-	if (met_ext_api.enable_met_backlight_tag)
-		return met_ext_api.enable_met_backlight_tag();
-	return 0;
+	return perf_event_read_local(ev, value, NULL, NULL);
 }
-EXPORT_SYMBOL(enable_met_backlight_tag);
-
-int output_met_backlight_tag(int level)
-{
-	if (met_ext_api.output_met_backlight_tag)
-		return met_ext_api.output_met_backlight_tag(level);
-	return 0;
-}
-EXPORT_SYMBOL(output_met_backlight_tag);
-
-/* the following handle weak function in met_drv.h */
-void met_mmsys_event_gce_thread_begin(ulong thread_no, ulong task_handle,
-				ulong engineFlag, void *pCmd, ulong size)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_gce_thread_begin);
-
-void met_mmsys_event_gce_thread_end(ulong thread_no,
-				    ulong task_handle,
-				    ulong engineFlag)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_gce_thread_end);
-
-void met_mmsys_event_disp_sof(int mutex_id)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_disp_sof);
-
-void met_mmsys_event_disp_mutex_eof(int mutex_id)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_disp_mutex_eof);
-
-void met_mmsys_event_disp_ovl_eof(int ovl_id)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_disp_ovl_eof);
-
-void met_mmsys_config_isp_base_addr(unsigned long *isp_reg_list)
-{
-}
-EXPORT_SYMBOL(met_mmsys_config_isp_base_addr);
-
-void met_mmsys_event_isp_pass1_begin(int sensor_id)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_isp_pass1_begin);
-
-void met_mmsys_event_isp_pass1_end(int sensor_id)
-{
-}
-EXPORT_SYMBOL(met_mmsys_event_isp_pass1_end);
-
-void met_show_pmic_info(unsigned int RegNum, unsigned int pmic_reg)
-{
-}
-EXPORT_SYMBOL(met_show_pmic_info);
-
-int met_perf_event_read_local(struct perf_event *ev, u64 *value,
-			      u64 *enable, u64 *running)
-{
-	return perf_event_read_local(ev, value, enable, running);
-}
-EXPORT_SYMBOL(met_perf_event_read_local);
-
-struct task_struct *met_kthread_create_on_cpu(int (*threadfn)(void *data),
-				void *data, unsigned int cpu,
-				const char *namefmt)
-{
-	return kthread_create_on_cpu(threadfn, data, cpu, namefmt);
-}
-EXPORT_SYMBOL(met_kthread_create_on_cpu);
 
 int met_smp_call_function_single(
 	int cpu,
@@ -420,16 +134,34 @@ int met_smp_call_function_single(
 {
 	return smp_call_function_single(cpu, func, info, wait);
 }
-EXPORT_SYMBOL(met_smp_call_function_single);
 
 u64 met_arch_counter_get_cntvct(void)
 {
 	return arch_counter_get_cntvct();
 }
-EXPORT_SYMBOL(met_arch_counter_get_cntvct);
 
 void met_arch_send_call_function_single_ipi(int cpu)
 {
 	return arch_send_call_function_single_ipi(cpu);
 }
-EXPORT_SYMBOL(met_arch_send_call_function_single_ipi);
+
+struct met_export_tbl met_export_api = {
+	.met_reg_switch = met_reg_switch,
+	.met_unreg_switch = met_unreg_switch,
+	.met_reg_event_power = met_reg_event_power,
+	.met_unreg_event_power = met_unreg_event_power,
+#if	!defined(CONFIG_MET_ARM_32BIT)
+	.met_get_cpuinfo = met_get_cpuinfo,
+#endif
+	.met_cpu_frequency = met_cpu_frequency,
+	.met_set_kptr_restrict = met_set_kptr_restrict,
+	.met_get_kptr_restrict = met_get_kptr_restrict,
+	.met_arch_setup_dma_ops = met_arch_setup_dma_ops,
+	.met_perf_event_read_local = met_perf_event_read_local,
+	.met_smp_call_function_single = met_smp_call_function_single,
+	.met_arch_counter_get_cntvct = met_arch_counter_get_cntvct,
+	.met_arch_send_call_function_single_ipi =
+		met_arch_send_call_function_single_ipi,
+};
+EXPORT_SYMBOL(met_export_api);
+

@@ -7,3 +7,12 @@ config MTK_MET_CORE
 	  If you want MET feature, say Y here.
 	  This is needed if support for MET devices is required.
 	  If unsure, say N.
+
+config MTK_MET_PLF
+	tristate "MET PLATFORM"
+	depends on MTK_MET_CORE
+	help
+	  This selects the MET profile function for MET device.
+	  If you want MET feature, say Y here.
+	  This is needed if support for MET devices is required.
+	  If unsure, say N.
