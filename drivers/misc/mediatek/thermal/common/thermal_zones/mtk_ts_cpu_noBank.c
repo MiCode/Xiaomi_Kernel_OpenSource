@@ -1289,7 +1289,7 @@ static ssize_t tscpu_write
 #if defined(CONFIG_ARCH_MT6797)
 		apthermolmt_set_general_cpu_power_limit(900);
 #endif
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		if (tscpu_g_curr_temp > 85000)
 			apthermolmt_set_general_cpu_power_limit(500);
 #endif
@@ -1478,7 +1478,8 @@ static ssize_t tscpu_write
 		tscpu_register_thermal();
 		up(&sem_mutex);
 
-#if defined(CONFIG_ARCH_MT6797) || defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_ARCH_MT6797) || defined(CONFIG_MACH_MT6885) || \
+defined(CONFIG_MACH_MT6893)
 		apthermolmt_set_general_cpu_power_limit(0);
 #endif
 		proc_write_flag = 1;
