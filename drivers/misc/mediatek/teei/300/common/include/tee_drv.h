@@ -116,42 +116,42 @@ struct tee_desc {
 };
 
 /**
- * tee_device_alloc() - Allocate a new struct tee_device instance
+ * isee_device_alloc() - Allocate a new struct tee_device instance
  * @teedesc:	Descriptor for this driver
  * @dev:	Parent device for this device
  * @pool:	Shared memory pool, NULL if not used
  * @driver_data: Private driver data for this device
  *
  * Allocates a new struct tee_device instance. The device is
- * removed by tee_device_unregister().
+ * removed by isee_device_unregister().
  *
  * @returns a pointer to a 'struct tee_device' or an ERR_PTR on failure
  */
-struct tee_device *tee_device_alloc(const struct tee_desc *teedesc,
+struct tee_device *isee_device_alloc(const struct tee_desc *teedesc,
 				    struct device *dev,
 				    struct tee_shm_pool *pool,
 				    void *driver_data);
 
 /**
- * tee_device_register() - Registers a TEE device
+ * isee_device_register() - Registers a TEE device
  * @teedev:	Device to register
  *
- * tee_device_unregister() need to be called to remove the @teedev if
+ * isee_device_unregister() need to be called to remove the @teedev if
  * this function fails.
  *
  * @returns < 0 on failure
  */
-int tee_device_register(struct tee_device *teedev);
+int isee_device_register(struct tee_device *teedev);
 
 /**
- * tee_device_unregister() - Removes a TEE device
+ * isee_device_unregister() - Removes a TEE device
  * @teedev:	Device to unregister
  *
  * This function should be called to remove the @teedev even if
- * tee_device_register() hasn't been called yet. Does nothing if
+ * isee_device_register() hasn't been called yet. Does nothing if
  * @teedev is NULL.
  */
-void tee_device_unregister(struct tee_device *teedev);
+void isee_device_unregister(struct tee_device *teedev);
 
 /**
  * struct tee_shm_pool_mem_info - holds information needed to create a shared
@@ -167,7 +167,7 @@ struct tee_shm_pool_mem_info {
 };
 
 /**
- * tee_shm_pool_alloc_res_mem() - Create a shared memory pool from reserved
+ * isee_shm_pool_alloc_res_mem() - Create a shared memory pool from reserved
  * memory range
  * @priv_info:	 Information for driver private shared memory pool
  * @dmabuf_info: Information for dma-buf shared memory pool
@@ -180,26 +180,26 @@ struct tee_shm_pool_mem_info {
  * @returns pointer to a 'struct tee_shm_pool' or an ERR_PTR on failure.
  */
 struct tee_shm_pool *
-tee_shm_pool_alloc_res_mem(struct tee_shm_pool_mem_info *priv_info,
+isee_shm_pool_alloc_res_mem(struct tee_shm_pool_mem_info *priv_info,
 			   struct tee_shm_pool_mem_info *dmabuf_info);
 
 /**
- * tee_shm_pool_free() - Free a shared memory pool
+ * isee_shm_pool_free() - Free a shared memory pool
  * @pool:	The shared memory pool to free
  *
  * The must be no remaining shared memory allocated from this pool when
  * this function is called.
  */
-void tee_shm_pool_free(struct tee_shm_pool *pool);
+void isee_shm_pool_free(struct tee_shm_pool *pool);
 
 /**
- * tee_get_drvdata() - Return driver_data pointer
- * @returns the driver_data pointer supplied to tee_register().
+ * isee_get_drvdata() - Return driver_data pointer
+ * @returns the driver_data pointer supplied to isee_register().
  */
-void *tee_get_drvdata(struct tee_device *teedev);
+void *isee_get_drvdata(struct tee_device *teedev);
 
 /**
- * tee_shm_alloc() - Allocate shared memory
+ * isee_shm_alloc() - Allocate shared memory
  * @ctx:	Context that allocates the shared memory
  * @size:	Requested size of shared memory
  * @flags:	Flags setting properties for the requested shared memory.
@@ -212,72 +212,72 @@ void *tee_get_drvdata(struct tee_device *teedev);
  *
  * @returns a pointer to 'struct tee_shm'
  */
-struct tee_shm *tee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags);
+struct tee_shm *isee_shm_alloc(struct tee_context *ctx, size_t size, u32 flags);
 
 /**
- * tee_shm_free() - Free shared memory
+ * isee_shm_free() - Free shared memory
  * @shm:	Handle to shared memory to free
  */
-void tee_shm_free(struct tee_shm *shm);
+void isee_shm_free(struct tee_shm *shm);
 
 /**
- * tee_shm_put() - Decrease reference count on a shared memory handle
+ * isee_shm_put() - Decrease reference count on a shared memory handle
  * @shm:	Shared memory handle
  */
-void tee_shm_put(struct tee_shm *shm);
+void isee_shm_put(struct tee_shm *shm);
 
 /**
- * tee_shm_va2pa() - Get physical address of a virtual address
+ * isee_shm_va2pa() - Get physical address of a virtual address
  * @shm:	Shared memory handle
  * @va:		Virtual address to tranlsate
  * @pa:		Returned physical address
  * @returns 0 on success and < 0 on failure
  */
-int tee_shm_va2pa(struct tee_shm *shm, void *va, phys_addr_t *pa);
+int isee_shm_va2pa(struct tee_shm *shm, void *va, phys_addr_t *pa);
 
 /**
- * tee_shm_pa2va() - Get virtual address of a physical address
+ * isee_shm_pa2va() - Get virtual address of a physical address
  * @shm:	Shared memory handle
  * @pa:		Physical address to tranlsate
  * @va:		Returned virtual address
  * @returns 0 on success and < 0 on failure
  */
-int tee_shm_pa2va(struct tee_shm *shm, phys_addr_t pa, void **va);
+int isee_shm_pa2va(struct tee_shm *shm, phys_addr_t pa, void **va);
 
 /**
- * tee_shm_get_va() - Get virtual address of a shared memory plus an offset
+ * isee_shm_get_va() - Get virtual address of a shared memory plus an offset
  * @shm:	Shared memory handle
  * @offs:	Offset from start of this shared memory
  * @returns virtual address of the shared memory + offs if offs is within
  *	the bounds of this shared memory, else an ERR_PTR
  */
-void *tee_shm_get_va(struct tee_shm *shm, size_t offs);
+void *isee_shm_get_va(struct tee_shm *shm, size_t offs);
 
 /**
- * tee_shm_get_pa() - Get physical address of a shared memory plus an offset
+ * isee_shm_get_pa() - Get physical address of a shared memory plus an offset
  * @shm:	Shared memory handle
  * @offs:	Offset from start of this shared memory
  * @pa:		Physical address to return
  * @returns 0 if offs is within the bounds of this shared memory, else an
  *	error code.
  */
-int tee_shm_get_pa(struct tee_shm *shm, size_t offs, phys_addr_t *pa);
+int isee_shm_get_pa(struct tee_shm *shm, size_t offs, phys_addr_t *pa);
 
 /**
- * tee_shm_get_id() - Get id of a shared memory object
+ * isee_shm_get_id() - Get id of a shared memory object
  * @shm:	Shared memory handle
  * @returns id
  */
-int tee_shm_get_id(struct tee_shm *shm);
+int isee_shm_get_id(struct tee_shm *shm);
 
 /**
- * tee_shm_get_from_id() - Find shared memory object and increase reference
+ * isee_shm_get_from_id() - Find shared memory object and increase reference
  * count
  * @ctx:	Context owning the shared memory
  * @id:		Id of shared memory object
  * @returns a pointer to 'struct tee_shm' on success or an ERR_PTR on failure
  */
-struct tee_shm *tee_shm_get_from_id(struct tee_context *ctx, int id);
+struct tee_shm *isee_shm_get_from_id(struct tee_context *ctx, int id);
 
 static inline bool tee_param_is_memref(struct tee_param *param)
 {

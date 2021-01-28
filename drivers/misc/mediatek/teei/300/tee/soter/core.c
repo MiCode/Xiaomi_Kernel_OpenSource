@@ -105,9 +105,9 @@ static void soter_release(struct tee_context *ctx)
 	if (!ctxdata)
 		return;
 
-	shm = tee_shm_alloc(ctx, sizeof(struct optee_msg_arg), TEE_SHM_MAPPED);
+	shm = isee_shm_alloc(ctx, sizeof(struct optee_msg_arg), TEE_SHM_MAPPED);
 	if (!IS_ERR(shm)) {
-		arg = tee_shm_get_va(shm, 0);
+		arg = isee_shm_get_va(shm, 0);
 		/*
 		 * If va2pa fails for some reason, we can't call
 		 * soter_close_session(), only free the memory. Secure OS
@@ -115,7 +115,7 @@ static void soter_release(struct tee_context *ctx)
 		 * we will at least let normal world reclaim its memory.
 		 */
 		if (!IS_ERR(arg))
-			tee_shm_va2pa(shm, arg, &parg);
+			isee_shm_va2pa(shm, arg, &parg);
 	}
 
 	list_for_each_entry_safe(sess, sess_tmp, &ctxdata->sess_list,
@@ -132,7 +132,7 @@ static void soter_release(struct tee_context *ctx)
 	kfree(ctxdata);
 
 	if (!IS_ERR(shm))
-		tee_shm_free(shm);
+		isee_shm_free(shm);
 
 	ctx->data = NULL;
 }
@@ -196,7 +196,7 @@ soter_config_shm_memremap(void **memremaped_shm)
 	dmabuf_info.paddr = paddr + SOTER_SHM_NUM_PRIV_PAGES * PAGE_SIZE;
 	dmabuf_info.size = size - SOTER_SHM_NUM_PRIV_PAGES * PAGE_SIZE;
 
-	pool = tee_shm_pool_alloc_res_mem(&priv_info, &dmabuf_info);
+	pool = isee_shm_pool_alloc_res_mem(&priv_info, &dmabuf_info);
 	if (IS_ERR(pool))
 		goto out;
 
@@ -211,9 +211,9 @@ static void soter_remove(struct soter_priv *soter)
 	 * The device has to be unregistered before we can free the
 	 * other resources.
 	 */
-	tee_device_unregister(soter->teedev);
+	isee_device_unregister(soter->teedev);
 
-	tee_shm_pool_free(soter->pool);
+	isee_shm_pool_free(soter->pool);
 	mutex_destroy(&soter->call_queue.mutex);
 
 	kfree(soter);
@@ -238,14 +238,14 @@ static int __init soter_driver_init(void)
 	soter_priv->pool = pool;
 	soter_priv->memremaped_shm = memremaped_shm;
 
-	teedev = tee_device_alloc(&soter_desc, NULL, pool, soter_priv);
+	teedev = isee_device_alloc(&soter_desc, NULL, pool, soter_priv);
 	if (IS_ERR(teedev)) {
 		rc = PTR_ERR(teedev);
 		goto err;
 	}
 	soter_priv->teedev = teedev;
 
-	rc = tee_device_register(teedev);
+	rc = isee_device_register(teedev);
 	if (rc)
 		goto err;
 
@@ -254,15 +254,15 @@ static int __init soter_driver_init(void)
 err:
 	if (soter_priv) {
 		/*
-		 * tee_device_unregister() is safe to call even if the
+		 * isee_device_unregister() is safe to call even if the
 		 * devices hasn't been registered with
 		 * tee_device_register() yet.
 		 */
-		tee_device_unregister(soter_priv->teedev);
+		isee_device_unregister(soter_priv->teedev);
 		kfree(soter_priv);
 	}
 	if (pool)
-		tee_shm_pool_free(pool);
+		isee_shm_pool_free(pool);
 	return rc;
 }
 module_init(soter_driver_init);

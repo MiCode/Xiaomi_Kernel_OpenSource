@@ -67,7 +67,7 @@ int ut_pf_gp_transfer_data(struct TEEC_Context *context, struct TEEC_UUID *uuid,
 	sharedmem.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
 	result = TEEC_RegisterSharedMemory(context, &sharedmem);
 	if (result != TEEC_SUCCESS) {
-		IMSG_ERROR("Failed to register %d shared memory,err: %x",
+		IMSG_ERROR("Failed to register kernel %d shared memory,err: %x",
 		(unsigned int)size, result);
 		goto release_2;
 	}
@@ -118,7 +118,7 @@ int ut_pf_gp_transfer_user_data(struct TEEC_Context *context,
 	sharedmem.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
 	result = TEEC_AllocateSharedMemory(context, &sharedmem);
 	if (result != TEEC_SUCCESS) {
-		IMSG_ERROR("Failed to alloc %d shared memory,err: %x",
+		IMSG_ERROR("Failed to register user %d shared memory,err: %x",
 		(unsigned int)size, result);
 		goto release_2;
 	}
