@@ -2384,6 +2384,7 @@ int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 	return ret;
 }
 
+#if 0
 void pseudo_m4u_bank_irq_debug(unsigned int domain)
 {
 	int i, j, ret = 0;
@@ -2419,7 +2420,7 @@ void pseudo_m4u_bank_irq_debug(unsigned int domain)
 		larb_clock_off(i, 1);
 	}
 }
-
+#endif
 void pseudo_m4u_db_debug(unsigned int m4uid,
 		struct seq_file *s)
 {

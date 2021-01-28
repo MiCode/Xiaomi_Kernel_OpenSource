@@ -935,6 +935,7 @@ static int m4u_debug_set(void *data, u64 val)
 		mtk_iommu_tlb_flush_all(NULL);
 	}
 	break;
+#if 0
 	case 35:
 	{
 		pseudo_m4u_bank_irq_debug(2);
@@ -945,6 +946,7 @@ static int m4u_debug_set(void *data, u64 val)
 		pseudo_m4u_bank_irq_debug(0);
 	}
 	break;
+#endif
 	case 37: /* dump mau register */
 	{
 		int i, j, ret;

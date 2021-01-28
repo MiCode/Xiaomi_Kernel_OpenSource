@@ -231,8 +231,10 @@ unsigned int mtk_iommu_get_larb_port_count(unsigned int larb);
 int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		unsigned int bank);
 #ifndef SMI_LARB_SEC_CON_EN
+#if 0
 int mtk_iommu_set_sec_larb(int larb, int port,
 		int sec_en, int dom);
+#endif
 int mtk_iommu_dump_sec_larb(int larb, int port);
 #endif
 int mtk_switch_secure_debug_func(unsigned int m4u_id, bool enable);
