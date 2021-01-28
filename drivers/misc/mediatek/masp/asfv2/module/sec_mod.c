@@ -156,7 +156,7 @@ static int reboot_handler_set_eio_flag(struct notifier_block *reboot,
 {	int ret = 0;
 	const char *dm_error_cmd = "dm-verity device corrupted";
 
-	if (!strcmp(cmd, dm_error_cmd))
+	if (cmd && !strcmp(cmd, dm_error_cmd))
 		ret = masp_hal_set_dm_verity_error();
 	return ret;
 }
