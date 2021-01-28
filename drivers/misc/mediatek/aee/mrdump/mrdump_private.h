@@ -131,6 +131,7 @@ static inline void show_kaslr(void)
 
 	pr_notice("Kernel Offset: 0x%llx from 0x%lx\n",
 			kaslr_offset, KIMAGE_VADDR);
+	pr_notice("PHYS_OFFSET: 0x%llx\n", PHYS_OFFSET);
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_kaslr_offset(kaslr_offset);
 #endif
