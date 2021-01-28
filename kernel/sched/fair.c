@@ -10921,6 +10921,11 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 			update_next_balance(sd, &next_balance);
 		rcu_read_unlock();
 
+		if (!this_rq->rd->overload) {
+			raw_spin_unlock(&this_rq->lock);
+			goto hinted_idle_pull;
+		}
+
 		nohz_newidle_balance(this_rq);
 
 		goto out;
@@ -10968,6 +10973,7 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 	rcu_read_unlock();
 
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
+hinted_idle_pull:
 	/* We could not pull task to this_cpu when this_rq offline */
 	if (this_rq->online && !pulled_task)
 		pulled_task = aggressive_idle_pull(this_cpu);
