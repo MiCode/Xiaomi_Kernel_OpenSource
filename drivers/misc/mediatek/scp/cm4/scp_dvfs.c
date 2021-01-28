@@ -41,7 +41,7 @@
 #include "scp_helper.h"
 #include "scp_excep.h"
 #include "scp_dvfs.h"
-#include "dvfsrc-opp.h"
+#include "dvfsrc-exp.h"
 
 #ifdef pr_fmt
 #undef pr_fmt

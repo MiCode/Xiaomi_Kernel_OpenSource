@@ -5,26 +5,18 @@
 
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
+#include <linux/fb.h>
 #include <linux/io.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
-#include <linux/regulator/consumer.h>
-#include <linux/interconnect.h>
-#include <linux/pm_domain.h>
-#include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
 #include "dvfsrc.h"
-#include "dvfsrc-opp.h"
-
-#define MTK_DVFSRC_MET_SUPPORT 1
-
-#define MTK_SIP_VCOREFS_KICK 1
-#define MTK_SIP_VCOREFS_DRAM_TYPE 2
-#define MTK_SIP_VCOREFS_VCORE_UV  4
-#define MTK_SIP_VCOREFS_DRAM_FREQ 5
+#include "dvfsrc-common.h"
+#include <dvfsrc-exp.h>
 
 #define MT_DVFSRC_OPP(_num_vcore, _num_ddr, _opp_table)	\
 {	\
@@ -34,120 +26,35 @@
 	.num_opp = ARRAY_SIZE(_opp_table),	\
 }
 
-static struct mtk_dvfsrc *dvfsrc_drv;
+static struct mtk_dvfsrc_up *dvfsrc_up_drv;
 
-#if MTK_DVFSRC_MET_SUPPORT
-enum met_info_index {
-	INFO_OPP_IDX = 0,
-	INFO_FREQ_IDX,
-	INFO_VCORE_IDX,
-	INFO_SPM_LEVEL_IDX,
-	INFO_MAX,
-};
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
+/* gps workarund function */
+static struct mtk_pm_qos_request gps_ddr_req;
+#define MTK_SIP_VCOREFS_DVFS_HOPPING 19
 
-static unsigned int met_vcorefs_info[INFO_MAX];
-static char *met_info_name[INFO_MAX] = {
-	"OPP",
-	"FREQ",
-	"VCORE",
-	"x__SPM_LEVEL",
-};
-
-int vcorefs_get_num_opp(void)
+static void spm_freq_hopping_cmd(int gps_on)
 {
-	return  mtk_dvfsrc_query_opp_info(MTK_DVFSRC_NUM_DVFS_OPP);
-}
-EXPORT_SYMBOL(vcorefs_get_num_opp);
+	struct arm_smccc_res ares;
 
-int vcorefs_get_opp_info_num(void)
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+		MTK_SIP_VCOREFS_DVFS_HOPPING,
+		gps_on, 0, 0, 0, 0, 0,
+		&ares);
+}
+static void dvfsrc_enable_dvfs_gps_hopping(int gps_on)
 {
-	return INFO_MAX;
+	struct mtk_dvfsrc_up *dvfsrc = dvfsrc_up_drv;
+
+	if (dvfsrc->fw_type == 2)
+		return;
+
+	mtk_pm_qos_update_request(&gps_ddr_req, DDR_OPP_0);
+	spm_freq_hopping_cmd(!!gps_on);
+	mtk_pm_qos_update_request(&gps_ddr_req, DDR_OPP_UNREQ);
 }
-EXPORT_SYMBOL(vcorefs_get_opp_info_num);
-
-char **vcorefs_get_opp_info_name(void)
-{
-	return met_info_name;
-}
-EXPORT_SYMBOL(vcorefs_get_opp_info_name);
-
-unsigned int *vcorefs_get_opp_info(void)
-{
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-	const struct dvfsrc_opp *opp;
-	int level;
-
-	if (dvfsrc) {
-		level = dvfsrc->dvd->config->get_current_level(dvfsrc);
-		opp = &dvfsrc->opp_desc->opps[level];
-
-		met_vcorefs_info[INFO_OPP_IDX] =
-			dvfsrc->opp_desc->num_opp - (level + 1);
-		met_vcorefs_info[INFO_FREQ_IDX] = opp->dram_khz;
-		met_vcorefs_info[INFO_VCORE_IDX] = opp->vcore_uv;
-		met_vcorefs_info[INFO_SPM_LEVEL_IDX] =
-			dvfsrc->dvd->config->get_current_rglevel(dvfsrc);
-	}
-	return met_vcorefs_info;
-}
-EXPORT_SYMBOL(vcorefs_get_opp_info);
-
-int vcorefs_get_src_req_num(void)
-{
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-
-	if (dvfsrc && dvfsrc->dvd->met) {
-		if (dvfsrc->dvd->met->dvfsrc_get_src_req_num)
-			return dvfsrc->dvd->met->dvfsrc_get_src_req_num();
-		else
-			return 0;
-	}
-	return 0;
-}
-EXPORT_SYMBOL(vcorefs_get_src_req_num);
-char **vcorefs_get_src_req_name(void)
-{
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-
-	if (dvfsrc && dvfsrc->dvd->met) {
-		if (dvfsrc->dvd->met->dvfsrc_get_src_req_name)
-			return dvfsrc->dvd->met->dvfsrc_get_src_req_name();
-		else
-			return NULL;
-	}
-	return NULL;
-}
-EXPORT_SYMBOL(vcorefs_get_src_req_name);
-unsigned int *vcorefs_get_src_req(void)
-{
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-
-	if (dvfsrc && dvfsrc->dvd->met) {
-		if (dvfsrc->dvd->met->dvfsrc_get_src_req)
-			return dvfsrc->dvd->met->dvfsrc_get_src_req(dvfsrc);
-		else
-			return NULL;
-	}
-	return NULL;
-}
-EXPORT_SYMBOL(vcorefs_get_src_req);
-int get_cur_ddr_ratio(void)
-{
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
-
-	if (dvfsrc && dvfsrc->dvd->met) {
-		if (dvfsrc->dvd->met->dvfsrc_get_ddr_ratio)
-			return dvfsrc->dvd->met->dvfsrc_get_ddr_ratio(dvfsrc);
-		else
-			return 0;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(get_cur_ddr_ratio);
 #endif
-
-static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
+static void dvfsrc_setup_opp_table(struct mtk_dvfsrc_up *dvfsrc)
 {
 	int i;
 	struct dvfsrc_opp *opp;
@@ -156,7 +63,7 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 	for (i = 0; i < dvfsrc->opp_desc->num_opp; i++) {
 		opp = &dvfsrc->opp_desc->opps[i];
 		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
-			MTK_SIP_VCOREFS_VCORE_UV,
+			MTK_SIP_VCOREFS_GET_VCORE_UV,
 			opp->vcore_opp, 0, 0, 0, 0, 0,
 			&ares);
 
@@ -164,7 +71,7 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 			opp->vcore_uv = ares.a1;
 
 		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
-			MTK_SIP_VCOREFS_DRAM_FREQ,
+			MTK_SIP_VCOREFS_GET_DRAM_FREQ,
 			opp->dram_opp, 0, 0, 0, 0, 0,
 			&ares);
 		if (!ares.a0)
@@ -172,17 +79,19 @@ static void dvfsrc_setup_opp_table(struct mtk_dvfsrc *dvfsrc)
 	}
 }
 
-static int dvfsrc_query_opp_info(u32 id)
+static int dvfsrc_query_info(u32 id)
 {
-	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
+	struct mtk_dvfsrc_up *dvfsrc = dvfsrc_up_drv;
 	const struct dvfsrc_opp *opp;
 	int ret = 0;
-	int level;
+	int level = 0;
 
-	if (!dvfsrc)
+	ret = mtk_dvfsrc_query_info(dvfsrc->dev->parent,
+		MTK_DVFSRC_CMD_CURR_LEVEL_QUERY, &level);
+
+	if (ret || level >= dvfsrc->opp_desc->num_opp)
 		return 0;
 
-	level = dvfsrc->dvd->config->get_current_level(dvfsrc);
 	opp = &dvfsrc->opp_desc->opps[level];
 
 	switch (id) {
@@ -221,15 +130,117 @@ static int dvfsrc_query_opp_info(u32 id)
 	return ret;
 }
 
-static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
+static ssize_t dvfsrc_opp_table_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int i, j;
+	char *p = buf;
+	char *buff_end = p + PAGE_SIZE;
+	struct mtk_dvfsrc_up *dvfsrc = dev_get_drvdata(dev);
+
+	p += snprintf(p, buff_end - p,
+		"NUM_VCORE_OPP : %d\n",
+		dvfsrc->opp_desc->num_vcore_opp);
+	p += snprintf(p, buff_end - p,
+		"NUM_DDR_OPP : %d\n",
+		dvfsrc->opp_desc->num_dram_opp);
+	p += snprintf(p, buff_end - p,
+		"NUM_DVFSRC_OPP : %d\n\n",
+		dvfsrc->opp_desc->num_opp);
+
+	for (i = 0; i < dvfsrc->opp_desc->num_opp; i++) {
+		j = dvfsrc->opp_desc->num_opp - (i + 1);
+		p += snprintf(p, buff_end - p,
+			"[OPP%-2d]: %-8u uv %-8u khz\n",
+			i,
+			dvfsrc->opp_desc->opps[j].vcore_uv,
+			dvfsrc->opp_desc->opps[j].dram_khz);
+	}
+
+	return p - buf;
+}
+static DEVICE_ATTR_RO(dvfsrc_opp_table);
+
+static struct attribute *dvfsrc_attrs[] = {
+	&dev_attr_dvfsrc_opp_table.attr,
+	NULL,
+};
+
+static struct attribute_group dvfsrc_up_attr_group = {
+	.attrs = dvfsrc_attrs,
+};
+
+static int dvfsrc_up_register_sysfs(struct device *dev)
+{
+	int ret;
+
+	ret = sysfs_create_group(&dev->kobj, &dvfsrc_up_attr_group);
+	if (ret)
+		return ret;
+
+	ret = sysfs_create_link(&dev->parent->kobj, &dev->kobj,
+		"dvfsrc-up");
+
+	return ret;
+}
+
+static void dvfsrc_up_unregister_sysfs(struct device *dev)
+{
+	sysfs_remove_link(&dev->parent->kobj, "dvfsrc-up");
+	sysfs_remove_group(&dev->kobj, &dvfsrc_up_attr_group);
+}
+
+static void dvfsrc_cm_ddr_request(u32 level)
+{
+	struct mtk_dvfsrc_up *dvfsrc = dvfsrc_up_drv;
+
+	mtk_dvfsrc_send_request(dvfsrc->dev->parent,
+		MTK_DVFSRC_CMD_EXT_DRAM_REQUEST,
+		level);
+}
+
+static void dvfsrc_update_fb_action(bool blank)
+{
+	struct arm_smccc_res ares;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+		MTK_SIP_VCOREFS_FB_ACTION,
+		blank, 0, 0, 0, 0, 0,
+		&ares);
+}
+static int dvfsrc_fb_notifier_call(struct notifier_block *self,
+		unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int blank;
+
+	if (event != FB_EVENT_BLANK)
+		return 0;
+
+	blank = *(int *)evdata->data;
+	switch (blank) {
+	case FB_BLANK_UNBLANK:
+		dvfsrc_update_fb_action(false);
+		break;
+	case FB_BLANK_POWERDOWN:
+		dvfsrc_update_fb_action(true);
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static struct notifier_block dvfsrc_fb_notifier = {
+	.notifier_call = dvfsrc_fb_notifier_call,
+};
+
+static int mtk_dvfsrc_up_probe(struct platform_device *pdev)
 {
 	struct arm_smccc_res ares;
 	struct device *dev = &pdev->dev;
 	struct platform_device *parent_dev;
-	struct resource *res;
-	struct mtk_dvfsrc *dvfsrc;
-	struct device_node *np = pdev->dev.of_node;
-	int i;
+	struct mtk_dvfsrc_up *dvfsrc;
 
 	parent_dev = to_platform_device(dev->parent);
 	if (!parent_dev)
@@ -242,14 +253,25 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	dvfsrc->dvd = of_device_get_match_data(&pdev->dev);
 	dvfsrc->dev = &pdev->dev;
 
-	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_DRAM_TYPE,
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_GET_OPP_TYPE,
 		0, 0, 0, 0, 0, 0,
 		&ares);
 
 	if (!ares.a0)
-		dvfsrc->dram_type = ares.a1;
+		dvfsrc->opp_type = ares.a1;
 	else {
-		dev_info(dev, "get dram type fails\n");
+		dev_info(dev, "get opp type fails\n");
+		return ares.a0;
+	}
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_GET_FW_TYPE,
+		0, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0)
+		dvfsrc->fw_type = ares.a1;
+	else {
+		dev_info(dev, "get fw type fails\n");
 		return ares.a0;
 	}
 
@@ -262,85 +284,33 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 		return ares.a0;
 	}
 
-	if (dvfsrc->dram_type > dvfsrc->dvd->num_opp_desc)
+	if (dvfsrc->opp_type > dvfsrc->dvd->num_opp_desc)
 		return -EINVAL;
 
-	dvfsrc->opp_desc = &dvfsrc->dvd->opps_desc[dvfsrc->dram_type];
-	dvfsrc->num_perf = of_count_phandle_with_args(np,
-		   "required-opps", NULL);
+	dvfsrc->opp_desc = &dvfsrc->dvd->opps_desc[dvfsrc->opp_type];
 
-	if (dvfsrc->num_perf > 0) {
-		dvfsrc->perfs = devm_kzalloc(&pdev->dev,
-			 dvfsrc->num_perf * sizeof(int),
-			GFP_KERNEL);
-
-		if (!dvfsrc->perfs)
-			return -ENOMEM;
-
-		for (i = 0; i < dvfsrc->num_perf; i++) {
-			dvfsrc->perfs[i] =
-				dvfsrc_get_required_opp_performance_state(np, i);
-		}
-	} else {
-		dvfsrc->num_perf = 0;
-	}
-
-	res = platform_get_resource_byname(parent_dev,
-			IORESOURCE_MEM, "dvfsrc");
-	if (!res) {
-		dev_info(dev, "dvfsrc debug resource not found\n");
-		return -ENODEV;
-	}
-
-	dvfsrc->regs = devm_ioremap(&pdev->dev, res->start,
-		resource_size(res));
-
-	if (IS_ERR(dvfsrc->regs))
-		return PTR_ERR(dvfsrc->regs);
-
-	dvfsrc->path = of_icc_get(&pdev->dev, "icc-bw-port");
-	if (IS_ERR(dvfsrc->path)) {
-		dev_info(dev, "get icc-bw-port fail\n");
-		dvfsrc->path = NULL;
-	}
-
-	dvfsrc->vcore_power =
-		regulator_get_optional(&pdev->dev, "vcore");
-	if (IS_ERR(dvfsrc->vcore_power)) {
-		dev_info(dev, "regulator_get vcore failed = %ld\n",
-			PTR_ERR(dvfsrc->vcore_power));
-		dvfsrc->vcore_power = NULL;
-	}
-
-	dvfsrc->dvfsrc_vcore_power =
-		regulator_get_optional(&pdev->dev, "rc-vcore");
-	if (IS_ERR(dvfsrc->dvfsrc_vcore_power)) {
-		dev_info(dev, "regulator_get dvfsrc vcore failed = %ld\n",
-			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
-		dvfsrc->dvfsrc_vcore_power = NULL;
-	}
-
-	dvfsrc->dvfsrc_vscp_power =
-		regulator_get_optional(&pdev->dev, "rc-vscp");
-	if (IS_ERR(dvfsrc->dvfsrc_vscp_power)) {
-		dev_info(dev, "regulator_get dvfsrc vscp failed = %ld\n",
-			PTR_ERR(dvfsrc->dvfsrc_vscp_power));
-		dvfsrc->dvfsrc_vscp_power = NULL;
-	}
-
-	dvfsrc->force_opp_idx = dvfsrc->opp_desc->num_opp;
-	dvfsrc_register_sysfs(dev);
 	if (dvfsrc->dvd->setup_opp_table)
 		dvfsrc->dvd->setup_opp_table(dvfsrc);
 
 	if (dvfsrc->dvd->qos)
 		dvfsrc->dvd->qos->qos_dvfsrc_init(dvfsrc);
 
-	dvfsrc_drv = dvfsrc;
+	if (dvfsrc->dvd->fb_act_enable) {
+		if (fb_register_client(&dvfsrc_fb_notifier))
+			dev_info(dev, "unable to register fb\n");
+	}
 
-	register_dvfsrc_opp_handler(dvfsrc_query_opp_info);
+	dvfsrc_up_drv = dvfsrc;
 
+	register_dvfsrc_opp_handler(dvfsrc_query_info);
+	register_dvfsrc_cm_ddr_handler(dvfsrc_cm_ddr_request);
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
+	mtk_pm_qos_add_request(&gps_ddr_req,
+		MTK_PM_QOS_DDR_OPP, DDR_OPP_UNREQ);
+	register_dvfsrc_hopping_handler(dvfsrc_enable_dvfs_gps_hopping);
+#endif
 	platform_set_drvdata(pdev, dvfsrc);
+	dvfsrc_up_register_sysfs(dev);
 
 	return 0;
 }
@@ -365,11 +335,9 @@ static struct dvfsrc_opp_desc dvfsrc_opp_mt6779_desc[] = {
 	MT_DVFSRC_OPP(3, 6, dvfsrc_opp_mt6779_lp4),
 };
 
-static const struct dvfsrc_debug_data mt6779_data = {
+static const struct dvfsrc_up_data mt6779_data = {
 	.opps_desc = dvfsrc_opp_mt6779_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6779_desc),
-	.config = &mt6779_dvfsrc_config,
-	.met = &mt6779_met_config,
 	.qos = &mt6779_qos_config,
 	.setup_opp_table = dvfsrc_setup_opp_table,
 };
@@ -397,54 +365,55 @@ static struct dvfsrc_opp_desc dvfsrc_opp_mt6761_desc[] = {
 	MT_DVFSRC_OPP(4, 3, dvfsrc_opp_mt6761),
 };
 
-static const struct dvfsrc_debug_data mt6761_data = {
+static const struct dvfsrc_up_data mt6761_data = {
+	.fb_act_enable = true,
 	.opps_desc = dvfsrc_opp_mt6761_desc,
 	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6761_desc),
-	.config = &mt6761_dvfsrc_config,
-	.met = &mt6761_met_config,
 	.qos = &mt6761_qos_config,
 	.setup_opp_table = dvfsrc_setup_opp_table,
 };
 
-static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
+static int mtk_dvfsrc_up_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
-	dvfsrc_unregister_sysfs(dev);
-	dvfsrc_drv = NULL;
+	dvfsrc_up_unregister_sysfs(dev);
+	dvfsrc_up_drv = NULL;
 	return 0;
 }
 
-
-static const struct of_device_id mtk_dvfsrc_debug_of_match[] = {
+static const struct of_device_id mtk_dvfsrc_up_of_match[] = {
 	{
-		.compatible = "mediatek,mt6779-dvfsrc-debug",
+		.compatible = "mediatek,mt6779-dvfsrc-up",
 		.data = &mt6779_data,
+	}, {
+		.compatible = "mediatek,mt6761-dvfsrc-up",
+		.data = &mt6761_data,
 	}, {
 		/* sentinel */
 	},
 };
 
-static struct platform_driver mtk_dvfsrc_debug_driver = {
-	.probe	= mtk_dvfsrc_debug_probe,
-	.remove	= mtk_dvfsrc_debug_remove,
+static struct platform_driver mtk_dvfsrc_up_driver = {
+	.probe	= mtk_dvfsrc_up_probe,
+	.remove	= mtk_dvfsrc_up_remove,
 	.driver = {
-		.name = "mtk-dvfsrc-debug",
-		.of_match_table = of_match_ptr(mtk_dvfsrc_debug_of_match),
+		.name = "mtk-dvfsrc-up",
+		.of_match_table = of_match_ptr(mtk_dvfsrc_up_of_match),
 	},
 };
 
-static int __init mtk_dvfsrc_debug_init(void)
+static int __init mtk_dvfsrc_up_init(void)
 {
-	return platform_driver_register(&mtk_dvfsrc_debug_driver);
+	return platform_driver_register(&mtk_dvfsrc_up_driver);
 }
-late_initcall_sync(mtk_dvfsrc_debug_init)
+late_initcall_sync(mtk_dvfsrc_up_init)
 
-static void __exit mtk_dvfsrc_debug_exit(void)
+static void __exit mtk_dvfsrc_up_exit(void)
 {
-	platform_driver_unregister(&mtk_dvfsrc_debug_driver);
+	platform_driver_unregister(&mtk_dvfsrc_up_driver);
 }
-module_exit(mtk_dvfsrc_debug_exit);
+module_exit(mtk_dvfsrc_up_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("MTK DVFSRC debug driver");
+MODULE_DESCRIPTION("MTK DVFSRC up driver");

@@ -9,10 +9,10 @@
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 
-#include "dvfsrc.h"
-#include "dvfsrc-opp.h"
+#include "dvfsrc-met.h"
+#include "dvfsrc-common.h"
 
-static inline u32 dvfsrc_met_read(struct mtk_dvfsrc *dvfs, u32 offset)
+static inline u32 dvfsrc_met_read(struct mtk_dvfsrc_met *dvfs, u32 offset)
 {
 	return readl(dvfs->regs + offset);
 }
@@ -103,6 +103,8 @@ static char *met_src_name[SRC_MAX] = {
 #define DVFSRC_SW_BW_3	(0x26C)
 #define DVFSRC_SW_BW_4	(0x270)
 
+#define DVFSRC_CURRENT_LEVEL	(0xD44)
+
 /* DVFSRC_SW_REQX */
 #define DDR_SW_AP_SHIFT		12
 #define DDR_SW_AP_MASK		0x7
@@ -124,7 +126,12 @@ static char **dvfsrc_get_src_req_name(void)
 	return met_src_name;
 }
 
-static u32 dvfsrc_mt6779_ddr_qos(struct mtk_dvfsrc *dvfs)
+static u32 dvfsrc_get_current_level(struct mtk_dvfsrc_met *dvfsrc)
+{
+	return dvfsrc_met_read(dvfsrc, DVFSRC_CURRENT_LEVEL);
+}
+
+static u32 dvfsrc_mt6779_ddr_qos(struct mtk_dvfsrc_met *dvfs)
 {
 	unsigned int qos_total_bw = dvfsrc_met_read(dvfs, DVFSRC_SW_BW_0) +
 			   dvfsrc_met_read(dvfs, DVFSRC_SW_BW_1) +
@@ -146,7 +153,7 @@ static u32 dvfsrc_mt6779_ddr_qos(struct mtk_dvfsrc *dvfs)
 		return 5;
 }
 
-static int dvfsrc_mt6779_emi_mon_gear(struct mtk_dvfsrc *dvfs)
+static int dvfsrc_mt6779_emi_mon_gear(struct mtk_dvfsrc_met *dvfs)
 {
 	unsigned int total_bw_status;
 	int i;
@@ -165,12 +172,9 @@ static int dvfsrc_mt6779_emi_mon_gear(struct mtk_dvfsrc *dvfs)
 	return 0;
 }
 
-static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc *dvfs)
+static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc_met *dvfs)
 {
-	const struct dvfsrc_config *config;
 	unsigned int sw_req;
-
-	config = dvfs->dvd->config;
 
 	sw_req = dvfsrc_met_read(dvfs, DVFSRC_SW_REQ1);
 	met_vcorefs_src[DDR_SW_REQ1_SPM_IDX] =
@@ -199,19 +203,19 @@ static void vcorefs_get_src_ddr_req(struct mtk_dvfsrc *dvfs)
 		dvfsrc_mt6779_emi_mon_gear(dvfs);
 
 	met_vcorefs_src[DDR_HRT_BW_IDX] =
-		config->query_request(dvfs, DVFSRC_HRT_BW_DDR_REQ);
+		mtk_dvfsrc_query_debug_info(DVFSRC_HRT_BW_DDR_REQ);
 
 	met_vcorefs_src[DDR_HIFI_IDX] =
-		config->query_request(dvfs, DVFSRC_HIFI_DDR_REQ);
+		mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_DDR_REQ);
 
 	met_vcorefs_src[DDR_HIFI_LATENCY_IDX] =
-		config->query_request(dvfs, DVFSRC_HIFI_RISING_DDR_REQ);
+		mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_RISING_DDR_REQ);
 
 	met_vcorefs_src[DDR_MD_LATENCY_IDX] =
-		config->query_request(dvfs, DVFSRC_MD_RISING_DDR_REQ);
+		mtk_dvfsrc_query_debug_info(DVFSRC_MD_RISING_DDR_REQ);
 }
 
-static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc *dvfs)
+static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc_met *dvfs)
 {
 	u32 sw_req;
 	u32 scp_en;
@@ -230,10 +234,10 @@ static void vcorefs_get_src_vcore_req(struct mtk_dvfsrc *dvfs)
 		met_vcorefs_src[VCORE_SCP_IDX] = 0;
 
 	met_vcorefs_src[VCORE_HIFI_IDX] =
-		dvfs->dvd->config->query_request(dvfs, DVFSRC_HIFI_VCORE_REQ);
+		mtk_dvfsrc_query_debug_info(DVFSRC_HIFI_VCORE_REQ);
 }
 
-static void vcorefs_get_src_misc_info(struct mtk_dvfsrc *dvfs)
+static void vcorefs_get_src_misc_info(struct mtk_dvfsrc_met *dvfs)
 {
 	u32 qos_bw0, qos_bw1, qos_bw2, qos_bw3, qos_bw4;
 	u32 sta0, sta2;
@@ -280,14 +284,14 @@ static void vcorefs_get_src_misc_info(struct mtk_dvfsrc *dvfs)
 		(sta2 >> 12) & 0x3;
 
 	met_vcorefs_src[SRC_HRT_MD_BW_IDX] =
-		dvfs->dvd->config->query_request(dvfs, DVFSRC_MD_HRT_BW);
+		mtk_dvfsrc_query_debug_info(DVFSRC_MD_HRT_BW);
 
 	met_vcorefs_src[SRC_HIFI_SCENARIO_IDX] =
 		(sta2 >> 16) & 0xFF;
 }
 
 
-static unsigned int *dvfsrc_get_src_req(struct mtk_dvfsrc *dvfs)
+static unsigned int *dvfsrc_get_src_req(struct mtk_dvfsrc_met *dvfs)
 {
 	vcorefs_get_src_ddr_req(dvfs);
 	vcorefs_get_src_vcore_req(dvfs);
@@ -296,14 +300,12 @@ static unsigned int *dvfsrc_get_src_req(struct mtk_dvfsrc *dvfs)
 	return met_vcorefs_src;
 }
 
-static int dvfsrc_get_ddr_ratio(struct mtk_dvfsrc *dvfs)
+static int dvfsrc_get_ddr_ratio(struct mtk_dvfsrc_met *dvfs)
 {
 	int level, dram_opp;
-	const struct dvfsrc_opp *opp;
 
 	level = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DVFS_OPP);
-	opp = &dvfs->opp_desc->opps[level];
-	dram_opp = dvfs->opp_desc->num_dram_opp - (opp->dram_opp + 1);
+	dram_opp = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP);
 
 	if ((dram_opp < 3) || (level == 10))
 		return 8;
@@ -316,5 +318,6 @@ const struct dvfsrc_met_config mt6779_met_config = {
 	.dvfsrc_get_src_req_name = dvfsrc_get_src_req_name,
 	.dvfsrc_get_src_req = dvfsrc_get_src_req,
 	.dvfsrc_get_ddr_ratio = dvfsrc_get_ddr_ratio,
+	.get_current_level = dvfsrc_get_current_level,
 };
 

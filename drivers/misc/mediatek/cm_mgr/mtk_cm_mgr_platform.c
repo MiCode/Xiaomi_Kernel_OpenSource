@@ -36,7 +36,7 @@
 #include <linux/of_address.h>
 #include "mtk_cm_mgr_platform.h"
 #include "mtk_cm_mgr_common.h"
-#include "dvfsrc-opp.h"
+#include "dvfsrc-exp.h"
 
 #ifdef CONFIG_MTK_DRAMC_LEGACY
 #include <mtk_dramc.h>

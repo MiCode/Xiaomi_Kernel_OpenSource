@@ -12,8 +12,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 
-#include "dvfsrc.h"
-#include "dvfsrc-opp.h"
+#include "dvfsrc-debug.h"
+#include "dvfsrc-common.h"
+
 #include <memory/mediatek/dramc.h>
 
 enum dvfsrc_regs {
@@ -57,24 +58,6 @@ static const int mt6779_regs[] = {
 static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
 {
 	return readl(dvfs->regs + dvfs->dvd->config->regs[reg] + offset);
-}
-
-static int dvfsrc_get_current_level(struct mtk_dvfsrc *dvfsrc)
-{
-	u32 curr_level;
-
-	curr_level = ffs(dvfsrc_read(dvfsrc, DVFSRC_CURRENT_LEVEL, 0x0));
-	if (curr_level > dvfsrc->opp_desc->num_opp)
-		curr_level = 0;
-	else
-		curr_level = dvfsrc->opp_desc->num_opp - curr_level;
-
-	return curr_level;
-}
-
-static u32 dvfsrc_get_current_rglevel(struct mtk_dvfsrc *dvfsrc)
-{
-	return dvfsrc_read(dvfsrc, DVFSRC_CURRENT_LEVEL, 0x0);
 }
 
 static u32 dvfsrc_get_total_emi_req(struct mtk_dvfsrc *dvfsrc)
@@ -183,7 +166,8 @@ static u32 dvfsrc_get_hrt_bw_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 	return (val >> 2) & 0x7;
 }
 
-static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
+static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
 {
 	int vcore_uv = 0;
 	char *buff_end = p + size;
@@ -202,7 +186,8 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 	return p;
 }
 
-static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
+static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
 {
 	int i, rec_offset, offset;
 	char *buff_end = p + size;
@@ -403,8 +388,6 @@ const struct dvfsrc_config mt6779_dvfsrc_config = {
 	.dump_info = dvfsrc_dump_info,
 	.dump_record = dvfsrc_dump_record,
 	.dump_reg = dvfsrc_dump_reg,
-	.get_current_level = dvfsrc_get_current_level,
-	.get_current_rglevel = dvfsrc_get_current_rglevel,
 	.force_opp = dvfsrc_force_opp,
 	.query_request = dvfsrc_query_request_status,
 };

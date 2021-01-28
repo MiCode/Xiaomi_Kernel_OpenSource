@@ -8,7 +8,6 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include "dvfsrc.h"
-#include "dvfsrc-opp.h"
 #include <sspm_ipi.h>
 #include <sspm_ipi_pin.h>
 
@@ -67,7 +66,7 @@ static int mt6779_qos_ipi_to_sspm(void *buffer, int slot)
 #endif
 }
 
-static int mt6779_qos_dvfsrc_init(struct mtk_dvfsrc *dvfsrc)
+static int mt6779_qos_dvfsrc_init(struct mtk_dvfsrc_up *dvfsrc)
 {
 	int i;
 	const int *ipi_pin;

@@ -22,7 +22,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/devfreq/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/dvfsrc/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 
 #ifeq ($(CONFIG_MTK_ENG_BUILD),y)
 CFLAGS_scp_logger.o += -DDEBUG

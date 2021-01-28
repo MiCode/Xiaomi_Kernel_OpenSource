@@ -11,10 +11,13 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
-#include "dvfsrc.h"
-#include "dvfsrc-opp.h"
-#include <memory/mediatek/dramc.h>
+#include "dvfsrc-debug.h"
+#include "dvfsrc-common.h"
+#if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
+#include <mtk_dramc.h>
+#endif
 
 enum dvfsrc_regs {
 	DVFSRC_BASIC_CONTROL,
@@ -44,6 +47,40 @@ static const int mt6761_regs[] = {
 	[DVFSRC_RSRV_0] = 0x600,
 };
 
+enum dvfsrc_spm_regs {
+	SPM_POWERON_CONFIG_EN,
+	SPM_PCM_IM_PTR,
+	SPM_MD2SPM_DVFS_CON,
+	SPM_SW_FLAG,
+	SPM_SW_RSV_9,
+	SPM_DVFS_EVENT_STA,
+	SPM_DVFS_LEVEL,
+	SPM_DFS_LEVEL,
+	SPM_DVS_LEVEL,
+	SPM_DVFS_CMD0,
+	SPM_DVFS_CMD1,
+	SPM_DVFS_CMD2,
+	SPM_DVFS_CMD3,
+	SPM_DVFS_CMD4,
+};
+
+static const int mt6761_spm_regs[] = {
+	[SPM_POWERON_CONFIG_EN] = 0x0,
+	[SPM_PCM_IM_PTR] = 0x020,
+	[SPM_MD2SPM_DVFS_CON] = 0x43C,
+	[SPM_SW_FLAG] = 0x600,
+	[SPM_SW_RSV_9] = 0x658,
+	[SPM_DVFS_EVENT_STA] = 0x69C,
+	[SPM_DVFS_LEVEL] = 0x6A4,
+	[SPM_DFS_LEVEL] = 0x6B0,
+	[SPM_DVS_LEVEL] = 0x6B4,
+	[SPM_DVFS_CMD0] = 0x710,
+	[SPM_DVFS_CMD1] = 0x714,
+	[SPM_DVFS_CMD2] = 0x718,
+	[SPM_DVFS_CMD3] = 0x71C,
+	[SPM_DVFS_CMD4] = 0x720,
+};
+
 #define DVFSRC_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
 #define DVFSRC_CURRENT_LEVEL(x)	(((x) >> 16) & 0x0000ffff)
 
@@ -52,28 +89,31 @@ static u32 dvfsrc_read(struct mtk_dvfsrc *dvfs, u32 reg, u32 offset)
 	return readl(dvfs->regs + dvfs->dvd->config->regs[reg] + offset);
 }
 
-static int dvfsrc_get_current_level(struct mtk_dvfsrc *dvfsrc)
+static u32 spm_read(struct mtk_dvfsrc *dvfs, u32 reg)
 {
-	u32 curr_level;
-
-	curr_level = dvfsrc_read(dvfsrc, DVFSRC_LEVEL, 0x0);
-	curr_level = ffs(DVFSRC_CURRENT_LEVEL(curr_level));
-	if ((curr_level > 0) && (curr_level <= dvfsrc->opp_desc->num_opp))
-		return curr_level - 1;
-	else
-		return 0;
+	return readl(dvfs->spm_regs + dvfs->dvd->config->spm_regs[reg]);
 }
 
-static u32 dvfsrc_get_current_rglevel(struct mtk_dvfsrc *dvfsrc)
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
+#define MTK_SIP_VCOREFS_DVFS_HOPPING_STATE 20
+static int dvfsrc_dvfs_hopping_status(void)
 {
-	u32 curr_level;
+	struct arm_smccc_res ares;
 
-	curr_level = dvfsrc_read(dvfsrc, DVFSRC_LEVEL, 0x0);
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+		MTK_SIP_VCOREFS_DVFS_HOPPING_STATE,
+		0, 0, 0, 0, 0, 0,
+		&ares);
 
-	return DVFSRC_CURRENT_LEVEL(curr_level);
+	if (!ares.a0)
+		return ares.a1;
+
+	return 0;
 }
+#endif
 
-static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
+static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
 {
 	int vcore_uv = 0;
 	char *buff_end = p + size;
@@ -82,17 +122,23 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 		vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
 
 	p += snprintf(p, buff_end - p, "%-10s: %-8u uv\n",
-			"Vcore", vcore_uv);
-#if IS_ENABLED(CONFIG_MTK_DRAMC)
+		"Vcore", vcore_uv);
+#if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
 	p += snprintf(p, buff_end - p, "%-10s: %-8u khz\n",
-			"DDR", mtk_dramc_get_data_rate() * 1000);
+		"DDR", get_dram_data_rate() * 1000);
 #endif
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
+	p += snprintf(p, buff_end - p, "%-10s: %d\n",
+		"GPS_HOPPING", dvfsrc_dvfs_hopping_status());
+#endif
+
 	p += snprintf(p, buff_end - p, "\n");
 
 	return p;
 }
 
-static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
+static char *dvfsrc_dump_record(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
 {
 	int i, rec_offset, offset;
 	char *buff_end = p + size;
@@ -184,6 +230,55 @@ static char *dvfsrc_dump_reg(struct mtk_dvfsrc *dvfsrc, char *p, u32 size)
 	return p;
 }
 
+static char *dvfsrc_dump_spm_info(struct mtk_dvfsrc *dvfsrc,
+	char *p, u32 size)
+{
+	char *buff_end = p + size;
+
+	if (!dvfsrc->spm_regs)
+		return p;
+
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"POWERON_CONFIG_EN",
+			spm_read(dvfsrc, SPM_POWERON_CONFIG_EN));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_SW_FLAG",
+			spm_read(dvfsrc, SPM_SW_FLAG));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_SW_RSV_9",
+			spm_read(dvfsrc, SPM_SW_RSV_9));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"MD2SPM_DVFS_CON",
+			spm_read(dvfsrc, SPM_MD2SPM_DVFS_CON));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DVFS_EVENT_STA",
+			spm_read(dvfsrc, SPM_DVFS_EVENT_STA));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DVFS_LEVEL",
+			spm_read(dvfsrc, SPM_DVFS_LEVEL));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DFS_LEVEL",
+			spm_read(dvfsrc, SPM_DFS_LEVEL));
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"SPM_DVS_LEVEL",
+			spm_read(dvfsrc, SPM_DVS_LEVEL));
+	p += snprintf(p, buff_end - p,
+		"%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+		"SPM_DVFS_CMD0~4",
+		spm_read(dvfsrc, SPM_DVFS_CMD0),
+		spm_read(dvfsrc, SPM_DVFS_CMD1),
+		spm_read(dvfsrc, SPM_DVFS_CMD2),
+		spm_read(dvfsrc, SPM_DVFS_CMD3),
+		spm_read(dvfsrc, SPM_DVFS_CMD4));
+
+	p += snprintf(p, buff_end - p, "%-24s: 0x%08x\n",
+			"PCM_IM_PTR",
+			spm_read(dvfsrc, SPM_PCM_IM_PTR));
+	p += snprintf(p, buff_end - p, "\n");
+
+	return p;
+}
+
 static int dvfsrc_query_request_status(struct mtk_dvfsrc *dvfsrc, u32 id)
 {
 	return 0;
@@ -199,11 +294,11 @@ static void dvfsrc_force_opp(struct mtk_dvfsrc *dvfsrc, u32 opp)
 
 const struct dvfsrc_config mt6761_dvfsrc_config = {
 	.regs = mt6761_regs,
+	.spm_regs = mt6761_spm_regs,
 	.dump_info = dvfsrc_dump_info,
 	.dump_record = dvfsrc_dump_record,
 	.dump_reg = dvfsrc_dump_reg,
-	.get_current_level = dvfsrc_get_current_level,
-	.get_current_rglevel = dvfsrc_get_current_rglevel,
+	.dump_spm_info = dvfsrc_dump_spm_info,
 	.force_opp = dvfsrc_force_opp,
 	.query_request = dvfsrc_query_request_status,
 };
