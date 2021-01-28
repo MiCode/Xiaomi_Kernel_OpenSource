@@ -137,7 +137,7 @@ static void *gpd_phys_to_virt(dma_addr_t paddr, u8 isRx, u32 num)
 }
 
 static void init_gpd_list(u8 isRx,
-	int num, struct TGPD *ptr, struct TGPD *io_ptr, u32 size)
+	u32 num, struct TGPD *ptr, struct TGPD *io_ptr, u32 size)
 {
 	if (isRx) {
 		Rx_gpd_List[num].pStart = ptr;
