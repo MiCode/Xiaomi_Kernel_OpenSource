@@ -1553,23 +1553,11 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	auxadc: auxadc@11001000 {
-		compatible = "mediatek,mt6765-auxadc";
+		compatible = "mediatek,auxadc";
 		reg = <0 0x11001000 0 0x1000>;
 		interrupts = <GIC_SPI 20 IRQ_TYPE_EDGE_FALLING>;
 		clocks = <&infracfg_ao CLK_IFR_AUXADC>;
-		clock-names = "main";
-		#io-channel-cells = <1>;
-		/* Auxadc efuse calibration */
-		/* 1. Auxadc cali on/off bit shift */
-		mediatek,cali-en-bit = <20>;
-		/* 2. Auxadc cali ge bits shift */
-		mediatek,cali-ge-bit = <10>;
-		/* 3. Auxadc cali oe bits shift */
-		mediatek,cali-oe-bit = <0>;
-		/* 4. Auxadc cali efuse index */
-		mediatek,cali-efuse-index = <106>;
-		nvmem = <&efuse>;
-		nvmem-names = "mtk_efuse";
+		clock-names = "auxadc-main";
 	};
 
 	apdma: dma-controller@11000580 {
