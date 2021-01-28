@@ -206,6 +206,23 @@ static u32 mt6360_trans_ieoc_sel(u32 uA)
 	return mt6360_trans_sel(uA, 100000, 50000, 0x0F);
 }
 
+static u32 mt6360_trans_safety_timer_sel(u32 hr)
+{
+	u32 mt6360_st_tbl[] = {4, 6, 8, 10, 12, 14, 16, 20};
+	u32 cur_val, next_val;
+	int i;
+
+	if (hr < mt6360_st_tbl[0])
+		return 0;
+	for (i = 0; i < ARRAY_SIZE(mt6360_st_tbl) - 1; i++) {
+		cur_val = mt6360_st_tbl[i];
+		next_val = mt6360_st_tbl[i+1];
+		if (hr >= cur_val && hr < next_val)
+			return i;
+	}
+	return ARRAY_SIZE(mt6360_st_tbl) - 1;
+}
+
 static u32 mt6360_trans_ircmp_r_sel(u32 uohm)
 {
 	return mt6360_trans_sel(uohm, 0, 25000, 0x07);
@@ -2459,7 +2476,8 @@ static const struct mt6360_pdata_prop mt6360_pdata_props[] = {
 			     MT6360_PMU_CHG_CTRL9, 4, 0xF0,
 			     mt6360_trans_ieoc_sel, 0),
 	MT6360_PDATA_VALPROP(safety_timer, struct mt6360_chg_platform_data,
-			     MT6360_PMU_CHG_CTRL12, 5, 0xE0, NULL, 0),
+			     MT6360_PMU_CHG_CTRL12, 5, 0xE0,
+			     mt6360_trans_safety_timer_sel, 0),
 	MT6360_PDATA_VALPROP(ircmp_resistor, struct mt6360_chg_platform_data,
 			     MT6360_PMU_CHG_CTRL18, 3, 0x38,
 			     mt6360_trans_ircmp_r_sel, 0),
