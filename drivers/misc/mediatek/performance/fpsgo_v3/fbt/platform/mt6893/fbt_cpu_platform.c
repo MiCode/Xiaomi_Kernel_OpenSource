@@ -108,7 +108,10 @@ static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
 		cpumask_clear_cpu(7, cpu_mask);
 	} else if (prefer_type == FPSGO_PREFER_NONE)
 		cpumask_setall(cpu_mask);
-	else
+	else if (prefer_type == FPSGO_PREFER_BIG) {
+		cpumask_clear(cpu_mask);
+		cpumask_set_cpu(7, cpu_mask);
+	} else
 		return -1;
 
 	mask_done = 1;
@@ -124,6 +127,7 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 		generate_cpu_mask(FPSGO_PREFER_LITTLE,
 					&mask[FPSGO_PREFER_LITTLE]);
 		generate_cpu_mask(FPSGO_PREFER_NONE, &mask[FPSGO_PREFER_NONE]);
+		generate_cpu_mask(FPSGO_PREFER_BIG, &mask[FPSGO_PREFER_BIG]);
 	}
 
 	ret = sched_setaffinity(pid, &mask[prefer_type]);
@@ -163,12 +167,8 @@ int fbt_get_default_adj_loading(void)
 
 int fbt_get_cluster_limit(int *cluster, int *freq)
 {
-#if defined(CONFIG_MTK_SCHED_MULTI_GEARS)
 	*cluster = 2;
 	*freq = 0;
 	return 1;
-#else
-	return 0;
-#endif
 }
 

@@ -147,6 +147,7 @@ struct fpsgo_loading {
 	int pid;
 	int loading;
 	int prefer_type;
+	int policy;
 };
 
 struct gbe_runtime {
