@@ -448,7 +448,7 @@ static int m4u_fill_sgtable_user(
 	int i;
 	long ret = 0;
 	struct scatterlist *sg = *pSg;
-	struct page *pages;
+	struct page *pages = NULL;
 	int gup_flags;
 
 	va_align = round_down(va, PAGE_SIZE);

@@ -57,7 +57,9 @@
 
 /*reserved mva region for vpu exclusive use*/
 #if defined(CONFIG_MACH_MT6775) || \
-	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6779)
+	defined(CONFIG_MACH_MT6771) || \
+	defined(CONFIG_MACH_MT6779) || \
+	defined(CONFIG_MACH_MT6785)
 #define VPU_RESET_VECTOR_FIX_MVA_START   0x7DA00000
 #define VPU_RESET_VECTOR_FIX_MVA_END     (0x82600000 - 1)
 #else
@@ -70,7 +72,9 @@
 	MVA_GRAPH_BLOCK_NR_ALIGNED(VPU_RESET_VECTOR_FIX_SIZE)
 
 #if defined(CONFIG_MACH_MT6775) || \
-	defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6779)
+	defined(CONFIG_MACH_MT6771) || \
+	defined(CONFIG_MACH_MT6779) || \
+	defined(CONFIG_MACH_MT6785)
 #define VPU_FIX_MVA_START                0x7DA00000
 #define VPU_FIX_MVA_END                  (0x82600000 - 1)
 #else
@@ -294,6 +298,7 @@ void m4u_mvaGraph_dump(unsigned int domain_idx)
 	unsigned long irq_flags;
 	enum graph_lock_tpye lock_type;
 	spinlock_t *mva_graph_lock;
+	unsigned int is_reserved;
 
 	if (domain_idx == 0)
 		lock_type = SPINLOCK_MVA_GRAPH0;
@@ -309,13 +314,19 @@ void m4u_mvaGraph_dump(unsigned int domain_idx)
 	M4ULOG_HIGH(
 		"[M4U_K] mva allocation info dump: domain=%u ==================>\n",
 		domain_idx);
-	M4ULOG_HIGH("start      size     blocknum    busy\n");
+	M4ULOG_HIGH("start      size     blocknum    busy   reserved\n");
 
 	spin_lock_irqsave(mva_graph_lock, irq_flags);
 	for (index = 1; index < MVA_MAX_BLOCK_NR + 1; index += nr) {
 		addr = index << MVA_BLOCK_SIZE_ORDER;
 		nr = MVA_GET_NR(domain_idx, index);
 		size = nr << MVA_BLOCK_SIZE_ORDER;
+
+		if (MVA_IS_RESERVED(domain_idx, index))
+			is_reserved = 1;
+		else
+			is_reserved = 0;
+
 		if (MVA_IS_BUSY(domain_idx, index)) {
 			is_busy = 1;
 			nr_alloc += nr;
@@ -331,8 +342,8 @@ void m4u_mvaGraph_dump(unsigned int domain_idx)
 			frag[max_bit]++;
 		}
 
-		M4ULOG_HIGH("0x%08x  0x%08x  %4d    %d\n",
-			addr, size, nr, is_busy);
+		M4ULOG_HIGH("0x%08x  0x%08x  %4d    %d   %d\n",
+			addr, size, nr, is_busy, is_reserved);
 	}
 
 	spin_unlock_irqrestore(mva_graph_lock, irq_flags);
@@ -534,6 +545,13 @@ static int __check_ccu_mva_region(
 		(pMvaInfo->port == M4U_PORT_CCU1) ||
 			(pMvaInfo->port == M4U_PORT_CAM_CCUI) ||
 			(pMvaInfo->port == M4U_PORT_CAM_CCUO);
+#elif defined(CONFIG_MACH_MT6785)
+	is_ccu_port =
+	(pMvaInfo->port == M4U_PORT_CCU0) ||
+	(pMvaInfo->port == M4U_PORT_CCU1) ||
+	(pMvaInfo->port == M4U_PORT_CCUI) ||
+	(pMvaInfo->port == M4U_PORT_CCUO) ||
+	(pMvaInfo->port == M4U_PORT_CCUG);
 #else
 	return 0;
 #endif
@@ -1745,10 +1763,12 @@ int __m4u_do_mva_free(unsigned int domain_idx,
 	ret = check_reserved_region_integrity(domain_idx,
 		MVAGRAPH_INDEX(CCU_FIX_MVA_START),
 		CCU_FIX_BLOCK_NR);
-	if (!ret)
+	if (!ret) {
 		M4UMSG(
-		"CCU region is corruptted when port(%d) free mva(0x%x)\n",
-		port, mva);
+		"CCU region is corruptted when port(%d) free mva(0x%x) sz(0x%x)\n",
+		port, mva, size);
+		m4u_mvaGraph_dump(domain_idx);
+	}
 
 	return 0;
 }
