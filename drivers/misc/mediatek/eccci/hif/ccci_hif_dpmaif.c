@@ -2798,11 +2798,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 		g_dp_uid_mask_count++;
 		prio_count = 0x1000;
 	}
-	if (skb->len == 0) {
-		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-			"[%s] 1; error: skb->len = %d\n", __func__, skb->len);
-		return DATA_CHECK_FAIL;
-	}
+
 	if (qno < 0) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"txq(%d) < 0\n", qno);
@@ -2817,8 +2813,6 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	}
 	txq = &hif_ctrl->txq[qno];
 
-	ccci_h = *(struct ccci_header *)skb->data;
-	skb_pull(skb, sizeof(struct ccci_header));
 	if (atomic_read(&s_tx_busy_assert_on)) {
 		if (likely(ccci_md_get_cap_by_id(hif_ctrl->md_id)
 				&MODEM_CAP_TXBUSY_STOP))
@@ -2967,15 +2961,10 @@ retry:
 		goto retry;
 	}
 	/* 3 send data. */
-	/* 3.1 a msg drb first, then payload drb. */
-	if (skb->len == 0) {
-		spin_unlock_irqrestore(&txq->tx_lock, flags);
-		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-			"[%s] 2; error: skb->len = 0.\n",
-			__func__);
-		return DATA_CHECK_FAIL;
-	}
+	ccci_h = *(struct ccci_header *)skb->data;
+	skb_pull(skb, sizeof(struct ccci_header));
 
+	/* 3.1 a msg drb first, then payload drb. */
 	set_drb_msg(txq->index, cur_idx, skb->len, prio_count,
 				ccci_h.data[0], skb->protocol);
 	record_drb_skb(txq->index, cur_idx, skb, 1, 0, 0, 0, 0);
@@ -3019,6 +3008,7 @@ retry:
 			CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 				"error dma mapping\n");
 			ret = -1;
+			skb_push(skb, sizeof(struct ccci_header));
 			spin_unlock_irqrestore(&txq->tx_lock, flags);
 			goto __EXIT_FUN;
 		}
