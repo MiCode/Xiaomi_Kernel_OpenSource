@@ -249,6 +249,11 @@ static const struct resource mt6359_gauge_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT2_L, "VBAT_L"),
 };
 
+static const struct resource mt6357_battery_oc_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_FG_CUR_H, "fg_cur_h"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_FG_CUR_L, "fg_cur_l"),
+};
+
 static const struct resource mt6359_battery_oc_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_CUR_H, "fg_cur_h"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_CUR_L, "fg_cur_l"),
@@ -296,6 +301,8 @@ static const struct mfd_cell mt6357_devs[] = {
 	}, {
 		.name = "mtk-battery-oc-throttling",
 		.of_compatible = "mediatek,mt6357-battery_oc_throttling",
+		.num_resources = ARRAY_SIZE(mt6357_battery_oc_resources),
+		.resources = mt6357_battery_oc_resources,
 	}, {
 		.name = "mt6357-charger-type-detection",
 		.of_compatible = "mediatek,mt6357-charger-type"

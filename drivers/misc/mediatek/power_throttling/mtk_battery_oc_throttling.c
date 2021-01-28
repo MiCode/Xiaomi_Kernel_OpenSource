@@ -5,6 +5,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/math64.h>
@@ -17,28 +18,29 @@
 
 #include "mtk_battery_oc_throttling.h"
 
+/* Customize the setting in pmic mt635x.dtsi */
 #define DEF_BAT_OC_THD_H	5800
 #define DEF_BAT_OC_THD_L	6300
 
-#define UNIT_FGCURRENT		(610352)
+#define UNIT_TRANS_10		(10)
 #define CURRENT_CONVERT_RATIO	95
-
 #define OCCB_MAX_NUM 16
+//TODO
+/* Get r_fg_value/car_tune_value from gauge dts */
+#define MT6357_R_FG_VALUE		(10)	/*mOhm*/
+#define	MT6357_DEFAULT_RFG		(100)
+#define	MT6357_CAR_TUNE_VALUE		(100)
+#define	MT6357_UNIT_FGCURRENT		(314331)
 
-/*
- * 65535–(I_mA * 1000 * r_fg_value / DEFAULT_RFG * 1000000 / car_tune_value
- * / UNIT_FGCURRENT * CURRENT_CONVERT_RATIO / 100)
- * 65535 - (I_mA 1000 * 50 / 50 * 1000000 / 1000 / 610352 * 95 / 100)
- * 65535 - (I_mA * 1000000 / 610352 * 95 / 100)
- */
-static unsigned int to_fg_code(u64 cur_mA)
-{
-	cur_mA = div_u64(cur_mA * 1000000, UNIT_FGCURRENT);
-	cur_mA = div_u64(cur_mA * CURRENT_CONVERT_RATIO, 100);
+#define MT6358_R_FG_VALUE		(5)	/*mOhm*/
+#define	MT6358_DEFAULT_RFG		(100)
+#define	MT6358_CAR_TUNE_VALUE		(100)
+#define	MT6358_UNIT_FGCURRENT		(381470)
 
-	/* 2's complement */
-	return (0xFFFF - cur_mA);
-}
+#define MT6359_R_FG_VALUE		(5)	/*mOhm*/
+#define	MT6359_DEFAULT_RFG		(50)
+#define	MT6359_CAR_TUNE_VALUE		(100)
+#define	MT6359_UNIT_FGCURRENT		(610352)
 
 struct reg_t {
 	unsigned int addr;
@@ -48,6 +50,11 @@ struct reg_t {
 struct battery_oc_regs_t {
 	struct reg_t fg_cur_hth;
 	struct reg_t fg_cur_lth;
+};
+
+struct battery_oc_regs_t mt6357_battery_oc_regs = {
+	.fg_cur_hth = {MT6357_FGADC_CUR_CON2, 0xFFFF},
+	.fg_cur_lth = {MT6357_FGADC_CUR_CON1, 0xFFFF},
 };
 
 struct battery_oc_regs_t mt6359_battery_oc_regs = {
@@ -62,6 +69,10 @@ struct battery_oc_priv {
 	unsigned int oc_thd_l;
 	int fg_cur_h_irq;
 	int fg_cur_l_irq;
+	int r_fg_value;
+	int default_rfg;
+	int car_tune_value;
+	int unit_fg_cur;
 	const struct battery_oc_regs_t *regs;
 };
 
@@ -97,6 +108,21 @@ static void exec_battery_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 	}
 }
 
+/*
+ * 65535 - (I_mA * 1000 * r_fg_value / DEFAULT_RFG * 1000000 / car_tune_value
+ * / UNIT_FGCURRENT * CURRENT_CONVERT_RATIO / 100)
+ */
+static unsigned int to_fg_code(struct battery_oc_priv *priv, u64 cur_mA)
+{
+	cur_mA = div_u64(cur_mA * 1000 * priv->r_fg_value, priv->default_rfg);
+	cur_mA = div_u64(cur_mA * 1000000, priv->car_tune_value);
+	cur_mA = div_u64(cur_mA, priv->unit_fg_cur);
+	cur_mA = div_u64(cur_mA * CURRENT_CONVERT_RATIO, 100);
+
+	/* 2's complement */
+	return (0xFFFF - cur_mA);
+}
+
 static irqreturn_t fg_cur_h_int_handler(int irq, void *data)
 {
 	struct battery_oc_priv *priv = data;
@@ -121,6 +147,81 @@ static irqreturn_t fg_cur_l_int_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int battery_oc_parse_dt(struct platform_device *pdev)
+{
+	struct mt6397_chip *pmic = dev_get_drvdata(pdev->dev.parent);
+	struct battery_oc_priv *priv = dev_get_drvdata(&pdev->dev);
+	struct device_node *np;
+	int ret = 0;
+
+#if defined(GAUGE_DTS)
+	//TODO
+	/* Get r_fg_value/car_tune_value */
+	np = of_find_node_by_name(pdev->dev.parent->of_node, "mtk_gauge");
+	if (!np) {
+		dev_notice(&pdev->dev, "get mtk_gauge node fail\n");
+		return -EINVAL;
+	}
+
+	ret = of_property_read_u32(np, "R_FG_VALUE", &priv->r_fg_value);
+	if (ret) {
+		dev_notice(&pdev->dev, "get R_FG_VALUE fail\n");
+		return -EINVAL;
+	}
+	priv->r_fg_value *= UNIT_TRANS_10;
+
+	ret = of_property_read_u32(np, "CAR_TUNE_VALUE", &priv->car_tune_value);
+	if (ret) {
+		dev_notice(&pdev->dev, "get CAR_TUNE_VALUE fail\n");
+		return -EINVAL;
+	}
+	priv->car_tune_value *= UNIT_TRANS_10;
+#endif
+
+	/* Get oc_thd_h/oc_thd_l value */
+	np = of_find_node_by_name(pdev->dev.parent->of_node,
+				  "mtk_battery_oc_throttling");
+	if (!np) {
+		dev_notice(&pdev->dev, "get mtk battery oc node fail\n");
+		return -EINVAL;
+	}
+	ret = of_property_read_u32(np, "oc-thd-h", &priv->oc_thd_h);
+	if (ret)
+		priv->oc_thd_h = DEF_BAT_OC_THD_H;
+
+	ret = of_property_read_u32(np, "oc-thd-l", &priv->oc_thd_l);
+	if (ret)
+		priv->oc_thd_l = DEF_BAT_OC_THD_L;
+
+	/* TODO: get from gauge dts or header file? */
+	/* Get DEFAULT_RFG/UNIT_FGCURRENT */
+	switch (pmic->chip_id) {
+	case MT6357_CHIP_ID:
+		priv->oc_thd_h = 4670;
+		priv->oc_thd_l = 5500;
+		priv->r_fg_value = (MT6357_R_FG_VALUE * UNIT_TRANS_10);
+		priv->car_tune_value = (MT6357_CAR_TUNE_VALUE * UNIT_TRANS_10);
+		priv->default_rfg = MT6357_DEFAULT_RFG;
+		priv->unit_fg_cur = MT6357_UNIT_FGCURRENT;
+		break;
+
+	case MT6359_CHIP_ID:
+		priv->r_fg_value = (MT6359_R_FG_VALUE * UNIT_TRANS_10);
+		priv->car_tune_value = (MT6359_CAR_TUNE_VALUE * UNIT_TRANS_10);
+		priv->default_rfg = MT6359_DEFAULT_RFG;
+		priv->unit_fg_cur = MT6359_UNIT_FGCURRENT;
+		break;
+
+	default:
+		dev_info(&pdev->dev, "unsupported chip: 0x%x\n", pmic->chip_id);
+		return -EINVAL;
+	}
+	dev_info(&pdev->dev, "r_fg=%d car_tune=%d DEFAULT_RFG=%d UNIT_FGCURRENT=%d\n"
+		 , priv->r_fg_value, priv->car_tune_value
+		 , priv->default_rfg, priv->unit_fg_cur);
+	return 0;
+}
+
 static int battery_oc_throttling_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -134,8 +235,6 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, priv);
 	priv->regmap = chip->regmap;
 	priv->regs = of_device_get_match_data(&pdev->dev);
-	priv->oc_thd_h = DEF_BAT_OC_THD_H;
-	priv->oc_thd_l = DEF_BAT_OC_THD_L;
 
 	/* set Maximum threshold to avoid irq being triggered at init */
 	regmap_update_bits(priv->regmap, priv->regs->fg_cur_hth.addr,
@@ -165,15 +264,22 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 	if (ret < 0)
 		dev_notice(&pdev->dev, "request fg_cur_l irq fail\n");
 	disable_irq_nosync(priv->fg_cur_h_irq);
+
+	ret = battery_oc_parse_dt(pdev);
+	if (ret < 0) {
+		dev_notice(&pdev->dev, "bat_oc parse dt fail, ret=%d\n", ret);
+		return ret;
+	}
+
 	regmap_update_bits(priv->regmap, priv->regs->fg_cur_hth.addr,
 			   priv->regs->fg_cur_hth.mask,
-			   to_fg_code(priv->oc_thd_h));
+			   to_fg_code(priv, priv->oc_thd_h));
 	regmap_update_bits(priv->regmap, priv->regs->fg_cur_lth.addr,
 			   priv->regs->fg_cur_lth.mask,
-			   to_fg_code(priv->oc_thd_l));
+			   to_fg_code(priv, priv->oc_thd_l));
 	dev_info(&pdev->dev, "%dmA(0x%x), %dmA(0x%x) Done\n",
-		 priv->oc_thd_h, to_fg_code(priv->oc_thd_h),
-		 priv->oc_thd_l, to_fg_code(priv->oc_thd_l));
+		 priv->oc_thd_h, to_fg_code(priv, priv->oc_thd_h),
+		 priv->oc_thd_l, to_fg_code(priv, priv->oc_thd_l));
 	return ret;
 }
 
@@ -205,6 +311,9 @@ static SIMPLE_DEV_PM_OPS(battery_oc_throttling_pm_ops,
 
 static const struct of_device_id battery_oc_throttling_of_match[] = {
 	{
+		.compatible = "mediatek,mt6357-battery_oc_throttling",
+		.data = &mt6357_battery_oc_regs,
+	}, {
 		.compatible = "mediatek,mt6359-battery_oc_throttling",
 		.data = &mt6359_battery_oc_regs,
 	}, {
