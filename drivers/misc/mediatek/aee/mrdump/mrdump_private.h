@@ -77,7 +77,7 @@ void mrdump_save_current_backtrace(struct pt_regs *regs);
 void mrdump_save_control_register(void *creg);
 
 extern int mrdump_rsv_conflict;
-extern void dis_D_inner_fL1L2(void);
+extern void dis_D_inner_flush_all(void);
 extern void __inner_flush_dcache_all(void);
 extern void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
 

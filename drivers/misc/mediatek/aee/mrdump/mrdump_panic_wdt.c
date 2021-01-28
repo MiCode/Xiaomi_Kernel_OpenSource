@@ -537,7 +537,7 @@ void notrace aee_wdt_atf_entry(void)
 	/* for per-cpu control registers */
 	mrdump_save_ctrlreg(cpu);
 
-	dis_D_inner_fL1L2();
+	dis_D_inner_flush_all();
 
 	if (atf_aee_debug_virt_addr && cpu >= 0) {
 		regs = (void *)(atf_aee_debug_virt_addr +
