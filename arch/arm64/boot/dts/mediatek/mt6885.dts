@@ -1450,7 +1450,8 @@ page_owner=on loop.max_part=7";
 			<0 0x11021000 0 0x1000>,
 			<0 0x11022000 0 0x1000>,
 			<0 0x10030000 0 0x1000>,
-			<0 0x1020e000 0 0x1000>;
+			<0 0x1020e000 0 0x1000>,
+			<0 0x10033000 0 0x1000>;
 		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&infracfg_ao INFRACFG_AO_DEVICE_APC_CG>;
 		clock-names = "devapc-infra-clock";
