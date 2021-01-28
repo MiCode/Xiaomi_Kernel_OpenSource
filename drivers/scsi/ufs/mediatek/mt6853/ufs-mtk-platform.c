@@ -60,6 +60,9 @@ void random_delay(struct ufs_hba *hba)
 }
 void wdt_pmic_full_reset(struct ufs_hba *hba)
 {
+	/* disable irq first to prevent some unpredict interrupts */
+	ufshcd_disable_intr(hba, hba->intr_mask);
+
 	/* power off device VCC */
 	pmic_set_register_value_nolock(PMIC_RG_LDO_VEMC_EN, 0);
 
