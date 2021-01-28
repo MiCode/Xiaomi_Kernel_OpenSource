@@ -27,7 +27,7 @@
 #define MET_READY              1
 /* #define IMAX_ENABLE             1 */
 #define IMAX_INIT_STATE         1
-#define CPU_DVFS_NOT_READY	1
+/* #define CPU_DVFS_NOT_READY	1 */
 #define REPORT_IDLE_FREQ	1
 #define ENABLE_CLUSTER_ONOFF_SRAM	1
 #else
