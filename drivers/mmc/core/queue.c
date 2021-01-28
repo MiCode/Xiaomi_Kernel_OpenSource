@@ -561,6 +561,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 
 	mq->queue->cmd_size = sizeof(struct mmc_queue_req);
 	mq->queue->queuedata = mq;
+	mq->queue->backing_dev_info->ra_pages = 128;
 	atomic_set(&mq->qcnt, 0);
 	ret = blk_init_allocated_queue(mq->queue);
 	if (ret) {
