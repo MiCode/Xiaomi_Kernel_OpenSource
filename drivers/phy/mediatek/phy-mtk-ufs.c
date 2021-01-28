@@ -36,7 +36,6 @@ struct ufs_mtk_phy {
 	void __iomem *mmio;
 	struct clk *mp_clk;
 	struct clk *unipro_clk;
-	bool powered_on;
 };
 
 static inline u32 mphy_readl(struct ufs_mtk_phy *phy, u32 reg)
@@ -151,9 +150,6 @@ static int ufs_mtk_phy_power_on(struct phy *generic_phy)
 	struct ufs_mtk_phy *phy = get_ufs_mtk_phy(generic_phy);
 	int ret;
 
-	if (phy->powered_on)
-		return 0;
-
 	ret = clk_prepare_enable(phy->unipro_clk);
 	if (ret) {
 		dev_err(phy->dev, "unipro_clk enable failed %d\n", ret);
@@ -167,7 +163,6 @@ static int ufs_mtk_phy_power_on(struct phy *generic_phy)
 	}
 
 	ufs_mtk_phy_set_active(phy);
-	phy->powered_on = true;
 
 	return 0;
 
@@ -181,15 +176,10 @@ static int ufs_mtk_phy_power_off(struct phy *generic_phy)
 {
 	struct ufs_mtk_phy *phy = get_ufs_mtk_phy(generic_phy);
 
-	if (!phy->powered_on)
-		return 0;
-
 	ufs_mtk_phy_set_deep_hibern(phy);
 
 	clk_disable_unprepare(phy->unipro_clk);
 	clk_disable_unprepare(phy->mp_clk);
-
-	phy->powered_on = false;
 
 	return 0;
 }

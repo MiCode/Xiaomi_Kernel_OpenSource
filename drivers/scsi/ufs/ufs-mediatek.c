@@ -276,6 +276,23 @@ int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 state,
 	return -ETIMEDOUT;
 }
 
+static void ufs_mtk_mphy_power_on(struct ufs_hba *hba, bool on)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct phy *mphy = host->mphy;
+
+	if (!mphy)
+		return;
+
+	if (on && !host->mphy_powered_on)
+		phy_power_on(mphy);
+	else if (!on && host->mphy_powered_on)
+		phy_power_off(mphy);
+	else
+		return;
+	host->mphy_powered_on = on;
+}
+
 /**
  * ufs_mtk_setup_clocks - enables/disable clocks
  * @hba: host controller instance
@@ -312,11 +329,11 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 						      15);
 			if (!ret) {
 				ufs_mtk_setup_ref_clk(hba, on);
-				phy_power_off(host->mphy);
+				ufs_mtk_mphy_power_on(hba, on);
 			}
 		}
 	} else if (on && status == POST_CHANGE) {
-		phy_power_on(host->mphy);
+		ufs_mtk_mphy_power_on(hba, on);
 		ufs_mtk_setup_ref_clk(hba, on);
 	}
 
@@ -612,7 +629,6 @@ static void ufs_mtk_vreg_set_lpm(struct ufs_hba *hba, bool lpm)
 static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
 	int err;
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		err = ufs_mtk_link_set_lpm(hba);
@@ -633,19 +649,12 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		ufs_mtk_vreg_set_lpm(hba, true);
 	}
 
-	if (!ufshcd_is_link_active(hba))
-		phy_power_off(host->mphy);
-
 	return 0;
 }
 
 static int ufs_mtk_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 {
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	int err;
-
-	if (!ufshcd_is_link_active(hba))
-		phy_power_on(host->mphy);
 
 	if (ufshcd_is_link_hibern8(hba)) {
 		ufs_mtk_vreg_set_lpm(hba, false);
