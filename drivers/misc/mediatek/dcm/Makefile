@@ -13,3 +13,5 @@ obj-$(CONFIG_MTK_DCM_MT6779) += mt6779_dcm.o
 mt6779_dcm-objs := mt6779_dcm_internal.o mt6779_dcm_autogen.o
 obj-$(CONFIG_MTK_DCM_MT6761) += mt6761_dcm.o
 mt6761_dcm-objs := mt6761_dcm_internal.o mt6761_dcm_autogen.o
+obj-$(CONFIG_MTK_DCM_MT6765) += mt6765_dcm.o
+mt6765_dcm-objs := mt6765_dcm_internal.o mt6765_dcm_autogen.o
