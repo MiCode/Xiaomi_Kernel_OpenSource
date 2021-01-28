@@ -27,6 +27,10 @@
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 
+#ifdef CONFIG_TCPC_CLASS
+#include <tcpm.h>
+#endif
+
 #define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
 
 void __attribute__ ((weak)) Charger_Detect_Init(void)
@@ -91,7 +95,6 @@ struct mt6360_pmu_chg_info {
 	struct completion chrdet_start;
 	struct task_struct *attach_task;
 	struct mutex attach_lock;
-	bool attach;
 	bool tcpc_kpoc;
 #else
 	struct work_struct chgdet_work;
@@ -3037,7 +3040,7 @@ static const struct regulator_desc mt6360_otg_rdesc = {
 	.csel_mask = MT6360_MASK_OTG_OC,
 };
 //====pd_notifier_start===
-#ifdef CONFIG_TCPC_CLASS
+#ifdef CONFIG_TCPC_CLASS_FIXME
 static int typec_attach_thread(void *data)
 {
 	struct mt6360_pmu_chg_info *chg_data = data;
@@ -3288,7 +3291,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_psy_get_phandle;
 	}
 #endif
-#ifdef CONFIG_TCPC_CLASS
+#ifdef CONFIG_TCPC_CLASS_FIXME
 /*typec_notifier*/
 	mpci->attach_task = kthread_run(typec_attach_thread, mpci,
 					"attach_thread");
@@ -3309,6 +3312,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		pr_notice("%s: register tcpc notifer fail\n", __func__);
 		ret = -EINVAL;
 		goto err_register_tcp_notifier;
+	}
 #endif
 
 	/* Schedule work for microB's BC1.2 */
@@ -3318,7 +3322,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
 	dev_info(&pdev->dev, "%s: successfully probed\n", __func__);
 	return 0;
-#ifdef CONFIG_TCPC_CLASS
+#ifdef CONFIG_TCPC_CLASS_FIXME
 err_register_tcp_notifier:
 err_get_tcpcdev:
 	kthread_stop(mpci->attach_task);

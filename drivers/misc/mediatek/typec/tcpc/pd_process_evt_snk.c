@@ -364,7 +364,10 @@ static void pd_sink_wait_bc12_result(struct pd_port *pd_port)
 					tcpc_dev->dev.parent, "charger");
 	if (IS_ERR(pd_port->chg_psy)) {
 		PE_INFO("wait bc12, fail to get chg_psy\r\n");
-		goto out;
+		/* FIXME: temp mark not always print log */
+		/* goto out; */
+		return;
+		/* FIXME: temp change end */
 	}
 
 	ret = power_supply_get_property(pd_port->chg_psy,
