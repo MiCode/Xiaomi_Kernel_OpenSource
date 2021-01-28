@@ -15,6 +15,8 @@
 #include "inc/mt6370_pmu.h"
 #include "inc/mt6370_pmu_rgbled.h"
 
+#define MT6370_PMU_RGBLED_DRV_VERSION	"1.0.1_MTK"
+
 enum {
 	MT6370_PMU_LED_PWMMODE = 0,
 	MT6370_PMU_LED_BREATHMODE,
@@ -55,7 +57,7 @@ static const u8 rgbled_init_data[] = {
 	0x60, /* MT6370_PMU_REG_RGB1DIM: 0x82 */
 	0x60, /* MT6370_PMU_REG_RGB2DIM: 0x83 */
 	0x60, /* MT6370_PMU_REG_RGB3DIM: 0x84 */
-	0x0f, /* MT6370_PMU_REG_RGBEN: 0x85 */
+	0x0F, /* MT6370_PMU_REG_RGBEN: 0x85 */
 	0x08, /* MT6370_PMU_REG_RGB1ISINK: 0x86 */
 	0x08, /* MT6370_PMU_REG_RGB2ISINK: 0x87 */
 	0x08, /* MT6370_PMU_REG_RGB3ISINK: 0x88 */
@@ -73,19 +75,19 @@ static const u8 rgbled_init_data[] = {
 	0x52, /* MT6370_PMU_REG_RGBCHRINDTR: 0x94 */
 	0x25, /* MT6370_PMU_REG_RGBCHRINDTF: 0x95 */
 	0x11, /* MT6370_PMU_REG_RGBCHRINDTONTOFF: 0x96 */
-	0xff, /* MT6370_PMU_REG_RGBOPENSHORTEN: 0x97 */
+	0xFF, /* MT6370_PMU_REG_RGBOPENSHORTEN: 0x97 */
 };
 
 static const u8 rgbled_init_data2[] = {
 	0x00, /* 0x82 */
-	0xca, /* 0x83 */
-	0xca, /* 0x84 */
-	0xca, /* 0x85 */
-	0xca, /* 0x86 */
-	0x1f, /* 0x87 */
-	0x1f, /* 0x88 */
-	0x1f, /* 0x89 */
-	0x1f, /* 0x8A */
+	0xCA, /* 0x83 */
+	0xCA, /* 0x84 */
+	0xCA, /* 0x85 */
+	0xCA, /* 0x86 */
+	0x1F, /* 0x87 */
+	0x1F, /* 0x88 */
+	0x1F, /* 0x89 */
+	0x1F, /* 0x8A */
 	0x48, /* 0x8B */
 	0x48, /* 0x8C */
 	0x11, /* 0x8D */
@@ -143,7 +145,7 @@ static void mt6370_pmu_led_bright_set2(struct led_classdev *led_cdev,
 	enum led_brightness bright)
 {
 	int led_index = mt6370_pmu_led_get_index(led_cdev);
-	uint8_t reg_addr = 0, reg_mask = 0xf, reg_shift = 0, en_mask = 0;
+	uint8_t reg_addr = 0, reg_mask = 0xF, reg_shift = 0, en_mask = 0;
 	bool need_enable_timer = true;
 	int ret = 0;
 
@@ -191,7 +193,7 @@ static enum led_brightness mt6370_pmu_led_bright_get2(
 	struct led_classdev *led_cdev)
 {
 	int led_index = mt6370_pmu_led_get_index(led_cdev);
-	uint8_t reg_addr = 0, reg_mask = 0xf, reg_shift = 0, en_mask = 0;
+	uint8_t reg_addr = 0, reg_mask = 0xF, reg_shift = 0, en_mask = 0;
 	bool need_enable_timer = true;
 	int ret = 0;
 
@@ -250,23 +252,23 @@ static inline int mt6370_pmu_led_config_pwm2(struct led_classdev *led_cdev,
 	/* write pwm dim freq selection */
 	switch (led_index) {
 	case MT6370_PMU_LED1:
-		reg_addr = 0x8b;
-		reg_mask = 0xe0;
+		reg_addr = 0x8B;
+		reg_mask = 0xE0;
 		reg_shift = 5;
 		break;
 	case MT6370_PMU_LED2:
-		reg_addr = 0x8b;
-		reg_mask = 0x1c;
+		reg_addr = 0x8B;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	case MT6370_PMU_LED3:
-		reg_addr = 0x8c;
-		reg_mask = 0xe0;
+		reg_addr = 0x8C;
+		reg_mask = 0xE0;
 		reg_shift = 5;
 		break;
 	case MT6370_PMU_LED4:
-		reg_addr = 0x8c;
-		reg_mask = 0x1c;
+		reg_addr = 0x8C;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	default:
@@ -292,12 +294,12 @@ static inline int mt6370_pmu_led_config_pwm2(struct led_classdev *led_cdev,
 		reg_addr = 0x89;
 		break;
 	case MT6370_PMU_LED4:
-		reg_addr = 0x8a;
+		reg_addr = 0x8A;
 		break;
 	default:
 		return -EINVAL;
 	}
-	reg_mask = 0xff;
+	reg_mask = 0xFF;
 	reg_shift = 0;
 	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr,
 					 reg_mask, j << reg_shift);
@@ -387,7 +389,7 @@ static int mt6370_pmu_led_change_mode2(struct led_classdev *led_cdev, int mode)
 		break;
 	case MT6370_PMU_LED4:
 		/* disable auto mode */
-		ret = mt6370_pmu_led_update_bits(led_cdev, 0x82, 0x08, 0xff);
+		ret = mt6370_pmu_led_update_bits(led_cdev, 0x82, 0x08, 0xFF);
 		if (ret < 0)
 			return ret;
 		reg_addr = 0x86;
@@ -395,13 +397,13 @@ static int mt6370_pmu_led_change_mode2(struct led_classdev *led_cdev, int mode)
 	default:
 		return -EINVAL;
 	}
-	return mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xc0, mode << 6);
+	return mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xC0, mode << 6);
 }
 
 static const struct device_attribute mt_led_cc_mode_attrs2[] = {
 };
 
-static void mt6370_pmu_led_cc_activate2(struct led_classdev *led_cdev)
+static int mt6370_pmu_led_cc_activate2(struct led_classdev *led_cdev)
 {
 	int i = 0, ret = 0;
 
@@ -419,12 +421,13 @@ static void mt6370_pmu_led_cc_activate2(struct led_classdev *led_cdev)
 		dev_err(led_cdev->dev, "%s: change mode fail\n", __func__);
 		goto out_change_mode;
 	}
-	return;
+	return 0;
 out_change_mode:
 	i = ARRAY_SIZE(mt_led_cc_mode_attrs2);
 out_create_file:
 	while (--i >= 0)
 		device_remove_file(led_cdev->dev, mt_led_cc_mode_attrs2 + i);
+	return ret;
 }
 
 static void mt6370_pmu_led_cc_deactivate2(struct led_classdev *led_cdev)
@@ -454,7 +457,7 @@ static ssize_t mt_led_pwm_duty_attr_show2(struct device *dev,
 		reg_addr = 0x89;
 		break;
 	case MT6370_PMU_LED4:
-		reg_addr = 0x8a;
+		reg_addr = 0x8A;
 		break;
 	default:
 		return -EINVAL;
@@ -462,7 +465,7 @@ static ssize_t mt_led_pwm_duty_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_addr = ret & 0xff;
+	reg_addr = ret & 0xFF;
 	return snprintf(buf, PAGE_SIZE, "%d (max: %d)\n", reg_addr, 255);
 }
 
@@ -491,13 +494,13 @@ static ssize_t mt_led_pwm_duty_attr_store2(struct device *dev,
 		reg_addr = 0x89;
 		break;
 	case MT6370_PMU_LED4:
-		reg_addr = 0x8a;
+		reg_addr = 0x8A;
 		break;
 	default:
 		return -EINVAL;
 	}
 	reg_data = store << 0;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xff, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xFF, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -525,23 +528,23 @@ static ssize_t mt_led_pwm_dim_freq_attr_show2(struct device *dev,
 
 	switch (led_index) {
 	case MT6370_PMU_LED1:
-		reg_addr = 0x8b;
-		reg_mask = 0xe0;
+		reg_addr = 0x8B;
+		reg_mask = 0xE0;
 		reg_shift = 5;
 		break;
 	case MT6370_PMU_LED2:
-		reg_addr = 0x8b;
-		reg_mask = 0x1c;
+		reg_addr = 0x8B;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	case MT6370_PMU_LED3:
-		reg_addr = 0x8c;
-		reg_mask = 0xe0;
+		reg_addr = 0x8C;
+		reg_mask = 0xE0;
 		reg_shift = 5;
 		break;
 	case MT6370_PMU_LED4:
-		reg_addr = 0x8c;
-		reg_mask = 0x1c;
+		reg_addr = 0x8C;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	default:
@@ -577,23 +580,23 @@ static ssize_t mt_led_pwm_dim_freq_attr_store2(struct device *dev,
 		return -EINVAL;
 	switch (led_index) {
 	case MT6370_PMU_LED1:
-		reg_addr = 0x8b;
-		reg_mask = 0xe0;
+		reg_addr = 0x8B;
+		reg_mask = 0xE0;
 		reg_shift = 5;
 		break;
 	case MT6370_PMU_LED2:
-		reg_addr = 0x8b;
-		reg_mask = 0x1c;
+		reg_addr = 0x8B;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	case MT6370_PMU_LED3:
-		reg_addr = 0x8c;
-		reg_mask = 0xe0;
+		reg_addr = 0x8C;
+		reg_mask = 0xE0;
 		reg_shift = 5;
 		break;
 	case MT6370_PMU_LED4:
-		reg_addr = 0x8c;
-		reg_mask = 0x1c;
+		reg_addr = 0x8C;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	default:
@@ -612,7 +615,7 @@ static const struct device_attribute mt_led_pwm_mode_attrs2[] = {
 	MT_LED_ATTR2(pwm_dim_freq),
 };
 
-static void mt6370_pmu_led_pwm_activate2(struct led_classdev *led_cdev)
+static int mt6370_pmu_led_pwm_activate2(struct led_classdev *led_cdev)
 {
 	int i = 0, ret = 0;
 
@@ -630,12 +633,13 @@ static void mt6370_pmu_led_pwm_activate2(struct led_classdev *led_cdev)
 		dev_err(led_cdev->dev, "%s: change mode fail\n", __func__);
 		goto out_change_mode;
 	}
-	return;
+	return 0;
 out_change_mode:
 	i = ARRAY_SIZE(mt_led_pwm_mode_attrs2);
 out_create_file:
 	while (--i >= 0)
 		device_remove_file(led_cdev->dev, mt_led_pwm_mode_attrs2 + i);
+	return ret;
 }
 
 static void mt6370_pmu_led_pwm_deactivate2(struct led_classdev *led_cdev)
@@ -653,7 +657,7 @@ static int mt6370_pmu_led_get_breath_regbase2(struct led_classdev *led_cdev)
 
 	switch (led_index) {
 	case MT6370_PMU_LED1:
-		ret = 0x8d;
+		ret = 0x8D;
 		break;
 	case MT6370_PMU_LED2:
 		ret = 0x90;
@@ -685,7 +689,7 @@ static ssize_t mt_led_tr1_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_data = (ret & 0xf0) >> 4;
+	reg_data = (ret & 0xF0) >> 4;
 	return snprintf(buf, cnt,
 			"%d (max 15, 0.125s, step 0.25s)\n", reg_data);
 }
@@ -708,7 +712,7 @@ static ssize_t mt_led_tr1_attr_store2(struct device *dev,
 		return ret;
 	reg_addr += ret;
 	reg_data = store << 4;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xf0, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xF0, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -729,7 +733,7 @@ static ssize_t mt_led_tr2_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_data = (ret & 0x0f) >> 0;
+	reg_data = (ret & 0x0F) >> 0;
 	return snprintf(buf, cnt,
 			"%d (max 15, 0.125s, step 0.25s)\n", reg_data);
 }
@@ -752,7 +756,7 @@ static ssize_t mt_led_tr2_attr_store2(struct device *dev,
 		return ret;
 	reg_addr += ret;
 	reg_data = store << 0;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0x0f, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0x0F, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -773,7 +777,7 @@ static ssize_t mt_led_tf1_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_data = (ret & 0xf0) >> 4;
+	reg_data = (ret & 0xF0) >> 4;
 	return snprintf(buf, cnt,
 			"%d (max 15, 0.125s, step 0.25s)\n", reg_data);
 }
@@ -796,7 +800,7 @@ static ssize_t mt_led_tf1_attr_store2(struct device *dev,
 		return ret;
 	reg_addr += ret;
 	reg_data = store << 4;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xf0, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xF0, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -817,7 +821,7 @@ static ssize_t mt_led_tf2_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_data = (ret & 0x0f) >> 0;
+	reg_data = (ret & 0x0F) >> 0;
 	return snprintf(buf, cnt,
 			"%d (max 15, 0.125s, step 0.25s)\n", reg_data);
 }
@@ -840,7 +844,7 @@ static ssize_t mt_led_tf2_attr_store2(struct device *dev,
 		return ret;
 	reg_addr += ret;
 	reg_data = store << 0;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0x0f, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0x0F, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -861,7 +865,7 @@ static ssize_t mt_led_ton_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_data = (ret & 0xf0) >> 4;
+	reg_data = (ret & 0xF0) >> 4;
 	return snprintf(buf, cnt,
 			"%d (max 15, 0.125s, step 0.25s)\n", reg_data);
 }
@@ -884,7 +888,7 @@ static ssize_t mt_led_ton_attr_store2(struct device *dev,
 		return ret;
 	reg_addr += ret;
 	reg_data = store << 4;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xf0, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0xF0, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -905,7 +909,7 @@ static ssize_t mt_led_toff_attr_show2(struct device *dev,
 	ret = mt6370_pmu_led_reg_read(led_cdev, reg_addr);
 	if (ret < 0)
 		return ret;
-	reg_data = (ret & 0x0f) >> 0;
+	reg_data = (ret & 0x0F) >> 0;
 	return snprintf(buf, cnt,
 			"%d (max 15, 0.125s, step 0.25s)\n", reg_data);
 }
@@ -928,7 +932,7 @@ static ssize_t mt_led_toff_attr_store2(struct device *dev,
 		return ret;
 	reg_addr += ret;
 	reg_data = store << 0;
-	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0x0f, reg_data);
+	ret = mt6370_pmu_led_update_bits(led_cdev, reg_addr, 0x0F, reg_data);
 	if (ret < 0)
 		return ret;
 	return cnt;
@@ -943,7 +947,7 @@ static const struct device_attribute mt_led_breath_mode_attrs2[] = {
 	MT_LED_ATTR2(toff),
 };
 
-static void mt6370_pmu_led_breath_activate2(struct led_classdev *led_cdev)
+static int mt6370_pmu_led_breath_activate2(struct led_classdev *led_cdev)
 {
 	int i = 0, ret = 0;
 
@@ -962,13 +966,14 @@ static void mt6370_pmu_led_breath_activate2(struct led_classdev *led_cdev)
 		dev_err(led_cdev->dev, "%s: change mode fail\n", __func__);
 		goto out_change_mode;
 	}
-	return;
+	return 0;
 out_change_mode:
 	i = ARRAY_SIZE(mt_led_breath_mode_attrs2);
 out_create_file:
 	while (--i >= 0)
 		device_remove_file(led_cdev->dev,
 				   mt_led_breath_mode_attrs2 + i);
+	return ret;
 }
 
 static void mt6370_pmu_led_breath_deactivate2(struct led_classdev *led_cdev)
@@ -1128,7 +1133,7 @@ static inline int mt6370_pmu_led_config_pwm(struct led_classdev *led_cdev,
 		break;
 	case MT6370_PMU_LED4:
 		reg_addr = MT6370_PMU_REG_RGBCHRINDCTRL;
-		reg_mask = 0x1c;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	default:
@@ -1281,7 +1286,7 @@ static ssize_t mt_led_soft_start_step_attr_show(struct device *dev,
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	int led_index = mt6370_pmu_led_get_index(led_cdev);
-	uint8_t reg_addr = 0, reg_mask = 0xc0, reg_shift = 6, reg_data = 0;
+	uint8_t reg_addr = 0, reg_mask = 0xC0, reg_shift = 6, reg_data = 0;
 	unsigned long cnt = PAGE_SIZE;
 	int i = 0, ret = 0;
 
@@ -1323,7 +1328,7 @@ static ssize_t mt_led_soft_start_step_attr_store(struct device *dev,
 {
 	struct led_classdev *led_cdev = dev_get_drvdata(dev);
 	int led_index = mt6370_pmu_led_get_index(led_cdev);
-	uint8_t reg_addr = 0, reg_mask = 0xc0, reg_shift = 6, reg_data = 0;
+	uint8_t reg_addr = 0, reg_mask = 0xC0, reg_shift = 6, reg_data = 0;
 	unsigned long store = 0;
 	int ret = 0;
 
@@ -1362,7 +1367,7 @@ static const struct device_attribute mt_led_cc_mode_attrs[] = {
 	MT_LED_ATTR(soft_start_step),
 };
 
-static void mt6370_pmu_led_cc_activate(struct led_classdev *led_cdev)
+static int mt6370_pmu_led_cc_activate(struct led_classdev *led_cdev)
 {
 	int i = 0, ret = 0;
 
@@ -1380,12 +1385,13 @@ static void mt6370_pmu_led_cc_activate(struct led_classdev *led_cdev)
 		dev_err(led_cdev->dev, "%s: change mode fail\n", __func__);
 		goto out_change_mode;
 	}
-	return;
+	return 0;
 out_change_mode:
 	i = ARRAY_SIZE(mt_led_cc_mode_attrs);
 out_create_file:
 	while (--i >= 0)
 		device_remove_file(led_cdev->dev, mt_led_cc_mode_attrs + i);
+	return ret;
 }
 
 static void mt6370_pmu_led_cc_deactivate(struct led_classdev *led_cdev)
@@ -1498,7 +1504,7 @@ static ssize_t mt_led_pwm_dim_freq_attr_show(struct device *dev,
 		break;
 	case MT6370_PMU_LED4:
 		reg_addr = MT6370_PMU_REG_RGBCHRINDCTRL;
-		reg_mask = 0x1c;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	default:
@@ -1544,7 +1550,7 @@ static ssize_t mt_led_pwm_dim_freq_attr_store(struct device *dev,
 		break;
 	case MT6370_PMU_LED4:
 		reg_addr = MT6370_PMU_REG_RGBCHRINDCTRL;
-		reg_mask = 0x1c;
+		reg_mask = 0x1C;
 		reg_shift = 2;
 		break;
 	default:
@@ -1563,7 +1569,7 @@ static const struct device_attribute mt_led_pwm_mode_attrs[] = {
 	MT_LED_ATTR(pwm_dim_freq),
 };
 
-static void mt6370_pmu_led_pwm_activate(struct led_classdev *led_cdev)
+static int mt6370_pmu_led_pwm_activate(struct led_classdev *led_cdev)
 {
 	int i = 0, ret = 0;
 
@@ -1588,12 +1594,13 @@ static void mt6370_pmu_led_pwm_activate(struct led_classdev *led_cdev)
 		dev_err(led_cdev->dev, "%s: change mode fail\n", __func__);
 		goto out_change_mode;
 	}
-	return;
+	return 0;
 out_change_mode:
 	i = ARRAY_SIZE(mt_led_pwm_mode_attrs);
 out_create_file:
 	while (--i >= 0)
 		device_remove_file(led_cdev->dev, mt_led_pwm_mode_attrs + i);
+	return ret;
 }
 
 static void mt6370_pmu_led_pwm_deactivate(struct led_classdev *led_cdev)
@@ -1901,7 +1908,7 @@ static const struct device_attribute mt_led_breath_mode_attrs[] = {
 	MT_LED_ATTR(toff),
 };
 
-static void mt6370_pmu_led_breath_activate(struct led_classdev *led_cdev)
+static int mt6370_pmu_led_breath_activate(struct led_classdev *led_cdev)
 {
 	int i = 0, ret = 0;
 
@@ -1920,12 +1927,13 @@ static void mt6370_pmu_led_breath_activate(struct led_classdev *led_cdev)
 		dev_err(led_cdev->dev, "%s: change mode fail\n", __func__);
 		goto out_change_mode;
 	}
-	return;
+	return 0;
 out_change_mode:
 	i = ARRAY_SIZE(mt_led_breath_mode_attrs);
 out_create_file:
 	while (--i >= 0)
 		device_remove_file(led_cdev->dev, mt_led_breath_mode_attrs + i);
+	return ret;
 }
 
 static void mt6370_pmu_led_breath_deactivate(struct led_classdev *led_cdev)
@@ -2059,7 +2067,8 @@ static void mt6370_led_enable_dwork_func(struct work_struct *work)
 {
 	struct mt6370_pmu_rgbled_data *rgbled_data =
 		container_of(work, struct mt6370_pmu_rgbled_data, dwork.work);
-	u8 reg_data = 0, reg_mask = 0xe0, reg_addr = MT6370_PMU_REG_RGBEN;
+	u8 chip_vid = rgbled_data->chip->chip_vid;
+	u8 reg_data = 0, reg_mask = 0xE0, reg_addr = MT6370_PMU_REG_RGBEN;
 	int ret = 0;
 
 	dev_dbg(rgbled_data->dev, "%s\n", __func__);
@@ -2073,8 +2082,7 @@ static void mt6370_led_enable_dwork_func(struct work_struct *work)
 	if (mt6370_led_classdev[2].led_dev.brightness != 0)
 		reg_data |= 0x20;
 	/* if 6372 */
-	if (rgbled_data->chip->chip_vid == 0x90
-			|| rgbled_data->chip->chip_vid == 0xb0)
+	if (chip_vid == MT6372_VENDOR_ID || chip_vid == MT6372C_VENDOR_ID)
 		reg_addr = 0x82;
 	ret =  mt6370_pmu_reg_update_bits(rgbled_data->chip,
 					  reg_addr,
@@ -2088,9 +2096,9 @@ static inline int mt6370_pmu_rgbled_init_register(
 {
 	const u8 *init_data = rgbled_init_data;
 	int init_data_size = ARRAY_SIZE(rgbled_init_data);
+	u8 chip_vid = rgbled_data->chip->chip_vid;
 
-	if (rgbled_data->chip->chip_vid == 0x90
-			|| rgbled_data->chip->chip_vid == 0xb0) {
+	if (chip_vid == MT6372_VENDOR_ID || chip_vid == MT6372C_VENDOR_ID) {
 		init_data = rgbled_init_data2;
 		init_data_size = ARRAY_SIZE(rgbled_init_data2);
 	}
@@ -2147,6 +2155,8 @@ static int mt6370_pmu_rgbled_probe(struct platform_device *pdev)
 	bool use_dt = pdev->dev.of_node, new = false;
 	int i = 0, ret = 0;
 
+	pr_info("%s: (%s)\n", __func__, MT6370_PMU_RGBLED_DRV_VERSION);
+
 	rgbled_data = devm_kzalloc(&pdev->dev,
 				   sizeof(*rgbled_data), GFP_KERNEL);
 	if (!rgbled_data)
@@ -2176,8 +2186,8 @@ static int mt6370_pmu_rgbled_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, rgbled_data);
 	INIT_DELAYED_WORK(&rgbled_data->dwork, mt6370_led_enable_dwork_func);
 
-	if (rgbled_data->chip->chip_vid == 0x90
-		|| rgbled_data->chip->chip_vid == 0xb0)
+	if (rgbled_data->chip->chip_vid == MT6372_VENDOR_ID ||
+	    rgbled_data->chip->chip_vid == MT6372C_VENDOR_ID)
 		new = true;
 
 	ret = mt6370_pmu_rgbled_parse_initdata(rgbled_data);
@@ -2254,11 +2264,11 @@ out_pdata:
 static int mt6370_pmu_rgbled_remove(struct platform_device *pdev)
 {
 	struct mt6370_pmu_rgbled_data *rgbled_data = platform_get_drvdata(pdev);
+	u8 chip_vid = rgbled_data->chip->chip_vid;
 	bool new = false;
 	int i = 0;
 
-	if (rgbled_data->chip->chip_vid == 0x90 ||
-		rgbled_data->chip->chip_vid == 0xb0)
+	if (chip_vid == MT6372_VENDOR_ID || chip_vid == MT6372C_VENDOR_ID)
 		new = true;
 	for (i = 0; i < ARRAY_SIZE(mt6370_led_classdev) && !new; i++)
 		led_classdev_unregister(&mt6370_led_classdev[i].led_dev);
@@ -2298,4 +2308,13 @@ module_platform_driver(mt6370_pmu_rgbled);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek MT6370 PMU RGBled");
-MODULE_VERSION("1.0.0_G");
+MODULE_VERSION(MT6370_PMU_RGBLED_DRV_VERSION);
+
+/*
+ * Release Note
+ * 1.0.1_MTK
+ * (1) Add support for MT6372
+ *
+ * 1.0.0_MTK
+ * (1) Initial Release
+ */

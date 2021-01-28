@@ -57,6 +57,12 @@ struct mt6370_pmu_chip {
 	uint8_t chip_vid;
 };
 
+#define RT5081_VENDOR_ID		(0x80)
+#define MT6370_VENDOR_ID		(0xE0)
+#define MT6371_VENDOR_ID		(0xF0)
+#define MT6372_VENDOR_ID		(0x90)
+#define MT6372C_VENDOR_ID		(0xB0)
+
 /* core control */
 #define MT6370_PMU_REG_DEVINFO		(0x00)
 #define MT6370_PMU_REG_CORECTRL1	(0x01)

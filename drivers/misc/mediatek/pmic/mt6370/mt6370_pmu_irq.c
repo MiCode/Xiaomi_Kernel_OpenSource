@@ -202,7 +202,7 @@ static irqreturn_t mt6370_pmu_irq_handler(int irq, void *priv)
 
 	pr_info_ratelimited("%s\n", __func__);
 	pm_runtime_get_sync(chip->dev);
-	ret = mt6370_pmu_reg_write(chip, MT6370_PMU_REG_IRQMASK, 0xfe);
+	ret = mt6370_pmu_reg_write(chip, MT6370_PMU_REG_IRQMASK, 0xFE);
 	if (ret < 0) {
 		dev_err(chip->dev, "mask irq indicators fail\n");
 		goto out_irq_handler;
@@ -283,10 +283,10 @@ static int mt6370_pmu_irq_init(struct mt6370_pmu_chip *chip)
 	int ret = 0;
 
 	/* mask all */
-	ret = mt6370_pmu_reg_write(chip, MT6370_PMU_REG_IRQMASK, 0xfe);
+	ret = mt6370_pmu_reg_write(chip, MT6370_PMU_REG_IRQMASK, 0xFE);
 	if (ret < 0)
 		return ret;
-	memset(data, 0xff, 16);
+	memset(data, 0xFF, 16);
 	ret = mt6370_pmu_reg_block_write(chip, MT6370_PMU_CHGMASK1, 16, data);
 	if (ret < 0)
 		return ret;

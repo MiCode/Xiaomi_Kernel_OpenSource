@@ -731,7 +731,7 @@ static int mt6370_pmu_fled_probe(struct platform_device *pdev)
 	bool use_dt = pdev->dev.of_node;
 	int ret;
 
-	pr_info("%s (%s) id = %d\n", __func__, MT6370_PMU_FLED_DRV_VERSION,
+	pr_info("%s: (%s) id = %d\n", __func__, MT6370_PMU_FLED_DRV_VERSION,
 						pdev->id);
 	fled_data = mt6370_find_info(pdev->id);
 	if (fled_data == NULL) {
@@ -808,7 +808,7 @@ MODULE_DESCRIPTION("MediaTek MT6370 PMU Fled");
 MODULE_VERSION(MT6370_PMU_FLED_DRV_VERSION);
 
 /*
- * Version Note
+ * Release Note
  * 1.0.3_MTK
  * (1) Print warnings when strobe mode with HZ=1 or CFO=0
  *

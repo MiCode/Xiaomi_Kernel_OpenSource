@@ -14,6 +14,8 @@
 
 #include "inc/mt6370_pmu.h"
 
+#define MT6370_PMU_I2C_DRV_VERSION	"1.0.3_MTK"
+
 static bool dbg_log_en; /* module param to enable/disable debug log */
 module_param(dbg_log_en, bool, 0644);
 
@@ -195,7 +197,7 @@ static inline void rt_config_of_node(struct device *dev)
 
 	np = of_find_node_by_name(NULL, "mt6370_pmu_dts");
 	if (np) {
-		dev_err(dev, "find mt6370_pmu_dts node\n");
+		dev_notice(dev, "find mt6370_pmu_dts node\n");
 		dev->of_node = np;
 	}
 }
@@ -203,29 +205,31 @@ static inline void rt_config_of_node(struct device *dev)
 static inline int mt6370_pmu_chip_id_check(struct i2c_client *i2c)
 {
 	int ret = 0;
-	int vendor_id = 0;
+	u8 vendor_id = 0, chip_rev = 0;
 
 	ret = i2c_smbus_read_byte_data(i2c, MT6370_PMU_REG_DEVINFO);
 	if (ret < 0)
 		return ret;
 
 	vendor_id = ret & 0xF0;
+	chip_rev = ret & 0x0F;
 
 	switch (vendor_id) {
-	case 0x80:
-	case 0xE0:
-	case 0xF0:
-	case 0x90:
-	case 0xB0:
-		dev_info(&i2c->dev, "vendor id (%x) match!!\n", vendor_id);
-		vendor_id = (ret & 0xFF);
+	case RT5081_VENDOR_ID:
+	case MT6370_VENDOR_ID:
+	case MT6371_VENDOR_ID:
+	case MT6372_VENDOR_ID:
+	case MT6372C_VENDOR_ID:
+		dev_notice(&i2c->dev, "%s: E%d(0x%02X)\n",
+				      __func__, chip_rev, vendor_id);
 		break;
 	default:
-		dev_info(&i2c->dev, "vendor id (%x) not match!!\n", vendor_id);
-		vendor_id = -ENODEV;
+		dev_notice(&i2c->dev, "%s: vendor id(0x%02X) does not match\n",
+				      __func__, vendor_id);
+		ret = -ENODEV;
 	}
 
-	return vendor_id;
+	return ret;
 }
 
 static int mt6370_pmu_suspend(struct device *dev)
@@ -234,6 +238,7 @@ static int mt6370_pmu_suspend(struct device *dev)
 
 	mt_dbg(chip->dev, "%s\n", __func__);
 	mt6370_pmu_irq_suspend(chip);
+	disable_irq(chip->irq);
 	return 0;
 }
 
@@ -242,6 +247,7 @@ static int mt6370_pmu_resume(struct device *dev)
 	struct mt6370_pmu_chip *chip = dev_get_drvdata(dev);
 
 	mt_dbg(dev, "%s\n", __func__);
+	enable_irq(chip->irq);
 	mt6370_pmu_irq_resume(chip);
 	return 0;
 }
@@ -255,13 +261,15 @@ static int mt6370_pmu_probe(struct i2c_client *i2c,
 	struct mt6370_pmu_chip *chip;
 	struct mt6370_pmu_platform_data *pdata = dev_get_platdata(&i2c->dev);
 	bool use_dt = i2c->dev.of_node;
-	uint8_t chip_id = 0;
+	u8 dev_info = 0;
 	int ret = 0;
+
+	pr_info("%s: (%s)\n", __func__, MT6370_PMU_I2C_DRV_VERSION);
 
 	ret = mt6370_pmu_chip_id_check(i2c);
 	if (ret < 0)
 		return ret;
-	chip_id = ret;
+	dev_info = ret;
 	if (use_dt) {
 		rt_config_of_node(&i2c->dev);
 		pdata = devm_kzalloc(&i2c->dev, sizeof(*pdata), GFP_KERNEL);
@@ -283,8 +291,8 @@ static int mt6370_pmu_probe(struct i2c_client *i2c,
 		return -ENOMEM;
 	chip->i2c = i2c;
 	chip->dev = &i2c->dev;
-	chip->chip_rev = chip_id & 0x0f;
-	chip->chip_vid = chip_id & 0xf0;
+	chip->chip_vid = dev_info & 0xF0;
+	chip->chip_rev = dev_info & 0x0F;
 	mutex_init(&chip->io_lock);
 	i2c_set_clientdata(i2c, chip);
 
@@ -355,4 +363,19 @@ module_i2c_driver(mt6370_pmu);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek MT6370 PMU");
-MODULE_VERSION("1.0.2_G");
+MODULE_VERSION(MT6370_PMU_I2C_DRV_VERSION);
+
+/*
+ * Release Note
+ * 1.0.3_MTK
+ * (1) disable_irq()/enable_irq() in suspend()/resume()
+ *
+ * 1.0.2_MTK
+ * (1) Add support for MT6372
+
+ * 1.0.1_MTK
+ * (1) Replace rt_mutex with mutex
+ *
+ * 1.0.0_MTK
+ * (1) Initial Release
+ */

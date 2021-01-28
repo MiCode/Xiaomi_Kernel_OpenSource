@@ -20,7 +20,7 @@
 int irq_count[DSV_MODE_MAX];
 
 #define IRQ_COUNT_MAX 20
-#define MT6370_DB_VBST_MAX_V 0x2B	/*6.15v*/
+#define MT6370_DB_VBST_MAX_V 0x2C	/*6.2v*/
 #define MT6370_PMU_REG_DB_VBST_MASK 0x3F
 #define DB_MASK_DEFAULT_SHIFT 0x3
 

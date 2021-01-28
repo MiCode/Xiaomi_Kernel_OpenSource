@@ -264,13 +264,14 @@
 
 /* ========== USBSTATUS1 0x27 ============ */
 #define MT6370_SHIFT_USB_STATUS	4
+#define MT6370_SHIFT_DCDT	2
 
-#define MT6370_MASK_USB_STATUS	0x70
 #define MT6370_MASK_FAST_UNKNOWN_TA_DECT	(0x80)
+#define MT6370_MASK_USB_STATUS	0x70
 
 /* ========== QCSTATUS1 0x28 ============= */
 #define MT6370_SHIFT_VLGC_DISABLE	(7)
-#define MT6370_MASK_VLGC_DISABLE	(0x80)
+#define MT6370_MASK_VLGC_DISABLE	(1 << MT6370_SHIFT_VLGC_DISABLE)
 
 /* ========== CHG_PUMP 0x2A ============ */
 #define MT6370_SHIFT_VG_LVL_SEL	1
@@ -330,7 +331,7 @@
 /* ============ VDDA SUPPLY 0x62 ============ */
 #define MT6370_SHIFT_LBPHYS_SEL		(7)
 #define MT6370_SHIFT_LBP_DT		(5)
-#define MT6370_MASK_LBP			(0xe0)
+#define MT6370_MASK_LBP			(0xE0)
 
 /* ========== CHG_STAT1 0xD0 ============ */
 #define MT6370_SHIFT_PWR_RDY	7
