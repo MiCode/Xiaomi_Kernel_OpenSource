@@ -20,8 +20,8 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
-#include <linux/fdtable.h>
 #include <linux/mutex.h>
+#include <linux/fdtable.h>
 #include <linux/debugfs.h>
 #include <linux/kthread.h>
 #include <linux/sched/task.h>
@@ -32,13 +32,16 @@
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
-#include <mmprofile.h>
 
-#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+
+#define MTK_IN_HOUSE_SEC_ION_SUPPORT
 #include "tz_cross/trustzone.h"
 #include "tz_cross/ta_mem.h"
 #include "trustzone/kree/system.h"
 #include "trustzone/kree/mem.h"
+
 #endif
 
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
@@ -46,7 +49,7 @@
 #include "trusted_mem_api.h"
 #endif
 
-#define ION_PRINT_LOG_OR_SEQ(seq_files, fmt, args...) \
+#define ION_DUMP(seq_files, fmt, args...) \
 do {\
 	struct seq_file *file = (struct seq_file *)seq_files;\
 	char *fmat = fmt;\
@@ -65,7 +68,8 @@ static size_t sec_heap_total_memory;
 static unsigned int caller_pid;
 static unsigned int caller_tid;
 
-#ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
+#if defined(MTK_IN_HOUSE_SEC_ION_SUPPORT)
+
 static KREE_SESSION_HANDLE ion_session;
 KREE_SESSION_HANDLE ion_session_handle(void)
 {
@@ -198,7 +202,7 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 		trusted_mem_api_alloc(tmem_type, align, size, &refcount,
 				      &sec_handle, (uint8_t *)heap->name,
 				      heap->id);
-#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+#elif defined(MTK_IN_HOUSE_SEC_ION_SUPPORT)
 	{
 		int ret = 0;
 
@@ -268,6 +272,7 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 void ion_sec_heap_free(struct ion_buffer *buffer)
 {
 	struct sg_table *table = buffer->sg_table;
+	struct ion_heap *heap = buffer->heap;
 	struct ion_sec_buffer_info *pbufferinfo =
 		(struct ion_sec_buffer_info *)buffer->priv_virt;
 	u32 sec_handle = 0;
@@ -299,7 +304,7 @@ void ion_sec_heap_free(struct ion_buffer *buffer)
 	}
 #endif
 
-	ion_sec_heap_unmap_dma(buffer->heap, buffer);
+	ion_sec_heap_unmap_dma(heap, buffer);
 	kfree(table);
 	buffer->priv_virt = NULL;
 	kfree(pbufferinfo);
@@ -425,23 +430,22 @@ void ion_sec_heap_dump_info(void)
 	size_t total_orphaned_size = 0;
 	struct rb_node *n;
 	bool need_dev_lock = true;
+	const char *seq_line = "---------------------------------------";
 
-	ION_PRINT_LOG_OR_SEQ(
-				NULL, "%16.s(%16.s) %16.s %16.s %s\n",
+	ION_DUMP(
+		 NULL, "%16.s(%16.s) %16.s %16.s %s\n",
 			     "client", "dbg_name", "pid", "size", "address");
-	ION_PRINT_LOG_OR_SEQ(
-		NULL,
-		"----------------------------------------------------\n");
+	ION_DUMP(NULL, "%s\n", seq_line);
 
 	if (!down_read_trylock(&dev->lock)) {
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"detail trylock fail, alloc pid(%d-%d)\n",
-			caller_pid, caller_tid);
-		ION_PRINT_LOG_OR_SEQ(
-			NULL, "current(%d-%d)\n",
-			(unsigned int)current->pid,
-			(unsigned int)current->tgid);
+		ION_DUMP(
+			 NULL,
+			 "detail trylock fail, alloc pid(%d-%d)\n",
+			 caller_pid, caller_tid);
+		ION_DUMP(
+			 NULL, "current(%d-%d)\n",
+			 (unsigned int)current->pid,
+			 (unsigned int)current->tgid);
 		if (
 			caller_pid != (unsigned int)current->pid ||
 			caller_tid != (unsigned int)current->tgid)
@@ -461,32 +465,32 @@ void ion_sec_heap_dump_info(void)
 			char task_comm[TASK_COMM_LEN];
 
 			get_task_comm(task_comm, client->task);
-			ION_PRINT_LOG_OR_SEQ(
-				NULL,
-				"%16.s(%16.s) %16u %16zu 0x%p\n",
-			     task_comm,
-			     client->dbg_name,
-			     client->pid, size, client);
+			ION_DUMP(
+				 NULL,
+				 "%16.s(%16.s) %16u %16zu 0x%p\n",
+				 task_comm,
+				 (*client->dbg_name) ?
+				 client->dbg_name :
+				 client->name,
+				 client->pid, size, client);
 		} else {
-			ION_PRINT_LOG_OR_SEQ(
-				NULL,
-				"%16.s(%16.s) %16u %16zu 0x%p\n",
-			     client->name,
-			     "from_kernel",
-			     client->pid, size,
-			     client);
+			ION_DUMP(
+				 NULL,
+				 "%16.s(%16.s) %16u %16zu 0x%p\n",
+				 client->name,
+				 "from_kernel",
+				 client->pid, size,
+				 client);
 		}
 	}
 
 	if (need_dev_lock)
 		up_read(&dev->lock);
 
-	ION_PRINT_LOG_OR_SEQ(
-		NULL,
-		"----------------------------------------------------\n");
-	ION_PRINT_LOG_OR_SEQ(
-		NULL,
-		"orphaned allocations (info is from last known client):\n");
+	ION_DUMP(NULL, "%s\n", seq_line);
+	ION_DUMP(
+		 NULL,
+		 "orphaned allocations (info is from last known client):\n");
 
 skip_client_entry:
 
@@ -494,50 +498,46 @@ skip_client_entry:
 		for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 			struct ion_buffer
 			*buffer = rb_entry(n, struct ion_buffer, node);
+			unsigned int heap_id = buffer->heap->id;
 
-			if ((1 << buffer->heap->id) &
-				ION_HEAP_MULTIMEDIA_SEC_MASK) {
+			if ((1 << heap_id) & ION_HEAP_MULTIMEDIA_SEC_MASK) {
 				/* heap = buffer->heap; */
 				total_size += buffer->size;
 				if (!buffer->handle_count) {
-					ION_PRINT_LOG_OR_SEQ(
-						NULL,
-						"%16.s %16u %16zu %d %d\n",
-					     buffer->task_comm,
-					     buffer->pid,
-					     buffer->size,
-					     buffer->kmap_cnt,
-					     atomic_read(
-					     &buffer->ref.refcount.refs));
+					ION_DUMP(
+						 NULL,
+						 "%16.s %16u %16zu %d %d\n",
+						 buffer->task_comm,
+						 buffer->pid,
+						 buffer->size,
+						 buffer->kmap_cnt,
+						 atomic_read(
+						 &buffer->ref.refcount.refs));
 					total_orphaned_size += buffer->size;
 				}
 			}
 		}
 		mutex_unlock(&dev->buffer_lock);
 
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"----------------------------------------------------\n");
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"%16.s %16zu\n", "total orphaned",
-			total_orphaned_size);
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"%16.s %16zu\n", "total ",
-			total_size);
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"ion sec heap total: %16zu\n",
-			sec_heap_total_memory);
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"----------------------------------------------------\n");
+		ION_DUMP(NULL, "%s\n", seq_line);
+		ION_DUMP(
+			 NULL,
+			 "%16.s %16zu\n", "total orphaned",
+			 total_orphaned_size);
+		ION_DUMP(
+			 NULL,
+			 "%16.s %16zu\n", "total ",
+			 total_size);
+		ION_DUMP(
+			 NULL,
+			 "ion sec heap total: %16zu\n",
+			 sec_heap_total_memory);
+		ION_DUMP(NULL, "%s\n", seq_line);
 	} else {
-		ION_PRINT_LOG_OR_SEQ(
-			NULL,
-			"ion sec heap total memory: %16zu\n",
-			sec_heap_total_memory);
+		ION_DUMP(
+			 NULL,
+			 "ion sec heap total memory: %16zu\n",
+			 sec_heap_total_memory);
 	}
 }
 
@@ -562,7 +562,7 @@ static int __do_dump_share_fd(
 
 	bug_info = (struct ion_sec_buffer_info *)buffer->priv_virt;
 	if (!buffer->handle_count)
-		ION_PRINT_LOG_OR_SEQ(
+		ION_DUMP(
 			 s,
 			 "0x%p %9d %16s %5d %5d %16s %4d\n",
 		     buffer, bug_info->pid,
@@ -582,11 +582,11 @@ static int ion_dump_all_share_fds(struct seq_file *s)
 	if (ion_drv_file_to_buffer(NULL) == ERR_PTR(-EPERM))
 		return 0;
 
-	ION_PRINT_LOG_OR_SEQ(
-		s,
-		"%18s %9s %16s %5s %5s %16s %4s\n",
-		"buffer", "alloc_pid", "alloc_client",
-		"pid", "tgid", "process", "fd");
+	ION_DUMP(
+		 s,
+		 "%18s %9s %16s %5s %5s %16s %4s\n",
+		 "buffer", "alloc_pid", "alloc_client",
+		 "pid", "tgid", "process", "fd");
 	data.s = s;
 
 	read_lock(&tasklist_lock);
@@ -613,23 +613,24 @@ static int ion_sec_heap_debug_show(
 	size_t fr_size = 0;
 	size_t sec_size = 0;
 	size_t prot_size = 0;
+	const char *seq_line = "---------------------------------------";
 
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
-		ION_PRINT_LOG_OR_SEQ(
-							s,
-							"sec_heap_freelist total_size=%zu\n",
-		ion_heap_freelist_size(heap));
+		ION_DUMP(s,
+			 "sec_heap_freelist total_size=%zu\n",
+			 ion_heap_freelist_size(heap));
 	else
-		ION_PRINT_LOG_OR_SEQ(s, "sec_heap defer free disabled\n");
+		ION_DUMP(s, "sec_heap defer free disabled\n");
 
-	ION_PRINT_LOG_OR_SEQ(
-		s,
-						"----------------------------------------------------\n");
-	ION_PRINT_LOG_OR_SEQ(
-		s,
-	"%18.s %8.s %4.s %3.s %8.s %8.s %3.s %4.s %4.s %3.s %10.s %10.s\n",
-	"buffer", "size", "kmap", "ref", "hdl-cnt", "sec_hdl",
-	"flag", "port", "heap_id", "pid(alloc)", "comm(client)", "dbg_name");
+	ION_DUMP(s, "%s\n", seq_line);
+	ION_DUMP(s,
+		 "%18.s %8.s %4.s %3.s %8.s %8.s %3.s %4.s %4.s %3.s %10.s %10.s\n",
+		 "buffer", "size",
+		 "kmap", "ref",
+		 "hdl-cnt", "sec_hdl",
+		 "flag", "port",
+		 "heap_id", "pid(alloc)",
+		 "comm(client)", "dbg_name");
 
 	mutex_lock(&dev->buffer_lock);
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
@@ -642,16 +643,16 @@ static int ion_sec_heap_debug_show(
 
 		if ((int)buffer->heap->type ==
 			(int)ION_HEAP_TYPE_MULTIMEDIA_SEC) {
-			ION_PRINT_LOG_OR_SEQ(s,
-					     "0x%p %8zu %3d %3d %3d 0x%10.x %3lu %3d %3d %3d %s %s",
-		     buffer, buffer->size, buffer->kmap_cnt,
-		     atomic_read(&buffer->ref.refcount.refs),
-		     buffer->handle_count, *secur_handle,
-		     buffer->flags, bug_info->module_id,
-		     buffer->heap->id,
-		     buffer->pid, buffer->task_comm,
-		     bug_info->dbg_info.dbg_name);
-			ION_PRINT_LOG_OR_SEQ(s, ")\n");
+			ION_DUMP(s,
+				 "0x%p %8zu %3d %3d %3d 0x%10.x %3lu %3d %3d %3d %s %s",
+				 buffer, buffer->size, buffer->kmap_cnt,
+				 atomic_read(&buffer->ref.refcount.refs),
+				 buffer->handle_count, *secur_handle,
+				 buffer->flags, bug_info->module_id,
+				 buffer->heap->id,
+				 buffer->pid, buffer->task_comm,
+				 bug_info->dbg_info.dbg_name);
+			ION_DUMP(s, ")\n");
 
 			if (buffer->heap->id == ION_HEAP_TYPE_MULTIMEDIA_SEC)
 				sec_size += buffer->size;
@@ -665,51 +666,40 @@ static int ion_sec_heap_debug_show(
 		}
 	}
 	if (has_orphaned) {
-		ION_PRINT_LOG_OR_SEQ(
-							s,
-							"-----orphaned buffer list:------------------\n");
+		ION_DUMP(s,
+			 "-----orphaned buffer list:------------------\n");
 		ion_dump_all_share_fds(s);
 	}
 	mutex_unlock(&dev->buffer_lock);
-	ION_PRINT_LOG_OR_SEQ(
-						s,
-						"----------------------------------------------------\n");
-
-	ION_PRINT_LOG_OR_SEQ(
-						s,
-						"----------------------------------------------------\n");
-	ION_PRINT_LOG_OR_SEQ(s, "%16s %16zu\n", "sec-sz:", sec_size);
-	ION_PRINT_LOG_OR_SEQ(s, "%16s %16zu\n", "prot-sz:", prot_size);
-	ION_PRINT_LOG_OR_SEQ(s, "%16s %16zu\n", "2d-fr-sz:", fr_size);
-	ION_PRINT_LOG_OR_SEQ(
-						s,
-						"----------------------------------------------------\n");
+	ION_DUMP(s, "%s\n", seq_line);
+	ION_DUMP(s, "%s\n", seq_line);
+	ION_DUMP(s, "%16s %16zu\n", "sec-sz:", sec_size);
+	ION_DUMP(s, "%16s %16zu\n", "prot-sz:", prot_size);
+	ION_DUMP(s, "%16s %16zu\n", "2d-fr-sz:", fr_size);
+	ION_DUMP(s, "%s\n", seq_line);
 
 	down_read(&dev->lock);
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 		struct ion_client
 		*client = rb_entry(n, struct ion_client, node);
+		struct rb_node *m;
 
 		if (client->task) {
 			char task_comm[TASK_COMM_LEN];
 
 			get_task_comm(task_comm, client->task);
-			ION_PRINT_LOG_OR_SEQ(
-						s,
-					     "client(0x%p) %s (%s) pid(%u) ================>\n",
-					     client, task_comm,
-					     client->dbg_name,
-					     client->pid);
+			ION_DUMP(s,
+				 "client(0x%p) %s (%s) pid(%u) ================>\n",
+				 client, task_comm,
+				 client->dbg_name,
+				 client->pid);
 		} else {
-			ION_PRINT_LOG_OR_SEQ(
-						s,
-					     "client(0x%p) %s (from_kernel) pid(%u) ================>\n",
-					     client, client->name, client->pid);
+			ION_DUMP(s,
+				 "client(0x%p) %s (from_kernel) pid(%u) ================>\n",
+				 client, client->name, client->pid);
 		}
 
 		{
-			struct rb_node *m;
-
 			mutex_lock(&client->lock);
 			for (m = rb_first(&client->handles);
 				m; m = rb_next(m)) {
@@ -722,19 +712,19 @@ static int ion_sec_heap_debug_show(
 				    ION_HEAP_TYPE_MULTIMEDIA_PROT ||
 				    handle->buffer->heap->id ==
 				    ION_HEAP_TYPE_MULTIMEDIA_2D_FR) {
-					ION_PRINT_LOG_OR_SEQ(
-						s,
-						"\thandle=0x%p, buffer=0x%p",
-						handle, handle->buffer);
-					ION_PRINT_LOG_OR_SEQ(
-						s,
-						", heap=%d",
-						handle->buffer->heap->id);
-					ION_PRINT_LOG_OR_SEQ(
-						s,
-						"fd=%4d, ts: %lldms\n",
-						handle->dbg.fd,
-						handle->dbg.user_ts);
+					ION_DUMP(
+						 s,
+						 "\thandle=0x%p, buffer=0x%p",
+						 handle, handle->buffer);
+					ION_DUMP(
+						 s,
+						 ", heap=%d",
+						 handle->buffer->heap->id);
+					ION_DUMP(
+						 s,
+						 "fd=%4d, ts: %lldms\n",
+						 handle->dbg.fd,
+						 handle->dbg.user_ts);
 				}
 			}
 			mutex_unlock(&client->lock);
@@ -752,7 +742,7 @@ struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *heap_data)
 
 	struct ion_sec_heap *heap;
 
-	IONMSG("%s enter\n", __func__);
+	IONMSG("%s enter:%s\n", __func__, heap_data->name);
 
 	heap = kzalloc(sizeof(*heap), GFP_KERNEL);
 	if (!heap) {

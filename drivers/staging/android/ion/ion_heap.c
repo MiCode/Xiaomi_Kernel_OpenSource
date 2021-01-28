@@ -40,7 +40,7 @@ void *ion_heap_map_kernel(struct ion_heap *heap,
 
 	if (!pages) {
 		IONMSG("%s vmalloc failed pages is null.\n", __func__);
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	if (buffer->flags & ION_FLAG_CACHED)
@@ -176,9 +176,33 @@ int ion_heap_pages_zero(struct page *page, size_t size, pgprot_t pgprot)
 
 void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer)
 {
+	static long nice;
+	size_t free_list_size = 0;
+	size_t unit = 200 * 1024 * 1024; //200M
 	spin_lock(&heap->free_lock);
 	list_add(&buffer->list, &heap->free_list);
 	heap->free_list_size += buffer->size;
+	free_list_size = heap->free_list_size;
+	if (free_list_size > unit) {
+		IONMSG(
+			"[ion_dbg] warning: free_list_size=%zu, heap_id:%u, nice:%ld\n",
+			heap->free_list_size, heap->id, nice);
+	}
+	switch (free_list_size / unit) {
+	case 0:
+	case 1:
+	case 2:
+		nice = 0;
+		break;
+	case 3:
+	case 4:
+		nice = -5;
+		break;
+	default:
+		nice = -10;
+		break;
+	}
+	set_user_nice(heap->task, nice);
 	spin_unlock(&heap->free_lock);
 	wake_up(&heap->waitqueue);
 }
@@ -264,7 +288,7 @@ static int ion_heap_deferred_free(void *data)
 
 int ion_heap_init_deferred_free(struct ion_heap *heap)
 {
-	struct sched_param param = { .sched_priority = 0 };
+	struct sched_param param = { .sched_priority = 120 };
 
 	INIT_LIST_HEAD(&heap->free_list);
 	init_waitqueue_head(&heap->waitqueue);
@@ -275,7 +299,7 @@ int ion_heap_init_deferred_free(struct ion_heap *heap)
 		       __func__);
 		return PTR_ERR_OR_ZERO(heap->task);
 	}
-	sched_setscheduler(heap->task, SCHED_IDLE, &param);
+	sched_setscheduler(heap->task, SCHED_NORMAL, &param);
 	return 0;
 }
 

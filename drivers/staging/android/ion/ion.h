@@ -142,7 +142,7 @@ void ion_unmap_kernel(struct ion_client *client, struct ion_handle *handle);
  */
 struct dma_buf *ion_share_dma_buf(
 	struct ion_client *client,
-						struct ion_handle *handle);
+	struct ion_handle *handle);
 
 /**
  * ion_share_dma_buf_fd() - given an ion client, create a dma-buf fd

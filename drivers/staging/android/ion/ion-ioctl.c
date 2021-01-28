@@ -199,8 +199,9 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			if (cleanup_handle)
 				ion_free(client, cleanup_handle);
 			IONMSG(
-				"%s copy_to_user fail! cmd = %d, n = %d.\n",
-				__func__, cmd, _IOC_SIZE(cmd));
+				"%s %d fail! cmd = %d, n = %d.\n",
+				__func__, __LINE__,
+				cmd, _IOC_SIZE(cmd));
 			return -EFAULT;
 		}
 	}
