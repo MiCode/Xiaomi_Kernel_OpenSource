@@ -1,17 +1,29 @@
-#
-# Copyright (C) 2015 MediaTek Inc.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
-#
+# SPDX-License-Identifier: GPL-2.0
 
-# AP object
-obj-y += mtk-auddrv-clk.o
-obj-y += mtk-soc-afe-connection.o
-obj-y += mt6885-sound.o
+# platform driver
+snd-soc-mt6885-afe-objs := \
+	mt6885-afe-pcm.o \
+	mt6885-afe-clk.o \
+	mt6885-afe-gpio.o \
+	mt6885-dai-adda.o \
+	mt6885-afe-control.o \
+	mt6885-dai-i2s.o \
+	mt6885-dai-hw-gain.o \
+	mt6885-dai-src.o \
+	mt6885-dai-pcm.o \
+	mt6885-dai-tdm.o \
+	mt6885-dai-hostless.o \
+	mt6885-misc-control.o
+
+obj-$(CONFIG_SND_SOC_MT6885) += snd-soc-mt6885-afe.o
+
+# machine driver
+obj-$(CONFIG_SND_SOC_MT6885_MT6359) += mt6885-mt6359.o
+
+# MENU Governor Predict(low power)
+ifeq ($(CONFIG_MTK_ACAO_SUPPORT),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
+endif
+
+# spm
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
