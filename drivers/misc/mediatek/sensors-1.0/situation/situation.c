@@ -107,8 +107,6 @@ int situation_data_report_t(int handle, uint32_t one_sample_data,
 		__pm_wakeup_event(cxt->ws[index], 250);
 	return err;
 }
-EXPORT_SYMBOL_GPL(situation_data_report_t);
-
 int situation_data_report(int handle, uint32_t one_sample_data)
 {
 	return situation_data_report_t(handle, one_sample_data, 0);
@@ -146,8 +144,6 @@ int situation_notify_t(int handle, int64_t time_stamp)
 {
 	return situation_data_report_t(handle, 1, time_stamp);
 }
-EXPORT_SYMBOL_GPL(situation_notify_t);
-
 int situation_notify(int handle)
 {
 	return situation_data_report_t(handle, 1, 0);
@@ -164,7 +160,6 @@ int situation_flush_report(int handle)
 	err = sensor_input_event(situation_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(situation_flush_report);
 
 #ifndef CONFIG_NANOHUB
 static int situation_enable_and_batch(int index)
@@ -550,7 +545,6 @@ int situation_register_data_path(struct situation_data_path *data,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(situation_register_data_path);
 
 int situation_register_control_path(struct situation_control_path *ctl,
 	int handle)
@@ -592,9 +586,8 @@ int situation_register_control_path(struct situation_control_path *ctl,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(situation_register_control_path);
 
-int situation_probe(void)
+static int situation_probe(void)
 {
 	int err;
 
@@ -638,9 +631,8 @@ exit_alloc_data_failed:
 	pr_debug("%s fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(situation_probe);
 
-int situation_remove(void)
+static int situation_remove(void)
 {
 	int err = 0;
 
@@ -655,22 +647,25 @@ int situation_remove(void)
 	kfree(situation_context_obj);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(situation_remove);
 
 static int __init situation_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (situation_probe()) {
+		pr_err("failed to register situ driver\n");
+		return -ENODEV;
+	}
 
 	return 0;
 }
 
 static void __exit situation_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	situation_remove();
 }
 
 late_initcall(situation_init);
-module_exit(situation_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("situation sensor driver");

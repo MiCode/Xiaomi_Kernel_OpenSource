@@ -14,6 +14,14 @@
 # In case the platform does NOT support this type of sensors
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/hwmon/include
 
-obj-$(CONFIG_MTK_SENSOR_SUPPORT) += fusion.o
+obj-y += fusion.o
 
-obj-y += sensorfusion_hub/
+obj-$(CONFIG_MTK_ROTATVECHUB)		+=	rotatvechub/
+obj-$(CONFIG_MTK_GAMEROTVECHUB)		+=	gamerotvechub/
+obj-$(CONFIG_MTK_GMAGROTVECHUB)		+=	gmagrotvechub/
+obj-$(CONFIG_MTK_GRAVITYHUB)		+=	gravityhub/
+obj-$(CONFIG_MTK_LINEARACCHUB)		+=	linearacchub/
+obj-$(CONFIG_MTK_ORIENTHUB)			+=	orienthub/
+obj-$(CONFIG_MTK_UNCALI_ACCHUB)		+=	uncali_acchub/
+obj-$(CONFIG_MTK_UNCALI_GYROHUB)	+=	uncali_gyrohub/
+obj-$(CONFIG_MTK_UNCALI_MAGHUB)		+=	uncali_maghub/

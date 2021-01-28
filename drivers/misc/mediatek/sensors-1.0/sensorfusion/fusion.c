@@ -148,7 +148,7 @@ static ssize_t fusionactive_store(struct device *dev,
 		pr_err("%s param error: err = %d\n", __func__, err);
 		return err;
 	}
-	pr_err("%s handle=%d, en=%d\n", __func__, handle, en);
+	pr_debug("%s handle=%d, en=%d\n", __func__, handle, en);
 	index = handle_to_index(handle);
 	if (index < 0) {
 		pr_err("[%s] invalid handle\n", __func__);
@@ -249,7 +249,7 @@ static ssize_t fusionbatch_store(struct device *dev,
 		return -1;
 	}
 
-	pr_err("handle %d, flag:%d, PeriodNs:%lld, LatencyNs: %lld\n",
+	pr_debug("handle %d, flag:%d, PeriodNs:%lld, LatencyNs: %lld\n",
 		handle, flag, samplingPeriodNs, maxBatchReportLatencyNs);
 
 	cxt->fusion_context[index].delay_ns = samplingPeriodNs;
@@ -270,11 +270,11 @@ static ssize_t fusionbatch_store(struct device *dev,
 			goto err_out;
 		}
 	} else
-		pr_err("batch state no need change\n");
+		pr_info("batch state no need change\n");
 #else
 	err = fusion_enable_and_batch(index);
 #endif
-	pr_err("%s done\n", __func__);
+	pr_debug("%s done\n", __func__);
 err_out:
 	mutex_unlock(&fusion_context_obj->fusion_op_mutex);
 
@@ -333,15 +333,15 @@ static int fusion_real_driver_init(void)
 	int index = 0;
 	int err = -1;
 
-	pr_err("%s start\n", __func__);
+	pr_debug("%s start\n", __func__);
 	for (index = 0; index < max_fusion_support; index++) {
 		pr_debug("index = %d\n", index);
 		if (fusion_init_list[index] != NULL) {
-			pr_err("fusion try to init driver %s\n",
+			pr_debug("fusion try to init driver %s\n",
 				fusion_init_list[index]->name);
 			err = fusion_init_list[index]->init();
 			if (err == 0)
-				pr_err("fusion real driver %s probe ok\n",
+				pr_debug("fusion real driver %s probe ok\n",
 					fusion_init_list[index]->name);
 		}
 	}
@@ -432,7 +432,6 @@ int fusion_register_data_path(struct fusion_data_path *data, int handle)
 		handle, cxt->fusion_context[index].fusion_data.vender_div);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(fusion_register_data_path);
 
 int fusion_register_control_path(struct fusion_control_path *ctl,
 	int handle)
@@ -470,7 +469,6 @@ int fusion_register_control_path(struct fusion_control_path *ctl,
 		ctl->is_report_input_direct;
 	return 0;
 }
-EXPORT_SYMBOL_GPL(fusion_register_control_path);
 
 static int fusion_data_report(int x, int y, int z,
 	int scalar, int status, int64_t nt, int handle)
@@ -546,130 +544,91 @@ int rv_data_report(int x, int y, int z, int scalar, int status, int64_t nt)
 	return fusion_data_report(x, y, z, scalar, status, nt,
 		ID_ROTATION_VECTOR);
 }
-EXPORT_SYMBOL_GPL(rv_data_report);
-
 int rv_flush_report(void)
 {
 	return fusion_flush_report(ID_ROTATION_VECTOR);
 }
-EXPORT_SYMBOL_GPL(rv_flush_report);
-
 int grv_data_report(int x, int y, int z, int scalar, int status, int64_t nt)
 {
 	return fusion_data_report(x, y, z, scalar, status, nt,
 		ID_GAME_ROTATION_VECTOR);
 }
-EXPORT_SYMBOL_GPL(grv_data_report);
-
 int grv_flush_report(void)
 {
 	return fusion_flush_report(ID_GAME_ROTATION_VECTOR);
 }
-EXPORT_SYMBOL_GPL(grv_flush_report);
-
 int gmrv_data_report(int x, int y, int z,
 	int scalar, int status, int64_t nt)
 {
 	return fusion_data_report(x, y, z, scalar, status, nt,
 		ID_GEOMAGNETIC_ROTATION_VECTOR);
 }
-EXPORT_SYMBOL_GPL(gmrv_data_report);
-
 int gmrv_flush_report(void)
 {
 	return fusion_flush_report(ID_GEOMAGNETIC_ROTATION_VECTOR);
 }
-EXPORT_SYMBOL_GPL(gmrv_flush_report);
-
 int grav_data_report(int x, int y, int z, int status, int64_t nt)
 {
 	return fusion_data_report(x, y, z, 0, status, nt, ID_GRAVITY);
 }
-EXPORT_SYMBOL_GPL(grav_data_report);
-
 int grav_flush_report(void)
 {
 	return fusion_flush_report(ID_GRAVITY);
 }
-EXPORT_SYMBOL_GPL(grav_flush_report);
-
 int la_data_report(int x, int y, int z, int status, int64_t nt)
 {
 	return fusion_data_report(x, y, z, 0, status, nt,
 		ID_LINEAR_ACCELERATION);
 }
-EXPORT_SYMBOL_GPL(la_data_report);
-
 int la_flush_report(void)
 {
 	return fusion_flush_report(ID_LINEAR_ACCELERATION);
 }
-EXPORT_SYMBOL_GPL(la_flush_report);
-
 int orientation_data_report(int x, int y, int z, int status, int64_t nt)
 {
 	return fusion_data_report(x, y, z, 0, status, nt, ID_ORIENTATION);
 }
-EXPORT_SYMBOL_GPL(orientation_data_report);
-
 int orientation_flush_report(void)
 {
 	return fusion_flush_report(ID_ORIENTATION);
 }
-EXPORT_SYMBOL_GPL(orientation_flush_report);
-
 int uncali_acc_data_report(int *data, int status, int64_t nt)
 {
 	return uncali_sensor_data_report(data,
 		status, nt, ID_ACCELEROMETER_UNCALIBRATED);
 }
-EXPORT_SYMBOL_GPL(uncali_acc_data_report);
-
 int uncali_acc_flush_report(void)
 {
 	return uncali_sensor_flush_report(ID_ACCELEROMETER_UNCALIBRATED);
 }
-EXPORT_SYMBOL_GPL(uncali_acc_flush_report);
-
 int uncali_gyro_data_report(int *data, int status, int64_t nt)
 {
 	return uncali_sensor_data_report(data,
 		status, nt, ID_GYROSCOPE_UNCALIBRATED);
 }
-EXPORT_SYMBOL_GPL(uncali_gyro_data_report);
-
 int uncali_gyro_temperature_data_report(int *data, int status, int64_t nt)
 {
 	return uncali_sensor_data_report(data, status, nt, ID_GYRO_TEMPERATURE);
 }
-EXPORT_SYMBOL_GPL(uncali_gyro_temperature_data_report);
-
 int uncali_gyro_temperature_flush_report(void)
 {
 	return uncali_sensor_flush_report(ID_GYRO_TEMPERATURE);
 }
-EXPORT_SYMBOL_GPL(uncali_gyro_temperature_flush_report);
-
 int uncali_gyro_flush_report(void)
 {
 	return uncali_sensor_flush_report(ID_GYROSCOPE_UNCALIBRATED);
 }
-EXPORT_SYMBOL_GPL(uncali_gyro_flush_report);
-
 int uncali_mag_data_report(int *data, int status, int64_t nt)
 {
 	return uncali_sensor_data_report(data,
 		status, nt, ID_MAGNETIC_UNCALIBRATED);
 }
-EXPORT_SYMBOL_GPL(uncali_mag_data_report);
 
 int uncali_mag_flush_report(void)
 {
 	return uncali_sensor_flush_report(ID_MAGNETIC_UNCALIBRATED);
 }
-EXPORT_SYMBOL_GPL(uncali_mag_flush_report);
-
-int fusion_probe(void)
+static int fusion_probe(void)
 {
 	int err;
 
@@ -710,9 +669,8 @@ exit_alloc_data_failed:
 	pr_debug("%s---- fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(fusion_probe);
 
-int fusion_remove(void)
+static int fusion_remove(void)
 {
 	int err = 0;
 
@@ -728,8 +686,6 @@ int fusion_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(fusion_remove);
-
 int fusion_driver_add(struct fusion_init_info *obj, int handle)
 {
 	int err = 0;
@@ -754,22 +710,24 @@ int fusion_driver_add(struct fusion_init_info *obj, int handle)
 			handle);
 	return err;
 }
-EXPORT_SYMBOL(fusion_driver_add);
-
 static int __init fusion_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (fusion_probe()) {
+		pr_err("failed to register fusion driver\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static void __exit fusion_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	fusion_remove();
 }
 
 late_initcall(fusion_init);
-module_exit(fusion_exit);
-
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("FUSION device driver");
 MODULE_AUTHOR("Mediatek");

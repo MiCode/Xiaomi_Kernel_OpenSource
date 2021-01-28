@@ -86,7 +86,4 @@ extern int situation_register_data_path(struct situation_data_path *data,
 	int handle);
 extern int sar_data_report(int32_t value[3]);
 extern int sar_data_report_t(int32_t value[3], int64_t time_stamp);
-extern int situation_probe(void);
-extern int situation_remove(void);
-
 #endif

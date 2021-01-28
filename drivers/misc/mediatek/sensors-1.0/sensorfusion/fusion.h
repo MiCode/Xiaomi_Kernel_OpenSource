@@ -117,37 +117,35 @@ struct fusion_context {
 /* driver API for third party vendor */
 
 /* for auto detect */
-extern int fusion_probe(void);
-extern int fusion_remove(void);
-extern int fusion_driver_add(struct fusion_init_info *obj, int handle);
-extern int fusion_register_control_path(struct fusion_control_path *ctl,
+int fusion_driver_add(struct fusion_init_info *obj, int handle);
+int fusion_register_control_path(struct fusion_control_path *ctl,
 	int handle);
-extern int fusion_register_data_path(struct fusion_data_path *data,
+int fusion_register_data_path(struct fusion_data_path *data,
 	int handle);
-extern int rv_data_report(int x, int y, int z,
+int rv_data_report(int x, int y, int z,
 	int scalar, int status, int64_t nt);
-extern int rv_flush_report(void);
-extern int grv_data_report(int x, int y, int z,
+int rv_flush_report(void);
+int grv_data_report(int x, int y, int z,
 	int scalar, int status, int64_t nt);
-extern int grv_flush_report(void);
-extern int gmrv_data_report(int x, int y, int z,
+int grv_flush_report(void);
+int gmrv_data_report(int x, int y, int z,
 	int scalar, int status, int64_t nt);
-extern int gmrv_flush_report(void);
-extern int grav_data_report(int x, int y, int z, int status, int64_t nt);
-extern int grav_flush_report(void);
-extern int la_data_report(int x, int y, int z, int status, int64_t nt);
-extern int la_flush_report(void);
-extern int orientation_data_report(int x, int y, int z, int status, int64_t nt);
-extern int orientation_flush_report(void);
-extern int orientation_data_report(int x, int y, int z, int status, int64_t nt);
-extern int orientation_flush_report(void);
-extern int uncali_acc_data_report(int *data, int status, int64_t nt);
-extern int uncali_acc_flush_report(void);
-extern int uncali_gyro_data_report(int *data, int status, int64_t nt);
-extern int uncali_gyro_temperature_data_report(int *data,
+int gmrv_flush_report(void);
+int grav_data_report(int x, int y, int z, int status, int64_t nt);
+int grav_flush_report(void);
+int la_data_report(int x, int y, int z, int status, int64_t nt);
+int la_flush_report(void);
+int orientation_data_report(int x, int y, int z, int status, int64_t nt);
+int orientation_flush_report(void);
+int orientation_data_report(int x, int y, int z, int status, int64_t nt);
+int orientation_flush_report(void);
+int uncali_acc_data_report(int *data, int status, int64_t nt);
+int uncali_acc_flush_report(void);
+int uncali_gyro_data_report(int *data, int status, int64_t nt);
+int uncali_gyro_temperature_data_report(int *data,
 	int status, int64_t nt);
-extern int uncali_gyro_temperature_flush_report(void);
-extern int uncali_gyro_flush_report(void);
-extern int uncali_mag_data_report(int *data, int status, int64_t nt);
-extern int uncali_mag_flush_report(void);
+int uncali_gyro_temperature_flush_report(void);
+int uncali_gyro_flush_report(void);
+int uncali_mag_data_report(int *data, int status, int64_t nt);
+int uncali_mag_flush_report(void);
 #endif

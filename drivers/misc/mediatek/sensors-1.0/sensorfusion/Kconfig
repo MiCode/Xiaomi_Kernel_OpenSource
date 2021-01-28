@@ -79,5 +79,12 @@ config CUSTOM_KERNEL_UNCALI_MAG_SENSOR
 	  configuration should be configured, and the unmag
 	  driver configuration should be configured as well.
 
-source "drivers/misc/mediatek/sensors-1.0/sensorfusion/sensorfusion_hub/Kconfig"
-
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_maghub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_gyrohub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gamerotvechub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/rotatvechub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gmagrotvechub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gravityhub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/linearacchub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/orienthub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_acchub/Kconfig"
