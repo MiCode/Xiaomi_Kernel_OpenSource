@@ -1106,9 +1106,10 @@ void mmdvfs_debug_set_mmdvfs_clks_enabled(int clk_enable_request)
 						map->clk_mux.ccf_name);
 					continue;
 				}
-			} else
+			} else {
 				MMDVFSMSG("clk_disable_unprepare\n");
 				clk_disable_unprepare(mux);
+			}
 		}
 	}
 }
