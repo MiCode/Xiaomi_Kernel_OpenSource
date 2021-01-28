@@ -1,0 +1,173 @@
+# Copyright (c) 2015-2020, MICROTRUST Incorporated
+# All Rights Reserved.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# version 2 as published by the Free Software Foundation.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+
+config MICROTRUST_TEE_SUPPORT
+	bool "Enable Microtrust TEEI Support"
+	select DMA_SHARED_BUFFER
+	select GENERIC_ALLOCATOR
+	default n
+	help
+	  Enables the support of Microtrust TEE drivers.
+	  All Microtrust related TEE drivers will depend on this option.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config MICROTRUST_TEE_VERSION
+	string "MICROTRUST TEE Version"
+	depends on MICROTRUST_TEE_SUPPORT
+	default "300"
+	help
+	  Enables the support of Microtrust new version.
+	  All Microtrust related TEE drivers will depend on this option.
+	  Say 300 if you would like to enable this feature.
+	  If unsure, say 300.
+
+config MICROTRUST_TZ_DRIVER
+	tristate "Microtrust TEEI Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	help
+	  Enables the support of Microtrust trustzone linux driver.
+	  This driver in charge of all initial process, creating
+	  communication channels and connections with secure world.
+	  Say Y if you would like to enable the driver.
+	  If unsure, say Y.
+
+config MICROTRUST_DYNAMIC_CORE
+	tristate "Microtrust TEEI Dynamic Core"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	help
+	  Enables the support of Microtrust trustzone linux driver.
+	  This driver in charge of all initial process, creating
+	  communication channels and connections with secure world.
+	  Say Y if you would like to enable the driver.
+	  If unsure, say Y.
+
+config MICROTRUST_TZ_DRIVER_MTK_BOOTPROF
+	bool "Enable MTK bootprof to track boot progress of TEEI"
+	depends on MICROTRUST_TZ_DRIVER
+	depends on MTPROF
+	default y
+	help
+	  Enables the support of Mediatek bootprof feature in Microtrust
+	  tz_driver. This feature is for tracking boot progress by
+	  notifying mtk bootprof driver in each check point.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say Y.
+
+config MICROTRUST_TZ_DRIVER_MTK_TRACING
+	bool "Enable MTK tracing to profile TEEI"
+	depends on MICROTRUST_TZ_DRIVER
+	depends on TRACING
+	default n
+	help
+	  Enables the support of Mediatek tracing feature in Microtrust
+	  tz_driver. This feature is for tracking teei thread by MTK
+	  tracing mechanism.
+	  Say Y if you would like to enable this feature.
+
+config MICROTRUST_VFS_DRIVER
+	tristate "Microtrust Virtual File System Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	help
+	  Enables the support of Microtrust virtual file system driver.
+	  This driver is the proxy of secure world for linux virtual
+	  file system access. E.g., access for file system or RPMB.
+	  Say Y if you would like to enable the driver.
+	  If unsure, say Y.
+
+config MICROTRUST_FP_DRIVER
+	tristate "Microtrust Fingerprint Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	help
+	  Enables support of Microtrust fingerprint helper driver.
+	  This driver provides IOCTL interface for fingerprint HAL or
+	  driver to communicate with fingerpirnt trusted application.
+	  Say Y if you would like to enable the helper driver.
+	  If unsure, say Y.
+
+config MICROTRUST_KEYMASTER_DRIVER
+	tristate "Microtrust keymaster Driver"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	help
+	  Enables support of Microtrust keymaster helper driver.
+	  This driver provides IOCTL interface for keymaster HAL
+	  to communicate with keymaster trusted application.
+	  Say Y if you would like to enable the helper driver.
+	  If unsure, say Y.
+
+config MICROTRUST_TUI_DRIVER
+	bool "Enable Microtrust TUI Support"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	help
+	  Enables support of Microtrust TUI helper driver.
+	  This driver provides IOCTL interface for TUI manager to
+	  communicate with TUI server in secure world.
+	  Say Y if you would like to enable the helper driver.
+	  If unsure, say N.
+
+config MICROTRUST_DEBUG
+	bool "Enable Microtrust Debug Message"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	help
+	  Enable debug messages output from Microtrust Linux drivers.
+	  More debug information will be directed to console.
+	  Say Y if you would like to enable more debug outputs.
+	  If unsure, say N.
+
+config MICROTRUST_UNITTEST_SUPPORT
+	tristate "Microtrust Unittest Trigger Support"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	help
+	  Enable Microtrust unittest trigger driver.
+	  This driver will can be trigger from Linux userspace and
+	  send a start_test message to TEE unittest service.
+	  Say Y if you would like to enable secure world log support.
+	  If unsure, say N.
+
+config MICROTRUST_TZ_LOG
+	bool "Enable Microtrust TrustZone logger"
+	depends on MICROTRUST_TEE_SUPPORT
+	default y
+	help
+	  Enable Microtrust TrustZone logger to dump TEE logs in kernel log buffer.
+	  This driver will read out log buffer and direct to console each
+	  time a smc call is returned from secure world.
+	  Say Y if you would like to enable secure world log support.
+	  If unsure, say Y.
+
+config MICROTRUST_TEST_DRIVERS
+	tristate "Microtrust Test Drivers"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	help
+	  Enables support of Microtrust test driver kernel framework.
+	  This framework supports DCIH and GP API test drivers.
+	  Say Y if you would like to enable the test framework.
+	  If unsure, say N.
+
+config MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+	tristate "Microtrust tzdriver dynamical debug"
+	depends on MICROTRUST_TEE_SUPPORT
+	default n
+	help
+	  Enables support of Microtrust test driver kernel framework.
+	  This framework supports DCIH and GP API test drivers.
+	  Say Y if you would like to enable the test framework.
+	  If unsure, say N.

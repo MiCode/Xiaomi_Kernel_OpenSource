@@ -72,7 +72,7 @@ ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
   ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
 endif
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
-  include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+  include $(srctree)/drivers/tee/teei/Makefile.include
 endif
 endif
 
