@@ -71,8 +71,7 @@ void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 	if (!tbl)
 		return;
 
-	memcpy((*gpu_tbl), &tbl[*in_max_opp_idx],
-			opp_num * sizeof(*tbl));
+	memcpy((*gpu_tbl), &tbl[*in_max_opp_idx], opp_num *sizeof(*tbl));
 }
 
 int eara_thrm_get_vpu_core_num(void)
