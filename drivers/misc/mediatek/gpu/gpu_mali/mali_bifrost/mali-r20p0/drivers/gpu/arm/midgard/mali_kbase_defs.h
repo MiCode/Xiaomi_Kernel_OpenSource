@@ -745,7 +745,7 @@ struct kbase_jd_atom {
 	u32 age;
 
 #if defined(MTK_GPU_BM_2)
-        //u32 frame_nr;
+        u32 frame_nr;
 #endif
 };
 
