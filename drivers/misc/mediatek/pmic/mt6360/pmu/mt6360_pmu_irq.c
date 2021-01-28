@@ -116,10 +116,11 @@ static void mt6360_pmu_irq_bus_sync_unlock(struct irq_data *data)
 	struct mt6360_pmu_info *mpi = data->chip_data;
 	int ret;
 	unsigned long offset = data->hwirq;
+	u8 clr_curr_irq_evt = 1 << (offset % 8);
 
 	/* force clear current irq event */
-	ret = mt6360_pmu_reg_write(mpi, MT6360_PMU_CHG_IRQ1 + offset / 8,
-				   1 << (offset % 8));
+	ret = mt6360_pmu_reg_block_write(mpi, MT6360_PMU_CHG_IRQ1 + offset / 8,
+						1, &clr_curr_irq_evt);
 	if (ret < 0)
 		dev_err(mpi->dev, "%s: fail to write clr irq\n", __func__);
 	/* unmask current irq */
