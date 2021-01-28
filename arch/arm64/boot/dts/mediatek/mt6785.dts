@@ -5205,7 +5205,7 @@ page_owner=on loop.max_part=7";
 
 	charger: charger {
 		compatible = "mediatek,charger";
-		algorithm_name = "SwitchCharging2";
+		algorithm_name = "SwitchCharging";
 		/* enable_sw_jeita; */
 		/* enable_pe_plus; */
 		/* enable_pe_2; */
