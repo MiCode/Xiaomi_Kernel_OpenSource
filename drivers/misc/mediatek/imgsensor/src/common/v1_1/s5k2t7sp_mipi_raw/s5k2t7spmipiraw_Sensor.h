@@ -133,6 +133,7 @@ struct imgsensor_info_struct {
 	kal_uint8 ihdr_support;	/* 1, support; 0,not support */
 	kal_uint8 ihdr_le_firstline;	/* 1,le first ; 0, se first */
 	kal_uint8 sensor_mode_num;	/* support sensor mode num */
+	kal_uint8 frame_time_delay_frame;
 
 	kal_uint8 cap_delay_frame;	/* enter capture delay frame num */
 	kal_uint8 pre_delay_frame;	/* enter preview delay frame num */
