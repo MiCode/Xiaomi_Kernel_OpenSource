@@ -828,6 +828,7 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 			CLK_BUF_SWCTRL_STATUS_T swctrl_status[CLKBUF_MAX_COUNT];
 			struct ccci_rpc_clkbuf_input *clkinput;
 			u32 AfcDac;
+			int ret = 0;
 
 			if (pkt_num != 1) {
 				CCCI_ERROR_LOG(md_id, RPC,
@@ -876,9 +877,15 @@ static void ccci_rpc_work_helper(struct port_t *port, struct rpc_pkt *pkt,
 				node = of_find_compatible_node(NULL, NULL,
 						"mediatek,rf_clock_buffer");
 				if (node) {
-					of_property_read_u32_array(node,
+					ret = of_property_read_u32_array(node,
 						"mediatek,clkbuf-config", vals,
 						CLKBUF_MAX_COUNT);
+
+					if (ret)
+						CCCI_ERROR_LOG(md_id, RPC,
+							"%s get property fail\n",
+							__func__);
+
 				} else {
 					CCCI_ERROR_LOG(md_id, RPC,
 					"%s can't find compatible node\n",
