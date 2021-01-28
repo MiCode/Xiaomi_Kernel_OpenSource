@@ -23,6 +23,7 @@ struct mt6360_chg_platform_data {
 	u32 aicc_once;
 	u32 post_aicc;
 	u32 batoc_notify;
+	u32 bc12_sel;
 	const char *chg_name;
 };
 

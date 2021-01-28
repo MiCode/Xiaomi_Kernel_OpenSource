@@ -888,7 +888,7 @@ out_pdata:
 	mt6360_pmic_regmap_unregister(mpi);
 out_regmap:
 	mutex_destroy(&mpi->io_lock);
-	return ret;
+	return -EPROBE_DEFER;
 }
 
 static int mt6360_pmic_i2c_remove(struct i2c_client *client)
