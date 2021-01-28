@@ -34,13 +34,9 @@
 #endif
 #include <cmdq_core.h>
 #include <cmdq_record.h>
-#ifdef CONFIG_MTK_SMI_EXT
 #include <smi_public.h>
-#endif
-#define TODO
-#ifndef TODO
+
 #define MFB_PMQOS
-#endif
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -89,11 +85,6 @@ struct MFB_CLK_STRUCT mfb_clk;
 /* #define EP_NO_CLKMGR */
 #define BYPASS_REG         (0)
 /* #define MFB_WAITIRQ_LOG */
-#define CMDQ_COMMON
-#ifdef CMDQ_COMMON
-#undef BYPASS_REG
-#define BYPASS_REG (1)
-#endif
 #define MFB_USE_GCE
 #define MFB_DEBUG_USE
 #define DUMMY_MFB	   (0)
@@ -2540,10 +2531,7 @@ static signed int MFB_DumpReg(void)
 static inline void MFB_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
-
-#ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, MFB_DEV_NAME, true);
-#endif
 	ret = clk_prepare_enable(mfb_clk.CG_IMGSYS_MFB);
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_MFB clock\n");
@@ -2552,9 +2540,7 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 static inline void MFB_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(mfb_clk.CG_IMGSYS_MFB);
-#ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, MFB_DEV_NAME, true);
-#endif
 }
 #endif
 
@@ -4773,11 +4759,11 @@ static const struct file_operations mfb_reg_proc_fops = {
 	.write = mfb_reg_write,
 };
 
-#ifndef CMDQ_COMMON
+
 /**************************************************************
  *
  ***************************************************************/
-#ifndef TODO
+
 int32_t MFB_ClockOnCallback(uint64_t engineFlag)
 {
 	/* log_dbg("MFB_ClockOnCallback"); */
@@ -4811,8 +4797,6 @@ int32_t MFB_ClockOffCallback(uint64_t engineFlag)
 	/* log_dbg("-CmdqEn:%d", g_u4EnableClockCount); */
 	return 0;
 }
-#endif
-#endif
 
 static signed int __init MFB_Init(void)
 {
@@ -4886,16 +4870,12 @@ static signed int __init MFB_Init(void)
 		tmp = (void *)((char *)tmp + NORMAL_STR_LEN);
 	}
 
-#ifndef CMDQ_COMMON
-#ifndef TODO
 	/* Cmdq */
 	/* Register MFB callback */
 	log_dbg("register mfb callback for CMDQ\n");
 	cmdqCoreRegisterCB(CMDQ_GROUP_MFB,
 		MFB_ClockOnCallback,
 		MFB_DumpCallback, MFB_ResetCallback, MFB_ClockOffCallback);
-#endif
-#endif
 
 #ifdef MFB_PMQOS
 	MFBQOS_Init();
@@ -4919,13 +4899,9 @@ static void __exit MFB_Exit(void)
 	/*  */
 	platform_driver_unregister(&MFBDriver);
 	/*  */
-#ifndef CMDQ_COMMON
-#ifndef TODO
 	/* Cmdq */
 	/* Unregister MFB callback */
 	cmdqCoreRegisterCB(CMDQ_GROUP_MFB, NULL, NULL, NULL, NULL);
-#endif
-#endif
 
 	kfree(pLog_kmalloc);
 
