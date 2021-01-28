@@ -145,11 +145,15 @@ int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 			dev_info(ssusb->dev, "vbus regulator set voltage failed\n");
 			return ret;
 		}
+		/* FIXME, cause mt6360_pmu_chg can not set current */
+		#ifdef MTU3_FIXME
 		ret = regulator_set_current_limit(vbus, 1100000, 1100000);
 		if (ret) {
 			dev_info(ssusb->dev, "vbus regulator set current failed\n");
 			return ret;
 		}
+		#endif
+		/* FIXME: end */
 		ret = regulator_enable(vbus);
 		if (ret) {
 			dev_err(ssusb->dev, "vbus regulator enable failed\n");
