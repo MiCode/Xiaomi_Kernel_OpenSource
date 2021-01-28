@@ -1,5 +1,7 @@
 subdir-ccflags-y += -Werror
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)
 mtk-vcu-y += mtk_vcu.o \
 	mtk_vcodec_mem.o \
 
