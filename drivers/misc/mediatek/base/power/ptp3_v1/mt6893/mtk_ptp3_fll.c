@@ -100,13 +100,7 @@
 #ifdef CONFIG_OF
 
 /* B-DOE use */
-static unsigned int fll_doe_pllclken;
-static unsigned int fll_doe_bren;
-static unsigned int fll_doe_fll05;
-static unsigned int fll_doe_fll06;
-static unsigned int fll_doe_fll07;
-static unsigned int fll_doe_fll08;
-static unsigned int fll_doe_fll09;
+static unsigned int fll_doe_fllCtrl;
 
 #endif
 #endif
@@ -129,13 +123,8 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	enum FLL_TRIGGER_STAGE fll_tri_stage)
 {
 	int str_len = 0;
-	int cpu, fll_group, reg_value;
-	const unsigned int bits = 31;
-	const unsigned int shift = 0;
-	unsigned int fll_group_bits_shift;
 	char *aee_log_buf = (char *) __get_free_page(GFP_USER);
-	unsigned int fll_cfg =
-		(FLL_RW_READ << 15) | (shift << 10) | (bits << 4);
+	unsigned int cpu;
 
 	/* check free page valid or not */
 	if (!aee_log_buf) {
@@ -170,34 +159,7 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	/* collect dump info */
 	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-		for (fll_group = FLL_GROUP_CONTROL;
-			fll_group < NR_FLL_GROUP; fll_group++) {
-
-			fll_group_bits_shift =
-				(fll_group << 16) | (bits << 8) | shift;
-
-			reg_value =
-				mt_secure_call(
-				MTK_SIP_KERNEL_PTP3_CONTROL,
-				PTP3_FEATURE_FLL,
-				fll_group,
-				fll_cfg | cpu,
-				0);
-
-			if (fll_group == FLL_GROUP_CONTROL) {
-				str_len +=
-				 snprintf(aee_log_buf + str_len,
-				 ptp3_mem_size - str_len,
-				 "CPU%d: FLL_CONTROL = 0x%08x\n",
-				 cpu, reg_value);
-			} else {
-				str_len +=
-				 snprintf(aee_log_buf + str_len,
-				 ptp3_mem_size - str_len,
-				 "CPU%d: FLL0%d = 0x%08x\n",
-				 cpu, fll_group, reg_value);
-			}
-		}
+		/* fill data to aee_log_buf */
 	}
 
 	if (str_len > 0)
@@ -217,25 +179,6 @@ int fll_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 /************************************************
  * SMC between kernel and atf
  ************************************************/
-static unsigned int fll_smc_handle(
-	unsigned int rw, unsigned int cpu, unsigned int group,
-	unsigned int bits, unsigned int shift, unsigned int val)
-{
-	unsigned int ret;
-	unsigned int cfg = (rw << 15) | (shift << 10) | (bits << 4) | cpu;
-
-	fll_msg("[%s]:cpu(%d) group(%d) shift(%d) bits(%d) val(%d)\n",
-		__func__, cpu, group, shift, bits, val);
-
-	/* update atf via smc */
-	ret = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
-		PTP3_FEATURE_FLL,
-		group,
-		cfg,
-		val);
-
-	return ret;
-}
 
 /************************************************
  * IPI between kernel and mcupm/cpu_eb
@@ -268,454 +211,139 @@ static void fll_ipi_handle(unsigned int cpu, unsigned int group,
 /************************************************
  * static function
  ************************************************/
-static void mtk_fll_pllclken(unsigned int fll_pllclken)
-{
-	unsigned int cpu;
-	const unsigned int group = FLL_GROUP_CONTROL;
-	const unsigned int bits = FLL_CONTROL_BITS_Pllclken;
-	const unsigned int shift = FLL_CONTROL_SHIFT_Pllclken;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-		/* update via atf */
-		fll_smc_handle(
-			FLL_RW_WRITE, cpu, group, bits, shift,
-			(fll_pllclken >> cpu) & 1);
-		/* update via mcupm or cpu_eb */
-		fll_ipi_handle(
-			cpu, group, bits, shift,
-			(fll_pllclken >> cpu) & 1);
-	}
-}
-
-static void mtk_fll_bren(unsigned int fll_bren)
-{
-	unsigned int cpu;
-	const unsigned int group = FLL_GROUP_05;
-	const unsigned int bits = FLL05_BITS_Bren;
-	const unsigned int shift = FLL05_SHIFT_Bren;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-		/* update via atf */
-		fll_smc_handle(
-			FLL_RW_WRITE, cpu, group, bits, shift,
-			(fll_bren >> cpu) & 1);
-		/* update via mcupm or cpu_eb */
-		fll_ipi_handle(
-			cpu, group, bits, shift,
-			(fll_bren >> cpu) & 1);
-	}
-}
-
-static void mtk_fll_kpki(unsigned int cpu, unsigned int fll_kp_online,
-		unsigned int fll_ki_online,
-		unsigned int fll_kp_offline,
-		unsigned int fll_ki_offline)
-{
-	unsigned int fll_kpki;
-	const unsigned int group = FLL_GROUP_05;
-	const unsigned int bits = 20;
-	const unsigned int shift = 0;
-
-	fll_kpki =
-		(fll_kp_online << FLL05_SHIFT_KpOnline) |
-		(fll_ki_online << FLL05_SHIFT_KiOnline) |
-		(fll_kp_offline << FLL05_SHIFT_KpOffline) |
-		(fll_ki_offline << FLL05_SHIFT_KiOffline);
-
-	/* update via atf */
-	fll_smc_handle(
-		FLL_RW_WRITE, cpu, group, bits, shift, fll_kpki);
-	/* update via mcupm or cpu_eb */
-	fll_ipi_handle(
-		cpu, group, bits, shift, fll_kpki);
-}
-
-static void mtk_fll(unsigned int cpu, unsigned int fll_group,
-	unsigned int bits, unsigned int shift, unsigned int value)
-{
-	/* update via atf */
-	fll_smc_handle(
-		FLL_RW_WRITE, cpu, fll_group, bits, shift, value);
-	/* update via mcupm or cpu_eb */
-	fll_ipi_handle(
-		cpu, fll_group, bits, shift, value);
-}
 
 /************************************************
  * set FLL status by procfs interface
  ************************************************/
-static ssize_t fll_pllclken_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
+static unsigned int _proc_write_allocate_buf(
+	const char __user *buffer, size_t count, char *buf)
 {
-	/* parameter input */
-	int fll_pllclken = 0;
-
 	/* proc template for check */
-	char *buf = (char *) __get_free_page(GFP_USER);
+	buf = (char *) __get_free_page(GFP_USER);
 
-	if (!buf)
-		return -ENOMEM;
+	if (!buf) {
+		fll_err("buf(%d) is illegal\n");
+		return 0;
+	}
 
-	if (count >= PAGE_SIZE)
-		goto out;
+	if (count >= PAGE_SIZE) {
+		fll_err("count(%d) >= PAGE_SIZE\n");
+		return 0;
+	}
 
-	if (copy_from_user(buf, buffer, count))
-		goto out;
+	if (copy_from_user(buf, buffer, count)) {
+		fll_err("buffer copy fail\n");
+		return 0;
+	}
 
 	buf[count] = '\0';
 
-	/* parameter check */
-	if (kstrtou32((const char *)buf, 0, &fll_pllclken)) {
-		fll_err("bad argument!! Should input 1 arguments.\n");
-		goto out;
-	}
-
-	/* sync parameter with trust-zoon */
-	mtk_fll_pllclken((unsigned int)fll_pllclken);
-
-out:
-	free_page((unsigned long)buf);
-	return count;
+	return 1;
 }
 
-
-static int fll_pllclken_proc_show(struct seq_file *m, void *v)
-{
-	int cpu, fll_pllclken, fll_control;
-	const unsigned int fll_group = FLL_GROUP_CONTROL;
-	const unsigned int bits = 31;
-	const unsigned int shift = 0;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-
-		fll_msg("cpu(%d) fll_group(%d) bits(%d) shift(%d)\n",
-			cpu, fll_group, bits, shift);
-
-		/* read from atf */
-		fll_control =
-			fll_smc_handle(
-				FLL_RW_READ,
-				cpu, fll_group, bits, shift, 0);
-
-		fll_msg(
-			"[CPU%d] fll_control=0x%08x\n",
-			cpu,
-			fll_control);
-
-		fll_pllclken = GET_BITS_VAL(0:0, fll_control);
-		seq_printf(m, "CPU%d: FLL_CONTROL_Pllclken = %d\n",
-			cpu,
-			fll_pllclken);
-	}
-
-	return 0;
-}
-
-static ssize_t fll_bren_proc_write(struct file *file,
+unsigned int option_r;
+static ssize_t fll_ctrl_r_proc_write(struct file *file,
 	const char __user *buffer, size_t count, loff_t *pos)
 {
 	/* parameter input */
-	int fll_bren = 0;
+	unsigned int ret = 0;
+	char *buf = 0;
 
-	/* proc template for check */
-	char *buf = (char *) __get_free_page(GFP_USER);
+	/* allocate buf for proc_write */
+	ret = _proc_write_allocate_buf(buffer, count, buf);
 
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	/* parameter check */
-	if (kstrtou32((const char *)buf, 0, &fll_bren)) {
-		fll_err("bad argument!! Should input 1 arguments.\n");
-		goto out;
-	}
-
-	/* sync parameter with trust-zoon */
-	mtk_fll_bren((unsigned int)fll_bren);
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-
-}
-
-static int fll_bren_proc_show(struct seq_file *m, void *v)
-{
-	int cpu, fll_bren, fll_05;
-	const unsigned int fll_group = FLL_GROUP_05;
-	const unsigned int bits = 31;
-	const unsigned int shift = 0;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-
-		fll_msg("cpu(%d) fll_group(%d) bits(%d) shift(%d)\n",
-			cpu, fll_group, bits, shift);
-
-		/* read from atf */
-		fll_05 =
-			fll_smc_handle(
-				FLL_RW_READ,
-				cpu, fll_group, bits, shift, 0);
-
-		fll_msg(
-			"[CPU%d] fll_05=0x%08x\n",
-			cpu,
-			fll_05);
-
-		fll_bren = GET_BITS_VAL(20:20, fll_05);
-
-		seq_printf(m, "CPU%d: FLL05_Bren = %d\n",
-			cpu,
-			fll_bren);
-	}
-
-	return 0;
-}
-
-static ssize_t fll_kpki_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	/* parameter input */
-	int cpu, fll_kp_online, fll_kp_offline,
-		fll_ki_online, fll_ki_offline;
-
-	/* proc template for check */
-	char *buf = (char *) __get_free_page(GFP_USER);
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	/* parameter check */
-	if (sscanf(buf, "%u %u %u %u %u",
-		&cpu, &fll_kp_online, &fll_ki_online,
-		&fll_kp_offline, &fll_ki_offline) != 5) {
-
-		fll_err("bad argument!! Should input 5 arguments.\n");
-		goto out;
-	}
-
-	/* sync parameter with trust-zoon */
-	mtk_fll_kpki(cpu, (unsigned int)fll_kp_online,
-		(unsigned int)fll_ki_online,
-		(unsigned int)fll_kp_offline,
-		(unsigned int)fll_ki_offline);
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-
-}
-
-static int fll_kpki_proc_show(struct seq_file *m, void *v)
-{
-	int cpu, fll_kp_online, fll_kp_offline,
-		fll_ki_online, fll_ki_offline, fll_05;
-	const unsigned int fll_group = FLL_GROUP_05;
-	const unsigned int bits = 31;
-	const unsigned int shift = 0;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-
-		fll_msg("cpu(%d) fll_group(%d) bits(%d) shift(%d)\n",
-			cpu, fll_group, bits, shift);
-
-		/* read from atf */
-		fll_05 =
-			fll_smc_handle(
-				FLL_RW_READ,
-				cpu, fll_group, bits, shift, 0);
-
-		fll_msg(
-			"[CPU%d] fll_05=0x%08x\n",
-			cpu,
-			fll_05);
-
-		fll_kp_online = GET_BITS_VAL(19:16, fll_05);
-		fll_ki_online = GET_BITS_VAL(15:10, fll_05);
-		fll_kp_offline = GET_BITS_VAL(9:6, fll_05);
-		fll_ki_offline = GET_BITS_VAL(5:0, fll_05);
-
-		seq_printf(m, "CPU%d: (kp_online,ki_online,kp_offline,ki_offline) = (%d,%d,%d,%d)\n",
-			cpu,
-			fll_kp_online,
-			fll_ki_online,
-			fll_kp_offline,
-			fll_ki_offline);
-	}
-
-	return 0;
-}
-
-
-static ssize_t fll_reg_proc_write(struct file *file,
-	const char __user *buffer, size_t count, loff_t *pos)
-{
-	int ret;
-	/* parameter input */
-	char *cpu_str, *fll_group_str, *bits_str, *shift_str, *value_str;
-	unsigned int cpu, fll_group, bits, shift, value;
-
-	/* proc template for check */
-	char *buf = (char *) __get_free_page(GFP_USER);
-
-	if (!buf)
-		return -ENOMEM;
-
-	if (count >= PAGE_SIZE)
-		goto out;
-
-	if (copy_from_user(buf, buffer, count))
-		goto out;
-
-	buf[count] = '\0';
-
-	/* Convert str to hex */
-	cpu_str = strsep(&buf, " ");
-	fll_group_str = strsep(&buf, " ");
-	bits_str = strsep(&buf, " ");
-	shift_str = strsep(&buf, " ");
-	value_str = strsep(&buf, " ");
-
-	fll_msg(
-		"cpu_str(%s) fll_group_str(%s) bits_str(%s) shift_str(%s) value_str(%s)\n",
-		cpu_str, fll_group_str, bits_str, shift_str, value_str);
-
-	if ((cpu_str != 0) && (fll_group_str != 0) &&
-		(bits_str != 0) && (shift_str != 0) &&
-		(value_str != 0)) {
-		ret = kstrtou32(
-			(const char *)cpu_str, 10, (unsigned int *)&cpu);
-		ret = kstrtou32(
-			(const char *)fll_group_str, 10,
-			(unsigned int *)&fll_group);
-		ret = kstrtou32(
-			(const char *)bits_str, 10, (unsigned int *)&bits);
-		ret = kstrtou32(
-			(const char *)shift_str, 10, (unsigned int *)&shift);
-		ret = kstrtou32(
-			(const char *)value_str, 16, (unsigned int *)&value);
-
-		fll_msg(
-			"cpu(%d) fll_group(%d) bits(%d) shift(%d) value(0x%08x)\n",
-			cpu, fll_group, bits, shift, value);
-
-		/* sync parameter with trust-zoon */
-		mtk_fll((unsigned int)cpu, (unsigned int)fll_group,
-		(unsigned int)bits, (unsigned int)shift, (unsigned int)value);
-	}
-
-out:
-	free_page((unsigned long)buf);
-	return count;
-}
-
-
-static int fll_reg_proc_show(struct seq_file *m, void *v)
-{
-	int cpu, fll_group, reg_value;
-	const unsigned int bits = 31;
-	const unsigned int shift = 0;
-
-	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
-		for (fll_group = FLL_GROUP_CONTROL;
-			fll_group < NR_FLL_GROUP; fll_group++) {
-
-			fll_msg(
-				"cpu(%d) fll_group(%d) bits(%d) shift(%d)\n",
-				cpu, fll_group, bits, shift);
-
-			/* read from atf */
-			reg_value =
-				fll_smc_handle(
-					FLL_RW_READ,
-					cpu, fll_group, bits, shift, 0);
-
-			if (fll_group == FLL_GROUP_CONTROL) {
-				seq_printf(m, "CPU%d: FLL_CONTROL = 0x%08x\n",
-					cpu,
-					reg_value);
-			} else {
-				seq_printf(m, "CPU%d: FLL0%d = 0x%08x\n",
-					cpu,
-					fll_group,
-					reg_value);
-			}
+	if (ret) {
+		/* parameter check */
+		if (kstrtou32((const char *)buf, 0, &option_r)) {
+			fll_err("bad argument!! Should input 1 arguments.\n");
+			goto out;
 		}
 	}
-	return 0;
+
+out:
+	free_page((unsigned long)buf);
+	return count;
+
 }
 
-static int fll_bit_en_proc_show(struct seq_file *m, void *v)
+static int fll_ctrl_r_proc_show(struct seq_file *m, void *v)
 {
-	unsigned int cpu, fll_bren = 0, fll_pllclken = 0, fll_control, fll_05;
-	const unsigned int bits = 31;
-	const unsigned int shift = 0;
+	unsigned int value, cpu;
 
 	for (cpu = FLL_CPU_START_ID; cpu <= FLL_CPU_END_ID; cpu++) {
 
-		/* read from atf */
-		fll_control =
-			fll_smc_handle(
-				FLL_RW_READ,
-				cpu, FLL_GROUP_CONTROL, bits, shift, 0);
-
-		/* read from atf */
-		fll_05 =
-			fll_smc_handle(
-				FLL_RW_READ,
-				cpu, FLL_GROUP_05, bits, shift, 0);
-
-		fll_msg(
-			"[CPU%d] fll_control=0x%08x\n",
+		/* update via atf */
+		value = ptp3_smc_handle(
+			FLL_RW_READ,
 			cpu,
-			fll_control);
+			option_r,
+			value);
 
-		fll_msg(
-			"[CPU%d] fll_05=0x%08x\n",
+		seq_printf(m, FLL_TAG"[CPU%d] FLL_CTRL(%d):%d\n",
 			cpu,
-			fll_05);
+			FLL_LIST_NAME[option_r],
+			value);
+	}
+	return 0;
+}
 
-		fll_pllclken |= GET_BITS_VAL(0:0, fll_control) << cpu;
-		fll_bren |= GET_BITS_VAL(20:20, fll_05) << cpu;
+static ssize_t fll_ctrl_w_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	/* parameter input */
+	unsigned int cpu, option, value;
+	unsigned int ret = 0;
+	char *buf = 0;
 
-		fll_msg(
-			"[CPU%d] fll_pllclken=0x%08x\n",
+	/* allocate buf for proc_write */
+	ret = _proc_write_allocate_buf(buffer, count, buf);
+
+	if (ret) {
+		/* parameter check */
+		if (sscanf(buf, "%u %u %u",
+			&cpu, &option, &value) != 3) {
+
+			fll_err("bad argument!! Should input 3 arguments.\n");
+			goto out;
+		}
+
+		/* update via atf */
+		ptp3_smc_handle(
+			FLL_RW_WRITE,
 			cpu,
-			fll_pllclken);
+			option,
+			value);
 
-		fll_msg(
-			"[CPU%d] fll_bren=0x%08x\n",
-			cpu,
-			fll_bren);
+		/* update via mcupm or cpu_eb */
+		fll_ipi_handle(0, 0, 0, 0, 0);
 
 	}
 
-	seq_printf(m, "%d\n", (fll_bren & fll_pllclken));
+out:
+	free_page((unsigned long)buf);
+	return count;
 
+}
+
+static int fll_ctrl_w_proc_show(struct seq_file *m, void *v)
+{
 	return 0;
 }
 
 
-PROC_FOPS_RW(fll_pllclken);
-PROC_FOPS_RW(fll_bren);
-PROC_FOPS_RW(fll_reg);
-PROC_FOPS_RW(fll_kpki);
-PROC_FOPS_RO(fll_bit_en);
+static int fll_list_proc_show(struct seq_file *m, void *v)
+{
+	unsigned int list_num;
+
+	for (list_num = 0; list_num < NR_FLL_LIST; list_num++)
+		seq_printf(m, "%d.%s\n", list_num, FLL_LIST_NAME[list_num]);
+
+	return 0;
+}
+
+PROC_FOPS_RW(fll_ctrl_r);
+PROC_FOPS_RW(fll_ctrl_w);
+PROC_FOPS_RO(fll_list);
 
 int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 {
@@ -727,11 +355,9 @@ int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 	};
 
 	struct pentry fll_entries[] = {
-		PROC_ENTRY(fll_pllclken),
-		PROC_ENTRY(fll_bren),
-		PROC_ENTRY(fll_reg),
-		PROC_ENTRY(fll_kpki),
-		PROC_ENTRY(fll_bit_en),
+		PROC_ENTRY(fll_ctrl_r),
+		PROC_ENTRY(fll_ctrl_w),
+		PROC_ENTRY(fll_list),
 	};
 
 	for (i = 0; i < ARRAY_SIZE(fll_entries); i++) {
@@ -755,7 +381,7 @@ int fll_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct device_node *node = NULL;
 	int rc = 0;
-	int cpu;
+	unsigned int cpu, option, value;
 
 	node = pdev->dev.of_node;
 	if (!node) {
@@ -763,142 +389,28 @@ int fll_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	/*fll05*/
+	/* fll_doe_fllCtrl */
 	rc = of_property_read_u32(node,
-		"fll_doe_fll05", &fll_doe_fll05);
+		"fll_doe_fllCtrl", &fll_doe_fllCtrl);
 
 	if (!rc) {
 		fll_msg(
-			"fll_doe_fll05 from DTree; rc(%d) fll_doe_fll05(0x%x)\n",
+			"fll_doe_fllCtrl from DTree; rc(%d) fll_doe_fllCtrl(0x%x)\n",
 			rc,
-			fll_doe_fll05);
+			fll_doe_fllCtrl);
 
-		if (fll_doe_fll05 > 0) {
-			for (cpu = FLL_CPU_START_ID;
-				cpu <= FLL_CPU_END_ID; cpu++) {
-				mtk_fll(cpu,
-					5,
-					20,
-					0,
-					fll_doe_fll05);
-			}
+		cpu = (fll_doe_fllCtrl & 0xF0000000) >> 28;
+		option = (fll_doe_fllCtrl & 0xFFF0000) >> 16;
+		value = fll_doe_fllCtrl & 0xFFFF;
+
+		if (fll_doe_fllCtrl != 0xFFFFFFFF) {
+			/* update via atf */
+			ptp3_smc_handle(
+				FLL_RW_WRITE,
+				cpu,
+				option,
+				value);
 		}
-	}
-
-	/*fll06*/
-	rc = of_property_read_u32(node,
-		"fll_doe_fll06", &fll_doe_fll06);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_fll06 from DTree; rc(%d) fll_doe_fll06(0x%x)\n",
-			rc,
-			fll_doe_fll06);
-
-		if (fll_doe_fll06 > 0) {
-			for (cpu = FLL_CPU_START_ID;
-				cpu <= FLL_CPU_END_ID; cpu++) {
-				mtk_fll(cpu,
-					6,
-					15,
-					0,
-					fll_doe_fll06);
-			}
-		}
-	}
-
-	/*fll07*/
-	rc = of_property_read_u32(node,
-		"fll_doe_fll07", &fll_doe_fll07);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_fll07 from DTree; rc(%d) fll_doe_fll07(0x%x)\n",
-			rc,
-			fll_doe_fll07);
-
-		if (fll_doe_fll07 > 0) {
-			for (cpu = FLL_CPU_START_ID;
-				cpu <= FLL_CPU_END_ID; cpu++) {
-				mtk_fll(cpu,
-					7,
-					11,
-					0,
-					fll_doe_fll07);
-			}
-		}
-	}
-
-	/*fll08*/
-	rc = of_property_read_u32(node,
-		"fll_doe_fll08", &fll_doe_fll08);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_fll08 from DTree; rc(%d) fll_doe_fll08(0x%x)\n",
-			rc,
-			fll_doe_fll08);
-
-		if (fll_doe_fll08 > 0) {
-			for (cpu = FLL_CPU_START_ID;
-				cpu <= FLL_CPU_END_ID; cpu++) {
-				mtk_fll(cpu,
-					8,
-					12,
-					0,
-					fll_doe_fll08);
-			}
-		}
-	}
-
-	/*fll09*/
-	rc = of_property_read_u32(node,
-		"fll_doe_fll09", &fll_doe_fll09);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_fll09 from DTree; rc(%d) fll_doe_fll09(0x%x)\n",
-			rc,
-			fll_doe_fll09);
-
-		if (fll_doe_fll09 > 0) {
-			for (cpu = FLL_CPU_START_ID;
-				cpu <= FLL_CPU_END_ID; cpu++) {
-				mtk_fll(cpu,
-					9,
-					13,
-					0,
-					fll_doe_fll09);
-			}
-		}
-	}
-
-	/* pllclken control */
-	rc = of_property_read_u32(node,
-		"fll_doe_pllclken", &fll_doe_pllclken);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_pllclken from DTree; rc(%d) fll_doe_pllclken(0x%x)\n",
-			rc,
-			fll_doe_pllclken);
-
-		if (fll_doe_pllclken < 256)
-			mtk_fll_pllclken(fll_doe_pllclken);
-	}
-
-	/* bren control */
-	rc = of_property_read_u32(node,
-		"fll_doe_bren", &fll_doe_bren);
-
-	if (!rc) {
-		fll_msg(
-			"fll_doe_bren from DTree; rc(%d) fll_doe_bren(0x%x)\n",
-			rc,
-			fll_doe_bren);
-
-		if (fll_doe_bren < 256)
-			mtk_fll_bren(fll_doe_bren);
 	}
 
 	/* dump reg status into PICACHU dram for DB */

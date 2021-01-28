@@ -360,7 +360,7 @@ static unsigned int cinst_smc_handle(
 		__func__, cpu, param, val);
 
 	/* update atf via smc */
-	ret = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
+	ret = ptp3_smc_handle(
 		PTP3_FEATURE_CINST,
 		0,
 		cinst_cfg,

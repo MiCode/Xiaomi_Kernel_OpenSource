@@ -24,92 +24,73 @@
 /************************************************
  * Register addr, offset, bits range
  ************************************************/
-/* FLL_CONTROL config */
-#define FLL_CONTROL_BITS_Pllclken		1
-/* FLL01 config */
-#define FLL01_BITS_ErrOnline			11
-#define FLL01_BITS_ErrOffline			11
-#define FLL01_BITS_fsm_state			2
-/* FLL02 config */
-#define FLL02_BITS_cctrl_ping			6
-#define FLL02_BITS_fctrl_ping			6
-#define FLL02_BITS_cctrl_pong			6
-#define FLL02_BITS_fctrl_pong			6
-/* FLL03 config */
-#define FLL03_BITS_InFreq				8
-#define FLL03_BITS_OutFreq				8
-#define FLL03_BITS_CalFreq				8
-/* FLL04 config */
-#define FLL04_BITS_Status				8
-#define FLL04_BITS_PhaseErr				16
-#define FLL04_BITS_LockDet				1
-#define FLL04_BITS_Clk26mDet			1
-/* FLL05 config */
-#define FLL05_BITS_Bren					1
-#define FLL05_BITS_KpOnline				4
-#define FLL05_BITS_KiOnline				6
-#define FLL05_BITS_KpOffline			4
-#define FLL05_BITS_KiOffline			6
-/* FLL06 config */
-#define FLL06_BITS_FreqErrWtOnline		6
-#define FLL06_BITS_FreqErrWtOffline		6
-#define FLL06_BITS_PhaseErrWt			4
-/* FLL07 config */
-#define FLL07_BITS_FreqErrCapOnline		4
-#define FLL07_BITS_FreqErrCapOffline	4
-#define FLL07_BITS_PhaseErrCap			4
-/* FLL08 config */
-#define FLL08_BITS_PingMaxThreshold		6
-#define FLL08_BITS_PongMinThreshold		6
-#define FLL08_BITS_StartInPong			1
-/* FLL09 config */
-#define FLL09_BITS_PhlockThresh			3
-#define FLL09_BITS_PhlockCycles			3
-#define FLL09_BITS_Control				8
-
-/* FLL_CONTROL config */
-#define FLL_CONTROL_SHIFT_Pllclken		0
-/* FLL01 config */
-#define FLL01_SHIFT_ErrOnline			13
-#define FLL01_SHIFT_ErrOffline			2
-#define FLL01_SHIFT_fsm_state			0
-/* FLL02 config */
-#define FLL02_SHIFT_cctrl_ping			18
-#define FLL02_SHIFT_fctrl_ping			12
-#define FLL02_SHIFT_cctrl_pong			6
-#define FLL02_SHIFT_fctrl_pong			0
-/* FLL03 config */
-#define FLL03_SHIFT_InFreq				16
-#define FLL03_SHIFT_OutFreq				8
-#define FLL03_SHIFT_CalFreq				0
-/* FLL04 config */
-#define FLL04_SHIFT_Status				18
-#define FLL04_SHIFT_PhaseErr			2
-#define FLL04_SHIFT_LockDet				1
-#define FLL04_SHIFT_Clk26mDet			0
-/* FLL05 config */
-#define FLL05_SHIFT_Bren				20
-#define FLL05_SHIFT_KpOnline			16
-#define FLL05_SHIFT_KiOnline			10
-#define FLL05_SHIFT_KpOffline			6
-#define FLL05_SHIFT_KiOffline			0
-/* FLL06 config */
-#define FLL06_SHIFT_FreqErrWtOnline		10
-#define FLL06_SHIFT_FreqErrWtOffline	4
-#define FLL06_SHIFT_PhaseErrWt			0
-/* FLL07 config */
-#define FLL07_SHIFT_FreqErrCapOnline	8
-#define FLL07_SHIFT_FreqErrCapOffline	4
-#define FLL07_SHIFT_PhaseErrCap			0
-/* FLL08 config */
-#define FLL08_SHIFT_PingMaxThreshold	7
-#define FLL08_SHIFT_PongMinThreshold	1
-#define FLL08_SHIFT_StartInPong			0
-/* FLL09 config */
-#define FLL09_SHIFT_PhlockThresh		11
-#define FLL09_SHIFT_PhlockCycles		8
-#define FLL09_SHIFT_Control				0
-
+/* FLL List Macro*/
+#define FllFastKpOnline "FllFastKpOnline"
+#define FllFastKiOnline "FllFastKiOnline"
+#define FllSlowKpOnline "FllSlowKpOnline"
+#define FllSlowKiOnline "FllSlowKiOnline"
+#define FllKpOffline "FllKpOffline"
+#define FllKiOffline "FllKiOffline"
+#define FllCttTargetScaleDisable "FllCttTargetScaleDisable"
+#define FllTargetScale "FllTargetScale"
+#define FllInFreqOverrideVal "FllInFreqOverrideVal"
+#define FllFreqErrWtOnline "FllFreqErrWtOnline"
+#define FllFreqErrWtOffline "FllFreqErrWtOffline"
+#define FllPhaseErrWt "FllPhaseErrWt"
+#define FllFreqErrCapOnline "FllFreqErrCapOnline"
+#define FllFreqErrCapOffline "FllFreqErrCapOffline"
+#define FllPhaseErrCap "FllPhaseErrCap"
+#define FllStartInPong "FllStartInPong"
+#define FllPingMaxThreshold "FllPingMaxThreshold"
+#define FllPongMinThreshold "FllPongMinThreshold"
+#define FllDccEn "FllDccEn"
+#define FllDccClkShaperCalin "FllDccClkShaperCalin"
+#define FllClk26mDetDis "FllClk26mDetDis"
+#define FllClk26mEn "FllClk26mEn"
+#define FllControl "FllControl"
+#define FllPhaselockThresh "FllPhaselockThresh"
+#define FllPhaselockCycles "FllPhaselockCycles"
+#define FllFreqlockRatio "FllFreqlockRatio"
+#define FllFreqlockCycles "FllFreqlockCycles"
+#define FllFreqUnlock "FllFreqUnlock"
+#define FllTst_cctrl "FllTst_cctrl"
+#define FllTst_fctrl "FllTst_fctrl"
+#define FllTst_sctrl "FllTst_sctrl"
+#define FllSlowReqCode "FllSlowReqCode"
+#define FllSlowReqResponseSelectMode "FllSlowReqResponseSelectMode"
+#define FllSlowReqFastResponseCycles "FllSlowReqFastResponseCycles"
+#define FllSlowReqErrorMask "FllSlowReqErrorMask"
+#define FllEventSource0 "FllEventSource0"
+#define FllEventSource1 "FllEventSource1"
+#define FllEventType0 "FllEventType0"
+#define FllEventType1 "FllEventType1"
+#define FllEventSourceThresh0 "FllEventSourceThresh0"
+#define FllEventSourceThresh1 "FllEventSourceThresh1"
+#define FllEventFreeze "FllEventFreeze"
+#define FllWGTriggerSource "FllWGTriggerSource"
+#define FllWGTriggerCaptureDelay "FllWGTriggerCaptureDelay"
+#define FllWGTriggerEdge "FllWGTriggerEdge"
+#define FllWGTriggerVal "FllWGTriggerVal"
+#define FllInFreq "FllInFreq"
+#define FllOutFreq "FllOutFreq"
+#define FllCalFreq "FllCalFreq"
+#define FllStatus "FllStatus"
+#define FllPhaseErr "FllPhaseErr"
+#define FllPhaseLockDet "FllPhaseLockDet"
+#define FllFreqLockDet "FllFreqLockDet"
+#define FllClk26mDet "FllClk26mDet"
+#define FllErrOnline "FllErrOnline"
+#define FllErrOffline "FllErrOffline"
+#define Fllfsm_state_sr "Fllfsm_state_sr"
+#define Fllfsm_state "Fllfsm_state"
+#define FllSctrl_pong "FllSctrl_pong"
+#define FllCctrl_ping "FllCctrl_ping"
+#define FllFctrl_ping "FllFctrl_ping"
+#define FllSctrl_ping "FllSctrl_ping"
+#define FllCctrl_pong "FllCctrl_pong"
+#define FllFctrl_pong "FllFctrl_pong"
+#define FllEventCount0 "FllEventCount0"
+#define FllEventCount1 "FllEventCount1"
 
 /************************************************
  * config enum
@@ -121,19 +102,144 @@ enum FLL_RW {
 	NR_FLL_RW,
 };
 
-enum FLL_GROUP {
-	FLL_GROUP_CONTROL,
-	FLL_GROUP_01,
-	FLL_GROUP_02,
-	FLL_GROUP_03,
-	FLL_GROUP_04,
-	FLL_GROUP_05,
-	FLL_GROUP_06,
-	FLL_GROUP_07,
-	FLL_GROUP_08,
-	FLL_GROUP_09,
+enum FLL_LIST {
+	FLL_LIST_FllFastKpOnline,
+	FLL_LIST_FllFastKiOnline,
+	FLL_LIST_FllSlowKpOnline,
+	FLL_LIST_FllSlowKiOnline,
+	FLL_LIST_FllKpOffline,
+	FLL_LIST_FllKiOffline,
+	FLL_LIST_FllCttTargetScaleDisable,
+	FLL_LIST_FllTargetScale,
+	FLL_LIST_FllInFreqOverrideVal,
+	FLL_LIST_FllFreqErrWtOnline,
+	FLL_LIST_FllFreqErrWtOffline,
+	FLL_LIST_FllPhaseErrWt,
+	FLL_LIST_FllFreqErrCapOnline,
+	FLL_LIST_FllFreqErrCapOffline,
+	FLL_LIST_FllPhaseErrCap,
+	FLL_LIST_FllStartInPong,
+	FLL_LIST_FllPingMaxThreshold,
+	FLL_LIST_FllPongMinThreshold,
+	FLL_LIST_FllDccEn,
+	FLL_LIST_FllDccClkShaperCalin,
+	FLL_LIST_FllClk26mDetDis,
+	FLL_LIST_FllClk26mEn,
+	FLL_LIST_FllControl,
+	FLL_LIST_FllPhaselockThresh,
+	FLL_LIST_FllPhaselockCycles,
+	FLL_LIST_FllFreqlockRatio,
+	FLL_LIST_FllFreqlockCycles,
+	FLL_LIST_FllFreqUnlock,
+	FLL_LIST_FllTst_cctrl,
+	FLL_LIST_FllTst_fctrl,
+	FLL_LIST_FllTst_sctrl,
+	FLL_LIST_FllSlowReqCode,
+	FLL_LIST_FllSlowReqResponseSelectMode,
+	FLL_LIST_FllSlowReqFastResponseCycles,
+	FLL_LIST_FllSlowReqErrorMask,
+	FLL_LIST_FllEventSource0,
+	FLL_LIST_FllEventSource1,
+	FLL_LIST_FllEventType0,
+	FLL_LIST_FllEventType1,
+	FLL_LIST_FllEventSourceThresh0,
+	FLL_LIST_FllEventSourceThresh1,
+	FLL_LIST_FllEventFreeze,
+	FLL_LIST_FllWGTriggerSource,
+	FLL_LIST_FllWGTriggerCaptureDelay,
+	FLL_LIST_FllWGTriggerEdge,
+	FLL_LIST_FllWGTriggerVal,
+	FLL_LIST_FllInFreq,
+	FLL_LIST_FllOutFreq,
+	FLL_LIST_FllCalFreq,
+	FLL_LIST_FllStatus,
+	FLL_LIST_FllPhaseErr,
+	FLL_LIST_FllPhaseLockDet,
+	FLL_LIST_FllFreqLockDet,
+	FLL_LIST_FllClk26mDet,
+	FLL_LIST_FllErrOnline,
+	FLL_LIST_FllErrOffline,
+	FLL_LIST_Fllfsm_state_sr,
+	FLL_LIST_Fllfsm_state,
+	FLL_LIST_FllSctrl_pong,
+	FLL_LIST_FllCctrl_ping,
+	FLL_LIST_FllFctrl_ping,
+	FLL_LIST_FllSctrl_ping,
+	FLL_LIST_FllCctrl_pong,
+	FLL_LIST_FllFctrl_pong,
+	FLL_LIST_FllEventCount0,
+	FLL_LIST_FllEventCount1,
 
-	NR_FLL_GROUP,
+	NR_FLL_LIST,
+};
+
+static const char FLL_LIST_NAME[][40] = {
+	FllFastKpOnline,
+	FllFastKiOnline,
+	FllSlowKpOnline,
+	FllSlowKiOnline,
+	FllKpOffline,
+	FllKiOffline,
+	FllCttTargetScaleDisable,
+	FllTargetScale,
+	FllInFreqOverrideVal,
+	FllFreqErrWtOnline,
+	FllFreqErrWtOffline,
+	FllPhaseErrWt,
+	FllFreqErrCapOnline,
+	FllFreqErrCapOffline,
+	FllPhaseErrCap,
+	FllStartInPong,
+	FllPingMaxThreshold,
+	FllPongMinThreshold,
+	FllDccEn,
+	FllDccClkShaperCalin,
+	FllClk26mDetDis,
+	FllClk26mEn,
+	FllControl,
+	FllPhaselockThresh,
+	FllPhaselockCycles,
+	FllFreqlockRatio,
+	FllFreqlockCycles,
+	FllFreqUnlock,
+	FllTst_cctrl,
+	FllTst_fctrl,
+	FllTst_sctrl,
+	FllSlowReqCode,
+	FllSlowReqResponseSelectMode,
+	FllSlowReqFastResponseCycles,
+	FllSlowReqErrorMask,
+	FllEventSource0,
+	FllEventSource1,
+	FllEventType0,
+	FllEventType1,
+	FllEventSourceThresh0,
+	FllEventSourceThresh1,
+	FllEventFreeze,
+	FllWGTriggerSource,
+	FllWGTriggerCaptureDelay,
+	FllWGTriggerEdge,
+	FllWGTriggerVal,
+	FllInFreq,
+	FllOutFreq,
+	FllCalFreq,
+	FllStatus,
+	FllPhaseErr,
+	FllPhaseLockDet,
+	FllFreqLockDet,
+	FllClk26mDet,
+	FllErrOnline,
+	FllErrOffline,
+	Fllfsm_state_sr,
+	Fllfsm_state,
+	FllSctrl_pong,
+	FllCctrl_ping,
+	FllFctrl_ping,
+	FllSctrl_ping,
+	FllCctrl_pong,
+	FllFctrl_pong,
+	FllEventCount0,
+	FllEventCount1
 };
 
 enum FLL_TRIGGER_STAGE {

@@ -134,6 +134,10 @@ struct ptp3_ipi_data {
 };
 
 unsigned int ptp3_ipi_handle(struct ptp3_ipi_data *ptp3_data);
+unsigned int ptp3_smc_handle(
+	unsigned int feature, unsigned int x2,
+	unsigned int x3, unsigned int x4);
+
 
 /************************************************
  * association with ATF use
