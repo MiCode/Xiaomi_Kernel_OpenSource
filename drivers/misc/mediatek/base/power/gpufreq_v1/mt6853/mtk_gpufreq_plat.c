@@ -2999,13 +2999,9 @@ static void __mt_gpufreq_init_table(void)
 /* Special SW setting */
 #if defined(CONFIG_ARM64)
 #if defined(K6853TV1)
-	gpufreq_pr_info("@%s: k6853tv1 flavor name: %s\n",
-		__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 	g_segment_max_opp_idx = 0;
 #endif
 #if defined(TURBO)
-	gpufreq_pr_info("@%s: turbo flavor name: %s\n",
-		__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 	g_segment_max_opp_idx = 0;
 #endif
 #endif
