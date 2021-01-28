@@ -135,6 +135,12 @@ struct scp_reserve_mblock {
 	u64 size;
 };
 
+
+#define MAX_PLATFORM_LEN                12
+/******************************************************************************
+ * 1. New entries must be appended to the end of the structure.
+ * 2. Do NOT use conditional option such as #ifdef inside the structure.
+ ******************************************************************************/
 struct scp_region_info_st {
 	uint32_t ap_loader_start;
 	uint32_t ap_loader_size;
@@ -156,6 +162,7 @@ struct scp_region_info_st {
 	uint32_t Dl1c_con;
 	uint32_t scpctl;
 	uint32_t ap_params_start;
+	char platform[MAX_PLATFORM_LEN];
 };
 
 /* scp device attribute */
