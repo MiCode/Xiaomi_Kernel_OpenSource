@@ -709,6 +709,11 @@ static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 	/* make this thread can be dispath again */
 	mdp_ctx.thread[thread].allow_dispatch = true;
 	mdp_ctx.thread[thread].task_count++;
+	if (mdp_ctx.thread[thread].task_count > 3) {
+		CMDQ_LOG("[WARN]thread %d, task_count %d, engine:0x%llx\n",
+			thread, mdp_ctx.thread[thread].task_count,
+			mdp_ctx.thread[thread].engine_flag);
+	}
 
 	CMDQ_PROF_END(current->pid, __func__);
 }
@@ -957,6 +962,7 @@ static s32 cmdq_mdp_consume_handle(void)
 	bool acquired = false;
 	struct CmdqCBkStruct *callback = cmdq_core_get_group_cb();
 	bool force_inorder = false;
+	bool conflict = false;
 
 	/* operation for tasks_wait list need task mutex */
 	mutex_lock(&mdp_task_mutex);
@@ -991,6 +997,7 @@ static s32 cmdq_mdp_consume_handle(void)
 			CMDQ_MSG(
 				"fail to get thread handle:0x%p engine:0x%llx\n",
 				handle, handle->engineFlag);
+			conflict = true;
 			continue;
 		}
 
@@ -1041,6 +1048,8 @@ static s32 cmdq_mdp_consume_handle(void)
 		current->pid, 0);
 
 	mutex_unlock(&mdp_task_mutex);
+	if (conflict)
+		cmdq_core_dump_active();
 
 	if (acquired) {
 		/* notify some task's SW thread to change their waiting state.

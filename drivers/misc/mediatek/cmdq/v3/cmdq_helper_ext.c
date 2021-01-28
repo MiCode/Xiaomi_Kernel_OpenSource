@@ -4988,24 +4988,26 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
-		u64 exec;
 
-		if (!va) {
-			CMDQ_ERR("handle:%p pkt:%p thread:%d empty buffer\n",
-				handle, handle->pkt, handle->thread);
-			return -EINVAL;
+		if (va) {
+			if (va[0] == 0xdeaddead || va[1] == 0xdeaddead) {
+				CMDQ_ERR(
+					"task may not execute handle:%p pkt:%p exec:%#x %#x",
+					handle, handle->pkt, va[0], va[1]);
+			} else {
+				u32 cost = va[1] < va[0] ?
+					~va[0] + va[1] : va[1] - va[0];
+
+				cost = div_u64(cost, 26);
+				if (cost > 80000) {
+					CMDQ_LOG(
+						"[WARN]task executes %uus engine:%#llx caller:%llu-%s\n",
+						cost, handle->engineFlag,
+						(u64)handle->caller_pid,
+						handle->caller_name);
+				}
+			}
 		}
-
-		if (va[1] > va[0])
-			exec = 0xffffffff - va[0] + va[1];
-		else
-			exec = va[1] - va[0];
-
-		exec = (u32)CMDQ_TICK_TO_US(exec);
-
-		CMDQ_LOG(
-			"task profile thread:%d handle:0x%p execute time:%lluus begin:%u end:%u\n",
-			handle->thread, handle, exec, va[0], va[1]);
 
 		CMDQ_PROF_MMP(cmdq_mmp_get_event()->task_exec,
 			MMPROFILE_FLAG_PULSE, ((unsigned long)handle), exec);
@@ -5300,6 +5302,30 @@ s32 cmdq_pkt_stop(struct cmdqRecStruct *handle)
 
 	CMDQ_MSG("%s done handle:0x%p\n", __func__, handle);
 	return 0;
+}
+
+void cmdq_core_dump_active(void)
+{
+	u64 cost;
+	u32 idx = 0;
+	struct cmdqRecStruct *task;
+
+	mutex_lock(&cmdq_handle_list_mutex);
+	list_for_each_entry(task, &cmdq_ctx.handle_active, list_entry) {
+		if (idx >= 3)
+			break;
+
+		cost = div_u64(sched_clock() - task->submit, 1000);
+		if (cost <= 800000)
+			break;
+
+		CMDQ_LOG(
+			"[warn] waiting task %u cost time:%lluus submit:%llu enging:%#llx caller:%llu-%s\n",
+			idx, cost, task->submit, task->engineFlag,
+			(u64)task->caller_pid, task->caller_name);
+		idx++;
+	}
+	mutex_unlock(&cmdq_handle_list_mutex);
 }
 EXPORT_SYMBOL(cmdq_pkt_stop);
 
