@@ -292,7 +292,7 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 
 	ret = devm_request_threaded_irq(chip->dev, chip->irq, NULL,
 					mt6358_irq_handler,
-					IRQF_ONESHOT | IRQF_NO_SUSPEND,
+					IRQF_ONESHOT,
 					mt6358_irq_chip.name, chip);
 	if (ret) {
 		dev_err(chip->dev, "failed to register irq=%d; err: %d\n",
