@@ -4157,11 +4157,8 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 
 	writel_relaxed(F_MMU_TFRP_PA_SET(data->protect_base, data->enable_4GB),
 		   data->base + REG_MMU_TFRP_PADDR);
-#ifndef MTK_DISABLE_DCM_SUPPORT
-	writel_relaxed(0, data->base + REG_MMU_DCM_DIS);
-#else
 	writel_relaxed(0x100, data->base + REG_MMU_DCM_DIS);
-#endif
+
 	//writel_relaxed(0, data->base + REG_MMU_STANDARD_AXI_MODE);
 
 	if (devm_request_irq(data->dev, data->irq, mtk_iommu_isr, 0,

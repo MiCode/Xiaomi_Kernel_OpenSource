@@ -25,7 +25,6 @@
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
-#define MTK_DISABLE_DCM_SUPPORT
 #define MTK_WARN_PSEDUO_FIND_SG
 #include "clk-mt6853-pg.h"
 
