@@ -1219,18 +1219,18 @@ static const struct mtk_gate venc_clks[] __initconst = {
 static const struct mtk_pll_data plls[] = {
 	/* FIXME: need to fix flags/div_table/tuner_reg/table */
 #if 1
-	PLL(CLK_APMIXED_MAINPLL, "mainpll", 0x0220, 0x022C, 0x80000111, HAVE_RST_BAR,
-		21, 0x0224, 24, 0, 0x0224, 0, 7, 0x4),
+	PLL(CLK_APMIXED_MAINPLL, "mainpll", 0x0220, 0x022C, 0x80000111,
+		HAVE_RST_BAR, 21, 0x0224, 24, 0, 0x0224, 0, 7, 0x4),
 #endif
 	PLL(CLK_APMIXED_MFGPLL, "mfgpll", 0x0240, 0x024C, 0x40000111, 0,
 		21, 0x0244, 24, 0, 0x0244, 0, 7, 0x4),
 	PLL(CLK_APMIXED_MMPLL, "mmpll", 0x0270, 0x027C, 0x40000111, 0,
 		21, 0x0274, 24, 0, 0x0274, 0, 7, 0x4),
-	PLL(CLK_APMIXED_UNIVPLL, "univpll", 0x0230, 0x023C, 0xf0000111,	HAVE_RST_BAR,
-		21, 0x0234, 24, 0, 0x0234, 0, 7, 0x4),
-	PLL(CLK_APMIXED_MSDCPLL, "msdcpll", 0x0250, 0x025C, 0x40000111,	0,
+	PLL(CLK_APMIXED_UNIVPLL, "univpll", 0x0230, 0x023C, 0xf0000111,
+		HAVE_RST_BAR, 21, 0x0234, 24, 0, 0x0234, 0, 7, 0x4),
+	PLL(CLK_APMIXED_MSDCPLL, "msdcpll", 0x0250, 0x025C, 0x40000111, 0,
 		21, 0x0254, 24, 0, 0x0254, 0, 7, 0x4),
-	PLL(CLK_APMIXED_APLL1, "apll1", 0x02A0, 0x02B0, 0x40000111,	0,
+	PLL(CLK_APMIXED_APLL1, "apll1", 0x02A0, 0x02B0, 0x40000111, 0,
 		32, 0x02A0, 1, 0, 0x02A4, 0, 8, 0x0),
 };
 
