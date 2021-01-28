@@ -1207,22 +1207,23 @@ void mtkfb_release_present_fence(unsigned int session_id,
 	mutex_lock(&layer_info->sync_lock);
 	fence_increment = fence_idx - layer_info->timeline->value;
 
+	if (fence_increment <= 0)
+		goto done;
+
 	if (fence_increment >= 2)
 		DISPFENCE("Warning, R/%s%d/L%d/timeline idx:%d/fence:%d\n",
 			disp_session_type_str(session_id),
 			DISP_SESSION_DEV(session_id), timeline_id,
 			layer_info->timeline->value, fence_idx);
 
-	if (fence_increment > 0) {
-		timeline_inc(layer_info->timeline, fence_increment);
-		DISPFENCE("RL+/%s%d/L%d/id%d\n",
-			disp_session_type_str(session_id),
-		     DISP_SESSION_DEV(session_id), timeline_id, fence_idx);
-	}
+	timeline_inc(layer_info->timeline, fence_increment);
+	DISPFENCE("RL+/%s%d/L%d/id%d\n",
+		disp_session_type_str(session_id),
+		DISP_SESSION_DEV(session_id), timeline_id, fence_idx);
 
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_present_fence_release,
 			MMPROFILE_FLAG_PULSE, fence_idx, fence_increment);
-
+done:
 	mutex_unlock(&layer_info->sync_lock);
 }
 
