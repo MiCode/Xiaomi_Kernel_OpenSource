@@ -6,6 +6,7 @@ It provides an IIO interface to clients to read voltage.
 
 Required properties:
   - compatible: Should be one of:
+    - "mediatek,mt6357-auxadc": For PMIC MT6357 AUXADC
     - "mediatek,mt6358-auxadc": For PMIC MT6358 AUXADC
     - "mediatek,mt6359-auxadc": For PMIC MT6359 AUXADC
   - #io-channel-cells: Should be 1, see ../iio-bindings.txt
