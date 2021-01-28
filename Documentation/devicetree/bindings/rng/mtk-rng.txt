@@ -3,8 +3,11 @@ found in Mediatek SoC family
 
 Required properties:
 - compatible	    : Should be
-			"mediatek,mt7622-rng", 	"mediatek,mt7623-rng" : for MT7622
-			"mediatek,mt7623-rng" : for MT7623
+			"mediatek,mt7622-rng", "mediatek,mt7623-rng" for MT7622
+			"mediatek,mt7623-rng" for MT7623
+			"mediatek,mt67xx-rng" for MT67xx ARMv8 SoCs
+
+Optional properties:
 - clocks	    : list of clock specifiers, corresponding to
 		      entries in clock-names property;
 - clock-names	    : Should contain "rng" entries;
@@ -17,4 +20,8 @@ rng: rng@1020f000 {
 	reg = <0 0x1020f000 0 0x1000>;
 	clocks = <&infracfg CLK_INFRA_TRNG>;
 	clock-names = "rng";
+};
+
+hwrng: hwrng {
+	compatible = "mediatek,mt67xx-rng";
 };
