@@ -345,6 +345,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 
 		/* plug in out */
 		cur_chr_type = prop_type.intval;
+/*
 		if (cur_chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
 			if (gm->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_OUT);
@@ -352,6 +353,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 			if (gm->chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
 		}
+*/
 	}
 
 	bm_err("%s event, name:%s online:%d, EOC:%d, cur_chr_type:%d old:%d\n",
