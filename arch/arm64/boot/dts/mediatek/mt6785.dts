@@ -2319,7 +2319,7 @@ page_owner=on loop.max_part=7";
 
 	spi5: spi5@11019000 {
 		compatible = "mediatek,mt6765-spi";
-		mediatek,pad-select = <0>;
+		mediatek,pad-select = <1>;
 		reg = <0 0x11019000 0 0x1000>;
 		interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&topckgen TOP_MAINPLL_D5_D2>,
