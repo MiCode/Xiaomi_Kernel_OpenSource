@@ -4163,14 +4163,14 @@ static int mtk_iommu_hw_init(struct mtk_iommu_data *data)
 	writel_relaxed(0x100, data->base + REG_MMU_DCM_DIS);
 #endif
 	//writel_relaxed(0, data->base + REG_MMU_STANDARD_AXI_MODE);
-/*  temp mark, need revert after irq issue fixed.
+
 	if (devm_request_irq(data->dev, data->irq, mtk_iommu_isr, 0,
 				 dev_name(data->dev), (void *)data)) {
 		writel_relaxed(0, data->base + REG_MMU_PT_BASE_ADDR);
 		dev_err(data->dev, "Failed @ IRQ-%d Request\n", data->irq);
 		return -ENODEV;
 	}
-*/
+
 	wmb(); /*make sure the HW has been initialized*/
 
 	p_reg_backup[m4u_id] = kmalloc(IOMMU_REG_BACKUP_SIZE,
