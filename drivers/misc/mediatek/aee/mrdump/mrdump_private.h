@@ -20,19 +20,9 @@
 #include <asm/cputype.h>
 #include <asm-generic/sections.h>
 
-#ifdef __aarch64__
-#define mrdump_virt_addr_valid(kaddr)	\
-	((((void *)(kaddr) >= (void *)PAGE_OFFSET && \
-	(void *)(kaddr) < (void *)high_memory) || \
-	((void *)(kaddr) >= (void *)KIMAGE_VADDR && \
-	(void *)(kaddr) < (void *)_end)) && \
-	pfn_valid(__pa(kaddr) >> PAGE_SHIFT))
-#else
-#define mrdump_virt_addr_valid(kaddr)	\
-	((void *)(kaddr) >= (void *)PAGE_OFFSET && \
-	(void *)(kaddr) < (void *)high_memory && \
-	pfn_valid(__pa(kaddr) >> PAGE_SHIFT))
-#endif
+extern int kernel_addr_valid(unsigned long addr);
+#define mrdump_virt_addr_valid(kaddr) \
+	kernel_addr_valid((unsigned long)kaddr)
 
 #ifdef CONFIG_ARM64
 static inline int get_HW_cpuid(void)
