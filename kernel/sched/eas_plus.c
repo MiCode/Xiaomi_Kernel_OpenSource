@@ -1490,7 +1490,7 @@ void task_check_for_rotation(struct rq *src_rq)
 		struct rq *rq = cpu_rq(i);
 
 		if (is_max_capacity_cpu(i))
-			break;
+			continue;
 
 		if (is_reserved(i))
 			continue;
@@ -1512,7 +1512,7 @@ void task_check_for_rotation(struct rq *src_rq)
 	for_each_possible_cpu(i) {
 		struct rq *rq = cpu_rq(i);
 
-		if (!is_max_capacity_cpu(i))
+		if (capacity_orig_of(i) <= capacity_orig_of(src_cpu))
 			continue;
 
 		if (is_reserved(i))
@@ -1544,6 +1544,16 @@ void task_check_for_rotation(struct rq *src_rq)
 	if (dst_rq->curr->sched_class == &fair_sched_class) {
 		get_task_struct(src_rq->curr);
 		get_task_struct(dst_rq->curr);
+
+		if (!cpumask_test_cpu(dst_cpu,
+					&(src_rq->curr)->cpus_allowed) ||
+			!cpumask_test_cpu(src_cpu,
+					&(dst_rq->curr)->cpus_allowed)) {
+			put_task_struct(src_rq->curr);
+			put_task_struct(dst_rq->curr);
+			double_rq_unlock(src_rq, dst_rq);
+			return;
+		}
 
 		mark_reserved(src_cpu);
 		mark_reserved(dst_cpu);
