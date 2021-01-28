@@ -44,7 +44,7 @@ struct irq_count_period_setting {
 #ifdef CONFIG_MTK_IRQ_OFF_TRACER
 static bool irq_off_tracer __read_mostly;
 static bool irq_off_tracer_trace;
-static unsigned int irq_off_th1_ms = 50; /* trace */
+static unsigned int irq_off_th1_ms = 9; /* trace */
 static unsigned int irq_off_th2_ms = 500; /* print */
 static unsigned int irq_off_th3_ms = 500; /* aee */
 static unsigned int irq_off_aee_limit;
