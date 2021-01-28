@@ -63,6 +63,8 @@ enum ion_heap_type {
  */
 #define ION_FLAG_CACHED_NEEDS_SYNC 2
 
+#define ION_FLAG_FREE_WITHOUT_DEFER (4)
+
 /**
  * DOC: Ion Userspace API
  *
