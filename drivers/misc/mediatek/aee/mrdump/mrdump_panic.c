@@ -24,9 +24,6 @@
 #include <linux/delay.h>
 #include <linux/sched/clock.h>
 #include <mrdump.h>
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
-#endif
 #include <linux/reboot.h>
 #include "mrdump_panic.h"
 #ifdef CONFIG_MTK_WATCHDOG
@@ -404,10 +401,6 @@ int aee_in_nested_panic(void)
 }
 static inline void aee_rec_step_nested_panic(int step)
 {
-}
-__weak int aee_rr_curr_fiq_step(void)
-{
-	return -1;
 }
 #endif
 
