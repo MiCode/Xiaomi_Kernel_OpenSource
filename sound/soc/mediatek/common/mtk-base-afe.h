@@ -143,6 +143,8 @@ struct mtk_base_afe_memif {
 	const struct mtk_base_memif_data *data;
 	int irq_usage;
 	int const_irq;
+	unsigned int phys_buf_addr;
+	int buffer_size;
 
 	int using_sram;
 	int use_dram_only;
