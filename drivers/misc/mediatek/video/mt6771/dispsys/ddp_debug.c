@@ -197,7 +197,7 @@ static void process_dbg_opt(const char *opt)
 		       pa, DISP_REG_GET(va), val);
 		scnprintf(buf, buf_size_left,
 			"set_reg: 0x%lx = 0x%08X(0x%x)\n",
-			pa, DISP_REG_GET(va), val)
+			pa, DISP_REG_GET(va), val);
 		iounmap(va);
 		return;
 	}
