@@ -12,8 +12,8 @@
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
-#ifdef CONFIG_MTK_RAM_CONSOLE
-#include <mt-plat/mtk_ram_console.h>
+#ifdef CONFIG_MTK_AEE_IPANIC
+#include <mt-plat/mboot_params.h>
 #endif
 
 #ifndef TO_KERNEL_LOG
@@ -147,7 +147,7 @@ DECLARE_PER_CPU(struct irq_handle_status, softirq_note);
 					     ##__VA_ARGS__); \
 } while (0)
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 #define pr_aee_sram(msg) aee_sram_fiq_log(msg)
 #else
 #define pr_aee_sram(msg) do {} while (0)
