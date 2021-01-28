@@ -4502,7 +4502,6 @@ static void inet6_send_rs_vzw(struct inet6_ifaddr *ifp)
 	 *so this first using global address
 	 */
 	if (ipv6_accept_ra(ifp->idev) &&
-	    ifp->idev->cnf.rtr_solicits > 0 &&
 	    (dev->flags & IFF_LOOPBACK) == 0) {
 		pr_info("[mtk_net][IPv6][%s] send refresh rs: dev name:%s\n",
 			__func__, dev->name);
