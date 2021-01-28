@@ -429,7 +429,10 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 		ptr = pDes = \
 		(char *)&(pSrc->_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
 		ptr2 = &(pSrc->_cnt[ppb][logT]);\
-		snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);   \
+		ret = snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);   \
+		if (ret < 0) { \
+			log_err("snprintf fail(%d)\n", ret); \
+		} \
 		while (*ptr++ != '\0') {\
 			(*ptr2)++;\
 		} \
