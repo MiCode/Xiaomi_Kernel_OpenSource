@@ -161,4 +161,4 @@ obj-$(CONFIG_MTK_SPMTWAM) += twam/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 obj-y += rps/
-
+obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
