@@ -282,8 +282,8 @@ page_owner=on";
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
-		wifi-reserve-memory {
-			compatible = "mediatek,wifi-reserve-memory";
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
 			no-map;
 			size = <0 0x600000>;
 			alignment = <0 0x1000000>;
@@ -1906,6 +1906,7 @@ page_owner=on";
 		compatible = "mediatek,wifi";
 		reg = <0 0x18000000 0 0x100000>;
 		interrupts = <GIC_SPI 377 IRQ_TYPE_LEVEL_HIGH>;
+		memory-region = <&wifi_mem>;
 	};
 
 	therm_ctrl@1100b000 {
