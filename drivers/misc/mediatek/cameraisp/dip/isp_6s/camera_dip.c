@@ -8617,7 +8617,10 @@ int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 		}
 	}
 #endif
-	DIP_DumpDIPReg();
+	if (G_u4DipEnClkCnt > 0)
+		DIP_DumpDIPReg();
+	else
+		LOG_DBG("G_u4DipEnClkCnt(%d) <= 0\n", G_u4DipEnClkCnt);
 
 	return 0;
 }
