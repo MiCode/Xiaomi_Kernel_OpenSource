@@ -1586,6 +1586,70 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 #endif				/* CMDQ_GPR_SUPPORT */
 }
 
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
+	CMDQ_VARIABLE argument, u32 mask)
+{
+	return cmdq_pkt_write_value_addr(handle->pkt, addr, argument, mask);
+}
+
+#define CMDQ_GET_ARG_B(arg)		(((arg) & GENMASK(31, 16)) >> 16)
+#define CMDQ_GET_ARG_C(arg)		((arg) & GENMASK(15, 0))
+s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+	u32 arg_b;
+
+	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !handle)
+		return -EINVAL;
+
+	/*
+	 * WFE arg_b
+	 * bit 0-11: wait value
+	 * bit 15: 1 - wait, 0 - no wait
+	 * bit 16-27: update value
+	 * bit 31: 1 - update, 0 - no update
+	 */
+	arg_b = CMDQ_WFE_UPDATE | CMDQ_WFE_UPDATE_VALUE | CMDQ_WFE_WAIT;
+	return cmdq_pkt_append_command(handle->pkt, CMDQ_GET_ARG_C(arg_b),
+		CMDQ_GET_ARG_B(arg_b), arg_a,
+		0, 0, 0, 0, CMDQ_CODE_WFE);
+}
+
+s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
+	u32 write_reg, u32 from_reg)
+{
+	s32 status;
+
+	if (!handle)
+		return -EINVAL;
+
+	do {
+		status = cmdq_op_read_reg(handle, from_reg,
+			&handle->arg_value, ~0);
+		CMDQ_CHECK_AND_BREAK_STATUS(status);
+
+		status = cmdq_op_write_reg(handle, write_reg,
+			handle->arg_value, ~0);
+	} while (0);
+
+	return status;
+}
+
+s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp)
+{
+	return cmdqCoreAllocWriteAddress(count, paStart, clt);
+}
+
+s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt)
+{
+	return cmdqCoreFreeWriteAddress(paStart, clt);
+}
+
+s32 cmdq_free_write_addr_by_node(u32 clt, void *fp)
+{
+	return 0;
+}
+
 /* Allocate 32-bit register backup slot */
 s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
 {

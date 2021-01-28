@@ -26,6 +26,7 @@ obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) += trusted_mem/
 obj-$(CONFIG_MTK_ENABLE_GENIEZONE) += geniezone/
 obj-$(CONFIG_MTK_TEE_SANITY) += tee_sanity/
 obj-$(CONFIG_MTK_CMDQ) += cmdq/
+obj-$(CONFIG_MTK_CMDQ) += mdp/
 obj-$(CONFIG_MTK_LCM) += lcm/
 obj-$(CONFIG_MTK_LCM) += ext_disp/
 obj-$(CONFIG_MTK_FB) += video/
