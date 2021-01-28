@@ -22,6 +22,7 @@ subdir-ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediat
 subdir-ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/inc
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
+subdir-ccflags-$(CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL) += -I$(srctree)/drivers/power/supply/k6885v1_64_alpha
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 obj-y += mtk_battery_intf.o

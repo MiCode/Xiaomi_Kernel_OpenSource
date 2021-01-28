@@ -87,3 +87,8 @@ ifeq ($(CONFIG_MACH_MT8173),y)
 else
 	obj-y += mediatek/
 endif
+
+ifeq ($(CONFIG_CUSTOM_BATTERY_EXTERNAL_CHANNEL),y)
+	obj-y += k6885v1_64_alpha/
+endif
+
