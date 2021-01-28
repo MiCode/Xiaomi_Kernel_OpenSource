@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.10.2019.11:01:07"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="08.13.2020.11:26:14"-->
 <dct_cfg>
-    <general chip="MT6885">
-        <proj>Internal phone</proj>
+    <general chip="MT6893">
+        <proj>MT6893</proj>
         <module name="adc">
             <count>5</count>
             <adc0>
@@ -19,7 +19,7 @@
             <count>5</count>
             <pmic_clk1>
                 <varName>HW_CONTROL</varName>
-                <cur_buf_output>30</cur_buf_output>
+                <cur_buf_output>50</cur_buf_output>
             </pmic_clk1>
             <pmic_clk2>
                 <varName>SW_CONTROL</varName>
@@ -28,7 +28,7 @@
             </pmic_clk2>
             <pmic_clk3>
                 <varName>SW_CONTROL</varName>
-                <cur_buf_output>45</cur_buf_output>
+                <cur_buf_output>50</cur_buf_output>
                 <cur_driving_control>13x driving</cur_driving_control>
             </pmic_clk3>
             <pmic_clk4>
@@ -38,7 +38,7 @@
             </pmic_clk4>
             <pmic_clk7>
                 <varName>SW_CONTROL</varName>
-                <cur_buf_output>45</cur_buf_output>
+                <cur_buf_output>50</cur_buf_output>
             </pmic_clk7>
         </module>
         <module name="eint">
@@ -279,7 +279,7 @@
             </gpio17>
             <gpio18>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -289,8 +289,8 @@
             </gpio18>
             <gpio19>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
-                <inpull_en>true</inpull_en>
+                <def_mode>2</def_mode>
+                <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
@@ -395,7 +395,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>OUT</def_dir>
                 <out_high>false</out_high>
-                <varName0>GPIO_LCD_BIAS_ENN_PIN</varName0>
+                <varName0>GPIO_LCD_ENN_PIN</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio29>
@@ -549,9 +549,6 @@
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio43>
-            <gpio44>
-                <smt>true</smt>
-            </gpio44>
             <gpio45>
                 <eint_mode>false</eint_mode>
                 <def_mode>1</def_mode>
@@ -800,11 +797,11 @@
             </gpio67>
             <gpio68>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>0</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>IN</def_dir>
-                <out_high>false</out_high>
+                <def_dir>OUT</def_dir>
+                <out_high>true</out_high>
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio68>
@@ -860,7 +857,7 @@
             </gpio73>
             <gpio74>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -870,7 +867,7 @@
             </gpio74>
             <gpio75>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -880,7 +877,7 @@
             </gpio75>
             <gpio76>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -890,7 +887,7 @@
             </gpio76>
             <gpio77>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -900,7 +897,7 @@
             </gpio77>
             <gpio78>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -910,7 +907,7 @@
             </gpio78>
             <gpio79>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
@@ -1382,6 +1379,28 @@
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio123>
+            <gpio124>
+                <eint_mode>false</eint_mode>
+                <def_mode>1</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_I2C7_SCA_PIN</varName0>
+                <smt>true</smt>
+                <ies>true</ies>
+            </gpio124>
+            <gpio125>
+                <eint_mode>false</eint_mode>
+                <def_mode>1</def_mode>
+                <inpull_en>true</inpull_en>
+                <inpull_selhigh>true</inpull_selhigh>
+                <def_dir>IN</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_I2C7_SDA_PIN</varName0>
+                <smt>true</smt>
+                <ies>true</ies>
+            </gpio125>
             <gpio126>
                 <eint_mode>false</eint_mode>
                 <def_mode>4</def_mode>
@@ -1437,7 +1456,7 @@
             <gpio131>
                 <eint_mode>false</eint_mode>
                 <def_mode>1</def_mode>
-                <inpull_en>false</inpull_en>
+                <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
@@ -1668,6 +1687,17 @@
                 <smt>false</smt>
                 <ies>true</ies>
             </gpio152>
+            <gpio153>
+                <eint_mode>false</eint_mode>
+                <def_mode>1</def_mode>
+                <inpull_en>false</inpull_en>
+                <inpull_selhigh>false</inpull_selhigh>
+                <def_dir>IN</def_dir>
+                <out_high>false</out_high>
+                <varName0>GPIO_KPD_KROW0_PIN</varName0>
+                <smt>false</smt>
+                <ies>true</ies>
+            </gpio153>
             <gpio154>
                 <eint_mode>false</eint_mode>
                 <def_mode>1</def_mode>
@@ -2182,9 +2212,9 @@
             </gpio203>
             <gpio204>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>true</inpull_selhigh>
+                <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_I2C0_SCA_PIN</varName0>
@@ -2193,9 +2223,9 @@
             </gpio204>
             <gpio205>
                 <eint_mode>false</eint_mode>
-                <def_mode>1</def_mode>
+                <def_mode>2</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>true</inpull_selhigh>
+                <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <varName0>GPIO_I2C0_SDA_PIN</varName0>
@@ -2285,7 +2315,7 @@
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
-                <smt>true</smt>
+                <smt>false</smt>
                 <ies>true</ies>
             </gpio213>
             <gpio214>
@@ -2442,6 +2472,11 @@
                 <channel>I2C_CHANNEL_5</channel>
                 <address>0x64</address>
             </device17>
+            <device18>
+                <varName>SPEAKER_AMP</varName>
+                <channel>I2C_CHANNEL_6</channel>
+                <address>0x34</address>
+            </device18>
             <device19>
                 <varName>I2C_LCD_BIAS</varName>
                 <channel>I2C_CHANNEL_6</channel>
@@ -2455,7 +2490,7 @@
             <device21>
                 <varName>EXT_BUCK_VMDDR</varName>
                 <channel>I2C_CHANNEL_6</channel>
-                <address>0x51</address>
+                <address>0x61</address>
             </device21>
             <device24>
                 <varName>CAMERA_MAIN</varName>
