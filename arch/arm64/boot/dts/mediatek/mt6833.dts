@@ -3530,6 +3530,11 @@ page_owner=on";
 		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
 	};
 
+	slbc: slbc {
+		compatible = "mediatek,slbc";
+		/* status = "enable"; */
+	};
+
 	mt_charger: mt_charger {
 		compatible = "mediatek,mt-charger";
 	};
