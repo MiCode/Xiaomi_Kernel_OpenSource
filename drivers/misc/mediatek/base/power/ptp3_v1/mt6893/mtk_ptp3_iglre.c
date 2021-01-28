@@ -204,12 +204,12 @@ static ssize_t ig_cfg_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtoint(buf, 10, &enable)) {
-		iglre_debug("bad argument!! Should be \"0\" ~ \"16\"\n");
+		iglre_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
 		goto out;
 	}
 
 	for (iglre_n = 0; iglre_n < IGLRE_NUM; iglre_n++)
-		mtk_ig_cfg((enable >> iglre_n) & 0x01, iglre_n);
+		mtk_ig_cfg((enable >> iglre_n) & 0x10, iglre_n);
 
 out:
 	free_page((unsigned long)buf);
@@ -249,12 +249,12 @@ static ssize_t lre_cfg_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtoint(buf, 10, &enable)) {
-		iglre_debug("bad argument!! Should be \"0\" ~ \"16\"\n");
+		iglre_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
 		goto out;
 	}
 
 	for (iglre_n = 0; iglre_n < IGLRE_NUM; iglre_n++)
-		mtk_lre_cfg((enable >> iglre_n) & 0x01, iglre_n);
+		mtk_lre_cfg((enable >> iglre_n) & 0x10, iglre_n);
 
 out:
 	free_page((unsigned long)buf);
@@ -361,7 +361,7 @@ int iglre_probe(struct platform_device *pdev)
 			igBitEn);
 
 		for (iglre_n = 0; iglre_n < IGLRE_NUM; iglre_n++)
-			mtk_ig_cfg((igBitEn >> iglre_n) & 0x01, iglre_n);
+			mtk_ig_cfg((igBitEn >> iglre_n) & 0x10, iglre_n);
 	}
 
 	rc = of_property_read_u32(node, "lreBitEn", &lreBitEn);
@@ -371,7 +371,7 @@ int iglre_probe(struct platform_device *pdev)
 			lreBitEn);
 
 		for (iglre_n = 0; iglre_n < IGLRE_NUM; iglre_n++)
-			mtk_lre_cfg((lreBitEn >> iglre_n) & 0x01, iglre_n);
+			mtk_lre_cfg((lreBitEn >> iglre_n) & 0x10, iglre_n);
 	}
 #endif /* CONFIG_OF */
 #ifdef CONFIG_OF_RESERVED_MEM
