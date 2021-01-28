@@ -631,15 +631,22 @@ int fscrypt_has_permitted_context(struct inode *parent, struct inode *child)
 }
 EXPORT_SYMBOL(fscrypt_has_permitted_context);
 
+/*
+ * only used for eMMC + F2FS security OTA fix
+ * 1: HWcmdq; 2: SWcdmq; 0: non-eMMC
+ */
 #define BOOTDEV_SDMMC           (1)
 #define BOOTDEV_UFS             (2)
-bool fscrypt_force_iv_ino_lblk_32(void)
+int fscrypt_force_iv_ino_lblk_32(void)
 {
+	if (get_boot_type() == BOOTDEV_SDMMC)
 #ifdef CONFIG_MTK_EMMC_HW_CQ
-	return	get_boot_type() == BOOTDEV_SDMMC;
+		return 1;
 #else
-	return	false;
+		return 2;
 #endif
+	else
+		return 0;
 }
 
 /**
@@ -673,7 +680,7 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 	if (S_ISREG(child->i_mode) &&
 		ctx.version == FSCRYPT_CONTEXT_V1 &&
 		ctx.v1.contents_encryption_mode == 1 &&
-		fscrypt_force_iv_ino_lblk_32())
+		fscrypt_force_iv_ino_lblk_32() == 1)
 		ctx.v1.flags |= FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32;
 
 	BUILD_BUG_ON(sizeof(ctx) != FSCRYPT_SET_CONTEXT_MAX_SIZE);
