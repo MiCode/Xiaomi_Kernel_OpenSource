@@ -467,10 +467,8 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 		cmdq_sec_get_secure_engine(
 		task->secData.enginesNeedPortSecurity);
 
-	if (iwcex)
-		memset(iwcex, 0x0, sizeof(*iwcex));
-	if (iwcex2)
-		memset(iwcex2, 0x0, sizeof(*iwcex2));
+	memset(iwcex, 0x0, sizeof(*iwcex));
+	memset(iwcex2, 0x0, sizeof(*iwcex2));
 
 	/* try general secure client meta available
 	 * if not, try if cq meta available
@@ -773,6 +771,11 @@ int32_t cmdq_sec_handle_session_reply_unlocked(
 	int32_t status;
 	int32_t iwcRsp;
 	struct cmdqSecCancelTaskResultStruct *pCancelResult = NULL;
+
+	if (!pIwc) {
+		CMDQ_ERR("pIwc NULL pointer\n");
+		return -EINVAL;
+	}
 
 	/* get secure task execution result */
 	iwcRsp = (pIwc)->rsp;
@@ -1339,7 +1342,7 @@ s32 cmdq_sec_insert_backup_cookie_instr(struct cmdqRecStruct *task, s32 thread)
 	err = cmdq_pkt_write_indriect(task->pkt, cmdq_helper_mbox_base(),
 		WSMCookieAddr, CMDQ_THR_SPR_IDX1, ~0);
 	if (err < 0) {
-		CMDQ_ERR("fail to write pkt:%#p wsm:%#llx err:%d\n",
+		CMDQ_ERR("fail to write pkt:%p wsm:%#llx err:%d\n",
 			task->pkt, WSMCookieAddr, err);
 		return err;
 	}
@@ -1905,7 +1908,7 @@ static void cmdq_sec_exec_task_async_impl(struct work_struct *work_item)
 		"-->EXEC: pkt:0x%p on thread:%d begin va:0x%p\n",
 		handle->pkt, thread_id, buf->va_base);
 	cmdq_long_string(long_msg, &msg_offset, &msg_max_size,
-		" command size:%d bufferSize:%zu scenario:%d flag:0x%llx\n",
+		" command size:%zu bufferSize:%zu scenario:%d flag:0x%llx\n",
 		handle->pkt->cmd_buf_size, handle->pkt->buf_size,
 		handle->scenario, handle->engineFlag);
 	CMDQ_MSG("%s", long_msg);

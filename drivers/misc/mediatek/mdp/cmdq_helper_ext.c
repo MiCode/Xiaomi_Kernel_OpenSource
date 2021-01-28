@@ -2269,8 +2269,12 @@ ssize_t cmdq_core_print_log_level(struct device *dev,
 {
 	int len = 0;
 
-	if (buf)
-		len = sprintf(buf, "%d\n", cmdq_ctx.logLevel);
+	if (buf) {
+		len = snprintf(buf, 10, "%d\n", cmdq_ctx.logLevel);
+		if (len >= 10)
+			pr_debug("%s:%d len:%d over 10\n",
+				__func__, __LINE__, len);
+	}
 
 	return len;
 }
@@ -2282,7 +2286,7 @@ ssize_t cmdq_core_write_log_level(struct device *dev,
 	int value = 0;
 	int status = 0;
 
-	char textBuf[10] = { 0 };
+	char textBuf[12] = { 0 };
 
 	do {
 		if (size >= 10) {
@@ -2314,8 +2318,12 @@ ssize_t cmdq_core_print_profile_enable(struct device *dev,
 {
 	int len = 0;
 
-	if (buf)
-		len = sprintf(buf, "0x%x\n", cmdq_ctx.enableProfile);
+	if (buf) {
+		len = snprintf(buf, 10, "0x%x\n", cmdq_ctx.enableProfile);
+		if (len >= 10)
+			pr_debug("%s:%d len:%d over 10\n",
+				__func__, __LINE__, len);
+	}
 
 	return len;
 
@@ -2328,7 +2336,7 @@ ssize_t cmdq_core_write_profile_enable(struct device *dev,
 	int value = 0;
 	int status = 0;
 
-	char textBuf[10] = { 0 };
+	char textBuf[12] = { 0 };
 
 	do {
 		if (size >= 10) {

@@ -149,6 +149,11 @@ static void cmdq_save_op_variable_position(
 			sizeof(u32);
 
 		p_new_buffer = kzalloc(array_num, GFP_KERNEL);
+		if (!p_new_buffer) {
+			CMDQ_ERR("buffer allocate failed, handle:%p index:%d\n",
+				handle, index);
+			return;
+		}
 
 		/* copy and release old buffer */
 		if (handle->replace_instr.position) {
