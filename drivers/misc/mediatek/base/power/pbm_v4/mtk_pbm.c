@@ -539,19 +539,20 @@ static int pbm_thread_handle(void *data)
 
 		mutex_lock(&pbm_mutex);
 		if (g_dlpt_need_do == 1) {
-			if (g_dlpt_stop == 0) {
+			/* FIXME: need g_dlpt_stop? */
+			//if (g_dlpt_stop == 0) {
 				pbm_allocate_budget_manager();
 				g_dlpt_state_sync = 0;
-			} else {
-				pr_notice("DISABLE PBM\n");
+			//} else {
+			//	pr_notice("DISABLE PBM\n");
 
-				if (g_dlpt_state_sync == 0) {
-					mt_ppm_dlpt_set_limit_by_pbm(0);
-					mt_gpufreq_set_power_limit_by_pbm(0);
-					g_dlpt_state_sync = 1;
-					pr_info("Release DLPT limit\n");
-				}
-			}
+			//	if (g_dlpt_state_sync == 0) {
+			//		mt_ppm_dlpt_set_limit_by_pbm(0);
+			//		mt_gpufreq_set_power_limit_by_pbm(0);
+			//		g_dlpt_state_sync = 1;
+			//		pr_info("Release DLPT limit\n");
+			//	}
+			//}
 		}
 		atomic_dec(&kthread_nreq);
 		mutex_unlock(&pbm_mutex);
