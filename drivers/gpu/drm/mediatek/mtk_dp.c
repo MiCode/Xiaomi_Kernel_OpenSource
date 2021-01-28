@@ -1855,6 +1855,8 @@ bool mdrv_DPTx_CheckSinkCap(struct mtk_dp *mtk_dp)
 
 	if (!mtk_dp->has_dsc || !mtk_dp->has_fec)
 		mtk_dp_enable_4k60(false);
+	else
+		mtk_dp_enable_4k60(true);
 
 #if !ENABLE_DPTX_FIX_LRLC
 	mtk_dp->training_info.ubLinkRate =
@@ -2668,7 +2670,7 @@ void mdrv_DPTx_DSC_Support(struct mtk_dp *mtk_dp)
 	else
 		mtk_dp->has_dsc = false;
 
-	DPTXMSG("DSC enable = %d\n", mtk_dp->has_dsc);
+	DPTXMSG("Sink has_dsc = %d\n", mtk_dp->has_dsc);
 #endif
 }
 
