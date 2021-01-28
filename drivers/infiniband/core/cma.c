@@ -420,6 +420,8 @@ struct cma_hdr {
 #define CMA_VERSION 0x00
 
 struct cma_req_info {
+	struct sockaddr_storage listen_addr_storage;
+	struct sockaddr_storage src_addr_storage;
 	struct ib_device *device;
 	int port;
 	union ib_gid local_gid;
@@ -624,11 +626,13 @@ static inline int cma_validate_port(struct ib_device *device, u8 port,
 	if ((dev_type != ARPHRD_INFINIBAND) && rdma_protocol_ib(device, port))
 		return ret;
 
-	if (dev_type == ARPHRD_ETHER && rdma_protocol_roce(device, port))
+	if (dev_type == ARPHRD_ETHER && rdma_protocol_roce(device, port)) {
 		ndev = dev_get_by_index(&init_net, bound_if_index);
-	else
+		if (!ndev)
+			return ret;
+	} else {
 		gid_type = IB_GID_TYPE_IB;
-
+	}
 
 	ret = ib_find_cached_gid_by_port(device, gid, gid_type, port,
 					 ndev, NULL);
@@ -896,7 +900,6 @@ static int cma_modify_qp_rtr(struct rdma_id_private *id_priv,
 {
 	struct ib_qp_attr qp_attr;
 	int qp_attr_mask, ret;
-	union ib_gid sgid;
 
 	mutex_lock(&id_priv->qp_mutex);
 	if (!id_priv->id.qp) {
@@ -916,12 +919,6 @@ static int cma_modify_qp_rtr(struct rdma_id_private *id_priv,
 
 	qp_attr.qp_state = IB_QPS_RTR;
 	ret = rdma_init_qp_attr(&id_priv->id, &qp_attr, &qp_attr_mask);
-	if (ret)
-		goto out;
-
-	ret = ib_query_gid(id_priv->id.device, id_priv->id.port_num,
-			   rdma_ah_read_grh(&qp_attr.ah_attr)->sgid_index,
-			   &sgid, NULL);
 	if (ret)
 		goto out;
 
@@ -1370,11 +1367,11 @@ static bool validate_net_dev(struct net_device *net_dev,
 }
 
 static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
-					  const struct cma_req_info *req)
+					  struct cma_req_info *req)
 {
-	struct sockaddr_storage listen_addr_storage, src_addr_storage;
-	struct sockaddr *listen_addr = (struct sockaddr *)&listen_addr_storage,
-			*src_addr = (struct sockaddr *)&src_addr_storage;
+	struct sockaddr *listen_addr =
+			(struct sockaddr *)&req->listen_addr_storage;
+	struct sockaddr *src_addr = (struct sockaddr *)&req->src_addr_storage;
 	struct net_device *net_dev;
 	const union ib_gid *gid = req->has_gid ? &req->local_gid : NULL;
 	int err;
@@ -1388,11 +1385,6 @@ static struct net_device *cma_get_net_dev(struct ib_cm_event *ib_event,
 					   gid, listen_addr);
 	if (!net_dev)
 		return ERR_PTR(-ENODEV);
-
-	if (!validate_net_dev(net_dev, listen_addr, src_addr)) {
-		dev_put(net_dev);
-		return ERR_PTR(-EHOSTUNREACH);
-	}
 
 	return net_dev;
 }
@@ -1529,15 +1521,51 @@ static struct rdma_id_private *cma_id_from_event(struct ib_cm_id *cm_id,
 		}
 	}
 
+	/*
+	 * Net namespace might be getting deleted while route lookup,
+	 * cm_id lookup is in progress. Therefore, perform netdevice
+	 * validation, cm_id lookup under rcu lock.
+	 * RCU lock along with netdevice state check, synchronizes with
+	 * netdevice migrating to different net namespace and also avoids
+	 * case where net namespace doesn't get deleted while lookup is in
+	 * progress.
+	 * If the device state is not IFF_UP, its properties such as ifindex
+	 * and nd_net cannot be trusted to remain valid without rcu lock.
+	 * net/core/dev.c change_net_namespace() ensures to synchronize with
+	 * ongoing operations on net device after device is closed using
+	 * synchronize_net().
+	 */
+	rcu_read_lock();
+	if (*net_dev) {
+		/*
+		 * If netdevice is down, it is likely that it is administratively
+		 * down or it might be migrating to different namespace.
+		 * In that case avoid further processing, as the net namespace
+		 * or ifindex may change.
+		 */
+		if (((*net_dev)->flags & IFF_UP) == 0) {
+			id_priv = ERR_PTR(-EHOSTUNREACH);
+			goto err;
+		}
+
+		if (!validate_net_dev(*net_dev,
+				 (struct sockaddr *)&req.listen_addr_storage,
+				 (struct sockaddr *)&req.src_addr_storage)) {
+			id_priv = ERR_PTR(-EHOSTUNREACH);
+			goto err;
+		}
+	}
+
 	bind_list = cma_ps_find(*net_dev ? dev_net(*net_dev) : &init_net,
 				rdma_ps_from_service_id(req.service_id),
 				cma_port_from_service_id(req.service_id));
 	id_priv = cma_find_listener(bind_list, cm_id, ib_event, &req, *net_dev);
+err:
+	rcu_read_unlock();
 	if (IS_ERR(id_priv) && *net_dev) {
 		dev_put(*net_dev);
 		*net_dev = NULL;
 	}
-
 	return id_priv;
 }
 
@@ -3017,7 +3045,8 @@ static int cma_port_is_unique(struct rdma_bind_list *bind_list,
 			continue;
 
 		/* different dest port -> unique */
-		if (!cma_any_port(cur_daddr) &&
+		if (!cma_any_port(daddr) &&
+		    !cma_any_port(cur_daddr) &&
 		    (dport != cur_dport))
 			continue;
 
@@ -3028,7 +3057,8 @@ static int cma_port_is_unique(struct rdma_bind_list *bind_list,
 			continue;
 
 		/* different dst address -> unique */
-		if (!cma_any_addr(cur_daddr) &&
+		if (!cma_any_addr(daddr) &&
+		    !cma_any_addr(cur_daddr) &&
 		    cma_addr_cmp(daddr, cur_daddr))
 			continue;
 
@@ -3326,12 +3356,12 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
 		}
 #endif
 	}
+	daddr = cma_dst_addr(id_priv);
+	daddr->sa_family = addr->sa_family;
+
 	ret = cma_get_port(id_priv);
 	if (ret)
 		goto err2;
-
-	daddr = cma_dst_addr(id_priv);
-	daddr->sa_family = addr->sa_family;
 
 	return 0;
 err2:
@@ -4118,6 +4148,9 @@ int rdma_join_multicast(struct rdma_cm_id *id, struct sockaddr *addr,
 	struct cma_multicast *mc;
 	int ret;
 
+	if (!id->device)
+		return -EINVAL;
+
 	id_priv = container_of(id, struct rdma_id_private, id);
 	if (!cma_comp(id_priv, RDMA_CM_ADDR_BOUND) &&
 	    !cma_comp(id_priv, RDMA_CM_ADDR_RESOLVED))
@@ -4436,7 +4469,7 @@ static int cma_get_id_stats(struct sk_buff *skb, struct netlink_callback *cb)
 					  RDMA_NL_RDMA_CM_ATTR_SRC_ADDR))
 				goto out;
 			if (ibnl_put_attr(skb, nlh,
-					  rdma_addr_size(cma_src_addr(id_priv)),
+					  rdma_addr_size(cma_dst_addr(id_priv)),
 					  cma_dst_addr(id_priv),
 					  RDMA_NL_RDMA_CM_ATTR_DST_ADDR))
 				goto out;
@@ -4448,6 +4481,7 @@ static int cma_get_id_stats(struct sk_buff *skb, struct netlink_callback *cb)
 			id_stats->qp_type	= id->qp_type;
 
 			i_id++;
+			nlmsg_end(skb, nlh);
 		}
 
 		cb->args[1] = 0;
