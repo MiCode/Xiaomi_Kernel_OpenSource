@@ -876,4 +876,9 @@
 	status = "okay";
 };
 
+&mt6360_typec {
+	mt6360pd,intr_gpio_num = <7>; /* direct defined GPIO num */
+	mt6360pd,intr_gpio = <&pio 7 0x0>;
+};
+
 #include <k79v1_64/cust.dtsi>
