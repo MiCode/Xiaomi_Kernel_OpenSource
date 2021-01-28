@@ -1283,7 +1283,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 static int mtk_vcu_open(struct inode *inode, struct file *file)
 {
-	int vcuid;
+	int vcuid = 0;
 	struct mtk_vcu_queue *vcu_queue;
 
 	if (strcmp(current->comm, "camd") == 0)
@@ -1299,7 +1299,6 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 		vcuid = 0;
 	} else {
 		pr_info("[VCU] thread name: %s\n", current->comm);
-		return -ENODEV;
 	}
 
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
