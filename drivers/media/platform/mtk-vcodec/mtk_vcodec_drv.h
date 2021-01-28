@@ -165,6 +165,12 @@ enum mtk_dec_param {
 	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9)
 };
 
+enum venc_lock {
+	VENC_LOCK_NONE,
+	VENC_LOCK_NORMAL,
+	VENC_LOCK_SEC
+};
+
 struct mtk_dec_params {
 	unsigned int    decode_mode;
 	unsigned int    frame_size_width;
@@ -491,6 +497,7 @@ struct mtk_vcodec_dev {
 
 	int dec_cnt;
 	int enc_cnt;
+	enum venc_lock enc_hw_locked[MTK_VENC_HW_NUM];
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)

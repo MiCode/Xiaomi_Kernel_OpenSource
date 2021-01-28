@@ -290,6 +290,8 @@ extern void venc_encode_prepare(void *ctx_prepare,
 		unsigned int core_id, unsigned long *flags);
 extern void venc_encode_unprepare(void *ctx_prepare,
 		unsigned int core_id, unsigned long *flags);
+extern int venc_lock(void *ctx_lock, int core_id, bool sec);
+extern void venc_unlock(void *ctx_unlock, int core_id);
 extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
 		unsigned int core_id, int job_cnt);
 extern void venc_encode_pmqos_gce_end(void *ctx_end,
