@@ -363,13 +363,18 @@ static int tpd_fb_notifier_callback(
 		return 0;
 
 	blank = *(int *)evdata->data;
-	TPD_DEBUG("fb_notify(blank=%d)\n", blank);
+	TPD_ERR("fb_notify(blank=%d)\n", blank);
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
 		TPD_DEBUG("LCD ON Notify\n");
 		if (g_tpd_drv && tpd_suspend_flag) {
-			err = queue_work(touch_resume_workqueue,
+			#if defined(CONFIG_MACH_MT6779)
+			//err = queue_work(touch_resume_workqueue,
+			//			&touch_resume_work);
+			#else
+			  err = queue_work(touch_resume_workqueue,
 						&touch_resume_work);
+			#endif
 			if (!err) {
 				TPD_ERR("start resume_workqueue failed\n");
 				return err;
@@ -379,10 +384,17 @@ static int tpd_fb_notifier_callback(
 	case FB_BLANK_POWERDOWN:
 		TPD_DEBUG("LCD OFF Notify\n");
 		if (g_tpd_drv && !tpd_suspend_flag) {
+			#if defined(CONFIG_MACH_MT6779)
+			//err = cancel_work_sync(&touch_resume_work);
+			if (!err)
+				TPD_ERR("cancel resume_workqueue failed\n");
+			//g_tpd_drv->suspend(NULL);
+			#else
 			err = cancel_work_sync(&touch_resume_work);
 			if (!err)
 				TPD_ERR("cancel resume_workqueue failed\n");
 			g_tpd_drv->suspend(NULL);
+			#endif
 		}
 		tpd_suspend_flag = 1;
 		break;
