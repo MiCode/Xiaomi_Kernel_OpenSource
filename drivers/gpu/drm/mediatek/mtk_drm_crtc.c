@@ -755,16 +755,19 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	bool is_frame_mode;
 	struct cmdq_client *client;
 	int i, j;
+	struct mtk_crtc_state *crtc_state;
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
 
-	if (mtk_crtc->enabled) {
-		DDPINFO("%s:%d, crtc is on\n", __func__,
-				__LINE__);
+	crtc_state = to_mtk_crtc_state(crtc->state);
+	if (mtk_crtc->enabled && !crtc_state->prop_val[CRTC_PROP_DOZE_ACTIVE]) {
+		DDPINFO("%s:%d, crtc is on and not in doze mode\n",
+			__func__, __LINE__);
 		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
 
 		return -EINVAL;
 	}
+
 	CRTC_MMP_EVENT_START(0, backlight, 0x123,
 			level);
 	mtk_drm_crtc_wk_lock(crtc, 1, __func__, __LINE__);
@@ -777,20 +780,19 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 		return -ENODEV;
 	}
 
-	/* 1. power on mtcmos */
-	mtk_drm_top_clk_prepare_enable(crtc->dev);
-
-
-	if (mtk_crtc_with_trigger_loop(crtc))
-		mtk_crtc_start_trig_loop(crtc);
-
-
 	client = mtk_crtc->gce_obj.client[CLIENT_CFG];
+	if (!mtk_crtc->enabled) {
+		/* 1. power on mtcmos */
+		mtk_drm_top_clk_prepare_enable(crtc->dev);
 
-	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_ENABLE, NULL);
+		if (mtk_crtc_with_trigger_loop(crtc))
+			mtk_crtc_start_trig_loop(crtc);
 
-	for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
-		mtk_dump_analysis(comp);
+		mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_ENABLE, NULL);
+
+		for_each_comp_in_cur_crtc_path(comp, mtk_crtc, i, j)
+			mtk_dump_analysis(comp);
+	}
 
 	/* send LCM CMD */
 	is_frame_mode = mtk_crtc_is_frame_trigger_mode(&mtk_crtc->base);
@@ -831,13 +833,15 @@ int mtk_drm_aod_setbacklight(struct drm_crtc *crtc, unsigned int level)
 	cmdq_pkt_flush(cmdq_handle);
 	cmdq_pkt_destroy(cmdq_handle);
 
+	if (!mtk_crtc->enabled) {
 
-	if (mtk_crtc_with_trigger_loop(crtc))
-		mtk_crtc_stop_trig_loop(crtc);
+		if (mtk_crtc_with_trigger_loop(crtc))
+			mtk_crtc_stop_trig_loop(crtc);
 
-	mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_DISABLE, NULL);
+		mtk_ddp_comp_io_cmd(output_comp, NULL, CONNECTOR_DISABLE, NULL);
 
-	mtk_drm_top_clk_disable_unprepare(crtc->dev);
+		mtk_drm_top_clk_disable_unprepare(crtc->dev);
+	}
 
 	mtk_drm_crtc_wk_lock(crtc, 0, __func__, __LINE__);
 	CRTC_MMP_EVENT_END(0, backlight, 0x123,
