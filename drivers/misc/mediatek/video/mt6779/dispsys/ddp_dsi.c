@@ -3740,10 +3740,12 @@ static void DSI_PHY_CLK_LP_PerLine_config(enum DISP_MODULE_ENUM module,
 			DISPCHECK("===>v_b+v_c=0x%x,HFP_WC=0x%x\n",
 				  (v_b+v_c), hfp.HFP_WC);
 			n = snprintf(msg, len,
-				     "===>Will Reconfig in order to fulfill ");
-			n += snprintf(msg + n, len - n,
-				      "LP clock lane per line\n");
-			DISPCHECK("%s", msg);
+				     "===>Will Reconfig in order to fulfill LP clock lane per line\n");
+			if (n < 0)
+				DISPINFO("[%s %d]snprintf err:%d\n",
+					 __func__, __LINE__, n);
+			else
+				DISPCHECK("%s", msg);
 
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_HFP_WC,
 				     (v_b + v_c + DIFF_CLK_LANE_LP));
@@ -3780,10 +3782,12 @@ static void DSI_PHY_CLK_LP_PerLine_config(enum DISP_MODULE_ENUM module,
 			DISPCHECK("===>v_b+v_c=0x%x,HFP_WC=0x%x\n",
 				  (v_b+v_c), hfp.HFP_WC);
 			n = snprintf(msg, len,
-				     "===>Will Reconfig in order to fulfill ");
-			n += snprintf(msg + n, len - n,
-				      "LP clock lane per line\n");
-			DISPCHECK("%s", msg);
+				     "===>Will Reconfig in order to fulfill LP clock lane per line\n");
+			if (n < 0)
+				DISPINFO("[%s %d]snprintf err:%d\n",
+					 __func__, __LINE__, n);
+			else
+				DISPCHECK("%s", msg);
 
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_HFP_WC,
 				     (v_b + v_c + DIFF_CLK_LANE_LP));
@@ -3821,10 +3825,13 @@ static void DSI_PHY_CLK_LP_PerLine_config(enum DISP_MODULE_ENUM module,
 			DISPCHECK("===>v_b+v_c=0x%x,HFP_WC=0x%x\n",
 				  (v_b+v_c), hfp.HFP_WC);
 			n = snprintf(msg, len,
-				     "===>Will Reconfig in order to fulfill ");
-			n += snprintf(msg + n, len - n,
-				      "LP clock lane per line\n");
-			DISPCHECK("%s", msg);
+				     "===>Will Reconfig in order to fulfill LP clock lane per line\n");
+			if (n < 0)
+				DISPINFO("[%s %d]snprintf err:%d\n",
+					 __func__, __LINE__, n);
+			else
+				DISPCHECK("%s", msg);
+
 
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_HFP_WC,
 				     (v_b + v_c + DIFF_CLK_LANE_LP));
