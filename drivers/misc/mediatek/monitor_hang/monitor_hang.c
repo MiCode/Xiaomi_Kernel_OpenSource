@@ -1162,7 +1162,7 @@ static int DumpThreadNativeInfo_By_tid_log(pid_t tid,
 
 		down_read(&current_task->mm->mmap_sem);
 		vma = current_task->mm->mmap;
-		while (!vma) {
+		while (vma != NULL) {
 			if (vma->vm_start <= userstack_start &&
 				vma->vm_end >= userstack_start) {
 				userstack_end = vma->vm_end;
