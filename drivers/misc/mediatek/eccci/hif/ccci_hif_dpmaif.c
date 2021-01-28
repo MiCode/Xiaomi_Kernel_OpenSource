@@ -117,6 +117,8 @@ do { \
 	pr_info("[ccci]" fmt, ##args); \
 } while (0)
 
+#define DPMA_DRB_DATA_INFO(fmt, args...) \
+	ccci_dump_write(0, CCCI_DUMP_DPMA_DRB, 0, fmt, ##args)
 
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
@@ -414,11 +416,79 @@ static void dpmaif_dump_bat_status(struct hif_dpmaif_ctrl *hif_ctrl)
 }
 #endif
 
+static void dump_drb_queue_data(unsigned int qno)
+{
+	struct dpmaif_tx_queue *txq;
+	int i, drb_buf_size, mod64, count;
+	u64 *data_64ptr;
+	u8 *data_8ptr;
+
+	if (!dpmaif_ctrl || qno >= DPMAIF_TXQ_NUM || qno < 0) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: dpmaif_ctrl = %p; qno = %d",
+			__func__, dpmaif_ctrl, qno);
+		return;
+	}
+
+	txq = &dpmaif_ctrl->txq[qno];
+
+	DPMA_DRB_DATA_INFO("DPMAIF [%s] for q:%d info: start +++++\n",
+			__func__, qno);
+
+	DPMA_DRB_DATA_INFO("drb_base:%p wr:%u rd:%u rel:%u hw_rw:0x%08X hw_widx01:0x%08X\n",
+		txq->drb_base, txq->drb_wr_idx, txq->drb_rd_idx,
+		txq->drb_rel_rd_idx, drv_dpmaif_ul_get_rwidx(qno),
+		drv_dpmaif_ul_get_hw_widx_01());
+
+	drb_buf_size = txq->drb_size_cnt * sizeof(struct dpmaif_drb_pd);
+
+	data_64ptr = (u64 *)txq->drb_base;
+	mod64 = drb_buf_size % 64;
+	count = drb_buf_size / 64;
+
+	DPMA_DRB_DATA_INFO("[%s] drb_buf_size: %d; mod64: %d; count = %d\n",
+			__func__, drb_buf_size, mod64, count);
+
+	i = 0;
+	while (i < count) {
+		DPMA_DRB_DATA_INFO("%08X(%04d): %016X %016X %016X %016X %016X %016X %016X %016X\n",
+			(u32)data_64ptr, (i * 8),
+			*data_64ptr, *(data_64ptr + 1),
+			*(data_64ptr + 2), *(data_64ptr + 3),
+			*(data_64ptr + 4), *(data_64ptr + 5),
+			*(data_64ptr + 6), *(data_64ptr + 7));
+
+		data_64ptr += 8;
+		i++;
+	}
+
+	if (mod64 > 0) {
+		data_8ptr = (u8 *)data_64ptr;
+
+		DPMA_DRB_DATA_INFO("%08X(%04d):", (u32)data_8ptr, count * 8);
+
+		for (i = 0; i < mod64; i++) {
+			if ((i % 8) == 0)
+				DPMA_DRB_DATA_INFO(" ");
+
+			DPMA_DRB_DATA_INFO("%02X", *(data_8ptr + i));
+		}
+
+		DPMA_DRB_DATA_INFO("\n");
+	}
+
+	DPMA_DRB_DATA_INFO("DPMAIF [%s] for q:%d info: end --------\n",
+			__func__, qno);
+}
+
 /*actrually, length is dump flag's private argument*/
 static int dpmaif_dump_status(unsigned char hif_id,
 		enum MODEM_DUMP_FLAG flag, int length)
 {
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
+
+	dump_drb_queue_data(0);
+	dump_drb_queue_data(1);
 
 	CCCI_MEM_LOG_TAG(hif_ctrl->md_id, TAG,
 		"%s: q_bitmap = %d\n", __func__, length);
@@ -2718,7 +2788,11 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 		g_dp_uid_mask_count++;
 		prio_count = 0x1000;
 	}
-
+	if (skb->len == 0) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"[%s] 1; error: skb->len = %d\n", __func__, skb->len);
+		return DATA_CHECK_FAIL;
+	}
 	if (qno < 0) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"txq(%d) < 0\n", qno);
@@ -2884,6 +2958,14 @@ retry:
 	}
 	/* 3 send data. */
 	/* 3.1 a msg drb first, then payload drb. */
+	if (skb->len == 0) {
+		spin_unlock_irqrestore(&txq->tx_lock, flags);
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"[%s] 2; error: skb->len = 0.\n",
+			__func__);
+		return DATA_CHECK_FAIL;
+	}
+
 	set_drb_msg(txq->index, cur_idx, skb->len, prio_count,
 				ccci_h.data[0], skb->protocol);
 	record_drb_skb(txq->index, cur_idx, skb, 1, 0, 0, 0, 0);

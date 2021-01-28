@@ -294,7 +294,7 @@ static const struct file_operations ccci_log_fops = {
 #define CCCI_REPEAT_BUF			(4096*32)
 #define CCCI_HISTORY_BUF		(4096*128)
 #define CCCI_REG_DUMP_BUF		(4096*64 * 2)
-#define CCCI_DPMA_DRB_BUF		(1024*16)
+#define CCCI_DPMA_DRB_BUF		(1024*16*16)
 
 #define MD3_CCCI_INIT_SETTING_BUF   (64)
 #define MD3_CCCI_BOOT_UP_BUF                (64)
