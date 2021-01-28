@@ -419,7 +419,7 @@ int commit_data(int type, int data, int check_spmfw)
 	if (ret < 0) {
 		pr_info("%s: type: 0x%x, data: 0x%x, opp: %d, level: %d\n",
 				__func__, type, data, opp, level);
-		dvfsrc_dump_reg(NULL);
+		dvfsrc_dump_reg(NULL, 0);
 		aee_kernel_warning("DVFSRC", "%s: failed.", __func__);
 	}
 
@@ -915,15 +915,15 @@ void get_dvfsrc_reg(char *p)
 	p += sprintf(p, "%-16s: 0x%08x\n",
 			"TARGET_LEVEL",
 			dvfsrc_read(DVFSRC_TARGET_LEVEL));
-	p += sprintf(p, "%-16s: %s\n",
+	p += sprintf(p, "%-16s: %.40s\n",
 			"Current Tstamp", timestamp);
-	p += sprintf(p, "%-16s: %s\n",
+	p += sprintf(p, "%-16s: %.40s\n",
 			"ForceS Tstamp", force_start_stamp);
-	p += sprintf(p, "%-16s: %s\n",
+	p += sprintf(p, "%-16s: %.40s\n",
 			"ForceE Tstamp", force_end_stamp);
-	p += sprintf(p, "%-16s: %s\n",
+	p += sprintf(p, "%-16s: %.40s\n",
 			"Timeout Tstamp", timeout_stamp);
-	p += sprintf(p, "%-16s: %s\n",
+	p += sprintf(p, "%-16s: %.40s\n",
 			"Sys Tstamp", sys_stamp);
 }
 

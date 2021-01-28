@@ -230,46 +230,52 @@ static void get_pm_qos_info(char *p)
 			pm_qos_request(PM_QOS_ISP_HRT_BANDWIDTH));
 }
 
-char *dvfsrc_dump_reg(char *ptr)
+u32 dvfsrc_dump_reg(char *ptr, u32 count)
 {
 	char buf[1024];
+	u32 index = 0;
 
 	memset(buf, '\0', sizeof(buf));
 	get_opp_info(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_dvfsrc_reg(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_dvfsrc_record(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_spm_reg(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
 	memset(buf, '\0', sizeof(buf));
 	get_pm_qos_info(buf);
-	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
-	else
+	if (ptr) {
+		index += scnprintf(&ptr[index], (count - index - 1),
+		"%s\n", buf);
+	} else
 		pr_info("%s\n", buf);
 
-	return ptr;
+	return index;
 }
 
 static struct devfreq_dev_profile helio_devfreq_profile = {
