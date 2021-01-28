@@ -7561,6 +7561,11 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			unsigned int currentPPB = m_CurrentPPB;
 			unsigned int lock_key = ISP_IRQ_TYPE_AMOUNT;
 
+			if (currentPPB < 0) {
+				Ret = -EFAULT;
+				break;
+			}
+
 			if (DebugFlag[0] >= ISP_IRQ_TYPE_AMOUNT) {
 				pr_err("unsupported module:0x%x\n",
 					DebugFlag[0]);
