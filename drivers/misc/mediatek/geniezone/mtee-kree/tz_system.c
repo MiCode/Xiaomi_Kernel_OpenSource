@@ -29,7 +29,7 @@
 #include <kree/mem.h>
 #include <linux/atomic.h>
 #include <linux/vmalloc.h>
-#ifdef CONFIG_PM_WAKELOCKS
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
 #include <linux/pm_wakeup.h>
 #else
 #include <linux/wakelock.h>
@@ -44,11 +44,11 @@
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
 /* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
-#ifdef CONFIG_MTK_TEE_GP_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
 #include "tee_client_api.h"
 #endif
 
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
 #define DBG_KREE_SYS
 #endif
 
@@ -85,8 +85,8 @@ int perf_boost_cnt;
 struct mutex perf_boost_lock;
 struct platform_device *tz_system_dev;
 
-#ifdef CONFIG_PM_WAKELOCKS
-struct wakeup_source TeeServiceCall_wake_lock;
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+struct wakeup_source TeeServiceCall_wake_lock; /*4.14*/
 #else
 struct wake_lock TeeServiceCall_wake_lock;
 #endif
@@ -818,7 +818,7 @@ TZ_RESULT _Gz_KreeServiceCall_body(KREE_SESSION_HANDLE handle, uint32_t command,
 		param[1].value.a = ret;
 		break;
 
-#ifdef CONFIG_MTK_TEE_GP_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
 	case REE_SERVICE_CMD_TEE_INIT_CTX:
 		ret = TEEC_InitializeContext(
 			(char *)param[0].mem.buffer,
@@ -1010,8 +1010,8 @@ static void kree_perf_boost(int enable)
 			 * freq_to_set);
 			 */
 			KREE_DEBUG("%s wake_lock\n", __func__);
-#ifdef CONFIG_PM_WAKELOCKS
-			__pm_stay_awake(&TeeServiceCall_wake_lock);
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+			__pm_stay_awake(&TeeServiceCall_wake_lock); /*4.14*/
 #else
 			wake_lock(&TeeServiceCall_wake_lock);
 #endif
@@ -1030,8 +1030,8 @@ static void kree_perf_boost(int enable)
 			 * KREE_ERR("%s disable\n", __func__);
 			 */
 			KREE_DEBUG("%s wake_unlock\n", __func__);
-#ifdef CONFIG_PM_WAKELOCKS
-			__pm_relax(&TeeServiceCall_wake_lock);
+#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+			__pm_relax(&TeeServiceCall_wake_lock); /*4.14*/
 #else
 			wake_unlock(&TeeServiceCall_wake_lock);
 #endif
@@ -1289,7 +1289,7 @@ static const struct of_device_id tz_system_of_match[] = {
 	{ .compatible = "mediatek,trusty-gz", },
 	{},
 };
-MODULE_DEVICE_TABLE(of, trusty_tz_of_match);
+MODULE_DEVICE_TABLE(of, tz_system_of_match);
 
 struct platform_driver tz_system_driver = {
 	.probe = tz_system_probe,
