@@ -247,6 +247,7 @@ static int secmem_execute(u32 cmd, struct secmem_param *param)
 	return TMEM_OK;
 }
 
+#define SECMEM_ERROR_OUT_OF_MEMORY (0x8)
 int tee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 	      u8 *owner, u32 id, u32 clean, void *tee_data, void *dev_desc)
 {
@@ -272,8 +273,12 @@ int tee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 	param.sec_handle = 0;
 
 	ret = secmem_execute(tee_ta_cmd, &param);
-	if (ret)
+	if (ret == SECMEM_ERROR_OUT_OF_MEMORY) {
+		pr_err("%s:%d out of memory!\n", __func__, __LINE__);
+		return -ENOMEM;
+	} else if (ret) {
 		return TMEM_TEE_ALLOC_CHUNK_FAILED;
+	}
 
 	*refcount = param.refcount;
 	*sec_handle = param.sec_handle;
