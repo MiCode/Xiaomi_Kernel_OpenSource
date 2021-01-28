@@ -499,6 +499,7 @@ char *mtk8250_uart_dump(void)
 	u32 high_speed = 0, dll = 0, dlh = 0, line = 0;
 	u32 lcr = 0, count = 0, point = 0, guide = 0;
 	struct uart_8250_port *up = NULL;
+	int ret = 0;
 
 	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
 		up = serial8250_get_port(line);
@@ -514,11 +515,13 @@ char *mtk8250_uart_dump(void)
 		guide = serial_in(up, MTK_UART_GUARD);
 		serial_out(up, 0x27, 0x00);
 	}
-	snprintf(uart_write_statbuf,
+	ret = snprintf(uart_write_statbuf,
 		sizeof(uart_write_statbuf) - 1,
 	"high_speed = 0x%x, dll = 0x%x, dlh = 0x%x, lcr = 0x%x, count = 0x%x, point = 0x%x, guide = 0x%x",
 					high_speed, dll, dlh, lcr,
 					count, point, guide);
+	if (ret < 0)
+		return "";
 	return uart_write_statbuf;
 }
 #endif
