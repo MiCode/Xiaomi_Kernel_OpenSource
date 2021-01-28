@@ -489,7 +489,10 @@ static const struct mfd_cell mt6397_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6397_keys_resources),
 		.resources = mt6397_keys_resources,
 		.of_compatible = "mediatek,mt6397-keys"
-	}
+	}, {
+		.name = "mt6397-thermal",
+		.of_compatible = "mediatek,mt6397-thermal"
+	},
 };
 
 struct chip_data {
