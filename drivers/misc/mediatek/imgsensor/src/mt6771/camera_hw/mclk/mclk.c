@@ -32,6 +32,7 @@ static enum IMGSENSOR_RETURN mclk_init(
 	enum   IMGSENSOR_RETURN ret           = IMGSENSOR_RETURN_SUCCESS;
 	int i, j;
 	char str_pinctrl_name[LENGTH_FOR_SNPRINTF];
+	int ret_snprintf = 0;
 
 	pinst->pmclk_mutex = &pcommon->pinctrl_mutex;
 
@@ -45,11 +46,16 @@ static enum IMGSENSOR_RETURN mclk_init(
 			i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
 		for (j = MCLK_STATE_DISABLE; j < MCLK_STATE_MAX_NUM; j++) {
 			if (mclk_pinctrl[j].ppinctrl_names) {
-				snprintf(str_pinctrl_name,
+				ret_snprintf = snprintf(str_pinctrl_name,
 					sizeof(str_pinctrl_name),
 					"cam%d_mclk_%s",
 					i,
 					mclk_pinctrl[j].ppinctrl_names);
+				if (ret < 0) {
+					pr_info(
+					"snprintf alloc error!, ret = %d", ret);
+					return IMGSENSOR_RETURN_ERROR;
+				}
 				pinst->ppinctrl_state[i][j] =
 					pinctrl_lookup_state(pinst->ppinctrl,
 							str_pinctrl_name);
