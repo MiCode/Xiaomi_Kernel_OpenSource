@@ -407,7 +407,8 @@
 #define CONFIG_WD_POLLING_ONLY
 #endif /* CONFIG_WD_SBU_POLLING */
 
-#define CONFIG_CABLE_TYPE_DETECTION
+ /* FIXME : skip build error */
+/* #define CONFIG_CABLE_TYPE_DETECTION */
 
 #endif /* CONFIG_TCPC_CLASS */
 #endif /* __LINUX_TCPC_CONFIG_H */
