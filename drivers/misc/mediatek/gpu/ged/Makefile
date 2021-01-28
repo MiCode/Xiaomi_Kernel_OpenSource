@@ -86,6 +86,7 @@ ccflags-y += \
 	     -I$(MTK_TOP)/include/ \
 	     -I$(GED_TOP)/include/ \
 	     -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/ \
+	     -I$(MTK_TOP)/base/power/include/ \
 	     -I$(srctree)/drivers/misc/mediatek/video/include \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys \

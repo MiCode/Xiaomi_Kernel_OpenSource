@@ -23,6 +23,7 @@ endif
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 
 obj-$(CONFIG_THERMAL) += mtk_thermal_monitor.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_shutdown.o
