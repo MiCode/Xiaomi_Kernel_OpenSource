@@ -113,19 +113,19 @@ enum clk_buf_ret_type clk_buf_get_xo_en_sta(enum xo_id id)
 }
 EXPORT_SYMBOL(clk_buf_get_xo_en_sta);
 
-u32 clk_buf_bblpm_enter_cond(void)
+int clk_buf_check_bblpm_enter_cond(void)
 {
 	u32 bblpm_cond = 0;
 
 	if (unlikely(!bridge.get_bblpm_enter_cond_cb)) {
 		pr_info("get bblpm enter condition not registered\n");
-		return BBLPM_SKIP;
+		return -1;
 	}
 
 	if (bridge.get_bblpm_enter_cond_cb(&bblpm_cond) == CLK_BUF_OK)
 		return bblpm_cond;
 
 	pr_info("get bblpm_enter condition has some error\n");
-	return BBLPM_SKIP;
+	return -1;
 }
-EXPORT_SYMBOL(clk_buf_bblpm_enter_cond);
+EXPORT_SYMBOL(clk_buf_check_bblpm_enter_cond);

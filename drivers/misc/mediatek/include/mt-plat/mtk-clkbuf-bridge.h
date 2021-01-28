@@ -70,7 +70,7 @@ extern enum clk_buf_ret_type clk_buf_set_by_flightmode(bool on);
 extern enum clk_buf_ret_type clk_buf_control_bblpm(bool on);
 extern enum clk_buf_ret_type clk_buf_dump_clkbuf_log(void);
 extern enum clk_buf_ret_type clk_buf_get_xo_en_sta(enum xo_id id);
-extern u32 clk_buf_bblpm_enter_cond(void);
+extern int clk_buf_check_bblpm_enter_cond(void);
 
 #endif
 
