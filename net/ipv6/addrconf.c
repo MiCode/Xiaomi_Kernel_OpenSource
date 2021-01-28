@@ -2329,9 +2329,6 @@ static int addrconf_ifid_ip6tnl(u8 *eui, struct net_device *dev)
 
 static int ipv6_generate_eui64(u8 *eui, struct net_device *dev)
 {
-	/* MTK_NET_CHANGES */
-	if (strncmp(dev->name, "ccmni", 2) == 0)
-		return -1;
 	switch (dev->type) {
 	case ARPHRD_ETHER:
 	case ARPHRD_FDDI:
