@@ -923,9 +923,10 @@ static irqreturn_t rt9458_intr_handler(int irq, void *dev_id)
 		if (!event[i])
 			continue;
 		for (j = 0; j < 8; j++) {
-			if (!(event[i] & (1 << j)))
-				continue;
 			id = i * 8 + j;
+			if (!(event[i] & (1 << j)) ||
+				(id >= ARRAY_SIZE(rt9458_irq_desc)))
+				continue;
 			if (!rt9458_irq_desc[id]) {
 				dev_warn(ri->dev, "no %d irq_handler", id);
 				continue;
