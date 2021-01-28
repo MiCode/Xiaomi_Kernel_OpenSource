@@ -441,6 +441,7 @@ source "drivers/misc/mediatek/cache-auditor/Kconfig"
 source "drivers/misc/mediatek/mcupm/Kconfig"
 source "drivers/misc/mediatek/udi/Kconfig"
 source "drivers/misc/mediatek/hdmi/Kconfig"
+source "drivers/misc/mediatek/otp/Kconfig"
 
 endmenu    # Misc
 
