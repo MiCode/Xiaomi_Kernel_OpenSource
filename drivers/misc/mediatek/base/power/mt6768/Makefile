@@ -45,7 +45,8 @@ obj-$(CONFIG_MACH_MT6768) += mtk_gpu_log.o
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
-#ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
-#obj-$(CONFIG_MACH_MT6768) += mtk_gpu_bw.o
+ccflags-y += -I$(srctree)/drivers/devfreq/
+ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
+obj-$(CONFIG_MACH_MT6768) += mtk_gpu_bw.o
 endif
 endif
