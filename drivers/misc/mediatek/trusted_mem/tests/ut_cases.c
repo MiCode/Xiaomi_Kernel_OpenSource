@@ -39,7 +39,7 @@
 #include "tee_impl/tee_invoke.h"
 #include "tee_impl/tee_regions.h"
 
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
 #define UT_SATURATION_STRESS_ROUNDS (1)
 #else
 #define UT_SATURATION_STRESS_ROUNDS (5)
@@ -207,7 +207,7 @@ static enum UT_RET_STATE tmem_alloc_multithread_test(struct ut_params *params,
 	return UT_STATE_PASS;
 }
 
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 static enum UT_RET_STATE tmem_alloc_mixed_size(struct ut_params *params,
 					       char *test_desc)
 {
@@ -356,8 +356,8 @@ static enum UT_RET_STATE profile_dump_all(struct ut_params *params,
 }
 #endif
 
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
+	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define PROT_TEST_PA_ADDR64_START (0x180000000ULL)
 #define PROT_TEST_PA_ADDR64_ZERO (0x0ULL)
 #define PROT_TEST_POOL_SIZE_NORMAL SZ_256M
@@ -451,8 +451,8 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 	return UT_STATE_PASS;
 }
 
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
+	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 static enum UT_RET_STATE device_share_region_basic(struct ut_params *params,
 						   char *test_desc)
 {
@@ -662,7 +662,7 @@ mtee_mchunks_multiple_thread_alloc(struct ut_params *params, char *test_desc)
 #endif
 
 static struct test_case test_cases[] = {
-#ifdef CONFIG_MTK_SECURE_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 	CASE(SECMEM_UT_PROC_BASIC, "SVP Basic", TRUSTED_MEM_SVP,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
 	CASE(SECMEM_UT_PROC_SIMPLE_ALLOC, "SVP Alloc Simple", TRUSTED_MEM_SVP,
@@ -694,7 +694,7 @@ static struct test_case test_cases[] = {
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
 #endif
 
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	CASE(PMEM_UT_PROC_BASIC, "PROT Basic", TRUSTED_MEM_PROT,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
 	CASE(PMEM_UT_PROC_SIMPLE_ALLOC, "PROT Alloc Simple", TRUSTED_MEM_PROT,
@@ -729,7 +729,7 @@ static struct test_case test_cases[] = {
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
 #endif
 
-#ifdef CONFIG_MTK_WFD_SMEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 	CASE(WFD_SMEM_UT_PROC_BASIC, "WFD Basic", TRUSTED_MEM_WFD,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
 	CASE(WFD_SMEM_UT_PROC_SIMPLE_ALLOC, "WFD Alloc Simple", TRUSTED_MEM_WFD,
@@ -761,7 +761,7 @@ static struct test_case test_cases[] = {
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
 #endif
 
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 	CASE(HAPP_UT_PROC_BASIC, "HAPP Basic", TRUSTED_MEM_HAPP,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
 	CASE(HAPP_UT_PROC_SIMPLE_ALLOC, "HAPP Alloc Simple", TRUSTED_MEM_HAPP,
@@ -831,7 +831,7 @@ static struct test_case test_cases[] = {
 	     tmem_regmgr_run_all),
 #endif
 
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_MEM_SUPPORT)
 	CASE(SDSP_UT_PROC_BASIC, "SDSP Basic", TRUSTED_MEM_SDSP,
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_basic_test),
 	CASE(SDSP_UT_PROC_SIMPLE_ALLOC, "SDSP Alloc Simple", TRUSTED_MEM_SDSP,
@@ -863,7 +863,7 @@ static struct test_case test_cases[] = {
 	     REGMGR_REGION_FINAL_STATE_OFF, 0, tmem_regmgr_run_all),
 #endif
 
-#ifdef CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)
 	CASE(SDSP_SHARED_UT_PROC_BASIC, "SDSP Shared Basic",
 	     TRUSTED_MEM_SDSP_SHARED, REGMGR_REGION_FINAL_STATE_OFF, 0,
 	     tmem_basic_test),
@@ -907,8 +907,8 @@ static struct test_case test_cases[] = {
 	     "Multiple SSMR Region Request", 0, 0, 0,
 	     multiple_ssmr_region_request),
 
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
+	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	CASE(TMEM_UT_CORE_DEVICE_VIRT_REGION_BASIC, "Share Region Basic Test",
 	     0, 0, 0, device_share_region_basic),
 	CASE(TMEM_UT_CORE_DEVICE_VIRT_REGION_SWITCH, "Share Region Switch Test",
@@ -929,8 +929,8 @@ static struct test_case test_cases[] = {
 	     mtee_mchunks_multiple_thread_alloc),
 #endif
 
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
+	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	CASE(FR_UT_PROC_CONFIG_PROT_REGION, "Set TEE Protect Region Test", 0, 0,
 	     0, config_tee_prot_region_test),
 #endif

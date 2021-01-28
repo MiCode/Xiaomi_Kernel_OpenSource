@@ -279,9 +279,9 @@ static bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
 	case TRUSTED_MEM_SDSP:
 		return true;
 	case TRUSTED_MEM_SDSP_SHARED:
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
-	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                      \
-	    || defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
+	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
+	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 		return true;
 #else
 		return false;

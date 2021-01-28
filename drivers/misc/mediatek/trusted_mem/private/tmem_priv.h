@@ -40,7 +40,7 @@ struct profile_mgr_desc *create_profile_mgr_desc(void);
 void trusted_mem_core_profile_dump(struct trusted_mem_device *mem_device);
 #endif
 
-#if defined(CONFIG_MTK_SVP_DISABLE_SODI)
+#if IS_ENABLED(CONFIG_MTK_SVP_DISABLE_SODI)
 void spm_enable_sodi(bool en);
 #endif
 

@@ -43,15 +43,15 @@ static struct trusted_mem_configs mchunk_general_configs = {
 };
 
 static struct tmem_device_description mtee_mchunks[] = {
-#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_PROT,
 		.tee_smem_type = TEE_SMEM_PROT,
 		.mtee_chunks_id = MTEE_MCHUNKS_PROT,
 		.ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM,
 		.u_ops_data.mtee = {.mem_type = TRUSTED_MEM_PROT},
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
+	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		.notify_remote = true,
 		.notify_remote_fn = secmem_fr_set_prot_shared_region,
 #else
@@ -63,7 +63,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
-#ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_HAPP,
 		.tee_smem_type = TEE_SMEM_HAPP_ELF,
@@ -88,7 +88,7 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
-#ifdef CONFIG_MTK_SDSP_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SDSP_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_SDSP,
 		.tee_smem_type = TEE_SMEM_SDSP_FIRMWARE,
@@ -102,15 +102,15 @@ static struct tmem_device_description mtee_mchunks[] = {
 	},
 #endif
 
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
-	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                      \
-	    || defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
+	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
+	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
 	{
 		.kern_tmem_type = TRUSTED_MEM_SDSP_SHARED,
 		.tee_smem_type = TEE_SMEM_SDSP_SHARED,
-#if defined(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)
 		.mtee_chunks_id = MTEE_MCHUNKS_SDSP_SHARED_MTEE_TEE,
-#elif defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
+#elif IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE)
 		.mtee_chunks_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_MTEE_TEE,
 #else
 		.mtee_chunks_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE,

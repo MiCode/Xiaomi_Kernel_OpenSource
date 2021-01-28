@@ -20,7 +20,7 @@ enum TRUSTED_MEM_REQ_TYPE {
 /**********************************************************/
 /**** Trusted Memory Common APIs for ION kernel driver ****/
 /**********************************************************/
-#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 int trusted_mem_api_alloc(enum TRUSTED_MEM_REQ_TYPE mem_type, u32 alignment,
 			  u32 size, u32 *refcount, u32 *sec_handle,
 			  uint8_t *owner, uint32_t id);

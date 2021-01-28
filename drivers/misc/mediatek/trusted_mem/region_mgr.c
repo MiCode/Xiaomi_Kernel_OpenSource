@@ -123,7 +123,7 @@ static void set_region_state(struct region_mgr_desc *mgr_desc,
 #endif
 #endif
 
-#if defined(CONFIG_MTK_SVP_DISABLE_SODI)
+#if IS_ENABLED(CONFIG_MTK_SVP_DISABLE_SODI)
 	if (mgr_desc->state == REGMGR_REGION_STATE_ON)
 		spm_enable_sodi(false);
 	else

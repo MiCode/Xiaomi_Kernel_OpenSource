@@ -27,7 +27,7 @@
 #include "private/tmem_dev_desc.h"
 #include "tee_impl/tee_ops.h"
 #include "tee_impl/tee_gp_def.h"
-#if defined(CONFIG_MTK_GZ_KREE)
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
 #include "mtee_impl/mtee_invoke.h"
 #endif
 #include "tee_client_api.h"

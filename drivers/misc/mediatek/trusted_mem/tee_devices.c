@@ -28,7 +28,7 @@
 #include "private/tmem_utils.h"
 #include "private/tmem_dev_desc.h"
 #include "tee_impl/tee_ops.h"
-#if defined(CONFIG_MTK_GZ_KREE)
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
 #include "mtee_impl/mtee_invoke.h"
 #endif
 
@@ -43,7 +43,7 @@ static struct trusted_mem_configs tee_smem_general_configs = {
 };
 
 static struct tmem_device_description tee_smem_devs[] = {
-#ifdef CONFIG_MTK_SECURE_MEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_SVP,
 		.tee_smem_type = TEE_SMEM_SVP,
@@ -65,7 +65,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 	},
 #endif
 
-#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_2D_FR,
 		.tee_smem_type = TEE_SMEM_2D_FR,
@@ -87,7 +87,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 	},
 #endif
 
-#ifdef CONFIG_MTK_WFD_SMEM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 	{
 		.kern_tmem_type = TRUSTED_MEM_WFD,
 		.tee_smem_type = TEE_SMEM_WFD,
@@ -109,8 +109,8 @@ static struct tmem_device_description tee_smem_devs[] = {
 	},
 #endif
 
-#if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
-	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE))
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
+	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE))
 	{
 		.kern_tmem_type = TRUSTED_MEM_SDSP_SHARED,
 		.tee_smem_type = TEE_SMEM_SDSP_SHARED,
@@ -126,7 +126,7 @@ static struct tmem_device_description tee_smem_devs[] = {
 				CMD_SDSP_SMEM_DISABLE,
 		},
 /* clang-format on */
-#if defined(CONFIG_MTK_GZ_KREE)
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
 		.notify_remote = true,
 		.notify_remote_fn = mtee_set_mchunks_region,
 #else

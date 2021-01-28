@@ -18,7 +18,7 @@
 #include <linux/moduleparam.h>
 #include <linux/sizes.h>
 
-#if defined(CONFIG_MTK_ION)
+#if IS_ENABLED(CONFIG_MTK_ION)
 #include <ion.h>
 #include <ion_priv.h>
 #include <mtk/ion_drv.h>
@@ -84,7 +84,7 @@ static void trusted_mem_device_chunk_free(enum TRUSTED_MEM_TYPE mem_type)
 		g_common_mem_handle[mem_type] = 0;
 }
 
-#ifdef CONFIG_MTK_ION
+#if IS_ENABLED(CONFIG_MTK_ION)
 static unsigned int get_ion_heap_mask_id(enum TRUSTED_MEM_TYPE mem_type)
 {
 	switch (mem_type) {
@@ -112,7 +112,7 @@ static unsigned int get_ion_heap_mask_id(enum TRUSTED_MEM_TYPE mem_type)
 
 static void trusted_mem_device_ion_alloc_free(enum TRUSTED_MEM_TYPE mem_type)
 {
-#if defined(CONFIG_MTK_ION)
+#if IS_ENABLED(CONFIG_MTK_ION)
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
 	struct ion_client *kern_ion_client;
 	struct ion_handle *kern_ion_handle;
@@ -246,33 +246,33 @@ static void trusted_mem_manual_cmd_invoke(u64 cmd, u64 param1, u64 param2,
 		trusted_mem_region_status_dump();
 		break;
 	case TMEM_SECMEM_SVP_DUMP_INFO:
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_svp_dump_info();
 #endif
 		break;
 	case TMEM_SECMEM_FR_DUMP_INFO:
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)                                  \
+	&& IS_ENABLED(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		secmem_fr_dump_info();
 #endif
 		break;
 	case TMEM_SECMEM_WFD_DUMP_INFO:
-#if defined(CONFIG_MTK_WFD_SMEM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_WFD_SMEM_SUPPORT)
 		wfd_smem_dump_info();
 #endif
 		break;
 	case TMEM_SECMEM_DYNAMIC_DEBUG_ENABLE:
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_dynamic_debug_control(true);
 #endif
 		break;
 	case TMEM_SECMEM_DYNAMIC_DEBUG_DISABLE:
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_dynamic_debug_control(false);
 #endif
 		break;
 	case TMEM_SECMEM_FORCE_HW_PROTECTION:
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_SECURE_MEM_SUPPORT)
 		secmem_force_hw_protection();
 #endif
 		break;
@@ -314,7 +314,7 @@ static const struct file_operations tmem_fops = {
 	.open = tmem_open,
 	.release = tmem_release,
 	.unlocked_ioctl = NULL,
-#ifdef CONFIG_COMPAT
+#if IS_ENABLED(CONFIG_COMPAT)
 	.compat_ioctl = NULL,
 #endif
 	.write = tmem_write,
@@ -326,7 +326,7 @@ static void trusted_mem_create_proc_entry(void)
 }
 
 #ifdef TCORE_UT_TESTS_SUPPORT
-#ifdef CONFIG_MTK_ENG_BUILD
+#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
 #define UT_MULTITHREAD_TEST_DEFAULT_WAIT_COMPLETION_TIMEOUT_MS (900000)
 #define UT_SATURATION_STRESS_PMEM_MIN_CHUNK_SIZE (SZ_8M)
 #else
@@ -363,7 +363,6 @@ static int __init trusted_mem_init(void)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
 
-	memory_ssmr_debug_init();
 	trusted_mem_subsys_init();
 
 #ifdef TCORE_UT_TESTS_SUPPORT

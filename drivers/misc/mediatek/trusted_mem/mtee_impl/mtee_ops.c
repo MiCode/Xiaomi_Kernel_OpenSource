@@ -20,7 +20,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/sizes.h>
-#if defined(CONFIG_MTK_GZ_KREE)
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
 #include <kree/system.h>
 #include <kree/mem.h>
 #include <kree/tz_mod.h>
