@@ -1771,7 +1771,7 @@ void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 
 	*dma_handle = PA;
 
-	CMDQ_LOG("%s va:0x%p pa:%pa paout:%pa dev:0x%p\n",
+	CMDQ_VERBOSE("%s va:0x%p pa:%pa paout:%pa dev:0x%p\n",
 		__func__, pVA, &PA, &(*dma_handle), dev);
 
 	return pVA;
@@ -5109,6 +5109,10 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 
 	CMDQ_SYSTRACE_BEGIN("%s\n", __func__);
 	cmdq_core_replace_v3_instr(handle, handle->thread);
+	if (handle->pkt->cl != client) {
+		CMDQ_LOG("cl:%p not same client:%p\n", handle->pkt->cl, client);
+		handle->pkt->cl = client;
+	}
 	err = cmdq_pkt_flush_async(handle->pkt, cmdq_pkt_flush_handler,
 		(void *)handle);
 	CMDQ_SYSTRACE_END();
