@@ -3222,7 +3222,7 @@ static void __init mtk_topckgen_init(struct device_node *node)
 
 	mtk_clk_register_factors(top_divs, ARRAY_SIZE(top_divs), clk_data);
 	mtk_clk_register_muxes(top_muxes, ARRAY_SIZE(top_muxes),
-		base, &mt6779_clk_lock, clk_data);
+		node, &mt6779_clk_lock, clk_data);
 	mtk_clk_register_composites(top_audmuxes, ARRAY_SIZE(top_audmuxes),
 		base, &mt6779_clk_lock, clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
@@ -3280,7 +3280,8 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	clk_writel(cksys_base + CK_CFG_13_CLR, 0x80008080);/*busaximem*/
 	clk_writel(cksys_base + CK_CFG_13_SET, 0x80008080);
 }
-CLK_OF_DECLARE_DRIVER(mtk_topckgen, "mediatek,topckgen", mtk_topckgen_init);
+CLK_OF_DECLARE_DRIVER(mtk_topckgen, "mediatek,mt6779-topckgen",
+			mtk_topckgen_init);
 
 static void __init mtk_infracfg_ao_init(struct device_node *node)
 {
@@ -3320,7 +3321,7 @@ static void __init mtk_infracfg_ao_init(struct device_node *node)
 	clk_writel(INFRA_PDN_SET3, INFRA_CG3);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_infracfg_ao, "mediatek,infracfg_ao",
+CLK_OF_DECLARE_DRIVER(mtk_infracfg_ao, "mediatek,mt6779-infracfg_ao",
 		mtk_infracfg_ao_init);
 
 /* FIXME: modify FMAX */
@@ -3551,7 +3552,7 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 	clk_clrl(ADSPPLL_PWR_CON0, PLL_PWR_ON);
 	clk_clrl(ADSPPLL_CON0, ADSPPLL_DIV_RSTB);
 }
-CLK_OF_DECLARE_DRIVER(mtk_apmixedsys, "mediatek,apmixed",
+CLK_OF_DECLARE_DRIVER(mtk_apmixedsys, "mediatek,mt6779-apmixed",
 		mtk_apmixedsys_init);
 
 
@@ -3587,7 +3588,8 @@ static void __init mtk_audio_init(struct device_node *node)
 #endif
 
 }
-CLK_OF_DECLARE_DRIVER(mtk_audio, "mediatek,audio", mtk_audio_init);
+CLK_OF_DECLARE_DRIVER(mtk_audio, "mediatek,mt6779-audio",
+			mtk_audio_init);
 
 static void __init mtk_camsys_init(struct device_node *node)
 {
@@ -3617,7 +3619,8 @@ static void __init mtk_camsys_init(struct device_node *node)
 	clk_writel(CAMSYS_CG_CLR, CAMSYS_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_camsys, "mediatek,camsys", mtk_camsys_init);
+CLK_OF_DECLARE_DRIVER(mtk_camsys, "mediatek,mt6779-camsys",
+			mtk_camsys_init);
 
 static void __init mtk_imgsys_init(struct device_node *node)
 {
@@ -3647,7 +3650,8 @@ static void __init mtk_imgsys_init(struct device_node *node)
 	clk_writel(IMG_CG_CLR, IMG_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_imgsys, "mediatek,imgsys", mtk_imgsys_init);
+CLK_OF_DECLARE_DRIVER(mtk_imgsys, "mediatek,mt6779-imgsys",
+			mtk_imgsys_init);
 
 static void __init mtk_ipesys_init(struct device_node *node)
 {
@@ -3677,7 +3681,8 @@ static void __init mtk_ipesys_init(struct device_node *node)
 	clk_writel(IPE_CG_CLR, IPE_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_ipesys, "mediatek,ipesys_config", mtk_ipesys_init);
+CLK_OF_DECLARE_DRIVER(mtk_ipesys, "mediatek,mt6779-ipesys_config",
+			mtk_ipesys_init);
 
 static void __init mtk_mfg_cfg_init(struct device_node *node)
 {
@@ -3710,7 +3715,8 @@ static void __init mtk_mfg_cfg_init(struct device_node *node)
 #endif
 
 }
-CLK_OF_DECLARE_DRIVER(mtk_mfg_cfg, "mediatek,mfgcfg", mtk_mfg_cfg_init);
+CLK_OF_DECLARE_DRIVER(mtk_mfg_cfg, "mediatek,mt6779-mfgcfg",
+			mtk_mfg_cfg_init);
 
 static void __init mtk_mmsys_config_init(struct device_node *node)
 {
@@ -3741,7 +3747,7 @@ static void __init mtk_mmsys_config_init(struct device_node *node)
 #else
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_mmsys_config, "mediatek,mmsys_config",
+CLK_OF_DECLARE_DRIVER(mtk_mmsys_config, "mediatek,mt6779-mmsys_config",
 		mtk_mmsys_config_init);
 
 static void __init mtk_vdec_top_global_con_init(struct device_node *node)
@@ -3774,7 +3780,7 @@ static void __init mtk_vdec_top_global_con_init(struct device_node *node)
 	clk_writel(LARB1_CKEN_SET, VDEC_LARB1_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_vdec_top_global_con, "mediatek,vdec_gcon",
+CLK_OF_DECLARE_DRIVER(mtk_vdec_top_global_con, "mediatek,mt6779-vdec_gcon",
 	mtk_vdec_top_global_con_init);
 
 static void __init mtk_venc_global_con_init(struct device_node *node)
@@ -3806,7 +3812,7 @@ static void __init mtk_venc_global_con_init(struct device_node *node)
 	clk_writel(VENC_CG_SET, VENC_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_venc_global_con, "mediatek,venc_gcon",
+CLK_OF_DECLARE_DRIVER(mtk_venc_global_con, "mediatek,mt6779-venc_gcon",
 		mtk_venc_global_con_init);
 
 static void __init mtk_apu_conn_init(struct device_node *node)
@@ -3838,7 +3844,8 @@ static void __init mtk_apu_conn_init(struct device_node *node)
 	clk_writel(APU_CONN_CG_CLR, APU_CONN_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_apu_conn, "mediatek,apu_conn", mtk_apu_conn_init);
+CLK_OF_DECLARE_DRIVER(mtk_apu_conn, "mediatek,mt6779-apu_conn",
+			mtk_apu_conn_init);
 
 static void __init mtk_apu0_init(struct device_node *node)
 {
@@ -3869,7 +3876,7 @@ static void __init mtk_apu0_init(struct device_node *node)
 	clk_writel(APU_CORE0_CG_CLR, APU_CORE0_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_apu0, "mediatek,apu0", mtk_apu0_init);
+CLK_OF_DECLARE_DRIVER(mtk_apu0, "mediatek,mt6779-apu0", mtk_apu0_init);
 
 static void __init mtk_apu1_init(struct device_node *node)
 {
@@ -3900,7 +3907,7 @@ static void __init mtk_apu1_init(struct device_node *node)
 	clk_writel(APU_CORE1_CG_CLR, APU_CORE1_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_apu1, "mediatek,apu1", mtk_apu1_init);
+CLK_OF_DECLARE_DRIVER(mtk_apu1, "mediatek,mt6779-apu1", mtk_apu1_init);
 
 static void __init mtk_apu_vcore_init(struct device_node *node)
 {
@@ -3931,7 +3938,8 @@ static void __init mtk_apu_vcore_init(struct device_node *node)
 	clk_writel(APU_VCORE_CG_CLR, APU_VCORE_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_apu_vcore, "mediatek,apu_vcore", mtk_apu_vcore_init);
+CLK_OF_DECLARE_DRIVER(mtk_apu_vcore, "mediatek,mt6779-apu_vcore",
+			mtk_apu_vcore_init);
 
 static void __init mtk_apu_mdla_init(struct device_node *node)
 {
@@ -3962,7 +3970,8 @@ static void __init mtk_apu_mdla_init(struct device_node *node)
 	clk_writel(APU_MDLA_CG_CLR, APU_MDLA_CG);
 #endif
 }
-CLK_OF_DECLARE_DRIVER(mtk_apu_mdla, "mediatek,apu_mdla", mtk_apu_mdla_init);
+CLK_OF_DECLARE_DRIVER(mtk_apu_mdla, "mediatek,mt6779-apu_mdla",
+			mtk_apu_mdla_init);
 
 void check_seninf_ck(void)
 {
