@@ -24,5 +24,12 @@ enum rtc_gpio_user_t {
 	RTC_GPIO_USER_PMIC = 12,
 };
 
+#ifdef CONFIG_MT6358_MISC
+void rtc_enable_32k1v8_1(void);
+void rtc_disable_32k1v8_1(void);
+#else
+#define rtc_enable_32k1v8_1()		do {} while (0)
+#define rtc_disable_32k1v8_1()		do {} while (0)
+#endif
 
 #endif
