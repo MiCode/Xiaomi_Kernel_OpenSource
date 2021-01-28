@@ -163,6 +163,7 @@ static int gyrohub_ReadGyroData(char *buf, int bufsize)
 	int gyro[GYROHUB_AXES_NUM];
 	int err = 0;
 	int status = 0;
+	int len = 0;
 
 	if (atomic_read(&obj->suspend))
 		return -3;
@@ -180,13 +181,13 @@ static int gyrohub_ReadGyroData(char *buf, int bufsize)
 	gyro[GYROHUB_AXIS_Y]	= data.gyroscope_t.y;
 	gyro[GYROHUB_AXIS_Z]	= data.gyroscope_t.z;
 	status					= data.gyroscope_t.status;
-	sprintf(buf, "%04x %04x %04x %04x",
+	len = sprintf(buf, "%04x %04x %04x %04x",
 		gyro[GYROHUB_AXIS_X],
 		gyro[GYROHUB_AXIS_Y],
 		gyro[GYROHUB_AXIS_Z],
 		status);
 
-	if (atomic_read(&obj->trace) & GYRO_TRC_DATA)
+	if ((atomic_read(&obj->trace) & GYRO_TRC_DATA) && (len > 0))
 		pr_debug("gsensor data: %s!\n", buf);
 
 	return 0;
