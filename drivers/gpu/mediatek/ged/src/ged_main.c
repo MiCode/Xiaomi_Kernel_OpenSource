@@ -109,8 +109,6 @@ static long ged_dispatch(struct file *pFile,
 {
 	int ret = -EFAULT;
 	void *pvIn = NULL, *pvOut = NULL;
-	typedef int (ged_bridge_func_type)(void *, void *);
-	ged_bridge_func_type *pFunc = NULL;
 
 	/* We make sure the both size are GE 0 integer.
 	 */
@@ -143,8 +141,7 @@ static long ged_dispatch(struct file *pFile,
 		/* Make sure that the UM will never break the KM.
 		 * Check IO size are both matched the size of IO sturct.
 		 */
-#define SET_FUNC_AND_CHECK(func, struct_name) do {\
-	pFunc = (ged_bridge_func_type *) func;\
+#define VALIDATE_ARG(struct_name) do { \
 	if (sizeof(struct GED_BRIDGE_IN_##struct_name)\
 		> psBridgePackageKM->i32InBufferSize ||\
 		sizeof(struct GED_BRIDGE_OUT_##struct_name)\
@@ -163,74 +160,78 @@ static long ged_dispatch(struct file *pFile,
 		 */
 		switch (GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID)) {
 		case GED_BRIDGE_COMMAND_LOG_BUF_GET:
-			SET_FUNC_AND_CHECK(ged_bridge_log_buf_get, LOGBUFGET);
+			VALIDATE_ARG(LOGBUFGET);
+			ret = ged_bridge_log_buf_get(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_LOG_BUF_WRITE:
-			SET_FUNC_AND_CHECK(ged_bridge_log_buf_write,
-				LOGBUFWRITE);
+			VALIDATE_ARG(LOGBUFWRITE);
+			ret = ged_bridge_log_buf_write(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_LOG_BUF_RESET:
-			SET_FUNC_AND_CHECK(ged_bridge_log_buf_reset,
-				LOGBUFRESET);
+			VALIDATE_ARG(LOGBUFRESET);
+			ret = ged_bridge_log_buf_reset(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_BOOST_GPU_FREQ:
-			SET_FUNC_AND_CHECK(ged_bridge_boost_gpu_freq,
-				BOOSTGPUFREQ);
+			VALIDATE_ARG(BOOSTGPUFREQ);
+			ret = ged_bridge_boost_gpu_freq(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_MONITOR_3D_FENCE:
-			SET_FUNC_AND_CHECK(ged_bridge_monitor_3D_fence,
-				MONITOR3DFENCE);
+			VALIDATE_ARG(MONITOR3DFENCE);
+			ret = ged_bridge_monitor_3D_fence(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_QUERY_INFO:
-			SET_FUNC_AND_CHECK(ged_bridge_query_info, QUERY_INFO);
+			VALIDATE_ARG(QUERY_INFO);
+			ret = ged_bridge_query_info(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_NOTIFY_VSYNC:
-			SET_FUNC_AND_CHECK(ged_bridge_notify_vsync,
-				NOTIFY_VSYNC);
+			VALIDATE_ARG(NOTIFY_VSYNC);
+			ret = ged_bridge_notify_vsync(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_DVFS_PROBE:
-			SET_FUNC_AND_CHECK(ged_bridge_dvfs_probe, DVFS_PROBE);
+			VALIDATE_ARG(DVFS_PROBE);
+			ret = ged_bridge_dvfs_probe(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_DVFS_UM_RETURN:
-			SET_FUNC_AND_CHECK(ged_bridge_dvfs_um_retrun,
-				DVFS_UM_RETURN);
+			VALIDATE_ARG(DVFS_UM_RETURN);
+			ret = ged_bridge_dvfs_um_retrun(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_EVENT_NOTIFY:
-			SET_FUNC_AND_CHECK(ged_bridge_event_notify,
-				EVENT_NOTIFY);
+			VALIDATE_ARG(EVENT_NOTIFY);
+			ret = ged_bridge_event_notify(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU:
-			SET_FUNC_AND_CHECK(ged_bridge_gpu_hint_to_cpu,
-			GPU_HINT_TO_CPU);
+			VALIDATE_ARG(GPU_HINT_TO_CPU);
+			ret = ged_bridge_gpu_hint_to_cpu(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
-			SET_FUNC_AND_CHECK(ged_bridge_ge_alloc, GE_ALLOC);
+			VALIDATE_ARG(GE_ALLOC);
+			ret = ged_bridge_ge_alloc(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_GET:
-			SET_FUNC_AND_CHECK(ged_bridge_ge_get, GE_GET);
+			VALIDATE_ARG(GE_GET);
+			ret = ged_bridge_ge_get(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_SET:
-			SET_FUNC_AND_CHECK(ged_bridge_ge_set, GE_SET);
+			VALIDATE_ARG(GE_SET);
+			ret = ged_bridge_ge_set(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GE_INFO:
-			SET_FUNC_AND_CHECK(ged_bridge_ge_info, GE_INFO);
+			VALIDATE_ARG(GE_INFO);
+			ret = ged_bridge_ge_info(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GPU_TIMESTAMP:
-			SET_FUNC_AND_CHECK(ged_bridge_gpu_timestamp,
-				GPU_TIMESTAMP);
+			VALIDATE_ARG(GPU_TIMESTAMP);
+			ret = ged_bridge_gpu_timestamp(pvIn, pvOut);
 			break;
 		case GED_BRIDGE_COMMAND_GPU_TUNER_STATUS:
-			SET_FUNC_AND_CHECK(ged_bridge_gpu_tuner_status,
-			GPU_TUNER_STATUS);
+			VALIDATE_ARG(GPU_TUNER_STATUS);
+			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
 		default:
 			GED_LOGE("Unknown Bridge ID: %u\n",
 			GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
 			break;
 		}
-
-		if (pFunc)
-			ret = pFunc(pvIn, pvOut);
 
 		if (psBridgePackageKM->i32OutBufferSize > 0) {
 			if (ged_copy_to_user(psBridgePackageKM->pvParamOut,
