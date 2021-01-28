@@ -1332,4 +1332,13 @@ config TOUCHSCREEN_MTK_FOCALTECH_HD
 	  To compile this dirver as a module, choose M here: the
 	  module will be called.
 
+config TOUCHSCREEN_MTK_FOCALTECH_FHD
+	bool "Focaltech FHD Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have Focaltech touch panel.
+	  If unsure, say N
+
+	  To compile this dirver as a module, choose M here: the
+	  module will be called.
 endif
