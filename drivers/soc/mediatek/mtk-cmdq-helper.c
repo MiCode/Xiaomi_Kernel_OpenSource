@@ -1097,6 +1097,7 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 	cmdq_pkt_read(pkt, NULL, timeout_en, CMDQ_SPR_FOR_TEMP);
 	cmdq_pkt_clear_event(pkt, event);
 
+	cmdq_pkt_poll_gpr_check(pkt, reg_gpr, 0);
 	if (tick < U16_MAX) {
 		lop.reg = true;
 		lop.idx = CMDQ_TPR_ID;
@@ -1113,6 +1114,7 @@ s32 cmdq_pkt_sleep(struct cmdq_pkt *pkt, u32 tick, u16 reg_gpr)
 		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD,
 			CMDQ_GPR_CNT_ID + reg_gpr, &lop, &rop);
 	}
+	cmdq_pkt_poll_gpr_check(pkt, reg_gpr, 16);
 	cmdq_pkt_wfe(pkt, event);
 
 	lop.reg = true;
@@ -1139,6 +1141,7 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	struct cmdq_instruction *inst;
 	bool absolute = true;
 
+	cmdq_pkt_poll_gpr_check(pkt, reg_gpr, -1);
 	if (pkt->avail_buf_size > PAGE_SIZE)
 		absolute = false;
 
