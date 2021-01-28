@@ -14,9 +14,9 @@
 #include <linux/iio/iio.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 
-extern void auxadc_set_convert_fn(int channel,
+extern void auxadc_set_convert_fn(unsigned int channel,
 				  void (*convert_fn)(unsigned char convert));
-extern void auxadc_set_cali_fn(int channel,
+extern void auxadc_set_cali_fn(unsigned int channel,
 			       int (*cali_fn)(int val, int precision_factor));
 extern int auxadc_priv_read_channel(struct device *dev, int channel);
 extern unsigned char *auxadc_get_r_ratio(int channel);
