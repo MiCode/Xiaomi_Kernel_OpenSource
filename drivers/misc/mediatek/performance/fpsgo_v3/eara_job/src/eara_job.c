@@ -1203,6 +1203,7 @@ static void get_pwr_tbl(void)
 				apusys_opp_to_freq(VPU0, opp) *
 				100 / apusys_opp_to_freq(VPU0, 0);
 #else
+#if 0
 		eara_vpu_table.power[opp] =
 			vpu_power_table[opp].power;
 		eara_vpu_table.freq[opp] =
@@ -1210,6 +1211,7 @@ static void get_pwr_tbl(void)
 		eara_vpu_table.capacity_ratio[opp] =
 			get_vpu_opp_to_freq(opp) *
 			100 / get_vpu_opp_to_freq(0);
+#endif
 #endif
 	}
 #endif
