@@ -26,3 +26,13 @@ config MTK_DCM_MT6761
 	  neet to change mt6761 dcm setting. Setting will not keep after reboot
 	  Select "y" if you want to change mt6761 dcm setting.
 	  Select "n" if you do not need to change
+
+config MTK_DCM_MT6765
+	tristate "Mediatek MT6765 DCM control"
+	depends on ARCH_MEDIATEK && OF
+	select MTK_DCM_COMMON
+	help
+	  For Mediatek MT6765 dcm HW control. Only enable when you
+	  neet to change mt6765 dcm setting. Setting will not keep after reboot
+	  Select "y" if you want to change mt6761 dcm setting.
+	  Select "n" if you do not need to change
