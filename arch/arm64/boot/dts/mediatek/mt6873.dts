@@ -2841,6 +2841,12 @@ page_owner=on loop.max_part=7";
 #endif
 	};
 
+	apusys_devapc@19064000 {
+		compatible = "mediatek,mt6873-apusys_devapc";
+		reg = <0 0x19064000 0 0x1000>;
+		interrupts = <GIC_SPI 407 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	apusys_power {
 		compatible = "mediatek,apusys_power";
 
