@@ -3838,6 +3838,7 @@ static int _rdma_update_callback(unsigned long if_fence)
 static void DC_config_nightlight(struct cmdqRecStruct *cmdq_handle)
 {
 	int i, mode, ccorr_matrix[16], all_zero = 1;
+	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
 
 	cmdqBackupReadSlot(pgc->night_light_params, 0, &mode);
 
@@ -3851,10 +3852,12 @@ static void DC_config_nightlight(struct cmdqRecStruct *cmdq_handle)
 			break;
 		}
 	}
-	if (all_zero)
-		disp_aee_print("Night light backup param is zero matrix\n");
-	else
+	if (all_zero) {
+		if (__ratelimit(&_rs))
+			DISPWARN("Night light backup param is zero matrix\n");
+	} else {
 		disp_ccorr_set_color_matrix(cmdq_handle, ccorr_matrix, mode);
+	}
 }
 
 static int _decouple_update_rdma_config_nolock(void)
@@ -7509,6 +7512,7 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	disp_path_handle disp_handle;
 	struct cmdqRecStruct *cmdq_handle;
 	struct disp_ccorr_config m_ccorr_config = cfg->ccorr_config;
+	static DEFINE_RATELIMIT_STATE(_rs, HZ, 1);
 
 	if (gTriggerDispMode > 0)
 		return 0;
@@ -7561,9 +7565,10 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 				break;
 			}
 		}
-		if (all_zero)
-			disp_aee_print("HWC set zero matrix\n");
-		else if (!primary_display_is_decouple_mode()) {
+		if (all_zero) {
+			if (__ratelimit(&_rs))
+				DISPWARN("HWC set zero matrix\n");
+		} else if (!primary_display_is_decouple_mode()) {
 			disp_ccorr_set_color_matrix(cmdq_handle,
 				m_ccorr_config.color_matrix,
 				m_ccorr_config.mode);
