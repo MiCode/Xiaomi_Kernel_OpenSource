@@ -21,7 +21,11 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_bm
 
 ccflags-y += -DCONFIG_MALI_MIDGARD_DVFS
+
+ifeq ($(CONFIG_DEBUG_FS),y)
 ccflags-y += -DCONFIG_DEBUG_FS
+endif
+
 ccflags-y += -DCONFIG_PROC_FS
 ccflags-y += -DENABLE_MTK_MEMINFO
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS

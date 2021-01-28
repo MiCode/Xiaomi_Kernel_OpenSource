@@ -11,5 +11,11 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
+ccflags-y += -I$(srctree)/include/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee/aed/
+
+obj-y += mtk_gpufreq_common.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
