@@ -201,6 +201,8 @@ config MACH_MT6779
 	select F2FS_FS_XATTR
 	select MTK_SYSIRQ
 	select MTK_BASE_POWER if !MTK_GKI_COMPAT
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_DBGTOP
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
