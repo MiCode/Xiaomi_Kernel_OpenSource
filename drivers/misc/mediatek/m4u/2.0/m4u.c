@@ -302,6 +302,11 @@ int m4u_destroy_client(struct m4u_client_t *client)
 	unsigned int mva, size;
 	M4U_PORT_ID port;
 
+	if (!client) {
+		m4u_err("warning: %s, client is NULL!\n", __func__);
+		return -1;
+	}
+
 	while (1) {
 		mutex_lock(&(client->dataMutex));
 		if (list_empty(&client->mvaList)) {
