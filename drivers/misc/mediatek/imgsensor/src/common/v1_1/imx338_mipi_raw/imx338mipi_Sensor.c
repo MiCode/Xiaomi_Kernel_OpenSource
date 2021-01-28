@@ -4282,6 +4282,9 @@ static kal_uint32 feature_control(
 			break;
 		}
 		break;
+	case SENSOR_FEATURE_GET_AWB_REQ_BY_SCENARIO:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1;
+		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		imx338_awb_gain(pSetSensorAWB);
 		break;

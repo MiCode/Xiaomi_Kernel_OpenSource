@@ -430,7 +430,6 @@ static void imx519_get_pdaf_reg_setting(MUINT32 regNum, kal_uint16 *regDa)
 }
 static void imx519_set_pdaf_reg_setting(MUINT32 regNum, kal_uint16 *regDa)
 {
-
 	imx519_table_write_cmos_sensor(regDa, regNum*2);
 }
 
@@ -649,7 +648,8 @@ static void set_shutter(kal_uint32 shutter)
  *
  *************************************************************************/
 static void set_shutter_frame_length(kal_uint16 shutter,
-				     kal_uint16 frame_length)
+				     kal_uint16 frame_length,
+				     kal_bool auto_extend_en)
 {
 	unsigned long flags;
 	kal_uint16 realtime_fps = 0;
@@ -715,14 +715,17 @@ static void set_shutter_frame_length(kal_uint16 shutter,
 
 	/* Update Shutter */
 	write_cmos_sensor_8(0x0104, 0x01);
-	write_cmos_sensor_8(0x0350, 0x00); /* Disable auto extend */
+	if (auto_extend_en)
+		write_cmos_sensor_8(0x0350, 0x01); /* Enable auto extend */
+	else
+		write_cmos_sensor_8(0x0350, 0x00); /* Disable auto extend */
 	write_cmos_sensor_8(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor_8(0x0203, shutter  & 0xFF);
 	write_cmos_sensor_8(0x0104, 0x00);
 	LOG_INF(
 		"Exit! shutter =%d, framelength =%d/%d, dummy_line=%d, auto_extend=%d\n",
 		shutter, imgsensor.frame_length, frame_length,
-		dummy_line, read_cmos_sensor(0x0350));
+		dummy_line, read_cmos_sensor_8(0x0350));
 
 }	/* set_shutter_frame_length */
 
@@ -1743,7 +1746,7 @@ static kal_uint16 imx519_preview_setting[] = {
 	0x0222, 0x01,
 	0x0900, 0x01,
 	0x0901, 0x22,
-	0x0902, 0x08,
+	0x0902, 0x08, //0x84,
 	0x3F4C, 0x05,
 	0x3F4D, 0x03,
 	/*PDAF Area Config Begin*/
@@ -2275,6 +2278,7 @@ static kal_uint16 imx519_custom3_setting[] = {
 	0x3E20, 0x01,
 	0x3E37, 0x00,
 };
+#endif
 
 #if IMX519_CAP_2TRIO
 static void sensor_init(void)
@@ -3726,7 +3730,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		set_shutter_frame_length((UINT16) (*feature_data),
-					(UINT16) (*(feature_data + 1)));
+					(UINT16) (*(feature_data + 1)),
+					(BOOL) (*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * 1, if driver support new sw frame sync
+		 * set_shutter_frame_length() support third para auto_extend_en
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		break;

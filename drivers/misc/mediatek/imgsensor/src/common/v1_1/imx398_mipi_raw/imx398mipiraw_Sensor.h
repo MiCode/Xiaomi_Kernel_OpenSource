@@ -154,6 +154,11 @@ struct imgsensor_info_struct {
 
 	kal_uint8 margin;	/* sensor framelength & shutter margin */
 	kal_uint32 min_shutter;	/* min shutter */
+	kal_uint32 min_gain;
+	kal_uint32 max_gain;
+	kal_uint32 min_gain_iso;
+	kal_uint32 gain_step;
+	kal_uint32 gain_type;
 
 	/* max framelength by sensor register's limitation */
 	kal_uint32 max_frame_length;

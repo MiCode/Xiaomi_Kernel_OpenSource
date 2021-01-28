@@ -140,6 +140,11 @@ static struct imgsensor_info_struct imgsensor_info = {
 
 	.margin = 10,
 	.min_shutter = 2,
+	.min_gain = 64, /*1x gain*/
+	.max_gain = 512, /*8x gain*/
+	.min_gain_iso = 100,
+	.gain_step = 1,
+	.gain_type = 0,
 	.max_frame_length = 0xFFFE,
 	.ae_shut_delay_frame = 0,
 	.ae_sensor_gain_delay_frame = 0,
@@ -473,7 +478,7 @@ static void set_shutter(kal_uint32 shutter)
 		, shutter, imgsensor.frame_length, line_length, long_exp_shift);
 }
 static void set_shutter_frame_length(kal_uint32 shutter,
-	kal_uint32 frame_length)
+	kal_uint32 frame_length, kal_bool auto_extend_en)
 {
 	unsigned long flags;
 	kal_uint16 realtime_fps = 0;
@@ -578,7 +583,10 @@ static void set_shutter_frame_length(kal_uint32 shutter,
 	}
 
 	/* Update Shutter */
-	write_cmos_sensor(0x0350, 0x00); /* Disable auto extend */
+	if (auto_extend_en)
+		write_cmos_sensor(0x0350, 0x01); /* Enable auto extend */
+	else
+		write_cmos_sensor(0x0350, 0x00); /* Disable auto extend */
 	write_cmos_sensor_w(0x0202, shutter & 0xFFFF);
 	write_cmos_sensor(0x0104, 0x00);
 	LOG_INF("shutter=%d, framelength=%d, length=%d, shift:%d\n"
@@ -886,12 +894,12 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	kal_uint16 reg_gain = 0x0000;
 
 	LOG_INF("set gain = %d\n", gain);
-	if (gain < BASEGAIN || gain > 16 * BASEGAIN) {
+	if (gain < imgsensor_info.min_gain || gain > imgsensor_info.max_gain) {
 		LOG_INF("Error gain setting");
-		if (gain < BASEGAIN)
-			gain = BASEGAIN;
-		else if (gain > 16 * BASEGAIN)
-			gain = 16 * BASEGAIN;
+		if (gain < imgsensor_info.min_gain)
+			gain = imgsensor_info.min_gain;
+		else
+			gain = imgsensor_info.max_gain;
 	}
 
 	reg_gain = gain2reg(gain);
@@ -2602,6 +2610,18 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 	struct SET_PD_BLOCK_INFO_T *PDAFinfo;
 
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_gain;
+		*(feature_data + 2) = imgsensor_info.max_gain;
+		break;
+	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
+		*(feature_data + 0) = imgsensor_info.min_gain_iso;
+		*(feature_data + 1) = imgsensor_info.gain_step;
+		*(feature_data + 2) = imgsensor_info.gain_type;
+		break;
+	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_shutter;
+		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
@@ -2698,7 +2718,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		break;
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		set_shutter_frame_length((UINT32)*feature_data,
-			(UINT32)*(feature_data+1));
+			(UINT32)*(feature_data + 1),
+			(BOOL) (*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * 1, if driver support new sw frame sync
+		 * set_shutter_frame_length() support third para auto_extend_en
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_SET_NIGHTMODE:
 		night_mode((BOOL)*feature_data);

@@ -126,7 +126,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.framelength = 944,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 1472,
+		.grabwindow_width = 1476,
 		.grabwindow_height = 832,
 		.mipi_data_lp2hs_settle_dc = 30,
 		.max_framerate = 1150,
@@ -139,7 +139,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.framelength = 902,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 1472,
+		.grabwindow_width = 1476,
 		.grabwindow_height = 832,
 		.mipi_data_lp2hs_settle_dc = 30,
 		.max_framerate = 1200,
@@ -258,8 +258,13 @@ static struct imgsensor_info_struct imgsensor_info = {
 		/*   following for GetDefaultFramerateByScenario()  */
 		.max_framerate = 300,
 	},
-	.margin = 4,		/* sensor framelength & shutter margin */
+	.margin = 10,		/* sensor framelength & shutter margin */
 	.min_shutter = 1,	/* min shutter */
+	.min_gain = 64, /*1x gain*/
+	.max_gain = 512, /*8x gain*/
+	.min_gain_iso = 100,
+	.gain_step = 1,
+	.gain_type = 0,
 
 	/* max framelength by sensor register's limitation */
 	.max_frame_length = 0x7fff,
@@ -347,12 +352,12 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 		0000, 0000, 2328, 1748, 0000, 0000, 2328, 1748},/* Preview */
 	{4656, 3496, 0000, 0000, 4656, 3496, 4656, 3496,
 		0000, 0000, 4656, 3496, 0000, 0000, 4656, 3496},/* capture */
-	{4656, 3496, 0000, 0000, 4656, 3496, 4656, 3496,
-		0000, 0000, 4656, 3496, 0000, 0000, 4656, 2608},/* video */
-	{4656, 3496, 0000, 492, 4656, 2500, 2216, 834,
-		0000, 0000, 2216, 834, 370, 0000, 1472, 832},/* hs video */
-	{4656, 3496, 0000, 492, 4656, 2500, 2216, 834,
-		0000, 0000, 2216, 834, 370, 0000, 1472, 832},/* slim video */
+	{4656, 3496, 0000, 444, 4656, 2608, 4656, 2608,
+		0000, 0000, 4656, 2608, 0000, 0000, 4656, 2608},/* video */
+	{4656, 3496, 0000, 492, 4656, 2500, 2328, 1250,
+		0000, 0000, 1476, 832, 0000, 0000, 1476, 832},/* hs video */
+	{4656, 3496, 0000, 492, 4656, 2500, 2328, 1250,
+		0000, 0000, 1476, 832, 0000, 0000, 1476, 832},/* slim video */
 	{4656, 3496, 0000, 0000, 4656, 3496, 2328, 1748,
 		0000, 0000, 2328, 1748, 0000, 0000, 2328, 1748},/* Custom1 */
 	{4656, 3496, 0000, 0000, 4656, 3496, 2328, 1748,
@@ -896,7 +901,8 @@ static void set_shutter(kal_uint16 shutter)
 }				/*    set_shutter */
 
 static void set_shutter_frame_length(
-		kal_uint16 shutter, kal_uint16 frame_length)
+		kal_uint16 shutter, kal_uint16 frame_length,
+		kal_bool auto_extend_en)
 {
 	unsigned long flags;
 	kal_uint16 realtime_fps = 0;
@@ -957,7 +963,10 @@ static void set_shutter_frame_length(
 
 	/* Update Shutter */
 	write_cmos_sensor(0x0104, 0x01);
-	write_cmos_sensor(0x0350, 0x00);	/* Disable auto extend */
+	if (auto_extend_en)
+		write_cmos_sensor(0x0350, 0x01); /* Enable auto extend */
+	else
+		write_cmos_sensor(0x0350, 0x00); /* Disable auto extend */
 	write_cmos_sensor(0x0202, (shutter >> 8) & 0xFF);
 	write_cmos_sensor(0x0203, shutter & 0xFF);
 	write_cmos_sensor(0x0104, 0x00);
@@ -1011,14 +1020,15 @@ static kal_uint16 set_gain(kal_uint16 gain)
 	/* Total gain = M + N /16 X   */
 
 	/*  */
-	if (gain < BASEGAIN || gain > 8 * BASEGAIN) {
+	if (gain < imgsensor_info.min_gain || gain > imgsensor_info.max_gain) {
 		pr_debug("Error gain setting");
 
-		if (gain < BASEGAIN)
-			gain = BASEGAIN;
-		else if (gain > 8 * BASEGAIN)
-			gain = 8 * BASEGAIN;
+		if (gain < imgsensor_info.min_gain)
+			gain = imgsensor_info.min_gain;
+		else
+			gain = imgsensor_info.max_gain;
 	}
+
 
 	reg_gain = gain2reg(gain);
 	spin_lock(&imgsensor_drv_lock);
@@ -2962,7 +2972,7 @@ kal_uint16 addr_data_pair_hs_video_imx398[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x034C, 0x05,
-	0x034D, 0xC0,
+	0x034D, 0xC4,
 	0x034E, 0x03,
 	0x034F, 0x42,
 	0x0401, 0x01,
@@ -3058,7 +3068,7 @@ kal_uint16 addr_data_pair_slim_video_imx398[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x034C, 0x05,
-	0x034D, 0xC0,
+	0x034D, 0xC4,
 	0x034E, 0x03,
 	0x034F, 0x42,
 	0x0401, 0x01,
@@ -3928,6 +3938,459 @@ static kal_int32 get_sensor_temperature(void)
 
 	return temperature_convert;
 }
+
+static kal_uint32 ana_gain_table_8x[] = {
+	100000,
+	100196,
+	100392,
+	100589,
+	100787,
+	100986,
+	101186,
+	101386,
+	101587,
+	101789,
+	101992,
+	102196,
+	102400,
+	102605,
+	102811,
+	103018,
+	103226,
+	103434,
+	103644,
+	103854,
+	104065,
+	104277,
+	104490,
+	104703,
+	104918,
+	105133,
+	105350,
+	105567,
+	105785,
+	106004,
+	106224,
+	106445,
+	106667,
+	106889,
+	107113,
+	107338,
+	107563,
+	107789,
+	108017,
+	108245,
+	108475,
+	108705,
+	108936,
+	109168,
+	109402,
+	109636,
+	109871,
+	110108,
+	110345,
+	110583,
+	110823,
+	111063,
+	111304,
+	111547,
+	111790,
+	112035,
+	112281,
+	112527,
+	112775,
+	113024,
+	113274,
+	113525,
+	113778,
+	114031,
+	114286,
+	114541,
+	114798,
+	115056,
+	115315,
+	115576,
+	115837,
+	116100,
+	116364,
+	116629,
+	116895,
+	117162,
+	117431,
+	117701,
+	117972,
+	118245,
+	118519,
+	118794,
+	119070,
+	119347,
+	119626,
+	119906,
+	120188,
+	120471,
+	120755,
+	121040,
+	121327,
+	121615,
+	121905,
+	122196,
+	122488,
+	122782,
+	123077,
+	123373,
+	123671,
+	123971,
+	124272,
+	124574,
+	124878,
+	125183,
+	125490,
+	125799,
+	126108,
+	126420,
+	126733,
+	127047,
+	127363,
+	127681,
+	128000,
+	128321,
+	128643,
+	128967,
+	129293,
+	129620,
+	129949,
+	130280,
+	130612,
+	130946,
+	131282,
+	131620,
+	131959,
+	132300,
+	132642,
+	132987,
+	133333,
+	133681,
+	134031,
+	134383,
+	134737,
+	135092,
+	135450,
+	135809,
+	136170,
+	136533,
+	136898,
+	137265,
+	137634,
+	138005,
+	138378,
+	138753,
+	139130,
+	139510,
+	139891,
+	140274,
+	140659,
+	141047,
+	141436,
+	141828,
+	142222,
+	142618,
+	143017,
+	143417,
+	143820,
+	144225,
+	144633,
+	145042,
+	145455,
+	145869,
+	146286,
+	146705,
+	147126,
+	147550,
+	147977,
+	148406,
+	148837,
+	149271,
+	149708,
+	150147,
+	150588,
+	151032,
+	151479,
+	151929,
+	152381,
+	152836,
+	153293,
+	153754,
+	154217,
+	154683,
+	155152,
+	155623,
+	156098,
+	156575,
+	157055,
+	157538,
+	158025,
+	158514,
+	159006,
+	159502,
+	160000,
+	160502,
+	161006,
+	161514,
+	162025,
+	162540,
+	163057,
+	163578,
+	164103,
+	164630,
+	165161,
+	165696,
+	166234,
+	166775,
+	167320,
+	167869,
+	168421,
+	168977,
+	169536,
+	170100,
+	170667,
+	171237,
+	171812,
+	172391,
+	172973,
+	173559,
+	174150,
+	174744,
+	175342,
+	175945,
+	176552,
+	177163,
+	177778,
+	178397,
+	179021,
+	179649,
+	180282,
+	180919,
+	181560,
+	182206,
+	182857,
+	183513,
+	184173,
+	184838,
+	185507,
+	186182,
+	186861,
+	187546,
+	188235,
+	188930,
+	189630,
+	190335,
+	191045,
+	191760,
+	192481,
+	193208,
+	193939,
+	194677,
+	195420,
+	196169,
+	196923,
+	197683,
+	198450,
+	199222,
+	200000,
+	200784,
+	201575,
+	202372,
+	203175,
+	203984,
+	204800,
+	205622,
+	206452,
+	207287,
+	208130,
+	208980,
+	209836,
+	210700,
+	211570,
+	212448,
+	213333,
+	214226,
+	215126,
+	216034,
+	216949,
+	217872,
+	218803,
+	219742,
+	220690,
+	221645,
+	222609,
+	223581,
+	224561,
+	225551,
+	226549,
+	227556,
+	228571,
+	229596,
+	230631,
+	231674,
+	232727,
+	233790,
+	234862,
+	235945,
+	237037,
+	238140,
+	239252,
+	240376,
+	241509,
+	242654,
+	243810,
+	244976,
+	246154,
+	247343,
+	248544,
+	249756,
+	250980,
+	252217,
+	253465,
+	254726,
+	256000,
+	257286,
+	258586,
+	259898,
+	261224,
+	262564,
+	263918,
+	265285,
+	266667,
+	268063,
+	269474,
+	270899,
+	272340,
+	273797,
+	275269,
+	276757,
+	278261,
+	279781,
+	281319,
+	282873,
+	284444,
+	286034,
+	287640,
+	289266,
+	290909,
+	292571,
+	294253,
+	295954,
+	297674,
+	299415,
+	301176,
+	302959,
+	304762,
+	306587,
+	308434,
+	310303,
+	312195,
+	314110,
+	316049,
+	318012,
+	320000,
+	322013,
+	324051,
+	326115,
+	328205,
+	330323,
+	332468,
+	334641,
+	336842,
+	339073,
+	341333,
+	343624,
+	345946,
+	348299,
+	350685,
+	353103,
+	355556,
+	358042,
+	360563,
+	363121,
+	365714,
+	368345,
+	371014,
+	373723,
+	376471,
+	379259,
+	382090,
+	384962,
+	387879,
+	390840,
+	393846,
+	396899,
+	400000,
+	403150,
+	406349,
+	409600,
+	412903,
+	416260,
+	419672,
+	423140,
+	426667,
+	430252,
+	433898,
+	437607,
+	441379,
+	445217,
+	449123,
+	453097,
+	457143,
+	461261,
+	465455,
+	469725,
+	474074,
+	478505,
+	483019,
+	487619,
+	492308,
+	497087,
+	501961,
+	506931,
+	512000,
+	517172,
+	522449,
+	527835,
+	533333,
+	538947,
+	544681,
+	550538,
+	556522,
+	562637,
+	568889,
+	575281,
+	581818,
+	588506,
+	595349,
+	602353,
+	609524,
+	616867,
+	624390,
+	632099,
+	640000,
+	648101,
+	656410,
+	664935,
+	673684,
+	682667,
+	691892,
+	701370,
+	711111,
+	721127,
+	731429,
+	742029,
+	752941,
+	764179,
+	775758,
+	787692,
+	800000,
+};
+
 static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 				  UINT8 *feature_para, UINT32 *feature_para_len)
 {
@@ -3952,6 +4415,28 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		(MSDK_SENSOR_REG_INFO_STRUCT *) feature_para;
 
 	switch (feature_id) {
+	case SENSOR_FEATURE_GET_ANA_GAIN_TABLE:
+		if ((void *)(uintptr_t) (*(feature_data + 1)) == NULL) {
+			*(feature_data + 0) =
+				sizeof(ana_gain_table_8x)/sizeof(char);
+		} else {
+			memcpy((void *)(uintptr_t) (*(feature_data + 1)),
+			(void *)ana_gain_table_8x,
+			sizeof(ana_gain_table_8x)/sizeof(char));
+		}
+		break;
+	case SENSOR_FEATURE_GET_GAIN_RANGE_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_gain;
+		*(feature_data + 2) = imgsensor_info.max_gain;
+		break;
+	case SENSOR_FEATURE_GET_BASE_GAIN_ISO_AND_STEP:
+		*(feature_data + 0) = imgsensor_info.min_gain_iso;
+		*(feature_data + 1) = imgsensor_info.gain_step;
+		*(feature_data + 2) = imgsensor_info.gain_type;
+		break;
+	case SENSOR_FEATURE_GET_MIN_SHUTTER_BY_SCENARIO:
+		*(feature_data + 1) = imgsensor_info.min_shutter;
+		break;
 	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
 		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 0;
 		break;
@@ -4272,6 +4757,9 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 			break;
 		}
 		break;
+	case SENSOR_FEATURE_GET_AWB_REQ_BY_SCENARIO:
+		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 1;
+		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		imx398_awb_gain(pSetSensorAWB);
 		break;
@@ -4311,7 +4799,17 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 		/*End of PDAF */
 	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
 		set_shutter_frame_length((UINT16)(*feature_data),
-						(UINT16)(*(feature_data + 1)));
+						(UINT16)(*(feature_data + 1)),
+						(BOOL) (*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CTRL_INFO_BY_SCENARIO:
+		/*
+		 * 1, if driver support new sw frame sync
+		 * set_shutter_frame_length() support third para auto_extend_en
+		 */
+		*(feature_data + 1) = 1;
+		/* margin info by scenario */
+		*(feature_data + 2) = imgsensor_info.margin;
 		break;
 	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:
 		*feature_return_para_32 = get_sensor_temperature();

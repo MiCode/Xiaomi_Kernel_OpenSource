@@ -147,6 +147,11 @@ struct imgsensor_info_struct {
 
  /* record sensor support all write id addr, only supprt 4must end with 0xff */
 	kal_uint8 i2c_addr_table[5];
+	kal_uint32 min_gain;
+	kal_uint32 max_gain;
+	kal_uint32 min_gain_iso;
+	kal_uint32 gain_step;
+	kal_uint32 gain_type;
 };
 
 /* SENSOR READ/WRITE ID */

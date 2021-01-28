@@ -471,6 +471,61 @@ static void set_shutter(kal_uint16 shutter)
 }				/*      set_shutter */
 
 
+static void set_shutter_frame_length(
+	kal_uint16 shutter, kal_uint16 frame_length)
+{
+	unsigned long flags;
+	kal_uint16 realtime_fps = 0;
+	kal_int32 dummy_line = 0;
+
+	spin_lock_irqsave(&imgsensor_drv_lock, flags);
+	imgsensor.shutter = shutter;
+	spin_unlock_irqrestore(&imgsensor_drv_lock, flags);
+
+	spin_lock(&imgsensor_drv_lock);
+	/* Change frame time */
+	if (frame_length > 1)
+		dummy_line = frame_length - imgsensor.frame_length;
+
+	imgsensor.frame_length = imgsensor.frame_length + dummy_line;
+
+	if (shutter > imgsensor.frame_length - imgsensor_info.margin)
+		imgsensor.frame_length = shutter + imgsensor_info.margin;
+
+	if (imgsensor.frame_length > imgsensor_info.max_frame_length)
+		imgsensor.frame_length = imgsensor_info.max_frame_length;
+
+	spin_unlock(&imgsensor_drv_lock);
+	shutter = (shutter < imgsensor_info.min_shutter) ?
+			imgsensor_info.min_shutter : shutter;
+	shutter = (shutter >
+		(imgsensor_info.max_frame_length - imgsensor_info.margin)) ?
+		(imgsensor_info.max_frame_length - imgsensor_info.margin) :
+		shutter;
+
+	if (imgsensor.autoflicker_en) {
+		realtime_fps = imgsensor.pclk / imgsensor.line_length * 10 /
+			imgsensor.frame_length;
+		if (realtime_fps >= 297 && realtime_fps <= 305) {
+			set_max_framerate(296, 0);
+		} else if (realtime_fps >= 147 && realtime_fps <= 150) {
+			set_max_framerate(146, 0);
+		} else {
+			/* Extend frame length */
+			write_cmos_sensor(0x0340,
+				imgsensor.frame_length & 0xFFFF);
+		}
+	} else {
+		/* Extend frame length */
+		write_cmos_sensor(0x0340, imgsensor.frame_length & 0xFFFF);
+	}
+
+	/* Update Shutter */
+	write_cmos_sensor(0x0202, shutter & 0xFFFF);
+
+	pr_debug("shutter = %d, framelength = %d/%d, dummy_line= %d\n",
+		shutter, imgsensor.frame_length, frame_length, dummy_line);
+}			/*      set_shutter_frame_length */
 
 static kal_uint16 gain2reg(const kal_uint16 gain)
 {
@@ -2365,6 +2420,10 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	/*pr_debug("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
+	case SENSOR_FEATURE_SET_SHUTTER_FRAME_TIME:
+		set_shutter_frame_length((UINT16)(*feature_data),
+				(UINT16)(*(feature_data + 1)));
+		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
