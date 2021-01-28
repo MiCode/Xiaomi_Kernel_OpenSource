@@ -2171,7 +2171,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	logbuf_unlock_irqrestore(flags);
 
 	/* If called from the scheduler, we can not call up(). */
-	if (!in_sched) {
+	if (!in_sched && cpu_online(raw_smp_processor_id())) {
 		/*
 		 * Try to acquire and then immediately release the console
 		 * semaphore.  The release will print out buffers and wake up
