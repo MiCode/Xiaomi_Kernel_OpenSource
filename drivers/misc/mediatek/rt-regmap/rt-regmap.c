@@ -408,9 +408,14 @@ static int rt_cache_block_write(struct rt_regmap_device *rd, u32 reg,
 finished:
 	if (rd->props.io_log_en) {
 		j = 0;
-		for (i = 0; i < count; i++)
-			j += snprintf(wri_data + j, sizeof(wri_data) - j,
+		for (i = 0; i < count; i++) {
+			ret = snprintf(wri_data + j, sizeof(wri_data) - j,
 			"%02x,", wdata[i]);
+			if ((ret < 0) || (ret >= sizeof(wri_data) - j - 1))
+				return -EINVAL;
+
+			j += ret;
+		}
 		pr_info("RT_REGMAP [WRITE] reg0x%04x  [Data] 0x%s\n",
 							reg, wri_data);
 	}
@@ -480,9 +485,14 @@ static int rt_asyn_cache_block_write(struct rt_regmap_device *rd, u32 reg,
 finished:
 	if (rd->props.io_log_en) {
 		j = 0;
-		for (i = 0; i < count; i++)
-			j += snprintf(wri_data + j, sizeof(wri_data) - j,
+		for (i = 0; i < count; i++) {
+			ret += snprintf(wri_data + j, sizeof(wri_data) - j,
 			"%02x,", wdata[i]);
+			if ((ret < 0) || (ret >= sizeof(wri_data) - j - 1))
+				return -EINVAL;
+
+			j += ret;
+		}
 		pr_info("RT_REGMAP [WRITE] reg0x%04x  [Data] 0x%s\n",
 								reg, wri_data);
 	}
@@ -614,7 +624,8 @@ static int (*rt_block_map[])(struct rt_regmap_device *rd,
 static int rt_cache_block_read(struct rt_regmap_device *rd, u32 reg,
 			int bytes, void *dest)
 {
-	int i, ret, count = 0, reg_base = 0, total_bytes = 0;
+	int i, ret, reg_base = 0, total_bytes = 0;
+	uint32_t count = 0;
 	struct reg_index_offset rio;
 	const rt_register_map_t rm;
 	unsigned char data[100];
@@ -1142,17 +1153,25 @@ EXPORT_SYMBOL(rt_regmap_reg_read);
 
 void rt_cache_getlasterror(struct rt_regmap_device *rd, char *buf)
 {
+	int ret;
+
 	down(&rd->semaphore);
-	snprintf(buf, PAGE_SIZE, "%s\n", rd->err_msg);
+	ret = snprintf(buf, PAGE_SIZE, "%s\n", rd->err_msg);
+	if ((ret < 0) || (ret >= PAGE_SIZE-1))
+		dev_info(&rd->dev, "snprintf failed\n");
 	up(&rd->semaphore);
 }
 EXPORT_SYMBOL(rt_cache_getlasterror);
 
 void rt_cache_clrlasterror(struct rt_regmap_device *rd)
 {
+	int ret;
+
 	down(&rd->semaphore);
 	rd->error_occurred = 0;
-	snprintf(rd->err_msg, PAGE_SIZE, "%s", "No Error");
+	ret = snprintf(rd->err_msg, PAGE_SIZE, "%s", "No Error");
+	if ((ret < 0) || (ret >= PAGE_SIZE-1))
+		dev_info(&rd->dev, "snprintf failed\n");
 	up(&rd->semaphore);
 }
 EXPORT_SYMBOL(rt_cache_clrlasterror);
@@ -1326,15 +1345,17 @@ static void rt_show_regs(struct rt_regmap_device *rd, struct seq_file *seq_file)
 		if (ret < 0) {
 			dev_err(&rd->dev, "regmap block read fail\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
+				ret = snprintf(rd->err_msg+strlen(rd->err_msg),
 				PAGE_SIZE, "Error block read fail at 0x%02x\n",
 				rm[i]->addr);
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
 				"Error block read fail at 0x%02x\n",
 				rm[i]->addr);
 				rd->error_occurred = 1;
 			}
+			if ((ret < 0) || (ret >= PAGE_SIZE-1))
+				dev_info(&rd->dev, "snprintf fail\n");
 			goto err_show_regs;
 		}
 
@@ -1494,7 +1515,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 	struct reg_index_offset rio;
 	long int param[5] = {0};
 	unsigned char *reg_data;
-	int rc, size = 0;
+	int rc, size = 0, ret = 0;
 	char lbuf[128];
 	ssize_t res;
 
@@ -1533,14 +1554,18 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			if ((size - 1) * 3 + 5 != count) {
 				dev_err(&rd->dev, "wrong input length\n");
 				if (rd->error_occurred) {
-					snprintf(rd->err_msg +
+					ret = snprintf(rd->err_msg +
 						strlen(rd->err_msg), PAGE_SIZE,
 						"Error, wrong input length\n");
 				} else {
-					snprintf(rd->err_msg, PAGE_SIZE,
+					ret = snprintf(rd->err_msg, PAGE_SIZE,
 						"Error, wrong input length\n");
 					rd->error_occurred = 1;
 				}
+
+				if ((ret < 0) || (ret >= PAGE_SIZE-1))
+					dev_info(&rd->dev, "snprintf fail\n");
+
 				return -EINVAL;
 			}
 
@@ -1548,14 +1573,18 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			if (rc < 0) {
 				dev_err(&rd->dev, "get datas fail\n");
 				if (rd->error_occurred) {
-					snprintf(rd->err_msg +
+					ret = snprintf(rd->err_msg +
 					strlen(rd->err_msg), PAGE_SIZE,
 					"Error, get datas fail\n");
 				} else {
-					snprintf(rd->err_msg, PAGE_SIZE,
+					ret = snprintf(rd->err_msg, PAGE_SIZE,
 						"Error, get datas fail\n");
 					rd->error_occurred = 1;
 				}
+
+				if ((ret < 0) || (ret >= PAGE_SIZE-1))
+					dev_info(&rd->dev, "snprintf fail\n");
+
 				return -EINVAL;
 			}
 			down(&rd->semaphore);
@@ -1565,16 +1594,20 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			if (rc < 0) {
 				dev_err(&rd->dev, "chip block write fail\n");
 				if (rd->error_occurred) {
-					snprintf(rd->err_msg +
+					ret = snprintf(rd->err_msg +
 					strlen(rd->err_msg), PAGE_SIZE,
 				"Error chip block write fail at 0x%02x\n",
 					rd->dbg_data.reg_addr);
 				} else {
-					snprintf(rd->err_msg, PAGE_SIZE,
+					ret = snprintf(rd->err_msg, PAGE_SIZE,
 				"Error chip block write fail at 0x%02x\n",
 					rd->dbg_data.reg_addr);
 					rd->error_occurred = 1;
 				}
+
+				if ((ret < 0) || (ret >= PAGE_SIZE-1))
+					dev_info(&rd->dev, "snprintf fail\n");
+
 				return -EIO;
 			}
 			break;
@@ -1585,14 +1618,18 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 		if ((size - 1)*3 + 5 != count) {
 			dev_err(&rd->dev, "wrong input length\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
+				ret = snprintf(rd->err_msg+strlen(rd->err_msg),
 					PAGE_SIZE,
 					"Error, wrong input length\n");
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
 					"Error, wrong input length\n");
 				rd->error_occurred = 1;
 			}
+
+			if ((ret < 0) || (ret >= PAGE_SIZE-1))
+				dev_info(&rd->dev, "snprintf fail\n");
+
 			return -EINVAL;
 		}
 
@@ -1600,13 +1637,17 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 		if (rc < 0) {
 			dev_err(&rd->dev, "get datas fail\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
+				ret = snprintf(rd->err_msg+strlen(rd->err_msg),
 				PAGE_SIZE, "Error, get datas fail\n");
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
 				"Error, get datas fail\n");
 				rd->error_occurred = 1;
 			}
+
+			if ((ret < 0) || (ret >= PAGE_SIZE-1))
+				dev_info(&rd->dev, "snprintf fail\n");
+
 			return -EINVAL;
 		}
 
@@ -1617,16 +1658,20 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 		if (rc < 0) {
 			dev_err(&rd->dev, "regmap block write fail\n");
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
+				ret = snprintf(rd->err_msg+strlen(rd->err_msg),
 				PAGE_SIZE,
 				"Error regmap block write fail at 0x%02x\n",
 				rd->dbg_data.reg_addr);
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
 				"Error regmap block write fail at 0x%02x\n",
 				rd->dbg_data.reg_addr);
 				rd->error_occurred = 1;
 			}
+
+			if ((ret < 0) || (ret >= PAGE_SIZE-1))
+				dev_info(&rd->dev, "snprintf fail\n");
+
 			return -EIO;
 		}
 
@@ -1649,13 +1694,17 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 			up(&rd->semaphore);
 		} else {
 			if (rd->error_occurred) {
-				snprintf(rd->err_msg + strlen(rd->err_msg),
+				ret = snprintf(rd->err_msg+strlen(rd->err_msg),
 				PAGE_SIZE, "Error, size must > 0\n");
 			} else {
-				snprintf(rd->err_msg, PAGE_SIZE,
+				ret = snprintf(rd->err_msg, PAGE_SIZE,
 				"Error, size must > 0\n");
 				rd->error_occurred = 1;
 			}
+
+			if ((ret < 0) || (ret >= PAGE_SIZE-1))
+				dev_info(&rd->dev, "snprintf fail\n");
+
 			return -EINVAL;
 		}
 		break;
@@ -1833,7 +1882,7 @@ static ssize_t eachreg_read(struct file *file, char __user *ubuf,
 	char *lbuf;
 	unsigned char *regval;
 	const rt_register_map_t rm = rd->props.rm[st->id];
-	int i, j = 0, rc;
+	int i, j = 0, rc, ret = 0;
 
 	if (rd->props.max_byte_size == 0) {
 		regval = devm_kzalloc(&rd->dev,
@@ -1858,11 +1907,23 @@ static ssize_t eachreg_read(struct file *file, char __user *ubuf,
 		return -EIO;
 	}
 
-	j += snprintf(lbuf + j, PAGE_SIZE, "reg0x%02x:0x", rm->addr);
-	for (i = 0; i < rm->size; i++)
-		j += snprintf(lbuf + j,
+	ret = snprintf(lbuf + j, PAGE_SIZE, "reg0x%02x:0x", rm->addr);
+
+	if ((ret < 0) || (ret >= PAGE_SIZE-1))
+		return -EINVAL;
+
+	j += ret;
+	for (i = 0; i < rm->size; i++) {
+		ret = snprintf(lbuf + j,
 			PAGE_SIZE-strlen(lbuf), "%02x,", regval[i]);
-	j += snprintf(lbuf + j, PAGE_SIZE-strlen(lbuf), "\n");
+		if ((ret < 0) || (ret >= PAGE_SIZE-strlen(lbuf)-1))
+			return -EINVAL;
+		j += ret;
+	}
+	ret = snprintf(lbuf + j, PAGE_SIZE-strlen(lbuf), "\n");
+	if ((ret < 0) || (ret >= PAGE_SIZE-strlen(lbuf)-1))
+		return -EINVAL;
+	j += ret;
 
 	retval = simple_read_from_buffer(ubuf, count, ppos, lbuf, strlen(lbuf));
 	devm_kfree(&rd->dev, regval);
@@ -1880,7 +1941,7 @@ static const struct file_operations eachreg_ops = {
 static void rt_create_every_debug(struct rt_regmap_device *rd,
 				  struct dentry *dir)
 {
-	int i;
+	int i, ret = 0;
 	char buf[10];
 
 	rd->rt_reg_file = devm_kzalloc(&rd->dev,
@@ -1889,8 +1950,13 @@ static void rt_create_every_debug(struct rt_regmap_device *rd,
 		rd->props.register_num*sizeof(struct rt_debug_st *),
 								GFP_KERNEL);
 	for (i = 0; i < rd->props.register_num; i++) {
-		snprintf(buf, sizeof(buf),
+		ret = snprintf(buf, sizeof(buf),
 			 "reg0x%02x", (rd->props.rm[i])->addr);
+		if ((ret < 0) || (ret >= sizeof(buf)-1)) {
+			dev_info(&rd->dev, "snprintf failed\n");
+			return;
+		}
+
 		rd->rt_reg_file[i] = devm_kzalloc(&rd->dev,
 						  sizeof(*rd->rt_reg_file[i]),
 						  GFP_KERNEL);
@@ -2035,7 +2101,12 @@ struct rt_regmap_device *rt_regmap_device_register_ex
 	rd->client = client;
 	rd->dev.release = rt_regmap_device_release;
 	dev_set_drvdata(&rd->dev, drvdata);
-	snprintf(device_name, 32, "rt_regmap_%s", props->name);
+	ret = snprintf(device_name, 32, "rt_regmap_%s", props->name);
+	if ((ret < 0) || (ret >= 31)) {
+		dev_info(&rd->dev, "snprintf failed\n");
+		return NULL;
+	}
+
 	dev_set_name(&rd->dev, device_name);
 	memcpy(&rd->props, props, sizeof(struct rt_regmap_properties));
 	rd->props.cache_mode_ori = rd->props.rt_regmap_mode&RT_CACHE_MODE_MASK;
