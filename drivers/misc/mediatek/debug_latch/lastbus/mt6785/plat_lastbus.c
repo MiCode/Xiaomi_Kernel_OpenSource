@@ -67,8 +67,7 @@ int infra_get_timeout(const struct plt_cfg_bus_latch *self, char *buf)
 	int ret;
 
 	ret = snprintf(buf, PAGE_SIZE,
-		"%sinfra_config=0x%x, peri_config=0x%x\n",
-		buf,
+		"infra_config=0x%x, peri_config=0x%x\n",
 		readl(self->infra_base +
 			self->infrasys_offsets.bus_infra_ctrl),
 		readl(self->peri_base +
