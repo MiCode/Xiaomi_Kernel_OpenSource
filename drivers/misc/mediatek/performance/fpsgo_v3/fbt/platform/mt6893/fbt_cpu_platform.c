@@ -168,7 +168,7 @@ int fbt_get_default_adj_loading(void)
 int fbt_get_cluster_limit(int *cluster, int *freq)
 {
 	*cluster = 2;
-	*freq = 2600000;
+	*freq = INT_MAX;
 	return 1;
 }
 
