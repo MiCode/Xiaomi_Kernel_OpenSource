@@ -59,6 +59,7 @@
 			en_wdt = <1>;
 			aicc_once = <1>;
 			post_aicc = <1>;
+			batoc_notify = <0>;
 		};
 		fled {
 			compatible = "mediatek,mt6360_pmu_fled";
