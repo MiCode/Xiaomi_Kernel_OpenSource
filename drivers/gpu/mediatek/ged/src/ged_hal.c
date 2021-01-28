@@ -10,7 +10,7 @@
 #include <linux/genalloc.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
-#include<linux/slab.h>
+#include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/fb.h>
@@ -18,7 +18,9 @@
 
 #include "ged_base.h"
 #include "ged_hal.h"
+#ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
+#endif
 #include "ged_sysfs.h"
 
 #include "ged_dvfs.h"
@@ -27,21 +29,23 @@
 #include "ged_kpi.h"
 #include "ged_global.h"
 
+#ifdef GED_DEBUG_FS
 static struct dentry *gpsHALDir;
 static struct dentry *gpsTotalGPUFreqLevelCountEntry;
 static struct dentry *gpsCustomBoostGPUFreqEntry;
 static struct dentry *gpsCustomUpboundGPUFreqEntry;
-static struct dentry *gpsVsyncOffsetLevelEntry;
 static struct dentry *gpsVsyncOffsetEnableEntry;
+static struct dentry *gpsVsyncOffsetLevelEntry;
 static struct dentry *gpsGPUInfoEntry;
 static struct dentry *gpsDvfsTuningModeEntry;
 static struct dentry *gpsDvfsCurFreqEntry;
 static struct dentry *gpsDvfsPreFreqEntry;
 static struct dentry *gpsDvfsGpuUtilizationEntry;
 static struct dentry *gpsFpsUpperBoundEntry;
-static struct dentry *gpsIntegrationReportReadEntry;
 static struct dentry *gpsBoostLevelEntry;
-
+#ifdef MTK_GED_KPI
+static struct dentry *gpsGedInfoKPIEntry;
+#endif
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 static struct dentry *gpsDvfsMarginValueEntry;
 #endif
@@ -54,6 +58,8 @@ static struct dentry *gpsTimerBaseDvfsMarginEntry;
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 static struct dentry *gpsDvfsLoadingModeEntry;
 #endif
+static struct dentry *gpsIntegrationReportReadEntry;
+#endif /* GED_DEBUG_FS */
 
 static struct kobject *hal_kobj;
 
@@ -88,8 +94,8 @@ int tokenizer(char *pcSrc, int i32len, int *pi32IndexArray, int i32NumToken)
 	return -1;
 }
 
-
 //-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static void *ged_total_gpu_freq_level_count_seq_start(
 	struct seq_file *psSeqFile, loff_t *puiPosition)
 {
@@ -98,19 +104,19 @@ static void *ged_total_gpu_freq_level_count_seq_start(
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_total_gpu_freq_level_count_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_total_gpu_freq_level_count_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_total_gpu_freq_level_count_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
 {
@@ -126,13 +132,14 @@ static int ged_total_gpu_freq_level_count_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsTotalGPUFreqLevelCountReadOps = {
 	.start = ged_total_gpu_freq_level_count_seq_start,
 	.stop = ged_total_gpu_freq_level_count_seq_stop,
 	.next = ged_total_gpu_freq_level_count_seq_next,
 	.show = ged_total_gpu_freq_level_count_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static ssize_t total_gpu_freq_level_count_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -145,8 +152,10 @@ static ssize_t total_gpu_freq_level_count_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", ui32FreqLevelCount);
 }
+
 static KOBJ_ATTR_RO(total_gpu_freq_level_count);
 //-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static ssize_t ged_custom_boost_gpu_freq_write_entry(
 	const char __user *pszBuffer, size_t uiCount,
 	loff_t uiPosition, void *pvData)
@@ -169,7 +178,7 @@ static ssize_t ged_custom_boost_gpu_freq_write_entry(
 
 	return uiCount;
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_custom_boost_gpu_freq_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -178,19 +187,19 @@ static void *ged_custom_boost_gpu_freq_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_custom_boost_gpu_freq_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_custom_boost_gpu_freq_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_custom_boost_gpu_freq_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
 {
@@ -206,13 +215,14 @@ static int ged_custom_boost_gpu_freq_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsCustomBoostGpuFreqReadOps = {
 	.start = ged_custom_boost_gpu_freq_seq_start,
 	.stop = ged_custom_boost_gpu_freq_seq_stop,
 	.next = ged_custom_boost_gpu_freq_seq_next,
 	.show = ged_custom_boost_gpu_freq_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static ssize_t custom_boost_gpu_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -225,6 +235,7 @@ static ssize_t custom_boost_gpu_freq_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n", ui32BoostGpuFreqLevel);
 }
+
 static ssize_t custom_boost_gpu_freq_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -244,8 +255,10 @@ static ssize_t custom_boost_gpu_freq_store(struct kobject *kobj,
 
 	return count;
 }
+
 static KOBJ_ATTR_RW(custom_boost_gpu_freq);
 //-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static ssize_t ged_custom_upbound_gpu_freq_write_entry(
 	const char __user *pszBuffer, size_t uiCount,
 	loff_t uiPosition, void *pvData)
@@ -268,7 +281,7 @@ static ssize_t ged_custom_upbound_gpu_freq_write_entry(
 
 	return uiCount;
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_custom_upbound_gpu_freq_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -276,19 +289,19 @@ static void *ged_custom_upbound_gpu_freq_seq_start(struct seq_file *psSeqFile,
 		return SEQ_START_TOKEN;
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_custom_upbound_gpu_freq_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_custom_upbound_gpu_freq_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_custom_upbound_gpu_freq_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
 {
@@ -306,14 +319,15 @@ static int ged_custom_upbound_gpu_freq_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-/* -------------------------------------------------------------------------- */
+
 const struct seq_operations gsCustomUpboundGpuFreqReadOps = {
 	.start = ged_custom_upbound_gpu_freq_seq_start,
 	.stop = ged_custom_upbound_gpu_freq_seq_stop,
 	.next = ged_custom_upbound_gpu_freq_seq_next,
 	.show = ged_custom_upbound_gpu_freq_seq_show,
 };
-/* ------------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t custom_upbound_gpu_freq_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -336,6 +350,7 @@ static ssize_t custom_upbound_gpu_freq_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static ssize_t custom_upbound_gpu_freq_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -355,9 +370,10 @@ static ssize_t custom_upbound_gpu_freq_store(struct kobject *kobj,
 
 	return count;
 }
-static KOBJ_ATTR_RW(custom_upbound_gpu_freq);
-/* -------------------------------------------------------------------------- */
 
+static KOBJ_ATTR_RW(custom_upbound_gpu_freq);
+//-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static bool bForce = GED_FALSE;
 static ssize_t ged_vsync_offset_enable_write_entry(const char __user *pszBuffer,
 	size_t uiCount, loff_t uiPosition, void *pvData)
@@ -444,7 +460,7 @@ normal_exit:
 	return uiCount;
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_vsync_offset_enable_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -453,19 +469,18 @@ static void *ged_vsync_offset_enable_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_vsync_offset_enable_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_vsync_offset_enable_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
 
 static int ged_vsync_offset_enable_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
@@ -507,16 +522,16 @@ static int ged_vsync_offset_enable_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsVsync_offset_enableReadOps = {
 	.start = ged_vsync_offset_enable_seq_start,
 	.stop = ged_vsync_offset_enable_seq_stop,
 	.next = ged_vsync_offset_enable_seq_next,
 	.show = ged_vsync_offset_enable_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
-
-//ged_dvfs_vsync_offset_level_set
+#ifdef GED_DEBUG_FS
 static ssize_t ged_vsync_offset_level_write_entry(
 		const char __user *pszBuffer,
 		size_t uiCount,
@@ -565,8 +580,6 @@ static ssize_t ged_vsync_offset_level_write_entry(
 	return 0;
 }
 
-//-----------------------------------------------------------------------------
-
 static void *ged_vsync_offset_level_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -576,19 +589,19 @@ static void *ged_vsync_offset_level_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_vsync_offset_level_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_vsync_offset_level_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_vsync_offset_level_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
 {
@@ -599,15 +612,16 @@ static int ged_vsync_offset_level_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsVsync_offset_levelReadOps = {
 	.start = ged_vsync_offset_level_seq_start,
 	.stop = ged_vsync_offset_level_seq_stop,
 	.next = ged_vsync_offset_level_seq_next,
 	.show = ged_vsync_offset_level_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
-
+#ifdef GED_DEBUG_FS
 void ged_gpu_info_dump_cap(struct seq_file *psSeqFile, bool bHumanReadable)
 {
 	char buf[256];
@@ -719,9 +733,6 @@ normal_exit:
 	return uiCount;
 }
 
-
-//-----------------------------------------------------------------------------
-
 static void *ged_gpu_info_seq_start(struct seq_file *psSeqFile,
 loff_t *puiPosition)
 {
@@ -730,18 +741,18 @@ loff_t *puiPosition)
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_gpu_info_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_gpu_info_seq_next(struct seq_file *psSeqFile, void *pvData,
 loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_gpu_info_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
 	if (pvData != NULL)
@@ -749,16 +760,16 @@ static int ged_gpu_info_seq_show(struct seq_file *psSeqFile, void *pvData)
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsGPUInfoReadOps = {
 	.start = ged_gpu_info_seq_start,
 	.stop = ged_gpu_info_seq_stop,
 	.next = ged_gpu_info_seq_next,
 	.show = ged_gpu_info_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
-
-
+#ifdef GED_DEBUG_FS
 static ssize_t ged_dvfs_tuning_mode_write_entry(const char __user *pszBuffer,
 size_t uiCount, loff_t uiPosition, void *pvData)
 {
@@ -781,7 +792,7 @@ size_t uiCount, loff_t uiPosition, void *pvData)
 
 	return uiCount;
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_dvfs_tuning_mode_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -791,19 +802,19 @@ static void *ged_dvfs_tuning_mode_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_dvfs_tuning_mode_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_dvfs_tuning_mode_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 
 static int ged_dvfs_tuning_mode_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
@@ -817,15 +828,16 @@ static int ged_dvfs_tuning_mode_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsDvfs_tuning_mode_ReadOps = {
 	.start = ged_dvfs_tuning_mode_seq_start,
 	.stop = ged_dvfs_tuning_mode_seq_stop,
 	.next = ged_dvfs_tuning_mode_seq_next,
 	.show = ged_dvfs_tuning_mode_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
-
+#ifdef GED_DEBUG_FS
 static void *ged_dvfs_cur_freq_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -835,18 +847,18 @@ static void *ged_dvfs_cur_freq_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_dvfs_cur_freq_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_dvfs_cur_freq_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 
 static int ged_dvfs_cur_freq_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
@@ -860,13 +872,14 @@ static int ged_dvfs_cur_freq_seq_show(struct seq_file *psSeqFile, void *pvData)
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsDvfs_cur_freq_ReadOps = {
 	.start = ged_dvfs_cur_freq_seq_start,
 	.stop = ged_dvfs_cur_freq_seq_stop,
 	.next = ged_dvfs_cur_freq_seq_next,
 	.show = ged_dvfs_cur_freq_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static ssize_t current_freqency_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -879,9 +892,10 @@ static ssize_t current_freqency_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%u %lu\n",
 		sFreqInfo.ui32Idx, sFreqInfo.ulFreq);
 }
+
 static KOBJ_ATTR_RO(current_freqency);
 //-----------------------------------------------------------------------------
-
+#ifdef GED_DEBUG_FS
 static void *ged_dvfs_pre_freq_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -890,18 +904,17 @@ static void *ged_dvfs_pre_freq_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_dvfs_pre_freq_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_dvfs_pre_freq_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
 
 static int ged_dvfs_pre_freq_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
@@ -915,13 +928,14 @@ static int ged_dvfs_pre_freq_seq_show(struct seq_file *psSeqFile, void *pvData)
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsDvfs_pre_freq_ReadOps = {
 	.start = ged_dvfs_pre_freq_seq_start,
 	.stop = ged_dvfs_pre_freq_seq_stop,
 	.next = ged_dvfs_pre_freq_seq_next,
 	.show = ged_dvfs_pre_freq_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static ssize_t previous_freqency_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -934,9 +948,10 @@ static ssize_t previous_freqency_show(struct kobject *kobj,
 	return scnprintf(buf, PAGE_SIZE, "%u %lu\n",
 		sFreqInfo.ui32Idx, sFreqInfo.ulFreq);
 }
+
 static KOBJ_ATTR_RO(previous_freqency);
 //-----------------------------------------------------------------------------
-
+#ifdef GED_DEBUG_FS
 static void *ged_dvfs_gpu_util_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -945,18 +960,17 @@ static void *ged_dvfs_gpu_util_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_dvfs_gpu_util_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_dvfs_gpu_util_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
 
 static int ged_dvfs_gpu_util_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
@@ -973,13 +987,14 @@ static int ged_dvfs_gpu_util_seq_show(struct seq_file *psSeqFile, void *pvData)
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsDvfs_gpu_util_ReadOps = {
 	.start = ged_dvfs_gpu_util_seq_start,
 	.stop = ged_dvfs_gpu_util_seq_stop,
 	.next = ged_dvfs_gpu_util_seq_next,
 	.show = ged_dvfs_gpu_util_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static ssize_t gpu_utilization_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -995,9 +1010,10 @@ static ssize_t gpu_utilization_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%u %u %u\n", loading, block, idle);
 }
+
 static KOBJ_ATTR_RO(gpu_utilization);
 //-----------------------------------------------------------------------------
-
+#ifdef GED_DEBUG_FS
 static uint32_t _fps_upper_bound = 60;
 
 static void *ged_fps_ub_seq_start(struct seq_file *seq, loff_t *pos)
@@ -1045,10 +1061,11 @@ static ssize_t ged_fps_ub_write(const char __user *pszBuffer, size_t uiCount,
 
 	return uiCount;
 }
-
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static int32_t _boost_level = -1;
-
+#define MAX_BOOST_DIGITS 10
+#ifdef GED_DEBUG_FS
 static void *ged_dvfs_boost_level_seq_start(
 	struct seq_file *psSeqFile, loff_t *puiPosition)
 {
@@ -1084,7 +1101,6 @@ static const struct seq_operations gsDvfs_boost_level_ReadOps = {
 	.show = ged_dvfs_boost_level_seq_show,
 };
 
-#define MAX_BOOST_DIGITS 10
 static ssize_t ged_boost_level_write(const char __user *pszBuffer,
 	size_t uiCount, loff_t uiPosition, void *pvData)
 {
@@ -1101,6 +1117,7 @@ static ssize_t ged_boost_level_write(const char __user *pszBuffer,
 
 	return uiCount;
 }
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 static ssize_t gpu_boost_level_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -1108,6 +1125,7 @@ static ssize_t gpu_boost_level_show(struct kobject *kobj,
 {
 	return scnprintf(buf, PAGE_SIZE, "%d\n", _boost_level);
 }
+
 static ssize_t gpu_boost_level_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -1124,6 +1142,7 @@ static ssize_t gpu_boost_level_store(struct kobject *kobj,
 
 	return count;
 }
+
 static KOBJ_ATTR_RW(gpu_boost_level);
 //-----------------------------------------------------------------------------
 int ged_dvfs_boost_value(void)
@@ -1132,7 +1151,7 @@ int ged_dvfs_boost_value(void)
 }
 
 //-----------------------------------------------------------------------------
-
+#ifdef GED_DEBUG_FS
 static void *ged_dvfs_integration_report_seq_start(struct seq_file *psSeqFile,
 		loff_t *puiPosition)
 {
@@ -1141,19 +1160,18 @@ static void *ged_dvfs_integration_report_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_dvfs_integration_report_seq_stop(struct seq_file *psSeqFile,
 	void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_dvfs_integration_report_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
 
 static int ged_dvfs_integration_report_seq_show(struct seq_file *psSeqFile,
 	void *pvData)
@@ -1175,17 +1193,17 @@ static int ged_dvfs_integration_report_seq_show(struct seq_file *psSeqFile,
 	}
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsIntegrationReportReadOps = {
 	.start = ged_dvfs_integration_report_seq_start,
 	.stop = ged_dvfs_integration_report_seq_stop,
 	.next = ged_dvfs_integration_report_seq_next,
 	.show = ged_dvfs_integration_report_seq_show,
 };
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 #ifdef MTK_GED_KPI
-static struct dentry *gpsGedInfoKPIEntry;
-/* -------------------------------------------------------------------------- */
+#ifdef GED_DEBUG_FS
 static void *ged_kpi_info_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -1194,18 +1212,17 @@ static void *ged_kpi_info_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-/* -------------------------------------------------------------------------- */
+
 static void ged_kpi_info_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 
 }
-/* -------------------------------------------------------------------------- */
+
 static void *ged_kpi_info_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-/* -------------------------------------------------------------------------- */
 
 static int ged_kpi_info_seq_show(struct seq_file *psSeqFile, void *pvData)
 {
@@ -1233,14 +1250,15 @@ static int ged_kpi_info_seq_show(struct seq_file *psSeqFile, void *pvData)
 	}
 	return 0;
 }
-/* -------------------------------------------------------------------------- */
+
 static const struct seq_operations gsKpi_info_ReadOps = {
 	.start = ged_kpi_info_seq_start,
 	.stop = ged_kpi_info_seq_stop,
 	.next = ged_kpi_info_seq_next,
 	.show = ged_kpi_info_seq_show,
 };
-/* ------------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t ged_kpi_show(struct kobject *kobj, struct kobj_attribute *attr,
 		char *buf)
 {
@@ -1264,11 +1282,12 @@ static ssize_t ged_kpi_show(struct kobject *kobj, struct kobj_attribute *attr,
 			fps, cpu_time, gpu_time, response_time,
 			cpu_remained_time, gpu_remained_time, gpu_freq);
 }
-static KOBJ_ATTR_RO(ged_kpi);
-#endif
 
+static KOBJ_ATTR_RO(ged_kpi);
+#endif /* MTK_GED_KPI */
+//-----------------------------------------------------------------------------
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
-/* ---------------------------------------------------------------- */
+#ifdef GED_DEBUG_FS
 static ssize_t ged_dvfs_margin_value_write_entry
 (const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
 {
@@ -1292,7 +1311,7 @@ static ssize_t ged_dvfs_margin_value_write_entry
 
 	return uiCount;
 }
-//-------------------------------------------------------------------
+
 static void *ged_dvfs_margin_value_seq_start(struct seq_file *psSeqFile,
 			loff_t *puiPosition)
 {
@@ -1301,19 +1320,19 @@ static void *ged_dvfs_margin_value_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-------------------------------------------------------------------
+
 static void ged_dvfs_margin_value_seq_stop(struct seq_file *psSeqFile,
 			void *pvData)
 {
 
 }
-//-------------------------------------------------------------------
+
 static void *ged_dvfs_margin_value_seq_next(struct seq_file *psSeqFile,
 			void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-------------------------------------------------------------------
+
 static int ged_dvfs_margin_value_seq_show(struct seq_file *psSeqFile,
 			void *pvData)
 {
@@ -1330,14 +1349,15 @@ static int ged_dvfs_margin_value_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-/* --------------------------------------------------------------- */
+
 const struct seq_operations gsDvfsMarginValueReadOps = {
 	.start = ged_dvfs_margin_value_seq_start,
 	.stop = ged_dvfs_margin_value_seq_stop,
 	.next = ged_dvfs_margin_value_seq_next,
 	.show = ged_dvfs_margin_value_seq_show,
 };
-/* --------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t dvfs_margin_value_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1359,6 +1379,7 @@ static ssize_t dvfs_margin_value_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static ssize_t dvfs_margin_value_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -1375,11 +1396,12 @@ static ssize_t dvfs_margin_value_store(struct kobject *kobj,
 
 	return count;
 }
-static KOBJ_ATTR_RW(dvfs_margin_value);
-#endif
 
+static KOBJ_ATTR_RW(dvfs_margin_value);
+#endif /* (defined(GED_ENABLE_FB_DVFS) && ...) */
+//-----------------------------------------------------------------------------
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
-/* ------------------------------------------------------------------------- */
+#ifdef GED_DEBUG_FS
 static ssize_t ged_loading_base_dvfs_step_write_entry
 (const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
 {
@@ -1402,7 +1424,7 @@ static ssize_t ged_loading_base_dvfs_step_write_entry
 
 	return uiCount;
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_loading_base_dvfs_step_seq_start(struct seq_file *psSeqFile,
 			loff_t *puiPosition)
 {
@@ -1411,19 +1433,19 @@ static void *ged_loading_base_dvfs_step_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_loading_base_dvfs_step_seq_stop(struct seq_file *psSeqFile,
 			void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_loading_base_dvfs_step_seq_next(struct seq_file *psSeqFile,
 			void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_loading_base_dvfs_step_seq_show(struct seq_file *psSeqFile,
 			void *pvData)
 {
@@ -1440,14 +1462,15 @@ static int ged_loading_base_dvfs_step_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-/* ------------------------------------------------------------------------- */
+
 const struct seq_operations gsLoadingBaseDvfsStepReadOps = {
 	.start = ged_loading_base_dvfs_step_seq_start,
 	.stop = ged_loading_base_dvfs_step_seq_stop,
 	.next = ged_loading_base_dvfs_step_seq_next,
 	.show = ged_loading_base_dvfs_step_seq_show,
 };
-/* ------------------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t loading_base_dvfs_step_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1469,6 +1492,7 @@ static ssize_t loading_base_dvfs_step_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static ssize_t loading_base_dvfs_step_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -1485,11 +1509,12 @@ static ssize_t loading_base_dvfs_step_store(struct kobject *kobj,
 
 	return count;
 }
-static KOBJ_ATTR_RW(loading_base_dvfs_step);
-#endif
 
+static KOBJ_ATTR_RW(loading_base_dvfs_step);
+#endif /* GED_CONFIGURE_LOADING_BASE_DVFS_STEP */
+//-----------------------------------------------------------------------------
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
-/* ------------------------------------------------------------------------- */
+#ifdef GED_DEBUG_FS
 static ssize_t ged_timer_base_dvfs_margin_write_entry
 (const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
 {
@@ -1508,7 +1533,7 @@ static ssize_t ged_timer_base_dvfs_margin_write_entry
 
 	return uiCount;
 }
-//-------------------------------------------------------------------
+
 static void *ged_timer_base_dvfs_margin_seq_start(struct seq_file *psSeqFile,
 			loff_t *puiPosition)
 {
@@ -1517,19 +1542,19 @@ static void *ged_timer_base_dvfs_margin_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-------------------------------------------------------------------
+
 static void ged_timer_base_dvfs_margin_seq_stop(struct seq_file *psSeqFile,
 			void *pvData)
 {
 
 }
-//-------------------------------------------------------------------
+
 static void *ged_timer_base_dvfs_margin_seq_next(struct seq_file *psSeqFile,
 			void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-------------------------------------------------------------------
+
 static int ged_timer_base_dvfs_margin_seq_show(struct seq_file *psSeqFile,
 			void *pvData)
 {
@@ -1545,14 +1570,15 @@ static int ged_timer_base_dvfs_margin_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-/* --------------------------------------------------------------- */
+
 const struct seq_operations gsTimerBaseDvfsMarginReadOps = {
 	.start = ged_timer_base_dvfs_margin_seq_start,
 	.stop = ged_timer_base_dvfs_margin_seq_stop,
 	.next = ged_timer_base_dvfs_margin_seq_next,
 	.show = ged_timer_base_dvfs_margin_seq_show,
 };
-/* --------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t timer_base_dvfs_margin_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1574,6 +1600,7 @@ static ssize_t timer_base_dvfs_margin_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static ssize_t timer_base_dvfs_margin_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -1590,11 +1617,12 @@ static ssize_t timer_base_dvfs_margin_store(struct kobject *kobj,
 
 	return count;
 }
-static KOBJ_ATTR_RW(timer_base_dvfs_margin);
-#endif
 
+static KOBJ_ATTR_RW(timer_base_dvfs_margin);
+#endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
+//-----------------------------------------------------------------------------
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
-/* --------------------------------------------------------------- */
+#ifdef GED_DEBUG_FS
 static ssize_t ged_dvfs_loading_mode_write_entry
 (const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
 {
@@ -1613,7 +1641,7 @@ static ssize_t ged_dvfs_loading_mode_write_entry
 
 	return uiCount;
 }
-//-------------------------------------------------------------------
+
 static void *ged_dvfs_loading_mode_seq_start(struct seq_file *psSeqFile,
 			loff_t *puiPosition)
 {
@@ -1622,19 +1650,19 @@ static void *ged_dvfs_loading_mode_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-------------------------------------------------------------------
+
 static void ged_dvfs_loading_mode_seq_stop(struct seq_file *psSeqFile,
 			void *pvData)
 {
 
 }
-//-------------------------------------------------------------------
+
 static void *ged_dvfs_loading_mode_seq_next(struct seq_file *psSeqFile,
 			void *pvData, loff_t *puiPosition)
 {
 	return NULL;
 }
-//-------------------------------------------------------------------
+
 static int ged_dvfs_loading_mode_seq_show(struct seq_file *psSeqFile,
 			void *pvData)
 {
@@ -1650,14 +1678,15 @@ static int ged_dvfs_loading_mode_seq_show(struct seq_file *psSeqFile,
 
 	return 0;
 }
-/* --------------------------------------------------------------- */
+
 const struct seq_operations gsDvfsLoadingModeReadOps = {
 	.start = ged_dvfs_loading_mode_seq_start,
 	.stop = ged_dvfs_loading_mode_seq_stop,
 	.next = ged_dvfs_loading_mode_seq_next,
 	.show = ged_dvfs_loading_mode_seq_show,
 };
-/* --------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t dvfs_loading_mode_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -1679,6 +1708,7 @@ static ssize_t dvfs_loading_mode_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static ssize_t dvfs_loading_mode_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -1695,9 +1725,11 @@ static ssize_t dvfs_loading_mode_store(struct kobject *kobj,
 
 	return count;
 }
-static KOBJ_ATTR_RW(dvfs_loading_mode);
-#endif
 
+static KOBJ_ATTR_RW(dvfs_loading_mode);
+#endif /* GED_ENABLE_DVFS_LOADING_MODE */
+
+//-----------------------------------------------------------------------------
 static struct notifier_block ged_fb_notifier;
 
 static int ged_fb_notifier_callback(struct notifier_block *self,
@@ -1808,11 +1840,12 @@ void mtk_ged_event_notify(int events)
 	mutex_unlock(&g_ged_event_change.lock);
 }
 
-/* -------------------------------------------------------------------------- */
+//-----------------------------------------------------------------------------
 GED_ERROR ged_hal_init(void)
 {
 	GED_ERROR err = GED_OK;
 
+#ifdef GED_DEBUG_FS
 	err = ged_debugFS_create_entry_dir(
 			"hal",
 			NULL,
@@ -1870,7 +1903,6 @@ GED_ERROR ged_hal_init(void)
 	}
 
 	/* Enable/Disable the vsync offset */
-
 	err = ged_debugFS_create_entry(
 			"event_notify",
 			gpsHALDir,
@@ -1888,7 +1920,6 @@ GED_ERROR ged_hal_init(void)
 			&gpsVsyncOffsetEnableEntry);
 
 	/* Control the vsync offset level */
-
 	err = ged_debugFS_create_entry(
 			"vsync_offset_level",
 			gpsHALDir,
@@ -1896,6 +1927,11 @@ GED_ERROR ged_hal_init(void)
 			ged_vsync_offset_level_write_entry,
 			NULL,
 			&gpsVsyncOffsetLevelEntry);
+
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create vsync_offset_level entry!\n");
+		goto ERROR;
+	}
 
 	/* Game SDK */
 	err = ged_debugFS_create_entry(
@@ -1912,7 +1948,6 @@ GED_ERROR ged_hal_init(void)
 	}
 
 	/* Control the dvfs policy threshold level */
-
 	err = ged_debugFS_create_entry(
 			"custom_dvfs_mode",
 			gpsHALDir,
@@ -1921,9 +1956,7 @@ GED_ERROR ged_hal_init(void)
 			NULL,
 			&gpsDvfsTuningModeEntry);
 
-
 	/* Get current GPU freq */
-
 	err = ged_debugFS_create_entry(
 			"current_freqency",
 			gpsHALDir,
@@ -1933,7 +1966,6 @@ GED_ERROR ged_hal_init(void)
 			&gpsDvfsCurFreqEntry);
 
 	/* Get previous GPU freq */
-
 	err = ged_debugFS_create_entry(
 			"previous_freqency",
 			gpsHALDir,
@@ -1943,7 +1975,6 @@ GED_ERROR ged_hal_init(void)
 			&gpsDvfsPreFreqEntry);
 
 	/* Get GPU Utilization */
-
 	err = ged_debugFS_create_entry(
 			"gpu_utilization",
 			gpsHALDir,
@@ -1959,8 +1990,7 @@ GED_ERROR ged_hal_init(void)
 			&gs_fps_ub_read_ops,
 			ged_fps_ub_write,
 			NULL,
-			&gpsFpsUpperBoundEntry
-			);
+			&gpsFpsUpperBoundEntry);
 
 	/* Get GPU boost level */
 	err = ged_debugFS_create_entry(
@@ -1969,13 +1999,7 @@ GED_ERROR ged_hal_init(void)
 			&gsDvfs_boost_level_ReadOps,
 			ged_boost_level_write,
 			NULL,
-			&gpsBoostLevelEntry
-			);
-
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create vsync_offset_level entry!\n");
-		goto ERROR;
-	}
+			&gpsBoostLevelEntry);
 
 	/* Get KPI info */
 #ifdef MTK_GED_KPI
@@ -1989,14 +2013,14 @@ GED_ERROR ged_hal_init(void)
 #endif
 
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
-		/* Control the gpu freq margin mode */
-				err = ged_debugFS_create_entry(
-				"dvfs_margin_value",
-				gpsHALDir,
-				&gsDvfsMarginValueReadOps,
-				ged_dvfs_margin_value_write_entry,
-				NULL,
-				&gpsDvfsMarginValueEntry);
+	/* Control the gpu freq margin mode */
+	err = ged_debugFS_create_entry(
+			"dvfs_margin_value",
+			gpsHALDir,
+			&gsDvfsMarginValueReadOps,
+			ged_dvfs_margin_value_write_entry,
+			NULL,
+			&gpsDvfsMarginValueEntry);
 
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to create dvfs_margin_value entry!\n");
@@ -2045,13 +2069,12 @@ GED_ERROR ged_hal_init(void)
 		&gsDvfsLoadingModeReadOps,
 		ged_dvfs_loading_mode_write_entry,
 		NULL,
-		&gpsDvfsLoadingModeEntry
-	);
+		&gpsDvfsLoadingModeEntry);
 
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to create gpu loading mode entry!\n");
 		goto ERROR;
-}
+	}
 #endif
 
 	/* Report Integration Status */
@@ -2063,14 +2086,11 @@ GED_ERROR ged_hal_init(void)
 			NULL,
 			&gpsIntegrationReportReadEntry);
 
-	ged_fb_notifier.notifier_call = ged_fb_notifier_callback;
-	if (fb_register_client(&ged_fb_notifier))
-		GED_LOGE("register fb_notifier fail!\n");
-
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to create integration_report entry!\n");
 		goto ERROR;
 	}
+#endif /* GED_DEBUG_FS */
 
 	err = ged_sysfs_create_dir(NULL, "hal", &hal_kobj);
 	if (unlikely(err != GED_OK)) {
@@ -2169,6 +2189,10 @@ GED_ERROR ged_hal_init(void)
 	}
 #endif
 
+	ged_fb_notifier.notifier_call = ged_fb_notifier_callback;
+	if (fb_register_client(&ged_fb_notifier))
+		GED_LOGE("register fb_notifier fail!\n");
+
 	return err;
 
 ERROR:
@@ -2180,33 +2204,37 @@ ERROR:
 //-----------------------------------------------------------------------------
 void ged_hal_exit(void)
 {
+#ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gpsIntegrationReportReadEntry);
-	ged_debugFS_remove_entry(gpsFpsUpperBoundEntry);
-	ged_debugFS_remove_entry(gpsVsyncOffsetLevelEntry);
-	ged_debugFS_remove_entry(gpsCustomUpboundGPUFreqEntry);
-	ged_debugFS_remove_entry(gpsCustomBoostGPUFreqEntry);
-	ged_debugFS_remove_entry(gpsVsyncOffsetEnableEntry);
-	ged_debugFS_remove_entry(gpsTotalGPUFreqLevelCountEntry);
-	ged_debugFS_remove_entry(gpsDvfsCurFreqEntry);
-	ged_debugFS_remove_entry(gpsDvfsPreFreqEntry);
-	ged_debugFS_remove_entry(gpsDvfsGpuUtilizationEntry);
-	ged_debugFS_remove_entry(gpsBoostLevelEntry);
-#ifdef MTK_GED_KPI
-	ged_debugFS_remove_entry(gpsGedInfoKPIEntry);
-#endif
-	ged_debugFS_remove_entry_dir(gpsHALDir);
-#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
-	ged_debugFS_remove_entry(gpsDvfsMarginValueEntry);
-#endif
-#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
-	ged_debugFS_remove_entry(gpsLoadingBaseDvfsStepEntry);
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	ged_debugFS_remove_entry(gpsDvfsLoadingModeEntry);
 #endif
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 	ged_debugFS_remove_entry(gpsTimerBaseDvfsMarginEntry);
 #endif
-#ifdef GED_ENABLE_DVFS_LOADING_MODE
-	ged_debugFS_remove_entry(gpsDvfsLoadingModeEntry);
+#ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
+	ged_debugFS_remove_entry(gpsLoadingBaseDvfsStepEntry);
 #endif
+#if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
+	ged_debugFS_remove_entry(gpsDvfsMarginValueEntry);
+#endif
+#ifdef MTK_GED_KPI
+	ged_debugFS_remove_entry(gpsGedInfoKPIEntry);
+#endif
+	ged_debugFS_remove_entry(gpsBoostLevelEntry);
+	ged_debugFS_remove_entry(gpsFpsUpperBoundEntry);
+	ged_debugFS_remove_entry(gpsDvfsGpuUtilizationEntry);
+	ged_debugFS_remove_entry(gpsDvfsPreFreqEntry);
+	ged_debugFS_remove_entry(gpsDvfsCurFreqEntry);
+	ged_debugFS_remove_entry(gpsDvfsTuningModeEntry);
+	ged_debugFS_remove_entry(gpsGPUInfoEntry);
+	ged_debugFS_remove_entry(gpsVsyncOffsetLevelEntry);
+	ged_debugFS_remove_entry(gpsVsyncOffsetEnableEntry);
+	ged_debugFS_remove_entry(gpsCustomUpboundGPUFreqEntry);
+	ged_debugFS_remove_entry(gpsCustomBoostGPUFreqEntry);
+	ged_debugFS_remove_entry(gpsTotalGPUFreqLevelCountEntry);
+	ged_debugFS_remove_entry_dir(gpsHALDir);
+#endif /* GED_DEBUG_FS */
 
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_dvfs_loading_mode);

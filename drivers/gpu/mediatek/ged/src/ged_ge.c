@@ -16,8 +16,9 @@
 #include <linux/seq_file.h>
 #include <linux/anon_inodes.h>
 
+#ifdef GED_DEBUG_FS
 #include <ged_debugFS.h>
-#include "ged_sysfs.h"
+#endif
 
 struct GEEntry {
 	uint64_t unique_id;
@@ -44,61 +45,8 @@ static int num_entry;
 static LIST_HEAD(ge_entry_list_head);
 static DEFINE_SPINLOCK(ge_entry_list_lock);
 
-
 /* region alloc and free lock */
 static DEFINE_SPINLOCK(ge_raf_lock);
-
-static ssize_t ge_show(struct kobject *kobj, struct kobj_attribute *attr,
-		char *buf)
-{
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
-	int pos = 0;
-	int length;
-	int count = 0;
-	const struct GEEntry *entry = list_first_entry(
-			&ge_entry_list_head, struct GEEntry, ge_entry_list);
-
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
-			"================================================\n");
-	pos += length;
-
-	do {
-		int memory_size = 0;
-		int memory_ksize = 0;
-		int i;
-		struct list_head *next = entry->ge_entry_list.next;
-
-		memory_size += (sizeof(uint32_t) + sizeof(uint32_t *))
-			* entry->region_num;
-		memory_ksize += ksize(entry->data);
-		for (i = 0; i < entry->region_num; ++i) {
-			if (entry->region_data[i]) {
-				memory_size += entry->region_sizes[i];
-				memory_ksize += ksize(entry->region_data[i]);
-			}
-		}
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
-				"GEEntry id:0x%llx memory size: %d bytes, ksize: %3d bytes\n",
-				entry->unique_id, memory_size, memory_ksize);
-		pos += length;
-		count++;
-		entry = (next != &ge_entry_list_head) ?
-			list_entry(next, struct GEEntry, ge_entry_list) : NULL;
-	} while (entry != NULL);
-	num_entry = count;
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
-			"================================================\n"
-			"Total entries: %d\n", num_entry);
-	pos += length;
-
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
-}
-static ssize_t ge_store(struct kobject *kobj, struct kobj_attribute *attr,
-		const char *buf, size_t count)
-{
-	return count;
-}
-static KOBJ_ATTR_RW(ge);
 
 static uint64_t gen_unique_id(void)
 {
@@ -116,6 +64,8 @@ static uint64_t gen_unique_id(void)
 
 	return ret;
 }
+
+//-----------------------------------------------------------------------------
 #ifdef GED_DEBUG_FS
 static void *_ge_debugfs_seq_start(struct seq_file *m, loff_t *pos)
 {
@@ -128,12 +78,14 @@ static void *_ge_debugfs_seq_start(struct seq_file *m, loff_t *pos)
 	}
 	return NULL;
 }
+
 void _ge_debugfs_seq_stop(struct seq_file *m, void *v)
 {
 	seq_puts(m, "================================================\n");
 	seq_printf(m, "Total entries: %d\n", num_entry);
 	/* do nothing */
 }
+
 void *_ge_debugfs_seq_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	struct list_head *next = ((struct GEEntry *)v)->ge_entry_list.next;
@@ -142,6 +94,7 @@ void *_ge_debugfs_seq_next(struct seq_file *m, void *v, loff_t *pos)
 	return (next != &ge_entry_list_head) ?
 		list_entry(next, struct GEEntry, ge_entry_list) : NULL;
 }
+
 int _ge_debugfs_seq_show(struct seq_file *m, void *v)
 {
 	const struct GEEntry *entry = v;
@@ -163,18 +116,21 @@ int _ge_debugfs_seq_show(struct seq_file *m, void *v)
 			entry->unique_id, memory_size, memory_ksize);
 	return 0;
 }
+
 static const struct seq_operations gDEFEntryOps = {
 	.start = _ge_debugfs_seq_start,
 	.stop = _ge_debugfs_seq_stop,
 	.next = _ge_debugfs_seq_next,
 	.show = _ge_debugfs_seq_show,
 };
+
 static ssize_t _ge_debugfs_write_entry(const char __user *pszBuffer,
 	size_t uiCount, loff_t uiPosition, void *pvData)
 {
 	return uiCount;
 }
-#endif
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 
 static int ge_entry_release(struct inode *inode, struct file *file)
 {
@@ -220,12 +176,6 @@ int ged_ge_init(void)
 	}
 #endif
 
-	err = ged_sysfs_create_file(NULL, &kobj_attr_ge);
-	if (unlikely(err != GED_OK)) {
-		GED_PDEBUG("failed to create ge entry!\n");
-		return 1;
-	}
-
 	return 0;
 }
 
@@ -234,7 +184,6 @@ int ged_ge_exit(void)
 #ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gDFSEntry);
 #endif
-	ged_sysfs_remove_file(NULL, &kobj_attr_ge);
 
 	/* TODO : free all memory */
 	kmem_cache_destroy(gPoolCache);
@@ -496,4 +445,3 @@ int ged_bridge_ge_info(
 
 	return 0;
 }
-

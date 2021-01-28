@@ -20,7 +20,9 @@
 
 #include "ged_base.h"
 #include "ged_log.h"
+#ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
+#endif
 #include "ged_hashtable.h"
 
 enum {
@@ -320,6 +322,7 @@ static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf,
 	return !!psFound;
 }
 
+//-----------------------------------------------------------------------------
 #ifdef GED_DEBUG_FS
 static ssize_t ged_log_buf_write_entry(const char __user *pszBuffer,
 	size_t uiCount, loff_t uiPosition, void *pvData)
@@ -328,7 +331,6 @@ static ssize_t ged_log_buf_write_entry(const char __user *pszBuffer,
 		pszBuffer, (int)uiCount);
 }
 
-//-----------------------------------------------------------------------------
 static void *ged_log_buf_seq_start(struct seq_file *psSeqFile,
 	loff_t *puiPosition)
 {
@@ -340,12 +342,12 @@ static void *ged_log_buf_seq_start(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_log_buf_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_log_buf_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
@@ -353,7 +355,7 @@ static void *ged_log_buf_seq_next(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static int ged_log_buf_seq_show_print(struct seq_file *psSeqFile,
 	struct GED_LOG_BUF *psGEDLogBuf, int i)
 {
@@ -449,14 +451,14 @@ static int ged_log_buf_seq_show(struct seq_file *psSeqFile, void *pvData)
 
 	return 0;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsGEDLogBufReadOps = {
 	.start = ged_log_buf_seq_start,
 	.stop = ged_log_buf_seq_stop,
 	.next = ged_log_buf_seq_next,
 	.show = ged_log_buf_seq_show,
 };
-#endif
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		int i32MaxLineCount,
@@ -563,7 +565,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			return (GED_LOG_BUF_HANDLE)0;
 		}
 	}
-#endif
+#endif /* GED_DEBUG_FS */
 
 	error = ged_hashtable_insert(ghHashTable, psGEDLogBuf,
 		&psGEDLogBuf->ulHashNodeID);
@@ -872,12 +874,13 @@ GED_ERROR ged_log_buf_reset(GED_LOG_BUF_HANDLE hLogBuf)
 	return GED_OK;
 }
 EXPORT_SYMBOL(ged_log_buf_reset);
-#ifdef GED_DEBUG_FS
+
 //-----------------------------------------------------------------------------
 //
 //  GED Log System
 //
 //-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static ssize_t ged_log_write_entry(const char __user *pszBuffer, size_t uiCount,
 	loff_t uiPosition, void *pvData)
 {
@@ -912,7 +915,7 @@ static ssize_t ged_log_write_entry(const char __user *pszBuffer, size_t uiCount,
 
 	return uiCount;
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_log_seq_start(struct seq_file *psSeqFile, loff_t *puiPosition)
 {
 	struct list_head *psListEntry, *psListEntryTemp, *psList;
@@ -934,12 +937,12 @@ static void *ged_log_seq_start(struct seq_file *psSeqFile, loff_t *puiPosition)
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static void ged_log_seq_stop(struct seq_file *psSeqFile, void *pvData)
 {
 	read_unlock_bh(&gsGEDLogBufList.sLock);
 }
-//-----------------------------------------------------------------------------
+
 static void *ged_log_seq_next(struct seq_file *psSeqFile,
 	void *pvData, loff_t *puiPosition)
 {
@@ -962,18 +965,19 @@ static void *ged_log_seq_next(struct seq_file *psSeqFile,
 
 	return NULL;
 }
-//-----------------------------------------------------------------------------
+
 static const struct seq_operations gsGEDLogReadOps = {
 	.start = ged_log_seq_start,
 	.stop = ged_log_seq_stop,
 	.next = ged_log_seq_next,
 	.show = ged_log_buf_seq_show,
 };
-#endif
+#endif /* GED_DEBUG_FS */
 //-----------------------------------------------------------------------------
 GED_ERROR ged_log_system_init(void)
 {
 	GED_ERROR err = GED_OK;
+
 #ifdef GED_DEBUG_FS
 	err = ged_debugFS_create_entry(
 			"gedlog",
@@ -998,7 +1002,7 @@ GED_ERROR ged_log_system_init(void)
 		GED_LOGE("ged: failed to create logbufs dir!\n");
 		goto ERROR;
 	}
-#endif
+#endif /* GED_DEBUG_FS */
 
 	ghHashTable = ged_hashtable_create(5);
 	if (!ghHashTable) {
@@ -1023,6 +1027,7 @@ void ged_log_system_exit(void)
 {
 	ged_hashtable_destroy(ghHashTable);
 #ifdef GED_DEBUG_FS
+	ged_debugFS_remove_entry_dir(gpsGEDLogBufsDir);
 	ged_debugFS_remove_entry(gpsGEDLogEntry);
 #endif
 }

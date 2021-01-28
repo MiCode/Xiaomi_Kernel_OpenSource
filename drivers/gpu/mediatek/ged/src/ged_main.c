@@ -24,7 +24,9 @@
 #include <linux/kthread.h>
 #include <mt-plat/aee.h>
 
+#ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
+#endif
 #include "ged_sysfs.h"
 #include "ged_log.h"
 #include "ged_hal.h"
@@ -33,29 +35,32 @@
 #include "ged_notify_sw_vsync.h"
 #include "ged_dvfs.h"
 #include "ged_kpi.h"
-
 #include "ged_ge.h"
 #include "ged_gpu_tuner.h"
 
 #define GED_DRIVER_DEVICE_NAME "ged"
+
 #ifndef GED_BUFFER_LOG_DISABLE
+static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
+
 #ifdef GED_DEBUG
 #define GED_LOG_BUF_COMMON_GLES "GLES"
 static GED_LOG_BUF_HANDLE ghLogBuf_GLES;
 GED_LOG_BUF_HANDLE ghLogBuf_GED;
 #endif
 
-static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
-#define GED_LOG_BUF_COMMON_HWC "HWC"
-static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 #define GED_LOG_BUF_COMMON_HWC_ERR "HWC_err"
 static GED_LOG_BUF_HANDLE ghLogBuf_HWC_ERR;
+#define GED_LOG_BUF_COMMON_HWC "HWC"
+static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 #define GED_LOG_BUF_COMMON_FENCE "FENCE"
 static GED_LOG_BUF_HANDLE ghLogBuf_FENCE;
 static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
-#endif
 
+#ifdef GED_DVFS_DEBUG_BUF
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
+#endif
+#endif /* GED_BUFFER_LOG_DISABLE */
 
 GED_LOG_BUF_HANDLE gpufreq_ged_log;
 
@@ -234,12 +239,10 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(GPU_TIMESTAMP);
 			ret = ged_bridge_gpu_timestamp(pvIn, pvOut);
 			break;
-#ifdef GED_DEBUG_FS
 		case GED_BRIDGE_COMMAND_GPU_TUNER_STATUS:
 			VALIDATE_ARG(GPU_TUNER_STATUS);
 			ret = ged_bridge_gpu_tuner_status(pvIn, pvOut);
 			break;
-#endif
 		default:
 			GED_LOGE("Unknown Bridge ID: %u\n",
 			GED_GET_BRIDGE_ID(psBridgePackageKM->ui32FunctionID));
@@ -350,51 +353,56 @@ static const struct file_operations ged_fops = {
 
 static void ged_exit(void)
 {
+	ged_log_buf_free(gpufreq_ged_log);
+	gpufreq_ged_log = 0;
+
 #ifndef GED_BUFFER_LOG_DISABLE
 #ifdef GED_DVFS_DEBUG_BUF
 	ged_log_buf_free(ghLogBuf_DVFS);
 	ghLogBuf_DVFS = 0;
 #endif
+
+	ged_log_buf_free(ghLogBuf_ftrace);
+	ghLogBuf_ftrace = 0;
+	ged_log_buf_free(ghLogBuf_FENCE);
+	ghLogBuf_FENCE = 0;
+	ged_log_buf_free(ghLogBuf_HWC);
+	ghLogBuf_HWC = 0;
+	ged_log_buf_free(ghLogBuf_HWC_ERR);
+	ghLogBuf_HWC_ERR = 0;
+
 #ifdef GED_DEBUG
 	ged_log_buf_free(ghLogBuf_GED);
 	ghLogBuf_GED = 0;
 	ged_log_buf_free(ghLogBuf_GLES);
 	ghLogBuf_GLES = 0;
 #endif
+
 	ged_log_buf_free(ghLogBuf_GPU);
 	ghLogBuf_GPU = 0;
-	ged_log_buf_free(ghLogBuf_FENCE);
-	ghLogBuf_FENCE = 0;
-	ged_log_buf_free(ghLogBuf_HWC);
-	ghLogBuf_HWC = 0;
-#endif
+#endif /* GED_BUFFER_LOG_DISABLE */
 
-
+	ged_gpu_tuner_exit();
 
 	ged_kpi_system_exit();
 
-	ged_dvfs_system_exit();
+	ged_ge_exit();
 
-	//ged_notify_vsync_system_exit();
+	ged_dvfs_system_exit();
 
 	ged_notify_sw_vsync_system_exit();
 
-	ged_log_system_exit();
-
-	ged_ge_exit();
-
-#ifdef GED_DEBUG_FS
-	ged_gpu_tuner_exit();
-
 	ged_hal_exit();
 
+	ged_log_system_exit();
+
+#ifdef GED_DEBUG_FS
 	ged_debugFS_exit();
 #endif
 
 	ged_sysfs_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
-
 }
 
 static int ged_init(void)
@@ -420,18 +428,6 @@ static int ged_init(void)
 		GED_LOGE("ged: failed to init debug FS!\n");
 		goto ERROR;
 	}
-
-	err = ged_hal_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to create hal entry!\n");
-		goto ERROR;
-	}
-
-	err = ged_gpu_tuner_init();
-	if (unlikely(err != GED_OK)) {
-		GED_LOGE("ged: failed to init GPU Tuner!\n");
-		goto ERROR;
-	}
 #endif
 
 	err = ged_log_system_init();
@@ -440,13 +436,17 @@ static int ged_init(void)
 		goto ERROR;
 	}
 
+	err = ged_hal_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create hal entry!\n");
+		goto ERROR;
+	}
 
 	err = ged_notify_sw_vsync_system_init();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to init notify sw vsync!\n");
 		goto ERROR;
 	}
-
 
 	err = ged_dvfs_system_init();
 	if (unlikely(err != GED_OK)) {
@@ -466,16 +466,23 @@ static int ged_init(void)
 		goto ERROR;
 	}
 
+	err = ged_gpu_tuner_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to init GPU Tuner!\n");
+		goto ERROR;
+	}
 
 #ifndef GED_BUFFER_LOG_DISABLE
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
 		GED_LOG_BUF_TYPE_RINGBUFFER, "GPU_FENCE", NULL);
+
 #ifdef GED_DEBUG
 	ghLogBuf_GLES = ged_log_buf_alloc(160, 128 * 160,
 		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_GLES, NULL);
 	ghLogBuf_GED = ged_log_buf_alloc(32, 64 * 32,
 		GED_LOG_BUF_TYPE_RINGBUFFER, "GED internal", NULL);
 #endif
+
 	ghLogBuf_HWC_ERR = ged_log_buf_alloc(2048, 2048 * 128,
 		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_HWC_ERR, NULL);
 	ghLogBuf_HWC = ged_log_buf_alloc(4096, 128 * 4096,
@@ -491,11 +498,10 @@ static int ged_init(void)
 		, GED_LOG_BUF_TYPE_RINGBUFFER
 		, "DVFS_Log", "ged_dvfs_debug");
 #endif
-#endif
+#endif /* GED_BUFFER_LOG_DISABLE */
 
 	gpufreq_ged_log = ged_log_buf_alloc(1024, 64 * 1024,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
-
 
 	return 0;
 

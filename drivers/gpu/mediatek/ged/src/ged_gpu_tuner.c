@@ -6,7 +6,9 @@
 #include "ged_gpu_tuner.h"
 #include "ged_base.h"
 #include "ged_log.h"
+#ifdef GED_DEBUG_FS
 #include "ged_debugFS.h"
+#endif
 #include "ged_sysfs.h"
 
 #define DEBUG_ON	1
@@ -17,10 +19,12 @@ static struct mutex gsGPUTunerLock;
 static struct GED_GPU_TUNER_ITEM gpu_tuner_status;
 static struct GED_GPU_TUNER_HINT gpu_tuner_last_custom_hint;
 static struct list_head gItemList;
+#ifdef GED_DEBUG_FS
 static struct dentry *gsGEDGPUTunerDir;
 static struct dentry *gsGPUTunerDumpStatusEntry;
 static struct dentry *gpsCustomHintSetEntry;
 static struct dentry *gpsDebugEntry;
+#endif /* GED_DEBUG_FS */
 static struct kobject *gpu_tuner_kobj;
 static int debug = DEBUG_OFF;
 
@@ -149,6 +153,8 @@ static struct GED_GPU_TUNER_ITEM *_ged_gpu_tuner_find_item_by_package_name(
 		return NULL;
 }
 
+//-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static void *_ged_gpu_tuner_dump_status_seq_start(
 		struct seq_file *psSeqFile,
 		loff_t *puiPosition)
@@ -219,7 +225,8 @@ const struct seq_operations gsGPUTunerDumpStatusReadOps = {
 	.next = _ged_gpu_tuner_dump_status_seq_next,
 	.show = _ged_gpu_tuner_dump_status_seq_show,
 };
-/* --------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t dump_status_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -257,8 +264,10 @@ static ssize_t dump_status_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static KOBJ_ATTR_RO(dump_status);
-/* --------------------------------------------------------------- */
+//-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static ssize_t _ged_custom_hint_set_write_entry(
 		const char __user *pszBuffer,
 		size_t uiCount,
@@ -390,7 +399,8 @@ const struct seq_operations gsGPUTunerCustomHintSetReadOps = {
 	.next = _ged_gpu_tuner_custom_hint_set_seq_next,
 	.show = _ged_gpu_tuner_custom_hint_set_seq_show,
 };
-/* --------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t custom_hint_set_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
@@ -462,6 +472,7 @@ static ssize_t custom_hint_set_store(struct kobject *kobj,
 	return count;
 #undef NUM_TOKEN
 }
+
 static ssize_t custom_hint_set_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -492,17 +503,19 @@ static ssize_t custom_hint_set_show(struct kobject *kobj,
 
 	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
+
 static KOBJ_ATTR_RW(custom_hint_set);
-/* --------------------------------------------------------------- */
+//-----------------------------------------------------------------------------
+#ifdef GED_DEBUG_FS
 static ssize_t _ged_debug_write_entry(
 		const char __user *pszBuffer,
 		size_t uiCount,
 		loff_t uiPosition,
 		void *pvData)
 {
-
 #undef NUM_TOKEN
 #define NUM_TOKEN 1
+
 	char acBuffer[BUF_LEN];
 	char *val;
 	int index[NUM_TOKEN], value;
@@ -570,7 +583,8 @@ const struct seq_operations gsGPUDebugReadOps = {
 	.next = _ged_gpu_tuner_debug_seq_next,
 	.show = _ged_gpu_tuner_debug_seq_show,
 };
-/* --------------------------------------------------------------- */
+#endif /* GED_DEBUG_FS */
+//-----------------------------------------------------------------------------
 static ssize_t debug_store(struct kobject *kobj, struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
@@ -601,13 +615,16 @@ static ssize_t debug_store(struct kobject *kobj, struct kobj_attribute *attr,
 	return count;
 #undef NUM_TOKEN
 }
+
 static ssize_t debug_show(struct kobject *kobj, struct kobj_attribute *attr,
 		char *buf)
 {
 	return scnprintf(buf, PAGE_SIZE, "debug(%d)\n", debug);
 }
+
 static KOBJ_ATTR_RW(debug);
-/* --------------------------------------------------------------- */
+//-----------------------------------------------------------------------------
+
 GED_ERROR ged_gpu_get_stauts_by_packagename(
 		char *packagename,
 		struct GED_GPU_TUNER_ITEM *status)
@@ -785,6 +802,7 @@ GED_ERROR ged_gpu_tuner_init(void)
 	gpu_tuner_status.status.feature = gpu_tuner_status.status.value = 0;
 	debug = false;
 
+#ifdef GED_DEBUG_FS
 	err = ged_debugFS_create_entry_dir(
 			"gpu_tuner",
 			NULL,
@@ -832,6 +850,7 @@ GED_ERROR ged_gpu_tuner_init(void)
 
 		goto ERROR;
 	}
+#endif /* GED_DEBUG_FS */
 
 	err = ged_sysfs_create_dir(NULL, "gpu_tuner", &gpu_tuner_kobj);
 	if (unlikely(err != GED_OK)) {
@@ -885,6 +904,13 @@ GED_ERROR ged_gpu_tuner_exit(void)
 			ged_free(item, sizeof(struct GED_GPU_TUNER_ITEM));
 		}
 	}
+
+#ifdef GED_DEBUG_FS
+	ged_debugFS_remove_entry(gpsDebugEntry);
+	ged_debugFS_remove_entry(gpsCustomHintSetEntry);
+	ged_debugFS_remove_entry(gsGPUTunerDumpStatusEntry);
+	ged_debugFS_remove_entry_dir(gsGEDGPUTunerDir);
+#endif /* GED_DEBUG_FS */
 
 	ged_sysfs_remove_file(gpu_tuner_kobj, &kobj_attr_debug);
 	ged_sysfs_remove_file(gpu_tuner_kobj, &kobj_attr_custom_hint_set);

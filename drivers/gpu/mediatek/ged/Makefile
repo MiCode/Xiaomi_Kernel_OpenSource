@@ -17,7 +17,6 @@ GPU_TOP = $(srctree)/drivers/gpu/mediatek/
 
 VER:=eng
 
-subdir-ccflags-y += -Wno-error
 #ccflags-y += -DGED_KPI_DEBUG
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
@@ -161,9 +160,7 @@ obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 ifeq ($(CONFIG_DEBUG_FS),y)
 ccflags-y += -DGED_DEBUG_FS
 ged-y += \
-	src/ged_debugFS.o \
-	src/ged_hal.o \
-	src/ged_gpu_tuner.o
+	src/ged_debugFS.o
 endif
 
 ged-y += \
@@ -171,6 +168,7 @@ ged-y += \
 	src/ged_base.o \
 	src/ged_main.o \
 	src/ged_sysfs.o \
+	src/ged_hal.o \
 	src/ged_log.o \
 	src/ged_bridge.o \
 	src/ged_monitor_3D_fence.o \
@@ -179,4 +177,5 @@ ged-y += \
 	src/ged_thread.o \
 	src/ged_ge.o \
 	src/ged_dvfs.o \
+	src/ged_gpu_tuner.o \
 	src/ged_kpi.o
