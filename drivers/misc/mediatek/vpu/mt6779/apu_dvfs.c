@@ -1791,7 +1791,7 @@ static void pm_qos_notifier_register(void)
 static int get_nvmem_cell_efuse(struct device *dev)
 {
 	struct nvmem_cell *cell;
-	uint32_t *buf;
+	uint32_t *buf = NULL;
 
 	cell = nvmem_cell_get(dev, "efuse_ptpod");
 	if (IS_ERR(cell)) {
@@ -1810,11 +1810,13 @@ static int get_nvmem_cell_efuse(struct device *dev)
 			LOG_ERR("[%s] nvmem_cell_read fail\n", __func__);
 			return PTR_ERR(buf);
 		}
+
+		g_efuse_ptpod = *buf;
+
+		if (buf != NULL)
+			kfree(buf);
 	} else
 		LOG_ERR("[%s] cell was null\n", __func__);
-
-	g_efuse_ptpod = *buf;
-	kfree(buf);
 
 	return 0;
 }
