@@ -58,7 +58,7 @@ page_owner=on";
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
-
+/*
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a55";
@@ -114,12 +114,14 @@ page_owner=on";
 			enable-method = "psci";
 			clock-frequency = <2000000000>;
 		};
+*/
 
 		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
 				};
+/*
 				core1 {
 					cpu = <&cpu1>;
 				};
@@ -135,8 +137,9 @@ page_owner=on";
 				core5 {
 					cpu = <&cpu5>;
 				};
+*/
 			};
-
+/*
 			cluster1 {
 				core0 {
 					cpu = <&cpu6>;
@@ -145,8 +148,15 @@ page_owner=on";
 					cpu = <&cpu7>;
 				};
 			};
+*/
 		};
 	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	aliases {
 		ovl0  = &disp_ovl0;
 		ovl3  = &disp_ovl0_2l;
