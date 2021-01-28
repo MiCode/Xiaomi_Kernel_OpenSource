@@ -1752,7 +1752,7 @@ static int _DL_switch_to_DC_fast(void)
 /* overlap=4 && wdma_en, need increase dvfs*/
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	if (dvfs_last_ovl_req > HRT_LEVEL_HPM)
-		primary_display_request_dvfs_perf(MDVFS_SCEN_DISP,
+		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
 						  HRT_LEVEL_UHPM);
 #endif
 	/* 1.save a temp frame to intermediate buffer */
