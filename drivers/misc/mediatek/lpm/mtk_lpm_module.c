@@ -336,19 +336,26 @@ int mtk_lpm_suspend_registry(const char *name, struct mtk_lpm_model *suspend)
 	if (!suspend)
 		return -EINVAL;
 
-	spin_lock_irqsave(&mtk_lp_mod_locker, flags);
 
 	if (mtk_lpm_system.suspend.flag &
 			MTK_LP_REQ_NOSYSCORE_CB) {
 		mtk_lp_model_register(name, suspend);
-	} else
+	} else {
+		spin_lock_irqsave(&mtk_lp_mod_locker, flags);
 		memcpy(&mtk_lpm_system.suspend, suspend,
 				sizeof(struct mtk_lpm_model));
-
-	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
+		spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
+	}
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lpm_suspend_registry);
+
+int mtk_lpm_suspend_type_get(void)
+{
+	return (mtk_lpm_system.suspend.flag & MTK_LP_REQ_NOSYSCORE_CB)
+		? MTK_LPM_SUSPEND_S2IDLE : MTK_LPM_SUSPEND_SYSTEM;
+}
+EXPORT_SYMBOL(mtk_lpm_suspend_type_get);
 
 static struct wakeup_source *mtk_lpm_lock;
 

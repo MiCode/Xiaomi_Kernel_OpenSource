@@ -25,6 +25,11 @@ enum MT_LPM_ISSUER_TYPE {
 	MT_LPM_ISSUER_CPUIDLE
 };
 
+enum MTK_LPM_SUSPEND_TYPE {
+	MTK_LPM_SUSPEND_SYSTEM,
+	MTK_LPM_SUSPEND_S2IDLE,
+};
+
 struct mtk_lpm_issuer {
 	int (*log)(int type, const char *prefix, void *data);
 };
@@ -84,6 +89,8 @@ int mtk_lpm_notifier_register(struct notifier_block *n);
 int mtk_lpm_notifier_unregister(struct notifier_block *n);
 
 int mtk_lpm_suspend_registry(const char *name, struct mtk_lpm_model *suspend);
+
+int mtk_lpm_suspend_type_get(void);
 
 extern int mtk_lpm_drv_cpuidle_ops_set(struct mtk_cpuidle_op *op);
 
