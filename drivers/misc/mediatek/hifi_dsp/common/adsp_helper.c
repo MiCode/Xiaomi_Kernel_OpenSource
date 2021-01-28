@@ -24,32 +24,14 @@
 #include "adsp_clk.h"
 #include "adsp_ipi.h"
 
-
+#define IPI_WAKEUP_TIME 1000
 static struct adsp_chip_info *adsp_info;
-
+struct wakeup_source ipi_wakeup_lock;
+unsigned int is_from_suspend;
 
 void *get_adsp_chip_data(void)
 {
 	return (void *)adsp_info;
-}
-
-void adsp_schedule_work(struct adsp_work_struct *adsp_ws)
-{
-	struct adsp_chip_info *adsp = get_adsp_chip_data();
-
-	queue_work(adsp->pri_data->adsp_wq, &adsp_ws->work);
-}
-
-static int adsp_system_sleep_suspend(struct device *dev)
-{
-	/* code will be added later */
-	return 0;
-}
-
-static int adsp_system_sleep_resume(struct device *dev)
-{
-	/* code will be added later */
-	return 0;
 }
 
 static int adsp_device_probe(struct platform_device *pdev)
@@ -72,7 +54,8 @@ static int adsp_device_probe(struct platform_device *pdev)
 	}
 
 	adsp_info = data;
-	adsp_info->pri_data = pri_data;
+	adsp_info->data = pri_data;
+	adsp_info->data->dev = dev;
 
 	ret = platform_parse_resource(pdev, data);
 	if (ret) {
@@ -80,42 +63,98 @@ static int adsp_device_probe(struct platform_device *pdev)
 		goto tail;
 	}
 
-	ret = adsp_must_setting_early();
+	ret = platform_parse_clock(dev, data);
 	if (ret) {
-		dev_err(dev, "adsp_necessary_early_setting failed.\n");
+		dev_err(dev, "platform_parse_clock failed.\n");
+		goto tail;
+	}
+
+	ret = adsp_must_setting_early(dev);
+	if (ret) {
+		dev_err(dev, "adsp_must_setting_early failed.\n");
 		goto tail;
 	}
 
 	ret = adsp_shared_base_ioremap(pdev, data);
 	if (ret) {
-		dev_err(dev, "adsp_base_memory_ioremap failed.\n");
+		dev_err(dev, "adsp_shared_base_ioremap failed.\n");
+		goto tail;
+	}
+
+	ret = adsp_ipi_device_init(pdev);
+	if (ret) {
+		dev_err(dev, "adsp_ipi_device_init failed.\n");
+		goto tail;
+	}
+
+	ret = adsp_wdt_device_init(pdev);
+	if (ret) {
+		dev_err(dev, "adsp_wdt_device_init failed.\n");
 		goto tail;
 	}
 
 	/* device attributes for debugging */
 	ret = adsp_create_sys_files(dev);
-	if (unlikely(ret != 0)) {
+	if (unlikely(ret != 0))
 		dev_err(dev, "[ADSP] create sys-debug files failed.\n");
-		goto tail;
-	}
 
-	ret = adsp_ipi_device_init(pdev);
-	if (unlikely(ret != 0)) {
-		dev_err(dev, "[ADSP] adsp ipi init failed.\n");
-		goto tail;
-	}
+	/* init wakeup souce */
+	wakeup_source_init(&ipi_wakeup_lock, "ipi_wakeup_lock");
+
 tail:
 	if (ret) {
 		devm_kfree(dev, pri_data);
 		devm_kfree(dev, data);
+		adsp_info = NULL;
 	}
 	return ret;
 }
 
 static int adsp_device_remove(struct platform_device *pdev)
 {
+	/* Release ADSP reset-pin */
+	hifixdsp_shutdown();
+
+	/* Close ADSP clock and power-domains */
+	adsp_clock_power_off(&pdev->dev);
+	adsp_pm_unregister_last(&pdev->dev);
+
 	adsp_ipi_device_remove(pdev);
+	adsp_wdt_device_remove(pdev);
 	adsp_destroy_sys_files(&pdev->dev);
+
+	return 0;
+}
+
+static int __maybe_unused adsp_sleep_suspend(struct device *dev)
+{
+	/* add adsp ipi wake up souce */
+	if (hifixdsp_run_status() == 1) {
+		pr_notice("audio_ipi_pm_resume is suspend, set is_from_suspend to 1!\n");
+		is_from_suspend = 1;
+	}
+	return 0;
+}
+
+static int __maybe_unused adsp_sleep_resume(struct device *dev)
+{
+	/* add adsp ipi wake up souce */
+	if (hifixdsp_run_status() == 1) {
+		pr_notice("audio_ipi_pm_resume is resume!\n");
+		__pm_wakeup_event(&ipi_wakeup_lock, IPI_WAKEUP_TIME);
+	}
+	return 0;
+}
+
+static int __maybe_unused adsp_runtime_suspend(struct device *dev)
+{
+	/* nothing */
+	return 0;
+}
+
+static int __maybe_unused adsp_runtime_resume(struct device *dev)
+{
+	/* nothing */
 	return 0;
 }
 
@@ -125,9 +164,8 @@ static const struct of_device_id adsp_of_ids[] = {
 };
 
 static const struct dev_pm_ops adsp_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(
-		adsp_system_sleep_suspend,
-		adsp_system_sleep_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(adsp_sleep_suspend, adsp_sleep_resume)
+	SET_RUNTIME_PM_OPS(adsp_runtime_suspend, adsp_runtime_resume, NULL)
 };
 
 static struct platform_driver mtk_adsp_driver = {
@@ -148,51 +186,14 @@ static struct platform_driver mtk_adsp_driver = {
 /*
  * ADSP driver initialization entry point.
  */
-static int __init adsp_platform_init(void)
-{
-	int ret = 0;
-
-	pr_debug("[ADSP] %s(+)\n", __func__);
-
-	ret = platform_driver_register(&mtk_adsp_driver);
-	if (ret) {
-		pr_err("[ADSP] Unable to register platform driver!\n");
-		goto TAIL;
-	}
-
-	pr_debug("[ADSP] %s(-)\n", __func__);
-TAIL:
-	return ret;
-}
-
-static void __exit adsp_platform_exit(void)
-{
-	platform_driver_unregister(&mtk_adsp_driver);
-}
-
-subsys_initcall(adsp_platform_init);
-module_exit(adsp_platform_exit);
+module_platform_driver(mtk_adsp_driver);
 
 
 static int __init adsp_module_init(void)
 {
 	int ret = 0;
-	struct adsp_chip_info *adsp;
-
-	adsp = get_adsp_chip_data();
-	if (!adsp) {
-		ret = -1;
-		goto TAIL;
-	}
 
 	pr_debug("[ADSP] %s(+)\n", __func__);
-
-	adsp->pri_data->adsp_wq = create_workqueue("ADSP_WQ");
-	if (!adsp->pri_data->adsp_wq) {
-		pr_err("[ADSP] fail to create workqueue.\n");
-		ret = -ENOMEM;
-		goto TAIL;
-	}
 
 	/*
 	 * adsp-module-init()
@@ -202,20 +203,12 @@ static int __init adsp_module_init(void)
 	//adsp_trax_init();
 
 	pr_debug("[ADSP] %s(-)\n", __func__);
-TAIL:
+
 	return ret;
 }
 
 static void __exit adsp_module_exit(void)
 {
-	struct adsp_chip_info *adsp;
-
-	adsp = get_adsp_chip_data();
-	if (!adsp)
-		return;
-
-	flush_workqueue(adsp->pri_data->adsp_wq);
-	destroy_workqueue(adsp->pri_data->adsp_wq);
 	/*
 	 * adsp-module-uninit()
 	 * You can add some un-initial items as listed below.
