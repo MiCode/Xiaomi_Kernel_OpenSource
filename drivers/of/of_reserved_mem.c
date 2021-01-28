@@ -55,22 +55,15 @@ int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
 	 * panic()s on allocation failure.
 	 */
 	end = !end ? MEMBLOCK_ALLOC_ANYWHERE : end;
-	base = __memblock_alloc_base(size, align, end);
+	base = memblock_find_in_range(start, end, size, align);
 	if (!base)
 		return -ENOMEM;
-
-	/*
-	 * Check if the allocated region fits in to start..end window
-	 */
-	if (base < start) {
-		memblock_free(base, size);
-		return -ENOMEM;
-	}
 
 	*res_base = base;
 	if (nomap)
 		return memblock_remove(base, size);
-	return 0;
+
+	return memblock_reserve(base, size);
 }
 #else
 int __init __weak early_init_dt_alloc_reserved_memory_arch(phys_addr_t size,
