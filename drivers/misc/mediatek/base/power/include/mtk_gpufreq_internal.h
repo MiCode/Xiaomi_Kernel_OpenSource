@@ -11,14 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MT_GPU_BW_H_
-#define _MT_GPU_BW_H_
+#ifndef _MTK_GPUFREQ_INTERNAL_H_
+#define _MTK_GPUFREQ_INTERNAL_H_
 
-#include <linux/module.h>
+#if defined(CONFIG_MACH_MT6885)
 
-extern void mt_gpu_bw_toggle(int i32Restore);
-extern void mt_gpu_bw_qos_vcore(unsigned int ui32BW);
-extern unsigned int mt_gpu_bw_get_BW(int type);
-extern void mt_gpu_bw_init(void);
+#include "gpufreq_v1/mtk_gpufreq_internal.h"
 
-#endif /* _MT_GPUFREQ_H_ */
+#endif
+
+#endif /* _MTK_GPUFREQ_INTERNAL_H_ */
+
