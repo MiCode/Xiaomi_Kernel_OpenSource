@@ -1012,10 +1012,10 @@ static void __init mlog_init_debugfs(void)
 			&proc_dmlog_operations);
 }
 
-static void mlog_timer_handler(struct timer_list *timer)
+static void mlog_timer_handler(unsigned long data)
 {
 	mlog(MLOG_TRIGGER_TIMER);
-	mod_timer(timer, round_jiffies(jiffies + timer_intval));
+	mod_timer(&mlog_timer, round_jiffies(jiffies + timer_intval));
 }
 
 static int __init mlog_init_logger(void)
@@ -1027,7 +1027,7 @@ static int __init mlog_init_logger(void)
 	if (ret)
 		return ret;
 
-	timer_setup(&mlog_timer, mlog_timer_handler, 0);
+	setup_timer(&mlog_timer, mlog_timer_handler, 0);
 	mlog_timer.expires = jiffies + timer_intval;
 	add_timer(&mlog_timer);
 
