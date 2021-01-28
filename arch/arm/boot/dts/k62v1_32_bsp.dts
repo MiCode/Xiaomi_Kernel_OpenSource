@@ -7,7 +7,6 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/pinctrl/mt6765-pinfunc.h>
-#include <dt-bindings/mmc/mt6765-msdc.h>
 #include <dt-bindings/clock/mt6765-clk.h>
 
 /dts-v1/;
@@ -25,7 +24,7 @@
 	atag,videolfb-islcm_inited = <0>;
 	atag,videolfb-fps= <6000>;
 	atag,videolfb-vramSize= <0x017bb000>;
-	atag,videolfb-lcmname= "nt35521_hd_dsi_vdo_truly_rt5081_drv";
+	atag,videolfb-lcmname= "nt35695B_fhd_dsi_cmd_auo_rt5081_drv";
 };
 
 &odm {
@@ -79,18 +78,6 @@
 	};
 };
 
-&i2c2 {
-	#address-cells = <1>;
-	#size-cells = <0>;
-	clock-frequency = <400000>;
-
-	mtk-usb@60 {
-		compatible = "mediatek,mtk-usb";
-		reg = <0x60>;
-		status = "okay";
-	};
-};
-
 &i2c3 {
 	ext_buck_lp4@57 {
 		regulator-name ="ext_buck_vdd2";
@@ -115,84 +102,70 @@
 		vsel_pin = <2>;
 	};
 };
-
-&keypad {
-	pinctrl-names = "default";
-	pinctrl-0 = <&kpd_pins_default>;
-};
-
-&pio {
-	kpd_pins_default: kpdgpiodefault {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO93__FUNC_KPCOL0>;
-			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
-			output-low;
-			input-schmitt-enable;
-		};
-	};
-};
-
-&accdet {
-	accdet-mic-vol = <6>;
-	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
-	accdet-plugout-debounce = <1>;
-	accdet-mic-mode = <1>;
-	headset-eint-level-pol = <8>;
-	headset-three-key-threshold = <0 80 220 400>;
-	headset-three-key-threshold-CDD = <0 121 192 600>;
-	headset-four-key-threshold = <0 58 121 192 400>;
-	pinctrl-names = "default", "state_eint_as_int";
-	pinctrl-0 = <&accdet_pins_default>;
-	pinctrl-1 = <&accdet_pins_eint_as_int>;
+/* TOUCH start */
+&touch {
+	tpd-resolution = <1080 1920>;
+	use-tpd-button = <0>;
+	tpd-key-num = <3>;
+	tpd-key-local= <139 172 158 0>;
+	tpd-key-dim-local = <90 883 100 40 230
+				 883 100 40 370 883 100 40 0 0 0 0>;
+	tpd-max-touch-num = <5>;
+	tpd-filter-enable = <1>;
+	tpd-filter-pixel-density = <146>;
+	tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+	tpd-filter-custom-speed = <0 0 0>;
+	pinctrl-names = "default", "state_eint_as_int", "state_eint_output0",
+		"state_eint_output1", "state_rst_output0", "state_rst_output1";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_pins_eint_as_int>;
+	pinctrl-2 = <&ctp_pins_eint_output0>;
+	pinctrl-3 = <&ctp_pins_eint_output1>;
+	pinctrl-4 = <&ctp_pins_rst_output0>;
+	pinctrl-5 = <&ctp_pins_rst_output1>;
 	status = "okay";
 };
 &pio {
-	accdet_pins_default: accdetdefault {
+	ctp_pins_default: eint0default {
 	};
-	accdet_pins_eint_as_int: accdeteint@0 {
+	ctp_pins_eint_as_int: eint@0 {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
 			slew-rate = <0>;
 			bias-disable;
 		};
 	};
-};
-
-&mt6370_pmu {
-	mt6370,intr_gpio_num = <11>; /* direct defined GPIO num */
-	mt6370,intr_gpio = <&pio 11 0x0>;
-};
-
-&mt6370_chg {
-	bc12_sel = <1>;
-};
-
-&i2c3 {
-	rt9465@4b {
-		compatible = "richtek,rt9465";
-		reg = <0x4b>;
-		status = "okay";
-		rt,en_gpio_num = <176>;
-		rt,en_gpio = <&pio 176 0x0>;
-		rt,intr_gpio_num = <23>; /* direct defined GPIO num */
-		rt,intr_gpio = <&pio 23 0x0>;
-		interrupt-names = "wdtmri";
-		charger_name = "secondary_chg";
-		ichg = <1500000>; /* uA */
-		mivr = <4500000>; /* uV */
-		cv = <4550000>; /* uV */
-		ieoc = <700000>; /* uA */
-		safety_timer = <12>; /* hour */
-		en_st; /* safety timer */
-		/* en_te; */
-		en_wdt;
+	ctp_pins_eint_output0: eintoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_pins_eint_output1: eintoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO0__FUNC_GPIO0>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_pins_rst_output0: rstoutput0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO174__FUNC_GPIO174>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_pins_rst_output1: rstoutput1 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO174__FUNC_GPIO174>;
+			slew-rate = <1>;
+			output-high;
+		};
 	};
 };
+/* TOUCH end */
 
-&mt6370_typec {
-	mt6370pd,intr_gpio_num = <41>; /* direct defined GPIO num */
-	mt6370pd,intr_gpio = <&pio 41 0x0>;
-};
 /* CONSYS GPIO standardization */
 &pio {
 	consys_pins_default: consys_default {
@@ -230,6 +203,120 @@
 	status = "okay";
 };
 /* CONSYS end */
+
+&keypad {
+	pinctrl-names = "default";
+	pinctrl-0 = <&kpd_pins_default>;
+};
+
+&pio {
+	kpd_pins_default: kpdgpiodefault {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO93__FUNC_KPCOL0>;
+			bias-pull-up = <MTK_PUPD_SET_R1R0_10>;
+			output-low;
+			input-schmitt-enable;
+		};
+	};
+};
+
+
+/* accdet start */
+&accdet {
+	accdet-mic-vol = <6>;
+	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
+	accdet-plugout-debounce = <1>;
+	accdet-mic-mode = <1>;
+	headset-eint-level-pol = <8>;
+	headset-three-key-threshold = <0 80 220 400>;
+	headset-three-key-threshold-CDD = <0 121 192 600>;
+	headset-four-key-threshold = <0 58 121 192 400>;
+	pinctrl-names = "default", "state_eint_as_int";
+	pinctrl-0 = <&accdet_pins_default>;
+	pinctrl-1 = <&accdet_pins_eint_as_int>;
+	status = "okay";
+};
+&pio {
+	accdet_pins_default: accdetdefault {
+	};
+	accdet_pins_eint_as_int: accdeteint@0 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+			slew-rate = <0>;
+			bias-disable;
+		};
+	};
+};
+/* accdet end */
+
+/* FINGERPRINT start */
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	fingerprint@0 {
+		compatible = "goodix,goodix-fp";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		netlink-event = <30>;
+		status = "okay";
+	};
+};
+
+&goodix_fp {
+	pinctrl-names = "default", "reset_high", "reset_low";
+	pinctrl-0 = <&fingerprint_default>;
+	pinctrl-1 = <&fingerprint_reset_high>;
+	pinctrl-2 = <&fingerprint_reset_low>;
+	status = "okay";
+};
+
+&pio {
+	fingerprint_default: state_default {
+	};
+	fingerprint_reset_high: state_reset_high {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO172__FUNC_GPIO172>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	fingerprint_reset_low: state_reset_low {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO172__FUNC_GPIO172>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+};
+/* FINGERPRINT end */
+
+/* IRTX GPIO end */
+&irtx_pwm {
+	pinctrl-names = "irtx_gpio_led_default", "irtx_gpio_led_set";
+	pinctrl-0 = <&irtx_gpio_led_default>;
+	pinctrl-1 = <&irtx_gpio_led_set>;
+	status = "okay";
+};
+&pio {
+	irtx_gpio_led_default:irtx_gpio_led_def@gpio90 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO90__FUNC_GPIO90>;
+			slew-rate = <1>;
+			bias-disable;
+			output-low;
+			input-schmitt-enable = <0>;
+		};
+	};
+
+	irtx_gpio_led_set:irtx_gpio_led_set@gpio90 {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO90__FUNC_PWM0>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+};
+/* IRTX GPIO Settings -End */
 
 /* AUDIO GPIO standardization */
 &audgpio {
@@ -361,7 +448,22 @@
 };
 /* AUDIO end */
 
+&mt6370_pmu {
+	mt6370,intr_gpio_num = <11>; /* direct defined GPIO num */
+	mt6370,intr_gpio = <&pio 11 0x0>;
+};
+
+&mt6370_typec {
+	mt6370pd,intr_gpio_num = <41>; /* direct defined GPIO num */
+	mt6370pd,intr_gpio = <&pio 41 0x0>;
+};
+
+
+
+
+
+
+
 #include <k62v1_32_bsp/cust.dtsi>
 #include "cust_mt6765_camera.dtsi"
-#include "cust_mt6765_touch_720x1280.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
