@@ -676,7 +676,7 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 24:
 	{
-		unsigned int *pSrc;
+		void *pSrc;
 		unsigned int mva = 0;
 		unsigned long pa;
 		struct m4u_client_t *client = m4u_create_client();
@@ -698,6 +698,7 @@ static int m4u_debug_set(void *data, u64 val)
 		pa = m4u_mva_to_pa(NULL, 0, mva);
 		M4UMSG("(2) mva:0x%x pa:0x%lx\n", mva, pa);
 		m4u_destroy_client(client);
+		vfree(pSrc);
 	}
 	break;
 	case 25:
@@ -842,18 +843,19 @@ static int m4u_debug_set(void *data, u64 val)
 		unsigned long va = 0;
 
 		size = 0x500000;
-		va = (unsigned long)vmalloc(size);
 		client = m4u_create_client();
 		if (IS_ERR_OR_NULL(client)) {
 			m4u_info("%s #%d create client fail!\n", __func__, __LINE__);
 			return -ENOMEM;
 		}
+
+		va = (unsigned long)vmalloc(size);
 		ret = m4u_alloc_mva(client, M4U_PORT_DISP_OVL0, va, NULL, size,
 				    M4U_PROT_READ | M4U_PROT_CACHE, 0, &mva);
 		if (ret) {
-			M4UMSG(
-				"alloc mva fail: va=0x%lx size=0x%x,ret=%d\n",
-				va, size, ret);
+			m4u_info("alloc mva fail: va=0x%lx size=0x%x,ret=%d\n",
+				 va, size, ret);
+			vfree((void *)va);
 			return -1;
 		}
 		m4u_dump_pgtable_for_debug(mva, size);
