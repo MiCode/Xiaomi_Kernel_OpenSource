@@ -330,17 +330,14 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	struct mtk_base_afe_memif *memif = &afe->memif[dai->id];
 
 	task_id = get_taskid_by_afe_daiid(dai->id);
-
-	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUMTIME) <= 0 ||
-	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0) {
-		pr_info("%s task_id[%d] disable", __func__, task_id);
-		return -1;
-	}
-
 	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM) {
 		pr_debug("%s() not support\n", __func__);
 		return -1;
 	}
+
+	if (get_task_attr(task_id, ADSP_TASK_ATTR_RUMTIME) <= 0 ||
+	    get_task_attr(task_id, ADSP_TASK_ATTR_DEFAULT) <= 0)
+		return -1;
 
 	dsp_memif = (struct mtk_base_dsp_mem *)&dsp->dsp_mem[task_id];
 	payload = (char *)&dsp->dsp_mem[task_id].msg_atod_share_buf.phy_addr;
