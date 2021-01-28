@@ -24,10 +24,11 @@
 #include "reviser_ioctl.h"
 #include "reviser_reg.h"
 
+static struct page **g_pages;
+
 static struct page **__reviser_get_sgt(const char *buf,
 		size_t len, struct sg_table *sgt)
 {
-	struct page **pages = NULL;
 	unsigned int nr_pages;
 	unsigned int index;
 	const char *p;
@@ -35,9 +36,9 @@ static struct page **__reviser_get_sgt(const char *buf,
 
 	nr_pages = DIV_ROUND_UP((unsigned long)buf + len, PAGE_SIZE)
 		- ((unsigned long)buf / PAGE_SIZE);
-	pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
+	g_pages = kmalloc_array(nr_pages, sizeof(struct page *), GFP_KERNEL);
 
-	if (!pages)
+	if (!g_pages)
 		return ERR_PTR(-ENOMEM);
 
 	p = buf - offset_in_page(buf);
@@ -46,11 +47,11 @@ static struct page **__reviser_get_sgt(const char *buf,
 
 	for (index = 0; index < nr_pages; index++) {
 		if (is_vmalloc_addr(p))
-			pages[index] = vmalloc_to_page(p);
+			g_pages[index] = vmalloc_to_page(p);
 		else
-			pages[index] = kmap_to_page((void *)p);
-		if (!pages[index]) {
-			kfree(pages);
+			g_pages[index] = kmap_to_page((void *)p);
+		if (!g_pages[index]) {
+			kfree(g_pages);
 			LOG_ERR("map failed\n");
 			return ERR_PTR(-EFAULT);
 		}
@@ -60,19 +61,19 @@ static struct page **__reviser_get_sgt(const char *buf,
 	}
 
 
-	ret = sg_alloc_table_from_pages(sgt, pages, index,
+	ret = sg_alloc_table_from_pages(sgt, g_pages, index,
 		offset_in_page(buf), len, GFP_KERNEL);
 
 	if (ret) {
 		LOG_ERR("sg_alloc_table_from_pages: %d\n", ret);
-		kfree(pages);
+		kfree(g_pages);
 		return ERR_PTR(ret);
 	}
 
 	LOG_DEBUG("buf: %p, len: %lx, sgt: %p nr_pages: %d\n",
 		buf, len, sgt, nr_pages);
 
-	return pages;
+	return g_pages;
 }
 
 static dma_addr_t __reviser_get_iova(struct device *dev,
@@ -111,6 +112,7 @@ static dma_addr_t __reviser_get_iova(struct device *dev,
 
 int reviser_mem_free(struct reviser_mem *mem)
 {
+	kfree(g_pages);
 	kfree((void *)(void *) mem->kva);
 
 	LOG_DEBUG("Done\n");
