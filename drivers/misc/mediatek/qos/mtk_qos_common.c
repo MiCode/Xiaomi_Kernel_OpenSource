@@ -121,7 +121,6 @@ int mtk_qos_probe(struct platform_device *pdev,
 	qos_sram_init(qos->regs, qos->regsize);
 	qos_add_interface(&pdev->dev);
 	qos_ipi_init(qos);
-	qos->soc->qos_dvfsrc_init(qos);
 	qos_bound_init();
 
 	platform_set_drvdata(pdev, qos);

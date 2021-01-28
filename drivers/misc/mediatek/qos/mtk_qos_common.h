@@ -15,7 +15,6 @@ struct mtk_qos_soc {
 	const struct qos_ipi_cmd *ipi_pin;
 	const struct qos_sram_addr *sram_pin;
 	int (*qos_sspm_init)(void);
-	int (*qos_dvfsrc_init)(struct mtk_qos *qos);
 	int (*qos_ipi_recv_handler)(void *arg);
 };
 
