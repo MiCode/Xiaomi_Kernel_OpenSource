@@ -201,7 +201,7 @@ unsigned int data_lane1[2] = { 0 }; /* MIPITX_DSI_DATA_LANE1 */
 unsigned int data_lane2[2] = { 0 }; /* MIPITX_DSI_DATA_LANE2 */
 unsigned int data_lane3[2] = { 0 }; /* MIPITX_DSI_DATA_LANE3 */
 
-unsigned int mipitx_impedance_backup[5];
+unsigned int mipitx_impedance_backup[50];
 atomic_t dsi_idle_flg = ATOMIC_INIT(0);
 
 static void refill_mipitx_impedance(void *cmdq)
