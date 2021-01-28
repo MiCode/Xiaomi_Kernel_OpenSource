@@ -1,14 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0
 #
-# Copyright (C) 2015 MediaTek Inc.
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 2 as
-# published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-# GNU General Public License for more details.
+# Copyright (c) 2019 MediaTek Inc.
 #
 
 THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
@@ -450,7 +442,6 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
-
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
 endif
@@ -480,4 +471,20 @@ endif
 
 obj-$(CONFIG_THERMAL) += mtk_tsAll.o
 obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8168"))
+obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
+obj-$(CONFIG_THERMAL) += mtk_tsAll.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+
+ifneq ($(CONFIG_MTK_COMBO_WIFI),)
+ifneq ($(filter "MT76%", $(CONFIG_MTK_COMBO_CHIP)),)
+    obj-$(CONFIG_THERMAL) += mtk_ts_wmt_766x.o
+else
+    obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
+endif
+endif
 endif
