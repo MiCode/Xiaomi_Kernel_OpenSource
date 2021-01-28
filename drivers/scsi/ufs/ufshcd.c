@@ -8916,8 +8916,14 @@ static int ufshcd_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * host clocks are ON.
 	 */
 	ret = ufshcd_vops_resume(hba, pm_op);
-	if (ret)
-		goto disable_vreg;
+	if (ret) {
+		dev_err(hba->dev, "%s: vender resume failed. ret = %d\n",
+			__func__, ret);
+		ret = ufshcd_link_recovery(hba);
+		/* Unable to recover the link, so no point proceeding */
+		if (ret)
+			goto disable_vreg;
+	}
 
 	/*
 	 * MTK NOTE: If link is hibern8 before ufshcd_resume(),
