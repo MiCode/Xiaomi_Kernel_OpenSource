@@ -38,13 +38,19 @@ static int dfrc_fps;
 static int limit_freq_at_60;
 static int limit_freq_at_90;
 static int limit_freq_at_120;
+static int limit_freq_at_144;
 static int syslimiter_disable;
 static int fpsgo_state;
-
+static int tolerance_percent;
+static int fps60_tolerance;
+static int fps90_tolerance;
+static int fps120_tolerance;
+static int fps144_tolerance;
 static struct mutex syslimiter;
-#define DEFAULT_FPS_THRESHOLD 60
+#define FPS_THRESHOLD_60 60
 #define FPS_THRESHOLD_90 90
 #define FPS_THRESHOLD_120 120
+#define FPS_THRESHOLD_144 144
 
 enum MODULE_STATE {
 	STATE_ON,
@@ -63,24 +69,37 @@ static void syslimiter_update_limit_freq(void)
 		goto out;
 	}
 
-	if (!fpsgo_is_enable()) {
+	if (dfrc_fps == -1) {
 		freq_to_set[cluster_1].max = -1;
 		goto out;
 	}
 
 	perfmgr_trace_count(dfrc_fps, "dfrc_fps");
 
-	if (limit_freq_at_120 > 0 && dfrc_fps == FPS_THRESHOLD_120) {
-		freq_to_set[cluster_1].max = limit_freq_at_120;
-		perfmgr_trace_count(limit_freq_at_120, "limit_freq_at_120");
+	fps60_tolerance = 60 + 60*tolerance_percent/100;
+	fps90_tolerance = 90 + 90*tolerance_percent/100;
+	fps120_tolerance = 120 + 120*tolerance_percent/100;
+	fps144_tolerance = 144 + 144*tolerance_percent/100;
+
+	if (limit_freq_at_60 > 0 &&
+		dfrc_fps > 0 && dfrc_fps <= fps60_tolerance) {
+		freq_to_set[cluster_1].max = limit_freq_at_60;
+		perfmgr_trace_count(limit_freq_at_60, "limit_freq_at_60");
 		goto out;
-	} else if (limit_freq_at_90 > 0 && dfrc_fps == FPS_THRESHOLD_90) {
+	} else if (limit_freq_at_90 > 0 &&
+		dfrc_fps > fps60_tolerance && dfrc_fps <= fps90_tolerance) {
 		freq_to_set[cluster_1].max = limit_freq_at_90;
 		perfmgr_trace_count(limit_freq_at_90, "limit_freq_at_90");
 		goto out;
-	} else if (limit_freq_at_60 > 0 && dfrc_fps == DEFAULT_FPS_THRESHOLD) {
-		freq_to_set[cluster_1].max = limit_freq_at_60;
-		perfmgr_trace_count(limit_freq_at_60, "limit_freq_at_60");
+	} else if (limit_freq_at_120 > 0 &&
+		dfrc_fps > fps90_tolerance && dfrc_fps <= fps120_tolerance) {
+		freq_to_set[cluster_1].max = limit_freq_at_120;
+		perfmgr_trace_count(limit_freq_at_120, "limit_freq_at_120");
+		goto out;
+	} else if (limit_freq_at_144 > 0 &&
+		dfrc_fps > fps120_tolerance && dfrc_fps <= fps144_tolerance) {
+		freq_to_set[cluster_1].max = limit_freq_at_144;
+		perfmgr_trace_count(limit_freq_at_144, "limit_freq_at_144");
 		goto out;
 	} else
 		freq_to_set[cluster_1].max = -1;
@@ -124,6 +143,32 @@ void syslimiter_update_fpsgo_state(int state)
 	mutex_unlock(&syslimiter);
 
 	syslimiter_update_limit_freq();
+}
+
+/*******************************************/
+static ssize_t perfmgr_syslimiter_fps_144_proc_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int data = 0;
+	int rv = check_proc_write(&data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	mutex_lock(&syslimiter);
+	limit_freq_at_144 = data;
+	mutex_unlock(&syslimiter);
+
+	syslimiter_update_limit_freq();
+
+	return cnt;
+}
+
+static int perfmgr_syslimiter_fps_144_proc_show(struct seq_file *m, void *v)
+{
+	if (m)
+		seq_printf(m, "%d\n", limit_freq_at_144);
+	return 0;
 }
 
 /*******************************************/
@@ -178,7 +223,6 @@ static int perfmgr_syslimiter_fps_90_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-
 /*******************************************/
 static ssize_t perfmgr_syslimiter_fps_60_proc_write(struct file *filp,
 		const char __user *ubuf, size_t cnt, loff_t *pos)
@@ -232,10 +276,40 @@ static int perfmgr_syslimiter_force_disable_proc_show(struct seq_file *m,
 	return 0;
 }
 
+/*******************************************/
+static ssize_t
+	perfmgr_syslimiter_tolerance_percent_proc_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int data = 0;
+	int rv = check_proc_write(&data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	mutex_lock(&syslimiter);
+	tolerance_percent = data;
+	mutex_unlock(&syslimiter);
+
+	syslimiter_update_limit_freq();
+
+	return cnt;
+}
+
+static int perfmgr_syslimiter_tolerance_percent_proc_show(struct seq_file *m,
+		void *v)
+{
+	if (m)
+		seq_printf(m, "%d\n", tolerance_percent);
+	return 0;
+}
+
+PROC_FOPS_RW(syslimiter_fps_144);
 PROC_FOPS_RW(syslimiter_fps_120);
 PROC_FOPS_RW(syslimiter_fps_90);
 PROC_FOPS_RW(syslimiter_fps_60);
 PROC_FOPS_RW(syslimiter_force_disable);
+PROC_FOPS_RW(syslimiter_tolerance_percent);
 
 /************************************************/
 int syslimiter_init(struct proc_dir_entry *parent)
@@ -252,7 +326,9 @@ int syslimiter_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(syslimiter_fps_60),
 		PROC_ENTRY(syslimiter_fps_90),
 		PROC_ENTRY(syslimiter_fps_120),
+		PROC_ENTRY(syslimiter_fps_144),
 		PROC_ENTRY(syslimiter_force_disable),
+		PROC_ENTRY(syslimiter_tolerance_percent),
 	};
 
 	mutex_init(&syslimiter);
@@ -296,11 +372,13 @@ int syslimiter_init(struct proc_dir_entry *parent)
 		current_freq[i].max = -1;
 	}
 
-	dfrc_fps = DEFAULT_FPS_THRESHOLD;
+	dfrc_fps = FPS_THRESHOLD_60;
 	limit_freq_at_60 = -1;
 	limit_freq_at_90 = -1;
 	limit_freq_at_120 = -1;
+	limit_freq_at_144 = -1;
 	fpsgo_state = STATE_OFF;
+	tolerance_percent = 10;
 
 out:
 	return ret;
