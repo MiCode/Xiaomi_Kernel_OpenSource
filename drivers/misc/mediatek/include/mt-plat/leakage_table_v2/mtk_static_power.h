@@ -9,44 +9,8 @@
 #include <linux/types.h>
 
 /* #define MTK_SPOWER_UT */
-#if defined(CONFIG_MACH_MT6759)
-#include "mtk_static_power_mt6759.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6763)
-#include "mtk_static_power_mt6763.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6758)
-#include "mtk_static_power_mt6758.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6739)
-#include "mtk_static_power_mt6739.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6765)
-#include "mtk_static_power_mt6765.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6761)
-#include "mtk_static_power_mt6761.h"
-#endif
-
-#if defined(CONFIG_MACH_MT3967)
-#include "mtk_static_power_mt3967.h"
-#endif
-
 #if defined(CONFIG_MTK_STATIC_POWER)
 #include "mtk_static_power_platform.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6768)
-#include "mtk_static_power_mt6768.h"
-#endif
-
-#if defined(CONFIG_MACH_MT6785)
-#include "mtk_static_power_mt6785.h"
 #endif
 
 extern u32 get_devinfo_with_index(u32 index);
