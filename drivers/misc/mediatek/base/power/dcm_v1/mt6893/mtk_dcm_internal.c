@@ -329,7 +329,7 @@ bool dcm_armcore_is_on(void)
 	bool ret = true;
 
 	ret &= dcm_mp_cpusys_top_bus_pll_div_dcm_is_on();
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
+#if 0
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on();
 #endif
 	ret &= dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on();
@@ -343,7 +343,7 @@ bool dcm_armcore_is_on(void)
 int dcm_armcore(int mode)
 {
 	dcm_mp_cpusys_top_bus_pll_div_dcm(mode);
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
+#if 0
 	dcm_mp_cpusys_top_cpu_pll_div_0_dcm(mode);
 #endif
 	dcm_mp_cpusys_top_cpu_pll_div_1_dcm(mode);

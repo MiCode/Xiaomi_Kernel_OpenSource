@@ -2267,7 +2267,7 @@ void dcm_mp_cpusys_top_cpubiu_dcm(int on)
 	}
 }
 
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
+#if 0
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_0_DCM_REG0_MASK ((0x1 << 11))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_0_DCM_REG0_ON ((0x1 << 11))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_0_DCM_REG0_OFF ((0x0 << 11))
@@ -2301,15 +2301,9 @@ void dcm_mp_cpusys_top_cpu_pll_div_0_dcm(int on)
 }
 #endif
 
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_MASK ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_ON ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_OFF ((0x0 << 11))
-#else
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_MASK ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_ON ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_1_DCM_REG0_OFF ((0x0 << 12))
-#endif
 
 bool dcm_mp_cpusys_top_cpu_pll_div_1_dcm_is_on(void)
 {
@@ -2339,15 +2333,9 @@ void dcm_mp_cpusys_top_cpu_pll_div_1_dcm(int on)
 	}
 }
 
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_2_DCM_REG0_MASK ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_2_DCM_REG0_ON ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_2_DCM_REG0_OFF ((0x0 << 11))
-#else
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_2_DCM_REG0_MASK ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_2_DCM_REG0_ON ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_2_DCM_REG0_OFF ((0x0 << 12))
-#endif
 
 bool dcm_mp_cpusys_top_cpu_pll_div_2_dcm_is_on(void)
 {
@@ -2377,15 +2365,9 @@ void dcm_mp_cpusys_top_cpu_pll_div_2_dcm(int on)
 	}
 }
 
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_3_DCM_REG0_MASK ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_3_DCM_REG0_ON ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_3_DCM_REG0_OFF ((0x0 << 11))
-#else
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_3_DCM_REG0_MASK ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_3_DCM_REG0_ON ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_3_DCM_REG0_OFF ((0x0 << 12))
-#endif
 
 bool dcm_mp_cpusys_top_cpu_pll_div_3_dcm_is_on(void)
 {
@@ -2415,15 +2397,9 @@ void dcm_mp_cpusys_top_cpu_pll_div_3_dcm(int on)
 	}
 }
 
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_MASK ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_ON ((0x1 << 11))
-#define MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_OFF ((0x0 << 11))
-#else
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_MASK ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_ON ((0x1 << 12))
 #define MP_CPUSYS_TOP_CPU_PLL_DIV_4_DCM_REG0_OFF ((0x0 << 12))
-#endif
 
 bool dcm_mp_cpusys_top_cpu_pll_div_4_dcm_is_on(void)
 {

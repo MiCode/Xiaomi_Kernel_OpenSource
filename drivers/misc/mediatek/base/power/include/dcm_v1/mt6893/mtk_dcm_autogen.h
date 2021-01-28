@@ -291,7 +291,7 @@ bool dcm_mp_cpusys_top_core_stall_dcm_is_on(void);
 void dcm_mp_cpusys_top_core_stall_dcm(int on);
 bool dcm_mp_cpusys_top_cpubiu_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpubiu_dcm(int on);
-#ifdef CONFIG_MTK_PLAT_MT6885_EMULATION
+#if 0
 bool dcm_mp_cpusys_top_cpu_pll_div_0_dcm_is_on(void);
 void dcm_mp_cpusys_top_cpu_pll_div_0_dcm(int on);
 #endif
