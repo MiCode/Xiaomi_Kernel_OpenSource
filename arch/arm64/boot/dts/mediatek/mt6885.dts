@@ -6458,10 +6458,7 @@ page_owner=on loop.max_part=7";
 		reset-vector = <0x7da00000 0x00100000 0x0>;
 		main-prog = <0x7db00000 0x00300000 0x100000>;
 		kernel-lib = <0x7de00000 0x00500000 0xffffffff>;
-		iram-data = <0x0 0x30000 0x2950000>;
 		work-buf = <0x0 0x12000 0xffffffff>;
-		algo = <0x0 0x1d50000 0xc00000>;
-		share-data = <0x7f500000 0x600000 0xffffffff>;
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_CODE>;
 #endif
@@ -6478,10 +6475,7 @@ page_owner=on loop.max_part=7";
 		reset-vector = <0x7e300000 0x00100000 0x400000>;
 		main-prog = <0x7e400000 0x00300000 0x500000>;
 		kernel-lib = <0x7e700000 0x00500000 0xffffffff>;
-		iram-data = <0x0 0x30000 0x2980000>;
 		work-buf = <0x0 0x12000 0xffffffff>;
-		algo = <0x0 0x1d50000 0xc00000>;
-		share-data = <0x7f500000 0x600000 0xffffffff>;
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_CODE>;
 #endif
@@ -6498,10 +6492,7 @@ page_owner=on loop.max_part=7";
 		reset-vector = <0x7ec00000 0x00100000 0x800000>;
 		main-prog = <0x7ed00000 0x00300000 0x900000>;
 		kernel-lib = <0x7f000000 0x00500000 0xffffffff>;
-		iram-data = <0x0 0x30000 0x29b0000>;
 		work-buf = <0x0 0x12000 0xffffffff>;
-		algo = <0x0 0x1d50000 0xc00000>;
-		share-data = <0x7f500000 0x600000 0xffffffff>;
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu2 M4U_PORT_L21_APU_FAKE_CODE>;
 #endif
