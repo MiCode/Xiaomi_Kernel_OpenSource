@@ -177,6 +177,11 @@ struct mtk_drm_private {
 #ifdef DRM_MMPATH
 	int HWC_gpid; // for mmpath auto gen
 #endif
+
+	int need_vds_path_switch;
+	int vds_path_switch_dirty;
+	int vds_path_switch_done;
+	int vds_path_enable;
 };
 
 struct mtk_drm_property {

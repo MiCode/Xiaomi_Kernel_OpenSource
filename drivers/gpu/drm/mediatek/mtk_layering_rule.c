@@ -63,12 +63,18 @@ static int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 static uint16_t layer_mapping_table[HRT_TB_NUM] = {
 	0x0003, 0x007E, 0x007A, 0x0001
 };
+static uint16_t layer_mapping_table_vds_switch[HRT_TB_NUM] = {
+	0x0078, 0x0078, 0x0078, 0x0078
+};
 
 /**
  * The larb mapping table represent the relation between LARB and OVL.
  */
 static uint16_t larb_mapping_table[HRT_TB_NUM] = {
 	0x0001, 0x0010, 0x0010, 0x0001
+};
+static uint16_t larb_mapping_tb_vds_switch[HRT_TB_NUM] = {
+	0x0010, 0x0010, 0x0010, 0x0001
 };
 
 /**
@@ -77,6 +83,9 @@ static uint16_t larb_mapping_table[HRT_TB_NUM] = {
  */
 static uint16_t ovl_mapping_table[HRT_TB_NUM] = {
 	0x0002, 0x0045, 0x0045, 0x0001
+};
+static uint16_t ovl_mapping_tb_vds_switch[HRT_TB_NUM] = {
+	0x0045, 0x0045, 0x0045, 0x0045
 };
 
 #define GET_SYS_STATE(sys_state)                                               \
@@ -376,6 +385,7 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	int cnt = 0;
 	struct drm_crtc *crtc;
 	const struct mtk_addon_scenario_data *addon_data = NULL;
+	struct mtk_drm_private *priv = dev->dev_private;
 
 	drm_for_each_crtc(crtc, dev) {
 		if (drm_crtc_index(crtc) == disp_idx) {
@@ -395,13 +405,26 @@ static uint16_t get_mapping_table(struct drm_device *dev, int disp_idx,
 	switch (tb_type) {
 	case DISP_HW_OVL_TB:
 		map = ovl_mapping_table[addon_data->hrt_type];
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch)
+			map = ovl_mapping_tb_vds_switch[addon_data->hrt_type];
 		break;
 	case DISP_HW_LARB_TB:
 		map = larb_mapping_table[addon_data->hrt_type];
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch)
+			map = larb_mapping_tb_vds_switch[addon_data->hrt_type];
 		break;
 	case DISP_HW_LAYER_TB:
 		if (param <= MAX_PHY_OVL_CNT && param >= 0) {
 			tmp_map = layer_mapping_table[addon_data->hrt_type];
+			if (mtk_drm_helper_get_opt(priv->helper_opt,
+				MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+				priv->need_vds_path_switch)
+				tmp_map = layer_mapping_table_vds_switch[
+					addon_data->hrt_type];
 
 			for (i = 0, map = 0; i < 16; i++) {
 				if (cnt == param)

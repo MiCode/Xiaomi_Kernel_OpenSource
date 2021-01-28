@@ -1538,11 +1538,17 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 {
 	uint16_t ovl_mapping_tb = l_rule_ops->get_mapping_table(
 		drm_dev, disp_idx, DISP_HW_OVL_TB, 0);
+	struct mtk_drm_private *priv = drm_dev->dev_private;
 
 	/* TODO: The component ID should be changed by ddp path and platforms */
 	if (disp_idx == 0) {
 		if (HRT_GET_FIRST_SET_BIT(ovl_mapping_tb) >= layer_map_idx)
 			return DDP_COMPONENT_DMDP_RDMA0;
+		/* When open VDS path switch feature, primary OVL have OVL0 only */
+		else if (mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+			priv->need_vds_path_switch)
+			return DDP_COMPONENT_OVL0;
 		else if (HRT_GET_FIRST_SET_BIT(
 				 ovl_mapping_tb -
 				 HRT_GET_FIRST_SET_BIT(ovl_mapping_tb)) >=
@@ -1557,7 +1563,12 @@ static int mtk_lye_get_comp_id(int disp_idx, struct drm_device *drm_dev,
 	else
 		return DDP_COMPONENT_OVL1_2L;
 #else
-	return DDP_COMPONENT_OVL2_2L;
+	/* When open VDS path switch feature, vds OVL is OVL0_2L */
+	else if (mtk_drm_helper_get_opt(priv->helper_opt,
+		MTK_DRM_OPT_VDS_PATH_SWITCH))
+		return DDP_COMPONENT_OVL0_2L;
+	else
+		return DDP_COMPONENT_OVL2_2L;
 #endif
 }
 
