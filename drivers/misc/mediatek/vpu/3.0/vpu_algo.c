@@ -533,7 +533,7 @@ int vpu_dump_algo(struct seq_file *s)
 							prop_desc->offset);
 			memset(line_buffer, ' ', 24);
 			for (j = 0; j < data_length; j++, info_data++) {
-				int pos = j % 8;
+				unsigned int pos = j % 8;
 
 				if (j && pos == 0) {
 					vpu_print_seq(s,
