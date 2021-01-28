@@ -2640,7 +2640,7 @@ void console_unlock(void)
 
 #ifdef CONFIG_LOG_TOO_MUCH_WARNING
 /* length can not beyond 63 because of aee API args limitation */
-	char aee_str[63];
+	char aee_str[63] = {0};
 	int add_len;
 	u64 period;
 	unsigned long rem_nsec;
