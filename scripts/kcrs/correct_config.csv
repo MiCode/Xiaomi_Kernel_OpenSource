@@ -595,6 +595,7 @@ CONFIG_MTK_PDRHUB,PROJECT,xuexi.bai,new config in this commit 3a2f062b1bd2f8919b
 CONFIG_MTK_PEDOHUB,PROJECT,weiqi.fu,new config in this commit 6cf72299191fe832dffff96cd9233bcf981b52a0,,,,,,,,
 CONFIG_MTK_PERFMGR_TOUCH_BOOST,PROJECT,Ian-y.Chen,new config 43786717db098bca3f4db77be0893b4feeba8cc8,,,,,,,,
 CONFIG_MTK_PERF_TRACKER,PROJECT,Michael Jiang,new config in this commit a1040dbb5a22aef1398ee1022eba2646288b5a93,,,y,y,,,,
+CONFIG_MTK_LOWMEM_HINT,PROJECT,Jian-Min Liu,new config in this commit 7fb704f8dd8a08b26c17a245a4b56b85224fb0c5,y,y,y,y,,,,
 CONFIG_MTK_PERIODIC_DATA_COLLECTION,PROJECT,,,,,,,,,,
 CONFIG_MTK_PICKUPHUB,PROJECT,weiqi.fu,,,,,,,,,
 CONFIG_MTK_PLATFORM,PLATFORM,,project config should be platform,mt6763,mt6739,mt6771,mt6771,,,,
