@@ -490,7 +490,7 @@ static void ufs_mtk_parse_dt(struct ufs_mtk_host *host)
 
 void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
 {
-	u32 tmp;
+	u32 tmp = 0;
 
 	if (enable) {
 		ufshcd_dme_get(hba,
