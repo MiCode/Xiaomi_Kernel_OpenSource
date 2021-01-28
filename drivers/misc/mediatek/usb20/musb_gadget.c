@@ -2382,6 +2382,9 @@ static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 		if (musb_force_on) {
 			DBG(0, "mt_usb_connect() on is_ready begin\n");
 			mt_usb_connect();
+		} else {
+			DBG(0, "mt_usb_reconnect() on is_ready begin\n");
+			mt_usb_reconnect();
 		}
 	}
 

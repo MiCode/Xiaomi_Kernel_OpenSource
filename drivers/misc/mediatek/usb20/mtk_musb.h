@@ -80,10 +80,8 @@ extern void usb_rev6_setting(int value);
 extern bool mt_usb_is_device(void);
 extern void mt_usb_connect(void);
 extern void mt_usb_disconnect(void);
-/* ALPS00775710 */
-/* extern bool usb_iddig_state(void); */
-/* ALPS00775710 */
-extern bool usb_cable_connected(void);
+extern void mt_usb_reconnect(void);
+extern bool usb_cable_connected(struct musb *musb);
 extern void musb_platform_reset(struct musb *musb);
 extern void musb_sync_with_bat(struct musb *musb, int usb_state);
 

@@ -55,7 +55,7 @@ int musb_fake_CDP;
  * init.$platform.usb.rc
  */
 int kernel_init_done;
-int musb_force_on = 1;
+int musb_force_on;
 int musb_host_dynamic_fifo = 1;
 int musb_host_dynamic_fifo_usage_msk;
 bool musb_host_db_enable;

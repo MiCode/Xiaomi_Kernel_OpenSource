@@ -488,6 +488,8 @@ struct musb {
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 	struct dual_role_phy_instance *dr_usb;
 #endif /* CONFIG_DUAL_ROLE_USB_INTF */
+	struct power_supply *usb_psy;
+	struct notifier_block psy_nb;
 };
 
 static inline struct musb *gadget_to_musb(struct usb_gadget *g)

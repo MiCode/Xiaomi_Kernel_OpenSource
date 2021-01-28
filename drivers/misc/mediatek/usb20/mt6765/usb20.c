@@ -8,6 +8,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/platform_device.h>
 #include <linux/of_address.h>
+#include <linux/power_supply.h>
 
 #include "musb_core.h"
 #include "mtk_musb.h"
@@ -185,6 +186,48 @@ static const struct of_device_id apusb_of_ids[] = {
 };
 
 MODULE_DEVICE_TABLE(of, apusb_of_ids);
+
+static int mt_usb_psy_notifier(struct notifier_block *nb,
+				unsigned long event, void *ptr)
+{
+	struct musb *musb = container_of(nb, struct musb, psy_nb);
+	struct power_supply *psy = ptr;
+
+	if (event == PSY_EVENT_PROP_CHANGED && psy == musb->usb_psy) {
+
+		DBG(0, "psy=%s, event=%d", psy->desc->name, event);
+
+		if (usb_cable_connected(musb))
+			mt_usb_connect();
+		else
+			mt_usb_disconnect();
+	}
+	return NOTIFY_DONE;
+}
+
+static int mt_usb_psy_init(struct musb *musb)
+{
+	int ret;
+	struct device_node *node = NULL;
+
+	node = of_find_compatible_node(NULL, NULL,
+					"mediatek,mt6761-usb20");
+	musb->usb_psy = power_supply_get_by_phandle(node, "charger");
+	if (IS_ERR_OR_NULL(musb->usb_psy)) {
+		DBG(0, "couldn't get usb_psy\n");
+		ret = PTR_ERR(musb->usb_psy);
+		return ret;
+	}
+
+	musb->psy_nb.notifier_call = mt_usb_psy_notifier;
+	ret = power_supply_reg_notifier(&musb->psy_nb);
+	if (ret) {
+		DBG(0, "failed to reg notifier: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
 
 static struct delayed_work idle_work;
 
@@ -483,9 +526,42 @@ static bool musb_hal_is_vbus_exist(void)
 }
 
 /* be aware this could not be used in non-sleep context */
-bool usb_cable_connected(void)
+bool usb_cable_connected(struct musb *musb)
 {
-	return true;
+	struct power_supply *psy;
+	union power_supply_propval pval;
+	union power_supply_propval tval;
+	int ret;
+
+	/* workaround to register psy again */
+	if (IS_ERR_OR_NULL(musb->usb_psy)) {
+		DBG(0, "usb_psy not ready\n");
+		if (mt_usb_psy_init(musb))
+			return false;
+	}
+
+	psy = musb->usb_psy;
+	ret = power_supply_get_property(psy,
+				POWER_SUPPLY_PROP_ONLINE, &pval);
+	if (ret != 0) {
+		DBG(0, "failed to get psy prop, ret=%d\n", ret);
+		return false;
+	}
+
+	ret = power_supply_get_property(psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &tval);
+	if (ret != 0) {
+		DBG(0, "failed to get psy prop, ret=%d\n", ret);
+		return false;
+	}
+
+	DBG(0, "online=%d, type=%d\n", pval.intval, tval.intval);
+
+	if (pval.intval && (tval.intval == POWER_SUPPLY_USB_TYPE_SDP ||
+			tval.intval == POWER_SUPPLY_USB_TYPE_CDP))
+		return true;
+	else
+		return false;
 }
 
 static bool cmode_effect_on(void)
@@ -518,7 +594,7 @@ void do_connection_work(struct work_struct *data)
 	usb_prepare_clock(true);
 
 	/* be aware this could not be used in non-sleep context */
-	usb_connected = usb_cable_connected();
+	usb_connected = usb_cable_connected(mtk_musb);
 
 	/* additional check operation here */
 	if (musb_force_on)
@@ -618,10 +694,8 @@ void mt_usb_connect(void)
 
 void mt_usb_disconnect(void)
 {
-#ifndef CONFIG_TCPC_CLASS
 	DBG(0, "[MUSB] USB disconnect\n");
 	issue_connection_work(CONNECTION_OPS_DISC);
-#endif
 }
 
 void mt_usb_dev_disconnect(void)
@@ -630,7 +704,7 @@ void mt_usb_dev_disconnect(void)
 	issue_connection_work(CONNECTION_OPS_DISC);
 }
 
-static void mt_usb_reconnect(void)
+void mt_usb_reconnect(void)
 {
 	DBG(0, "[MUSB] USB reconnect\n");
 	issue_connection_work(CONNECTION_OPS_CHECK);
@@ -1443,6 +1517,7 @@ static int add_usb_i2c_driver(void)
 }
 #endif				/* End of FPGA_PLATFORM */
 
+
 static int __init mt_usb_init(struct musb *musb)
 {
 	int ret;
@@ -1543,6 +1618,7 @@ static int __init mt_usb_init(struct musb *musb)
 	/* only for mt6761 */
 	usb_sram_init();
 #endif
+	mt_usb_psy_init(musb);
 	return 0;
 }
 
@@ -1758,6 +1834,8 @@ static int mt_usb_probe(struct platform_device *pdev)
 		DBG(0, "failed to init_sysfs\n");
 		goto err2;
 	}
+
+
 #endif
 	DBG(0, "USB probe done!\n");
 
