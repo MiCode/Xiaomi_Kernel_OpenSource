@@ -1473,9 +1473,12 @@ static void mmc_blk_cqe_complete_rq(struct mmc_queue *mq, struct request *req)
 	} else if (mrq->data) {
 		if (blk_update_request(req, BLK_STS_OK, mrq->data->bytes_xfered))
 			blk_mq_requeue_request(req, true);
-		else
+		else {
+			mt_biolog_cqhci_complete(req->tag);
 			__blk_mq_end_request(req, BLK_STS_OK);
+		}
 	} else {
+		mt_biolog_cqhci_complete(req->tag);
 		blk_mq_end_request(req, BLK_STS_OK);
 	}
 
@@ -1571,6 +1574,9 @@ static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 {
 	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
 
+	mt_biolog_cqhci_check();
+	mt_biolog_cqhci_queue_task(mqrq->brq.mrq.req->tag,
+		&(mqrq->brq.mrq));
 	mmc_blk_data_prep(mq, mqrq, 0, NULL, NULL);
 
 	return mmc_blk_cqe_start_req(mq->card->host, &mqrq->brq.mrq);
@@ -1680,11 +1686,9 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		brq->mrq_que.areq = &mqrq->areq;
 	}
 #endif
-
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	if (req->bio)
 		brq->mrq.req = req;
-
 	/* request is from mmc layer */
 	brq->mrq.is_mmc_req = true;
 #endif
