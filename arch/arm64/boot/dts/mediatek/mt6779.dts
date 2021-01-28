@@ -2948,7 +2948,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb0: larb@14017000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb0";
 			reg = <0 0x14017000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <0>;
@@ -2959,7 +2960,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb1: larb@14018000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb1";
 			reg = <0 0x14018000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <1>;
@@ -3053,7 +3055,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb5: larb@1502e000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb5";
 			reg = <0 0x1502e000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <5>;
@@ -3064,7 +3067,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb6: larb@1502f000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb6";
 			reg = <0 0x1502f000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <6>;
@@ -3206,7 +3210,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb2: larb@16010000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb2";
 			reg = <0 0x16010000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <2>;
@@ -3261,7 +3266,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb3: larb@17010000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb3";
 			reg = <0 0x17010000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <3>;
@@ -3527,7 +3533,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb9: larb@1a001000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb9";
 			reg = <0 0x1a001000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <9>;
@@ -3538,7 +3545,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb10: larb@1a002000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb10";
 			reg = <0 0x1a002000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <10>;
@@ -3549,7 +3557,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb11: larb@1a003000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb11";
 			reg = <0 0x1a003000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <11>;
@@ -3579,7 +3588,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb8: larb@1b00f000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb8";
 			reg = <0 0x1b00f000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <8>;
@@ -3590,7 +3600,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		larb7: larb@1b10f000 {
-			compatible = "mediatek,mt6779-smi-larb";
+			compatible = "mediatek,mt6779-smi-larb",
+				"mediatek,smi_larb7";
 			reg = <0 0x1b10f000 0 0x1000>;
 			mediatek,smi = <&smi_common>;
 			mediatek,larb-id = <7>;
