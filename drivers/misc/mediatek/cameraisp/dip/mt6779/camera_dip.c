@@ -40,11 +40,14 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#ifdef CONFIG_MTK_IOMMU_V2
-#include <mach/mt_iommu.h>
-#else
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*#include <mach/mt_iommu.h>*/
+/*6779 common kernel project don't support*/
+/*#else*/
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
 #endif
+/*#endif*/
 
 //#define EP_CODE_MARK_CMDQ /*YWopen*/
 #ifndef EP_CODE_MARK_CMDQ
@@ -61,7 +64,7 @@
 /*#include"../../../smi/smi_debug.h" YWclose*/
 
 /*for kernel log count*/
-#define _K_LOG_ADJUST (1)
+#define _K_LOG_ADJUST (0)/*YWr0temp*/
 
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -271,7 +274,6 @@ static int nr_dip_devs;
 #endif
 
 /*#define AEE_DUMP_BY_USING_ION_MEMORY YWclose*/
-#define AEE_DUMP_BY_USING_ION_MEMORY
 #define AEE_DUMP_REDUCE_MEMORY
 #ifdef AEE_DUMP_REDUCE_MEMORY
 /* ion */
@@ -1765,7 +1767,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 	/* enable through smi API */
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB5, DIP_DEV_NAME);
 
 	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB5);
 	if (ret)
@@ -1782,7 +1784,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
 	clk_disable_unprepare(dip_clk.DIP_IMG_LARB5);
 
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB5, DIP_DEV_NAME);
 }
 
 
@@ -5122,13 +5124,14 @@ static const struct file_operations dip_dump_proc_fops = {
 /**************************************************************
  *
  **************************************************************/
-#ifdef CONFIG_MTK_IOMMU_V2
-enum mtk_iommu_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
-	unsigned int mva, void *data)
-#else
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*enum mtk_iommu_callback_ret_t ISP_M4U_TranslationFault_callback(int port,*/
+/*	unsigned int mva, void *data)*/
+/*#else*/
+#ifdef CONFIG_MTK_M4U
 enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 	unsigned int mva, void *data)
-#endif
+/*#endif*/
 {
 
 	pr_info("[ISP_M4U]fault call port=%d, mva=0x%x", port, mva);
@@ -5194,12 +5197,13 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 			DIP_RD32(DIP_A_BASE + 0x1024));
 	break;
 	}
-#ifdef CONFIG_MTK_IOMMU_V2
-	return MTK_IOMMU_CALLBACK_HANDLED;
-#else
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*	return MTK_IOMMU_CALLBACK_HANDLED;*/
+/*#else*/
 	return M4U_CALLBACK_HANDLED;
-#endif
+/*#endif*/
 }
+#endif
 
 static signed int __init DIP_Init(void)
 {
@@ -5315,11 +5319,12 @@ static signed int __init DIP_Init(void)
 		(DIP_BeginGCECallback, DIP_EndGCECallback);
 #endif
 	/* m4u_enable_tf(M4U_PORT_CAM_IMGI, 0);*/
-#ifdef CONFIG_MTK_IOMMU_V2
-	mtk_iommu_register_fault_callback(M4U_PORT_IMGI_D1,
-					  ISP_M4U_TranslationFault_callback,
-					  NULL);
-#else
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*	mtk_iommu_register_fault_callback(M4U_PORT_IMGI_D1,*/
+/*					  ISP_M4U_TranslationFault_callback,*/
+/*					  NULL);*/
+/*#else*/
+#ifdef CONFIG_MTK_M4U
 	m4u_register_fault_callback(M4U_PORT_IMGI_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_IMGBI_D1,
@@ -5345,6 +5350,7 @@ static signed int __init DIP_Init(void)
 	m4u_register_fault_callback(M4U_PORT_TIMGO_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
 #endif
+/*#endif*/
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
 }
@@ -5410,7 +5416,7 @@ int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 {
 	const char *pCmdq1stErrCmd;
 	LOG_DBG("DIP_MDPDumpCallback");
-	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
+	/*pCmdq1stErrCmd = cmdq_core_query_first_err_mod();*//*YWr0temp*/
 	if (pCmdq1stErrCmd != NULL) {
 		CMDQ_ERR("Cmdq 1st Error:%s", pCmdq1stErrCmd);
 

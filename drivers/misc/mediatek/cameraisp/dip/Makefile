@@ -13,14 +13,6 @@
 
 obj-y := cameradip_dummy.o
 
-ifeq ($(CONFIG_MACH_MT6775),y)
-  obj-y += $(subst ",,isp_50)/
-endif
-
-ifeq ($(CONFIG_MACH_MT6771),y)
-  obj-y += $(subst ",,isp_50)/
-endif
-
-ifeq ($(CONFIG_MACH_MT6779),y)
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6779")
   obj-y += $(subst ",,mt6779)/
 endif
