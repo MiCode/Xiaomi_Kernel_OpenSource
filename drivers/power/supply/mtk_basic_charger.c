@@ -119,50 +119,25 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	}
 
 	if (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP) {
-		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)) {
-			if (info->usb_state == USB_SUSPEND)
-				pdata->input_current_limit =
-					info->data.usb_charger_current_suspend;
-			else if (info->usb_state == USB_UNCONFIGURED)
-				pdata->input_current_limit =
-				info->data.usb_charger_current_unconfigured;
-			else if (info->usb_state == USB_CONFIGURED)
-				pdata->input_current_limit =
-				info->data.usb_charger_current_configured;
-			else
-				pdata->input_current_limit =
-				info->data.usb_charger_current_unconfigured;
+		pdata->input_current_limit =
+				info->data.usb_charger_current;
+		/* it can be larger */
+		pdata->charging_current_limit =
+				info->data.usb_charger_current;
+		is_basic = true;
+	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
+		pdata->input_current_limit =
+			info->data.charging_host_charger_current;
+		pdata->charging_current_limit =
+			info->data.charging_host_charger_current;
+		is_basic = true;
 
-			pdata->charging_current_limit =
-					pdata->input_current_limit;
-			} else {
-				pdata->input_current_limit =
-						info->data.usb_charger_current;
-				/* it can be larger */
-				pdata->charging_current_limit =
-						info->data.usb_charger_current;
-			}
-			is_basic = true;
-/*
-		} else if (info->chr_type == NONSTANDARD_CHARGER) {
-			pdata->input_current_limit =
-				info->data.non_std_ac_charger_current;
-			pdata->charging_current_limit =
-				info->data.non_std_ac_charger_current;
-*/
-		} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
-			pdata->input_current_limit =
-				info->data.charging_host_charger_current;
-			pdata->charging_current_limit =
-				info->data.charging_host_charger_current;
-			is_basic = true;
-
-		} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
-			pdata->input_current_limit =
-				info->data.ac_charger_input_current;
-			pdata->charging_current_limit =
-				info->data.ac_charger_current;
-		}
+	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+		pdata->input_current_limit =
+			info->data.ac_charger_input_current;
+		pdata->charging_current_limit =
+			info->data.ac_charger_current;
+	}
 
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
@@ -273,6 +248,16 @@ static int do_algorithm(struct mtk_charger *info)
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
 	is_basic = select_charging_current_limit(info, &info->setting);
 
+	if (info->is_chg_done != chg_done) {
+		if (chg_done) {
+			charger_dev_do_event(info->chg1_dev, EVENT_FULL, 0);
+			chr_err("%s battery full\n", __func__);
+		} else {
+			charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
+			chr_err("%s battery recharge\n", __func__);
+		}
+	}
+
 	chr_err("%s is_basic:%d\n", __func__, is_basic);
 	if (is_basic != true) {
 		is_basic = true;
@@ -337,6 +322,12 @@ static int do_algorithm(struct mtk_charger *info)
 			pdata->charging_current_limit);
 		charger_dev_set_constant_voltage(info->chg1_dev,
 			info->setting.cv);
+
+		if (pdata->input_current_limit == 0 ||
+		    pdata->charging_current_limit == 0)
+			charger_dev_enable(info->chg1_dev, false);
+		else
+			charger_dev_enable(info->chg1_dev, true);
 	}
 
 	if (info->chg1_dev != NULL)

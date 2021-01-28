@@ -82,6 +82,11 @@ enum bat_temp_state_enum {
 	BAT_TEMP_HIGH
 };
 
+enum chg_dev_notifier_events {
+	EVENT_FULL,
+	EVENT_RECHARGE,
+};
+
 struct battery_thermal_protection_data {
 	int sm;
 	bool enable_min_charge_temp;
@@ -203,13 +208,6 @@ struct charger_data {
 	int input_current_limit_by_aicl;
 	int junction_temp_min;
 	int junction_temp_max;
-};
-
-/* todo */
-enum usb_state_enum {
-	USB_SUSPEND = 0,
-	USB_UNCONFIGURED,
-	USB_CONFIGURED
 };
 
 enum chg_data_idx_enum {

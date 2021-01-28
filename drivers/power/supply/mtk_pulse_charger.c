@@ -150,43 +150,25 @@ static bool pchr_select_charging_current_limit(struct mtk_charger *info,
 	}
 
 	if (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP) {
-		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)) {
-			if (info->usb_state == USB_SUSPEND)
-				pdata->input_current_limit =
-					info->data.usb_charger_current_suspend;
-			else if (info->usb_state == USB_UNCONFIGURED)
-				pdata->input_current_limit =
-				info->data.usb_charger_current_unconfigured;
-			else if (info->usb_state == USB_CONFIGURED)
-				pdata->input_current_limit =
-				info->data.usb_charger_current_configured;
-			else
-				pdata->input_current_limit =
-				info->data.usb_charger_current_unconfigured;
+		pdata->input_current_limit =
+				info->data.usb_charger_current;
+		/* it can be larger */
+		pdata->charging_current_limit =
+				info->data.usb_charger_current;
+		is_basic = true;
 
-			pdata->charging_current_limit =
-					pdata->input_current_limit;
-			} else {
-				pdata->input_current_limit =
-						info->data.usb_charger_current;
-				/* it can be larger */
-				pdata->charging_current_limit =
-						info->data.usb_charger_current;
-			}
-			is_basic = true;
-
-		} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
-			pdata->input_current_limit =
-				info->data.ac_charger_input_current;
-			pdata->charging_current_limit =
-				info->data.ac_charger_current;
-		} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
-			pdata->input_current_limit =
-				info->data.charging_host_charger_current;
-			pdata->charging_current_limit =
-				info->data.charging_host_charger_current;
-			is_basic = true;
-		}
+	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+		pdata->input_current_limit =
+			info->data.ac_charger_input_current;
+		pdata->charging_current_limit =
+			info->data.ac_charger_current;
+	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
+		pdata->input_current_limit =
+			info->data.charging_host_charger_current;
+		pdata->charging_current_limit =
+			info->data.charging_host_charger_current;
+		is_basic = true;
+	}
 
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)

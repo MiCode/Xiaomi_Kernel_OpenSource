@@ -24,6 +24,7 @@
 #include <mtk_musb.h>
 
 #include <charger_class.h>
+#include <mtk_charger.h>
 
 #include "inc/mt6370_pmu_fled.h"
 #include "inc/mt6370_pmu_charger.h"
@@ -2850,18 +2851,22 @@ static int mt6370_get_zcv(struct charger_device *chg_dev, u32 *uV)
 
 static int mt6370_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 {
-#ifdef FIXME /* TODO: wait for mtk_charger_intf.h */
+	struct mt6370_pmu_charger_data *chg_data =
+		dev_get_drvdata(&chg_dev->dev);
+
+	if (!chg_data->psy) {
+		dev_notice(chg_data->dev, "%s: cannot get psy\n", __func__);
+		return -ENODEV;
+	}
+
 	switch (event) {
-	case EVENT_EOC:
-		charger_dev_notify(chg_dev, CHARGER_DEV_NOTIFY_EOC);
-		break;
+	case EVENT_FULL:
 	case EVENT_RECHARGE:
-		charger_dev_notify(chg_dev, CHARGER_DEV_NOTIFY_RECHG);
+		power_supply_changed(chg_data->psy);
 		break;
 	default:
 		break;
 	}
-#endif
 	return 0;
 }
 
@@ -4127,12 +4132,32 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 {
 	struct mt6370_pmu_charger_data *chg_data =
 						  power_supply_get_drvdata(psy);
+	enum mt6370_charging_status chg_stat = MT6370_CHG_STATUS_READY;
 	int ret = 0;
 
 	dev_dbg(chg_data->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6370_charger_get_online(chg_data, val);
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		ret = mt6370_get_charging_status(chg_data, &chg_stat);
+		switch (chg_stat) {
+		case MT6370_CHG_STATUS_READY:
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
+		case MT6370_CHG_STATUS_PROGRESS:
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			break;
+		case MT6370_CHG_STATUS_DONE:
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+			break;
+		case MT6370_CHG_STATUS_FAULT:
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		default:
+			ret = -ENODATA;
+			break;
+		}
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = chg_data->psy_usb_type;
@@ -4175,6 +4200,7 @@ static int mt6370_charger_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property mt6370_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
 };
@@ -4314,7 +4340,7 @@ static const struct regulator_desc mt6370_otg_rdesc = {
 
 
 #ifdef CONFIG_TCPC_CLASS
-static int get_charger_type(struct mt6370_pmu_charger_data *chg_data,
+static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 	bool attach)
 {
 	union power_supply_propval prop, prop2;
@@ -4385,7 +4411,7 @@ static int typec_attach_thread(void *data)
 			power_supply_set_property(chg_data->chg_psy,
 						POWER_SUPPLY_PROP_ONLINE, &val);
 		else
-			get_charger_type(chg_data, attach);
+			mt6370_get_charger_type(chg_data, attach);
 	}
 	return ret;
 }
