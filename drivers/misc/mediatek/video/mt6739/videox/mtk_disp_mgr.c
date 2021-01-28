@@ -1300,6 +1300,7 @@ int set_session_mode(struct disp_session_config *config_info, int force)
 
 int _ioctl_set_session_mode(unsigned long arg)
 {
+	int ret = -1;
 	void __user *argp = (void __user *)arg;
 	struct disp_session_config config_info;
 
@@ -1307,7 +1308,15 @@ int _ioctl_set_session_mode(unsigned long arg)
 		DISPERR("[FB]: copy_from_user failed! line:%d\n", __LINE__);
 		return -EFAULT;
 	}
-	return set_session_mode(&config_info, 0);
+
+	if (config_info.mode > DISP_INVALID_SESSION_MODE &&
+		config_info.mode < DISP_SESSION_MODE_NUM) {
+		ret = set_session_mode(&config_info, 0);
+	} else {
+		DISPERR("[FB]: session mode is invalid: %d\n",
+			config_info.mode);
+	}
+	return ret;
 }
 
 long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
