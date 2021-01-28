@@ -104,7 +104,7 @@
 			};
 		};
 
-		mtk_gauge: mt6359_gauge {
+		mtk_gauge: mtk_gauge {
 			compatible = "mediatek,mt6359-gauge";
 			charger = <&mt6360_chg>;
 			bootmode = <&chosen>;
