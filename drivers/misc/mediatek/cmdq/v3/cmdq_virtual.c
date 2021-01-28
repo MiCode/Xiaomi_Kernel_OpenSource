@@ -381,6 +381,7 @@ int cmdq_virtual_get_thread_index(enum CMDQ_SCENARIO_ENUM scenario,
 		 */
 		return CMDQ_THREAD_SEC_MDP;
 	case CMDQ_SCENARIO_ISP_FDVT:
+	case CMDQ_SCENARIO_ISP_FDVT_OFF:
 		return CMDQ_THREAD_SEC_ISP;
 	default:
 		CMDQ_ERR("no dedicated secure thread for senario:%d\n",
