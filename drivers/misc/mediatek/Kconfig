@@ -98,6 +98,17 @@ endmenu  # Storage
 menu "Power, PMIC, Battery & Low Power"
 
 source "drivers/misc/mediatek/pmic/Kconfig"
+
+config MTK_MEMORY_LOWPOWER
+	bool "Support Mediatek memory lowpower technology"
+	depends on CMA && ZONE_MOVABLE_CMA
+	default n
+	help
+	  Mediatek DRAM low power technology.
+	  It tries to safe DRAM power by switching
+	  different DRAM mode dynamically. It's a
+	  platform-dependent feature.
+
 endmenu  # Power
 
 menu "MultiMedia, Display, Camera"
@@ -125,6 +136,37 @@ source "drivers/misc/mediatek/atf/Kconfig"
 source "drivers/misc/mediatek/lens/Kconfig"
 endmenu # Other Peripheral
 
+menu "Memory configs"
+
+config MTK_MEM
+	bool "Support platform memory information"
+	default y
+	help
+	  MTK_MEM provides basic platform memory information
+	  for mediatek platform drivers. It also provides
+	  some debug features. Please see
+	  MTK_MEMCFG.
+
+config MTK_MEMCFG
+	bool "Support enhanced memory configurations"
+	depends on MTK_MEM
+	help
+	  MTK_MEMCFG provides debug features such as
+	  platform memory layout information and
+	  fragmentation test tools. The features
+	  cost additional memory.
+
+config MTK_SSMR
+	bool "Support Mediatek Shareable Secure Memory Region technology"
+	depends on CMA
+	default y if (ARM || ARM64)
+	help
+	  Mediatek Shareable SMR technology.
+	  It tries to save memory by switching
+	  different DRAM mode dynamically. It's a
+	  platform-dependent feature.
+
+endmenu  # Memory
 menu "Misc configs"
 
 source "drivers/misc/mediatek/Kconfig.default"

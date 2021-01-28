@@ -45,6 +45,7 @@ struct vm_area_struct;
 #else
 #define ___GFP_NOLOCKDEP	0
 #endif
+#define ___GFP_CMA		0x4000000u
 /* If the above are modified, __GFP_BITS_SHIFT may need updating */
 
 /*
@@ -208,6 +209,16 @@ struct vm_area_struct;
 
 /* Disable lockdep for GFP context tracking */
 #define __GFP_NOLOCKDEP ((__force gfp_t)___GFP_NOLOCKDEP)
+
+/*
+ * MTK defined modifiers
+ *
+ *   __GFP_CMA grant the access permission of CMA memroy region.
+ *   MOVABLE ZONE cover cma memory region, for avoid pinned page on cma
+ *   memory block that lead to migration fail. Do not mark that suspicious
+ *   page allocation with __GFP_CMA.
+ */
+#define __GFP_CMA ((__force gfp_t)___GFP_CMA)
 
 /* Room for N __GFP_FOO bits */
 #define __GFP_BITS_SHIFT (25 + IS_ENABLED(CONFIG_LOCKDEP))
@@ -403,6 +414,18 @@ static inline bool gfpflags_allow_blocking(const gfp_t gfp_flags)
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_DMA | ___GFP_HIGHMEM)  \
 )
 
+#ifdef CONFIG_MTK_MEMORY_LOWPOWER
+#define OPT_ZONE_MOVABLE_CMA	ZONE_NORMAL
+#else
+#define OPT_ZONE_MOVABLE_CMA	ZONE_MOVABLE
+#endif
+
+#ifdef CONFIG_ZONE_MOVABLE_CMA
+#define IS_ZONE_MOVABLE_CMA_ZONE_IDX(z)		(z >= OPT_ZONE_MOVABLE_CMA)
+#else
+#define IS_ZONE_MOVABLE_CMA_ZONE_IDX(z)		(false)
+#endif
+
 static inline enum zone_type gfp_zone(gfp_t flags)
 {
 	enum zone_type z;
@@ -411,6 +434,13 @@ static inline enum zone_type gfp_zone(gfp_t flags)
 	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
 					 ((1 << GFP_ZONES_SHIFT) - 1);
 	VM_BUG_ON((GFP_ZONE_BAD >> bit) & 1);
+
+	if (!(flags & __GFP_MOVABLE) && IS_ZONE_MOVABLE_CMA_ZONE_IDX(z))
+		z = OPT_ZONE_DMA;
+	if (IS_ENABLED(CONFIG_ZONE_MOVABLE_CMA))
+		if (z == ZONE_MOVABLE && !(flags & __GFP_CMA))
+			z -= 1;
+
 	return z;
 }
 
@@ -584,5 +614,9 @@ extern void free_contig_range(unsigned long pfn, unsigned nr_pages);
 /* CMA stuff */
 extern void init_cma_reserved_pageblock(struct page *page);
 #endif
+#ifdef CONFIG_ZONE_MOVABLE_CMA
+extern void free_cma_reserved_pageblock(struct page *page);
+#endif
+extern int free_reserved_memory(phys_addr_t start_phys, phys_addr_t end_phys);
 
 #endif /* __LINUX_GFP_H */

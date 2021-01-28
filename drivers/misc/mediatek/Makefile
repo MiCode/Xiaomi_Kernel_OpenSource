@@ -30,3 +30,8 @@ obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
 obj-$(CONFIG_MTK_FREQ_HOPPING) += freqhopping/
 obj-$(CONFIG_MTK_LENS)   += lens/
 
+obj-$(CONFIG_MTK_MEM) += mem/
+obj-$(CONFIG_MTK_MEMORY_LOWPOWER) += memory-lowpower/
+obj-y += memory-amms/
+obj-$(CONFIG_MTK_SSMR) += memory-ssmr/
+obj-$(CONFIG_ZONE_MOVABLE_CMA) += zone_movable_cma/

@@ -29,6 +29,9 @@ typedef int (*reservedmem_of_init_fn)(struct reserved_mem *rmem);
 #define RESERVEDMEM_OF_DECLARE(name, compat, init)			\
 	_OF_DECLARE(reservedmem, name, compat, init, reservedmem_of_init_fn)
 
+int get_reserved_mem_count(void);
+struct reserved_mem *get_reserved_mem(int num);
+
 #ifdef CONFIG_OF_RESERVED_MEM
 
 int of_reserved_mem_device_init_by_idx(struct device *dev,
