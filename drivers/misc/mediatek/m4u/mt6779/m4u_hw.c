@@ -205,51 +205,92 @@ struct mau_config_info {
 	unsigned int end_bit32;	/* :1; */
 };
 
-int mau_start_monitor(int m4u_id, int m4u_slave_id, int mau_set,
-		      int wr, int vir, int io, int bit32,
+/* set m4u MAU monitor to debug
+ * Steps in this api:
+ * 1. enable secure debug
+ * 2. disable mau interrupt
+ * 3. set mau register
+ * 4. clear mau irq bit
+ * 5. enable mau interrupt
+ * 6. disable secure debug. No disable cmd, add later.
+ */
+int mau_start_monitor(int m4u_id, int mmu_id, int mau_set,
+		      int wr, int vir, int io,
+		      unsigned int ext_addr_start, unsigned int ext_addr_end,
 		      unsigned int start, unsigned int end,
 		      unsigned int port_mask, unsigned int larb_mask)
 {
 	unsigned long m4u_base = gM4UBaseAddr[m4u_id];
+	unsigned int  reg_temp;
+	int i;
 
 	if (m4u_base == 0)
 		return -1;
 
 	M4ULOG_HIGH(
-		"%s [%d], start=0x%x, end=0x%x, write: %d, port_mask=0x%x, larb_mask=0x%x\n",
-		__func__,
-		mau_set, start, end,
-		wr, port_mask, larb_mask);
+		"%s MMU[%d]MAU[%d], io:%d, start=0x%x, end=0x%x, write: %d, va[%d], port_mask=0x%x, larb_mask=0x%x\n",
+		__func__, mmu_id, mau_set, io,
+		start, end, wr, vir, port_mask, larb_mask);
+	//1. enable secure debug
+	m4u_call_atf_debug(M4U_ATF_SECURITY_DEBUG_EN);
 
-	M4U_WriteReg32(m4u_base,
-		REG_MMU_MAU_START(m4u_slave_id, mau_set), start);
-	M4U_WriteReg32(m4u_base,
-		REG_MMU_MAU_START_BIT32(m4u_slave_id, mau_set), (bit32));
-	M4U_WriteReg32(m4u_base,
-		REG_MMU_MAU_END(m4u_slave_id, mau_set), end);
-	M4U_WriteReg32(m4u_base,
-		REG_MMU_MAU_END_BIT32(m4u_slave_id, mau_set),
-		(bit32));
+	//2. disable mau interrupt
+	m4uHw_set_field_by_mask(m4u_base, REG_MMU_INT_MAIN_CONTROL,
+				F_BIT_SET(14 + mmu_id), 0);
 
+	//3. set mau register
+	//start address[31:0]
 	M4U_WriteReg32(m4u_base,
-		REG_MMU_MAU_PORT_EN(m4u_slave_id, mau_set),
-		port_mask);
-
-	m4uHw_set_field_by_mask(m4u_base, REG_MMU_MAU_LARB_EN(m4u_slave_id),
+		       REG_MMU_MAU_START(mmu_id, mau_set), start);
+	//start address[33:32]
+	M4U_WriteReg32(m4u_base,
+		       REG_MMU_MAU_START_BIT32(mmu_id, mau_set),
+		       (ext_addr_start));
+	//end   address[31:0]
+	M4U_WriteReg32(m4u_base,
+		       REG_MMU_MAU_END(mmu_id, mau_set), end);
+	//end   address[33:32]
+	M4U_WriteReg32(m4u_base,
+		       REG_MMU_MAU_END_BIT32(mmu_id, mau_set),
+		       (ext_addr_end));
+	//larb
+	m4uHw_set_field_by_mask(m4u_base,
+				REG_MMU_MAU_LARB_EN(mmu_id),
 				F_MAU_LARB_MSK(mau_set),
 				F_MAU_LARB_VAL(mau_set, larb_mask));
-
-	m4uHw_set_field_by_mask(m4u_base, REG_MMU_MAU_IO(m4u_slave_id),
+	//port
+	M4U_WriteReg32(m4u_base,
+		       REG_MMU_MAU_PORT_EN(mmu_id, mau_set), port_mask);
+	//io: input[0] or output[1]
+	m4uHw_set_field_by_mask(m4u_base,
+				REG_MMU_MAU_IO(mmu_id),
 				F_MAU_BIT_VAL(1, mau_set),
 				F_MAU_BIT_VAL(io, mau_set));
-
-	m4uHw_set_field_by_mask(m4u_base, REG_MMU_MAU_RW(m4u_slave_id),
+	//w/r write[1] or read[0]
+	m4uHw_set_field_by_mask(m4u_base,
+				REG_MMU_MAU_RW(mmu_id),
 				F_MAU_BIT_VAL(1, mau_set),
 				F_MAU_BIT_VAL(wr, mau_set));
 
-	m4uHw_set_field_by_mask(m4u_base, REG_MMU_MAU_VA(m4u_slave_id),
+	//va[1] or pa[0]
+	m4uHw_set_field_by_mask(m4u_base,
+				REG_MMU_MAU_VA(mmu_id),
 				F_MAU_BIT_VAL(1, mau_set),
 				F_MAU_BIT_VAL(vir, mau_set));
+
+	//dump register to check if it is wrote in.
+	reg_temp = M4U_ReadReg32(m4u_base,
+				 REG_MMU_MAU_START(mmu_id, mau_set));
+
+	m4u_debug("[%s %d] GM-T: addr[%x]:%x\n", __func__, __LINE__,
+		  REG_MMU_MAU_START(mmu_id, mau_set), reg_temp);
+
+	//4. clear MAU interrupt (0x924)
+	M4U_WriteReg32(m4u_base, REG_MMU_MAU_CLR(mmu_id), 0);
+	//5. enable MAU interrupt
+	m4uHw_set_field_by_mask(m4u_base, REG_MMU_INT_MAIN_CONTROL,
+				F_BIT_SET(14 + mmu_id),
+				F_BIT_SET(14 + mmu_id));
 
 	return 0;
 }

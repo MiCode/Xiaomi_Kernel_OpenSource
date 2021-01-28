@@ -244,7 +244,11 @@ static inline int larb_port_2_m4u_port(int larb, int larb_port)
 void m4u_print_perf_counter(int m4u_index, int m4u_slave_id, const char *msg);
 int m4u_dump_reg(int m4u_index, unsigned int start, unsigned int end);
 void m4u_call_atf_debug(int m4u_debug_id);
-
+int mau_start_monitor(int m4u_id, int mmu_id, int mau_set,
+		      int wr, int vir, int io,
+		      unsigned int ext_addr_start, unsigned int ext_addr_end,
+		      unsigned int start, unsigned int end,
+		      unsigned int port_mask, unsigned int larb_mask);
 extern struct m4u_device *gM4uDev;
 
 

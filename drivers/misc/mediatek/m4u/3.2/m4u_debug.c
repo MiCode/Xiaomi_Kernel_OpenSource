@@ -809,6 +809,26 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 #endif
+	case 52:
+	{
+		M4UMSG("---- 52. Physical MAU assert test. ----- Start!\n");
+		mau_start_monitor(
+				0, /* multimedia[0], vpu[1] */
+				0, /* Slave id, need try, can be 0 or 1*/
+				0, /* Force 0 for 6779, only has 1 set MAU */
+				0, /* Write[1] or Read[0] operaion*/
+				1, /* Address is mva[1] or pa[0] */
+				0, /* Input[0] to M4U or Output[1] to EMI */
+				0, /* bit[33:32] for start address */
+				0, /* bit[33:32] for start address */
+				0x100000,   /* start address */
+				0xffffffff, /* end   address */
+				0xffffffff, /* port select by mask */
+				0xffffffff  /* larb select by mask */
+				);
+		M4UMSG("---- 52. Physical MAU assert test. ------- End!\n");
+	}
+	break;
 	default:
 		M4UMSG("%s error,val=%llu\n", __func__, val);
 	}
@@ -1382,7 +1402,7 @@ static int m4u_test_set(void *data, u64 val)
 			m4u_test_start();
 			for (i = 0; i < 4; i++)
 				mau_start_monitor(0, 0, i,
-					0, 0, 0, 0,
+					0, 0, 0, 0, 0,
 					gM4U_seed_mva + i * 0x100000,
 					gM4U_seed_mva + (i + 1) * 0x100000 - 1,
 					0xffffffff, 0xffffffff);
@@ -1402,7 +1422,7 @@ static int m4u_test_set(void *data, u64 val)
 			m4u_test_start();
 			for (i = 0; i < 4; i++)
 				mau_start_monitor(0, 0,
-					i, 0, 1, 0, 0,
+					i, 0, 1, 0, 0, 0,
 					gM4U_seed_mva + i * 0x100000,
 					gM4U_seed_mva + (i + 1) * 0x100000 - 1,
 					0xffffffff, 0xffffffff);
