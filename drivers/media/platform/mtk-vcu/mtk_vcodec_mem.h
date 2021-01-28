@@ -45,6 +45,12 @@ struct mtk_vcu_mem {
 	dma_addr_t iova;
 };
 
+struct vcu_pa_pages {
+	unsigned long pa;
+	unsigned long kva;
+	struct list_head list;
+};
+
 /**
  * struct mtk_vcu_queue - the allocated buffer queue
  *
@@ -64,6 +70,7 @@ struct mtk_vcu_queue {
 	const struct vb2_mem_ops *mem_ops;
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
 	uint64_t map_buf_pa;
+	struct vcu_pa_pages pa_pages;
 };
 
 /**
