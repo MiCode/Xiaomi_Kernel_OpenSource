@@ -29,6 +29,10 @@
 
 #include "mddp_ctrl.h"
 
+#if defined MDDP_TETHERING_SUPPORT
+#include "mddp_ipc.h"
+#endif
+
 #define MAX_IFACE_NUM 32
 #define DYN_IFACE_OFFSET 16
 #define IPC_HDR_IS_V4(_ip_hdr) \
@@ -57,6 +61,8 @@ raw_spinlock_t mddp_f_tuple_lock;
 #else
 spinlock_t mddp_f_tuple_lock;
 #endif
+
+static uint32_t mddp_f_suspend_s;
 
 #ifdef MDDP_F_NO_KERNEL_SUPPORT
 struct mddp_f_track_table_list_t mddp_f_track[MDDP_F_MAX_TRACK_NUM];
@@ -131,7 +137,7 @@ static void mddp_f_init_table_buffer(void)
 
 	for (i = 0; i < MDDP_F_TABLE_BUFFER_NUM; i++) {
 		track_table = kmalloc(sizeof(struct mddp_f_track_table_t),
-								GFP_KERNEL);
+								GFP_ATOMIC);
 		if (!track_table)
 			continue;
 
@@ -547,13 +553,6 @@ static int mddp_f_e_tag_packet(
 
 	/* extension tag for MAC address */
 
-	/* Device check - MAC Etag now is only for MDDPWH */
-	if (!strncmp(cb->dev->name, "ccmni", 5)) {
-		pr_debug("%s: Add MDDP Etag Skip, cb->dev->name[%s]\n",
-			__func__, cb->dev->name);
-		return 0;
-	}
-
 	/* headroom check */
 	tag_len = sizeof(struct mddp_f_tag_packet_t);
 	etag_len = sizeof(struct mddp_f_e_tag_common_t) +
@@ -765,7 +764,7 @@ static int mddp_f_tag_packet(
 				return -EFAULT;
 			}
 
-			fake_skb = skb_copy(skb, GFP_KERNEL);
+			fake_skb = skb_copy(skb, GFP_ATOMIC);
 			fake_skb->dev = cb->dev;
 			skb_tag = (struct mddp_f_tag_packet_t *)fake_skb->head;
 			skb_tag->guard_pattern = MDDP_TAG_PATTERN;
@@ -1070,8 +1069,8 @@ void mddp_f_out_nf_ipv4(
 	unsigned int tuple_hit_cnt = 0;
 	unsigned char mddp_md_version = mddp_get_md_version();
 	int ret;
-	struct ip4header *ip = (struct ip4header *) offset2;
 
+	struct ip4header *ip = (struct ip4header *) offset2;
 	memset(&t, 0, sizeof(struct tuple));
 
 	pr_debug("%s: IPv4 add rule, skb[%p], cb->proto[%d], ip->ip_p[%d], offset2[%p], ip_id[%x], checksum[%x].\n",
@@ -1225,7 +1224,7 @@ void mddp_f_out_nf_ipv4(
 			if (!found_nat_tuple) {
 				found_nat_tuple = kmem_cache_alloc(
 						mddp_f_nat_tuple_cache,
-						GFP_KERNEL);
+						GFP_ATOMIC);
 				found_nat_tuple->src_ip = cb->src[0];
 				found_nat_tuple->dst_ip = cb->dst[0];
 				found_nat_tuple->nat_src_ip = ip->ip_src;
@@ -1366,7 +1365,7 @@ void mddp_f_out_nf_ipv4(
 				/* Save tuple to avoid tag many packets */
 				found_nat_tuple = kmem_cache_alloc(
 							mddp_f_nat_tuple_cache,
-							GFP_KERNEL);
+							GFP_ATOMIC);
 				found_nat_tuple->src_ip = cb->src[0];
 				found_nat_tuple->dst_ip = cb->dst[0];
 				found_nat_tuple->nat_src_ip = ip->ip_src;
@@ -1592,7 +1591,7 @@ void mddp_f_out_nf_ipv6(
 
 			/* Save tuple to avoid tag many packets */
 			found_router_tuple = kmem_cache_alloc(
-					mddp_f_router_tuple_cache, GFP_KERNEL);
+					mddp_f_router_tuple_cache, GFP_ATOMIC);
 #ifndef MDDP_F_NETFILTER
 			found_router_tuple->iface_src = cb->iface;
 			found_router_tuple->iface_dst = iface;
@@ -1755,7 +1754,7 @@ void mddp_f_out_nf_ipv6(
 				/* Save tuple to avoid tag many packets */
 				found_router_tuple = kmem_cache_alloc(
 						mddp_f_router_tuple_cache,
-						GFP_KERNEL);
+						GFP_ATOMIC);
 #ifndef MDDP_F_NETFILTER
 				found_router_tuple->iface_src = cb->iface;
 				found_router_tuple->iface_dst = iface;
@@ -1867,6 +1866,9 @@ module_param(mddp_f_contentfilter, int, 0000);
 static uint32_t mddp_nfhook_prerouting
 (void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
+	if (mddp_f_suspend_s == 1)
+		return NF_ACCEPT;
+
 	if (!mddp_is_acted_state(MDDP_APP_TYPE_ALL))
 		return NF_ACCEPT;
 
@@ -1929,6 +1931,55 @@ out:
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
+#if defined MDDP_TETHERING_SUPPORT
+int32_t mddp_f_suspend_tag(void)
+{
+	struct mddp_md_msg_t           *md_msg;
+	struct mddp_app_t              *app;
+
+	pr_notice("%s: MDDP suspend tag.\n", __func__);
+	mddp_f_suspend_s = 1;
+
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
+	if (unlikely(!md_msg)) {
+		pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
+		WARN_ON(1);
+		return 0;
+	}
+
+	md_msg->msg_id = IPC_MSG_ID_MDFPM_SUSPEND_TAG_ACK;
+	md_msg->data_len = 0;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
+
+	return 0;
+}
+
+int32_t mddp_f_resume_tag(void)
+{
+	struct mddp_md_msg_t           *md_msg;
+	struct mddp_app_t              *app;
+
+	pr_notice("%s: MDDP resume tag.\n", __func__);
+	mddp_f_suspend_s = 0;
+
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
+	if (unlikely(!md_msg)) {
+		pr_notice("%s: failed to alloc md_msg bug!\n", __func__);
+		WARN_ON(1);
+		return 0;
+	}
+
+	md_msg->msg_id = IPC_MSG_ID_MDFPM_RESUME_TAG_ACK;
+	md_msg->data_len = 0;
+
+	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
+	mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
+
+	return 0;
+}
+#endif
 
 //------------------------------------------------------------------------------
 // Kernel functions.
@@ -1936,13 +1987,13 @@ out:
 static int __net_init mddp_nf_register(struct net *net)
 {
 	return nf_register_net_hooks(net, mddp_nf_ops,
-				     ARRAY_SIZE(mddp_nf_ops));
+					ARRAY_SIZE(mddp_nf_ops));
 }
 
 static void __net_exit mddp_nf_unregister(struct net *net)
 {
 	nf_unregister_net_hooks(net, mddp_nf_ops,
-				ARRAY_SIZE(mddp_nf_ops));
+					ARRAY_SIZE(mddp_nf_ops));
 }
 
 static struct pernet_operations mddp_net_ops = {
@@ -2010,4 +2061,3 @@ void mddp_filter_uninit(void)
 	dest_track_table();
 #endif
 }
-

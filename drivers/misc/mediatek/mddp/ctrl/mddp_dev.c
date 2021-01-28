@@ -66,6 +66,13 @@ struct mddp_dev_rb_head_t {
 		(_rsp)->msg = (_req)->msg; \
 	} while (0)
 
+#define MDDP_SET_BUF_TERMIN(_buf, _len) \
+	do { \
+		_len = strlen(_buf); \
+		if (_len > 1 && _buf[_len-1] == '\n') \
+			_buf[_len-1] = '\0'; \
+	} while (0)
+
 //------------------------------------------------------------------------------
 // Private variables.
 //------------------------------------------------------------------------------
@@ -191,12 +198,99 @@ wh_enable_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(wh_enable);
 
+#ifdef MDDP_EM_SUPPORT
+#define EM_CMD_BUF_SZ 32
+static uint8_t em_cmd_buf[EM_CMD_BUF_SZ];
+static int32_t em_cmd_app = -1;
+static int32_t em_cmd_status;
+
+#define EM_CMD_RESET() (em_cmd_app = -1)
+
+static ssize_t
+em_test_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	//int idx;
+	//int cnt = 0;
+
+#if 0
+	for (idx = 0; idx < 32; ida x += 4) {
+		cnt += sprintf(buf+cnt, "%d: %u %u %u %u.\n", idx,
+				em_cmd_buf[idx], em_cmd_buf[idx+1],
+				em_cmd_buf[idx+2], em_cmd_buf[idx+3]);
+	}
+	return cnt;
+#endif
+	return sprintf(buf, "staus:%d, cmd_buf:%s\n",
+			em_cmd_status, em_cmd_buf);
+}
+
+static ssize_t
+em_test_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t count)
+{
+	struct mddp_app_t      *app;
+	const char             *delim = " ";
+	char                   *token;
+	char                   *strsep_buf_p;
+	unsigned int            str_len;
+
+	str_len = strlen(buf);
+
+	memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+	strsep_buf_p = em_cmd_buf;
+	MDDP_SET_BUF_TERMIN(em_cmd_buf, str_len);
+
+	token = strsep(&strsep_buf_p, delim);
+	if (token == NULL) {
+		em_cmd_status = -EINVAL;
+		goto input_param_error;
+	}
+
+	if (kstrtoint(token, 10, &em_cmd_app))
+		return -EINVAL;
+
+	if (em_cmd_app != MDDP_APP_TYPE_WH) {
+		em_cmd_status = -EPERM;
+		goto not_support_error;
+	}
+
+	app = mddp_get_app_inst(em_cmd_app);
+	if (app->sysfs_callback) {
+		// OK.
+		memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+		MDDP_SET_BUF_TERMIN(em_cmd_buf, str_len);
+		em_cmd_status = app->sysfs_callback(app,
+						MDDP_SYSFS_EM_CMD_TEST_WRITE,
+						em_cmd_buf, strlen(em_cmd_buf));
+		return count;
+	}
+
+	// NG. Failed to configure!
+	em_cmd_status = -ERANGE;
+	memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+	return count;
+
+input_param_error:
+not_support_error:
+	EM_CMD_RESET();
+	memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+	return count;
+}
+static DEVICE_ATTR_RW(em_test);
+#endif
+
 static struct attribute *mddp_attrs[] = {
 	&dev_attr_version.attr,
 	&dev_attr_state.attr,
 	&dev_attr_wh_statistic.attr,
 
 	&dev_attr_wh_enable.attr,
+#ifdef MDDP_EM_SUPPORT
+	&dev_attr_em_test.attr,
+#endif
+
 	NULL,
 };
 ATTRIBUTE_GROUPS(mddp);
@@ -401,8 +495,7 @@ void mddp_dev_response(enum mddp_app_type_e type,
 	}
 
 	dev_rsp = kmalloc(sizeof(struct mddp_dev_rsp_common_t) + data_len,
-				GFP_KERNEL);
-
+				GFP_ATOMIC);
 	if (unlikely(!dev_rsp))
 		return;
 
@@ -414,7 +507,7 @@ void mddp_dev_response(enum mddp_app_type_e type,
 	if (data_len > 0)
 		memcpy(dev_rsp->data, data, data_len);
 
-	entry = kmalloc(sizeof(struct mddp_dev_rb_t), GFP_KERNEL);
+	entry = kmalloc(sizeof(struct mddp_dev_rb_t), GFP_ATOMIC);
 	if (unlikely(!entry)) {
 		kfree(dev_rsp);
 		return;
@@ -613,7 +706,7 @@ long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (!ret) {
 			dev_rsp = kmalloc(
 				sizeof(struct mddp_dev_rsp_common_t) + buf_len,
-				GFP_KERNEL);
+				GFP_ATOMIC);
 
 			if (dev_rsp == NULL) {
 				ret = -ENOMEM;

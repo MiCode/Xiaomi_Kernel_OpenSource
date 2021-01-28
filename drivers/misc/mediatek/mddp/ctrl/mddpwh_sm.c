@@ -84,7 +84,7 @@ void mddpwh_sm_enable(struct mddp_app_t *app)
 	// 2. Send ENABLE to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 			 sizeof(struct wfpm_enable_md_func_req_t) +
-			smem_num * sizeof(struct wfpm_smem_info_t), GFP_KERNEL);
+			smem_num * sizeof(struct wfpm_smem_info_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -139,7 +139,7 @@ void mddpwh_sm_disable(struct mddp_app_t *app)
 	// 2. Send DISABLE to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 			sizeof(struct wfpm_md_fast_path_common_req_t),
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		pr_notice("%s: Failed to alloc md_msg bug!\n", __func__);
 		WARN_ON(1);
@@ -177,7 +177,7 @@ void mddpwh_sm_act(struct mddp_app_t *app)
 
 	// 3. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-		sizeof(struct wfpm_activate_md_func_req_t), GFP_KERNEL);
+		sizeof(struct wfpm_activate_md_func_req_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -226,7 +226,7 @@ void mddpwh_sm_deact(struct mddp_app_t *app)
 
 	// 2. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-		sizeof(struct wfpm_activate_md_func_req_t), GFP_KERNEL);
+		sizeof(struct wfpm_activate_md_func_req_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -366,7 +366,7 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 		return;
 	}
 
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_KERNEL);
+	md_msg = kzalloc(sizeof(struct mddp_md_msg_t), GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -411,7 +411,7 @@ void mddpw_reset_work(struct timer_list *t)
 int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 {
 	struct mddp_app_t                      *app;
-	struct mddp_ilm_common_rsp_t           *rsp;
+	struct wfpm_md_fast_path_common_rsp_t  *rsp;
 	struct wfpm_enable_md_func_rsp_t       *enable_rsp;
 	struct mddpw_md_notify_info_t          *md_info;
 
@@ -419,69 +419,70 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	if (!mddp_ipc_rx_msg_validation(msg_id, buf_len))
 		return -EINVAL;
 
-	rsp = (struct mddp_ilm_common_rsp_t *) buf;
+	rsp = (struct wfpm_md_fast_path_common_rsp_t *) buf;
 	app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 
 	switch (msg_id) {
 	case IPC_MSG_ID_WFPM_ENABLE_MD_FAST_PATH_RSP:
+
 		enable_rsp = (struct wfpm_enable_md_func_rsp_t *) buf;
 		pr_info("%s: set (%u), (%u), MD version(%u), (%u).\n",
 		__func__, enable_rsp->mode, enable_rsp->result,
 		enable_rsp->version, enable_rsp->reserved);
 		mddp_set_md_version(enable_rsp->version);
 
-		if (rsp->rsp.result) {
+		if (rsp->result) {
 			/* ENABLE OK. */
 			pr_info("%s: ENABLE RSP OK, result(%d).\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ENABLING, true);
 		} else {
 			/* ENABLE FAIL. */
 			pr_notice("%s: ENABLE RSP FAIL, result(%d)!\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ENABLING, false);
 		}
 		break;
 
 	case IPC_MSG_ID_WFPM_DISABLE_MD_FAST_PATH_RSP:
-		if (rsp->rsp.result) {
+		if (rsp->result) {
 			/* DISABLE OK. */
 			pr_info("%s: DISABLE RSP OK, result(%d).\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, true);
 		} else {
 			/* DISABLE FAIL. */
 			pr_notice("%s: DISABLE RSP FAIL, result(%d)!\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DISABLING, false);
 		}
 		break;
 
 	case IPC_MSG_ID_WFPM_ACTIVATE_MD_FAST_PATH_RSP:
-		if (rsp->rsp.result) {
+		if (rsp->result) {
 			/* ACT OK. */
 			pr_info("%s: ACT RSP OK, result(%d).\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ACTIVATING, true);
 		} else {
 			/* ACT FAIL. */
 			pr_notice("%s: ACT RSP FAIL, result(%d)!\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_ACTIVATING, false);
 		}
 		break;
 
 	case IPC_MSG_ID_WFPM_DEACTIVATE_MD_FAST_PATH_RSP:
-		if (rsp->rsp.result) {
+		if (rsp->result) {
 			/* DEACT OK. */
 			pr_info("%s: DEACT RSP OK, result(%d)\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DEACTIVATING, true);
 
@@ -491,7 +492,7 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 		} else {
 			/* DEACT FAIL. */
 			pr_notice("%s: DEACT RSP FAIL, result(%d)\n",
-					__func__, rsp->rsp.result);
+					__func__, rsp->result);
 			mddp_sm_set_state_by_md_rsp(app,
 				MDDP_STATE_DEACTIVATING, false);
 
@@ -553,7 +554,7 @@ int32_t mddpw_drv_add_txd(struct mddpw_txd_t *txd)
 	}
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
-	sizeof(struct mddpw_txd_t) + txd->txd_length, GFP_KERNEL);
+	sizeof(struct mddpw_txd_t) + txd->txd_length, GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -575,8 +576,8 @@ int32_t mddpw_drv_get_net_stat(struct mddpw_net_stat_t *usage)
 
 	static struct mddpw_net_stat_t     cur_stats = {0};
 	struct mddpw_net_stat_t           *md_stats;
-	uint8_t                             smem_attr;
-	uint32_t                            smem_size;
+	uint8_t                            smem_attr;
+	uint32_t                           smem_size;
 
 	if (!usage) {
 		pr_notice("%s: usage is NULL!\n", __func__);
@@ -656,7 +657,7 @@ int32_t mddpw_drv_notify_info(
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 		sizeof(struct mddpw_drv_notify_info_t) +
-		wifi_notify->buf_len, GFP_KERNEL);
+		wifi_notify->buf_len, GFP_ATOMIC);
 
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
@@ -725,6 +726,10 @@ ssize_t mddpwh_sysfs_callback(
 	uint8_t                         smem_attr;
 	uint32_t                        smem_size;
 	uint32_t                        show_cnt = 0;
+#ifdef MDDP_EM_SUPPORT
+	char                           *strsep_buf_p;
+	struct mddp_md_msg_t           *md_msg;
+#endif
 
 	if (cmd == MDDP_SYSFS_CMD_ENABLE_WRITE) {
 		if (sysfs_streq(buf, "1")) {
@@ -765,6 +770,21 @@ ssize_t mddpwh_sysfs_callback(
 			md_stats->tx_bytes, md_stats->rx_bytes,
 			md_stats->tx_errors, md_stats->rx_errors);
 		return show_cnt;
+#ifdef MDDP_EM_SUPPORT
+	} else if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
+		strsep_buf_p = buf;
+
+		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
+					buf_len + 4, GFP_ATOMIC);
+		if (md_msg) {
+			md_msg->msg_id = IPC_MSG_ID_MDFPM_EM_TEST_REQ;
+			md_msg->data_len = buf_len;
+			memcpy(&(md_msg->data), buf, buf_len);
+			mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_MDFPM);
+		}
+
+		return buf_len;
+#endif
 	} else
 		return 0;
 }

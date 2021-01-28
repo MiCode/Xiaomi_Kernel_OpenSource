@@ -50,6 +50,11 @@ enum mddp_sysfs_cmd_e {
 	MDDP_SYSFS_CMD_ENABLE_READ,  /* User read ENABLE sysfs */
 	MDDP_SYSFS_CMD_ENABLE_WRITE,  /* User write ENABLE sysfs */
 	MDDP_SYSFS_CMD_STATISTIC_READ,  /* User read STATISTIC sysfs */
+
+#ifdef MDDP_EM_SUPPORT
+	MDDP_SYSFS_EM_CMD_TEST_READ,
+	MDDP_SYSFS_EM_CMD_TEST_WRITE,
+#endif
 };
 
 /*!

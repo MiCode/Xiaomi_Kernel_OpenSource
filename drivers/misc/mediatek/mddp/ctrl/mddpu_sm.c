@@ -99,7 +99,7 @@ void mddpu_sm_enable(struct mddp_app_t *app)
 			__func__, enable_req.mpuInfo.memBank4Size);
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(enable_req),
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -171,7 +171,7 @@ void mddpu_sm_disable(struct mddp_app_t *app)
 	disable_req.mode = UFPM_FUNC_MODE_TETHER;
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(disable_req),
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -193,7 +193,7 @@ void mddpu_sm_drv_disable(struct mddp_app_t *app)
 	disable_req.mode = UFPM_FUNC_MODE_TETHER;
 
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + sizeof(disable_req),
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -247,7 +247,7 @@ void mddpu_sm_act(struct mddp_app_t *app)
 
 	// 3. Send ACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + usb_buf_len,
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;
@@ -318,7 +318,7 @@ void mddpu_sm_deact(struct mddp_app_t *app)
 
 	// 2. Send DEACTIVATING to MD
 	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + usb_buf_len,
-			GFP_KERNEL);
+			GFP_ATOMIC);
 	if (unlikely(!md_msg)) {
 		WARN_ON(1);
 		return;

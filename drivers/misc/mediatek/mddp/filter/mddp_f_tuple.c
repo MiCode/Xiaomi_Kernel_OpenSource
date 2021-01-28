@@ -45,7 +45,6 @@ int32_t mddp_f_init_router_tuple(void)
 	/* allocate memory for bridge hash table */
 	router_tuple_hash =
 		vmalloc(sizeof(struct list_head) * ROUTER_TUPLE_HASH_SIZE);
-
 	if (!router_tuple_hash)
 		return -ENOMEM;
 
@@ -66,7 +65,6 @@ int32_t mddp_f_init_nat_tuple(void)
 	/* allocate memory for two nat hash tables */
 	nat_tuple_hash =
 		vmalloc(sizeof(struct list_head) * NAT_TUPLE_HASH_SIZE);
-
 	if (!nat_tuple_hash)
 		return -ENOMEM;
 
