@@ -294,7 +294,6 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 		psy->desc->name, prop.intval);
 
 }
-
 void battery_service_data_init(struct mtk_battery *gm)
 {
 	struct battery_data *bs_data;
@@ -2776,7 +2775,6 @@ int battery_psy_init(struct platform_device *pdev)
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
 	return 0;
 }
-
 int battery_init(struct platform_device *pdev)
 {
 	struct mtk_battery *gm;
@@ -2787,6 +2785,8 @@ int battery_init(struct platform_device *pdev)
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
 	gm->log_level = BMLOG_TRACE_LEVEL;
+	gm->sw_iavg_gap = 3000;
+
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 

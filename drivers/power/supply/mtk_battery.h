@@ -253,6 +253,8 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_BUILD_SEL_BATTEMP,
 	FG_KERNEL_CMD_UPDATE_AVG_BATTEMP,
 	FG_KERNEL_CMD_SAVE_DEBUG_PARAM,
+	FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
+	FG_KERNEL_CMD_AG_LOG_TEST,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -607,6 +609,7 @@ enum Fg_interrupt_flags {
 	FG_INTR_BAT_TMP_C_LT = 0x800000,
 	FG_INTR_BAT_INT1_CHECK = 0x1000000,
 	FG_INTR_KERNEL_CMD = 0x2000000,
+	FG_INTR_BAT_INT2_CHECK = 0x4000000,
 };
 
 struct mtk_battery_algo {
@@ -739,6 +742,29 @@ struct shutdown_controller {
 	int shutdown_cond_flag;
 };
 
+struct BAT_EC_Struct {
+	int fixed_temp_en;
+	int fixed_temp_value;
+	int debug_rac_en;
+	int debug_rac_value;
+	int debug_ptim_v_en;
+	int debug_ptim_v_value;
+	int debug_ptim_r_en;
+	int debug_ptim_r_value;
+	int debug_ptim_r_value_sign;
+	int debug_fg_curr_en;
+	int debug_fg_curr_value;
+	int debug_bat_id_en;
+	int debug_bat_id_value;
+	int debug_d0_c_en;
+	int debug_d0_c_value;
+	int debug_d0_v_en;
+	int debug_d0_v_value;
+	int debug_uisoc_en;
+	int debug_uisoc_value;
+	int debug_kill_daemontest;
+};
+
 struct mtk_battery {
 	/*linux driver related*/
 	wait_queue_head_t  wait_que;
@@ -758,6 +784,11 @@ struct mtk_battery {
 	/* adb */
 	int fixed_bat_tmp;
 	int fixed_uisoc;
+
+	/* for test */
+	struct BAT_EC_Struct Bat_EC_ctrl;
+	int BAT_EC_cmd;
+	int BAT_EC_param;
 
 	/*battery flag*/
 	bool init_flag;
@@ -930,12 +961,17 @@ extern bool is_kernel_power_off_charging(void);
 extern void set_shutdown_vbat_lt(struct mtk_battery *gm,
 	int vbat_lt, int vbat_lt_lv1);
 extern void fg_sw_bat_cycle_accu(struct mtk_battery *gm);
+extern int fgauge_get_profile_id(void);
+extern void disable_fg(struct mtk_battery *gm);
+extern int get_shutdown_cond(struct mtk_battery *gm);
+extern int get_shutdown_cond_flag(struct mtk_battery *gm);
+extern void set_shutdown_cond_flag(struct mtk_battery *gm, int val);
 /*mtk_battery.c end */
 
 /* mtk_battery_algo.c */
 extern void battery_algo_init(struct mtk_battery *gm);
 extern void do_fg_algo(struct mtk_battery *gm, unsigned int intr_num);
-extern int get_shutdown_cond(struct mtk_battery *gm);
+extern void fg_bat_temp_int_internal(struct mtk_battery *gm);
 /* mtk_battery_algo.c end */
 
 #endif /* __MTK_BATTERY_INTF_H__ */

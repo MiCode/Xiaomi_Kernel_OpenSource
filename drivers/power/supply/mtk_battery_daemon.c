@@ -306,6 +306,1727 @@ void fg_daemon_get_data(int cmd,
 
 }
 
+void fg_ocv_query_soc(struct mtk_battery *gm, int ocv)
+{
+	if (ocv > 50000 || ocv <= 0)
+		return;
+
+	gm->algo_req_ocv = ocv;
+	wakeup_fg_algo_cmd(gm,
+		FG_INTR_KERNEL_CMD, FG_KERNEL_CMD_REQ_ALGO_DATA,
+		ocv);
+
+	bm_trace("[%s] ocv:%d\n",
+		__func__, ocv);
+}
+
+void fg_custom_data_check(struct mtk_battery *gm)
+{
+	struct fuel_gauge_custom_data *p;
+	struct fuel_gauge_table_custom_data *fg_table_cust_data;
+
+	p = &gm->fg_cust_data;
+	fg_table_cust_data = &gm->fg_table_cust_data;
+	fgauge_get_profile_id();
+
+	bm_err("FGLOG MultiGauge0[%d] BATID[%d] pmic_min_vol[%d,%d,%d,%d,%d]\n",
+		p->multi_temp_gauge0, gm->battery_id,
+		fg_table_cust_data->fg_profile[0].pmic_min_vol,
+		fg_table_cust_data->fg_profile[1].pmic_min_vol,
+		fg_table_cust_data->fg_profile[2].pmic_min_vol,
+		fg_table_cust_data->fg_profile[3].pmic_min_vol,
+		fg_table_cust_data->fg_profile[4].pmic_min_vol);
+	bm_err("FGLOG pon_iboot[%d,%d,%d,%d,%d] qmax_sys_vol[%d %d %d %d %d]\n",
+		fg_table_cust_data->fg_profile[0].pon_iboot,
+		fg_table_cust_data->fg_profile[1].pon_iboot,
+		fg_table_cust_data->fg_profile[2].pon_iboot,
+		fg_table_cust_data->fg_profile[3].pon_iboot,
+		fg_table_cust_data->fg_profile[4].pon_iboot,
+		fg_table_cust_data->fg_profile[0].qmax_sys_vol,
+		fg_table_cust_data->fg_profile[1].qmax_sys_vol,
+		fg_table_cust_data->fg_profile[2].qmax_sys_vol,
+		fg_table_cust_data->fg_profile[3].qmax_sys_vol,
+		fg_table_cust_data->fg_profile[4].qmax_sys_vol);
+
+}
+
+void exec_BAT_EC(int cmd, int param)
+{
+	int i;
+	struct mtk_battery *gm;
+	struct BAT_EC_Struct *ec;
+	struct fuel_gauge_custom_data *fg_cust_data;
+	struct fuel_gauge_table_custom_data *fg_table_cust_data;
+
+
+	gm = get_mtk_battery();
+	ec = &gm->Bat_EC_ctrl;
+	fg_cust_data = &gm->fg_cust_data;
+	fg_table_cust_data = &gm->fg_table_cust_data;
+
+	bm_err("exe_BAT_EC cmd %d, param %d\n", cmd, param);
+	switch (cmd) {
+	case 101:
+		{
+			/* Force Temperature, force_get_tbat*/
+			if (param == 0xff) {
+				ec->fixed_temp_en = 0;
+				ec->fixed_temp_value = 25;
+				bm_err("exe_BAT_EC cmd %d, param %d, disable\n",
+					cmd, param);
+
+			} else {
+				ec->fixed_temp_en = 1;
+				if (param >= 100)
+					ec->fixed_temp_value =
+						0 - (param - 100);
+				else
+					ec->fixed_temp_value = param;
+				bm_err("exe_BAT_EC cmd %d, param %d, enable\n",
+					cmd, param);
+			}
+		}
+		break;
+	case 105:
+		{
+			/* force interrupt trigger */
+			switch (param) {
+			case 1:
+				{
+					wakeup_fg_algo(gm,
+						FG_INTR_TIMER_UPDATE);
+				}
+				break;
+			case 4096:
+				{
+					wakeup_fg_algo(gm, FG_INTR_NAG_C_DLTV);
+				}
+				break;
+			case 8192:
+				{
+					wakeup_fg_algo(gm, FG_INTR_FG_ZCV);
+				}
+				break;
+			case 32768:
+				{
+					wakeup_fg_algo(gm, FG_INTR_RESET_NVRAM);
+				}
+				break;
+			case 65536:
+				{
+					wakeup_fg_algo(gm, FG_INTR_BAT_PLUGOUT);
+				}
+				break;
+
+
+			default:
+				{
+
+				}
+				break;
+			}
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, force interrupt\n",
+				cmd, param);
+		}
+		break;
+	case 108:
+		{
+			/* Set D0_C_CUST */
+			if (param == 0xff) {
+				ec->debug_d0_c_en = 0;
+				ec->debug_d0_c_value = 0;
+				bm_err(
+					"exe_BAT_EC cmd %d, param %d, disable\n",
+					cmd, param);
+
+			} else {
+				ec->debug_d0_c_en = 1;
+				ec->debug_d0_c_value = param;
+				bm_err(
+					"exe_BAT_EC cmd %d, param %d, enable\n",
+					cmd, param);
+			}
+		}
+		break;
+	case 109:
+		{
+			/* Set D0_V_CUST */
+			if (param == 0xff) {
+				ec->debug_d0_v_en = 0;
+				ec->debug_d0_v_value = 0;
+				bm_err(
+					"exe_BAT_EC cmd %d, param %d, disable\n",
+					cmd, param);
+
+			} else {
+				ec->debug_d0_v_en = 1;
+				ec->debug_d0_v_value = param;
+				bm_err(
+					"exe_BAT_EC cmd %d, param %d, enable\n",
+					cmd, param);
+			}
+		}
+		break;
+	case 110:
+		{
+			/* Set UISOC_CUST */
+			if (param == 0xff) {
+				ec->debug_uisoc_en = 0;
+				ec->debug_uisoc_value = 0;
+				bm_err(
+					"exe_BAT_EC cmd %d, param %d, disable\n",
+					cmd, param);
+
+			} else {
+				ec->debug_uisoc_en = 1;
+				ec->debug_uisoc_value = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, enable\n",
+				cmd, param);
+			}
+		}
+		break;
+
+	case 701:
+		{
+			fg_cust_data->pseudo1_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, pseudo1_en\n",
+				cmd, param);
+		}
+		break;
+	case 702:
+		{
+			fg_cust_data->pseudo100_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, pseudo100_en\n",
+				cmd, param);
+		}
+		break;
+	case 703:
+		{
+			fg_cust_data->qmax_sel = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, qmax_sel\n",
+				cmd, param);
+		}
+		break;
+	case 704:
+		{
+			fg_cust_data->iboot_sel = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, iboot_sel\n",
+				cmd, param);
+		}
+		break;
+	case 705:
+		{
+			for (i = 0;
+				i < fg_table_cust_data->active_table_number;
+				i++) {
+				fg_table_cust_data->fg_profile[i].pmic_min_vol =
+					param * UNIT_TRANS_10;
+			}
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, pmic_min_vol\n",
+				cmd, param);
+		}
+		break;
+	case 706:
+		{
+			for (i = 0;
+				i < fg_table_cust_data->active_table_number;
+				i++) {
+				fg_table_cust_data->fg_profile[i].pon_iboot =
+				param * UNIT_TRANS_10;
+			}
+			bm_err("exe_BAT_EC cmd %d, param %d, poweron_system_iboot\n"
+				, cmd, param * UNIT_TRANS_10);
+		}
+		break;
+	case 707:
+		{
+			fg_cust_data->shutdown_system_iboot = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, shutdown_system_iboot\n",
+				cmd, param);
+		}
+		break;
+	case 708:
+		{
+			fg_cust_data->com_fg_meter_resistance = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, com_fg_meter_resistance\n",
+				cmd, param);
+		}
+		break;
+	case 709:
+		{
+			fg_cust_data->r_fg_value = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, r_fg_value\n",
+				cmd, param);
+		}
+		break;
+	case 710:
+		{
+			fg_cust_data->q_max_sys_voltage = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, q_max_sys_voltage\n",
+				cmd, param);
+		}
+		break;
+	case 711:
+		{
+			fg_cust_data->loading_1_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, loading_1_en\n",
+				cmd, param);
+		}
+		break;
+	case 712:
+		{
+			fg_cust_data->loading_2_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, loading_2_en\n",
+				cmd, param);
+		}
+		break;
+	case 713:
+		{
+			fg_cust_data->aging_temp_diff = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, aging_temp_diff\n",
+				cmd, param);
+		}
+		break;
+	case 714:
+		{
+			fg_cust_data->aging1_load_soc = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, aging1_load_soc\n",
+				cmd, param);
+		}
+		break;
+	case 715:
+		{
+			fg_cust_data->aging1_update_soc = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, aging1_update_soc\n",
+				cmd, param);
+		}
+		break;
+	case 716:
+		{
+			fg_cust_data->aging_100_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, aging_100_en\n",
+				cmd, param);
+		}
+		break;
+	case 717:
+		{
+			fg_table_cust_data->active_table_number = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, additional_battery_table_en\n",
+				cmd, param);
+		}
+		break;
+	case 718:
+		{
+			fg_cust_data->d0_sel = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, d0_sel\n",
+				cmd, param);
+		}
+		break;
+	case 719:
+		{
+			fg_cust_data->zcv_car_gap_percentage = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, param %d, zcv_car_gap_percentage\n",
+				cmd, param);
+		}
+		break;
+	case 720:
+		{
+			fg_cust_data->multi_temp_gauge0 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->multi_temp_gauge0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 721:
+		{
+			fg_custom_data_check(gm);
+			bm_err("exe_BAT_EC cmd %d", cmd);
+		}
+		break;
+	case 724:
+		{
+			fg_table_cust_data->fg_profile[0].pseudo100 =
+				UNIT_TRANS_100 * param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pseudo100_t0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 725:
+		{
+			fg_table_cust_data->fg_profile[1].pseudo100 =
+				UNIT_TRANS_100 * param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pseudo100_t1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 726:
+		{
+			fg_table_cust_data->fg_profile[2].pseudo100 =
+				UNIT_TRANS_100 * param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pseudo100_t2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 727:
+		{
+			fg_table_cust_data->fg_profile[3].pseudo100 =
+				UNIT_TRANS_100 * param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pseudo100_t3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 728:
+		{
+			fg_table_cust_data->fg_profile[4].pseudo100 =
+				UNIT_TRANS_100 * param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pseudo100_t4=%d\n",
+				cmd, param);
+		}
+		break;
+	case 729:
+		{
+			fg_cust_data->keep_100_percent = UNIT_TRANS_100 * param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->keep_100_percent=%d\n",
+				cmd, param);
+		}
+		break;
+	case 730:
+		{
+			fg_cust_data->ui_full_limit_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_en=%d\n",
+				cmd, param);
+		}
+		break;
+	case 731:
+		{
+			fg_cust_data->ui_full_limit_soc0 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_soc0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 732:
+		{
+			fg_cust_data->ui_full_limit_ith0 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_ith0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 733:
+		{
+			fg_cust_data->ui_full_limit_soc1 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_soc1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 734:
+		{
+			fg_cust_data->ui_full_limit_ith1 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_ith1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 735:
+		{
+			fg_cust_data->ui_full_limit_soc2 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_soc2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 736:
+		{
+			fg_cust_data->ui_full_limit_ith2 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_ith2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 737:
+		{
+			fg_cust_data->ui_full_limit_soc3 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_soc3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 738:
+		{
+			fg_cust_data->ui_full_limit_ith3 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_ith3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 739:
+		{
+			fg_cust_data->ui_full_limit_soc4 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_soc4=%d\n",
+				cmd, param);
+		}
+		break;
+	case 740:
+		{
+			fg_cust_data->ui_full_limit_ith4 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_ith4=%d\n",
+				cmd, param);
+		}
+		break;
+	case 741:
+		{
+			fg_cust_data->ui_full_limit_time = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->ui_full_limit_time=%d\n",
+				cmd, param);
+		}
+		break;
+	case 743:
+		{
+			fg_table_cust_data->fg_profile[0].pmic_min_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pmic_min_vol_t0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 744:
+		{
+			fg_table_cust_data->fg_profile[1].pmic_min_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pmic_min_vol_t1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 745:
+		{
+			fg_table_cust_data->fg_profile[2].pmic_min_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pmic_min_vol_t2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 746:
+		{
+			fg_table_cust_data->fg_profile[3].pmic_min_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pmic_min_vol_t3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 747:
+		{
+			fg_table_cust_data->fg_profile[4].pmic_min_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pmic_min_vol_t4=%d\n",
+				cmd, param);
+		}
+		break;
+	case 748:
+		{
+			fg_table_cust_data->fg_profile[0].pon_iboot = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pon_iboot_t0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 749:
+		{
+			fg_table_cust_data->fg_profile[1].pon_iboot = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pon_iboot_t1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 750:
+		{
+			fg_table_cust_data->fg_profile[2].pon_iboot = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pon_iboot_t2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 751:
+		{
+			fg_table_cust_data->fg_profile[3].pon_iboot = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pon_iboot_t3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 752:
+		{
+			fg_table_cust_data->fg_profile[4].pon_iboot = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->pon_iboot_t4=%d\n",
+				cmd, param);
+		}
+		break;
+	case 753:
+		{
+			fg_table_cust_data->fg_profile[0].qmax_sys_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->qmax_sys_vol_t0=%d\n",
+				cmd, param);
+		}
+		break;
+	case 754:
+		{
+			fg_table_cust_data->fg_profile[1].qmax_sys_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->qmax_sys_vol_t1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 755:
+		{
+			fg_table_cust_data->fg_profile[2].qmax_sys_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->qmax_sys_vol_t2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 756:
+		{
+			fg_table_cust_data->fg_profile[3].qmax_sys_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->qmax_sys_vol_t3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 757:
+		{
+			fg_table_cust_data->fg_profile[4].qmax_sys_vol = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->qmax_sys_vol_t4=%d\n",
+				cmd, param);
+		}
+		break;
+	case 758:
+		{
+			fg_cust_data->nafg_ratio = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->nafg_ratio=%d\n",
+				cmd, param);
+		}
+		break;
+	case 759:
+		{
+			fg_cust_data->nafg_ratio_en = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->nafg_ratio_en=%d\n",
+				cmd, param);
+		}
+		break;
+	case 760:
+		{
+			fg_cust_data->nafg_ratio_tmp_thr = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->nafg_ratio_tmp_thr=%d\n",
+				cmd, param);
+		}
+		break;
+	case 761:
+		{
+			wakeup_fg_algo(gm, FG_INTR_BAT_CYCLE);
+			bm_err(
+				"exe_BAT_EC cmd %d, bat_cycle intr\n", cmd);
+		}
+		break;
+	case 762:
+		{
+			fg_cust_data->difference_fgc_fgv_th1 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->difference_fgc_fgv_th1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 763:
+		{
+			fg_cust_data->difference_fgc_fgv_th2 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->difference_fgc_fgv_th1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 764:
+		{
+			fg_cust_data->difference_fgc_fgv_th3 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->difference_fgc_fgv_th3=%d\n",
+				cmd, param);
+		}
+		break;
+	case 765:
+		{
+			fg_cust_data->difference_fullocv_ith = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->difference_fullocv_ith=%d\n",
+				cmd, param);
+		}
+		break;
+	case 766:
+		{
+			fg_cust_data->difference_fgc_fgv_th_soc1 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->difference_fgc_fgv_th_soc1=%d\n",
+				cmd, param);
+		}
+		break;
+	case 767:
+		{
+			fg_cust_data->difference_fgc_fgv_th_soc2 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->difference_fgc_fgv_th_soc2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 768:
+		{
+			fg_cust_data->embedded_sel = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->embedded_sel=%d\n",
+				cmd, param);
+		}
+		break;
+	case 769:
+		{
+			fg_cust_data->car_tune_value = param * UNIT_TRANS_10;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->car_tune_value=%d\n",
+				cmd, param * UNIT_TRANS_10);
+		}
+		break;
+	case 770:
+		{
+			fg_cust_data->shutdown_1_time = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->shutdown_1_time=%d\n",
+				cmd, param);
+		}
+		break;
+	case 771:
+		{
+			fg_cust_data->tnew_told_pon_diff = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->tnew_told_pon_diff=%d\n",
+				cmd, param);
+		}
+		break;
+	case 772:
+		{
+			fg_cust_data->tnew_told_pon_diff2 = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->tnew_told_pon_diff2=%d\n",
+				cmd, param);
+		}
+		break;
+	case 773:
+		{
+			fg_cust_data->swocv_oldocv_diff = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->swocv_oldocv_diff=%d\n",
+				cmd, param);
+		}
+		break;
+	case 774:
+		{
+			fg_cust_data->hwocv_oldocv_diff = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->hwocv_oldocv_diff=%d\n",
+				cmd, param);
+		}
+		break;
+	case 775:
+		{
+			fg_cust_data->hwocv_swocv_diff = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, fg_cust_data->hwocv_swocv_diff=%d\n",
+				cmd, param);
+		}
+		break;
+	case 776:
+		{
+			ec->debug_kill_daemontest = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, debug_kill_daemontest=%d\n",
+				cmd, param);
+		}
+		break;
+	case 777:
+		{
+			fg_cust_data->swocv_oldocv_diff_emb = param;
+			bm_err("exe_BAT_EC cmd %d, swocv_oldocv_diff_emb=%d\n",
+				cmd, param);
+		}
+		break;
+	case 778:
+		{
+			fg_cust_data->vir_oldocv_diff_emb_lt = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, vir_oldocv_diff_emb_lt=%d\n",
+				cmd, param);
+		}
+		break;
+	case 779:
+		{
+			fg_cust_data->vir_oldocv_diff_emb_tmp = param;
+			bm_err(
+				"exe_BAT_EC cmd %d, vir_oldocv_diff_emb_tmp=%d\n",
+				cmd, param);
+		}
+		break;
+	case 780:
+		{
+			fg_cust_data->vir_oldocv_diff_emb = param;
+			bm_err("exe_BAT_EC cmd %d, vir_oldocv_diff_emb=%d\n",
+				cmd, param);
+		}
+		break;
+	case 781:
+		{
+			ec->debug_kill_daemontest = 1;
+			fg_cust_data->dod_init_sel = 12;
+			bm_err("exe_BAT_EC cmd %d,force goto dod_init12=%d\n",
+				cmd, param);
+		}
+		break;
+	case 782:
+		{
+			fg_cust_data->charge_pseudo_full_level = param;
+			bm_err(
+				"exe_BAT_EC cmd %d,fg_cust_data->charge_pseudo_full_level=%d\n",
+				cmd, param);
+		}
+		break;
+	case 783:
+		{
+			fg_cust_data->full_tracking_bat_int2_multiply = param;
+			bm_err(
+				"exe_BAT_EC cmd %d,fg_cust_data->full_tracking_bat_int2_multiply=%d\n",
+				cmd, param);
+		}
+		break;
+	case 784:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,DAEMON_PID=%d\n",
+				cmd, gm->fgd_pid);
+		}
+		break;
+	case 785:
+		{
+			gm->bat_cycle_thr = param;
+			bm_err(
+				"exe_BAT_EC cmd %d,thr=%d\n",
+				cmd, gm->bat_cycle_thr);
+		}
+		break;
+	case 786:
+		{
+			gm->bat_cycle_ncar = param;
+
+			bm_err(
+				"exe_BAT_EC cmd %d,thr=%d\n",
+				cmd, gm->bat_cycle_ncar);
+		}
+		break;
+	case 787:
+		{
+			fg_ocv_query_soc(gm, param);
+			bm_err(
+				"exe_BAT_EC cmd %d,[fg_ocv_query_soc]ocv=%d\n",
+				cmd, param);
+		}
+		break;
+	case 788:
+		{
+			fg_cust_data->record_log = param;
+
+			bm_err(
+				"exe_BAT_EC cmd %d,record_log=%d\n",
+				cmd, fg_cust_data->record_log);
+		}
+		break;
+	case 789:
+		{
+			int zcv_avg_current = 0;
+
+			zcv_avg_current = param;
+
+			gauge_set_property(GAUGE_PROP_ZCV_INTR_EN, 0);
+			gauge_set_property(GAUGE_PROP_ZCV_INTR_THRESHOLD,
+				zcv_avg_current);
+			gauge_set_property(GAUGE_PROP_ZCV_INTR_EN, 1);
+
+			bm_err(
+				"exe_BAT_EC cmd %d,zcv_avg_current =%d\n",
+				cmd, param);
+		}
+		break;
+	case 790:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,force DLPT shutdown", cmd);
+
+			wakeup_fg_algo(gm, FG_INTR_DLPT_SD);
+		}
+		break;
+	case 791:
+		{
+			gm->enable_tmp_intr_suspend = param;
+			bm_err(
+				"exe_BAT_EC cmd %d,gm->enable_tmp_intr_suspend =%d\n",
+				cmd, param);
+		}
+		break;
+	case 792:
+		{
+			wakeup_fg_algo_cmd(gm,
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_BUILD_SEL_BATTEMP,
+				param);
+
+			bm_err(
+				"exe_BAT_EC cmd %d,req bat table temp =%d\n",
+				cmd, param);
+
+		}
+		break;
+	case 793:
+		{
+
+			wakeup_fg_algo_cmd(gm,
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_UPDATE_AVG_BATTEMP,
+				param);
+
+			bm_err(
+				"exe_BAT_EC cmd %d,update mavg temp\n",
+				cmd);
+
+		}
+		break;
+	case 794:
+		{
+			wakeup_fg_algo_cmd(gm,
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_SAVE_DEBUG_PARAM,
+				param);
+
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_SAVE_DEBUG_PARAM\n",
+				cmd);
+		}
+		break;
+	case 795:
+		{
+/*TODO*/
+			bm_err(
+				"exe_BAT_EC cmd %d,change aging to=%d\n",
+				cmd, param);
+		}
+		break;
+	case 796:
+		{
+/*TODO*/
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_AG_LOG_TEST=%d\n",
+				cmd, param);
+		}
+		break;
+
+
+	default:
+		bm_err(
+			"exe_BAT_EC cmd %d, param %d, default\n",
+			cmd, param);
+		break;
+	}
+
+}
+
+
+/*=========================*/
+/* adb */
+/*=========================*/
+
+static ssize_t Battery_Temperature_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("%s, %d %d\n", __func__, gm->bs_data.bat_batt_temp,
+		gm->fixed_bat_tmp);
+
+	return sprintf(buf, "%d\n", gm->fixed_bat_tmp);
+}
+
+static ssize_t Battery_Temperature_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	signed int temp;
+	int curr_bat_temp;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	if (kstrtoint(buf, 10, &temp) == 0) {
+
+		gm->fixed_bat_tmp = temp;
+		if (gm->fixed_bat_tmp == 0xffff)
+			fg_bat_temp_int_internal(gm);
+		else {
+			gauge_set_property(GAUGE_PROP_EN_BAT_TMP_LT, 0);
+			gauge_set_property(GAUGE_PROP_EN_BAT_TMP_HT, 0);
+			wakeup_fg_algo(gm, FG_INTR_BAT_TMP_C_HT);
+			wakeup_fg_algo(gm, FG_INTR_BAT_TMP_HT);
+		}
+
+		curr_bat_temp = force_get_tbat(gm, true);
+		bm_err(
+			"%s: fixed_bat_tmp:%d ,tmp:%d!\n",
+			__func__,
+			temp, curr_bat_temp);
+
+			gm->bs_data.bat_batt_temp = curr_bat_temp;
+			battery_update(gm);
+	} else {
+		bm_err("%s: format error!\n", __func__);
+	}
+	return size;
+}
+
+
+
+static ssize_t UI_SOC_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("%s: %d %d\n",
+		__func__,
+		gm->ui_soc, gm->fixed_uisoc);
+	return sprintf(buf, "%d\n", gm->fixed_uisoc);
+
+}
+
+static ssize_t UI_SOC_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+
+	struct mtk_battery *gm;
+	signed int temp;
+
+	gm = get_mtk_battery();
+	if (kstrtoint(buf, 10, &temp) == 0) {
+		gm->fixed_uisoc = temp;
+
+		bm_err("%s: %d %d\n",
+			__func__,
+			gm->ui_soc, gm->fixed_uisoc);
+
+		battery_update(gm);
+	}
+
+	return size;
+}
+
+static ssize_t uisoc_update_type_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_trace("[FG]%s:%d\n", __func__,
+		gm->fg_cust_data.uisoc_update_type);
+
+	return sprintf(buf, "%d\n", gm->fg_cust_data.uisoc_update_type);
+}
+
+static ssize_t uisoc_update_type_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_err("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		}
+
+		if (val >= 0 && val <= 2) {
+			gm->fg_cust_data.uisoc_update_type = val;
+			wakeup_fg_algo_cmd(
+				gm,
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_UISOC_UPDATE_TYPE,
+				val);
+			bm_err(
+				"[%s] type = %d\n",
+				__func__,
+				(int)val);
+		} else
+			bm_err(
+			"[%s] invalid type:%d\n",
+			__func__,
+			(int)val);
+	}
+
+	return size;
+}
+
+static ssize_t disable_nafg_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_trace("%s,[FG] show nafg disable : %d\n", __func__,
+		gm->cmd_disable_nafg);
+	return sprintf(buf, "%d\n", gm->cmd_disable_nafg);
+}
+
+static ssize_t disable_nafg_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_err("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		}
+
+		if (val == 0)
+			gm->cmd_disable_nafg = false;
+		else
+			gm->cmd_disable_nafg = true;
+
+		wakeup_fg_algo_cmd(
+			gm, FG_INTR_KERNEL_CMD,
+			FG_KERNEL_CMD_DISABLE_NAFG, val);
+
+		bm_err(
+			"[%s] FG_nafg_disable = %d\n",
+			__func__,
+			(int)val);
+	}
+
+	return size;
+}
+
+
+static ssize_t ntc_disable_nafg_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_trace("[FG]%s: %d\n", __func__, gm->ntc_disable_nafg);
+	return sprintf(buf, "%d\n", gm->ntc_disable_nafg);
+}
+
+static ssize_t ntc_disable_nafg_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_err("[%s]\n",  __func__);
+
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n", __func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",  __func__,
+				(int)val);
+			val = 0;
+		}
+
+		if (val == 0) {
+			gm->ntc_disable_nafg = false;
+			gm->Bat_EC_ctrl.fixed_temp_en = 0;
+			gm->Bat_EC_ctrl.fixed_temp_value = 25;
+		} else if (val == 1) {
+			gm->Bat_EC_ctrl.fixed_temp_en = 1;
+			gm->Bat_EC_ctrl.fixed_temp_value =
+				gm->fg_cust_data.battery_tmp_to_disable_nafg;
+			gm->ntc_disable_nafg = true;
+			wakeup_fg_algo(gm, FG_INTR_NAG_C_DLTV);
+		}
+
+		bm_err(
+			"[%s]val=%d, temp:%d %d, %d, BATTERY_TMP_TO_DISABLE_NAFG:%d\n",
+			 __func__,
+			(int)val,
+			gm->Bat_EC_ctrl.fixed_temp_en,
+			gm->Bat_EC_ctrl.fixed_temp_value,
+			gm->ntc_disable_nafg,
+			gm->fg_cust_data.battery_tmp_to_disable_nafg);
+	}
+
+	return size;
+}
+
+static ssize_t FG_meter_resistance_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_trace("[FG] show com_fg_meter_resistance : %d\n",
+		gm->fg_cust_data.com_fg_meter_resistance);
+
+	return sprintf(buf, "%d\n", gm->fg_cust_data.com_fg_meter_resistance);
+}
+
+static ssize_t FG_meter_resistance_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_err("[%s]\n", __func__);
+
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		} else
+			gm->fg_cust_data.com_fg_meter_resistance = val;
+
+		bm_err(
+			"[%s] com FG_meter_resistance = %d\n",
+			__func__,
+			(int)val);
+	}
+
+	return size;
+}
+
+static ssize_t FG_daemon_log_level_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+	static int loglevel_count;
+
+	gm = get_mtk_battery();
+
+	loglevel_count++;
+	if (loglevel_count % 5 == 0)
+		bm_err(
+		"[FG] show FG_daemon_log_level : %d\n",
+		gm->fg_cust_data.daemon_log_level);
+
+	return sprintf(buf, "%d\n", gm->fg_cust_data.daemon_log_level);
+}
+
+static ssize_t FG_daemon_log_level_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_err("[FG_daemon_log_level]\n");
+
+	if (buf != NULL && size != 0) {
+		bm_err("[FG_daemon_log_level] buf is %s\n", buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[FG_daemon_log_level] val is %d ??\n",
+				(int)val);
+			val = 0;
+		}
+
+		if (val < 10 && val >= 0) {
+			gm->fg_cust_data.daemon_log_level = val;
+			wakeup_fg_algo_cmd(
+				gm,
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_CHANG_LOGLEVEL,
+				val
+			);
+		}
+
+		bm_err(
+			"[FG_daemon_log_level]fg_cust_data.daemon_log_level=%d\n",
+			gm->fg_cust_data.daemon_log_level);
+	}
+	return size;
+}
+
+static ssize_t FG_daemon_disable_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_trace("%s[FG] show FG disable : %d\n", __func__, gm->disableGM30);
+	return sprintf(buf, "%d\n", gm->disableGM30);
+}
+
+static ssize_t FG_daemon_disable_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_err("[disable FG daemon]\n");
+	disable_fg(gm);
+
+	if (gm->disableGM30 == true)
+		gm->bs_data.bat_capacity = 50;
+	battery_update(gm);
+
+	return size;
+}
+
+static ssize_t FG_Battery_CurrentConsumption_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret_value = 8888;
+
+	ret_value = gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT) * 100;
+	bm_err("%s[EM] FG_Battery_CurrentConsumption : %d .1mA\n", __func__,
+		ret_value);
+
+	return sprintf(buf, "%d\n", ret_value);
+}
+
+static ssize_t FG_Battery_CurrentConsumption_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	bm_err("%s[EM] Not Support Write Function\n", __func__);
+	return size;
+}
+
+static ssize_t Power_On_Voltage_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret_value = 1;
+
+	ret_value = 3450;
+	bm_err("[EM] Power_On_Voltage : %d\n", ret_value);
+	return sprintf(buf, "%u\n", ret_value);
+
+}
+
+static ssize_t Power_On_Voltage_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	bm_err("%s[EM] Not Support Write Function\n", __func__);
+	return size;
+}
+
+static ssize_t Power_Off_Voltage_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret_value = 1;
+
+	ret_value = 3400;
+	bm_err("[EM] Power_Off_Voltage : %d\n", ret_value);
+	return sprintf(buf, "%u\n", ret_value);
+}
+
+static ssize_t Power_Off_Voltage_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	bm_err("%s[EM] Not Support Write Function\n", __func__);
+	return size;
+}
+
+static ssize_t shutdown_condition_enable_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	bm_err("%s\n", __func__);
+	gm = get_mtk_battery();
+
+	bm_trace(
+		"[FG] %s : %d\n",
+		__func__,
+		get_shutdown_cond_flag(gm));
+	return sprintf(buf, "%d\n", get_shutdown_cond_flag(gm));
+}
+
+static ssize_t shutdown_condition_enable_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret = 0;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("[%s]\n", __func__);
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		}
+		set_shutdown_cond_flag(gm, val);
+		bm_err(
+			"[%s] shutdown_cond_enabled=%d\n",
+			__func__,
+			get_shutdown_cond_flag(gm));
+	}
+
+	return size;
+}
+
+static ssize_t reset_battery_cycle_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_trace("[FG] %s : %d\n",
+		__func__,
+		gm->is_reset_battery_cycle);
+	return sprintf(buf, "%d\n", gm->is_reset_battery_cycle);
+
+}
+
+static ssize_t reset_battery_cycle_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("[%s]\n", __func__);
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		}
+		if (val == 0)
+			gm->is_reset_battery_cycle = false;
+		else {
+			gm->is_reset_battery_cycle = true;
+			wakeup_fg_algo(gm, FG_INTR_BAT_CYCLE);
+		}
+		bm_err(
+			"%s=%d\n",
+			__func__,
+			gm->is_reset_battery_cycle);
+	}
+
+	return size;
+}
+
+static ssize_t reset_aging_factor_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_trace("[FG] %s : %d\n",
+		__func__,
+		gm->is_reset_aging_factor);
+	return sprintf(buf, "%d\n", gm->is_reset_aging_factor);
+}
+
+static ssize_t reset_aging_factor_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	unsigned long val = 0;
+	int ret;
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+
+	bm_err("[%s]\n", __func__);
+	if (buf != NULL && size != 0) {
+		bm_err("[%s] buf is %s\n",
+			__func__, buf);
+		ret = kstrtoul(buf, 10, &val);
+		if (val < 0) {
+			bm_err(
+				"[%s] val is %d ??\n",
+				__func__,
+				(int)val);
+			val = 0;
+		}
+		if (val == 0)
+			gm->is_reset_aging_factor = false;
+		else {
+			gm->is_reset_aging_factor = true;
+			wakeup_fg_algo_cmd(gm, FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_RESET_AGING_FACTOR, 0);
+		}
+		bm_err(
+			"%s=%d\n",
+			__func__,
+			gm->is_reset_aging_factor);
+	}
+
+	return size;
+}
+
+
+static ssize_t BAT_EC_show(
+	struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct mtk_battery *gm;
+
+	bm_err("%s\n", __func__);
+	gm = get_mtk_battery();
+
+
+	return sprintf(buf, "%d:%d\n", gm->BAT_EC_cmd, gm->BAT_EC_param);
+}
+
+static ssize_t BAT_EC_store(
+	struct device *dev, struct device_attribute *attr,
+	const char *buf, size_t size)
+{
+	int ret1 = 0, ret2 = 0;
+	char cmd_buf[4], param_buf[16];
+	struct mtk_battery *gm;
+
+	bm_err("%s\n", __func__);
+	gm = get_mtk_battery();
+	cmd_buf[3] = '\0';
+	param_buf[15] = '\0';
+
+	if (size < 4 || size > 20) {
+		bm_err("%s error, size mismatch\n",
+			__func__);
+		return -1;
+	}
+
+	if (buf != NULL && size != 0) {
+		bm_err("buf is %s\n", buf);
+		cmd_buf[0] = buf[0];
+		cmd_buf[1] = buf[1];
+		cmd_buf[2] = buf[2];
+		cmd_buf[3] = '\0';
+
+		if ((size - 4) > 0) {
+			strncpy(param_buf, buf + 4, size - 4);
+			param_buf[size - 4 - 1] = '\0';
+			bm_err("[FG_IT]cmd_buf %s, param_buf %s\n",
+				cmd_buf, param_buf);
+			ret2 = kstrtouint(param_buf, 10, &gm->BAT_EC_param);
+		}
+
+		ret1 = kstrtouint(cmd_buf, 10, &gm->BAT_EC_cmd);
+
+		if (ret1 != 0 || ret2 != 0) {
+			bm_err("ERROR! not valid number! %d %d\n",
+				ret1, ret2);
+			return -1;
+		}
+		bm_err("CMD is:%d, param:%d\n",
+			gm->BAT_EC_cmd, gm->BAT_EC_param);
+	}
+
+
+	exec_BAT_EC(gm->BAT_EC_cmd, gm->BAT_EC_param);
+
+	return size;
+}
+
+static DEVICE_ATTR_RW(Battery_Temperature);
+static DEVICE_ATTR_RW(UI_SOC);
+static DEVICE_ATTR_RW(uisoc_update_type);
+static DEVICE_ATTR_RW(disable_nafg);
+static DEVICE_ATTR_RW(ntc_disable_nafg);
+static DEVICE_ATTR_RW(FG_meter_resistance);
+static DEVICE_ATTR_RW(FG_daemon_log_level);
+static DEVICE_ATTR_RW(FG_daemon_disable);
+static DEVICE_ATTR_RW(FG_Battery_CurrentConsumption);
+static DEVICE_ATTR_RW(Power_On_Voltage);
+static DEVICE_ATTR_RW(Power_Off_Voltage);
+static DEVICE_ATTR_RW(shutdown_condition_enable);
+static DEVICE_ATTR_RW(reset_battery_cycle);
+static DEVICE_ATTR_RW(reset_aging_factor);
+static DEVICE_ATTR_RW(BAT_EC);
+
+
+static int mtk_battery_setup_files(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_Battery_Temperature);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_UI_SOC);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_uisoc_update_type);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_disable_nafg);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_ntc_disable_nafg);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_FG_meter_resistance);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_FG_daemon_log_level);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_FG_daemon_disable);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_BAT_EC);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev),
+		&dev_attr_FG_Battery_CurrentConsumption);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_Power_On_Voltage);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_Power_Off_Voltage);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev),
+		&dev_attr_shutdown_condition_enable);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_reset_battery_cycle);
+	if (ret)
+		goto _out;
+
+	ret = device_create_file(&(pdev->dev), &dev_attr_reset_aging_factor);
+	if (ret)
+		goto _out;
+
+_out:
+	return ret;
+}
+
+
+
+
+
+
 static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	struct fgd_nl_msg_t *ret_msg)
 {
@@ -2295,7 +4016,7 @@ static void sw_iavg_init(struct mtk_battery *gm)
 	gm->sw_iavg_ht = gm->sw_iavg + gm->sw_iavg_gap;
 	gm->sw_iavg_lt = gm->sw_iavg - gm->sw_iavg_gap;
 
-	bm_debug("%s %d\n", __func__, gm->sw_iavg);
+	bm_err("%s %d, current:%d\n", __func__, gm->sw_iavg, bat_current);
 }
 
 void fg_update_sw_iavg(struct mtk_battery *gm)
@@ -2584,7 +4305,7 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	}
 
 	sw_iavg_init(gm);
-
+	mtk_battery_setup_files(pdev);
 	return 0;
 }
 
