@@ -1943,9 +1943,15 @@ static int __init VPU_INIT(void)
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 		char name[16];
 
-		snprintf(name, 16, "vpu%d", i);
-		vpu_pool_init(&vpu_device->pool[i], name, VPU_POOL);
-		vpu_device->service_core_available[i] = true;
+		ret = snprintf(name, 16, "vpu%d", i);
+		if (ret >= 0 && ret < 16) {
+			vpu_pool_init(&vpu_device->pool[i], name, VPU_POOL);
+			vpu_device->service_core_available[i] = true;
+			ret = 0;
+		} else {
+			LOG_ERR("%s: snprintf: %d\n", __func__, ret);
+			return -ENODEV;
+		}
 	}
 /*init priority list*/
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
