@@ -30,9 +30,6 @@ enum IMGSENSOR_RETURN imgsensor_oc_init(void)
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
 
 	/* Register your interrupt handler of OC interrupt at first */
-	pmic_register_interrupt_callback(INT_VCAMA1_OC, imgsensor_oc_handler);
-	pmic_register_interrupt_callback(INT_VCAMA2_OC, imgsensor_oc_handler);
-	pmic_register_interrupt_callback(INT_VCAMD_OC,  imgsensor_oc_handler);
 	pmic_register_interrupt_callback(INT_VCAMIO_OC, imgsensor_oc_handler);
 
 	pimgsensor->status.oc = 0;
@@ -52,15 +49,9 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	if (pwr_status == IMGSENSOR_HW_POWER_STATUS_ON) {
 		/* enable interrupt after power on */
 		/* At least delay 3ms after power for recommendation */
-		pmic_enable_interrupt(INT_VCAMA1_OC, 1, "camera");
-		pmic_enable_interrupt(INT_VCAMA2_OC, 1, "camera");
-		pmic_enable_interrupt(INT_VCAMD_OC,  1, "camera");
 		pmic_enable_interrupt(INT_VCAMIO_OC, 1, "camera");
 	} else {
 		/* Disable interrupt before power off */
-		pmic_enable_interrupt(INT_VCAMA1_OC, 0, "camera");
-		pmic_enable_interrupt(INT_VCAMA2_OC, 0, "camera");
-		pmic_enable_interrupt(INT_VCAMD_OC,  0, "camera");
 		pmic_enable_interrupt(INT_VCAMIO_OC, 0, "camera");
 	}
 

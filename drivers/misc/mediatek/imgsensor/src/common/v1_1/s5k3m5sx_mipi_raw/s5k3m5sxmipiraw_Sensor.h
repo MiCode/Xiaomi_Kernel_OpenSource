@@ -1,3 +1,4 @@
+
 /*
  * Copyright (C) 2016 MediaTek Inc.
  *
@@ -15,7 +16,7 @@
  *
  * Filename:
  * ---------
- *     IMX519mipi_Sensor.h
+ *     S5K3M5SXmipi_Sensor.h
  *
  * Project:
  * --------
@@ -26,8 +27,8 @@
  *     CMOS sensor header file
  *
  ****************************************************************************/
-#ifndef _IMX519MIPI_SENSOR_H
-#define _IMX519MIPI_SENSOR_H
+#ifndef _S5K3M5SXMIPI_SENSOR_H
+#define _S5K3M5SXMIPI_SENSOR_H
 
 
 enum IMGSENSOR_MODE {
@@ -39,7 +40,9 @@ enum IMGSENSOR_MODE {
 	IMGSENSOR_MODE_SLIM_VIDEO,
 	IMGSENSOR_MODE_CUSTOM1,
 	IMGSENSOR_MODE_CUSTOM2,
-	IMGSENSOR_MODE_CUSTOM3
+	IMGSENSOR_MODE_CUSTOM3,
+	IMGSENSOR_MODE_CUSTOM4,
+	IMGSENSOR_MODE_CUSTOM5
 };
 
 struct imgsensor_mode_struct {
@@ -77,7 +80,7 @@ struct imgsensor_struct {
 
 	kal_uint32 min_frame_length;
 	kal_uint16 dummy_pixel; /* current dummypixel */
-	kal_uint32 dummy_line; /* current dummline */
+	kal_uint16 dummy_line; /* current dummline */
 
 	kal_uint16 current_fps; /* current max fps */
 	kal_bool autoflicker_en; /* record autoflicker enable or disable */
@@ -91,6 +94,7 @@ struct imgsensor_struct {
 	kal_uint8 current_ae_effective_frame;
 };
 
+
 /* SENSOR PRIVATE STRUCT FOR CONSTANT*/
 struct imgsensor_info_struct {
 	kal_uint32 sensor_id; /* record sensor id defined in Kd_imgsensor.h */
@@ -103,6 +107,8 @@ struct imgsensor_info_struct {
 	struct imgsensor_mode_struct custom1;
 	struct imgsensor_mode_struct custom2;
 	struct imgsensor_mode_struct custom3;
+	struct imgsensor_mode_struct custom4;
+	struct imgsensor_mode_struct custom5;
 
 	kal_uint8 ae_shut_delay_frame; /* shutter delay frame for AE cycle */
 	kal_uint8 ae_sensor_gain_delay_frame;
@@ -120,6 +126,8 @@ struct imgsensor_info_struct {
 	kal_uint8 custom1_delay_frame; /* enter custom1 delay frame num */
 	kal_uint8 custom2_delay_frame; /* enter custom2 delay frame num */
 	kal_uint8 custom3_delay_frame; /* enter custom3 delay frame num */
+	kal_uint8 custom4_delay_frame;
+	kal_uint8 custom5_delay_frame;
 	kal_uint8  frame_time_delay_frame;
 	kal_uint8 margin; /* sensor framelength & shutter margin */
 	kal_uint32 min_shutter; /* min shutter */
@@ -147,20 +155,31 @@ struct imgsensor_info_struct {
 	kal_uint8 i2c_addr_table[5];
 };
 
-/* SENSOR READ/WRITE ID */
-/* #define IMGSENSOR_WRITE_ID_1 (0x6c) */
-/* #define IMGSENSOR_READ_ID_1  (0x6d) */
-/* #define IMGSENSOR_WRITE_ID_2 (0x20) */
-/* #define IMGSENSOR_READ_ID_2  (0x21) */
+struct imgsensor_sensor_reg {
+	kal_uint32 regGroupHold;
+	kal_uint32 regFrameLengthH;
+	kal_uint32 regFrameLengthL;
+	kal_uint32 regLineLengthH;
+	kal_uint32 regLineLengthL;
+	kal_uint32 regShutterH;
+	kal_uint32 regShutterL;
+	kal_uint32 regGainH;
+	kal_uint32 regGainL;
+	kal_uint32 regStreamControl;
+	kal_uint32 regFrameLengthAuto;
+	kal_uint32 regLongExposureMode;
+	kal_uint32 regMirrorFlip;
+	kal_uint32 regValueBits16;
+	kal_uint32 regSensorID[2];
+	kal_uint32 regLongExposureSetting[4];
+};
 
 extern int iReadRegI2C(u8 *a_pSendData, u16 a_sizeSendData,
 	u8 *a_pRecvData, u16 a_sizeRecvData,
 		       u16 i2cId);
 extern int iWriteRegI2C(u8 *a_pSendData, u16 a_sizeSendData, u16 i2cId);
 
-extern void read_imx230_eeprom(void);
-int iBurstWriteReg_multi(u8 *pData, u32 bytes, u16 i2cId,
-	u16 transfer_length, u16 timing);
+
 
 extern int iReadReg(u16 a_u2Addr, u8 *a_puBuff, u16 i2cId);
 extern int iWriteReg(u16 a_u2Addr, u32 a_u4Data, u32 a_u4Bytes, u16 i2cId);

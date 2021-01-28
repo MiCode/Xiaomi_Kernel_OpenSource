@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017 MediaTek Inc.
+# Copyright (C) 2015 MediaTek Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -11,13 +11,5 @@
 # GNU General Public License for more details.
 #
 
-#
-# Makefile for misc devices that really don't fit anywhere else.
-#
-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
-
-obj-y		+= regulator/
-obj-y		+= gpio/
-obj-y		+= mclk/
-obj-y		+= imgsensor_cfg_table.o
-#obj-y           += imgsensor_oc.o
+obj-y += gc02m0mipiraw_Sensor.o
+obj-y += gc02m0_eeprom.o
