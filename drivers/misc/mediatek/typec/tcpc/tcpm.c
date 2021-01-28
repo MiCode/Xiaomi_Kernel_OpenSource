@@ -524,7 +524,7 @@ int tcpm_inquire_pd_partner_modes(
 {
 #ifdef CONFIG_USB_PD_ALT_MODE
 	int ret = TCPM_SUCCESS;
-	struct svdm_svid_data *svid_data;
+	struct svdm_svid_data *svid_data = NULL;
 	struct pd_port *pd_port = &tcpc->pd_port;
 
 	mutex_lock(&pd_port->pd_lock);
@@ -1988,11 +1988,14 @@ static int tcpm_put_tcp_dpm_event_bk(
 	while (1) {
 		ret = __tcpm_put_tcp_dpm_event_bk(
 			tcpc, event, tout_ms, data, size);
-
-		if ((ret != TCP_DPM_RET_TIMEOUT) || (retry == 0))
-			break;
-
-		retry--;
+		if (retry > 0 &&
+		    (ret == TCP_DPM_RET_TIMEOUT ||
+		    ret == TCP_DPM_RET_DROP_DISCARD ||
+		    ret == TCP_DPM_RET_DROP_UNEXPECTED)) {
+			retry--;
+			continue;
+		}
+		break;
 	}
 
 	mutex_unlock(&pd_port->tcpm_bk_lock);
