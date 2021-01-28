@@ -82,6 +82,7 @@ CONFIG_MTK_PTPOD=y
 CONFIG_MTK_STATIC_POWER=y
 CONFIG_MTK_UNIFY_POWER=y
 CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx230_mipi_raw s5k2t7sp_mipi_raw s5k2p7_mipi_raw ov8856_mipi_raw imx386_mipi_raw s5k3m3_mipi_raw imx398_mipi_raw imx338_mipi_raw s5k2l7_mipi_raw"
+CONFIG_MTK_VIDEOCODEC_DRIVER=y
 CONFIG_MTK_LCM=y
 CONFIG_CUSTOM_KERNEL_LCM="nt35695_fhd_dsi_vdo_truly_rt5081_hdp nt35695B_fhd_dsi_vdo_auo_rt5081_hdp"
 CONFIG_MTK_SYNC=y
