@@ -58,10 +58,8 @@
 #endif
 
 /*      */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 /* #define ISP_DEBUG */
@@ -219,10 +217,8 @@ struct ISP_CLK_STRUCT isp_clk;
 static unsigned long gISPSYS_Irq[ISP_CAM_IRQ_IDX_NUM];
 static unsigned long gISPSYS_Reg[ISP_CAM_BASEADDR_NUM];
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source isp_wake_lock;
-#else
-struct wake_lock isp_wake_lock;
 #endif
 
 static int g_bWaitLock;
@@ -10138,20 +10134,16 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		} else {
 			if (wakelock_ctrl == 1) {       /* Enable     wakelock */
 				if (g_bWaitLock == 0) {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 					__pm_stay_awake(&isp_wake_lock);
-#else
-					wake_lock(&isp_wake_lock);
 #endif
 					g_bWaitLock = 1;
 					LOG_DBG("wakelock enable!!\n");
 				}
 			} else {        /* Disable wakelock */
 				if (g_bWaitLock == 1) {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 					__pm_relax(&isp_wake_lock);
-#else
-					wake_unlock(&isp_wake_lock);
 #endif
 					g_bWaitLock = 0;
 					LOG_DBG("wakelock disable!!\n");
@@ -11613,10 +11605,8 @@ static signed int ISP_release(struct inode *pInode, struct file *pFile)
 	/* The driver must releae the wakelock, otherwise the system will not enter     */
 	/* the power-saving mode */
 	if (g_bWaitLock == 1) {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		__pm_relax(&isp_wake_lock);
-#else
-		wake_unlock(&isp_wake_lock);
 #endif
 		g_bWaitLock = 0;
 	}
@@ -12034,8 +12024,6 @@ static signed int ISP_probe(struct platform_device *pDev)
 
 #ifdef CONFIG_PM_WAKELOCKS
 	wakeup_source_init(&isp_wake_lock, "isp_lock_wakelock");
-#else
-	wake_lock_init(&isp_wake_lock, WAKE_LOCK_SUSPEND, "isp_lock_wakelock");
 #endif
 
 	/*      */
