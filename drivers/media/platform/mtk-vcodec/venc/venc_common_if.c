@@ -307,7 +307,9 @@ static int venc_encode(unsigned long handle,
 	case VENC_START_OPT_ENCODE_SEQUENCE_HEADER: {
 		unsigned int bs_size_hdr = 0;
 
+		vcu_enc_set_ctx(&inst->vcu_inst);
 		ret = venc_encode_header(inst, bs_buf, &bs_size_hdr);
+		vcu_enc_clear_ctx(&inst->vcu_inst);
 		if (ret)
 			goto encode_err;
 
@@ -321,7 +323,7 @@ static int venc_encode(unsigned long handle,
 		 * VPU flush cmd binding ctx & handle
 		 * or cause cmd calllback ctx error
 		 */
-		vcu_enc_set_ctx_for_gce(&inst->vcu_inst);
+		vcu_enc_set_ctx(&inst->vcu_inst);
 		ret = venc_encode_frame(inst, frm_buf, bs_buf,
 			&result->bs_size);
 		if (ret)
@@ -547,7 +549,7 @@ static int venc_deinit(unsigned long handle)
 
 	ret = vcu_enc_deinit(&inst->vcu_inst);
 
-	vcu_enc_clear_ctx_for_gce(&inst->vcu_inst);
+	vcu_enc_clear_ctx(&inst->vcu_inst);
 
 	mtk_vcodec_debug_leave(inst);
 	kfree(inst);

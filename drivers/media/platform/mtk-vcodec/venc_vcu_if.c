@@ -4,6 +4,7 @@
  */
 
 #include <linux/interrupt.h>
+#include <media/v4l2-mem2mem.h>
 #include "mtk_vcodec_mem.h"
 #include "mtk_vcu.h"
 #include "venc_vcu_if.h"
@@ -518,18 +519,22 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 	return 0;
 }
 
-int vcu_enc_set_ctx_for_gce(struct venc_vcu_inst *vcu)
+int vcu_enc_set_ctx(struct venc_vcu_inst *vcu)
 {
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, (void *)&vcu->ctx->dev->plat_dev->dev,
+		(void *)vcu->ctx,
+		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
+			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE),
+		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE),
 		VCU_VENC);
 
 	return err;
 }
 
-int vcu_enc_clear_ctx_for_gce(struct venc_vcu_inst *vcu)
+int vcu_enc_clear_ctx(struct venc_vcu_inst *vcu)
 {
 	int err = 0;
 

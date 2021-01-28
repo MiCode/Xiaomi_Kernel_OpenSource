@@ -10,7 +10,7 @@
  * #define pr_debug pr_info
  */
 
-struct mtk_vcu_queue *mtk_vcu_dec_init(struct device *dev)
+struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev)
 {
 	struct mtk_vcu_queue *vcu_queue;
 
@@ -29,7 +29,7 @@ struct mtk_vcu_queue *mtk_vcu_dec_init(struct device *dev)
 	return vcu_queue;
 }
 
-void mtk_vcu_dec_release(struct mtk_vcu_queue *vcu_queue)
+void mtk_vcu_mem_release(struct mtk_vcu_queue *vcu_queue)
 {
 	struct mtk_vcu_mem *vcu_buffer;
 	unsigned int buffer;
@@ -170,13 +170,65 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 	return 0;
 }
 
-int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
-	dma_addr_t dma_addr, size_t size, int op)
+int vcu_io_buffer_cache_sync(dma_addr_t dma_addr, size_t size,
+	struct vb2_queue *q, int op)
 {
-	struct mtk_vcu_mem *vcu_buffer;
-	unsigned int buffer, num_buffers;
+	struct vb2_buffer *vb;
+	unsigned int buffer, plane;
 	dma_addr_t *iova = NULL;
 	void *cook = NULL;
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+
+	for (buffer = 0; buffer < q->num_buffers; buffer++) {
+		vb = q->bufs[buffer];
+		if (!vb)
+			continue;
+		for (plane = 0; plane < vb->num_planes; plane++) {
+			if (!vb->planes[plane].mem_priv)
+				continue;
+			iova = q->mem_ops->cookie(vb->planes[plane].mem_priv);
+			cook = q->mem_ops->vaddr(vb->planes[plane].mem_priv);
+			if ((dma_addr + size) <=
+				(*iova + vb->planes[plane].length) &&
+				dma_addr >= *iova) {
+				pr_info("Cache %s io buffer iova=%p, size=%d %p p[%d].l=%d\n",
+					(op == DMA_TO_DEVICE) ?
+					"flush" : "invalidate",
+					(void *)dma_addr, (unsigned int)size,
+					(void *)*iova, plane,
+					(unsigned int)vb->planes[plane].length);
+
+				buf_att = dma_buf_attach(vb->planes[plane].dbuf,
+					q->dev);
+				sgt = dma_buf_map_attachment(buf_att,
+					op);
+				dma_sync_sg_for_device(q->dev,
+					sgt->sgl,
+					sgt->orig_nents,
+					op);
+				dma_buf_unmap_attachment(buf_att,
+					sgt, op);
+				dma_buf_detach(vb->planes[plane].dbuf, buf_att);
+				return 0;
+			}
+		}
+	}
+
+	return -1;
+}
+
+int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
+	dma_addr_t dma_addr, size_t size, int op,
+	struct vb2_queue *src_vq, struct vb2_queue *dst_vq)
+{
+	struct mtk_vcu_mem *vcu_buffer;
+	unsigned int num_buffers = 0;
+	unsigned int buffer = 0;
+	dma_addr_t *iova = NULL;
+	void *cook = NULL;
+	int ret_src = -1;
+	int ret_dst = -1;
 
 	num_buffers = vcu_queue->num_buffers;
 	if (num_buffers != 0U) {
@@ -185,7 +237,7 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 			iova = vcu_queue->mem_ops->cookie(vcu_buffer->mem_priv);
 			cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
 			if (*iova == dma_addr) {
-				pr_debug("Cache %s buffer, iova = %p, size = %d, vcu_buffer->size = %d\n",
+				pr_info("Cache %s buffer iova=%p size=%d vcu_buffer->size=%d\n",
 					(op == DMA_TO_DEVICE) ?
 					"flush" : "invalidate",
 					(void *)dma_addr, (unsigned int)size,
@@ -195,15 +247,20 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 					dmac_map_area((void *)cook, size, op);
 				else
 					dmac_unmap_area((void *)cook, size, op);
-				break;
+				return 0;
 			}
 		}
-		if (buffer == num_buffers) {
-			pr_info("Cache %s buffer fail, iova = %p, size = %d, Not VCU allocated\n",
-				(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
-				(void *)dma_addr, (unsigned int)size);
-		}
 	}
+	if (src_vq != NULL && dst_vq != NULL) {
+		ret_src = vcu_io_buffer_cache_sync(dma_addr, size, src_vq, op);
+		ret_dst = vcu_io_buffer_cache_sync(dma_addr, size, dst_vq, op);
+	}
+	if (buffer == num_buffers && ret_src == -1 && ret_dst == -1) {
+		pr_info("Cache %s buffer fail, iova = %p, size = %d\n",
+			(op == DMA_TO_DEVICE) ? "flush" : "invalidate",
+			(void *)dma_addr, (unsigned int)size);
+	}
+
 	return 0;
 }
 

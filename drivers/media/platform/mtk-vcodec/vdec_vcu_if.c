@@ -574,7 +574,11 @@ int vcu_dec_set_ctx(struct vdec_vcu_inst *vcu)
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, (void *)&vcu->ctx->dev->plat_dev->dev,
+		(void *)vcu->ctx,
+		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
+			V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE),
+		v4l2_m2m_get_vq(vcu->ctx->m2m_ctx,
+			V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE),
 		VCU_VDEC);
 
 	return err;

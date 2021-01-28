@@ -314,7 +314,8 @@ struct mtk_vcu {
 	int gce_codec_eid[GCE_EVENT_MAX];
 	struct gce_cmds *gce_cmds[VCU_CODEC_MAX];
 	void *curr_ctx[VCU_CODEC_MAX];
-	void *curr_ctx_dev[VCU_CODEC_MAX];
+	struct vb2_queue *curr_src_vq[VCU_CODEC_MAX];
+	struct vb2_queue *curr_dst_vq[VCU_CODEC_MAX];
 	wait_queue_head_t gce_wq[VCU_CODEC_MAX];
 	struct gce_ctx_info gce_info[VCODEC_INST_MAX];
 	atomic_t gce_job_cnt[VCU_CODEC_MAX][GCE_THNUM_MAX];
@@ -894,13 +895,14 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 }
 
 int vcu_set_codec_ctx(struct platform_device *pdev,
-		 void *codec_ctx, void *codec_dev, unsigned long type)
+		 void *codec_ctx, struct vb2_queue *src_vq,
+		 struct vb2_queue *dst_vq, unsigned long type)
 {
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
 
 	vcu->curr_ctx[type] = codec_ctx;
-	vcu->curr_ctx_dev[type] = codec_dev;
-
+	vcu->curr_src_vq[type] = src_vq;
+	vcu->curr_dst_vq[type] = dst_vq;
 	return 0;
 }
 
@@ -911,6 +913,9 @@ int vcu_clear_codec_ctx(struct platform_device *pdev,
 
 	mutex_lock(&vcu->vcu_gce_mutex[type]);
 	vcu_gce_clear_inst_id(codec_ctx);
+	vcu->curr_ctx[type] = NULL;
+	vcu->curr_src_vq[type] = NULL;
+	vcu->curr_dst_vq[type] = NULL;
 	mutex_unlock(&vcu->vcu_gce_mutex[type]);
 
 	return 0;
@@ -1210,14 +1215,17 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 		vcud_task = current;
 		files = vcud_task->files;
 		vcuid = 0;
+	} else if (strcmp(current->comm, "vdec_srv") == 0 ||
+		strcmp(current->comm, "venc_srv") == 0) {
+		vcuid = 0;
 	} else {
-		pr_debug("[VCU] thread name: %s\n", current->comm);
+		pr_info("[VCU] thread name: %s\n", current->comm);
 		return -ENODEV;
 	}
 
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
 
-	vcu_queue = mtk_vcu_dec_init(vcu_mtkdev[vcuid]->dev);
+	vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev);
 	if (vcu_queue == NULL)
 		return -ENOMEM;
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
@@ -1240,7 +1248,8 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 	struct files_struct *f = NULL;
 	unsigned long flags;
 
-	mtk_vcu_dec_release((struct mtk_vcu_queue *)file->private_data);
+	if (file->private_data)
+		mtk_vcu_mem_release((struct mtk_vcu_queue *)file->private_data);
 	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
 		current->comm, current->tgid, vcu_ptr->open_cnt);
 	vcu_ptr->open_cnt--;
@@ -1422,6 +1431,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		(struct mtk_vcu_queue *)file->private_data;
 	struct vcu_pa_pages *tmp;
 	struct list_head *p, *q;
+	struct vb2_queue *src_vq, *dst_vq;
 
 	vcu_dev = (struct mtk_vcu *)vcu_queue->vcu;
 	dev = vcu_dev->dev;
@@ -1573,6 +1583,18 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case VCU_CACHE_FLUSH_BUFF:
 	case VCU_CACHE_INVALIDATE_BUFF:
+		src_vq = NULL;
+		dst_vq = NULL;
+		if (strcmp(current->comm, "vdec_srv") == 0) {
+			src_vq = vcu_dev->curr_src_vq[VCU_VDEC];
+			dst_vq = vcu_dev->curr_dst_vq[VCU_VDEC];
+		} else if (strcmp(current->comm, "venc_srv") == 0) {
+			src_vq = vcu_dev->curr_src_vq[VCU_VENC];
+			dst_vq = vcu_dev->curr_dst_vq[VCU_VENC];
+		} else
+			pr_info("[VCU][Error] Unknown user %s cache sync %d\n",
+				current->comm, cmd);
+
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
 			(unsigned long)sizeof(struct mem_obj));
@@ -1582,7 +1604,8 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			(dma_addr_t)mem_buff_data.iova,
 			(size_t)mem_buff_data.len,
 			(cmd == VCU_CACHE_FLUSH_BUFF) ?
-			DMA_TO_DEVICE : DMA_FROM_DEVICE);
+				DMA_TO_DEVICE : DMA_FROM_DEVICE,
+			src_vq, dst_vq);
 
 		dev_dbg(dev, "[VCU] Cache flush buffer pa = %llx, size = %d\n",
 			mem_buff_data.iova, (unsigned int)mem_buff_data.len);
@@ -2170,7 +2193,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
 		vcu->curr_ctx[i] = NULL;
-		vcu->curr_ctx_dev[i] = NULL;
+		vcu->curr_src_vq[i] = NULL;
+		vcu->curr_dst_vq[i] = NULL;
 	}
 	vcu->is_entering_suspend = 0;
 	pm_notifier(mtk_vcu_suspend_notifier, 0);

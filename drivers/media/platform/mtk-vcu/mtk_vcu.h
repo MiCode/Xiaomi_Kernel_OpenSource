@@ -278,7 +278,8 @@ void vcu_put_sig_lock(unsigned long flags);
 int vcu_check_vpud_alive(void);
 extern void smp_inner_dcache_flush_all(void);
 int vcu_set_codec_ctx(struct platform_device *pdev,
-		 void *codec_ctx, void *codec_dev, unsigned long type);
+		 void *codec_ctx, struct vb2_queue *src_vq,
+		 struct vb2_queue *dst_vq, unsigned long type);
 int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type);
 extern void venc_encode_prepare(void *ctx_prepare,
