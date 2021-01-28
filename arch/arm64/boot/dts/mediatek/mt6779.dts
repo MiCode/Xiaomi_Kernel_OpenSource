@@ -2542,9 +2542,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			interrupt-names = "RGX";
 			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_LOW>;
 			reg = <0 0x13000000 0 0x80000>;
+			ged-supply = <&ged>;
 		};
 
-		gpufreq {
+		gpufreq: gpufreq {
 			compatible = "mediatek,mt6779-gpufreq";
 			clocks =
 				<&topckgen TOP_MUX_MFG>,
@@ -2564,6 +2565,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"mtcmos_mfg_core1";
 			nvmem = <&efuse>;
 			nvmem-names = "mtk_efuse";
+		};
+
+		ged: ged {
+			compatible = "mediatek,ged";
+			gpufreq-supply = <&gpufreq>;
 		};
 
 		mfgcfg: clock-controller@13fbf000 {

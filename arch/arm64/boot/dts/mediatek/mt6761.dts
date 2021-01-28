@@ -2340,20 +2340,13 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		reg = <0 0x11cd0000 0 0x10000>;
 	};
 
-	mfg_clark@13000000 {
+	mfg_clark: mfg_clark@13000000 {
 		compatible = "mediatek,clark";
 		reg = <0 0x13000000 0 0x80000>;
 		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "RGX";
 		clock-frequency = <570000000>;
-		clocks =
-			<&scpsys SCP_SYS_MFG_ASYNC>,
-			<&scpsys SCP_SYS_MFG>,
-			<&scpsys SCP_SYS_MFG_CORE0>;
-		clock-names =
-			"mtcmos_mfg_async",
-			"mtcmos_mfg",
-			"mtcmos_mfg_core0";
+		ged-supply = <&ged>;
 	};
 
 	mfg_cfg: mfg_cfg@13ffe000 {
@@ -2369,7 +2362,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 			"mtcmos_mfg_core0";
 	};
 
-	gpufreq {
+	gpufreq: gpufreq {
 		compatible = "mediatek,mt6761-gpufreq";
 		clocks =
 			<&topckgen CLK_TOP_MFG_SEL>,
@@ -2387,8 +2380,13 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 			"mtcmos_mfg_core0";
 		nvmem-cells = <&efuse_segment>;
 		nvmem-cell-names = "efuse_segment_cell";
+		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 	};
 
+	ged: ged {
+		compatible = "mediatek,ged";
+		gpufreq-supply = <&gpufreq>;
+	};
 
 	mmsys_config: mmsys_config@14000000 {
 		compatible = "mediatek,mt6761-mmsys_config", "syscon";
