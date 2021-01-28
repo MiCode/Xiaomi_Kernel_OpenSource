@@ -63,6 +63,7 @@ static int MaxHangInfoSize = MAX_HANG_INFO_SIZE;
 char *Hang_Info;
 static int Hang_Info_Size;
 static bool watchdog_thread_exist;
+static bool system_server_exist;
 #endif
 
 static bool Hang_Detect_first;
@@ -542,7 +543,8 @@ void trigger_hang_detect_db(void)
 
 #ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_hang_detect_timeout_count(hd_timeout);
-	if (watchdog_thread_exist == false && reboot_flag == false)
+	if ((!watchdog_thread_exist & system_server_exist)
+		&& reboot_flag == false)
 		aee_rr_rec_hang_detect_timeout_count(COUNT_ANDROID_REBOOT);
 #endif
 
@@ -810,6 +812,8 @@ void show_thread_info(struct task_struct *p, bool dump_bt)
 #ifdef	CONFIG_MTK_HANG_DETECT_DB
 	if (!strcmp(p->comm, "watchdog"))
 		watchdog_thread_exist = true;
+	if (!strcmp(p->comm, "system_server"))
+		system_server_exist = true;
 #endif
 
 #ifdef CONFIG_STACKTRACE
@@ -1739,6 +1743,7 @@ static void hang_dump_backtrace(void)
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
 	watchdog_thread_exist = false;
+	system_server_exist = false;
 #endif
 	Log2HangInfo("dump backtrace start: %llu\n", local_clock());
 
