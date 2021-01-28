@@ -571,6 +571,8 @@ static void set_playback_gpio(bool enable)
 		Ana_Set_Reg(GPIO_MODE2_CLR, 0xffff, 0xffff);
 		Ana_Set_Reg(GPIO_MODE2_SET, 0x0249, 0xffff);
 		Ana_Set_Reg(GPIO_MODE2, 0x0249, 0xffff);
+		/* set gpio mosi SMT mode */
+		Ana_Set_Reg(SMT_CON1, 0x0ff0, 0x0ff0);
 	} else {
 		/* set pad_aud_*_mosi to GPIO mode and dir input
 		 * reason:
@@ -579,6 +581,8 @@ static void set_playback_gpio(bool enable)
 		Ana_Set_Reg(GPIO_MODE2_CLR, 0xffff, 0xffff);
 		Ana_Set_Reg(GPIO_MODE2, 0x0000, 0xffff);
 		Ana_Set_Reg(GPIO_DIR0, 0x0, 0xf << 8);
+		/* reset gpio mosi SMT mode */
+		Ana_Set_Reg(SMT_CON1, 0x0, 0x0ff0);
 	}
 }
 
