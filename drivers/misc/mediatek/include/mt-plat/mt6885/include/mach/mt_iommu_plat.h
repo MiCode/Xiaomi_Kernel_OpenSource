@@ -23,6 +23,11 @@
 #define MMU_PFH_VA_TO_SET(mmu, va)     \
 	F_MSK_SHIFT(va, MMU_SET_MSB_OFFSET(mmu), MMU_SET_LSB_OFFSET)
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64};
+#else
+static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64, 64, 64, 64};
+#endif
 
 char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
 	"iommu_disp_larb0", "iommu_disp_larb1", "iommu_mdp_larb2",
@@ -35,6 +40,7 @@ char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
 	"iommu_null_larb21", "iommu_null_larb22", "iommu_null_larb23"
 };
 
+const char *smi_larb_id = "mediatek,larb-id";
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
@@ -77,7 +83,6 @@ enum IOMMU_ATF_CMD {
 	IOMMU_ATF_CMD_COUNT
 };
 
-#define APU_IOMMU_INDEX (2)
 #endif
 inline void iommu_set_field_by_mask(void __iomem *M4UBase,
 					   unsigned int reg,
@@ -97,20 +102,11 @@ static inline unsigned int iommu_get_field_by_mask(
 {
 	return readl_relaxed(M4UBase + reg) & mask;
 }
-/* ================ register defination ================ */
-/* bit[9:7] indicate larbid */
-#define F_MMU0_INT_ID_LARB_ID(a)	  (((a) >> 7) & 0xf)
-/*
- * bit[6:2] indicate portid, bit[1:0] indicate master id, every port
- * have four types of command, master id indicate the m4u port's command
- * type, iommu do not care about this.
- */
-#define F_MMU0_INT_ID_PORT_ID(a)	  (((a) >> 2) & 0x1f)
 
 /* regiters of BANK0 */
 #define REG_MMU_PT_BASE_ADDR	(0x0)
 #define F_MMU_PT_BASE_ADDR_MSK		F_MSK(31, 7)
-#define F_MMU_PT_BASE_ADDR_BIT34_32	F_MSK(2, 0)
+#define F_MMU_PT_BASE_ADDR_BIT32	F_MSK(2, 0)
 
 #define REG_MMU_STA	(0x8)
 #define F_MMU_STA_INT_MASK	F_MSK(18, 0)
@@ -121,7 +117,9 @@ static inline unsigned int iommu_get_field_by_mask(
 
 #define REG_MMU_PROG_VA	(0x14)
 #define F_MMU_PROG_VA_TBL_ID	F_MSK(1, 0)
-#define F_MMU_PROG_VA_BIT33_32	F_MSK(6, 5)
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#define F_MMU_PROG_VA_BIT32	F_MSK(6, 5)
+#endif
 #define F_MMU_PROG_VA_SECURE	F_BIT_SET(7)
 #define F_MMU_PROG_VA_SIZE16X	F_BIT_SET(8)
 #define F_MMU_PROG_VA_LAYER	F_BIT_SET(9)
@@ -137,7 +135,9 @@ static inline unsigned int iommu_get_field_by_mask(
 
 #define REG_MMU_INVLD_START_A	(0x24)
 #define REG_MMU_INVLD_END_A	(0x28)
-#define F_MMU_INVLD_BIT33_32	F_MSK(1, 0)
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#define F_MMU_INVLD_BIT32	F_MSK(1, 0)
+#endif
 #define F_MMU_INVLD_BIT31_12	F_MSK(31, 12)
 
 #define REG_INVLID_SEL	(0x2c)
@@ -235,10 +235,10 @@ static inline unsigned int iommu_get_field_by_mask(
 
 #define REG_MMU_TFRP_PADDR	  (0x114)
 #define F_RP_PA_REG_BIT31_7     F_MSK(31, 7)
-#define F_RP_PA_REG_BIT34_32    F_MSK(2, 0)
+#define F_RP_PA_REG_BIT32    F_MSK(2, 0)
 #define F_MMU_TFRP_PA_SET(PA, EXT) (\
 	(((unsigned long long)PA) & F_RP_PA_REG_BIT31_7) | \
-	 ((((unsigned long long)PA) >> 32) & F_RP_PA_REG_BIT34_32))
+	 ((((unsigned long long)PA) >> 32) & F_RP_PA_REG_BIT32))
 
 #define REG_MMU_INT_CONTROL0	  (0x120)
 #define F_INT_L2_MULTI_HIT_FAULT		   F_BIT_SET(0)
@@ -282,13 +282,17 @@ static inline unsigned int iommu_get_field_by_mask(
 
 #define REG_MMU_TBWALK_FAULT_VA	(0x138)
 #define F_MMU_TBWALK_FAULT_LAYER	BIT(0)
-#define F_MMU_TBWALK_FAULT_BIT33_32	F_MSK(10, 9)
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#define F_MMU_TBWALK_FAULT_BIT32	F_MSK(10, 9)
+#endif
 #define F_MMU_TBWALK_FAULT_BIT31_12	F_MSK(31, 12)
 
 #define REG_MMU_FAULT_STATUS(MMU)	  (0x13c+((MMU)<<3))
 #define F_MMU_FAULT_VA_BIT31_12	F_MSK(31, 12)
-#define F_MMU_FAULT_VA_B34_32   F_MSK(11, 9)
-#define F_MMU_FAULT_PA_B34_32   F_MSK(8, 6)
+#if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#define F_MMU_FAULT_VA_BIT32   F_MSK(11, 9)
+#endif
+#define F_MMU_FAULT_PA_BIT32   F_MSK(8, 6)
 #define F_MMU_FAULT_INVPA	F_BIT_SET(5)
 #define F_MMU_FAULT_TF		F_BIT_SET(4)
 #define F_MMU_FAULT_VA_WRITE_BIT	  F_BIT_SET(1)
@@ -324,7 +328,7 @@ static inline unsigned int iommu_get_field_by_mask(
 #define F_MMU_PFH_VLD_BIT(set, way)      F_BIT_SET((set)&0x1f)	/* set%32 */
 
 #define REG_MMU_RS_VA(MMU, RS)	(0x380 + MMU * 0x300 + RS * 0x10)
-#define F_MMU_RS_VA_BIT34_32	F_MSK(2, 0)
+#define F_MMU_RS_VA_BIT32	F_MSK(2, 0)
 #define F_MMU_RS_VA_TBL_ID	F_MSK(5, 4)
 #define F_MMU_RS_VA_BIT31_12	F_MSK(31, 12)
 
@@ -414,33 +418,36 @@ struct mtk_iova_domain_data {
 };
 
 #define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
-#define RESERVED_IOVA_ADDR_CCU (0x0040000000UL)
-#define RESERVED_IOVA_SIZE_CCU (0x0008000000UL)
+#define MTK_IOVA_DOMAIN_COUNT (10)	// Domain count
+#define RESERVED_IOVA_ADDR_SECURE SZ_4K
+#define RESERVED_IOVA_SIZE_SECURE (SZ_1G - SZ_4K)
 
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
+#define RESERVED_IOVA_ADDR_CCU (0x0240000000UL)
+#define RESERVED_IOVA_SIZE_CCU (0x0008000000UL)
 #define RESERVED_IOVA_ADDR_APU_CODE (0x0370000000UL)
 #define RESERVED_IOVA_SIZE_APU_CODE (0x0010000000UL)
 #define RESERVED_IOVA_ADDR_APU_DATA (0x0310000000UL)
 #define RESERVED_IOVA_SIZE_APU_DATA (0x0010000000UL)
+#define RESERVED_IOVA_ADDR_APU_VLM (0x0304000000UL)
+#define RESERVED_IOVA_SIZE_APU_VLM (0x0004000000UL)
 #define IOVA_ADDR_4GB    (1UL << 32)
 #define IOVA_ADDR_8GB    (2UL << 32)
 #define IOVA_ADDR_12GB   (3UL << 32)
 #define IOVA_ADDR_16GB   (4UL << 32)
-#define MTK_IOVA_DOMAIN_COUNT (6)	// Domain count
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
-	{ // boundary(0~4GB) IOVA space for MDP and CAM
+	{ // boundary(0~4GB) IOVA space for OVL
 	 .boundary = 0,
-	 .min_iova = RESERVED_IOVA_ADDR_CCU +
-			RESERVED_IOVA_SIZE_CCU,
+	 .min_iova = SZ_1G,
 	 .max_iova = IOVA_ADDR_4GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
-	 .port_mask = {0x0, 0x0, 0x3f, 0x3f, //0~3
+	 .port_mask = {0x1fff, 0x1fff, 0x0, 0x0, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
 				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x9ff, 0xf, 0x0, //12~15
-				 0x7fff, 0x7fff, 0x7fff, 0xf, //16~19
+				 0x0, 0x0, 0x0, 0x0, //12~15
+				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x0, 0x0, 0x0} //20~23
 	},
 #else
@@ -448,30 +455,15 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	 .boundary = 0,
 	 .min_iova = SZ_4K,
 	 .max_iova = IOVA_ADDR_4GB - 1,
-	 .resv_start = {RESERVED_IOVA_ADDR_CCU},
-	 .resv_size = {RESERVED_IOVA_SIZE_CCU},
-	 .resv_type = IOVA_REGION_REMOVE,
-	 .port_mask = {0x0, 0x0, 0x3f, 0x3f, //0~3
+	 .resv_type = IOVA_REGION_UNDEFINE,
+	 .port_mask = {0x1fff, 0x1fff, 0x0, 0x0, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
 				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x9ff, 0xf, 0x0, //12~15
-				 0x7fff, 0x7fff, 0x7fff, 0xf, //16~19
+				 0x0, 0x0, 0x0, 0x0, //12~15
+				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x0, 0x0, 0x0} //20~23
 	},
 #endif
-	{ //CCU IOVA space
-	 .boundary = 0,
-	 .min_iova = RESERVED_IOVA_ADDR_CCU,
-	 .max_iova = RESERVED_IOVA_ADDR_CCU +
-			RESERVED_IOVA_SIZE_CCU - 1,
-	 .resv_type = IOVA_REGION_UNDEFINE,
-	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
-				 0x0, 0x0, 0x0, 0x0, //4~7
-				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x600, 0x30, 0x0, //12~15
-				 0x0, 0x0, 0x0, 0x0, //16~19
-				 0x0, 0x0, 0x1, 0x1} //20~23
-	},
 	{ // boundary(4GB~8GB) IOVA space for CODEC
 	 .boundary = 1,
 	 .min_iova = IOVA_ADDR_4GB,
@@ -484,26 +476,43 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x0, 0x0, 0x0} //20~23
 	},
-	{ // boundary(8GB~12GB) IOVA space for OVL
+	{ // boundary(8GB~12GB) IOVA space for CMA MDP
 	 .boundary = 2,
 	 .min_iova = IOVA_ADDR_8GB,
 	 .max_iova = IOVA_ADDR_12GB - 1,
-	 .resv_type = IOVA_REGION_UNDEFINE,
-	 .port_mask = {0x1fff, 0x1fff, 0x0, 0x0, //0~3
+	 .resv_start = {RESERVED_IOVA_ADDR_CCU},
+	 .resv_size = {RESERVED_IOVA_SIZE_CCU},
+	 .resv_type = IOVA_REGION_REMOVE,
+	 .port_mask = {0x0, 0x0, 0x3f, 0x3f, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
 				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x0, 0x0, 0x0, //12~15
-				 0x0, 0x0, 0x0, 0x0, //16~19
+				 0x0, 0x9ff, 0xf, 0x0, //12~15
+				 0x7fff, 0x7fff, 0x7fff, 0xf, //16~19
 				 0x0, 0x0, 0x0, 0x0} //20~23
+	},
+	{ //CCU IOVA space
+	 .boundary = 2,
+	 .min_iova = RESERVED_IOVA_ADDR_CCU,
+	 .max_iova = RESERVED_IOVA_ADDR_CCU +
+			RESERVED_IOVA_SIZE_CCU - 1,
+	 .resv_type = IOVA_REGION_UNDEFINE,
+	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
+				 0x0, 0x0, 0x0, 0x0, //4~7
+				 0x0, 0x0, 0x0, 0x0, //8~11
+				 0x0, 0x600, 0x30, 0x0, //12~15
+				 0x0, 0x0, 0x0, 0x0, //16~19
+				 0x0, 0x0, 0x1, 0x1} //20~23
 	},
 	{ // boundary(12GB~16GB) IOVA space for APU DATA
 	 .boundary = 3,
 	 .min_iova = IOVA_ADDR_12GB,
 	 .max_iova = IOVA_ADDR_16GB - 1,
 	 .resv_start = {RESERVED_IOVA_ADDR_APU_DATA,
-			RESERVED_IOVA_ADDR_APU_CODE},
+			RESERVED_IOVA_ADDR_APU_CODE,
+			RESERVED_IOVA_ADDR_APU_VLM},
 	 .resv_size = {RESERVED_IOVA_SIZE_APU_DATA,
-			RESERVED_IOVA_SIZE_APU_CODE},
+			RESERVED_IOVA_SIZE_APU_CODE,
+			RESERVED_IOVA_SIZE_APU_VLM},
 	 .resv_type = IOVA_REGION_REMOVE,
 	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
@@ -525,20 +534,36 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x1, 0x0, 0x0} //20~23
 	},
+	{ //VPU VLM IOVA space
+	 .boundary = 3,
+	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM,
+	 .max_iova = RESERVED_IOVA_ADDR_APU_VLM +
+			RESERVED_IOVA_SIZE_APU_VLM - 1,
+	 .resv_type = IOVA_REGION_UNDEFINE,
+	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
+				 0x0, 0x0, 0x0, 0x0, //4~7
+				 0x0, 0x0, 0x0, 0x0, //8~11
+				 0x0, 0x0, 0x0, 0x0, //12~15
+				 0x0, 0x0, 0x0, 0x0, //16~19
+				 0x0, 0x4, 0x0, 0x0} //20~23
+	},
 };
 
 #else
-#define MTK_IOVA_DOMAIN_COUNT (3)	// Domain count
+#define RESERVED_IOVA_ADDR_CCU (0x40000000U)
+#define RESERVED_IOVA_SIZE_CCU (0x08000000U)
 #define RESERVED_IOVA_ADDR_APU_CODE (0x70000000U)
 #define RESERVED_IOVA_SIZE_APU_CODE (0x10000000U)
 #define RESERVED_IOVA_ADDR_APU_DATA (0x10000000U)
 #define RESERVED_IOVA_SIZE_APU_DATA (0x10000000U)
+#define RESERVED_IOVA_ADDR_APU_VLM  (0x48000000U)
+#define RESERVED_IOVA_SIZE_APU_VLM  (0x04000000U)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
 	{ //REE IOVA space
-	 .min_iova = RESERVED_IOVA_ADDR_CCU +
-			RESERVED_IOVA_SIZE_CCU,
+	 .min_iova = RESERVED_IOVA_ADDR_VLM +
+			RESERVED_IOVA_SIZE_VLM,
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
 	 .resv_start = {RESERVED_IOVA_ADDR_APU_CODE},
 	 .resv_size = {RESERVED_IOVA_SIZE_APU_CODE},
@@ -556,9 +581,11 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
 	 .resv_start = {RESERVED_IOVA_ADDR_CCU,
 			RESERVED_IOVA_ADDR_APU_CODE,
+			RESERVED_IOVA_ADDR_APU_VLM,
 			RESERVED_IOVA_ADDR_APU_DATA},
 	 .resv_size = {RESERVED_IOVA_SIZE_CCU,
 			RESERVED_IOVA_SIZE_APU_CODE,
+			RESERVED_IOVA_SIZE_APU_VLM,
 			RESERVED_IOVA_SIZE_APU_DATA},
 	 .resv_type = IOVA_REGION_REMOVE,
 	 .port_mask = {0x1fff, 0x1fff, 0x3f, 0x3f, //0~3
@@ -581,7 +608,7 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x0, 0x1, 0x1} //20~23
 	},
-	{ //VPU IOVA space
+	{ //VPU CODE IOVA space
 	 .min_iova = RESERVED_IOVA_ADDR_APU_CODE,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_CODE +
 			RESERVED_IOVA_SIZE_APU_CODE - 1,
@@ -592,11 +619,22 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x0, 0x0, 0x0, //12~15
 				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x1, 0x0, 0x0} //20~23
-	}
+	},
+	{ //VPU VLM IOVA space
+	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM,
+	 .max_iova = RESERVED_IOVA_ADDR_APU_VLM +
+			RESERVED_IOVA_SIZE_APU_VLM - 1,
+	 .resv_type = IOVA_REGION_UNDEFINE,
+	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
+				 0x0, 0x0, 0x0, 0x0, //4~7
+				 0x0, 0x0, 0x0, 0x0, //8~11
+				 0x0, 0x0, 0x0, 0x0, //12~15
+				 0x0, 0x0, 0x0, 0x0, //16~19
+				 0x0, 0x4, 0x0, 0x0} //20~23
+	},
 };
 #endif
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
-#define MTK_IOMMU_PORT_TRANSFER_DISABLE
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -47,7 +47,7 @@
 #define TOTAL_M4U_NUM	4
 #define M4U_REG_SIZE	0x5e0
 #ifndef SMI_LARB_NR
-#define SMI_LARB_NR MTK_IOMMU_LARB_NR
+#define SMI_LARB_NR (21)
 #endif
 
 #define M4U_PAGE_MASK	0xfff

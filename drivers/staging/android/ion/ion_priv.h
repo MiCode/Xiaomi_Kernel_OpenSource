@@ -31,6 +31,10 @@
 
 #include "ion.h"
 
+#ifdef CONFIG_MTK_IOMMU_V2
+#define MTK_ION_DMABUF_SUPPORT
+#endif
+
 struct ion_buffer *ion_handle_buffer(struct ion_handle *handle);
 
 /**
@@ -82,6 +86,9 @@ struct ion_buffer {
 	char task_comm[TASK_COMM_LEN];
 	pid_t pid;
 	char alloc_dbg[ION_MM_DBG_NAME_LEN];
+#ifdef MTK_ION_DMABUF_SUPPORT
+	struct list_head attachments;
+#endif
 };
 
 void ion_buffer_destroy(struct ion_buffer *buffer);
@@ -492,6 +499,8 @@ struct ion_handle *ion_handle_get_by_id(
 int ion_handle_put(struct ion_handle *handle);
 
 int ion_query_heaps(struct ion_client *client, struct ion_heap_query *query);
+
+int clone_sg_table(const struct sg_table *source, struct sg_table *dest);
 
 extern struct ion_device *g_ion_device;
 #ifdef CONFIG_MTK_IOMMU_V2

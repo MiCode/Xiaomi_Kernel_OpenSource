@@ -54,9 +54,10 @@
 #define io_pgtable_ops_to_data(x)					\
 	io_pgtable_to_data(io_pgtable_ops_to_pgtable(x))
 
-//#define MTK_PGTABLE_DEBUG_ENABLED
+#define MTK_PGTABLE_DEBUG_ENABLED
 
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
 #define ARM_V7S_ADDR_BITS 34
 #define ARM_V7S_PHYS_ADDR_BITS 35
 #else
@@ -114,7 +115,8 @@
 	((u32)(addr) >> ARM_V7S_LVL_SHIFT(_l)) & _ARM_V7S_IDX_MASK_34BIT(_l); \
 })
 
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
 #define ARM_V7S_PTES_PER_LVL(lvl)	ARM_V7S_PTES_PER_LVL_34BIT(lvl)
 #define ARM_V7S_TABLE_SIZE(lvl)		ARM_V7S_TABLE_SIZE_34BIT(lvl)
 #define ARM_V7S_LVL_IDX(addr, lvl)	ARM_V7S_LVL_IDX_34BIT(addr, lvl)
@@ -389,10 +391,7 @@ static int arm_v7s_pte_to_prot(arm_v7s_iopte pte, int lvl)
 		prot |= IOMMU_CACHE;
 	if (pte & ARM_V7S_ATTR_XN(lvl))
 		prot |= IOMMU_NOEXEC;
-#ifdef CONFIG_MTK_IOMMU_V2
-	if (pte & ARM_V7S_ATTR_ACP(lvl))
-		prot |= IOMMU_ACP;
-#endif
+
 	return prot;
 }
 
@@ -479,7 +478,7 @@ static int arm_v7s_init_pte(struct arm_v7s_io_pgtable *data,
 
 	pte |= paddr & ARM_V7S_LVL_MASK(lvl);
 
-#ifdef MTK_PGTABLE_DEBUG_ENABLED
+#if 0 //def MTK_PGTABLE_DEBUG_ENABLED
 	pr_notice("%s, %d, iova=0x%lx, paddr=0x%lx, ptep=0x%lx, pte=0x%lx, num=%d, lvl=%d\n",
 		__func__, __LINE__, iova, paddr, ptep, pte, num_entries, lvl);
 #endif
@@ -587,15 +586,31 @@ static int arm_v7s_map(struct io_pgtable_ops *ops, unsigned long iova,
 	int ret;
 
 	/* If no access, then nothing to do */
-	if (!(prot & (IOMMU_READ | IOMMU_WRITE)))
+	if (!(prot & (IOMMU_READ | IOMMU_WRITE))) {
+		pr_notice("%s, %d, err prot:0x%x\n",
+			  __func__, __LINE__, prot);
 		return 0;
+	}
 
-	if (WARN_ON(iova >= 1ULL << data->iop.cfg.ias))
+	if (WARN_ON(iova >= 1ULL << data->iop.cfg.ias)) {
+		pr_notice("%s, %d, err iova:0x%lx, ias=%d\n",
+			  __func__, __LINE__, iova, data->iop.cfg.ias);
 		return -ERANGE;
+	}
 
 	if (WARN_ON((paddr >= (1ULL << data->iop.cfg.oas)) &&
-		    !(iop->cfg.quirks & IO_PGTABLE_QUIRK_ARM_MTK_4GB)))
+		    !(iop->cfg.quirks & IO_PGTABLE_QUIRK_ARM_MTK_4GB))) {
+		pr_notice("%s, %d, err paddr:0x%lx, oas=%d, quirks=0x%x\n",
+			  __func__, __LINE__, paddr,
+			  data->iop.cfg.oas, iop->cfg.quirks);
 		return -ERANGE;
+	}
+
+	if (WARN_ON(!PA_ALIGN(paddr))) {
+		pr_notice("%s, %d, err paddr:0x%lx\n",
+			  __func__, __LINE__, paddr);
+		return -ERANGE;
+	}
 
 	iova = IOVA_ALIGN(iova);
 	paddr = PA_ALIGN(paddr);
@@ -768,7 +783,7 @@ static int __arm_v7s_unmap(struct arm_v7s_io_pgtable *data,
 	/* If the size matches this level, we're in the right place */
 	if (num_entries) {
 		size_t blk_size = ARM_V7S_BLOCK_SIZE(lvl);
-#ifdef MTK_PGTABLE_DEBUG_ENABLED
+#if 0 //def MTK_PGTABLE_DEBUG_ENABLED
 		pr_notice("%s, %d,clear pte, iova=0x%lx, ptep=0x%lx, old pte=0x%lx, num=%d\n",
 			__func__, __LINE__, iova,
 			ptep, READ_ONCE(*ptep), num_entries);
@@ -953,7 +968,7 @@ static phys_addr_t arm_v7s_iova_to_phys(struct io_pgtable_ops *ops,
 		    pte & ARM_V7S_ATTR_MTK_PA_BIT34)
 			paddr |= BIT_ULL(34);
 	}
-#ifdef MTK_PGTABLE_DEBUG_ENABLED
+#if 0 //def MTK_PGTABLE_DEBUG_ENABLED
 	pr_notice("%s, %d, iova=0x%lx, paddr=0x%lx, ptep=0x%lx, pte=0x%lx, level=%d\n",
 		  __func__, __LINE__, iova, paddr, ptep_l1, pte, lvl);
 #endif
@@ -963,10 +978,9 @@ static phys_addr_t arm_v7s_iova_to_phys(struct io_pgtable_ops *ops,
 static int mtk_pgtable_align(arm_v7s_iopte *ptep)
 {
 	unsigned long pgd_pa;
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
-	unsigned long align_mask = SZ_64K - 1;
-#elif (CONFIG_MTK_IOMMU_PGTABLE_EXT == 33)
-	unsigned long align_mask = SZ_32K - 1;
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT)
+	unsigned long align_mask = SZ_16K * (1 <<
+			(CONFIG_MTK_IOMMU_PGTABLE_EXT - 32)) - 1;
 #else
 	unsigned long align_mask = SZ_16K - 1;
 #endif
@@ -1004,8 +1018,13 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 			    IO_PGTABLE_QUIRK_NO_PERMS |
 			    IO_PGTABLE_QUIRK_TLBI_ON_MAP |
 			    IO_PGTABLE_QUIRK_ARM_MTK_4GB |
-			    IO_PGTABLE_QUIRK_NO_DMA))
+			    IO_PGTABLE_QUIRK_NO_DMA)) {
+#ifdef MTK_PGTABLE_DEBUG_ENABLED
+		pr_notice("%s, %d, invalid quirks: 0x%lx\n",
+			  __func__, __LINE__, cfg->quirks);
+#endif
 		return NULL;
+	}
 
 	/* If ARM_MTK_4GB is enabled, the NO_PERMS is also expected. */
 	if ((cfg->quirks & IO_PGTABLE_QUIRK_ARM_MTK_4GB) &&
@@ -1018,8 +1037,13 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 	}
 
 	data = kmalloc(sizeof(*data), GFP_KERNEL);
-	if (!data)
+	if (!data) {
+#ifdef MTK_PGTABLE_DEBUG_ENABLED
+		pr_notice("%s, %d, failed to allocate data\n",
+			  __func__, __LINE__);
+#endif
 		return NULL;
+	}
 
 	spin_lock_init(&data->split_lock);
 	data->l2_tables = kmem_cache_create("io-pgtable_armv7s_l2",
@@ -1077,8 +1101,13 @@ static struct io_pgtable *arm_v7s_alloc_pgtable(struct io_pgtable_cfg *cfg,
 	}
 
 #ifdef CONFIG_MTK_IOMMU_V2
-	if (mtk_pgtable_align(data->pgd))
+	if (mtk_pgtable_align(data->pgd)) {
+#ifdef MTK_PGTABLE_DEBUG_ENABLED
+		pr_notice("%s, %d, err align\n", __func__, __LINE__);
+#endif
 		goto out_free_data;
+	}
+
 #endif
 	/* Ensure the empty pgd is visible before any actual TTBR write */
 	wmb();
@@ -1146,7 +1175,8 @@ static int __init arm_v7s_do_selftests(void)
 	struct io_pgtable_ops *ops;
 	struct io_pgtable_cfg cfg = {
 		.tlb = &dummy_tlb_ops,
-#if (CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
+#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
+	(CONFIG_MTK_IOMMU_PGTABLE_EXT == 34)
 		.oas = 35,
 		.ias = 34,
 #else
