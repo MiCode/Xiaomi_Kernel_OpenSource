@@ -529,6 +529,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x0011bc00 0 0x1400>;
 	};
 
+	eem_fsm@1100b000 {
+		compatible = "mediatek,eem_fsm";
+		reg = <0 0x1100b000 0 0x1000>;
+		interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_LOW>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;

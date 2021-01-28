@@ -1178,6 +1178,8 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,mt6761-dvfsp";
 		reg = <0 0x00110800 0 0x1400>,
 		      <0 0x00110800 0 0x1400>;
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	dramc@1022a000 {
@@ -1959,6 +1961,10 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,eem_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
 		interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_LOW>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	btif@1100c000 {
