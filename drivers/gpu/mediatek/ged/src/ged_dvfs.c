@@ -2012,14 +2012,9 @@ GED_ERROR ged_dvfs_probe_signal(int signo)
 
 	if (t != NULL) {
 		send_sig_info(signo, &info, t);
-		ged_log_buf_print(ghLogBuf_ged_srv,
-			"[GED_K] send signo %d to ged_srv [%d]",
-			signo, g_probe_pid);
 		return GED_OK;
 	} else {
 		g_probe_pid = GED_NO_UM_SERVICE;
-		ged_log_buf_print(ghLogBuf_ged_srv,
-			"[GED_K] ged_srv not running");
 		return GED_ERROR_INVALID_PARAMS;
 	}
 }
@@ -2061,9 +2056,6 @@ GED_ERROR ged_dvfs_probe(int pid)
 
 		g_ui32EventDebugStatus = 0;
 	}
-
-	ged_log_buf_print(ghLogBuf_ged_srv, "[GED_K] ged_srv pid: %d",
-		g_probe_pid);
 
 	return GED_OK;
 }

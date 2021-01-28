@@ -51,12 +51,10 @@ static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 static GED_LOG_BUF_HANDLE ghLogBuf_HWC_ERR;
 #define GED_LOG_BUF_COMMON_FENCE "FENCE"
 static GED_LOG_BUF_HANDLE ghLogBuf_FENCE;
-static GED_LOG_BUF_HANDLE ghLogBuf_FWTrace;
 static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
 #endif
 
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
-GED_LOG_BUF_HANDLE ghLogBuf_ged_srv;
 
 GED_LOG_BUF_HANDLE gpufreq_ged_log;
 
@@ -352,9 +350,7 @@ static void ged_exit(void)
 #ifndef GED_BUFFER_LOG_DISABLE
 #ifdef GED_DVFS_DEBUG_BUF
 	ged_log_buf_free(ghLogBuf_DVFS);
-	ged_log_buf_free(ghLogBuf_ged_srv);
 	ghLogBuf_DVFS = 0;
-	ghLogBuf_ged_srv = 0;
 #endif
 #ifdef GED_DEBUG
 	ged_log_buf_free(ghLogBuf_GED);
@@ -450,13 +446,8 @@ static int ged_init(void)
 
 
 #ifndef GED_BUFFER_LOG_DISABLE
-	/* common gpu info buffer */
-	ged_log_buf_alloc(1024, 64 * 1024,
-		GED_LOG_BUF_TYPE_RINGBUFFER, "gpuinfo", "gpuinfo");
-
 	ghLogBuf_GPU = ged_log_buf_alloc(512, 128 * 512,
 		GED_LOG_BUF_TYPE_RINGBUFFER, "GPU_FENCE", NULL);
-
 #ifdef GED_DEBUG
 	ghLogBuf_GLES = ged_log_buf_alloc(160, 128 * 160,
 		GED_LOG_BUF_TYPE_RINGBUFFER, GED_LOG_BUF_COMMON_GLES, NULL);
@@ -472,17 +463,11 @@ static int ged_init(void)
 	ghLogBuf_ftrace = ged_log_buf_alloc(1024*32, 1024*1024,
 		GED_LOG_BUF_TYPE_RINGBUFFER,
 		"fence_trace", "fence_trace");
-	ghLogBuf_FWTrace =
-		ged_log_buf_alloc(1024*32, 1024*1024,
-		GED_LOG_BUF_TYPE_QUEUEBUFFER, "fw_trace", "fw_trace");
 
 #ifdef GED_DVFS_DEBUG_BUF
 	ghLogBuf_DVFS =  ged_log_buf_alloc(20*60, 20*60*100
 		, GED_LOG_BUF_TYPE_RINGBUFFER
 		, "DVFS_Log", "ged_dvfs_debug");
-	ghLogBuf_ged_srv =
-		ged_log_buf_alloc(32, 32*80, GED_LOG_BUF_TYPE_RINGBUFFER,
-			"ged_srv_Log", "ged_srv_debug");
 #endif
 #endif
 
