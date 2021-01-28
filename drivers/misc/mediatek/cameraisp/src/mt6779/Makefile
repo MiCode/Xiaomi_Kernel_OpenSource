@@ -11,12 +11,12 @@
 # GNU General Public License for more details.
 #
 
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
+ccflags-y += -I$(srctree)/drivers/staging/android/ion \
+             -I$(srctree)/drivers/staging/android/ion/mtk
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
 
-ifeq ($(CONFIG_MACH_MT6761),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-endif
-
-ifeq ($(CONFIG_MACH_MT6779),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-#  obj-y += fdvt/
-endif
+obj-y += camera_isp.o
+obj-y += cam_qos.o
