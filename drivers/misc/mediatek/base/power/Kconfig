@@ -1,3 +1,12 @@
+config MTK_CPU_FREQ
+	bool "MTK CPU FREQ"
+	default n
+	---help---
+	  This kernel config can be used to enable CPU FREQ.
+	  When enable this option, CPU frequency and voltage will be
+	  changed which will depended on CPU FREQ governor.
+	  If unsure, say N.
+
 config MTK_CM_MGR
 	bool "MTK CM MGR"
 	default n

@@ -376,6 +376,7 @@ CONFIG_MTK_CM36558,PROJECT,hongxu.zhao,new config in this commit 063ebd2dfda85d1
 CONFIG_MTK_CM36652_NEW,PLATFORM,jy.lan,,,,,
 CONFIG_MTK_CM36686_NEW,PLATFORM,jy.lan,,,,,
 CONFIG_MTK_CMDQ,COMMON,,,y,y,y,y
+CONFIG_MTK_CPU_FREQ,PLATFORM,hector.yuan,,X,X,y,y
 CONFIG_MTK_CM_MGR,PLATFORM,morven-cf.yeh,,y,X,y,y
 CONFIG_MTK_COMBO_ANT,PROJECT,zhiguo.niu,new config in this commit 3413d51500ed33e5696cbfe6286d5b8617867b35,,,,
 CONFIG_MTK_COMBO_BT,COMMON,Libin.Zang,,y,y,y,y
