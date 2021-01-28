@@ -115,10 +115,12 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 //				MTK_PD_CONNECT_PE_READY_SNK_APDO, NULL);
 			break;
 
+		case PD_CONNECT_TYPEC_ONLY_SNK_DFT:
+			/* fall-through */
 		case PD_CONNECT_TYPEC_ONLY_SNK:
 			pinfo->pd_type = MTK_PD_CONNECT_TYPEC_ONLY_SNK;
 			ret = srcu_notifier_call_chain(&adapter->evt_nh,
-				MTK_PD_CONNECT_PE_READY_SNK_APDO, NULL);
+				MTK_PD_CONNECT_TYPEC_ONLY_SNK, NULL);
 //			notify_adapter_event(MTK_PD_ADAPTER,
 //				MTK_PD_CONNECT_PE_READY_SNK_APDO, NULL);
 			break;
