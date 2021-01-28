@@ -1142,11 +1142,14 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 #if defined(HX8394F_HD720_DSI_VDO_TIANMA)
 	&hx8394f_hd720_dsi_vdo_tianma_lcm_drv,
 #endif
+
 #if defined(NT36672_FHDP_DSI_VDO_AUO)
 	&nt36672_fhdp_dsi_vdo_auo_lcm_drv,
 #endif
+#ifndef CONFIG_MACH_MT6761
 #if defined(NT36672_FHDP_DSI_VDO_AUO_LANESWAP)
 	&nt36672_fhdp_dsi_vdo_auo_laneswap_lcm_drv,
+#endif
 #endif
 
 #if defined(ILI9881H_HDP_DSI_VDO_ILITEK_RT5081_19_9)

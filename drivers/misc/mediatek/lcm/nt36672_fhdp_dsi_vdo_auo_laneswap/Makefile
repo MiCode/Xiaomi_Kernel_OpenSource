@@ -14,7 +14,8 @@
 #
 # Makefile for misc devices that really don't fit anywhere else.
 #
-
+ifndef CONFIG_MATCH_MT6761
 obj-y += nt36672_fhdp_dsi_vdo_auo_laneswap.o
+endif
 
 ccflags-$(CONFIG_MTK_LCM) += -I$(srctree)/drivers/misc/mediatek/lcm/inc
