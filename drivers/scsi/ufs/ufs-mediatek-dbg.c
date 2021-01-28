@@ -34,6 +34,35 @@ static unsigned int cmd_hist_ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
 static struct cmd_hist_struct *cmd_hist;
 static char ufs_aee_buffer[UFS_AEE_BUFFER_SIZE];
 
+static int cmd_hist_advance_ptr(void)
+{
+	cmd_hist_ptr++;
+	if (cmd_hist_ptr >= MAX_CMD_HIST_ENTRY_CNT)
+		cmd_hist_ptr = 0;
+
+	return cmd_hist_ptr;
+}
+
+static int cmd_hist_get_prev_ptr(int ptr)
+{
+	if (ptr == 0)
+		return MAX_CMD_HIST_ENTRY_CNT - 1;
+	else
+		return (ptr - 1);
+}
+
+static bool cmd_hist_ptr_is_wraparound(int ptr)
+{
+	if (cmd_hist_ptr == 0) {
+		if (ptr == (MAX_CMD_HIST_ENTRY_CNT - 1))
+			return true;
+	} else {
+		if (ptr == (cmd_hist_ptr - 1))
+			return true;
+	}
+	return false;
+}
+
 static void probe_ufshcd_command(void *data, const char *dev_name,
 				 const char *str, unsigned int tag,
 				 u32 doorbell, int transfer_len, u32 intr,
@@ -49,11 +78,7 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	if (!cmd_hist_enabled)
 		goto out_unlock;
 
-	cmd_hist_ptr++;
-	if (cmd_hist_ptr >= MAX_CMD_HIST_ENTRY_CNT)
-		cmd_hist_ptr = 0;
-
-	ptr = cmd_hist_ptr;
+	ptr = cmd_hist_advance_ptr();
 
 	if (!strcmp(str, "send"))
 		event = CMD_SEND;
@@ -64,47 +89,85 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	else
 		event = CMD_GENERIC;
 
+	cmd_hist[ptr].time = sched_clock();
 	cmd_hist[ptr].pid = current->pid;
 	cmd_hist[ptr].event = event;
-	cmd_hist[ptr].tag = tag;
-	cmd_hist[ptr].transfer_len = transfer_len;
-	cmd_hist[ptr].lba = lba;
-	cmd_hist[ptr].opcode = opcode;
-	cmd_hist[ptr].time = sched_clock();
-	cmd_hist[ptr].duration = 0;
 	cmd_hist[ptr].cpu = smp_processor_id();
-	cmd_hist[ptr].crypt_en = crypt_en;
-	cmd_hist[ptr].crypt_keyslot = crypt_keyslot;
+	cmd_hist[ptr].duration = 0;
+	cmd_hist[ptr].cmd.utp.tag = tag;
+	cmd_hist[ptr].cmd.utp.transfer_len = transfer_len;
+	cmd_hist[ptr].cmd.utp.lba = lba;
+	cmd_hist[ptr].cmd.utp.opcode = opcode;
+	cmd_hist[ptr].cmd.utp.crypt_en = crypt_en;
+	cmd_hist[ptr].cmd.utp.crypt_keyslot = crypt_keyslot;
 
-	if (event == CMD_COMPLETED) {
-		if (cmd_hist_ptr == 0)
-			ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
-		else
-			ptr = cmd_hist_ptr - 1;
-
+	if (event == CMD_COMPLETED || event == CMD_DEV_COMPLETED) {
+		ptr = cmd_hist_get_prev_ptr(cmd_hist_ptr);
 		while (1) {
-			if (cmd_hist[ptr].tag == tag) {
+			if (cmd_hist[ptr].cmd.utp.tag == tag) {
 				cmd_hist[cmd_hist_ptr].duration =
 					sched_clock() - cmd_hist[ptr].time;
 				break;
 			}
-
-			ptr--;
-			if (ptr < 0)
-				ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
-
-
-			if (cmd_hist_ptr == 0) {
-				if (ptr == (MAX_CMD_HIST_ENTRY_CNT - 1))
-					break;
-			} else {
-				if (ptr == cmd_hist_ptr - 1)
-					break;
-			}
+			ptr = cmd_hist_get_prev_ptr(ptr);
+			if (cmd_hist_ptr_is_wraparound(ptr))
+				break;
 		}
 	}
 
-	cmd_hist_cnt++;
+	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
+		cmd_hist_cnt++;
+
+out_unlock:
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
+}
+
+static void probe_ufshcd_uic_command(void *data, const char *dev_name,
+				     const char *str, u32 cmd,
+				     int result, u32 arg1, u32 arg2, u32 arg3)
+{
+	int ptr;
+	unsigned long flags;
+	enum cmd_hist_event event;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
+
+	if (!cmd_hist_enabled)
+		goto out_unlock;
+
+	ptr = cmd_hist_advance_ptr();
+
+	if (!strcmp(str, "uic_send"))
+		event = CMD_UIC_SEND;
+	else
+		event = CMD_UIC_CMPL_GENERAL;
+
+	cmd_hist[ptr].time = sched_clock();
+	cmd_hist[ptr].cpu = smp_processor_id();
+	cmd_hist[ptr].pid = current->pid;
+	cmd_hist[ptr].event = event;
+	cmd_hist[ptr].duration = 0;
+	cmd_hist[ptr].cmd.uic.cmd = cmd;
+	cmd_hist[ptr].cmd.uic.arg1 = arg1;
+	cmd_hist[ptr].cmd.uic.arg2 = arg2;
+	cmd_hist[ptr].cmd.uic.arg3 = arg3;
+	cmd_hist[ptr].cmd.uic.result = result;
+
+	if (event == CMD_UIC_CMPL_GENERAL) {
+		ptr = cmd_hist_get_prev_ptr(cmd_hist_ptr);
+		while (1) {
+			if (cmd_hist[ptr].cmd.uic.cmd == cmd) {
+				cmd_hist[cmd_hist_ptr].duration =
+					sched_clock() - cmd_hist[ptr].time;
+				break;
+			}
+			ptr = cmd_hist_get_prev_ptr(ptr);
+			if (cmd_hist_ptr_is_wraparound(ptr))
+				break;
+		}
+	}
+	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
+		cmd_hist_cnt++;
 
 out_unlock:
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
@@ -121,7 +184,9 @@ struct tracepoints_table {
 };
 
 static struct tracepoints_table interests[] = {
-	{.name = "ufshcd_command", .func = probe_ufshcd_command}, };
+	{.name = "ufshcd_command", .func = probe_ufshcd_command},
+	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
+};
 
 #define FOR_EACH_INTEREST(i) \
 	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
@@ -186,6 +251,7 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 	int ptr;
 	int cnt;
 	unsigned long flags;
+	struct timespec64 dur;
 
 	if (!cmd_hist_initialized)
 		return;
@@ -206,21 +272,39 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 		      latest_cnt, cnt, ptr);
 
 	while (cnt) {
-		SPREAD_PRINTF(buff, size, m,
-			      "%3d-r(%d),%5d,%2d,0x%2x,t=%2d,crypt:%d,%d,lba=%llu,len=%6d,%llu,\t%llu\n",
-			      ptr,
-			      cmd_hist[ptr].cpu,
-			      cmd_hist[ptr].pid,
-			      cmd_hist[ptr].event,
-			      cmd_hist[ptr].opcode,
-			      cmd_hist[ptr].tag,
-			      cmd_hist[ptr].crypt_en,
-			      cmd_hist[ptr].crypt_keyslot,
-			      (long long)cmd_hist[ptr].lba,
-			      cmd_hist[ptr].transfer_len,
-			      (u64)cmd_hist[ptr].time,
-			      (u64)cmd_hist[ptr].duration
-			      );
+		dur = ns_to_timespec64(cmd_hist[ptr].time);
+		if (cmd_hist[ptr].event < CMD_UIC_SEND) {
+			SPREAD_PRINTF(buff, size, m,
+				"%3d-r(%d),%5d,%2d,0x%2x,t=%2d,crypt:%d,%d,lba=%llu,len=%6d,%llu.%lu,\t%llu\n",
+				ptr,
+				cmd_hist[ptr].cpu,
+				cmd_hist[ptr].pid,
+				cmd_hist[ptr].event,
+				cmd_hist[ptr].cmd.utp.opcode,
+				cmd_hist[ptr].cmd.utp.tag,
+				cmd_hist[ptr].cmd.utp.crypt_en,
+				cmd_hist[ptr].cmd.utp.crypt_keyslot,
+				cmd_hist[ptr].cmd.utp.lba,
+				cmd_hist[ptr].cmd.utp.transfer_len,
+				dur.tv_sec, dur.tv_nsec,
+				cmd_hist[ptr].duration
+				);
+		} else if (cmd_hist[ptr].event < CMD_REG_TOGGLE) {
+			SPREAD_PRINTF(buff, size, m,
+				"%3d-u(%d),%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,ret=%d,%llu.%lu,\t%llu\n",
+				ptr,
+				cmd_hist[ptr].cpu,
+				cmd_hist[ptr].pid,
+				cmd_hist[ptr].event,
+				cmd_hist[ptr].cmd.uic.cmd,
+				cmd_hist[ptr].cmd.uic.arg1,
+				cmd_hist[ptr].cmd.uic.arg2,
+				cmd_hist[ptr].cmd.uic.arg3,
+				cmd_hist[ptr].cmd.uic.result,
+				dur.tv_sec, dur.tv_nsec,
+				cmd_hist[ptr].duration
+				);
+		}
 		cnt--;
 		ptr--;
 		if (ptr < 0)

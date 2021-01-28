@@ -61,18 +61,33 @@ enum cmd_hist_event {
 	CMD_GENERIC,
 };
 
-struct cmd_hist_struct {
-	enum cmd_hist_event event;
+struct utp_cmd_struct {
 	u8 opcode;
 	u8 crypt_en;
 	u8 crypt_keyslot;
-	u8 cpu;
 	u16 tag;
-	pid_t pid;
 	int transfer_len;
 	u64 lba;
+};
+
+struct uic_cmd_struct {
+	u8 cmd;
+	u32 arg1;
+	u32 arg2;
+	u32 arg3;
+	int result;
+};
+
+struct cmd_hist_struct {
+	u8 cpu;
+	enum cmd_hist_event event;
+	pid_t pid;
 	u64 time;
 	u64 duration;
+	union {
+		struct utp_cmd_struct utp;
+		struct uic_cmd_struct uic;
+	} cmd;
 };
 
 int ufsdbg_register(struct device *dev);
