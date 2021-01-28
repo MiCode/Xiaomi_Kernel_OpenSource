@@ -27,6 +27,12 @@
 #include "soter_smc.h"
 #include <teei_cancel_cmd.h>
 
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+unsigned long ree_dynamical_debug;
+struct timeval start_val;
+struct timeval end_val;
+#endif
+
 static struct tee_shm *get_msg_arg(struct tee_context *ctx, size_t num_params,
 				   struct optee_msg_arg **msg_arg,
 				   phys_addr_t *msg_parg)
@@ -205,6 +211,21 @@ int optee_to_msg_param(struct optee_msg_param *msg_params, size_t num_params,
 	return 0;
 }
 
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+static int unhexify(char *obuf, __u8 *ibuf, int len)
+{
+	char *p = NULL;
+	int i = 0;
+
+	p = obuf;
+
+	for (i = 0; i < len; i++)
+		p += sprintf(p, "%02x", ibuf[i]);
+
+	return 0;
+}
+#endif
+
 int soter_open_session(struct tee_context *ctx,
 		       struct tee_ioctl_open_session_arg *arg,
 		       struct tee_param *param)
@@ -254,6 +275,10 @@ int soter_open_session(struct tee_context *ctx,
 	if (msg_arg->ret == TEEC_SUCCESS) {
 		/* A new session has been created, add it to the list. */
 		sess->session_id = msg_arg->session;
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+		memset(sess->uuid, 0, TEEI_UUID_MAX_LEN);
+		unhexify(sess->uuid, arg->uuid, sizeof(arg->uuid));
+#endif
 		mutex_lock(&ctxdata->mutex);
 		list_add(&sess->list_node, &ctxdata->sess_list);
 		mutex_unlock(&ctxdata->mutex);
@@ -316,6 +341,9 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 	phys_addr_t msg_parg;
 	struct soter_session *sess;
 	int rc;
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+	long time_used;
+#endif
 
 	/* Check that the session is valid */
 	mutex_lock(&ctxdata->mutex);
@@ -336,10 +364,39 @@ int soter_invoke_func(struct tee_context *ctx, struct tee_ioctl_invoke_arg *arg,
 	if (rc)
 		goto out;
 
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+	if (tzdriver_dynamical_debug_flag == 1) {
+		IMSG_PRINTK("TEEI: %s START (TA: %s).\n",
+							__func__, sess->uuid);
+		do_gettimeofday(&start_val);
+		if (likely(ree_dynamical_debug == REE_DYNAMICAL_START)) {
+			time_used = (start_val.tv_sec - end_val.tv_sec)
+				* 1000000 +
+				(start_val.tv_usec - end_val.tv_usec);
+			IMSG_PRINTK(
+				"TEEI: TA(%s) CMD_ID: 0x%x REE USED %ld us.\n",
+				sess->uuid, arg->func, time_used);
+		}
+	}
+#endif
+
 	if (soter_do_call_with_arg(ctx, msg_parg)) {
 		msg_arg->ret = TEEC_ERROR_COMMUNICATION;
 		msg_arg->ret_origin = TEEC_ORIGIN_COMMS;
 	}
+
+#ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
+	if (tzdriver_dynamical_debug_flag == 1) {
+		do_gettimeofday(&end_val);
+		time_used = (end_val.tv_sec - start_val.tv_sec) * 1000000
+				+ (end_val.tv_usec - start_val.tv_usec);
+
+		IMSG_PRINTK("TEEI: TA(%s) CMD_ID: 0x%x TEE USED %ld us.\n",
+				sess->uuid, arg->func, time_used);
+		if (unlikely(ree_dynamical_debug != REE_DYNAMICAL_START))
+			ree_dynamical_debug = REE_DYNAMICAL_START;
+	}
+#endif
 
 	if (optee_from_msg_param(param, arg->num_params, msg_arg->params)) {
 		msg_arg->ret = TEEC_ERROR_COMMUNICATION;
