@@ -25,6 +25,7 @@
 #include "bq25601.h"
 #include "charger_class.h"
 #include <linux/power_supply.h>
+#include <linux/regulator/driver.h>
 
 /**********************************************************
  *
@@ -100,6 +101,7 @@ struct bq25601_info {
 	const char *chg_dev_name;
 	const char *eint_name;
 	int irq;
+	struct regulator_dev *otg_rdev;
 };
 
 DEFINE_MUTEX(g_input_current_mutex);
@@ -491,6 +493,18 @@ void bq25601_set_otg_config(unsigned int val)
 				      );
 }
 
+unsigned int bq25601_get_otg_config(void)
+{
+	unsigned int ret = 0;
+	unsigned char val = 0;
+
+	ret = bq25601_read_interface((unsigned char) (bq25601_CON1),
+				     (&val),
+				     (unsigned char) (CON1_OTG_CONFIG_MASK),
+				     (unsigned char) (CON1_OTG_CONFIG_SHIFT)
+				    );
+	return val;
+}
 
 void bq25601_set_chg_config(unsigned int val)
 {
@@ -743,10 +757,10 @@ void bq25601_set_tmr2x_en(unsigned int val)
 	unsigned int ret = 0;
 
 	ret = bq25601_config_interface((unsigned char) (bq25601_CON7),
-				       (unsigned char) (val),
-				       (unsigned char) (CON7_TMR2X_EN_MASK),
-				       (unsigned char) (CON7_TMR2X_EN_SHIFT)
-				      );
+					(unsigned char) (val),
+					(unsigned char) (CON7_TMR2X_EN_MASK),
+					(unsigned char) (CON7_TMR2X_EN_SHIFT)
+					);
 }
 
 void bq25601_set_batfet_disable(unsigned int val)
@@ -849,7 +863,6 @@ unsigned int bq25601_get_pg_stat(void)
 				    );
 	return val;
 }
-
 
 /*CON10----------------------------------------------------------*/
 
@@ -1160,7 +1173,7 @@ static unsigned int charging_hw_init(void)
 	bq25601_set_batlowv(0x1);	/* BATLOWV 3.0V */
 	bq25601_set_vrechg(0x0);	/* VRECHG 0.1V (4.108V) */
 	bq25601_set_en_term(0x1);	/* Enable termination */
-	bq25601_set_watchdog(0x3);	/* WDT 160s */
+	bq25601_set_watchdog(0x0);	/* WDT disable */
 	bq25601_set_en_timer(0x0);	/* Enable charge timer */
 	bq25601_set_int_mask(0x0);	/* Disable fault interrupt */
 	pr_info("%s: hw_init down!\n", __func__);
@@ -1231,6 +1244,43 @@ static int bq25601_do_event(struct charger_device *chg_dev, u32 event,
 	return 0;
 }
 
+static int bq25601_enable_vbus(struct regulator_dev *rdev)
+{
+	bq25601_set_chg_config(0);
+	bq25601_set_otg_config(1);
+
+	return 0;
+}
+
+static int bq25601_disable_vbus(struct regulator_dev *rdev)
+{
+	bq25601_set_otg_config(0);
+	bq25601_set_chg_config(1);
+
+	return 0;
+}
+
+static int bq25601_is_enabled_vbus(struct regulator_dev *rdev)
+{
+	return bq25601_get_otg_config();
+}
+
+static const struct regulator_ops bq25601_vbus_ops = {
+	.enable = bq25601_enable_vbus,
+	.disable = bq25601_disable_vbus,
+	.is_enabled = bq25601_is_enabled_vbus,
+};
+
+static const struct regulator_desc bq25601_otg_rdesc = {
+	.of_match = "usb-otg-vbus",
+	.name = "usb-otg-vbus",
+	.ops = &bq25601_vbus_ops,
+	.owner = THIS_MODULE,
+	.type = REGULATOR_VOLTAGE,
+	.fixed_uV = 5000000,
+	.n_voltages = 1,
+};
+
 static struct charger_ops bq25601_chg_ops = {
 #ifdef FIXME
 	.enable_hz = bq25601_enable_hz,
@@ -1265,12 +1315,12 @@ static struct charger_ops bq25601_chg_ops = {
 	.event = bq25601_do_event,
 };
 
-
 static int bq25601_driver_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	int ret = 0;
 	struct bq25601_info *info = NULL;
+	struct regulator_config config = { };
 
 	pr_info("[%s]\n", __func__);
 
@@ -1299,6 +1349,18 @@ static int bq25601_driver_probe(struct i2c_client *client,
 		ret = PTR_ERR(info->chg_dev);
 		return ret;
 	}
+
+	/* otg regulator */
+	config.dev = info->dev;
+	config.driver_data = info;
+	info->otg_rdev = devm_regulator_register(info->dev,
+						&bq25601_otg_rdesc, &config);
+	if (IS_ERR(info->otg_rdev)) {
+		ret = PTR_ERR(info->otg_rdev);
+		pr_info("%s: register otg regulator failed (%d)\n", __func__, ret);
+		return ret;
+	}
+
 
 	bq25601_dump_register(info->chg_dev);
 
