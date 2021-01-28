@@ -698,7 +698,7 @@ static void mtk_dsp_dl_consume_handler(struct mtk_base_dsp *dsp,
 	    dsp->dsp_mem[id].adsp_work_buf.aud_buffer.buf_bridge.pRead;
 
 #ifdef DEBUG_VERBOSE_IRQ
-	dump_rbuf_s("dl_consume", &dsp->dsp_mem[id].ring_buf);
+	dump_rbuf_s("+%s", __func__, &dsp->dsp_mem[id].ring_buf);
 #endif
 
 	sync_ringbuf_readidx(
@@ -1140,6 +1140,7 @@ static int mtk_dsp_pcm_copy_dl(struct snd_pcm_substream *substream,
 	} else {
 		pr_info("%s, id = %d, fail copy_size = %d availsize = %d\n",
 			__func__, id, copy_size, RingBuf_getFreeSpace(ringbuf));
+		return -1;
 	}
 
 	/* send audio_hw_buffer to SCP side*/
@@ -1257,36 +1258,85 @@ static int mtk_dsp_pcm_copy(struct snd_pcm_substream *substream,
 
 static int mtk_dsp_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
-	int ret = 0;
-	size_t size;
-	int id = 0;
-	struct mtk_base_dsp *dsp = snd_soc_platform_get_drvdata(rtd->platform);
+	pr_info("%s()\n", __func__);
 
-	size = dsp->mtk_dsp_hardware->buffer_bytes_max;
+	return 0;
+}
 
-	snd_soc_add_platform_controls(rtd->platform,
-				      dsp_platform_kcontrols,
-				      ARRAY_SIZE(dsp_platform_kcontrols));
+#ifdef CFG_RECOVERY_SUPPORT
+static int audio_send_reset_event(void)
+{
+	int ret = 0, i;
 
-	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++)
-		ret = audio_task_register_callback(get_dspscene_by_dspdaiid(id),
-						   mtk_dsp_pcm_ipi_recv, NULL);
-
-	if (ret < 0)
-		return ret;
-
+	for (i = 0; i < TASK_SCENE_FAST; i++) {
+		if ((i == TASK_SCENE_DEEPBUFFER) ||
+			(i == TASK_SCENE_VOIP) ||
+			(i == TASK_SCENE_PRIMARY) ||
+			(i == TASK_SCENE_FAST)) {
+			ret = mtk_scp_ipi_send(i, AUDIO_IPI_MSG_ONLY,
+			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_RESET,
+			ADSP_EVENT_READY, 0, NULL);
+		}
+	}
 	return ret;
 }
+
+static int audio_event_receive(struct notifier_block *this, unsigned long event,
+			    void *ptr)
+{
+	int ret = 0;
+
+	switch (event) {
+	case ADSP_EVENT_STOP:
+		pr_info("%s event[%lu]\n", __func__, event);
+		break;
+	case ADSP_EVENT_READY: {
+		audio_send_reset_event();
+		pr_info("%s event[%lu]\n", __func__, event);
+		break;
+	}
+	default:
+		pr_info("%s event[%lu]\n", __func__, event);
+	}
+	return ret;
+}
+
+static struct notifier_block adsp_audio_notifier = {
+	.notifier_call = audio_event_receive,
+	.priority = PRIMARY_FEATURE_PRI,
+};
+
+#endif
 
 static int mtk_dsp_probe(struct snd_soc_platform *platform)
 {
 	int ret = 0;
+	int id = 0;
+	struct mtk_base_dsp *dsp = snd_soc_platform_get_drvdata(platform);
 
 	pr_info("%s\n", __func__);
+
 	aud_wake_lock_init(&adsp_audio_wakelock, "adsp_audio_wakelock");
+
+	snd_soc_add_platform_controls(platform,
+				      dsp_platform_kcontrols,
+				      ARRAY_SIZE(dsp_platform_kcontrols));
+
+	for (id = 0; id < AUDIO_TASK_DAI_NUM; id++) {
+		ret = audio_task_register_callback(get_dspscene_by_dspdaiid(id),
+						   mtk_dsp_pcm_ipi_recv, NULL);
+		if (ret < 0)
+			return ret;
+	}
+
+	for (id = 0; id < ADSP_CORE_TOTAL; id++)
+		adsp_irq_registration(id, ADSP_IRQ_AUDIO_ID,
+				      audio_irq_handler, dsp);
+
+	adsp_register_notify(&adsp_audio_notifier);
+
 	return ret;
 }
-
 
 static const struct snd_pcm_ops mtk_dsp_pcm_ops = {
 	.open = mtk_dsp_pcm_open,
