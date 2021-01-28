@@ -579,13 +579,14 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	 * though any robust network rx path ignores extra padding.
 	 * and some hardware doesn't like to write zlps.
 	 */
-	if (req->zero && !dev->zlp && (length % in->maxpacket) == 0)
+	if (req->zero && !dev->zlp && in && (length % in->maxpacket) == 0)
 		length++;
 
 	req->length = length;
 
 	usb_boost();
-	retval = usb_ep_queue(in, req, GFP_ATOMIC);
+	if (in)
+		retval = usb_ep_queue(in, req, GFP_ATOMIC);
 	switch (retval) {
 	default:
 		DBG(dev, "tx queue err %d\n", retval);
