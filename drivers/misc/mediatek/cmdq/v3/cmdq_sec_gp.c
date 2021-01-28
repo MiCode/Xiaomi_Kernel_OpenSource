@@ -160,7 +160,7 @@ s32 cmdq_sec_execute_session(struct cmdq_sec_tee_context *tee,
 	operation.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT,
 		share_mem_ex1 ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
 		share_mem_ex2 ? TEEC_MEMREF_PARTIAL_INOUT : TEEC_NONE,
-		TEEC_NONE, TEEC_NONE);
+		TEEC_NONE);
 #endif
 	operation.params[0].memref.parent = &tee->shared_mem;
 	operation.params[0].memref.size = tee->shared_mem.size;
