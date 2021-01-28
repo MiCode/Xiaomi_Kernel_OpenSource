@@ -467,15 +467,16 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				first_init = false;
 
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
-			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
 			if (ssusb->clk_mgr) {
 				/* unregister host driver */
 				of_platform_depopulate(dev);
+				ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
 				ssusb_ip_sleep(ssusb);
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 				pm_relax(ssusb->dev);
-			}
+			} else
+				ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
 #if IS_ENABLED(CONFIG_MTK_BASE_POWER)
 			if (ssusb->spm_mgr)
 				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
