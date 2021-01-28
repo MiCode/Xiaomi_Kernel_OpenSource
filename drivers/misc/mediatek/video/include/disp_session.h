@@ -281,6 +281,7 @@ struct disp_ccorr_config {
 	bool is_dirty;
 	int mode;
 	int color_matrix[16];
+	bool featureFlag;
 };
 
 struct disp_session_input_config {
