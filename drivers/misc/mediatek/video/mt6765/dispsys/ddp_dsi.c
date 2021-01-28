@@ -132,10 +132,6 @@ do {	\
 } while (0)
 #endif
 
-#define DSI_MODULE_BEGIN(x)	\
-	(x == DISP_MODULE_DSIDUAL ? 0 : DSI_MODULE_to_ID(x))
-#define DSI_MODULE_END(x) \
-	(x == DISP_MODULE_DSIDUAL ? 1 : DSI_MODULE_to_ID(x))
 #define DSI_MODULE_to_ID(x)	(x == DISP_MODULE_DSI0 ? 0 : 1)
 #define DIFF_CLK_LANE_LP (0x10)
 
@@ -192,6 +188,25 @@ unsigned int data_lane3[2] = { 0 }; /* MIPITX_DSI_DATA_LANE3 */
 unsigned int mipitx_impedance_backup[5];
 
 atomic_t PMaster_enable = ATOMIC_INIT(0);
+static int DSI_MODULE_BEGIN(enum DISP_MODULE_ENUM module)
+{
+	if (module == DISP_MODULE_DSI0)
+		return 0;
+	else if (module == DISP_MODULE_DSI1)
+		return 1;
+	else if (module == DISP_MODULE_DSIDUAL)
+		return 0;
+}
+
+static int DSI_MODULE_END(enum DISP_MODULE_ENUM module)
+{
+	if (module == DISP_MODULE_DSI0)
+		return 0;
+	else if (module == DISP_MODULE_DSI1)
+		return 1;
+	else if (module == DISP_MODULE_DSIDUAL)
+		return 1;
+}
 
 static void _init_condition_wq(struct t_condition_wq *waitq)
 {
@@ -282,6 +297,13 @@ enum DSI_STATUS DSI_DumpRegisters(enum DISP_MODULE_ENUM module, int level)
 {
 	u32 i = 0;
 	u32 k = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invlidate dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
 
 	DDPDUMP("== DISP DSI REGS ==\n");
 	if (level >= 0) {
@@ -477,6 +499,13 @@ static enum DSI_STATUS DSI_Reset(enum DISP_MODULE_ENUM module,
 {
 	int i = 0;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
+
 	/* do reset */
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(cmdq, struct DSI_COM_CTRL_REG,
@@ -493,6 +522,13 @@ static enum DSI_STATUS DSI_SetMode(enum DISP_MODULE_ENUM module,
 {
 	int i = 0;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
+
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++)
 		DSI_OUTREGBIT(cmdq, struct DSI_MODE_CTRL_REG,
 		DSI_REG[i]->DSI_MODE_CTRL, MODE, mode);
@@ -504,6 +540,13 @@ void DSI_clk_HS_mode(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	bool enter)
 {
 	int i = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enter) {
@@ -531,6 +574,12 @@ void DSI_enter_ULPS(enum DISP_MODULE_ENUM module)
 	int ret = 0;
 	struct t_condition_wq *waitq;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
 	DSI_clk_HS_mode(module, NULL, FALSE); /* ??? should be hs disable */
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		ASSERT(DSI_REG[i]->DSI_PHY_LD0CON.L0_ULPM_EN == 0);
@@ -584,6 +633,13 @@ void DSI_exit_ULPS(enum DISP_MODULE_ENUM module)
 			_dsi_context[i].dsi_params.PLL_CLOCK * 2;
 	int wake_up_prd = (data_rate * 1000) / (1024 * 8) + 0x1;
 	struct t_condition_wq *waitq;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(NULL, struct DSI_PHY_LD0CON_REG,
@@ -646,6 +702,12 @@ static int _check_dsi_mode(enum DISP_MODULE_ENUM module)
 {
 	int i = 0;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return -1;
+	}
 	/* check validity */
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		switch (DSI_REG[i]->DSI_MODE_CTRL.MODE) {
@@ -673,6 +735,12 @@ static int _is_lcm_cmd_mode(enum DISP_MODULE_ENUM module)
 {
 	int i = 0;
 	int ret = 0;
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return -1;
+	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (_dsi_context[i].dsi_params.mode == CMD_MODE)
@@ -733,6 +801,13 @@ enum DSI_STATUS DSI_BIST_Pattern_Test(enum DISP_MODULE_ENUM module,
 {
 	int i = 0;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
+
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (enable) {
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_BIST_PATTERN,
@@ -773,6 +848,13 @@ int ddp_dsi_porch_setting(enum DISP_MODULE_ENUM module, void *handle,
 	enum DSI_PORCH_TYPE type, unsigned int value)
 {
 	int i, ret = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return -1;
+	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (type == DSI_VFP) {
@@ -847,6 +929,13 @@ void DSI_Config_VDO_Timing(enum DISP_MODULE_ENUM module,
 	unsigned int horizontal_frontporch_byte;
 	unsigned int horizontal_bllp_byte;
 	unsigned int dsiTmpBufBpp;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		if (dsi_params->data_format.format ==
@@ -930,6 +1019,13 @@ void DSI_Set_LFR(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	/* LFR_MODE 0 disable,1 static mode ,2 dynamic mode 3,both */
 	unsigned int i = 0;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
+
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(cmdq, struct DSI_LFR_CON_REG,
 			DSI_REG[i]->DSI_LFR_CON, LFR_MODE, mode);
@@ -949,6 +1045,13 @@ void DSI_Set_LFR(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 void DSI_LFR_UPDATE(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq)
 {
 	unsigned int i = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(cmdq, struct DSI_LFR_CON_REG,
@@ -994,6 +1097,13 @@ enum DSI_STATUS DSI_PS_Control(enum DISP_MODULE_ENUM module,
 	unsigned int ps_sel_bitvalue = 0;
 	unsigned int ps_wc_adjust = 0;
 	unsigned int ps_wc = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
 
 	/* TODO: parameter checking */
 	ASSERT((int)(dsi_params->PS) <= (int)PACKED_PS_18BIT_RGB666);
@@ -1061,6 +1171,18 @@ enum DSI_STATUS DSI_TXRX_Control(enum DISP_MODULE_ENUM module,
 	bool dis_eotp_en = FALSE;
 	bool hstx_cklp_en = dsi_params->cont_clock ? FALSE : TRUE;
 	int max_return_size = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return -1;
+	}
 
 	switch (lane_num) {
 	case LCM_ONE_LANE:
@@ -1207,6 +1329,17 @@ static void _DSI_PHY_clk_setting(enum DISP_MODULE_ENUM module,
 
 	DISPFUNC();
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_PHY_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return;
+	}
 	data_Rate = def_data_rate ? def_data_rate : data_Rate;
 
 	/* DPHY SETTING */
@@ -1671,6 +1804,17 @@ void DSI_PHY_clk_switch(enum DISP_MODULE_ENUM module,
 
 	/* can't use cmdq for this */
 	ASSERT(cmdq == NULL);
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_PHY_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return;
+	}
 
 	if (on) {
 		_DSI_PHY_clk_setting(module, cmdq,
@@ -1727,6 +1871,13 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 	unsigned int hs_trail_m, hs_trail_n;
 	unsigned char timcon_temp;
 	unsigned int temp_date_rate = 0;
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	/* sync from cmm */
@@ -1928,6 +2079,13 @@ int DSI_enable_checksum(enum DISP_MODULE_ENUM module,
 {
 	int i;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return -1;
+	}
+
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_OUTREGBIT(cmdq, struct DSI_DEBUG_SEL_REG,
 			DSI_REG[i]->DSI_DEBUG_SEL, CHKSUM_REC_EN, 1);
@@ -1957,6 +2115,13 @@ void DSI_Set_VM_CMD(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq)
 {
 	int i = 0;
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return;
+	}
+
 	if (module != DISP_MODULE_DSIDUAL) {
 		for (i = DSI_MODULE_BEGIN(module);
 			i <= DSI_MODULE_END(module); i++) {
@@ -1983,6 +2148,13 @@ enum DSI_STATUS DSI_EnableVM_CMD(enum DISP_MODULE_ENUM module,
 	if (cmdq)
 		DSI_MASKREG32(cmdq, &DSI_REG[0]->DSI_INTSTA,
 			0x00000020, 0x00000000);
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return DSI_STATUS_ERROR;
+	}
 
 	if (module != DISP_MODULE_DSIDUAL) {
 		for (i = DSI_MODULE_BEGIN(module);
@@ -2044,6 +2216,13 @@ UINT32 DSI_dcs_read_lcm_reg_v2(enum DISP_MODULE_ENUM module,
 		d = 0;
 	else
 		return 0;
+
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return -1;
+	}
 
 	if (DSI_REG[d]->DSI_MODE_CTRL.MODE) {
 		/* only cmd mode can read */
@@ -2334,6 +2513,13 @@ UINT32 DSI_dcs_read_lcm_reg_v3(enum DISP_MODULE_ENUM module,
 	else
 		return 0;
 
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return -1;
+	}
+
 	if (DSI_REG[d]->DSI_MODE_CTRL.MODE) {
 		/* only cmd mode can read */
 		DISPWARN("DSI Read Fail: DSI Mode is %d\n",
@@ -2599,6 +2785,13 @@ void DSI_set_cmdq_V2(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	else
 		return;
 
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return;
+	}
+
 	if (DSI_REG[d]->DSI_MODE_CTRL.MODE) { /* vdo cmd */
 		struct DSI_VM_CMD_CON_REG vm_cmdq;
 		struct DSI_VM_CMDQ *vm_data;
@@ -2861,6 +3054,13 @@ void DSI_set_cmdq_V3(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	else
 		return;
 
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return;
+	}
+
 	do {
 		data_id = para_tbl[index].id;
 		cmd = para_tbl[index].cmd;
@@ -3013,6 +3213,13 @@ void DSI_set_cmdq_V4(enum DISP_MODULE_ENUM module,
 		d = 0;
 	else
 		return;
+
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("DSI%d register addr invalid\n", i);
+		return;
+	}
 
 	cmd = cmds->dtype;
 	count = (unsigned char)cmds->dlen;
@@ -3356,6 +3563,13 @@ int DSI_Send_ROI(enum DISP_MODULE_ENUM module, void *handle, unsigned int x,
 	unsigned char y1_LSB = (y1 & 0xFF);
 
 	unsigned int data_array[16];
+
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid module\n");
+		return -1;
+	}
 
 	if (!primary_display_is_video_mode()) {
 		data_array[0] = 0x00053902;
@@ -3754,6 +3968,7 @@ int ddp_dsi_init(enum DISP_MODULE_ENUM module, void *cmdq)
 	unsigned long addr = 0;
 
 	DISPFUNC();
+
 	cmdqBackupAllocateSlot(&_h_intstat, 1);
 
 	DSI_REG[0] = (struct DSI_REGS *)DISPSYS_DSI0_BASE;
@@ -4129,6 +4344,12 @@ int ddp_dsi_config(enum DISP_MODULE_ENUM module,
 
 	DISPFUNC();
 
+	if (module != DISP_MODULE_DSI0 &&
+		module != DISP_MODULE_DSI1 &&
+		module != DISP_MODULE_DSIDUAL) {
+		DISPERR("invalid dsi module %d\n", (unsigned int)module);
+		return -1;
+	}
 	if (!config->dst_dirty) {
 		/* will be removed */
 		if (atomic_read(&PMaster_enable) == 0)
@@ -4347,6 +4568,11 @@ static int dsi_stop_vdo_mode(enum DISP_MODULE_ENUM module,
 	else
 		return 0;
 
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i])) {
+		DISPERR("invalid dsi register addr%d\n", i);
+		return -1;
+	}
 	DSI_SetMode(module, cmdq_handle, CMD_MODE);
 
 	/* need do reset DSI_DUAL_EN/DSI_START */
@@ -4386,6 +4612,12 @@ int ddp_dsi_stop(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 		return _ddp_dsi_stop_dual(module, cmdq_handle);
 	else
 		return 0;
+
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i])) {
+		DISPERR("invalid dsi register addr%d\n", i);
+		return -1;
+	}
 
 	if (DSI_REG[i]->DSI_MODE_CTRL.MODE == CMD_MODE) {
 		DISPDBG("dsi stop: command mode\n");
@@ -4448,6 +4680,13 @@ int ddp_dsi_switch_mode(enum DISP_MODULE_ENUM module, void *cmdq_handle,
 		DDPMSG("dsi switch not support this cmd IF:%d\n",
 			lcm_cmd.cmd_if);
 		/* return -1; */
+	}
+
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("invalid dsi register addr%d\n", i);
+		return -1;
 	}
 
 	if (mode == 0) { /* V2C */
@@ -4927,6 +5166,12 @@ void dsi_analysis(enum DISP_MODULE_ENUM module)
 {
 	int i = 0;
 
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i])) {
+		DISPERR("invalid dsi register addr%d\n", i);
+		return;
+	}
+
 	DDPDUMP("== DISP DSI ANALYSIS ==\n");
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		DSI_REG[i] = (struct DSI_REGS *)DISPSYS_DSI0_BASE;
@@ -5019,6 +5264,13 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module,
 		dsi_i = 0;
 	else
 		dsi_i = DSI_MODULE_to_ID(module);
+
+	i = DSI_MODULE_to_ID(module);
+	if (!((unsigned long)DSI_REG[i]) ||
+		!((unsigned long)DSI_CMDQ_REG[i])) {
+		DISPERR("invalid dsi register addr%d\n", i);
+		return -1;
+	}
 
 	dsi_params = &_dsi_context[dsi_i].dsi_params;
 
