@@ -708,14 +708,13 @@ static int m4u_debug_set(void *data, u64 val)
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
-		u32 sec_handle = 0;
-		u32 refcount;
-		int ret = 0;
-
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&   \
 		defined(CONFIG_TEE)
-
+		u32 sec_handle = 0;
+		int ret = 0;
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+		u32 refcount;
+
 		ret = trusted_mem_api_alloc(TRUSTED_MEM_REQ_SVP, 0, 0x1000,
 					    &refcount, &sec_handle,
 					    "m4u_ut", 0);
@@ -732,6 +731,9 @@ static int m4u_debug_set(void *data, u64 val)
 		}
 
 #elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
+		u32 sec_handle = 0;
+		int ret = 0;
+
 		ret = KREE_AllocSecurechunkmemWithTag(0,
 			&sec_handle, 0, 0x1000, "m4u_ut");
 		if (ret != TZ_RESULT_SUCCESS) {
