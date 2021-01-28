@@ -30,29 +30,6 @@
 	debounce = <512000>;
 };
 
-&i2c0 {
-	/* gt1151 add to i2c node */
-	clock-frequency = <400000>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-	pinctrl-names = "default", "state_eint_as_int",
-		"state_eint_output0","state_eint_output1",
-		"state_rst_output0", "state_rst_output1";
-	pinctrl-0 = <&ctp_pins_default>;
-	pinctrl-1 = <&ctp_pins_eint_as_int>;
-	pinctrl-2 = <&ctp_pins_eint_output0>;
-	pinctrl-3 = <&ctp_pins_eint_output1>;
-	pinctrl-4 = <&ctp_pins_rst_output0>;
-	pinctrl-5 = <&ctp_pins_rst_output1>;
-	status = "okay";
-
-	gt1151@14 {
-		compatible = "goodix,gt1151";
-		reg = <0x14>;
-		status = "okay";
-	};
-};
-
 &odm {
 	led0:led@0 {
 		compatible = "mediatek,red";
@@ -101,6 +78,28 @@
 		vib_timer = <25>;
 		vib_limit = <9>;
 		vib_vol= <9>;
+	};
+};
+
+/* TOUCH start */
+&i2c0 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default", "ts_int_active",
+		"ts_reset_active", "ts_int_suspend",
+		"ts_reset_suspend", "ts_i2c_mode",
+		"ts_eint_as_int";
+	pinctrl-0 = <&ctp_pins_default>;
+	pinctrl-1 = <&ctp_ts_int_active>;
+	pinctrl-2 = <&ctp_ts_reset_active>;
+	pinctrl-3 = <&ctp_ts_int_suspend>;
+	pinctrl-4 = <&ctp_ts_reset_suspend>;
+	pinctrl-5 = <&ctp_ts_i2c_mode>;
+	pinctrl-6 = <&ctp_ts_eint_as_int>;
+
+	gt1151@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		status = "okay";
 	};
 };
 
