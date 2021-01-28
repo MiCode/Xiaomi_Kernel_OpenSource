@@ -424,18 +424,19 @@ static int mt6370_fled_set_strobe_current_sel(struct rt_fled_dev *info,
 	struct mt6370_pmu_fled_data *fi = (struct mt6370_pmu_fled_data *)info;
 	int ret;
 
-	if (selector >= 255)
+	if (selector > fi->base.init_props->strobe_max_brightness)
 		return -EINVAL;
-	if (selector > 128)
-		mt6370_pmu_reg_set_bit(fi->chip, fi->fled_strb_cur_reg, 0x80);
-	else
+	if (selector < 128)
 		mt6370_pmu_reg_clr_bit(fi->chip, fi->fled_strb_cur_reg, 0x80);
+	else
+		mt6370_pmu_reg_set_bit(fi->chip, fi->fled_strb_cur_reg, 0x80);
 
 	if (selector >= 128)
 		selector -= 128;
-	ret = mt6370_pmu_reg_update_bits(fi->chip, fi->fled_strb_cur_reg,
-		MT6370_FLED_STROBECUR_MASK,
-		selector << MT6370_FLED_STROBECUR_SHIFT);
+	ret = mt6370_pmu_reg_update_bits(fi->chip,
+					 fi->fled_strb_cur_reg,
+					 MT6370_FLED_STROBECUR_MASK,
+				       selector << MT6370_FLED_STROBECUR_SHIFT);
 	return ret;
 }
 
