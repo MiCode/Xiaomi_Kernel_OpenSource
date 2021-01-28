@@ -596,7 +596,7 @@ bool dp_dfp_u_notify_dp_status_update(struct pd_port *pd_port, bool ack)
 {
 	bool oper_mode = false;
 	bool valid_connected;
-
+	uint32_t *ptr;
 	struct dp_data *dp_data = pd_get_dp_data(pd_port);
 
 	switch (dp_data->dfp_u_state) {
@@ -621,7 +621,11 @@ bool dp_dfp_u_notify_dp_status_update(struct pd_port *pd_port, bool ack)
 		return true;
 	}
 
-	dp_data->remote_status = pd_get_msg_vdm_data_payload(pd_port)[0];
+	ptr = pd_get_msg_vdm_data_payload(pd_port);
+	if (!ptr)
+		dp_data->remote_status = 0;
+	else
+		dp_data->remote_status = ptr[0];
 	DP_INFO("dp_status: 0x%x\r\n", dp_data->remote_status);
 
 	if (oper_mode) {
@@ -671,8 +675,13 @@ bool dp_dfp_u_notify_attention(struct pd_port *pd_port,
 {
 	bool valid_connected;
 	struct dp_data *dp_data = pd_get_dp_data(pd_port);
+	uint32_t *ptr;
 
-	dp_data->remote_status = pd_get_msg_vdm_data_payload(pd_port)[0];
+	ptr = pd_get_msg_vdm_data_payload(pd_port);
+	if (!ptr)
+		dp_data->remote_status = 0;
+	else
+		dp_data->remote_status = ptr[0];
 
 	DP_INFO("dp_status: 0x%x\r\n", dp_data->remote_status);
 
@@ -775,8 +784,13 @@ static inline int dp_ufp_u_request_dp_status(struct pd_port *pd_port)
 {
 	bool ack;
 	struct dp_data *dp_data = pd_get_dp_data(pd_port);
+	uint32_t *ptr;
 
-	dp_data->remote_status = pd_get_msg_vdm_data_payload(pd_port)[0];
+	ptr = pd_get_msg_vdm_data_payload(pd_port);
+	if (!ptr)
+		dp_data->remote_status = 0;
+	else
+		dp_data->remote_status = ptr[0];
 
 	switch (dp_data->ufp_u_state) {
 	case DP_UFP_U_WAIT:
@@ -850,10 +864,14 @@ static inline void dp_ufp_u_auto_attention(struct pd_port *pd_port)
 static inline int dp_ufp_u_request_dp_config(struct pd_port *pd_port)
 {
 	bool ack = false;
-	uint32_t dp_config;
+	uint32_t dp_config, *ptr;
 	struct dp_data *dp_data = pd_get_dp_data(pd_port);
 
-	dp_config = pd_get_msg_vdm_data_payload(pd_port)[0];
+	ptr = pd_get_msg_vdm_data_payload(pd_port);
+	if (!ptr)
+		dp_config = 0;
+	else
+		dp_config = ptr[0];
 	DPM_DBG("dp_config: 0x%x\r\n", dp_config);
 
 	switch (dp_data->ufp_u_state) {
