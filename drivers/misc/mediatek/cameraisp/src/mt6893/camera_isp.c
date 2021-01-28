@@ -10990,9 +10990,6 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	union CAMCTL_TWIN_STATUS_ twinStatus;
 	unsigned int isStagger = 0;
 
-	isStagger = ((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
-				0x00400000)) >> 22;
-
 	/* Avoid touch hwmodule when clock is disable. */
 	/* DEVAPC will moniter this kind of err */
 	if (G_u4EnableClockCount == 0)
@@ -11030,6 +11027,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		LOG_NOTICE("Wrong IRQ module: %d", (unsigned int)module);
 		return IRQ_HANDLED;
 	}
+
+	isStagger = ((ISP_RD32(CAM_REG_TG_SEN_MODE(reg_module)) &
+				0x00400000)) >> 22;
 
 	spin_lock(&(IspInfo.SpinLockIrq[module]));
 	IrqStatus = ISP_RD32(CAM_REG_CTL_RAW_INT_STATUS(reg_module));
@@ -11398,7 +11398,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	}
 
 	if ((IrqStatus & SOF_INT_ST) && isStagger == 1)
-		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "DCIF_SOF");
+		IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_ERR, "CAM%c DCIF_SOF", 'A' + cardinalNum);
 
 	if (((IrqStatus & SOF_INT_ST) && isStagger == 0) ||
 		((IrqStatus & VS_INT_ST) && isStagger == 1 &&
