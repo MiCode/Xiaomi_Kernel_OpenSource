@@ -18,20 +18,24 @@
 
 #define CPU_DVFS_DT_REG	1
 
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 #define CONFIG_HYBRID_CPU_DVFS	1
 #define PPM_AP_SIDE	1
 #define EEM_AP_SIDE	1
 #define CCI_MAP_TBL_SUPPORT	1
 #define ENABLE_DOE              1
 #define MET_READY              1
-#define CPU_DVFS_NOT_READY	1
+/* #define IMAX_ENABLE             1 */
+#define IMAX_INIT_STATE         1
+/* #define CPU_DVFS_NOT_READY	1 */
 #define REPORT_IDLE_FREQ	1
+#define ENABLE_CLUSTER_ONOFF_SRAM	1
 #else
-#define SUPPORT_VOLT_HW_AUTO_TRACK 1
-#define CPU_DVFS_NOT_READY	1
+/* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
+/* #define CPU_DVFS_NOT_READY	1 */
 #endif
-
+#define DFD_WORKAROUND  1
+#define INIT_MCUPM_VOLTAGE_SETTING  1
 #define NR_FREQ		16
 #define NR_CCI_TBL		2
 
@@ -39,25 +43,25 @@
 #define SINGLE_CLUSTER 1
 
 /* EEM VBOOT */
-#define VBOOT_VOLT 80000
+#define VBOOT_VOLT 75000
 
 /* buck ctrl configs */
 #define NORMAL_DIFF_VRSAM_VPROC		10000
-#define MAX_DIFF_VSRAM_VPROC		22500
+#define MAX_DIFF_VSRAM_VPROC		25000
 #define MIN_VSRAM_VOLT			85000
 #define MAX_VSRAM_VOLT			112000
 #define MIN_VPROC_VOLT			60000
 #define MAX_VPROC_VOLT			112000
 
-#define UP_SRATE	1000
-#define DOWN_SRATE	750
+#define UP_SRATE	1250
+#define DOWN_SRATE	500
 #define PMIC_CMD_DELAY_TIME	5
 #define MIN_PMIC_SETTLE_TIME	5
 
 #define PLL_SETTLE_TIME		20
 #define POS_SETTLE_TIME		1
 
-#define DVFSP_DT_NODE		"mediatek,mt6785-dvfsp"
+#define DVFSP_DT_NODE		"mediatek,mt6885-dvfsp"
 
 #define CSRAM_BASE		0x0011bc00
 #define CSRAM_SIZE		0x1400		/* 5K bytes */
@@ -95,7 +99,9 @@ extern int mt_cpufreq_turbo_config(enum mt_cpu_dvfs_id id,
 extern int mt_cpufreq_regulator_map(struct platform_device *pdev);
 extern int mt_cpufreq_dts_map(void);
 extern unsigned int _mt_cpufreq_get_cpu_level(void);
-
+#ifdef DFD_WORKAROUND
+extern void _dfd_workaround(void);
+#endif
 /* CPU mask related */
 extern unsigned int cpufreq_get_nr_clusters(void);
 extern void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask,

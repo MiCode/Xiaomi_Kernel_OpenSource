@@ -54,6 +54,8 @@ enum cpu_dvfs_ipi_type {
 #endif
 	IPI_TURBO_MODE,
 	IPI_TIME_PROFILE,
+	IPI_SES_SET_VOLTAGE_DROP_RATIO,
+	IPI_INIT_VOLT_SETTING,
 
 	NR_DVFS_IPI,
 };
@@ -69,10 +71,17 @@ struct cdvfs_data {
 #ifdef ENABLE_DOE
 void srate_doe(void);
 #endif
+#ifdef DFD_WORKAROUND
+void cpuhvfs_write(void);
+int cpuhvfs_read_ack(void);
+#endif
+
 int cpuhvfs_module_init(void);
 int cpuhvfs_set_init_sta(void);
+int cpuhvfs_set_init_volt(void);
 int cpuhvfs_set_turbo_scale(unsigned int turbo_f, unsigned int turbo_v);
 int cpuhvfs_set_min_max(int cluster_id, int base, int limit);
+void cpuhvfs_write_advise_freq(int cluster_id, unsigned int has_advise_freq);
 int cpuhvfs_set_cluster_on_off(int cluster_id, int state);
 int cpuhvfs_set_dvfs(int cluster_id, unsigned int freq);
 int cpuhvfs_set_volt(int cluster_id, unsigned int volt);
@@ -87,6 +96,7 @@ int cpuhvfs_get_sched_dvfs_disable(void);
 int cpuhvfs_set_sched_dvfs_disable(unsigned int disable);
 int cpuhvfs_set_turbo_disable(unsigned int disable);
 int cpuhvfs_get_cur_dvfs_freq_idx(int cluster_id);
+unsigned int get_sram_table_volt(unsigned int cluster_id, int idx);
 #if 0
 int cpuhvfs_set_cpu_load_freq(unsigned int cpu,
 	enum cpu_dvfs_sched_type state, unsigned int freq);
