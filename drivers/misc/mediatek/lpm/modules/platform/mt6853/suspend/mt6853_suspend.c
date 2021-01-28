@@ -24,10 +24,10 @@
 #include <mtk_dbg_common_v1.h>
 #include <mt-plat/mtk_ccci_common.h>
 
-#include "mt6885.h"
-#include "mt6885_suspend.h"
+#include "mt6853.h"
+#include "mt6853_suspend.h"
 
-unsigned int mt6885_suspend_status;
+unsigned int mt6853_suspend_status;
 u64 before_md_sleep_time;
 u64 after_md_sleep_time;
 
@@ -52,13 +52,7 @@ void mtk_suspend_gpio_dbg(void)
 }
 EXPORT_SYMBOL(mtk_suspend_gpio_dbg);
 
-void mtk_suspend_clk_dbg(void)
-{
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
-	pll_if_on();
-	subsys_if_on();
-#endif /* CONFIG_FPGA_EARLY_PORTING */
-}
+void mtk_suspend_clk_dbg(void){}
 EXPORT_SYMBOL(mtk_suspend_clk_dbg);
 
 #define MD_SLEEP_INFO_SMEM_OFFEST (4)
@@ -86,7 +80,7 @@ static u64 get_md_sleep_time(void)
 #endif
 }
 
-static inline int mt6885_suspend_common_enter(unsigned int *susp_status)
+static inline int mt6853_suspend_common_enter(unsigned int *susp_status)
 {
 	unsigned int status = PLAT_VCORE_LP_MODE
 				| PLAT_PMIC_VCORE_SRCLKEN0
@@ -100,30 +94,29 @@ static inline int mt6885_suspend_common_enter(unsigned int *susp_status)
 }
 
 
-static inline int mt6885_suspend_common_resume(unsigned int susp_status)
+static inline int mt6853_suspend_common_resume(unsigned int susp_status)
 {
 	/* Implement suspend common flow here */
 	return 0;
 }
 
-int mt6885_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
+int mt6853_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 {
 	int ret = 0;
 	unsigned int spm_res = 0;
-	int is_resume_enter = 0;
 
-	mt6885_suspend_status = 0;
+	mt6853_suspend_status = 0;
 
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend enter\n",
 			__func__, __LINE__);
 
-	ret = mt6885_suspend_common_enter(&mt6885_suspend_status);
+	ret = mt6853_suspend_common_enter(&mt6853_suspend_status);
 
 	if (ret)
 		goto PLAT_LEAVE_SUSPEND;
 
 	/* Legacy SSPM flow, spm sw resource request flow */
-	mt6885_do_mcusys_prepare_pdn(mt6885_suspend_status, &spm_res);
+	mt6853_do_mcusys_prepare_pdn(mt6853_suspend_status, &spm_res);
 
 	printk_deferred("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
@@ -131,34 +124,19 @@ int mt6885_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 	/* Record md sleep time */
 	before_md_sleep_time = get_md_sleep_time();
 
-#ifdef CONFIG_MTK_CCCI_DEVICES
-	printk_deferred("[name:spm&][%s:%d] - notify MD that AP suspend\n",
-		__func__, __LINE__);
-	is_resume_enter = 1 << 0;
-	exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
-			(char *)&is_resume_enter, 4);
-#endif
+
 PLAT_LEAVE_SUSPEND:
 	return ret;
 }
 
-void mt6885_suspend_reflect(int cpu,
+void mt6853_suspend_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-	int is_resume_enter = 0;
-
-	printk_deferred("[name:spm&][%s:%d] - prepare resume\n",
+	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
 			__func__, __LINE__);
 
-#ifdef CONFIG_MTK_CCCI_DEVICES
-	printk_deferred("[name:spm&][%s:%d] - notify MD that AP resume\n",
-		__func__, __LINE__);
-	is_resume_enter = 1 << 1;
-	exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
-		(char *)&is_resume_enter, 4);
-#endif
-	mt6885_suspend_common_resume(mt6885_suspend_status);
-	mt6885_do_mcusys_prepare_on();
+	mt6853_suspend_common_resume(mt6853_suspend_status);
+	mt6853_do_mcusys_prepare_on();
 
 	printk_deferred("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
@@ -173,16 +151,16 @@ void mt6885_suspend_reflect(int cpu,
 			after_md_sleep_time - before_md_sleep_time);
 }
 
-struct mtk_lpm_model mt6885_model_suspend = {
+struct mtk_lpm_model mt6853_model_suspend = {
 	.flag = MTK_LP_REQ_NONE,
 	.op = {
-		.prompt = mt6885_suspend_prompt,
-		.reflect = mt6885_suspend_reflect,
+		.prompt = mt6853_suspend_prompt,
+		.reflect = mt6853_suspend_reflect,
 	}
 };
 
 #ifdef CONFIG_PM
-static int mt6885_spm_suspend_pm_event(struct notifier_block *notifier,
+static int mt6853_spm_suspend_pm_event(struct notifier_block *notifier,
 			unsigned long pm_event, void *unused)
 {
 	struct timespec ts;
@@ -216,20 +194,20 @@ static int mt6885_spm_suspend_pm_event(struct notifier_block *notifier,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block mt6885_spm_suspend_pm_notifier_func = {
-	.notifier_call = mt6885_spm_suspend_pm_event,
+static struct notifier_block mt6853_spm_suspend_pm_notifier_func = {
+	.notifier_call = mt6853_spm_suspend_pm_event,
 	.priority = 0,
 };
 #endif
 
-int __init mt6885_model_suspend_init(void)
+int __init mt6853_model_suspend_init(void)
 {
 	int ret;
 
-	mtk_lpm_suspend_registry("suspend", &mt6885_model_suspend);
+	mtk_lpm_suspend_registry("suspend", &mt6853_model_suspend);
 
 #ifdef CONFIG_PM
-	ret = register_pm_notifier(&mt6885_spm_suspend_pm_notifier_func);
+	ret = register_pm_notifier(&mt6853_spm_suspend_pm_notifier_func);
 	if (ret) {
 		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
 		return ret;

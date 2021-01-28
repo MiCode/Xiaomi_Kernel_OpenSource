@@ -22,7 +22,6 @@
 #include <mt6885_pwr_ctrl.h>
 #include <mt6885_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
-#include <mtk_power_gs_api.h>
 #include <mt-plat/mtk_ccci_common.h>
 #include <mtk_lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
@@ -138,8 +137,6 @@ struct spm_wakesrc_irq_list mt6885_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_AP2AP_PEER_WAKEUPEVENT_B, "mediatek,dpmaif", 0, 0},
 };
 
-#define WORLD_CLK_CNTCV_L        (0x10017008)
-#define WORLD_CLK_CNTCV_H        (0x1001700C)
 #define plat_mmio_read(offset)	__raw_readl(mt6885_spm_base + offset)
 
 #define IRQ_NUMBER	\
@@ -326,7 +323,7 @@ static void mt6885_suspend_show_detailed_wakeup_reason
 		if (mt6885_spm_wakesrc_irqs[i].name == NULL ||
 			!mt6885_spm_wakesrc_irqs[i].irq_no)
 			continue;
-		if (mt6885_spm_wakesrc_irqs[i].wakesrc == wakesta->r12) {
+		if (mt6885_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
 			irq_no = mt6885_spm_wakesrc_irqs[i].irq_no;
 			if (mt_irq_get_pending(irq_no))
 				log_wakeup_reason(irq_no);
@@ -610,8 +607,8 @@ static int mt6885_show_message(struct mt6885_spm_wake_status *wakesrc, int type,
 			log_size += scnprintf(log_buf + log_size,
 				LOG_BUF_OUT_SZ - log_size,
 				"wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x, 26M_off_pct = %d\n",
-				_golden_read_reg(WORLD_CLK_CNTCV_L),
-				_golden_read_reg(WORLD_CLK_CNTCV_H),
+				plat_mmio_read(SYS_TIMER_VALUE_L),
+				plat_mmio_read(SYS_TIMER_VALUE_H),
 				spm_26M_off_pct);
 		}
 	}

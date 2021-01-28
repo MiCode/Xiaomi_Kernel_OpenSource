@@ -17,36 +17,36 @@
 #include <aee.h>
 #include <mtk_lpm.h>
 
-#include <mt6873_spm_comm.h>
-#include <mt6873_spm_reg.h>
-#include <mt6873_pwr_ctrl.h>
-#include <mt6873_pcm_def.h>
+#include <mt6853_spm_comm.h>
+#include <mt6853_spm_reg.h>
+#include <mt6853_pwr_ctrl.h>
+#include <mt6853_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
 #include <mt-plat/mtk_ccci_common.h>
 #include <mtk_lpm_timer.h>
 #include <mtk_lpm_sysfs.h>
 
-#define MT6873_LOG_MONITOR_STATE_NAME	"mcusysoff"
-#define MT6873_LOG_DEFAULT_MS		5000
+#define MT6853_LOG_MONITOR_STATE_NAME	"mcusysoff"
+#define MT6853_LOG_DEFAULT_MS		5000
 
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
 
-static struct mt6873_spm_wake_status mt6873_wake;
-void __iomem *mt6873_spm_base;
+static struct mt6853_spm_wake_status mt6853_wake;
+void __iomem *mt6853_spm_base;
 
-struct mt6873_log_helper {
+struct mt6853_log_helper {
 	short cur;
 	short prev;
-	struct mt6873_spm_wake_status *wakesrc;
+	struct mt6853_spm_wake_status *wakesrc;
 };
-struct mt6873_log_helper mt6873_logger_help = {
-	.wakesrc = &mt6873_wake,
+struct mt6853_log_helper mt6853_logger_help = {
+	.wakesrc = &mt6853_wake,
 	.cur = 0,
 	.prev = 0,
 };
 
-const char *mt6873_wakesrc_str[32] = {
+const char *mt6853_wakesrc_str[32] = {
 	[0] = " R12_PCM_TIMER",
 	[1] = " R12_RESERVED_DEBUG_B",
 	[2] = " R12_KP_IRQ_B",
@@ -81,7 +81,7 @@ const char *mt6873_wakesrc_str[32] = {
 	[31] = " R12_PCIE_IRQ",
 };
 
-struct spm_wakesrc_irq_list mt6873_spm_wakesrc_irqs[] = {
+struct spm_wakesrc_irq_list mt6853_spm_wakesrc_irqs[] = {
 	/* mtk-kpd */
 	{ WAKE_SRC_STA1_KP_IRQ_B, "mediatek,kp", 0, 0},
 	/* mt_wdt */
@@ -122,7 +122,7 @@ struct spm_wakesrc_irq_list mt6873_spm_wakesrc_irqs[] = {
 	{ WAKE_SRC_STA1_AP2AP_PEER_WAKEUPEVENT_B, "mediatek,dpmaif", 0, 0},
 };
 
-#define plat_mmio_read(offset)	__raw_readl(mt6873_spm_base + offset)
+#define plat_mmio_read(offset)	__raw_readl(mt6853_spm_base + offset)
 u64 ap_pd_count;
 u64 ap_slp_duration;
 u64 spm_26M_off_count;
@@ -130,50 +130,50 @@ u64 spm_26M_off_duration;
 u32 before_ap_slp_duration;
 
 #define IRQ_NUMBER	\
-(sizeof(mt6873_spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
-static void mt6873_get_spm_wakesrc_irq(void)
+(sizeof(mt6853_spm_wakesrc_irqs)/sizeof(struct spm_wakesrc_irq_list))
+static void mt6853_get_spm_wakesrc_irq(void)
 {
 	int i;
 	struct device_node *node;
 
 	for (i = 0; i < IRQ_NUMBER; i++) {
-		if (mt6873_spm_wakesrc_irqs[i].name == NULL)
+		if (mt6853_spm_wakesrc_irqs[i].name == NULL)
 			continue;
 
 		node = of_find_compatible_node(NULL, NULL,
-			mt6873_spm_wakesrc_irqs[i].name);
+			mt6853_spm_wakesrc_irqs[i].name);
 		if (!node) {
 			pr_info("[name:spm&][SPM] find '%s' node failed\n",
-				mt6873_spm_wakesrc_irqs[i].name);
+				mt6853_spm_wakesrc_irqs[i].name);
 			continue;
 		}
 
-		mt6873_spm_wakesrc_irqs[i].irq_no =
+		mt6853_spm_wakesrc_irqs[i].irq_no =
 			irq_of_parse_and_map(node,
-				mt6873_spm_wakesrc_irqs[i].order);
+				mt6853_spm_wakesrc_irqs[i].order);
 
-		if (!mt6873_spm_wakesrc_irqs[i].irq_no) {
+		if (!mt6853_spm_wakesrc_irqs[i].irq_no) {
 			pr_info("[name:spm&][SPM] get '%s' failed\n",
-				mt6873_spm_wakesrc_irqs[i].name);
+				mt6853_spm_wakesrc_irqs[i].name);
 		}
 	}
 }
 
-struct mt6873_logger_timer {
+struct mt6853_logger_timer {
 	struct mt_lpm_timer tm;
 	unsigned int fired;
 };
-struct mt6873_logger_fired_info {
+struct mt6853_logger_fired_info {
 	unsigned int fired;
 	int state_index;
 };
 
-static struct mt6873_logger_timer mt6873_log_timer;
-static struct mt6873_logger_fired_info mt6873_logger_fired;
+static struct mt6853_logger_timer mt6853_log_timer;
+static struct mt6853_logger_fired_info mt6853_logger_fired;
 
-int mt6873_get_wakeup_status(struct mt6873_log_helper *help)
+int mt6853_get_wakeup_status(struct mt6853_log_helper *help)
 {
-	if (!help->wakesrc || !mt6873_spm_base)
+	if (!help->wakesrc || !mt6853_spm_base)
 		return -EINVAL;
 
 	help->wakesrc->r12 = plat_mmio_read(SPM_BK_WAKE_EVENT);
@@ -236,7 +236,7 @@ int mt6873_get_wakeup_status(struct mt6873_log_helper *help)
 	return 0;
 }
 
-static void mt6873_save_sleep_info(void)
+static void mt6853_save_sleep_info(void)
 {
 #define AVOID_OVERFLOW (0xFFFFFFFF00000000)
 	u32 off_26M_duration;
@@ -279,8 +279,8 @@ static void mt6873_save_sleep_info(void)
 			+ spm_26M_off_count;
 }
 
-static void mt6873_suspend_show_detailed_wakeup_reason
-	(struct mt6873_spm_wake_status *wakesta)
+static void mt6853_suspend_show_detailed_wakeup_reason
+	(struct mt6853_spm_wake_status *wakesta)
 {
 	int i;
 	unsigned int irq_no;
@@ -309,19 +309,19 @@ static void mt6873_suspend_show_detailed_wakeup_reason
 #endif
 	/* Check if pending irq happen and log them */
 	for (i = 0; i < IRQ_NUMBER; i++) {
-		if (mt6873_spm_wakesrc_irqs[i].name == NULL ||
-			!mt6873_spm_wakesrc_irqs[i].irq_no)
+		if (mt6853_spm_wakesrc_irqs[i].name == NULL ||
+			!mt6853_spm_wakesrc_irqs[i].irq_no)
 			continue;
-		if (mt6873_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
-			irq_no = mt6873_spm_wakesrc_irqs[i].irq_no;
+		if (mt6853_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
+			irq_no = mt6853_spm_wakesrc_irqs[i].irq_no;
 			if (mt_irq_get_pending(irq_no))
 				log_wakeup_reason(irq_no);
 		}
 	}
 }
 
-static void mt6873_suspend_spm_rsc_req_check
-	(struct mt6873_spm_wake_status *wakesta)
+static void mt6853_suspend_spm_rsc_req_check
+	(struct mt6853_spm_wake_status *wakesta)
 {
 #define LOG_BUF_SIZE		        256
 #define IS_BLOCKED_OVER_TIMES		10
@@ -407,7 +407,7 @@ static u32 is_blocked_cnt;
 	printk_deferred("[name:spm&][SPM] %s", log_buf);
 }
 
-static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
+static int mt6853_show_message(struct mt6853_spm_wake_status *wakesrc, int type,
 					const char *prefix, void *data)
 {
 #undef LOG_BUF_SIZE
@@ -539,9 +539,9 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 		}
 		for (i = 1; i < 32; i++) {
 			if (wakesrc->r12 & (1U << i)) {
-				if (IS_LOGBUF(buf, mt6873_wakesrc_str[i]))
-					strncat(buf, mt6873_wakesrc_str[i],
-						strlen(mt6873_wakesrc_str[i]));
+				if (IS_LOGBUF(buf, mt6853_wakesrc_str[i]))
+					strncat(buf, mt6853_wakesrc_str[i],
+						strlen(mt6853_wakesrc_str[i]));
 
 				wr = WR_WAKE_SRC;
 			}
@@ -606,8 +606,8 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 
 	if (type == MT_LPM_ISSUER_SUSPEND) {
 		printk_deferred("[name:spm&][SPM] %s", log_buf);
-		mt6873_suspend_show_detailed_wakeup_reason(wakesrc);
-		mt6873_suspend_spm_rsc_req_check(wakesrc);
+		mt6853_suspend_show_detailed_wakeup_reason(wakesrc);
+		mt6853_suspend_spm_rsc_req_check(wakesrc);
 
 		printk_deferred("[name:spm&][SPM] Suspended for %d.%03d seconds",
 			PCM_TICK_TO_SEC(wakesrc->timer_out),
@@ -623,56 +623,56 @@ static int mt6873_show_message(struct mt6873_spm_wake_status *wakesrc, int type,
 	return wr;
 }
 
-int mt6873_issuer_func(int type, const char *prefix, void *data)
+int mt6853_issuer_func(int type, const char *prefix, void *data)
 {
-	mt6873_get_wakeup_status(&mt6873_logger_help);
-	return mt6873_show_message(mt6873_logger_help.wakesrc,
+	mt6853_get_wakeup_status(&mt6853_logger_help);
+	return mt6853_show_message(mt6853_logger_help.wakesrc,
 					type, prefix, data);
 }
 
-struct mtk_lpm_issuer mt6873_issuer = {
-	.log = mt6873_issuer_func,
+struct mtk_lpm_issuer mt6853_issuer = {
+	.log = mt6853_issuer_func,
 };
 
-static int mt6873_idle_save_sleep_info_nb_func(struct notifier_block *nb,
+static int mt6853_idle_save_sleep_info_nb_func(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
 	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
 
 	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT))
-		mt6873_save_sleep_info();
+		mt6853_save_sleep_info();
 
 	return NOTIFY_OK;
 }
 
-struct notifier_block mt6873_idle_save_sleep_info_nb = {
-	.notifier_call = mt6873_idle_save_sleep_info_nb_func,
+struct notifier_block mt6853_idle_save_sleep_info_nb = {
+	.notifier_call = mt6853_idle_save_sleep_info_nb_func,
 };
 
-static void mt6873_suspend_save_sleep_info_func(void)
+static void mt6853_suspend_save_sleep_info_func(void)
 {
-	mt6873_save_sleep_info();
+	mt6853_save_sleep_info();
 }
 
-static struct syscore_ops mt6873_suspend_save_sleep_info_syscore_ops = {
-	.resume = mt6873_suspend_save_sleep_info_func,
+static struct syscore_ops mt6853_suspend_save_sleep_info_syscore_ops = {
+	.resume = mt6853_suspend_save_sleep_info_func,
 };
-static int mt6873_log_timer_func(unsigned long long dur, void *priv)
+static int mt6853_log_timer_func(unsigned long long dur, void *priv)
 {
-	struct mt6873_logger_timer *timer =
-			(struct mt6873_logger_timer *)priv;
-	struct mt6873_logger_fired_info *info = &mt6873_logger_fired;
+	struct mt6853_logger_timer *timer =
+			(struct mt6853_logger_timer *)priv;
+	struct mt6853_logger_fired_info *info = &mt6853_logger_fired;
 
 	if (timer->fired != info->fired) {
 		/* if the wake src had beed update before
 		 * then won't do wake src update
 		 */
-		if (mt6873_logger_help.prev == mt6873_logger_help.cur)
-			mt6873_get_wakeup_status(&mt6873_logger_help);
-		mt6873_show_message(mt6873_logger_help.wakesrc,
+		if (mt6853_logger_help.prev == mt6853_logger_help.cur)
+			mt6853_get_wakeup_status(&mt6853_logger_help);
+		mt6853_show_message(mt6853_logger_help.wakesrc,
 					MT_LPM_ISSUER_CPUIDLE,
 					"MCUSYSOFF", NULL);
-		mt6873_logger_help.prev = mt6873_logger_help.cur;
+		mt6853_logger_help.prev = mt6853_logger_help.cur;
 	} else
 		pr_info("[name:spm&][SPM] MCUSYSOFF Didn't enter low power scenario\n");
 
@@ -680,11 +680,11 @@ static int mt6873_log_timer_func(unsigned long long dur, void *priv)
 	return 0;
 }
 
-static int mt6873_logger_nb_func(struct notifier_block *nb,
+static int mt6853_logger_nb_func(struct notifier_block *nb,
 			unsigned long action, void *data)
 {
 	struct mtk_lpm_nb_data *nb_data = (struct mtk_lpm_nb_data *)data;
-	struct mt6873_logger_fired_info *info = &mt6873_logger_fired;
+	struct mt6853_logger_fired_info *info = &mt6853_logger_fired;
 
 	if (nb_data && (action == MTK_LPM_NB_BEFORE_REFLECT)
 	    && (nb_data->index == info->state_index))
@@ -693,37 +693,37 @@ static int mt6873_logger_nb_func(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-struct notifier_block mt6873_logger_nb = {
-	.notifier_call = mt6873_logger_nb_func,
+struct notifier_block mt6853_logger_nb = {
+	.notifier_call = mt6853_logger_nb_func,
 };
 
-static ssize_t mt6873_logger_debugfs_read(char *ToUserBuf,
+static ssize_t mt6853_logger_debugfs_read(char *ToUserBuf,
 					size_t sz, void *priv)
 {
 	char *p = ToUserBuf;
 	int len;
 
-	if (priv == ((void *)&mt6873_log_timer)) {
+	if (priv == ((void *)&mt6853_log_timer)) {
 		len = scnprintf(p, sz, "%lu\n",
-			mtk_lpm_timer_interval(&mt6873_log_timer.tm));
+			mtk_lpm_timer_interval(&mt6853_log_timer.tm));
 		p += len;
 	}
 
 	return (p - ToUserBuf);
 }
 
-static ssize_t mt6873_logger_debugfs_write(char *FromUserBuf,
+static ssize_t mt6853_logger_debugfs_write(char *FromUserBuf,
 				   size_t sz, void *priv)
 {
-	if (priv == ((void *)&mt6873_log_timer)) {
+	if (priv == ((void *)&mt6853_log_timer)) {
 		unsigned int val = 0;
 
 		if (!kstrtouint(FromUserBuf, 10, &val)) {
 			if (val == 0)
-				mtk_lpm_timer_stop(&mt6873_log_timer.tm);
+				mtk_lpm_timer_stop(&mt6853_log_timer.tm);
 			else
 				mtk_lpm_timer_interval_update(
-						&mt6873_log_timer.tm, val);
+						&mt6853_log_timer.tm, val);
 		}
 	}
 	return sz;
@@ -733,30 +733,30 @@ struct MT6886_LOGGER_NODE {
 	struct mtk_lp_sysfs_handle handle;
 	struct mtk_lp_sysfs_op op;
 };
-#define MT6873_LOGGER_NODE_INIT(_n, _priv) ({\
-	_n.op.fs_read = mt6873_logger_debugfs_read;\
-	_n.op.fs_write = mt6873_logger_debugfs_write;\
+#define MT6853_LOGGER_NODE_INIT(_n, _priv) ({\
+	_n.op.fs_read = mt6853_logger_debugfs_read;\
+	_n.op.fs_write = mt6853_logger_debugfs_write;\
 	_n.op.priv = _priv; })\
 
 
-struct mtk_lp_sysfs_handle mt6873_log_tm_node;
-struct MT6886_LOGGER_NODE mt6873_log_tm_interval;
+struct mtk_lp_sysfs_handle mt6853_log_tm_node;
+struct MT6886_LOGGER_NODE mt6853_log_tm_interval;
 
-int mt6873_logger_timer_debugfs_init(void)
+int mt6853_logger_timer_debugfs_init(void)
 {
 	mtk_lpm_sysfs_sub_entry_add("logger", 0644,
-				NULL, &mt6873_log_tm_node);
+				NULL, &mt6853_log_tm_node);
 
-	MT6873_LOGGER_NODE_INIT(mt6873_log_tm_interval,
-				&mt6873_log_timer);
+	MT6853_LOGGER_NODE_INIT(mt6853_log_tm_interval,
+				&mt6853_log_timer);
 	mtk_lpm_sysfs_sub_entry_node_add("interval", 0644,
-				&mt6873_log_tm_interval.op,
-				&mt6873_log_tm_node,
-				&mt6873_log_tm_interval.handle);
+				&mt6853_log_tm_interval.op,
+				&mt6853_log_tm_node,
+				&mt6853_log_tm_interval.handle);
 	return 0;
 }
 
-int __init mt6873_logger_init(void)
+int __init mt6853_logger_init(void)
 {
 	struct device_node *node = NULL;
 	struct cpuidle_driver *drv;
@@ -765,50 +765,50 @@ int __init mt6873_logger_init(void)
 	node = of_find_compatible_node(NULL, NULL, "mediatek,sleep");
 
 	if (node) {
-		mt6873_spm_base = of_iomap(node, 0);
+		mt6853_spm_base = of_iomap(node, 0);
 		of_node_put(node);
 	}
 
-	if (mt6873_spm_base)
-		mtk_lp_issuer_register(&mt6873_issuer);
+	if (mt6853_spm_base)
+		mtk_lp_issuer_register(&mt6853_issuer);
 	else
 		pr_info("[name:mtk_lpm][P] - Don't register the issue by error! (%s:%d)\n",
 			__func__, __LINE__);
 
 
-	mt6873_get_spm_wakesrc_irq();
+	mt6853_get_spm_wakesrc_irq();
 	mtk_lpm_sysfs_root_entry_create();
-	mt6873_logger_timer_debugfs_init();
+	mt6853_logger_timer_debugfs_init();
 
 	dev = cpuidle_get_device();
 	drv = cpuidle_get_cpu_driver(dev);
-	mt6873_logger_fired.state_index = -1;
+	mt6853_logger_fired.state_index = -1;
 
 	if (drv) {
 		int idx;
 
 		for (idx = 0; idx < drv->state_count; ++idx) {
-			if (!strcmp(MT6873_LOG_MONITOR_STATE_NAME,
+			if (!strcmp(MT6853_LOG_MONITOR_STATE_NAME,
 					drv->states[idx].name)) {
-				mt6873_logger_fired.state_index = idx;
+				mt6853_logger_fired.state_index = idx;
 				break;
 			}
 		}
 	}
 
-	mtk_lpm_notifier_register(&mt6873_logger_nb);
-	mtk_lpm_notifier_register(&mt6873_idle_save_sleep_info_nb);
+	mtk_lpm_notifier_register(&mt6853_logger_nb);
+	mtk_lpm_notifier_register(&mt6853_idle_save_sleep_info_nb);
 
-	mt6873_log_timer.tm.timeout = mt6873_log_timer_func;
-	mt6873_log_timer.tm.priv = &mt6873_log_timer;
-	mtk_lpm_timer_init(&mt6873_log_timer.tm, MTK_LPM_TIMER_REPEAT);
-	mtk_lpm_timer_interval_update(&mt6873_log_timer.tm,
-					MT6873_LOG_DEFAULT_MS);
-	mtk_lpm_timer_start(&mt6873_log_timer.tm);
+	mt6853_log_timer.tm.timeout = mt6853_log_timer_func;
+	mt6853_log_timer.tm.priv = &mt6853_log_timer;
+	mtk_lpm_timer_init(&mt6853_log_timer.tm, MTK_LPM_TIMER_REPEAT);
+	mtk_lpm_timer_interval_update(&mt6853_log_timer.tm,
+					MT6853_LOG_DEFAULT_MS);
+	mtk_lpm_timer_start(&mt6853_log_timer.tm);
 
-	register_syscore_ops(&mt6873_suspend_save_sleep_info_syscore_ops);
+	register_syscore_ops(&mt6853_suspend_save_sleep_info_syscore_ops);
 
 	return 0;
 }
-late_initcall_sync(mt6873_logger_init);
+late_initcall_sync(mt6853_logger_init);
 
