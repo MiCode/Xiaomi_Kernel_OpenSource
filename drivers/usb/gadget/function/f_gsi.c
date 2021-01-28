@@ -163,6 +163,8 @@ static int gsi_wakeup_host(struct f_gsi *gsi)
 	if ((gadget->speed >= USB_SPEED_SUPER) && (gsi->func_is_suspended)) {
 		log_event_dbg("%s: Calling usb_func_wakeup", __func__);
 		ret = usb_func_wakeup(func);
+		if (ret == -EAGAIN)
+			gsi->func_wakeup_pending = true;
 	} else {
 		log_event_dbg("%s: Calling usb_gadget_wakeup", __func__);
 		ret = usb_gadget_wakeup(gadget);
@@ -1905,9 +1907,11 @@ static int queue_notification_request(struct f_gsi *gsi)
 
 		log_event_dbg("%s wakeup host\n", __func__);
 		if (gadget->speed >= USB_SPEED_SUPER
-		    && gsi->func_is_suspended)
+		    && gsi->func_is_suspended) {
 			ret = usb_func_wakeup(func);
-		else
+			if (ret == -EAGAIN)
+				gsi->func_wakeup_pending = true;
+		} else
 			ret = usb_gadget_wakeup(gadget);
 
 		gsi->rwake_inprogress = true;
@@ -2548,6 +2552,7 @@ static int gsi_set_alt(struct usb_function *f, unsigned int intf,
 	}
 
 	gsi->c_port.is_suspended = false;
+	gsi->func_wakeup_pending = false;
 	atomic_set(&gsi->connected, 1);
 
 	/* send 0 len pkt to qti to notify state change */
@@ -2662,8 +2667,13 @@ static void gsi_resume(struct usb_function *f)
 	 * canceled. In this case resume is done by a Function Resume request.
 	 */
 	if ((cdev->gadget->speed >= USB_SPEED_SUPER) &&
-		gsi->func_is_suspended)
+		gsi->func_is_suspended) {
+		if (gsi->func_wakeup_pending) {
+			usb_func_wakeup(&gsi->function);
+			gsi->func_wakeup_pending = false;
+		}
 		return;
+	}
 
 	/* Keep timer enabled if user enabled using debugfs */
 	if (!gsi->debugfs_rw_timer_enable)
@@ -3332,7 +3342,7 @@ static void gsi_unbind(struct usb_configuration *c, struct usb_function *f)
 	rmnet_gsi_string_defs[0].id = 0;
 	mbim_gsi_string_defs[0].id  = 0;
 	qdss_gsi_string_defs[0].id  = 0;
-
+	gsi->func_wakeup_pending = false;
 	if (gsi->prot_id == IPA_USB_RNDIS) {
 		gsi->d_port.sm_state = STATE_UNINITIALIZED;
 		rndis_deregister(gsi->params);
