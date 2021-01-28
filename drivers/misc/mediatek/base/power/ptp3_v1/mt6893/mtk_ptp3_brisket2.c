@@ -557,7 +557,7 @@ int brisket2_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(brisket2_entries); i++) {
 		if (!proc_create(brisket2_entries[i].name,
-			0664,
+			0660,
 			brisket2_dir,
 			brisket2_entries[i].fops)) {
 			brisket2_debug("[%s]: create /proc/%s/brisket2/%s failed\n",

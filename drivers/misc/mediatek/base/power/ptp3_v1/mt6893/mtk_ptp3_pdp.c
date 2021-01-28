@@ -402,7 +402,7 @@ int pdp_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(pdp_entries); i++) {
 		if (!proc_create(pdp_entries[i].name,
-			0664,
+			0660,
 			pdp_dir,
 			pdp_entries[i].fops)) {
 			pdp_err("[%s]: create /proc/%s/pdp/%s failed\n",

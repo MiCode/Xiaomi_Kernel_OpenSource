@@ -774,7 +774,7 @@ int ctt_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(ctt_entries); i++) {
 		if (!proc_create(ctt_entries[i].name,
-			0664,
+			0660,
 			ctt_dir,
 			ctt_entries[i].fops)) {
 			ctt_debug("[%s]: create /proc/%s/ctt/%s failed\n",

@@ -807,7 +807,7 @@ int drcc_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(drcc_entries); i++) {
 		if (!proc_create(drcc_entries[i].name,
-			0664,
+			0660,
 			dir,
 			drcc_entries[i].fops)) {
 			drcc_err("[%s]: create /proc/%s/%s failed\n",

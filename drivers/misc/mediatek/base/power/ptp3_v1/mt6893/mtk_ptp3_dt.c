@@ -498,7 +498,7 @@ int dt_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(dt_entries); i++) {
 		if (!proc_create(dt_entries[i].name,
-			0664,
+			0660,
 			dt_dir,
 			dt_entries[i].fops)) {
 			dt_err("[%s]: create /proc/%s/dt/%s failed\n",

@@ -904,7 +904,7 @@ int fll_create_procfs(const char *proc_name, struct proc_dir_entry *dir)
 
 	for (i = 0; i < ARRAY_SIZE(fll_entries); i++) {
 		if (!proc_create(fll_entries[i].name,
-			0664,
+			0660,
 			fll_dir,
 			fll_entries[i].fops)) {
 			fll_debug("[%s]: create /proc/%s/fll/%s failed\n",
