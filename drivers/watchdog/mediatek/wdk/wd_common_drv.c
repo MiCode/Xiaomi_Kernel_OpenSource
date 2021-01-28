@@ -117,6 +117,7 @@ static struct notifier_block wdt_pm_nb;
 #ifdef KWDT_KICK_TIME_ALIGN
 static unsigned long g_nxtKickTime;
 #endif
+static int g_hang_detected;
 
 static char cmd_buf[256];
 
@@ -320,7 +321,7 @@ static int start_kicker_thread_with_default_setting(void)
 
 	spin_lock(&lock);
 
-	g_kinterval = 20;	/* default interval: 20s */
+	g_kinterval = 15;	/* default interval: 15s, timeout between 15-30s */
 
 	g_need_config = 0;/* Note, we DO NOT want to call configure function */
 
@@ -353,6 +354,17 @@ void dump_wdk_bind_info(void)
 
 #ifdef CONFIG_MTK_AEE_IPANIC
 	aee_sram_fiq_log("\n");
+#endif
+	snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
+		"[wdk] dump at %lld\n", sched_clock());
+#ifdef CONFIG_MTK_AEE_IPANIC
+	aee_sram_fiq_log(wk_tsk_buf);
+#endif
+	snprintf(wk_tsk_buf, sizeof(wk_tsk_buf),
+		"[wdk]kick_bits: 0x%x, check_bits: 0x%x\n",
+		get_kick_bit(), get_check_bit());
+#ifdef CONFIG_MTK_AEE_IPANIC
+	aee_sram_fiq_log(wk_tsk_buf);
 #endif
 	for (i = 0; i < CPU_NR; i++) {
 		if (wk_tsk[i] != NULL) {
@@ -499,11 +511,16 @@ static void kwdt_print_utc(char *msg_buf, int msg_buf_size)
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
+	unsigned int dump_timeout = 0;
+
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
 		/* pr_debug("[wdk] set kick_bit\n"); */
 		local_bit |= (1 << cpu);
 		/* aee_rr_rec_wdk_kick_jiffies(jiffies); */
+	} else if (g_hang_detected == 0) {
+		g_hang_detected = 1;
+		dump_timeout = 1;
 	}
 
 	/*
@@ -535,6 +552,9 @@ static void kwdt_process_kick(int local_bit, int cpu,
 		pr_info("%s", msg_buf);
 	else
 		printk_deferred("%s", msg_buf);
+
+	if (dump_timeout)
+		dump_wdk_bind_info();
 
 #ifdef CONFIG_LOCAL_WDT
 	printk_deferred("[wdk] cpu:%d, kick local wdt,RT[%lld]\n",

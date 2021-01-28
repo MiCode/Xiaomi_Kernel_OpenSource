@@ -223,6 +223,9 @@ void mtk_wdt_set_time_out_value(unsigned int value)
 	/* 1 tick means 512 * T32K -> 1s = T32/512 tick = 64 */
 	/* --> value * (1<<6) */
 	timeout = (unsigned int)(value * (1 << 6));
+	/* max timeout is 0x7FF */
+	if (timeout > 0x7FF)
+		timeout = 0x7FF;
 	timeout = timeout << 5;
 	mt_reg_sync_writel((timeout | MTK_WDT_LENGTH_KEY), MTK_WDT_LENGTH);
 	#endif
@@ -1394,7 +1397,7 @@ static int mtk_wdt_probe(struct platform_device *dev)
 	#endif
 
 	/* Set timeout vale and restart counter */
-	wdt_last_timeout_val = 30;
+	wdt_last_timeout_val = 32;
 	mtk_wdt_set_time_out_value(wdt_last_timeout_val);
 
 	mtk_wdt_restart(WD_TYPE_NORMAL);
