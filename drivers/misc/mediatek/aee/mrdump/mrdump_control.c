@@ -180,6 +180,12 @@ __init void mrdump_cblock_init(void)
 #if defined(CONFIG_SPARSEMEM_VMEMMAP)
 	machdesc_p->memmap = (uintptr_t)vmemmap;
 #endif
+
+	machdesc_p->pageflags = (1UL << PG_uptodate) + (1UL << PG_dirty) +
+				(1UL << PG_lru) + (1UL << PG_writeback);
+
+	machdesc_p->struct_page_size = (uint32_t)sizeof(struct page);
+
 	mrdump_cblock_kallsyms_init(&machdesc_p->kallsyms);
 	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
 			sizeof(struct mrdump_machdesc));
