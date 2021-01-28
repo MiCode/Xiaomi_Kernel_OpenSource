@@ -194,6 +194,7 @@ int hal_rx_dma_irq_handler(struct _MTK_DMA_INFO_STR_ *p_dma_info,
  *****************************************************************************/
 int hal_dma_dump_reg(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 		     enum _ENUM_BTIF_REG_ID_ flag);
+void hal_dma_dump_vfifo(struct _MTK_DMA_INFO_STR_ *p_dma_info);
 
 int hal_dma_pm_ops(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 		   enum _MTK_BTIF_PM_OPID_ opid);
