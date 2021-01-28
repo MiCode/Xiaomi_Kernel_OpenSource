@@ -2367,7 +2367,7 @@
 		reg = <0 0x11019000 0 0x1000>;
 	};
 
-	usb0@11200000 {
+	usb: usb0@11200000 {
 		compatible = "mediatek,mt6765-usb20";
 		reg = <0 0x11200000 0 0x10000>,
 		      <0 0x11CC0000 0 0x10000>;
@@ -2381,6 +2381,7 @@
 		clock-names = "usb0",
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
+		charger = <&mt6370_chg>;
 	};
 
 	usb_sif@11210000 {
