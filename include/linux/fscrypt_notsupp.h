@@ -126,7 +126,7 @@ static inline void fscrypt_put_encryption_info(struct inode *inode)
 	return;
 }
 
-void *fscrypt_crypt_info_act(void *ci, int act)
+static inline void *fscrypt_crypt_info_act(void *ci, int act)
 {
 	return NULL;
 }
