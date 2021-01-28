@@ -173,9 +173,6 @@ const struct drm_format_info *__drm_format_info(u32 format)
 		{ .format = DRM_FORMAT_UYVY,		.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 2, .vsub = 1 },
 		{ .format = DRM_FORMAT_VYUY,		.depth = 0,  .num_planes = 1, .cpp = { 2, 0, 0 }, .hsub = 2, .vsub = 1 },
 		{ .format = DRM_FORMAT_AYUV,		.depth = 0,  .num_planes = 1, .cpp = { 4, 0, 0 }, .hsub = 1, .vsub = 1 },
-		{ .format = DRM_FORMAT_ABGRFP16,
-			.depth = 64, .num_planes = 1,
-			.cpp = { 8, 0, 0 }, .hsub = 1, .vsub = 1 },
 	};
 
 	unsigned int i;

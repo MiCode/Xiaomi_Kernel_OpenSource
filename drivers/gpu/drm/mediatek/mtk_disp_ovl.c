@@ -916,7 +916,7 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		return OVL_CON_CLRFMT_RGBA8888 | OVL_CON_BYTE_SWAP;
-	case DRM_FORMAT_ABGRFP16:
+	case DRM_FORMAT_ABGR16161616F:
 		if (modifier & MTK_FMT_PREMULTIPLIER)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
@@ -1504,7 +1504,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 	if (fmt == DRM_FORMAT_ABGR2101010)
 		fmt_ex = 1;
-	else if (fmt == DRM_FORMAT_ABGRFP16)
+	else if (fmt == DRM_FORMAT_ABGR16161616F)
 		fmt_ex = 3;
 
 	if (ext_lye_idx != LYE_NORMAL) {
