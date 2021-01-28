@@ -28,3 +28,6 @@ ccflags-y += -Wno-unused-function
 
 obj-y += mtk_gpufreq_plat.o
 
+ifeq ($(findstring k6853tv1,$(PROJECT_DTB_NAMES)),k6853tv1)
+	subdir-ccflags-y = -DK6853TV1
+endif
