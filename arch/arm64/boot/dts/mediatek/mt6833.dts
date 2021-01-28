@@ -692,6 +692,16 @@ page_owner=on";
 		reg = <0 0x10005000 0 0x1000>;
 	};
 
+	udi: udi@10005000 {
+		compatible = "mediatek,udi";
+		reg = <0 0x10005000 0 0x1000>;
+		udi_offset1 = <0x3F0>;
+		udi_value1 = <0x44400000>;
+		udi_offset2 = <0x400>;
+		udi_value2 = <0x00000044>;
+		ecc_debug = <1>;
+	};
+
 	pio: pinctrl {
 		compatible = "mediatek,mt6833-pinctrl";
 		reg_bases = <&gpio>,
