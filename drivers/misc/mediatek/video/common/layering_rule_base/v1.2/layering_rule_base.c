@@ -872,6 +872,9 @@ static int ext_id_tuning(struct disp_layer_info *info, int disp)
 	int rc_mode = get_round_corner_mode(rc_opt);
 #endif
 
+	if (disp < 0)
+		return -EFAULT;
+
 	if (info->layer_num[disp] <= 0)
 		return 0;
 
