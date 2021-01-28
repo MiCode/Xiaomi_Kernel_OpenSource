@@ -271,8 +271,11 @@ int pe_hal_get_charger_type(struct chg_alg_device *alg)
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		return -EINVAL;
 	} else {
 		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
+		if (info == NULL)
+			return -EINVAL;
 		ret = info->chr_type;
 	}
 
