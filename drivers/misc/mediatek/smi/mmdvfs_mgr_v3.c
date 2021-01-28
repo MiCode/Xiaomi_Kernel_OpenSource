@@ -16,8 +16,10 @@
 
 #include "mtk_gpu_utility.h"
 #include "mtk_smi.h"
-#include "mtk_vcorefs_manager.h"
+/*#include "mtk_vcorefs_manager.h"*/
+#ifdef PLL_HOPPING_READY
 #include "mtk_freqhopping_drv.h"
+#endif
 #include "mmdvfs_mgr.h"
 #include "mmdvfs_config_util.h"
 #include "mmdvfs_internal.h"
@@ -298,7 +300,7 @@ int mmdvfs_internal_set_fine_step(const char *adaptor_name,
 	spin_unlock(&g_mmdvfs_mgr->scen_lock);
 
 	/* Change HW configuration */
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef MMDVFS_QOS_SUPPORT
 	mmdvfs_qos_update(step_util, final_step);
 #else
 	adaptor->apply_hw_configurtion_by_step(
@@ -367,14 +369,14 @@ void mmdvfs_internal_notify_vcore_calibration(
 	}
 	if (event->event_type == MMDVFS_EVENT_PREPARE_CALIBRATION_START) {
 		g_mmdvfs_mgr->is_mmdvfs_start = 0;
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef MMDVFS_QOS_SUPPORT
 		mmdvfs_qos_enable(false);
 #endif
 		MMDVFSMSG("mmdvfs service is disabled for calibration\n");
 	} else if (event->event_type ==
 		MMDVFS_EVENT_PREPARE_CALIBRATION_END) {
 		g_mmdvfs_mgr->is_mmdvfs_start = 1;
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef MMDVFS_QOS_SUPPORT
 		mmdvfs_qos_enable(true);
 #endif
 		MMDVFSMSG("mmdvfs service has been enabled\n");
@@ -875,6 +877,8 @@ void mmdvfs_init(void)
 		g_mmdvfs_mgr->is_mmdvfs_start = 1;
 	if (mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_ZIO)
 		g_mmdvfs_mgr->is_mmdvfs_start = 1;
+	if (mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_MER)
+		g_mmdvfs_mgr->is_mmdvfs_start = 1;
 	if (mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_SYL)
 		g_mmdvfs_mgr->is_mmdvfs_start = 1;
 	if (mmdvfs_get_mmdvfs_profile() == MMDVFS_PROFILE_CAN)
@@ -1221,6 +1225,8 @@ int mmdvfs_get_mmdvfs_profile(void)
 	mmdvfs_profile_id = MMDVFS_PROFILE_VIN;
 #elif defined(SMI_ZIO)
 	mmdvfs_profile_id = MMDVFS_PROFILE_ZIO;
+#elif defined(SMI_MER)
+	mmdvfs_profile_id = MMDVFS_PROFILE_MER;
 #elif defined(SMI_SYL)
 	mmdvfs_profile_id = MMDVFS_PROFILE_SYL;
 #elif defined(SMI_CAN)

@@ -189,6 +189,7 @@ extern int primary_display_switch_mode_for_mmdvfs(
 #define MMDVFS_PROFILE_ZIO (15)
 #define MMDVFS_PROFILE_SYL (16)
 #define MMDVFS_PROFILE_CAN (17)
+#define MMDVFS_PROFILE_MER (18)
 
 /* Macro used to resovling step setting ioctl command */
 #define MMDVFS_IOCTL_CMD_STEP_FIELD_LEN (8)

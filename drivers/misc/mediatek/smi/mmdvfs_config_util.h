@@ -251,7 +251,7 @@ extern u32 camera_bw_config;
 
 void mmdvfs_config_util_init(void);
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef MMDVFS_QOS_SUPPORT
 void mmdvfs_qos_update(struct mmdvfs_step_util *step_util, int new_step);
 int set_qos_scenario(const char *val, const struct kernel_param *kp);
 int get_qos_scenario(char *buf, const struct kernel_param *kp);

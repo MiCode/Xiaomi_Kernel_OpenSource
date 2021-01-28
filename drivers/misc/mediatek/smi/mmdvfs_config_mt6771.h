@@ -109,7 +109,7 @@ struct mmdvfs_clk_hw_map mt6771_mmdvfs_clk_hw_map[MMDVFS_CLK_MUX_NUM] = {
 };
 
 struct mmdvfs_profile_mask qos_apply_profiles[] = {
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef MMDVFS_QOS_SUPPORT
 	{"SMVR", SMI_BWC_SCEN_VR_SLOW, MMDVFS_FINE_STEP_OPP0 },
 	{"SMVR", SMI_BWC_SCEN_VR_SLOW, MMDVFS_FINE_STEP_OPP1 },
 	{"4K VP", SMI_BWC_SCEN_VP_HIGH_RESOLUTION, MMDVFS_FINE_STEP_OPP0 },

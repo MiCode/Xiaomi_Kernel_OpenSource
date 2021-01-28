@@ -31,11 +31,19 @@ ccflags-$(CONFIG_MTK_SMI_EXT) += -I$(srctree)/drivers/misc/mediatek/smi/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(CONFIG_MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/mt-plat
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
 ccflags-y += -DSMI_ZIO
 ccflags-y += -DMMDVFS_HOOK
 ccflags-y += -I$(srctree)/drivers/clk/mediatek
+obj-y += mmdvfs_mgr_v3.o
+obj-y += mmdvfs_profile_adaptor.o
+obj-y += mmdvfs_mgr_util.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))
+ccflags-y += -DSMI_MER
+ccflags-y += -DMMDVFS_HOOK
+ccflags-y += -DMMDVFS_QOS_SUPPORT
 obj-y += mmdvfs_mgr_v3.o
 obj-y += mmdvfs_profile_adaptor.o
 obj-y += mmdvfs_mgr_util.o
