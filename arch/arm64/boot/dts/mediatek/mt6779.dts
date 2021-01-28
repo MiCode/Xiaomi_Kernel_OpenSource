@@ -22,6 +22,7 @@
 #include <dt-bindings/soc/mediatek,boot-mode.h>
 #include <dt-bindings/interconnect/mtk,mt6779-emi.h>
 #include <dt-bindings/usb/pd.h>
+#include <dt-bindings/reset/ti-syscon.h>
 
 / {
 	model = "mt6779";
@@ -797,11 +798,28 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			#clock-cells = <1>;
 		};
 
-		infracfg_ao: clock-controller@10001000 {
+		infracfg_ao: clock-reset-controller@10001000 {
 			compatible = "mediatek,common-infracfg_ao",
-				     "mediatek,mt6779-infracfg_ao", "syscon";
+				     "mediatek,mt6779-infracfg_ao", "syscon", "simple-mfd";
 			reg = <0 0x10001000 0 0x1000>;
 			#clock-cells = <1>;
+
+			infracfg_rst: reset-controller {
+				compatible = "ti,syscon-reset";
+				#reset-cells = <1>;
+
+				ti,reset-bits = <
+					/* 0: ufs: hci_rst */
+					0x130 15 0x134 15 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE)
+					/* 1: ufs: unipro_rst */
+					0x140  7 0x144  7 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE)
+					/* 2: ufs: crypto_rst */
+					0x150 21 0x154 21 0 0
+					(ASSERT_SET | DEASSERT_SET | STATUS_NONE)
+				>;
+			};
 		};
 
 		lastbus@10001000 {
@@ -2249,6 +2267,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 			vcc-supply = <&mt_pmic_vemc_ldo_reg>;
 			vccq2-supply = <&mt_pmic_vufs_ldo_reg>;
+
+			resets = <&infracfg_rst 0>, <&infracfg_rst 1>,
+				 <&infracfg_rst 2>;
+			reset-names = "hci_rst", "unipro_rst", "crypto_rst";
 
 			/* Reference clock control mode */
 			/* SW mode: 0, Half-HW mode: 1, HW mode: 2 */
