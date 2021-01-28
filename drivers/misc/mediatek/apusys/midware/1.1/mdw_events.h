@@ -81,8 +81,9 @@ TRACE_EVENT(mdw_cmd,
 		__entry->sc_idx = sc_idx;
 		__entry->num_sc = num_sc;
 		__entry->type = type;
-		snprintf(__entry->dev_name, MDW_DEV_NAME_SIZE,
-			"%s", dev_name);
+		if (snprintf(__entry->dev_name, MDW_DEV_NAME_SIZE,
+			"%s", dev_name) < 0)
+			return;
 		__entry->dev_idx = dev_idx;
 		__entry->pack_id = pack_id;
 		__entry->multicore_idx = multicore_idx;

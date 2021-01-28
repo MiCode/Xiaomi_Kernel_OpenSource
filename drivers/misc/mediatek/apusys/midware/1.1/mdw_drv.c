@@ -443,6 +443,12 @@ static long mdw_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			goto out;
 		}
 
+		if (us.dev_type >= APUSYS_DEVICE_MAX || us.dev_type < 0) {
+			mdw_drv_err("invalid sec type(%d)\n", us.dev_type);
+			ret = -EINVAL;
+			goto out;
+		}
+
 		ret = mdw_usr_dev_sec_free(us.dev_type, u);
 		break;
 

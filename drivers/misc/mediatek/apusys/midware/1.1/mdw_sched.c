@@ -77,13 +77,17 @@ static void mdw_sched_trace(struct mdw_apu_sc *sc,
 	memset(state, 0, sizeof(state));
 	if (!done) {
 		mdw_sched_met_start(sc, d);
-		snprintf(state, sizeof(state)-1, "start :");
+		if (snprintf(state, sizeof(state)-1, "start :") < 0)
+			return;
 	} else {
 		mdw_sched_met_end(sc, d, ret);
-		if (ret)
-			snprintf(state, sizeof(state)-1, "fail :");
-		else
-			snprintf(state, sizeof(state)-1, "done :");
+		if (ret) {
+			if (snprintf(state, sizeof(state)-1, "fail :") < 0)
+				return;
+		} else {
+			if (snprintf(state, sizeof(state)-1, "done :") < 0)
+				return;
+		}
 	}
 
 	/* if err, use mdw_drv_err */
@@ -631,12 +635,14 @@ void mdw_sched_set_thd_group(void)
 	}
 
 	memset(buf, 0, sizeof(buf));
-	snprintf(buf, sizeof(buf)-1, "%d", ms_mgr.task->pid);
+	if (snprintf(buf, sizeof(buf)-1, "%d", ms_mgr.task->pid) < 0)
+		goto fail_set_name;
 	vfs_write(fd, (__force const char __user *)buf,
 		sizeof(buf), &fd->f_pos);
 	mdw_drv_debug("setup worker(%d/%s) to group\n",
 		ms_mgr.task->pid, buf);
 
+fail_set_name:
 	filp_close(fd, NULL);
 out:
 	set_fs(oldfs);

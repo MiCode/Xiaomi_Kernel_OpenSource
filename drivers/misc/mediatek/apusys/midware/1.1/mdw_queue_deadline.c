@@ -195,7 +195,8 @@ static struct mdw_apu_sc *mdw_queue_deadline_pop(void *q)
 	if (entry)
 		atomic_dec(&root->cnt);
 	mutex_unlock(&root->lock);
-	mdw_rsc_update_avl_bmp(entry->type);
+	if (entry)
+		mdw_rsc_update_avl_bmp(entry->type);
 	return entry;
 }
 

@@ -51,6 +51,10 @@ static struct mdw_pack_item *mdw_pack_get_item(struct mdw_apu_sc *sc)
 	struct mdw_apu_cmd *c = sc->parent;
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 
+	/* check packid */
+	if (sc->hdr->pack_id < 0 || sc->hdr->pack_id >= 64)
+		return NULL;
+
 	/* get mem from usr list */
 	mutex_lock(&c->mtx);
 	list_for_each_safe(list_ptr, tmp, &c->pack_list) {
@@ -185,6 +189,9 @@ int mdw_pack_dispatch(struct mdw_apu_sc *sc)
 	int ret = 0;
 
 	pki = mdw_pack_get_item(sc);
+	if (!pki)
+		return -ENODATA;
+
 	mutex_lock(&pki->mtx);
 	list_add_tail(&sc->pk_item, &pki->sc_list);
 	pki->cur_sc_num++;

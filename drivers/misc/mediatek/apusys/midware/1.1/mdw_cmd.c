@@ -264,6 +264,9 @@ static inline int mdw_cmd_sc_valid(struct mdw_apu_sc *sc)
 
 static int mdw_cmd_check_sc_ready(struct mdw_apu_sc *sc)
 {
+	if (sc->idx < 0 || sc->idx >= MDW_CMD_SC_MAX)
+		return -EINVAL;
+
 	mdw_cmd_debug("sc(0x%llx-#%d) pdr_num = %u/%u\n", sc->parent->kid,
 		sc->idx, sc->pdr_num, sc->parent->pdr_cnt[sc->idx]);
 	return sc->pdr_num - sc->parent->pdr_cnt[sc->idx] == 0 ? 0 : -EBADR;
@@ -461,6 +464,11 @@ static void mdw_cmd_delete_sc(struct mdw_apu_sc *sc)
 		sc->parent->kid, sc->idx);
 
 	mq = mdw_rsc_get_queue(sc->type);
+	if (!mq) {
+		mdw_drv_err("can't find mq(%d)\n", sc->type);
+		return;
+	}
+
 	if (mdw_cmd_is_deadline(sc))
 		mq->deadline.ops.task_end(sc, &mq->deadline);
 	else
@@ -524,6 +532,10 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 
 	/* task start */
 	mq = mdw_rsc_get_queue(sc->type);
+	if (!mq) {
+		mdw_drv_err("can't find mq(%d)\n", sc->type);
+		goto fail_get_mq;
+	}
 	if (mdw_cmd_is_deadline(sc))
 		mq->deadline.ops.task_start(sc, &mq->deadline);
 	else
@@ -537,6 +549,7 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 	return sc;
 
 fail_sc_invalid:
+fail_get_mq:
 fail_get_codebuf_info:
 	vfree(sc->hdr);
 fail_alloc_hdr:
@@ -594,7 +607,7 @@ static int mdw_cmd_parse_cmd(struct mdw_apu_cmd *c, struct mdw_apu_sc **out)
 	return ret;
 }
 
-static void mdw_cmd_updat_scr(struct mdw_apu_sc *sc)
+static void mdw_cmd_update_scr(struct mdw_apu_sc *sc)
 {
 	struct mdw_apu_cmd *c = sc->parent;
 	int idx = 0;
@@ -608,6 +621,8 @@ static void mdw_cmd_updat_scr(struct mdw_apu_sc *sc)
 		sc->scr_bmp = sc->scr_bmp & ~(1ULL << idx);
 next:
 		idx++;
+		if (idx >= MDW_CMD_SC_MAX)
+			break;
 	}
 }
 
@@ -624,7 +639,7 @@ static int mdw_cmd_end_sc(struct mdw_apu_sc *in, struct mdw_apu_sc **out)
 	mutex_lock(&c->mtx);
 	if (c->sc_status_bmp & (1ULL << in->idx)) {
 		c->sc_status_bmp &= ~(1ULL << in->idx);
-		mdw_cmd_updat_scr(in);
+		mdw_cmd_update_scr(in);
 	}
 	mdw_flw_debug("cmd status = 0x%llx after #%d sc done\n",
 		c->sc_status_bmp, in->idx);
