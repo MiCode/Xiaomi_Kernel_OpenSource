@@ -1136,7 +1136,7 @@ page_owner=on loop.max_part=7";
 		reg = <0 0x10208000 0 0x1000>,
 			<0 0x10001000 0 0x1000>;
 		mediatek,bus_dbg_con_offset = <0x2fc>;
-		interrupt = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	dbgtop@1000d000 {
