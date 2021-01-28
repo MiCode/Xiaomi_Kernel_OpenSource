@@ -1012,6 +1012,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			reg = <0 0x10001000 0 0x1000>;
 		};
 
+		mcucfg: mcucfg@0c530000 {
+			compatible = "mediatek,mcucfg";
+			reg = <0 0x0c530000 0 0x10000>;
+		};
+
 		dcm: dcm@10001000 {
 			compatible = "mediatek,mt6779-dcm";
 			reg = <0 0x10001000 0 0x1000>,
