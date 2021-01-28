@@ -85,17 +85,13 @@ ccflags-y += \
 	     -I$(srctree)/include/ \
 	     -I$(MTK_TOP)/include/ \
 	     -I$(GED_TOP)/include/ \
+	     -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/ \
+	     -I$(MTK_TOP)/base/power/include/ \
 	     -I$(srctree)/drivers/misc/mediatek/video/include \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox \
 	     -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys \
 	     -I$(srctree)/drivers/misc/mediatek/lcm/inc/ \
 	     -I$(srctree)/drivers/misc/mediatek/dfrc/
-
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt6768" "mt6785"))
-ccflags-y += -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/
-else
-ccflags-y += -I$(MTK_TOP)/base/power/include/
-endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
