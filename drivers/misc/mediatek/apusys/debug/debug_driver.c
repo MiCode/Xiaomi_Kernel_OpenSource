@@ -56,6 +56,9 @@ static int add_timestamp_string(char *buf, int bufsize)
 	len = snprintf(buf, bufsize, "{%5lu.%06lu}",
 		       (unsigned long)ts, rem_nsec / 1000);
 
+	if (len < 0)
+		pr_notice("len = %d error\n", len);
+
 #ifdef DEBUG_DRIVER
 	pr_notice("get_timestamp_string, len = %d\n", len);
 #endif
@@ -259,6 +262,9 @@ void apu_dbg_print(const char *fmt, ...)
 		_cPos += number_count;
 		char_count += number_count;
 		number_count = vsprintf(dbglog_buf + _cPos, fmt, args);
+		if (number_count < 0)
+			goto print_end;
+
 		_cPos += (number_count + 1);
 		char_count += (number_count + 1);
 
@@ -270,6 +276,7 @@ void apu_dbg_print(const char *fmt, ...)
 		pr_notice("edma_print _cPos = %d,line = %d, buf_head = %d\n",
 			_cPos, line_count, buf_head);
 #endif
+print_end:
 		va_end(args);
 	}
 }
