@@ -12,6 +12,7 @@
  */
 
 #include <linux/ioctl.h>
+#include <linux/notifier.h>
 
 #ifdef CONFIG_COMPAT
 /* 32-64 bit conversion */
@@ -120,6 +121,8 @@ struct JpegDeviceStruct {
 	uint32_t decIrqId;
 	uint32_t hybriddecIrqId[HW_CORE_NUMBER];
 	struct device *larbjpeg;
+	struct notifier_block pm_notifier;
+	bool is_suspending;
 };
 
 const long jpeg_dev_get_encoder_base_VA(void);

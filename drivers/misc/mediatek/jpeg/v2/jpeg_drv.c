@@ -57,6 +57,7 @@
 #include <linux/wait.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
+#include <linux/suspend.h>
 /* #include <linux/earlysuspend.h> */
 /* #include <linux/mm.h> */
 #include <linux/vmalloc.h>
@@ -390,6 +391,54 @@ static irqreturn_t jpeg_drv_enc_isr(int irq, void *dev_id)
 #endif
 
 #ifdef JPEG_HYBRID_DEC_DRIVER
+static int jpeg_drv_hybrid_dec_suspend(void)
+{
+	int i;
+
+	JPEG_MSG("%s\n", __func__);
+	for (i = 0 ; i < HW_CORE_NUMBER; i++) {
+		JPEG_MSG("jpeg dec suspend core %d\n", i);
+		if (dec_hwinfo[i].locked) {
+			JPEG_MSG("jpeg dec suspend core %d fail\n", i);
+			return -EBUSY;
+		}
+	}
+	return 0;
+}
+
+static int jpeg_drv_hybrid_dec_suspend_notifier(
+					struct notifier_block *nb,
+					unsigned long action, void *data)
+{
+	int i;
+	int wait_cnt = 0;
+
+	JPEG_MSG("%s, action:%ld\n", __func__, action);
+	switch (action) {
+	case PM_SUSPEND_PREPARE:
+		gJpegqDev.is_suspending = 1;
+		for (i = 0 ; i < HW_CORE_NUMBER; i++) {
+			JPEG_MSG("jpeg dec sn wait core %d\n", i);
+			while (dec_hwinfo[i].locked) {
+				JPEG_MSG("jpeg dec sn core %d locked. wait...\n", i);
+				usleep_range(10000, 20000);
+				wait_cnt++;
+				if (wait_cnt > 5) {
+					JPEG_MSG("jpeg dec sn wait core %d fail\n", i);
+					return NOTIFY_DONE;
+				}
+			}
+		}
+		return NOTIFY_OK;
+	case PM_POST_SUSPEND:
+		gJpegqDev.is_suspending = 0;
+		return NOTIFY_OK;
+	default:
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_DONE;
+}
+
 static irqreturn_t jpeg_drv_hybrid_dec_isr(int irq, void *dev_id)
 {
 	int ret = 0;
@@ -760,6 +809,11 @@ static int jpeg_drv_dec_hybrid_lock(unsigned int *pa)
 {
 	int retValue = 0;
 	int id = 0;
+
+	if (gJpegqDev.is_suspending) {
+		JPEG_WRN("jpeg dec is suspending");
+		return -EBUSY;
+	}
 
 	mutex_lock(&jpeg_hybrid_dec_lock);
 	for (id = 0; id < HW_CORE_NUMBER; id++) {
@@ -1618,7 +1672,8 @@ static int jpeg_hybrid_dec_ioctl(unsigned int cmd, unsigned long arg,
 			JPEG_WRN("JPEG Decoder: Copy from user error\n");
 			return -EFAULT;
 		}
-
+		if (outParams.timeout != 3000) // JPEG oal magic number
+			return -EFAULT;
 		if (jpeg_drv_dec_hybrid_lock(&hwpa) == 0) {
 			*pStatus = JPEG_DEC_PROCESS;
 			if (copy_to_user(
@@ -2357,6 +2412,9 @@ static int jpeg_probe(struct platform_device *pdev)
 	if (IS_ERR(gJpegClk.clk_venc_c1_jpgDec))
 		JPEG_ERR("get MT_CG_VENC_C1_JPGDEC clk error!");
 	JPEG_MSG("get JPGDEC clk done!");
+	jpegDev->pm_notifier.notifier_call = jpeg_drv_hybrid_dec_suspend_notifier;
+	register_pm_notifier(&jpegDev->pm_notifier);
+	jpegDev->is_suspending = 0;
 #endif
 	#ifdef JPEG_DEC_DRIVER
 		jpegDev->decRegBaseVA = (unsigned long)of_iomap(node, 1);
@@ -2526,6 +2584,13 @@ static int jpeg_suspend(struct platform_device *pdev, pm_message_t mesg)
 #ifdef JPEG_DEC_DRIVER
 	if (dec_status != 0)
 		jpeg_drv_dec_deinit();
+#endif
+#ifdef JPEG_HYBRID_DEC_DRIVER
+	int ret;
+
+	ret = jpeg_drv_hybrid_dec_suspend();
+	if (ret != 0)
+		return ret;
 #endif
 #ifdef JPEG_ENC_DRIVER
 	if (enc_status != 0)
