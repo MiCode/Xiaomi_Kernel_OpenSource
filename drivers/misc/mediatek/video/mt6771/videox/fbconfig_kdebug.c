@@ -1334,7 +1334,7 @@ void PanelMaster_Init(void)
 #endif
 
 #if IS_ENABLED(CONFIG_PROC_FS)
-	ConfigPara_procfs = proc_create("fbconfig", 0644,
+	ConfigPara_procfs = proc_create("fbconfig", 0640,
 				NULL,
 				&fbconfig_fops);
 

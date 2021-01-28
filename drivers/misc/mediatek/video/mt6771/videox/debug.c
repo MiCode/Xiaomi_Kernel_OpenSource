@@ -1654,7 +1654,7 @@ void DBG_Init(void)
 
 //do samething in procfs
 #if IS_ENABLED(CONFIG_PROC_FS)
-	mtkfb_procfs = proc_create("mtkfb", S_IFREG | 0444,
+	mtkfb_procfs = proc_create("mtkfb", S_IFREG | 0440,
 				NULL,
 				&debug_fops);
 	if (!mtkfb_procfs) {
@@ -1670,28 +1670,28 @@ void DBG_Init(void)
 		goto out;
 	}
 
-	if (!proc_create("kickdump", S_IFREG | 0444,
+	if (!proc_create("kickdump", S_IFREG | 0440,
 		disp_lowpower_proc, &kickidle_fops)) {
 		pr_info("[%s %d]failed to create kickdump in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
-	if (!proc_create("partial", S_IFREG | 0444,
+	if (!proc_create("partial", S_IFREG | 0440,
 		disp_lowpower_proc, &partial_fops)) {
 		pr_info("[%s %d]failed to create partial in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
-	if (!proc_create("idletime", S_IFREG | 0444,
+	if (!proc_create("idletime", S_IFREG | 0440,
 		disp_lowpower_proc, &idletime_fops)) {
 		pr_info("[%s %d]failed to create idletime in /proc/displowpower\n",
 			__func__, __LINE__);
 		goto out;
 	}
 
-	if (!proc_create("idlevfp", S_IFREG | 0444,
+	if (!proc_create("idlevfp", S_IFREG | 0440,
 		disp_lowpower_proc, &idlevfp_fops)) {
 		pr_info("[%s %d]failed to create idlevfp in /proc/displowpower\n",
 			__func__, __LINE__);
