@@ -16,6 +16,8 @@
 /dts-v1/;
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <generated/autoconf.h>
+#include <dt-bindings/mmc/mt6853-msdc.h>
 
 / {
 	model = "MT6833";
@@ -1925,4 +1927,28 @@ page_owner=on";
 	atf_logger {
 		compatible = "mediatek,atf_logger";
 	};
+
+	msdc0: msdc@11230000 {
+		compatible = "mediatek,msdc";
+		reg = <0 0x11230000 0 0x10000>;
+		interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	msdc1: msdc@11240000 {
+		compatible = "mediatek,msdc";
+		reg = <0 0x11240000 0 0x1000>;
+		interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	msdc0_top@11f50000 {
+		compatible = "mediatek,msdc0_top";
+		reg = <0 0x11f50000 0 0x1000>;
+	};
+
+	msdc1_top@11c70000 {
+		compatible = "mediatek,msdc1_top";
+		reg = <0 0x11c70000 0 0x1000>;
+	};
 };
+
+#include "mediatek/cust_mt6833_msdc.dtsi"
