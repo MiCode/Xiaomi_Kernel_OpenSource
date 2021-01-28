@@ -1,15 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016 MediaTek Inc.
- * Author: Zhiyong Tao <zhiyong.tao@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/clk.h>
@@ -152,13 +143,13 @@ static void mt_auxadc_update_cali(struct device *dev)
 			goto err;
 		nvmem_dev = nvmem_device_get(dev, "mtk_efuse");
 		if (IS_ERR(nvmem_dev)) {
-			dev_err(dev, "failed to get mtk_efuse device\n");
+			dev_notice(dev, "failed to get mtk_efuse device\n");
 			goto err;
 		}
 		ret = nvmem_device_read(nvmem_dev,
 			adc_cali.efuse_reg_offset, 4, &reg);
 		if (ret != 4) {
-			dev_err(dev, "error efuse read size: %d\n", ret);
+			dev_notice(dev, "error efuse read size: %d\n", ret);
 			nvmem_device_put(nvmem_dev);
 			goto err;
 		}
@@ -194,7 +185,7 @@ static void mt_auxadc_update_cali(struct device *dev)
 		return;
 	}
 err:
-	dev_err(dev, "fail to get some dt info!\n");
+	dev_notice(dev, "fail to get some dt info!\n");
 }
 
 static int mt_auxadc_get_cali_data(int rawdata, bool enable_cali)
@@ -245,7 +236,7 @@ static int mt6577_auxadc_read(struct iio_dev *indio_dev,
 				 MT6577_AUXADC_SLEEP_US,
 				 MT6577_AUXADC_TIMEOUT_US);
 	if (ret < 0) {
-		dev_err(indio_dev->dev.parent,
+		dev_notice(indio_dev->dev.parent,
 			"wait for channel[%d] ready bit clear time out\n",
 			chan->channel);
 		goto err_timeout;
@@ -264,7 +255,7 @@ static int mt6577_auxadc_read(struct iio_dev *indio_dev,
 					 MT6577_AUXADC_SLEEP_US,
 					 MT6577_AUXADC_TIMEOUT_US);
 		if (ret < 0) {
-			dev_err(indio_dev->dev.parent,
+			dev_notice(indio_dev->dev.parent,
 				"wait for auxadc idle time out\n");
 			goto err_timeout;
 		}
@@ -276,7 +267,7 @@ static int mt6577_auxadc_read(struct iio_dev *indio_dev,
 				 MT6577_AUXADC_SLEEP_US,
 				 MT6577_AUXADC_TIMEOUT_US);
 	if (ret < 0) {
-		dev_err(indio_dev->dev.parent,
+		dev_notice(indio_dev->dev.parent,
 			"wait for channel[%d] data ready time out\n",
 			chan->channel);
 		goto err_timeout;
@@ -308,7 +299,7 @@ static int mt6577_auxadc_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_RAW:
 		*val = mt6577_auxadc_read(indio_dev, chan);
 		if (*val < 0) {
-			dev_err(indio_dev->dev.parent,
+			dev_notice(indio_dev->dev.parent,
 				"failed to sample data on channel[%d]\n",
 				chan->channel);
 			return *val;
@@ -321,7 +312,7 @@ static int mt6577_auxadc_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_PROCESSED:
 		*val = mt6577_auxadc_read(indio_dev, chan);
 		if (*val < 0) {
-			dev_err(indio_dev->dev.parent,
+			dev_notice(indio_dev->dev.parent,
 				"failed to sample data on channel[%d]\n",
 				chan->channel);
 			return *val;
@@ -351,7 +342,7 @@ static int __maybe_unused mt6577_auxadc_resume(struct device *dev)
 
 	ret = clk_prepare_enable(adc_dev->adc_clk);
 	if (ret) {
-		pr_err("failed to enable auxadc clock\n");
+		pr_notice("failed to enable auxadc clock\n");
 		return ret;
 	}
 
@@ -420,7 +411,7 @@ static void adc_debug_init(struct device *dev)
 
 	auxadc_droot = debugfs_create_dir("auxadc", NULL);
 	if (IS_ERR(auxadc_droot)) {
-		dev_err(dev, "fail to create debugfs root\n");
+		dev_notice(dev, "fail to create debugfs root\n");
 		auxadc_droot = NULL;
 		return;
 	}
@@ -453,26 +444,26 @@ static int mt6577_auxadc_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	adc_dev->reg_base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(adc_dev->reg_base)) {
-		dev_err(&pdev->dev, "failed to get auxadc base address\n");
+		dev_notice(&pdev->dev, "failed to get auxadc base address\n");
 		return PTR_ERR(adc_dev->reg_base);
 	}
 
 	adc_dev->adc_clk = devm_clk_get(&pdev->dev, "main");
 	if (IS_ERR(adc_dev->adc_clk)) {
-		dev_err(&pdev->dev, "failed to get auxadc clock\n");
+		dev_notice(&pdev->dev, "failed to get auxadc clock\n");
 		return PTR_ERR(adc_dev->adc_clk);
 	}
 
 	ret = clk_prepare_enable(adc_dev->adc_clk);
 	if (ret) {
-		dev_err(&pdev->dev, "failed to enable auxadc clock\n");
+		dev_notice(&pdev->dev, "failed to enable auxadc clock\n");
 		return ret;
 	}
 
 	adc_clk_rate = clk_get_rate(adc_dev->adc_clk);
 	if (!adc_clk_rate) {
 		ret = -EINVAL;
-		dev_err(&pdev->dev, "null clock rate\n");
+		dev_notice(&pdev->dev, "null clock rate\n");
 		goto err_disable_clk;
 	}
 
@@ -491,7 +482,7 @@ static int mt6577_auxadc_probe(struct platform_device *pdev)
 
 	ret = iio_device_register(indio_dev);
 	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to register iio device\n");
+		dev_notice(&pdev->dev, "failed to register iio device\n");
 		goto err_power_off;
 	}
 
