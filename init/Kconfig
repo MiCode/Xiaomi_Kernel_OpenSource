@@ -1582,7 +1582,7 @@ config KALLSYMS_ABSOLUTE_PERCPU
 	default X86_64 && SMP
 
 config KALLSYMS_BASE_RELATIVE
-	bool
+	bool "Enable KALLSYMS_BASE_RELATIVE or not"
 	depends on KALLSYMS
 	default !IA64
 	help
