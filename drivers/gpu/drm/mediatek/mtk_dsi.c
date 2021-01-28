@@ -3716,13 +3716,15 @@ int mtk_mipi_dsi_write_gce(struct mtk_dsi *dsi,
 
 static void _mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 				struct cmdq_pkt *handle,
-				struct mipi_dsi_msg *msg)
+				struct mipi_dsi_msg *msg,
+				unsigned int cmd_idx)
 {
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
 	struct mtk_drm_crtc *mtk_crtc = dsi->ddp_comp.mtk_crtc;
 	struct DSI_T0_INS t0, t1;
 	dma_addr_t read_slot = mtk_crtc->gce_obj.buf.pa_base +
-					DISP_SLOT_READ_DDIC_BASE;
+					DISP_SLOT_READ_DDIC_BASE +
+					cmd_idx * 0x10;
 	const char *tx_buf = msg->tx_buf;
 
 	DDPMSG("%s +\n", __func__);
@@ -3902,22 +3904,23 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 			0xff00ff00, ~0);
 	}
 
-	/* Todo: Support read multiple registers */
-	msg.type = cmd_msg->type[0];
-	msg.tx_len = cmd_msg->tx_len[0];
-	msg.tx_buf = cmd_msg->tx_buf[0];
-	msg.rx_len = cmd_msg->rx_len[0];
-	msg.rx_buf = cmd_msg->rx_buf[0];
-
 	if (dsi_mode == 0) { /* CMD mode LP */
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_STREAM_EOF]);
 
 		cmdq_pkt_clear_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
+		mtk_dsi_poll_for_idle(dsi, cmdq_handle);
 
-		_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg);
+		for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+			msg.rx_len = cmd_msg->rx_len[i];
+			msg.rx_buf = cmd_msg->rx_buf[i];
 
+			_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg, i);
+		}
 		cmdq_pkt_set_event(cmdq_handle,
 				mtk_crtc->gce_obj.event[EVENT_ESD_EOF]);
 	} else { /* VDO to CMD mode LP */
@@ -3926,8 +3929,15 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 
 		mtk_dsi_stop_vdo_mode(dsi, cmdq_handle);
 
-		_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg);
+		for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+			msg.type = cmd_msg->type[i];
+			msg.tx_len = cmd_msg->tx_len[i];
+			msg.tx_buf = cmd_msg->tx_buf[i];
+			msg.rx_len = cmd_msg->rx_len[i];
+			msg.rx_buf = cmd_msg->rx_buf[i];
 
+			_mtk_mipi_dsi_read_gce(dsi, cmdq_handle, &msg, i);
+		}
 		mtk_dsi_start_vdo_mode(comp, cmdq_handle);
 		mtk_disp_mutex_trigger(comp->mtk_crtc->mutex[0], cmdq_handle);
 		mtk_dsi_trigger(comp, cmdq_handle);
@@ -3955,104 +3965,107 @@ int mtk_mipi_dsi_read_gce(struct mtk_dsi *dsi,
 		goto done;
 	}
 
-	/* Copy slot data to data array */
-	memcpy((void *)&read_data0,
-		(mtk_crtc->gce_obj.buf.va_base +
-			DISP_SLOT_READ_DDIC_BASE + 0 * 0x4),
-			sizeof(unsigned int));
-	memcpy((void *)&read_data1,
-		(mtk_crtc->gce_obj.buf.va_base +
-			DISP_SLOT_READ_DDIC_BASE + 1 * 0x4),
-			sizeof(unsigned int));
-	memcpy((void *)&read_data2,
-		(mtk_crtc->gce_obj.buf.va_base +
-			DISP_SLOT_READ_DDIC_BASE + 2 * 0x4),
-			sizeof(unsigned int));
-	memcpy((void *)&read_data3,
-		(mtk_crtc->gce_obj.buf.va_base +
-			DISP_SLOT_READ_DDIC_BASE + 3 * 0x4),
-			sizeof(unsigned int));
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		/* Copy slot data to data array */
+		memcpy((void *)&read_data0,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (0 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+		memcpy((void *)&read_data1,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (1 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+		memcpy((void *)&read_data2,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (2 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
+		memcpy((void *)&read_data3,
+			(mtk_crtc->gce_obj.buf.va_base +
+				DISP_SLOT_READ_DDIC_BASE + (3 + i * 0x4) * 0x4),
+				sizeof(unsigned int));
 
-	DDPINFO("%s: read_data0 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
-		__func__, read_data0.byte0, read_data0.byte1
-		, read_data0.byte2, read_data0.byte3);
-	DDPINFO("%s: read_data1 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
-		__func__, read_data1.byte0, read_data1.byte1
-		, read_data1.byte2, read_data1.byte3);
-	DDPINFO("%s: read_data2 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
-		__func__, read_data2.byte0, read_data2.byte1
-		, read_data2.byte2, read_data2.byte3);
-	DDPINFO("%s: read_data3 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
-		__func__, read_data3.byte0, read_data3.byte1
-		, read_data3.byte2, read_data3.byte3);
+		DDPINFO("%s:cmd_idx(%d) readback\n", __func__, i);
+		DDPINFO("%s: read_data0 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data0.byte0, read_data0.byte1
+			, read_data0.byte2, read_data0.byte3);
+		DDPINFO("%s: read_data1 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data1.byte0, read_data1.byte1
+			, read_data1.byte2, read_data1.byte3);
+		DDPINFO("%s: read_data2 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data2.byte0, read_data2.byte1
+			, read_data2.byte2, read_data2.byte3);
+		DDPINFO("%s: read_data3 byte0~3=0x%x~0x%x~0x%x~0x%x\n",
+			__func__, read_data3.byte0, read_data3.byte1
+			, read_data3.byte2, read_data3.byte3);
 
-	/*parse packet*/
-	packet_type = read_data0.byte0;
-		/* 0x02: acknowledge & error report */
-		/* 0x11: generic short read response(1 byte return) */
-		/* 0x12: generic short read response(2 byte return) */
-		/* 0x1a: generic long read response */
-		/* 0x1c: dcs long read response */
-		/* 0x21: dcs short read response(1 byte return) */
-		/* 0x22: dcs short read response(2 byte return) */
-	if (packet_type == 0x1A || packet_type == 0x1C) {
-		recv_data_cnt = read_data0.byte1
-				+ read_data0.byte2 * 16;
+		/*parse packet*/
+		packet_type = read_data0.byte0;
+			/* 0x02: acknowledge & error report */
+			/* 0x11: generic short read response(1 byte return) */
+			/* 0x12: generic short read response(2 byte return) */
+			/* 0x1a: generic long read response */
+			/* 0x1c: dcs long read response */
+			/* 0x21: dcs short read response(1 byte return) */
+			/* 0x22: dcs short read response(2 byte return) */
+		if (packet_type == 0x1A || packet_type == 0x1C) {
+			recv_data_cnt = read_data0.byte1
+					+ read_data0.byte2 * 16;
 
-		if (recv_data_cnt > RT_MAX_NUM) {
-			DDPMSG("DSI read long packet data exceeds 10 bytes\n");
-				recv_data_cnt = RT_MAX_NUM;
-		}
-		if (recv_data_cnt > msg.rx_len)
-			recv_data_cnt = msg.rx_len;
+			if (recv_data_cnt > RT_MAX_NUM) {
+				DDPMSG("DSI read long packet > 10 bytes\n");
+					recv_data_cnt = RT_MAX_NUM;
+			}
+			if (recv_data_cnt > cmd_msg->rx_len[i])
+				recv_data_cnt = cmd_msg->rx_len[i];
 
-		DDPINFO("DSI read long packet size: %d\n",
-			recv_data_cnt);
-		if (recv_data_cnt <= 4) {
-			memcpy((void *)msg.rx_buf,
-				(void *)&read_data1, recv_data_cnt);
-		} else if (recv_data_cnt <= 8) {
-			memcpy((void *)msg.rx_buf,
-				(void *)&read_data1, 4);
-			memcpy((void *)(msg.rx_buf + 4),
-				(void *)&read_data2, recv_data_cnt - 4);
-		} else {
-			memcpy((void *)msg.rx_buf,
+			DDPINFO("DSI read long packet size: %d\n",
+				recv_data_cnt);
+			if (recv_data_cnt <= 4) {
+				memcpy((void *)cmd_msg->rx_buf[i],
+					(void *)&read_data1, recv_data_cnt);
+			} else if (recv_data_cnt <= 8) {
+				memcpy((void *)cmd_msg->rx_buf[i],
 					(void *)&read_data1, 4);
-			memcpy((void *)(msg.rx_buf + 4),
-					(void *)&read_data2, 4);
-			memcpy((void *)(msg.rx_buf + 8),
-				(void *)&read_data3, recv_data_cnt - 8);
+				memcpy((void *)(cmd_msg->rx_buf[i] + 4),
+					(void *)&read_data2, recv_data_cnt - 4);
+			} else {
+				memcpy((void *)cmd_msg->rx_buf[i],
+						(void *)&read_data1, 4);
+				memcpy((void *)(cmd_msg->rx_buf[i] + 4),
+						(void *)&read_data2, 4);
+				memcpy((void *)(cmd_msg->rx_buf[i] + 8),
+					(void *)&read_data3, recv_data_cnt - 8);
+			}
+
+		} else if (packet_type == 0x11 || packet_type == 0x21) {
+			recv_data_cnt = 1;
+			memcpy((void *)cmd_msg->rx_buf[i],
+				(void *)&read_data0.byte1, recv_data_cnt);
+
+		} else if (packet_type == 0x12 || packet_type == 0x22) {
+			recv_data_cnt = 2;
+			if (recv_data_cnt > cmd_msg->rx_len[i])
+				recv_data_cnt = cmd_msg->rx_len[i];
+
+			memcpy((void *)cmd_msg->rx_buf[i],
+				(void *)&read_data0.byte1, recv_data_cnt);
+
+		} else if (packet_type == 0x02) {
+			DDPINFO("read return type is 0x02, re-read\n");
+		} else {
+			DDPINFO("return faulty type, type = 0x%x\n",
+					packet_type);
 		}
-
-	} else if (packet_type == 0x11 || packet_type == 0x21) {
-		recv_data_cnt = 1;
-		memcpy((void *)msg.rx_buf,
-			(void *)&read_data0.byte1, recv_data_cnt);
-
-	} else if (packet_type == 0x12 || packet_type == 0x22) {
-		recv_data_cnt = 2;
-		if (recv_data_cnt > msg.rx_len)
-			recv_data_cnt = msg.rx_len;
-
-		memcpy((void *)msg.rx_buf,
-			(void *)&read_data0.byte1, recv_data_cnt);
-
-	} else if (packet_type == 0x02) {
-		DDPPR_ERR("read return type is 0x02, re-read\n");
-	} else {
-		DDPPR_ERR("read return type is non-recognite, type = 0x%x\n",
-				packet_type);
+		msg.rx_len = recv_data_cnt;
+		DDPINFO("[DSI]packet_type~recv_data_cnt = 0x%x~0x%x\n",
+				packet_type, recv_data_cnt);
+#if 0
+		/* Todo: Support read multiple registers */
+		cmd_msg->rx_len[0] = msg.rx_len;
+		cmd_msg->rx_buf[0] = msg.rx_buf;
+#endif
 	}
-	msg.rx_len = recv_data_cnt;
-	DDPINFO("[DSI]packet_type~recv_data_cnt = 0x%x~0x%x\n",
-			packet_type, recv_data_cnt);
-
-	/* Todo: Support read multiple registers */
-	cmd_msg->rx_len[0] = msg.rx_len;
-	cmd_msg->rx_buf[0] = msg.rx_buf;
-
-	/* Debug info */
+		/* Debug info */
 	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
 		DDPINFO("rx_len[%d]=%d\n", i, (int)cmd_msg->rx_len[i]);
 		for (j = 0; j < cmd_msg->rx_len[i]; j++) {

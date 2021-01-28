@@ -1077,12 +1077,15 @@ done:
 
 void ddic_dsi_read_cmd_test(unsigned int case_num)
 {
-	unsigned int j = 0;
+	unsigned int i = 0, j = 0;
 	unsigned int ret_dlen = 0;
 	int ret;
 	struct mtk_ddic_dsi_msg *cmd_msg =
 		vmalloc(sizeof(struct mtk_ddic_dsi_msg));
 	u8 tx[10] = {0};
+	u8 tx_1[10] = {0};
+	u8 tx_2[10] = {0};
+	u8 tx_3[10] = {0};
 
 	DDPMSG("%s start case_num:%d\n", __func__, case_num);
 
@@ -1104,10 +1107,31 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 		cmd_msg->tx_len[0] = 1;
 
 		cmd_msg->rx_cmd_num = 1;
-		cmd_msg->rx_buf[0] = vmalloc(4 * sizeof(unsigned char));
+		cmd_msg->rx_buf[0] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
 		memset(cmd_msg->rx_buf[0], 0, 4);
 		cmd_msg->rx_len[0] = 1;
 
+		break;
+	}
+	case 1001:
+	{
+		/* Read 0x0A = 0x1C */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 20;
+		cmd_msg->rx_cmd_num = 20;
+		tx[0] = 0x0A;
+
+		for (i = 0; i < 20; i++) {
+			cmd_msg->type[i] = 0x06;
+			cmd_msg->tx_buf[i] = tx;
+			cmd_msg->tx_len[i] = 1;
+
+			cmd_msg->rx_buf[i] = kmalloc(4 * sizeof(unsigned char),
+				GFP_ATOMIC);
+			memset(cmd_msg->rx_buf[i], 0, 4);
+			cmd_msg->rx_len[i] = 1;
+		}
 		break;
 	}
 	case 2:
@@ -1121,10 +1145,31 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 		cmd_msg->tx_len[0] = 1;
 
 		cmd_msg->rx_cmd_num = 1;
-		cmd_msg->rx_buf[0] = vmalloc(8 * sizeof(unsigned char));
+		cmd_msg->rx_buf[0] = kmalloc(8 * sizeof(unsigned char),
+			GFP_ATOMIC);
 		memset(cmd_msg->rx_buf[0], 0, 4);
 		cmd_msg->rx_len[0] = 4;
 
+		break;
+	}
+	case 1002:
+	{
+		/* Read 0xe8 = 0x00,0x01,0x23,0x00 */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 20;
+		cmd_msg->rx_cmd_num = 20;
+		tx[0] = 0xe8;
+
+		for (i = 0; i < 20; i++) {
+			cmd_msg->type[i] = 0x06;
+			cmd_msg->tx_buf[i] = tx;
+			cmd_msg->tx_len[i] = 1;
+
+			cmd_msg->rx_buf[i] = kmalloc(8 * sizeof(unsigned char),
+				GFP_ATOMIC);
+			memset(cmd_msg->rx_buf[i], 0, 4);
+			cmd_msg->rx_len[i] = 4;
+		}
 		break;
 	}
 	case 3:
@@ -1141,7 +1186,8 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 		cmd_msg->tx_len[0] = 1;
 
 		cmd_msg->rx_cmd_num = 1;
-		cmd_msg->rx_buf[0] = vmalloc(20 * sizeof(unsigned char));
+		cmd_msg->rx_buf[0] = kmalloc(20 * sizeof(unsigned char),
+			GFP_ATOMIC);
 		memset(cmd_msg->rx_buf[0], 0, 20);
 		cmd_msg->rx_len[0] = 10;
 
@@ -1158,10 +1204,130 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 		cmd_msg->tx_len[0] = 1;
 
 		cmd_msg->rx_cmd_num = 1;
-		cmd_msg->rx_buf[0] = vmalloc(4 * sizeof(unsigned char));
+		cmd_msg->rx_buf[0] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
 		memset(cmd_msg->rx_buf[0], 0, 4);
 		cmd_msg->rx_len[0] = 1;
 
+		break;
+	}
+	case 5:
+	{
+		/* multiple cmd Read*/
+		/*0x0A = 0x1C;*/
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 2;
+		cmd_msg->rx_cmd_num = 2;
+
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x0A;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+
+		cmd_msg->rx_buf[0] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 1;
+
+		/*0x0e = 0x80 */
+		cmd_msg->type[1] = 0x06;
+		tx_1[0] = 0x0e;
+		cmd_msg->tx_buf[1] = tx_1;
+		cmd_msg->tx_len[1] = 1;
+
+		cmd_msg->rx_buf[1] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[1], 0, 4);
+		cmd_msg->rx_len[1] = 1;
+		break;
+	}
+	case 6:
+	{
+		/* multiple cmd Read*/
+		/*0x0A = 0x1C; */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 3;
+		cmd_msg->rx_cmd_num = 3;
+
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x0A;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+		cmd_msg->rx_buf[0] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 1;
+
+		/*0x0e = 0x80 */
+		cmd_msg->type[1] = 0x06;
+		tx_1[0] = 0x0e;
+		cmd_msg->tx_buf[1] = tx_1;
+		cmd_msg->tx_len[1] = 1;
+		cmd_msg->rx_buf[1] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[1], 0, 4);
+		cmd_msg->rx_len[1] = 1;
+
+		/* Read 0xe8 = 0x00,0x01,0x23,0x00 */
+		cmd_msg->type[2] = 0x06;
+		tx_2[0] = 0xe8;
+		cmd_msg->tx_buf[2] = tx_2;
+		cmd_msg->tx_len[2] = 1;
+		cmd_msg->rx_buf[2] = kmalloc(8 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[2], 0, 4);
+		cmd_msg->rx_len[2] = 4;
+		break;
+	}
+	case 7:
+	{
+		/* multiple cmd Read*/
+		/*0x0A = 0x1C; */
+		cmd_msg->channel = 0;
+		cmd_msg->tx_cmd_num = 4;
+		cmd_msg->rx_cmd_num = 4;
+
+		cmd_msg->type[0] = 0x06;
+		tx[0] = 0x0A;
+		cmd_msg->tx_buf[0] = tx;
+		cmd_msg->tx_len[0] = 1;
+		cmd_msg->rx_buf[0] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[0], 0, 4);
+		cmd_msg->rx_len[0] = 1;
+
+		/*0x0e = 0x80 */
+		cmd_msg->type[1] = 0x06;
+		tx_1[0] = 0x0e;
+		cmd_msg->tx_buf[1] = tx_1;
+		cmd_msg->tx_len[1] = 1;
+		cmd_msg->rx_buf[1] = kmalloc(4 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[1], 0, 4);
+		cmd_msg->rx_len[1] = 1;
+
+		/* Read 0xe8 = 0x00,0x01,0x23,0x00 */
+		cmd_msg->type[2] = 0x06;
+		tx_2[0] = 0xe8;
+		cmd_msg->tx_buf[2] = tx_2;
+		cmd_msg->tx_len[2] = 1;
+		cmd_msg->rx_buf[2] = kmalloc(8 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[2], 0, 4);
+		cmd_msg->rx_len[2] = 4;
+
+		/*
+		 * Read 0xb6 =
+		 *	0x30,0x6b,0x00,0x06,0x03,0x0A,0x13,0x1A,0x6C,0x18
+		 */
+		cmd_msg->type[3] = 0x06;
+		tx_3[0] = 0xb6;
+		cmd_msg->tx_buf[3] = tx_3;
+		cmd_msg->tx_len[3] = 1;
+		cmd_msg->rx_buf[3] = kmalloc(20 * sizeof(unsigned char),
+			GFP_ATOMIC);
+		memset(cmd_msg->rx_buf[3], 0, 20);
+		cmd_msg->rx_len[3] = 10;
 		break;
 	}
 	default:
@@ -1175,17 +1341,20 @@ void ddic_dsi_read_cmd_test(unsigned int case_num)
 		goto  done;
 	}
 
-	ret_dlen = cmd_msg->rx_len[0];
-	DDPMSG("read lcm addr:0x%x--dlen:%d\n",
-		*(char *)(cmd_msg->tx_buf[0]), ret_dlen);
-	for (j = 0; j < ret_dlen; j++) {
-		DDPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
-			*(char *)(cmd_msg->tx_buf[0]), j,
-			*(char *)(cmd_msg->rx_buf[0] + j));
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++) {
+		ret_dlen = cmd_msg->rx_len[i];
+		DDPMSG("read lcm addr:0x%x--dlen:%d--cmd_idx:%d\n",
+			*(char *)(cmd_msg->tx_buf[i]), ret_dlen, i);
+		for (j = 0; j < ret_dlen; j++) {
+			DDPMSG("read lcm addr:0x%x--byte:%d,val:0x%x\n",
+				*(char *)(cmd_msg->tx_buf[i]), j,
+				*(char *)(cmd_msg->rx_buf[i] + j));
+		}
 	}
 
 done:
-	vfree(cmd_msg->rx_buf[0]);
+	for (i = 0; i < cmd_msg->rx_cmd_num; i++)
+		kfree(cmd_msg->rx_buf[i]);
 	vfree(cmd_msg);
 
 	DDPMSG("%s end -\n", __func__);
