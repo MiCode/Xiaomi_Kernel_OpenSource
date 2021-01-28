@@ -624,7 +624,9 @@ static int vb2_dc_map_dmabuf(void *mem_priv)
 		pr_err("contiguous chunk is too small %lu/%lu b\n",
 			contig_size, buf->size);
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+#ifdef CONFIG_MTK_IOMMU_V2
 		return -EFAULT;
+#endif
 	}
 
 	buf->dma_addr = sg_dma_address(sgt->sgl);

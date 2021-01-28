@@ -1,7 +1,7 @@
 /*
 * Copyright (c) 2016 MediaTek Inc.
 * Author: PC Chen <pc.chen@mediatek.com>
-*	Tiffany Lin <tiffany.lin@mediatek.com>
+*       Tiffany Lin <tiffany.lin@mediatek.com>
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 as
@@ -14,8 +14,6 @@
 */
 
 #include <linux/slab.h>
-#include <linux/interrupt.h>
-#include <linux/irq.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/of.h>
@@ -23,107 +21,17 @@
 #include <media/v4l2-mem2mem.h>
 #include <media/videobuf2-dma-contig.h>
 #include <linux/pm_runtime.h>
+#include <linux/iommu.h>
 
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_enc.h"
 #include "mtk_vcodec_enc_pm.h"
 #include "mtk_vcodec_intr.h"
 #include "mtk_vcodec_util.h"
-#include "mtk_vpu.h"
+#include "mtk_vcu.h"
 
 module_param(mtk_v4l2_dbg_level, int, S_IRUGO | S_IWUSR);
 module_param(mtk_vcodec_dbg, bool, S_IRUGO | S_IWUSR);
-
-/* Wake up context wait_queue */
-static void wake_up_ctx(struct mtk_vcodec_ctx *ctx, unsigned int reason)
-{
-	ctx->int_cond = 1;
-	ctx->int_type = reason;
-	wake_up_interruptible(&ctx->queue);
-}
-
-static void clean_irq_status(unsigned int irq_status, void __iomem *addr)
-{
-	if (irq_status & MTK_VENC_IRQ_STATUS_PAUSE)
-		writel(MTK_VENC_IRQ_STATUS_PAUSE, addr);
-
-	if (irq_status & MTK_VENC_IRQ_STATUS_SWITCH)
-		writel(MTK_VENC_IRQ_STATUS_SWITCH, addr);
-
-	if (irq_status & MTK_VENC_IRQ_STATUS_DRAM)
-		writel(MTK_VENC_IRQ_STATUS_DRAM, addr);
-
-	if (irq_status & MTK_VENC_IRQ_STATUS_SPS)
-		writel(MTK_VENC_IRQ_STATUS_SPS, addr);
-
-	if (irq_status & MTK_VENC_IRQ_STATUS_PPS)
-		writel(MTK_VENC_IRQ_STATUS_PPS, addr);
-
-	if (irq_status & MTK_VENC_IRQ_STATUS_FRM)
-		writel(MTK_VENC_IRQ_STATUS_FRM, addr);
-
-}
-static irqreturn_t mtk_vcodec_enc_irq_handler(int irq, void *priv)
-{
-	struct mtk_vcodec_dev *dev = priv;
-	struct mtk_vcodec_ctx *ctx;
-	unsigned long flags;
-	void __iomem *addr;
-
-	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
-	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	mtk_v4l2_debug(1, "id=%d", ctx->id);
-	addr = dev->reg_base[VENC_SYS] + MTK_VENC_IRQ_ACK_OFFSET;
-
-	ctx->irq_status = readl(dev->reg_base[VENC_SYS] +
-				(MTK_VENC_IRQ_STATUS_OFFSET));
-
-	clean_irq_status(ctx->irq_status, addr);
-
-	wake_up_ctx(ctx, MTK_INST_IRQ_RECEIVED);
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t mtk_vcodec_enc_lt_irq_handler(int irq, void *priv)
-{
-	struct mtk_vcodec_dev *dev = priv;
-	struct mtk_vcodec_ctx *ctx;
-	unsigned long flags;
-	void __iomem *addr;
-
-	spin_lock_irqsave(&dev->irqlock, flags);
-	ctx = dev->curr_ctx;
-	spin_unlock_irqrestore(&dev->irqlock, flags);
-
-	mtk_v4l2_debug(1, "id=%d", ctx->id);
-	ctx->irq_status = readl(dev->reg_base[VENC_LT_SYS] +
-				(MTK_VENC_IRQ_STATUS_OFFSET));
-
-	addr = dev->reg_base[VENC_LT_SYS] + MTK_VENC_IRQ_ACK_OFFSET;
-
-	clean_irq_status(ctx->irq_status, addr);
-
-	wake_up_ctx(ctx, MTK_INST_IRQ_RECEIVED);
-	return IRQ_HANDLED;
-}
-
-static void mtk_vcodec_enc_reset_handler(void *priv)
-{
-	struct mtk_vcodec_dev *dev = priv;
-	struct mtk_vcodec_ctx *ctx;
-
-	mtk_v4l2_debug(0, "Watchdog timeout!!");
-
-	mutex_lock(&dev->dev_mutex);
-	list_for_each_entry(ctx, &dev->ctx_list, list) {
-		ctx->state = MTK_STATE_ABORT;
-		mtk_v4l2_debug(0, "[%d] Change to state MTK_STATE_ABORT",
-				ctx->id);
-	}
-	mutex_unlock(&dev->dev_mutex);
-}
 
 static int fops_vcodec_open(struct file *file)
 {
@@ -152,47 +60,47 @@ static int fops_vcodec_open(struct file *file)
 	ret = mtk_vcodec_enc_ctrls_setup(ctx);
 	if (ret) {
 		mtk_v4l2_err("Failed to setup controls() (%d)",
-				ret);
+					 ret);
 		goto err_ctrls_setup;
 	}
 	ctx->m2m_ctx = v4l2_m2m_ctx_init(dev->m2m_dev_enc, ctx,
-				&mtk_vcodec_enc_queue_init);
+		&mtk_vcodec_enc_queue_init);
 	if (IS_ERR((__force void *)ctx->m2m_ctx)) {
 		ret = PTR_ERR((__force void *)ctx->m2m_ctx);
 		mtk_v4l2_err("Failed to v4l2_m2m_ctx_init() (%d)",
-				ret);
+					 ret);
 		goto err_m2m_ctx_init;
 	}
 	mtk_vcodec_enc_set_default_params(ctx);
 
 	if (v4l2_fh_is_singular(&ctx->fh)) {
 		/*
-		 * vpu_load_firmware checks if it was loaded already and
+		 * vcu_load_firmware checks if it was loaded already and
 		 * does nothing in that case
 		 */
-		ret = vpu_load_firmware(dev->vpu_plat_dev);
+		ret = vcu_load_firmware(dev->vcu_plat_dev);
 		if (ret < 0) {
 			/*
 			 * Return 0 if downloading firmware successfully,
 			 * otherwise it is failed
 			 */
-			mtk_v4l2_err("vpu_load_firmware failed!");
+			mtk_v4l2_err("vcu_load_firmware failed!");
 			goto err_load_fw;
 		}
 
 		dev->enc_capability =
-			vpu_get_venc_hw_capa(dev->vpu_plat_dev);
+			vcu_get_venc_hw_capa(dev->vcu_plat_dev);
 		mtk_v4l2_debug(0, "encoder capability %x", dev->enc_capability);
 	}
 
 	mtk_v4l2_debug(2, "Create instance [%d]@%p m2m_ctx=%p ",
-			ctx->id, ctx, ctx->m2m_ctx);
+				   ctx->id, ctx, ctx->m2m_ctx);
 
 	list_add(&ctx->list, &dev->ctx_list);
 
 	mutex_unlock(&dev->dev_mutex);
 	mtk_v4l2_debug(0, "%s encoder [%d]", dev_name(&dev->plat_dev->dev),
-			ctx->id);
+				   ctx->id);
 	return ret;
 
 	/* Deinit when failure occurred */
@@ -217,11 +125,11 @@ static int fops_vcodec_release(struct file *file)
 	mtk_v4l2_debug(1, "[%d] encoder", ctx->id);
 	mutex_lock(&dev->dev_mutex);
 
+	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 	mtk_vcodec_enc_release(ctx);
 	v4l2_fh_del(&ctx->fh);
 	v4l2_fh_exit(&ctx->fh);
 	v4l2_ctrl_handler_free(&ctx->ctrl_hdl);
-	v4l2_m2m_ctx_release(ctx->m2m_ctx);
 
 	list_del_init(&ctx->list);
 	kfree(ctx);
@@ -230,12 +138,12 @@ static int fops_vcodec_release(struct file *file)
 }
 
 static const struct v4l2_file_operations mtk_vcodec_fops = {
-	.owner		= THIS_MODULE,
-	.open		= fops_vcodec_open,
-	.release	= fops_vcodec_release,
-	.poll		= v4l2_m2m_fop_poll,
-	.unlocked_ioctl	= video_ioctl2,
-	.mmap		= v4l2_m2m_fop_mmap,
+	.owner          = THIS_MODULE,
+	.open           = fops_vcodec_open,
+	.release        = fops_vcodec_release,
+	.poll           = v4l2_m2m_fop_poll,
+	.unlocked_ioctl = video_ioctl2,
+	.mmap           = v4l2_m2m_fop_mmap,
 };
 
 static int mtk_vcodec_probe(struct platform_device *pdev)
@@ -243,7 +151,8 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	struct mtk_vcodec_dev *dev;
 	struct video_device *vfd_enc;
 	struct resource *res;
-	int i, j, ret;
+	struct mtk_vcodec_pm *pm;
+	int i, ret;
 
 	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -252,14 +161,11 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&dev->ctx_list);
 	dev->plat_dev = pdev;
 
-	dev->vpu_plat_dev = vpu_get_plat_device(dev->plat_dev);
-	if (dev->vpu_plat_dev == NULL) {
-		mtk_v4l2_err("[VPU] vpu device in not ready");
+	dev->vcu_plat_dev = vcu_get_plat_device(dev->plat_dev);
+	if (dev->vcu_plat_dev == NULL) {
+		mtk_v4l2_err("[VCU] vcu device in not ready");
 		return -EPROBE_DEFER;
 	}
-
-	vpu_wdt_reg_handler(dev->vpu_plat_dev, mtk_vcodec_enc_reset_handler,
-				dev, VPU_RST_ENC);
 
 	ret = mtk_vcodec_init_enc_pm(dev);
 	if (ret < 0) {
@@ -267,15 +173,45 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	for (i = VENC_SYS, j = 0; i < NUM_MAX_VCODEC_REG_BASE; i++, j++) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, j);
-		dev->reg_base[i] = devm_ioremap_resource(&pdev->dev, res);
-		if (IS_ERR((__force void *)dev->reg_base[i])) {
-			ret = PTR_ERR((__force void *)dev->reg_base[i]);
+	pm = &dev->pm;
+	pm->chip_node = of_find_compatible_node(NULL,
+		NULL, "mediatek,venc_gcon");
+	if (pm->chip_node) {
+		for (i = VENC_LT_SYS; i < NUM_MAX_VENC_REG_BASE; i++) {
+			res = platform_get_resource(pdev, IORESOURCE_MEM, i);
+			if (res == NULL) {
+				dev_err(&pdev->dev, "get memory resource failed.");
+				ret = -ENXIO;
+				goto err_res;
+			}
+			dev->enc_reg_base[i] =
+				devm_ioremap_resource(&pdev->dev, res);
+			if (IS_ERR((__force void *)dev->enc_reg_base[i])) {
+				ret = PTR_ERR(
+					(__force void *)dev->enc_reg_base[i]);
+				goto err_res;
+			}
+			mtk_v4l2_debug(2, "reg[%d] base=0x%p",
+				i, dev->enc_reg_base[i]);
+		}
+	} else {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+		if (res == NULL) {
+			dev_err(&pdev->dev, "get memory resource failed.");
+			ret = -ENXIO;
 			goto err_res;
 		}
-		mtk_v4l2_debug(2, "reg[%d] base=0x%p", i, dev->reg_base[i]);
+		dev->enc_reg_base[VENC_SYS] =
+			devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR((__force void *)dev->enc_reg_base[VENC_SYS])) {
+			ret = PTR_ERR(
+				(__force void *)dev->enc_reg_base[VENC_SYS]);
+			goto err_res;
+		}
+		mtk_v4l2_debug(2, "reg[%d] base=0x%p",
+			VENC_SYS, dev->enc_reg_base[VENC_SYS]);
 	}
+#ifndef FPGA_INTERRUPT_API_DISABLE
 
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res == NULL) {
@@ -284,38 +220,18 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 		goto err_res;
 	}
 
-	dev->enc_irq = platform_get_irq(pdev, 0);
-	ret = devm_request_irq(&pdev->dev, dev->enc_irq,
-			       mtk_vcodec_enc_irq_handler,
-			       0, pdev->name, dev);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to install dev->enc_irq %d (%d)",
-			dev->enc_irq,
-			ret);
-		ret = -EINVAL;
+	ret = mtk_vcodec_enc_irq_setup(pdev, dev);
+	if (ret)
 		goto err_res;
-	}
+#endif
 
-	dev->enc_lt_irq = platform_get_irq(pdev, 1);
-	ret = devm_request_irq(&pdev->dev,
-			       dev->enc_lt_irq, mtk_vcodec_enc_lt_irq_handler,
-			       0, pdev->name, dev);
-	if (ret) {
-		dev_err(&pdev->dev,
-			"Failed to install dev->enc_lt_irq %d (%d)",
-			dev->enc_lt_irq, ret);
-		ret = -EINVAL;
-		goto err_res;
-	}
-
-	disable_irq(dev->enc_irq);
-	disable_irq(dev->enc_lt_irq); /* VENC_LT */
 	mutex_init(&dev->enc_mutex);
 	mutex_init(&dev->dev_mutex);
+	mutex_init(&dev->enc_dvfs_mutex);
 	spin_lock_init(&dev->irqlock);
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name), "%s",
-		 "[MTK_V4L2_VENC]");
+			 "[MTK_V4L2_VENC]");
 
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret) {
@@ -338,11 +254,11 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	vfd_enc->lock           = &dev->dev_mutex;
 	vfd_enc->v4l2_dev       = &dev->v4l2_dev;
 	vfd_enc->vfl_dir        = VFL_DIR_M2M;
-	vfd_enc->device_caps	= V4L2_CAP_VIDEO_M2M_MPLANE |
-					V4L2_CAP_STREAMING;
+	vfd_enc->device_caps    = V4L2_CAP_VIDEO_M2M_MPLANE |
+							  V4L2_CAP_STREAMING;
 
 	snprintf(vfd_enc->name, sizeof(vfd_enc->name), "%s",
-		 MTK_VCODEC_ENC_NAME);
+			 MTK_VCODEC_ENC_NAME);
 	video_set_drvdata(vfd_enc, dev);
 	dev->vfd_enc = vfd_enc;
 	platform_set_drvdata(pdev, dev);
@@ -355,9 +271,9 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	}
 
 	dev->encode_workqueue =
-			alloc_ordered_workqueue(MTK_VCODEC_ENC_NAME,
-						WQ_MEM_RECLAIM |
-						WQ_FREEZABLE);
+		alloc_ordered_workqueue(MTK_VCODEC_ENC_NAME,
+								WQ_MEM_RECLAIM |
+								WQ_FREEZABLE);
 	if (!dev->encode_workqueue) {
 		mtk_v4l2_err("Failed to create encode workqueue");
 		ret = -EINVAL;
@@ -371,7 +287,10 @@ static int mtk_vcodec_probe(struct platform_device *pdev)
 	}
 
 	mtk_v4l2_debug(0, "encoder registered as /dev/video%d",
-			vfd_enc->num);
+				   vfd_enc->num);
+
+	mtk_prepare_venc_dvfs();
+	mtk_prepare_venc_emi_bw();
 
 	return 0;
 
@@ -390,6 +309,10 @@ err_res:
 
 static const struct of_device_id mtk_vcodec_enc_match[] = {
 	{.compatible = "mediatek,mt8173-vcodec-enc",},
+	{.compatible = "mediatek,mt2712-vcodec-enc",},
+	{.compatible = "mediatek,mt8167-vcodec-enc",},
+	{.compatible = "mediatek,mt6771-vcodec-enc",},
+	{.compatible = "mediatek,venc_gcon",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_vcodec_enc_match);
@@ -397,6 +320,9 @@ MODULE_DEVICE_TABLE(of, mtk_vcodec_enc_match);
 static int mtk_vcodec_enc_remove(struct platform_device *pdev)
 {
 	struct mtk_vcodec_dev *dev = platform_get_drvdata(pdev);
+
+	mtk_unprepare_venc_emi_bw();
+	mtk_unprepare_venc_dvfs();
 
 	mtk_v4l2_debug_enter();
 	flush_workqueue(dev->encode_workqueue);
@@ -413,10 +339,10 @@ static int mtk_vcodec_enc_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver mtk_vcodec_enc_driver = {
-	.probe	= mtk_vcodec_probe,
-	.remove	= mtk_vcodec_enc_remove,
-	.driver	= {
-		.name	= MTK_VCODEC_ENC_NAME,
+	.probe  = mtk_vcodec_probe,
+	.remove = mtk_vcodec_enc_remove,
+	.driver = {
+		.name   = MTK_VCODEC_ENC_NAME,
 		.of_match_table = mtk_vcodec_enc_match,
 	},
 };

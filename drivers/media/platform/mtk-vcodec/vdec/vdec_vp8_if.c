@@ -48,14 +48,14 @@
 #define VP8_MAX_FRM_BUF_NODE_NUM	(VP8_MAX_FRM_BUF_NUM * 2)
 
 /* required buffer size (bytes) to store decode information */
-#define VP8_HW_SEGMENT_DATA_SZ		272
-#define VP8_HW_SEGMENT_UINT		4
+#define VP8_HW_SEGMENT_DATA_SZ 272
+#define VP8_HW_SEGMENT_UINT 4
 
-#define VP8_DEC_TABLE_PROC_LOOP		96
-#define VP8_DEC_TABLE_UNIT		3
-#define VP8_DEC_TABLE_SZ		300
-#define VP8_DEC_TABLE_OFFSET		2
-#define VP8_DEC_TABLE_RW_UNIT		4
+#define VP8_DEC_TABLE_PROC_LOOP 96
+#define VP8_DEC_TABLE_UNIT 3
+#define VP8_DEC_TABLE_SZ 300
+#define VP8_DEC_TABLE_OFFSET 2
+#define VP8_DEC_TABLE_RW_UNIT 4
 
 /**
  * struct vdec_vp8_dec_info - decode misc information
@@ -83,11 +83,11 @@ struct vdec_vp8_dec_info {
 
 /**
  * struct vdec_vp8_vsi - VPU shared information
- * @dec			: decoding information
- * @pic			: picture information
- * @dec_table		: decoder coefficient table
- * @segment_buf		: segmentation buffer
- * @load_data		: flag to indicate reload decode data
+ * @dec                 : decoding information
+ * @pic                 : picture information
+ * @dec_table           : decoder coefficient table
+ * @segment_buf         : segmentation buffer
+ * @load_data           : flag to indicate reload decode data
  */
 struct vdec_vp8_vsi {
 	struct vdec_vp8_dec_info dec;
@@ -99,13 +99,13 @@ struct vdec_vp8_vsi {
 
 /**
  * struct vdec_vp8_hw_reg_base - HW register base
- * @sys		: base address for sys
- * @misc	: base address for misc
- * @ld		: base address for ld
- * @top		: base address for top
- * @cm		: base address for cm
- * @hwd		: base address for hwd
- * @hwb		: base address for hwb
+ * @sys         : base address for sys
+ * @misc        : base address for misc
+ * @ld          : base address for ld
+ * @top         : base address for top
+ * @cm          : base address for cm
+ * @hwd         : base address for hwd
+ * @hwb         : base address for hwb
  */
 struct vdec_vp8_hw_reg_base {
 	void __iomem *sys;
@@ -119,10 +119,10 @@ struct vdec_vp8_hw_reg_base {
 
 /**
  * struct vdec_vp8_vpu_inst - VPU instance for VP8 decode
- * @wq_hd	: Wait queue to wait VPU message ack
- * @signaled	: 1 - Host has received ack message from VPU, 0 - not recevie
- * @failure	: VPU execution result status 0 - success, others - fail
- * @inst_addr	: VPU decoder instance address
+ * @wq_hd       : Wait queue to wait VPU message ack
+ * @signaled    : 1 - Host has received ack message from VPU, 0 - not recevie
+ * @failure     : VPU execution result status 0 - success, others - fail
+ * @inst_addr   : VPU decoder instance address
  */
 struct vdec_vp8_vpu_inst {
 	wait_queue_head_t wq_hd;
@@ -135,9 +135,9 @@ struct vdec_vp8_vpu_inst {
  * [available_fb_node_list]  - decode fb are initialized to 0 and populated in
  * [fb_use_list]  - fb is set after decode and is moved to this list
  * [fb_free_list] - fb is not needed for reference will be moved from
- *		     [fb_use_list] to [fb_free_list] and
- *		     once user remove fb from [fb_free_list],
- *		     it is circulated back to [available_fb_node_list]
+ *                   [fb_use_list] to [fb_free_list] and
+ *                   once user remove fb from [fb_free_list],
+ *                   it is circulated back to [available_fb_node_list]
  * [fb_disp_list] - fb is set after decode and is moved to this list
  *                   once user remove fb from [fb_disp_list] it is
  *                   circulated back to [available_fb_node_list]
@@ -145,19 +145,19 @@ struct vdec_vp8_vpu_inst {
 
 /**
  * struct vdec_vp8_inst - VP8 decoder instance
- * @cur_fb		   : current frame buffer
- * @dec_fb		   : decode frame buffer node
+ * @cur_fb                 : current frame buffer
+ * @dec_fb                 : decode frame buffer node
  * @available_fb_node_list : list to store available frame buffer node
- * @fb_use_list		   : list to store frame buffer in use
- * @fb_free_list	   : list to store free frame buffer
- * @fb_disp_list	   : list to store display ready frame buffer
- * @working_buf		   : HW decoder working buffer
- * @reg_base		   : HW register base address
- * @frm_cnt		   : decode frame count
- * @ctx			   : V4L2 context
- * @dev			   : platform device
- * @vpu			   : VPU instance for decoder
- * @vsi			   : VPU share information
+ * @fb_use_list            : list to store frame buffer in use
+ * @fb_free_list           : list to store free frame buffer
+ * @fb_disp_list           : list to store display ready frame buffer
+ * @working_buf            : HW decoder working buffer
+ * @reg_base               : HW register base address
+ * @frm_cnt                : decode frame count
+ * @ctx                    : V4L2 context
+ * @dev                    : platform device
+ * @vpu                    : VPU instance for decoder
+ * @vsi                    : VPU share information
  */
 struct vdec_vp8_inst {
 	struct vdec_fb *cur_fb;
@@ -176,13 +176,13 @@ struct vdec_vp8_inst {
 
 static void get_hw_reg_base(struct vdec_vp8_inst *inst)
 {
-	inst->reg_base.top = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_TOP);
-	inst->reg_base.cm = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_CM);
-	inst->reg_base.hwd = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_HWD);
-	inst->reg_base.sys = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_SYS);
-	inst->reg_base.misc = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_MISC);
-	inst->reg_base.ld = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_LD);
-	inst->reg_base.hwb = mtk_vcodec_get_reg_addr(inst->ctx, VDEC_HWB);
+	inst->reg_base.top = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_TOP);
+	inst->reg_base.cm = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_CM);
+	inst->reg_base.hwd = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_HWD);
+	inst->reg_base.sys = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_SYS);
+	inst->reg_base.misc = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_MISC);
+	inst->reg_base.ld = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_LD);
+	inst->reg_base.hwb = mtk_vcodec_get_dec_reg_addr(inst->ctx, VDEC_HWB);
 }
 
 static void write_hw_segmentation_data(struct vdec_vp8_inst *inst)
@@ -264,7 +264,7 @@ static void store_dec_table(struct vdec_vp8_inst *inst)
 
 	for (i = 0; i < VP8_DEC_TABLE_PROC_LOOP; i++) {
 		writel(addr, hwd + VP8_BSASET);
-		for (j = 0; j < VP8_DEC_TABLE_UNIT ; j++) {
+		for (j = 0; j < VP8_DEC_TABLE_UNIT; j++) {
 			val = *p++;
 			writel(val, hwd + VP8_BSDSET);
 		}
@@ -293,8 +293,8 @@ static void get_pic_info(struct vdec_vp8_inst *inst, struct vdec_pic_info *pic)
 {
 	*pic = inst->vsi->pic;
 
-	mtk_vcodec_debug(inst, "pic(%d, %d), buf(%d, %d)",
-			 pic->pic_w, pic->pic_h, pic->buf_w, pic->buf_h);
+	mtk_vcodec_debug(inst, "pic(%d, %d), buf(%d, %d)", pic->pic_w,
+			 pic->pic_h, pic->buf_w, pic->buf_h);
 	mtk_vcodec_debug(inst, "Y(%d, %d), C(%d, %d)", pic->y_bs_sz,
 			 pic->y_len_sz, pic->c_bs_sz, pic->c_len_sz);
 }
@@ -404,7 +404,7 @@ static int vdec_vp8_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
-		return  -ENOMEM;
+		return -ENOMEM;
 
 	inst->ctx = ctx;
 
@@ -511,8 +511,8 @@ static int vdec_vp8_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	if (err)
 		goto error;
 
-	mtk_vcodec_debug(inst, "\n - FRAME[%d] - show=%d\n", inst->frm_cnt,
-			 dec->show_frame);
+	mtk_vcodec_debug(inst, "\n - FRAME[%d] - show=%d\n",
+				inst->frm_cnt, dec->show_frame);
 	inst->frm_cnt++;
 	*res_chg = false;
 	return 0;
@@ -534,7 +534,7 @@ static void get_disp_fb(struct vdec_vp8_inst *inst, struct vdec_fb **out_fb)
 		fb = (struct vdec_fb *)node->fb;
 		fb->status |= FB_ST_DISPLAY;
 		mtk_vcodec_debug(inst, "[FB] get disp fb %p st=%d",
-				 node->fb, fb->status);
+				node->fb, fb->status);
 	} else {
 		fb = NULL;
 		mtk_vcodec_debug(inst, "[FB] there is no disp fb");
@@ -554,8 +554,8 @@ static void get_free_fb(struct vdec_vp8_inst *inst, struct vdec_fb **out_fb)
 		list_move_tail(&node->list, &inst->available_fb_node_list);
 		fb = (struct vdec_fb *)node->fb;
 		fb->status |= FB_ST_FREE;
-		mtk_vcodec_debug(inst, "[FB] get free fb %p st=%d",
-				 node->fb, fb->status);
+		mtk_vcodec_debug(inst, "[FB] get free fb %p st=%d", node->fb,
+				 fb->status);
 	} else {
 		fb = NULL;
 		mtk_vcodec_debug(inst, "[FB] there is no free fb");
@@ -570,8 +570,8 @@ static void get_crop_info(struct vdec_vp8_inst *inst, struct v4l2_rect *cr)
 	cr->top = 0;
 	cr->width = inst->vsi->pic.pic_w;
 	cr->height = inst->vsi->pic.pic_h;
-	mtk_vcodec_debug(inst, "get crop info l=%d, t=%d, w=%d, h=%d",
-			 cr->left, cr->top, cr->width, cr->height);
+	mtk_vcodec_debug(inst, "get crop info l=%d, t=%d, w=%d, h=%d", cr->left,
+			 cr->top, cr->width, cr->height);
 }
 
 static int vdec_vp8_get_param(unsigned long h_vdec,
@@ -620,10 +620,10 @@ static void vdec_vp8_deinit(unsigned long h_vdec)
 }
 
 static struct vdec_common_if vdec_vp8_if = {
-	.init		= vdec_vp8_init,
-	.decode		= vdec_vp8_decode,
-	.get_param	= vdec_vp8_get_param,
-	.deinit		= vdec_vp8_deinit,
+	vdec_vp8_init,
+	vdec_vp8_decode,
+	vdec_vp8_get_param,
+	vdec_vp8_deinit,
 };
 
 struct vdec_common_if *get_vp8_dec_comm_if(void);
