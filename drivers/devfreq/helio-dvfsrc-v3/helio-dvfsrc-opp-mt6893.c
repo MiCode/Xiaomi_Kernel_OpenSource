@@ -23,8 +23,13 @@
 #endif
 
 #define V_VMODE_SHIFT 0
-#define V_AGING_SHIFT 4
-#define AGING_VALUE 12500
+#define V_CT_SHIFT 5
+#define V_CT_TEST_SHIFT 6
+#define VCORE_VB_FF_EN_SHIFT 8
+#define VCORE_VB_TT_EN_SHIFT 9
+#define VCORE_VB_SS_EN_SHIFT 10
+#define VCORE_VB_750_EN_SHIFT 12
+#define VCORE_VB_575_EN_SHIFT 13
 
 static int dvfsrc_rsrv;
 
@@ -108,32 +113,81 @@ void dvfsrc_opp_table_init(void)
 	}
 }
 
+static int query_rising_idx(void)
+{
+	int idx;
+	int ptpod = get_devinfo_with_index(134);
+
+	pr_info("%s: PTPOD: 0x%x\n", __func__, ptpod);
+	idx = ptpod & 0x7;
+
+	return idx;
+}
+
+static int get_vb_volt(int vcore_opp, int info_mode)
+{
+	int ret = 0;
+	u32 info = get_devinfo_with_index(140);
+	u32 ptpod = get_devinfo_with_index(69);
+
+	pr_info("%s: PTPOD: 0x%x, 0x%x\n", __func__, info, ptpod);
+	info = (info >> 28) & 0xF;
+
+	if (vcore_opp == VCORE_OPP_0)
+		ptpod = (ptpod >> 8) & 0xF;
+	else if (vcore_opp == VCORE_OPP_4)
+		ptpod = (ptpod >> 24) & 0xF;
+	else
+		ptpod = 0;
+
+	info = 3;
+	ptpod = 5;
+
+	if ((info > 0) && (info <= 4) && (info_mode & (1 << VCORE_VB_FF_EN_SHIFT))) {
+		if (vcore_opp == VCORE_OPP_0)
+			ret = (ptpod <= 3) ? ptpod : 3;
+		else if (vcore_opp == VCORE_OPP_4)
+			ret = (ptpod <= 4) ? ptpod : 4;
+	} else if ((info > 4) && (info <= 10) && (info_mode & (1 << VCORE_VB_TT_EN_SHIFT))) {
+		if (vcore_opp == VCORE_OPP_0)
+			ret = (ptpod <= 2) ? ptpod : 2;
+		else if (vcore_opp == VCORE_OPP_4)
+			ret = (ptpod <= 2) ? ptpod : 2;
+	} else if ((info > 10) && (info_mode & (1 << VCORE_VB_SS_EN_SHIFT))) {
+		if (vcore_opp == VCORE_OPP_0)
+			ret = (ptpod <= 1) ? ptpod : 1;
+		else if (vcore_opp == VCORE_OPP_4)
+			ret = (ptpod <= 1) ? ptpod : 1;
+	}
+	pr_info("%s: OPP = %d %d %d\n", __func__, vcore_opp, ptpod, ret);
+
+	return ret * 6250;
+}
+
+
 static int __init dvfsrc_opp_init(void)
 {
 	struct device_node *dvfsrc_node = NULL;
 	int vcore_opp_0_uv, vcore_opp_1_uv, vcore_opp_2_uv, vcore_opp_3_uv;
 	int vcore_opp_4_uv;
-	int is_vcore_aging = 0;
+	int is_vcore_ct = 0;
 	int dvfs_v_mode = 0;
+	int rising_idx = 0;
+	int vb_750_en = 0;
+	int vb_575_en = 0;
 	void __iomem *dvfsrc_base;
-	int val = 0; /*(get_devinfo_with_index(134) & 7);*/
 
 	set_pwrap_cmd(VCORE_OPP_0, 16);
 	set_pwrap_cmd(VCORE_OPP_1, 17);
 	set_pwrap_cmd(VCORE_OPP_2, 18);
 	set_pwrap_cmd(VCORE_OPP_3, 19);
 	set_pwrap_cmd(VCORE_OPP_4, 20);
-	if (val > 2)
-		val = 2;
-
-	val = val * 25000;
 
 	vcore_opp_0_uv = 750000;
 	vcore_opp_1_uv = 725000;
-	vcore_opp_2_uv = 650000 + val;
-	vcore_opp_3_uv = 600000 + val;
-	vcore_opp_4_uv = 575000 + val;
-
+	vcore_opp_2_uv = 650000;
+	vcore_opp_3_uv = 600000;
+	vcore_opp_4_uv = 575000;
 
 	dvfsrc_node =
 		of_find_compatible_node(NULL, NULL, "mediatek,dvfsrc");
@@ -148,39 +202,40 @@ static int __init dvfsrc_opp_init(void)
 		pr_info("%s: vcore_arg = %08x\n",
 			__func__, dvfsrc_rsrv);
 		dvfs_v_mode = (dvfsrc_rsrv >> V_VMODE_SHIFT) & 0x3;
-		is_vcore_aging = (dvfsrc_rsrv >> V_AGING_SHIFT) & 0x1;
+		is_vcore_ct = (dvfsrc_rsrv >> V_CT_SHIFT) & 0x1;
+		vb_750_en = (dvfsrc_rsrv >> VCORE_VB_750_EN_SHIFT) & 0x1;
+		vb_575_en = (dvfsrc_rsrv >> VCORE_VB_575_EN_SHIFT) & 0x1;
+	}
+
+	rising_idx = query_rising_idx();
+	if (rising_idx > 2)
+		rising_idx = 2;
+
+	vcore_opp_2_uv = vcore_opp_2_uv + rising_idx * 25000;
+	vcore_opp_3_uv = vcore_opp_3_uv + rising_idx * 25000;
+	vcore_opp_4_uv = vcore_opp_4_uv + rising_idx * 25000;
+
+	if (is_vcore_ct && (rising_idx == 0)) {
+		if (vb_750_en)
+			vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0, dvfsrc_rsrv);
+		if (vb_575_en)
+			vcore_opp_4_uv -= get_vb_volt(VCORE_OPP_4, dvfsrc_rsrv);
 	}
 
 	if (dvfs_v_mode == 3) {
 		/* LV */
-		vcore_opp_0_uv = 712500;
-		vcore_opp_1_uv = 687500;
-		if (val == 0) {
-			vcore_opp_2_uv = 612500;
-			vcore_opp_3_uv = 568750;
-			vcore_opp_4_uv = 543750;
-		} else if (val == 25000) {
-			vcore_opp_2_uv = 637500;
-			vcore_opp_3_uv = 593750;
-			vcore_opp_4_uv = 568750;
-		} else if (val == 50000) {
-			vcore_opp_2_uv = 662500;
-			vcore_opp_3_uv = 612500;
-			vcore_opp_4_uv = 593750;
-		}
+		vcore_opp_0_uv = rounddown((vcore_opp_0_uv * 95) / 100, 6250);
+		vcore_opp_1_uv = rounddown((vcore_opp_1_uv * 95) / 100, 6250);
+		vcore_opp_2_uv = rounddown((vcore_opp_2_uv * 95) / 100, 6250);
+		vcore_opp_3_uv = rounddown((vcore_opp_3_uv * 95) / 100, 6250);
+		vcore_opp_4_uv = rounddown((vcore_opp_4_uv * 95) / 100, 6250);
 	} else if (dvfs_v_mode == 1) {
 		/* HV */
-		vcore_opp_0_uv = 787500;
-		vcore_opp_1_uv = 761250;
-		vcore_opp_2_uv = 682500;
-		vcore_opp_3_uv = 630000;
-		vcore_opp_4_uv = 603750;
-	} else if (is_vcore_aging) {
-		vcore_opp_0_uv -= AGING_VALUE;
-		vcore_opp_1_uv -= AGING_VALUE;
-		vcore_opp_2_uv -= AGING_VALUE;
-		vcore_opp_3_uv -= AGING_VALUE;
-		vcore_opp_4_uv -= AGING_VALUE;
+		vcore_opp_0_uv = roundup((vcore_opp_0_uv * 105) / 100, 6250);
+		vcore_opp_1_uv = roundup((vcore_opp_1_uv * 105) / 100, 6250);
+		vcore_opp_2_uv = roundup((vcore_opp_2_uv * 105) / 100, 6250);
+		vcore_opp_3_uv = roundup((vcore_opp_3_uv * 105) / 100, 6250);
+		vcore_opp_4_uv = roundup((vcore_opp_4_uv * 105) / 100, 6250);
 	}
 
 	pr_info("%s: VMODE=%d, RSV4=%x\n",
