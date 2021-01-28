@@ -16,6 +16,7 @@
 #include "ged_log.h"
 #include "ged_debugFS.h"
 
+#ifdef GED_DEBUG_FS
 #define DEBUG_ON	1
 #define DEBUG_OFF	0
 
@@ -598,7 +599,7 @@ GED_ERROR ged_gpu_tuner_init(void)
 
 	gpu_tuner_status.status.feature = gpu_tuner_status.status.value = 0;
 	debug = false;
-#ifdef GED_DEBUG_FS
+
 	err = ged_debugFS_create_entry_dir(
 			"gpu_tuner",
 			NULL,
@@ -646,7 +647,6 @@ GED_ERROR ged_gpu_tuner_init(void)
 
 		goto ERROR;
 	}
-#endif
 
 ERROR:
 
@@ -705,3 +705,24 @@ int ged_bridge_gpu_tuner_status(
 
 	return GED_OK;
 }
+#else
+GED_ERROR ged_gpu_tuner_hint_set(char *packagename,
+				enum GPU_TUNER_FEATURE eFeature)
+{
+	return GED_OK;
+}
+
+GED_ERROR ged_gpu_tuner_hint_restore(
+		char *packagename,
+		enum GPU_TUNER_FEATURE eFeature)
+{
+	return GED_OK;
+}
+
+GED_ERROR ged_gpu_get_stauts_by_packagename(
+		char *packagename,
+		struct GED_GPU_TUNER_ITEM *status)
+{
+	return GED_OK;
+}
+#endif
