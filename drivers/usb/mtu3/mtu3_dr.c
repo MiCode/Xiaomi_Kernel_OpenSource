@@ -374,6 +374,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
 	struct otg_switch_mtk *otg_sx = &ssusb->otg_switch;
 	bool id_event, vbus_event;
+	static bool first_init = true;
 
 	dev_info(dev, "role_sw_set role %d\n", role);
 
@@ -441,6 +442,15 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_HOST);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_GROUND);
 		} else {
+			/*
+			 * add this for reduce boot 200ms
+			 * and add delay 200ms for plugout
+			 */
+			if (!first_init)
+				mdelay(200);
+			else
+				first_init = false;
+
 			ssusb_set_force_mode(ssusb, MTU3_DR_FORCE_DEVICE);
 			ssusb_set_mailbox(otg_sx, MTU3_ID_FLOAT);
 			if (ssusb->clk_mgr) {
