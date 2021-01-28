@@ -19,6 +19,7 @@
 #include "ccci_modem.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
+#include "modem_secure_base.h"
 
 #ifdef FEATURE_USING_4G_MEMORY_API
 #include <mt-plat/mtk_lpae.h>
@@ -119,3 +120,14 @@ void ccci_platform_init_6779(struct ccci_modem *md)
 	ccci_platform_init(md);
 }
 
+size_t mt_secure_call(size_t function_id,
+		size_t arg0, size_t arg1, size_t arg2,
+		size_t arg3, size_t r1, size_t r2, size_t r3)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(function_id, arg0, arg1,
+			arg2, arg3, r1, r2, r3, &res);
+
+	return res.a0;
+}
