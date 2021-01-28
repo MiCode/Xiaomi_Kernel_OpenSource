@@ -2935,7 +2935,7 @@ static struct platform_driver RSCDriver = {
 		}
 };
 
-
+#ifdef RSC_PROC_TEST
 static int rsc_dump_read(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -3159,6 +3159,7 @@ static const struct file_operations rsc_reg_proc_fops = {
 	.read = seq_read,
 	.write = rsc_reg_write,
 };
+#endif
 
 
 /*******************************************************************************
@@ -3207,9 +3208,10 @@ static signed int __init RSC_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#ifdef RSC_PROC_TEST
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_rsc_dir;
-
+#endif
 
 	int i;
 	/*  */
@@ -3220,7 +3222,7 @@ static signed int __init RSC_Init(void)
 		LOG_ERR("platform_driver_register fail");
 		return Ret;
 	}
-
+#ifdef RSC_PROC_TEST
 	isp_rsc_dir = proc_mkdir("rsc", NULL);
 	if (!isp_rsc_dir) {
 		LOG_ERR("[%s]: fail to mkdir /proc/rsc\n", __func__);
@@ -3233,7 +3235,7 @@ static signed int __init RSC_Init(void)
 
 	proc_entry = proc_create("rsc_reg", 0644, isp_rsc_dir,
 							&rsc_reg_proc_fops);
-
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
