@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/time.h>
 #include <linux/wait.h>
@@ -207,6 +208,18 @@ static struct DISP_DRE30_HIST g_aal_dre30_hist_db;
 static DECLARE_WAIT_QUEUE_HEAD(g_aal_size_wq);
 static bool g_aal_get_size_available;
 static struct DISP_AAL_DISPLAY_SIZE g_aal_size;
+
+static atomic_t g_aal_dre_config = ATOMIC_INIT(0);
+#define AAL_SRAM_SOF 1
+#define AAL_SRAM_EOF 0
+#if defined(CONFIG_MACH_MT6785)
+static u32 aal_sram_method = AAL_SRAM_SOF;
+#else
+static u32 aal_sram_method = AAL_SRAM_EOF;
+#endif
+module_param(aal_sram_method, uint, 0644);
+MODULE_PARM_DESC(aal_sram_method, "aal config sram method");
+
 #else
 static struct DISP_AAL_HIST g_aal_hist_multi_pipe;
 /* Locked by  g_aal#_hist_lock */
@@ -781,7 +794,8 @@ static void disp_aal_dre3_irq_handle(enum DISP_MODULE_ENUM module,
 	if (atomic_read(&g_aal_change_to_dre30) != 0x3)
 		return;
 
-	if (atomic_read(&g_aal_dre_halt) == 0) {
+	if (aal_sram_method == AAL_SRAM_EOF &&
+		atomic_read(&g_aal_dre_halt) == 0) {
 		if (atomic_cmpxchg(&g_aal_force_hist_apb, 0, 1) == 0) {
 			hist_apb = 0;
 			hist_int = 1;
@@ -792,7 +806,7 @@ static void disp_aal_dre3_irq_handle(enum DISP_MODULE_ENUM module,
 			AAL_ERR("Error when get hist_apb irq_handler");
 			return;
 		}
-		AAL_DBG("hist_apb (%d), hist_int (%d) in irq_handler",
+		AAL_DBG("[SRAM] hist_apb (%d) hist_int (%d) in (EOF)",
 			hist_apb, hist_int);
 		config_success = disp_aal_reg_mask(module, NULL,
 			DISP_AAL_SRAM_CFG,
@@ -1277,6 +1291,94 @@ void disp_aal_on_end_of_frame_by_module(enum disp_aal_id_t id)
 void disp_aal_on_end_of_frame(void)
 {
 	disp_aal_on_end_of_frame_by_module(DISP_AAL0);
+}
+
+void disp_aal_on_start_of_frame(enum disp_aal_id_t id)
+{
+#ifdef CONFIG_MTK_DRE30_SUPPORT
+	bool read_success = false;
+	unsigned long flags;
+	int dre_blk_x_num, dre_blk_y_num;
+	unsigned int read_value;
+	int hist_apb, hist_int;
+	enum DISP_MODULE_ENUM module = aal_get_module_from_id(id);
+
+	/* Only process AAL0 in single module state */
+	if (module != AAL0_MODULE_NAMING) {
+		AAL_ERR("dre3 error: Module(%d) in sof_irq_handler",
+			module);
+		return;
+	}
+
+	if (atomic_read(&g_aal_force_relay) == 1)
+		return;
+
+	if (atomic_read(&g_aal_change_to_dre30) != 0x3)
+		return;
+
+	if (aal_sram_method == AAL_SRAM_SOF) {
+		if (atomic_read(&g_aal_dre_config) == 0)
+			AAL_DBG("[SRAM] g_aal_dre_config is not 1 in SOF");
+
+		read_success = disp_aal_reg_get(module,
+			DISP_AAL_SRAM_CFG, &read_value);
+
+		if (!read_success) {
+			AAL_ERR("dre3 error[%d]: read SRAM config failed",
+				module);
+			return;
+		}
+
+		hist_apb = (read_value >> 5) & 0x1;
+		hist_int = (read_value >> 6) & 0x1;
+		AAL_DBG("[SRAM] hist_apb(%d) hist_int(%d) 0x%08x in (SOF)",
+			hist_apb, hist_int, read_value);
+
+		if (hist_int != atomic_read(&g_aal_force_hist_apb))
+			AAL_DBG("dre3[%d]: SRAM config %d != %d CMDQ config?",
+				module, hist_int,
+				atomic_read(&g_aal_force_hist_apb));
+
+		atomic_set(&g_aal_dre_config, 0);
+		read_success = disp_aal_reg_get(module,
+			DISP_AAL_DRE_BLOCK_INFO_01, &read_value);
+		if (!read_success) {
+			AAL_ERR("dre3 error[%d]: read DRE BINFO failed",
+				module);
+			return;
+		}
+		dre_blk_x_num = aal_min(AAL_DRE_BLK_NUM,
+			read_value & 0x1F);
+		dre_blk_y_num =
+			aal_min(AAL_BLK_MAX_ALLOWED_NUM/dre_blk_x_num,
+			    (read_value >> 5) & 0x1F);
+
+		if (spin_trylock_irqsave(&g_aal_hist_lock, flags)) {
+			read_success = disp_aal_read_dre3(dre_blk_x_num,
+				dre_blk_y_num);
+			if (read_success) {
+				g_aal_dre30_hist.dre_blk_x_num =
+					dre_blk_x_num;
+				g_aal_dre30_hist.dre_blk_y_num =
+					dre_blk_y_num;
+				atomic_set(&g_aal_hist_available, 1);
+			}
+			spin_unlock_irqrestore(&g_aal_hist_lock, flags);
+
+			if (read_success)
+				wake_up_interruptible(&g_aal_hist_wq);
+		}
+
+		if (spin_trylock_irqsave(&g_aal_dre3_gain_lock, flags)) {
+			/* Write DRE 3.0 gain */
+			disp_aal_write_dre3(NULL);
+			spin_unlock_irqrestore(&g_aal_dre3_gain_lock,
+				flags);
+		}
+	} else
+		AAL_DBG("[SRAM] irq_handler (SOF) dre_config(%d)",
+			atomic_read(&g_aal_dre_config));
+#endif
 }
 
 
@@ -1813,6 +1915,8 @@ static int aal_config(enum DISP_MODULE_ENUM module,
 #ifdef AAL_HAS_DRE3
 	int dre_alg_mode = 0;
 #endif
+	int width, height;
+	const int offset = aal_get_offset(module);
 
 	if (disp_aal_check_module(module, __func__, __LINE__) == false)
 		return 0;
@@ -1822,13 +1926,9 @@ static int aal_config(enum DISP_MODULE_ENUM module,
 		should_update = true;
 #endif
 
+	width = pConfig->dst_w;
+	height = pConfig->dst_h;
 	if (pConfig->dst_dirty) {
-		int width, height;
-		const int offset = aal_get_offset(module);
-
-		width = pConfig->dst_w;
-		height = pConfig->dst_h;
-
 #ifdef DISP_PLATFORM_HAS_SHADOW_REG
 		if (disp_helper_get_option(DISP_OPT_SHADOW_REGISTER)) {
 			unsigned long aal_shadow_ctl;
@@ -1897,10 +1997,35 @@ static int aal_config(enum DISP_MODULE_ENUM module,
 
 		DISP_REG_MASK(cmdq, DISP_AAL_EN + offset, 0x1, 0x1);
 
-		AAL_DBG("module:(%d), AAL_CFG = 0x%x, AAL_SIZE = 0x%x(%d, %d)",
+		AAL_DBG("module:(%d), AAL_CFG=0x%x, AAL_SIZE=0x%x(%d, %d)",
 			module, DISP_REG_GET(DISP_AAL_CFG + offset),
 			DISP_REG_GET(DISP_AAL_SIZE + offset), width, height);
 	}
+#ifdef CONFIG_MTK_DRE30_SUPPORT
+	if (aal_sram_method == AAL_SRAM_SOF) {
+		u32 hist_apb, hist_int, sram_cfg;
+
+		if (atomic_read(&g_aal_dre_config) == 1)
+			AAL_DBG("[SRAM] g_aal_dre_config not 0 in config");
+
+		if (atomic_cmpxchg(&g_aal_force_hist_apb, 0, 1) == 0) {
+			hist_apb = 0;
+			hist_int = 1;
+		} else if (atomic_cmpxchg(&g_aal_force_hist_apb, 1, 0) == 1) {
+			hist_apb = 1;
+			hist_int = 0;
+		} else {
+			AAL_ERR("[SRAM] Error when get hist_apb in config");
+		}
+		sram_cfg = (hist_int << 6)|(hist_apb << 5)|(1 << 4);
+		AAL_DBG("[SRAM] hist_apb(%d) hist_int(%d) 0x%08x in config",
+			hist_apb, hist_int, sram_cfg);
+		DISP_REG_MASK(cmdq, DISP_AAL_SRAM_CFG + offset,
+			sram_cfg, (0x7 << 4));
+
+		atomic_set(&g_aal_dre_config, 1);
+	}
+#endif
 
 	if ((pConfig->ovl_dirty || pConfig->rdma_dirty) &&
 		should_update == true)
@@ -2247,6 +2372,7 @@ static int aal_clock_off(enum DISP_MODULE_ENUM module, void *cmq_handle)
 #ifdef CONFIG_MTK_DRE30_SUPPORT
 	atomic_set(&g_aal_force_hist_apb, 0);
 	atomic_set(&g_aal_dre_halt, 0);
+	atomic_set(&g_aal_dre_config, 0);
 #endif			/* CONFIG_MTK_DRE30_SUPPORT */
 
 #if defined(CONFIG_MACH_ELBRUS) || defined(CONFIG_MACH_MT6757) || \
