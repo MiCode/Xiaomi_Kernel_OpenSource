@@ -31,19 +31,19 @@
 #include <linux/uaccess.h>
 /* #include     <mach/mt6593_pll.h>     */
 #include "inc/camera_isp.h"
-#define EP_STAGE /* 20200204: need mark after mmdvfs ready */
+//#define EP_STAGE
 #ifdef EP_STAGE
 #define EP_MARK_MMDVFS
 #define EP_MARK_SMI
-//#define EP_NO_CLKMGR
+#define EP_NO_CLKMGR
 #endif
 #ifndef EP_MARK_MMDVFS
 #include <mmdvfs_pmqos.h>
 #endif
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 /* Use this qos request to control camera dynamic frequency change */
-struct pm_qos_request isp_qos;
-struct pm_qos_request camsys_qos_request[ISP_PASS1_PATH_TYPE_AMOUNT];
+struct mtk_pm_qos_request isp_qos;
+struct mtk_pm_qos_request camsys_qos_request[ISP_PASS1_PATH_TYPE_AMOUNT];
 struct ISP_PM_QOS_STRUCT G_PM_QOS[ISP_PASS1_PATH_TYPE_AMOUNT];
 #ifndef EP_MARK_MMDVFS
 static u32 PMQoS_BW_value;
@@ -3017,7 +3017,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	 */
 	// before smi drv ready
 #ifndef EP_MARK_SMI
-	smi_bus_prepare_enable(SMI_LARB2_REG_INDX, ISP_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB2, ISP_DEV_NAME);
 #endif
 	ret = clk_prepare_enable(isp_clk.CG_SCP_SYS_CAM);
 	if (ret)
@@ -3078,7 +3078,7 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	// clk_disable_unprepare(isp_clk.CG_SCP_SYS_DIS);
 
 #ifndef EP_MARK_SMI
-	smi_bus_disable_unprepare(SMI_LARB2_REG_INDX, ISP_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB2, ISP_DEV_NAME);
 #endif
 }
 
@@ -8390,7 +8390,7 @@ static int ISP_SetPMQOS(unsigned int cmd, unsigned int module)
 	}
 
 	if (G_PM_QOS[module].upd_flag && G_PM_QOS[module].sof_flag) {
-		pm_qos_update_request(&camsys_qos_request[module], bw_cal);
+		mtk_pm_qos_update_request(&camsys_qos_request[module], bw_cal);
 		G_PM_QOS[module].sof_flag = MFALSE;
 		G_PM_QOS[module].upd_flag = MFALSE;
 	}
@@ -8419,15 +8419,16 @@ static bool ISP_PM_QOS_CTRL_FUNC(unsigned int bIsOn, unsigned int path)
 	}
 	if (bIsOn == 1) {
 		if (++bw_request[path] == 1) {
-			pm_qos_add_request(&camsys_qos_request[path],
-			PM_QOS_MM_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
+			mtk_pm_qos_add_request(&camsys_qos_request[path],
+				MTK_PM_QOS_MEMORY_BANDWIDTH,
+				MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 		}
 		Ret = ISP_SetPMQOS(bIsOn, path);
 	} else {
 		if (bw_request[path] == 0)
 			return MFALSE;
 		Ret = ISP_SetPMQOS(bIsOn, path);
-		pm_qos_remove_request(&camsys_qos_request[path]);
+		mtk_pm_qos_remove_request(&camsys_qos_request[path]);
 		bw_request[path] = 0;
 	}
 #endif
@@ -11129,11 +11130,10 @@ static void ISP_TaskletFunc(unsigned long data)
 			// ISP_PM_QOS_CTRL_FUNC(1, ISP_PASS1_PATH_TYPE_RAW);
 #ifndef EP_MARK_SMI
 			if (dump_smi_debug) {
-				smi_debug_bus_hang_detect(
-					SMI_PARAM_BUS_OPTIMIZATION,
-					true,
-					false,
-					true);
+				if (smi_debug_bus_hang_detect(
+					false, "camera_isp") != 0)
+					log_inf(
+					"ERR:smi_debug_bus_hang_detect");
 				dump_smi_debug = MFALSE;
 			}
 #endif
@@ -11154,11 +11154,10 @@ static void ISP_TaskletFunc(unsigned long data)
 			// ISP_PM_QOS_CTRL_FUNC(1, ISP_PASS1_PATH_TYPE_RAW_D);
 #ifndef EP_MARK_SMI
 			if (dump_smi_debug) {
-				smi_debug_bus_hang_detect(
-					SMI_PARAM_BUS_OPTIMIZATION,
-					true,
-					false,
-					true);
+				if (smi_debug_bus_hang_detect(
+					false, "camera_isp") != 0)
+					log_inf(
+					"ERR:smi_debug_bus_hang_detect");
 				dump_smi_debug = MFALSE;
 			}
 #endif
@@ -11633,7 +11632,8 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				sizeof(unsigned int) * 1) == 0) {
 				// hardcode to 2nd clock level
 				log_err("isp PMQoS sset to %d\n", DebugFlag[0]);
-				pm_qos_update_request(&isp_qos, DebugFlag[0]);
+				mtk_pm_qos_update_request(&isp_qos,
+					DebugFlag[0]);
 
 			} else {
 				log_err("ISP_SET_MMDVFS copy_from_user failed\n");
@@ -14733,7 +14733,7 @@ static signed int __init ISP_Init(void)
 	}
 #ifndef EP_MARK_MMDVFS
 	// register to pmqos for isp clk ctrl
-	pm_qos_add_request(&isp_qos,
+	mtk_pm_qos_add_request(&isp_qos,
 		PM_QOS_CAM_FREQ,
 		0);
 #endif
@@ -14937,8 +14937,8 @@ static void __exit ISP_Exit(void)
 
 	log_dbg("- E.");
 
-	pm_qos_update_request(&isp_qos, 0);
-	pm_qos_remove_request(&isp_qos);
+	mtk_pm_qos_update_request(&isp_qos, 0);
+	mtk_pm_qos_remove_request(&isp_qos);
 
 	/*      */
 	platform_driver_unregister(&IspDriver);
@@ -14967,7 +14967,7 @@ static void __exit ISP_Exit(void)
 	kfree(pBuf_kmalloc);
 	kfree(pLog_kmalloc);
 
-	pm_qos_remove_request(&isp_qos);
+	mtk_pm_qos_remove_request(&isp_qos);
 
 	/*      */
 }

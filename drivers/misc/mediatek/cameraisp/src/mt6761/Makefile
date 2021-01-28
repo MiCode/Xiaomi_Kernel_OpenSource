@@ -16,7 +16,8 @@
 #
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs
 
 ifeq ($(CONFIG_MACH_MT6761),y)
     ccflags-$(CONFIG_MTK_CMDQ_V3) += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6761/
