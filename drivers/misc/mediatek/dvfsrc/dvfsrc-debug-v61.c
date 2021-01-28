@@ -112,6 +112,24 @@ static int dvfsrc_dvfs_hopping_status(void)
 }
 #endif
 
+#if defined(CONFIG_MACH_MT6761)
+#define MTK_SIP_VCOREFS_GET_EFUSE 18
+static int dvfsrc_dvfs_get_efuse_data(u32 idx)
+{
+	struct arm_smccc_res ares;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+		MTK_SIP_VCOREFS_GET_EFUSE,
+		idx, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0)
+		return ares.a1;
+
+	return 0;
+}
+#endif
+
 static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	char *p, u32 size)
 {
@@ -131,7 +149,10 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	p += snprintf(p, buff_end - p, "%-10s: %d\n",
 		"GPS_HOPPING", dvfsrc_dvfs_hopping_status());
 #endif
-
+#if defined(CONFIG_MACH_MT6761)
+	p += snprintf(p, buff_end - p, "%-10s: %08x\n",
+		"EFUSE_0", dvfsrc_dvfs_get_efuse_data(0));
+#endif
 	p += snprintf(p, buff_end - p, "\n");
 
 	return p;
