@@ -216,17 +216,6 @@ struct mmc_cqe_ops {
 
 struct keyslot_mgmt_ll_ops;
 struct mmc_crypto_variant_ops {
-	void (*setup_rq_keyslot_manager)(struct mmc_host *host,
-					 struct request_queue *q);
-	void (*destroy_rq_keyslot_manager)(struct mmc_host *host,
-					   struct request_queue *q);
-	int (*init_crypto)(struct mmc_host *host,
-			       const struct keyslot_mgmt_ll_ops *ksm_ops);
-	void (*enable)(struct mmc_host *host);
-	void (*disable)(struct mmc_host *host);
-	int (*suspend)(struct mmc_host *host);
-	int (*resume)(struct mmc_host *host);
-	int (*debug)(struct mmc_host *host);
 	void (*host_init_crypto)(struct mmc_host *host);
 	int (*get_crypto_capabilities)(struct mmc_host *host);
 	int (*prepare_mqr_crypto)(struct mmc_host *host,
@@ -234,8 +223,6 @@ struct mmc_crypto_variant_ops {
 	void (*host_program_key)(struct mmc_host *host,
 			u32 *key, u32 *tkey, u32 config);
 	int (*complete_mqr_crypto)(struct mmc_host *host);
-	void (*msdc_crypto_keyslot_evict)(struct mmc_host *host);
-	void *priv;
 };
 
 struct mmc_async_req {
@@ -299,7 +286,7 @@ struct mmc_ctx {
 };
 
 /* CCAP - Crypto Capability 100h */
-union mmc_crypto_capabilities {
+union swcqhci_crypto_capabilities {
 	__le32 reg_val;
 	struct {
 		u8 num_crypto_cap;
@@ -309,24 +296,24 @@ union mmc_crypto_capabilities {
 	};
 };
 
-enum mmc_crypto_key_size {
-	MMC_CRYPTO_KEY_SIZE_128		= 1,
-	MMC_CRYPTO_KEY_SIZE_192		= 2,
-	MMC_CRYPTO_KEY_SIZE_256		= 3,
-	MMC_CRYPTO_KEY_SIZE_512		= 4,
-	MMC_CRYPTO_KEY_SIZE_INVALID	= 5,
+enum swcqhci_crypto_key_size {
+	SWCQHCI_CRYPTO_KEY_SIZE_128		= 0,
+	SWCQHCI_CRYPTO_KEY_SIZE_192		= 1,
+	SWCQHCI_CRYPTO_KEY_SIZE_256		= 2,
+	SWCQHCI_CRYPTO_KEY_SIZE_512		= 3,
+	SWCQHCI_CRYPTO_KEY_SIZE_INVALID	= 4,
 };
 
-enum mmc_crypto_alg {
-	MMC_CRYPTO_ALG_AES_XTS				= 0,
-	MMC_CRYPTO_ALG_BITLOCKER_AES_CBC	= 1,
-	MMC_CRYPTO_ALG_AES_ECB				= 2,
-	MMC_CRYPTO_ALG_ESSIV_AES_CBC		= 3,
-	MMC_CRYPTO_ALG_INVALID				= 4,
+enum swcqhci_crypto_alg {
+	SWCQHCI_CRYPTO_ALG_AES_XTS				= 4,
+	SWCQHCI_CRYPTO_ALG_BITLOCKER_AES_CBC	= 3,
+	SWCQHCI_CRYPTO_ALG_AES_ECB				= 2,
+	SWCQHCI_CRYPTO_ALG_ESSIV_AES_CBC		= 1,
+	SWCQHCI_CRYPTO_ALG_INVALID				= 0,
 };
 
 /* x-CRYPTOCAP - Crypto Capability X */
-union mmc_crypto_cap_entry {
+union swcqhci_crypto_cap_entry {
 	__le32 reg_val;
 	struct {
 		u8 algorithm_id;
@@ -341,7 +328,7 @@ union mmc_crypto_cap_entry {
 #define MMC_CRYPTO_KEY_MAX_SIZE 64
 /* x-CRYPTOCFG - Crypto Configuration X */
 /* key info will be fill in here, find slot will use, # of array == # of slot */
-union mmc_crypto_cfg_entry {
+union swcqhci_crypto_cfg_entry {
 	__le32 reg_val[32];
 	struct {
 		u8 crypto_key[MMC_CRYPTO_KEY_MAX_SIZE];
@@ -602,10 +589,10 @@ struct mmc_host {
 #ifdef CONFIG_MMC_CRYPTO
 	/* crypto */
 	const struct mmc_crypto_variant_ops *crypto_vops;
-	union mmc_crypto_capabilities crypto_capabilities;
-	union mmc_crypto_cap_entry *crypto_cap_array;
+	union swcqhci_crypto_capabilities crypto_capabilities;
+	union swcqhci_crypto_cap_entry *crypto_cap_array;
 	u8 crypto_cfg_register;
-	union mmc_crypto_cfg_entry *crypto_cfgs;
+	union swcqhci_crypto_cfg_entry *crypto_cfgs;
 	struct keyslot_manager *ksm;
 #endif /* CONFIG_MMC_CRYPTO */
 

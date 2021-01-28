@@ -23,7 +23,7 @@
 
 #include "autok.h"
 #include "autok_dvfs.h"
-#include "msdc_inline_crypt.h"
+#include "sw-cqhci-crypto.h"
 
 #if defined(CONFIG_MTK_HW_FDE) && defined(CONFIG_MTK_HW_FDE_AES)
 #include <fde_aes.h>
