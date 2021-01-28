@@ -2508,7 +2508,7 @@ static int musb_init_controller
 
 	/* attach to the IRQ */
 	if (request_irq(musb->nIrq, musb->isr
-			, IRQF_TRIGGER_LOW, dev_name(dev), musb)) {
+			, IRQF_TRIGGER_NONE, dev_name(dev), musb)) {
 		DBG(0, "request_irq %d failed!\n", musb->nIrq);
 		status = -ENODEV;
 		goto fail3;
