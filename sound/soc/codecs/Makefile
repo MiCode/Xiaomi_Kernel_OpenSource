@@ -1,4 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include
+
 snd-soc-88pm860x-objs := 88pm860x-codec.o
 snd-soc-ab8500-codec-objs := ab8500-codec.o
 snd-soc-ac97-objs := ac97.o
@@ -230,6 +232,8 @@ snd-soc-wm9712-objs := wm9712.o
 snd-soc-wm9713-objs := wm9713.o
 snd-soc-wm-hubs-objs := wm_hubs.o
 snd-soc-zx-aud96p22-objs := zx_aud96p22.o
+snd-soc-rt5509-objs := rt5509.o rt5509-regmap.o rt5509-calib.o
+
 # Amp
 snd-soc-dio2125-objs := dio2125.o
 snd-soc-max9877-objs := max9877.o
@@ -474,3 +478,4 @@ obj-$(CONFIG_SND_SOC_DIO2125)	+= snd-soc-dio2125.o
 obj-$(CONFIG_SND_SOC_MAX9877)	+= snd-soc-max9877.o
 obj-$(CONFIG_SND_SOC_MAX98504)	+= snd-soc-max98504.o
 obj-$(CONFIG_SND_SOC_TPA6130A2)	+= snd-soc-tpa6130a2.o
+obj-$(CONFIG_SND_SOC_RT5509)	+= snd-soc-rt5509.o
