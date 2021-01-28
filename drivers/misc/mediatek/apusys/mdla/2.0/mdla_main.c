@@ -601,10 +601,7 @@ int apusys_mdla_handler(int type,
 			(struct mdla_run_cmd_sync *)cmd_hnd->kva;
 		bool enable_preempt =
 			(dev->dev_type == APUSYS_DEVICE_MDLA_RT) ? false : true;
-		u32 preempt_level_support = PRIORITY_LEVEL;
 
-		if (preempt_level_support == 1)
-			enable_preempt = false;
 		retval = mdla_run_command_sync(
 			&cmd_data->req,
 			mdla_info,
