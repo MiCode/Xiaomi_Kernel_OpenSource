@@ -3,7 +3,7 @@
 #
 config MTK_MMC_DEBUG
 	bool "enable msdc debug buffer"
-	depends on MMC_MTK_PRO||MMC_MTK_SDIO
+	depends on (MMC_MTK_PRO||MMC_MTK_SDIO) && !(MTK_ENABLE_AGO)
 	default y
 	help
 	   if y, then enable msdc debug buffer.
