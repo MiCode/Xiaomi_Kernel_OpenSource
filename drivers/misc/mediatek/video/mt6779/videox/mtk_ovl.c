@@ -51,7 +51,7 @@
 #include "extd_platform.h"
 #include "ddp_misc.h"
 
-struct wakeup_source mem_wk_lock;
+struct wakeup_source *mem_wk_lock;
 static int is_context_inited;
 static int ovl2mem_layer_num;
 #ifdef MTKFB_M4U_SUPPORT
@@ -87,7 +87,7 @@ static struct ovl2mem_path_context *__get_context(void)
 		memset((void *)&g_context, 0, sizeof(g_context));
 		mutex_init(&g_context.lock);
 		is_context_inited = 1;
-		wakeup_source_init(&mem_wk_lock, "mem_disp_wakelock");
+		mem_wk_lock = wakeup_source_register("mem_disp_wakelock");
 	}
 
 	return &g_context;
@@ -450,7 +450,7 @@ int ovl2mem_init(unsigned int session)
 	pgcl->session = session;
 	atomic_set(&g_trigger_ticket, 1);
 	atomic_set(&g_release_ticket, 0);
-	__pm_stay_awake(&mem_wk_lock);
+	__pm_stay_awake(mem_wk_lock);
 
 Exit:
 	ovl2mem_path_unlock(__func__);
@@ -819,7 +819,7 @@ int ovl2mem_deinit(void)
 	pgcl->need_trigger_path = 0;
 	atomic_set(&g_trigger_ticket, 1);
 	atomic_set(&g_release_ticket, 0);
-	__pm_relax(&mem_wk_lock);
+	__pm_relax(mem_wk_lock);
 	ret = 0;
 
 Exit:

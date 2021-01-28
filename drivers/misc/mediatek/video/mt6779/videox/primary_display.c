@@ -183,7 +183,7 @@ static int get_sw_round_corner_param(unsigned int *tp_mva, unsigned int *bt_mva,
 #endif
 
 /* hold the wakelock to make kernel awake when primary display is on */
-struct wakeup_source pri_wk_lock;
+struct wakeup_source *pri_wk_lock;
 
 static int primary_display_trigger_nolock(int blocking, void *callback,
 					  int need_merge);
@@ -4248,8 +4248,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 done:
 	DISPDBG("init and hold wakelock...\n");
-	wakeup_source_init(&pri_wk_lock, "pri_disp_wakelock");
-	__pm_stay_awake(&pri_wk_lock);
+	pri_wk_lock = wakeup_source_register("pri_disp_wakelock");
+	__pm_stay_awake(pri_wk_lock);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		primary_display_diagnose();
@@ -4880,7 +4880,7 @@ done:
 	dpmgr_unregister_cmdq_dump_callback(primary_display_cmdq_dump);
 
 	DISPDBG("release wakelock...\n");
-	__pm_relax(&pri_wk_lock);
+	__pm_relax(pri_wk_lock);
 
 	_primary_path_unlock(__func__);
 	disp_sw_mutex_unlock(&(pgc->capture_lock));
@@ -5325,7 +5325,7 @@ done:
 		primary_display_esd_check_enable(1);
 
 	DISPDBG("hold the wakelock...\n");
-	__pm_stay_awake(&pri_wk_lock);
+	__pm_stay_awake(pri_wk_lock);
 
 	_primary_path_unlock(__func__);
 	DISPMSG("skip_update:%d\n", skip_update);
@@ -5343,7 +5343,7 @@ int primary_display_aod_backlight(int level)
 	_primary_path_lock(__func__);
 
 	DISPDBG("hold the wakelock...\n");
-	__pm_stay_awake(&pri_wk_lock);
+	__pm_stay_awake(pri_wk_lock);
 
 	if (pgc->state == DISP_ALIVE) {
 		DISPCHECK("primary display path is already resume, skip\n");
@@ -5503,7 +5503,7 @@ skip_resume:
 	primary_set_state(DISP_SLEPT);
 
 	DISPDBG("release wakelock...\n");
-	__pm_relax(&pri_wk_lock);
+	__pm_relax(pri_wk_lock);
 
 	_primary_path_unlock(__func__);
 
