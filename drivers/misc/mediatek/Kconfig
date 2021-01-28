@@ -99,7 +99,7 @@ config MTK_POWER_THROTTLING_COMMON
 	  Select "n" if unsure.
 
 config PMIC_LBAT_SERVICE
-	bool "PMIC lbat service"
+	tristate "PMIC lbat service"
 	select MTK_POWER_THROTTLING_COMMON
 	help
 	  For MediaTek PMIC lbat service.
@@ -109,7 +109,7 @@ config PMIC_LBAT_SERVICE
 	  Select "n" if unsure.
 
 config MTK_BATTERY_OC_POWER_THROTTLING
-	bool "MTK battery over current throttle"
+	tristate "MTK battery over current throttle"
 	select MTK_POWER_THROTTLING_COMMON
 	help
 	  For MediaTek battery over current power throttling.
@@ -120,7 +120,7 @@ config MTK_BATTERY_OC_POWER_THROTTLING
 	  Select "n" if unsure.
 
 config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
-	bool "MTK battery percentage throttle"
+	tristate "MTK battery percentage throttle"
 	select MTK_POWER_THROTTLING_COMMON
 	help
 	  For MediaTek battery percentage power throttling.
@@ -130,13 +130,23 @@ config MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
 	  Select "n" if unsure.
 
 config MTK_LOW_BATTERY_POWER_THROTTLING
-	bool "MTK low battery throttle"
+	tristate "MTK low battery throttle"
 	select MTK_POWER_THROTTLING_COMMON
 	select PMIC_LBAT_SERVICE
 	help
 	  For MediaTek low battery power throttling.
 	  Power throttle when battery voltage lower than some threshold.
 	  Select "y" if you want to enable low battery power throttling
+	  feature.
+	  Select "n" if unsure.
+
+config MTK_DYNAMIC_LOADING_POWER_THROTTLING
+	tristate "MTK dynamic loading throttle"
+	select MTK_POWER_THROTTLING_COMMON
+	help
+	  For MediaTek dynamic loading power throttling.
+	  Dynamic loading Imix calculation for power budget management.
+	  Select "y" if you want to enable dynamic loading power throttling
 	  feature.
 	  Select "n" if unsure.
 

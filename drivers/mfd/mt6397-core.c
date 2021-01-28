@@ -316,6 +316,9 @@ static const struct mfd_cell mt6357_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6357_battery_oc_resources),
 		.resources = mt6357_battery_oc_resources,
 	}, {
+		.name = "mtk-dynamic-loading-throttling",
+		.of_compatible = "mediatek,mt6357-dynamic_loading_throttling",
+	}, {
 		.name = "mt6357-charger-type-detection",
 		.num_resources = ARRAY_SIZE(mt6357_chrdet_resources),
 		.resources = mt6357_chrdet_resources,
