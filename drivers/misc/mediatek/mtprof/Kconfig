@@ -28,16 +28,6 @@ config MTK_SCHED_MONITOR
 	  here to enable monitor. If you are not sure about whether to enable
 	  it or not, please set n.
 
-config PREEMPT_MONITOR
-	bool "mt preempt monitor"
-	depends on MTK_SCHED_MONITOR
-	default n
-	help
-	  PREEMPT_MONITOR is used to monitor preempt disable/enalbe duration
-	  and local irq disable/enable duration. Say Y here to enable PREEMPT
-	  and IRQ monitor. If you are not sure about whether to enable it or
-	  not, please set n.
-
 config MTK_WQ_DEBUG
 	bool "mtk workqueue debug"
 	help
@@ -45,15 +35,6 @@ config MTK_WQ_DEBUG
 	  built-in or not. It will add logs to monitor work activation,
 	  queue, and execution. Say Y to enable mtk workqueue debug, or
 	  if you are not sure about this, please set n.
-
-config MTK_RCU_MONITOR
-	bool "mtk rcu callback list monitor"
-	default n
-	help
-	  MTK_RCU_MONITOR is used to monitor rcu callback list. Record all
-	  call_rcu callback information and invoke rcu callback information.
-	  Say Y here to enable rt throttle monitor. If you are not sure about
-	  whether to enable it or not, please set n.
 
 config MTK_IRQ_COUNT_TRACER
 	bool "mtk irq count tracer"
