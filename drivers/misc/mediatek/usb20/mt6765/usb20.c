@@ -736,24 +736,24 @@ static void do_usb20_test_connect_work(struct work_struct *work)
 }
 void mt_usb_connect_test(int start)
 {
-	static struct wakeup_source device_test_wakelock;
+	static struct wakeup_source *dev_test_wakelock;
 	static int wake_lock_inited;
 
 	if (!wake_lock_inited) {
 		DBG(0, "wake_lock_init\n");
-		wakeup_source_init(&device_test_wakelock, "device.test.lock");
+		dev_test_wakelock = wakeup_source_register("device.test.lock");
 		wake_lock_inited = 1;
 	}
 
 	if (start) {
-		__pm_stay_awake(&device_test_wakelock);
+		__pm_stay_awake(dev_test_wakelock);
 		usb20_test_connect = 1;
 		INIT_DELAYED_WORK(&usb20_test_connect_work,
 				do_usb20_test_connect_work);
 		schedule_delayed_work(&usb20_test_connect_work, 0);
 	} else {
 		usb20_test_connect = 0;
-		__pm_relax(&device_test_wakelock);
+		__pm_relax(dev_test_wakelock);
 	}
 }
 

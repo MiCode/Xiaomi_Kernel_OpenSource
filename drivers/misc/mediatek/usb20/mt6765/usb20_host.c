@@ -446,20 +446,19 @@ static void do_host_plug_test_work(struct work_struct *data)
 	static ktime_t ktime_begin, ktime_end;
 	static s64 diff_time;
 	static int host_on;
-	static struct wakeup_source host_test_wakelock;
+	static struct wakeup_source *host_test_wakelock;
 	static int wake_lock_inited;
 
 	if (!wake_lock_inited) {
 		DBG(0, "wake_lock_init\n");
-		wakeup_source_init(&host_test_wakelock,
-					"host.test.lock");
+		host_test_wakelock = wakeup_source_register("host.test.lock");
 		wake_lock_inited = 1;
 	}
 
 	host_plug_test_triggered = 1;
 	/* sync global status */
 	mb();
-	__pm_stay_awake(&host_test_wakelock);
+	__pm_stay_awake(host_test_wakelock);
 	DBG(0, "BEGIN");
 	ktime_begin = ktime_get();
 
@@ -503,7 +502,7 @@ static void do_host_plug_test_work(struct work_struct *data)
 	/* wait host_work done */
 	msleep(1000);
 	host_plug_test_triggered = 0;
-	__pm_relax(&host_test_wakelock);
+	__pm_relax(host_test_wakelock);
 	DBG(0, "END\n");
 }
 

@@ -2899,7 +2899,7 @@ static void __exit musb_cleanup(void)
 module_exit(musb_cleanup);
 
 static int usb_test_wakelock_inited;
-static struct wakeup_source usb_test_wakelock;
+static struct wakeup_source *usb_test_wakelock;
 static int option;
 static int set_option(const char *val, const struct kernel_param *kp)
 {
@@ -2923,14 +2923,15 @@ static int set_option(const char *val, const struct kernel_param *kp)
 		DBG(0, "wake_lock usb_test_wakelock\n");
 		if (!usb_test_wakelock_inited) {
 			DBG(0, "%s wake_lock_init\n", __func__);
-			wakeup_source_init(&usb_test_wakelock, "usb.test.lock");
+			usb_test_wakelock =
+				wakeup_source_register("usb.test.lock");
 			usb_test_wakelock_inited = 1;
 		}
-		__pm_stay_awake(&usb_test_wakelock);
+		__pm_stay_awake(usb_test_wakelock);
 		break;
 	case 1:
 		DBG(0, "wake_unlock usb_test_wakelock\n");
-		__pm_relax(&usb_test_wakelock);
+		__pm_relax(usb_test_wakelock);
 		break;
 	default:
 		break;
