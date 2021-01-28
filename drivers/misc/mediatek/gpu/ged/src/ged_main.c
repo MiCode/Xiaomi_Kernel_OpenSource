@@ -226,6 +226,10 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(HINT_FORCE_MDP);
 			ret = ged_bridge_hint_force_mdp(pvIn, pvOut);
 			break;
+		case GED_BRIDGE_COMMAND_QUERY_DVFS_FREQ_PRED:
+			VALIDATE_ARG(QUERY_DVFS_FREQ_PRED);
+			ret = ged_bridge_query_dvfs_freq_pred(pvIn, pvOut);
+			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
 			VALIDATE_ARG(GE_ALLOC);
 			ret = ged_bridge_ge_alloc(pvIn, pvOut);
