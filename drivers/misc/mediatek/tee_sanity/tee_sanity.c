@@ -17,10 +17,10 @@
 #include <mt-plat/mtk_secure_api.h>
 #include <tee_sanity.h>
 
-bool enable_ut;
-bool enable_read_hwirq;
-uint32_t tee_sanity_irq;
-uint32_t tee_sanity_hwirq;
+static bool enable_ut;
+static bool enable_read_hwirq;
+static uint32_t tee_sanity_irq;
+static uint32_t tee_sanity_hwirq;
 
 static void tee_ut(uint32_t cmd)
 {
