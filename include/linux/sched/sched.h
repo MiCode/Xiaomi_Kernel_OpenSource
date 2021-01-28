@@ -119,4 +119,9 @@ static inline bool sched_boost(void)
 }
 #endif
 
+#ifdef CONFIG_MTK_SCHED_INTEROP
+extern bool is_rt_throttle(int cpu);
 #endif
+
+#endif
+
