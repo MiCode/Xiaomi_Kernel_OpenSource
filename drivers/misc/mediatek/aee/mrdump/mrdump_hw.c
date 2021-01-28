@@ -26,7 +26,7 @@ static void mrdump_wd_dram_reserved_mode(bool drm_ready)
 		pr_notice("%s: get wd api error (%d)\n", __func__, res);
 	} else {
 		if (drm_ready) {
-			res = wd_api->wd_dram_reserved_mode(drm_enabled);
+			res = wd_api->wd_dram_reserved_mode(drm_ready);
 			pr_notice("%s: DDR reserved mode enabled\n",
 				  __func__);
 		} else {
@@ -42,7 +42,7 @@ static void mrdump_wd_dram_reserved_mode(bool drm_ready)
 int __init mrdump_hw_init(bool drm_ready)
 {
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG)
-	mrdump_wd_dram_reserved_mode(drm_enabled);
+	mrdump_wd_dram_reserved_mode(drm_ready);
 #endif
 
 #if IS_ENABLED(CONFIG_MTK_DFD_INTERNAL_DUMP)
