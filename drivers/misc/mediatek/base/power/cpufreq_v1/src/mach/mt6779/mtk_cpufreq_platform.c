@@ -635,8 +635,9 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	pdev = of_device_alloc(node, NULL, NULL);
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
-		tag_pr_info("@%s: cannot get efuse_cell\n", __func__);
-		return PTR_ERR(efuse_cell);
+		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
 	}
 
 	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
