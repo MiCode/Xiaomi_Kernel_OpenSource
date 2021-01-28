@@ -600,6 +600,11 @@ static void lcm_validate_roi(int *x, int *y, int *width, int *height)
 }
 #endif
 
+static unsigned int lcm_ata_check(unsigned char *buffer)
+{
+	return 1;
+}
+
 struct LCM_DRIVER ft8201_wxga_vdo_incell_boe_lcm_drv = {
 	.name = "ft8201_wxga_vdo_incell_boe",
 	.set_util_funcs = lcm_set_util_funcs,
@@ -610,6 +615,7 @@ struct LCM_DRIVER ft8201_wxga_vdo_incell_boe_lcm_drv = {
 	.init_power = lcm_init_power,
 	.resume_power = lcm_resume_power,
 	.suspend_power = lcm_suspend_power,
+	.ata_check = lcm_ata_check,
 #if (LCM_DSI_CMD_MODE)
 	.validate_roi = lcm_validate_roi,
 #endif
