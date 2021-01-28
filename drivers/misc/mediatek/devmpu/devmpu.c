@@ -404,14 +404,14 @@ static int devmpu_probe(struct platform_device *pdev)
 
 	void __iomem *reg_base;
 	static uint32_t probe_cnt;
-	struct devmpu_context *devmpu_ctx;
+	struct devmpu_context *devmpu_ctx = NULL;
 	uint64_t prot_base;
 	uint64_t prot_size;
 	uint32_t page_size;
 	uint32_t virq;
 
 	struct device_node *dn = pdev->dev.of_node;
-	struct resource *res;
+	struct resource *res = NULL;
 
 	pr_info("Device MPU probe: %s\n", pdev->name);
 
