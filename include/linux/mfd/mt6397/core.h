@@ -78,6 +78,7 @@ struct mt6397_chip {
 	void *irq_data;
 };
 
+int mt6358_ipi_init(struct mt6397_chip *chip);
 int mt6358_irq_init(struct mt6397_chip *chip);
 int mt6397_irq_init(struct mt6397_chip *mt6397);
 
