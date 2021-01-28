@@ -336,6 +336,8 @@ int vpu_put_request_to_pool(struct vpu_user *user, struct vpu_request *req)
 		if (IS_ERR(handle)) {
 			LOG_WRN("[vpu_drv] %s=0x%p sett_ion_fd failed\n",
 				"import ion handle", handle);
+			ret = -EINVAL;
+			goto out;
 
 			} else {
 				/* import fd to handle for buffer ref count+1*/
