@@ -3176,6 +3176,7 @@
 
 #include "mediatek/cust_mt6765_msdc.dtsi"
 #include "mediatek/mt6357.dtsi"
+#include "mediatek/bat_setting/mt6765_battery_prop.dtsi"
 #include "mediatek/mt6370.dtsi"
 #include "mediatek/mt6370_pd.dtsi"
 #ifdef CONFIG_CHARGER_RT9471
