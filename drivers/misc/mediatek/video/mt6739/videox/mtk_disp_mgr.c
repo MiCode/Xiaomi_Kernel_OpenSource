@@ -111,34 +111,6 @@ static int mtk_disp_mgr_flush(struct file *a_pstFile, fl_owner_t a_id)
 	return 0;
 }
 
-static int mtk_disp_mgr_mmap(struct file *file, struct vm_area_struct *vma)
-{
-	static const unsigned long addr_min = 0x14000000;
-	static const unsigned long addr_max = 0x14025000;
-	static const unsigned long size = addr_max - addr_min;
-	const unsigned long require_size = vma->vm_end - vma->vm_start;
-	unsigned long pa_start = vma->vm_pgoff << PAGE_SHIFT;
-	unsigned long pa_end = pa_start + require_size;
-
-	DISPDBG("mmap size %ld, vmpg0ff 0x%lx, pastart 0x%lx, paend 0x%lx\n",
-		require_size, vma->vm_pgoff, pa_start, pa_end);
-
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-
-	if (require_size > size ||
-	    (pa_start < addr_min || pa_end > addr_max || pa_start > pa_end)) {
-		DISPERR("mmap size range over flow!!\n");
-		return -EAGAIN;
-	}
-	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-			    (vma->vm_end - vma->vm_start), vma->vm_page_prot)) {
-		DISPERR("display mmap failed!!\n");
-		return -EAGAIN;
-	}
-
-	return 0;
-}
-
 int _session_inited(struct disp_session_config config)
 {
 #if 0
@@ -1553,7 +1525,6 @@ static long mtk_disp_mgr_compat_ioctl(struct file *file, unsigned int cmd,
 
 static const struct file_operations mtk_disp_mgr_fops = {
 	.owner = THIS_MODULE,
-	.mmap = mtk_disp_mgr_mmap,
 	.unlocked_ioctl = mtk_disp_mgr_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = mtk_disp_mgr_compat_ioctl,
