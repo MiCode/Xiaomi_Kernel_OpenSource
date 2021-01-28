@@ -111,11 +111,6 @@ unsigned int ver;
 /*#define EP_NO_CLKMGR*/
 #define BYPASS_REG         (0)
 /* #define WPE_WAITIRQ_LOG  */
-#define CMDQ_COMMON
-#ifdef CMDQ_COMMON
-#undef BYPASS_REG
-#define BYPASS_REG (1)
-#endif
 #define WPE_USE_GCE
 /*#define WPE_USE_GCE_IRQ */
 
