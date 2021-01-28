@@ -64,3 +64,8 @@ obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
 obj-y += mtk_eem_api.o
+
+ifeq ($(CONFIG_MTK_BASE_POWER), y)
+obj-y += mtk_picachu.o
+endif
+
