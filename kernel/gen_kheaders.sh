@@ -8,7 +8,7 @@ sfile="$(readlink -f "$0")"
 outdir="$(pwd)"
 tarfile=$1
 cpio_dir=$outdir/$tarfile.tmp
-
+cpio=$srctree/tools/build/cpio
 dir_list="
 include/
 arch/$SRCARCH/include/
@@ -58,14 +58,14 @@ mkdir $cpio_dir
 pushd $srctree > /dev/null
 for f in $dir_list;
 	do find "$f" -name "*.h";
-done | cpio --quiet -pd $cpio_dir
+done | $cpio --quiet -pd $cpio_dir
 popd > /dev/null
 
 # The second CPIO can complain if files already exist which can
 # happen with out of tree builds. Just silence CPIO for now.
 for f in $dir_list;
 	do find "$f" -name "*.h";
-done | cpio --quiet -pd $cpio_dir >/dev/null 2>&1
+done | $cpio --quiet -pd $cpio_dir >/dev/null 2>&1
 
 # Remove comments except SDPX lines
 find $cpio_dir -type f -print0 |
