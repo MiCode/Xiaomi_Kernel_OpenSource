@@ -42,7 +42,7 @@ endif
 #ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k79v1_64_ctighten")
 #subdir-ccflags-y += -DCORN_LOAD
 #endif
-#subdir-ccflags-y += -DCORN_LOAD
+subdir-ccflags-y += -DCORN_LOAD
 
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o

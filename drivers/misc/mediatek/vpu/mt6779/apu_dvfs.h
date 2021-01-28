@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
 #define VVPU_DVFS_VOLT0	 (82500)	/* mV x 100 */
 #define VVPU_DVFS_VOLT1	 (72500)	/* mV x 100 */
