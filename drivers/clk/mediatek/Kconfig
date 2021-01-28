@@ -171,7 +171,7 @@ config COMMON_CLK_MT6761_MIPI0ASYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6765
-	bool "Clock driver for MediaTek MT6765"
+	tristate "Clock driver for MediaTek MT6765"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
 	default MACH_MT6765
@@ -182,7 +182,7 @@ config COMMON_CLK_MT6765
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6765_AUDIOSYS
-	bool "Clock driver for MediaTek MT6765 audiosys"
+	tristate "Clock driver for MediaTek MT6765 audiosys"
 	depends on COMMON_CLK_MT6765
 	help
 	  This driver supports MediaTek MT6765 audsys clocks,
@@ -191,7 +191,7 @@ config COMMON_CLK_MT6765_AUDIOSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6765_CAMSYS
-	bool "Clock driver for MediaTek MT6765 camsys"
+	tristate "Clock driver for MediaTek MT6765 camsys"
 	depends on COMMON_CLK_MT6765
 	help
 	  This driver supports MediaTek MT6765 camsys clocks,
@@ -199,8 +199,17 @@ config COMMON_CLK_MT6765_CAMSYS
 	  If you wish to use clock resources from the camsys device,
 	  say Y. Otherwise, say N.
 
+config COMMON_CLK_MT6765_IMGSYS
+	tristate "Clock driver for MediaTek MT6765 imgsys"
+	depends on COMMON_CLK_MT6765
+	help
+	  This driver supports MediaTek MT6765 imgsys clocks,
+	  which is used to control imgsys clock output.
+	  If you wish to use clock resources from the imgsys device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT6765_MMSYS
-	bool "Clock driver for MediaTek MT6765 mmsys"
+	tristate "Clock driver for MediaTek MT6765 mmsys"
 	depends on COMMON_CLK_MT6765
 	help
 	  This driver supports MediaTek MT6765 mmsys clocks,
@@ -209,7 +218,7 @@ config COMMON_CLK_MT6765_MMSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6765_VCODECSYS
-	bool "Clock driver for MediaTek MT6765 vcodecsys"
+	tristate "Clock driver for MediaTek MT6765 vcodecsys"
 	depends on COMMON_CLK_MT6765
 	help
 	  This driver supports MediaTek MT6765 vcodecsys clocks,
@@ -218,7 +227,7 @@ config COMMON_CLK_MT6765_VCODECSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6765_MIPI0ASYS
-	bool "Clock driver for MediaTek MT6765 mipi0asys"
+	tristate "Clock driver for MediaTek MT6765 mipi0asys"
 	depends on COMMON_CLK_MT6765
 	help
 	  This driver supports MediaTek MT6765 mipi0asys clocks,
