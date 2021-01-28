@@ -169,7 +169,6 @@ static int lsm6dsm_probe(struct spi_device *spi_dev)
 	spi_dev->mode = SPI_MODE_0;
 	spi_dev->bits_per_word = 8;
 	spi_dev->max_speed_hz = 10 * 1000 * 1000;
-	spi_dev->master->rt = true;
 
 	driver_dev = kzalloc(sizeof(*driver_dev), GFP_KERNEL);
 	if (!driver_dev) {
