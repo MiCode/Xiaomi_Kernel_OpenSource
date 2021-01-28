@@ -4799,46 +4799,58 @@ void dsi_analysis(enum DISP_MODULE_ENUM module)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		DDPDUMP("MIPITX Clock:%d\n", dsi_phy_get_clk(module));
 #endif
-		n = snprintf(msg, len, "start:%x,busy:%d,DSI_DUAL_EN:%d,",
+		n = snprintf(msg, len,
+			"start:%x,busy:%d,DSI_DUAL_EN:%d,mode:%s,high_speed:%d,FSM_State:%s\n",
 			     DSI_REG[i]->DSI_START.DSI_START,
 			     DSI_REG[i]->DSI_INTSTA.BUSY,
-			     DSI_REG[i]->DSI_COM_CTRL.DSI_DUAL_EN);
-		n += snprintf(msg + n, len - n,
-			      "mode:%s,high_speed:%d,FSM_State:%s\n",
-			      dsi_mode_spy(DSI_REG[i]->DSI_MODE_CTRL.MODE),
-			      DSI_REG[i]->DSI_PHY_LCCON.LC_HS_TX_EN,
-			      _dsi_cmd_mode_parse_state(
+			     DSI_REG[i]->DSI_COM_CTRL.DSI_DUAL_EN,
+			     dsi_mode_spy(DSI_REG[i]->DSI_MODE_CTRL.MODE),
+			     DSI_REG[i]->DSI_PHY_LCCON.LC_HS_TX_EN,
+			     _dsi_cmd_mode_parse_state(
 				    DSI_REG[i]->DSI_STATE_DBG6.CMTRL_STATE));
-		DDPDUMP("%s", msg);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
 		n = snprintf(msg, len,
-			     "IRQ,RD_RDY:%d,CMD_DONE:%d,SLEEPOUT_DONE:%d,",
+			     "IRQ,RD_RDY:%d,CMD_DONE:%d,SLEEPOUT_DONE:%d,TE_RDY:%d,VM_CMD_DONE:%d,VM_DONE:%d\n",
 			     DSI_REG[i]->DSI_INTSTA.RD_RDY,
 			     DSI_REG[i]->DSI_INTSTA.CMD_DONE,
-			     DSI_REG[i]->DSI_INTSTA.SLEEPOUT_DONE);
-		n += snprintf(msg + n, len - n,
-			      "TE_RDY:%d,VM_CMD_DONE:%d,VM_DONE:%d\n",
-			      DSI_REG[i]->DSI_INTSTA.TE_RDY,
-			      DSI_REG[i]->DSI_INTSTA.VM_CMD_DONE,
-			      DSI_REG[i]->DSI_INTSTA.VM_DONE);
-		DDPDUMP("%s", msg);
+			     DSI_REG[i]->DSI_INTSTA.SLEEPOUT_DONE,
+			     DSI_REG[i]->DSI_INTSTA.TE_RDY,
+			     DSI_REG[i]->DSI_INTSTA.VM_CMD_DONE,
+			     DSI_REG[i]->DSI_INTSTA.VM_DONE);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "lane_num:%d,Ext_TE_EN:%d,",
+		n = snprintf(msg, len,
+			"lane_num:%d,Ext_TE_EN:%d,Ext_TE_Edge:%d,HSTX_CKLP_EN:%d\n",
 			     DSI_REG[i]->DSI_TXRX_CTRL.LANE_NUM,
-			     DSI_REG[i]->DSI_TXRX_CTRL.EXT_TE_EN);
-		n += snprintf(msg + n, len - n,
-			      "Ext_TE_Edge:%d,HSTX_CKLP_EN:%d\n",
-			      DSI_REG[i]->DSI_TXRX_CTRL.EXT_TE_EDGE,
-			      DSI_REG[i]->DSI_TXRX_CTRL.HSTX_CKLP_EN);
-		DDPDUMP("%s", msg);
+			     DSI_REG[i]->DSI_TXRX_CTRL.EXT_TE_EN,
+			     DSI_REG[i]->DSI_TXRX_CTRL.EXT_TE_EDGE,
+			     DSI_REG[i]->DSI_TXRX_CTRL.HSTX_CKLP_EN);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "LFR_en:%d,LFR_MODE:%d,LFR_TYPE:%d,",
+		n = snprintf(msg, len,
+			"LFR_en:%d,LFR_MODE:%d,LFR_TYPE:%d,LFR_SKIP_NUMBER:%d\n",
 			     DSI_REG[i]->DSI_LFR_CON.LFR_EN,
 			     DSI_REG[i]->DSI_LFR_CON.LFR_MODE,
-			     DSI_REG[i]->DSI_LFR_CON.LFR_TYPE);
-		n += snprintf(msg + n, len - n, "LFR_SKIP_NUMBER:%d\n",
-			      DSI_REG[i]->DSI_LFR_CON.LFR_SKIP_NUM);
-		DDPDUMP("%s", msg);
+			     DSI_REG[i]->DSI_LFR_CON.LFR_TYPE,
+			     DSI_REG[i]->DSI_LFR_CON.LFR_SKIP_NUM);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 	}
 }
 
