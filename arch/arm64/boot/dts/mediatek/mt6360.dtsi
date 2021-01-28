@@ -53,6 +53,8 @@
 			aicc_once = <1>;
 			post_aicc = <1>;
 			batoc_notify = <0>;
+			charger = <&mt6360_chg>;
+			bc12_sel = <0>;
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
