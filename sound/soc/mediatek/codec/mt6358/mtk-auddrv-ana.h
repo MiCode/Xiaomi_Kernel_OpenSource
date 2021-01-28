@@ -304,6 +304,7 @@
 #define DCXO_CW13           0x7aa
 #define DCXO_CW14           0x7ac
 
+#define AUXADC_CON1         0x118e
 #define AUXADC_CON10        0x11a0
 
 void Ana_Set_Reg(unsigned int offset, unsigned int value, unsigned int mask);
