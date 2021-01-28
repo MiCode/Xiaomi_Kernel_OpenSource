@@ -329,6 +329,9 @@ static const struct mfd_cell mt6357_devs[] = {
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,mt63xx-debug",
 	}, {
+		.name = "mt63xx-oc-debug",
+		.of_compatible = "mediatek,mt63xx-oc-debug",
+	}, {
 		.name = "mt6397-rtc",
 		.num_resources = ARRAY_SIZE(mt6357_rtc_resources),
 		.resources = mt6357_rtc_resources,
