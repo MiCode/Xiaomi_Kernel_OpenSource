@@ -329,6 +329,7 @@ struct mtk_phy_instance {
 	int eye_rev6;
 	int eye_disc;
 	bool bc12_en;
+	struct work_struct sysfs_work;
 };
 
 struct mtk_tphy {
@@ -341,6 +342,7 @@ struct mtk_tphy {
 	int nphys;
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef; /* coefficient for slew rate calibrate */
+	struct workqueue_struct *wq;
 };
 
 static void u2_phy_props_set(struct mtk_tphy *tphy,
@@ -518,8 +520,7 @@ static const struct attribute_group u3_phy_group = {
 	.attrs = u3_phy_attrs,
 };
 
-static int u3_phy_sysfs_init(struct mtk_tphy *tphy,
-			     struct mtk_phy_instance *instance)
+static int u3_phy_sysfs_init(struct mtk_phy_instance *instance)
 {
 	struct device *dev = &instance->phy->dev;
 	int ret;
@@ -535,8 +536,7 @@ static int u3_phy_sysfs_init(struct mtk_tphy *tphy,
 	return ret;
 }
 
-static int u3_phy_sysfs_exit(struct mtk_tphy *tphy,
-			     struct mtk_phy_instance *instance)
+static int u3_phy_sysfs_exit(struct mtk_phy_instance *instance)
 {
 	struct device *dev = &instance->phy->dev;
 
@@ -722,8 +722,7 @@ static const struct attribute_group u2_phy_group = {
 	.attrs = u2_phy_attrs,
 };
 
-static int u2_phy_sysfs_init(struct mtk_tphy *tphy,
-			     struct mtk_phy_instance *instance)
+static int u2_phy_sysfs_init(struct mtk_phy_instance *instance)
 {
 	struct device *dev = &instance->phy->dev;
 	int ret;
@@ -739,14 +738,25 @@ static int u2_phy_sysfs_init(struct mtk_tphy *tphy,
 	return ret;
 }
 
-static int u2_phy_sysfs_exit(struct mtk_tphy *tphy,
-			     struct mtk_phy_instance *instance)
+static int u2_phy_sysfs_exit(struct mtk_phy_instance *instance)
 {
 	struct device *dev = &instance->phy->dev;
 
 	sysfs_remove_link(&dev->parent->kobj, "u2_phy");
 	sysfs_remove_group(&dev->kobj, &u2_phy_group);
 	return 0;
+}
+
+static void phy_sysfs_init(struct work_struct *data)
+{
+	struct mtk_phy_instance *instance = container_of(data,
+		struct mtk_phy_instance, sysfs_work);
+
+	if (instance->type == PHY_TYPE_USB2)
+		u2_phy_sysfs_init(instance);
+
+	if (instance->type == PHY_TYPE_USB3)
+		u3_phy_sysfs_init(instance);
 }
 
 static void hs_slew_rate_calibrate(struct mtk_tphy *tphy,
@@ -1424,11 +1434,13 @@ static int mtk_phy_init(struct phy *phy)
 	case PHY_TYPE_USB2:
 		u2_phy_instance_init(tphy, instance);
 		u2_phy_props_set(tphy, instance);
-		u2_phy_sysfs_init(tphy, instance);
+		queue_work(tphy->wq, &instance->sysfs_work);
+		flush_workqueue(tphy->wq);
 		break;
 	case PHY_TYPE_USB3:
 		u3_phy_instance_init(tphy, instance);
-		u3_phy_sysfs_init(tphy, instance);
+		queue_work(tphy->wq, &instance->sysfs_work);
+		flush_workqueue(tphy->wq);
 		break;
 	case PHY_TYPE_PCIE:
 		pcie_phy_instance_init(tphy, instance);
@@ -1479,11 +1491,11 @@ static int mtk_phy_exit(struct phy *phy)
 
 	if (instance->type == PHY_TYPE_USB2) {
 		u2_phy_instance_exit(tphy, instance);
-		u2_phy_sysfs_exit(tphy, instance);
+		u2_phy_sysfs_exit(instance);
 	}
 
 	if (instance->type == PHY_TYPE_USB3)
-		u3_phy_sysfs_exit(tphy, instance);
+		u3_phy_sysfs_exit(instance);
 
 	clk_disable_unprepare(instance->ref_clk);
 	clk_disable_unprepare(tphy->u3phya_ref);
@@ -1644,6 +1656,10 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 	device_property_read_u32(dev, "mediatek,src-ref-clk-mhz",
 		&tphy->src_ref_clk);
 	device_property_read_u32(dev, "mediatek,src-coef", &tphy->src_coef);
+	/* create phy workqueue */
+	tphy->wq = create_singlethread_workqueue("tphy");
+	if (!tphy->wq)
+		return -ENOMEM;
 
 	port = 0;
 	for_each_child_of_node(np, child_np) {
@@ -1683,6 +1699,8 @@ static int mtk_tphy_probe(struct platform_device *pdev)
 		instance->index = port;
 		phy_set_drvdata(phy, instance);
 		port++;
+
+		INIT_WORK(&instance->sysfs_work, phy_sysfs_init);
 
 		/* if deprecated clock is provided, ignore instance's one */
 		if (tphy->u3phya_ref)
