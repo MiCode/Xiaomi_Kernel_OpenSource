@@ -469,7 +469,7 @@ int _ioctl_prepare_buffer(unsigned long arg, enum PREPARE_FENCE_TYPE type)
 	int ret = 0;
 	void __user *argp = (void __user *)arg;
 	struct disp_buffer_info disp_buf;
-	struct mtkfb_fence_buf_info *fence_buf, *fence_buf2;
+	struct mtkfb_fence_buf_info *fence_buf = NULL, *fence_buf2 = NULL;
 
 	if (copy_from_user(&disp_buf, (void __user *)arg, sizeof(disp_buf))) {
 		pr_err("[FB Driver] copy_from_user failed! line:%d\n",
