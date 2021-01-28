@@ -254,16 +254,16 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 #if DEC_EMI_BW
 	int b_freq_idx = 0;
 	int f_type = 1; /* TODO */
-	long emi_bw = 0;
-	long emi_bw_input = 0;
-	long emi_bw_output = 0;
+	long long emi_bw = 0;
+	long long emi_bw_input = 0;
+	long long emi_bw_output = 0;
 
 	if (vdec_freq_step_size > 1)
 		b_freq_idx = vdec_freq_step_size - 1;
 
-	emi_bw = 8L * 1920 * 1080 * 3 * 10 * vdec_freq;
-	emi_bw_input = 8 * vdec_freq / STD_VDEC_FREQ;
-	emi_bw_output = 1920 * 1088 * 3 * 30 * 10 * vdec_freq /
+	emi_bw = 8LL * 1920 * 1080 * 3 * 10 * vdec_freq;
+	emi_bw_input = 8LL * vdec_freq / STD_VDEC_FREQ;
+	emi_bw_output = 1920LL * 1088 * 3 * 30 * 10 * vdec_freq /
 			2 / 3 / STD_VDEC_FREQ / 1024 / 1024;
 
 	switch (ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc) {
@@ -307,20 +307,23 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 		emi_bw = 0;
 
 	if (0) {    /* UFO */
-		mm_qos_set_request(&vdec_ufo, emi_bw, 0, BW_COMP_DEFAULT);
-		mm_qos_set_request(&vdec_ufo_enc, emi_bw_output, 0,
+		mm_qos_set_request(&vdec_ufo, (long)emi_bw, 0, BW_COMP_DEFAULT);
+		mm_qos_set_request(&vdec_ufo_enc, (long)emi_bw_output, 0,
 					BW_COMP_DEFAULT);
 	} else {
-		mm_qos_set_request(&vdec_mc, emi_bw, 0, BW_COMP_NONE);
-		mm_qos_set_request(&vdec_pp, emi_bw_output, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_mc, (long)emi_bw, 0, BW_COMP_NONE);
+		mm_qos_set_request(&vdec_pp, (long)emi_bw_output, 0,
+						BW_COMP_NONE);
 	}
+
 	mm_qos_set_request(&vdec_pred_rd, 1, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_pred_wr, 1, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_ppwrap, 0, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_tile, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_vld, emi_bw_input, 0, BW_COMP_NONE);
+	mm_qos_set_request(&vdec_vld, (long)emi_bw_input, 0, BW_COMP_NONE);
 	mm_qos_set_request(&vdec_vld2, 0, 0, BW_COMP_NONE);
-	mm_qos_set_request(&vdec_avc_mv, emi_bw_input * 2, 0, BW_COMP_NONE);
+	mm_qos_set_request(&vdec_avc_mv, (long)emi_bw_input * 2, 0,
+				BW_COMP_NONE);
 	mm_qos_set_request(&vdec_rg_ctrl_dma, 0, 0, BW_COMP_NONE);
 	mm_qos_update_all_request(&vdec_rlist);
 #endif

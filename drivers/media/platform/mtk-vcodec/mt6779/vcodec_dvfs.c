@@ -483,8 +483,8 @@ int update_hist_item(struct codec_job *job, struct codec_history *hist)
 					job->hw_kcy;
 		} else {
 			hist->tot_kcy = hist->tot_kcy -
-				(hist->kcy[hist_idx] + (int)div_64(
-				job->mhz * (job->end - job->start), 1000));
+				hist->kcy[hist_idx] + (int)div_64(
+				job->mhz * (job->end - job->start), 1000);
 		}
 			hist->tot_time = hist->tot_time -
 				(hist->end[hist_idx] - hist->start[hist_idx]) +
