@@ -1154,58 +1154,65 @@ static const struct file_operations ssmr_cma_fops = {
 };
 #endif // end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 
-static ssize_t memory_ssmr_write(struct file *file,
-		const char __user *user_buf, size_t size, loff_t *ppos)
+#if CONFIG_SYSFS
+static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
+				const char *cmd, size_t count)
 {
 	char buf[64];
 	int buf_size;
-	int feat = 0;
+	int feat = 0, ret;
 
-	buf_size = min(size, (sizeof(buf) - 1));
-	if (strncpy_from_user(buf, user_buf, buf_size) < 0)
-		return -EFAULT;
-	buf[buf_size] = 0;
+	ret = sscanf(cmd, "%s", buf);
+	if (ret) {
 
-	pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
+		buf_size = min(count - 1, (sizeof(buf) - 1));
+		buf[buf_size] = 0;
 
-	if (__MAX_NR_SSMR_FEATURES <= 0)
-		return -EINVAL;
+		pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
 
-	for (feat = 0; feat < __MAX_NR_SSMR_FEATURES; feat++) {
-		if (!strncmp(buf, _ssmr_feats[feat].cmd_offline,
-			strlen(buf) - 1)) {
-			ssmr_offline(NULL, NULL, ssmr_upper_limit,
-				feat);
-			break;
-		} else if (!strncmp(buf, _ssmr_feats[feat].cmd_online,
-			strlen(buf) - 1)) {
-			ssmr_online(feat);
-			break;
+		if (feat == __MAX_NR_SSMR_FEATURES)
+			return -EINVAL;
+
+		for (feat = 0; feat < __MAX_NR_SSMR_FEATURES; feat++) {
+			if (!strncmp(buf, _ssmr_feats[feat].cmd_offline,
+				     strlen(buf))) {
+				ssmr_offline(NULL, NULL, ssmr_upper_limit,
+									feat);
+				break;
+			} else if (!strncmp(buf, _ssmr_feats[feat].cmd_online,
+					    strlen(buf))) {
+				ssmr_online(feat);
+				break;
+			}
 		}
+	} else {
+		pr_info("%s[%d]: get invalid cmd\n", __func__, __LINE__);
 	}
 
-	*ppos += size;
-	return size;
+	return count;
 }
 
-static int memory_ssmr_show(struct seq_file *m, void *v)
+static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
+			char *buf)
 {
+	int ret = 0;
+	int i = 0;
 	phys_addr_t cma_base = cma_get_base(cma);
 	phys_addr_t cma_end = cma_base + cma_get_size(cma);
-	int i = 0;
 
-	seq_printf(m, "cma info: [%pa-%pa] (0x%lx)\n",
+	ret += sprintf(buf + ret, "cma info: [%pa-%pa] (0x%lx)\n",
 		&cma_base, &cma_end,
 		cma_get_size(cma));
 
-	seq_printf(m, "cma info: base %pa pfn [%lu-%lu] count %lu\n",
+	ret += sprintf(buf + ret,
+		"cma info: base %pa pfn [%lu-%lu] count %lu\n",
 		&cma_base,
 		__phys_to_pfn(cma_base), __phys_to_pfn(cma_end),
 		cma_get_size(cma) >> PAGE_SHIFT);
 
 	if (__MAX_NR_SSMR_FEATURES <= 0) {
-		seq_puts(m, "no SSMR user enable\n");
-		return 0;
+		ret += sprintf(buf + ret, "no SSMR user enable\n");
+		return ret;
 	}
 
 	for (; i < __MAX_NR_SSMR_FEATURES; i++) {
@@ -1213,36 +1220,59 @@ static int memory_ssmr_show(struct seq_file *m, void *v)
 
 		region_pa = (unsigned long) page_to_phys(_ssmr_feats[i].page);
 
-		seq_printf(m, "%s base:0x%lx, count %lu, ",
+		ret += sprintf(buf + ret, "%s base:0x%lx, count %lu, ",
 			_ssmr_feats[i].feat_name,
 			_ssmr_feats[i].page == NULL ? 0 : region_pa,
 			_ssmr_feats[i].count);
-		seq_printf(m, "alloc_pages %lu, state %s.%s\n",
+		ret += sprintf(buf + ret, "alloc_pages %lu, state %s.%s\n",
 			_ssmr_feats[i].alloc_pages,
 			ssmr_state_text[_ssmr_feats[i].state],
 			_ssmr_feats[i].use_cache_memory ?
 					 " (cache memory)" : "");
 	}
 
-	seq_printf(m, "cma usage: %lu pages\n", ssmr_usage_count);
+	ret += sprintf(buf + ret, "cma usage: %lu pages\n", ssmr_usage_count);
 
-	seq_puts(m, "[CONFIG]:\n");
-	seq_printf(m, "ssmr_upper_limit: 0x%llx\n", ssmr_upper_limit);
+	ret += sprintf(buf + ret, "[CONFIG]:\n");
+	ret += sprintf(buf + ret, "ssmr_upper_limit: 0x%llx\n",
+						ssmr_upper_limit);
+
+	return ret;
+}
+
+static struct kobj_attribute ssmr_attribute = {
+	.attr = {
+		.name = "ssmr_state",
+		.mode = 0644,
+	},
+	.show = ssmr_show,
+	.store = ssmr_store,
+
+};
+
+static struct kobject *ssmr_kobject;
+
+static int memory_ssmr_sysfs_init(void)
+{
+	int error = 0;
+
+	ssmr_kobject = kobject_create_and_add("memory_ssmr", kernel_kobj);
+
+	if (ssmr_kobject) {
+		error = sysfs_create_file(ssmr_kobject, &ssmr_attribute.attr);
+		if (error) {
+			pr_info("SSMR: sysfs create failed\n");
+			return -ENOMEM;
+		}
+	} else {
+		pr_notice("SSMR: Cannot find module %s object\n",
+				KBUILD_MODNAME);
+		return -EINVAL;
+	}
 
 	return 0;
 }
-
-static int memory_ssmr_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, &memory_ssmr_show, NULL);
-}
-
-static const struct file_operations memory_ssmr_fops = {
-	.open		= memory_ssmr_open,
-	.read		= seq_read,
-	.write		= memory_ssmr_write,
-	.release	= single_release,
-};
+#endif /* end of CONFIG_SYSFS */
 
 static int __init ssmr_sanity(void)
 {
@@ -1364,7 +1394,6 @@ region_init_done:
 
 static int __init memory_ssmr_debug_init(void)
 {
-	struct dentry *dentry;
 	int i = 0;
 
 	if (ssmr_sanity() < 0) {
@@ -1374,10 +1403,10 @@ static int __init memory_ssmr_debug_init(void)
 
 	pr_info("[PASS]: SSMR sanity.\n");
 
-	dentry = debugfs_create_file("memory-ssmr", 0644, NULL, NULL,
-			&memory_ssmr_fops);
-	if (!dentry)
-		pr_warn("Failed to create debugfs memory_ssmr file\n");
+	/* ssmr sys file init */
+#if CONFIG_SYSFS
+	memory_ssmr_sysfs_init();
+#endif
 
 	/*
 	 * TODO: integrate into _svpregs[] initialization
