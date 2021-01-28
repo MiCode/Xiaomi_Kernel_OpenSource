@@ -207,8 +207,8 @@ static ssize_t show_nvram_board_offset(struct device *dev,
 {
 	struct mt6357_dcxo *dcxo = dev_get_drvdata(dev);
 
-	return sprintf(buf, "dcxo nvram capid offset: 0x%x\n",
-		       dcxo->nvram_offset);
+	/* Should not modify sprintf format. Otherwise DcxoSetCap will fail. */
+	return sprintf(buf, "0x%x", dcxo->nvram_offset);
 }
 
 static ssize_t store_nvram_board_offset(struct device *dev,
