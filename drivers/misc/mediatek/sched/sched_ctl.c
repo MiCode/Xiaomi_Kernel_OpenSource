@@ -43,6 +43,10 @@ static u64 sched_hint_check_timestamp;
 static u64 sched_hint_check_interval;
 static struct sched_hint_data g_shd;
 static int sched_hint_inited;
+static struct kobj_attribute sched_iso_attr;
+static struct kobj_attribute set_sched_iso_attr;
+static struct kobj_attribute set_sched_deiso_attr;
+
 #ifdef CONFIG_MTK_SCHED_SYSHINT
 static int sched_hint_on = 1; /* default on */
 #else
@@ -275,6 +279,9 @@ static struct attribute *sched_attrs[] = {
 	&sched_cpu_prefer_attr.attr,
 	&sched_boost_attr.attr,
 #endif
+	&sched_iso_attr.attr,
+	&set_sched_iso_attr.attr,
+	&set_sched_deiso_attr.attr,
 	NULL,
 };
 
@@ -843,3 +850,49 @@ static ssize_t store_walt_info(struct kobject *kobj,
 
 	return count;
 }
+
+
+/* turn on/off sched boost scheduling */
+static ssize_t show_sched_iso(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+	unsigned int max_len = 4096;
+
+	len += snprintf(buf+len, max_len-len, "cpu_isolated_mask=0x%lx\n",
+			cpu_isolated_mask->bits[0]);
+	len += snprintf(buf+len, max_len-len, "iso_prio=%d\n", iso_prio);
+
+	return len;
+}
+
+static ssize_t set_sched_iso(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val = 0;
+
+	if (sscanf(buf, "%iu", &val) < nr_cpu_ids)
+		sched_isolate_cpu(val);
+
+	return count;
+}
+
+static ssize_t set_sched_deiso(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int val = 0;
+
+	if (sscanf(buf, "%iu", &val) < nr_cpu_ids)
+		sched_deisolate_cpu(val);
+
+	return count;
+}
+
+static struct kobj_attribute sched_iso_attr =
+__ATTR(sched_isolation, 0400, show_sched_iso, NULL);
+
+static struct kobj_attribute set_sched_iso_attr =
+__ATTR(set_sched_isolation, 0200, NULL, set_sched_iso);
+
+static struct kobj_attribute set_sched_deiso_attr =
+__ATTR(set_sched_deisolation, 0200, NULL, set_sched_deiso);
