@@ -345,6 +345,10 @@ static void mtk_atomic_check_plane_sec_state(struct drm_device *dev,
 	for_each_crtc_in_state(new_state, crtc, new_crtc_state, i) {
 		struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 
+		/* check output buffer is secure or not */
+		if (mtk_crtc_check_out_sec(crtc))
+			sec_on[drm_crtc_index(crtc)] = true;
+
 		/* Leave secure sequence */
 		if (mtk_crtc->sec_on && !sec_on[i])
 			mtk_crtc_disable_secure_state(&mtk_crtc->base);
