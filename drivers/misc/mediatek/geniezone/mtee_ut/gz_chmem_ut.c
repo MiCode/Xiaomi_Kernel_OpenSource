@@ -526,7 +526,7 @@ int _mcm_test_body_saturation(uint32_t test_type, KREE_SESSION alloc_sn,
 {
 	TZ_RESULT ret;
 	int i;
-	KREE_HANDLE extra_alloc_hd;
+	KREE_HANDLE extra_alloc_hd = 0;
 
 
 	/*alloc */
