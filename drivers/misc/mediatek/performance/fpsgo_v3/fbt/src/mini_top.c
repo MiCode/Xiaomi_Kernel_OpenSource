@@ -389,7 +389,7 @@ end_sched_nomi:
 	ret = keep ? 0 : -EAGAIN;
 	if (mr->ever)
 		minitop_trace(" %5d %3llu%% end debnc heavy",
-			      mr->tid, (int)mr->ratio);
+			      mr->tid, mr->ratio);
 
 err_cleanup:
 	*heavy = 0;
