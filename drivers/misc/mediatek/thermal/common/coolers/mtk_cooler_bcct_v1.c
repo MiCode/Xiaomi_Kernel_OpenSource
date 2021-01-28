@@ -491,11 +491,12 @@ struct thermal_cooling_device *cdev, unsigned long state)
 	if (chrlmt_is_lcmoff)
 		cl_abcct_state = 0;
 
-	if (ktime_to_ms(ktime_sub(ktime_get(), lasttime)) > 5000) {
-		bat_chg_info_update();
-		lasttime = ktime_get();
+	if (cl_bcct_klog_on == 1) {
+		if (ktime_to_ms(ktime_sub(ktime_get(), lasttime)) > 5000) {
+			bat_chg_info_update();
+			lasttime = ktime_get();
+		}
 	}
-
 	mtk_cooler_bcct_dprintk("%s %s %lu\n", __func__,
 					cdev->type, cl_abcct_state);
 
