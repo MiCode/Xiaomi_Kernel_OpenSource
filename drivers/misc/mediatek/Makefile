@@ -49,6 +49,7 @@ obj-$(CONFIG_MTK_TEE_SANITY) += tee_sanity/
 obj-y += atf/
 obj-y += devinfo/
 obj-y += sspm/
+obj-$(CONFIG_MTK_APUSYS) += apusys/
 obj-y += timer/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_DRAMC) += dramc/
