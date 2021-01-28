@@ -20,7 +20,6 @@ obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD)   +=  focaltech_proximity.o
 
 obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD)   +=  focaltech_i2c.o
 obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD)	+=  focaltech_flash.o
-obj-$(CONFIG_TOUCHSCREEN_MTK_FOCALTECH_HD)   +=  focaltech_flash/
 
 obj-y   +=  tpd_control.o
 obj-y   +=  tpd_button.o
