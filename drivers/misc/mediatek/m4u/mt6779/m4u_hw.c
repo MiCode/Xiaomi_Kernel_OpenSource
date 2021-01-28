@@ -10,6 +10,8 @@
 #include "m4u_priv.h"
 #include "m4u_platform.h"
 #include "m4u_hw.h"
+/* for macro M4U_NONSEC_MVA_START */
+#include "tz_m4u.h"
 
 #include <linux/kmemleak.h>
 #include <linux/of.h>
@@ -2331,15 +2333,18 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 		M4UMSG("[%s %d]tf_pa:0x%x_%x, tf_va:0x%x, write:%d, layer:%d\n",
 		       __func__, __LINE__,
 		       tf_pa_33_32, tf_pa, tf_va, write, layer);
+		if (tf_mva >= M4U_NONSEC_MVA_START)
+			m4u_dump_buf_info(NULL, m4u_id);
+
 		if (m4u_id == 0) {
 			m4u_aee_print(
-				"CRDISPATCH_KEY:M4U_%s translation fault(mm secure): port=%s\n",
-					 m4u_get_port_name(tf_port),
-					m4u_get_port_name(tf_port));
+				"CRDISPATCH_KEY:M4U_%s [mva:0x%x] tf(mm secure)\n",
+				m4u_get_port_name(tf_port), tf_mva);
 		}
 		else if (m4u_id == 1)
 			m4u_aee_print(
-				"CRDISPATCH_KEY:M4U_VPU_PORT translation fault(vpu secure)\n");
+				"CRDISPATCH_KEY:M4U_VPU_PORT [mva:0x%x] tf(vpu secure)\n",
+				tf_mva);
 	}
 
 	return IRQ_HANDLED;
