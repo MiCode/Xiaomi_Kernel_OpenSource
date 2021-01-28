@@ -2237,6 +2237,13 @@
 		interconnects = <&auxadc 1>;
 	};
 
+	tboard_thermistor3: thermal-sensor3 {
+		compatible = "mediatek,mtboard-thermistor3";
+		io-channels = <&auxadc 2>;
+		io-channel-names = "thermistor-ch2";
+		interconnects = <&auxadc 2>;
+	};
+
 	btif@1100c000 {
 		compatible = "mediatek,btif";
 			/*btif base*/
