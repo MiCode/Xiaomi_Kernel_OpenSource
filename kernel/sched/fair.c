@@ -3119,6 +3119,9 @@ __update_load_avg_se(u64 now, int cpu, struct cfs_rq *cfs_rq, struct sched_entit
 			       se->on_rq * scale_load_down(se->load.weight),
 			       cfs_rq->curr == se, NULL, NULL)) {
 		cfs_se_util_change(&se->avg);
+		trace_uclamp_util_se(entity_is_task(se),
+				     container_of(se, struct task_struct, se),
+				     cpu_rq(cpu));
 
 #ifdef UTIL_EST_DEBUG
 		/*
@@ -3150,9 +3153,15 @@ __update_load_avg_se(u64 now, int cpu, struct cfs_rq *cfs_rq, struct sched_entit
 static int
 __update_load_avg_cfs_rq(u64 now, int cpu, struct cfs_rq *cfs_rq)
 {
-	return ___update_load_avg(now, cpu, &cfs_rq->avg,
-			scale_load_down(cfs_rq->load.weight),
-			cfs_rq->curr != NULL, cfs_rq, NULL);
+	int ret;
+	bool __maybe_unused is_root_rq = (&cpu_rq(cpu)->cfs == cfs_rq);
+
+	ret = ___update_load_avg(now, cpu, &cfs_rq->avg,
+		scale_load_down(cfs_rq->load.weight),
+		cfs_rq->curr != NULL, cfs_rq, NULL);
+
+	trace_uclamp_util_cfs(is_root_rq, cpu, cfs_rq);
+	return ret;
 }
 
 /*

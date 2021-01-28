@@ -707,8 +707,8 @@ extern void rto_push_irq_work_func(struct irq_work *work);
  * clamp value.
  */
 struct uclamp_group {
-	int value;
-	int tasks;
+	unsigned long value : SCHED_CAPACITY_SHIFT + 1;
+	unsigned long tasks : BITS_PER_LONG - SCHED_CAPACITY_SHIFT - 1;
 };
 
 /**
@@ -736,10 +736,20 @@ struct uclamp_group {
  * values, i.e. no min/max clamping at all.
  */
 struct uclamp_cpu {
+	struct uclamp_group group[UCLAMP_CNT][UCLAMP_GROUPS];
+	int value[UCLAMP_CNT];
+
+/*
+ * Idle clamp holding
+ * Whenever a CPU is idle, we enforce the util_max clamp value of the last
+ * task running on that CPU. This bit is used to flag a clamp holding
+ * currently active for a CPU. This flag is:
+ * - set when we update the clamp value of a CPU at the time of dequeuing the
+ *   last before entering idle
+ * - reset when we enqueue the first task after a CPU wakeup from IDLE
+ */
 #define UCLAMP_FLAG_IDLE 0x01
 	int flags;
-	int value[UCLAMP_CNT];
-	struct uclamp_group group[UCLAMP_CNT][CONFIG_UCLAMP_GROUPS_COUNT + 1];
 };
 #endif /* CONFIG_UCLAMP_TASK */
 
@@ -1520,6 +1530,10 @@ extern const u32 sched_prio_to_wmult[40];
 struct sched_class {
 	const struct sched_class *next;
 
+#ifdef CONFIG_UCLAMP_TASK
+	int uclamp_enabled;
+#endif
+
 	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int flags);
 	void (*dequeue_task) (struct rq *rq, struct task_struct *p, int flags);
 	void (*yield_task) (struct rq *rq);
@@ -1579,10 +1593,6 @@ struct sched_class {
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
 	void (*task_change_group) (struct task_struct *p, int type);
-#endif
-
-#ifdef CONFIG_UCLAMP_TASK
-	int uclamp_enabled;
 #endif
 };
 
@@ -2254,69 +2264,6 @@ static inline u64 irq_time_read(int cpu)
 }
 #endif /* CONFIG_IRQ_TIME_ACCOUNTING */
 
-#ifdef CONFIG_UCLAMP_TASK
-/**
- * uclamp_group_active: check if a clamp group is active on a CPU
- * @uc_grp: the clamp groups for a CPU
- * @group_id: the clamp group to check
- *
- * A clamp group affects a CPU if it has at least one RUNNABLE task.
- *
- * Return: true if the specified CPU has at least one RUNNABLE task
- *         for the specified clamp group.
- */
-static inline bool uclamp_group_active(struct uclamp_group *uc_grp,
-				       int group_id)
-{
-	return uc_grp[group_id].tasks > 0;
-}
-
-/**
- * uclamp_task_affects: check if a task affects a utilization clamp
- * @p: the task to consider
- * @clamp_id: the utilization clamp to check
- *
- * A task affects a clamp index if:
- * - it's currently enqueued on a CPU
- * - it references a valid clamp group index for the specified clamp index
- *
- * Return: true if p currently affects the specified clamp_id
- */
-static inline bool uclamp_task_affects(struct task_struct *p, int clamp_id)
-{
-	return (p->uclamp_group_id[clamp_id] != UCLAMP_NOT_VALID);
-}
-
-/**
- * uclamp_task_active: check if a task is currently clamping a CPU
- * @p: the task to check
- *
- * A task actively affects the utilization clamp of a CPU if:
- * - it's currently enqueued or running on that CPU
- * - it's refcounted in at least one clamp group of that CPU
- *
- * Return: true if p is currently clamping the utilization of its CPU.
- */
-static inline bool uclamp_task_active(struct task_struct *p)
-{
-	struct rq *rq = task_rq(p);
-	int clamp_id;
-
-	lockdep_assert_held(&p->pi_lock);
-	lockdep_assert_held(&rq->lock);
-
-	if (!task_on_rq_queued(p) && !p->on_cpu)
-		return false;
-
-	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
-		if (uclamp_task_affects(p, clamp_id))
-			return true;
-	}
-
-	return false;
-}
-#endif /* CONFIG_UCLAMP_TASK */
-
 /* sched:  add for print aee log */
 #ifdef CONFIG_SMP
 static inline int rq_cpu(const struct rq *rq) { return rq->cpu; }
@@ -2362,6 +2309,12 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
 #endif /* CONFIG_CPU_FREQ */
 
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
+extern void schedtune_init_uclamp(void);
+extern struct uclamp_se *task_schedtune_uclamp(struct task_struct *tsk,
+		int clamp_id);
+#endif
+
 /**
  * uclamp_none: default value for a clamp
  *
@@ -2379,31 +2332,14 @@ static inline unsigned int uclamp_none(int clamp_id)
 }
 
 #ifdef CONFIG_UCLAMP_TASK
-/**
- * uclamp_value: get the current CPU's utilization clamp value
- * @cpu: the CPU to consider
- * @clamp_id: the utilization clamp index (i.e. min or max utilization)
- *
- * The utilization clamp value for a CPU depends on its set of currently
- * RUNNABLE tasks and their specific util_{min,max} constraints.
- * A max aggregated value is tracked for each CPU and returned by this
- * function.
- *
- * Return: the current value for the specified CPU and clamp index
- */
 static inline unsigned int uclamp_value(unsigned int cpu, int clamp_id)
 {
-	struct uclamp_cpu *uc_cpu = &cpu_rq(cpu)->uclamp;
-
-	if (uc_cpu->value[clamp_id] == UCLAMP_NOT_VALID)
-		return uclamp_none(clamp_id);
-
-	return uc_cpu->value[clamp_id];
+	return cpu_rq(cpu)->uclamp.value[clamp_id];
 }
 
 /**
- * clamp_util: clamp a utilization value for a specified CPU
- * @cpu: the CPU to get the clamp values from
+ * uclamp_util: clamp a utilization value for a specified CPU
+ * @rq: the CPU's RQ to get the clamp values from
  * @util: the utilization signal to clamp
  *
  * Each CPU tracks util_{min,max} clamp values depending on the set of its
@@ -2414,10 +2350,10 @@ static inline unsigned int uclamp_value(unsigned int cpu, int clamp_id)
  *
  * Return: a clamped utilization signal for a given CPU.
  */
-static inline unsigned int uclamp_util(unsigned int cpu, unsigned int util)
+static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
 {
-	unsigned int min_util = uclamp_value(cpu, UCLAMP_MIN);
-	unsigned int max_util = uclamp_value(cpu, UCLAMP_MAX);
+	unsigned int min_util = rq->uclamp.value[UCLAMP_MIN];
+	unsigned int max_util = rq->uclamp.value[UCLAMP_MAX];
 
 	return clamp(util, min_util, max_util);
 }
@@ -2427,7 +2363,7 @@ static inline unsigned int uclamp_value(unsigned int cpu, int clamp_id)
 	return uclamp_none(clamp_id);
 }
 
-static inline unsigned int uclamp_util(unsigned int cpu, unsigned int util)
+static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
 {
 	return util;
 }
