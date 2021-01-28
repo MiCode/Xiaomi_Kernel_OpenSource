@@ -62,6 +62,76 @@
 #define RTNL_MAX_TYPE		48
 #define RTNL_SLAVE_MAX_TYPE	36
 
+#include <linux/stacktrace.h>
+#define RTNL_DEBUG_ADDRS_COUNT 10
+#define RTNL_LOCK_MAX_HOLD_TIME 3
+
+struct rtnl_debug_btrace_t {
+	char *process_name;
+	int   pid;
+	unsigned long long when;
+	unsigned long addrs[RTNL_DEBUG_ADDRS_COUNT];
+	unsigned int entry_nr;
+	char flag;/*1 get rtnl_lock,0 : relase rtnl_lock*/
+	struct task_struct *rtnl_lock_owner;
+	struct timer_list   timer;
+};
+
+static struct rtnl_debug_btrace_t rtnl_instance = {
+	.process_name = NULL,
+	.pid = 0,
+	.when = 0,
+	.entry_nr = 0,
+	.flag = 0,
+	.rtnl_lock_owner = NULL,
+};
+
+static void rtnl_print_btrace(struct timer_list *);
+static DEFINE_TIMER(rtnl_chk_timer, rtnl_print_btrace);
+
+void rtnl_get_btrace(void *who)
+{
+	struct stack_trace debug_trace;
+
+	debug_trace.max_entries = RTNL_DEBUG_ADDRS_COUNT;
+	debug_trace.nr_entries = 0;
+	debug_trace.entries = rtnl_instance.addrs;
+	debug_trace.skip = 0;
+	save_stack_trace(&debug_trace);
+	rtnl_instance.process_name = who;
+	rtnl_instance.when = sched_clock();
+	rtnl_instance.flag = 1;
+	rtnl_instance.pid = current->pid;
+	rtnl_instance.rtnl_lock_owner  = current;
+	rtnl_instance.entry_nr = debug_trace.nr_entries;
+	rtnl_instance.flag = 1;
+	mod_timer(&rtnl_chk_timer, jiffies + RTNL_LOCK_MAX_HOLD_TIME * HZ);
+}
+
+static void rtnl_print_btrace(struct timer_list *unused)
+{
+	if (rtnl_instance.flag) {
+		struct stack_trace show_trace;
+
+		show_trace.nr_entries = rtnl_instance.entry_nr;
+		show_trace.entries = rtnl_instance.addrs;
+		show_trace.max_entries = RTNL_DEBUG_ADDRS_COUNT;
+		pr_info("-----------%s start-----------\n", __func__);
+		pr_info("[mtk_net][rtnl_lock] %s[%d] hold lock more than 2 sec,start time: %lld\n",
+			rtnl_instance.process_name,
+			rtnl_instance.pid, rtnl_instance.when);
+		print_stack_trace(&show_trace, 0);
+		pr_info("------------%s end-----------\n", __func__);
+	} else {
+		pr_info("[mtk_net][rtnl_lock]There is no process hold rtnl lock\n");
+	}
+}
+
+void rtnl_relase_btrace(void)
+{
+	rtnl_instance.flag = 0;
+}
+
 struct rtnl_link {
 	rtnl_doit_func		doit;
 	rtnl_dumpit_func	dumpit;
@@ -75,6 +145,7 @@ static DEFINE_MUTEX(rtnl_mutex);
 void rtnl_lock(void)
 {
 	mutex_lock(&rtnl_mutex);
+	rtnl_get_btrace(current->comm);
 }
 EXPORT_SYMBOL(rtnl_lock);
 
@@ -109,6 +180,8 @@ void __rtnl_unlock(void)
 		cond_resched();
 		head = next;
 	}
+
+	rtnl_relase_btrace();
 }
 
 void rtnl_unlock(void)
