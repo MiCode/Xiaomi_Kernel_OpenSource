@@ -80,6 +80,8 @@ struct mutex imgsensor_mutex;
 
 
 DEFINE_MUTEX(pinctrl_mutex);
+DEFINE_MUTEX(oc_mutex);
+
 
 /************************************************************************
  * Profiling
