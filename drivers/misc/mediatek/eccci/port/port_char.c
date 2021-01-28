@@ -108,7 +108,6 @@ static int port_char_init(struct port_t *port)
 	return ret;
 }
 
-#if defined(CONFIG_MTK_MD3_SUPPORT) && (CONFIG_MTK_MD3_SUPPORT > 0)
 #ifdef CONFIG_MTK_ECCCI_C2K
 static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 {
@@ -163,7 +162,6 @@ retry_push:
 
 }
 #endif
-#endif
 
 static int port_char_recv_skb(struct port_t *port, struct sk_buff *skb)
 {
@@ -180,14 +178,14 @@ static int port_char_recv_skb(struct port_t *port, struct sk_buff *skb)
 		port->minor ==
 		AP_IPC_LWAPROXY + CCCI_IPC_MINOR_BASE)))
 		return -CCCI_ERR_DROP_PACKET;
-#if defined(CONFIG_MTK_MD3_SUPPORT) && (CONFIG_MTK_MD3_SUPPORT > 0)
+
 #ifdef CONFIG_MTK_ECCCI_C2K
 	if (port->interception) {
 		c2k_req_push_to_usb(port, skb);
 		return 0;
 	}
 #endif
-#endif
+
 	CCCI_DEBUG_LOG(md_id, CHAR, "recv on %s, len=%d\n",
 		port->name, port->rx_skb_list.qlen);
 	return port_recv_skb(port, skb);
