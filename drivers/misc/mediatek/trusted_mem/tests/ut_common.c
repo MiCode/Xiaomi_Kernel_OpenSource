@@ -182,7 +182,8 @@ enum UT_RET_STATE mem_alloc_alignment_test(enum TRUSTED_MEM_TYPE mem_type,
 					   int region_final_state)
 {
 	int ret;
-	u32 alignment, chunk_size, handle, ref_count;
+	u32 alignment, chunk_size, ref_count;
+	u32 handle = 0;
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
 
 	/* alignment is less than size, we expect result by defines:
