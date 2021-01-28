@@ -34,9 +34,9 @@ int g_irq_disable;
 int mt6370_pmu_dsv_scp_ocp_irq_debug(struct mt6370_pmu_chip *chip,
 					enum dsv_dbg_mode_t mode)
 {
-	int ret = 0;
+	int ret = 0, err = 0;
 	int dbvbst, dbvpos, dbvneg, dbmask;
-	char str[50] = "";
+	char s[50] = "";
 
 	if (!g_irq_mask)
 		return ret;
@@ -60,11 +60,11 @@ int mt6370_pmu_dsv_scp_ocp_irq_debug(struct mt6370_pmu_chip *chip,
 		pr_info("%s: DB_VBST = 0x%x, DB_VPOS = 0x%x, DB_VNEG = 0x%x, DBMASK = 0x%x\n",
 			__func__, dbvbst, dbvpos, dbvneg, dbmask);
 
-		snprintf(str, 50, "Vbst=0x%x,Vpos=0x%x,Vneg=0x%x,mask=0x%x",
-			dbvbst, dbvpos, dbvneg, dbmask);
-		if (g_irq_mask_warning)
+		err = snprintf(s, 50, "Vbst=0x%x,Vpos=0x%x,Vneg=0x%x,mask=0x%x",
+				dbvbst, dbvpos, dbvneg, dbmask);
+		if (err >= 0 && g_irq_mask_warning)
 			aee_kernel_warning("mt6370 dsv irq",
-				"db irq type = %x %s\n", mode, str);
+				"db irq type = %x %s\n", mode, s);
 		ret = 1;
 	}
 
