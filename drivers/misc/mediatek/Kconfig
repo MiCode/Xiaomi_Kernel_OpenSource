@@ -448,7 +448,7 @@ source "drivers/misc/mediatek/subpmic/Kconfig"
 source "drivers/misc/mediatek/cameraisp/Kconfig"
 source "drivers/misc/mediatek/rt-regmap/Kconfig"
 source "drivers/misc/mediatek/selinux_warning/Kconfig"
-
+source "drivers/misc/mediatek/log_store/Kconfig"
 
 endmenu # Debug
 
