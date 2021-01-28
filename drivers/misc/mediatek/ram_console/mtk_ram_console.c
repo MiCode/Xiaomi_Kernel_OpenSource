@@ -586,8 +586,7 @@ static int __init ram_console_init(struct ram_console_buffer *buffer,
 	buffer->off_console = buffer->off_linux +
 		ALIGN(sizeof(struct last_reboot_reason), 64);
 	buffer->sz_console = buffer->sz_buffer - buffer->off_console;
-	buffer->log_start = 0;
-	buffer->log_size = 0;
+	memset_io(&buffer->log_start, 0, 2*sizeof(uint32_t));
 	memset_io((void *)buffer + buffer->off_linux, 0,
 			buffer_size - buffer->off_linux);
 	ram_console_init_desc(buffer->off_linux);
