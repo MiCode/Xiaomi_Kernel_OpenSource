@@ -23,6 +23,10 @@
 #include <mt-plat/mtk_platform_debug.h>
 #include "dfd.h"
 
+#ifdef CONFIG_MTK_DBGTOP
+extern int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal);
+#endif
+
 static struct dfd_drv *drv;
 
 /* return -1 for error indication */
@@ -42,10 +46,14 @@ int dfd_setup(int version)
 		if (ret < 0)
 			return ret;
 
+#ifdef CONFIG_MTK_DBGTOP
+		mtk_dbgtop_dfd_timeout(drv->rg_dfd_timeout, 0);
+#else
 		wd_api->wd_dfd_count_en(1);
 		wd_api->wd_dfd_thermal1_dis(1);
 		wd_api->wd_dfd_thermal2_dis(0);
 		wd_api->wd_dfd_timeout(drv->rg_dfd_timeout);
+#endif
 
 		if (drv->mem_reserve && drv->cachedump_en) {
 			dfd_doe = DFD_CACHE_DUMP_ENABLE;

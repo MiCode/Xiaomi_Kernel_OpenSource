@@ -28,6 +28,7 @@
 #include <dbgtop.h>
 
 static void __iomem *DBGTOP_BASE;
+static unsigned int dfd_timeout;
 
 static int mtk_dbgtop_probe(struct platform_device *pdev);
 
@@ -143,6 +144,9 @@ static int __init mtk_dbgtop_init(void)
 		&driver_attr_dbgtop_config);
 	if (ret)
 		pr_info("[DBGTOP] fail to create dbgtop_config");
+
+	dfd_timeout = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)) &
+		MTK_DBGTOP_DFD_TIMEOUT_MASK;
 
 	return 0;
 }
@@ -352,21 +356,28 @@ int mtk_dbgtop_dfd_therm2_dis(int value)
 }
 EXPORT_SYMBOL(mtk_dbgtop_dfd_therm2_dis);
 
-int mtk_dbgtop_dfd_timeout(int value)
+int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal)
 {
 	unsigned int tmp;
 
-	value <<= MTK_DBGTOP_DFD_TIMEOUT_SHIFT;
-	value &= MTK_DBGTOP_DFD_TIMEOUT_MASK;
+	value_normal <<= MTK_DBGTOP_DFD_TIMEOUT_SHIFT;
+	value_normal &= MTK_DBGTOP_DFD_TIMEOUT_MASK;
 
-	/* break if dfd timeout >= target value */
+	if (dfd_timeout < (unsigned int)value_normal)
+		dfd_timeout = (unsigned int)value_normal;
+
+	value_abnormal <<= MTK_DBGTOP_DFD_TIMEOUT_SHIFT;
+	value_abnormal &= MTK_DBGTOP_DFD_TIMEOUT_MASK;
+
+	/* break if dfd timeout >= target value_abnormal */
 	tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
-	if ((tmp & MTK_DBGTOP_DFD_TIMEOUT_MASK) >= (unsigned int)value)
-		return -1;
+	if ((tmp & MTK_DBGTOP_DFD_TIMEOUT_MASK) >=
+		(unsigned int)value_abnormal)
+		return 0;
 
 	/* set dfd timeout */
 	tmp &= ~MTK_DBGTOP_DFD_TIMEOUT_MASK;
-	tmp |= value | MTK_DBGTOP_LATCH_CTL2_KEY;
+	tmp |= value_abnormal | MTK_DBGTOP_LATCH_CTL2_KEY;
 	mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
 
 	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
@@ -375,6 +386,25 @@ int mtk_dbgtop_dfd_timeout(int value)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_dbgtop_dfd_timeout);
+
+int mtk_dbgtop_dfd_timeout_reset(void)
+{
+	unsigned int tmp;
+
+	if (!dfd_timeout)
+		return -1;
+
+	tmp = readl(IOMEM(MTK_DBGTOP_LATCH_CTL2));
+	tmp &= ~MTK_DBGTOP_DFD_TIMEOUT_MASK;
+	tmp |= dfd_timeout | MTK_DBGTOP_LATCH_CTL2_KEY;
+	mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
+
+	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+		readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)));
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_dbgtop_dfd_timeout_reset);
 
 int mtk_dbgtop_mfg_pwr_on(int value)
 {
