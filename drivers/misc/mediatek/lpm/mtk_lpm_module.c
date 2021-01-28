@@ -222,6 +222,9 @@ int mtk_lp_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	unsigned long flags;
 	const int cpuid = smp_processor_id();
 
+	if (index < 0)
+		return -1;
+
 	lpmmods = this_cpu_ptr(&mtk_lpm_mods);
 
 	if (lpmmods && lpmmods->mod[index])
@@ -262,6 +265,9 @@ void mtk_lp_cpuidle_resume(struct cpuidle_driver *drv, int index)
 	unsigned int model_flags = 0;
 	unsigned long flags;
 	const int cpuid = smp_processor_id();
+
+	if (index < 0)
+		return;
 
 	lpmmods = this_cpu_ptr(&mtk_lpm_mods);
 
