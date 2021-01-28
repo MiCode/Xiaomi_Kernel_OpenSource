@@ -190,7 +190,6 @@ void gauge_coulomb_start(struct gauge_consumer *coulomb, int car)
 		return;
 
 	if (cs->init == false) {
-		cs = NULL;
 		return;
 	}
 
@@ -272,7 +271,6 @@ void gauge_coulomb_stop(struct gauge_consumer *coulomb)
 	cs = &gm->cs;
 
 	if (cs->init == false) {
-		cs = NULL;
 		return;
 	}
 
