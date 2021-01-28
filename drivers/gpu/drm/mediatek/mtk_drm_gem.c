@@ -411,7 +411,7 @@ struct ion_handle *mtk_gem_ion_import_dma_buf(struct ion_client *client,
 	DRM_MMP_EVENT_START(ion_import_dma, (unsigned long)client, line);
 	handle = ion_import_dma_buf(client, dmabuf);
 
-	DRM_MMP_EVENT_END(ion_import_dma, (unsigned long)handle,
+	DRM_MMP_EVENT_END(ion_import_dma, (unsigned long)handle->buffer,
 			(unsigned long)dmabuf);
 	DDPDBG("%s:%d handle:0x%p -\n",
 		   __func__, __LINE__,
@@ -436,15 +436,19 @@ struct ion_handle *mtk_gem_ion_import_dma_fd(struct ion_client *client,
 	handle = ion_import_dma_buf_fd(client, fd);
 
 	dmabuf = dma_buf_get(fd);
+	DRM_MMP_MARK(dma_get, (unsigned long)handle->buffer,
+			(unsigned long)dmabuf);
 	if (IS_ERR(dmabuf)) {
 		DDPPR_ERR("%s:%d dma_buf_get fail fd=%d ret=0x%p\n",
 		       __func__, __LINE__, fd, dmabuf);
 		return ERR_CAST(dmabuf);
 	}
 
-	DRM_MMP_EVENT_END(ion_import_fd, (unsigned long)handle,
+	DRM_MMP_EVENT_END(ion_import_fd, (unsigned long)handle->buffer,
 			(unsigned long)dmabuf);
 
+	DRM_MMP_MARK(dma_put, (unsigned long)handle->buffer,
+			(unsigned long)dmabuf);
 	dma_buf_put(dmabuf);
 	DDPDBG("%s:%d -\n",
 		   __func__, __LINE__);
@@ -482,7 +486,8 @@ void mtk_drm_gem_ion_destroy_client(struct ion_client *client)
 void mtk_drm_gem_ion_free_handle(struct ion_client *client,
 	struct ion_handle *handle, const char *name, int line)
 {
-	DRM_MMP_EVENT_START(ion_import_free, (unsigned long)handle, 0);
+	DRM_MMP_EVENT_START(ion_import_free,
+			    (unsigned long)handle->buffer, line);
 
 	if (!client) {
 		DDPPR_ERR("invalid ion client!\n");

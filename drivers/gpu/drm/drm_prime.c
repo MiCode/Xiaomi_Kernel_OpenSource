@@ -107,6 +107,7 @@ static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
 		return -ENOMEM;
 
 	get_dma_buf(dma_buf);
+	DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dma_buf);
 	member->dma_buf = dma_buf;
 	member->handle = handle;
 
@@ -250,6 +251,7 @@ void drm_prime_remove_buf_handle_locked(struct drm_prime_file_private *prime_fpr
 			rb_erase(&member->handle_rb, &prime_fpriv->handles);
 			rb_erase(&member->dmabuf_rb, &prime_fpriv->dmabufs);
 
+			DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dma_buf);
 			dma_buf_put(dma_buf);
 			kfree(member);
 			return;
@@ -498,6 +500,7 @@ static struct dma_buf *export_and_register_object(struct drm_device *dev,
 	 */
 	obj->dma_buf = dmabuf;
 	get_dma_buf(obj->dma_buf);
+	DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dmabuf);
 
 	return dmabuf;
 }
@@ -534,6 +537,7 @@ int drm_gem_prime_handle_to_fd(struct drm_device *dev,
 	dmabuf = drm_prime_lookup_buf_by_handle(&file_priv->prime, handle);
 	if (dmabuf) {
 		get_dma_buf(dmabuf);
+		DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dmabuf);
 		goto out_have_handle;
 	}
 
@@ -542,11 +546,13 @@ int drm_gem_prime_handle_to_fd(struct drm_device *dev,
 	if (obj->import_attach) {
 		dmabuf = obj->import_attach->dmabuf;
 		get_dma_buf(dmabuf);
+		DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dmabuf);
 		goto out_have_obj;
 	}
 
 	if (obj->dma_buf) {
 		get_dma_buf(obj->dma_buf);
+		DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dmabuf);
 		dmabuf = obj->dma_buf;
 		goto out_have_obj;
 	}
@@ -592,6 +598,7 @@ out_have_handle:
 	goto out;
 
 fail_put_dmabuf:
+	DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dmabuf);
 	dma_buf_put(dmabuf);
 out:
 	drm_gem_object_put_unlocked(obj);
@@ -678,6 +685,7 @@ struct drm_gem_object *drm_gem_prime_import_dev(struct drm_device *dev,
 		return ERR_CAST(attach);
 
 	get_dma_buf(dma_buf);
+	DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dma_buf);
 
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
@@ -699,6 +707,7 @@ fail_unmap:
 	dma_buf_unmap_attachment(attach, sgt, DMA_BIDIRECTIONAL);
 fail_detach:
 	dma_buf_detach(dma_buf, attach);
+	DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dma_buf);
 	dma_buf_put(dma_buf);
 
 	return ERR_PTR(ret);
@@ -743,6 +752,7 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	dma_buf = dma_buf_get(prime_fd);
 	if (IS_ERR(dma_buf))
 		return PTR_ERR(dma_buf);
+	DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dma_buf);
 
 	mutex_lock(&file_priv->prime.lock);
 	prime_time_start = sched_clock();
@@ -765,6 +775,7 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	} else {
 		obj->dma_buf = dma_buf;
 		get_dma_buf(dma_buf);
+		DRM_MMP_MARK(dma_get, __LINE__, (unsigned long)dma_buf);
 	}
 
 	/* _handle_create_tail unconditionally unlocks dev->object_name_lock. */
@@ -789,6 +800,7 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 	if (ret)
 		goto fail;
 
+	DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dma_buf);
 	dma_buf_put(dma_buf);
 
 	return 0;
@@ -798,6 +810,7 @@ fail:
 	 * to detach.. which seems ok..
 	 */
 	drm_gem_handle_delete(file_priv, *handle);
+	DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dma_buf);
 	dma_buf_put(dma_buf);
 
 	return ret;
@@ -806,6 +819,7 @@ out_unlock:
 	mutex_unlock(&dev->object_name_lock);
 out_put:
 	mutex_unlock(&file_priv->prime.lock);
+	DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dma_buf);
 	dma_buf_put(dma_buf);
 
 	return ret;
@@ -939,6 +953,7 @@ void drm_prime_gem_destroy(struct drm_gem_object *obj, struct sg_table *sg)
 	dma_buf = attach->dmabuf;
 	dma_buf_detach(attach->dmabuf, attach);
 	/* remove the reference */
+	DRM_MMP_MARK(dma_put, __LINE__, (unsigned long)dma_buf);
 	dma_buf_put(dma_buf);
 }
 EXPORT_SYMBOL(drm_prime_gem_destroy);

@@ -53,6 +53,8 @@ struct DRM_MMP_Events {
 	mmp_event layering;
 	mmp_event dma_alloc;
 	mmp_event dma_free;
+	mmp_event dma_get;
+	mmp_event dma_put;
 	mmp_event ion_import_dma;
 	mmp_event ion_import_fd;
 	mmp_event ion_import_free;
@@ -103,6 +105,7 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			  u32 downSampleX, u32 downSampleY);
 
 /* print mmp log for DRM_MMP_Events */
+#ifdef CONFIG_DRM_MEDIATEK
 #define DRM_MMP_MARK(event, v1, v2)                                            \
 	mmprofile_log_ex(get_drm_mmp_events()->event,                  \
 			 MMPROFILE_FLAG_PULSE, v1, v2)
@@ -136,5 +139,13 @@ int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
 			mmprofile_log_ex(get_crtc_mmp_events(id)->event,       \
 					 MMPROFILE_FLAG_END, v1, v2);       \
 	} while (0)
+#else
+#define DRM_MMP_MARK(event, v1, v2) do { } while (0)
+#define DRM_MMP_EVENT_START(event, v1, v2) do { } while (0)
+#define DRM_MMP_EVENT_END(event, v1, v2) do { } while (0)
+#define CRTC_MMP_MARK(id, event, v1, v2) do { } while (0)
+#define CRTC_MMP_EVENT_START(id, event, v1, v2) do { } while (0)
+#define CRTC_MMP_EVENT_END(id, event, v1, v2) do { } while (0)
+#endif
 
 #endif
