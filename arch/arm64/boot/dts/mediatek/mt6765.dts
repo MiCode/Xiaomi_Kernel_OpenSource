@@ -530,6 +530,14 @@ firmware_class.path=/vendor/firmware";
 			alloc-range = <0 0xc0000000 0 0x10000000>;
 		};
 
+		ion-carveout-heap {
+			compatible = "mediatek,ion-carveout-heap";
+			no-map;
+			size = <0 0x5000>;
+			alignment = <0 0x1000>;
+			alloc-ranges = <0 0xc0000000 0 0x10000000>;
+		};
+
 #ifdef CONFIG_MICROTRUST_TEE_SUPPORT
 		soter-shared-mem {
 			compatible = "microtrust,shared_mem";
