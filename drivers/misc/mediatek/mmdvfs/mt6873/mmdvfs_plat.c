@@ -16,14 +16,13 @@
 #include "mmdvfs_plat.h"
 #include "mtk_qos_sram.h"
 #include "smi_pmqos.h"
-#include <dt-bindings/memory/mt6885-larb-port.h>
+#include <dt-bindings/memory/mt6873-larb-port.h>
 
 #undef pr_fmt
 #define pr_fmt(fmt) "[mmdvfs][plat]" fmt
 
 
 #define LARB_MDP_ID 2
-#define LARB_MDP2_ID 3
 #define LARB_VENC_ID 7
 #define LARB_VENC2_ID 8
 #define LARB_IMG_ID 9
@@ -35,17 +34,11 @@
 #define LARB_CAM5_ID 18
 
 
-static const u32 mdp_comm_port_shift = (1 * SMI_COMM_MASTER_NUM + 0);
-static const u32 mdp_comm_port2_shift = (1 * SMI_COMM_MASTER_NUM + 1);
+static const u32 mdp_comm_port_shift = (0 * SMI_COMM_MASTER_NUM + 4);
 static const u32 venc_comm_port_shift = (0 * SMI_COMM_MASTER_NUM + 3);
-static const u32 venc_comm_port2_shift = (1 * SMI_COMM_MASTER_NUM + 3);
-static const u32 img_comm_port_shift = (1 * SMI_COMM_MASTER_NUM + 4);
-static const u32 img_comm_port2_shift = (0 * SMI_COMM_MASTER_NUM + 4);
-static const u32 cam_comm_port_shift = (1 * SMI_COMM_MASTER_NUM + 6);
-static const u32 cam_comm_port2_shift = (0 * SMI_COMM_MASTER_NUM + 6);
-static const u32 cam_comm_port3_shift = (1 * SMI_COMM_MASTER_NUM + 7);
-static const u32 cam_comm_port4_shift = (0 * SMI_COMM_MASTER_NUM + 7);
-static const u32 cam_comm_port5_shift = (1 * SMI_COMM_MASTER_NUM + 5);
+static const u32 img_comm_port_shift = (0 * SMI_COMM_MASTER_NUM + 5);
+static const u32 cam_comm_port_shift = (0 * SMI_COMM_MASTER_NUM + 6);
+static const u32 cam_comm_port2_shift = (0 * SMI_COMM_MASTER_NUM + 7);
 
 #ifdef QOS_BOUND_DETECT
 void mmdvfs_update_qos_sram(struct mm_larb_request larb_req[], u32 larb_update)
@@ -53,32 +46,25 @@ void mmdvfs_update_qos_sram(struct mm_larb_request larb_req[], u32 larb_update)
 
 	u32 bw;
 
-	if (larb_update & ((1 << mdp_comm_port_shift)
-				| (1 << mdp_comm_port2_shift))) {
+	if (larb_update & (1 << mdp_comm_port_shift)) {
 		bw = larb_req[LARB_MDP_ID].total_bw_data;
-		bw += larb_req[LARB_MDP2_ID].total_bw_data;
 		qos_sram_write(MM_SMI_MDP, bw);
 	}
 
-	if (larb_update & ((1 << venc_comm_port_shift)
-				| (1 << venc_comm_port2_shift))) {
+	if (larb_update & (1 << venc_comm_port_shift)) {
 		bw = larb_req[LARB_VENC_ID].total_bw_data;
 		bw += larb_req[LARB_VENC2_ID].total_bw_data;
 		qos_sram_write(MM_SMI_VENC, bw);
 	}
 
-	if (larb_update & ((1 << img_comm_port_shift)
-				| (1 << img_comm_port2_shift))) {
+	if (larb_update & (1 << img_comm_port_shift)) {
 		bw = larb_req[LARB_IMG_ID].total_bw_data;
 		bw += larb_req[LARB_IMG2_ID].total_bw_data;
 		qos_sram_write(MM_SMI_IMG, bw);
 	}
 
 	if (larb_update & ((1 << cam_comm_port_shift)
-				| (1 << cam_comm_port2_shift)
-				| (1 << cam_comm_port3_shift)
-				| (1 << cam_comm_port4_shift)
-				| (1 << cam_comm_port5_shift))) {
+				| (1 << cam_comm_port2_shift))) {
 		bw = larb_req[LARB_CAM_ID].total_bw_data;
 		bw += larb_req[LARB_CAM2_ID].total_bw_data;
 		bw += larb_req[LARB_CAM3_ID].total_bw_data;
@@ -103,9 +89,9 @@ bool mmdvfs_log_larb_mmp(s32 common_port_id, s32 larb_id)
 inline u32 mmdvfs_get_ccu_smi_common_port(u32 master_id)
 {
 	if (master_id == get_virtual_port(VIRTUAL_CCU_COMMON))
-		return 6;
+		return 7;
 	else
-		return ((1 << 16) | (6));
+		return 6;
 }
 
 s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
@@ -118,14 +104,14 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
 
 	list_for_each_entry(enum_req,
 		&larb_req[LARB_CAM_ID].larb_list, larb_node) {
-		if (enum_req->master_id == M4U_PORT_L13_CAM_CCUI_MDP
-			|| enum_req->master_id == M4U_PORT_L13_CAM_CCUO_MDP)
+		if (enum_req->master_id == M4U_PORT_L13_CAM_CCUI
+			|| enum_req->master_id == M4U_PORT_L13_CAM_CCUO)
 			bw += enum_req->hrt_value;
 	}
 	list_for_each_entry(enum_req,
 		&larb_req[LARB_CAM2_ID].larb_list, larb_node) {
-		if (enum_req->master_id == M4U_PORT_L14_CAM_CCUI_DISP
-			|| enum_req->master_id == M4U_PORT_L14_CAM_CCUO_DISP)
+		if (enum_req->master_id == M4U_PORT_L14_CAM_CCUI
+			|| enum_req->master_id == M4U_PORT_L14_CAM_CCUO)
 			bw += enum_req->hrt_value;
 	}
 	return bw;
@@ -133,11 +119,11 @@ s32 get_ccu_hrt_bw(struct mm_larb_request larb_req[])
 
 s32 get_md_hrt_bw(void)
 {
-	return 4362;
+	return 3357;
 }
 
 s32 dram_write_weight(s32 val)
 {
-	return (val * 6 / 5);
+	return val;
 }
 
