@@ -38,8 +38,8 @@
 		apusys_opps.user_path_volt[user_index][path_index])
  * and that will never let aging voltage working.
  *
- * That is why default 525mv minus MG_VOLT_06250 first.
- * (the precondition is VPU/MDLA aging voltage on 525mv are the same)
+ * That is why default 575mv minus MG_VOLT_06250 first.
+ * (the precondition is VPU/MDLA aging voltage on 575mv are the same)
  */
 #ifdef AGING_MARGIN
 #define MARGIN_VOLT_8	(MG_VOLT_06250)

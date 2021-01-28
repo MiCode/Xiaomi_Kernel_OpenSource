@@ -468,6 +468,10 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 	int ag_volt = 0;
 	int ag_opp_idx = 0;
 
+	struct apusys_dvfs_constraint *dvfs_ctrn = NULL;
+	int idx = 0;
+	enum DVFS_BUCK buck;
+
 	/* only support VPU for aging */
 	if (bk_dmn > V_VCORE)
 		LOG_ERR("%s %s opp %d not support aging volt\n",
@@ -476,6 +480,7 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 	user = apusys_buck_domain_to_user[bk_dmn];
 	seg_freq = apusys_opps.opps[opp][bk_dmn].freq;
 	seg_volt = apusys_opps.opps[opp][bk_dmn].voltage;
+	buck = apusys_buck_domain_to_buck[bk_dmn];
 
 	/*
 	 * Brute-force searching whether seg_freq meet
@@ -513,6 +518,19 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 					apusys_opps.opps[opp][bk_dmn].voltage);
 			}
 
+			for (idx = 0; idx < APUSYS_DVFS_CONSTRAINT_NUM; idx++) {
+				dvfs_ctrn = &dvfs_constraint_table[idx];
+				if (dvfs_ctrn->buck0 == buck) {
+					/* minus aging volt */
+					if (dvfs_ctrn->voltage0 == seg_volt)
+						dvfs_ctrn->voltage0 -= ag_volt;
+				}
+				if (dvfs_ctrn->buck1 == buck) {
+					/* minus aging volt */
+					if (dvfs_ctrn->voltage1 == seg_volt)
+						dvfs_ctrn->voltage1 -= ag_volt;
+				}
+			}
 			break;
 		}
 	}
@@ -644,6 +662,44 @@ static enum DVFS_VOLTAGE cal_suitable_bin_volt(
 	}
 
 	return ret;
+}
+
+/**
+ * change_constrain_volt() - change constrains voltage upper/lower bound
+ * @bk_domain: which buck's opp need to modify
+ * @bin_mv: upper bound voltage
+ * @raise_mv: lower bound voltage
+ *
+ * Modify upper/lower voltage bound of constrain's opp.
+ */
+static void change_constrain_volt(enum DVFS_BUCK buck,
+				  enum DVFS_VOLTAGE *bin_mv,
+				  enum DVFS_VOLTAGE *raise_mv)
+{
+	int idx = 0;
+	struct apusys_dvfs_constraint *dvfs_ctrn = NULL;
+
+	for (idx = 0; idx < APUSYS_DVFS_CONSTRAINT_NUM; idx++) {
+		dvfs_ctrn = &dvfs_constraint_table[idx];
+		if (dvfs_ctrn->buck0 == buck) {
+			/* set upper bound as binning voltage */
+			if (dvfs_ctrn->voltage0 > *bin_mv)
+				dvfs_ctrn->voltage0 = *bin_mv;
+
+			/* set lower bound as raising voltage */
+			if (dvfs_ctrn->voltage0 < *raise_mv)
+				dvfs_ctrn->voltage0 = *raise_mv;
+		}
+		if (dvfs_ctrn->buck1 == buck) {
+			/* set upper bound as binning voltage */
+			if (dvfs_ctrn->voltage1 > *bin_mv)
+				dvfs_ctrn->voltage1 = *bin_mv;
+
+			/* set lower bound as raising voltage */
+			if (dvfs_ctrn->voltage1 < *raise_mv)
+				dvfs_ctrn->voltage1 = *raise_mv;
+		}
+	}
 }
 
 /**
@@ -793,7 +849,8 @@ static int binning_support_check(void)
 		/* APU_CONN & APU_IOMMU share vvpu with VPU0/1/2 */
 		change_opp_voltage(V_APU_CONN, &bin_mv, &raise_mv);
 		change_opp_voltage(V_TOP_IOMMU, &bin_mv, &raise_mv);
-
+		/* binning and raise constrain VPU buck */
+		change_constrain_volt(VPU_BUCK, &bin_mv, &raise_mv);
 	}
 
 #if BINNING_UT
@@ -814,6 +871,7 @@ static int binning_support_check(void)
 
 		change_opp_voltage(V_MDLA0, &bin_mv, &raise_mv);
 		change_opp_voltage(V_MDLA1, &bin_mv, &raise_mv);
+		change_constrain_volt(MDLA_BUCK, &bin_mv, &raise_mv);
 	}
 #endif
 
@@ -831,7 +889,6 @@ static int binning_support_check(void)
 
 	/* initial done */
 	binning_init = 1;
-
 out:
 	return 0;
 }
@@ -876,13 +933,11 @@ static int set_power_voltage(enum DVFS_USER user, void *param)
 	if (buck < APUSYS_BUCK_NUM) {
 		if (buck != VCORE_BUCK) {
 			LOG_DBG("%s set buck %d to %d\n", __func__,
-						buck, target_volt);
-
+				buck, target_volt);
 			if (target_volt >= 0) {
 				ret = config_normal_regulator(
 						buck, target_volt);
 			}
-
 		} else {
 			ret = config_vcore(user,
 					volt_to_vcore_opp(target_volt));
