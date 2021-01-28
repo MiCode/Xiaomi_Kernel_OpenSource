@@ -25,6 +25,8 @@
 #define MTK_EMIMPU_CLEAR		1
 #define MTK_EMIMPU_READ			2
 #define MTK_EMIMPU_SLVERR		3
+#define MTK_EMIDBG_DUMP			4
+#define MTK_EMIDBG_MSG			5
 
 #define MTK_EMIMPU_READ_SA		0
 #define MTK_EMIMPU_READ_EA		1
@@ -65,6 +67,7 @@ struct emimpu_dev_t {
 	void __iomem **emi_mpu_base;
 	unsigned int show_region;
 	unsigned int ctrl_intf;
+	struct emimpu_region_t *ap_rg_info;
 };
 
 struct emiisu_dev_t {
@@ -90,6 +93,9 @@ unsigned int mtk_emicen_get_ch_cnt(void);
 unsigned int mtk_emicen_get_rk_cnt(void);
 unsigned int mtk_emicen_get_rk_size(unsigned int rk_id);
 
+/* mtk emidbg api */
+void mtk_emidbg_dump(void);
+
 /* mtk emimpu api */
 int mtk_emimpu_init_region(
 	struct emimpu_region_t *rg_info, unsigned int rg_num);
@@ -101,10 +107,12 @@ int mtk_emimpu_lock_region(struct emimpu_region_t *rg_info, bool lock);
 int mtk_emimpu_set_protection(struct emimpu_region_t *rg_info);
 int mtk_emimpu_free_region(struct emimpu_region_t *rg_info);
 int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info);
-int mtk_emimpu_prehandle_register(
-	irqreturn_t (*bypass_func)
-		(struct reg_info_t *dump, unsigned int leng));
-int mtk_emimpu_postclear_register(void (*clear_func)(void));
+int mtk_emimpu_prehandle_register(irqreturn_t (*bypass_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
+int mtk_emimpu_postclear_register(void (*clear_func)
+	(unsigned int emi_id));
+int mtk_emimpu_md_handling_register(void (*md_handling_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng));
 void mtk_clear_md_violation(void);
 
 #endif /* __EMI_H__ */

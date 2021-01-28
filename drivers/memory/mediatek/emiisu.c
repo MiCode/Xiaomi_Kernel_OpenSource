@@ -24,9 +24,17 @@ static int emiisu_probe(struct platform_device *pdev);
 
 static ssize_t emiisu_ctrl_show(struct device_driver *driver, char *buf)
 {
-	struct emiisu_dev_t *emiisu_dev_ptr =
-		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+	struct emiisu_dev_t *emiisu_dev_ptr;
 	unsigned int state;
+
+	if (!emiisu_pdev)
+		return 0;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+
+	if (!(emiisu_dev_ptr->con_addr))
+		return 0;
 
 	state = readl(emiisu_dev_ptr->con_addr);
 	return snprintf(buf, PAGE_SIZE, "isu_state: 0x%x\n", state);
@@ -35,8 +43,7 @@ static ssize_t emiisu_ctrl_show(struct device_driver *driver, char *buf)
 static ssize_t emiisu_ctrl_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
-	struct emiisu_dev_t *emiisu_dev_ptr =
-		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+	struct emiisu_dev_t *emiisu_dev_ptr;
 	unsigned long state;
 	char *command;
 	char *backup_command;
@@ -44,7 +51,16 @@ static ssize_t emiisu_ctrl_store
 	char *token[MTK_EMI_MAX_TOKEN];
 	int i;
 
+	if (!emiisu_pdev)
+		return count;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+
 	if (!(emiisu_dev_ptr->ctrl_intf))
+		return count;
+
+	if (!(emiisu_dev_ptr->con_addr))
 		return count;
 
 	if ((strlen(buf) + 1) > MTK_EMI_MAX_CMD_LEN) {
@@ -84,13 +100,22 @@ static DRIVER_ATTR_RW(emiisu_ctrl);
 static ssize_t dump_buf_read
 	(struct file *file, char __user *data, size_t len, loff_t *ppos)
 {
-	struct emiisu_dev_t *emiisu_dev_ptr =
-		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
-	ssize_t bytes = len < (emiisu_dev_ptr->buf_size - *ppos) ?
-		len : (emiisu_dev_ptr->buf_size - *ppos);
+	struct emiisu_dev_t *emiisu_dev_ptr;
+	ssize_t bytes;
 	ssize_t header_bytes = 0;
 
-	if (!emiisu_dev_ptr->buf_addr)
+	if (!emiisu_pdev)
+		return 0;
+
+	emiisu_dev_ptr =
+		(struct emiisu_dev_t *)platform_get_drvdata(emiisu_pdev);
+	bytes = len < (emiisu_dev_ptr->buf_size - *ppos) ?
+		len : (emiisu_dev_ptr->buf_size - *ppos);
+
+	if (!(emiisu_dev_ptr->buf_addr))
+		return 0;
+
+	if (!(emiisu_dev_ptr->ver_addr))
 		return 0;
 
 	if (*ppos == 0) {
@@ -171,22 +196,31 @@ static int emiisu_probe(struct platform_device *pdev)
 		pr_info("%s: get buf_addr fail\n", __func__);
 		return -EINVAL;
 	}
-	emiisu_dev_ptr->buf_addr = ioremap_wc(
-		(phys_addr_t)addr_temp, emiisu_dev_ptr->buf_size);
+	if (addr_temp)
+		emiisu_dev_ptr->buf_addr = ioremap_wc(
+			(phys_addr_t)addr_temp, emiisu_dev_ptr->buf_size);
+	else
+		emiisu_dev_ptr->buf_addr = NULL;
 
 	ret = of_property_read_u64(emiisu_node, "ver_addr", &addr_temp);
 	if (ret) {
 		pr_info("%s: get ver_addr fail\n", __func__);
 		return -EINVAL;
 	}
-	emiisu_dev_ptr->ver_addr = ioremap((phys_addr_t)addr_temp, 4);
+	if (addr_temp)
+		emiisu_dev_ptr->ver_addr = ioremap((phys_addr_t)addr_temp, 4);
+	else
+		emiisu_dev_ptr->ver_addr = NULL;
 
 	ret = of_property_read_u64(emiisu_node, "con_addr", &addr_temp);
 	if (ret) {
 		pr_info("%s: get con_addr fail\n", __func__);
 		return -EINVAL;
 	}
-	emiisu_dev_ptr->con_addr = ioremap((phys_addr_t)addr_temp, 4);
+	if (addr_temp)
+		emiisu_dev_ptr->con_addr = ioremap((phys_addr_t)addr_temp, 4);
+	else
+		emiisu_dev_ptr->con_addr = NULL;
 
 	ret = of_property_read_u32(emiisu_node,
 		"ctrl_intf", &(emiisu_dev_ptr->ctrl_intf));

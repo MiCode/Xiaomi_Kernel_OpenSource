@@ -30,6 +30,8 @@ struct fmeter_dev_t {
 	struct reg_ctrl_t posdiv[2];
 	struct reg_ctrl_t ckdiv4[2];
 	struct reg_ctrl_t cldiv2[2];
+	struct reg_ctrl_t fbksel[2];
+	struct reg_ctrl_t dqopen[2];
 };
 
 struct mr4_dev_t {
@@ -57,6 +59,7 @@ struct dramc_dev_t {
 };
 
 int mtk_dramc_get_steps_freq(unsigned int step);
+unsigned int mtk_dramc_get_ddr_type(void);
 unsigned int mtk_dramc_get_data_rate(void);
 unsigned int mtk_dramc_get_mr4(unsigned int ch);
 

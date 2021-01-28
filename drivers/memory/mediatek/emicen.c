@@ -13,8 +13,11 @@
 #include <linux/printk.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <memory/mediatek/emi.h>
 
+DEFINE_SPINLOCK(emidbg_lock);
 static struct platform_device *emicen_pdev;
 
 static int emicen_probe(struct platform_device *pdev)
@@ -136,7 +139,12 @@ module_exit(emicen_drv_exit);
  */
 unsigned int mtk_emicen_get_ch_cnt(void)
 {
-	struct emicen_dev_t *emicen_dev_ptr =
+	struct emicen_dev_t *emicen_dev_ptr;
+
+	if (!emicen_pdev)
+		return 0;
+
+	emicen_dev_ptr =
 		(struct emicen_dev_t *)platform_get_drvdata(emicen_pdev);
 
 	return emicen_dev_ptr->ch_cnt;
@@ -150,7 +158,12 @@ EXPORT_SYMBOL(mtk_emicen_get_ch_cnt);
  */
 unsigned int mtk_emicen_get_rk_cnt(void)
 {
-	struct emicen_dev_t *emicen_dev_ptr =
+	struct emicen_dev_t *emicen_dev_ptr;
+
+	if (!emicen_pdev)
+		return 0;
+
+	emicen_dev_ptr =
 		(struct emicen_dev_t *)platform_get_drvdata(emicen_pdev);
 
 	return emicen_dev_ptr->rk_cnt;
@@ -165,7 +178,12 @@ EXPORT_SYMBOL(mtk_emicen_get_rk_cnt);
  */
 unsigned int mtk_emicen_get_rk_size(unsigned int rk_id)
 {
-	struct emicen_dev_t *emicen_dev_ptr =
+	struct emicen_dev_t *emicen_dev_ptr;
+
+	if (!emicen_pdev)
+		return 0;
+
+	emicen_dev_ptr =
 		(struct emicen_dev_t *)platform_get_drvdata(emicen_pdev);
 
 	if (rk_id < emicen_dev_ptr->rk_cnt)
@@ -174,6 +192,31 @@ unsigned int mtk_emicen_get_rk_size(unsigned int rk_id)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_emicen_get_rk_size);
+
+/*
+ * mtk_emidbg_dump - dump emi full status to atf log
+ *
+ */
+void mtk_emidbg_dump(void)
+{
+	unsigned long spinlock_save_flags;
+	struct arm_smccc_res smc_res;
+
+	spin_lock_irqsave(&emidbg_lock, spinlock_save_flags);
+
+	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIDBG_DUMP,
+		0, 0, 0, 0, 0, 0, &smc_res);
+	while (smc_res.a0 > 0) {
+		arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIDBG_MSG,
+		0, 0, 0, 0, 0, 0, &smc_res);
+
+		pr_info("%s: %d, 0x%x, 0x%x, 0x%x\n", __func__,
+			smc_res.a0, smc_res.a1, smc_res.a2, smc_res.a3);
+	}
+
+	spin_unlock_irqrestore(&emidbg_lock, spinlock_save_flags);
+}
+EXPORT_SYMBOL(mtk_emidbg_dump);
 
 MODULE_DESCRIPTION("MediaTek EMICEN Driver v0.1");
 

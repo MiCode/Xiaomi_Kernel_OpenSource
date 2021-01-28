@@ -25,8 +25,10 @@ static struct platform_device *emimpu_pdev;
 
 static int emimpu_probe(struct platform_device *pdev);
 static irqreturn_t (*pre_handling_cb)(
-	struct reg_info_t *dump, unsigned int leng);
-static void (*post_clear_cb)(void);
+	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
+static void (*post_clear_cb)(unsigned int emi_id);
+static void (*md_handling_cb)(
+	unsigned int emi_id, struct reg_info_t *dump, unsigned int leng);
 
 static unsigned int emimpu_read_protection(
 	unsigned int reg_type, unsigned int region, unsigned int dgroup)
@@ -40,8 +42,7 @@ static unsigned int emimpu_read_protection(
 
 static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	ssize_t ret;
 	unsigned int i;
 	unsigned int region;
@@ -57,6 +58,12 @@ static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 		"S_R_NS_RW",
 		"NONE"
 	};
+
+	if (!emimpu_pdev)
+		return strlen(buf);
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	for (ret = 0, region = emimpu_dev_ptr->show_region;
 		region < emimpu_dev_ptr->region_cnt; region++) {
@@ -100,8 +107,7 @@ static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 static ssize_t emimpu_ctrl_store
 	(struct device_driver *driver, const char *buf, size_t count)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	char *command;
 	char *backup_command;
 	char *ptr;
@@ -112,6 +118,12 @@ static ssize_t emimpu_ctrl_store
 	unsigned long dgroup;
 	unsigned long apc;
 	int i, j, ret;
+
+	if (!emimpu_pdev)
+		return count;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	if (!(emimpu_dev_ptr->ctrl_intf))
 		return count;
@@ -253,13 +265,17 @@ static void set_regs(
 }
 
 static void clear_violation(
-	struct emimpu_dev_t *emimpu_dev_ptr, void __iomem *emi_cen_base)
+	struct emimpu_dev_t *emimpu_dev_ptr, unsigned int emi_id)
 {
+	void __iomem *emi_cen_base;
+
+	emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
+
 	set_regs(emimpu_dev_ptr->clear_reg,
 		emimpu_dev_ptr->clear_reg_cnt, emi_cen_base);
 
 	if (post_clear_cb)
-		post_clear_cb();
+		post_clear_cb(emi_id);
 }
 
 static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
@@ -303,18 +319,25 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 			continue;
 
 		if (pre_handling_cb)
-			if (pre_handling_cb(dump_reg, emimpu_dev_ptr->dump_cnt)
+			if (pre_handling_cb(emi_id,
+				dump_reg, emimpu_dev_ptr->dump_cnt)
 				== IRQ_HANDLED) {
-				clear_violation(emimpu_dev_ptr, emi_cen_base);
+				clear_violation(emimpu_dev_ptr, emi_id);
 				mtk_clear_md_violation();
 				continue;
 			}
 
+		if (md_handling_cb) {
+			md_handling_cb(emi_id,
+				dump_reg, emimpu_dev_ptr->dump_cnt);
+		}
+
 		pr_info("%s: violation at emi%d\n", __func__, emi_id);
 		aee_kernel_exception("EMIMPU", aee_msg);
-
-		clear_violation(emimpu_dev_ptr, emi_cen_base);
 	}
+
+	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++)
+		clear_violation(emimpu_dev_ptr, emi_id);
 
 	return IRQ_HANDLED;
 }
@@ -345,7 +368,7 @@ static int emimpu_probe(struct platform_device *pdev)
 	struct device_node *emicen_node =
 		of_parse_phandle(emimpu_node, "mediatek,emi-reg", 0);
 	struct emimpu_dev_t *emimpu_dev_ptr;
-	struct emimpu_region_t rg_info;
+	struct emimpu_region_t *rg_info;
 	struct arm_smccc_res smc_res;
 	struct resource *res;
 	unsigned int *dump_list;
@@ -538,9 +561,10 @@ static int emimpu_probe(struct platform_device *pdev)
 
 	/* enable AP region */
 	ret = of_property_read_u32(emimpu_node, "ap_region", &ap_region);
-	if (ret)
+	if (ret) {
+		emimpu_dev_ptr->ap_rg_info = NULL;
 		pr_info("%s: no ap_region\n", __func__);
-	else {
+	} else {
 		size = sizeof(unsigned int) * emimpu_dev_ptr->domain_cnt;
 		ap_apc = devm_kmalloc(&pdev->dev, size, GFP_KERNEL);
 		if (!ap_apc)
@@ -552,15 +576,18 @@ static int emimpu_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		mtk_emimpu_init_region(&rg_info, ap_region);
-		mtk_emimpu_set_addr(&rg_info,
+		emimpu_dev_ptr->ap_rg_info =
+			kmalloc(sizeof(struct emimpu_region_t), GFP_KERNEL);
+		if (!(emimpu_dev_ptr->ap_rg_info))
+			return -ENOMEM;
+		rg_info = emimpu_dev_ptr->ap_rg_info;
+		mtk_emimpu_init_region(rg_info, ap_region);
+		mtk_emimpu_set_addr(rg_info,
 			emimpu_dev_ptr->dram_start, emimpu_dev_ptr->dram_end);
 		for (i = 0; i < emimpu_dev_ptr->domain_cnt; i++)
 			if (ap_apc[i] != MTK_EMIMPU_FORBIDDEN)
-				mtk_emimpu_set_apc(&rg_info, i, ap_apc[i]);
-		mtk_emimpu_lock_region(&rg_info, MTK_EMIMPU_LOCK);
-		mtk_emimpu_set_protection(&rg_info);
-		mtk_emimpu_free_region(&rg_info);
+				mtk_emimpu_set_apc(rg_info, i, ap_apc[i]);
+		mtk_emimpu_lock_region(rg_info, MTK_EMIMPU_LOCK);
 		devm_kfree(&pdev->dev, ap_apc);
 	}
 
@@ -576,6 +603,29 @@ static int emimpu_probe(struct platform_device *pdev)
 		pr_info("%s: fail to create emimpu_ctrl\n", __func__);
 
 	return ret;
+}
+
+static int __init emimpu_ap_region_init(void)
+{
+	struct emimpu_dev_t *emimpu_dev_ptr;
+
+	if (!emimpu_pdev)
+		return 0;
+
+	pr_info("%s: enable AP region\n", __func__);
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	if (!(emimpu_dev_ptr->ap_rg_info))
+		return 0;
+
+	mtk_emimpu_set_protection(emimpu_dev_ptr->ap_rg_info);
+	mtk_emimpu_free_region(emimpu_dev_ptr->ap_rg_info);
+
+	kfree(emimpu_dev_ptr->ap_rg_info);
+	emimpu_dev_ptr->ap_rg_info = NULL;
+
+	return 0;
 }
 
 static int __init emimpu_drv_init(void)
@@ -596,6 +646,7 @@ static void __exit emimpu_drv_exit(void)
 	platform_driver_unregister(&emimpu_drv);
 }
 
+late_initcall_sync(emimpu_ap_region_init);
 module_init(emimpu_drv_init);
 module_exit(emimpu_drv_exit);
 
@@ -771,12 +822,14 @@ EXPORT_SYMBOL(mtk_emimpu_set_protection);
  */
 int mtk_emimpu_clear_protection(struct emimpu_region_t *rg_info)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	struct arm_smccc_res smc_res;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return -1;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	if (rg_info->rg_num > emimpu_dev_ptr->region_cnt) {
 		pr_info("%s: region %u overflow\n", __func__, rg_info->rg_num);
@@ -797,8 +850,8 @@ EXPORT_SYMBOL(mtk_emimpu_clear_protection);
  * Return 0 for success, -EINVAL for fail
  */
 int mtk_emimpu_prehandle_register(
-	irqreturn_t (*bypass_func)(
-		struct reg_info_t *dump, unsigned int leng))
+	irqreturn_t (*bypass_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng))
 {
 	if (!bypass_func) {
 		pr_info("%s: bypass_func is NULL\n", __func__);
@@ -816,7 +869,7 @@ EXPORT_SYMBOL(mtk_emimpu_prehandle_register);
  *
  * Return 0 for success, -EINVAL for fail
  */
-int mtk_emimpu_postclear_register(void (*clear_func)(void))
+int mtk_emimpu_postclear_register(void (*clear_func)(unsigned int emi_id))
 {
 	if (!clear_func) {
 		pr_info("%s: clear_func is NULL\n", __func__);
@@ -829,19 +882,41 @@ int mtk_emimpu_postclear_register(void (*clear_func)(void))
 EXPORT_SYMBOL(mtk_emimpu_postclear_register);
 
 /*
+ * mtk_emimpu_md_handling_register - register callback for md handling
+ * @md_handling_func:	function point for md handling
+ *
+ * Return 0 for success, -EINVAL for fail
+ */
+int mtk_emimpu_md_handling_register(
+	void (*md_handling_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng))
+{
+	if (!md_handling_func) {
+		pr_info("%s: md_handling_func is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	md_handling_cb = md_handling_func;
+	return 0;
+}
+EXPORT_SYMBOL(mtk_emimpu_md_handling_register);
+
+/*
  * mtk_clear_md_violation - clear irq for md violation
  *
  * No return
  */
 void mtk_clear_md_violation(void)
 {
-	struct emimpu_dev_t *emimpu_dev_ptr =
-		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
+	struct emimpu_dev_t *emimpu_dev_ptr;
 	void __iomem *emi_cen_base;
 	unsigned int emi_id;
 
-	if (!emimpu_dev_ptr)
+	if (!emimpu_pdev)
 		return;
+
+	emimpu_dev_ptr =
+		(struct emimpu_dev_t *)platform_get_drvdata(emimpu_pdev);
 
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
 		emi_cen_base = emimpu_dev_ptr->emi_cen_base[emi_id];
