@@ -3532,6 +3532,20 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 			property, param.processID, param.callerID, idx);
 #endif
 		spin_lock(&(SpinLock_P2FrameList));
+
+		if (idx ==  -1) {
+			spin_unlock(&(SpinLock_P2FrameList));
+			LOG_ERR("Match index 1 fail(%d_0x%x_0x%x_%d, %d_%d)",
+				param.property,
+				param.processID,
+				param.callerID,
+				param.frameNum,
+				param.cQIdx,
+				param.dupCQIdx);
+			ret =  -EFAULT;
+			return ret;
+		}
+
 		/* [2]check the buffer is dequeued or not */
 		if (P2_FramePackage_List[property][idx].dequedNum ==
 			P2_FramePackage_List[property][idx].frameNum) {
