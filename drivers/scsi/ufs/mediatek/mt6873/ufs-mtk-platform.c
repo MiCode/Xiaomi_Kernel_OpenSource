@@ -299,7 +299,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 
 	/* inform ATF clock is on */
 	if (on)
-		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 1, 0, 0);
+		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 8, 1, 0, 0);
 
 	/*
 	 * Delay before disable ref-clk: H8 -> delay A -> disable ref-clk
@@ -382,7 +382,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 
 	/* inform ATF clock is off */
 	if (!on && !hba->auto_bkops_enabled)
-		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 0, 0, 0);
+		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 8, 0, 0, 0);
 
 	return 0;
 }
