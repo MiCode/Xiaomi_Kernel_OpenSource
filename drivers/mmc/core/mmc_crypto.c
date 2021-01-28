@@ -243,7 +243,7 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 		goto out_free_cfg_mem;
 	}
 	/* Peng: temp */
-	crypto_modes_supported[1] = 4096;
+	crypto_modes_supported[1] = 0x1200;
 
 	host->ksm = keyslot_manager_create(host->parent,
 		NUM_KEYSLOTS(host), ksm_ops,
