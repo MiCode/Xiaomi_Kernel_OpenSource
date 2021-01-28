@@ -259,7 +259,11 @@ page_owner=on loop.max_part=7";
 		#size-cells = <2>;
 		ranges;
 		suspend-method = "s2idle";
-		irq-remain = <&edge_keypad &edge_mdwdt>;
+		irq-remain = <&edge_keypad &edge_mdwdt>,
+			     <&level_vpu_core0 &level_vpu_core1>,
+			     <&level_mali0 &level_mali1>,
+			     <&level_mali2 &level_mali3 &level_mali4>,
+			     <&level_mtk_mdla &level_edma0>;
 		resource-ctrl = <&bus26m &infra &syspll>,
 				<&dram_s0 &dram_s1>;
 		constraints = <&rc_bus26m &rc_syspll &rc_dram>;
@@ -277,6 +281,42 @@ page_owner=on loop.max_part=7";
 			edge_mdwdt: edge_mdwdt {
 				target = <&mddriver>;
 				value = <1 0 0 0x02000000>;
+			};
+			level_vpu_core0: level_vpu_core0 {
+				target = <&vpu_core0>;
+				value = <0 0 0 0>;
+			};
+			level_vpu_core1: level_vpu_core1 {
+				target = <&vpu_core1>;
+				value = <0 0 0 0>;
+			};
+			level_mali0: level_mali0 {
+				target = <&mali>;
+				value = <0 0 0 0>;
+			};
+			level_mali1: level_mali1 {
+				target = <&mali>;
+				value = <0 1 0 0>;
+			};
+			level_mali2: level_mali2 {
+				target = <&mali>;
+				value = <0 2 0 0>;
+			};
+			level_mali3: level_mali3 {
+				target = <&mali>;
+				value = <0 3 0 0>;
+			};
+			level_mali4: level_mali4 {
+				target = <&mali>;
+				value = <0 4 0 0>;
+			};
+			level_mtk_mdla: level_mtk_mdla {
+				target = <&mtk_mdla>;
+				value = <0 0 0 0>;
+			};
+			level_edma0: level_edma0 {
+				target = <&edma0>;
+				value = <0 0 0 0>;
 			};
 		};
 		resource-ctrl-list {
@@ -2324,7 +2364,7 @@ page_owner=on loop.max_part=7";
 		io-channel-names = "thermistor-ch2";
 	};
 
-	mali@13000000 {
+	mali: mali@13000000 {
 		compatible = "mediatek,mali", "arm,mali-valhall";
 		reg = <0 0x13000000 0 0x4000>;
 		interrupts =
