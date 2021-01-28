@@ -57,7 +57,7 @@ ifeq ($(CONFIG_MTK_DITHERING_SUPPORT), y)
 ccflags-y += -DDITHERING_SUPPORT
 endif
 
-ifeq ($(CONFIG_MTK_GPU_SUPPORT), y)
+ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
 ccflags-y += -DHWGPU_SUPPORT
 endif
 
