@@ -60,6 +60,7 @@ static struct ccci_clk_node clk_table[] = {
 	{ NULL, "infra-ccif2-ap"},
 	{ NULL, "infra-ccif2-md"},
 	{ NULL, "infra-ccif4-md"},
+	{ NULL, "infra-ccif5-md"},
 };
 
 unsigned int devapc_callback_flag;
@@ -94,7 +95,7 @@ void md_cldma_hw_reset(unsigned char md_id)
 
 void md1_subsys_debug_dump(enum subsys_id sys)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	if (sys != SYS_MD1)
 		return;
@@ -163,7 +164,7 @@ void ccci_md_devapc_register_cb(void)
 
 void ccci_md_dump_in_interrupt(char *user_info)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_NORMAL_LOG(0, TAG, "%s called by %s\n", __func__, user_info);
 	md = ccci_md_get_modem_by_id(0);
@@ -180,7 +181,7 @@ EXPORT_SYMBOL(ccci_md_dump_in_interrupt);
 
 void ccci_md_debug_dump(char *user_info)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	if (!s_md_start_completed) {
 		CCCI_ERROR_LOG(0, TAG,
@@ -297,6 +298,18 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 				return -1;
 			}
 		}
+		/* for ccif5 */
+		node = of_find_compatible_node(NULL, NULL,
+			"mediatek,md_ccif5");
+		if (node) {
+			hw_info->md_ccif5_base = of_iomap(node, 0);
+			if (!hw_info->md_ccif5_base) {
+				CCCI_ERROR_LOG(dev_cfg->index, TAG,
+				"ccif5_base fail: 0x%p!\n",
+				(void *)hw_info->md_ccif5_base);
+				return -1;
+			}
+		}
 
 		node = of_find_compatible_node(NULL, NULL,
 					"mediatek,topckgen");
@@ -372,9 +385,9 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 
 	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
 
-	/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
+	/* Clean MD_PCCIF5_SW_READY and MD_PCCIF5_PWR_ON */
 	if (!on)
-		ccif_write32(infra_ao_base, 0x22C, 0x0);
+		ccif_write32(pericfg_base, 0x30C, 0x0);
 
 	for (idx = 3; idx < ARRAY_SIZE(clk_table); idx++) {
 		if (clk_table[idx].clk_ref == NULL)
@@ -398,18 +411,28 @@ void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 				ccci_write32(hw_info->md_ccif4_base, 0x14,
 					0xFF); /* special use ccci_write32 */
 			}
+			if (strcmp(clk_table[idx].clk_name, "infra-ccif5-md")
+				== 0) {
+				udelay(1000);
+				CCCI_NORMAL_LOG(md->index, TAG,
+					"ccif5 %s: after 1ms, set 0x%p + 0x14 = 0xFF\n",
+					__func__, hw_info->md_ccif5_base);
+				ccci_write32(hw_info->md_ccif5_base, 0x14,
+					0xFF); /* special use ccci_write32 */
+			}
+
 			spin_lock_irqsave(&devapc_flag_lock, flags);
 			devapc_check_flag = 0;
 			spin_unlock_irqrestore(&devapc_flag_lock, flags);
 			clk_disable_unprepare(clk_table[idx].clk_ref);
 		}
 	}
-	/* Set MD_PCCIF4_PWR_ON */
+	/* Set MD_PCCIF5_PWR_ON */
 	if (on) {
 		CCCI_NORMAL_LOG(md->index, TAG,
-			"ccif4 %s:  set 0x%p + 0x22C = 0x1\n",
-			__func__, (void *)infra_ao_base);
-		ccif_write32(infra_ao_base, 0x22C, 0x1);
+			"ccif5 current base_addr %s:  0x%lx, val:0x%x\n",
+			__func__, (unsigned long)pericfg_base,
+			ccif_read32((void *)pericfg_base, 0x30C));
 	}
 }
 
@@ -433,7 +456,7 @@ void ccci_set_clk_by_id(int idx, unsigned int on)
 
 int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 {
-	struct md_pll_reg *md_reg;
+	struct md_pll_reg *md_reg = NULL;
 	struct md_sys1_info *md_info = (struct md_sys1_info *)md->private_data;
 
 	/* call internal_dump io_remap */
@@ -624,7 +647,7 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 
 	/* This function needs to be cancelled temporarily */
 	/* for margaux bringup */
-	internal_md_dump_debug_register(md->index);
+	//internal_md_dump_debug_register(md->index);
 
 	md_cd_lock_modem_clock_src(0);
 
