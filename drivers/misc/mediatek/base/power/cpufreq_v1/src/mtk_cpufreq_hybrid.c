@@ -45,9 +45,10 @@
 #include <trace/events/power.h>
 /* #include <trace/events/mtk_events.h> */
 
+#if !defined(CONFIG_MACH_MT6885)
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-/* just for sspm v1 */
-//#include "sspm_ipi.h"
+#include "v1/sspm_ipi.h"
+#endif
 #endif
 
 #include <mt-plat/met_drv.h>
@@ -130,9 +131,9 @@ void parse_log_content(unsigned int *local_buf, int idx)
 
 spinlock_t cpudvfs_lock;
 static struct task_struct *Ripi_cpu_dvfs_task;
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 struct ipi_action cpufreq_act;
-*/
+#endif
 uint32_t cpufreq_buf[4];
 int Ripi_cpu_dvfs_thread(void *data)
 {
@@ -152,11 +153,12 @@ int Ripi_cpu_dvfs_thread(void *data)
 	int j;
 
 	/* tag_pr_info("CPU DVFS received thread\n"); */
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 	cpufreq_act.data = (void *)cpufreq_buf;
 	ret = sspm_ipi_recv_registration_ex(IPI_ID_CPU_DVFS,
 						&cpudvfs_lock, &cpufreq_act);
-*/
+#endif
+
 	if (ret != 0) {
 		tag_pr_notice
 		("Error: ipi_recv_registration CPU DVFS error: %d\n", ret);
@@ -171,9 +173,9 @@ int Ripi_cpu_dvfs_thread(void *data)
 	/* an endless loop in which we are doing our work */
 	do {
 		/* tag_pr_info("sspm_ipi_recv_wait IPI_ID_CPU_DVFS\n"); */
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 		sspm_ipi_recv_wait(IPI_ID_CPU_DVFS);
-*/
+#endif
 		/* tag_pr_info("Info: CPU DVFS thread received ID=%d,*/
 		/* i=%d\n", cpufreq_act.id, i); */
 		spin_lock_irqsave(&cpudvfs_lock, flags);
@@ -333,9 +335,9 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 {
 #define OPT				(0) /* reserve for extensibility */
 #define DVFS_D_LEN		(4) /* # of cmd + arg0 + arg1 + ... */
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 	unsigned int len = DVFS_D_LEN;
-*/
+#endif
 	int ack_data = 0;
 	unsigned int ret = 0;
 
@@ -348,10 +350,10 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		("I'd like to initialize sspm DVFS, segment code = %d\n",
 		cdvfs_d->u.set_fv.arg[0]);
 
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
 		cdvfs_d, len, &ack_data, 1);
-*/
+#endif
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
@@ -369,10 +371,10 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		("I'd like to initialize sspm DVFS, segment code = %d\n",
 		cdvfs_d->u.set_fv.arg[0]);
 
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
 		cdvfs_d, len, &ack_data, 1);
-*/
+#endif
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
@@ -390,10 +392,10 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1]);
 
 		aee_record_cpu_dvfs_cb(6);
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
 		cdvfs_d, len, &ack_data, 1);
-*/
+#endif
 		aee_record_cpu_dvfs_cb(7);
 		if (ret != 0) {
 			tag_pr_notice
@@ -501,10 +503,10 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1],
 			cdvfs_d->u.set_fv.arg[2]);
 
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
 		cdvfs_d, len, &ack_data, 1);
-*/
+#endif
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
@@ -522,10 +524,10 @@ int dvfs_to_spm2_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cdvfs_d->u.set_fv.arg[0], cdvfs_d->u.set_fv.arg[1],
 			cdvfs_d->u.set_fv.arg[2]);
 
-/* just for sspm v1
+#if !defined(CONFIG_MACH_MT6885)
 		ret = sspm_ipi_send_sync_new(IPI_ID_CPU_DVFS, IPI_OPT_POLLING,
 		cdvfs_d, len, &ack_data, 1);
-*/
+#endif
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) sspm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
