@@ -2520,11 +2520,6 @@ static int mtkfb_probe(struct platform_device *pdev)
 	int init_state;
 	int r = 0;
 
-#ifdef CONFIG_MTK_IOMMU_V2
-	struct ion_client *ion_display_client = NULL;
-	struct ion_handle *ion_display_handle = NULL;
-	size_t temp_va = 0;
-#endif
 	/* struct platform_device *pdev; */
 
 	DISPMSG("%s name [%s]  = [%s][%p]\n", __func__,
@@ -2562,34 +2557,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	DISPMSG("%s: fb_pa = %pa\n", __func__, &fb_base);
 
-#ifdef CONFIG_MTK_IOMMU_V2
-	temp_va = (size_t)ioremap_wc(fb_base,
-		(fb_base + vramsize - fb_base));
-	fbdev->fb_va_base = (void *)temp_va;
-	ion_display_client = disp_ion_create("disp_fb0");
-	if (ion_display_client == NULL) {
-		DISPERR("%s: fail to create ion\n", __func__);
-		r = -1;
-		goto cleanup;
-	}
-
-	ion_display_handle = disp_ion_alloc(ion_display_client,
-		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, fb_base,
-		(fb_base + vramsize - fb_base));
-	if (r != 0) {
-		DISPERR("%s: fail to allocate buffer\n", __func__);
-		r = -1;
-		goto cleanup;
-	}
-
-	disp_ion_get_mva(ion_display_client,
-		ion_display_handle,
-		&fb_pa, 0,
-		DISP_M4U_PORT_DISP_OVL0);
-#else
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
 		(unsigned long *)(&fbdev->fb_va_base), &fb_pa);
-#endif
 	fbdev->fb_pa_base = fb_base;
 
 	primary_display_set_frame_buffer_address(
