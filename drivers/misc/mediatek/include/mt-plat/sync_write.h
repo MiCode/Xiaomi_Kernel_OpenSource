@@ -17,26 +17,26 @@
 #define mt_reg_sync_writel(v, a) \
 	do {    \
 		__raw_writel((v), (void __force __iomem *)((a)));   \
-		dsb();  \
+		dsb(sy);  \
 	} while (0)
 
 #define mt_reg_sync_writew(v, a) \
 	do {    \
 		__raw_writew((v), (void __force __iomem *)((a)));   \
-		dsb();  \
+		dsb(sy);  \
 	} while (0)
 
 #define mt_reg_sync_writeb(v, a) \
 	do {    \
 		__raw_writeb((v), (void __force __iomem *)((a)));   \
-		dsb();  \
+		dsb(sy);  \
 	} while (0)
 
 #ifdef CONFIG_64BIT
 #define mt_reg_sync_writeq(v, a) \
 	do {    \
 		__raw_writeq((v), (void __force __iomem *)((a)));   \
-		dsb();  \
+		dsb(sy);  \
 	} while (0)
 #endif
 
