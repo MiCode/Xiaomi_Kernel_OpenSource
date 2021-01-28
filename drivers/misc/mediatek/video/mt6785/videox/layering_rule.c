@@ -109,6 +109,34 @@ static int ovl_mapping_table[HRT_TB_NUM] = {
 
 #define GET_SYS_STATE(sys_state) \
 	((l_rule_info.hrt_sys_state >> sys_state) & 0x1)
+static inline bool support_color_format(enum DISP_FORMAT src_fmt)
+{
+	switch (src_fmt) {
+	case DISP_FORMAT_RGB565:
+	case DISP_FORMAT_RGB888:
+	case DISP_FORMAT_BGR888:
+	case DISP_FORMAT_ARGB8888:
+	case DISP_FORMAT_ABGR8888:
+	case DISP_FORMAT_RGBA8888:
+	case DISP_FORMAT_BGRA8888:
+	case DISP_FORMAT_YUV422:
+	case DISP_FORMAT_XRGB8888:
+	case DISP_FORMAT_XBGR8888:
+	case DISP_FORMAT_RGBX8888:
+	case DISP_FORMAT_BGRX8888:
+	case DISP_FORMAT_UYVY:
+	case DISP_FORMAT_PARGB8888:
+	case DISP_FORMAT_PABGR8888:
+	case DISP_FORMAT_PRGBA8888:
+	case DISP_FORMAT_PBGRA8888:
+	case DISP_FORMAT_DIM:
+		return true;
+	default:
+		return false;
+	}
+
+	return false;
+}
 
 static bool has_rsz_layer(struct disp_layer_info *disp_info, int disp_idx)
 {
@@ -356,7 +384,7 @@ static void filter_by_yuv_layers(struct disp_layer_info *disp_info)
 	struct layer_config *info;
 	unsigned int yuv_cnt;
 
-	/* ovl support total 2 yuv layer */
+	/* ovl support total 1 yuv layer ,align to mt6853*/
 	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
 		yuv_cnt = 0;
 		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
@@ -369,6 +397,9 @@ static void filter_by_yuv_layers(struct disp_layer_info *disp_info)
 					rollback_layer_to_GPU(disp_info,
 						disp_idx, i);
 			}
+			if (support_color_format(info->src_fmt) != true)
+				rollback_layer_to_GPU(disp_info,
+						disp_idx, i);
 		}
 	}
 }
