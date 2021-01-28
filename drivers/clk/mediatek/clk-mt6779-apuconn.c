@@ -17,14 +17,13 @@ static const struct mtk_gate_regs apuconn_cg_regs = {
 	.sta_ofs = 0x0000,
 };
 
-#define GATE_APU_CONN(_id, _name, _parent, _shift) {		\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &apuconn_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
-	}
+#define GATE_APU_CONN_FLAGS(_id, _name, _parent, _shift, _flags)	\
+	GATE_MTK_FLAGS(_id, _name, _parent, &apuconn_cg_regs,	\
+			_shift, &mtk_clk_gate_ops_setclr, _flags)
+
+#define GATE_APU_CONN(_id, _name, _parent, _shift)	\
+	GATE_APU_CONN_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+
 
 static const struct mtk_gate apuconn_clks[] = {
 	GATE_APU_CONN(CLK_APU_CONN_APU, "apu_conn_apu", "dsp1_sel", 0),

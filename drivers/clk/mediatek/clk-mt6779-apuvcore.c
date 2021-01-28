@@ -17,14 +17,13 @@ static const struct mtk_gate_regs apuvcore_cg_regs = {
 	.sta_ofs = 0x0000,
 };
 
-#define GATE_APU_VCORE(_id, _name, _parent, _shift) {		\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &apuvcore_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
-	}
+#define GATE_APU_VCORE_FLAGS(_id, _name, _parent, _shift, _flags)	\
+	GATE_MTK_FLAGS(_id, _name, _parent, &apuvcore_cg_regs,	\
+			_shift, &mtk_clk_gate_ops_setclr, _flags)
+
+#define GATE_APU_VCORE(_id, _name, _parent, _shift)	\
+	GATE_APU_VCORE_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+
 
 static const struct mtk_gate apuvcore_clks[] = {
 	GATE_APU_VCORE(CLK_APU_VCORE_AHB, "apu_vcore_ahb", "ipu_if_sel", 0),
