@@ -444,6 +444,7 @@ static int goodix_parse_customize_params(struct goodix_ts_device *dev,
 	struct device_node *node = dev->dev->of_node;
 	char of_node_name[24];
 	int r;
+	int ret;
 
 	if (sensor_id > TS_MAX_SENSORID || node == NULL) {
 		ts_err("Invalid sensor id");
@@ -451,8 +452,13 @@ static int goodix_parse_customize_params(struct goodix_ts_device *dev,
 	}
 
 	/* parse sensor independent parameters */
-	snprintf(of_node_name, sizeof(of_node_name),
+	ret = snprintf(of_node_name, sizeof(of_node_name),
 			"sensor%u", sensor_id);
+	if (ret < 0) {
+		ts_err("find sensor id [%u] failed", sensor_id);
+		return -EINVAL;
+	}
+
 	node = of_find_node_by_name(dev->dev->of_node, of_node_name);
 	if (!node) {
 		ts_err("Child property[%s] not found", of_node_name);
