@@ -184,14 +184,18 @@ static void adsp_exception_dump(struct adsp_exception_control *ctrl)
 
 	n += snprintf(detail + n, ADSP_AED_STR_LEN - n, "%s %s\n",
 		      pdata->name, aed_type);
-	n += snprintf(detail + n, ADSP_AED_STR_LEN - n,
-		      "adsp pc=0x%08x,exccause=0x%x,excvaddr=0x%x\n",
-		      coredump->pc, coredump->exccause, coredump->excvaddr);
-	n += snprintf(detail + n, ADSP_AED_STR_LEN - n,
-		      "CRDISPATCH_KEY:ADSP exception/%s\n",
-		      coredump->task_name);
-	n += snprintf(detail + n, ADSP_AED_STR_LEN - n, "%s",
-		      coredump->assert_log);
+	if (coredump) {
+		n += snprintf(detail + n, ADSP_AED_STR_LEN - n,
+			      "adsp pc=0x%08x,exccause=0x%x,excvaddr=0x%x\n",
+			      coredump->pc,
+			      coredump->exccause,
+			      coredump->excvaddr);
+		n += snprintf(detail + n, ADSP_AED_STR_LEN - n,
+			      "CRDISPATCH_KEY:ADSP exception/%s\n",
+			      coredump->task_name);
+		n += snprintf(detail + n, ADSP_AED_STR_LEN - n, "%s",
+			      coredump->assert_log);
+	}
 	pr_info("%s", detail);
 
 	/* adsp aed api, only detail information available*/

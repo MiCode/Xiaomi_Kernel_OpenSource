@@ -189,7 +189,7 @@ int adsp_register_feature(enum adsp_feature_id fid)
 	int ret = -1, cid;
 	bool flag = false;
 
-	if (fid >= ADSP_NUM_FEATURE_ID)
+	if (fid >= ADSP_NUM_FEATURE_ID || fid < 0)
 		return -EINVAL;
 
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {
@@ -216,7 +216,7 @@ int adsp_deregister_feature(enum adsp_feature_id fid)
 	int ret = -1, cid;
 	bool flag = false;
 
-	if (fid >= ADSP_NUM_FEATURE_ID)
+	if (fid >= ADSP_NUM_FEATURE_ID || fid < 0)
 		return -EINVAL;
 
 	for (cid = 0; cid < ADSP_CORE_TOTAL; cid++) {

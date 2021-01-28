@@ -31,7 +31,7 @@ struct adsp_priv *_get_adsp_core(void *ptr, int id)
 	if (ptr)
 		return container_of(ptr, struct adsp_priv, mdev);
 
-	if (id < ADSP_CORE_TOTAL)
+	if (id < ADSP_CORE_TOTAL || id >= 0)
 		return adsp_cores[id];
 
 	return NULL;
