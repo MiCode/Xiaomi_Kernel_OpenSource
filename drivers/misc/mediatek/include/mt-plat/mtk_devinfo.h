@@ -7,6 +7,8 @@
 #ifndef __MT_DEVINFO_H__
 #define __MT_DEVINFO_H__
 
+//#warning "mtk_devinfo is deprecated, please use nvmem driver instead"
+
 #include <linux/types.h>
 
 /*****************************************************************************
