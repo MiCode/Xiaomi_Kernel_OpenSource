@@ -45,8 +45,6 @@
 #include "tee_client_api.h"
 #endif
 
-#include <mtk_mcdi_api.h>
-
 #ifdef CONFIG_MTK_ENG_BUILD
 #define DBG_KREE_SYS
 #endif
@@ -973,7 +971,6 @@ static void kree_perf_boost(int enable)
 #else
 			wake_lock(&TeeServiceCall_wake_lock);
 #endif
-			mcdi_pause(MCDI_PAUSE_BY_GZ, true);
 		}
 		perf_boost_cnt++;
 	} else {
@@ -989,7 +986,6 @@ static void kree_perf_boost(int enable)
 			 * KREE_ERR("%s disable\n", __func__);
 			 */
 			KREE_DEBUG("%s wake_unlock\n", __func__);
-			mcdi_pause(MCDI_PAUSE_BY_GZ, false);
 #ifdef CONFIG_PM_WAKELOCKS
 			__pm_relax(&TeeServiceCall_wake_lock);
 #else
