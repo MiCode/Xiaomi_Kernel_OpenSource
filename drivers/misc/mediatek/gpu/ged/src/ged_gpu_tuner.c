@@ -592,6 +592,7 @@ int ged_bridge_gpu_tuner_status(
 	GPU_TUNER_DEBUG("[%s][IN] name(%s)\n", __func__, in->name);
 
 	item.status.feature = 0;
+	in->name[sizeof(in->name)-1] = '\0';
 	err = ged_gpu_get_stauts_by_packagename(in->name, &item);
 	if (err == GED_OK) {
 		out->feature = item.status.feature;
