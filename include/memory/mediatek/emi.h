@@ -10,6 +10,10 @@
 #include <linux/irqreturn.h>
 #include <linux/dcache.h>
 
+#if IS_ENABLED(CONFIG_MTK_ENG_BUILD)
+#define MTK_EMIMPU_DBG_ENABLE
+#endif
+
 #define MTK_EMIMPU_NO_PROTECTION	0
 #define MTK_EMIMPU_SEC_RW		1
 #define MTK_EMIMPU_SEC_RW_NSEC_R	2

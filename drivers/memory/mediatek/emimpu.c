@@ -21,7 +21,6 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <mt-plat/aee.h>
-
 LIST_HEAD(mpucb_list);
 static DEFINE_MUTEX(mpucb_mutex);
 
@@ -50,7 +49,7 @@ static unsigned int emimpu_read_protection(
 		reg_type, region, dgroup, 0, 0, 0, &smc_res);
 	return (unsigned int)smc_res.a0;
 }
-
+#ifdef MTK_EMIMPU_DBG_ENABLE
 static ssize_t emimpu_ctrl_show(struct device_driver *driver, char *buf)
 {
 	struct emimpu_dev_t *emimpu_dev_ptr;
@@ -262,7 +261,7 @@ emimpu_ctrl_store_end:
 }
 
 static DRIVER_ATTR_RW(emimpu_ctrl);
-
+#endif
 static void set_regs(
 	struct reg_info_t *reg_list, unsigned int reg_cnt,
 	void __iomem *emi_cen_base)
@@ -625,12 +624,12 @@ static int emimpu_probe(struct platform_device *pdev)
 		for (i = 0; i < emimpu_dev_ptr->domain_cnt; i++)
 			arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SLVERR,
 				i, 0, 0, 0, 0, 0, &smc_res);
-
+#ifdef MTK_EMIMPU_DBG_ENABLE
 	ret = driver_create_file(&emimpu_drv.driver,
 		&driver_attr_emimpu_ctrl);
 	if (ret)
 		pr_info("%s: fail to create emimpu_ctrl\n", __func__);
-
+#endif
 	return ret;
 }
 
