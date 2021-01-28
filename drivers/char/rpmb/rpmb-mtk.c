@@ -3187,7 +3187,42 @@ static const struct file_operations rpmb_fops_emmc = {
 	.write = NULL,
 	.read = NULL,
 };
+#if defined(CONFIG_MMC_MTK_PRO)
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
 
+static int dt_get_boot_type(void)
+{
+	struct tag_bootmode *tags = NULL;
+	struct device_node *node = NULL;
+	unsigned long size = 0;
+	int ret = BOOTDEV_UFS;
+
+	node = of_find_node_by_path("/chosen");
+	if (!node)
+		node = of_find_node_by_path("/chosen@0");
+
+	if (node) {
+		tags = (struct tag_bootmode *)of_get_property(node,
+				"atag,boot", (int *)&size);
+	} else
+		pr_notice("[%s] of_chosen not found\n", __func__);
+
+	if (tags) {
+		ret = tags->boottype;
+		if ((ret > 2) || (ret < 0))
+			ret = BOOTDEV_SDMMC;
+	} else {
+		pr_notice("[%s] 'atag,boot' is not found\n", __func__);
+	}
+
+	return ret;
+}
+#endif
 static int __init rpmb_init(void)
 {
 	int alloc_ret = -1;
@@ -3208,8 +3243,7 @@ static int __init rpmb_init(void)
 	major = MAJOR(dev);
 
 #if defined(CONFIG_MMC_MTK_PRO)
-	if (mtk_msdc_host[0] && mtk_msdc_host[0]->mmc
-		&& mtk_msdc_host[0]->mmc->card)
+	if (dt_get_boot_type() == BOOTDEV_SDMMC)
 		cdev_init(&rpmb_dev, &rpmb_fops_emmc);
 	else
 #endif
