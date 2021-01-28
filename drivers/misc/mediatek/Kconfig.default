@@ -336,3 +336,13 @@ config ANDROID_DEFAULT_SETTING
 	  Say Y here if the project is for android product
 	  If unsure, say N
 
+config MTK_ANDROID_DEFAULT_SETTING
+	bool "Select MTK android common setting by default"
+	select MTK_AEE_AED
+	select MTK_AEE_IPANIC
+	help
+	  Select the MTK android config by default
+	  to avoid missing basic or common setting
+	  Say Y here if the project is for android product
+	  If unsure, say N
+
