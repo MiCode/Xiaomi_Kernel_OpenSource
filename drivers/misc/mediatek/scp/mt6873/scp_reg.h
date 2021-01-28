@@ -116,6 +116,26 @@
 
 #define SCP_GPR_CORE1_REBOOT		(scpreg.cfg_core1 + 0x54)
 
+/* bus tracker reg */
+#define SCP_BUS_DBG_CON			(scpreg.bus_tracker)
+#define SCP_BUS_DBG_AR_TRACK0_L		(scpreg.bus_tracker + 0x100)
+#define SCP_BUS_DBG_AR_TRACK1_L		(scpreg.bus_tracker + 0x108)
+#define SCP_BUS_DBG_AR_TRACK2_L		(scpreg.bus_tracker + 0x110)
+#define SCP_BUS_DBG_AR_TRACK3_L		(scpreg.bus_tracker + 0x118)
+#define SCP_BUS_DBG_AR_TRACK4_L		(scpreg.bus_tracker + 0x120)
+#define SCP_BUS_DBG_AR_TRACK5_L		(scpreg.bus_tracker + 0x128)
+#define SCP_BUS_DBG_AR_TRACK6_L		(scpreg.bus_tracker + 0x130)
+#define SCP_BUS_DBG_AR_TRACK7_L		(scpreg.bus_tracker + 0x138)
+
+#define SCP_BUS_DBG_AW_TRACK0_L		(scpreg.bus_tracker + 0x300)
+#define SCP_BUS_DBG_AW_TRACK1_L		(scpreg.bus_tracker + 0x308)
+#define SCP_BUS_DBG_AW_TRACK2_L		(scpreg.bus_tracker + 0x310)
+#define SCP_BUS_DBG_AW_TRACK3_L		(scpreg.bus_tracker + 0x318)
+#define SCP_BUS_DBG_AW_TRACK4_L		(scpreg.bus_tracker + 0x320)
+#define SCP_BUS_DBG_AW_TRACK5_L		(scpreg.bus_tracker + 0x328)
+#define SCP_BUS_DBG_AW_TRACK6_L		(scpreg.bus_tracker + 0x330)
+#define SCP_BUS_DBG_AW_TRACK7_L		(scpreg.bus_tracker + 0x338)
+
 /* clk reg*/
 #define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
 #define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x002C)
