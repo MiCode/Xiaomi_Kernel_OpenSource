@@ -90,34 +90,6 @@ static void mrdump_dbgtop_dram_reserved(bool enable)
 }
 #else
 #ifdef CONFIG_MTK_WATCHDOG
-#ifdef CONFIG_MTK_LASTPC_V2
-static void mrdump_set_sram_lastpc_flag(void)
-{
-	if (set_sram_flag_lastpc_valid() == 0)
-		pr_info("OK: set sram flag lastpc valid.\n");
-}
-
-static void mrdump_wd_mcu_cache_preserve(bool enabled)
-{
-	int res;
-	struct wd_api *wd_api = NULL;
-
-	res = get_wd_api(&wd_api);
-	if (res < 0) {
-		pr_notice("%s: get wd api error %d\n", __func__, res);
-	} else {
-		res = wd_api->wd_mcu_cache_preserve(enabled);
-		if (res == 0) {
-			if (enabled == true)
-				pr_notice("%s: MCU Cache Preserve enabled\n",
-						__func__);
-			else
-				pr_notice("%s: MCU Cache Preserve disabled\n",
-						__func__);
-		}
-	}
-}
-#endif /* CONFIG_MTK_LASTPC_V2 */
 
 static void mrdump_wd_dram_reserved_mode(bool enabled)
 {
@@ -167,10 +139,6 @@ int __init mrdump_hw_init(void)
 #else
 #ifdef CONFIG_MTK_WATCHDOG
 	mrdump_wd_dram_reserved_mode(true);
-#ifdef CONFIG_MTK_LASTPC_V2
-	mrdump_wd_mcu_cache_preserve(true);
-	mrdump_set_sram_lastpc_flag();
-#endif /* CONFIG_MTK_LASTPC_V2 */
 #endif
 #endif
 	pr_info("%s: init_done.\n", __func__);
