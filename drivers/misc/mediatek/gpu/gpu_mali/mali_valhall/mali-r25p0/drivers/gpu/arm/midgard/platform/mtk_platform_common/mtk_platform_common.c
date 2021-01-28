@@ -61,8 +61,12 @@ void mtk_kbase_reset_gpu_meminfo(void)
 
 void mtk_kbase_set_gpu_meminfo(ssize_t index, int pid, int used_pages)
 {
-	g_mtk_gpu_meminfo[index].pid = pid;
-	g_mtk_gpu_meminfo[index].used_pages = used_pages;
+	if (index >= 0 && index < MTK_MEMINFO_SIZE) {
+		g_mtk_gpu_meminfo[index].pid = pid;
+		g_mtk_gpu_meminfo[index].used_pages = used_pages;
+	} else {
+		pr_warn("%s: index %ld out of bound\n", __func__, index);
+	}
 }
 
 KBASE_EXPORT_TEST_API(mtk_kbase_dump_gpu_memory_usage)
