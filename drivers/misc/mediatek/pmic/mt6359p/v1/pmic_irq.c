@@ -39,7 +39,7 @@ static struct legacy_pmic_callback pmic_cbs[300];
 /* KEY Int Handler */
 irqreturn_t key_int_handler(int irq, void *data)
 {
-#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KPD_PWRKEY_USE_PMIC)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KEYBOARD_MTK)
 	struct irq_desc *desc = irq_to_desc(irq);
 	unsigned int hwirq;
 
