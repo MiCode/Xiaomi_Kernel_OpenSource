@@ -85,7 +85,7 @@ obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
-ifneq (,$(findstring tb8766, $(CONFIG_ARCH_MTK_PROJECT)))
+ifneq (,$(findstring tb8768, $(CONFIG_ARCH_MTK_PROJECT)))
 ifneq ($(CONFIG_CHARGER_BQ25601),)
 obj-$(CONFIG_THERMAL) += mtk_ts_btscharger.o
 else

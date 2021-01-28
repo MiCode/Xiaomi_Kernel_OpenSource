@@ -1633,7 +1633,7 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,auxadc");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-auxadc");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
@@ -1647,7 +1647,7 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-infracfg");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
@@ -1657,7 +1657,8 @@ int get_io_reg_base(void)
 		 */
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6765-apmixedsys");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
