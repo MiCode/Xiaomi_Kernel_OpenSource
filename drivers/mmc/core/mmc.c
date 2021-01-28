@@ -699,6 +699,15 @@ static int mmc_compare_ext_csds(struct mmc_card *card, unsigned bus_width)
 	u8 *bw_ext_csd;
 	int err;
 
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
+	/* add for emmc reset when error happen */
+	/* return directly because compare fail seldom happens when reinit
+	 * emmc
+	 */
+	if (emmc_resetting_when_cmdq)
+		return 0;
+#endif
+
 	if (bus_width == MMC_BUS_WIDTH_1)
 		return 0;
 
@@ -1835,12 +1844,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			err = 0;
 		}
 	}
-	/*
-	 * In some cases (e.g. RPMB or mmc_test), the Command Queue must be
-	 * disabled for a time, so a flag is needed to indicate to re-enable the
-	 * Command Queue.
-	 */
-	card->reenable_cmdq = card->ext_csd.cmdq_en;
 
 	if (card->ext_csd.cmdq_en && !host->cqe_enabled) {
 		err = host->cqe_ops->cqe_enable(host, card);
@@ -1853,6 +1856,31 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				mmc_hostname(host));
 		}
 	}
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (card->ext_csd.cmdq_support && host->caps2 & MMC_CAP2_SWCQ) {
+		err = mmc_cmdq_enable(card);
+		if (err && err != -EBADMSG)
+			goto free_card;
+		if (err) {
+			pr_info("%s: Enabling SWCMDQ failed\n",
+				mmc_hostname(card->host));
+			card->ext_csd.cmdq_support = false;
+			card->ext_csd.cmdq_depth = 0;
+			err = 0;
+		} else {
+			host->swcq_enabled = true;
+			mmc_card_set_cmdq(card);
+		}
+	}
+#endif
+
+	/*
+	 * In some cases (e.g. RPMB or mmc_test), the Command Queue must be
+	 * disabled for a time, so a flag is needed to indicate to re-enable the
+	 * Command Queue.
+	 */
+	card->reenable_cmdq = card->ext_csd.cmdq_en;
 
 	if (host->caps2 & MMC_CAP2_AVOID_3_3V &&
 	    host->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_330) {

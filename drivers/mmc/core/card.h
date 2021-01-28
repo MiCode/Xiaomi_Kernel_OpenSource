@@ -26,6 +26,10 @@
 #define MMC_STATE_DOING_BKOPS	(1<<5)		/* card is doing BKOPS */
 #define MMC_STATE_SUSPENDED	(1<<6)		/* card is suspended */
 
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
+#define MMC_STATE_CMDQ		(1<<12)         /* card is in cmd queue mode */
+#endif
+
 #define mmc_card_present(c)	((c)->state & MMC_STATE_PRESENT)
 #define mmc_card_readonly(c)	((c)->state & MMC_STATE_READONLY)
 #define mmc_card_blockaddr(c)	((c)->state & MMC_STATE_BLOCKADDR)
@@ -43,6 +47,13 @@
 #define mmc_card_clr_doing_bkops(c)	((c)->state &= ~MMC_STATE_DOING_BKOPS)
 #define mmc_card_set_suspended(c) ((c)->state |= MMC_STATE_SUSPENDED)
 #define mmc_card_clr_suspended(c) ((c)->state &= ~MMC_STATE_SUSPENDED)
+
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
+#define mmc_card_cmdq(c)       ((c) && ((c)->state & MMC_STATE_CMDQ))
+#define mmc_card_set_cmdq(c)           ((c)->state |= MMC_STATE_CMDQ)
+#define mmc_card_clr_cmdq(c)           ((c)->state &= ~MMC_STATE_CMDQ)
+#endif
+
 
 /*
  * The world is not perfect and supplies us with broken mmc/sdio devices.

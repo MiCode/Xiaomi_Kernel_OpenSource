@@ -96,46 +96,6 @@ static int max_devices;
 static DEFINE_IDA(mmc_blk_ida);
 static DEFINE_IDA(mmc_rpmb_ida);
 
-/*
- * There is one mmc_blk_data per slot.
- */
-struct mmc_blk_data {
-	spinlock_t	lock;
-	struct device	*parent;
-	struct gendisk	*disk;
-	struct mmc_queue queue;
-	struct list_head part;
-	struct list_head rpmbs;
-
-	unsigned int	flags;
-#define MMC_BLK_CMD23	(1 << 0)	/* Can do SET_BLOCK_COUNT for multiblock */
-#define MMC_BLK_REL_WR	(1 << 1)	/* MMC Reliable write support */
-
-	unsigned int	usage;
-	unsigned int	read_only;
-	unsigned int	part_type;
-	unsigned int	reset_done;
-#define MMC_BLK_READ		BIT(0)
-#define MMC_BLK_WRITE		BIT(1)
-#define MMC_BLK_DISCARD		BIT(2)
-#define MMC_BLK_SECDISCARD	BIT(3)
-#define MMC_BLK_CQE_RECOVERY	BIT(4)
-
-	/*
-	 * Only set in main mmc_blk_data associated
-	 * with mmc_card with dev_set_drvdata, and keeps
-	 * track of the current selected device partition.
-	 */
-	unsigned int	part_curr;
-	struct device_attribute force_ro;
-	struct device_attribute power_ro_lock;
-	int	area_type;
-
-	/* debugfs files (only in main mmc_blk_data) */
-	struct dentry *status_dentry;
-	struct dentry *ext_csd_dentry;
-};
-
 /* Device type for RPMB character devices */
 static dev_t mmc_rpmb_devt;
 
@@ -1451,6 +1411,9 @@ static void mmc_blk_data_prep(struct mmc_queue *mq, struct mmc_queue_req *mqrq,
 
 	if (do_data_tag_p)
 		*do_data_tag_p = do_data_tag;
+#ifdef	CONFIG_MTK_EMMC_CQ_SUPPORT
+	mqrq->areq.mrq = &brq->mrq;
+#endif
 }
 
 #define MMC_CQE_RETRIES 2
@@ -1619,6 +1582,14 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		readcmd = MMC_READ_SINGLE_BLOCK;
 		writecmd = MMC_WRITE_BLOCK;
 	}
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (mq->use_swcq) {
+		readcmd = MMC_EXECUTE_READ_TASK;
+		writecmd = MMC_EXECUTE_WRITE_TASK;
+	}
+#endif
+
 	brq->cmd.opcode = rq_data_dir(req) == READ ? readcmd : writecmd;
 
 	/*
@@ -1649,6 +1620,38 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		brq->sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
 		brq->mrq.sbc = &brq->sbc;
 	}
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (mq->use_swcq) {
+		int rt = 0;
+
+		//rt = IS_RT_CLASS_REQ(req);
+		brq->mrq.flags = rt;
+		brq->mrq_que.flags = rt;
+
+		brq->sbc.opcode = MMC_QUE_TASK_PARAMS;
+		brq->sbc.arg = brq->data.blocks |
+			(do_rel_wr ? (1 << 31) : 0) |
+			((rq_data_dir(req) == WRITE) ? 0 : (1 << 30)) |
+			(do_data_tag ? (1 << 29) : 0) |
+			(rt << 23) | ((atomic_read(&mqrq->index) - 1) << 16);
+		brq->sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
+		brq->mrq_que.sbc = &brq->sbc;
+
+		brq->que.opcode = MMC_QUE_TASK_ADDR;
+		brq->que.arg = blk_rq_pos(req);
+		if (!mmc_card_blockaddr(card))
+			brq->que.arg <<= 9;
+		brq->que.flags = MMC_RSP_R1 | MMC_CMD_AC;
+		brq->mrq_que.cmd = &brq->que;
+
+		brq->cmd.arg = (atomic_read(&mqrq->index) - 1) << 16;
+		mqrq->areq.mrq_que = &brq->mrq_que;
+
+		brq->mrq.areq = &mqrq->areq;
+		brq->mrq_que.areq = &mqrq->areq;
+	}
+#endif
 }
 
 #define MMC_MAX_RETRIES		5
@@ -2193,7 +2196,6 @@ static int mmc_blk_mq_issue_rw_rq(struct mmc_queue *mq,
 		goto out_post_req;
 
 	mq->rw_wait = true;
-
 	err = mmc_start_request(host, &mqrq->brq.mrq);
 
 	if (prev_req)
@@ -2212,13 +2214,102 @@ out_post_req:
 
 	return err;
 }
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+
+int mmc_blk_end_queued_req(struct mmc_host *host,
+	struct mmc_async_req *areq_active, int index)
+{
+
+	struct mmc_queue *mq;
+	struct mmc_blk_request *brq;
+	struct mmc_queue_req *mq_rq;
+	struct request *req;
+
+	mq_rq = container_of(areq_active, struct mmc_queue_req, areq);
+	brq = &mq_rq->brq;
+	req = mmc_queue_req_to_req(mq_rq);
+	mq = req->q->queuedata;
+
+	mmc_blk_mq_post_req(mq, req);
+
+	mq->mqrq[index].req = NULL;
+	host->areq_que[index] = NULL;
+
+	atomic_set(&mq->mqrq[index].index, 0);
+	atomic_dec(&host->areq_cnt);
+
+	if (atomic_read(&host->areq_cnt) == 0)
+		wake_up_interruptible(&host->cmp_que);
+
+	return 0;
+}
+
+
+static int mmc_get_cmdq_index(struct mmc_queue *mq)
+{
+	int i;
+
+	/* cmdq should be enabled when calling this function */
+	for (i = 0; i < mq->card->ext_csd.cmdq_depth; i++) {
+		if (!atomic_read(&mq->mqrq[i].index))
+			break;
+	}
+	return i;
+}
+
+static int mmc_blk_swcq_issue_rw_rq(struct mmc_queue *mq,
+				  struct request *req)
+{
+	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
+	struct mmc_host *host = mq->card->host;
+	int err = 0;
+	int index = 0;
+	struct mmc_async_req *new_areq = &mqrq->areq;
+	struct mmc_card *card = mq->card;
+
+	if (atomic_read(&host->areq_cnt) < card->ext_csd.cmdq_depth)
+		index = mmc_get_cmdq_index(mq);
+	else
+		return -EBUSY;
+
+	mq->mqrq[index].req = req;
+	atomic_set(&mqrq->index, index + 1);
+	atomic_set(&mq->mqrq[index].index, index + 1);
+	atomic_inc(&card->host->areq_cnt);
+
+	mmc_blk_rw_rq_prep(mqrq, mq->card, 0, mq);
+
+	new_areq->mrq_que->done =  mmc_wait_cmdq_done;
+	new_areq->mrq_que->host = host;
+	card->host->areq_que[atomic_read(&mqrq->index) - 1] = new_areq;
+
+	mmc_pre_req(host, new_areq->mrq);
+	err = mmc_start_request(host, new_areq->mrq_que);
+
+	/* Release re-tuning here where there is no synchronization required */
+	if (err || mmc_host_done_complete(host))
+		mmc_retune_release(host);
+
+	if (err)
+		mmc_post_req(host, &mqrq->brq.mrq, err);
+
+	return err;
+}
+#endif
 
 static int mmc_blk_wait_for_idle(struct mmc_queue *mq, struct mmc_host *host)
 {
+	int ret = 0;
 	if (mq->use_cqe)
-		return host->cqe_ops->cqe_wait_for_idle(host);
+		ret = host->cqe_ops->cqe_wait_for_idle(host);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	else if (mq->use_swcq)
+		mmc_wait_cmdq_empty(host);
+#endif
+	else
+		ret = mmc_blk_rw_wait(mq, NULL);
 
-	return mmc_blk_rw_wait(mq, NULL);
+	return ret;
 }
 
 enum mmc_issued mmc_blk_mq_issue_rq(struct mmc_queue *mq, struct request *req)
@@ -2266,6 +2357,10 @@ enum mmc_issued mmc_blk_mq_issue_rq(struct mmc_queue *mq, struct request *req)
 		case REQ_OP_WRITE:
 			if (mq->use_cqe)
 				ret = mmc_blk_cqe_issue_rw_rq(mq, req);
+#ifdef	CONFIG_MTK_EMMC_CQ_SUPPORT
+			else if (mq->use_swcq)
+				ret = mmc_blk_swcq_issue_rw_rq(mq, req);
+#endif
 			else
 				ret = mmc_blk_mq_issue_rw_rq(mq, req);
 			break;

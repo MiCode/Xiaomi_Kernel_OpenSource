@@ -56,10 +56,6 @@
 #include <linux/blk_types.h>
 #endif
 
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-#include "mmc/host/cmdq_hci.h"
-#endif
-
 #include "dbg.h"
 
 #define CAPACITY_2G             (2 * 1024 * 1024 * 1024ULL)
@@ -1008,17 +1004,6 @@ static void msdc_init_hw(struct msdc_host *host)
 
 	/* Set default sample edge, use mode 0 for init */
 	msdc_set_smpl_all(host, 0);
-
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	if ((host->hw->host_function == MSDC_EMMC)
-		&& (host->mmc->caps2 & MMC_CAP2_CQE)) {
-		MSDC_WRITE32(MSDC_INTEN, MSDC_INT_XFER_COMPL
-				| MSDC_INT_DATTMO | MSDC_INT_DATCRCERR
-				| MSDC_INT_CMDQ | MSDC_INT_CMDTMO
-				| MSDC_INT_CMDRDY | MSDC_INT_RSPCRCERR);
-	}
-#endif
-
 	N_MSG(FUC, "init hardware done!");
 }
 
@@ -1136,29 +1121,6 @@ int msdc_switch_part(struct msdc_host *host, char part_id)
 
 	return ret;
 }
-
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-static int check_enable_cqe(void)
-{
-#if !defined(FPGA_PLATFORM)
-	enum boot_mode_t mode;
-
-	mode = get_boot_mode();
-	if ((mode == NORMAL_BOOT) || (mode == ALARM_BOOT)
-		|| (mode == SW_REBOOT))
-		return 1;
-	/*
-	 * Disable cqe in other mode, for bypass flush
-	 *
-	 * Device will return switch error if flush cache
-	 * with cache disabled.
-	 */
-	return 0;
-#else
-	return 1;
-#endif
-}
-#endif
 
 static int msdc_cache_onoff(struct mmc_data *data)
 {
@@ -2073,7 +2035,7 @@ skip_cmdq_resp_polling:
 				break;
 			}
 			//dbg_add_host_log(host->mmc, 1, cmd->opcode,
-				cmd->resp[0]);
+			//	cmd->resp[0]);
 		} else if (intsts & MSDC_INT_RSPCRCERR) {
 			cmd->error = (unsigned int)-EILSEQ;
 			pr_notice("[%s]: msdc%d XXX CMD<%d> MSDC_INT_RSPCRCERR Arg<0x%.8x>",
@@ -2855,7 +2817,6 @@ int msdc_rw_cmd_using_sync_dma(struct mmc_host *mmc, struct mmc_command *cmd,
 	unsigned long flags;
 
 	msdc_dma_on();  /* enable DMA mode first!! */
-
 	init_completion(&host->xfer_done);
 
 	if (host->hw->host_function != MSDC_SDIO) {
@@ -3654,7 +3615,7 @@ start_tune:
 		if (mmc->ios.clock > 52000000) {
 			pr_notice("msdc%d: eMMC re-autok %d times\n",
 				host->id, ++host->reautok_times);
-#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) || defined(CONFIG_MTK_EMMC_HW_CQ)
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
 			/* CQ DAT tune in MMC layer, here tune CMD13 CRC */
 			if (mmc->card && mmc_card_cmdq(mmc->card))
 				emmc_execute_dvfs_autok(host, MMC_SEND_STATUS);
@@ -4169,10 +4130,6 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	int host_cookie = 0;
 	struct msdc_host *host = mmc_priv(mmc);
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
-	bool cq_host_en = false;
-#endif
 
 	if ((host->hw->host_function == MSDC_SDIO) &&
 	    !(host->trans_lock->active))
@@ -4182,14 +4139,6 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	if (mrq->data) {
 		host_cookie = mrq->data->host_cookie;
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-		if (cq_host && cq_host->enabled) {
-			pr_notice("WARN: data xf with cqhci enabled\n");
-			cq_host_en = true;
-			mmc->cmdq_ops->disable(mmc, true);
-			WARN_ON(1);
-		}
-#endif
 	}
 
 	if (!(host->tuning_in_progress) && host->need_tune &&
@@ -4229,12 +4178,7 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	    (host->trans_lock->active))
 		__pm_relax(host->trans_lock);
 end:
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	if (cq_host_en)
-		mmc->cmdq_ops->enable(mmc);
-#endif
 	return;
-
 }
 
 void msdc_sd_clock_run(struct msdc_host *host)
@@ -4769,37 +4713,6 @@ skip:
 	}
 }
 
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-static irqreturn_t msdc_cmdq_irq(struct msdc_host *host, u32 intsts)
-{
-	int err = 0;
-	void __iomem *base = host->base;
-
-	if (intsts & MSDC_INT_RSPCRCERR) {
-		err = (unsigned int)-EILSEQ;
-		ERR_MSG("XXX CMD CRC");
-	} else if (intsts & MSDC_INT_CMDTMO) {
-		err = (unsigned int)-ETIMEDOUT;
-		ERR_MSG("XXX CMD TIMEOUT");
-	}
-
-	if (intsts & MSDC_INT_DATCRCERR) {
-		err = (unsigned int)-EILSEQ;
-		ERR_MSG("XXX DATA CRC");
-	} else if (intsts & MSDC_INT_DATTMO) {
-		err = (unsigned int)-ETIMEDOUT;
-		ERR_MSG("XXX DATA TIMEOUT");
-	}
-
-	if (err) {
-		ERR_MSG("err = %d, intsts = 0x%x", err, intsts);
-		MSDC_WRITE32(MSDC_INT, intsts); /* clear interrupts */
-	}
-
-	return cmdq_irq(host->mmc, err);
-}
-#endif
-
 static irqreturn_t msdc_irq(int irq, void *dev_id)
 {
 	struct msdc_host *host = (struct msdc_host *)dev_id;
@@ -4825,21 +4738,6 @@ static irqreturn_t msdc_irq(int irq, void *dev_id)
 	inten = MSDC_READ32(MSDC_INTEN);
 	if (host->hw->flags & MSDC_SDIO_IRQ)
 		intsts &= inten;
-
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	if (host->mmc->card
-		&& mmc_card_cmdq(host->mmc->card)
-		&& (intsts & MSDC_INT_CMDQ)) {
-		msdc_cmdq_irq(host, intsts);
-		MSDC_WRITE32(MSDC_INT, intsts); /* clear interrupts */
-
-		/* not used, but for coverity */
-		if (host->hw->flags & MSDC_SDIO_IRQ)
-			spin_unlock(&host->sdio_irq_lock);
-
-		return IRQ_HANDLED;
-	}
-#endif
 
 	/* CMD TO/CRC/RDY polling status in
 	 * msdc_command_resp_polling()
@@ -5082,97 +4980,6 @@ static void msdc_dvfs_kickoff(struct work_struct *work)
 {
 }
 
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-static void msdc_cqhci_post_cqe_halt(struct mmc_host *mmc)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-	void __iomem *base = host->base;
-
-	MSDC_SET_FIELD(MSDC_DMA_CTRL, MSDC_DMA_CTRL_STOP, 1);
-	msdc_reset_hw(host->id);
-}
-
-void msdc_cqhci_set_busy_timeout(struct mmc_host *mmc, u32 val)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-
-	if (val == 0)
-		val = host->max_busy_timeout_ms;
-
-	msdc_set_busy_timeout_ms(host, val);
-}
-
-static void msdc_cqhci_pre_cqe_enable(struct mmc_host *mmc, bool en)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-	void __iomem *base = host->base;
-
-	if (en) {
-		/* enable busy check */
-		MSDC_SET_BIT32(MSDC_PATCH_BIT1, MSDC_PB1_BUSY_CHECK_SEL);
-		/* default write data / busy timeout 20 * 1000ms */
-		msdc_set_busy_timeout_ms(host, 20 * 1000);
-		/* default read data timeout 100ms */
-		msdc_set_timeout(host, (100 * 1000 * 1000UL), 0);
-	} else {
-		/* disable busy check */
-		MSDC_CLR_BIT32(MSDC_PATCH_BIT1, MSDC_PB1_BUSY_CHECK_SEL);
-		/* switch to PIO mode after cmdq_disable */
-		MSDC_SET_BIT32(MSDC_CFG, MSDC_CFG_PIO);
-	}
-}
-
-static int msdc_cqhci_pre_irq_complete(struct mmc_host *mmc, unsigned int err)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-	void __iomem *base = host->base;
-	int ret = 0;
-	u32 msdc_int, msdc_int_err = MSDC_INT_DATTMO |
-		MSDC_INT_DATCRCERR | MSDC_INT_CMDTMO | MSDC_INT_RSPCRCERR;
-
-	msdc_int = MSDC_READ32(MSDC_INT);
-	if (!err && (msdc_int & msdc_int_err)) {
-		MSDC_WRITE32(MSDC_INT, msdc_int);
-		ret = (unsigned int)-ETIMEDOUT;
-		pr_notice("%s %d: msdc_int = 0x%x, err = %d\n",
-			__func__, __LINE__, msdc_int, err);
-	}
-
-	return ret;
-}
-
-static int msdc_cqhci_reset(struct mmc_host *mmc)
-{
-	struct msdc_host *host = mmc_priv(mmc);
-	struct cmdq_host *cq_host = mmc_cmdq_private(mmc);
-	int ret = 0;
-
-	pr_notice("%s: re-cal timing\n", __func__);
-
-	if (cq_host && cq_host->enabled)
-		pr_notice("WARN: data xf with cqhci enabled\n");
-
-	ret = emmc_execute_dvfs_autok(host,
-		MMC_SEND_TUNING_BLOCK_HS200);
-
-	/* clear flag */
-	host->need_tune = TUNE_NONE;
-
-	return ret;
-}
-
-static const struct cmdq_host_ops msdc_cmdq_ops = {
-	.post_cqe_halt = msdc_cqhci_post_cqe_halt,
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE))
-	.crypto_cfg = msdc_cqhci_crypto_cfg,
-#endif
-	.set_data_timeout = msdc_cqhci_set_busy_timeout,
-	.pre_cqe_enable = msdc_cqhci_pre_cqe_enable,
-	.pre_irq_complete = msdc_cqhci_pre_irq_complete,
-	.reset = msdc_cqhci_reset,
-};
-#endif
-
 static int msdc_drv_probe(struct platform_device *pdev)
 {
 	struct mmc_host *mmc = NULL;
@@ -5216,9 +5023,9 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	mmc->caps |= MMC_CAP_ERASE;
 
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	if (check_enable_cqe())
-		mmc->caps2 |= MMC_CAP2_CQE;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+		if (host->hw->host_function == MSDC_EMMC)
+			mmc->caps2 |= MMC_CAP2_SWCQ;
 #endif
 
 #ifdef CONFIG_HIE
@@ -5250,24 +5057,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	host->dma_mask          = DMA_BIT_MASK(36);
 	mmc_dev(mmc)->dma_mask  = &host->dma_mask;
-
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	if ((host->hw->host_function == MSDC_EMMC)
-		&& (host->mmc->caps2 & MMC_CAP2_CQE)) {
-		host->cq_host = cmdq_pltfm_init(pdev);
-		host->cq_host->caps |= CMDQ_TASK_DESC_SZ_128;
-		host->cq_host->caps |= CMDQ_CAP_CRYPTO_SUPPORT;
-		host->cq_host->mmio = base + 0x800;
-		cmdq_init(host->cq_host, mmc, true);
-		host->cq_host->ops = &msdc_cmdq_ops;
-		host->cq_host->mmc->max_segs = 128;
-		/* cqhci describes data buffer length by 16bits
-		 * 0 means 65536 bytes, so we don't have to -1 here
-		 */
-		host->cq_host->mmc->max_seg_size = 64 * 1024;
-		host->cq_host->mmc->card = host->mmc->card;
-	}
-#endif
 
 #ifndef FPGA_PLATFORM
 	/* FIX ME, consider to move it into msdc_io.c */
@@ -5340,9 +5129,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 	spin_lock_init(&host->reg_lock);
 	spin_lock_init(&host->remove_bad_card);
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	spin_lock_init(&host->cmd_dump_lock);
-#endif
 	spin_lock_init(&host->sdio_irq_lock);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT

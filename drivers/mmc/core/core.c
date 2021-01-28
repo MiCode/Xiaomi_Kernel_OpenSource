@@ -29,6 +29,7 @@
 #include <linux/random.h>
 #include <linux/slab.h>
 #include <linux/of.h>
+#include <uapi/linux/sched/types.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/host.h>
@@ -41,6 +42,7 @@
 
 #include "core.h"
 #include "card.h"
+#include "queue.h"
 #include "bus.h"
 #include "host.h"
 #include "sdio_bus.h"
@@ -335,6 +337,763 @@ static int mmc_mrq_prep(struct mmc_host *host, struct mmc_request *mrq)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+static void mmc_enqueue_queue(struct mmc_host *host, struct mmc_request *mrq)
+{
+	unsigned long flags;
+
+	if (mrq->cmd->opcode == MMC_EXECUTE_READ_TASK ||
+		mrq->cmd->opcode == MMC_EXECUTE_WRITE_TASK) {
+
+		spin_lock_irqsave(&host->dat_que_lock, flags);
+		if (mrq->flags)
+			list_add(&mrq->link, &host->dat_que);
+		else
+			list_add_tail(&mrq->link, &host->dat_que);
+		spin_unlock_irqrestore(&host->dat_que_lock, flags);
+	} else {
+
+		spin_lock_irqsave(&host->cmd_que_lock, flags);
+		if (mrq->flags)
+			list_add(&mrq->link, &host->cmd_que);
+		else
+			list_add_tail(&mrq->link, &host->cmd_que);
+
+		spin_unlock_irqrestore(&host->cmd_que_lock, flags);
+
+	}
+}
+
+static void mmc_dequeue_queue(struct mmc_host *host, struct mmc_request *mrq)
+{
+	unsigned long flags;
+
+	if (mrq->cmd->opcode == MMC_EXECUTE_READ_TASK ||
+		mrq->cmd->opcode == MMC_EXECUTE_WRITE_TASK) {
+		spin_lock_irqsave(&host->dat_que_lock, flags);
+		list_del_init(&mrq->link);
+		spin_unlock_irqrestore(&host->dat_que_lock, flags);
+	}
+}
+
+static void mmc_clr_dat_mrq_que_flag(struct mmc_host *host)
+{
+	unsigned int i;
+
+	for (i = 0; i < host->card->ext_csd.cmdq_depth; i++)
+		host->data_mrq_queued[i] = false;
+}
+
+static void mmc_clr_dat_list(struct mmc_host *host)
+{
+
+	unsigned long flags;
+	struct mmc_request *mrq = NULL;
+	struct mmc_request *mrq_next = NULL;
+
+	spin_lock_irqsave(&host->dat_que_lock, flags);
+	list_for_each_entry_safe(mrq, mrq_next, &host->dat_que, link) {
+		list_del_init(&mrq->link);
+	}
+	spin_unlock_irqrestore(&host->dat_que_lock, flags);
+
+	mmc_clr_dat_mrq_que_flag(host);
+}
+
+static int mmc_restore_tasks(struct mmc_host *host)
+{
+	struct mmc_request *mrq_cmd = NULL;
+	unsigned int i = 0;
+	unsigned int task_id;
+	unsigned int tasks;
+
+	tasks = host->task_id_index;
+	for (task_id = 0; task_id < host->card->ext_csd.cmdq_depth; task_id++) {
+		if (tasks & 0x1) {
+			mrq_cmd = host->areq_que[task_id]->mrq_que;
+			mmc_enqueue_queue(host, mrq_cmd);
+			clear_bit(task_id, &host->task_id_index);
+			i++;
+		}
+		tasks >>= 1;
+	}
+
+	return i;
+}
+
+static struct mmc_request *mmc_get_cmd_que(struct mmc_host *host)
+{
+	struct mmc_request *mrq = NULL;
+
+	if (!list_empty(&host->cmd_que)) {
+		mrq = list_first_entry(&host->cmd_que,
+			struct mmc_request, link);
+		list_del_init(&mrq->link);
+	}
+
+	return mrq;
+}
+
+static struct mmc_request *mmc_get_dat_que(struct mmc_host *host)
+{
+	struct mmc_request *mrq = NULL;
+
+	if (!list_empty(&host->dat_que)) {
+		mrq = list_first_entry(&host->dat_que,
+			struct mmc_request, link);
+	}
+	return mrq;
+}
+
+static int mmc_blk_status_check(struct mmc_card *card, unsigned int *status)
+{
+	struct mmc_command cmd = {0};
+	int err, retries = 3;
+
+	cmd.opcode = MMC_SEND_STATUS;
+	cmd.arg = card->rca << 16;
+	cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
+	err = mmc_wait_for_cmd(card->host, &cmd, retries);
+	if (err == 0)
+		*status = cmd.resp[0];
+	else
+		pr_info("%s: err %d\n", __func__, err);
+
+	return err;
+}
+
+static void mmc_discard_cmdq(struct mmc_host *host)
+{
+	memset(&host->deq_cmd, 0, sizeof(struct mmc_command));
+	memset(&host->deq_mrq, 0, sizeof(struct mmc_request));
+
+	host->deq_cmd.opcode = MMC_CMDQ_TASK_MGMT;
+	host->deq_cmd.arg = 1;
+	host->deq_cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1B | MMC_CMD_AC;
+	host->deq_mrq.data = NULL;
+	host->deq_mrq.cmd = &host->deq_cmd;
+
+	host->deq_mrq.done = mmc_wait_cmdq_done;
+	host->deq_mrq.host = host;
+	host->deq_mrq.cmd->retries = 3;
+	host->deq_mrq.cmd->error = 0;
+	host->deq_mrq.cmd->mrq = &host->deq_mrq;
+
+	while (1) {
+		trace_mmc_request_start(host, &host->deq_mrq);
+		host->ops->request(host, &host->deq_mrq);
+
+		if (!host->deq_mrq.cmd->error ||
+			!host->deq_mrq.cmd->retries)
+			break;
+
+		pr_info("%s: req failed (CMD%u): %d, retrying...\n",
+			 __func__,
+			 host->deq_mrq.cmd->opcode,
+			 host->deq_mrq.cmd->error);
+
+		host->deq_mrq.cmd->retries--;
+		host->deq_mrq.cmd->error = 0;
+	};
+
+	pr_notice("%s: CMDQ send distard (CMD48)\n", __func__);
+}
+
+/* add for emmc reset when error happen */
+int emmc_resetting_when_cmdq;
+static int mmc_reset_for_cmdq(struct mmc_host *host)
+{
+	int err, ret;
+
+	emmc_resetting_when_cmdq = 1;
+	err = mmc_hw_reset(host);
+	/* Ensure we switch back to the correct partition */
+	if (err != -EOPNOTSUPP) {
+		u8 part_config = host->card->ext_csd.part_config;
+
+		part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
+		/*  only enable cq at user */
+		part_config |= 0;
+
+		ret = mmc_switch(host->card, EXT_CSD_CMD_SET_NORMAL,
+				EXT_CSD_PART_CONFIG, part_config,
+				host->card->ext_csd.part_time);
+		if (ret)
+			return ret;
+
+		/* enable cmdq at all partition */
+		ret = mmc_cmdq_enable(host->card);
+		if (ret)
+			return ret;
+
+		host->card->ext_csd.part_config = part_config;
+
+	}
+	emmc_resetting_when_cmdq = 0;
+	return err;
+}
+
+/*
+ *	check CMDQ QSR
+ */
+void mmc_do_check(struct mmc_host *host)
+{
+	memset(&host->que_cmd, 0, sizeof(struct mmc_command));
+	memset(&host->que_mrq, 0, sizeof(struct mmc_request));
+	host->que_cmd.opcode = MMC_SEND_STATUS;
+	host->que_cmd.arg = host->card->rca << 16 | 1 << 15;
+	host->que_cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
+	host->que_cmd.data = NULL;
+	host->que_mrq.cmd = &host->que_cmd;
+
+	host->que_mrq.done = mmc_wait_cmdq_done;
+	host->que_mrq.host = host;
+	host->que_mrq.cmd->retries = 3;
+	host->que_mrq.cmd->error = 0;
+	host->que_mrq.cmd->mrq = &host->que_mrq;
+	while (1) {
+		trace_mmc_request_start(host, &host->que_mrq);
+		host->ops->request(host, &host->que_mrq);
+
+		/* add for emmc reset when error happen */
+		if (host->que_mrq.cmd->error && !host->que_mrq.cmd->retries) {
+	/* wait data irq handle done otherwice timing issue will happen  */
+			msleep(2000);
+			if (mmc_reset_for_cmdq(host)) {
+				WARN_ON(1);
+				pr_info("%s: line=%d [CQ] reinit fail\n",
+					__func__, __LINE__);
+			}
+			mmc_clr_dat_list(host);
+			mmc_restore_tasks(host);
+			atomic_set(&host->cq_wait_rdy, 0);
+			atomic_set(&host->cq_rdy_cnt, 0);
+		}
+
+		if (!host->que_mrq.cmd->error ||
+			!host->que_mrq.cmd->retries)
+			break;
+
+		pr_info("%s: req failed (CMD%u): %d, retrying...\n",
+			 __func__,
+			 host->que_mrq.cmd->opcode,
+			 host->que_mrq.cmd->error);
+
+		host->que_mrq.cmd->retries--;
+		host->que_mrq.cmd->error = 0;
+	};
+}
+
+static void mmc_prep_chk_mrq(struct mmc_host *host)
+{
+	memset(&host->chk_cmd, 0, sizeof(struct mmc_command));
+	memset(&host->chk_mrq, 0, sizeof(struct mmc_request));
+	host->chk_cmd.opcode = MMC_SEND_STATUS;
+	host->chk_cmd.arg = host->card->rca << 16;
+	host->chk_cmd.flags = MMC_RSP_SPI_R2 | MMC_RSP_R1 | MMC_CMD_AC;
+	host->chk_cmd.data = NULL;
+	host->chk_mrq.cmd = &host->chk_cmd;
+
+	host->chk_mrq.done = mmc_wait_cmdq_done;
+	host->chk_mrq.host = host;
+	host->chk_mrq.cmd->error = 0;
+	host->chk_mrq.cmd->mrq = &host->chk_mrq;
+}
+
+static void mmc_prep_areq_que(struct mmc_host *host,
+	struct mmc_async_req *areq_que)
+{
+	areq_que->mrq->done = mmc_wait_cmdq_done;
+	areq_que->mrq->host = host;
+	areq_que->mrq->cmd->error = 0;
+	areq_que->mrq->cmd->mrq = areq_que->mrq;
+	areq_que->mrq->cmd->data =
+		areq_que->mrq->data;
+	areq_que->mrq->data->error = 0;
+	areq_que->mrq->data->mrq = areq_que->mrq;
+	if (areq_que->mrq->stop) {
+		areq_que->mrq->data->stop =
+			areq_que->mrq->stop;
+		areq_que->mrq->stop->error = 0;
+		areq_que->mrq->stop->mrq = areq_que->mrq;
+	}
+}
+
+/*
+ *	check status register
+ */
+void mmc_do_status(struct mmc_host *host)
+{
+	mmc_prep_chk_mrq(host);
+	trace_mmc_request_start(host, &host->chk_mrq);
+	host->ops->request(host, &host->chk_mrq);
+}
+
+/*
+ * send stop command
+ */
+void mmc_do_stop(struct mmc_host *host)
+{
+	memset(&host->que_cmd, 0, sizeof(struct mmc_command));
+	memset(&host->que_mrq, 0, sizeof(struct mmc_request));
+	host->que_cmd.opcode = MMC_STOP_TRANSMISSION;
+	host->que_cmd.flags = MMC_RSP_SPI_R1B | MMC_RSP_R1B | MMC_CMD_AC;
+	host->que_mrq.cmd = &host->que_cmd;
+	host->que_mrq.done = mmc_wait_cmdq_done;
+	host->que_mrq.host = host;
+	host->que_mrq.cmd->retries = 3;
+	host->que_mrq.cmd->error = 0;
+	host->que_mrq.cmd->mrq = &host->que_mrq;
+
+	while (1) {
+		trace_mmc_request_start(host, &host->que_mrq);
+		host->ops->request(host, &host->que_mrq);
+
+		if (!host->que_mrq.cmd->error ||
+			!host->que_mrq.cmd->retries)
+			break;
+
+		pr_info("%s: req failed (CMD%u): %d, retrying...\n",
+			__func__,
+			host->que_mrq.cmd->opcode,
+			host->que_mrq.cmd->error);
+
+		host->que_mrq.cmd->retries--;
+		host->que_mrq.cmd->error = 0;
+	};
+}
+
+static int mmc_wait_tran(struct mmc_host *host)
+{
+	u32 status;
+	int err;
+	unsigned long timeout;
+
+	timeout = jiffies + msecs_to_jiffies(10 * 1000);
+	do {
+		err = mmc_blk_status_check(host->card, &status);
+		if (err) {
+			pr_notice("[CQ] check card status error = %d\n", err);
+			return 1;
+		}
+
+		if ((R1_CURRENT_STATE(status) == R1_STATE_DATA) ||
+			(R1_CURRENT_STATE(status) == R1_STATE_RCV))
+			mmc_do_stop(host);
+
+		if (time_after(jiffies, timeout)) {
+			pr_info("%s: Card stuck in %d state! %s\n",
+				mmc_hostname(host),
+				R1_CURRENT_STATE(status), __func__);
+			return 1;
+		}
+	} while (R1_CURRENT_STATE(status) != R1_STATE_TRAN);
+
+	return 0;
+}
+
+/*
+ * check write
+ */
+static int mmc_check_write(struct mmc_host *host, struct mmc_request *mrq)
+{
+	int ret = 0;
+	u32 status = 0;
+	struct mmc_queue_req *mq_rq;
+	struct mmc_async_req *areq_active;
+
+	if (mrq->cmd->opcode == MMC_EXECUTE_WRITE_TASK) {
+		ret = mmc_blk_status_check(host->card, &status);
+
+		if ((status & R1_WP_VIOLATION) || host->wp_error) {
+			mrq->data->error = -EROFS;
+			areq_active =
+				host->areq_que[(mrq->cmd->arg >> 16) & 0x1f];
+			mq_rq = container_of(areq_active, struct mmc_queue_req,
+					areq);
+			pr_notice(
+	"[%s]: data error = %d, status=0x%x, line:%d, block addr:0x%x\n",
+				__func__, mrq->data->error, status,
+				__LINE__, mq_rq->brq.que.arg);
+		}
+		mmc_wait_tran(host);
+		mrq->data->error = 0;
+		host->wp_error = 0;
+		atomic_set(&host->cq_w, false);
+	}
+
+	return ret;
+}
+
+unsigned long not_ready_time;
+void mmc_wait_cmdq_done(struct mmc_request *mrq)
+{
+	struct mmc_host *host = mrq->host;
+	struct mmc_command *cmd = mrq->cmd;
+	int done = 0, task_id;
+
+	if (cmd->opcode == MMC_SEND_STATUS ||
+		cmd->opcode == MMC_STOP_TRANSMISSION ||
+		cmd->opcode == MMC_CMDQ_TASK_MGMT) {
+		/* do nothing */
+	} else
+		mmc_dequeue_queue(host, mrq);
+
+	/* error - request done */
+	if (cmd->error) {
+		pr_info("%s: cmd%d arg:%x error:%d\n",
+			mmc_hostname(host),
+			cmd->opcode, cmd->arg,
+			cmd->error);
+		if ((cmd->opcode == MMC_EXECUTE_READ_TASK) ||
+			(cmd->opcode == MMC_EXECUTE_WRITE_TASK)) {
+			atomic_set(&host->cq_tuning_now, 1);
+			goto clear_end;
+		}
+		goto request_end;
+	}
+
+	/* data error */
+	if (mrq->data && mrq->data->error) {
+		pr_info("%s: cmd%d arg:%x data error:%d\n",
+			mmc_hostname(host),
+			cmd->opcode, cmd->arg,
+			mrq->data->error);
+		atomic_set(&host->cq_tuning_now, 1);
+		goto clear_end;
+	}
+
+	/* check wp violation */
+	if ((cmd->opcode == MMC_QUE_TASK_PARAMS) ||
+		(cmd->opcode == MMC_QUE_TASK_ADDR)) {
+
+		if (atomic_read(&host->cq_w)) {
+			if (cmd->resp[0] & R1_WP_VIOLATION)
+				host->wp_error = 1;
+		}
+	}
+
+	/* cmd13' - check queue ready & enqueue 46/47 */
+	if ((cmd->opcode == MMC_SEND_STATUS) && (cmd->arg & (1 << 15))) {
+		int i = 0;
+		unsigned int resp = cmd->resp[0];
+
+		if (resp == 0) {
+/* Workaround for ALPS03808823: if task not ready over 30s, reinit emmc */
+			if (!not_ready_time)
+				not_ready_time = jiffies;
+			else if (time_after(jiffies, not_ready_time
+			+ msecs_to_jiffies(30 * 1000))) {
+				pr_info("mmc0: error: task not ready over 30s\n");
+				msleep(2000);
+				if (mmc_reset_for_cmdq(host)) {
+					pr_info("%s: line=%d [CQ] reinit fail\n",
+						__func__, __LINE__);
+					WARN_ON(1);
+				}
+				mmc_clr_dat_list(host);
+				mmc_restore_tasks(host);
+				atomic_set(&host->cq_wait_rdy, 0);
+				atomic_set(&host->cq_rdy_cnt, 0);
+				not_ready_time = 0;
+
+				//aee_kernel_warning("mmc",
+				//	"task not ready over 30s");
+			}
+			goto request_end;
+		}
+		not_ready_time = 0;
+		do {
+			if ((resp & 1) && (!host->data_mrq_queued[i])) {
+				if (host->cur_rw_task == i) {
+					resp >>= 1;
+					i++;
+					continue;
+				}
+
+				if (!host->areq_que[i]) {
+					pr_info("%s: task %d not exist!,QSR:%x\n",
+						mmc_hostname(host), i,
+						cmd->resp[0]);
+					pr_info("%s: task_idx:%08lx\n",
+						mmc_hostname(host),
+						host->task_id_index);
+					pr_info("%s: cnt:%d,wait:%d,rdy:%d\n",
+						mmc_hostname(host),
+					mmc_hostname(host),
+					atomic_read(&host->areq_cnt),
+					atomic_read(&host->cq_wait_rdy),
+					atomic_read(&host->cq_rdy_cnt));
+					/* reset eMMC flow */
+					cmd->error = (unsigned int)-ETIMEDOUT;
+					cmd->retries = 0;
+					goto request_end;
+				}
+
+				atomic_dec(&host->cq_wait_rdy);
+				atomic_inc(&host->cq_rdy_cnt);
+
+				mmc_prep_areq_que(host, host->areq_que[i]);
+				mmc_enqueue_queue(host, host->areq_que[i]->mrq);
+				host->data_mrq_queued[i] = true;
+			}
+			resp >>= 1;
+			i++;
+		} while (resp && (i < host->card->ext_csd.cmdq_depth));
+	}
+
+	/* cmd46 - request done */
+	if (cmd->opcode == MMC_EXECUTE_READ_TASK
+		|| cmd->opcode == MMC_EXECUTE_WRITE_TASK)
+		goto clear_end;
+
+	goto request_end;
+
+clear_end:
+	task_id = ((cmd->arg >> 16) & 0x1f);
+	clear_bit(task_id, &host->task_id_index);
+	host->data_mrq_queued[task_id] = false;
+	done = 1;
+
+request_end:
+	/* request done when next data transfer */
+	if (done) {
+		WARN_ON(cmd->opcode != 46 && cmd->opcode != 47);
+		WARN_ON(host->done_mrq);
+		host->done_mrq = mrq;
+
+		/*
+		 * Need to wake up cmdq thread, after done rw.
+		 */
+		wake_up_interruptible(&host->cmdq_que);
+	}
+}
+
+static void mmc_wait_for_cmdq_done(struct mmc_host *host)
+{
+	while (atomic_read(&host->areq_cnt) != 0) {
+		wait_event_interruptible(host->cmp_que,
+			(atomic_read(&host->areq_cnt) == 0));
+	}
+}
+
+void mmc_wait_cmdq_empty(struct mmc_host *host)
+{
+	mmc_wait_for_cmdq_done(host);
+}
+
+#define CMD13_TMO_NS (1000 * 1000)
+int mmc_run_queue_thread(void *data)
+{
+	struct mmc_host *host = data;
+	struct mmc_request *cmd_mrq = NULL;
+	struct mmc_request *dat_mrq = NULL;
+	struct mmc_request *done_mrq = NULL;
+	unsigned int task_id, areq_cnt_chk, tmo;
+	bool is_done = false;
+	int err;
+	u64 chk_time = 0;
+
+	pr_info("[CQ] start cmdq thread\n");
+
+	while (1) {
+
+		/* End request stage 1/2 */
+		if (atomic_read(&host->cq_rw)
+		|| (atomic_read(&host->areq_cnt) <= 1)) {
+			if (host->done_mrq) {
+				done_mrq = host->done_mrq;
+				host->done_mrq = NULL;
+			}
+		}
+
+		if (done_mrq) {
+			if (done_mrq->data->error || done_mrq->cmd->error) {
+				mmc_wait_tran(host);
+				mmc_discard_cmdq(host);
+				mmc_wait_tran(host);
+				mmc_clr_dat_list(host);
+				atomic_set(&host->cq_rdy_cnt, 0);
+				if (host->ops->execute_tuning) {
+					err = host->ops->execute_tuning(host,
+				MMC_SEND_TUNING_BLOCK_HS200);
+					if (err && mmc_reset_for_cmdq(host)) {
+						pr_info("%s: line=%d ",
+							__func__, __LINE__);
+						pr_info("[CQ] reinit fail\n");
+						WARN_ON(1);
+					} else
+						pr_notice("[CQ] tuning pass\n");
+				}
+
+				host->cur_rw_task = CQ_TASK_IDLE;
+				task_id = (done_mrq->cmd->arg >> 16) & 0x1f;
+				trace_mmc_request_start(host,
+					host->areq_que[task_id]->mrq_que);
+				host->ops->request(host,
+					host->areq_que[task_id]->mrq_que);
+				atomic_set(&host->cq_wait_rdy, 1);
+				done_mrq = NULL;
+			}
+
+			atomic_set(&host->cq_rw, false);
+			if (done_mrq && !done_mrq->data->error
+			&& !done_mrq->cmd->error) {
+				task_id = (done_mrq->cmd->arg >> 16) & 0x1f;
+				//mt_biolog_cmdq_dma_end(task_id);
+				mmc_check_write(host, done_mrq);
+				host->cur_rw_task = CQ_TASK_IDLE;
+				is_done = true;
+
+				if (atomic_read(&host->cq_tuning_now) == 1) {
+					mmc_restore_tasks(host);
+					atomic_set(&host->cq_tuning_now, 0);
+				}
+			}
+		}
+
+		/* Send Command 46/47 (DMA) */
+		if (!atomic_read(&host->cq_rw)) {
+			spin_lock_irq(&host->dat_que_lock);
+			dat_mrq = mmc_get_dat_que(host);
+
+			spin_unlock_irq(&host->dat_que_lock);
+
+			if (dat_mrq) {
+				WARN_ON(
+				dat_mrq->cmd->opcode !=
+				MMC_EXECUTE_WRITE_TASK
+				&& dat_mrq->cmd->opcode !=
+				MMC_EXECUTE_READ_TASK);
+
+				if (dat_mrq->cmd->opcode
+				== MMC_EXECUTE_WRITE_TASK)
+					atomic_set(&host->cq_w, true);
+
+				atomic_set(&host->cq_rw, true);
+				task_id = ((dat_mrq->cmd->arg >> 16) & 0x1f);
+				host->cur_rw_task = task_id;
+				trace_mmc_request_start(host, dat_mrq);
+				host->ops->request(host, dat_mrq);
+				//mt_biolog_cmdq_dma_start(task_id);
+				atomic_dec(&host->cq_rdy_cnt);
+				dat_mrq = NULL;
+			}
+		}
+
+		/* End request stage 2/2 */
+		if (is_done) {
+			task_id = (done_mrq->cmd->arg >> 16) & 0x1f;
+			//mt_biolog_cmdq_isdone_start(task_id,
+			//	host->areq_que[task_id]->mrq_que);
+			//mt_biolog_cmdq_isdone_end(task_id);
+			//mt_biolog_cmdq_check();
+			mmc_blk_end_queued_req(host, done_mrq->areq, task_id);
+			done_mrq = NULL;
+			is_done = false;
+		}
+
+		/* Send Command 44/45 */
+		if (atomic_read(&host->cq_tuning_now) == 0) {
+
+			spin_lock_irq(&host->cmd_que_lock);
+			cmd_mrq = mmc_get_cmd_que(host);
+			spin_unlock_irq(&host->cmd_que_lock);
+
+			while (cmd_mrq) {
+				task_id = ((cmd_mrq->sbc->arg >> 16) & 0x1f);
+				//mt_biolog_cmdq_queue_task(task_id, cmd_mrq);
+				if (host->task_id_index & (1 << task_id)) {
+					pr_info(
+"[%s] BUG!!! task_id %d used, task_id_index 0x%08lx, areq_cnt = %d, cq_wait_rdy = %d\n",
+					__func__, task_id, host->task_id_index,
+					atomic_read(&host->areq_cnt),
+					atomic_read(&host->cq_wait_rdy));
+					/* mmc_cmd_dump(host); */
+					while (1)
+						;
+				}
+				set_bit(task_id, &host->task_id_index);
+				trace_mmc_request_start(host, cmd_mrq);
+				host->ops->request(host, cmd_mrq);
+				/* add for emmc reset when error happen */
+				if ((cmd_mrq->sbc && cmd_mrq->sbc->error)
+				|| cmd_mrq->cmd->error) {
+		/* wait data irq handle done otherwise timing issue happen*/
+					msleep(2000);
+					if (mmc_reset_for_cmdq(host)) {
+						pr_info("%s: line=%d ",
+							__func__, __LINE__);
+						pr_info("[CQ] reinit fail\n");
+						WARN_ON(1);
+					}
+					mmc_clr_dat_list(host);
+					mmc_restore_tasks(host);
+					atomic_set(&host->cq_wait_rdy, 0);
+					atomic_set(&host->cq_rdy_cnt, 0);
+				} else
+					atomic_inc(&host->cq_wait_rdy);
+
+				spin_lock_irq(&host->cmd_que_lock);
+				cmd_mrq = mmc_get_cmd_que(host);
+				spin_unlock_irq(&host->cmd_que_lock);
+			}
+		}
+		if (atomic_read(&host->cq_rw)) {
+			/* wait for event to wakeup */
+			/* wake up when new request arrived and dma done */
+			areq_cnt_chk = atomic_read(&host->areq_cnt);
+			tmo = wait_event_interruptible_timeout(host->cmdq_que,
+				host->done_mrq ||
+				(atomic_read(&host->areq_cnt) > areq_cnt_chk),
+				10 * HZ);
+			if (!tmo) {
+				pr_info("%s:tmo,mrq(%p),chk(%d),cnt(%d)\n",
+					__func__,
+					host->done_mrq,
+					areq_cnt_chk,
+					atomic_read(&host->areq_cnt));
+				pr_info("%s:tmo,rw(%d),wait(%d),rdy(%d)\n",
+					__func__,
+					atomic_read(&host->cq_rw),
+					atomic_read(&host->cq_wait_rdy),
+					atomic_read(&host->cq_rdy_cnt));
+			}
+			/* DMA time should not count in polling time */
+			chk_time = 0;
+		}
+		/* Send Command 13' */
+
+		if (atomic_read(&host->cq_wait_rdy) > 0
+			&& atomic_read(&host->cq_rdy_cnt) == 0) {
+			if (!chk_time)
+				/* set check time */
+				chk_time = sched_clock();
+
+			/* send cmd13' */
+			mmc_do_check(host);
+
+			if (atomic_read(&host->cq_rdy_cnt))
+				/* clear when got ready task */
+				chk_time = 0;
+			else if (sched_clock() - chk_time > CMD13_TMO_NS)
+				/* sleep when TMO */
+				usleep_range(2000, 5000);
+		}
+
+		/* Sleep when nothing to do */
+		//mt_biolog_cmdq_check();
+		set_current_state(TASK_INTERRUPTIBLE);
+		if (atomic_read(&host->areq_cnt) == 0)
+			schedule();
+
+		set_current_state(TASK_RUNNING);
+	}
+	//mt_bio_queue_free(current);
+	return 0;
+}
+#endif
+
 int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 {
 	int err;
@@ -353,7 +1112,24 @@ int mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 	err = mmc_mrq_prep(host, mrq);
 	if (err)
 		return err;
-
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (mrq->done == mmc_wait_cmdq_done) {
+		mmc_enqueue_queue(host, mrq);
+		wake_up_process(host->cmdq_thread);
+		led_trigger_event(host->led, LED_FULL);
+		return 0;
+	}
+	if (host->card
+		&& host->card->ext_csd.cmdq_support
+		&& mrq->cmd->opcode != MMC_SEND_STATUS)
+		/* add for emmc reset when error happen */
+		/* cannot wait cmdq empty for init requests
+		 * when emmc resetting when cmdq
+		 */
+		if (strncmp(current->comm, "exe_cq", 6)
+			|| !emmc_resetting_when_cmdq)
+			mmc_wait_cmdq_empty(host);
+#endif
 	led_trigger_event(host->led, LED_FULL);
 	__mmc_start_request(host, mrq);
 

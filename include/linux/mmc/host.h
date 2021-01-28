@@ -217,6 +217,9 @@ struct mmc_cqe_ops {
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_request	*mrq_que;
+#endif
 	/*
 	 * Check error status of completed mmc request.
 	 * Returns 0 if success otherwise non zero.
@@ -255,6 +258,10 @@ struct mmc_context_info {
 	wait_queue_head_t	wait;
 };
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+#define EMMC_MAX_QUEUE_DEPTH		(32)
+#define EMMC_MIN_RT_CLASS_TAG_COUNT	(4)
+#endif
 struct regulator;
 struct mmc_pwrseq;
 
@@ -367,6 +374,7 @@ struct mmc_host {
 #define MMC_CAP2_CQE		(1 << 23)	/* Has eMMC command queue engine */
 #define MMC_CAP2_CQE_DCMD	(1 << 24)	/* CQE can issue a direct command */
 #define MMC_CAP2_AVOID_3_3V	(1 << 25)	/* Host must negotiate down from 3.3V */
+#define MMC_CAP2_SWCQ		(1 << 30)	/* CAP_SW_CMDQ */
 
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
 
@@ -440,7 +448,48 @@ struct mmc_host {
 
 	/* Ongoing data transfer that allows commands during transfer */
 	struct mmc_request	*ongoing_mrq;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_async_req	*areq_que[EMMC_MAX_QUEUE_DEPTH];
+	struct mmc_async_req	*areq_cur;
+	atomic_t		areq_cnt;
 
+	spinlock_t		cmd_que_lock;
+	spinlock_t		dat_que_lock;
+	spinlock_t		que_lock;
+	struct list_head	cmd_que;
+	struct list_head	dat_que;
+
+	unsigned long		state;
+	wait_queue_head_t	cmp_que;
+	wait_queue_head_t	cmdq_que;
+	struct mmc_request	*done_mrq;
+	struct mmc_command	chk_cmd;
+	struct mmc_request	chk_mrq;
+	struct mmc_command	que_cmd;
+	struct mmc_request	que_mrq;
+	struct mmc_command	deq_cmd;
+	struct mmc_request	deq_mrq;
+
+	struct mmc_queue_req	*mqrq_cur;
+	struct mmc_queue_req	*mqrq_prev;
+	struct mmc_request	*prev_mrq;
+
+	struct task_struct	*cmdq_thread;
+	atomic_t		cq_rw;
+	atomic_t		cq_w;
+	unsigned int		wp_error;
+	atomic_t		cq_wait_rdy;
+	atomic_t		cq_rdy_cnt;
+	unsigned long		task_id_index;
+	int			cur_rw_task;
+#define CQ_TASK_IDLE 99
+	atomic_t		is_data_dma;
+	atomic_t		cq_tuning_now;
+	unsigned int		data_mrq_queued[EMMC_MAX_QUEUE_DEPTH];
+	unsigned int		cmdq_support_changed;
+	int			align_size;
+	bool		swcq_enabled;
+#endif
 #ifdef CONFIG_FAIL_MMC_REQUEST
 	struct fault_attr	fail_mmc_request;
 #endif
@@ -487,7 +536,13 @@ void mmc_request_done(struct mmc_host *, struct mmc_request *);
 void mmc_command_done(struct mmc_host *host, struct mmc_request *mrq);
 
 void mmc_cqe_request_done(struct mmc_host *host, struct mmc_request *mrq);
-
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+int mmc_blk_end_queued_req(struct mmc_host *host,
+	struct mmc_async_req *areq_active, int index);
+/* add for emmc reset when error happen */
+extern int current_mmc_part_type;
+extern int emmc_resetting_when_cmdq;
+#endif
 /*
  * May be called from host driver's system/runtime suspend/resume callbacks,
  * to know if SDIO IRQs has been claimed.
