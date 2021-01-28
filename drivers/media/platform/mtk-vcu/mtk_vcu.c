@@ -1065,9 +1065,9 @@ void vcu_put_file_lock(void)
 }
 EXPORT_SYMBOL_GPL(vcu_put_file_lock);
 
-int vcu_get_sig_lock(unsigned long flags)
+int vcu_get_sig_lock(unsigned long *flags)
 {
-	return spin_trylock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
+	return spin_trylock_irqsave(&vcu_ptr->vpud_sig_lock, *flags);
 }
 EXPORT_SYMBOL_GPL(vcu_get_sig_lock);
 
