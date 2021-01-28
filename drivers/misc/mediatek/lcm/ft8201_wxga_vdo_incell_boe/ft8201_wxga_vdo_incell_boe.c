@@ -365,7 +365,7 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 #if (LCM_DSI_CMD_MODE)
 	params->dsi.PLL_CLOCK = 270;
 #else
-	params->dsi.PLL_CLOCK = 283;
+	params->dsi.PLL_CLOCK = 300;
 #endif
 	/* params->dsi.PLL_CK_CMD = 220; */
 	/* params->dsi.PLL_CK_VDO = 255; */
