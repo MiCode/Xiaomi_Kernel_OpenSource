@@ -79,6 +79,7 @@ static int __fh_ctrl_cmd_hdlr(struct pll_dts *array,
 	}
 	return 0;
 }
+static bool has_perms;
 static ssize_t fh_ctrl_proc_write(struct file *file,
 				const char *buffer, size_t count, loff_t *data)
 {
@@ -88,7 +89,6 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 	size_t len = 0;
 	unsigned int cmd, arg;
 	struct pll_dts *array = file->f_inode->i_private;
-	static bool has_perms;
 
 	FHDBG("array<%x>\n", array);
 	len = min(count, (sizeof(kbuf) - 1));
@@ -117,7 +117,7 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 		return count;
 	}
 
-	n = sscanf(kbuf, "%x %s %x", &cmd, pll_name, &arg);
+	n = sscanf(kbuf, "%x %31s %x", &cmd, pll_name, &arg);
 	if ((n != 3) && (n != 2)) {
 		FHDBG("error input format\n");
 		return -EINVAL;
@@ -134,15 +134,16 @@ static int fh_ctrl_proc_read(struct seq_file *m, void *v)
 	struct pll_dts *array = m->private;
 	int num_pll = array->num_pll;
 
-	seq_printf(m, "====== FHCTL CTRL Description <%p>======\n", array);
+	seq_printf(m, "====== FHCTL CTRL, has_perms<%d>======\n",
+			has_perms);
 
 	for (i = 0; i < num_pll; i++, array++) {
-		seq_printf(m, "<%s,%d,%d,%x,%d>,<%s,%s>,<%x>\n",
+		seq_printf(m, "<%s,%d,%d,%x,%d>,<%s,%s>,<%lx>\n",
 				array->pll_name,
 				array->pll_id, array->fh_id,
 				array->perms, array->ssc_rate,
 				array->domain, array->method,
-				array->hdlr);
+				(unsigned long)array->hdlr);
 	}
 	return 0;
 }

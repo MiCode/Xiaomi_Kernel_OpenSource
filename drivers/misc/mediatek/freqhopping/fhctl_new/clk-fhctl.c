@@ -130,7 +130,7 @@ static struct pll_dts *parse_dt(struct platform_device *pdev)
 {
 	struct device_node *child;
 	struct device_node *root;
-	unsigned int num_pll;
+	unsigned int num_pll = 0;
 	int iomap_idx = 0;
 	struct pll_dts *array;
 	int pll_idx = 0;
