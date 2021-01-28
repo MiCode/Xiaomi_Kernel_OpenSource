@@ -1863,9 +1863,11 @@ static int mtk_disp_mgr_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_MTK_IOMMU_V2
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-#else
-	dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_err(&pdev->dev, "unable to set dma mask, %d\n", ret);
+		return ret;
+	}
 #endif
 
 	mtk_disp_mgr_class = class_create(THIS_MODULE, DISP_SESSION_DEVICE);
