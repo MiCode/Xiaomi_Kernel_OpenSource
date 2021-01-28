@@ -101,6 +101,13 @@ struct ufs_dev_fix {
 #define UFS_DEVICE_QUIRK_HOST_VS_DEBUGSAVECONFIGTIME	(1 << 9)
 
 /*
+ * Some UFS devices require delay after VCC power rail is turned-off.
+ * Enable this quirk to introduce 5ms delays after VCC power-off during
+ * suspend flow.
+ */
+#define UFS_DEVICE_QUIRK_DELAY_AFTER_LPM        (1 << 11)
+
+/*
  * Some UFS memory device needs limited RPMB max rw size otherwise
  * device issue, for example, device hang, may happen in some scenarios.
  */
