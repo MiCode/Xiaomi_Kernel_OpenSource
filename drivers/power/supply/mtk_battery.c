@@ -216,9 +216,9 @@ int check_cap_level(int uisoc)
 		return POWER_SUPPLY_CAPACITY_LEVEL_HIGH;
 	else if (uisoc >= 20 && uisoc < 80)
 		return POWER_SUPPLY_CAPACITY_LEVEL_NORMAL;
-	else if (uisoc >= 5 && uisoc < 20)
+	else if (uisoc > 0 && uisoc < 20)
 		return POWER_SUPPLY_CAPACITY_LEVEL_LOW;
-	else if (uisoc >= 0 && uisoc < 5)
+	else if (uisoc == 0)
 		return POWER_SUPPLY_CAPACITY_LEVEL_CRITICAL;
 	else
 		return POWER_SUPPLY_CAPACITY_LEVEL_UNKNOWN;
