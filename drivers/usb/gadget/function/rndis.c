@@ -898,6 +898,8 @@ int rndis_msg_parser(struct rndis_params *params, u8 *buf)
 		 */
 		pr_warn("%s: unknown RNDIS message 0x%08X len %d\n",
 				__func__, MsgType, MsgLength);
+		if (MsgLength > 16)
+			MsgLength = 16;
 		{
 			unsigned int i;
 
