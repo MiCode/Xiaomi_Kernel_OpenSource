@@ -13,7 +13,7 @@
 
 
 PDIR = $(MTK_PLATFORM)
-VDIR = 2.0
+VDIR = 2.1
 PMU_DIR = ../pmu
 PMU_VDIR = 1.0
 PMU_PDIR = $(MTK_PLATFORM)
