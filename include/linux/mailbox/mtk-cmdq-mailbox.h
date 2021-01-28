@@ -141,6 +141,7 @@ struct cmdq_pkt {
 	void			*sec_data;
 #endif
 #endif	/* end of CONFIG_MTK_CMDQ_MBOX_EXT */
+	bool			task_alloc;
 };
 
 struct cmdq_thread {
