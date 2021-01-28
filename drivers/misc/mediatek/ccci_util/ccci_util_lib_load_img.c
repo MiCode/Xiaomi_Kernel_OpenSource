@@ -84,20 +84,30 @@ static struct md_check_header_v6 md_img_header_v6[MAX_MD_NUM];
 /*static struct ccci_image_info		img_info[MAX_MD_NUM][IMG_NUM]; */
 char md_img_info_str[MAX_MD_NUM][256];
 
+static char *s_ap_platform_info;
+
 char *ccci_get_ap_platform(void)
 {
 	struct device_node *node;
-	int ap_plat_info;
-	char *ap_platform = NULL;
+	int ret;
+	u32 ap_plat_numb;
 
-	node = of_find_compatible_node(NULL, NULL,
-		"mediatek,mddriver");
-	of_property_read_u32(node,
-		"mediatek,ap_plat_info", &ap_plat_info);
-	ap_platform = kzalloc(16, GFP_KERNEL);
-	sprintf(ap_platform, "%d", ap_plat_info);
+	if (!s_ap_platform_info) {
+		node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mddriver");
+		if (!node)
+			return NULL;
 
-	return ap_platform;
+		ret = of_property_read_u32(node,
+				"mediatek,ap_plat_info", &ap_plat_numb);
+		if (ret < 0)
+			return NULL;
+
+		s_ap_platform_info = kzalloc(16, GFP_KERNEL);
+		scnprintf(s_ap_platform_info, 16, "MT%d", ap_plat_numb);
+	}
+
+	return s_ap_platform_info;
 }
 
 /*--- MD header check ------------ */
