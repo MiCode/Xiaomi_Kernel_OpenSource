@@ -150,6 +150,14 @@ config MACH_MT6761
 	  thin-design smartphones. MT6761 also offers significant
 	  multitasking and multimedia improvements.
 
+config MACH_MT6779
+	bool "MediaTek MT6779"
+	help
+	  This enables support for MediaTek MT6779. Highly power-efficient,
+	  performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones.
+	  Support for aarch64 Architecture
+
 config ARCH_MESON
 	bool "Amlogic Platforms"
 	select PINCTRL
