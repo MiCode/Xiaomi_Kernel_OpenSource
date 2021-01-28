@@ -17,6 +17,7 @@
 #include "cmdq_engine.h"
 #endif
 #ifdef CONFIG_MTK_SMI_EXT
+#include "smi_port.h"
 #include "smi_public.h"
 #endif	/* CONFIG_MTK_SMI_EXT */
 
@@ -58,6 +59,88 @@ static u32 step_size;
 /* all module list */
 struct plist_head qos_mdp_module_request_list[MDP_TOTAL_THREAD];
 struct plist_head qos_isp_module_request_list[MDP_TOTAL_THREAD];
+//mdp
+struct mm_qos_request mdp_rdma0_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_rdma1_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_wrot0_request[MDP_TOTAL_THREAD];
+struct mm_qos_request mdp_wrot1_request[MDP_TOTAL_THREAD];
+//isp
+struct mm_qos_request imgi_request[MDP_TOTAL_THREAD];
+struct mm_qos_request imgci_request[MDP_TOTAL_THREAD];
+struct mm_qos_request ufdi_request[MDP_TOTAL_THREAD];
+struct mm_qos_request ufocw_request[MDP_TOTAL_THREAD];
+struct mm_qos_request lci_request[MDP_TOTAL_THREAD];
+struct mm_qos_request dmgi_request[MDP_TOTAL_THREAD];
+struct mm_qos_request ufoc2r_request[MDP_TOTAL_THREAD];
+struct mm_qos_request crzo_request[MDP_TOTAL_THREAD];
+struct mm_qos_request ufoyw_request[MDP_TOTAL_THREAD];
+struct mm_qos_request smti1_request[MDP_TOTAL_THREAD];
+struct mm_qos_request smto1_request[MDP_TOTAL_THREAD];
+struct mm_qos_request smto2_request[MDP_TOTAL_THREAD];
+
+uint32_t translatePort(uint32_t engineId)
+{
+	switch (engineId) {
+	case CMDQ_ENG_MDP_RDMA0:
+		return SMI_PORT_MDP_RDMA0;
+	case CMDQ_ENG_MDP_RDMA1:
+		return SMI_PORT_MDP_RDMA1;
+	case CMDQ_ENG_MDP_WROT0:
+		return SMI_PORT_MDP_WROT0_R;
+	case CMDQ_ENG_MDP_WROT1:
+		return SMI_PORT_MDP_WROT1_R;
+	}
+
+	if (engineId != CMDQ_ENG_MDP_CAMIN
+#ifdef SUPPORT_MDP_CAMIN2
+		&& engineId != CMDQ_ENG_MDP_CAMIN2
+#endif
+		)
+		CMDQ_ERR("pmqos invalid engineId %d\n", engineId);
+	return 0;
+}
+struct mm_qos_request *getRequest(uint32_t thread_id, uint32_t port)
+{
+	if (port == 0)
+		return NULL;
+
+	switch (port) {
+	case SMI_PORT_MDP_RDMA0:
+		return &mdp_rdma0_request[thread_id];
+	case SMI_PORT_MDP_RDMA1:
+		return &mdp_rdma1_request[thread_id];
+	case SMI_PORT_MDP_WROT0_R:
+		return &mdp_wrot0_request[thread_id];
+	case SMI_PORT_MDP_WROT1_R:
+		return &mdp_wrot1_request[thread_id];
+	case SMI_PORT_IMGI_D1:
+		return &imgi_request[thread_id];
+	case SMI_PORT_IMGCI_D1:
+		return &imgci_request[thread_id];
+	case SMI_PORT_UFDI_D1:
+		return &ufdi_request[thread_id];
+	case SMI_PORT_UFOCW:
+		return &ufocw_request[thread_id];
+	case SMI_PORT_LCI_D1:
+		return &lci_request[thread_id];
+	case SMI_PORT_DMGI_D1:
+		return &dmgi_request[thread_id];
+	case SMI_PORT_UFOC2R:
+		return &ufoc2r_request[thread_id];
+	case SMI_PORT_CRZO_D1:
+		return &crzo_request[thread_id];
+	case SMI_PORT_UFOYW:
+		return &ufoyw_request[thread_id];
+	case SMI_PORT_SMTI_D1:
+		return &smti1_request[thread_id];
+	case SMI_PORT_SMTO_D1:
+		return &smto1_request[thread_id];
+	case SMI_PORT_SMTO_D2:
+		return &smto2_request[thread_id];
+	}
+	CMDQ_ERR("pmqos invalid port%d\n", port);
+	return NULL;
+}
 #endif	/* CONFIG_MTK_SMI_EXT */
 #endif	/* PMQOS_VERSION2 */
 
@@ -1068,7 +1151,7 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 		desc->secData.ispMeta.ispBufs[i].va = 0;
 
 	if (handle->secData.addrMetadataCount > 0) {
-		u32 metadata_length;
+		u32 metadata_length = 0;
 		void *p_metadatas;
 
 		metadata_length = (handle->secData.addrMetadataCount) *
@@ -1076,10 +1159,20 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 		/* create sec data task buffer for working */
 		p_metadatas = kzalloc(metadata_length, GFP_KERNEL);
 		if (p_metadatas) {
+			struct cmdqSecAddrMetadataStruct *addr;
+			const u32 cnt =
+				handle->pkt->cmd_buf_size / CMDQ_INST_SIZE;
+
 			memcpy(p_metadatas, CMDQ_U32_PTR(
 				desc->secData.addrMetadatas), metadata_length);
 			handle->secData.addrMetadatas =
 				(cmdqU32Ptr_t)(unsigned long)p_metadatas;
+
+			addr = (struct cmdqSecAddrMetadataStruct *)
+				(unsigned long)handle->secData.addrMetadatas;
+			for (i = 0; i < handle->secData.addrMetadataCount; i++)
+				addr[i].instrIndex += cnt;
+			CMDQ_MSG("add %u to instrIndex\n", cnt);
 		} else {
 			CMDQ_AEE("CMDQ",
 				"Can't alloc secData buffer count:%d alloacted_size:%d\n",
@@ -1097,7 +1190,7 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	struct cmdqRecStruct **handle_out)
 {
-	struct cmdqRecStruct *handle;
+	struct cmdqRecStruct *handle = NULL;
 	struct task_private *private;
 	s32 err;
 	u32 copy_size;
@@ -1131,9 +1224,15 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	if (desc->prop_size && desc->prop_addr &&
 		desc->prop_size < CMDQ_MAX_USER_PROP_SIZE) {
 		handle->prop_addr = kzalloc(desc->prop_size, GFP_KERNEL);
-		memcpy(handle->prop_addr, (void *)CMDQ_U32_PTR(desc->prop_addr),
-			desc->prop_size);
-		handle->prop_size = desc->prop_size;
+		if (handle->prop_addr) {
+			memcpy(handle->prop_addr,
+				(void *)CMDQ_U32_PTR(desc->prop_addr),
+				desc->prop_size);
+			handle->prop_size = desc->prop_size;
+		} else {
+			handle->prop_addr = NULL;
+			handle->prop_size = 0;
+		}
 	} else {
 		handle->prop_addr = NULL;
 		handle->prop_size = 0;
@@ -2331,7 +2430,10 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	} while (0);
 #endif	/* MDP_MMPATH */
 
-#endif	/* CONFIG_MTK_SMI_EXT */
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
+	smi_larb_mon_act_cnt();
+#endif
+#endif
 }
 
 static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
@@ -2374,6 +2476,9 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	bool update_isp_throughput = false;
 	bool update_isp_bandwidth = false;
 
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
+	smi_larb_mon_act_cnt();
+#endif
 	do_gettimeofday(&curr_time);
 	CMDQ_LOG_PMQOS("enter %s with handle:0x%p engine:0x%llx\n", __func__,
 		handle, handle->engineFlag);
