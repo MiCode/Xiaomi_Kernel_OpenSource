@@ -4364,6 +4364,7 @@ static inline void preempt_latency_start(int val)
 		unsigned long ip = get_lock_parent_ip();
 #ifdef CONFIG_DEBUG_PREEMPT
 		current->preempt_disable_ip = ip;
+		record_preempt_disable_ips(current);
 #endif
 		trace_preempt_off(CALLER_ADDR0, ip);
 #ifdef CONFIG_PREEMPT_MONITOR
@@ -4454,7 +4455,7 @@ static noinline void __schedule_bug(struct task_struct *prev)
 {
 	/* Save this before calling printk(), since that will clobber it */
 	unsigned long preempt_disable_ip = get_preempt_disable_ip(current);
-
+	int i = 0;
 	if (oops_in_progress)
 		return;
 
@@ -4469,6 +4470,7 @@ static noinline void __schedule_bug(struct task_struct *prev)
 	    && in_atomic_preempt_off()) {
 		pr_err("Preemption disabled at:");
 		print_ip_sym(preempt_disable_ip);
+		dump_preempt_disable_ips(current);
 		pr_cont("\n");
 	}
 	if (panic_on_warn)
@@ -7732,6 +7734,7 @@ void ___might_sleep(const char *file, int line, int preempt_offset)
 	    && !preempt_count_equals(preempt_offset)) {
 		pr_err("Preemption disabled at:");
 		print_ip_sym(preempt_disable_ip);
+		dump_preempt_disable_ips(current);
 		pr_cont("\n");
 	}
 	dump_stack();
