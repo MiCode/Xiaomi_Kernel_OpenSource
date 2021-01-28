@@ -2,10 +2,12 @@ menu "MediaTek pinctrl drivers"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 
 config EINT_MTK
-	bool "MediaTek External Interrupt Support"
+	tristate "MediaTek External Interrupt Support"
 	depends on PINCTRL_MTK || PINCTRL_MTK_MOORE || PINCTRL_MTK_PARIS || COMPILE_TEST
 	select GPIOLIB
 	select IRQ_DOMAIN
+	default y if PINCTRL_MTK || PINCTRL_MTK_MOORE
+	default PINCTRL_MTK_PARIS
 
 config PINCTRL_MTK
 	bool
@@ -16,6 +18,9 @@ config PINCTRL_MTK
 	select EINT_MTK
 	select OF_GPIO
 
+config PINCTRL_MTK_V2
+	tristate
+
 config PINCTRL_MTK_MOORE
 	bool
 	depends on OF
@@ -23,16 +28,19 @@ config PINCTRL_MTK_MOORE
 	select GENERIC_PINCTRL_GROUPS
 	select GENERIC_PINMUX_FUNCTIONS
 	select GPIOLIB
+	select EINT_MTK
 	select OF_GPIO
+	select PINCTRL_MTK_V2
 
 config PINCTRL_MTK_PARIS
-	bool
+	tristate
 	depends on OF
 	select PINMUX
 	select GENERIC_PINCONF
 	select GPIOLIB
 	select EINT_MTK
 	select OF_GPIO
+	select PINCTRL_MTK_V2
 
 # For ARMv7 SoCs
 config PINCTRL_MT2701
@@ -77,7 +85,7 @@ config PINCTRL_MT2712
 	select PINCTRL_MTK
 
 config PINCTRL_MT6761
-	bool "Mediatek MT6761 pin control"
+	tristate "Mediatek MT6761 pin control"
 	depends on OF || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
 
@@ -87,9 +95,8 @@ config PINCTRL_MT6765
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT6779
-	bool "Mediatek MT6779 pin control"
-	depends on OF
-	depends on ARM64 || COMPILE_TEST
+	tristate "Mediatek MT6779 pin control"
+	depends on OF || COMPILE_TEST
 	select PINCTRL_MTK_PARIS
 
 config PINCTRL_MT6797

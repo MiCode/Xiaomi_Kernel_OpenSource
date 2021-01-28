@@ -5,6 +5,7 @@
  *
  */
 
+#include <linux/module.h>
 #include "pinctrl-mtk-mt6779.h"
 #include "pinctrl-paris.h"
 
@@ -778,3 +779,6 @@ static int __init mt6779_pinctrl_init(void)
 	return platform_driver_register(&mt6779_pinctrl_driver);
 }
 arch_initcall(mt6779_pinctrl_init);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek MT6779 Pinctrl Driver");

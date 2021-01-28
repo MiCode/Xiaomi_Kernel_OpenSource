@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/module.h>
 #include "pinctrl-mtk-mt6761.h"
 #include "pinctrl-paris.h"
 
@@ -1084,3 +1085,6 @@ static int __init mt6761_pinctrl_init(void)
 	return platform_driver_register(&mt6761_pinctrl_driver);
 }
 arch_initcall(mt6761_pinctrl_init);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek MT6761 Pinctrl Driver");

@@ -9,6 +9,7 @@
  *	   Hongzhou.Yang <hongzhou.yang@mediatek.com>
  */
 
+#include <linux/module.h>
 #include <linux/gpio/driver.h>
 #include <linux/of_address.h>
 #include <dt-bindings/pinctrl/mt65xx.h>
@@ -544,7 +545,8 @@ static int mtk_pctrl_get_group_pins(struct pinctrl_dev *pctldev,
 	return 0;
 }
 
-int mtk_hw_get_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio, int field)
+static int mtk_hw_get_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio,
+				int field)
 {
 	const struct mtk_pin_desc *desc;
 	int value, err;
@@ -561,11 +563,32 @@ int mtk_hw_get_value_wrap(struct mtk_pinctrl *hw, unsigned int gpio, int field)
 	return value;
 }
 
+#define mtk_pctrl_get_pinmux(hw, gpio)			\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_MODE)
+
+#define mtk_pctrl_get_direction(hw, gpio)		\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_DIR)
+
+#define mtk_pctrl_get_out(hw, gpio)			\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_DO)
+
+#define mtk_pctrl_get_in(hw, gpio)			\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_DI)
+
+#define mtk_pctrl_get_smt(hw, gpio)			\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_SMT)
+
+#define mtk_pctrl_get_ies(hw, gpio)			\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_IES)
+
+#define mtk_pctrl_get_driving(hw, gpio)			\
+	mtk_hw_get_value_wrap(hw, gpio, PINCTRL_PIN_REG_DRV)
+
 ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 	unsigned int gpio, char *buf, unsigned int bufLen)
 {
 	const struct mtk_pin_desc *desc;
-	int pinmux, pullup = 0, pullen = 0, r1 = -1, r0 = -1, len = 0;
+	int pinmux, pullup = 0, pullen = 0, len = 0, r1 = -1, r0 = -1;
 
 	if (gpio > hw->soc->npins)
 		return -EINVAL;
@@ -617,6 +640,7 @@ ssize_t mtk_pctrl_show_one_pin(struct mtk_pinctrl *hw,
 
 	return len;
 }
+EXPORT_SYMBOL_GPL(mtk_pctrl_show_one_pin);
 
 #define PIN_DBG_BUF_SZ 96
 static void mtk_pctrl_dbg_show(struct pinctrl_dev *pctldev, struct seq_file *s,
@@ -1026,3 +1050,7 @@ int mtk_paris_pinctrl_probe(struct platform_device *pdev,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(mtk_paris_pinctrl_probe);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek Pinctrl Common Driver V2 Paris");
