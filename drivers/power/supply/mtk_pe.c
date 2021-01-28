@@ -124,7 +124,7 @@ static int pe_leave(struct chg_alg_device *alg, bool disable_charging)
 	ret = pe_hal_enable_charging(alg, disable_charging);
 	if (ret < 0) {
 		pe_err("%s enable charging fail:%d\n",
-			ret);
+			__func__, ret);
 		ret_value = -EHAL;
 	}
 
@@ -132,7 +132,7 @@ static int pe_leave(struct chg_alg_device *alg, bool disable_charging)
 	ret = mtk_pe_reset_ta_vchr(alg);
 	if (ret < 0) {
 		pe_err("%s reset TA fail:%d\n",
-			ret);
+			__func__, ret);
 		ret_value = -EHAL;
 	}
 
