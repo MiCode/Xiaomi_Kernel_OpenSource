@@ -315,7 +315,6 @@ static int set_aud_buf_attr(struct audio_hw_buffer *audio_hwbuf,
 	return 0;
 }
 
-
 /* function warp playback buffer information send to dsp */
 int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		       struct snd_pcm_hw_params *params,
@@ -325,7 +324,6 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 	int task_id = 0, ret = 0;
 	struct mtk_base_dsp *dsp = (struct mtk_base_dsp *)local_base_dsp;
 	void *ipi_audio_buf; /* dsp <-> audio data struct*/
-	char *payload;
 	struct mtk_base_dsp_mem *dsp_memif;
 	struct mtk_base_afe_memif *memif = &afe->memif[dai->id];
 
@@ -351,6 +349,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 memif,
 				 dai);
 
+		/* send audio_afepcm_buf to SCP side*/
 		ipi_audio_buf = (void *)
 				 dsp_memif->msg_atod_share_buf.va_addr;
 		memcpy((void *)ipi_audio_buf,
@@ -360,6 +359,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 #ifdef DEBUG_VERBOSE
 		dump_audio_hwbuffer(ipi_audio_buf);
 #endif
+
 		/* send to task with hw_param information ,
 		 * buffer and pcm attribute
 		 */
@@ -370,7 +370,8 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				 sizeof(unsigned int),
 				 (unsigned int)
 				 dsp_memif->msg_atod_share_buf.phy_addr,
-				 payload);
+				 (char *)
+				 &dsp_memif->msg_atod_share_buf.phy_addr);
 		break;
 	case AUDIO_DSP_TASK_PCM_PREPARE:
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
