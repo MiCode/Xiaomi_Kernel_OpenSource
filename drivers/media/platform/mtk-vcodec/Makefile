@@ -46,12 +46,22 @@ endif
 ifdef CONFIG_VIDEO_MEDIATEK_VPU
 	ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vpu
 endif
+ifdef CONFIG_MTK_PSEUDO_M4U
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+endif
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcodec
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-vcodec/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/media/platform/mtk-videobuf
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/variant
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+ccflags-y += -I$(srctree)/drivers/iommu/
 ccflags-y += -I$(srctree)/arch/arm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/slbc
+ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
+
