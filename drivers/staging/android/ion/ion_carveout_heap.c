@@ -143,8 +143,9 @@ static struct ion_heap_ops carveout_heap_ops = {
 static void print_phys_addr_bit32(char *caller_name,
 				  ion_phys_addr_t addr, size_t size)
 {
-	unsigned int bit32 = (unsigned int)(addr & (3L << 32)) >> 32;
-	unsigned int bit32_max = (unsigned int)((addr + size) & (3L << 32));
+	unsigned int bit32 = (unsigned int)((addr & (3L << 32)) >> 32);
+	unsigned int bit32_max =
+			(unsigned int)(((addr + size) & (3L << 32)) >> 32);
 
 	if (bit32_max == bit32)
 		IONMSG("%s: addr 0x%lx, size %zu, bit32: %d\n",
