@@ -69,6 +69,11 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 		goto ret_update;
 	}
 
+	if (kicker < 0 || kicker >= CPU_MAX_KIR) {
+		pr_debug("kicker:%d, error\n", kicker);
+		retval = -1;
+		goto ret_update;
+	}
 
 	for_each_perfmgr_clusters(i) {
 		final_freq[i].min = -1;

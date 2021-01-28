@@ -68,14 +68,18 @@ int update_eas_uclamp_min(int kicker, int cgroup_idx, int value)
 	char msg[LOG_BUF_SIZE];
 	char msg1[LOG_BUF_SIZE];
 
-	mutex_lock(&boost_eas);
-
-	if (cgroup_idx >= NR_CGROUP) {
-		mutex_unlock(&boost_eas);
-		pr_debug(" cgroup_idx >= NR_CGROUP, error\n");
+	if (cgroup_idx < 0 || cgroup_idx >= NR_CGROUP) {
+		pr_debug("cgroup_idx:%d, error\n", cgroup_idx);
 		perfmgr_trace_printk("uclamp_min", "cgroup_idx >= NR_CGROUP\n");
 		return -1;
 	}
+
+	if (kicker < 0 || kicker >= EAS_UCLAMP_MAX_KIR) {
+		pr_debug("kicker:%d, error\n", kicker);
+		return -1;
+	}
+
+	mutex_lock(&boost_eas);
 
 	uclamp_min[cgroup_idx][kicker] = value;
 	len += snprintf(msg + len, sizeof(msg) - len, "[%d] [%d] [%d]",
@@ -147,13 +151,17 @@ EXPORT_SYMBOL(update_eas_uclamp_min);
 #if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_MTK_FPSGO_V3)
 int update_prefer_idle_value(int kicker, int cgroup_idx, int value)
 {
-	mutex_lock(&boost_eas);
-
-	if (cgroup_idx >= NR_CGROUP || kicker >= EAS_PREFER_IDLE_MAX_KIR) {
-		mutex_unlock(&boost_eas);
-		pr_debug(" cgroup_idx >= NR_CGROUP, error\n");
+	if (cgroup_idx < 0 || cgroup_idx >= NR_CGROUP) {
+		pr_debug("cgroup_idx:%d, error\n", cgroup_idx);
 		return -EINVAL;
 	}
+
+	if (kicker < 0 || kicker >= EAS_PREFER_IDLE_MAX_KIR) {
+		pr_debug("kicker:%d, error\n", kicker);
+		return -EINVAL;
+	}
+
+	mutex_lock(&boost_eas);
 
 	if (value != 0)
 		set_bit(kicker, &prefer_idle[cgroup_idx]);
