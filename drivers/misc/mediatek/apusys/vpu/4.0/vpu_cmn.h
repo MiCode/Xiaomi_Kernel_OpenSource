@@ -192,8 +192,6 @@ struct vpu_device {
 	atomic_t pw_boost;         /* current boost */
 #ifdef CONFIG_PM_SLEEP
 	struct wakeup_source pw_wake_lock;
-#else
-	struct wake_lock pw_wake_lock;
 #endif
 
 	/* iova settings */

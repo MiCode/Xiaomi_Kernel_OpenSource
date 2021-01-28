@@ -511,9 +511,6 @@ int gz_get_cpuinfo_thread(void *data)
 #if IS_ENABLED(CONFIG_PM_SLEEP)
 	/*kernel-4.14*/
 	wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
-#else
-	wake_lock_init(&TeeServiceCall_wake_lock, WAKE_LOCK_SUSPEND,
-		"KREE_TeeServiceCall");
 #endif
 
 	return 0;

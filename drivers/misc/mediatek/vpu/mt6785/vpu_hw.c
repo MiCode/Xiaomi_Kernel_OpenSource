@@ -62,8 +62,6 @@
 
 #ifdef CONFIG_PM_SLEEP
 struct wakeup_source vpu_wake_lock[MTK_VPU_CORE];
-#else
-struct wake_lock vpu_wake_lock[MTK_VPU_CORE];
 #endif
 
 
@@ -2827,8 +2825,6 @@ for (j = 0 ; j < req->buffers[i].plane_count ; j++) { \
 
 			#ifdef CONFIG_PM_SLEEP
 			__pm_stay_awake(&(vpu_wake_lock[service_core]));
-			#else
-			wake_lock(&(vpu_wake_lock[service_core]));
 			#endif
 			exception_isr_check[service_core] = true;
 			if (vpu_hw_processing_request(service_core, req)) {
@@ -2875,8 +2871,6 @@ out:
 		mutex_unlock(&(vpu_service_cores[service_core].state_mutex));
 		#ifdef CONFIG_PM_SLEEP
 		__pm_relax(&(vpu_wake_lock[service_core]));
-		#else
-		wake_unlock(&(vpu_wake_lock[service_core]));
 		#endif
 		mutex_lock(&vpu_dev->user_mutex);
 
@@ -3711,16 +3705,6 @@ int vpu_init_hw(int core, struct vpu_device *device)
 							"vpu_wakelock_0");
 			} else {
 				wakeup_source_init(&(vpu_wake_lock[i]),
-							"vpu_wakelock_1");
-			}
-			#else
-			if (i == 0) {
-				wake_lock_init(&(vpu_wake_lock[i]),
-							WAKE_LOCK_SUSPEND,
-							"vpu_wakelock_0");
-			} else {
-				wake_lock_init(&(vpu_wake_lock[i]),
-							WAKE_LOCK_SUSPEND,
 							"vpu_wakelock_1");
 			}
 			#endif
