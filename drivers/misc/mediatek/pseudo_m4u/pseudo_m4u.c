@@ -466,6 +466,8 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 		int i;
 
 		table = kzalloc(sizeof(*table), GFP_KERNEL);
+		if (!table)
+			return -ENOMEM;
 		ret = sg_alloc_table(table, sg_table->nents, GFP_KERNEL);
 		if (ret) {
 			kfree(table);
@@ -487,7 +489,8 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 	if (!table) {
 		table = m4u_create_sgtable(va, size);
 		/* table = pseudo_get_sg(port, va, size); */
-		if (!table) {
+		if (IS_ERR_OR_NULL(table)) {
+			table = NULL;
 			m4u_pr_err("pseudo_get_sg failed\n");
 			goto err;
 		}
@@ -2614,83 +2617,8 @@ static void __free_iova(struct dma_iommu_mapping *mapping,
 	bitmap_clear(mapping->bitmaps[bitmap_index], start, count);
 	spin_unlock_irqrestore(&mapping->lock, flags);
 }
-
-static inline int __reserve_iova(struct dma_iommu_mapping *mapping,
-				dma_addr_t iova, size_t size)
-{
-	unsigned long count, start;
-	unsigned long flags;
-	int i, sbitmap, ebitmap;
-
-	if (iova < mapping->base)
-		return -EINVAL;
-
-	start = (iova - mapping->base) >> PAGE_SHIFT;
-	count = PAGE_ALIGN(size) >> PAGE_SHIFT;
-
-	sbitmap = start / mapping->bits;
-	ebitmap = (start + count) / mapping->bits;
-	start = start % mapping->bits;
-
-	if (ebitmap > mapping->extensions)
-		return -EINVAL;
-
-	spin_lock_irqsave(&mapping->lock, flags);
-
-	for (i = mapping->nr_bitmaps; i <= ebitmap; i++) {
-		if (__extend_iommu_mapping(mapping)) {
-			spin_unlock_irqrestore(&mapping->lock, flags);
-			return -ENOMEM;
-		}
-	}
-
-	for (i = sbitmap; count && i < mapping->nr_bitmaps; i++) {
-		int bits = count;
-
-		if (bits + start > mapping->bits)
-			bits = mapping->bits - start;
-
-		bitmap_set(mapping->bitmaps[i], start, bits);
-		start = 0;
-		count -= bits;
-	}
-
-	spin_unlock_irqrestore(&mapping->lock, flags);
-
-	return 0;
-}
-
-#ifdef CONFIG_MTK_FB
-/*
- * Display show fastlogo in lk. it is contiougous buffer. when entering kernel,
- * the iommu HW will be enabled. Avoid the display show fastlogo smoothly,
- * defautly map the fastlogo physicall address as the iova address.
- * directly mapping (iova == pa).
- *
- * This pa for a project can be get by mtkfv_get_fb_xxx().
- */
-static int pseudo_reserve_dm(void)
-{
-	struct iommu_domain *domain = dmapping->domain;
-	phys_addr_t fastlogo_start = mtkfb_get_fb_base();
-	unsigned int fastlogo_len = mtkfb_get_fb_size();
-	int ret = 0;
-
-	pr_info("[mhf]pseudo fastlogo_start=0x%lx, fastlogo_len=0x%x\n",
-		(unsigned long)fastlogo_start, fastlogo_len);
-
-	WARN_ON(!domain->ops->pgsize_bitmap);
-
-	ret = iommu_map(domain, fastlogo_start, fastlogo_start, fastlogo_len,
-			IOMMU_WRITE | IOMMU_READ);
-	if (ret)
-		return ret;
-
-	ret = __reserve_iova(dmapping, fastlogo_start, fastlogo_len);
-	return ret;
-}
 #endif
-#endif
+
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 unsigned int mtk_init_tz_m4u(void)
@@ -2698,7 +2626,6 @@ unsigned int mtk_init_tz_m4u(void)
 	/* init the sec_mem_size to 400M to avoid build error. */
 	static unsigned int sec_mem_size = 400 * 0x100000;
 	static unsigned int tz_m4u_inited;
-	unsigned long iommu_pgt_base = mtk_get_pgt_base();
 	/*reserve mva range for sec */
 	int gM4U_L2_enable = 1;
 
@@ -2706,27 +2633,12 @@ unsigned int mtk_init_tz_m4u(void)
 		return sec_mem_size;
 
 	pseudo_m4u_session_init();
-
-	/* bit[0:11] is reserved */
-	iommu_pgt_base &= 0xfffff000;
 	pseudo_m4u_sec_init(0, gM4U_L2_enable, &sec_mem_size);
 
 	tz_m4u_inited = 1;
 
 	return sec_mem_size;
 }
-
-#ifdef CONFIG_ARM64
-/* reserve iova range for sec world is helped via iommu framework */
-
-#else
-static int __reserve_iova_sec(struct device *device,
-			      dma_addr_t dma_addr, size_t size)
-{
-
-	return __reserve_iova(dmapping, dma_addr, size);
-}
-#endif
 #endif
 
 static const struct file_operations g_stMTK_M4U_fops = {
@@ -2738,13 +2650,6 @@ static const struct file_operations g_stMTK_M4U_fops = {
 	.compat_ioctl = MTK_M4U_COMPAT_ioctl,
 };
 
-
-/* this will reserve the securit mva address range for iommu. */
-/* static int pseudo_reserve_sec(void)
- * {
- * return 0;
- * }
- */
 /*
  * Here's something need to be done in probe, we should get the following
  * information from dts
@@ -2792,31 +2697,6 @@ static int pseudo_probe(struct platform_device *pdev)
 		dev->dma_parms = dma_param;
 	}
 
-
-/*
- * Init tz m4u and reserve iova regions in arm32 evb in here. In arm64
- * evb, they are helped via mtk_iommu and iommu framework.
- */
-#ifndef CONFIG_ARM64
-#ifdef M4U_TEE_SERVICE_ENABLE
-/* init tz_m4u and reserve sec iova region for arm32 evb */
-	{
-		unsigned int sec_mem_size = mtk_init_tz_m4u();
-
-		/* reserve mva range for security world */
-		__reserve_iova_sec(dev, 0, sec_mem_size);
-	}
-#endif
-#ifdef CONFIG_MTK_FB
-/* reserve fastlogo iova region for arm32 evb */
-	{
-		int ret = pseudo_reserve_dm();
-
-		if (ret)
-			m4u_pr_err("reserve memory fail(%d)\n", ret);
-	}
-#endif
-#endif
 
 	gM4uDev = kzalloc(sizeof(struct m4u_device), GFP_KERNEL);
 	if (!gM4uDev)

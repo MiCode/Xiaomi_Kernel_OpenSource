@@ -17,9 +17,9 @@
 
 #include <linux/clk.h>
 #include <linux/component.h>
-#include <linux/iommu.h>
 #include <linux/device.h>
 #include <linux/io.h>
+#include <linux/iommu.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <soc/mediatek/smi.h>
@@ -49,6 +49,7 @@ enum mtk_iommu_plat {
 	iommu_mt6xxx_v0,
 };
 
+struct mtk_iommu_resv_iova_region;
 struct mtk_iommu_plat_data {
 	enum mtk_iommu_plat m4u_plat;
 	bool has_4gb_mode;
@@ -56,6 +57,11 @@ struct mtk_iommu_plat_data {
 	/* The larb-id may be remapped in the smi-common. */
 	bool larbid_remap_enable;
 	unsigned int larbid_in_common[MTK_LARB_NR_MAX];
+
+	/* reserve/dir-mapping iova region data */
+	const char spec_device_comp[32];
+	const unsigned int spec_cnt;
+	const struct mtk_iommu_resv_iova_region *spec_region;
 };
 
 struct mtk_iommu_domain;
