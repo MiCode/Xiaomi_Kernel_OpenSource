@@ -1,10 +1,9 @@
 config MTK_GPU_SUPPORT
-	bool "Support MTK GPU"
-	default n
+	tristate "Support MTK GPU"
 	help
 	  config supports MTK GPU driver
 	  CONFIG_MTK_GPU_SUPPORT defines
-	  The gpu driver would be built-in or not
+	  The gpu driver would be built-in, as kernel module or not supported
 	  MTK_GPU_VERSION would define the target HW IP
 
 config MTK_GPU_VERSION
