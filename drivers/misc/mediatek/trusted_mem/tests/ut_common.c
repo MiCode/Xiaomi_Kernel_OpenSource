@@ -417,7 +417,7 @@ static enum UT_RET_STATE mem_delay_after_free(enum TRUSTED_MEM_TYPE mem_type,
 	int ret;
 	int chunk_num;
 	u32 handle = 0;
-	u32 ref_count;
+	u32 ref_count = 0;
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
 
 	for (chunk_num = 0; chunk_num < alloc_cnt; chunk_num++) {
