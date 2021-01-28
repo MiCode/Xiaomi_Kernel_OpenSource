@@ -2888,7 +2888,7 @@
 
 		min_charger_voltage = <4600000>;
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <10000000>;
+		pd_vbus_upper_bound = <5000000>;
 		vsys_watt = <5000000>;
 		ibus_err = <14>;
 
