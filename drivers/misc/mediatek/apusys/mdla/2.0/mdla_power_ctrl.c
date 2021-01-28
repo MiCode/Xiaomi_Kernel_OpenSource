@@ -49,7 +49,7 @@
 #include "mdla_util.h"
 #include "mdla_power_ctrl.h"
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-#include "apusys_power_driver.h"
+#include "apusys_power.h"
 #endif
 
 /* power on/off warpper function, protected by cmd_list_lock */
