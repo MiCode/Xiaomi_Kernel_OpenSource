@@ -3353,6 +3353,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		enable_type_c;
 		power_path_support;
 		enable_dynamic_mivr;
+		disable_pd_dual;
 
 		/* common */
 		battery_cv = <4350000>;
@@ -3454,7 +3455,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 
 		/* PD */
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <12000000>;
+		pd_vbus_upper_bound = <5000000>;
 		pd_ichg_level_threshold = <1000000>; /* uA */
 		pd_stop_battery_soc = <80>;
 
