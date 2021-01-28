@@ -131,7 +131,7 @@ int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
 int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id);
 
 int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
-		int opt, void *data, int len, int retry_timeout);
+		int opt, void *data, int len, int timeout);
 int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
 		int opt, void *data, int len, unsigned long timeout);
 int mtk_ipi_recv(struct mtk_ipi_device *ipidev, int ipi_id);
