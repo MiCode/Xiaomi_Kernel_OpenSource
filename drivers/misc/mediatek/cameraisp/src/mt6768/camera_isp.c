@@ -658,11 +658,11 @@ static spinlock_t      SpinLock_P2FrameList;
 	(_MAX_SUPPORT_P2_FRAME_NUM_/_MAX_SUPPORT_P2_BURSTQ_NUM_)
 struct ISP_P2_BUFQUE_IDX_STRUCT {
 	/* starting index for frames in the ring list */
-	/*volatile */unsigned int start;
+	/*volatile */signed int start;
 	/* current index for running frame in the ring list */
-	/*volatile */unsigned int curr;
+	/*volatile */signed int curr;
 	/* ending index for frames in the ring list */
-	/*volatile */unsigned int end;
+	/*volatile */signed int end;
 };
 
 struct ISP_P2_FRAME_UNIT_STRUCT {
@@ -5402,26 +5402,11 @@ static signed int ISP_P2_BufQue_Update_ListCIdx(
 	enum ISP_P2_BUFQUE_LIST_TAG listTag)
 {
 	signed int ret = 0;
-	unsigned int tmpIdx = 0;
+	signed int tmpIdx = 0;
 	signed int cnt = 0;
 	bool stop = false;
 	int i = 0;
 	enum ISP_P2_BUF_STATE_ENUM cIdxSts = ISP_P2_BUF_STATE_NONE;
-
-	if ((property < 0) || (property >= ISP_P2_BUFQUE_PROPERTY_NUM)) {
-		pr_info("[Error] %s: Invalid property", __func__);
-		return ret;
-	}
-
-	if ((P2_FrameUnit_List_Idx[property].curr < 0) ||
-	    (P2_FrameUnit_List_Idx[property].curr
-		>= _MAX_SUPPORT_P2_FRAME_NUM_)) {
-		LOG_NOTICE(
-		"[Error] %s: Invalid P2_FrameUnit_List_Idx[property].curr",
-			__func__);
-		ret = -EFAULT;
-		return ret;
-	}
 
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
@@ -5529,24 +5514,11 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 	bool stop = false;
 	int i = 0;
 	signed int cnt = 0;
-	unsigned int tmpIdx = 0;
-
-	if ((property < 0) || (property >= ISP_P2_BUFQUE_PROPERTY_NUM)) {
-		pr_info("[Error] %s: Invalid property", __func__);
-		return ret;
-	}
+	int tmpIdx = 0;
 
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_PACKAGE:
 		tmpIdx = P2_FramePack_List_Idx[property].start;
-		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
-			pr_info("[Error] %s: Invalid idx", __func__);
-			return ret;
-		}
-		if ((tmpIdx < 0) || (tmpIdx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
-			pr_info("[Error] %s: Invalid tmpIdx", __func__);
-			return ret;
-		}
 		/* [1] clear buffer status */
 		P2_FramePackage_List[property][idx].processID = 0x0;
 		P2_FramePackage_List[property][idx].callerID = 0x0;
@@ -5594,14 +5566,6 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 		break;
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
 		tmpIdx = P2_FrameUnit_List_Idx[property].start;
-		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
-			pr_info("[Error] %s: Invalid idx", __func__);
-			return ret;
-		}
-		if ((tmpIdx < 0) || (tmpIdx >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
-			pr_info("[Error] %s: Invalid tmpIdx", __func__);
-			return ret;
-		}
 		/* [1] clear buffer status */
 		P2_FrameUnit_List[property][idx].processID = 0x0;
 		P2_FrameUnit_List[property][idx].callerID = 0x0;
@@ -5669,13 +5633,13 @@ static signed int ISP_P2_BufQue_GetMatchIdx(struct ISP_P2_BUFQUE_STRUCT param,
 {
 	int idx = -1;
 	int i = 0;
-	int property = param.property;
+	int property;
 
-	if ((property >= ISP_P2_BUFQUE_PROPERTY_NUM) ||
-	    (property < 0)) {
+	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_NOTICE("property err(%d)\n", param.property);
 		return idx;
 	}
+	property = param.property;
 
 	switch (matchType) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
@@ -5879,23 +5843,18 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 		enum ISP_P2_BUFQUE_MATCH_TYPE type, signed int *idx)
 {
 	unsigned int ret = MFALSE;
-	unsigned int index = 0;
-	enum ISP_P2_BUFQUE_PROPERTY property = param.property;
+	signed int index = -1;
+	enum ISP_P2_BUFQUE_PROPERTY property;
 
-	if ((property >= ISP_P2_BUFQUE_PROPERTY_NUM) ||
-	    (property < 0)) {
+	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_NOTICE("property err(%d)\n", param.property);
 		return ret;
 	}
-
+	property = param.property;
 	/*  */
 	switch (type) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
 		index = *idx;
-		if ((index < 0) || (index >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
-			LOG_NOTICE("[Error] %s: Invalid index", __func__);
-			return ret;
-		}
 		spin_lock(&(SpinLock_P2FrameList));
 		if (P2_FrameUnit_List[property][index].bufSts ==
 		    ISP_P2_BUF_STATE_RUNNING)
@@ -5905,10 +5864,6 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 		break;
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		index = *idx;
-		if ((index < 0) || (index >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
-			LOG_NOTICE("[Error] %s: Invalid index", __func__);
-			return ret;
-		}
 		spin_lock(&(SpinLock_P2FrameList));
 		if (P2_FramePackage_List[property][index].dequedNum ==
 		    P2_FramePackage_List[property][index].frameNum)
@@ -5958,14 +5913,14 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 	int i = 0, q = 0;
 	int idx =  -1, idx2 =  -1;
 	signed int restTime = 0;
-	int property = param.property;
+	int property;
 
-	if ((property >= ISP_P2_BUFQUE_PROPERTY_NUM) ||
-	    (property < 0)) {
+	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
 		LOG_NOTICE("property err(%d)\n", param.property);
 		ret = -EFAULT;
 		return ret;
 	}
+	property = param.property;
 
 	switch (param.ctrl) {
 	/* signal that a specific buffer is enqueued */
@@ -6217,7 +6172,7 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 		idx2 = ISP_P2_BufQue_GetMatchIdx(param,
 				ISP_P2_BUFQUE_MATCH_TYPE_FRAMEOP,
 				ISP_P2_BUFQUE_LIST_TAG_UNIT);
-		if ((idx2 < 0) || (idx2 >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
+		if (idx2 == -1) {
 			spin_unlock(&(SpinLock_P2FrameList));
 			LOG_NOTICE(
 				"ERRRRRRRRRRR findmatch index 2 fail (%d_0x%x_0x%x_%d, %d_%d)",
@@ -6237,7 +6192,7 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 		idx = ISP_P2_BufQue_GetMatchIdx(param,
 			ISP_P2_BUFQUE_MATCH_TYPE_FRAMEOP,
 			ISP_P2_BUFQUE_LIST_TAG_PACKAGE);
-		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
+		if (idx == -1) {
 			spin_unlock(&(SpinLock_P2FrameList));
 			LOG_NOTICE(
 			"ERRRRRRRRRRR findmatch index 1 fail (%d_0x%x_0x%x_%d, %d_%d)",
@@ -6297,11 +6252,6 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 		pr_info("ISP_P2_BUFQUE_CTRL_WAIT_FRAME, after pty/pID/cID (%d/0x%x/0x%x),idx(%d)",
 		property, param.processID, param.callerID, idx);
 #endif
-		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
-			LOG_NOTICE("[Error] %s: Invalid idx", __func__);
-			ret =  -EFAULT;
-			return ret;
-		}
 		spin_lock(&(SpinLock_P2FrameList));
 		/* [2]check the buffer is dequeued or not */
 		if (P2_FramePackage_List[property][idx].dequedNum ==
