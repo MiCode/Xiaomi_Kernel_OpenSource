@@ -122,6 +122,7 @@ static void wk_auxadc_dbg_dump(void)
 {
 	unsigned char reg_log[861] = "", reg_str[21] = "";
 	unsigned short i, j;
+	unsigned int len = 0;
 	static unsigned char dbg_stamp;
 	static struct pmic_adc_dbg_st pmic_adc_dbg[4];
 
@@ -151,9 +152,9 @@ static void wk_auxadc_dbg_dump(void)
 					reg_log);
 				strncpy(reg_log, "", 860);
 			}
-			snprintf(reg_str, 20, "Reg[0x%x]=0x%x, ",
-				adc_dbg_addr[j],
-				pmic_adc_dbg[dbg_stamp].reg[j]);
+			len += snprintf(reg_str, 20, "Reg[0x%x]=0x%x, ",
+					adc_dbg_addr[j],
+					pmic_adc_dbg[dbg_stamp].reg[j]);
 			strncat(reg_log, reg_str, 860);
 		}
 		pr_notice("%d %s\n\n",
