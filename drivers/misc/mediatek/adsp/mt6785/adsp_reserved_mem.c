@@ -182,6 +182,7 @@ void adsp_update_mpu_memory_info(struct adsp_priv *pdata)
 {
 	struct adsp_mpu_info_t mpu_info;
 
+	memset(&mpu_info, 0, sizeof(struct adsp_mpu_info_t));
 	adsp_copy_from_sharedmem(pdata, ADSP_SHAREDMEM_MPUINFO,
 		&mpu_info, sizeof(struct adsp_mpu_info_t));
 
