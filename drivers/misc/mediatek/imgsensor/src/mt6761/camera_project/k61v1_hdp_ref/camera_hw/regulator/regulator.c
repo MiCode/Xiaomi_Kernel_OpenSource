@@ -14,9 +14,17 @@
 #include <asm/siginfo.h>
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
+#include <linux/regulator/driver.h>
+#include "../../../../../../../../../../drivers/regulator/internal.h"
+#include "kd_imgsensor.h"
 #include <linux/notifier.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sched/signal.h>
+#include <linux/mfd/mt6397/core.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/regmap.h>
+#include <linux/mfd/mt6357/registers.h>
 
 struct reg_oc_debug_t {
 	const char *name;
@@ -55,7 +63,7 @@ struct REGULATOR_CTRL regulator_control[REGULATOR_TYPE_MAX_NUM] = {
 };
 
 static struct REGULATOR reg_instance;
-
+struct regmap *g_regmap;
 static int regulator_oc_notify(
 	struct notifier_block *nb, unsigned long event, void *data)
 {
@@ -171,6 +179,10 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 	struct REGULATOR *preg = (struct REGULATOR *)pinstance;
 	struct device            *pdevice;
 	struct device_node       *pof_node;
+	struct device_node	 *pmic_node;
+	struct platform_device	 *pmic_pdev;
+	struct mt6397_chip	 *chip;
+
 	int j, i;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
 
@@ -184,7 +196,26 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 		pdevice->of_node = pof_node;
 		return IMGSENSOR_RETURN_ERROR;
 	}
-
+	pmic_node = of_parse_phandle(pdevice->of_node, "pmic", 0);
+	if (!pmic_node)	{
+		pr_info("regulator get pmic_node fail!\n");
+		return IMGSENSOR_RETURN_ERROR;
+	}
+	pmic_pdev = of_find_device_by_node(pmic_node);
+	if (!pmic_pdev)	{
+		pr_info("get pmic_pdev fail!\n");
+		return IMGSENSOR_RETURN_ERROR;
+	}
+	chip = dev_get_drvdata(&(pmic_pdev->dev));
+	if (!chip)	{
+		pr_info("get chip fail!\n");
+		return IMGSENSOR_RETURN_ERROR;
+	}
+	g_regmap = chip->regmap;
+	if (IS_ERR_VALUE(g_regmap)) {
+		g_regmap = NULL;
+		pr_info("get g_regmap fail\n");
+	}
 	for (j = IMGSENSOR_SENSOR_IDX_MIN_NUM;
 		j < IMGSENSOR_SENSOR_IDX_MAX_NUM;
 		j++) {
@@ -246,6 +277,7 @@ static enum IMGSENSOR_RETURN regulator_set(
 	struct regulator     *pregulator;
 	struct REGULATOR     *preg = (struct REGULATOR *)pinstance;
 	int reg_type_offset;
+	int regval;
 	atomic_t             *enable_cnt;
 
 
@@ -265,7 +297,8 @@ static enum IMGSENSOR_RETURN regulator_set(
 
 	if (pregulator) {
 		if (pin_state != IMGSENSOR_HW_PIN_STATE_LEVEL_0) {
-
+			unsigned int voltage = regulator_voltage[
+				pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0];
 			if (regulator_set_voltage(
 				pregulator,
 				regulator_voltage[
@@ -278,6 +311,18 @@ static enum IMGSENSOR_RETURN regulator_set(
 				    pin,
 				    regulator_voltage[
 				   pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
+			}
+			if (voltage == REGULATOR_VOLTAGE_1290 &&
+						sensor_idx == 1) {
+				pr_info("set_sub_sensor vcamd to %dmV\n",
+						voltage/1000);
+				regmap_write(g_regmap, MT6357_VCAMD_ANA_CON0,
+						0x609);
+				regmap_read(g_regmap, MT6357_VCAMD_ANA_CON0,
+						&regval);
+				if (regval == 0x609)
+					pr_info("set vcamd to %dmV success!\n",
+							voltage/1000);
 			}
 			if (regulator_enable(pregulator)) {
 				pr_info(
