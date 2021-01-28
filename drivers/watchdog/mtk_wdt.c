@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/of_platform.h>
 #include <dt-bindings/soc/mediatek,boot-mode.h>
+#include <asm/system_misc.h>
 
 #define WDT_MAX_TIMEOUT		31
 #define WDT_MIN_TIMEOUT		1
@@ -195,7 +196,7 @@ static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 	else if (cmd && !strcmp(cmd, "recovery"))
 		nonrst2 |= BOOT_RECOVERY;
 	else if (cmd && !strcmp(cmd, "bootloader"))
-		nonrst2 |= BOOT_BOOTLOADER;
+		nonrst2 |= (1 << (BOOT_BOOTLOADER - 1));
 	else if (cmd && !strcmp(cmd, "dm-verity device corrupted"))
 		nonrst2 |= BOOT_DM_VERITY | WDT_BYPASS_PWR_KEY;
 	else if (cmd && !strcmp(cmd, "kpoc"))
@@ -207,6 +208,8 @@ static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 
 	if ((nonrst2 & RGU_REBOOT_MASK) == BOOT_DDR_RSVD)
 		mode |= WDT_MODE_DDR_RSVD;
+
+	mode &= ~(WDT_MODE_DUAL_EN | WDT_MODE_IRQ_EN);
 
 	writel(WDT_MODE_KEY | mode, wdt_base + WDT_MODE);
 	writel(nonrst2, wdt_base + WDT_NONRST2);
@@ -347,6 +350,8 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	err = watchdog_register_device(&mtk_wdt->wdt_dev);
 	if (unlikely(err))
 		return err;
+
+	arm_pm_restart = NULL;
 
 	/* register reset controller for reset source setting */
 	mtk_wdt->rcdev.owner = THIS_MODULE;
