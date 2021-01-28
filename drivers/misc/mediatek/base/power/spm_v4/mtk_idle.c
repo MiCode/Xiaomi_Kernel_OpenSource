@@ -470,7 +470,8 @@ static void enable_idle_by_mask(int idle_type, int grp, unsigned int mask)
 {
 	unsigned long flags;
 
-	if (!(idle_type >= 0 && idle_type < NR_TYPES))
+	if (!((idle_type >= 0 && idle_type < NR_TYPES) &&
+		(grp >= 0 && grp < NR_GRPS)))
 		return;
 	spin_lock_irqsave(&idle_condition_mask_spin_lock, flags);
 	idle_condition_mask[idle_type][grp] &= ~mask;
@@ -481,7 +482,8 @@ static void disable_idle_by_mask(int idle_type, int grp, unsigned int mask)
 {
 	unsigned long flags;
 
-	if (!(idle_type >= 0 && idle_type < NR_TYPES))
+	if (!((idle_type >= 0 && idle_type < NR_TYPES) &&
+		(grp >= 0 && grp < NR_GRPS)))
 		return;
 	spin_lock_irqsave(&idle_condition_mask_spin_lock, flags);
 	idle_condition_mask[idle_type][grp] |= mask;
