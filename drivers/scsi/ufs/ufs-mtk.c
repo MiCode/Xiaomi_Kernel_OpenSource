@@ -2270,6 +2270,9 @@ static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 		ufshcd_writel(hba, 0, REG_AUTO_HIBERNATE_IDLE_TIMER);
 
 		ufs_mtk_auto_hibern8_enabled = false;
+
+		/* wait host return to idle state when ah8 off */
+		ufs_mtk_wait_idle_state(hba, 5);
 	}
 }
 
@@ -2292,6 +2295,45 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 	}
 
 	return 0;
+}
+
+void ufs_mtk_wait_idle_state(struct ufs_hba *hba,
+			    unsigned long retry_ms)
+{
+	u64 timeout, time_checked;
+	u32 val, sm;
+	bool wait_idle;
+
+	timeout = sched_clock() + retry_ms * 1000000UL;
+
+	/* wait a specific time after check base */
+	udelay(10);
+	wait_idle = false;
+
+	do {
+		time_checked = sched_clock();
+		ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
+		val = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
+
+		sm = val & 0x1f;
+
+		/*
+		 * if state is in H8 enter and H8 enter confirm
+		 * wait until return to idle state.
+		 */
+		if ((sm >= 0x8) && (sm <= 0xd)) {
+			wait_idle = true;
+			udelay(50);
+			continue;
+		} else if (!wait_idle)
+			break;
+
+		if (wait_idle && (sm == 0x1))
+			break;
+	} while (time_checked < timeout);
+
+	if (wait_idle && sm != 1)
+		dev_info(hba->dev, "wait idle tmo: 0x%x\n", val);
 }
 
 int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
