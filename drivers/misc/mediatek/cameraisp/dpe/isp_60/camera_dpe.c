@@ -75,10 +75,11 @@
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <mach/mt_iommu.h>
+#include "mach/pseudo_m4u.h"
 #else /* CONFIG_MTK_IOMMU_V2 */
 #include <m4u.h>
 #endif /* CONFIG_MTK_IOMMU_V2 */
-#include "mach/pseudo_m4u.h"
+
 
 #include <smi_public.h>
 #include "engine_request.h"
@@ -1411,16 +1412,19 @@ void DPE_Config_DVS(struct DPE_Config *pDpeConfig,
 	unsigned int pitch = pDpeConfig->Dpe_DVSSettings.pitch >> 4;
 
 	LOG_INF(
-	"DVS param: frm w/h(%d/%d), engStart X_L/X_R/Y(%d/%d/%d), eng w/h(%d/%d), occ w(%d), occ startX(%d), pitch(%d), main eye(%d), 16bit mode(%d), sbf/conf/occ_en(%d/%d/%d)\n",
+	"DVS param: frm w/h(%d/%d), engStart X_L/X_R/Y(%d/%d/%d), eng w/h(%d/%d), occ w(%d), occ startX(%d), pitch(%d), main eye(%d), 16bit mode(%d), sbf/conf/occ_en(%d/%d/%d), Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x)\n",
 	frmWidth, frmHeight, L_engStartX, R_engStartX, engStartY,
 	engWidth, engHeight, occWidth, occStartX, pitch,
 	pDpeConfig->Dpe_DVSSettings.mainEyeSel, pDpeConfig->Dpe_is16BitMode,
 	pDpeConfig->Dpe_DVSSettings.SubModule_EN.sbf_en,
 	pDpeConfig->Dpe_DVSSettings.SubModule_EN.conf_en,
-	pDpeConfig->Dpe_DVSSettings.SubModule_EN.occ_en);
+	pDpeConfig->Dpe_DVSSettings.SubModule_EN.occ_en,
+	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
+	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
+	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
 
 	LOG_DBG(
-	"Dpe_InBuf_SrcImg_Y_L: (0x%lx), Dpe_InBuf_SrcImg_Y_R(0x%lx), Dpe_InBuf_ValidMap_L(0x%lx), Dpe_InBuf_ValidMap_R(0x%lx), Dpe_OutBuf_CONF(0x%lx), Dpe_OutBuf_OCC(0x%lx)\n",
+	"Dpe_InBuf_SrcImg_Y_L: (0x%08x), Dpe_InBuf_SrcImg_Y_R(0x%08x), Dpe_InBuf_ValidMap_L(0x%08x), Dpe_InBuf_ValidMap_R(0x%08x), Dpe_OutBuf_CONF(0x%08x), Dpe_OutBuf_OCC(0x%08x)\n",
 	pDpeConfig->Dpe_InBuf_SrcImg_Y_L, pDpeConfig->Dpe_InBuf_SrcImg_Y_R,
 	pDpeConfig->Dpe_InBuf_ValidMap_L, pDpeConfig->Dpe_InBuf_ValidMap_R,
 	pDpeConfig->Dpe_OutBuf_CONF, pDpeConfig->Dpe_OutBuf_OCC);
@@ -1634,10 +1638,14 @@ void DPE_Config_DVP(struct DPE_Config *pDpeConfig,
 	engStart_offset_C = engStart_offset_Y >> 1;
 
 	LOG_INF(
-	"DVP param: frm w/h(%d/%d), engstart X/Y(%d/%d), eng w/h(%d/%d), occ w/h(%d/%d), occstart X/Y(%d/%d), pitch(%d), eng start offset Y/C(0x%x/0x%x)\n",
+	"DVP param: frm w/h(%d/%d), engstart X/Y(%d/%d), eng w/h(%d/%d), occ w/h(%d/%d), occstart X/Y(%d/%d), pitch(%d), eng start offset Y/C(0x%x/0x%x), Dpe_InBuf_SrcImg_Y: (0x%08x), Dpe_InBuf_SrcImg_C(0x%08x), Dpe_InBuf_OCC(0x%08x), Dpe_OutBuf_CRM(0x%08x), Dpe_OutBuf_ASF_RD(0x%08x), Dpe_OutBuf_ASF_HF(0x%08x), DVP_SRC_18_ASF_RMDV(0x%lx)\n",
 	frmWidth, frmHeight, engStartX, engStartY, engWidth, engHeight,
 	occWidth, occHeight, occStartX, occStartY, pitch,
-	engStart_offset_Y, engStart_offset_C);
+	engStart_offset_Y, engStart_offset_C,
+	pDpeConfig->Dpe_InBuf_SrcImg_Y, pDpeConfig->Dpe_InBuf_SrcImg_C,
+	pDpeConfig->Dpe_InBuf_OCC, pDpeConfig->Dpe_OutBuf_CRM,
+	pDpeConfig->Dpe_OutBuf_ASF_RD, pDpeConfig->Dpe_OutBuf_ASF_HF,
+	((uintptr_t)g_dpewb_asfrm_Buffer_pa & 0xffffffff));
 
 	if ((occWidth % 16 != 0))
 		LOG_ERR("occ width is not 16 byte align w (%d)\n", occWidth);
@@ -4209,6 +4217,14 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	/*  */
 
+	LOG_INF(
+	"g_dpewb_dvme_int_Buffer_pa(0x%lx), g_dpewb_cost_int_Buffer_pa(0x%lx), g_dpewb_asfrm_Buffer_pa(0x%lx), g_dpewb_asfrmext_Buffer_pa(0x%lx), g_dpewb_wmfhf_Buffer_pa(0x%lx)\n",
+	((uintptr_t)g_dpewb_dvme_int_Buffer_pa & 0xffffffff),
+	((uintptr_t)g_dpewb_cost_int_Buffer_pa & 0xffffffff),
+	((uintptr_t)g_dpewb_asfrm_Buffer_pa & 0xffffffff),
+	((uintptr_t)g_dpewb_asfrmext_Buffer_pa & 0xffffffff),
+	((uintptr_t)g_dpewb_wmfhf_Buffer_pa & 0xffffffff));
+
 /*#define KERNEL_LOG*/
 #ifdef KERNEL_LOG
     /* In EP, Add DPE_DBG_WRITE_REG for debug. Should remove it after EP */
@@ -5408,6 +5424,32 @@ static const struct file_operations dpe_reg_proc_fops = {
 	.write = dpe_reg_write,
 };
 
+/**************************************************************
+ *
+ **************************************************************/
+#ifdef CONFIG_MTK_IOMMU_V2
+enum mtk_iommu_callback_ret_t DPE_M4U_TranslationFault_callback(int port,
+	unsigned long mva, void *data)
+#else
+enum m4u_callback_ret_t DPE_M4U_TranslationFault_callback(int port,
+	unsigned int mva, void *data)
+#endif
+{
+
+	pr_info("[ISP_M4U]fault call port=%d, mva=0x%lx", port, mva);
+
+	switch (port) {
+	default:
+		DPE_DumpReg();
+	break;
+	}
+#ifdef CONFIG_MTK_IOMMU_V2
+	return MTK_IOMMU_CALLBACK_HANDLED;
+#else
+	return M4U_CALLBACK_HANDLED;
+#endif
+}
+
 
 /*******************************************************************************
  *
@@ -5544,6 +5586,48 @@ static signed int __init DPE_Init(void)
 			   DPE_DumpCallback, DPE_ResetCallback,
 							DPE_ClockOffCallback);
 #endif
+
+#ifdef CONFIG_MTK_IOMMU_V2
+	#if (MTK_DPE_VER == 0)
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVP_WDMA_DISP,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVP_RDMA_DISP,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVS_WDMA_DISP,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVS_RDMA_DISP,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	#else
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVP_WDMA,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVP_RDMA,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVS_WDMA,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	mtk_iommu_register_fault_callback(M4U_PORT_L19_IPE_DVS_RDMA,
+					  DPE_M4U_TranslationFault_callback,
+					  NULL);
+	#endif
+#else
+	#if (MTK_DPE_VER == 0)
+	m4u_register_fault_callback(M4U_PORT_DVS_RDMA,
+			DPE_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_DVS_WDMA,
+			DPE_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_DVP_RDMA,
+			DPE_M4U_TranslationFault_callback, NULL);
+	m4u_register_fault_callback(M4U_PORT_DVP_WDMA,
+			DPE_M4U_TranslationFault_callback, NULL);
+	#endif
+#endif
+
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
 }
