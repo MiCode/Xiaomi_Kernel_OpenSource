@@ -279,6 +279,7 @@ struct wakeup_source DPE_wake_lock;
 
 static DEFINE_MUTEX(gDpeMutex);
 static DEFINE_MUTEX(gDpeDequeMutex);
+static DEFINE_MUTEX(MutexDPERef);
 
 #ifdef CONFIG_OF
 
@@ -427,7 +428,6 @@ struct DPE_IRQ_INFO_STRUCT {
 };
 
 struct DPE_INFO_STRUCT {
-	spinlock_t SpinLockDPERef;
 	spinlock_t SpinLockDPE;
 	spinlock_t SpinLockIrq[DPE_IRQ_TYPE_AMOUNT];
 	wait_queue_head_t WaitQueueHead;
@@ -3020,13 +3020,13 @@ static inline void DPE_Reset(void)
 	LOG_DBG("- E.");
 
 	LOG_DBG(" DPE Reset start!\n");
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 
 	if (DPEInfo.UserCount > 1) {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Curr UserCount(%d) users exist", DPEInfo.UserCount);
 	} else {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 
 		/* Reset DPE flow */
 		DPE_MASKWR(DVS_CTRL01_REG, 0x70000000, 0x70000000);
@@ -4147,8 +4147,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 
 
 	/*  */
-	spin_lock(&(DPEInfo.SpinLockDPERef));
-
+	mutex_lock(&(MutexDPERef));
 	pFile->private_data = NULL;
 	pFile->private_data = kmalloc(sizeof(struct DPE_USER_INFO_STRUCT),
 								GFP_ATOMIC);
@@ -4157,6 +4156,8 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 								current->comm,
 						current->pid, current->tgid);
 		Ret = -ENOMEM;
+		mutex_unlock(&(MutexDPERef));
+		goto EXIT;
 	} else {
 		pUserInfo = (struct DPE_USER_INFO_STRUCT *) pFile->private_data;
 		pUserInfo->Pid = DPEInfo.UserCount;
@@ -4165,14 +4166,13 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	/*  */
 	if (DPEInfo.UserCount > 0) {
 		DPEInfo.UserCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
 	} else {
 		DPEInfo.UserCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
 
 		/* do wait queue head init when re-enter in camera */
 		/*  */
@@ -4211,6 +4211,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		/*  */
 		dpe_register_requests(&dpe_reqs, sizeof(struct DPE_Config));
 		dpe_set_engine_ops(&dpe_reqs, &dpe_ops);
+		mutex_unlock(&(MutexDPERef));
 
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
 			DPEInfo.UserCount, current->comm, current->pid,
@@ -4267,18 +4268,18 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		pFile->private_data = NULL;
 	}
 	/*  */
-	spin_lock(&(DPEInfo.SpinLockDPERef));
+	mutex_lock(&(MutexDPERef));
 	DPEInfo.UserCount--;
 
 	if (DPEInfo.UserCount > 0) {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		LOG_DBG("Cur UsrCnt(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
 		goto EXIT;
 	} else {
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
 		dpe_unregister_requests(&dpe_reqs);
+		mutex_unlock(&(MutexDPERef));
 	}
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
@@ -4825,7 +4826,6 @@ if (DPE_dev->irq > 0) {
 #endif
 
 		/* Init spinlocks */
-		spin_lock_init(&(DPEInfo.SpinLockDPERef));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
 		for (n = 0; n < DPE_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(DPEInfo.SpinLockIrq[n]));
@@ -4848,9 +4848,9 @@ if (DPE_dev->irq > 0) {
 
 
 		/* Init DPEInfo */
-		spin_lock(&(DPEInfo.SpinLockDPERef));
+		mutex_lock(&(MutexDPERef));
 		DPEInfo.UserCount = 0;
-		spin_unlock(&(DPEInfo.SpinLockDPERef));
+		mutex_unlock(&(MutexDPERef));
 		/*  */
 		DPEInfo.IrqInfo.Mask[DPE_IRQ_TYPE_INT_DVP_ST] = INT_ST_MASK_DPE;
 
