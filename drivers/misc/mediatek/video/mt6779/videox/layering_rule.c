@@ -26,7 +26,8 @@
 #include "lcm_drv.h"
 #include "ddp_ovl_wcg.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mmqos_wrapper.h"
+#include "mmdvfs_mgr.h"
+#include "mmdvfs_pmqos.h"
 #endif
 
 static struct layering_rule_ops l_rule_ops;
@@ -599,7 +600,7 @@ int layering_get_valid_hrt(void)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long tmp;
 
-	dvfs_bw = mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP);
+	dvfs_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
 	dvfs_bw *= 10000;
 
 	tmp = layering_get_frame_bw();
@@ -613,7 +614,8 @@ int layering_get_valid_hrt(void)
 	}
 
 	DISPINFO("get avail HRT BW:%u : %llu %llu\n",
-		mm_hrt_get_available_hrt_bw(PORT_VIRTUAL_DISP), dvfs_bw, tmp);
+		mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP)),
+		dvfs_bw, tmp);
 #endif
 
 	return dvfs_bw;

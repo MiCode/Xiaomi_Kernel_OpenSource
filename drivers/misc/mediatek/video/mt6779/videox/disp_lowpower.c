@@ -23,8 +23,10 @@
 #include "mtk_idle.h"
 #endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
+#include "mt-plat/mtk_smi.h"
+#include "mtk_smi.h"
 #include "disp_pm_qos.h"
-#include "mmqos_wrapper.h"
+#include "mmdvfs_pmqos.h"
 #endif
 #if defined(CONFIG_MTK_M4U)
 #include "m4u.h"
@@ -884,11 +886,15 @@ static void _cmd_mode_enter_idle(void)
 		; /* leave_share_sram(CMDQ_SYNC_RESOURCE_WROT0); */
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	/* update bandwidth first, then disable clk */
+	/* update bandwidth */
 	disp_pm_qos_set_default_bw(&bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
-	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
+	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
+		prim_disp_request_hrt_bw(HRT_BW_UNREQ,
 			DDP_SCENARIO_PRIMARY_DISP, __func__);
+	else
+		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
+					  HRT_LEVEL_LEVEL0);
 #endif
 
 	/* please keep last */
@@ -903,19 +909,33 @@ static void _cmd_mode_leave_idle(void)
 	unsigned int in_fps = 60;
 	unsigned int out_fps = 60;
 	int stable = 0;
+	enum DDP_SCENARIO_ENUM scen = 0;
+	int overlap_num = 0;
 
-	enum DDP_SCENARIO_ENUM scen =
-	    (primary_display_is_decouple_mode()) ?
-	    DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP :
-	    DDP_SCENARIO_PRIMARY_DISP;
-	int overlap_num = (primary_display_is_decouple_mode()) ? 2 :
-	    primary_display_get_dvfs_last_req();
+	DISPDBG("[LP]%s\n", __func__);
+
+	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1) {
+		scen = (primary_display_is_decouple_mode()) ?
+		    DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP :
+		    DDP_SCENARIO_PRIMARY_DISP;
+		overlap_num = (primary_display_is_decouple_mode()) ? 2 :
+		    primary_display_get_dvfs_last_req();
+
+		prim_disp_request_hrt_bw(overlap_num, scen, __func__);
+	} else
+		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
+				primary_display_get_dvfs_last_req());
 #endif
 
 	DISPDBG("[LP]%s\n", __func__);
 
 	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS))
 		_primary_display_enable_mmsys_clk();
+
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	if (disp_helper_get_option(DISP_OPT_HRT_MODE) == 1)
+		prim_disp_request_hrt_bw(overlap_num, scen, __func__);
+#endif
 
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		; /* enter_share_sram(CMDQ_SYNC_RESOURCE_WROT0); */
@@ -943,6 +963,23 @@ void primary_display_idlemgr_leave_idle_nolock(void)
 		_vdo_mode_leave_idle();
 	else
 		_cmd_mode_leave_idle();
+}
+
+int primary_display_request_dvfs_perf(int scenario, int req)
+{
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	if (primary_get_state() == DISP_SLEPT) {
+		DISPMSG("%s:already slept (%d)\n", __func__,
+			atomic_read(&dvfs_ovl_req_status));
+		return 0;
+	}
+
+	if (req != atomic_read(&dvfs_ovl_req_status)) {
+		disp_pm_qos_request_dvfs(req);
+		atomic_set(&dvfs_ovl_req_status, req);
+	}
+#endif
+	return 0;
 }
 
 unsigned long long disp_lp_set_idle_check_interval(

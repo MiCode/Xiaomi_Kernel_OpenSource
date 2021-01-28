@@ -13,8 +13,17 @@
 #include "disp_drv_log.h"
 #include "disp_drv_platform.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mmqos_wrapper.h"
+#include "mmdvfs_pmqos.h"
 #endif
+
+#if IS_ENABLED(CONFIG_MTK_PMQOS)
+#include "linux/soc/mediatek/mtk-pm-qos.h"
+#endif
+
+#ifdef CONFIG_MTK_SMI_EXT
+#include "smi_port.h"
+#endif
+
 #if defined(CONFIG_MTK_CMDQ)
 #include "cmdq_def.h"
 #include "cmdq_record.h"
@@ -25,7 +34,7 @@
 #define OCCUPIED_BW_RATIO 1330
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-static struct list_head bw_request_list;  /* all module list */
+static struct plist_head bw_request_list;  /* all module list */
 static struct mm_qos_request ovl0_request;
 static struct mm_qos_request ovl0_fbdc_request;
 static struct mm_qos_request ovl0_2l_request;
@@ -33,7 +42,8 @@ static struct mm_qos_request ovl0_2l_fbdc_request;
 static struct mm_qos_request rdma0_request;
 static struct mm_qos_request wdma0_request;
 
-static struct list_head hrt_request_list;
+static struct mtk_pm_qos_request mm_freq_request;
+static struct plist_head hrt_request_list;
 static struct mm_qos_request ovl0_hrt_request;
 static struct mm_qos_request ovl0_2l_hrt_request;
 static struct mm_qos_request rdma0_hrt_request;
@@ -80,9 +90,8 @@ void disp_pm_qos_init(void)
 	__init_cmdq_slots(&(dispsys_slot), DISP_SLOT_NUM, 0);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#if IS_ENABLED(CONFIG_INTERCONNECT_MTK_MMQOS_MT6779)
 	/* Initialize owner list */
-	INIT_LIST_HEAD(&bw_request_list);
+	plist_head_init(&bw_request_list);
 
 	mm_qos_add_request(&bw_request_list, &ovl0_request,
 			   SMI_PORT_DISP_OVL0);
@@ -96,8 +105,10 @@ void disp_pm_qos_init(void)
 			   SMI_PORT_DISP_RDMA0);
 	mm_qos_add_request(&bw_request_list, &wdma0_request,
 			   SMI_PORT_DISP_WDMA0);
+	mtk_pm_qos_add_request(&mm_freq_request, PM_QOS_DISP_FREQ,
+			   PM_QOS_MM_FREQ_DEFAULT_VALUE);
 
-	INIT_LIST_HEAD(&hrt_request_list);
+	plist_head_init(&hrt_request_list);
 
 	mm_qos_add_request(&hrt_request_list, &ovl0_hrt_request,
 			   SMI_PORT_DISP_OVL0);
@@ -108,8 +119,7 @@ void disp_pm_qos_init(void)
 	mm_qos_add_request(&hrt_request_list, &wdma0_hrt_request,
 			   SMI_PORT_DISP_WDMA0);
 	mm_qos_add_request(&hrt_request_list, &hrt_bw_request,
-			   PORT_VIRTUAL_DISP);
-#endif
+			   get_virtual_port(VIRTUAL_DISP));
 #endif
 
 	disp_pm_qos_set_default_bw(&bandwidth);
@@ -121,7 +131,17 @@ void disp_pm_qos_deinit(void)
 {
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	mm_qos_remove_all_request(&bw_request_list);
+	mtk_pm_qos_remove_request(&mm_freq_request);
 #endif
+}
+
+/* Display will not request DVFS directly.
+ * So, This Api may be useless......
+ * However, at port stage, still add it but return 0.
+ */
+int disp_pm_qos_request_dvfs(enum HRT_LEVEL hrt)
+{
+	return 0;
 }
 
 static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
@@ -149,8 +169,6 @@ static int __set_hrt_bw(enum DISP_MODULE_ENUM module,
 		return -1;
 	}
 
-	if (bandwidth)
-		bandwidth = MTK_MMQOS_MAX_BW;
 	mm_qos_set_hrt_request(request, bandwidth);
 #endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_hrt_bw,

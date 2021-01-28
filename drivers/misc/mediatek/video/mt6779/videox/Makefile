@@ -75,11 +75,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/		\
              -I$(srctree)/drivers/misc/mediatek/base/power/include	\
              -I$(srctree)/drivers/misc/mediatek/base/power/include/spm_v2 \
              -I$(srctree)/drivers/misc/mediatek/smi/			\
+             -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
              -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/	\
-	     -I$(srctree)/drivers/misc/mediatek/mmqos/	\
              -I$(srctree)/drivers/devfreq/	\
-             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+             -I$(srctree)/drivers/misc/mediatek/include/mt-plat/ \
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 
 ifeq ($(CONFIG_MTK_ION),y)
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion \
@@ -130,7 +131,4 @@ ifeq ($(CONFIG_MACH_MT6779), y)
     ccflags-y += -DCONFIG_MACH_MT6779
 endif
 
-ifeq ($(CONFIG_INTERCONNECT_MTK_MMQOS_MT6779), m)
-    ccflags-y += -DNOT_USE_MMQOS
-endif
 
