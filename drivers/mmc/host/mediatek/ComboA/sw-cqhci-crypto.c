@@ -39,6 +39,7 @@ static int set_crypto(struct msdc_host *host,
 	}
 	default:
 		pr_notice("msdc unknown aes mode 0x%x\n", aes_mode_current);
+		msdc_dump_info(NULL, 0, NULL, host->id);
 		WARN_ON(1);
 		return -EINVAL;
 	}
@@ -107,6 +108,9 @@ static void msdc_crypto_program_key(struct mmc_host *host,
 
 	/* write AES config */
 	MSDC_SET_BIT32(ll_host->base + MSDC_AES_CFG_GP1, config);
+
+	if (!(readl(ll_host->base + MSDC_AES_CFG_GP1)))
+		pr_notice("%s write config fail %d!!\n", __func__, config);
 
 	/* IV */
 	for (i = 0; i < 4; i++)
