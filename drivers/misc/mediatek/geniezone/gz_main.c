@@ -1234,21 +1234,21 @@ us_map_fail:
 	return cret;
 }
 
-int gz_adjust_wq_attr(struct gz_manual_wq_attr *manual_wq_attr)
+int gz_adjust_task_attr(struct trusty_task_attr *manual_task_attr)
 {
 	if (IS_ERR_OR_NULL(tz_system_dev)) {
 		KREE_ERR("GZ KREE is still not initialized!\n");
 		return -EINVAL;
 	}
 
-	return trusty_adjust_wq_attr(tz_system_dev->dev.parent, manual_wq_attr);
+	return trusty_adjust_task_attr(tz_system_dev->dev.parent, manual_task_attr);
 }
 
 TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
 {
 	int err;
 	char str[32];
-	struct gz_manual_wq_attr manual_wq_attr;
+	struct trusty_task_attr manual_task_attr;
 
 	err = copy_from_user(&str, user_req, sizeof(str));
 	if (err < 0) {
@@ -1259,25 +1259,22 @@ TZ_RESULT gz_manual_adjust_trusty_wq_attr(char __user *user_req)
 	str[31] = '\0';
 	KREE_DEBUG("%s cmd=%s\n", __func__, str);
 
-	memset(&manual_wq_attr, 0, sizeof(manual_wq_attr));
+	memset(&manual_task_attr, 0, sizeof(manual_task_attr));
 	err = sscanf(str, "0x%x %d 0x%x %d",
-			&manual_wq_attr.kick_mask, &manual_wq_attr.kick_nice,
-			&manual_wq_attr.chk_mask, &manual_wq_attr.chk_nice);
+			&manual_task_attr.mask[TRUSTY_TASK_KICK_ID],
+			&manual_task_attr.pri[TRUSTY_TASK_KICK_ID],
+			&manual_task_attr.mask[TRUSTY_TASK_CHK_ID],
+			&manual_task_attr.pri[TRUSTY_TASK_CHK_ID]);
 	if (err != 4)
 		return -EINVAL;
 
 	KREE_DEBUG("%s 0x%x %d 0x%x %d\n", __func__,
-		manual_wq_attr.kick_mask, manual_wq_attr.kick_nice,
-		manual_wq_attr.chk_mask, manual_wq_attr.chk_nice);
+		manual_task_attr.mask[TRUSTY_TASK_KICK_ID],
+		manual_task_attr.pri[TRUSTY_TASK_KICK_ID],
+		manual_task_attr.mask[TRUSTY_TASK_CHK_ID],
+		manual_task_attr.pri[TRUSTY_TASK_CHK_ID]);
 
-	if (manual_wq_attr.kick_nice < -20 ||
-		manual_wq_attr.kick_nice > 19 ||
-		manual_wq_attr.chk_nice < -20 ||
-		manual_wq_attr.chk_nice > 19) {
-		return -EINVAL;
-	}
-
-	return gz_adjust_wq_attr(&manual_wq_attr);
+	return gz_adjust_task_attr(&manual_task_attr);
 }
 
 static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,

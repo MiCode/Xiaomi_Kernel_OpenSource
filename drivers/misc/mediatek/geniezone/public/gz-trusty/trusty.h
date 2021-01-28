@@ -29,17 +29,22 @@ int trusty_call_notifier_unregister(struct device *dev,
 const char *trusty_version_str_get(struct device *dev);
 u32 trusty_get_api_version(struct device *dev);
 
-int trusty_call_callback_register(struct device *dev, struct notifier_block *n);
-int trusty_call_callback_unregister(struct device *dev,
-				    struct notifier_block *n);
-struct gz_manual_wq_attr {
-	unsigned int kick_mask;
-	unsigned int chk_mask;
-	int kick_nice;
-	int chk_nice;
+int trusty_callback_notifier_register(struct device *dev,
+				struct notifier_block *n);
+int trusty_callback_notifier_unregister(struct device *dev,
+				struct notifier_block *n);
+enum {
+	TRUSTY_TASK_KICK_ID,
+	TRUSTY_TASK_CHK_ID,
+	TRUSTY_TASK_MAX_ID,
 };
-int trusty_adjust_wq_attr(struct device *dev,
-			struct gz_manual_wq_attr *manual_wq_attr);
+
+struct trusty_task_attr {
+	uint32_t mask[TRUSTY_TASK_MAX_ID];
+	int pri[TRUSTY_TASK_MAX_ID];
+};
+int trusty_adjust_task_attr(struct device *dev,
+		struct trusty_task_attr *manual_task_attr);
 enum {
 	TRUSTY_CALLBACK_VIRTIO_WQ_ATTR = 1,
 };

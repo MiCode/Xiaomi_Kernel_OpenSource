@@ -369,7 +369,8 @@ int trusty_call_notifier_unregister(struct device *dev,
 }
 EXPORT_SYMBOL(trusty_call_notifier_unregister);
 
-int trusty_call_callback_register(struct device *dev, struct notifier_block *n)
+int trusty_callback_notifier_register(struct device *dev,
+				struct notifier_block *n)
 {
 	struct trusty_state *s;
 
@@ -379,9 +380,9 @@ int trusty_call_callback_register(struct device *dev, struct notifier_block *n)
 	s = platform_get_drvdata(to_platform_device(dev));
 	return blocking_notifier_chain_register(&s->callback, n);
 }
-EXPORT_SYMBOL(trusty_call_callback_register);
+EXPORT_SYMBOL(trusty_callback_notifier_register);
 
-int trusty_call_callback_unregister(struct device *dev,
+int trusty_callback_notifier_unregister(struct device *dev,
 				struct notifier_block *n)
 {
 	struct trusty_state *s;
@@ -392,10 +393,10 @@ int trusty_call_callback_unregister(struct device *dev,
 	s = platform_get_drvdata(to_platform_device(dev));
 	return blocking_notifier_chain_unregister(&s->callback, n);
 }
-EXPORT_SYMBOL(trusty_call_callback_unregister);
+EXPORT_SYMBOL(trusty_callback_notifier_unregister);
 
-int trusty_adjust_wq_attr(struct device *dev,
-				struct gz_manual_wq_attr *manual_wq_attr)
+int trusty_adjust_task_attr(struct device *dev,
+				struct trusty_task_attr *manual_task_attr)
 {
 	struct trusty_state *s;
 
@@ -405,11 +406,11 @@ int trusty_adjust_wq_attr(struct device *dev,
 	s = platform_get_drvdata(to_platform_device(dev));
 
 	blocking_notifier_call_chain(&s->callback,
-			TRUSTY_CALLBACK_VIRTIO_WQ_ATTR, manual_wq_attr);
+			TRUSTY_CALLBACK_VIRTIO_WQ_ATTR, manual_task_attr);
 
 	return 0;
 }
-EXPORT_SYMBOL(trusty_adjust_wq_attr);
+EXPORT_SYMBOL(trusty_adjust_task_attr);
 
 static int trusty_remove_child(struct device *dev, void *data)
 {
@@ -729,6 +730,7 @@ static int trusty_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&s->nop_queue);
 	mutex_init(&s->smc_lock);
 	ATOMIC_INIT_NOTIFIER_HEAD(&s->notifier);
+	BLOCKING_INIT_NOTIFIER_HEAD(&s->callback);
 	init_completion(&s->cpu_idle_completion);
 	platform_set_drvdata(pdev, s);
 
