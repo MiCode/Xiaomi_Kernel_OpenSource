@@ -737,14 +737,14 @@ static void _clk_buf_get_xo_en(u32 *stat)
 
 static ssize_t _clk_buf_show_status_info_internal(char *buf)
 {
-	u32 stat[XO_NUMBER];
-	u32 drv_curr[XO_NUMBER];
-	u32 bblpm_stat[2];
-	u32 buf_mode;
-	u32 buf_en;
-	u32 val[4];
+	u32 stat[XO_NUMBER] = {0};
+	u32 drv_curr[XO_NUMBER] = {0};
+	u32 bblpm_stat[2] = {0};
+	u32 buf_mode = 0;
+	u32 buf_en = 0;
+	u32 val[4] = {0};
 	int len = 0;
-	int i;
+	int i = 0;
 
 	_clk_buf_get_xo_en(stat);
 	_clk_buf_get_drv_curr(drv_curr);
@@ -819,13 +819,14 @@ static int _clk_buf_get_xo_en_sta(enum xo_id id)
 static void _clk_buf_show_status_info(void)
 {
 	int len;
-	char *buf, *str;
+	char *buf, *str, *str_sep;
 
 	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
 	if (buf) {
 		len = _clk_buf_show_status_info_internal(buf);
-		while ((str = strsep(&buf, ".")) != NULL)
-			pr_info("%s\n", str);
+		str = buf;
+		while ((str_sep = strsep(&str, ".")) != NULL)
+			pr_info("%s\n", str_sep);
 
 		vfree(buf);
 	} else
@@ -1108,7 +1109,7 @@ static void _clk_buf_read_dts_misc_node(struct device_node *node)
 	}
 }
 
-static int _clk_buf_dts_init_internal(struct device_node *node, int idx)
+static int _clk_buf_dts_init_internal(struct device_node *node, u32 idx)
 {
 	u32 interval = clkbuf_dts[idx].interval;
 	u32 setclr = 0;
@@ -1185,12 +1186,13 @@ no_mem:
 
 static int _clk_buf_dts_init(struct platform_device *pdev)
 {
+	int ret = 0;
+	int i = 0;
+	u32 j = 0;
+	u32 start[] = {DCXO_START, PWRAP_START, SPM_START};
+	u32 end[] = {DCXO_END, PWRAP_END, SPM_END};
 	struct mt6397_chip *chip = dev_get_drvdata(pdev->dev.parent);
 	struct device_node *node, *pmic_node;
-	int start[] = {DCXO_START, PWRAP_START, SPM_START};
-	int end[] = {DCXO_END, PWRAP_END, SPM_END};
-	int ret;
-	int i, j;
 
 	node = of_find_compatible_node(NULL, NULL,
 		"mediatek,pmic_clock_buffer");
@@ -1249,7 +1251,6 @@ static int _clk_buf_dts_init(struct platform_device *pdev)
 					PTR_ERR(regmap));
 				goto no_compatible;
 			}
-			pr_info("found %s regmap\n", base_n[i]);
 		}
 
 		for (j = start[i]; j < end[i]; j++) {

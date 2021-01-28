@@ -456,8 +456,8 @@ static inline int _pmic_clk_buf_find_mask(const char *pmic_prop,
 
 static void _free_pmic_dts_list(void)
 {
-	struct pmic_clkbuf_dts *node;
-	struct pmic_clkbuf_dts *next;
+	struct pmic_clkbuf_dts *node = NULL;
+	struct pmic_clkbuf_dts *next = NULL;
 
 	list_for_each_entry_safe(node, next, &dts_head, dts_list) {
 		list_del(&(node->dts_list));
@@ -496,7 +496,7 @@ static int _pmic_clk_buf_dts_get_property(struct device_node *node,
 		goto no_cfg_offset_mem;
 	}
 
-	pmic_dts_node->cfg.bit = kzalloc(sizeof(u32) * n_prop, GFP_KERNEL);
+	pmic_dts_node->cfg.bit = kcalloc(n_prop, sizeof(u32), GFP_KERNEL);
 	if (!(pmic_dts_node->cfg.bit)) {
 		pr_info("[%s]: allocate cfg offset memory failed\n",
 				__func__);
@@ -617,8 +617,8 @@ static int _pmic_clk_buf_dts_init(struct device_node *node,
 	return 0;
 
 find_property_internal_failed:
-	_free_pmic_dts_list();
 dependent_property_failed:
+	_free_pmic_dts_list();
 no_property:
 	return -1;
 }
