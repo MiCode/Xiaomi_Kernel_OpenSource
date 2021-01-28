@@ -656,7 +656,8 @@ mem_alloc_mixed_size_test_with_alignment(enum TRUSTED_MEM_TYPE mem_type,
 	int chunk_idx;
 	u32 try_size;
 	u32 max_try_size = SZ_16M;
-	u32 handle, ref_count;
+	u32 handle;
+	u32 ref_count = 0;
 	u32 max_pool_size = tmem_core_get_max_pool_size(mem_type);
 	u32 next_free_pos = 0x0;
 	int remained_free_size;
