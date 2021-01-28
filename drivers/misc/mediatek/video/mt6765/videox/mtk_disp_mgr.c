@@ -725,7 +725,7 @@ static int input_config_preprocess(struct disp_frame_cfg_t *cfg)
 
 				cfg->input_cfg[i].src_offset_x = 0;
 				cfg->input_cfg[i].src_offset_y = 0;
-				cfg->input_cfg[i].sur_aen = 0;
+				cfg->input_cfg[i].sur_aen = 1;
 				cfg->input_cfg[i].src_fmt = DISP_FORMAT_RGB888;
 				cfg->input_cfg[i].src_pitch =
 					cfg->input_cfg[i].src_width;
