@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/delay.h>
 
 #include <linux/wait.h>

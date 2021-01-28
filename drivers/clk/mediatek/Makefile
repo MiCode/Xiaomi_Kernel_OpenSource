@@ -22,6 +22,7 @@ obj-$(CONFIG_COMMON_CLK_MT2701_MMSYS) += clk-mt2701-mm.o
 obj-$(CONFIG_COMMON_CLK_MT2701_VDECSYS) += clk-mt2701-vdec.o
 obj-$(CONFIG_COMMON_CLK_MT6771) += clk-mt6771.o clk-mt6771-pg.o clk-mtk-v1.o clkdbg.o
 obj-$(CONFIG_COMMON_CLK_MT6768) += clk-mt6768.o clk-mtk-v1.o clk-mt6768-pg.o clkdbg.o
+obj-$(CONFIG_COMMON_CLK_MT6765) += clk-mt6765.o clk-mt6765-pg.o clk-mtk-v1.o
 obj-$(CONFIG_COMMON_CLK_MT8135) += clk-mt8135.o
 obj-$(CONFIG_COMMON_CLK_MT8167) += clk-mt8167.o clkchk_mt8167.o clkdbg.o clkdbg_mt8167.o
 obj-$(CONFIG_COMMON_CLK_MT8173) += clk-mt8173.o
@@ -41,4 +42,5 @@ obj-$(CONFIG_COMMON_CLK_MT6739) += clk-mt6739.o clk-mt6739-pg.o mt6739_clkmgr.o 
 
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MT6768) +=  clkchk-mt6768.o clkdbg-mt6768.o mt6768_clkmgr.o
+obj-$(CONFIG_COMMON_CLK_MT6765) += clkdbg_mt6765.o clkchk-mt6765.o
 endif

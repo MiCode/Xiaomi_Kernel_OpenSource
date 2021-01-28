@@ -12,7 +12,7 @@
  */
 
 #include <linux/delay.h>
-#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>

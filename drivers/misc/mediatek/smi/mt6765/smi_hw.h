@@ -14,7 +14,7 @@
 #ifndef __SMI_HW_H__
 #define __SMI_HW_H__
 
-#include <clk-mt6739-pg.h> // TODO
+#include <clk-mt6765-pg.h> // TODO
 #include <smi_port.h>
 
 #define SYS_VCODEC	((SYS_CAM) + 1)
