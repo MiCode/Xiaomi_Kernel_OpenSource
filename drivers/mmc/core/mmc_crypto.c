@@ -167,7 +167,7 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 		return -EINVAL;
 
 	memset(&cfg, 0, sizeof(cfg));
-#ifdef CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK
+#ifndef CONFIG_MMC_CRYPTO_LEGACY
 	cfg.data_unit_size = data_unit_mask;
 #else
 	cfg.data_unit_size = 1;
