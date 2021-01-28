@@ -151,10 +151,7 @@ obj-$(CONFIG_MACH_MT6765) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6765) += udi_v1/
 obj-$(CONFIG_MACH_MT6765) += mcdi/
 endif
-obj-$(CONFIG_MACH_MT6885) += dvfsrc/
-obj-$(CONFIG_MACH_MT6893) += dvfsrc/
-obj-$(CONFIG_MACH_MT6873) += dvfsrc/
-obj-$(CONFIG_MACH_MT6853) += dvfsrc/
+obj-y += dvfsrc/
 ifeq ($(CONFIG_MTK_GPU_SUPPORT), y)
 obj-$(CONFIG_MACH_MT6853) += gpufreq_v1/
 endif
