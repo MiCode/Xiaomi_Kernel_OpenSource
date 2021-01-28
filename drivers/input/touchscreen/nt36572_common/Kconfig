@@ -1,0 +1,15 @@
+#
+# Novatek NT36xxx touchscreen driver configuration
+#
+menu "NT36xxx support"
+	depends on INPUT_TOUCHSCREEN
+
+config TOUCHSCREEN_NT36xxx
+	bool "Novatek NT36xxx"
+	help
+	  Say Y here if you have a Novatek NT36xxx touchscreen connected
+	  to your system.
+
+	  If unsure, say N.
+
+endmenu

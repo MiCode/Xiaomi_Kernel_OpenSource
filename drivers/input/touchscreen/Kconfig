@@ -1238,6 +1238,16 @@ config TOUCHSCREEN_SX8654
 	  To compile this driver as a module, choose M here: the
 	  module will be called sx8654.
 
+config TOUCHSCREEN_MTK_NT36572_COMMON
+         bool "NT36572 for Mediatek package"
+         default n
+         help
+           Say Y here if you have NT36572 touch panel.
+           If unsure, say N.
+           To compile this dirver as a module, choose M here: the
+           module will be called.
+source "drivers/input/touchscreen/nt36572_common/Kconfig"
+
 config TOUCHSCREEN_TPS6507X
 	tristate "TPS6507x based touchscreens"
 	depends on I2C
