@@ -448,7 +448,7 @@ static void thermal_mdla_init(void)
 /* Init local structure for AP coolers */
 static int init_cooler(void)
 {
-	int i;
+	int i, ret = -ENOMEM;
 	int num = CPU_COOLER_NUM;	/* 700~4000, 92 */
 
 	cl_dev_state = kzalloc((num) * sizeof(unsigned int), GFP_KERNEL);
@@ -459,19 +459,32 @@ static int init_cooler(void)
 								GFP_KERNEL);
 
 	if (cl_dev == NULL)
-		return -ENOMEM;
+		goto free_cl_dev_state;
 
 	cooler_name = kzalloc((num) * sizeof(char) * 20, GFP_KERNEL);
 	if (cooler_name == NULL)
-		return -ENOMEM;
+		goto free_cl_dev;
 
 	for (i = 0; i < num; i++) {
 		/* using index=>0=700,1=800 ~ 33=4000 */
-		sprintf(cooler_name + (i * 20), "cpu%02d", i);
+		ret = sprintf(cooler_name + (i * 20), "cpu%02d", i);
+		if (ret != 5) {
+			ret = -EIO;
+			goto free_cooler_name;
+		}
 	}
 
 	Num_of_OPP = num;	/* CPU COOLER COUNT, not CPU OPP count */
 	return 0;
+
+free_cooler_name:
+	kfree(cooler_name);
+free_cl_dev:
+	kfree(cl_dev);
+free_cl_dev_state:
+	kfree(cl_dev_state);
+
+	return ret;
 }
 
 static int __init mtk_cooler_dtm_init(void)

@@ -413,9 +413,14 @@ void tscpu_thermal_cal_prepare(void)
 	int ret = 0, i;
 
 	ret = of_property_read_u32(node, "therm_ctrl,efuse_num", &efuse_num);
-	if (ret || !efuse_num) {
-		tscpu_warn("[thermal] get efuse_num error! ret=%d, num=%d\n",
-			ret, efuse_num);
+	if (ret) {
+		tscpu_warn("[thermal] Fail to get efuse_num error! ret= %d\n",
+			ret);
+		return;
+	}
+
+	if (!efuse_num) {
+		tscpu_warn("[thermal] efuse_num cannot be 0\n");
 		return;
 	}
 
@@ -1242,7 +1247,7 @@ void tscpu_thermal_initial_all_tc(void)
 
 void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 {
-	int i = 0;
+	int i = 0, ret;
 	struct device_node *toprgu_np;
 	struct device_node *np = tscpu_pdev->dev.of_node;
 	unsigned int val;
@@ -1263,6 +1268,11 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	 */
 	if (map == NULL) {
 		toprgu_np = of_parse_phandle(np, "regmap", 0);
+		if (!toprgu_np) {
+			tscpu_warn("Unable to get troprgu_np device node\n");
+			return;
+		}
+
 		if (!of_device_is_compatible(toprgu_np, "mediatek,toprgu")) {
 			tscpu_warn("[thermal] get toprgu base failed!\n");
 			return;
@@ -1319,7 +1329,12 @@ void tscpu_config_all_tc_hw_protect(int temperature, int temperature2)
 	}
 
 	/* disable reset */
-	regmap_read(map, en_offset, &val);
+	ret = regmap_read(map, en_offset, &val);
+	if (ret) {
+		tscpu_warn("[thermal] Failed to read value of en_offset\n");
+		return;
+	}
+
 	val &= ~(1 << en_bit);
 	val |= en_key;
 	regmap_write(map, en_offset, val);
