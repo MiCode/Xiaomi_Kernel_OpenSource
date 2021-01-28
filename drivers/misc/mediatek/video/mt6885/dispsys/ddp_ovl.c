@@ -994,8 +994,11 @@ int ovl_switch_to_nonsec(enum DISP_MODULE_ENUM module, void *handle)
 		 */
 		disable_ovl_layers(module, nonsec_switch_handle);
 		/* in fact, dapc/port_sec will be disabled by cmdq */
-		cmdqRecSecureEnablePortSecurity(
-			nonsec_switch_handle, (1LL << cmdq_engine));
+		if (cmdq_engine < 64)
+			cmdqRecSecureEnablePortSecurity(
+				nonsec_switch_handle, (1LL << cmdq_engine));
+		else
+			DDPERR("cmdq engine overflow!:%d\n", cmdq_engine);
 
 		if (handle != NULL) {
 			/* Async Flush method */
