@@ -19,6 +19,7 @@
 
 
 static struct mtk_pm_qos_request dvfsrc_memory_bw_req;
+static struct mtk_pm_qos_request dvfsrc_memory_ext_bw_req;
 static struct mtk_pm_qos_request dvfsrc_memory_hrtbw_req;
 static struct mtk_pm_qos_request dvfsrc_ddr_opp_req;
 static struct mtk_pm_qos_request dvfsrc_vcore_opp_req;
@@ -51,6 +52,22 @@ static ssize_t dvfsrc_req_bw_store(struct device *dev,
 	return count;
 }
 static DEVICE_ATTR_WO(dvfsrc_req_bw);
+
+static ssize_t dvfsrc_req_ext_bw_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int val = 0;
+	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	if (dvfsrc->dvd->pmqos_enable)
+		mtk_pm_qos_update_request(&dvfsrc_memory_ext_bw_req, val);
+
+	return count;
+}
+static DEVICE_ATTR_WO(dvfsrc_req_ext_bw);
 
 static ssize_t dvfsrc_req_hrtbw_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -221,6 +238,7 @@ static DEVICE_ATTR_RW(dvfsrc_freq_hopping);
 
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
+	&dev_attr_dvfsrc_req_ext_bw.attr,
 	&dev_attr_dvfsrc_req_hrtbw.attr,
 	&dev_attr_dvfsrc_req_vcore_opp.attr,
 	&dev_attr_dvfsrc_req_ddr_opp.attr,
@@ -243,6 +261,9 @@ int dvfsrc_register_sysfs(struct device *dev)
 
 	mtk_pm_qos_add_request(&dvfsrc_memory_bw_req,
 			MTK_PM_QOS_MEMORY_BANDWIDTH,
+			MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&dvfsrc_memory_ext_bw_req,
+			MTK_PM_QOS_MEMORY_EXT_BANDWIDTH,
 			MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 	mtk_pm_qos_add_request(&dvfsrc_memory_hrtbw_req,
 			MTK_PM_QOS_HRT_BANDWIDTH,
@@ -271,5 +292,11 @@ void dvfsrc_unregister_sysfs(struct device *dev)
 {
 	sysfs_remove_link(&dev->parent->kobj, "helio-dvfsrc");
 	sysfs_remove_group(&dev->kobj, &dvfsrc_sysfs_attr_group);
+	mtk_pm_qos_remove_request(&dvfsrc_memory_bw_req);
+	mtk_pm_qos_remove_request(&dvfsrc_memory_ext_bw_req);
+	mtk_pm_qos_remove_request(&dvfsrc_memory_hrtbw_req);
+	mtk_pm_qos_remove_request(&dvfsrc_ddr_opp_req);
+	mtk_pm_qos_remove_request(&dvfsrc_vcore_opp_req);
+	mtk_pm_qos_remove_request(&dvfsrc_scp_vcore_req);
 }
 

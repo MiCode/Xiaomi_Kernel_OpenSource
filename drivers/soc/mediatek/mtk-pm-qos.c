@@ -45,11 +45,27 @@ static struct pm_qos_constraints memory_bw_constraints = {
 	.type = PM_QOS_SUM,
 	.notifiers = &memory_bandwidth_notifier,
 };
-static struct mtk_pm_qos_object memory_bandwidth_mtk_pm_qos = {
+static struct mtk_pm_qos_object memory_bandwidth_pm_qos = {
 	.constraints = &memory_bw_constraints,
-	.req_list = LIST_HEAD_INIT(memory_bandwidth_mtk_pm_qos.req_list),
-	.qos_lock = __MUTEX_INITIALIZER(memory_bandwidth_mtk_pm_qos.qos_lock),
+	.req_list = LIST_HEAD_INIT(memory_bandwidth_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(memory_bandwidth_pm_qos.qos_lock),
 	.name = "memory_bandwidth",
+};
+
+static BLOCKING_NOTIFIER_HEAD(memory_ext_bandwidth_notifier);
+static struct pm_qos_constraints memory_ext_bw_constraints = {
+	.list = PLIST_HEAD_INIT(memory_ext_bw_constraints.list),
+	.target_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.default_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.no_constraint_value = MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &memory_ext_bandwidth_notifier,
+};
+static struct mtk_pm_qos_object memory_ext_bandwidth_pm_qos = {
+	.constraints = &memory_ext_bw_constraints,
+	.req_list = LIST_HEAD_INIT(memory_ext_bandwidth_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(memory_ext_bandwidth_pm_qos.qos_lock),
+	.name = "memory_ext_bandwidth",
 };
 
 static BLOCKING_NOTIFIER_HEAD(ddr_opp_notifier);
@@ -61,10 +77,10 @@ static struct pm_qos_constraints ddr_opp_constraints = {
 	.type = PM_QOS_MIN,
 	.notifiers = &ddr_opp_notifier,
 };
-static struct mtk_pm_qos_object ddr_opp_mtk_pm_qos = {
+static struct mtk_pm_qos_object ddr_opp_pm_qos = {
 	.constraints = &ddr_opp_constraints,
-	.req_list = LIST_HEAD_INIT(ddr_opp_mtk_pm_qos.req_list),
-	.qos_lock = __MUTEX_INITIALIZER(ddr_opp_mtk_pm_qos.qos_lock),
+	.req_list = LIST_HEAD_INIT(ddr_opp_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(ddr_opp_pm_qos.qos_lock),
 	.name = "ddr_opp",
 };
 
@@ -77,10 +93,10 @@ static struct pm_qos_constraints vcore_opp_constraints = {
 	.type = PM_QOS_MIN,
 	.notifiers = &vcore_opp_notifier,
 };
-static struct mtk_pm_qos_object vcore_opp_mtk_pm_qos = {
+static struct mtk_pm_qos_object vcore_opp_pm_qos = {
 	.constraints = &vcore_opp_constraints,
-	.req_list = LIST_HEAD_INIT(vcore_opp_mtk_pm_qos.req_list),
-	.qos_lock = __MUTEX_INITIALIZER(vcore_opp_mtk_pm_qos.qos_lock),
+	.req_list = LIST_HEAD_INIT(vcore_opp_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(vcore_opp_pm_qos.qos_lock),
 	.name = "vcore_opp",
 };
 
@@ -93,10 +109,10 @@ static struct pm_qos_constraints scp_vcore_req_constraints = {
 	.type = PM_QOS_MIN,
 	.notifiers = &scp_vcore_req_notifier,
 };
-static struct mtk_pm_qos_object scp_vcore_req_mtk_pm_qos = {
+static struct mtk_pm_qos_object scp_vcore_req_pm_qos = {
 	.constraints = &scp_vcore_req_constraints,
-	.req_list = LIST_HEAD_INIT(scp_vcore_req_mtk_pm_qos.req_list),
-	.qos_lock = __MUTEX_INITIALIZER(scp_vcore_req_mtk_pm_qos.qos_lock),
+	.req_list = LIST_HEAD_INIT(scp_vcore_req_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(scp_vcore_req_pm_qos.qos_lock),
 	.name = "scp_vcore_req",
 };
 
@@ -109,10 +125,10 @@ static struct pm_qos_constraints hrt_bw_constraints = {
 	.type = PM_QOS_SUM,
 	.notifiers = &hrt_bandwidth_notifier,
 };
-static struct mtk_pm_qos_object hrt_bandwidth_mtk_pm_qos = {
+static struct mtk_pm_qos_object hrt_bandwidth_pm_qos = {
 	.constraints = &hrt_bw_constraints,
-	.req_list = LIST_HEAD_INIT(hrt_bandwidth_mtk_pm_qos.req_list),
-	.qos_lock = __MUTEX_INITIALIZER(hrt_bandwidth_mtk_pm_qos.qos_lock),
+	.req_list = LIST_HEAD_INIT(hrt_bandwidth_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(hrt_bandwidth_pm_qos.qos_lock),
 	.name = "hrt_bandwidth",
 };
 
@@ -255,11 +271,12 @@ static struct mtk_pm_qos_object mm1_bandwidth_limiter = {
 static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 	[MTK_PM_QOS_RESERVED] = &null_mtk_pm_qos,
 
-	[MTK_PM_QOS_MEMORY_BANDWIDTH] = &memory_bandwidth_mtk_pm_qos,
-	[MTK_PM_QOS_HRT_BANDWIDTH] = &hrt_bandwidth_mtk_pm_qos,
-	[MTK_PM_QOS_DDR_OPP] = &ddr_opp_mtk_pm_qos,
-	[MTK_PM_QOS_VCORE_OPP] = &vcore_opp_mtk_pm_qos,
-	[MTK_PM_QOS_SCP_VCORE_REQUEST] = &scp_vcore_req_mtk_pm_qos,
+	[MTK_PM_QOS_MEMORY_BANDWIDTH] = &memory_bandwidth_pm_qos,
+	[MTK_PM_QOS_MEMORY_EXT_BANDWIDTH] = &memory_ext_bandwidth_pm_qos,
+	[MTK_PM_QOS_HRT_BANDWIDTH] = &hrt_bandwidth_pm_qos,
+	[MTK_PM_QOS_DDR_OPP] = &ddr_opp_pm_qos,
+	[MTK_PM_QOS_VCORE_OPP] = &vcore_opp_pm_qos,
+	[MTK_PM_QOS_SCP_VCORE_REQUEST] = &scp_vcore_req_pm_qos,
 
 	[PM_QOS_DISP_FREQ] = &disp_freq_pm_qos,
 	[PM_QOS_MDP_FREQ] = &mdp_freq_pm_qos,

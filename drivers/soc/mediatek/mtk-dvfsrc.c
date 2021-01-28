@@ -64,6 +64,7 @@ struct dvfsrc_qos_data {
 	int max_dram_opp;
 	void (*pm_qos_init)(struct mtk_dvfsrc *dvfsrc);
 	struct notifier_block pm_qos_bw_notify;
+	struct notifier_block pm_qos_ext_bw_notify;
 	struct notifier_block pm_qos_hrtbw_notify;
 	struct notifier_block pm_qos_ddr_notify;
 	struct notifier_block pm_qos_vcore_notify;
@@ -81,6 +82,7 @@ struct dvfsrc_soc_data {
 	u32 (*get_vcore_level)(struct mtk_dvfsrc *dvfsrc);
 	u32 (*get_vcp_level)(struct mtk_dvfsrc *dvfsrc);
 	void (*set_dram_bw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
+	void (*set_dram_ext_bw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
 	void (*set_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	void (*set_dram_hrtbw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
 	void (*set_dram_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
@@ -213,6 +215,7 @@ enum dvfsrc_regs {
 	DVFSRC_EXT_SW_REQ,
 	DVFSRC_LEVEL,
 	DVFSRC_SW_BW,
+	DVFSRC_SW_EXT_BW,
 	DVFSRC_SW_HRT_BW,
 	DVFSRC_TARGET_LEVEL,
 	DVFSRC_VCORE_REQUEST,
@@ -229,7 +232,8 @@ static const int mt8183_regs[] = {
 static const int mt6779_regs[] = {
 	[DVFSRC_SW_REQ] =	0xC,
 	[DVFSRC_LEVEL] =	0xD44,
-	[DVFSRC_SW_BW] =	0x260,
+	[DVFSRC_SW_BW] =	0x26C,
+	[DVFSRC_SW_EXT_BW] =	0x260,
 	[DVFSRC_SW_HRT_BW] =	0x290,
 	[DVFSRC_TARGET_LEVEL] =	0xD48,
 	[DVFSRC_VCORE_REQUEST] = 0x6C,
@@ -241,7 +245,8 @@ static const int mt6761_regs[] = {
 	[DVFSRC_SW_REQ] =	0x4,
 	[DVFSRC_EXT_SW_REQ] =	0x8,
 	[DVFSRC_LEVEL] =	0xDC,
-	[DVFSRC_SW_BW] =	0x160,
+	[DVFSRC_SW_BW] =	0x16C,
+	[DVFSRC_SW_EXT_BW] =	0x160,
 	[DVFSRC_VCORE_REQUEST] = 0x48,
 	[DVFSRC_BASIC_CONTROL] = 0x0,
 	[DVFSRC_TARGET_FORCE] = 0x300,
@@ -340,6 +345,14 @@ static void mt6779_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 	bw = (bw < 0xFF) ? bw : 0xff;
 
 	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, bw);
+}
+
+static void mt6779_set_dram_ext_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
+{
+	bw = div_u64(kBps_to_MBps(bw), 100);
+	bw = (bw < 0xFF) ? bw : 0xff;
+
+	dvfsrc_write(dvfsrc, DVFSRC_SW_EXT_BW, bw);
 }
 
 /* bw unit 30MBps */
@@ -457,6 +470,14 @@ static void mt6761_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 	bw = (bw < 0xFF) ? bw : 0xff;
 
 	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, bw);
+}
+
+static void mt6761_set_dram_ext_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
+{
+	bw = div_u64(kBps_to_MBps(bw), 100);
+	bw = (bw < 0xFF) ? bw : 0xff;
+
+	dvfsrc_write(dvfsrc, DVFSRC_SW_EXT_BW, bw);
 }
 
 static void mt6761_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
@@ -585,6 +606,19 @@ static int dvfsrc_pm_qos_bw_notify(struct notifier_block *b,
 
 	return NOTIFY_OK;
 }
+
+static int dvfsrc_pm_qos_ext_bw_notify(struct notifier_block *b,
+	unsigned long l, void *v)
+{
+	struct dvfsrc_qos_data *qos;
+
+	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_ext_bw_notify);
+	mtk_dvfsrc_send_request(qos->dev,
+		MTK_DVFSRC_CMD_EXT_BW_REQUEST, MBps_to_kBps(l));
+
+	return NOTIFY_OK;
+}
+
 static int dvfsrc_pm_qos_hrtbw_notify(struct notifier_block *b,
 	unsigned long l, void *v)
 {
@@ -667,6 +701,8 @@ static void dvfsrc_qos_init(struct mtk_dvfsrc *dvfsrc)
 
 	mtk_pm_qos_add_notifier(MTK_PM_QOS_MEMORY_BANDWIDTH,
 		&qos->pm_qos_bw_notify);
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_MEMORY_EXT_BANDWIDTH,
+		&qos->pm_qos_ext_bw_notify);
 	mtk_pm_qos_add_notifier(MTK_PM_QOS_HRT_BANDWIDTH,
 		&qos->pm_qos_hrtbw_notify);
 	mtk_pm_qos_add_notifier(MTK_PM_QOS_DDR_OPP,
@@ -680,6 +716,7 @@ static void dvfsrc_qos_init(struct mtk_dvfsrc *dvfsrc)
 static struct dvfsrc_qos_data qos_data_dvfsrc = {
 	.pm_qos_init = dvfsrc_qos_init,
 	.pm_qos_bw_notify.notifier_call = dvfsrc_pm_qos_bw_notify,
+	.pm_qos_ext_bw_notify.notifier_call = dvfsrc_pm_qos_ext_bw_notify,
 	.pm_qos_hrtbw_notify.notifier_call = dvfsrc_pm_qos_hrtbw_notify,
 	.pm_qos_ddr_notify.notifier_call = dvfsrc_pm_qos_ddr_notify,
 	.pm_qos_vcore_notify.notifier_call = dvfsrc_pm_qos_vcore_notify,
@@ -702,6 +739,10 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	switch (cmd) {
 	case MTK_DVFSRC_CMD_BW_REQUEST:
 		dvfsrc->dvd->set_dram_bw(dvfsrc, data);
+		goto out;
+	case MTK_DVFSRC_CMD_EXT_BW_REQUEST:
+		if (dvfsrc->dvd->set_dram_ext_bw)
+			dvfsrc->dvd->set_dram_ext_bw(dvfsrc, data);
 		goto out;
 	case MTK_DVFSRC_CMD_OPP_REQUEST:
 		dvfsrc->dvd->set_opp_level(dvfsrc, data);
@@ -982,6 +1023,7 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,
 	.wait_for_opp_level = dvfsrc_wait_for_opp_level,
 	.set_dram_bw = mt6779_set_dram_bw,
+	.set_dram_ext_bw = mt6779_set_dram_ext_bw,
 	.set_opp_level = mt6779_set_opp_level,
 	.set_dram_hrtbw = mt6779_set_dram_hrtbw,
 	.set_vcore_level = mt6779_set_vcore_level,
@@ -1029,6 +1071,7 @@ static const struct dvfsrc_soc_data mt6761_data = {
 	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,
 	.wait_for_opp_level = dvfsrc_wait_for_opp_level,
 	.set_dram_bw = mt6761_set_dram_bw,
+	.set_dram_ext_bw = mt6761_set_dram_ext_bw,
 	.set_dram_level = mt6761_set_dram_level,
 	.set_vcore_level = mt6761_set_vcore_level,
 	.set_opp_level = mt6761_set_opp_level,
