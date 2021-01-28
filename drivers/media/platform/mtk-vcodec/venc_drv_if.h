@@ -74,6 +74,19 @@ struct venc_done_result {
 };
 
 /*
+ * struct venc_resolution_change
+ * @width: width resolution change to
+ * @height: height resolution change to
+ * @resolutionchange : if resolution change
+ */
+struct venc_resolution_change {
+	__u32 width;
+	__u32 height;
+	__u32 framerate;
+	__u32 resolutionchange;
+};
+
+/*
  * venc_if_init - Create the driver handle
  * @ctx: device context
  * @fourcc: encoder input format
