@@ -20,7 +20,7 @@
 
 #define WAKE_SRC_CFG_KEY            (1U << 31)
 
-void spm_suspend_debugfs_init(struct dentry *spm_dir);
+void spm_suspend_debugfs_init(void *entry);
 
 extern int slp_set_wakesrc(u32 wakesrc, bool enable, bool ck26m_on);
 

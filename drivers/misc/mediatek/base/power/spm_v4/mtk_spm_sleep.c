@@ -490,16 +490,18 @@ RESTORE_IRQ:
 	return last_wr;
 }
 
-int get_spm_sleep_count(struct seq_file *s, void *unused)
+ssize_t get_spm_sleep_count(char *ToUserBuf, size_t sz, void *priv)
 {
-	seq_printf(s, "%d\n", spm_sleep_count);
-	return 0;
+	int bLen = snprintf(ToUserBuf, sz, "0x%x\n", spm_sleep_count);
+
+	return (bLen > sz) ? sz : bLen;
 }
 
-int get_spm_last_wakeup_src(struct seq_file *s, void *unused)
+ssize_t get_spm_last_wakeup_src(char *ToUserBuf, size_t sz, void *priv)
 {
-	seq_printf(s, "0x%x\n", spm_wakesta.r12);
-	return 0;
+	int bLen = snprintf(ToUserBuf, sz, "0x%x\n", spm_wakesta.r12);
+
+	return (bLen > sz) ? sz : bLen;
 }
 
 void spm_output_sleep_option(void)
