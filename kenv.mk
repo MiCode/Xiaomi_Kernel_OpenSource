@@ -26,7 +26,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     TARGET_KERNEL_CLANG_COMPILE :=
     CC := $(TARGET_KERNEL_CROSS_COMPILE)gcc
     ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
-      CLANG_PATH := $(KERNEL_ROOT_DIR)/prebuilts/clang/host/linux-x86/clang-r353983c
+      CLANG_PATH := $(KERNEL_ROOT_DIR)/prebuilts/clang/host/linux-x86/clang-r370808
       TARGET_KERNEL_CLANG_COMPILE := CLANG_TRIPLE=aarch64-linux-gnu-
       CC := $(CLANG_PATH)/bin/clang
     endif
