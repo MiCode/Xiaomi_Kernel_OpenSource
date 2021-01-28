@@ -13,6 +13,7 @@
 
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/cm_mgr/ \
+	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/dvfsrc/ \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
 	-I$(srctree)/include \

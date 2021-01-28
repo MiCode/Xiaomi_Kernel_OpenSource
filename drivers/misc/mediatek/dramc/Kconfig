@@ -1,0 +1,8 @@
+config MTK_DRAMC_LEGACY
+	tristate "MediaTek DRAMC legacy driver"
+	default n
+	help
+	  This selects the MediaTek(R) DRAMC driver.
+	  incude the following API
+	  PASR
+	  DVFS

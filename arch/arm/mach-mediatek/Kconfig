@@ -63,8 +63,8 @@ config MACH_MT6761
 	select MTK_TIMER_TIMESYNC
 	select ARM_GIC_V3
 	select POWER_SUPPLY
-	select MTK_EMI
-	select MTK_DRAMC
+	select MTK_EMI_LEGACY
+	select MTK_DRAMC_LEGACY
 	select PM_DEVFREQ
 	select MTK_SYS_CIRQ
 	select ARM_ERRATA_855873
