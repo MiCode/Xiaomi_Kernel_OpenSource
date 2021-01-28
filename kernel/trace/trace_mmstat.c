@@ -85,15 +85,6 @@ static int limit_pid = -1;
 #define TRACE_HUNGER_PERCENTAGE	(50)
 static unsigned long hungersize;
 
-/* for kallsyms lookup */
-#ifdef CONFIG_SWAP
-static unsigned long (*total_swapcache_pages_addr)(void);
-#else
-#define total_swapcache_pages_addr()	0UL
-#endif
-static struct pglist_data *(*first_online_pgdat_addr)(void);
-static struct zone *(*next_zone_addr)(struct zone *zone);
-
 const char *
 mmstat_trace_print_arrayset_seq(struct trace_seq *p,
 		const void *buf, int count, int sets)
@@ -133,6 +124,19 @@ size_t __weak ion_mm_heap_total_memory(void)
 	return 0;
 }
 
+/* only consider the case of 1 node */
+static struct zone *mmstat_next_zone(struct zone *zone)
+{
+	pg_data_t *pgdat = zone->zone_pgdat;
+
+	if (zone < pgdat->node_zones + MAX_NR_ZONES - 1)
+		zone++;
+	else
+		zone = NULL;
+
+	return zone;
+}
+
 /*
  * Record basic memory information
  */
@@ -145,8 +149,7 @@ static void mmstat_trace_meminfo(void)
 	/* available memory */
 	meminfo[num_entries++] = P2K(global_zone_page_state(NR_FREE_PAGES));
 	meminfo[num_entries++] = P2K(atomic_long_read(&nr_swap_pages));
-	meminfo[num_entries++] = P2K(global_node_page_state(NR_FILE_PAGES) -
-			total_swapcache_pages_addr());
+	meminfo[num_entries++] = P2K(global_node_page_state(NR_FILE_PAGES));
 
 	/* user pages */
 	meminfo[num_entries++] = P2K(global_node_page_state(NR_ACTIVE_ANON) +
@@ -219,8 +222,8 @@ static void mmstat_trace_buddyinfo(void)
 	struct zone *zone;
 
 	/* imitate for_each_populated_zone */
-	for (zone = (first_online_pgdat_addr())->node_zones;
-	     zone; zone = next_zone_addr(zone)) {
+	for (zone = (NODE_DATA(0))->node_zones;
+	     zone; zone = mmstat_next_zone(zone)) {
 		if (populated_zone(zone)) {
 			unsigned long flags;
 			unsigned int order;
@@ -432,8 +435,8 @@ int mmstat_print_fmt(struct seq_file *m)
 		int order;
 
 		/* imitate for_each_populated_zone */
-		for (zone = (first_online_pgdat_addr())->node_zones;
-		     zone; zone = next_zone_addr(zone)) {
+		for (zone = (NODE_DATA(0))->node_zones;
+		     zone; zone = mmstat_next_zone(zone)) {
 			if (populated_zone(zone)) {
 				seq_puts(m, "mmstat_trace_buddyinfo: ");
 				seq_printf(m, "%s", zone->name);
@@ -475,19 +478,6 @@ static const struct file_operations mmstat_fmt_proc_fops = {
 
 static int __init trace_mmstat_init(void)
 {
-#ifdef CONFIG_SWAP
-	if (total_swapcache_pages_addr == 0)
-		total_swapcache_pages_addr =
-			(void *)kallsyms_lookup_name("total_swapcache_pages");
-#endif
-
-	if (first_online_pgdat_addr == 0)
-		first_online_pgdat_addr =
-			(void *)kallsyms_lookup_name("first_online_pgdat");
-
-	if (next_zone_addr == 0)
-		next_zone_addr = (void *)kallsyms_lookup_name("next_zone");
-
 	hungersize = totalram_pages * TRACE_HUNGER_PERCENTAGE / 100;
 
 	debugfs_create_file("mmstat_fmt", 0444, NULL, NULL,
