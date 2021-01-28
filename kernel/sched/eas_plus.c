@@ -1121,7 +1121,7 @@ compute_energy_enhanced(struct task_struct *p, int dst_cpu,
 }
 
 static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
-						int prev_cpu, int sync)
+					int this_cpu, int prev_cpu, int sync)
 {
 	unsigned long prev_energy = 0;
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
@@ -1130,20 +1130,19 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 	unsigned long cpu_cap, util, wake_util;
 	bool boosted, prefer_idle = false;
 	unsigned int min_exit_lat = UINT_MAX;
-	int cpu, best_energy_cpu = prev_cpu;
+	int best_energy_cpu = prev_cpu;
 	struct cpuidle_state *idle;
 	struct sched_domain *sd;
 	struct sched_group *sg;
 
 	if (sysctl_sched_sync_hint_enable && sync) {
-		if (cpumask_test_cpu(cpu, &p->cpus_allowed) &&
-			!cpu_isolated(cpu)) {
-			return cpu;
+		if (cpumask_test_cpu(this_cpu, &p->cpus_allowed) &&
+			!cpu_isolated(this_cpu)) {
+			return this_cpu;
 		}
 	}
 
-	cpu = smp_processor_id();
-	sd = rcu_dereference(per_cpu(sd_ea, cpu));
+	sd = rcu_dereference(per_cpu(sd_ea, this_cpu));
 	if (!sd)
 		return -1;
 
@@ -1160,6 +1159,7 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 		unsigned long spare_cap, max_spare_cap = 0;
 		unsigned long base_energy_sg;
 		int max_spare_cap_cpu = -1;
+		int cpu;
 
 		/* compute the ''base' energy of the sg, without @p*/
 		base_energy_sg = compute_energy_enhanced(p, -1, sg);
@@ -1280,7 +1280,7 @@ static int __find_energy_efficient_cpu(struct sched_domain *sd,
 	if (num_cluster <= 2)
 		return find_energy_efficient_cpu(sd, p, cpu, prev_cpu, sync);
 	else
-		return find_energy_efficient_cpu_enhanced(p, prev_cpu, sync);
+		return find_energy_efficient_cpu_enhanced(p, cpu, prev_cpu, sync);
 }
 
 /*
