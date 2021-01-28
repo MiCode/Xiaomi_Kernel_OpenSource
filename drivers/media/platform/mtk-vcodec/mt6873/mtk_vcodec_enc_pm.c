@@ -416,6 +416,9 @@ void mtk_venc_dvfs_begin(struct temp_job **job_list)
 	if (job->operation_rate >= 120)
 		idx = 2;
 
+	if (job->format == V4L2_PIX_FMT_HEIF)
+		idx = 3;
+
 	venc_freq = venc_freq_map[idx];
 
 	pm_qos_update_request(&venc_qos_req_f, venc_freq);
@@ -526,6 +529,7 @@ void mtk_venc_emi_bw_begin(struct temp_job **jobs)
 		boost_perc = 100;
 
 	if (job->format == V4L2_PIX_FMT_H265 ||
+		job->format == V4L2_PIX_FMT_HEIF ||
 		(job->format == V4L2_PIX_FMT_H264 &&
 		 job->visible_width >= 2160)) {
 		boost_perc = 150;
