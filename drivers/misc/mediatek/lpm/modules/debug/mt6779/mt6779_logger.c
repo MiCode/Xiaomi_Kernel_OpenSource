@@ -19,7 +19,11 @@
 #include <mt6779_pcm_def.h>
 #include <mtk_dbg_common_v1.h>
 
+#define BYPASS_LOG
+
+#ifndef BYPASS_LOG
 static struct mt6779_spm_wake_status mt6779_wake;
+#endif
 void __iomem *mt6779_spm_base;
 
 const char *mt6779_wakesrc_str[32] = {
@@ -113,6 +117,14 @@ int mt6779_get_wakeup_status(struct mt6779_spm_wake_status *wakesta)
 	return 0;
 }
 
+#ifdef BYPASS_LOG
+
+int mt6779_show_log_message(int type, const char *prefix, void *data)
+{
+	return 0;
+}
+
+#else
 
 int mt6779_show_log_message(int type, const char *prefix, void *data)
 {
@@ -274,20 +286,20 @@ int mt6779_show_log_message(int type, const char *prefix, void *data)
 
 	WARN_ON(log_size >= LOG_BUF_OUT_SZ);
 
-	printk_deferred("[name:spm&][SPM] %s", log_buf);
+	pr_info("[name:spm&][SPM] %s", log_buf);
 
 	/* Eable rcu lock checking */
 	rcu_irq_exit_irqson();
 
 	return wr;
 }
-
+#endif
 
 struct mtk_lpm_issuer mt6779_issuer = {
 	.log = mt6779_show_log_message,
 };
 
-int __init mt6779_logger_init(void)
+int mt6779_logger_init(void)
 {
 	struct device_node *node = NULL;
 
@@ -305,5 +317,5 @@ int __init mt6779_logger_init(void)
 			__func__, __LINE__);
 	return 0;
 }
-late_initcall_sync(mt6779_logger_init);
+EXPORT_SYMBOL(mt6779_logger_init);
 

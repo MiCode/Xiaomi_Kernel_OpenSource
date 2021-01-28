@@ -127,7 +127,7 @@ static void __init mtk_cpupm_node_init(void)
 	}
 }
 
-static int __init mtk_cpupm_dbg_init(void)
+int mtk_cpupm_dbg_init(void)
 {
 	pm_qos_add_request(&cpuidle_dbg_qos_req,
 		PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
@@ -142,20 +142,11 @@ static int __init mtk_cpupm_dbg_init(void)
 	return 0;
 }
 
-static void __exit mtk_cpupm_dbg_exit(void)
+void mtk_cpupm_dbg_exit(void)
 {
 	mtk_idle_procfs_exit();
 
 	mtk_cpuidle_status_exit();
 	mtk_cpc_exit();
-
 	pm_qos_remove_request(&cpuidle_dbg_qos_req);
 }
-
-module_init(mtk_cpupm_dbg_init);
-module_exit(mtk_cpupm_dbg_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek CPU Idle Debug FileSystem");
-MODULE_AUTHOR("MediaTek Inc.");
-

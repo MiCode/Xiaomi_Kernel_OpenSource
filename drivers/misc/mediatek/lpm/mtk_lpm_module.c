@@ -105,11 +105,12 @@ int mtk_lpm_notifier_register(struct notifier_block *n)
 {
 	return raw_notifier_chain_register(&mtk_lpm_notifier, n);
 }
-
+EXPORT_SYMBOL(mtk_lpm_notifier_register);
 int mtk_lpm_notifier_unregister(struct notifier_block *n)
 {
 	return raw_notifier_chain_unregister(&mtk_lpm_notifier, n);
 }
+EXPORT_SYMBOL(mtk_lpm_notifier_unregister);
 
 void mtk_lpm_system_spin_lock(unsigned long *irqflag)
 {

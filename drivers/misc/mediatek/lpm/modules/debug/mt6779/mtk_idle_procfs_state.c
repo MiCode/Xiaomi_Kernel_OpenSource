@@ -33,12 +33,12 @@ static void idle_proc_state_uasge_print(struct seq_file *m, char *node_name)
 
 static void idle_proc_state_param_show(struct seq_file *m, int param)
 {
-	struct cpuidle_driver *drv;
+	struct cpuidle_driver *drv = NULL;
 	int i, cpu, desc = 0;
 
 	for_each_possible_cpu(cpu) {
 
-		drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
+		//drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
 		if (!drv)
 			continue;
 
@@ -60,7 +60,7 @@ static void idle_proc_state_param_show(struct seq_file *m, int param)
 
 static int idle_proc_state_param_setting(char *cmd, int param)
 {
-	struct cpuidle_driver *drv;
+	struct cpuidle_driver *drv = NULL;
 	char *args;
 	unsigned int cpu_mask, state_idx, val;
 	int cpu, i;
@@ -109,7 +109,7 @@ static int idle_proc_state_param_setting(char *cmd, int param)
 		if ((cpu_mask & (1 << cpu)) == 0)
 			continue;
 
-		drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
+		//drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
 		if (!drv)
 			continue;
 

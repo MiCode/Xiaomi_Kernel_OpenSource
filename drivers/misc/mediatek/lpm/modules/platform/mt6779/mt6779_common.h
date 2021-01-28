@@ -7,7 +7,7 @@
 #define __MT6779_COMMON_H__
 
 #include <linux/delay.h>
-
+#include <linux/printk.h>
 #include <mtk_lpm_type.h>
 
 /* Platform pwr state */

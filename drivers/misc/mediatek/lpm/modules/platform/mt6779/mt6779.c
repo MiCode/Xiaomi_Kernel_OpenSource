@@ -2,7 +2,7 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
-
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <mtk_lp_plat_apmcu.h>
 
@@ -52,18 +52,32 @@ int mt6779_do_mcusys_prepare_on_ex(unsigned int clr_status)
 	return __mt6779_do_mcusys_prepare_on(clr_status);
 }
 
-static int __init mt6779_init(void)
+static int  mt6779_init(void)
 {
 	mtk_lp_plat_apmcu_init();
 	mt6779_model_mcusys_init();
 	mt6779_model_suspend_init();
 	return 0;
 }
-late_initcall_sync(mt6779_init);
 
-static int __init mt6779_early_init(void)
+static int  mt6779_early_init(void)
 {
 	mtk_lp_plat_apmcu_early_init();
 	return 0;
 }
-subsys_initcall(mt6779_early_init);
+
+
+static int __init mtk_lpm_mt6779_init(void)
+{
+	mt6779_early_init();
+	mt6779_init();
+	return 0;
+}
+static void __exit mtk_lpm_mt6779_exit(void)
+{
+}
+module_init(mtk_lpm_mt6779_init);
+module_exit(mtk_lpm_mt6779_exit);
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Mediatek LPM mt6779");
+MODULE_AUTHOR("MediaTek Inc.");

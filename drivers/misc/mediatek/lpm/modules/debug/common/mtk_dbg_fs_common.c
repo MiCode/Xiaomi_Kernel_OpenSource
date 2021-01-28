@@ -254,7 +254,7 @@ static void mtk_dbg_spm_fs_init(void)
 
 static bool mtk_system_console_suspend;
 
-static void __exit mtk_dbg_common_fs_exit(void)
+void mtk_dbg_common_fs_exit(void)
 {
 	/* restore suspend console */
 	console_suspend_enabled = mtk_system_console_suspend;
@@ -265,8 +265,8 @@ static void __exit mtk_dbg_common_fs_exit(void)
 	unregister_syscore_ops(&spm_block_syscore_ops);
 	unregister_syscore_ops(&spm_dbg_syscore_ops);
 }
-
-static int __init mtk_dbg_common_fs_init(void)
+EXPORT_SYMBOL(mtk_dbg_common_fs_exit);
+int mtk_dbg_common_fs_init(void)
 {
 	/* wakeup source init for suspend enable and disable */
 	mtk_suspend_lock = wakeup_source_register("mtk_suspend_wakelock");
@@ -286,10 +286,4 @@ static int __init mtk_dbg_common_fs_init(void)
 	pr_info("%s %d: finish", __func__, __LINE__);
 	return 0;
 }
-
-module_init(mtk_dbg_common_fs_init);
-module_exit(mtk_dbg_common_fs_exit);
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek Low Power FileSystem");
-MODULE_AUTHOR("MediaTek Inc.");
+EXPORT_SYMBOL(mtk_dbg_common_fs_init);

@@ -60,4 +60,8 @@ struct dbg_ctrl {
 	u32 duration;
 };
 
+int mtk_dbg_common_fs_init(void);
+
+void mtk_dbg_common_fs_exit(void);
+
 #endif /* __MTK_DBG_COMMON_H__ */

@@ -302,14 +302,14 @@ void mtk_cpuidle_prof_ratio_dump(struct seq_file *m)
 
 void mtk_cpuidle_state_enable(bool en)
 {
-	struct cpuidle_driver *drv;
+	struct cpuidle_driver *drv = NULL;
 	int i, cpu;
 
 	mtk_cpupm_block();
 
 	for_each_possible_cpu(cpu) {
 
-		drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
+		//drv = cpuidle_get_cpu_driver(per_cpu(cpuidle_devices, cpu));
 
 		if (!drv)
 			continue;
@@ -444,8 +444,8 @@ static void mtk_cpuidle_set_timer(struct mtk_cpuidle_device *mtk_idle)
 	if (unlikely(!drv))
 		return;
 
-	if (index + 1 >= mtk_idle->state_count
-		|| !tick_nohz_tick_stopped())
+	if (index + 1 >= mtk_idle->state_count)
+		//|| !tick_nohz_tick_stopped())
 		return;
 
 	limit_sleep_us = 4 * max_t(unsigned int,
@@ -455,9 +455,9 @@ static void mtk_cpuidle_set_timer(struct mtk_cpuidle_device *mtk_idle)
 	if (index != 0)
 		tick_broadcast_exit();
 
-	RCU_NONIDLE(hrtimer_start(&mtk_idle->timer,
-			ns_to_ktime(limit_sleep_us * NSEC_PER_USEC),
-			HRTIMER_MODE_REL_PINNED));
+	//RCU_NONIDLE(hrtimer_start(&mtk_idle->timer,
+	//		ns_to_ktime(limit_sleep_us * NSEC_PER_USEC),
+	//		HRTIMER_MODE_REL_PINNED));
 	mtk_idle->tmr_running = true;
 
 	if (index != 0)
@@ -471,7 +471,7 @@ static void mtk_cpuidle_cancel_timer(struct mtk_cpuidle_device *mtk_idle)
 
 	if (mtk_idle->tmr_running) {
 		mtk_idle->tmr_running = true;
-		RCU_NONIDLE(hrtimer_try_to_cancel(&mtk_idle->timer));
+		//RCU_NONIDLE(hrtimer_try_to_cancel(&mtk_idle->timer));
 	}
 }
 
@@ -533,8 +533,8 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 
 	} else if (action & MTK_LPM_NB_RESUME) {
 
-		aee_rr_rec_mcdi_val(nb_data->cpu,
-				(nb_data->index << 16) | 0x0);
+		//aee_rr_rec_mcdi_val(nb_data->cpu,
+		//		(nb_data->index << 16) | 0x0);
 		mtk_idle = &per_cpu(mtk_cpuidle_dev, nb_data->cpu);
 		mtk_idle->info.idle_index = -1;
 		mtk_idle->info.cnt[nb_data->index]++;
@@ -559,8 +559,8 @@ static int mtk_cpuidle_status_update(struct notifier_block *nb,
 
 		mtk_cpuidle_set_timer(mtk_idle);
 
-		aee_rr_rec_mcdi_val(nb_data->cpu,
-				(nb_data->index << 16) | 0xff);
+		//aee_rr_rec_mcdi_val(nb_data->cpu,
+		//		(nb_data->index << 16) | 0xff);
 	}
 
 	return NOTIFY_OK;

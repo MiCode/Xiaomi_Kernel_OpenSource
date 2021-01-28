@@ -3,7 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <mtk_lpm_trace.h>
+//#include <mtk_lpm_trace.h>
 #include <sspm_ipi.h>
 
 #include <mtk_ipi_sspm_v1.h>
@@ -45,30 +45,31 @@ static int _mt6779_ipi_sspm_send(int flags, unsigned int cmd)
 
 	if ((flags == SSPM_NOTIFY_ENTER_ASYNC)
 	   || (flags == SSPM_NOTIFY_LEAVE_ASYNC)) {
-		ret = sspm_ipi_send_async(IPI_ID_SPM_SUSPEND, IPI_OPT_DEFAUT,
-					&spm_d, SSPM_SPM_DATA_LEN);
-
+		ret = -1;
+		//ret = sspm_ipi_send_async(IPI_ID_SPM_SUSPEND, IPI_OPT_DEFAUT,
+		//			&spm_d, SSPM_SPM_DATA_LEN);
 		if (ret != 0)
-			printk_deferred("[name:spm&]#@# %s(%d) async(cmd:0x%x) ret %d\n",
+			pr_info("[name:spm&]#@# %s(%d) async(cmd:0x%x) ret %d\n",
 					__func__, __LINE__, spm_d.cmd, ret);
 	} else {
 		int ack_data = 0;
 
-		ret = sspm_ipi_send_sync(IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING,
-					&spm_d, SSPM_SPM_DATA_LEN,
-					&ack_data, 1);
+		ret = -1;
+		//ret = sspm_ipi_send_sync(IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING,
+		//			&spm_d, SSPM_SPM_DATA_LEN,
+		//			&ack_data, 1);
 
 		if (ret != 0)
-			printk_deferred("[name:spm&]#@# %s(%d) sync(cmd:0x%x) ret %d\n",
+			pr_info("[name:spm&]#@# %s(%d) sync(cmd:0x%x) ret %d\n",
 					__func__, __LINE__, spm_d.cmd, ret);
 		else if (ack_data < 0) {
 			ret = ack_data;
-			printk_deferred("[name:spm&]#@# %s(%d) sync cmd:0x%x ret %d\n",
+			pr_info("[name:spm&]#@# %s(%d) sync cmd:0x%x ret %d\n",
 				__func__, __LINE__, spm_d.cmd, ret);
 		}
 	}
 #else
-	printk_deferred("[name:spm&]#@# %s(%d) TINYSYS_SSPM_SUPPORT is not support\n",
+	pr_info("[name:spm&]#@# %s(%d) TINYSYS_SSPM_SUPPORT is not support\n",
 			__func__, __LINE__);
 #endif /* if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) */
 
@@ -84,21 +85,22 @@ static int _mt6779_ipi_sspm_response(int flags, unsigned int cmd)
 
 	if ((flags == SSPM_NOTIFY_ENTER_ASYNC)
 	   || (flags == SSPM_NOTIFY_LEAVE_ASYNC))
-		ret = sspm_ipi_send_async_wait(IPI_ID_SPM_SUSPEND,
-					       IPI_OPT_DEFAUT, &ack_data);
+		ret = -1;
+		//ret = sspm_ipi_send_async_wait(IPI_ID_SPM_SUSPEND,
+		//			       IPI_OPT_DEFAUT, &ack_data);
 	else
 		return 0;
 
 	if (ret != 0)
-		printk_deferred("[name:spm&]#@# %s(%d) async_wait(cmd:0x%x) ret %d\n",
+		pr_info("[name:spm&]#@# %s(%d) async_wait(cmd:0x%x) ret %d\n",
 				__func__, __LINE__, cmd, ret);
 	else if (ack_data < 0) {
 		ret = ack_data;
-		printk_deferred("[name:spm&]#@# %s(%d) async_waitcmd(%d) return %d\n",
+		pr_info("[name:spm&]#@# %s(%d) async_waitcmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
 	}
 #else
-	printk_deferred("[name:spm&]#@# %s(%d) TINYSYS_SSPM_SUPPORT is not support\n",
+	pr_info("[name:spm&]#@# %s(%d) TINYSYS_SSPM_SUPPORT is not support\n",
 			__func__, __LINE__);
 #endif /* if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) */
 	return ret;

@@ -51,7 +51,7 @@ int mt6779_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 
 	mt6779_suspend_status = 0;
 
-	printk_deferred("[name:spm&][%s:%d] - prepare suspend enter\n",
+	pr_info("[name:spm&][%s:%d] - prepare suspend enter\n",
 			__func__, __LINE__);
 
 	ret = mt6779_suspend_common_enter(&mt6779_suspend_status);
@@ -62,7 +62,7 @@ int mt6779_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 	/* Legacy SSPM flow, spm sw resource request flow */
 	mt6779_do_mcusys_prepare_pdn(mt6779_suspend_status, &spm_res);
 
-	printk_deferred("[name:spm&][%s:%d] - suspend enter\n",
+	pr_info("[name:spm&][%s:%d] - suspend enter\n",
 			__func__, __LINE__);
 
 PLAT_LEAVE_SUSPEND:
@@ -72,13 +72,13 @@ PLAT_LEAVE_SUSPEND:
 void mt6779_suspend_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
+	pr_info("[name:spm&][%s:%d] - prepare suspend resume\n",
 			__func__, __LINE__);
 
 	mt6779_suspend_common_resume(mt6779_suspend_status);
 	mt6779_do_mcusys_prepare_on();
 
-	printk_deferred("[name:spm&][%s:%d] - suspend resume\n",
+	pr_info("[name:spm&][%s:%d] - suspend resume\n",
 			__func__, __LINE__);
 
 	if (issuer)

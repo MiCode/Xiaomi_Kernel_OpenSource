@@ -13,6 +13,8 @@
 
 #include <mtk_lp_plat_apmcu_mbox.h>
 
+
+
 struct mbox_ops {
 	void (*write)(int id, int *buf, unsigned int len);
 	void (*read)(int id, int *buf, unsigned int len);
@@ -21,16 +23,16 @@ struct mbox_ops {
 static void apmcu_sspm_mailbox_write(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	if (is_sspm_ready())
-		sspm_mbox_write(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
+	//if (is_sspm_ready())
+	//	sspm_mbox_write(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
 #endif
 }
 
 static void apmcu_sspm_mailbox_read(int id, int *buf, unsigned int len)
 {
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	if (is_sspm_ready())
-		sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
+	//if (is_sspm_ready())
+	//	sspm_mbox_read(APMCU_SSPM_MBOX_ID, id, (void *)buf, len);
 #endif
 }
 

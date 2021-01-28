@@ -1,5 +1,5 @@
 config MTK_LPM_DBG_COMMON
-	bool "Meditaek Low Power common debug Module"
+	tristate "Meditaek Low Power common debug Module"
 	help
 	   Select MTK_LPM_DBG_COMMON then Mediatek low module
 	   common debug feature will be enabled. The common debug

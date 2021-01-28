@@ -23,4 +23,14 @@ int mt6779_dbg_spm_fs_init(void);
 
 int mt6779_dbg_spm_fs_deinit(void);
 
+int mt6779_logger_init(void);
+
+int mt6779_dbg_fs_init(void);
+
+void mt6779_dbg_fs_exit(void);
+
+int mtk_cpupm_dbg_init(void);
+
+void mtk_cpupm_dbg_exit(void);
+
 #endif /* __MTK_LP_PLAT_FS_H__ */
