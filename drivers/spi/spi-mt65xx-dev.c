@@ -36,18 +36,15 @@ int secspi_enable_clk(struct spi_device *spidev)
 
 	master = spidev->master;
 	ms = spi_master_get_devdata(master);
-
 	ret = clk_prepare_enable(ms->spi_clk);
-	if (ret) {
-		clk_disable_unprepare(ms->spi_clk);
+	if (ret)
 		return ret;
-	}
 	if (!IS_ERR(ms->spare_clk)) {
 		ret = clk_prepare_enable(ms->spare_clk);
 		if (ret)
-			clk_disable_unprepare(ms->spare_clk);
+			return ret;
 	}
-	return ret;
+	return 0;
 }
 
 void secspi_disable_clk(struct spi_device *spidev)
@@ -200,7 +197,6 @@ static ssize_t spi_store(struct device *dev,
 {
 	int len;
 	struct spi_device *spi;
-	int ret = 0;
 
 	spi = container_of(dev, struct spi_device, dev);
 
@@ -223,8 +219,7 @@ static ssize_t spi_store(struct device *dev,
 	}
 
 	if (!strncmp(buf, "enableclk", 9)) {
-		ret = secspi_enable_clk(spi);
-		if (ret)
+		if (secspi_enable_clk(spi))
 			SPI_DEBUG("spi enable clk error.\n");
 	}
 	if (!strncmp(buf, "disableclk", 10))
@@ -250,7 +245,7 @@ static int spi_create_attribute(struct device *dev)
 		if (res)
 			goto err;
 	}
-	return res;
+	return 0;
 err:
 	for (idx = 0; idx < size; idx++)
 		device_remove_file(dev, spi_attribute[idx]);
