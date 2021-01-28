@@ -3336,8 +3336,10 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,ccu";
 		reg = <0 0x1a0b1000 0 0x1000>;
 		interrupts = <GIC_SPI 246 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&camsys CLK_CAM_CCU>;
-		clock-names = "CCU_CLK_CAM_CCU";
+		clocks = <&camsys CLK_CAM_CCU>,
+			<&scpsys SCP_SYS_CAM>;
+		clock-names = "CCU_CLK_CAM_CCU",
+			"CAM_PWR";
 	};
 
 	lk_charger: lk_charger {
