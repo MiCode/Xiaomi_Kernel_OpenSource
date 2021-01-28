@@ -390,7 +390,6 @@ config MTK_IOMMU_PGTABLE_EXT
 	int "MTK IOMMU Page Table Extension"
 	depends on ARM || ARM64
 	depends on MTK_IOMMU_V2
-	select IOMMU_IO_PGTABLE_ARMV7S
 	range 32 64
 	default 32
 	help
