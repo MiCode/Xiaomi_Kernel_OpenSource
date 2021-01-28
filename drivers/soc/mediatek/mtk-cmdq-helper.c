@@ -311,7 +311,7 @@ static void cmdq_mbox_pool_free(struct cmdq_client *cl, void *va, dma_addr_t pa)
 void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
 {
 	void *va;
-	dma_addr_t pa;
+	dma_addr_t pa = 0;
 
 	va = dma_alloc_coherent(dev, CMDQ_BUF_ALLOC_SIZE, &pa, GFP_KERNEL);
 	if (!va) {
@@ -1981,14 +1981,14 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 	u32 offset, void *inst)
 {
 	struct cmdq_instruction *cmdq_inst = inst;
-	u32 cmd = CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
+	u32 len, cmd = CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 	u32 event_op = cmd & 0x80008000;
 	u16 update_to = cmdq_inst->arg_b & GENMASK(11, 0);
 	u16 wait_to = cmdq_inst->arg_c & GENMASK(11, 0);
 
 	switch (event_op) {
 	case 0x80000000:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Sync ] %s event %u to %u",
 			offset, *((u64 *)cmdq_inst),
 			update_to ? "set" : "clear",
@@ -1996,7 +1996,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 			update_to);
 		break;
 	case 0x8000:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Sync ] wait for event %u become %u",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a,
@@ -2004,7 +2004,7 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 		break;
 	case 0x80008000:
 	default:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Sync ] wait for event %u become %u and %s to %u",
 			offset, *((u64 *)cmdq_inst),
 			cmdq_inst->arg_a,
@@ -2013,6 +2013,8 @@ void cmdq_buf_print_wfe(char *text, u32 txt_sz,
 			update_to);
 		break;
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static const char *cmdq_parse_logic_sop(enum CMDQ_LOGIC_ENUM s_op)
@@ -2066,26 +2068,30 @@ static const char *cmdq_parse_jump_c_sop(enum CMDQ_CONDITION_ENUM s_op)
 static void cmdq_buf_print_move(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u64 val = (u64)cmdq_inst->arg_a |
+	u64 len, val = (u64)cmdq_inst->arg_a |
 		CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 
 	if (cmdq_inst->arg_a)
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Move ] move %#llx to %s%hhu",
 			offset, *((u64 *)cmdq_inst), val,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
-		snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] mask %#014llx",
-			offset, *((u64 *)cmdq_inst), ~val);
+		len = snprintf(text, txt_sz,
+			"%#06x %#018llx [Move ] mask %#010x",
+			offset, *((u32 *)cmdq_inst), ~val);
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
+	u32 len;
+
 	switch (cmdq_inst->s_op) {
 	case CMDQ_LOGIC_ASSIGN:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Logic] Reg Index %#06x %s%s%#010x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
@@ -2093,7 +2099,7 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 			CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c));
 		break;
 	case CMDQ_LOGIC_NOT:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Logic] Reg Index %#06x %s%s%#010x",
 			offset, *((u64 *)cmdq_inst), cmdq_inst->arg_a,
 			cmdq_parse_logic_sop(cmdq_inst->s_op),
@@ -2101,7 +2107,7 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 			cmdq_inst->arg_b);
 		break;
 	default:
-		snprintf(text, txt_sz,
+		len = snprintf(text, txt_sz,
 			"%#06x %#018llx [Logic] %s%#010x = %s%#010x %s%s%#010x",
 			offset, *((u64 *)cmdq_inst),
 			CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_a_type),
@@ -2112,12 +2118,16 @@ static void cmdq_buf_print_logic(char *text, u32 txt_sz,
 			cmdq_inst->arg_c);
 		break;
 	}
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_write_jump_c(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	snprintf(text, txt_sz,
+	u32 len;
+
+	len = snprintf(text, txt_sz,
 		"%#06x %#018llx [Jumpc] %s if (%s%#010x %s %s%#010x) jump %s%#010x",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->op == CMDQ_CODE_JUMP_C_ABSOLUTE ?
@@ -2126,40 +2136,47 @@ static void cmdq_buf_print_write_jump_c(char *text, u32 txt_sz,
 		cmdq_inst->arg_b, cmdq_parse_jump_c_sop(cmdq_inst->s_op),
 		CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_c_type), cmdq_inst->arg_c,
 		CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_a_type), cmdq_inst->arg_a);
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_poll(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 addr = ((u32)(cmdq_inst->arg_a |
+	u32 len, addr = ((u32)(cmdq_inst->arg_a |
 		(cmdq_inst->s_op << CMDQ_SUBSYS_SHIFT)));
 
-	snprintf(text, txt_sz,
+	len = snprintf(text, txt_sz,
 		"%#06x %#018llx [Poll ] poll %s%#010x = %s%#010x",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->arg_a_type ? "*Reg Index " : "SubSys Reg ",
 		addr,
 		CMDQ_REG_IDX_PREFIX(cmdq_inst->arg_b_type),
 		CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c));
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_jump(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
-	u32 dst = ((u32)cmdq_inst->arg_b) << 16 | cmdq_inst->arg_c;
+	u32 len, dst = ((u32)cmdq_inst->arg_b) << 16 | cmdq_inst->arg_c;
 
-	snprintf(text, txt_sz,
+	len = snprintf(text, txt_sz,
 		"%#06x %#018llx [Jump ] jump %s %#llx",
 		offset, *((u64 *)cmdq_inst),
 		cmdq_inst->arg_a ? "absolute addr" : "relative offset",
 		cmdq_inst->arg_a ? CMDQ_REG_REVERT_ADDR((u64)dst) :
 		CMDQ_REG_REVERT_ADDR((s64)(s32)dst));
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 	u32 offset, struct cmdq_instruction *cmdq_inst)
 {
 	char *cmd_str;
+	u32 len;
 
 	switch (cmdq_inst->op) {
 	case CMDQ_CODE_EOC:
@@ -2170,8 +2187,10 @@ static void cmdq_buf_print_misc(char *text, u32 txt_sz,
 		break;
 	}
 
-	snprintf(text, txt_sz, "%#06x %#018llx %s",
+	len = snprintf(text, txt_sz, "%#06x %#018llx %s",
 		offset, *((u64 *)cmdq_inst), cmd_str);
+	if (len >= txt_sz)
+		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
 }
 
 void cmdq_buf_cmd_parse(u64 *buf, u32 cmd_nr, dma_addr_t buf_pa,
