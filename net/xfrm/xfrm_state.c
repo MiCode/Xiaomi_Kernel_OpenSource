@@ -866,6 +866,7 @@ static void xfrm_state_print_btrace(unsigned long data)
 	}
 }
 
+/*
 static void xfrm_state_dump_byspi(struct net *net)
 {
 	int i;
@@ -877,6 +878,7 @@ static void xfrm_state_dump_byspi(struct net *net)
 			i, hlist, *hlist);
 	}
 }
+*/
 
 static void xfrm_state_clear_btrace(void)
 {
@@ -897,9 +899,9 @@ static struct xfrm_state *__xfrm_state_lookup(struct net *net, u32 mark,
 
 	count++;
 	xfrm_state_t1 = ktime_get();
-	pr_info("[mtk_net][xfrm_state] lookup x_num %d net %px byspi %px h %d\n",
-		net->xfrm.state_num, net, net->xfrm.state_byspi, h);
-	xfrm_state_dump_byspi(net);
+	pr_info("[mtk_net][xfrm_state] hmask %d lookup x_num %d net %px byspi %px h %d\n",
+		net->xfrm.state_hmask, net->xfrm.state_num, net, net->xfrm.state_byspi, h);
+	//xfrm_state_dump_byspi(net);
 	hlist_for_each_entry_rcu(x, net->xfrm.state_byspi + h, byspi) {
 		trace1++;
 		xfrm_state_t2 = ktime_get();
