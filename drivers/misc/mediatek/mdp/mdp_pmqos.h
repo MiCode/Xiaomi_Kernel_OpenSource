@@ -17,6 +17,12 @@
 #define PMQOS_ISP_PORT_NUM  16
 #define PMQOS_MDP_PORT_NUM  4
 
+enum DP_FORMAT_FLAG_ENUM {
+	DP_BW_COMP_NONE = 0,
+	DP_BW_COMP_DEFAULT,
+	DP_BW_COMP_END
+};
+
 struct mdp_pmqos {
 	uint32_t isp_total_datasize;
 	uint32_t isp_total_pixel;
@@ -43,6 +49,9 @@ struct mdp_pmqos {
 
 	uint64_t mdpMMpathString;
 	uint32_t mdpMMpathStringSize;
+
+	uint32_t qos2_isp_port_format_flag[PMQOS_ISP_PORT_NUM];
+	uint32_t qos2_mdp_port_format_flag[PMQOS_MDP_PORT_NUM];
 };
 #endif
 
