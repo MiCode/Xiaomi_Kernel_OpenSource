@@ -112,5 +112,5 @@ s32 cmdq_driver_ioctl_query_cap_bits(unsigned long param);
 s32 cmdq_driver_ioctl_query_dts(unsigned long param);
 s32 cmdq_driver_ioctl_notify_engine(unsigned long param);
 
-void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values);
+void cmdq_driver_dump_readback(u32 *ids, u32 *addrs, u32 count, u32 *values);
 #endif				/* __CMDQ_DRIVER_H__ */

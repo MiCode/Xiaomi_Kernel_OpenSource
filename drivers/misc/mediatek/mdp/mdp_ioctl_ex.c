@@ -256,7 +256,7 @@ static s32 mdp_process_read_request(struct mdp_read_readback *req_user)
 		CMDQ_SYSTRACE_BEGIN("%s_copy_to_user_%u\n", __func__, count);
 
 		cmdqCoreReadWriteAddressBatch(addrs, count, values);
-		cmdq_driver_dump_readback(addrs, count, values);
+		cmdq_driver_dump_readback(ids, addrs, count, values);
 
 		/* copy value to user */
 		if (copy_to_user(values_user, values, count * sizeof(u32))) {
