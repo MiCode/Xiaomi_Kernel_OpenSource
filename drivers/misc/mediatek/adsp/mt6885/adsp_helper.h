@@ -70,7 +70,7 @@ enum semaphore_3way_flag {
 	SEMA_3WAY_NUM =   7,
 };
 
-#define ADSP_OSTIMER_BUFFER    (adsp_timesync_ptr)
+#define ADSP_A_OSTIMER_BUFFER    (adsp_timesync_ptr)
 
 extern void *adsp_timesync_ptr;
 
