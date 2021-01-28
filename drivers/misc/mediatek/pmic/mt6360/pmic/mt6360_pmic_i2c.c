@@ -24,10 +24,10 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/delay.h>
-
+#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 #include <mach/mtk_pmic_wrap.h>
 #include <mt-plat/upmu_common.h>
-
+#endif
 #include "../inc/mt6360_pmic.h"
 #include <mt-plat/charger_class.h>
 
@@ -517,8 +517,10 @@ static int mt6360_pmic_set_voltage_sel(struct regulator_dev *rdev,
 	/* for LDO6/7 vocal add */
 	if (id > MT6360_PMIC_BUCK2)
 		sel = (sel >= 160) ? 0xfa : (((sel / 10) << 4) + sel % 10);
+#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 	if (id == MT6360_PMIC_BUCK1)
 		pwrap_write(MT6359_RG_SPI_CON12, sel);
+#endif
 	ret = mt6360_pmic_reg_update_bits(mpi, desc->vsel_reg,
 					  desc->vsel_mask, sel << shift);
 	if (ret < 0)
@@ -936,12 +938,15 @@ static int mt6360_pmic_i2c_probe(struct i2c_client *client,
 	device_init_wakeup(mpi->dev, true);
 	dev_info(&client->dev, "%s: successfully probed\n", __func__);
 
+#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 	/* MT6359 record VMDLA vosel */
 	ret = mt6360_pmic_reg_read(mpi,
 		mt6360_pmic_descs[MT6360_PMIC_BUCK1].desc.vsel_reg);
 	if (ret < 0)
 		return ret;
 	pwrap_write(MT6359_RG_SPI_CON12, ret);
+#endif
+
 	return 0;
 out_pdata:
 	mt6360_pmic_regmap_unregister(mpi);
