@@ -1,0 +1,74 @@
+
+menuconfig MEDIATEK_SOLUTION
+	bool "MediaTek Properitary Configuration"
+	select FW_LOADER_USER_HELPER_FALLBACK
+	select I2C
+	help
+	  Check this to enable MediaTek properity configuration.
+
+if MEDIATEK_SOLUTION
+config MTK_PLATFORM
+	string "MTK platform name"
+
+config ARCH_MTK_PROJECT
+	string "MTK project name"
+
+config FPGA_EARLY_PORTING
+	bool "MTK FPGA EARLY PORTING"
+	help
+	  Used for FPGA early porting to separate code segments between FPGA
+	  platform and non-FPGA platform.
+	  Say Y here if you are doing FPGA early porting.
+	  If unsure, say N
+
+config MTK_ENG_BUILD
+	bool "flag for MTK eng/usr build verification"
+	help
+	  Y means this kernel version is engineering mode and has more debugging
+	  features built-in. This option is supposed to specifiy engineering or
+	  user load for this build.
+	  If you are not sure about this, set n
+
+config MTK_LDVT
+	bool "LDVT"
+	help
+	  Support LDVT or not
+
+endif
+
+menu "Memory"
+
+endmenu  # Memory
+
+menu "Storage: EMMC, NAND, partition"
+
+endmenu  # Storage
+
+menu "Power, PMIC, Battery & Low Power"
+
+endmenu  # Power
+
+menu "MultiMedia, Display, Camera"
+
+endmenu  # MM
+
+menu "Sensors"
+
+endmenu  # Sensors
+
+menu "Modem & Connectivity"
+
+endmenu  # CONN
+
+menu "Security"
+
+endmenu  # Security
+
+menu "Other Peripherals"
+
+endmenu # Other Peripheral
+
+menu "Misc configs"
+
+source "drivers/misc/mediatek/Kconfig.default"
+endmenu    # Misc
