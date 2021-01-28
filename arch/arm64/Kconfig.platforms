@@ -122,7 +122,6 @@ config MACH_MT6761
 	select ARMV7_COMPAT_CPUINFO
 	select CPU_IDLE
 	select PINCTRL
-	select PINCTRL_MT6761
 	select MFD_SYSCON
 	select MTK_GIC_V3_EXT
 	select FAST_CIRQ_CLONE_FLUSH
