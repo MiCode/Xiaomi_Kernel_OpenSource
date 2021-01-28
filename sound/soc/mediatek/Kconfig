@@ -148,25 +148,6 @@ config SND_SOC_MT6885_MT6359
 	  Select Y if you have such device.
 	  If unsure select "N".
 
-config SND_SOC_MT6893
-	tristate "ASoC support for Mediatek MT6893 chip"
-	select SND_SOC_MT6885
-	help
-	  This adds ASoC driver for Mediatek MT6893 boards
-	  that can be used with other codecs.
-	  Select Y if you have such device.
-	  If unsure select "N".
-
-config SND_SOC_MT6893_MT6359
-	tristate "ASoc Audio driver for MT6893 with MT6359 codec"
-	select SND_SOC_MT6893
-	select SND_SOC_MT6359
-	help
-	  This adds ASoC driver for Mediatek MT6885 boards
-	  with the MT6359 codecs.
-	  Select Y if you have such device.
-	  If unsure select "N".
-
 config SND_SOC_MT8168
 	tristate "ASoC support for Mediatek MT8168 chip"
 	depends on ARCH_MEDIATEK
