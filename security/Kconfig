@@ -234,7 +234,6 @@ source security/loadpin/Kconfig
 source security/yama/Kconfig
 
 source security/integrity/Kconfig
-source security/hie/Kconfig
 
 choice
 	prompt "Default security module"
