@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2013-2019 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2020 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -30,6 +30,7 @@
 #include "platform.h"			/* CPU-related information */
 
 #include "public/mc_user.h"
+#include "public/mc_linux_api.h"
 
 #include "mci/mcifc.h"
 #include "mci/mciiwp.h"
@@ -97,6 +98,9 @@ static struct {
 
 	/* TEE affinity */
 	unsigned long		default_affinity_mask;
+#if defined(BIG_CORE_SWITCH_AFFINITY_MASK)
+	atomic_t		big_core_demand_cnt;
+#endif
 	atomic_t		tee_affinity;
 
 	/* TEE workers */
@@ -281,29 +285,34 @@ static irqreturn_t irq_handler(int intr, void *arg)
 	complete(&l_ctx.irq_bh_complete);
 	return IRQ_HANDLED;
 }
-static cpumask_t tee_set_affinity(void)
+
+cpumask_t tee_set_affinity(void)
 {
-	cpumask_t old_affinity = current->cpus_allowed;
+	cpumask_t old_affinity;
 	unsigned long affinity = get_tee_affinity();
 
+	old_affinity = current->cpus_allowed;
 	mc_dev_devel("aff = %lx mask = %lx curr_aff = %*pbl (pid = %u)",
 		     affinity,
 		     l_ctx.default_affinity_mask,
 		     cpumask_pr_args(&old_affinity),
 		     current->pid);
-	sched_setaffinity(current->pid, to_cpumask(&affinity));
+	set_cpus_allowed_ptr(current, to_cpumask(&affinity));
 
 	return old_affinity;
 }
 
-static void tee_restore_affinity(cpumask_t old_affinity)
+void tee_restore_affinity(cpumask_t old_affinity)
 {
+	cpumask_t current_affinity = current->cpus_allowed;
+
+	(void)current_affinity;
 	mc_dev_devel("aff = %*pbl mask = %lx curr_aff = %*pbl (pid = %u)",
 		     cpumask_pr_args(&old_affinity),
 		     l_ctx.default_affinity_mask,
-		     cpumask_pr_args(&current->cpus_allowed),
+		     cpumask_pr_args(&current_affinity),
 		     current->pid);
-	sched_setaffinity(current->pid, &old_affinity);
+	set_cpus_allowed_ptr(current, &old_affinity);
 }
 
 void nq_session_init(struct nq_session *session, bool is_gp)
@@ -375,6 +384,7 @@ int nq_session_notify(struct nq_session *session, u32 id, u32 payload)
 			ret = -EPROTO;
 		tee_restore_affinity(old_affinity);
 		wake_up(&l_ctx.workers_wq);
+		logging_run();
 	}
 
 	mutex_unlock(&l_ctx.notifications_mutex);
@@ -867,11 +877,13 @@ static s32 tee_schedule(uintptr_t arg, unsigned int *timeout_ms)
 
 		/* Relinquish current CPU to TEE */
 		ret = fc_yield(0, 0, &resp);
+		/* Any worker wakes up the log thread upon returning from SWd.
+		 * Logging should happen whether the yield succeded or not
+		 */
+		logging_run();
+
 		if (ret)
 			goto exit;
-
-		/* Any worker wakes up the log thread upon returning from SWd */
-		logging_run();
 
 		switch (resp.resp) {
 		case MC_SMC_S_YIELD:
@@ -1057,6 +1069,18 @@ int nq_start(void)
 	if (ret)
 		return ret;
 
+#define MC_DISABLE_IRQ_WAKEUP
+#ifdef MC_DISABLE_IRQ_WAKEUP
+	mc_dev_info("irq_set_irq_wake on irq %u disabled", l_ctx.irq);
+#else
+	ret = irq_set_irq_wake(l_ctx.irq, 1);
+	if (ret) {
+		mc_dev_err(ret, "irq_set_irq_wake error on irq %u",
+			   l_ctx.irq);
+		return ret;
+	}
+#endif
+
 	/* Enable TEE clock */
 	mc_clock_enable();
 
@@ -1198,6 +1222,23 @@ static ssize_t debug_tee_affinity_read(struct file *file, char __user *buffer,
 				       cpu_str, ret);
 }
 
+#if defined(BIG_CORE_SWITCH_AFFINITY_MASK)
+void set_tee_worker_threads_on_big_core(bool big_core)
+{
+	mc_dev_devel("%s", big_core ? "big_affinity" : "default_affinity");
+
+	if (big_core) {
+		atomic_inc(&l_ctx.big_core_demand_cnt);
+		atomic_set(&l_ctx.tee_affinity, BIG_CORE_SWITCH_AFFINITY_MASK);
+	} else {
+		/* decrease state in case of several overlapping requests */
+		if (atomic_dec_if_positive(&l_ctx.big_core_demand_cnt) <= 0)
+			atomic_set(&l_ctx.tee_affinity,
+				   l_ctx.default_affinity_mask);
+	}
+}
+#endif
+
 static const struct file_operations mc_debug_tee_affinity_ops = {
 	.write = debug_tee_affinity_write,
 	.read = debug_tee_affinity_read,
@@ -1272,6 +1313,10 @@ int nq_init(void)
 	#else
 	l_ctx.default_affinity_mask = (1 << nr_cpu_ids) - 1;
 	#endif
+
+#if defined(BIG_CORE_SWITCH_AFFINITY_MASK)
+	atomic_set(&l_ctx.big_core_demand_cnt, 0);
+#endif
 
 	mc_dev_devel("Default affinity : %lx", l_ctx.default_affinity_mask);
 	atomic_set(&l_ctx.tee_affinity, l_ctx.default_affinity_mask);
