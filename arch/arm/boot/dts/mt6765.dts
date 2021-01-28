@@ -1955,11 +1955,23 @@
 	};
 
 	auxadc: auxadc@11001000 {
-		compatible = "mediatek,auxadc";
-		reg = <0 0x11001000 0 0x10000>;
+		compatible = "mediatek,mt6765-auxadc";
+		reg = <0 0x11001000 0 0x1000>;
 		interrupts = <GIC_SPI 76 IRQ_TYPE_EDGE_FALLING>;
 		clocks = <&infracfg_ao CLK_IFR_AUXADC>;
-		clock-names = "auxadc-main";
+		clock-names = "main";
+		#io-channel-cells = <1>;
+		/* Auxadc efuse calibration */
+		/* 1. Auxadc cali on/off bit shift */
+		mediatek,cali-en-bit = <20>;
+		/* 2. Auxadc cali ge bits shift */
+		mediatek,cali-ge-bit = <10>;
+		/* 3. Auxadc cali oe bits shift */
+		mediatek,cali-oe-bit = <0>;
+		/* 4. Auxadc cali efuse reg offset */
+		mediatek,cali-efuse-reg-offset = <0x1A8>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
 		#interconnect-cells = <1>;
 	};
 
