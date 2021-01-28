@@ -4821,7 +4821,9 @@ static inline void ufshcd_hba_stop(struct ufs_hba *hba, bool can_sleep)
 int ufshcd_hba_enable(struct ufs_hba *hba)
 {
 	int retry;
+	bool retry_reset = false;
 
+hba_retry:
 	/*
 	 * msleep of 1 and 5 used in this function might result in msleep(20),
 	 * but it was necessary to send the UFS FPGA to reset mode during
@@ -4865,7 +4867,12 @@ int ufshcd_hba_enable(struct ufs_hba *hba)
 			ufs_mtk_pltfrm_host_sw_rst(hba,
 				SW_RST_TARGET_UFSHCI |
 				SW_RST_TARGET_UFSCPT | SW_RST_TARGET_UNIPRO);
-			return -EIO;
+			/* try again after sw reset */
+			if (!retry_reset) {
+				retry_reset = true;
+				goto hba_retry;
+			} else
+				return -EIO;
 		}
 		usleep_range(1000, 1100);
 	}
