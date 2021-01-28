@@ -1066,7 +1066,9 @@ cm_mgr_opp_end:
 	}
 }
 
+#ifdef USE_CPU_TO_DRAM_MAP
 static void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
+#endif /* USE_CPU_TO_DRAM_MAP */
 void check_cm_mgr_status_mt6761(unsigned int cluster, unsigned int freq)
 {
 #ifdef CONFIG_MTK_CPU_FREQ
@@ -1087,7 +1089,9 @@ void check_cm_mgr_status_mt6761(unsigned int cluster, unsigned int freq)
 	prev_freq[cluster] = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
 
+#ifdef USE_CPU_TO_DRAM_MAP
 	cm_mgr_update_dram_by_cpu_opp(prev_freq_idx[CM_MGR_CPU_CLUSTER - 1]);
+#endif /* USE_CPU_TO_DRAM_MAP */
 
 	check_cm_mgr_status_internal();
 }
