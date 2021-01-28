@@ -1800,7 +1800,7 @@ static int scp_device_probe(struct platform_device *pdev)
 			continue;
 		}
 
-		feature_table[f_idx].feature = f_mcps;
+		feature_table[f_idx].freq = f_mcps;
 		pr_err("@@@@: <%d  %d>\n", f_idx, f_mcps);
 	}
 
