@@ -481,7 +481,13 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer,
 		goto out;
 	} else if (cmd_head.wr == 8) {	/*Read driver version*/
 		s32 tmp_len = strlen(GTP_DRIVER_VERSION) + 1;
-		char *drv_ver = kzalloc(tmp_len, GFP_ATOMIC);
+		char *drv_ver = NULL;
+
+		if (count < tmp_len) {
+			ret = -1;
+			goto out;
+		}
+		drv_ver = kzalloc(tmp_len, GFP_ATOMIC);
 
 		if (drv_ver == NULL) {
 			GTP_ERROR("Allocate %d buffer fail\n", tmp_len);
@@ -491,7 +497,7 @@ static ssize_t gt1x_tool_read(struct file *filp, char __user *buffer,
 		strncpy(drv_ver, GTP_DRIVER_VERSION,
 			strlen(GTP_DRIVER_VERSION));
 		drv_ver[strlen(GTP_DRIVER_VERSION)] = 0;
-		if (copy_to_user(&buffer, drv_ver, tmp_len)) {
+		if (copy_to_user(buffer, drv_ver, tmp_len)) {
 			GTP_ERROR("[READ]copy_to_user failed");
 			kfree(drv_ver);
 			ret = -1;
