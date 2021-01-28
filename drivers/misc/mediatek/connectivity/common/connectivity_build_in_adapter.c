@@ -62,31 +62,12 @@
 
 
 
-phys_addr_t gConEmiPhyBase;
-EXPORT_SYMBOL(gConEmiPhyBase);
-unsigned long long gConEmiSize;
-EXPORT_SYMBOL(gConEmiSize);
-
 phys_addr_t gWifiRsvMemPhyBase;
 EXPORT_SYMBOL(gWifiRsvMemPhyBase);
 unsigned long long gWifiRsvMemSize;
 EXPORT_SYMBOL(gWifiRsvMemSize);
 
 /*Reserved memory by device tree!*/
-
-int reserve_memory_consys_fn(struct reserved_mem *rmem)
-{
-	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
-		__func__, rmem->name, (unsigned long long)rmem->base,
-		(unsigned long long)rmem->size);
-	gConEmiPhyBase = rmem->base;
-	gConEmiSize = rmem->size;
-	return 0;
-}
-
-RESERVEDMEM_OF_DECLARE(reserve_memory_test, "mediatek,consys-reserve-memory",
-			reserve_memory_consys_fn);
-
 int reserve_memory_wifi_fn(struct reserved_mem *rmem)
 {
 	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
