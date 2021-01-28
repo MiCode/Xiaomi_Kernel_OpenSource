@@ -28,7 +28,7 @@
 #define USE_CM_MGR_AT_SSPM
 /* #define USE_SINGLE_CLUSTER */
 /* #define USE_CPU_TO_DRAM_MAP */
-/* #define USE_BCPU_WEIGHT */
+#define USE_BCPU_WEIGHT
 
 #define CM_MGR_EMI_OPP 5
 #define CM_MGR_LOWER_OPP 6
