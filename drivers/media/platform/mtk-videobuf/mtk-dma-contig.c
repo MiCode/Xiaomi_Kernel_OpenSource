@@ -32,7 +32,6 @@ module_param(debug, int, 0644);
 			pr_info("mtk-dma-contig: " fmt, ##args);	\
 	} while (0)
 
-
 /*********************************************/
 /*        scatterlist table functions        */
 /*********************************************/
@@ -126,38 +125,32 @@ static int vb2_dc_map_dmabuf(void *mem_priv)
 		return 0;
 	}
 
-	if (mtk_secure_mode == 1) {
-		dprintk(INFO, "bypass %s for secure buffer\n", __func__);
-		buf->dma_addr = 0;
-		buf->dma_sgt  = NULL;
-		buf->vaddr    = NULL;
-	} else {
-		/* get the associated scatterlist for this buffer */
-		sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
-		if (IS_ERR(sgt)) {
-			dprintk(CRITICAL, "Error getting dmabuf scatterlist\n");
-			return -EINVAL;
-		}
-
-		/* checking if dmabuf is big enough to store contiguous chunk */
-		contig_size = vb2_dc_get_contiguous_size(sgt);
-		if (contig_size < buf->size) {
-#ifdef CONFIG_MTK_IOMMU_V2
-			dprintk(CRITICAL,
-				"contiguous chunk is too small %lu/%lu b\n",
-				contig_size, buf->size);
-#endif
-			dma_buf_unmap_attachment(buf->db_attach,
-				sgt, buf->dma_dir);
-#ifdef CONFIG_MTK_IOMMU_V2
-			return -EFAULT;
-#endif
-		}
-
-		buf->dma_addr = sg_dma_address(sgt->sgl);
-		buf->dma_sgt = sgt;
-		buf->vaddr = NULL;
+	/* get the associated scatterlist for this buffer */
+	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+	if (IS_ERR(sgt)) {
+		dprintk(CRITICAL, "Error getting dmabuf scatterlist\n");
+		return -EINVAL;
 	}
+
+	/* checking if dmabuf is big enough to store contiguous chunk */
+	contig_size = vb2_dc_get_contiguous_size(sgt);
+
+	if (contig_size < buf->size && mtk_secure_mode != 1) {
+#ifdef CONFIG_MTK_IOMMU_V2
+		dprintk(CRITICAL,
+			"contiguous chunk is too small %lu/%lu b\n",
+			contig_size, buf->size);
+#endif
+		dma_buf_unmap_attachment(buf->db_attach,
+			sgt, buf->dma_dir);
+#ifdef CONFIG_MTK_IOMMU_V2
+		return -EFAULT;
+#endif
+	}
+
+	buf->dma_addr = sg_dma_address(sgt->sgl);
+	buf->dma_sgt = sgt;
+	buf->vaddr = NULL;
 
 	return 0;
 }
@@ -172,27 +165,20 @@ static void vb2_dc_unmap_dmabuf(void *mem_priv)
 		return;
 	}
 
-	if (mtk_secure_mode == 1) {
-		dprintk(INFO, "bypass %s for secure buffer\n", __func__);
-		buf->dma_addr = 0;
-		buf->dma_sgt  = NULL;
-		buf->vaddr    = NULL;
-	} else {
-		if (WARN_ON(!sgt)) {
-			dprintk(CRITICAL,
-				"dmabuf buffer is already unpinned\n");
-			return;
-		}
-
-		if (buf->vaddr) {
-			dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
-			buf->vaddr = NULL;
-		}
-		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
-
-		buf->dma_addr = 0;
-		buf->dma_sgt = NULL;
+	if (WARN_ON(!sgt)) {
+		dprintk(CRITICAL,
+			"dmabuf buffer is already unpinned\n");
+		return;
 	}
+
+	if (buf->vaddr) {
+		dma_buf_vunmap(buf->db_attach->dmabuf, buf->vaddr);
+			buf->vaddr = NULL;
+	}
+	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+
+	buf->dma_addr = 0;
+	buf->dma_sgt = NULL;
 
 }
 

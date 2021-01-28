@@ -29,7 +29,7 @@ static unsigned int default_cap_fmt_idx;
 
 #define NUM_SUPPORTED_FRAMESIZE ARRAY_SIZE(mtk_vdec_framesizes)
 #define NUM_FORMATS ARRAY_SIZE(mtk_video_formats)
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 static struct vb2_mem_ops vdec_ion_dma_contig_memops;
 #endif
 
@@ -588,13 +588,8 @@ static void mtk_vdec_worker(struct work_struct *work)
 
 		for (i = 0; i < num_planes; i++) {
 			pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
-#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
-			pfb->fb_base[i].dma_addr =
-				mtk_dma_sg_plane_dma_addr(dst_buf, i);
-#else
 			pfb->fb_base[i].dma_addr =
 				vb2_dma_contig_plane_dma_addr(dst_buf, i);
-#endif
 			pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
 			pfb->fb_base[i].length = dst_buf->planes[i].length;
 			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
@@ -2536,7 +2531,7 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	if (ctrl->id == V4L2_CID_MPEG_MTK_SEC_DECODE) {
 		ctx->dec_params.svp_mode = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
 					ctx->dec_params.svp_mode);
 #endif
@@ -2552,7 +2547,7 @@ static int mtk_vdec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_MTK_SEC_DECODE:
 		ctx->dec_params.svp_mode = ctrl->val;
 		ctx->dec_param_change |= MTK_DEC_PARAM_SEC_DECODE;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 		mtk_dma_contig_set_secure_mode(&ctx->dev->plat_dev->dev,
 					ctx->dec_params.svp_mode);
 #endif
@@ -2806,7 +2801,7 @@ const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops = {
 	.vidioc_g_crop                  = vidioc_vdec_g_crop,
 };
 
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 static int vdec_dc_ion_map_dmabuf(void *mem_priv)
 {
 	return mtk_dma_contig_memops.map_dmabuf(mem_priv);
@@ -2826,7 +2821,7 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->drv_priv        = ctx;
 	src_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
 	src_vq->ops             = &mtk_vdec_vb2_ops;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 	vdec_ion_dma_contig_memops = mtk_dma_contig_memops;
 	vdec_ion_dma_contig_memops.map_dmabuf = vdec_dc_ion_map_dmabuf;
 
@@ -2851,9 +2846,7 @@ int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->drv_priv        = ctx;
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_dec_buf);
 	dst_vq->ops             = &mtk_vdec_vb2_ops;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
-	dst_vq->mem_ops         = &mtk_dma_sg_memops;
-#elif defined(CONFIG_VB2_MEDIATEK_DMA_CONTIG)
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 	dst_vq->mem_ops         = &vdec_ion_dma_contig_memops;
 	mtk_v4l2_debug(4, "dst_vq use mtk_dma_contig_memops");
 #else

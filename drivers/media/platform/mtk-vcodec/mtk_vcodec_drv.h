@@ -18,9 +18,6 @@
 #include "mtk_vcodec_pm.h"
 
 #include "mtk-dma-contig.h"
-#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
-#include "mtkbuf-dma-cache-sg.h"
-#endif
 #ifdef CONFIG_MTK_SLBC
 #include "slbc_ops.h"
 #endif

@@ -90,25 +90,6 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	pdev = mtkdev->plat_dev;
 	pm->dev = &pdev->dev;
 
-	pm->clk_MT_SCP_SYS_VDE = devm_clk_get(&pdev->dev, "MT_SCP_SYS_VDE");
-
-	if (IS_ERR(pm->clk_MT_SCP_SYS_VDE)) {
-		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_VDE\n");
-		return PTR_ERR(pm->clk_MT_SCP_SYS_VDE);
-	}
-
-	pm->clk_MT_SCP_SYS_VEN = devm_clk_get(&pdev->dev, "MT_SCP_SYS_VEN");
-	if (IS_ERR(pm->clk_MT_SCP_SYS_VEN)) {
-		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_VEN\n");
-		return PTR_ERR(pm->clk_MT_SCP_SYS_VEN);
-	}
-
-	pm->clk_MT_SCP_SYS_DIS = devm_clk_get(&pdev->dev, "MT_SCP_SYS_DIS");
-	if (IS_ERR(pm->clk_MT_SCP_SYS_DIS)) {
-		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_DIS\n");
-		return PTR_ERR(pm->clk_MT_SCP_SYS_DIS);
-	}
-
 	pm->clk_MT_CG_VENC = devm_clk_get(&pdev->dev, "MT_CG_VENC");
 	if (IS_ERR(pm->clk_MT_CG_VENC)) {
 		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VENC\n");

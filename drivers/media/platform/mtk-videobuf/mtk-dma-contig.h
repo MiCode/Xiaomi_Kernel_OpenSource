@@ -10,6 +10,7 @@
 
 #include <media/videobuf2-v4l2.h>
 #include <linux/dma-mapping.h>
+#include <media/videobuf2-v4l2.h>
 #include <media/videobuf2-memops.h>
 
 struct vb2_dc_buf {

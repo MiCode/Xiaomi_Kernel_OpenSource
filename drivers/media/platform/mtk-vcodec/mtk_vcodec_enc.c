@@ -31,7 +31,7 @@ static struct mtk_codec_framesizes
 	mtk_venc_framesizes[MTK_MAX_ENC_CODECS_SUPPORT] = { {0} };
 static unsigned int default_out_fmt_idx;
 static unsigned int default_cap_fmt_idx;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 static struct vb2_mem_ops venc_ion_dma_contig_memops;
 #endif
 
@@ -2586,7 +2586,7 @@ int mtk_vcodec_enc_ctrls_setup(struct mtk_vcodec_ctx *ctx)
 	return 0;
 }
 
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 static int venc_dc_ion_map_dmabuf(void *mem_priv)
 {
 	return mtk_dma_contig_memops.map_dmabuf(mem_priv);
@@ -2609,7 +2609,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->drv_priv        = ctx;
 	src_vq->buf_struct_size = sizeof(struct mtk_video_enc_buf);
 	src_vq->ops             = &mtk_venc_vb2_ops;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 	venc_ion_dma_contig_memops = mtk_dma_contig_memops;
 	venc_ion_dma_contig_memops.map_dmabuf = venc_dc_ion_map_dmabuf;
 
@@ -2633,7 +2633,7 @@ int mtk_vcodec_enc_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->drv_priv        = ctx;
 	dst_vq->buf_struct_size = sizeof(struct mtk_video_enc_buf);
 	dst_vq->ops             = &mtk_venc_vb2_ops;
-#ifdef CONFIG_VB2_MEDIATEK_DMA_CONTIG
+#ifdef CONFIG_VB2_MEDIATEK_DMA
 	dst_vq->mem_ops         = &venc_ion_dma_contig_memops;
 	mtk_v4l2_debug(4, "dst_vq use mtk_dma_contig_memops");
 #else
