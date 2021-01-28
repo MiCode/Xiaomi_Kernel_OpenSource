@@ -313,13 +313,11 @@ static void write_shutter(kal_uint16 shutter)
 			/* Extend frame length */
 			write_cmos_sensor(0x380e,
 				(imgsensor.frame_length >> 8) & 0x7f);
-			write_cmos_sensor(0x380e, imgsensor.frame_length >> 8);
 			write_cmos_sensor(0x380f,
 				imgsensor.frame_length & 0xFF);
 		}
 	} else	{
 		write_cmos_sensor(0x380e, (imgsensor.frame_length >> 8) & 0x7f);
-		write_cmos_sensor(0x380e, imgsensor.frame_length >> 8);
 		write_cmos_sensor(0x380f, imgsensor.frame_length & 0xFF);
 	}
 
