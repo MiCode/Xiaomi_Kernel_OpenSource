@@ -613,11 +613,7 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 	else if (!((reg_value[0] == 0x5443000C) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF)))
 		return;
-	if (unlikely(in_interrupt()) && (!devapc_callback_flag)) {
-		CCCI_MEM_LOG_TAG(md->index, TAG,
-			"In interrupt, skip dump MD debug register.\n");
-		return;
-	}
+
 	/* reset devapc_callback_flag after interrupt check */
 	devapc_callback_flag = 0;
 
