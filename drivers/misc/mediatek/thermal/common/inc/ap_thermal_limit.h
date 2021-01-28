@@ -84,12 +84,24 @@ extern
 unsigned int apthermolmt_get_cpu_power_limit(void);
 
 extern
+unsigned int apthermolmt_get_cpu_min_power(void);
+
+extern
 unsigned int apthermolmt_get_gpu_power_limit(void);
+
+extern
+unsigned int apthermolmt_get_gpu_min_power(void);
 
 extern
 unsigned int apthermolmt_get_vpu_power_limit(void);
 
 extern
+unsigned int apthermolmt_get_vpu_min_power(void);
+
+extern
 unsigned int apthermolmt_get_mdla_power_limit(void);
+
+extern
+unsigned int apthermolmt_get_mdla_min_power(void);
 
 #endif	/* __AP_THERMAL_LIMIT_H__ */
