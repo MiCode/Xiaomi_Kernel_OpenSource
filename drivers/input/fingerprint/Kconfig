@@ -1,0 +1,21 @@
+#
+#Fingerprint
+#
+menu "Fingerprint support"
+	depends on INPUT
+
+config MTK_FINGERPRINT_SUPPORT
+	bool "Mediatek Fingerprint"
+	default n
+	help
+	  Fingerprint mtk driver enable/disable
+	  in the kernel.Say Y here if you want to
+	  use mediatek fingerprint driver,fingerprint
+	  driver will support fingerprint function
+
+config MTK_FINGERPRINT_SELECT
+	string "sensor type"
+	default "GF318M"
+
+
+endmenu
