@@ -366,6 +366,7 @@ int dsp_daiid_to_scp_reservedid(int task_dai_id)
 	case AUDIO_TASK_CALL_FINAL_ID:
 	case AUDIO_TASK_FAST_ID:
 	case AUDIO_TASK_KTV_ID:
+	case AUDIO_TASK_CAPTURE_RAW_ID:
 		return ADSP_AUDIO_COMMON_MEM_ID;
 #endif
 	default:
