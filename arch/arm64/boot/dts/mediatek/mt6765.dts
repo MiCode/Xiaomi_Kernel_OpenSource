@@ -2929,7 +2929,7 @@
 		compatible = "mediatek,memory-ssmr-features";
 		svp-size = <0 0x10000000>;
 		iris-recognition-size = <0 0x10000000>;
-		2d_fr-size = <0 0x8000000>;
+		2d_fr-size = <0 0>;
 		tui-size = <0 0x4000000>;
 		wfd-size = <0 0x4000000>;
 		prot-sharedmem-size = <0 0x8000000>;
