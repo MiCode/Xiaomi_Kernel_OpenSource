@@ -2428,7 +2428,8 @@ static int mtk_uart_probe(struct platform_device *pdev)
 	err = clk_prepare(uart_setting->clk_uart_main);
 	if (err) {
 		pr_err("[UART%d] cannot prepare main clk ctrl\n", pdev->id);
-		return err;
+		//return err;
+		goto CLK_ERR;
 	}
 	pr_debug("[UART%d][CCF]clk_uart_main:%p\n",
 		pdev->id, uart_setting->clk_uart_main);
@@ -2440,13 +2441,15 @@ static int mtk_uart_probe(struct platform_device *pdev)
 		if (IS_ERR(clk_uart0_dma)) {
 			pr_err("[UART][CCF]cannot get clk_uart0_dma clock. ptr_err:%ld\n",
 				PTR_ERR(clk_uart0_dma));
-			return PTR_ERR(clk_uart0_dma);
+			//return PTR_ERR(clk_uart0_dma);
+			goto CLK_PREPARE_ERR;
 		}
 		err = clk_prepare(clk_uart0_dma);
 		if (err) {
 			pr_err("[UART%d] cannot prepare dma clk ctrl\n",
 				pdev->id);
-			return err;
+			//return err;
+			goto CLK_PREPARE_ERR;
 		}
 
 		set_uart_dma_clk(pdev->id, clk_uart0_dma);
@@ -2464,7 +2467,7 @@ static int mtk_uart_probe(struct platform_device *pdev)
 		err = PTR_ERR(ppinctrl);
 		pr_err("[UART%d][PinC]cannot find pinctrl. ptr_err:%ld\n",
 			pdev->id, PTR_ERR(ppinctrl));
-		return err;
+		goto CLK_PREPARE_ERR;
 	}
 	set_uart_pinctrl(pdev->id, ppinctrl);
 	pr_debug("[UART%d][PinC]set idx:%d, ppinctrl:%p\n",
@@ -2478,7 +2481,8 @@ static int mtk_uart_probe(struct platform_device *pdev)
 		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(33);
 		if (dma_set_mask(&pdev->dev, DMA_BIT_MASK(33))) {
 			dev_err(&pdev->dev, "dma_set_mask return error.\n");
-			return -EINVAL;
+			err = -EINVAL;
+			goto PINCTRL_ERR;
 		}
 	} else {
 		pdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
@@ -2487,14 +2491,34 @@ static int mtk_uart_probe(struct platform_device *pdev)
 	err = uart_add_one_port(&mtk_uart_drv, &uart->port);
 	if (!err)
 		platform_set_drvdata(pdev, uart);
+	else
+		goto PINCTRL_ERR;
+	#if defined(ENABLE_VFIFO)
+		err = mtk_uart_vfifo_create(uart);
+
+		if (err) {
+			mtk_uart_vfifo_delete(uart);
+			pr_err("create vff buffer fail:%d\n", err);
+			goto VFIFO_ERR;
+		}
+	#endif
+
+	goto EXIT;
 
 #if defined(ENABLE_VFIFO)
-	err = mtk_uart_vfifo_create(uart);
-	if (err) {
-		mtk_uart_vfifo_delete(uart);
-		pr_err("create vff buffer fail:%d\n", err);
-	}
+VFIFO_ERR:
+	uart_remove_one_port(&mtk_uart_drv, &uart->port);
 #endif
+PINCTRL_ERR:
+	set_uart_pinctrl(pdev->id, NULL);
+
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+CLK_PREPARE_ERR:
+	clk_unprepare(uart_setting->clk_uart_main);
+CLK_ERR:
+	uart_setting->clk_uart_main = NULL;
+#endif
+EXIT:
 	return err;
 }
 
