@@ -17,6 +17,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <mtk_leds_sw.h>
 
 #ifdef CONFIG_MTK_AAL_SUPPORT
 #include <ddp_aal.h>
@@ -25,7 +26,13 @@
 
 #include <ddp_gamma.h>
 
+#ifdef CONFIG_MTK_PWM
 #include <mt-plat/mtk_pwm.h>
+static unsigned int backlight_PWM_div_hal = CLK_DIV1;
+#else
+#define CLK_DIV1 1
+#endif
+
 #ifdef CONFIG_MTK_PMIC_NEW_ARCH
 #include <mt-plat/upmu_common.h>
 #endif
@@ -42,17 +49,6 @@
 
 #undef pr_fmt
 #define pr_fmt(fmt) KBUILD_MODNAME " %s(%d) :" fmt, __func__, __LINE__
-
-#ifndef CONFIG_MTK_PWM
-s32 pwm_set_spec_config(struct pwm_spec_config *conf)
-{
-	return 0;
-}
-
-void mt_pwm_disable(u32 pwm_no, u8 pmic_pad)
-{
-}
-#endif
 
 static DEFINE_MUTEX(leds_mutex);
 static DEFINE_MUTEX(leds_pmic_mutex);
@@ -81,15 +77,11 @@ char *leds_name[MT65XX_LED_TYPE_TOTAL] = {
 };
 
 struct cust_mt65xx_led *pled_dtsi;
-
 /*****************PWM *************************************************/
 #define PWM_DIV_NUM 8
-static int time_array_hal[PWM_DIV_NUM] = {
-	256, 512, 1024, 2048, 4096, 8192, 16384, 32768 };
+
 static unsigned int div_array_hal[PWM_DIV_NUM] = {
 	1, 2, 4, 8, 16, 32, 64, 128 };
-
-static unsigned int backlight_PWM_div_hal = CLK_DIV1;
 
 /****************************************************************************
  * func:return global variables
@@ -319,6 +311,13 @@ static int brightness_mapto64(int level)
 		return (level >> 3) + 33;
 }
 
+#ifdef CONFIG_MTK_PWM
+
+
+
+static int time_array_hal[PWM_DIV_NUM] = {
+	256, 512, 1024, 2048, 4096, 8192, 16384, 32768 };
+
 static int find_time_index(int time)
 {
 	int index = 0;
@@ -330,9 +329,11 @@ static int find_time_index(int time)
 	}
 	return PWM_DIV_NUM - 1;
 }
+#endif
 
 int mt_led_set_pwm(int pwm_num, struct nled_setting *led)
 {
+#ifdef CONFIG_MTK_PWM
 	struct pwm_spec_config pwm_setting;
 	int time_index = 0;
 
@@ -390,7 +391,7 @@ int mt_led_set_pwm(int pwm_num, struct nled_setting *led)
 	pwm_setting.PWM_MODE_FIFO_REGS.GDURATION = 0;
 	pwm_setting.PWM_MODE_FIFO_REGS.WAVE_NUM = 0;
 	pwm_set_spec_config(&pwm_setting);
-
+#endif
 	return 0;
 }
 
@@ -463,6 +464,7 @@ int mt_led_blink_pmic(enum mt65xx_led_pmic pmic_type, struct nled_setting *led)
 int mt_backlight_set_pwm(int pwm_num, u32 level, u32 div,
 			 struct PWM_config *config_data)
 {
+#ifdef CONFIG_MTK_PWM
 	struct pwm_spec_config pwm_setting;
 	unsigned int BacklightLevelSupport =
 	    Cust_GetBacklightLevelSupport_byPWM();
@@ -568,13 +570,17 @@ int mt_backlight_set_pwm(int pwm_num, u32 level, u32 div,
 		return 0;
 
 	}
+	#endif
+	return 0;
 }
 
 void mt_led_pwm_disable(int pwm_num)
 {
+#ifdef CONFIG_MTK_PWM
 	struct cust_mt65xx_led *cust_led_list = get_cust_led_dtsi();
 
 	mt_pwm_disable(pwm_num, cust_led_list->config_data.pmic_pad);
+#endif
 }
 
 void mt_backlight_set_pwm_duty(int pwm_num, u32 level, u32 div,
@@ -660,9 +666,10 @@ int mt_mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 		if (strcmp(cust->name, "lcd-backlight") == 0) {
 			bl_brightness_hal = level;
 			if (level == 0) {
+#ifdef CONFIG_MTK_PWM
 				mt_pwm_disable(cust->data,
 					       cust->config_data.pmic_pad);
-
+#endif
 			} else {
 
 				if (BacklightLevelSupport ==
@@ -680,8 +687,10 @@ int mt_mt65xx_led_set_cust(struct cust_mt65xx_led *cust, int level)
 			if (level == 0) {
 				led_tmp_setting.nled_mode = NLED_OFF;
 				mt_led_set_pwm(cust->data, &led_tmp_setting);
+#ifdef CONFIG_MTK_PWM
 				mt_pwm_disable(cust->data,
 					       cust->config_data.pmic_pad);
+#endif
 			} else {
 				led_tmp_setting.nled_mode = NLED_ON;
 				mt_led_set_pwm(cust->data, &led_tmp_setting);
