@@ -8300,9 +8300,9 @@ irqreturn_t ISP_Irq_CAM_C(int  Irq, void *DeviceId)
 	return ISP_Irq_CAM(ISP_IRQ_TYPE_INT_CAM_C_ST);
 }
 
-#define Sylvia_WAM_CQ_ERR   (1)
+#define P1_WAM_CQ_ERR   (1)
 
-#if Sylvia_WAM_CQ_ERR
+#if P1_WAM_CQ_ERR
 static void ISP_RecordCQAddr(enum ISP_DEV_NODE_ENUM regModule)
 {
 		unsigned int i = regModule;
@@ -9480,8 +9480,9 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 					"SW ISR right on next hw p1_done\n");
 
 		}
-#if Sylvia_WAM_CQ_ERR
-		ISP_RecordCQAddr(reg_module);
+#if P1_WAM_CQ_ERR
+		if (!(ErrStatus & CQ_VS_ERR_ST))
+			ISP_RecordCQAddr(reg_module);
 #endif
 		/* update SOF time stamp for eis user
 		 *(need match with the time stamp in image header)
@@ -9626,7 +9627,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 		}
 		if (g_ISPIntStatus_SMI[irq_module].ispIntErr &
 			CQ_VS_ERR_ST) {
-#if Sylvia_WAM_CQ_ERR
+#if P1_WAM_CQ_ERR
 			CQ_Recover(g_ISPIntStatus_SMI[irq_module].ispIntErr,
 				irq_module);
 #endif
