@@ -814,9 +814,6 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 				mtk_dvfsrc_vcore_check(dvfsrc, data);
 		}
 		break;
-	case MTK_DVFSRC_CMD_HRTBW_REQUEST:
-		ret = dvfsrc_wait_for_idle(dvfsrc);
-		break;
 	}
 out:
 	if (ret) {
