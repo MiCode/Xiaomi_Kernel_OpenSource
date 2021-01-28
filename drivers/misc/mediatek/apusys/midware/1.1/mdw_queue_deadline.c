@@ -174,11 +174,12 @@ static struct mdw_apu_sc *mdw_queue_deadline_pop(void *q)
 		entry = rb_entry(node, struct mdw_apu_sc, node);
 		rb_erase_cached(node, &root->root);
 	}
-	if (entry)
+	if (entry) {
 		atomic_dec(&root->cnt);
-	mutex_unlock(&root->lock);
-	if (entry)
 		mdw_rsc_update_avl_bmp(entry->type);
+	}
+	mutex_unlock(&root->lock);
+
 	return entry;
 }
 
@@ -205,8 +206,8 @@ static int mdw_queue_deadline_insert(struct mdw_apu_sc *sc,
 	rb_link_node(&sc->node, parent, link);
 	rb_insert_color_cached(&sc->node, &root->root, leftmost);
 	atomic_inc(&root->cnt);
-	mutex_unlock(&root->lock);
 	mdw_rsc_update_avl_bmp(sc->type);
+	mutex_unlock(&root->lock);
 
 	return 0;
 }
@@ -225,8 +226,8 @@ static int mdw_queue_deadline_delete(struct mdw_apu_sc *sc, void *q)
 	mutex_lock(&root->lock);
 	rb_erase_cached(&sc->node, &root->root);
 	atomic_dec(&root->cnt);
-	mutex_unlock(&root->lock);
 	mdw_rsc_update_avl_bmp(sc->type);
+	mutex_unlock(&root->lock);
 
 	return -EINVAL;
 }
