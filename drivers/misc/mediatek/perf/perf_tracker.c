@@ -202,6 +202,11 @@ unsigned int __attribute__((weak)) qos_rec_get_hist_bw(unsigned int idx, unsigne
 	return 0;
 }
 
+unsigned int __attribute__((weak)) qos_rec_get_hist_data_bw(unsigned int idx, unsigned int type)
+{
+	return 0;
+}
+
 unsigned int __attribute__((weak)) qos_rec_get_hist_idx(void)
 {
 	return 0xFFFF;
@@ -220,7 +225,7 @@ static inline u32 cpu_stall_ratio(int cpu)
 #define K(x) ((x) << (PAGE_SHIFT - 10))
 #define max_cpus 8
 #define bw_hist_nums 8
-#define bw_record_nums 16
+#define bw_record_nums 32
 
 void __perf_tracker(u64 wallclock,
 		    long mm_available,
@@ -265,15 +270,24 @@ void __perf_tracker(u64 wallclock,
 	/* emi history */
 	bw_idx = qos_rec_get_hist_idx();
 	if (bw_idx != 0xFFFF) {
-		for (bw_record = 0; bw_record < bw_record_nums; bw_record += 4) {
+		for (bw_record = 0; bw_record < bw_record_nums; bw_record += 8) {
+			/* occupied bw history */
 			bw_data[bw_record]   = qos_rec_get_hist_bw(bw_idx, 0);
 			bw_data[bw_record+1] = qos_rec_get_hist_bw(bw_idx, 1);
 			bw_data[bw_record+2] = qos_rec_get_hist_bw(bw_idx, 2);
 			bw_data[bw_record+3] = qos_rec_get_hist_bw(bw_idx, 3);
+			/* data bw history */
+			bw_data[bw_record+4] = qos_rec_get_hist_data_bw(bw_idx, 0);
+			bw_data[bw_record+5] = qos_rec_get_hist_data_bw(bw_idx, 1);
+			bw_data[bw_record+6] = qos_rec_get_hist_data_bw(bw_idx, 2);
+			bw_data[bw_record+7] = qos_rec_get_hist_data_bw(bw_idx, 3);
+
 			bw_idx -= 1;
 			if (bw_idx < 0)
 				bw_idx = bw_idx + bw_hist_nums;
 		}
+		/* trace for short bin */
+		trace_perf_index_sbin(bw_data, bw_record);
 	}
 
 	/* sched: cpu freq */
@@ -285,8 +299,6 @@ void __perf_tracker(u64 wallclock,
 			sched_freq[0], sched_freq[1], sched_freq[2],
 			dram_rate, bw_c, bw_g, bw_mm, bw_total,
 			vcore_uv);
-	/* trace for short bin */
-	trace_perf_index_sbin(bw_data, bw_record);
 
 	if (!hit_long_check())
 		return;
