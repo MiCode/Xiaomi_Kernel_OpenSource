@@ -55,6 +55,7 @@ config ANDROID_DEFAULT_SETTING
 	select FUTEX
 	select HARDENED_USERCOPY
 	select HID_GENERIC
+	select HID_NINTENDO
 	select HID_SONY
 	select HIGH_RES_TIMERS
 	select IKCONFIG
