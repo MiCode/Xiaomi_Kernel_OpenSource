@@ -79,8 +79,8 @@ static int mdla_release(struct inode *, struct file *);
 static long mdla_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
 static long mdla_compat_ioctl(struct file *file,
 unsigned int cmd, unsigned long arg);
-#endif
 static int mdla_mmap(struct file *filp, struct vm_area_struct *vma);
+#endif
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 int apusys_mdla_handler(APUSYS_DEVICE_CMD_E type,
 		void *hnd, struct apusys_device *dev);
@@ -185,8 +185,8 @@ static const struct file_operations fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = mdla_compat_ioctl,
 #endif
-#endif
 	.mmap = mdla_mmap,
+#endif
 	.release = mdla_release,
 };
 
@@ -204,13 +204,13 @@ void mdla_reset_lock(int core, int res)
 	spin_unlock_irqrestore(&mdla_devices[core].hw_lock, flags);
 }
 
-
+#ifdef __APUSYS_MDLA_UT__
 static int mdla_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 
 	unsigned long offset = vma->vm_pgoff;
 	unsigned long size = vma->vm_end - vma->vm_start;
-
+	/*MDLA early verification*/
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	if (remap_pfn_range(vma, vma->vm_start, offset, size,
 			vma->vm_page_prot)) {
@@ -220,6 +220,7 @@ static int mdla_mmap(struct file *filp, struct vm_area_struct *vma)
 	}
 	return 0;
 }
+#endif
 
 static irqreturn_t mdla_irq0_handler(int irq, void *dev_id)
 {
@@ -466,9 +467,6 @@ static int mdlactl_init(void)
 	mdla_debugfs_init();
 	mdla_profile_init();
 	pmu_init();
-#ifndef __APUSYS_MDLA_UT__
-	mdla_qos_counter_init();
-#endif
 	mdla_drv_debug("%s done!\n", __func__);
 
 	return 0;
@@ -839,9 +837,6 @@ static long mdla_compat_ioctl(struct file *file,
 static void mdlactl_exit(void)
 {
 	mdla_drv_debug("MDLA: Goodbye from the LKM!\n");
-#ifndef __APUSYS_MDLA_UT__
-	mdla_qos_counter_destroy();
-#endif
 	mdla_debugfs_exit();
 	device_destroy(mdlactlClass, MKDEV(majorNumber, 0));
 	class_destroy(mdlactlClass);
