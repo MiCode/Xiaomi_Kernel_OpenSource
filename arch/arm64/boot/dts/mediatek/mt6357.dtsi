@@ -426,3 +426,5 @@
 	};
 
 };
+
+#include "bat_setting/mt6761_battery_prop.dtsi"
