@@ -430,11 +430,11 @@ int mt_spower_init(void)
 	return 0;
 #endif
 
-	for (i = 0; i < MTK_SPOWER_MAX; i++)
-		tab[i] = kmalloc(sizeof(struct sptab_list), GFP_KERNEL);
-
 	if (mtSpowerInited == 1)
 		return 0;
+
+	for (i = 0; i < MTK_SPOWER_MAX; i++)
+		tab[i] = kmalloc(sizeof(struct sptab_list), GFP_KERNEL);
 
 	/* avoid side effect from multiple invocation */
 	if (tab_validate(&sptab[0]))
