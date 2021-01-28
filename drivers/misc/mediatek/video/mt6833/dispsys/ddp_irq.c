@@ -206,7 +206,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 	unsigned int m_id = 0;
 	unsigned int reg_temp_val = 0;
 
-	DDPDBG("%s:%d\n", __func__, __LINE__);
+	//DDPDBG("%s:%d\n", __func__, __LINE__);
 
 	if (irq == ddp_get_module_irq(DISP_MODULE_DSI0)) {
 		if (ddp_get_module_irq(DISP_MODULE_DSI0) == irq) {

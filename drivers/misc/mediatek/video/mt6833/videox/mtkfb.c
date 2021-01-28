@@ -2166,6 +2166,8 @@ int _mtkfb_internal_test(unsigned long va, unsigned int w, unsigned int h)
 	unsigned int color = 0;
 	int _block_size = 120;
 
+	DISPMSG("%s ========display internal test [START] ==========\n",
+		__func__);
 	for (i = 0; i < w * h / _block_size / _block_size; i++) {
 		color = (i & 0x1) * 0xff;
 		color += ((i&0x2)>>1)*0xff00;
@@ -2178,8 +2180,11 @@ int _mtkfb_internal_test(unsigned long va, unsigned int w, unsigned int h)
 			_block_size, _block_size, color);
 	}
 
+	DISPMSG("%s =======display internal test [TRIGGER] ========\n",
+		__func__);
 	primary_display_trigger(1, NULL, 0);
-	DISPMSG("%s end\n", __func__);
+	DISPMSG("%s ========display internal test [END] ==========\n",
+		__func__);
 
 	return 0;
 }
@@ -2281,7 +2286,8 @@ static int __parse_tag_videolfb_extra(struct device_node *node)
 	memset((void *)mtkfb_lcm_name, 0, sizeof(mtkfb_lcm_name));
 	strncpy((char *)mtkfb_lcm_name, prop, sizeof(mtkfb_lcm_name));
 	mtkfb_lcm_name[size] = '\0';
-	DISPMSG("%s done\n", __func__);
+	DISPCHECK("%s, [DT][videolfb] videolfb_tag parse done\n",
+		__func__);
 	return 0;
 }
 
@@ -2310,7 +2316,8 @@ static int __parse_tag_videolfb(struct device_node *node)
 		return 0;
 	}
 
-	DISPCHECK("[DT][videolfb] videolfb_tag not found\n");
+	DISPCHECK("%s, [DT][videolfb] videolfb_tag not found\n",
+		__func__);
 	return -1;
 }
 
@@ -2646,9 +2653,9 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	/* Allocate and initialize video frame buffer */
 	DISPCHECK(
-		  "%s, [FB Driver] fbdev->fb_pa_base = 0x%lx, fbdev->fb_va_base = 0x%p\n",
+		  "%s, [FB Driver] fbdev->fb_pa_base = 0x%lx, fbdev->fb_va_base = 0x%p(0x%lx)\n",
 		  __func__, (unsigned long)fbdev->fb_pa_base,
-		  fbdev->fb_va_base);
+		  fbdev->fb_va_base, (unsigned long)fbdev->fb_va_base);
 
 	if (!fbdev->fb_va_base) {
 		DISPERR("unable to allocate memory for frame buffer\n");

@@ -19,7 +19,7 @@
 #include "cmdq_core.h"
 #include "ddp_hal.h"
 
-#define ENABLE_CLK_MGR
+//#define ENABLE_CLK_MGR
 
 #define UINT32 unsigned int
 

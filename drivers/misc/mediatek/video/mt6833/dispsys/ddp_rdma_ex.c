@@ -1499,13 +1499,14 @@ static int _rdma_partial_update(enum DISP_MODULE_ENUM module, void *arg,
 	return 0;
 }
 
-int rdma_ioctl(enum DISP_MODULE_ENUM module, void *cmdq_handle,
-	unsigned int ioctl_cmd, unsigned long *params)
+static int rdma_ioctl(enum DISP_MODULE_ENUM module, void *cmdq_handle,
+	enum DDP_IOCTL_NAME ioctl, void *params)
 {
 	int ret = 0;
-	enum DDP_IOCTL_NAME ioctl = (enum DDP_IOCTL_NAME)ioctl_cmd;
 	unsigned int idx = rdma_index(module);
 
+	DDPMSG("%s++, module:%d, cmd:%u\n",
+		__func__, module, ioctl);
 	switch (ioctl) {
 	case DDP_RDMA_GOLDEN_SETTING:
 	{
@@ -1564,7 +1565,11 @@ struct DDP_MODULE_DRIVER ddp_driver_rdma = {
 	.build_cmdq = rdma_build_cmdq,
 	.set_lcm_utils = NULL,
 	.enable_irq = rdma_enable_irq,
+#if 0
 	.ioctl = (int (*)(enum DISP_MODULE_ENUM, void *,
 		enum DDP_IOCTL_NAME, void *))rdma_ioctl,
+#else
+	.ioctl = rdma_ioctl,
+#endif
 	.switch_to_nonsec = NULL,
 };
