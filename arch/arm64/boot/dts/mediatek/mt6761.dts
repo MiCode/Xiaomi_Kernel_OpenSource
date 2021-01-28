@@ -318,6 +318,10 @@ firmware_class.path=/vendor/firmware";
 		#clock-cells = <1>;
 	};
 
+	scp_infra: scp_infra@10001000 {
+		compatible = "mediatek,scpinfra";
+		reg = <0 0x10001000 0 0x1000>;
+	};
 
 	topckgen: topckgen@10000000 {
 		compatible = "mediatek,topckgen", "syscon";
@@ -590,16 +594,30 @@ firmware_class.path=/vendor/firmware";
 		};
 	};
 
-	scp@10500000 {
+	scp: scp@10500000 {
 		compatible = "mediatek,scp";
 		status = "okay";
 		reg = <0 0x10500000 0 0x40000>,
-				<0 0x105c0000 0 0x3000>,
-				<0 0x105c4000 0 0x1000>,
-				<0 0x105d4000 0 0x6000>;
+		      <0 0x105c0000 0 0x3000>,
+		      <0 0x105c4000 0 0x1000>,
+		      <0 0x105d4000 0 0x6000>;
 		interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
 		core_1 = "enable";
 		scp_sramSize = <0x00040000>;
+		scp_feature_tbl = <0 47>,   /* vow */
+				  <1 356>,  /* dsp */
+				  <2 62>,   /* sensor */
+				  <3 47>,   /* mp3 */
+				  <4 26>,   /* flp */
+				  <5 0>,    /* rtos */
+				  <6 200>,  /* speaker */
+				  <7 0>,    /* vcore */
+				  <8 100>,  /* barge in */
+				  <9 10>;   /* vow dump */
+
+		scp_mem_key = "mediatek,reserve-memory-scp_share";
+		scp_mem_tbl = <1 0x100000>, /* sensor */
+			      <4 0x200000>; /* logger */
 	};
 
 	scp_dvfs {
@@ -621,6 +639,26 @@ firmware_class.path=/vendor/firmware";
 			"clk_pll_4",
 			"clk_pll_5",
 			"clk_pll_6";
+
+		dvfsrc-opp-num = <0>;
+		dvfs-opp =
+			/*	vcore	vsram	dvfsrc	spm	freq	mux */
+			<	0xff	0xff	0xff	0x0	130	0>,
+			<	0xff	0xff	0xff	0x0	165	3>,
+			<	0xff	0xff	0xff	0x8	330	5>,
+			<	0xff	0xff	0xff	0xC	416	6>;
+
+		pmic = <&pmic>;
+		pmic-feature = "pmic-vow-lp", "pmic-pmrc";
+		/*
+		 * feature on off setting.
+		 * 1: turns on, 0: turns off.
+		 */
+		pmic-feature-cfg = <0 0>;
+
+		gpio = <&pio 1>;
+		gpio-feature = "gpio-mode";
+		gpio-feature-cfg = <0>;
 	};
 
 	sleep_reg_md@1000f000 {
