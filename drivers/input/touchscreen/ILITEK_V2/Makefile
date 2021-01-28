@@ -36,7 +36,6 @@ obj-y += ilitek_main.o \
 	$(platform).o \
 	ilitek_ic.o \
 	ilitek_touch.o \
-	ilitek_mp.o \
 	$(fwupdate).o \
 	ilitek_node.o \
 	tpd_control.o \

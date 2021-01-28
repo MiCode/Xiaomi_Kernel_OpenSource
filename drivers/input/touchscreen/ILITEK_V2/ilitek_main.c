@@ -156,6 +156,7 @@ static unsigned char *ilitek_knuckle_roi_rawdata(void)
 }
 #endif
 
+#if 0
 int ilitek_tddi_mp_test_handler(char *apk, bool lcm_on)
 {
 	int ret = 0;
@@ -201,7 +202,7 @@ out:
 	atomic_set(&idev->mp_stat, DISABLE);
 	return ret;
 }
-
+#endif
 int ilitek_tddi_switch_tp_mode(u8 mode)
 {
 	int ret = 0;

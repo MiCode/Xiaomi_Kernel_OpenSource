@@ -931,10 +931,10 @@ static ssize_t ilitek_node_mp_lcm_on_test_read(struct file *filp, char __user *b
 
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 	idev->mp_ret_len = 0;
-
+#if 0
 	ret = ilitek_tddi_mp_test_handler(g_user_buf, ON);
 	ipio_info("MP TEST %s, Error code = %d\n", (ret < 0) ? "FAIL" : "PASS", ret);
-
+#endif
 	g_user_buf[0] = 3;
 	g_user_buf[1] = (ret < 0) ? -ret : ret;
 	len += idev->mp_ret_len;
@@ -996,8 +996,10 @@ static ssize_t ilitek_node_mp_lcm_off_test_read(struct file *filp, char __user *
 	memset(g_user_buf, 0, USER_STR_BUFF * sizeof(unsigned char));
 	idev->mp_ret_len = 0;
 
+#if 0
 	ret = ilitek_tddi_mp_test_handler(g_user_buf, OFF);
 	ipio_info("MP TEST %s, Error code = %d\n", (ret < 0) ? "FAIL" : "PASS", ret);
+#endif
 
 	g_user_buf[0] = 3;
 	g_user_buf[1] = (ret < 0) ? -ret : ret;
