@@ -273,13 +273,14 @@ int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
 
 	if (fixed_mva == 0) {
 		ion_phys(client, handle,
-			(ion_phys_addr_t *)mva, &mva_size);
+			&phy_addr, &mva_size);
+		*mva = (unsigned int)phy_addr;
 	} else {
 		phy_addr = (port << 24) | ION_FLAG_GET_FIXED_PHYS;
 		len = ION_FLAG_GET_FIXED_PHYS;
 		ion_phys(client, handle,
 			&phy_addr, &len);
-		*mva = phy_addr;
+		*mva = (unsigned int)phy_addr;
 		mva_size = len;
 	}
 	if (*mva == 0)
