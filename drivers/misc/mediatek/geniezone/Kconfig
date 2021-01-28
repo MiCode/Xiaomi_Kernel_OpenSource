@@ -1,5 +1,19 @@
 menu "GZ Kree"
 
+config HAVE_MTK_ENABLE_GENIEZONE
+	bool "HAVE_MTK_ENABLE_GENIEZONE"
+	select TRUSTY_INTERRUPT_FIQ_ONLY
+	select TRUSTY_INTERRUPT_MAP
+	select MTK_GZ_KREE
+	select MTK_GZ_SUPPORT_SDSP if (!MACH_MT6768 && !MTK_NEBULA_VM_SUPPORT)
+	select MT_GZ_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
+	help
+	  This is used to support MTK Geniezone.
+	  It is used to control MTK_ENABLE_GENIEZONE
+	  and it is used in the program for ifdef operations.
+	  Use MTK_ENABLE_GENIEZONE instead of TRUSTY to
+	  enable it.
+
 config MTK_ENABLE_GENIEZONE
 	tristate "MTK GenieZone enable"
 	depends on HAVE_MTK_ENABLE_GENIEZONE
@@ -11,6 +25,16 @@ config MTK_ENABLE_GENIEZONE
 	  We move the GZ TIPC driver from drivers/trusty to
 	  drivers/misc/mediatek/geniezone/gz-trusty. Use
 	  MTK_ENABLE_GENIEZONE instead of TRUSTY to enable it.
+
+config MTK_GZ_MAIN
+	tristate "MTK GZ_MAIN enable"
+	help
+	  This is used for enabling gz basic drivers.
+	  Add gz_main.o, gz_ut.o, gz_sec_storage_ut.o,
+	  gz_chmem_ut.o, gz_shmem_ut.o, gz_rkp_ut.o,
+	  and some files in mtee_kree subdirectory by this config.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
 
 config MTK_GZ_LOG
 	tristate "MTK GZ_LOG enable"
@@ -45,6 +69,30 @@ config MTK_GZ_IRQ
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
 
+config MTK_GZ_KREE
+	bool "MediaTek GenieZone support"
+	help
+	  Mediatek GenieZone kernel driver
+	  with APIs based on MTEE framework
+	  Note that user-space API requires
+	  This module to be enabled.
+
+config GZ_VPU_WITH_M4U
+	bool "GenieZone support VPU with M4U"
+	depends on MTK_GZ_KREE
+	help
+	  GZ control VPU at M4U map.
+	  Because VPU is 32 bits, only see 4G
+	  dram, need use M4U to enlarge dram
+	  access over 4G.
+
+config MTK_GZ_SUPPORT_SDSP
+	bool "GenieZone support SDSP"
+	help
+	  GZ smcall into mtee for sdsp on and off.
+	  When switch normal/secure vpu, need add
+	  smc call into mtee for setup security
+	  realted register.
 
 source "drivers/misc/mediatek/geniezone/gz-trusty/Kconfig"
 

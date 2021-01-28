@@ -1,15 +1,5 @@
 menu "GZ Trusty"
 
-config HAVE_MTK_ENABLE_GENIEZONE
-	bool "HAVE_MTK_ENABLE_GENIEZONE"
-	select TRUSTY_INTERRUPT_FIQ_ONLY
-	select TRUSTY_INTERRUPT_MAP
-	help
-	  This is used to support MTK Geniezone.
-	  It is used to control MTK_ENABLE_GENIEZONE
-	  and it is used in the program for ifdef operations.
-	  Use MTK_ENABLE_GENIEZONE instead of TRUSTY to
-	  enable it.
 
 config HAVE_MTK_GZ_LOG
 	bool "GZ gz_log & trusty_log support"
@@ -38,7 +28,6 @@ config TRUSTY_INTERRUPT_FIQ_ONLY
 config MTK_NEBULA_VM_SUPPORT
 	tristate "Nebula VM OS Enable"
 	depends on MTK_ENABLE_GENIEZONE
-	select MT_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
 	help
 	  This is used for MTK Geniezone to Support Nebula VM OS.
 	  Nebula's IRQ will be routed by Linux to Geniezone.
