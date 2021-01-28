@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,10 +24,7 @@ enum mt_cpu_dvfs_id {
 
 enum cpu_level {
 	CPU_LEVEL_0, /* FY */
-	CPU_LEVEL_1, /* MT6833 */
-	CPU_LEVEL_2, /* MT6833 w MT6360 */
-	CPU_LEVEL_3, /* B24G */
-	CPU_LEVEL_4, /* B24G w MT6360 */
+	CPU_LEVEL_1, /* B24G */
 
 	NUM_CPU_LEVEL,
 };

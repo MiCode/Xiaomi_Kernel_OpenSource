@@ -1,20 +1,23 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
- * This program is free software: you can redistribute it and/or modify
+ * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 #ifndef _MTK_EEMG_CONFIG_H_
 #define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-/* #define EEMG_NOT_READY		(1) */
+#if defined(CONFIG_MACH_MT6833)
+#define EEMG_NOT_READY		(1)
+#endif
+
 #define CONFIG_EEMG_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEMG_BANK_SOC		(0) /* use voltage bin, so disable it */

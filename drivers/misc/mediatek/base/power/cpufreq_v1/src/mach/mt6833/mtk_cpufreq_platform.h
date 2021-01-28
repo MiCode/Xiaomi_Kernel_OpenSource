@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,7 +18,9 @@
 
 #define CPU_DVFS_DT_REG	1
 
-/* #define CPU_DVFS_NOT_READY 1 */
+#if defined(CONFIG_MACH_MT6833)
+#define CPU_DVFS_NOT_READY 1
+#endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 #define CONFIG_HYBRID_CPU_DVFS	1

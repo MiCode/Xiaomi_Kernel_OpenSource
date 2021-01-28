@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -82,6 +82,10 @@ struct spower_raw_t {
 
 #if defined(CONFIG_MACH_MT6853)
 #include "mtk_spower_data_mt6853.h"
+#endif
+
+#if defined(CONFIG_MACH_MT6833)
+#include "mtk_spower_data_mt6833.h"
 #endif
 
 #if defined(CONFIG_MACH_MT8168)
