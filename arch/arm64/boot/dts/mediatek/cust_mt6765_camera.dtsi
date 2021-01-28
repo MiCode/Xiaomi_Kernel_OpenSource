@@ -248,4 +248,9 @@
 	status = "okay";
 
 };
+
+&camera_af_hw_node {
+	camaf_m2_pmic-supply = <&mt_pmic_vmc_ldo_reg>;
+	status = "okay";
+};
 /* CAMERA GPIO end */
