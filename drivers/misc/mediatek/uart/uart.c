@@ -2503,7 +2503,7 @@ static int mtk_uart_probe(struct platform_device *pdev)
 		}
 	#endif
 
-	goto EXIT;
+	return err;
 
 #if defined(ENABLE_VFIFO)
 VFIFO_ERR:
@@ -2518,7 +2518,6 @@ CLK_PREPARE_ERR:
 CLK_ERR:
 	uart_setting->clk_uart_main = NULL;
 #endif
-EXIT:
 	return err;
 }
 
