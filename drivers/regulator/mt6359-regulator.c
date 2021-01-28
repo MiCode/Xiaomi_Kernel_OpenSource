@@ -608,6 +608,21 @@ static inline unsigned int mt6359_map_ldo_lp_mode(unsigned int mode)
 	}
 }
 
+static int mt6359_regulator_disable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+
+	if (rdev->use_count == 0) {
+		dev_notice(&rdev->dev,
+			   "%s:%s should not be disable.(use_count=0)\n"
+			   , __func__, rdev->desc->name);
+		ret = -EIO;
+	} else
+		ret = regulator_disable_regmap(rdev);
+
+	return ret;
+}
+
 static inline unsigned int mt6359_map_mode(unsigned int mode)
 {
 	switch (mode) {
@@ -820,7 +835,7 @@ static const struct regulator_ops mt6359_volt_range_ops = {
 	.get_voltage_sel = mt6359_regulator_get_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6359_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6359_get_status,
 	.set_mode = mt6359_regulator_set_mode,
@@ -834,7 +849,7 @@ static const struct regulator_ops mt6359_volt_table_ops = {
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6359_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6359_get_status,
 };
@@ -846,7 +861,7 @@ static const struct regulator_ops mt6359_volt_table_ops_with_lp = {
 	.get_voltage_sel = regulator_get_voltage_sel_regmap,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6359_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6359_get_status,
 	.set_mode = mt6359_regulator_set_ldo_lp_mode,
@@ -855,7 +870,7 @@ static const struct regulator_ops mt6359_volt_table_ops_with_lp = {
 
 static const struct regulator_ops mt6359_volt_fixed_ops = {
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6359_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6359_get_status,
 };
