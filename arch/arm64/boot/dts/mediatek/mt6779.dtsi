@@ -35,7 +35,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	psci {
-		compatible = "arm,psci-0.2";
+		compatible = "arm,psci-1.0";
 		method = "smc";
 	};
 
@@ -285,7 +285,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <578>;
-			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
@@ -301,7 +302,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <578>;
-			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu2: cpu@002 {
@@ -317,7 +319,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <578>;
-			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu3: cpu@003 {
@@ -333,7 +336,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <578>;
-			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu4: cpu@100 {
@@ -349,7 +353,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <578>;
-			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu5: cpu@101 {
@@ -365,7 +370,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <85>;
 			capacity-dmips-mhz = <578>;
-			cpu-idle-states = <&cpuoff_l &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu6: cpu@102 {
@@ -381,7 +387,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu7: cpu@103 {
@@ -397,7 +404,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "cpu";
 			dynamic-power-coefficient = <275>;
 			capacity-dmips-mhz = <1024>;
-			cpu-idle-states = <&cpuoff_b &clusteroff &mcusysoff>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu-map {
@@ -431,37 +439,64 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 		idle-states {
 			entry-method = "arm,psci";
-			cpuoff_l: cpuoff_l {
-				compatible = "mediatek,idle-state";
-				arm,psci-suspend-param = <0x00010001>;
-				local-timer-stop;
-				entry-latency-us = <50>;
-				exit-latency-us = <100>;
-				min-residency-us = <1600>;
+			STANDBY: standby {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x00000001>;
+				entry-latency-us = <600>;
+				exit-latency-us = <600>;
+				min-residency-us = <1200>;
 			};
-			cpuoff_b: cpuoff_b {
-				compatible = "mediatek,idle-state";
+
+			MCDI_CPU: mcdi-cpu {
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x00010001>;
-				local-timer-stop;
-				entry-latency-us = <50>;
-				exit-latency-us = <100>;
-				min-residency-us = <1400>;
+				entry-latency-us = <600>;
+				exit-latency-us = <600>;
+				min-residency-us = <1200>;
 			};
-			clusteroff: clusteroff {
-				compatible = "mediatek,idle-state";
+
+			MCDI_CLUSTER: mcdi-cluster {
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010001>;
-				local-timer-stop;
-				entry-latency-us = <100>;
-				exit-latency-us = <250>;
-				min-residency-us = <14000>;
+				entry-latency-us = <600>;
+				exit-latency-us = <600>;
+				min-residency-us = <1200>;
 			};
-			mcusysoff: mcusysoff {
-				compatible = "mediatek,idle-state";
+
+			SODI: sodi {
+				compatible = "arm,idle-state";
 				arm,psci-suspend-param = <0x01010002>;
-				local-timer-stop;
-				entry-latency-us = <300>;
-				exit-latency-us = <1200>;
-				min-residency-us = <14000>;
+				entry-latency-us = <800>;
+				exit-latency-us = <1000>;
+				min-residency-us = <2000>;
+				status = "okay";
+			};
+
+			SODI3: sodi3 {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010003>;
+				entry-latency-us = <800>;
+				exit-latency-us = <1000>;
+				min-residency-us = <2000>;
+				status = "okay";
+			};
+
+			DPIDLE: dpidle {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010004>;
+				entry-latency-us = <800>;
+				exit-latency-us = <1000>;
+				min-residency-us = <2000>;
+				status = "okay";
+			};
+
+			SUSPEND: suspend {
+				compatible = "arm,idle-state";
+				arm,psci-suspend-param = <0x01010005>;
+				entry-latency-us = <800>;
+				exit-latency-us = <1000>;
+				min-residency-us = <2000>;
+				status = "okay";
 			};
 		};
 	};
