@@ -4397,38 +4397,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 };
 
-&i2c5 {
-	status = "okay";
-	clock-frequency = <3400000>;
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	subpmic@34 {
-		compatible = "mediatek,subpmic";
-		reg = <0x34>;
-		status = "okay";
-	};
-
-	usb_type_c@4e {
-		compatible = "mediatek,usb_type_c";
-		reg = <0x4e>;
-		status = "okay";
-	};
-
-	subpmic_pmic@1a {
-		compatible = "mediatek,subpmic_pmic";
-		reg = <0x1a>;
-		status = "okay";
-	};
-
-	subpmic_ldo@64 {
-		compatible = "mediatek,subpmic_ldo";
-		reg = <0x64>;
-		status = "okay";
-	};
-
-};
-
 &i2c6 {
 	speaker_amp: speaker_amp@34 {
 		compatible = "mediatek,speaker_amp";

@@ -3,10 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-/ {
-	mt6360_pmu: mt6360_pmu_dts {
-		compatible = "mediatek,mt6360_pmu_dts";
-		status = "ok";
+&i2c5 {
+	mt6360_pmu: subpmic@34 {
 		mt6360,intr_gpio_num = <3>; /* direct defined GPIO num */
 		mt6360,intr_gpio = <&pio 3 0x0>; /* GPIO */
 		interrupt-controller;
@@ -118,9 +116,7 @@
 		};
 	};
 
-	mt6360_pmic: mt6360_pmic_dts {
-		compatible = "mediatek,mt6360_pmu_pmic_buckldo";
-		status = "ok";
+	mt6360_pmic: subpmic_pmic@1a {
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <96 0>, <100 0>, <101 0>, <102 0>,
 			     <104 0>, <108 0>, <109 0>, <110 0>,
@@ -162,9 +158,7 @@
 		};
 	};
 
-	mt6360_ldo: mt6360_ldo_dts {
-		compatible = "mediatek,mt6360_pmu_ldo_buckldo";
-		status = "ok";
+	mt6360_ldo: subpmic_ldo@64 {
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <113 0>, <114 0>, <115 0>, <117 0>,
 			     <121 0>, <122 0>, <123 0>, <125 0>;
