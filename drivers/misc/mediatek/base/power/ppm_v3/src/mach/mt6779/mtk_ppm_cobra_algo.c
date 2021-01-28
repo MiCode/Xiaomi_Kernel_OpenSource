@@ -762,7 +762,7 @@ void ppm_cobra_dump_tbl(struct seq_file *m)
 static unsigned int get_limit_opp_and_budget(void)
 {
 	unsigned int power = 0;
-	int i, j, k, idx;
+	unsigned int i, j, k, idx;
 
 	for (i = 0; i <= get_cluster_min_cpufreq_idx(PPM_CLUSTER_L); i++) {
 		cobra_lookup_data.limit[PPM_CLUSTER_L].opp = i;
@@ -771,11 +771,22 @@ static unsigned int get_limit_opp_and_budget(void)
 			cobra_lookup_data.limit[PPM_CLUSTER_B].opp = j;
 
 			for_each_ppm_clusters(k) {
+				if (k >= NR_PPM_CLUSTERS)
+					break;
+
 				if (!cobra_lookup_data.limit[k].core)
 					continue;
 
 				idx = get_idx_in_pwr_tbl(k) +
 					cobra_lookup_data.limit[k].core - 1;
+
+				if (idx >= TOTAL_CORE_NUM ||
+					i >= DVFS_OPP_NUM ||
+					j >= DVFS_OPP_NUM) {
+					ppm_info("idx: %u, i: %u, j: %u\n",
+						idx, i, j);
+					return 0;
+				}
 				power += (k == PPM_CLUSTER_B) ?
 				cobra_tbl->basic_pwr_tbl[idx][j].power_idx :
 				cobra_tbl->basic_pwr_tbl[idx][i].power_idx;
