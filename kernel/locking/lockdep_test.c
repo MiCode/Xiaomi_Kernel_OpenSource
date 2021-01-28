@@ -16,8 +16,9 @@ static spinlock_t lockB;
 static spinlock_t lockC;
 static spinlock_t lockD;
 static struct mutex mutexA;
-static struct rw_semaphore	rw_semA;
+static struct rw_semaphore rw_semA;
 static struct timer_list lockdep_timer;
+static struct lockdep_map dep_mapA;
 
 void lockdep_test_recursive_lock(void)
 {
@@ -249,19 +250,43 @@ void lockdep_test_spin_time(void)
 	spin_unlock(&lockA);
 }
 
+static int lock_monitor_thread1(void *data)
+{
+	lock_map_acquire(&dep_mapA);
+	down_read(&rw_semA);
+	mutex_lock(&mutexA);
+	rcu_read_lock();
+	mdelay(20000);
+	rcu_read_unlock();
+	mutex_unlock(&mutexA);
+	up_read(&rw_semA);
+	lock_map_release(&dep_mapA);
+	return 0;
+}
+
+static int lock_monitor_thread2(void *arg)
+{
+	lock_map_acquire(&dep_mapA);
+	mutex_lock(&mutexA);
+	mutex_unlock(&mutexA);
+	lock_map_release(&dep_mapA);
+	return 0;
+}
+
+static int lock_monitor_thread3(void *arg)
+{
+	down_write(&rw_semA);
+	up_write(&rw_semA);
+	return 0;
+}
+
 void lockdep_test_lock_monitor(void)
 {
-	mutex_lock(&mutexA);
-	down_read(&rw_semA);
-	rcu_read_lock();
-	spin_lock(&lockA);
-
-	mdelay(12000);
-
-	spin_unlock(&lockA);
-	rcu_read_unlock();
-	up_read(&rw_semA);
-	mutex_unlock(&mutexA);
+	kthread_run(lock_monitor_thread1, NULL, "test_thread1");
+	mdelay(100);
+	kthread_run(lock_monitor_thread2, NULL, "test_thread2");
+	mdelay(100);
+	kthread_run(lock_monitor_thread3, NULL, "test_thread3");
 }
 
 void lockdep_test_freeze_with_lock(void)
@@ -330,11 +355,14 @@ static const struct file_operations proc_lockdep_test_fops = {
 
 static int __init lockdep_test_init(void)
 {
+	static struct lock_class_key key;
+
 	spin_lock_init(&lockA);
 	spin_lock_init(&lockB);
 	spin_lock_init(&lockC);
 	mutex_init(&mutexA);
 	init_rwsem(&rw_semA);
+	lockdep_init_map(&dep_mapA, "dep_mapA", &key, 0);
 
 	proc_create("lockdep_test", 0220, NULL, &proc_lockdep_test_fops);
 

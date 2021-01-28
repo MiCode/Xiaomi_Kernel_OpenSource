@@ -3,9 +3,6 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#undef MAX_LOCKDEP_CHAINS_BITS
-#define MAX_LOCKDEP_CHAINS_BITS	17
-
 #ifdef CONFIG_MTK_LOCKING_AEE
 #include <mt-plat/aee.h>
 bool is_critical_lock_held(void);
