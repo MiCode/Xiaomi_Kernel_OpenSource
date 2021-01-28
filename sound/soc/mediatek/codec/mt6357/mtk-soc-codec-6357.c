@@ -60,6 +60,8 @@
 #if IS_ENABLED(CONFIG_MTK_PMIC_WRAP)
 #include <linux/soc/mediatek/pmic_wrap.h>
 #endif
+#include <linux/nvmem-consumer.h>
+
 /* Use analog setting to do dc compensation */
 #define ANALOG_HPTRIM
 //#define ANALOG_HPTRIM_FOR_CUST
@@ -5793,42 +5795,23 @@ static int read_efuse_hp_impedance_current_calibration(void)
 {
 	int ret = 0;
 	int value, sign;
+	unsigned short efuse_val = 0;
 
 	pr_info("+%s()\n", __func__);
-	/* 1. enable efuse ctrl engine clock */
-	Ana_Set_Reg(TOP_CKHWEN_CON0_CLR, 0x1 << 2, 0x1 << 2);
-	Ana_Set_Reg(TOP_CKPDN_CON0_CLR, 0x1 << 4, 0x1 << 4);
-	/* 2. set RG_OTP_RD_SW */
-	Ana_Set_Reg(OTP_CON11, 0x0001, 0x0001);
-	/* 3. set EFUSE addr */
+
 	/* HPDET_COMP[6:0] @ efuse bit 1392 ~ 1398 */
 	/* HPDET_COMP_SIGN @ efuse bit 1399 */
 	/* 1392 / 8 = 174 --> 0xae */
-	Ana_Set_Reg(OTP_CON0, 0xae, 0xff);
-	/* 4. Toggle RG_OTP_RD_TRIG */
-	ret = Ana_Get_Reg(OTP_CON8);
-	if (ret == 0)
-		Ana_Set_Reg(OTP_CON8, 0x0001, 0x0001);
-	else
-		Ana_Set_Reg(OTP_CON8, 0x0000, 0x0001);
-	/* 5. Polling RG_OTP_RD_BUSY */
-	do {
-		ret = Ana_Get_Reg(OTP_CON13) & 0x0001;
-		usleep_range(100, 200);
-		pr_info("%s(), polling OTP_CON13 = 0x%x\n", __func__, ret);
-	} while (ret == 1);
-	/* Need to delay at least 1ms for 0xC1A and than can read */
-	usleep_range(500, 1000);
-	/* 6. Read RG_OTP_DOUT_SW */
-	ret = Ana_Get_Reg(OTP_CON12);
-	pr_info("%s(), efuse = 0x%x\n", __func__, ret);
-	sign = (ret >> 7) & 0x1;
-	value = ret & 0x7f;
+	ret = nvmem_device_read(mCodec_priv->hp_efuse, 0xae, 2, &efuse_val);
+	if (ret < 0) {
+		dev_err(mCodec_priv->dev, "%s(), efuse read fail: %d\n",
+			__func__, ret);
+		efuse_val = 0;
+	}
+	sign = (efuse_val >> 7) & 0x1;
+	value = efuse_val & 0x7f;
 	value = sign ? -value : value;
-	/* 7. Disables efuse_ctrl egine clock */
-	Ana_Set_Reg(OTP_CON11, 0x0000, 0x0001);
-	Ana_Set_Reg(TOP_CKPDN_CON0_SET, 0x1 << 4, 0x1 << 4);
-	Ana_Set_Reg(TOP_CKHWEN_CON0_SET, 0x1 << 2, 0x1 << 2);
+
 	pr_info("-%s(), efuse: %d\n", __func__, value);
 	return value;
 }
@@ -6002,6 +5985,17 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 #endif
 	if (IS_ERR(mCodec_priv->regmap))
 		return PTR_ERR(mCodec_priv->regmap);
+
+	/* get pmic efuse handler */
+	mCodec_priv->hp_efuse = devm_nvmem_device_get(&pdev->dev,
+						      "pmic-hp-efuse");
+	ret = PTR_ERR_OR_ZERO(mCodec_priv->hp_efuse);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Error: Get efuse failed (%d)\n",
+				ret);
+		return ret;
+	}
 
 	dev_set_drvdata(&pdev->dev, mCodec_priv);
 	mCodec_priv->dev = &pdev->dev;

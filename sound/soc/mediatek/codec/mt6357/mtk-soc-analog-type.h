@@ -184,7 +184,9 @@ struct mt6357_priv {
 	struct device *dev;
 	struct regmap *regmap;
 	struct iio_channel *codec_auxadc, *accdet_auxadc;
+	struct nvmem_device *hp_efuse;
 	int mtkaif_protocol;
+
 };
 
 #endif
