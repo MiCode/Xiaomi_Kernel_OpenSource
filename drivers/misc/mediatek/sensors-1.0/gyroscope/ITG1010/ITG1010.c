@@ -208,7 +208,8 @@ static int ITG1010_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data,
 	/*because address also occupies one byte,
 	 *the maximum length for write is 7 bytes
 	 */
-	int err, idx, num;
+	int err;
+	unsigned int idx, num;
 	char buf[C_I2C_FIFO_SIZE];
 
 	err = 0;
