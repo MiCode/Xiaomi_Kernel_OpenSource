@@ -363,6 +363,12 @@ struct mtk_i2c_compatible {
 	u32 arbit_offset;
 };
 
+struct mtk_i2c_pll {
+	struct clk *clk_mux;/* clock top i2c sel for i2c bus */
+	struct clk *clk_p_main;/* clock top i2c pll main for i2c bus */
+	struct clk *clk_p_univ;/* clock top i2c pll univ for i2c bus */
+};
+
 struct mt_i2c {
 	struct i2c_adapter adap;/* i2c host adapter */
 	struct device *dev;
@@ -429,6 +435,7 @@ struct mt_i2c {
 	struct mutex i2c_mutex;
 	struct mt_i2c_ext ext_data;
 	const struct mtk_i2c_compatible *dev_comp;
+	struct mtk_i2c_pll *i2c_pll_info;
 	struct i2c_info rec_info[I2C_RECORD_LEN];
 };
 
