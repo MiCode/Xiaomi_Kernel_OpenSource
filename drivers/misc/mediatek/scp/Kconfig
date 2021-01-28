@@ -1,19 +1,20 @@
 config MTK_TINYSYS_SCP_SUPPORT
 	tristate "Specify Interface Support SCP"
 	default n
+	select MFD_SYSCON
 	help
-		SCP is a MediaTek in-house DSP which can receive
-		command from IPI interface.
-		Set Y to enable this feature.
-		If unsure,
-		Set N to stay with legacy feature.
+	  SCP is a MediaTek in-house DSP which can receive
+	  command from IPI interface.
+	  Set Y to enable this feature.
+	  If unsure,
+	  Set N to stay with legacy feature.
 
 config MTK_TINYSYS_SCP_CM4_SUPPORT
 	tristate "Specify micro processor CM4 supported by SCP"
 	depends on MTK_TINYSYS_SCP_SUPPORT
 	default MTK_TINYSYS_SCP_SUPPORT
 	help
-		CM4 is one uP supported by SCP which designed by ARM corp.
-		Set Y to enable this feature.
-		If unsure,
-		Set N to stay with legacy feature.
+	  CM4 is one uP supported by SCP which designed by ARM corp.
+	  Set Y to enable this feature.
+	  If unsure,
+	  Set N to stay with legacy feature.

@@ -409,7 +409,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	gpio: gpio@10005000 {
-		compatible = "mediatek,gpio";
+		compatible = "mediatek,gpio", "syscon";
 		reg = <0 0x10005000 0 0x1000>;
 	};
 
@@ -650,13 +650,13 @@ firmware_class.path=/vendor/firmware";
 			"clk_pll_5",
 			"clk_pll_6";
 
-		dvfsrc-opp-num = <0>;
+		dvfsrc-opp-num = <3>;
 		dvfs-opp =
-			/*	vcore	vsram	dvfsrc	spm	freq	mux */
-			<	0xff	0xff	0xff	0x0	130	0>,
-			<	0xff	0xff	0xff	0x0	165	3>,
-			<	0xff	0xff	0xff	0x8	330	5>,
-			<	0xff	0xff	0xff	0xC	416	6>;
+		/*	vcore	vsram	uv	dvfsrc	spm	freq	mux */
+		<	0xff	0xff	0xff	0x0	0x0	250	0>,
+		<	0xff	0xff	0xff	0x0	0x0	273	3>,
+		<	0xff	0xff	0xff	0x2	0x8	330	5>,
+		<	0xff	0xff	0xff	0x3	0xC	416	6>;
 
 		pmic = <&main_pmic>;
 		pmic-feature = "pmic-vow-lp", "pmic-pmrc";
@@ -666,7 +666,7 @@ firmware_class.path=/vendor/firmware";
 		 */
 		pmic-feature-cfg = <0 0>;
 
-		gpio = <&pio 1>;
+		gpio = <&gpio 1>;
 		gpio-feature = "gpio-mode";
 		gpio-feature-cfg = <0>;
 	};

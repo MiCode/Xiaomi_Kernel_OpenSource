@@ -95,18 +95,19 @@ struct sub_feature_data {
 	struct reg_info *reg;
 	struct reg_cfg *cfg;
 	unsigned int onoff;
-	unsigned int num;
+	int num;
 };
 
 struct subsys_data {
 	struct regmap *regmap;
 	struct sub_feature_data *fd;
-	unsigned int num;
+	int num;
 };
 
 struct dvfs_opp {
 	unsigned int vcore;
 	unsigned int vsram;
+	unsigned int uv_idx;
 	unsigned int dvfsrc_opp;
 	unsigned int spm_opp;
 	unsigned int freq;

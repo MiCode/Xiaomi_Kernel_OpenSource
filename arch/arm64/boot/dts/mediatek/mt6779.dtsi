@@ -1961,11 +1961,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				      "clk_pll_7";
 
 			dvfsrc-opp-num = <3>;
-			dvfs-opp = <575000 825000 0xff 0x0 110 1>,
-				   <600000 875000 0xff 0x0 130 1>,
-				   <625000 875000 2 0x1 165 2>,
-				   <700000 875000 1 0x12 330 2>,
-				   <800000 875000 0 0x28 416 4>;
+			dvfs-opp =
+			/* vcore	vsram	uv	rc  spm    freq mux */
+			< 575000	825000	0xff	0x0 0x0    110  1>,
+			< 600000	875000	0xff	0x0 0x0    130  1>,
+			< 625000	875000	2	0x0 0x1    165  2>,
+			< 700000	875000	1	0x1 0x12   330  2>,
+			< 800000	875000	0	0x2 0x28   416  4>;
 
 			sshub-vcore-supply = <&mt6359_vcore_sshub_buck_reg>;
 			sshub-vsram-supply =

@@ -35,6 +35,7 @@
 #include <linux/mfd/mt6397/core.h>
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
 #include "scp_ipi.h"
 #include "scp_helper.h"
@@ -69,10 +70,11 @@ static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
 static struct regulator *dvfsrc_vscp_power;
-static int dvfsrc_opp_uv[3];  /* index 0 means the highest opp */
 static struct dvfs_data *dvfs;
 
 static struct regulator *reg_vcore, *reg_vsram;
+
+static struct mtk_pm_qos_request dvfsrc_scp_vcore_req;
 
 void scp_to_spm_resource_req(unsigned long cmd, unsigned long val)
 {
@@ -86,7 +88,7 @@ void scp_to_spm_resource_req(unsigned long cmd, unsigned long val)
 	if (res.a0) {
 		pr_err("%s: failed to request resource, ret0=0x%lx, ret1=0x%lx\n",
 				__func__, res.a0, res.a1);
-		WARN_ON(1);
+		/* WARN_ON(1); */
 	}
 }
 
@@ -265,8 +267,18 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 		return ret;
 
 	if (idx >= 0 && idx < dvfs->scp_opp_num) {
-		ret_vc = regulator_set_voltage(reg_vcore, dvfs->opp[idx].vcore,
+		unsigned int vcore;
+		unsigned int uv = dvfs->opp[idx].uv_idx;
+
+		if (uv != 0xff)
+			vcore = mtk_dvfsrc_vcore_uv_table(uv);
+		else
+			vcore = dvfs->opp[idx].vcore;
+
+		/* vcore MAX_uV set to highest opp + 100mV */
+		ret_vc = regulator_set_voltage(dvfsrc_vscp_power, vcore,
 				max_vcore);
+
 		ret_vs = regulator_set_voltage(reg_vsram, dvfs->opp[idx].vsram,
 				max_vsram);
 	} else {
@@ -353,11 +365,14 @@ void scp_vcore_request(unsigned int clk_opp)
 	idx = scp_get_freq_idx(clk_opp);
 	if (idx < 0)
 		return;
-	/* idx == 0xff, means scp opp[idx] not supported in dvfsrc opp table */
-	if (idx != 0xff)
-		/* vcore MAX_uV set to highest opp + 100mV */
-		regulator_set_voltage(dvfsrc_vscp_power, dvfsrc_opp_uv[idx],
-				dvfsrc_opp_uv[0] + 100000);
+	/*
+	 * dvfs->opp[idx].dvfsrc_opp == 0xff,
+	 * means scp opp[idx] not supported
+	 * in dvfsrc opp table
+	 */
+	if (dvfs->opp[idx].dvfsrc_opp != 0xff)
+		mtk_pm_qos_update_request(&dvfsrc_scp_vcore_req,
+				dvfs->opp[idx].dvfsrc_opp);
 
 	/* SCP to SPM voltage level 0x100066C4 (scp reg 0xC0094)
 	 * 0x0: scp request 0.575v/0.6v
@@ -1071,8 +1086,8 @@ fail:
 static void __init mt_pmic_sshub_init(void)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore;
-	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram;
+	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
+	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
 
 	/* if vcore/vsram define as 0xff, means no pmic op during dvfs */
 	if (max_vcore == 0xff && max_vsram == 0xff)
@@ -1147,7 +1162,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 	/* get scp dvfs opp count */
-	ret = of_property_count_u32_elems(node, "dvfs-opp") / 6;
+	ret = of_property_count_u32_elems(node, "dvfs-opp") / 7;
 	if (ret <= 0) {
 		kfree(buf);
 		kfree(sd);
@@ -1224,35 +1239,42 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 	/* get each dvfs opp data from dts node */
 	for (i = 0; i < dvfs->scp_opp_num; i++) {
-		ret = of_property_read_u32_index(node, "dvfs-opp", i * 6,
+		ret = of_property_read_u32_index(node, "dvfs-opp", i * 7,
 				&opp[i].vcore);
 		if (ret) {
 			pr_err("Cannot get property vcore(%d)\n", ret);
 			goto fail;
 		}
 
-		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 6) + 1,
+		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 7) + 1,
 				&opp[i].vsram);
 		if (ret) {
 			pr_err("Cannot get property vsram(%d)\n", ret);
 			goto fail;
 		}
 
-		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 6) + 2,
+		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 7) + 2,
+				&opp[i].uv_idx);
+		if (ret) {
+			pr_err("Cannot get property uv idx(%d)\n", ret);
+			goto fail;
+		}
+
+		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 7) + 3,
 				&opp[i].dvfsrc_opp);
 		if (ret) {
 			pr_err("Cannot get property dvfsrc opp(%d)\n", ret);
 			goto fail;
 		}
 
-		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 6) + 3,
+		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 7) + 4,
 				&opp[i].spm_opp);
 		if (ret) {
 			pr_err("Cannot get property spm opp(%d)\n", ret);
 			goto fail;
 		}
 
-		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 6) + 4,
+		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 7) + 5,
 				&opp[i].freq);
 
 		if (ret) {
@@ -1260,7 +1282,7 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 			goto fail;
 		}
 
-		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 6) + 5,
+		ret = of_property_read_u32_index(node, "dvfs-opp", (i * 7) + 6,
 				&opp[i].clk_mux);
 		if (ret) {
 			pr_err("Cannot get property clk mux(%d)\n", ret);
@@ -1285,17 +1307,6 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 
 	/* get dvfsrc regulator */
 	dvfsrc_vscp_power = regulator_get(&pdev->dev, "dvfsrc-vscp");
-	for (i = 0; i < dvfs->dvfsrc_opp_num; i++) {
-		dvfsrc_opp_uv[i] = mtk_dvfsrc_vcore_uv_table(i);
-		if (dvfsrc_opp_uv[i] <= 0) {
-			pr_err("Cannot get dvfsrc opp[%d] = (%d)\n",
-					i, dvfsrc_opp_uv[i]);
-			goto fail;
-		}
-
-		pr_notice("%s: dvfsrc opp[%d] = %duV\n", __func__,
-				i, dvfsrc_opp_uv[i]);
-	}
 
 pmic_cfg:
 	/* get Vcore/Vsram Regulator */
@@ -1401,6 +1412,10 @@ int __init scp_dvfs_init(void)
 	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
 
 	mt_scp_dvfs_ipi_init();
+
+	mtk_pm_qos_add_request(&dvfsrc_scp_vcore_req,
+			MTK_PM_QOS_SCP_VCORE_REQUEST,
+			MTK_PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE);
 
 	return 0;
 fail:
