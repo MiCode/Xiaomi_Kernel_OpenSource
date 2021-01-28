@@ -64,6 +64,27 @@
 #define SUBSYS_180aXXXX		28
 #define SUBSYS_180bXXXX		29
 
+/* GCE General Purpose Register (GPR) support
+ * Leave note for scenario usage here
+ */
+#define CMDQ_GPR_R00		0x00
+#define CMDQ_GPR_R01		0x01
+#define CMDQ_GPR_R02		0x02
+#define CMDQ_GPR_R03		0x03
+#define CMDQ_GPR_R04		0x04
+#define CMDQ_GPR_R05		0x05
+#define CMDQ_GPR_R06		0x06
+#define CMDQ_GPR_R07		0x07
+#define CMDQ_GPR_R08		0x08
+#define CMDQ_GPR_R09		0x09
+/* VCU: poll with timeout for GPR timer */
+#define CMDQ_GPR_R10		0x0A
+#define CMDQ_GPR_R11		0x0B
+#define CMDQ_GPR_R12		0x0C
+#define CMDQ_GPR_R13		0x0D
+#define CMDQ_GPR_R14		0x0E
+#define CMDQ_GPR_R15		0x0F
+
 /* GCE-D hardware events */
 #define CMDQ_EVENT_DISP_OVL0_SOF			0
 #define CMDQ_EVENT_DISP_OVL0_2L_SOF			1
@@ -453,6 +474,12 @@
 
 /* Keep this at the end of HW events */
 #define CMDQ_MAX_HW_EVENT_COUNT				512
+
+/* Config thread notify trigger thread */
+#define CMDQ_SYNC_TOKEN_CONFIG_DIRTY			640
+
+/* secure world notify normal world task done */
+#define CMDQ_SYNC_TOKEN_SEC_DONE			694
 
 /* GPR access tokens (for HW register backup)
  * There are 15 32-bit GPR, 3 GPR form a set
