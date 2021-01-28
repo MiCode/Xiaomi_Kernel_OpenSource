@@ -817,6 +817,11 @@ firmware_class.path=/vendor/firmware";
 		interrupts = <GIC_SPI 271 IRQ_TYPE_EDGE_RISING>;
 	};
 
+	tee_sanity {
+		compatible = "trustonic,tee_sanity";
+		interrupts = <GIC_SPI 272 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	tkcore {
 	    compatible = "trustkernel,tkcore";
 	    interrupts = <GIC_SPI 248 IRQ_TYPE_EDGE_RISING>;
