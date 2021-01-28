@@ -654,9 +654,6 @@ void dfrc_fps_limit_cb(unsigned int fps_limit)
 	unsigned int vTmp = TARGET_UNLIMITED_FPS;
 	struct FPSGO_NOTIFIER_PUSH_TAG *vpPush;
 
-	if (!fpsgo_is_enable())
-		return;
-
 	if (fps_limit > 0 && fps_limit <= TARGET_UNLIMITED_FPS)
 		vTmp = fps_limit;
 
