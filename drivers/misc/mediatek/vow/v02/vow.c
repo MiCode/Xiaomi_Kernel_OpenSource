@@ -1286,8 +1286,8 @@ static void vow_service_ReadVoiceData(void)
 	/*int rdata;*/
 	while (1) {
 		if (VoiceData_Wait_Queue_flag == 0)
-			wait_event_interruptible(VoiceData_Wait_Queue,
-						 VoiceData_Wait_Queue_flag);
+			wait_event_interruptible_timeout(VoiceData_Wait_Queue,
+				VoiceData_Wait_Queue_flag, msecs_to_jiffies(50));
 
 		if (VoiceData_Wait_Queue_flag == 1) {
 			VoiceData_Wait_Queue_flag = 0;
@@ -1310,6 +1310,9 @@ static void vow_service_ReadVoiceData(void)
 			}
 			if (stop_condition == 1)
 				break;
+		} else {
+			VOWDRV_DEBUG("%s, 50ms timeout,break\n", __func__);
+			break;
 		}
 	}
 }
