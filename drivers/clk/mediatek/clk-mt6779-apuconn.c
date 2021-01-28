@@ -20,26 +20,28 @@ static const struct mtk_gate_regs apuconn_cg_regs = {
 	.sta_ofs = 0x0000,
 };
 
-#define GATE_APU_CONN_FLAGS(_id, _name, _parent, _shift, _flags)	\
-	GATE_MTK_FLAGS(_id, _name, _parent, &apuconn_cg_regs,	\
-			_shift, &mtk_clk_gate_ops_setclr, _flags)
-
-#define GATE_APU_CONN(_id, _name, _parent, _shift)	\
-	GATE_APU_CONN_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
+#define GATE_APU_CONN_DUMMY(_id, _name, _parent, _shift) {	\
+	.id = _id,				\
+	.name = _name,				\
+	.parent_name = _parent,			\
+	.regs = &apuconn_cg_regs,		\
+	.shift = _shift,			\
+	.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+}
 
 
 static const struct mtk_gate apuconn_clks[] = {
-	GATE_APU_CONN(CLK_APU_CONN_APU, "apu_conn_apu", "dsp1_sel", 0),
-	GATE_APU_CONN(CLK_APU_CONN_AHB, "apu_conn_ahb", "dsp_sel", 1),
-	GATE_APU_CONN(CLK_APU_CONN_AXI, "apu_conn_axi", "dsp_sel", 2),
-	GATE_APU_CONN(CLK_APU_CONN_ISP, "apu_conn_isp", "dsp_sel", 3),
-	GATE_APU_CONN(CLK_APU_CONN_CAM_ADL, "apu_conn_cam_adl",
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_APU, "apu_conn_apu", "dsp1_sel", 0),
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_AHB, "apu_conn_ahb", "dsp_sel", 1),
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_AXI, "apu_conn_axi", "dsp_sel", 2),
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_ISP, "apu_conn_isp", "dsp_sel", 3),
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_CAM_ADL, "apu_conn_cam_adl",
 		"dsp_sel", 4),
-	GATE_APU_CONN(CLK_APU_CONN_IMG_ADL, "apu_conn_img_adl",
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_IMG_ADL, "apu_conn_img_adl",
 		"dsp_sel", 5),
-	GATE_APU_CONN(CLK_APU_CONN_EMI_26M, "apu_conn_emi_26m",
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_EMI_26M, "apu_conn_emi_26m",
 		"dsp_sel", 6),
-	GATE_APU_CONN(CLK_APU_CONN_VPU_UDI, "apu_conn_vpu_udi",
+	GATE_APU_CONN_DUMMY(CLK_APU_CONN_VPU_UDI, "apu_conn_vpu_udi",
 		"dsp_sel", 7),
 };
 

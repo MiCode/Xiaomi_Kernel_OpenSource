@@ -20,29 +20,30 @@ static const struct mtk_gate_regs apumdla_cg_regs = {
 	.sta_ofs = 0x0000,
 };
 
-#define GATE_APU_MDLA_FLAGS(_id, _name, _parent, _shift, _flags)	\
-	GATE_MTK_FLAGS(_id, _name, _parent, &apumdla_cg_regs,	\
-			_shift, &mtk_clk_gate_ops_setclr, _flags)
-
-#define GATE_APU_MDLA(_id, _name, _parent, _shift)	\
-	GATE_APU_MDLA_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
-
+#define GATE_APU_MDLA_DUMMY(_id, _name, _parent, _shift) {	\
+	.id = _id,				\
+	.name = _name,				\
+	.parent_name = _parent,			\
+	.regs = &apumdla_cg_regs,		\
+	.shift = _shift,			\
+	.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+}
 
 static const struct mtk_gate apumdla_clks[] = {
-	GATE_APU_MDLA(CLK_APU_MDLA_B0, "mdla_b0", "dsp3_sel", 0),
-	GATE_APU_MDLA(CLK_APU_MDLA_B1, "mdla_b1", "dsp3_sel", 1),
-	GATE_APU_MDLA(CLK_APU_MDLA_B2, "mdla_b2", "dsp3_sel", 2),
-	GATE_APU_MDLA(CLK_APU_MDLA_B3, "mdla_b3", "dsp3_sel", 3),
-	GATE_APU_MDLA(CLK_APU_MDLA_B4, "mdla_b4", "dsp3_sel", 4),
-	GATE_APU_MDLA(CLK_APU_MDLA_B5, "mdla_b5", "dsp3_sel", 5),
-	GATE_APU_MDLA(CLK_APU_MDLA_B6, "mdla_b6", "dsp3_sel", 6),
-	GATE_APU_MDLA(CLK_APU_MDLA_B7, "mdla_b7", "dsp3_sel", 7),
-	GATE_APU_MDLA(CLK_APU_MDLA_B8, "mdla_b8", "dsp3_sel", 8),
-	GATE_APU_MDLA(CLK_APU_MDLA_B9, "mdla_b9", "dsp3_sel", 9),
-	GATE_APU_MDLA(CLK_APU_MDLA_B10, "mdla_b10", "dsp3_sel", 10),
-	GATE_APU_MDLA(CLK_APU_MDLA_B11, "mdla_b11", "dsp3_sel", 11),
-	GATE_APU_MDLA(CLK_APU_MDLA_B12, "mdla_b12", "dsp3_sel", 12),
-	GATE_APU_MDLA(CLK_APU_MDLA_APB, "mdla_apb", "dsp3_sel", 13),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B0, "mdla_b0", "dsp3_sel", 0),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B1, "mdla_b1", "dsp3_sel", 1),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B2, "mdla_b2", "dsp3_sel", 2),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B3, "mdla_b3", "dsp3_sel", 3),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B4, "mdla_b4", "dsp3_sel", 4),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B5, "mdla_b5", "dsp3_sel", 5),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B6, "mdla_b6", "dsp3_sel", 6),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B7, "mdla_b7", "dsp3_sel", 7),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B8, "mdla_b8", "dsp3_sel", 8),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B9, "mdla_b9", "dsp3_sel", 9),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B10, "mdla_b10", "dsp3_sel", 10),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B11, "mdla_b11", "dsp3_sel", 11),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_B12, "mdla_b12", "dsp3_sel", 12),
+	GATE_APU_MDLA_DUMMY(CLK_APU_MDLA_APB, "mdla_apb", "dsp3_sel", 13),
 };
 
 static const struct of_device_id of_match_clk_mt6779_apumdla[] = {

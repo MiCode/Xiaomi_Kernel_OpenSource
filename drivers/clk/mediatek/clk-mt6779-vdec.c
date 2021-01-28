@@ -27,22 +27,22 @@ static const struct mtk_gate_regs vdec1_cg_regs = {
 	.sta_ofs = 0x0008,
 };
 
-#define GATE_VDEC0(_id, _name, _parent, _shift) {		\
-	.id = _id,					\
-	.name = _name,					\
-	.parent_name = _parent,				\
-	.regs = &vdec0_cg_regs,				\
-	.shift = _shift,				\
-	.ops = &mtk_clk_gate_ops_setclr_inv,		\
+#define GATE_VDEC0(_id, _name, _parent, _shift) {	\
+	.id = _id,				\
+	.name = _name,				\
+	.parent_name = _parent,			\
+	.regs = &vdec0_cg_regs,			\
+	.shift = _shift,			\
+	.ops = &mtk_clk_gate_ops_setclr_inv,	\
 }
 
-#define GATE_VDEC1(_id, _name, _parent, _shift) {		\
-	.id = _id,					\
-	.name = _name,					\
-	.parent_name = _parent,				\
-	.regs = &vdec1_cg_regs,				\
-	.shift = _shift,				\
-	.ops = &mtk_clk_gate_ops_setclr_inv,		\
+#define GATE_VDEC1(_id, _name, _parent, _shift) {	\
+	.id = _id,				\
+	.name = _name,				\
+	.parent_name = _parent,			\
+	.regs = &vdec1_cg_regs,			\
+	.shift = _shift,			\
+	.ops = &mtk_clk_gate_ops_setclr_inv,	\
 }
 
 static const struct mtk_gate vdec_clks[] = {

@@ -47,7 +47,9 @@ static inline struct mtk_clk_gate *to_mtk_clk_gate(struct clk_hw *hw)
 }
 
 extern const struct clk_ops mtk_clk_gate_ops_setclr;
+extern const struct clk_ops mtk_clk_gate_ops_setclr_dummy;
 extern const struct clk_ops mtk_clk_gate_ops_setclr_inv;
+extern const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy;
 extern const struct clk_ops mtk_clk_gate_ops_no_setclr;
 extern const struct clk_ops mtk_clk_gate_ops_no_setclr_inv;
 

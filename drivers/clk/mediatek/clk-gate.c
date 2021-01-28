@@ -168,12 +168,24 @@ const struct clk_ops mtk_clk_gate_ops_setclr = {
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr);
 
+const struct clk_ops mtk_clk_gate_ops_setclr_dummy = {
+	.is_enabled = mtk_cg_is_enabled,
+	.enable = mtk_cg_enable,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_dummy);
+
 const struct clk_ops mtk_clk_gate_ops_setclr_inv = {
 	.is_enabled	= mtk_en_is_enabled,
 	.enable		= mtk_cg_enable_inv,
 	.disable	= mtk_cg_disable_inv,
 };
 EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv);
+
+const struct clk_ops mtk_clk_gate_ops_setclr_inv_dummy = {
+	.is_enabled	= mtk_en_is_enabled,
+	.enable		= mtk_cg_enable_inv,
+};
+EXPORT_SYMBOL(mtk_clk_gate_ops_setclr_inv_dummy);
 
 const struct clk_ops mtk_clk_gate_ops_no_setclr = {
 	.is_enabled	= mtk_cg_is_enabled,

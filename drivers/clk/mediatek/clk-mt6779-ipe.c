@@ -20,21 +20,23 @@ static const struct mtk_gate_regs ipe_cg_regs = {
 	.sta_ofs = 0x0000,
 };
 
-#define GATE_IPE(_id, _name, _parent, _shift)			\
-	GATE_IPE_FLAGS(_id, _name, _parent, _shift, 0)
+#define GATE_IPE(_id, _name, _parent, _shift) {	\
+	.id = _id,			\
+	.name = _name,			\
+	.parent_name = _parent,		\
+	.regs = &ipe_cg_regs,		\
+	.shift = _shift,		\
+	.ops = &mtk_clk_gate_ops_setclr,\
+}
 
-#define GATE_IPE_DUMMY(_id, _name, _parent, _shift)			\
-	GATE_IPE_FLAGS(_id, _name, _parent, _shift, CLK_IS_CRITICAL)
-
-#define GATE_IPE_FLAGS(_id, _name, _parent, _shift, _flags) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &ipe_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
-		.flags = _flags,			\
-	}
+#define GATE_IPE_DUMMY(_id, _name, _parent, _shift) {	\
+	.id = _id,				\
+	.name = _name,				\
+	.parent_name = _parent,			\
+	.regs = &ipe_cg_regs,			\
+	.shift = _shift,			\
+	.ops = &mtk_clk_gate_ops_setclr_dummy,	\
+}
 
 static const struct mtk_gate ipe_clks[] = {
 	GATE_IPE_DUMMY(CLK_IPE_LARB7, "ipe_larb7", "ipe_sel", 0),

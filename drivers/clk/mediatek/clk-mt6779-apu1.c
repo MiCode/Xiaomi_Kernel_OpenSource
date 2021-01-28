@@ -20,14 +20,14 @@ static const struct mtk_gate_regs apu1_cg_regs = {
 	.sta_ofs = 0x0000,
 };
 
-#define GATE_APU1(_id, _name, _parent, _shift) {		\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.regs = &apu1_cg_regs,			\
-		.shift = _shift,			\
-		.ops = &mtk_clk_gate_ops_setclr,	\
-	}
+#define GATE_APU1(_id, _name, _parent, _shift) {	\
+	.id = _id,				\
+	.name = _name,				\
+	.parent_name = _parent,			\
+	.regs = &apu1_cg_regs,			\
+	.shift = _shift,			\
+	.ops = &mtk_clk_gate_ops_setclr,	\
+}
 
 static const struct mtk_gate apu1_clks[] = {
 	GATE_APU1(CLK_APU1_APU, "apu1_apu", "dsp2_sel", 0),

@@ -4938,7 +4938,17 @@ static int enable_subsys(enum subsys_id id)
 
 #if CONTROL_LIMIT
 	#if MT_CCF_PG_DEBUG
-	pr_info("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
+	switch (id) {
+	case SYS_MFG0:
+	case SYS_MFG1:
+	case SYS_MFG2:
+	case SYS_DIS:
+		break;
+	default:
+		pr_info("[CCF] %s: sys=%s, id=%d\n",
+			__func__, sys->name, id);
+		break;
+	}
 	#endif
 
 	if (allow[id] == 0) {
@@ -5002,7 +5012,17 @@ static int disable_subsys(enum subsys_id id)
 
 #if CONTROL_LIMIT
 	#if MT_CCF_PG_DEBUG
-	pr_info("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
+	switch (id) {
+	case SYS_MFG0:
+	case SYS_MFG1:
+	case SYS_MFG2:
+	case SYS_DIS:
+		break;
+	default:
+		pr_info("[CCF] %s: sys=%s, id=%d\n",
+			__func__, sys->name, id);
+		break;
+	}
 	#endif
 
 	if (allow[id] == 0) {
@@ -5054,8 +5074,13 @@ static int pg_enable(struct clk_hw *hw)
 	struct mt_power_gate *pg = to_power_gate(hw);
 
 #if MT_CCF_PG_DEBUG
-	pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
-		 __clk_get_name(hw->clk), pg->pd_id);
+	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
+		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
+		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
+
+		pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
+			 __clk_get_name(hw->clk), pg->pd_id);
+	}
 #endif				/* MT_CCF_PG_DEBUG */
 
 	return enable_subsys(pg->pd_id);
@@ -5066,8 +5091,14 @@ static void pg_disable(struct clk_hw *hw)
 	struct mt_power_gate *pg = to_power_gate(hw);
 
 #if MT_CCF_PG_DEBUG
-	pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
-		 __clk_get_name(hw->clk), pg->pd_id);
+	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
+		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
+		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
+
+		pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
+			 __clk_get_name(hw->clk), pg->pd_id);
+	}
+
 #endif				/* MT_CCF_PG_DEBUG */
 
 	disable_subsys(pg->pd_id);
@@ -5086,9 +5117,14 @@ int pg_prepare(struct clk_hw *hw)
 	struct mt_power_gate *pg = to_power_gate(hw);
 
 #if MT_CCF_PG_DEBUG
-	pr_info("[CCF] %s: sys=%s, pre_sys=%s\n", __func__,
-		 __clk_get_name(hw->clk),
-		 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
+	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
+		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
+		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
+
+		pr_info("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
+			 __clk_get_name(hw->clk),
+			 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
+	}
 #endif				/* MT_CCF_PG_DEBUG */
 
 	if (pg->pre_clk) {
@@ -5098,7 +5134,6 @@ int pg_prepare(struct clk_hw *hw)
 	}
 
 	return pg_enable(hw);
-
 }
 
 void pg_unprepare(struct clk_hw *hw)
@@ -5106,9 +5141,14 @@ void pg_unprepare(struct clk_hw *hw)
 	struct mt_power_gate *pg = to_power_gate(hw);
 
 #if MT_CCF_PG_DEBUG
-	pr_info("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
-		 __clk_get_name(hw->clk),
-		 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
+	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
+		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
+		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
+
+		pr_info("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
+			 __clk_get_name(hw->clk),
+			 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
+	}
 #endif				/* MT_CCF_PG_DEBUG */
 
 	pg_disable(hw);
