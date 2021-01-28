@@ -901,8 +901,8 @@ static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
 	 */
 	unsigned int msr_raw = 0;
 
-	msr_raw = ((long long int)((g_golden_temp * 500 + LVTS_COEFF_B_X_1000
-			- temp)) << 14)/(-1 * LVTS_COEFF_A_X_1000);
+	msr_raw = ((long long int)(((long long int)g_golden_temp * 500 +
+		LVTS_COEFF_B_X_1000 - temp)) << 14)/(-1 * LVTS_COEFF_A_X_1000);
 
 	lvts_printk("%s msr_raw = 0x%x,temp=%d\n", __func__, msr_raw, temp);
 
