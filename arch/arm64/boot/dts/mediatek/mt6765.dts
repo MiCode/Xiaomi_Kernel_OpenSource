@@ -808,6 +808,10 @@ firmware_class.path=/vendor/firmware";
 		      <0 0x0800000c 0 0x0004>;
 	};
 
+	hwrng: hwrng {
+		compatible = "mediatek,mt67xx-rng";
+	};
+
 	mobicore {
 		compatible = "trustonic,mobicore";
 		interrupts = <GIC_SPI 271 IRQ_TYPE_EDGE_RISING>;
