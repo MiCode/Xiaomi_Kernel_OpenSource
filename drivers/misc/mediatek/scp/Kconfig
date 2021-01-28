@@ -18,3 +18,13 @@ config MTK_TINYSYS_SCP_CM4_SUPPORT
 	  Set Y to enable this feature.
 	  If unsure,
 	  Set N to stay with legacy feature.
+
+config MTK_TINYSYS_SCP_LOGGER_SUPPORT
+	bool "SCP Logger support"
+	depends on MTK_TINYSYS_SCP_SUPPORT
+	default y
+	help
+	  This is debug feature: SCP logger on/off option.
+	  Set Y to enable this feature.
+	  Set N to disable this feature.
+	  If unsure, Set Y to have debug log.
