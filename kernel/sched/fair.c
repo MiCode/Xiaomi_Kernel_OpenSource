@@ -6319,8 +6319,8 @@ static void calc_sg_energy(struct energy_env *eenv, struct sched_domain *sd)
 		mt_sched_printf(sched_eas_energy_calc,
 			"sg_util=%lu busy_egy=%d idle_egy=%d (cost=%d total_egy=%d) mask=0x%lx child=%d",
 			sg_util,
-			busy_energy, idle_energy, total_energy,
-			eenv->cpu[cpu_idx].energy,
+			(int)busy_energy, (int)idle_energy, (int)total_energy,
+			(int)eenv->cpu[cpu_idx].energy,
 			sched_group_span(sg)->bits[0],
 			(sd->child) ? 1 : 0);
 
