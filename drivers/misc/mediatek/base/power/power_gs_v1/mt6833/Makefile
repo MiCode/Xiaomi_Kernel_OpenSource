@@ -19,3 +19,5 @@ obj-y += mtk_power_gs_6315_array.o
 obj-y += mtk_power_gs_sp.o
 obj-y += mtk_power_gs_compare.o
 obj-y += mtk_power_gs_dump_pmic.o
+obj-y += mtk_cg_array.o
+obj-y += mtk_dcm_array.o
