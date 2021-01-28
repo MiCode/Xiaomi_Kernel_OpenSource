@@ -999,9 +999,11 @@ static long tipc_ioctl(struct file *filp,
 	if (_IOC_TYPE(cmd) != TIPC_IOC_MAGIC)
 		return -EINVAL;
 
+#if IS_ENABLED(CONFIG_COMPAT)
 	if (is_compat)
 		user_req = (char __user *)compat_ptr(arg);
 	else
+#endif
 		user_req = (char __user *)arg;
 
 	switch (cmd) {

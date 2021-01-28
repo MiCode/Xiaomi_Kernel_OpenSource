@@ -134,7 +134,7 @@ int tipc_test_rcv(struct tipc_k_handle *handle, void *data, size_t len)
 {
 	ssize_t rc;
 
-	if (!handle || !data) {
+	if (!handle || !data || !!(handle->dn)) {
 		KREE_DEBUG("%s: invalid param\n", __func__);
 		return -1;
 	}

@@ -1207,9 +1207,11 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	if (_IOC_TYPE(cmd) != MTEE_IOC_MAGIC)
 		return -EINVAL;
 
+#if IS_ENABLED(CONFIG_COMPAT)
 	if (compat)
 		user_req = (char __user *)compat_ptr(arg);
 	else
+#endif
 		user_req = (char __user *)arg;
 
 	switch (cmd) {

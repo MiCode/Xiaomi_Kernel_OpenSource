@@ -106,12 +106,6 @@ ssize_t tipc_k_read(struct tipc_k_handle *h, void *buf, size_t buf_len,
 ssize_t tipc_k_write(struct tipc_k_handle *h, void *buf, size_t len,
 		     unsigned int flags);
 
-extern uint64_t pa_tipc_chan_queue_msg;
-extern uint64_t pa_tipc_create_channel;
-extern uint64_t pa_tipc_k_connect;
-extern uint64_t pa_tipc_k_write;
-extern uint64_t pa_rxbuf;
-
 /* port_lookup_tid() - indicate the tee_id from service port name.
  * @port: service name
  * @o_tid: output tee_id value, must be the value in enum tee_id_t

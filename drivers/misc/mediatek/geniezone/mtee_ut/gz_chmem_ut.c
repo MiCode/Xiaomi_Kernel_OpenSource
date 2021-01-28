@@ -129,11 +129,12 @@ struct _ssmr_chmem_regions {
 };
 
 struct _ssmr_chmem_regions _ssmr_CM_ary[] = {
+#if ssmr_ready_for_mcm
+
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	/*MTEE/TEE Protect-shared */
 	{SSMR_FEAT_PROT_SHAREDMEM, MTEE_MCHUNKS_PROT},
 #endif
-#if ssmr_ready_for_mcm
 #if IS_ENABLED(CONFIG_MTK_HAPP_MEM_SUPPORT)
 	/*HA ELF */
 	{SSMR_FEAT_TA_ELF, MTEE_MCHUNKS_HAPP},
@@ -154,7 +155,7 @@ struct _ssmr_chmem_regions _ssmr_CM_ary[] = {
 	{SSMR_FEAT_SDSP_TEE_SHAREDMEM, MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE},
 #endif
 #endif
-#else
+
 #if IS_ENABLED(CONFIG_MTK_PROT_MEM_SUPPORT)
 	/*MTEE/TEE Protect-shared */
 	{SSMR_FEAT_PROT_SHAREDMEM, 0}

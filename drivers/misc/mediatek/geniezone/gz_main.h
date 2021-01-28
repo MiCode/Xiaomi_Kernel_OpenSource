@@ -30,8 +30,10 @@ static int gz_dev_open(struct inode *inode, struct file *filp);
 static int gz_dev_release(struct inode *inode, struct file *filp);
 
 static long gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
+#if IS_ENABLED(CONFIG_COMPAT)
 static long gz_compat_ioctl(struct file *filep, unsigned int cmd,
 			    unsigned long arg);
+#endif
 
 #endif /* __GZ_MAIN_H */
 

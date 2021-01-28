@@ -769,7 +769,7 @@ static int find_wq_cpumask(struct cpumask *kick_mask,
 
 	return 0;
 }
-
+/*for kernel-4.19 (.ko)*/
 struct workqueue_attrs *_alloc_workqueue_attrs(gfp_t gfp_mask)
 {
 	struct workqueue_attrs *attrs;
@@ -850,16 +850,16 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 		goto err_create_kick_wq;
 	}
 
-	/* this function is not supported when compiled as .ko */
+	/* this function is not supported when compiled as .ko (kernel-4.19)*/
 	//tctx->attrs = alloc_workqueue_attrs(GFP_KERNEL);
-	/* replace with _alloc_workqueue_attrs() */
+	/*for kernel-4.19 (.ko)*/
 	tctx->kick_wq_attrs = _alloc_workqueue_attrs(GFP_KERNEL);
 
 	if (!tctx->kick_wq_attrs) {
 		ret = -ENOMEM;
 		goto err_alloc_kick_wq_attrs;
 	}
-
+	/*for kernel-4.19 (.ko)*/
 	tctx->check_wq_attrs = _alloc_workqueue_attrs(GFP_KERNEL);
 
 	if (!tctx->check_wq_attrs) {
@@ -890,11 +890,13 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 err_add_devices:
 err_bind_big_small_core:
 	if (tctx->check_wq_attrs) {
+		/*for kernel-4.19 (.ko)*/
 		free_cpumask_var(tctx->check_wq_attrs->cpumask);
 		kfree(tctx->check_wq_attrs);
 	}
 err_alloc_check_wq_attrs:
 	if (tctx->kick_wq_attrs) {
+		/*for kernel-4.19 (.ko)*/
 		free_cpumask_var(tctx->kick_wq_attrs->cpumask);
 		kfree(tctx->kick_wq_attrs);
 	}
@@ -932,16 +934,17 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	free_pages_exact(tctx->shared_va, tctx->shared_sz);
 
 	/* free workqueue attrs */
-	/* this function is not supported when compiled as .ko */
+	/* this function is not supported when compiled as .ko (kernel-4.19)*/
 	//free_workqueue_attrs(tctx->attrs);
-
-	/* replace with this */
 	if (tctx->kick_wq_attrs) {
+		/*for kernel-4.19 (.ko)*/
 		free_cpumask_var(tctx->kick_wq_attrs->cpumask);
 		kfree(tctx->kick_wq_attrs);
 	}
 
+	/* free check workqueue attrs */
 	if (tctx->check_wq_attrs) {
+		/*for kernel-4.19 (.ko)*/
 		free_cpumask_var(tctx->check_wq_attrs->cpumask);
 		kfree(tctx->check_wq_attrs);
 	}

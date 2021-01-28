@@ -25,6 +25,7 @@
 #include <linux/uaccess.h>
 #include <linux/fcntl.h>
 #include <linux/mutex.h>
+#include <asm/arch_timer.h>
 #include <gz-trusty/trusty_ipc.h>
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
