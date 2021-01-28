@@ -85,8 +85,14 @@ static void __iomem *csram_base;
 static struct cpu_dvfs_log_box log_box_parsed[1 + MAX_LOG_FETCH];
 
 void parse_time_log_content(unsigned int time_stamp_l_log,
-	unsigned int time_stamp_h_log, int idx)
+	unsigned int time_stamp_h_log, unsigned int idx)
 {
+	if (idx > MAX_LOG_FETCH) {
+		tag_pr_notice
+		("Error: %s wrong idx %d\n", __func__, idx);
+		idx = 0;
+	}
+
 	if (time_stamp_h_log == 0 && time_stamp_l_log == 0)
 		log_box_parsed[idx].time_stamp = 0;
 
