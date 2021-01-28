@@ -2051,7 +2051,21 @@ static struct platform_driver accdet_driver = {
 	},
 };
 
-module_platform_driver(accdet_driver)
+static int __init accdet_soc_init(void)
+{
+	int ret = 0;
+
+	ret = platform_driver_register(&accdet_driver);
+	if (ret)
+		return -ENODEV;
+	return 0;
+}
+static void __exit accdet_soc_exit(void)
+{
+	platform_driver_unregister(&accdet_driver);
+}
+module_init(accdet_soc_init);
+module_exit(accdet_soc_exit);
 
 /* Module information */
 MODULE_DESCRIPTION("MT6359 ALSA SoC accdet driver");

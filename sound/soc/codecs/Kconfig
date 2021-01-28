@@ -1303,6 +1303,7 @@ config SND_SOC_MT6359
 
 config SND_SOC_MT6359_ACCDET
 	tristate "MediaTek MT6359 ACCDET driver"
+	default m
 	help
 	  ACCDET means Accessory Detection technology, MediaTek develop it
 	  for ASoC codec soc-jack detection mechanism.
