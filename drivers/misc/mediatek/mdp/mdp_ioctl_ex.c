@@ -761,7 +761,7 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 		}
 
 		/* copy read result v1 to user space */
-		if (copy_to_user(
+		if (job_result.read_v1_result.ret_values && copy_to_user(
 			CMDQ_U32_PTR(job_result.read_v1_result.ret_values),
 			handle->reg_values,
 			handle->user_reg_count * sizeof(u32))) {
