@@ -3443,6 +3443,7 @@ page_owner=on loop.max_part=7";
 		mdp_rdma2_sw_rst_done = <341>;
 		mdp_rdma1_rst_done = <342>;
 		mdp_rdma0_rst_done = <343>;
+		dre30_hist_sram_start = <1536>;
 	};
 
 	mdp_rdma1: mdp_rdma1@1f007000 {
