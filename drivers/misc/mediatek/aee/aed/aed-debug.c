@@ -319,6 +319,9 @@ static noinline void double_free(void)
 	char *p = kmalloc(32, GFP_KERNEL);
 	int i;
 
+	if (p == NULL)
+		return;
+
 	pr_info("test case : double free\n");
 	for (i = 0; i < 32; i++)
 		p[i] = (char)i;
@@ -673,16 +676,16 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 
 	switch (msg[0]) {
 	case 'R':
-		aee_kernel_reminding(&msg[2], colon_ptr + 1);
+		aee_kernel_reminding(&msg[2], "Hello World[Error]");
 		break;
 
 	case 'W':
-		aee_kernel_warning(&msg[2], colon_ptr + 1);
+		aee_kernel_warning(&msg[2], "Hello World[Error]");
 		break;
 
 	case 'E':
-		aee_kernel_exception(&msg[2], colon_ptr + 1);
-		WARN(1, AEE_FMT, 0, 'E', &msg[2], colon_ptr + 1);
+		aee_kernel_exception(&msg[2], "Hello World[Error]");
+		WARN(1, AEE_FMT, 0, 'E', &msg[2], "Hello World[Error]");
 		break;
 
 	default:
