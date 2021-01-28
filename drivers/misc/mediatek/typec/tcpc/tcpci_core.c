@@ -86,7 +86,7 @@ static ssize_t tcpc_show_property(struct device *dev,
 {
 	struct tcpc_device *tcpc = to_tcpc_device(dev);
 	const ptrdiff_t offset = attr - tcpc_device_attributes;
-	int i = 0;
+	int i = 0, ret;
 #ifdef CONFIG_USB_POWER_DELIVERY
 	struct pe_data *pe_data;
 	struct pd_port *pd_port;
@@ -98,87 +98,131 @@ static ssize_t tcpc_show_property(struct device *dev,
 	case TCPC_DESC_CAP_INFO:
 		pd_port = &tcpc->pd_port;
 		pe_data = &pd_port->pe_data;
-		snprintf(buf+strlen(buf), 256, "%s = %d\n%s = %d\n",
-			"local_selected_cap",
-			pe_data->local_selected_cap,
-			"remote_selected_cap",
-			pe_data->remote_selected_cap);
-
-		snprintf(buf+strlen(buf), 256, "%s\n",
+		ret = snprintf(buf+strlen(buf), 256, "%s = %d\n%s = %d\n",
+				"local_selected_cap",
+				pe_data->local_selected_cap,
+				"remote_selected_cap",
+				pe_data->remote_selected_cap);
+		if (ret < 0)
+			break;
+		ret = snprintf(buf+strlen(buf), 256, "%s\n",
 				"local_src_cap(type, vmin, vmax, oper)");
+		if (ret < 0)
+			break;
 		for (i = 0; i < pd_port->local_src_cap.nr; i++) {
 			tcpm_extract_power_cap_val(
 				pd_port->local_src_cap.pdos[i],
 				&cap);
-			snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
-				cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			ret = snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
+				      cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			if (ret < 0)
+				break;
 		}
-		snprintf(buf+strlen(buf), 256, "%s\n",
+		ret = snprintf(buf+strlen(buf), 256, "%s\n",
 				"local_snk_cap(type, vmin, vmax, ioper)");
+		if (ret < 0)
+			break;
 		for (i = 0; i < pd_port->local_snk_cap.nr; i++) {
 			tcpm_extract_power_cap_val(
 				pd_port->local_snk_cap.pdos[i],
 				&cap);
-			snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
-				cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			ret = snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
+				      cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			if (ret < 0)
+				break;
 		}
-		snprintf(buf+strlen(buf), 256, "%s\n",
+		ret = snprintf(buf+strlen(buf), 256, "%s\n",
 				"remote_src_cap(type, vmin, vmax, ioper)");
+		if (ret < 0)
+			break;
 		for (i = 0; i < pe_data->remote_src_cap.nr; i++) {
 			tcpm_extract_power_cap_val(
 				pe_data->remote_src_cap.pdos[i],
 				&cap);
-			snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
-				cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			ret = snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
+				      cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			if (ret < 0)
+				break;
 		}
-		snprintf(buf+strlen(buf), 256, "%s\n",
+		ret = snprintf(buf+strlen(buf), 256, "%s\n",
 				"remote_snk_cap(type, vmin, vmax, ioper)");
+		if (ret < 0)
+			break;
 		for (i = 0; i < pe_data->remote_snk_cap.nr; i++) {
 			tcpm_extract_power_cap_val(
 				pe_data->remote_snk_cap.pdos[i],
 				&cap);
-			snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
-				cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			ret = snprintf(buf+strlen(buf), 256, "%d %d %d %d\n",
+				      cap.type, cap.min_mv, cap.max_mv, cap.ma);
+			if (ret < 0)
+				break;
 		}
 		break;
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 	case TCPC_DESC_ROLE_DEF:
-		snprintf(buf, 256, "%s\n", role_text[tcpc->desc.role_def]);
+		ret = snprintf(buf, 256, "%s\n", role_text[tcpc->desc.role_def]);
+		if (ret < 0)
+			break;
 		break;
 	case TCPC_DESC_RP_LEVEL:
-		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT)
-			snprintf(buf, 256, "%s\n", "Default");
-		else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5)
-			snprintf(buf, 256, "%s\n", "1.5");
-		else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0)
-			snprintf(buf, 256, "%s\n", "3.0");
+		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT) {
+			ret = snprintf(buf, 256, "%s\n", "Default");
+			if (ret < 0)
+				break;
+		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5) {
+			ret = snprintf(buf, 256, "%s\n", "1.5");
+			if (ret < 0)
+				break;
+		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0) {
+			ret = snprintf(buf, 256, "%s\n", "3.0");
+			if (ret < 0)
+				break;
+		}
 		break;
 	case TCPC_DESC_PD_TEST:
-		snprintf(buf, 256, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
-			"1: pr_swap", "2: dr_swap", "3: vconn_swap",
-			"4: soft reset", "5: hard reset",
-			"6: get_src_cap", "7: get_sink_cap",
-			"8: discover_id", "9: discover_cable");
+		ret = snprintf(buf, 256, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n",
+				"1: pr_swap", "2: dr_swap", "3: vconn_swap",
+				"4: soft reset", "5: hard reset",
+				"6: get_src_cap", "7: get_sink_cap",
+				"8: discover_id", "9: discover_cable");
+		if (ret < 0)
+			break;
 		break;
 	case TCPC_DESC_INFO:
 		i += snprintf(buf + i,
 			256, "|^|==( %s info )==|^|\n", tcpc->desc.name);
+		if (i < 0)
+			break;
 		i += snprintf(buf + i,
 			256, "role = %s\n", role_text[tcpc->desc.role_def]);
-		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT)
+		if (i < 0)
+			break;
+		if (tcpc->typec_local_rp_level == TYPEC_CC_RP_DFT) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "Default");
-		else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5)
+			if (i < 0)
+				break;
+		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_1_5) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "1.5");
-		else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0)
+			if (i < 0)
+				break;
+		} else if (tcpc->typec_local_rp_level == TYPEC_CC_RP_3_0) {
 			i += snprintf(buf + i, 256, "rplvl = %s\n", "3.0");
+			if (i < 0)
+				break;
+		}
 		break;
 #ifdef CONFIG_USB_POWER_DELIVERY
 	case TCPC_DESC_PE_READY:
 		pd_port = &tcpc->pd_port;
-		if (pd_port->pe_data.pe_ready)
-			snprintf(buf, 256, "%s\n", "yes");
-		else
-			snprintf(buf, 256, "%s\n", "no");
+		if (pd_port->pe_data.pe_ready) {
+			ret = snprintf(buf, 256, "%s\n", "yes");
+			if (ret < 0)
+				break;
+		} else {
+			ret = snprintf(buf, 256, "%s\n", "no");
+			if (ret < 0)
+				break;
+		}
 		break;
 #endif
 	default:
