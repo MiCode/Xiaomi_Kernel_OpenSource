@@ -32,13 +32,9 @@
 
 #include <cmdq_core.h>
 #include <cmdq_record.h>
-#ifdef CONFIG_MTK_SMI_EXT
 #include <smi_public.h>
-#endif
-#define TODO
-#ifndef TODO
 #include <mt-plat/mtk_chip.h>
-#endif
+
 
 /*#define __WPE_EP_NO_CLKMGR__*/
 /* Measure the kernel performance
@@ -156,9 +152,9 @@ pr_debug(MyTag "[%s] " format, __func__, ##args)
  ***********************************************************************/
 /* #define WPE_WR32(addr, data)  iowrite32(data, addr) For other projects.*/
 
-#define WPE_WR32(addr, data)    writel(data, addr)
+#define WPE_WR32(addr, data)    mt_reg_sync_writel(data, addr)
 				/* For 89 Only.   // NEED_TUNING_BY_PROJECT */
-#define WPE_RD32(addr)          readl(addr)
+#define WPE_RD32(addr)          ioread32(addr)
 /***********************************************************************
  *
  ***********************************************************************/
@@ -2459,9 +2455,8 @@ static inline void WPE_Prepare_ccf_clock(void)
 	/* must keep this clk open order: */
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON ->*/
 	/*CG_SCP_SYS_ISP -> WPE clk */
-#ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
-#endif
+
 	ret = clk_prepare(wpe_clk.CG_IMGSYS_LARB5);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_LARB5 clock\n");
@@ -2477,9 +2472,9 @@ static inline void WPE_Enable_ccf_clock(void)
 	/* must keep this clk open order: */
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON*/
 	/*-> CG_SCP_SYS_ISP -> WPE  clk */
-#ifdef CONFIG_MTK_SMI_EXT
+
 	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
-#endif
+
 	ret = clk_enable(wpe_clk.CG_IMGSYS_LARB5);
 	if (ret)
 		LOG_ERR("cannot prepare CG_IMGSYS_LARB5\n");
@@ -2496,9 +2491,8 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON ->*/
 	/*CG_SCP_SYS_ISP -> WPE clk */
 	/*smi_bus_enable(SMI_LARB_IMGSYS1, "camera_wpe");*/
-#ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
-#endif
+
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB5);
 	if (ret)
 		LOG_ERR("cannot prepare and enable IMG_LARB5 clock\n");
@@ -2515,9 +2509,8 @@ static inline void WPE_Unprepare_ccf_clock(void)
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 	clk_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_unprepare(wpe_clk.CG_IMGSYS_LARB5);
-#ifdef CONFIG_MTK_SMI_EXT
+
 	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
-#endif
 }
 
 static inline void WPE_Disable_ccf_clock(void)
@@ -2527,9 +2520,8 @@ static inline void WPE_Disable_ccf_clock(void)
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 	clk_disable(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_disable(wpe_clk.CG_IMGSYS_LARB5);
-#ifdef CONFIG_MTK_SMI_EXT
+
 	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
-#endif
 }
 
 static inline void WPE_Disable_Unprepare_ccf_clock(void)
@@ -2539,9 +2531,8 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	/*CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS */
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB5);
-#ifdef CONFIG_MTK_SMI_EXT
+
 	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
-#endif
 	/*smi_bus_disable(SMI_LARB_IMGSYS1, "camera_wpe");*/
 }
 #endif
@@ -5169,7 +5160,7 @@ static const struct file_operations WPE_reg_proc_fops = {
 	.write = wpe_reg_write,
 };
 
-#ifndef CMDQ_COMMON
+
 /***********************************************************************
  *
  ***********************************************************************/
@@ -5208,7 +5199,7 @@ int32_t WPE_ClockOffCallback(uint64_t engineFlag)
 	WPE_EnableClock(0);
 	return 0;
 }
-#endif
+
 
 static signed int __init WPE_Init(void)
 {
@@ -5292,7 +5283,7 @@ static signed int __init WPE_Init(void)
 		/* log buffer ,in case of overflow */
 	}
 
-#ifndef CMDQ_COMMON
+
 	/* Cmdq */
 	/* Register WPE callback */
 	LOG_DBG("register wpe callback for CMDQ");
@@ -5301,7 +5292,7 @@ static signed int __init WPE_Init(void)
 			   WPE_DumpCallback,
 			   WPE_ResetCallback,
 			   WPE_ClockOffCallback);
-#endif
+
 
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
@@ -5318,11 +5309,11 @@ static void __exit WPE_Exit(void)
 	/*  */
 	platform_driver_unregister(&WPEDriver);
 	/*  */
-#ifndef CMDQ_COMMON
+
 	/* Cmdq */
 	/* Unregister WPE callback */
 	cmdqCoreRegisterCB(CMDQ_GROUP_WPE, NULL, NULL, NULL, NULL);
-#endif
+
 
 	kfree(pLog_kmalloc);
 
