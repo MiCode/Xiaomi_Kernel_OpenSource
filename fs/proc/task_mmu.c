@@ -904,6 +904,27 @@ static int show_smaps_rollup(struct seq_file *m, void *v)
 	for (vma = priv->mm->mmap; vma; vma = vma->vm_next) {
 		smap_gather_stats(vma, &mss);
 		last_vma_end = vma->vm_end;
+
+		/*
+		 * Release mmap_sem temporarily if someone wants to
+		 * access it for write request.
+		 */
+		if (rwsem_is_contended(&mm->mmap_sem)) {
+			up_read(&mm->mmap_sem);
+			ret = down_read_killable(&mm->mmap_sem);
+			if (ret) {
+				release_task_mempolicy(priv);
+				goto out_put_mm;
+			}
+
+			/* Try to find whether current vma is available */
+			vma = find_vma(mm, last_vma_end - 1);
+			if (vma && vma->vm_start <= last_vma_end)
+				continue;
+
+			/* Current vma is not available, just break */
+			break;
+		}
 	}
 
 	show_vma_header_prefix(m, priv->mm->mmap->vm_start,
