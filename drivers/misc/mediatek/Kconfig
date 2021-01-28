@@ -188,6 +188,15 @@ config MTK_DRM_KEY_MNG_SUPPORT
 	  relative options including: MTK_SEC_VIDEO_PATH_SUPPORT and
 	  MTK_PERSIST_PARTITION_SUPPORT.
 
+config MTK_LCM_PHYSICAL_ROTATION_HW
+	bool "Rotate LCM display for 180 degree using HW"
+	help
+	  Rotate LCM display for 180 degree using mediatek hardware engine
+	  Enable it when LCM hardware is intalled upside down, and you need
+	  to rotate the display content to adapting.
+	  Select "y" if you want to enable LCM 180 rotate.
+	  Select "n" if unsure.
+
 source "drivers/misc/mediatek/mmp/Kconfig"
 source "drivers/misc/mediatek/lcm/Kconfig"
 source "drivers/misc/mediatek/sync/Kconfig"
