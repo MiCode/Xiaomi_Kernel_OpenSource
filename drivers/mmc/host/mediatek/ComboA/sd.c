@@ -1169,8 +1169,7 @@ static int check_enable_cqe(void)
 	 * Device will return switch error if flush cache
 	 * with cache disabled.
 	 */
-	if ((mode == RECOVERY_BOOT) ||
-		(mode == KERNEL_POWER_OFF_CHARGING_BOOT) ||
+	if ((mode == KERNEL_POWER_OFF_CHARGING_BOOT) ||
 		(mode == LOW_POWER_OFF_CHARGING_BOOT))
 		return 0;
 
