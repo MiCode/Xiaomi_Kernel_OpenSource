@@ -263,7 +263,7 @@ config UNUSED_SYMBOLS
 
 config PAGE_OWNER
 	bool "Track page owner"
-	depends on DEBUG_KERNEL && STACKTRACE_SUPPORT
+	depends on DEBUG_KERNEL && STACKTRACE_SUPPORT && !MTK_GMO_RAM_OPTIMIZE
 	select DEBUG_FS
 	select STACKTRACE
 	select STACKDEPOT
