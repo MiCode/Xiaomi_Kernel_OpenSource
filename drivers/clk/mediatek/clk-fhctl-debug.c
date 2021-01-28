@@ -110,7 +110,7 @@ static ssize_t fh_ctrl_proc_write(struct file *file,
 	kbuf[count] = '\0';
 
 	n = sscanf(kbuf, "%x %x %x", &cmd, &pll_id, &p1);
-	if (n != 3) {
+	if ((n != 3) && (n != 2)) {
 		pr_info("error input format\n");
 		return -EINVAL;
 	}
