@@ -64,6 +64,8 @@ struct anon_vma {
 
 	/* Interval tree of private "related" vmas */
 	struct rb_root_cached rb_root;
+	/* key to tell if a valid anon_vma type */
+	unsigned long private;
 };
 
 /*
