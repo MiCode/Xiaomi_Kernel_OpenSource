@@ -11,7 +11,6 @@ config MTK_VPU_SUPPORT
 config MTK_VPU_SUPPORT_DEBUG
 	bool "MediaTek VPU Debugging Features"
 	depends on MTK_VPU_SUPPORT
-	depends on DEBUG_FS
 	select MTK_APUSYS_VPU_DEBUG
 	---help---
 	  Enable debug facilities of VPU, such as
