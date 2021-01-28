@@ -25,6 +25,30 @@ enum {
 #define MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE		16
 #define MTK_PM_QOS_SCP_VCORE_REQUEST_DEFAULT_VALUE	16
 
+enum ddr_opp {
+	DDR_OPP_0 = 0,
+	DDR_OPP_1,
+	DDR_OPP_2,
+	DDR_OPP_3,
+	DDR_OPP_4,
+	DDR_OPP_5,
+	DDR_OPP_6,
+	DDR_OPP_7,
+	DDR_OPP_UNREQ = MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE,
+};
+
+enum vcore_opp {
+	VCORE_OPP_0 = 0,
+	VCORE_OPP_1,
+	VCORE_OPP_2,
+	VCORE_OPP_3,
+	VCORE_OPP_4,
+	VCORE_OPP_5,
+	VCORE_OPP_6,
+	VCORE_OPP_7,
+	VCORE_OPP_UNREQ = MTK_PM_QOS_VCORE_OPP_DEFAULT_VALUE,
+};
+
 struct mtk_pm_qos_request {
 	struct list_head list_node;
 	struct plist_node node;
@@ -45,29 +69,29 @@ int mtk_pm_qos_remove_notifier(int mtk_pm_qos_class,
 	struct notifier_block *notifier);
 #else
 static inline void mtk_pm_qos_add_request(
-	struct mtk_pm_qos_request *req, int mtk_pm_qos_class, s32 value);
+	struct mtk_pm_qos_request *req, int mtk_pm_qos_class, s32 value)
 {
 }
 static inline void mtk_pm_qos_update_request(
-	struct mtk_pm_qos_request *req, s32 new_value);
+	struct mtk_pm_qos_request *req, s32 new_value)
 {
 }
-static inline void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req);
+static inline void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req)
 {
 }
 
-static inline int mtk_pm_qos_request(int mtk_pm_qos_class);
+static inline int mtk_pm_qos_request(int mtk_pm_qos_class)
 {
 	return 0;
 }
 int mtk_pm_qos_add_notifier(int mtk_pm_qos_class,
-	struct notifier_block *notifier);
+	struct notifier_block *notifier)
 {
 	return 0;
 }
 
 int mtk_pm_qos_remove_notifier(int mtk_pm_qos_class,
-	struct notifier_block *notifier);
+	struct notifier_block *notifier)
 {
 	return 0;
 }
