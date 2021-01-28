@@ -24,7 +24,7 @@
 #define SCP_BOOT_TIME_OUT_MONITOR	(1)
 #define SCP_LOGGER_ENABLE		(1)
 #define SCP_DVFS_INIT_ENABLE		(1)
-#define SCP_VOW_LOW_POWER_MODE		(0)
+#define SCP_VOW_LOW_POWER_MODE		(1)
 #define SCP_RESERVED_MEM		(1)
 /* scp rescovery feature option*/
 #define SCP_RECOVERY_SUPPORT		(1)
