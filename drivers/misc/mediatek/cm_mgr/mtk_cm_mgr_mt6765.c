@@ -77,8 +77,8 @@ static int cm_mgr_abs_load;
 static int cm_mgr_rel_load;
 static int total_bw;
 static int cps_valid;
-static int debounce_times_up;
-static int debounce_times_down;
+static unsigned int debounce_times_up;
+static unsigned int debounce_times_down;
 static int ratio_scale[CM_MGR_CPU_CLUSTER];
 static int max_load[CM_MGR_CPU_CLUSTER];
 static int cpu_load[NR_CPUS];
@@ -203,7 +203,7 @@ static void cm_mgr_update_met(void)
 }
 
 #include <linux/cpu_pm.h>
-static int cm_mgr_idle_mask;
+static unsigned int cm_mgr_idle_mask;
 
 spinlock_t cm_mgr_cpu_mask_lock;
 

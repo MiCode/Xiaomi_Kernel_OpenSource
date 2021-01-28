@@ -73,16 +73,16 @@ int cm_mgr_perf_force_enable;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 int cm_mgr_sspm_enable = 1;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
-int *cpu_power_ratio_down;
-int *cpu_power_ratio_up;
-int *debounce_times_down_adb;
+unsigned int *cpu_power_ratio_down;
+unsigned int *cpu_power_ratio_up;
+unsigned int *vcore_power_ratio_down;
+unsigned int *vcore_power_ratio_up;
+unsigned int *debounce_times_down_adb;
+unsigned int *debounce_times_up_adb;
 int debounce_times_perf_down = 50;
 int debounce_times_perf_force_down = 100;
 int debounce_times_reset_adb;
-int *debounce_times_up_adb;
 int light_load_cps = 1000;
-int *vcore_power_ratio_down;
-int *vcore_power_ratio_up;
 
 int debounce_times_perf_down_local = -1;
 int debounce_times_perf_down_force_local = -1;

@@ -67,16 +67,16 @@ extern int cm_mgr_perf_force_enable;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 extern int cm_mgr_sspm_enable;
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
-extern int *cpu_power_ratio_down;
-extern int *cpu_power_ratio_up;
-extern int *debounce_times_down_adb;
+extern unsigned int *cpu_power_ratio_down;
+extern unsigned int *cpu_power_ratio_up;
+extern unsigned int *vcore_power_ratio_down;
+extern unsigned int *vcore_power_ratio_up;
+extern unsigned int *debounce_times_down_adb;
+extern unsigned int *debounce_times_up_adb;
 extern int debounce_times_perf_down;
 extern int debounce_times_perf_force_down;
 extern int debounce_times_reset_adb;
-extern int *debounce_times_up_adb;
 extern int light_load_cps;
-extern int *vcore_power_ratio_down;
-extern int *vcore_power_ratio_up;
 
 extern int debounce_times_perf_down_local;
 extern int debounce_times_perf_down_force_local;
