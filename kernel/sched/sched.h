@@ -1666,6 +1666,11 @@ extern void sched_max_util_task_tracking(void);
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
 extern int
 inc_nr_heavy_running(int invoker, struct task_struct *p, int inc, bool ack_cap);
+
+#ifdef CONFIG_MTK_SCHED_CPULOAD
+extern void cal_cpu_load(int cpu);
+#endif
+
 #endif
 
 static inline void add_nr_running(struct rq *rq, unsigned count)
@@ -1795,6 +1800,10 @@ extern unsigned int walt_ravg_window;
 extern bool walt_disabled;
 
 #endif /* CONFIG_SMP */
+
+extern void update_sched_hint(int sys_util, int sys_cap);
+extern void sched_hint_check(u64 wallclock);
+extern u64 sched_ktime_clock(void);
 
 static inline void sched_rt_avg_update(struct rq *rq, u64 rt_delta)
 {

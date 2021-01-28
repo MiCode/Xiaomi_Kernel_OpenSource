@@ -24,7 +24,8 @@
 #include <linux/topology.h>
 #include <linux/arch_topology.h>
 #include <trace/events/sched.h>
-#include <mt-plat/mt_sched.h>
+//TODO: remove comment after met ready
+//#include <mt-plat/mt_sched.h>
 #include "rq_stats.h"
 
 // TODO: remove comment after MET ready
