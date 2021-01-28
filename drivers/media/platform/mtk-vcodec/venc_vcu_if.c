@@ -340,6 +340,10 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->roion;
 		break;
+	case VENC_SET_PARAM_HEIF_GRID_SIZE:
+		out.data_item = 1;
+		out.data[0] = enc_param->heif_grid_size;
+		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);
 		return -EINVAL;

@@ -99,6 +99,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_OPERATION_RATE,
 	VENC_SET_PARAM_BITRATE_MODE,
 	VENC_SET_PARAM_ROI_ON,
+	VENC_SET_PARAM_HEIF_GRID_SIZE,
 };
 
 /**
@@ -383,6 +384,7 @@ struct venc_vcu_config {
 	__u32 bitratemode;
 	__u32 roi_rc_qp;
 	__u32 roion;
+	__u32 heif_grid_size;
 };
 
 /**
