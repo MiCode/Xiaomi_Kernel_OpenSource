@@ -213,13 +213,17 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
 }
 
 #ifdef MTK_LOCK_DEBUG
+#define LOCK_CSD_IN_USE ((void *)-1L)
+static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd);
 static void show_cpu_backtrace(void *info)
 {
+	call_single_data_t *csd;
+
 	pr_info("========== The call trace of lock owner on CPU%d ==========\n",
 		raw_smp_processor_id());
 	dump_stack();
 
-	if (info != NULL) {
+	if (info != LOCK_CSD_IN_USE) {
 #ifdef CONFIG_MTK_AEE_FEATURE
 		char aee_str[128];
 
@@ -232,12 +236,10 @@ static void show_cpu_backtrace(void *info)
 #endif
 		kfree(info);
 	}
+
+	csd = this_cpu_ptr(&spinlock_debug_csd);
+	csd->info = NULL;
 }
-static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd) = {
-	.func = show_cpu_backtrace,
-	.info = NULL,
-	.flags = 0
-};
 #endif
 
 /*Select appropriate loop counts to 1~2sec*/
@@ -256,7 +258,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 {
 	u64 one_second = loops_per_jiffy * LOOP_HZ;
 	u64 loops = one_second;
-	u32 cpu = raw_smp_processor_id();
+	u32 owner_cpu = -1;
 	int print_once = 1, cnt = 0;
 	char lock_name[MAX_LOCK_NAME];
 	unsigned long long t1, t2, t3;
@@ -288,6 +290,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		t2 = sched_clock();
 
 		owner = lock->owner;
+		owner_cpu = lock->owner_cpu;
 		if (owner == SPINLOCK_OWNER_INIT)
 			owner = NULL;
 
@@ -301,10 +304,15 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		msec_high(t2 - t1), sec_high(t1), sec_low(t1),
 		*((unsigned int *)&lock->raw_lock), lock->magic,
 		owner ? owner->comm : "<none>",
-		owner ? task_pid_nr(owner) : -1, lock->owner_cpu,
+		owner ? task_pid_nr(owner) : -1, owner_cpu,
 		sec_high(lock->lock_t), sec_low(lock->lock_t));
 
-		if (owner && (print_once || cnt == 5)) {
+		/* lock is already released */
+		if (owner == NULL || owner_cpu == -1)
+			continue;
+
+		/* print held lock information per 5 sec */
+		if (print_once || cnt == 5) {
 			debug_show_held_locks(owner);
 			cnt = 0;
 		}
@@ -321,11 +329,19 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		pr_info("========== The call trace of spinning task ==========\n");
 		dump_stack();
 
-		if (owner && (cpu != lock->owner_cpu)) {
+		if (owner_cpu != raw_smp_processor_id()) {
 			call_single_data_t *csd;
 
-			csd = this_cpu_ptr(&spinlock_debug_csd);
-			csd->info = NULL;
+			csd = per_cpu_ptr(&spinlock_debug_csd, owner_cpu);
+
+			/* already warned by another cpu */
+			if (csd->info)
+				continue;
+
+			/* mark csd is in use */
+			csd->info = LOCK_CSD_IN_USE;
+			csd->func = show_cpu_backtrace;
+			csd->flags = 0;
 
 			if (!is_critical_spinlock(lock)
 				&& !is_critical_lock_held()) {
@@ -336,8 +352,10 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 				}
 				strncpy(csd->info, lock_name, MAX_LOCK_NAME);
 			}
-			smp_call_function_single_async(
-				lock->owner_cpu, csd);
+			smp_call_function_single_async(owner_cpu, csd);
+		} else {
+			pr_info("(%s) recursive deadlock on CPU%d\n",
+				lock_name, owner_cpu);
 		}
 	}
 }
