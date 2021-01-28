@@ -16,6 +16,7 @@
 
 #include <linux/mfd/mt6397/core.h>
 #include <linux/regulator/consumer.h>
+#include <linux/nvmem-consumer.h>
 
 #include <sound/soc.h>
 
@@ -248,6 +249,7 @@ struct mt6359_vow_periodic_on_off_data {
 struct mt6359_priv {
 	struct device *dev;
 	struct regmap *regmap;
+	struct nvmem_device *hp_efuse;
 
 	unsigned int dl_rate[MT6359_AIF_NUM];
 	unsigned int ul_rate[MT6359_AIF_NUM];
@@ -6331,56 +6333,22 @@ static int mt6359_codec_init_reg(struct mt6359_priv *priv)
 static int get_hp_current_calibrate_val(struct mt6359_priv *priv)
 {
 	int ret = 0;
+	unsigned short efuse_val = 0;
 	int value, sign;
 
-	/* 1. enable efuse ctrl engine clock */
-	regmap_update_bits(priv->regmap, MT6359_TOP_CKHWEN_CON0, 0x1 << 2, 0x0);
-	regmap_update_bits(priv->regmap, MT6359_TOP_CKPDN_CON0, 0x1 << 4, 0x0);
-
-	/* 2. set RG_OTP_RD_SW */
-	regmap_update_bits(priv->regmap, MT6359_OTP_CON11, 0x0001, 0x0001);
-
-	/* 3. set EFUSE addr */
 	/* HPDET_COMP[6:0] @ efuse bit 1792 ~ 1798 */
 	/* HPDET_COMP_SIGN @ efuse bit 1799 */
 	/* 1792 / 8 = 224 --> 0xE0 */
-	regmap_update_bits(priv->regmap, MT6359_OTP_CON0, 0xff, 0xe0);
+	ret = nvmem_device_read(priv->hp_efuse, 0xe0, 2, &efuse_val);
+	if (ret < 0) {
+		dev_err(priv->dev, "%s(), efuse read fail: %d\n", __func__,
+			 ret);
+		efuse_val = 0;
+	}
 
-	/* 4. Toggle RG_OTP_RD_TRIG */
-	regmap_read(priv->regmap, MT6359_OTP_CON8, &ret);
-	if (ret == 0)
-		regmap_update_bits(priv->regmap, MT6359_OTP_CON8,
-				   0x0001, 0x0001);
-	else
-		regmap_update_bits(priv->regmap, MT6359_OTP_CON8,
-				   0x0001, 0x0000);
-
-	/* 5. Polling RG_OTP_RD_BUSY */
-	do {
-		regmap_read(priv->regmap, MT6359_OTP_CON13, &ret);
-		ret = ret & 0x0001;
-		usleep_range(100, 200);
-		dev_dbg(priv->dev, "%s(), polling MT6359_OTP_CON13 = 0x%x\n",
-			__func__, ret);
-	} while (ret == 1);
-
-	/* Need to delay at least 1ms for 0xC1A and than can read */
-	usleep_range(500, 1000);
-
-	/* 6. Read RG_OTP_DOUT_SW */
-	regmap_read(priv->regmap, MT6359_OTP_CON12, &ret);
-	dev_dbg(priv->dev, "%s(), MT6359_OTP_CON12 = 0x%x\n", __func__, ret);
-
-	sign = (ret >> 7) & 0x1;
-	value = ret & 0x7f;
+	sign = (efuse_val >> 7) & 0x1;
+	value = efuse_val & 0x7f;
 	value = sign ? -value : value;
-
-	/* 7. Disables efuse_ctrl egine clock */
-	regmap_update_bits(priv->regmap, MT6359_OTP_CON11, 0x0001, 0x0000);
-	regmap_update_bits(priv->regmap, MT6359_TOP_CKPDN_CON0,
-			   0x1 << 4, 0x1 << 4);
-	regmap_update_bits(priv->regmap, MT6359_TOP_CKHWEN_CON0,
-			   0x1 << 2, 0x1 << 2);
 
 	dev_info(priv->dev, "%s(), efuse: %d\n", __func__, value);
 	return value;
@@ -7552,6 +7520,17 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 	} else {
 		dev_err(&pdev->dev, "get pwrap node fail\n");
 		return -EINVAL;
+	}
+
+	/* get pmic efuse handler */
+	priv->hp_efuse = devm_nvmem_device_get(&pdev->dev,
+					       "pmic-hp-efuse");
+	ret = PTR_ERR_OR_ZERO(priv->hp_efuse);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Error: Get efuse failed (%d)\n",
+				 ret);
+		return ret;
 	}
 #endif
 	if (IS_ERR(priv->regmap))
