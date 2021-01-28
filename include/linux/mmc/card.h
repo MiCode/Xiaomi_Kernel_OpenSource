@@ -200,7 +200,9 @@ struct sdio_cccr {
 				wide_bus:1,
 				high_power:1,
 				high_speed:1,
-				disable_cd:1;
+				disable_cd:1,
+				sai:1,
+				eai:1;
 };
 
 struct sdio_cis {
