@@ -511,6 +511,7 @@ void mmprofile_start(int start)
 	mmprofile_force_start(start);
 #endif
 }
+EXPORT_SYMBOL(mmprofile_start);
 
 void mmprofile_enable(int enable)
 {
@@ -521,6 +522,7 @@ void mmprofile_enable(int enable)
 	if (enable == 0)
 		mmprofile_force_start(0);
 }
+EXPORT_SYMBOL(mmprofile_enable);
 
 /* if using remote tool (PC side) or adb shell command, can always start mmp */
 static void mmprofile_remote_start(int start)

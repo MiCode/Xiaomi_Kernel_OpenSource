@@ -27,10 +27,12 @@
 void mmprofile_start(int start)
 {
 }
+EXPORT_SYMBOL(mmprofile_start);
 
 void mmprofile_enable(int enable)
 {
 }
+EXPORT_SYMBOL(mmprofile_enable);
 
 /* Exposed APIs begin */
 mmp_event mmprofile_register_event(mmp_event parent, const char *name)

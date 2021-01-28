@@ -3,6 +3,7 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
+#include <linux/module.h>
 #include "cmdq_mmp.h"
 
 static struct CMDQ_MMP_events_t CMDQ_MMP_events;
@@ -11,6 +12,7 @@ struct CMDQ_MMP_events_t *cmdq_mmp_get_event(void)
 {
 	return &CMDQ_MMP_events;
 }
+EXPORT_SYMBOL(cmdq_mmp_get_event);
 
 void cmdq_mmp_init(void)
 {
@@ -70,3 +72,17 @@ void cmdq_mmp_init(void)
 	mmprofile_start(1);
 #endif
 }
+EXPORT_SYMBOL(cmdq_mmp_init);
+
+static int __init cmdq_module_init(void)
+{
+	return 0;
+}
+
+static void __exit cmdq_module_exit(void)
+{
+}
+
+module_init(cmdq_module_init);
+module_exit(cmdq_module_exit);
+MODULE_LICENSE("GPL");

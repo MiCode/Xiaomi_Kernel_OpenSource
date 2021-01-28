@@ -3,6 +3,7 @@
  * Copyright (c) 2015 MediaTek Inc.
  */
 
+#include <linux/module.h>
 #include <linux/completion.h>
 #include <linux/errno.h>
 #include <linux/of_address.h>
@@ -275,11 +276,13 @@ void *cmdq_mbox_buf_alloc(struct device *dev, dma_addr_t *pa_out)
 	*pa_out = pa;
 	return va;
 }
+EXPORT_SYMBOL(cmdq_mbox_buf_alloc);
 
 void cmdq_mbox_buf_free(struct device *dev, void *va, dma_addr_t pa)
 {
 	dma_free_coherent(dev, CMDQ_BUF_ALLOC_SIZE, va, pa);
 }
+EXPORT_SYMBOL(cmdq_mbox_buf_free);
 
 /* parse event from dts
  *
@@ -356,6 +359,7 @@ struct cmdq_pkt_buffer *cmdq_pkt_alloc_buf(struct cmdq_pkt *pkt)
 
 	return buf;
 }
+EXPORT_SYMBOL(cmdq_pkt_alloc_buf);
 
 void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 {
@@ -372,6 +376,7 @@ void cmdq_pkt_free_buf(struct cmdq_pkt *pkt)
 		kfree(buf);
 	}
 }
+EXPORT_SYMBOL(cmdq_pkt_free_buf);
 
 s32 cmdq_pkt_add_cmd_buffer(struct cmdq_pkt *pkt)
 {
@@ -558,6 +563,7 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_pkt_append_command);
 
 s32 cmdq_pkt_read(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t src_addr, u16 dst_reg_idx)
@@ -1688,3 +1694,15 @@ int cmdq_dump_pkt(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_dump_pkt);
 
+static int __init cmdq_init(void)
+{
+	return 0;
+}
+
+static void __exit cmdq_exit(void)
+{
+}
+
+arch_initcall(cmdq_init);
+module_exit(cmdq_exit);
+MODULE_LICENSE("GPL");

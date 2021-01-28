@@ -74,28 +74,23 @@ ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
 endif
 
 # driver module
-obj-y += cmdq_record.o
-obj-y += cmdq_virtual.o
-obj-y += cmdq_device.o
-obj-y += cmdq_driver.o
-obj-y += cmdq_mdp_common.o
-#obj-y += cmdq_prof.o
-obj-y += cmdq_test.o
-obj-y += cmdq_event_common.o
-obj-y += cmdq_subsys_common.o
-obj-y += cmdq_helper_ext.o
-obj-y += cmdq_mdp_mt6779.o
+obj-$(CONFIG_MTK_CMDQ)	+= cmdq_core.o
+cmdq_core-y	:= cmdq_driver.o cmdq_device.o cmdq_helper_ext.o \
+		cmdq_event_common.o cmdq_subsys_common.o cmdq_record.o \
+		cmdq_virtual.o cmdq_mdp_common.o cmdq_mdp_mt6779.o
+#obj-$(CONFIG_MTK_CMDQ) += cmdq_prof.o
+obj-$(CONFIG_MTK_CMDQ) += cmdq_test.o
 
 ifeq ($(strip $(CONFIG_MMPROFILE)),y)
-obj-y += cmdq_mmp.o
+obj-$(CONFIG_MTK_CMDQ) += cmdq_mmp.o
 endif
 
 #ifeq ($(platformdir_exists), y)
-#obj-y += $(subst ",,$(MTK_PLATFORM))/
+#obj-$(CONFIG_MTK_CMDQ) += $(subst ",,$(MTK_PLATFORM))/
 #endif
 
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
-obj-y += cmdq_sec.o
-obj-y += cmdq_sec_gp.o
+obj-$(CONFIG_MTK_CMDQ) += cmdq_sec.o
+obj-$(CONFIG_MTK_CMDQ) += cmdq_sec_gp.o
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT or CONFIG_MTK_CAM_SECURITY_SUPPORT
 

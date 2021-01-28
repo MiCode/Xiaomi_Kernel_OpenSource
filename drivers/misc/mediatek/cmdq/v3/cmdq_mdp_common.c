@@ -162,6 +162,7 @@ struct EngineStruct *cmdq_mdp_get_engines(void)
 {
 	return mdp_ctx.engine;
 }
+EXPORT_SYMBOL(cmdq_mdp_get_engines);
 
 static void cmdq_mdp_reset_engine_struct(void)
 {
@@ -239,6 +240,7 @@ void cmdq_mdp_fix_command_scenario_for_user_space(
 		command->scenario = CMDQ_SCENARIO_USER_SPACE;
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_fix_command_scenario_for_user_space);
 
 bool cmdq_mdp_is_request_from_user_space(
 	const enum CMDQ_SCENARIO_ENUM scenario)
@@ -253,6 +255,7 @@ bool cmdq_mdp_is_request_from_user_space(
 	}
 	return false;
 }
+EXPORT_SYMBOL(cmdq_mdp_is_request_from_user_space);
 
 s32 cmdq_mdp_query_usage(s32 *counters)
 {
@@ -268,6 +271,7 @@ s32 cmdq_mdp_query_usage(s32 *counters)
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_mdp_query_usage);
 
 static void cmdq_mdp_common_clock_enable(void)
 {
@@ -347,6 +351,7 @@ void cmdq_mdp_reset_resource(void)
 		mutex_unlock(&mdp_resource_mutex);
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_reset_resource);
 
 /* Use CMDQ as Resource Manager */
 void cmdq_mdp_unlock_resource(struct work_struct *workItem)
@@ -430,6 +435,7 @@ void cmdq_mdp_enable_res(u64 engine_flag, bool enable)
 
 	mutex_unlock(&mdp_clock_mutex);
 }
+EXPORT_SYMBOL(cmdq_mdp_enable_res);
 
 static void cmdq_mdp_lock_res_impl(struct ResourceUnitStruct *res,
 	u64 engine_flag, bool from_notify)
@@ -490,6 +496,7 @@ void cmdq_mdp_lock_resource(u64 engine_flag, bool from_notify)
 			cmdq_mdp_lock_res_impl(res, engine_flag, from_notify);
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_lock_resource);
 
 bool cmdq_mdp_acquire_resource(enum cmdq_event res_event,
 	u64 *engine_flag_out)
@@ -517,6 +524,7 @@ bool cmdq_mdp_acquire_resource(enum cmdq_event res_event,
 	}
 	return result;
 }
+EXPORT_SYMBOL(cmdq_mdp_acquire_resource);
 
 void cmdq_mdp_release_resource(enum cmdq_event res_event,
 	u64 *engine_flag_out)
@@ -538,6 +546,7 @@ void cmdq_mdp_release_resource(enum cmdq_event res_event,
 		break;
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_release_resource);
 
 void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 	CmdqResourceAvailableCB res_available,
@@ -558,6 +567,7 @@ void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 		break;
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_set_resource_callback);
 
 static u64 cmdq_mdp_get_engine_flag_for_enable_clock(
 	u64 engine_flag, s32 thread_id)
@@ -664,6 +674,7 @@ void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 
 	mutex_unlock(&mdp_thread_mutex);
 }
+EXPORT_SYMBOL(cmdq_mdp_unlock_thread);
 
 static void cmdq_mdp_handle_prepare(struct cmdqRecStruct *handle)
 {
@@ -1133,6 +1144,7 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_mdp_flush_async);
 
 s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 {
@@ -1169,6 +1181,7 @@ s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle)
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_mdp_flush_async_impl);
 
 struct cmdqRecStruct *cmdq_mdp_get_valid_handle(unsigned long job)
 {
@@ -1189,6 +1202,7 @@ struct cmdqRecStruct *cmdq_mdp_get_valid_handle(unsigned long job)
 
 	return handle;
 }
+EXPORT_SYMBOL(cmdq_mdp_get_valid_handle);
 
 s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 	struct cmdqRegValueStruct *results)
@@ -1265,6 +1279,7 @@ s32 cmdq_mdp_wait(struct cmdqRecStruct *handle,
 
 	return status;
 }
+EXPORT_SYMBOL(cmdq_mdp_wait);
 
 s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 {
@@ -1285,6 +1300,7 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 
 	return status;
 }
+EXPORT_SYMBOL(cmdq_mdp_flush);
 
 void cmdq_mdp_suspend(void)
 {
@@ -1303,6 +1319,7 @@ void cmdq_mdp_resume(void)
 	 */
 	cmdq_mdp_add_consume_item();
 }
+EXPORT_SYMBOL(cmdq_mdp_resume);
 
 void cmdq_mdp_release_task_by_file_node(void *file_node)
 {
@@ -1346,6 +1363,7 @@ void cmdq_mdp_release_task_by_file_node(void *file_node)
 
 	mutex_unlock(&mdp_task_mutex);
 }
+EXPORT_SYMBOL(cmdq_mdp_release_task_by_file_node);
 
 void cmdq_mdp_dump_thread_usage(void)
 {
@@ -1411,6 +1429,7 @@ void cmdq_mdp_dump_resource(u32 event)
 	}
 	mutex_unlock(&mdp_resource_mutex);
 }
+EXPORT_SYMBOL(cmdq_mdp_dump_resource);
 
 static s32 cmdq_mdp_dump_common(u64 engineFlag, int level)
 {
@@ -1536,6 +1555,7 @@ void cmdq_mdp_init(void)
 	cmdq_mdp_get_func()->mdpInitialSet();
 	cmdq_mdp_init_pmqos();
 }
+EXPORT_SYMBOL(cmdq_mdp_init);
 
 void cmdq_mdp_deinit(void)
 {
@@ -1549,6 +1569,7 @@ void cmdq_mdp_deinit(void)
 		pm_qos_remove_request(&mdp_clk_qos_request[i]);
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_deinit);
 
 /* Platform dependent function */
 
@@ -1868,6 +1889,7 @@ long cmdq_mdp_get_module_base_VA_MMSYS_CONFIG(void)
 {
 	return cmdq_mmsys_base;
 }
+EXPORT_SYMBOL(cmdq_mdp_get_module_base_VA_MMSYS_CONFIG);
 
 static void cmdq_mdp_enable_common_clock_virtual(bool enable)
 {
@@ -1895,11 +1917,13 @@ void cmdq_mdp_map_mmsys_VA(void)
 {
 	cmdq_mmsys_base = cmdq_dev_alloc_reference_VA_by_name("mmsys_config");
 }
+EXPORT_SYMBOL(cmdq_mdp_map_mmsys_VA);
 
 void cmdq_mdp_unmap_mmsys_VA(void)
 {
 	cmdq_dev_free_module_base_VA(cmdq_mmsys_base);
 }
+EXPORT_SYMBOL(cmdq_mdp_unmap_mmsys_VA);
 
 static void cmdq_mdp_isp_begin_task_virtual(struct cmdqRecStruct *handle,
 	struct cmdqRecStruct **handle_list, u32 size)
@@ -2488,11 +2512,13 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status_virtual;
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine_virtual;
 }
+EXPORT_SYMBOL(cmdq_mdp_virtual_function_setting);
 
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)
 {
 	return &mdp_funcs;
 }
+EXPORT_SYMBOL(cmdq_mdp_get_func);
 
 int cmdq_mdp_loop_reset_impl(const unsigned long resetReg,
 	const u32 resetWriteValue,
@@ -2518,6 +2544,7 @@ int cmdq_mdp_loop_reset_impl(const unsigned long resetReg,
 	}
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_mdp_loop_reset_impl);
 
 int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
 	const unsigned long resetReg,
@@ -2568,6 +2595,7 @@ int cmdq_mdp_loop_reset(enum CMDQ_ENG_ENUM engine,
 
 	return 0;
 };
+EXPORT_SYMBOL(cmdq_mdp_loop_reset);
 
 void cmdq_mdp_loop_off(enum CMDQ_ENG_ENUM engine,
 	const unsigned long resetReg,
@@ -2609,6 +2637,7 @@ void cmdq_mdp_loop_off(enum CMDQ_ENG_ENUM engine,
 	}
 #endif
 }
+EXPORT_SYMBOL(cmdq_mdp_loop_off);
 
 void cmdq_mdp_dump_venc(const unsigned long base, const char *label)
 {
@@ -2625,6 +2654,7 @@ void cmdq_mdp_dump_venc(const unsigned long base, const char *label)
 		16, 4, (void *)base, 0x1000, false);
 	CMDQ_ERR("======== %s - ========\n", __func__);
 }
+EXPORT_SYMBOL(cmdq_mdp_dump_venc);
 
 const char *cmdq_mdp_get_rdma_state(u32 state)
 {
@@ -2655,6 +2685,7 @@ const char *cmdq_mdp_get_rdma_state(u32 state)
 		return "";
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_get_rdma_state);
 
 void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 {
@@ -2714,6 +2745,7 @@ void cmdq_mdp_dump_rdma(const unsigned long base, const char *label)
 
 	CMDQ_ERR("RDMA grep:%d => suggest to ask SMI help:%d\n", grep, grep);
 }
+EXPORT_SYMBOL(cmdq_mdp_dump_rdma);
 
 const char *cmdq_mdp_get_rsz_state(const u32 state)
 {
@@ -2726,6 +2758,7 @@ const char *cmdq_mdp_get_rsz_state(const u32 state)
 		return "";
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_get_rsz_state);
 
 void cmdq_mdp_dump_rot(const unsigned long base, const char *label)
 {
@@ -2864,6 +2897,7 @@ void cmdq_mdp_dump_rot(const unsigned long base, const char *label)
 	CMDQ_ERR("VIDO_SOFT_RST: 0x%08x, VIDO_SOFT_RST_STAT: 0x%08x\n",
 		value[45], value[46]);
 }
+EXPORT_SYMBOL(cmdq_mdp_dump_rot);
 
 void cmdq_mdp_dump_color(const unsigned long base, const char *label)
 {
@@ -2901,6 +2935,7 @@ void cmdq_mdp_dump_color(const unsigned long base, const char *label)
 		"COLOR INTERNAL_IP_WIDTH: 0x%08x, INTERNAL_IP_HEIGHT: 0x%08x\n",
 		value[11], value[12]);
 }
+EXPORT_SYMBOL(cmdq_mdp_dump_color);
 
 const char *cmdq_mdp_get_wdma_state(u32 state)
 {
@@ -2929,6 +2964,7 @@ const char *cmdq_mdp_get_wdma_state(u32 state)
 		return "";
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_get_wdma_state);
 
 void cmdq_mdp_dump_wdma(const unsigned long base, const char *label)
 {
@@ -3080,6 +3116,7 @@ void cmdq_mdp_dump_wdma(const unsigned long base, const char *label)
 	CMDQ_ERR("WDMA suggest: Need SMI help:%d, Need check WDMA config:%d\n",
 		grep, grep == 0 && isFIFOFull == 1);
 }
+EXPORT_SYMBOL(cmdq_mdp_dump_wdma);
 
 void cmdq_mdp_check_TF_address(unsigned int mva, char *module)
 {
@@ -3178,12 +3215,14 @@ void cmdq_mdp_check_TF_address(unsigned int mva, char *module)
 		CMDQ_ERR("%s\n", mdp_tasks[taskIndex].userDebugStr);
 	}
 }
+EXPORT_SYMBOL(cmdq_mdp_check_TF_address);
 
 const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 	const struct cmdqRecStruct *handle)
 {
 	return cmdq_mdp_get_func()->parseHandleErrModByEngFlag(handle);
 }
+EXPORT_SYMBOL(cmdq_mdp_parse_handle_error_module_by_hwflag);
 
 void cmdq_mdp_set_platform(struct device *dev)
 {
@@ -3205,4 +3244,4 @@ void cmdq_mdp_set_platform(struct device *dev)
 		break;
 	}
 }
-
+EXPORT_SYMBOL(cmdq_mdp_set_platform);

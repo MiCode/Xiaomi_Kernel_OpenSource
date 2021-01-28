@@ -656,8 +656,10 @@ struct cmdq_event_table *cmdq_event_get_table(void)
 {
 	return cmdq_events;
 }
+EXPORT_SYMBOL(cmdq_event_get_table);
 
 u32 cmdq_event_get_table_size(void)
 {
 	return ARRAY_SIZE(cmdq_events);
 }
+EXPORT_SYMBOL(cmdq_event_get_table_size);

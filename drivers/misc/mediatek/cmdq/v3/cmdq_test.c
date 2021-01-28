@@ -941,6 +941,7 @@ void testcase_clkmgr_impl(enum CMDQ_ENG_ENUM engine,
 	}
 #endif
 }
+EXPORT_SYMBOL(testcase_clkmgr_impl);
 
 static void testcase_clkmgr(void)
 {
@@ -4370,141 +4371,6 @@ static void testcase_long_jump_c(void)
 	CMDQ_LOG("%s END\n", __func__);
 }
 
-void testcase_move_data_between_SRAM(void)
-{
-	void *p_va_src = NULL;
-	dma_addr_t pa_src = 0;
-	void *p_va_dest = NULL;
-	dma_addr_t pa_dest = 0;
-	u32 buffer_size = 32;
-	size_t free_sram_size = 0;
-	u32 cpr_offset = 0;
-	s32 status = 0;
-
-	CMDQ_LOG("%s\n", __func__);
-
-	/* Allocate DRAM memory */
-	p_va_src = cmdq_core_alloc_hw_buffer(cmdq_dev_get(), buffer_size,
-		&pa_src, GFP_KERNEL);
-	p_va_dest = cmdq_core_alloc_hw_buffer(cmdq_dev_get(), buffer_size,
-		&pa_dest, GFP_KERNEL);
-	memset(p_va_src, 0xda, buffer_size);
-	memset(p_va_dest, 0xcc, buffer_size);
-
-	CMDQ_LOG("copy data source:\n");
-	print_hex_dump(KERN_ERR, "[CMDQ][LOG]", DUMP_PREFIX_ADDRESS, 16, 4,
-			   p_va_src, buffer_size, true);
-
-	/* Allocate SRAM memory */
-	free_sram_size = cmdq_core_get_free_sram_size();
-	status = cmdq_core_alloc_sram_buffer(buffer_size, "UT_SRAM",
-		&cpr_offset);
-	if (status < 0 || (free_sram_size - cmdq_core_get_free_sram_size()) !=
-		buffer_size) {
-		CMDQ_ERR("%s allocate SRAM failed: before(%zu), after(%zu)\n",
-			__func__, free_sram_size,
-			cmdq_core_get_free_sram_size());
-	}
-	cmdq_core_dump_sram();
-
-	status = cmdq_task_copy_to_sram(pa_src, cpr_offset, buffer_size);
-	if (status < 0)
-		CMDQ_TEST_FAIL("copy to sram API failed:%d", status);
-
-	status = cmdq_task_copy_from_sram(pa_dest, cpr_offset, buffer_size);
-	if (status < 0)
-		CMDQ_TEST_FAIL("copy from sram API failed:%d", status);
-
-	if (memcmp(p_va_src, p_va_dest, buffer_size) != 0) {
-		CMDQ_ERR("move data between SRAM failed!\n");
-		print_hex_dump(KERN_ERR, "[CMDQ][ERR]", DUMP_PREFIX_ADDRESS,
-			16, 4, p_va_dest, buffer_size, true);
-	}
-
-	cmdq_core_free_hw_buffer(cmdq_dev_get(), buffer_size, p_va_src,
-		pa_src);
-	cmdq_core_free_hw_buffer(cmdq_dev_get(), buffer_size, p_va_dest,
-		pa_dest);
-	free_sram_size = cmdq_core_get_free_sram_size();
-	cmdq_core_free_sram_buffer(cpr_offset, buffer_size);
-	if ((cmdq_core_get_free_sram_size() - free_sram_size) !=
-		buffer_size) {
-		CMDQ_ERR("%s free SRAM failed: before(%zu), after(%zu)\n",
-			__func__, free_sram_size,
-			cmdq_core_get_free_sram_size());
-	}
-	cmdq_core_dump_sram();
-
-	CMDQ_LOG("%s END\n", __func__);
-}
-
-/* Make sure driver can execute command on SRAM successfully
- * Coverage:
- *     Cannot start_in_sram with secure task
- *     Cannot flush twice SRAM task
- *     SRAM size should be normal after flush task and destroy task
- *     SRAM execution result should be correct
- */
-void testcase_run_command_on_SRAM(void)
-{
-	size_t free_sram_size = 0;
-	s32 status = 0;
-	u32 value = 0;
-	const u32 PATTERN = (1 << 0) | (1 << 2) | (1 << 16);
-	struct cmdqRecStruct *handle;
-
-	CMDQ_LOG("%s\n", __func__);
-
-	/* set to 0xFFFFFFFF */
-	CMDQ_REG_SET32(CMDQ_TEST_GCE_DUMMY_VA, ~0);
-	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_USER_0);
-
-	/* use CMDQ to set to PATTERN */
-	cmdq_task_create(CMDQ_SCENARIO_SRAM_LOOP, &handle);
-	cmdq_task_reset(handle);
-	status = cmdq_task_set_secure(handle, true);
-	if (status >= 0) {
-		cmdq_op_wait(handle, CMDQ_SYNC_TOKEN_USER_0);
-		status = cmdq_task_start_loop_sram(handle, "UT_EXE_SRAM");
-		if (status >= 0)
-			CMDQ_TEST_FAIL(
-			"SRAM loop command cannot be secure!!!\n");
-	}
-
-	cmdq_task_reset(handle);
-	cmdq_op_wait(handle, CMDQ_SYNC_TOKEN_USER_0);
-	cmdq_op_write_reg(handle, CMDQ_TEST_GCE_DUMMY_PA, PATTERN, ~0);
-
-	free_sram_size = cmdq_core_get_free_sram_size();
-	cmdq_task_start_loop_sram(handle, "UT_EXE_SRAM");
-	cmdq_pkt_dump_command(handle);
-	cmdq_core_dump_sram();
-
-	status = cmdq_task_start_loop_sram(handle, "UT_EXE_SRAM");
-	if (status >= 0)
-		CMDQ_TEST_FAIL("SRAM loop command cannot start twice!!!\n");
-
-	cmdq_task_destroy(handle);
-	if ((cmdq_core_get_free_sram_size() - free_sram_size) != 0) {
-		CMDQ_TEST_FAIL(
-			"%s free SRAM failed: before(%zu), after(%zu)\n",
-			__func__, free_sram_size,
-			cmdq_core_get_free_sram_size());
-	}
-
-	/* value check */
-	value = CMDQ_REG_GET32(CMDQ_TEST_GCE_DUMMY_VA);
-	if (value != PATTERN) {
-		/* test fail */
-		CMDQ_TEST_FAIL("wrote value is 0x%08x not 0x%08x\n",
-			value, PATTERN);
-	} else {
-		CMDQ_LOG("wrote value is 0x%08x\n", value);
-	}
-
-	CMDQ_LOG("%s END\n", __func__);
-}
-
 void testcase_read_with_mask(void)
 {
 	struct cmdqRecStruct *handle;
@@ -7556,12 +7422,6 @@ static void testcase_general_handling(s32 testID)
 		break;
 	case 147:
 		testcase_efficient_polling();
-		break;
-	case 143:
-		testcase_run_command_on_SRAM();
-		break;
-	case 142:
-		testcase_move_data_between_SRAM();
 		break;
 	case 141:
 		testcase_track_task_cb();

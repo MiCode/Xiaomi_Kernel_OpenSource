@@ -1476,6 +1476,7 @@ s32 cmdq_task_get_thread_pc(struct mbox_chan *chan, dma_addr_t *pc_out)
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_task_get_thread_pc);
 
 s32 cmdq_task_get_thread_irq(struct mbox_chan *chan, u32 *irq_out)
 {
@@ -1489,6 +1490,7 @@ s32 cmdq_task_get_thread_irq(struct mbox_chan *chan, u32 *irq_out)
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_task_get_thread_irq);
 
 s32 cmdq_task_get_thread_irq_en(struct mbox_chan *chan, u32 *irq_en_out)
 {
@@ -1604,6 +1606,7 @@ s32 cmdq_task_get_pkt_from_thread(struct mbox_chan *chan,
 
 	return 0;
 }
+EXPORT_SYMBOL(cmdq_task_get_pkt_from_thread);
 
 void cmdq_set_event(void *chan, u16 event_id)
 {
@@ -1633,5 +1636,10 @@ u32 cmdq_get_event(void *chan, u16 event_id)
 }
 EXPORT_SYMBOL(cmdq_get_event);
 
+static void __exit cmdq_module_exit(void)
+{
+}
 
 arch_initcall(cmdq_init);
+module_exit(cmdq_module_exit);
+MODULE_LICENSE("GPL");

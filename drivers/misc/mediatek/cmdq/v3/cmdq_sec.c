@@ -2264,4 +2264,10 @@ static __init int cmdq_init(void)
 	return 0;
 }
 
+static void __exit cmdq_module_exit(void)
+{
+}
+
 arch_initcall(cmdq_init);
+module_exit(cmdq_module_exit);
+MODULE_LICENSE("GPL");

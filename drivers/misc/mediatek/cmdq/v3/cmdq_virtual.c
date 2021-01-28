@@ -1101,8 +1101,10 @@ void cmdq_virtual_function_setting(void)
 	pFunc->testCleanup = cmdq_virtual_test_cleanup;
 	pFunc->initModulePAStat = cmdq_virtual_init_module_PA_stat;
 }
+EXPORT_SYMBOL(cmdq_virtual_function_setting);
 
 struct cmdqCoreFuncStruct *cmdq_get_func(void)
 {
 	return &gFunctionPointer;
 }
+EXPORT_SYMBOL(cmdq_get_func);

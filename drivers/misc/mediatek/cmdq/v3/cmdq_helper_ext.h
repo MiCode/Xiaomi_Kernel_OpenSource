@@ -831,7 +831,6 @@ void cmdq_core_free_hw_buffer(struct device *dev, size_t size,
 	void *cpu_addr, dma_addr_t dma_handle);
 s32 cmdq_core_alloc_pool_buf(struct cmdq_pkt_buffer *buf);
 s32 cmdq_core_free_pool_buf(struct cmdq_pkt_buffer *buf);
-void cmdq_core_dump_sram(void);
 s32 cmdq_core_alloc_sram_buffer(size_t size,
 	const char *owner_name, u32 *out_cpr_offset);
 void cmdq_core_free_sram_buffer(u32 cpr_offset, size_t size);
