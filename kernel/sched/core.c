@@ -874,14 +874,14 @@ void init_opp_capacity_tbl(void)
 	struct sched_group *sg;
 	const struct sched_group_energy *sge;
 	struct cpufreq_policy *policy;
+	unsigned int *tbl;
 
 	count = system_opp_count();
 	if (count < 0)
 		return;
 
-	opp_capacity_tbl =
-		kmalloc_array(count, sizeof(unsigned int), GFP_KERNEL);
-	if (!opp_capacity_tbl)
+	tbl = kmalloc_array(count, sizeof(unsigned int), GFP_KERNEL);
+	if (!tbl)
 		return;
 
 	rcu_read_lock();
@@ -907,7 +907,7 @@ void init_opp_capacity_tbl(void)
 
 		for (i = 0; i < sge->nr_cap_states; i++) {
 			cap = get_opp_capacity(policy, i);
-			opp_capacity_tbl[idx] = cap;
+			tbl[idx] = cap;
 			idx++;
 		}
 		cpufreq_cpu_put(policy);
@@ -915,16 +915,17 @@ void init_opp_capacity_tbl(void)
 	}
 	rcu_read_unlock();
 
-	sort(opp_capacity_tbl, count, sizeof(unsigned int),
+	sort(tbl, count, sizeof(unsigned int),
 			&cap_compare, NULL);
-	opp_capacity_tbl[count - 1] = SCHED_CAPACITY_SCALE;
+	tbl[count - 1] = SCHED_CAPACITY_SCALE;
 	total_opp_count = count;
+	opp_capacity_tbl = tbl;
 	opp_capacity_tbl_ready = 1;
 
 	return;
 free_unlock:
 	rcu_read_unlock();
-	kfree(opp_capacity_tbl);
+	kfree(tbl);
 }
 
 unsigned int find_fit_capacity(unsigned int cap)
