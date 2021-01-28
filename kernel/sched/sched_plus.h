@@ -17,6 +17,7 @@ DECLARE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
 extern int l_plus_cpu;
 extern unsigned long get_cpu_util(int cpu);
 extern void init_sched_groups_capacity(int cpu, struct sched_domain *sd);
+extern unsigned int capacity_margin;
 #ifdef CONFIG_SMP
 #ifdef CONFIG_ARM64
 extern unsigned long arch_scale_get_max_freq(int cpu);
