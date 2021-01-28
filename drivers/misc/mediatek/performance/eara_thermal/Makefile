@@ -17,6 +17,7 @@ MTK_TOP = $(srctree)/drivers/misc/mediatek/
 EARA_THRM_TOP = $(srctree)/drivers/misc/mediatek/performance/eara_thermal
 FPSGO_TOP = $(srctree)/drivers/misc/mediatek/performance/fpsgo_v3/
 
+obj-y += platform/$(MTK_PLATFORM)/thermal_budget_platform.o
 obj-y += thermal_budget.o
 
 ccflags-y += -I$(MTK_TOP)/thermal/common/inc/
