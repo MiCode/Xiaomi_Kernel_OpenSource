@@ -68,7 +68,6 @@ int debounce_times_reset_adb;
 int debounce_times_perf_down = 50;
 int debounce_times_perf_force_down = 100;
 static int update;
-static int emi_latency = 1;
 static int update_v2f_table = 1;
 static int cm_mgr_opp_enable = 1;
 int cm_mgr_enable = 1;
@@ -86,6 +85,7 @@ int cm_mgr_perf_timer_enable;
 int cm_mgr_perf_force_enable;
 int cm_mgr_loading_level;
 int cm_mgr_loading_enable;
+int cm_mgr_emi_demand_check = 1;
 
 static int vcore_power_gain_0[][VCORE_ARRAY_SIZE] = {
 	{64, 165},

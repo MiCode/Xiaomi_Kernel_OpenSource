@@ -46,6 +46,7 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_LIGHT_LOAD_CPS 18
 #define IPI_CM_MGR_LOADING_ENABLE 19
 #define IPI_CM_MGR_LOADING_LEVEL 20
+#define IPI_CM_MGR_EMI_DEMAND_CHECK 21
 
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;
@@ -66,6 +67,7 @@ extern int cm_mgr_perf_force_enable;
 extern int light_load_cps;
 extern int cm_mgr_loading_level;
 extern int cm_mgr_loading_enable;
+extern int cm_mgr_emi_demand_check;
 
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);
@@ -83,5 +85,8 @@ extern void sched_get_percpu_load2(int cpu, bool reset,
 
 __attribute__((weak))
 int dvfsrc_get_bw(int type) {return 0; };
+
+__attribute__((weak))
+int dvfsrc_get_emi_bw(int type) {return 0; };
 
 #endif	/* __MTK_CM_MGR_H__ */

@@ -97,7 +97,6 @@ extern int cm_mgr_register_init(void);
 extern int cm_mgr_platform_init(void);
 extern void cm_mgr_set_dram_level(int level);
 extern int cm_mgr_get_dram_opp(void);
-extern void cm_mgr_emi_latency(int enable);
 extern int cm_mgr_check_bw_status(void);
 extern int cm_mgr_get_bw(void);
 

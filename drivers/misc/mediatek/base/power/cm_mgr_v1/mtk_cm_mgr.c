@@ -53,26 +53,25 @@
 #endif /* CONFIG_MTK_CPU_FREQ */
 
 #include <linux/pm_qos.h>
-#ifdef CONFIG_MTK_QOS_SUPPORT
 #include <helio-dvfsrc.h>
 #if defined(CONFIG_MACH_MT6771)
 #include <mtk_spm_vcore_dvfs.h>
 #endif /* defined(CONFIG_MACH_MT6771) */
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 #include <sspm_ipi.h>
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+
+__attribute__((weak))
+void cm_mgr_update_dram_by_cpu_opp(int cpu_opp) {};
 
 spinlock_t cm_mgr_lock;
 
 static unsigned long long test_diff;
 static unsigned long long cnt;
 static unsigned int test_max;
-#ifdef CONFIG_MTK_CPU_FREQ
 static unsigned int prev_freq_idx[CM_MGR_CPU_CLUSTER];
 static unsigned int prev_freq[CM_MGR_CPU_CLUSTER];
-#endif /* CONFIG_MTK_CPU_FREQ */
 /* 0: < 50us */
 /* 1: 50~100us */
 /* 2: 100~200us */
@@ -116,6 +115,9 @@ static void update_v2f(int update, int debug)
 #ifdef CONFIG_MTK_CPU_FREQ
 			_f = mt_cpufreq_get_freq_by_idx(j, i) / 1000;
 			_v = mt_cpufreq_get_volt_by_idx(j, i) / 100;
+#else
+			_f = 0;
+			_v = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
 			_v2f = (_v / 10) * (_v / 10) * _f / 100000;
 			if (update)
@@ -366,12 +368,10 @@ void check_cm_mgr_status_internal(void)
 	int level;
 	unsigned long flags;
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
 #if !defined(CONFIG_MACH_MT6771)
 	if (!is_dvfsrc_enabled())
 		return;
 #endif /* defined(CONFIG_MACH_MT6771) */
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 
 	if (cm_mgr_enable == 0)
 		return;
@@ -393,9 +393,7 @@ void check_cm_mgr_status_internal(void)
 	}
 
 	if (spin_trylock_irqsave(&cm_mgr_lock, flags)) {
-#ifdef CONFIG_MTK_CPU_FREQ
 		int ret;
-#endif /* CONFIG_MTK_CPU_FREQ */
 		int max_ratio_idx[CM_MGR_CPU_CLUSTER];
 #if defined(LIGHT_LOAD) && defined(CONFIG_MTK_SCHED_RQAVG_US)
 		unsigned int cpu;
@@ -430,6 +428,8 @@ void check_cm_mgr_status_internal(void)
 			tmp = mt_cpufreq_get_cur_phy_freq_no_lock(
 					cpu / CM_MGR_CPU_LIMIT) /
 				100000;
+#else
+			tmp = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
 			sched_get_percpu_load2(cpu, 1, &rel_load, &abs_load);
 			cm_mgr_abs_load += abs_load * tmp;
@@ -483,13 +483,11 @@ void check_cm_mgr_status_internal(void)
 				mt_cpufreq_get_cur_freq(1) / 1000);
 #endif /* USE_SINGLE_CLUSTER */
 #endif /* USE_AVG_PMU */
+#else
+		ret = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
 #endif /* USE_NEW_CPU_OPP */
-#ifdef CONFIG_MTK_QOS_SUPPORT
 		total_bw = cm_mgr_get_bw() / 512;
-#else
-		total_bw = 0;
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 		memset(count_ack, 0, ARRAY_SIZE(count_ack));
 
 		if (total_bw_value)
@@ -532,6 +530,8 @@ void check_cm_mgr_status_internal(void)
 #else
 #ifdef CONFIG_MTK_CPU_FREQ
 			cpu_opp_cur[i] = mt_cpufreq_get_cur_freq_idx(i);
+#else
+			cpu_opp_cur[i] = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
 #endif /* USE_NEW_CPU_OPP */
 			v2f[i] = _v2f_all[cpu_opp_cur[i]][i];
@@ -638,14 +638,20 @@ void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 	struct mt_cpu_dvfs *p;
 
 	p = id_to_cpu_dvfs(cluster);
-	freq_idx = _search_available_freq_idx(p, freq, 0);
+	if (p)
+		freq_idx = _search_available_freq_idx(p, freq, 0);
 
 	if (freq_idx == prev_freq_idx[cluster])
 		return;
 
 	prev_freq_idx[cluster] = freq_idx;
 	prev_freq[cluster] = freq;
+#else
+	prev_freq_idx[cluster] = 0;
+	prev_freq[cluster] = 0;
 #endif /* CONFIG_MTK_CPU_FREQ */
+
+	cm_mgr_update_dram_by_cpu_opp(prev_freq_idx[CM_MGR_CPU_CLUSTER - 1]);
 
 	check_cm_mgr_status_internal();
 }
@@ -653,10 +659,8 @@ void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 void cm_mgr_enable_fn(int enable)
 {
 	cm_mgr_enable = enable;
-#ifdef CONFIG_MTK_QOS_SUPPORT
 	if (!cm_mgr_enable)
 		cm_mgr_set_dram_level(0);
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	cm_mgr_to_sspm_command(IPI_CM_MGR_ENABLE,
 			cm_mgr_enable);
@@ -689,6 +693,7 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_LIGHT_LOAD_CPS:
 	case IPI_CM_MGR_LOADING_ENABLE:
 	case IPI_CM_MGR_LOADING_LEVEL:
+	case IPI_CM_MGR_EMI_DEMAND_CHECK:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = sspm_ipi_send_sync(IPI_ID_CM, IPI_OPT_POLLING,
@@ -768,6 +773,7 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "cm_mgr_dram_level %d\n", cm_mgr_dram_level);
 	seq_printf(m, "cm_mgr_loading_level %d\n", cm_mgr_loading_level);
 	seq_printf(m, "cm_mgr_loading_enable %d\n", cm_mgr_loading_enable);
+	seq_printf(m, "cm_mgr_emi_demand_check %d\n", cm_mgr_emi_demand_check);
 
 	seq_puts(m, "cpu_power_ratio_up");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
@@ -807,7 +813,6 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 			debounce_times_perf_force_down);
 	seq_printf(m, "update_v2f_table %d\n", update_v2f_table);
 	seq_printf(m, "update %d\n", update);
-	seq_printf(m, "emi_latency %d\n", emi_latency);
 
 	for (count = 0; count < CM_MGR_MAX; count++) {
 		seq_printf(m, "vcore_power_gain_%d\n", count);
@@ -1113,43 +1118,48 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_LOADING_ENABLE, val_1);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+	} else if (!strcmp(cmd, "cm_mgr_emi_demand_check")) {
+		cm_mgr_emi_demand_check = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+		cm_mgr_to_sspm_command(IPI_CM_MGR_EMI_DEMAND_CHECK, val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	} else if (!strcmp(cmd, "cpu_power_ratio_up")) {
-		if (ret == 3 && val_1 >= 0 && val_1 < CM_MGR_EMI_OPP)
+		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			cpu_power_ratio_up[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	} else if (!strcmp(cmd, "cpu_power_ratio_down")) {
-		if (ret == 3 && val_1 >= 0 && val_1 < CM_MGR_EMI_OPP)
+		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			cpu_power_ratio_down[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	} else if (!strcmp(cmd, "vcore_power_ratio_up")) {
-		if (ret == 3 && val_1 >= 0 && val_1 < CM_MGR_EMI_OPP)
+		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			vcore_power_ratio_up[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_VCORE_POWER_RATIO_UP,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	} else if (!strcmp(cmd, "vcore_power_ratio_down")) {
-		if (ret == 3 && val_1 >= 0 && val_1 < CM_MGR_EMI_OPP)
+		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			vcore_power_ratio_down[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_VCORE_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	} else if (!strcmp(cmd, "debounce_times_up_adb")) {
-		if (ret == 3 && val_1 >= 0 && val_1 < CM_MGR_EMI_OPP)
+		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			debounce_times_up_adb[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_UP,
 				val_1 << 16 | val_2);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 	} else if (!strcmp(cmd, "debounce_times_down_adb")) {
-		if (ret == 3 && val_1 >= 0 && val_1 < CM_MGR_EMI_OPP)
+		if (ret == 3 && val_1 < CM_MGR_EMI_OPP)
 			debounce_times_down_adb[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_DOWN,
@@ -1169,8 +1179,6 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		update_v2f_table = !!val_1;
 	} else if (!strcmp(cmd, "update")) {
 		cm_mgr_update_fw();
-	} else if (!strcmp(cmd, "emi_latency")) {
-		cm_mgr_emi_latency(val_1);
 	} else if (!strcmp(cmd, "1")) {
 		/* cm_mgr_perf_force_enable */
 		cm_mgr_perf_force_enable = 1;
@@ -1184,6 +1192,8 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 out:
 	free_page((unsigned long)buf);
 
+	if (ret < 0)
+		return ret;
 	return count;
 }
 MODULE_FIRMWARE(CPU_FW_FILE);
@@ -1276,6 +1286,18 @@ int __init cm_mgr_module_init(void)
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_SSPM_ENABLE,
 			cm_mgr_sspm_enable);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_EMI_DEMAND_CHECK,
+			cm_mgr_emi_demand_check);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_LOADING_LEVEL,
+			cm_mgr_loading_level);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_LOADING_ENABLE,
+			cm_mgr_loading_enable);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
+			debounce_times_reset_adb);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 	return 0;

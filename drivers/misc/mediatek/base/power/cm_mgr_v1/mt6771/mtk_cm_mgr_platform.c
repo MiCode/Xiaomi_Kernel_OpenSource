@@ -57,11 +57,9 @@
 #include <linux/fb.h>
 #include <linux/notifier.h>
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
 #include <linux/pm_qos.h>
 #include <helio-dvfsrc-opp.h>
 #include <mtk_spm_vcore_dvfs.h>
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 #ifdef USE_IDLE_NOTIFY
 #include "mtk_idle.h"
 #endif /* USE_IDLE_NOTIFY */
@@ -437,8 +435,10 @@ static void init_cpu_stall_counter(int cluster)
 {
 	unsigned int val;
 
-	cm_mgr_init_time = ktime_get();
-	cm_mgr_init_flag = 1;
+	if (!timekeeping_suspended) {
+		cm_mgr_init_time = ktime_get();
+		cm_mgr_init_flag = 1;
+	}
 
 	if (cluster == 0) {
 		val = 0x11000;
@@ -856,26 +856,18 @@ int cm_mgr_platform_init(void)
 
 void cm_mgr_set_dram_level(int level)
 {
-#ifdef CONFIG_MTK_QOS_SUPPORT
 	dvfsrc_set_power_model_ddr_request(level);
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 }
 
 int cm_mgr_get_dram_opp(void)
 {
 	int dram_opp_cur;
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
 	dram_opp_cur = get_cur_ddr_opp();
 	if (dram_opp_cur < 0 || dram_opp_cur > CM_MGR_EMI_OPP)
 		dram_opp_cur = 0;
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 
 	return dram_opp_cur;
-}
-
-void cm_mgr_emi_latency(int enable)
-{
 }
 
 int cm_mgr_check_bw_status(void)
@@ -888,9 +880,5 @@ int cm_mgr_check_bw_status(void)
 
 int cm_mgr_get_bw(void)
 {
-#ifdef CONFIG_MTK_QOS_SUPPORT
 	return dvfsrc_get_bw(QOS_TOTAL);
-#else
-	return 0;
-#endif /* CONFIG_MTK_QOS_SUPPORT */
 }
