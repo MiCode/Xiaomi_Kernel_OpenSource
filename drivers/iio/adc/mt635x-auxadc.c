@@ -17,7 +17,9 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/power_supply.h>
 #include <linux/regmap.h>
+#include <linux/syscore_ops.h>
 
 #include <dt-bindings/iio/mt635x-auxadc.h>
 
@@ -30,6 +32,8 @@
 #define AUXADC_POLL_DELAY_US		100
 #define AUXADC_TIMEOUT_US		32000
 #define VOLT_FULL			1800
+#define IMP_VOLT_FULL			18000
+#define IMP_POLL_DELAY_US		1000
 #define IMP_STOP_DELAY_US		150
 
 struct mt635x_auxadc_device {
@@ -206,19 +210,166 @@ static const unsigned int mt6359_rst_setting[][3] = {
 	}
 };
 
+static const unsigned int mt6357_en_isink_setting[][3] = {
+	{
+		MT6357_DRIVER_ANA_CON0, 0xC000, 0xC000,
+	}, {
+		MT6357_ISINK_EN_CTRL_SMPL, 0xC00, 0xC00,
+	}, {
+		MT6357_ISINK_EN_CTRL_SMPL, 0xC, 0xC,
+	}
+};
+
+static const unsigned int mt6357_dis_isink_setting[][3] = {
+	{
+		MT6357_ISINK_EN_CTRL_SMPL, 0xC, 0x0,
+	}, {
+		MT6357_ISINK_EN_CTRL_SMPL, 0xC00, 0x0,
+	}
+};
+
+static const unsigned int mt6359_en_isink_setting[][3] = {
+	{
+		MT6359_ISINK0_CON1, 0x7000, 0x7000,
+	}, {
+		MT6359_ISINK1_CON1, 0x7000, 0x7000,
+	}, {
+		MT6359_ISINK_EN_CTRL_SMPL, 0x300, 0x300,
+	}, {
+		MT6359_ISINK_EN_CTRL_SMPL, 0x3, 0x3,
+	}
+};
+
+static const unsigned int mt6359_dis_isink_setting[][3] = {
+	{
+		MT6359_ISINK_EN_CTRL_SMPL, 0x3, 0x0,
+	}, {
+		MT6359_ISINK_EN_CTRL_SMPL, 0x300, 0x0,
+	}
+};
+
 struct auxadc_info {
 	const struct auxadc_regs *regs_tbl;
 	const unsigned int (*rst_setting)[3];
 	unsigned int num_rst_setting;
+	const unsigned int (*en_isink_setting)[3];
+	unsigned int num_en_isink_setting;
+	const unsigned int (*dis_isink_setting)[3];
+	unsigned int num_dis_isink_setting;
+	int (*imp_suspend)(struct mt635x_auxadc_device *adc_dev,
+			   int *vbat, int *ibat);
 	int (*imp_conv)(struct mt635x_auxadc_device *adc_dev,
 			int *vbat, int *ibat);
 	void (*imp_stop)(struct mt635x_auxadc_device *adc_dev);
 };
 
+static inline int auxadc_conv_imp_vbat(struct mt635x_auxadc_device *adc_dev)
+{
+	int vbat;
+
+	vbat = adc_dev->imp_vbat;
+	vbat = vbat * auxadc_chans[AUXADC_IMP].r_ratio[0] * IMP_VOLT_FULL;
+	vbat = (vbat / auxadc_chans[AUXADC_IMP].r_ratio[1]) >>
+		auxadc_chans[AUXADC_IMP].res;
+	return vbat;
+}
+
+static struct power_supply *get_mtk_gauge_psy(void)
+{
+	static struct power_supply *psy;
+	union power_supply_propval prop;
+	int ret;
+
+	if (!psy) {
+		psy = power_supply_get_by_name("mtk-gauge");
+		if (!psy) {
+			pr_err("%s psy is not rdy\n", __func__);
+			return NULL;
+		}
+	}
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_PRESENT,
+					&prop);
+	if (!ret && prop.intval == 0)
+		return psy; /* gauge enabled */
+	return NULL;
+}
+
+static int auxadc_get_imp_ibat(struct mt635x_auxadc_device *adc_dev)
+{
+	struct power_supply *psy;
+	union power_supply_propval prop;
+	int ret;
+
+	psy = get_mtk_gauge_psy();
+	/* gauge disabled */
+	if (!psy)
+		return 0;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW,
+					&prop);
+	if (!ret)
+		return prop.intval;
+	return 0;
+}
+
+/* Using non-sleep delay time for polling IRQ status before suspend */
+#define auxadc_imp_poll_timeout(map, addr, val, cond, delay_us, timeout_us) \
+({ \
+	int __ret, __cnt; \
+	int __max_cnt = (timeout_us) / (delay_us); \
+	for (;;) { \
+		__ret = regmap_read((map), (addr), &(val)); \
+		if (__ret) \
+			break; \
+		if (cond) \
+			break; \
+		if ((__cnt++) > __max_cnt) { \
+			pr_err("IMP Time out!\n"); \
+			__ret = -ETIMEDOUT; \
+			break; \
+		} \
+		udelay(delay_us); \
+	} \
+	__ret ?: 0; \
+})
+
 #define MT6357_IMP_CK_SW_MODE_MASK	BIT(0)
 #define MT6357_IMP_CK_SW_EN_MASK	BIT(1)
 #define MT6357_IMP_AUTORPT_EN_MASK	BIT(15)
 #define MT6357_IMP_CLR_MASK		(BIT(14) | BIT(7))
+#define MT6357_IMP_IRQ_RDY_BIT		BIT(8)
+
+static int mt6357_imp_suspend(struct mt635x_auxadc_device *adc_dev,
+			      int *vbat, int *ibat)
+{
+	int ret, val = 0;
+
+	/* start conversion */
+	regmap_update_bits(adc_dev->regmap, MT6357_AUXADC_IMP_CG0,
+			   MT6357_IMP_CK_SW_MODE_MASK,
+			   MT6357_IMP_CK_SW_MODE_MASK);
+	regmap_update_bits(adc_dev->regmap, MT6357_AUXADC_IMP_CG0,
+			   MT6357_IMP_CK_SW_EN_MASK, MT6357_IMP_CK_SW_EN_MASK);
+	regmap_update_bits(adc_dev->regmap, MT6357_AUXADC_IMP1,
+			   MT6357_IMP_AUTORPT_EN_MASK,
+			   MT6357_IMP_AUTORPT_EN_MASK);
+	/* polling IRQ status */
+	ret = auxadc_imp_poll_timeout(adc_dev->regmap,
+				      MT6357_AUXADC_IMP0,
+				      val,
+				      (val & MT6357_IMP_IRQ_RDY_BIT),
+				      IMP_POLL_DELAY_US,
+				      AUXADC_TIMEOUT_US);
+	/* stop conversion */
+	adc_dev->info->imp_stop(adc_dev);
+	/* Get vbat/ibat */
+	*vbat = auxadc_conv_imp_vbat(adc_dev);
+	*ibat = auxadc_get_imp_ibat(adc_dev);
+	pr_info("%s : bat %d cur %d\n", __func__, *vbat, *ibat);
+
+	return ret;
+}
 
 static int mt6357_imp_conv(struct mt635x_auxadc_device *adc_dev,
 			   int *vbat, int *ibat)
@@ -243,7 +394,7 @@ static int mt6357_imp_conv(struct mt635x_auxadc_device *adc_dev,
 		ret = -ETIMEDOUT;
 	}
 	*vbat = adc_dev->imp_vbat;
-	regmap_read(adc_dev->regmap, MT6357_FGADC_R_CON0, ibat);
+	*ibat = auxadc_get_imp_ibat(adc_dev);
 
 	return ret;
 }
@@ -289,7 +440,7 @@ static int mt6358_imp_conv(struct mt635x_auxadc_device *adc_dev,
 		ret = -ETIMEDOUT;
 	}
 	*vbat = adc_dev->imp_vbat;
-	regmap_read(adc_dev->regmap, MT6358_FGADC_R_CON0, ibat);
+	*ibat = auxadc_get_imp_ibat(adc_dev);
 
 	return ret;
 }
@@ -309,6 +460,32 @@ static void mt6358_imp_stop(struct mt635x_auxadc_device *adc_dev)
 			   MT6358_IMP_CK_SW_MASK, 0);
 }
 
+#define MT6359_IMP_IRQ_RDY_BIT		BIT(15)
+
+static int mt6359_imp_suspend(struct mt635x_auxadc_device *adc_dev,
+			      int *vbat, int *ibat)
+{
+	int ret, val = 0;
+
+	/* start conversion */
+	regmap_write(adc_dev->regmap, MT6359_AUXADC_IMP0, 1);
+	/* polling IRQ status */
+	ret = auxadc_imp_poll_timeout(adc_dev->regmap,
+				      MT6359_AUXADC_IMP1,
+				      val,
+				      (val & MT6359_IMP_IRQ_RDY_BIT),
+				      IMP_POLL_DELAY_US,
+				      AUXADC_TIMEOUT_US);
+	/* stop conversion */
+	adc_dev->info->imp_stop(adc_dev);
+	/* Get vbat/ibat */
+	*vbat = auxadc_conv_imp_vbat(adc_dev);
+	*ibat = auxadc_get_imp_ibat(adc_dev);
+	pr_info("%s : bat %d cur %d\n", __func__, *vbat, *ibat);
+
+	return ret;
+}
+
 static int mt6359_imp_conv(struct mt635x_auxadc_device *adc_dev,
 			   int *vbat, int *ibat)
 {
@@ -325,14 +502,14 @@ static int mt6359_imp_conv(struct mt635x_auxadc_device *adc_dev,
 		ret = -ETIMEDOUT;
 	}
 	*vbat = adc_dev->imp_vbat;
-	regmap_read(adc_dev->regmap, MT6359_FGADC_R_CON0, ibat);
+	*ibat = auxadc_get_imp_ibat(adc_dev);
 
 	return ret;
 }
 
 static void mt6359_imp_stop(struct mt635x_auxadc_device *adc_dev)
 {
-	/* stop conversio */
+	/* stop conversion */
 	regmap_write(adc_dev->regmap, MT6359_AUXADC_IMP0, 0);
 	udelay(IMP_STOP_DELAY_US);
 	regmap_read(adc_dev->regmap, MT6359_AUXADC_IMP3, &adc_dev->imp_vbat);
@@ -343,6 +520,11 @@ static const struct auxadc_info mt6357_info = {
 	.regs_tbl = mt6357_auxadc_regs_tbl,
 	.rst_setting = mt6357_rst_setting,
 	.num_rst_setting = ARRAY_SIZE(mt6357_rst_setting),
+	.en_isink_setting = mt6357_en_isink_setting,
+	.num_en_isink_setting = ARRAY_SIZE(mt6357_en_isink_setting),
+	.dis_isink_setting = mt6357_dis_isink_setting,
+	.num_dis_isink_setting = ARRAY_SIZE(mt6357_dis_isink_setting),
+	.imp_suspend = mt6357_imp_suspend,
 	.imp_conv = mt6357_imp_conv,
 	.imp_stop = mt6357_imp_stop,
 };
@@ -359,6 +541,11 @@ static const struct auxadc_info mt6359_info = {
 	.regs_tbl = mt6359_auxadc_regs_tbl,
 	.rst_setting = mt6359_rst_setting,
 	.num_rst_setting = ARRAY_SIZE(mt6359_rst_setting),
+	.en_isink_setting = mt6359_en_isink_setting,
+	.num_en_isink_setting = ARRAY_SIZE(mt6359_en_isink_setting),
+	.dis_isink_setting = mt6359_dis_isink_setting,
+	.num_dis_isink_setting = ARRAY_SIZE(mt6359_dis_isink_setting),
+	.imp_suspend = mt6359_imp_suspend,
 	.imp_conv = mt6359_imp_conv,
 	.imp_stop = mt6359_imp_stop,
 };
@@ -370,6 +557,102 @@ static irqreturn_t imp_isr(int irq, void *dev_id)
 	adc_dev->info->imp_stop(adc_dev);
 	complete(&adc_dev->imp_done);
 	return IRQ_HANDLED;
+}
+
+/*
+ * imix_r cali before entering suspend
+ */
+static void enable_dummy_load(struct mt635x_auxadc_device *adc_dev)
+{
+	int i = 0;
+
+	for (i = 0; i < adc_dev->info->num_en_isink_setting; i++) {
+		regmap_update_bits(adc_dev->regmap,
+				   adc_dev->info->en_isink_setting[i][0],
+				   adc_dev->info->en_isink_setting[i][1],
+				   adc_dev->info->en_isink_setting[i][2]);
+	}
+}
+
+static void disable_dummy_load(struct mt635x_auxadc_device *adc_dev)
+{
+	int i = 0;
+
+	for (i = 0; i < adc_dev->info->num_dis_isink_setting; i++) {
+		regmap_update_bits(adc_dev->regmap,
+				   adc_dev->info->dis_isink_setting[i][0],
+				   adc_dev->info->dis_isink_setting[i][1],
+				   adc_dev->info->dis_isink_setting[i][2]);
+	}
+}
+
+static int auxadc_get_rac(struct mt635x_auxadc_device *adc_dev)
+{
+	int vbat_1 = 0, vbat_2 = 0;
+	int ibat_1 = 0, ibat_2 = 0;
+	int rac = 0, ret = 0;
+	int retry_count = 0;
+
+	do {
+		/* Trigger ADC PTIM mode to get VBAT and current */
+		if (adc_dev->info->imp_suspend)
+			ret = adc_dev->info->imp_suspend(adc_dev,
+							 &vbat_1, &ibat_1);
+		enable_dummy_load(adc_dev);
+		mdelay(50);
+
+		/* Trigger ADC PTIM mode again to get new VBAT and current */
+		if (adc_dev->info->imp_suspend)
+			ret = adc_dev->info->imp_suspend(adc_dev,
+							 &vbat_2, &ibat_2);
+		disable_dummy_load(adc_dev);
+
+		/* Cal.Rac: 70mA <= c_diff <= 120mA, 4mV <= v_diff <= 200mV */
+		if ((ibat_2 - ibat_1) >= 700 && (ibat_2 - ibat_1) <= 1200 &&
+		    (vbat_1 - vbat_2) >= 40 && (vbat_1 - vbat_2) <= 2000) {
+			/*m-ohm */
+			rac = ((vbat_1 - vbat_2) * 1000) / (ibat_2 - ibat_1);
+			if (rac < 0)
+				ret = (rac - (rac * 2)) * 1;
+			else
+				ret = rac * 1;
+			if (ret < 50) {
+				ret = -1;
+				pr_info("bypass due to Rac < 50mOhm\n");
+			}
+		} else {
+			ret = -1;
+			pr_info("bypass due to c_diff < 70mA\n");
+		}
+		pr_info("v1=%d,v2=%d,c1=%d,c2=%d,v_diff=%d,c_diff=%d\n",
+			vbat_1, vbat_2, ibat_1, ibat_2,
+			(vbat_1 - vbat_2), (ibat_2 - ibat_1));
+		pr_info("rac=%d,ret=%d,retry=%d\n",
+			rac, ret, retry_count);
+
+		if (++retry_count >= 3)
+			break;
+	} while (ret == -1);
+
+	return ret;
+}
+
+static int auxadc_get_uisoc(void)
+{
+	struct power_supply *psy;
+	union power_supply_propval prop;
+	int ret;
+
+	psy = power_supply_get_by_name("battery");
+	if (!psy)
+		return -ENODEV;
+
+	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_CAPACITY,
+					&prop);
+	if (ret || prop.intval < 0)
+		return -EINVAL;
+	else
+		return prop.intval;
 }
 
 static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
@@ -500,6 +783,48 @@ static const struct iio_info mt635x_auxadc_info = {
 	.of_xlate = &mt635x_auxadc_of_xlate,
 };
 
+#define	IMIX_R_MIN_MOHM		100
+#define	IMIX_R_CALI_CNT		2
+static int auxadc_cali_imix_r(struct mt635x_auxadc_device *dev)
+{
+	static struct mt635x_auxadc_device *adc_dev;
+	static int pre_uisoc = 101;
+	int cur_uisoc = auxadc_get_uisoc();
+	int i, imix_r_avg = 0, rac_val[IMIX_R_CALI_CNT];
+
+	if (dev) {
+		adc_dev = dev;
+		return 0;
+	} else if (!adc_dev) {
+		pr_info("%s NULL adc_dev, skip\n",
+			__func__);
+		return -EINVAL;
+	} else if (!get_mtk_gauge_psy()) {
+		pr_info("%s gauge disabled, skip\n",
+			__func__);
+		return -ENODEV;
+	} else if (cur_uisoc < 0 ||
+		   cur_uisoc == pre_uisoc) {
+		pr_info("%s pre_SOC=%d SOC=%d, skip\n",
+			__func__, pre_uisoc, cur_uisoc);
+		return 0;
+	}
+	pre_uisoc = cur_uisoc;
+	for (i = 0; i < IMIX_R_CALI_CNT; i++) {
+		rac_val[i] = auxadc_get_rac(adc_dev);
+		imix_r_avg += rac_val[i];
+		if (rac_val[i] < 0)
+			return -EIO;
+	}
+	imix_r_avg = imix_r_avg / IMIX_R_CALI_CNT;
+	pr_info("[%s] %d,%d,ravg:%d\n",
+		__func__, rac_val[0], rac_val[1], imix_r_avg);
+
+	if (imix_r_avg > IMIX_R_MIN_MOHM)
+		adc_dev->imix_r = imix_r_avg;
+	return 0;
+}
+
 static int auxadc_init_imix_r(struct mt635x_auxadc_device *adc_dev,
 			      struct device_node *imix_r_node)
 {
@@ -512,8 +837,19 @@ static int auxadc_init_imix_r(struct mt635x_auxadc_device *adc_dev,
 	if (ret)
 		dev_notice(adc_dev->dev, "no imix_r, ret=%d\n", ret);
 	adc_dev->imix_r = (int)val;
+	auxadc_cali_imix_r(adc_dev);
 	return 0;
 }
+
+static int auxadc_suspend_enter(void)
+{
+	auxadc_cali_imix_r(NULL);
+	return 0;
+}
+
+static struct syscore_ops auxadc_syscore_ops = {
+	.suspend = auxadc_suspend_enter,
+};
 
 static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 				   unsigned int *channel,
@@ -654,6 +990,7 @@ static int mt635x_auxadc_probe(struct platform_device *pdev)
 		dev_notice(&pdev->dev, "failed to register iio device!\n");
 		return ret;
 	}
+	register_syscore_ops(&auxadc_syscore_ops);
 	dev_info(&pdev->dev, "%s done\n", __func__);
 
 	return 0;
