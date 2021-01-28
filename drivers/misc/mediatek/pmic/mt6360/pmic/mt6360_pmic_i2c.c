@@ -978,7 +978,18 @@ static struct i2c_driver mt6360_pmic_i2c_driver = {
 	.shutdown = mt6360_pmic_shutdown,
 	.id_table = mt6360_pmic_i2c_id,
 };
-module_i2c_driver(mt6360_pmic_i2c_driver);
+
+static int __init mt6360_pmic_i2c_init(void)
+{
+	return i2c_add_driver(&mt6360_pmic_i2c_driver);
+}
+device_initcall_sync(mt6360_pmic_i2c_init);
+
+static void __exit mt6360_pmic_i2c_exit(void)
+{
+	i2c_del_driver(&mt6360_pmic_i2c_driver);
+}
+module_exit(mt6360_pmic_i2c_exit);
 
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 PMIC Driver");

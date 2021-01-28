@@ -2559,6 +2559,8 @@ loop_cont:
 		pm_relax(mpci->dev);
 		atomic_set(&mpci->mivr_cnt, 0);
 		mt6360_pmu_chg_irq_enable("chg_mivr_evt", 1);
+		if (kthread_should_stop())
+			break;
 		msleep(200);
 	}
 	dev_info(mpci->dev, "%s --\n", __func__);
@@ -3200,6 +3202,8 @@ static int typec_attach_thread(void *data)
 						POWER_SUPPLY_PROP_ONLINE, &val);
 		else
 			get_charger_type(mpci, attach);
+		if (kthread_should_stop())
+			break;
 	}
 	return ret;
 }
@@ -3368,7 +3372,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	ret = device_create_file(mpci->dev, &dev_attr_shipping_mode);
 	if (ret < 0) {
 		dev_notice(&pdev->dev, "create shipping attr fail\n");
-		goto err_register_chg_dev;
+		goto err_create_mivr_thread_run;
 	}
 	/* for trigger unfinish pe pattern */
 	mpci->pe_wq = create_singlethread_workqueue("pe_pattern");
@@ -3425,6 +3429,13 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_psy_get_phandle;
 	}
 
+	mpci->attach_task = kthread_run(typec_attach_thread, mpci,
+					"attach_thread");
+	if (IS_ERR(mpci->attach_task)) {
+		ret = PTR_ERR(mpci->attach_task);
+		goto err_attach_task;
+	}
+
 	mpci->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
 	if (!mpci->tcpc_dev) {
 		pr_notice("%s get tcpc device type_c_port0 fail\n", __func__);
@@ -3439,13 +3450,6 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_register_tcp_notifier;
 	}
-
-	mpci->attach_task = kthread_run(typec_attach_thread, mpci,
-					"attach_thread");
-	if (IS_ERR(mpci->attach_task)) {
-		ret = PTR_ERR(mpci->attach_task);
-		goto err_attach_task;
-	}
 #endif
 
 	/* Schedule work for microB's BC1.2 */
@@ -3456,9 +3460,13 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s: successfully probed\n", __func__);
 	return 0;
 #ifdef CONFIG_TCPC_CLASS
-err_attach_task:
 err_register_tcp_notifier:
 err_get_tcpcdev:
+	if (mpci->attach_task) {
+		complete(&mpci->chrdet_start);
+		kthread_stop(mpci->attach_task);
+	}
+err_attach_task:
 err_psy_get_phandle:
 #endif
 err_register_psy:
@@ -3466,6 +3474,12 @@ err_register_otg:
 	destroy_workqueue(mpci->pe_wq);
 err_shipping_mode_attr:
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);
+err_create_mivr_thread_run:
+	if (mpci->mivr_task) {
+		atomic_inc(&mpci->mivr_cnt);
+		wake_up(&mpci->waitq);
+		kthread_stop(mpci->mivr_task);
+	}
 err_register_chg_dev:
 	charger_device_unregister(mpci->chg_dev);
 err_mutex_init:
@@ -3474,6 +3488,7 @@ err_mutex_init:
 	mutex_destroy(&mpci->aicr_lock);
 	mutex_destroy(&mpci->pe_lock);
 	mutex_destroy(&mpci->hidden_mode_lock);
+	mutex_destroy(&mpci->attach_lock);
 	return -EPROBE_DEFER;
 }
 
@@ -3485,9 +3500,13 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 	flush_workqueue(mpci->pe_wq);
 	destroy_workqueue(mpci->pe_wq);
 	if (mpci->mivr_task) {
-		kthread_stop(mpci->mivr_task);
 		atomic_inc(&mpci->mivr_cnt);
 		wake_up(&mpci->waitq);
+		kthread_stop(mpci->mivr_task);
+	}
+	if (mpci->attach_task) {
+		complete(&mpci->chrdet_start);
+		kthread_stop(mpci->attach_task);
 	}
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);
 	charger_device_unregister(mpci->chg_dev);
@@ -3496,6 +3515,7 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 	mutex_destroy(&mpci->aicr_lock);
 	mutex_destroy(&mpci->pe_lock);
 	mutex_destroy(&mpci->hidden_mode_lock);
+	mutex_destroy(&mpci->attach_lock);
 	return 0;
 }
 
@@ -3535,7 +3555,18 @@ static struct platform_driver mt6360_pmu_chg_driver = {
 	.remove = mt6360_pmu_chg_remove,
 	.id_table = mt6360_pmu_chg_id,
 };
-module_platform_driver(mt6360_pmu_chg_driver);
+
+static int __init mt6360_pmu_chg_init(void)
+{
+	return platform_driver_register(&mt6360_pmu_chg_driver);
+}
+device_initcall_sync(mt6360_pmu_chg_init);
+
+static void __exit mt6360_pmu_chg_exit(void)
+{
+	platform_driver_unregister(&mt6360_pmu_chg_driver);
+}
+module_exit(mt6360_pmu_chg_exit);
 
 MODULE_AUTHOR("CY_Huang <cy_huang@richtek.com>");
 MODULE_DESCRIPTION("MT6360 PMU CHG Driver");
