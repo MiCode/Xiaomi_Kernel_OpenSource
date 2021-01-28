@@ -715,6 +715,9 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
 	void *ret;
 	int order = get_order(size);
 	u64 dma_mask = DMA_BIT_MASK(32);
+#ifdef CONFIG_MTK_BOUNCING_CHECK
+	dma_addr_t dev_addr_end;
+#endif
 
 	if (hwdev && hwdev->coherent_dma_mask)
 		dma_mask = hwdev->coherent_dma_mask;
@@ -729,9 +732,10 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
 			free_pages((unsigned long) ret, order);
 			ret = NULL;
 #ifdef CONFIG_MTK_BOUNCING_CHECK
+			dev_addr_end = dev_addr + size - 1;
 			aee_kernel_warning("Bounce Buffering",
-					"Incorrect dma_mask(%llx), addr+size-1(%llx)",
-					dma_mask, dev_addr + size - 1);
+					"Incorrect dma_mask(%llx), addr+size-1(%pad)",
+					dma_mask, &dev_addr_end);
 
 #endif
 		}
