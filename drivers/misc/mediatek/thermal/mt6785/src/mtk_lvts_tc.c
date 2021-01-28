@@ -801,9 +801,6 @@ void lvts_thermal_cal_prepare(void)
 	unsigned int temp[16];
 	int i, offset;
 	char buffer[512];
-#if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
-	struct thermal_ipi_data thermal_data;
-#endif
 
 	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_1); /* 0x01B0 */
 	temp[1] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_2); /* 0x01C8 */
@@ -897,15 +894,22 @@ void lvts_thermal_cal_prepare(void)
 
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
+}
 
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
+void lvts_ipi_send_efuse_data(void)
+{
+	struct thermal_ipi_data thermal_data;
+
+	lvts_printk("%s\n", __func__);
+
 	thermal_data.u.data.arg[0] = g_golden_temp;
 	thermal_data.u.data.arg[1] = 0;
 	thermal_data.u.data.arg[2] = 0;
 	while (thermal_to_sspm(THERMAL_IPI_LVTS_INIT_GRP1, &thermal_data) != 0)
 		udelay(100);
-#endif
 }
+#endif
 
 static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
 {

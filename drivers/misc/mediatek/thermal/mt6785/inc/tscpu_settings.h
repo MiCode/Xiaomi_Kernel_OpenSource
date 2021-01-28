@@ -541,6 +541,7 @@ extern irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(
 int irq, void *dev_id);
 extern int lvts_tscpu_dump_cali_info(struct seq_file *m, void *v);
 extern void lvts_sodi3_release_thermal_controller(void);
+extern void lvts_tscpu_reset_thermal(void);
 #endif
 
 /*
