@@ -5368,6 +5368,9 @@ static int mt6785_afe_pcm_dev_probe(struct platform_device *pdev)
 		dev_err(dev, "could not request_irq for Afe_ISR_Handle\n");
 		return ret;
 	}
+	ret = enable_irq_wake(irq_id);
+	if (ret < 0)
+		dev_err(dev, "enable_irq_wake %d err: %d\n", irq_id, ret);
 #endif
 
 	/* init sub_dais */
