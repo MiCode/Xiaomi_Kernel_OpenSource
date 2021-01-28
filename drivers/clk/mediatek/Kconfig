@@ -170,6 +170,62 @@ config COMMON_CLK_MT6761_MIPI0ASYS
 	  If you wish to use clock resources from the mipi0asys device,
 	  say Y. Otherwise, say N.
 
+config COMMON_CLK_MT6765
+	bool "Clock driver for MediaTek MT6765"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default MACH_MT6765
+	help
+	  This driver supports MediaTek MT6765 basic clocks,
+	  which is used to control basic clock output.
+	  If you wish to use clock resources from the MT6765 SOC,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6765_AUDIOSYS
+	bool "Clock driver for MediaTek MT6765 audiosys"
+	depends on COMMON_CLK_MT6765
+	help
+	  This driver supports MediaTek MT6765 audsys clocks,
+	  which is used to control audsys clock output.
+	  If you wish to use clock resources from the audsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6765_CAMSYS
+	bool "Clock driver for MediaTek MT6765 camsys"
+	depends on COMMON_CLK_MT6765
+	help
+	  This driver supports MediaTek MT6765 camsys clocks,
+	  which is used to control camsys clock output.
+	  If you wish to use clock resources from the camsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6765_MMSYS
+	bool "Clock driver for MediaTek MT6765 mmsys"
+	depends on COMMON_CLK_MT6765
+	help
+	  This driver supports MediaTek MT6765 mmsys clocks,
+	  which is used to control mmsys clock output.
+	  If you wish to use clock resources from the mmsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6765_VCODECSYS
+	bool "Clock driver for MediaTek MT6765 vcodecsys"
+	depends on COMMON_CLK_MT6765
+	help
+	  This driver supports MediaTek MT6765 vcodecsys clocks,
+	  which is used to control vcodecsys clock output.
+	  If you wish to use clock resources from the vcodecsys device,
+	  say Y. Otherwise, say N.
+
+config COMMON_CLK_MT6765_MIPI0ASYS
+	bool "Clock driver for MediaTek MT6765 mipi0asys"
+	depends on COMMON_CLK_MT6765
+	help
+	  This driver supports MediaTek MT6765 mipi0asys clocks,
+	  which is used to control mipi0asys clock output.
+	  If you wish to use clock resources from the mipi0asys device,
+	  say Y. Otherwise, say N.
+
 config COMMON_CLK_MT6779
 	bool "Clock driver for MediaTek MT6779"
 	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
