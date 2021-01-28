@@ -18,6 +18,8 @@
 #include <linux/irq_work.h>
 #include <linux/sched/task.h>
 #include <uapi/linux/sched/types.h>
+#include <trace/events/sched.h>
+
 #include "rq_stats.h"
 #include "sched_ctl.h"
 //TODO: remove comment after met ready
@@ -53,6 +55,7 @@ static BLOCKING_NOTIFIER_HEAD(sched_hint_notifier_list);
 static DEFINE_SPINLOCK(status_lock);
 #ifdef CONFIG_MTK_SCHED_BOOST
 static struct kobj_attribute sched_boost_attr;
+static struct kobj_attribute sched_cpu_prefer_attr;
 #endif
 
 static int sched_hint_status(int util, int cap)
@@ -269,6 +272,7 @@ static struct attribute *sched_attrs[] = {
 	&sched_enable_attr.attr,
 	&sched_walt_info_attr.attr,
 #ifdef CONFIG_MTK_SCHED_BOOST
+	&sched_cpu_prefer_attr.attr,
 	&sched_boost_attr.attr,
 #endif
 	NULL,
@@ -294,7 +298,6 @@ EXPORT_SYMBOL(unregister_sched_hint_notifier);
 /* init function */
 static int __init sched_hint_init(void)
 {
-	struct sched_param param;
 	int ret;
 
 	/* create thread */
@@ -304,13 +307,6 @@ static int __init sched_hint_init(void)
 		pr_info("%s: failed to create ksched_hint thread.\n", __func__);
 		goto err;
 	}
-
-	/* priority setting */
-	param.sched_priority = 120;
-	ret = sched_setscheduler_nocheck(g_shd.task, SCHED_NORMAL, &param);
-
-	if (ret)
-		pr_info("%s: failed to set sched_fifo\n", __func__);
 
 	/* keep thread alive */
 	get_task_struct(g_shd.task);
@@ -357,11 +353,162 @@ late_initcall(sched_hint_init);
 #ifdef CONFIG_MTK_SCHED_BOOST
 static int sched_boost_type = SCHED_NO_BOOST;
 
-bool sched_boost(void)
+inline int valid_cpu_prefer(int task_prefer)
 {
-	return (sched_boost_type == SCHED_ALL_BOOST);
+	if (task_prefer < SCHED_PREFER_NONE || task_prefer >= SCHED_PREFER_END)
+		return 0;
+
+	return 1;
 }
-EXPORT_SYMBOL(sched_boost);
+
+inline int hinted_cpu_prefer(int task_prefer)
+{
+	if (task_prefer <= SCHED_PREFER_NONE || task_prefer >= SCHED_PREFER_END)
+		return 0;
+
+	return 1;
+}
+
+int sched_setattr_enhanced(struct task_struct *p, const struct sched_attr *attr)
+{
+	unsigned long flags;
+
+	if (!valid_cpu_prefer(attr->sched_priority))
+		return -EINVAL;
+
+	raw_spin_lock_irqsave(&p->pi_lock, flags);
+	p->cpu_prefer = attr->sched_priority;
+	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+
+	trace_sched_set_cpuprefer(p);
+
+	return 0;
+}
+
+/*
+ * check if the task or the whole system to prefer to put on big core
+ *
+ */
+int cpu_prefer(struct task_struct *p)
+{
+	if (sched_boost_type == SCHED_ALL_BOOST)
+		return SCHED_PREFER_BIG;
+
+	if (p->cpu_prefer == SCHED_PREFER_LITTLE &&
+		schedtune_task_boost(p))
+		return SCHED_PREFER_NONE;
+
+	return p->cpu_prefer;
+}
+
+int task_prefer_little(struct task_struct *p)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_LITTLE)
+		return 1;
+
+	return 0;
+}
+
+int task_prefer_big(struct task_struct *p)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_BIG)
+		return 1;
+
+	return 0;
+}
+
+int task_prefer_fit(struct task_struct *p, int cpu)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_NONE)
+		return 0;
+
+	if (task_prefer_little(p) && hmp_cpu_is_slowest(cpu))
+		return 1;
+
+	if (task_prefer_big(p) && hmp_cpu_is_fastest(cpu))
+		return 1;
+
+	return 0;
+}
+
+int task_prefer_match(struct task_struct *p, int cpu)
+{
+	if (cpu_prefer(p) == SCHED_PREFER_NONE)
+		return 1;
+
+	if (task_prefer_little(p) && hmp_cpu_is_slowest(cpu))
+		return 1;
+
+	if (task_prefer_big(p) && hmp_cpu_is_fastest(cpu))
+		return 1;
+
+	return 0;
+}
+
+int
+task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu)
+{
+	/* No need to migrate*/
+	if (is_intra_domain(src_cpu, target_cpu))
+		return 1;
+
+	if (cpu_prefer(p) == SCHED_PREFER_NONE)
+		return 1;
+
+	if (task_prefer_little(p) && hmp_cpu_is_slowest(src_cpu))
+		return 1;
+
+	if (task_prefer_big(p) && hmp_cpu_is_fastest(src_cpu))
+		return 1;
+
+	return 0;
+}
+
+int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
+{
+	int task_prefer;
+	struct hmp_domain *domain;
+	struct hmp_domain *tmp_domain[5] = {0, 0, 0, 0, 0};
+	int i, iter_domain, domain_cnt = 0;
+	int iter_cpu;
+	struct cpumask *tsk_cpus_allow = &p->cpus_allowed;
+
+	task_prefer = cpu_prefer(p);
+
+	if (!hinted_cpu_prefer(task_prefer))
+		return new_cpu;
+
+	for_each_hmp_domain_L_first(domain) {
+		tmp_domain[domain_cnt] = domain;
+		domain_cnt++;
+	}
+
+	for (i = 0; i < domain_cnt; i++) {
+		iter_domain = (task_prefer == SCHED_PREFER_BIG) ?
+				domain_cnt-i-1 : i;
+		domain = tmp_domain[iter_domain];
+
+		if (cpumask_test_cpu(new_cpu, &domain->possible_cpus))
+			return new_cpu;
+
+		for_each_cpu(iter_cpu, &domain->possible_cpus) {
+
+			/* tsk with prefer idle to find bigger idle cpu */
+			if (!cpu_online(iter_cpu) ||
+				!cpumask_test_cpu(iter_cpu, tsk_cpus_allow))
+				continue;
+
+			/* favoring tasks that prefer idle cpus
+			 * to improve latency.
+			 */
+			if (idle_cpu(iter_cpu))
+				return iter_cpu;
+
+		}
+	}
+
+	return new_cpu;
+}
 
 void sched_set_boost_fg(void)
 {
@@ -439,6 +586,54 @@ int set_sched_boost(unsigned int val)
 EXPORT_SYMBOL(set_sched_boost);
 
 /* turn on/off sched boost scheduling */
+static ssize_t show_cpu_prefer(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0;
+
+	return len;
+}
+
+static ssize_t store_cpu_prefer(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	unsigned int pid, prefer_type;
+	struct task_struct *p;
+	unsigned long flags;
+
+	/*
+	 * 0: NO sched boost
+	 * 1: boost ALL task
+	 * 2: boost foreground task
+	 */
+	if (sscanf(buf, "%u %u", &pid, &prefer_type) != 0) {
+		if (!valid_cpu_prefer(prefer_type))
+			return -1;
+
+		rcu_read_lock();
+		if (pid) {
+			p = find_task_by_vpid(pid);
+			if (p != NULL) {
+				raw_spin_lock_irqsave(&p->pi_lock, flags);
+				p->cpu_prefer = prefer_type;
+				raw_spin_unlock_irqrestore(&p->pi_lock, flags);
+			} else {
+				return -1;
+			}
+		}
+		rcu_read_unlock();
+	} else {
+		return -1;
+	}
+
+	return count;
+}
+
+static struct kobj_attribute sched_cpu_prefer_attr =
+__ATTR(cpu_prefer, 0600, show_cpu_prefer,
+		store_cpu_prefer);
+
+/* turn on/off sched boost scheduling */
 static ssize_t show_sched_boost(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -478,10 +673,41 @@ static ssize_t store_sched_boost(struct kobject *kobj,
 	return count;
 }
 
-
 static struct kobj_attribute sched_boost_attr =
 __ATTR(sched_boost, 0600, show_sched_boost,
 		store_sched_boost);
+#else
+
+inline int task_prefer_little(struct task_struct *p)
+{
+	return 0;
+}
+
+inline int task_prefer_big(struct task_struct *p)
+{
+	return 0;
+}
+
+inline int task_prefer_fit(struct task_struct *p, int cpu)
+{
+	return 0;
+}
+
+inline int task_prefer_match(struct task_struct *p, int cpu)
+{
+	return 1;
+}
+
+int select_task_prefer_cpu(struct task_struct *p, int new_cpu)
+{
+	return new_cpu;
+}
+
+int sched_setattr_enhanced(struct task_struct *p, const struct sched_attr *attr)
+{
+	return -EINVAL;
+}
+
 #endif
 
 /*
