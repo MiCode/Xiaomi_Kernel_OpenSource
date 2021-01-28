@@ -115,7 +115,7 @@ static int __init dfd_init(void)
 	}
 
 	infra_node = of_find_compatible_node(NULL, NULL,
-			"mediatek,mt6779-infracfg_ao");
+			"mediatek,common-infracfg_ao");
 	if (infra_node) {
 		void __iomem *infra = of_iomap(infra_node, 0);
 
