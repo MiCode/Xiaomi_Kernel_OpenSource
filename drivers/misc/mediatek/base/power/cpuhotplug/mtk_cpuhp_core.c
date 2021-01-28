@@ -13,6 +13,29 @@
 
 #include "mtk_cpuhp_private.h"
 
+int arch_get_nr_clusters(void)
+{
+	return arch_nr_clusters();
+}
+
+int arch_get_cluster_id(unsigned int cpu)
+{
+	return arch_cpu_cluster_id();
+}
+
+void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+{
+	unsigned int cpu;
+
+	cpumask_clear(cpus);
+	for_each_possible_cpu(cpu) {
+		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->package_id == cluster_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
+}
+
 static int is_multi_cluster(void)
 {
 	struct device_node *cn, *map;
@@ -65,38 +88,46 @@ static int get_cpu_topology(int cpu, int *isalone)
 	return cluster;
 }
 
-static int cpuhp_callback(struct notifier_block *nb,
-			  unsigned long action, void *hcpu)
+static int cpuhp_cpu_dead(unsigned int cpu)
 {
 	int cluster;
 	int isalone;
-
-	ulong cpu = (ulong)hcpu;
 	int rc = 0;
 
-	/* do platform-depend hotplug implementation */
-	switch (action) {
-	case CPU_UP_PREPARE:
-	case CPU_UP_PREPARE_FROZEN:
-		cluster = get_cpu_topology(cpu, &isalone);
+	cluster = get_cpu_topology(cpu, &isalone);
 
-		pr_debug("cluster=%d, cpu=%d, isalone=%d\n",
-			 cluster, (int)cpu, isalone);
+	pr_debug_ratelimited("cpu_off cluster=%d, cpu=%d, isalone=%d\n",
+		cluster, (int)cpu, isalone);
 
-		rc = cpuhp_platform_cpuon(cluster, cpu, isalone, action);
-		break;
-	case CPU_DEAD:
-	case CPU_DEAD_FROZEN:
-		cluster = get_cpu_topology(cpu, &isalone);
+	if (cpu_report_state(cpu) == CPU_DEAD_FROZEN)
+		rc = cpuhp_platform_cpuoff(cluster, cpu,
+				 isalone, CPU_DEAD_FROZEN);
+	else
+		rc = cpuhp_platform_cpuoff(cluster, cpu, isalone, CPU_DEAD);
 
-		pr_debug("cluster=%d, cpu=%d, isalone=%d\n",
-			 cluster, (int)cpu, isalone);
+	if (rc)
+		pr_debug_ratelimited("cpu off error! rc: %d\n", rc);
 
-		rc = cpuhp_platform_cpuoff(cluster, cpu, isalone, action);
-		break;
-	}
+	return rc;
+}
 
-	return notifier_from_errno(rc);
+static int cpuhp_cpu_up(unsigned int cpu)
+{
+	int cluster;
+	int isalone;
+	int rc = 0;
+
+	cluster = get_cpu_topology(cpu, &isalone);
+
+	pr_debug_ratelimited("cpu_on cluster=%d, cpu=%d, isalone=%d\n",
+		cluster, (int)cpu, isalone);
+
+	rc = cpuhp_platform_cpuon(cluster, cpu, isalone, CPUHP_BRINGUP_CPU);
+
+	if (rc)
+		pr_debug_ratelimited("cpu on error! rc: %d\n", rc);
+
+	return rc;
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -126,7 +157,11 @@ static int __init cpuhp_init(void)
 
 	pr_debug("%s+\n", __func__);
 
-	hotcpu_notifier(cpuhp_callback, 0);
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN,
+				"hps/cpuhotplug",
+				cpuhp_cpu_up,
+				cpuhp_cpu_dead);
+
 	pm_notifier(cpuhp_pm_callback, 0);
 	ppm_notifier();
 	rc = cpuhp_platform_init();
