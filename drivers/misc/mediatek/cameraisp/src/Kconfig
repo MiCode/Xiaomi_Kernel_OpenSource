@@ -1,0 +1,9 @@
+config MTK_CAMERA_ISP_CAMERA_SUPPORT
+	tristate "[ISP] Image Signal Processor"
+	depends on MTK_CAMERA_ISP
+	help
+	  Image Signal Processor.
+	  Enable to do image Signal process.
+	  Disable if it is not supported or
+	  not wanted.
+
