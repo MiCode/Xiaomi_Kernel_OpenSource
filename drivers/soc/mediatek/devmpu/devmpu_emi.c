@@ -85,8 +85,19 @@ int devmpu_regist_emi(void)
 {
 	int ret = 0;
 
-	ret |= mtk_emimpu_prehandle_register(devmpu_irq_handler_emi);
-	ret |= mtk_emimpu_postclear_register(devmpu_vio_clear_emi);
+	ret = mtk_emimpu_prehandle_register(devmpu_irq_handler_emi);
+	if (ret) {
+		pr_err("%s:%d failed to register emi prehandle, %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
+
+	ret = mtk_emimpu_postclear_register(devmpu_vio_clear_emi);
+	if (ret) {
+		pr_err("%s:%d failed to register emi postclear, %d\n",
+				__func__, __LINE__, ret);
+		return ret;
+	}
 
 	return ret;
 }
