@@ -1844,7 +1844,9 @@ static int mtkfb_pan_display_proxy(struct fb_var_screeninfo *var,
 	return mtkfb_pan_display_impl(var, info);
 }
 
+#ifdef CONFIG_MTK_IOMMU_V2
 static int mtkfb_mmap(struct fb_info *info, struct vm_area_struct *vma);
+#endif
 
 /*
  * Callback table for the frame buffer framework. Some of these pointers
@@ -1862,7 +1864,9 @@ static struct fb_ops mtkfb_ops = {
 	.fb_check_var = mtkfb_check_var,
 	.fb_set_par = mtkfb_set_par,
 	.fb_ioctl = mtkfb_ioctl,
+#ifdef CONFIG_MTK_IOMMU_V2
 	.fb_mmap = mtkfb_mmap,
+#endif
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = mtkfb_compat_ioctl,
 #endif
@@ -2658,17 +2662,17 @@ cleanup:
 	return ret;
 }
 
+#ifdef CONFIG_MTK_IOMMU_V2
 static int mtkfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 {
 	int ret = -1;
-#ifdef CONFIG_MTK_IOMMU_V2
 	struct mtkfb_device *fbdev = (struct mtkfb_device *)mtkfb_fbi->par;
 
 	ret = disp_aosp_mmap(vma, (unsigned long)fbdev->fb_va_base,
 		fb_mva, vramsize);
-#endif
 	return ret;
 }
+#endif
 
 /* Called when the device is being detached from the driver */
 static int mtkfb_remove(struct platform_device *pdev)

@@ -106,8 +106,12 @@ int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 		     phys_addr_t pa_end,
 		     unsigned long *va,
 		     dma_addr_t *iova);
+
+#ifdef CONFIG_MTK_IOMMU_V2
 int disp_aosp_mmap(struct vm_area_struct *vma, unsigned long va,
 	unsigned long mva, unsigned int size);
+#endif
+
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 				  unsigned long *va, unsigned long *mva);
 #endif
