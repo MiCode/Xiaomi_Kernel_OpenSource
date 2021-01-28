@@ -4086,7 +4086,7 @@ static const DEVICE_ATTR_WO(shipping_mode);
 /* ======================= */
 
 static int mt6370_charger_get_online(struct mt6370_pmu_charger_data *chg_data,
-				     union power_supply_propval *val)
+				     bool *val)
 {
 #ifndef CONFIG_TCPC_CLASS
 	int ret;
@@ -4109,7 +4109,7 @@ static int mt6370_charger_get_online(struct mt6370_pmu_charger_data *chg_data,
 	pwr_rdy = !pwr_rdy;
 #endif
 	dev_info(chg_data->dev, "%s: online = %d\n", __func__, pwr_rdy);
-	val->intval = pwr_rdy;
+	*val = pwr_rdy;
 	return 0;
 }
 
@@ -4126,21 +4126,31 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 	struct mt6370_pmu_charger_data *chg_data =
 						  power_supply_get_drvdata(psy);
 	enum mt6370_charging_status chg_stat = MT6370_CHG_STATUS_READY;
+	bool pwr_rdy = false, chg_en = false;
 	int ret = 0;
 
 	dev_dbg(chg_data->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		ret = mt6370_charger_get_online(chg_data, val);
+		ret = mt6370_charger_get_online(chg_data, &pwr_rdy);
+		val->intval = pwr_rdy;
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
+		ret = mt6370_charger_get_online(chg_data, &pwr_rdy);
+		ret = mt6370_is_charging_enable(chg_data, &chg_en);
 		ret = mt6370_get_charging_status(chg_data, &chg_stat);
+		if (!pwr_rdy) {
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			return ret;
+		}
 		switch (chg_stat) {
 		case MT6370_CHG_STATUS_READY:
-			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
-			break;
+			/* fallthrough */
 		case MT6370_CHG_STATUS_PROGRESS:
-			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			if (chg_en)
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			else
+				val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
 			break;
 		case MT6370_CHG_STATUS_DONE:
 			val->intval = POWER_SUPPLY_STATUS_FULL;
