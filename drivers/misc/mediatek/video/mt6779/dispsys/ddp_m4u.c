@@ -436,10 +436,10 @@ void disp_ion_cache_flush(struct ion_client *client, struct ion_handle *handle,
 }
 #endif
 
-#ifdef CONFIG_MTK_IOMMU_V2
+#ifdef MTKFB_M4U_SUPPORT
+
 static struct sg_table table;
 
-#ifdef MTKFB_M4U_SUPPORT
 int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 		      unsigned long va, struct sg_table *sg_table,
 		      unsigned int size, unsigned int prot,
@@ -455,6 +455,7 @@ int disp_allocate_mva(struct m4u_client_t *client, enum DISP_MODULE_ENUM module,
 }
 #endif
 
+#ifdef CONFIG_MTK_IOMMU_V2
 inline int disp_aosp_set_dev(struct device *dev)
 {
 	ddp_m4u_dev = dev;
@@ -525,6 +526,7 @@ int disp_aosp_alloc_iova(struct device *dev, phys_addr_t pa_start,
 
 	return 0;
 }
+#endif
 
 int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 				  unsigned long *va, unsigned long *mva)
@@ -571,4 +573,3 @@ int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
 	return 0;
 }
 
-#endif /* !CONFIG_MTK_IOMMU_V2 */

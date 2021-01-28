@@ -1197,7 +1197,9 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 		dprec_logger_start(DPREC_LOGGER_WDMA_DUMP, 0, 0);
 		ret = primary_display_capture_framebuffer_ovl(
-					(unsigned long)src_pbuf, UFMT_BGRA8888);
+					(unsigned long)src_pbuf,
+					fbsize,
+					UFMT_BGRA8888);
 		if (ret < 0)
 			DISP_PR_ERR("primary capture framebuffer failed\n");
 		dprec_logger_done(DPREC_LOGGER_WDMA_DUMP, 0, 0);
@@ -1256,7 +1258,8 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 
 		ret = primary_display_capture_framebuffer_ovl(
-					(unsigned long)src_pbuf, format);
+					(unsigned long)src_pbuf, fbsize,
+					format);
 		if (ret < 0)
 			DISP_PR_ERR("primary capture framebuffer failed\n");
 
@@ -2467,12 +2470,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 #endif
 	int init_state;
 	int ret = 0;
-
-#if defined(MTK_FB_ION_SUPPORT)
-	struct ion_client *ion_display_client = NULL;
-	struct ion_handle *ion_display_handle = NULL;
 	size_t temp_va = 0;
-#endif
+
 	/* struct platform_device *pdev; */
 	long dts_gpio_state = 0;
 
@@ -2514,34 +2513,12 @@ static int mtkfb_probe(struct platform_device *pdev)
 #endif
 
 	DISPMSG("%s: fb_pa = %pa\n", __func__, &fb_base);
-
-#if defined(MTK_FB_ION_SUPPORT)
 	temp_va = (size_t)ioremap_nocache(fb_base, vramsize);
 	fbdev->fb_va_base = (void *)temp_va;
-	ion_display_client = disp_ion_create("disp_fb0");
-	if (ion_display_client == NULL) {
-		DISP_PR_ERR("%s: fail to create ion\n", __func__);
-		ret = -1;
-		goto cleanup;
-	}
 
-	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    temp_va, vramsize);
-	if (!ion_display_handle) {
-		DISP_PR_ERR("%s: fail to allocate buffer\n", __func__);
-		ret = -1;
-		goto cleanup;
-	}
-
-	disp_ion_get_mva(ion_display_client, ion_display_handle,
-			 (unsigned int *)&fb_mva, DISP_M4U_PORT_DISP_OVL0);
-
-#else
 	disp_hal_allocate_framebuffer(fb_base, (fb_base + vramsize - 1),
 				(unsigned long *)(&fbdev->fb_va_base), &fb_mva);
 
-#endif
 	fbdev->fb_pa_base = fb_base;
 
 	primary_display_set_frame_buffer_address((unsigned long)

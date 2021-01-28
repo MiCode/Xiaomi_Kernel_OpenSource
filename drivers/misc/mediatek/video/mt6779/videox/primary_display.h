@@ -334,6 +334,7 @@ int primary_display_diagnose_oneshot(const char *func, int line);
 int primary_display_get_info(struct disp_session_info *info);
 int primary_display_capture_framebuffer(unsigned long pbuf);
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
+					    unsigned int buf_sz,
 					    unsigned int format);
 
 int primary_display_is_video_mode(void);
@@ -436,8 +437,6 @@ UINT32 DISP_GetActiveWidth(void);
 UINT32 DISP_GetActiveHeightUm(void);
 UINT32 DISP_GetActiveWidthUm(void);
 unsigned long get_dim_layer_mva_addr(void);
-int disp_hal_allocate_framebuffer(phys_addr_t pa_start, phys_addr_t pa_end,
-				  unsigned long *va, unsigned long *mva);
 int Panel_Master_dsi_config_entry(const char *name, void *config_value);
 int fbconfig_get_esd_check_test(UINT32 dsi_id, UINT32 cmd, UINT8 *buffer,
 				UINT32 num);

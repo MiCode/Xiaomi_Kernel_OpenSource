@@ -4135,27 +4135,34 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 				   lcm_param->corner_pattern_lt_addr,
 				   lcm_param->corner_pattern_tp_size);
 
-			rc_va_addr = vmalloc(lcm_param->corner_pattern_tp_size);
-			if (!rc_va_addr)
-				DISP_PR_ERR("[RC]: vmalloc failed! line\n");
-
-			memcpy(rc_va_addr,
-				lcm_param->corner_pattern_lt_addr,
-				lcm_param->corner_pattern_tp_size);
-
 			ion_handle = disp_ion_alloc(ion_client,
-				ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-				(unsigned long)rc_va_addr,
+				ION_HEAP_MULTIMEDIA_MASK,
+				0,
 				lcm_param->corner_pattern_tp_size);
 
-			if (!ion_handle)
-				DISP_PR_ERR("allocate buffer fail\n");
+			if (!ion_handle) {
+				_DISP_PRINT_FENCE_OR_ERR(1,
+					"allocate RC buffer fail\n");
+				ret = 1;
+				goto lcm_corner_out;
+			}
+
+			rc_va_addr = ion_map_kernel(ion_client, ion_handle);
+			if (IS_ERR(rc_va_addr))
+				_DISP_PRINT_FENCE_OR_ERR(1,
+					"[RC]: vmalloc failed! line\n");
+			else
+				memcpy(rc_va_addr,
+					lcm_param->corner_pattern_lt_addr,
+					lcm_param->corner_pattern_tp_size);
+
+			ion_unmap_kernel(ion_client, ion_handle);
 
 			disp_ion_get_mva(ion_client, ion_handle,
 				&top_mva, DISP_M4U_PORT_DISP_POSTMASK);
 			disp_ion_cache_flush(ion_client, ion_handle,
 				ION_CACHE_INVALID_BY_RANGE);
-
+lcm_corner_out:
 			if (ret)
 				DISP_PR_ERR("[RC]:Fail to cach sync\n");
 		}
@@ -8799,17 +8806,16 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 #endif
 
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
+					    unsigned int buf_sz,
 					    enum UNIFIED_COLOR_FMT ufmt)
 {
 	int ret = 0;
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 	unsigned int mva = 0;
-	unsigned int w_xres = primary_display_get_width();
-	unsigned int h_yres = primary_display_get_height();
-	unsigned int pixel_byte = primary_display_get_bpp() / 8;
-	int buffer_size = h_yres * w_xres * pixel_byte;
+	int buffer_size = buf_sz;
 	enum DISP_MODULE_ENUM after_eng = DISP_MODULE_OVL0;
+	void *frame_va = NULL;
 #if defined(CONFIG_MTK_ION)
 	int tmp;
 #endif
@@ -8833,8 +8839,8 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	}
 
 	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    pbuf, buffer_size);
+					    ION_HEAP_MULTIMEDIA_MASK,
+					    0, buffer_size);
 	if (!ion_display_handle) {
 		DISPMSG("primary capture:Fail to allocate buffer\n");
 		ret = -1;
@@ -8859,6 +8865,15 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 
 	disp_ion_cache_flush(ion_display_client, ion_display_handle,
 			     ION_CACHE_INVALID_BY_RANGE);
+
+	frame_va = ion_map_kernel(ion_display_client, ion_display_handle);
+	if (IS_ERR(frame_va)) {
+		_DISP_PRINT_FENCE_OR_ERR(1, "%s #%d map err:%lx\n",
+					 (unsigned long)frame_va);
+		goto out;
+	}
+	memcpy(pbuf, frame_va, buffer_size);
+	ion_unmap_kernel(ion_display_client, ion_display_handle);
 
 out:
 	if (ion_display_client)
