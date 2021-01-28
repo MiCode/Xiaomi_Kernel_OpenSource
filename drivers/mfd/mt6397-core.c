@@ -102,6 +102,14 @@ static const struct resource mt6397_rtc_resources[] = {
 	},
 };
 
+static const struct resource mt6397_pmic_resources[] = {
+	{
+		.start = MT6397_IRQ_THR_L,
+		.end   = MT6397_IRQ_THR_H,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
 static const struct resource mt6323_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6323_IRQ_STATUS_PWRKEY),
 	DEFINE_RES_IRQ(MT6323_IRQ_STATUS_FCHRKEY),
@@ -444,6 +452,11 @@ static const struct mfd_cell mt6359_devs[] = {
 
 static const struct mfd_cell mt6397_devs[] = {
 	{
+		.name = "mt6397-pmic",
+		.num_resources = ARRAY_SIZE(mt6397_pmic_resources),
+		.resources = mt6397_pmic_resources,
+		.of_compatible = "mediatek,mt6397-pmic",
+	}, {
 		.name = "mt6397-rtc",
 		.num_resources = ARRAY_SIZE(mt6397_rtc_resources),
 		.resources = mt6397_rtc_resources,
