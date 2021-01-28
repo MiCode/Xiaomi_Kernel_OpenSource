@@ -206,7 +206,6 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 
 		hw_info->sram_size = CCIF_SRAM_SIZE;
 		hw_info->md_rgu_base = MD_RGU_BASE;
-		hw_info->l1_rgu_base = L1_RGU_BASE;
 		hw_info->md_boot_slave_En = MD_BOOT_VECTOR_EN;
 #if defined(CONFIG_PINCTRL_ELBRUS)
 		mdcldma_pinctrl = devm_pinctrl_get(&dev_ptr->dev);
@@ -336,7 +335,6 @@ int md_cd_io_remap_md_side_register(struct ccci_modem *md)
 		md->hw_info->md_boot_slave_En, 0x4);
 	md_info->md_rgu_base = ioremap_nocache(
 		md->hw_info->md_rgu_base, 0x300);
-	md_info->l1_rgu_base = ioremap_nocache(md->hw_info->l1_rgu_base, 0x40);
 	md_info->md_global_con0 = ioremap_nocache(MD_GLOBAL_CON0, 0x4);
 
 
