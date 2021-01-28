@@ -550,17 +550,11 @@ static void vow_service_Init(void)
 #endif
 	} else {
 		/*Initialization*/
-		vowserv.recording_flag = false;
-		vowserv.firstRead = false;
-		vowserv.suspend_lock = 0;
-		vowserv.tx_keyword_start = false;
 		vowserv.voicddata_scp_ptr =
 		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
 		    + VOW_VOICEDATA_OFFSET;
 		vowserv.voicedata_scp_addr =
 		    scp_get_reserve_mem_phys(VOW_MEM_ID) + VOW_VOICEDATA_OFFSET;
-		vowserv.voicedata_idx = 0;
-		vowserv.dump_pcm_flag = false;
 		vow_ipi_buf[0] = vowserv.voicedata_scp_addr;
 		ret = vow_IPICmd_Send(AUDIO_IPI_PAYLOAD,
 				      AUDIO_IPI_MSG_BYPASS_ACK,
