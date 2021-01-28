@@ -78,7 +78,7 @@ struct mtk_smi_pair smi_larb15_conf_pair[SMI_LARB15_CONF_NUM] = {
 
 #define SMI_LARB16_CONF_NUM	(3)
 struct mtk_smi_pair smi_larb16_conf_pair[SMI_LARB16_CONF_NUM] = {
-	{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_FORCE_ULTRA, 0x80000},
+	{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_FORCE_ULTRA, 0x8000},
 	{SMI_LARB_SW_FLAG, 0x1},
 };
 
