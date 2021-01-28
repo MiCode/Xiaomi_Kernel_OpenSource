@@ -552,6 +552,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		clock-output-names = "clk32k";
 	};
 
+	clk13m: oscillator@2 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <13000000>;
+		clock-output-names = "clk13m";
+	};
+
 	uart_clk: dummy26m {
 		compatible = "fixed-clock";
 		clock-frequency = <26000000>;
@@ -2423,12 +2430,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		sys_timer@10017000 {
-			compatible = "mediatek,sys_timer";
+			compatible = "mediatek,sys_timer",
+				"mediatek,mt6765-timer",
+				"mediatek,mt6779-timer";
 			reg = <0 0x10017000 0 0x1000>;
-			reg-names =
-				"sys_timer_base";
 			interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
-			clocks =<&topckgen CLK_TOP_CLK13M>;
+			clocks =<&clk13m>;
 		};
 
 		sleep: sleep@10006000 {
