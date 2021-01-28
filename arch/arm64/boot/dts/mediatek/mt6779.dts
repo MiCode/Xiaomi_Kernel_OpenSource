@@ -2538,6 +2538,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"mediatek,mt6765-timer",
 				"mediatek,mt6779-timer";
 			reg = <0 0x10017000 0 0x1000>;
+			reg-names = "sys_timer_base";
 			interrupts = <GIC_SPI 224 IRQ_TYPE_LEVEL_HIGH>;
 			clocks =<&clk13m>;
 		};
