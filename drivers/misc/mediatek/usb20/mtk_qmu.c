@@ -220,7 +220,7 @@ int qmu_init_gpd_pool(struct device *dev)
 		size = GPD_LEN_ALIGNED * Rx_gpd_max_count[i];
 		ptr = (struct TGPD *)
 				dma_alloc_coherent(dev,
-					size, &dma_handle, GFP_KERNEL);
+					size, &dma_handle, GFP_DMA);
 		if (!ptr)
 			return -ENOMEM;
 
@@ -249,7 +249,7 @@ int qmu_init_gpd_pool(struct device *dev)
 		/* Allocate Tx GPD */
 		size = GPD_LEN_ALIGNED * Tx_gpd_max_count[i];
 		ptr = (struct TGPD *)
-			dma_alloc_coherent(dev, size, &dma_handle, GFP_KERNEL);
+			dma_alloc_coherent(dev, size, &dma_handle, GFP_DMA);
 		if (!ptr)
 			return -ENOMEM;
 
@@ -332,7 +332,7 @@ int gpd_switch_to_sram(struct device *dev)
 				(unsigned char **)&ptr, size, &usb_on_sram);
 	else
 		ptr = (struct TGPD *)
-			dma_alloc_coherent(dev, size, &dma_handle, GFP_KERNEL);
+			dma_alloc_coherent(dev, size, &dma_handle, GFP_DMA);
 
 	if (!ptr) {
 		DBG(0, "NO MEMORY!!!\n");
