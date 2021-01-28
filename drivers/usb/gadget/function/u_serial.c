@@ -29,6 +29,7 @@
 #include <linux/kfifo.h>
 
 #include "u_serial.h"
+#define USERIAL_LOG(fmt, args...) pr_notice("USB_ACM " fmt, ## args)
 
 
 /*
@@ -132,6 +133,38 @@ static struct portmaster {
 #define GS_CLOSE_TIMEOUT		15		/* seconds */
 
 
+static void pr_vmpt_debug(struct gs_port *port, int len,
+			struct usb_request *req, bool dir)
+{
+	static unsigned int	skip;
+	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 10);
+
+	if (__ratelimit(&ratelimit)) {
+		if (dir == USB_DIR_OUT)
+			USERIAL_LOG("%s:ttyGS%d:w=%d,0x%x0x%x0x%x\n",
+					__func__, port->port_num, len,
+					*((u8 *)req->buf),
+					*((u8 *)req->buf+1),
+					*((u8 *)req->buf+2));
+		else
+			USERIAL_LOG("%s:ttyGS%d:a=%d,r=%d(%x%x%x)\n",
+					__func__,
+					port->port_num,
+					req->actual,
+					port->n_read,
+					*((u8 *)req->buf),
+					*((u8 *)req->buf+1),
+					*((u8 *)req->buf+2));
+
+		if (skip > 0) {
+			USERIAL_LOG("%s skipped %d bytes\n",
+					__func__, skip);
+			skip = 0;
+		}
+	} else {
+		skip += req->actual;
+	}
+}
 
 #ifdef VERBOSE_DEBUG
 #ifndef pr_vdebug
@@ -258,6 +291,7 @@ __acquires(&port->port_lock)
 		pr_vdebug("ttyGS%d: tx len=%d, 0x%02x 0x%02x 0x%02x ...\n",
 			  port->port_num, len, *((u8 *)req->buf),
 			  *((u8 *)req->buf+1), *((u8 *)req->buf+2));
+		pr_vmpt_debug(port, len, req, USB_DIR_OUT);
 
 		/* Drop lock while we call out of driver; completions
 		 * could be issued while we do so.  Disconnection may
@@ -387,6 +421,8 @@ static void gs_rx_push(unsigned long _port)
 			/* normal completion */
 			break;
 		}
+
+		pr_vmpt_debug(port, 0, req, USB_DIR_IN);
 
 		/* push data to (open) tty */
 		if (req->actual && tty) {
@@ -683,6 +719,8 @@ static int gs_open(struct tty_struct *tty, struct file *file)
 	}
 
 	pr_debug("gs_open: ttyGS%d (%p,%p)\n", port->port_num, tty, file);
+	USERIAL_LOG("%s: ttyGS%d (%p,%p)\n",
+			__func__, port->port_num, tty, file);
 
 	status = 0;
 
@@ -719,6 +757,8 @@ static void gs_close(struct tty_struct *tty, struct file *file)
 	}
 
 	pr_debug("gs_close: ttyGS%d (%p,%p) ...\n", port->port_num, tty, file);
+	USERIAL_LOG("%s: ttyGS%d (%p,%p)\n",
+			__func__, port->port_num, tty, file);
 
 	/* mark port as closing but in use; we can drop port lock
 	 * and sleep if necessary
