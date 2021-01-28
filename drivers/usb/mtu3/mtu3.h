@@ -21,6 +21,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
+#include <linux/usb/role.h>
 
 struct mtu3;
 struct mtu3_ep;
@@ -132,6 +133,20 @@ enum mtu3_dr_force_mode {
 };
 
 /**
+ * MTU3_DR_OPERATION_NONE: force to tun off usb
+ * MTU3_DR_OPERATION_NORMAL: automatically switch host and
+ *      periperal mode by usb role switch.
+ * MTU3_DR_OPERATION_HOST: force to enter host mode.
+ * MTU3_DR_OPERATION_DEVICE: force to enter peripheral mode.
+ */
+enum mtu3_dr_operation_mode {
+	MTU3_DR_OPERATION_NONE = 0,
+	MTU3_DR_OPERATION_NORMAL,
+	MTU3_DR_OPERATION_HOST,
+	MTU3_DR_OPERATION_DEVICE,
+};
+
+/**
  * @base: the base address of fifo
  * @limit: the bitmap size in bits
  * @bitmap: fifo bitmap in unit of @MTU3_EP_FIFO_UNIT
@@ -223,6 +238,8 @@ struct otg_switch_mtk {
 	bool is_u3_drd;
 	bool manual_drd_enabled;
 	u32 sw_state;
+	enum usb_role latest_role;
+	enum mtu3_dr_operation_mode op_mode;
 };
 
 /**
