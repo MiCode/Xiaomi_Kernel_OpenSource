@@ -3082,6 +3082,19 @@ static void mmc_blk_remove_debugfs(struct mmc_card *card,
 
 #endif /* CONFIG_DEBUG_FS */
 
+/* only used for eMMC + F2FS security OTA fix */
+static bool mmc_boot_type;
+
+bool is_emmc_type(void)
+{
+#ifdef CONFIG_MMC_CQHCI
+	return mmc_boot_type;
+#else
+	return false;
+#endif
+}
+EXPORT_SYMBOL_GPL(is_emmc_type);
+
 static int mmc_blk_probe(struct mmc_card *card)
 {
 	struct mmc_blk_data *md, *part_md;
@@ -3139,7 +3152,7 @@ static int mmc_blk_probe(struct mmc_card *card)
 		pm_runtime_set_active(&card->dev);
 		pm_runtime_enable(&card->dev);
 	}
-
+	mmc_boot_type = true;
 	return 0;
 
  out:

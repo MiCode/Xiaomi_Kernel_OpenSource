@@ -23,10 +23,27 @@
 bool fscrypt_policies_equal(const union fscrypt_policy *policy1,
 			    const union fscrypt_policy *policy2)
 {
+	union fscrypt_policy policy1_t, policy2_t;
+
 	if (policy1->version != policy2->version)
 		return false;
 
-	return !memcmp(policy1, policy2, fscrypt_policy_size(policy1));
+	policy1_t = *policy1;
+	policy2_t = *policy2;
+
+	switch (policy1_t.version) {
+	case FSCRYPT_POLICY_V1:
+		policy1_t.v1.flags = policy1_t.v1.flags & ~FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32;
+		policy2_t.v1.flags = policy2_t.v1.flags & ~FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32;
+		break;
+	case FSCRYPT_POLICY_V2:
+		break;
+	default:
+		WARN_ON(1);
+		break;
+	}
+
+	return !memcmp(&policy1_t, &policy2_t, fscrypt_policy_size(policy1));
 }
 
 static bool fscrypt_valid_enc_modes(u32 contents_mode, u32 filenames_mode)
@@ -113,9 +130,10 @@ static bool fscrypt_supported_v1_policy(const struct fscrypt_policy_v1 *policy,
 			     policy->filenames_encryption_mode);
 		return false;
 	}
-
+	/* let LBLK_32 go for eMMC + F2FS security fix */
 	if (policy->flags & ~(FSCRYPT_POLICY_FLAGS_PAD_MASK |
-			      FSCRYPT_POLICY_FLAG_DIRECT_KEY)) {
+			      FSCRYPT_POLICY_FLAG_DIRECT_KEY |
+			      FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32)) {
 		fscrypt_warn(inode, "Unsupported encryption flags (0x%02x)",
 			     policy->flags);
 		return false;
@@ -285,6 +303,10 @@ int fscrypt_policy_from_context(union fscrypt_policy *policy_u,
 	case FSCRYPT_CONTEXT_V1: {
 		const struct fscrypt_context_v1 *ctx = &ctx_u->v1;
 		struct fscrypt_policy_v1 *policy = &policy_u->v1;
+		/* sanity check */
+		if ((policy->flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32) &&
+			policy->contents_encryption_mode != 127)
+			return -EINVAL;
 
 		policy->version = FSCRYPT_POLICY_V1;
 		if (ctx->contents_encryption_mode == 127)
@@ -623,6 +645,13 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 		return -ENOKEY;
 
 	ctxsize = fscrypt_new_context_from_policy(&ctx, &ci->ci_policy);
+
+	/* only for eMMC + F2FS security OTA */
+	if (S_ISREG(child->i_mode) &&
+		ctx.version == FSCRYPT_CONTEXT_V1 &&
+		ctx.v1.contents_encryption_mode == 1 &&
+		is_emmc_type())
+		ctx.v1.flags |= FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32;
 
 	BUILD_BUG_ON(sizeof(ctx) != FSCRYPT_SET_CONTEXT_MAX_SIZE);
 	res = parent->i_sb->s_cop->set_context(child, &ctx, ctxsize, fs_data);

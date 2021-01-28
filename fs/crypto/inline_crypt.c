@@ -303,6 +303,9 @@ static void fscrypt_generate_iv_spec(union fscrypt_iv *iv, u64 lblk_num,
 
 		if (!lblk_num)
 			lblk_num = ~lblk_num;
+		/* eMMC + F2FS security OTA only */
+		if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32)
+			lblk_num = (u32)((u64)(ci->ci_hashed_info & (0xFFFFFFFFULL)) + lblk_num);
 
 		iv->lblk_num = cpu_to_le64(lblk_num);
 	} else if (ci->ci_inode->i_sb->s_magic == EXT4_SUPER_MAGIC) {
@@ -547,6 +550,7 @@ int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos, int nr_pages)
 	if (nr_pages <= 1)
 		return nr_pages;
 
+	/* It should be work normally with eMMC + F2FS security fix */
 	if (!(fscrypt_policy_flags(&ci->ci_policy) &
 	      FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
 		return nr_pages;
@@ -555,8 +559,12 @@ int fscrypt_limit_dio_pages(const struct inode *inode, loff_t pos, int nr_pages)
 		return 1;
 
 	/* With IV_INO_LBLK_32, the DUN can wrap around from U32_MAX to 0. */
-
-	dun = ci->ci_hashed_ino + (pos >> inode->i_blkbits);
+	if (ci->ci_policy.version == FSCRYPT_POLICY_V1
+		&& (fscrypt_policy_flags(&ci->ci_policy) &
+		FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32))
+		dun = ci->ci_hashed_info + (pos >> inode->i_blkbits);
+	else
+		dun = ci->ci_hashed_ino + (pos >> inode->i_blkbits);
 
 	return min_t(u64, nr_pages, (u64)U32_MAX + 1 - dun);
 }
