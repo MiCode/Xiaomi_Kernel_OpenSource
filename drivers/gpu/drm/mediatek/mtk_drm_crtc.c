@@ -4235,6 +4235,7 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 	struct mtk_ddp_comp *output_comp = NULL;
 	struct cmdq_client *client;
 	int en = 0;
+	struct mtk_drm_private *private = crtc->dev->dev_private;
 
 	CRTC_MMP_EVENT_START(crtc_id, disable,
 			mtk_crtc->enabled, 0);
@@ -4285,6 +4286,36 @@ void mtk_drm_crtc_disable(struct drm_crtc *crtc, bool need_wait)
 		client = mtk_crtc->gce_obj.client[CLIENT_CFG];
 		cmdq_mbox_disable(client->chan);
 		CRTC_MMP_MARK(crtc_id, disable, 1, 2);
+	}
+
+	/* If open dynamic OVL 4+2, need switch ovl back to main disp */
+	if (!private) {
+		DDPPR_ERR("%s private is NULL\n", __func__);
+		goto end;
+	}
+	if (mtk_drm_helper_get_opt(private->helper_opt,
+		MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+		(crtc_id == 2)) {
+		enum MTK_DRM_HELPER_OPT helper_opt;
+
+		private->need_vds_path_switch = 0;
+		private->vds_path_switch_done = 0;
+		private->vds_path_enable = 0;
+
+		/* Open RPO */
+		mtk_drm_helper_set_opt_by_name(private->helper_opt,
+			"MTK_DRM_OPT_RPO", 1);
+		helper_opt =
+			mtk_drm_helper_name_to_opt(private->helper_opt,
+				"MTK_DRM_OPT_RPO");
+		mtk_update_layering_opt_by_disp_opt(helper_opt, 1);
+		mtk_set_layering_opt(LYE_OPT_RPO, 1);
+
+		/* OVL0_2l switch back to main path */
+		if (private->need_vds_path_switch_back) {
+			DDPMSG("Switch vds: crtc2 vds set ddp mode to DL\n");
+			mtk_need_vds_path_switch(private->crtc[0]);
+		}
 	}
 
 	/* 9. power off all modules in this CRTC */

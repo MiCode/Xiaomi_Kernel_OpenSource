@@ -859,6 +859,12 @@ static void mtk_wdma_config(struct mtk_ddp_comp *comp,
 	sec = mtk_drm_fb_is_secure(comp->fb);
 
 	addr += comp->fb->offsets[0];
+	if (!(comp->fb->format &&
+		comp->fb->format->format)) {
+		DDPPR_ERR("%s fb format is NULL, CRTC%d\n",
+			__func__, crtc_idx);
+		return;
+	}
 	con = wdma_fmt_convert(comp->fb->format->format);
 	DDPINFO("%s fmt:0x%x, con:0x%x addr %x\n", __func__,
 		comp->fb->format->format, con, addr);
