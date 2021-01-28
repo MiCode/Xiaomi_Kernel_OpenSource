@@ -80,8 +80,6 @@ static char *pd_state_to_str(int state)
 		return "PD_HW_READY";
 	case PD_TA_NOT_SUPPORT:
 		return "PD_TA_NOT_SUPPORT";
-	case PD_STOP:
-		return "PD_STOP";
 	case PD_RUN:
 		return "PD_RUN";
 	case PD_TUNING:
@@ -141,8 +139,6 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 			uisoc = pd_hal_get_uisoc(alg);
 			if (uisoc >= pd->pd_stop_battery_soc)
 				ret_value = ALG_TA_CHECKING;
-			else
-				pd->state = PD_STOP;
 		} else if (ret_value == ALG_TA_NOT_SUPPORT)
 			pd->state = PD_TA_NOT_SUPPORT;
 		else if (ret_value == ALG_TA_CHECKING)
@@ -153,9 +149,6 @@ static int _pd_is_algo_ready(struct chg_alg_device *alg)
 		break;
 	case PD_TA_NOT_SUPPORT:
 		ret_value = ALG_TA_NOT_SUPPORT;
-		break;
-	case PD_STOP:
-		ret_value = ALG_READY;
 		break;
 	case PD_RUN:
 	case PD_TUNING:
@@ -894,10 +887,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 		case PD_RUN:
 		case PD_TUNING:
 		case PD_POSTCC:
-		case PD_STOP:
 			ret_value = __pd_run(alg);
-			if (pd->state == PD_STOP)
-				pd->state = PD_RUN;
 			break;
 		default:
 			pd_err("PD unknown state:%d\n", pd->state);
@@ -933,7 +923,6 @@ static int _pd_stop_algo(struct chg_alg_device *alg)
 
 	mutex_lock(&pd->access_lock);
 
-
 	pd_info("%s state:%d %s\n", __func__,
 		pd->state,
 		pd_state_to_str(pd->state));
@@ -942,7 +931,6 @@ static int _pd_stop_algo(struct chg_alg_device *alg)
 	case PD_HW_UNINIT:
 	case PD_HW_FAIL:
 	case PD_HW_READY:
-	case PD_STOP:
 	case PD_TA_NOT_SUPPORT:
 		break;
 	case PD_TUNING:
@@ -955,7 +943,7 @@ static int _pd_stop_algo(struct chg_alg_device *alg)
 			CHG1, PD_FAIL_CURRENT);
 		pd_hal_set_cv(alg,
 			CHG1, pd->cv);
-		pd->state = PD_STOP;
+		pd->state = PD_HW_READY;
 		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
 			pd_hal_enable_charger(alg, CHG2, false);
 			pd_hal_charger_enable_chip(alg,
@@ -972,8 +960,7 @@ static int _pd_stop_algo(struct chg_alg_device *alg)
 	return ret_value;
 }
 
-static int _pd_notifier_call(struct chg_alg_device *alg,
-			 struct chg_alg_notify *notify)
+static int pd_full_evt(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd;
 	int ret = 0;
@@ -982,29 +969,15 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 	int ret_value = 0;
 
 	pd = dev_get_drvdata(&alg->dev);
-	pd_err("%s evt:%d\n", __func__, notify->evt);
-
-	switch (notify->evt) {
-	case EVT_PLUG_OUT:
-
-		switch (pd->state) {
-		case PD_HW_UNINIT:
-		case PD_HW_FAIL:
-		case PD_HW_READY:
-		case PD_STOP:
-			break;
-		case PD_TA_NOT_SUPPORT:
-		case PD_RUN:
-		case PD_TUNING:
-		case PD_POSTCC:
-			pd->state = PD_HW_READY;
-			break;
-		default:
-			pd_err("PD unknown state:%d\n", pd->state);
-			break;
-		}
+	switch (pd->state) {
+	case PD_HW_UNINIT:
+	case PD_HW_FAIL:
+	case PD_HW_READY:
+	case PD_TA_NOT_SUPPORT:
 		break;
-	case EVT_FULL:
+	case PD_TUNING:
+	case PD_POSTCC:
+	case PD_RUN:
 		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
 			pd_hal_is_charger_enable(
 				alg, CHG2, &chg_en);
@@ -1050,17 +1023,70 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 		} else {
 			if (pd->state == PD_RUN) {
 				pd_err("%s evt full\n",  __func__);
-				//pd_leave(alg);
 				pd->state = PD_HW_READY;
 			}
 		}
 		break;
-
 	default:
-		ret = -EINVAL;
+		pd_err("PD unknown state:%d\n", pd->state);
+		ret_value = ALG_INIT_FAIL;
+		break;
+	}
+	return ret_value;
+}
+
+static int pd_plugout_reset(struct chg_alg_device *alg)
+{
+	struct mtk_pd *pd;
+
+	pd = dev_get_drvdata(&alg->dev);
+	switch (pd->state) {
+	case PD_HW_UNINIT:
+	case PD_HW_FAIL:
+	case PD_HW_READY:
+		break;
+	case PD_TA_NOT_SUPPORT:
+		pd->state = PD_HW_READY;
+		break;
+	case PD_TUNING:
+	case PD_POSTCC:
+	case PD_RUN:
+		pd->state = PD_HW_READY;
+		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+			pd_hal_enable_charger(alg, CHG2, false);
+			pd_hal_charger_enable_chip(alg,
+			CHG2, false);
+		}
+		break;
+	default:
+		pd_err("PD unknown state:%d\n", pd->state);
+		break;
+	}
+	return 0;
+}
+
+static int _pd_notifier_call(struct chg_alg_device *alg,
+			 struct chg_alg_notify *notify)
+{
+	struct mtk_pd *pd;
+	int ret_value = 0;
+
+	pd = dev_get_drvdata(&alg->dev);
+	pd_err("%s evt:%d state:%s\n", __func__, notify->evt,
+		pd_state_to_str(pd->state));
+
+	switch (notify->evt) {
+	case EVT_PLUG_OUT:
+		ret_value = pd_plugout_reset(alg);
+		break;
+	case EVT_FULL:
+		ret_value = pd_full_evt(alg);
+		break;
+	default:
+		ret_value = -EINVAL;
 	}
 
-	return ret;
+	return ret_value;
 }
 
 static void mtk_pd_parse_dt(struct mtk_pd *pd,
@@ -1107,6 +1133,14 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd_err("use default ibus_err:%d\n",
 			IBUS_ERR);
 		pd->ibus_err = IBUS_ERR;
+	}
+
+	if (of_property_read_u32(np, "pd_stop_battery_soc", &val) >= 0)
+		pd->pd_stop_battery_soc = val;
+	else {
+		pd_err("use default pd_stop_battery_soc:%d\n",
+			PD_STOP_BATTERY_SOC);
+		pd->pd_stop_battery_soc = PD_STOP_BATTERY_SOC;
 	}
 
 	/* single charger */
@@ -1165,16 +1199,6 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd_err("use default dual_polling_ieoc :%d\n", 750000);
 		pd->dual_polling_ieoc = 750000;
 	}
-
-	if (of_property_read_u32(np, "pd_stop_battery_soc", &val) >= 0)
-		pd->pd_stop_battery_soc = val;
-	else {
-		pd_err("use default pd_stop_battery_soc:%d\n",
-			PD_STOP_BATTERY_SOC);
-		pd->pd_stop_battery_soc = PD_STOP_BATTERY_SOC;
-	}
-
-
 }
 
 int _pd_get_prop(struct chg_alg_device *alg,

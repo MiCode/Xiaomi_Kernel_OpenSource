@@ -392,35 +392,6 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	}
 
 	/* charging current */
-	if (of_property_read_u32(np, "usb_charger_current_suspend", &val) >= 0)
-		info->data.usb_charger_current_suspend = val;
-	else {
-		chr_err("use default USB_CHARGER_CURRENT_SUSPEND:%d\n",
-			USB_CHARGER_CURRENT_SUSPEND);
-		info->data.usb_charger_current_suspend =
-						USB_CHARGER_CURRENT_SUSPEND;
-	}
-
-	if (of_property_read_u32(np, "usb_charger_current_unconfigured", &val)
-		>= 0) {
-		info->data.usb_charger_current_unconfigured = val;
-	} else {
-		chr_err("use default USB_CHARGER_CURRENT_UNCONFIGURED:%d\n",
-			USB_CHARGER_CURRENT_UNCONFIGURED);
-		info->data.usb_charger_current_unconfigured =
-					USB_CHARGER_CURRENT_UNCONFIGURED;
-	}
-
-	if (of_property_read_u32(np, "usb_charger_current_configured", &val)
-		>= 0) {
-		info->data.usb_charger_current_configured = val;
-	} else {
-		chr_err("use default USB_CHARGER_CURRENT_CONFIGURED:%d\n",
-			USB_CHARGER_CURRENT_CONFIGURED);
-		info->data.usb_charger_current_configured =
-					USB_CHARGER_CURRENT_CONFIGURED;
-	}
-
 	if (of_property_read_u32(np, "usb_charger_current", &val) >= 0) {
 		info->data.usb_charger_current = val;
 	} else {
@@ -443,15 +414,6 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 		chr_err("use default AC_CHARGER_INPUT_CURRENT:%d\n",
 			AC_CHARGER_INPUT_CURRENT);
 		info->data.ac_charger_input_current = AC_CHARGER_INPUT_CURRENT;
-	}
-
-	if (of_property_read_u32(np, "non_std_ac_charger_current", &val) >= 0)
-		info->data.non_std_ac_charger_current = val;
-	else {
-		chr_err("use default NON_STD_AC_CHARGER_CURRENT:%d\n",
-			NON_STD_AC_CHARGER_CURRENT);
-		info->data.non_std_ac_charger_current =
-					NON_STD_AC_CHARGER_CURRENT;
 	}
 
 	if (of_property_read_u32(np, "charging_host_charger_current", &val)

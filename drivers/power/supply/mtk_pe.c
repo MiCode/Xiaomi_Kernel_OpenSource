@@ -855,14 +855,6 @@ static void mtk_pe_parse_dt(struct mtk_pe *pe,
 		pe->ta_ac_charger_current = PE_CHARGING_CURRENT;
 	}
 
-	if (of_property_read_u32(np, "pe_slave_mivr_diff", &val) >= 0)
-		pe->pe_slave_mivr_diff = val;
-	else {
-		pr_notice("use default PE_SLAVE_MIVR_DIFF:%d\n",
-			PE_SLAVE_MIVR_DIFF);
-		pe->pe_slave_mivr_diff = PE_SLAVE_MIVR_DIFF;
-	}
-
 }
 
 static int mtk_pe_probe(struct platform_device *pdev)
@@ -887,7 +879,6 @@ static int mtk_pe_probe(struct platform_device *pdev)
 	mtk_pe_parse_dt(pe, &pdev->dev);
 	pe->alg = chg_alg_device_register("pe", &pdev->dev,
 					pe, &pe_alg_ops, NULL);
-	pe->ta_12v_support = false;
 
 	return 0;
 

@@ -64,7 +64,6 @@ enum pd_state_enum {
 	PD_HW_FAIL,
 	PD_HW_READY,
 	PD_TA_NOT_SUPPORT,
-	PD_STOP,
 	PD_RUN,
 	PD_TUNING,
 	PD_POSTCC,

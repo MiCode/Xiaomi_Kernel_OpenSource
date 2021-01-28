@@ -155,13 +155,9 @@ struct charger_custom_data {
 	int max_charger_voltage_setting;
 	int min_charger_voltage;
 
-	int usb_charger_current_suspend;
-	int usb_charger_current_unconfigured;
-	int usb_charger_current_configured;
 	int usb_charger_current;
 	int ac_charger_current;
 	int ac_charger_input_current;
-	int non_std_ac_charger_current;
 	int charging_host_charger_current;
 
 	/* sw jeita */

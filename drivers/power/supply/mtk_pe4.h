@@ -20,6 +20,9 @@
 #define LOW_TEMP_TO_ENTER_PE40 10
 #define IBUS_ERR 14
 
+/*dual charger */
+#define PE4_SLAVE_MIVR_DIFF 100000
+
 
 #define PE4_ERROR_LEVEL	1
 #define PE4_INFO_LEVEL	2
@@ -36,7 +39,7 @@ do {								\
 #define pe4_info(fmt, args...)					\
 do {								\
 	if (pe4_get_debug_level() >= PE4_INFO_LEVEL) { \
-		pr_notice(fmt, ##args);			\
+		pr_notice(fmt, ##args);				\
 	}							\
 } while (0)
 
@@ -84,7 +87,9 @@ enum pe4_state_enum {
 	PE4_HW_READY,
 	PE4_TA_NOT_SUPPORT,
 	PE4_STOP,
-	PE4_RUN
+	PE4_RUN,
+	PE4_TUNING,
+	PE4_POSTCC,
 };
 
 struct pe4_adapter_status {
@@ -98,6 +103,7 @@ struct mtk_pe40 {
 	struct platform_device *pdev;
 	struct chg_alg_device *alg;
 	struct mutex access_lock;
+	struct mutex data_lock;
 	struct wakeup_source *suspend_lock;
 
 	bool can_query;
@@ -127,17 +133,28 @@ struct mtk_pe40 {
 
 	/* module parameters */
 	int cv;
-	int input_current_limit;
-	int charging_current_limit;
+	int input_current_limit1;
+	int input_current_limit2;
+	int charging_current_limit1;
+	int charging_current_limit2;
 
 	/* Current setting value */
-	int charger_current;
-	int input_current;
+	int charger_current1;
+	int charger_current2;
+	int input_current1;
+	int input_current2;
 
 	int polling_interval;
 
 	/* dtsi */
-	int pe4_charger_current;
+	/* single charger */
+	int sc_charger_current;
+	int sc_input_current;
+	/* dual charger in series */
+	int dcs_input_current;
+	int dcs_chg1_charger_current;
+	int dcs_chg2_charger_current;
+
 	int min_charger_voltage;
 	int pe40_max_vbus;
 	int pe40_max_ibus;
@@ -147,6 +164,7 @@ struct mtk_pe40 {
 	int low_temp_to_leave_pe40;
 	int low_temp_to_enter_pe40;
 	int ibus_err;
+	int dual_polling_ieoc;
 	int slave_mivr_diff;
 
 	/* pe4.0 cable impedance threshold (mohm) */
@@ -158,7 +176,6 @@ struct mtk_pe40 {
 
 extern int pe4_hal_init_hardware(struct chg_alg_device *alg);
 extern int pe4_hal_enable_vbus_ovp(struct chg_alg_device *alg, bool enable);
-extern int pe4_hal_enable_termination(struct chg_alg_device *alg, bool enable);
 extern int pe4_hal_get_uisoc(struct chg_alg_device *alg);
 extern int pe4_hal_is_pd_adapter_ready(struct chg_alg_device *alg);
 extern int pe4_hal_get_battery_temperature(struct chg_alg_device *alg);
@@ -196,11 +213,27 @@ extern int pe4_hal_set_mivr(struct chg_alg_device *alg,
 	enum chg_idx chgidx, int uV);
 extern int pe4_hal_get_mivr(struct chg_alg_device *alg,
 	enum chg_idx chgidx, int *mivr1);
-extern int pe4_hal_enable_chip(struct chg_alg_device *alg,
-	enum chg_idx chgidx, bool en);
 extern int pe4_hal_get_mivr_state(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool *in_loop);
-
-
+extern int pe4_hal_charger_enable_chip(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool enable);
+extern int pe4_hal_is_charger_enable(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool *en);
+extern int pe4_hal_get_charging_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *ua);
+extern int pe4_hal_get_min_charging_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *uA);
+extern int pe4_hal_set_eoc_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 uA);
+extern int pe4_hal_get_min_input_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *uA);
+extern int pe4_hal_safety_check(struct chg_alg_device *alg,
+	int ieoc);
+extern int pe4_hal_set_cv(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 uv);
+extern int pe4_hal_set_cv(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 uv);
+extern int pe4_hal_enable_termination(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool enable);
 #endif /* __MTK_PE4_H */
 

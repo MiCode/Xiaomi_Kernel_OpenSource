@@ -198,7 +198,6 @@ int pe_hal_enable_charging(struct chg_alg_device *alg, bool enable)
 int pe_hal_set_mivr(struct chg_alg_device *alg, enum chg_idx chgidx, int uV)
 {
 	int ret = 0;
-	bool chg2_chip_enabled = false;
 	struct mtk_pe *pe;
 	struct pe_hal *hal;
 
@@ -211,18 +210,6 @@ int pe_hal_set_mivr(struct chg_alg_device *alg, enum chg_idx chgidx, int uV)
 	ret = charger_dev_set_mivr(hal->chg1_dev, uV);
 	if (ret < 0)
 		pr_notice("%s: failed, ret = %d\n", __func__, ret);
-
-	if (hal->chg2_dev) {
-		charger_dev_is_chip_enabled(hal->chg2_dev,
-			&chg2_chip_enabled);
-		if (chg2_chip_enabled) {
-			ret = charger_dev_set_mivr(hal->chg2_dev,
-				uV + pe->pe_slave_mivr_diff);
-			if (ret < 0)
-				pr_info("%s: chg2 failed, ret = %d\n", __func__,
-					ret);
-		}
-	}
 
 	return ret;
 }
