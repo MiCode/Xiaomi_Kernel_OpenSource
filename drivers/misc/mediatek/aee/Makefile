@@ -13,6 +13,8 @@
 
 ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
 MTK_PLATFORM := mt6765
+else ifneq ($(CONFIG_MTK_PLATFORM), "")
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 endif
