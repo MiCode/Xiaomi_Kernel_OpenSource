@@ -56,8 +56,8 @@
 #define GOODIX_DRIVER_VERSION	"v1.2.0.1"
 #define GOODIX_TS_PID_GT9886	"9886"
 #define GOODIX_TS_PID_GT9885	"9885"
-#define GOODIX_BUS_RETRY_TIMES	2
-#define GOODIX_CHIPID_RETRY_TIMES	2
+#define GOODIX_BUS_RETRY_TIMES	3
+#define GOODIX_CHIPID_RETRY_TIMES	5
 #define GOODIX_MAX_TOUCH	10
 #define GOODIX_MAX_PEN		1
 #define GOODIX_MAX_KEY		3
@@ -369,6 +369,7 @@ struct goodix_ts_device {
 struct goodix_ts_hw_ops {
 
 	int (*init)(struct goodix_ts_device *dev);
+	int (*dev_confirm)(struct goodix_ts_device *ts_dev);
 	int (*reset)(struct goodix_ts_device *dev);
 	int (*read)(struct goodix_ts_device *dev, unsigned int addr,
 			 unsigned char *data, unsigned int len);

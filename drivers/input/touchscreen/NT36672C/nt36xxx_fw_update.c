@@ -34,7 +34,7 @@
 #define NVT_DUMP_PARTITION_LEN  (1024)
 #define NVT_DUMP_PARTITION_PATH "/data/local/tmp"
 
-struct timeval start, end;
+static struct timeval start, end;
 const struct firmware *fw_entry;
 static size_t fw_need_write_size;
 static uint8_t *fwbuf;
