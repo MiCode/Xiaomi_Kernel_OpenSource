@@ -216,6 +216,9 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 	if (!name)
 		return;
 
+	/* backward-compatibility for third-party applications */
+	machine_desc_set(name);
+
 	pr_info("Machine model: %s\n", name);
 	dump_stack_set_arch_desc("%s (DT)", name);
 }
