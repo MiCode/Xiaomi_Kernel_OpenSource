@@ -1537,10 +1537,10 @@ void mtk_spm_arch_type_init(void)
 int __init mtk_idle_cond_check_init(void)
 {
 	get_base_from_node("mediatek,mt6779-infracfg_ao", &infrasys_base, 0);
-	get_base_from_node("mediatek,mt6779-mmsys_config", &mmsys_base, 0);
+	get_base_from_node("mediatek,mt6779-mmsys", &mmsys_base, 0);
 	//get_base_from_node("mediatek,imgsys", &imgsys_base, 0);
 	get_base_from_node("mediatek,mt6779-mfgcfg", &mfgsys_base, 0);
-	get_base_from_node("mediatek,mt6779-venc_gcon", &vencsys_base, 0);
+	get_base_from_node("mediatek,mt6779-vencsys", &vencsys_base, 0);
 	get_base_from_node("mediatek,mt6779-apmixed", &apmixedsys_base, 0);
 	get_base_from_node("mediatek,sleep", &sleepsys_base, 0);
 	get_base_from_node("mediatek,mt6779-topckgen", &topck_base, 0);
