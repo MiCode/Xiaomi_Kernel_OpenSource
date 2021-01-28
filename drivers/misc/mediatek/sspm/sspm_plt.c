@@ -54,14 +54,18 @@ static ssize_t sspm_alive_show(struct device *kobj,
 {
 
 	struct plt_ipi_data_s ipi_data;
-	int ackdata = 0;
+	int ret, ackdata = 0;
 
 	ipi_data.cmd = 0xDEAD;
 
-	sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_WAIT,
+	ret = sspm_ipi_send_sync(IPI_ID_PLATFORM, IPI_OPT_WAIT,
 		&ipi_data, sizeof(ipi_data) / MBOX_SLOT_SIZE, &ackdata, 1);
 
-	return snprintf(buf, PAGE_SIZE, "%s\n", ackdata ? "Alive" : "Dead");
+	if (ret == IPI_DONE)
+		return snprintf(buf, PAGE_SIZE,	"%s\n",
+			ackdata ? "Alive" : "Dead");
+	else
+		return snprintf(buf, PAGE_SIZE, "Fail(%d)\n", ret);
 }
 static DEVICE_ATTR_RO(sspm_alive);
 
