@@ -48,7 +48,7 @@ firmware_class.path=/vendor/firmware";
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
-
+/*
 		cpu1: cpu@001 {
 			device_type = "cpu";
 			compatible = "arm,cortex-a53";
@@ -118,12 +118,13 @@ firmware_class.path=/vendor/firmware";
 			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
 					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
-
+*/
 		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
 				};
+/*
 				core1 {
 					cpu = <&cpu1>;
 				};
@@ -133,9 +134,11 @@ firmware_class.path=/vendor/firmware";
 				core3 {
 					cpu = <&cpu3>;
 				};
+*/
 			};
 
 			cluster1 {
+/*
 				core0 {
 					cpu = <&cpu4>;
 				};
@@ -148,6 +151,7 @@ firmware_class.path=/vendor/firmware";
 				core3 {
 					cpu = <&cpu7>;
 				};
+*/
 			};
 		};
 
