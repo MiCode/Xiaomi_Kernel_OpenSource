@@ -813,8 +813,7 @@ static void _vdo_mode_enter_idle(void)
 	    (disp_helper_get_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE) ||
 	     disp_helper_get_option(DISP_OPT_SMART_OVL))) {
 		/* switch to decouple mode */
-		if ((!disp_idle_check_rsz()) &&
-			(!disp_input_has_yuv()) &&
+		if ((!disp_input_has_yuv()) &&
 			disp_helper_get_option(DISP_OPT_IDLEMGR_BY_REPAINT)) {
 			if (atomic_read(&real_input_layer) > 1) {
 				atomic_set(&idle_need_repaint, 1);
