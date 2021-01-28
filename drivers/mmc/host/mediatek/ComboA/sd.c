@@ -5254,6 +5254,7 @@ static int msdc_runtime_suspend(struct device *dev)
 static int msdc_runtime_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
+	struct arm_smccc_res res;
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
 
@@ -5266,6 +5267,14 @@ static int msdc_runtime_resume(struct device *dev)
 	/* mclk = 0 means core layer resume will enable clk later. */
 	if (host->mclk)
 		msdc_clk_enable_and_stable(host);
+
+	/*
+	 * 1: MSDC_AES_CTL_INIT
+	 * 4: cap_id, no-meaning
+	 * 1: cfg_id, we choose the second cfg group
+	 */
+	arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+		1, 4, 1, 0, 0, 0, 0, &res);
 
 	return 0;
 }
@@ -5294,15 +5303,6 @@ static int msdc_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
 	int ret = 0;
-	struct arm_smccc_res res;
-
-	/*
-	 * 1: MSDC_AES_CTL_INIT
-	 * 4: cap_id, no-meaning
-	 * 1: cfg_id, we choose the second cfg group
-	 */
-	arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-		1, 4, 1, 0, 0, 0, 0, &res);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
