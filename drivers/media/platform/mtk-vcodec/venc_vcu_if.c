@@ -410,6 +410,10 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->nonrefp;
 		break;
+	case VENC_SET_PARAM_NONREFPFREQ:
+		out.data_item = 1;
+		out.data[0] = enc_param->nonrefpfreq;
+		break;
 	case VENC_SET_PARAM_DETECTED_FRAMERATE:
 		out.data_item = 1;
 		out.data[0] = enc_param->detectframerate;
@@ -444,6 +448,10 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 	case VENC_SET_PARAM_SEC_MODE:
 		out.data_item = 1;
 		out.data[0] = enc_param->svp_mode;
+		break;
+	case VENC_SET_PARAM_TSVC:
+		out.data_item = 1;
+		out.data[0] = enc_param->tsvc;
 		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);

@@ -91,7 +91,9 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_ROI_ON = (1 << 12),
 	MTK_ENCODE_PARAM_GRID_SIZE = (1 << 13),
 	MTK_ENCODE_PARAM_COLOR_DESC = (1 << 14),
-	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 15)
+	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 15),
+	MTK_ENCODE_PARAM_TSVC = (1 << 16),
+	MTK_ENCODE_PARAM_NONREFPFREQ = (1 << 17),
 };
 
 /*
@@ -232,6 +234,8 @@ struct mtk_enc_params {
 	unsigned int    p_qp;
 	unsigned int    b_qp;
 	unsigned int    svp_mode;
+	unsigned int    tsvc;
+	unsigned int    nonrefpfreq;
 };
 
 /*
@@ -283,6 +287,8 @@ struct venc_enc_param {
 	unsigned int p_qp;
 	unsigned int b_qp;
 	unsigned int svp_mode;
+	unsigned int tsvc;
+	unsigned int nonrefpfreq;
 };
 
 /*
