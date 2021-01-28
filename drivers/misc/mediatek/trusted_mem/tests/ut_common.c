@@ -560,6 +560,10 @@ static enum UT_RET_STATE mem_create_run_thread(enum TRUSTED_MEM_TYPE mem_type)
 	u32 max_total_sz =
 		tmem_core_get_max_pool_size(mem_type) / MEM_SPAWN_THREAD_COUNT;
 
+	/* to speed up test */
+	if (is_mtee_mchunks(mem_type))
+		min_alloc_sz = SZ_512K;
+
 	/* create new thread */
 	for (idx = 0; idx < MEM_SPAWN_THREAD_COUNT; idx++) {
 		memset(&thread_param[mem_type][idx], 0x0,
