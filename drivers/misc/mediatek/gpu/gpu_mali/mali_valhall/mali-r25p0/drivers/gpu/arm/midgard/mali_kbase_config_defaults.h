@@ -100,14 +100,14 @@ enum {
  * -# Power off one or more shader cores
  * -# Power off the entire GPU
  */
-// MTK modify
-//#define DEFAULT_PM_GPU_POWEROFF_TICK_NS (400000) /* 400us */
-#define DEFAULT_PM_GPU_POWEROFF_TICK_NS (3000000) /* 3000us */
+#define DEFAULT_PM_GPU_POWEROFF_TICK_NS (400000) /* 400us */
 
 /**
  * Power Manager number of ticks before shader cores are powered off
  */
-#define DEFAULT_PM_POWEROFF_TICK_SHADER (2) /* 400-800us */
+// MTK modify
+//#define DEFAULT_PM_POWEROFF_TICK_SHADER (2) /* 400-800us */
+#define DEFAULT_PM_POWEROFF_TICK_SHADER (7) /* 2400-2800us */
 
 /**
  * Default scheduling tick granuality
