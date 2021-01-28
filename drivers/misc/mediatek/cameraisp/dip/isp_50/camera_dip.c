@@ -1133,11 +1133,21 @@ static signed int DIP_DumpDIPReg(void)
 		DIP_RD32(DIP_A_BASE + 0x00D8), DIP_RD32(DIP_A_BASE + 0x00DC));
 	CMDQ_ERR("dip: 150220F4(0x%x)-150220F8(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x00F4), DIP_RD32(DIP_A_BASE + 0x00F8));
-	CMDQ_ERR("dip: 0x150220A4(0x%x)-0x150220A8(0x%x)\n",
+
+
+	CMDQ_ERR("dcm: 15022090(0x%x)-15022094(0x%x)-15022098(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x0090), DIP_RD32(DIP_A_BASE + 0x0094),
+		DIP_RD32(DIP_A_BASE + 0x0098));
+	CMDQ_ERR("dcm: 1502209C(0x%x)-150220A0(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x009C), DIP_RD32(DIP_A_BASE + 0x00A0));
+	CMDQ_ERR("dcm: 0x150220A4(0x%x)-0x150220A8(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x00A4), DIP_RD32(DIP_A_BASE + 0x00A8));
-	CMDQ_ERR("dip: 0x150220AC(0x%x)-0x150220B0(0x%x)\n",
+	CMDQ_ERR("dcm: 0x150220AC(0x%x)-0x150220B0(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x00AC), DIP_RD32(DIP_A_BASE + 0x00B0));
-	CMDQ_ERR("dip: 0x150220B4(0x%x)\n", DIP_RD32(DIP_A_BASE + 0x00B4));
+	CMDQ_ERR("dcm: 0x150220B4(0x%x)-0x150220F0(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x00B4), DIP_RD32(DIP_A_BASE + 0x00F0));
+
+
 	/*CQ_THR info*/
 	CMDQ_ERR("dip: 15022204(0x%x)-15022208(0x%x)-1502220C(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x0204), DIP_RD32(DIP_A_BASE + 0x0208),
@@ -1147,6 +1157,24 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("dip: 15022218(0x%x)-0x1502231C(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x0218), DIP_RD32(DIP_A_BASE + 0x031C));
 
+	CMDQ_ERR("nbc2: 15026800(0x%x)-15026804(0x%x)-15026808(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x4800), DIP_RD32(DIP_A_BASE + 0x4804),
+		DIP_RD32(DIP_A_BASE + 0x4808));
+	CMDQ_ERR("nbc2: 15026810(0x%x)-15026814(0x%x)-15026818(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x4810), DIP_RD32(DIP_A_BASE + 0x4814),
+		DIP_RD32(DIP_A_BASE + 0x4818));
+	CMDQ_ERR("nbc2: 15026830(0x%x)-15026834(0x%x)-15026838(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x4830), DIP_RD32(DIP_A_BASE + 0x4834),
+		DIP_RD32(DIP_A_BASE + 0x4838));
+	CMDQ_ERR("nbc2: 15026840(0x%x)-15026844(0x%x)-15026848(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x4840), DIP_RD32(DIP_A_BASE + 0x4844),
+		DIP_RD32(DIP_A_BASE + 0x4848));
+	CMDQ_ERR("nbc2: 1502684C(0x%x)-15026850(0x%x)-15026854(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x484C), DIP_RD32(DIP_A_BASE + 0x4850),
+		DIP_RD32(DIP_A_BASE + 0x4854));
+	CMDQ_ERR("nbc2: 15026858(0x%x)-1502685C(0x%x)-15026874(0x%x)\n",
+		DIP_RD32(DIP_A_BASE + 0x4858), DIP_RD32(DIP_A_BASE + 0x485C),
+		DIP_RD32(DIP_A_BASE + 0x4874));
 	/* 0080, 0x15022080, DIP_A_CTL_DBG_SET */
 	DIP_WR32(DIP_A_BASE + 0x80, 0x0);
 	CMDQ_ERR("0x0007BC : dip: 0x150227BC(0x%x)\n",
@@ -1275,12 +1303,6 @@ static signed int DIP_DumpDIPReg(void)
 	CMDQ_ERR("hfg crop: 0x150272B0(0x%x)-0x150272B4(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x52B0), DIP_RD32(DIP_A_BASE + 0x52B4));
 
-	CMDQ_ERR("dcm: 0x150220A4(0x%x)-0x150220A8(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0A4), DIP_RD32(DIP_A_BASE + 0x0A8));
-	CMDQ_ERR("dcm: 0x150220AC(0x%x)-0x150220B0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0AC), DIP_RD32(DIP_A_BASE + 0x0B0));
-	CMDQ_ERR("dcm: 0x150220B4(0x%x)-0x150220F0(0x%x)\n",
-		DIP_RD32(DIP_A_BASE + 0x0B4), DIP_RD32(DIP_A_BASE + 0x0F0));
 	/* IMG3O DMA*/
 	CMDQ_ERR("img3o: 0x15022390(0x%x)-0x15022398(0x%x)\n",
 		DIP_RD32(DIP_A_BASE + 0x390), DIP_RD32(DIP_A_BASE + 0x0398));
@@ -2550,7 +2572,7 @@ static signed int DIP_P2_BufQue_Erase
 	bool stop = false;
 	int i = 0;
 	signed int cnt = 0;
-	int tmpIdx = 0;
+	unsigned int tmpIdx = 0;
 	unsigned int property = 0;
 
 	if (enum_property >= DIP_P2_BUFQUE_PROPERTY_NUM ||
@@ -2568,6 +2590,10 @@ static signed int DIP_P2_BufQue_Erase
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_PACKAGE:
 	tmpIdx = P2_FramePack_List_Idx[property].start;
+	if (tmpIdx < 0) {
+		LOG_ERR("tmpIdx is negative\n");
+		return MFALSE;
+	}
 	/* [1] clear buffer status */
 	P2_FramePackage_List[property][idx].processID = 0x0;
 	P2_FramePackage_List[property][idx].callerID = 0x0;
@@ -2614,6 +2640,10 @@ static signed int DIP_P2_BufQue_Erase
 	break;
 	case DIP_P2_BUFQUE_LIST_TAG_UNIT:
 	tmpIdx = P2_FrameUnit_List_Idx[property].start;
+	if (tmpIdx < 0) {
+		LOG_ERR("tmpIdx is negative\n");
+		return MFALSE;
+	}
 	/* [1] clear buffer status */
 	P2_FrameUnit_List[property][idx].processID = 0x0;
 	P2_FrameUnit_List[property][idx].callerID = 0x0;
