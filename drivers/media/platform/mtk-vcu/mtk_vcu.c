@@ -1393,7 +1393,6 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 	unsigned long pa_start = vma->vm_pgoff << PAGE_SHIFT;
 	unsigned long pa_start_base = pa_start;
 	unsigned long pa_end = pa_start + length;
-	int i;
 #ifdef CONFIG_MTK_IOMMU_V2
 	unsigned long start = vma->vm_start;
 	unsigned long pos = 0;
@@ -1425,7 +1424,7 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 
 	/*only vcud need this case*/
 	if (vcu_check_reg_base(vcu_dev, pa_start, length) == 0) {
-		vma->vm_pgoff = vcu_dev->map_base[i].base >> PAGE_SHIFT;
+		vma->vm_pgoff = pa_start >> PAGE_SHIFT;
 		goto reg_valid_map;
 	}
 
