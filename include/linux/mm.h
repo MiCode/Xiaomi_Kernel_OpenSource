@@ -1382,6 +1382,7 @@ extern int handle_mm_fault(struct vm_area_struct *vma, unsigned long address,
 		unsigned int flags);
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+extern int sysctl_speculative_page_fault;
 extern int __handle_speculative_fault(struct mm_struct *mm,
 				      unsigned long address,
 				      unsigned int flags);
@@ -1389,6 +1390,8 @@ static inline int handle_speculative_fault(struct mm_struct *mm,
 					   unsigned long address,
 					   unsigned int flags)
 {
+	if (unlikely(!sysctl_speculative_page_fault))
+		return VM_FAULT_RETRY;
 	/*
 	 * Try speculative page fault for multithreaded user space task only.
 	 */
