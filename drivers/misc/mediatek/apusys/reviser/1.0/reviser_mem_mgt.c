@@ -329,6 +329,12 @@ int reviser_table_get_tcm(void *drvinfo,
 
 //	LOG_DEBUG("page_num %u tcm_pgtable %lx\n",
 //			page_num, tcm_pgtable->table_tcm[0]);
+	if (g_tcm_free == 0) {
+		LOG_DEBUG("No free TCM (%u/%u)\n",
+				page_num, g_tcm_free);
+		tcm_pgtable->page_num = 0;
+		goto free_mutex;
+	}
 
 	setbits = bitmap_weight(table_tcm, TABLE_TCM_MAX);
 	//LOG_DEBUG("setbits %lu\n", setbits);
