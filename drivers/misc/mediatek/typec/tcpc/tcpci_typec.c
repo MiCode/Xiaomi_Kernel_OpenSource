@@ -544,7 +544,9 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc_dev)
 	}
 #endif	/* CONFIG_TYPEC_CAP_ROLE_SWAP */
 #ifdef CONFIG_CABLE_TYPE_DETECTION
-	tcpc_typec_handle_ctd(tcpc_dev, TCPC_CABLE_TYPE_NONE);
+	if (tcpc_dev->typec_state == typec_attached_snk ||
+	    tcpc_dev->typec_state == typec_unattachwait_pe)
+		tcpc_typec_handle_ctd(tcpc_dev, TCPC_CABLE_TYPE_NONE);
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 	switch (tcpc_dev->typec_role) {
@@ -2787,6 +2789,7 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd)
 {
 	int ret = 0;
 
+	pr_info("%s: wd = %d\n", __func__, wd);
 	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_WATER_DETECTION))
 		return 0;
 
@@ -2838,9 +2841,9 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 {
 	int ret;
 
+	TCPC_INFO("%s: cable_type = %d\n", __func__, cable_type);
 	if (!(tcpc_dev->tcpc_flags & TCPC_FLAGS_CABLE_TYPE_DETECTION))
 		return 0;
-
 
 	/* Filter out initial no cable */
 	if (cable_type == TCPC_CABLE_TYPE_C2C) {
@@ -2855,6 +2858,24 @@ int tcpc_typec_handle_ctd(struct tcpc_device *tcpc_dev,
 		}
 	}
 
+	TCPC_INFO("%s: typec_state=%s, pre_ct=%d, ct=%d, typec_ct=%d\n",
+		  __func__, typec_state_name[tcpc_dev->typec_state],
+		  tcpc_dev->pre_typec_cable_type,
+		  cable_type,  tcpc_dev->typec_cable_type);
+
+	if (tcpc_dev->typec_state == typec_attachwait_snk) {
+		TCPC_INFO("%s during attachwait_snk\n", __func__);
+		tcpc_dev->pre_typec_cable_type = cable_type;
+	} else if (tcpc_dev->typec_state == typec_try_snk ||
+		   (tcpc_dev->typec_state == typec_attached_snk &&
+			cable_type != TCPC_CABLE_TYPE_NONE)) {
+		if (tcpc_dev->pre_typec_cable_type != TCPC_CABLE_TYPE_NONE) {
+			TCPC_INFO("%s try_snk cable(%d, %d)\n", __func__,
+				  tcpc_dev->pre_typec_cable_type, cable_type);
+			cable_type = tcpc_dev->pre_typec_cable_type;
+			tcpc_dev->pre_typec_cable_type = TCPC_CABLE_TYPE_NONE;
+		}
+	}
 	TCPC_INFO("%s cable (%d, %d)\n", __func__, tcpc_dev->typec_cable_type,
 		  cable_type);
 
