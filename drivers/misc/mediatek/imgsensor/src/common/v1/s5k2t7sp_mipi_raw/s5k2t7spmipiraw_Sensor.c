@@ -58,7 +58,7 @@ static const int I2C_BUFFER_LEN = 4;
  * PFX "[%s] " format, __func__, ##args)
  */
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
-static void sensor_init(void);
+
 
 static struct imgsensor_info_struct imgsensor_info = {
 	.sensor_id = S5K2T7SP_SENSOR_ID,
@@ -556,7 +556,6 @@ static void check_streamoff(void)
 		else
 			break;
 	}
-	sensor_init();
 	pr_debug("%s exit! %d\n", __func__, i);
 }
 
@@ -1600,6 +1599,7 @@ static kal_uint32 open(void)
 		return ERROR_SENSOR_CONNECT_FAIL;
 
 	/* initail sequence write in  */
+	sensor_init();
 
 	spin_lock(&imgsensor_drv_lock);
 
