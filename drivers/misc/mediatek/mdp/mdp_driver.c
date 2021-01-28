@@ -1119,6 +1119,12 @@ static long cmdq_ioctl(struct file *pf, unsigned int code,
 		CMDQ_MSG("ioctl CMDQ_IOCTL_READ_READBACK_SLOTS\n");
 		status = mdp_ioctl_read_readback_slots(param);
 		break;
+#ifdef MDP_COMMAND_SIMULATE
+	case CMDQ_IOCTL_SIMULATE:
+		CMDQ_LOG("ioctl CMDQ_IOCTL_SIMULATE\n");
+		status = mdp_ioctl_simulate(param);
+		break;
+#endif
 	default:
 		CMDQ_ERR("unrecognized ioctl 0x%08x\n", code);
 		return -ENOIOCTLCMD;

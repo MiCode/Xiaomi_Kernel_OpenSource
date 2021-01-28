@@ -1390,7 +1390,7 @@ void cmdq_mdp_meta_replace_sec_addr(struct op_meta *metas,
 			struct cmdqRecStruct *handle)
 {
 #if 0
-	struct cmdq_sec_data *data = handle->pkt->sec_data;
+	struct cmdq_sec_data *data;
 	struct iwcCmdqAddrMetadata_t *addr;
 	int i;
 
@@ -1398,9 +1398,10 @@ void cmdq_mdp_meta_replace_sec_addr(struct op_meta *metas,
 		user_job->secData.is_secure,
 		user_job->secData.addrMetadataCount);
 
-	if (!user_job->secData.is_secure)
+	if (!handle || !user_job->secData.is_secure)
 		return;
 
+	data = handle->pkt->sec_data;
 	addr = (struct iwcCmdqAddrMetadata_t *)
 		(unsigned long)data->addrMetadatas;
 	for (i = 0; i < data->addrMetadataCount; i++) {

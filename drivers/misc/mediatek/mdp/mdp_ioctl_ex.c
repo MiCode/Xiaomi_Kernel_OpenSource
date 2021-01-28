@@ -454,7 +454,6 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 			return -EINVAL;
 		}
 
-		cmdq_mdp_meta_replace_sec_addr(metas, user_job, handle);
 		for (i = 0; i < copy_count; i++) {
 #ifdef META_DEBUG
 			CMDQ_MSG("translate meta[%u] (%u,%u,%#x,%#x,%#x)\n", i,
@@ -945,6 +944,117 @@ s32 mdp_ioctl_read_readback_slots(unsigned long param)
 
 	return mdp_process_read_request(&read_req);
 }
+
+#ifdef MDP_COMMAND_SIMULATE
+s32 mdp_ioctl_simulate(unsigned long param)
+{
+#ifdef MDP_META_IN_LEGACY_V2
+	CMDQ_LOG("%s not support\n", __func__);
+	return -EFAULT;
+#else
+	struct mdp_simulate user_job;
+	struct mdp_submit submit = {0};
+	struct mdp_job_mapping *mapping_job = NULL;
+	struct cmdq_command_buffer cmd_buf = {0};
+	struct cmdqRecStruct *handle = NULL;
+	struct cmdq_pkt_buffer *buf;
+	u8 *result_buffer = NULL, exec_cost;
+	s32 status = 0;
+	u32 size, result_size = 0;
+
+	if (copy_from_user(&user_job, (void *)param, sizeof(user_job))) {
+		CMDQ_ERR("%s copy mdp_simulate from user fail\n", __func__);
+		status = -EFAULT;
+		goto done;
+	}
+
+	submit.metas = user_job.metas;
+	submit.meta_count = user_job.meta_count;
+
+	mapping_job = kzalloc(sizeof(*mapping_job), GFP_KERNEL);
+	if (!mapping_job) {
+		status = -ENOMEM;
+		goto done;
+	}
+
+	result_buffer = vzalloc(user_job.command_size);
+	if (!result_buffer) {
+		CMDQ_ERR("%s unable to alloc necessary cmd buffer\n", __func__);
+		status = -ENOMEM;
+		goto done;
+	}
+
+	cmd_buf.va_base = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!cmd_buf.va_base) {
+		CMDQ_ERR("%s allocate cmd_buf fail!\n", __func__);
+		status = -ENOMEM;
+		goto done;
+	}
+	cmd_buf.avail_buf_size = PAGE_SIZE;
+
+	status = cmdq_mdp_handle_create(&handle);
+	if (status < 0)
+		goto done;
+
+	/* Make command from user job */
+	exec_cost = sched_clock();
+	status = translate_user_job(&submit, mapping_job, handle, &cmd_buf);
+	if (cmdq_handle_flush_cmd_buf(handle, &cmd_buf)) {
+		CMDQ_ERR("%s do flush final cmd fail\n", __func__);
+		status = -EFAULT;
+		goto done;
+	}
+	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	CMDQ_LOG("simulate translate job[%d] cost:%lluus\n",
+		user_job.meta_count, exec_cost);
+
+	list_for_each_entry(buf, &handle->pkt->buf, list_entry) {
+		if (list_is_last(&buf->list_entry, &handle->pkt->buf))
+			size = CMDQ_CMD_BUFFER_SIZE -
+				handle->pkt->avail_buf_size;
+		else
+			/* CMDQ_INST_SIZE for skip jump */
+			size = CMDQ_CMD_BUFFER_SIZE - CMDQ_INST_SIZE;
+
+		if (result_size + size > user_job.command_size)
+			size = user_job.command_size - result_size;
+
+		memcpy(result_buffer + result_size, buf->va_base, size);
+		result_size += size;
+		if (result_size >= user_job.command_size) {
+			CMDQ_ERR("instruction buf size not enough %u < %u\n",
+				result_size, handle->pkt->cmd_buf_size);
+			break;
+		}
+	}
+	CMDQ_LOG("simulate instruction size:%u\n", result_size);
+
+	if (copy_to_user((void *)(unsigned long)user_job.commands,
+		result_buffer, result_size)) {
+		CMDQ_ERR("%s fail to copy instructions to user\n", __func__);
+		status = -EINVAL;
+		goto done;
+	}
+
+	if (copy_to_user((void *)(unsigned long)user_job.result_size,
+		&result_size, sizeof(u32))) {
+		CMDQ_ERR("%s fail to copy result size to user\n", __func__);
+		status = -EINVAL;
+		goto done;
+	}
+
+	CMDQ_LOG("%s done\n", __func__);
+
+done:
+	kfree(mapping_job);
+	kfree(cmd_buf.va_base);
+	vfree(result_buffer);
+	if (handle)
+		cmdq_task_destroy(handle);
+	return status;
+#endif
+}
+#endif
 
 void mdp_ioctl_free_readback_slots_by_node(void *fp)
 {
