@@ -229,6 +229,7 @@ static struct upstream_transaction *alloc_upstream_transaction(
 		struct rawbulk_transfer *transfer, int bufsz)
 {
 	struct upstream_transaction *t;
+	int ret = 0;
 
 	C2K_DBG("%s\n", __func__);
 
@@ -255,8 +256,11 @@ static struct upstream_transaction *alloc_upstream_transaction(
 		goto failto_alloc_usb_request;
 	t->req->context = t;
 	t->name[0] = 0;
-	snprintf(t->name, sizeof(t->name), "U%d ( G:%s)",
+	ret = snprintf(t->name, sizeof(t->name), "U%d ( G:%s)",
 		transfer->upstream.ntrans, transfer->upstream.ep->name);
+
+	if (ret >= sizeof(t->name))
+		goto failto_copy_ep_name;
 
 	INIT_LIST_HEAD(&t->tlist);
 	list_add_tail(&t->tlist, &transfer->upstream.transactions);
@@ -265,6 +269,9 @@ static struct upstream_transaction *alloc_upstream_transaction(
 	t->state = UPSTREAM_STAT_FREE;
 	return t;
 
+failto_copy_ep_name:
+	/* return -ENOMEM will be better */
+	usb_ep_free_request(transfer->upstream.ep, t->req);
 failto_alloc_usb_request:
 	/* kfree(t->buffer); */
 	free_page((unsigned long)t->buffer);
