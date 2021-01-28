@@ -488,6 +488,8 @@ static void dump_disp_trace(struct drm_mtk_layering_info *disp_info)
 			     disp_info->gles_tail[i]);
 
 		for (j = 0; j < disp_info->layer_num[i]; j++) {
+			if (n >= len)
+				break;
 			c = &disp_info->input_config[i][j];
 			n += snprintf(msg + n, len - n,
 				      "|L%d->%d(%u,%u,%ux%u),f:0x%x,c:%d",
