@@ -387,6 +387,7 @@ struct musb {
 #endif
 
 	struct usb_phy *xceiv;
+	unsigned int efuse_val;
 	u8 xceiv_event;
 
 	int nIrq;

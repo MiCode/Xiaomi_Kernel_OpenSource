@@ -2620,6 +2620,7 @@ static int musb_probe(struct platform_device *pdev)
 	void __iomem *base;
 	void __iomem *pbase;
 	struct resource *iomem;
+	static struct device *efuse_dev;
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	base = devm_ioremap(dev, iomem->start, resource_size(iomem));
@@ -2638,6 +2639,12 @@ static int musb_probe(struct platform_device *pdev)
 	pr_info("%s mac=0x%lx, phy=0x%lx, irq=%d\n"
 		, __func__, (unsigned long)base, (unsigned long)pbase, irq);
 	status = musb_init_controller(dev, irq, base, pbase);
+
+	if (!status) {
+		efuse_dev = &pdev->dev;
+		/* get phy efuse val */
+		mtk_musb->efuse_val = usb_phy_get_efuse_val(efuse_dev);
+	}
 
 	return status;
 }

@@ -357,7 +357,6 @@ static int usb_sram_init(void)
 
 static int real_enable = 0, real_disable;
 static int virt_enable = 0, virt_disable;
-static struct device *efuse_dev;
 static void mt_usb_enable(struct musb *musb)
 {
 	unsigned long flags;
@@ -389,7 +388,7 @@ static void mt_usb_enable(struct musb *musb)
 	/* only for mt6761 */
 	usb_sram_setup();
 #endif
-	usb_phy_recover(efuse_dev);
+	usb_phy_recover(musb);
 
 	/* update musb->power & mtk_usb_power in the same time */
 	musb->power = true;
@@ -1678,7 +1677,6 @@ static int mt_usb_probe(struct platform_device *pdev)
 #endif
 	int ret = -ENOMEM;
 
-	efuse_dev = &pdev->dev;
 	glue = kzalloc(sizeof(*glue), GFP_KERNEL);
 	if (!glue)
 		goto err0;

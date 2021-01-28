@@ -69,7 +69,8 @@ enum usb_state_enum {
 /* USB phy and clock */
 extern bool usb_pre_clock(bool enable);
 extern void usb_phy_poweron(void);
-extern void usb_phy_recover(struct device *dev);
+extern unsigned int usb_phy_get_efuse_val(struct device *dev);
+extern void usb_phy_recover(struct musb *musb);
 extern void usb_phy_savecurrent(void);
 extern void usb_phy_context_restore(void);
 extern void usb_phy_context_save(void);

@@ -52,7 +52,7 @@ void usb_phy_savecurrent(void)
 {
 }
 
-void usb_phy_recover(struct device *dev)
+void usb_phy_recover(struct musb *musb)
 {
 }
 
@@ -664,13 +664,39 @@ void usb_phy_savecurrent(void)
 	DBG(0, "usb save current success\n");
 }
 
-/* M17_USB_PWR Sequence 20160603.xls */
-void usb_phy_recover(struct device *dev)
+unsigned int usb_phy_get_efuse_val(struct device *dev)
 {
 	unsigned int efuse_val = 0;
 	struct nvmem_cell *cell;
 	u32 *buf;
 	size_t len;
+
+	/* M_ANALOG8[4:0] => RG_USB20_INTR_CAL[4:0] */
+	cell = nvmem_cell_get(dev, "efuse_idx107");
+	if (cell == NULL) {
+		DBG(0, "nvmem_cell_get return NULL");
+		return 0;
+	}
+	if (IS_ERR(cell)) {
+		DBG(0, "can not get efuse_cell");
+		return 0;
+	}
+
+	buf = (u32 *)nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+	if (IS_ERR(buf)) {
+		DBG(0, "can not get efuse_buf");
+		return 0;
+	}
+	efuse_val = (*buf & (0x1f<<0)) >> 0;
+	kfree(buf);
+	return efuse_val;
+}
+
+/* M17_USB_PWR Sequence 20160603.xls */
+void usb_phy_recover(struct musb *musb)
+{
+	unsigned int efuse_val = 0;
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (in_uart_mode) {
@@ -754,26 +780,7 @@ void usb_phy_recover(struct device *dev)
 
 	hs_slew_rate_cal();
 
-	/* M_ANALOG8[4:0] => RG_USB20_INTR_CAL[4:0] */
-	cell = nvmem_cell_get(dev, "efuse_idx107");
-	if (cell == NULL) {
-		DBG(0, "nvmem_cell_get return NULL");
-		return;
-	}
-	if (IS_ERR(cell)) {
-		DBG(0, "can not get efuse_cell");
-		return;
-	}
-
-	buf = (u32 *)nvmem_cell_read(cell, &len);
-	nvmem_cell_put(cell);
-	if (IS_ERR(buf)) {
-		DBG(0, "can not get efuse_buf");
-		return;
-	}
-	efuse_val = (*buf & (0x1f<<0)) >> 0;
-	kfree(buf);
-
+	efuse_val = musb->efuse_val;
 	if (efuse_val) {
 		DBG(0, "apply efuse setting, RG_USB20_INTR_CAL=0x%x\n",
 			efuse_val);
