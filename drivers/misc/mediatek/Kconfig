@@ -243,6 +243,19 @@ config MTK_TEE_GP_SUPPORT
 	  Trustonic TEE Support or Microtrust TEE Support or Google Trusty
 	  TEE or other 3rd-party TEE)
 
+config KEYMASTER_VERSION
+	string "Select keymaster version"
+	default "3.0" if (MACH_MT6755 || MACH_MT6761)
+	default "4.0"
+	---help---
+	  Keymaster is an essential component of Android which provides
+	  cryptographic operations and key storage services to Android
+	  applications. This feature option is referenced only by
+	  certain TEEs.
+	  Choose 3.0 if you would like to enable keymaster 3.0.
+	  Choose 4.0 if you would like to enable keymaster 4.0.
+	  If unsure, choose 4.0.
+
 source "drivers/misc/mediatek/gud/Kconfig"
 source "drivers/misc/mediatek/teei/Kconfig"
 source "drivers/misc/mediatek/tkcore/Kconfig"
