@@ -559,9 +559,11 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 		}
 	}
 
-	length = skb->len;
-	req->buf = skb->data;
-	req->context = skb;
+	if (skb) {
+		length = skb->len;
+		req->buf = skb->data;
+		req->context = skb;
+	}
 	req->complete = tx_complete;
 
 	/* NCM requires no zlp if transfer is dwNtbInMaxSize */
