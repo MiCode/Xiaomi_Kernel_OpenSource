@@ -50,7 +50,7 @@ struct pm_qos_request vdec_qos_req_bw;
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
-	ctx->user_lock_hw = 0;
+	ctx->user_lock_hw = 1;
 }
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
@@ -96,11 +96,17 @@ int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
 			return PTR_ERR(pm->clk_MT_SCP_SYS_DIS);
 		}
 
-		pm->clk_MT_CG_VDEC = devm_clk_get(&pdev->dev, "MT_CG_VDEC");
-		if (IS_ERR(pm->clk_MT_CG_VDEC)) {
-			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VDEC\n");
-			return PTR_ERR(pm->clk_MT_CG_VDEC);
+		pm->clk_MT_CG_VDEC0 = devm_clk_get(&pdev->dev, "MT_CG_VDEC0");
+		if (IS_ERR(pm->clk_MT_CG_VDEC0)) {
+			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VDEC0\n");
+			return PTR_ERR(pm->clk_MT_CG_VDEC0);
 		}
+		pm->clk_MT_CG_VDEC1 = devm_clk_get(&pdev->dev, "MT_CG_VDEC1");
+		if (IS_ERR(pm->clk_MT_CG_VDEC1)) {
+			mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VDEC1\n");
+			return PTR_ERR(pm->clk_MT_CG_VDEC1);
+		}
+
 	} else
 		mtk_v4l2_err("[VCODEC][ERROR] DTS went wrong...");
 #endif
@@ -130,7 +136,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 	int ret;
 
 	smi_bus_prepare_enable(SMI_LARB1, "VDEC");
-	ret = clk_prepare_enable(pm->clk_MT_CG_VDEC);
+	ret = clk_prepare_enable(pm->clk_MT_CG_VDEC0);
 	if (ret)
 		mtk_v4l2_err("clk_prepare_enable CG_VDEC fail %d", ret);
 #endif
@@ -139,7 +145,7 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm, int hw_id)
 {
 #ifndef FPGA_PWRCLK_API_DISABLE
-	clk_disable_unprepare(pm->clk_MT_CG_VDEC);
+	clk_disable_unprepare(pm->clk_MT_CG_VDEC0);
 	smi_bus_disable_unprepare(SMI_LARB1, "VDEC");
 #endif
 }

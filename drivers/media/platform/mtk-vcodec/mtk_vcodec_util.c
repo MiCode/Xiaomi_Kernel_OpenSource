@@ -14,10 +14,14 @@
 */
 
 #include <linux/module.h>
+#include <linux/module.h>
+#include <media/v4l2-mem2mem.h>
+#include <media/videobuf2-dma-contig.h>
 
 #include "mtk_vcodec_drv.h"
 #include "mtk_vcodec_util.h"
 #include "mtk_vcu.h"
+#include "mtk_vcodec_dec.h"
 
 /* For encoder, this will enable logs in venc/*/
 bool mtk_vcodec_dbg;
@@ -133,3 +137,78 @@ struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev)
 	return ctx;
 }
 EXPORT_SYMBOL(mtk_vcodec_get_curr_ctx);
+
+
+struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
+{
+	struct vb2_buffer *dst_buf, *src_buf;
+	struct vdec_fb *pfb;
+	struct mtk_video_dec_buf *dst_buf_info, *src_buf_info;
+	struct vb2_v4l2_buffer *dst_vb2_v4l2, *src_vb2_v4l2;
+	int i;
+
+	/* for getting timestamp*/
+	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	src_vb2_v4l2 = container_of(src_buf, struct vb2_v4l2_buffer, vb2_buf);
+	src_buf_info = container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
+
+	if (!ctx) {
+		mtk_v4l2_err("Ctx is NULL!");
+		return NULL;
+	}
+	mtk_v4l2_debug_enter();
+	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
+	if (dst_buf) {
+		dst_vb2_v4l2 = container_of(
+			dst_buf, struct vb2_v4l2_buffer, vb2_buf);
+		dst_buf_info = container_of(
+			dst_vb2_v4l2, struct mtk_video_dec_buf, vb);
+		pfb = &dst_buf_info->frame_buffer;
+		pfb->num_planes = dst_vb2_v4l2->vb2_buf.num_planes;
+		pfb->index = dst_buf->index;
+
+		for (i = 0; i < dst_vb2_v4l2->vb2_buf.num_planes; i++) {
+			pfb->fb_base[i].va = vb2_plane_vaddr(dst_buf, i);
+#ifdef CONFIG_VB2_MEDIATEK_DMA_SG
+			pfb->fb_base[i].dma_addr =
+				mtk_vb2_dma_contig_plane_dma_addr(dst_buf, i);
+#else
+			pfb->fb_base[i].dma_addr =
+				vb2_dma_contig_plane_dma_addr(dst_buf, i);
+#endif
+			pfb->fb_base[i].size = ctx->picinfo.fb_sz[i];
+			pfb->fb_base[i].length = dst_buf->planes[i].length;
+			pfb->fb_base[i].dmabuf = dst_buf->planes[i].dbuf;
+		}
+
+		pfb->status = 0;
+		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p ad dma_addr[1]=%p Size=%zx fd:%x",
+				ctx->id, dst_buf->index, pfb,
+				pfb->fb_base[0].va,
+				&pfb->fb_base[0].dma_addr,
+				&pfb->fb_base[1].dma_addr,
+				pfb->fb_base[0].size,
+				dst_buf->planes[0].m.fd);
+
+		dst_buf_info->vb.vb2_buf.timestamp
+			= src_buf_info->vb.vb2_buf.timestamp;
+		dst_buf_info->vb.timecode
+			= src_buf_info->vb.timecode;
+		mutex_lock(&ctx->buf_lock);
+		dst_buf_info->used = true;
+		mutex_unlock(&ctx->buf_lock);
+		dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+		mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n", ctx->id,
+			dst_buf->index,
+			v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx));
+
+	} else {
+		mtk_v4l2_err("[%d] No free framebuffer in v4l2!!\n", ctx->id);
+		pfb = NULL;
+	}
+	mtk_v4l2_debug_leave();
+
+	return pfb;
+}
+EXPORT_SYMBOL(mtk_vcodec_get_fb);
+

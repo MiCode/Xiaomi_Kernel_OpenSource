@@ -15,7 +15,6 @@
 
 #ifndef _VDEC_IPI_MSG_H_
 #define _VDEC_IPI_MSG_H_
-#include "linux/videodev2.h"
 #include "vcodec_ipi_msg.h"
 
 #define MTK_MAX_DEC_CODECS_SUPPORT       (128)
@@ -75,8 +74,11 @@ enum vdec_ipi_msgid {
 
 	VCU_IPIMSG_DEC_WAITISR = 0xC000,
 	VCU_IPIMSG_DEC_GET_FRAME_BUFFER = 0xC001,
-	VCU_IPIMSG_DEC_CLOCK_ON = 0xC002,
-	VCU_IPIMSG_DEC_CLOCK_OFF = 0xC003
+	VCU_IPIMSG_DEC_PUT_FRAME_BUFFER = 0xC002,
+	VCU_IPIMSG_DEC_LOCK_CORE = 0xC003,
+	VCU_IPIMSG_DEC_UNLOCK_CORE = 0xC004,
+	VCU_IPIMSG_DEC_LOCK_LAT = 0xC005,
+	VCU_IPIMSG_DEC_UNLOCK_LAT = 0xC006
 };
 
 /* For GET_PARAM_DISP_FRAME_BUFFER and GET_PARAM_FREE_FRAME_BUFFER,
@@ -367,6 +369,7 @@ struct vdec_vsi {
 	__u32 codec_type;
 	__u8 crc_path[256];
 	__u8 golden_path[256];
+	__u8 input_driven;
 };
 
 #endif

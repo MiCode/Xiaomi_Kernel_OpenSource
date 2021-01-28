@@ -105,4 +105,11 @@ int vdec_if_get_param(struct mtk_vcodec_ctx *ctx, enum vdec_get_param_type type,
 int vdec_if_set_param(struct mtk_vcodec_ctx *ctx,
 					  enum vdec_set_param_type type,
 					  void *in);
+
+
+void vdec_decode_prepare(void *ctx_prepare,
+	int hw_id);
+void vdec_decode_unprepare(void *ctx_unprepare,
+	int hw_id);
+
 #endif

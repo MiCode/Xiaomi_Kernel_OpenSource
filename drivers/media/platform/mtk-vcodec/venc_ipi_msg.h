@@ -19,6 +19,7 @@
 #define _VENC_IPI_MSG_H_
 
 #include <linux/videodev2.h>
+#include "vcodec_ipi_msg.h"
 
 #define MTK_MAX_ENC_CODECS_SUPPORT       (32)
 #define AP_IPIMSG_VENC_BASE 0xC000
