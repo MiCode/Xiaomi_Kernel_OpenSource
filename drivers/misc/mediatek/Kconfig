@@ -221,6 +221,7 @@ source "drivers/misc/mediatek/eccci/Kconfig"
 source "drivers/misc/mediatek/btif/Kconfig"
 source "drivers/misc/mediatek/connectivity/Kconfig"
 source "drivers/misc/mediatek/conn_md/Kconfig"
+source "drivers/misc/mediatek/nfc/Kconfig"
 endmenu # CONN
 
 menu "Security"
@@ -230,6 +231,9 @@ source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
 
 menu "Other Peripherals"
+
+
+
 
 endmenu # Other Peripheral
 

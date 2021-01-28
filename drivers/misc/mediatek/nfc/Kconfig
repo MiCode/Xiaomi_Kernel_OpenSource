@@ -1,0 +1,11 @@
+config NFC_CHIP_SUPPORT
+	tristate "NFC driver solution - NFC Controller Driver"
+	depends on I2C
+	select NFC_ST54_SPI
+	help
+	  STMicroelectronics ST21NFC Near Field Communication controller
+	  support. ST21NFC is standalone NFC and ST54 is combined with secure
+	  element. If configures to be y, means devices supports NFC
+	  functionality. If configures to be n, means devices doesn't support
+	  NFC functionality.
+
