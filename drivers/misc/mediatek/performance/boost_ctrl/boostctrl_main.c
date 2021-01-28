@@ -20,9 +20,7 @@ int init_boostctrl(struct proc_dir_entry *parent)
     /* init topology info first */
 	topo_ctrl_init(bstctrl_root);
 
-#ifdef CONFIG_MTK_PPM
 	cpu_ctrl_init(bstctrl_root);
-#endif
 
 	dram_ctrl_init(bstctrl_root);
 
