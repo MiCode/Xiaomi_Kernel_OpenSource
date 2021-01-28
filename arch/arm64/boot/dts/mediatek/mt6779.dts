@@ -3395,6 +3395,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			interrupts = <GIC_SPI 89 IRQ_TYPE_EDGE_RISING>;
 		};
 
+		tee_sanity {
+			compatible = "mediatek,tee_sanity";
+			interrupts = <GIC_SPI 90 IRQ_TYPE_EDGE_RISING>;
+		};
+
 		ssusb: usb0@11201000 {
 			compatible = "mediatek,mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
