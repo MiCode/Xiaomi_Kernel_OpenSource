@@ -287,7 +287,7 @@ static void kasan_report_error(struct kasan_access_info *info)
 {
 	unsigned long flags;
 
-	kasan_start_report(&flags);
+	start_report(&flags);
 
 	print_error_description(info);
 	pr_err("\n");
@@ -300,7 +300,7 @@ static void kasan_report_error(struct kasan_access_info *info)
 		print_shadow_for_address(info->first_bad_addr);
 	}
 
-	kasan_end_report(&flags);
+	end_report(&flags);
 #ifdef CONFIG_MTK_MM_DEBUG
 	/* trigger KE to get the KAsan corruption message */
 	BUG();
@@ -311,19 +311,6 @@ static unsigned long kasan_flags;
 
 #define KASAN_BIT_REPORTED	0
 #define KASAN_BIT_MULTI_SHOT	1
-
-bool kasan_save_enable_multi_shot(void)
-{
-	return test_and_set_bit(KASAN_BIT_MULTI_SHOT, &kasan_flags);
-}
-EXPORT_SYMBOL_GPL(kasan_save_enable_multi_shot);
-
-void kasan_restore_multi_shot(bool enabled)
-{
-	if (!enabled)
-		clear_bit(KASAN_BIT_MULTI_SHOT, &kasan_flags);
-	end_report(&flags);
-}
 
 void __kasan_report(unsigned long addr, size_t size, bool is_write, unsigned long ip)
 {
@@ -364,5 +351,5 @@ void __kasan_report(unsigned long addr, size_t size, bool is_write, unsigned lon
 		dump_stack();
 	}
 
-	end_report(&flags);
+	kasan_report_error(&info);
 }
