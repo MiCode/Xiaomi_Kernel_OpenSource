@@ -575,7 +575,7 @@ static void vow_service_Init(void)
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 		vowserv.interleave_pcmdata_ptr = NULL;
 #endif
-		vowserv.google_engine_version = 254868980;
+		vowserv.google_engine_version = DEFAULT_GOOGLE_ENGINE_VER;
 		memset(vowserv.alexa_engine_version, 0, VOW_ENGINE_INFO_LENGTH_BYTE);
 	} else {
 		/*Initialization*/
