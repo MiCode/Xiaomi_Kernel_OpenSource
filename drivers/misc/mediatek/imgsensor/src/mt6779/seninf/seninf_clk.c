@@ -180,7 +180,8 @@ void seninf_clk_exit(struct SENINF_CLK *pclk)
 int seninf_clk_set(struct SENINF_CLK *pclk,
 					struct ACDK_SENSOR_MCLK_STRUCT *pmclk)
 {
-	int i, ret = 0, idx_tg, idx_freq;
+	int i, ret = 0;
+	unsigned int idx_tg, idx_freq;
 
 	if (pmclk->TG >= SENINF_CLK_TG_MAX_NUM ||
 	    pmclk->freq > SENINF_CLK_MCLK_FREQ_MAX ||

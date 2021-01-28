@@ -497,8 +497,7 @@ int imgsensor_set_driver(struct IMGSENSOR_SENSOR *psensor)
 
 	imgsensor_mutex_init(psensor_inst);
 	imgsensor_i2c_init(&psensor_inst->i2c_cfg,
-	   imgsensor_custom_config[psensor->inst.sensor_idx].i2c_dev);
-
+	   imgsensor_custom_config[psensor_inst->sensor_idx].i2c_dev);
 	imgsensor_i2c_filter_msg(&psensor_inst->i2c_cfg, true);
 
 	if (get_search_list) {
@@ -1250,7 +1249,8 @@ static inline int adopt_CAMERA_HW_FeatureControl(void *pBuf)
 			PK_DBG(" ioctl copy from user failed\n");
 			return -EFAULT;
 		}
-		if (FeatureParaLen > FEATURE_CONTROL_MAX_DATA_SIZE)
+		if (!FeatureParaLen ||
+			FeatureParaLen > FEATURE_CONTROL_MAX_DATA_SIZE)
 			return -EINVAL;
 
 		pFeaturePara = kmalloc(FeatureParaLen, GFP_KERNEL);
@@ -2424,7 +2424,8 @@ static long imgsensor_ioctl(
 				i4RetValue =  -EFAULT;
 				goto CAMERA_HW_Ioctl_EXIT;
 			}
-		}
+		} else
+			memset(pBuff, 0, _IOC_SIZE(a_u4Command));
 	} else {
 		i4RetValue =  -EFAULT;
 		goto CAMERA_HW_Ioctl_EXIT;

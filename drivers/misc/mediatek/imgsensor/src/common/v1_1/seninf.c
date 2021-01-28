@@ -374,7 +374,8 @@ static long seninf_ioctl(struct file *pfile,
 				ret = -EFAULT;
 				goto SENINF_IOCTL_EXIT;
 			}
-		}
+		} else
+			memset(pbuff, 0, _IOC_SIZE(cmd));
 	} else {
 		ret = -EFAULT;
 		goto SENINF_IOCTL_EXIT;
