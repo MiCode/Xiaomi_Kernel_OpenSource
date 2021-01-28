@@ -567,7 +567,7 @@ int32_t cmdq_mdp_reset_with_mmsys(const uint64_t engineToResetAgain)
 			continue;
 
 		if (engineToResetAgain & (1LL << engineResetBit[i]))
-			reset_bits1 |= (1 << i);
+			reset_bits1 |= (1ULL << i);
 	}
 
 	if (reset_bits0 != 0) {
