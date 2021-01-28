@@ -15,3 +15,12 @@ config MTK_CM_MGR
 	  this option, dram opp level will be changed which will depended
 	  on power table.
 	  If unsure, say N.
+
+config MTK_SWPM
+	bool "MTK SW Power Meter"
+	default n
+	---help---
+	  This kernel config can be used to enable SW power meter. When enable
+	  this option, user can turn on SW power meter and get average power
+	  for each power rail for low power debugging.
+	  If unsure, say N.
