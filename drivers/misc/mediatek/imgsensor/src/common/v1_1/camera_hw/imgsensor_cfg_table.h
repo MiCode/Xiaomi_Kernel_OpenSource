@@ -13,6 +13,7 @@
 
 #include <linux/atomic.h>
 #include "imgsensor_common.h"
+#include "imgsensor_platform.h"
 
 #ifndef __IMGSENSOR_CFG_TABLE_H__
 #define __IMGSENSOR_CFG_TABLE_H__
@@ -84,14 +85,7 @@ enum IMGSENSOR_HW_PIN_STATE {
 #define Vol_2800  IMGSENSOR_HW_PIN_STATE_LEVEL_2800
 #define Vol_2900  IMGSENSOR_HW_PIN_STATE_LEVEL_2900
 
-enum IMGSENSOR_HW_ID {
-	IMGSENSOR_HW_ID_MCLK,
-	IMGSENSOR_HW_ID_REGULATOR,
-	IMGSENSOR_HW_ID_GPIO,
 
-	IMGSENSOR_HW_ID_MAX_NUM,
-	IMGSENSOR_HW_ID_NONE = -1
-};
 
 #define IMGSENSOR_I2C_DRV_NAME_0  "kd_camera_hw"
 #define IMGSENSOR_I2C_DRV_NAME_1  "kd_camera_hw_bus2"

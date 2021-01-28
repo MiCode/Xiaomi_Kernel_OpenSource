@@ -11,5 +11,5 @@
 # GNU General Public License for more details.
 #
 
-obj-y				+= seninf_clk.o
+obj-y				+= ../../common/v1_1/seninf_clk.o
 obj-y				+= seninf_irq.o

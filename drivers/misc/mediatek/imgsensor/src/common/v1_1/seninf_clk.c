@@ -15,39 +15,7 @@
 
 #include "seninf_clk.h"
 
-static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
-	{"SCP_SYS_MDP"},
-	{"SCP_SYS_CAM"},
-	{"CAMSYS_SENINF_CGPDN"},
-	{"TOP_MUX_SENINF"},
-	{"TOP_MUX_SENINF1"},
-	{"TOP_MUX_SENINF2"},
-	{"TOP_MUX_SENINF3"},
-	{"TOP_MUX_CAMTG"},
-	{"TOP_MUX_CAMTG2"},
-	{"TOP_MUX_CAMTG3"},
-	{"TOP_MUX_CAMTG4"},
-	{"TOP_MUX_CAMTG5"},
-	{"TOP_MUX_CAMTG6"},
-	{"TOP_UNIVP_192M_D32"}, /*   6*/
-	{"TOP_UNIVP_192M_D16"}, /*  12*/
-	{"TOP_F26M_CK_D2"},     /*  13*/
-	{"TOP_UNIVP_192M_D8"},  /*  24*/
-	{"TOP_CLK26M"},         /*  26*/
-	{"TOP_UNIVP_192M_D4"},  /*  48*/
-	{"TOP_UNIVPLL_D6_D8"},  /*  52*/
-};
 
-static enum SENINF_CLK_MCLK_FREQ
-gseninf_clk_freq[SENINF_CLK_IDX_FREQ_IDX_NUM] = {
-	SENINF_CLK_MCLK_FREQ_6MHZ,
-	SENINF_CLK_MCLK_FREQ_12MHZ,
-	SENINF_CLK_MCLK_FREQ_13MHZ,
-	SENINF_CLK_MCLK_FREQ_24MHZ,
-	SENINF_CLK_MCLK_FREQ_26MHZ,
-	SENINF_CLK_MCLK_FREQ_48MHZ,
-	SENINF_CLK_MCLK_FREQ_52MHZ,
-};
 
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 struct pm_qos_request imgsensor_qos;
@@ -177,6 +145,7 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 					struct ACDK_SENSOR_MCLK_STRUCT *pmclk)
 {
 	int i, ret = 0;
+	unsigned int idx_tg, idx_freq = 0;
 
 	if (pmclk->TG >= SENINF_CLK_TG_MAX_NUM ||
 	    pmclk->freq > SENINF_CLK_MCLK_FREQ_MAX ||
@@ -195,6 +164,9 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 	for (i = 0; pmclk->freq != gseninf_clk_freq[i]; i++)
 		;
 
+	idx_tg = pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM;
+	idx_freq = i + SENINF_CLK_IDX_FREQ_MIN_NUM;
+
 	if (pmclk->on) {
 		/* Workaround for timestamp: TG1 always ON */
 		if (clk_prepare_enable(
@@ -205,40 +177,27 @@ int seninf_clk_set(struct SENINF_CLK *pclk,
 			atomic_inc(
 			&pclk->enable_cnt[SENINF_CLK_IDX_TG_TOP_MUX_CAMTG]);
 
-		if (clk_prepare_enable(
-			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]))
+		if (clk_prepare_enable(pclk->mclk_sel[idx_tg]))
 			PK_PR_ERR("[CAMERA SENSOR] failed tg=%d\n", pmclk->TG);
 		else
-			atomic_inc(
-		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
+			atomic_inc(&pclk->enable_cnt[idx_tg]);
 
-		if (clk_prepare_enable(
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]))
+		if (clk_prepare_enable(pclk->mclk_sel[idx_freq]))
 			PK_PR_ERR("[CAMERA SENSOR] failed freq idx= %d\n", i);
 		else
-			atomic_inc(&pclk->enable_cnt[i
-					+ SENINF_CLK_IDX_FREQ_MIN_NUM]);
+			atomic_inc(&pclk->enable_cnt[idx_freq]);
 
 		ret = clk_set_parent(
-			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM],
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
+			pclk->mclk_sel[idx_tg], pclk->mclk_sel[idx_freq]);
 	} else {
-		if (atomic_read
-			(&pclk->enable_cnt[i + SENINF_CLK_IDX_FREQ_MIN_NUM])
-			> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
-			atomic_dec(
-			&pclk->enable_cnt[i + SENINF_CLK_IDX_FREQ_MIN_NUM]);
+		if (atomic_read(&pclk->enable_cnt[idx_freq]) > 0) {
+			clk_disable_unprepare(pclk->mclk_sel[idx_freq]);
+			atomic_dec(&pclk->enable_cnt[idx_freq]);
 		}
 
-		if (atomic_read(
-		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM])
-		> 0) {
-			clk_disable_unprepare(
-			pclk->mclk_sel[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
-			atomic_dec(
-		&pclk->enable_cnt[pmclk->TG + SENINF_CLK_IDX_TG_MIN_NUM]);
+		if (atomic_read(&pclk->enable_cnt[idx_tg]) > 0) {
+			clk_disable_unprepare(pclk->mclk_sel[idx_tg]);
+			atomic_dec(&pclk->enable_cnt[idx_tg]);
 		}
 
 		/* Workaround for timestamp: TG1 always ON */
@@ -300,7 +259,7 @@ void seninf_clk_release(struct SENINF_CLK *pclk)
 
 unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 {
-#if SENINF_CLK_CONTROL
+#if 0//SENINF_CLK_CONTROL
 	/* workaround */
 	mt_get_ckgen_freq(1);
 
@@ -317,7 +276,10 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 	else
 		return 0;
 #else
-	return 0;
+	if (clk < 64)
+		return mt_get_ckgen_freq(clk);
+	else
+		return 0;
 #endif
 }
 
