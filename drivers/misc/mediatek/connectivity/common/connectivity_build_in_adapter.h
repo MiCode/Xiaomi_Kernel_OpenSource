@@ -137,7 +137,9 @@ void connectivity_export_mt6306_set_gpio_dir(unsigned long pin,
 #ifdef CONFIG_MACH_MT6799
 #define CPU_BOOST y
 #endif
-
+#ifdef CONFIG_MACH_MT6739
+#define CPU_BOOST y
+#endif
 #ifdef CPU_BOOST
 #include "mtk_ppm_api.h"
 #include "mtk_spm_resource_req.h"
@@ -214,7 +216,7 @@ void connectivity_arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
  *
  * event_trace_printk()
  *********************************************/
-
+#ifndef CONFIG_MACH_MT6739
 #define KERNEL_event_trace_printk(ip, fmt, args...)               \
 do {                                                              \
 	__trace_printk_check_format(fmt, ##args);                 \
@@ -227,7 +229,7 @@ do {                                                              \
 	} else                                                    \
 		__trace_printk(ip, fmt, ##args);                  \
 } while (0)
-
+#endif
 /******************************************************************************
  * GPIO dump information
  ******************************************************************************/
