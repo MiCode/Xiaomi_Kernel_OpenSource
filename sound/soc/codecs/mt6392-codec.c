@@ -721,6 +721,8 @@ static int mt6392_codec_dev_probe(struct platform_device *pdev)
 
 	codec_data = devm_kzalloc(dev,
 			sizeof(struct mt6392_codec_priv), GFP_KERNEL);
+	pdev->name = pdev->dev.kobj.name;
+
 	if (!codec_data)
 		return -ENOMEM;
 
