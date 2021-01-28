@@ -2079,6 +2079,9 @@ page_owner=on loop.max_part=7";
 		/* Number of lanes available per direction - either 1 or 2 */
 		lanes-per-direction = <2>;
 
+		/* Highspeed gear support */
+		highspeed-gear = <4>;
+
 		/* Auto-Hibern8 Timer. Unit: ms	(0 means disabled) */
 		mediatek,auto-hibern8-timer = <10>;
 
