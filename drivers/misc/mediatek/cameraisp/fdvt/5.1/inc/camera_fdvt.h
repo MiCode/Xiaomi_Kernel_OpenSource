@@ -176,6 +176,8 @@ struct fdvt_config {
 	unsigned int FDVT_YUV2RGBCON_BUFSIZE;
 	unsigned int FDVT_FD_CON_BUFSIZE;
 	unsigned int FDVT_FD_POSE_CON_BUFSIZE;
+	unsigned int FDVT_LOOPS_OF_FDMODE;
+	unsigned int FDVT_NUMBERS_OF_PYRAMID;
 	FDVT_MetaDataToGCE FDVT_METADATA_TO_GCE;
 };
 #define FDVT_Config struct fdvt_config
