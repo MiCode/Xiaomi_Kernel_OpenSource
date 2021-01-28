@@ -76,7 +76,7 @@ struct ion_mm_buffer_info {
 		if (file)\
 			seq_printf(file, fmat, ##args);\
 		else\
-			printk(KERN_ERR, fmat, ##args);\
+			printk(KERN_ERR fmt, ##args);\
 	} while (0)
 
 static unsigned int order_gfp_flags[] = {

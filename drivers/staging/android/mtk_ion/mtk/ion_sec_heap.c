@@ -51,7 +51,7 @@ do {\
 	if (file)\
 		seq_printf(file, fmat, ##args);\
 	else\
-		printk(KERN_ERR, fmat, ##args);\
+		printk(KERN_ERR fmt, ##args);\
 } while (0)
 
 struct ion_sec_heap {
