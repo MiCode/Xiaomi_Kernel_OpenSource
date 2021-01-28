@@ -2037,7 +2037,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	audio: audio@11220000 {
-		compatible = "mediatek,mt6761-audsys", "syscon";
+		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11220000 0 0x1000>;
 		/* interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_LOW>; */
 		#clock-cells = <1>;
@@ -2843,12 +2843,6 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 	mt_soc_hp_impedance_pcm {
 		compatible = "mediatek,mt_soc_pcm_hp_impedance";
-	};
-
-	mt_soc_codec_name {
-		compatible = "mediatek,mt_soc_codec_63xx";
-		use_hp_depop_flow = <0>; /* select 1: use, 0: not use */
-		use_ul_260k = <0>; /* select 1: use, 0: not use */
 	};
 
 	mt_soc_dummy_pcm {
