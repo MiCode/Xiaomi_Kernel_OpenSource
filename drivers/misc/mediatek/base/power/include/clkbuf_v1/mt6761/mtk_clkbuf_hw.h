@@ -164,7 +164,7 @@ enum {
 #define CLKBUF_USE_BBLPM
 
 void clk_buf_post_init(void);
-void clk_buf_init_pmic_clkbuf(void);
+void clk_buf_init_pmic_clkbuf(struct regmap *regmap);
 void clk_buf_init_pmic_wrap(void);
 void clk_buf_init_pmic_swctrl(void);
 

@@ -8,12 +8,14 @@
  * @brief   Driver for clock buffer control of each platform
  *
  */
+#include <linux/regmap.h>
 
 #include <mtk_spm.h>
 #include <mtk_clkbuf_ctl.h>
 #include <mtk_clkbuf_common.h>
 
 static void __iomem *pwrap_base;
+struct regmap *clkbuf_regmap;
 
 #define PWRAP_REG(ofs)		(pwrap_base + ofs)
 
@@ -121,24 +123,56 @@ static enum CLK_BUF_SWCTRL_STATUS_T  pmic_clk_buf_swctrl[CLKBUF_NUM] = {
 };
 #endif
 
+static int clkbuf_read_pmic(u32 addr, u32 *val, u32 mask, u32 shift)
+{
+	int ret;
+
+	if (!clkbuf_regmap) {
+		pr_notice("error: clkbuf_regmap = %x\n", clkbuf_regmap);
+		return -1;
+	}
+
+	ret = regmap_read(clkbuf_regmap, addr, val);
+	*val = (*val >> shift) & mask;
+
+	return ret;
+}
+
+static int clkbuf_write_pmic(u32 addr, u32 val, u32 mask, u32 shift)
+{
+	int ret;
+
+	mask = mask << shift;
+	val = (val & mask) << shift;
+
+	if (!clkbuf_regmap) {
+		pr_notice("error: clkbuf_regmap = %x\n", clkbuf_regmap);
+		return -1;
+	}
+
+	ret = regmap_update_bits(clkbuf_regmap, addr, mask, val);
+
+	return ret;
+}
+
 static void pmic_clk_buf_ctrl_wcn(short on)
 {
 #ifdef CLKBUF_CONN_SUPPORT_CTRL_FROM_I1
 	if (on)
-		pmic_config_interface(PMIC_DCXO_CW00_SET_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_SET_ADDR, 0x1,
 				      PMIC_XO_EXTBUF2_EN_M_MASK,
 				      PMIC_XO_EXTBUF2_EN_M_SHIFT);
 	else
-		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
 				      PMIC_XO_EXTBUF2_EN_M_MASK,
 				      PMIC_XO_EXTBUF2_EN_M_SHIFT);
 #else
 	if (on)
-		pmic_config_interface(PMIC_RG_SRCLKEN_IN3_EN_ADDR, 1,
+		clkbuf_write_pmic(PMIC_RG_SRCLKEN_IN3_EN_ADDR, 1,
 				    PMIC_RG_SRCLKEN_IN3_EN_MASK,
 				    PMIC_RG_SRCLKEN_IN3_EN_SHIFT);
 	else
-		pmic_config_interface(PMIC_RG_SRCLKEN_IN3_EN_ADDR, 0,
+		clkbuf_write_pmic(PMIC_RG_SRCLKEN_IN3_EN_ADDR, 0,
 				    PMIC_RG_SRCLKEN_IN3_EN_MASK,
 				    PMIC_RG_SRCLKEN_IN3_EN_SHIFT);
 #endif
@@ -147,11 +181,11 @@ static void pmic_clk_buf_ctrl_wcn(short on)
 static void pmic_clk_buf_ctrl_nfc(short on)
 {
 	if (on)
-		pmic_config_interface(PMIC_DCXO_CW00_SET_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_SET_ADDR, 0x1,
 				      PMIC_XO_EXTBUF3_EN_M_MASK,
 				      PMIC_XO_EXTBUF3_EN_M_SHIFT);
 	else
-		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
 				      PMIC_XO_EXTBUF3_EN_M_MASK,
 				      PMIC_XO_EXTBUF3_EN_M_SHIFT);
 }
@@ -159,11 +193,11 @@ static void pmic_clk_buf_ctrl_nfc(short on)
 static void pmic_clk_buf_ctrl_cel(short on)
 {
 	if (on)
-		pmic_config_interface(PMIC_DCXO_CW00_SET_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_SET_ADDR, 0x1,
 				      PMIC_XO_EXTBUF4_EN_M_MASK,
 				      PMIC_XO_EXTBUF4_EN_M_SHIFT);
 	else
-		pmic_config_interface(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
 				      PMIC_XO_EXTBUF4_EN_M_MASK,
 				      PMIC_XO_EXTBUF4_EN_M_SHIFT);
 }
@@ -179,11 +213,11 @@ static void pmic_clk_buf_ctrl_pd(short on)
 static void pmic_clk_buf_ctrl_ext(short on)
 {
 	if (on)
-		pmic_config_interface(PMIC_DCXO_CW11_SET_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW11_SET_ADDR, 0x1,
 				      PMIC_XO_EXTBUF7_EN_M_MASK,
 				      PMIC_XO_EXTBUF7_EN_M_SHIFT);
 	else
-		pmic_config_interface(PMIC_DCXO_CW11_CLR_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW11_CLR_ADDR, 0x1,
 				      PMIC_XO_EXTBUF7_EN_M_MASK,
 				      PMIC_XO_EXTBUF7_EN_M_SHIFT);
 }
@@ -201,9 +235,9 @@ static void pmic_clk_buf_ctrl(enum CLK_BUF_SWCTRL_STATUS_T *status)
 	pmic_clk_buf_ctrl_pd(status[XO_PD] % 2);
 	pmic_clk_buf_ctrl_ext(status[XO_EXT] % 2);
 
-	pmic_read_interface(PMIC_DCXO_CW00, &pmic_cw00,
+	clkbuf_read_pmic(PMIC_DCXO_CW00, &pmic_cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_DCXO_CW11, &pmic_cw11,
+	clkbuf_read_pmic(PMIC_DCXO_CW11, &pmic_cw11,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pr_info("%s DCXO_CW00=0x%x, CW11=0x%x, clk_buf_swctrl=[%u %u %u %u %u %u %u]\n",
 		__func__, pmic_cw00, pmic_cw11, status[0], status[1],
@@ -220,15 +254,15 @@ void clk_buf_control_bblpm(bool on)
 		return;
 
 	if (on) /* FPM -> BBLPM */
-		pmic_config_interface_nolock(PMIC_DCXO_CW00_SET_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_SET_ADDR, 0x1,
 				      PMIC_XO_BB_LPM_EN_MASK,
 				      PMIC_XO_BB_LPM_EN_SHIFT);
 	else /* BBLPM -> FPM */
-		pmic_config_interface_nolock(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
+		clkbuf_write_pmic(PMIC_DCXO_CW00_CLR_ADDR, 0x1,
 				      PMIC_XO_BB_LPM_EN_MASK,
 				      PMIC_XO_BB_LPM_EN_SHIFT);
 
-	pmic_read_interface_nolock(PMIC_DCXO_CW00, &cw00,
+	clkbuf_read_pmic(PMIC_DCXO_CW00, &cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 
 	clk_buf_pr_dbg("%s(%u): CW00=0x%x\n", __func__, (on ? 1 : 0), cw00);
@@ -283,7 +317,7 @@ static void clk_buf_ctrl_internal(enum clk_buf_id id, bool onoff)
 	case CLK_BUF_CONN:
 		if (onoff) {
 			CLK_BUF2_STATUS_PMIC = CLOCK_BUFFER_SW_CONTROL;
-			pmic_config_interface(PMIC_DCXO_CW00_SET, RG_XO2_MODE,
+			clkbuf_write_pmic(PMIC_DCXO_CW00_SET, RG_XO2_MODE,
 					      PMIC_XO_EXTBUF2_MODE_MASK,
 					      PMIC_XO_EXTBUF2_MODE_SHIFT);
 			pmic_clk_buf_ctrl_wcn(1);
@@ -295,7 +329,7 @@ static void clk_buf_ctrl_internal(enum clk_buf_id id, bool onoff)
 			pwrap_dcxo_en_flag &= ~DCXO_CONN_ENABLE;
 			clkbuf_writel(DCXO_ENABLE, pwrap_dcxo_en_flag);
 
-			pmic_config_interface(PMIC_DCXO_CW00_CLR, RG_XO2_MODE,
+			clkbuf_write_pmic(PMIC_DCXO_CW00_CLR, RG_XO2_MODE,
 					      PMIC_XO_EXTBUF2_MODE_MASK,
 					      PMIC_XO_EXTBUF2_MODE_SHIFT);
 			pmic_clk_buf_ctrl_wcn(0);
@@ -309,7 +343,7 @@ static void clk_buf_ctrl_internal(enum clk_buf_id id, bool onoff)
 	case CLK_BUF_NFC:
 		if (onoff) {
 			CLK_BUF3_STATUS_PMIC = CLOCK_BUFFER_SW_CONTROL;
-			pmic_config_interface(PMIC_DCXO_CW00_SET, RG_XO3_MODE,
+			clkbuf_write_pmic(PMIC_DCXO_CW00_SET, RG_XO3_MODE,
 					      PMIC_XO_EXTBUF3_MODE_MASK,
 					      PMIC_XO_EXTBUF3_MODE_SHIFT);
 			pmic_clk_buf_ctrl_nfc(1);
@@ -321,7 +355,7 @@ static void clk_buf_ctrl_internal(enum clk_buf_id id, bool onoff)
 			pwrap_dcxo_en_flag &= ~DCXO_NFC_ENABLE;
 			clkbuf_writel(DCXO_ENABLE, pwrap_dcxo_en_flag);
 
-			pmic_config_interface(PMIC_DCXO_CW00_CLR, RG_XO3_MODE,
+			clkbuf_write_pmic(PMIC_DCXO_CW00_CLR, RG_XO3_MODE,
 					      PMIC_XO_EXTBUF3_MODE_MASK,
 					      PMIC_XO_EXTBUF3_MODE_SHIFT);
 			pmic_clk_buf_ctrl_nfc(0);
@@ -335,13 +369,13 @@ static void clk_buf_ctrl_internal(enum clk_buf_id id, bool onoff)
 	case CLK_BUF_RF:
 		if (onoff) {
 			CLK_BUF4_STATUS_PMIC = CLOCK_BUFFER_HW_CONTROL;
-			pmic_config_interface(PMIC_DCXO_CW00_SET, RG_XO4_MODE,
+			clkbuf_write_pmic(PMIC_DCXO_CW00_SET, RG_XO4_MODE,
 					      PMIC_XO_EXTBUF4_MODE_MASK,
 					      PMIC_XO_EXTBUF4_MODE_SHIFT);
 			pmic_clk_buf_ctrl_cel(1);
 			pmic_clk_buf_swctrl[XO_CEL] = 1;
 		} else {
-			pmic_config_interface(PMIC_DCXO_CW00_CLR, RG_XO4_MODE,
+			clkbuf_write_pmic(PMIC_DCXO_CW00_CLR, RG_XO4_MODE,
 					      PMIC_XO_EXTBUF4_MODE_MASK,
 					      PMIC_XO_EXTBUF4_MODE_SHIFT);
 			pmic_clk_buf_ctrl_cel(0);
@@ -465,10 +499,10 @@ static u32 dcxo_dbg_read_auxout(u16 sel)
 {
 	u32 rg_auxout = 0;
 
-	pmic_config_interface(PMIC_DCXO_CW18, sel,
+	clkbuf_write_pmic(PMIC_DCXO_CW18, sel,
 			      PMIC_XO_STATIC_AUXOUT_SEL_MASK,
 			      PMIC_XO_STATIC_AUXOUT_SEL_SHIFT);
-	pmic_read_interface(PMIC_DCXO_CW19, &rg_auxout,
+	clkbuf_read_pmic(PMIC_DCXO_CW19, &rg_auxout,
 			    PMIC_XO_STATIC_AUXOUT_MASK,
 			    PMIC_XO_STATIC_AUXOUT_SHIFT);
 	clk_buf_pr_dbg("%s: sel=%d, rg_auxout=0x%x\n",
@@ -523,7 +557,7 @@ static bool clk_buf_is_auto_calc_enabled(void)
 {
 	u32 autok = 0;
 
-	pmic_read_interface(PMIC_XO_BUFLDOK_EN_ADDR, &autok,
+	clkbuf_read_pmic(PMIC_XO_BUFLDOK_EN_ADDR, &autok,
 		PMIC_XO_BUFLDOK_EN_MASK, PMIC_XO_BUFLDOK_EN_SHIFT);
 	if (autok)
 		return true;
@@ -534,14 +568,14 @@ static bool clk_buf_is_auto_calc_enabled(void)
 static void clk_buf_set_auto_calc(u8 onoff)
 {
 	if (onoff) {
-		pmic_config_interface(PMIC_XO_BUFLDOK_EN_ADDR, 0,
+		clkbuf_write_pmic(PMIC_XO_BUFLDOK_EN_ADDR, 0,
 			PMIC_XO_BUFLDOK_EN_MASK, PMIC_XO_BUFLDOK_EN_SHIFT);
 		udelay(100);
-		pmic_config_interface(PMIC_XO_BUFLDOK_EN_ADDR, 1,
+		clkbuf_write_pmic(PMIC_XO_BUFLDOK_EN_ADDR, 1,
 			PMIC_XO_BUFLDOK_EN_MASK, PMIC_XO_BUFLDOK_EN_SHIFT);
 		mdelay(1);
 	} else
-		pmic_config_interface(PMIC_XO_BUFLDOK_EN_ADDR, 0,
+		clkbuf_write_pmic(PMIC_XO_BUFLDOK_EN_ADDR, 0,
 			PMIC_XO_BUFLDOK_EN_MASK, PMIC_XO_BUFLDOK_EN_SHIFT);
 }
 
@@ -565,7 +599,7 @@ static void clk_buf_set_manual_drv_curr(u32 *drv_curr_vals)
 		(PMIC_XO_EXTBUF7_ISET_M_MASK << PMIC_XO_EXTBUF7_ISET_M_SHIFT);
 	drv_curr_shift = PMIC_XO_EXTBUF1_ISET_M_SHIFT;
 
-	pmic_config_interface(PMIC_XO_EXTBUF1_ISET_M_ADDR, drv_curr_val,
+	clkbuf_write_pmic(PMIC_XO_EXTBUF1_ISET_M_ADDR, drv_curr_val,
 			      drv_curr_mask, drv_curr_shift);
 	pr_info("%s: drv_curr_val/mask/shift=0x%x %x %x\n", __func__,
 		     drv_curr_val, drv_curr_mask, drv_curr_shift);
@@ -627,23 +661,23 @@ void clk_buf_dump_clkbuf_log(void)
 	    pmic_cw13 = 0, pmic_cw14 = 0, pmic_cw15 = 0, pmic_cw16 = 0,
 	    pmic_cw20 = 0, top_spi_con1 = 0;
 
-	pmic_read_interface(PMIC_XO_EXTBUF1_MODE_ADDR, &pmic_cw00,
+	clkbuf_read_pmic(PMIC_XO_EXTBUF1_MODE_ADDR, &pmic_cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_XO_BUFLDOK_EN_ADDR, &pmic_cw02,
+	clkbuf_read_pmic(PMIC_XO_BUFLDOK_EN_ADDR, &pmic_cw02,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_XO_EXTBUF6_MODE_ADDR, &pmic_cw11,
+	clkbuf_read_pmic(PMIC_XO_EXTBUF6_MODE_ADDR, &pmic_cw11,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_RESERVED4_ADDR, &pmic_cw13,
+	clkbuf_read_pmic(PMIC_RG_XO_RESERVED4_ADDR, &pmic_cw13,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_XO_EXTBUF2_CLKSEL_MAN_ADDR, &pmic_cw14,
+	clkbuf_read_pmic(PMIC_XO_EXTBUF2_CLKSEL_MAN_ADDR, &pmic_cw14,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_EXTBUF1_HD_ADDR, &pmic_cw15,
+	clkbuf_read_pmic(PMIC_RG_XO_EXTBUF1_HD_ADDR, &pmic_cw15,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_XO_EXTBUF1_ISET_M_ADDR, &pmic_cw16,
+	clkbuf_read_pmic(PMIC_XO_EXTBUF1_ISET_M_ADDR, &pmic_cw16,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_RESRVED10_ADDR, &pmic_cw20,
+	clkbuf_read_pmic(PMIC_RG_XO_RESRVED10_ADDR, &pmic_cw20,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &top_spi_con1,
+	clkbuf_read_pmic(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &top_spi_con1,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	pr_info("%s DCXO_CW00/02/11/13/14/15/16/20/top_spi_con1=0x%x %x %x %x %x %x %x %x %x\n",
 		     __func__, pmic_cw00, pmic_cw02, pmic_cw11, pmic_cw13,
@@ -742,19 +776,19 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 		"clkbuf_ctrl_stat=0x%x, pwrap_dcxo_en_flag=0x%x\n",
 		clkbuf_ctrl_stat, pwrap_dcxo_en_flag);
 
-	pmic_read_interface_nolock(PMIC_DCXO_CW00, &pmic_cw00,
+	clkbuf_read_pmic(PMIC_DCXO_CW00, &pmic_cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW02, &pmic_cw02,
+	clkbuf_read_pmic(PMIC_DCXO_CW02, &pmic_cw02,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW11, &pmic_cw11,
+	clkbuf_read_pmic(PMIC_DCXO_CW11, &pmic_cw11,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_RESERVED4_ADDR, &pmic_cw13,
+	clkbuf_read_pmic(PMIC_RG_XO_RESERVED4_ADDR, &pmic_cw13,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW14, &pmic_cw14,
+	clkbuf_read_pmic(PMIC_DCXO_CW14, &pmic_cw14,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_EXTBUF1_HD_ADDR, &pmic_cw15,
+	clkbuf_read_pmic(PMIC_RG_XO_EXTBUF1_HD_ADDR, &pmic_cw15,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW16, &pmic_cw16,
+	clkbuf_read_pmic(PMIC_DCXO_CW16, &pmic_cw16,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		".DCXO_CW00/02/11/13/14/15/16=0x%x %x %x %x %x %x %x\n",
@@ -784,7 +818,7 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 		"buf2/3/4/6/7 mode=%d/%d/%d/%d/%d, buf2/3/4/6/7 en_m=%d/%d/%d/%d/%d\n",
 		buf2_mode, buf3_mode, buf4_mode, buf6_mode, buf7_mode,
 		buf2_en_m, buf3_en_m, buf4_en_m, buf6_en_m, buf7_en_m);
-	pmic_read_interface_nolock(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &pmic_cw00,
+	clkbuf_read_pmic(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &pmic_cw00,
 			    PMIC_REG_MASK, PMIC_REG_SHIFT);
 	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
 		"SRCLKEN_IN3_EN(srclken_conn)=0x%x\n", pmic_cw00);
@@ -1075,17 +1109,18 @@ int clk_buf_dts_map(void)
 }
 #endif
 
-void clk_buf_init_pmic_clkbuf(void)
+void clk_buf_init_pmic_clkbuf(struct regmap *regmap)
 {
+	clkbuf_regmap = regmap;
 	/* Dump registers before setting */
 	clk_buf_dump_clkbuf_log();
 
 #ifndef __KERNEL__
 	/* Setup initial PMIC clock buffer setting */
 	/* de-sense setting */
-	pmic_config_interface(PMIC_RG_XO_EXTBUF1_HD_ADDR, PMIC_CW15_INIT_VAL,
+	clkbuf_write_pmic(PMIC_RG_XO_EXTBUF1_HD_ADDR, PMIC_CW15_INIT_VAL,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_config_interface(PMIC_RG_XO_RESERVED4_ADDR, 0x3,
+	clkbuf_write_pmic(PMIC_RG_XO_RESERVED4_ADDR, 0x3,
 		PMIC_RG_XO_RESERVED4_MASK, PMIC_RG_XO_RESERVED4_SHIFT);
 
 	/* auto mode of driving current */
@@ -1093,20 +1128,20 @@ void clk_buf_init_pmic_clkbuf(void)
 	clk_buf_set_auto_calc(1);
 
 	/* clock buffer setting */
-	pmic_config_interface(PMIC_XO_EXTBUF1_MODE_ADDR, PMIC_CW00_INIT_VAL,
+	clkbuf_write_pmic(PMIC_XO_EXTBUF1_MODE_ADDR, PMIC_CW00_INIT_VAL,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_config_interface(PMIC_XO_EXTBUF6_MODE_ADDR, PMIC_CW11_INIT_VAL,
+	clkbuf_write_pmic(PMIC_XO_EXTBUF6_MODE_ADDR, PMIC_CW11_INIT_VAL,
 		PMIC_REG_MASK, PMIC_REG_SHIFT);
 
 	/* XO_WCN */
 #ifdef CLKBUF_CONN_SUPPORT_CTRL_FROM_I1
-	pmic_config_interface(PMIC_XO_EXTBUF2_CLKSEL_MAN_ADDR, 0x1,
+	clkbuf_write_pmic(PMIC_XO_EXTBUF2_CLKSEL_MAN_ADDR, 0x1,
 		PMIC_XO_EXTBUF2_CLKSEL_MAN_MASK,
 		PMIC_XO_EXTBUF2_CLKSEL_MAN_SHIFT);
 #endif
 #ifndef CLKBUF_CONN_SUPPORT_CTRL_FROM_I1
 	/* XO_WCN: srclken_conn = 0 */
-	pmic_config_interface(PMIC_RG_SRCLKEN_IN3_EN_ADDR, 0,
+	clkbuf_write_pmic(PMIC_RG_SRCLKEN_IN3_EN_ADDR, 0,
 		PMIC_RG_SRCLKEN_IN3_EN_MASK, PMIC_RG_SRCLKEN_IN3_EN_SHIFT);
 #endif
 

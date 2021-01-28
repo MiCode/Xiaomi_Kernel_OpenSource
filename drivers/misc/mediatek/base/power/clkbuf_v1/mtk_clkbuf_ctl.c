@@ -9,6 +9,12 @@
  *
  */
 
+#include <linux/module.h>
+#include <linux/of_device.h>
+#include <linux/platform_device.h>
+#include <linux/regmap.h>
+#include <linux/mfd/mt6397/core.h>
+
 #include <mtk_spm.h>
 #include <mtk_clkbuf_ctl.h>
 #include <mtk_clkbuf_common.h>
@@ -54,7 +60,7 @@ void __attribute__((weak)) clk_buf_init_pmic_swctrl(void)
 {
 }
 
-void __attribute__((weak)) clk_buf_init_pmic_clkbuf(void)
+void __attribute__((weak)) clk_buf_init_pmic_clkbuf(struct regmap *regmap)
 {
 }
 
@@ -117,8 +123,12 @@ bool is_clk_buf_from_pmic(void)
 	return true;
 }
 
-int clk_buf_init(void)
+static int mtk_clk_buf_probe(struct platform_device *pdev)
 {
+	struct mt6397_chip *chip;
+
+	chip = dev_get_drvdata(pdev->dev.parent);
+
 	if (is_clkbuf_bringup()) {
 		clk_buf_dts_map();
 		clk_buf_fs_init();
@@ -141,8 +151,7 @@ int clk_buf_init(void)
 	/* Co-TSX @PMIC */
 	if (is_clk_buf_from_pmic()) {
 		is_pmic_clkbuf = true;
-
-		clk_buf_init_pmic_clkbuf();
+		clk_buf_init_pmic_clkbuf(chip->regmap);
 		clk_buf_init_pmic_swctrl();
 		clk_buf_init_pmic_wrap();
 	}
@@ -153,5 +162,22 @@ int clk_buf_init(void)
 
 	return 0;
 }
-fs_initcall_sync(clk_buf_init);
+
+static const struct of_device_id mtk_clkbuf_of_match[] = {
+{
+		.compatible = "mediatek,pmic_clock_buffer",
+	},
+};
+
+MODULE_DEVICE_TABLE(of, mtk_clkbuf_of_match);
+
+static struct platform_driver mtk_clkbuf_driver = {
+	.driver = {
+		.name = "mtk_clkbuf_driver",
+		.of_match_table = mtk_clkbuf_of_match,
+	},
+	.probe	= mtk_clk_buf_probe,
+};
+module_platform_driver(mtk_clkbuf_driver);
+
 
