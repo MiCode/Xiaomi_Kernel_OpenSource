@@ -5256,20 +5256,17 @@ static int msdc_drv_remove(struct platform_device *pdev)
 static int msdc_runtime_suspend(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-	//unsigned long flags;
-#endif
 
 	/* mclk = 0 means core layer suspend has disabled clk. */
 	if (host->mclk)
 		msdc_clk_disable(host);
-
+	/*workaround for clk not stable, need recovery
 	clk_unprepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
 		clk_unprepare(host->aes_clk_ctl);
 	if (host->hclk_ctl)
 		clk_unprepare(host->hclk_ctl);
-
+	*/
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
 
@@ -5281,13 +5278,13 @@ static int msdc_runtime_resume(struct device *dev)
 	struct msdc_host *host = dev_get_drvdata(dev);
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
-
+	/* As suspend, mark is a work around, need revcovery
 	(void)clk_prepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
 		(void)clk_prepare(host->aes_clk_ctl);
 	if (host->hclk_ctl)
 		(void)clk_prepare(host->hclk_ctl);
-
+	*/
 	/* mclk = 0 means core layer resume will enable clk later. */
 	if (host->mclk)
 		msdc_clk_enable_and_stable(host);
