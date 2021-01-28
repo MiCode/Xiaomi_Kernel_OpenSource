@@ -2424,7 +2424,8 @@ static ssize_t nanohub_trace_store(struct device_driver *ddri,
 	const char *buf, size_t count)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
-	int handle, trace = 0;
+	int trace = 0;
+	unsigned int handle;
 	int res = 0;
 
 	pr_debug("%s buf:%s\n", __func__, buf);
