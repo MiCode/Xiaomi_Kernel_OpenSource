@@ -1051,7 +1051,6 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 	ret = check_lcm_node_from_DT();
-#endif
 	if (ret == 0) {
 		lcm_drv = &lcm_common_drv;
 		lcm_drv->name = lcm_name_list[0];
@@ -1072,7 +1071,10 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 		}
 
 		lcmindex = 0;
-	} else if (_lcm_count() == 0) {
+		goto check_lcm_node_done;
+	}
+#endif
+	if (_lcm_count() == 0) {
 		DISP_PR_ERR("no lcm driver defined in linux kernel driver\n");
 		return NULL;
 	} else if (_lcm_count() == 1) {
@@ -1126,6 +1128,9 @@ struct disp_lcm_handle *disp_lcm_probe(char *plcm_name,
 		}
 		/* TODO: */
 	}
+#if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
+check_lcm_node_done:
+#endif
 
 	if (isLCMFound == false) {
 		DISP_PR_ERR("FATAL ERROR! No LCM Driver defined\n");
