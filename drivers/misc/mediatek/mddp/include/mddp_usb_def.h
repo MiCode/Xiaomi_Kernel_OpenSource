@@ -1,17 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * mddp_usb_def.h -- Data structure of MD USB module.
  *
- * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2020 MediaTek Inc.
  */
+
 #ifndef __MDDP_USB_DEF_H
 #define __MDDP_USB_DEF_H
 
@@ -44,11 +37,11 @@ struct ufpm_usb_mapping_t {
 } __packed;
 
 struct hifusb_setup_packet_t {
-	 u8           bmRequestType;
-	 u8           bRequest;
-	 u16          wValue;
-	 u16          wIndex;
-	 u16          wLength;
+	u8           bmRequestType;
+	u8           bRequest;
+	u16          wValue;
+	u16          wIndex;
+	u16          wLength;
 } __packed;
 
 struct tethering_net_stats_t {

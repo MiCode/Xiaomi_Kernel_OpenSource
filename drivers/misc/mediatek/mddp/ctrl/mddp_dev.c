@@ -1,16 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * mddp_dev.c - MDDP device node API.
  *
- * Copyright (C) 2018 MediaTek Inc.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #include <linux/cdev.h>
@@ -214,17 +206,6 @@ static int32_t em_cmd_status;
 static ssize_t
 em_test_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	//int idx;
-	//int cnt = 0;
-
-#if 0
-	for (idx = 0; idx < 32; ida x += 4) {
-		cnt += sprintf(buf+cnt, "%d: %u %u %u %u.\n", idx,
-				em_cmd_buf[idx], em_cmd_buf[idx+1],
-				em_cmd_buf[idx+2], em_cmd_buf[idx+3]);
-	}
-	return cnt;
-#endif
 	return scnprintf(buf, PAGE_SIZE, "staus:%d, cmd_buf:%s\n",
 			em_cmd_status, em_cmd_buf);
 }
