@@ -68,6 +68,8 @@
 #define R_CORE0_MON_PC			(scpreg.cfg_core0 + 0x0080)
 #define R_CORE0_MON_LR			(scpreg.cfg_core0 + 0x0084)
 #define R_CORE0_MON_SP			(scpreg.cfg_core0 + 0x0088)
+#define R_CORE0_TBUF_WPTR		(scpreg.cfg_core0 + 0x008c)
+
 #define R_CORE0_MON_PC_LATCH		(scpreg.cfg_core0 + 0x00d0)
 #define R_CORE0_MON_LR_LATCH		(scpreg.cfg_core0 + 0x00d4)
 #define R_CORE0_MON_SP_LATCH		(scpreg.cfg_core0 + 0x00d8)
@@ -76,6 +78,8 @@
 #define R_CORE1_MON_PC			(scpreg.cfg_core1 + 0x0080)
 #define R_CORE1_MON_LR			(scpreg.cfg_core1 + 0x0084)
 #define R_CORE1_MON_SP			(scpreg.cfg_core1 + 0x0088)
+#define R_CORE1_TBUF_WPTR		(scpreg.cfg_core1 + 0x008c)
+
 #define R_CORE1_MON_PC_LATCH		(scpreg.cfg_core1 + 0x00d0)
 #define R_CORE1_MON_LR_LATCH		(scpreg.cfg_core1 + 0x00d4)
 #define R_CORE1_MON_SP_LATCH		(scpreg.cfg_core1 + 0x00d8)
