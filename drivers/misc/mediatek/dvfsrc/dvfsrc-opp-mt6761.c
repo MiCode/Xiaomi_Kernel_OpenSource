@@ -34,3 +34,53 @@ static int __init dvfsrc_opp_init(void)
 	return 0;
 }
 fs_initcall_sync(dvfsrc_opp_init);
+
+
+enum {
+	SPMFW_LP4_2CH_3200 = 0,
+	SPMFW_LP4X_2CH_3200,
+	SPMFW_LP3_1CH_1866,
+	SPMFW_LP4_2CH_2400,
+};
+
+#ifdef CONFIG_ARM64
+#define MTK_SIP_SMC_AARCH_BIT	0x40000000
+#else
+#define MTK_SIP_SMC_AARCH_BIT	0x00000000
+#endif
+
+#define MTK_SIP_KERNEL_SPM_ARGS \
+		(0x8200022A | MTK_SIP_SMC_AARCH_BIT)
+
+static int __init spmfw_init(void)
+{
+	struct arm_smccc_res ares;
+	int spmfw_idx = -1;
+	int ddr_type;
+	int ddr_hz;
+
+#if IS_ENABLED(CONFIG_MTK_DRAMC_LEGACY)
+	ddr_type = get_ddr_type();
+	ddr_hz = dram_steps_freq(0);
+
+	if (ddr_type == TYPE_LPDDR4 && ddr_hz == 2400)
+		spmfw_idx = SPMFW_LP4_2CH_2400;
+	else if (ddr_type == TYPE_LPDDR4 && ddr_hz == 3200)
+		spmfw_idx = SPMFW_LP4_2CH_3200;
+	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 3200)
+		spmfw_idx = SPMFW_LP4X_2CH_3200;
+	else if (ddr_type == TYPE_LPDDR3 && ddr_hz == 1866)
+		spmfw_idx = SPMFW_LP3_1CH_1866;
+
+	pr_info("#@# %s(%d) __spmfw_idx 0x%x, ddr=[%d][%d]\n",
+		__func__, __LINE__, spmfw_idx, ddr_type, ddr_hz);
+
+	arm_smccc_smc(MTK_SIP_KERNEL_SPM_ARGS, 0,
+		spmfw_idx, 0, 0, 0, 0, 0,
+		&ares);
+#endif
+	return 0;
+}
+
+fs_initcall_sync(spmfw_init);
+
