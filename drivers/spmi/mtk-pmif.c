@@ -95,7 +95,7 @@ enum pmif_regs {
 	PMIF_SWINF_3_VLD_CLR,
 };
 
-static const u32 mt6789_regs[] = {
+static const u32 mt6885_regs[] = {
 	[PMIF_INIT_DONE] =			0x0000,
 	[PMIF_INF_EN] =				0x0024,
 	[PMIF_ARB_EN] =				0x0150,
@@ -151,7 +151,7 @@ enum spmi_regs {
 	SPMI_DEC_DBG,
 };
 
-static const u32 mt6789_spmi_regs[] = {
+static const u32 mt6885_spmi_regs[] = {
 	[SPMI_OP_ST_CTRL] =			0x0000,
 	[SPMI_GRP_ID_EN] =			0x0004,
 	[SPMI_OP_ST_STA] =			0x0008,
@@ -191,7 +191,7 @@ enum infra_regs {
 	INFRA_GLOBALCON_RST2_CLR,
 };
 
-static const u32 mt6789_infra_regs[] = {
+static const u32 mt6885_infra_regs[] = {
 	[MODULE_SW_CG_0_SET] =			0x0080,
 	[MODULE_SW_CG_0_CLR] =			0x0084,
 	[MODULE_SW_CG_2_SET] =			0x00a4,
@@ -208,7 +208,7 @@ enum topckgen_regs {
 	CLK_CFG_16_CLR,
 };
 
-static const u32 mt6789_topckgen_regs[] = {
+static const u32 mt6885_topckgen_regs[] = {
 	[CLK_CFG_UPDATE1] =			0x0008,
 	[CLK_CFG_UPDATE2] =			0x000c,
 	[WDT_SWSYSRST2] =			0x0090,
@@ -249,16 +249,16 @@ static int mtk_spmi_read_eint_sta(u8 *slv_eint_sta);
 static int mtk_spmi_ctrl_op_st(struct spmi_controller *ctrl,
 			unsigned int grpiden, u8 sid, unsigned int opc);
 
-static struct pmif mt6789_pmif_arb[] = {
+static struct pmif mt6885_pmif_arb[] = {
 	{
 		.base = 0x0,
-		.regs = mt6789_regs,
+		.regs = mt6885_regs,
 		.spmimst_base = 0x0,
-		.spmimst_regs = mt6789_spmi_regs,
+		.spmimst_regs = mt6885_spmi_regs,
 		.infra_base = 0x0,
-		.infra_regs = mt6789_infra_regs,
+		.infra_regs = mt6885_infra_regs,
 		.topckgen_base = 0x0,
-		.topckgen_regs = mt6789_topckgen_regs,
+		.topckgen_regs = mt6885_topckgen_regs,
 		.swinf_ch_start = PMIF_SWINF_0_CHAN_NO,
 		.ap_swinf_no = PMIF_AP_SWINF_NO,
 		.write = 0x0,
@@ -277,8 +277,8 @@ static struct pmif mt6789_pmif_arb[] = {
 
 static const struct of_device_id pmif_match_table[] = {
 	{
-		.compatible = "mediatek,mt6789-pmif",
-		.data = &mt6789_pmif_arb,
+		.compatible = "mediatek,mt6885-pmif",
+		.data = &mt6885_pmif_arb,
 	}, {
 		/* sentinel */
 	},
