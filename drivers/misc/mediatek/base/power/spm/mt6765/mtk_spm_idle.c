@@ -292,6 +292,8 @@ void mtk_idle_pre_process_by_chip(
 			aee_sram_printk("FAILED TO GET WD API\n");
 			pr_info("[IDLE] FAILED TO GET WD API\n");
 		}
+#else
+		SMC_CALL(ARGS, SPM_ARGS_PCM_WDT, 1, 30);
 #endif
 	}
 
@@ -384,6 +386,8 @@ void mtk_idle_post_process_by_chip(
 			wd_api->wd_spmwdt_mode_config(WD_REQ_DIS
 							, WD_REQ_RST_MODE);
 		}
+#else
+		SMC_CALL(ARGS, SPM_ARGS_PCM_WDT, 0, 0);
 #endif
 
 		/* restore timer_val and wake_src */
