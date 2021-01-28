@@ -112,6 +112,13 @@ struct subsys {
 	struct subsys_ops *ops;
 };
 
+static DEFINE_SPINLOCK(pgcb_lock);
+
+#define mtk_pgcb_lock(flags)	spin_lock_irqsave(&pgcb_lock, flags)
+#define mtk_pgcb_unlock(flags)	\
+		spin_unlock_irqrestore(&pgcb_lock, flags)
+
+
 /*static struct subsys_ops general_sys_ops;*/
 static struct subsys_ops MD1_sys_ops;
 static struct subsys_ops CONN_sys_ops;
@@ -830,9 +837,15 @@ LIST_HEAD(pgcb_list);
 
 struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 {
+	unsigned long flags;
+
+	mtk_pgcb_lock(flags);
+
 	INIT_LIST_HEAD(&pgcb->list);
 
 	list_add(&pgcb->list, &pgcb_list);
+
+	mtk_pgcb_unlock(flags);
 
 	return pgcb;
 }
@@ -889,8 +902,9 @@ static int DBG_STEP;
  */
 static void ram_console_update(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	struct pg_callbacks *pgcb;
+	unsigned long flags;
 	u32 data[8] = {0x0};
 	u32 i = 0, j = 0;
 	static u32 pre_data;
@@ -967,10 +981,16 @@ static void ram_console_update(void)
 		if (DBG_ID == DBG_ID_CAM)
 			check_cam_clk_sts();
 
+		mtk_pgcb_lock(flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-			if (pgcb->debug_dump)
+			if (!pgcb) {
+				pr_notice("pgcb(%d) null\r\n", DBG_ID);
+				WARN_ON(1);
+			}
+			if (pgcb && pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
+		mtk_pgcb_unlock(flags);
 
 		if (DBG_ID == DBG_ID_MD1) {
 			if (DBG_STEP == 1 && DBG_STA == STA_POWER_DOWN) {
@@ -4909,10 +4929,11 @@ int allow[NR_SYSS] = {
 #endif
 static int enable_subsys(enum subsys_id id)
 {
-	int r;
-	unsigned long flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
+	unsigned long flags;
+	unsigned long pgcb_flags;
+	int r;
 
 	if (!sys) {
 		WARN_ON(!sys);
@@ -4974,19 +4995,27 @@ static int enable_subsys(enum subsys_id id)
 
 	mtk_clk_unlock(flags);
 
+	mtk_pgcb_lock(pgcb_flags);
 	list_for_each_entry(pgcb, &pgcb_list, list) {
-		if (pgcb->after_on)
+		if (!pgcb) {
+			pr_notice("pgcb(%d) null\r\n", id);
+			WARN_ON(1);
+		}
+		if (pgcb && pgcb->after_on)
 			pgcb->after_on(id);
 	}
+	mtk_pgcb_unlock(pgcb_flags);
+
 	return r;
 }
 
 static int disable_subsys(enum subsys_id id)
 {
-	int r;
-	unsigned long flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
+	unsigned long flags;
+	unsigned long pgcb_flags;
+	int r;
 
 	if (!sys) {
 		WARN_ON(!sys);
@@ -5035,10 +5064,16 @@ static int disable_subsys(enum subsys_id id)
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
+	mtk_pgcb_lock(pgcb_flags);
 	list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
-		if (pgcb->before_off)
+		if (!pgcb) {
+			pr_notice("pgcb(%d) null\r\n", id);
+			WARN_ON(1);
+		}
+		if (pgcb && pgcb->before_off)
 			pgcb->before_off(id);
 	}
+	mtk_pgcb_unlock(pgcb_flags);
 
 	mtk_clk_lock(flags);
 
@@ -5069,41 +5104,6 @@ struct mt_power_gate {
 
 #define to_power_gate(_hw) container_of(_hw, struct mt_power_gate, hw)
 
-static int pg_enable(struct clk_hw *hw)
-{
-	struct mt_power_gate *pg = to_power_gate(hw);
-
-#if MT_CCF_PG_DEBUG
-	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
-		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
-		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
-
-		pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
-			 __clk_get_name(hw->clk), pg->pd_id);
-	}
-#endif				/* MT_CCF_PG_DEBUG */
-
-	return enable_subsys(pg->pd_id);
-}
-
-static void pg_disable(struct clk_hw *hw)
-{
-	struct mt_power_gate *pg = to_power_gate(hw);
-
-#if MT_CCF_PG_DEBUG
-	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
-		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
-		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
-
-		pr_info("[CCF] %s: sys=%s, pd_id=%u\n", __func__,
-			 __clk_get_name(hw->clk), pg->pd_id);
-	}
-
-#endif				/* MT_CCF_PG_DEBUG */
-
-	disable_subsys(pg->pd_id);
-}
-
 static int pg_is_enabled(struct clk_hw *hw)
 {
 	struct mt_power_gate *pg = to_power_gate(hw);
@@ -5111,51 +5111,107 @@ static int pg_is_enabled(struct clk_hw *hw)
 	return subsys_is_on(pg->pd_id);
 }
 
-int pg_prepare(struct clk_hw *hw)
+static int pg_prepare(struct clk_hw *hw)
 {
-	int r;
 	struct mt_power_gate *pg = to_power_gate(hw);
+	struct subsys *sys = id_to_sys(pg->pd_id);
+	unsigned long flags;
+	int skip_pg = 0;
+	int ret;
 
 #if MT_CCF_PG_DEBUG
 	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
 		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
 		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
 
-		pr_info("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
+		pr_info("[CCF] %s start: clk=%s, pre_clk=%s\n", __func__,
 			 __clk_get_name(hw->clk),
 			 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
 	}
 #endif				/* MT_CCF_PG_DEBUG */
+
+	mtk_mtcmos_lock(flags);
+#if CHECK_PWR_ST
+	if (sys->ops->get_state(sys) == SUBSYS_PWR_ON)
+		skip_pg = 1;
+#endif				/* CHECK_PWR_ST */
 
 	if (pg->pre_clk) {
-		r = clk_prepare_enable(pg->pre_clk);
-		if (r)
-			return r;
+		ret = clk_prepare_enable(pg->pre_clk);
+		if (ret) {
+			pr_notice("[CCF] prepare_enable %s failed!\n",
+						__clk_get_name(pg->pre_clk));
+			goto fail;
+		}
 	}
 
-	return pg_enable(hw);
+	if (!skip_pg) {
+		ret = enable_subsys(pg->pd_id);
+		if (ret) {
+			pr_notice("[CCF] enable_subsys %s failed!\n",
+					sys->name);
+			goto fail;
+		}
+	}
+
+fail:
+	mtk_mtcmos_unlock(flags);
+
+#if MT_CCF_PG_DEBUG
+		if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
+			strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
+			strcmp(__clk_get_name(hw->clk), "pg_dis")) {
+
+			pr_info("[CCF] %s end\n", __func__);
+		}
+#endif				/* MT_CCF_PG_DEBUG */
+
+	return ret;
 }
 
-void pg_unprepare(struct clk_hw *hw)
+static void pg_unprepare(struct clk_hw *hw)
 {
 	struct mt_power_gate *pg = to_power_gate(hw);
+	struct subsys *sys = id_to_sys(pg->pd_id);
+	unsigned long flags;
+	int skip_pg = 0;
 
 #if MT_CCF_PG_DEBUG
 	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
 		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
 		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
 
-		pr_info("[CCF] %s: clk=%s, pre_clk=%s\n", __func__,
+		pr_info("[CCF] %s start: clk=%s, pre_clk=%s\n", __func__,
 			 __clk_get_name(hw->clk),
 			 pg->pre_clk ? __clk_get_name(pg->pre_clk) : "");
 	}
 #endif				/* MT_CCF_PG_DEBUG */
 
-	pg_disable(hw);
+	mtk_mtcmos_lock(flags);
+
+#if CHECK_PWR_ST
+	if (sys->ops->get_state(sys) == SUBSYS_PWR_DOWN)
+		skip_pg = 1;
+#endif				/* CHECK_PWR_ST */
+
+	if (!skip_pg)
+		disable_subsys(pg->pd_id);
 
 	if (pg->pre_clk)
 		clk_disable_unprepare(pg->pre_clk);
+
+	mtk_mtcmos_unlock(flags);
+
+#if MT_CCF_PG_DEBUG
+	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
+		strcmp(__clk_get_name(hw->clk), "pg_mfg1") &&
+		strcmp(__clk_get_name(hw->clk), "pg_dis")) {
+
+		pr_info("[CCF] %s end\n", __func__);
+	}
+#endif				/* MT_CCF_PG_DEBUG */
 }
+
 
 static const struct clk_ops mt_power_gate_ops = {
 	.prepare = pg_prepare,

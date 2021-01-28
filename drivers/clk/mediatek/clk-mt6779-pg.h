@@ -64,7 +64,7 @@ extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
  *[2] pwr_status 2
  *[others] local function use
  */
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_clk(int id, u32 val);
 #endif
 /*extern void dump_emi_MM(void);*/
