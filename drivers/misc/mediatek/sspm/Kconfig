@@ -1,6 +1,5 @@
 config MTK_TINYSYS_SSPM_SUPPORT
 	tristate "Specify Interface Support SSPM"
-	default n
 	help
 	  SSPM is a MediaTek in-house hardware for power management under
 	  secure world.
@@ -9,24 +8,12 @@ config MTK_TINYSYS_SSPM_SUPPORT
 
 config MTK_TINYSYS_SSPM_PLT_SUPPORT
 	tristate "Specify Interface of SSPM on Platform"
-	default n
 	help
 	  SSPM is a MediaTek in-house hardware for power management based
 	  on platform.
 	  Set Y to enable this feature for specific platform.
 	  If unsure, set N to stay with legancy feature.
 
-config MTK_SSPM_MT6779
-	tristate "Specify Mediatek SSPM Platform is MT6779"
-	depends on MTK_TINYSYS_SSPM_SUPPORT
-	default MTK_TINYSYS_SSPM_SUPPORT
-	help
-	  Select MediaTek in-house hardware-SSPM Platform is MT6779
-	  for power management.
-	  Set Y to select this feature for specific platform-mt6779.
-	  If unsure, set N to disable.
-
 config MTK_MET_MEM_ALLOC
 	bool "Using dynamic allocate memory for MET"
-	default n
 

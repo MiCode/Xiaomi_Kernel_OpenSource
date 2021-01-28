@@ -13,8 +13,6 @@ enum SSPM_MBOX_SIZE {
 	SSPM_MBOX_8BYTE = 0x100,
 };
 
-extern struct platform_device *sspm_pdev;
-
 typedef unsigned int (*sspm_ipi_isr)(unsigned int mbox, void __iomem *base,
 	unsigned int irq);
 

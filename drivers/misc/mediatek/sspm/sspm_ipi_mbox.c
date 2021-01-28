@@ -52,6 +52,11 @@ struct ipi_monitor {
 #endif /* IPI_MONITOR_TIMESTAMP */
 };
 
+struct _mbox_info *mbox_table;
+struct _pin_send  *send_pintable;
+struct _pin_recv  *recv_pintable;
+char *(*pin_name);
+
 static struct ipi_monitor ipimon[IPI_ID_TOTAL];
 static int ipi_last;
 static spinlock_t lock_monitor;

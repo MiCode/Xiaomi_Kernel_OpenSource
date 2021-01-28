@@ -42,6 +42,7 @@ static phys_addr_t sspm_mem_base_phys;
 static phys_addr_t sspm_mem_base_virt;
 static phys_addr_t sspm_mem_size;
 
+struct sspm_reserve_mblock *sspm_reserve_mblock;
 
 #if defined(MODULE)
 static void sspm_reserve_memory_ioremap(struct platform_device *pdev)
@@ -73,9 +74,9 @@ static int __init sspm_reserve_mem_of_init(struct reserved_mem *rmem)
 	sspm_mem_size      = rmem->size;
 
 #ifdef DEBUG
-	pr_debug("[SSPM] phys:0x%pa - 0x%pa (0x%pa)\n",
+	pr_debug("[SSPM] phys:0x%llx - 0x%llx (0x%llx)\n",
 		(unsigned long long)rmem->base,
-		(unsigned long long)rmem->base + (unsigned long long)rmem->size,
+		(unsigned long long)(rmem->base + rmem->size),
 		(unsigned long long)rmem->size);
 #endif
 

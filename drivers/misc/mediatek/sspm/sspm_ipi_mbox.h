@@ -32,6 +32,11 @@
 #define TOTAL_SEND_PIN    12
 #define TOTAL_RECV_PIN     4
 
+extern struct _mbox_info *mbox_table;
+extern struct _pin_send  *send_pintable;
+extern struct _pin_recv  *recv_pintable;
+extern char *(*pin_name);
+
 extern struct completion sema_ipi_task[];
 
 /* pre-define slot and size here */

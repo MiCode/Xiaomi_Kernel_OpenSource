@@ -8,9 +8,10 @@
 #include <linux/io.h>
 #include "sspm_common.h"
 
-
 struct sspm_regs sspmreg;
 struct platform_device *sspm_pdev;
+
+unsigned int sspm_ready;
 
 void memcpy_to_sspm(void __iomem *trg, const void *src, int size)
 {
@@ -36,3 +37,11 @@ void memcpy_from_sspm(void *trg, const void __iomem *src, int size)
 		*t++ = *s++;
 }
 
+/*
+ * @return: 1 if sspm is ready for running tasks
+ */
+unsigned int is_sspm_ready(void)
+{
+	return sspm_ready ? 1 : 0;
+}
+EXPORT_SYMBOL_GPL(is_sspm_ready);

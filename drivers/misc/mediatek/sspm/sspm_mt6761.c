@@ -43,35 +43,6 @@
 
 static struct workqueue_struct *mt6761_sspm_workqueue;
 static atomic_t sspm_inited = ATOMIC_INIT(0);
-static unsigned int sspm_ready;
-
-struct _mbox_info *mbox_table;
-struct _pin_send  *send_pintable;
-struct _pin_recv  *recv_pintable;
-char *(*pin_name);
-
-struct sspm_reserve_mblock *sspm_reserve_mblock;
-
-/*
- * schedule a work on sspm's work queue
- * @param sspm_ws: work_struct to schedule
- */
-void sspm_schedule_work(struct sspm_work_struct *sspm_ws)
-{
-	queue_work(mt6761_sspm_workqueue, &sspm_ws->work);
-}
-
-/*
- * @return: 1 if sspm is ready for running tasks
- */
-unsigned int is_sspm_ready(void)
-{
-	if (sspm_ready)
-		return 1;
-	else
-		return 0;
-}
-EXPORT_SYMBOL_GPL(is_sspm_ready);
 
 static int __init mt6761_sspm_module_init(void)
 {
@@ -140,7 +111,6 @@ static int __init mt6761_sspm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device *dev = &pdev->dev;
-	struct clk *sspm_26m, *sspm_32k, *sspm_bus_hclk;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cfgreg");
 	sspmreg.cfg = devm_ioremap_resource(dev, res);
@@ -161,36 +131,7 @@ static int __init mt6761_sspm_probe(struct platform_device *pdev)
 	pr_info("[SSPM] mt6761-sspm irq=%d, cfgreg=0x%p\n",
 			sspmreg.irq, sspmreg.cfg);
 
-	sspm_26m = devm_clk_get(dev, "sspm_26m");
-	if (IS_ERR(sspm_26m)) {
-		pr_err("[SSPM] Get sspm clock fail: 26M.\n");
-		return -1;
-	}
-
-	sspm_32k = devm_clk_get(dev, "sspm_32k");
-	if (IS_ERR(sspm_32k)) {
-		pr_err("[SSPM] Get sspm clock fail: 32K.\n");
-		return -1;
-	}
-
-	sspm_bus_hclk = devm_clk_get(dev, "sspm_bus_hclk");
-	if (IS_ERR(sspm_bus_hclk)) {
-		pr_err("[SSPM] Get sspm clock fail: Bus_hclk.\n");
-		return -1;
-	}
-
-	clk_prepare_enable(sspm_26m);
-	clk_prepare_enable(sspm_32k);
-	clk_prepare_enable(sspm_bus_hclk);
-
 	sspm_pdev = pdev;
-
-#ifdef SSPM_SHARE_BUFFER_SUPPORT
-	if (sspm_sbuf_init()) {
-		pr_err("[SSPM] Shared Buffer Init Failed\n");
-		return -1;
-	}
-#endif
 
 	mbox_table = mt6761_mbox_table;
 	send_pintable = mt6761_send_pintable;

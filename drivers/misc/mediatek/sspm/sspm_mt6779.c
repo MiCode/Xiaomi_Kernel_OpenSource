@@ -43,35 +43,7 @@
 
 static struct workqueue_struct *mt6779_sspm_workqueue;
 static atomic_t sspm_inited = ATOMIC_INIT(0);
-static unsigned int sspm_ready;
 
-struct _mbox_info *mbox_table;
-struct _pin_send  *send_pintable;
-struct _pin_recv  *recv_pintable;
-char *(*pin_name);
-
-struct sspm_reserve_mblock *sspm_reserve_mblock;
-
-/*
- * schedule a work on sspm's work queue
- * @param sspm_ws: work_struct to schedule
- */
-void sspm_schedule_work(struct sspm_work_struct *sspm_ws)
-{
-	queue_work(mt6779_sspm_workqueue, &sspm_ws->work);
-}
-
-/*
- * @return: 1 if sspm is ready for running tasks
- */
-unsigned int is_sspm_ready(void)
-{
-	if (sspm_ready)
-		return 1;
-	else
-		return 0;
-}
-EXPORT_SYMBOL_GPL(is_sspm_ready);
 
 static int __init mt6779_sspm_module_init(void)
 {
