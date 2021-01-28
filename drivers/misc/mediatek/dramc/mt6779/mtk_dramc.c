@@ -15,7 +15,6 @@
 #include <linux/memblock.h>
 #include <linux/sched.h>
 #include <linux/delay.h>
-#include <linux/timer.h>
 #include <asm/cacheflush.h>
 /* #include <mach/mtk_clkmgr.h> */
 #include <linux/of.h>
@@ -25,11 +24,11 @@
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/dma.h>
 #include <mt-plat/sync_write.h>
+#include <linux/timer.h>
 #ifdef DVFS_READY
 #include <mtk_spm_vcore_dvfs.h>
 #endif
 
-#include <dramc_io.h>
 #include "mtk_dramc.h"
 #include "dramc.h"
 #ifdef EMI_READY
@@ -38,21 +37,6 @@
 
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_chip.h>
-#include <mt-plat/mtk_devinfo.h>
-
-struct mem_desc {
-	u64 start;
-	u64 size;
-};
-
-struct dram_info {
-	u32 rank_num;
-	struct mem_desc rank_info[4];
-};
-
-static int enable_lp3_1333;
-static unsigned int lp3_highest_freq;
-static unsigned int lp4_highest_freq;
 
 void __iomem *SYS_TIMER_BASE_ADDR;
 void __iomem *DRAMC_AO_CHA_BASE_ADDR;
@@ -79,14 +63,13 @@ unsigned int CBT_MODE;
 #define Reg_Sync_Writel(addr, val)   writel(val, IOMEM(addr))
 #define Reg_Readl(addr) readl(IOMEM(addr))
 
-static unsigned int dram_rank_num;
 static unsigned int dram_mr_mode;
+#ifdef SW_TX_TRACKING
 static unsigned int dram_sw_tx;
+#endif
+#ifdef SW_ZQCS
 static unsigned int dram_sw_zq;
-
-
-struct dram_info *g_dram_info_dummy_read, *get_dram_info;
-struct dram_info dram_info_dummy_read;
+#endif
 
 static unsigned int cbt_mode_rank[2];
 
@@ -98,41 +81,6 @@ static unsigned int cbt_mode_rank[2];
 __weak void *mt_spm_base_get(void)
 {
 	return 0;
-}
-
-static int __init dt_scan_dram_info(unsigned long node,
-const char *uname, int depth, void *data)
-{
-	char *type = (char *)of_get_flat_dt_prop(node, "device_type", NULL);
-
-	/* We are scanning "memory" nodes only */
-	if (type == NULL) {
-		/*
-		 * The longtrail doesn't have a device_type on the
-		 * /memory node, so look for the node called /memory@0.
-		 */
-		if (depth != 1 || strcmp(uname, "memory@0") != 0)
-			return 0;
-	} else if (strcmp(type, "memory") != 0)
-		return 0;
-
-	if (node) {
-		get_dram_info =
-			(struct dram_info *)of_get_flat_dt_prop(node,
-				"orig_dram_info", NULL);
-
-		g_dram_info_dummy_read = &dram_info_dummy_read;
-		dram_rank_num = get_dram_info->rank_num;
-		dram_info_dummy_read.rank_num = dram_rank_num;
-
-		dramc_info("dram info dram rank number = %d\n",
-		g_dram_info_dummy_read->rank_num);
-
-		dram_info_dummy_read.rank_info[0].start = 0;
-		dram_info_dummy_read.rank_info[1].start = 0;
-	}
-
-	return node;
 }
 
 #if defined(SW_TX_TRACKING) || defined(DRAMC_MEMTEST_DEBUG_SUPPORT)
@@ -1126,8 +1074,9 @@ EXPORT_SYMBOL(lpDram_Register_Read);
  *************************************************/
 unsigned int get_dram_data_rate(void)
 {
-	unsigned int u4PllIdx, u4ShuLevel, u4SDM_PCW, u4PREDIV, u4POSDIV;
-	unsigned int u4CKDIV4, u4VCOFreq, u4DataRate = 0;
+	unsigned int u4PllIdx, u4ShuLevel, u4SDM_PCW, u4PREDIV, u4POSDIV,
+				 u4CKDIV4, u4VCOFreq, u4DataRate = 0,
+				 u4ARDQ_REV_B0, u4PhyPLLDDR400EN;
 	unsigned int pcw_ofs[2] = { 0xd9c, 0xd94 };
 	unsigned int prepost_ofs[2] = { 0xda8, 0xda0 };
 	int channels;
@@ -1154,44 +1103,43 @@ unsigned int get_dram_data_rate(void)
 
 	u4VCOFreq = ((52>>u4PREDIV)*(u4SDM_PCW>>8))>>u4POSDIV;
 
+	u4ARDQ_REV_B0 = readl(
+		IOMEM(DDRPHY_AO_CHA_BASE_ADDR + 0xc38 +
+			(0x500 * u4ShuLevel))) >> 31 & 0x1;
+
+	u4PhyPLLDDR400EN = (readl(
+		IOMEM(DDRPHY_AO_CHA_BASE_ADDR) + 0xd84)) >> 8 & 0x1;
+
 	u4DataRate = u4VCOFreq>>u4CKDIV4;
 
-	/*
-	 *dramc_info("PCW=0x%X, u4PREDIV=%d, u4POSDIV=%d,"
+	/* dramc_info("PCW=0x%X, u4PREDIV=%d, u4POSDIV=%d,"
 	 *	"  CKDIV4=%d, DataRate=%d\n",
 	 *	u4SDM_PCW, u4PREDIV, u4POSDIV, u4CKDIV4, u4DataRate);
 	 */
 
-	if (DRAM_TYPE == TYPE_LPDDR3) {
-		if (u4DataRate == 1859)
-			u4DataRate = 1866;
-		else if (u4DataRate == 1599)
-			u4DataRate = 1600;
-		else if (u4DataRate == 1534)
+	switch (u4DataRate) {
+	case 3718:
+		u4DataRate = 3733;
+		break;
+	case 3094:
+		u4DataRate = 3094;
+		break;
+	case 2392:
+		u4DataRate = 2400;
+		break;
+	case 1638:
+		u4DataRate = 819;
+		break;
+	case 1534:
 			u4DataRate = 1534;
-		else if (u4DataRate == 1469)
-			u4DataRate = 1466;
-		else if (u4DataRate == 1326)
-			u4DataRate = 1333;
-		else if (u4DataRate == 1196)
+		break;
+	case 1196:
 			u4DataRate = 1200;
-		else
-			u4DataRate = 0;
-	} else if ((DRAM_TYPE == TYPE_LPDDR4) || (DRAM_TYPE == TYPE_LPDDR4X)) {
-		if (u4DataRate == 3198)
-			u4DataRate = 3200;
-		else if (u4DataRate == 3068)
-			u4DataRate = 3068;
-		else if (u4DataRate == 2392)
-			u4DataRate = 2400;
-		else if (u4DataRate == 1599)
-			u4DataRate = 1600;
-		else if (u4DataRate == 1534)
-			u4DataRate = 1534;
-		else
-			u4DataRate = 0;
-	} else
+		break;
+	default:
 		u4DataRate = 0;
+		break;
+	}
 
 	return u4DataRate;
 }
@@ -1222,55 +1170,54 @@ unsigned int get_shuffle_status(void)
 int get_ddr_type(void)
 {
 	return DRAM_TYPE;
-
 }
 EXPORT_SYMBOL(get_ddr_type);
-
-unsigned char get_ddr_mr(unsigned int index)
-{
-	return (unsigned char)get_dram_mr(index);
-
-}
-EXPORT_SYMBOL(get_ddr_mr);
 
 int get_emi_ch_num(void)
 {
 #ifdef EMI_READY
 	return get_ch_num();
 #else
-	return 0;
+	return 2;
 #endif
 }
 EXPORT_SYMBOL(get_emi_ch_num);
 
 int dram_steps_freq(unsigned int step)
 {
-	int freq = -1;
-
 	/* step here means ddr shuffle */
+	int freq = -1;
 
 	switch (step) {
 	case 0:
-		if (DRAM_TYPE == TYPE_LPDDR3)
-			freq = lp3_highest_freq;
-		else if (DRAM_TYPE == TYPE_LPDDR4X)
-			freq = 3200;
-		else if (DRAM_TYPE == TYPE_LPDDR4)
-			freq = lp4_highest_freq;
+		freq = 3733;
 		break;
 	case 1:
-		if (DRAM_TYPE == TYPE_LPDDR3)
-			freq = 1534;
-		else if ((DRAM_TYPE == TYPE_LPDDR4) ||
-				(DRAM_TYPE == TYPE_LPDDR4X))
-			freq = 2400;
+		freq = 3094;
 		break;
 	case 2:
-		if (DRAM_TYPE == TYPE_LPDDR3)
-			freq = (enable_lp3_1333) ? 1333 : 1466;
-		else if ((DRAM_TYPE == TYPE_LPDDR4) ||
-				(DRAM_TYPE == TYPE_LPDDR4X))
+		freq = 3094;
+		break;
+	case 3:
+		freq = 2400;
+		break;
+	case 4:
+		freq = 2400;
+		break;
+	case 5:
 			freq = 1534;
+		break;
+	case 6:
+			freq = 1534;
+		break;
+	case 7:
+		freq = 1200;
+		break;
+	case 8:
+		freq = 1200;
+		break;
+	case 9:
+		freq = 819;
 		break;
 	default:
 		return -1;
@@ -1285,7 +1232,7 @@ int dram_can_support_fh(void)
 }
 EXPORT_SYMBOL(dram_can_support_fh);
 
-static ssize_t emi_clk_mem_test_show(struct device_driver *driver, char *buf)
+static ssize_t complex_mem_test_show(struct device_driver *driver, char *buf)
 {
 	int ret;
 
@@ -1296,7 +1243,7 @@ static ssize_t emi_clk_mem_test_show(struct device_driver *driver, char *buf)
 		return snprintf(buf, PAGE_SIZE, "MEM TEST failed %d\n", ret);
 }
 
-static ssize_t emi_clk_mem_test_store(struct device_driver *driver,
+static ssize_t complex_mem_test_store(struct device_driver *driver,
 const char *buf, size_t count)
 {
 	/*snprintf(buf, "do nothing\n");*/
@@ -1315,14 +1262,79 @@ const char *buf, size_t count)
 	return count;
 }
 
-DRIVER_ATTR_RW(emi_clk_mem_test);
+DRIVER_ATTR_RW(complex_mem_test);
 DRIVER_ATTR_RW(read_dram_data_rate);
 
+#ifdef INTERFACE_READ_MR4
+static ssize_t read_mr4_show(struct device_driver *driver, char *buf)
+{
+	unsigned int rank, channel, temp;
+	unsigned int mr4[2][2];
+	void __iomem *dramc_ao_chx_base;
+	void __iomem *dramc_nao_chx_base;
+	void __iomem *ddrphy_chx_base;
+	ssize_t ret;
+	unsigned long save_flags;
+	unsigned int res;
+	int release = 0;
+
+	ret = 0;
+	ret = snprintf(buf, PAGE_SIZE, "NO MR4\n");
+	mr4[0][0] = mr4[0][1] = mr4[1][0] = mr4[1][1] = 0;
+	local_irq_save(save_flags);
+	if (acquire_dram_ctrl() != 0) {
+		dramc_info("can NOT get SPM HW SEMAPHORE!\n");
+		local_irq_restore(save_flags);
+		return 0;
+	}
+	for (rank = 0; rank < 2; rank++) {
+		for (channel = 0; channel < 2; channel++) {
+			if (channel == 0) {
+				dramc_ao_chx_base = DRAMC_AO_CHA_BASE_ADDR;
+				dramc_nao_chx_base = DRAMC_NAO_CHA_BASE_ADDR;
+				ddrphy_chx_base = DDRPHY_AO_CHA_BASE_ADDR;
+			} else {
+				dramc_ao_chx_base = DRAMC_AO_CHB_BASE_ADDR;
+				dramc_nao_chx_base = DRAMC_NAO_CHB_BASE_ADDR;
+				ddrphy_chx_base = DDRPHY_AO_CHB_BASE_ADDR;
+			}
+			temp = Reg_Readl(DRAMC_AO_MRS) & ~(0x3<<26);
+			Reg_Sync_Writel(DRAMC_AO_MRS, temp | (rank<<26));
+			res = read_dram_mode_reg(4, &mr4[rank][channel],
+					dramc_ao_chx_base, dramc_nao_chx_base);
+			if (res != TX_DONE)
+				goto ret_read_mr4;
+		}
+	}
+ret_read_mr4:
+	temp = Reg_Readl(DRAMC_AO_MRS) & ~(0x3<<26);
+	Reg_Sync_Writel(DRAMC_AO_MRS, temp);
+	release = release_dram_ctrl();
+	if (release != 0)
+		dramc_info("release SPM HW SEMAPHORE fail! %d\n", release);
+	local_irq_restore(save_flags);
+	ret = snprintf(buf, PAGE_SIZE,
+			"MR4: R0CHA=0x%x, R0CHB=0x%x, R1CHA=0x%x, R1CHB=0x%x\n",
+			mr4[0][0], mr4[0][1], mr4[1][0], mr4[1][1]);
+	return ret;
+}
+
+static ssize_t read_mr4_store(struct device_driver *driver,
+const char *buf, size_t count)
+{
+	return count;
+}
+
+DRIVER_ATTR_RW(read_mr4);
+#endif
+
+/*DRIVER_ATTR(dram_dfs, 0664, dram_dfs_show, dram_dfs_store);*/
+#if defined(SW_ZQCS) || defined(SW_TX_TRACKING)
 static struct timer_list zqcs_timer;
 static unsigned char low_freq_counter;
 DEFINE_SPINLOCK(sw_zq_tx_lock);
 
-static void zqcs_timer_callback(struct timer_list *t)
+void zqcs_timer_callback(unsigned long data)
 {
 #ifdef SW_ZQCS
 	unsigned int Response, TimeCnt, CHCounter, RankCounter;
@@ -1579,6 +1591,7 @@ tx_end:
 		dump_tx_log(res[1]);
 #endif
 }
+#endif  //SW_ZQCS or SW_TX_TRACKING
 
 static int dram_probe(struct platform_device *pdev)
 {
@@ -1588,7 +1601,7 @@ static int dram_probe(struct platform_device *pdev)
 	void __iomem *base_temp[8];
 	struct device_node *node = NULL;
 
-	pr_debug("[DRAMC] module probe.\n");
+	dramc_info("%s\n", __func__);
 
 	for (i = 0; i < (sizeof(base_temp) / sizeof(*base_temp)); i++) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
@@ -1654,7 +1667,7 @@ static int dram_probe(struct platform_device *pdev)
 #ifdef EMI_READY
 	DRAM_TYPE = get_dram_type();
 #else
-	DRAM_TYPE = TYPE_LPDDR3;
+	DRAM_TYPE = TYPE_LPDDR4;
 #endif
 	dramc_info("dram type =%d\n", DRAM_TYPE);
 
@@ -1705,37 +1718,31 @@ static int dram_probe(struct platform_device *pdev)
 	dramc_info("shuffle_status = %d\n", get_shuffle_status());
 	dramc_info("MR mode = %d\n", dram_mr_mode);
 
-	lp3_highest_freq = 0;
-	lp4_highest_freq = 0;
-	if (DRAM_TYPE == TYPE_LPDDR4)
-		lp4_highest_freq = get_dram_data_rate();
-	else if (DRAM_TYPE == TYPE_LPDDR3)
-		lp3_highest_freq = get_dram_data_rate();
-
 #ifdef SW_TX_TRACKING
 	dram_sw_tx = (readl(PDEF_DRAMC0_CHA_REG_0C8) >> 24) & 0x1;
 	dramc_info("SW_TX = %d\n", dram_sw_tx);
-#else
-	dram_sw_tx = 1;
 #endif
 #ifdef SW_ZQCS
 	dram_sw_zq = 0x1 - ((readl(PDEF_DRAMC0_CHA_REG_22C) >> 20) & 0x1);
 	dramc_info("SW_ZQ = %d\n", dram_sw_zq);
-#else
-	dram_sw_zq = 1;
 #endif
 
-	if (((DRAM_TYPE == TYPE_LPDDR4) || (DRAM_TYPE == TYPE_LPDDR4X)) &&
-			(dram_sw_tx || dram_sw_zq)) {
+	/* if (((DRAM_TYPE == TYPE_LPDDR4) || (DRAM_TYPE == TYPE_LPDDR4X)) &&
+	 *		(dram_sw_tx || dram_sw_zq)) {
+	 */
+#if defined(SW_ZQCS) || defined(SW_TX_TRACKING)
+	if (0) {
 		low_freq_counter = 10;
-		timer_setup(&zqcs_timer, zqcs_timer_callback,
-			TIMER_DEFERRABLE);
+		init_timer_deferrable(&zqcs_timer);
+		zqcs_timer.function = zqcs_timer_callback;
+		zqcs_timer.data = 0;
 		if (mod_timer(&zqcs_timer, jiffies + msecs_to_jiffies(280)))
 			dramc_info("Error in ZQCS mod_timer\n");
 	}
+#endif
 
 	ret = driver_create_file(pdev->dev.driver,
-	&driver_attr_emi_clk_mem_test);
+	&driver_attr_complex_mem_test);
 	if (ret) {
 		dramc_info("fail to create emi_clk_mem_test sysfs files\n");
 		return ret;
@@ -1748,7 +1755,13 @@ static int dram_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	enable_lp3_1333 = get_devinfo_with_index(133) & 0x1;
+#ifdef INTERFACE_READ_MR4
+	ret = driver_create_file(pdev->dev.driver, &driver_attr_read_mr4);
+	if (ret) {
+		dramc_info("fail to create read_mr4 sysfs files\n");
+		return ret;
+	}
+#endif
 
 	if (dram_can_support_fh())
 		dramc_info("dram can support DFS\n");
@@ -1787,17 +1800,12 @@ static int __init dram_test_init(void)
 {
 	int ret = 0;
 
+	dramc_info("%s\n", __func__);
+
 	ret = platform_driver_register(&dram_test_drv);
 	if (ret) {
 		dramc_info("init fail, ret 0x%x\n", ret);
 		return ret;
-	}
-
-	if (of_scan_flat_dt(dt_scan_dram_info, NULL) > 0) {
-		dramc_info("find dt_scan_dram_info\n");
-	} else {
-		dramc_info("can't find dt_scan_dram_info\n");
-		return -1;
 	}
 
 	return ret;
@@ -1888,18 +1896,22 @@ unsigned int mt_dramc_chp_get(unsigned int emi_cona)
 
 phys_addr_t mt_dramc_rankbase_get(unsigned int rank)
 {
-	if (!get_dram_info)
+	int rank_num = get_rk_num(),
+	i = 0;
+	phys_addr_t rank_base = 0x40000000;
+
+	if (rank >= rank_num)
 		return 0;
 
-	if (rank >= get_dram_info->rank_num)
-		return 0;
+	for (i = rank; i > 0; i--)
+		rank_base += get_rank_size(i-1) * 0x8000000;
 
-	return get_dram_info->rank_info[rank].start;
+	return rank_base;
 }
 
 unsigned int mt_dramc_ta_support_ranks(void)
 {
-	return dram_rank_num;
+	return get_rk_num();
 }
 
 MODULE_DESCRIPTION("MediaTek DRAMC Driver v0.1");
