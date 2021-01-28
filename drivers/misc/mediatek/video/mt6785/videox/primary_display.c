@@ -111,6 +111,9 @@
 /*#define ENLARGE_FB_FOR_COMPRESS*/
 #ifdef ENLARGE_FB_FOR_COMPRESS
 #include "ddp_ovl.h"
+static bool fb_size_cal;
+static UINT32 afbc_frame_buf_size;
+
 #endif
 
 #define MMSYS_CLK_LOW (0)
@@ -119,9 +122,10 @@
 #define _DEBUG_DITHER_HANG_
 
 #define FRM_UPDATE_SEQ_CACHE_NUM (DISP_INTERNAL_BUFFER_COUNT+1)
-
+#if 0
 static struct disp_internal_buffer_info
 	*decouple_buffer_info[DISP_INTERNAL_BUFFER_COUNT];
+#endif
 static struct RDMA_CONFIG_STRUCT decouple_rdma_config;
 static struct WDMA_CONFIG_STRUCT decouple_wdma_config;
 static struct disp_mem_output_config mem_config;
@@ -2743,7 +2747,7 @@ static int rdma_mode_switch_to_DL(struct cmdqRecStruct *handle, int block)
 
 	return 0;
 }
-
+#if 0
 static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 {
 	struct disp_internal_buffer_info *buf_info = NULL;
@@ -2814,7 +2818,7 @@ err:
 	kfree(buf_info);
 	return NULL;
 }
-
+#endif
 static int init_decouple_buffers(void)
 {
 	int i = 0;
@@ -2827,9 +2831,12 @@ static int init_decouple_buffers(void)
 
 	/* INTERNAL Buf 3 frames */
 	for (i = 0; i < DISP_INTERNAL_BUFFER_COUNT; i++) {
+#if 0
 		decouple_buffer_info[i] = allocat_decouple_buffer(buffer_size);
 		if (decouple_buffer_info[i])
-			pgc->dc_buf[i] = decouple_buffer_info[i]->mva;
+#endif
+			pgc->dc_buf[i] = i * buffer_size +
+				primary_display_get_frame_buffer_mva_address();
 	}
 
 	/* initialize RDMA config */
@@ -8970,13 +8977,10 @@ UINT32 DISP_GetPages(void)
 UINT32 DISP_GetFBRamSize(void)
 {
 #ifdef ENLARGE_FB_FOR_COMPRESS
-		static bool fb_size_cal;
-		static UINT32 frame_buf_size;
 
 		if (!fb_size_cal) {
 			UINT32 body_buf_size = 0;
 			UINT32 header_buf_size = 0;
-			UINT32 frame_buf_size = 0;
 
 			body_buf_size =
 				ALIGN_TO(DISP_GetScreenWidth(),
@@ -8997,14 +9001,14 @@ UINT32 DISP_GetFBRamSize(void)
 				ALIGN_TO(header_buf_size,
 				OVL_HEADER_ALIGN_BYTES);
 
-			frame_buf_size =
-				(body_buf_size + body_buf_size) *
+			afbc_frame_buf_size =
+				(body_buf_size + header_buf_size) *
 				DISP_GetPages();
 
 			fb_size_cal = 1;
 		}
 
-		return frame_buf_size;
+		return afbc_frame_buf_size;
 #else
 		return ALIGN_TO(DISP_GetScreenWidth(), MTK_FB_ALIGNMENT) *
 			ALIGN_TO(DISP_GetScreenHeight(), MTK_FB_ALIGNMENT) *
