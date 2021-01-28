@@ -1392,10 +1392,11 @@ static int ovl_layer_layout(enum DISP_MODULE_ENUM module,
 
 			if (phy_layer != cfg->ext_sel_layer) {
 				n = snprintf(msg, len,
-					     "L%d layout not match: ");
+					     "L%d layout not match: ",
+					     global_layer);
 				n += snprintf(msg + n, len - n,
 					      "cur_phy=%d, ext_sel=%d\n",
-					      global_layer, phy_layer,
+					      phy_layer,
 					      cfg->ext_sel_layer);
 				DDP_PR_ERR("%s", msg);
 				phy_layer++;
