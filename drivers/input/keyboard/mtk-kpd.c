@@ -52,7 +52,7 @@
 
 struct mtk_keypad {
 	struct input_dev *input_dev;
-	struct wakeup_source suspend_lock;
+	struct wakeup_source *suspend_lock;
 	struct tasklet_struct tasklet;
 	struct clk *clk;
 	void __iomem *base;
@@ -90,7 +90,7 @@ static void kpd_keymap_handler(unsigned long data)
 
 	kpd_get_keymap_state(keypad->base, new_state);
 
-	__pm_wakeup_event(&keypad->suspend_lock, 500);
+	__pm_wakeup_event(keypad->suspend_lock, 500);
 
 	for (i = 0; i < KPD_NUM_MEMS; i++) {
 		change = new_state[i] ^ keypad->keymap_state[i];
@@ -284,7 +284,12 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	input_set_drvdata(keypad->input_dev, keypad);
 
-	wakeup_source_init(&keypad->suspend_lock, "kpd wakelock");
+	keypad->suspend_lock = wakeup_source_register("kpd wakelock");
+	if (!keypad->suspend_lock) {
+		pr_notice("wakeup source init failed.\n");
+		goto err_unregister_device;
+	}
+
 	tasklet_init(&keypad->tasklet, kpd_keymap_handler,
 					(unsigned long)keypad);
 
@@ -305,6 +310,8 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 err_irq:
 	tasklet_kill(&keypad->tasklet);
+
+err_unregister_device:
 	input_unregister_device(keypad->input_dev);
 
 err_unprepare_clk:
@@ -319,6 +326,7 @@ static int kpd_pdrv_remove(struct platform_device *pdev)
 	struct mtk_keypad *keypad = platform_get_drvdata(pdev);
 
 	tasklet_kill(&keypad->tasklet);
+	wakeup_source_unregister(keypad->suspend_lock);
 	input_unregister_device(keypad->input_dev);
 	clk_disable_unprepare(keypad->clk);
 
