@@ -16,6 +16,9 @@
 
 #include <linux/types.h>
 
+#ifdef BUILD_POLICY_TEST
+#include "test.h"
+#endif
 
 #define APUSYS_MAX_NUM_OPPS                (23)
 #define APUSYS_PATH_USER_NUM               (4)   // num of DVFS_XXX_PATH

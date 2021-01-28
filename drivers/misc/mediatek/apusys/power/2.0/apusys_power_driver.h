@@ -17,7 +17,9 @@
 #include "apusys_power_cust.h"
 
 
+#ifndef BUILD_POLICY_TEST
 extern int apu_power_device_register(enum DVFS_USER, struct platform_device*);
+#endif
 extern void apu_power_device_unregister(enum DVFS_USER);
 extern int apu_device_power_on(enum DVFS_USER);
 extern int apu_device_power_off(enum DVFS_USER);
