@@ -324,8 +324,10 @@ static inline void pd_parse_pdata_mfrs(
 		mstring = "no_mfrs_string";
 		pr_err("%s get pd mfrs fail\n", __func__);
 	}
-	snprintf(mfrs_info->mfrs_string,
+	ret = snprintf(mfrs_info->mfrs_string,
 		strlen(mstring)+1, "%s", mstring);
+	if (ret < 0 || ret >= (strlen(mstring)+1))
+		pr_info("%s-%d snprintf fail\n", __func__, __LINE__);
 
 	pr_info("%s PD mfrs_string = %s\n",
 		__func__, mfrs_info->mfrs_string);
