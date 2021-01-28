@@ -5407,6 +5407,32 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 			DIP_RD32(DIP_A_BASE + 0x700),
 			DIP_RD32(DIP_A_BASE + 0x730),
 			DIP_RD32(DIP_A_BASE + 0x760));
+
+		pr_info("imgi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x104),
+			DIP_RD32(DIP_A_BASE + 0x10c),
+			DIP_RD32(DIP_A_BASE + 0x110));
+		pr_info("imgbi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x204),
+			DIP_RD32(DIP_A_BASE + 0x20c),
+			DIP_RD32(DIP_A_BASE + 0x210));
+		pr_info("imgci offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x234),
+			DIP_RD32(DIP_A_BASE + 0x23c),
+			DIP_RD32(DIP_A_BASE + 0x240));
+		pr_info("vipi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x704),
+			DIP_RD32(DIP_A_BASE + 0x70c),
+			DIP_RD32(DIP_A_BASE + 0x710));
+		pr_info("vipbi offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x734),
+			DIP_RD32(DIP_A_BASE + 0x73c),
+			DIP_RD32(DIP_A_BASE + 0x740));
+		pr_info("vipci offset:0x%08x, xsize:0x%08x, ysize:0x%08x\n",
+			DIP_RD32(DIP_A_BASE + 0x764),
+			DIP_RD32(DIP_A_BASE + 0x76c),
+			DIP_RD32(DIP_A_BASE + 0x770));
+
 		pr_info("TDRI:0x%08x, CQ0_EN(0x%08x)_BA(0x%08x),C Q1_EN(0x%08x)_BA(0x%08x), ufdi:0x%08x\n",
 			DIP_RD32(DIP_A_BASE + 0x004),
 			DIP_RD32(DIP_A_BASE + 0x1204),
