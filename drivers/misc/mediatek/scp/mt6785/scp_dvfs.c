@@ -524,8 +524,11 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -533,7 +536,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 	desc[len] = '\0';
 
 	if (kstrtouint(desc, 10, &val) == 0) {
-		if (val >= 0  && val <= 3) {
+		if (val <= 3) {
 			if (val != scp_sleep_flag) {
 				scp_sleep_flag = val;
 				pr_info("scp_sleep_flag = %d\n",
@@ -640,9 +643,12 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 					loff_t *data)
 {
 	char desc[64], cmd[32];
-	int len = 0;
+	unsigned int len = 0;
 	int dvfs_opp;
 	int n;
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))

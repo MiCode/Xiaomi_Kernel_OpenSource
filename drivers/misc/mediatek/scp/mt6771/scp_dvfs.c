@@ -520,7 +520,7 @@ static ssize_t mt_scp_dvfs_sleep_proc_write(
 	desc[len] = '\0';
 
 	if (kstrtouint(desc, 10, &val) == 0) {
-		if (val >= 0  && val <= 3) {
+		if (val <= 3) {
 			if (val != scp_sleep_flag) {
 				scp_sleep_flag = val;
 				pr_info("scp_sleep_flag = %d\n",
