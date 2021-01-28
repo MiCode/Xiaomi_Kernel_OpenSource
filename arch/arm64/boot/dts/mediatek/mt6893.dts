@@ -7575,10 +7575,10 @@ page_owner=on loop.max_part=7";
 
 		/* CINST */
 		cinst_doe_init = <0>;
-		cinst_doe_ls_enable = <0>;
+		cinst_doe_ls_enable = <240>;
 		cinst_doe_ls_period = <255>;
 		cinst_doe_ls_credit = <255>;
-		cinst_doe_vx_enable = <0>;
+		cinst_doe_vx_enable = <240>;
 		cinst_doe_vx_period = <255>;
 		cinst_doe_vx_credit = <255>;
 		cinst_doe_ls_low_en = <0>;
