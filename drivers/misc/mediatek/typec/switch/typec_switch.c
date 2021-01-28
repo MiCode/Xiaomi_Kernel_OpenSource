@@ -156,8 +156,10 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 		typec_switch->ptn = devm_kzalloc(dev,
 			sizeof(typec_switch->ptn), GFP_KERNEL);
 
-		if (!typec_switch->ptn)
+		if (!typec_switch->ptn) {
 			dev_err(dev, "ptn alloc fail\n");
+			return -ENOMEM;
+		}
 
 		typec_switch->ptn->dev = dev;
 
@@ -173,8 +175,10 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 		typec_switch->fusb = devm_kzalloc(dev,
 			sizeof(typec_switch->fusb), GFP_KERNEL);
 
-		if (!typec_switch->fusb)
+		if (!typec_switch->fusb) {
 			dev_err(dev, "fusb alloc fail\n");
+			return -ENOMEM;
+		}
 
 		typec_switch->fusb->dev = dev;
 
