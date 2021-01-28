@@ -265,6 +265,7 @@ static struct mtk_ecc *mtk_ecc_get(struct device_node *np)
 {
 	struct mtk_ecc *ecc = NULL;
 	struct platform_device *pdev;
+	int ret;
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev || !platform_get_drvdata(pdev))
@@ -272,7 +273,15 @@ static struct mtk_ecc *mtk_ecc_get(struct device_node *np)
 
 	get_device(&pdev->dev);
 	ecc = platform_get_drvdata(pdev);
-	clk_prepare_enable(ecc->clk);
+	if (ecc == NULL) {
+		pr_info("failed to get ecc point.\n");
+		return NULL;
+	}
+	ret = clk_prepare_enable(ecc->clk);
+	if (ret) {
+		pr_info("failed to enable clk.\n");
+		return NULL;
+	}
 	mtk_ecc_hw_init(ecc);
 
 	return ecc;
