@@ -356,6 +356,11 @@ int mtk_dbgtop_dfd_therm2_dis(int value)
 }
 EXPORT_SYMBOL(mtk_dbgtop_dfd_therm2_dis);
 
+/*
+ * Set the required timeout value of each caller before RGU reset,
+ * and take the maximum as timeout value.
+ * Note: caller needs to set normal timeout value to 0 by default
+ */
 int mtk_dbgtop_dfd_timeout(int value_abnormal, int value_normal)
 {
 	unsigned int tmp;
@@ -399,7 +404,7 @@ int mtk_dbgtop_dfd_timeout_reset(void)
 	tmp |= dfd_timeout | MTK_DBGTOP_LATCH_CTL2_KEY;
 	mt_reg_sync_writel(tmp, MTK_DBGTOP_LATCH_CTL2);
 
-	pr_debug("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
+	pr_notice("%s: MTK_DBGTOP_LATCH_CTL2(0x%x)\n", __func__,
 		readl(IOMEM(MTK_DBGTOP_LATCH_CTL2)));
 
 	return 0;
