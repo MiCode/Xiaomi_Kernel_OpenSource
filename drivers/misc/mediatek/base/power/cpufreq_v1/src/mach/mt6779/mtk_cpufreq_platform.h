@@ -26,6 +26,7 @@
 #define NR_CCI_TBL		2
 
 /* ARMv8.2 */
+#define SINGLE_CLUSTER 1
 
 /* EEM VBOOT */
 #define VBOOT_VOLT 80000
