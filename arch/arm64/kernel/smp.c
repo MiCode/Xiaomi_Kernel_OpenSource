@@ -847,8 +847,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 {
 	unsigned int cpu = smp_processor_id();
 	struct pt_regs *old_regs = set_irq_regs(regs);
+	unsigned long long ts = 0;
+	int count = 0;
 
 	if ((unsigned)ipinr < NR_IPI) {
+		check_start_time_preempt(ipi_note, count, ts, ipinr);
 		trace_ipi_entry_rcuidle(ipi_types[ipinr]);
 		__inc_irq_stat(cpu, ipi_irqs[ipinr]);
 	}
@@ -908,8 +911,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		break;
 	}
 
-	if ((unsigned)ipinr < NR_IPI)
+	if ((unsigned int)ipinr < NR_IPI) {
 		trace_ipi_exit_rcuidle(ipi_types[ipinr]);
+		check_process_time_preempt(ipi_note, count, "ipi %d %s", ts,
+					   ipinr, ipi_types[ipinr]);
+	}
 	set_irq_regs(old_regs);
 }
 

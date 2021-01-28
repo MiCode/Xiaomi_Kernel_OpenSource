@@ -1362,6 +1362,7 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 {
 	enum hrtimer_restart (*fn)(struct hrtimer *);
 	int restart;
+	unsigned long long ts;
 
 	lockdep_assert_held(&cpu_base->lock);
 
@@ -1394,9 +1395,11 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 	 * is dropped.
 	 */
 	raw_spin_unlock_irqrestore(&cpu_base->lock, flags);
+	check_start_time(ts);
 	trace_hrtimer_expire_entry(timer, now);
 	restart = fn(timer);
 	trace_hrtimer_expire_exit(timer);
+	check_process_time("hrtimer %ps", ts, fn);
 	raw_spin_lock_irq(&cpu_base->lock);
 
 	/*

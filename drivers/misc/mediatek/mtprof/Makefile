@@ -17,3 +17,4 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 LINUXINCLUDE += -include $(srctree)/kernel/sched/sched.h
 
 obj-$(CONFIG_MTPROF) = bootprof.o
+obj-$(CONFIG_MTK_SCHED_MONITOR) += common.o prof_main.o sched_monitor.o sched_monitor_test.o

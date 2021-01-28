@@ -279,7 +279,8 @@ restart:
 
 	while ((softirq_bit = ffs(pending))) {
 		unsigned int vec_nr;
-		int prev_count;
+		int prev_count, count;
+		unsigned long long ts;
 
 		h += softirq_bit - 1;
 
@@ -288,9 +289,14 @@ restart:
 
 		kstat_incr_softirqs_this_cpu(vec_nr);
 
+		check_start_time_preempt(softirq_note, count, ts, vec_nr);
 		trace_softirq_entry(vec_nr);
 		h->action(h);
 		trace_softirq_exit(vec_nr);
+		check_process_time_preempt(softirq_note, count,
+					   "softirq %u %s %ps", ts, vec_nr,
+					   softirq_to_name[vec_nr], h->action);
+
 		if (unlikely(prev_count != preempt_count())) {
 			pr_err("huh, entered softirq %u %s %p with preempt_count %08x, exited with %08x?\n",
 			       vec_nr, softirq_to_name[vec_nr], h->action,
@@ -502,6 +508,7 @@ static void tasklet_action_common(struct softirq_action *a,
 				  unsigned int softirq_nr)
 {
 	struct tasklet_struct *list;
+	unsigned long long ts;
 
 	local_irq_disable();
 	list = tl_head->head;
@@ -519,7 +526,9 @@ static void tasklet_action_common(struct softirq_action *a,
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED,
 							&t->state))
 					BUG();
+				check_start_time(ts);
 				t->func(t->data);
+				check_process_time("tasklet %ps", ts, t->func);
 				tasklet_unlock(t);
 				continue;
 			}

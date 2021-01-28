@@ -6,3 +6,46 @@ config MTPROF
 	  built-in or not. It includes bootprof logger which is for
 	  boot time profiling. If you are not sure about whether to
 	  enable it or not, please set n.
+
+config MTK_SCHED_MONITOR
+	bool "mtk scheduler monitor"
+	help
+	  MTK_SCHED_MONITOR is used to monitor ISR/SOFTIRQ/TASKLET/HRTIMER
+	  /STIMER/RCU processing duration and IRQ disabled duration. Say Y
+	  here to enable monitor. If you are not sure about whether to enable
+	  it or not, please set n.
+
+config MTK_IRQ_COUNT_TRACER
+	bool "mtk irq count tracer"
+	depends on MTK_SCHED_MONITOR
+	help
+	  Enable this to check the increment of irq counts in a period of
+	  time. If the increment is above a threshold, a warning message
+	  is printed for reference information. This feature is helpful
+	  to catch the irq that triggered abnormally.
+
+	  If unsure, say N.
+
+config MTK_IRQ_OFF_TRACER
+	bool "mtk irq off tracer"
+	depends on MTK_SCHED_MONITOR
+	select TRACE_IRQFLAGS
+	help
+	  Enable this to check the irq off time. If the time is above a
+	  threshold, a warning message is printed for reference information.
+	  This feature is helpful to catch the task that disable irq for a
+	  long time.
+
+	  If unsure, say N.
+
+config MTK_PREEMPT_TRACER
+	bool "mtk preempt off tracer"
+	depends on MTK_SCHED_MONITOR
+	select PREEMPT_TRACER
+	help
+	  Enable this to check the irq off time. If the time is above a
+	  threshold, a warning message is printed for reference information.
+	  This feature is helpful to catch the task that disable irq for a
+	  long time.
+
+	  If unsure, say N.

@@ -9,6 +9,7 @@
 #include <linux/uaccess.h>
 #include <linux/module.h>
 #include <linux/ftrace.h>
+#include <mt-plat/mtk_sched_mon.h>
 #include "trace.h"
 
 #define CREATE_TRACE_POINTS
@@ -24,6 +25,7 @@ void trace_hardirqs_on(void)
 		if (!in_nmi())
 			trace_irq_enable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
 		tracer_hardirqs_on(CALLER_ADDR0, CALLER_ADDR1);
+		trace_hardirqs_on_time();
 		this_cpu_write(tracing_irq_cpu, 0);
 	}
 
@@ -35,6 +37,7 @@ void trace_hardirqs_off(void)
 {
 	if (!this_cpu_read(tracing_irq_cpu)) {
 		this_cpu_write(tracing_irq_cpu, 1);
+		trace_hardirqs_off_time();
 		tracer_hardirqs_off(CALLER_ADDR0, CALLER_ADDR1);
 		if (!in_nmi())
 			trace_irq_disable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
@@ -78,10 +81,12 @@ void trace_preempt_on(unsigned long a0, unsigned long a1)
 	if (!in_nmi())
 		trace_preempt_enable_rcuidle(a0, a1);
 	tracer_preempt_on(a0, a1);
+	trace_preempt_on_time();
 }
 
 void trace_preempt_off(unsigned long a0, unsigned long a1)
 {
+	trace_preempt_off_time();
 	if (!in_nmi())
 		trace_preempt_disable_rcuidle(a0, a1);
 	tracer_preempt_off(a0, a1);
