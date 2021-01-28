@@ -292,6 +292,7 @@ config MTK_ENABLE_GMO
 	bool "Enable/Disable GMO related feautre"
 	select CC_OPTIMIZE_FOR_SIZE
 	select ZRAM_LZ4K_COMPRESS
+        select EXTREME_LOW_RAM
 	help
 	  Enable/Disable GMO related feautre.
 	  This is a group kernel setting of GMO mechanism,
