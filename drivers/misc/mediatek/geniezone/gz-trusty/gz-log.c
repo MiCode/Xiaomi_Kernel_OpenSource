@@ -379,7 +379,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 
 	if (glctx.flag == STATIC) {
 		dev_info(&pdev->dev,
-			 "[%s] origin pa 0x%lx, ori_virt %p, size 0x%x\n",
+			 "[%s] origin pa 0x%llx, ori_virt %p, size 0x%lx\n",
 			 __func__, glctx.paddr, glctx.ori_virt, glctx.size);
 		/* NOTE: remove booting memlog and re-add a new region that
 		 * start behind booting log
@@ -392,7 +392,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 		if (glctx.size < (BOOTING_LOG_SIZE * 2)) {
 			offset = round_down(glctx.size / 2, PAGE_SIZE);
 			dev_info(&pdev->dev,
-				 "[%s] WARNING: small log buffer size 0x%x\n",
+				 "[%s] WARNING: small log buffer size 0x%lx\n",
 				 __func__, glctx.size);
 		} else
 			offset = BOOTING_LOG_SIZE;
@@ -402,7 +402,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	}
 
 	glctx.virt = (void *)((unsigned long)glctx.ori_virt + offset);
-	dev_info(&pdev->dev, "[%s] new pa 0x%lx, ori va %p, va %p, size 0x%x\n",
+	dev_info(&pdev->dev, "[%s] new pa 0x%llx, ori va %p, va %p, size 0x%lx\n",
 		 __func__, glctx.paddr, glctx.ori_virt, glctx.virt,
 		 glctx.size);
 
