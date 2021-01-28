@@ -118,9 +118,9 @@ config COMMON_CLK_MT2712_VENCSYS
 
 config COMMON_CLK_MT6761
 	bool "Clock driver for MediaTek MT6761"
-	depends on (ARCH_MEDIATEK && ARM64) || COMPILE_TEST
+	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
-	default ARCH_MEDIATEK && ARM64
+	default ARCH_MEDIATEK
 	help
 	  This driver supports MediaTek MT6761 basic clocks,
 	  which is used to control basic clock output.
