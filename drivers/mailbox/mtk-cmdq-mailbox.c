@@ -602,8 +602,10 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	dma_handle = buf->pa_base;
 
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
-	if (!task)
+	if (!task) {
+		cmdq_task_callback(pkt, -ENOMEM);
 		return;
+	}
 	pkt->task_alloc = true;
 
 #if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
