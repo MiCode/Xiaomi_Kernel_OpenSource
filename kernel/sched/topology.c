@@ -357,7 +357,6 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 			pr_info("rd %*pbl: CPUs do not have asymmetric capacities\n",
 					cpumask_pr_args(cpu_map));
 		}
-		goto free;
 	}
 
 	for_each_cpu(i, cpu_map) {
