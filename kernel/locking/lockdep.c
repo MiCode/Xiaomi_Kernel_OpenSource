@@ -5064,6 +5064,45 @@ static void lock_mon_msg(char *buf, int out)
 #endif
 }
 
+#ifndef GO_UNWIND_FRAME
+static void dump_task_stack(struct task_struct *tsk, int output)
+{
+	struct stack_trace trace;
+	unsigned long entries[32];
+	char buf[256];
+	int i;
+
+	if (!mutex_trylock(&tsk->signal->cred_guard_mutex))
+		return;
+
+	trace.nr_entries = 0;
+	trace.max_entries = ARRAY_SIZE(entries);
+	trace.entries = entries;
+	trace.skip = 1;
+	save_stack_trace_tsk(tsk, &trace);
+
+	if (trace.nr_entries != 0 &&
+	    trace.entries[trace.nr_entries - 1] == ULONG_MAX)
+		trace.nr_entries--;
+
+	if (trace.nr_entries < 3) {
+		mutex_unlock(&tsk->signal->cred_guard_mutex);
+		return;
+	}
+
+	snprintf(buf, sizeof(buf), "  stack of %s/%d:%s",
+		 tsk->comm, tsk->pid, (output == TO_SRAM) ? "\n" : "");
+	lock_mon_msg(buf, output);
+
+	for (i = 0; i < trace.nr_entries; i++) {
+		snprintf(buf, sizeof(buf), "%*c%pS%s", 6, ' ',
+			 (void *)entries[i], (output == TO_SRAM) ? "\n" : "");
+		lock_mon_msg(buf, output);
+	}
+
+	mutex_unlock(&tsk->signal->cred_guard_mutex);
+}
+#else
 #if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
 static void dump_task_stack(struct task_struct *tsk, int output)
 {
@@ -5118,8 +5157,9 @@ static void dump_task_stack(struct task_struct *tsk, int output)
 
 	put_task_stack(tsk);
 }
-#else /* !CONFIG_ARM && !CONFIG_ARM64 */
+#else /* CONFIG_ARM || CONFIG_ARM64 */
 static void dump_task_stack(struct task_struct *tsk, int output) {}
+#endif
 #endif
 #endif /* MTK_LOCK_MONITOR || MTK_LOCK_DEBUG_HELD_LOCK */
 
