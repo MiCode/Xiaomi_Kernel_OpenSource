@@ -5,6 +5,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -37,7 +38,9 @@
 #include "ddp_manager.h"
 #include "disp_lcm.h"
 #include "ddp_clkmgr.h"
-/* #include "mmdvfs_mgr.h" */
+#ifdef CONFIG_MTK_SMI_EXT
+#include "mmdvfs_mgr.h"
+#endif
 #include "disp_drv_log.h"
 #include "ddp_log.h"
 #include "disp_lowpower.h"

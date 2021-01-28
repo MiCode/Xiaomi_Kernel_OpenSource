@@ -24,9 +24,16 @@
 
 #####################################
 # MT67xx chipset group
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+	MTK_PLATFORM := mt6765
+else
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
+
+# remove this after k79 config CONFIG_MACH_MT6779 & CONFIG_MTK_PLATFORM in defconfig
 ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
-CONFIG_MACH_MT6779 := y
+	CONFIG_MACH_MT6779 := y
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 endif
 
 #####################################
@@ -99,8 +106,12 @@ obj-y += mtkfb_dummy.o
 endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
 
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+	subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/mt6761
+else
+	subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
+endif
 
 ccflags-$(CONFIG_MTK_LCM) += -I$(srctree)/drivers/misc/mediatek/lcm/inc
 

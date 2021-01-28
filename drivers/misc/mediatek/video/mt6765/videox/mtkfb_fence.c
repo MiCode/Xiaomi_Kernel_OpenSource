@@ -1167,7 +1167,7 @@ struct mtkfb_fence_buf_info *disp_sync_prepare_buf(
 	unsigned int session_id = 0;
 	unsigned int timeline_id = 0;
 	struct mtkfb_fence_buf_info *buf_info = NULL;
-	struct fence_data data;
+	struct mtk_sync_create_fence_data data;
 	struct disp_sync_info *layer_info = NULL;
 	struct disp_session_sync_info *session_info = NULL;
 

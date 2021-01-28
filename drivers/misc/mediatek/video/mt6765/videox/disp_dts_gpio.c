@@ -7,6 +7,7 @@
 #include "disp_helper.h"
 #include "disp_drv_log.h"
 #include <linux/kernel.h> /* printk */
+#include <linux/pinctrl/consumer.h>
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 static struct pinctrl *this_pctrl; /* static pinctrl instance */

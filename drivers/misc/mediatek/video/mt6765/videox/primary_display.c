@@ -5,6 +5,7 @@
 
 #include <linux/delay.h>
 #include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -70,9 +71,11 @@
 
 #include "ddp_clkmgr.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef CONFIG_MTK_SMI_EXT
 #include "mmdvfs_mgr.h"
-#include "mtk_vcorefs_governor.h"
-#include "mtk_vcorefs_manager.h"
+#endif
+/* #include "mtk_vcorefs_governor.h" */
+/* #include "mtk_vcorefs_manager.h" */
 #endif
 
 #include "disp_lowpower.h"
@@ -1297,7 +1300,7 @@ int _should_config_ovl_input(void)
 		return 1;
 }
 
-static long int get_current_time_us(void)
+static long get_current_time_us(void)
 {
 	struct timeval t;
 
@@ -1843,7 +1846,7 @@ static int sec_buf_ion_alloc(int buf_size)
 {
 #ifdef MTK_FB_ION_SUPPORT
 	size_t mva_size = 0;
-	unsigned long int sec_hnd = 0;
+	unsigned long sec_hnd = 0;
 	/* ion_phys_addr_t sec_hnd = 0; */
 	unsigned long align = 0; /* 4096 align */
 	struct ion_mm_data mm_data;
@@ -4737,10 +4740,6 @@ done:
 	disp_sw_mutex_unlock(&(pgc->capture_lock));
 	_primary_path_switch_dst_unlock();
 
-#ifdef CONFIG_MTK_AEE_FEATURE
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_early_suspend",
-		WDT_SETBY_Display);
-#endif
 	primary_trigger_cnt = 0;
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 		MMPROFILE_FLAG_END, 0, 0);
@@ -5180,10 +5179,6 @@ done:
 	_primary_path_unlock(__func__);
 	DISPMSG("skip_update:%d\n", skip_update);
 
-#ifdef CONFIG_MTK_AEE_FEATURE
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_late_resume",
-		WDT_SETBY_Display);
-#endif
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_END, 0, 0);
 	ddp_clk_check();
@@ -5373,13 +5368,6 @@ static int primary_display_trigger_nolock(int blocking, void *callback,
 	atomic_set(&delayed_trigger_kick, 1);
 
 done:
-#ifdef CONFIG_MTK_AEE_FEATURE
-	if ((primary_trigger_cnt > 1) && aee_kernel_Powerkey_is_press()) {
-		aee_kernel_wdt_kick_Powkey_api("primary_display_trigger",
-			WDT_SETBY_Display);
-		primary_trigger_cnt = 0;
-	}
-#endif
 	if (pgc->session_id > 0)
 		update_frm_seq_info(0, 0, 0, FRM_TRIGGER);
 
@@ -6077,14 +6065,16 @@ static void _ovl_yuv_throughput_freq_request
 
 	/* have not overlay yuv layer */
 	if (overlap_yuv_num < 2) {
+#ifdef MTK_FB_MMDVFS_SUPPORT
 		ovl_throughput_freq_req = 0;
+#endif
 		return;
 	}
 
 	/* calculate ovl throughput frequence */
 	lcm_param = disp_lcm_get_params(pgc->plcm);
 
-	blank_field = (long long int)(((panel_height +
+	blank_field = (long long)(((panel_height +
 		(long long)lcm_param->dsi.horizontal_sync_active +
 		(long long)lcm_param->dsi.horizontal_backporch +
 		(long long)lcm_param->dsi.horizontal_frontporch) *
@@ -6125,6 +6115,7 @@ static void _ovl_yuv_throughput_freq_request
 		if (throughput_freq <
 				layering_rule_get_mm_freq_table
 					(mm_dvfs_level)) {
+#ifdef MTK_FB_MMDVFS_SUPPORT
 			pm_qos_update_request(&primary_display_mm_freq_request,
 				layering_rule_get_mm_freq_table(mm_dvfs_level));
 			DISPDBG("%s request_mm_freq=%d\n",
@@ -6132,9 +6123,12 @@ static void _ovl_yuv_throughput_freq_request
 				layering_rule_get_mm_freq_table(mm_dvfs_level));
 			ovl_throughput_freq_req =
 				layering_rule_get_mm_freq_table(mm_dvfs_level);
+#endif
 			break;
 		}
+#ifdef MTK_FB_MMDVFS_SUPPORT
 		ovl_throughput_freq_req = 0;
+#endif
 	}
 }
 
@@ -8341,7 +8335,6 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 	return 0;
 }
 
-#ifdef CONFIG_MTK_IOMMU_V2
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	enum UNIFIED_COLOR_FMT ufmt)
 {
@@ -8410,81 +8403,6 @@ out:
 	DISPMSG("primary capture: end\n");
 	return ret;
 }
-
-#else
-
-int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
-	enum UNIFIED_COLOR_FMT ufmt)
-{
-	int ret = 0;
-#ifdef CONFIG_MTK_M4U
-	unsigned int w_xres = primary_display_get_width();
-	unsigned int h_yres = primary_display_get_height();
-	unsigned int pixel_byte = primary_display_get_bpp() / 8;
-	int buffer_size = h_yres * w_xres * pixel_byte;
-	enum DISP_MODULE_ENUM after_eng = DISP_MODULE_OVL0;
-	int tmp;
-	struct m4u_client_t *m4uClient = NULL;
-	unsigned int mva = 0;
-#endif
-	DISPMSG("primary capture: begin\n");
-
-	disp_sw_mutex_lock(&(pgc->capture_lock));
-
-#ifdef CONFIG_MTK_M4U
-	if (primary_display_is_sleepd()) {
-		memset((void *)pbuf, 0, buffer_size);
-		DISPMSG("primary capture: Fail black End\n");
-		goto out;
-	}
-
-	m4uClient = m4u_create_client();
-	if (m4uClient == NULL) {
-		DISPMSG("primary capture:Fail to alloc  m4uClient\n");
-		ret = -1;
-		goto out;
-	}
-
-	ret = m4u_alloc_mva(m4uClient, DISP_M4U_PORT_DISP_WDMA0, pbuf, NULL,
-		buffer_size, M4U_PROT_READ | M4U_PROT_WRITE, 0, &mva);
-	if (ret) {
-		DISPMSG("primary capture:Fail to allocate mva\n");
-		ret = -1;
-		goto out;
-	}
-
-	ret = m4u_cache_sync(m4uClient, DISP_M4U_PORT_DISP_WDMA0, pbuf,
-			     buffer_size, mva, M4U_CACHE_FLUSH_ALL);
-	if (ret) {
-		DISPMSG("primary capture:Fail to cach sync\n");
-		ret = -1;
-		goto out;
-	}
-
-	tmp = disp_helper_get_option(DISP_OPT_SCREEN_CAP_FROM_DITHER);
-	if (tmp == 0)
-		after_eng = DISP_MODULE_OVL0;
-
-	if (primary_display_cmdq_enabled())
-		_screen_cap_by_cmdq(mva, ufmt, after_eng);
-	else
-		_screen_cap_by_cpu(mva, ufmt, after_eng);
-
-	ret = m4u_cache_sync(m4uClient, DISP_M4U_PORT_DISP_WDMA0, pbuf,
-			     buffer_size, mva, M4U_CACHE_FLUSH_BY_RANGE);
-
-out:
-	if (mva > 0)
-		m4u_dealloc_mva(m4uClient, DISP_M4U_PORT_DISP_WDMA0, mva);
-
-	if (m4uClient != 0)
-		m4u_destroy_client(m4uClient);
-#endif
-	disp_sw_mutex_unlock(&(pgc->capture_lock));
-	DISPMSG("primary capture: end\n");
-	return ret;
-}
-#endif
 
 int primary_display_capture_framebuffer(unsigned long pbuf)
 {

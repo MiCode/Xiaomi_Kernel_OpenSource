@@ -11,9 +11,16 @@
 # GNU General Public License for more details.
 #
 
-MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+	MTK_PLATFORM := mt6765
+else
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
+
+# remove this after k79 config CONFIG_MACH_MT6779 & CONFIG_MTK_PLATFORM in defconfig
 ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
-CONFIG_MACH_MT6779 := y
+	CONFIG_MACH_MT6779 := y
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/ \
@@ -21,10 +28,15 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/ \
              -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/ \
              -I$(srctree)/drivers/misc/mediatek/base/power/mt6755/ \
              -I$(srctree)/drivers/misc/mediatek/lcm/inc \
-             -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/dispsys
+
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/mt6761
+else
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
+endif
 
 ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_MT6759) \
 					 $(CONFIG_MACH_MT6758) $(CONFIG_MACH_MT6739) $(CONFIG_MACH_MT6765) \
@@ -32,11 +44,8 @@ ifeq (y, $(filter y, $(CONFIG_MACH_MT6763) $(CONFIG_MACH_MT6799) $(CONFIG_MACH_M
 ccflags-y += \
 		-I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
-ifeq ($(CONFIG_MACH_MT6761),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
-else
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
-endif
+
 else
 ccflags-y += \
 		-I$(srctree)/drivers/misc/mediatek/cmdq/v2/ \

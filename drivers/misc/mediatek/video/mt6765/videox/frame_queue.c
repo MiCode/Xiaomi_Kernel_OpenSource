@@ -12,6 +12,7 @@
 #include "disp_drv_log.h"
 #include "mtkfb_fence.h"
 #include "mtk_disp_mgr.h"
+#include <uapi/linux/sched/types.h>
 
 
 static struct frame_queue_head_t frame_q_head[MAX_SESSION_COUNT];

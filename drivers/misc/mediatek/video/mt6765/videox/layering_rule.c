@@ -16,9 +16,10 @@
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 
-#if defined(CONFIG_MTK_DRAMC)
+#if defined(CONFIG_MTK_DRAMC) && 0
 #include "mtk_dramc.h"
 #endif
+
 #include "layering_rule.h"
 #include "disp_drv_log.h"
 #include "ddp_rsz.h"
@@ -399,7 +400,8 @@ static void layering_rule_senario_decision(struct disp_layer_info *disp_info)
 	}
 
 	l_rule_info.primary_fps = 60;
-#if defined(CONFIG_MTK_DRAMC)
+
+#if defined(CONFIG_MTK_DRAMC) && 0
 	if (get_ddr_type() == TYPE_LPDDR3) {
 		if (primary_display_get_width() < 800) {
 			if (primary_display_get_height() < 1500)
@@ -597,7 +599,7 @@ int layering_rule_get_mm_freq_table(enum HRT_OPP_LEVEL opp_level)
 		return 0;
 	}
 
-#if defined(CONFIG_MTK_DRAMC)
+#if defined(CONFIG_MTK_DRAMC) && 0
 	if (get_ddr_type() == TYPE_LPDDR3)
 		dramc_type = HRT_DRAMC_TYPE_LP3;
 	else {

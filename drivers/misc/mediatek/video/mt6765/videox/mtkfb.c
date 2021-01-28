@@ -29,7 +29,7 @@
 #include <asm/cacheflush.h>
 #include <linux/io.h>
 #include "ion_drv.h"
-#include "mt-plat/dma.h"
+/* #include "mt-plat/dma.h" */
 /* #include <mach/irqs.h> */
 #include <linux/dma-mapping.h>
 #include <linux/compat.h>
@@ -61,10 +61,7 @@
 #include "ddp_log.h"
 #include "ddp_m4u.h"
 #include "extd_multi_control.h"
-#if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
-	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 #include "external_display.h"
-#endif
 
 #include <mt-plat/mtk_ccci_common.h>
 #include "ddp_dsi.h"
@@ -2484,12 +2481,12 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	DISPMSG("mtkfb_probe name [%s]  = [%s][%p]\n",
 		pdev->name, pdev->dev.init_name, (void *)&pdev->dev);
-
+#ifdef CONFIG_MTK_SMI_EXT
 	if (!smi_mm_clk_first_get()) {
 		DISPMSG("SMI not start probe\n");
 		return -EPROBE_DEFER;
 	}
-
+#endif
 	_parse_tag_videolfb();
 
 	init_state = 0;

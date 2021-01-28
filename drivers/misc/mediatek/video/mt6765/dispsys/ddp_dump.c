@@ -15,7 +15,9 @@
 #include "ddp_rdma_ex.h"
 #include "ddp_dsi.h"
 #include "ddp_rsz.h"
+#ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
+#endif
 
 static char *ddp_signal_0(int bit)
 {
@@ -877,11 +879,12 @@ static void mmsys_config_dump_analysis(void)
 		}
 	}
 	DDPDUMP("%s\n", clock_on);
-
+#ifdef CONFIG_MTK_SMI_EXT
 	/* dump SMI status, when maybe SMI hang */
 	if (greq)
 		smi_debug_bus_hang_detect(
 			SMI_PARAM_BUS_OPTIMIZATION, true, false, true);
+#endif
 }
 
 static void gamma_dump_reg(enum DISP_MODULE_ENUM module)

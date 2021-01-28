@@ -24,7 +24,6 @@
 #include "ddp_dsi.h"
 #include "disp_drv_log.h"
 #include "primary_display.h"
-#include "smi_debug.h"
 #include "disp_lowpower.h"
 #include "layering_rule.h"
 

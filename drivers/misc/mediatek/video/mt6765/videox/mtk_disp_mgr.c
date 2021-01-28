@@ -316,7 +316,7 @@ int _ioctl_prepare_present_fence(unsigned long arg)
 {
 	int ret = 0;
 	void __user *argp = (void __user *)arg;
-	struct fence_data data;
+	struct mtk_sync_create_fence_data data;
 	struct disp_present_fence pnt_fence;
 	static unsigned int fence_idx;
 	struct disp_sync_info *layer_info = NULL;

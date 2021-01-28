@@ -104,7 +104,7 @@ int config_display_m4u_port(void)
 	 * ret = mtk_smi_larb_get_ext(disp_larbdev);
 	 */
 #elif defined(CONFIG_MTK_M4U)
-	M4U_PORT_STRUCT sPort;
+	struct m4u_port_config_struct sPort;
 	unsigned int i;
 	enum DISP_MODULE_ENUM module;
 	char *m4u_usage = disp_helper_get_option(DISP_OPT_USE_M4U) ?

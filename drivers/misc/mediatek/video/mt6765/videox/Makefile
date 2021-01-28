@@ -14,6 +14,12 @@
 # drivers/video/mtk/Makefile
 #
 
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+	MTK_PLATFORM := mt6765
+else
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
+
 obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			disp_assert_layer.o	\
 			mtkfb.o			\
@@ -57,30 +63,33 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/     \
              -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/ \
              -I$(srctree)/drivers/iommu/
 
-subdir-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-		    -I$(srctree)/drivers/staging/android/ion/mtk
+ifeq ($(CONFIG_MTK_ION), y)
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion \
+                    -I$(srctree)/drivers/staging/android/mtk_ion/mtk
+else
+subdir-ccflags-y += -I$(srctree)/drivers/staging/android/aosp_ion \
+                    -I$(srctree)/drivers/staging/android/aosp_ion/mtk
+endif
 
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/mt6761 \
+                    -I$(srctree)/drivers/misc/mediatek/m4u/2.0
+else
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM) \
-		    -I$(srctree)/drivers/misc/mediatek/m4u/2.0
+                    -I$(srctree)/drivers/misc/mediatek/m4u/2.0
+endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
 
-ifeq ($(CONFIG_MACH_MT6761),y)
-    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/mt6765/
-else
-    subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
-endif
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)/
+
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ext_disp \
 	     -I$(srctree)/drivers/misc/mediatek/ext_disp/v2
 
-ifeq ($(CONFIG_MACH_MT6761),y)
-	ccflags-y += -I$(srctree)/drivers/misc/mediatek/ext_disp/mt6765
-else
-	ccflags-y += -I$(srctree)/drivers/misc/mediatek/ext_disp/$(MTK_PLATFORM)
-endif
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/ext_disp/$(MTK_PLATFORM)
 
 ccflags-$(CONFIG_MTK_LCM) += -I$(srctree)/drivers/misc/mediatek/lcm/inc
 

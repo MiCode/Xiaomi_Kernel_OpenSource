@@ -18,7 +18,7 @@
 #include "ddp_mmp.h"
 #include "debug.h"
 #include "disp_drv_platform.h"
-#include "mtk_dramc.h"
+//#include "mtk_dramc.h"
 
 #define OVL_REG_BACK_MAX	(40)
 #define OVL_LAYER_OFFSET	(0x20)

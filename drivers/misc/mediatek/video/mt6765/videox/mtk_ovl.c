@@ -348,7 +348,7 @@ int ovl2mem_init(unsigned int session)
 {
 	int ret = -1;
 #if defined(CONFIG_MTK_M4U)
-	M4U_PORT_STRUCT sPort;
+	struct m4u_port_config_struct sPort;
 #endif
 	DISPFUNC();
 

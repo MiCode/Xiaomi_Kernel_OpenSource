@@ -16,11 +16,16 @@ subdir-ccflags-y += -Wno-error
 #
 #
 ################################################################################
-ifneq ($(filter y,$(CONFIG_MACH_MT8127) $(CONFIG_MACH_MT7623) $(CONFIG_MACH_MT8590)),)
-CONFIG_MTK_DISP_PLATFORM := mt8127
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+	MTK_PLATFORM := mt6765
+else
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 endif
+
+# remove this after k79 config CONFIG_MACH_MT6779 & CONFIG_MTK_PLATFORM in defconfig
 ifeq ($(CONFIG_MTK_DISP_PLATFORM), "mt6779")
-CONFIG_MACH_MT6779 := y
+	CONFIG_MACH_MT6779 := y
+	MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
 endif
 
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
@@ -28,12 +33,8 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
 ifneq ($(CONFIG_MTK_LCM), y)
 	obj-y += mtdummy/
 else
-ifeq ($(CONFIG_MACH_MT6761),y)
-	obj-$(CONFIG_MTK_FB) += mt6765/
-else
 	######################################
-	obj-$(CONFIG_MTK_FB) += $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))/
-endif
+	obj-$(CONFIG_MTK_FB) += $(subst ",,$(MTK_PLATFORM))/
 	obj-$(CONFIG_MACH_MT6763) += common/
 	obj-$(CONFIG_MACH_MT6755) += common/
 	obj-$(CONFIG_MACH_MT6797) += common/

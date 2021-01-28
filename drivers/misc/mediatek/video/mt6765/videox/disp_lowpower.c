@@ -23,11 +23,11 @@
 #endif
 #include "mtk_boot_common.h"
 #ifdef MTK_FB_SPM_SUPPORT
-#include "spm/mtk_idle.h"
+#include "mtk_idle.h"
 #endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include "mt-plat/mtk_smi.h"
-#include "mtk_smi.h"
+//#include "mt-plat/mtk_smi.h"
+//#include "mtk_smi.h"
 #endif
 
 #include "debug.h"
@@ -57,7 +57,9 @@
 /* #include "mtk_dramc.h" */
 #include "disp_partial.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef CONFIG_MTK_SMI_EXT
 #include "mmdvfs_mgr.h"
+#endif
 #endif
 
 /* device tree */
