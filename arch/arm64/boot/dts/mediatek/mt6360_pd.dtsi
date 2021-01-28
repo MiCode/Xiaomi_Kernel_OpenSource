@@ -30,6 +30,7 @@
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
 		charger = <&mt6360_chg>;
+		bootmode = <&chosen>;
 		pd-data {
 			/*
 			 *	VSAFE5V = 0, MAX_POWER = 1, CUSTOM = 2,
