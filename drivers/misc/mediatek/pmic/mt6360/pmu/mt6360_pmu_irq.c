@@ -30,7 +30,6 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 #endif
 
 	mt_dbg(mpi->dev, "%s ++\n", __func__);
-	dev_info(mpi->dev, "%s\n", __func__);
 	pm_runtime_get_sync(mpi->dev);
 	ret = mt6360_pmu_reg_block_read(mpi, MT6360_PMU_CHG_IRQ1,
 					MT6360_PMU_IRQ_REGNUM, irq_events);
@@ -47,8 +46,6 @@ static irqreturn_t mt6360_pmu_irq_handler(int irq, void *data)
 		for (j = 0; j < 8; j++) {
 			if (!(irq_events[i] & (1 << j)))
 				continue;
-			dev_info(mpi->dev, "%s: (%d , %d)\n",
-						__func__, i, j);
 			ret = irq_find_mapping(mpi->irq_domain, i * 8 + j);
 			if (ret) {
 #ifdef CONFIG_MT6360_PMU_DEBUG
