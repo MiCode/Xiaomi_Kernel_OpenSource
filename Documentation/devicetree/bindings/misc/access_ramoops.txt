@@ -1,0 +1,14 @@
+access_ramoops driver
+=====================
+
+The access_ramoops driver allows userspace access to the persistent RAM storage
+used for oops and panics as well as the metadata required to decrypt that data.
+
+Required properties:
+
+- compatible: must be "access_ramoops"
+
+- memory-region: phandle to a region of memory that is preserved between reboots
+
+- label: name of the region, will be used to create the device node /dev/<label>
+

@@ -473,6 +473,16 @@ config SRAM
 config SRAM_EXEC
 	bool
 
+config ACCESS_RAMOOPS
+	tristate "Driver to allow access for decrypting encrypted ramoops"
+	depends on PSTORE_CONSOLE
+	help
+	  This driver allows userspace to access the ramoops and ramoops
+	  metadata carveouts to decrypt the ramoops.
+	  Enable access_ramoops in default config and add device tree entry
+	  for the Resume on Reboot feature.
+	  Say 'y' if ramoops is encrypted.
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
