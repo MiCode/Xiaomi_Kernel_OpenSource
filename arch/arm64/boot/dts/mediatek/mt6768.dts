@@ -1952,7 +1952,6 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		pu_cfg = <0x60>;
 		rsel_cfg = <0x90>;
 		aed = <0x1a>;
-		ch_offset_default = <0x100>;
 	};
 
 	i2c7: i2c7@11004000 {
