@@ -315,7 +315,7 @@ static void mt6873_suspend_show_detailed_wakeup_reason
 		if (mt6873_spm_wakesrc_irqs[i].wakesrc & wakesta->r12) {
 			irq_no = mt6873_spm_wakesrc_irqs[i].irq_no;
 			if (mt_irq_get_pending(irq_no))
-				log_wakeup_reason(irq_no);
+				log_irq_wakeup_reason(irq_no);
 		}
 	}
 }

@@ -537,7 +537,7 @@ void mt_eint_show_resume_irq(void)
 			offset = __ffs(status);
 			triggered_eint = eint_num + offset;
 			pr_info("EINT %d is pending\n", triggered_eint);
-			log_wakeup_reason(irq_find_mapping(g_eint->domain,
+			log_irq_wakeup_reason(irq_find_mapping(g_eint->domain,
 				triggered_eint));
 			status &= ~BIT(offset);
 		}

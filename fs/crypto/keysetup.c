@@ -328,8 +328,6 @@ static int setup_file_encryption_key(struct fscrypt_info *ci,
 	struct fscrypt_key_specifier mk_spec;
 	int err;
 
-	fscrypt_select_encryption_impl(ci);
-
 	switch (ci->ci_policy.version) {
 	case FSCRYPT_POLICY_V1:
 		mk_spec.type = FSCRYPT_KEY_SPEC_TYPE_DESCRIPTOR;
@@ -353,6 +351,10 @@ static int setup_file_encryption_key(struct fscrypt_info *ci,
 		if (key != ERR_PTR(-ENOKEY) ||
 		    ci->ci_policy.version != FSCRYPT_POLICY_V1)
 			return PTR_ERR(key);
+
+		err = fscrypt_select_encryption_impl(ci, false);
+		if (err)
+			return err;
 
 		/*
 		 * As a legacy fallback for v1 policies, search for the key in
@@ -387,6 +389,10 @@ static int setup_file_encryption_key(struct fscrypt_info *ci,
 		err = -ENOKEY;
 		goto out_release_key;
 	}
+
+	err = fscrypt_select_encryption_impl(ci, mk->mk_secret.is_hw_wrapped);
+	if (err)
+		goto out_release_key;
 
 	switch (ci->ci_policy.version) {
 	case FSCRYPT_POLICY_V1:
@@ -494,20 +500,8 @@ int fscrypt_get_encryption_info(struct inode *inode)
 		goto out;
 	}
 
-	switch (ctx.version) {
-	case FSCRYPT_CONTEXT_V1:
-		memcpy(crypt_info->ci_nonce, ctx.v1.nonce,
-		       FS_KEY_DERIVATION_NONCE_SIZE);
-		break;
-	case FSCRYPT_CONTEXT_V2:
-		memcpy(crypt_info->ci_nonce, ctx.v2.nonce,
-		       FS_KEY_DERIVATION_NONCE_SIZE);
-		break;
-	default:
-		WARN_ON(1);
-		res = -EINVAL;
-		goto out;
-	}
+	memcpy(crypt_info->ci_nonce, fscrypt_context_nonce(&ctx),
+	       FS_KEY_DERIVATION_NONCE_SIZE);
 
 	if (!fscrypt_supported_policy(&crypt_info->ci_policy, inode)) {
 		res = -EINVAL;

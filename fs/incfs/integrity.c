@@ -57,12 +57,12 @@ struct signature_info {
 	struct mem_range root_hash;
 };
 
-static u32 read_u32(u8 **p, u8 *top, u32 *result)
+static bool read_u32(u8 **p, u8 *top, u32 *result)
 {
 	if (*p + sizeof(u32) > top)
 		return false;
 
-	*result = le32_to_cpu(*(u32 *)*p);
+	*result = le32_to_cpu(*(__le32 *)*p);
 	*p += sizeof(u32);
 	return true;
 }

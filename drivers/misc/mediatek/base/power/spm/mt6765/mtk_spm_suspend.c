@@ -234,7 +234,7 @@ static unsigned int spm_output_wake_reason(struct wake_status *wakesta)
 		NULL, 0);
 #endif
 #endif
-	log_wakeup_reason(mtk_spm_get_irq_0());
+	log_irq_wakeup_reason(mtk_spm_get_irq_0());
 
 	return wr;
 }
