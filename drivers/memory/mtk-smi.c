@@ -809,7 +809,7 @@ static int mtk_smi_larb_probe(struct platform_device *pdev)
 
 static int mtk_smi_common_probe(struct platform_device *pdev)
 {
-	u32 id = 0;
+	u32 id = 0, cnt = 0;
 	s32 ret;
 
 	if (!pdev) {
@@ -824,15 +824,16 @@ static int mtk_smi_common_probe(struct platform_device *pdev)
 	}
 	nr_larbs = id;
 
-	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-cnt", &id);
+	ret = of_property_read_u32(pdev->dev.of_node, "mediatek,smi-cnt", &cnt);
 	if (ret)
 		dev_dbg(&pdev->dev, "COMMON%u read all:%d failed:%d\n",
-			nr_larbs, id, ret);
+			nr_larbs, cnt, ret);
 
 	if (!smi_dev) {
+		nr_dev = cnt ? cnt : (id + 1);
 		smi_dev = devm_kcalloc(
-			&pdev->dev, id + 1, sizeof(*smi_dev), GFP_KERNEL);
-		nr_dev = id;
+			&pdev->dev, nr_dev, sizeof(*smi_dev), GFP_KERNEL);
+		dev_info(&pdev->dev, "COMMON%u nr_dev:%u\n", id, nr_dev);
 	}
 
 	if (!smi_dev)

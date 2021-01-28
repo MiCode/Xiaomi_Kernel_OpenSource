@@ -23,6 +23,10 @@
 #define CMDQ_CPR_TPR_MASK		0x8000
 #define CMDQ_CPR_DISP_CNT		0x8001
 #define CMDQ_EVENT_MAX			0x3FF
+#define CMDQ_CPR_DDR_USR_CNT		0x8002
+
+#define CMDQ_GPR_CNT_ID			32
+#define CMDQ_CPR_STRAT_ID		0x8000
 #define SUBSYS_NO_SUPPORT		99
 
 /* GCE provide 26M timer, thus each tick 1/26M second,
@@ -32,9 +36,18 @@
 #define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
 extern int gce_shift_bit;
-
+#if IS_ENABLED(CONFIG_MACH_MT6771) || IS_ENABLED(CONFIG_MACH_MT8168) || \
+	IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6739) || \
+	IS_ENABLED(CONFIG_MACH_MT8167)
 #define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> gce_shift_bit)
 #define CMDQ_REG_REVERT_ADDR(addr)	((addr) << gce_shift_bit)
+
+#elif IS_ENABLED(CONFIG_MACH_MT6779) || IS_ENABLED(CONFIG_MACH_MT6785) || \
+	IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6873)
+#define CMDQ_REG_SHIFT_ADDR(addr)	((addr) >> 3)
+#define CMDQ_REG_REVERT_ADDR(addr)	((addr) << 3)
+#endif
+
 
 /* GCE provide 32/64 bit General Purpose Register (GPR)
  * use as data cache or address register
@@ -82,7 +95,7 @@ enum gce_event {
 	CMDQ_TOKEN_SECURE_THR_EOF = 647,
 	CMDQ_TOKEN_TPR_LOCK = 652,
 
-	/* GPR timer token, 994 to 994+23 */
+	/* GPR timer token, 994 to 1009 (for gpr r0 to r15) */
 	CMDQ_EVENT_GPR_TIMER = 994,
 };
 
