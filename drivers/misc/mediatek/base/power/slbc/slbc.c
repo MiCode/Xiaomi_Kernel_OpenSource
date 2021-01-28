@@ -151,7 +151,7 @@ static void slbc_debug_log(const char *fmt, ...)
 #endif /* SLBC_DEBUG */
 }
 
-static int get_slbc_sid_by_uid(enum slbc_uid uid)
+static unsigned int get_slbc_sid_by_uid(enum slbc_uid uid)
 {
 	int i;
 
@@ -160,7 +160,7 @@ static int get_slbc_sid_by_uid(enum slbc_uid uid)
 			return p_config[i].slot_id;
 	}
 
-	return -1;
+	return SID_NOT_FOUND;
 }
 
 /**
@@ -197,7 +197,7 @@ int register_slbc_ops(struct slbc_ops *ops)
 	}
 
 	sid = get_slbc_sid_by_uid(uid);
-	if (sid >= 0) {
+	if (sid != SID_NOT_FOUND) {
 		d->sid = sid;
 		d->config = &p_config[sid];
 		d->slot_used = 0;
@@ -571,11 +571,15 @@ int slbc_request(struct slbc_data *d)
 	uid = d->uid;
 
 	sid = get_slbc_sid_by_uid(uid);
-	if (sid >= 0) {
+	if (sid != SID_NOT_FOUND) {
 		d->sid = sid;
 		d->config = &p_config[sid];
 		d->slot_used = 0;
 		d->ref = 0;
+	} else {
+		pr_info("#@# %s(%d) slot is wrong !!!\n", __func__, __LINE__);
+
+		return -EINVAL;
 	}
 
 #ifdef SLBC_TRACE
@@ -775,9 +779,13 @@ int slbc_release(struct slbc_data *d)
 	uid = d->uid;
 
 	sid = get_slbc_sid_by_uid(uid);
-	if (sid >= 0) {
+	if (sid != SID_NOT_FOUND) {
 		d->sid = sid;
 		d->config = &p_config[sid];
+	} else {
+		pr_info("#@# %s(%d) slot is wrong !!!\n", __func__, __LINE__);
+
+		return -EINVAL;
 	}
 
 #ifdef SLBC_TRACE

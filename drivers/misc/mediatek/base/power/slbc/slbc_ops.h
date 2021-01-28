@@ -33,6 +33,9 @@
 #define SLOT_NOT_FOUND		1 /* slot not found */
 #define SLOT_USED		2 /* slot used */
 
+/* sid status */
+#define SID_NOT_FOUND		0xffff
+
 /* need to modify slbc_uid_str  */
 enum slbc_uid {
 	UID_MM_VENC = 1,
