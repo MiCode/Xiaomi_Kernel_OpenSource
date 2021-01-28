@@ -289,11 +289,34 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 s32 cmdqRecWriteFromDataRegister(struct cmdqRecStruct *handle,
 	enum cmdq_gpr_reg src_data_reg, u32 hw_addr);
 
-s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
-	CMDQ_VARIABLE argument, u32 mask);
-s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event);
-s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
-	u32 write_reg, u32 from_reg);
+struct cmdq_command_buffer {
+	void *va_base;
+	u32 cmd_buf_size;
+	u32 avail_buf_size;
+};
+s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 addr,
+	CMDQ_VARIABLE value, u32 mask);
+s32 cmdq_op_read_reg_to_mem_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf,
+	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr);
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 addr,
+	CMDQ_VARIABLE value, u32 mask);
+s32 cmdq_op_wait_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event);
+s32 cmdq_op_wait_no_clear_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event);
+s32 cmdq_op_clear_event_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event);
+s32 cmdq_op_set_event_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event);
+s32 cmdq_op_acquire_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event);
+s32 cmdq_op_write_from_reg_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 write_reg, u32 from_reg);
+s32 cmdq_handle_flush_cmd_buf(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf);
 s32 cmdq_alloc_write_addr(u32 count, dma_addr_t *paStart, u32 clt, void *fp);
 s32 cmdq_free_write_addr(dma_addr_t paStart, u32 clt);
 s32 cmdq_free_write_addr_by_node(u32 clt, void *fp);
