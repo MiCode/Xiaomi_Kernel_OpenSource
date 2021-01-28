@@ -44,9 +44,9 @@ int m4u_test_alloc_dealloc(int id, unsigned int size)
 {
 	struct m4u_client_t *client;
 	unsigned long va = 0;
-	unsigned int mva;
-	int ret;
-	unsigned long populate;
+	unsigned int mva = 0;
+	int ret = 0;
+	unsigned long populate = 0;
 
 	if (id == 1) {
 		va = (unsigned long)kmalloc(size, GFP_KERNEL);
