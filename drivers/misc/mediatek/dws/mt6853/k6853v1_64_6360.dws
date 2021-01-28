@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="05.18.2020.21:39:25"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="08.11.2020.12:38:56"-->
 <dct_cfg>
     <general chip="MT6853">
         <proj>Mouton_Phone_0224</proj>
@@ -61,7 +61,7 @@
                 <varName>SUBPMIC_PMU_EINT</varName>
                 <debounce_time>0</debounce_time>
                 <polarity>Low</polarity>
-                <sensitive_level>Level</sensitive_level>
+                <sensitive_level>Edge</sensitive_level>
                 <debounce_en>Disable</debounce_en>
             </eint10>
             <eint84>
@@ -1020,7 +1020,7 @@
                 <def_mode>1</def_mode>
                 <inpull_en>false</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
-                <def_dir>OUT</def_dir>
+                <def_dir>IN</def_dir>
                 <out_high>false</out_high>
                 <smt>true</smt>
                 <ies>true</ies>
@@ -1191,21 +1191,23 @@
             </gpio106>
             <gpio107>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
+                <varName0>GPIO_I2C5_SCA_PIN</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio107>
             <gpio108>
                 <eint_mode>false</eint_mode>
-                <def_mode>0</def_mode>
+                <def_mode>1</def_mode>
                 <inpull_en>true</inpull_en>
-                <inpull_selhigh>false</inpull_selhigh>
+                <inpull_selhigh>true</inpull_selhigh>
                 <def_dir>IN</def_dir>
                 <out_high>false</out_high>
+                <varName0>GPIO_I2C5_SDA_PIN</varName0>
                 <smt>true</smt>
                 <ies>true</ies>
             </gpio108>
@@ -1874,7 +1876,7 @@
             <gpio171>
                 <eint_mode>false</eint_mode>
                 <def_mode>0</def_mode>
-                <inpull_en>false</inpull_en>
+                <inpull_en>true</inpull_en>
                 <inpull_selhigh>false</inpull_selhigh>
                 <def_dir>OUT</def_dir>
                 <out_high>true</out_high>
@@ -2216,8 +2218,8 @@
                 <pullPushEn>false</pullPushEn>
             </i2c_bus4>
             <i2c_bus5>
-                <speed_kbps>400</speed_kbps>
-                <pullPushEn>false</pullPushEn>
+                <speed_kbps>3400</speed_kbps>
+                <pullPushEn>true</pullPushEn>
             </i2c_bus5>
             <i2c_bus6>
                 <speed_kbps>400</speed_kbps>
@@ -2250,11 +2252,26 @@
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x1A</address>
             </device11>
+            <device14>
+                <varName>SUBPMIC</varName>
+                <channel>I2C_CHANNEL_5</channel>
+                <address>0x34</address>
+            </device14>
             <device15>
                 <varName>USB_TYPE_C</varName>
                 <channel>I2C_CHANNEL_5</channel>
                 <address>0x4E</address>
             </device15>
+            <device16>
+                <varName>SUBPMIC_PMIC</varName>
+                <channel>I2C_CHANNEL_5</channel>
+                <address>0x1A</address>
+            </device16>
+            <device17>
+                <varName>SUBPMIC_LDO</varName>
+                <channel>I2C_CHANNEL_5</channel>
+                <address>0x64</address>
+            </device17>
             <device19>
                 <varName>I2C_LCD_BIAS</varName>
                 <channel>I2C_CHANNEL_6</channel>

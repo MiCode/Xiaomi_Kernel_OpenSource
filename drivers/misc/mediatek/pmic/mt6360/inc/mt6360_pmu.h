@@ -40,7 +40,7 @@ enum {
 };
 
 struct mt6360_pmu_platform_data {
-	u32 int_ret;
+	u32 int_ret, disable_lpsd;
 	int irq_gpio;
 	void *dev_platform_data[MT6360_PMUDEV_MAX];
 	size_t dev_pdata_size[MT6360_PMUDEV_MAX];

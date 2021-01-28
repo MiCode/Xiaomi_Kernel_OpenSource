@@ -2698,8 +2698,38 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 
 static int mt6360_set_shipping_mode(struct mt6360_pmu_chg_info *mpci)
 {
-	return mt6360_pmu_reg_set_bits(mpci->mpi,
-				     MT6360_PMU_CHG_CTRL2, 0x80);
+	struct mt6360_pmu_info *mpi = mpci->mpi;
+	int ret;
+	u8 data = 0;
+
+	dev_info(mpci->dev, "%s\n", __func__);
+	mutex_lock(&mpi->io_lock);
+	/* disable shipping mode rst */
+	ret = i2c_smbus_read_i2c_block_data(mpi->i2c,
+					    MT6360_PMU_CORE_CTRL2, 1, &data);
+	if (ret < 0)
+		goto out;
+	data |= MT6360_MASK_SHIP_RST_DIS;
+	dev_info(mpci->dev, "%s: reg[0x06] = 0x%02x\n", __func__, data);
+	ret = i2c_smbus_write_i2c_block_data(mpi->i2c,
+					     MT6360_PMU_CORE_CTRL2, 1, &data);
+	if (ret < 0) {
+		dev_err(mpci->dev,
+			"%s: fail to disable shipping mode rst\n", __func__);
+		goto out;
+	}
+
+	data = 0x80;
+	/* enter shipping mode and disable cfo_en/chg_en */
+	ret = i2c_smbus_write_i2c_block_data(mpi->i2c,
+					     MT6360_PMU_CHG_CTRL2, 1, &data);
+	if (ret < 0)
+		dev_err(mpci->dev,
+			"%s: fail to enter shipping mode\n", __func__);
+	return 0;
+out:
+	mutex_unlock(&mpi->io_lock);
+	return ret;
 }
 
 static ssize_t shipping_mode_store(struct device *dev,
