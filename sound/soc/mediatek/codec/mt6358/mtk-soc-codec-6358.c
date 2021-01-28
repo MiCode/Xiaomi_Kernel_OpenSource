@@ -1365,12 +1365,6 @@ static void OpenTrimBufferHardware_withLO(bool enable, bool buffer_on)
 		/* Pull-down HPL/R to AVSS28_AUD */
 		hp_pull_down(true);
 
-		/* Switch HPL/HPR MUX to open */
-		Ana_Set_Reg(AUDDEC_ANA_CON0, 0x0 << 8, 0xf << 8);
-
-		/* Switch LOL MUX to open */
-		Ana_Set_Reg(AUDDEC_ANA_CON7, 0x0 << 2, 0x3 << 2);
-
 		/* Disable low-noise mode of DAC */
 		Ana_Set_Reg(AUDDEC_ANA_CON9, 0x0, 0x1);
 
@@ -1390,19 +1384,24 @@ static void OpenTrimBufferHardware_withLO(bool enable, bool buffer_on)
 		headset_volume_ramp(mCodec_data->ana_gain[ANA_GAIN_HPOUTL],
 				    DL_GAIN_N_10DB);
 		Ana_Set_Reg(ZCD_CON1, DL_GAIN_N_10DB_REG, 0xffff);
-		set_input_mux(0);
 
 		/* set HP aux feedback loop gain to max */
 		Ana_Set_Reg(AUDDEC_ANA_CON9, 0xf200, 0xff00);
 
 		/* Enable HP aux feedback loop */
-		Ana_Set_Reg(AUDDEC_ANA_CON1, 0x3c, 0xff);
+		Ana_Set_Reg(AUDDEC_ANA_CON1, 0xff, 0xff);
 
 		/* Reduce HP aux feedback loop gain */
 		hp_aux_feedback_loop_gain_ramp(false);
 
 		/* decrease HPR/L main output stage step by step */
 		hp_main_output_ramp(false);
+
+		/* Switch HPL/HPR MUX to open */
+		Ana_Set_Reg(AUDDEC_ANA_CON0, 0x0 << 8, 0xf << 8);
+
+		/* Switch LOL MUX to open */
+		Ana_Set_Reg(AUDDEC_ANA_CON7, 0x0 << 2, 0x3 << 2);
 
 		/* Disable HP main output stage */
 		Ana_Set_Reg(AUDDEC_ANA_CON1, 0x0, 0x3);
@@ -4516,12 +4515,6 @@ static void Headset_Speaker_Amp_Change(bool enable)
 			/* Pull-down HPL/R to AVSS28_AUD */
 			hp_pull_down(true);
 
-			/* Switch HPL/HPR MUX to open */
-			Ana_Set_Reg(AUDDEC_ANA_CON0, 0x0 << 8, 0xf << 8);
-
-			/* Switch LOL MUX to open */
-			Ana_Set_Reg(AUDDEC_ANA_CON7, 0x0 << 2, 0x3 << 2);
-
 			/* Disable low-noise mode of DAC */
 			Ana_Set_Reg(AUDDEC_ANA_CON9, 0x0, 0x1);
 
@@ -4542,19 +4535,24 @@ static void Headset_Speaker_Amp_Change(bool enable)
 				mCodec_data->ana_gain[ANA_GAIN_HPOUTL],
 				DL_GAIN_N_10DB);
 			Ana_Set_Reg(ZCD_CON1, DL_GAIN_N_10DB_REG, 0xffff);
-			set_input_mux(0);
 
 			/* set HP aux feedback loop gain to max */
 			Ana_Set_Reg(AUDDEC_ANA_CON9, 0xf200, 0xff00);
 
 			/* Enable HP aux feedback loop */
-			Ana_Set_Reg(AUDDEC_ANA_CON1, 0x3c, 0xff);
+			Ana_Set_Reg(AUDDEC_ANA_CON1, 0xff, 0xff);
 
 			/* Reduce HP aux feedback loop gain */
 			hp_aux_feedback_loop_gain_ramp(false);
 
 			/* decrease HPR/L main output stage step by step */
 			hp_main_output_ramp(false);
+
+			/* Switch HPL/HPR MUX to open */
+			Ana_Set_Reg(AUDDEC_ANA_CON0, 0x0 << 8, 0xf << 8);
+
+			/* Switch LOL MUX to open */
+			Ana_Set_Reg(AUDDEC_ANA_CON7, 0x0 << 2, 0x3 << 2);
 
 			/* Disable HP main output stage */
 			Ana_Set_Reg(AUDDEC_ANA_CON1, 0x0, 0x3);
