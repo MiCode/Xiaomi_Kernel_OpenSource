@@ -4289,7 +4289,7 @@ static void testcase_jump_c(void)
 	const u32 max_rows = 10;
 	const u32 max_cols = 12;
 	u32 row_in_value = 0, col_in_value = 0;
-	u32 test_result, expect_result, expect_temp_sum;
+	u32 test_result = 0, expect_result = 0xffffffff, expect_temp_sum;
 	CMDQ_VARIABLE cmdq_row, cmdq_col, cmdq_temp_sum, cmdq_result;
 	cmdqBackupSlotHandle slot_handle = 0;
 
