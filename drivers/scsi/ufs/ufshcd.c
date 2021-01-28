@@ -8191,8 +8191,7 @@ static void ufshcd_vreg_set_lpm(struct ufs_hba *hba)
 	 * To avoid this situation, add 2ms delay before putting these UFS
 	 * rails in LPM mode.
 	 */
-	if (!ufshcd_is_link_active(hba) &&
-	    hba->dev_quirks & UFS_DEVICE_QUIRK_DELAY_BEFORE_LPM)
+	if (!ufshcd_is_link_active(hba))
 		usleep_range(2000, 2100);
 
 	/*
