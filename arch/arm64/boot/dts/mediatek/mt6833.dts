@@ -1408,6 +1408,10 @@
 		reg = <0 0x1582c000 0 0x1000>;
 	};
 
+	mtkfb: mtkfb {
+		compatible = "mediatek,mtkfb";
+	};
+
 	smi_larb11@1582e000 {
 		compatible = "mediatek,smi_larb11";
 		reg = <0 0x1582e000 0 0x1000>;
