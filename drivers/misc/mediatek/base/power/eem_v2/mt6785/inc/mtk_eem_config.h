@@ -73,6 +73,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_10 60
 #define DEVINFO_IDX_11 61
 #define DEVINFO_IDX_12 62
+#define DEVINFO_IDX_14 64
 #define DEVINFO_IDX_16 66
 #define DEVINFO_IDX_17 67
 #define DEVINFO_IDX_18 68
