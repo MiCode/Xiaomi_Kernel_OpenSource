@@ -2227,6 +2227,10 @@ static int mc3xxx_get_data(int *x, int *y, int *z, int *status)
 	MC3XXX_ReadSensorData(mc3xxx_obj_i2c_data->client, buff,
 			      MC3XXX_BUF_SIZE);
 	ret = sscanf(buff, "%x %x %x", x, y, z);
+	if (ret < 0) {
+		GSE_LOG("format sensor data fail!!\n");
+		return -1;
+	}
 	*status = SENSOR_STATUS_ACCURACY_MEDIUM;
 
 	/*Judge the same data*/
