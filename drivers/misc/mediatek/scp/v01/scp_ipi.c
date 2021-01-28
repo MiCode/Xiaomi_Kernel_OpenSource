@@ -208,7 +208,7 @@ enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	}
 
 	if (id >= SCP_NR_IPI) {
-		pr_err("%s: ipi id %d wrong\n", id, __func__);
+		pr_err("ipi id %d wrong\n", id);
 		return SCP_IPI_ERROR;
 	}
 	if (is_scp_ready(scp_id) == 0) {
