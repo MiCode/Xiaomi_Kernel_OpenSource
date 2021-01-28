@@ -443,6 +443,7 @@ int vcu_ipi_send(struct platform_device *pdev,
 		if (!vcu_ptr->abort) {
 			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
+			send_sig(SIGKILL, vcud_task, 0);
 			task_unlock(vcud_task);
 		}
 		if (vcu_ptr->open_cnt > 0) {

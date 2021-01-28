@@ -233,6 +233,12 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 		return 1;
 	}
 
+	if (vcu->daemon_pid != current->tgid) {
+		pr_info("%s, vcu->daemon_pid:%d != current %d\n",
+			__func__, vcu->daemon_pid, current->tgid);
+		return 1;
+	}
+
 	vsi = (struct vdec_vsi *)vcu->vsi;
 	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
 		msg->msg_id, msg->status);
