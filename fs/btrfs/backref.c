@@ -718,7 +718,7 @@ out:
  * read tree blocks and add keys where required.
  */
 static int add_missing_keys(struct btrfs_fs_info *fs_info,
-			    struct preftrees *preftrees)
+			    struct preftrees *preftrees, bool lock)
 {
 	struct prelim_ref *ref;
 	struct extent_buffer *eb;
@@ -742,12 +742,14 @@ static int add_missing_keys(struct btrfs_fs_info *fs_info,
 			free_extent_buffer(eb);
 			return -EIO;
 		}
-		btrfs_tree_read_lock(eb);
+		if (lock)
+			btrfs_tree_read_lock(eb);
 		if (btrfs_header_level(eb) == 0)
 			btrfs_item_key_to_cpu(eb, &ref->key_for_search, 0);
 		else
 			btrfs_node_key_to_cpu(eb, &ref->key_for_search, 0);
-		btrfs_tree_read_unlock(eb);
+		if (lock)
+			btrfs_tree_read_unlock(eb);
 		free_extent_buffer(eb);
 		prelim_ref_insert(fs_info, &preftrees->indirect, ref, NULL);
 		cond_resched();
@@ -1228,7 +1230,7 @@ again:
 
 	btrfs_release_path(path);
 
-	ret = add_missing_keys(fs_info, &preftrees);
+	ret = add_missing_keys(fs_info, &preftrees, path->skip_locking == 0);
 	if (ret)
 		goto out;
 
@@ -1290,9 +1292,14 @@ again:
 				}
 				btrfs_tree_read_lock(eb);
 				btrfs_set_lock_blocking_rw(eb, BTRFS_READ_LOCK);
+				if (!path->skip_locking) {
+					btrfs_tree_read_lock(eb);
+					btrfs_set_lock_blocking_rw(eb, BTRFS_READ_LOCK);
+				}
 				ret = find_extent_in_eb(eb, bytenr,
 							*extent_item_pos, &eie);
-				btrfs_tree_read_unlock_blocking(eb);
+				if (!path->skip_locking)
+					btrfs_tree_read_unlock_blocking(eb);
 				free_extent_buffer(eb);
 				if (ret < 0)
 					goto out;
