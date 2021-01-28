@@ -462,6 +462,7 @@ struct cmdqSecDataStruct {
 	/* tablet use */
 	uint32_t secMode;
 #endif
+	bool mtee;
 };
 
 struct cmdq_v3_replace_struct {
