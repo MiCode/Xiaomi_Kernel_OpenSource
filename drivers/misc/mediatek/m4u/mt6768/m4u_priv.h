@@ -118,7 +118,7 @@ struct m4u_domain {
 	unsigned int pgsize_bitmap;
 };
 
-struct m4u_buf_info_t {
+struct m4u_buf_info {
 	struct list_head link;
 	unsigned long va;
 	unsigned int mva;

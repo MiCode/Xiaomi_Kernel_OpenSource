@@ -448,7 +448,7 @@ int mau_dump_status(unsigned int m4u_id, unsigned int m4u_slave_id)
 	return 0;
 }
 
-int m4u_dump_reg(unsigned int m4u_index, unsigned int start, unsigned int end)
+int __m4u_dump_reg(unsigned int m4u_index, unsigned int start, unsigned int end)
 {
 	int i = 0;
 	unsigned long m4u_base;
@@ -469,6 +469,11 @@ int m4u_dump_reg(unsigned int m4u_index, unsigned int start, unsigned int end)
 	}
 
 	return 0;
+}
+
+int m4u_dump_reg(int m4u_index, unsigned int start)
+{
+	return __m4u_dump_reg(0, 0, 400);
 }
 
 unsigned int m4u_get_main_descriptor(unsigned int m4u_id,
@@ -1841,7 +1846,7 @@ int m4u_monitor_stop(int m4u_index)
 	return 0;
 }
 
-void m4u_print_perf_counter(unsigned int m4u_index, const char *msg)
+void m4u_print_perf_counter(int m4u_index, int m4u_slave_id, const char *msg)
 {
 	struct M4U_PERF_COUNT cnt = {{0, 0}, {0, 0}, 0, 0, {0, 0} };
 	unsigned int total_transaction_cnt = 0, total_cycle = 0;
@@ -2617,7 +2622,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 		/* dump something quickly */
 		/* m4u_dump_rs_info(m4u_index, m4u_slave_id); */
 		m4u_dump_invalid_main_tlb(m4u_index, m4u_slave_id);
-		/* m4u_dump_reg(m4u_index, 0x860); */
+		/* __m4u_dump_reg(m4u_index, 0x860); */
 		/* m4u_dump_main_tlb(m4u_index, 0); */
 		/* m4u_dump_pfh_tlb(m4u_index); */
 
@@ -3066,14 +3071,14 @@ int m4u_dump_reg_for_smi_hang_issue(void)
 		return 0;
 	}
 	M4UMSG("0x44 = 0x%x\n", M4U_ReadReg32(gM4UBaseAddr[0], 0x44));
-	m4u_dump_reg(0, 0, 400);
-	m4u_dump_reg(0, 0x500, 0x5fc);
-	m4u_dump_reg(0, 0xb00, 0xb0c);
-	m4u_dump_reg(0, 0xc00, 0xc0c);
-	m4u_dump_reg(0, 0x380, 0x3fc);
-	m4u_dump_reg(0, 0x680, 0x6fc);
+	__m4u_dump_reg(0, 0, 400);
+	__m4u_dump_reg(0, 0x500, 0x5fc);
+	__m4u_dump_reg(0, 0xb00, 0xb0c);
+	__m4u_dump_reg(0, 0xc00, 0xc0c);
+	__m4u_dump_reg(0, 0x380, 0x3fc);
+	__m4u_dump_reg(0, 0x680, 0x6fc);
 
-	m4u_print_perf_counter(0, "m4u");
+	m4u_print_perf_counter(0, 0, "m4u");
 	m4u_dump_rs_info(0, 0);
 
 	M4UMSG("====== dump m4u reg end =======>\n");

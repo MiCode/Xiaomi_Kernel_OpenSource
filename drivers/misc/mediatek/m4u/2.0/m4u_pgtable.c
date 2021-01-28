@@ -18,15 +18,15 @@
 #include "m4u_priv.h"
 
 typedef struct {
-	imu_pgd_t *pgd;
-	imu_pte_t *pte;
+	struct imu_pgd_t *pgd;
+	struct imu_pte_t *pte;
 	unsigned int mva;
 	unsigned long pa;
 	unsigned int size;
 	int valid;
 } m4u_pte_info_t;
 
-static inline void m4u_set_pgd_val(imu_pgd_t *pgd, unsigned int val)
+static inline void m4u_set_pgd_val(struct imu_pgd_t *pgd, unsigned int val)
 {
 	COM_WriteReg32((unsigned long)&(imu_pgd_val(*pgd)), val);
 }
@@ -54,8 +54,8 @@ static inline void write_unlock_domain(struct m4u_domain *domain)
 /* should not hold pg_lock when call this func. */
 inline int m4u_get_pt_type(struct m4u_domain *domain, unsigned int mva)
 {
-	imu_pgd_t *pgd;
-	imu_pte_t *pte;
+	struct imu_pgd_t *pgd;
+	struct imu_pte_t *pte;
 	int ret;
 
 	read_lock_domain(domain);
@@ -153,8 +153,8 @@ void *__m4u_print_pte(m4u_pte_info_t *info, void *data)
 int m4u_get_pte_info(struct m4u_domain *domain, unsigned int mva,
 		     m4u_pte_info_t *pte_info)
 {
-	imu_pgd_t *pgd;
-	imu_pte_t *pte = NULL;
+	struct imu_pgd_t *pgd;
+	struct imu_pte_t *pte = NULL;
 	unsigned long long pa = 0;
 	unsigned int size;
 	int valid = 1;
@@ -400,7 +400,7 @@ static inline unsigned int __m4u_get_pte_attr_4K(unsigned int prot)
 int m4u_clean_pte(struct m4u_domain *domain, unsigned int mva,
 		  unsigned int size)
 {
-	imu_pgd_t *pgd;
+	struct imu_pgd_t *pgd;
 	unsigned long long tmp_mva = (unsigned long long)mva;
 	unsigned long long end_plus_1 = tmp_mva + (unsigned long long)size;
 
@@ -408,7 +408,7 @@ int m4u_clean_pte(struct m4u_domain *domain, unsigned int mva,
 		pgd = imu_pgd_offset(domain, tmp_mva);
 
 		if (F_PGD_TYPE_IS_PAGE(*pgd)) {
-			imu_pte_t *pte, *pte_end;
+			struct imu_pte_t *pte, *pte_end;
 			unsigned long long next_mva, sync_entry_nr;
 
 			pte = imu_pte_offset_map(pgd, tmp_mva);
@@ -481,7 +481,7 @@ int m4u_pte_allocator_init(void)
 * @see
 * @author K Zhang      @date 2013/11/18
 ************************************************************/
-int m4u_alloc_pte(struct m4u_domain *domain, imu_pgd_t *pgd,
+int m4u_alloc_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd,
 		  unsigned int pgprot)
 {
 	void *pte_new_va;
@@ -520,9 +520,9 @@ int m4u_alloc_pte(struct m4u_domain *domain, imu_pgd_t *pgd,
 	}
 }
 
-int m4u_free_pte(struct m4u_domain *domain, imu_pgd_t *pgd)
+int m4u_free_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd)
 {
-	imu_pte_t *pte_old;
+	struct imu_pte_t *pte_old;
 
 	pte_old = imu_pte_map(pgd);
 	m4u_set_pgd_val(pgd, 0);
@@ -547,7 +547,7 @@ int m4u_map_16M(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 		unsigned int prot)
 {
 	int i;
-	imu_pgd_t *pgd;
+	struct imu_pgd_t *pgd;
 	unsigned int pgprot;
 	unsigned int padscpt;
 
@@ -607,7 +607,7 @@ err_out:
 int m4u_map_1M(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 	       unsigned int prot)
 {
-	imu_pgd_t *pgd;
+	struct imu_pgd_t *pgd;
 	unsigned int pgprot;
 	unsigned int padscpt;
 
@@ -656,8 +656,8 @@ int m4u_map_64K(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 		unsigned int prot)
 {
 	int ret, i;
-	imu_pgd_t *pgd;
-	imu_pte_t *pte;
+	struct imu_pgd_t *pgd;
+	struct imu_pte_t *pte;
 	unsigned int pte_new, pgprot;
 	unsigned int padscpt;
 
@@ -742,8 +742,8 @@ int m4u_map_4K(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 	       unsigned int prot)
 {
 	int ret, pte_new;
-	imu_pgd_t *pgd;
-	imu_pte_t *pte;
+	struct imu_pgd_t *pgd;
+	struct imu_pte_t *pte;
 	unsigned int pgprot;
 	unsigned int padscpt;
 
@@ -1012,9 +1012,9 @@ err_out:
 	return -EINVAL;
 }
 
-int m4u_check_free_pte(struct m4u_domain *domain, imu_pgd_t *pgd)
+int m4u_check_free_pte(struct m4u_domain *domain, struct imu_pgd_t *pgd)
 {
-	imu_pte_t *pte;
+	struct imu_pte_t *pte;
 	int i;
 
 	pte = imu_pte_map(pgd);
@@ -1033,7 +1033,7 @@ int m4u_check_free_pte(struct m4u_domain *domain, imu_pgd_t *pgd)
 
 int m4u_unmap(struct m4u_domain *domain, unsigned int mva, unsigned int size)
 {
-	imu_pgd_t *pgd;
+	struct imu_pgd_t *pgd;
 	int i, ret;
 	unsigned int start = mva;
 	unsigned long long tmp_mva = (unsigned long long)mva;
@@ -1044,7 +1044,7 @@ int m4u_unmap(struct m4u_domain *domain, unsigned int mva, unsigned int size)
 		pgd = imu_pgd_offset(domain, tmp_mva);
 
 		if (F_PGD_TYPE_IS_PAGE(*pgd)) {
-			imu_pte_t *pte;
+			struct imu_pte_t *pte;
 			unsigned long long pte_offset;
 			unsigned long long num_to_clean;
 
@@ -1071,7 +1071,7 @@ int m4u_unmap(struct m4u_domain *domain, unsigned int mva, unsigned int size)
 			m4u_set_pgd_val(pgd, 0);
 			tmp_mva += MMU_SECTION_SIZE;
 		} else if (F_PGD_TYPE_IS_SUPERSECTION(*pgd)) {
-			imu_pgd_t *start = imu_supersection_start(pgd);
+			struct imu_pgd_t *start = imu_supersection_start(pgd);
 
 			if (unlikely(start != pgd))
 				m4u_aee_print(
