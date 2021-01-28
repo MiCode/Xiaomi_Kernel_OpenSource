@@ -41,7 +41,9 @@ static u32 smi_larb_cmd_gp_en_port[SMI_LARB_NUM][2] = {
 };
 
 static u32 smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
-	{0, 0}, {0, 0}, {0, SMI_LARB2_PORT_NUM}, {0, SMI_LARB3_PORT_NUM},
+	{SMI_LARB0_PORT_NUM - 1, SMI_LARB0_PORT_NUM},
+	{SMI_LARB1_PORT_NUM - 1, SMI_LARB1_PORT_NUM},
+	{0, SMI_LARB2_PORT_NUM}, {0, SMI_LARB3_PORT_NUM},
 	{0, SMI_LARB4_PORT_NUM}, {0, SMI_LARB5_PORT_NUM}, {0, 0},
 	{0, SMI_LARB7_PORT_NUM}, {0, SMI_LARB8_PORT_NUM},
 	{0, SMI_LARB9_PORT_NUM}, {0, 0}, {0, SMI_LARB11_PORT_NUM}, {0, 0},
@@ -69,11 +71,18 @@ struct mtk_smi_pair smi_sub_comm_conf_pair[SMI_SUB_COMM_CONF_NUM] = {
 	{SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},
 };
 
-#define SMI_LARB0_CONF_NUM	(4)
+#define SMI_IPE_SUB_COMM_CONF_NUM	(4)
+struct mtk_smi_pair smi_ipe_sub_comm_conf_pair[SMI_IPE_SUB_COMM_CONF_NUM] = {
+	{SMI_L1LEN, 0x2}, {SMI_PREULTRA_MASK1, 0x2105},
+	{SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},
+};
+
+#define SMI_LARB0_CONF_NUM	(7)
 struct mtk_smi_pair smi_larb0_conf_pair[SMI_LARB0_CONF_NUM] = {
 	{SMI_LARB_VC_PRI_MODE, 0x1},
 	{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},
-	{INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+	{SMI_LARB_WRR_PORT(5), 0x7}, {SMI_LARB_WRR_PORT(6), 0x7},
+	{SMI_LARB_WRR_PORT(7), 0x7}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
 };
 
 #define SMI_LARB2_CONF_NUM	(3)
@@ -103,18 +112,24 @@ struct mtk_smi_pair smi_larb13_conf_pair[SMI_LARB13_CONF_NUM] = {
 	{INT_SMI_LARB_DBG_CON, 0x1},
 };
 
+#define SMI_LARB16_CONF_NUM	(4)
+struct mtk_smi_pair smi_larb16_conf_pair[SMI_LARB16_CONF_NUM] = {
+	{SMI_LARB_CMD_THRT_CON, 0x370256}, {SMI_LARB_SW_FLAG, 0x1},
+	{SMI_LARB_FORCE_ULTRA, 0x8000}, {INT_SMI_LARB_CMD_THRT_CON, 0x370256},
+};
+
 u32 smi_conf_pair_num[SMI_DEV_NUM] = {
 	SMI_LARB0_CONF_NUM, SMI_LARB0_CONF_NUM, SMI_LARB2_CONF_NUM,
 	SMI_LARB2_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_LARB6_CONF_NUM, SMI_LARB7_CONF_NUM, SMI_LARB7_CONF_NUM,
 	SMI_LARB4_CONF_NUM, SMI_LARB6_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_LARB6_CONF_NUM, SMI_LARB13_CONF_NUM, SMI_LARB13_CONF_NUM,
-	SMI_LARB4_CONF_NUM, SMI_LARB2_CONF_NUM, SMI_LARB2_CONF_NUM,
-	SMI_LARB2_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
+	SMI_LARB4_CONF_NUM, SMI_LARB16_CONF_NUM, SMI_LARB16_CONF_NUM,
+	SMI_LARB16_CONF_NUM, SMI_LARB4_CONF_NUM, SMI_LARB4_CONF_NUM,
 	SMI_COMM_CONF_NUM, SMI_COMM_CONF_NUM, SMI_SRAM_COMM_CONF_NUM,
 	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
-	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
-	SMI_SUB_COMM_CONF_NUM,
+	SMI_SUB_COMM_CONF_NUM, SMI_IPE_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
+	SMI_SUB_COMM_CONF_NUM, SMI_SUB_COMM_CONF_NUM,
 };
 
 struct mtk_smi_pair *smi_conf_pair[SMI_DEV_NUM] = {
@@ -123,12 +138,12 @@ struct mtk_smi_pair *smi_conf_pair[SMI_DEV_NUM] = {
 	smi_larb6_conf_pair, smi_larb7_conf_pair, smi_larb7_conf_pair,
 	smi_larb4_conf_pair, smi_larb6_conf_pair, smi_larb4_conf_pair,
 	smi_larb6_conf_pair, smi_larb13_conf_pair, smi_larb13_conf_pair,
-	smi_larb4_conf_pair, smi_larb2_conf_pair, smi_larb2_conf_pair,
-	smi_larb2_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
+	smi_larb4_conf_pair, smi_larb16_conf_pair, smi_larb16_conf_pair,
+	smi_larb16_conf_pair, smi_larb4_conf_pair, smi_larb4_conf_pair,
 	smi_comm_conf_pair, smi_comm_conf_pair, smi_sram_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
+	smi_sub_comm_conf_pair, smi_ipe_sub_comm_conf_pair,
 	smi_sub_comm_conf_pair, smi_sub_comm_conf_pair, smi_sub_comm_conf_pair,
-	smi_sub_comm_conf_pair,
 };
 
 /* scen: INIT */
@@ -602,5 +617,70 @@ struct mtk_smi_pair **smi_scen_pair[SMI_DEV_NUM] = {
 	smi_sub_comm_scen_pair, smi_sub_comm_scen_pair, smi_sub_comm_scen_pair,
 	smi_sub_comm_scen_pair, smi_sub_comm_scen_pair, smi_sub_comm_scen_pair,
 	smi_sub_comm_scen_pair, smi_sub_comm_scen_pair,
+};
+
+#define SMI_RSI_DEBUG_NUM	(29 * 2)
+#define SMI_RSI_M0_OFFSET	(0x1000)
+#define SMI_RSI_M1_OFFSET	(0x2000)
+u32 smi_rsi_debug_offset[SMI_RSI_DEBUG_NUM] = {
+	SMI_RSI_M0_OFFSET + RSI_INTLV_CON,
+	SMI_RSI_M0_OFFSET + RSI_DCM_CON,
+	SMI_RSI_M0_OFFSET + RSI_DS_PM_CON,
+	SMI_RSI_M0_OFFSET + RSI_MISC_CON,
+	SMI_RSI_M0_OFFSET + RSI_STA,
+	SMI_RSI_M0_OFFSET + RSI_AWOSTD_S,
+	SMI_RSI_M0_OFFSET + RSI_AWOSTD_M0,
+	SMI_RSI_M0_OFFSET + RSI_AWOSTD_M1,
+	SMI_RSI_M0_OFFSET + RSI_AWOSTD_PSEUDO,
+	SMI_RSI_M0_OFFSET + RSI_WOSTD_S,
+	SMI_RSI_M0_OFFSET + RSI_WOSTD_M0,
+	SMI_RSI_M0_OFFSET + RSI_WOSTD_M1,
+	SMI_RSI_M0_OFFSET + RSI_WOSTD_PSEUDO,
+	SMI_RSI_M0_OFFSET + RSI_AROSTD_S,
+	SMI_RSI_M0_OFFSET + RSI_AROSTD_M0,
+	SMI_RSI_M0_OFFSET + RSI_AROSTD_M1,
+	SMI_RSI_M0_OFFSET + RSI_AROSTD_PSEUDO,
+	SMI_RSI_M0_OFFSET + RSI_WLAST_OWE_CNT_S,
+	SMI_RSI_M0_OFFSET + RSI_WLAST_OWE_CNT_M0,
+	SMI_RSI_M0_OFFSET + RSI_WLAST_OWE_CNT_M1,
+	SMI_RSI_M0_OFFSET + RSI_WDAT_CNT_S,
+	SMI_RSI_M0_OFFSET + RSI_WDAT_CNT_M0,
+	SMI_RSI_M0_OFFSET + RSI_WDAT_CNT_M1,
+	SMI_RSI_M0_OFFSET + RSI_RDAT_CNT_S,
+	SMI_RSI_M0_OFFSET + RSI_RDAT_CNT_M0,
+	SMI_RSI_M0_OFFSET + RSI_RDAT_CNT_M1,
+	SMI_RSI_M0_OFFSET + RSI_AXI_DBG_S,
+	SMI_RSI_M0_OFFSET + RSI_AXI_DBG_M0,
+	SMI_RSI_M0_OFFSET + RSI_AXI_DBG_M1,
+
+	SMI_RSI_M1_OFFSET + RSI_INTLV_CON,
+	SMI_RSI_M1_OFFSET + RSI_DCM_CON,
+	SMI_RSI_M1_OFFSET + RSI_DS_PM_CON,
+	SMI_RSI_M1_OFFSET + RSI_MISC_CON,
+	SMI_RSI_M1_OFFSET + RSI_STA,
+	SMI_RSI_M1_OFFSET + RSI_AWOSTD_S,
+	SMI_RSI_M1_OFFSET + RSI_AWOSTD_M0,
+	SMI_RSI_M1_OFFSET + RSI_AWOSTD_M1,
+	SMI_RSI_M1_OFFSET + RSI_AWOSTD_PSEUDO,
+	SMI_RSI_M1_OFFSET + RSI_WOSTD_S,
+	SMI_RSI_M1_OFFSET + RSI_WOSTD_M0,
+	SMI_RSI_M1_OFFSET + RSI_WOSTD_M1,
+	SMI_RSI_M1_OFFSET + RSI_WOSTD_PSEUDO,
+	SMI_RSI_M1_OFFSET + RSI_AROSTD_S,
+	SMI_RSI_M1_OFFSET + RSI_AROSTD_M0,
+	SMI_RSI_M1_OFFSET + RSI_AROSTD_M1,
+	SMI_RSI_M1_OFFSET + RSI_AROSTD_PSEUDO,
+	SMI_RSI_M1_OFFSET + RSI_WLAST_OWE_CNT_S,
+	SMI_RSI_M1_OFFSET + RSI_WLAST_OWE_CNT_M0,
+	SMI_RSI_M1_OFFSET + RSI_WLAST_OWE_CNT_M1,
+	SMI_RSI_M1_OFFSET + RSI_WDAT_CNT_S,
+	SMI_RSI_M1_OFFSET + RSI_WDAT_CNT_M0,
+	SMI_RSI_M1_OFFSET + RSI_WDAT_CNT_M1,
+	SMI_RSI_M1_OFFSET + RSI_RDAT_CNT_S,
+	SMI_RSI_M1_OFFSET + RSI_RDAT_CNT_M0,
+	SMI_RSI_M1_OFFSET + RSI_RDAT_CNT_M1,
+	SMI_RSI_M1_OFFSET + RSI_AXI_DBG_S,
+	SMI_RSI_M1_OFFSET + RSI_AXI_DBG_M0,
+	SMI_RSI_M1_OFFSET + RSI_AXI_DBG_M1,
 };
 #endif
