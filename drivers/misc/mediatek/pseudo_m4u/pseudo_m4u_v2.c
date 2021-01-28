@@ -50,6 +50,9 @@
 #ifdef PSEUDO_M4U_TEE_SERVICE_ENABLE
 #include "pseudo_m4u_sec.h"
 #endif
+#ifdef M4U_GZ_SERVICE_ENABLE
+#include "pseudo_m4u_gz_sec.h"
+#endif
 #include "pseudo_m4u_log.h"
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
 	!defined(CONFIG_MTK_TEE_GP_SUPPORT)
@@ -3065,6 +3068,170 @@ out:
 }
 #endif
 
+#ifdef M4U_GZ_SERVICE_ENABLE
+static DEFINE_MUTEX(gM4u_gz_sec_init);
+bool m4u_gz_en[SEC_ID_COUNT];
+
+static int __m4u_gz_sec_init(int mtk_iommu_sec_id)
+{
+	int ret, i, count = 0;
+	unsigned long pt_pa_nonsec;
+	struct m4u_gz_sec_context *ctx;
+
+	ctx = m4u_gz_sec_ctx_get();
+	if (!ctx)
+		return -EFAULT;
+
+	for (i = 0; i < SMI_LARB_NR; i++) {
+		ret = larb_clock_on(i, 1);
+		if (ret < 0) {
+			M4U_MSG("enable larb%d fail, ret:%d\n", i, ret);
+			count = i;
+			goto out;
+		}
+	}
+	count = SMI_LARB_NR;
+
+	if (mtk_iommu_get_pgtable_base_addr((void *)&pt_pa_nonsec))
+		return -EFAULT;
+
+	ctx->m4u_msg->cmd = CMD_M4UTY_INIT;
+	ctx->m4u_msg->iommu_sec_id = mtk_iommu_sec_id;
+	ctx->m4u_msg->init_param.nonsec_pt_pa = pt_pa_nonsec;
+	ctx->m4u_msg->init_param.l2_en = M4U_L2_ENABLE;
+	ctx->m4u_msg->init_param.sec_pt_pa = 0;
+
+	M4ULOG_HIGH("[MTEE]%s: mtk_iommu_sec_id:%d, nonsec_pt_pa: 0x%lx\n",
+				__func__, mtk_iommu_sec_id, pt_pa_nonsec);
+	ret = m4u_gz_exec_cmd(ctx);
+	if (ret) {
+		M4U_ERR("[MTEE]m4u exec command fail\n");
+		goto out;
+	}
+
+	/*ret = ctx->m4u_msg->rsp;*/
+out:
+	if (count) {
+		for (i = 0; i < count; i++)
+			larb_clock_off(i, 1);
+	}
+	m4u_gz_sec_ctx_put(ctx);
+	return ret;
+}
+
+int m4u_gz_sec_init(int mtk_iommu_sec_id)
+{
+	int ret;
+
+	M4U_MSG("[MTEE]%s: start\n", __func__);
+
+	if (m4u_gz_en[mtk_iommu_sec_id]) {
+		M4U_MSG("warning: re-initiation, %d\n",
+				m4u_gz_en[mtk_iommu_sec_id]);
+		goto m4u_gz_sec_reinit;
+	}
+
+	m4u_gz_sec_set_context();
+
+	if (!m4u_gz_en[mtk_iommu_sec_id]) {
+		ret = m4u_gz_sec_context_init();
+		if (ret)
+			return ret;
+
+		m4u_gz_en[mtk_iommu_sec_id] = 1;
+	} else {
+		M4U_MSG("[MTEE]warning: reinit sec m4u_gz_en[%d]=%d\n",
+				mtk_iommu_sec_id, m4u_gz_en[mtk_iommu_sec_id]);
+	}
+m4u_gz_sec_reinit:
+	ret = __m4u_gz_sec_init(mtk_iommu_sec_id);
+	if (ret < 0) {
+		m4u_gz_en[mtk_iommu_sec_id] = 0;
+		m4u_gz_sec_context_deinit();
+		M4U_MSG("[MTEE]%s:init fail,ret=0x%x\n", __func__, ret);
+		return ret;
+	}
+
+	/* don't deinit ta because of multiple init operation */
+
+	return 0;
+
+}
+
+int m4u_map_gz_nonsec_buf(int iommu_sec_id, int port,
+			  unsigned long mva, unsigned long size)
+{
+	int ret;
+	struct m4u_gz_sec_context *ctx;
+
+	if ((mva > DMA_BIT_MASK(32)) ||
+	    (mva + size > DMA_BIT_MASK(32))) {
+		M4U_MSG("[MTEE]%s invalid mva:0x%lx, size:0x%lx\n",
+			__func__, mva, size);
+		return -EFAULT;
+	}
+
+	ctx = m4u_gz_sec_ctx_get();
+	if (!ctx)
+		return -EFAULT;
+
+	ctx->m4u_msg->cmd = CMD_M4UTY_MAP_NONSEC_BUFFER;
+	ctx->m4u_msg->iommu_sec_id = iommu_sec_id;
+	ctx->m4u_msg->buf_param.mva = mva;
+	ctx->m4u_msg->buf_param.size = size;
+	ctx->m4u_msg->buf_param.port = port;
+
+	ret = m4u_gz_exec_cmd(ctx);
+	if (ret) {
+		M4U_MSG("[MTEE]m4u exec command fail\n");
+		ret = -1;
+		goto out;
+	}
+	ret = ctx->m4u_msg->rsp;
+
+out:
+	m4u_gz_sec_ctx_put(ctx);
+	return ret;
+}
+
+
+int m4u_unmap_gz_nonsec_buffer(int iommu_sec_id, unsigned long mva,
+				unsigned long size)
+{
+	int ret;
+	struct m4u_gz_sec_context *ctx;
+
+	if ((mva > DMA_BIT_MASK(32)) ||
+	    (mva + size > DMA_BIT_MASK(32))) {
+		M4U_MSG("[MTEE]%s invalid mva:0x%lx, size:0x%lx\n",
+			__func__, mva, size);
+		return -EFAULT;
+	}
+
+	ctx = m4u_gz_sec_ctx_get();
+	if (!ctx)
+		return -EFAULT;
+
+	ctx->m4u_msg->cmd = CMD_M4UTY_UNMAP_NONSEC_BUFFER;
+	ctx->m4u_msg->iommu_sec_id = iommu_sec_id;
+	ctx->m4u_msg->buf_param.mva = mva;
+	ctx->m4u_msg->buf_param.size = size;
+
+	ret = m4u_gz_exec_cmd(ctx);
+	if (ret) {
+		M4U_MSG("[MTEE]m4u exec command fail\n");
+		ret = -1;
+		goto out;
+	}
+	ret = ctx->m4u_msg->rsp;
+
+out:
+	m4u_gz_sec_ctx_put(ctx);
+	return ret;
+}
+
+#endif
+
 /*
  * inherent this from original m4u driver, we use this to make sure
  * we could still support
@@ -3103,6 +3270,25 @@ static long pseudo_ioctl(struct file *filp,
 		}
 		break;
 #endif
+#ifdef M4U_GZ_SERVICE_ENABLE
+	case MTK_M4U_GZ_SEC_INIT:
+		{
+			int mtk_iommu_sec_id = 0;
+
+			M4U_MSG(
+				"MTK M4U ioctl : MTK_M4U_GZ_SEC_INIT command!! 0x%x, arg:%d\n",
+					cmd, arg);
+			mtk_iommu_sec_id = arg;
+			if (mtk_iommu_sec_id < 0 ||
+				mtk_iommu_sec_id > SEC_ID_COUNT)
+				return -EFAULT;
+			mutex_lock(&gM4u_gz_sec_init);
+			ret = m4u_gz_sec_init(mtk_iommu_sec_id);
+			mutex_unlock(&gM4u_gz_sec_init);
+		}
+		break;
+#endif
+
 	default:
 		M4U_MSG("MTK M4U ioctl:No such command(0x%x)!!\n", cmd);
 		ret = -EINVAL;
@@ -3236,6 +3422,24 @@ long pseudo_compat_ioctl(struct file *filp,
 		}
 		break;
 #endif
+#ifdef M4U_GZ_SERVICE_ENABLE
+		case MTK_M4U_GZ_SEC_INIT:
+			{
+				int mtk_iommu_sec_id = arg;
+
+				M4U_MSG(
+					"MTK_M4U_GZ_SEC_INIT command!! 0x%x, arg: %d\n",
+						cmd, arg);
+				if (mtk_iommu_sec_id < 0 ||
+					mtk_iommu_sec_id > SEC_ID_COUNT)
+					return -EFAULT;
+				mutex_lock(&gM4u_gz_sec_init);
+				ret = m4u_gz_sec_init(mtk_iommu_sec_id);
+				mutex_unlock(&gM4u_gz_sec_init);
+			}
+			break;
+#endif
+
 	default:
 		M4U_MSG("compat ioctl:No such command(0x%x)!!\n", cmd);
 		ret = -ENOIOCTLCMD;
