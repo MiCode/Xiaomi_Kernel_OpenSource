@@ -1083,7 +1083,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	gce: gce@10238000 {
-		compatible = "mediatek,gce", "syscon";
+		compatible = "mediatek,cmdq-ext", "syscon";
 		reg = <0 0x10238000 0 0x4000>;
 		#clock-cells = <1>;
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_LOW>;
