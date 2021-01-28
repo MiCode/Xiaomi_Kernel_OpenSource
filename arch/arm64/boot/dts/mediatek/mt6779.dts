@@ -2844,6 +2844,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		vcodec_dec: vcodec_dec@16000000 {
 			compatible = "mediatek,mt6779-vcodec-dec";
 			reg = <0 0x16000000 0 0x1000>,/* VDEC_SYS */
+				 <0 0x16020000 0 0x400>,/* VDEC_VLD */
 				 <0 0x16025000 0 0x1000>;/* VDEC_MISC */
 			interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_LOW>;
 			mediatek,vcu = <&vcu>;
@@ -2865,7 +2866,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		vdecsys: clock-controller@16000000 {
 			compatible = "mediatek,mt6779-vdecsys", "syscon";
 			reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
-			      <0 0x16020000 0 0x400>,		/* VDEC_VLD */
 			      <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
 			interrupts = <GIC_SPI 324 IRQ_TYPE_LEVEL_LOW>;
 			#clock-cells = <1>;
