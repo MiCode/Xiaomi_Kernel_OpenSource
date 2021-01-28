@@ -117,6 +117,10 @@ static int min_adj = OOM_SCORE_ADJ_MIN;
 static int max_adj = OOM_SCORE_ADJ_MAX;
 static int limit_pid = -1;
 
+/* Refinement for analyses */
+#define TRACE_HUNGER_PERCENTAGE	(50)
+static unsigned long hungersize;
+
 /* strfmt control */
 static const char **strfmt_list;
 static int strfmt_idx;
@@ -426,8 +430,12 @@ static struct task_struct *trylock_task_mm(struct task_struct *t)
 }
 
 static bool filter_out_process(struct task_struct *p, pid_t pid,
-		short oom_score_adj)
+		short oom_score_adj, unsigned long sz)
 {
+	/* if the size is too large, just show it */
+	if (sz >= hungersize)
+		return false;
+
 	/* by oom_score_adj */
 	if (oom_score_adj > max_adj || oom_score_adj < min_adj)
 		return true;
@@ -476,21 +484,20 @@ static void mlog_procinfo(void)
 
 		pid = p->pid;
 		oom_score_adj = p->signal->oom_score_adj;
-		if (filter_out_process(p, pid, oom_score_adj)) {
+		rss = get_mm_rss(p->mm);
+		rswap = get_mm_counter(p->mm, MM_SWAPENTS);
+		if (filter_out_process(p, pid, oom_score_adj, rss + rswap)) {
 			task_unlock(p);
 			continue;
 		}
-
-		rss = P2K(get_mm_rss(p->mm));
-		rswap = P2K(get_mm_counter(p->mm, MM_SWAPENTS));
 		task_unlock(p);
 
 		/* emit logs */
 		spin_lock_bh(&mlogbuf_lock);
 		mlog_emit(pid);
 		mlog_emit(oom_score_adj);
-		mlog_emit(rss);
-		mlog_emit(rswap);
+		mlog_emit(P2K(rss));
+		mlog_emit(P2K(rswap));
 		mlog_emit(0);	/* pswpin */
 		mlog_emit(0);	/* pswpout */
 		mlog_emit(0);	/* pfmflt */
@@ -1042,6 +1049,8 @@ static void __exit mlog_exit_logger(void)
 
 static int __init mlog_init(void)
 {
+	hungersize = totalram_pages * TRACE_HUNGER_PERCENTAGE / 100;
+
 	if (mlog_init_logger())
 		return -1;
 
