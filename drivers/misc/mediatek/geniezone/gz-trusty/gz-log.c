@@ -34,6 +34,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/debugfs.h>
 
 #if ENABLE_GZ_TRACE_DUMP
 #if IS_BUILTIN(CONFIG_GZ_LOG)
@@ -83,6 +84,9 @@ struct gz_log_state {
 	struct list_head gz_trace_dump_list;
 	struct mutex gz_trace_dump_mux;
 	struct notifier_block callback_notifier;
+	atomic_t gz_trace_onoff;
+	struct dentry *gz_log_dbg_root;
+	struct dentry *sys_gz_trace_on;
 #endif
 
 	enum tee_id_t tee_id;
@@ -586,7 +590,7 @@ static int gz_trace_task_entry(void *data)
 			if (get > put) {
 				dev_info(gls->dev, "%s get(%u)>put(%u)\n", __func__, get, put);
 				break;
-			} else if (get < put)
+			} else if (get < put  && atomic_read(&gls->gz_trace_onoff))
 				gz_trace_parse(gls, get, put, &trace_dump_info_use);
 
 			gls->get_trace = put;
@@ -618,6 +622,54 @@ static int trusty_log_callback_notify(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+
+static ssize_t gz_trace_on_write(struct file *filp, const char __user *ubuf,
+				   size_t cnt, loff_t *fpos)
+{
+	struct seq_file *s = filp->private_data;
+	struct gz_log_state *gls = s->private;
+	char buf[2];
+
+	if (cnt > sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt-1] = 0;
+
+	if (buf[0] == '0')
+		atomic_set(&gls->gz_trace_onoff, 0);
+	else if (buf[0] == '1')
+		atomic_set(&gls->gz_trace_onoff, 1);
+	else
+		return -EFAULT;
+
+	return cnt;
+}
+
+static int gz_trace_on_read(struct seq_file *s, void *unused)
+{
+	struct gz_log_state *gls = s->private;
+
+	seq_printf(s, "%d\n", atomic_read(&gls->gz_trace_onoff));
+
+	return 0;
+}
+
+static int gz_trace_on_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, gz_trace_on_read, inode->i_private);
+}
+
+
+static const struct file_operations gz_trace_on_fops = {
+	.open		= gz_trace_on_open,
+	.write		= gz_trace_on_write,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
 #endif /* ENABLE_GZ_TRACE_DUMP */
 
 static const struct file_operations proc_gz_log_fops = {
@@ -683,6 +735,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	glctx.gls = gls;
 
 #if ENABLE_GZ_TRACE_DUMP
+	gls->callback_notifier.notifier_call = trusty_log_callback_notify;
 	ret = trusty_callback_notifier_register(gls->trusty_dev,
 					       &gls->callback_notifier);
 	if (ret < 0) {
@@ -695,8 +748,8 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	mutex_init(&gls->gz_trace_dump_mux);
 	gls->trace_exit = false;
 	gls->get_trace = 0;
+	atomic_set(&gls->gz_trace_onoff, 0);
 	init_completion(&gls->trace_dump_event);
-	gls->callback_notifier.notifier_call = trusty_log_callback_notify;
 	gls->trace_task_fd =
 			kthread_run(gz_trace_task_entry, (void *)gls, "gz_trace");
 	if (IS_ERR(gls->trace_task_fd)) {
@@ -704,6 +757,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 		ret = PTR_ERR(gls->trace_task_fd);
 		goto error_trace_task_run;
 	}
+	set_user_nice(gls->trace_task_fd, 5);
 #endif
 
 	gls->call_notifier.notifier_call = trusty_log_call_notify;
@@ -734,6 +788,17 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "gz_log proc_create failed!\n");
 		return -ENOMEM;
 	}
+
+#if ENABLE_GZ_TRACE_DUMP
+	gls->gz_log_dbg_root = debugfs_create_dir("gz_log", NULL);
+	gls->sys_gz_trace_on =
+		debugfs_create_file("gz_trace_on", 0644, gls->gz_log_dbg_root,
+							gls, &gz_trace_on_fops);
+	if (!gls->sys_gz_trace_on) {
+		dev_info(&pdev->dev, "gz_trace_on node failed!\n");
+		return -ENOMEM;
+	}
+#endif
 
 	return 0;
 
