@@ -49,6 +49,16 @@ static void aee_exception_reboot(void)
 		opt2, 0, 0, 0, 0, 0, &res);
 }
 
+static void aee_flush_reboot(void)
+{
+#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
+		dis_D_inner_flush_all();
+#else
+		pr_info("dis_D_inner_flush_all invalid");
+#endif
+		aee_exception_reboot();
+}
+
 /*save stack as binary into buf,
  *return value
 
@@ -122,71 +132,88 @@ int aee_nested_printf(const char *fmt, ...)
 }
 
 static int num_die;
-static void nested_die_check(int fiq_step)
-{
-	static int last_step;
-
-	if (num_die <= 1) {
-		last_step = fiq_step;
-		aee_rr_rec_fiq_step(fiq_step);
-		aee__flush_dcache_area(&num_die, sizeof(num_die));
-		aee__flush_dcache_area(&last_step, sizeof(last_step));
-	}
-
-	if ((num_die > 1 && fiq_step == last_step) ||
-			fiq_step == AEE_FIQ_STEP_COMMON_DIE_DONE){
-		aee_nested_printf("nd-%d, fs-%d, ls-%d\n",
-				  num_die, fiq_step, last_step);
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
-		dis_D_inner_flush_all();
-#else
-		pr_info("dis_D_inner_flush_all invalid");
-#endif
-		aee_exception_reboot();
-	}
-}
-
 int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
-	++num_die;
-	nested_die_check(fiq_step);
-	show_kaslr();
-	aee_print_modules();
+	int last_step;
+	int next_step;
 
-	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_SCP);
-	aee_rr_rec_scp();
+	num_die++;
 
-	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_MRDUMP);
-	__mrdump_create_oops_dump(reboot_reason, regs, msg);
+	last_step = aee_rr_curr_fiq_step();
+	if (num_die > 1) {
+		/* NESTED KE */
+		aee_reinit_die_lock();
+	}
+	aee_nested_printf("num_die-%d, fiq_step-%d last_step-%d\n",
+			  num_die, fiq_step, last_step);
+	/* if we were in nested ke now, then the if condition would be false */
+	if (last_step < AEE_FIQ_STEP_COMMON_DIE_START)
+		last_step = AEE_FIQ_STEP_COMMON_DIE_START - 1;
 
-	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_TRACE);
-	switch (reboot_reason) {
-	case AEE_REBOOT_MODE_KERNEL_OOPS:
-		aee_show_regs(regs);
-		dump_stack();
-		break;
-	case AEE_REBOOT_MODE_KERNEL_PANIC:
+	/* skip the works of last_step */
+	next_step = last_step + 1;
+
+	switch (next_step) {
+	case AEE_FIQ_STEP_COMMON_DIE_START:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_START);
+		__mrdump_create_oops_dump(reboot_reason, regs, msg);
+		mdelay(1000);
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_LOCK:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_LOCK);
+		/* release locks after stopping other cpus */
+		aee_reinit_die_lock();
+		aee_zap_locks();
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_KASLR:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_KASLR);
+		show_kaslr();
+		aee_print_modules();
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_SCP:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_SCP);
+		aee_rr_rec_scp();
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_TRACE:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_TRACE);
+		switch (reboot_reason) {
+		case AEE_REBOOT_MODE_KERNEL_OOPS:
+			aee_show_regs(regs);
+			dump_stack();
+			break;
+		case AEE_REBOOT_MODE_KERNEL_PANIC:
 #ifndef CONFIG_DEBUG_BUGVERBOSE
-		dump_stack();
+			dump_stack();
 #endif
-		break;
-	case AEE_REBOOT_MODE_HANG_DETECT:
-		aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
-		break;
+			break;
+		case AEE_REBOOT_MODE_HANG_DETECT:
+			aee_rr_rec_exp_type(AEE_EXP_TYPE_HANG_DETECT);
+			break;
+		default:
+			/* Don't print anything */
+			break;
+		}
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_REGS:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_REGS);
+		mrdump_mini_ke_cpu_regs(regs);
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_CS:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_CS);
+		console_unlock();
+		/* FALLTHRU */
+	case AEE_FIQ_STEP_COMMON_DIE_DONE:
+		aee_rr_rec_fiq_step(AEE_FIQ_STEP_COMMON_DIE_DONE);
+		/* FALLTHRU */
 	default:
-		/* Don't print anything */
+		aee_nested_printf("num_die-%d, fiq_step-%d, last_step-%d, next_step-%d\n",
+				  num_die, fiq_step,
+				  last_step, next_step);
+		aee_flush_reboot();
 		break;
 	}
 
-	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_REGS);
-	mrdump_mini_ke_cpu_regs(regs);
-
-	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_CS);
-	aee_zap_locks();
-	console_unlock();
-
-	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_DONE);
 	return NOTIFY_DONE;
 }
 EXPORT_SYMBOL(mrdump_common_die);
