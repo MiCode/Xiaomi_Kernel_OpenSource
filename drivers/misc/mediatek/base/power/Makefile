@@ -51,6 +51,8 @@ obj-$(CONFIG_MACH_MT6765) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6771) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6768) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6785) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT6873) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT6853) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6768) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6785) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6873) += clkbuf_v1/
@@ -63,7 +65,9 @@ obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6771) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6885) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6873) += power_gs_v1/
+obj-$(CONFIG_MACH_MT6853) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6885) += gpufreq_v1/
+obj-$(CONFIG_MACH_MT6873) += gpufreq_v1/
 endif
 
 obj-$(CONFIG_MACH_MT8167) += hps_v1/
@@ -73,6 +77,7 @@ obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6739) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6885) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6873) += cpuhotplug/
+obj-$(CONFIG_MACH_MT6853) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6771) += ppm_v3/
 obj-$(CONFIG_MACH_MT6739) += ppm_v3/
 obj-$(CONFIG_MACH_MT6768) += ppm_v3/
@@ -83,6 +88,8 @@ obj-$(CONFIG_MACH_MT6768) += udi_v2/
 obj-$(CONFIG_MACH_MT6785) += udi_v2/
 obj-$(CONFIG_MACH_MT6785) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6885) += ppm_v3/
+obj-$(CONFIG_MACH_MT6873) += ppm_v3/
+obj-$(CONFIG_MACH_MT6853) += ppm_v3/
 obj-$(CONFIG_MACH_MT6771) += spm_v4/
 obj-$(CONFIG_MACH_MT6739) += spm_v4/
 obj-$(CONFIG_MACH_MT6771) += clkbuf_v1/
@@ -111,3 +118,6 @@ endif
 obj-$(CONFIG_MACH_MT6885) += dvfsrc/
 obj-$(CONFIG_MACH_MT6873) += dvfsrc/
 obj-$(CONFIG_MACH_MT6853) += dvfsrc/
+ifeq ($(CONFIG_MTK_GPU_SUPPORT), y)
+obj-$(CONFIG_MACH_MT6853) += gpufreq_v1/
+endif
