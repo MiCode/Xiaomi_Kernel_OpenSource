@@ -3086,8 +3086,10 @@ ___update_load_avg(u64 now, int cpu, struct sched_avg *sa,
 
 	if (cfs_rq) {
 		trace_sched_load_cfs_rq(cfs_rq);
+#ifdef CONFIG_FAIR_GROUP_SCHED
 		trace_sched_cfs_runnable_load(cpu_of(cfs_rq->rq),
 			cfs_rq->avg.loadwop_avg, cfs_rq->h_nr_running);
+#endif
 	}
 	else {
 		if (likely(!rt_rq))
