@@ -4101,7 +4101,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		enable_type_c;
 		power_path_support;
 		enable_dynamic_mivr;
-		disable_pd_dual;
 
 		/* common */
 		battery_cv = <4350000>;
