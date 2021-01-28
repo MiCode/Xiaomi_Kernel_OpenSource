@@ -1030,10 +1030,12 @@ static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 		&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);  \
 	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 	if (avaLen > 1) {\
-		snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
+		if (snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
 			gSvLog[irq]._lastIrqTime.sec, \
 			gSvLog[irq]._lastIrqTime.usec,\
-			##__VA_ARGS__);   \
+			##__VA_ARGS__) < 0) {\
+			pr_info("[Error] %s: snprintf failed", __func__);\
+		} \
 		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 			pr_info("log str over flow(%d)", irq);\
 		} \
@@ -1083,7 +1085,11 @@ static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 			ptr = pDes = (char *)\
 			    &(pSrc->_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
 			ptr2 = &(pSrc->_cnt[ppb][logT]);\
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+			if (snprintf((char *)(pDes),\
+				avaLen, fmt, ##__VA_ARGS__) < 0) {\
+				pr_info("[Error] %s: snprintf failed",\
+					__func__);\
+			} \
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
@@ -1112,6 +1118,14 @@ static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 		logT = _LOG_ERR;\
 	} else{\
 		logT = logT_in;\
+	} \
+	if (ppb < 0) {\
+		pr_info("[Error] %s: Invalid ppb", __func__);\
+		break; /* leave do while */\
+	} \
+	if (logT < 0) {\
+		pr_info("[Error] %s: Invalid logT", __func__);\
+		break; /* leave do while */\
 	} \
 	ptr = pSrc->_str[ppb][logT];\
 	if (pSrc->_cnt[ppb][logT] != 0) {\
@@ -5039,7 +5053,8 @@ static long ISP_REF_CNT_CTRL_FUNC(unsigned long Param)
 				ref_cnt_ctrl.ctrl, ref_cnt_ctrl.id);
 
 		/*  */
-		if (ref_cnt_ctrl.id < ISP_REF_CNT_ID_MAX) {
+		if ((ref_cnt_ctrl.id < ISP_REF_CNT_ID_MAX) &&
+		    (ref_cnt_ctrl.id >= 0)) {
 			/* //////////////////---add lock here */
 			spin_lock(&(IspInfo.SpinLockIspRef));
 			/* ////////////////// */
@@ -5183,7 +5198,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 	/*  */
 	if (copy_from_user(&rt_buf_ctrl, (void __user *)Param,
 	    sizeof(struct ISP_BUFFER_CTRL_STRUCT)) == 0) {
-		if (rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT) {
+		if ((rt_buf_ctrl.module >= ISP_IRQ_TYPE_AMOUNT) ||
+		    (rt_buf_ctrl.module < 0)) {
 			LOG_NOTICE("[rtbc]not supported module:0x%x\n",
 				rt_buf_ctrl.module);
 			return -EFAULT;
@@ -5196,7 +5212,8 @@ static long ISP_Buf_CTRL_FUNC(unsigned long Param)
 		}
 
 		rt_dma = rt_buf_ctrl.buf_id;
-		if (rt_dma >= _cam_max_) {
+		if ((rt_dma >= _cam_max_) ||
+		    (rt_dma < 0)) {
 			LOG_NOTICE("[rtbc]buf_id error:0x%x\n", rt_dma);
 			return -EFAULT;
 		}
@@ -5399,6 +5416,21 @@ static signed int ISP_P2_BufQue_Update_ListCIdx(
 	int i = 0;
 	enum ISP_P2_BUF_STATE_ENUM cIdxSts = ISP_P2_BUF_STATE_NONE;
 
+	if ((property < 0) || (property >= ISP_P2_BUFQUE_PROPERTY_NUM)) {
+		pr_info("[Error] %s: Invalid property", __func__);
+		return ret;
+	}
+
+	if ((P2_FrameUnit_List_Idx[property].curr < 0) ||
+	    (P2_FrameUnit_List_Idx[property].curr
+		>= _MAX_SUPPORT_P2_FRAME_NUM_)) {
+		LOG_NOTICE(
+		"[Error] %s: Invalid P2_FrameUnit_List_Idx[property].curr",
+			__func__);
+		ret = -EFAULT;
+		return ret;
+	}
+
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
 		/* [1] check global pointer current sts */
@@ -5507,9 +5539,22 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 	signed int cnt = 0;
 	int tmpIdx = 0;
 
+	if ((property < 0) || (property >= ISP_P2_BUFQUE_PROPERTY_NUM)) {
+		pr_info("[Error] %s: Invalid property", __func__);
+		return ret;
+	}
+
 	switch (listTag) {
 	case ISP_P2_BUFQUE_LIST_TAG_PACKAGE:
 		tmpIdx = P2_FramePack_List_Idx[property].start;
+		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
+			pr_info("[Error] %s: Invalid idx", __func__);
+			return ret;
+		}
+		if ((tmpIdx < 0) || (tmpIdx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
+			pr_info("[Error] %s: Invalid tmpIdx", __func__);
+			return ret;
+		}
 		/* [1] clear buffer status */
 		P2_FramePackage_List[property][idx].processID = 0x0;
 		P2_FramePackage_List[property][idx].callerID = 0x0;
@@ -5557,6 +5602,14 @@ enum ISP_P2_BUFQUE_LIST_TAG listTag, signed int idx)
 		break;
 	case ISP_P2_BUFQUE_LIST_TAG_UNIT:
 		tmpIdx = P2_FrameUnit_List_Idx[property].start;
+		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
+			pr_info("[Error] %s: Invalid idx", __func__);
+			return ret;
+		}
+		if ((tmpIdx < 0) || (tmpIdx >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
+			pr_info("[Error] %s: Invalid tmpIdx", __func__);
+			return ret;
+		}
 		/* [1] clear buffer status */
 		P2_FrameUnit_List[property][idx].processID = 0x0;
 		P2_FrameUnit_List[property][idx].callerID = 0x0;
@@ -5624,13 +5677,13 @@ static signed int ISP_P2_BufQue_GetMatchIdx(struct ISP_P2_BUFQUE_STRUCT param,
 {
 	int idx = -1;
 	int i = 0;
-	int property;
+	int property = param.property;
 
-	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
+	if ((property >= ISP_P2_BUFQUE_PROPERTY_NUM) ||
+	    (property < 0)) {
 		LOG_NOTICE("property err(%d)\n", param.property);
 		return idx;
 	}
-	property = param.property;
 
 	switch (matchType) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
@@ -5835,18 +5888,23 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 {
 	unsigned int ret = MFALSE;
 	signed int index = -1;
-	enum ISP_P2_BUFQUE_PROPERTY property;
+	enum ISP_P2_BUFQUE_PROPERTY property = param.property;
 
-	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
+	if ((property >= ISP_P2_BUFQUE_PROPERTY_NUM) ||
+	    (property < 0)) {
 		LOG_NOTICE("property err(%d)\n", param.property);
 		return ret;
 	}
-	property = param.property;
+
 	/*  */
 	switch (type) {
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITDQ:
 		spin_lock(&(SpinLock_P2FrameList));
 		index = *idx;
+		if ((index < 0) || (index >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
+			LOG_NOTICE("[Error] %s: Invalid index", __func__);
+			return ret;
+		}
 		if (P2_FrameUnit_List[property][index].bufSts ==
 		    ISP_P2_BUF_STATE_RUNNING)
 			ret = MTRUE;
@@ -5856,6 +5914,10 @@ static inline unsigned int ISP_P2_BufQue_WaitEventState(
 	case ISP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		spin_lock(&(SpinLock_P2FrameList));
 		index = *idx;
+		if ((index < 0) || (index >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
+			LOG_NOTICE("[Error] %s: Invalid index", __func__);
+			return ret;
+		}
 		if (P2_FramePackage_List[property][index].dequedNum ==
 		    P2_FramePackage_List[property][index].frameNum)
 			ret = MTRUE;
@@ -5904,14 +5966,14 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 	int i = 0, q = 0;
 	int idx =  -1, idx2 =  -1;
 	signed int restTime = 0;
-	int property;
+	int property = param.property;
 
-	if (param.property >= ISP_P2_BUFQUE_PROPERTY_NUM) {
+	if ((property >= ISP_P2_BUFQUE_PROPERTY_NUM) ||
+	    (property < 0)) {
 		LOG_NOTICE("property err(%d)\n", param.property);
 		ret = -EFAULT;
 		return ret;
 	}
-	property = param.property;
 
 	switch (param.ctrl) {
 	/* signal that a specific buffer is enqueued */
@@ -6163,7 +6225,7 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 		idx2 = ISP_P2_BufQue_GetMatchIdx(param,
 				ISP_P2_BUFQUE_MATCH_TYPE_FRAMEOP,
 				ISP_P2_BUFQUE_LIST_TAG_UNIT);
-		if (idx2 ==  -1) {
+		if ((idx2 < 0) || (idx2 >= _MAX_SUPPORT_P2_FRAME_NUM_)) {
 			spin_unlock(&(SpinLock_P2FrameList));
 			LOG_NOTICE(
 				"ERRRRRRRRRRR findmatch index 2 fail (%d_0x%x_0x%x_%d, %d_%d)",
@@ -6183,7 +6245,7 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 		idx = ISP_P2_BufQue_GetMatchIdx(param,
 			ISP_P2_BUFQUE_MATCH_TYPE_FRAMEOP,
 			ISP_P2_BUFQUE_LIST_TAG_PACKAGE);
-		if (idx ==  -1) {
+		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
 			spin_unlock(&(SpinLock_P2FrameList));
 			LOG_NOTICE(
 			"ERRRRRRRRRRR findmatch index 1 fail (%d_0x%x_0x%x_%d, %d_%d)",
@@ -6243,6 +6305,11 @@ static signed int ISP_P2_BufQue_CTRL_FUNC(struct ISP_P2_BUFQUE_STRUCT param)
 		pr_info("ISP_P2_BUFQUE_CTRL_WAIT_FRAME, after pty/pID/cID (%d/0x%x/0x%x),idx(%d)",
 		property, param.processID, param.callerID, idx);
 #endif
+		if ((idx < 0) || (idx >= _MAX_SUPPORT_P2_PACKAGE_NUM_)) {
+			LOG_NOTICE("[Error] %s: Invalid idx", __func__);
+			ret =  -EFAULT;
+			return ret;
+		}
 		spin_lock(&(SpinLock_P2FrameList));
 		/* [2]check the buffer is dequeued or not */
 		if (P2_FramePackage_List[property][idx].dequedNum ==
@@ -6430,8 +6497,16 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	unsigned long long  sec = 0;
 	unsigned long       usec = 0;
 
-	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) {
+	if ((irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) ||
+	    (irqinfo->Type < 0)) {
 		LOG_NOTICE("MARK_IRQ: type error(%d)", irqinfo->Type);
+		return -EFAULT;
+	}
+
+	if ((irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) ||
+	    (irqinfo->EventInfo.St_type < 0)) {
+		LOG_NOTICE("MARK_IRQ: sq_type error(%d)",
+				irqinfo->EventInfo.St_type);
 		return -EFAULT;
 	}
 
@@ -6439,6 +6514,11 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	    irqinfo->EventInfo.UserKey < 0) {
 		LOG_NOTICE("MARK_IRQ: userkey error(%d)",
 			irqinfo->EventInfo.UserKey);
+		return -EFAULT;
+	}
+
+	if ((idx < 0) || (idx >= 32)) {
+		LOG_NOTICE("[Error] %s: Invalid idx(%d)", __func__, idx);
 		return -EFAULT;
 	}
 
@@ -6618,19 +6698,21 @@ static signed int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		irqinfo->Type, irqinfo->EventInfo.UserKey,
 		irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
-	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) {
+	if ((irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT) ||
+	    (irqinfo->Type < 0)) {
 		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
 		return -EFAULT;
 	}
 
-	if (irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) {
+	if ((irqinfo->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) ||
+	    (irqinfo->EventInfo.St_type < 0)) {
 		LOG_NOTICE("FLUSH_IRQ: st_type error(%d)",
 			irqinfo->EventInfo.St_type);
 		return -EFAULT;
 	}
 
-	if (irqinfo->EventInfo.UserKey >= IRQ_USER_NUM_MAX ||
-	    irqinfo->EventInfo.UserKey < 0) {
+	if ((irqinfo->EventInfo.UserKey >= IRQ_USER_NUM_MAX) ||
+	    (irqinfo->EventInfo.UserKey < 0)) {
 		LOG_NOTICE("FLUSH_IRQ: userkey error(%d)",
 			irqinfo->EventInfo.UserKey);
 		return -EFAULT;
@@ -6681,6 +6763,13 @@ static signed int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	unsigned int irqStatus;
 	int idx;
 	bool freeze_passbysigcnt = false;
+
+	if ((WaitIrq->Type >= ISP_IRQ_TYPE_AMOUNT) ||
+	    (WaitIrq->Type < 0)) {
+		pr_info("invalid Type(%d), max(%d)\n",
+			WaitIrq->Type, ISP_IRQ_TYPE_AMOUNT);
+		return -EINVAL;
+	}
 
 	if ((WaitIrq->EventInfo.St_type >= ISP_IRQ_ST_AMOUNT) ||
 	    (WaitIrq->EventInfo.St_type < 0)) {
@@ -6979,6 +7068,11 @@ EXIT:
 				      [WaitIrq->EventInfo.St_type]
 				      [WaitIrq->EventInfo.UserKey]) {
 		idx = my_get_pow_idx(WaitIrq->EventInfo.Status);
+		if ((idx < 0) || (idx >= 32)) {
+			LOG_NOTICE("[Error] %s: Invalid idx", __func__);
+			Ret = -EFAULT;
+			return Ret;
+		}
 		IspInfo.IrqInfo.MarkedFlag[WaitIrq->Type]
 					  [WaitIrq->EventInfo.St_type]
 					  [WaitIrq->EventInfo.UserKey] &=
@@ -7696,8 +7790,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						flags);
 
 			IRQ_LOG_PRINTER(DebugFlag[0], currentPPB, _LOG_INF);
-			IRQ_LOG_PRINTER(DebugFlag[0], currentPPB,
-						_LOG_ERR);
+			IRQ_LOG_PRINTER(DebugFlag[0], currentPPB, _LOG_ERR);
 
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
@@ -10499,7 +10592,8 @@ static signed int ISP_suspend(
 
 	ret = 0;
 	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
+	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
+	moduleName[sizeof(moduleName)-1] = '\0';
 
 	/* update device node count*/
 	atomic_dec(&G_u4DevNodeCt);
@@ -10673,7 +10767,8 @@ static int ISP_resume(struct platform_device *pDev)
 
 	ret = 0;
 	module = -1;
-	strncpy(moduleName, pDev->dev.of_node->name, 127);
+	strncpy(moduleName, pDev->dev.of_node->name, sizeof(moduleName)-1);
+	moduleName[sizeof(moduleName)-1] = '\0';
 
 	/* update device node count*/
 	atomic_inc(&G_u4DevNodeCt);
@@ -11898,6 +11993,11 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 	else
 		dma_en = ISP_RD32(CAM_REG_CTL_DMA_EN(module));
 
+	if (dma_arry_map[_imgo_] < 0) {
+		LOG_NOTICE("[Error] %s: Invalid dma_arry_map[_imgo_]",
+				__func__); // impossible basically
+		return CAM_FST_DROP_FRAME;
+	}
 	if (dma_en & 0x1) {
 		fbc_ctrl1[dma_arry_map[_imgo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_IMGO_CTL1(module));
@@ -11908,6 +12008,11 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_imgo_]].Raw = 0x0;
 	}
 
+	if (dma_arry_map[_ufeo_] < 0) {
+		LOG_NOTICE("[Error] %s: Invalid dma_arry_map[_ufeo_]",
+				__func__); // impossible basically
+		return CAM_FST_DROP_FRAME;
+	}
 	if (dma_en & 0x2) {
 		fbc_ctrl1[dma_arry_map[_ufeo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_UFEO_CTL1(module));
@@ -11918,7 +12023,11 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_ufeo_]].Raw = 0x0;
 	}
 
-
+	if (dma_arry_map[_rrzo_] < 0) {
+		LOG_NOTICE("[Error] %s: Invalid dma_arry_map[_rrzo_]",
+				__func__); // impossible basically
+		return CAM_FST_DROP_FRAME;
+	}
 	if (dma_en & 0x4) {
 		fbc_ctrl1[dma_arry_map[_rrzo_]].Raw =
 			ISP_RD32(CAM_REG_FBC_RRZO_CTL1(module));
@@ -11929,6 +12038,11 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_rrzo_]].Raw = 0x0;
 	}
 
+	if (dma_arry_map[_lcso_] < 0) {
+		LOG_NOTICE("[Error] %s: Invalid dma_arry_map[_lcso_]",
+				__func__); // impossible basically
+		return CAM_FST_DROP_FRAME;
+	}
 	if (dma_en & 0x10) {
 		fbc_ctrl1[dma_arry_map[_lcso_]].Raw =
 			ISP_RD32(CAM_REG_FBC_LCSO_CTL1(module));
@@ -11939,6 +12053,16 @@ enum CAM_FrameST Irq_CAM_FrameStatus(enum ISP_DEV_NODE_ENUM module,
 		fbc_ctrl2[dma_arry_map[_lcso_]].Raw = 0x0;
 	}
 
+	if (dma_arry_map[_eiso_] < 0) {
+		LOG_NOTICE("[Error] %s: Invalid dma_arry_map[_eiso_]",
+				__func__); // impossible basically
+		return CAM_FST_DROP_FRAME;
+	}
+	if (dma_arry_map[_rsso_] < 0) {
+		LOG_NOTICE("[Error] %s: Invalid dma_arry_map[_rsso_]",
+				__func__); // impossible basically
+		return CAM_FST_DROP_FRAME;
+	}
 	if (((hds2_sel == 0) && (module == ISP_CAM_A_IDX)) ||
 	    ((hds2_sel == 1) && (module == ISP_CAM_B_IDX))) {
 		if (module == ISP_CAM_A_IDX)
