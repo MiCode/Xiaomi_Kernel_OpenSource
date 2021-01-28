@@ -265,6 +265,9 @@ static void __exit mt6779_sspm_exit(void)
 	pr_info("[SSPM] mt6779-sspm Exit.\n");
 }
 
+MODULE_DESCRIPTION("MEDIATEK Module SSPM driver");
+MODULE_LICENSE("GPL v2");
+
 subsys_initcall(mt6779_sspm_init);
 module_exit(mt6779_sspm_exit);
 
