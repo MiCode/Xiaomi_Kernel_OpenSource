@@ -334,97 +334,28 @@ extern asmlinkage void dump_stack(void) __cold;
 	&& defined CONFIG_PRINTK_MT_PREFIX \
 	&& defined CONFIG_DYNAMIC_DEBUG
 #define pr_emerg(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly;	\
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_EMERG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_EMERG KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
-
+	dynamic_pr_emerg(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
 #define pr_alert(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_ALERT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_ALERT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
+	dynamic_pr_alert(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
 #define pr_crit(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_CRIT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_CRIT KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
+	dynamic_pr_crit(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
 #define pr_err(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_ERR KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_ERR KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
+	dynamic_pr_err(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
 #define pr_warning(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_WARNING KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_WARNING KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
+	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
-#define pr_warn pr_warning
+#define pr_warn(fmt, ...) \
+	dynamic_pr_warn(KLOG_MODNAME fmt, ##__VA_ARGS__) \
+
 #define pr_notice(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_NOTICE KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_NOTICE KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
+	dynamic_pr_notice(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
 #define pr_info(fmt, ...) \
-({ \
-	static bool __print_once __read_mostly; \
-	if (!__print_once) { \
-		DEFINE_DYNAMIC_DEBUG_METADATA(descriptor, KLOG_MODNAME fmt); \
-		if (unlikely(descriptor.flags & _DPRINTK_FLAGS_PRINT)) \
-			barrier();   \
-		__print_once = true; \
-		printk(KERN_INFO KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-	}	else \
-		printk(KERN_INFO KLOG_MODNAME pr_fmt(fmt), ##__VA_ARGS__); \
-})
+	dynamic_pr_info(KLOG_MODNAME fmt, ##__VA_ARGS__) \
 
 #else
 #define pr_emerg(fmt, ...) \
