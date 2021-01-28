@@ -13,10 +13,81 @@ function usage ()
 	exit 0
 }
 
+function build_config_parse ()
+{
+	build_config=$1
+
+	CC=
+	LD=
+	cc=`cat ${build_config} | grep ^CC= | cut -d'=' -f 2`
+	ld=`cat ${build_config} | grep ^LD= | cut -d'=' -f 2`
+
+	if [ $cc == clang ]; then
+		toolchain=`cat ${build_config} | grep CLANG_PREBUILT_BIN | cut -d'=' -f 2`
+		CC="${PWD}/../${toolchain}/${cc}"
+		LD="${PWD}/../${toolchain}/${ld}"
+	else
+		toolchain=`cat ${build_config} | grep LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN | cut -d'=' -f 2`
+		cross_compile=`cat ${build_config} | grep ^CROSS_COMPILE | cut -d'=' -f 2`
+		CC="${PWD}/../${toolchain}/${cross_compile}${cc}"
+	fi
+}
+
+function build_config_read ()
+{
+	build_config_parse ${ARM_CONFIG}
+	CC_ARM="${CC}"
+	LD_ARM="${LD}"
+
+	build_config_parse ${ARM64_CONFIG}
+	CC_ARM64="${CC}"
+	LD_ARM64="${LD}"
+
+	build_config_parse ${ARM64_GCC_CONFIG}
+	CC_ARM64_GCC="${CC}"
+	LD_ARM64_GCC="${LD}"
+
+	build_config_parse ${KASAN_CONFIG}
+	CC_KASAN="${CC}"
+	LD_KASAN="${LD}"
+
+	build_config_parse ${UBSAN_CONFIG}
+	CC_UBSAN="${CC}"
+	LD_UBSAN="${LD}"
+}
+
 CONFIGS=
 UPDATE=0
 CHECK_COMMIT=0
-MTK_PROJECT_LIST="arch/arm64/configs/mediatek_debug_defconfig"
+CC=
+LD=
+CC_ARM=
+CC_ARM64=
+CC_ARM64_GCC=
+CC_KASAN=
+CC_UBSAN=
+LD_ARM=
+LD_ARM64=
+LD_ARM64_GCC=
+LD_KASAN=
+LD_UBSAN=
+ARM_CONFIG='build.config.mtk.arm'
+ARM64_CONFIG='build.config.mtk.aarch64'
+ARM64_GCC_CONFIG='build.config.mtk.aarch64.gcc'
+KASAN_CONFIG='build.config.mtk.aarch64.kasan'
+UBSAN_CONFIG='build.config.mtk.aarch64.ubsan'
+build_config_read
+
+echo "CC_ARM=${CC_ARM}"
+echo "CC_ARM64=${CC_ARM64}"
+echo "CC_ARM64_GCC=${CC_ARM64_GCC}"
+echo "CC_KASAN=${CC_KASAN}"
+echo "CC_UBSAN=${CC_UBSAN}"
+echo "LD_ARM=${LD_ARM}"
+echo "LD_ARM64=${LD_ARM64}"
+echo "LD_ARM64_GCC=${LD_ARM64_GCC}"
+echo "LD_KASAN=${LD_KASAN}"
+echo "LD_UBSAN=${LD_UBSAN}"
 
 while getopts "cuh" opt; do
     case $opt in
@@ -30,8 +101,7 @@ while getopts "cuh" opt; do
 	KCONFIG=`git show ${CHECK_COMMIT} --stat | gawk '/\/Kconfig.* +\| +[0-9]*/{print $1}'`
 	if [ ".$KCONFIG" != "." ]; then
 		echo From git commit: Checking all defconfig due to Kconfig is changed.
-#		CONFIGS=`grep -rl "CONFIG_MTK_PLATFORM" arch/arm/configs arch/arm64/configs`
-		CONFIGS=${MTK_PROJECT_LIST}
+		CONFIGS=`grep -rl "CONFIG_MTK_PLATFORM" arch/arm/configs arch/arm64/configs`
 	fi
 
 	CONFIGS+=" `git show ${CHECK_COMMIT} --stat-width=500 | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`"
@@ -59,10 +129,21 @@ if [ $CHECK_COMMIT == 0 ]; then
 fi
 
 check_defconfig() {
-	CONFIG=$1
-	UPDATE=$2
+	CONFIG=${1}
+	UPDATE=${2}
+	CC_ARM=${3}
+	CC_ARM64=${4}
+	CC_ARM64_GCC=${5}
+	CC_KASAN=${6}
+	CC_UBSAN=${7}
+	LD_ARM=${8}
+	LD_ARM64=${9}
+	LD_ARM64_GCC=${10}
+	LD_KASAN=${11}
+	LD_UBSAN=${12}
 	FAIL=0
 	echo "Checking ${CONFIG}"
+
 	if [ ! -e ${CONFIG} ]; then
 		echo warning: defconfig file $CONFIG not found
 		return $FAIL
@@ -72,14 +153,45 @@ check_defconfig() {
 	RETVAL=$?
 	if [ $RETVAL != 0 ]; then
 		ARCH=arm
+		CC=${CC_ARM}
+		LD=${LD_ARM}
 	else
 		ARCH=arm64
+		CC=${CC_ARM64}
+		LD=${LD_ARM64}
+	fi
+
+	echo $CONFIG | grep kasan > /dev/null
+	RETVAL=$?
+	if [ $RETVAL == 0 ]; then
+		CC=${CC_KASAN}
+		LD=${LD_KASAN}
+	fi
+
+	echo $CONFIG | grep ubsan > /dev/null
+	RETVAL=$?
+	if [ $RETVAL == 0 ]; then
+		CC=${CC_UBSAN}
+		LD=${LD_UBSAN}
 	fi
 
 	OUT=out-$$
 	mkdir ${OUT}
 
-	OUTPUT="$(make ARCH=${ARCH} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1)"
+	ARGS=()
+
+	if [ -n "${CC}" ]; then
+		ARGS+=("CC=${CC}")
+	fi
+
+	if [ -n "${LD}" ]; then
+		ARGS+=("LD=${LD}")
+	fi
+
+	CMD="make ARCH=${ARCH} ${ARGS[@]} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1"
+	echo $CMD
+
+	OUTPUT="$(${CMD})"
 	RETVAL=$?
 	echo "$OUTPUT"
 
@@ -134,7 +246,7 @@ check_defconfig() {
 }
 export -f check_defconfig
 
-parallel check_defconfig ::: $CONFIGS ::: $UPDATE
+parallel check_defconfig ::: $CONFIGS ::: $UPDATE ::: $CC_ARM ::: $CC_ARM64 ::: $CC_ARM64_GCC ::: $CC_KASAN ::: $CC_UBSAN ::: $LD_ARM ::: $LD_ARM64 ::: $LD_ARM64_GCC ::: $LD_KASAN ::: $LD_UBSAN
 RETVAL=$?
 
 if [ $RETVAL != 0 ]; then
