@@ -21,7 +21,12 @@ ifneq ($(CONFIG_MTK_LCM), y)
 	obj-y += mtdummy/
 else
 	######################################
+# separate mt6833 from family mt6853
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+	obj-$(CONFIG_MTK_FB) += mt6833/
+else
 	obj-$(CONFIG_MTK_FB) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
 	obj-$(CONFIG_MACH_MT6771) += common/
 	obj-$(CONFIG_MACH_MT6768) += common/
 	obj-$(CONFIG_MACH_MT8167) += common/

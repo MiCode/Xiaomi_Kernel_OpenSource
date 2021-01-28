@@ -13,6 +13,9 @@
 
 # drivers/dispsys
 
+# separate mt6833 from family mt6853
+MTK_PLATFORM := mt6833
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/ \
              -I$(srctree)/drivers/misc/mediatek/video/common/ \
              -I$(srctree)/drivers/misc/mediatek/video/common/rdma20/ \

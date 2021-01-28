@@ -29,6 +29,10 @@
 #####################################
 # Add new chipset groups here
 
+# separate mt6833 from family mt6853
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+	MTK_PLATFORM := mt6833
+endif
 
 #####################################
 # Common Source files for all chips

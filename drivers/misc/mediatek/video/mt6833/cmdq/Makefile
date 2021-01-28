@@ -12,6 +12,4 @@
 #
 
 # common driver code for CMDQ
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6833"))
 obj-y += v3/
-endif

@@ -14,6 +14,9 @@
 # drivers/video/mtk/Makefile
 #
 
+# separate mt6833 from family mt6853
+MTK_PLATFORM := mt6833
+
 obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			disp_assert_layer.o	\
 			mtkfb.o			\

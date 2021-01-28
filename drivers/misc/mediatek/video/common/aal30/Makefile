@@ -11,6 +11,11 @@
 # GNU General Public License for more details.
 #
 
+# separate mt6833 from family mt6853
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+	MTK_PLATFORM := mt6833
+endif
+
 obj-y += ddp_aal.o
 
 ccflags-y += \
