@@ -363,7 +363,7 @@ struct mt_i2c {
 	void __iomem *pdmabase;/* dma base address*/
 	void __iomem *gpiobase;/* gpio base address */
 	int irqnr;	/* i2c interrupt number */
-	int id;
+	unsigned int id;
 	int scl_gpio_id; /* SCL GPIO number */
 	int sda_gpio_id; /* SDA GPIO number */
 	unsigned int gpio_start;
@@ -408,7 +408,7 @@ struct mt_i2c {
 	bool is_hw_trig;
 	bool is_ccu_trig;
 	bool suspended;
-	int rec_idx;/* next record idx */
+	unsigned int rec_idx;/* next record idx */
 	u32 ch_offset_default;
 	u32 ch_offset;
 	u32 ch_offset_dma_default;

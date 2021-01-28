@@ -154,7 +154,7 @@ s32 map_dma_regs(void)
 
 void dump_dma_regs(void)
 {
-	int status;
+	unsigned int status;
 	int i;
 
 	if (!dma_base) {
@@ -225,7 +225,7 @@ static void record_i2c_dma_info(struct mt_i2c *i2c)
 
 static void record_i2c_info(struct mt_i2c *i2c, int tmo)
 {
-	int idx = i2c->rec_idx;
+	unsigned int idx = i2c->rec_idx;
 
 	i2c->rec_info[idx].slave_addr = i2c_readw(i2c, OFFSET_SLAVE_ADDR);
 	i2c->rec_info[idx].intr_stat = i2c->irq_stat;
@@ -243,7 +243,7 @@ static void record_i2c_info(struct mt_i2c *i2c, int tmo)
 static void dump_i2c_info(struct mt_i2c *i2c)
 {
 	int i;
-	int idx = i2c->rec_idx;
+	unsigned int idx = i2c->rec_idx;
 	unsigned long long endtime;
 	unsigned long ns;
 
@@ -784,7 +784,7 @@ void i2c_gpio_dump_info(struct mt_i2c *i2c)
 #endif
 }
 
-void dump_i2c_status(int id)
+void dump_i2c_status(unsigned int id)
 {
 	if (id >= I2C_MAX_CHANNEL) {
 		pr_info("error %s, id = %d\n", __func__, id);
@@ -1763,7 +1763,7 @@ static int mt_i2c_probe(struct platform_device *pdev)
 	i2c->adap.algo_data = NULL;
 	i2c->adap.timeout = 2 * HZ;
 	i2c->adap.retries = 1;
-	i2c->adap.nr = i2c->id;
+	i2c->adap.nr = (int) i2c->id;
 	spin_lock_init(&i2c->cg_lock);
 
 	if (i2c->dev_comp->dma_support == MDA_SUPPORT_8G) {
