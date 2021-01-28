@@ -34,8 +34,8 @@
 
 #include <mtk_mcdi_governor_hint.h>
 
-#include <trace/events/mtk_idle_event.h>
-#include <linux/irqchip/mtk-gic-extend.h>
+/* #include <trace/events/mtk_idle_event.h> */
+/* #include <linux/irqchip/mtk-gic-extend.h> */
 
 #define MCDI_DEBUG_INFO_MAGIC_NUM           0x1eef9487
 #define MCDI_DEBUG_INFO_NON_REPLACE_OFFSET  0x0008
@@ -533,18 +533,18 @@ static int mcdi_procfs_init(void)
 
 static void __go_to_wfi(int cpu)
 {
-	remove_cpu_from_prefer_schedule_domain(cpu);
+	/* remove_cpu_from_prefer_schedule_domain(cpu); */
 
-	trace_rgidle_rcuidle(cpu, 1);
+	/* trace_rgidle_rcuidle(cpu, 1); */
 
 	isb();
 	/* memory barrier before WFI */
 	mb();
 	wfi();
 
-	trace_rgidle_rcuidle(cpu, 0);
+	/* trace_rgidle_rcuidle(cpu, 0); */
 
-	add_cpu_to_prefer_schedule_domain(cpu);
+	/* add_cpu_to_prefer_schedule_domain(cpu); */
 }
 
 void mcdi_heart_beat_log_dump(void)
@@ -689,7 +689,7 @@ int mcdi_enter(int cpu)
 		break;
 	case MCDI_STATE_CPU_OFF:
 
-		trace_mcdi_rcuidle(cpu, 1);
+		/* trace_mcdi_rcuidle(cpu, 1); */
 
 		aee_rr_rec_mcdi_val(cpu, MCDI_STATE_CPU_OFF << 16 | 0xff);
 
@@ -697,14 +697,14 @@ int mcdi_enter(int cpu)
 
 		aee_rr_rec_mcdi_val(cpu, 0x0);
 
-		trace_mcdi_rcuidle(cpu, 0);
+		/* trace_mcdi_rcuidle(cpu, 0); */
 
 		mcdi_cnt_cpu[cpu]++;
 
 		break;
 	case MCDI_STATE_CLUSTER_OFF:
 
-		trace_mcdi_rcuidle(cpu, 1);
+		/* trace_mcdi_rcuidle(cpu, 1); */
 
 		aee_rr_rec_mcdi_val(cpu, MCDI_STATE_CLUSTER_OFF << 16 | 0xff);
 
@@ -712,7 +712,7 @@ int mcdi_enter(int cpu)
 
 		aee_rr_rec_mcdi_val(cpu, 0x0);
 
-		trace_mcdi_rcuidle(cpu, 0);
+		/* trace_mcdi_rcuidle(cpu, 0); */
 
 		mcdi_cnt_cpu[cpu]++;
 
@@ -776,7 +776,7 @@ bool _mcdi_task_pause(bool paused)
 
 	if (paused) {
 
-		trace_mcdi_task_pause_rcuidle(smp_processor_id(), true);
+		/* trace_mcdi_task_pause_rcuidle(smp_processor_id(), true); */
 
 		/* Notify SSPM to disable MCDI */
 		mcdi_mbox_write(MCDI_MBOX_PAUSE_ACTION, 1);
@@ -792,7 +792,7 @@ bool _mcdi_task_pause(bool paused)
 		while (!(mcdi_mbox_read(MCDI_MBOX_PAUSE_ACK) == 0))
 			;
 
-		trace_mcdi_task_pause_rcuidle(smp_processor_id(), 0);
+		/* trace_mcdi_task_pause_rcuidle(smp_processor_id(), 0); */
 	}
 
 	return true;
@@ -803,58 +803,31 @@ void mcdi_avail_cpu_mask(unsigned int cpu_mask)
 	mcdi_mbox_write(MCDI_MBOX_AVAIL_CPU_MASK, cpu_mask);
 }
 
-/* Disable MCDI during cpu_up/cpu_down period */
-static int mcdi_cpu_callback(struct notifier_block *nfb,
-				   unsigned long action, void *hcpu)
+/* Disable MCDI before cpu up/cpu down */
+static int mcdi_cpuhp_notify_enter(unsigned int cpu)
 {
-	switch (action) {
-	case CPU_UP_PREPARE:
-	case CPU_UP_PREPARE_FROZEN:
-	case CPU_DOWN_PREPARE:
-	case CPU_DOWN_PREPARE_FROZEN:
-		__mcdi_pause(MCDI_PAUSE_BY_HOTPLUG, true);
-		break;
-	}
+	__mcdi_pause(MCDI_PAUSE_BY_HOTPLUG, true);
 
-	return NOTIFY_OK;
+	return 0;
 }
 
-static int mcdi_cpu_callback_leave_hotplug(struct notifier_block *nfb,
-				   unsigned long action, void *hcpu)
+/* Enable MCDI after cpu up/cpu down */
+static int mcdi_cpuhp_notify_leave(unsigned int cpu)
 {
-	switch (action) {
-	case CPU_ONLINE:
-	case CPU_ONLINE_FROZEN:
-	case CPU_UP_CANCELED:
-	case CPU_UP_CANCELED_FROZEN:
-	case CPU_DOWN_FAILED:
-	case CPU_DOWN_FAILED_FROZEN:
-	case CPU_DEAD:
-	case CPU_DEAD_FROZEN:
-		mcdi_avail_cpu_cluster_update();
+	mcdi_avail_cpu_cluster_update();
+	__mcdi_pause(MCDI_PAUSE_BY_HOTPLUG, false);
 
-		__mcdi_pause(MCDI_PAUSE_BY_HOTPLUG, false);
-
-		break;
-	}
-
-	return NOTIFY_OK;
+	return 0;
 }
-
-static struct notifier_block mcdi_cpu_notifier = {
-	.notifier_call = mcdi_cpu_callback,
-	.priority   = INT_MAX,
-};
-
-static struct notifier_block mcdi_cpu_notifier_leave_hotplug = {
-	.notifier_call = mcdi_cpu_callback_leave_hotplug,
-	.priority   = INT_MIN,
-};
 
 static int mcdi_hotplug_cb_init(void)
 {
-	register_cpu_notifier(&mcdi_cpu_notifier);
-	register_cpu_notifier(&mcdi_cpu_notifier_leave_hotplug);
+	cpuhp_setup_state_nocalls(CPUHP_BP_PREPARE_DYN_END, "mcdi_cb",
+				mcdi_cpuhp_notify_enter,
+				mcdi_cpuhp_notify_leave);
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN, "mcdi_cb",
+				mcdi_cpuhp_notify_enter,
+				mcdi_cpuhp_notify_leave);
 
 	return 0;
 }
@@ -885,6 +858,10 @@ static int __init mcdi_init(void)
 {
 	/* Activate MCDI after SMP */
 	pr_info("%s\n", __func__);
+
+#ifndef MCDI_READY
+	return 0;
+#endif
 
 	/* Register CPU up/down callbacks */
 	mcdi_hotplug_cb_init();

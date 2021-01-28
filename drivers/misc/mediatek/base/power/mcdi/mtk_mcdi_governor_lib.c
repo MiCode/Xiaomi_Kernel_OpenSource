@@ -12,8 +12,8 @@
 #include <mtk_mcdi_plat.h>
 #include <mtk_mcdi_reg.h>
 
-#include <mt-plat/mtk_secure_api.h>
-#include <trace/events/mtk_idle_event.h>
+/* #include <mt-plat/mtk_secure_api.h> */
+/* #include <trace/events/mtk_idle_event.h> */
 
 #ifdef MCDI_CPC_MODE
 
@@ -28,9 +28,9 @@
 
 static void __release_last_core_prot(unsigned int clr)
 {
-	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
-			MCDI_SMC_EVENT_LAST_CORE_CLR,
-			clr, 0, 0);
+	/* mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS, */
+			/* MCDI_SMC_EVENT_LAST_CORE_CLR, */
+			/* clr, 0, 0); */
 }
 
 void release_last_core_prot(void)
@@ -47,7 +47,7 @@ void release_cluster_last_core_prot(void)
 	if (mcdi_read(CPC_PWR_ON_MASK))
 		__release_last_core_prot(1U << 8);
 }
-
+#define NON_SECURE_REQ
 #ifdef NON_SECURE_REQ
 #define last_core_req(req)	mcdi_write(CPC_LAST_CORE_REQ, req)
 #else
@@ -139,7 +139,7 @@ static bool mcdi_cpu_cluster_on_off_stat_check(int cpu)
 	if (on_off_stat == check_mask)
 		ret = true;
 
-	trace_mcdi_cpu_cluster_stat_rcuidle(cpu, on_off_stat, check_mask);
+	/* trace_mcdi_cpu_cluster_stat_rcuidle(cpu, on_off_stat, check_mask); */
 
 	return ret;
 }
@@ -264,7 +264,7 @@ static void dump_multi_core_state_ftrace(int cpu)
 
 	on_off_stat = mcdi_get_raw_pwr_sta();
 
-	trace_mcdi_multi_core_rcuidle(cpu, on_off_stat, check_mask);
+	/* trace_mcdi_multi_core_rcuidle(cpu, on_off_stat, check_mask); */
 }
 
 void release_last_core_prot(void)

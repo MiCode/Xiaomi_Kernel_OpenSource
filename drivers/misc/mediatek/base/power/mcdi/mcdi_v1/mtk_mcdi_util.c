@@ -5,14 +5,14 @@
 #include <linux/printk.h>
 #include <linux/types.h>
 #include <linux/kconfig.h>
-#include <linux/sched.h>
+#include <linux/sched/clock.h>
 
 #include <mtk_mcdi.h>
 #include <mtk_mcdi_util.h>
 #include <mtk_mcdi_plat.h>
 #include <mtk_mcdi_reg.h>
 
-#include <mt-plat/mtk_secure_api.h>
+/* #include <mt-plat/mtk_secure_api.h> */
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_mbox.h>
@@ -155,10 +155,10 @@ void mcdi_set_cpu_iso_smc(unsigned int iso_mask)
 	if (iso_mask == 0xff)
 		return;
 
-	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
-			MCDI_SMC_EVENT_GIC_DPG_SET,
-			iso_mask,
-			0, 0);
+	/* mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS, */
+			/* MCDI_SMC_EVENT_GIC_DPG_SET, */
+			/* iso_mask, */
+			/* 0, 0); */
 }
 
 void mcdi_set_cpu_iso_mbox(unsigned int iso_mask)

@@ -6,11 +6,10 @@
 #include <linux/delay.h>
 #include <linux/math64.h>
 #include <linux/pm_qos.h>
-#include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/spinlock.h>
 #include <linux/timekeeping.h>
 #include <linux/tick.h>
-
 #include <mtk_idle.h>
 
 #include <mtk_mcdi.h>
@@ -24,7 +23,7 @@
 #include <mtk_mcdi_state.h>
 #include <mtk_mcdi_profile.h>
 
-#include <trace/events/mtk_idle_event.h>
+/* #include <trace/events/mtk_idle_event.h> */
 
 #define BOOT_TIME_LIMIT             10      /* sec */
 #define TMR_RESIDENCY_US           200
@@ -96,6 +95,16 @@ static struct all_cpu_idle all_cpu_idle_data = {
 };
 
 static DEFINE_SPINLOCK(all_cpu_idle_spin_lock);
+
+unsigned int get_menu_next_timer_us(void)
+{
+	return 0;
+}
+
+unsigned int get_menu_predict_us(void)
+{
+	return 0;
+}
 
 int __attribute__((weak)) mtk_idle_select(int cpu)
 {
@@ -464,7 +473,7 @@ int any_core_deepidle_sodi_check(int cpu)
 	/* Check residency */
 	if (!any_core_deepidle_sodi_residency_check(cpu)) {
 
-		trace_any_core_residency_rcuidle(cpu);
+		/* trace_any_core_residency_rcuidle(cpu); */
 
 		any_core_cpu_cond_inc(RESIDENCY_CNT);
 
@@ -483,7 +492,7 @@ int any_core_deepidle_sodi_check(int cpu)
 
 	if (!is_anycore_dpidle_sodi_state(state)) {
 		release_last_core_prot();
-		trace_mtk_idle_select_rcuidle(cpu, mtk_idle_state);
+		/* trace_mtk_idle_select_rcuidle(cpu, mtk_idle_state); */
 	}
 
 	return state;
@@ -570,11 +579,11 @@ int mcdi_governor_select(int cpu, int cluster_idx)
 		if (tbl->states[MCDI_STATE_CLUSTER_OFF + 1].exit_latency
 				< latency_req) {
 
-			trace_check_anycore_rcuidle(cpu, 1, -1);
+			/* trace_check_anycore_rcuidle(cpu, 1, -1); */
 
 			select_state = any_core_deepidle_sodi_check(cpu);
 
-			trace_check_anycore_rcuidle(cpu, 0, select_state);
+			/* trace_check_anycore_rcuidle(cpu, 0, select_state); */
 
 		} else {
 			any_core_cpu_cond_inc(LATENCY_CNT);
@@ -879,8 +888,8 @@ void idle_refcnt_inc(void)
 
 	spin_unlock_irqrestore(&all_cpu_idle_spin_lock, flags);
 
-	if (enter)
-		trace_all_cpu_idle_rcuidle(1);
+	/* if (enter) */
+		/* trace_all_cpu_idle_rcuidle(1); */
 }
 
 void idle_refcnt_dec(void)
@@ -919,8 +928,8 @@ void idle_refcnt_dec(void)
 
 	spin_unlock_irqrestore(&all_cpu_idle_spin_lock, flags);
 
-	if (leave)
-		trace_all_cpu_idle_rcuidle(0);
+	/* if (leave) */
+		/* trace_all_cpu_idle_rcuidle(0); */
 }
 
 int all_cpu_idle_ratio_get(void)
@@ -975,8 +984,8 @@ bool is_all_cpu_idle_criteria(void)
 
 	end_tick = sched_clock();
 
-	trace_mtk_menu_rcuidle(smp_processor_id(),
-		all_idle_ratio, (int)(end_tick - start_tick));
+	/* trace_mtk_menu_rcuidle(smp_processor_id(), */
+		/* all_idle_ratio, (int)(end_tick - start_tick)); */
 
 	return (all_idle_ratio >= thd_percent);
 }

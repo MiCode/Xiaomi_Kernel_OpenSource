@@ -9,6 +9,7 @@
 #include <linux/printk.h>
 #include <linux/tick.h>
 #include <linux/uaccess.h>
+#include <linux/sched/clock.h>
 
 #include <mtk_mcdi.h>
 #include <mtk_mcdi_governor.h>
