@@ -178,7 +178,7 @@ int sspm_reserve_memory_init(void)
 
 void sspm_lock_emi_mpu(unsigned int region)
 {
-#ifdef CONFIG_MTK_EMI_LEGACY
+#ifdef CONFIG_MTK_EMI
 	if (sspm_mem_size > 0)
 		sspm_set_emi_mpu(region, sspm_mem_base_phys, sspm_mem_size);
 #endif
