@@ -319,11 +319,11 @@ static void ssusb_set_mode(struct work_struct *work)
 			break;
 		case DUAL_PROP_NONE:
 			if (!ssusb->is_host) {
-				mtu3_stop(mtu);
 				/* killing any outstanding requests */
 				spin_lock_irqsave(&mtu->lock, flags);
 				mtu3_nuke_all_ep(mtu);
 				spin_unlock_irqrestore(&mtu->lock, flags);
+				mtu3_stop(mtu);
 				/* notify gadget driver */
 				ssusb_gadget_disconnect(mtu);
 			}

@@ -388,7 +388,7 @@ static void qmu_tx_zlp_error_handler(struct mtu3 *mtu, u8 epnum)
 
 	gpd_current = gpd_dma_to_virt(ring, gpd_dma);
 
-	if (le16_to_cpu(gpd_current->buf_len) != 0) {
+	if (!gpd_current || le16_to_cpu(gpd_current->buf_len) != 0) {
 		dev_err(mtu->dev, "TX EP%d buffer length error(!=0)\n", epnum);
 		return;
 	}
@@ -439,7 +439,8 @@ static void qmu_done_tx(struct mtu3 *mtu, u8 epnum)
 	dev_dbg(mtu->dev, "%s EP%d, last=%p, current=%p, enq=%p\n",
 		__func__, epnum, gpd, gpd_current, ring->enqueue);
 
-	while (gpd != gpd_current && !(gpd->flag & GPD_FLAGS_HWO)) {
+	while (gpd != NULL && gpd != gpd_current &&
+			!(gpd->flag & GPD_FLAGS_HWO)) {
 
 		mreq = next_request(mep);
 
@@ -476,7 +477,8 @@ static void qmu_done_rx(struct mtu3 *mtu, u8 epnum)
 	dev_dbg(mtu->dev, "%s EP%d, last=%p, current=%p, enq=%p\n",
 		__func__, epnum, gpd, gpd_current, ring->enqueue);
 
-	while (gpd != gpd_current && !(gpd->flag & GPD_FLAGS_HWO)) {
+	while (gpd != NULL && gpd != gpd_current &&
+			!(gpd->flag & GPD_FLAGS_HWO)) {
 
 		mreq = next_request(mep);
 

@@ -646,8 +646,8 @@ static ssize_t usb_driving_capability_write(struct file *file,
 	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
 		return -EFAULT;
 
-	if (kstrtol(buf, 10, (long *)&val) != 0) {
-		pr_debug("kstrtol, err(%d)\n", kstrtol(buf, 10, (long *)&val));
+	if (kstrtou8(buf, 10, &val) != 0) {
+		pr_debug("kstrtou8, err(%d)\n", kstrtou8(buf, 10, &val));
 		return count;
 	}
 	pr_debug("kstrtol, val(%d)\n", val);
