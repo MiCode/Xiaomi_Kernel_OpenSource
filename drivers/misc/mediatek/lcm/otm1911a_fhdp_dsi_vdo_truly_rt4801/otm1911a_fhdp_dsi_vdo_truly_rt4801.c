@@ -570,7 +570,7 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	/* params->dsi.ssc_disable = 1; */
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* this value must be in MTK suggested table */
-	params->dsi.PLL_CLOCK = 500;
+	params->dsi.PLL_CLOCK = 497;
 	params->dsi.PLL_CK_CMD = 480;
 #else
 	params->dsi.pll_div1 = 0;
