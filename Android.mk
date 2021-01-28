@@ -38,7 +38,7 @@ $(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(
 	$(copy-file-to-target)
 
 .PHONY: kernel save-kernel kernel-savedefconfig kernel-menuconfig menuconfig-kernel savedefconfig-kernel clean-kernel
-kernel: $(INSTALLED_KERNEL_TARGET)
+kernel: $(INSTALLED_KERNEL_TARGET) $(KERNEL_DTB_FILE) $(INSTALLED_MTK_DTB_TARGET)
 save-kernel: $(TARGET_PREBUILT_KERNEL)
 
 kernel-savedefconfig: $(TARGET_KERNEL_CONFIG)
@@ -56,9 +56,13 @@ clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(INSTALLED_KERNEL_TARGET)
 
 ### DTB
-INSTALLED_MTK_DTB_TARGET := $(BOARD_PREBUILT_DTBIMAGE_DIR)/mtk_dtb
 $(shell if [ ! -f $(INSTALLED_MTK_DTB_TARGET) ]; then mkdir -p $(dir $(INSTALLED_MTK_DTB_TARGET)); touch $(INSTALLED_MTK_DTB_TARGET);fi)
+$(KERNEL_DTB_FILE): $(INSTALLED_KERNEL_TARGET)
+	@echo 'DTB: Copy to $@'
+	@mkdir -p $(dir $@)
+	@cp -f $(KERNEL_DTB_TARGET) $@
 $(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET)
+	@echo 'DTB: Copy to $@'
 	@mkdir -p $(dir $@)
 	@cp -f $(KERNEL_DTB_FILE) $@
 
