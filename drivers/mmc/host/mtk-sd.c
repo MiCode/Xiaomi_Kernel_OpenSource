@@ -30,6 +30,8 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include <linux/mmc/card.h>
 #include <linux/mmc/core.h>
@@ -426,6 +428,7 @@ struct msdc_host {
 	struct clk *h_clk;      /* msdc h_clk */
 	struct clk *bus_clk;	/* bus clock which used to access register */
 	struct clk *src_clk_cg; /* msdc source clock control gate */
+	struct clk *crypto_clk; /* msdc crypto clock */
 	u32 mclk;		/* mmc subsystem clock frequency */
 	u32 src_clk_freq;	/* source clock frequency */
 	unsigned char timing;
@@ -747,20 +750,35 @@ static void msdc_set_busy_timeout(struct msdc_host *host, u64 ns, u64 clks)
 		(u32)(timeout > 8191 ? 8191 : timeout));
 }
 
-static void msdc_gate_clock(struct msdc_host *host)
+static void msdc_gate_clock(struct mmc_host *mmc)
 {
+	struct msdc_host *host = mmc_priv(mmc);
+
+	if (!host)
+		return;
+
+	if (mmc->caps2 | MMC_CAP2_CRYPTO)
+		clk_disable_unprepare(host->crypto_clk);
 	clk_disable_unprepare(host->src_clk_cg);
 	clk_disable_unprepare(host->src_clk);
 	clk_disable_unprepare(host->bus_clk);
 	clk_disable_unprepare(host->h_clk);
 }
 
-static void msdc_ungate_clock(struct msdc_host *host)
+static void msdc_ungate_clock(struct mmc_host *mmc)
 {
+	struct msdc_host *host = mmc_priv(mmc);
+
+	if (!host)
+		return;
+
 	clk_prepare_enable(host->h_clk);
 	clk_prepare_enable(host->bus_clk);
 	clk_prepare_enable(host->src_clk);
 	clk_prepare_enable(host->src_clk_cg);
+	if (mmc->caps2 | MMC_CAP2_CRYPTO)
+		clk_prepare_enable(host->crypto_clk);
+
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
 		cpu_relax();
 }
@@ -2231,6 +2249,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	struct mmc_host *mmc;
 	struct msdc_host *host;
 	struct resource *res;
+	struct arm_smccc_res smccc_res;
 	int ret;
 
 	if (!pdev->dev.of_node) {
@@ -2247,6 +2266,12 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	ret = mmc_of_parse(mmc);
 	if (ret)
 		goto host_free;
+
+	host->mmc = mmc;
+#ifdef CONFIG_MMC_CRYPTO
+	if (host->mmc->caps2 & MMC_CAP2_NO_SD)
+		host->mmc->caps2 |= MMC_CAP2_CRYPTO;
+#endif
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	host->base = devm_ioremap_resource(&pdev->dev, res);
@@ -2284,6 +2309,12 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	if (IS_ERR(host->src_clk_cg))
 		host->src_clk_cg = NULL;
 
+	if (host->mmc->caps2 & MMC_CAP2_CRYPTO) {
+		host->crypto_clk = devm_clk_get(&pdev->dev, "crypto_clk");
+		if (IS_ERR(host->crypto_clk))
+			host->crypto_clk = NULL;
+	}
+
 	host->irq = platform_get_irq(pdev, 0);
 	if (host->irq < 0) {
 		ret = -EINVAL;
@@ -2315,7 +2346,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 
 	host->dev = &pdev->dev;
 	host->dev_comp = of_device_get_match_data(&pdev->dev);
-	host->mmc = mmc;
 	host->src_clk_freq = clk_get_rate(host->src_clk);
 	/* Set host parameters to mmc */
 	mmc->ops = &mt_msdc_ops;
@@ -2345,7 +2375,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		host->dma_mask = DMA_BIT_MASK(32);
 	mmc_dev(mmc)->dma_mask = &host->dma_mask;
 
-
+	msdc_ungate_clock(mmc);
 #ifdef CONFIG_MMC_CQHCI
 	if (host->cqhci) {
 		host->cq_host = devm_kzalloc(host->mmc->parent,
@@ -2360,6 +2390,14 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		/* 0 size, means 65536 so we don't have to -1 here */
 		host->cq_host->mmc->max_seg_size = 64 * 1024;
 	}
+	/*
+	 * 1: MSDC_AES_CTL_INIT
+	 * 4: cap_id, no-meaning
+	 * 1: cfg_id, we choose the second cfg group
+	 */
+	if (host->mmc->caps2 & MMC_CAP2_CRYPTO)
+		arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+			1, 4, 1, 0, 0, 0, 0, &smccc_res);
 #endif
 
 	host->timeout_clks = 3 * 1048576;
@@ -2378,7 +2416,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	spin_lock_init(&host->lock);
 
 	platform_set_drvdata(pdev, mmc);
-	msdc_ungate_clock(host);
 	msdc_init_hw(host);
 
 	ret = devm_request_irq(&pdev->dev, host->irq, msdc_irq,
@@ -2401,7 +2438,7 @@ end:
 release:
 	platform_set_drvdata(pdev, NULL);
 	msdc_deinit_hw(host);
-	msdc_gate_clock(host);
+	msdc_gate_clock(mmc);
 release_mem:
 	if (host->dma.gpd)
 		dma_free_coherent(&pdev->dev,
@@ -2430,7 +2467,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 	mmc_remove_host(host->mmc);
 	msdc_deinit_hw(host);
-	msdc_gate_clock(host);
+	msdc_gate_clock(mmc);
 
 	pm_runtime_disable(host->dev);
 	pm_runtime_put_noidle(host->dev);
@@ -2511,7 +2548,7 @@ static int msdc_runtime_suspend(struct device *dev)
 #endif
 
 	msdc_save_reg(host);
-	msdc_gate_clock(host);
+	msdc_gate_clock(mmc);
 	return 0;
 }
 
@@ -2520,7 +2557,7 @@ static int msdc_runtime_resume(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
 
-	msdc_ungate_clock(host);
+	msdc_ungate_clock(mmc);
 	msdc_restore_reg(host);
 
 #ifdef CONFIG_MMC_CQHCI

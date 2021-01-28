@@ -34,7 +34,16 @@ void mmc_crypto_prepare_req(struct mmc_queue_req *mqrq)
 
 	bc = req->bio->bi_crypt_context;
 	mrq->crypto_key_slot = bc->bc_keyslot;
-	mrq->data_unit_num = bc->bc_dun[0];
+	/*
+	 * OTA with ext4 (dun is 512 bytes) used LBA,
+	 * with F2FS (dun is 512 bytes), the dun[0] had
+	 * multiplied by 8.
+	 */
+	if (bc->bc_dun[0] == 0xFFFFFFFFFFFFFFFFULL &&
+		bc->bc_dun[1] == 0xFFFFFFFFFFFFFFFFULL)
+		mrq->data_unit_num = blk_rq_pos(req);
+	else
+		mrq->data_unit_num = lower_32_bits(bc->bc_dun[0]);
 	mrq->crypto_key = bc->bc_key;
 }
 EXPORT_SYMBOL_GPL(mmc_crypto_prepare_req);

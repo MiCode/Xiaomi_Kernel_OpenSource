@@ -70,8 +70,11 @@ static int cqhci_crypto_keyslot_program(struct keyslot_manager *ksm,
 
 	if (WARN_ON(cap_idx < 0))
 		return -EOPNOTSUPP;
-
+#ifndef CONFIG_MMC_CRYPTO_LEGACY
 	cfg.data_unit_size = data_unit_mask;
+#else
+	cfg.data_unit_size = 1;
+#endif
 	cfg.crypto_cap_idx = cap_idx;
 	cfg.config_enable = CQHCI_CRYPTO_CONFIGURATION_ENABLE;
 
@@ -120,7 +123,8 @@ bool cqhci_crypto_enable(struct cqhci_host *host)
 		return false;
 
 	/* Reset might clear all keys, so reprogram all the keys. */
-	keyslot_manager_reprogram_all_keys(host->mmc->ksm);
+	if (host->mmc->ksm)
+		keyslot_manager_reprogram_all_keys(host->mmc->ksm);
 	return true;
 }
 
@@ -194,8 +198,10 @@ int cqhci_host_init_crypto(struct cqhci_host *host)
 
 	/* The actual number of configurations supported is (CFGC+1) */
 	num_keyslots = host->crypto_capabilities.config_count + 1;
-	ksm = keyslot_manager_create(num_keyslots,
-			&cqhci_ksm_ops, crypto_modes_supported, host);
+	ksm = keyslot_manager_create(dev, num_keyslots,
+				     &cqhci_ksm_ops,
+				     BLK_CRYPTO_FEATURE_STANDARD_KEYS,
+				     crypto_modes_supported, host);
 
 	if (!ksm) {
 		err = -ENOMEM;
