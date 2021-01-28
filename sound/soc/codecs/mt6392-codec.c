@@ -696,12 +696,15 @@ static int mt6392_codec_remove(struct snd_soc_codec *codec)
 static struct snd_soc_codec_driver mt6392_codec_driver = {
 	.probe = mt6392_codec_probe,
 	.remove = mt6392_codec_remove,
-	.controls = mt6392_codec_controls,
-	.num_controls = ARRAY_SIZE(mt6392_codec_controls),
-	.dapm_widgets = mt6392_codec_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(mt6392_codec_dapm_widgets),
-	.dapm_routes = mt6392_codec_dapm_routes,
-	.num_dapm_routes = ARRAY_SIZE(mt6392_codec_dapm_routes),
+
+	.component_driver = {
+		.controls = mt6392_codec_controls,
+		.num_controls = ARRAY_SIZE(mt6392_codec_controls),
+		.dapm_widgets = mt6392_codec_dapm_widgets,
+		.num_dapm_widgets = ARRAY_SIZE(mt6392_codec_dapm_widgets),
+		.dapm_routes = mt6392_codec_dapm_routes,
+		.num_dapm_routes = ARRAY_SIZE(mt6392_codec_dapm_routes),
+	},
 };
 
 static int mt6392_codec_dev_probe(struct platform_device *pdev)
