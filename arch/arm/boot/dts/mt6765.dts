@@ -463,6 +463,13 @@
 			#interrupt-cells = <2>;
 			interrupt-parent = <&pio>;
 			interrupts = <144 IRQ_TYPE_LEVEL_HIGH 144 0>;
+
+			mtk_battery_oc_throttling {
+				compatible =
+					"mediatek,mt6357-battery_oc_throttling";
+				oc-thd-h = <4670>;
+				oc-thd-l = <5500>;
+			};
 		};
 	};
 
