@@ -1609,8 +1609,8 @@ err_irq_init:
 	tcpc_device_unregister(chip->dev, chip->tcpc);
 err_tcpc_reg:
 	mt6370_regmap_deinit(chip);
-	wakeup_source_trash(chip->i2c_wake_lock);
-	wakeup_source_trash(chip->irq_wake_lock);
+	wakeup_source_unregister(chip->i2c_wake_lock);
+	wakeup_source_unregister(chip->irq_wake_lock);
 	return ret;
 }
 

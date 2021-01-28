@@ -1423,7 +1423,7 @@ int tcpci_timer_deinit(struct tcpc_device *tcpc_dev)
 		if (mask & RT_MASK64(i))
 			hrtimer_try_to_cancel(&tcpc_dev->tcpc_timer[i]);
 	}
-	wakeup_source_trash(tcpc_dev->wakeup_wake_lock);
+	wakeup_source_unregister(tcpc_dev->wakeup_wake_lock);
 
 	pr_info("%s : de init OK\n", __func__);
 	mutex_unlock(&tcpc_dev->timer_lock);

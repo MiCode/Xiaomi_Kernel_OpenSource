@@ -773,10 +773,10 @@ void tcpc_device_unregister(struct device *dev, struct tcpc_device *tcpc)
 	tcpc_typec_deinit(tcpc);
 
 #ifdef CONFIG_USB_POWER_DELIVERY
-	wakeup_source_trash(tcpc->pd_port.pps_request_wake_lock);
+	wakeup_source_unregister(tcpc->pd_port.pps_request_wake_lock);
 #endif /* CONFIG_USB_POWER_DELIVERY */
-	wakeup_source_trash(tcpc->dettach_temp_wake_lock);
-	wakeup_source_trash(tcpc->attach_wake_lock);
+	wakeup_source_unregister(tcpc->dettach_temp_wake_lock);
+	wakeup_source_unregister(tcpc->attach_wake_lock);
 
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 	devm_dual_role_instance_unregister(&tcpc->dev, tcpc->dr_usb);
