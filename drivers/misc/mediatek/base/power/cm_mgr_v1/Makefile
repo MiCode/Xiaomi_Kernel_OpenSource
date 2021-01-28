@@ -56,6 +56,9 @@ ccflags-y += \
 	-I$(srctree)/include \
 	-I$(srctree)/include/memory/mediatek/ \
 
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/mt6885_3gear")
+ccflags-y += -DTRIGEAR_CM
+endif
 # main
 obj-y += mtk_cm_mgr.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/

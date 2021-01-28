@@ -32,7 +32,12 @@
 
 #define CM_MGR_EMI_OPP 5
 #define CM_MGR_LOWER_OPP 6
+/* temporarily use for TRIGEAR */
+#ifdef TRIGEAR_CM
+#define CM_MGR_CPU_CLUSTER 3
+#else
 #define CM_MGR_CPU_CLUSTER 2
+#endif
 #define CM_MGR_CPU_COUNT 8
 #define CM_MGR_CPU_LIMIT 4
 
