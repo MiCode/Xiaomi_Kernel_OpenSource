@@ -4933,7 +4933,7 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,msf_b";
 		reg = <0 0x15810000 0 0x1000>;
 		interrupts = <GIC_SPI 501 IRQ_TYPE_LEVEL_HIGH>;
-		mboxes = <&gce_mbox 18 0 CMDQ_THR_PRIO_1>;
+		mboxes = <&gce_mbox 18 1200 CMDQ_THR_PRIO_1>;
 		msf_frame_done =
 		/bits/ 16 <CMDQ_EVENT_IMG2_MFB_DONE_LINK_MISC>;
 		msf_token =
