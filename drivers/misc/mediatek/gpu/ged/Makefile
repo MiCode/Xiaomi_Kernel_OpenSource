@@ -14,6 +14,7 @@
 GED_TOP = $(srctree)/drivers/misc/mediatek/gpu/ged
 MTK_TOP = $(srctree)/drivers/misc/mediatek/
 
+subdir-ccflags-y += -Wno-error
 VER:=eng
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt3967" "mt6768" "mt6785" "mt6885" "mt6873"))
@@ -128,7 +129,6 @@ ifeq ($(CONFIG_MTK_FTRACE_DEFAULT_ENABLE),y)
 ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
 endif
 
-
 ccflags-y += -DGED_DVFS_DEBUG_BUF
 
 ifeq ($(VER),eng)
@@ -140,11 +140,16 @@ ccflags-y += \
 
 obj-y += ged.o
 
+ifeq ($(CONFIG_DEBUG_FSz),y)
+ccflags-y += -DGED_DEBUG_FS
+ged-y += \
+	src/ged_debugFS.o
+endif
+
 ged-y += \
 	src/ged.o \
 	src/ged_base.o \
 	src/ged_main.o \
-	src/ged_debugFS.o \
 	src/ged_log.o \
 	src/ged_hal.o \
 	src/ged_bridge.o \
