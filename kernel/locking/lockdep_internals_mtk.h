@@ -5,7 +5,6 @@
 
 #ifdef CONFIG_MTK_LOCKING_AEE
 #include <mt-plat/aee.h>
-bool is_critical_lock_held(void);
 static const char * const critical_lock_list[] = {
 	/* workqueue */
 	"&(&pool->lock)->rlock",
@@ -17,6 +16,11 @@ static const char * const critical_lock_list[] = {
 	/* console */
 	"&(&port->lock)->rlock"
 };
+#ifdef CONFIG_LOCKDEP
+bool is_critical_lock_held(void);
+#else /* only CONFIG_DEBUG_SPINLOCK */
+#define is_critical_lock_held() 0
+#endif
 #endif
 
 #ifdef MTK_INTERNAL_SPINLOCK /* for spinlock_debug.c */
