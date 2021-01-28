@@ -8,6 +8,7 @@
 
 #include <linux/clk.h>
 #include "imgsensor_clk.h"
+#include <linux/clk-provider.h>
 
 
 /*by platform settings and elements should not be reordered */
@@ -27,7 +28,6 @@ char *gimgsensor_mclk_name[IMGSENSOR_CCF_MAX_NUM] = {
 	"CLK_MIPI_C0_26M_CG",
 	"CLK_MIPI_C1_26M_CG",
 	"CLK_MIPI_ANA_0A_CG",
-	"CLK_MIPI_ANA_0B_CG",
 	"CLK_TOP_CAMTM_SEL_CG",
 	"CLK_TOP_CAMTM_208_CG",
 	"CLK_SCP_SYS_CAM",
@@ -276,8 +276,12 @@ void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk)
 				atomic_inc(&pclk->enable_cnt[i]);
 			/*pr_debug("imgsensor_clk_enable_all %s ok\n",*/
 				/*gimgsensor_mclk_name[i]);*/
-
 		}
+		if (!IS_ERR(pclk->imgsensor_ccf[i]) && i == IMGSENSOR_CCF_CG_SENINF)
+			pr_debug("%s counter:%d clk_is_enabled:%d\n",
+				gimgsensor_mclk_name[i],
+				pclk->enable_cnt[i],
+				__clk_is_enabled(pclk->imgsensor_ccf[i]));
 	}
 }
 
@@ -294,6 +298,11 @@ void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 			clk_disable_unprepare(pclk->imgsensor_ccf[i]);
 			atomic_dec(&pclk->enable_cnt[i]);
 		}
+		if (!IS_ERR(pclk->imgsensor_ccf[i]) && i == IMGSENSOR_CCF_CG_SENINF)
+			pr_debug("%s counter:%d clk_is_enabled:%d\n",
+				gimgsensor_mclk_name[i],
+				pclk->enable_cnt[i],
+				__clk_is_enabled(pclk->imgsensor_ccf[i]));
 	}
 }
 
