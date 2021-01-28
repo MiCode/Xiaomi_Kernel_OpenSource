@@ -13,10 +13,18 @@
 
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/notifier.h>
 #include <mtk_spm_vcore_dvfs_ipi.h>
 #include <mtk_vcorefs_governor.h>
+#ifdef CONFIG_MTK_DRAMC
+#include <mtk_dramc.h>
+#endif
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#include <sspm_reservedmem.h>
+#endif
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
+#include <mtk_swpm_interface.h>
 
 
 /****************************************************************************
@@ -30,6 +38,12 @@
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+/* share dram for subsys related table communication */
+static phys_addr_t rec_phys_addr, rec_virt_addr;
+static unsigned long long rec_size;
+#endif
+
 static struct aphy_pwr_data aphy_def_pwr_tbl[] = {
 	[APHY_VCORE_0P7V] = {
 		.read_pwr = {
@@ -264,10 +278,8 @@ char *swpm_power_rail_to_string(enum power_rail p)
 	return s;
 }
 
-int swpm_platform_init(void)
+static void swpm_init_pwr_data(void)
 {
-	int ret = 0;
-
 	/* copy pwr data */
 	memcpy(swpm_info_ref->aphy_pwr_tbl, aphy_def_pwr_tbl,
 		sizeof(aphy_def_pwr_tbl));
@@ -277,8 +289,6 @@ int swpm_platform_init(void)
 	swpm_info("copy pwr data (size: aphy/dram = %ld/%ld) done!\n",
 		(unsigned long)sizeof(aphy_def_pwr_tbl),
 		(unsigned long)sizeof(dram_def_pwr_conf));
-
-	return ret;
 }
 
 void swpm_send_init_ipi(unsigned int addr, unsigned int size,
@@ -295,6 +305,17 @@ void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 #endif
 }
 
+static inline void swpm_pass_to_sspm(void)
+{
+#ifdef CONFIG_MTK_DRAMC
+	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
+		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
+#else
+	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
+		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
+#endif
+}
+
 void swpm_set_enable(unsigned int type, unsigned int enable)
 {
 }
@@ -306,4 +327,39 @@ void swpm_set_update_cnt(unsigned int type, unsigned int cnt)
 void swpm_update_lkg_table(void)
 {
 }
+
+static int __init swpm_platform_init(void)
+{
+	int ret = 0;
+
+#ifdef BRINGUP_DISABLE
+	swpm_err("swpm is disabled\n");
+	goto end;
+#endif
+
+	swpm_create_procfs();
+
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	swpm_get_rec_addr(&rec_phys_addr,
+			  &rec_virt_addr,
+			  &rec_size);
+
+	swpm_info_ref = (struct swpm_rec_data *)(uintptr_t)rec_virt_addr;
+#endif
+
+	if (!swpm_info_ref) {
+		swpm_err("get sspm dram addr failed\n");
+		ret = -1;
+		goto end;
+	}
+
+	swpm_init_pwr_data();
+
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	swpm_pass_to_sspm();
+#endif
+end:
+	return ret;
+}
+late_initcall_sync(swpm_platform_init)
 
