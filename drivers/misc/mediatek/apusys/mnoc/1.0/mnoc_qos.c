@@ -993,14 +993,15 @@ void apu_qos_boost_start(void)
 {
 	LOG_DEBUG("+\n");
 #if MNOC_QOS_BOOST_ENABLE
+/* 6885: ~16G, 6873/6853: ~8G */
 	if (apu_qos_boost_flag == true && apusys_on_flag == true &&
 		apu_qos_boost_ddr_opp ==
 		PM_QOS_DDR_OPP_DEFAULT_VALUE) {
 		apu_qos_boost_ddr_opp = 0;
-		pm_qos_update_request(&apu_qos_ddr_req, 0);
+		pm_qos_update_request(&apu_qos_ddr_req, 1);
 		pm_qos_update_request(&apu_qos_cpu_dma_req, 2);
 #ifdef APU_QOS_IPUIF_ADJUST
-		apu_bw_vcore_opp = 0;
+		apu_bw_vcore_opp = 2;
 		apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
 #endif
 	}
