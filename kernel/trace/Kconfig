@@ -801,3 +801,27 @@ endif # FTRACE
 
 endif # TRACING_SUPPORT
 
+if TRACING
+# MTK enhancements
+config MTK_FTRACER
+	bool "MTK Ftracer"
+	select CONTEXT_SWITCH_TRACER
+	help
+	  Mediatek ftrace enhancements to linux kernel, include boot trace
+	  and debug information. print enabled events list on trace log,
+	  developers can better analyze the problem
+
+	  If unsure, say N
+
+config MTK_FTRACE_DEFAULT_ENABLE
+	bool "enable events by default"
+	depends on MTK_FTRACER
+	help
+	  Enable ftrace at bootup e.g., enlarge ring_buffer size and enable
+	  configured events at bootup. With ftrace enabled and trace collected
+	  at exceptions, developers can better analyze the problem
+
+	  If unsure, say N
+
+endif # TRACING
+

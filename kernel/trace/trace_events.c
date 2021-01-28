@@ -8,7 +8,9 @@
  *    This was based off of work by Tom Zanussi <tzanussi@gmail.com>.
  *
  */
-
+#ifdef CONFIG_MTK_FTRACER
+#define DEBUG 1
+#endif
 #define pr_fmt(fmt) fmt
 
 #include <linux/workqueue.h>
@@ -374,7 +376,11 @@ static int __ftrace_event_enable_disable(struct trace_event_file *file,
 	unsigned long file_flags = file->flags;
 	int ret = 0;
 	int disable;
-
+#ifdef CONFIG_MTK_FTRACER
+	if (call->name && ((file->flags & EVENT_FILE_FL_ENABLED) ^ enable))
+		pr_debug("[ftrace]event '%s' is %s\n", trace_event_name(call),
+			 enable ? "enabled" : "disabled");
+#endif
 	switch (enable) {
 	case 0:
 		/*
