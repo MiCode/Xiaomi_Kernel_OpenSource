@@ -449,9 +449,32 @@ void cmdq_dev_test_event_correctness_impl(enum CMDQ_EVENT_ENUM event,
 }
 #endif
 
+struct cmdq_event_table *cmdq_event_get_table(void)
+{
+	return cmdq_events;
+}
+
+u32 cmdq_event_get_table_size(void)
+{
+	return ARRAY_SIZE(cmdq_events);
+}
+
 void cmdq_dev_init_event_table(struct device_node *node)
 {
 #ifdef CMDQ_OF_SUPPORT
+	struct cmdq_event_table *events = cmdq_event_get_table();
+	u32 table_size = cmdq_event_get_table_size();
+	u32 i = 0;
+
+	for (i = 0; i < table_size; i++) {
+		if (events[i].event == (u32)CMDQ_MAX_HW_EVENT_COUNT)
+			break;
+		cmdq_dev_get_event_value_by_name(node, events[i].event,
+			events[i].dts_name);
+	}
+
+
+#if 0
 #undef DECLARE_CMDQ_EVENT
 #define DECLARE_CMDQ_EVENT(name, val, dts_name) \
 {	\
@@ -459,6 +482,8 @@ void cmdq_dev_init_event_table(struct device_node *node)
 }
 #include "cmdq_event_common.h"
 #undef DECLARE_CMDQ_EVENT
+
+#endif
 #endif
 }
 

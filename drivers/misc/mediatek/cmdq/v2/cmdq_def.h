@@ -230,10 +230,25 @@ enum CMDQ_MDP_PA_BASE_ENUM {
 	CMDQ_MAX_MDP_PA_BASE_COUNT,		/* ALWAYS keep at the end */
 };
 
+struct cmdq_event_table {
+	u16 event;	/* cmdq event enum value */
+	const char *event_name;
+	const char *dts_name;
+};
+
 /* CMDQ Events */
 #undef DECLARE_CMDQ_EVENT
 #define DECLARE_CMDQ_EVENT(name_struct, val, dts_name) name_struct = val,
 enum CMDQ_EVENT_ENUM {
+#include "cmdq_event_common.h"
+};
+#undef DECLARE_CMDQ_EVENT
+
+#undef DECLARE_CMDQ_EVENT
+#define DECLARE_CMDQ_EVENT(event_enum, val, dts_name) \
+	{event_enum, #event_enum, #dts_name},
+
+static struct cmdq_event_table cmdq_events[] = {
 #include "cmdq_event_common.h"
 };
 #undef DECLARE_CMDQ_EVENT
