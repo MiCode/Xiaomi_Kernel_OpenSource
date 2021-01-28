@@ -708,6 +708,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 
 	/* Add info to proc: camera_info */
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -718,6 +720,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -727,6 +731,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -740,6 +746,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -753,6 +761,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -766,6 +776,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -779,6 +791,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -792,6 +806,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -802,6 +818,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -813,6 +831,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
@@ -822,6 +842,8 @@ static inline int adopt_CAMERA_HW_GetInfo2(void *pBuf)
 		return ret;
 
 	pmtk_ccm_name = strchr(mtk_ccm_name, '\0');
+	if (pmtk_ccm_name == NULL)
+		return -EFAULT;
 	ret = snprintf(
 			pmtk_ccm_name,
 			camera_info_size - (int)(pmtk_ccm_name - mtk_ccm_name),
