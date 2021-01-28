@@ -311,6 +311,12 @@ static void _clk_buf_en_set(enum clk_buf_id id, bool onoff)
 		clkbuf_clr(XO_SW_EN, id, 0x1);
 }
 
+/* for spm driver use */
+bool _clk_buf_get_flight_mode(void)
+{
+	return is_flightmode_on;
+}
+
 static enum dev_sta _get_nfc_dev_state(void)
 {
 	pr_info("%s: NFC support: %d\n", __func__, NFC_CLKBUF_SUPPORT);
@@ -379,19 +385,18 @@ static void _clk_buf_get_enter_bblpm_cond(u32 *bblpm_cond)
 		return;
 	}
 
-	clkbuf_read(SPM_MD_PWR_STA, 0, &val);
-	if (val)
+	if (!_clk_buf_get_flight_mode())
 		(*bblpm_cond) |= BBLPM_CEL;
 
 	clkbuf_read(SPM_CONN_PWR_STA, 0, &val);
-	if (val || pmic_clk_buf_swctrl[XO_WCN])
+	if (val)
 		(*bblpm_cond) |= BBLPM_WCN;
 
 	val = _clk_buf_en_get(CLK_BUF_NFC);
-	if (val || pmic_clk_buf_swctrl[XO_NFC])
+	if (val)
 		(*bblpm_cond) |= BBLPM_NFC;
 
-	pr_info("%s: bblpm condition: 0x%x\n", __func__, *bblpm_cond);
+	pr_debug("%s: bblpm condition: 0x%x\n", __func__, *bblpm_cond);
 }
 
 static void _clk_buf_get_bblpm_en(u32 *stat)
@@ -494,12 +499,6 @@ static int _clk_buf_bblpm_init(void)
 	return -1;
 }
 #endif
-
-/* for spm driver use */
-bool _clk_buf_get_flight_mode(void)
-{
-	return is_flightmode_on;
-}
 
 /* for ccci driver to notify this */
 void _clk_buf_set_flight_mode(bool on)
