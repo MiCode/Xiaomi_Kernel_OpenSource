@@ -99,7 +99,7 @@ void switch_irtx_gpio(int mode)
 	struct pinctrl *ppinctrl_irtx = mt_irtx_dev.ppinctrl_irtx;
 	struct pinctrl_state *pins_irtx = NULL;
 
-	if (mode >= (ARRAY_SIZE(irtx_gpio_cfg))) {
+	if (mode < 0 || mode >= (ARRAY_SIZE(irtx_gpio_cfg))) {
 		pr_notice("%s() [PinC](%d) fail!! - invalid parameter!\n",
 			__func__, mode);
 		return;
