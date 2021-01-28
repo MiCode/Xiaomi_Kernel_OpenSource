@@ -2112,7 +2112,8 @@ static void __exit imgsensor_exit(void)
 {
 	platform_driver_unregister(&gimgsensor_platform_driver);
 }
-module_init(imgsensor_init);
+//module_init(imgsensor_init);
+late_initcall(imgsensor_init);
 module_exit(imgsensor_exit);
 
 MODULE_DESCRIPTION("image sensor driver");
