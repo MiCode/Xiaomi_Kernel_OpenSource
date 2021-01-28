@@ -102,6 +102,7 @@ void lbat_test_callback(unsigned int thd)
 #endif
 
 static struct lbat_user lbat_pt;
+static struct lbat_user lbat_pt_ext;
 int g_low_battery_level;
 int g_low_battery_stop;
 /* give one change to ignore DLPT power off. battery voltage
@@ -118,6 +119,11 @@ struct low_battery_callback_table lbcb_tb[] = {
 	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}
 };
 
+struct low_battery_callback_table lbcb_tb_ext[] = {
+	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL},
+	{NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}, {NULL}
+};
+
 void register_low_battery_notify(
 	void (*low_battery_callback)(enum LOW_BATTERY_LEVEL_TAG),
 	enum LOW_BATTERY_PRIO_TAG prio_val)
@@ -125,6 +131,17 @@ void register_low_battery_notify(
 	PMICLOG("[%s] start\n", __func__);
 
 	lbcb_tb[prio_val].lbcb = low_battery_callback;
+
+	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
+}
+
+void register_low_battery_notify_ext(
+	void (*low_battery_callback)(enum LOW_BATTERY_LEVEL_TAG),
+	enum LOW_BATTERY_PRIO_TAG prio_val)
+{
+	PMICLOG("[%s] start\n", __func__);
+
+	lbcb_tb_ext[prio_val].lbcb = low_battery_callback;
 
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 }
@@ -160,6 +177,31 @@ void exec_low_battery_callback(unsigned int thd)
 #endif
 }
 
+void exec_low_battery_callback_ext(unsigned int thd)
+{
+	int i = 0;
+	enum LOW_BATTERY_LEVEL_TAG low_battery_level = 0;
+
+	if (g_low_battery_stop == 1) {
+		pr_info("[%s] g_low_battery_stop=%d\n"
+			, __func__, g_low_battery_stop);
+	} else {
+		if (thd == POWER_INT0_VOLT_EXT)
+			low_battery_level = LOW_BATTERY_LEVEL_0;
+		else if (thd == POWER_INT1_VOLT_EXT)
+			low_battery_level = LOW_BATTERY_LEVEL_1;
+		else if (thd == POWER_INT2_VOLT_EXT)
+			low_battery_level = LOW_BATTERY_LEVEL_2;
+
+		for (i = 0; i < ARRAY_SIZE(lbcb_tb_ext); i++) {
+			if (lbcb_tb_ext[i].lbcb != NULL)
+				lbcb_tb_ext[i].lbcb(low_battery_level);
+		}
+	}
+	pr_info("[%s] prio_val=%d,low_battery=%d\n"
+			, __func__, i, low_battery_level);
+}
+
 void low_battery_protect_init(void)
 {
 	int ret = 0;
@@ -167,6 +209,11 @@ void low_battery_protect_init(void)
 	ret = lbat_user_register(&lbat_pt, "power throttling"
 			, POWER_INT0_VOLT, POWER_INT1_VOLT
 			, POWER_INT2_VOLT, exec_low_battery_callback);
+
+	ret = lbat_user_register(&lbat_pt_ext, "power throttling ext"
+		, POWER_INT0_VOLT_EXT, POWER_INT1_VOLT_EXT
+		, POWER_INT2_VOLT_EXT, exec_low_battery_callback_ext);
+
 #if PMIC_THROTTLING_DLPT_UT
 	ret = lbat_user_register(&lbat_test1, "test1",
 		3450, 3200, 3000, lbat_test_callback);
@@ -219,6 +266,12 @@ int dlpt_check_power_off(void)
 
 #else
 void __attribute__ ((weak)) register_low_battery_notify(
+	void (*low_battery_callback)(enum LOW_BATTERY_LEVEL_TAG),
+	enum LOW_BATTERY_PRIO_TAG prio_val)
+{
+}
+
+void __attribute__ ((weak)) register_low_battery_notify_ext(
 	void (*low_battery_callback)(enum LOW_BATTERY_LEVEL_TAG),
 	enum LOW_BATTERY_PRIO_TAG prio_val)
 {
@@ -380,7 +433,6 @@ static irqreturn_t fg_cur_l_int_handler(int irq, void *data)
 #endif
 
 	g_battery_oc_level = 1;
-	enable_irq(fg_cur_h_irq);
 	exec_battery_oc_callback(BATTERY_OC_LEVEL_1);
 	disable_irq_nosync(fg_cur_l_irq);
 	enable_irq(fg_cur_h_irq);
@@ -589,9 +641,9 @@ int dlpt_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 			wake_up_interruptible(&bat_percent_notify_waiter);
 			PMICLOG("bat_percent_notify called, l=%d s=%d soc=%d\n",
 				g_battery_percent_level, bat_status, uisoc);
-		} else if ((bat_status != -1) &&
-			(g_battery_percent_level == BATTERY_PERCENT_LEVEL_1) &&
-			   (uisoc > BAT_PERCENT_LINIT)) {
+		} else if (((bat_status == POWER_SUPPLY_STATUS_CHARGING) ||
+			(uisoc > BAT_PERCENT_LINIT)) &&
+			(g_battery_percent_level == BATTERY_PERCENT_LEVEL_1)) {
 			g_battery_percent_level = BATTERY_PERCENT_LEVEL_0;
 			bat_percent_notify_flag = true;
 			wake_up_interruptible(&bat_percent_notify_waiter);
@@ -1258,6 +1310,15 @@ static ssize_t store_low_battery_protect_ut(
 			pr_info("[%s] your input is %d(%d)\n",
 				__func__, val, thd);
 			exec_low_battery_callback(thd);
+			if (val == LOW_BATTERY_LEVEL_0)
+				thd = POWER_INT0_VOLT_EXT;
+			else if (val == LOW_BATTERY_LEVEL_1)
+				thd = POWER_INT1_VOLT_EXT;
+			else if (val == LOW_BATTERY_LEVEL_2)
+				thd = POWER_INT2_VOLT_EXT;
+			pr_info("[%s] your input is %d(%d)\n",
+				__func__, val, thd);
+			exec_low_battery_callback_ext(thd);
 		} else {
 			pr_info("[%s] wrong number (%d)\n", __func__, val);
 		}
