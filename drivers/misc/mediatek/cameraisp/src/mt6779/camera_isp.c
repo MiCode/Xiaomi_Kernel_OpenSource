@@ -36,7 +36,6 @@
 
 /* MET: define to enable MET*/
 //#define ISP_MET_READY
-#define EP_MARK_SMI
 #define EP_NO_K_LOG_ADJUST
 
 
@@ -1666,9 +1665,8 @@ static inline void smi_control_clock_mtcmos(bool en)
 		LOG_INF("enable CG/MTCMOS through SMI CLK API\n");
 		for (inx = 0; inx < LARB9PORTSIZE; inx++) {
 
-			ret = smi_bus_prepare_enable(SMI_LARB9_REG_INDX,
-						     larb9_port_Name[inx],
-						     true);
+			ret = smi_bus_prepare_enable(SMI_LARB9,
+						     larb9_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
 					"LARB9_%s:smi_bus_prepare_enable fail",
@@ -1678,9 +1676,8 @@ static inline void smi_control_clock_mtcmos(bool en)
 
 		for (inx = 0; inx < LARB10PORTSIZE; inx++) {
 
-			ret = smi_bus_prepare_enable(SMI_LARB10_REG_INDX,
-						     larb10_port_Name[inx],
-						     true);
+			ret = smi_bus_prepare_enable(SMI_LARB10,
+						     larb10_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
 					"LARB10_%s:smi_bus_prepare_enable fail",
@@ -1691,9 +1688,8 @@ static inline void smi_control_clock_mtcmos(bool en)
 		LOG_INF("disable CG/MTCMOS through SMI CLK API\n");
 		for (inx = 0; inx < LARB9PORTSIZE; inx++) {
 
-			ret = smi_bus_disable_unprepare(SMI_LARB9_REG_INDX,
-							larb9_port_Name[inx],
-							 true);
+			ret = smi_bus_disable_unprepare(SMI_LARB9,
+							larb9_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
 					"LARB9_%s:smi_bus_prepare_disable fail",
@@ -1703,9 +1699,8 @@ static inline void smi_control_clock_mtcmos(bool en)
 
 		for (inx = 0; inx < LARB10PORTSIZE; inx++) {
 
-			ret = smi_bus_disable_unprepare(SMI_LARB10_REG_INDX,
-							larb10_port_Name[inx],
-							true);
+			ret = smi_bus_disable_unprepare(SMI_LARB10,
+							larb10_port_Name[inx]);
 			if (ret != 0) {
 				LOG_NOTICE(
 					"LARB10_%s:smi_bus_prepare_disable fail",
@@ -10382,8 +10377,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 					irq_module);
 
 				if (smi_debug_bus_hang_detect(
-						SMI_PARAM_BUS_OPTIMIZATION,
-						true, false, true) != 0) {
+					false, "CAM") != 0) {
 					LOG_NOTICE(
 						"ERR:smi_debug_bus_hang_detect"
 						);
@@ -10406,8 +10400,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 			 * LOG_NOTICE("ERR:SMI_DUMP by module:%d\n",
 			 * irq_module);
 			 * if (smi_debug_bus_hang_detect(
-			 *		SMI_PARAM_BUS_OPTIMIZATION,
-			 *		true, false, true) != 0)
+			 *		false, "CAM") != 0)
 			 * LOG_NOTICE("ERR:smi_debug_bus_hang_detect");
 			 */
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
@@ -10420,8 +10413,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 				irq_module);
 
 			if (smi_debug_bus_hang_detect(
-					SMI_PARAM_BUS_OPTIMIZATION,
-					true, false, true) != 0)
+					false, "CAM") != 0)
 				LOG_NOTICE("TG_ERR:smi_debug_bus_hang_detect");
 
 			g_ISPIntStatus_SMI[irq_module].ispIntErr =
@@ -10446,8 +10438,7 @@ static void SMI_INFO_DUMP(enum ISP_IRQ_TYPE_ENUM irq_module)
 					irq_module);
 
 				if (smi_debug_bus_hang_detect(
-						SMI_PARAM_BUS_OPTIMIZATION,
-						true, false, true) != 0) {
+						false, "CAM") != 0) {
 					LOG_NOTICE(
 						"ERR:smi_debug_bus_hang_detect");
 				}
