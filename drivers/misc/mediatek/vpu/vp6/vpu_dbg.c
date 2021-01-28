@@ -28,6 +28,8 @@
 #include "vpu_dbg.h"
 #include "vpu_cmn.h"
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+
 static int vpu_log_level_set(void *data, u64 val)
 {
 	struct vpu_device *vpu_device = (struct vpu_device *)data;
@@ -480,11 +482,13 @@ static void create_debugfs_params(struct vpu_device *vpu_device)
 		i++;
 	};
 }
+#endif
 
 int vpu_init_debug(struct vpu_device *vpu_device)
 {
-	int ret;
+	int ret = 0;
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	vpu_device->debug_root = debugfs_create_dir("vpu", NULL);
 
 	ret = IS_ERR_OR_NULL(vpu_device->debug_root);
@@ -494,13 +498,15 @@ int vpu_init_debug(struct vpu_device *vpu_device)
 	}
 
 	create_debugfs_params(vpu_device);
-
 out:
+#endif
 	return ret;
 }
 
 void vpu_deinit_debug(struct vpu_device *vpu_device)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove_recursive(vpu_device->debug_root);
+#endif
 }
 
