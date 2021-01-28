@@ -54,7 +54,7 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 	struct ppm_limit_data *final_freq;
 	int retval = 0;
 	int i, j, len = 0, len1 = 0;
-	char msg[LOG_BUF_SIZE];
+	char msg[LOG_BUF_SIZE * 2];
 	char msg1[LOG_BUF_SIZE];
 
 
