@@ -20,6 +20,11 @@
 
 #include "power.h"
 
+#ifndef CONFIG_SUSPEND
+suspend_state_t pm_suspend_target_state;
+#define pm_suspend_target_state	(PM_SUSPEND_ON)
+#endif
+
 /*
  * If set, the suspend/hibernate code will abort transitions to a sleep state
  * if wakeup events are registered during or immediately before the transition.
@@ -68,6 +73,8 @@ static struct wakeup_source deleted_ws = {
 	.lock =  __SPIN_LOCK_UNLOCKED(deleted_ws.lock),
 };
 
+static DEFINE_IDA(wakeup_ida);
+
 /**
  * wakeup_source_prepare - Prepare a new wakeup source for initialization.
  * @ws: Wakeup source to prepare.
@@ -91,14 +98,32 @@ EXPORT_SYMBOL_GPL(wakeup_source_prepare);
  */
 struct wakeup_source *wakeup_source_create(const char *name)
 {
-	struct wakeup_source *ws;
+ 	struct wakeup_source *ws;
+	const char *ws_name;
+	int id;
 
-	ws = kmalloc(sizeof(*ws), GFP_KERNEL);
+	ws = kzalloc(sizeof(*ws), GFP_KERNEL);
 	if (!ws)
-		return NULL;
+		goto err_ws;
 
-	wakeup_source_prepare(ws, name ? kstrdup_const(name, GFP_KERNEL) : NULL);
+	ws_name = kstrdup_const(name, GFP_KERNEL);
+	if (!ws_name)
+		goto err_name;
+	ws->name = ws_name;
+
+	id = ida_simple_get(&wakeup_ida, 0, 0, GFP_KERNEL);
+	if (id < 0)
+		goto err_id;
+	ws->id = id;
+
 	return ws;
+
+err_id:
+	kfree_const(ws->name);
+err_name:
+	kfree(ws);
+err_ws:
+	return NULL;
 }
 EXPORT_SYMBOL_GPL(wakeup_source_create);
 
@@ -146,6 +171,13 @@ static void wakeup_source_record(struct wakeup_source *ws)
 	spin_unlock_irqrestore(&deleted_ws.lock, flags);
 }
 
+static void wakeup_source_free(struct wakeup_source *ws)
+{
+	ida_simple_remove(&wakeup_ida, ws->id);
+	kfree_const(ws->name);
+	kfree(ws);
+}
+
 /**
  * wakeup_source_destroy - Destroy a struct wakeup_source object.
  * @ws: Wakeup source to destroy.
@@ -159,8 +191,7 @@ void wakeup_source_destroy(struct wakeup_source *ws)
 
 	wakeup_source_drop(ws);
 	wakeup_source_record(ws);
-	kfree_const(ws->name);
-	kfree(ws);
+	wakeup_source_free(ws);
 }
 EXPORT_SYMBOL_GPL(wakeup_source_destroy);
 
@@ -178,7 +209,6 @@ void wakeup_source_add(struct wakeup_source *ws)
 	spin_lock_init(&ws->lock);
 	setup_timer(&ws->timer, pm_wakeup_timer_fn, (unsigned long)ws);
 	ws->active = false;
-	ws->last_time = ktime_get();
 
 	spin_lock_irqsave(&events_lock, flags);
 	list_add_rcu(&ws->entry, &wakeup_sources);
@@ -213,16 +243,26 @@ EXPORT_SYMBOL_GPL(wakeup_source_remove);
 
 /**
  * wakeup_source_register - Create wakeup source and add it to the list.
+ * @dev: Device this wakeup source is associated with (or NULL if virtual).
  * @name: Name of the wakeup source to register.
  */
-struct wakeup_source *wakeup_source_register(const char *name)
+struct wakeup_source *wakeup_source_register(struct device *dev,
+					     const char *name)
 {
 	struct wakeup_source *ws;
+	int ret;
 
 	ws = wakeup_source_create(name);
-	if (ws)
+	if (ws) {
+		if (!dev || device_is_registered(dev)) {
+			ret = wakeup_source_sysfs_add(dev, ws);
+			if (ret) {
+				wakeup_source_free(ws);
+				return NULL;
+			}
+		}
 		wakeup_source_add(ws);
-
+	}
 	return ws;
 }
 EXPORT_SYMBOL_GPL(wakeup_source_register);
@@ -235,6 +275,7 @@ void wakeup_source_unregister(struct wakeup_source *ws)
 {
 	if (ws) {
 		wakeup_source_remove(ws);
+		wakeup_source_sysfs_remove(ws);
 		wakeup_source_destroy(ws);
 	}
 }
@@ -275,7 +316,10 @@ int device_wakeup_enable(struct device *dev)
 	if (!dev || !dev->power.can_wakeup)
 		return -EINVAL;
 
-	ws = wakeup_source_register(dev_name(dev));
+	if (pm_suspend_target_state != PM_SUSPEND_ON)
+		dev_dbg(dev, "Suspicious %s() during system transition!\n", __func__);
+
+	ws = wakeup_source_register(dev, dev_name(dev));
 	if (!ws)
 		return -ENOMEM;
 

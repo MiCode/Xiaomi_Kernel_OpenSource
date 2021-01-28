@@ -20,6 +20,8 @@ void walt_update_task_ravg(struct task_struct *p, struct rq *rq, int event,
 		u64 wallclock, u64 irqtime);
 void walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p);
 void walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p);
+void walt_fixup_cumulative_runnable_avg(struct rq *rq, struct task_struct *p,
+					u64 new_task_load);
 
 void walt_fixup_busy_time(struct task_struct *p, int new_cpu);
 void walt_init_new_task_load(struct task_struct *p);
@@ -39,6 +41,9 @@ static inline void walt_update_task_ravg(struct task_struct *p, struct rq *rq,
 		int event, u64 wallclock, u64 irqtime) { }
 static inline void walt_inc_cumulative_runnable_avg(struct rq *rq, struct task_struct *p) { }
 static inline void walt_dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p) { }
+static inline void walt_fixup_cumulative_runnable_avg(struct rq *rq,
+						      struct task_struct *p,
+						      u64 new_task_load) { }
 static inline void walt_fixup_busy_time(struct task_struct *p, int new_cpu) { }
 static inline void walt_init_new_task_load(struct task_struct *p) { }
 static inline void walt_mark_task_starting(struct task_struct *p) { }

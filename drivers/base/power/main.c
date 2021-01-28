@@ -128,6 +128,10 @@ void device_pm_unlock(void)
  */
 void device_pm_add(struct device *dev)
 {
+	/* Skip PM setup/initialization. */
+	if (device_pm_not_required(dev))
+		return;
+
 	pr_debug("PM: Adding info for %s:%s\n",
 		 dev->bus ? dev->bus->name : "No Bus", dev_name(dev));
 	device_pm_check_callbacks(dev);
@@ -146,6 +150,9 @@ void device_pm_add(struct device *dev)
  */
 void device_pm_remove(struct device *dev)
 {
+	if (device_pm_not_required(dev))
+		return;
+
 	pr_debug("PM: Removing info for %s:%s\n",
 		 dev->bus ? dev->bus->name : "No Bus", dev_name(dev));
 	complete_all(&dev->power.completion);
@@ -1852,6 +1859,7 @@ int dpm_prepare(pm_message_t state)
 			printk(KERN_INFO "PM: Device %s not prepared "
 				"for power transition: code %d\n",
 				dev_name(dev), error);
+			dpm_save_failed_dev(dev_name(dev));
 			put_device(dev);
 			break;
 		}

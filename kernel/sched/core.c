@@ -2251,22 +2251,10 @@ static int __set_cpus_allowed_ptr(struct task_struct *p,
 	if (cpumask_equal(&p->cpus_allowed, new_mask))
 		goto out;
 
-	cpumask_andnot(&allowed_mask, new_mask, cpu_isolated_mask);
-	cpumask_and(&allowed_mask, &allowed_mask, cpu_valid_mask);
-
-	dest_cpu = cpumask_any(&allowed_mask);
+	dest_cpu = cpumask_any_and(cpu_valid_mask, new_mask);
 	if (dest_cpu >= nr_cpu_ids) {
-		/* If p is a kthread, ignore isolated mask. */
-		if (p->flags & PF_KTHREAD)
-			cpumask_and(&allowed_mask, cpu_valid_mask, new_mask);
-		else
-			cpumask_andnot(&allowed_mask,
-					cpu_valid_mask, cpu_isolated_mask);
-		dest_cpu = cpumask_any(&allowed_mask);
-		if (dest_cpu >= nr_cpu_ids) {
-			ret = -EINVAL;
-			goto out;
-		}
+		ret = -EINVAL;
+		goto out;
 	}
 
 	do_set_cpus_allowed(p, new_mask);
@@ -8052,10 +8040,6 @@ static int cpu_cgroup_can_attach(struct cgroup_taskset *tset)
 	cgroup_taskset_for_each(task, css, tset) {
 #ifdef CONFIG_RT_GROUP_SCHED
 		if (!sched_rt_can_attach(css_tg(css), task))
-			return -EINVAL;
-#else
-		/* We don't support RT-tasks being in separate groups */
-		if (task->sched_class != &fair_sched_class)
 			return -EINVAL;
 #endif
 		/*

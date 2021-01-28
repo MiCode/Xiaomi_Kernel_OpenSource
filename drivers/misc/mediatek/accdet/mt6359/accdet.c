@@ -3303,8 +3303,8 @@ int mt_accdet_probe(struct platform_device *dev)
 	/* the third argument may include TIMER_* flags */
 
 	/* wake lock */
-	accdet_irq_lock = wakeup_source_register("accdet_irq_lock");
-	accdet_timer_lock = wakeup_source_register("accdet_timer_lock");
+	accdet_irq_lock = wakeup_source_register(NULL, "accdet_irq_lock");
+	accdet_timer_lock = wakeup_source_register(NULL, "accdet_timer_lock");
 
 	/* Create workqueue */
 	accdet_workqueue = create_singlethread_workqueue("accdet");

@@ -296,7 +296,7 @@ static int mtk_pmic_keys_probe(struct platform_device *pdev)
 		keys->homekey.hw_irq = res->end;
 	}
 
-	pwrkey_lock = wakeup_source_register("pwrkey wakelock");
+	pwrkey_lock = wakeup_source_register(NULL, "pwrkey wakelock");
 
 	keys->input_dev = input_dev = devm_input_allocate_device(keys->dev);
 	if (!input_dev) {

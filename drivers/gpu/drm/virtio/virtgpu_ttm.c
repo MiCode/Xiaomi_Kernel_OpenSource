@@ -106,29 +106,6 @@ static void virtio_gpu_ttm_global_fini(struct virtio_gpu_device *vgdev)
 	}
 }
 
-#if 0
-/*
- * Hmm, seems to not do anything useful.  Leftover debug hack?
- * Something like printing pagefaults to kernel log?
- */
-static struct vm_operations_struct virtio_gpu_ttm_vm_ops;
-static const struct vm_operations_struct *ttm_vm_ops;
-
-static int virtio_gpu_ttm_fault(struct vm_fault *vmf)
-{
-	struct ttm_buffer_object *bo;
-	struct virtio_gpu_device *vgdev;
-	int r;
-
-	bo = (struct ttm_buffer_object *)vmf->vma->vm_private_data;
-	if (bo == NULL)
-		return VM_FAULT_NOPAGE;
-	vgdev = virtio_gpu_get_vgdev(bo->bdev);
-	r = ttm_vm_ops->fault(vmf);
-	return r;
-}
-#endif
-
 int virtio_gpu_mmap(struct file *filp, struct vm_area_struct *vma)
 {
 	struct drm_file *file_priv;
@@ -143,19 +120,8 @@ int virtio_gpu_mmap(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 	r = ttm_bo_mmap(filp, vma, &vgdev->mman.bdev);
-#if 0
-	if (unlikely(r != 0))
-		return r;
-	if (unlikely(ttm_vm_ops == NULL)) {
-		ttm_vm_ops = vma->vm_ops;
-		virtio_gpu_ttm_vm_ops = *ttm_vm_ops;
-		virtio_gpu_ttm_vm_ops.fault = &virtio_gpu_ttm_fault;
-	}
-	vma->vm_ops = &virtio_gpu_ttm_vm_ops;
-	return 0;
-#else
+
 	return r;
-#endif
 }
 
 static int virtio_gpu_invalidate_caches(struct ttm_bo_device *bdev,
@@ -177,7 +143,6 @@ static void ttm_bo_man_put_node(struct ttm_mem_type_manager *man,
 				struct ttm_mem_reg *mem)
 {
 	mem->mm_node = (void *)NULL;
-	return;
 }
 
 static int ttm_bo_man_init(struct ttm_mem_type_manager *man,
@@ -207,10 +172,6 @@ static const struct ttm_mem_type_manager_func virtio_gpu_bo_manager_func = {
 static int virtio_gpu_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
 				    struct ttm_mem_type_manager *man)
 {
-	struct virtio_gpu_device *vgdev;
-
-	vgdev = virtio_gpu_get_vgdev(bdev);
-
 	switch (type) {
 	case TTM_PL_SYSTEM:
 		/* System memory */
@@ -225,7 +186,7 @@ static int virtio_gpu_init_mem_type(struct ttm_bo_device *bdev, uint32_t type,
 		man->default_caching = TTM_PL_FLAG_CACHED;
 		break;
 	default:
-		DRM_ERROR("Unsupported memory type %u\n", (unsigned)type);
+		DRM_ERROR("Unsupported memory type %u\n", (unsigned int)type);
 		return -EINVAL;
 	}
 	return 0;
@@ -244,7 +205,6 @@ static void virtio_gpu_evict_flags(struct ttm_buffer_object *bo,
 	placement->busy_placement = &placements;
 	placement->num_placement = 1;
 	placement->num_busy_placement = 1;
-	return;
 }
 
 static int virtio_gpu_verify_access(struct ttm_buffer_object *bo,
@@ -396,13 +356,11 @@ static void virtio_gpu_bo_move_notify(struct ttm_buffer_object *tbo,
 
 	if (!new_mem || (new_mem->placement & TTM_PL_FLAG_SYSTEM)) {
 		if (bo->hw_res_handle)
-			virtio_gpu_cmd_resource_inval_backing(vgdev,
-							   bo->hw_res_handle);
+			virtio_gpu_object_detach(vgdev, bo);
 
 	} else if (new_mem->placement & TTM_PL_FLAG_TT) {
 		if (bo->hw_res_handle) {
-			virtio_gpu_object_attach(vgdev, bo, bo->hw_res_handle,
-						 NULL);
+			virtio_gpu_object_attach(vgdev, bo, NULL);
 		}
 	}
 }
@@ -410,10 +368,8 @@ static void virtio_gpu_bo_move_notify(struct ttm_buffer_object *tbo,
 static void virtio_gpu_bo_swap_notify(struct ttm_buffer_object *tbo)
 {
 	struct virtio_gpu_object *bo;
-	struct virtio_gpu_device *vgdev;
 
 	bo = container_of(tbo, struct virtio_gpu_object, tbo);
-	vgdev = (struct virtio_gpu_device *)bo->gem_base.dev->dev_private;
 
 	if (bo->pages)
 		virtio_gpu_object_free_sg_table(bo);
