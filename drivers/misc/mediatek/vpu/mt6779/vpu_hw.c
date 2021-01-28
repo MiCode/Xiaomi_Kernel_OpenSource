@@ -12,6 +12,8 @@
 #include <linux/clk.h>
 #include <linux/workqueue.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #ifdef CONFIG_MTK_M4U
 #include <m4u.h>
 #endif
@@ -66,7 +68,6 @@ struct wake_lock vpu_wake_lock[MTK_VPU_CORE];
 #include "mdla_dvfs.h"
 #include "mtk_qos_bound.h"
 #include <linux/pm_qos.h>
-#include <mt-plat/mtk_secure_api.h>
 
 /* opp, mW */
 struct VPU_OPP_INFO vpu_power_table[VPU_OPP_NUM] = {
@@ -287,10 +288,18 @@ static int vpu_init_done;
 static uint8_t segment_max_opp;
 static uint8_t segment_index;
 
+static inline int atf_vcore_cg_ctl(int state)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_APU_VCORE_CG_CTL
+			, state, 0, 0, 0, 0, 0, 0, &res);
+	return 0;
+}
+
 /*move vcore cg ctl to atf*/
 #define vcore_cg_ctl(poweron) \
-	mt_secure_call(MTK_APU_VCORE_CG_CTL, poweron, 0, 0, 0)
-
+	atf_vcore_cg_ctl(poweron)
 
 /* isr handler */
 static irqreturn_t vpu0_isr_handler(int irq, void *dev_id);

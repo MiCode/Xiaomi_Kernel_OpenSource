@@ -6,6 +6,7 @@
 #include <linux/timer.h>
 #include <linux/module.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <linux/pm_qos.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/mutex.h>

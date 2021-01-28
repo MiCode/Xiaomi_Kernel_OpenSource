@@ -29,14 +29,6 @@
 #ifdef MTK_PERF_OBSERVER
 #include <mt-plat/mtk_perfobserver.h>
 #endif
-#include <mt-plat/mtk_secure_api.h>
-
-#ifdef CONFIG_PM_WAKELOCKS
-struct wakeup_source mdla_wake_lock[MTK_MDLA_USER];
-#else
-struct wake_lock mdla_wake_lock[MTK_MDLA_USER];
-#endif
-
 
 /* opp, mW */
 struct MDLA_OPP_INFO mdla_power_table[MDLA_OPP_NUM] = {
@@ -1591,7 +1583,7 @@ mdla_dvfs_debug("[mdla_%d] adjust(%d,%d) result vmdla=%d\n",
 	}
 	/*move vcore cg ctl to atf*/
 #define vcore_cg_ctl(poweron) \
-		mt_secure_call(MTK_APU_VCORE_CG_CTL, poweron, 0, 0, 0)
+		atf_vcore_cg_ctl(poweron)
 
 	mdla_trace_tag_begin("clock:enable_source");
 	ENABLE_MDLA_CLK(clk_top_dsp_sel);
@@ -2191,26 +2183,6 @@ int mdla_init_hw(int core, struct platform_device *pdev)
 
 			INIT_DELAYED_WORK(&(power_counter_work[i].my_work),
 						mdla_power_counter_routine);
-
-			#ifdef CONFIG_PM_WAKELOCKS
-			if (i == 0) {
-				wakeup_source_init(&(mdla_wake_lock[i]),
-							"mdla_wakelock_0");
-			} else {
-				wakeup_source_init(&(mdla_wake_lock[i]),
-							"mdla_wakelock_1");
-			}
-			#else
-			if (i == 0) {
-				wake_lock_init(&(mdla_wake_lock[i]),
-							WAKE_LOCK_SUSPEND,
-							"mdla_wakelock_0");
-			} else {
-				wake_lock_init(&(mdla_wake_lock[i]),
-							WAKE_LOCK_SUSPEND,
-							"mdla_wakelock_1");
-			}
-			#endif
 			}
 			wq = create_workqueue("mdla_wq");
 #if MDLA_DVFS_C_TMP

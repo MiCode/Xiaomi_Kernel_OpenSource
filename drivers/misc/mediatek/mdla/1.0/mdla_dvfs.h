@@ -10,6 +10,8 @@
 #include "mdla_ioctl.h"
 #include <linux/of_platform.h>
 #include <linux/seq_file.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 /* ++++++++++++++++++++++++++++++++++*/
 /* |opp_index  |   mdla frequency  |        power             */
@@ -121,10 +123,7 @@ void mdla_put_power(int core);
 int mdla_get_power(int core);
 void mdla_opp_check(int core, uint8_t vmdla_index, uint8_t freq_index);
 
-/* FIXME: Remove PWR_READY_H */
-//#ifndef MTK_MDLA_FPGA_PORTING
-#define PWR_READY_H 0
-#if PWR_READY_H
+#ifndef MTK_MDLA_FPGA_PORTING
 int mdla_init_hw(int core, struct platform_device *pdev);
 int mdla_uninit_hw(void);
 int mdla_set_power_parameter(uint8_t param, int argc, int *args);
@@ -193,6 +192,16 @@ int mdla_dvfs_cmd_end_shutdown(void)
 }
 
 #endif
+
+static inline int atf_vcore_cg_ctl(int state)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(MTK_SIP_KERNEL_APU_VCORE_CG_CTL
+			, state, 0, 0, 0, 0, 0, 0, &res);
+
+	return 0;
+}
 
 #endif
 

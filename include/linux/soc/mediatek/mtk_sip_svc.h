@@ -153,5 +153,8 @@
 #define MTK_SIP_AUDIO_CONTROL \
 	MTK_SIP_SMC_CMD(0x517)
 
+/* APU VCORE CG control related SMC call */
+#define MTK_SIP_KERNEL_APU_VCORE_CG_CTL \
+	MTK_SIP_SMC_CMD(0x2B1)
 
 #endif
