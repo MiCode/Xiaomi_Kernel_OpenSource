@@ -772,15 +772,46 @@ static struct snd_soc_card mt6768_mt6358_soc_card = {
 static int mt6768_mt6358_dev_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt6768_mt6358_soc_card;
-	struct device_node *platform_node, *codec_node;
+	struct device_node *platform_node, *codec_node, *spk_node;
+	struct snd_soc_dai_link *spk_out_dai_link, *spk_iv_dai_link;
 	int ret;
 	int i;
+	int spk_out_dai_link_idx, spk_iv_dai_link_idx;
 
-	ret = mtk_spk_update_dai_link(card, pdev, &mt6768_mt6358_i2s_ops);
+	ret = mtk_spk_update_info(card, pdev,
+				  &spk_out_dai_link_idx, &spk_iv_dai_link_idx,
+				  &mt6768_mt6358_i2s_ops);
 	if (ret) {
-		dev_err(&pdev->dev, "%s(), mtk_spk_update_dai_link error\n",
+		dev_err(&pdev->dev, "%s(), mtk_spk_update_info error\n",
 			__func__);
 		return -EINVAL;
+	}
+
+	spk_out_dai_link = &mt6768_mt6358_dai_links[spk_out_dai_link_idx];
+	spk_iv_dai_link = &mt6768_mt6358_dai_links[spk_iv_dai_link_idx];
+	if (!spk_out_dai_link->codec_dai_name &&
+	    !spk_iv_dai_link->codec_dai_name) {
+		spk_node = of_get_child_by_name(pdev->dev.of_node,
+					"mediatek,speaker-codec");
+		if (!spk_node) {
+			dev_err(&pdev->dev,
+				"spk_codec of_get_child_by_name fail\n");
+			return -EINVAL;
+		}
+		ret = snd_soc_of_get_dai_link_codecs(
+				&pdev->dev, spk_node, spk_out_dai_link);
+		if (ret < 0) {
+			dev_err(&pdev->dev,
+				"i2s out get_dai_link_codecs fail\n");
+			return -EINVAL;
+		}
+		ret = snd_soc_of_get_dai_link_codecs(
+				&pdev->dev, spk_node, spk_iv_dai_link);
+		if (ret < 0) {
+			dev_err(&pdev->dev,
+				"i2s in get_dai_link_codecs fail\n");
+			return -EINVAL;
+		}
 	}
 
 	platform_node = of_parse_phandle(pdev->dev.of_node,
@@ -803,7 +834,9 @@ static int mt6768_mt6358_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	for (i = 0; i < card->num_links; i++) {
-		if (mt6768_mt6358_dai_links[i].codec_name)
+		if (mt6768_mt6358_dai_links[i].codec_name ||
+		    i == spk_out_dai_link_idx ||
+		    i == spk_iv_dai_link_idx)
 			continue;
 		mt6768_mt6358_dai_links[i].codec_of_node = codec_node;
 	}
