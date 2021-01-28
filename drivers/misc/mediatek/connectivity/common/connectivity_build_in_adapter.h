@@ -13,6 +13,7 @@
 #include <linux/sched/clock.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <mtk-clkbuf-bridge.h>
 
 /*******************************************************************************
  * Clock Buffer Control
@@ -54,7 +55,6 @@
 	defined(CONFIG_MACH_ELBRUS)
 #define CONNADP_HAS_CLOCK_BUF_CTRL
 #define KERNEL_clk_buf_ctrl connectivity_export_clk_buf_ctrl
-enum clk_buf_id;
 void connectivity_export_clk_buf_ctrl(enum clk_buf_id id, bool onoff);
 #endif
 
