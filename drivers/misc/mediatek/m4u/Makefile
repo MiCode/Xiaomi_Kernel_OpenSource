@@ -19,7 +19,7 @@ $(info M4U platform folder:$(CONFIG_MTK_PLATFORM))
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
 #version code
-ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761"))
+ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6765"))
     $(info M4U version:2.0)
     obj-y += 2.0/
 else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779"))

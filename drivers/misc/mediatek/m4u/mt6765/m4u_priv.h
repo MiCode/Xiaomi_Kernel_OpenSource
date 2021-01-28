@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #ifndef __M4U_PRIV_H__
@@ -90,7 +90,11 @@ extern int gM4U_log_to_uart;
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #define M4U_TEE_SERVICE_ENABLE
+#elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#define M4U_TEE_SERVICE_ENABLE
+#endif
 #endif
 
 #include "m4u_hw.h"
@@ -277,7 +281,6 @@ enum M4U_MMP_TYPE {
 	M4U_MMP_M4U_ERROR,
 	M4U_MMP_CACHE_SYNC,
 	M4U_MMP_TOGGLE_CG,
-	M4U_MMP_TOGGLE_MVA_DBG,
 	M4U_MMP_MAX,
 };
 
