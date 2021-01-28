@@ -15,16 +15,9 @@
 #include <linux/uaccess.h>
 #include <linux/atomic.h>
 #include <linux/delay.h>
-#if defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6765) || \
-	defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT3967) || \
-	defined(CONFIG_MACH_MT6779)
-#if defined(LED_READY)
+#if defined(CONFIG_MACH_MT6765) || defined(CONFIG_MACH_MT6761) || \
+	defined(CONFIG_MACH_MT6580) || defined(CONFIG_MACH_MT6779)
 #include <mtk_leds_drv.h>
-#else
-#define backlight_brightness_set(x) do { } while (0)
-#define MT65XX_LED_MODE_NONE (0)
-#define MT65XX_LED_MODE_CUST_LCM (4)
-#endif
 #else
 #define backlight_brightness_set(x) do { } while (0)
 #define MT65XX_LED_MODE_NONE (0)
