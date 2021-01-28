@@ -95,6 +95,10 @@ int aal_dbg_en;
 	do { if (aal_dbg_en) pr_debug("[AAL] %s: " fmt "\n", __func__, ##arg); \
 		} while (0)
 
+#ifndef AAL_SUPPORT_KERNEL_API
+#define AAL_SUPPORT_KERNEL_API
+#endif
+
 static int disp_aal_write_init_regs(enum DISP_MODULE_ENUM module, void *cmdq);
 static int disp_aal_write_param_to_reg(enum DISP_MODULE_ENUM module,
 	struct cmdqRecStruct *cmdq, const struct DISP_AAL_PARAM *param);
