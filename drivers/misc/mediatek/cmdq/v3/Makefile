@@ -52,7 +52,6 @@ endif
 
 # secure path
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
-
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
 endif
@@ -61,13 +60,6 @@ ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
 endif
 
-ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
-ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
-# obj-y += cmdq_sec_mtee.o
-endif
-ccflags-$(CONFIG_MTK_TEE_SUPPORT) += -DCMDQ_SECURE_TEE_SUPPORT
-
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_dr \
              -I$(srctree)/drivers/misc/mediatek/cmdq/v3/inc/cmdq_sec_tl
 
@@ -75,9 +67,18 @@ ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
 obj-y += cmdq_sec.o
 
 ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
+ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
 obj-y += cmdq_sec_gp.o
+
 else ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
 obj-y += cmdq_sec_trustonic.o
+endif
+
+ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
+ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
+obj-y += cmdq_sec_mtee.o
 endif
 
 ccflags-y += -DCMDQ_EVENT_SVP_BACKUP

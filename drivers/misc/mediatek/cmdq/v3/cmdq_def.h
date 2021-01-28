@@ -458,6 +458,7 @@ struct cmdqSecDataStruct {
 	/* client extension feature */
 	uint64_t extension;
 
+	bool mtee;
 #ifdef CONFIG_MTK_IN_HOUSE_TEE_SUPPORT
 	/* tablet use */
 	uint32_t secMode;
