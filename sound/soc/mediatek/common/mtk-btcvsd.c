@@ -21,8 +21,8 @@
 #define BT_CVSD_INTERRUPT	BIT(31)
 
 #define BT_CVSD_CLEAR \
-	(BT_CVSD_TX_NREADY | BT_CVSD_RX_READY | BT_CVSD_TX_UNDERFLOW |\
-	 BT_CVSD_RX_OVERFLOW | BT_CVSD_INTERRUPT)
+	(BT_CVSD_TX_NREADY | BT_CVSD_RX_READY | BT_CVSD_RX_OVERFLOW |\
+	 BT_CVSD_INTERRUPT)
 
 /* TX */
 #define SCO_TX_ENCODE_SIZE (60)
@@ -635,6 +635,8 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	}
 
 	*bt->bt_reg_ctl &= ~BT_CVSD_CLEAR;
+	if (bt->tx->state == BT_SCO_STATE_IDLE)
+		*bt->bt_reg_ctl |= BT_CVSD_TX_UNDERFLOW;
 
 	if (bt->rx->state == BT_SCO_STATE_RUNNING ||
 	    bt->rx->state == BT_SCO_STATE_ENDING) {
