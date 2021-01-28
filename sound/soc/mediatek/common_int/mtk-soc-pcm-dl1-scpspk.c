@@ -63,7 +63,7 @@
 
 #include <linux/dma-mapping.h>
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 #include "scp_helper.h"
 #include <audio_dma_buf_control.h>
 #include <audio_ipi_client_spkprotect.h>
@@ -256,7 +256,7 @@ static int mtk_pcm_dl1spk_stop(struct snd_pcm_substream *substream)
 	spk_irq_user_id = NULL;
 	irq_remove_user(substream, SpkIrq_mode);
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	if (!in_interrupt()) {
 		spkproc_service_ipicmd_send(AUDIO_IPI_MSG_ONLY,
 					    AUDIO_IPI_MSG_DIRECT_SEND,
@@ -566,7 +566,7 @@ static int mtk_pcm_dl1spk_hw_params(struct snd_pcm_substream *substream,
 {
 	int ret = 0;
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	unsigned int payloadlen = 0;
 
 	audio_task_register_callback(TASK_SCENE_SPEAKER_PROTECTION,
@@ -675,7 +675,7 @@ static int mtk_pcm_dl1spk_open(struct snd_pcm_substream *substream)
 
 	scp_register_feature(SPEAKER_PROTECT_FEATURE_ID);
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	spkproc_service_ipicmd_send(AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_NEED_ACK,
 				    SPK_PROTECT_OPEN, 1, 0, NULL);
 #endif
@@ -688,7 +688,7 @@ static int mtk_pcm_dl1spk_close(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s\n", __func__);
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	spkproc_service_ipicmd_send(AUDIO_IPI_MSG_ONLY, AUDIO_IPI_MSG_NEED_ACK,
 				    SPK_PROTECT_CLOSE, dl1spk_close_count, 0,
 				    NULL);
@@ -872,7 +872,7 @@ static int mtk_pcm_dl1spk_start(struct snd_pcm_substream *substream)
 			  Soc_Aud_AFE_IO_Block_MEM_DL1,
 			  Soc_Aud_AFE_IO_Block_I2S3);
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 	if (!in_interrupt())
 		spkproc_service_ipicmd_send(AUDIO_IPI_MSG_ONLY,
 					    AUDIO_IPI_MSG_DIRECT_SEND,

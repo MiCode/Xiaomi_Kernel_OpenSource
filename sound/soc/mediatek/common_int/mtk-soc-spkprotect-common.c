@@ -46,7 +46,7 @@
 #include <scp_ipi.h>
 #include <audio_ipi_platform.h>
 
-#ifdef CONFIG_MTK_AUDIO_SCP_SPKPROTECT_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_SCP_SMARTPA
 #include "audio_ipi_client_spkprotect.h"
 #include <audio_dma_buf_control.h>
 #include <audio_ipi_client_spkprotect.h>
