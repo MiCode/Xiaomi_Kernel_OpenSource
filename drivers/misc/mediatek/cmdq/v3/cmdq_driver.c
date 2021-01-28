@@ -484,6 +484,19 @@ static long cmdq_driver_process_command_request(
 	u32 *userRegValue = NULL;
 	u32 userRegCount = 0;
 
+	if (pCommand->regRequest.count > CMDQ_MAX_DUMP_REG_COUNT) {
+		CMDQ_ERR("reg request count too much:%u\n",
+			pCommand->regRequest.count);
+		return -EFAULT;
+	}
+
+
+	if (pCommand->regValue.count > CMDQ_MAX_DUMP_REG_COUNT) {
+		CMDQ_ERR("reg value count too much:%u\n",
+			pCommand->regValue.count);
+		return -EFAULT;
+	}
+
 	if (pCommand->regRequest.count != pCommand->regValue.count) {
 		CMDQ_ERR("mismatch regRequest and regValue\n");
 		return -EFAULT;
