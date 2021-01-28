@@ -689,7 +689,7 @@ config CHARGER_MT6360
 	  Over-Temperature Protection, DPDM Detection for BC1.2
 
 config CHARGER_TYPE_MT6357
-	bool "MT6357 Charger Type Detection Driver"
+	tristate "MT6357 Charger Type Detection Driver"
 	depends on MFD_MT6397
 	help
 	  Say yes here to enable MT6357 Charger Type
