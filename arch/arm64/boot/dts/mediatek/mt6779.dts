@@ -1487,14 +1487,38 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"infra-ccif4-md";
 		};
 
-		iommu0: iommu@10220000 {
-			compatible = "mediatek,mt6779-m4u";
+		iommu0: m4u@10220000 {
+			cell-index = <0>;
+			compatible = "mediatek,iommu_v0";
 			reg = <0 0x10220000 0 0x1000>;
-			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_LOW>;
 			mediatek,larbs = <&larb0 &larb1 &larb2
 					  &larb3 &larb5 &larb7
 					  &larb8 &larb9 &larb10>;
+			interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_LOW>;
 			#iommu-cells = <1>;
+		};
+
+		iommu1: m4u@1024f000 {
+			cell-index = <1>;
+			compatible = "mediatek,iommu_v0";
+			reg = <0 0x1024f000 0 0x1000>;
+			mediatek,larbs = <&larb6 &larb11>;
+			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
+			#iommu-cells = <1>;
+		};
+
+		m4u@10224000 {
+			cell-index = <2>;
+			compatible = "mediatek,sec_mm_m4u";
+			reg = <0 0x10224000 0 0x1000>;
+			interrupts = <GIC_SPI 191 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		m4u@10253000 {
+			cell-index = <3>;
+			compatible = "mediatek,sec_vpu_m4u";
+			reg = <0 0x10253000 0 0x1000>;
+			interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_LOW>;
 		};
 
 		gce: gce@10228000 {
@@ -1802,14 +1826,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		md_ccif4@1024e000 {
 			compatible = "mediatek,md_ccif4";
 			reg = <0 0x1024e000 0 0x1000>;
-		};
-
-		iommu1: iommu@1024f000 {
-			compatible = "mediatek,mt6779-m4u";
-			reg = <0 0x1024f000 0 0x1000>;
-			interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
-			mediatek,larbs = <&larb6 &larb11>;
-			#iommu-cells = <1>;
 		};
 
 		sspm: sspm@10400000 {

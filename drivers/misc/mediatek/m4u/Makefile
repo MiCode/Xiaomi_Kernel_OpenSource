@@ -11,17 +11,29 @@
 # GNU General Public License for more details.
 #
 
+
+ifeq ($(CONFIG_MTK_M4U),y)
+
+#platform code
+$(info M4U platform folder:$(CONFIG_MTK_PLATFORM))
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
-# For test
-# $(info GM-T-m4u-$(CONFIG_MTK_PLATFORM))
-# ifeq ($(CONFIG_MTK_PLATFORM),"mt6761")
-# $(info GM-T-with-quotation marks)
-# endif
-# ifeq ($(CONFIG_MTK_PLATFORM),6761)
-# $(info GM-T-without-quotation marks)
-# endif
-
+#version code
 ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761"))
-obj-y += 2.0/
+    $(info M4U version:2.0)
+    obj-y += 2.0/
+else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779"))
+    $(info M4U version:3.2)
+    obj-y += 3.2/
+else
+    $(error M4U error: platform error)
 endif
+
+
+#m4u related macro define
+ifeq ($(CONFIG_FPGA_EARLY_PORTING),y)
+    subdir-ccflags-y += -DM4U_FPGAPORTING
+endif
+
+endif
+
