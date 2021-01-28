@@ -1603,7 +1603,7 @@ int dpmgr_map_event_to_irq(disp_path_handle dp_handle,
 	struct ddp_path_handle *handle;
 	struct DDP_IRQ_EVENT_MAPPING *irq_table;
 
-	ASSERT(dp_handle != NULL);
+	ASSERT(dp_handle);
 	handle = (struct ddp_path_handle *)dp_handle;
 	irq_table = handle->irq_event_map;
 
