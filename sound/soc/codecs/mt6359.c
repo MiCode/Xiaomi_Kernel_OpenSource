@@ -252,6 +252,7 @@ struct mt6359_priv {
 
 	int ana_gain[AUDIO_ANALOG_VOLUME_TYPE_MAX];
 	unsigned int mux_select[MUX_NUM];
+	int dmic_one_wire_mode;
 
 	int dev_counter[DEVICE_NUM];
 
@@ -1136,6 +1137,8 @@ static const struct snd_kcontrol_new mt6359_snd_ul_controls[] = {
 	MT_SOC_ENUM_EXT_ID("Audio_PGA3_Setting", ul_pga_enum[0],
 			   ul_pga_get, ul_pga_set,
 			   AUDIO_ANALOG_VOLUME_MICAMP3),
+
+	/* mix type mux */
 	MT_SOC_ENUM_EXT_ID("Mic_Type_Mux_0", mic_type_mux_enum[0],
 			   mic_type_get, mic_type_set,
 			   MUX_MIC_TYPE_0),
@@ -2947,8 +2950,13 @@ static int mt_ul_src_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* default two wire, 3.25M */
-		regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H, 0x0080);
+		if (priv->dmic_one_wire_mode)
+			regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H,
+				     0x0400);
+		else
+			regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H,
+				     0x0080);
+
 		regmap_update_bits(priv->regmap, MT6359_AFE_UL_SRC_CON0_L,
 				   0xfffc, 0x0000);
 		break;
@@ -2974,9 +2982,13 @@ static int mt_ul_src_34_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* default two wire, 3.25M */
-		regmap_write(priv->regmap,
-			     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0080);
+		if (priv->dmic_one_wire_mode)
+			regmap_write(priv->regmap,
+				     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0400);
+		else
+			regmap_write(priv->regmap,
+				     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0080);
+
 		regmap_update_bits(priv->regmap, MT6359_AFE_ADDA6_UL_SRC_CON0_L,
 				   0xfffc, 0x0000);
 		break;
@@ -4111,14 +4123,14 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 
 	/* ul ch 12 */
 	{"AIF1TX", NULL, "AIF Out Mux"},
-		{"AIF1TX", NULL, "AIFTX_Supply"},
-		{"AIF1TX", NULL, "UL_GPIO"},
-		{"AIF1TX", NULL, "MTKAIF_TX"},
+	{"AIF1TX", NULL, "AIFTX_Supply"},
+	{"AIF1TX", NULL, "UL_GPIO"},
+	{"AIF1TX", NULL, "MTKAIF_TX"},
 
 	{"AIF2TX", NULL, "AIF2 Out Mux"},
-		{"AIF2TX", NULL, "AIFTX_Supply"},
-		{"AIF2TX", NULL, "UL_GPIO"},
-		{"AIF2TX", NULL, "MTKAIF_TX"},
+	{"AIF2TX", NULL, "AIFTX_Supply"},
+	{"AIF2TX", NULL, "UL_GPIO"},
+	{"AIF2TX", NULL, "MTKAIF_TX"},
 
 	{"AIF Out Mux", "Normal Path", "MISO0_MUX"},
 	{"AIF Out Mux", "Normal Path", "MISO1_MUX"},
@@ -4145,12 +4157,10 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"UL_SRC_MUX", "DMIC", "DMIC0_MUX"},
 	{"UL_SRC_MUX", "DMIC", "DMIC1_MUX"},
 
-		{"UL_SRC_MUX", NULL, "UL_SRC"},
-
+	{"UL_SRC_MUX", NULL, "UL_SRC"},
 	{"UL2_SRC_MUX", "AMIC", "ADC_3"},
 	{"UL2_SRC_MUX", "DMIC", "DMIC2_MUX"},
-
-		{"UL2_SRC_MUX", NULL, "UL_SRC_34"},
+	{"UL2_SRC_MUX", NULL, "UL_SRC_34"},
 
 	{"DMIC0_MUX", "DMIC_DATA0", "AIN0_DMIC"},
 	{"DMIC0_MUX", "DMIC_DATA1_L", "AIN2_DMIC"},
@@ -4165,12 +4175,11 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"DMIC2_MUX", "DMIC_DATA1_L_1", "AIN2_DMIC"},
 	{"DMIC2_MUX", "DMIC_DATA1_R", "AIN3_DMIC"},
 
-		{"DMIC0_MUX", NULL, "UL_SRC_DMIC"},
-		{"DMIC1_MUX", NULL, "UL_SRC_DMIC"},
-		{"DMIC2_MUX", NULL, "UL_SRC_34_DMIC"},
+	{"DMIC0_MUX", NULL, "UL_SRC_DMIC"},
+	{"DMIC1_MUX", NULL, "UL_SRC_DMIC"},
+	{"DMIC2_MUX", NULL, "UL_SRC_34_DMIC"},
 
 	{"AIN0_DMIC", NULL, "DMIC_0"},
-
 	{"AIN2_DMIC", NULL, "DMIC_1"},
 	{"AIN3_DMIC", NULL, "DMIC_1"},
 
@@ -4178,19 +4187,19 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"AIN3_DMIC", NULL, "MIC_BIAS_2"},
 	/* adc */
 	{"ADC_L", NULL, "ADC_L_Mux"},
-		{"ADC_L", NULL, "ADC_CLKGEN"},
-		{"ADC_L", NULL, "ADC_L_EN"},
+	{"ADC_L", NULL, "ADC_CLKGEN"},
+	{"ADC_L", NULL, "ADC_L_EN"},
 	{"ADC_R", NULL, "ADC_R_Mux"},
-		{"ADC_R", NULL, "ADC_CLKGEN"},
-		{"ADC_R", NULL, "ADC_R_EN"},
-		/*
-		 * amic fifo ch1/2 clk from ADC_L,
-		 * enable ADC_L even use ADC_R only
-		 */
-		{"ADC_R", NULL, "ADC_L_EN", mt_normal_amic_connect},
+	{"ADC_R", NULL, "ADC_CLKGEN"},
+	{"ADC_R", NULL, "ADC_R_EN"},
+	/*
+	 * amic fifo ch1/2 clk from ADC_L,
+	 * enable ADC_L even use ADC_R only
+	 */
+	{"ADC_R", NULL, "ADC_L_EN", mt_normal_amic_connect},
 	{"ADC_3", NULL, "ADC_3_Mux"},
-		{"ADC_3", NULL, "ADC_CLKGEN"},
-		{"ADC_3", NULL, "ADC_3_EN"},
+	{"ADC_3", NULL, "ADC_CLKGEN"},
+	{"ADC_3", NULL, "ADC_3_EN"},
 
 	{"ADC_L_Mux", "Left Preamplifier", "PGA_L"},
 
@@ -4199,17 +4208,17 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"ADC_3_Mux", "Preamplifier", "PGA_3"},
 
 	{"PGA_L", NULL, "PGA_L_Mux"},
-		{"PGA_L", NULL, "PGA_L_EN"},
+	{"PGA_L", NULL, "PGA_L_EN"},
 
 	{"PGA_R", NULL, "PGA_R_Mux"},
-		{"PGA_R", NULL, "PGA_R_EN"},
+	{"PGA_R", NULL, "PGA_R_EN"},
 
 	{"PGA_3", NULL, "PGA_3_Mux"},
-		{"PGA_3", NULL, "PGA_3_EN"},
+	{"PGA_3", NULL, "PGA_3_EN"},
 
-		{"PGA_L", NULL, "DCC_CLK", mt_dcc_clk_connect},
-		{"PGA_R", NULL, "DCC_CLK", mt_dcc_clk_connect},
-		{"PGA_3", NULL, "DCC_CLK", mt_dcc_clk_connect},
+	{"PGA_L", NULL, "DCC_CLK", mt_dcc_clk_connect},
+	{"PGA_R", NULL, "DCC_CLK", mt_dcc_clk_connect},
+	{"PGA_3", NULL, "DCC_CLK", mt_dcc_clk_connect},
 
 	{"PGA_L_Mux", "AIN0", "AIN0"},
 	{"PGA_L_Mux", "AIN1", "AIN1"},
@@ -4272,23 +4281,23 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"DAC In Mux", "Normal Path", "AIF_RX"},
 
 	{"DAC In Mux", "Sgen", "SGEN DL"},
-		{"SGEN DL", NULL, "SGEN DL SRC"},
-		{"SGEN DL", NULL, "SGEN MUTE"},
-		{"SGEN DL", NULL, "SGEN DL Enable"},
-		{"SGEN DL", NULL, "DL Digital Clock CH_1_2"},
-		{"SGEN DL", NULL, "DL Digital Clock CH_3"},
-		{"SGEN DL", NULL, "AUDIO_TOP_PDN_AFE_TESTMODEL"},
+	{"SGEN DL", NULL, "SGEN DL SRC"},
+	{"SGEN DL", NULL, "SGEN MUTE"},
+	{"SGEN DL", NULL, "SGEN DL Enable"},
+	{"SGEN DL", NULL, "DL Digital Clock CH_1_2"},
+	{"SGEN DL", NULL, "DL Digital Clock CH_3"},
+	{"SGEN DL", NULL, "AUDIO_TOP_PDN_AFE_TESTMODEL"},
 
 	{"DACL", NULL, "DAC In Mux"},
-		{"DACL", NULL, "DL Power Supply"},
+	{"DACL", NULL, "DL Power Supply"},
 
 	{"DACR", NULL, "DAC In Mux"},
-		{"DACR", NULL, "DL Power Supply"},
+	{"DACR", NULL, "DL Power Supply"},
 
 	/* DAC 3RD */
 	{"DAC In Mux", "Normal Path", "AIF2_RX"},
 	{"DAC_3RD", NULL, "DAC In Mux"},
-		{"DAC_3RD", NULL, "DL Power Supply"},
+	{"DAC_3RD", NULL, "DL Power Supply"},
 
 	/* Lineout Path */
 	{"LOL Mux", "Playback", "DAC_3RD"},
@@ -4320,17 +4329,17 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 
 	/* VOW */
 	{"VOW TX", NULL, "VOW_UL_SRC_MUX"},
-		{"VOW TX", NULL, "CLK_BUF"},
-		{"VOW TX", NULL, "LDO_VAUD18"},
-		{"VOW TX", NULL, "AUDGLB"},
-		{"VOW TX", NULL, "AUDGLB_VOW", mt_vow_amic_connect},
-		{"VOW TX", NULL, "AUD_CK", mt_vow_amic_connect},
-		{"VOW TX", NULL, "VOW_AUD_LPW", mt_vow_amic_connect},
-		{"VOW TX", NULL, "VOW_CLK"},
-		{"VOW TX", NULL, "AUD_VOW"},
-		{"VOW TX", NULL, "VOW_LDO", mt_vow_amic_connect},
-		{"VOW TX", NULL, "VOW_DIG_CFG"},
-		{"VOW TX", NULL, "VOW_PERIODIC_CFG", mt_vow_amic_dcc_connect},
+	{"VOW TX", NULL, "CLK_BUF"},
+	{"VOW TX", NULL, "LDO_VAUD18"},
+	{"VOW TX", NULL, "AUDGLB"},
+	{"VOW TX", NULL, "AUDGLB_VOW", mt_vow_amic_connect},
+	{"VOW TX", NULL, "AUD_CK", mt_vow_amic_connect},
+	{"VOW TX", NULL, "VOW_AUD_LPW", mt_vow_amic_connect},
+	{"VOW TX", NULL, "VOW_CLK"},
+	{"VOW TX", NULL, "AUD_VOW"},
+	{"VOW TX", NULL, "VOW_LDO", mt_vow_amic_connect},
+	{"VOW TX", NULL, "VOW_DIG_CFG"},
+	{"VOW TX", NULL, "VOW_PERIODIC_CFG", mt_vow_amic_dcc_connect},
 	{"VOW_UL_SRC_MUX", "AMIC", "VOW_AMIC0_MUX"},
 	{"VOW_UL_SRC_MUX", "AMIC", "VOW_AMIC1_MUX"},
 	{"VOW_UL_SRC_MUX", "DMIC", "DMIC0_MUX"},
@@ -7685,6 +7694,34 @@ static const struct regmap_config mt6359_regmap = {
 };
 #endif
 
+static void mt6359_parse_dt(struct mt6359_priv *priv)
+{
+	int ret, i;
+	const int mux_num = 3;
+	unsigned int mic_type_mux[mux_num];
+	struct device *dev = priv->dev;
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,dmic-mode",
+				   &priv->dmic_one_wire_mode);
+	if (ret) {
+		dev_info(dev, "%s() failed to read dmic-mode, default 1 wire\n",
+			 __func__);
+		priv->dmic_one_wire_mode = 0;
+	}
+	ret = of_property_read_u32_array(dev->of_node, "mediatek,mic-type",
+					 mic_type_mux, mux_num);
+	if (ret) {
+		dev_info(dev, "%s() failed to read mic-type, default DCC\n",
+			 __func__);
+		priv->mux_select[MUX_MIC_TYPE_0] = MIC_TYPE_MUX_DCC;
+		priv->mux_select[MUX_MIC_TYPE_1] = MIC_TYPE_MUX_DCC;
+		priv->mux_select[MUX_MIC_TYPE_2] = MIC_TYPE_MUX_DCC;
+	} else {
+		for (i = MUX_MIC_TYPE_0; i <= MUX_MIC_TYPE_2; ++i)
+			priv->mux_select[i] = mic_type_mux[i];
+	}
+}
+
 static int mt6359_platform_driver_probe(struct platform_device *pdev)
 {
 	struct mt6359_priv *priv;
@@ -7725,6 +7762,7 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 					    S_IFREG | 0444, NULL,
 					    priv, &mt6359_debugfs_ops);
 #endif
+	mt6359_parse_dt(priv);
 
 	dev_info(priv->dev, "%s(), dev name %s\n",
 		__func__, dev_name(&pdev->dev));

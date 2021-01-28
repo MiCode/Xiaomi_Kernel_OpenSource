@@ -87,6 +87,7 @@ enum {
 	SUPPLY_SEQ_AUD_TOP,
 	SUPPLY_SEQ_AUD_TOP_LAST,
 	SUPPLY_SEQ_AFE,
+	SUPPLY_SEQ_MIC_BIAS,
 	/* capture */
 	SUPPLY_SEQ_ADC_SUPPLY,
 };
@@ -153,6 +154,7 @@ struct mt6358_priv {
 
 	int ana_gain[AUDIO_ANALOG_VOLUME_TYPE_MAX];
 	unsigned int mux_select[MUX_NUM];
+	int dmic_one_wire_mode;
 
 	int dev_counter[DEVICE_NUM];
 
@@ -3270,6 +3272,38 @@ static int mt6358_vow_dmic_disable(struct mt6358_priv *priv)
 	return 0;
 }
 
+static int mt_mic_bias_event(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *kcontrol,
+			     int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int mux = priv->mux_select[MUX_MIC_TYPE];
+
+	dev_dbg(priv->dev, "%s(), event 0x%x, mux %u\n", __func__, event, mux);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (mux == MIC_TYPE_MUX_DMIC)
+			mt6358_dmic_enable(priv);
+		else
+			mt6358_amic_enable(priv);
+
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (mux == MIC_TYPE_MUX_DMIC)
+			mt6358_dmic_disable(priv);
+		else
+			mt6358_amic_disable(priv);
+
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static int mt_mic_type_event(struct snd_soc_dapm_widget *w,
 			     struct snd_kcontrol *kcontrol,
 			     int event)
@@ -3278,8 +3312,7 @@ static int mt_mic_type_event(struct snd_soc_dapm_widget *w,
 	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mux = dapm_kcontrol_get_value(w->kcontrols[0]);
 
-	dev_dbg(priv->dev, "%s(), event 0x%x, mux %u\n",
-		__func__, event, mux);
+	dev_dbg(priv->dev, "%s(), event 0x%x, mux %u\n", __func__, event, mux);
 
 	switch (event) {
 	case SND_SOC_DAPM_WILL_PMU:
@@ -3439,6 +3472,28 @@ static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int mt_dmic_connect(struct snd_soc_dapm_widget *source,
+			   struct snd_soc_dapm_widget *sink)
+{
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	return priv->mux_select[MUX_MIC_TYPE] == MIC_TYPE_MUX_DMIC ?
+	       true : false;
+}
+
+static int mt_amic_connect(struct snd_soc_dapm_widget *source,
+			   struct snd_soc_dapm_widget *sink)
+{
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6358_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	return priv->mux_select[MUX_MIC_TYPE] != MIC_TYPE_MUX_DMIC ?
+	       true : false;
+}
+
 /* DAPM Widgets */
 static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 	/* Global Supply*/
@@ -3467,6 +3522,11 @@ static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("AUDIF_CK", SUPPLY_SEQ_TOP_CK,
 			      MT6358_AUD_TOP_CKPDN_CON0,
 			      RG_AUDIF_CK_PDN_SFT, 1, NULL, 0),
+	SND_SOC_DAPM_SUPPLY_S("MIC_BIAS", SUPPLY_SEQ_MIC_BIAS,
+			      SND_SOC_NOPM, 0, 0,
+			      mt_mic_bias_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 	/* vow */
 	SND_SOC_DAPM_SUPPLY_S("VOW_AUD_LPW", SUPPLY_SEQ_VOW_AUD_LPW,
 			      SND_SOC_NOPM, 0, 0,
@@ -3639,6 +3699,9 @@ static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("AIN1"),
 	SND_SOC_DAPM_INPUT("AIN2"),
 
+	SND_SOC_DAPM_INPUT("AIN0_DMIC"),
+	SND_SOC_DAPM_INPUT("AIN3_DMIC"),
+
 	/* DC trim : trigger dc trim flow because set the reg when init_reg */
 	/* this must be at the last widget */
 	SND_SOC_DAPM_SUPPLY("DC Trim", MT6358_AUDDEC_ANA_CON8,
@@ -3657,41 +3720,30 @@ static const struct snd_soc_dapm_widget mt6358_dapm_widgets[] = {
 static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	/* Capture */
 	{"AIF1TX", NULL, "AIF Out Mux"},
-		{"AIF1TX", NULL, "CLK_BUF"},
-		{"AIF1TX", NULL, "AUDGLB"},
-		{"AIF1TX", NULL, "CLKSQ Audio"},
-
-		{"AIF1TX", NULL, "AUD_CK"},
-		{"AIF1TX", NULL, "AUDIF_CK"},
-
-		{"AIF1TX", NULL, "AUDIO_TOP_AFE_CTL"},
-		{"AIF1TX", NULL, "AUDIO_TOP_ADC_CTL"},
-		{"AIF1TX", NULL, "AUDIO_TOP_PWR_CLK"},
-		{"AIF1TX", NULL, "AUDIO_TOP_PDN_RESERVED"},
-		{"AIF1TX", NULL, "AUDIO_TOP_I2S_DL"},
-
-		{"AIF1TX", NULL, "AFE_ON"},
+	{"AIF1TX", NULL, "CLK_BUF"},
+	{"AIF1TX", NULL, "AUDGLB"},
+	{"AIF1TX", NULL, "CLKSQ Audio"},
+	{"AIF1TX", NULL, "AUD_CK"},
+	{"AIF1TX", NULL, "AUDIF_CK"},
+	{"AIF1TX", NULL, "AUDIO_TOP_AFE_CTL"},
+	{"AIF1TX", NULL, "AUDIO_TOP_ADC_CTL"},
+	{"AIF1TX", NULL, "AUDIO_TOP_PWR_CLK"},
+	{"AIF1TX", NULL, "AUDIO_TOP_PDN_RESERVED"},
+	{"AIF1TX", NULL, "AUDIO_TOP_I2S_DL"},
+	{"AIF1TX", NULL, "AFE_ON"},
 
 	{"AIF Out Mux", NULL, "Mic Type Mux"},
-
-	{"Mic Type Mux", "ACC", "ADC L"},
-	{"Mic Type Mux", "ACC", "ADC R"},
-	{"Mic Type Mux", "DCC", "ADC L"},
-	{"Mic Type Mux", "DCC", "ADC R"},
-	{"Mic Type Mux", "DCC_ECM_DIFF", "ADC L"},
-	{"Mic Type Mux", "DCC_ECM_DIFF", "ADC R"},
-	{"Mic Type Mux", "DCC_ECM_SINGLE", "ADC L"},
-	{"Mic Type Mux", "DCC_ECM_SINGLE", "ADC R"},
-	{"Mic Type Mux", "DMIC", "AIN0"},
-	{"Mic Type Mux", "DMIC", "AIN2"},
+	{"AIF Out Mux", NULL, "AIN0_DMIC"},
+	{"AIF Out Mux", NULL, "AIN2_DMIC"},
+	{"AIF Out Mux", NULL, "ADC L"},
+	{"AIF Out Mux", NULL, "ADC R"},
 
 	{"ADC L", NULL, "ADC L Mux"},
-		{"ADC L", NULL, "ADC Supply"},
+	{"ADC L", NULL, "ADC Supply"},
 	{"ADC R", NULL, "ADC R Mux"},
-		{"ADC R", NULL, "ADC Supply"},
+	{"ADC R", NULL, "ADC Supply"},
 
 	{"ADC L Mux", "Left Preamplifier", "PGA L"},
-
 	{"ADC R Mux", "Right Preamplifier", "PGA R"},
 
 	{"PGA L", NULL, "PGA L Mux"},
@@ -3709,7 +3761,6 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"DL Power Supply", NULL, "CLK_BUF"},
 	{"DL Power Supply", NULL, "AUDGLB"},
 	{"DL Power Supply", NULL, "CLKSQ Audio"},
-
 	{"DL Power Supply", NULL, "AUDNCP_CK"},
 	{"DL Power Supply", NULL, "ZCD13M_CK"},
 	{"DL Power Supply", NULL, "AUD_CK"},
@@ -3719,32 +3770,31 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 	{"DL Digital Clock", NULL, "AUDIO_TOP_AFE_CTL"},
 	{"DL Digital Clock", NULL, "AUDIO_TOP_DAC_CTL"},
 	{"DL Digital Clock", NULL, "AUDIO_TOP_PWR_CLK"},
-
 	{"DL Digital Clock", NULL, "AFE_ON"},
 
 	{"AIF_RX", NULL, "DL Digital Clock"},
 
 	/* DL Path */
 	{"DAC In Mux", "Normal Path", "AIF_RX"},
-
 	{"DAC In Mux", "Sgen", "SGEN DL"},
-		{"SGEN DL", NULL, "SGEN DL SRC"},
-		{"SGEN DL", NULL, "SGEN MUTE"},
-		{"SGEN DL", NULL, "SGEN DL Enable"},
-		{"SGEN DL", NULL, "DL Digital Clock"},
-		{"SGEN DL", NULL, "AUDIO_TOP_PDN_AFE_TESTMODEL"},
+
+	{"SGEN DL", NULL, "SGEN DL SRC"},
+	{"SGEN DL", NULL, "SGEN MUTE"},
+	{"SGEN DL", NULL, "SGEN DL Enable"},
+	{"SGEN DL", NULL, "DL Digital Clock"},
+	{"SGEN DL", NULL, "AUDIO_TOP_PDN_AFE_TESTMODEL"},
 
 	{"DACL", NULL, "DAC In Mux"},
-		{"DACL", NULL, "DL Power Supply"},
+	{"DACL", NULL, "DL Power Supply"},
 
 	{"DACR", NULL, "DAC In Mux"},
-		{"DACR", NULL, "DL Power Supply"},
+	{"DACR", NULL, "DL Power Supply"},
 
 	/* Lineout Path */
 	{"LOL Mux", "Playback", "DACL"},
 
 	{"LOL Buffer", NULL, "LOL Mux"},
-		{"LOL Buffer", NULL, "LO Stability Enh"},
+	{"LOL Buffer", NULL, "LO Stability Enh"},
 
 	{"LINEOUT L", NULL, "LOL Buffer"},
 
@@ -3768,20 +3818,26 @@ static const struct snd_soc_dapm_route mt6358_dapm_routes[] = {
 
 	/* VOW */
 	{"VOW TX", NULL, "Mic Type Mux"},
-		{"VOW TX", NULL, "CLK_BUF"},
-		{"VOW TX", NULL, "AUDGLB"},
-		{"VOW TX", NULL, "AUD_CK"},
-		/*{"VOW TX", NULL, "CLKSQ Audio"},*/
-		{"VOW TX", NULL, "VOW_AUD_LPW"},
-		{"VOW TX", NULL, "VOW_CLK"},
-		{"VOW TX", NULL, "AUD_VOW"},
-		{"VOW TX", NULL, "VOW_LDO"},
+	{"VOW TX", NULL, "CLK_BUF"},
+	{"VOW TX", NULL, "AUDGLB"},
+	{"VOW TX", NULL, "AUD_CK"},
+	{"VOW TX", NULL, "VOW_AUD_LPW"},
+	{"VOW TX", NULL, "VOW_CLK"},
+	{"VOW TX", NULL, "AUD_VOW"},
+	{"VOW TX", NULL, "VOW_LDO"},
 	{"Mic Type Mux", "VOW_ACC", "ADC L"},
 	{"Mic Type Mux", "VOW_DCC", "ADC L"},
 	{"Mic Type Mux", "VOW_DCC_ECM_DIFF", "ADC L"},
 	{"Mic Type Mux", "VOW_DCC_ECM_SINGLE", "ADC L"},
 	{"Mic Type Mux", "VOW_DMIC", "AIN0"},
 	{"Mic Type Mux", "VOW_DMIC_LP", "AIN0"},
+
+	/* mic bias */
+	{"AIN0", NULL, "MIC_BIAS", mt_amic_connect},
+	{"AIN1", NULL, "MIC_BIAS", mt_amic_connect},
+	{"AIN2", NULL, "MIC_BIAS", mt_amic_connect},
+	{"AIN0_DMIC", NULL, "MIC_BIAS", mt_dmic_connect},
+	{"AIN2_DMIC", NULL, "MIC_BIAS", mt_dmic_connect},
 };
 
 static int mt6358_codec_dai_hw_params(struct snd_pcm_substream *substream,
@@ -7671,6 +7727,28 @@ static const struct regmap_config mt6358_regmap = {
 };
 #endif
 
+static void mt6358_parse_dt(struct mt6358_priv *priv)
+{
+	int ret;
+	struct device *dev = priv->dev;
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,dmic-mode",
+				   &priv->dmic_one_wire_mode);
+	if (ret) {
+		dev_info(dev, "%s() failed to read dmic-mode, default 2 wire\n",
+			 __func__);
+		priv->dmic_one_wire_mode = 0;
+	}
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,mic-type",
+				   &priv->mux_select[MUX_MIC_TYPE]);
+	if (ret) {
+		dev_info(dev, "%s() failed to read mic-type, default DCC\n",
+			 __func__);
+		priv->mux_select[MUX_MIC_TYPE] = MIC_TYPE_MUX_DCC;
+	}
+}
+
 static int mt6358_platform_driver_probe(struct platform_device *pdev)
 {
 	struct mt6358_priv *priv;
@@ -7712,8 +7790,10 @@ static int mt6358_platform_driver_probe(struct platform_device *pdev)
 					    S_IFREG | 0444, NULL,
 					    priv, &mt6358_debugfs_ops);
 #endif
+	mt6358_parse_dt(priv);
+
 	dev_info(priv->dev, "%s(), dev name %s\n",
-		__func__, dev_name(&pdev->dev));
+		 __func__, dev_name(&pdev->dev));
 
 	return snd_soc_register_codec(&pdev->dev,
 				      &mt6358_soc_codec_driver,
