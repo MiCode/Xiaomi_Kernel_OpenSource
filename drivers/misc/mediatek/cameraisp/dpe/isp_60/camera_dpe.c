@@ -2826,11 +2826,11 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 
-	smi_bus_prepare_enable(SMI_LARB19, DPE_DEV_NAME);
-	smi_bus_prepare_enable(SMI_LARB20, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_TOP_MUX_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_TOP_MUX_DPE clock\n");
+	smi_bus_prepare_enable(SMI_LARB19, DPE_DEV_NAME);
+	smi_bus_prepare_enable(SMI_LARB20, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_IPESYS_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IPESYS_DPE clock\n");
@@ -2840,10 +2840,9 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 static inline void DPE_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(dpe_clk.CG_IPESYS_DPE);
-	clk_disable_unprepare(dpe_clk.CG_TOP_MUX_DPE);
 	smi_bus_disable_unprepare(SMI_LARB19, DPE_DEV_NAME);
 	smi_bus_disable_unprepare(SMI_LARB20, DPE_DEV_NAME);
-
+	clk_disable_unprepare(dpe_clk.CG_TOP_MUX_DPE);
 }
 #endif
 
@@ -4445,7 +4444,7 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 				pUserInfo->Pid);
 
 	p = pUserInfo->Pid % IRQ_USER_NUM_MAX;
-	LOG_INF("buf_rdy = %d\n", buf_rdy);
+	//LOG_INF("buf_rdy = %d\n", buf_rdy);
 	if (buf_rdy) {
 		spin_lock_irqsave
 		(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]), flags);
@@ -4484,7 +4483,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	unsigned long flags;
 	unsigned int m_real_ReqNum, f;
 
-	LOG_INF("[%s]buf address/len = 0x%lx/0x%x\n",
+	LOG_DBG("[%s]buf address/len = 0x%lx/0x%x\n",
 		__func__, p->m.userptr,  p->length);
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
 
@@ -4581,7 +4580,7 @@ spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 		Ret = -EFAULT;
 	}
 
-	LOG_ERR("[%s]buf address/len = 0x%lx/0x%x\n",
+	LOG_DBG("[%s]buf address/len = 0x%lx/0x%x\n",
 		__func__, p->m.userptr,  p->length);
 EXIT:
 	return 0;
