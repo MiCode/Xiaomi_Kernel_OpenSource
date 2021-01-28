@@ -94,7 +94,7 @@ static wait_queue_head_t wait_queue_enque;
 static struct ion_handle
 	*import_buffer_handle[CCU_IMPORT_BUF_NUM];
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source ccu_wake_lock;
 #else
 struct wake_lock ccu_wake_lock;
@@ -1382,7 +1382,7 @@ if ((strcmp("ccu", g_ccu_device->dev->of_node->name) == 0)) {
 			CCU_DEV_NAME, ret);
 			goto EXIT;
 		}
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
 #else
 			wake_lock_init(&ccu_wake_lock, WAKE_LOCK_SUSPEND,
