@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--dct_version="2.5" buid_sn="161102" dws_modification_time="09.10.2019.11:01:07"-->
 <dct_cfg>
-    <general chip="MT6893">
+    <general chip="MT6885">
         <proj>Internal phone</proj>
         <module name="adc">
             <count>5</count>

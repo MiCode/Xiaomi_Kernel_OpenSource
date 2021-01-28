@@ -93,7 +93,7 @@
 #define RDMA_THRESHOLD_FOR_DVFS_FLD_HIGH REG_FLD_MSB_LSB(29, 16)
 #define DISP_REG_RDMA_SRAM_SEL 0x00b0
 #define DISP_REG_RDMA_STALL_CG_CON 0x00b4
-#ifdef CONFIG_MACH_MT6885
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00b8
 #endif
 #ifdef CONFIG_MACH_MT6873
@@ -430,7 +430,7 @@ void mtk_rdma_cal_golden_setting(struct mtk_ddp_comp *comp,
 	unsigned int mmsys_clk = 208;
 	unsigned int FP = 1000;
 	unsigned int fifo_size = 2240;
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	unsigned int pre_ultra_low_us = 245, pre_ultra_high_us = 255;
 	unsigned int ultra_low_us = 230, ultra_high_us = 245;
 	unsigned int urgent_low_us = 113, urgent_high_us = 117;
@@ -1004,7 +1004,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 			readl(DISP_REG_RDMA_SRAM_SEL + baddr));
 		DDPDUMP("(0x0b4)DISP_REG_RDMA_STALL_CG_CON=0x%x\n",
 			readl(DISP_REG_RDMA_STALL_CG_CON + baddr));
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		DDPDUMP("(0x0b8)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
 			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
 #else

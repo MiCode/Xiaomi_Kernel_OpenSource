@@ -2676,7 +2676,8 @@ int mtk_drm_ioctl_read_reg(struct drm_device *dev, void *data,
 			__func__, __LINE__);
 		rParams->val = readl(va) & rParams->mask;
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+ || defined(CONFIG_MACH_MT6893)
 	// For 6885 CCORR COEF, real values need to right shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))
@@ -2716,7 +2717,8 @@ int mtk_drm_ioctl_write_reg(struct drm_device *dev, void *data,
 		return -EFAULT;
 	}
 
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+ || defined(CONFIG_MACH_MT6893)
 	// For 6885 CCORR COEF, real values need to left shift one bit
 	if (pa >= ccorr_comp->regs_pa + CCORR_REG(0) &&
 		pa <= ccorr_comp->regs_pa + CCORR_REG(4))

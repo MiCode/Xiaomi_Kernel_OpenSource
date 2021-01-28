@@ -357,7 +357,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	unsigned int res = 0;
 	unsigned int frame_rate = 0;
 	unsigned long long consume_rate = 0;
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	unsigned int fifo_size = 325;
 	unsigned int fifo_size_uv = 31;
 #endif
@@ -394,7 +394,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_YVU420:
 	case DRM_FORMAT_YUV420:
 		/* 3 plane */
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		fifo_size = 228;
 		fifo_size_uv = 50;
 #endif
@@ -411,7 +411,7 @@ static void mtk_wdma_calc_golden_setting(struct golden_setting_context *gsc,
 	case DRM_FORMAT_NV12:
 	case DRM_FORMAT_NV21:
 		/* 2 plane */
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		fifo_size = 228;
 		fifo_size_uv = 109;
 #endif

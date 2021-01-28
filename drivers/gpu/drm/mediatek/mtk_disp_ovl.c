@@ -2214,7 +2214,7 @@ void mtk_ovl_cal_golden_setting(struct mtk_ddp_config *cfg, unsigned int *gs)
 
 	DDPDBG("%s,is_dc:%d\n", __func__, is_dc);
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	/* OVL_RDMA_MEM_GMC_SETTING_1 */
 	gs[GS_OVL_RDMA_ULTRA_TH] = 0x3ff;
 	gs[GS_OVL_RDMA_PRE_ULTRA_TH] = (!is_dc) ? 0x3ff : 0x15e;
@@ -3010,7 +3010,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 		Lx_base += (DISP_REG_OVL_EL_CON(0) - DISP_REG_OVL_CON(0));
 
 		Lx_addr_base = baddr + layer * 0x4;
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		Lx_addr_base +=
 			(DISP_REG_OVL_EL_ADDR(0) - DISP_REG_OVL_ADDR_MT6885);
 #endif
@@ -3027,7 +3027,7 @@ static void ovl_dump_layer_info(struct mtk_ddp_comp *comp, int layer,
 	offset = readl(DISP_REG_OVL_L0_OFFSET + Lx_base);
 	src_size = readl(DISP_REG_OVL_L0_SRC_SIZE + Lx_base);
 	pitch = readl(DISP_REG_OVL_L0_PITCH + Lx_base);
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 	addr = readl(DISP_REG_OVL_ADDR_MT6885 + Lx_addr_base);
 #endif
 #if defined(CONFIG_MACH_MT6873)

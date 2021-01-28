@@ -1339,7 +1339,8 @@ static struct clk_ops mtk_mipi_tx_pll_ops = {
 
 static int mtk_mipi_tx_power_on_signal(struct phy *phy)
 {
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
+ && !defined(CONFIG_MACH_MT6893)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 
@@ -1445,7 +1446,7 @@ static void backup_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 	}
 #endif /* mipitx impedance print */
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #if 0 /* Second mipi tx is not currently in use */
 	/* backup second mipitx impedance */
 	for (i = 0; i < 2; i++) {
@@ -1618,7 +1619,7 @@ static void refill_mipitx_impedance(struct mtk_mipi_tx *mipi_tx)
 	}
 #endif /* mipitx impedance print */
 
-#if defined(CONFIG_MACH_MT6885)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #if 0 /* Second mipi tx is not currently in use */
 	/* refill second mipitx impedance */
 	for (i = 0; i < 2; i++) {
@@ -1730,7 +1731,8 @@ static int mtk_mipi_tx_power_on(struct phy *phy)
 
 static void mtk_mipi_tx_power_off_signal(struct phy *phy)
 {
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
+ && !defined(CONFIG_MACH_MT6893)
 	struct mtk_mipi_tx *mipi_tx = phy_get_drvdata(phy);
 	u32 reg;
 

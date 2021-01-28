@@ -1002,7 +1002,8 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	const int *gain;
 
 	gain = param->DREGainFltStatus;
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) \
+ || defined(CONFIG_MACH_MT6893)
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(0),
 	    DRE_REG_2(gain[0], 0, gain[1], 14), ~0);

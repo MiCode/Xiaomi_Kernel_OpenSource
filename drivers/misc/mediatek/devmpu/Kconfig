@@ -17,7 +17,7 @@ config MTK_DEVMPU_EMI
 
 config DEVMPU_MT6885
 	bool "Mediatek MT6885 Device MPU driver"
-	depends on MACH_MT6885
+	depends on MACH_MT6885 || MACH_MT6893
 	select MTK_DEVMPU if (MTK_EMI || MEDIATEK_EMI)
 	select MTK_DEVMPU_EMI if (MTK_EMI || MEDIATEK_EMI)
 	help

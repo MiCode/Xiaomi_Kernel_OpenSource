@@ -868,7 +868,8 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 	val = (val & ~mask) | (value & mask);
 	writel(val, dsi->regs + DSI_PSCTRL);
 
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
+ && !defined(CONFIG_MACH_MT6893)
 	val = vm->hactive * dsi_buf_bpp;
 	writel(val, dsi->regs + DSI_HSTX_CKL_WC);
 #endif
@@ -899,7 +900,8 @@ static void mtk_dsi_rxtx_control(struct mtk_dsi *dsi)
 	}
 
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_CLOCK_NON_CONTINUOUS) << 6;
-#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873)
+#if !defined(CONFIG_MACH_MT6885) && !defined(CONFIG_MACH_MT6873) \
+ && !defined(CONFIG_MACH_MT6893)
 	tmp_reg |= (dsi->mode_flags & MIPI_DSI_MODE_EOT_PACKET) >> 3;
 #endif
 	tmp_reg |= HSTX_CKLP_EN;

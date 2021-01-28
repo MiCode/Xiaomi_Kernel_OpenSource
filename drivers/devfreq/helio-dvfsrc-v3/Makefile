@@ -35,5 +35,6 @@ ccflags-y += -I$(srctree)/include/memory/mediatek/
 obj-y += helio-dvfsrc-qos.o helio-dvfsrc-sysfs.o helio-dvfsrc-opp.o
 obj-$(CONFIG_MACH_MT6785) += helio-dvfsrc-opp-mt6785.o helio-dvfsrc-mt6785.o helio-dvfsrc-ip-v2.o
 obj-$(CONFIG_MACH_MT6885) += helio-dvfsrc-opp-mt6885.o helio-dvfsrc-mt6885.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
+obj-$(CONFIG_MACH_MT6893) += helio-dvfsrc-opp-mt6885.o helio-dvfsrc-mt6885.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
 obj-$(CONFIG_MACH_MT6873) += helio-dvfsrc-opp-mt6873.o helio-dvfsrc-mt6873.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
 obj-$(CONFIG_MACH_MT6853) += helio-dvfsrc-opp-mt6853.o helio-dvfsrc-mt6853.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
