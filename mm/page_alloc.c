@@ -153,6 +153,30 @@ static inline void set_pcppage_migratetype(struct page *page, int migratetype)
 	page->index = migratetype;
 }
 
+static gfp_t amms_cma_saved_gfp_mask;
+
+void amms_cma_restore_gfp_mask(void)
+{
+#ifdef CONFIG_PM_SLEEP
+	WARN_ON(!mutex_is_locked(&pm_mutex));
+#endif
+	if (amms_cma_saved_gfp_mask) {
+		gfp_allowed_mask = amms_cma_saved_gfp_mask;
+		amms_cma_saved_gfp_mask = 0;
+	}
+}
+
+void amms_cma_restrict_gfp_mask(void)
+{
+#ifdef CONFIG_PM_SLEEP
+	WARN_ON(!mutex_is_locked(&pm_mutex));
+#endif
+	WARN_ON(amms_cma_saved_gfp_mask);
+	amms_cma_saved_gfp_mask = gfp_allowed_mask;
+	gfp_allowed_mask &= ~__GFP_MOVABLE;
+}
+
+
 #ifdef CONFIG_PM_SLEEP
 /*
  * The following functions are used by the suspend/hibernate code to temporarily

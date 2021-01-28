@@ -11,10 +11,17 @@
 # GNU General Public License for more details.
 #
 
-obj-y += memory-amms.o
-MTK_TOP = $(srctree)/drivers/misc/mediatek/
-ccflags-y += -I$(srctree)/drivers/devfreq/
-ccflags-y += -I$(MTK_TOP)/base/power/include/
-ccflags-y += -I$(MTK_TOP)/base/power/$(MTK_PLATFORM)/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/mu3d/drv \
+             -I$(srctree)/drivers/misc/mediatek/mu3d/hal \
+             -I$(srctree)/drivers/misc/mediatek/mu3phy \
+			 -I$(srctree)/drivers/misc/mediatek/base/power/include/
 
+ifeq ($(CONFIG_USB_DEBUG),y)
+	EXTRA_CFLAGS += -DDEBUG
+endif
+
+#For USB PHY TUNING
+#EXTRA_CFLAGS += -DMTK_USB_PHY_TUNING
+
+obj-$(CONFIG_PROJECT_PHY) += mtk-phy-asic.o
+obj-$(CONFIG_DEBUG_FS) += usb20_phy_debugfs.o
