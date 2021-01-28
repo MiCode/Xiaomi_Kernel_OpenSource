@@ -406,15 +406,6 @@ static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
 
 }
 
-#ifdef CONFIG_UCLAMP_TASK
-static unsigned int uclamp_task_effective_util(struct task_struct *p,
-					unsigned int clamp_id)
-{
-	return p->uclamp[clamp_id].effective.value;
-
-}
-#endif
-
 /* must hold runqueue lock for queue se is currently on */
 static const int idle_prefer_max_tasks = 5;
 static struct sched_entity
@@ -448,7 +439,7 @@ static struct sched_entity
 
 			p = task_of(se);
 #ifdef CONFIG_UCLAMP_TASK
-			util_min = uclamp_task_effective_util(p, UCLAMP_MIN);
+			util_min = uclamp_task(p);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_CPU_PREFER
@@ -707,8 +698,7 @@ fastest_domain_idle_prefer_pull(int this_cpu, struct task_struct **p,
 
 			target_capacity = capacity_orig_of(cpu);
 			if (se && entity_is_task(se) &&
-			     (uclamp_task_effective_util(task_of(se),
-				UCLAMP_MIN) >= target_capacity) &&
+			     (uclamp_task(task_of(se)) >= target_capacity) &&
 			     cpumask_test_cpu(this_cpu,
 					      &((task_of(se))->cpus_allowed))) {
 				selected = 1;

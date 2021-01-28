@@ -5,6 +5,7 @@
 
 #include <linux/cpufreq.h>
 #include "sched.h"
+#include "tune.h"
 
 struct eas_data {
 	struct attribute_group *attr_group;
@@ -46,12 +47,15 @@ int show_cpu_info(char *buf, int buf_size)
 			);
 
 		len += snprintf(buf+len, buf_size-len,
+#ifdef CONFIG_SCHED_TUNE
 			"boost=%4lu cfs=%4lu rt=%4lu (%s)\n",
 
 			/* cpu boost utilization */
-			cpu_online(cpu)?boosted_cpu_util(cpu,
+			cpu_online(cpu)?stune_util(cpu,
 					cpu_util_rt(cpu_rq(cpu))):0,
-
+#else
+			"cfs=%4lu rt=%4lu (%s)\n",
+#endif
 			/* cpu cfs utilization */
 			cpu_online(cpu)?cpu_util_cfs(cpu_rq(cpu)):0,
 
