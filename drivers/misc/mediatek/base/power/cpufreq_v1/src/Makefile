@@ -12,13 +12,21 @@
 #
 
 ccflags-y += -DMET_USER_EVENT_SUPPORT
-
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/mt6885_3gear")
+ccflags-y += \
+        -I$(CPUFREQ_ROOT_DIR)/inc \
+        -I$(CPUFREQ_ROOT_DIR)/src/mach/mt6893   \
+        -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include       \
+        -I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM) \
+        -I$(srctree)/drivers/misc/mediatek/base/power/include
+else
 ccflags-y += \
 	-I$(CPUFREQ_ROOT_DIR)/inc \
 	-I$(CPUFREQ_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include
+endif
 #sspm
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
