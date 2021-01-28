@@ -63,11 +63,6 @@ struct adsp_mpu_info_t {
 	u32 data_non_cache_size;
 };
 
-enum ADSP_SEGMENT_TYPE {
-	ADSP_SEGMENT_P90 = 1,
-	ADSP_SEGMENT_P95 = 2,
-};
-
 /* adsp notify event */
 enum ADSP_NOTIFY_EVENT {
 	ADSP_EVENT_STOP = 0,
@@ -130,7 +125,6 @@ struct adsp_regs {
 	size_t sysram_size;
 	size_t shared_size;
 
-	unsigned int segment;
 	enum adsp_clk active_clksrc;
 };
 
@@ -175,10 +169,8 @@ extern struct workqueue_struct *adsp_workqueue;
 
 extern void adsp_enable_dsp_clk(bool enable);
 void set_adsp_mpu(phys_addr_t phys_addr, size_t size);
-int adsp_dts_mapping(void);
 void adsp_bus_sleep_protect(uint32_t enable);
 void adsp_way_en_ctrl(uint32_t enable);
-int adsp_get_devinfo(void);
 
 extern void adsp_send_reset_wq(enum ADSP_RESET_TYPE type,
 			       enum adsp_core_id core_id);

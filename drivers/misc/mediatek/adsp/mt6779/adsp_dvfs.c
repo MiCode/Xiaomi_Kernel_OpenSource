@@ -16,6 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
+#include <linux/vmalloc.h>      /* needed by vmalloc */
 #include <linux/hrtimer.h>
 #include <linux/ktime.h>
 #include <linux/jiffies.h>
@@ -349,19 +350,13 @@ void adsp_release_runstall(uint32_t release)
 
 void adsp_set_clock_freq(enum adsp_clk clk)
 {
-	uint32_t mclk_div_val = readl(ADSP_MCLK_DIV_REG) & ~ADSP_MCLK_DIV_MASK;
-
 	switch (clk) {
 	case CLK_ADSP_CLK26M:
 	case CLK_TOP_MMPLL_D4:
 	case CLK_TOP_ADSPPLL_D6:
-		writel(mclk_div_val, ADSP_MCLK_DIV_REG);
 		adsp_set_top_mux(clk);
 		break;
 	case CLK_TOP_ADSPPLL_D4:
-		if (adspreg.segment == ADSP_SEGMENT_P95)
-			mclk_div_val |= CLK_DIV_2;
-		writel(mclk_div_val, ADSP_MCLK_DIV_REG);
 		adsp_set_top_mux(clk);
 		break;
 	default:
@@ -467,10 +462,6 @@ static unsigned int adsp_itcm_gtable[9216]; //ADSP_A_ITCM_SIZE/4
 static unsigned int adsp_dtcm_gtable[8192]; //ADPS_A_DTCM_SIZE/4
 #endif
 
-#if ADSP_CFG_MONITOR
-static unsigned int adsp_cfg_gtable[5312];
-#endif
-
 void adsp_sram_reset_init(void)
 {
 #if ADSP_ITCM_MONITOR
@@ -508,35 +499,29 @@ void adsp_sram_gtable_backup(void)
 	       (void *)(ADSP_A_DTCM),
 	       (size_t)ADSP_A_DTCM_SIZE);
 #endif
-#if ADSP_CFG_MONITOR
-	/* Enable ADSP CLK and UART to avoid bus hang */
-	clk_cfg = readl(ADSP_CLK_CTRL_BASE);
-	uart_cfg = readl(ADSP_UART_CTRL);
-	writel(readl(ADSP_CLK_CTRL_BASE) | ADSP_CLK_UART_EN,
-		       ADSP_CLK_CTRL_BASE);
-	writel(readl(ADSP_UART_CTRL) | ADSP_UART_RST_N |
-		       ADSP_UART_BCLK_CG, ADSP_UART_CTRL);
-
-	memcpy((void *)adsp_cfg_gtable,
-	       (void *)(ADSP_A_CFG),
-	       (size_t)21248);
-
-	/* Restore ADSP CLK and UART setting */
-	writel(clk_cfg, ADSP_CLK_CTRL_BASE);
-	writel(uart_cfg, ADSP_UART_CTRL);
-#endif
 }
 
 int adsp_sram_gtable_check(void)
 {
 	int ret = 0;
-	int i;
 	int need_assert = 0;
+#if (ADSP_ITCM_MONITOR || ADSP_DTCM_MONITOR)
+	int i;
 	u32 __iomem *s;
+	void *tcm_src = NULL;
+#endif
+
+
 #if ADSP_ITCM_MONITOR
+	tcm_src = vmalloc(sizeof(adsp_itcm_gtable));
+	if (!tcm_src)
+		return -1;
+
+	memcpy_fromio(tcm_src, (void *)(ADSP_A_ITCM),
+		      (size_t)ADSP_A_ITCM_SIZE);
 	ret = memcmp((void *)adsp_itcm_gtable,
-		     (void *)(ADSP_A_ITCM),
-		     (size_t)ADSP_A_ITCM_SIZE);
+		     (void *)tcm_src,
+		     sizeof(adsp_itcm_gtable));
 	if (ret) {
 		pr_notice("[%s]memcmp adsp_itcm_gtable != ITCM, ret %d\n",
 			  __func__, ret);
@@ -551,10 +536,20 @@ int adsp_sram_gtable_check(void)
 		}
 		need_assert = 1;
 	}
+	if (tcm_src != NULL) {
+		vfree(tcm_src);
+		tcm_src = NULL;
+	}
 #endif
 #if ADSP_DTCM_MONITOR
+	tcm_src = vmalloc(sizeof(adsp_dtcm_gtable));
+	if (!tcm_src)
+		return -1;
+
+	memcpy_fromio(tcm_src, (void *)(ADSP_A_DTCM),
+		      (size_t)ADSP_A_DTCM_SIZE);
 	ret = memcmp((void *)adsp_dtcm_gtable,
-		     (void *)(ADSP_A_DTCM),
+		     (void *)tcm_src,
 		     (size_t)ADSP_A_DTCM_SIZE - ADSP_A_DTCM_SHARE_SIZE);
 	if (ret) {
 		pr_notice("[%s]memcmp adsp_dtcm_gtable != DTCM, ret %d\n",
@@ -572,14 +567,9 @@ int adsp_sram_gtable_check(void)
 		}
 		need_assert = 1;
 	}
-#endif
-#if ADSP_CFG_MONITOR
-	ret = memcmp((void *)adsp_cfg_gtable,
-		     (void *)(ADSP_A_CFG),
-		     (size_t)21248);
-	if (ret) {
-		pr_notice("[%s]memcmp adsp_cfg_gtable != CFG, ret %d\n",
-			  __func__, ret);
+	if (tcm_src != NULL) {
+		vfree(tcm_src);
+		tcm_src = NULL;
 	}
 #endif
 #ifdef CONFIG_MTK_AEE_FEATURE
@@ -738,10 +728,8 @@ int __init adsp_dvfs_init(void)
 	adsp_is_force_freq = 0;
 	adsp_is_force_trigger_latmon = 0;
 
-	if (adspreg.segment == ADSP_SEGMENT_P95)
-		adspreg.active_clksrc = CLK_TOP_ADSPPLL_D4;
-	else
-		adspreg.active_clksrc = CLK_TOP_ADSPPLL_D6;
+	adspreg.active_clksrc = CLK_TOP_ADSPPLL_D6;
+
 	return 0;
 }
 void __exit adsp_dvfs_exit(void)

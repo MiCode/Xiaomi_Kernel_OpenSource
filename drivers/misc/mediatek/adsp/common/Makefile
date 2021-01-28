@@ -21,5 +21,5 @@ CFLAGS_adsp_irq.o += -DDEBUG
 CFLAGS_adsp_dvfs.o += -DDEBUG
 CFLAGS_adsp_clk.o += -DDEBUG
 CFLAGS_adsp_service.o += -DDEBUG
-CFLAGS_timesync.o += -DDEBUG
+CFLAGS_adsp_timesync.o += -DDEBUG
 endif

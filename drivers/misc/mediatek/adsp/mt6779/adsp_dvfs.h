@@ -12,9 +12,8 @@
 #include <adsp_ipi.h>
 #include <adsp_clk.h>
 
-#define ADSP_ITCM_MONITOR               (1)
-#define ADSP_DTCM_MONITOR               (1)
-#define ADSP_CFG_MONITOR                (0)
+#define ADSP_ITCM_MONITOR               (0)
+#define ADSP_DTCM_MONITOR               (0)
 #define ADSP_DVFS_PROFILE               (1)
 #define ADSP_FREQ_METER_ID              (43) //hf_fadsp_ck
 

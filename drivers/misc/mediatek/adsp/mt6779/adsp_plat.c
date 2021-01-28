@@ -117,49 +117,6 @@ void adsp_way_en_ctrl(uint32_t enable)
 			adsp_reg_read(ADSP_WAY_EN_CTRL) & ~ADSP_WAY_EN_MASK);
 }
 
-int adsp_get_devinfo(void)
-{
-	struct platform_device *pdev;
-	struct device_node *node;
-	struct nvmem_cell *efuse_cell;
-	unsigned int *efuse_buf;
-	size_t efuse_len;
-	unsigned int val;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,audio_dsp");
-	if (!node) {
-		pr_err("%s cannot find node\n", __func__);
-		goto ERROR;
-	}
-	pdev = of_device_alloc(node, NULL, NULL);
-	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
-	if (IS_ERR(efuse_cell)) {
-		pr_err("%s, cannot get efuse_cell\n", __func__);
-		goto ERROR;
-	}
-	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
-	nvmem_cell_put(efuse_cell);
-	if (IS_ERR(efuse_buf)) {
-		pr_err("%s, cannot get efuse_buf\n", __func__);
-		goto ERROR;
-	}
-
-	val = *efuse_buf;
-	kfree(efuse_buf);
-	platform_device_put(pdev);
-
-	if ((val == 0x09) || (val == 0x90) || (val == 0x08) || (val == 0x10)
-	|| (val == 0x06) || (val == 0x60) || (val == 0x04) || (val == 0x20))
-		adspreg.segment = ADSP_SEGMENT_P95;
-	else
-		adspreg.segment = ADSP_SEGMENT_P90;
-	pr_info("%s val=%d segment=%d\n", __func__, val, adspreg.segment);
-	return 0;
-
-ERROR:
-	return -ENODEV;
-}
-
 #define SEMAPHORE_TIMEOUT 5000
 /*
  * acquire a hardware semaphore
