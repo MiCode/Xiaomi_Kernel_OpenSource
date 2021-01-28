@@ -753,9 +753,12 @@ int mtp_get_mtp_server(void)
 void mtp_dbg_dump(void)
 {
 	static char string[MTP_QUEUE_DBG_STR_SZ];
+	int ret;
 
-	sprintf(string, "NOT MtpServer, task info<%d,%s>\n", current->pid,
+	ret = sprintf(string, "NOT MtpServer, task info<%d,%s>\n", current->pid,
 			 current->comm);
+	if (ret < 0)
+		MTP_QUEUE_DBG("%s-%d, sprintf fail\n", __func__, __LINE__);
 	MTP_QUEUE_DBG("%s\n", string);
 
 #ifdef CONFIG_MEDIATEK_SOLUTION
