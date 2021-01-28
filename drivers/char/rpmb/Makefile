@@ -1,4 +1,3 @@
-ifeq ($(CONFIG_MEDIATEK_SOLUTION),y)
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ccflags-y += -I$(srctree)/drivers/mmc/core
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
@@ -39,7 +38,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/fde_aes/$(MTK_PLATFORM)
 endif
 
 obj-$(CONFIG_RPMB) += rpmb-mtk.o
-endif
 
 obj-$(CONFIG_RPMB) += rpmb.o
 rpmb-objs += core.o
