@@ -924,6 +924,11 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		ret = copy_from_user(&type,
 			(void *)arg, sizeof(enum CCU_BIN_TYPE));
 		LOG_INF_MUST("load ccu bin %d\n", type);
+		powert_stat = ccu_query_power_status();
+		if (type == 0 && powert_stat == 0) {
+			LOG_WARN("ccuk: ioctl without powered on\n");
+			return -EFAULT;
+		}
 		ret = ccu_load_bin(g_ccu_device, type);
 
 		break;
