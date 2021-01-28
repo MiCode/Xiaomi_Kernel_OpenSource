@@ -5,7 +5,7 @@
  *
  */
 
-&bat_gm30 {
+&mtk_gauge {
 	DIFFERENCE_FULLOCV_ITH = <(200)>;
 	/* Charging termination current */
 	SHUTDOWN_1_TIME = <(5)>;

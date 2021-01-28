@@ -3686,8 +3686,7 @@ static struct platform_driver mt6359_gauge_driver = {
 
 static int __init mt6359_gauge_init(void)
 {
-	return 0;
-	/* return platform_driver_register(&mt6359_gauge_driver); */
+	return platform_driver_register(&mt6359_gauge_driver);
 }
 module_init(mt6359_gauge_init);
 
