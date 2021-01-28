@@ -185,7 +185,6 @@ struct mmc_request {
 
 	int			tag;
 #ifdef CONFIG_MMC_CRYPTO
-	bool crypto_enable;
 	int crypto_key_slot;
 	u64 data_unit_num;
 	const struct blk_crypto_key *crypto_key;

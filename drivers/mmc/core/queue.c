@@ -31,6 +31,7 @@
 #include "crypto.h"
 #include "card.h"
 #include "mmc_crypto.h"
+#include "cqhci-crypto.h"
 
 /*
  * Prepare a MMC request. This just filters out odd stuff.
@@ -498,13 +499,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 				return ret;
 			}
 
-			/* inline crypto */
-			ret = mmc_init_crypto(card->host);
-			if (ret)
-				return ret;
-			if (mmc_is_crypto_supported(card->host))
-				mmc_crypto_enable(card->host);
-
 			mmc_cmdq_setup_queue(mq, card);
 			ret = mmc_cmdq_init(mq, card);
 			if (ret) {
@@ -526,8 +520,9 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 					ret = PTR_ERR(mq->thread);
 				}
 				/* inline crypto */
-				mmc_crypto_setup_rq_keyslot_manager(card->host,
-					mq->queue);
+				cqhci_host_init_crypto(host->cmdq_private);
+				mmc_crypto_setup_queue(host, mq->queue);
+
 				return ret;
 			}
 		}
@@ -623,7 +618,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		goto cleanup_queue;
 	}
 
-	/* mmc_crypto_setup_queue(host, mq->queue); */
 	return 0;
 
 cleanup_queue:
@@ -645,7 +639,6 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
 
-	mmc_crypto_destroy_rq_keyslot_manager(mq->card->host, q);
 
 	/* Make sure the queue isn't suspended, as that will deadlock */
 	mmc_queue_resume(mq);

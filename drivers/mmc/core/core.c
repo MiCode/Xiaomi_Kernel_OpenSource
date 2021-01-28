@@ -4006,8 +4006,6 @@ void mmc_stop_host(struct mmc_host *host)
 	/* clear pm flags now and let card drivers set them as needed */
 	host->pm_flags = 0;
 
-	mmc_crypto_disable(host);
-
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 		/* Calling bus_ops->remove() with a claimed host can deadlock */

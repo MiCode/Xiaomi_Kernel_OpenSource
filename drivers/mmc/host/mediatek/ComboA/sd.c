@@ -48,6 +48,7 @@
 #include <mmc/core/host.h>
 #include <mmc/core/queue.h>
 #include <mmc/core/mmc_ops.h>
+#include "mmc/host/cqhci-crypto.h"
 
 #ifdef MTK_MSDC_BRINGUP_DEBUG
 //#include <mach/mt_pmic_wrap.h>
@@ -5239,8 +5240,14 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		mmc->caps2 |= MMC_CAP2_CQE;
 #endif
 
+#ifdef CONFIG_MMC_CRYPTO
+	if (host->hw->host_function == MSDC_EMMC)
+		mmc->caps2 |= MMC_CAP2_CRYPTO;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	/* inline crypto */
 	msdc_crypto_init_vops(mmc);
+#endif
+#endif
 
 	/* If 0  < mmc->max_busy_timeout < cmd.busy_timeout,
 	 * R1B will change to R1, host will not detect DAT0 busy,

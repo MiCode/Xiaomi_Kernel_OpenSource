@@ -2680,6 +2680,8 @@ static struct mmc_cmdq_req *mmc_blk_cmdq_rw_prep(
 	mqrq->cmdq_req.mrq.data = &mqrq->cmdq_req.data;
 	mqrq->req->special = mqrq;
 
+	mmc_crypto_prepare_req(mqrq);
+
 #ifdef MMC_CQHCI_DEBUG
 	pr_debug("%s: %s: mrq: 0x%p, req: 0x%p, mqrq: 0x%p, bytes to xf: %d, tag: %d, mmc_cmdq_req: 0x%p, card-addr: 0x%08x, dir(r-1/w-0): %d\n",
 		mmc_hostname(card->host), __func__, &mqrq->cmdq_req.mrq,
@@ -2713,10 +2715,6 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	active_mqrq->req = req;
 
 	mc_rq = mmc_blk_cmdq_rw_prep(active_mqrq, mq);
-
-	ret = mmc_prepare_mqr_crypto(mq->card->host, active_mqrq);
-	if (ret == -EINVAL)
-		return ret;
 
 	if (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) {
 		unsigned int sectors = blk_rq_sectors(req);

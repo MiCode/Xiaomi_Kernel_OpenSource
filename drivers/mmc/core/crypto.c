@@ -25,8 +25,8 @@ void mmc_crypto_free_host(struct mmc_host *host)
 
 void mmc_crypto_prepare_req(struct mmc_queue_req *mqrq)
 {
-	struct request *req = mmc_queue_req_to_req(mqrq);
-	struct mmc_request *mrq = &mqrq->brq.mrq;
+	struct request *req = mqrq->req;
+	struct mmc_request *mrq = &(mqrq->cmdq_req.mrq);
 	const struct bio_crypt_ctx *bc;
 
 	if (!bio_crypt_should_process(req))
@@ -34,7 +34,7 @@ void mmc_crypto_prepare_req(struct mmc_queue_req *mqrq)
 
 	bc = req->bio->bi_crypt_context;
 	mrq->crypto_key_slot = bc->bc_keyslot;
-	mrq->data_unit_num = bc->bc_dun[0];
+	mrq->data_unit_num = lower_32_bits(bc->bc_dun[0]);
 	mrq->crypto_key = bc->bc_key;
 }
 EXPORT_SYMBOL_GPL(mmc_crypto_prepare_req);

@@ -218,30 +218,8 @@ static int mmc_crypto_keyslot_evict(struct keyslot_manager *ksm,
 }
 
 struct mmc_crypto_variant_ops crypto_var_ops;
-void mmc_crypto_enable_spec(struct mmc_host *host)
-{
-	union mmc_crypto_cfg_entry *cfg_arr = host->crypto_cfgs;
-	int slot;
 
-	if (!mmc_is_crypto_supported(host))
-		return;
-
-	/*
-	 * Reset might clear all keys, so reprogram all the keys.
-	 * Also serves to clear keys on driver init.
-	 */
-	for (slot = 0; slot < NUM_KEYSLOTS(host); slot++)
-		program_key(host, &cfg_arr[slot], slot);
-}
-EXPORT_SYMBOL(mmc_crypto_enable_spec);
-
-void mmc_crypto_disable_spec(struct mmc_host *host)
-{
-	host->caps2 &= ~MMC_CAP2_CRYPTO;
-}
-EXPORT_SYMBOL(mmc_crypto_disable_spec);
-
-static const struct keyslot_mgmt_ll_ops mmc_ksm_ops = {
+static const struct keyslot_mgmt_ll_ops swcq_ksm_ops = {
 	.keyslot_program	= mmc_crypto_keyslot_program,
 	.keyslot_evict		= mmc_crypto_keyslot_evict,
 };
@@ -253,10 +231,10 @@ static const struct keyslot_mgmt_ll_ops mmc_ksm_ops = {
  * Returns 0 on success. Returns -ENODEV if such capabilities don't exist, and
  * -ENOMEM upon OOM.
  */
-int mmc_init_crypto_spec(struct mmc_host *host,
+static int mmc_init_crypto_spec(struct mmc_host *host,
 				const struct keyslot_mgmt_ll_ops *ksm_ops)
 {
-	int err = 0;
+	int err;
 	u32 count;
 	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX];
 
@@ -326,81 +304,26 @@ out:
 
 	return err;
 }
-EXPORT_SYMBOL(mmc_init_crypto_spec);
 
-void mmc_crypto_setup_rq_keyslot_manager_spec(struct mmc_host *host,
-						 struct request_queue *q)
-{
-	if (!mmc_is_crypto_supported(host) || !q)
-		return;
-
-	q->ksm = host->ksm;
-}
-EXPORT_SYMBOL(mmc_crypto_setup_rq_keyslot_manager_spec);
-
-void mmc_crypto_destroy_rq_keyslot_manager_spec(struct mmc_host *host,
-						   struct request_queue *q)
-{
-	keyslot_manager_destroy(host->ksm);
-}
-EXPORT_SYMBOL(mmc_crypto_destroy_rq_keyslot_manager_spec);
-
-int mmc_prepare_mqr_crypto_spec(struct mmc_host *host,
+static int mmc_prepare_mqr_crypto_spec(struct mmc_host *host,
 					struct mmc_queue_req *mqr)
 {
 	struct bio_crypt_ctx *bc;
 	/* MTK non-standard CQE */
 	struct request *request = mqr->req;
 
-	if (!request) {
-		mqr->cmdq_req.mrq.crypto_enable = false;
-		return 0;
-	}
-
 	if (!request->bio ||
 	    !bio_crypt_should_process(request)) {
-		mqr->cmdq_req.mrq.crypto_enable = false;
 		return 0;
 	}
-
-	if (WARN_ON(!mmc_is_crypto_enabled(host))) {
-		/*
-		 * Upper layer asked us to do inline encryption
-		 * but that isn't enabled, so we fail this request.
-		 */
-		return -EINVAL;
-	}
-
 	bc = request->bio->bi_crypt_context;
 	if (!mmc_keyslot_valid(host, bc->bc_keyslot))
 		return -EINVAL;
 
-#ifdef CONFIG_MTK_EMMC_HW_CQ
-	mqr->cmdq_req.mrq.crypto_enable = true;
-	mqr->cmdq_req.mrq.crypto_key_slot = bc->bc_keyslot;
-	mqr->cmdq_req.mrq.data_unit_num = bc->bc_dun[0];
-#endif
+	mqr->brq.mrq.crypto_key_slot = bc->bc_keyslot;
+	mqr->brq.mrq.data_unit_num = bc->bc_dun[0];
+	mqr->brq.mrq.crypto_key = bc->bc_key;
 	return 0;
-}
-EXPORT_SYMBOL(mmc_prepare_mqr_crypto_spec);
-
-
-/* Crypto Variant Ops Support */
-
-void mmc_crypto_enable(struct mmc_host *host)
-{
-	if (host->crypto_vops && host->crypto_vops->enable)
-		return host->crypto_vops->enable(host);
-
-	return mmc_crypto_enable_spec(host);
-}
-
-void mmc_crypto_disable(struct mmc_host *host)
-{
-	if (host->crypto_vops && host->crypto_vops->disable)
-		return host->crypto_vops->disable(host);
-
-	return mmc_crypto_disable_spec(host);
 }
 
 int mmc_init_crypto(struct mmc_host *host)
@@ -412,51 +335,9 @@ int mmc_init_crypto(struct mmc_host *host)
 
 	if (host->crypto_vops && host->crypto_vops->init_crypto)
 		return host->crypto_vops->init_crypto(host,
-							 &mmc_ksm_ops);
+							 &swcq_ksm_ops);
 
-	return mmc_init_crypto_spec(host, &mmc_ksm_ops);
-}
-
-void mmc_crypto_setup_rq_keyslot_manager(struct mmc_host *host,
-					    struct request_queue *q)
-{
-	if (host->crypto_vops && host->crypto_vops->setup_rq_keyslot_manager)
-		return host->crypto_vops->setup_rq_keyslot_manager(host, q);
-
-	return mmc_crypto_setup_rq_keyslot_manager_spec(host, q);
-}
-
-void mmc_crypto_destroy_rq_keyslot_manager(struct mmc_host *host,
-					      struct request_queue *q)
-{
-	if (host->crypto_vops && host->crypto_vops->destroy_rq_keyslot_manager)
-		return host->crypto_vops->destroy_rq_keyslot_manager(host, q);
-
-	return mmc_crypto_destroy_rq_keyslot_manager_spec(host, q);
-}
-
-int mmc_prepare_mqr_crypto(struct mmc_host *host,
-					struct mmc_queue_req *mqr)
-{
-	int ret, ddir, slot, tag;
-	/* MTK non-standard CQE */
-	struct request *req = mqr->req;
-
-	ret = mmc_prepare_mqr_crypto_spec(host, mqr);
-	if (ret || !mqr->cmdq_req.mrq.crypto_enable)
-		return ret;
-
-	///TODO: fix no need parameters
-	/* non-CQE */
-	if (!(host->caps2 & (MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD))) {
-		ddir = rq_data_dir(req);
-		slot = req->bio->bi_crypt_context->bc_keyslot;
-		tag = mqr->brq.mrq.tag;
-		if (host->crypto_vops && host->crypto_vops->prepare_mqr_crypto)
-			return host->crypto_vops->prepare_mqr_crypto(host,
-			mqr->brq.mrq.data_unit_num, ddir, tag, slot);
-	}
-	return 0;
+	return mmc_init_crypto_spec(host, &swcq_ksm_ops);
 }
 
 int mmc_swcq_prepare_mqr_crypto(struct mmc_host *host,
@@ -470,7 +351,7 @@ int mmc_swcq_prepare_mqr_crypto(struct mmc_host *host,
 	mqr = req_to_mmc_queue_req(req);
 
 	ret = mmc_prepare_mqr_crypto_spec(host, mqr);
-	if (ret || !mqr->brq.mrq.crypto_enable)
+	if (ret)
 		return ret;
 
 	/* non-CQE */
@@ -486,40 +367,11 @@ int mmc_swcq_prepare_mqr_crypto(struct mmc_host *host,
 	return 0;
 }
 
-
 int mmc_complete_mqr_crypto(struct mmc_host *host)
 {
 	if (host->crypto_vops && host->crypto_vops->complete_mqr_crypto)
 		return host->crypto_vops->complete_mqr_crypto(host);
 
 	return 0;
-}
-
-void mmc_crypto_debug(struct mmc_host *host)
-{
-	if (host->crypto_vops && host->crypto_vops->debug)
-		host->crypto_vops->debug(host);
-}
-
-int mmc_crypto_suspend(struct mmc_host *host)
-{
-	if (host->crypto_vops && host->crypto_vops->suspend)
-		return host->crypto_vops->suspend(host);
-
-	return 0;
-}
-
-int mmc_crypto_resume(struct mmc_host *host)
-{
-	if (host->crypto_vops && host->crypto_vops->resume)
-		return host->crypto_vops->resume(host);
-
-	return 0;
-}
-
-void mmc_crypto_set_vops(struct mmc_host *host,
-			    struct mmc_crypto_variant_ops *crypto_vops)
-{
-	host->crypto_vops = crypto_vops;
 }
 
