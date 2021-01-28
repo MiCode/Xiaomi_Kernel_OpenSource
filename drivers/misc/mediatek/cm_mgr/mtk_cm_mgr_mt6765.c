@@ -904,11 +904,15 @@ static void check_cm_mgr_status_internal(void)
 	int level;
 	unsigned long flags;
 
-	if (cm_mgr_enable == 0)
+	if (cm_mgr_enable == 0) {
+		cm_mgr_set_dram_level(0);
 		return;
+	}
 
-	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1)
+	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1) {
+		cm_mgr_set_dram_level(0);
 		return;
+	}
 
 	if (cm_mgr_perf_force_enable)
 		return;
