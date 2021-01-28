@@ -14,8 +14,9 @@
 ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6779/inc/mach/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6779.o
 mtk_gpufreq_mt6779-y += mtk_gpufreq_core.o

@@ -480,7 +480,6 @@
 // #define MT_GPUFREQ_BATT_PERCENT_PROTECT /* todo: disable it */
 #define MT_GPUFREQ_BATT_OC_PROTECT
 // #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE
-// #define MT_GPUFREQ_PBM_SUPPORT
 
 /**************************************************
  * Battery Over Current Protect

@@ -143,7 +143,6 @@
  **************************************************/
 #define MT_GPUFREQ_OPP_STRESS_TEST
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE
-// #define MT_GPUFREQ_PBM_SUPPORT
 
 /**************************************************
  * Battery Over Current Protect

@@ -44,8 +44,8 @@
 #include "mt_fhreg.h"
 #endif
 
-#ifdef MT_GPUFREQ_PBM_SUPPORT
-#include "mtk_pbm.h"
+#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#include "mt-plat/mtk_pbm.h"
 #endif
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
@@ -1964,7 +1964,7 @@ static void __mt_gpufreq_low_batt_protect(unsigned int limited_index)
  */
 static void __mt_gpufreq_kick_pbm(int enable)
 {
-#ifdef MT_GPUFREQ_PBM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 	unsigned int power;
 	unsigned int cur_freq;
 	unsigned int cur_volt;
@@ -2023,7 +2023,7 @@ static void __mt_gpufreq_kick_pbm(int enable)
 	} else {
 		kicker_pbm_by_gpu(false, 0, cur_volt / 100);
 	}
-#endif /* MT_GPUFREQ_PBM_SUPPORT */
+#endif /* CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING */
 }
 
 /*
@@ -2432,7 +2432,7 @@ static int __init __mt_gpufreq_init(void)
 	return 0;
 #endif
 
-	gpufreq_pr_debug("@%s: start to initialize gpufreq driver\n", __func__);
+	gpufreq_pr_info("@%s: start to initialize gpufreq driver\n", __func__);
 
 #ifdef CONFIG_PROC_FS
 	if (__mt_gpufreq_create_procfs())

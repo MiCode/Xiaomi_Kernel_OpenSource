@@ -51,9 +51,9 @@
 #include "mt_fhreg.h"
 #endif
 
-#ifdef MT_GPUFREQ_PBM_SUPPORT
-#include "mtk_pbm.h"
-#endif /* ifdef MT_GPUFREQ_PBM_SUPPORT */
+#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
+#include "mt-plat/mtk_pbm.h"
+#endif
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
 #include "mtk_gpu_bw.h"
@@ -61,10 +61,10 @@
 
 #ifdef MT_GPUFREQ_OPP_STRESS_TEST
 #include <linux/random.h>
-#endif /* ifdef MT_GPUFREQ_OPP_STRESS_TEST */
+#endif
 #ifdef CONFIG_MTK_STATIC_POWER
 #include "leakage_table_v2/mtk_static_power.h"
-#endif /* ifdef CONFIG_MTK_STATIC_POWER */
+#endif
 
 #ifdef MT_GPUFREQ_BATT_OC_PROTECT
 #include "mtk_battery_oc_throttling.h"
@@ -81,7 +81,7 @@
 #endif
 
 #ifdef CONFIG_MTK_AEE_IPANIC
-#include "mboot_params.h"
+#include "mt-plat/mboot_params.h"
 #endif
 
 /**
@@ -1360,7 +1360,7 @@ static int mt_gpufreq_power_limited_proc_show(struct seq_file *m, void *v)
 #endif
 	seq_printf(m, "g_thermal_protect_limit_ignore_state = %d\n",
 		g_thermal_protect_limit_ignore_state);
-#ifdef MT_GPUFREQ_PBM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 	seq_printf(m, "g_pbm_limited_ignore_state = %d\n",
 		g_pbm_limited_ignore_state);
 #endif
@@ -2369,7 +2369,7 @@ static void __mt_gpufreq_low_batt_protect(unsigned int limited_index)
 
 static void __mt_gpufreq_kick_pbm(int enable)
 {
-#ifdef MT_GPUFREQ_PBM_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 	unsigned int power;
 	unsigned int cur_freq;
 	unsigned int cur_volt;
@@ -2428,7 +2428,7 @@ static void __mt_gpufreq_kick_pbm(int enable)
 	} else {
 		kicker_pbm_by_gpu(false, 0, cur_volt / 100);
 	}
-#endif /* ifdef MT_GPUFREQ_PBM_SUPPORT */
+#endif /* CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING */
 }
 
 
