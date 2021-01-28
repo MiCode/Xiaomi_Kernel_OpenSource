@@ -381,6 +381,23 @@
 
 	mtk_battery_oc_throttling {
 		compatible = "mediatek,mt6357-battery_oc_throttling";
+		oc-thd-h = <4670>;
+		oc-thd-l = <5500>;
+	};
+
+	mtk_dynamic_loading_throttling {
+		compatible = "mediatek,mt6357-dynamic_loading_throttling";
+		mediatek,charger = <&charger>;
+		uvlo-level = <2600>;
+		isense_support;
+		io-channels = <&pmic_auxadc AUXADC_IMP>,
+				<&pmic_auxadc AUXADC_IMIX_R>,
+				<&pmic_auxadc AUXADC_ISENSE>,
+				<&pmic_auxadc AUXADC_BATADC>;
+		io-channel-names = "pmic_ptim",
+					"pmic_imix_r",
+					"pmic_isense",
+					"pmic_batadc";
 	};
 
 	pmic_lbat_service {
