@@ -336,7 +336,7 @@ static void post_gauge_update(struct mtk_gauge *gauge)
 static int reg_to_current(struct mtk_gauge *gauge,
 	unsigned int regval)
 {
-	unsigned short uvalue16;
+	unsigned short uvalue16 = 0;
 	int dvalue, retval;
 	long long temp_value = 0;
 	bool is_charging = true;
@@ -346,6 +346,7 @@ static int reg_to_current(struct mtk_gauge *gauge,
 	dvalue = (unsigned int) uvalue16;
 	if (dvalue == 0) {
 		temp_value = (long long) dvalue;
+		is_charging = false;
 	} else if (dvalue > 32767) {
 		/* > 0x8000 */
 		temp_value = (long long) (dvalue - 65535);
@@ -639,12 +640,12 @@ int zcv_current_get(struct mtk_gauge *gauge,
 	dvalue = (unsigned int) Temp_Value;
 
 	/* Auto adjust value */
-	if (gauge->gm->fg_cust_data.r_fg_value != DEFAULT_R_FG) {
+	if (gauge->gm->fg_cust_data.r_fg_value != 100) {
 		bm_debug(
 		"[fgauge_read_current] Auto adjust value due to the Rfg is %d\n Ori curr=%d",
 		gauge->gm->fg_cust_data.r_fg_value, dvalue);
 
-		dvalue = (dvalue * DEFAULT_R_FG) /
+		dvalue = (dvalue * 100) /
 		gauge->gm->fg_cust_data.r_fg_value;
 
 		bm_debug("[fgauge_read_current] new current=%d\n", dvalue);
@@ -933,7 +934,6 @@ static int instant_current(struct mtk_gauge *gauge)
 
 	/* Auto adjust value */
 	if (r_fg_value != DEFAULT_R_FG) {
-
 		dvalue = (dvalue * DEFAULT_R_FG) /
 			r_fg_value;
 	}
@@ -1276,12 +1276,11 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 
 	r_fg_value = gauge->hw_status.r_fg_value;
 	car_tune_value = gauge->hw_status.car_tune_value;
-	pre_gauge_update(gauge);
+
 	regmap_read(gauge->regmap, PMIC_FG_R_CURR_ADDR, &reg_value);
 	reg_value =
 		(reg_value & (PMIC_FG_R_CURR_MASK << PMIC_FG_R_CURR_SHIFT))
 		>> PMIC_FG_R_CURR_SHIFT;
-	post_gauge_update(gauge);
 	dvalue = reg_to_current(gauge, reg_value);
 
 	/* Auto adjust value */
@@ -1291,7 +1290,9 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 	dvalue =
 	((dvalue * car_tune_value) / 1000);
 
-	bm_debug("[%s]current:%d\n", __func__, dvalue);
+	/* ptim current >0 means discharge, different with bat_current */
+	dvalue = dvalue * -1;
+	bm_debug("[%s]ptim current:%d\n", __func__, dvalue);
 
 	return dvalue;
 }
