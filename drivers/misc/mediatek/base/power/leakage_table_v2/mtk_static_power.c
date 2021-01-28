@@ -491,6 +491,10 @@ int mt_spower_init(void)
 		goto efuse_end;
 	}
 	pdev = of_device_alloc(node, NULL, NULL);
+	if (pdev == NULL) {
+		err_flag = 1;
+		goto efuse_end;
+	}
 	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 	if (IS_ERR(nvmem_dev)) {
 		pr_notice("%s failed to get mtk_efuse device\n",
