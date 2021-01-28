@@ -427,9 +427,10 @@ s32 cmdq_sec_fill_iwc_command_msg_unlocked(
 	iwc->command.metadata.enginesNeedPortSecurity =
 		cmdq_sec_get_secure_engine(
 		task->secData.enginesNeedPortSecurity);
-
-	memset(iwcex, 0x0, sizeof(*iwcex));
-	memset(iwcex2, 0x0, sizeof(*iwcex2));
+	if (iwcex)
+		memset(iwcex, 0x0, sizeof(*iwcex));
+	if (iwcex2)
+		memset(iwcex2, 0x0, sizeof(*iwcex2));
 
 	/* try general secure client meta available
 	 * if not, try if cq meta available
