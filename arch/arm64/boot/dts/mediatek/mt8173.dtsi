@@ -520,6 +520,144 @@
 			#phy-cells = <0>;
 			status = "disabled";
 		};
+		gce: gce@10212000 {
+			compatible = "mediatek,mt8173-gce";
+			reg = <0 0x10212000 0 0x1000>;
+			interrupts = <GIC_SPI 135 IRQ_TYPE_LEVEL_LOW>,
+				     <GIC_SPI 136 IRQ_TYPE_LEVEL_LOW>;
+			disp_mutex_reg = <0x14020000 0x1000>;
+			g3d_config_base = <0x13000000 0 0xffff0000>;
+			mmsys_config_base = <0x14000000 1 0xffff0000>;
+			disp_dither_base = <0x14010000 2 0xffff0000>;
+			mm_na_base = <0x14020000 3 0xffff0000>;
+			imgsys_base = <0x15000000 4 0xffff0000>;
+			vdec_gcon_base = <0x16000000 5 0xffff0000>;
+			venc_gcon_base = <0x17000000 6 0xffff0000>;
+			conn_peri_base = <0x18000000 7 0xffff0000>;
+			topckgen_base = <0x10000000 8 0xffff0000>;
+			kp_base = <0x10010000 9 0xffff0000>;
+			scp_sram_base = <0x10020000 10 0xffff0000>;
+			infra_na3_base = <0x10030000 11 0xffff0000>;
+			infra_na4_base = <0x10040000 12 0xffff0000>;
+			scp_base = <0x10050000 13 0xffff0000>;
+			mcucfg_base = <0x10200000 14 0xffff0000>;
+			gcpu_base = <0x10210000 15 0xffff0000>;
+			usb0_base = <0x11200000 16 0xffff0000>;
+			usb_sif_base = <0x11210000 17 0xffff0000>;
+			audio_base = <0x11220000 18 0xffff0000>;
+			msdc0_base = <0x11230000 19 0xffff0000>;
+			msdc1_base = <0x11240000 20 0xffff0000>;
+			msdc2_base = <0x11250000 21 0xffff0000>;
+			msdc3_base = <0x11260000 22 0xffff0000>;
+
+			mdp_rdma0_sof = <0>;
+			mdp_rdma1_sof = <1>;
+			mdp_dsi0_te_sof = <2>;
+			mdp_dsi1_te_sof = <3>;
+			mdp_mvw_sof = <4>;
+			mdp_tdshp0_sof = <5>;
+			mdp_tdshp1_sof = <6>;
+			mdp_wdma_sof = <7>;
+			mdp_wrot0_sof = <8>;
+			mdp_wrot1_sof = <9>;
+			mdp_crop_sof = <10>;
+			disp_ovl0_sof = <11>;
+			disp_ovl1_sof = <12>;
+			disp_rdma0_sof = <13>;
+			disp_rdma1_sof = <14>;
+			disp_rdma2_sof = <15>;
+			disp_wdma0_sof = <16>;
+			disp_wdma1_sof = <17>;
+			disp_color0_sof = <18>;
+			disp_color1_sof = <19>;
+			disp_aal_sof = <20>;
+			disp_gamma_sof = <21>;
+			disp_ufoe_sof = <22>;
+			disp_pwm0_sof = <23>;
+			disp_pwm1_sof = <24>;
+			disp_od_sof = <25>;
+			mdp_rdma0_frame_done = <26>;
+			mdp_rdma1_frame_done = <27>;
+			mdp_rsz0_frame_done = <28>;
+			mdp_rsz1_frame_done = <29>;
+			mdp_rsz2_frame_done = <30>;
+			mdp_tdshp0_frame_done = <31>;
+			mdp_tdshp1_frame_done = <32>;
+			mdp_wdma_frame_done = <33>;
+			mdp_wrot0_write_frame_done = <34>;
+			mdp_wrot_write_frame_done = <34>;
+			mdp_wrot0_read_frame_done = <35>;
+			mdp_wrot1_write_frame_done = <36>;
+			mdp_wrot1_read_frame_done = <37>;
+			mdp_crop_frame_done = <38>;
+			disp_ovl0_frame_done = <39>;
+			disp_ovl1_frame_done = <40>;
+			disp_rdma0_frame_done = <41>;
+			disp_rdma1_frame_done = <42>;
+			disp_rdma2_frame_done = <43>;
+			disp_wdma0_frame_done = <44>;
+			disp_wdma1_frame_done = <45>;
+			disp_color0_frame_done = <46>;
+			disp_color1_frame_done = <47>;
+			disp_aal_frame_done = <48>;
+			disp_gamma_frame_done = <49>;
+			disp_ufoe_frame_done = <50>;
+			disp_dpi0_frame_done = <51>;
+			stream_done_0 = <53>;
+			stream_done_1 = <54>;
+			stream_done_2 = <55>;
+			stream_done_3 = <56>;
+			stream_done_4 = <57>;
+			stream_done_5 = <58>;
+			stream_done_6 = <59>;
+			stream_done_7 = <60>;
+			stream_done_8 = <61>;
+			stream_done_9 = <62>;
+			buf_underrun_event_0 = <63>;
+			buf_underrun_event_1 = <64>;
+			buf_underrun_event_2 = <65>;
+			isp_frame_done_p2_2 = <129>;
+			isp_frame_done_p2_1 = <130>;
+			isp_frame_done_p2_0 = <131>;
+			isp_frame_done_p1_1 = <132>;
+			isp_frame_done_p1_0 = <133>;
+			camsv_2_pass1_done = <134>;
+			camsv_1_pass1_done = <135>;
+			seninf_cam1_2_3_fifo_full = <136>;
+			seninf_cam0_fifo_full = <137>;
+			jpgenc_pass2_done = <257>;
+			jpgenc_pass1_done = <258>;
+			jpgdec_done = <259>;
+
+			clocks = <&infracfg CLK_INFRA_GCE>,
+				 <&mmsys CLK_MM_MUTEX_32K>,
+				 <&mmsys CLK_MM_CAM_MDP>,
+				 <&mmsys CLK_MM_MDP_RDMA0>,
+				 <&mmsys CLK_MM_MDP_RDMA1>,
+				 <&mmsys CLK_MM_MDP_RSZ0>,
+				 <&mmsys CLK_MM_MDP_RSZ1>,
+				 <&mmsys CLK_MM_MDP_RSZ2>,
+				 <&mmsys CLK_MM_MDP_TDSHP0>,
+				 <&mmsys CLK_MM_MDP_TDSHP1>,
+				 <&mmsys CLK_MM_MDP_WROT0>,
+				 <&mmsys CLK_MM_MDP_WROT1>,
+				 <&mmsys CLK_MM_MDP_WDMA>;
+
+			clock-names = "MT_CG_INFRA_GCE",
+				      "MT_CG_DISP0_MUTEX_32K",
+				      "MT_CG_DISP0_CAM_MDP",
+				      "MT_CG_DISP0_MDP_RDMA0",
+				      "MT_CG_DISP0_MDP_RDMA1",
+				      "MT_CG_DISP0_MDP_RSZ0",
+				      "MT_CG_DISP0_MDP_RSZ1",
+				      "MT_CG_DISP0_MDP_RSZ2",
+				      "MT_CG_DISP0_MDP_TDSHP0",
+				      "MT_CG_DISP0_MDP_TDSHP1",
+				      "MT_CG_DISP0_MDP_WROT0",
+				      "MT_CG_DISP0_MDP_WROT1",
+				      "MT_CG_DISP0_MDP_WDMA";
+		};
+
 
 		mipi_tx0: mipi-dphy@10215000 {
 			compatible = "mediatek,mt8173-mipi-tx";
