@@ -371,6 +371,7 @@
 		compatible = "mediatek,mt6357-rtc";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		bootmode = <&chosen>;
 
 		fg_init: fg_init {
 			reg = <0 0x1>;
