@@ -888,8 +888,15 @@ static s32 smi_bwc_conf(const struct MTK_SMI_BWC_CONF *conf)
 			smi_drv.scen, smi_scen);
 		return 0;
 	}
-	for (i = 0; i < SMI_DEV_NUM; i++)
+	for (i = 0; i < SMI_DEV_NUM; i++) {
+#if IS_ENABLED(CONFIG_MACH_MT6768)
+		smi_bus_prepare_enable(i, DEV_NAME);
 		mtk_smi_conf_set(smi_dev[i], smi_scen);
+		smi_bus_disable_unprepare(i, DEV_NAME);
+#else
+		mtk_smi_conf_set(smi_dev[i], smi_scen);
+#endif
+	}
 
 	SMIDBG("ioctl=%s:%s, curr=%s(%d), SMI_SCEN=%d\n",
 		smi_bwc_scen_name_get(conf->scen), conf->b_on ? "ON" : "OFF",
