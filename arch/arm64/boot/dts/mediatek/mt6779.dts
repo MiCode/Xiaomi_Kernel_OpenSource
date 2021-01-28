@@ -861,6 +861,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			reg = <0 0x10006000 0 0x1000>;
 		};
 
+		sleep_reg_md@1000f000 {
+			compatible = "mediatek,sleep_reg_md";
+			reg = <0 0x1000f000 0 0x1000>;
+		};
+
 		infracfg: infracfg@1020e000 {
 			compatible = "syscon";
 			reg = <0 0x1020e000 0 0x1000>;
