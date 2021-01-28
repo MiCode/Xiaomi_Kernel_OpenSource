@@ -19,6 +19,8 @@
 #
 #
 
+include $(src)/Kbuild-mtk-custom-env
+include $(src)/platform/mtk_platform_common/Kbuild
 
 # Driver version string which is returned to userspace via an ioctl
 MALI_RELEASE_NAME ?= "r18p0-01rel0"
@@ -34,7 +36,9 @@ MALI_USE_CSF ?= 0
 MALI_UNIT_TEST ?= 0
 MALI_KERNEL_TEST_API ?= 0
 MALI_COVERAGE ?= 0
-CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+# CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+MALI_INSTRUMENTATION_LEVEL ?= 0
+CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 # MALI_CSF_LT_V10: Temporary for hybrid integration config
 MALI_CSF_LT_V10 ?= 0
 
@@ -46,6 +50,7 @@ DEFINES = \
 	-DMALI_UNIT_TEST=$(MALI_UNIT_TEST) \
 	-DMALI_COVERAGE=$(MALI_COVERAGE) \
 	-DMALI_CSF_LT_V10=$(MALI_CSF_LT_V10) \
+	-DMALI_INSTRUMENTATION_LEVEL=$(MALI_INSTRUMENTATION_LEVEL) \
 	-DMALI_RELEASE_NAME=\"$(MALI_RELEASE_NAME)\"
 
 ifeq ($(KBUILD_EXTMOD),)
@@ -55,6 +60,8 @@ else
 # out-of-tree
 DEFINES +=-DMALI_KBASE_PLATFORM_PATH=$(src)/platform/$(CONFIG_MALI_PLATFORM_NAME)
 endif
+
+DEFINES +=-DCONFIG_GPU_TRACEPOINTS=y
 
 DEFINES += -I$(srctree)/drivers/staging/android
 
@@ -130,6 +137,7 @@ ifeq ($(MALI_CUSTOMER_RELEASE),0)
 	SRC += mali_kbase_regs_dump_debugfs.c
 endif
 
+SRC += mali_gputrace.c
 
 ccflags-y += -I$(KBASE_PATH)
 
