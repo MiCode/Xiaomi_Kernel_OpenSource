@@ -86,4 +86,15 @@ struct cpuidle_perf_time {
 	unsigned int k2leave;
 };
 
+
+static inline size_t mt_secure_call(size_t function_id,
+				size_t arg0, size_t arg1, size_t arg2,
+				size_t arg3)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(function_id, arg0, arg1,
+	arg2, arg3, 0, 0, 0, &res);
+	return res.a0;
+}
 #endif
