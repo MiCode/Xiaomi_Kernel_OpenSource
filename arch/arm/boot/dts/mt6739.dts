@@ -871,9 +871,16 @@
 	};
 
 	gce_mbox: gce_mbox@10228000 {
-		compatible = "mediatek,mailbox-gce";
+		compatible = "mediatek,mt6739-gce";
 		reg = <0 0x10228000 0 0x4000>;
 		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;

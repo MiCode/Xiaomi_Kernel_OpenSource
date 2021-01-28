@@ -869,7 +869,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	gce_mbox: gce_mbox@10228000 {
-		compatible = "mediatek,mailbox-gce";
+		compatible = "mediatek,mt6739-gce";
 		reg = <0 0x10228000 0 0x4000>;
 		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>;
 		#mbox-cells = <3>;
@@ -877,6 +877,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		#gce-subsys-cells = <2>;
 		max_prefetch_cnt = <1>;
 		prefetch_size = <96>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
 		clocks = <&infracfg_ao CLK_INFRA_GCE>,
 			<&infracfg_ao CLK_INFRA_GCE_26M>;
 		clock-names = "gce", "gce-timer";
