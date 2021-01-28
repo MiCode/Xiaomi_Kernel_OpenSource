@@ -323,9 +323,6 @@ void disp_ion_cache_flush(struct ion_client *client, struct ion_handle *handle,
 	if (!client || !handle)
 		return;
 
-	if (sync_type == ION_CACHE_FLUSH_ALL)
-		return;
-
 	sys_data.sys_cmd = ION_SYS_CACHE_SYNC;
 	sys_data.cache_sync_param.kernel_handle = handle;
 	sys_data.cache_sync_param.sync_type = ION_CACHE_FLUSH_BY_RANGE;
