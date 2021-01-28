@@ -79,7 +79,9 @@ struct sram_log_header {
 	u32 save_to_emmc;
 	struct dram_buf_header dram_buf;        // 40 bytes
 	struct pl_lk_log dram_curlog_header;    // 32 bytes
-	u32 reserve[43];                        // reserve 43 * 4 char size
+	u32 gz_log_addr;
+	u32 gz_log_len;
+	u32 reserve[41];                        // reserve 41 * 4 char size
 };
 
 enum EMMC_STORE_TYPE {
