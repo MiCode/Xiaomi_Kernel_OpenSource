@@ -72,6 +72,7 @@ obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_MTK_VPU_SUPPORT) += vpu/
 obj-$(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) += mtee/
+obj-$(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) += gcpu/
 obj-$(CONFIG_MTK_MEMORY_LOWPOWER) += memory-lowpower/
 obj-$(CONFIG_MTK_MLOG) += mlog/
 obj-y += memory-amms/
