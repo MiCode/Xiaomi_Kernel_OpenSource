@@ -489,6 +489,7 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 
 			dst_buf_info->used = false;
 			dst_vb2_v4l2->flags |= V4L2_BUF_FLAG_LAST;
+			pfb = &dst_buf_info->frame_buffer;
 			for (i = 0; i < pfb->num_planes; i++)
 				vb2_set_plane_payload(&dst_buf_info->vb.vb2_buf,
 					i, 0);
@@ -851,6 +852,7 @@ void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 {
 	unsigned int suspend_block_cnt = 0;
+	int ret = -1;
 
 	while (ctx->dev->is_codec_suspending == 1) {
 		suspend_block_cnt++;
@@ -862,8 +864,8 @@ void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id)
 	}
 
 	mtk_v4l2_debug(4, "ctx %p [%d] hw_id %d", ctx, ctx->id, hw_id);
-	if (hw_id < MTK_VDEC_HW_NUM)
-		down_interruptible(&ctx->dev->dec_sem[hw_id]);
+	while (hw_id < MTK_VDEC_HW_NUM && ret != 0)
+		ret = down_interruptible(&ctx->dev->dec_sem[hw_id]);
 }
 
 void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx)
