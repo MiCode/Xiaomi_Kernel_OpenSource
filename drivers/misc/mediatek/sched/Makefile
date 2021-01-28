@@ -10,4 +10,7 @@ obj-$(CONFIG_MTK_SCHED_RQAVG_KS) += sched_avg.o
 # For CPU topology to user space
 obj-y += sched_ctl.o
 
+# sysfs interface for user to get EAS related info
+obj-y += eas_plus.o
+
 ccflags-y += -DMET_USER_EVENT_SUPPORT
