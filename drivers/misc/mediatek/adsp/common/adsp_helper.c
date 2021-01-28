@@ -735,8 +735,6 @@ static int adsp_device_probe(struct platform_device *pdev)
 	set_adsp_mpu(adspreg.sharedram, adspreg.shared_size);
 #endif
 
-	adsp_get_devinfo();
-
 	return 0;
 ERROR:
 	return -ENODEV;
@@ -813,6 +811,9 @@ static int __init adsp_module_init(void)
 		return PTR_ERR(adsp_debugfs);
 
 	/* adsp initialize */
+	ret = adsp_get_devinfo();
+	if (ret)
+		goto ERROR;
 	adsp_dvfs_init();
 	adsp_power_on(true);
 	writel(adspreg.segment, ADSP_SEGMENT_CON);

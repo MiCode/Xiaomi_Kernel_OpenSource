@@ -178,7 +178,7 @@ void set_adsp_mpu(phys_addr_t phys_addr, size_t size);
 int adsp_dts_mapping(void);
 void adsp_bus_sleep_protect(uint32_t enable);
 void adsp_way_en_ctrl(uint32_t enable);
-void adsp_get_devinfo(void);
+int adsp_get_devinfo(void);
 
 extern void adsp_send_reset_wq(enum ADSP_RESET_TYPE type,
 			       enum adsp_core_id core_id);

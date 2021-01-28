@@ -9,7 +9,7 @@
 
 void adsp_timesync_suspend(void);
 void adsp_timesync_resume(void);
-unsigned int __init adsp_timesync_init(void);
+int __init adsp_timesync_init(void);
 
 #endif // _ADSP_TIMESYNC_H_
 

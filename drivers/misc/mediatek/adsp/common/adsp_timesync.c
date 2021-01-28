@@ -138,7 +138,7 @@ static void adsp_timesync_ws(struct work_struct *ws)
 	adsp_timesync_sync_base(TIMESYNC_FLAG_SYNC);
 }
 
-unsigned int __init adsp_timesync_init(void)
+int __init adsp_timesync_init(void)
 {
 	adsp_ts_workqueue = create_workqueue("adsp_ts_wq");
 	if (!adsp_ts_workqueue) {
