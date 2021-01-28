@@ -20,7 +20,8 @@
 #include <mtk_dvfsrc_smc_reg.h>
 #endif
 
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)\
+	|| defined(CONFIG_MACH_MT6893)
 #define DVFSRC_SUSPEND_SUPPORT
 #endif
 
