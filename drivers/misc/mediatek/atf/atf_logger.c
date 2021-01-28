@@ -39,6 +39,8 @@
 #define ATF_LAST_MAGIC_NO	0x41544641
 
 static struct mutex atf_mutex; /* shared between the threads */
+static struct mutex atf_raw_buf_mutex;
+static u32 atf_raw_read_offset;
 static wait_queue_head_t    atf_log_wq;
 
 #ifdef CONFIG_OF
@@ -70,9 +72,9 @@ union atf_log_ctrl_t {
 static union atf_log_ctrl_t *atf_buf_vir_ctrl;
 static phys_addr_t atf_buf_phy_ctrl;
 static phys_addr_t atf_buf_len;
+static unsigned char *atf_buf_vir_addr;
 static unsigned char *atf_log_vir_addr;
 static unsigned int atf_log_len;
-static unsigned int atf_reader_alive;
 
 
 #if defined(CONFIG_OF)
@@ -198,14 +200,11 @@ static int atf_log_open(struct inode *inode, struct file *file)
 		return ret;
 	file->private_data = NULL;
 
-	atf_reader_alive++;
-
 	return 0;
 }
 
 static int atf_log_release(struct inode *ignored, struct file *file)
 {
-	atf_reader_alive--;
 	return 0;
 }
 
@@ -268,7 +267,7 @@ static unsigned int atf_log_poll(struct file *file, poll_table *wait)
 
 	if (atf_buf_vir_ctrl->info.atf_write_offset !=
 		atf_buf_vir_ctrl->info.atf_read_offset)
-		ret |= POLLIN | POLLRDNORM;
+		ret = POLLIN | POLLRDNORM;
 
 	return ret;
 }
@@ -301,7 +300,6 @@ void show_atf_log_ctl(void)
 	pr_notice("atf_read_offset(%pa) = %u\n",
 			&(atf_buf_vir_ctrl->info.atf_read_offset),
 			atf_buf_vir_ctrl->info.atf_read_offset);
-	pr_notice("atf_reader_alive = %u\n", atf_reader_alive);
 }
 
 static void show_data(unsigned long addr,
@@ -382,19 +380,105 @@ static struct miscdevice atf_log_dev = {
 	.mode       = 0644,
 };
 
+static ssize_t do_read_raw_buf_to_usr(char __user *buf, size_t count)
+{
+	size_t copy_len;
+
+	/* check copy length */
+	copy_len = atf_buf_len - atf_raw_read_offset;
+
+	/* if copy length < count, just copy the "copy length" */
+	if (count > copy_len)
+		count = copy_len;
+
+	if (copy_to_user(buf,
+		(uint8_t *)(atf_buf_vir_addr + atf_raw_read_offset), count))
+		return -EFAULT;
+
+	/* update the read pos */
+	atf_raw_read_offset += count;
+
+	return count;
+}
+
+static ssize_t atf_raw_buf_read(struct file *file,
+	char __user *buf, size_t count, loff_t *f_pos)
+{
+	ssize_t readback_bytes = 0;
+
+	/* inside a thread */
+	mutex_lock(&atf_raw_buf_mutex);
+
+	readback_bytes = do_read_raw_buf_to_usr(buf, count);
+	/* update the file pos */
+	*f_pos += readback_bytes;
+
+	/* do the work with the data you're protecting */
+	mutex_unlock(&atf_raw_buf_mutex);
+
+	return readback_bytes;
+}
+
+static int atf_raw_buf_open(struct inode *inode, struct file *file)
+{
+	int ret;
+
+	ret = nonseekable_open(inode, file);
+	if (unlikely(ret))
+		return ret;
+	file->private_data = NULL;
+
+	/* clear raw buffer read offset */
+	mutex_lock(&atf_raw_buf_mutex);
+	atf_raw_read_offset = 0;
+	mutex_unlock(&atf_raw_buf_mutex);
+
+	return 0;
+}
+
+static unsigned int atf_raw_buf_poll(struct file *file, poll_table *wait)
+{
+	unsigned int ret = 0;
+
+	if (!(file->f_mode & FMODE_READ))
+		return ret;
+
+	poll_wait(file, &atf_log_wq, wait);
+
+	/* always reply readable */
+	if (atf_raw_read_offset < atf_buf_len)
+		ret = POLLIN | POLLRDNORM;
+
+	return ret;
+}
+
+static const struct file_operations atf_raw_buf_fops = {
+	.owner      = THIS_MODULE,
+	.poll       = atf_raw_buf_poll,
+	.open       = atf_raw_buf_open,
+	.release    = atf_log_release,
+	.read       = atf_raw_buf_read,
+};
+
+static struct miscdevice atf_raw_buf_dev = {
+	.minor      = MISC_DYNAMIC_MINOR,
+	.name       = "atf_raw_buf",
+	.fops       = &atf_raw_buf_fops,
+	.mode       = 0444,
+};
+
 static int __init atf_logger_probe(struct platform_device *pdev)
 {
 	/* register module driver */
 	int err;
 	struct proc_dir_entry *atf_log_proc_dir;
 	struct proc_dir_entry *atf_log_proc_file;
+	struct proc_dir_entry *atf_raw_buf_proc_file;
 	/* register module driver */
 	u64 time_to_sync;
 	struct arm_smccc_res res;
 
 	pr_notice("atf_log: inited");
-	atf_reader_alive = 0;
-
 	err = dt_parse_atf_logger_buf();
 	if (unlikely(err)) {
 		pr_info("No atf_log_buffer\n");
@@ -407,12 +491,18 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	/* map control header */
-	atf_buf_vir_ctrl = ioremap_wc(atf_buf_phy_ctrl, ATF_LOG_CTRL_BUF_SIZE);
+	err = misc_register(&atf_raw_buf_dev);
+	if (unlikely(err)) {
+		pr_info("atf_raw_buf: failed to register device");
+		return -1;
+	}
+
+	/* map whole buffer for raw dump */
+	atf_buf_vir_addr = ioremap_wc(atf_buf_phy_ctrl, atf_buf_len);
+	atf_buf_vir_ctrl = (union atf_log_ctrl_t *) atf_buf_vir_addr;
 	atf_log_len = atf_buf_vir_ctrl->info.atf_log_size;
-	/* map log buffer */
-	atf_log_vir_addr = ioremap_wc(atf_buf_phy_ctrl +
-		ATF_LOG_CTRL_BUF_SIZE, atf_log_len);
+	atf_log_vir_addr = (unsigned char *)atf_buf_vir_ctrl +
+					ATF_LOG_CTRL_BUF_SIZE;
 
 #ifdef ATF_LOGGER_DEBUG
 	show_atf_log_ctl();
@@ -442,6 +532,14 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 		atf_log_proc_dir, &atf_log_fops);
 	if (atf_log_proc_file == NULL) {
 		pr_info("atf_log proc_create failed at atf_log\n");
+		return -ENOMEM;
+	}
+
+	/* create /proc/atf_log/atf_raw_buf */
+	atf_raw_buf_proc_file = proc_create("atf_raw_buf", 0444,
+		atf_log_proc_dir, &atf_raw_buf_fops);
+	if (atf_raw_buf_proc_file == NULL) {
+		pr_info("atf_raw_buf proc_create failed at atf_log\n");
 		return -ENOMEM;
 	}
 
@@ -475,6 +573,7 @@ static int __init atf_log_init(void)
 	int ret = 0;
 
 	mutex_init(&atf_mutex); /* called only ONCE */
+	mutex_init(&atf_raw_buf_mutex);
 
 	ret = platform_driver_register(&atf_logger_driver_probe);
 	if (ret)
