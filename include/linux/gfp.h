@@ -39,8 +39,9 @@ struct vm_area_struct;
 #define ___GFP_ACCOUNT		0x100000u
 #define ___GFP_DIRECT_RECLAIM	0x200000u
 #define ___GFP_KSWAPD_RECLAIM	0x400000u
+#define ___GFP_CMA              0x800000u
 #ifdef CONFIG_LOCKDEP
-#define ___GFP_NOLOCKDEP	0x800000u
+#define ___GFP_NOLOCKDEP	0x1000000u
 #else
 #define ___GFP_NOLOCKDEP	0
 #endif
@@ -216,8 +217,18 @@ struct vm_area_struct;
 /* Disable lockdep for GFP context tracking */
 #define __GFP_NOLOCKDEP ((__force gfp_t)___GFP_NOLOCKDEP)
 
+/*
+ * MTK defined modifiers
+ *
+ *   __GFP_CMA grant the access permission of CMA memroy region.
+ *   MOVABLE ZONE cover cma memory region, for avoid pinned page on cma
+ *   memory block that lead to migration fail. Do not mark that suspicious
+ *   page allocation with __GFP_CMA.
+ */
+#define __GFP_CMA ((__force gfp_t)___GFP_CMA)
+
 /* Room for N __GFP_FOO bits */
-#define __GFP_BITS_SHIFT (23 + IS_ENABLED(CONFIG_LOCKDEP))
+#define __GFP_BITS_SHIFT (24 + IS_ENABLED(CONFIG_LOCKDEP))
 #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
 
 /**
@@ -438,6 +449,12 @@ static inline bool gfpflags_normal_context(const gfp_t gfp_flags)
 	| 1 << (___GFP_MOVABLE | ___GFP_DMA32 | ___GFP_DMA | ___GFP_HIGHMEM)  \
 )
 
+#ifdef CONFIG_ZONE_MOVABLE_CMA
+#define IS_ZONE_MOVABLE_CMA_ZONE_IDX(z)         (z >= ZONE_MOVABLE)
+#else
+#define IS_ZONE_MOVABLE_CMA_ZONE_IDX(z)         (false)
+#endif
+
 static inline enum zone_type gfp_zone(gfp_t flags)
 {
 	enum zone_type z;
@@ -446,6 +463,10 @@ static inline enum zone_type gfp_zone(gfp_t flags)
 	z = (GFP_ZONE_TABLE >> (bit * GFP_ZONES_SHIFT)) &
 					 ((1 << GFP_ZONES_SHIFT) - 1);
 	VM_BUG_ON((GFP_ZONE_BAD >> bit) & 1);
+
+	if (IS_ENABLED(CONFIG_ZONE_MOVABLE_CMA))
+		if (z == ZONE_MOVABLE && !(flags & __GFP_CMA))
+			z -= 1;
 	return z;
 }
 
