@@ -106,7 +106,7 @@ static ssize_t CAMERA_HW_Reg_Debug(struct file *file,
 		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			 sensorReg.RegAddr, sensorReg.RegData);
-		if (ret == 0) {
+		if (ret < 0) {
 			pr_info("Error! snprintf allocate 0");
 			ret = IMGSENSOR_RETURN_ERROR;
 			return ret;
@@ -119,9 +119,14 @@ static ssize_t CAMERA_HW_Reg_Debug(struct file *file,
 			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
 		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
 				sensorReg.RegAddr, sensorReg.RegData);
-		snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			 sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 	}
 	return count;
 }
@@ -160,7 +165,7 @@ static ssize_t CAMERA_HW_Reg_Debug2(struct file *file, const char *buffer,
 		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			sensorReg.RegAddr, sensorReg.RegData);
-		if (ret == 0) {
+		if (ret < 0) {
 			pr_info("Error! snprintf allocate 0");
 			ret = IMGSENSOR_RETURN_ERROR;
 			return ret;
@@ -173,9 +178,14 @@ static ssize_t CAMERA_HW_Reg_Debug2(struct file *file, const char *buffer,
 			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
 		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
 				sensorReg.RegAddr, sensorReg.RegData);
-		snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 	}
 
 	return count;
@@ -214,7 +224,7 @@ static ssize_t CAMERA_HW_Reg_Debug3(struct file *file, const char *buffer,
 		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			 sensorReg.RegAddr, sensorReg.RegData);
-		if (ret == 0) {
+		if (ret < 0) {
 			pr_info("Error! snprintf allocate 0");
 			ret = IMGSENSOR_RETURN_ERROR;
 			return ret;
@@ -226,9 +236,14 @@ static ssize_t CAMERA_HW_Reg_Debug3(struct file *file, const char *buffer,
 			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
 		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
 				sensorReg.RegAddr, sensorReg.RegData);
-		snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			 sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 	}
 
 	return count;
@@ -267,7 +282,7 @@ static ssize_t CAMERA_HW_Reg_Debug4(struct file *file, const char *buffer,
 		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			 sensorReg.RegAddr, sensorReg.RegData);
-		if (ret == 0) {
+		if (ret < 0) {
 			pr_info("Error! snprintf allocate 0");
 			ret = IMGSENSOR_RETURN_ERROR;
 			return ret;
@@ -279,9 +294,14 @@ static ssize_t CAMERA_HW_Reg_Debug4(struct file *file, const char *buffer,
 			(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
 		PK_DBG("read addr = 0x%08x, data = 0x%08x\n",
 					sensorReg.RegAddr, sensorReg.RegData);
-		snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
+		ret = snprintf(mtk_i2c_dump, sizeof(mtk_i2c_dump),
 			"addr = 0x%08x, data = 0x%08x\n",
 			sensorReg.RegAddr, sensorReg.RegData);
+		if (ret < 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 	}
 
 	return count;
@@ -315,9 +335,15 @@ static int proc_camsensor_open(struct inode *inode, struct file *file)
 static int imgsensor_proc_status_info_read(struct seq_file *m, void *v)
 {
 	char status_info[IMGSENSOR_STATUS_INFO_LENGTH];
+	int ret = 0;
 
-	snprintf(status_info, sizeof(status_info), "ERR_L0, %x\n",
+	ret = snprintf(status_info, sizeof(status_info), "ERR_L0, %x\n",
 			*((uint32_t *)(&gimgsensor.status)));
+	if (ret < 0) {
+		pr_info("Error! snprintf allocate 0");
+		ret = IMGSENSOR_RETURN_ERROR;
+		return ret;
+	}
 	seq_printf(m, "%s\n", status_info);
 	return 0;
 };
