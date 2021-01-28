@@ -16,8 +16,9 @@
 
 #include "mt-plat/sync_write.h"
 
+#ifdef CONFIG_MTK_GPU_SUPPORT
 #include "mtk_gpufreq.h"
-
+#endif
 
 /*
  *Bank0: CA7L (TSMCU1)

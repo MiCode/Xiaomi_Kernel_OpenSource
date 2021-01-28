@@ -38,10 +38,10 @@
 #include "mt_freqhopping.h"
 #include "mt_fhreg.h"
 #endif
-#include "upmu_sw.h"
-#include "upmu_hw.h"
 
 #ifdef MT_GPUFREQ_PBM_SUPPORT
+#include "upmu_sw.h"
+#include "upmu_hw.h"
 #include "mtk_pbm.h"
 #endif /* ifdef MT_GPUFREQ_PBM_SUPPORT */
 
