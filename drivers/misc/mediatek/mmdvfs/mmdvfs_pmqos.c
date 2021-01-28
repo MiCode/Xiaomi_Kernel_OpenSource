@@ -477,13 +477,14 @@ static inline u32 get_id_by_comm_port(u32 comm, u32 comm_port)
 	return ((comm << 16) | (comm_port & 0xffff));
 }
 
+#define MAX_COMM_NUM (2)
 static bool larb_soft = true;
 static u32 default_bwl = 0x200;
 static s32 force_larb_mode = -1;
-static s32 comm_port_limit[SMI_COMM_NUM][SMI_COMM_MASTER_NUM] = {};
-static s32 comm_port_hrt[SMI_COMM_NUM][SMI_COMM_MASTER_NUM] = {};
-static s32 force_comm_bwl[SMI_COMM_NUM][SMI_COMM_MASTER_NUM] = {};
-static u32 comm_freq_class[SMI_COMM_NUM] = {};
+static s32 comm_port_limit[MAX_COMM_NUM][SMI_COMM_MASTER_NUM] = {};
+static s32 comm_port_hrt[MAX_COMM_NUM][SMI_COMM_MASTER_NUM] = {};
+static s32 force_comm_bwl[MAX_COMM_NUM][SMI_COMM_MASTER_NUM] = {};
+static u32 comm_freq_class[MAX_COMM_NUM] = {};
 #ifdef MMDVFS_SKIP_SMI_CONFIG
 static bool skip_smi_config = true;
 #else
@@ -491,15 +492,15 @@ static bool skip_smi_config;
 #endif
 void mm_qos_update_larb_bwl(u32 larb_update, bool bw_change)
 {
-	u32 i, larb_bw, comm;
+	u32 i, larb_bw, comm, comm_port;
 	bool larb_soft_mode = larb_soft;
-	s32 freq[SMI_COMM_NUM];
-	const u32 length = SMI_COMM_NUM * SMI_COMM_MASTER_NUM;
+	s32 freq[MAX_COMM_NUM];
+	const u32 length = MAX_COMM_NUM * SMI_COMM_MASTER_NUM;
 
 	if (unlikely(force_larb_mode >= 0))
 		larb_soft_mode = force_larb_mode;
 
-	for (i = 0; i < SMI_COMM_NUM; i++)
+	for (i = 0; i < MAX_COMM_NUM; i++)
 		freq[i] = mmdvfs_qos_get_freq(comm_freq_class[i]);
 
 	for (i = 0; i < length; i++) {
@@ -508,46 +509,50 @@ void mm_qos_update_larb_bwl(u32 larb_update, bool bw_change)
 		comm = i / SMI_COMM_MASTER_NUM;
 		if (freq[comm] <= 0)
 			continue;
-
+		comm_port = i % SMI_COMM_MASTER_NUM;
 		larb_bw = 0;
-		if (force_comm_bwl[comm][i] != 0) {
-			larb_bw = force_comm_bwl[comm][i];
+		if (force_comm_bwl[comm][comm_port] != 0) {
+			larb_bw = force_comm_bwl[comm][comm_port];
 			if (log_level & 1 << log_bw)
 				pr_notice("force comm:%d port:%d bwl:%#x\n",
-				comm, i, larb_bw);
-		} else if (comm_port_limit[comm][i]) {
-			larb_bw = (comm_port_limit[comm][i] << 8) / freq[comm];
+				comm, comm_port, larb_bw);
+		} else if (comm_port_limit[comm][comm_port]) {
+			larb_bw = (comm_port_limit[comm][comm_port] << 8)
+					/ freq[comm];
 			if (log_level & 1 << log_bw)
 				pr_notice("comm:%d port:%d bwl:%#x bw:%u\n",
-				comm, i, larb_bw, comm_port_limit[comm][i]);
+				comm, comm_port, larb_bw,
+				comm_port_limit[comm][comm_port]);
 		}
 		if (larb_bw) {
-			smi_bwl_update(get_id_by_comm_port(comm, i), larb_bw,
-				(comm_port_hrt[comm][i] > 0) ?
+			smi_bwl_update(get_id_by_comm_port(comm, comm_port),
+				larb_bw, (comm_port_hrt[comm][comm_port] > 0) ?
 				true : larb_soft_mode, "MMDVFS");
-			trace_mmqos__update_larb(comm, i,
-				comm_port_limit[comm][i], larb_bw,
-				(comm_port_hrt[comm][i] > 0) ?
+			trace_mmqos__update_larb(comm, comm_port,
+				comm_port_limit[comm][comm_port], larb_bw,
+				(comm_port_hrt[comm][comm_port] > 0) ?
 				true : larb_soft_mode);
 #ifdef MMDVFS_MMP
-			if (mmdvfs_log_larb_mmp(i, -1))
+			if (mmdvfs_log_larb_mmp(comm_port, -1))
 				mmprofile_log_ex(
 					mmdvfs_mmp_events.larb_bwl,
 					MMPROFILE_FLAG_PULSE,
-					(i << 28) | larb_bw, larb_soft_mode);
+					(comm_port << 28) | larb_bw,
+					larb_soft_mode);
 #endif
 		} else if (bw_change) {
 			/* if no bwl_bw, set default bwl with soft-mode */
-			smi_bwl_update(get_id_by_comm_port(comm, i),
+			smi_bwl_update(get_id_by_comm_port(comm, comm_port),
 				default_bwl, true, "MMDVFS");
-			trace_mmqos__update_larb(comm, i,
-				comm_port_limit[comm][i], default_bwl, true);
+			trace_mmqos__update_larb(comm, comm_port,
+				comm_port_limit[comm][comm_port],
+				default_bwl, true);
 #ifdef MMDVFS_MMP
-			if (mmdvfs_log_larb_mmp(i, -1))
+			if (mmdvfs_log_larb_mmp(comm_port, -1))
 				mmprofile_log_ex(
 					mmdvfs_mmp_events.larb_bwl,
 					MMPROFILE_FLAG_PULSE,
-					(i << 28) | default_bwl, 2);
+					(comm_port << 28) | default_bwl, 2);
 #endif
 		}
 	}
@@ -1570,7 +1575,7 @@ static void mmdvfs_get_limit_step_node(struct device *dev,
 
 static int mmdvfs_probe(struct platform_device *pdev)
 {
-	u32 i, value, comm_count;
+	u32 i, value, comm_count = 0;
 	struct device_node *node = pdev->dev.of_node;
 	struct property *prop;
 	struct mm_freq_config *mm_freq;
@@ -1653,10 +1658,13 @@ static int mmdvfs_probe(struct platform_device *pdev)
 			&mm_freq->limit_config);
 	}
 
+	for (i = 0; i < MAX_COMM_NUM; i++) /* Set init value */
+		comm_freq_class[i] = PM_QOS_DISP_FREQ;
+
 	of_property_for_each_string(node, "comm_freq", prop, mux_name) {
-		if (comm_count >= SMI_COMM_NUM) {
-			pr_notice("comm_count > SMI_COMM_NUM (%d)\n",
-				SMI_COMM_NUM);
+		if (comm_count >= MAX_COMM_NUM) {
+			pr_notice("comm_count > MAX_COMM_NUM (%d)\n",
+				MAX_COMM_NUM);
 			break;
 		}
 		for (i = 0; i < ARRAY_SIZE(all_freqs); i++) {
@@ -2504,7 +2512,7 @@ int set_force_bwl(const char *val, const struct kernel_param *kp)
 		return -EINVAL;
 	}
 
-	if (comm >= 0 && comm < SMI_COMM_NUM
+	if (comm >= 0 && comm < MAX_COMM_NUM
 		&& port >= 0 && port < SMI_COMM_MASTER_NUM)
 		force_comm_bwl[comm][port] = bwl;
 
@@ -2515,7 +2523,7 @@ int get_force_bwl(char *buf, const struct kernel_param *kp)
 {
 	int i, j, length = 0;
 
-	for (i = 0; i < SMI_COMM_NUM; i++)
+	for (i = 0; i < MAX_COMM_NUM; i++)
 		for (j = 0; j < SMI_COMM_MASTER_NUM; j++)
 			length += snprintf(buf + length, PAGE_SIZE - length,
 			"%d ", force_comm_bwl[i][j]);
