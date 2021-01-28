@@ -1911,6 +1911,10 @@ static signed int FDVT_WriteReg(FDVT_REG_IO_STRUCT *pRegIo)
 	 * (pRegIo->Count)*sizeof(FDVT_REG_STRUCT), GFP_ATOMIC);
 	 */
 	pData = kmalloc((pRegIo->Count) * sizeof(FDVT_REG_STRUCT), GFP_KERNEL);
+	if (pData == NULL) {
+		Ret = -ENOMEM;
+		goto EXIT;
+	}
 
 	if (copy_from_user
 		(pData, (void __user *)(pRegIo->pData),
