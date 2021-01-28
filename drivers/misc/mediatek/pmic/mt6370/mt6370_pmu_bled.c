@@ -444,6 +444,7 @@ static inline int mt_parse_dt(struct device *dev)
 {
 	struct mt6370_pmu_bled_platdata *pdata = dev_get_platdata(dev);
 	struct device_node *np = dev->of_node;
+	const char *name;
 	u32 tmp = 0;
 
 	if (of_property_read_bool(np, "mt,ext_en_pin"))
@@ -511,7 +512,10 @@ static inline int mt_parse_dt(struct device *dev)
 	if (of_property_read_bool(np, "mt,bled_curr_mode"))
 		pdata->bled_curr_mode = 1;
 
-	of_property_read_string(np, "mt,bled_name", &(pdata->bled_name));
+	if (of_property_read_string(np, "mt,bled_name", &name) < 0)
+		pdata->bled_name = "mt6370_pmu_bled";
+	else
+		pdata->bled_name = name;
 	return 0;
 }
 
