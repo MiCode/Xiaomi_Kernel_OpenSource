@@ -722,6 +722,9 @@ static int rdma_config(enum DISP_MODULE_ENUM module, enum RDMA_MODE mode,
 	val |= REG_FLD_VAL(RDMA_BG_CON_1_BOTTOM, bg_ctrl->bottom);
 	DISP_REG_SET(handle, offset + DISP_REG_RDMA_BG_CON_1, val);
 
+	DISP_REG_SET_FIELD(handle, GLOBAL_CON_FLD_MODE_SEL,
+			   offset + DISP_REG_RDMA_GLOBAL_CON, mode);
+
 	set_rdma_width_height(width, height);
 	rdma_set_ultra_l(idx, bpp, handle, p_golden_setting);
 
