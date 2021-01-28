@@ -116,6 +116,10 @@ menu "MultiMedia, Display, Camera"
 
 source "drivers/misc/mediatek/cmdq/Kconfig"
 source "drivers/misc/mediatek/smi/Kconfig"
+source "drivers/misc/mediatek/lcm/Kconfig"
+source "drivers/misc/mediatek/video/Kconfig"
+source "drivers/misc/mediatek/ext_disp/Kconfig"
+
 
 endmenu  # MM
 
