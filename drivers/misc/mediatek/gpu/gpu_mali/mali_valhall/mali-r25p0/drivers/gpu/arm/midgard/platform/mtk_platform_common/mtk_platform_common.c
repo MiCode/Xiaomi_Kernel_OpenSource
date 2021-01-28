@@ -498,7 +498,7 @@ unsigned long mtk_get_ged_dvfs_last_commit_idx(void)
 	return ged_dvfs_get_last_commit_idx();
 }
 
-int mtk_common_init(struct platform_device *pdev, struct kbase_device *kbdev)
+int mtk_common_init(struct kbase_device *kbdev)
 {
 	int ret = 0;
 
@@ -507,12 +507,8 @@ int mtk_common_init(struct platform_device *pdev, struct kbase_device *kbdev)
 	return ret;
 }
 
-int mtk_common_deinit(struct platform_device *pdev, struct kbase_device *kbdev)
+void mtk_common_deinit(struct kbase_device *kbdev)
 {
-	int ret = 0;
-
 	mtk_mfg_counter_destroy();
-
-	return ret;
 }
 

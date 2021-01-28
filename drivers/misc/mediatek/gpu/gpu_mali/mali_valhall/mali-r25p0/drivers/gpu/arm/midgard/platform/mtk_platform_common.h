@@ -31,9 +31,9 @@ extern void (*ged_dvfs_gpu_freq_commit_fp)(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
 #endif /* ENABLE_COMMON_DVFS */
 
-int mtk_common_init(struct platform_device *pdev, struct kbase_device *kbdev);
-int mtk_common_deinit(struct platform_device *pdev, struct kbase_device *kbdev);
-int mtk_platform_init(struct platform_device *pdev, struct kbase_device *kbdev);
+int mtk_common_init(struct kbase_device *kbdev);
+void mtk_common_deinit(struct kbase_device *kbdev);
+int mtk_platform_init(struct kbase_device *kbdev);
 
 #ifdef ENABLE_MTK_MEMINFO
 #define MTK_MEMINFO_SIZE 150

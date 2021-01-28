@@ -264,10 +264,10 @@ int kbase_platform_early_init(void)
 	return 0;
 }
 
-int mtk_platform_init(struct platform_device *pdev, struct kbase_device *kbdev)
+int mtk_platform_init(struct kbase_device *kbdev)
 {
 
-	if (!pdev || !kbdev) {
+	if (!kbdev) {
 		mali_pr_info("@%s: input parameter is NULL\n", __func__);
 		return -1;
 	}

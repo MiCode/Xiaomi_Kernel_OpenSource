@@ -616,6 +616,10 @@ unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s,
 	unsigned long freed = 0;
 
 	kctx = container_of(s, struct kbase_context, reclaim);
+
+	// MTK add to prevent false alarm
+	lockdep_off();
+
 	mutex_lock(&kctx->jit_evict_lock);
 
 	list_for_each_entry_safe(alloc, tmp, &kctx->evict_list, evict_node) {
@@ -656,6 +660,9 @@ unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s,
 	}
 out_unlock:
 	mutex_unlock(&kctx->jit_evict_lock);
+
+	// MTK add to prevent false alarm
+	lockdep_on();
 
 	return freed;
 }
