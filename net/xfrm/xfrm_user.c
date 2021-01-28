@@ -35,7 +35,7 @@
 
 static void xfrm_state_print_func(unsigned long data);
 static DEFINE_TIMER(xfrm_state_print_timer, xfrm_state_print_func, 0, 0);
-#define XFRM_STATE_PRINT_TIME 10
+#define XFRM_STATE_PRINT_TIME 4
 
 static int  del_sa_count;
 static int  del_sa_err_count;
