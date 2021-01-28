@@ -229,6 +229,14 @@ static const struct resource mt6359_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VUFS_OC, "VUFS"),
 };
 
+static const struct resource mt6357_gauge_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_FG_BAT0_H, "COULOMB_H"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_FG_BAT0_L, "COULOMB_L"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_NAG_C_DLTV, "NAFG"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_FG_ZCV, "ZCV"),
+};
+
+
 static const struct resource mt6359_gauge_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_BAT_H, "COULOMB_H"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_BAT_L, "COULOMB_L"),
@@ -289,6 +297,11 @@ static const struct mfd_cell mt6357_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6357_keys_resources),
 		.resources = mt6357_keys_resources,
 		.of_compatible = "mediatek,mt6357-keys"
+	}, {
+		.name = "mt6357-gauge",
+		.num_resources = ARRAY_SIZE(mt6357_gauge_resources),
+		.resources = mt6357_gauge_resources,
+		.of_compatible = "mediatek,mt6357-gauge",
 	}, {
 		.name = "mt-pmic",
 		.of_compatible = "mediatek,mt63xx-debug",

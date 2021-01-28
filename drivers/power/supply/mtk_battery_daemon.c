@@ -2449,7 +2449,13 @@ static int mtk_battery_resume(struct mtk_battery *gm)
 	return 0;
 }
 
-void mtk_battery_daemon_init(struct platform_device *pdev)
+bool is_daemon_support(struct mtk_battery *gm)
+{
+	pr_notice("%s: CONFIG_NET = false\n", __func__);
+	return false;
+}
+
+int mtk_battery_daemon_init(struct platform_device *pdev)
 {
 	int ret;
 	int hw_version;
@@ -2459,18 +2465,22 @@ void mtk_battery_daemon_init(struct platform_device *pdev)
 		.input = mtk_battery_netlink_handler,
 	};
 
+	gauge = dev_get_drvdata(&pdev->dev);
+	gm = gauge->gm;
+
+	if (is_daemon_support(gm) == false)
+		return -EIO;
+
 	mtk_battery_sk = netlink_kernel_create(&init_net, NETLINK_FGD, &cfg);
 	bm_debug("[%s]netlink_kernel_create protol= %d\n",
 		__func__, NETLINK_FGD);
 
 	if (mtk_battery_sk == NULL) {
 		bm_err("netlink_kernel_create error\n");
-		return;
+		return -EIO;
 	}
 	bm_err("[%s]netlink_kernel_create ok\n", __func__);
 
-	gauge = dev_get_drvdata(&pdev->dev);
-	gm = gauge->gm;
 	gm->pl_two_sec_reboot = gauge_get_int_property(GAUGE_PROP_2SEC_REBOOT);
 	gauge_set_property(GAUGE_PROP_2SEC_REBOOT, 0);
 
@@ -2566,5 +2576,6 @@ void mtk_battery_daemon_init(struct platform_device *pdev)
 
 	sw_iavg_init(gm);
 
+	return 0;
 }
 

@@ -29,7 +29,7 @@
 #include "mtk_battery.h"
 #include "mtk_battery_table.h"
 
-void __attribute__ ((weak))
+int __attribute__ ((weak))
 	mtk_battery_daemon_init(struct platform_device *pdev)
 {
 	struct mtk_battery *gm;
@@ -39,6 +39,7 @@ void __attribute__ ((weak))
 	gm = gauge->gm;
 
 	gm->algo.active = true;
+	return -EIO;
 }
 
 int __attribute__ ((weak))
@@ -195,6 +196,10 @@ static int battery_psy_get_property(struct power_supply *psy,
 
 	gm = (struct mtk_battery *)power_supply_get_drvdata(psy);
 	bs_data = &gm->bs_data;
+
+	if (gm->algo.active == true)
+		bs_data->bat_capacity = gm->ui_soc;
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = bs_data->bat_status;
@@ -1590,7 +1595,6 @@ void battery_update_psd(struct mtk_battery *gm)
 	gauge_get_property(GAUGE_PROP_BATTERY_VOLTAGE, &bat_data->bat_batt_vol);
 	bat_data->bat_batt_temp = force_get_tbat(gm, true);
 }
-
 void battery_update(struct mtk_battery *gm)
 {
 	struct battery_data *bat_data = &gm->bs_data;
@@ -1600,12 +1604,16 @@ void battery_update(struct mtk_battery *gm)
 	bat_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LION;
 	bat_data->bat_health = POWER_SUPPLY_HEALTH_GOOD;
 	bat_data->bat_present =
-			gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
+		gauge_get_int_property(GAUGE_PROP_BATTERY_EXIST);
 
 	if (battery_get_int_property(BAT_PROP_DISABLE))
 		bat_data->bat_capacity = 50;
 
+	if (gm->algo.active == true)
+		bat_data->bat_capacity = gm->ui_soc;
+
 	power_supply_changed(bat_psy);
+
 }
 
 /* ============================================================ */
@@ -2105,6 +2113,10 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 		gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT));
 
 	fg_drv_update_daemon(gm);
+
+	/* kernel mode need regular update info */
+	if (gm->algo.active == true)
+		battery_update(gm);
 
 	ktime = ktime_set(10, 0);
 	hrtimer_start(&gm->fg_hrtimer, ktime, HRTIMER_MODE_REL);
@@ -2765,7 +2777,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
-	gm->log_level = BMLOG_ERROR_LEVEL;
+	gm->log_level = BMLOG_TRACE_LEVEL;
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 
@@ -2800,13 +2812,14 @@ int battery_init(struct platform_device *pdev)
 	gm->bs_data.bat_batt_temp = force_get_tbat(gm, true);
 	mtk_power_misc_init(gm);
 
-	if (is_algo_active(gm)) {
+	if (mtk_battery_daemon_init(pdev) == 0)
+		bm_err("[%s]: daemon mode DONE\n", __func__);
+	else {
+		gm->algo.active = true;
 		battery_algo_init(gm);
 		bm_err("[%s]: kernel mode DONE\n", __func__);
-	} else {
-		mtk_battery_daemon_init(pdev);
-		bm_err("[%s]: daemon mode DONE\n", __func__);
 	}
+
 	return 0;
 }
 

@@ -25,7 +25,7 @@ struct fgd_nl_msg_t {
 	char fgd_data[FGD_NL_MSG_MAX_LEN];
 };
 
-extern void mtk_battery_daemon_init(struct platform_device *pdev);
+extern int mtk_battery_daemon_init(struct platform_device *pdev);
 extern int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1);
 
 #define DATA_SIZE 2048

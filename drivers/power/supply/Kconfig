@@ -655,6 +655,17 @@ config MTK_BATTERY
 	  battery information from hardware to calculate
 	  Battery percentage.
 
+config BATTERY_MT6357
+	tristate "MT6357 fuel gauge support"
+	depends on MFD_MT6397
+	depends on NET
+	default m
+	help
+	  Say Y to enable support for MT6357 battery driver.
+	  it measure battery current and temperature to provide
+	  battery information , It issues interrupt when trigger
+	  threshold is met.
+
 config BATTERY_MT6359
 	tristate "MT6359 fuel gauge support"
 	depends on MFD_MT6397
