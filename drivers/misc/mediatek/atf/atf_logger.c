@@ -395,15 +395,15 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 	pr_notice("atf_log: inited");
 	atf_reader_alive = 0;
 
-	err = misc_register(&atf_log_dev);
-	if (unlikely(err)) {
-		pr_info("atf_log: failed to register device");
-		return -1;
-	}
-
 	err = dt_parse_atf_logger_buf();
 	if (unlikely(err)) {
 		pr_info("No atf_log_buffer\n");
+		return -1;
+	}
+
+	err = misc_register(&atf_log_dev);
+	if (unlikely(err)) {
+		pr_info("atf_log: failed to register device");
 		return -1;
 	}
 
