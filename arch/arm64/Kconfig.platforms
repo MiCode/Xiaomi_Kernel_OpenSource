@@ -217,6 +217,7 @@ config MACH_MT6779
 	select MTK_GIC_V3_EXT
 	select MTK_SYS_CIRQ
 	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_DRAMC_LEGACY
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
