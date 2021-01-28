@@ -17,6 +17,9 @@
 #include <trace/events/power.h>
 #include "cpufreq_schedutil.h"
 
+void (*cpufreq_notifier_fp)(int cluster_id, unsigned long freq);
+EXPORT_SYMBOL(cpufreq_notifier_fp);
+
 struct sugov_tunables {
 	struct gov_attr_set	attr_set;
 	unsigned int		up_rate_limit_us;
@@ -512,6 +515,12 @@ static inline void ignore_dl_rate_limit(struct sugov_cpu *sg_cpu, struct sugov_p
 		sg_policy->limits_changed = true;
 }
 
+static inline void __cpufreq_notifier_fp(int cid, unsigned int next_f)
+{
+	if (cpufreq_notifier_fp)
+		cpufreq_notifier_fp(cid, next_f);
+}
+
 static void sugov_update_single(struct update_util_data *hook, u64 time,
 				unsigned int flags)
 {
@@ -519,8 +528,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	struct cpufreq_policy *policy = sg_policy->policy;
-	int cid = arch_cpu_cluster_id(policy->cpu);
 #endif
+	int cid = arch_cpu_cluster_id(policy->cpu);
 	unsigned long util, max;
 	unsigned int next_f;
 	bool busy;
@@ -571,6 +580,8 @@ static void sugov_update_single(struct update_util_data *hook, u64 time,
 	}
 #endif
 
+	__cpufreq_notifier_fp(cid, next_f);
+
 }
 
 static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
@@ -614,9 +625,7 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 	struct sugov_cpu *sg_cpu = container_of(hook, struct sugov_cpu, update_util);
 	struct sugov_policy *sg_policy = sg_cpu->sg_policy;
 	unsigned int next_f;
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	int cid;
-#endif
 
 	raw_spin_lock(&sg_policy->update_lock);
 
@@ -625,12 +634,13 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 
 	ignore_dl_rate_limit(sg_cpu, sg_policy);
 
+	cid = arch_cpu_cluster_id(sg_policy->policy->cpu);
+
 	if (sugov_should_update_freq(sg_policy, time)) {
 		next_f = sugov_next_freq_shared(sg_cpu, time);
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 		sugov_update_next_freq(sg_policy, time, next_f);
-		cid = arch_cpu_cluster_id(sg_policy->policy->cpu);
 		next_f = mt_cpufreq_find_close_freq(cid, next_f);
 		mt_cpufreq_set_by_wfi_load_cluster(cid, next_f);
 #else
@@ -640,6 +650,8 @@ sugov_update_shared(struct update_util_data *hook, u64 time, unsigned int flags)
 			sugov_deferred_update(sg_policy, time, next_f);
 #endif
 	}
+
+	__cpufreq_notifier_fp(cid, next_f);
 
 	raw_spin_unlock(&sg_policy->update_lock);
 }
