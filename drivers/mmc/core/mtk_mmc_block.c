@@ -667,13 +667,13 @@ void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req)
 {
 	struct mt_bio_context *ctx;
 	struct mt_bio_context_task *tsk;
-#ifdef CONFIG_MMC_CQHCI
-	u32 req_flags = req->data->flags;
-#endif
+	u32 req_flags;
 	unsigned long flags;
 
 	if (!req)
 		return;
+
+	req_flags = req->data->flags;
 
 	tsk = mt_bio_curr_task_by_ctx_id(task_id,
 		&ctx, -1, false);
@@ -682,19 +682,18 @@ void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req)
 
 	spin_lock_irqsave(&ctx->lock, flags);
 
-#ifdef CONFIG_MMC_CQHCI
-	/* convert cqhci to legacy sbc arg */
-if (req_flags & MMC_DATA_READ)
-	tsk->arg = 1 << 30 |
-		(req->data->blocks & 0xFFFF);
-else if (req_flags & MMC_DATA_WRITE) {
-	tsk->arg = (req->data->blocks & 0xFFFF);
-	tsk->arg = tsk->arg & ~(1 << 30);
-}
-#else
-	if (req->sbc)
-		tsk->arg = req->sbc->arg;
-#endif
+	if (req->host && (req->host->caps2 & MMC_CAP2_CQE)) {
+		/* convert cqhci to legacy sbc arg */
+		if (req_flags & MMC_DATA_READ)
+			tsk->arg = 1 << 30 | (req->data->blocks & 0xFFFF);
+		else if (req_flags & MMC_DATA_WRITE) {
+			tsk->arg = (req->data->blocks & 0xFFFF);
+			tsk->arg = tsk->arg & ~(1 << 30);
+		}
+	} else {
+		if (req->sbc)
+			tsk->arg = req->sbc->arg;
+	}
 
 	tsk->t[tsk_req_start] = sched_clock();
 
