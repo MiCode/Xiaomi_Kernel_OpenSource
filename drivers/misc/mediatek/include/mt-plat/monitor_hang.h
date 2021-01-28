@@ -10,7 +10,7 @@
 #define HD_INTER 30	/* 1 tick is 30 seconds*/
 
 struct name_list {
-	char name[TASK_COMM_LEN];
+	char name[TASK_COMM_LEN + 1];
 	struct name_list *next;
 };
 
