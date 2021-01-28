@@ -26,7 +26,6 @@
 #include "mtk-dsp-platform-driver.h"
 #include "mtk-base-afe.h"
 
-
 static DEFINE_SPINLOCK(dsp_ringbuf_lock);
 static DEFINE_MUTEX(adsp_wakelock_lock);
 
@@ -1413,7 +1412,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 #endif
 
 	/* using semaphore to sync ap <=> adsp */
-	if (get_adsp_semaphore(SEMA_3WAY_AUDIO))
+	if (get_adsp_semaphore(SEMA_AUDIO))
 		pr_info("%s get semaphore fail\n", __func__);
 	pdtoa = (unsigned long *)
 		&dsp->core_share_mem.ap_adsp_core_mem[core_id]->dtoa_flag;
@@ -1438,7 +1437,7 @@ void audio_irq_handler(int irq, void *data, int core_id)
 		}
 		loop_count--;
 	} while (*pdtoa && task_value && loop_count > 0);
-	release_adsp_semaphore(SEMA_3WAY_AUDIO);
+	release_adsp_semaphore(SEMA_AUDIO);
 	return;
 IRQ_ERROR:
 	pr_info("IRQ_ERROR irq[%d] data[%p] core_id[%d] dsp[%p]\n",

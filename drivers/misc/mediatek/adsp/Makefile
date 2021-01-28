@@ -10,3 +10,10 @@ endif
 
 obj-y += $(MTK_PLATFORM)/
 
+ifeq ($(CONFIG_MACH_MT6785), y)
+MTK_ADSP_HW_VER := 0
+else
+MTK_ADSP_HW_VER := 1
+endif
+subdir-ccflags-y += -DMTK_ADSP_HW_VER=$(MTK_ADSP_HW_VER)
+

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -23,7 +23,6 @@
 #endif
 
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-#include <adsp_ipi.h>
 #include <adsp_helper.h>
 #endif
 
@@ -75,7 +74,7 @@ bool is_audio_dsp_ready(const uint32_t dsp_id)
 		break;
 	case AUDIO_OPENDSP_USE_HIFI3_A:
 #ifdef CONFIG_MTK_AUDIODSP_SUPPORT
-		ret = (is_adsp_ready(ADSP_A_ID) == 1);
+		ret = (is_adsp_ready(dsp_id - AUDIO_OPENDSP_USE_HIFI3_A) == 1);
 #else
 		pr_notice("%s(), dsp_id %u not build!!\n", __func__, dsp_id);
 		ret = false;
@@ -106,19 +105,22 @@ uint32_t audio_get_dsp_id(const uint8_t task)
 	case TASK_SCENE_AUDIO_CONTROLLER_CM4:
 		dsp_id = AUDIO_OPENDSP_USE_CM4_A;
 		break;
-	case TASK_SCENE_PHONE_CALL:
 	case TASK_SCENE_PLAYBACK_MP3:
-	case TASK_SCENE_RECORD:
-	case TASK_SCENE_VOIP:
 	case TASK_SCENE_PRIMARY:
 	case TASK_SCENE_DEEPBUFFER:
 	case TASK_SCENE_AUDPLAYBACK:
-	case TASK_SCENE_CAPTURE_UL1:
 	case TASK_SCENE_A2DP:
 	case TASK_SCENE_DATAPROVIDER:
-	case TASK_SCENE_AUD_DAEMON:
+	case TASK_SCENE_AUD_DAEMON_A:
 	case TASK_SCENE_AUDIO_CONTROLLER_HIFI3_A:
 	case TASK_SCENE_CALL_FINAL:
+	case TASK_SCENE_MUSIC:
+	case TASK_SCENE_FAST:
+	case TASK_SCENE_PHONE_CALL:
+	case TASK_SCENE_RECORD:
+	case TASK_SCENE_VOIP:
+	case TASK_SCENE_CAPTURE_UL1:
+	case TASK_SCENE_AUD_DAEMON_B:
 	case TASK_SCENE_KTV:
 		dsp_id = AUDIO_OPENDSP_USE_HIFI3_A;
 		break;
@@ -225,7 +227,7 @@ int get_reserve_mem_size(const uint32_t dsp_id,
 		break;
 	case AUDIO_OPENDSP_USE_HIFI3_A:
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-		*mem_id = ADSP_A_IPI_MEM_ID;
+		*mem_id = ADSP_A_IPI_DMA_MEM_ID;
 		*size = (uint32_t)adsp_get_reserve_mem_size(*mem_id);
 		ret = 0;
 #endif

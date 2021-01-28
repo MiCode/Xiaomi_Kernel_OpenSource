@@ -42,6 +42,7 @@ void set_adsp_state(struct adsp_priv *pdata, int state);
 int get_adsp_state(struct adsp_priv *pdata);
 bool is_adsp_system_running(void);
 
+void __iomem *adsp_get_sharedmem_base(struct adsp_priv *pdata, int id);
 int adsp_copy_to_sharedmem(struct adsp_priv *pdata, int id, const void *src,
 			int count);
 int adsp_copy_from_sharedmem(struct adsp_priv *pdata, int id, void *dst,

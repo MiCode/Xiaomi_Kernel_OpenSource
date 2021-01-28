@@ -1,64 +1,59 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 #ifndef __ADSP_RESERVEDMEM_DEFINE_H__
 #define __ADSP_RESERVEDMEM_DEFINE_H__
 
-//#define FPGA_EARLY_DEVELOPMENT
+#include <linux/platform_device.h>
+
+//#define MEM_DEBUG
+
+/* emi mpu define*/
+#define MPU_PROCT_REGION_ADSP_SHARED      30
+#define MPU_PROCT_D0_AP                   0
+#define MPU_PROCT_D10_ADSP                10
 
 /* adsp reserve memory ID definition*/
 enum adsp_reserve_mem_id_t {
-	ADSP_A_SYSTEM_MEM_ID, /*not for share, reserved for system*/
-	ADSP_A_IPI_MEM_ID,
+	ADSP_A_IPI_DMA_MEM_ID = 0,
 	ADSP_A_LOGGER_MEM_ID,
-#ifndef FPGA_EARLY_DEVELOPMENT
-	ADSP_A_TRAX_MEM_ID,
-	ADSP_SPK_PROTECT_MEM_ID,
-	ADSP_VOIP_MEM_ID,
-	ADSP_A2DP_PLAYBACK_MEM_ID,
-	ADSP_OFFLOAD_MEM_ID,
-	ADSP_EFFECT_MEM_ID,
-	ADSP_VOICE_CALL_MEM_ID,
-	ADSP_AFE_MEM_ID,
-	ADSP_PLAYBACK_MEM_ID,
-	ADSP_DEEPBUF_MEM_ID,
-	ADSP_PRIMARY_MEM_ID,
-	ADSP_CAPTURE_UL1_MEM_ID,
-	ADSP_DATAPROVIDER_MEM_ID,
-	ADSP_CALL_FINAL_MEM_ID,
-	ADSP_KTV_MEM_ID,
-#endif
 	ADSP_A_DEBUG_DUMP_MEM_ID,
 	ADSP_A_CORE_DUMP_MEM_ID,
+#ifndef CONFIG_FPGA_EARLY_PORTING
+	ADSP_AUDIO_COMMON_MEM_ID,
+#endif
 	ADSP_NUMS_MEM_ID,
-	ADSP_A_SHARED_MEM_BEGIN = ADSP_A_IPI_MEM_ID,
-	ADSP_A_SHARED_MEM_END = ADSP_A_CORE_DUMP_MEM_ID,
 };
 
 struct adsp_reserve_mblock {
 	phys_addr_t phys_addr;
 	void *virt_addr;
 	size_t size;
+	char *name;
 };
+
+struct adsp_mpu_info_t {
+	u32 prog_addr;
+	u32 prog_size;
+	u32 data_addr;
+	u32 data_size;
+	u32 share_dram_addr;
+	u32 share_dram_size;
+};
+
+struct adsp_priv;
 
 /* Reserved Memory Method */
 phys_addr_t adsp_get_reserve_mem_phys(enum adsp_reserve_mem_id_t id);
 void *adsp_get_reserve_mem_virt(enum adsp_reserve_mem_id_t id);
 size_t adsp_get_reserve_mem_size(enum adsp_reserve_mem_id_t id);
-int adsp_set_reserve_mblock(
-		enum adsp_reserve_mem_id_t id, phys_addr_t phys_addr,
-		void *virt_addr, size_t size);
-void *adsp_reserve_memory_ioremap(phys_addr_t phys_addr, size_t size);
+int adsp_mem_device_probe(struct platform_device *pdev);
+void adsp_init_reserve_memory(void);
 ssize_t adsp_reserve_memory_dump(char *buffer, int size);
+
+void adsp_set_emimpu_shared_region(void);
+void adsp_update_mpu_memory_info(struct adsp_priv *pdata);
 
 #endif /* __ADSP_RESERVEDMEM_DEFINE_H__ */
