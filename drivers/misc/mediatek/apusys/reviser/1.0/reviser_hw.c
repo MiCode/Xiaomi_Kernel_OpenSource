@@ -1142,25 +1142,36 @@ int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 
 	LOG_DEBUG("boundary %u\n", boundary);
 
-	for (i = 0; i < VLM_CTXT_MDLA_MAX; i++) {
-		if (reviser_set_boundary(
-			drvinfo, REVISER_DEVICE_MDLA,
-			i, boundary)) {
-			return -1;
+	//Add if for coverity
+	if (VLM_CTXT_MDLA_MAX > 0) {
+		for (i = 0; i < VLM_CTXT_MDLA_MAX; i++) {
+			if (reviser_set_boundary(
+				drvinfo, REVISER_DEVICE_MDLA,
+				i, boundary)) {
+				return -1;
+			}
 		}
 	}
-	for (i = 0; i < VLM_CTXT_VPU_MAX; i++) {
-		if (reviser_set_boundary(
-			drvinfo, REVISER_DEVICE_VPU,
-			i, boundary)) {
-			return -1;
+
+	//Add if for coverity
+	if (VLM_CTXT_VPU_MAX > 0) {
+		for (i = 0; i < VLM_CTXT_VPU_MAX; i++) {
+			if (reviser_set_boundary(
+				drvinfo, REVISER_DEVICE_VPU,
+				i, boundary)) {
+				return -1;
+			}
 		}
 	}
-	for (i = 0; i < VLM_CTXT_EDMA_MAX; i++) {
-		if (reviser_set_boundary(
-			drvinfo, REVISER_DEVICE_EDMA,
-			i, boundary)) {
-			return -1;
+
+	//Add if for coverity
+	if (VLM_CTXT_EDMA_MAX > 0) {
+		for (i = 0; i < VLM_CTXT_EDMA_MAX; i++) {
+			if (reviser_set_boundary(
+				drvinfo, REVISER_DEVICE_EDMA,
+				i, boundary)) {
+				return -1;
+			}
 		}
 	}
 
