@@ -211,7 +211,7 @@ struct dapc_config dapc_cfg_mt6885 = {
 	.excp_info = excp_info_v1,
 
 	.apc_con = 0xf00,
-	.apc_con_vio = 0x80000000, /* APC_VIO */
+	.apc_con_vio = 0x80000100, /* APC_VIO | VIO_AUTO_CLR_EN */
 	.vio_shift_sta = 0xf10,
 	.vio_shift_sel = 0xf14,
 	.vio_shift_con = 0xf20,
@@ -244,7 +244,7 @@ struct dapc_config dapc_cfg_mt6873 = {
 	.excp_info = excp_info_v1,
 
 	.apc_con = 0xf00,
-	.apc_con_vio = 0x80000000, /* APC_VIO */
+	.apc_con_vio = 0x80000100, /* APC_VIO | VIO_AUTO_CLR_EN */
 	.vio_shift_sta = 0xf10,
 	.vio_shift_sel = 0xf14,
 	.vio_shift_con = 0xf20,
@@ -268,7 +268,7 @@ struct dapc_config dapc_cfg_mt6873 = {
 };
 
 struct dapc_config dapc_cfg_mt6853 = {
-	.irq_enable = 0,
+	.irq_enable = 1,
 	.slv = dapc_slv_mt6853,
 	.slv_cnt = 33,
 
@@ -277,10 +277,10 @@ struct dapc_config dapc_cfg_mt6853 = {
 	.excp_info = excp_info_v1,
 
 	.apc_con = 0xf00,
-	.apc_con_vio = 0x80000000, /* APC_VIO */
-	.vio_shift_sta = 0xf10,
-	.vio_shift_sel = 0xf14,
-	.vio_shift_con = 0xf20,
+	.apc_con_vio = 0x80000100,  /* APC_VIO | VIO_AUTO_CLR_EN */
+	.vio_shift_sta = 0xf20,
+	.vio_shift_sel = 0xf30,
+	.vio_shift_con = 0xf10,
 	.vio_shift_con_mask = 0x3, /* SHFT_EN | SHFT_DONE */
 	.vio_dbg0 = 0x900,
 	.vio_dbg1 = 0x904,

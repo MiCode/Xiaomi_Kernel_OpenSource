@@ -375,6 +375,7 @@ static int shift_vio_dbg(int shift_bit)
 	/* disable shift mechanism */
 	dapc_reg_w(d, con, 0);
 	dapc_reg_w(d, sel, 0);
+	/* SHIFT_STA must be write-cleared before clear VIO_STA */
 	dapc_reg_w(d, cfg->vio_shift_sta, (0x1 << shift_bit));
 
 	return 0;
@@ -468,6 +469,7 @@ static irqreturn_t apusys_devapc_isr(int irq_number, void *data)
 			ex.domain_id);
 	}
 
+	/* Clear VIO_STA */
 	for_each_dapc_slv(cfg, i) {
 		if (!(slv[i].vio_irq_en && check_vio_status(i)))
 			continue;
