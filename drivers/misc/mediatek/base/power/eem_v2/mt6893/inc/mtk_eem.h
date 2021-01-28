@@ -23,55 +23,26 @@
 /* have 5 banks */
 enum eem_ctrl_id {
 	EEM_CTRL_L,
+	EEM_CTRL_BL,
 	EEM_CTRL_B,
 	EEM_CTRL_CCI,
-#if ENABLE_GPU
-	EEM_CTRL_GPU,
-#endif
-#if ENABLE_MDLA
-	EEM_CTRL_MDLA,
-#endif
-#if ENABLE_VPU
-	EEM_CTRL_VPU,
-#endif
-#if ENABLE_GPU
-#if ENABLE_LOO_G
-	EEM_CTRL_GPU_HI,
-#endif
-#endif
-#if ENABLE_LOO_B
-	EEM_CTRL_B_HI,
-#endif
+
 	NR_EEM_CTRL,
 };
 
 enum eem_det_id {
 	EEM_DET_L	=	EEM_CTRL_L,
+	EEM_DET_BL	=	EEM_CTRL_BL,
 	EEM_DET_B	=	EEM_CTRL_B,
 	EEM_DET_CCI	=	EEM_CTRL_CCI,
-#if ENABLE_GPU
-	EEM_DET_GPU     =       EEM_CTRL_GPU,
-#endif
-#if ENABLE_MDLA
-	EEM_DET_MDLA	=	EEM_CTRL_MDLA,
-#endif
-#if ENABLE_VPU
-	EEM_DET_VPU	=	EEM_CTRL_VPU,
-#endif
-#if ENABLE_GPU
-#if ENABLE_LOO_G
-	EEM_DET_GPU_HI  =       EEM_CTRL_GPU_HI,
-#endif
-#endif
-#if ENABLE_LOO_B
-	EEM_DET_B_HI	=	EEM_CTRL_B_HI,
-#endif
+
 	NR_EEM_DET,
 };
 
 enum mt_eem_cpu_id {
 	MT_EEM_CPU_LL,
 	MT_EEM_CPU_L,
+	MT_EEM_CPU_B,
 	MT_EEM_CPU_CCI,
 
 	NR_MT_EEM_CPU,
@@ -92,19 +63,21 @@ enum {
 };
 
 enum eem_phase {
-	EEM_PHASE_INIT01,
-	EEM_PHASE_INIT02,
+	EEM_PHASE_INIT020,
+	EEM_PHASE_INIT021,
+	EEM_PHASE_INIT022,
+	EEM_PHASE_INIT023,
 	EEM_PHASE_MON,
-	EEM_PHASE_CORN,
 
 	NR_EEM_PHASE,
 };
 
 enum eem_features {
-	FEA_INIT01	= BIT(EEM_PHASE_INIT01),
-	FEA_INIT02	= BIT(EEM_PHASE_INIT02),
+	FEA_INIT020	= BIT(EEM_PHASE_INIT020),
+	FEA_INIT021	= BIT(EEM_PHASE_INIT021),
+	FEA_INIT022	= BIT(EEM_PHASE_INIT022),
+	FEA_INIT023	= BIT(EEM_PHASE_INIT023),
 	FEA_MON		= BIT(EEM_PHASE_MON),
-	FEA_CORN	= BIT(EEM_PHASE_CORN),
 };
 
 enum {
@@ -142,16 +115,8 @@ extern const unsigned int reg_dump_addr_off[DUMP_LEN];
 enum eem_state {
 	EEM_CPU_2_LITTLE_IS_SET_VOLT = 0,	/* 2L */
 	EEM_CPU_LITTLE_IS_SET_VOLT = 1,		/* L */
-	EEM_CPU_CCI_IS_SET_VOLT = 2,		/* CCI */
-#if ENABLE_GPU
-	EEM_GPU_IS_SET_VOLT = 3,		/* G */
-#if ENABLE_LOO
-	EEM_GPU_HI_IS_SET_VOLT = 4,
-#endif
-#endif
-#if ENABLE_LOO
-	EEM_CPU_BIG_HI_IS_SET_VOLT = 4,
-#endif
+	EEM_CPU_B_IS_SET_VOLT = 2,			/* BL */
+	EEM_CPU_CCI_IS_SET_VOLT = 3,		/* CCI */
 };
 
 extern void aee_rr_rec_ptp_devinfo_0(u32 val);
@@ -179,10 +144,6 @@ extern void aee_rr_rec_ptp_cpu_big_volt(u64 val);
 extern void aee_rr_rec_ptp_cpu_big_volt_1(u64 val);
 extern void aee_rr_rec_ptp_cpu_big_volt_2(u64 val);
 extern void aee_rr_rec_ptp_cpu_big_volt_3(u64 val);
-extern void aee_rr_rec_ptp_gpu_volt(u64 val);
-extern void aee_rr_rec_ptp_gpu_volt_1(u64 val);
-extern void aee_rr_rec_ptp_gpu_volt_2(u64 val);
-extern void aee_rr_rec_ptp_gpu_volt_3(u64 val);
 extern void aee_rr_rec_ptp_cpu_little_volt(u64 val);
 extern void aee_rr_rec_ptp_cpu_little_volt_1(u64 val);
 extern void aee_rr_rec_ptp_cpu_little_volt_2(u64 val);
@@ -224,10 +185,6 @@ extern u64 aee_rr_curr_ptp_cpu_big_volt(void);
 extern u64 aee_rr_curr_ptp_cpu_big_volt_1(void);
 extern u64 aee_rr_curr_ptp_cpu_big_volt_2(void);
 extern u64 aee_rr_curr_ptp_cpu_big_volt_3(void);
-extern u64 aee_rr_curr_ptp_gpu_volt(void);
-extern u64 aee_rr_curr_ptp_gpu_volt_1(void);
-extern u64 aee_rr_curr_ptp_gpu_volt_2(void);
-extern u64 aee_rr_curr_ptp_gpu_volt_3(void);
 extern u64 aee_rr_curr_ptp_cpu_little_volt(void);
 extern u64 aee_rr_curr_ptp_cpu_little_volt_1(void);
 extern u64 aee_rr_curr_ptp_cpu_little_volt_2(void);
@@ -248,13 +205,4 @@ extern u8 aee_rr_curr_ptp_status(void);
 extern int mt_eem_status(enum eem_det_id id);
 extern unsigned int get_efuse_status(void);
 extern unsigned int mt_eem_is_enabled(void);
-
-extern void eem_set_pi_efuse(enum eem_det_id id,
-		unsigned int pi_efuse,
-		unsigned int loo_enabled);
-extern void eem_set_pi_dvtfixed(enum eem_det_id id,
-		unsigned int pi_dvtfixed);
-
-/* DRCC */
-extern unsigned int drcc_offset_done;
 #endif

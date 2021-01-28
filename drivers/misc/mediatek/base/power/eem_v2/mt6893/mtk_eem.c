@@ -72,9 +72,6 @@
 #include "mtk_eem_internal_ap.h"
 
 #include "mtk_eem_internal.h"
-#ifdef CONFIG_MTK_GPU_SUPPORT
-#include "mtk_gpufreq.h"
-#endif
 #include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
 #include "pmic_regulator.h"
@@ -99,21 +96,14 @@ static int eem_init1stress_en, testCnt;
 wait_queue_head_t wqStress;
 struct task_struct *threadStress;
 #endif
-static unsigned int eem_aging_enable, segCode, is_warn_on;
-static unsigned int eem_clamp_val, pmic_clamp_val;
+
 
 static unsigned int ctrl_EEM_Enable = 1;
-static unsigned int big_2line;
-#if ENABLE_GPU
-static unsigned int gpu_2line;
-#endif
+
+
 
 /* Get time stmp to known the time period */
 static unsigned long long eem_pTime_us, eem_cTime_us, eem_diff_us;
-
-/* for setting pmic pwm mode and auto mode */
-struct regulator *eem_regulator_vproc1;
-struct regulator *eem_regulator_vproc2;
 
 #if EN_EEM_THERM_CLK
 #if !defined(CONFIG_MTK_CLKMGR)
@@ -124,41 +114,21 @@ struct clk *eem_therm_main;		/* main clock for Thermal */
 static int create_procfs(void);
 static void eem_set_eem_volt(struct eem_det *det);
 static void eem_restore_eem_volt(struct eem_det *det);
-#if !EARLY_PORTING
-static void eem_buck_set_mode(unsigned int mode);
-#endif
 static unsigned int interpolate(unsigned int y1, unsigned int y0,
 	unsigned int x1, unsigned int x0, unsigned int ym);
-static void eem_fill_freq_table(struct eem_det *det);
+static void eem_fill_freq_table(struct eem_det *det,
+	enum eem_phase phase);
 static void read_volt_from_VOP(struct eem_det *det);
 #if UPDATE_TO_UPOWER
 static void eem_update_init2_volt_to_upower
 	(struct eem_det *det, unsigned int *pmic_volt);
 static enum upower_bank transfer_ptp_to_upower_bank(unsigned int det_id);
 #endif
-#ifdef CORN_LOAD
-static void eem_corner(int testcnt);
-static unsigned int corn_init;
-static unsigned int vpu_detcount[CORN_SIZE];
-static unsigned int mdla_detcount[CORN_SIZE];
-static unsigned int arrtype[CORN_SIZE] = {0, DCCONFIG_VAL, 0xaaaaaa, 0xffffff};
-unsigned int final_corner_flag;
-#endif
 /* table used to apply to dvfs at final */
 unsigned int record_tbl_locked[NR_FREQ];
-unsigned int final_init01_flag;
-#if ENABLE_LOO_B
-unsigned int bcpu_final_init02_flag;
-#endif
 unsigned int cur_init02_flag;
 
 DEFINE_MUTEX(record_mutex);
-#if ENABLE_LOO_B
-DEFINE_MUTEX(bcpu_mutex);
-#endif
-#if ENABLE_LOO_G
-DEFINE_MUTEX(gpu_mutex);
-#endif
 
 static struct eem_devinfo eem_devinfo;
 static struct hrtimer eem_log_timer;
@@ -179,10 +149,6 @@ static int eem_log_en;
 static unsigned int eem_checkEfuse = 1;
 static unsigned int informEEMisReady;
 static int eem_aging;
-
-#if ENABLE_GPU
-static int time_val = 1;
-#endif
 
 /* Global variable for slow idle*/
 unsigned int ptp_data[3] = {0, 0, 0};
@@ -265,16 +231,11 @@ static void get_picachu_efuse(void)
 			addr_ptr += 4;
 
 			/* check efuse data */
-			for (i = 1; i < cnt; i++) {
-				if ((i == 1) || (i == 2) ||
-					(i == 5) || (i == 6) ||
-					(i == 11) || (i == 12) || (i == 15))
-					continue;
-				else if (eem_read(addr_ptr + i * 4) == 0) {
-					eem_error("Wrong PI-OD%d: 0x%x\n",
-						i, eem_read(addr_ptr + i * 4));
-					return;
-				}
+
+			if (eem_read(addr_ptr) == 0) {
+				eem_error("Wrong PI-OD%d: 0x%x\n",
+					i, eem_read(addr_ptr + i * 4));
+				return;
 			}
 
 			for (i = 1; i < cnt; i++)
@@ -330,14 +291,8 @@ static int get_devinfo(void)
 	val[10] = get_devinfo_with_index(DEVINFO_IDX_10);
 	val[11] = get_devinfo_with_index(DEVINFO_IDX_11);
 	val[12] = get_devinfo_with_index(DEVINFO_IDX_12);
-	val[13] = get_devinfo_with_index(DEVINFO_IDX_13);
-	val[14] = get_devinfo_with_index(DEVINFO_IDX_14);
-	val[15] = get_devinfo_with_index(DEVINFO_IDX_15);
-	val[16] = get_devinfo_with_index(DEVINFO_IDX_16);
-	val[17] = get_devinfo_with_index(DEVINFO_IDX_17);
 
-	segCode = get_devinfo_with_index(DEVINFO_SEG_IDX)
-		& 0xFF;
+
 #if 0
 	efuse_val = get_devinfo_with_index(DEVINFO_TIME_IDX);
 	year = ((efuse_val >> 4) & 0xf) + 2018;
@@ -365,11 +320,7 @@ static int get_devinfo(void)
 	val[10] = DEVINFO_10;
 	val[11] = DEVINFO_11;
 	val[12] = DEVINFO_12;
-	val[13] = DEVINFO_13;
-	val[14] = DEVINFO_14;
-	val[15] = DEVINFO_15;
-	val[16] = DEVINFO_16;
-	val[17] = DEVINFO_17;
+
 #endif
 
 	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
@@ -390,37 +341,21 @@ static int get_devinfo(void)
 	aee_rr_rec_ptp_e10((unsigned int)val[10]);
 	aee_rr_rec_ptp_e11((unsigned int)val[11]);
 	aee_rr_rec_ptp_devinfo_0((unsigned int)val[12]);
+#if 0
 	aee_rr_rec_ptp_devinfo_1((unsigned int)val[13]);
 	aee_rr_rec_ptp_devinfo_2((unsigned int)val[14]);
 	aee_rr_rec_ptp_devinfo_3((unsigned int)val[15]);
 	aee_rr_rec_ptp_devinfo_4((unsigned int)val[16]);
 	aee_rr_rec_ptp_devinfo_5((unsigned int)val[17]);
 #endif
-#if ENABLE_LOO_B
-	big_2line = 1;
-#else
-	big_2line = 0;
-#endif
-#if ENABLE_GPU
-#if ENABLE_LOO_G
-	gpu_2line = 1;
-#else
-	gpu_2line = 0;
-#endif
 #endif
 
-	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
-		if ((i == 1) || (i == 2) ||
-			(i == 5) || (i == 6) ||
-			(i == 11) || (i == 12) || (i == 15))
-			continue;
-		else if (val[i] == 0) {
-			ret = 1;
-			safeEfuse = 1;
-			eem_error("No EFUSE (val[%d]), use safe efuse\n", i);
-			break;
-		}
+	if (val[1] == 0) {
+		ret = 1;
+		safeEfuse = 1;
+		eem_error("No EFUSE (val[%d]), use safe efuse\n", i);
 	}
+
 
 #if (EEM_FAKE_EFUSE)
 	eem_checkEfuse = 1;
@@ -443,11 +378,6 @@ static int get_devinfo(void)
 		val[10] = DEVINFO_10;
 		val[11] = DEVINFO_11;
 		val[12] = DEVINFO_12;
-		val[13] = DEVINFO_13;
-		val[14] = DEVINFO_14;
-		val[15] = DEVINFO_15;
-		val[16] = DEVINFO_16;
-		val[17] = DEVINFO_17;
 	}
 
 
@@ -474,10 +404,6 @@ static void _mt_eem_aee_init(void)
 	aee_rr_rec_ptp_cpu_big_volt_1(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_cpu_big_volt_2(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_cpu_big_volt_3(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_gpu_volt(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_gpu_volt_1(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_gpu_volt_2(0xFFFFFFFFFFFFFFFF);
-	aee_rr_rec_ptp_gpu_volt_3(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_cpu_little_volt(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_cpu_little_volt_1(0xFFFFFFFFFFFFFFFF);
 	aee_rr_rec_ptp_cpu_little_volt_2(0xFFFFFFFFFFFFFFFF);
@@ -540,16 +466,14 @@ void base_ops_switch_bank(struct eem_det *det, enum eem_phase phase)
 	/* 803f0000 + det->ctrl_id = enable ctrl's swcg clock */
 	/* 003f0000 + det->ctrl_id = disable ctrl's swcg clock */
 	/* bug: when system resume, need to restore coresel value */
-	if (phase == EEM_PHASE_INIT01) {
-		coresel |= CORESEL_VAL;
-	} else {
-		coresel |= CORESEL_INIT2_VAL;
+
+	coresel |= CORESEL_INIT2_VAL;
 #if defined(CFG_THERM_LVTS) && CFG_LVTS_DOMINATOR
-		coresel &= 0x0fffffff;
+	coresel &= 0x0fffffff;
 #else
-		coresel &= 0x0ffffeff;  /* get temp from AUXADC */
+	coresel &= 0x0ffffeff;  /* get temp from AUXADC */
 #endif
-	}
+
 	eem_write(EEMCORESEL, coresel);
 
 	if ((eem_read(EEMCORESEL) & 0x7) != (coresel & 0x7)) {
@@ -617,6 +541,7 @@ void base_ops_disable(struct eem_det *det, int reason)
 	FUNC_EXIT(FUNC_LV_HELP);
 }
 
+#if 0
 int base_ops_init01(struct eem_det *det)
 {
 	FUNC_ENTER(FUNC_LV_HELP);
@@ -633,12 +558,13 @@ int base_ops_init01(struct eem_det *det)
 
 	return 0;
 }
+#endif
 
 int base_ops_init02(struct eem_det *det)
 {
 	FUNC_ENTER(FUNC_LV_HELP);
 
-	if (unlikely(!HAS_FEATURE(det, FEA_INIT02))) {
+	if (unlikely(!HAS_FEATURE(det, FEA_INIT020))) {
 		eem_debug("det %s has no INIT02\n", det->name);
 		FUNC_EXIT(FUNC_LV_HELP);
 		return -1;
@@ -656,7 +582,7 @@ int base_ops_init02(struct eem_det *det)
 	 */
 
 	/* det->ops->dump_status(det); */
-	det->ops->set_phase(det, EEM_PHASE_INIT02);
+	det->ops->set_phase(det, det->init2_phase);
 
 	FUNC_EXIT(FUNC_LV_HELP);
 
@@ -695,28 +621,6 @@ int base_ops_mon_mode(struct eem_det *det)
 		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_CCI)
 		ts_bank = THERMAL_BANK2;
-#if ENABLE_GPU
-	else if (det_to_id(det) == EEM_DET_GPU)
-		ts_bank = THERMAL_BANK4;
-#endif
-#if ENABLE_VPU
-	else if (det_to_id(det) == EEM_DET_VPU)
-		ts_bank = THERMAL_BANK3;
-#endif
-#if ENABLE_MDLA
-	else if (det_to_id(det) == EEM_DET_MDLA)
-		ts_bank = THERMAL_BANK3;
-#endif
-#if ENABLE_GPU
-#if ENABLE_LOO_G
-	else if (det_to_id(det) == EEM_DET_GPU_HI)
-		ts_bank = THERMAL_BANK4;
-#endif
-#endif
-#if ENABLE_LOO_B
-	else if (det_to_id(det) == EEM_DET_B_HI)
-		ts_bank = THERMAL_BANK0;
-#endif
 	else
 		ts_bank = THERMAL_BANK0;
 
@@ -777,19 +681,13 @@ void base_ops_dump_status(struct eem_det *det)
 
 	eem_isr_info("EEMINITEN = 0x%08X\n",	det->EEMINITEN);
 	eem_isr_info("EEMMONEN = 0x%08X\n",	det->EEMMONEN);
-	eem_isr_info("MDES = 0x%08X\n",		det->MDES);
-	eem_isr_info("BDES = 0x%08X\n",		det->BDES);
-	eem_isr_info("DCMDET = 0x%08X\n",	det->DCMDET);
 
 	eem_isr_info("DCCONFIG = 0x%08X\n",	det->DCCONFIG);
-	eem_isr_info("DCBDET = 0x%08X\n",	det->DCBDET);
 
 	eem_isr_info("AGECONFIG = 0x%08X\n",	det->AGECONFIG);
 	eem_isr_info("AGEM = 0x%08X\n",		det->AGEM);
 
-	eem_isr_info("AGEDELTA = 0x%08X\n",	det->AGEDELTA);
 	eem_isr_info("DVTFIXED = 0x%08X\n",	det->DVTFIXED);
-	eem_isr_info("MTDES = 0x%08X\n",	det->MTDES);
 	eem_isr_info("VCO = 0x%08X\n",		det->VCO);
 
 	eem_isr_info("DETWINDOW = 0x%08X\n",	det->DETWINDOW);
@@ -797,11 +695,8 @@ void base_ops_dump_status(struct eem_det *det)
 	eem_isr_info("VMIN = 0x%08X\n",		det->VMIN);
 	eem_isr_info("DTHI = 0x%08X\n",		det->DTHI);
 	eem_isr_info("DTLO = 0x%08X\n",		det->DTLO);
-	eem_isr_info("VBOOT = 0x%08X\n",	det->VBOOT);
-	eem_isr_info("DETMAX = 0x%08X\n",	det->DETMAX);
 
-	eem_isr_info("DCVOFFSETIN = 0x%08X\n",	det->DCVOFFSETIN);
-	eem_isr_info("AGEVOFFSETIN = 0x%08X\n",	det->AGEVOFFSETIN);
+	eem_isr_info("DETMAX = 0x%08X\n",	det->DETMAX);
 
 	eem_isr_info("MTS = 0x%08X\n",		det->MTS);
 	eem_isr_info("BTS = 0x%08X\n",		det->BTS);
@@ -815,10 +710,6 @@ void base_ops_dump_status(struct eem_det *det)
 	for (i = 0; i < det->num_freq_tbl; i++)
 		eem_isr_info("volt_tbl[%d] = %d\n",
 				i, det->volt_tbl[i]);
-
-	for (i = 0; i < det->num_freq_tbl; i++)
-		eem_isr_info("volt_tbl_init2[%d] = %d\n",
-				i, det->volt_tbl_init2[i]);
 
 	for (i = 0; i < det->num_freq_tbl; i++)
 		eem_isr_info("volt_tbl_pmic[%d] = %d\n", i,
@@ -885,16 +776,22 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 	unsigned int i, filter, val;
 
 	FUNC_ENTER(FUNC_LV_HELP);
+	eem_debug("Bank%d, (%s) Set phase %d\n", det->ctrl_id,
+		((char *)(det->name) + 8), phase);
+
 	det->ops->switch_bank(det, phase);
 
 	/* config EEM register */
 	eem_write(EEM_DESCHAR,
-		  ((det->BDES << 8) & 0xff00) | (det->MDES & 0xff));
+	((det->phase_ef[phase].BDES << 8) & 0xff00) |
+		(det->phase_ef[phase].MDES & 0xff));
 	eem_write(EEM_TEMPCHAR,
-		  (((det->VCO << 16) & 0xff0000) |
-		   ((det->MTDES << 8) & 0xff00) | (det->DVTFIXED & 0xff)));
+		(((det->VCO << 16) & 0xff0000) |
+		((det->phase_ef[phase].MTDES << 8) & 0xff00) |
+		(det->DVTFIXED & 0xff)));
 	eem_write(EEM_DETCHAR,
-		  ((det->DCBDET << 8) & 0xff00) | (det->DCMDET & 0xff));
+		  ((det->phase_ef[phase].DCBDET << 8) & 0xff00) |
+		  (det->phase_ef[phase].DCMDET & 0xff));
 
 	eem_write(EEM_DCCONFIG, det->DCCONFIG);
 	eem_write(EEM_AGECONFIG, det->AGECONFIG);
@@ -919,7 +816,7 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 		eem_write(EEM_RUNCONFIG, val);
 	}
 
-	eem_fill_freq_table(det);
+	eem_fill_freq_table(det, phase);
 
 	eem_write(EEM_LIMITVALS,
 		  ((det->VMAX << 24) & 0xff000000)	|
@@ -927,7 +824,6 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 		  ((det->DTHI << 8) & 0xff00)		|
 		  (det->DTLO & 0xff));
 	/* eem_write(EEM_LIMITVALS, 0xFF0001FE); */
-	eem_write(EEM_VBOOT, (((det->VBOOT) & 0xff)));
 	eem_write(EEM_DETWINDOW, (((det->DETWINDOW) & 0xffff)));
 	eem_write(EEMCONFIG, (((det->DETMAX) & 0xffff)));
 
@@ -951,28 +847,13 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 	 * eem_write(EEM_THERMAL, 0x200);
 	 */
 
-	eem_debug(" %s set phase = %d\n", ((char *)(det->name) + 8), phase);
-	switch (phase) {
-	case EEM_PHASE_INIT01:
-		eem_debug("EEM_SET_PHASE01\n ");
-		eem_write(EEMINTEN, 0x00005f01);
-		/* enable EEM INIT measurement */
-		eem_write(EEMEN, 0x00000001 | SEC_MOD_SEL);
-		if (eem_read(EEMEN) != (0x00000001 | SEC_MOD_SEL)) {
-			aee_kernel_warning("mt_eem",
-			"@%s():%d, EEMEN %x\n",
-			__func__,
-			__LINE__,
-			eem_read(EEMEN));
-			WARN_ON(eem_read(EEMEN) != (0x00000001 | SEC_MOD_SEL));
-		}
-		eem_debug("EEMEN = 0x%x, EEMINTEN = 0x%x\n",
-				eem_read(EEMEN), eem_read(EEMINTEN));
-		dump_register();
-		udelay(250); /* all banks' phase cannot be set without delay */
-		break;
+	if (phase == EEM_PHASE_MON) {
+		eem_debug("EEM_SET_PHASE_MON\n ");
 
-	case EEM_PHASE_INIT02:
+		eem_write(EEMINTEN, 0x00FF0000);
+		/* enable EEM monitor mode */
+		eem_write(EEMEN, 0x00000002 | SEC_MOD_SEL);
+	} else {
 		/* check if DCVALUES is minus and set DCVOFFSETIN to zero */
 		if ((det->DCVOFFSETIN & 0x8000) || (eem_devinfo.FT_PGM == 0))
 			det->DCVOFFSETIN = 0;
@@ -983,10 +864,6 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 
 		eem_debug("EEM_SET_PHASE02\n ");
 		eem_write(EEMINTEN, 0x00005f01);
-
-		eem_write(EEM_INIT2VALS,
-			  ((det->AGEVOFFSETIN << 16) & 0xffff0000) |
-			  (det->DCVOFFSETIN & 0xffff));
 
 		/* enable EEM INIT measurement */
 		eem_write(EEMEN, 0x00000005 | SEC_MOD_SEL);
@@ -1000,23 +877,7 @@ void base_ops_set_phase(struct eem_det *det, enum eem_phase phase)
 		}
 
 		dump_register();
-		udelay(200); /* all banks' phase cannot be set without delay */
-		break;
-
-	case EEM_PHASE_MON:
-		eem_debug("EEM_SET_PHASE_MON\n ");
-		eem_write(EEMINTEN, 0x00FF0000);
-		/* enable EEM monitor mode */
-		eem_write(EEMEN, 0x00000002 | SEC_MOD_SEL);
-		/* dump_register(); */
-		break;
-
-	default:
-		WARN_ON(1); /*BUG()*/
-		break;
 	}
-	/* mt_ptp_unlock(&flags); */
-
 	FUNC_EXIT(FUNC_LV_HELP);
 }
 
@@ -1031,27 +892,6 @@ int base_ops_get_temp(struct eem_det *det)
 		ts_bank = THERMAL_BANK0;
 	else if (det_to_id(det) == EEM_DET_CCI)
 		ts_bank = THERMAL_BANK2;
-#if ENABLE_GPU
-	else if (det_to_id(det) == EEM_DET_GPU)
-		ts_bank = THERMAL_BANK4;
-
-#if ENABLE_LOO_G
-	else if (det_to_id(det) == EEM_DET_GPU_HI)
-		ts_bank = THERMAL_BANK4;
-#endif
-#endif
-#if ENABLE_MDLA
-	else if (det_to_id(det) == EEM_DET_MDLA)
-		ts_bank = THERMAL_BANK3;
-#endif
-#if ENABLE_VPU
-	else if (det_to_id(det) == EEM_DET_VPU)
-		ts_bank = THERMAL_BANK3;
-#endif
-#if ENABLE_LOO_B
-	else if (det_to_id(det) == EEM_DET_B_HI)
-		ts_bank = THERMAL_BANK0;
-#endif
 	else
 		ts_bank = THERMAL_BANK0;
 
@@ -1286,30 +1126,6 @@ static void eem_save_final_volt_aee(struct eem_det *ndet)
 				);
 			}
 			break;
-#if ENABLE_GPU
-		case EEM_CTRL_GPU:
-			if (i < 8) {
-				aee_rr_rec_ptp_gpu_volt_2(
-					((unsigned long long)
-					(ndet->volt_tbl_pmic[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_gpu_volt_2() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_gpu_volt_3(
-				((unsigned long long)(ndet->volt_tbl_pmic[i]) <<
-				(8 * (i - 8))) |
-				(aee_rr_curr_ptp_gpu_volt_3() & ~
-				((unsigned long long)(0xFF) <<
-				(8 * (i - 8)))
-				)
-				);
-			}
-			break;
-#endif
 		default:
 			break;
 		}
@@ -1319,82 +1135,38 @@ static void eem_save_final_volt_aee(struct eem_det *ndet)
 
 static void get_volt_table_in_thread(struct eem_det *det)
 {
-#if ENABLE_LOO
-#if UPDATE_TO_UPOWER
-	unsigned int init2chk = 0;
-#endif
-	struct eem_det *highdet;
-#endif
 	struct eem_det *ndet = det;
-	unsigned int i, verr = 0;
-	int low_temp_offset = 0, rm_dvtfix_offset = 0;
-	unsigned int t_clamp = 0, final_clamp_val, bcpu_opp0_eemv;
-#if ENABLE_GPU
-	int extra_aging = 0;
-#endif
+	unsigned int i/*, verr = 0*/;
+	int low_temp_offset = 0;
+	unsigned int t_clamp = 0, final_clamp_val;
 
 	if (det == NULL)
 		return;
 
-#if ENABLE_LOO
-	if (det->loo_role != NO_LOO_BANK)
-		mutex_lock(det->loo_mutex);
-
-	ndet = (det->loo_role == HIGH_BANK) ?
-		id_to_eem_det(det->loo_couple) : det;
-#endif
 	eem_debug("@@! In %s\n", __func__);
-	read_volt_from_VOP(det);
-
-	/* Copy volt to volt_tbl_init2 */
-	if (det->init2_done == 0) {
-		/* To check BCPU banks init2 isr */
-		if (det->ctrl_id == EEM_CTRL_B)
-			cur_init02_flag |= BIT(det->ctrl_id);
-#if ENABLE_LOO_B
-		else if (det->ctrl_id == EEM_CTRL_B_HI)
-			cur_init02_flag |= BIT(det->ctrl_id);
-#endif
-
-#if ENABLE_LOO
-		/* Receive init2 isr and update init2 volt_table */
-		if (det->loo_role == HIGH_BANK) {
-			memcpy(ndet->volt_tbl_init2, det->volt_tbl,
-				sizeof(int) * det->turn_pt);
-			memcpy(det->volt_tbl_init2, det->volt_tbl,
-				sizeof(int) * det->turn_pt);
-		} else if (det->loo_role == LOW_BANK) {
-			memcpy(&(det->volt_tbl_init2[det->turn_pt]),
-				&(det->volt_tbl[det->turn_pt]),
-				sizeof(int) *
-				(det->num_freq_tbl - det->turn_pt));
-		} else
-			memcpy(det->volt_tbl_init2, det->volt_tbl,
-				sizeof(det->volt_tbl_init2));
-#else
-		/* backup to volt_tbl_init2 */
-		memcpy(det->volt_tbl_init2, det->volt_tbl,
-			sizeof(det->volt_tbl_init2));
-#endif
-		det->init2_done = 1;
-	}
-
-#if ENABLE_LOO
-	/* Copy high bank volt to volt_tbl
-	 * remap to L/B bank for update dvfs table, also copy
-	 * high opp volt table
-	 * Band HIGHL will update its volt table (opp0~7) to bank L
-	 */
-	if (det->loo_role == HIGH_BANK) {
-		memcpy(ndet->volt_tbl, det->volt_tbl,
-				sizeof(int) * det->turn_pt);
-	}
-#endif
 
 	for (i = 0; i < NR_FREQ; i++) {
 #ifdef CONFIG_EEM_AEE_RR_REC
 		switch (ndet->ctrl_id) {
 		case EEM_CTRL_L:
+			if (i < 8) {
+				aee_rr_rec_ptp_cpu_2_little_volt(
+				((unsigned long long)(ndet->volt_tbl[i])
+				<< (8 * i)) |
+				(aee_rr_curr_ptp_cpu_2_little_volt() & ~
+				((unsigned long long)(0xFF) << (8 * i)))
+				);
+			} else {
+				aee_rr_rec_ptp_cpu_2_little_volt_1(
+				((unsigned long long)(ndet->volt_tbl[i])
+				 << (8 * (i - 8))) |
+				(aee_rr_curr_ptp_cpu_2_little_volt_1() & ~
+					((unsigned long long)(0xFF)
+					<< (8 * (i - 8))))
+				);
+			}
+			break;
+		case EEM_CTRL_BL:
 			if (i < 8) {
 				aee_rr_rec_ptp_cpu_little_volt(
 				((unsigned long long)(ndet->volt_tbl[i])
@@ -1455,39 +1227,14 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				);
 			}
 			break;
-#if ENABLE_GPU
-		case EEM_CTRL_GPU:
-			if (i < 8) {
-				aee_rr_rec_ptp_gpu_volt(
-					((unsigned long long)(ndet->volt_tbl[i])
-					 << (8 * i)) |
-					(aee_rr_curr_ptp_gpu_volt() & ~
-						((unsigned long long)(0xFF)
-						 << (8 * i))
-					)
-				);
-			} else {
-				aee_rr_rec_ptp_gpu_volt_1(
-				((unsigned long long)(ndet->volt_tbl[i]) <<
-				(8 * (i - 8))) |
-				(aee_rr_curr_ptp_gpu_volt_1() & ~
-				((unsigned long long)(0xFF) <<
-				(8 * (i - 8)))
-				)
-				);
-			}
-			break;
-#endif
 		default:
 			break;
 		}
 #endif
 
-
+/* angus todo */
+#if 0
 		if ((i > 0) && ((i % 4) != 0) &&
-#if ENABLE_LOO
-			(i != det->turn_pt) &&
-#endif
 			(ndet->volt_tbl[i] > ndet->volt_tbl[i-1])) {
 
 			verr = 1;
@@ -1495,15 +1242,15 @@ static void get_volt_table_in_thread(struct eem_det *det)
 				"@%s():%d; (%s) [%d] = [%x] > [%d] = [%x]\n",
 				__func__, __LINE__, ((char *)(ndet->name) + 8),
 				i, ndet->volt_tbl[i], i-1, ndet->volt_tbl[i-1]);
-
+#if 0
 			aee_kernel_warning("mt_eem",
 			"@%s():%d; (%s) V30_[0x%x], V74_[0x%x],",
 				__func__, __LINE__, ((char *)(det->name) + 8),
 				ndet->mon_vop30, ndet->mon_vop74);
-
+#endif
 			WARN_ON(ndet->volt_tbl[i] > ndet->volt_tbl[i-1]);
 		}
-
+#endif
 		/*
 		 *eem_debug("mon_[%s].volt_tbl[%d] = 0x%X (%d)\n",
 		 *	det->name, i, det->volt_tbl[i],
@@ -1516,11 +1263,11 @@ static void get_volt_table_in_thread(struct eem_det *det)
 		 *}
 		 */
 	}
-
+#if 0
 	if (verr == 1)
-		memcpy(ndet->volt_tbl, ndet->volt_tbl_init2,
+		memcpy(ndet->volt_tbl, ndet->volt_tbl_orig,
 				sizeof(ndet->volt_tbl));
-
+#endif
 	/* Check Temperature */
 	ndet->temp = ndet->ops->get_temp(det);
 
@@ -1544,59 +1291,14 @@ static void get_volt_table_in_thread(struct eem_det *det)
 		ndet->isTempInv = EEM_LOW_T;
 #endif
 
-#if ENABLE_GPU
-	if (ndet->ctrl_id == EEM_CTRL_GPU) {
-		if (ndet->isTempInv) {
-			ndet->low_temp_off =
-			(ndet->temp <= INVERT_LOW_TEMP_VAL) ?
-			EXTRA_LOW_TEMP_OFF_GPU : EXTRA_TEMP_OFF_GPU;
-			t_clamp = ndet->low_temp_off;
-		} else
-			t_clamp = 0;
-	}
-#endif
 
 	/* scale of det->volt_offset must equal 10uV */
 	/* if has record table, min with record table of each cpu */
 	for (i = 0; i < ndet->num_freq_tbl; i++) {
-#if !ENABLE_MINIHQA
-		if (ndet->volt_policy) {
-			if ((ndet->loo_role != NO_LOO_BANK) &&
-				(i < det->turn_pt)) {
-				highdet = id_to_eem_det(ndet->loo_couple);
-				rm_dvtfix_offset = 0 - highdet->DVTFIXED;
-			} else
-				rm_dvtfix_offset = 0 - ndet->DVTFIXED;
-		} else {
-#if ENABLE_LOO
-			if ((ndet->loo_role != NO_LOO_BANK) &&
-				(i < det->turn_pt)) {
-				highdet = id_to_eem_det(ndet->loo_couple);
-				rm_dvtfix_offset = min(
-				((highdet->DVTFIXED * highdet->freq_tbl[i]
-				+ (100 - 1)) / 100),
-				highdet->DVTFIXED) - highdet->DVTFIXED;
-			} else
-#endif
-				rm_dvtfix_offset = min(
-				((ndet->DVTFIXED * ndet->freq_tbl[i]
-				+ (100 - 1)) / 100),
-				ndet->DVTFIXED) - ndet->DVTFIXED;
-		}
-#endif
 
 		/* Add low temp offset for each bank if temp inverse */
 		if (ndet->isTempInv) {
-#if ENABLE_LOO
-			if ((ndet->loo_role != NO_LOO_BANK) &&
-				(i < det->turn_pt)) {
-				highdet = id_to_eem_det(ndet->loo_couple);
-				low_temp_offset =
-				(highdet->isTempInv == EEM_HIGH_T) ?
-				highdet->high_temp_off : highdet->low_temp_off;
-			} else
-#endif
-				low_temp_offset =
+			low_temp_offset =
 				(ndet->isTempInv == EEM_HIGH_T) ?
 				ndet->high_temp_off : ndet->low_temp_off;
 
@@ -1614,172 +1316,37 @@ static void get_volt_table_in_thread(struct eem_det *det)
 			final_clamp_val = ndet->volt_tbl_orig[i] +
 			ndet->volt_clamp;
 
-		if ((ndet->ctrl_id == EEM_CTRL_B) && (segCode == 0x10))
-			final_clamp_val = min(pmic_clamp_val, final_clamp_val);
-
-#if ENABLE_GPU
-		if (time_val && (i < FALL_NUM))
-			extra_aging = 1;
-		else
-			extra_aging = 0;
-#endif
-		switch (ndet->ctrl_id) {
-		case EEM_CTRL_L:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
+		ndet->volt_tbl_pmic[i] = min(
+		(unsigned int)(clamp(
 			ndet->ops->eem_2_pmic(ndet,
 			(ndet->volt_tbl[i] + ndet->volt_offset +
 			low_temp_offset + ndet->volt_aging[i]) +
-			rm_dvtfix_offset + eem_aging),
+			eem_aging),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
 			ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
 			final_clamp_val);
-			break;
 
-		case EEM_CTRL_B:
-			if ((i == 0) && (det->loo_role == HIGH_BANK) &&
-				(segCode == 0x10) && (is_warn_on == 0) &&
-				(eem_devinfo.CPU_L_HI_SPEC == 0)) {
-				bcpu_opp0_eemv =
-					det->volt_tbl[0] + rm_dvtfix_offset;
-				if (bcpu_opp0_eemv > eem_clamp_val) {
-					aee_rr_rec_ptp_devinfo_7(
-					(unsigned int)det->ops->pmic_2_volt(det,
-					det->ops->eem_2_pmic(det,
-					bcpu_opp0_eemv)));
-					is_warn_on = 1;
-				}
-			}
-
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-				ndet->ops->eem_2_pmic(ndet,
-				(ndet->volt_tbl[i] + ndet->volt_offset +
-				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset + eem_aging),
-				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
-				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
-				final_clamp_val);
-
-			break;
-
-		case EEM_CTRL_CCI:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-				ndet->ops->eem_2_pmic(ndet,
-				(ndet->volt_tbl[i] + ndet->volt_offset +
-				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset + eem_aging),
-				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
-				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
-				final_clamp_val);
-			break;
-#if ENABLE_GPU
-		case EEM_CTRL_GPU:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-			ndet->ops->eem_2_pmic(ndet,
-			(ndet->volt_tbl[i] + ndet->volt_offset +
-			ndet->volt_aging[i]) +
-			rm_dvtfix_offset),
-			ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
-			ndet->ops->eem_2_pmic(ndet, VMAX_VAL_GPU)) +
-			low_temp_offset - extra_aging),
-			ndet->volt_tbl_orig[i] + ndet->volt_clamp +
-			t_clamp);
-			break;
-#endif
-#if ENABLE_VPU
-		case EEM_CTRL_VPU:
-			ndet->volt_tbl_pmic[i] = min(
-			(unsigned int)(clamp(
-				ndet->ops->eem_2_pmic(ndet,
-				(ndet->volt_tbl[i] + ndet->volt_offset +
-				low_temp_offset + ndet->volt_aging[i]) +
-				rm_dvtfix_offset),
-				ndet->ops->eem_2_pmic(ndet, ndet->VMIN),
-				ndet->ops->eem_2_pmic(ndet, ndet->VMAX))),
-				ndet->volt_tbl_orig[i] + ndet->volt_clamp);
-			break;
-#endif
-		default:
-			eem_error("[eem_set_eem_volt] incorrect det :%s!!",
-					ndet->name);
-			break;
-		}
 #if 0
 		eem_error("[%s].volt[%d]=0x%X, Ori[0x%x], pmic[%d]=0x%x(%d)\n",
 			det->name,
 			i, det->volt_tbl[i], det->volt_tbl_orig[i],
 			i, det->volt_tbl_pmic[i], det->ops->pmic_2_volt
 			(det, det->volt_tbl_pmic[i]));
-		eem_error("low_temp_offset:%d, rm_dvtfix:%d, 'det'->id:%d\n",
-			low_temp_offset, rm_dvtfix_offset, det->ctrl_id);
+		eem_debug("low_temp_offset:%d, id:%d\n",
+			low_temp_offset, det->ctrl_id);
 #endif
-#if ENABLE_LOO
-		if ((i > 0) && (ndet->volt_tbl_pmic[i] >
-			ndet->volt_tbl_pmic[i-1]) &&
-			(ndet->set_volt_to_upower)) {
-				/*                 _ /            */
-				/*                /_/             */
-				/*               /                */
-			if (det->loo_role == HIGH_BANK)
-				/* Receive high bank isr but low opp */
-				/* still using higher volt */
-				/* overwrite low bank opp voltage */
-				/*                  /             */
-				/*                _/              */
-				/*               /                */
-				ndet->volt_tbl_pmic[i] =
-					ndet->volt_tbl_pmic[i-1];
-			else {
-				/* Receive low bank isr but high opp */
-				/* still using lower volt */
-				/* overwrite high bank opp voltage */
-				/*                 _/             */
-				/*                /               */
-				/*               /                */
-				ndet->volt_tbl_pmic[i-1] =
-					ndet->volt_tbl_pmic[i];
 
-				if ((i > 1) && (ndet->volt_tbl_pmic[i] >
-						ndet->volt_tbl_pmic[i-2]))
-					ndet->volt_tbl_pmic[i-2] =
-						ndet->volt_tbl_pmic[i];
-			}
-		}
-#endif
+		if ((i > 0) && (ndet->volt_tbl_pmic[i] >
+			ndet->volt_tbl_pmic[i-1]))
+			ndet->volt_tbl_pmic[i] =
+				ndet->volt_tbl_pmic[i-1];
 
 	}
 
 	eem_save_final_volt_aee(ndet);
 
 #if UPDATE_TO_UPOWER
-#if ENABLE_LOO
-	if ((ndet->set_volt_to_upower == 0) &&
-#if ENABLE_GPU
-		(ndet->ctrl_id < EEM_CTRL_GPU)) {
-#else
-		(ndet->ctrl_id <= EEM_CTRL_CCI)) {
-#endif
-		if (((ndet->ctrl_id == EEM_CTRL_B) &&
-			(cur_init02_flag !=
-			bcpu_final_init02_flag)))
-			init2chk = 0;
-		else
-			init2chk = 1;
-		eem_error("cur_flag:0x%x, b_flag:0x%x\n",
-			cur_init02_flag, bcpu_final_init02_flag);
-		/* only when set_volt_to_upower == 0,
-		 * the volt will be apply to upower
-		 */
-		if (init2chk) {
-			eem_update_init2_volt_to_upower
-				(ndet, ndet->volt_tbl_pmic);
-			ndet->set_volt_to_upower = 1;
-		}
-	}
-#else
+
 	/* only when set_volt_to_upower == 0,
 	 * the volt will be apply to upower
 	 */
@@ -1787,17 +1354,10 @@ static void get_volt_table_in_thread(struct eem_det *det)
 		eem_update_init2_volt_to_upower(ndet, ndet->volt_tbl_pmic);
 		ndet->set_volt_to_upower = 1;
 	}
-#endif
+
 #endif
 	if (0 == (ndet->disabled % 2))
 		ndet->ops->set_volt(ndet);
-#if 0
-skip_update:
-#endif
-#if ENABLE_LOO
-	if (det->loo_role != NO_LOO_BANK)
-		mutex_unlock(ndet->loo_mutex);
-#endif
 }
 /*
  * Thread for voltage setting
@@ -1808,11 +1368,6 @@ static int eem_volt_thread_handler(void *data)
 	struct eem_det *det = id_to_eem_det(ctrl->det_id);
 #ifdef CONFIG_EEM_AEE_RR_REC
 	int temp = -1;
-#endif
-#if ENABLE_LOO
-	/* struct eem_ctrl *new_ctrl; */
-	/* struct eem_det *new_det; */
-	/* unsigned int init2chk = 0; */
 #endif
 
 	FUNC_ENTER(FUNC_LV_HELP);
@@ -1831,11 +1386,17 @@ static int eem_volt_thread_handler(void *data)
 					(1 << EEM_CPU_2_LITTLE_IS_SET_VOLT));
 				temp = EEM_CPU_2_LITTLE_IS_SET_VOLT;
 				break;
-			case EEM_CTRL_B:
+			case EEM_CTRL_BL:
 				aee_rr_rec_ptp_status
 					(aee_rr_curr_ptp_status() |
 					(1 << EEM_CPU_LITTLE_IS_SET_VOLT));
 				temp = EEM_CPU_LITTLE_IS_SET_VOLT;
+				break;
+			case EEM_CTRL_B:
+				aee_rr_rec_ptp_status
+					(aee_rr_curr_ptp_status() |
+					(1 << EEM_CPU_B_IS_SET_VOLT));
+				temp = EEM_CPU_B_IS_SET_VOLT;
 				break;
 			case EEM_CTRL_CCI:
 				aee_rr_rec_ptp_status
@@ -1843,30 +1404,6 @@ static int eem_volt_thread_handler(void *data)
 					(1 << EEM_CPU_CCI_IS_SET_VOLT));
 				temp = EEM_CPU_CCI_IS_SET_VOLT;
 				break;
-#if ENABLE_GPU
-			case EEM_CTRL_GPU:
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEM_GPU_IS_SET_VOLT));
-				temp = EEM_GPU_IS_SET_VOLT;
-				break;
-			case EEM_CTRL_GPU_HI:
-#if ENABLE_LOO_G
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEM_GPU_HI_IS_SET_VOLT));
-				temp = EEM_GPU_HI_IS_SET_VOLT;
-#endif
-				break;
-#endif
-#if ENABLE_LOO_B
-			case EEM_CTRL_B_HI:
-				aee_rr_rec_ptp_status
-					(aee_rr_curr_ptp_status() |
-					(1 << EEM_CPU_BIG_HI_IS_SET_VOLT));
-				temp = EEM_CPU_BIG_HI_IS_SET_VOLT;
-				break;
-#endif
 			default:
 				eem_error
 				("eem_volt_handler :incorrect det id %d\n",
@@ -1886,168 +1423,14 @@ static int eem_volt_thread_handler(void *data)
 			det->ops->restore_default_volt(det);
 			ctrl->volt_update = EEM_VOLT_NONE;
 		}
-		if (det->vop_check)
-			ctrl->volt_update = EEM_VOLT_NONE;
+
+		ctrl->volt_update = EEM_VOLT_NONE;
 	} while (!kthread_should_stop());
 	FUNC_EXIT(FUNC_LV_HELP);
 
 	return 0;
 }
 
-#if ENABLE_INIT1_STRESS
-static int eem_init1stress_thread_handler(void *data)
-{
-	struct eem_det *det;
-	struct eem_ctrl *ctrl;
-	unsigned long flag;
-	unsigned int out = 0, timeout = 0;
-#ifdef CORN_LOAD
-	ktime_t ktime, start;
-	unsigned int curtime = 0;
-	unsigned int i;
-	unsigned int err_flag = 0;
-
-	start = ktime_get();
-	while (1) {
-		eem_debug("wait vpu time %d\n", curtime);
-		if (get_vpu_init_done() && get_ready_for_ptpod_check())
-			break;
-		ktime = ktime_sub(ktime_get(), start);
-		curtime = ktime_to_us(ktime);
-		if (curtime > WAIT_TIME) {
-			eem_error("%s wait vpu init timeout = %d\n", __func__,
-					curtime);
-			err_flag = 1;
-			break;
-		}
-	}
-
-	if (!err_flag) {
-		eem_debug("@@~finish vpu hw init %d %d\n", get_vpu_init_done(),
-			get_ready_for_ptpod_check());
-		vpu_enable_mtcmos();
-		for (i = 0; i < CORN_SIZE; i++)
-			eem_corner(i);
-		vpu_enable_by_ptpod();
-		mdla_enable_by_ptpod();
-		vpu_disable_mtcmos();
-		vvpu_update_ptp_count(vpu_detcount, CORN_SIZE);
-		vmdla_update_ptp_count(mdla_detcount, CORN_SIZE);
-		ktime = ktime_sub(ktime_get(), ktime);
-		eem_error("@@corner cost time = %d\n", ktime_to_us(ktime));
-	}
-#endif
-
-	do {
-		wait_event_interruptible(wqStress, eem_init1stress_en);
-		eem_error("eem init1stress start\n");
-		testCnt = 0;
-		/* Disable GPU test due to MTCMOS can't force enable */
-#if ENABLE_GPU
-		det = id_to_eem_det(EEM_DET_GPU);
-		det->features = 0;
-		final_init01_flag &= ~(BIT(EEM_DET_GPU));
-#endif
-		/* CPU/GPU pre-process (need to fix )*/
-		mt_cpufreq_ctrl_cci_volt(VBOOT_PMIC_VAL);
-		mcdi_pause(MCDI_PAUSE_BY_EEM, true);
-		mt_ppm_ptpod_policy_activate();
-
-		eem_debug("vpu_disable_by_ptpod 2\n");
-#if ENABLE_VPU
-		/* vpu_disable_by_ptpod(); */
-#endif
-#if !EARLY_PORTING
-		eem_buck_set_mode(1);
-#endif
-		while (eem_init1stress_en) {
-			/* Start to clear previour ptp init status */
-			mt_ptp_lock(&flag);
-
-			for_each_det(det) {
-				det->ops->switch_bank(det, NR_EEM_PHASE);
-				eem_write(EEMEN, 0x0 | SEC_MOD_SEL);
-				/* Clear interrupt EEMINTSTS = 0x00ff0000 */
-				eem_write(EEMINTSTS, 0x00ff0000);
-				det->eem_eemEn[EEM_PHASE_INIT01] = 0;
-
-				if (HAS_FEATURE(det, FEA_INIT01))
-					det->features = FEA_INIT01;
-
-			}
-			mt_ptp_unlock(&flag);
-
-			if (testCnt++ % 200 == 0)
-				eem_error("eem_init1stress,cnt:%d\n", testCnt);
-
-			for_each_det_ctrl(det, ctrl) {
-				if (HAS_FEATURE(det, FEA_INIT01)) {
-#ifdef CORN_LOAD
-					if (det->ctrl_id == EEM_CTRL_MDLA ||
-						det->ctrl_id == EEM_CTRL_VPU)
-						continue;
-#endif
-					mt_ptp_lock(&flag); /* <-XXX */
-					det->ops->init01(det);
-					mt_ptp_unlock(&flag); /* <-XXX */
-				}
-			}
-
-			/* This patch is waiting for whole bank finish
-			 * the init01 then go
-			 * next. Due to LL/L use same bulk PMIC,
-			 * LL voltage table change
-			 * will impact L to process init01 stage,
-			 * because L require a
-			 * stable 1V for init01.
-			 */
-			while (1) {
-				for_each_det(det) {
-					if (((out & BIT(det->ctrl_id)) == 0) &&
-					(det->eem_eemEn[EEM_PHASE_INIT01] ==
-					(1 | SEC_MOD_SEL)))
-						out |= BIT(det->ctrl_id);
-				}
-
-				if (out == final_init01_flag) {
-					timeout = 0;
-					break;
-				}
-				udelay(100);
-				timeout++;
-
-				if (timeout % 300 == 0)
-					eem_error("init01 wait %d,0x%x[0x%x]\n",
-					timeout, out, final_init01_flag);
-			}
-			msleep(100);
-		}
-#if !EARLY_PORTING
-		/* CPU/GPU post-process */
-		eem_buck_set_mode(0);
-#endif
-
-#if ENABLE_VPU
-		eem_error("vpu_enable_by_ptpod 2\n");
-		/* vpu_enable_by_ptpod(); */
-#endif
-
-		/* need to fix */
-		mt_cpufreq_ctrl_cci_volt(VBOOT_PMIC_CLR);
-
-		mt_ppm_ptpod_policy_deactivate();
-
-		mcdi_pause(MCDI_PAUSE_BY_EEM, false);
-
-		eem_error("eem init1stress end, total test counter:%d\n",
-				testCnt);
-	} while (!kthread_should_stop());
-
-	FUNC_EXIT(FUNC_LV_HELP);
-
-	return 0;
-}
-#endif
 
 static void inherit_base_det(struct eem_det *det)
 {
@@ -2065,7 +1448,7 @@ static void inherit_base_det(struct eem_det *det)
 	INIT_OP(det->ops, disable);
 	INIT_OP(det->ops, disable_locked);
 	INIT_OP(det->ops, switch_bank);
-	INIT_OP(det->ops, init01);
+	/* INIT_OP(det->ops, init01); */
 	INIT_OP(det->ops, init02);
 	INIT_OP(det->ops, mon_mode);
 	INIT_OP(det->ops, get_status);
@@ -2112,231 +1495,190 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 	eem_debug("IN init_det %s\n", det->name);
 	switch (det_id) {
 	case EEM_DET_L:
-		det->MDES	= devinfo->CPU_L_MDES;
-		det->BDES	= devinfo->CPU_L_BDES;
-		det->DCMDET	= devinfo->CPU_L_DCMDET;
-		det->DCBDET	= devinfo->CPU_L_DCBDET;
-		det->EEMINITEN	= devinfo->CPU_L_INITEN;
-		det->EEMMONEN	= devinfo->CPU_L_MONEN;
-		det->MTDES	= devinfo->CPU_L_MTDES;
-		det->SPEC	= devinfo->CPU_L_SPEC;
-		det->VMAX += det->DVTFIXED;
-		if (devinfo->CPU_L_DVFS_LOW == 4)
-			det->VMIN = VMIN_VAL_D4;
-		else if (devinfo->CPU_L_DVFS_LOW == 5)
-			det->VMIN = VMIN_VAL_D5;
+		det->phase_ef[EEM_PHASE_MON].MDES =
+			devinfo->CPU_L_HI_MDES;
+		det->phase_ef[EEM_PHASE_MON].BDES =
+			devinfo->CPU_L_HI_BDES;
+		det->phase_ef[EEM_PHASE_MON].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_MON].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_MON].MTDES =
+			devinfo->CPU_L_HI_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT020].MDES =
+			devinfo->CPU_L_HI_MDES;
+		det->phase_ef[EEM_PHASE_INIT020].BDES =
+			devinfo->CPU_L_HI_BDES;
+		det->phase_ef[EEM_PHASE_INIT020].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT020].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT020].MTDES =
+			devinfo->CPU_L_HI_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT021].MDES =
+			devinfo->CPU_L_MID_MDES;
+		det->phase_ef[EEM_PHASE_INIT021].BDES =
+			devinfo->CPU_L_MID_BDES;
+		det->phase_ef[EEM_PHASE_INIT021].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT021].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT021].MTDES =
+			devinfo->CPU_L_MID_MTDES;
+
 		break;
+
+	case EEM_DET_BL:
+		det->phase_ef[EEM_PHASE_MON].MDES =
+			devinfo->CPU_BL_HI_MDES;
+		det->phase_ef[EEM_PHASE_MON].BDES =
+			devinfo->CPU_BL_HI_BDES;
+		det->phase_ef[EEM_PHASE_MON].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_MON].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_MON].MTDES =
+			devinfo->CPU_BL_HI_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT020].MDES =
+			devinfo->CPU_BL_HI_MDES;
+		det->phase_ef[EEM_PHASE_INIT020].BDES =
+			devinfo->CPU_BL_HI_BDES;
+		det->phase_ef[EEM_PHASE_INIT020].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT020].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT020].MTDES =
+			devinfo->CPU_BL_HI_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT021].MDES =
+			devinfo->CPU_BL_MID_MDES;
+		det->phase_ef[EEM_PHASE_INIT021].BDES =
+			devinfo->CPU_BL_MID_BDES;
+		det->phase_ef[EEM_PHASE_INIT021].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT021].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT021].MTDES =
+			devinfo->CPU_BL_MID_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT022].MDES =
+			devinfo->CPU_BL_LO_MDES;
+		det->phase_ef[EEM_PHASE_INIT022].BDES =
+			devinfo->CPU_BL_LO_BDES;
+		det->phase_ef[EEM_PHASE_INIT022].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT022].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT022].MTDES =
+			devinfo->CPU_BL_LO_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT023].MDES =
+			devinfo->CPU_BL_ULV_MDES;
+		det->phase_ef[EEM_PHASE_INIT023].BDES =
+			devinfo->CPU_BL_ULV_BDES;
+		det->phase_ef[EEM_PHASE_INIT023].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT023].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT023].MTDES =
+			devinfo->CPU_BL_ULV_MTDES;
+
+		break;
+
 	case EEM_DET_B:
-#if ENABLE_LOO_B
-		bcpu_final_init02_flag |= BIT(det_id);
-		if (big_2line) {
-			det->MDES	= devinfo->CPU_B_LO_MDES;
-			det->BDES	= devinfo->CPU_B_LO_BDES;
-			det->DCMDET	= devinfo->CPU_B_LO_DCMDET;
-			det->DCBDET	= devinfo->CPU_B_LO_DCBDET;
-			det->EEMINITEN	= devinfo->CPU_B_LO_INITEN;
-			det->EEMMONEN	= devinfo->CPU_B_LO_MONEN;
-			det->MTDES	= devinfo->CPU_B_LO_MTDES;
-			det->SPEC	= devinfo->CPU_B_LO_SPEC;
+		det->phase_ef[EEM_PHASE_MON].MDES =
+			devinfo->CPU_B_HI_MDES;
+		det->phase_ef[EEM_PHASE_MON].BDES =
+			devinfo->CPU_B_HI_BDES;
+		det->phase_ef[EEM_PHASE_MON].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_MON].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_MON].MTDES =
+			devinfo->CPU_B_HI_MTDES;
 
-			det->DVTFIXED = DVTFIXED_VAL_BL;
-			det->max_freq_khz = B_M_FREQ_BASE;
-			det->loo_role	= LOW_BANK;
-			if (devinfo->CPU_B_LO_DVFS_LOW == 4)
-				det->VMIN = VMIN_VAL_B_D4;
-			else if (devinfo->CPU_B_LO_DVFS_LOW == 5)
-				det->VMIN = VMIN_VAL_B_D5;
-		} else {
-#endif
-			det->MDES	= devinfo->CPU_B_MDES;
-			det->BDES	= devinfo->CPU_B_BDES;
-			det->DCMDET	= devinfo->CPU_B_DCMDET;
-			det->DCBDET	= devinfo->CPU_B_DCBDET;
-			det->EEMINITEN	= devinfo->CPU_B_INITEN;
-			det->EEMMONEN	= devinfo->CPU_B_MONEN;
-			det->MTDES	= devinfo->CPU_B_MTDES;
-			det->SPEC	= devinfo->CPU_B_SPEC;
-			det->max_freq_khz = B_FREQ_BASE;
-			if (devinfo->CPU_B_DVFS_LOW == 4)
-				det->VMIN = VMIN_VAL_B_D4;
-			else if (devinfo->CPU_B_DVFS_LOW == 5)
-				det->VMIN = VMIN_VAL_B_D5;
-#if ENABLE_LOO_B
-			det->loo_role = NO_LOO_BANK;
-		}
-#endif
-		if (segCode == 0x10)
-			det->VMAX = VMAX_VAL_B_T;
+		det->phase_ef[EEM_PHASE_INIT020].MDES =
+			devinfo->CPU_B_HI_MDES;
+		det->phase_ef[EEM_PHASE_INIT020].BDES =
+			devinfo->CPU_B_HI_BDES;
+		det->phase_ef[EEM_PHASE_INIT020].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT020].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT020].MTDES =
+			devinfo->CPU_B_HI_MTDES;
 
-		det->VMAX += det->DVTFIXED;
+		det->phase_ef[EEM_PHASE_INIT021].MDES =
+			devinfo->CPU_B_MID_MDES;
+		det->phase_ef[EEM_PHASE_INIT021].BDES =
+			devinfo->CPU_B_MID_BDES;
+		det->phase_ef[EEM_PHASE_INIT021].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT021].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT021].MTDES =
+			devinfo->CPU_B_MID_MTDES;
+
+		det->phase_ef[EEM_PHASE_INIT022].MDES =
+			devinfo->CPU_B_LO_MDES;
+		det->phase_ef[EEM_PHASE_INIT022].BDES =
+			devinfo->CPU_B_LO_BDES;
+		det->phase_ef[EEM_PHASE_INIT022].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT022].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT022].MTDES =
+			devinfo->CPU_B_LO_MTDES;
 		break;
+
 	case EEM_DET_CCI:
-		det->MDES	= devinfo->CCI_MDES;
-		det->BDES	= devinfo->CCI_BDES;
-		det->DCMDET	= devinfo->CCI_DCMDET;
-		det->DCBDET	= devinfo->CCI_DCBDET;
-		det->EEMINITEN	= devinfo->CCI_INITEN;
-		det->EEMMONEN	= devinfo->CCI_MONEN;
-		det->MTDES	= devinfo->CCI_MTDES;
-		det->SPEC       = devinfo->CCI_SPEC;
-		det->VMAX += det->DVTFIXED;
-		if (devinfo->CCI_DVFS_LOW == 4)
-			det->VMIN = VMIN_VAL_D4;
-		else if (devinfo->CCI_DVFS_LOW == 5)
-			det->VMIN = VMIN_VAL_D5;
-		break;
-#if ENABLE_GPU
-	case EEM_DET_GPU:
-#if ENABLE_LOO_G
-		if (gpu_2line) {
-			det->MDES	= devinfo->GPU_LO_MDES;
-			det->BDES	= devinfo->GPU_LO_BDES;
-			det->DCMDET	= devinfo->GPU_LO_DCMDET;
-			det->DCBDET	= devinfo->GPU_LO_DCBDET;
-			det->EEMINITEN	= devinfo->GPU_LO_INITEN;
-			det->EEMMONEN	= devinfo->GPU_LO_MONEN;
-			det->MTDES	= devinfo->GPU_LO_MTDES;
-			det->SPEC       = devinfo->GPU_LO_SPEC;
-			det->VMAX		= VMAX_VAL_GL;
-			det->max_freq_khz = GPU_M_FREQ_BASE;
-			det->loo_role = LOW_BANK;
-		} else {
-#endif
-			det->MDES	= devinfo->GPU_MDES;
-			det->BDES	= devinfo->GPU_BDES;
-			det->DCMDET	= devinfo->GPU_DCMDET;
-			det->DCBDET	= devinfo->GPU_DCBDET;
-			det->EEMINITEN	= devinfo->GPU_INITEN;
-			det->EEMMONEN	= devinfo->GPU_MONEN;
-			det->MTDES	= devinfo->GPU_MTDES;
-			det->SPEC       = devinfo->GPU_SPEC;
-			det->VMAX		= VMAX_VAL_GPU;
-			det->max_freq_khz = GPU_FREQ_BASE;
-#if ENABLE_LOO_G
-			det->loo_role = NO_LOO_BANK;
-		}
-#endif
-		det->VMAX += det->DVTFIXED;
-		break;
-#endif
-#if ENABLE_VPU
-	case EEM_DET_VPU:
-		det->MDES	= devinfo->GPU_MDES;
-		det->BDES	= devinfo->GPU_BDES;
-		det->DCMDET	= devinfo->GPU_DCMDET;
-		det->DCBDET	= devinfo->GPU_DCBDET;
-		det->EEMINITEN	= devinfo->GPU_INITEN;
-		det->EEMMONEN	= devinfo->GPU_MONEN;
-		det->MTDES	= devinfo->GPU_MTDES;
-		break;
-#endif
-#if ENABLE_MDLA
-	case EEM_DET_MDLA:
-		det->MDES	= devinfo->GPU_MDES;
-		det->BDES	= devinfo->GPU_BDES;
-		det->DCMDET	= devinfo->GPU_DCMDET;
-		det->DCBDET	= devinfo->GPU_DCBDET;
-		det->EEMINITEN	= devinfo->GPU_INITEN;
-		det->EEMMONEN	= devinfo->GPU_MONEN;
-		det->MTDES	= devinfo->GPU_MTDES;
-		break;
-#endif
-#if ENABLE_GPU
-	case EEM_DET_GPU_HI:
-#if ENABLE_LOO_G
-		det->MDES	= devinfo->GPU_HI_MDES;
-		det->BDES	= devinfo->GPU_HI_BDES;
-		det->DCMDET	= devinfo->GPU_HI_DCMDET;
-		det->DCBDET	= devinfo->GPU_HI_DCBDET;
-		det->EEMINITEN	= devinfo->GPU_HI_INITEN;
-		det->EEMMONEN	= devinfo->GPU_HI_MONEN;
-		det->MTDES	= devinfo->GPU_HI_MTDES;
-		det->SPEC       = devinfo->GPU_HI_SPEC;
-		det->VMAX += det->DVTFIXED;
-		if (!gpu_2line) {
-			det->features = 0;
-			det->loo_role = NO_LOO_BANK;
-		}
-#endif
-		break;
-#endif
-	case EEM_DET_B_HI:
-#if ENABLE_LOO_B
-		if ((segCode == 0x10) &&
-			(devinfo->CPU_L_HI_SPEC == 2)) {
-			det->MDES	= devinfo->CPU_L_HI_MDES;
-			det->BDES	= devinfo->CPU_L_HI_BDES;
-			det->DCMDET = devinfo->CPU_B_HI_DCMDET;
-			det->DCBDET = devinfo->CPU_B_HI_DCBDET;
-			det->EEMINITEN	= devinfo->CPU_L_HI_INITEN;
-			det->EEMMONEN	= devinfo->CPU_L_HI_MONEN;
-			det->MTDES	= devinfo->CPU_L_HI_MTDES;
-			det->SPEC	= devinfo->CPU_L_HI_SPEC;
-			det->max_freq_khz = B_FREQ26_BASE;
-		} else {
-			det->MDES	= devinfo->CPU_B_HI_MDES;
-			det->BDES	= devinfo->CPU_B_HI_BDES;
-			det->DCMDET = devinfo->CPU_B_HI_DCMDET;
-			det->DCBDET = devinfo->CPU_B_HI_DCBDET;
-			det->EEMINITEN	= devinfo->CPU_B_HI_INITEN;
-			det->EEMMONEN	= devinfo->CPU_B_HI_MONEN;
-			det->MTDES	= devinfo->CPU_B_HI_MTDES;
-			det->SPEC	= devinfo->CPU_B_HI_SPEC;
-		}
+		det->phase_ef[EEM_PHASE_MON].MDES =
+			devinfo->CCI_HI_MDES;
+		det->phase_ef[EEM_PHASE_MON].BDES =
+			devinfo->CCI_HI_BDES;
+		det->phase_ef[EEM_PHASE_MON].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_MON].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_MON].MTDES =
+			devinfo->CCI_HI_MTDES;
 
-		if (segCode == 0x10)
-			det->VMAX = VMAX_VAL_B_T;
+		det->phase_ef[EEM_PHASE_INIT020].MDES =
+			devinfo->CCI_HI_MDES;
+		det->phase_ef[EEM_PHASE_INIT020].BDES =
+			devinfo->CCI_HI_BDES;
+		det->phase_ef[EEM_PHASE_INIT020].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT020].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT020].MTDES =
+			devinfo->CCI_HI_MTDES;
 
-		det->VMAX += det->DVTFIXED;
-		if (!big_2line) {
-			det->features = 0;
-			det->loo_role = NO_LOO_BANK;
-		}
-#endif
+		det->phase_ef[EEM_PHASE_INIT021].MDES =
+			devinfo->CCI_MID_MDES;
+		det->phase_ef[EEM_PHASE_INIT021].BDES =
+			devinfo->CCI_MID_BDES;
+		det->phase_ef[EEM_PHASE_INIT021].DCMDET =
+			devinfo->CPU_L_HI_DCMDET;
+		det->phase_ef[EEM_PHASE_INIT021].DCBDET =
+			devinfo->CPU_L_HI_DCBDET;
+		det->phase_ef[EEM_PHASE_INIT021].MTDES =
+			devinfo->CCI_MID_MTDES;
+
 		break;
+
 	default:
 		eem_debug("[%s]: Unknown det_id %d\n", __func__, det_id);
 		break;
 	}
-#if 0
-#if DVT
-	det->VBOOT = 0x30;
-	det->VMAX = 0xFF;
-	det->VMIN = 0x0;
-	det->VCO = 0x10;
-	det->DVTFIXED = 0x07;
-#if (SEC_MOD_SEL == 0xF0)
-	det->MDES	= 0x3C;
-	det->BDES	= 0x1B;
-	det->DCMDET = 0x10;
-	det->DCBDET = 0xBD;
-	det->MTDES	= 0x55;
-#else
-#if 0
-	det->MDES	= SEC_MDES;
-	det->BDES	= SEC_BDES;
-	det->DCMDET = SEC_DCMDET;
-	det->DCBDET = SEC_DCBDET;
-	det->MTDES	= SEC_MTDES;
-#endif
-#endif
-#endif
-#endif
+
 	/* get DVFS frequency table */
 	if (det->ops->get_freq_table)
 		det->ops->get_freq_table(det);
 
-#if ENABLE_LOO_B
-	if ((big_2line) &&
-		(det_id == EEM_DET_B_HI)) {
-		if (det->turn_pt != 0)
-			bcpu_final_init02_flag |= BIT(det_id);
-		else
-			det->features = 0;
-	}
-#endif
-	eem_debug("END init_det %s, turn_pt:%d\n",
-		det->name, det->turn_pt);
 	FUNC_EXIT(FUNC_LV_HELP);
 }
 
@@ -2349,8 +1691,11 @@ static enum upower_bank transfer_ptp_to_upower_bank(unsigned int det_id)
 	case EEM_DET_L:
 		bank = UPOWER_BANK_LL;
 		break;
-	case EEM_DET_B:
+	case EEM_DET_BL:
 		bank = UPOWER_BANK_L;
+		break;
+	case EEM_DET_B:
+		bank = UPOWER_BANK_B;
 		break;
 	case EEM_DET_CCI:
 		bank = UPOWER_BANK_CCI;
@@ -2373,16 +1718,14 @@ static void eem_update_init2_volt_to_upower
 		volt_tbl[i] = det->ops->pmic_2_volt(det, pmic_volt[i]);
 
 	bank = transfer_ptp_to_upower_bank(det_to_id(det));
-#if 1
+
 	if (bank < NR_UPOWER_BANK) {
 		upower_update_volt_by_eem(bank, volt_tbl, det->num_freq_tbl);
-		/* eem_debug
-		 * ("update init2 volt to upower
-		 * (eem bank %ld upower bank %d)\n",
-		 * det_to_id(det), bank);
-		 */
+		eem_debug
+		("%s eem bank %d upower bank %d, volt[0]:%d, pmic[0]:0x%x\n",
+		 __func__, det_to_id(det), bank, volt_tbl[0], pmic_volt[0]);
 	}
-#endif
+
 
 }
 #endif
@@ -2430,12 +1773,15 @@ static void mt_eem_reg_dump_locked(void)
 }
 #endif
 
+
 static inline void handle_init01_isr(struct eem_det *det)
 {
 	FUNC_ENTER(FUNC_LV_LOCAL);
 
 	eem_debug("mode = init1 %s-isr\n", ((char *)(det->name) + 8));
 
+
+#if 0
 	det->dcvalues[EEM_PHASE_INIT01]		= eem_read(EEM_DCVALUES);
 	det->freqpct30[EEM_PHASE_INIT01]	= eem_read(EEM_FREQPCT30);
 	det->eem_26c[EEM_PHASE_INIT01]		= eem_read(EEMINTEN + 0x10);
@@ -2476,7 +1822,7 @@ static inline void handle_init01_isr(struct eem_det *det)
 	eem_write(EEMEN, 0x0 | SEC_MOD_SEL);
 	eem_write(EEMINTSTS, 0x1);
 	/* det->ops->init02(det); */
-
+#endif
 	eem_debug("@@ END mode = init1 %s-isr\n", ((char *)(det->name) + 8));
 	FUNC_EXIT(FUNC_LV_LOCAL);
 }
@@ -2501,256 +1847,53 @@ static unsigned int interpolate(unsigned int y1, unsigned int y0,
 	return result;
 }
 
-static void eem_fill_freq_table(struct eem_det *det)
+static void eem_fill_freq_table(struct eem_det *det,
+	enum eem_phase phase)
 {
-	int tmpfreq30 = 0, tmpfreq74 = 0;
-	int i, j, shift_bits;
-	int *setfreq;
-#if ENABLE_LOO
+	unsigned int tmpfreq30 = 0, ef_idx;
 
-	if (det->loo_role == HIGH_BANK) {
-		/* From opp0 ~ opp[turn_pt] */
-		if (det->turn_pt < 8) {
-			for (i = 0; i < det->turn_pt; i++) {
-				shift_bits = (i % 4) * 8;
-				setfreq = (i < 4) ? &tmpfreq30 : &tmpfreq74;
-				*setfreq |= (det->freq_tbl[i] << shift_bits);
-			}
-		} else {
-			tmpfreq30 = det->freq_tbl[0] & 0xFF;
+	ef_idx = (phase == EEM_PHASE_MON) ? 0 : det->init2_phase;
 
-			/* prepare last 7 freq, fill to FREQPCT31, FREQPCT74 */
-			for (i = (det->turn_pt - 7), j = 1;
-				i < det->turn_pt; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				setfreq = (j < 4) ? &tmpfreq30 : &tmpfreq74;
-				*setfreq |= (det->freq_tbl[i] << shift_bits);
-			}
-		}
-	} else if (det->loo_role == LOW_BANK) {
-		/* From opp[turn_pt] to final opp */
-		/* prepare 2nd line's first freq */
-		tmpfreq30 = det->freq_tbl[det->turn_pt] & 0xFF;
-		if ((det->num_freq_tbl - det->turn_pt) <= 8) {
-			/* For opp9~15 */
-			for (i = (det->turn_pt + 1), j = 1;
-				i < det->num_freq_tbl; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				setfreq = (j < 4) ? &tmpfreq30 : &tmpfreq74;
-				*setfreq |= (det->freq_tbl[i] << shift_bits);
-			}
-		} else {
-			/* prepare last 7 freq, fill to FREQPCT31, FREQPCT74 */
-			for (i = (det->num_freq_tbl - 7), j = 1;
-				i < det->num_freq_tbl; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				setfreq = (j < 4) ? &tmpfreq30 : &tmpfreq74;
-				*setfreq |= (det->freq_tbl[i] << shift_bits);
-			}
-		}
-	} else {
-#endif
-		if (det->num_freq_tbl <= 16) {
-			tmpfreq30 =
-			((det->freq_tbl[3 * ((det->num_freq_tbl + 7) / 8)]
-			<< 24) & 0xff000000)	|
-			((det->freq_tbl[2 * ((det->num_freq_tbl + 7) / 8)]
-			<< 16) & 0xff0000) |
-			((det->freq_tbl[1 * ((det->num_freq_tbl + 7) / 8)]
-			<< 8) & 0xff00) |
-			(det->freq_tbl[0]
-			& 0xff);
 
-			tmpfreq74 =
-			((det->freq_tbl[7 * ((det->num_freq_tbl + 7) / 8)]
-			<< 24) & 0xff000000)	|
-			((det->freq_tbl[6 * ((det->num_freq_tbl + 7) / 8)]
-			<< 16) & 0xff0000) |
-			((det->freq_tbl[5 * ((det->num_freq_tbl + 7) / 8)]
-			<< 8) & 0xff00) |
-			((det->freq_tbl[4 * ((det->num_freq_tbl + 7) / 8)])
-			& 0xff);
-		} else {
-			/* For 32 opp */
-			eem_error("Fill 32 opp/n");
-			tmpfreq30 = det->freq_tbl[0] & 0xFF;
-			/* prepare last 7 freq, fill to FREQPCT31, FREQPCT74 */
-			for (i = (det->num_freq_tbl - 7), j = 1;
-				i < det->num_freq_tbl; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				setfreq = (j < 4) ? &tmpfreq30 : &tmpfreq74;
-				*setfreq |= (det->freq_tbl[i] << shift_bits);
-			}
-		}
-#if ENABLE_LOO
-	}
-#endif
+	tmpfreq30 =
+		(det->phase_ef[ef_idx].is_str_fnd) ?
+		((det->freq_tbl[det->phase_ef[ef_idx].str_pt] |
+		det->freq_tbl[det->phase_ef[ef_idx].end_pt] << 8) &
+		0xFFFF) :
+		0x3264;
 
 	eem_write(EEM_FREQPCT30, tmpfreq30);
-	eem_write(EEM_FREQPCT74, tmpfreq74);
-
 }
 
 static void read_volt_from_VOP(struct eem_det *det)
 {
-	int temp30, temp74, i, j;
-	unsigned int step = NR_FREQ / 8;
-	unsigned int read_init2 = 0;
-	int ref_idx = ((det->num_freq_tbl + (step - 1)) / step) - 1;
-#if ENABLE_LOO
-	int readvop, shift_bits;
-	struct eem_det *couple_det;
+	unsigned int temp30, i;
+	unsigned char str_pt, end_pt;
 
-	/* Check both high/low bank's voltage are ready */
-	if (det->loo_role != 0) {
-		couple_det = id_to_eem_det(det->loo_couple);
-		if ((couple_det->init2_done == 0) ||
-			(couple_det->mon_vop30 == 0) ||
-			(couple_det->mon_vop74 == 0))
-			read_init2 = 1;
-	}
-#endif
-#if ENABLE_HT_FT
-		read_init2 = 1;
-#endif
+	str_pt = det->phase_ef[det->init2_phase].str_pt;
 
-	if ((det->init2_done == 0) || (det->mon_vop30 == 0) ||
-		(det->mon_vop74 == 0))
-		read_init2 = 1;
+	if (det->phase_ef[det->init2_phase].is_str_fnd) {
+		end_pt = det->phase_ef[det->init2_phase].end_pt;
 
-	if (read_init2) {
-		temp30 = det->init2_vop30;
-		temp74 = det->init2_vop74;
-	} else {
-		temp30 = det->mon_vop30;
-		temp74 = det->mon_vop74;
-	}
-	det->vop_check = 1;
+		temp30 = eem_read(EEM_VDESIGN30);
+		det->volt_tbl[str_pt] = (temp30 & 0xff);
+		det->volt_tbl[end_pt] = ((temp30 >> 8) & 0xff);
 
-#if ENABLE_LOO
-	if (det->loo_role == HIGH_BANK) {
-		if (det->turn_pt < 8) {
-			for (i = 0; i < det->turn_pt; i++) {
-				shift_bits = (i % 4) * 8;
-				readvop = (i < 4) ? temp30 : temp74;
-				det->volt_tbl[i] =
-					(readvop >> shift_bits) & 0xff;
-			}
-		} else {
-			det->volt_tbl[0] = (temp30 & 0xff);
+		for (i = (str_pt + 1); i < end_pt; i++) {
+			det->volt_tbl[i] =
+			(unsigned int)(interpolate(
+			det->freq_tbl[str_pt],
+			det->freq_tbl[end_pt],
+			det->volt_tbl[str_pt],
+			det->volt_tbl[end_pt],
+			det->freq_tbl[i]));
 
-			/* prepare last 7 opp */
-			for (i = (det->turn_pt - 7), j = 1;
-			i < det->turn_pt; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				readvop = (j < 4) ? temp30 : temp74;
-				det->volt_tbl[i] =
-					(readvop >> shift_bits) & 0xff;
-			}
-
-			/* prepare middle opp */
-			for (i = 1; i < det->turn_pt - 7; i++) {
-				det->volt_tbl[i] =
-				interpolate(
-				det->freq_tbl[0],
-				det->freq_tbl[det->turn_pt - 7],
-				det->volt_tbl[0],
-				det->volt_tbl[det->turn_pt - 7],
-				det->freq_tbl[i]
-				);
-			}
+			eem_debug("volt_tbl[%d]:0x%x\n",
+				i, det->volt_tbl[i]);
 		}
-	} else if (det->loo_role == LOW_BANK) {
-		/* prepare first opp */
-		det->volt_tbl[det->turn_pt] = (temp30 & 0xff);
-
-		if ((det->num_freq_tbl - det->turn_pt) <= 8) {
-			/* For opp8~15 */
-			for (i = det->turn_pt + 1, j = 1;
-				i < det->num_freq_tbl; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				readvop = (j < 4) ? temp30 : temp74;
-				det->volt_tbl[i] =
-					(readvop >> shift_bits) & 0xff;
-			}
-		} else {
-			/* prepare last 7 opp, for opp9~15 */
-			for (i = (det->num_freq_tbl - 7), j = 1;
-				i < det->num_freq_tbl; i++, j++) {
-				shift_bits = (j % 4) * 8;
-				readvop = (j < 4) ? temp30 : temp74;
-				det->volt_tbl[i] =
-					(readvop >> shift_bits) & 0xff;
-			}
-
-			/* prepare middle opp */
-			for (i = (det->turn_pt + 1);
-				i < det->num_freq_tbl - 7; i++) {
-				det->volt_tbl[i] =
-				interpolate(
-				det->freq_tbl[det->turn_pt],
-				det->freq_tbl[det->num_freq_tbl - 7],
-				det->volt_tbl[det->turn_pt],
-				det->volt_tbl[det->num_freq_tbl - 7],
-				det->freq_tbl[i]
-				);
-			}
-		}
-	} else {
-#endif
-
-		/* for 16 opp */
-		det->volt_tbl[0] = (temp30 & 0xff);
-		det->volt_tbl[1 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp30 >> 8)  & 0xff;
-		det->volt_tbl[2 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp30 >> 16) & 0xff;
-		det->volt_tbl[3 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp30 >> 24) & 0xff;
-
-		det->volt_tbl[4 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp74 & 0xff);
-		det->volt_tbl[5 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp74 >> 8)  & 0xff;
-		det->volt_tbl[6 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp74 >> 16) & 0xff;
-		det->volt_tbl[7 * ((det->num_freq_tbl + 7) / 8)] =
-			(temp74 >> 24) & 0xff;
-
-		if ((det->num_freq_tbl > 8) && (ref_idx > 0)) {
-			for (i = 0; i <= ref_idx; i++) { /* i < 8 */
-				for (j = 1; j < step; j++) {
-					if (i < ref_idx) {
-						det->volt_tbl[(i * step) + j] =
-						interpolate(
-						det->freq_tbl[(i * step)],
-						det->freq_tbl[((1 + i) * step)],
-						det->volt_tbl[(i * step)],
-						det->volt_tbl[((1 + i) * step)],
-						det->freq_tbl[(i * step) + j]
-						);
-					} else {
-						det->volt_tbl[(i * step) + j] =
-						clamp(
-						interpolate(
-						det->freq_tbl[((i - 1) * step)],
-						det->freq_tbl[((i) * step)],
-						det->volt_tbl[((i - 1) * step)],
-						det->volt_tbl[((i) * step)],
-						det->freq_tbl[(i * step) + j]
-						),
-						det->VMIN,
-						det->VMAX
-						);
-					}
-				}
-			}
-		} /* if (det->num_freq_tbl > 8)*/
-
-#if ENABLE_LOO
 	}
-#endif
 }
+
 
 static inline void handle_init02_isr(struct eem_det *det)
 {
@@ -2758,41 +1901,40 @@ static inline void handle_init02_isr(struct eem_det *det)
 
 	FUNC_ENTER(FUNC_LV_LOCAL);
 
-	eem_debug("mode = init2 %s-isr\n", ((char *)(det->name) + 8));
-
-	det->dcvalues[EEM_PHASE_INIT02]		= eem_read(EEM_DCVALUES);
-	det->freqpct30[EEM_PHASE_INIT02]	= eem_read(EEM_FREQPCT30);
-	det->eem_26c[EEM_PHASE_INIT02]		= eem_read(EEMINTEN + 0x10);
-	det->vop30[EEM_PHASE_INIT02]	= eem_read(EEM_VOP30);
-	det->eem_eemEn[EEM_PHASE_INIT02]	= eem_read(EEMEN);
+	eem_debug("mode = init2 %s-isr, init2_phase:%d\n",
+		((char *)(det->name) + 8), det->init2_phase);
+#if 0
+	eem_error("EEM_FREQPCT30 = 0x%x\n", eem_read(EEM_FREQPCT30));
+	eem_error("vdsn30:0x%x\n", eem_read(EEM_VDESIGN30));
+	eem_error("EEM_VOP30:0x%x\n", eem_read(EEM_VOP30));
+	eem_error("BD/MD/DCB/DCM/MTD=0x%X,%X,%X,%X,%X\n",
+		 det->phase_ef[det->init2_phase].BDES,
+		 det->phase_ef[det->init2_phase].MDES,
+		 det->phase_ef[det->init2_phase].DCBDET,
+		 det->phase_ef[det->init2_phase].DCMDET,
+		 det->phase_ef[det->init2_phase].MTDES);
+	eem_error("EEM_DESCHAR (%p) = 0x%X,0x%X,0x%X\n",
+		 EEM_DESCHAR, eem_read(EEM_DESCHAR),
+		 eem_read(EEM_TEMPCHAR), eem_read(EEM_DETCHAR));
+	eem_error("====================================================\n");
+#endif
+	det->freqpct30[det->init2_phase]	= eem_read(EEM_FREQPCT30);
+	det->eem_26c[det->init2_phase]		= eem_read(EEMINTEN + 0x10);
+	det->vop30[det->init2_phase]	= eem_read(EEM_VOP30);
+	det->eem_eemEn[det->init2_phase]	= eem_read(EEMEN);
 
 #if DUMP_DATA_TO_DE
 	for (i = 0; i < ARRAY_SIZE(reg_dump_addr_off); i++) {
-		det->reg_dump_data[i][EEM_PHASE_INIT02] =
+		det->reg_dump_data[i][det->init2_phase] =
 			eem_read(EEM_BASEADDR + reg_dump_addr_off[i]);
 		eem_isr_info("0x%lx = 0x%08x\n",
 			(unsigned long)EEM_BASEADDR + reg_dump_addr_off[i],
-			det->reg_dump_data[i][EEM_PHASE_INIT02]
+			det->reg_dump_data[i][det->init2_phase]
 			);
 	}
 #endif
+	read_volt_from_VOP(det);
 
-#if ENABLE_MINIHQA
-	if ((det->ctrl_id != EEM_CTRL_GPU) ||
-		(det->ctrl_id != EEM_CTRL_GPU_HI)) {
-		det->init2_vop30 = eem_read(EEM_VDESIGN30);
-		det->init2_vop74 = eem_read(EEM_VDESIGN74);
-	} else {
-		det->init2_vop30 = eem_read(EEM_VOP30);
-		det->init2_vop74 = eem_read(EEM_VOP74);
-	}
-#else
-	det->init2_vop30 = eem_read(EEM_VOP30);
-	det->init2_vop74 = eem_read(EEM_VOP74);
-#endif
-
-	det->vop_check = 0;
-	eem_set_eem_volt(det);
 	/*
 	 * Set EEMEN.EEMINITEN/EEMEN.EEMINIT2EN = 0x0 &
 	 * Clear EEM INIT interrupt EEMINTSTS = 0x00000001
@@ -2800,7 +1942,26 @@ static inline void handle_init02_isr(struct eem_det *det)
 	eem_write(EEMEN, 0x0 | SEC_MOD_SEL);
 	eem_write(EEMINTSTS, 0x1);
 
-	det->ops->mon_mode(det);
+	det->init2_phase =
+		((det->init2_phase == EEM_PHASE_INIT020)) ?
+		EEM_PHASE_MON : (det->init2_phase - 1);
+
+#if 1
+	/* Check if this phase is match det->features */
+	if (HAS_FEATURE(det, BIT(det->init2_phase))) {
+		/* Define next phase */
+		eem_debug("ini2isr detid:%d, next phase init2:%d\n",
+			det->ctrl_id, det->init2_phase);
+		if (det->init2_phase == EEM_PHASE_MON)
+			det->ops->mon_mode(det);
+		else
+			det->ops->init02(det);
+
+	} else {
+		eem_error("ini2isr detid:%d, incorrect phase:%d\n",
+			det->ctrl_id, det->init2_phase);
+	}
+#endif
 	FUNC_EXIT(FUNC_LV_LOCAL);
 }
 
@@ -2812,17 +1973,18 @@ static inline void handle_init_err_isr(struct eem_det *det)
 	FUNC_ENTER(FUNC_LV_LOCAL);
 	eem_error("====================================================\n");
 	eem_error("BD/MD/DCB/DCM/MTD=0x%X,%X,%X,%X,%X\n",
-		 det->BDES, det->MDES, det->DCBDET, det->DCMDET,
-		 det->MTDES);
+		 det->phase_ef[det->init2_phase].BDES,
+		 det->phase_ef[det->init2_phase].MDES,
+		 det->phase_ef[det->init2_phase].DCBDET,
+		 det->phase_ef[det->init2_phase].DCMDET,
+		 det->phase_ef[det->init2_phase].MTDES);
 	eem_error("DETWINDOW/VMIN/VMAX/DTHI/DTLO=0x%X,%X,%X,%X,%X\n",
 		 det->DETWINDOW, det->VMIN, det->VMAX, det->DTHI,
 		 det->DTLO);
 	eem_error("DETMAX/DVTFIXED/VCO/DCCONFIG/=0x%X,%X,%X,%X\n",
 		 det->DETMAX, det->DVTFIXED, det->VCO,
 		 det->DCCONFIG);
-	eem_error("DCVOFFSETIN/dcvalues0/1/turn_pt=0x%X,%X,%X,%X\n",
-		 det->DCVOFFSETIN, det->dcvalues[0], det->dcvalues[1],
-		 det->turn_pt);
+
 
 
 	/* Depend on EFUSE location */
@@ -2843,9 +2005,9 @@ static inline void handle_init_err_isr(struct eem_det *det)
 	eem_error("EEM_DCCONFIG/LIMIT/CORESEL (%p) = 0x%X,0x%X,0x%X\n",
 		 EEM_DCCONFIG, eem_read(EEM_DCCONFIG),
 		 eem_read(EEM_LIMITVALS), eem_read(EEMCORESEL));
-	eem_error("EEM_DETWINDOW/INIT2/DC (%p) = 0x%X,0x%X,0x%X\n",
+	eem_error("EEM_DETWINDOW/INIT2/DC (%p) = 0x%X,0x%X\n",
 		 EEM_DETWINDOW, eem_read(EEM_DETWINDOW),
-		 eem_read(EEM_INIT2VALS), eem_read(EEM_DCVALUES));
+		 eem_read(EEM_INIT2VALS));
 	eem_error("EEM_CHKSHIFT/VDESIGN/VOP (%p) = 0x%X,0x%X,0x%X,0x%X,0x%X\n",
 		EEM_CHKSHIFT, eem_read(EEM_CHKSHIFT),
 		eem_read(EEM_VDESIGN30), eem_read(EEM_VDESIGN74),
@@ -2858,11 +2020,10 @@ static inline void handle_init_err_isr(struct eem_det *det)
 
 	eem_error("====================================================\n");
 
-	aee_kernel_warning("mt_eem", "@%s():%d, get_volt(%s) = 0x%08X\n",
+	aee_kernel_warning("mt_eem", "@%s():%d, (%s)\n",
 		__func__,
 		__LINE__,
-		det->name,
-		det->VBOOT);
+		det->name);
 
 	det->ops->disable_locked(det, BY_INIT_ERROR);
 
@@ -2882,7 +2043,22 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 	FUNC_ENTER(FUNC_LV_LOCAL);
 
 	eem_debug("mode = mon %s-isr\n", ((char *)(det->name) + 8));
-
+#if 0
+	eem_error("EEM_FREQPCT30 = 0x%x\n",
+		eem_read(EEM_FREQPCT30));
+	eem_error("vdsn30:0x%x\n", eem_read(EEM_VDESIGN30));
+	eem_error("EEM_VOP30:0x%x\n", eem_read(EEM_VOP30));
+	eem_error("BD/MD/DCB/DCM/MTD=0x%X,%X,%X,%X,%X\n",
+		 det->phase_ef[det->init2_phase].BDES,
+		 det->phase_ef[det->init2_phase].MDES,
+		 det->phase_ef[det->init2_phase].DCBDET,
+		 det->phase_ef[det->init2_phase].DCMDET,
+		 det->phase_ef[det->init2_phase].MTDES);
+	eem_error("EEM_DESCHAR (%p) = 0x%X,0x%X,0x%X\n",
+		 EEM_DESCHAR, eem_read(EEM_DESCHAR),
+		 eem_read(EEM_TEMPCHAR), eem_read(EEM_DETCHAR));
+	eem_error("====================================================\n");
+#endif
 #ifdef CONFIG_THERMAL
 	eem_debug("LL_temp=%d, L_temp=%d, CCI_temp=%d, GPU_temp=%d\n",
 		tscpu_get_temp_by_bank(THERMAL_BANK0),
@@ -2912,7 +2088,7 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 #endif
 		break;
 
-	case EEM_CTRL_B:
+	case EEM_CTRL_BL:
 #ifdef CONFIG_THERMAL
 #if defined(__LP64__) || defined(_LP64)
 		temp_long =
@@ -2927,6 +2103,24 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 					(8 * EEM_CPU_LITTLE_IS_SET_VOLT) |
 			(temp_cur & ~((0xFFULL) <<
 					(8 * EEM_CPU_LITTLE_IS_SET_VOLT))));
+		}
+#endif
+		break;
+	case EEM_CTRL_B:
+#ifdef CONFIG_THERMAL
+#if defined(__LP64__) || defined(_LP64)
+		temp_long =
+		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK0)/1000;
+#else
+		temp_long = div_u64
+		((unsigned long long)
+		 tscpu_get_temp_by_bank(THERMAL_BANK0), 1000);
+#endif
+		if (temp_long != 0) {
+			aee_rr_rec_ptp_temp(temp_long <<
+					(8 * EEM_CPU_B_IS_SET_VOLT) |
+			(temp_cur & ~((0xFFULL) <<
+					(8 * EEM_CPU_B_IS_SET_VOLT))));
 		}
 #endif
 		break;
@@ -2950,52 +2144,11 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 		}
 #endif
 		break;
-#if ENABLE_GPU
-	case EEM_CTRL_GPU:
-#ifdef CONFIG_THERMAL
-#if defined(__LP64__) || defined(_LP64)
-		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4)/1000;
-#else
-		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4),
-		 1000);
-#endif
-		if (temp_long != 0) {
-			aee_rr_rec_ptp_temp(temp_long <<
-				(8 * EEM_GPU_IS_SET_VOLT) |
-			(temp_cur & ~((0xFFULL)
-			<< (8 * EEM_GPU_IS_SET_VOLT))));
-		}
-#endif
-		break;
-#if ENABLE_LOO_G
-	case EEM_CTRL_GPU_HI:
-#ifdef CONFIG_THERMAL
-#if defined(__LP64__) || defined(_LP64)
-		temp_long =
-		(unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4)/1000;
-#else
-		temp_long = div_u64
-		((unsigned long long)tscpu_get_temp_by_bank(THERMAL_BANK4),
-		 1000);
-#endif
-		if (temp_long != 0) {
-			aee_rr_rec_ptp_temp(temp_long <<
-				(8 * EEM_GPU_HI_IS_SET_VOLT) |
-			(temp_cur & ~((0xFFULL)
-			<< (8 * EEM_GPU_HI_IS_SET_VOLT))));
-		}
-#endif
-		break;
-#endif
-#endif
 	default:
 		break;
 	}
 #endif
 
-	det->dcvalues[EEM_PHASE_MON]	= eem_read(EEM_DCVALUES);
 	det->freqpct30[EEM_PHASE_MON]	= eem_read(EEM_FREQPCT30);
 	det->eem_26c[EEM_PHASE_MON]	= eem_read(EEMINTEN + 0x10);
 	det->vop30[EEM_PHASE_MON]	= eem_read(EEM_VOP30);
@@ -3011,10 +2164,6 @@ static inline void handle_mon_mode_isr(struct eem_det *det)
 			);
 	}
 #endif
-
-	det->mon_vop30	= eem_read(EEM_VOP30);
-	det->mon_vop74	= eem_read(EEM_VOP74);
-	det->vop_check = 0;
 
 	/* check if thermal sensor init completed? */
 	det->t250 = eem_read(TEMP);
@@ -3102,9 +2251,8 @@ static inline void handle_mon_err_isr(struct eem_det *det)
 	eem_error("====================================================\n");
 
 	aee_kernel_warning("mt_eem",
-	"@%s():%d,get_volt(%s)=0x%08X,EEMEN(%p)=0x%08X,EEMINTSTS(%p)=0x%08X\n",
+	"@%s():%d,EEMEN(%p)=0x%08X,EEMINTSTS(%p)=0x%08X\n",
 		__func__, __LINE__,
-		det->name, det->VBOOT,
 		EEMEN, eem_read(EEMEN),
 		EEMINTSTS, eem_read(EEMINTSTS));
 
@@ -3196,13 +2344,16 @@ void eem_init02(const char *str)
 	if ((mcucfg_aging >> 31) & 0x1)
 		eem_aging = (mcucfg_aging >> 4) & 0xf;
 
+
 	for_each_det_ctrl(det, ctrl) {
-		if (HAS_FEATURE(det, FEA_INIT02)) {
+		if (HAS_FEATURE(det, FEA_INIT020)) {
 			unsigned long flag;
 
+			det->init2_phase = det->total2_phase;
 			mt_ptp_lock(&flag);
-			det->init2_done = 0;
 			det->ops->init02(det);
+			/* all banks' phase cannot be set without delay */
+			udelay(200);
 			mt_ptp_unlock(&flag);
 		}
 	}
@@ -3210,134 +2361,9 @@ void eem_init02(const char *str)
 	FUNC_EXIT(FUNC_LV_LOCAL);
 }
 
-#if !EARLY_PORTING
-/* get regulator reference */
-static int eem_buck_get(struct platform_device *pdev)
-{
-	int ret = 0;
-
-	eem_regulator_vproc1 = regulator_get(&pdev->dev, "vproc1");
-	if (!eem_regulator_vproc1) {
-		eem_error("eem_regulator_vproc1 error\n");
-		return -EINVAL;
-	}
-
-	eem_regulator_vproc2 = regulator_get(&pdev->dev, "vproc2");
-	if (!eem_regulator_vproc2) {
-		eem_error("eem_regulator_vproc2 error\n");
-		return -EINVAL;
-	}
-
-	return ret;
-}
-
-static void eem_buck_set_mode(unsigned int mode)
-{
-	/* set pwm mode for each buck */
-	eem_debug("pmic set mode (%d)\n", mode);
-	if (mode) {
-		regulator_set_mode(eem_regulator_vproc1, REGULATOR_MODE_FAST);
-		regulator_set_mode(eem_regulator_vproc2, REGULATOR_MODE_FAST);
-	} else {
-		regulator_set_mode(eem_regulator_vproc1, REGULATOR_MODE_NORMAL);
-		regulator_set_mode(eem_regulator_vproc2, REGULATOR_MODE_NORMAL);
-	}
-}
-#endif
-#ifdef CORN_LOAD
-void eem_corner(int testcnt)
-{
-	struct eem_det *det;
-	struct eem_ctrl *ctrl;
-	unsigned int out = 0, timeout = 0;
-
-	FUNC_ENTER(FUNC_LV_LOCAL);
-
-	corn_init = 1;
-	for_each_det_ctrl(det, ctrl) {
-		unsigned long flag;
-
-		if (HAS_FEATURE(det, FEA_CORN)) {
-#if 1
-			if (det->ops->get_volt != NULL) {
-				det->real_vboot = det->ops->volt_2_eem
-				(det, det->ops->get_volt(det));
-
-			}
-#endif
-
-#if 1
-			while (det->real_vboot != det->VBOOT) {
-				det->real_vboot = det->ops->volt_2_eem(det,
-					det->ops->get_volt(det));
-#if 1
-				if (timeout++ % 300 == 0)
-					eem_debug
-("@%s():%d, get_volt(%s) = 0x%08X, VBOOT = 0x%08X vpu_return = %d\n",
-__func__, __LINE__, det->name, det->real_vboot, det->VBOOT,
-det->ops->get_volt(det));
-#endif
-			}
-			/* BUG_ON(det->real_vboot != det->VBOOT); */
-			WARN_ON(det->real_vboot != det->VBOOT);
-#endif
-			det->eem_eemEn[EEM_PHASE_INIT01] = 0;
-			det->DCVOFFSETIN = 0;
-			det->DCCONFIG = arrtype[testcnt];
-			mt_ptp_lock(&flag); /* <-XXX */
-			det->ops->init01(det);
-			mt_ptp_unlock(&flag); /* <-XXX */
-		}
-	}
-
-	while (1) {
-		for_each_det(det) {
-			eem_debug("@@!corner out is 0x%x, bankmask:0x%x\n",
-					out, final_corner_flag);
-			if (((out & BIT(det->ctrl_id)) == 0) &&
-					(det->eem_eemEn[EEM_PHASE_INIT01] ==
-					(1 | SEC_MOD_SEL)) &&
-					(HAS_FEATURE(det, FEA_CORN))) {
-				out |= BIT(det->ctrl_id);
-				eem_debug("@@# temp out = 0x%x ctrl_id = %d\n",
-						out, det->ctrl_id);
-			}
-		}
-
-
-		if (out == final_corner_flag) {
-			eem_debug("@@!ct finish time is %d, bankmask:0x%x\n",
-					timeout, final_corner_flag);
-			break;
-		}
-		udelay(100);
-		timeout++;
-
-		if (timeout % 300 == 0)
-			eem_debug
-			("@@#corner wait time is %d, bankmask:0x%x[/0x%x]\n",
-			timeout, out, final_corner_flag);
-	}
-	for_each_det(det) {
-		if (det->ctrl_id == EEM_CTRL_VPU) {
-			vpu_detcount[testcnt] = det->detcount;
-			eem_debug("@@! %s detcount[%d] = 0x%x\n",
-				det->name, testcnt, vpu_detcount[testcnt]);
-		}
-		if (det->ctrl_id == EEM_CTRL_MDLA) {
-			mdla_detcount[testcnt] = det->detcount;
-			eem_debug("@@! %s detcount[%d] = 0x%x\n",
-				det->name, testcnt, mdla_detcount[testcnt]);
-		}
-	}
-
-	FUNC_EXIT(FUNC_LV_LOCAL);
-
-
-}
-#endif
 void eem_init01(void)
 {
+#if 0
 	struct eem_det *det;
 	struct eem_ctrl *ctrl;
 	unsigned int out = 0, timeout = 0;
@@ -3348,10 +2374,7 @@ void eem_init01(void)
 		unsigned long flag;
 
 		if (HAS_FEATURE(det, FEA_INIT01)) {
-#ifdef CORN_LOAD
-			if (HAS_FEATURE(det, FEA_CORN))
-				continue;
-#endif
+
 			if (det->ops->get_volt != NULL) {
 				det->real_vboot = det->ops->volt_2_eem
 				(det, det->ops->get_volt(det));
@@ -3440,20 +2463,6 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 			("init01 wait time is %d, bankmask:0x%x[/0x%x]\n",
 			timeout, out, final_init01_flag);
 	}
-#if ENABLE_GPU
-#if ENABLE_LOO_G
-	/* save CPU L/B init01 info to HIGHL/HIGHB */
-	eem_detectors[EEM_DET_GPU_HI].DCVOFFSETIN =
-		eem_detectors[EEM_DET_GPU].DCVOFFSETIN;
-	eem_detectors[EEM_DET_GPU_HI].AGEVOFFSETIN =
-		eem_detectors[EEM_DET_GPU].AGEVOFFSETIN;
-#endif
-#endif
-#if ENABLE_LOO_B
-	eem_detectors[EEM_DET_B_HI].DCVOFFSETIN =
-		eem_detectors[EEM_DET_B].DCVOFFSETIN;
-	eem_detectors[EEM_DET_B_HI].AGEVOFFSETIN =
-		eem_detectors[EEM_DET_B].AGEVOFFSETIN;
 #endif
 	eem_init02(__func__);
 	FUNC_EXIT(FUNC_LV_LOCAL);
@@ -3464,17 +2473,10 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 static void eem_dconfig_set_det(struct eem_det *det, struct device_node *node)
 {
 	enum eem_det_id det_id = det_to_id(det);
-#if ENABLE_LOO
-	struct eem_det *highdet;
-#endif
 	int doe_initmon = 0xF, doe_clamp = 0;
 	int doe_offset = 0xFF;
 	int rc1 = 0, rc2 = 0, rc3 = 0;
 
-#if ENABLE_GPU
-	if (det_id > EEM_DET_GPU)
-		return;
-#endif
 
 	switch (det_id) {
 	case EEM_DET_L:
@@ -3501,16 +2503,6 @@ static void eem_dconfig_set_det(struct eem_det *det, struct device_node *node)
 		rc3 = of_property_read_u32(node, "eem-offset-cci",
 			&doe_offset);
 		break;
-#if ENABLE_GPU
-	case EEM_DET_GPU:
-		rc1 = of_property_read_u32(node, "eem-initmon-gpu",
-			&doe_initmon);
-		rc2 = of_property_read_u32(node, "eem-clamp-gpu",
-			&doe_clamp);
-		rc3 = of_property_read_u32(node, "eem-offset-gpu",
-			&doe_offset);
-		break;
-#endif
 	default:
 		eem_debug("[%s]: Unknown det_id %d\n", __func__, det_id);
 		break;
@@ -3529,54 +2521,9 @@ static void eem_dconfig_set_det(struct eem_det *det, struct device_node *node)
 			eem_error("[DCONFIG] feature modified by DT(0x%x)\n",
 				doe_initmon);
 
-			if (HAS_FEATURE(det, FEA_INIT01) == 0)
-				final_init01_flag &= ~BIT(det_id);
-			else
-				final_init01_flag |= BIT(det_id);
-
-
-			switch (det_id) {
-			case EEM_DET_L:
-			case EEM_DET_CCI:
-#if UPDATE_TO_UPOWER
-				if (HAS_FEATURE(det, FEA_INIT02) == 0)
-					eem_update_init2_volt_to_upower
-					(det, det->volt_tbl_orig);
-#endif
-				break;
-			case EEM_DET_B:
-#if UPDATE_TO_UPOWER
-				if (HAS_FEATURE(det, FEA_INIT02) == 0) {
-					eem_update_init2_volt_to_upower
-					(det, det->volt_tbl_orig);
-#if ENABLE_LOO_B
-					bcpu_final_init02_flag = 0;
-#endif
-				}
-#endif
-
-#if ENABLE_LOO_B
-				if (big_2line) {
-					/* Change BCPU Low_bank & High_bank */
-					highdet = id_to_eem_det(EEM_DET_B_HI);
-					highdet->features = doe_initmon & 0x6;
-				}
-#endif
-				break;
-#if ENABLE_GPU
-			case EEM_DET_GPU:
-#if ENABLE_LOO_G
-				if (gpu_2line) {
-					/* Change GPU Low_bank & High_bank */
-					highdet = id_to_eem_det(EEM_DET_GPU_HI);
-					highdet->features = doe_initmon & 0x6;
-				}
-#endif
-				break;
-#endif
-			default:
-				break;
-			}
+			if (HAS_FEATURE(det, FEA_INIT020) == 0)
+				eem_update_init2_volt_to_upower
+				(det, det->volt_tbl_orig);
 		}
 	}
 
@@ -3723,64 +2670,17 @@ static int eem_probe(struct platform_device *pdev)
 #ifdef CONFIG_EEM_AEE_RR_REC
 		_mt_eem_aee_init();
 #endif
-#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-						"aging") != NULL) {
-		eem_debug("@%s: AGING flavor name: %s\n",
-			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		eem_aging_enable = 1;
-	}
-#endif
-
-	if (eem_aging_enable) {
-		eem_clamp_val = CLAMP_VMAX_VAL_B_T_AGING;
-		pmic_clamp_val = CLAMP_VMAX_PMIC_VAL_B_T_AGING;
-	} else {
-		eem_clamp_val = CLAMP_VMAX_VAL_B_T;
-		pmic_clamp_val = CLAMP_VMAX_PMIC_VAL_B_T;
-	}
-
 
 	for_each_ctrl(ctrl)
 		eem_init_ctrl(ctrl);
 
 	eem_debug("finish eem_init_ctrl\n");
-#if !EARLY_PORTING
-	/* CPU/GPU pre-process(need to fix) */
-	mt_cpufreq_ctrl_cci_volt(VBOOT_PMIC_VAL);
-
-	mcdi_pause(MCDI_PAUSE_BY_EEM, true);
-
-	mt_ppm_ptpod_policy_activate();
-
-#if ENABLE_GPU
-#ifdef CONFIG_MTK_GPU_SUPPORT
-	mt_gpufreq_disable_by_ptpod();
-#endif
-#endif
-/* @@ */
-#if ENABLE_VPU
-	eem_debug("vpu_disable_by_ptpod 1\n");
-	/* vpu_disable_by_ptpod(); */
-	/* vpu_enable_mtcmos(); */
-#endif
-	ret = eem_buck_get(pdev);
-	if (ret != 0)
-		eem_error("eem_buck_get failed\n");
-
-	eem_buck_set_mode(1);
-#endif
 
 	/* for slow idle */
 	ptp_data[0] = 0xffffffff;
 	for_each_det(det)
 		eem_init_det(det, &eem_devinfo);
 
-
-	final_init01_flag = EEM_INIT01_FLAG;
-#ifdef CORN_LOAD
-	final_corner_flag = EEM_CORNER_FLAG;
-#endif
 
 	/* get original volt from cpu dvfs before init01*/
 	for_each_det(det) {
@@ -3798,15 +2698,6 @@ static int eem_probe(struct platform_device *pdev)
 
 	ptp_data[0] = 0;
 
-#if ENABLE_INIT1_STRESS
-	init_waitqueue_head(&wqStress);
-	threadStress = kthread_run(eem_init1stress_thread_handler,
-			0, "Init_1_Stress");
-
-	if (IS_ERR(threadStress))
-		eem_error("Create %s thread failed: %ld\n",
-				"Init_1_Stress", PTR_ERR(threadStress));
-#endif
 
 	eem_debug("%s ok\n", __func__);
 	FUNC_EXIT(FUNC_LV_MODULE);
@@ -3835,11 +2726,18 @@ static int eem_suspend(void)
 
 static int eem_resume(void)
 {
+	struct eem_det *det;
+
 	if (ctrl_EEM_Enable) {
 		eem_error("Start EEM resume\n");
 		/* Reset EEM */
 		eem_write(INFRA_EEM_RST, (1 << 9));
 		eem_write(INFRA_EEM_CLR, (1 << 9));
+
+		/* Set cur phose to INIT020, next is MON */
+		for_each_det(det)
+			det->init2_phase = EEM_PHASE_INIT020;
+
 		eem_init02(__func__);
 	}
 	return 0;
@@ -3913,27 +2811,6 @@ void mt_eem_opp_status(enum eem_det_id id, unsigned int *temp,
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
 	else if (id == EEM_DET_CCI)
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK2);
-#if ENABLE_GPU
-	else if (id == EEM_DET_GPU)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
-#if ENABLE_LOO_G
-	else if (id == EEM_DET_GPU_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK4);
-#endif
-#endif
-#if ENABLE_MDLA
-	else if (id == EEM_DET_MDLA)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
-#endif
-#if ENABLE_VPU
-	else if (id == EEM_DET_VPU)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK3);
-#endif
-#if ENABLE_LOO_B
-	else if (id == EEM_DET_B_HI)
-		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
-#endif
-
 	else
 		*temp = tscpu_get_temp_by_bank(THERMAL_BANK0);
 #else
@@ -4166,15 +3043,15 @@ void eem_dump_reg_by_det(struct eem_det *det, struct seq_file *m)
 	unsigned int j;
 #endif
 
-	for (i = EEM_PHASE_INIT01; i <= EEM_PHASE_MON; i++) {
+	for (i = EEM_PHASE_INIT020; i <= EEM_PHASE_MON; i++) {
 		seq_printf(m, "Bank_number = %d\n", det->ctrl_id);
 		if (i < EEM_PHASE_MON)
-			seq_printf(m, "mode = init%d\n", i+1);
+			seq_printf(m, "mode = init2%d\n", i);
 		else
 			seq_puts(m, "mode = mon\n");
+
 		if (eem_log_en) {
-			seq_printf(m, "0x%08X, 0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
-				det->dcvalues[i],
+			seq_printf(m, "0x%08X, 0x%08X, 0x%08X, 0x%08X\n",
 				det->freqpct30[i],
 				det->eem_26c[i],
 				det->vop30[i],
@@ -4199,11 +3076,15 @@ void eem_dump_reg_by_det(struct eem_det *det, struct seq_file *m)
 			}
 		} /* if (eem_log_en) */
 #if DUMP_DATA_TO_DE
-		for (j = 0; j < ARRAY_SIZE(reg_dump_addr_off); j++)
-			seq_printf(m, "0x%08lx = 0x%08x\n",
-			(unsigned long)EEM_BASEADDR + reg_dump_addr_off[j],
-			det->reg_dump_data[j][i]
-			);
+		if (HAS_FEATURE(det, BIT(i)) &&
+			det->phase_ef[i].is_str_fnd) {
+			for (j = 0; j < ARRAY_SIZE(reg_dump_addr_off); j++)
+				seq_printf(m, "0x%08lx = 0x%08x\n",
+				(unsigned long)EEM_BASEADDR +
+				reg_dump_addr_off[j],
+				det->reg_dump_data[j][i]
+				);
+		}
 #endif
 	}
 }
@@ -4348,8 +3229,8 @@ static int eem_cur_volt_proc_show(struct seq_file *m, void *v)
 			det->volt_tbl_pmic[i],
 			det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
 
-		seq_printf(m, "policy:%d, isTempInv:%d, eem_aging:%d, warn_on:%d\n",
-		det->volt_policy, det->isTempInv, eem_aging, is_warn_on);
+		seq_printf(m, "isTempInv:%d, eem_aging:%d\n",
+		det->isTempInv, eem_aging);
 	}
 	FUNC_EXIT(FUNC_LV_HELP);
 
@@ -4725,29 +3606,6 @@ static int create_procfs(void)
 	return 0;
 }
 #endif /* CONFIG_PROC_FS */
-
-void eem_set_pi_efuse(enum eem_det_id id,
-			unsigned int pi_efuse,
-			unsigned int loo_enabled)
-{
-	struct eem_det *det = id_to_eem_det(id);
-
-	if (!det)
-		return;
-
-	det->pi_loo_enabled = loo_enabled;
-	det->pi_efuse = pi_efuse;
-}
-
-void eem_set_pi_dvtfixed(enum eem_det_id id, unsigned int pi_dvtfixed)
-{
-	struct eem_det *det = id_to_eem_det(id);
-
-	if (!det)
-		return;
-
-	det->pi_dvtfixed = pi_dvtfixed;
-}
 
 unsigned int get_efuse_status(void)
 {

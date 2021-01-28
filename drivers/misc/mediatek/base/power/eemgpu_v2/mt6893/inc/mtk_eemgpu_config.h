@@ -21,7 +21,7 @@
 #define EARLY_PORTING		(0)
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEMG_FAKE_EFUSE		(0)
+#define EEMG_FAKE_EFUSE		(1)
 //#define MT6885
 //#define MT6889
 //#define MC50_LOAD
@@ -61,32 +61,14 @@
 #endif
 
 
-enum mt_cpu_dvfs_id {
-	MT_CPU_DVFS_LL,
-	MT_CPU_DVFS_L,
-	MT_CPU_DVFS_CCI,
-
-	NR_MT_CPU_DVFS,
-};
 
 #define DEVINFO_IDX_0 50
-#define DEVINFO_IDX_1 51
-#define DEVINFO_IDX_2 52
-#define DEVINFO_IDX_3 53
-#define DEVINFO_IDX_4 54
-#define DEVINFO_IDX_5 55
-#define DEVINFO_IDX_6 56
-#define DEVINFO_IDX_7 57
-#define DEVINFO_IDX_8 58
-#define DEVINFO_IDX_9 59
-#define DEVINFO_IDX_10 60
-#define DEVINFO_IDX_11 61
-#define DEVINFO_IDX_12 62
-#define DEVINFO_IDX_13 63
-#define DEVINFO_IDX_14 64
-#define DEVINFO_IDX_15 65
-#define DEVINFO_IDX_16 66
-#define DEVINFO_IDX_17 67
+#define DEVINFO_IDX_1 62
+#define DEVINFO_IDX_2 63
+#define DEVINFO_IDX_3 64
+#define DEVINFO_IDX_4 65
+#define DEVINFO_IDX_5 66
+
 
 #define DEVINFO_IDX_FAB4 134
 
@@ -101,156 +83,45 @@ enum mt_cpu_dvfs_id {
 /* #define SEC_MOD_SEL			0x40	*/	/* Secure Mode 4 */
 #endif
 
-#if SEC_MOD_SEL == 0xF0
-/* Fake EFUSE */
-#define DEVINFO_0 0xFF00
-/* L_LO */
-#define DEVINFO_1 0x10bd3c1b
-/* B_LO + L_LO */
-#define DEVINFO_2 0x550055
-/* B_LO */
-#define DEVINFO_3 0x10bd3c1b
-/* CCI */
-#define DEVINFO_4 0x10bd3c1b
-/* GPU_LO + CCI */
-#define DEVINFO_5 0x550055
-/* GPU_LO */
-#define DEVINFO_6 0x10bd3c1b
-/* APU */
-#define DEVINFO_7 0x10bd3c1b
-/* L_HI + APU */
-#define DEVINFO_8 0x550055
-/* L_HI */
-#define DEVINFO_9 0x10bd3c1b
-/* B_HI */
-#define DEVINFO_10 0x10bd3c1b
-/* MODEM + B_HI */
-#define DEVINFO_11 0x550055
-/* MODEM */
-#define DEVINFO_12 0x10bd3c1b
-/* L */
-#define DEVINFO_16 0x10bd3c1b
-/* B + L */
-#define DEVINFO_17 0x550055
-/* B */
-#define DEVINFO_18 0x10bd3c1b
-/* MDLA */
-#define DEVINFO_19 0x10bd3c1b
-/* GPU + MDLA */
-#define DEVINFO_23 0x550055
-/* GPU */
-#define DEVINFO_24 0x10bd3c1b
-
-
-
-#else
 
 #if defined(CMD_LOAD)
-/* Safe EFUSE */
-#define DEVINFO_0 0x00060006
-/* L_LO */
-#define DEVINFO_1 0x0
-/* B_LO + L_LO */
-#define DEVINFO_2 0x000000AF
-/* B_LO */
-#define DEVINFO_3 0x9B0B0363
-/* CCI */
-#define DEVINFO_4 0x9B0B0769
-/* GPU_LO + CCI */
-#define DEVINFO_5 0x00A100A6
-/* GPU_LO */
-#define DEVINFO_6 0x9B0BBF96
-/* APU */
-#define DEVINFO_7 0x10bd3c1b
-/* L_HI + APU */
-#define DEVINFO_8 0x550055
-/* L_HI */
-#define DEVINFO_9 0x10bd3c1b
-/* B_HI */
-#define DEVINFO_10 0x9B0B2263
-/* MODEM + B_HI */
-#define DEVINFO_11 0x00B900AC
-/* MODEM */
-#define DEVINFO_12 0x570B166E
-/* L */
-#define DEVINFO_16 0x9B0B0866
-/* B + L */
-#define DEVINFO_17 0x00A100BB
-/* B */
-#define DEVINFO_18 0x9B0B2263
-/* MDLA */
-#define DEVINFO_19 0x9B0BD594
-/* GPU + MDLA */
-#define DEVINFO_23 0x00B100B1
-/* GPU */
-#define DEVINFO_24 0x9B0BC56E
+#define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
+#define DEVINFO_1 0x1B031B03
+#define DEVINFO_2 0x1B031B03
+#define DEVINFO_3 0x48EF0043
+#define DEVINFO_4 0x60E50043
+#define DEVINFO_5 0x2F110009
+
 
 #elif defined(MC50_LOAD)
 
 #if defined(MT6885)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x67130025 /* L_LO */
-#define DEVINFO_2 0x7D10002F /* B_LO + L_LO */
-#define DEVINFO_3 0x2716009E /* B_LO */
-#define DEVINFO_4 0x4B140057 /* CCI */
-#define DEVINFO_5 0x0 /* GPU_LO + CCI */
-#define DEVINFO_6 0x0 /* GPU_LO */
-#define DEVINFO_7 0x74100057 /* APU */
-#define DEVINFO_8 0x56100076 /* L_HI + APU */
-#define DEVINFO_9 0x2DEF00A6 /* L_HI */
-#define DEVINFO_10 0x0919002C /* B_HI */
-#define DEVINFO_11 0xCB6F0083 /* MODEM + B_HI */
-#define DEVINFO_12 0x186A00A5 /* MODEM */
-#define DEVINFO_13 0x1B031B03 /* MODEM */
-#define DEVINFO_14 0x1B031B03 /* MODEM */
-#define DEVINFO_15 0x0 /* MODEM */
-#define DEVINFO_16 0x1B031B03 /* L */
-#define DEVINFO_17 0x1B031B03 /* B + L */
+#define DEVINFO_1 0x1B031B03
+#define DEVINFO_2 0x1B031B03
+#define DEVINFO_3 0x48EF0043
+#define DEVINFO_4 0x60E50043
+#define DEVINFO_5 0x2F110009
+
 
 #elif defined(MT6889)
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x67130025 /* L_LO */
-#define DEVINFO_2 0x67E80059 /* B_LO + L_L0 */
-#define DEVINFO_3 0x2716009E /* B_L0 */
-#define DEVINFO_4 0x4B140057 /* CCI */
-#define DEVINFO_5 0x0 /* GPU_LO + CCI */
-#define DEVINFO_6 0x0 /* GPU_L0 */
-#define DEVINFO_7 0x74100057 /* APU */
-#define DEVINFO_8 0x56100076 /* L_HI + APU */
-#define DEVINFO_9 0x2DEE00B5 /* L_HI */
-#define DEVINFO_10 0x0919002C /* B_HI */
-#define DEVINFO_11 0xCB6F0083 /* MODEM + B_HI */
-#define DEVINFO_12 0x186A00A5 /* MODEM */
-#define DEVINFO_13 0x1B031B03 /* MODEM */
-#define DEVINFO_14 0x1B031B03 /* MODEM */
-#define DEVINFO_15 0x0 /* MODEM */
-#define DEVINFO_16 0x1B031B03 /* L */
-#define DEVINFO_17 0x1B031B03 /* B + L */
+#define DEVINFO_1 0x1B031B03
+#define DEVINFO_2 0x1B031B03
+#define DEVINFO_3 0x48EF0043
+#define DEVINFO_4 0x60E50043
+#define DEVINFO_5 0x2F110009
 
 #endif
 
 #else
 
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
-#define DEVINFO_1 0x67130025 /* L_LO */
-#define DEVINFO_2 0x9DEB0025 /* B_LO + L_L0 */
-#define DEVINFO_3 0x43150046 /* B_L0 */
-#define DEVINFO_4 0x61120027 /* CCI */
-#define DEVINFO_5 0x0 /* GPU_LO + CCI */
-#define DEVINFO_6 0x0 /* GPU_L0 */
-#define DEVINFO_7 0x91EC0027 /* APU */
-#define DEVINFO_8 0x56100076 /* L_HI + APU */
-#define DEVINFO_9 0x7AE20076 /* L_HI */
-#define DEVINFO_10 0x3A150032 /* B_HI */
-#define DEVINFO_11 0xCB6F0083 /* MODEM + B_HI */
-#define DEVINFO_12 0x186A00A5 /* MODEM */
-#define DEVINFO_13 0x1B031B03 /* MODEM */
-#define DEVINFO_14 0x1B031B03 /* MODEM */
-#define DEVINFO_15 0x0 /* MODEM */
-#define DEVINFO_16 0x1B031B03 /* L */
-#define DEVINFO_17 0x1B031B03 /* B + L */
-
-#endif
+#define DEVINFO_1 0x1B031B03
+#define DEVINFO_2 0x1B031B03
+#define DEVINFO_3 0x48EF0043
+#define DEVINFO_4 0x60E50043
+#define DEVINFO_5 0x2F110009
 #endif
 
 
@@ -258,7 +129,7 @@ enum mt_cpu_dvfs_id {
  * eem sw setting
  ******************************************
  */
-#define NR_HW_RES_FOR_BANK	(18) /* real eem banks for efuse */
+#define NR_HW_RES_FOR_BANK	(6) /* real eem banks for efuse */
 #define EEMG_INIT01_FLAG (0x01) /* 0x01=> [0]:GPU */
 #define EEMG_CORNER_FLAG (0x30) /* 0x30=> [5]:VPU, [4]:MDLA */
 #if 0

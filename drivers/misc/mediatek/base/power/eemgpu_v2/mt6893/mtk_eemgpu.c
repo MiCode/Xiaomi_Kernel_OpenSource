@@ -179,18 +179,7 @@ static int get_devinfo(void)
 	val[3] = get_devinfo_with_index(DEVINFO_IDX_3);
 	val[4] = get_devinfo_with_index(DEVINFO_IDX_4);
 	val[5] = get_devinfo_with_index(DEVINFO_IDX_5);
-	val[6] = get_devinfo_with_index(DEVINFO_IDX_6);
-	val[7] = get_devinfo_with_index(DEVINFO_IDX_7);
-	val[8] = get_devinfo_with_index(DEVINFO_IDX_8);
-	val[9] = get_devinfo_with_index(DEVINFO_IDX_9);
-	val[10] = get_devinfo_with_index(DEVINFO_IDX_10);
-	val[11] = get_devinfo_with_index(DEVINFO_IDX_11);
-	val[12] = get_devinfo_with_index(DEVINFO_IDX_12);
-	val[13] = get_devinfo_with_index(DEVINFO_IDX_13);
-	val[14] = get_devinfo_with_index(DEVINFO_IDX_14);
-	val[15] = get_devinfo_with_index(DEVINFO_IDX_15);
-	val[16] = get_devinfo_with_index(DEVINFO_IDX_16);
-	val[17] = get_devinfo_with_index(DEVINFO_IDX_17);
+
 
 #if EEMG_FAKE_EFUSE
 	/* for verification */
@@ -200,18 +189,7 @@ static int get_devinfo(void)
 	val[3] = DEVINFO_3;
 	val[4] = DEVINFO_4;
 	val[5] = DEVINFO_5;
-	val[6] = DEVINFO_6;
-	val[7] = DEVINFO_7;
-	val[8] = DEVINFO_8;
-	val[9] = DEVINFO_9;
-	val[10] = DEVINFO_10;
-	val[11] = DEVINFO_11;
-	val[12] = DEVINFO_12;
-	val[13] = DEVINFO_13;
-	val[14] = DEVINFO_14;
-	val[15] = DEVINFO_15;
-	val[16] = DEVINFO_16;
-	val[17] = DEVINFO_17;
+
 #endif
 
 	for (i = 0; i < NR_HW_RES_FOR_BANK; i++)
@@ -224,18 +202,12 @@ static int get_devinfo(void)
 	gpu_2line = 0;
 #endif
 
-	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
-		if ((i == 1) || (i == 2) ||
-			(i == 5) || (i == 6) ||
-			(i == 11) || (i == 12) || (i == 15))
-			continue;
-		else if (val[i] == 0) {
-			ret = 1;
-			safeEfuse = 1;
-			eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
-			break;
-		}
+	if (val[1] == 0) {
+		ret = 1;
+		safeEfuse = 1;
+		eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
 	}
+
 
 	gpuSeg = (get_devinfo_with_index(DEVINFO_IDX_FAB4) & 0x7);
 
@@ -253,20 +225,7 @@ static int get_devinfo(void)
 		val[3] = DEVINFO_3;
 		val[4] = DEVINFO_4;
 		val[5] = DEVINFO_5;
-		val[6] = DEVINFO_6;
-		val[7] = DEVINFO_7;
-		val[8] = DEVINFO_8;
-		val[9] = DEVINFO_9;
-		val[10] = DEVINFO_10;
-		val[11] = DEVINFO_11;
-		val[12] = DEVINFO_12;
-		val[13] = DEVINFO_13;
-		val[14] = DEVINFO_14;
-		val[15] = DEVINFO_15;
-		val[16] = DEVINFO_16;
-		val[17] = DEVINFO_17;
 	}
-
 
 	FUNC_EXIT(FUNC_LV_HELP);
 	return ret;
@@ -2444,6 +2403,7 @@ det->ops->get_volt_gpu(det));
 #endif
 void eemg_init01_gpu(void)
 {
+#if 0
 	struct eemg_det *det;
 	struct eemg_ctrl *ctrl;
 	unsigned int out = 0, timeout = 0;
@@ -2541,6 +2501,7 @@ __func__, __LINE__, det->name, det->real_vboot, det->VBOOT);
 		eemg_detectors[EEMG_DET_GPU].DCVOFFSETIN;
 	eemg_detectors[EEMG_DET_GPU_HI].AGEVOFFSETIN =
 		eemg_detectors[EEMG_DET_GPU].AGEVOFFSETIN;
+#endif
 #endif
 	eemg_init02_gpu(__func__);
 	FUNC_EXIT(FUNC_LV_LOCAL);
@@ -2719,7 +2680,7 @@ static int eemg_probe(struct platform_device *pdev)
 	eemg_debug("finish eemg_init_ctrl\n");
 #if !EARLY_PORTING
 #ifdef CONFIG_MTK_GPU_SUPPORT
-	mt_gpufreq_disable_by_ptpod();
+	//mt_gpufreq_disable_by_ptpod();
 #endif
 /* @@ */
 #if ENABLE_VPU
