@@ -12,6 +12,7 @@
  */
 #include <linux/types.h>
 #include <mt-plat/mtk_battery.h>
+#include <mt-plat/mtk_charger.h>
 #include <mt-plat/mtk_boot.h>
 #include <mtk_gauge_class.h>
 #include <mtk_battery_internal.h>
@@ -127,7 +128,7 @@ signed int battery_get_ibus(void)
 
 signed int battery_get_vbus(void)
 {
-	return pmic_get_vbus();
+	return charger_get_vbus();
 }
 
 signed int battery_get_bat_avg_current(void)
