@@ -21,6 +21,7 @@
 #include <mt-plat/aee.h>
 #endif
 
+#define MTK_SIP_GET_SPM_INFO	0x3
 #define DVFSRC_IDLE		0x00
 #define DVFSRC_GET_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
 #define DVFSRC_GET_CURRENT_LEVEL(x)	(((x) >> 16) & 0x0000ffff)
@@ -53,6 +54,16 @@ struct dvfsrc_opp {
 	u32 dram_opp;
 };
 
+struct dvfsrc_setting {
+	u32 offset;
+	u32 val;
+};
+
+struct dvfsrc_setting_desc {
+	const struct dvfsrc_setting *setting;
+	u32 size;
+};
+
 struct dvfsrc_domain {
 	u32 id;
 	u32 state;
@@ -77,6 +88,8 @@ struct dvfsrc_soc_data {
 	const int *regs;
 	u32 num_opp;
 	const struct dvfsrc_opp **opps;
+	u32 num_setting;
+	const struct dvfsrc_setting_desc *init_setting;
 	struct dvfsrc_qos_data *qos_data;
 	u32 caps;
 	int (*get_target_level)(struct mtk_dvfsrc *dvfsrc);
@@ -629,7 +642,7 @@ static int dvfsrc_pm_qos_hrtbw_notify(struct notifier_block *b,
 
 	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_hrtbw_notify);
 	mtk_dvfsrc_send_request(qos->dev,
-		MTK_DVFSRC_CMD_HRTBW_REQUEST, l);
+		MTK_DVFSRC_CMD_HRTBW_REQUEST, MBps_to_kBps(l));
 
 	return NOTIFY_OK;
 }
@@ -892,6 +905,18 @@ static void pstate_notifier_register(struct mtk_dvfsrc *dvfsrc)
 	register_scpsys_notifier(&dvfsrc->scpsys_notifier);
 }
 
+static void dvfsrc_init_settings(struct mtk_dvfsrc *dvfsrc)
+{
+	int i;
+	const struct dvfsrc_setting_desc *desc;
+	const struct dvfsrc_setting *setting;
+
+	desc = &dvfsrc->dvd->init_setting[dvfsrc->dram_type];
+	setting = desc->setting;
+	for (i = 0; i < desc->size; i++)
+		writel(setting[i].val, dvfsrc->regs + setting[i].offset);
+}
+
 static int mtk_dvfsrc_probe(struct platform_device *pdev)
 {
 	struct arm_smccc_res ares;
@@ -955,12 +980,25 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	mutex_init(&dvfsrc->lock);
 	mutex_init(&dvfsrc->sw_req_lock);
 
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_GET_SPM_INFO,
+		0, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0) {
+		if (ares.a1 < dvfsrc->dvd->num_setting)
+			dvfsrc->dram_type = ares.a1;
+		else
+			return -EINVAL;
+	} else
+		return -ENODEV;
+
+	dev_info(dvfsrc->dev, "dram_type: %d\n", dvfsrc->dram_type);
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
 		dvfsrc->flag, dvfsrc->vmode, 0, 0, 0, 0,
 		&ares);
 
 	if (!ares.a0)
-		dvfsrc->dram_type = ares.a1;
+		dvfsrc_init_settings(dvfsrc);
 	else
 		dev_info(dvfsrc->dev, "spm init fails: %lx\n", ares.a0);
 
@@ -1008,6 +1046,48 @@ static const struct dvfsrc_soc_data mt8183_data = {
 	.set_opp_level = mt8183_set_opp_level,
 };
 
+static const struct dvfsrc_setting dvfsrc_mt6779_setting_0[] = {
+	{0xF8, 0x0000002B}, {0xC8, 0x00000002},
+	{0x280, 0x0000407C}, {0x78, 0x21110000},
+	{0xA00, 0x00004322}, {0xA08, 0x00000055},
+	{0xA10, 0x00322000}, {0xA18, 0x54000000},
+	{0xCF4, 0x55000000}, {0xA34, 0x00000019},
+	{0xA38, 0x00000026}, {0xA3C, 0x00000033},
+	{0xA40, 0x0000004C}, {0xA44, 0x00000066},
+	{0xD18, 0x00000077}, {0xD1C, 0x00000077},
+	{0xA84, 0x0000011E}, {0xA88, 0x0000D3D3},
+	{0xA8C, 0x00200802}, {0xA90, 0x00200800},
+	{0xA94, 0x00200002}, {0xA98, 0x00200802},
+	{0xA9C, 0x00400802}, {0xAA0, 0x00601404},
+	{0xAA4, 0x00902008}, {0xAA8, 0x00E0380E},
+	{0xACC, 0x00000000}, {0xAD0, 0x00000000},
+	{0xAD4, 0x00034C00}, {0xAAC, 0x0360D836},
+	{0xAB0, 0x0360D800}, {0xAB4, 0x03600036},
+	{0xAB8, 0x0360D836}, {0xABC, 0x0360D836},
+	{0xAC0, 0x0360D836}, {0xAC4, 0x0360D836},
+	{0xAC8, 0x0360D836}, {0xAD8, 0x00000000},
+	{0xADC, 0x00000000}, {0xAE0, 0x00034C00},
+	{0xAF4, 0x070804B0}, {0xAF0, 0x11830B80},
+	{0xAEC, 0x18A618A6}, {0xD38, 0x000018A6},
+	{0xB00, 0x070704AF}, {0xAFC, 0x11820B7F},
+	{0xAF8, 0x18A518A5}, {0xD3C, 0x000018A5},
+	{0xAE8, 0x05554322}, {0x308, 0x4C4C0AB0},
+	{0xB04, 0x05543210}, {0xD74, 0x03333210},
+	{0x100, 0x40225032}, {0x104, 0x20223012},
+	{0x108, 0x40211012}, {0x10C, 0x20213011},
+	{0x110, 0x30101011}, {0x114, 0x10102000},
+	{0x118, 0x00000000}, {0x11C, 0x00000000},
+	{0xD6C, 0x00000001}, {0x0, 0x3599404B},
+	{0x0, 0x3599014B}, {0xD6C, 0x00000000},
+};
+
+static const struct dvfsrc_setting_desc dvfsrc_setting_mt6779[] = {
+	{
+		.setting = dvfsrc_mt6779_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6779_setting_0),
+	}
+};
+
 static const struct dvfsrc_opp dvfsrc_opp_mt6779_lp4[] = {
 	{0, 0}, {0, 1}, {0, 2}, {0, 3},
 	{1, 1}, {1, 2}, {1, 3}, {1, 4},
@@ -1021,6 +1101,8 @@ static const struct dvfsrc_opp *dvfsrc_opp_mt6779[] = {
 static const struct dvfsrc_soc_data mt6779_data = {
 	.opps = dvfsrc_opp_mt6779,
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6779_lp4),
+	.init_setting = dvfsrc_setting_mt6779,
+	.num_setting = ARRAY_SIZE(dvfsrc_setting_mt6779),
 	.regs = mt6779_regs,
 	.caps = DVFSRC_CAP_CLK_INIT |
 		DVFSRC_CAP_MTKQOS |
@@ -1045,32 +1127,169 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.is_dvfsrc_enabled = mt6779_dvfsrc_enabled,
 };
 
-static const struct dvfsrc_opp dvfsrc_opp_mt6761_lp3[] = {
-	{0, 0},
-	{1, 0},
-	{1, 0},
-	{2, 0},
-	{2, 1},
-	{2, 0},
-	{2, 1},
-	{2, 1},
-	{3, 1},
-	{3, 2},
-	{3, 1},
-	{3, 2},
-	{3, 1},
-	{3, 2},
-	{3, 2},
-	{3, 2},
+static const struct dvfsrc_setting dvfsrc_mt6761_setting_0[] = {
+	{0xC, 0x00240009}, {0x14, 0x09000000},
+	{0x18, 0x003E362C}, {0x24, 0x00000033},
+	{0x28, 0x0000004C}, {0x3C, 0x00000007},
+	{0x40, 0x00000038}, {0x44, 0x000080C0},
+	{0x78, 0x000080C0}, {0x48, 0x000C0000},
+	{0x50, 0x00000036}, {0x84, 0x20000000},
+	{0xD8, 0x00000014}, {0x9C, 0x00000003},
+	{0xE0, 0x00010000}, {0xE4, 0x00020101},
+	{0xE8, 0x01020012}, {0xEC, 0x02120112},
+	{0xF0, 0x00230013}, {0xF4, 0x01230113},
+	{0xF8, 0x02230213}, {0xFC, 0x03230323},
+	{0x300, 0x20000000}, {0x604, 0x0000000C},
+	{0x180, 0x0000407F}, {0x0, 0x0000407B},
+	{0x0, 0x0000017B}, {0x300, 0x00000000},
 };
 
-static const struct dvfsrc_opp *dvfsrc_opp_mt6761[] = {
-	[0] = dvfsrc_opp_mt6761_lp3,
+static const struct dvfsrc_setting dvfsrc_mt6761_setting_1[] = {
+	{0xC, 0x00240009 }, {0x14, 0x09000000},
+	{0x18, 0x00000020 }, {0x24, 0x00000026},
+	{0x28, 0x00000033 }, {0x3C, 0x00000007},
+	{0x40, 0x00000038 }, {0x44, 0x000080C0},
+	{0x50, 0x00000020 }, {0x84, 0x20000000},
+	{0xD8, 0x00000014 }, {0x9C, 0x00000003},
+	{0xE0, 0x00010000 }, {0xE4, 0x00020101},
+	{0xE8, 0x01020012 }, {0xEC, 0x02120112},
+	{0xF0, 0x00230013 }, {0xF4, 0x01230113},
+	{0xF8, 0x02230213 }, {0xFC, 0x03230323},
+	{0x300, 0x20000000 }, {0x604, 0x0000000C},
+	{0x180, 0x0000407F }, {0x0, 0x0000407B},
+	{0x0, 0x0000017B}, {0x300, 0x00000000},
+};
+
+static const struct dvfsrc_setting_desc dvfsrc_setting_mt6761[] = {
+	{
+		.setting = dvfsrc_mt6761_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6761_setting_0),
+	}, {
+		.setting = dvfsrc_mt6761_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6761_setting_0),
+	}, {
+		.setting = dvfsrc_mt6761_setting_1,
+		.size = ARRAY_SIZE(dvfsrc_mt6761_setting_1),
+	}, {
+		.setting = dvfsrc_mt6761_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6761_setting_0),
+	}
+};
+
+static const struct dvfsrc_opp dvfsrc_opp_mt6761_0[] = {
+	{0, 0}, {1, 0}, {1, 0}, {2, 0},
+	{2, 1}, {2, 0}, {2, 1}, {2, 1},
+	{3, 1}, {3, 2}, {3, 1}, {3, 2},
+	{3, 1}, {3, 2}, {3, 2}, {3, 2},
+};
+
+static const struct dvfsrc_opp *dvfsrc_opps_mt6761[] = {
+	[0] = dvfsrc_opp_mt6761_0,
+	[1] = dvfsrc_opp_mt6761_0,
+	[2] = dvfsrc_opp_mt6761_0,
+	[3] = dvfsrc_opp_mt6761_0,
 };
 
 static const struct dvfsrc_soc_data mt6761_data = {
-	.opps = dvfsrc_opp_mt6761,
-	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6761_lp3),
+	.opps = dvfsrc_opps_mt6761,
+	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6761_0),
+	.init_setting = dvfsrc_setting_mt6761,
+	.num_setting = ARRAY_SIZE(dvfsrc_setting_mt6761),
+	.regs = mt6761_regs,
+	.caps = DVFSRC_CAP_V_OPP_INIT |
+		DVFSRC_CAP_V_CHECKER |
+		DVFSRC_CAP_MTKQOS,
+	.qos_data = &qos_data_dvfsrc,
+	.get_target_level = mt6761_get_target_level,
+	.get_current_level = mt6761_get_current_level,
+	.get_vcore_level = mt6761_get_vcore_level,
+	.get_vcp_level = mt6761_get_vcp_level,
+	.wait_for_dram_level = dvfsrc_wait_for_dram_level,
+	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,
+	.wait_for_opp_level = dvfsrc_wait_for_opp_level,
+	.set_dram_bw = mt6761_set_dram_bw,
+	.set_dram_ext_bw = mt6761_set_dram_ext_bw,
+	.set_dram_level = mt6761_set_dram_level,
+	.set_vcore_level = mt6761_set_vcore_level,
+	.set_opp_level = mt6761_set_opp_level,
+	.set_vscp_level = mt6761_set_vscp_level,
+	.set_ext_dram_level = mt6761_set_ext_dram_level,
+	.set_force_opp_level = mt6761_set_force_opp_level,
+	.is_dvfsrc_enabled = mt6761_dvfsrc_enabled,
+};
+
+static const struct dvfsrc_setting dvfsrc_mt6765_setting_0[] = {
+	{0xC, 0x00240009}, {0x14, 0x09000000},
+	{0x18, 0x003E362C}, {0x24, 0x00000033},
+	{0x28, 0x0000004C}, {0x3C, 0x00000007},
+	{0x40, 0x00000038}, {0x44, 0x000080C0},
+	{0x78, 0x000080C0}, {0x48, 0x000C0000},
+	{0x50, 0x00000036}, {0x84, 0x20000000},
+	{0xD8, 0x00000014}, {0x9C, 0x00000003},
+	{0xE0, 0x00010000}, {0xE4, 0x00020101},
+	{0xE8, 0x01020012}, {0xEC, 0x02120112},
+	{0xF0, 0x00230013}, {0xF4, 0x01230113},
+	{0xF8, 0x02230213}, {0xFC, 0x03230323},
+	{0x300, 0x20000000}, {0x604, 0x0000000C},
+	{0x180, 0x0000407F}, {0x0, 0x0000407B},
+	{0x0, 0x0000017B}, {0x300, 0x00000000},
+};
+
+static const struct dvfsrc_setting dvfsrc_mt6765_setting_1[] = {
+	{0xC, 0x00240009 }, {0x14, 0x09000000},
+	{0x18, 0x00000020 }, {0x24, 0x00000026},
+	{0x28, 0x00000033 }, {0x3C, 0x00000007},
+	{0x40, 0x00000038 }, {0x44, 0x000080C0},
+	{0x50, 0x00000020 }, {0x84, 0x20000000},
+	{0xD8, 0x00000014 }, {0x9C, 0x00000003},
+	{0xE0, 0x00010000 }, {0xE4, 0x00020101},
+	{0xE8, 0x01020012 }, {0xEC, 0x02120112},
+	{0xF0, 0x00230013 }, {0xF4, 0x01230113},
+	{0xF8, 0x02230213 }, {0xFC, 0x03230323},
+	{0x300, 0x20000000 }, {0x604, 0x0000000C},
+	{0x180, 0x0000407F }, {0x0, 0x0000407B},
+	{0x0, 0x0000017B}, {0x300, 0x00000000},
+};
+
+static const struct dvfsrc_setting_desc dvfsrc_setting_mt6765[] = {
+	{
+		.setting = dvfsrc_mt6765_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6765_setting_0),
+	}, {
+		.setting = dvfsrc_mt6765_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6765_setting_0),
+	}, {
+		.setting = dvfsrc_mt6765_setting_1,
+		.size = ARRAY_SIZE(dvfsrc_mt6765_setting_1),
+	}, {
+		.setting = dvfsrc_mt6765_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6765_setting_0),
+	}, {
+		.setting = dvfsrc_mt6765_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6765_setting_0),
+	}
+};
+
+static const struct dvfsrc_opp dvfsrc_opp_mt6765_0[] = {
+	{0, 0}, {1, 0}, {1, 0}, {2, 0},
+	{2, 1}, {2, 0}, {2, 1}, {2, 1},
+	{3, 1}, {3, 2}, {3, 1}, {3, 2},
+	{3, 1}, {3, 2}, {3, 2}, {3, 2},
+};
+
+static const struct dvfsrc_opp *dvfsrc_opps_mt6765[] = {
+	[0] = dvfsrc_opp_mt6765_0,
+	[1] = dvfsrc_opp_mt6765_0,
+	[2] = dvfsrc_opp_mt6765_0,
+	[3] = dvfsrc_opp_mt6765_0,
+	[4] = dvfsrc_opp_mt6765_0,
+};
+
+static const struct dvfsrc_soc_data mt6765_data = {
+	.opps = dvfsrc_opps_mt6765,
+	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6765_0),
+	.init_setting = dvfsrc_setting_mt6765,
+	.num_setting = ARRAY_SIZE(dvfsrc_setting_mt6765),
 	.regs = mt6761_regs,
 	.caps = DVFSRC_CAP_V_OPP_INIT |
 		DVFSRC_CAP_V_CHECKER |
@@ -1116,7 +1335,7 @@ static const struct of_device_id mtk_dvfsrc_of_match[] = {
 		.data = &mt6761_data,
 	}, {
 		.compatible = "mediatek,mt6765-dvfsrc",
-		.data = &mt6761_data,
+		.data = &mt6765_data,
 	}, {
 		/* sentinel */
 	},

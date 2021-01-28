@@ -112,7 +112,7 @@ static int dvfsrc_dvfs_hopping_status(void)
 }
 #endif
 
-#if defined(CONFIG_MACH_MT6761)
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
 #define MTK_SIP_VCOREFS_GET_EFUSE 18
 static int dvfsrc_dvfs_get_efuse_data(u32 idx)
 {
@@ -153,6 +153,15 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 	p += snprintf(p, buff_end - p, "%-10s: %08x\n",
 		"EFUSE_0", dvfsrc_dvfs_get_efuse_data(0));
 #endif
+#if defined(CONFIG_MACH_MT6765)
+	p += snprintf(p, buff_end - p, "%-10s: %08x\n",
+		"PTPOD_0", dvfsrc_dvfs_get_efuse_data(0));
+	p += snprintf(p, buff_end - p, "%-10s: %08x\n",
+		"PTPOD_10", dvfsrc_dvfs_get_efuse_data(1));
+	p += snprintf(p, buff_end - p, "%-10s: %08x\n",
+		"INFO2", dvfsrc_dvfs_get_efuse_data(2));
+#endif
+
 	p += snprintf(p, buff_end - p, "\n");
 
 	return p;

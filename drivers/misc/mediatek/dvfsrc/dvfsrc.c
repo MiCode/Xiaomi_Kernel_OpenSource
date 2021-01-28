@@ -139,6 +139,9 @@ static ssize_t dvfsrc_opp_table_show(struct device *dev,
 	struct mtk_dvfsrc_up *dvfsrc = dev_get_drvdata(dev);
 
 	p += snprintf(p, buff_end - p,
+		"FW_TYPE : %d\n",
+		dvfsrc->fw_type);
+	p += snprintf(p, buff_end - p,
 		"NUM_VCORE_OPP : %d\n",
 		dvfsrc->opp_desc->num_vcore_opp);
 	p += snprintf(p, buff_end - p,

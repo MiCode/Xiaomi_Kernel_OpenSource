@@ -15,3 +15,6 @@ obj-$(CONFIG_MTK_DVFSRC) += dvfsrc-boost.o
 ifneq ($(CONFIG_MACH_MT6761),)
 obj-$(CONFIG_MTK_DVFSRC) += dvfsrc-opp-mt6761.o
 endif
+ifneq ($(CONFIG_MACH_MT6765),)
+obj-$(CONFIG_MTK_DVFSRC) += dvfsrc-opp-mt6765.o
+endif
