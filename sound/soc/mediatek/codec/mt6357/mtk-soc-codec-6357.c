@@ -83,7 +83,7 @@ static unsigned int mBlockSampleRate[AUDIO_ANALOG_DEVICE_INOUT_MAX] = {
 	48000, 48000, 48000};
 #define MAX_DL_SAMPLE_RATE (192000)
 #define MAX_UL_SAMPLE_RATE (192000)
-static DEFINE_MUTEX(Ana_Ctrl_Mutex);
+//static DEFINE_MUTEX(Ana_Ctrl_Mutex);
 static DEFINE_MUTEX(Ana_buf_Ctrl_Mutex);
 static DEFINE_MUTEX(Ana_Clk_Mutex);
 static DEFINE_MUTEX(Ana_Power_Mutex);
@@ -2892,7 +2892,7 @@ static void TurnOffDacPower(void)
 		/* turn off afe */
 		Ana_Set_Reg(AFE_UL_DL_CON0, 0x0000, 0x0001);
 		/* all power down */
-		Ana_Set_Reg(PMIC_AUDIO_TOP_CON0, 0x00ff, 0x00ff);
+		Ana_Set_Reg(PMIC_AUDIO_TOP_CON0, 0x00df, 0x00df);
 	} else {
 		/* down-link power down */
 		Ana_Set_Reg(PMIC_AUDIO_TOP_CON0, 0x0040, 0x0040);
@@ -3139,7 +3139,7 @@ static int Audio_AmpL_Get(struct snd_kcontrol *kcontrol,
 static int Audio_AmpL_Set(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
-	mutex_lock(&Ana_Ctrl_Mutex);
+	mutex_lock(&Ana_Power_Mutex);
 	/* pr_debug("%s(): enable = %ld,
 	 * mAudio_Ana_DevicePower[AUDIO_ANALOG_DEVICE_OUT_HEADSETL] = %d\n",
 	 * __func__, ucontrol->value.integer.value[0],
@@ -3161,7 +3161,7 @@ static int Audio_AmpL_Set(struct snd_kcontrol *kcontrol,
 			ucontrol->value.integer.value[0];
 		Audio_Amp_Change(AUDIO_ANALOG_CHANNELS_LEFT1, false);
 	}
-	mutex_unlock(&Ana_Ctrl_Mutex);
+	mutex_unlock(&Ana_Power_Mutex);
 	return 0;
 }
 static int Audio_AmpR_Get(struct snd_kcontrol *kcontrol,
@@ -3179,7 +3179,7 @@ static int Audio_AmpR_Get(struct snd_kcontrol *kcontrol,
 static int Audio_AmpR_Set(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
-	mutex_lock(&Ana_Ctrl_Mutex);
+	mutex_lock(&Ana_Power_Mutex);
 	/* pr_debug("%s(): enable = %ld,
 	 * mAudio_Ana_DevicePower[HEADSETR] = %d\n", __func__,
 	 * ucontrol->value.integer.value[0],
@@ -3201,7 +3201,7 @@ static int Audio_AmpR_Set(struct snd_kcontrol *kcontrol,
 			ucontrol->value.integer.value[0];
 		Audio_Amp_Change(AUDIO_ANALOG_CHANNELS_RIGHT1, false);
 	}
-	mutex_unlock(&Ana_Ctrl_Mutex);
+	mutex_unlock(&Ana_Power_Mutex);
 	return 0;
 }
 static int PMIC_REG_CLEAR_Set(struct snd_kcontrol *kcontrol,
@@ -3485,7 +3485,7 @@ static int Voice_Amp_Get(struct snd_kcontrol *kcontrol,
 static int Voice_Amp_Set(struct snd_kcontrol *kcontrol,
 			 struct snd_ctl_elem_value *ucontrol)
 {
-	mutex_lock(&Ana_Ctrl_Mutex);
+	mutex_lock(&Ana_Power_Mutex);
 	pr_debug("%s()\n", __func__);
 	if ((ucontrol->value.integer.value[0] == true) &&
 	    (mCodec_data->mAudio_Ana_DevicePower
@@ -3502,7 +3502,7 @@ static int Voice_Amp_Set(struct snd_kcontrol *kcontrol,
 		    ucontrol->value.integer.value[0];
 		Voice_Amp_Change(false);
 	}
-	mutex_unlock(&Ana_Ctrl_Mutex);
+	mutex_unlock(&Ana_Power_Mutex);
 	return 0;
 }
 
@@ -4545,7 +4545,7 @@ static bool TurnOnADcPowerACC(int ADCType, bool enable)
 				Ana_Set_Reg(AFE_UL_DL_CON0, 0x0000, 0x0001);
 				/* afe power down & total audio clk disable */
 				Ana_Set_Reg(PMIC_AUDIO_TOP_CON0,
-					    0x00ff, 0x00ff);
+					    0x00bf, 0x00bf);
 			}
 			/* up-link power down */
 			Ana_Set_Reg(PMIC_AUDIO_TOP_CON0, 0x0020, 0x0020);
@@ -4656,7 +4656,7 @@ static bool TurnOnADcPowerDmic(int ADCType, bool enable)
 				Ana_Set_Reg(AFE_UL_DL_CON0, 0x0000, 0x0001);
 				/* afe power down & total audio clk disable */
 				Ana_Set_Reg(PMIC_AUDIO_TOP_CON0,
-					    0x00ff, 0x00ff);
+					    0x00bf, 0x00bf);
 			}
 			/* up-link power down */
 			Ana_Set_Reg(PMIC_AUDIO_TOP_CON0, 0x0020, 0x0020);
@@ -4825,7 +4825,7 @@ static bool TurnOnADcPowerDCC(int ADCType, bool enable, int ECMmode)
 				Ana_Set_Reg(AFE_UL_DL_CON0, 0x0000, 0x0001);
 				/* afe power down & total audio clk disable */
 				Ana_Set_Reg(PMIC_AUDIO_TOP_CON0,
-					    0x00ff, 0x00ff);
+					    0x00bf, 0x00bf);
 			}
 			/* up-link power down */
 			Ana_Set_Reg(PMIC_AUDIO_TOP_CON0, 0x0020, 0x0020);
