@@ -1002,10 +1002,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	int i;
 	bool has_orphaned = false;
 	struct ion_mm_buffer_info *bug_info;
-	struct ion_mm_buf_debug_info *pdbg;
 	unsigned long long current_ts;
-	int val;
-	unsigned int mva, mva1;
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
