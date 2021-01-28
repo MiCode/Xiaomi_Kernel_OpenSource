@@ -164,6 +164,11 @@ static atomic_t cmdq_path_res_mtee = ATOMIC_INIT(0);
 static u32 g_cmdq_cnt;
 static struct cmdq_sec *g_cmdq[2];
 
+static const s32 cmdq_max_task_in_secure_thread[
+	CMDQ_MAX_SECURE_THREAD_COUNT] = {10, 10, 4, 10, 10};
+static const s32 cmdq_tz_cmd_block_size[CMDQ_MAX_SECURE_THREAD_COUNT] = {
+	4 << 12, 4 << 12, 20 << 12, 4 << 12, 4 << 12};
+
 static s32
 cmdq_sec_task_submit(struct cmdq_sec *cmdq, struct cmdq_sec_task *task,
 	const u32 iwc_cmd, const u32 thrd_idx, void *data, bool mtee);
@@ -747,7 +752,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 	struct cmdq_sec_data *data =
 		(struct cmdq_sec_data *)task->pkt->sec_data;
 	struct cmdq_pkt_buffer *buf, *last;
-	u32 size = CMDQ_CMD_BUFFER_SIZE, offset = 0, *instr;
+	u32 size = CMDQ_CMD_BUFFER_SIZE, max_size, offset = 0, *instr;
 	u32 i;
 
 	if (!data->mtee) {
@@ -766,16 +771,21 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 	}
 #endif
 
-	if (CMDQ_TZ_CMD_BLOCK_SIZE <
-		task->pkt->cmd_buf_size + 4 * CMDQ_INST_SIZE) {
-		cmdq_err("task:%p size:%zu > %u",
-			task, task->pkt->cmd_buf_size, CMDQ_TZ_CMD_BLOCK_SIZE);
-		return -EFAULT;
-	}
 	if (thrd_idx == CMDQ_INVALID_THREAD) {
 		iwc_msg->command.commandSize = 0;
 		iwc_msg->command.metadata.addrListLength = 0;
 		return 0;
+	}
+
+	if (thrd_idx < CMDQ_MIN_SECURE_THREAD_ID || thrd_idx >=
+		CMDQ_MIN_SECURE_THREAD_ID + CMDQ_MAX_SECURE_THREAD_COUNT)
+		return -EINVAL;
+
+	max_size = cmdq_tz_cmd_block_size[thrd_idx - CMDQ_MIN_SECURE_THREAD_ID];
+	if (max_size < task->pkt->cmd_buf_size + 4 * CMDQ_INST_SIZE) {
+		cmdq_err("task:%p size:%zu > %u",
+			task, task->pkt->cmd_buf_size, max_size);
+		return -EFAULT;
 	}
 
 	iwc_msg->command.thread = thrd_idx;
@@ -1227,7 +1237,7 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 	struct cmdq_sec_data *data;
 	struct cmdq_pkt_buffer *buf;
 	unsigned long flags;
-	s32 err;
+	s32 err, max_task;
 
 	cmdq_log("%s gce:%#lx task:%p pkt:%p thread:%u",
 		__func__, (unsigned long)cmdq->base_pa, task, task->pkt,
@@ -1279,9 +1289,11 @@ static void cmdq_sec_task_exec_work(struct work_struct *work_item)
 		}
 	}
 
-	if (task->thread->task_cnt > CMDQ_MAX_TASK_IN_SECURE_THREAD) {
+	max_task = cmdq_max_task_in_secure_thread[
+		task->thread->idx - CMDQ_MIN_SECURE_THREAD_ID];
+	if (task->thread->task_cnt > max_task) {
 		cmdq_err("task_cnt:%u cannot more than %u task:%p thrd-idx:%u",
-			task->thread->task_cnt, CMDQ_MAX_TASK_IN_SECURE_THREAD,
+			task->thread->task_cnt, max_task,
 			task, task->thread->idx);
 		err = -EMSGSIZE;
 		goto task_err_callback;
