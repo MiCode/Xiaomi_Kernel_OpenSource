@@ -177,63 +177,19 @@ static void change_log_level(int new_level)
 
 void fix_dvfs_debug(void)
 {
-	int i = 0;
-	int opp = 0;
+	enum DVFS_VOLTAGE_DOMAIN i;
+	enum DVFS_BUCK buck;
 
 	mutex_lock(&power_fix_dvfs_mtx);
-
-	for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++)
-		apusys_opps.next_opp_index[i] = fixed_opp;
-
-	for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++)
-		apusys_opps.next_opp_index[i] = fixed_opp;
-
-	// determine vpu / mdla / vcore voltage
-	apusys_opps.next_buck_volt[VPU_BUCK] =
-		apusys_opps.opps[fixed_opp][V_VPU0].voltage;
-	apusys_opps.next_buck_volt[MDLA_BUCK] =
-		apusys_opps.opps[fixed_opp][V_MDLA0].voltage;
-
-	#if VCORE_DVFS_SUPPORT
-	apusys_opps.next_buck_volt[VCORE_BUCK] =
-		apusys_opps.opps[fixed_opp][V_VCORE].voltage;
-	#else
-	if (apusys_opps.next_buck_volt[VPU_BUCK] ==
-		DVFS_VOLT_00_800000_V)
-		apusys_opps.next_buck_volt[VCORE_BUCK] =
-			DVFS_VOLT_00_600000_V;
-	else
-		apusys_opps.next_buck_volt[VCORE_BUCK] =
-			DVFS_VOLT_00_575000_V;
-	#endif
-
-	// determine buck domain opp
 	for (i = 0; i < APUSYS_BUCK_DOMAIN_NUM; i++) {
 		if (dvfs_power_domain_support(i) == false)
 			continue;
-		for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-#if !defined(CONFIG_MACH_MT6873) && !defined(CONFIG_MACH_MT6853)
-			if ((i == V_APU_CONN ||	i == V_TOP_IOMMU) &&
-				(apusys_opps.opps[opp][i].voltage ==
-				apusys_opps.next_buck_volt[VPU_BUCK])) {
-				apusys_opps.next_opp_index[i] = opp;
-				break;
-#else
-			if ((i == V_APU_CONN) &&
-				(apusys_opps.opps[opp][i].voltage ==
-				apusys_opps.next_buck_volt[VPU_BUCK])) {
-				apusys_opps.next_opp_index[i] = opp;
-				break;
-#endif
-			} else if (i == V_VCORE &&
-			apusys_opps.opps[opp][i].voltage ==
-			apusys_opps.next_buck_volt[VCORE_BUCK]) {
-				apusys_opps.next_opp_index[i] = opp;
-				break;
-			}
-		}
+		apusys_opps.next_opp_index[i] = fixed_opp;
+		buck = apusys_buck_domain_to_buck[i];
+		apusys_opps.next_buck_volt[buck] =
+				max(apusys_opps.opps[fixed_opp][i].voltage,
+				    apusys_opps.next_buck_volt[buck]);
 	}
-
 	is_power_debug_lock = true;
 	apusys_dvfs_policy(0);
 
