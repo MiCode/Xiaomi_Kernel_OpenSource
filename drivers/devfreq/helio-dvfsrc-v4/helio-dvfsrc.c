@@ -526,10 +526,6 @@ char *dvfsrc_dump_reg(char *ptr)
 	return ptr;
 }
 
-static struct devfreq_dev_profile helio_devfreq_profile = {
-	.polling_ms	= 0,
-};
-
 void helio_dvfsrc_reg_config(struct reg_config *config)
 {
 	int idx = 0;
@@ -702,11 +698,6 @@ static int helio_dvfsrc_probe(struct platform_device *pdev)
 
 
 	platform_set_drvdata(pdev, dvfsrc);
-
-	dvfsrc->devfreq = devm_devfreq_add_device(&pdev->dev,
-						 &helio_devfreq_profile,
-						 "helio_dvfsrc",
-						 NULL);
 
 	ret = helio_dvfsrc_add_interface(&pdev->dev);
 	if (ret)
