@@ -35,6 +35,30 @@ obj-$(CONFIG_SND_SOC_MT6853) += mt6853/
 obj-$(CONFIG_SND_SOC_MT6873) += mt6873/
 obj-$(CONFIG_SND_SOC_MT6885) += mt6885/
 obj-$(CONFIG_SND_SOC_MT8167) += mt8167/
+
+#mtk new arch
+ifeq ($(CONFIG_MTK_SND_SOC_NEW_ARCH),)
+# MTK Codec Chip Support
+MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))
+
+# PMIC include path
+ifneq  ($(MTK_CODEC),)
+subdir-ccflags-y += -Werror -Werror -Icodec/$(MTK_CODEC)/
+subdir-ccflags-y += -Werror -I$(src)/common_int
+
+# Update pmic built flow to avoid codec init later than codec probe
+obj-y += codec/$(MTK_CODEC)/
+obj-y += common_int/
+
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+# flags for not ready feature, uncomment after ready
+subdir-ccflags-y += -D_GIT318_PMIC_READY
+subdir-ccflags-y += -DAUDIO_USING_WRAP_DRIVER
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/
+endif
+endif
+
 # adsp
 ifeq ($(CONFIG_MTK_AURISYS_PHONE_CALL_SUPPORT),y)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/
