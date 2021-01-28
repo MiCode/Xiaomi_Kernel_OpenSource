@@ -6937,7 +6937,7 @@ static unsigned long capacity_spare_without(int cpu, struct task_struct *p)
 	return max_t(long, capacity_of(cpu) - cpu_util_without(cpu, p), 0);
 }
 
-#ifdef CONFIG_MTK_SCHED_INTEROP
+#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
 #define MT_RT_LOAD (2*1023*NICE_0_LOAD)
 static inline unsigned long mt_rt_load(int cpu)
 {
@@ -7005,7 +7005,7 @@ find_idlest_group(struct sched_domain *sd, struct task_struct *p,
 
 			avg_load += cfs_rq_load_avg(&cpu_rq(i)->cfs);
 
-#ifdef CONFIG_MTK_SCHED_INTEROP
+#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
 			avg_load += mt_rt_load(i);
 #endif
 
@@ -7131,7 +7131,7 @@ find_idlest_group_cpu(struct sched_group *group, struct task_struct *p, int this
 			}
 		} else if (shallowest_idle_cpu == -1) {
 			load = weighted_cpuload(cpu_rq(i));
-#ifdef CONFIG_MTK_SCHED_INTEROP
+#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
 			load += mt_rt_load(i);
 #endif
 			if (load < min_load || (load == min_load && i == this_cpu)) {
@@ -9603,7 +9603,7 @@ static unsigned long scale_rt_capacity(int cpu)
 	 * we read them once before doing sanity checks on them.
 	 */
 	age_stamp = READ_ONCE(rq->age_stamp);
-#ifdef CONFIG_MTK_SCHED_INTEROP
+#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
 	if (unlikely(is_rt_throttle(cpu)) || !(rq->rt.rt_nr_running)) {
 		/* mtk: don't reduce capacity when rt task throttle or sleep*/
 		avg = 0;
@@ -10720,7 +10720,7 @@ static struct rq *find_busiest_queue(struct lb_env *env,
 
 		wl = weighted_cpuload(rq);
 
-#ifdef CONFIG_MTK_SCHED_INTEROP
+#if defined(CONFIG_MTK_SCHED_INTEROP) && defined(CONFIG_RT_GROUP_SCHED)
 		wl += mt_rt_load(i);
 #endif
 
@@ -11050,12 +11050,14 @@ more_balance:
 				goto out_one_pinned;
 			}
 
+#ifdef CONFIG_MTK_SCHED_BOOST
 			if (task_prefer_fit(busiest->curr, cpu_of(busiest))) {
 				raw_spin_unlock_irqrestore(&busiest->lock,
 							    flags);
 				env.flags |= LBF_ALL_PINNED;
 				goto out_one_pinned;
 			}
+#endif
 
 #ifdef CONFIG_SCHED_HMP
 			/*
