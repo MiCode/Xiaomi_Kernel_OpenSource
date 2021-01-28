@@ -3853,49 +3853,6 @@ EXIT:
 	return 0;
 }
 
-static signed int DPE_mmap(
-	struct file *pFile, struct vm_area_struct *pVma)
-{
-	unsigned long length = 0;
-	unsigned int pfn = 0x0;
-
-	length = pVma->vm_end - pVma->vm_start;
-	/*  */
-	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
-	pfn = pVma->vm_pgoff << PAGE_SHIFT;
-
-
-	LOG_INF("DPE mmap: pVma->vm_pgoff(0x%lx)", pVma->vm_pgoff);
-	LOG_INF("DPE mmap: pfn(0x%x),phy(0x%lx)",
-		pfn, pVma->vm_pgoff << PAGE_SHIFT);
-	LOG_INF("pVmapVma->vm_start(0x%lx)", pVma->vm_start);
-	LOG_INF("pVma->vm_end(0x%lx),length(0x%lx)", pVma->vm_end, length);
-
-	switch (pfn) {
-	case DPE_BASE_HW:
-	if (length > DPE_REG_RANGE) {
-		LOG_INF("mmap range error :module:0x%x length(0x%lx)",
-		pfn,
-		length);
-		LOG_INF("mmap range error :DPE_REG_RANGE(0x%x)!",
-		DPE_REG_RANGE);
-
-		return -EAGAIN;
-	}
-	break;
-	default:
-		LOG_INF("Illegal starting HW addr for mmap!");
-		return -EAGAIN;
-	}
-	if (remap_pfn_range
-		(pVma, pVma->vm_start, pVma->vm_pgoff,
-		pVma->vm_end - pVma->vm_start, pVma->vm_page_prot)) {
-		return -EAGAIN;
-	}
-	/*  */
-	return 0;
-}
-
 static dev_t DPEDevNo;
 static struct cdev *pDPECharDrv;
 static struct class *pDPEClass;
@@ -3905,7 +3862,7 @@ static const struct file_operations DPEFileOper = {
 	.open = DPE_open,
 	.release = DPE_release,
 	/* .flush   = mt_DPE_flush, */
-	.mmap = DPE_mmap,
+	/* .mmap = DPE_mmap, */
 	.unlocked_ioctl = DPE_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = DPE_ioctl_compat,
