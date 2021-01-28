@@ -354,6 +354,14 @@ page_owner=on loop.max_part=7";
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
+			no-map;
+			size = <0 0xF20000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
+		};
+
 		gps-reserve-memory {
 			compatible = "mediatek,gps-reserve-memory";
 			no-map;
@@ -5479,11 +5487,12 @@ page_owner=on loop.max_part=7";
 						"MDP_PWR";
 	};
 
-	wifi@18000000{
+	wifi@18000000 {
 		compatible = "mediatek,wifi";
 		reg = <0 0x18000000 0 0x700000>;
 		interrupts = <GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 378 IRQ_TYPE_LEVEL_HIGH>;
+		memory-region = <&wifi_mem>;
 	};
 
 	fm: fm@18000000 {

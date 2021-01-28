@@ -90,16 +90,10 @@ EXPORT_SYMBOL(gConEmiPhyBase);
 unsigned long long gConEmiSize;
 EXPORT_SYMBOL(gConEmiSize);
 
-phys_addr_t gWifiRsvMemPhyBase;
-EXPORT_SYMBOL(gWifiRsvMemPhyBase);
-unsigned long long gWifiRsvMemSize;
-EXPORT_SYMBOL(gWifiRsvMemSize);
-
 phys_addr_t gGpsRsvMemPhyBase;
 EXPORT_SYMBOL(gGpsRsvMemPhyBase);
 unsigned long long gGpsRsvMemSize;
 EXPORT_SYMBOL(gGpsRsvMemSize);
-
 /*Reserved memory by device tree!*/
 
 int reserve_memory_consys_fn(struct reserved_mem *rmem)
@@ -114,18 +108,6 @@ int reserve_memory_consys_fn(struct reserved_mem *rmem)
 
 RESERVEDMEM_OF_DECLARE(reserve_memory_test, "mediatek,consys-reserve-memory",
 			reserve_memory_consys_fn);
-
-int reserve_memory_wifi_fn(struct reserved_mem *rmem)
-{
-	pr_info(DFT_TAG "[W]%s: name: %s,base: 0x%llx,size: 0x%llx\n",
-		__func__, rmem->name, (unsigned long long)rmem->base,
-		(unsigned long long)rmem->size);
-	gWifiRsvMemPhyBase = rmem->base;
-	gWifiRsvMemSize = rmem->size;
-	return 0;
-}
-RESERVEDMEM_OF_DECLARE(reserve_memory_wifi, "mediatek,wifi-reserve-memory",
-		       reserve_memory_wifi_fn);
 
 int reserve_memory_gps_fn(struct reserved_mem *rmem)
 {
@@ -332,23 +314,6 @@ int connectivity_export_mmc_io_rw_direct(struct mmc_card *card,
 	return mmc_io_rw_direct(card, write, fn, addr, in, out);
 }
 EXPORT_SYMBOL(connectivity_export_mmc_io_rw_direct);
-
-void connectivity_flush_dcache_area(void *addr, size_t len)
-{
-#ifdef CONFIG_ARM64
-	__flush_dcache_area(addr, len);
-#else
-	v7_flush_kern_dcache_area(addr, len);
-#endif
-}
-EXPORT_SYMBOL(connectivity_flush_dcache_area);
-
-void connectivity_arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
-				     struct iommu_ops *iommu, bool coherent)
-{
-	arch_setup_dma_ops(dev, dma_base, size, iommu, coherent);
-}
-EXPORT_SYMBOL(connectivity_arch_setup_dma_ops);
 
 /******************************************************************************
  * GPIO dump information
