@@ -240,57 +240,58 @@ GPUOP(SEG1_GPU_DVFS_FREQ31, SEG1_GPU_DVFS_VOLT31, SEG1_GPU_DVFS_VSRAM5, 15),
 };
 static struct g_opp_table_info g_opp_table_segment2[] = {
 #ifdef USE_FINE_GRAIN_OPP_TABLE
-GPUOP(SEG2_GPU_DVFS_FREQ0, SEG2_GPU_DVFS_VOLT0, SEG2_GPU_DVFS_VSRAM0, 0),
-GPUOP(SEG2_GPU_DVFS_FREQ1, SEG2_GPU_DVFS_VOLT1, SEG2_GPU_DVFS_VSRAM1, 1),
-GPUOP(SEG2_GPU_DVFS_FREQ2, SEG2_GPU_DVFS_VOLT2, SEG2_GPU_DVFS_VSRAM2, 2),
-GPUOP(SEG2_GPU_DVFS_FREQ3, SEG2_GPU_DVFS_VOLT3, SEG2_GPU_DVFS_VSRAM3, 3),
-GPUOP(SEG2_GPU_DVFS_FREQ4, SEG2_GPU_DVFS_VOLT4, SEG2_GPU_DVFS_VSRAM4, 4),
-GPUOP(SEG2_GPU_DVFS_FREQ5, SEG2_GPU_DVFS_VOLT5, SEG2_GPU_DVFS_VSRAM5, 5),
-GPUOP(SEG2_GPU_DVFS_FREQ6, SEG2_GPU_DVFS_VOLT6, SEG2_GPU_DVFS_VSRAM6, 6),
-GPUOP(SEG2_GPU_DVFS_FREQ7, SEG2_GPU_DVFS_VOLT7, SEG2_GPU_DVFS_VSRAM7, 7),
-GPUOP(SEG2_GPU_DVFS_FREQ8, SEG2_GPU_DVFS_VOLT8, SEG2_GPU_DVFS_VSRAM7, 8),
-GPUOP(SEG2_GPU_DVFS_FREQ9, SEG2_GPU_DVFS_VOLT9, SEG2_GPU_DVFS_VSRAM7, 9),
-GPUOP(SEG2_GPU_DVFS_FREQ10, SEG2_GPU_DVFS_VOLT10, SEG2_GPU_DVFS_VSRAM7, 10),
-GPUOP(SEG2_GPU_DVFS_FREQ11, SEG2_GPU_DVFS_VOLT11, SEG2_GPU_DVFS_VSRAM7, 11),
-GPUOP(SEG2_GPU_DVFS_FREQ12, SEG2_GPU_DVFS_VOLT12, SEG2_GPU_DVFS_VSRAM7, 12),
-GPUOP(SEG2_GPU_DVFS_FREQ13, SEG2_GPU_DVFS_VOLT13, SEG2_GPU_DVFS_VSRAM7, 13),
-GPUOP(SEG2_GPU_DVFS_FREQ14, SEG2_GPU_DVFS_VOLT14, SEG2_GPU_DVFS_VSRAM7, 14),
-GPUOP(SEG2_GPU_DVFS_FREQ15, SEG2_GPU_DVFS_VOLT15, SEG2_GPU_DVFS_VSRAM7, 15),
-GPUOP(SEG2_GPU_DVFS_FREQ16, SEG2_GPU_DVFS_VOLT16, SEG2_GPU_DVFS_VSRAM7, 16),
-GPUOP(SEG2_GPU_DVFS_FREQ17, SEG2_GPU_DVFS_VOLT17, SEG2_GPU_DVFS_VSRAM7, 17),
-GPUOP(SEG2_GPU_DVFS_FREQ18, SEG2_GPU_DVFS_VOLT18, SEG2_GPU_DVFS_VSRAM7, 18),
-GPUOP(SEG2_GPU_DVFS_FREQ19, SEG2_GPU_DVFS_VOLT19, SEG2_GPU_DVFS_VSRAM7, 19),
-GPUOP(SEG2_GPU_DVFS_FREQ20, SEG2_GPU_DVFS_VOLT20, SEG2_GPU_DVFS_VSRAM7, 20),
-GPUOP(SEG2_GPU_DVFS_FREQ21, SEG2_GPU_DVFS_VOLT21, SEG2_GPU_DVFS_VSRAM7, 21),
-GPUOP(SEG2_GPU_DVFS_FREQ22, SEG2_GPU_DVFS_VOLT22, SEG2_GPU_DVFS_VSRAM7, 22),
-GPUOP(SEG2_GPU_DVFS_FREQ23, SEG2_GPU_DVFS_VOLT23, SEG2_GPU_DVFS_VSRAM7, 23),
-GPUOP(SEG2_GPU_DVFS_FREQ24, SEG2_GPU_DVFS_VOLT24, SEG2_GPU_DVFS_VSRAM7, 24),
-GPUOP(SEG2_GPU_DVFS_FREQ25, SEG2_GPU_DVFS_VOLT25, SEG2_GPU_DVFS_VSRAM7, 25),
-GPUOP(SEG2_GPU_DVFS_FREQ26, SEG2_GPU_DVFS_VOLT26, SEG2_GPU_DVFS_VSRAM7, 26),
-GPUOP(SEG2_GPU_DVFS_FREQ27, SEG2_GPU_DVFS_VOLT27, SEG2_GPU_DVFS_VSRAM7, 27),
-GPUOP(SEG2_GPU_DVFS_FREQ28, SEG2_GPU_DVFS_VOLT28, SEG2_GPU_DVFS_VSRAM7, 28),
-GPUOP(SEG2_GPU_DVFS_FREQ29, SEG2_GPU_DVFS_VOLT29, SEG2_GPU_DVFS_VSRAM7, 29),
-GPUOP(SEG2_GPU_DVFS_FREQ30, SEG2_GPU_DVFS_VOLT30, SEG2_GPU_DVFS_VSRAM7, 30),
-GPUOP(SEG2_GPU_DVFS_FREQ31, SEG2_GPU_DVFS_VOLT31, SEG2_GPU_DVFS_VSRAM7, 31),
-#else
-GPUOP(SEG2_GPU_DVFS_FREQ0, SEG2_GPU_DVFS_VOLT0, SEG2_GPU_DVFS_VSRAM0, 0),
-GPUOP(SEG2_GPU_DVFS_FREQ2, SEG2_GPU_DVFS_VOLT2, SEG2_GPU_DVFS_VSRAM2, 1),
+//GPUOP(SEG2_GPU_DVFS_FREQ0, SEG2_GPU_DVFS_VOLT0, SEG2_GPU_DVFS_VSRAM0, 0),
+//GPUOP(SEG2_GPU_DVFS_FREQ1, SEG2_GPU_DVFS_VOLT1, SEG2_GPU_DVFS_VSRAM1, 1),
+GPUOP(SEG2_GPU_DVFS_FREQ2, SEG2_GPU_DVFS_VOLT2, SEG2_GPU_DVFS_VSRAM2, 0),
+GPUOP(SEG2_GPU_DVFS_FREQ3, SEG2_GPU_DVFS_VOLT3, SEG2_GPU_DVFS_VSRAM3, 1),
 GPUOP(SEG2_GPU_DVFS_FREQ4, SEG2_GPU_DVFS_VOLT4, SEG2_GPU_DVFS_VSRAM4, 2),
-GPUOP(SEG2_GPU_DVFS_FREQ6, SEG2_GPU_DVFS_VOLT6, SEG2_GPU_DVFS_VSRAM6, 3),
-GPUOP(SEG2_GPU_DVFS_FREQ8, SEG2_GPU_DVFS_VOLT8, SEG2_GPU_DVFS_VSRAM7, 4),
-GPUOP(SEG2_GPU_DVFS_FREQ11, SEG2_GPU_DVFS_VOLT11, SEG2_GPU_DVFS_VSRAM7, 5),
-GPUOP(SEG2_GPU_DVFS_FREQ13, SEG2_GPU_DVFS_VOLT13, SEG2_GPU_DVFS_VSRAM7, 6),
-GPUOP(SEG2_GPU_DVFS_FREQ15, SEG2_GPU_DVFS_VOLT15, SEG2_GPU_DVFS_VSRAM7, 7),
-GPUOP(SEG2_GPU_DVFS_FREQ17, SEG2_GPU_DVFS_VOLT17, SEG2_GPU_DVFS_VSRAM7, 8),
-GPUOP(SEG2_GPU_DVFS_FREQ19, SEG2_GPU_DVFS_VOLT19, SEG2_GPU_DVFS_VSRAM7, 9),
-GPUOP(SEG2_GPU_DVFS_FREQ21, SEG2_GPU_DVFS_VOLT21, SEG2_GPU_DVFS_VSRAM7, 10),
-GPUOP(SEG2_GPU_DVFS_FREQ23, SEG2_GPU_DVFS_VOLT23, SEG2_GPU_DVFS_VSRAM7, 11),
-GPUOP(SEG2_GPU_DVFS_FREQ25, SEG2_GPU_DVFS_VOLT25, SEG2_GPU_DVFS_VSRAM7, 12),
-GPUOP(SEG2_GPU_DVFS_FREQ27, SEG2_GPU_DVFS_VOLT27, SEG2_GPU_DVFS_VSRAM7, 13),
-GPUOP(SEG2_GPU_DVFS_FREQ29, SEG2_GPU_DVFS_VOLT29, SEG2_GPU_DVFS_VSRAM7, 14),
-GPUOP(SEG2_GPU_DVFS_FREQ31, SEG2_GPU_DVFS_VOLT31, SEG2_GPU_DVFS_VSRAM7, 15),
+GPUOP(SEG2_GPU_DVFS_FREQ5, SEG2_GPU_DVFS_VOLT5, SEG2_GPU_DVFS_VSRAM5, 3),
+GPUOP(SEG2_GPU_DVFS_FREQ6, SEG2_GPU_DVFS_VOLT6, SEG2_GPU_DVFS_VSRAM6, 4),
+GPUOP(SEG2_GPU_DVFS_FREQ7, SEG2_GPU_DVFS_VOLT7, SEG2_GPU_DVFS_VSRAM7, 5),
+GPUOP(SEG2_GPU_DVFS_FREQ8, SEG2_GPU_DVFS_VOLT8, SEG2_GPU_DVFS_VSRAM7, 6),
+GPUOP(SEG2_GPU_DVFS_FREQ9, SEG2_GPU_DVFS_VOLT9, SEG2_GPU_DVFS_VSRAM7, 7),
+GPUOP(SEG2_GPU_DVFS_FREQ10, SEG2_GPU_DVFS_VOLT10, SEG2_GPU_DVFS_VSRAM7, 8),
+GPUOP(SEG2_GPU_DVFS_FREQ11, SEG2_GPU_DVFS_VOLT11, SEG2_GPU_DVFS_VSRAM7, 9),
+GPUOP(SEG2_GPU_DVFS_FREQ12, SEG2_GPU_DVFS_VOLT12, SEG2_GPU_DVFS_VSRAM7, 10),
+GPUOP(SEG2_GPU_DVFS_FREQ13, SEG2_GPU_DVFS_VOLT13, SEG2_GPU_DVFS_VSRAM7, 11),
+GPUOP(SEG2_GPU_DVFS_FREQ14, SEG2_GPU_DVFS_VOLT14, SEG2_GPU_DVFS_VSRAM7, 12),
+GPUOP(SEG2_GPU_DVFS_FREQ15, SEG2_GPU_DVFS_VOLT15, SEG2_GPU_DVFS_VSRAM7, 13),
+GPUOP(SEG2_GPU_DVFS_FREQ16, SEG2_GPU_DVFS_VOLT16, SEG2_GPU_DVFS_VSRAM7, 14),
+GPUOP(SEG2_GPU_DVFS_FREQ17, SEG2_GPU_DVFS_VOLT17, SEG2_GPU_DVFS_VSRAM7, 15),
+GPUOP(SEG2_GPU_DVFS_FREQ18, SEG2_GPU_DVFS_VOLT18, SEG2_GPU_DVFS_VSRAM7, 16),
+GPUOP(SEG2_GPU_DVFS_FREQ19, SEG2_GPU_DVFS_VOLT19, SEG2_GPU_DVFS_VSRAM7, 17),
+GPUOP(SEG2_GPU_DVFS_FREQ20, SEG2_GPU_DVFS_VOLT20, SEG2_GPU_DVFS_VSRAM7, 18),
+GPUOP(SEG2_GPU_DVFS_FREQ21, SEG2_GPU_DVFS_VOLT21, SEG2_GPU_DVFS_VSRAM7, 19),
+GPUOP(SEG2_GPU_DVFS_FREQ22, SEG2_GPU_DVFS_VOLT22, SEG2_GPU_DVFS_VSRAM7, 20),
+GPUOP(SEG2_GPU_DVFS_FREQ23, SEG2_GPU_DVFS_VOLT23, SEG2_GPU_DVFS_VSRAM7, 21),
+GPUOP(SEG2_GPU_DVFS_FREQ24, SEG2_GPU_DVFS_VOLT24, SEG2_GPU_DVFS_VSRAM7, 22),
+GPUOP(SEG2_GPU_DVFS_FREQ25, SEG2_GPU_DVFS_VOLT25, SEG2_GPU_DVFS_VSRAM7, 23),
+GPUOP(SEG2_GPU_DVFS_FREQ26, SEG2_GPU_DVFS_VOLT26, SEG2_GPU_DVFS_VSRAM7, 24),
+GPUOP(SEG2_GPU_DVFS_FREQ27, SEG2_GPU_DVFS_VOLT27, SEG2_GPU_DVFS_VSRAM7, 25),
+GPUOP(SEG2_GPU_DVFS_FREQ28, SEG2_GPU_DVFS_VOLT28, SEG2_GPU_DVFS_VSRAM7, 26),
+GPUOP(SEG2_GPU_DVFS_FREQ29, SEG2_GPU_DVFS_VOLT29, SEG2_GPU_DVFS_VSRAM7, 27),
+GPUOP(SEG2_GPU_DVFS_FREQ30, SEG2_GPU_DVFS_VOLT30, SEG2_GPU_DVFS_VSRAM7, 28),
+GPUOP(SEG2_GPU_DVFS_FREQ31, SEG2_GPU_DVFS_VOLT31, SEG2_GPU_DVFS_VSRAM7, 29),
+#else
+//GPUOP(SEG2_GPU_DVFS_FREQ0, SEG2_GPU_DVFS_VOLT0, SEG2_GPU_DVFS_VSRAM0, 0),
+GPUOP(SEG2_GPU_DVFS_FREQ2, SEG2_GPU_DVFS_VOLT2, SEG2_GPU_DVFS_VSRAM2, 0),
+GPUOP(SEG2_GPU_DVFS_FREQ4, SEG2_GPU_DVFS_VOLT4, SEG2_GPU_DVFS_VSRAM4, 1),
+GPUOP(SEG2_GPU_DVFS_FREQ6, SEG2_GPU_DVFS_VOLT6, SEG2_GPU_DVFS_VSRAM6, 2),
+GPUOP(SEG2_GPU_DVFS_FREQ8, SEG2_GPU_DVFS_VOLT8, SEG2_GPU_DVFS_VSRAM7, 3),
+GPUOP(SEG2_GPU_DVFS_FREQ11, SEG2_GPU_DVFS_VOLT11, SEG2_GPU_DVFS_VSRAM7, 4),
+GPUOP(SEG2_GPU_DVFS_FREQ13, SEG2_GPU_DVFS_VOLT13, SEG2_GPU_DVFS_VSRAM7, 5),
+GPUOP(SEG2_GPU_DVFS_FREQ15, SEG2_GPU_DVFS_VOLT15, SEG2_GPU_DVFS_VSRAM7, 6),
+GPUOP(SEG2_GPU_DVFS_FREQ17, SEG2_GPU_DVFS_VOLT17, SEG2_GPU_DVFS_VSRAM7, 7),
+GPUOP(SEG2_GPU_DVFS_FREQ19, SEG2_GPU_DVFS_VOLT19, SEG2_GPU_DVFS_VSRAM7, 8),
+GPUOP(SEG2_GPU_DVFS_FREQ21, SEG2_GPU_DVFS_VOLT21, SEG2_GPU_DVFS_VSRAM7, 9),
+GPUOP(SEG2_GPU_DVFS_FREQ23, SEG2_GPU_DVFS_VOLT23, SEG2_GPU_DVFS_VSRAM7, 10),
+GPUOP(SEG2_GPU_DVFS_FREQ25, SEG2_GPU_DVFS_VOLT25, SEG2_GPU_DVFS_VSRAM7, 11),
+GPUOP(SEG2_GPU_DVFS_FREQ27, SEG2_GPU_DVFS_VOLT27, SEG2_GPU_DVFS_VSRAM7, 12),
+GPUOP(SEG2_GPU_DVFS_FREQ29, SEG2_GPU_DVFS_VOLT29, SEG2_GPU_DVFS_VSRAM7, 13),
+GPUOP(SEG2_GPU_DVFS_FREQ31, SEG2_GPU_DVFS_VOLT31, SEG2_GPU_DVFS_VSRAM7, 14),
 #endif
 };
+
 static const struct of_device_id g_gpufreq_of_match[] = {
 	{ .compatible = "mediatek,mt6779-gpufreq" },
 	{ /* sentinel */ }
@@ -518,22 +519,27 @@ void mt_gpufreq_enable_MTCMOS(bool bEnableHWAPM)
 {
 #if ENABLE_MTCMOS_CONTROL
 	/* enable PLL and set clk_mux to mfgpll */
-	int i32Ret;
-
 	__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
 
-	i32Ret = pm_runtime_get_sync(g_clk->mtcmos_mfg);
-	if (i32Ret < 0)
+	if (clk_prepare_enable(g_clk->mtcmos_mfg_async))
+		gpufreq_perr("@%s: failed when enable mtcmos_mfg_async\n",
+		__func__);
+
+	if (clk_prepare_enable(g_clk->mtcmos_mfg))
 		gpufreq_perr("@%s: failed when enable mtcmos_mfg\n",
 		__func__);
 
 	if (!bEnableHWAPM) {
-		/* Do nothing */
-		;
+		if (clk_prepare_enable(g_clk->mtcmos_mfg_core0))
+			gpufreq_perr(
+			"@%s: failed when enable mtcmos_mfg_core0\n",
+			__func__);
+
+		if (clk_prepare_enable(g_clk->mtcmos_mfg_core1))
+			gpufreq_perr(
+			"@%s: failed when enable mtcmos_mfg_core1\n",
+			__func__);
 	}
-
-	clk_prepare_enable(g_clk->cg_bg3d);
-
 	gpufreq_pr_debug("@%s: enable MTCMOS done\n", __func__);
 	mt_gpufreq_target(g_pre_pwr_off_opp_idx);
 	g_pre_pwr_off_state = false;
@@ -548,25 +554,17 @@ EXPORT_SYMBOL(mt_gpufreq_enable_MTCMOS);
 void mt_gpufreq_disable_MTCMOS(bool bEnableHWAPM)
 {
 #if ENABLE_MTCMOS_CONTROL
-	int i32Ret;
-
 	g_pre_pwr_off_opp_idx = g_cur_opp_idx;
 	g_pre_pwr_off_opp_set = true;
 	g_pre_pwr_off_state = true;
 	mt_gpufreq_target(g_opp_idx_num - 1);
-
-	clk_disable_unprepare(g_clk->cg_bg3d);
-
 	if (!bEnableHWAPM) {
-		/* Do nothing */
-		;
+		clk_disable_unprepare(g_clk->mtcmos_mfg_core1);
+		clk_disable_unprepare(g_clk->mtcmos_mfg_core0);
 	}
 
-	i32Ret = pm_runtime_put_sync(g_clk->mtcmos_mfg);
-	if (i32Ret < 0) {
-		gpufreq_perr("@%s: failed when disable mtcmos_mfg\n",
-		__func__);
-	}
+	clk_disable_unprepare(g_clk->mtcmos_mfg);
+	clk_disable_unprepare(g_clk->mtcmos_mfg_async);
 
 	gpufreq_pr_debug("@%s: disable MTCMOS done\n", __func__);
 #endif
@@ -2576,9 +2574,11 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	struct device_node *apmixed_node;
 	struct device_node *node;
 #ifdef CONFIG_MTK_DEVINFO
-	//struct nvmem_cell *efuse_cell;
-	//unsigned int *efuse_buf;
-	//size_t efuse_len;
+	/*
+	 *struct nvmem_cell *efuse_cell;
+	 *unsigned int *efuse_buf;
+	 *size_t efuse_len;
+	 */
 #endif
 	int i;
 
@@ -2622,43 +2622,59 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return PTR_ERR(g_clk->clk_sub_parent);
 	}
 
-	g_clk->cg_bg3d = devm_clk_get(&pdev->dev, "cg_bg3d");
-	if (IS_ERR(g_clk->cg_bg3d)) {
-		gpufreq_perr("@%s: cannot get cg_bg3d\n", __func__);
-		return PTR_ERR(g_clk->cg_bg3d);
+	g_clk->mtcmos_mfg_async = devm_clk_get(&pdev->dev, "mtcmos_mfg_async");
+	if (IS_ERR(g_clk->mtcmos_mfg_async)) {
+		gpufreq_perr("@%s: cannot get mtcmos_mfg_async\n", __func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_async);
 	}
 
-	g_clk->mtcmos_mfg = &pdev->dev;
+	g_clk->mtcmos_mfg = devm_clk_get(&pdev->dev, "mtcmos_mfg");
 	if (IS_ERR(g_clk->mtcmos_mfg)) {
 		gpufreq_perr("@%s: cannot get mtcmos_mfg\n", __func__);
 		return PTR_ERR(g_clk->mtcmos_mfg);
 	}
-	pm_runtime_enable(g_clk->mtcmos_mfg);
+
+	g_clk->mtcmos_mfg_core0 = devm_clk_get(&pdev->dev, "mtcmos_mfg_core0");
+	if (IS_ERR(g_clk->mtcmos_mfg_core0)) {
+		gpufreq_perr("@%s: cannot get mtcmos_mfg_core0\n", __func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_core0);
+	}
+
+	g_clk->mtcmos_mfg_core1 = devm_clk_get(&pdev->dev, "mtcmos_mfg_core1");
+	if (IS_ERR(g_clk->mtcmos_mfg_core1)) {
+		gpufreq_perr("@%s: cannot get mtcmos_mfg_core1\n", __func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_core1);
+	}
 
 	pr_info("[GPU/DVFS][INFO]@%s: clk_mux is at 0x%p, ",
 		__func__, g_clk->clk_mux);
 	pr_info("clk_sub_parent is at 0x%p, ", g_clk->clk_sub_parent);
 	pr_info("clk_main_parent is at 0x%p, ", g_clk->clk_main_parent);
+	pr_info("mtcmos_mfg_async is at 0x%p, ", g_clk->mtcmos_mfg_async);
 	pr_info("mtcmos_mfg is at 0x%p, ", g_clk->mtcmos_mfg);
+	pr_info("mtcmos_mfg_core0 is at 0x%p, ", g_clk->mtcmos_mfg_core0);
+	pr_info("mtcmos_mfg_core1 is at 0x%p\n", g_clk->mtcmos_mfg_core1);
 
 #ifdef CONFIG_MTK_DEVINFO
-	//efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
-	//if (IS_ERR(efuse_cell)) {
-	//gpufreq_perr("@%s: cannot get efuse_cell\n", __func__);
-	//return PTR_ERR(efuse_cell);
-	//}
-	//
-	//efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
-	//nvmem_cell_put(efuse_cell);
-	//if (IS_ERR(efuse_buf)) {
-	//	gpufreq_perr("@%s: cannot get efuse_buf\n", __func__);
-	//	return PTR_ERR(efuse_buf);
-	//}
-	//
-	//g_efuse_id = *efuse_buf;
-	//kfree(efuse_buf);
+	/*
+	 * efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	 * if (IS_ERR(efuse_cell)) {
+	 * gpufreq_perr("@%s: cannot get efuse_cell\n", __func__);
+	 * return PTR_ERR(efuse_cell);
+	 * }
+	 *
+	 * efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	 * nvmem_cell_put(efuse_cell);
+	 * if (IS_ERR(efuse_buf)) {
+	 * gpufreq_perr("@%s: cannot get efuse_buf\n", __func__);
+	 * return PTR_ERR(efuse_buf);
+	 * }
+	 *
+	 * g_efuse_id = *efuse_buf;
+	 * kfree(efuse_buf);
+	 */
 #else
-	//g_efuse_id = 0x0;
+	/* g_efuse_id = 0x0; */
 #endif /* CONFIG_MTK_DEVINFO */
 
 	/* check EFUSE register 0x11f10050[27:24] */
@@ -2672,13 +2688,13 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* 700MHz Version : 4'b0111 (Segment3) */
 
 	/* efuse part */
-	//g_efuse_id = get_devinfo_with_index(30);
-	//if (g_efuse_id == 0x8 || g_efuse_id == 0xf) {
-	//} else {
-	//}
-	//gpufreq_pr_info("@%s: g_efuse_id = 0x%08X, g_segment_id = %d\n",
-	//	__func__, g_efuse_id, g_segment_id);
-
+	/* g_efuse_id = get_devinfo_with_index(30);
+	 * if (g_efuse_id == 0x8 || g_efuse_id == 0xf) {
+	 * } else {
+	 * }
+	 * gpufreq_pr_info("@%s: g_efuse_id = 0x%08X, g_segment_id = %d\n",
+	 * __func__, g_efuse_id, g_segment_id);
+	 */
 	/* alloc PMIC regulator */
 	g_pmic = kzalloc(sizeof(struct g_pmic_info), GFP_KERNEL);
 	if (g_pmic == NULL)
