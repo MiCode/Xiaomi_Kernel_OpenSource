@@ -333,6 +333,25 @@ int get_charger_input_current(struct mtk_charger *info,
 	return ret;
 }
 
+int get_charger_zcv(struct mtk_charger *info,
+	struct charger_device *chg)
+{
+	int ret = 0;
+	int zcv = 0;
+
+	if (info == NULL)
+		return 0;
+
+	ret = charger_dev_get_zcv(chg, &zcv);
+	if (ret < 0)
+		chr_err("%s: get charger zcv failed: %d\n", __func__, ret);
+	else
+		ret = zcv;
+	chr_debug("%s:%d\n", __func__,
+		ret);
+	return ret;
+}
+
 #define PMIC_RG_VCDT_HV_EN_ADDR		0xb88
 #define PMIC_RG_VCDT_HV_EN_MASK		0x1
 #define PMIC_RG_VCDT_HV_EN_SHIFT	11
