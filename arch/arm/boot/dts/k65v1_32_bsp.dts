@@ -402,4 +402,8 @@
 #include <k65v1_32_bsp/cust.dtsi>
 #include "cust_mt6765_camera.dtsi"
 #include "cust_mt6765_touch_1080x1920.dtsi"
+
+&usb {
+	charger = <&mtk_charger_type>;
+};
 /*End of this file, DO NOT ADD ANYTHING HERE*/
