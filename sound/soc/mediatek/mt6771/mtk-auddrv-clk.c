@@ -331,12 +331,7 @@ void AudDrv_Clk_Global_Variable_Init(void)
 
 void AudDrv_Bus_Init(void)
 {
-	unsigned long flags = 0;
-
-	spin_lock_irqsave(&auddrv_Clk_lock, flags);
-	/* use APB 3.0 */
-	Afe_Set_Reg(AUDIO_TOP_CON0, 0x00004000, 0x00004000);
-	spin_unlock_irqrestore(&auddrv_Clk_lock, flags);
+	/* No need on 6771, system default set bit14 to 1 */
 }
 
 /* should only be used when auddrv_clk_on */
