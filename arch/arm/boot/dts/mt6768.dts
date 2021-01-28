@@ -2365,6 +2365,9 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		mtk_spk_i2s_out = <3>;
 		mtk_spk_i2s_in = <0>;
 		/* mtk_spk_i2s_mck = <3>; */
+		mediatek,speaker-codec {
+			sound-dai = <&speaker_amp>;
+		};
 	};
 
 	snd_scp_spk: snd_scp_spk {
@@ -3533,6 +3536,15 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 
+};
+
+&i2c7 {
+	speaker_amp: speaker_amp@34 {
+		compatible = "mediatek,speaker_amp";
+		#sound-dai-cells = <0>;
+		reg = <0x34>;
+		status = "okay";
+	};
 };
 
 &pio {

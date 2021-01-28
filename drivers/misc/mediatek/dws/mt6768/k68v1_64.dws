@@ -2044,11 +2044,6 @@
                 <channel>I2C_CHANNEL_5</channel>
                 <address>0x4E</address>
             </device12>
-            <device13>
-                <varName>SPEAKER_AMP</varName>
-                <channel>I2C_CHANNEL_7</channel>
-                <address>0x34</address>
-            </device13>
             <device14>
                 <varName>SLAVE_CHARGER</varName>
                 <channel>I2C_CHANNEL_7</channel>
