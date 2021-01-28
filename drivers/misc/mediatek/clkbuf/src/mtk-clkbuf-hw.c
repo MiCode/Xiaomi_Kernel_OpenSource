@@ -467,7 +467,7 @@ static int _clk_buf_set_bblpm_hw_en(bool on)
 
 static void _clk_buf_get_enter_bblpm_cond(u32 *bblpm_cond)
 {
-	(*bblpm_cond) |= BBLPM_COND_SKIP;
+	(*bblpm_cond) |= BBLPM_SKIP;
 }
 
 static void _clk_buf_get_bblpm_en(u32 *stat)
