@@ -479,24 +479,6 @@
 };
 /* DISPSYS GPIO standardization end */
 
-&ssusb {
-	dr_mode = "otg";
-	mediatek,force-vbus = <1>;
-	mediatek,clk-mgr = <1>;
-	maximum-speed = "high-speed";
-	vbus-supply = <&otg_vbus>;
-	usb-role-switch;
-	status = "okay";
-};
-
-&usb_host {
-	status = "okay";
-};
-
-&u3phy {
-	status = "okay";
-};
-
 &i2c6 {
 	status = "okay";
 	#address-cells = <1>;
