@@ -11,7 +11,11 @@
 # GNU General Public License for more details.
 #
 
-MTK_PLATFORM:= $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+ifeq ($(CONFIG_MTK_PLATFORM), "mt6761")
+MTK_PLATFORM := mt6765
+else
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_DISP_PLATFORM))
+endif
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/$(MTK_PLATFORM)/videox/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/mrdump
