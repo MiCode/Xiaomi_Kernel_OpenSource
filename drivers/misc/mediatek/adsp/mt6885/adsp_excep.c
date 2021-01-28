@@ -18,6 +18,10 @@
 #include "adsp_clk.h"
 #include "adsp_platform_driver.h"
 #include "adsp_excep.h"
+#include "adsp_logger.h"
+
+#define ADSP_MISC_EXTRA_SIZE    0x400 //1KB
+#define ADSP_MISC_BUF_SIZE      0x10000 //64KB
 
 static char adsp_ke_buffer[ADSP_KE_DUMP_LEN];
 static struct adsp_exception_control excep_ctrl;
@@ -301,6 +305,59 @@ void adsp_wdt_handler(int irq, void *data, int cid)
 		pr_info("%s, already resetting, ignore core%d wdt",
 			__func__, pdata->id);
 }
+
+void get_adsp_misc_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	void *buf = adsp_ke_buffer;
+	void *addr = NULL;
+	u32 len =  ADSP_MISC_BUF_SIZE;
+
+	unsigned int w_pos, r_pos;
+	unsigned int data_len[2];
+	struct adsp_priv *pdata = NULL;
+	struct log_ctrl_s *ctrl;
+	struct buffer_info_s *buf_info;
+	u32 id;
+	u32 n = 0, part_len = len / ADSP_CORE_TOTAL;
+
+	memset(buf, 0, ADSP_KE_DUMP_LEN);
+
+	for (id = 0; id < ADSP_CORE_TOTAL; id++) {
+		w_pos = 0;
+		pdata = get_adsp_core_by_id(id);
+		ctrl = pdata->log_ctrl;
+		addr = (void *)ctrl;
+		buf_info = (struct buffer_info_s *)(addr + ctrl->info_ofs);
+
+		if (!ctrl->inited)
+			return;
+
+		memcpy_fromio(&w_pos, &buf_info->w_pos, sizeof(w_pos));
+
+		w_pos += ADSP_MISC_EXTRA_SIZE;
+		if (w_pos >= ctrl->buff_size)
+			w_pos -= ctrl->buff_size;
+		if (w_pos < part_len) {
+			r_pos = ctrl->buff_size + w_pos - part_len;
+			data_len[0] = part_len - w_pos;
+			data_len[1] = w_pos;
+		} else {
+			r_pos = w_pos - part_len;
+			data_len[0] = part_len;
+			data_len[1] = 0;
+		}
+
+		memcpy(buf + n, addr + r_pos, data_len[0]);
+		n += data_len[0];
+		memcpy(buf + n, addr, data_len[1]);
+		n += data_len[1];
+	}
+
+	/* return value */
+	*vaddr = (unsigned long)buf;
+	*size = len;
+}
+EXPORT_SYMBOL(get_adsp_misc_buffer);
 
 void get_adsp_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
