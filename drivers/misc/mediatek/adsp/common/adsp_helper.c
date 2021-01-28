@@ -60,7 +60,9 @@
 struct adsp_regs adspreg;
 char *adsp_core_ids[ADSP_CORE_TOTAL] = {"ADSP A"};
 unsigned int adsp_ready[ADSP_CORE_TOTAL];
+#ifdef CONFIG_DEBUG_FS
 static struct dentry *adsp_debugfs;
+#endif
 
 /* adsp workqueue & work */
 struct workqueue_struct *adsp_workqueue;
@@ -805,11 +807,12 @@ static int __init adsp_module_init(void)
 	int ret = 0;
 
 	adsp_workqueue = create_workqueue("ADSP_WQ");
+#ifdef CONFIG_DEBUG_FS
 	adsp_debugfs = debugfs_create_file("audiodsp", S_IFREG | 0644, NULL,
 					(void *)&adsp_device, &adsp_debug_ops);
 	if (IS_ERR(adsp_debugfs))
 		return PTR_ERR(adsp_debugfs);
-
+#endif
 	/* adsp initialize */
 	ret = adsp_get_devinfo();
 	if (ret)
@@ -872,8 +875,9 @@ static void __exit adsp_exit(void)
 	free_irq(adspreg.ipc_irq, NULL);
 
 	misc_deregister(&adsp_device);
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove(adsp_debugfs);
-
+#endif
 	flush_workqueue(adsp_workqueue);
 	destroy_workqueue(adsp_workqueue);
 #ifdef CFG_RECOVERY_SUPPORT
