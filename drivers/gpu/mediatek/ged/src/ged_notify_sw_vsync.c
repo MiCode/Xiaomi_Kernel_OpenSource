@@ -489,6 +489,7 @@ void ged_sodi_stop(void)
 	}
 }
 
+#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
 #if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
 || defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
 || defined(CONFIG_MACH_MT6765)
@@ -517,7 +518,7 @@ void ged_dump_fw(void)
 }
 EXPORT_SYMBOL(ged_dump_fw);
 #endif
-
+#endif /* CONFIG_MTK_GPU_SUPPORT */
 
 GED_ERROR ged_notify_sw_vsync_system_init(void)
 {

@@ -1003,7 +1003,9 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			__mt_gpufreq_get_cur_volt(),
 			__mt_gpufreq_get_cur_vsram_volt());
 	seq_printf(m, "current vcore opp = %d\n", g_cur_vcore_opp);
+#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
 	seq_printf(m, "clock freq = %d\n", mt_get_abist_freq(25));
+#endif /* CONFIG_MTK_GPU_SUPPORT */
 	seq_printf(m, "g_segment_id = %d\n", g_segment_id);
 	seq_printf(m, "g_volt_enable_state = %d\n", g_volt_enable_state);
 	seq_printf(m, "g_opp_stress_test_state = %d\n",
@@ -1460,11 +1462,12 @@ static void __mt_gpufreq_set(unsigned int freq_old, unsigned int freq_new,
 #endif
 	}
 
-
+#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
 	gpufreq_pr_debug(
 		"@%s: real_freq = %d, real_volt = %d, real_vsram_volt = %d\n",
 		__func__, mt_get_ckgen_freq(9), __mt_gpufreq_get_cur_volt(),
 		__mt_gpufreq_get_cur_vsram_volt());
+#endif /* CONFIG_MTK_GPU_SUPPORT */
 
 	g_cur_opp_freq = freq_new;
 	g_cur_opp_volt = volt_new;
@@ -2313,8 +2316,10 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	GPUFREQ_UNREFERENCED(g_efuse_base);
 	GPUFREQ_UNREFERENCED(__mt_gpufreq_get_opp_idx_by_volt);
 
+#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
 	gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
 			__func__, mt_get_ckgen_freq(9));
+#endif /* CONFIG_MTK_GPU_SUPPORT */
 
 	g_opp_stress_test_state = false;
 	g_DVFS_off_by_ptpod_idx = 0;

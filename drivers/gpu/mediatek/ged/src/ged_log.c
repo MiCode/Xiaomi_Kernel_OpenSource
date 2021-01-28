@@ -406,12 +406,14 @@ static int ged_log_buf_seq_show(struct seq_file *psSeqFile, void *pvData)
 	if (psGEDLogBuf != NULL) {
 		int i;
 
+#ifdef CONFIG_MTK_GPU_SUPPORT /* Only enable when GPU isn't kerenl module */
 #if defined(CONFIG_MACH_MT8167) || defined(CONFIG_MACH_MT8173)\
 || defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6761)\
 || defined(CONFIG_MACH_MT6765)
 		if (strncmp(psGEDLogBuf->acName, "fw_trace", 8) == 0)
 			ged_dump_fw();
 #endif
+#endif /* CONFIG_MTK_GPU_SUPPORT */
 
 		spin_lock_irqsave(&psGEDLogBuf->sSpinLock,
 			psGEDLogBuf->ulIRQFlags);
