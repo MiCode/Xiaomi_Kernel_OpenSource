@@ -3230,12 +3230,15 @@ static int typec_attach_thread(void *data)
 		attach = mpci->typec_attach;
 		mutex_unlock(&mpci->attach_lock);
 		val.intval = attach;
-		pr_notice("%s bc12_sel:%d\n", __func__,
-				pdata->bc12_sel);
-		if (pdata->bc12_sel == 0)
-			power_supply_set_property(mpci->chg_psy,
+		pr_notice("%s bc12_sel:%d attach:%d\n", __func__,
+				pdata->bc12_sel, attach);
+		if (pdata->bc12_sel == 0) {
+			ret = power_supply_set_property(mpci->chg_psy,
 						POWER_SUPPLY_PROP_ONLINE, &val);
-		else
+			if (ret < 0)
+				dev_info(mpci->dev, "%s: set online fail(%d)\n",
+					__func__, ret);
+		} else
 			mt6360_get_charger_type(mpci, attach);
 		if (kthread_should_stop())
 			break;
