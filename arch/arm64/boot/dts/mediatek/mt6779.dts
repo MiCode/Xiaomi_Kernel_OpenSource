@@ -3570,32 +3570,37 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		required-opps = <&dvfsrc_freq_opp0>;
 	};
 
+	audclk: audclk@11210000  {
+		compatible = "mediatek,mt6779-audio", "syscon";
+		reg = <0 0x11210000 0 0x1000>;
+	};
+
 	afe: mt6779-afe-pcm@11210000  {
 		compatible = "mediatek,mt6779-sound";
 		reg = <0 0x11210000 0 0x1000>;
 		interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_LOW>;
 		topckgen = <&topckgen>;
 		power-domains = <&scpsys MT6779_POWER_DOMAIN_AUDIO>;
-		clocks = <&audio CLK_AUD_AFE>,
-			 <&audio CLK_AUD_DAC>,
-			 <&audio CLK_AUD_DAC_PREDIS>,
-			 <&audio CLK_AUD_ADC>,
-			 <&audio CLK_AUD_PDN_ADDA6_ADC>,
-			 <&audio CLK_AUD_22M>,
-			 <&audio CLK_AUD_24M>,
-			 <&audio CLK_AUD_APLL_TUNER>,
-			 <&audio CLK_AUD_APLL2_TUNER>,
-			 <&audio CLK_AUD_TDM>,
-			 <&audio CLK_AUD_TML>,
-			 <&audio CLK_AUD_NLE>,
-			 <&audio CLK_AUD_DAC_HIRES>,
-			 <&audio CLK_AUD_ADC_HIRES>,
-			 <&audio CLK_AUD_ADC_HIRES_TML>,
-			 <&audio CLK_AUD_ADDA6_ADC_HIRES>,
-			 <&audio CLK_AUD_3RD_DAC>,
-			 <&audio CLK_AUD_3RD_DAC_PREDIS>,
-			 <&audio CLK_AUD_3RD_DAC_TML>,
-			 <&audio CLK_AUD_3RD_DAC_HIRES>,
+		clocks = <&audclk CLK_AUD_AFE>,
+			 <&audclk CLK_AUD_DAC>,
+			 <&audclk CLK_AUD_DAC_PREDIS>,
+			 <&audclk CLK_AUD_ADC>,
+			 <&audclk CLK_AUD_PDN_ADDA6_ADC>,
+			 <&audclk CLK_AUD_22M>,
+			 <&audclk CLK_AUD_24M>,
+			 <&audclk CLK_AUD_APLL_TUNER>,
+			 <&audclk CLK_AUD_APLL2_TUNER>,
+			 <&audclk CLK_AUD_TDM>,
+			 <&audclk CLK_AUD_TML>,
+			 <&audclk CLK_AUD_NLE>,
+			 <&audclk CLK_AUD_DAC_HIRES>,
+			 <&audclk CLK_AUD_ADC_HIRES>,
+			 <&audclk CLK_AUD_ADC_HIRES_TML>,
+			 <&audclk CLK_AUD_ADDA6_ADC_HIRES>,
+			 <&audclk CLK_AUD_3RD_DAC>,
+			 <&audclk CLK_AUD_3RD_DAC_PREDIS>,
+			 <&audclk CLK_AUD_3RD_DAC_TML>,
+			 <&audclk CLK_AUD_3RD_DAC_HIRES>,
 			 <&infracfg_ao CLK_INFRA_AUD>,
 			 <&infracfg_ao CLK_INFRA_AUD_26M_BCLK_CK>,
 			 <&topckgen CLK_TOP_AUD>,
