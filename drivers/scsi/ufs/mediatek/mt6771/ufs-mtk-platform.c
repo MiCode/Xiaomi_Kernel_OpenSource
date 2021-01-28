@@ -123,6 +123,79 @@ void ufs_mtk_pltfrm_gpio_trigger_init(struct ufs_hba *hba)
 }
 #endif
 
+int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
+{
+	u32 value;
+
+	if (!hba->card) {
+		/*
+		 * In case card is not init, just ignore it.
+		 * Because clock is default on.
+		 * After card init done the clk control
+		 * will be normal.
+		 */
+		dev_info(hba->dev, "%s: card not init skip\n",
+			__func__);
+		return 0;
+	}
+
+	/*
+	 * Delay before disable ref-clk: H8 -> delay A -> disable ref-clk
+	 *		delayA
+	 * Hynix	30us
+	 * Samsung	1us
+	 * Toshiba	100us
+	 */
+	if (!on) {
+		switch (hba->card->wmanufacturerid) {
+		case UFS_VENDOR_TOSHIBA:
+			udelay(100);
+			break;
+		case UFS_VENDOR_SKHYNIX:
+			udelay(30);
+			break;
+		case UFS_VENDOR_SAMSUNG:
+			udelay(1);
+			break;
+		default:
+			udelay(30);
+			break;
+		}
+	}
+
+	if (on) {
+		clk_buf_ctrl(CLK_BUF_UFS, true);
+	} else {
+		clk_buf_ctrl(CLK_BUF_UFS, false);
+		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
+	}
+
+	/* Delay after enable ref-clk: enable ref-clk -> delay B -> leave H8
+	 *		delayB
+	 * Hynix	30us
+	 * Samsung	max(1us,32us)
+	 * Toshiba	32us
+	 */
+	if (on) {
+		switch (hba->card->wmanufacturerid) {
+		case UFS_VENDOR_TOSHIBA:
+			udelay(32);
+			break;
+		case UFS_VENDOR_SKHYNIX:
+			udelay(30);
+			break;
+		case UFS_VENDOR_SAMSUNG:
+			udelay(32);
+			break;
+		default:
+			udelay(30);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 int ufs_mtk_pltfrm_ufs_device_reset(struct ufs_hba *hba)
 {
 	mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 2, 0, 0, 0);
@@ -166,7 +239,40 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
 
 int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
 {
-	return 0;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	int ret = 0;
+	u32 val = 0;
+
+	if (on) {
+		/* Host need turn on clock by itself */
+		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, true);
+		if (ret)
+			goto out;
+	} else {
+		val = VENDOR_POWERSTATE_HIBERNATE;
+		ufs_mtk_wait_link_state(hba, &val,
+			hba->clk_gating.delay_ms);
+
+		if (val == VENDOR_POWERSTATE_HIBERNATE) {
+			/* Host need turn off clock by itself */
+			ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+			if (ret)
+				goto out;
+		} else if (val == VENDOR_POWERSTATE_DISABLED) {
+			/* hba stop after shoutdown, do nothing */
+		} else {
+			dev_info(hba->dev, "%s: power state (%d) clk not off\n",
+				__func__, val);
+			dev_info(hba->dev, "%s: ah8_en(%d), ah_reg = 0x%x\n",
+				__func__,
+				ufs_mtk_auto_hibern8_enabled,
+				ufshcd_readl(hba,
+					REG_AUTO_HIBERNATE_IDLE_TIMER));
+		}
+	}
+
+out:
+	return ret;
 }
 /**
  * ufs_mtk_deepidle_hibern8_check - callback function for Deepidle & SODI.
@@ -177,77 +283,8 @@ int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
  */
 int ufs_mtk_pltfrm_deepidle_check_h8(void)
 {
-#ifdef SPM_READY
-	int ret = 0;
-	u32 tmp = 0;
-
-	/**
-	 * If current device is not active or link is h8, it means it is after
-	 * ufshcd_suspend() through
-	 * a. runtime or system pm b. ufshcd_shutdown
-	 * Both a. and b. will disable 26MHz ref clk(XO_UFS),
-	 * so that deepidle/SODI do not need to disable 26MHz ref clk here.
-	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE ||
-		ufshcd_is_link_hibern8(ufs_mtk_hba)) {
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-		return UFS_H8_SUSPEND;
-	}
-
-	/* Release all resources if entering H8 mode */
-	ret = ufs_mtk_generic_read_dme(UIC_CMD_DME_GET,
-		VENDOR_POWERSTATE, 0, &tmp, 100);
-
-	if (ret) {
-		/* ret == -1 means there is outstanding
-		 * req/task/uic/pm ongoing, not an error
-		 */
-		if (ret != -1)
-			dev_err(ufs_mtk_hba->dev,
-				"ufshcd_dme_get 0x%x fail, ret = %d!\n",
-				VENDOR_POWERSTATE, ret);
-		return ret;
-	}
-
-	if (tmp == VENDOR_POWERSTATE_HIBERNATE) {
-		/*
-		 * Delay before disable XO_UFS: H8 -> delay A -> disable XO_UFS
-		 *		delayA
-		 * Hynix	30us
-		 * Samsung	1us
-		 * Toshiba	100us
-		 */
-		switch (ufs_mtk_hba->card->wmanufacturerid) {
-		case UFS_VENDOR_TOSHIBA:
-			udelay(100);
-			break;
-		case UFS_VENDOR_SKHYNIX:
-			udelay(30);
-			break;
-		case UFS_VENDOR_SAMSUNG:
-			udelay(1);
-			break;
-		default:
-			break;
-		}
-		/*
-		 * Disable MPHY 26MHz ref clock in H8 mode
-		 * SSPM project will disable MPHY 26MHz ref clock
-		 * in SSPM deepidle/SODI IPI handler
-		 */
-	#if !defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	#ifdef CLKBUF_READY
-		clk_buf_ctrl(CLK_BUF_UFS, false);
-	#endif
-	#endif
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-		return UFS_H8;
-	}
-
-	return -1;
-#else
-	return -1;
-#endif
+	/* No Need for MT6771 */
+	return 0;
 }
 
 
@@ -256,34 +293,7 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
  */
 void ufs_mtk_pltfrm_deepidle_leave(void)
 {
-#ifdef CLKBUF_READY
-	/* Enable MPHY 26MHz ref clock after leaving deepidle */
-	/* SSPM project will enable MPHY 26MHz ref clock in SSPM
-	 * deepidle/SODI IPI handler
-	 */
-
-#if !defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	/* If current device is not active, it means it is after
-	 * ufshcd_suspend() through a. runtime or system pm b. ufshcd_shutdown
-	 * And deepidle/SODI can not enter in ufs suspend/resume
-	 * callback by idle_lock_by_ufs()
-	 * Therefore, it's guranteed that UFS is in H8 now
-	 * and 26MHz ref clk is disabled by suspend callback
-	 * deepidle/SODI do not need to enable 26MHz ref clk here
-	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
-		return;
-
-	clk_buf_ctrl(CLK_BUF_UFS, true);
-#endif
-#endif
-	/* Delay after enable XO_UFS: enable XO_UFS -> delay B -> leave H8
-	 *		delayB
-	 * Hynix	30us
-	 * Samsung	max(1us,32us)
-	 * Toshiba	32us
-	 */
-	udelay(32);
+	/* No Need for MT6771 */
 }
 
 /**
@@ -293,12 +303,7 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
  */
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock)
 {
-#ifdef SPM_READY
-	if (lock)
-		idle_lock_by_ufs(1);
-	else
-		idle_lock_by_ufs(0);
-#endif
+	/* No Need for MT6771 */
 }
 
 int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
@@ -390,7 +395,8 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 int ufs_mtk_pltfrm_init(void)
 {
-	/* No Need for MT6771 */
+	ufs_mtk_hba->caps |= UFSHCD_CAP_CLK_GATING;
+
 	return 0;
 }
 
