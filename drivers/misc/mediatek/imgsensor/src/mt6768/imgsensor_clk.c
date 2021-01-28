@@ -300,10 +300,8 @@ void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk)
 
 void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 {
-
-	//int i;
+	unsigned int i;
 	pr_info("%s\n", __func__);
-#if 0
 	for (i = IMGSENSOR_CCF_MCLK_TG_MIN_NUM;
 		i < IMGSENSOR_CCF_MAX_NUM;
 		i++) {
@@ -313,7 +311,6 @@ void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 			atomic_dec(&pclk->enable_cnt[i]);
 		}
 	}
-#endif
 }
 
 int imgsensor_clk_ioctrl_handler(void *pbuff)
