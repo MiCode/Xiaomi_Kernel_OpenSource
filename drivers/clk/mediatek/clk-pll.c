@@ -104,7 +104,7 @@ static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 	u32 tuner_en_mask;
 	void __iomem *tuner_en_addr = NULL;
 
-	pll_en = readl(pll->base_addr + REG_CON0) & CON0_BASE_EN;
+	pll_en = readl(pll->en_addr) & CON0_BASE_EN;
 
 	/* disable tuner */
 	if (pll->tuner_en_addr) {
@@ -321,7 +321,8 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 		writel(r, pll->tuner_addr);
 	}
 
-	r = readl(pll->en_addr) & ~pll->en_mask;
+	r = readl(pll->en_addr);
+	r &= ~CON0_BASE_EN;
 	writel(r, pll->en_addr);
 
 	r = readl(pll->pwr_addr) | pll->iso_mask;
