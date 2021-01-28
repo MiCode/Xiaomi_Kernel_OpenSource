@@ -4517,6 +4517,7 @@ static void enable_trim_buf(struct mt6359_priv *priv, bool enable)
 			   (enable ? 1 : 0) << RG_AUDTRIMBUF_EN_VAUDP32_SFT);
 }
 
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 static void enable_trim_circuit(struct mt6359_priv *priv, bool enable)
 {
 	if (enable) {
@@ -4540,7 +4541,6 @@ static void enable_trim_circuit(struct mt6359_priv *priv, bool enable)
 	}
 }
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
 static void start_trim_hardware(struct mt6359_priv *priv)
 {
 	dev_info(priv->dev, "%s(), ++\n", __func__);
@@ -4801,9 +4801,7 @@ static void stop_trim_hardware(struct mt6359_priv *priv)
 
 	dev_info(priv->dev, "%s(), --\n", __func__);
 }
-#endif
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
 static int calculate_trim_result(int *on_value, int *off_value,
 				 int trimTime, int discard_num, int useful_num)
 {
@@ -4832,12 +4830,10 @@ static int calculate_trim_result(int *on_value, int *off_value,
 
 	return DIV_ROUND_CLOSEST(offset, useful_num);
 }
-#endif
 
 static void get_hp_dctrim_offset(struct mt6359_priv *priv,
 				 int *hpl_trim, int *hpr_trim)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
 #define TRIM_TIMES 26
 #define TRIM_DISCARD_NUM 3
 #define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
@@ -4921,7 +4917,6 @@ static void get_hp_dctrim_offset(struct mt6359_priv *priv,
 
 	dev_info(priv->dev, "%s(), R_offset = %d, L_offset = %d\n",
 		 __func__, *hpr_trim, *hpl_trim);
-#endif
 }
 
 static void update_finetrim_offset(struct mt6359_priv *priv,
@@ -5026,6 +5021,7 @@ static unsigned int update_trim_code(const bool is_negative,
 	}
 	return ret_trim_code;
 }
+
 static void calculate_lr_finetrim_code(struct mt6359_priv *priv)
 {
 	struct hp_trim_data *hp_trim = &priv->hp_trim_3_pole;
@@ -5271,9 +5267,11 @@ EXIT:
 	dev_info(priv->dev, "%s(), result hp_trim_code(R/L) = (0x%x/0x%x)\n",
 		 __func__, hpr_trim_code, hpl_trim_code);
 }
+#endif
 
 static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
 {
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
 	struct dc_trim_data *dc_trim = &priv->dc_trim;
 	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
 	unsigned int reg_value;
@@ -5302,15 +5300,17 @@ static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
 		 __func__,
 		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
 		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
+#else
+	dev_info(priv->dev, "%s(), bypass while FPGA", __func__);
+#endif
 }
+
 
 static int dc_trim_thread(void *arg)
 {
-#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mt6359_priv *priv = arg;
 
 	get_hp_trim_offset(priv, false);
-#endif
 
 #ifdef CONFIG_MTK_ACCDET
 	accdet_late_init(0);
