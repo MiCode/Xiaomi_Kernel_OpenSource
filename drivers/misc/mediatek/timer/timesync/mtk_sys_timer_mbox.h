@@ -32,18 +32,6 @@ enum mbox_idx {
 #define SYS_TIMER_MBOX                      SHAREMBOX_NO_MCDI
 #define SYS_TIMER_MBOX_OFFSET_BASE          SHAREMBOX_OFFSET_TIMESTAMP
 
-/*
- * Shared MBOX: AP write, SSPM read
- * Unit for each offset: 4 bytes
- */
-
-#define SYS_TIMER_MBOX_TICK_H               (SYS_TIMER_MBOX_OFFSET_BASE + 0)
-#define SYS_TIMER_MBOX_TICK_L               (SYS_TIMER_MBOX_OFFSET_BASE + 1)
-#define SYS_TIMER_MBOX_TS_H                 (SYS_TIMER_MBOX_OFFSET_BASE + 2)
-#define SYS_TIMER_MBOX_TS_L                 (SYS_TIMER_MBOX_OFFSET_BASE + 3)
-#define SYS_TIMER_MBOX_DEBUG_TS_H           (SYS_TIMER_MBOX_OFFSET_BASE + 4)
-#define SYS_TIMER_MBOX_DEBUG_TS_L           (SYS_TIMER_MBOX_OFFSET_BASE + 5)
-
 #if defined(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT)
 #include <mcupm_driver.h>
 
