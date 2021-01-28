@@ -146,7 +146,6 @@ ifeq ($(CONFIG_MTK_FTRACE_DEFAULT_ENABLE),y)
 ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
 endif
 
-
 ccflags-y += -DGED_DVFS_DEBUG_BUF
 
 ifeq ($(VER),eng)
@@ -158,11 +157,16 @@ ccflags-y += \
 
 obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 
+ifeq ($(CONFIG_DEBUG_FS),y)
+ccflags-y += -DGED_DEBUG_FS
+ged-y += \
+	src/ged_debugFS.o
+endif
+
 ged-y += \
 	src/ged.o \
 	src/ged_base.o \
 	src/ged_main.o \
-	src/ged_debugFS.o \
 	src/ged_log.o \
 	src/ged_hal.o \
 	src/ged_bridge.o \

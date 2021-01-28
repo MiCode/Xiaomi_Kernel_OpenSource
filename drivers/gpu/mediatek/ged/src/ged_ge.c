@@ -147,7 +147,7 @@ int ged_ge_init(void)
 
 	gPoolCache = kmem_cache_create("gralloc_extra",
 		sizeof(struct GEEntry), 0, flags, NULL);
-
+#ifdef GED_DEBUG_FS
 	ged_debugFS_create_entry(
 			"ge",
 			NULL,
@@ -155,13 +155,15 @@ int ged_ge_init(void)
 			_ge_debugfs_write_entry,
 			NULL,
 			&gDFSEntry);
-
+#endif
 	return 0;
 }
 
 int ged_ge_exit(void)
 {
+#ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gDFSEntry);
+#endif
 
 	/* TODO : free all memory */
 	kmem_cache_destroy(gPoolCache);

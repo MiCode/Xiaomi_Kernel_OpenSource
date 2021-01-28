@@ -379,9 +379,9 @@ static void ged_exit(void)
 	ged_hal_exit();
 
 	ged_log_system_exit();
-
+#ifdef GED_DEBUG_FS
 	ged_debugFS_exit();
-
+#endif
 	ged_ge_exit();
 
 	ged_gpu_tuner_exit();
@@ -400,13 +400,13 @@ static int ged_init(void)
 		GED_LOGE("ged: failed to register ged proc entry!\n");
 		goto ERROR;
 	}
-
+#ifdef GED_DEBUG_FS
 	err = ged_debugFS_init();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to init debug FS!\n");
 		goto ERROR;
 	}
-
+#endif
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to create gedlog entry!\n");

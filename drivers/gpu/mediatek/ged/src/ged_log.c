@@ -529,6 +529,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	list_add(&psGEDLogBuf->sList, &gsGEDLogBufList.sList_buf);
 	write_unlock_bh(&gsGEDLogBufList.sLock);
 
+#ifdef GED_DEBUG_FS
 	if (pszNodeName) {
 		int err;
 		snprintf(psGEDLogBuf->acNodeName,
@@ -548,6 +549,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			return (GED_LOG_BUF_HANDLE)0;
 		}
 	}
+#endif
 
 	error = ged_hashtable_insert(ghHashTable, psGEDLogBuf,
 		&psGEDLogBuf->ulHashNodeID);
@@ -778,8 +780,10 @@ void ged_log_buf_free(GED_LOG_BUF_HANDLE hLogBuf)
 		list_del(&psGEDLogBuf->sList);
 		write_unlock_bh(&gsGEDLogBufList.sLock);
 
+#ifdef GED_DEBUG_FS
 		if (psGEDLogBuf->psEntry)
 			ged_debugFS_remove_entry(psGEDLogBuf->psEntry);
+#endif
 
 		ged_free(psGEDLogBuf->pMemory, psGEDLogBuf->i32MemorySize);
 		ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
@@ -949,7 +953,7 @@ static const struct seq_operations gsGEDLogReadOps = {
 GED_ERROR ged_log_system_init(void)
 {
 	GED_ERROR err = GED_OK;
-
+#ifdef GED_DEBUG_FS
 	err = ged_debugFS_create_entry(
 			"gedlog",
 			NULL,
@@ -973,6 +977,7 @@ GED_ERROR ged_log_system_init(void)
 		GED_LOGE("ged: failed to create logbufs dir!\n");
 		goto ERROR;
 	}
+#endif
 
 	ghHashTable = ged_hashtable_create(5);
 	if (!ghHashTable) {
@@ -996,8 +1001,9 @@ ERROR:
 void ged_log_system_exit(void)
 {
 	ged_hashtable_destroy(ghHashTable);
-
+#ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gpsGEDLogEntry);
+#endif
 }
 //-----------------------------------------------------------------------------
 int ged_log_buf_write(GED_LOG_BUF_HANDLE hLogBuf,
