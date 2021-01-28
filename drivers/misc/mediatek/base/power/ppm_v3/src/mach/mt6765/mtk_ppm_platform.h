@@ -138,7 +138,22 @@ unsigned int __attribute__((weak)) mt_cpufreq_get_cur_phy_freq_no_lock(
 }
 
 unsigned int get_cluster_ptpod_fix_freq_idx(unsigned int id);
-
+static inline void ppm_get_cl_cpus(struct cpumask *cpu_mask, unsigned int cid)
+{
+	if (cid == 0) {
+		cpumask_setall(cpu_mask);
+		cpumask_clear_cpu(4, cpu_mask);
+		cpumask_clear_cpu(5, cpu_mask);
+		cpumask_clear_cpu(6, cpu_mask);
+		cpumask_clear_cpu(7, cpu_mask);
+	} else if (cid == 1) {
+		cpumask_clear(cpu_mask);
+		cpumask_set_cpu(4, cpu_mask);
+		cpumask_set_cpu(5, cpu_mask);
+		cpumask_set_cpu(6, cpu_mask);
+		cpumask_set_cpu(7, cpu_mask);
+	}
+}
 #ifdef __cplusplus
 }
 #endif
