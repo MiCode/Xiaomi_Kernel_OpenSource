@@ -118,6 +118,19 @@ static DEFINE_SPINLOCK(force_req_lock);
 
 static bool is_dvfsrc_init_complete;
 
+static BLOCKING_NOTIFIER_HEAD(dvfsrc_vchk_notifier);
+int register_dvfsrc_vchk_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&dvfsrc_vchk_notifier, nb);
+}
+EXPORT_SYMBOL_GPL(register_dvfsrc_vchk_notifier);
+
+int unregister_dvfsrc_vchk_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&dvfsrc_vchk_notifier, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_dvfsrc_vchk_notifier);
+
 int mtk_dvfsrc_vcore_uv_table(u32 opp)
 {
 	if ((!vopp_uv_tlb) || (opp >= num_vopp))
@@ -168,30 +181,17 @@ static void mtk_dvfsrc_setup_vopp_table(struct mtk_dvfsrc *dvfsrc)
 
 static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	int opp_uv;
-	int vcore_uv = 0;
+	int ret;
 
-	if (!vopp_uv_tlb)
-		return;
+	ret = blocking_notifier_call_chain(&dvfsrc_vchk_notifier,
+		level, NULL);
 
-	if (!dvfsrc->vcore_power) {
-		dvfsrc->vcore_power =
-			regulator_get_optional(dvfsrc->dev, "vcore");
-		if (IS_ERR(dvfsrc->vcore_power)) {
-			dvfsrc->vcore_power = NULL;
-			return;
-		}
-	}
-
-	opp_uv = vopp_uv_tlb[level];
-	vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
-	if (vcore_uv < opp_uv) {
+	if (ret == NOTIFY_BAD) {
 		dev_info(dvfsrc->dev,
-			"DVFS FAIL= %d, %d %d 0x%08x 0x%08x\n",
-			level, opp_uv, vcore_uv,
+			"DVFS FAIL= %d, 0x%08x 0x%08x\n",
+			level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
-
 		aee_kernel_warning("DVFSRC", "VCORE fail");
 	}
 }

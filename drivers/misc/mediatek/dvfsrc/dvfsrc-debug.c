@@ -18,6 +18,7 @@
 
 #include "dvfsrc-debug.h"
 #include "dvfsrc-common.h"
+#include <aee.h>
 
 static struct mtk_dvfsrc *dvfsrc_drv;
 
@@ -42,6 +43,82 @@ static void mtk_dvfsrc_get_perf_state(struct mtk_dvfsrc *dvfsrc,
 			dvfsrc_get_required_opp_performance_state(np, i);
 	}
 }
+
+static void dvfsrc_setup_vopp_table(struct mtk_dvfsrc *dvfsrc)
+{
+	int i;
+	struct arm_smccc_res ares;
+	u32 num_vopp;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+		MTK_SIP_VCOREFS_GET_NUM_V,
+		0, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0)
+		dvfsrc->num_vopp = ares.a1;
+	else
+		return;
+
+	num_vopp = dvfsrc->num_vopp;
+
+	dvfsrc->vopp_uv_tlb = devm_kzalloc(dvfsrc->dev,
+		num_vopp * sizeof(u32), GFP_KERNEL);
+
+	if (!dvfsrc->vopp_uv_tlb)
+		return;
+
+	for (i = 0; i < num_vopp; i++) {
+		arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+			MTK_SIP_VCOREFS_GET_VCORE_UV,
+			i, 0, 0, 0, 0, 0,
+			&ares);
+
+		if (!ares.a0)
+			dvfsrc->vopp_uv_tlb[i] = ares.a1;
+		else {
+			dvfsrc->num_vopp = 0;
+			break;
+		}
+	}
+
+	for (i = 0; i < num_vopp; i++)
+		dev_info(dvfsrc->dev, "dvfsrc gear uv[%d] = %d\n",
+			i, dvfsrc->vopp_uv_tlb[i]);
+
+}
+
+static int dvfsrc_vcore_check(struct notifier_block *b,
+				 unsigned long l, void *v)
+{
+	u32 gear = l;
+	int vcore_uv = 0;
+	int predict_uv;
+	struct mtk_dvfsrc *dvfsrc;
+
+	dvfsrc = container_of(b, struct mtk_dvfsrc, dvfsrc_vchk_notifier);
+
+	if ((!dvfsrc->vcore_power) || (gear > dvfsrc->num_vopp))
+		return NOTIFY_DONE;
+
+	predict_uv = dvfsrc->vopp_uv_tlb[gear];
+	vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
+
+	if (vcore_uv < predict_uv) {
+		dev_info(dvfsrc->dev, "VCORE CHECK FAIL= %d %d, %d\n",
+			gear, vcore_uv, predict_uv);
+		return NOTIFY_BAD;
+	}
+
+	return NOTIFY_DONE;
+}
+
+static void dvfsrc_vchk_notifier(struct mtk_dvfsrc *dvfsrc)
+{
+	dvfsrc->dvfsrc_vchk_notifier.notifier_call = dvfsrc_vcore_check;
+	register_dvfsrc_vchk_notifier(&dvfsrc->dvfsrc_vchk_notifier);
+}
+
 static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -98,7 +175,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	dvfsrc->vcore_power =
 		regulator_get_optional(&pdev->dev, "vcore");
 	if (IS_ERR(dvfsrc->vcore_power)) {
-		dev_info(dev, "get vcore failed = %ld\n",
+		dev_info(dev, "get debug vcore failed = %ld\n",
 			PTR_ERR(dvfsrc->vcore_power));
 		dvfsrc->vcore_power = NULL;
 	}
@@ -132,6 +209,9 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 
 	dvfsrc_register_sysfs(dev);
 
+	dvfsrc_setup_vopp_table(dvfsrc);
+	dvfsrc_vchk_notifier(dvfsrc);
+
 	dvfsrc_drv = dvfsrc;
 
 	register_dvfsrc_debug_handler(dvfsrc_query_debug_info);
@@ -153,7 +233,9 @@ static const struct dvfsrc_debug_data mt6761_data = {
 static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
+	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
 
+	unregister_dvfsrc_vchk_notifier(&dvfsrc->dvfsrc_vchk_notifier);
 	dvfsrc_unregister_sysfs(dev);
 	dvfsrc_drv = NULL;
 	return 0;

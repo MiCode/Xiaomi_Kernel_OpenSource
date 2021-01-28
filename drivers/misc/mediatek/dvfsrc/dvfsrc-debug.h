@@ -38,6 +38,9 @@ struct mtk_dvfsrc {
 	void __iomem *regs;
 	void __iomem *spm_regs;
 	const struct dvfsrc_debug_data *dvd;
+	u32 num_vopp;
+	u32 *vopp_uv_tlb;
+	struct notifier_block dvfsrc_vchk_notifier;
 };
 
 extern int dvfsrc_register_sysfs(struct device *dev);

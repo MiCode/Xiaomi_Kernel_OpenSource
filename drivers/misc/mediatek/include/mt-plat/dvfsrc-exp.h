@@ -28,7 +28,8 @@ extern char **vcorefs_get_src_req_name(void);
 extern unsigned int *vcorefs_get_src_req(void);
 extern void dvfsrc_set_power_model_ddr_request(u32 level);
 extern void dvfsrc_enable_dvfs_freq_hopping(int on);
-
+extern int register_dvfsrc_vchk_notifier(struct notifier_block *nb);
+extern int unregister_dvfsrc_vchk_notifier(struct notifier_block *nb);
 #else
 static inline int mtk_dvfsrc_query_opp_info(u32 id)
 { return 0; }
@@ -54,5 +55,10 @@ static inline void dvfsrc_set_power_model_ddr_request(u32 level)
 { }
 static inline void dvfsrc_enable_dvfs_freq_hopping(int on)
 { }
+static inline int register_dvfsrc_vchk_notifier(struct notifier_block *nb)
+{ return 0; }
+static inline int unregister_dvfsrc_vchk_notifier(struct notifier_block *nb)
+{ return 0; }
+
 #endif /* CONFIG_MTK_DVFSRC */
 #endif
