@@ -323,6 +323,22 @@ static int do_algorithm(struct mtk_charger *info)
 				is_basic = true;
 			}
 		}
+	} else {
+		if (info->enable_hv_charging != true) {
+			for (i = 0; i < MAX_ALG_NO; i++) {
+				alg = info->alg[i];
+				if (alg == NULL)
+					continue;
+
+				chg_alg_get_prop(alg, ALG_MAX_VBUS, &val);
+				if (val > 5000 && chg_alg_is_algo_running(alg))
+					chg_alg_stop_algo(alg);
+
+				chr_err("%s: Stop hv charging. en_hv:%d alg:%s alg_vbus:%d\n",
+					__func__, info->enable_hv_charging,
+					dev_name(&alg->dev), val);
+			}
+		}
 	}
 	info->is_chg_done = chg_done;
 

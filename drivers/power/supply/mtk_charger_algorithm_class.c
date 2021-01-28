@@ -42,6 +42,16 @@ int chg_alg_is_algo_ready(struct chg_alg_device *alg_dev)
 }
 EXPORT_SYMBOL(chg_alg_is_algo_ready);
 
+int chg_alg_is_algo_running(struct chg_alg_device *alg_dev)
+{
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->is_algo_running)
+		return alg_dev->ops->is_algo_running(alg_dev);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_is_algo_running);
+
 int chg_alg_start_algo(struct chg_alg_device *alg_dev)
 {
 	if (alg_dev != NULL && alg_dev->ops != NULL &&

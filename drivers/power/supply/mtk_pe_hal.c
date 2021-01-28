@@ -171,6 +171,24 @@ int pe_hal_get_ibat(struct chg_alg_device *alg)
 	return ret;
 }
 
+int pe_hal_get_charging_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *ua)
+{
+	struct pe_hal *hal;
+
+	if (alg == NULL)
+		return -EINVAL;
+
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+	if (chgidx == CHG1 && hal->chg1_dev != NULL)
+		charger_dev_get_charging_current(hal->chg1_dev, ua);
+	else if (chgidx == CHG2 && hal->chg2_dev != NULL)
+		charger_dev_get_charging_current(hal->chg2_dev, ua);
+	pr_notice("%s idx:%d %d\n", __func__, chgidx, ua);
+
+	return 0;
+}
+
 /* Enable/Disable HW & SW VBUS OVP */
 int pe_hal_enable_vbus_ovp(struct chg_alg_device *alg, bool enable)
 {
