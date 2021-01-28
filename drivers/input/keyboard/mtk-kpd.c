@@ -161,7 +161,7 @@ static int kpd_get_dts_info(struct mtk_keypad *keypad,
 		return -EINVAL;
 	}
 
-	ret = of_property_read_u32_array(node, "mediatek,hw-init-map",
+	ret = of_property_read_u32_array(node, "mediatek,kpd-hw-init-map",
 		keypad->hw_init_map, keypad->hw_map_num);
 
 	if (ret) {
@@ -210,13 +210,13 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	keypad->clk = devm_clk_get(&pdev->dev, "kpd");
 	if (IS_ERR(keypad->clk)) {
-		pr_notice("get kpd-clk fail: %d\n", (int)PTR_ERR(keypad->clk));
+		pr_debug("get kpd-clk fail: %d\n", (int)PTR_ERR(keypad->clk));
 		return (int)PTR_ERR(keypad->clk);
 	}
 
 	err = clk_prepare_enable(keypad->clk);
 	if (err) {
-		pr_notice("kpd-clk prepare enable failed.\n");
+		pr_debug("kpd-clk prepare enable failed.\n");
 		return err;
 	}
 
@@ -229,14 +229,14 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 	keypad->base = devm_ioremap(&pdev->dev, res->start,
 			resource_size(res));
 	if (!keypad->base) {
-		pr_notice("KP iomap failed\n");
+		pr_debug("KP iomap failed\n");
 		err = -EBUSY;
 		goto err_unprepare_clk;
 	}
 
 	keypad->irqnr = irq_of_parse_and_map(pdev->dev.of_node, 0);
 	if (!keypad->irqnr) {
-		pr_notice("KP get irqnr failed\n");
+		pr_debug("KP get irqnr failed\n");
 		err = -ENODEV;
 		goto err_unprepare_clk;
 	}
