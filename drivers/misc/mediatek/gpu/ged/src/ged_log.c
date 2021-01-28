@@ -275,7 +275,8 @@ static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf, const 
 	psList = &gsGEDLogBufList.sList_listen;
 	list_for_each_safe(psListEntry, psListEntryTemp, psList) {
 		psLogListen = list_entry(psListEntry, GED_LOG_LISTEN, sList);
-		if (pszName != NULL
+		if ((pszName != NULL)
+				&& (psLogListen->acName != NULL)
 				&& 0 == strcmp(psLogListen->acName, pszName)) {
 			psFound = psLogListen;
 			break;
