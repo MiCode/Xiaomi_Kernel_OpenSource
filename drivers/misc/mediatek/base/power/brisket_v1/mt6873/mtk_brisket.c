@@ -355,7 +355,7 @@ static ssize_t brisket_pllclken_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	/* parameter check */
-	if (kstrtou32(buf, 0, &brisket_pllclken)) {
+	if (kstrtou32((const char *)buf, 0, &brisket_pllclken)) {
 		brisket_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
@@ -430,7 +430,7 @@ static ssize_t brisket_bren_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	/* parameter check */
-	if (kstrtou32(buf, 0, &brisket_bren)) {
+	if (kstrtou32((const char *)buf, 0, &brisket_bren)) {
 		brisket_err("bad argument!! Should input 1 arguments.\n");
 		goto out;
 	}
