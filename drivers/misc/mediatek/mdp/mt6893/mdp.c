@@ -3017,9 +3017,13 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 	/* MDP engines */
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA0);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_RDMA3);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WDMA);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT0);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT1);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT2);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, MDP_WROT3);
 
 	/* ISP */
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMGI);
