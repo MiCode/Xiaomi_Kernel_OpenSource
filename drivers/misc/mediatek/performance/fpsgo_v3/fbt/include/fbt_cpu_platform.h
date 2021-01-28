@@ -19,7 +19,7 @@ extern long sched_setaffinity(pid_t pid, const struct cpumask *in_mask);
 extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 extern int capacity_min_write_for_perf_idx(int idx, int capacity_min);
 extern void cm_mgr_perf_set_status(int enable);
-extern int set_task_util_min_pct(pid_t pid, unsigned int min);
+extern int set_task_util_min(pid_t pid, unsigned int util_min);
 
 void fbt_set_boost_value(unsigned int base_blc);
 void fbt_clear_boost_value(void);

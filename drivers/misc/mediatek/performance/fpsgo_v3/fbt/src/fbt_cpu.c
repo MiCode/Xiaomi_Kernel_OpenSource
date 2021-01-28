@@ -505,7 +505,7 @@ static void fbt_set_cap_margin_locked(int set)
 	fpsgo_systrace_c_fbt_gm(-100, set?1024:def_capacity_margin,
 					"cap_margin");
 
-#if API_READY
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	if (set)
 		set_capacity_margin(1024);
 	else
@@ -3143,7 +3143,7 @@ FBT_DEBUGFS_ENTRY(switch_sync_flag);
 static int fbt_switch_cap_margin_show(struct seq_file *m, void *unused)
 {
 	mutex_lock(&fbt_mlock);
-#if API_READY
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	SEQ_printf(m, "fbt_cap_margin_enable %d\n", fbt_cap_margin_enable);
 	SEQ_printf(m, "set_cap_margin %d\n", set_cap_margin);
 	SEQ_printf(m, "get_cap_margin %d\n", get_capacity_margin());
@@ -3312,7 +3312,7 @@ int __init fbt_cpu_init(void)
 	fbt_down_throttle_enable = 1;
 	sync_flag = -1;
 	fbt_sync_flag_enable = 1;
-#if API_READY
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	def_capacity_margin = get_capacity_margin();
 #endif
 	fbt_cap_margin_enable = 1;
