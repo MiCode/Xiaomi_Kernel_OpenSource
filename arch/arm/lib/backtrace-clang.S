@@ -142,7 +142,7 @@ for_each_frame:	tst	frame, mask		@ Check for address exceptions
  */
 1003:		ldr	sv_lr, [sv_fp, #4]	@ get saved lr from next frame
 
-		ldr	r0, [sv_lr, #-4]	@ get call instruction
+1007:		ldr	r0, [sv_lr, #-4]	@ get call instruction
 		ldr	r3, .Lopcode+4
 		and	r2, r3, r0		@ is this a bl call
 		teq	r2, r3
@@ -207,6 +207,7 @@ ENDPROC(c_backtrace)
 		.long	1003b, 1006b
 		.long	1004b, 1006b
 		.long   1005b, 1006b
+		.long   1007b, 1006b
 		.popsection
 
 .Lbad:		.asciz	"Backtrace aborted due to bad frame pointer <%p>\n"
