@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+
 #ifndef __IMGSENSOR_COMMON_H__
 #define __IMGSENSOR_COMMON_H__
 

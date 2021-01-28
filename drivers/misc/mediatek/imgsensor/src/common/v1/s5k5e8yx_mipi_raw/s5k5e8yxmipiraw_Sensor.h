@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+
 #ifndef _S5K5E8YXMIPIRAW_SENSOR_H
 #define _S5K5E8YXMIPIRAW_SENSOR_H
 
