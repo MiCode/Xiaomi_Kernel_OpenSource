@@ -319,6 +319,13 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo)
 	return 0;
 }
 
+#ifndef __pa_nodebug
+#ifdef __pa_symbol_nodebug
+#define __pa_nodebug __pa_symbol_nodebug
+#else
+#define __pa_nodebug __pa
+#endif
+#endif
 void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 		unsigned long size, unsigned long start, char *name)
 {
@@ -336,7 +343,8 @@ void mrdump_mini_add_misc_pa(unsigned long va, unsigned long pa,
 		mrdump_mini_ehdr->misc[i].data.paddr = pa;
 		mrdump_mini_ehdr->misc[i].data.size = size;
 		mrdump_mini_ehdr->misc[i].data.start =
-		    mrdump_virt_addr_valid((void *)start) ? __pa(start) : 0;
+		    mrdump_virt_addr_valid((void *)start) ?
+			__pa_nodebug(start) : 0;
 		fill_note_L(note, name, NT_IPANIC_MISC,
 				sizeof(struct mrdump_mini_elf_misc));
 		break;
@@ -348,7 +356,7 @@ void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
 {
 	if (!mrdump_virt_addr_valid((void *)addr))
 		return;
-	mrdump_mini_add_misc_pa(addr, __pa(addr), size, start, name);
+	mrdump_mini_add_misc_pa(addr, __pa_nodebug(addr), size, start, name);
 }
 
 int kernel_addr_valid(unsigned long addr)
@@ -796,7 +804,7 @@ static void mrdump_mini_build_elf_misc(void)
 	    (unsigned long)((void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
 	unsigned long task_info_pa =
 	    MRDUMP_MINI_BUF_PADDR ? (MRDUMP_MINI_BUF_PADDR +
-			MRDUMP_MINI_HEADER_SIZE) : __pa(task_info_va);
+			MRDUMP_MINI_HEADER_SIZE) : __pa_nodebug(task_info_va);
 	mrdump_mini_add_misc_pa(task_info_va, task_info_pa,
 			sizeof(struct aee_process_info), 0, "PROC_CUR_TSK");
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
@@ -824,8 +832,8 @@ static void mrdump_mini_build_elf_misc(void)
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_DISP_DBG_");
 #ifdef CONFIG_MODULES
 	mrdump_mini_add_misc_pa((unsigned long)modules_info_buf,
-			(unsigned long)__pa(modules_info_buf),
-			MODULES_INFO_BUF_SIZE, 0, "SYS_MODULES_INFO");
+		(unsigned long)__pa_nodebug((unsigned long)modules_info_buf),
+		MODULES_INFO_BUF_SIZE, 0, "SYS_MODULES_INFO");
 #endif
 	for (i = 0; i < 4; i++) {
 		memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
