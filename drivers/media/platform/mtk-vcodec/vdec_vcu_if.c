@@ -596,7 +596,7 @@ int vcu_dec_set_param(struct vdec_vcu_inst *vcu, unsigned int id, void *param,
 					  unsigned int size)
 {
 	struct vdec_ap_ipi_set_param msg;
-	uint64_t *param_ptr = (uint64_t *)param;
+	unsigned long *param_ptr = (unsigned long *)param;
 	int err = 0;
 	int i = 0;
 
