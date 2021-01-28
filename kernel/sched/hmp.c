@@ -20,6 +20,42 @@
 #include <linux/stop_machine.h>
 #include <linux/cpumask.h>
 
+
+/*
+ * Heterogenous multiprocessor (HMP) optimizations
+ *
+ * The cpu types are distinguished using a list of hmp_domains
+ * which each represent one cpu type using a cpumask.
+ * The list is assumed ordered by compute capacity with the
+ * fastest domain first.
+ */
+
+DEFINE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
+
+/* Setup hmp_domains */
+static void __init hmp_cpu_mask_setup(void)
+{
+	struct hmp_domain *domain;
+	struct list_head *pos;
+	int cpu;
+
+	pr_info("Initializing HMP scheduler:\n");
+
+	/* Initialize hmp_domains using platform code */
+	if (list_empty(&hmp_domains)) {
+		pr_info("HMP domain list is empty!\n");
+		return;
+	}
+
+	/* Print hmp_domains */
+	list_for_each(pos, &hmp_domains) {
+		domain = list_entry(pos, struct hmp_domain, hmp_domains);
+
+		for_each_cpu(cpu, &domain->possible_cpus)
+			per_cpu(hmp_cpu_domain, cpu) = domain;
+	}
+}
+
 #ifdef CONFIG_SCHED_HMP
 static int is_heavy_task(struct task_struct *p)
 {
@@ -190,42 +226,6 @@ static void sched_update_clbstats(struct clb_env *clbenv)
 	collect_cluster_stats(&clbenv->bstats, &clbenv->bcpus, clbenv->btarget);
 	collect_cluster_stats(&clbenv->lstats, &clbenv->lcpus, clbenv->ltarget);
 	adj_threshold(clbenv);
-}
-
-
-/*
- * Heterogenous multiprocessor (HMP) optimizations
- *
- * The cpu types are distinguished using a list of hmp_domains
- * which each represent one cpu type using a cpumask.
- * The list is assumed ordered by compute capacity with the
- * fastest domain first.
- */
-
-DEFINE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
-
-/* Setup hmp_domains */
-static void __init hmp_cpu_mask_setup(void)
-{
-	struct hmp_domain *domain;
-	struct list_head *pos;
-	int cpu;
-
-	pr_info("Initializing HMP scheduler:\n");
-
-	/* Initialize hmp_domains using platform code */
-	if (list_empty(&hmp_domains)) {
-		pr_info("HMP domain list is empty!\n");
-		return;
-	}
-
-	/* Print hmp_domains */
-	list_for_each(pos, &hmp_domains) {
-		domain = list_entry(pos, struct hmp_domain, hmp_domains);
-
-		for_each_cpu(cpu, &domain->possible_cpus)
-			per_cpu(hmp_cpu_domain, cpu) = domain;
-	}
 }
 
 static struct hmp_domain *hmp_get_hmp_domain_for_cpu(int cpu)
