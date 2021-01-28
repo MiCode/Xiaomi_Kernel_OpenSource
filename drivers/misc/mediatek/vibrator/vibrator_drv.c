@@ -173,7 +173,7 @@ static ssize_t vibr_state_store(struct device *dev,
 static ssize_t vibr_duration_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t size)
 {
-	unsigned int duration;
+	unsigned int duration = 0;
 	ssize_t ret;
 
 	ret = kstrtouint(buf, 10, &duration);
