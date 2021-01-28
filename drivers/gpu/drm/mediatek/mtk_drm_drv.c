@@ -2099,7 +2099,8 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc)
 	memset(&lcm_fps_ctx[index], 0, sizeof(struct lcm_fps_ctx_t));
 	spin_lock_init(&lcm_fps_ctx[index].lock);
 	atomic_set(&lcm_fps_ctx[index].skip_update, 0);
-	if (!mtk_dsi_is_cmd_mode(output_comp))
+	if ((mtk_ddp_comp_get_type(output_comp->id) == MTK_DSI) &&
+			!mtk_dsi_is_cmd_mode(output_comp))
 		lcm_fps_ctx[index].dsi_mode = 1;
 	else
 		lcm_fps_ctx[index].dsi_mode = 0;
