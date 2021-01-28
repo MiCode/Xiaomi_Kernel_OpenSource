@@ -69,6 +69,7 @@ obj-$(CONFIG_MT6360_DBG) += subpmic/
 obj-$(CONFIG_MTK_CAMERA_ISP) += cameraisp/
 obj-$(CONFIG_MTK_IMGSENSOR) += imgsensor/src/
 obj-$(CONFIG_MTK_LENS)   += lens/
+obj-$(CONFIG_MTK_CAM_CAL)   += cam_cal/
 obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
 obj-y += devinfo/
 obj-$(CONFIG_MTK_M4U) += m4u/

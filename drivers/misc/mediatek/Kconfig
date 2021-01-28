@@ -223,6 +223,7 @@ source "drivers/misc/mediatek/flashlight/Kconfig"
 source "drivers/misc/mediatek/flashlight/richtek/Kconfig"
 source "drivers/misc/mediatek/imgsensor/Kconfig"
 source "drivers/misc/mediatek/lens/Kconfig"
+source "drivers/misc/mediatek/cam_cal/Kconfig"
 endmenu # MultiMedia
 
 menu "Sensors"
