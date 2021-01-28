@@ -635,6 +635,11 @@ struct uclamp_se {
 	unsigned int value;
 	/* Utilization clamp group for this constraint */
 	unsigned int group_id;
+	/* Effective clamp  for tasks in this group */
+	struct {
+		unsigned int value;
+		unsigned int group_id;
+	} effective;
 };
 
 union rcu_special {
