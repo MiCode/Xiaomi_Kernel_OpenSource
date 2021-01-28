@@ -659,6 +659,7 @@ CONFIG_MTK_SPEAKER,PROJECT,georgecy.lin,,,,,
 CONFIG_MTK_SPI,PLATFORM,Freddy.Hsin,,y,X,X,X
 CONFIG_MTK_SPKGPIO_REWORK,PROJECT,georgecy.lin,new config in this commit 378eb5b131260db917d022555fa920fa118ab3a1,,,,
 CONFIG_MTK_STATHUB,PROJECT,qiangming.xia,new config in this commit e5afb39d5bc749c04142bb69e4f89131015320a6,,,,
+CONFIG_MTK_STATIC_POWER,PLATFORM,charles.yang,,X,X,y,y
 CONFIG_MTK_STEPSIGNHUB,PROJECT,hongxu.zhao,new config in this commit 5d3fd154d89af1a6fdf1dcf1963d1595834933de,,,,
 CONFIG_MTK_SVP_DISABLE_SODI,PROJECT,tryout.chen,,,,,
 CONFIG_MTK_SVP,PROJECT,tehsin.lin,new config in this commit 127c1a282ad9be25750ea4a3fb5b64324301b7f3,,,,
