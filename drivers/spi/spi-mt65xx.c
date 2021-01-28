@@ -192,6 +192,94 @@ static const struct of_device_id mtk_spi_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_spi_of_match);
 
+#define LOG_CLOSE   0
+#define LOG_OPEN    1
+u8 spi_log_status = LOG_CLOSE;
+
+#define spi_debug(fmt, args...) do { \
+	if (spi_log_status == LOG_OPEN) {\
+		pr_info("[%s]%s() " fmt, dev_name(&master->dev),\
+			__func__, ##args);\
+	} \
+} while (0)
+
+static ssize_t spi_log_show(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	char buf_temp[50] = { 0 };
+
+	if (buf == NULL) {
+		pr_notice("%s() *buf is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	snprintf(buf_temp, sizeof(buf_temp), "Now spi log %s.\n",
+		(spi_log_status == LOG_CLOSE)?"disabled":"enabled");
+	strncat(buf, buf_temp, strlen(buf_temp));
+
+	return strlen(buf);
+}
+
+static ssize_t spi_log_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	if (strlen(buf) < 1) {
+		pr_notice("%s() Invalid input!\n", __func__);
+		return -EINVAL;
+	}
+
+	pr_info("[spi]%s buflen:%zu buf:%s\n", __func__, strlen(buf), buf);
+	if (!strncmp(buf, "1", 1)) {
+		pr_info("[spi]%s Now enable spi log\n", __func__);
+		spi_log_status = LOG_OPEN;
+	} else if (!strncmp(buf, "0", 1)) {
+		pr_info("[spi]%s Now disable spi log\n", __func__);
+		spi_log_status = LOG_CLOSE;
+	} else
+		pr_info("[spi]%s invalid parameter.Plz Input 1 or 0\n",
+			__func__);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(spi_log);
+
+static void spi_dump_reg(struct mtk_spi *mdata, struct spi_master *master)
+{
+	spi_debug("||**************%s**************||\n", __func__);
+	spi_debug("cfg0:0x%.8x\n", readl(mdata->base + SPI_CFG0_REG));
+	spi_debug("cfg1:0x%.8x\n", readl(mdata->base + SPI_CFG1_REG));
+	spi_debug("cfg2:0x%.8x\n", readl(mdata->base + SPI_CFG2_REG));
+	spi_debug("cmd :0x%.8x\n", readl(mdata->base + SPI_CMD_REG));
+	spi_debug("tx_s:0x%.8x\n", readl(mdata->base + SPI_TX_SRC_REG));
+	spi_debug("rx_d:0x%.8x\n", readl(mdata->base + SPI_RX_DST_REG));
+	spi_debug("status1:0x%.8x\n", readl(mdata->base + SPI_STATUS1_REG));
+	spi_debug("pad_sel:0x%.8x\n", readl(mdata->base + SPI_PAD_SEL_REG));
+	spi_debug("||**************%s end**************||\n", __func__);
+}
+
+static void spi_dump_config(struct spi_master *master, struct spi_message *msg)
+{
+	struct spi_device *spi = msg->spi;
+	struct mtk_chip_config *chip_config = spi->controller_data;
+	struct mtk_spi *mdata = spi_master_get_devdata(master);
+
+	spi_debug("||**************%s**************||\n", __func__);
+	spi_debug("chip_config->spi_mode:0x%.4x\n", spi->mode);
+	spi_debug("chip_config->sample_sel:%d\n", chip_config->sample_sel);
+	spi_debug("chip_config->cs_setuptime=%d\n",
+			chip_config->cs_setuptime);
+	spi_debug("chip_config->cs_holdtime=%d\n",
+			chip_config->cs_holdtime);
+	spi_debug("chip_config->cs_idletime=%d\n",
+			chip_config->cs_idletime);
+	spi_debug("chip_config->deassert_mode=%d\n",
+			chip_config->deassert_mode);
+	spi_debug("chip_config->chip_select:%d,chip_config->pad_sel:%d\n",
+			spi->chip_select, mdata->pad_sel[spi->chip_select]);
+	spi_debug("||**************%s end**************||\n", __func__);
+}
+
 static void mtk_spi_reset(struct mtk_spi *mdata)
 {
 	u32 reg_val;
@@ -217,6 +305,9 @@ static int mtk_spi_prepare_message(struct spi_master *master,
 
 	cpha = spi->mode & SPI_CPHA ? 1 : 0;
 	cpol = spi->mode & SPI_CPOL ? 1 : 0;
+
+	spi_debug("cpha:%d cpol:%d. chip_config as below\n", cpha, cpol);
+	spi_dump_config(master, msg);
 
 	reg_val = readl(mdata->base + SPI_CMD_REG);
 	if (cpha)
@@ -482,6 +573,9 @@ static int mtk_spi_fifo_transfer(struct spi_master *master,
 		writel(reg_val, mdata->base + SPI_TX_DATA_REG);
 	}
 
+	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
+	spi_dump_reg(mdata, master);
+
 	mtk_spi_enable_transfer(master);
 
 	return 1;
@@ -527,6 +621,10 @@ static int mtk_spi_dma_transfer(struct spi_master *master,
 	mtk_spi_update_mdata_len(master);
 	mtk_spi_setup_packet(master);
 	mtk_spi_setup_dma_addr(master, xfer);
+
+	spi_debug("spi setting Done.Dump reg before Transfer start:\n");
+	spi_dump_reg(mdata, master);
+
 	mtk_spi_enable_transfer(master);
 
 	return 1;
@@ -626,6 +724,7 @@ static irqreturn_t mtk_spi_interrupt(int irq, void *dev_id)
 		}
 
 		mtk_spi_enable_transfer(master);
+		spi_debug("The last fifo transfer Done.\n");
 
 		return IRQ_HANDLED;
 	}
@@ -658,8 +757,11 @@ static irqreturn_t mtk_spi_interrupt(int irq, void *dev_id)
 		writel(cmd, mdata->base + SPI_CMD_REG);
 
 		spi_finalize_current_transfer(master);
+		spi_debug("The last DMA transfer Done.\n");
 		return IRQ_HANDLED;
 	}
+
+	spi_debug("One DMA transfer Done.Start Next\n");
 
 	mtk_spi_update_mdata_len(master);
 	mtk_spi_setup_packet(master);
@@ -880,6 +982,12 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		addr_bits = DMA_ADDR_EXT_BITS;
 	else
 		addr_bits = DMA_ADDR_DEF_BITS;
+
+	ret = device_create_file(&pdev->dev, &dev_attr_spi_log);
+	if (ret)
+		dev_notice(&pdev->dev, "SPI sysfs_create_file fail, ret:%d\n",
+			ret);
+
 	ret = dma_set_mask(&pdev->dev, DMA_BIT_MASK(addr_bits));
 	if (ret)
 		dev_notice(&pdev->dev, "SPI dma_set_mask(%d) failed, ret:%d\n",
