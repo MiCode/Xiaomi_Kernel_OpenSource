@@ -300,6 +300,11 @@ void ccci_md_add_log_history(struct ccci_hif_traffic *tinfo,
 	int queue_index, struct ccci_header *msg, int is_droped)
 {
 #ifdef PACKET_HISTORY_DEPTH
+	if (queue_index < 0 || queue_index >= MAX_TXQ_NUM) {
+		CCCI_MEM_LOG(-1, CORE,
+			"invalid queue_index=%d\n", queue_index);
+		return;
+	}
 	if (dir == OUT) {
 		memcpy(&tinfo->tx_history[queue_index][
 			tinfo->tx_history_ptr[queue_index]].msg, msg,

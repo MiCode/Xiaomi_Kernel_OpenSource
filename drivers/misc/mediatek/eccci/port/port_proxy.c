@@ -746,6 +746,11 @@ int port_user_register(struct port_t *port)
 	int rx_ch = port->rx_ch;
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	if (rx_ch == CCCI_FS_RX)
@@ -766,6 +771,11 @@ int port_user_unregister(struct port_t *port)
 	int md_id = port->md_id;
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 
@@ -1119,9 +1129,10 @@ static inline void proxy_dispatch_queue_status(struct port_proxy *proxy_p,
 	int match = 0;
 	int i, matched = 0;
 
-	if (hif < CLDMA_HIF_ID || hif >= CCCI_HIF_NUM) {
+	if (hif < CLDMA_HIF_ID || hif >= CCCI_HIF_NUM
+		|| qno >= MAX_QUEUE_NUM || qno < 0) {
 		CCCI_ERROR_LOG(proxy_p->md_id, CORE,
-			"%s:hif:%d is inval\n", __func__, hif);
+			"%s:hif=%d or qno=%d is inval\n", __func__, hif, qno);
 		return;
 	}
 	/*EE then notify EE port*/
@@ -1353,12 +1364,22 @@ EXIT_FUN:
 
 struct port_t *port_get_by_minor(int md_id, int minor)
 {
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return NULL;
+	}
 	CHECK_MD_ID(md_id);
 	return proxy_get_port(GET_PORT_PROXY(md_id), minor,
 			CCCI_INVALID_CH_ID);
 }
 struct port_t *port_get_by_channel(int md_id, enum CCCI_CH ch)
 {
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return NULL;
+	}
 	CHECK_MD_ID(md_id);
 	return proxy_get_port(GET_PORT_PROXY(md_id), -1, ch);
 }
@@ -1382,6 +1403,11 @@ int port_send_msg_to_md(struct port_t *port, unsigned int msg,
 	int ch = port->tx_ch;
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_send_msg_to_md(port->port_proxy, ch,
@@ -1399,6 +1425,11 @@ int ccci_port_init(int md_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -1;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = proxy_alloc(md_id);
 	if (proxy_p == NULL) {
@@ -1417,6 +1448,11 @@ void ccci_port_dump_status(int md_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_dump_status(proxy_p);
@@ -1463,6 +1499,11 @@ void ccci_port_md_status_notify(int md_id, unsigned int state)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_dispatch_md_status(proxy_p, (unsigned int)state);
@@ -1480,6 +1521,11 @@ void ccci_port_queue_status_notify(int md_id, int hif_id, int qno,
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	CHECK_HIF_ID(hif_id);
 	CHECK_QUEUE_ID(qno);
@@ -1498,6 +1544,11 @@ int ccci_port_recv_skb(int md_id, int hif_id, struct sk_buff *skb,
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_dispatch_recv_skb(proxy_p, hif_id, skb, flag);
@@ -1512,6 +1563,11 @@ int ccci_port_check_critical_user(int md_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_check_critical_user(proxy_p);
@@ -1525,6 +1581,11 @@ int ccci_port_get_critical_user(int md_id, unsigned int user_id)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_get_critical_user(proxy_p, user_id);
@@ -1539,6 +1600,11 @@ int ccci_port_send_msg_to_md(int md_id, int ch, unsigned int msg,
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return -ENODEV;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_send_msg_to_md(proxy_p, ch, msg, resv, blocking);
@@ -1555,6 +1621,11 @@ void ccci_port_set_traffic_flag(int md_id, unsigned int dump_flag)
 {
 	struct port_proxy *proxy_p;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"invalid md_id = %d\n", md_id);
+		return;
+	}
 	CHECK_MD_ID(md_id);
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_set_traffic_flag(proxy_p, dump_flag);

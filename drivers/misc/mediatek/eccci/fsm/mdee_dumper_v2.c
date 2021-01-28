@@ -45,6 +45,7 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	struct ccci_mem_layout *mem_layout = ccci_md_get_mem(mdee->md_id);
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(mdee->md_id);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
+	int ret = 0;
 
 	buff = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (buff == NULL) {
@@ -62,8 +63,11 @@ static void ccci_aed_v2(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 		/* Cut string length to AED_STR_LEN */
 		buff[AED_STR_LEN - 1] = '\0';
 
-	snprintf(buff, AED_STR_LEN, "md%d:%s%s",
+	ret = snprintf(buff, AED_STR_LEN, "md%d:%s%s",
 		md_id + 1, aed_str, img_inf);
+	if (ret < 0 || ret >= AED_STR_LEN)
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s-%d:snprintf fail,ret = %d\n", __func__, __LINE__, ret);
 	/* MD ID must sync with aee_dump_ccci_debug_info() */
  err_exit1:
 	if (dump_flag & CCCI_AED_DUMP_CCIF_REG) {
@@ -174,19 +178,30 @@ static void mdee_output_debug_info_to_buf(struct ccci_fsm_ee *mdee,
 				break;
 			}
 			val = snprintf(ex_info_temp, EE_BUF_LEN_UMOLY, "%s", ex_info);
-			if (val < 0 || val >= EE_BUF_LEN_UMOLY)
-				CCCI_ERROR_LOG(md_id, FSM,
-					"%s-%d:snprintf fail,val=%d\n",
+			if (val < 0 || val >= EE_BUF_LEN_UMOLY) {
+				CCCI_ERROR_LOG(-1, FSM,
+					"%s-%d;snprintf fail,val = %d\n",
 					__func__, __LINE__, val);
+				kfree(ex_info_temp);
+				return;
+			}
 			mem_layout = ccci_md_get_mem(mdee->md_id);
+			if (mem_layout == NULL) {
+				CCCI_ERROR_LOG(-1, FSM, "ccci_md_get_mem fail\n");
+				kfree(ex_info_temp);
+				return;
+			}
 			val = snprintf(ex_info, EE_BUF_LEN_UMOLY,
 			"%s%s, MD base = 0x%08X\n\n", ex_info_temp,
 			mdee->ex_mpu_string,
 			(unsigned int)mem_layout->md_bank0.base_ap_view_phy);
-			if (val < 0 || val >= EE_BUF_LEN_UMOLY)
-				CCCI_ERROR_LOG(md_id, FSM,
-					"%s-%d:snprintf fail,val=%d\n",
+			if (val < 0 || val >= EE_BUF_LEN_UMOLY) {
+				CCCI_ERROR_LOG(-1, FSM,
+					"%s-%d;snprintf fail,val = %d\n",
 					__func__, __LINE__, val);
+				kfree(ex_info_temp);
+				return;
+			}
 			memset(mdee->ex_mpu_string, 0x0,
 				sizeof(mdee->ex_mpu_string));
 			kfree(ex_info_temp);

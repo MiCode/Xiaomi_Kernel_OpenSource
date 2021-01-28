@@ -156,6 +156,11 @@ int fsm_monitor_init(struct ccci_fsm_monitor *monitor_ctl)
 	int ret = 0;
 
 	monitor_ctl->md_id = ctl->md_id;
+	if (monitor_ctl->md_id < 0 || monitor_ctl->md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(-1, FSM,
+			"invalid md_id = %d\n", monitor_ctl->md_id);
+		return -1;
+	}
 	ccci_skb_queue_init(&monitor_ctl->rx_skb_list, 16, 1024, 0);
 	init_waitqueue_head(&monitor_ctl->rx_wq);
 	atomic_set(&monitor_ctl->usage_cnt, 0);

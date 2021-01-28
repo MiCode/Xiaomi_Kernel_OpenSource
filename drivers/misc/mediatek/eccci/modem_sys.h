@@ -193,28 +193,28 @@ int ccci_md_register(struct ccci_modem *modem);
 
 static inline struct ccci_modem *ccci_md_get_modem_by_id(int md_id)
 {
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 	return modem_sys[md_id];
 }
 
 static inline struct device *ccci_md_get_dev_by_id(int md_id)
 {
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 	return &modem_sys[md_id]->plat_dev->dev;
 }
 
 static inline int ccci_md_in_ee_dump(int md_id)
 {
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return -CCCI_ERR_MD_INDEX_NOT_FOUND;
 	return modem_sys[md_id]->per_md_data.is_in_ee_dump;
 }
 
 static inline void *ccci_md_get_hw_info(int md_id)
 {
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 	return modem_sys[md_id]->hw_info;
 }

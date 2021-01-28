@@ -237,6 +237,11 @@ int port_smem_rx_poll(struct port_t *port, unsigned int user_data)
 		"before wait event, bitmask=%x\n", user_data);
 #ifdef DEBUG_FOR_CCB
 	idx = smem_port->poll_save_idx;
+	if ((idx + 2) >= CCB_POLL_PTR_MAX) {
+		CCCI_ERROR_LOG(md_id, TAG,
+			"invalid idx = %d\n", idx);
+		return -EFAULT;
+	}
 	smem_port->last_poll_time[idx] = local_clock();
 	smem_port->last_in[idx].al_id = buf[0].dl_alloc_index;
 	smem_port->last_in[idx].fr_id = buf[0].dl_free_index;

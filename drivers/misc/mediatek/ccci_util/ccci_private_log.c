@@ -416,7 +416,7 @@ int ccci_dump_write(int md_id, int buf_type,
 	if (unlikely(buf_type >= CCCI_DUMP_MAX))
 		return -2;
 	buf_id = buff_bind_md_id[md_id];
-	if (buf_id < 0)
+	if (buf_id < 0 || buf_id > 2 || buf_type < 0)
 		return -3;
 	if (unlikely(node_array[buf_id][buf_type].index != buf_type))
 		return -4;

@@ -196,6 +196,11 @@ int swtp_init(int md_id)
 #endif
 	struct device_node *node = NULL;
 
+	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
+		CCCI_LEGACY_ERR_LOG(-1, SYS,
+			"invalid md_id = %d\n", md_id);
+		return -1;
+	}
 	swtp_data[md_id].md_id = md_id;
 	spin_lock_init(&swtp_data[md_id].spinlock);
 	for (i = 0; i < 2; i++) {
