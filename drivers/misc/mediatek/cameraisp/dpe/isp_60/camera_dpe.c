@@ -5457,9 +5457,10 @@ static signed int __init DPE_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#if 0
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_dpe_dir;
-
+#endif
 
 	int i;
 	/*  */
@@ -5487,6 +5488,7 @@ static signed int __init DPE_Init(void)
 	LOG_DBG("ISP_DPE_BASE: %lx\n", ISP_DPE_BASE);
 #endif
 
+#if 0
 	isp_dpe_dir = proc_mkdir("dpe", NULL);
 	if (!isp_dpe_dir) {
 		LOG_ERR("[%s]: fail to mkdir /proc/dpe\n", __func__);
@@ -5499,7 +5501,7 @@ static signed int __init DPE_Init(void)
 
 	proc_entry = proc_create("dpe_reg", 0644, isp_dpe_dir,
 							&dpe_reg_proc_fops);
-
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE <
