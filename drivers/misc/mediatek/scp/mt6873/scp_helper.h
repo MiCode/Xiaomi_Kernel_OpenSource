@@ -155,6 +155,7 @@ struct scp_region_info_st {
 	uint32_t scpctl;
 	uint32_t regdump_start;
 	uint32_t regdump_size;
+	uint32_t ap_params_start;
 };
 
 /* scp device attribute */
@@ -222,8 +223,8 @@ extern void scp_enable_sram(void);
 extern int scp_sys_full_reset(void);
 extern void scp_reset_awake_counts(void);
 extern void scp_awake_init(void);
-#if SCP_RECOVERY_SUPPORT
 
+#if SCP_RECOVERY_SUPPORT
 extern unsigned int scp_reset_by_cmd;
 extern struct scp_region_info_st scp_region_info_copy;
 extern struct scp_region_info_st *scp_region_info;
@@ -231,4 +232,8 @@ extern void __iomem *scp_ap_dram_virt;
 extern void __iomem *scp_loader_virt;
 extern void __iomem *scp_regdump_virt;
 #endif
+
+__attribute__((weak))
+int sensor_params_to_scp(phys_addr_t addr_vir, size_t size);
+
 #endif
