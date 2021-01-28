@@ -62,36 +62,35 @@ struct sel_s {
 unsigned int module_list_scenario[DDP_SCENARIO_MAX][DDP_ENING_NUM] = {
 	/* DDP_SCENARIO_PRIMARY_DISP */
 	{
-		DISP_MODULE_OVL0, DISP_MODULE_OVL0_2L,
+		DISP_MODULE_OVL0_2L, DISP_MODULE_OVL0,
 		DISP_MODULE_OVL0_VIRTUAL0,
 		DISP_MODULE_RDMA0, DISP_MODULE_RDMA0_VIRTUAL0,
-#if 0
 #ifdef DISP_COLOR_ON
 		DISP_MODULE_COLOR0,
 #endif
 		DISP_MODULE_CCORR0, DISP_MODULE_AAL0, DISP_MODULE_GAMMA0,
 		DISP_MODULE_POSTMASK0, DISP_MODULE_DITHER0,
-#endif
 		DISP_MODULE_PWM0, DISP_MODULE_DSI0,
 		-1,
 	},
 
 	/* DDP_SCENARIO_PRIMARY_BYPASS_PQ_DISP */
 	{
-		DISP_MODULE_OVL0, DISP_MODULE_OVL0_2L,
+		DISP_MODULE_OVL0_2L, DISP_MODULE_OVL0,
 		DISP_MODULE_OVL0_VIRTUAL0,
 		DISP_MODULE_RDMA0, DISP_MODULE_RDMA0_VIRTUAL0,
 		DISP_MODULE_PWM0, DISP_MODULE_DSI0,
 		-1,
 	},
 
-	/* DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP */
+	/* DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0 */
 	{
 		DISP_MODULE_RDMA0, DISP_MODULE_RDMA0_VIRTUAL0,
 #ifdef DISP_COLOR_ON
 		DISP_MODULE_COLOR0,
 #endif
-		DISP_MODULE_CCORR0, DISP_MODULE_AAL0, DISP_MODULE_GAMMA0,
+		DISP_MODULE_CCORR0, DISP_MODULE_MDP_AAL4,
+		DISP_MODULE_AAL0, DISP_MODULE_GAMMA0,
 		DISP_MODULE_POSTMASK0, DISP_MODULE_DITHER0,
 		DISP_MODULE_PWM0, DISP_MODULE_DSI0,
 		-1,
@@ -106,15 +105,44 @@ unsigned int module_list_scenario[DDP_SCENARIO_MAX][DDP_ENING_NUM] = {
 
 	/* DDP_SCENARIO_PRIMARY_OVL_MEMOUT */
 	{
-		DISP_MODULE_OVL0, DISP_MODULE_OVL0_2L,
+		DISP_MODULE_OVL0_2L, DISP_MODULE_OVL0,
 		DISP_MODULE_OVL0_VIRTUAL0,
 		DISP_MODULE_WDMA0,
 		-1,
 	},
 
+	/* DDP_SCENARIO_PRIMARY0_DISP0_MDP_AAL4 */
+	{
+		DISP_MODULE_OVL0_2L, DISP_MODULE_OVL0,
+		DISP_MODULE_OVL0_VIRTUAL0,
+		DISP_MODULE_RDMA0, DISP_MODULE_RDMA0_VIRTUAL0,
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR0,
+#endif
+		DISP_MODULE_CCORR0, DISP_MODULE_MDP_AAL4,
+		DISP_MODULE_AAL0, DISP_MODULE_GAMMA0,
+		DISP_MODULE_POSTMASK0, DISP_MODULE_DITHER0,
+		DISP_MODULE_PWM0, DISP_MODULE_DSI0,
+		-1,
+	},
+
+	/* DDP_SCENARIO_PRIMARY0_OVL_PQ_MEMOUT */
+	{
+		DISP_MODULE_OVL0_2L, DISP_MODULE_OVL0,
+		DISP_MODULE_OVL0_VIRTUAL0,
+		DISP_MODULE_RDMA0, DISP_MODULE_RDMA0_VIRTUAL0,
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR0,
+#endif
+		DISP_MODULE_CCORR0, DISP_MODULE_MDP_AAL4,
+		DISP_MODULE_AAL0, DISP_MODULE_GAMMA0,
+		DISP_MODULE_POSTMASK0, DISP_MODULE_DITHER0,
+		DISP_MODULE_WDMA0, -1,
+	},
+
 	/* DDP_SCENARIO_PRIMARY_ALL */
 	{
-		DISP_MODULE_OVL0, DISP_MODULE_OVL0_2L,
+		DISP_MODULE_OVL0_2L, DISP_MODULE_OVL0,
 		DISP_MODULE_OVL0_VIRTUAL0,
 		DISP_MODULE_WDMA0,
 		DISP_MODULE_RDMA0, DISP_MODULE_RDMA0_VIRTUAL0,
@@ -139,9 +167,9 @@ unsigned int module_list_scenario[DDP_SCENARIO_MAX][DDP_ENING_NUM] = {
 		-1,
 	},
 
-	/* DDP_SCENARIO_SUB_OVL_MEMOUT */
+	/* DDP_SCENARIO_SUB_OVL2_2L_MEMOUT */
 	{
-		DISP_MODULE_OVL0_2L, DISP_MODULE_WDMA0,
+		DISP_MODULE_OVL2_2L, DISP_MODULE_WDMA0,
 		-1,
 	},
 
@@ -150,7 +178,88 @@ unsigned int module_list_scenario[DDP_SCENARIO_MAX][DDP_ENING_NUM] = {
 		DISP_MODULE_OVL0_2L, DISP_MODULE_WDMA0,
 		DISP_MODULE_DPI,
 		-1, -1, -1, -1, -1, -1, -1, -1, -1,
-		-1, -1, -1, -1, -1, -1, -1, -1, -1}
+		-1, -1, -1, -1, -1, -1, -1, -1, -1
+	},
+
+	/* DDP_SCENARIO_PRIMARY1_DISP */
+	{
+		DISP_MODULE_OVL1, DISP_MODULE_OVL1_2L,
+		DISP_MODULE_OVL1_VIRTUAL0,
+		DISP_MODULE_RDMA1, DISP_MODULE_RDMA1_VIRTUAL0,
+#if 0
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR0,
+#endif
+		DISP_MODULE_CCORR0, DISP_MODULE_AAL0, DISP_MODULE_GAMMA0,
+		DISP_MODULE_POSTMASK0, DISP_MODULE_DITHER0,
+#endif
+		DISP_MODULE_PWM0, DISP_MODULE_DSI1,
+		-1,
+	},
+
+	/* DDP_SCENARIO_PRIMARY_RDMA1_COLOR1_DISP1 */
+	{
+		DISP_MODULE_RDMA1, DISP_MODULE_RDMA1_VIRTUAL0,
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR1,
+#endif
+		DISP_MODULE_CCORR1, DISP_MODULE_MDP_AAL5,
+		DISP_MODULE_AAL1, DISP_MODULE_GAMMA1,
+		DISP_MODULE_POSTMASK1, DISP_MODULE_DITHER1,
+		DISP_MODULE_PWM0, DISP_MODULE_DSI1,
+		-1,
+	},
+
+	/* DDP_SCENARIO_PRIMARY_RDMA1_COLOR1_DISP0 */
+	{
+		DISP_MODULE_RDMA1, DISP_MODULE_RDMA1_VIRTUAL0,
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR1,
+#endif
+		DISP_MODULE_CCORR1, DISP_MODULE_MDP_AAL5,
+		DISP_MODULE_AAL1, DISP_MODULE_GAMMA1,
+		DISP_MODULE_POSTMASK1, DISP_MODULE_DITHER1,
+		DISP_MODULE_PWM0, DISP_MODULE_DSI0,
+		-1,
+	},
+
+	/* DDP_SCENARIO_PRIMARY1_OVL_MEMOUT */
+	{
+		DISP_MODULE_OVL1, DISP_MODULE_OVL1_2L,
+		DISP_MODULE_OVL1_VIRTUAL0,
+		DISP_MODULE_WDMA1,
+		-1,
+	},
+
+	/* DDP_SCENARIO_PRIMARY1_DISP0_MDP_AAL5 */
+	{
+		DISP_MODULE_OVL1, DISP_MODULE_OVL1_2L,
+		DISP_MODULE_OVL1_VIRTUAL0,
+		DISP_MODULE_RDMA1, DISP_MODULE_RDMA1_VIRTUAL0,
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR1,
+#endif
+		DISP_MODULE_CCORR1, DISP_MODULE_MDP_AAL5,
+		DISP_MODULE_AAL1, DISP_MODULE_GAMMA1,
+		DISP_MODULE_POSTMASK1, DISP_MODULE_DITHER1,
+		DISP_MODULE_PWM0, DISP_MODULE_DSI0,
+		-1,
+	},
+
+	/* DDP_SCENARIO_PRIMARY1_ALL */
+	{
+		DISP_MODULE_OVL1, DISP_MODULE_OVL1_2L,
+		DISP_MODULE_OVL1_VIRTUAL0,
+		DISP_MODULE_WDMA1,
+		DISP_MODULE_RDMA1, DISP_MODULE_RDMA1_VIRTUAL0,
+#ifdef DISP_COLOR_ON
+		DISP_MODULE_COLOR1,
+#endif
+		DISP_MODULE_CCORR1, DISP_MODULE_AAL1, DISP_MODULE_GAMMA1,
+		DISP_MODULE_POSTMASK1, DISP_MODULE_DITHER1,
+		DISP_MODULE_PWM0, DISP_MODULE_DSI1,
+		-1,
+	},
 };
 
 /* 1st para is mout's input, 2nd para is mout's output */
@@ -180,6 +289,45 @@ static struct mout_s mout_map[] = {
 		{{DISP_MODULE_DSI0, 1 << 0},
 		 {DISP_MODULE_WDMA0, 1 << 1}, {-1, 0} },
 		0, 0},
+
+	/* DISP_TOVL1_OUT0_MOUT_EN */
+	{DISP_MODULE_OVL1_2L_VIRTUAL0,
+		{{DISP_MODULE_WDMA1, 1 << 0},
+		 {DISP_MODULE_RSZ1, 1 << 1}, {-1, 0} },
+		0, 0},
+
+	/* DISP_TOVL1_OUT1_MOUT_EN */
+	{DISP_MODULE_OVL1_VIRTUAL0,
+		{{DISP_MODULE_RDMA1, 1 << 0},
+		 {DISP_MODULE_RSZ1, 1 << 1},
+		 {DISP_MODULE_WDMA1, 1 << 2}, {-1, 0} },
+		0, 0},
+
+	/* DISP_RSZ1_MOUT_EN */
+	{DISP_MODULE_RSZ1,
+		{{DISP_MODULE_RDMA1, 1 << 0},
+		 {DISP_MODULE_WDMA1, 1 << 1},
+		 {DISP_MODULE_RDMA1_VIRTUAL0, 1 << 2}, {-1, 0} },
+		0, 0},
+
+	/* DISP_DITHER1_MOUT_EN */
+	{DISP_MODULE_DITHER1,
+		{{DISP_MODULE_DSI1, 1 << 0},
+		 {DISP_MODULE_WDMA1, 1 << 1}, {-1, 0} },
+		0, 0},
+
+	/* DISP_OVL2_2L_OUT0_MOUT_EN */
+	{DISP_MODULE_OVL2_2L,
+		{{DISP_MODULE_RDMA4, 1 << 0},
+		 {DISP_MODULE_WDMA0, 1 << 1}, {-1, 0} },
+		0, 0},
+
+	/* DISP_OVL3_2L_OUT0_MOUT_EN */
+	{DISP_MODULE_OVL3_2L,
+		{{DISP_MODULE_RDMA5, 1 << 0},
+		 {DISP_MODULE_WDMA1, 1 << 1}, {-1, 0} },
+		0, 0},
+
 };
 
 static struct sel_s sel_out_map[] = {
@@ -206,6 +354,31 @@ static struct sel_s sel_out_map[] = {
 	/* DISP_MDP_AAL4_SOUT_SEL */
 	{DISP_MODULE_MDP_AAL4, {DISP_MODULE_AAL0,
 		-1}, 0, 0},
+
+	/* DISP_OVL1_2L_BLENDOUT_SOUT_SEL */
+	{DISP_MODULE_OVL1_2L, {DISP_MODULE_OVL1_2L_VIRTUAL0,
+		DISP_MODULE_OVL1_VIRTUAL0, -1}, 0, 0},
+
+	/* DISP_OVL1_BLENDOUT_SOUT_SEL */
+	{DISP_MODULE_OVL1, {DISP_MODULE_OVL1_2L_VIRTUAL0,
+		DISP_MODULE_OVL1_VIRTUAL0, -1}, 0, 0},
+
+	/* DISP_RDMA1_SOUT_SEL */
+	{DISP_MODULE_RDMA1, {DISP_MODULE_RDMA1_VIRTUAL0,
+		DISP_MODULE_RSZ1, -1}, 0, 0},
+
+	/* DISP_RDMA1_RSZ1_SOUT_SEL */
+	{DISP_MODULE_RDMA1_VIRTUAL0, {DISP_MODULE_DSI1,
+		DISP_MODULE_COLOR1, DISP_MODULE_CCORR1, -1}, 0, 0},
+
+	/* DISP_CCORR1_SOUT_SEL */
+	{DISP_MODULE_CCORR1, {DISP_MODULE_MDP_AAL5,
+		DISP_MODULE_AAL1, -1}, 0, 0},
+
+	/* DISP_MDP_AAL5_SOUT_SEL */
+	{DISP_MODULE_MDP_AAL5, {DISP_MODULE_AAL1,
+		-1}, 0, 0},
+
 };
 
 /* 1st para is sout's output, 2nd para is sout's input */
@@ -259,7 +432,58 @@ static struct sel_s sel_in_map[] = {
 	/* DISP_WDMA0_SEL_IN */
 	{DISP_MODULE_WDMA0, {DISP_MODULE_DITHER0,
 	 DISP_MODULE_RSZ0, DISP_MODULE_OVL0_2L_VIRTUAL0,
-	 DISP_MODULE_OVL0_VIRTUAL0, -1}, 0, 0},
+	 DISP_MODULE_OVL0_VIRTUAL0, DISP_MODULE_OVL2_2L, -1}, 0, 0},
+
+	/* DISP_OVL1_OVL1_OVL1_2L_BGOUT_SEL_IN */
+	{DISP_MODULE_OVL1_2L, {DISP_MODULE_UNKNOWN, DISP_MODULE_OVL1,
+	 -1},
+	 0, 0},
+
+	/* DISP_OVL0_2L_OVL1_OVL1_2L_BGOUT_SEL_IN */
+	{DISP_MODULE_OVL1, {DISP_MODULE_UNKNOWN, DISP_MODULE_OVL1_2L,
+	 -1}, 0, 0},
+
+	/* DISP_TOVL1_OUT0_SEL_IN */
+	{DISP_MODULE_OVL1_2L_VIRTUAL0, {DISP_MODULE_OVL1_2L,
+	 DISP_MODULE_OVL1, -1}, 0, 0},
+
+	/* DISP_TOVL1_OUT1_SEL_IN */
+	{DISP_MODULE_OVL1_VIRTUAL0, {DISP_MODULE_OVL1_2L,
+	 DISP_MODULE_OVL1, -1}, 0, 0},
+
+	/* DISP_RDMA1_SEL_IN */
+	{DISP_MODULE_RDMA1, {DISP_MODULE_OVL1_VIRTUAL0,
+	 DISP_MODULE_RSZ1, -1},
+	 0, 0},
+
+	/* DISP_RSZ1_SEL_IN */
+	{DISP_MODULE_RSZ1, {DISP_MODULE_OVL1_2L_VIRTUAL0,
+	 DISP_MODULE_OVL1_VIRTUAL0, DISP_MODULE_RDMA1, -1}, 0, 0},
+
+	/* DISP_RDMA0_RSZ1_SEL_IN */
+	{DISP_MODULE_RDMA1_VIRTUAL0, {DISP_MODULE_RDMA1,
+	 DISP_MODULE_RSZ1, -1}, 0, 0},
+
+	/* DISP_COLOR0_OUT_SEL_IN */
+	{DISP_MODULE_CCORR1, {DISP_MODULE_COLOR1,
+	 DISP_MODULE_RDMA1_VIRTUAL0, -1}, 0, 0},
+
+	/* DISP_MDP_AAL5_SEL_IN */
+	{DISP_MODULE_MDP_AAL5, {DISP_MODULE_CCORR1,
+	 -1}, 0, 0},
+
+	/* DISP_AAL1_SEL_IN */
+	{DISP_MODULE_AAL1, {DISP_MODULE_MDP_AAL5,
+	 DISP_MODULE_CCORR1, -1}, 0, 0},
+
+	/* DSI1_SEL_IN */
+	{DISP_MODULE_DSI1, {DISP_MODULE_RDMA1_VIRTUAL0,
+	 DISP_MODULE_DITHER1, -1}, 0, 0},
+
+	/* DISP_WDMA1_SEL_IN */
+	{DISP_MODULE_WDMA1, {DISP_MODULE_DITHER1,
+	 DISP_MODULE_RSZ1, DISP_MODULE_OVL1_2L_VIRTUAL0,
+	 DISP_MODULE_OVL1_VIRTUAL0, -1}, 0, 0},
 };
 
 static const int DDP_MOUT_NUM = sizeof(mout_map)/sizeof(struct mout_s);
@@ -277,6 +501,18 @@ int ddp_path_init(void)
 		(unsigned long *)DISP_REG_CONFIG_DISP_RSZ0_MOUT_EN;
 	mout_map[3].reg =
 		(unsigned long *)DISP_REG_CONFIG_DISP_DITHER0_MOUT_EN;
+	mout_map[4].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_TOVL1_OUT0_MOUT_EN;
+	mout_map[5].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_TOVL1_OUT1_MOUT_EN;
+	mout_map[6].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_RSZ1_MOUT_EN;
+	mout_map[7].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_DITHER1_MOUT_EN;
+	mout_map[8].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_OVL2_2L_OUT0_MOUT_EN;
+	mout_map[9].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_OVL3_2L_OUT0_MOUT_EN;
 
 	/* sel_out */
 	sel_out_map[0].reg =
@@ -291,6 +527,18 @@ int ddp_path_init(void)
 		(unsigned long *)DISP_REG_CONFIG_DISP_CCORR0_SOUT_SEL;
 	sel_out_map[5].reg =
 		(unsigned long *)DISP_REG_CONFIG_DISP_MDP_AAL4_SOUT_SEL;
+	sel_out_map[6].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_OVL1_2L_BLENDOUT_SOUT_SEL;
+	sel_out_map[7].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_OVL1_BLENDOUT_SOUT_SEL;
+	sel_out_map[8].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_RDMA1_SOUT_SEL;
+	sel_out_map[9].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_RDMA1_RSZ1_SOUT_SEL;
+	sel_out_map[10].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_CCORR1_SOUT_SEL;
+	sel_out_map[11].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_MDP_AAL5_SOUT_SEL;
 
 	/* sel_in */
 	sel_in_map[0].reg =
@@ -317,6 +565,30 @@ int ddp_path_init(void)
 		(unsigned long *)DISP_REG_CONFIG_DSI0_SEL_IN;
 	sel_in_map[11].reg =
 		(unsigned long *)DISP_REG_CONFIG_DISP_WDMA0_SEL_IN;
+	sel_in_map[12].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_OVL1_BGOUT_SOUT_SEL;
+	sel_in_map[13].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_OVL1_OVL1_2L_BGOUT_SEL_IN;
+	sel_in_map[14].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_TOVL1_OUT0_SEL_IN;
+	sel_in_map[15].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_TOVL1_OUT1_SEL_IN;
+	sel_in_map[16].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_RDMA1_SEL_IN;
+	sel_in_map[17].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_RSZ1_SEL_IN;
+	sel_in_map[18].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_RDMA1_RSZ1_SEL_IN;
+	sel_in_map[19].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_COLOR1_OUT_SEL_IN;
+	sel_in_map[20].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_MDP_AAL5_SEL_IN;
+	sel_in_map[21].reg =
+		(unsigned long *)DISP_REG_CONFIG_MDP_AAL1_SEL_IN;
+	sel_in_map[22].reg =
+		(unsigned long *)DISP_REG_CONFIG_DSI1_SEL_IN;
+	sel_in_map[23].reg =
+		(unsigned long *)DISP_REG_CONFIG_DISP_WDMA1_SEL_IN;
 
 	return 0;
 }
@@ -330,8 +602,8 @@ char *ddp_get_scenario_name(enum DDP_SCENARIO_ENUM scenario)
 		return "primary_disp";
 	case DDP_SCENARIO_PRIMARY_BYPASS_PQ_DISP:
 		return "primary_bypass_pq";
-	case DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP:
-		return "primary_rdma0_color0_disp";
+	case DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP0:
+		return "primary_rdma0_color0_disp0";
 	case DDP_SCENARIO_PRIMARY_RDMA0_DISP:
 		return "primary_rdma0_disp";
 	case DDP_SCENARIO_PRIMARY_OVL_MEMOUT:
@@ -344,10 +616,16 @@ char *ddp_get_scenario_name(enum DDP_SCENARIO_ENUM scenario)
 		return "sub_disp";
 	case DDP_SCENARIO_SUB_RDMA1_DISP:
 		return "sub_rdma1_disp";
-	case DDP_SCENARIO_SUB_OVL_MEMOUT:
-		return "sub_ovl_memout";
+	case DDP_SCENARIO_SUB_OVL2_2L_MEMOUT:
+		return "sub_ovl2_2l_memout";
 	case DDP_SCENARIO_SUB_ALL:
 		return "sub_all";
+	case DDP_SCENARIO_PRIMARY1_ALL:
+		return "primary_disp1";
+	case DDP_SCENARIO_PRIMARY_RDMA1_COLOR1_DISP1:
+		return "primary_rdma1_color1_disp1";
+	case DDP_SCENARIO_PRIMARY_RDMA1_COLOR1_DISP0:
+		return "primary_rdma1_color1_disp0";
 	/* others */
 	default:
 		DDPMSG("invalid scenario id=%d\n", scenario);
@@ -821,12 +1099,19 @@ void ddp_connect_path(enum DDP_SCENARIO_ENUM scenario, void *handle)
 		ddp_connect_path_l(
 			module_list_scenario[DDP_SCENARIO_PRIMARY_OVL_MEMOUT],
 			handle);
+	} else if (scenario == DDP_SCENARIO_PRIMARY1_ALL) {
+		ddp_connect_path_l(
+			module_list_scenario[DDP_SCENARIO_PRIMARY_DISP],
+			handle);
+		ddp_connect_path_l(
+			module_list_scenario[DDP_SCENARIO_PRIMARY_OVL_MEMOUT],
+				handle);
 	} else if (scenario == DDP_SCENARIO_SUB_ALL) {
 		ddp_connect_path_l(
 			module_list_scenario[DDP_SCENARIO_SUB_DISP],
 			handle);
 		ddp_connect_path_l(
-			module_list_scenario[DDP_SCENARIO_SUB_OVL_MEMOUT],
+			module_list_scenario[DDP_SCENARIO_SUB_OVL2_2L_MEMOUT],
 			handle);
 	} else {
 		ddp_connect_path_l(
@@ -852,7 +1137,7 @@ void ddp_disconnect_path(enum DDP_SCENARIO_ENUM scenario, void *handle)
 			module_list_scenario[DDP_SCENARIO_SUB_DISP],
 			handle);
 		ddp_disconnect_path_l(
-			module_list_scenario[DDP_SCENARIO_SUB_OVL_MEMOUT],
+			module_list_scenario[DDP_SCENARIO_SUB_OVL2_2L_MEMOUT],
 			handle);
 	} else {
 		ddp_disconnect_path_l(
@@ -875,7 +1160,7 @@ void ddp_check_path(enum DDP_SCENARIO_ENUM scenario)
 		ddp_check_path_l(
 			module_list_scenario[DDP_SCENARIO_SUB_DISP]);
 		ddp_check_path_l(
-			module_list_scenario[DDP_SCENARIO_SUB_OVL_MEMOUT]);
+			module_list_scenario[DDP_SCENARIO_SUB_OVL2_2L_MEMOUT]);
 	} else {
 		ddp_check_path_l(module_list_scenario[scenario]);
 	}
@@ -883,12 +1168,6 @@ void ddp_check_path(enum DDP_SCENARIO_ENUM scenario)
 
 int ddp_path_top_clock_on(void)
 {
-#if defined(CONFIG_MTK_IOMMU_V2) && \
-	defined(CONFIG_MTK_SMI_EXT)
-	struct disp_iommu_device *iommu_dev;
-	int larb_idx = 0;
-#endif
-
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
 		return 0;
 
@@ -900,6 +1179,7 @@ int ddp_path_top_clock_on(void)
 	/*ddp_clk_prepare_enable(TOP_26M);*/
 #ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_prepare_enable(SMI_LARB0, "DISP");
+	smi_bus_prepare_enable(SMI_LARB1, "DISP");
 #else
 	ddp_clk_prepare_enable(CLK_SMI_COMMON);
 	ddp_clk_prepare_enable(CLK_SMI_GALS);
@@ -908,16 +1188,6 @@ int ddp_path_top_clock_on(void)
 #endif
 	ddp_clk_prepare_enable(CLK_MM_26M);
 
-#if defined(CONFIG_MTK_IOMMU_V2) && \
-	defined(CONFIG_MTK_SMI_EXT)
-	iommu_dev = disp_get_iommu_dev();
-	if (!iommu_dev) {
-		DISPERR("%s iommu is null\n", __func__);
-		return 0;
-	}
-	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++)
-		mtk_smi_larb_get(&iommu_dev->larb_pdev[larb_idx]->dev);
-#endif
 	/* enable_clock(MT_CG_DISP0_MUTEX_32K, "DDP_MUTEX"); */
 	DISPINFO("ddp CG0:%x, CG1:%x\n",
 		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
@@ -928,19 +1198,9 @@ int ddp_path_top_clock_on(void)
 
 int ddp_path_top_clock_off(void)
 {
-#if defined(CONFIG_MTK_IOMMU_V2) && \
-	defined(CONFIG_MTK_SMI_EXT)
-	struct disp_iommu_device *iommu_dev;
-	int larb_idx = 0;
-
-	iommu_dev = disp_get_iommu_dev();
-
-	for (larb_idx = 0; larb_idx < DISP_LARB_COUNT; larb_idx++)
-		mtk_smi_larb_put(&iommu_dev->larb_pdev[larb_idx]->dev);
-#endif
-
 	ddp_clk_disable_unprepare(CLK_MM_26M);
 #ifdef CONFIG_MTK_SMI_EXT
+	smi_bus_disable_unprepare(SMI_LARB1, "DISP");
 	smi_bus_disable_unprepare(SMI_LARB0, "DISP");
 #else
 	ddp_clk_disable_unprepare(CLK_SMI_IOMMU);

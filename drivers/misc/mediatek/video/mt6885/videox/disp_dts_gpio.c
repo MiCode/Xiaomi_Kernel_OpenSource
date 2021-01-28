@@ -22,15 +22,15 @@ static struct pinctrl *this_pctrl; /* static pinctrl instance */
 
 /* DTS state mapping name */
 static const char *this_state_name[DTS_GPIO_STATE_MAX] = {
-	"mode_te_gpio",
-	"mode_te_te",
-	"mode_te1_te",
-	"lcm_rst_out0_gpio",
-	"lcm_rst_out1_gpio",
-	"lcm1_rst_out0_gpio",
-	"lcm1_rst_out1_gpio",
+	"lcd_bias_enp1_gpio",
 	"lcd_bias_enp0_gpio",
-	"lcd_bias_enp1_gpio"
+	"lcd_bias_enn1_gpio",
+	"lcd_bias_enn0_gpio",
+	"lcm_rst_out1_gpio",
+	"lcm_rst_out0_gpio",
+	"lcm1_rst_out1_gpio",
+	"lcm1_rst_out0_gpio",
+	"mode_te_te",
 };
 
 /* pinctrl implementation */
@@ -53,7 +53,9 @@ static long _set_state(const char *name)
 	}
 
 	/* select state! */
-	pinctrl_select_state(this_pctrl, pState);
+	ret = pinctrl_select_state(this_pctrl, pState);
+	if (ret)
+		pr_info("select state failed:%p\n", pState);
 
 exit:
 	return ret; /* Good! */

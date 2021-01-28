@@ -88,26 +88,52 @@
 #endif
 
 
-
 extern cmdqBackupSlotHandle dispsys_slot;
 
 #define DISP_RDMA_INDEX_OFFSET  (0)
 #define DISP_WDMA_INDEX_OFFSET  (0)
 #define DISP_OVL_INDEX_OFFSET   (0)
 #define DISP_MIPI_INDEX_OFFSET  (0)
+
 #define DISPSYS_CONFIG_BASE ddp_get_module_va(DISP_MODULE_CONFIG)
 #define DISPSYS_OVL0_BASE ddp_get_module_va(DISP_MODULE_OVL0)
+#define DISPSYS_OVL1_BASE ddp_get_module_va(DISP_MODULE_OVL1)
 #define DISPSYS_OVL0_2L_BASE ddp_get_module_va(DISP_MODULE_OVL0_2L)
+#define DISPSYS_OVL1_2L_BASE ddp_get_module_va(DISP_MODULE_OVL1_2L)
+#define DISPSYS_OVL2_2L_BASE ddp_get_module_va(DISP_MODULE_OVL2_2L)
+#define DISPSYS_OVL3_2L_BASE ddp_get_module_va(DISP_MODULE_OVL3_2L)
 #define DISPSYS_RDMA0_BASE ddp_get_module_va(DISP_MODULE_RDMA0)
+#define DISPSYS_RDMA1_BASE ddp_get_module_va(DISP_MODULE_RDMA1)
+#define DISPSYS_RDMA4_BASE ddp_get_module_va(DISP_MODULE_RDMA4)
+#define DISPSYS_RDMA5_BASE ddp_get_module_va(DISP_MODULE_RDMA5)
+#define DISPSYS_MDP_RDMA4_BASE ddp_get_module_va(DISP_MODULE_MDP_RDMA4)
+#define DISPSYS_MDP_RDMA5_BASE ddp_get_module_va(DISP_MODULE_MDP_RDMA5)
 #define DISPSYS_WDMA0_BASE ddp_get_module_va(DISP_MODULE_WDMA0)
+#define DISPSYS_WDMA1_BASE ddp_get_module_va(DISP_MODULE_WDMA1)
 #define DISPSYS_COLOR0_BASE ddp_get_module_va(DISP_MODULE_COLOR0)
+#define DISPSYS_COLOR1_BASE ddp_get_module_va(DISP_MODULE_COLOR1)
 #define DISPSYS_CCORR0_BASE ddp_get_module_va(DISP_MODULE_CCORR0)
+#define DISPSYS_CCORR1_BASE ddp_get_module_va(DISP_MODULE_CCORR1)
 #define DISPSYS_AAL0_BASE ddp_get_module_va(DISP_MODULE_AAL0)
+#define DISPSYS_AAL1_BASE ddp_get_module_va(DISP_MODULE_AAL1)
+#define DISPSYS_MDP_AAL4_BASE ddp_get_module_va(DISP_MODULE_MDP_AAL4)
+#define DISPSYS_MDP_AAL5_BASE ddp_get_module_va(DISP_MODULE_MDP_AAL5)
 #define DISPSYS_GAMMA0_BASE ddp_get_module_va(DISP_MODULE_GAMMA0)
+#define DISPSYS_GAMMA1_BASE ddp_get_module_va(DISP_MODULE_GAMMA1)
 #define DISPSYS_DITHER0_BASE ddp_get_module_va(DISP_MODULE_DITHER0)
+#define DISPSYS_DITHER1_BASE ddp_get_module_va(DISP_MODULE_DITHER1)
 #define DISPSYS_DSI0_BASE ddp_get_module_va(DISP_MODULE_DSI0)
 #define DISPSYS_DSI1_BASE ddp_get_module_va(DISP_MODULE_DSI1)
 #define DISPSYS_RSZ0_BASE ddp_get_module_va(DISP_MODULE_RSZ0)
+#define DISPSYS_RSZ1_BASE ddp_get_module_va(DISP_MODULE_RSZ1)
+#define DISPSYS_MDP_RSZ4_BASE ddp_get_module_va(DISP_MODULE_MDP_RSZ4)
+#define DISPSYS_MDP_RSZ5_BASE ddp_get_module_va(DISP_MODULE_MDP_RSZ5)
+#define DISPSYS_POSTMASK0_BASE ddp_get_module_va(DISP_MODULE_POSTMASK0)
+#define DISPSYS_POSTMASK1_BASE ddp_get_module_va(DISP_MODULE_POSTMASK1)
+#define DISPSYS_MERGE0_BASE ddp_get_module_va(DISP_MODULE_MERGE0)
+#define DISPSYS_MERGE1_BASE ddp_get_module_va(DISP_MODULE_MERGE1)
+#define DISPSYS_DP_INTF_BASE ddp_get_module_va(DISP_MODULE_DP_INTF)
+#define DISPSYS_DISP_DSC_BASE ddp_get_module_va(DISP_MODULE_DSC)
 #define DISPSYS_PWM0_BASE ddp_get_module_va(DISP_MODULE_PWM0)
 #define DISPSYS_MUTEX_BASE ddp_get_module_va(DISP_MODULE_MUTEX)
 #define DISPSYS_SMI_LARB0_BASE ddp_get_module_va(DISP_MODULE_SMI_LARB0)
@@ -115,7 +141,6 @@ extern cmdqBackupSlotHandle dispsys_slot;
 #define DISPSYS_SMI_COMMON_BASE ddp_get_module_va(DISP_MODULE_SMI_COMMON)
 #define DISPSYS_MIPITX0_BASE ddp_get_module_va(DISP_MODULE_MIPI0)
 #define DISPSYS_MIPITX1_BASE ddp_get_module_va(DISP_MODULE_MIPI1)
-#define DISPSYS_POSTMASK_BASE ddp_get_module_va(DISP_MODULE_POSTMASK0)
 #define DISPSYS_SLOT_BASE		    dispsys_slot
 
 #ifdef INREG32

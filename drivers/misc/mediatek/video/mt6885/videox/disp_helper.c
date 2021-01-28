@@ -344,8 +344,12 @@ const char *disp_helper_stage_spy(void)
 
 void disp_helper_option_init(void)
 {
-	disp_helper_set_option(DISP_OPT_USE_CMDQ, 0);
+	disp_helper_set_option(DISP_OPT_USE_CMDQ, 1);
+#ifdef CONFIG_MTK_IOMMU_V2
+	disp_helper_set_option(DISP_OPT_USE_M4U, 1);
+#else
 	disp_helper_set_option(DISP_OPT_USE_M4U, 0);
+#endif
 
 	/* test solution for 6795 rdma underflow caused by ufoe LR mode
 	 * (ufoe fifo is larger than rdma)
@@ -357,15 +361,15 @@ void disp_helper_option_init(void)
 
 	/* =================Begin: lowpower option setting================= */
 	disp_helper_set_option(DISP_OPT_SODI_SUPPORT, 0);
-	disp_helper_set_option(DISP_OPT_IDLE_MGR, 0);
+	disp_helper_set_option(DISP_OPT_IDLE_MGR, 1);
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
 	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	0);
 	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 0);
-	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 0);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);
 
 	/* 2. cmd mode + screen idle(need idlemgr) */
-	disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS,	0);
+	disp_helper_set_option(DISP_OPT_IDLEMGR_ENTER_ULPS, 1);
 
 	/* 3. cmd mode + vdo mode */
 	disp_helper_set_option(DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK, 0);
@@ -406,7 +410,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_SHADOW_MODE, 0);
 
 	/* smart layer OVL*/
-	disp_helper_set_option(DISP_OPT_OVL_EXT_LAYER, 1);
+	disp_helper_set_option(DISP_OPT_OVL_EXT_LAYER, 0);
 
 	disp_helper_set_option(DISP_OPT_REG_PARSER_RAW_DUMP, 0);
 

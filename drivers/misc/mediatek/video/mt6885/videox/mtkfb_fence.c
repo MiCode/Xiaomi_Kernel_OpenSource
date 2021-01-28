@@ -82,7 +82,7 @@ void mtkfb_fence_log_enable(bool enable)
 #endif
 
 int fence_clean_up_task_wakeup;
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 static struct ion_client *ion_client;
 #endif
 /* how many counters prior to current timeline real-time counter */
@@ -312,7 +312,7 @@ done:
 
 
 /********************ION*****************************************************/
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 static void mtkfb_ion_init(void)
 {
 	if (!ion_client && g_ion_device)
@@ -336,7 +336,6 @@ static struct ion_handle *mtkfb_ion_import_handle(struct ion_client *client,
 	int fd)
 {
 	struct ion_handle *handle = NULL;
-	struct ion_mm_data mm_data;
 
 	/* If no need Ion support, do nothing! */
 	if (fd == MTK_FB_NO_ION_FD) {
@@ -357,15 +356,6 @@ static struct ion_handle *mtkfb_ion_import_handle(struct ion_client *client,
 		pr_info("import ion handle failed!\n");
 		return NULL;
 	}
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id = 0;
-	mm_data.config_buffer_param.security = 0;
-	mm_data.config_buffer_param.coherent = 0;
-
-	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data))
-		pr_info("configure ion buffer failed!\n");
 
 	MTKFB_FENCE_LOG("import ion handle fd=%d,hnd=0x%p\n",
 		fd, handle);
@@ -391,8 +381,7 @@ static void mtkfb_ion_free_handle(struct ion_client *client,
 static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 	struct ion_handle *handle, unsigned int *mva)
 {
-	size_t size;
-	ion_phys_addr_t phy_addr = 0;
+	struct ion_mm_data mm_data;
 
 	if (!ion_client) {
 		pr_info("invalid ion client!\n");
@@ -401,11 +390,20 @@ static size_t mtkfb_ion_phys_mmu_addr(struct ion_client *client,
 	if (!handle)
 		return 0;
 
-	ion_phys(client, handle, &phy_addr, &size);
-	*mva = (unsigned int)phy_addr;
+	/* use get_iova replace config_buffer & get_phys*/
+	memset((void *)&mm_data, 0, sizeof(mm_data));
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
+	mm_data.get_phys_param.kernel_handle = handle;
+	mm_data.get_phys_param.module_id = 0;
+
+	if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data))
+		pr_info("configure ion buffer failed!\n");
+
+	*mva = (unsigned int)mm_data.get_phys_param.phy_addr;
 	MTKFB_FENCE_LOG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 		handle, (unsigned int)*mva);
-	return size;
+	return (size_t)mm_data.get_phys_param.len;
 }
 
 static void mtkfb_ion_cache_flush(struct ion_client *client,
@@ -428,7 +426,7 @@ static void mtkfb_ion_cache_flush(struct ion_client *client,
 		pr_info("ion cache flush failed!\n");
 	ion_unmap_kernel(client, handle);
 }
-#endif /* #if defined (MTK_FB_ION_SUPPORT) */
+#endif /* #if defined (CONFIG_MTK_IOMMU_V2) */
 
 unsigned int mtkfb_query_buf_mva(unsigned int session_id,
 	unsigned int layer_id, unsigned int idx)
@@ -459,7 +457,7 @@ unsigned int mtkfb_query_buf_mva(unsigned int session_id,
 			mmprofile_log_ex(
 				ddp_mmp_get_events()->primary_cache_sync,
 				MMPROFILE_FLAG_START, current->pid, 0);
-			#if defined(MTK_FB_ION_SUPPORT)
+			#if defined(CONFIG_MTK_IOMMU_V2)
 			mtkfb_ion_cache_flush(ion_client, buf->hnd,
 			buf->mva, buf->size);
 			#endif
@@ -804,7 +802,7 @@ int disp_sync_init(void)
 	DISPMSG("Fence timeline idx: present = %d, output = %d\n",
 		disp_sync_get_present_timeline_id(),
 		disp_sync_get_output_timeline_id());
-	#if defined(MTK_FB_ION_SUPPORT)
+	#if defined(CONFIG_MTK_IOMMU_V2)
 	mtkfb_ion_init();
 	#endif
 	return 0;
@@ -913,7 +911,7 @@ void mtkfb_release_fence(unsigned int session_id, unsigned int layer_id,
 			layer_info->fence_fd = buf->fence;
 
 			list_del_init(&buf->list);
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 			if (buf->va &&
 				((DISP_SESSION_TYPE(session_id) >
 				DISP_SESSION_PRIMARY)))
@@ -1146,7 +1144,7 @@ static int prepare_ion_buf(struct disp_buffer_info *buf,
 	unsigned int mva = 0x0;
 	struct ion_handle *handle = NULL;
 
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	handle = mtkfb_ion_import_handle(ion_client, buf->ion_fd);
 	if (handle)
 		buf_info->size =
@@ -1346,7 +1344,7 @@ unsigned int disp_sync_buf_cache_sync(unsigned int session_id,
 		if (buf->cache_sync) {
 			dprec_logger_start(DPREC_LOGGER_DISPMGR_CACHE_SYNC,
 				(unsigned long)buf->hnd, buf->mva);
-			#if defined(MTK_FB_ION_SUPPORT)
+			#if defined(CONFIG_MTK_IOMMU_V2)
 			mtkfb_ion_cache_flush(ion_client, buf->hnd,
 			buf->mva, buf->size);
 			#endif
@@ -1405,7 +1403,7 @@ static unsigned int __disp_sync_query_buf_info(unsigned int session_id,
 		if (buf->cache_sync && need_sync) {
 			dprec_logger_start(DPREC_LOGGER_DISPMGR_CACHE_SYNC,
 				(unsigned long)buf->hnd, buf->mva);
-			#if defined(MTK_FB_ION_SUPPORT)
+			#if defined(CONFIG_MTK_IOMMU_V2)
 			mtkfb_ion_cache_flush(ion_client, buf->hnd,
 			buf->mva, buf->size);
 			#endif

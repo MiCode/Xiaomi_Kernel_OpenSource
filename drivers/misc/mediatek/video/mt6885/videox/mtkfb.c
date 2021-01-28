@@ -192,10 +192,8 @@ static int mtkfb_get_overlay_layer_info(
 #ifdef CONFIG_OF
 static int _parse_tag_videolfb(void);
 #endif
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_late_resume(void);
 static void mtkfb_early_suspend(void);
-#endif
 
 void mtkfb_log_enable(int enable)
 {
@@ -233,7 +231,6 @@ static int mtkfb_release(struct fb_info *info, int user)
 	return 0;
 }
 
-#if defined(CONFIG_PM_AUTOSLEEP)
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
 static int mtkfb1_blank(int blank_mode, struct fb_info *info)
@@ -306,8 +303,8 @@ static int mtkfb_blank(int blank_mode, struct fb_info *info)
 
 	return 0;
 }
-#endif
 
+#ifndef CONFIG_DRM_MEDIATEK
 int mtkfb_set_backlight_level(unsigned int level)
 {
 	MTKFB_FUNC();
@@ -318,6 +315,7 @@ int mtkfb_set_backlight_level(unsigned int level)
 	return 0;
 }
 EXPORT_SYMBOL(mtkfb_set_backlight_level);
+#endif
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
@@ -764,6 +762,13 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 		var->yres_virtual, var->xoffset, var->yoffset,
 		var->bits_per_pixel);
 
+	DISPMSG(
+		"%s: bpp=%d, length=(%u,%u,%u),offset=(%u,%u,%u)\n",
+		__func__, bpp,
+		var->red.length, var->green.length, var->blue.length,
+		var->red.offset, var->green.offset, var->blue.offset,
+		var->bits_per_pixel);
+
 	if (bpp == 16) {
 		var->red.offset = 11;
 		var->red.length = 5;
@@ -784,8 +789,10 @@ static int mtkfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fbi)
 		var->red.length = var->green.length =
 			var->blue.length = var->transp.length = 8;
 
-		ASSERT(var->red.offset + var->blue.offset == 16);
-		ASSERT((var->red.offset == 16 || var->red.offset == 0));
+		ASSERT((var->red.offset + var->blue.offset == 16) ||
+			(var->red.offset + var->blue.offset == 32));
+		ASSERT((var->red.offset == 16 || var->red.offset == 0) ||
+			(var->red.offset == 24 || var->red.offset == 8));
 	}
 
 	var->red.msb_right = var->green.msb_right =
@@ -1881,9 +1888,7 @@ static struct fb_ops mtkfb_ops = {
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = mtkfb_compat_ioctl,
 #endif
-#if defined(CONFIG_PM_AUTOSLEEP)
 	.fb_blank = mtkfb_blank,
-#endif
 };
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
@@ -1905,9 +1910,7 @@ static struct fb_ops mtkfb1_ops = {
 #ifdef CONFIG_COMPAT
 	.fb_compat_ioctl = NULL,
 #endif
-#if defined(CONFIG_PM_AUTOSLEEP)
 	.fb_blank = mtkfb1_blank,
-#endif
 };
 #endif
 /*
@@ -2665,7 +2668,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 	/* this function will get fb_heap base address to ion
 	 * for management frame buffer
 	 */
-#ifdef MTK_FB_ION_SUPPORT
+#ifdef CONFIG_MTK_IOMMU_V2
 	ion_drv_create_FB_heap(mtkfb_get_fb_base(), mtkfb_get_fb_size());
 #endif
 	fbdev->state = MTKFB_ACTIVE;
@@ -2786,7 +2789,6 @@ void mtkfb_clear_lcm(void)
 {
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void mtkfb_early_suspend(void)
 {
 	int ret = 0;
@@ -2826,7 +2828,6 @@ static void mtkfb_late_resume(void)
 	DISPMSG("[FB Driver] leave late_resume\n");
 
 }
-#endif
 
 /*---------------------------------------------------------------------------*/
 #ifdef CONFIG_PM

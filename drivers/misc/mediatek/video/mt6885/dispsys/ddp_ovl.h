@@ -32,7 +32,7 @@
 #define TOTAL_OVL_LAYER_NUM	(4+3+2+3)
 #endif
 #define TOTAL_REAL_OVL_LAYER_NUM (4+3+2+3)
-#define OVL_NUM			(2)
+#define OVL_NUM			(6)
 #define OVL_MODULE_MAX_PHY_LAYER (4)
 #define OVL_MODULE_MAX_EXT_LAYER (3)
 

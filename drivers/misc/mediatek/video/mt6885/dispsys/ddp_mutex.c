@@ -24,29 +24,67 @@ static struct module_map_t module_mutex_map[DISP_MODULE_NUM] = {
 	{DISP_MODULE_OVL0_2L_VIRTUAL0, -1, 0},
 	{DISP_MODULE_OVL0_VIRTUAL0, -1, 0},
 	{DISP_MODULE_RSZ0, 10, 0},
+
+	{DISP_MODULE_OVL1, 12, 0},
+	{DISP_MODULE_OVL1_2L, 13, 0},
+	{DISP_MODULE_OVL1_2L_VIRTUAL0, -1, 0},
+	{DISP_MODULE_OVL1_VIRTUAL0, -1, 0},
+	{DISP_MODULE_RSZ1, 22, 0},
+
 	{DISP_MODULE_RDMA0, 2, 0},
 	{DISP_MODULE_RDMA0_VIRTUAL0, -1, 0},
 	{DISP_MODULE_WDMA0, 3, 0},
 	{DISP_MODULE_COLOR0, 4, 0},
 	{DISP_MODULE_CCORR0, 5, 0},
+
+	{DISP_MODULE_RDMA1, 14, 0},
+	{DISP_MODULE_RDMA1_VIRTUAL0, -1, 0},
+	{DISP_MODULE_WDMA1, 15, 0},
+	{DISP_MODULE_COLOR1, 16, 0},
+	{DISP_MODULE_CCORR1, 17, 0},
+
 	{DISP_MODULE_AAL0, 6, 0},
-	{DISP_MODULE_MDP_AAL4, -1, 0},
+	{DISP_MODULE_MDP_AAL4, 0, 1},
 	{DISP_MODULE_GAMMA0, 7, 0},
 	{DISP_MODULE_POSTMASK0, 25, 0},
 	{DISP_MODULE_DITHER0, 8, 0},
+
+	{DISP_MODULE_AAL1, 18, 0},
+	{DISP_MODULE_MDP_AAL5, 1, 1},
+	{DISP_MODULE_GAMMA1, 19, 0},
+	{DISP_MODULE_POSTMASK1, 26, 0},
+	{DISP_MODULE_DITHER1, 20, 0},
+
 	{DISP_MODULE_SPLIT0, -1, 0},
 	{DISP_MODULE_DSI0, 9, 0},
 	{DISP_MODULE_DSI1, 21, 0},
 	{DISP_MODULE_DSIDUAL, -1, 0},
 	{DISP_MODULE_PWM0, 11, 0},
+
 	{DISP_MODULE_CONFIG, -1, 0},
 	{DISP_MODULE_MUTEX, -1, 0},
 	{DISP_MODULE_SMI_COMMON, -1, 0},
 	{DISP_MODULE_SMI_LARB0, -1, 0},
 	{DISP_MODULE_SMI_LARB1, -1, 0},
+
 	{DISP_MODULE_MIPI0, -1, 0},
 	{DISP_MODULE_MIPI1, -1, 0},
 	{DISP_MODULE_DPI, -1, 0},
+	{DISP_MODULE_OVL2_2L, 23, 0},
+	{DISP_MODULE_OVL3_2L, 24, 0},
+
+	{DISP_MODULE_RDMA4, 10, 1},
+	{DISP_MODULE_RDMA5, 11, 1},
+	{DISP_MODULE_MDP_RDMA4, 2, 1},
+	{DISP_MODULE_MDP_RDMA5, 3, 1},
+	{DISP_MODULE_MDP_RSZ4, 6, 1},
+
+	{DISP_MODULE_MDP_RSZ5, 7, 1},
+	{DISP_MODULE_MERGE0, 27, 0},
+	{DISP_MODULE_MERGE1, 28, 0},
+	{DISP_MODULE_DP_INTF, 31, 0},
+	{DISP_MODULE_DSC, 29, 0},
+
 	{DISP_MODULE_UNKNOWN, -1, 0},
 };
 
@@ -111,6 +149,10 @@ static int ddp_mutex_add_module(int mutex_id, enum DISP_MODULE_ENUM module,
 			DISP_REG_MASK(handle,
 				DISP_REG_CONFIG_MUTEX_MOD0(mutex_id),
 				value, value);
+		else if (module_mutex_map[module].mod_num == 1)
+			DISP_REG_MASK(handle,
+				DISP_REG_CONFIG_MUTEX_MOD1(mutex_id),
+				value, value);
 	} else if (module == DISP_MODULE_DSIDUAL) {
 		DDPDBG("module %s added to mutex %d\n",
 			ddp_get_module_name(module), mutex_id);
@@ -162,7 +204,8 @@ static int ddp_mutex_set_l(int mutex_id, int *module_list,
 	int i = 0;
 	unsigned int value = 0;
 	unsigned int sof_val;
-	unsigned int sof_src, eof_src;
+	unsigned int sof_src = SOF_VAL_MUTEX0_SOF_SINGLE_MODE;
+	unsigned int eof_src = SOF_VAL_MUTEX0_EOF_DISABLE;
 	int module_num = ddp_get_module_num_l(module_list);
 
 	if (mutex_id < DISP_MUTEX_DDP_FIRST ||
@@ -199,7 +242,8 @@ static void ddp_check_mutex_l(int mutex_id, int *module_list,
 	uint32_t real_value0 = 0;
 	uint32_t expect_value0 = 0;
 	unsigned int real_sof, real_eof, val;
-	unsigned int expect_sof, expect_eof;
+	unsigned int expect_sof = SOF_VAL_MUTEX0_SOF_SINGLE_MODE;
+	unsigned int expect_eof = SOF_VAL_MUTEX0_EOF_DISABLE;
 	int module_num = ddp_get_module_num_l(module_list);
 
 	if (mutex_id < DISP_MUTEX_DDP_FIRST ||

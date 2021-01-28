@@ -59,7 +59,7 @@
 #include "disp_recovery.h"
 #include "disp_partial.h"
 #include "disp_drv_platform.h"
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 #include "mtk_ion.h"
 #include "ion_drv.h"
 #include "ion.h"
@@ -410,12 +410,10 @@ struct test_buf_info {
 
 static int alloc_buffer_from_ion(size_t size, struct test_buf_info *buf_info)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	struct ion_client *client;
 	struct ion_mm_data mm_data;
 	struct ion_handle *handle;
-	size_t mva_size;
-	ion_phys_addr_t phy_addr;
 
 	client = ion_client_create(g_ion_device, "disp_test");
 	buf_info->ion_client = client;
@@ -436,18 +434,19 @@ static int alloc_buffer_from_ion(size_t size, struct test_buf_info *buf_info)
 		ion_client_destroy(client);
 		return -1;
 	}
+
+	/* use get_iova replace config_buffer & get_phys*/
 	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data) < 0) {
-		DISPWARN("ion_test_drv: Config buffer failed.\n");
+		DISPWARN("ion_test_drv: get pa failed.\n");
 		ion_free(client, handle);
 		ion_client_destroy(client);
 		return -1;
 	}
 
-	ion_phys(client, handle, &phy_addr, (size_t *)&mva_size);
-	buf_info->buf_mva = (unsigned int)phy_addr;
+	buf_info->buf_mva = (unsigned int)mm_data.get_phys_param.phy_addr;
 	if (buf_info->buf_mva == 0) {
 		DISPWARN("Fatal Error, get mva failed\n");
 		ion_free(client, handle);
@@ -544,7 +543,7 @@ out:
 
 static int release_test_buf(struct test_buf_info *buf_info)
 {
-#if defined(MTK_FB_ION_SUPPORT)
+#if defined(CONFIG_MTK_IOMMU_V2)
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
 		/* ion buffer */
 		if (buf_info->handle)
