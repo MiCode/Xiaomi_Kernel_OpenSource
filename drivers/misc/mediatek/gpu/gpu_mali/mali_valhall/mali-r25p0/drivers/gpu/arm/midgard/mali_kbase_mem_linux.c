@@ -2301,8 +2301,6 @@ static void kbase_cpu_vm_close(struct vm_area_struct *vma)
 	kfree(map);
 }
 
-KBASE_EXPORT_TEST_API(kbase_cpu_vm_close);
-
 static struct kbase_aliased *get_aliased_alloc(struct vm_area_struct *vma,
 					struct kbase_va_region *reg,
 					pgoff_t *start_off,
@@ -3020,9 +3018,9 @@ KBASE_EXPORT_TEST_API(kbase_vunmap);
 
 static void kbasep_add_mm_counter(struct mm_struct *mm, int member, long value)
 {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 5, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0))
 	/* To avoid the build breakage due to an unexported kernel symbol
-	 * 'mm_trace_rss_stat' from later kernels, i.e. from V5.5.0 onwards,
+	 * 'mm_trace_rss_stat' from later kernels, i.e. from V4.19.0 onwards,
 	 * we inline here the equivalent of 'add_mm_counter()' from linux
 	 * kernel V5.4.0~8.
 	 */

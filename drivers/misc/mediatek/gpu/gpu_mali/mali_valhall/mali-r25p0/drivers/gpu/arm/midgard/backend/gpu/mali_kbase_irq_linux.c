@@ -79,8 +79,6 @@ static irqreturn_t kbase_job_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-KBASE_EXPORT_TEST_API(kbase_job_irq_handler);
-
 static irqreturn_t kbase_mmu_irq_handler(int irq, void *data)
 {
 	unsigned long flags;
@@ -177,7 +175,7 @@ static irq_handler_t kbase_handler_table[] = {
  * Return: IRQ_HANDLED if the requests are from the GPU device,
  *         IRQ_NONE otherwise
  */
-static irqreturn_t kbase_gpu_irq_test_handler(int irq, void *data, u32 val)
+irqreturn_t kbase_gpu_irq_test_handler(int irq, void *data, u32 val)
 {
 	struct kbase_device *kbdev = kbase_untag(data);
 
