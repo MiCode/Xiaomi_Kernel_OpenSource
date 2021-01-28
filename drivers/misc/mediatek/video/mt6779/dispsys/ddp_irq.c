@@ -111,9 +111,13 @@ int disp_unregister_irq_callback(DDP_IRQ_CALLBACK cb)
 		int n = 0;
 
 		n = snprintf(msg, len,
-			     "Try to unregister callback function %p ", cb);
-		n += snprintf(msg + n, len - n, "which was not registered\n");
-		DDP_PR_ERR("%s", msg);
+			     "Try to unregister callback function %p which was not registered\n",
+			     cb);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DISP_LOG_E("%s", msg);
 		return -1;
 	}
 	return 0;
@@ -170,11 +174,14 @@ int disp_unregister_module_irq_callback(enum DISP_MODULE_ENUM module,
 		char msg[len];
 		int n = 0;
 
-		n = snprintf(msg, len, "try to unregister callback function ");
-		n += snprintf(msg + n, len - n,
-			      "but not registered. module=%d cb=%p\n",
-			      module, cb);
-		DDP_PR_ERR("%s", msg);
+		n = snprintf(msg, len,
+			"try to unregister callback function but not registered. module=%d cb=%p\n",
+			module, cb);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DISP_LOG_E("%s", msg);
 		return -1;
 	}
 	return 0;

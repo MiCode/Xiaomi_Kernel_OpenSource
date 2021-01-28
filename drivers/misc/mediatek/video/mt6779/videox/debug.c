@@ -360,10 +360,14 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 		char msg[len];
 		int n = 0;
 
-		n = snprintf(msg, len, "dma_alloc_coherent error! ");
-		n += snprintf(msg + n, len - n,
-			      "dma memory not available. size=%zu\n", size);
-		DISPMSG("%s", msg);
+		n = snprintf(msg, len,
+			     "dma_alloc_coherent error! dma memory not available. size=%zu\n",
+			     size);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DISPMSG("%s", msg);
 		return -1;
 	}
 
@@ -543,12 +547,15 @@ primary_display_basic_test(int layer_num, unsigned int layer_en_mask,
 	size = w * h * Bpp;
 	mutex_lock(&basic_test_lock);
 
-	n = snprintf(msg, len, "%s: layer_num=%u,en=0x%x,w=%d,h=%d,fmt=%s,",
+	n = snprintf(msg, len,
+		     "%s: layer_num=%u,en=0x%x,w=%d,h=%d,fmt=%s,frame_num=%d,vsync=%d, size=%lu\n",
 		     __func__, layer_num, layer_en_mask,
-		     w, h, unified_color_fmt_name(ufmt));
-	n += snprintf(msg + n, len - n, "frame_num=%d,vsync=%d, size=%lu\n",
-		      frame_num, vsync_num, (unsigned long)size);
-	DISPMSG("%s", msg);
+		     w, h, unified_color_fmt_name(ufmt),
+		     frame_num, vsync_num, (unsigned long)size);
+	if (n < 0)
+		DISPINFO("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
+	else
+		DISPMSG("%s", msg);
 
 	if (layer_num > PRIMARY_SESSION_INPUT_LAYER_COUNT)
 		goto out_unlock;
@@ -731,9 +738,14 @@ static void process_dbg_opt(const char *opt)
 		helper_opt = disp_helper_name_to_opt(option);
 		update_layering_opt_by_disp_opt(helper_opt, value);
 	} else if (strncmp(opt, "repaint:", 8) == 0) {
-		int repaint_type;
+		int repaint_type, ret;
 
 		ret = sscanf(opt, "repaint:%d\n", &repaint_type);
+		if (ret != 1) {
+			DISP_LOG_E("[%s %d]:sscanf err:%d. str:%s",
+				   __func__, __LINE__, ret, opt);
+			return;
+		}
 		trigger_repaint(repaint_type);
 
 		return;

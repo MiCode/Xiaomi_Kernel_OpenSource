@@ -619,6 +619,11 @@ int dpmgr_destroy_path_handle(disp_path_handle dp_handle)
 	release_mutex(phandle->hwmutexid);
 	for (i = 0; i < m_num; i++) {
 		m = list[i];
+		if (m < 0 || m > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id:%d\n",
+				   __func__, m);
+			return 1;
+		}
 		c->module_usage_table[m]--;
 		c->module_path_table[m] = NULL;
 	}
@@ -1209,11 +1214,15 @@ int dpmgr_path_config(disp_path_handle dp_handle,
 	list = ddp_get_scenario_list(phandle->scenario);
 	m_num = ddp_get_module_num(phandle->scenario);
 
-	n = snprintf(msg, len, "path config ovl %d,rdma %d,wdma %d,dst %d ",
+	n = snprintf(msg, len,
+		     "path config ovl %d,rdma %d,wdma %d,dst %d on path handle %p scenario %s\n",
 		     config->ovl_dirty, config->rdma_dirty,
-		     config->wdma_dirty, config->dst_dirty);
-	n += snprintf(msg + n, len - n, "on path handle %p scenario %s\n",
-		      phandle, ddp_get_scenario_name(phandle->scenario));
+		     config->wdma_dirty, config->dst_dirty,
+		     phandle, ddp_get_scenario_name(phandle->scenario));
+	if (n < 0) {
+		DISP_LOG_E("[%s %d]snprintf error:%d\n", n);
+		n = 0;
+	}
 	DISP_LOG_V("%s", msg);
 
 	memcpy(&phandle->last_config, config, sizeof(*config));
@@ -1768,6 +1777,11 @@ int dpmgr_enable_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event)
 
 	if (dp_handle == NULL)
 		return 1;
+
+	if (event > DISP_PATH_EVENT_NUM || event < DISP_PATH_EVENT_FRAME_DONE) {
+		DISP_LOG_E("%s: error:event:%d\n", __func__, event);
+		return 1;
+	}
 
 	phandle = (struct ddp_path_handle *)dp_handle;
 	wq_handle = &phandle->wq_list[event];

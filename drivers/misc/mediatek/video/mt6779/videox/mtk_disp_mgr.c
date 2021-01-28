@@ -582,20 +582,23 @@ void dump_input_cfg_info(struct disp_input_config *input_cfg,
 	char msg[len];
 	int n = 0;
 
-	n = snprintf(msg, len, "S+/%s%d/L%u/idx%u/(%u,%u,%ux%u)(%u,%u,%ux%u)/",
+	n = snprintf(msg, len,
+		"S+/%s%d/L%u/idx%u/(%u,%u,%ux%u)(%u,%u,%ux%u)/%s/ds%d/%u/mva0x%08lx/compr:%u/v_p:%u/t%d/s%d\n",
 		disp_session_type_str(session), DISP_SESSION_DEV(session),
 		input_cfg->layer_id, input_cfg->next_buff_idx,
 		input_cfg->src_offset_x, input_cfg->src_offset_y,
 		input_cfg->src_width, input_cfg->src_height,
 		input_cfg->tgt_offset_x, input_cfg->tgt_offset_y,
-		input_cfg->tgt_width, input_cfg->tgt_height);
-	n += snprintf(msg + n, len - n,
-		      "%s/ds%d/%u/mva0x%08lx/compr:%u/v_p:%u/t%d/s%d\n",
+		input_cfg->tgt_width, input_cfg->tgt_height,
 		_disp_format_str(input_cfg->src_fmt), input_cfg->dataspace,
 		input_cfg->src_pitch, (unsigned long)(input_cfg->src_phy_addr),
 		input_cfg->compress, input_cfg->src_v_pitch,
 		get_ovl2mem_ticket(), input_cfg->security);
-	_DISP_PRINT_FENCE_OR_ERR(is_err, "%s", msg);
+	if (n < 0) {
+		DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+			     __func__, __LINE__, n);
+	} else
+		_DISP_PRINT_FENCE_OR_ERR(is_err, "%s", msg);
 }
 
 static int _get_layer_cnt(unsigned int session)
@@ -777,12 +780,15 @@ static int input_config_preprocess(struct disp_frame_cfg_t *cfg)
 		int n = 0;
 
 		n = snprintf(msg, len,
-			     "set_%s_buffer, config_layer_num invalid = %d, ",
+			     "set_%s_buffer, config_layer_num invalid = %d, max_layer_num = %d!\n",
 			     disp_session_type_str(session),
-			     cfg->input_layer_num);
-		n += snprintf(msg + n, len - n, "max_layer_num = %d!\n",
-			      _get_layer_cnt(session));
-		DISP_PR_ERR("%s", msg);
+			     cfg->input_layer_num,
+			     _get_layer_cnt(session));
+		if (n < 0) {
+			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+				     __func__, __LINE__, n);
+		} else
+			DISP_PR_INFO("%s", msg);
 		return 0;
 	}
 
@@ -933,20 +939,24 @@ static int output_config_preprocess(struct disp_frame_cfg_t *cfg)
 		}
 	}
 
-	n = snprintf(msg, len, "S+O/%s%d/L%d/idx%u/L%d/idx%u/(%u,%u,%ux%u)/",
-		  disp_session_type_str(session), DISP_SESSION_DEV(session),
-		  disp_sync_get_output_timeline_id(), cfg->output_cfg.buff_idx,
-		  disp_sync_get_output_interface_timeline_id(),
-		  cfg->output_cfg.interface_idx,
-		  cfg->output_cfg.x, cfg->output_cfg.y,
-		  cfg->output_cfg.width, cfg->output_cfg.height);
-	n += snprintf(msg + n, len - n,
-		      "%s/%u/%u/pa0x%08lx/mva0x%08lx/t%d/sec%d\n",
-		      _disp_format_str(cfg->output_cfg.fmt),
-		      cfg->output_cfg.pitch, cfg->output_cfg.pitchUV,
-		      (unsigned long)cfg->output_cfg.pa, dst_mva,
-		      get_ovl2mem_ticket(), cfg->output_cfg.security);
-	DISPFENCE("%s", msg);
+	n = snprintf(msg, len,
+		     "S+O/%s%d/L%d/idx%u/L%d/idx%u/(%u,%u,%ux%u)/%s/%u/%u/pa0x%08lx/mva0x%08lx/t%d/sec%d\n",
+		     disp_session_type_str(session), DISP_SESSION_DEV(session),
+		     disp_sync_get_output_timeline_id(),
+		     cfg->output_cfg.buff_idx,
+		     disp_sync_get_output_interface_timeline_id(),
+		     cfg->output_cfg.interface_idx,
+		     cfg->output_cfg.x, cfg->output_cfg.y,
+		     cfg->output_cfg.width, cfg->output_cfg.height,
+		     _disp_format_str(cfg->output_cfg.fmt),
+		     cfg->output_cfg.pitch, cfg->output_cfg.pitchUV,
+		     (unsigned long)cfg->output_cfg.pa, dst_mva,
+		     get_ovl2mem_ticket(), cfg->output_cfg.security);
+	if (n < 0) {
+		DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+			     __func__, __LINE__, n);
+	} else
+		DISPFENCE("%s", msg);
 
 	mtkfb_update_buf_info(cfg->session_id,
 			      disp_sync_get_output_interface_timeline_id(),

@@ -1736,11 +1736,15 @@ int check_disp_info(struct disp_layer_info *disp_info)
 		layer_num = disp_info->layer_num[disp_idx];
 		if (layer_num > 0 &&
 			disp_info->input_config[disp_idx] == NULL) {
-			n = snprintf(msg, len, "[HRT]input config is empty,");
-			n += snprintf(msg + n, len - n, "disp:%d,", disp_idx);
-			n += snprintf(msg + n, len - n, "l_num:%d\n",
-				      disp_info->layer_num[disp_idx]);
-			DISP_PR_ERR("%s", msg);
+			n = snprintf(msg, len,
+				     "[HRT]input config is empty,disp:%d,l_num:%d\n",
+				     disp_idx,
+				     disp_info->layer_num[disp_idx]);
+			if (n < 0) {
+				DISP_PR_INFO("[%s %d]:snprintf err:%d.",
+					     __func__, __LINE__, n);
+			} else
+				DISP_PR_INFO("%s", msg);
 			return -1;
 		}
 
@@ -1750,13 +1754,16 @@ int check_disp_info(struct disp_layer_info *disp_info)
 			!((ghead >= 0) && (gtail >= 0)))
 			|| (ghead >= layer_num) || (gtail >= layer_num)
 			|| (ghead > gtail)) {
-			n = snprintf(msg, len, "[HRT]gles invalid,");
-			n += snprintf(msg + n, len - n, "disp:%d,", disp_idx);
-			n += snprintf(msg + n, len - n, "head:%d,",
-				      disp_info->gles_head[disp_idx]);
-			n += snprintf(msg + n, len - n, "tail:%d\n",
-				      disp_info->gles_tail[disp_idx]);
-			DISP_PR_ERR("%s", msg);
+			n = snprintf(msg, len,
+				     "[HRT]gles invalid,disp:%d,head:%d,tail:%d\n",
+				     disp_idx,
+				     disp_info->gles_head[disp_idx],
+				     disp_info->gles_tail[disp_idx]);
+			if (n < 0) {
+				DISP_PR_INFO("[%s %d]:snprintf err:%d.",
+					     __func__, __LINE__, n);
+			} else
+				DISP_PR_INFO("%s", msg);
 			return -1;
 		}
 	}
@@ -2255,13 +2262,16 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 				char msg[len];
 				int n = 0;
 
-				n = snprintf(msg, len, "case:%d,ext_sel_layer ",
-					     (int)test_case);
-				n += snprintf(msg + n, len - n,
-					      "wrong,%d/%d\n",
-					      input_config->ext_sel_layer,
-					      (int)layer_result);
-				DISP_PR_INFO("%s", msg);
+				n = snprintf(msg, len,
+					     "case:%d,ext_sel_layer wrong,%d/%d\n",
+					     (int)test_case,
+					     input_config->ext_sel_layer,
+					     (int)layer_result);
+				if (n < 0) {
+					DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+						     __func__, __LINE__, n);
+				} else
+					DISP_PR_INFO("%s", msg);
 				is_test_pass = false;
 			}
 		} else if (strncmp(line_buf, "[gles_result]", 13) == 0) {

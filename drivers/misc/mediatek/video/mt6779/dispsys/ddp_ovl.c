@@ -540,12 +540,19 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 		src_x = cfg->src_x + layer_partial_roi->x - cfg->dst_x;
 		src_y = cfg->src_y + layer_partial_roi->y - cfg->dst_y;
 
-		n = snprintf(msg, len, "layer partial (%d,%d)(%d,%d,%dx%d) ",
-			     cfg->src_x, cfg->src_y, cfg->dst_x, cfg->dst_y,
-			     cfg->dst_w, cfg->dst_h);
-		n += snprintf(msg + n, len - n, "to (%d,%d)(%d,%d,%dx%d)\n",
-			      src_x, src_y, dst_x, dst_y, dst_w, dst_h);
-		DDPDBG("%s", msg);
+		n = 0;
+		n = snprintf(msg, len,
+			     "layer partial (%d,%d)(%d,%d,%dx%d) to (%d,%d)(%d,%d,%dx%d)\n",
+			     cfg->src_x, cfg->src_y,
+			     cfg->dst_x, cfg->dst_y,
+			     cfg->dst_w, cfg->dst_h,
+			     src_x, src_y, dst_x,
+			     dst_y, dst_w, dst_h);
+		if (n < 0)
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		else
+			DDPDBG("%s", msg);
 	}
 
 	/* sbch can use the variable */
@@ -1392,13 +1399,14 @@ static int ovl_layer_layout(enum DISP_MODULE_ENUM module,
 
 			if (phy_layer != cfg->ext_sel_layer) {
 				n = snprintf(msg, len,
-					     "L%d layout not match: ",
-					     global_layer);
-				n += snprintf(msg + n, len - n,
-					      "cur_phy=%d, ext_sel=%d\n",
-					      phy_layer,
-					      cfg->ext_sel_layer);
-				DDP_PR_ERR("%s", msg);
+					     "L%d layout not match: cur_phy=%d, ext_sel=%d\n",
+					     global_layer, phy_layer,
+					     cfg->ext_sel_layer);
+				if (n < 0) {
+					DISP_LOG_E("[%s %d]snprintf err:%d\n",
+						   __func__, __LINE__, n);
+				} else
+					DISP_LOG_E("%s", msg);
 				phy_layer++;
 				ext_layer = -1;
 			} else {
@@ -2208,16 +2216,19 @@ void ovl_dump_golden_setting(enum DISP_MODULE_ENUM module)
 		rg2 = DISP_REG_OVL_RDMA0_MEM_GMC_S2 + i * 0x4;
 		rg3 = DISP_REG_OVL_RDMAn_BUF_LOW(i);
 		rg4 = DISP_REG_OVL_RDMAn_BUF_HIGH(i);
+		n = 0;
 		n = snprintf(msg, len,
-			     "0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x ",
+			     "0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x 0x%03lx:0x%08x\n",
 			     rg0, DISP_REG_GET(rg0 + base),
 			     rg1, DISP_REG_GET(rg1 + base),
-			     rg2, DISP_REG_GET(rg2 + base));
-		n += snprintf(msg + n, len - n,
-			      "0x%03lx:0x%08x 0x%03lx:0x%08x\n",
-			      rg3, DISP_REG_GET(rg3 + base),
-			      rg4, DISP_REG_GET(rg4 + base));
-		DDPDUMP("%s", msg);
+			     rg2, DISP_REG_GET(rg2 + base),
+			     rg3, DISP_REG_GET(rg3 + base),
+			     rg4, DISP_REG_GET(rg4 + base));
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 	}
 
 	rg0 = DISP_REG_OVL_RDMA_BURST_CON1;
@@ -2382,443 +2393,99 @@ void ovl_dump_golden_setting(enum DISP_MODULE_ENUM module)
 			base + DISP_REG_OVL_FBDC_CFG1));
 }
 
+const int raw_dump_reg[][4] = {
+	{0x0,    0x4,    0x8,    0xC},
+	{0x10,   0x14,   0x20,   0x24},
+	{0x28,   0x2c,   0x30,   0x34},
+	{0x38,   0x3c,   0xf40,  0x44},
+	{0x48,   0x4c,   0x50,   0x54},
+	{0x58,   0x5c,   0xf60,  0x64},
+	{0x68,   0x6c,   0x70,   0x74},
+	{0x78,   0x7c,   0xf80,  0x84},
+	{0x88,   0x8c,   0x90,   0x94},
+	{0x98,   0x9c,   0xfa0,  0xa4},
+	{0xa8,   0xac,   0xc0,   0xc8},
+	{0xcc,   0xd0,   0xe0,   0xe8},
+	{0xec,   0xf0,   0x100,  0x108},
+	{0x10c,  0x110,  0x120,  0x128},
+	{0x12c,  0x130,  0x134,  0x138},
+	{0x13c,  0x140,  0x144,  0x148},
+	{0x14c,  0x150,  0x154,  0x158},
+	{0x15c,  0x160,  0x164,  0x168},
+	{0x16c,  0x170,  0x174,  0x178},
+	{0x17c,  0x180,  0x184,  0x188},
+	{0x18c,  0x190,  0x194,  0x198},
+	{0x19c,  0x1a0,  0x1a4,  0x1a8},
+	{0x1ac,  0x1b0,  0x1b4,  0x1b8},
+	{0x1bc,  0x1c0,  0x1c4,  0x1c8},
+	{0x1cc,  0x1d0,  0x1d4,  0x1e0},
+	{0x1e4,  0x1e8,  0x1ec,  0x1f0},
+	{0x1f4,  0x1f8,  0x1fc,  0x200},
+	{0x208,  0x20c,  0x210,  0x214},
+	{0x218,  0x21c,  0x230,  0x234},
+	{0x23c,  0x23c,  0x23c,  0x23c},
+	{0x238,  0x240,  0x244,  0x24c},
+	{0x250,  0x254,  0x258,  0x25c},
+	{0x260,  0x264,  0x268,  0x26c},
+	{0x270,  0x280,  0x284,  0x288},
+	{0x28c,  0x290,  0x29c,  0x2a0},
+	{0x2a4,  0xab0,  0x2b4,  0x2b8},
+	{0x2bc,  0x2c0,  0x2c4,  0x2c8},
+	{0x324,  0x330,  0x334,  0x338},
+	{0x33c,  0xfb0,  0x344,  0x348},
+	{0x34c,  0x350,  0x354,  0x358},
+	{0x35c,  0xfb4,  0x364,  0x368},
+	{0x36c,  0x370,  0x374,  0x378},
+	{0x37c,  0xfb8,  0x384,  0x388},
+	{0x38c,  0x390,  0x394,  0x398},
+	{0x3a0,  0x3a4,  0x3a8,  0x3a8},
+	{0xf44,  0xf48,  0xf64,  0xf68},
+	{0xf84,  0xf88,  0xfa4,  0xfa8},
+	{0xfd0,  0xfd4,  0xfd8,  0xfdc},
+	{0xfe0,  0xfe4,  0xfc0,  0xfc0},
+};
+
 void ovl_dump_reg(enum DISP_MODULE_ENUM module)
 {
 	const int len =  100;
 	char msg[len];
-	int n = 0;
+	int n = 0, ret = 0;
+	unsigned int addr_off, times = 0;
+	const char dump_format[] =
+	"OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n";
 
 	if (disp_helper_get_option(DISP_OPT_REG_PARSER_RAW_DUMP)) {
 		unsigned long module_base = ovl_base_addr(module);
+		int i = 0;
 
 		DDPDUMP("== START: DISP %s REGS ==\n",
 			ddp_get_module_name(module));
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x0, INREG32(module_base + 0x0),
-			     0x4, INREG32(module_base + 0x4));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x8, INREG32(module_base + 0x8),
-			      0xC, INREG32(module_base + 0xC));
-		DDPDUMP("%s", msg);
+		for (i = 0; i < ARRAY_SIZE(raw_dump_reg); i++) {
+			ret = snprintf(msg, len, dump_format,
+				       /* 1st reg */
+				       raw_dump_reg[i][0],
+				       INREG32(module_base +
+				       raw_dump_reg[i][0]),
+				       /* 2nd reg */
+				       raw_dump_reg[i][1],
+				       INREG32(module_base +
+				       raw_dump_reg[i][1]),
+				       /* 3rd reg */
+				       raw_dump_reg[i][2],
+				       INREG32(module_base +
+				       raw_dump_reg[i][2]),
+				       /* 4th reg */
+				       raw_dump_reg[i][3],
+				       INREG32(module_base +
+				       raw_dump_reg[i][3]));
+			if (ret < 0) {
+				DISP_LOG_E("[%s %d]snprintf err:%d, i:%d\n",
+					   __func__, __LINE__, ret, i);
+				ret = 0;
+			}
 
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x10, INREG32(module_base + 0x10),
-			     0x14, INREG32(module_base + 0x14));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x20, INREG32(module_base + 0x20),
-			      0x24, INREG32(module_base + 0x24));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x28, INREG32(module_base + 0x28),
-			     0x2C, INREG32(module_base + 0x2C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x30, INREG32(module_base + 0x30),
-			      0x34, INREG32(module_base + 0x34));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x38, INREG32(module_base + 0x38),
-			     0x3C, INREG32(module_base + 0x3C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xF40, INREG32(module_base + 0xF40),
-			      0x44, INREG32(module_base + 0x44));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x48, INREG32(module_base + 0x48),
-			     0x4C, INREG32(module_base + 0x4C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x50, INREG32(module_base + 0x50),
-			      0x54, INREG32(module_base + 0x54));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x58, INREG32(module_base + 0x58),
-			     0x5C, INREG32(module_base + 0x5C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xF60, INREG32(module_base + 0xF60),
-			      0x64, INREG32(module_base + 0x64));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x68, INREG32(module_base + 0x68),
-			     0x6C, INREG32(module_base + 0x6C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x70, INREG32(module_base + 0x70),
-			      0x74, INREG32(module_base + 0x74));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x78, INREG32(module_base + 0x78),
-			     0x7C, INREG32(module_base + 0x7C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xF80, INREG32(module_base + 0xF80),
-			      0x84, INREG32(module_base + 0x84));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x88, INREG32(module_base + 0x88),
-			     0x8C, INREG32(module_base + 0x8C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x90, INREG32(module_base + 0x90),
-			      0x94, INREG32(module_base + 0x94));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x98, INREG32(module_base + 0x98),
-			     0x9C, INREG32(module_base + 0x9C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xFa0, INREG32(module_base + 0xFa0),
-			      0xa4, INREG32(module_base + 0xa4));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0xa8, INREG32(module_base + 0xa8),
-			     0xAC, INREG32(module_base + 0xAC));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xc0, INREG32(module_base + 0xc0),
-			      0xc8, INREG32(module_base + 0xc8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0xcc, INREG32(module_base + 0xcc),
-			     0xd0, INREG32(module_base + 0xd0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xe0, INREG32(module_base + 0xe0),
-			      0xe8, INREG32(module_base + 0xe8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0xec, INREG32(module_base + 0xec),
-			     0xf0, INREG32(module_base + 0xf0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x100, INREG32(module_base + 0x100),
-			      0x108, INREG32(module_base + 0x108));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x10c, INREG32(module_base + 0x10c),
-			     0x110, INREG32(module_base + 0x110));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x120, INREG32(module_base + 0x120),
-			      0x128, INREG32(module_base + 0x128));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x12c, INREG32(module_base + 0x12c),
-			     0x130, INREG32(module_base + 0x130));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x134, INREG32(module_base + 0x134),
-			      0x138, INREG32(module_base + 0x138));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x13c, INREG32(module_base + 0x13c),
-			     0x140, INREG32(module_base + 0x140));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x144, INREG32(module_base + 0x144),
-			      0x148, INREG32(module_base + 0x148));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x14c, INREG32(module_base + 0x14c),
-			     0x150, INREG32(module_base + 0x150));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x154, INREG32(module_base + 0x154),
-			      0x158, INREG32(module_base + 0x158));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x15c, INREG32(module_base + 0x15c),
-			     0x160, INREG32(module_base + 0x160));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x164, INREG32(module_base + 0x164),
-			      0x168, INREG32(module_base + 0x168));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x16c, INREG32(module_base + 0x16c),
-			     0x170, INREG32(module_base + 0x170));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x174, INREG32(module_base + 0x174),
-			      0x178, INREG32(module_base + 0x178));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x17c, INREG32(module_base + 0x17c),
-			     0x180, INREG32(module_base + 0x180));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x184, INREG32(module_base + 0x184),
-			      0x188, INREG32(module_base + 0x188));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x18c, INREG32(module_base + 0x18c),
-			     0x190, INREG32(module_base + 0x190));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x194, INREG32(module_base + 0x194),
-			      0x198, INREG32(module_base + 0x198));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x19c, INREG32(module_base + 0x19c),
-			     0x1a0, INREG32(module_base + 0x1a0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x1a4, INREG32(module_base + 0x1a4),
-			      0x1a8, INREG32(module_base + 0x1a8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x1ac, INREG32(module_base + 0x1ac),
-			     0x1b0, INREG32(module_base + 0x1b0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x1b4, INREG32(module_base + 0x1b4),
-			      0x1b8, INREG32(module_base + 0x1b8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x1bc, INREG32(module_base + 0x1bc),
-			     0x1c0, INREG32(module_base + 0x1c0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x1c4, INREG32(module_base + 0x1c4),
-			      0x1c8, INREG32(module_base + 0x1c8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x1cc, INREG32(module_base + 0x1cc),
-			     0x1d0, INREG32(module_base + 0x1d0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x1d4, INREG32(module_base + 0x1d4),
-			      0x1e0, INREG32(module_base + 0x1e0));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x1e4, INREG32(module_base + 0x1e4),
-			     0x1e8, INREG32(module_base + 0x1e8));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x1ec, INREG32(module_base + 0x1ec),
-			      0x1F0, INREG32(module_base + 0x1F0));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x1F4, INREG32(module_base + 0x1F4),
-			     0x1F8, INREG32(module_base + 0x1F8));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x1FC, INREG32(module_base + 0x1FC),
-			      0x200, INREG32(module_base + 0x200));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x208, INREG32(module_base + 0x208),
-			     0x20C, INREG32(module_base + 0x20C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x210, INREG32(module_base + 0x210),
-			      0x214, INREG32(module_base + 0x214));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x218, INREG32(module_base + 0x218),
-			     0x21C, INREG32(module_base + 0x21C));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x230, INREG32(module_base + 0x230),
-			      0x234, INREG32(module_base + 0x234));
-		DDPDUMP("%s", msg);
-
-		DDPDUMP("OVL0: 0x%04x=0x%08x\n",
-			0x23C, INREG32(module_base + 0x23C));
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x238, INREG32(module_base + 0x238),
-			     0x240, INREG32(module_base + 0x240));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x244, INREG32(module_base + 0x244),
-			      0x24c, INREG32(module_base + 0x24c));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x250, INREG32(module_base + 0x250),
-			     0x254, INREG32(module_base + 0x254));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x258, INREG32(module_base + 0x258),
-			      0x25c, INREG32(module_base + 0x25c));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x260, INREG32(module_base + 0x260),
-			     0x264, INREG32(module_base + 0x264));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x268, INREG32(module_base + 0x268),
-			      0x26C, INREG32(module_base + 0x26C));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x270, INREG32(module_base + 0x270),
-			     0x280, INREG32(module_base + 0x280));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x284, INREG32(module_base + 0x284),
-			      0x288, INREG32(module_base + 0x288));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x28C, INREG32(module_base + 0x28C),
-			     0x290, INREG32(module_base + 0x290));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x29C, INREG32(module_base + 0x29C),
-			      0x2A0, INREG32(module_base + 0x2A0));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x2A4, INREG32(module_base + 0x2A4),
-			     0x2B0, INREG32(module_base + 0x2B0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x2B4, INREG32(module_base + 0x2B4),
-			      0x2B8, INREG32(module_base + 0x2B8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x2BC, INREG32(module_base + 0x2BC),
-			     0x2C0, INREG32(module_base + 0x2C0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x2C4, INREG32(module_base + 0x2C4),
-			      0x2C8, INREG32(module_base + 0x2C8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x324, INREG32(module_base + 0x324),
-			     0x330, INREG32(module_base + 0x330));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x334, INREG32(module_base + 0x334),
-			      0x338, INREG32(module_base + 0x338));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x33C, INREG32(module_base + 0x33C),
-			     0xFB0, INREG32(module_base + 0xFB0));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x344, INREG32(module_base + 0x344),
-			      0x348, INREG32(module_base + 0x348));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x34C, INREG32(module_base + 0x34C),
-			     0x350, INREG32(module_base + 0x350));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x354, INREG32(module_base + 0x354),
-			      0x358, INREG32(module_base + 0x358));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x35C, INREG32(module_base + 0x35C),
-			     0xFB4, INREG32(module_base + 0xFB4));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x364, INREG32(module_base + 0x364),
-			      0x368, INREG32(module_base + 0x368));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x36C, INREG32(module_base + 0x36C),
-			     0x370, INREG32(module_base + 0x370));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x374, INREG32(module_base + 0x374),
-			      0x378, INREG32(module_base + 0x378));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x37C, INREG32(module_base + 0x37C),
-			     0xFB8, INREG32(module_base + 0xFB8));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x384, INREG32(module_base + 0x384),
-			      0x388, INREG32(module_base + 0x388));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0x38C, INREG32(module_base + 0x38C),
-			     0x390, INREG32(module_base + 0x390));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0x394, INREG32(module_base + 0x394),
-			      0x398, INREG32(module_base + 0x398));
-		DDPDUMP("%s", msg);
-
-		DDPDUMP("OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			0x3A0, INREG32(module_base + 0x3A0),
-			0x3A4, INREG32(module_base + 0x3A4),
-			0x3A8, INREG32(module_base + 0x3A8));
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0xF44, INREG32(module_base + 0xF44),
-			     0xF48, INREG32(module_base + 0xF48));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xF64, INREG32(module_base + 0xF64),
-			      0xF68, INREG32(module_base + 0xF68));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0xF84, INREG32(module_base + 0xF84),
-			     0xF88, INREG32(module_base + 0xF88));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xFA4, INREG32(module_base + 0xFA4),
-			      0xFA8, INREG32(module_base + 0xFA8));
-		DDPDUMP("%s", msg);
-
-		n = snprintf(msg, len, "OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
-			     0xFD0, INREG32(module_base + 0xFD0),
-			     0xFD4, INREG32(module_base + 0xFD4));
-		n += snprintf(msg + n, len - n,
-			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			      0xFD8, INREG32(module_base + 0xFD8),
-			      0xFDC, INREG32(module_base + 0xFDC));
-		DDPDUMP("%s", msg);
-
-		DDPDUMP("OVL0: 0x%04x=0x%08x, 0x%04x=0x%08x, 0x%04x=0x%08x\n",
-			0xFE0, INREG32(module_base + 0xFE0),
-			0xFE4, INREG32(module_base + 0xFE4),
-			0xFC0, INREG32(module_base + 0xFC0));
+			DDPDUMP("%s", msg);
+		}
 		DDPDUMP("-- END: DISP %s REGS --\n",
 			ddp_get_module_name(module));
 	} else {
@@ -2902,30 +2569,46 @@ static void ovl_printf_status(unsigned int status)
 	int n = 0;
 
 	DDPDUMP("- OVL_FLOW_CONTROL_DEBUG -\n");
-	n = snprintf(msg, len, "addcon_idle:%d,blend_idle:%d,out_valid:%d,",
-		     (status >> 10) & (0x1), (status >> 11) & (0x1),
-		     (status >> 12) & (0x1));
-	n += snprintf(msg + n, len - n, "out_ready:%d,out_idle:%d\n",
-		      (status >> 13) & (0x1), (status >> 15) & (0x1));
-	DDPDUMP("%s", msg);
+	n = snprintf(msg, len,
+		     "addcon_idle:%d,blend_idle:%d,out_valid:%d, out_ready:%d,out_idle:%d\n",
+		     (status >> 10) & (0x1),
+		     (status >> 11) & (0x1),
+		     (status >> 12) & (0x1),
+		     (status >> 13) & (0x1),
+		     (status >> 15) & (0x1));
+
+	if (n < 0) {
+		DISP_LOG_E("[%s %d]snprintf err:%d\n",
+			   __func__, __LINE__, n);
+		n = 0;
+	} else
+		DDPDUMP("%s", msg);
+
 	DDPDUMP("rdma_idle3-0:(%d,%d,%d,%d),rst:%d\n",
 		(status >> 16) & (0x1), (status >> 17) & (0x1),
 		(status >> 18) & (0x1), (status >> 19) & (0x1),
 		(status >> 20) & (0x1));
-	n = snprintf(msg, len, "trig:%d,frame_hwrst_done:%d,",
-		     (status >> 21) & (0x1), (status >> 23) & (0x1));
-	n += snprintf(msg + n, len - n,
-		      "frame_swrst_done:%d,frame_underrun:%d,frame_done:%d\n",
-		      (status >> 24) & (0x1), (status >> 25) & (0x1),
-		      (status >> 26) & (0x1));
-	DDPDUMP("%s", msg);
-	n = snprintf(msg, len, "ovl_running:%d,ovl_start:%d,",
-		     (status >> 27) & (0x1), (status >> 28) & (0x1));
-	n += snprintf(msg + n, len - n,
-		      "ovl_clr:%d,reg_update:%d,ovl_upd_reg:%d\n",
-		      (status >> 29) & (0x1), (status >> 30) & (0x1),
-		      (status >> 31) & (0x1));
-	DDPDUMP("%s", msg);
+	n = snprintf(msg, len,
+		     "trig:%d,frame_hwrst_done:%d,frame_swrst_done:%d,frame_underrun:%d,frame_done:%d\n",
+		     (status >> 21) & (0x1), (status >> 23) & (0x1),
+		     (status >> 24) & (0x1), (status >> 25) & (0x1),
+		     (status >> 26) & (0x1));
+	if (n < 0) {
+		DISP_LOG_E("[%s %d]snprintf err:%d\n",
+			   __func__, __LINE__, n);
+	} else
+		DDPDUMP("%s", msg);
+
+	n = snprintf(msg, len,
+		     "ovl_running:%d,ovl_start:%d,ovl_clr:%d,reg_update:%d,ovl_upd_reg:%d\n",
+		     (status >> 27) & (0x1), (status >> 28) & (0x1),
+		     (status >> 29) & (0x1), (status >> 30) & (0x1),
+		     (status >> 31) & (0x1));
+	if (n < 0)
+		DISP_LOG_E("[%s %d]snprintf err:%d\n",
+			   __func__, __LINE__, n);
+	else
+		DDPDUMP("%s", msg);
 
 	DDPDUMP("ovl_fms_state:\n");
 	switch (status & 0x3ff) {
@@ -3040,19 +2723,22 @@ static void ovl_dump_layer_info(enum DISP_MODULE_ENUM module, int layer,
 			REG_FLD_VAL_GET(L_CON_FLD_BTSW, con),
 			REG_FLD_VAL_GET(L_CON_FLD_RGB_SWAP, con));
 
-	n = snprintf(msg, len, "%s_L%d:(%u,%u,%ux%u),pitch=%u,",
+	n = snprintf(msg, len,
+		     "%s_L%d:(%u,%u,%ux%u),pitch=%u,addr=0x%08x,fmt=%s,source=%s,aen=%u,alpha=%u\n",
 		     is_ext_layer ? "ext" : "phy", layer,
 		     offset & 0xfff, (offset >> 16) & 0xfff,
 		     src_size & 0xfff, (src_size >> 16) & 0xfff,
-		     pitch & 0xffff);
-	n += snprintf(msg + n, len - n,
-		      "addr=0x%08x,fmt=%s,source=%s,aen=%u,alpha=%u\n",
-		      addr, unified_color_fmt_name(fmt),
-		      (REG_FLD_VAL_GET(L_CON_FLD_LSRC, con) == 0) ?
-		      "mem" : "constant_color",
-		      REG_FLD_VAL_GET(L_CON_FLD_AEN, con),
-		      REG_FLD_VAL_GET(L_CON_FLD_APHA, con));
-	DDPDUMP("%s", msg);
+		     pitch & 0xffff,
+		     addr, unified_color_fmt_name(fmt),
+		     (REG_FLD_VAL_GET(L_CON_FLD_LSRC, con) == 0) ?
+		     "mem" : "constant_color",
+		     REG_FLD_VAL_GET(L_CON_FLD_AEN, con),
+		     REG_FLD_VAL_GET(L_CON_FLD_APHA, con));
+	if (n < 0) {
+		DISP_LOG_E("[%s %d]snprintf err:%d\n",
+			   __func__, __LINE__, n);
+	} else
+		DDPDUMP("%s", msg);
 
 	ovl_dump_layer_info_compress(module, layer, is_ext_layer);
 }

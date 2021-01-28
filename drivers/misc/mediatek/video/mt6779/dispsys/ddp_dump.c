@@ -422,26 +422,46 @@ void dump_reg_row(unsigned long baddr, unsigned long offset, unsigned int count)
 {
 	const int buf_len = 7 + count * 11;
 	char buf[buf_len];
-	int len = 0;
+	int len = 0, ret = 0;
 	int i = 0;
 	unsigned int val = 0;
 
 	if (count > 4)
 		return;
 
-	len = snprintf(buf, buf_len, "0x%03lx:", offset);
+	ret = snprintf(buf, buf_len, "0x%03lx:", offset);
+	if (ret < 0) {
+		DISP_LOG_E("[%s %d]snprintf err:%d\n",
+			   __func__, __LINE__, ret);
+		ret = 0;
+	}
+	len += ret;
+
 	for (i = 0; i < count; i++) {
 		val = INREG32(baddr + offset + 0x4 * i);
 		if (val)
-			len += snprintf(buf + len, buf_len - len,
-					"0x%08x", val);
+			ret = snprintf(buf + len, buf_len - len,
+				       "0x%08x", val);
 		else
-			len += snprintf(buf + len, buf_len - len, "%10x", val);
+			ret = snprintf(buf + len, buf_len - len, "%10x", val);
+		if (ret < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, ret);
+			ret = 0;
+		}
+		len += ret;
 
 		if (i < count - 1)
-			len += snprintf(buf + len, buf_len - len, " ");
+			ret = snprintf(buf + len, buf_len - len, " ");
 		else if (i == count - 1)
-			len += snprintf(buf + len, buf_len - len, "\n");
+			ret = snprintf(buf + len, buf_len - len, "\n");
+		if (ret < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, ret);
+			ret = 0;
+		}
+		len += ret;
+
 	}
 
 	DDPDUMP("%s", buf);
@@ -931,10 +951,13 @@ static void mmsys_config_dump_analysis(void)
 
 	/* greq: 1 means SMI dose not grant, maybe SMI hang */
 	if (greq) {
-		n = snprintf(msg, len, "smi greq not grant module: (greq: ");
-		n += snprintf(msg + n, len - n,
-			      "1 means SMI dose not grant, maybe SMI hang)");
-		DDPDUMP("%s", msg);
+		n = snprintf(msg, len,
+			     "smi greq not grant module: (greq: 1 means SMI dose not grant, maybe SMI hang)");
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 	}
 
 	clock_on[0] = '\0';

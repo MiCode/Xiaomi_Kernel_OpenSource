@@ -87,7 +87,10 @@
 #define disp_aee_print(string, args...)					\
 	do {								\
 		char disp_name[100];					\
-		snprintf(disp_name, 100, "[DISP]"string, ##args);	\
+		int ret;						\
+		ret = snprintf(disp_name, 100, "[DISP]"string, ##args);	\
+		if (ret < 0)						\
+			disp_name[0] = '\0';				\
 		aee_kernel_warning_api(__FILE__, __LINE__,		\
 				DB_OPT_DEFAULT | DB_OPT_MMPROFILE_BUFFER | \
 				DB_OPT_DISPLAY_HANG_DUMP | DB_OPT_DUMP_DISPLAY,\

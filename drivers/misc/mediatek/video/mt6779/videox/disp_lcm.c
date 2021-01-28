@@ -145,48 +145,58 @@ void _dump_lcm_info(struct disp_lcm_handle *plcm)
 		int n = 0;
 
 		DISPCHECK("[LCM] LANE_NUM: %d\n", (int)p->dsi.LANE_NUM);
-		n = snprintf(msg, len, "[LCM] vact: %u, vbp: %u, vfp: %u, ",
-			p->dsi.vertical_sync_active, p->dsi.vertical_backporch,
-			p->dsi.vertical_frontporch);
-		n += snprintf(msg + n, len - n,
-			      "vact_line: %u, hact: %u, hbp: %u, ",
-			      p->dsi.vertical_active_line,
-			      p->dsi.horizontal_sync_active,
-			      p->dsi.horizontal_backporch);
-		n += snprintf(msg + n, len - n, "hfp: %u, hblank: %u\n",
-			      p->dsi.horizontal_frontporch,
-			      p->dsi.horizontal_blanking_pixel);
-		DISPCHECK("%s", msg);
-
-		n = snprintf(msg, len, "[LCM] pll_select: %d, pll_div1: %d, ",
-			     p->dsi.pll_select, p->dsi.pll_div1);
-		n += snprintf(msg + n, len - n,
-			      "pll_div2: %d, fbk_div: %d,fbk_sel: %d, ",
-			      p->dsi.pll_div2, p->dsi.fbk_div, p->dsi.fbk_sel);
-		n += snprintf(msg + n, len - n, "rg_bir: %d\n", p->dsi.rg_bir);
-		DISPCHECK("%s", msg);
+		n = snprintf(msg, len,
+			"[LCM] vact: %u, vbp: %u, vfp: %u, vact_line: %u, hact: %u, hbp: %u, hfp: %u, hblank: %u\n",
+			p->dsi.vertical_sync_active,
+			p->dsi.vertical_backporch,
+			p->dsi.vertical_frontporch,
+			p->dsi.vertical_active_line,
+			p->dsi.horizontal_sync_active,
+			p->dsi.horizontal_backporch,
+			p->dsi.horizontal_frontporch,
+			p->dsi.horizontal_blanking_pixel);
+		if (n < 0) {
+			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+				     __func__, __LINE__, n);
+		} else
+			DISPCHECK("%s", msg);
 
 		n = snprintf(msg, len,
-			     "[LCM] rg_bic: %d, rg_bp: %d,PLL_CLOCK: %d, ",
-			     p->dsi.rg_bic, p->dsi.rg_bp, p->dsi.PLL_CLOCK);
-		n += snprintf(msg + n, len - n,
-			      "dsi_clock: %d, ssc_range: %d,ssc_disable: %d\n",
-			      p->dsi.dsi_clock, p->dsi.ssc_range,
-			      p->dsi.ssc_disable);
-		DISPCHECK("%s", msg);
+			     "[LCM] pll_select: %d, pll_div1: %d, pll_div2: %d, fbk_div: %d,fbk_sel: %d, rg_bir: %d\n",
+			     p->dsi.pll_select, p->dsi.pll_div1,
+			     p->dsi.pll_div2, p->dsi.fbk_div,
+			     p->dsi.fbk_sel, p->dsi.rg_bir);
+		if (n < 0) {
+			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+				     __func__, __LINE__, n);
+		} else
+			DISPCHECK("%s", msg);
+
+		n = snprintf(msg, len,
+			     "[LCM] rg_bic: %d, rg_bp: %d,PLL_CLOCK: %d, dsi_clock: %d, ssc_range: %d,ssc_disable: %d\n",
+			     p->dsi.rg_bic, p->dsi.rg_bp, p->dsi.PLL_CLOCK,
+			     p->dsi.dsi_clock, p->dsi.ssc_range,
+			     p->dsi.ssc_disable);
+		if (n < 0) {
+			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+				     __func__, __LINE__, n);
+		} else
+			DISPCHECK("%s", msg);
 
 		DISPCHECK("[LCM]compatibility_for_nvk: %d, cont_clock: %d\n",
 		     p->dsi.compatibility_for_nvk,
 		     p->dsi.cont_clock);
 
 		n = snprintf(msg, len,
-			     "[LCM] lcm_ext_te_enable: %d, ",
-			     p->dsi.lcm_ext_te_enable);
-		n += snprintf(msg + n, len - n,
-			      "noncont_clock: %d, noncont_clock_period: %d\n",
-			      p->dsi.noncont_clock,
-			      p->dsi.noncont_clock_period);
-		DISPCHECK("%s", msg);
+			     "[LCM] lcm_ext_te_enable: %d, noncont_clock: %d, noncont_clock_period: %d\n",
+			     p->dsi.lcm_ext_te_enable,
+			     p->dsi.noncont_clock,
+			     p->dsi.noncont_clock_period);
+		if (n < 0) {
+			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+				     __func__, __LINE__, n);
+		} else
+			DISPCHECK("%s", msg);
 	}
 }
 

@@ -413,31 +413,33 @@ void rsz_dump_analysis(enum DISP_MODULE_ENUM module)
 
 	DISP_REG_SET(NULL, baddr + DISP_REG_RSZ_DEBUG_SEL, 0x3);
 	n = snprintf(msg, len,
-		     "en:%d,rst:%d,h_en:%d,v_en:%d,h_table:%d,v_table:%d,",
+		     "en:%d,rst:%d,h_en:%d,v_en:%d,h_table:%d,v_table:%d,dcm_dis:%d,int_en:%d,wclr_en:%d\n",
 		     REG_FLD_VAL_GET(FLD_RSZ_EN, enable),
 		     REG_FLD_VAL_GET(FLD_RSZ_RST, enable),
 		     REG_FLD_VAL_GET(FLD_RSZ_HORIZONTAL_EN, con1),
 		     REG_FLD_VAL_GET(FLD_RSZ_VERTICAL_EN, con1),
 		     REG_FLD_VAL_GET(FLD_RSZ_HORIZONTAL_TABLE_SELECT, con1),
-		     REG_FLD_VAL_GET(FLD_RSZ_VERTICAL_TABLE_SELECT, con1));
-	n += snprintf(msg + n, len - n,
-		      "dcm_dis:%d,int_en:%d,wclr_en:%d\n",
-		      REG_FLD_VAL_GET(FLD_RSZ_DCM_DIS, con1),
-		      REG_FLD_VAL_GET(FLD_RSZ_INTEN, con1),
-		      REG_FLD_VAL_GET(FLD_RSZ_INT_WCLR_EN, con1));
-	DDPDUMP("%s", msg);
+		     REG_FLD_VAL_GET(FLD_RSZ_VERTICAL_TABLE_SELECT, con1),
+		     REG_FLD_VAL_GET(FLD_RSZ_DCM_DIS, con1),
+		     REG_FLD_VAL_GET(FLD_RSZ_INTEN, con1),
+		     REG_FLD_VAL_GET(FLD_RSZ_INT_WCLR_EN, con1));
+	if (n < 0)
+		DISP_LOG_E("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
+	else
+		DDPDUMP("%s", msg);
 
 	n = snprintf(msg, len,
-		     "power_saving:%d,rgb_bit_mode:%d,frm_start:%d,frm_end:%d,",
+		     "power_saving:%d,rgb_bit_mode:%d,frm_start:%d,frm_end:%d,size_err:%d,sof_rst:%d\n",
 		     REG_FLD_VAL_GET(FLD_RSZ_POWER_SAVING, con2),
 		     REG_FLD_VAL_GET(FLD_RSZ_RGB_BIT_MODE, con2),
 		     REG_FLD_VAL_GET(FLD_RSZ_FRAME_START, int_flag),
-		     REG_FLD_VAL_GET(FLD_RSZ_FRAME_END, int_flag));
-	n += snprintf(msg + n, len - n,
-		      "size_err:%d,sof_rst:%d\n",
-		      REG_FLD_VAL_GET(FLD_RSZ_SIZE_ERR, int_flag),
-		      REG_FLD_VAL_GET(FLD_RSZ_SOF_RESET, int_flag));
-	DDPDUMP("%s", msg);
+		     REG_FLD_VAL_GET(FLD_RSZ_FRAME_END, int_flag),
+		     REG_FLD_VAL_GET(FLD_RSZ_SIZE_ERR, int_flag),
+		     REG_FLD_VAL_GET(FLD_RSZ_SOF_RESET, int_flag));
+	if (n < 0)
+		DISP_LOG_E("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
+	else
+		DDPDUMP("%s", msg);
 
 	n = snprintf(msg, len,
 		     "in(%ux%u),out(%ux%u),h_step:%d,v_step:%d\n",
@@ -447,7 +449,10 @@ void rsz_dump_analysis(enum DISP_MODULE_ENUM module)
 		     REG_FLD_VAL_GET(FLD_RSZ_OUTPUT_IMAGE_H, out_size),
 		     DISP_REG_GET(baddr + DISP_REG_RSZ_HORIZONTAL_COEFF_STEP),
 		     DISP_REG_GET(baddr + DISP_REG_RSZ_VERTICAL_COEFF_STEP));
-	DDPDUMP("%s", msg);
+	if (n < 0)
+		DISP_LOG_E("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
+	else
+		DDPDUMP("%s", msg);
 
 	n = snprintf(msg, len,
 		     "luma_h:%d.%d,luma_v:%d.%d\n",
@@ -459,17 +464,22 @@ void rsz_dump_analysis(enum DISP_MODULE_ENUM module)
 				  DISP_REG_RSZ_LUMA_VERTICAL_INTEGER_OFFSET),
 		     DISP_REG_GET(baddr +
 				  DISP_REG_RSZ_LUMA_VERTICAL_SUBPIXEL_OFFSET));
-	DDPDUMP("%s", msg);
+	if (n < 0)
+		DISP_LOG_E("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
+	else
+		DDPDUMP("%s", msg);
 
 	n = snprintf(msg, len,
-		     "dbg_sel:%d, in(%u,%u);shadow_ctrl:bypass:%d,force:%d,",
+		     "dbg_sel:%d, in(%u,%u);shadow_ctrl:bypass:%d,force:%d,read_working:%d\n",
 		     DISP_REG_GET(baddr + DISP_REG_RSZ_DEBUG_SEL),
 		     in_pos & 0xFFFF, (in_pos >> 16) & 0xFFFF,
 		     REG_FLD_VAL_GET(FLD_RSZ_BYPASS_SHADOW, shadow),
-		     REG_FLD_VAL_GET(FLD_RSZ_FORCE_COMMIT, shadow));
-	n += snprintf(msg + n, len - n, "read_working:%d\n",
-		      REG_FLD_VAL_GET(FLD_RSZ_READ_WRK_REG, shadow));
-	DDPDUMP("%s", msg);
+		     REG_FLD_VAL_GET(FLD_RSZ_FORCE_COMMIT, shadow),
+		     REG_FLD_VAL_GET(FLD_RSZ_READ_WRK_REG, shadow));
+	if (n < 0)
+		DISP_LOG_E("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
+	else
+		DDPDUMP("%s", msg);
 }
 
 void rsz_dump_reg(enum DISP_MODULE_ENUM module)
