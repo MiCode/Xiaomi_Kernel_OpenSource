@@ -21,6 +21,8 @@
 
 #define TAG "PERF_IOCTL"
 
+#define MAX_STEP 10
+
 void (*fpsgo_notify_qudeq_fp)(int qudeq,
 		unsigned int startend,
 		int pid, unsigned long long identifier);
@@ -71,6 +73,9 @@ static void perfctl_notify_fpsgo_nn_begin(
 	if (!fpsgo_notify_nn_job_begin_fp || !fpsgo_get_nn_ttime_fp)
 		return;
 
+	if (msgKM->num_step > MAX_STEP)
+		return;
+
 	fpsgo_notify_nn_job_begin_fp(msgKM->tid, msgKM->mid);
 
 	arr_length = msgKM->num_step * MAX_DEVICE;
@@ -103,6 +108,9 @@ static void perfctl_notify_fpsgo_nn_end(
 	pob_nn_update(POB_NN_END, &pnmi);
 
 	if (!fpsgo_notify_nn_job_end_fp || !fpsgo_get_nn_priority_fp)
+		return;
+
+	if (msgKM->num_step > MAX_STEP)
 		return;
 
 	size = msgKM->num_step * MAX_DEVICE;
