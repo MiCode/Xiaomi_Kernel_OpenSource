@@ -312,15 +312,15 @@ static enum IMGSENSOR_RETURN regulator_set(
 				    regulator_voltage[
 				   pin_state - IMGSENSOR_HW_PIN_STATE_LEVEL_0]);
 			}
-			if (voltage == REGULATOR_VOLTAGE_1300 &&
+			if (voltage == REGULATOR_VOLTAGE_1290 &&
 						sensor_idx == 1) {
 				pr_info("set_sub_sensor vcamd to %dmV\n",
 						voltage/1000);
 				regmap_write(g_regmap, MT6357_VCAMD_ANA_CON0,
-						0x700);
+						0x609);
 				regmap_read(g_regmap, MT6357_VCAMD_ANA_CON0,
 						&regval);
-				if (regval == 0x700)
+				if (regval == 0x609)
 					pr_info("set vcamd to %dmV success!\n",
 							voltage/1000);
 			}
