@@ -317,7 +317,7 @@ int mt6779_afe_enable_clock(struct mtk_base_afe *afe)
 	}
 
 	ret = mt6779_set_audio_int_bus_parent(afe,
-					      CLK_TOP_MAINPLL_D2_D4);
+					      CLK_CLK26M);
 	if (ret)
 		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
@@ -393,7 +393,7 @@ int mt6779_afe_suspend_clock(struct mtk_base_afe *afe)
 	return 0;
 
 CLK_MUX_AUDIO_INTBUS_PARENT_ERR:
-	mt6779_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D2_D4);
+	mt6779_set_audio_int_bus_parent(afe, CLK_CLK26M);
 CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	return ret;
@@ -412,7 +412,7 @@ int mt6779_afe_resume_clock(struct mtk_base_afe *afe)
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
 	ret = mt6779_set_audio_int_bus_parent(afe,
-					      CLK_TOP_MAINPLL_D2_D4);
+					      CLK_CLK26M);
 	if (ret)
 		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
