@@ -295,7 +295,9 @@ static ssize_t hps_pwrseq_proc_write(struct file *file,
 	rc = copy_from_user(desc, buffer, len);
 	if (rc)
 		return rc;
-	desc[len] = 0;
+
+	if (len > 0)
+		desc[len] = 0;
 
 	pwrseq = kcalloc(cluster_num, sizeof(*pwrseq), GFP_KERNEL);
 	if (!pwrseq)
@@ -375,7 +377,8 @@ static ssize_t hps_num_base_perf_serv_proc_write(struct file *file,
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 
-	desc[len] = '\0';
+	if (len > 0)
+		desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
 	&& (sscanf(desc, "%u %u", &little_num_base_perf_serv,
@@ -493,7 +496,8 @@ static ssize_t hps_num_limit_thermal_proc_write(struct file *file,
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 
-	desc[len] = '\0';
+	if (len > 0)
+		desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
 	&& (sscanf(desc, "%u %u", &little_num_limit_thermal,
@@ -583,7 +587,8 @@ static ssize_t hps_num_limit_low_battery_proc_write(struct file *file,
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 
-	desc[len] = '\0';
+	if (len > 0)
+		desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
 	    && (sscanf(desc, "%u %u", &little_num_limit_low_battery,
@@ -679,7 +684,8 @@ static ssize_t hps_num_limit_ultra_power_saving_proc_write(struct file *file,
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 
-	desc[len] = '\0';
+	if (len > 0)
+		desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
 	    &&
@@ -780,7 +786,8 @@ static ssize_t hps_num_limit_power_serv_proc_write(struct file *file,
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 
-	desc[len] = '\0';
+	if (len > 0)
+		desc[len] = '\0';
 
 	if ((hps_ctxt.is_hmp || hps_ctxt.is_amp)
 	&&

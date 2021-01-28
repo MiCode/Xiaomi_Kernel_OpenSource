@@ -54,6 +54,11 @@ void mt_ppm_register_client(enum ppm_client client,
 {
 	FUNC_ENTER(FUNC_LV_API);
 
+	if (client < 0) {
+		ppm_err("invalid client value: %d\n", client);
+		return;
+	}
+
 	ppm_lock(&ppm_main_info.lock);
 
 	/* init client */

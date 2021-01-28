@@ -436,7 +436,8 @@ static unsigned int get_limit_opp_and_budget(void)
 		cobra_lookup_data.limit[PPM_CLUSTER_LL].opp = i;
 
 		idx = cobra_lookup_data.limit[PPM_CLUSTER_LL].core - 1;
-		power = cobra_tbl.ptbl[idx][i].power_idx;
+		if (idx > 0)
+			power = cobra_tbl.ptbl[idx][i].power_idx;
 
 		if (power <= cobra_lookup_data.budget)
 			return power;
