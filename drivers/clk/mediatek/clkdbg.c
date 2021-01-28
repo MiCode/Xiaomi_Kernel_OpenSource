@@ -2200,6 +2200,7 @@ static ssize_t clkdbg_write(
 		loff_t *data)
 {
 	size_t len = 0;
+	char *nl;
 
 	len = (count < (sizeof(last_cmd) - 1UL)) ?
 				count : (sizeof(last_cmd) - 1UL);
@@ -2208,8 +2209,9 @@ static ssize_t clkdbg_write(
 
 	last_cmd[len] = '\0';
 
-	if (last_cmd[len - 1UL] == '\n')
-		last_cmd[len - 1UL] = '\0';
+	nl = strchr(last_cmd, '\n');
+	if (nl != NULL)
+		*nl = '\0';
 
 	return (ssize_t)len;
 }
