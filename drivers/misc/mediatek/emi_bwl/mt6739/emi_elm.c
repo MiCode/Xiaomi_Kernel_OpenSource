@@ -232,9 +232,10 @@ static int lt_reg_save(void)
 void elm_dump(char *buf, unsigned int leng)
 {
 	unsigned long flags;
+	int err;
 
 	spin_lock_irqsave(&elm_lock, flags);
-	snprintf(buf, leng,
+	err = snprintf(buf, leng,
 		"[EMI ELM] ddr data rate: %d, valid: 0x%08x\n"
 		"%s: 0x%08x\n%s: 0x%08x\n%s: 0x%08x\n%s: 0x%08x\n"
 		"%s: 0x%08x\n%s: 0x%08x\n%s: 0x%08x\n%s: 0x%08x\n"
@@ -286,6 +287,8 @@ void elm_dump(char *buf, unsigned int leng)
 		"EMI_TTYPE16", emi_ttype[15]
 	);
 	spin_unlock_irqrestore(&elm_lock, flags);
+	if (err < 0)
+		buf = NULL;
 }
 
 /* elm_irq handler */

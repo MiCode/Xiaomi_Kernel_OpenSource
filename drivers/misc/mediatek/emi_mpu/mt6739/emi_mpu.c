@@ -155,7 +155,7 @@ static void __clear_emi_mpu_vio(void)
 
 static int mpu_check_violation(void)
 {
-	u32 dbg_s, dbg_t, dbg_t_2nd;
+	u32 dbg_s, dbg_t, dbg_t_2nd, err;
 	u32 master_ID, domain_ID, wr_vio, wr_oo_vio;
 	s32 region;
 	const char *master_name;
@@ -205,11 +205,13 @@ static int mpu_check_violation(void)
 			char str[60] = "0";
 			char *pstr = str;
 
-			sprintf(pstr, "EMI_MPUS = 0x%x, ADDR = 0x%llx", dbg_s, vio_addr);
+			err = sprintf(pstr, "EMI_MPUS = 0x%x, ADDR = 0x%llx", dbg_s, vio_addr);
 
 			exec_ccci_kern_func_by_md_id(0, ID_MD_MPU_ASSERT, str, strlen(str));
-			pr_info("[EMI MPU] MPU violation trigger MD str=%s strlen(str)=%d\n",
-				str, (int)strlen(str));
+
+			if (err > 0)
+				pr_info("[EMI MPU] MPU violation trigger MD str=%s strlen(str)=%d\n",
+					str, (int)strlen(str));
 		}
 
 		aee_kernel_exception("EMI MPU",
