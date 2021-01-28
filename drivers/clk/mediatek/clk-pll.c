@@ -143,10 +143,10 @@ static void mtk_pll_set_rate_regs(struct mtk_clk_pll *pll, u32 pcw,
 	if (pll->tuner_addr)
 		writel(val + 1, pll->tuner_addr);
 
-	if (pll->pd_addr != pll->pcw_addr) {
+	if (pll->pd_addr != pll->pcw_addr)
 		val = readl(pll->pd_addr);
-		val |= CON1_PCW_CHG;
-	}
+
+	val |= CON1_PCW_CHG;
 
 	writel(val, pll->pd_addr);
 
