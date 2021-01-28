@@ -11,18 +11,14 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#ifndef __HELIO_DVFSRC_MT6885_H
-#define __HELIO_DVFSRC_MT6885_H
+#ifndef __HELIO_DVFSRC_MT6873_H
+#define __HELIO_DVFSRC_MT6873_H
 
 #include <mach/upmu_hw.h>
 
 #define PMIC_VCORE_ADDR		PMIC_RG_BUCK_VGPU11_VOSEL
 #define VCORE_BASE_UV		400000
 #define VCORE_STEP_UV		6250
-
-#define PMIC_VSRAM_OTHERS_ADDR	PMIC_RG_LDO_VSRAM_OTHERS_VOSEL
-#define VSRAM_BASE_UV	500000
-#define VSRAM_STEP_UV	6250
 
 /* PMIC */
 #define __vcore_pmic_to_uv(pmic)	\
@@ -31,13 +27,6 @@
 #define __vcore_uv_to_pmic(uv)	/* pmic >= uv */	\
 	((((uv) - VCORE_BASE_UV) + (VCORE_STEP_UV - 1)) / VCORE_STEP_UV)
 
-/* VSRAM_OTHERS */
-#define vsram_pmic_to_uv(pmic)	\
-		(((pmic) * VSRAM_STEP_UV) + VSRAM_BASE_UV)
-
-#define vsram_uv_to_pmic(uv)	/* pmic >= uv */	\
-		((((uv) - VSRAM_BASE_UV) + (VSRAM_STEP_UV - 1)) / VSRAM_STEP_UV)
-
 
 enum met_src_index {
 	SRC_MD2SPM_IDX = 0,
@@ -45,8 +34,6 @@ enum met_src_index {
 	DDR_SW_REQ1_SPM_IDX,
 	DDR_SW_REQ2_CM_IDX,
 	DDR_SW_REQ3_PMQOS_IDX,
-	DDR_SW_REQ4_MD_IDX,
-	DDR_SW_REQ8_MCUSYS_IDX,
 	DDR_QOS_BW_IDX,
 	DDR_EMI_TOTAL_IDX,
 	DDR_HRT_BW_IDX,
@@ -59,6 +46,7 @@ enum met_src_index {
 	VCORE_SW_REQ3_PMQOS_IDX,
 	VCORE_SCP_IDX,
 	VCORE_HIFI_IDX,
+	VCORE_PCIE_IDX,
 	SRC_SCP_REQ_IDX,
 	SRC_PMQOS_TATOL_IDX,
 	SRC_PMQOS_BW0_IDX,
@@ -75,5 +63,7 @@ enum met_src_index {
 	SRC_MD_EMI_LATENCY_IDX,
 	SRC_MAX
 };
-#endif /* __HELIO_DVFSRC_MT6885_H */
+extern u32 dvfsrc_ct_mode(void);
+extern u32 dvfsrc_vcore_mode(void);
+#endif /* __HELIO_DVFSRC_MT6873_H */
 

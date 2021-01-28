@@ -26,6 +26,7 @@
 #include <mt-plat/mtk_devinfo.h>
 #include <linux/regulator/consumer.h>
 #include "mmdvfs_pmqos.h"
+#include <ext_wd_drv.h>
 
 #define DVFSRC_1600_FLOOR
 #define AUTOK_ENABLE
@@ -196,6 +197,11 @@ static u32 dvfsrc_calc_hrt_opp(int data)
 		return DDR_OPP_0;
 }
 
+int dvfsrc_latch_register(int enable)
+{
+	return mtk_rgu_cfg_dvfsrc(enable);
+}
+
 void dvfsrc_set_isp_hrt_bw(int data)
 {
 	data = (data + 29) / 30;
@@ -274,6 +280,11 @@ static void dvfsrc_autok_manager(void)
 	finish_autok_task();
 }
 #endif
+
+void helio_dvfsrc_platform_pre_init(struct helio_dvfsrc *dvfsrc)
+{
+
+}
 
 
 void helio_dvfsrc_platform_init(struct helio_dvfsrc *dvfsrc)
