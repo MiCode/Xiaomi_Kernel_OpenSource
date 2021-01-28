@@ -73,13 +73,15 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #include <linux/i2c-dev.h>
 #include "lcm_i2c.h"
 
-#define FRAME_WIDTH			(1080)
-#define FRAME_HEIGHT			(2160)
+#define FRAME_WIDTH			(720)
+#define FRAME_HEIGHT			(1440)
+#define VIRTUAL_WIDTH		(1080)
+#define VIRTUAL_HEIGHT	(2160)
 
 /* physical size in um */
 #define LCM_PHYSICAL_WIDTH		(64500)
 #define LCM_PHYSICAL_HEIGHT		(129000)
-#define LCM_DENSITY			(480)
+#define LCM_DENSITY			(320)
 
 #define REGFLAG_DELAY			0xFFFC
 #define REGFLAG_UDELAY			0xFFFB
@@ -225,7 +227,7 @@ static struct LCM_setting_table init_setting_vdo[] = {
 		      0x14, 0x33} },
 	{0xD2, 0x02, {0x2C, 0x2C} },
 	{0xB2, 0x0B, {0x80, 0x02, 0x00, 0x80, 0x70, 0x00, 0x08, 0x1C,
-		      0x05, 0x01, 0x04} },
+		      0x09, 0x01, 0x04} },
 	{0xE9, 0x01, {0xD1} },
 	{0xB2, 0x02, {0x00, 0x08} },
 	{0xE9, 0x01, {0x00} },
@@ -341,7 +343,7 @@ static struct LCM_setting_table init_setting_vdo[] = {
 	{0x53, 0x01, {0x24} },
 	{0x55, 0x01, {0x00} },
 	{0x35, 0x01, {0x00} },
-	{0x44, 0x02, {0x08, 0x66} }, /* set TE event @ line 0x866(2150) */
+	{0x44, 2, {0x08, 0x66} }, /* set TE event @ line 0x866(2150) */
 
 	{0x11, 0, {} },
 	{REGFLAG_DELAY, 120, {} },
@@ -415,6 +417,8 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 
 	params->width = FRAME_WIDTH;
 	params->height = FRAME_HEIGHT;
+	params->virtual_width = VIRTUAL_WIDTH;
+	params->virtual_height = VIRTUAL_HEIGHT;
 	params->physical_width = LCM_PHYSICAL_WIDTH / 1000;
 	params->physical_height = LCM_PHYSICAL_HEIGHT / 1000;
 	params->physical_width_um = LCM_PHYSICAL_WIDTH;
@@ -446,12 +450,12 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.vertical_backporch = 8;
 	params->dsi.vertical_frontporch = 40;
 	params->dsi.vertical_frontporch_for_low_power = 620;
-	params->dsi.vertical_active_line = FRAME_HEIGHT;
+	params->dsi.vertical_active_line = VIRTUAL_HEIGHT;
 
 	params->dsi.horizontal_sync_active = 10;
 	params->dsi.horizontal_backporch = 20;
 	params->dsi.horizontal_frontporch = 40;
-	params->dsi.horizontal_active_pixel = FRAME_WIDTH;
+	params->dsi.horizontal_active_pixel = VIRTUAL_WIDTH;
 	/* params->dsi.ssc_disable = 1; */
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* this value must be in MTK suggested table */
@@ -491,7 +495,7 @@ static void lcm_init_power(void)
 
 		_lcm_i2c_write_bytes(0x0, 0xf);
 		_lcm_i2c_write_bytes(0x1, 0xf);
-	}	else
+	} else
 		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
 }
 
@@ -613,7 +617,6 @@ static void lcm_update(unsigned int x, unsigned int y, unsigned int width,
 	data_array[0] = 0x002c3909;
 	dsi_set_cmdq(data_array, 1, 0);
 }
-
 static unsigned int lcm_compare_id(void)
 {
 	unsigned int id = 0;
@@ -641,8 +644,8 @@ static unsigned int lcm_compare_id(void)
 		return 0;
 
 }
-struct LCM_DRIVER hx83112b_fhdp_dsi_cmd_auo_rt4801_lcm_drv = {
-	.name = "hx83112b_fhdp_dsi_cmd_auo_rt4801_drv",
+struct LCM_DRIVER hx83112b_fhdp_dsi_cmd_hdp_auo_rt4801_lcm_drv = {
+	.name = "hx83112b_fhdp_dsi_cmd_hdp_auo_rt4801_drv",
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params = lcm_get_params,
 	.init = lcm_init,

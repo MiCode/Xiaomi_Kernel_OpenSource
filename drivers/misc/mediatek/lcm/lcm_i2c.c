@@ -270,4 +270,7 @@ MODULE_AUTHOR("Joey Pan");
 MODULE_DESCRIPTION("MTK LCM I2C Driver");
 MODULE_LICENSE("GPL");
 #endif
+
+#else
+struct i2c_client *_lcm_i2c_client;
 #endif

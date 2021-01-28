@@ -10,11 +10,10 @@
 #  include <linux/kernel.h>
 #endif
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-#include "data_hw_roundedpattern.h"
-#endif
-
 #include "lcm_drv.h"
+#include <linux/regulator/consumer.h>
+#include <linux/string.h>
+#include <linux/kernel.h>
 
 #ifdef BUILD_LK
 #  include <platform/upmu_common.h>
@@ -34,7 +33,6 @@
 #  define LCM_LOGD(fmt, args...)  pr_debug("[KERNEL/"LOG_TAG"]"fmt, ##args)
 #endif
 
-#define LCM_ID_HX83112B 0x83
 static struct LCM_UTIL_FUNCS lcm_util;
 
 #define SET_RESET_PIN(v)	(lcm_util.set_reset_pin((v)))
@@ -69,12 +67,8 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #  include <linux/platform_device.h>
 #endif
 
-#include <linux/i2c.h>
-#include <linux/i2c-dev.h>
-#include "lcm_i2c.h"
-
 #define FRAME_WIDTH			(1080)
-#define FRAME_HEIGHT			(2160)
+#define FRAME_HEIGHT			(1920)
 
 /* physical size in um */
 #define LCM_PHYSICAL_WIDTH		(64500)
@@ -87,6 +81,8 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define REGFLAG_RESET_LOW		0xFFFE
 #define REGFLAG_RESET_HIGH		0xFFFF
 
+#define LCM_ID_HX83112B 0x83
+
 #ifndef TRUE
 #define TRUE 1
 #endif
@@ -95,116 +91,11 @@ static struct LCM_UTIL_FUNCS lcm_util;
 #define FALSE 0
 #endif
 
-
-/* i2c control start */
-
-#define LCM_I2C_ADDR 0x3E
-#define LCM_I2C_BUSNUM  1	/* for I2C channel 0 */
-#define LCM_I2C_ID_NAME "I2C_LCD_BIAS"
-
-
-/*****************************************************************************
- * Function Prototype
- *****************************************************************************/
-static int _lcm_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id);
-static int _lcm_i2c_remove(struct i2c_client *client);
-
-
-/*****************************************************************************
- * Data Structure
- *****************************************************************************/
-struct _lcm_i2c_dev {
-	struct i2c_client *client;
-
-};
-
-static const struct of_device_id _lcm_i2c_of_match[] = {
-	{ .compatible = "mediatek,I2C_LCD_BIAS", },
-	{},
-};
-
-static const struct i2c_device_id _lcm_i2c_id[] = {
-	{LCM_I2C_ID_NAME, 0},
-	{}
-};
-
-static struct i2c_driver _lcm_i2c_driver = {
-	.id_table = _lcm_i2c_id,
-	.probe = _lcm_i2c_probe,
-	.remove = _lcm_i2c_remove,
-	/* .detect               = _lcm_i2c_detect, */
-	.driver = {
-		   .owner = THIS_MODULE,
-		   .name = LCM_I2C_ID_NAME,
-		   .of_match_table = _lcm_i2c_of_match,
-		   },
-
-};
-
-/*****************************************************************************
- * Function
- *****************************************************************************/
-static int _lcm_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
-{
-	pr_debug("[LCM][I2C] %s\n", __func__);
-	pr_debug("[LCM][I2C] NT: info==>name=%s addr=0x%x\n",
-		client->name, client->addr);
-	_lcm_i2c_client = client;
-	return 0;
-}
-
-
-static int _lcm_i2c_remove(struct i2c_client *client)
-{
-	pr_debug("[LCM][I2C] %s\n", __func__);
-	_lcm_i2c_client = NULL;
-	i2c_unregister_device(client);
-	return 0;
-}
-
-
-static int _lcm_i2c_write_bytes(unsigned char addr, unsigned char value)
-{
-	int ret = 0;
-	struct i2c_client *client = _lcm_i2c_client;
-	char write_data[2] = { 0 };
-
-	if (client == NULL) {
-		pr_debug("ERROR!! _lcm_i2c_client is null\n");
-		return 0;
-	}
-
-	write_data[0] = addr;
-	write_data[1] = value;
-	ret = i2c_master_send(client, write_data, 2);
-	if (ret < 0)
-		pr_info("[LCM][ERROR] _lcm_i2c write data fail !!\n");
-
-	return ret;
-}
-
-/*
- * module load/unload record keeping
- */
-static int __init _lcm_i2c_init(void)
-{
-	pr_debug("[LCM][I2C] %s\n", __func__);
-	i2c_add_driver(&_lcm_i2c_driver);
-	pr_debug("[LCM][I2C] %s success\n", __func__);
-	return 0;
-}
-
-static void __exit _lcm_i2c_exit(void)
-{
-	pr_debug("[LCM][I2C] %s\n", __func__);
-	i2c_del_driver(&_lcm_i2c_driver);
-}
-
-module_init(_lcm_i2c_init);
-module_exit(_lcm_i2c_exit);
-/* i2c control end */
+#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+static struct regulator *disp_bias_pos;
+static struct regulator *disp_bias_neg;
+static int regulator_inited;
+#endif
 
 struct LCM_setting_table {
 	unsigned int cmd;
@@ -214,12 +105,12 @@ struct LCM_setting_table {
 
 static struct LCM_setting_table lcm_suspend_setting[] = {
 	{0x28, 0, {} },
-	{REGFLAG_DELAY, 20, {} },
+	{REGFLAG_DELAY, 50, {} },
 	{0x10, 0, {} },
-	{REGFLAG_DELAY, 120, {} },
+	{REGFLAG_DELAY, 150, {} },
 };
 
-static struct LCM_setting_table init_setting_vdo[] = {
+static struct LCM_setting_table init_setting_cmd[] = {
 	{0xB9, 0x03, {0x83, 0x11, 0x2B} },
 	{0xB1, 0x0A, {0xF8, 0x29, 0x29, 0x00, 0x00, 0x0F, 0x14, 0x0F,
 		      0x14, 0x33} },
@@ -341,7 +232,7 @@ static struct LCM_setting_table init_setting_vdo[] = {
 	{0x53, 0x01, {0x24} },
 	{0x55, 0x01, {0x00} },
 	{0x35, 0x01, {0x00} },
-	{0x44, 0x02, {0x08, 0x66} }, /* set TE event @ line 0x866(2150) */
+	{0x44, 2, {0x08, 0x66} }, /* set TE event @ line 0x866(2150) */
 
 	{0x11, 0, {} },
 	{REGFLAG_DELAY, 120, {} },
@@ -474,34 +365,120 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->max_refresh_rate = 60;
 	params->min_refresh_rate = 45;
 
-#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
-	params->round_corner_en = 1;
-	params->corner_pattern_height = ROUND_CORNER_H_TOP;
-	params->corner_pattern_height_bot = ROUND_CORNER_H_BOT;
-	params->corner_pattern_tp_size = sizeof(top_rc_pattern);
-	params->corner_pattern_lt_addr = (void *)top_rc_pattern;
-#endif
+}
+#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
+int lcm_bias_regulator_init(void)
+{
+	int ret = 0;
+
+	if (regulator_inited)
+		return ret;
+
+	/* please only get regulator once in a driver */
+	disp_bias_pos = regulator_get(NULL, "dsv_pos");
+	if (IS_ERR(disp_bias_pos)) { /* handle return value */
+		ret = PTR_ERR(disp_bias_pos);
+		pr_info("get dsv_pos fail, error: %d\n", ret);
+		return ret;
+	}
+
+	disp_bias_neg = regulator_get(NULL, "dsv_neg");
+	if (IS_ERR(disp_bias_neg)) { /* handle return value */
+		ret = PTR_ERR(disp_bias_neg);
+		pr_info("get dsv_neg fail, error: %d\n", ret);
+		return ret;
+	}
+
+	regulator_inited = 1;
+	return ret; /* must be 0 */
+
 }
 
+int lcm_bias_enable(void)
+{
+	int ret = 0;
+	int retval = 0;
+
+	lcm_bias_regulator_init();
+
+	/* set voltage with min & max*/
+	ret = regulator_set_voltage(disp_bias_pos, 5500000, 5500000);
+	if (ret < 0)
+		pr_info("set voltage disp_bias_pos fail, ret = %d\n", ret);
+	retval |= ret;
+
+	ret = regulator_set_voltage(disp_bias_neg, 5500000, 5500000);
+	if (ret < 0)
+		pr_info("set voltage disp_bias_neg fail, ret = %d\n", ret);
+	retval |= ret;
+
+	/* enable regulator */
+	ret = regulator_enable(disp_bias_pos);
+	if (ret < 0)
+		pr_info("enable regulator disp_bias_pos fail, ret = %d\n",
+			ret);
+	retval |= ret;
+
+	ret = regulator_enable(disp_bias_neg);
+	if (ret < 0)
+		pr_info("enable regulator disp_bias_neg fail, ret = %d\n",
+			ret);
+	retval |= ret;
+
+	return retval;
+}
+
+
+int lcm_bias_disable(void)
+{
+	int ret = 0;
+	int retval = 0;
+
+	lcm_bias_regulator_init();
+
+	ret = regulator_disable(disp_bias_neg);
+	if (ret < 0)
+		pr_info("disable regulator disp_bias_neg fail, ret = %d\n",
+			ret);
+	retval |= ret;
+
+	ret = regulator_disable(disp_bias_pos);
+	if (ret < 0)
+		pr_info("disable regulator disp_bias_pos fail, ret = %d\n",
+			ret);
+	retval |= ret;
+
+	return retval;
+}
+
+#else
+int lcm_bias_regulator_init(void)
+{
+	return 0;
+}
+
+int lcm_bias_enable(void)
+{
+	return 0;
+}
+
+int lcm_bias_disable(void)
+{
+	return 0;
+}
+#endif
+
 /* turn on gate ic & control voltage to 5.5V */
+/* equle display_bais_enable ,mt6768 need +/-5.5V */
 static void lcm_init_power(void)
 {
-	if (lcm_util.set_gpio_lcd_enp_bias) {
-		lcm_util.set_gpio_lcd_enp_bias(1);
-
-		_lcm_i2c_write_bytes(0x0, 0xf);
-		_lcm_i2c_write_bytes(0x1, 0xf);
-	}	else
-		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
+	lcm_bias_enable();
 }
 
 static void lcm_suspend_power(void)
 {
 	SET_RESET_PIN(0);
-	if (lcm_util.set_gpio_lcd_enp_bias)
-		lcm_util.set_gpio_lcd_enp_bias(0);
-	else
-		LCM_LOGI("set_gpio_lcd_enp_bias not defined...\n");
+	lcm_bias_disable();
 }
 
 /* turn on gate ic & control voltage to 5.5V */
@@ -523,7 +500,7 @@ static void lcm_init(void)
 	SET_RESET_PIN(1);
 	MDELAY(10);
 
-	push_table(NULL, init_setting_vdo, ARRAY_SIZE(init_setting_vdo), 1);
+	push_table(NULL, init_setting_cmd, ARRAY_SIZE(init_setting_cmd), 1);
 	LCM_LOGI("hx83112b_fhdp----tps6132----lcm mode = vdo mode :%d----\n",
 		 lcm_dsi_mode);
 }
@@ -641,8 +618,9 @@ static unsigned int lcm_compare_id(void)
 		return 0;
 
 }
-struct LCM_DRIVER hx83112b_fhdp_dsi_cmd_auo_rt4801_lcm_drv = {
-	.name = "hx83112b_fhdp_dsi_cmd_auo_rt4801_drv",
+
+struct LCM_DRIVER hx83112b_fhdp_dsi_cmd_auo_rt5081_fhd_lcm_drv = {
+	.name = "hx83112b_fhdp_dsi_cmd_auo_rt5081_fhd_drv",
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params = lcm_get_params,
 	.init = lcm_init,

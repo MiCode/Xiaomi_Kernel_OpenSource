@@ -14,6 +14,6 @@
 #if defined(MTK_LCM_DEVICE_TREE_SUPPORT)
 enum LCM_STATUS lcm_i2c_set_data(char type, const struct LCM_DATA_T2 *t2);
 #endif
-
+extern struct i2c_client *_lcm_i2c_client;
 #endif
 
