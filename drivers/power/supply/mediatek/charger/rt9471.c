@@ -28,7 +28,7 @@
 
 #include "mtk_charger_intf.h"
 #include "rt9471.h"
-#define RT9471_DRV_VERSION	"1.0.9_MTK"
+#define RT9471_DRV_VERSION	"1.0.10_MTK"
 
 enum rt9471_stat_idx {
 	RT9471_STATIDX_STAT0 = 0,
@@ -195,7 +195,7 @@ struct rt9471_chip {
 	int irq;
 	u8 irq_mask[RT9471_IRQIDX_MAX];
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-	struct work_struct psy_work;
+	struct delayed_work psy_dwork;
 	atomic_t vbus_gd;
 	bool attach;
 	enum rt9471_port_stat port;
@@ -1026,7 +1026,7 @@ static void rt9471_buck_dwork_handler(struct work_struct *work)
 	int ret = 0, i = 0;
 	struct rt9471_chip *chip =
 		container_of(work, struct rt9471_chip, buck_dwork.work);
-	bool chg_rdy = false, chg_done = false;
+	bool chg_rdy = false, chg_done = false, sys_min = false;
 	u8 regval = 0;
 	u8 reg_addrs[] = {RT9471_REG_BUCK_HDEN4, RT9471_REG_BUCK_HDEN1,
 			  RT9471_REG_BUCK_HDEN2, RT9471_REG_BUCK_HDEN4,
@@ -1047,6 +1047,15 @@ static void rt9471_buck_dwork_handler(struct work_struct *work)
 			    __func__, chg_done, chip->chg_done_once);
 	if (!chg_rdy)
 		goto out;
+
+	ret = rt9471_i2c_test_bit(chip, RT9471_REG_STAT2,
+				  RT9471_ST_SYSMIN_SHIFT, &sys_min);
+	if (ret < 0)
+		goto out;
+	dev_info(chip->dev, "%s sys_min = %d\n", __func__, sys_min);
+	/* Should not enter CV tracking in sys_min */
+	if (sys_min)
+		reg_vals[1] = 0x2D;
 
 	ret = rt9471_enable_hidden_mode(chip, true);
 	if (ret < 0)
@@ -1188,14 +1197,19 @@ static int rt9471_bc12_preprocess(struct rt9471_chip *chip)
 	return 0;
 }
 
-static void rt9471_inform_psy_work_handler(struct work_struct *work)
+static void rt9471_inform_psy_dwork_handler(struct work_struct *work)
 {
 	int ret = 0;
 	union power_supply_propval propval = {.intval = 0};
 	struct rt9471_chip *chip = container_of(work, struct rt9471_chip,
-						psy_work);
-	bool vbus_gd = atomic_read(&chip->vbus_gd);
-	enum charger_type chg_type = chip->chg_type;
+						psy_dwork.work);
+	bool vbus_gd = false;
+	enum charger_type chg_type = CHARGER_UNKNOWN;
+
+	mutex_lock(&chip->bc12_lock);
+	vbus_gd = atomic_read(&chip->vbus_gd);
+	chg_type = chip->chg_type;
+	mutex_unlock(&chip->bc12_lock);
 
 	dev_info(chip->dev, "%s vbus_gd = %d, type = %d\n", __func__,
 			    vbus_gd, chg_type);
@@ -1205,6 +1219,7 @@ static void rt9471_inform_psy_work_handler(struct work_struct *work)
 		chip->psy = power_supply_get_by_name("charger");
 	if (!chip->psy) {
 		dev_notice(chip->dev, "%s get power supply fail\n", __func__);
+		schedule_delayed_work(&chip->psy_dwork, msecs_to_jiffies(1000));
 		return;
 	}
 
@@ -1285,7 +1300,7 @@ out:
 	if (chip->chg_type != STANDARD_CHARGER)
 		rt9471_enable_bc12(chip, false);
 	if (inform_psy)
-		schedule_work(&chip->psy_work);
+		schedule_delayed_work(&chip->psy_dwork, 0);
 
 	return 0;
 }
@@ -2833,7 +2848,7 @@ static int rt9471_probe(struct i2c_client *client,
 	mutex_init(&chip->hidden_mode_lock);
 	chip->hidden_mode_cnt = 0;
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-	INIT_WORK(&chip->psy_work, rt9471_inform_psy_work_handler);
+	INIT_DELAYED_WORK(&chip->psy_dwork, rt9471_inform_psy_dwork_handler);
 	atomic_set(&chip->vbus_gd, 0);
 	chip->attach = false;
 	chip->port = RT9471_PORTSTAT_NOINFO;
@@ -2853,29 +2868,6 @@ static int rt9471_probe(struct i2c_client *client,
 		ret = -ENODEV;
 		goto err_nodev;
 	}
-
-#ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-	if (chip->dev_id == RT9470D_DEVID || chip->dev_id == RT9471D_DEVID) {
-		wakeup_source_init(&chip->bc12_en_ws, devm_kasprintf(chip->dev,
-				   GFP_KERNEL, "rt9471_bc12_en_ws.%s",
-				   dev_name(chip->dev)));
-		chip->bc12_en_buf[0] = chip->bc12_en_buf[1] = -1;
-		chip->bc12_en_buf_idx = 0;
-		atomic_set(&chip->bc12_en_req_cnt, 0);
-		init_waitqueue_head(&chip->bc12_en_req);
-		chip->bc12_en_kthread =
-			kthread_run(rt9471_bc12_en_kthread, chip,
-				    devm_kasprintf(chip->dev, GFP_KERNEL,
-				    "rt9471_bc12_en_kthread.%s",
-				    dev_name(chip->dev)));
-		if (IS_ERR_OR_NULL(chip->bc12_en_kthread)) {
-			ret = PTR_ERR(chip->bc12_en_kthread);
-			dev_notice(chip->dev, "%s kthread run fail(%d)\n",
-					      __func__, ret);
-			goto err_kthread_run;
-		}
-	}
-#endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
 
 	ret = rt9471_parse_dt(chip);
 	if (ret < 0) {
@@ -2902,6 +2894,29 @@ static int rt9471_probe(struct i2c_client *client,
 		dev_notice(chip->dev, "%s init fail(%d)\n", __func__, ret);
 		goto err_init;
 	}
+
+#ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
+	if (chip->dev_id == RT9470D_DEVID || chip->dev_id == RT9471D_DEVID) {
+		wakeup_source_init(&chip->bc12_en_ws, devm_kasprintf(chip->dev,
+				   GFP_KERNEL, "rt9471_bc12_en_ws.%s",
+				   dev_name(chip->dev)));
+		chip->bc12_en_buf[0] = chip->bc12_en_buf[1] = -1;
+		chip->bc12_en_buf_idx = 0;
+		atomic_set(&chip->bc12_en_req_cnt, 0);
+		init_waitqueue_head(&chip->bc12_en_req);
+		chip->bc12_en_kthread =
+			kthread_run(rt9471_bc12_en_kthread, chip,
+				    devm_kasprintf(chip->dev, GFP_KERNEL,
+				    "rt9471_bc12_en_kthread.%s",
+				    dev_name(chip->dev)));
+		if (IS_ERR_OR_NULL(chip->bc12_en_kthread)) {
+			ret = PTR_ERR(chip->bc12_en_kthread);
+			dev_notice(chip->dev, "%s kthread run fail(%d)\n",
+					      __func__, ret);
+			goto err_kthread_run;
+		}
+	}
+#endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
 
 	ret = rt9471_check_chg(chip);
 	if (ret < 0) {
@@ -2949,12 +2964,6 @@ err_register_chg_dev:
 err_init_irq:
 err_register_irq:
 err_check_chg:
-err_init:
-#ifdef CONFIG_RT_REGMAP
-	rt_regmap_device_unregister(chip->rm_dev);
-err_register_rm:
-#endif /* CONFIG_RT_REGMAP */
-err_parse_dt:
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 	if (chip->bc12_en_kthread) {
 		kthread_stop(chip->bc12_en_kthread);
@@ -2962,6 +2971,12 @@ err_parse_dt:
 	}
 err_kthread_run:
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
+err_init:
+#ifdef CONFIG_RT_REGMAP
+	rt_regmap_device_unregister(chip->rm_dev);
+err_register_rm:
+#endif /* CONFIG_RT_REGMAP */
+err_parse_dt:
 err_nodev:
 	mutex_destroy(&chip->io_lock);
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
@@ -2979,14 +2994,12 @@ static int rt9471_remove(struct i2c_client *client)
 	struct rt9471_chip *chip = i2c_get_clientdata(client);
 
 	dev_info(chip->dev, "%s\n", __func__);
+
 	device_remove_file(chip->dev, &dev_attr_shipping_mode);
 	charger_device_unregister(chip->chg_dev);
 	disable_irq(chip->irq);
-#ifdef CONFIG_RT_REGMAP
-	rt_regmap_device_unregister(chip->rm_dev);
-#endif /* CONFIG_RT_REGMAP */
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
-	cancel_work_sync(&chip->psy_work);
+	cancel_delayed_work_sync(&chip->psy_dwork);
 	if (chip->psy)
 		power_supply_put(chip->psy);
 	if (chip->bc12_en_kthread) {
@@ -2995,6 +3008,9 @@ static int rt9471_remove(struct i2c_client *client)
 	}
 #endif /* CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT */
 	cancel_delayed_work_sync(&chip->buck_dwork);
+#ifdef CONFIG_RT_REGMAP
+	rt_regmap_device_unregister(chip->rm_dev);
+#endif /* CONFIG_RT_REGMAP */
 	wakeup_source_trash(&chip->buck_dwork_ws);
 	mutex_destroy(&chip->io_lock);
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
@@ -3012,6 +3028,7 @@ static void rt9471_shutdown(struct i2c_client *client)
 	struct rt9471_chip *chip = i2c_get_clientdata(client);
 
 	dev_info(chip->dev, "%s\n", __func__);
+
 	charger_device_unregister(chip->chg_dev);
 	disable_irq(chip->irq);
 #ifdef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
@@ -3093,6 +3110,11 @@ MODULE_VERSION(RT9471_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.0.10
+ * (1) Should not enter CV tracking in sys_min
+ * (2) Rearrange the resources alloc and free in driver probing/removing
+ * (3) Schedule psy_dwork with 1s delay time when getting chg psy fails
+ *
  * 1.0.9
  * (1) Defer getting chg psy to rt9471_inform_psy_work_handler()
  * (2) Move all charger status checking during probing to rt9471_check_chg()
