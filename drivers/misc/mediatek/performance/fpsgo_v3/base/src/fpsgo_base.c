@@ -97,14 +97,20 @@ void __fpsgo_systrace_c(pid_t pid, int val, const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
+	int len;
 
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
+	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
 
 	preempt_disable();
 	event_trace_printk(mark_addr, "C|%d|%s|%d\n", pid, log, val);
@@ -115,14 +121,20 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
+	int len;
 
 	if (unlikely(!fpsgo_update_tracemark()))
 		return;
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
+	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
 
 	preempt_disable();
 	event_trace_printk(mark_addr, "B|%d|%s\n", tgid, log);
