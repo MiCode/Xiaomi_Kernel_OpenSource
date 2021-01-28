@@ -380,9 +380,10 @@ out:
 		pr_notice("[%s] error ret=%d\n", __func__, ret);
 		if (ret == -EINVAL)
 			kfree(user);
+		return ERR_PTR(ret);
 	}
 	mutex_unlock(&lbat_mutex);
-	return ERR_PTR(ret);
+	return user;
 }
 EXPORT_SYMBOL(lbat_user_register);
 
