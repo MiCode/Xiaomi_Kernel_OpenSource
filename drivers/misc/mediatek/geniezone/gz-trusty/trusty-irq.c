@@ -680,12 +680,12 @@ static int trusty_irq_remove(struct platform_device *pdev)
 {
 	int ret;
 	unsigned long irq_flags;
-	struct trusty_irq_state *is;
+	struct trusty_irq_state *is, *tmp;
 	struct list_head *is_list = platform_get_drvdata(pdev);
 
 	dev_dbg(&pdev->dev, "%s\n", __func__);
 
-	list_for_each_entry(is, is_list, node) {
+	list_for_each_entry_safe(is, tmp, is_list, node) {
 		ret = cpuhp_state_remove_instance(trusty_irq_cpuhp_slot,
 						  &is->cpuhp_node);
 		if (WARN_ON(ret))

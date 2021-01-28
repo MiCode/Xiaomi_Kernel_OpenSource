@@ -718,6 +718,11 @@ static int bind_big_core(struct cpumask *mask)
 				compat_len = strlen(compat_val);
 				i = kstrtoint(compat_val + (compat_len - 2), 10,
 					      &cpu_type);
+				if (i < 0) {
+					pr_info("[%s] Parse cpu_type error\n",
+						__func__);
+					break;
+				}
 				if (big_type < cpu_type) {
 					big_type = cpu_type;
 					big_start_num = cpu_num - 1;
@@ -752,17 +757,18 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	tctx = kzalloc(sizeof(*tctx), GFP_KERNEL);
-	if (!tctx)
-		return -ENOMEM;
-
 	/* For multiple TEEs */
 	ret = of_property_read_u32(node, "tee_id", &tee_id);
 	if (ret != 0) {
 		dev_info(&pdev->dev,
-			 "tee_id is not set on device tree, please fix it\n");
+			 "[%s] ERROR: tee_id is not set on device tree\n",
+			 __func__);
 		return -EINVAL;
 	}
+
+	tctx = kzalloc(sizeof(*tctx), GFP_KERNEL);
+	if (!tctx)
+		return -ENOMEM;
 
 	pdev->id = tee_id;
 	tctx->tee_id = tee_id;
