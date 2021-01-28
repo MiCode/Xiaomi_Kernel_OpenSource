@@ -107,3 +107,5 @@ obj-$(CONFIG_MTK_SELINUX_AEE_WARNING) += selinux_warning/
 obj-$(CONFIG_THERMAL)   += thermal/
 obj-y   += performance/
 obj-y += io_boost/
+obj-y += mtprintk/
+
