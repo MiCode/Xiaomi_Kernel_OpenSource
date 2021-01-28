@@ -102,5 +102,3 @@ obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o
 obj-y += mtk_eem_api.o
-obj-y += mtk_picachu.o
-
