@@ -191,7 +191,11 @@ static int get_speed_str(u64 speed, char buf[], int size)
 	u64 rem;
 
 	if (speed >= 1000000000LL) {
+#ifdef __LP64__
 		speed = speed / 1000000LL;
+#else
+		speed = do_div(speed, 1000000LL);
+#endif
 		rem = do_div(speed, 1000);
 		ret = snprintf(buf, size, "%llu.%03lluGbps", speed, rem);
 	} else if (speed >= 1000000LL) {
@@ -210,9 +214,16 @@ static int get_speed_str(u64 speed, char buf[], int size)
 static u64 speed_caculate(u64 delta, struct speed_mon *mon)
 {
 	u64 curr_byte, speed;
-
+#ifndef __LP64__
+	u64 tmp;
+#endif
 	curr_byte = mon->curr_bytes;
+#ifdef __LP64__
 	speed = (curr_byte - mon->ref_bytes) * 8000000000LL / delta;
+#else
+	tmp = (curr_byte - mon->ref_bytes) * 8000000000LL;
+	speed = do_div(tmp, delta);
+#endif
 	mon->ref_bytes = curr_byte;
 
 	return speed;
