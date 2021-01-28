@@ -34,7 +34,7 @@
 #include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
 /* #include <trace/events/mtk_events.h> */
-#include <mt-plat/met_drv.h>
+/* #include <mt-plat/met_drv.h> */
 
 #include <linux/of.h>
 #include <linux/of_address.h>

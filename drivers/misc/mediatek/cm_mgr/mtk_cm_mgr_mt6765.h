@@ -8,10 +8,10 @@
 
 #define PERF_TIME 3000
 
-#include "mtk_cm_mgr_reg_mt6761.h"
+#include "mtk_cm_mgr_reg_mt6765.h"
 
 #define CREATE_TRACE_POINTS
-#include "mtk_cm_mgr_events_mt6761.h"
+#include "mtk_cm_mgr_events_mt6765.h"
 
 #ifdef CONFIG_MTK_DRAMC_LEGACY
 #include <mtk_dramc.h>
@@ -24,16 +24,17 @@
 #define USE_TIMER_CHECK
 #define USE_NEW_CPU_OPP
 /* #define USE_CM_MGR_AT_SSPM */
-#define USE_SINGLE_CLUSTER
-#define USE_CPU_TO_DRAM_MAP
+/* #define USE_SINGLE_CLUSTER */
 
 #define CM_MGR_EMI_OPP	2
-#define CM_MGR_LOWER_OPP 8
-#define CM_MGR_CPU_CLUSTER 1
-#define CM_MGR_CPU_COUNT 4
+#define CM_MGR_LOWER_OPP 9
+#define CM_MGR_LOWER_OPP_1 12
+#define CM_MGR_CPU_CLUSTER 4
+#define CM_MGR_CPU_COUNT 8
 #define CM_MGR_CPU_LIMIT 4
 
 #define CLUSTER0_MASK   0x0f
+#define CLUSTER1_MASK   0xf0
 
 #define CM_MGR_CPU_OPP_SIZE 16
 
@@ -42,7 +43,7 @@
 #define RATIO_COUNT (100 / 5 - 1)
 #define IS_UP 1
 #define IS_DOWN 0
-#define USE_TIMER_CHECK_TIME msecs_to_jiffies(50)
+#define USE_TIMER_CHECK_TIME msecs_to_jiffies(500)
 #define CM_MGR_INIT_DELAY_MS 1
 #define CM_MGR_BW_VALUE 0
 

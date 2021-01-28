@@ -33,9 +33,9 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
-#include "mtk_cm_mgr_mt6761.h"
+#include "mtk_cm_mgr_mt6765.h"
 #include "mtk_cm_mgr_common.h"
-#include "mtk_cm_mgr_data_mt6761.h"
+#include "mtk_cm_mgr_data_mt6765.h"
 
 #include <linux/fb.h>
 #include <linux/notifier.h>
@@ -130,27 +130,36 @@ static void cm_mgr_update_met(void)
 	int cpu;
 
 	met_data.cm_mgr_power[0] = cpu_power_up_array[0];
+	met_data.cm_mgr_power[1] = cpu_power_up_array[1];
 	met_data.cm_mgr_power[2] = cpu_power_down_array[0];
+	met_data.cm_mgr_power[3] = cpu_power_down_array[1];
 	met_data.cm_mgr_power[4] = cpu_power_up[0];
+	met_data.cm_mgr_power[5] = cpu_power_up[1];
 	met_data.cm_mgr_power[6] = cpu_power_down[0];
-	met_data.cm_mgr_power[8] = cpu_power_up[0];
-	met_data.cm_mgr_power[9] = cpu_power_down[0];
+	met_data.cm_mgr_power[7] = cpu_power_down[1];
+	met_data.cm_mgr_power[8] = cpu_power_up[0] + cpu_power_up[1];
+	met_data.cm_mgr_power[9] = cpu_power_down[0] + cpu_power_down[1];
 	met_data.cm_mgr_power[10] = (unsigned int)vcore_power_up;
 	met_data.cm_mgr_power[11] = (unsigned int)vcore_power_down;
 	met_data.cm_mgr_power[12] = v2f[0];
+	met_data.cm_mgr_power[13] = v2f[1];
 
 	met_data.cm_mgr_count[0] = count[0];
+	met_data.cm_mgr_count[1] = count[1];
 	met_data.cm_mgr_count[2] = count_ack[0];
+	met_data.cm_mgr_count[3] = count_ack[1];
 
 	met_data.cm_mgr_opp[0] = vcore_dram_opp;
 	met_data.cm_mgr_opp[1] = vcore_dram_opp_cur;
 	met_data.cm_mgr_opp[2] = cpu_opp_cur[0];
+	met_data.cm_mgr_opp[3] = cpu_opp_cur[1];
 	met_data.cm_mgr_opp[4] = debounce_times_up;
 	met_data.cm_mgr_opp[5] = debounce_times_down;
 
 	met_data.cm_mgr_loading[0] = cm_mgr_abs_load;
 	met_data.cm_mgr_loading[1] = cm_mgr_rel_load;
 	met_data.cm_mgr_loading[2] = max_load[0];
+	met_data.cm_mgr_loading[3] = max_load[1];
 	for_each_possible_cpu(cpu) {
 		if (cpu >= CM_MGR_CPU_COUNT)
 			break;
@@ -158,11 +167,17 @@ static void cm_mgr_update_met(void)
 	}
 
 	met_data.cm_mgr_ratio[0] = ratio_max[0];
+	met_data.cm_mgr_ratio[1] = ratio_max[1];
 	met_data.cm_mgr_ratio[2] = ratio_scale[0];
+	met_data.cm_mgr_ratio[3] = ratio_scale[1];
 	met_data.cm_mgr_ratio[4] = ratio[0];
 	met_data.cm_mgr_ratio[5] = ratio[1];
 	met_data.cm_mgr_ratio[6] = ratio[2];
 	met_data.cm_mgr_ratio[7] = ratio[3];
+	met_data.cm_mgr_ratio[8] = ratio[4];
+	met_data.cm_mgr_ratio[9] = ratio[5];
+	met_data.cm_mgr_ratio[10] = ratio[6];
+	met_data.cm_mgr_ratio[11] = ratio[7];
 
 	met_data.cm_mgr_bw = total_bw;
 
@@ -323,6 +338,10 @@ static unsigned int cm_mgr_read_stall(int cpu)
 	if (cpu < CM_MGR_CPU_LIMIT) {
 		if (cm_mgr_idle_mask & CLUSTER0_MASK)
 			val = cm_mgr_read(MP0_CPU0_STALL_COUNTER + 4 * cpu);
+	} else {
+		if (cm_mgr_idle_mask & CLUSTER1_MASK)
+			val = cm_mgr_read(MP1_CPU0_STALL_COUNTER +
+					4 * (cpu - CM_MGR_CPU_LIMIT));
 	}
 	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
 
@@ -337,6 +356,7 @@ static int cm_mgr_check_stall_ratio(int mp0, int mp1)
 	unsigned long long time_ns_new;
 
 	pstall_all->clustor[0] = mp0;
+	pstall_all->clustor[1] = mp1;
 	pstall_all->cpu = 0;
 	for (i = 0; i < CM_MGR_CPU_CLUSTER; i++) {
 		pstall_all->ratio_max[i] = 0;
@@ -450,6 +470,32 @@ static void init_cpu_stall_counter(int cluster)
 			RG_CPU0_STALL_COUNTER_EN |
 			RG_CPU0_NON_WFX_COUNTER_EN;
 		cm_mgr_write(MP0_CPU3_AVG_STALL_RATIO_CTRL, val);
+	} else {
+		val = 0x11000;
+		cm_mgr_write(MP1_CPU_STALL_INFO, val);
+
+		/* please check CM_MGR_INIT_DELAY_MS value */
+		val = RG_FMETER_EN;
+		val |= RG_MP0_AVG_STALL_PERIOD_1MS;
+		val |= RG_CPU0_AVG_STALL_RATIO_EN |
+			RG_CPU0_STALL_COUNTER_EN |
+			RG_CPU0_NON_WFX_COUNTER_EN;
+		cm_mgr_write(MP1_CPU0_AVG_STALL_RATIO_CTRL, val);
+
+		val = RG_CPU0_AVG_STALL_RATIO_EN |
+			RG_CPU0_STALL_COUNTER_EN |
+			RG_CPU0_NON_WFX_COUNTER_EN;
+		cm_mgr_write(MP1_CPU1_AVG_STALL_RATIO_CTRL, val);
+
+		val = RG_CPU0_AVG_STALL_RATIO_EN |
+			RG_CPU0_STALL_COUNTER_EN |
+			RG_CPU0_NON_WFX_COUNTER_EN;
+		cm_mgr_write(MP1_CPU2_AVG_STALL_RATIO_CTRL, val);
+
+		val = RG_CPU0_AVG_STALL_RATIO_EN |
+			RG_CPU0_STALL_COUNTER_EN |
+			RG_CPU0_NON_WFX_COUNTER_EN;
+		cm_mgr_write(MP1_CPU3_AVG_STALL_RATIO_CTRL, val);
 	}
 }
 
@@ -462,6 +508,9 @@ static int cm_mgr_cpuhp_online(unsigned int cpu)
 	if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
 			(cpu < CM_MGR_CPU_LIMIT))
 		init_cpu_stall_counter(0);
+	else if (((cm_mgr_idle_mask & CLUSTER1_MASK) == 0x0) &&
+			(cur_cpu >= CM_MGR_CPU_LIMIT))
+		init_cpu_stall_counter(1);
 	cm_mgr_idle_mask |= (1 << cpu);
 
 	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
@@ -587,15 +636,16 @@ void cm_mgr_perf_platform_set_status(int enable)
 		if (cm_mgr_perf_enable == 0)
 			return;
 
-		mtk_pm_qos_update_request(&ddr_opp_req, 0);
-		pm_qos_update_request_status = enable;
+		cpu_power_ratio_up[0] = 500;
+		cpu_power_ratio_up[1] = 500;
+		debounce_times_up_adb[1] = 0;
 	} else {
 		if (++debounce_times_perf_down_local < debounce_times_perf_down)
 			return;
 
-		mtk_pm_qos_update_request(&ddr_opp_req,
-				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
-		pm_qos_update_request_status = enable;
+		cpu_power_ratio_up[0] = 100;
+		cpu_power_ratio_up[1] = 100;
+		debounce_times_up_adb[1] = 3;
 
 		debounce_times_perf_down_local = 0;
 	}
@@ -1305,12 +1355,12 @@ static int platform_cm_mgr_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id platform_cm_mgr_of_match[] = {
-	{ .compatible = "mediatek,mt6761-cm_mgr", },
+	{ .compatible = "mediatek,mt6765-cm_mgr", },
 	{},
 };
 
 static const struct platform_device_id platform_cm_mgr_id_table[] = {
-	{ "mt6761-cm_mgr", 0},
+	{ "mt6765-cm_mgr", 0},
 	{ },
 };
 
@@ -1318,7 +1368,7 @@ static struct platform_driver mtk_platform_cm_mgr_driver = {
 	.probe = platform_cm_mgr_probe,
 	.remove	= platform_cm_mgr_remove,
 	.driver = {
-		.name = "mt6761-cm_mgr",
+		.name = "mt6765-cm_mgr",
 		.owner = THIS_MODULE,
 		.of_match_table = platform_cm_mgr_of_match,
 	},
