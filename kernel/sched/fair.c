@@ -10920,12 +10920,12 @@ static int idle_balance(struct rq *this_rq, struct rq_flags *rf)
 		if (sd)
 			update_next_balance(sd, &next_balance);
 		rcu_read_unlock();
-
+#ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 		if (!this_rq->rd->overload) {
 			raw_spin_unlock(&this_rq->lock);
 			goto hinted_idle_pull;
 		}
-
+#endif
 		nohz_newidle_balance(this_rq);
 
 		goto out;
