@@ -504,7 +504,7 @@ config CMA
 config ZONE_MOVABLE_CMA
 	bool "Contiguous Memory Allocator by ZONE_MOVABLE"
 	select CMA
-	depends on HAVE_MEMBLOCK && MMU && MTK_MEM && MEDIATEK_SOLUTION
+	depends on HAVE_MEMBLOCK && MMU && MEDIATEK_SOLUTION
 	default y
 	help
 	  This enable the support of ZONE MOVALBE Contiguous Memory Allocator.
