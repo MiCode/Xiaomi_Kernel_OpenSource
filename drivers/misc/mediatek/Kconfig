@@ -65,6 +65,7 @@ endmenu  # CONN
 
 menu "Security"
 
+source "drivers/misc/mediatek/trusted_mem/Kconfig"
 endmenu  # Security
 
 menu "Other Peripherals"
