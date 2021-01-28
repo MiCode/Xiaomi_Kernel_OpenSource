@@ -780,7 +780,19 @@ static int sd_setup_unmap_cmnd(struct scsi_cmnd *cmd)
 
 	cmd->allowed = SD_MAX_RETRIES;
 	cmd->transfersize = data_len;
-	rq->timeout = SD_TIMEOUT;
+
+	/*
+	 * MTK PATCH: extend the time out value of discard
+	 *
+	 * The time of executed unmap command related to the state of UFS.
+	 * From Toshiba and SK-Hynix evaluation, it will take about 60 seconds
+	 * when host execute to unmap UFS 128GB all area.
+	 *
+	 * Therefore, we proposed to modify time out of unmap from 30s
+	 * to 100s.(included safety margin).
+	 */
+	rq->timeout = SD_DISCARD_TIMEOUT;
+
 	scsi_req(rq)->resid_len = data_len;
 
 	return scsi_init_io(cmd);
@@ -3287,6 +3299,17 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	}
 
 	blk_pm_runtime_init(sdp->request_queue, dev);
+
+	/*
+	 * MTK PATCH:
+	 * Set autosuspend delay for scsi device with runtime PM enabled.
+	 *
+	 * Note. autosuspend delay default value is -1 for all scsi devices,
+	 *       i.e., disabled by default.
+	 */
+	if (sdp->autosuspend_delay >= 0)
+		pm_runtime_set_autosuspend_delay(dev, sdp->autosuspend_delay);
+
 	device_add_disk(dev, gd);
 	if (sdkp->capacity)
 		sd_dif_config_host(sdkp);
