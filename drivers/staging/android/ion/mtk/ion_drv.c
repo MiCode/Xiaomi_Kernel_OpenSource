@@ -65,6 +65,13 @@
 #define DEFAULT_PAGE_SIZE 0x1000
 #define PAGE_ORDER 12
 
+#define ION_CACHEOPS_IS_WRITE(type)			\
+	((type) == ION_CACHE_CLEAN_BY_RANGE ||		\
+	 (type) == ION_CACHE_CLEAN_BY_RANGE_USE_PA ||	\
+	 (type) == ION_CACHE_CLEAN_ALL ||		\
+	 (type) == ION_CACHE_FLUSH_BY_RANGE ||		\
+	 (type) == ION_CACHE_FLUSH_BY_RANGE_USE_PA ||	\
+	 (type) == ION_CACHE_FLUSH_ALL)
 struct ion_device *g_ion_device;
 EXPORT_SYMBOL(g_ion_device);
 
@@ -176,6 +183,69 @@ static int __ion_is_kernel_va(unsigned long va, size_t size)
 	return ret;
 }
 
+#ifdef CONFIG_MTK_IOMMU
+
+/**
+ * ion_get_vaddr_framevec() - map virtual addresses to pfns
+ * refer to vb2_create_framevec()
+ * @start:	Virtual user address where we start mapping
+ * @length:	Length of a range to map
+ * @write:	Should we map for writing into the area
+ *
+ * This function allocates and fills in a vector with pfns corresponding to
+ * virtual address range passed in arguments. If pfns have corresponding pages,
+ * page references are also grabbed to pin pages in memory. The function
+ * returns pointer to the vector on success and error pointer in case of
+ * failure. Returned vector needs to be freed via vb2_destroy_pfnvec().
+ */
+static struct frame_vector *
+ion_get_vaddr_framevec(unsigned long start, unsigned long length, bool write)
+{
+	int ret = 0;
+	unsigned long first, last, nr;
+	struct frame_vector *vec;
+	unsigned int flags = FOLL_FORCE;
+
+	if (write)
+		flags |= FOLL_WRITE;
+
+	first = start >> PAGE_SHIFT;
+	last = (start + length - 1) >> PAGE_SHIFT;
+	nr = last - first + 1;
+	vec = frame_vector_create(nr);
+	if (!vec)
+		return ERR_PTR(-ENOMEM);
+	ret = get_vaddr_frames(start & PAGE_MASK, nr, flags, vec);
+	if (ret < 0)
+		goto out_destroy;
+	/* We accept only complete set of PFNs */
+	if (ret != nr) {
+		ret = -EFAULT;
+		goto out_release;
+	}
+	return vec;
+out_release:
+	put_vaddr_frames(vec);
+out_destroy:
+	frame_vector_destroy(vec);
+	return ERR_PTR(ret);
+}
+
+/**
+ * ion_put_vaddr_framevec() - release vector of mapped pfns
+ * refer to vb2_destroy_framevec()
+ * @vec:	vector of pfns / pages to release
+ *
+ * This releases references to all pages in the vector @vec (if corresponding
+ * pfns are backed by pages) and frees the passed vector.
+ */
+void ion_put_vaddr_framevec(struct frame_vector *vec)
+{
+	put_vaddr_frames(vec);
+	frame_vector_destroy(vec);
+}
+#endif
+
 /* user va check
  * @return 0 : invalid va
  * @return 1 : valid user va
@@ -208,8 +278,19 @@ static int __cache_sync_by_range(struct ion_client *client,
 	int ret = 0;
 	char ion_name[100];
 	int is_user_addr;
+#ifdef CONFIG_MTK_IOMMU
+	struct frame_vector *vec = NULL;
+#endif
 
 	is_user_addr = __ion_is_user_va(start, size);
+#ifdef CONFIG_MTK_IOMMU
+	if (is_user_addr) {
+		vec = ion_get_vaddr_framevec(start, size,
+					     ION_CACHEOPS_IS_WRITE(sync_type));
+		if (IS_ERR(vec))
+			is_user_addr = 0;
+	}
+#endif
 	ret = is_user_addr || __ion_is_kernel_va(start, size);
 
 	if (!ret) {
@@ -261,6 +342,10 @@ static int __cache_sync_by_range(struct ion_client *client,
 
 	__ion_cache_mmp_end(sync_type, size);
 
+#ifdef CONFIG_MTK_IOMMU
+	if (is_user_addr)
+		ion_put_vaddr_framevec(vec);
+#endif
 	return 0;
 }
 
