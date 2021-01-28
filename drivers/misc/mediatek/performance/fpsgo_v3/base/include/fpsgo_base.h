@@ -24,7 +24,7 @@
 #include <linux/workqueue.h>
 
 #define WINDOW 20
-#define RESCUE_TIMER_NUM 2
+#define RESCUE_TIMER_NUM 3
 
 /* EARA job type */
 enum HW_EVENT4RENDER {

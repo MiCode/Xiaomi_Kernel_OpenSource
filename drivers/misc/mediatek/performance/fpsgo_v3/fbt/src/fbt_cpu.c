@@ -1488,20 +1488,10 @@ EXIT:
 	if (!(jerk->postpone))
 		jerk->jerking = 0;
 
-	if (thr->linger)
-		FPSGO_LOGE("%d is linger (%d, %d, %d)\n",
-			thr->pid,
-			thr->boost_info.proc.jerks[0].jerking,
-			thr->boost_info.proc.jerks[1].jerking,
-			jerk->postpone);
-
-	if (thr->boost_info.proc.jerks[0].jerking == 0 &&
-		thr->boost_info.proc.jerks[1].jerking == 0 &&
-		thr->linger > 0)
+	if (thr->linger > 0 && fpsgo_base2fbt_is_finished(thr)) {
 		tofree = 1;
-
-	if (tofree)
 		fpsgo_del_linger(thr);
+	}
 
 	fpsgo_thread_unlock(&(thr->thr_mlock));
 
@@ -2083,6 +2073,18 @@ static int fbt_is_always_running(long long running_time,
 	return 0;
 }
 
+static int fbt_get_next_jerk(int cur_id)
+{
+	int ret_id;
+
+	ret_id = cur_id + 1;
+
+	if (ret_id >= RESCUE_TIMER_NUM)
+		ret_id = 0;
+
+	return ret_id;
+}
+
 static int fbt_boost_policy(
 	long long t_cpu_cur,
 	long long target_time,
@@ -2191,8 +2193,9 @@ static int fbt_boost_policy(
 					"t2wnt");
 			}
 
-			boost_info->proc.active_jerk_id ^= 1;
-			active_jerk_id = boost_info->proc.active_jerk_id;
+			active_jerk_id = fbt_get_next_jerk(
+					boost_info->proc.active_jerk_id);
+			boost_info->proc.active_jerk_id = active_jerk_id;
 
 			timer = &(boost_info->proc.jerks[active_jerk_id].timer);
 			if (timer) {
@@ -2781,13 +2784,15 @@ void fpsgo_base2fbt_node_init(struct render_info *obj)
 	struct fbt_thread_loading *link;
 	struct fbt_thread_blc *blc_link;
 	struct fbt_boost_info *boost;
+	int i;
 
 	if (!obj)
 		return;
 
 	boost = &(obj->boost_info);
-	fbt_init_jerk(&(boost->proc.jerks[0]), 0);
-	fbt_init_jerk(&(boost->proc.jerks[1]), 1);
+
+	for (i = 0; i < RESCUE_TIMER_NUM; i++)
+		fbt_init_jerk(&(boost->proc.jerks[i]), i);
 
 	boost->loading_weight = LOADING_WEIGHT;
 
@@ -2968,6 +2973,26 @@ void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
 		if (thr->boost_info.proc.jerks[i].jerking)
 			hrtimer_cancel(&(thr->boost_info.proc.jerks[i].timer));
 	}
+}
+
+int fpsgo_base2fbt_is_finished(struct render_info *thr)
+{
+	int i;
+
+	if (!thr)
+		return 1;
+
+	for (i = 0; i < RESCUE_TIMER_NUM; i++) {
+		if (thr->boost_info.proc.jerks[i].jerking) {
+			FPSGO_LOGE("(%d, %llu)(%p)[%d](%d) is (%d, %d)\n",
+				thr->pid, thr->buffer_id, thr, i, thr->linger,
+				thr->boost_info.proc.jerks[i].jerking,
+				thr->boost_info.proc.jerks[i].postpone);
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 static void fbt_set_cap_limit(void)
