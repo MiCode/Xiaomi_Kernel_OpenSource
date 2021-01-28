@@ -75,10 +75,12 @@ ccflags-y += -DCMDQ_SECURE_TEE_SUPPORT
 obj-y += cmdq_sec_trustonic.o
 endif
 
+ifeq ($(strip $(CONFIG_MTK_ENABLE_GENIEZONE)),y)
 ifeq ($(strip $(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -DCMDQ_SECURE_MTEE_SUPPORT
 obj-y += cmdq_sec_mtee.o
+endif
 endif
 
 ccflags-y += -DCMDQ_EVENT_SVP_BACKUP
