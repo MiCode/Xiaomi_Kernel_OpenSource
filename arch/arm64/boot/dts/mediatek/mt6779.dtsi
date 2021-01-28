@@ -571,6 +571,21 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			alignment = <0 0x1000000>;
 			alloc-range = <0 0xc0000000 0 0x10000000>;
 		};
+#ifdef CONFIG_MICROTRUST_TEE_SUPPORT
+		soter-shared-mem {
+			compatible = "microtrust,shared_mem";
+			no-map;
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+			size = <0 0x800000>;
+			alignment = <0 0x1000000>;
+#else
+			size = <0 0x200000>;
+			alignment = <0 0x200000>;
+#endif
+			alloc-ranges = <0 0x40000000 0 0x50000000>;
+		};
+#endif
 	};
 
 	clk26m: oscillator@0 {
@@ -3760,6 +3775,16 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	atf_logger {
 		compatible = "mediatek,atf_logger";
+	};
+
+	/* Microtrust SW IRQ number 91(123) ~ 95(127) 331(363) */
+	utos {
+		compatible = "microtrust,utos";
+		interrupts = <GIC_SPI 91 IRQ_TYPE_EDGE_RISING>,
+			<GIC_SPI 92 IRQ_TYPE_EDGE_RISING>;
+	};
+	utos_tester {
+		compatible = "microtrust,tester-v1";
 	};
 
 	amms_control {
