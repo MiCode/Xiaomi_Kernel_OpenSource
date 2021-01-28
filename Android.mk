@@ -37,7 +37,7 @@ $(INSTALLED_KERNEL_TARGET): $(BUILT_KERNEL_TARGET) $(LOCAL_PATH)/Android.mk | $(
 	$(copy-file-to-target)
 
 .PHONY: kernel save-kernel kernel-savedefconfig kernel-menuconfig menuconfig-kernel savedefconfig-kernel clean-kernel
-kernel: $(INSTALLED_KERNEL_TARGET) $(KERNEL_DTB_FILE) $(INSTALLED_MTK_DTB_TARGET)
+kernel: $(INSTALLED_KERNEL_TARGET) $(INSTALLED_MTK_DTB_TARGET)
 save-kernel: $(TARGET_PREBUILT_KERNEL)
 
 kernel-savedefconfig: $(TARGET_KERNEL_CONFIG)
@@ -54,16 +54,20 @@ menuconfig-kernel savedefconfig-kernel:
 clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(INSTALLED_KERNEL_TARGET)
 
-### DTB
-$(shell if [ ! -f $(INSTALLED_MTK_DTB_TARGET) ]; then mkdir -p $(dir $(INSTALLED_MTK_DTB_TARGET)); touch $(INSTALLED_MTK_DTB_TARGET);fi)
-$(KERNEL_DTB_FILE): $(INSTALLED_KERNEL_TARGET)
-	@echo 'DTB: Copy to $@'
-	@mkdir -p $(dir $@)
-	@cp -f $(KERNEL_DTB_TARGET) $@
-$(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET) $(KERNEL_DTB_FILE)
-	@echo 'DTB: Copy to $@'
-	@mkdir -p $(dir $@)
-	@cp -f $(KERNEL_DTB_FILE) $@
+### DTB build template
+ifeq ($(KERNEL_TARGET_ARCH),arm64)
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_PLATFORM_DIR).dts
+else
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_PLATFORM_DIR).dts
+endif
+include device/mediatek/build/core/build_dtbimage.mk
+ifeq ($(KERNEL_TARGET_ARCH),arm64)
+MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_BASE_PROJECT).dts
+else
+MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_BASE_PROJECT).dts
+endif
+MTK_DTBOIMAGE_DWS := $(KERNEL_DIR)/drivers/misc/mediatek/dws/$(MTK_PLATFORM_DIR)/$(MTK_BASE_PROJECT).dws
+include device/mediatek/build/core/build_dtboimage.mk
 
 endif #TARGET_NO_KERNEL
 endif #LINUX_KERNEL_VERSION
