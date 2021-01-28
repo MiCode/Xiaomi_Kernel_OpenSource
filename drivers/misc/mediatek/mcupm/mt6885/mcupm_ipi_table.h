@@ -188,10 +188,12 @@ struct mtk_mbox_device mcupm_mboxdev = {
 	.send_count = MCUPM_TOTAL_SEND_PIN,
 };
 
+extern void mcupm_ipi_timeout_cb(int ipi_id);
 struct mtk_ipi_device mcupm_ipidev = {
 	.name = "mcupm_ipidev",
 	.id = IPI_DEV_MCUPM,
 	.mbdev = &mcupm_mboxdev,
+	.timeout_handler = mcupm_ipi_timeout_cb,
 };
 
 #endif
