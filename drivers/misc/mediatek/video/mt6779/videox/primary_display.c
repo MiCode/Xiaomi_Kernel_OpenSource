@@ -2011,7 +2011,7 @@ static int sec_buf_ion_alloc(int buf_size)
 	if (IS_ERR_OR_NULL(sec_ion_handle)) {
 		DISP_PR_ERR("Fatal Error, ion_alloc for size %d failed\n",
 			    buf_size);
-		goto err;
+		goto err1;
 	}
 
 	/* Query (PA/mva addr)/ sec_hnd */
@@ -2049,6 +2049,7 @@ static int sec_buf_ion_alloc(int buf_size)
 #ifdef MTK_FB_ION_SUPPORT
 err:
 	ion_free(ion_client, sec_ion_handle);
+err1:
 	ion_client_destroy(ion_client);
 #endif
 	return -1;
