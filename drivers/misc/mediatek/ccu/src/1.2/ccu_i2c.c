@@ -317,6 +317,10 @@ void ccu_i2c_dump_errr(void)
 	LOG_DBG_MUST("CCU Dump I2C reg\n");
 
 	pClient = getCcuI2cClient();
+	if (pClient == NULL) {
+		LOG_ERR("i2c_client is null\n");
+		return;
+	}
 	i2c = i2c_get_adapdata(pClient->adapter);
 	ccu_i2c_dump_info(i2c);
 }
