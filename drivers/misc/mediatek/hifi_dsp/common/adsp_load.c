@@ -362,6 +362,7 @@ int hifixdsp_stop_run(void)
 		goto TAIL;
 	}
 
+	adsp_wdt_stop();
 	hifixdsp_shutdown();
 	adsp_remove_setting_after_shutdown();
 
