@@ -1118,6 +1118,13 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 					&u_req->power_param.boost_value);
 		ret |= get_user(req->priority,
 					&u_req->priority);
+
+		if (req->priority >= VPU_REQ_MAX_NUM_PRIORITY) {
+			LOG_ERR("%s: ENQUE: invalid priority (%d)\n",
+				__func__, req->priority);
+			req->priority = 0;
+		}
+
 		/*opp_step counted by vpu driver*/
 	if (req->power_param.boost_value != 0xff) {
 		if (req->power_param.boost_value >= 0 &&
