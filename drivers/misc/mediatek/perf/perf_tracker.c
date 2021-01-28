@@ -22,6 +22,7 @@
 #include <linux/swap.h>
 #include <mt-plat/mtk_blocktag.h>
 #include <helio-dvfsrc.h>
+#include <linux/jiffies.h>
 
 #include <linux/module.h>
 #ifndef __CHECKER__
@@ -48,6 +49,16 @@
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <net/tcp.h>
+#endif
+
+#ifdef CONFIG_MTK_GAUGE_VERSION
+#include <mt-plat/mtk_battery.h>
+
+static void fuel_gauge_handler(struct work_struct *work);
+
+static int fuel_gauge_enable;
+static int fuel_gauge_delay; /* ms */
+static DECLARE_DELAYED_WORK(fuel_gauge, fuel_gauge_handler);
 #endif
 
 static int perf_tracker_on, perf_tracker_init;
@@ -94,6 +105,25 @@ int __attribute__((weak)) mtk_btag_mictx_get_data(
 	struct mtk_btag_mictx_iostat_struct *io)
 {
 	return -1;
+}
+#endif
+
+#ifdef CONFIG_MTK_GAUGE_VERSION
+static void fuel_gauge_handler(struct work_struct *work)
+{
+	int curr, volt;
+
+	if (!fuel_gauge_enable)
+		return;
+
+	/* read current(mA) and valtage(mV) from pmic */
+	curr = battery_get_bat_current();
+	volt = battery_get_bat_voltage();
+
+	trace_fuel_gauge(curr, volt);
+
+	queue_delayed_work(system_power_efficient_wq,
+			&fuel_gauge, msecs_to_jiffies(fuel_gauge_delay));
 }
 #endif
 
@@ -241,6 +271,70 @@ void __perf_tracker(u64 wallclock,
 #endif
 			stall);
 }
+
+#ifdef CONFIG_MTK_GAUGE_VERSION
+static ssize_t show_fuel_gauge_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, max_len = 4096;
+
+	len += snprintf(buf, max_len, "fuel_gauge_enable = %u\n",
+			fuel_gauge_enable);
+	return len;
+}
+
+static ssize_t store_fuel_gauge_enable(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &tmp) == 0)
+		fuel_gauge_enable = (tmp > 0) ? 1 : 0;
+
+	if (fuel_gauge_enable) {
+		/* default delay 8ms */
+		fuel_gauge_delay = (fuel_gauge_delay > 0) ?
+				fuel_gauge_delay : 8;
+
+		/* start fuel gauge tracking */
+		queue_delayed_work(system_power_efficient_wq,
+				&fuel_gauge,
+				msecs_to_jiffies(fuel_gauge_delay));
+	}
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+
+static ssize_t show_fuel_gauge_period(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	unsigned int len = 0, max_len = 4096;
+
+	len += snprintf(buf, max_len, "fuel_gauge_period = %u(ms)\n",
+				fuel_gauge_delay);
+	return len;
+}
+
+static ssize_t store_fuel_gauge_period(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	int tmp;
+
+	mutex_lock(&perf_ctl_mutex);
+
+	if (kstrtouint(buf, 10, &tmp) == 0)
+		if (tmp > 0) /* ms */
+			fuel_gauge_delay = tmp;
+
+	mutex_unlock(&perf_ctl_mutex);
+
+	return count;
+}
+#endif
 
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 void perf_update_gpu_counter(unsigned int gpu_data[], unsigned int len)
@@ -406,6 +500,14 @@ static ssize_t store_perf_net_enable(struct kobject *kobj,
 
 static struct kobj_attribute perf_enable_attr =
 __ATTR(enable, 0600, show_perf_enable, store_perf_enable);
+#ifdef CONFIG_MTK_GAUGE_VERSION
+static struct kobj_attribute perf_fuel_gauge_enable_attr =
+__ATTR(fuel_gauge_enable, 0600,
+	show_fuel_gauge_enable, store_fuel_gauge_enable);
+static struct kobj_attribute perf_fuel_gauge_period_attr =
+__ATTR(fuel_gauge_period, 0600,
+	show_fuel_gauge_period, store_fuel_gauge_period);
+#endif
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 static struct kobj_attribute perf_gpu_pmu_enable_attr =
 __ATTR(gpu_pmu_enable, 0600, show_gpu_pmu_enable, store_gpu_pmu_enable);
@@ -419,6 +521,10 @@ __ATTR(net_pkt_enable, 0600, show_perf_net_enable, store_perf_net_enable);
 
 static struct attribute *perf_attrs[] = {
 	&perf_enable_attr.attr,
+#ifdef CONFIG_MTK_GAUGE_VERSION
+	&perf_fuel_gauge_enable_attr.attr,
+	&perf_fuel_gauge_period_attr.attr,
+#endif
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 	&perf_gpu_pmu_enable_attr.attr,
 	&perf_gpu_pmu_period_attr.attr,
