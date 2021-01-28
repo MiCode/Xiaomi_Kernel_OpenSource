@@ -1,6 +1,15 @@
 config SND_SOC_MEDIATEK
 	tristate
 
+config SND_SOC_AW87519
+	bool "SoC Audio for awinic AW87519 Smart K PA"
+	depends on I2C
+	help
+	  This option enables support for AW87519 Smart K PA
+	  If the speaker PA is AW87519, enable this.
+	  This is a config for speaker PA is AW87519.
+	  Generally you select "N", if unsupport it.
+
 config SND_SOC_MT2701
 	tristate "ASoC support for Mediatek MT2701 chip"
 	depends on ARCH_MEDIATEK

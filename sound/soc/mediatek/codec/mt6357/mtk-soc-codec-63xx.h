@@ -51,4 +51,13 @@ int set_codec_ops(struct mtk_codec_ops *ops);
 extern void accdet_late_init(unsigned long a);
 #endif
 
+/*AKITA-5 M8 audio bring up begin */
+#ifdef SND_SOC_AW87519
+extern unsigned char aw87519_amp_lch_on(void);
+extern unsigned char aw87519_amp_lch_off(void);
+extern unsigned char aw87519_amp_rch_on(void);
+extern unsigned char aw87519_amp_rch_off(void);
+#endif
+/*AKITA-5 - end */
+
 #endif

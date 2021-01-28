@@ -3666,6 +3666,12 @@ static int Ext_Speaker_Amp_Set(struct snd_kcontrol *kcontrol,
 	pr_debug("%s() gain = %ld\n ", __func__,
 		 ucontrol->value.integer.value[0]);
 	if (ucontrol->value.integer.value[0]) {
+/*AKITA-5 M8 audio bring up begin */
+#ifdef SND_SOC_AW87519
+		aw87519_amp_lch_on();
+		aw87519_amp_rch_on();
+#endif
+/*AKITA-5 - end */
 		Ext_Speaker_Amp_Change(true);
 		mCodec_data->mAudio_Ana_DevicePower
 			[AUDIO_ANALOG_DEVICE_OUT_EXTSPKAMP] =
@@ -3674,6 +3680,13 @@ static int Ext_Speaker_Amp_Set(struct snd_kcontrol *kcontrol,
 		mCodec_data->mAudio_Ana_DevicePower
 			[AUDIO_ANALOG_DEVICE_OUT_EXTSPKAMP] =
 		    ucontrol->value.integer.value[0];
+/*AKITA-5 M8 audio bring up begin */
+#ifdef SND_SOC_AW87519
+		aw87519_amp_lch_off();
+		aw87519_amp_rch_off();
+#endif
+/*AKITA-5 - end */
+
 		Ext_Speaker_Amp_Change(false);
 	}
 	return 0;
