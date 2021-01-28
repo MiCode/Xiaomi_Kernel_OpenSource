@@ -29,3 +29,6 @@ ccflags-y += -Wno-unused-function
 
 obj-y += mtk_gpufreq_plat.o
 
+ifeq ($(findstring aging,$(PROJECT_DTB_NAMES)),aging)
+	subdir-ccflags-y += -DAGING_LOAD
+endif

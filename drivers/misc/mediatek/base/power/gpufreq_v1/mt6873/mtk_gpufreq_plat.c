@@ -3531,6 +3531,11 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	__mt_gpufreq_init_power();
 
+#if defined(AGING_LOAD)
+	gpufreq_pr_info("@%s: AGING load\n", __func__);
+	g_aging_enable = 1;
+#endif
+
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
 						"aging") != NULL) {
