@@ -361,7 +361,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 	char lock_name[MAX_LOCK_NAME];
 	unsigned long long t1, t2, t3;
 	struct task_struct *owner = NULL;
-	cycles_t exit_cycles;
+	cycles_t start_cycles;
 
 	/* skip debugging */
 	if (is_logbuf_lock_held(lock)) {
@@ -371,10 +371,10 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 
 	t1 = sched_clock();
 	t2 = t1;
-	exit_cycles = get_cycles() + one_second;
+	start_cycles = get_cycles();
 
 	for (;;) {
-		while (get_cycles() < exit_cycles) {
+		while ((get_cycles() - start_cycles) < one_second) {
 			if (arch_spin_trylock(&lock->raw_lock)) {
 				if (is_warning_owner) {
 					struct spinlock_debug_info *sdi;
@@ -385,7 +385,7 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 				return;
 			}
 		}
-		exit_cycles += one_second;
+		start_cycles += one_second;
 
 		t3 = sched_clock();
 		if (t3 < t2)
