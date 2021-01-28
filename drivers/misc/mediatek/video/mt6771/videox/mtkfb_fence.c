@@ -978,26 +978,26 @@ int mtkfb_release_present_fence(unsigned int session, unsigned int fence_idx)
 	mutex_lock(&l_info->sync_lock);
 	fence_increment = fence_idx - l_info->timeline->value;
 
+	if (fence_increment <= 0)
+		goto done;
+
 	if (fence_increment >= 2)
 		DISPPR_FENCE("Warning, R/%s%d/L%d/timeline idx:%d/fence:%d\n",
 			disp_session_type_str(session),
 			DISP_SESSION_DEV(session), timeline_id,
 			l_info->timeline->value, fence_idx);
 
-	if (fence_increment > 0) {
-		timeline_inc(l_info->timeline, fence_increment);
-		DISPPR_FENCE("RL+/%s%d/L%d/id%d\n",
+	timeline_inc(l_info->timeline, fence_increment);
+	DISPPR_FENCE("RL+/%s%d/L%d/id%d\n",
 		     disp_session_type_str(session),
 		     DISP_SESSION_DEV(session), timeline_id, fence_idx);
-	}
 
 	if (DISP_SESSION_TYPE(session) == DISP_SESSION_PRIMARY)
 		mmprofile_log_ex(
 			ddp_mmp_get_events()->primary_present_fence_release,
 			MMPROFILE_FLAG_PULSE, fence_idx, fence_increment);
-
+done:
 	mutex_unlock(&l_info->sync_lock);
-
 	return 0;
 }
 
