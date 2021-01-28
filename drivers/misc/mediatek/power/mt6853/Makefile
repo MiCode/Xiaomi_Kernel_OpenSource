@@ -24,7 +24,11 @@ ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
+ifneq ($(CONFIG_MACH_MT6833),y)
 obj-y += mtk_battery_intf.o
 else
 obj-y += misc.o
-endif
+endif # CONFIG_MACH_MT6833
+else
+obj-y += misc.o
+endif #CONFIG_FPGA_EARLY_PORTING

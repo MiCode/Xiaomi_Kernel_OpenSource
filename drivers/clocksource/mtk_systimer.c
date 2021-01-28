@@ -50,7 +50,9 @@ static uint64_t     t_hdl_in;
 static uint64_t     t_hdl_out;
 static uint64_t     t_setevt_ticks;
 
+#ifdef CONFIG_MTK_RAM_CONSOLE
 static DEFINE_SPINLOCK(systimer_lock);
+#endif
 
 #define aee_log(fmt, ...) \
 do { \
