@@ -4477,10 +4477,25 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	if (handle->profile_exec) {
 		u32 *va = cmdq_pkt_get_perf_ret(handle->pkt);
 
-		if (va && (va[0] == 0xdeaddead || va[1] == 0xdeaddead))
-			CMDQ_ERR(
-				"task may not execute handle:%p pkt:%p exec:%#x %#x",
-				handle, handle->pkt, va[0], va[1]);
+		if (va) {
+			if (va[0] == 0xdeaddead || va[1] == 0xdeaddead) {
+				CMDQ_ERR(
+					"task may not execute handle:%p pkt:%p exec:%#x %#x",
+					handle, handle->pkt, va[0], va[1]);
+			} else {
+				u32 cost = va[1] < va[0] ?
+					~va[0] + va[1] : va[1] - va[0];
+
+				do_div(cost, 26);
+				if (cost > 80000) {
+					CMDQ_LOG(
+						"[WARN]task executes %uus engine:%#llx caller:%llu-%s\n",
+						cost, handle->engineFlag,
+						(u64)handle->caller_pid,
+						handle->caller_name);
+				}
+			}
+		}
 	}
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->wait_task_done,
@@ -4778,6 +4793,30 @@ s32 cmdq_pkt_stop(struct cmdqRecStruct *handle)
 
 	CMDQ_MSG("%s done handle:0x%p\n", __func__, handle);
 	return 0;
+}
+
+void cmdq_core_dump_active(void)
+{
+	u64 cost;
+	u32 idx = 0;
+	struct cmdqRecStruct *task;
+
+	mutex_lock(&cmdq_handle_list_mutex);
+	list_for_each_entry(task, &cmdq_ctx.handle_active, list_entry) {
+		if (idx >= 3)
+			break;
+
+		cost = div_u64(sched_clock() - task->submit, 1000);
+		if (cost <= 800000)
+			break;
+
+		CMDQ_LOG(
+			"[warn] waiting task %u cost time:%lluus submit:%llu enging:%#llx caller:%llu-%s\n",
+			idx, cost, task->submit, task->engineFlag,
+			(u64)task->caller_pid, task->caller_name);
+		idx++;
+	}
+	mutex_unlock(&cmdq_handle_list_mutex);
 }
 
 /* mailbox helper functions */
