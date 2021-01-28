@@ -566,16 +566,11 @@ static int mem_thread_alloc_test(void *data)
 	return UT_STATE_PASS;
 }
 
-#define SPEED_UP_MULTI_THREAD_TEST (1)
 static enum UT_RET_STATE mem_create_run_thread(enum TRUSTED_MEM_TYPE mem_type)
 {
 	int idx;
 	int chunk_cnt;
-#if SPEED_UP_MULTI_THREAD_TEST
-	u32 min_alloc_sz = SIZE_1M;
-#else
 	u32 min_alloc_sz = tmem_core_get_min_chunk_size(mem_type);
-#endif
 	u32 max_total_sz =
 		tmem_core_get_max_pool_size(mem_type) / MEM_SPAWN_THREAD_COUNT;
 
