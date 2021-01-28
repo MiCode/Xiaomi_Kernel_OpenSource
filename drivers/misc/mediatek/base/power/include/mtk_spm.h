@@ -32,7 +32,8 @@
 #include "spm_v4/mtk_spm.h"
 
 #elif defined(CONFIG_MACH_MT6768) \
-	|| defined(CONFIG_MACH_MT6785)
+	|| defined(CONFIG_MACH_MT6785) \
+	|| defined(CONFIG_MACH_MT6765)
 #include "spm/mtk_spm.h"
 
 #endif

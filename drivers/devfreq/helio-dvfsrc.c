@@ -98,7 +98,7 @@ char *dvfsrc_get_opp_table_info(char *p)
 
 	return p;
 }
-#if !defined(CONFIG_MACH_MT6771)
+#if !defined(CONFIG_MACH_MT6771) && !defined(CONFIG_MACH_MT6765)
 
 int dvfsrc_get_bw(int type)
 {
@@ -250,7 +250,7 @@ static void helio_dvfsrc_enable(struct helio_dvfsrc *dvfsrc)
 {
 	mutex_lock(&dvfsrc->devfreq->lock);
 
-#if !defined(CONFIG_MACH_MT6771)
+#if !defined(CONFIG_MACH_MT6771) && !defined(CONFIG_MACH_MT6765)
 	dvfsrc_write(dvfsrc, DVFSRC_VCORE_REQUEST,
 		(dvfsrc_read(dvfsrc, DVFSRC_VCORE_REQUEST) & ~(0x3 << 20)));
 	dvfsrc_write(dvfsrc, DVFSRC_EMI_REQUEST,
@@ -486,7 +486,7 @@ out:
 	return ret;
 }
 
-#if !defined(CONFIG_MACH_MT6771)
+#if !defined(CONFIG_MACH_MT6771) && !defined(CONFIG_MACH_MT6765)
 void dvfsrc_set_vcore_request(unsigned int mask, unsigned int vcore_level)
 {
 	int r = 0;
@@ -685,7 +685,7 @@ static int helio_dvfsrc_probe(struct platform_device *pdev)
 						 &helio_devfreq_profile,
 						 "helio_dvfsrc",
 						 NULL);
-#if !defined(CONFIG_MACH_MT6771)
+#if !defined(CONFIG_MACH_MT6771) && !defined(CONFIG_MACH_MT6765)
 	vcore_opp_init();
 	dvfsrc_init_opp_table();
 	spm_check_status_before_dvfs();
