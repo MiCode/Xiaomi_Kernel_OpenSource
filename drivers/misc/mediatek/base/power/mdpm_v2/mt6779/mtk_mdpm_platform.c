@@ -552,6 +552,7 @@ int get_md1_scenario_power(enum md_scenario scenario,
 	enum mdpm_power_type power_type, struct md_power_status *mdpm_pwr_sta)
 {
 	int s_power = 0;
+	int temp;
 
 	if (unlikely(scenario < 0))
 		goto just_out;
@@ -568,8 +569,8 @@ int get_md1_scenario_power(enum md_scenario scenario,
 		break;
 	}
 	mdpm_pwr_sta->scenario_id = scenario;
-	sprintf(mdpm_pwr_sta->scenario_name, "%s",
-		mdpm_scen[scenario].scenario_name);
+	temp = snprintf(mdpm_pwr_sta->scenario_name, MAX_MDPM_NAME_LEN,
+		"%s", mdpm_scen[scenario].scenario_name);
 	mdpm_pwr_sta->scanario_power = s_power;
 	mdpm_pwr_sta->power_type = power_type;
 
