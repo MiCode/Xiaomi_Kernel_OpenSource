@@ -35,7 +35,7 @@
 #ifdef EP_STAGE
 #define EP_MARK_MMDVFS
 #define EP_MARK_SMI
-#define EP_NO_CLKMGR
+//#define EP_NO_CLKMGR
 #endif
 #ifndef EP_MARK_MMDVFS
 #include <mmdvfs_pmqos.h>
@@ -3017,6 +3017,14 @@ static inline void Prepare_Enable_ccf_clock(void)
 #ifndef EP_MARK_SMI
 	smi_bus_prepare_enable(SMI_LARB2_REG_INDX, ISP_DEV_NAME, true);
 #endif
+	ret = clk_prepare_enable(isp_clk.CG_SCP_SYS_CAM);
+	if (ret)
+		log_err("cannot get CG_SCP_SYS_CAM clock\n");
+
+	ret = clk_prepare_enable(isp_clk.CG_CAM_LARB2);
+	if (ret)
+		log_err("cannot get CG_CAM_LARB2 clock\n");
+
 	ret = clk_prepare_enable(isp_clk.CG_CAM);
 	if (ret)
 		log_err("cannot get CG_CAM clock\n");
@@ -3063,8 +3071,8 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	// before smi drv ready
 // smi_bus_disable would do following
 
-	// clk_disable_unprepare(isp_clk.CG_CAM_LARB2);
-	// clk_disable_unprepare(isp_clk.CG_SCP_SYS_CAM);
+	clk_disable_unprepare(isp_clk.CG_CAM_LARB2);
+	clk_disable_unprepare(isp_clk.CG_SCP_SYS_CAM);
 	// clk_disable_unprepare(isp_clk.CG_SCP_SYS_DIS);
 
 #ifndef EP_MARK_SMI
