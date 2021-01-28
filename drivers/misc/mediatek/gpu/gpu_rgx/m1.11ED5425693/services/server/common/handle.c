@@ -2281,7 +2281,7 @@ PVRSRV_HANDLE_BASE *PVRSRVRetrieveProcessHandleBase(void)
 	}
 	OSLockRelease(psPvrData->hProcessHandleBase_Lock);
 
-	if (!psHandleBase)
+	if (psHandleBase == NULL && psProcHandleBase != NULL)
 	{
 		psHandleBase = psProcHandleBase->psHandleBase;
 	}

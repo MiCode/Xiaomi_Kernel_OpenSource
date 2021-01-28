@@ -917,19 +917,30 @@ DecodeHTB(HTB_Sentinel_t *pSentinel,
 	ui32LogIdx = idToLogIdx(ui32Data);
 
 	/*
-	 * Check if the unrecognized ID is valid and therefore, tracebuf
+	 * Check if the unrecognised ID is valid and therefore, tracebuf
 	 * needs updating.
 	 */
-	if (HTB_SF_LAST == ui32LogIdx && HTB_LOG_VALIDID(ui32Data)
-		&& IMG_FALSE == bUnrecognizedErrorPrinted)
+	if (ui32LogIdx == HTB_SF_LAST)
 	{
-		PVR_DPF((PVR_DBG_WARNING,
-		    "%s: Unrecognised LOG value '%x' GID %x Params %d ID %x @ '%p'",
-		    __func__, ui32Data, HTB_SF_GID(ui32Data),
-		    HTB_SF_PARAMNUM(ui32Data), ui32Data & 0xfff, pData));
-		bUnrecognizedErrorPrinted = IMG_FALSE;
+		if (HTB_LOG_VALIDID(ui32Data))
+		{
+			if (!bUnrecognizedErrorPrinted)
+			{
+				PVR_DPF((PVR_DBG_WARNING,
+				    "%s: Unrecognised LOG value '%x' GID %x Params %d ID %x @ '%p'",
+				    __func__, ui32Data, HTB_SF_GID(ui32Data),
+				    HTB_SF_PARAMNUM(ui32Data), ui32Data & 0xfff, pData));
+				bUnrecognizedErrorPrinted = IMG_TRUE;
+			}
 
-		return 0;
+			return 0;
+		}
+
+		PVR_DPF((PVR_DBG_ERROR,
+		    "%s: Unrecognised and invalid LOG value detected '%x",
+		    __func__, ui32Data));
+
+		return -1;
 	}
 
 	/* The string format we are going to display */

@@ -2653,7 +2653,11 @@ _FreeOSPages_Sparse(PMR_OSPAGEARRAY_DATA *psPageArrayData,
 	for (i = 0; i < uiNumPages; i++)
 	{
 		IMG_UINT32 idx = pai32FreeIndices ? pai32FreeIndices[i] : i;
-		_RemoveMemAllocRecord_UmaPages(psPageArrayData, ppsPageArray[idx]);
+
+		if (NULL != ppsPageArray[idx])
+		{
+			_RemoveMemAllocRecord_UmaPages(psPageArrayData, ppsPageArray[idx]);
+		}
 	}
 #else
 	_DecrMemAllocStat_UmaPages(uiTempArraySize * PAGE_SIZE,
@@ -2666,11 +2670,15 @@ _FreeOSPages_Sparse(PMR_OSPAGEARRAY_DATA *psPageArrayData,
 		for (i = 0; i < uiNumPages; i++)
 		{
 			IMG_UINT32 idx = pai32FreeIndices ? pai32FreeIndices[i] : i;
-			_PoisonDevicePage(psPageArrayData->psDevNode,
-			                  ppsPageArray[idx],
-			                  uiOrder,
-			                  psPageArrayData->ui32CPUCacheFlags,
-			                  PVRSRV_POISON_ON_FREE_VALUE);
+
+			if (NULL != ppsPageArray[idx])
+			{
+				_PoisonDevicePage(psPageArrayData->psDevNode,
+				                  ppsPageArray[idx],
+				                  uiOrder,
+				                  psPageArrayData->ui32CPUCacheFlags,
+				                  PVRSRV_POISON_ON_FREE_VALUE);
+			}
 		}
 	}
 
