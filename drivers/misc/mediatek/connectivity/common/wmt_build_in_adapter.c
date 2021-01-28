@@ -73,6 +73,7 @@ void wmt_export_platform_bridge_register(struct wmt_platform_bridge *cb)
 	if (unlikely(!cb))
 		return;
 	bridge.thermal_query_cb = cb->thermal_query_cb;
+	bridge.trigger_assert_cb = cb->trigger_assert_cb;
 	bridge.clock_fail_dump_cb = cb->clock_fail_dump_cb;
 	CONNADP_INFO_FUNC("\n");
 }
@@ -93,6 +94,18 @@ int mtk_wcn_cmb_stub_query_ctrl(void)
 		return -1;
 	} else
 		return bridge.thermal_query_cb();
+}
+
+int mtk_wcn_cmb_stub_trigger_assert(void)
+{
+	CONNADP_DBG_FUNC("\n");
+	/* dump backtrace for checking assert reason */
+	dump_stack();
+	if (unlikely(!bridge.trigger_assert_cb)) {
+		CONNADP_WARN_FUNC("Trigger assert not registered\n");
+		return -1;
+	} else
+		return bridge.trigger_assert_cb();
 }
 
 void mtk_wcn_cmb_stub_clock_fail_dump(void)
