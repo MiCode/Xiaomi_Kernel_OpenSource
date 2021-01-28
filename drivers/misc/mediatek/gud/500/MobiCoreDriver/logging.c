@@ -19,6 +19,7 @@
 #include <linux/device.h>
 #include <linux/debugfs.h>
 #include <linux/version.h>
+#include <tee_sanity.h>
 
 #include "main.h"
 #include "logging.h"
@@ -67,6 +68,13 @@ static inline void log_eol(u16 source, u32 cpuid)
 {
 	if (!log_ctx.line_len)
 		return;
+
+	if (!mtk_tee_log_tracing(cpuid, log_ctx.prev_source,
+				log_ctx.line, log_ctx.line_len)) {
+		log_ctx.line[0] = '\0';
+		log_ctx.line_len = 0;
+		return;
+	}
 
 	if (log_ctx.prev_source)
 		/* TEE user-space */
