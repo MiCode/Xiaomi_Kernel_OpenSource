@@ -11,7 +11,11 @@
 # GNU General Public License for more details.
 #
 
+
+ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/met_drv/),)
+ccflags-y += -DMET_SUPPORT
 ccflags-y += -DMET_USER_EVENT_SUPPORT
+endif
 
 ccflags-y += \
 	-I$(CPUFREQ_ROOT_DIR)/inc \

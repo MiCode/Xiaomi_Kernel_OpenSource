@@ -17,9 +17,7 @@ endif
 
 ifdef CONFIG_MTK_PLATFORM
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile),)
 include $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile
-endif
 endif
 
 ifeq ($(SSPM_VER),v2)
