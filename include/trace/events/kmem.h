@@ -315,6 +315,75 @@ TRACE_EVENT(mm_page_alloc_extfrag,
 		__entry->change_ownership)
 );
 
+TRACE_EVENT(ion_heap_shrink,
+
+	TP_PROTO(const char *heap_name,
+		 size_t len,
+		 long total_allocated),
+
+	TP_ARGS(heap_name, len, total_allocated),
+
+	TP_STRUCT__entry(
+		__string(heap_name, heap_name)
+		__field(size_t, len)
+		__field(long, total_allocated)
+	),
+
+	TP_fast_assign(
+		__assign_str(heap_name, heap_name);
+		__entry->len = len;
+		__entry->total_allocated = total_allocated;
+	),
+
+	TP_printk("heap_name=%s, len=%zu, total_allocated=%ld",
+		  __get_str(heap_name), __entry->len, __entry->total_allocated)
+);
+
+TRACE_EVENT(ion_heap_grow,
+
+	TP_PROTO(const char *heap_name,
+		 size_t len,
+		 long total_allocated),
+
+	TP_ARGS(heap_name, len, total_allocated),
+
+	TP_STRUCT__entry(
+		__string(heap_name, heap_name)
+		__field(size_t, len)
+		__field(long, total_allocated)
+	),
+
+	TP_fast_assign(
+		__assign_str(heap_name, heap_name);
+		__entry->len = len;
+		__entry->total_allocated = total_allocated;
+	),
+
+	TP_printk("heap_name=%s, len=%zu, total_allocated=%ld",
+		  __get_str(heap_name), __entry->len, __entry->total_allocated)
+	);
+
+TRACE_EVENT(rss_stat,
+
+	TP_PROTO(int member,
+		long count),
+
+	TP_ARGS(member, count),
+
+	TP_STRUCT__entry(
+		__field(int, member)
+		__field(long, size)
+	),
+
+	TP_fast_assign(
+		__entry->member = member;
+		__entry->size = (count << PAGE_SHIFT);
+	),
+
+	TP_printk("member=%d size=%ldB",
+		__entry->member,
+		__entry->size)
+	);
 #endif /* _TRACE_KMEM_H */
 
 /* This part must be outside protection */

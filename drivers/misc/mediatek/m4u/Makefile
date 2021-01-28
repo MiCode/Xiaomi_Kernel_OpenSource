@@ -11,11 +11,17 @@
 # GNU General Public License for more details.
 #
 
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/aee
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include
-subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
-ifeq ($(CONFIG_MTK_ION),y)
-subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/
-endif
+obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
-obj-y	+= monitor_hang.o
+# For test
+# $(info GM-T-m4u-$(CONFIG_MTK_PLATFORM))
+# ifeq ($(CONFIG_MTK_PLATFORM),"mt6761")
+# $(info GM-T-with-quotation marks)
+# endif
+# ifeq ($(CONFIG_MTK_PLATFORM),6761)
+# $(info GM-T-without-quotation marks)
+# endif
+
+ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761"))
+obj-y += 2.0/
+endif

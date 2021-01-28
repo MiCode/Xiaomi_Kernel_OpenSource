@@ -46,4 +46,8 @@ ccflags-$(CONFIG_TRUSTONIC_TEE_DEBUG) += -DDEBUG
 
 # MobiCore Driver includes
 ccflags-y += -I$(GUD_ROOT_FOLDER)/MobiCoreDriver
-ccflags-y += -I$(srctree)/drivers/staging/android/ion
+ifeq ($(CONFIG_MTK_ION),y)
+ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion
+else
+ccflags-y += -I$(srctree)/drivers/staging/android/aosp_ion
+endif

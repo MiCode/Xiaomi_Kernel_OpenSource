@@ -49,3 +49,4 @@ obj-$(CONFIG_MT6360_DBG) += subpmic/
 obj-$(CONFIG_MTK_CAMERA_ISP) += cameraisp/
 obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
 obj-y += devinfo/
+obj-$(CONFIG_MTK_M4U) += m4u/

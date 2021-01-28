@@ -22,8 +22,125 @@ config ANDROID_VSOC
 	  This option adds support for the Virtual SoC driver needed to boot
 	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
 	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
+############################################################################
+menuconfig ION
+	bool "Ion Memory Manager"
+	depends on HAVE_MEMBLOCK && HAS_DMA && MMU
+	select GENERIC_ALLOCATOR
+	select DMA_SHARED_BUFFER
+	help
+	  Choose this option to enable the ION Memory Manager,
+	  used by Android to efficiently allocate buffers
+	  from userspace that can be shared between drivers.
+	  If you're not using Android its probably safe to
+	  say N here.
+############################################################################
+# AOSP_ION
+config ION_SYSTEM_HEAP
+	bool "Ion system heap"
+	depends on ION
+	help
+	  Choose this option to enable the Ion system heap. The system heap
+	  is backed by pages from the buddy allocator. If in doubt, say Y.
 
-source "drivers/staging/android/ion/Kconfig"
+config ION_CARVEOUT_HEAP
+	bool "Ion carveout heap support"
+	depends on ION
+	help
+	  Choose this option to enable carveout heaps with Ion. Carveout heaps
+	  are backed by memory reserved from the system. Allocation times are
+	  typically faster at the cost of memory not being used. Unless you
+	  know your system has these regions, you should say N here.
+
+config ION_CHUNK_HEAP
+	bool "Ion chunk heap support"
+	depends on ION
+	help
+          Choose this option to enable chunk heaps with Ion. This heap is
+	  similar in function the carveout heap but memory is broken down
+	  into smaller chunk sizes, typically corresponding to a TLB size.
+	  Unless you know your system has these regions, you should say N here.
+
+config ION_CMA_HEAP
+	bool "Ion CMA heap support"
+	depends on ION && DMA_CMA
+	help
+	  Choose this option to enable CMA heaps with Ion. This heap is backed
+	  by the Contiguous Memory Allocator (CMA). If your system has these
+	  regions, you should say Y here.
+
+config MTK_ION_DEBUG
+	bool "Ion system heap debug information"
+	depends on ION_SYSTEM_HEAP
+	help
+	  Choose this option to open Mediatek debug information,
+	  the information only support ion system heap. It can
+	  show the buffer of total size about ion system heap,
+	  and show the number of the dma_map_attachment.
+
+config MTK_ION_SEC_HEAP
+	bool "Ion mtk secure heap support"
+	depends on ION
+	help
+	  Choose this option to enable mtk secure heaps with Ion.
+	  MTK secure heaps can support mediatek's secure feature. For
+	  example, svp, secure camera and Sdsp and so on.
+	  Secure heaps are different from others, user can allocate secure
+	  buffer from these heaps.
+############################################################################
+# MTK_ION
+
+config MTK_ION
+	tristate "MTK ION -- ion multimedia heap"
+	depends on ION
+	help
+	  Choose this option to support multimedia heap.
+	  It means support ION.
+	  It set in xxxx_defconfig.mk
+	  default is on.
+
+config ION_TEST
+	tristate "Ion Test Device"
+	depends on ION
+	help
+	  Choose this option to create a device that can be used to test the
+	  kernel and device side ION functions.
+	  set y in defconfig to open it.
+	  default n.
+
+config ION_DUMMY
+	bool "Dummy Ion driver"
+	depends on ION
+	help
+	  Provides a dummy ION driver that registers the
+	  /dev/ion device and some basic heaps. This can
+	  be used for testing the ION infrastructure if
+	  one doesn't have access to hardware drivers that
+	  use ION.
+
+config ION_TEGRA
+	tristate "Ion for Tegra"
+	depends on ARCH_TEGRA && ION
+	help
+	  Choose this option if you wish to use ion on an nVidia Tegra.
+
+config ION_HISI
+	tristate "Ion for Hisilicon"
+	depends on ARCH_HISI && ION
+	select ION_OF
+	help
+	  Choose this option if you wish to use ion on Hisilicon Platform.
+
+config ION_OF
+	bool "Devicetree support for Ion"
+	depends on ION && OF_ADDRESS
+	help
+	  Provides base support for defining Ion heaps in devicetree
+	  and setting them up. Also includes functions for platforms
+	  to parse the devicetree and expand for their own custom
+	  extensions
+
+	  If using Ion and devicetree, you should say Y here
 
 endif # if ANDROID
 

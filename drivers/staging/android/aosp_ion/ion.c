@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * drivers/staging/android/ion/ion.c
+ * drivers/staging/android/aosp_ion/ion.c
  *
  * Copyright (C) 2011 Google, Inc.
  */
