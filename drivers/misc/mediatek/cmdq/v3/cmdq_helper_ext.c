@@ -3925,6 +3925,11 @@ static void cmdq_core_replace_overwrite_instr(struct cmdqRecStruct *handle,
 	u32 *p_cmd_assign = (u32 *)cmdq_pkt_get_va_by_offset(handle->pkt,
 		(index - 1) * CMDQ_INST_SIZE);
 
+	if (!p_cmd_assign) {
+		CMDQ_LOG("Cannot find va, handle:%p pkt:%p index:%u\n",
+			handle, handle->pkt, index);
+		return;
+	}
 	if ((p_cmd_assign[1] >> 24) == CMDQ_CODE_LOGIC &&
 		((p_cmd_assign[1] >> 23) & 1) == 1 &&
 		cmdq_core_get_subsys_id(p_cmd_assign[1]) ==
@@ -3986,6 +3991,11 @@ static void cmdq_core_v3_replace_jumpc(struct cmdqRecStruct *handle,
 		(inst_idx - 1) * CMDQ_INST_SIZE);
 	bool revise_offset = false;
 
+	if (!p_cmd_logic) {
+		CMDQ_LOG("Cannot find va, handle:%p pkt:%p idx:%u pos:%u\n",
+			handle, handle->pkt, inst_idx, inst_pos);
+		return;
+	}
 	/* logic and jump relative maybe separate by jump cross buffer */
 	if (p_cmd_logic[1] == ((CMDQ_CODE_JUMP << 24) | 1)) {
 		CMDQ_MSG(
@@ -3996,6 +4006,11 @@ static void cmdq_core_v3_replace_jumpc(struct cmdqRecStruct *handle,
 		revise_offset = true;
 	}
 
+	if (!p_cmd_logic) {
+		CMDQ_LOG("Cannot find va, handle:%p pkt:%p idx:%u pos:%u\n",
+			handle, handle->pkt, inst_idx, inst_pos);
+		return;
+	}
 	if ((p_cmd_logic[1] >> 24) == CMDQ_CODE_LOGIC &&
 		((p_cmd_logic[1] >> 16) & 0x1F) == CMDQ_LOGIC_ASSIGN) {
 		u32 jump_op = CMDQ_CODE_JUMP_C_ABSOLUTE << 24;

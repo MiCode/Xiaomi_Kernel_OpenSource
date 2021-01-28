@@ -987,6 +987,8 @@ static void testcase_dram_access(void)
 
 	result_va = cmdq_core_alloc_hw_buffer(cmdq_dev_get(),
 		sizeof(u32) * 2, &result_pa, GFP_KERNEL);
+	if (!result_va)
+		return;
 
 	/* set up intput */
 	result_va[0] = 0xdeaddead;	/* this is read-from */
@@ -4583,7 +4585,7 @@ static void testcase_global_variable(void)
 	s32 status = 0;
 	struct cmdqRecStruct *handle;
 	cmdqBackupSlotHandle slot_handle = 0;
-	u32 cpr_offset;
+	u32 cpr_offset = 0;
 	u32 gpr_buffer_size = 2*sizeof(u32);
 	CMDQ_VARIABLE global_x, global_y;
 	u32 test_x = 0, test_y = 0;
@@ -5058,6 +5060,8 @@ static void testcase_end_behavior(bool test_prefetch, u32 dummy_size)
 	cmdqCoreClearEvent(CMDQ_SYNC_TOKEN_GPR_SET_4);
 	va_base = cmdq_core_alloc_hw_buffer(cmdq_dev_get(),
 		CMDQ_CMD_BUFFER_SIZE, &pa_base, GFP_KERNEL);
+	if (!va_base)
+		return;
 	cmd_end = va_base;
 	cmd_end[1] = (CMDQ_CODE_MOVE << 24) |
 		((CMDQ_DATA_REG_DEBUG_DST & 0x1f) << 16) | (4 << 21);

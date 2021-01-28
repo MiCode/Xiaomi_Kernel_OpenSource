@@ -135,7 +135,7 @@ static void cmdq_save_op_variable_position(
 	u32 *p_new_buffer = NULL;
 	u32 *p_instr_position = NULL;
 	u32 array_num = 0;
-	u64 inst, logic_inst;
+	u64 *inst, *logic_inst;
 	u32 offset;
 
 	if (!handle)
@@ -169,14 +169,23 @@ static void cmdq_save_op_variable_position(
 	if (offset >= handle->pkt->cmd_buf_size)
 		offset = (u32)(handle->pkt->cmd_buf_size - CMDQ_INST_SIZE);
 
-	inst = *cmdq_pkt_get_va_by_offset(handle->pkt, offset);
-	logic_inst = *cmdq_pkt_get_va_by_offset(handle->pkt,
+	inst = cmdq_pkt_get_va_by_offset(handle->pkt, offset);
+	logic_inst = cmdq_pkt_get_va_by_offset(handle->pkt,
 		offset - CMDQ_INST_SIZE);
-	CMDQ_MSG(
-		"Add replace_instr: index:%u (real offset:%u) position:%u number:%u inst:0x%016llx logic:0x%016llx scenario:%d thread:%d\n",
-		index, offset, p_instr_position[handle->replace_instr.number-1],
-		handle->replace_instr.number, inst, logic_inst,
-		handle->scenario, handle->thread);
+	if (!inst || !logic_inst)
+		CMDQ_MSG(
+			"Add replace_instr: index:%u (real offset:%u) position:%u number:%u scenario:%d thread:%d\n",
+			index, offset,
+			p_instr_position[handle->replace_instr.number-1],
+			handle->replace_instr.number,
+			handle->scenario, handle->thread);
+	else
+		CMDQ_MSG(
+			"Add replace_instr: index:%u (real offset:%u) position:%u number:%u inst:0x%016llx logic:0x%016llx scenario:%d thread:%d\n",
+			index, offset,
+			p_instr_position[handle->replace_instr.number-1],
+			handle->replace_instr.number, *inst, *logic_inst,
+			handle->scenario, handle->thread);
 }
 
 static s32 cmdq_var_data_type(CMDQ_VARIABLE arg_in, u32 *arg_out,
@@ -1520,6 +1529,11 @@ s32 cmdq_op_replace_overwrite_cpr(struct cmdqRecStruct *handle, u32 index,
 	}
 
 	va = (u32 *)cmdq_pkt_get_va_by_offset(handle->pkt, offset);
+	if (!va) {
+		CMDQ_LOG("Cannot find va, handle:%p pkt:%p offset:%u\n",
+			handle, handle->pkt, offset);
+		return -EINVAL;
+	}
 	if (new_arg_a >= 0)
 		va[1] = (va[1] & 0xffff0000) | (new_arg_a & 0xffff);
 	if (new_arg_b >= 0)
@@ -2922,6 +2936,11 @@ s32 cmdq_op_rewrite_jump_c(struct cmdqRecStruct *handle,
 	if (likely(handle->scenario != CMDQ_SCENARIO_TIMER_LOOP)) {
 		va_logic = (u32 *)cmdq_pkt_get_va_by_offset(handle->pkt,
 			logic_pos);
+		if (!va_logic) {
+			CMDQ_LOG("Cannot find va, handle:%p pkt:%p pos:%u\n",
+				handle, handle->pkt, logic_pos);
+			return -EINVAL;
+		}
 		if (((logic_pos + CMDQ_INST_SIZE * 2) %
 			CMDQ_CMD_BUFFER_SIZE) == 0)
 			jump_pos = logic_pos + CMDQ_INST_SIZE * 2;
@@ -2930,6 +2949,11 @@ s32 cmdq_op_rewrite_jump_c(struct cmdqRecStruct *handle,
 
 		va_jump = (u32 *)cmdq_pkt_get_va_by_offset(handle->pkt,
 			jump_pos);
+		if (!va_jump) {
+			CMDQ_LOG("Cannot find va, handle:%p pkt:%p pos:%u\n",
+				handle, handle->pkt, jump_pos);
+			return -EINVAL;
+		}
 
 		/* reserve condition statement */
 		op = (va_logic[1] & 0xFF000000) >> 24;
@@ -2954,6 +2978,11 @@ s32 cmdq_op_rewrite_jump_c(struct cmdqRecStruct *handle,
 	} else {
 		va_jump = (u32 *)cmdq_pkt_get_va_by_offset(handle->pkt,
 			logic_pos);
+		if (!va_jump) {
+			CMDQ_LOG("Cannot find va, handle:%p pkt:%p pos:%u\n",
+				handle, handle->pkt, logic_pos);
+			return -EINVAL;
+		}
 		op = (va_jump[1] & 0xFF000000) >> 24;
 		if (op != CMDQ_CODE_JUMP_C_RELATIVE) {
 			CMDQ_ERR("fail to rewrite jump c handle:0x%p\n",
