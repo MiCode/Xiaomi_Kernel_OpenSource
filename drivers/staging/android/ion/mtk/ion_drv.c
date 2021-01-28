@@ -462,7 +462,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 #else
 		ret = m4u_mva_map_kernel(
 				(unsigned int)sync_va, (unsigned int)sync_size,
-				&kernel_va, (unsigned int)&kernel_size);
+				&kernel_va, (unsigned int *)&kernel_size);
 #endif
 		if (ret)
 			goto err;
