@@ -13,7 +13,7 @@
 #include "scp_excep.h"
 #include "scp_dvfs.h"
 #include "scp_feature_define.h"
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 

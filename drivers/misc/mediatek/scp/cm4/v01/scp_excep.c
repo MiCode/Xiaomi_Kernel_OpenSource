@@ -9,7 +9,7 @@
 #include <linux/workqueue.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
 #include <linux/sched_clock.h>
@@ -607,7 +607,7 @@ void scp_aed(enum scp_excep_id type, enum scp_core_id id)
 	/*print detail info. in kernel*/
 	pr_debug("%s", aed.detail);
 
-#ifdef CONFIG_MTK_AEE_FEATURE
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 	/* scp aed api, only detail information available*/
 	aed_common_exception_api("scp", NULL, 0, NULL, 0,
 			aed.detail, DB_OPT_DEFAULT);
