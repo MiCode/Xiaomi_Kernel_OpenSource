@@ -361,7 +361,8 @@ void cm_mgr_perf_set_force_status(int enable)
 void check_cm_mgr_status_internal(void)
 {
 	unsigned long long result = 0;
-	ktime_t now, done;
+	ktime_t now = 0;
+	ktime_t done = 0;
 	int level;
 	unsigned long flags;
 

@@ -318,7 +318,9 @@ static int cm_mgr_init_flag;
 static unsigned int cm_mgr_read_stall(int cpu)
 {
 	unsigned int val = 0;
+#ifdef CONFIG_MTK_DRAMC
 	unsigned long spinlock_save_flags;
+#endif /* CONFIG_MTK_DRAMC */
 
 	if (cm_mgr_init_flag) {
 		if (ktime_ms_delta(ktime_get(), cm_mgr_init_time) <
