@@ -58,7 +58,7 @@
 #include "helio-dvfsrc-opp.h"
 #endif
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source vpu_wake_lock[MTK_VPU_CORE];
 #else
 struct wake_lock vpu_wake_lock[MTK_VPU_CORE];
@@ -2234,7 +2234,7 @@ static int vpu_service_routine(void *arg)
 			LOG_DBG("[vpu] flag - 4: hw_enque_request\n");
 			vpu_hw_enque_request(service_core, req);
 			#else
-			#ifdef CONFIG_PM_WAKELOCKS
+			#ifdef CONFIG_PM_SLEEP
 			__pm_stay_awake(&(vpu_wake_lock[service_core]));
 			#else
 			wake_lock(&(vpu_wake_lock[service_core]));
@@ -2291,7 +2291,7 @@ out:
 		if (vpu_service_cores[service_core].state != VCT_SHUTDOWN)
 			vpu_service_cores[service_core].state = VCT_IDLE;
 		mutex_unlock(&(vpu_service_cores[service_core].state_mutex));
-		#ifdef CONFIG_PM_WAKELOCKS
+		#ifdef CONFIG_PM_SLEEP
 		__pm_relax(&(vpu_wake_lock[service_core]));
 		#else
 		wake_unlock(&(vpu_wake_lock[service_core]));
@@ -2927,7 +2927,7 @@ int vpu_init_hw(int core, struct vpu_device *device)
 				&(ftrace_dump_work[i].my_work),
 				vpu_dump_ftrace_workqueue);
 #endif
-			#ifdef CONFIG_PM_WAKELOCKS
+			#ifdef CONFIG_PM_SLEEP
 			if (i == 0)
 				wakeup_source_init(
 					&(vpu_wake_lock[i]), "vpu_wakelock_0");
