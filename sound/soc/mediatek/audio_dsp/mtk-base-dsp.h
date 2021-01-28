@@ -24,6 +24,8 @@ struct gen_pool;
 #include <linux/genalloc.h>
 #include <sound/soc.h>
 
+#include <adsp_platform.h>
+
 #define MAX_PAYLOAD_SIZE (32) /* 32bytes */
 
 struct mtk_dsp_ipi_ops {
