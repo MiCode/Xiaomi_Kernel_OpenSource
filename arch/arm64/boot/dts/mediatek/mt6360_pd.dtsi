@@ -4,8 +4,10 @@
  *
  */
 
-/ {
-	mt6360_typec: type_c_port0 {
+&i2c5 {
+	mt6360_typec: usb_type_c@4e {
+		compatible = "mediatek,usb_type_c";
+		reg = <0x4e>;
 		mt-dual,supported_modes = <0>; /* 0: dfp/ufp, 1: dfp, 2: ufp */
 		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
 		/* 0: SNK Only, 1: SRC Only, 2: DRP, 3: Try.SRC, 4: Try.SNK */
