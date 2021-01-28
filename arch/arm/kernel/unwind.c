@@ -466,6 +466,9 @@ int unwind_frame(struct stackframe *frame)
 	frame->lr = ctrl.vrs[LR];
 	frame->pc = ctrl.vrs[PC];
 
+	if (!kernel_text_address(frame->pc))
+		return -URC_FAILURE;
+
 	return URC_OK;
 }
 
