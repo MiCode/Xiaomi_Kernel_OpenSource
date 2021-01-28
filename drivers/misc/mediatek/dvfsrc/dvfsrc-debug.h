@@ -8,7 +8,8 @@
 
 #include <dvfsrc-exp.h>
 
-struct mtk_dvfsrc;
+static struct mtk_dvfsrc *dvfsrc_drv;
+
 struct dvfsrc_config {
 	u32 ip_verion;
 	const int *regs;

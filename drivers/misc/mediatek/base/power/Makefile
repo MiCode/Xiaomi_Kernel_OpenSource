@@ -29,8 +29,10 @@ obj-$(CONFIG_MACH_MT6765) += clkbuf_v1/
 #obj-$(CONFIG_MACH_MT6779) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6765) += pbm_v4/
 obj-$(CONFIG_MACH_MT6761) += pbm_v4/
+obj-$(CONFIG_MACH_MT6779) += pbm_v4/
 obj-$(CONFIG_MACH_MT6765) += mdpm_v1/
 obj-$(CONFIG_MACH_MT6761) += mdpm_v1/
+obj-$(CONFIG_MACH_MT6779) += mdpm_v2/
 endif
 obj-$(CONFIG_MACH_MT6765) += hps_v3/
 obj-$(CONFIG_MACH_MT6761) += hps_v3/

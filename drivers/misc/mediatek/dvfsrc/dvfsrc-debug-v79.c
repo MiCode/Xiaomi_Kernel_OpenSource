@@ -127,6 +127,7 @@ static u32 dvfsrc_get_hifi_vcore_gear(struct mtk_dvfsrc *dvfsrc)
 		return 0;
 
 }
+
 static u32 dvfsrc_get_hifi_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 {
 	u32 hifi_scen;
@@ -180,6 +181,15 @@ static u32 dvfsrc_get_md_bw(struct mtk_dvfsrc *dvfsrc)
 	}
 	return val;
 }
+
+u32 dvfsrc_get_md_scenario(void)
+{
+	/* DVFSRC_DEBUG_STA_0 */
+	struct mtk_dvfsrc *dvfsrc = dvfsrc_drv;
+
+	return dvfsrc_read(dvfsrc, DVFSRC_DEBUG_STA_0, 0);
+}
+EXPORT_SYMBOL(dvfsrc_get_md_scenario);
 
 static u32 dvfsrc_get_md_rising_ddr_gear(struct mtk_dvfsrc *dvfsrc)
 {
