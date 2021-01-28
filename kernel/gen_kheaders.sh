@@ -8,7 +8,7 @@ sfile="$(readlink -f "$0")"
 outdir="$(pwd)"
 tarfile=$1
 cpio_dir=$outdir/$tarfile.tmp
-cpio=$srctree/tools/build/cpio
+cpio=$KBUILD_SRC/tools/build/cpio
 dir_list="
 include/
 arch/$SRCARCH/include/
