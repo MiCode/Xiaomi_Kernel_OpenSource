@@ -1406,8 +1406,10 @@ static ssize_t mt_gpufreq_power_limited_proc_write(struct file *file,
 		if (strncmp(array[i], buf, MIN(strlen(array[i]), count)) == 0) {
 			char cond_buf[64];
 
-			snprintf(cond_buf, sizeof(cond_buf), "%s %%u",
-				array[i]);
+			ret = snprintf(cond_buf, sizeof(cond_buf),
+						   "%s %%u", array[i]);
+			if (ret < 0)
+				goto out;
 			if (sscanf(buf, cond_buf, &value) == 1) {
 				ret = 0;
 				if (!strncmp(array[i], "pbm_limited_power",
