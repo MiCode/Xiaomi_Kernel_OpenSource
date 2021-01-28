@@ -16,7 +16,7 @@ obj-y += cpu_ctrl.o
 else
 
 # no CONFIG_MTK_PPM but specific lagacy platform
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6xxx"))
 obj-y += cpu_ctrl.o
 else
 obj-y += cpu_ctrl_dummy.o
