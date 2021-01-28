@@ -348,25 +348,38 @@ unsigned int ccb_configs_len =
 /* }; */
 
 /* APK setting */
-static  struct dvfs_ref s_dvfs_tbl[] = {
-	/* Add DRAM 0 */
-	{1700000000LL, 1530000, 1526000, 0, 0x02, 0xC0, 0xC0},
-	/* Add DRAM 1, inc ll freq */
-	{1350000000LL, 1530000, 1526000, 1, 0x02, 0xC0, 0xC0},
-	/* inc L freq */
-	{1000000000LL, 1300000, 1406000, -1, 0x02, 0xC0, 0xC0},
-	/* inc ll freq */
-	{450000000LL, 1200000, 1406000, -1, 0x02, 0xC0, 0xC0},
-	/* inc ll freq */
-	{230000000LL, 1181000, -1, -1, 0xFF, 0xFF, 0x3D},
+static  struct dvfs_ref s_dl_dvfs_tbl[] = {
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
+	{1700000000LL, 1530000, 1526000, -1, -1, 0, 0x02, 0xC0, 0xC0},
+	{1350000000LL, 1530000, 1526000, -1, -1, 1, 0x02, 0xC0, 0xC0},
+	{1000000000LL, 1300000, 1406000, -1, -1, -1, 0x02, 0xC0, 0xC0},
+	{450000000LL, 1200000, 1406000, -1, -1, -1, 0x02, 0xC0, 0xC0},
+	{230000000LL, 1181000, -1, -1, -1, -1, 0xFF, 0xFF, 0x3D},
 	/* normal */
-	{0LL, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
 };
 
-struct dvfs_ref *mtk_ccci_get_dvfs_table(int *tbl_num)
+static  struct dvfs_ref s_ul_dvfs_tbl[] = {
+	/*speed, cluster0, cluster1, cluster2, cluster3, dram, isr, push, rps*/
+	{500000000LL, 1700000, 1706000, -1, -1, 0, 0x02, 0xF0, 0xF0},
+	{250000000LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+	/* normal */
+	{0LL, -1, -1, -1, -1, -1, 0xFF, 0xFF, 0x0D},
+};
+
+struct dvfs_ref *mtk_ccci_get_dvfs_table(int is_ul, int *tbl_num)
 {
-	*tbl_num = (int)ARRAY_SIZE(s_dvfs_tbl);
-	return s_dvfs_tbl;
+	if (!tbl_num)
+		return NULL;
+
+	/* Query UL settings */
+	if (is_ul) {
+		*tbl_num = (int)ARRAY_SIZE(s_ul_dvfs_tbl);
+		return s_ul_dvfs_tbl;
+	}
+	/* DL settings */
+	*tbl_num = (int)ARRAY_SIZE(s_dl_dvfs_tbl);
+	return s_dl_dvfs_tbl;
 }
 
 int mtk_ccci_cpu_freq_rta(u64 dl_speed, u64 ul_speed, int ref[], int n)

@@ -1368,9 +1368,16 @@ static ssize_t md_cd_parameter_store(struct ccci_modem *md,
 	return count;
 }
 
+static ssize_t md_net_speed_show(struct ccci_modem *md, char *buf)
+{
+	return snprintf(buf, 4096, "curr netspeed log:%d\n",
+		mtk_ccci_toggle_net_speed_log());
+}
+
 CCCI_MD_ATTR(NULL, dump, 0660, md_cd_dump_show, md_cd_dump_store);
 CCCI_MD_ATTR(NULL, parameter, 0660, md_cd_parameter_show,
 	md_cd_parameter_store);
+CCCI_MD_ATTR(NULL, net_speed, 0660, md_net_speed_show, NULL);
 
 static void md_cd_sysfs_init(struct ccci_modem *md)
 {
@@ -1389,6 +1396,12 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 		CCCI_ERROR_LOG(md->index, TAG,
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_parameter.attr.name, ret);
+
+	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_net_speed.attr);
+	if (ret)
+		CCCI_ERROR_LOG(md->index, TAG,
+			"fail to add sysfs node %s %d\n",
+			ccci_md_attr_net_speed.attr.name, ret);
 }
 
 static struct syscore_ops ccci_modem_sysops = {
