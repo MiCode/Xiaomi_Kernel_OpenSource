@@ -2596,7 +2596,6 @@ EXPORT_SYMBOL(cmdq_core_print_log_level);
 ssize_t cmdq_core_write_log_level(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
-	int len = 0;
 	int value = 0;
 	int status = 0;
 
@@ -2608,16 +2607,15 @@ ssize_t cmdq_core_write_log_level(struct device *dev,
 			break;
 		}
 
-		len = size;
-		memcpy(textBuf, buf, len);
+		memcpy(textBuf, buf, size);
 
-		textBuf[len] = '\0';
+		textBuf[size] = '\0';
 		if (kstrtoint(textBuf, 10, &value) < 0) {
 			status = -EFAULT;
 			break;
 		}
 
-		status = len;
+		status = size;
 		if (value < 0 || value > CMDQ_LOG_LEVEL_MAX)
 			value = 0;
 
