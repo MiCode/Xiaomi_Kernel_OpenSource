@@ -64,9 +64,9 @@ function toolchain_check ()
 		cd "../${TOOLCHAIN_CLANG_PATH}"
 		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_CLANG_REPO}"
 	else
-		echo "update CLANG to the latest codebase"
+		echo "update CLANG to specific commit"
 		cd "../${TOOLCHAIN_CLANG_PATH}/linux-x86"
-		git pull
+		git reset --hard ${TOOLCHAIN_CLANG_COMMIT}
 	fi
 	cd -
 
@@ -109,6 +109,7 @@ TOOLCHAIN_CLANG_PATH='prebuilts/clang/host'
 TOOLCHAIN_GCC_PATH='prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
 TOOLCHAIN_CLANG_REPO='platform/prebuilts/clang/host/linux-x86'
 TOOLCHAIN_GCC_REPO='alps/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
+TOOLCHAIN_CLANG_COMMIT='252aba16f513a857bc923172f67b0e55e23de35f'
 toolchain_check
 build_config_read
 
