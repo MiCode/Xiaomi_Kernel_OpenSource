@@ -44,6 +44,7 @@ struct mt6360_ldo_platform_data {
 	struct regulator_init_data *init_data[MT6360_LDO_MAX];
 	struct resource *irq_res;
 	int irq_res_cnt;
+	u32 sdcard_det_en;
 };
 
 struct mt6360_ldo_info {
