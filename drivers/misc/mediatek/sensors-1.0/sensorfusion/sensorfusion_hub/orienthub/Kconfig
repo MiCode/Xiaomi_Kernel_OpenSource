@@ -1,0 +1,8 @@
+
+config MTK_ORIENTHUB
+	bool "orienthub for MediaTek package"
+	help
+	  MTK sensor hub driver for Orientation sensor.
+	  If this option is set,
+	  it will support
+	  orienthub driver.

@@ -33,6 +33,10 @@
 #include "situation.h"
 #endif
 
+#if IS_ENABLED(CONFIG_CUSTOM_KERNEL_SENSOR_FUSION)
+#include "fusion.h"
+#endif
+
 static int __init sensor_init(void)
 {
 #if IS_ENABLED(CONFIG_CUSTOM_KERNEL_ACCELEROMETER)
@@ -72,6 +76,13 @@ static int __init sensor_init(void)
 	}
 #endif
 
+#if IS_ENABLED(CONFIG_CUSTOM_KERNEL_SENSOR_FUSION)
+	if (fusion_probe()) {
+		pr_err("failed to register fusion driver\n");
+		return -ENODEV;
+	}
+#endif
+
 	return 0;
 }
 
@@ -103,6 +114,10 @@ static void __exit sensor_exit(void)
 
 #if IS_ENABLED(CONFIG_CUSTOM_KERNEL_SITUATION)
 	situation_remove();
+#endif
+
+#if IS_ENABLED(CONFIG_CUSTOM_KERNEL_SENSOR_FUSION)
+	fusion_remove();
 #endif
 
 }

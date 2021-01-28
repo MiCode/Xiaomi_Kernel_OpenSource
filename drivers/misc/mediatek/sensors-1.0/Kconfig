@@ -7,4 +7,4 @@ source "drivers/misc/mediatek/sensors-1.0/barometer/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/step_counter/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/situation/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/sensorHub/Kconfig"
-
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/Kconfig"

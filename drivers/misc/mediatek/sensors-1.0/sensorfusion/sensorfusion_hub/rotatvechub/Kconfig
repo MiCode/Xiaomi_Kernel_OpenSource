@@ -1,0 +1,8 @@
+
+config MTK_ROTATVECHUB
+	bool "rotatvechub for MediaTek package"
+	help
+	  MTK sensor hub driver for Rotation vector sensor.
+	  If this option is set,
+	  it will support
+	  rotatvechub driver.
