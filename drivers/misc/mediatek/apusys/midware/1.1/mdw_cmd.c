@@ -141,6 +141,7 @@ static int mdw_cmd_parse_flags(struct mdw_apu_cmd *c)
 		c->uf_hdr = (struct apu_fence_hdr *)(
 			(uint64_t)c->u_hdr + sizeof(struct apu_cmd_hdr) +
 			(c->hdr->num_sc - 1) * sizeof(uint32_t));
+		c->file = NULL;
 		apu_sync_file_create(c);
 	}
 
