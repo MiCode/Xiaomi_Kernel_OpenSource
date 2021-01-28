@@ -42,7 +42,7 @@
 
 #include "gz_main.h"
 #include "gz_ut.h"
-#include "ion_test.h"
+#include "gz_chmem_ut.h"
 
 #if defined(GZ_SEC_STORAGE_UT)
 #include "gz_sec_storage_ut.h"
@@ -110,7 +110,7 @@ static int test_MD_appendSecureChmem(void *args);
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
 
-#define GZTEST_DEBUG 1
+//#define GZTEST_DEBUG 1
 #define GZ_CHMEM_TEST 0
 
 static const struct file_operations fops = {.owner = THIS_MODULE,
@@ -133,11 +133,6 @@ static int gz_tipc_test(void *args);
 static int gz_test(void *arg);
 static int gz_test_shm(void *arg);
 static int gz_abort_test(void *arg);
-
-#if GZ_CHMEM_TEST
-static int chunk_memory_test(void *args);
-static int chunk_memory_test_inMTEE(void *args);
-#endif
 
 static const char *cases =
 	"0: TIPC\n 1: General KREE API\n"
@@ -199,20 +194,25 @@ static ssize_t run_gz_case(struct device *dev, struct device_attribute *attr,
 		th = kthread_run(stress_test_main_infinite, NULL,
 				 "GZ KREE infinite stress test");
 		break;
-#if GZ_CHMEM_TEST
-	/*this case only for ION, remark first. Please use pmem test now.*/
 	case '7':
-		KREE_DEBUG("test chunk memory\n");
-		th = kthread_run(chunk_memory_test, NULL, "Chunk Memory test");
+		KREE_DEBUG("test chunk memory for ION_simple\n");
+		th = kthread_run(chunk_memory_test_ION_simple, NULL,
+			"MCM test*1");
 		break;
-
-	/*this case only for ION, remark first. Please use pmem test now.*/
+	case '8':
+		KREE_DEBUG("test chunk memory for ION_multiple\n");
+		th = kthread_run(chunk_memory_test_ION_Multiple, NULL,
+			"MCM test*N");
+		break;
 	case '9':
-		KREE_DEBUG("test chmem in MTEE\n");
-		th = kthread_run(chunk_memory_test_inMTEE, NULL,
-				 "Chunk Memory test");
+		KREE_DEBUG("test chunk memory for ION_simple in MTEE\n");
+		th = kthread_run(chunk_memory_test_by_MTEE_TA, NULL,
+			"Chmem UT@MTEE");
 		break;
-#endif
+	case 'A':
+		KREE_DEBUG("test Basic chunk memory\n");
+		th = kthread_run(chunk_memory_test, NULL, "Basic Chmem UT");
+		break;
 	case 'B':
 		KREE_DEBUG("test MD Append Chmem\n");
 		th = kthread_run(test_MD_appendSecureChmem, NULL,
@@ -1187,7 +1187,7 @@ static int gz_test_shm_case1(union MTEEC_PARAM *param)
 
 	shm_param.buffer = (void *)pa;
 	shm_param.size = size;
-
+	shm_param.region_id = 0;
 	/* case 1: continuous pages */
 	shm_param.mapAry = NULL;
 
@@ -1951,7 +1951,7 @@ chunkmem_out:
 #if 0
 static int chunk_memory_test1(void)
 {
-	KREE_DEBUG("==> Run chunk memory test1.\n");
+	KREE_DEBUG("==> Run chunk_memory_test1.\n");
 	_chunk_memory_test_body(NULL);
 	return TZ_RESULT_SUCCESS;
 }
@@ -1960,9 +1960,9 @@ static int chunk_memory_test2(void)
 {
 	union MTEEC_PARAM *param;
 
-	KREE_DEBUG("==> Run chunk memory test2.\n");
-	param = kmalloc_array(max_stress_test_param,
-				sizeof(union MTEEC_PARAM), GFP_KERNEL);
+	KREE_DEBUG("==> Run %s.\n", __func__);
+	param = kmalloc_array((int) max_stress_test_param,
+			sizeof(union MTEEC_PARAM), GFP_KERNEL);
 	init_test_param(param);
 	param[0].value.a = 40960;	/*size*/
 	param[1].value.b = 2;		/*numOfHandler*/
@@ -1972,1415 +1972,6 @@ static int chunk_memory_test2(void)
 	kfree(param);
 	return TZ_RESULT_SUCCESS;
 }
-#endif
-
-#if GZ_CHMEM_TEST
-
-/*
- * test
- * (1) After appending chm, Linux cannot access this chm (Phone reboot)
- * (2) After releasing chm, Linux can access this chm
- * (3) Append 2/3/... chunk memory (multi-chm), test(1)(2) are both ok
- */
-static int _test_chmem_normalFun(void)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	int chm_size = (10 * 4096); /*default test chm size: 6 pages=24576*/
-	int size = chm_size;
-
-	int numOfAllocChm = 2; /*# of testing alloc chm*/
-
-
-	int alignment = 4096; /*PAGE_SIZE*/
-	int alloc_size = 4096;
-
-	uint64_t pa;
-	char *buf = NULL;
-
-	TZ_RESULT ret;
-	int i;
-
-	KREE_SHAREDMEM_PARAM shm_param;
-
-	KREE_SESSION_HANDLE appendchm_session;   /*for append chm*/
-	KREE_SESSION_HANDLE allocatechm_session; /*for allocate chm*/
-	KREE_SESSION_HANDLE echo_session;
-
-	KREE_SECUREMEM_HANDLE appendchm_handle;
-	KREE_SECUREMEM_HANDLE *allocatechm_handle = NULL;
-
-	TEST_BEGIN("====> start to test: test chunk memory normal function");
-	RESET_UNITTESTS;
-
-	KREE_DEBUG("====> start to test: test chunk memory normal function\n");
-
-
-	allocatechm_handle = kmalloc_array(numOfAllocChm,
-		sizeof(KREE_SECUREMEM_HANDLE), GFP_KERNEL);
-
-	/*create session for appendCM*/
-	ret = KREE_CreateSession(mem_srv_name, &appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"mem_srv CreateSession (appendchm_session:0x%x) Error: %d\n",
-			(uint32_t)appendchm_session, ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] create appendchm_session=0x%x.\n",
-		   (uint32_t)appendchm_session);
-
-	/*create session for allocateCM*/
-	ret = KREE_CreateSession(mem_srv_name, &allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"mem_srv CreateSession (allocatechm_session:0x%x) Error: %d\n",
-			(uint32_t)allocatechm_session, ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] create allocatechm_session=0x%x.\n",
-		   (uint32_t)allocatechm_session);
-
-	/*create session for echo*/
-	ret = KREE_CreateSession(echo_srv_name, &echo_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create echo_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"echo_srv CreateSession (echo_session:0x%x) Error: %d\n",
-			(uint32_t)echo_session, ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] create echo_session=0x%x.\n", (uint32_t)echo_session);
-
-	/*create chunk memory space from Linux*/
-	pa = init_shm_test(&buf, size);
-	if (!buf) {
-		KREE_ERR("[%s] ====> kmalloc test buffer Fail!.\n", __func__);
-		goto chunkmem_out5;
-	}
-
-	shm_param.buffer = (void *)pa;
-	shm_param.size = size;
-	shm_param.mapAry = NULL;
-
-	/*append chunk memory*/
-	ret = KREE_AppendSecureMultichunkmem(appendchm_session,
-					     &appendchm_handle, &shm_param);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "append chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_AppendSecureMultichunkmem() Fail. ret=0x%x\n",
-			 ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] append chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-
-	/*test chunk memory alloc/reference/unreference APIs*/
-
-	for (i = 0; i < numOfAllocChm; i++) {
-		KREE_DEBUG("=====> Allocate %d\n", i);
-		/* allocate chm */
-		ret = KREE_ION_AllocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle[i], alignment, alloc_size);
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "alloc chunk memory");
-		CHECK_NEQ(0, allocatechm_handle[i], "alloc chm: mem_handle");
-		if ((ret != TZ_RESULT_SUCCESS)
-		    || (allocatechm_handle[i] == 0)) {
-			KREE_ERR(
-				"[%s] KREE_ION_AllocChunkmem() returns Fail. [Stop!]. ret=0x%x\n",
-				__func__, ret);
-			break;
-		}
-		KREE_DEBUG(
-			"[OK]Alloc chunk memory [chm_handle = 0x%x, mem_handle = 0x%x (alignment=%d, size=%d)]\n",
-			appendchm_handle, allocatechm_handle[i], alignment,
-			alloc_size);
-
-
-		/*reference chm*/
-		ret = KREE_ION_ReferenceChunkmem(allocatechm_session,
-						 allocatechm_handle[i]);
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "reference chunk memory");
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR(
-				"[%s] KREE_ION_ReferenceChunkmem() returns Fail. [Stop!]. ret=0x%x\n",
-				__func__, ret);
-			break;
-		}
-		KREE_DEBUG("[OK]Reference chunk memory OK.\n");
-
-
-		/*query chm*/
-		ret = KREE_ION_QueryChunkmem_TEST(
-			echo_session, allocatechm_handle[i], 0x9995);
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "test query chunk memory");
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR(
-				"[%s] KREE_ION_ReferenceChunkmem() returns Fail. [Stop!]. ret=0x%x\n",
-				__func__, ret);
-			break;
-		}
-		KREE_DEBUG("[OK]Query chunk memory OK\n");
-
-		/*unreference chm*/
-		ret = KREE_ION_UnreferenceChunkmem(allocatechm_session,
-						   allocatechm_handle[i]);
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unreference chunk memory");
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("[%s] Unref Chmem Fail. [Stop!]. ret=0x%x\n",
-				 __func__, ret);
-			KREE_DEBUG("Stop query chm test.\n");
-			break;
-		}
-		KREE_DEBUG("[OK]Unreference chunk memory OK.\n");
-
-		/*unreference chm: free*/
-		ret = KREE_ION_UnreferenceChunkmem(allocatechm_session,
-						   allocatechm_handle[i]);
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unreference chunk memory");
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("[%s] Unref Chmem Fail. [Stop!]. ret=0x%x\n",
-				 __func__, ret);
-			KREE_DEBUG("Stop query chm test.\n");
-			break;
-		}
-		KREE_DEBUG("[OK]Unreference chunk memory OK.\n");
-
-		KREE_DEBUG("=====> Allocate %d DONE!\n", i);
-
-	} /*end of test alloc/ref/unref/query from chunk memory*/
-
-	/*release chunk memory*/
-	ret = KREE_ReleaseSecureMultichunkmem(appendchm_session,
-					      appendchm_handle);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "release chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_ReleaseSecureMultichunkmem Error: ret=%d\n",
-			 ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] release chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-
-	/*close session*/
-	ret = KREE_CloseSession(appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:appendchm_session=0x%x, ret=%d\n",
-			(uint32_t)appendchm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. appendchm_session=0x%x\n",
-		   (uint32_t)appendchm_session);
-
-	ret = KREE_CloseSession(allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:allocatechm_session=0x%x, ret=%d\n",
-			(uint32_t)allocatechm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. allocatechm_session=0x%x\n",
-		   (uint32_t)allocatechm_session);
-
-	ret = KREE_CloseSession(echo_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close echo_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_CloseSession Error:echo_session=0x%x, ret=%d\n",
-			 (uint32_t)echo_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. echo_session=0x%x\n",
-		   (uint32_t)echo_session);
-
-chunkmem_out5:
-
-	if (allocatechm_handle != NULL)
-		kfree(allocatechm_handle);
-
-	if (buf != NULL)
-		kfree(buf);
-
-	KREE_DEBUG("[%s] ====> test chunk memory normal function ends\n",
-		__func__);
-
-	TEST_END;
-	REPORT_UNITTESTS;
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-/*
- * test
- * (1) After appending chm, Linux cannot access this chm (Phone reboot)
- * (2) After releasing chm, Linux can access this chm
- * (3) Append 2/3/... chunk memory (multi-chm), test(1)(2) are both ok
- */
-static int _test_chmem_API_in_MTEE(uint32_t cmd)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	int in_size = (10 * 4096); /*default test chm size: 10 pages*/
-	int size = in_size;
-
-	union MTEEC_PARAM param[4];
-	uint32_t paramTypes;
-
-	uint64_t pa;
-	char *buf = NULL;
-
-	TZ_RESULT ret;
-	KREE_SHAREDMEM_PARAM shm_param;
-
-	KREE_SESSION_HANDLE appendchm_session; /*for append chm*/
-	KREE_SECUREMEM_HANDLE appendchm_handle;
-	KREE_SESSION_HANDLE echo_session;
-
-	TEST_BEGIN("====> start to test: test chunk memory API in MTEE");
-	RESET_UNITTESTS;
-
-	KREE_DEBUG("====> start to test: test chunk memory API in MTEE\n");
-
-	/*create session for appendCM*/
-	ret = KREE_CreateSession(mem_srv_name, &appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"CreateSession (appendchm_session:0x%x) Error. ret=0x%x\n",
-			(uint32_t)appendchm_session, ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] create appendchm_session = 0x%x.\n",
-		   (uint32_t)appendchm_session);
-
-	ret = KREE_CreateSession(echo_srv_name, &echo_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create echo_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"echo_srv CreateSession (echo_session) Error: 0x%x, %d\n",
-			(uint32_t)echo_session, ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] create echo_session = 0x%x.\n",
-		   (uint32_t)echo_session);
-
-	/*create chunk memory space from Linux*/
-	pa = init_shm_test(&buf, size);
-	if (!buf) {
-		KREE_ERR("[%s] ====> kmalloc test buffer Fail!.\n", __func__);
-		goto chunkmem_out5;
-	}
-
-	/*parameters*/
-	shm_param.buffer = (void *)pa;
-	shm_param.size = size;
-	shm_param.mapAry = NULL;
-
-	/*append chunk memory*/
-	ret = KREE_AppendSecureMultichunkmem(appendchm_session,
-					     &appendchm_handle, &shm_param);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "append chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_AppendSecureMultichunkmem() Fail. ret=0x%x\n",
-			 ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] append chm. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-	/*===========================================================*/
-	/*Test Chm API in M-TEE*/
-	param[0].value.a = appendchm_handle; /* secure memory handle */
-	param[0].value.b = size;	     /* chunk memory size */
-	paramTypes = TZ_ParamTypes2(TZPT_VALUE_INPUT, TZPT_VALUE_OUTPUT);
-
-	/*TZCMD_TEST_QUERYCHM_TA_Sat 0x9993*/
-	/*TZCMD_TEST_QUERYCHM_TA_Bound 0x9992*/
-	/*TZCMD_TEST_QUERYCHM_TA_Align 0x9991*/
-	KREE_TeeServiceCall(echo_session, cmd, paramTypes, param);
-
-	CHECK_EQ(TZ_RESULT_SUCCESS, param[1].value.a, "Test Chm API");
-	KREE_DEBUG("==> Test Chm API done. ret=0x%x\n", param[1].value.a);
-	/*===========================================================*/
-
-
-	/*release chunk memory*/
-	ret = KREE_ReleaseSecureMultichunkmem(appendchm_session,
-					      appendchm_handle);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "release chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_ReleaseSecureMultichunkmem Error: ret=%d\n",
-			 ret);
-		goto chunkmem_out5;
-	}
-	KREE_DEBUG("[OK] release chm. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-	/*close session*/
-	ret = KREE_CloseSession(appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:appendchm_session=0x%x, ret=%d\n",
-			(uint32_t)appendchm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session. appendchm_session=0x%x\n",
-		   (uint32_t)appendchm_session);
-
-	ret = KREE_CloseSession(echo_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close echo_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_CloseSession Error:echo_session=0x%x, ret=%d\n",
-			 (uint32_t)echo_session, ret);
-	}
-	KREE_DEBUG("[OK] close session. echo_session=0x%x\n",
-		   (uint32_t)echo_session);
-
-chunkmem_out5:
-	if (buf != NULL)
-		kfree(buf);
-
-	KREE_DEBUG("====> test chunk memory API in MTEE ends\n");
-
-	TEST_END;
-	REPORT_UNITTESTS;
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-/*
- * test
- * (1) After appending chm, Linux cannot access this chm (Phone reboot)
- * (2) After releasing chm, Linux can access this chm
- * (3) Append 2/3/... chunk memory (multi-chm), test(1)(2) are both ok
- */
-static int _test_chmem_saturation_body(KREE_SESSION_HANDLE allocatechm_session,
-				       KREE_SECUREMEM_HANDLE appendchm_handle,
-				       uint32_t chm_size, int alloc_size,
-				       int alignment, int flags)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	int numOfAllocChm = chm_size / alloc_size; /*# of testing alloc chm*/
-
-	TZ_RESULT ret;
-	int i;
-	KREE_SECUREMEM_HANDLE *allocatechm_handle = NULL;
-
-	TEST_BEGIN("====> start to test: test chunk memory saturation body");
-	/*RESET_UNITTESTS;*/
-
-	KREE_DEBUG("====> start to test: test chunk memory saturation body\n");
-
-	allocatechm_handle = kmalloc_array(numOfAllocChm,
-		sizeof(KREE_SECUREMEM_HANDLE), GFP_KERNEL);
-
-	/*test chunk memory alloc/unreference APIs*/
-
-	for (i = 0; i < numOfAllocChm; i++) {
-		/*KREE_DEBUG("=====> Allocate %d/%d\n", i, (numOfAllocChm-1));*/
-		/* allocate chm */
-		if (flags == 0)
-			ret = KREE_ION_AllocChunkmem(
-				allocatechm_session, appendchm_handle,
-				&allocatechm_handle[i], alignment, alloc_size);
-		else
-			ret = KREE_ION_ZallocChunkmem(
-				allocatechm_session, appendchm_handle,
-				&allocatechm_handle[i], alignment, alloc_size);
-
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "alloc chunk memory");
-		CHECK_NEQ(0, allocatechm_handle[i], "alloc chm: mem_handle");
-
-		if ((ret != TZ_RESULT_SUCCESS)
-		    || (allocatechm_handle[i] == 0)) {
-			KREE_ERR(
-				"[%s] Alloc Chmem returns Fail. [Stop!]. ret=0x%x\n",
-				__func__, ret);
-			break;
-		}
-
-		/*
-		 * KREE_DEBUG("[OK]Alloc chmem [chm_handle = 0x%x, mem_handle =
-		 *0x%x (alignment=0x%x, size=0x%x)]\n",
-		 *		appendchm_handle, allocatechm_handle[i],
-		 *alignment, alloc_size);
-		 */
-	} /*end of alloc chunk memory*/
-
-	numOfAllocChm = i;
-	/*free*/
-	for (i = 0; i < numOfAllocChm; i++) {
-		/*KREE_DEBUG("=====> Free %d/%d\n", i, (numOfAllocChm-1));*/
-		/*unreference chm: free*/
-		ret = KREE_ION_UnreferenceChunkmem(allocatechm_session,
-						   allocatechm_handle[i]);
-
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unreference chunk memory");
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("[%s]Unref Chmem Fail[Stop!]. ret=0x%x\n",
-				 __func__, ret);
-			break;
-		}
-		/*
-		 * KREE_DEBUG("[OK]Unreference chunk memory OK.\n");
-		 */
-	} /*end of unref from chunk memory*/
-
-	if (allocatechm_handle != NULL)
-		kfree(allocatechm_handle);
-
-	/*
-	 * KREE_DEBUG("====> test chunk memory saturation body ends\n");
-	 */
-
-	TEST_END;
-	/*REPORT_UNITTESTS;*/
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-static int _test_chmem_saturation(void)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	int param_size = 17;
-
-	uint32_t chm_size =
-		(10 * 4096);  /*default test chm size: 10 pages=40960*/
-	int alignment = 4096; /*PAGE_SIZE*/
-	int alloc_size = 4096;
-
-	int size = chm_size;
-	uint64_t pa;
-	char *buf = NULL;
-
-	TZ_RESULT ret;
-	int i;
-
-	KREE_SHAREDMEM_PARAM shm_param;
-
-	KREE_SESSION_HANDLE appendchm_session;   /*for append chm*/
-	KREE_SESSION_HANDLE allocatechm_session; /*for allocate chm*/
-	KREE_SECUREMEM_HANDLE appendchm_handle;
-
-	TEST_BEGIN("====> start to test: test chunk memory saturation");
-	RESET_UNITTESTS;
-
-	KREE_DEBUG("====> start to test: test chunk memory saturation\n");
-
-	/*create session for appendCM*/
-	ret = KREE_CreateSession(mem_srv_name, &appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("CreateSession (appendchm_session:0x%x) Error: %d\n",
-			 (uint32_t)appendchm_session, ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] create appendchm_session=0x%x.\n",
-		   (uint32_t)appendchm_session);
-
-	/*create session for allocateCM*/
-	ret = KREE_CreateSession(mem_srv_name, &allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("CreateSession (allocatechm_session:0x%x) Error: %d\n",
-			 (uint32_t)allocatechm_session, ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] create allocatechm_session=0x%x.\n",
-		   (uint32_t)allocatechm_session);
-
-	/*create chunk memory space from Linux*/
-	pa = init_shm_test(&buf, size);
-	if (!buf) {
-		KREE_ERR("[%s] ====> kmalloc test buffer Fail!.\n", __func__);
-		goto chunkmem_sat;
-	}
-
-	shm_param.buffer = (void *)pa;
-	shm_param.size = size;
-	shm_param.mapAry = NULL;
-
-	/*append chunk memory*/
-	ret = KREE_AppendSecureMultichunkmem(appendchm_session,
-					     &appendchm_handle, &shm_param);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "append chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_AppendSecureMultichunkmem() Fail. ret=0x%x\n",
-			 ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] append chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-/*call test body here*/
-#if 1
-	/*a simple test*/
-	_test_chmem_saturation_body(allocatechm_session, appendchm_handle,
-				    chm_size, alloc_size, alignment,
-				    0); /*0:no_init0*/
-#endif
-
-#if 1
-/*ion's test data*/
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case1[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_test_params[i].size,
-				alloc_test_params[i].alignment,
-				alloc_test_params[i].flags);
-
-			_test_chmem_saturation_body(
-				allocatechm_session, appendchm_handle, chm_size,
-				alloc_test_params[i].size,
-				alloc_test_params[i].alignment,
-				alloc_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 1 OK. alloc_test_params\n");
-#endif
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_zero_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case2[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_zero_test_params[i].size,
-				alloc_zero_test_params[i].alignment,
-				alloc_zero_test_params[i].flags);
-
-			_test_chmem_saturation_body(
-				allocatechm_session, appendchm_handle, chm_size,
-				alloc_zero_test_params[i].size,
-				alloc_zero_test_params[i].alignment,
-				alloc_zero_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 2 OK. alloc_zero_test_params\n");
-#endif
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_aligned_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case3[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_aligned_test_params[i].size,
-				alloc_aligned_test_params[i].alignment,
-				alloc_aligned_test_params[i].flags);
-
-			_test_chmem_saturation_body(
-				allocatechm_session, appendchm_handle, chm_size,
-				alloc_aligned_test_params[i].size,
-				alloc_aligned_test_params[i].alignment,
-				alloc_aligned_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 3 OK. alloc_aligned_test_params\n");
-#endif
-
-#if 0
-	/*this case fail. & phone will reset*/
-	for (i = 0; i < param_size; i++) {
-		if (alloc_zero_aligned_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case4[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_zero_aligned_test_params[i].size,
-				alloc_zero_aligned_test_params[i].alignment,
-				alloc_zero_aligned_test_params[i].flags);
-
-			_test_chmem_saturation_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_zero_aligned_test_params[i].size,
-				alloc_zero_aligned_test_params[i].alignment,
-				alloc_zero_aligned_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 4 OK. alloc_zero_aligned_test_params\n");
-#endif
-
-#endif
-
-	/*release chunk memory*/
-	ret = KREE_ReleaseSecureMultichunkmem(appendchm_session,
-					      appendchm_handle);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "release chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_ReleaseSecureMultichunkmem Error: ret=%d\n",
-			 ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] release chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-	/*close session*/
-	ret = KREE_CloseSession(appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:appendchm_session=0x%x, ret=%d\n",
-			(uint32_t)appendchm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. appendchm_session=0x%x\n",
-		   (uint32_t)appendchm_session);
-
-	ret = KREE_CloseSession(allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:allocatechm_session=0x%x, ret=%d\n",
-			(uint32_t)allocatechm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. allocatechm_session=0x%x\n",
-		   (uint32_t)allocatechm_session);
-
-chunkmem_sat:
-	if (buf != NULL)
-		kfree(buf);
-
-	KREE_DEBUG("[%s] ====> test chunk memory saturation ends\n",
-		   __func__);
-
-	TEST_END;
-	REPORT_UNITTESTS;
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-/*
- * test
- * (1) After appending chm, Linux cannot access this chm (Phone reboot)
- * (2) After releasing chm, Linux can access this chm
- * (3) Append 2/3/... chunk memory (multi-chm), test(1)(2) are both ok
- */
-
-static int _test_chmem_boundary_body(KREE_SESSION_HANDLE allocatechm_session,
-				     KREE_SECUREMEM_HANDLE appendchm_handle,
-				     uint32_t chm_size, int alloc_size,
-				     int alignment, int flags)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	int numOfAllocChm = chm_size / alloc_size; /*# of testing alloc chm*/
-
-	TZ_RESULT ret;
-	int i;
-
-	KREE_SECUREMEM_HANDLE *allocatechm_handle = NULL;
-
-	TEST_BEGIN("====> start to test: test chunk memory boundary body");
-	/*RESET_UNITTESTS;*/
-
-	KREE_DEBUG("====> start to test: test chunk memory boundary body\n");
-
-	allocatechm_handle =
-		kmalloc((numOfAllocChm + 1) * sizeof(KREE_SECUREMEM_HANDLE),
-			GFP_KERNEL);
-
-	/*test chunk memory alloc/unreference APIs*/
-
-	for (i = 0; i < numOfAllocChm; i++) {
-		/*
-		 * KREE_DEBUG("=====> Allocate %d/%d\n", i, (numOfAllocChm-1));
-		 */
-		/* allocate chm */
-		if (flags == 0)
-			ret = KREE_ION_AllocChunkmem(
-				allocatechm_session, appendchm_handle,
-				&allocatechm_handle[i], alignment, alloc_size);
-		else
-			ret = KREE_ION_ZallocChunkmem(
-				allocatechm_session, appendchm_handle,
-				&allocatechm_handle[i], alignment, alloc_size);
-
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "alloc chunk memory");
-		CHECK_NEQ(0, allocatechm_handle[i], "alloc chm: mem_handle");
-		if ((ret != TZ_RESULT_SUCCESS)
-		    || (allocatechm_handle[i] == 0)) {
-			KREE_ERR(
-				"[%s] Alloc Chmem returns Fail. [Stop!]. ret=0x%x\n",
-				__func__, ret);
-			break;
-		}
-
-		/*
-		 * KREE_DEBUG("[OK]Alloc chmem [chm_handle = 0x%x, mem_handle =
-		 *0x%x (alignment=0x%x, size=0x%x)]\n",
-		 *		appendchm_handle, allocatechm_handle[i],
-		 *alignment, alloc_size);
-		 */
-	} /*end of alloc chunk memory*/
-
-
-	/*this alloc will fail!(exceed chmem size). but phone cannot restart*/
-	if (flags == 0)
-		ret = KREE_ION_AllocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle[i], alignment, alloc_size);
-	else
-		ret = KREE_ION_ZallocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle[i], alignment, alloc_size);
-
-	CHECK_NEQ(TZ_RESULT_SUCCESS, ret, "alloc extra chunk memory");
-	/*alloc fail will return mem_handle = 0. This alloc must fail.*/
-	CHECK_EQ(0, allocatechm_handle[i], "alloc extra chunk memory");
-
-	if ((ret != TZ_RESULT_SUCCESS) || (allocatechm_handle[i] == 0))
-		KREE_ERR("[%s] Alloc extra chmem returns Fail. ret=0x%x\n",
-			 __func__, ret);
-	/*
-	 * else
-	 *	KREE_DEBUG("[OK]Alloc chmem [chm_handle = 0x%x, mem_handle =
-	 *0x%x (alignment=0x%x, size=0x%x)]\n",
-	 *			appendchm_handle, allocatechm_handle[i],
-	 *alignment,
-	 *alloc_size);
-	 */
-
-	numOfAllocChm = i;
-	/*free*/
-	for (i = 0; i < numOfAllocChm; i++) {
-		/*KREE_DEBUG("=====> Free %d/%d\n", i, (numOfAllocChm-1));*/
-		/*unreference chm: free*/
-		ret = KREE_ION_UnreferenceChunkmem(allocatechm_session,
-						   allocatechm_handle[i]);
-		CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unreference chunk memory");
-		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("[%s] Unref Chmem Fail. [Stop!]. ret=0x%x\n",
-				 __func__, ret);
-			break;
-		}
-		/*
-		 * KREE_DEBUG("[OK]Unreference chunk memory OK.\n");
-		 */
-	} /*end of unref from chunk memory*/
-
-	if (allocatechm_handle != NULL)
-		kfree(allocatechm_handle);
-
-	/*
-	 * KREE_DEBUG("====> test chunk memory boundary body ends\n");
-	 */
-
-	TEST_END;
-	/*REPORT_UNITTESTS;*/
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-static int _test_chmem_boundary(void)
-{
-	/*limit: current chmem impl. need continuous pages*/
-	uint32_t chm_size =
-		(10 * 4096);  /*default test chm size: 10 pages=40960*/
-	int alignment = 4096; /*PAGE_SIZE*/
-	int alloc_size = 4096;
-
-	int size = chm_size;
-	uint64_t pa;
-	char *buf = NULL;
-	TZ_RESULT ret;
-
-#if 0
-	/*ion's test data*/
-	int param_size = 17;
-	int i;
-#endif
-
-	KREE_SHAREDMEM_PARAM shm_param;
-
-	KREE_SESSION_HANDLE appendchm_session;   /*for append chm*/
-	KREE_SESSION_HANDLE allocatechm_session; /*for allocate chm*/
-	KREE_SECUREMEM_HANDLE appendchm_handle;
-
-	TEST_BEGIN("====> start to test: test chunk memory boundary");
-	RESET_UNITTESTS;
-
-	KREE_DEBUG("====> start to test: test chunk memory boundary\n");
-
-	/*create session for appendCM*/
-	ret = KREE_CreateSession(mem_srv_name, &appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("CreateSession (appendchm_session:0x%x) Error: %d\n",
-			 (uint32_t)appendchm_session, ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] create appendchm_session=0x%x.\n",
-		   (uint32_t)appendchm_session);
-
-	/*create session for allocateCM*/
-	ret = KREE_CreateSession(mem_srv_name, &allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("CreateSession (allocatechm_session:0x%x) Error: %d\n",
-			 (uint32_t)allocatechm_session, ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] create allocatechm_session=0x%x.\n",
-		   (uint32_t)allocatechm_session);
-
-	/*create chunk memory space from Linux*/
-	pa = init_shm_test(&buf, size);
-	if (!buf) {
-		KREE_ERR("[%s] ====> kmalloc test buffer Fail!.\n", __func__);
-		goto chunkmem_sat;
-	}
-
-	shm_param.buffer = (void *)pa;
-	shm_param.size = size;
-	shm_param.mapAry = NULL;
-
-	/*append chunk memory*/
-	ret = KREE_AppendSecureMultichunkmem(appendchm_session,
-					     &appendchm_handle, &shm_param);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "append chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_AppendSecureMultichunkmem() Fail. ret=0x%x\n",
-			 ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] append chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-/*call test body here*/
-#if 1
-	/*a simple test*/
-	_test_chmem_boundary_body(allocatechm_session, appendchm_handle,
-				  chm_size, alloc_size, alignment,
-				  0); /*0:no_init0*/
-#endif
-
-#if 0
-/*ion's test data*/
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case1[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_test_params[i].size,
-				alloc_test_params[i].alignment,
-				alloc_test_params[i].flags);
-
-			_test_chmem_boundary_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_test_params[i].size,
-				alloc_test_params[i].alignment,
-				alloc_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 1 OK. alloc_test_params\n");
-#endif
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_zero_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case2[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_zero_test_params[i].size,
-				alloc_zero_test_params[i].alignment,
-				alloc_zero_test_params[i].flags);
-
-			_test_chmem_boundary_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_zero_test_params[i].size,
-				alloc_zero_test_params[i].alignment,
-				alloc_zero_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 2 OK. alloc_zero_test_params\n");
-#endif
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_aligned_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case3[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_aligned_test_params[i].size,
-				alloc_aligned_test_params[i].alignment,
-				alloc_aligned_test_params[i].flags);
-
-			_test_chmem_boundary_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_aligned_test_params[i].size,
-				alloc_aligned_test_params[i].alignment,
-				alloc_aligned_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 3 OK. alloc_aligned_test_params\n");
-#endif
-
-#if 0
-	/*this case fail. & phone will reset*/
-	for (i = 0; i < param_size; i++) {
-		if (alloc_zero_aligned_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case4[%d] params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_zero_aligned_test_params[i].size,
-				alloc_zero_aligned_test_params[i].alignment,
-				alloc_zero_aligned_test_params[i].flags);
-
-			_test_chmem_boundary_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_zero_aligned_test_params[i].size,
-				alloc_zero_aligned_test_params[i].alignment,
-				alloc_zero_aligned_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 4 OK. alloc_zero_aligned_test_params\n");
-#endif
-
-#endif
-
-	/*release chunk memory*/
-	ret = KREE_ReleaseSecureMultichunkmem(appendchm_session,
-					      appendchm_handle);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "release chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_ReleaseSecureMultichunkmem Error: ret=%d\n",
-			 ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] release chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-	/*close session*/
-	ret = KREE_CloseSession(appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:appendchm_session=0x%x, ret=%d\n",
-			(uint32_t)appendchm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. appendchm_session=0x%x\n",
-		   (uint32_t)appendchm_session);
-
-	ret = KREE_CloseSession(allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:allocatechm_session=0x%x, ret=%d\n",
-			(uint32_t)allocatechm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. allocatechm_session=0x%x\n",
-		   (uint32_t)allocatechm_session);
-
-chunkmem_sat:
-
-	if (buf != NULL)
-		kfree(buf);
-
-	KREE_DEBUG("[%s] ====> test chunk memory boundary ends\n", __func__);
-
-	TEST_END;
-	REPORT_UNITTESTS;
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-/*
- * test
- * (1) After appending chm, Linux cannot access this chm (Phone reboot)
- * (2) After releasing chm, Linux can access this chm
- * (3) Append 2/3/... chunk memory (multi-chm), test(1)(2) are both ok
- */
-static int _test_chmem_alignment_body(KREE_SESSION_HANDLE allocatechm_session,
-				      KREE_SECUREMEM_HANDLE appendchm_handle,
-				      uint32_t chm_size, int alloc_size,
-				      int alignment, int flags)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	TZ_RESULT ret;
-	KREE_SECUREMEM_HANDLE allocatechm_handle1, allocatechm_handle2;
-
-	TEST_BEGIN("====> start to test: test chunk memory alignment body");
-	/*RESET_UNITTESTS;*/
-
-	KREE_DEBUG("====> start to test: test chunk memory alignment body\n");
-
-	/*test chunk memory alloc/unreference APIs*/
-
-	/*alloc 1*/
-	/*
-	 * KREE_DEBUG("======> alloc (alignment < size). Must be OK.\n");
-	 */
-	alignment = alloc_size / 2;
-	if (flags == 0)
-		ret = KREE_ION_AllocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle1, alignment, alloc_size);
-	else
-		ret = KREE_ION_ZallocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle1, alignment, alloc_size);
-
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "alloc chunk memory1");
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("[%s] Alloc Chmem returns Fail. [Stop!]. ret=0x%x\n",
-			 __func__, ret);
-	/*
-	 * else
-	 *	KREE_DEBUG("[OK]Alloc chmem [chm_handle = 0x%x, mem_handle =
-	 *0x%x (alignment=0x%x, size=0x%x)]\n",
-	 *			appendchm_handle, allocatechm_handle1,
-	 *alignment,
-	 *alloc_size);
-	 */
-
-	/*alloc 2*/
-	/*this alloc will Successful! but phone cannot restart*/
-	/*
-	 * KREE_DEBUG("======> alloc (alignment >= size). Must be OK.\n");
-	 */
-	alignment = alloc_size * 2;
-	if (flags == 0)
-		ret = KREE_ION_AllocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle2, alignment, alloc_size);
-	else
-		ret = KREE_ION_ZallocChunkmem(
-			allocatechm_session, appendchm_handle,
-			&allocatechm_handle2, alignment, alloc_size);
-
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "alloc chunk memory2");
-	if (ret != TZ_RESULT_SUCCESS)
-		KREE_ERR("[%s] Alloc Chmem Fail. ret=0x%x\n", __func__, ret);
-	/*
-	 * else
-	 *	KREE_DEBUG("[OK]Alloc chmem [chm_handle = 0x%x, mem_handle =
-	 *0x%x (alignment=0x%x, size=0x%x)]\n",
-	 *			appendchm_handle, allocatechm_handle2,
-	 *alignment,
-	 *alloc_size);
-	 */
-
-	/*unreference chm1: free*/
-	ret = KREE_ION_UnreferenceChunkmem(allocatechm_session,
-					   allocatechm_handle1);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unreference chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("[%s] UnreferenceChunkmem Fail. ret=0x%x\n", __func__,
-			 ret);
-	}
-	/*
-	 * else
-	 *	KREE_DEBUG("[OK]Unreference chunk memory OK.\n");
-	 */
-
-	/*unreference chm2: free*/
-	ret = KREE_ION_UnreferenceChunkmem(allocatechm_session,
-					   allocatechm_handle2);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "unreference chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"[%s] KREE_ION_UnreferenceChunkmem() returns Fail. [Stop!]. ret=0x%x\n",
-			__func__, ret);
-	}
-	/*
-	 * else
-	 *	KREE_DEBUG("[OK]Unreference chunk memory OK.\n");
-	 */
-
-	/*
-	 * KREE_DEBUG("====> test chunk memory alignment body ends\n");
-	 */
-
-	TEST_END;
-	/*REPORT_UNITTESTS;*/
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-static int _test_chmem_alignment(void)
-{
-	/*limit: current chmem impl. need continuous pages*/
-
-	uint32_t chm_size =
-		(10 * 4096);  /*default test chm size: 10 pages=40960*/
-	int alignment = 4096; /*PAGE_SIZE*/
-	int alloc_size = 4096;
-
-	int size = chm_size;
-	uint64_t pa;
-	char *buf = NULL;
-	TZ_RESULT ret;
-
-#if 0
-	/*for ion_test data*/
-	int i;
-	int param_size = 17;
-#endif
-	KREE_SHAREDMEM_PARAM shm_param;
-
-	KREE_SESSION_HANDLE appendchm_session;   /*for append chm*/
-	KREE_SESSION_HANDLE allocatechm_session; /*for allocate chm*/
-	KREE_SECUREMEM_HANDLE appendchm_handle;
-
-	TEST_BEGIN("====> start to test: test chunk memory alignment");
-	RESET_UNITTESTS;
-
-	KREE_DEBUG("====> start to test: test chunk memory alignment\n");
-
-	/*create session for appendCM*/
-	ret = KREE_CreateSession(mem_srv_name, &appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("CreateSession (appendchm_session:0x%x) Error: %d\n",
-			 (uint32_t)appendchm_session, ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] create appendchm_session=0x%x.\n",
-		   (uint32_t)appendchm_session);
-
-	/*create session for allocateCM*/
-	ret = KREE_CreateSession(mem_srv_name, &allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("CreateSession (allocatechm_session:0x%x) Error: %d\n",
-			 (uint32_t)allocatechm_session, ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] create allocatechm_session=0x%x.\n",
-		   (uint32_t)allocatechm_session);
-
-	/*create chunk memory space from Linux*/
-	pa = init_shm_test(&buf, size);
-	if (!buf) {
-		KREE_ERR("[%s] ====> kmalloc test buffer Fail!.\n", __func__);
-		goto chunkmem_sat;
-	}
-
-	shm_param.buffer = (void *)pa;
-	shm_param.size = size;
-	shm_param.mapAry = NULL;
-
-	/*append chunk memory*/
-	ret = KREE_AppendSecureMultichunkmem(appendchm_session,
-					     &appendchm_handle, &shm_param);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "append chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_AppendSecureMultichunkmem() Fail. ret=0x%x\n",
-			 ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] append chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-/*call test body here*/
-#if 1
-	/*a simple test, 0:no_init0*/
-	_test_chmem_alignment_body(allocatechm_session, appendchm_handle,
-				   chm_size, alloc_size, alignment, 0);
-#endif
-
-#if 0
-/*ion's test data*/
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case1[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_test_params[i].size,
-				alloc_test_params[i].alignment,
-				alloc_test_params[i].flags);
-
-			_test_chmem_alignment_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_test_params[i].size,
-				alloc_test_params[i].alignment,
-				alloc_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 1 OK. alloc_test_params\n");
-#endif
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_zero_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case2[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_zero_test_params[i].size,
-				alloc_zero_test_params[i].alignment,
-				alloc_zero_test_params[i].flags);
-
-			_test_chmem_alignment_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_zero_test_params[i].size,
-				alloc_zero_test_params[i].alignment,
-				alloc_zero_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 2 OK. alloc_zero_test_params\n");
-#endif
-
-#if 1
-	for (i = 0; i < param_size; i++) {
-		if (alloc_aligned_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case3[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_aligned_test_params[i].size,
-				alloc_aligned_test_params[i].alignment,
-				alloc_aligned_test_params[i].flags);
-
-			_test_chmem_alignment_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_aligned_test_params[i].size,
-				alloc_aligned_test_params[i].alignment,
-				alloc_aligned_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 3 OK. alloc_aligned_test_params\n");
-#endif
-
-#if 0
-	/*this case fail. & phone will reset*/
-	for (i = 0; i < param_size; i++) {
-		if (alloc_zero_aligned_test_params[i].size <= chm_size) {
-			KREE_DEBUG(
-				"Case4[%d]params: size=0x%x, align=0x%x, init0=0x%x\n",
-				i, alloc_zero_aligned_test_params[i].size,
-				alloc_zero_aligned_test_params[i].alignment,
-				alloc_zero_aligned_test_params[i].flags);
-
-			_test_chmem_alignment_body(allocatechm_session,
-				appendchm_handle, chm_size,
-				alloc_zero_aligned_test_params[i].size,
-				alloc_zero_aligned_test_params[i].alignment,
-				alloc_zero_aligned_test_params[i].flags);
-		} else
-			break;
-	}
-	KREE_DEBUG("[OK] Case 4 OK. alloc_zero_aligned_test_params\n");
-#endif
-
-#endif
-
-	/*release chunk memory*/
-	ret = KREE_ReleaseSecureMultichunkmem(appendchm_session,
-					      appendchm_handle);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "release chunk memory");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("KREE_ReleaseSecureMultichunkmem Error: ret=%d\n",
-			 ret);
-		goto chunkmem_sat;
-	}
-	KREE_DEBUG("[OK] release chm OK. appendchm_handle=0x%x\n",
-		   (uint32_t)appendchm_handle);
-
-	/*close session*/
-	ret = KREE_CloseSession(appendchm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close appendchm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:appendchm_session=0x%x, ret=%d\n",
-			(uint32_t)appendchm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. appendchm_session=0x%x\n",
-		   (uint32_t)appendchm_session);
-
-	ret = KREE_CloseSession(allocatechm_session);
-	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "close allocatechm_session");
-	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR(
-			"KREE_CloseSession Error:allocatechm_session=0x%x, ret=%d\n",
-			(uint32_t)allocatechm_session, ret);
-	}
-	KREE_DEBUG("[OK] close session OK. allocatechm_session=0x%x\n",
-		   (uint32_t)allocatechm_session);
-
-chunkmem_sat:
-
-	if (buf != NULL)
-		kfree(buf);
-
-	KREE_DEBUG("====> test chunk memory alignment ends\n");
-
-	TEST_END;
-	REPORT_UNITTESTS;
-	add_stresstest_total(_uts_total);
-	add_stresstest_failed(_uts_failed);
-	return TZ_RESULT_SUCCESS;
-}
-
-/*orig chunk memory test is not workable for new API impl.*/
-/*
- * static int chunk_memory_test(void *args)
- * {
- *	chunk_memory_test1();
- *	chunk_memory_test2();
- *}
- */
-
-/*orig chunk memory test is not workable for new API impl.*/
-/*
- * static int chunk_memory_test(void *args)
- * {
- *	chunk_memory_test1();
- *	chunk_memory_test2();
- *}
- */
-
-/*chunk memory test for new API impl.*/
-static int chunk_memory_test(void *args)
-{
-
-	/*ION Chunk memory Test*/
-	_test_chmem_saturation();
-	_test_chmem_boundary();
-	_test_chmem_alignment();
-
-	/*append/release multi-chm + alloc/ref/query/unref*/
-	_test_chmem_normalFun();
-
-	return TZ_RESULT_SUCCESS;
-}
-
-/*chunk memory test for new API impl.*/
-static int chunk_memory_test_inMTEE(void *args)
-{
-	/*test chunk memory API by TA in M-TEE*/
-
-	/*TZCMD_TEST_QUERYCHM_TA_Sat 0x9993*/
-	/*TZCMD_TEST_QUERYCHM_TA_Bound 0x9992*/
-	/*TZCMD_TEST_QUERYCHM_TA_Align 0x9991*/
-	/*TZCMD_TEST_QUERYCHM_TA_Normal 0x9990*/
-	_test_chmem_API_in_MTEE(0x9993);
-	_test_chmem_API_in_MTEE(0x9992);
-	_test_chmem_API_in_MTEE(0x9991);
-	_test_chmem_API_in_MTEE(0x9990);
-
-	return TZ_RESULT_SUCCESS;
-}
-
 #endif
 
 static int test_MD_appendSecureChmem(void *args)
@@ -3397,10 +1988,10 @@ static int test_MD_appendSecureChmem(void *args)
 	TZ_RESULT ret;
 	KREE_SESSION_HANDLE echo_session;
 
-	TEST_BEGIN("====> start: test MD append secure chunk memory");
+	TEST_BEGIN("====> start: test MD appendSecureChmem");
 	RESET_UNITTESTS;
 
-	KREE_DEBUG("====> start: test MD append secure chunk memory\n");
+	KREE_DEBUG("====> start: %s\n", __func__);
 
 	ret = KREE_CreateSession(echo_srv_name, &echo_session);
 	CHECK_EQ(TZ_RESULT_SUCCESS, ret, "create echo_session");
@@ -3444,7 +2035,7 @@ md_out:
 	if (buf != NULL)
 		kfree(buf);
 
-	KREE_DEBUG("====> test MD append secure chunk memory ends\n");
+	KREE_DEBUG("====> %s ends ======.\n", __func__);
 
 	TEST_END;
 	REPORT_UNITTESTS;
@@ -3456,11 +2047,13 @@ struct UREE_SHAREDMEM_PARAM {
 	uint32_t buffer; /* FIXME: userspace void* is 32-bit */
 	uint32_t size;
 	uint32_t mapAry;
+	uint32_t region_id;
 };
 
 struct UREE_SHAREDMEM_PARAM_US {
 	uint64_t buffer; /* FIXME: userspace void* is 32-bit */
 	uint32_t size;
+	uint32_t region_id;
 };
 
 struct user_shm_param {
@@ -3509,8 +2102,7 @@ static int _free_session_info(struct file *fp)
 	struct session_info *info;
 	int i, num;
 
-	KREE_DEBUG("====> [%d] [start] free session info is running.\n",
-		   __LINE__);
+	KREE_DEBUG("====> [%d] [start] %s is running.\n", __LINE__, __func__);
 
 	info = (struct session_info *)fp->private_data;
 
@@ -3536,7 +2128,7 @@ static int _free_session_info(struct file *fp)
 	kfree(info->handles);
 	kfree(info);
 
-	KREE_DEBUG("====> [%d] end of free session info.\n", __LINE__);
+	KREE_DEBUG("====> [%d] end of %s().\n", __LINE__, __func__);
 
 	return TZ_RESULT_SUCCESS;
 }
@@ -3549,8 +2141,8 @@ static int _register_session_info(struct file *fp, KREE_SESSION_HANDLE handle)
 	void *ptr;
 
 	KREE_DEBUG(
-		"====> [%d] register session info is calling. in_handleID = %d\n",
-		__LINE__, handle);
+		"====> [%d] %s is calling. in_handleID = %d\n",
+		__func__, __LINE__, handle);
 	if (handle < 0)
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 
@@ -3607,8 +2199,8 @@ static int _unregister_session_info(struct file *fp,
 	int i;
 
 	KREE_DEBUG(
-		"====> [%d] unregister session info is calling. in_handleID = %d\n",
-		__LINE__, in_handleID);
+		"====> [%d] %s is calling. in_handleID = %d\n",
+		__func__, __LINE__, in_handleID);
 	if (in_handleID < 0)
 		return TZ_RESULT_ERROR_BAD_PARAMETERS;
 
@@ -3627,7 +2219,7 @@ static int _unregister_session_info(struct file *fp,
 		}
 	}
 
-	KREE_DEBUG("====> [%d] [after] unregister session info. ret=%d\n",
+	KREE_DEBUG("====> [%d] [after] _free_session_info is calling. ret=%d\n",
 		   __LINE__, ret);
 
 	/* unlock */
@@ -3638,16 +2230,16 @@ static int _unregister_session_info(struct file *fp,
 
 static int gz_dev_open(struct inode *inode, struct file *filp)
 {
-	KREE_DEBUG("====>gz device open & _init_session_info is calling.\n");
+	KREE_DEBUG("====>gz_dev_open & _init_session_info is calling.\n");
 	_init_session_info(filp);
 	return 0;
 }
 
 static int gz_dev_release(struct inode *inode, struct file *filp)
 {
-	KREE_DEBUG("====>[before] gz device release is calling.\n");
+	KREE_DEBUG("====>[before] gz_dev_release is calling.\n");
 	_free_session_info(filp);
-	KREE_DEBUG("====>[after] gz device release.\n");
+	KREE_DEBUG("====>[after] gz_dev_release is calling.\n");
 	return 0;
 }
 
@@ -3675,7 +2267,7 @@ TZ_RESULT get_US_PAMapAry(struct user_shm_param *shm_data,
 	unsigned long *pfns;
 	struct page **delpages;
 
-	KREE_DEBUG("====> [%s] get US PA map array is calling.\n", __func__);
+	KREE_DEBUG("====> [%s] %s is calling.\n", __func__, __func__);
 	KREE_DEBUG(
 		"====> session: %u, shm_handle: %u, param.size: %u, param.buffer: 0x%llx\n",
 		(*shm_data).session, (*shm_data).shm_handle,
@@ -3804,7 +2396,7 @@ static long tz_client_open_session(struct file *filep, unsigned long arg)
 	param.ret = ret;
 	param.handle = handle;
 
-	KREE_DEBUG("===> tz client open session: handle =%d\n", handle);
+	KREE_DEBUG("===> %s: handle =%d\n", __func__, handle);
 	if (handle >= 0)
 		_register_session_info(filep, handle);
 
@@ -4314,8 +2906,7 @@ static long _sc_test_allocChm(struct file *filep, unsigned long arg, int zalloc)
 				     &ION_Handle, alignment_size, allocchm_size,
 				     zalloc);
 	if (ret != TZ_RESULT_SUCCESS) {
-		KREE_ERR("%s: test alloc chunk memory failed(0x%x)\n",
-			__func__, ret);
+		KREE_ERR("%s: %s failed(0x%x)\n", __func__, __func__, ret);
 		return ret;
 	}
 
@@ -4593,7 +3184,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 			KREE_ERR(
 				"[%s] ====> get_us_PAMapAry() returns Fail. [Stop!]. ret=0x%x\n",
 				__func__, ret);
-
+		shm_param.region_id = shm_data.param.region_id;
 		if (ret == TZ_RESULT_SUCCESS) {
 			ret = _registerSharedmem_body(shm_data.session,
 						      &shm_param, numOfPA,
