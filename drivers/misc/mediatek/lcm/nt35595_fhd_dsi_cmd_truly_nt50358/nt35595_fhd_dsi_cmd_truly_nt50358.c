@@ -862,6 +862,14 @@ static void push_table(struct LCM_setting_table *table,
 static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
 {
 	memcpy(&lcm_util, util, sizeof(struct LCM_UTIL_FUNCS));
+	if (lcm_util.dsi_set_cmdq)
+		pr_notice("%s, lcm_util setting pass\n", __func__);
+	else
+		pr_notice("%s, lcm_util setting fail\n", __func__);
+	if (util->dsi_set_cmdq)
+		pr_notice("%s, util setting correct\n", __func__);
+	else
+		pr_notice("%s, util setting error\n", __func__);
 }
 
 
@@ -1125,6 +1133,8 @@ static void lcm_update(unsigned int x, unsigned int y, unsigned int width,
 
 	data_array[0] = 0x002c3909;
 	dsi_set_cmdq(data_array, 1, 0);
+#else
+	pr_notice("%s, vdo mode skip update now\n", __func__);
 #endif
 }
 
