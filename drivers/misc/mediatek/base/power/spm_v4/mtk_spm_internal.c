@@ -51,15 +51,6 @@
 #include <mt-plat/mtk_meminfo.h>
 #endif
 
-#if defined(CONFIG_MACH_MT6771)
-/* for mp1 vproc control check with mcdi and hps */
-/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
-#include "mtk_hps_internal.h"
-#include "mtk_mcdi_governor.h"
-#endif
-#endif
-
 /**************************************
  * Config and Parameter
  **************************************/
@@ -415,12 +406,12 @@ u32 _spm_get_wake_period(int pwake_time, unsigned int last_wr)
 
 bool __attribute__ ((weak)) mcdi_is_buck_off(int cluster_idx)
 {
-	spm_crit2("NO %s !!!\n", __func__);
+//	spm_crit2("NO %s !!!\n", __func__);
 	return false;
 }
 bool __attribute__ ((weak)) cpuhp_is_buck_off(int cluster_idx)
 {
-	spm_crit2("NO %s !!!\n", __func__);
+//	spm_crit2("NO %s !!!\n", __func__);
 	return false;
 }
 
