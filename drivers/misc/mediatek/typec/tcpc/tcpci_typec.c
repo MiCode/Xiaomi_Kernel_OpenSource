@@ -281,7 +281,8 @@ static const char *const typec_state_name[] = {
 static inline void typec_transfer_state(struct tcpc_device *tcpc_dev,
 					enum TYPEC_CONNECTION_STATE state)
 {
-	TYPEC_INFO("** %s\r\n", typec_state_name[state]);
+	if (state > 0 && state < ARRAY_SIZE(typec_state_name))
+		TYPEC_INFO("** %s\r\n", typec_state_name[state]);
 	tcpc_dev->typec_state = (uint8_t) state;
 }
 
