@@ -300,18 +300,13 @@ static unsigned long translate_fd(struct op_meta *meta,
 	return mva;
 }
 
-#ifdef TRACK_PERF_MON
-static u64 trans_perf_mon_cost[CMDQ_MOP_NOP] = {0LL};
-static u32 trans_perf_mon_count[CMDQ_MOP_NOP] = {0};
-#endif
-
 static s32 translate_meta(struct op_meta *meta,
 			struct mdp_job_mapping *mapping_job,
-			struct cmdqRecStruct *handle)
+			struct cmdqRecStruct *handle,
+			struct cmdq_command_buffer *cmd_buf)
 {
 	u32 reg_addr;
 	s32 status = 0;
-	u64 exec_cost = sched_clock();
 
 	switch (meta->op) {
 	case CMDQ_MOP_WRITE_FD:
@@ -321,14 +316,15 @@ static s32 translate_meta(struct op_meta *meta,
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr || !mva)
 			return -EINVAL;
-		status = cmdq_op_write_reg_ex(handle, reg_addr, mva, ~0);
+		status = cmdq_op_write_reg_ex(handle, cmd_buf,
+			reg_addr, mva, ~0);
 		break;
 	}
 	case CMDQ_MOP_WRITE:
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
-		status = cmdq_op_write_reg_ex(handle, reg_addr,
+		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
 					meta->value, meta->mask);
 		break;
 	case CMDQ_MOP_READ:
@@ -340,31 +336,37 @@ static s32 translate_meta(struct op_meta *meta,
 		dram_addr = translate_read_id_ex(meta->readback_id, &offset);
 		if (!reg_addr || !dram_addr)
 			return -EINVAL;
-		status = cmdq_op_read_reg_to_mem(handle,
+		status = cmdq_op_read_reg_to_mem_ex(handle, cmd_buf,
 						dram_addr, offset, reg_addr);
+		break;
+	}
+	case CMDQ_MOP_READBACK:
+	{
+		CMDQ_ERR("not support readback op\n");
+		status = -EINVAL;
 		break;
 	}
 	case CMDQ_MOP_POLL:
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
-		status = cmdq_op_poll(handle, reg_addr,
+		status = cmdq_op_poll_ex(handle, cmd_buf, reg_addr,
 					meta->value, meta->mask);
 		break;
 	case CMDQ_MOP_WAIT:
-		status = cmdq_op_wait(handle, meta->event);
+		status = cmdq_op_wait_ex(handle, cmd_buf, meta->event);
 		break;
 	case CMDQ_MOP_WAIT_NO_CLEAR:
-		status = cmdq_op_wait_no_clear(handle, meta->event);
+		status = cmdq_op_wait_no_clear_ex(handle, cmd_buf, meta->event);
 		break;
 	case CMDQ_MOP_CLEAR:
-		status = cmdq_op_clear_event(handle, meta->event);
+		status = cmdq_op_clear_event_ex(handle, cmd_buf, meta->event);
 		break;
 	case CMDQ_MOP_SET:
-		status = cmdq_op_set_event(handle, meta->event);
+		status = cmdq_op_set_event_ex(handle, cmd_buf, meta->event);
 		break;
 	case CMDQ_MOP_ACQUIRE:
-		status = cmdq_op_acquire(handle, meta->event);
+		status = cmdq_op_acquire_ex(handle, cmd_buf, meta->event);
 		break;
 	case CMDQ_MOP_WRITE_FROM_REG:
 	{
@@ -374,7 +376,10 @@ static s32 translate_meta(struct op_meta *meta,
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr || !from_reg)
 			return -EINVAL;
-		status = cmdq_op_write_from_reg(handle, reg_addr, from_reg);
+		/* flush to make sure pkt is updated */
+		cmdq_handle_flush_cmd_buf(handle, cmd_buf);
+		status = cmdq_op_write_from_reg_ex(handle, cmd_buf,
+					reg_addr, from_reg);
 		break;
 	}
 	case CMDQ_MOP_WRITE_SEC:
@@ -382,12 +387,16 @@ static s32 translate_meta(struct op_meta *meta,
 		reg_addr = cmdq_mdp_get_hw_reg(meta->engine, meta->offset);
 		if (!reg_addr)
 			return -EINVAL;
-		status = cmdq_op_write_reg_ex(handle, reg_addr,
+		status = cmdq_op_write_reg_ex(handle, cmd_buf, reg_addr,
 					meta->value, ~0);
-		if (!status)
+		/* use total buffer size count in translation */
+		if (!status) {
+			/* flush to make sure count is correct */
+			cmdq_handle_flush_cmd_buf(handle, cmd_buf);
 			status = cmdq_mdp_update_sec_addr_index(handle,
 				meta->sec_handle, meta->sec_index,
 				cmdq_mdp_handle_get_instr_count(handle) - 1);
+		}
 		break;
 	}
 	case CMDQ_MOP_NOP:
@@ -398,63 +407,52 @@ static s32 translate_meta(struct op_meta *meta,
 		break;
 	}
 
-	exec_cost = sched_clock() - exec_cost;
-#ifdef TRACK_PERF_MON
-	trans_perf_mon_count[meta->op]++;
-	trans_perf_mon_cost[meta->op] += exec_cost;
-#endif
 	return status;
 }
 
 static s32 translate_user_job(struct mdp_submit *user_job,
 			struct mdp_job_mapping *mapping_job,
-			struct cmdqRecStruct *handle)
+			struct cmdqRecStruct *handle,
+			struct cmdq_command_buffer *cmd_buf)
 {
 	struct op_meta *metas;
 	s32 status = 0;
 	u32 i, copy_size, copy_count, remain_count;
-	u64 exec_cost;
 	void *cur_src = CMDQ_U32_PTR(user_job->metas);
 	const u32 meta_count_in_page = PAGE_SIZE / sizeof(struct op_meta);
 
-	exec_cost = sched_clock();
 	metas = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!metas) {
 		CMDQ_ERR("allocate metas fail\n");
 		return -ENOMEM;
 	}
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
-	CMDQ_MSG("[log]%s kmalloc cost:%lluus\n",
-		__func__, exec_cost);
-
 	cmdq_mdp_meta_replace_sec_addr(metas, user_job, handle);
-#ifdef TRACK_PERF_MON
-	memset(trans_perf_mon_cost, 0, sizeof(u64)*CMDQ_MOP_NOP);
-	memset(trans_perf_mon_count, 0, sizeof(u32)*CMDQ_MOP_NOP);
-#endif
 
 	remain_count = user_job->meta_count;
 	while (remain_count > 0) {
 		copy_count = min_t(u32, remain_count, meta_count_in_page);
 		copy_size = copy_count * sizeof(struct op_meta);
-		exec_cost = sched_clock();
 		if (copy_from_user(metas, cur_src, copy_size)) {
 			CMDQ_ERR("copy metas from user fail:%u\n", copy_size);
 			kfree(metas);
 			return -EINVAL;
 		}
-		exec_cost = div_s64(sched_clock() - exec_cost, 1000);
-		CMDQ_MSG("[log]%s copy from user cost:%lluus\n",
-			__func__, exec_cost);
 
 		cmdq_mdp_meta_replace_sec_addr(metas, user_job, handle);
 		for (i = 0; i < copy_count; i++) {
+#ifdef META_DEBUG
 			CMDQ_MSG("translate meta[%u] (%u,%u,%#x,%#x,%#x)\n", i,
 				metas[i].op, metas[i].engine, metas[i].offset,
 				metas[i].value, metas[i].mask);
-			status = translate_meta(&metas[i], mapping_job, handle);
+#endif
+			status = translate_meta(&metas[i], mapping_job,
+						handle, cmd_buf);
 			if (unlikely(status < 0)) {
-				CMDQ_ERR("translate[%u] fail: %d\n", i, status);
+				CMDQ_ERR(
+					"translate[%u] fail: %d meta: (%u,%u,%#x,%#x,%#x)\n",
+					i, status, metas[i].op,
+					metas[i].engine, metas[i].offset,
+					metas[i].value, metas[i].mask);
 				break;
 			}
 		}
@@ -462,14 +460,6 @@ static s32 translate_user_job(struct mdp_submit *user_job,
 		cur_src += copy_size;
 	}
 
-#ifdef TRACK_PERF_MON
-	for (i = 0; i < ARRAY_SIZE(trans_perf_mon_count); i++) {
-		if (trans_perf_mon_count[i] > 0)
-			CMDQ_LOG("[TM] id:%d: total:%u, Sum:%lluus\n",
-				i, trans_perf_mon_count[i],
-				div_s64(trans_perf_mon_cost[i], 1000));
-	}
-#endif
 	kfree(metas);
 	return status;
 }
@@ -513,7 +503,8 @@ static s32 cmdq_mdp_handle_setup(struct mdp_submit *user_job,
 }
 
 static int mdp_implement_read_v1(struct mdp_submit *user_job,
-				struct cmdqRecStruct *handle)
+				struct cmdqRecStruct *handle,
+				struct cmdq_command_buffer *cmd_buf)
 {
 	int status = 0;
 	struct hw_meta *hw_metas = NULL;
@@ -558,8 +549,8 @@ static int mdp_implement_read_v1(struct mdp_submit *user_job,
 		CMDQ_MSG("%s: read[%d] engine[%d], offset[%x], addr[%x]\n",
 			__func__, i, hw_metas[i].engine,
 			hw_metas[i].offset, reg_addr);
-		cmdq_op_read_reg_to_mem(handle, handle->reg_values_pa,
-					i, reg_addr);
+		cmdq_op_read_reg_to_mem_ex(handle, cmd_buf,
+				handle->reg_values_pa, i, reg_addr);
 	}
 
 	kfree(hw_metas);
@@ -575,7 +566,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	struct cmdqRecStruct *handle = NULL;
 	s32 status;
 	u64 exec_cost;
-
+	struct cmdq_command_buffer cmd_buf;
 	struct mdp_job_mapping *mapping_job = NULL;
 
 	mapping_job = kzalloc(sizeof(*mapping_job), GFP_KERNEL);
@@ -599,9 +590,18 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		return -EINVAL;
 	}
 
+	cmd_buf.va_base = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!cmd_buf.va_base) {
+		CMDQ_ERR("%s allocate cmd_buf fail!\n", __func__);
+		kfree(mapping_job);
+		return -ENOMEM;
+	}
+	cmd_buf.avail_buf_size = PAGE_SIZE;
+
 	status = cmdq_mdp_handle_create(&handle);
 	if (status < 0) {
 		kfree(mapping_job);
+		kfree(cmd_buf.va_base);
 		return status;
 	}
 
@@ -610,6 +610,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		CMDQ_ERR("%s setup fail:%d\n", __func__, status);
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
+		kfree(cmd_buf.va_base);
 		return status;
 	}
 
@@ -633,12 +634,13 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		CMDQ_ERR("%s config sec fail:%d\n", __func__, status);
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
+		kfree(cmd_buf.va_base);
 		return status;
 	}
 
 	/* Make command from user job */
 	exec_cost = sched_clock();
-	status = translate_user_job(&user_job, mapping_job, handle);
+	status = translate_user_job(&user_job, mapping_job, handle, &cmd_buf);
 	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 3000) {
 		CMDQ_ERR("[warn]translate job[%d] cost:%lluus\n",
@@ -647,22 +649,33 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		CMDQ_MSG("[log]translate job[%d] cost:%lluus\n",
 			user_job.meta_count, exec_cost);
 	}
+
 	if (status < 0) {
 		CMDQ_ERR("%s translate fail:%d\n", __func__, status);
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
+		kfree(cmd_buf.va_base);
 		return status;
 	}
 
-	status = mdp_implement_read_v1(&user_job, handle);
+	status = mdp_implement_read_v1(&user_job, handle, &cmd_buf);
 	if (status < 0) {
 		CMDQ_ERR("%s read_v1 fail:%d\n", __func__, status);
 		cmdq_task_destroy(handle);
 		kfree(mapping_job);
+		kfree(cmd_buf.va_base);
 		return status;
 	}
 
+	if (cmdq_handle_flush_cmd_buf(handle, &cmd_buf)) {
+		cmdq_task_destroy(handle);
+		kfree(mapping_job);
+		kfree(cmd_buf.va_base);
+		return -EFAULT;
+	}
+
 	/* cmdq_pkt_dump_command(handle); */
+	kfree(cmd_buf.va_base);
 	/* flush */
 	status = cmdq_mdp_handle_flush(handle);
 

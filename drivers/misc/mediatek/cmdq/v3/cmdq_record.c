@@ -1612,20 +1612,327 @@ s32 cmdq_op_write_from_data_register(struct cmdqRecStruct *handle,
 #endif				/* CMDQ_GPR_SUPPORT */
 }
 
-s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle, u32 addr,
-	CMDQ_VARIABLE argument, u32 mask)
+struct cmdq_instr {
+	u16 arg_c:16;
+	u16 arg_b:16;
+	u16 arg_a:16;
+	u8 s_op:5;
+	u8 arg_c_type:1;
+	u8 arg_b_type:1;
+	u8 arg_a_type:1;
+	u8 op:8;
+};
+
+#define CMDQ_GET_ARG_B(arg)	(((arg) & GENMASK(31, 16)) >> 16)
+#define CMDQ_GET_ARG_C(arg)	((arg) & GENMASK(15, 0))
+#define CMDQ_GET_REG_OFFSET(addr)	((addr) & GENMASK(15, 0))
+#define CMDQ_GET_ADDR_H(addr)		(sizeof(addr) > 32 ? (addr >> 32) : 0)
+#define CMDQ_GET_ADDR_HIGH(addr)	((u32)((addr >> 16) & GENMASK(31, 0)))
+#define CMDQ_ADDR_LOW_BIT		BIT(1)
+#define CMDQ_GET_ADDR_LOW(addr)		((u16)(addr & GENMASK(15, 0)) | \
+					CMDQ_ADDR_LOW_BIT)
+#define CMDQ_IMMEDIATE_VALUE		0
+#define CMDQ_REG_TYPE			1
+
+static s32 cmdq_instr_encoder(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf,
+	u16 arg_c, u16 arg_b, u16 arg_a, u8 s_op,
+	u8 arg_c_type, u8 arg_b_type, u8 arg_a_type, u8 op)
 {
-	return cmdq_pkt_write_value_addr(handle->pkt, addr, argument, mask);
+	struct cmdq_instr *cmdq_inst;
+	void *va;
+
+	if (unlikely(!cmd_buf->avail_buf_size)) {
+		/* flush to pkt */
+		if (cmdq_handle_flush_cmd_buf(handle, cmd_buf))
+			return -EFAULT;
+	}
+
+	va = cmd_buf->va_base + PAGE_SIZE - cmd_buf->avail_buf_size;
+
+	cmdq_inst = va;
+	cmdq_inst->op = op;
+	cmdq_inst->arg_a_type = arg_a_type;
+	cmdq_inst->arg_b_type = arg_b_type;
+	cmdq_inst->arg_c_type = arg_c_type;
+	cmdq_inst->s_op = s_op;
+	cmdq_inst->arg_a = arg_a;
+	cmdq_inst->arg_b = arg_b;
+	cmdq_inst->arg_c = arg_c;
+
+	cmd_buf->avail_buf_size -= CMDQ_INST_SIZE;
+	return 0;
 }
 
-#define CMDQ_GET_ARG_B(arg)		(((arg) & GENMASK(31, 16)) >> 16)
-#define CMDQ_GET_ARG_C(arg)		((arg) & GENMASK(15, 0))
-s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event)
+s32 cmdq_handle_flush_cmd_buf(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf)
+{
+	if (cmdq_pkt_copy_cmd(handle, cmd_buf->va_base,
+		PAGE_SIZE - cmd_buf->avail_buf_size, false)) {
+		CMDQ_ERR("copy_cmd fail\n");
+		return -EFAULT;
+	}
+	cmd_buf->avail_buf_size = PAGE_SIZE;
+	return 0;
+}
+
+#define CMDQ_CHECK_ERR(err)	\
+{					\
+if (unlikely(err)) {				\
+	CMDQ_ERR("%s-%u: %d\n", __func__, __LINE__, err);	\
+}					\
+}
+
+static s8 cmdq_op_get_subsys(struct cmdqRecStruct *handle, u32 addr)
+{
+	return CMDQ_SPECIAL_SUBSYS_ADDR;
+}
+
+s32 cmdq_op_poll_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 addr,
+	CMDQ_VARIABLE value, u32 mask)
+{
+	s8 subsys;
+	s32 err;
+	bool use_gpr = false;
+	u16 arg_a;
+	u8 s_op, arg_a_type;
+
+	if (mask != 0xffffffff) {
+		err = cmdq_instr_encoder(handle, cmd_buf,
+			CMDQ_GET_ARG_C(~mask), CMDQ_GET_ARG_B(~mask),
+			0, 0, 0, 0, 0, CMDQ_CODE_MASK);
+		CMDQ_CHECK_ERR(err);
+		addr = addr | 0x1;
+	}
+
+	subsys = cmdq_op_get_subsys(handle, addr);
+	if (subsys < 0 || subsys == CMDQ_SPECIAL_SUBSYS_ADDR) {
+		use_gpr = true;
+		err = cmdq_op_wait_ex(handle, cmd_buf,
+			CMDQ_SYNC_TOKEN_GPR_SET_4);
+		CMDQ_CHECK_ERR(err);
+		/* Move extra handle APB address to GPR */
+		err = cmdq_instr_encoder(handle, cmd_buf, CMDQ_GET_ARG_C(addr),
+			CMDQ_GET_ARG_B(addr), 0, CMDQ_DATA_REG_DEBUG,
+			0, 0, 1, CMDQ_CODE_MOVE);
+		CMDQ_CHECK_ERR(err);
+		arg_a = addr & 0x1;
+		s_op = CMDQ_DATA_REG_DEBUG;
+		arg_a_type = 1;
+	} else {
+		arg_a = CMDQ_GET_REG_OFFSET(addr);
+		s_op = subsys;
+		arg_a_type = 0;
+	}
+
+	err = cmdq_instr_encoder(handle, cmd_buf,
+		CMDQ_GET_ARG_C(value), CMDQ_GET_ARG_B(value),
+		arg_a, s_op, 0, 0, arg_a_type, CMDQ_CODE_POLL);
+	CMDQ_CHECK_ERR(err);
+
+	if (use_gpr)
+		err = cmdq_op_set_event_ex(handle, cmd_buf,
+			CMDQ_SYNC_TOKEN_GPR_SET_4);
+
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+s32 cmdq_op_read_reg_to_mem_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf,
+	cmdqBackupSlotHandle h_backup_slot, u32 slot_index, u32 addr)
+{
+	const dma_addr_t dram_addr = h_backup_slot + slot_index * sizeof(u32);
+	s32 err;
+	s8 subsys;
+	u32 value;
+	u16 arg_b;
+	u8 s_op;
+
+	if (!handle || !cmd_buf)
+		return -EINVAL;
+
+	subsys = cmdq_op_get_subsys(handle, addr);
+	if (subsys < 0 || subsys == CMDQ_SPECIAL_SUBSYS_ADDR) {
+		value = CMDQ_GET_ADDR_HIGH(addr);
+
+		err = cmdq_instr_encoder(handle, cmd_buf,
+			CMDQ_GET_ARG_C(value), CMDQ_GET_ARG_B(value),
+			CMDQ_SPR_FOR_TEMP, CMDQ_LOGIC_ASSIGN,
+			CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE,
+			CMDQ_REG_TYPE, CMDQ_CODE_LOGIC);
+		CMDQ_CHECK_ERR(err);
+		arg_b = CMDQ_GET_ADDR_LOW(addr);
+		s_op = CMDQ_SPR_FOR_TEMP;
+	} else {
+		arg_b = CMDQ_GET_REG_OFFSET(addr);
+		s_op = subsys;
+	}
+	err = cmdq_instr_encoder(handle, cmd_buf,
+		0, arg_b, CMDQ_THR_SPR_IDX1, s_op, CMDQ_IMMEDIATE_VALUE,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE, CMDQ_CODE_READ_S);
+	CMDQ_CHECK_ERR(err);
+
+	value = CMDQ_GET_ADDR_HIGH(dram_addr);
+	err = cmdq_instr_encoder(handle, cmd_buf,
+		CMDQ_GET_ARG_C(value), CMDQ_GET_ARG_B(value),
+		CMDQ_SPR_FOR_TEMP, CMDQ_LOGIC_ASSIGN,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_CODE_LOGIC);
+	CMDQ_CHECK_ERR(err);
+
+	err = cmdq_instr_encoder(handle, cmd_buf, 0, CMDQ_THR_SPR_IDX1,
+		CMDQ_GET_ADDR_LOW(dram_addr), CMDQ_SPR_FOR_TEMP,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_IMMEDIATE_VALUE, CMDQ_CODE_WRITE_S);
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+s32 cmdq_op_write_reg_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 addr,
+	CMDQ_VARIABLE value, u32 mask)
+{
+	s32 subsys;
+	s32 err;
+	u16 arg_a;
+	u8 s_op;
+	enum cmdq_code op = CMDQ_CODE_WRITE_S;
+
+	subsys = cmdq_op_get_subsys(handle, addr);
+	if (subsys < 0 || subsys == CMDQ_SPECIAL_SUBSYS_ADDR) {
+		u32 high_addr = CMDQ_GET_ADDR_HIGH(addr);
+
+		/* assign bit 47:16 to spr temp */
+		err = cmdq_instr_encoder(handle, cmd_buf,
+			CMDQ_GET_ARG_C(high_addr), CMDQ_GET_ARG_B(high_addr),
+			CMDQ_SPR_FOR_TEMP, CMDQ_LOGIC_ASSIGN,
+			CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE,
+			CMDQ_REG_TYPE, CMDQ_CODE_LOGIC);
+		CMDQ_CHECK_ERR(err);
+		arg_a = CMDQ_GET_ADDR_LOW(addr);
+		s_op = CMDQ_SPR_FOR_TEMP;
+	} else {
+		arg_a = CMDQ_GET_REG_OFFSET(addr);
+		s_op = subsys;
+	}
+
+	if (mask != 0xffffffff) {
+		err = cmdq_instr_encoder(handle, cmd_buf,
+			CMDQ_GET_ARG_C(~mask), CMDQ_GET_ARG_B(~mask),
+			0, 0, 0, 0, 0, CMDQ_CODE_MASK);
+		CMDQ_CHECK_ERR(err);
+		op = CMDQ_CODE_WRITE_S_W_MASK;
+	}
+
+	err = cmdq_instr_encoder(handle, cmd_buf,
+		CMDQ_GET_ARG_C(value), CMDQ_GET_ARG_B(value),
+		arg_a, s_op, CMDQ_IMMEDIATE_VALUE, CMDQ_IMMEDIATE_VALUE,
+		CMDQ_IMMEDIATE_VALUE, op);
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+#define CMDQ_WFE_UPDATE		BIT(31)
+#define CMDQ_WFE_UPDATE_VALUE	BIT(16)
+#define CMDQ_WFE_WAIT		BIT(15)
+#define CMDQ_WFE_WAIT_VALUE	0x1
+
+s32 cmdq_op_wait_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event)
 {
 	s32 arg_a = cmdq_get_event_op_id(event);
 	u32 arg_b;
+	s32 err;
 
-	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !handle)
+	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !cmd_buf || !handle)
+		return -EINVAL;
+
+	/*
+	 * WFE arg_b
+	 * bit 0-11: wait value
+	 * bit 15: 1 - wait, 0 - no wait
+	 * bit 16-27: update value
+	 * bit 31: 1 - update, 0 - no update
+	 */
+	arg_b = CMDQ_WFE_UPDATE | CMDQ_WFE_WAIT | CMDQ_WFE_WAIT_VALUE;
+
+	err = cmdq_instr_encoder(handle, cmd_buf, CMDQ_GET_ARG_C(arg_b),
+			CMDQ_GET_ARG_B(arg_b), arg_a,
+			0, 0, 0, 0, CMDQ_CODE_WFE);
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+s32 cmdq_op_wait_no_clear_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+	u32 arg_b;
+	s32 err;
+
+	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !cmd_buf || !handle)
+		return -EINVAL;
+
+	/*
+	 * WFE arg_b
+	 * bit 0-11: wait value
+	 * bit 15: 1 - wait, 0 - no wait
+	 * bit 16-27: update value
+	 * bit 31: 1 - update, 0 - no update
+	 */
+	arg_b = CMDQ_WFE_WAIT | CMDQ_WFE_WAIT_VALUE;
+	err = cmdq_instr_encoder(handle, cmd_buf, CMDQ_GET_ARG_C(arg_b),
+		CMDQ_GET_ARG_B(arg_b), arg_a,
+		0, 0, 0, 0, CMDQ_CODE_WFE);
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+s32 cmdq_op_clear_event_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+	s32 err;
+
+	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !cmd_buf || !handle)
+		return -EINVAL;
+
+	err = cmdq_instr_encoder(handle, cmd_buf,
+		CMDQ_GET_ARG_C(CMDQ_WFE_UPDATE),
+		CMDQ_GET_ARG_B(CMDQ_WFE_UPDATE), arg_a,
+		0, 0, 0, 0, CMDQ_CODE_WFE);
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+s32 cmdq_op_set_event_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+	u32 arg_b;
+	s32 err;
+
+	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !cmd_buf || !handle)
+		return -EINVAL;
+
+	arg_b = CMDQ_WFE_UPDATE | CMDQ_WFE_UPDATE_VALUE;
+	err = cmdq_instr_encoder(handle, cmd_buf, CMDQ_GET_ARG_C(arg_b),
+		CMDQ_GET_ARG_B(arg_b), arg_a,
+		0, 0, 0, 0, CMDQ_CODE_WFE);
+	CMDQ_CHECK_ERR(err);
+	return err;
+}
+
+s32 cmdq_op_acquire_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, enum cmdq_event event)
+{
+	s32 arg_a = cmdq_get_event_op_id(event);
+	u32 arg_b;
+	s32 err;
+
+	if (arg_a < 0 || arg_a >= CMDQ_EVENT_MAX || !cmd_buf || !handle)
 		return -EINVAL;
 
 	/*
@@ -1636,13 +1943,15 @@ s32 cmdq_op_acquire(struct cmdqRecStruct *handle, enum cmdq_event event)
 	 * bit 31: 1 - update, 0 - no update
 	 */
 	arg_b = CMDQ_WFE_UPDATE | CMDQ_WFE_UPDATE_VALUE | CMDQ_WFE_WAIT;
-	return cmdq_pkt_append_command(handle->pkt, CMDQ_GET_ARG_C(arg_b),
+	err = cmdq_instr_encoder(handle, cmd_buf, CMDQ_GET_ARG_C(arg_b),
 		CMDQ_GET_ARG_B(arg_b), arg_a,
 		0, 0, 0, 0, CMDQ_CODE_WFE);
+	CMDQ_CHECK_ERR(err);
+	return err;
 }
 
-s32 cmdq_op_write_from_reg(struct cmdqRecStruct *handle,
-	u32 write_reg, u32 from_reg)
+s32 cmdq_op_write_from_reg_ex(struct cmdqRecStruct *handle,
+	struct cmdq_command_buffer *cmd_buf, u32 write_reg, u32 from_reg)
 {
 	s32 status;
 
