@@ -311,7 +311,7 @@ static inline unsigned int mt6357_map_mode(unsigned int mode)
 static int mt6357_set_voltage_sel(struct regulator_dev *rdev,
 				  unsigned int selector)
 {
-	int idx, ret;
+	int idx = 0, ret = 0;
 	const u32 *pvol;
 	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
 
@@ -327,8 +327,8 @@ static int mt6357_set_voltage_sel(struct regulator_dev *rdev,
 
 static int mt6357_get_voltage_sel(struct regulator_dev *rdev)
 {
-	int idx, ret;
-	u32 selector;
+	int idx = 0, ret = 0;
+	u32 selector = 0;
 	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
 	const u32 *pvol;
 
@@ -353,7 +353,7 @@ static int mt6357_get_voltage_sel(struct regulator_dev *rdev)
 static int mt6357_get_linear_voltage_sel(struct regulator_dev *rdev)
 {
 	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret = 0, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->da_vsel_reg, &regval);
 	if (ret != 0) {
@@ -370,8 +370,8 @@ static int mt6357_get_linear_voltage_sel(struct regulator_dev *rdev)
 
 static int mt6357_get_status(struct regulator_dev *rdev)
 {
-	int ret;
-	u32 regval;
+	int ret = 0;
+	u32 regval = 0;
 	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
 
 	ret = regmap_read(rdev->regmap, info->status_reg, &regval);
@@ -386,7 +386,7 @@ static int mt6357_get_status(struct regulator_dev *rdev)
 static unsigned int mt6357_regulator_get_mode(struct regulator_dev *rdev)
 {
 	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret = 0, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &regval);
 	if (ret != 0) {
@@ -409,7 +409,7 @@ static int mt6357_regulator_set_mode(struct regulator_dev *rdev,
 				     unsigned int mode)
 {
 	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
-	int val;
+	int val = 0;
 
 	switch (mode) {
 	case REGULATOR_MODE_FAST:
@@ -672,7 +672,7 @@ static int mt6357_of_parse_cb(struct device_node *np,
 			      const struct regulator_desc *desc,
 			      struct regulator_config *config)
 {
-	int ret;
+	int ret = 0;
 	struct mt6357_regulator_info *info = config->driver_data;
 
 	ret = of_property_read_u32(np, "mediatek,oc-irq-enable-delay-ms",
@@ -688,7 +688,7 @@ static int mt6357_regulator_probe(struct platform_device *pdev)
 	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
-	int i, ret;
+	int i = 0, ret = 0;
 
 	for (i = 0; i < MT6357_MAX_REGULATOR; i++) {
 		/* Workaround setting for MT6357 MRV */

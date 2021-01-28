@@ -182,9 +182,9 @@ static irqreturn_t mt6358_irq_handler(int irq, void *data)
 {
 	struct mt6397_chip *chip = data;
 	struct pmic_irq_data *irqd = chip->irq_data;
-	unsigned int top_irq_status;
-	unsigned int i;
-	int ret;
+	unsigned int top_irq_status = 0;
+	unsigned int i = 0;
+	int ret = 0;
 
 	ret = regmap_read(chip->regmap,
 			  irqd->top_int_status_reg,
@@ -225,8 +225,7 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 	int i, j, ret;
 	struct pmic_irq_data *irqd;
 
-	irqd = devm_kzalloc(chip->dev, sizeof(struct pmic_irq_data *),
-			    GFP_KERNEL);
+	irqd = devm_kzalloc(chip->dev, sizeof(*irqd), GFP_KERNEL);
 	if (!irqd)
 		return -ENOMEM;
 

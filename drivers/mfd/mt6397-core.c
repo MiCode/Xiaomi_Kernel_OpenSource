@@ -477,8 +477,8 @@ static const struct chip_data mt6397_core = {
 
 static int mt6397_probe(struct platform_device *pdev)
 {
-	int ret;
-	unsigned int id;
+	int ret = 0;
+	unsigned int id = 0;
 	struct mt6397_chip *pmic;
 	const struct chip_data *pmic_core;
 
@@ -520,6 +520,8 @@ static int mt6397_probe(struct platform_device *pdev)
 	switch (pmic->chip_id) {
 	case MT6357_CHIP_ID:
 		ret = mt6358_ipi_init(pmic);
+		ret = mt6358_irq_init(pmic);
+		break;
 	case MT6358_CHIP_ID:
 	case MT6359_CHIP_ID:
 		ret = mt6358_irq_init(pmic);

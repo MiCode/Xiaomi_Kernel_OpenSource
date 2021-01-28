@@ -72,6 +72,7 @@ static int mt63xx_debug_probe(struct platform_device *pdev)
 {
 	struct mt6397_chip *chip = dev_get_drvdata(pdev->dev.parent);
 	struct mt63xx_consumer_data *drvdata;
+	int ret = 0;
 
 	drvdata = devm_kzalloc(&pdev->dev, sizeof(struct mt63xx_consumer_data),
 			       GFP_KERNEL);
@@ -83,9 +84,11 @@ static int mt63xx_debug_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, drvdata);
 
 	/* Create sysfs entry */
-	device_create_file(&pdev->dev, &dev_attr_pmic_access);
+	ret = device_create_file(&pdev->dev, &dev_attr_pmic_access);
+	if (ret < 0)
+		pr_info("%s failed to create sysfs file\n", __func__);
 
-	return 0;
+	return ret;
 }
 
 static int mt63xx_debug_remove(struct platform_device *pdev)
