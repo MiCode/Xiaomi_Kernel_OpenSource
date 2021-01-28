@@ -2837,6 +2837,7 @@ static const struct snd_soc_component_driver mt6779_afe_component = {
 	.probe = mt6779_afe_component_probe,
 };
 
+#ifdef CONFIG_DEBUG_FS
 static ssize_t mt6779_debugfs_read(struct file *file, char __user *buf,
 				    size_t count, loff_t *pos)
 {
@@ -4678,6 +4679,7 @@ static const struct file_operations mt6779_debugfs_ops = {
 	.write = mtk_afe_debugfs_write,
 	.read = mt6779_debugfs_read,
 };
+#endif
 
 static const struct snd_soc_component_driver mt6779_afe_pcm_component = {
 	.name = "mt6779-afe-pcm-dai",
@@ -4869,12 +4871,13 @@ static int mt6779_afe_pcm_dev_probe(struct platform_device *pdev)
 	afe->request_dram_resource = mt6779_afe_dram_request;
 	afe->release_dram_resource = mt6779_afe_dram_release;
 
+#ifdef CONFIG_DEBUG_FS
 	/* debugfs */
 	afe->debug_cmds = mt6779_debug_cmds;
 	afe->debugfs = debugfs_create_file("mtksocaudio",
 					   S_IFREG | 0444, NULL,
 					   afe, &mt6779_debugfs_ops);
-
+#endif
 	/* register component */
 	ret = devm_snd_soc_register_component(&pdev->dev,
 					      &mt6779_afe_component,

@@ -8,7 +8,9 @@
 #include <linux/module.h>
 #include <linux/of_device.h>
 #include <linux/delay.h>
+#ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#endif
 #include <linux/kthread.h>
 #include <linux/sched.h>
 
@@ -4488,6 +4490,7 @@ static const struct snd_soc_component_driver mt6359_soc_component_driver = {
 	.num_dapm_routes = ARRAY_SIZE(mt6359_dapm_routes),
 };
 
+#ifdef CONFIG_DEBUG_FS
 static void debug_write_reg(struct file *file, void *arg)
 {
 	struct mt6359_priv *priv = file->private_data;
@@ -5362,6 +5365,7 @@ static const struct file_operations mt6359_debugfs_ops = {
 	.write = mt6359_debugfs_write,
 	.read = mt6359_debugfs_read,
 };
+#endif
 
 static int mt6359_platform_driver_probe(struct platform_device *pdev)
 {
@@ -5382,10 +5386,12 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, priv);
 	priv->dev = &pdev->dev;
 
+#ifdef CONFIG_DEBUG_FS
 	/* create debugfs file */
 	priv->debugfs = debugfs_create_file("mtksocanaaudio",
 					    S_IFREG | 0444, NULL,
 					    priv, &mt6359_debugfs_ops);
+#endif
 
 	dev_info(&pdev->dev, "%s(), dev name %s\n",
 		 __func__, dev_name(&pdev->dev));
