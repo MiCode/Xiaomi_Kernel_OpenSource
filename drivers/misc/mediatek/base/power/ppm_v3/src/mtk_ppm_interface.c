@@ -452,7 +452,8 @@ int ppm_procfs_init(void)
 	}
 
 	for_each_ppm_clusters(i) {
-		sprintf(str, "dump_cluster_%d_dvfs_table", i);
+		if (sprintf(str, "dump_cluster_%d_dvfs_table", i) == 0)
+			continue;
 
 		if (!proc_create_data(str, 0644,
 			dir, &ppm_dump_dvfs_table_proc_fops,
