@@ -614,8 +614,6 @@ void tee_mmu_buffer(struct tee_mmu *mmu, struct mcp_buffer_map *map)
 	map->nr_pages = mmu->nr_pages;
 	map->flags = mmu->flags;
 	map->type = WSM_L1;
-	if (mmu->dma_buf)
-		map->type |= WSM_UNCACHED;
 	map->mmu = mmu;
 }
 
