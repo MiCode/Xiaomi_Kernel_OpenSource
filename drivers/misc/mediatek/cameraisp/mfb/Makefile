@@ -64,4 +64,10 @@ ifeq ($(CONFIG_MACH_MT6893),y)
   MTK_MFB_REG_VERSION := 1
 endif
 
+ifeq ($(CONFIG_MACH_MT6833),y)
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/engine_request.o
+  obj-$(CONFIG_MTK_CAMERA_ISP_MFB_SUPPORT) += isp_6s/camera_mfb.o
+  MTK_MFB_REG_VERSION := 3
+endif
+
 subdir-ccflags-y += -DMTK_MFB_REG_VERSION=$(MTK_MFB_REG_VERSION)
