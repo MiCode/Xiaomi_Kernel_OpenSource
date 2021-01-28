@@ -2772,6 +2772,14 @@ static int m4u_probe(struct platform_device *pdev)
 
 	M4UINFO("%s 0\n", __func__);
 
+#if defined(CONFIG_MTK_SMI_EXT)
+	M4UINFO("%s: smi probe done:%d\n", __func__, smi_mm_first_get());
+	if (!smi_mm_first_get()) {
+		M4UINFO("SMI not start probe\n");
+		return -EPROBE_DEFER;
+	}
+#endif
+
 	if (pdev->dev.of_node) {
 		int err;
 
