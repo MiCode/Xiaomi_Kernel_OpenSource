@@ -171,7 +171,7 @@ void mtk_dp_debug(const char *opt)
 	}
 }
 
-#if IS_ENABLED(CONFIG_PROC_FS)
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkdp_dbgfs;
 #endif
 #if IS_ENABLED(CONFIG_PROC_FS)
