@@ -366,6 +366,11 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 
 	if (!!(otg_sx->sw_state & MTU3_SW_VBUS_VALID) ^ vbus_event) {
 		if (vbus_event) {
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+			if (ssusb->spm_mgr)
+				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+						SPM_RESOURCE_ALL);
+#endif
 			if (ssusb->clk_mgr) {
 				ssusb_clks_enable(ssusb);
 				ssusb_phy_power_on(ssusb);
@@ -379,11 +384,21 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 			}
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+			if (ssusb->spm_mgr)
+				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+					SPM_RESOURCE_RELEASE);
+#endif
 		}
 	}
 
 	if (!!(otg_sx->sw_state & MTU3_SW_ID_GROUND) ^ id_event) {
 		if (id_event) {
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+			if (ssusb->spm_mgr)
+				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+						SPM_RESOURCE_ALL);
+#endif
 			if (ssusb->clk_mgr) {
 				pm_stay_awake(ssusb->dev);
 				ssusb_clks_enable(ssusb);
@@ -408,19 +423,13 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_clks_disable(ssusb);
 				pm_relax(ssusb->dev);
 			}
+#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
+			if (ssusb->spm_mgr)
+				spm_resource_req(SPM_RESOURCE_USER_SSUSB,
+					SPM_RESOURCE_RELEASE);
+#endif
 		}
 	}
-
-#if IS_ENABLED(CONFIG_MTK_BASE_POWER)
-	if (!ssusb->spm_mgr)
-		return 0;
-
-	/* control spm resource */
-	if (role == USB_ROLE_NONE)
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, 0);
-	else
-		spm_resource_req(SPM_RESOURCE_USER_SSUSB, SPM_RESOURCE_ALL);
-#endif
 
 	return 0;
 }
