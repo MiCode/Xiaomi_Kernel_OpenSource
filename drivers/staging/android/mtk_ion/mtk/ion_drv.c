@@ -26,6 +26,8 @@
 #include <linux/proc_fs.h>
 #endif
 #include <linux/seq_file.h>
+#include <linux/dma-buf.h>
+
 #include "ion_priv.h"
 #include "ion_drv_priv.h"
 #include "mtk/mtk_ion.h"
@@ -144,27 +146,51 @@ static void __ion_cache_mmp_end(enum ION_CACHE_SYNC_TYPE sync_type,
 	}
 }
 
-/* kernel va check
- * @return 0 : invalid va
- * @return 1 : valid kernel va
+/*
+ * vma info check
+ * @return 0 : vma from non-ion
+ * @return 1 : vma from ion
  */
-static int __ion_is_kernel_va(unsigned long va, size_t size)
+static int vma_is_ion_node(struct vm_area_struct *vma)
 {
-	int ret = 0;
-	char data;
+	struct dma_buf *dmabuf;
 
-	if (unlikely(!va || !size))
+	if (unlikely(!vma))
 		return 0;
-	/* kernel space va check */
-	if (va > TASK_SIZE) {
-		if (probe_kernel_address((void *)va, data) ||
-		    probe_kernel_address((void *)(va + size - 1), data)) {
-			/* hole */
-			ret = 0;
-		} else {
-			ret = 1;
-		}
+
+	dmabuf = vma->vm_private_data;
+
+	if (dmabuf && dmabuf->exp_name)
+		return !strcmp(dmabuf->exp_name, "ion");
+	return 0;
+}
+
+/* user va range check
+ * @return 0: check fail
+ * @return 1: check pass
+ */
+static int ion_check_user_va(unsigned long va, size_t size)
+{
+	struct vm_area_struct *vma;
+	unsigned long va_start = va;
+	unsigned long va_end;
+	int ret = 0;
+
+	va_end = va_start + size;
+
+	/* overflow check */
+	if (unlikely(va_end < va_start))
+		return 0;
+
+	down_read(&current->mm->mmap_sem);
+	vma = find_vma(current->mm, va_start);
+	if (!vma || va_start < vma->vm_start ||
+	    va_end > vma->vm_end) {
+		ret = 0;
+	} else {
+		ret = vma_is_ion_node(vma);
 	}
+	up_read(&current->mm->mmap_sem);
 
 	return ret;
 }
@@ -180,6 +206,11 @@ static int __ion_is_user_va(unsigned long va, size_t size)
 
 	if (unlikely(!va || !size))
 		return 0;
+
+	/* overflow check */
+	if (unlikely(va + size < va))
+		return 0;
+
 	if (va < TASK_SIZE) {
 		/* user space va check */
 		if (get_user(data, (char __user *)va) ||
@@ -191,59 +222,66 @@ static int __ion_is_user_va(unsigned long va, size_t size)
 		}
 	}
 
+	/* add more check */
+	if (ret)
+		ret = ion_check_user_va(va, size);
+
 	return ret;
 }
 
 static int __cache_sync_by_range(struct ion_client *client,
 				 enum ION_CACHE_SYNC_TYPE sync_type,
-				 unsigned long start, size_t size)
+				 unsigned long start, size_t size,
+				 int from_kernel)
 {
+	char ion_name[200];
 	int ret = 0;
-	int len = 0;
-	char ion_name[100];
-	int is_user_addr;
 
-	is_user_addr = __ion_is_user_va(start, size);
-	ret = is_user_addr || __ion_is_kernel_va(start, size);
+	/* for minimum change, here do nothing for kernel flow
+	 * when we need check kernel flow, also need check source and valid
+	 * such as "if (from_kernel && !is_kernel_addr)"
+	 */
+	if (sync_type == ION_CACHE_CLEAN_BY_RANGE_USE_PA ||
+	    sync_type == ION_CACHE_INVALID_BY_RANGE_USE_PA ||
+	    sync_type == ION_CACHE_FLUSH_BY_RANGE_USE_PA ||
+	    from_kernel)
+		goto start_sync;
 
+	/* userspace va check */
+	ret  = __ion_is_user_va(start, size);
 	if (!ret) {
-		IONMSG("TASK_SIZE:0x%lx, PAGE_OFFSET:0x%lx\n",
-		       (unsigned long)TASK_SIZE,
-		       (unsigned long)PAGE_OFFSET);
-		len = snprintf(ion_name, 100,
-			       "[ION]CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx",
-			       (*client->dbg_name) ? client->dbg_name
-			       : client->name,
-			       (unsigned int)current->pid,
-			       size, start);
-		if (len > 0) {
-			IONMSG("%s %s\n", __func__, ion_name);
-			// aee_kernel_warning(ion_name,
-			//		      "[ION]: Wrong Address Range");
-		}
+		scnprintf(ion_name, 199,
+			  "CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx from_k:%d",
+			  (*client->dbg_name) ?
+			  client->dbg_name : client->name,
+			  (unsigned int)current->pid, size, start, from_kernel);
+		IONMSG("%s %s\n", __func__, ion_name);
+		//aee_kernel_warning(ion_name, "[ION]: Wrong Address Range");
 		return -EFAULT;
 	}
+
+start_sync:
 
 	__ion_cache_mmp_start(sync_type, size, start);
 
 	switch (sync_type) {
 	case ION_CACHE_CLEAN_BY_RANGE:
 	case ION_CACHE_CLEAN_BY_RANGE_USE_PA:
-		if (is_user_addr)
+		if (!from_kernel)
 			__clean_dcache_user_area((void *)start, size);
 		else
 			__clean_dcache_area_poc((void *)start, size);
 		break;
 	case ION_CACHE_FLUSH_BY_RANGE:
 	case ION_CACHE_FLUSH_BY_RANGE_USE_PA:
-		if (is_user_addr)
+		if (!from_kernel)
 			__flush_dcache_user_area((void *)start, size);
 		else
 			__flush_dcache_area((void *)start, size);
 		break;
 	case ION_CACHE_INVALID_BY_RANGE:
 	case ION_CACHE_INVALID_BY_RANGE_USE_PA:
-		if (is_user_addr)
+		if (!from_kernel)
 			__inval_dcache_user_area((void *)start, size);
 		else
 			__inval_dcache_area((void *)start, size);
@@ -346,8 +384,8 @@ static int ion_sys_cache_sync_buf(struct ion_client *client,
 				ret = -ENOMEM;
 				goto out;
 			}
-			__cache_sync_by_range(client, sync_type, start,
-					      PAGE_SIZE);
+			__cache_sync_by_range(client, sync_type,
+					      start, PAGE_SIZE, true);
 			ion_cache_unmap_page_va(start);
 		}
 	}
@@ -396,15 +434,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	case ION_CACHE_CLEAN_BY_RANGE:
 	case ION_CACHE_INVALID_BY_RANGE:
 	case ION_CACHE_FLUSH_BY_RANGE:
-
-#ifdef ION_CACHE_SYNC_ALL_REDIRECTION_SUPPORT
-	/* Users call cache sync all with valid handle,
-	 *     only do cache sync with its buffer.
-	 */
-	case ION_CACHE_CLEAN_ALL:
-	case ION_CACHE_INVALID_ALL:
-	case ION_CACHE_FLUSH_ALL:
-#endif
 		sync_va = (unsigned long)param->va;
 		if (sync_size == 0 || sync_va == 0) {
 			/* whole buffer cache sync
@@ -460,7 +489,7 @@ static long ion_sys_cache_sync(struct ion_client *client,
 	}
 
 	ret = __cache_sync_by_range(client, sync_type,
-				    sync_va, sync_size);
+				    sync_va, sync_size, from_kernel);
 	if (ret < 0)
 		goto err;
 
@@ -482,7 +511,7 @@ out:
 	return ret;
 
 err:
-	IONMSG("%s sync err:%d|k%d|hdl:%d-%p|addr:%p|iova:0x%llx|sz:%d|%s\n",
+	IONMSG("%s sync err:%d|k%d|hdl:%d-%p|addr:%lx|iova:0x%llx|sz:%d|%s\n",
 	       __func__, sync_type, from_kernel,
 	       param->handle, param->kernel_handle,
 	       param->va, param->iova, param->size,
