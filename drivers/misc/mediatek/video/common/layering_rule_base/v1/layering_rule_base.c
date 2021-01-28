@@ -2070,8 +2070,6 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			long int layer_result = 0, layer_id;
 			struct layer_config tmp_config;
 
-			tmp_config =
-				disp_info->input_config[disp_id][layer_id];
 			tok = strchr(line_buf, ']');
 			if (!tok)
 				goto end;
@@ -2081,6 +2079,8 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			tok = parse_hrt_data_value(tok, &layer_id);
 			if (!tok)
 				goto end;
+			tmp_config =
+				disp_info->input_config[disp_id][layer_id];
 			tok = parse_hrt_data_value(tok, &layer_result);
 			if (layer_result != tmp_config.ovl_id) {
 				pr_info("[DISP][%s #%d]warn:Test case:%d, ovl_id incorrect, real is %d, expect is %d\n",
