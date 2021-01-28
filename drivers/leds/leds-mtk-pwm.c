@@ -96,6 +96,7 @@ static void led_debug_log(struct mtk_led_data *s_led,
 {
 	unsigned long cur_time_mod = 0;
 	unsigned long long cur_time_display = 0;
+	int ret = 0;
 
 	s_led->debug.current_t = sched_clock();
 	cur_time_display = s_led->debug.current_t;
@@ -110,7 +111,7 @@ static void led_debug_log(struct mtk_led_data *s_led,
 
 	if (ret < 0 || ret >= 4096) {
 		pr_info("print log error!");
-		s_led->debug.count == 5;
+		s_led->debug.count = 5;
 	}
 
 	if (level == 0 || s_led->debug.count >= 5 ||
