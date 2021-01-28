@@ -293,25 +293,24 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 		return 0;
 
 	if (!on && status == PRE_CHANGE) {
-		if (!ufshcd_is_link_active(hba)) {
-			ufs_mtk_setup_ref_clk(hba, on);
-			ret = phy_power_off(host->mphy);
-		} else {
-			/*
-			 * Gate ref-clk if link state is in Hibern8
-			 * triggered by Auto-Hibern8.
-			 */
-			if (!ufshcd_can_hibern8_during_gating(hba) &&
-			    ufshcd_is_auto_hibern8_enabled(hba)) {
-				ret = ufs_mtk_wait_link_state(hba,
-							      VS_LINK_HIBERN8,
-							      15);
-				if (!ret)
-					ufs_mtk_setup_ref_clk(hba, on);
+		/*
+		 * Gate ref-clk and poweroff mphy if link state is in OFF
+		 * or Hibern8 by either ufshcd_link_state_transition() or
+		 * Auto-Hibern8.
+		 */
+		if (!ufshcd_is_link_active(hba) ||
+			(!ufshcd_can_hibern8_during_gating(hba) &&
+			ufshcd_is_auto_hibern8_enabled(hba))) {
+			ret = ufs_mtk_wait_link_state(hba,
+						      VS_LINK_HIBERN8,
+						      15);
+			if (!ret) {
+				ufs_mtk_setup_ref_clk(hba, on);
+				phy_power_off(host->mphy);
 			}
 		}
 	} else if (on && status == POST_CHANGE) {
-		ret = phy_power_on(host->mphy);
+		phy_power_on(host->mphy);
 		ufs_mtk_setup_ref_clk(hba, on);
 	}
 
