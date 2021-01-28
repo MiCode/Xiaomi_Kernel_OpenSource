@@ -20,8 +20,7 @@
 #include <mt-plat/mtk_boot.h>
 #include <mtk_gpufreq.h>
 
-#undef CONFIG_MTK_QOS_SUPPORT
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 #include <mtk_gpu_bw.h>
 #endif
 
@@ -324,7 +323,7 @@ void ged_dvfs_get_bw_record(unsigned int *pui32MaxBW,
 	/* mt_gpufreq_BW_compute();
 	 * reserve for experiment
 	 */
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 	ui32MaxBW = mt_gpu_bw_get_BW(0);
 	ui32AvgBW = 0;/* mt_gpu_bw_get_BW(1); This is reserved for experiment */
 #endif
@@ -1019,7 +1018,7 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 
 	ret_freq = gpu_freq_tar;
 FB_RET:
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 	mt_gpu_bw_qos_vcore(ged_dvfs_vcore(gpu_freq_pre,
 		mt_gpufreq_get_cur_freq(), true));
 #endif
@@ -1196,7 +1195,7 @@ static bool ged_dvfs_policy(
 	g_policy_tar_freq = mt_gpufreq_get_freq_by_idx(i32NewFreqID);
 	g_mode = 2;
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 	return GED_TRUE;
 #else
 	return *pui32NewFreqID != ui32GPUFreq ? GED_TRUE : GED_FALSE;
@@ -1592,7 +1591,7 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 						mt_gpufreq_get_freq_by_idx(
 						g_ui32FreqIDFromPolicy),
 						GED_DVFS_DEFAULT_COMMIT);
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 				mt_gpu_bw_qos_vcore(ged_dvfs_vcore(gpu_freq_pre,
 					mt_gpufreq_get_cur_freq(), false));
 #endif
@@ -1829,7 +1828,7 @@ GED_ERROR ged_dvfs_system_init(void)
 	g_gpu_timer_based_emu = 1;
 #endif
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 	/* default as %100 */
 	gpu_bw_ratio = 100;
 #endif
@@ -1893,7 +1892,7 @@ void ged_dvfs_system_exit(void)
 	mutex_destroy(&gsVSyncOffsetLock);
 }
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 module_param(gpu_bw_ratio, uint, 0644);
 #endif
 
