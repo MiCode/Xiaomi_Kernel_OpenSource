@@ -3832,6 +3832,8 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 		}
 	}
 
+	if (primary_display_is_video_mode())
+		primary_display_wakeup_pf_thread();
 	mmprofile_log_ex(ddp_mmp_get_events()->session_release,
 			 MMPROFILE_FLAG_END, 1, userdata);
 	return ret;
