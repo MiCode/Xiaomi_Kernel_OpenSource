@@ -62,7 +62,7 @@ static struct ccci_clk_node clk_table[] = {
 	{ NULL, "infra-ccif5-md"},
 };
 
-unsigned int devapc_check_flag = 1;
+unsigned int devapc_check_flag;
 #define TAG "mcd"
 
 #define ROr2W(a, b, c)  ccci_write32(a, b, (ccci_read32(a, b)|c))
@@ -76,7 +76,7 @@ void md_cldma_hw_reset(unsigned char md_id)
 
 void md1_subsys_debug_dump(enum subsys_id sys)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	if (sys != SYS_MD1)
 		return;
@@ -101,7 +101,7 @@ struct pg_callbacks md1_subsys_handle = {
 
 void ccci_md_debug_dump(char *user_info)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_NORMAL_LOG(0, TAG, "%s called by %s\n", __func__, user_info);
 	md = ccci_md_get_modem_by_id(0);
@@ -123,6 +123,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 {
 	struct device_node *node = NULL;
 	int idx = 0;
+	int retval;
 
 	if (dev_ptr->dev.of_node == NULL) {
 		CCCI_ERROR_LOG(0, TAG, "modem OF node NULL\n");
@@ -185,6 +186,19 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 				clk_table[idx].clk_ref = NULL;
 			}
 		}
+
+		if (clk_table[0].clk_ref) {
+			CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+				"dummy md sys clk\n");
+			retval = clk_prepare_enable(clk_table[0].clk_ref);
+			if (retval)
+				CCCI_ERROR_LOG(dev_cfg->index, TAG,
+					"error: enable mtcmos: ret: %d\n",
+					retval);
+			CCCI_BOOTUP_LOG(dev_cfg->index, TAG,
+				"dummy md sys clk done\n");
+		}
+
 		node = of_find_compatible_node(NULL, NULL,
 			"mediatek,md_ccif4");
 		if (node) {
@@ -276,7 +290,7 @@ int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 void ccci_set_clk_cg(struct ccci_modem *md, unsigned int on)
 {
 	struct md_hw_info *hw_info = md->hw_info;
-	int idx = 0;
+	unsigned int idx = 0;
 	int ret = 0;
 
 	CCCI_NORMAL_LOG(md->index, TAG, "%s: on=%d\n", __func__, on);
@@ -438,12 +452,12 @@ void md_cd_get_md_bootup_status(
 		return;
 	}
 
-	ccci_write32(md_reg->md_boot_stats_select, 0, 0);
+	ccci_write32(md_reg->md_boot_stats_select, 0, 2);
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	buff[0] = ccci_read32(md_reg->md_boot_stats, 0);
 
-	ccci_write32(md_reg->md_boot_stats_select, 0, 1);
+	ccci_write32(md_reg->md_boot_stats_select, 0, 3);
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	ccci_read32(md_reg->md_boot_stats, 0);	/* dummy read */
 	buff[1] = ccci_read32(md_reg->md_boot_stats, 0);
@@ -472,7 +486,7 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 	/* copy from HS1 timeout */
 	if ((reg_value[0] == 0) && (ccif_sram[1] == 0))
 		return;
-	else if (!((reg_value[0] == 0x5443000C) || (reg_value[0] == 0) ||
+	else if (!((reg_value[0] == 0x5443000CU) || (reg_value[0] == 0) ||
 		(reg_value[0] >= 0x53310000 && reg_value[0] <= 0x533100FF)))
 		return;
 	if (unlikely(in_interrupt())) {
@@ -591,7 +605,6 @@ int md_start_platform(struct ccci_modem *md)
 	struct arm_smccc_res res;
 	int timeout = 100; /* 100 * 20ms = 2s */
 	int ret = -1;
-	int retval = 0;
 
 	if ((md->per_md_data.config.setting&MD_SETTING_FIRST_BOOT) == 0)
 		return 0;
@@ -611,17 +624,11 @@ int md_start_platform(struct ccci_modem *md)
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"flag_1=%lu, flag_2=%lu, flag_3=%lu, flag_4=%lu\n",
 		res.a0, res.a1, res.a2, res.a3);
-	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk\n");
-	retval = clk_prepare_enable(clk_table[0].clk_ref); /* match lk on */
-	if (retval)
-		CCCI_ERROR_LOG(md->index, TAG,
-			"dummy md sys clk fail: ret = %d\n", retval);
-	CCCI_BOOTUP_LOG(md->index, TAG, "dummy md sys clk done\n");
 
 	arm_smccc_smc(MTK_SIP_KERNEL_CCCI_CONTROL, MD_POWER_CONFIG,
 		MD_BOOT_STATUS, 0, 0, 0, 0, 0, &res);
 	CCCI_BOOTUP_LOG(md->index, TAG,
-		"AP: boot_ret=%lu, boot_status_0=%lu, boot_status_1=%lu\n",
+		"AP: boot_ret=%lu, boot_status_0=%lX, boot_status_1=%lX\n",
 		res.a0, res.a1, res.a2);
 
 	if (ret != 0) {
@@ -645,7 +652,7 @@ static int mtk_ccci_cfg_srclken_o1_on(struct ccci_modem *md)
 
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
 		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x +\n", val);
-		val |= 0x1<<21;
+		val |= 0x1U<<21;
 		ccci_write32(hw_info->spm_sleep_base, 8, val);
 		val = ccci_read32(hw_info->spm_sleep_base, 8);
 		CCCI_INIT_LOG(-1, TAG, "spm_sleep_base+8: val:0x%x -\n", val);
@@ -878,7 +885,7 @@ void ccci_modem_restore_reg(struct ccci_modem *md)
 
 int ccci_modem_syssuspend(void)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
@@ -889,7 +896,7 @@ int ccci_modem_syssuspend(void)
 
 void ccci_modem_sysresume(void)
 {
-	struct ccci_modem *md;
+	struct ccci_modem *md = NULL;
 
 	CCCI_DEBUG_LOG(0, TAG, "%s\n", __func__);
 	md = ccci_md_get_modem_by_id(0);
