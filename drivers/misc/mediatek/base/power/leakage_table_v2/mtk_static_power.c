@@ -490,7 +490,7 @@ int mt_spower_init(void)
 		err_flag = 1;
 		goto efuse_end;
 	}
-	pdev = of_device_alloc(node, NULL, NULL);
+	pdev = of_platform_device_create(node, NULL, NULL);
 	if (pdev == NULL) {
 		err_flag = 1;
 		goto efuse_end;
@@ -509,7 +509,7 @@ efuse_end:
 
 	/* avoid side effect from multiple invocation */
 	if (tab_validate(&sptab[0]))
-		return 0;
+		goto init_end;
 
 #ifndef WITHOUT_LKG_EFUSE
 	for (i = 0; i < MTK_LEAKAGE_MAX; i++) {
@@ -579,6 +579,12 @@ efuse_end:
 		kfree(tab[i]);
 
 	mtSpowerInited = 1;
+
+init_end:
+	if (pdev != NULL) {
+		of_platform_device_destroy(&pdev->dev, NULL);
+		of_dev_put(pdev);
+	}
 	return 0;
 }
 
