@@ -27,7 +27,7 @@ do { \
 #define ccif_write16(b, a, v)           mt_reg_sync_writew(v, (b)+(a))
 #define ccif_write8(b, a, v)            mt_reg_sync_writeb(v, (b)+(a))
 #define ccif_read32(b, a) \
-	((devapc_check_flag == 1) ? ioread32((void __iomem *)((b)+(a))) : 0)
+	((devapc_check_flag == 1) ? ioread32((void __iomem *)((b)+(a))):0)
 
 #define ccif_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccif_read8(b, a)                ioread8((void __iomem *)((b)+(a)))

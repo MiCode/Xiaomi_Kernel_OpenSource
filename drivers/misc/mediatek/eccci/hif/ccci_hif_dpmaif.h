@@ -52,9 +52,9 @@
 #define DPMAIF_BUF_PKT_SIZE     DPMAIF_PKT_SIZE
 #define DPMAIF_BUF_FRAG_SIZE    DPMAIF_FRG_SIZE
 
-#define DPMAIF_HW_CHK_PIT_NUM      2
-#define DPMAIF_HW_CHK_BAT_NUM      1
-#define DPMAIF_HW_CHK_FRG_NUM      1
+#define DPMAIF_HW_CHK_PIT_NUM      6
+#define DPMAIF_HW_CHK_BAT_NUM      3
+#define DPMAIF_HW_CHK_FRG_NUM      3
 
 #define DPMAIF_DL_BAT_ENTRY_SIZE  1024 /* 128 */
 /* 2048*/ /* 256, 100pkts*2*10ms=2000*12B=>24k */
@@ -391,6 +391,7 @@ int dpmaif_stop_rx(unsigned char hif_id);
 int dpmaif_stop_tx(unsigned char hif_id);
 int dpmaif_stop(unsigned char hif_id);
 void dpmaif_stop_hw(void);
-
+#ifdef CONFIG_MTK_GIC_V3_EXT
 extern void mt_irq_dump_status(int irq);
+#endif
 #endif				/* __MODEM_DPMA_H__ */

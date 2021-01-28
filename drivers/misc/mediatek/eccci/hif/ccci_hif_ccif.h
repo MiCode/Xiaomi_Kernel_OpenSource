@@ -254,7 +254,9 @@ int md_ccif_send(unsigned char hif_id, int channel_id);
 /* always keep this in mind:
  * what if there are more than 1 modems using CLDMA...
  */
+#ifdef CONFIG_MTK_GIC_V3_EXT
 extern void mt_irq_dump_status(int irq);
+#endif
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);
 /* used for throttling feature - start */

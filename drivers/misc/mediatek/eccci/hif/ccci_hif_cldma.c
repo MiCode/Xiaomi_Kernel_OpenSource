@@ -3120,7 +3120,9 @@ static int md_cldma_hif_dump_status(unsigned char hif_id,
 	if (flag & DUMP_FLAG_IRQ_STATUS) {
 		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG,
 			"Dump AP CLDMA IRQ status\n");
+#ifdef CONFIG_MTK_GIC_V3_EXT
 		mt_irq_dump_status(md_ctrl->cldma_irq_id);
+#endif
 	}
 
 	return 0;

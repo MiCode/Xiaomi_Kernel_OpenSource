@@ -53,10 +53,8 @@ static int ccci_get_adc_info(struct device *dev)
 
 	adc_val = val;
 	CCCI_NORMAL_LOG(0, TAG, "md_ch = %d, val = %d", adc_num, adc_val);
-	kfree(md_channel);
 	return ret;
 Fail:
-	kfree(md_channel);
 	return -1;
 
 }
