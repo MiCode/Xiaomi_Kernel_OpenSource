@@ -38,6 +38,10 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <mt-plat/mtk_secure_api.h>
+#include <asm/pgtable.h>
+#include <linux/vmalloc.h>
+#include <linux/page-flags.h>
+#include <linux/mmzone.h>
 
 struct work_struct *amms_work;
 bool amms_static_free;
@@ -146,6 +150,49 @@ static int __init amms_init(void)
 
 	return ret;
 }
+
+/**
+ *	vmap_reserved_mem - map reserved memory into virtually contiguous space
+ *	@start:		start of reserved memory
+ *	@size:		size of reserved memory
+ *	@prot:		page protection for the mapping
+ */
+void *vmap_reserved_mem(phys_addr_t start, phys_addr_t size, pgprot_t prot)
+{
+	long i;
+	long page_count;
+	unsigned long pfn;
+	void *vaddr = NULL;
+	phys_addr_t addr = start;
+	struct page *page;
+	struct page **pages;
+
+	page_count = DIV_ROUND_UP(size, PAGE_SIZE);
+	pages = vmalloc(page_count * sizeof(struct page *));
+
+	if (!pages)
+		return NULL;
+
+	for (i = 0; i < page_count; i++) {
+		pfn = __phys_to_pfn(addr);
+		if (unlikely(!pfn_valid(pfn)))
+			goto out_free;
+
+		page = pfn_to_page(pfn);
+		if (unlikely(!PageReserved(page)))
+			goto out_free;
+
+		pages[i] = page;
+		addr += PAGE_SIZE;
+	}
+
+	vaddr = vmap(pages, page_count, VM_MAP, prot);
+
+out_free:
+	vfree(pages);
+	return vaddr;
+}
+EXPORT_SYMBOL(vmap_reserved_mem);
 
 
 module_init(amms_init);
