@@ -569,6 +569,72 @@ static int mt6358_get_status(struct regulator_dev *rdev)
 	return (regval & info->qi) ? REGULATOR_STATUS_ON : REGULATOR_STATUS_OFF;
 }
 
+/* Regulator EXT_PMIC2 enable */
+static int pmic_regulator_ext2_enable(struct regulator_dev *rdev)
+{
+	unsigned int ext_en = 0, ext_sel = 0;
+	unsigned int ext_en_mask = PMIC_RG_STRUP_EXT_PMIC_EN_MASK <<
+				   PMIC_RG_STRUP_EXT_PMIC_EN_SHIFT;
+	unsigned int ext_sel_mask = PMIC_RG_STRUP_EXT_PMIC_SEL_MASK <<
+				    PMIC_RG_STRUP_EXT_PMIC_SEL_SHIFT;
+	int ret = 0;
+
+	dev_info(&rdev->dev, "regulator ext_pmic2 enable\n");
+	ret = regmap_read(rdev->regmap,
+			  PMIC_RG_STRUP_EXT_PMIC_EN_ADDR, &ext_en);
+	if ((ext_en & 0x2) != 0x2) {
+		ret = regmap_update_bits(rdev->regmap,
+					 PMIC_RG_STRUP_EXT_PMIC_EN_ADDR,
+					 ext_en_mask,
+					 ext_en | 0x2);
+	}
+	ret = regmap_read(rdev->regmap,
+			  PMIC_RG_STRUP_EXT_PMIC_SEL_ADDR, &ext_sel);
+	if ((ext_sel & 0x20) != 0x20) {
+		ret = regmap_update_bits(rdev->regmap,
+					 PMIC_RG_STRUP_EXT_PMIC_SEL_ADDR,
+					 ext_sel_mask,
+					 ext_sel | 0x20);
+	}
+	return ret;
+}
+
+/* Regulator EXT_PMIC2 disable */
+static int pmic_regulator_ext2_disable(struct regulator_dev *rdev)
+{
+	unsigned int ext_en = 0, ext_sel = 0;
+	unsigned int ext_en_mask = PMIC_RG_STRUP_EXT_PMIC_EN_MASK <<
+				   PMIC_RG_STRUP_EXT_PMIC_EN_SHIFT;
+	unsigned int ext_sel_mask = PMIC_RG_STRUP_EXT_PMIC_SEL_MASK <<
+				    PMIC_RG_STRUP_EXT_PMIC_SEL_SHIFT;
+	int ret = 0;
+
+	dev_info(&rdev->dev, "regulator ext_pmic2 disable\n");
+	if (rdev->use_count == 0) {
+		dev_notice(&rdev->dev, "%s:%s should not be disable.(use_count=0)\n"
+			, __func__
+			, rdev->desc->name);
+		return -1;
+	}
+	ret = regmap_read(rdev->regmap,
+			  PMIC_RG_STRUP_EXT_PMIC_SEL_ADDR, &ext_sel);
+	if ((ext_sel & 0x20) != 0x20) {
+		ret = regmap_update_bits(rdev->regmap,
+					 PMIC_RG_STRUP_EXT_PMIC_SEL_ADDR,
+					 ext_sel_mask,
+					 ext_sel | 0x20);
+	}
+	ret = regmap_read(rdev->regmap,
+			  PMIC_RG_STRUP_EXT_PMIC_EN_ADDR, &ext_en);
+	if ((ext_en & 0x2) != 0x2) {
+		ret = regmap_update_bits(rdev->regmap,
+					 PMIC_RG_STRUP_EXT_PMIC_EN_ADDR,
+					 ext_en_mask,
+					 ext_en & ~0x2);
+	}
+	return ret;
+}
+
 static const struct regulator_ops mt6358_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -600,6 +666,13 @@ static const struct regulator_ops mt6358_volt_fixed_ops = {
 	.disable = mt6358_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6358_get_status,
+};
+
+/* Regulator EXT_PMIC2 ops */
+static struct regulator_ops pmic_regulator_ext2_ops = {
+	.enable = pmic_regulator_ext2_enable,
+	.disable = pmic_regulator_ext2_disable,
+	.is_enabled = mt6358_get_status,
 };
 
 /* The array is indexed by id(MT6358_ID_XXX) */
@@ -888,6 +961,23 @@ static struct mt6358_regulator_info mt6358_regulators[] = {
 		PMIC_RG_VSIM2_VOSEL_MASK <<
 		PMIC_RG_VSIM2_VOSEL_SHIFT,
 		MT_LDO_VOL_EN),
+	{
+		.desc = {
+			.name = "VA09",
+			.of_match = of_match_ptr("ldo_va09"),
+			.ops = &pmic_regulator_ext2_ops,
+			.type = REGULATOR_VOLTAGE,
+			.id = MT6358_ID_VA09,
+			.owner = THIS_MODULE,
+			.n_voltages = 1,
+			.fixed_uV = 900000,
+		},
+		.constraints = {
+			.valid_ops_mask = MT_LDO_EN,
+		},
+		.da_reg = PMIC_DA_EXT_PMIC_EN2_ADDR,
+		.qi = BIT(9),
+	},
 };
 
 static const struct mt_regulator_init_data mt6358_regulator_init_data = {
