@@ -127,6 +127,12 @@ void ufsdbg_print_info(char **buff, unsigned long *size, struct seq_file *m)
 		      hba->pwr_info.pwr_tx,
 		      hba->pwr_info.hs_rate);
 
+	/* Device info */
+	SPREAD_PRINTF(buff, size, m,
+		      "Device vendor=0x%X, model=%s\n",
+		      hba->dev_info.wmanufacturerid,
+		      hba->dev_info.model);
+
 	/* Error history */
 	ufsdbg_print_err_hist(buff, size, m,
 			      &hba->ufs_stats.pa_err, "pa_err");
@@ -188,6 +194,15 @@ static bool cmd_hist_ptr_is_wraparound(int ptr)
 	return false;
 }
 
+
+static void cmd_hist_init_common_info(int ptr)
+{
+	cmd_hist[ptr].cpu = smp_processor_id();
+	cmd_hist[ptr].duration = 0;
+	cmd_hist[ptr].pid = current->pid;
+	cmd_hist[ptr].time = sched_clock();
+}
+
 static void probe_ufshcd_command(void *data, const char *dev_name,
 				 const char *str, unsigned int tag,
 				 u32 doorbell, int transfer_len, u32 intr,
@@ -214,11 +229,8 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	else
 		event = CMD_GENERIC;
 
-	cmd_hist[ptr].time = sched_clock();
-	cmd_hist[ptr].pid = current->pid;
+	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = event;
-	cmd_hist[ptr].cpu = smp_processor_id();
-	cmd_hist[ptr].duration = 0;
 	cmd_hist[ptr].cmd.utp.tag = tag;
 	cmd_hist[ptr].cmd.utp.transfer_len = transfer_len;
 	cmd_hist[ptr].cmd.utp.lba = lba;
@@ -269,11 +281,8 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 	else
 		event = CMD_UIC_CMPL_GENERAL;
 
-	cmd_hist[ptr].time = sched_clock();
-	cmd_hist[ptr].cpu = smp_processor_id();
-	cmd_hist[ptr].pid = current->pid;
+	cmd_hist_init_common_info(ptr);
 	cmd_hist[ptr].event = event;
-	cmd_hist[ptr].duration = 0;
 	cmd_hist[ptr].cmd.uic.cmd = cmd;
 	cmd_hist[ptr].cmd.uic.arg1 = arg1;
 	cmd_hist[ptr].cmd.uic.arg2 = arg2;
@@ -299,6 +308,31 @@ out_unlock:
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
+static void probe_ufshcd_clk_gating(void *data, const char *dev_name,
+				    int state)
+{
+	int ptr;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
+
+	if (!cmd_hist_enabled)
+		goto out_unlock;
+
+	ptr = cmd_hist_advance_ptr();
+
+	cmd_hist_init_common_info(ptr);
+	cmd_hist[ptr].event = CMD_CLK_GATING;
+	cmd_hist[ptr].cmd.clk_gating.state = state;
+
+	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
+		cmd_hist_cnt++;
+
+out_unlock:
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
+}
+
+
 /**
  * Data structures to store tracepoints information
  */
@@ -312,6 +346,7 @@ struct tracepoints_table {
 static struct tracepoints_table interests[] = {
 	{.name = "ufshcd_command", .func = probe_ufshcd_command},
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
+	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -371,13 +406,91 @@ static void cmd_hist_cleanup(void)
 	vfree(cmd_hist);
 }
 
-void ufsdbg_print_cmd_hist(char **buff, unsigned long *size, u32 latest_cnt,
-		   struct seq_file *m)
+#define CLK_GATING_STATE_MAX (4)
+
+static char *clk_gating_state_str[CLK_GATING_STATE_MAX + 1] = {
+	"clks_off",
+	"clks_on",
+	"req_clks_off",
+	"req_clks_on",
+	"unknown"
+};
+
+static void ufsdbg_print_clk_gating_event(char **buff, unsigned long *size,
+					  struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+	int idx = cmd_hist[ptr].cmd.clk_gating.state;
+
+	if (idx < 0 || idx >= CLK_GATING_STATE_MAX)
+		idx = CLK_GATING_STATE_MAX;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%13s\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		clk_gating_state_str[idx]
+		);
+}
+
+static void ufsdbg_print_uic_event(char **buff, unsigned long *size,
+				   struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-u(%d),%6llu.%lu,%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,\t%llu\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		cmd_hist[ptr].cmd.uic.cmd,
+		cmd_hist[ptr].cmd.uic.arg1,
+		cmd_hist[ptr].cmd.uic.arg2,
+		cmd_hist[ptr].cmd.uic.arg3,
+		cmd_hist[ptr].duration
+		);
+}
+
+static void ufsdbg_print_utp_event(char **buff, unsigned long *size,
+				   struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+	if (cmd_hist[ptr].cmd.utp.lba == 0xFFFFFFFFFFFFFFFF)
+		cmd_hist[ptr].cmd.utp.lba = 0;
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-r(%d),%6llu.%lu,%5d,%2d,0x%2x,t=%2d,db:0x%8x,is:0x%8x,crypt:%d,%d,lba=%10llu,len=%6d,\t%llu\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		cmd_hist[ptr].cmd.utp.opcode,
+		cmd_hist[ptr].cmd.utp.tag,
+		cmd_hist[ptr].cmd.utp.doorbell,
+		cmd_hist[ptr].cmd.utp.intr,
+		cmd_hist[ptr].cmd.utp.crypt_en,
+		cmd_hist[ptr].cmd.utp.crypt_keyslot,
+		cmd_hist[ptr].cmd.utp.lba >> 3,
+		cmd_hist[ptr].cmd.utp.transfer_len,
+		cmd_hist[ptr].duration
+		);
+}
+
+static void ufsdbg_print_cmd_hist(char **buff, unsigned long *size,
+				  u32 latest_cnt, struct seq_file *m)
 {
 	int ptr;
 	int cnt;
 	unsigned long flags;
-	struct timespec64 dur;
 
 	if (!cmd_hist_initialized)
 		return;
@@ -398,42 +511,12 @@ void ufsdbg_print_cmd_hist(char **buff, unsigned long *size, u32 latest_cnt,
 		      latest_cnt, cnt, ptr);
 
 	while (cnt) {
-		dur = ns_to_timespec64(cmd_hist[ptr].time);
-		if (cmd_hist[ptr].event < CMD_UIC_SEND) {
-			if (cmd_hist[ptr].cmd.utp.lba == 0xFFFFFFFFFFFFFFFF)
-				cmd_hist[ptr].cmd.utp.lba = 0;
-			SPREAD_PRINTF(buff, size, m,
-				"%3d-r(%d),%5d,%2d,0x%2x,t=%2d,db:0x%8x,is:0x%8x,crypt:%d,%d,lba=%10llu,len=%6d,%6llu.%lu,\t%llu\n",
-				ptr,
-				cmd_hist[ptr].cpu,
-				cmd_hist[ptr].pid,
-				cmd_hist[ptr].event,
-				cmd_hist[ptr].cmd.utp.opcode,
-				cmd_hist[ptr].cmd.utp.tag,
-				cmd_hist[ptr].cmd.utp.doorbell,
-				cmd_hist[ptr].cmd.utp.intr,
-				cmd_hist[ptr].cmd.utp.crypt_en,
-				cmd_hist[ptr].cmd.utp.crypt_keyslot,
-				cmd_hist[ptr].cmd.utp.lba >> 3,
-				cmd_hist[ptr].cmd.utp.transfer_len,
-				dur.tv_sec, dur.tv_nsec,
-				cmd_hist[ptr].duration
-				);
-		} else if (cmd_hist[ptr].event < CMD_REG_TOGGLE) {
-			SPREAD_PRINTF(buff, size, m,
-				"%3d-u(%d),%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,%llu.%lu,\t%llu\n",
-				ptr,
-				cmd_hist[ptr].cpu,
-				cmd_hist[ptr].pid,
-				cmd_hist[ptr].event,
-				cmd_hist[ptr].cmd.uic.cmd,
-				cmd_hist[ptr].cmd.uic.arg1,
-				cmd_hist[ptr].cmd.uic.arg2,
-				cmd_hist[ptr].cmd.uic.arg3,
-				dur.tv_sec, dur.tv_nsec,
-				cmd_hist[ptr].duration
-				);
-		}
+		if (cmd_hist[ptr].event < CMD_UIC_SEND)
+			ufsdbg_print_utp_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event < CMD_REG_TOGGLE)
+			ufsdbg_print_uic_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event == CMD_CLK_GATING)
+			ufsdbg_print_clk_gating_event(buff, size, m, ptr);
 		cnt--;
 		ptr--;
 		if (ptr < 0)
