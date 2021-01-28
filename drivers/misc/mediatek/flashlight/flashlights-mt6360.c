@@ -43,6 +43,7 @@
 #define MT6360_CHANNEL_NUM 2
 #define MT6360_CHANNEL_CH1 0
 #define MT6360_CHANNEL_CH2 1
+#define MT6360_CHANNEL_ALL 2
 
 #define MT6360_NONE (-1)
 #define MT6360_DISABLE 0
@@ -177,19 +178,30 @@ static int mt6360_enable(void)
 		mt6360_en_ch1, mt6360_en_ch2, mode);
 
 	/* enable channel 1 and channel 2 */
-	if (mt6360_en_ch1)
-		ret |= flashlight_set_mode(
+	if (mt6360_decouple_mode == FLASHLIGHT_SCENARIO_COUPLE &&
+			mt6360_en_ch1 != MT6360_DISABLE &&
+			mt6360_en_ch2 != MT6360_DISABLE) {
+		pr_info("dual flash mode\n");
+		if (mode == FLASHLIGHT_MODE_TORCH)
+			ret |= flashlight_set_mode(
+				flashlight_dev_ch1, FLASHLIGHT_MODE_DUAL_TORCH);
+		else
+			ret |= flashlight_set_mode(
+				flashlight_dev_ch1, FLASHLIGHT_MODE_DUAL_FLASH);
+	} else {
+		if (mt6360_en_ch1)
+			ret |= flashlight_set_mode(
 				flashlight_dev_ch1, mode);
-	else if (mt6360_decouple_mode == FLASHLIGHT_SCENARIO_COUPLE)
-		ret |= flashlight_set_mode(
+		else if (mt6360_decouple_mode == FLASHLIGHT_SCENARIO_COUPLE)
+			ret |= flashlight_set_mode(
 				flashlight_dev_ch1, FLASHLIGHT_MODE_OFF);
-	if (mt6360_en_ch2)
-		ret |= flashlight_set_mode(
+		if (mt6360_en_ch2)
+			ret |= flashlight_set_mode(
 				flashlight_dev_ch2, mode);
-	else if (mt6360_decouple_mode == FLASHLIGHT_SCENARIO_COUPLE)
-		ret |= flashlight_set_mode(
+		else if (mt6360_decouple_mode == FLASHLIGHT_SCENARIO_COUPLE)
+			ret |= flashlight_set_mode(
 				flashlight_dev_ch2, FLASHLIGHT_MODE_OFF);
-
+	}
 	if (ret < 0)
 		pr_info("Failed to enable.\n");
 
@@ -235,6 +247,26 @@ static int mt6360_disable_ch2(void)
 	return ret;
 }
 
+static int mt6360_disable_all(void)
+{
+	int ret = 0;
+
+	pr_debug("disable_ch1.\n");
+
+	if (!flashlight_dev_ch1) {
+		pr_info("Failed to disable since no flashlight device.\n");
+		return -1;
+	}
+
+	ret |= flashlight_set_mode(flashlight_dev_ch1,
+		FLASHLIGHT_MODE_DUAL_OFF);
+
+	if (ret < 0)
+		pr_info("Failed to disable.\n");
+
+	return ret;
+}
+
 static int mt6360_disable(int channel)
 {
 	int ret = 0;
@@ -243,6 +275,8 @@ static int mt6360_disable(int channel)
 		ret = mt6360_disable_ch1();
 	else if (channel == MT6360_CHANNEL_CH2)
 		ret = mt6360_disable_ch2();
+	else if (channel == MT6360_CHANNEL_ALL)
+		ret = mt6360_disable_all();
 	else {
 		pr_info("Error channel\n");
 		return -1;
@@ -373,8 +407,7 @@ static int mt6360_uninit(void)
 	/* clear charger status */
 	is_decrease_voltage = 0;
 
-	ret = mt6360_disable(MT6360_CHANNEL_CH1);
-	ret |= mt6360_disable(MT6360_CHANNEL_CH2);
+	ret = mt6360_disable(MT6360_CHANNEL_ALL);
 
 	return ret;
 }
@@ -487,8 +520,7 @@ static int mt6360_operate(int channel, int enable)
 					mt6360_timer_cancel(MT6360_CHANNEL_CH2);
 				}
 			} else {
-				mt6360_disable(MT6360_CHANNEL_CH1);
-				mt6360_disable(MT6360_CHANNEL_CH2);
+				mt6360_disable(MT6360_CHANNEL_ALL);
 				mt6360_timer_cancel(MT6360_CHANNEL_CH1);
 				mt6360_timer_cancel(MT6360_CHANNEL_CH2);
 			}
