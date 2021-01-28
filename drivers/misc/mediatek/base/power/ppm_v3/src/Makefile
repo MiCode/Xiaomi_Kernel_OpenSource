@@ -20,7 +20,11 @@ ccflags-y += \
 ifneq (,$(findstring 3gear,$(PROJECT_DTB_NAMES)))
 ccflags-y += -I$(PPM_ROOT_DIR)/src/mach/mt6893
 else
+ifeq ($(CONFIG_MACH_MT6893),y)
+ccflags-y += -I$(PPM_ROOT_DIR)/src/mach/mt6893
+else
 ccflags-y += -I$(PPM_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM)
+endif
 endif
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
