@@ -16,8 +16,6 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#include <dt-bindings/pinctrl/mt65xx.h>
-
 #include "mtk-eint.h"
 #include "pinctrl-mtk-common-v2.h"
 
@@ -77,13 +75,10 @@ static int mtk_hw_pin_field_lookup(struct mtk_pinctrl *hw,
 	bool found = false;
 	u32 bits;
 
-	if (hw->soc->reg_cal && hw->soc->reg_cal[field].range) {
+	if (hw->soc->reg_cal && hw->soc->reg_cal[field].range)
 		rc = &hw->soc->reg_cal[field];
-	} else {
-		dev_dbg(hw->dev,
-			"Not support field %d for this soc\n", field);
+	else
 		return -ENOTSUPP;
-	}
 
 	end = rc->nranges - 1;
 	c = rc->range;
@@ -619,7 +614,6 @@ static int mtk_pinconf_bias_set_pullsel_pullen(struct mtk_pinctrl *hw,
 out:
 	return err;
 }
-EXPORT_SYMBOL_GPL(mtk_pinconf_bias_set_pullsel_pullen);
 
 int mtk_pinconf_bias_set_pupd_r1_r0(struct mtk_pinctrl *hw,
 				const struct mtk_pin_desc *desc,
@@ -706,7 +700,6 @@ static int mtk_pinconf_bias_get_pullsel_pullen(struct mtk_pinctrl *hw,
 out:
 	return err;
 }
-EXPORT_SYMBOL_GPL(mtk_pinconf_bias_get_pullsel_pullen);
 
 static int mtk_pinconf_bias_get_pupd_r1_r0(struct mtk_pinctrl *hw,
 				const struct mtk_pin_desc *desc,
