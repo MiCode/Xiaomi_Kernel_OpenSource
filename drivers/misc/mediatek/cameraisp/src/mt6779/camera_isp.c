@@ -51,7 +51,7 @@
 #define EP_NO_K_LOG_ADJUST
 #endif
 #define ENABLE_TIMESYNC_HANDLE    /* able/disable TimeSync related for EP */
-//#define IRQ_LOG_EN
+#define IRQ_LOG_EN					(1)
 
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -794,7 +794,7 @@ static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 } while (0)
 
 
-#ifdef IRQ_LOG_EN
+#if IRQ_LOG_EN
 #define IRQ_LOG_PRINTER(irq, ppb_in, logT_in) do {\
 		struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 		char *ptr;\

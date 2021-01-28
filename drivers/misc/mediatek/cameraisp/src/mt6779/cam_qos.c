@@ -13,15 +13,13 @@
 #include <linux/kernel.h>
 #include <linux/printk.h>
 #include <linux/types.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include "inc/cam_qos.h"
+#include "smi_port.h"
+
+#define CONFIG_MTK_QOS_SUPPORT
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
-#undef CONFIG_MTK_QOS_SUPPORT
-#endif
-#define EP_PMQOS
-#define EP_USE_PQMS
-
-#ifdef EP_USE_PQMS
 #include <mmdvfs_pmqos.h>
 #else
 #include <mmdvfs_mgr.h>
@@ -94,13 +92,12 @@
 
 
 
-	struct pm_qos_request isp_qos;
+	struct mtk_pm_qos_request isp_qos;
+#else
+
+	struct mmdvfs_pm_qos_request isp_qos;
+
 #endif
-//#else
-
-//	struct mmdvfs_pm_qos_request isp_qos;
-
-//#endif
 
 static u32 target_clk;
 
@@ -643,17 +640,17 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 	}
 
 	#define mtk_dfs_add()		\
-		pm_qos_add_request(&isp_qos, PM_QOS_CAM_FREQ, 0)
+		mtk_pm_qos_add_request(&isp_qos, PM_QOS_CAM_FREQ, 0)
 
 	#define mtk_dfs_remove()	\
-		pm_qos_remove_request(&isp_qos)
+		mtk_pm_qos_remove_request(&isp_qos)
 	#define mtk_dfs_clr()		\
-		pm_qos_update_request(&isp_qos, 0)
+		mtk_pm_qos_update_request(&isp_qos, 0)
 
 	#define mtk_dfs_set()
 
 	#define mtk_dfs_update(clk)	\
-		pm_qos_update_request(&isp_qos, clk)
+		mtk_pm_qos_update_request(&isp_qos, clk)
 
 	#define mtk_dfs_supported(frq, step)	\
 		mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ, frq, &step)
@@ -676,15 +673,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 	#define mtk_pmqos_clr(module)		\
 		LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
 
-#ifdef EP_PMQOS
-#define mtk_dfs_add()
-#define mtk_dfs_remove()
-#define mtk_dfs_clr()
-#define mtk_dfs_set()
-#define mtk_dfs_update(clk)
-#define mtk_dfs_supported(frq, step)
-#define mtk_dfs_cur()
-#else
+
+
 	#define mtk_dfs_add()		\
 		mmdvfs_pm_qos_add_request(&isp_qos, \
 					  MMDVFS_PM_QOS_SUB_SYS_CAMERA, 0)
@@ -713,8 +703,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 		mmdvfs_qos_get_cur_thres(&isp_qos, \
 					 MMDVFS_PM_QOS_SUB_SYS_CAMERA)
 #endif
-#endif
 
+//#define EP_PMQOS
 int ISP_SetPMQOS(
 	enum E_QOS_OP cmd,
 	enum ISP_IRQ_TYPE_ENUM module,
@@ -735,9 +725,8 @@ int ISP_SetPMQOS(
 	case E_BW_ADD:
 		{
 			u32 i = 0;
-#ifdef CONFIG_MTK_QOS_SUPPORT
+
 			plist_head_init(&gBW_LIST[module]);
-#endif
 			for (; i < _cam_max_; i++)
 				mtk_pmqos_add(module, i);
 
@@ -848,9 +837,8 @@ int SV_SetPMQOS(
 	case E_BW_ADD:
 		{
 			u32 i = 0;
-#ifdef CONFIG_MTK_QOS_SUPPORT
+
 			plist_head_init(gSVBW_LIST(module));
-#endif
 			for (; i < _camsv_max_; i++)
 				mtk_pmqos_add(module, i);
 

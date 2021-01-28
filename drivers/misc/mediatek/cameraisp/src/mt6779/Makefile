@@ -24,6 +24,7 @@ else
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/timer/timesync/
 
