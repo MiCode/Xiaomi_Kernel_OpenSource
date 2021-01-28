@@ -1069,7 +1069,8 @@ s32 mdp_ioctl_simulate(unsigned long param)
 	}
 	CMDQ_LOG("simulate instruction size:%u\n", result_size);
 
-	if (copy_to_user((void *)(unsigned long)user_job.commands,
+	if (!user_job.commands ||
+		copy_to_user((void *)(unsigned long)user_job.commands,
 		result_buffer, result_size)) {
 		CMDQ_ERR("%s fail to copy instructions to user\n", __func__);
 		status = -EINVAL;
