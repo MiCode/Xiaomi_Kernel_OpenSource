@@ -223,7 +223,8 @@ int mtk_spower_make_table(struct sptab_s *spt, int voltage, int degree,
 		/** occupy the free container**/
 		tspt = tab[spower_raw->table_size-3];
 #else /* #if defined(EXTER_POLATION) */
-		tspt = tab1 = tab2 = tab[spower_raw->table_size-1];
+		if (spower_raw->table_size - 1 > 0)
+			tspt = tab1 = tab2 = tab[spower_raw->table_size-1];
 #endif /* #if defined(EXTER_POLATION) */
 
 		SPOWER_DEBUG("sptab max tab:%d/%d\n",  wat, c[i]);
@@ -596,6 +597,9 @@ int mt_spower_get_leakage(int dev, unsigned int vol, int deg)
 {
 	int ret;
 
+	if (dev < 0)
+		return 0;
+
 	if (!tab_validate(&sptab[dev]))
 		return 0;
 
@@ -621,10 +625,16 @@ int mt_spower_get_efuse_lkg(int dev)
 {
 	int id = 0;
 
-	if (dev >= MTK_SPOWER_MAX)
+	if (dev >= MTK_SPOWER_MAX || dev < 0)
 		return 0;
 
 	id = spower_raw[dev].leakage_id;
+
+	if (id < 0) {
+		pr_notice("%s get error lkg id\n", __func__);
+		return 0;
+	}
+
 	return spower_lkg_info[id].value;
 }
 EXPORT_SYMBOL(mt_spower_get_efuse_lkg);

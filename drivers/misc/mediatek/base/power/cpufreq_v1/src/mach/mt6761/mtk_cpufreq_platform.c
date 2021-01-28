@@ -545,6 +545,8 @@ void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
 
 unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
 {
+
+#ifndef ONE_CLUSTER
 	struct cpumask cpu_mask;
 	unsigned int i;
 
@@ -553,6 +555,7 @@ unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
 		if (cpumask_test_cpu(cpu_id, &cpu_mask))
 			return i;
 	}
-
+#else
 	return 0;
+#endif
 }
