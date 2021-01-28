@@ -167,9 +167,17 @@
 #define P3A_RG_PLL_DELTA_PE2H		GENMASK(15, 0)
 #define P3A_RG_PLL_DELTA_PE2H_VAL(x)	(0xffff & (x))
 
+#define U3P_U3_PHYD_MIX0		0x000
+
 #define U3P_U3_PHYD_LFPS1		0x00c
 #define P3D_RG_FWAKE_TH		GENMASK(21, 16)
 #define P3D_RG_FWAKE_TH_VAL(x)	((0x3f & (x)) << 16)
+
+#define U3P_U3_PHYD_RX0			0x02c
+
+#define U3P_U3_PHYD_T2RLB		0x030
+
+#define U3P_U3_PHYD_PIPE0		0x040
 
 #define U3P_U3_PHYD_CDR1		0x05c
 #define P3D_RG_CDR_BIR_LTD1		GENMASK(28, 24)
@@ -377,7 +385,156 @@ void cover_val_to_str(u32 val, u8 width, char *str)
 	}
 }
 
+/*
+ * loopback_test: default test pattern
+ *   readl(U3D_PHYD_PIPE0) &
+ *     ~(0x01<<30)) | 0x01<<30,
+ *     ~(0x01<<28)) | 0x00<<28,
+ *     ~(0x03<<26)) | 0x01<<26,
+ *     ~(0x03<<24)) | 0x00<<24,
+ *     ~(0x01<<22)) | 0x00<<22,
+ *     ~(0x01<<21)) | 0x00<<21,
+ *     ~(0x01<<20)) | 0x01<<20.
+ */
+#define U3P_U3_PHYD_PIPE0_CLR_PATTERN	0x5f700000
+#define U3P_U3_PHYD_PIPE0_SET_PATTERN	0x44100000
+
+static ssize_t loopback_test_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
+	struct u3phy_banks *u3_banks = &instance->u3_banks;
+	int r_pipe0, r_rx0, r_mix0, r_t2rlb;
+	bool ret = false;
+	u32 tmp;
+
+	/* VA10 is shared by U3/UFS */
+	/* default on and set voltage by PMIC */
+	/* off/on in SPM suspend/resume */
+
+	r_mix0 = readl(u3_banks->phyd + U3P_U3_PHYD_MIX0);
+	r_rx0 = readl(u3_banks->phyd + U3P_U3_PHYD_RX0);
+	r_t2rlb = readl(u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+	r_pipe0 = readl(u3_banks->phyd + U3P_U3_PHYD_PIPE0);
+
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_PIPE0);
+	tmp &= ~(U3P_U3_PHYD_PIPE0_CLR_PATTERN);
+	tmp |= U3P_U3_PHYD_PIPE0_SET_PATTERN;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_PIPE0);
+
+	mdelay(10);
+
+	/* T2R loop back disable */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_RX0);
+	tmp &= ~(0x01<<15);
+	tmp |= 0x00<<15;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_RX0);
+
+	mdelay(10);
+
+	/* TSEQ lock detect threshold */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_MIX0);
+	tmp &= ~(0x07<<24);
+	tmp |= 0x07<<24;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_MIX0);
+
+	/* set default TSEQ polarity check value = 1 */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_MIX0);
+	tmp &= ~(0x01<<28);
+	tmp |= 0x01<<28;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_MIX0);
+
+	/* TSEQ polarity check enable */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_MIX0);
+	tmp &= ~(0x01<<29);
+	tmp |= 0x01<<29;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_MIX0);
+
+	/* TSEQ decoder enable */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_MIX0);
+	tmp &= ~(0x01<<30);
+	tmp |= 0x01<<30;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_MIX0);
+
+	mdelay(10);
+
+	/* set T2R loop back TSEQ length (x 16us) */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+	tmp &= ~(0xff<<0);
+	tmp |= 0xf0<<0;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+
+	/* set T2R loop back BDAT reset period (x 16us) */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+	tmp &= ~(0x0f<<12);
+	tmp |= 0x0f<<12;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+
+	/* T2R loop back pattern select */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+	tmp &= ~(0x03<<8);
+	tmp |= 0x00<<8;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+
+	mdelay(10);
+
+	/* T2R loop back serial mode */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_RX0);
+	tmp &= ~(0x01<<13);
+	tmp |= 0x01<<13;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_RX0);
+
+	/* T2R loop back parallel mode = 0 */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_RX0);
+	tmp &= ~(0x01<<12);
+	tmp |= 0x00<<12;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_RX0);
+
+	/* T2R loop back mode enable */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_RX0);
+	tmp &= ~(0x01<<11);
+	tmp |= 0x01<<11;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_RX0);
+
+	/* T2R loop back enable */
+	tmp = readl(u3_banks->phyd + U3P_U3_PHYD_RX0);
+	tmp &= ~(0x01<<15);
+	tmp |= 0x01<<15;
+	writel(tmp, u3_banks->phyd + U3P_U3_PHYD_RX0);
+	mdelay(100);
+
+	dev_info(dev, "%s, U3 loop back started\n", __func__);
+
+	/* check result */
+	tmp = readl(u3_banks->phyd + 0x0b4);
+
+	/* verbose dump */
+	dev_info(dev, "rb back             : 0x%x\n", tmp);
+	dev_info(dev, "rb t2rlb_lock  : %d\n", (tmp >> 2) & 0x01);
+	dev_info(dev, "rb t2rlb_pass  : %d\n", (tmp >> 3) & 0x01);
+	dev_info(dev, "rb t2rlb_passth: %d\n", (tmp >> 4) & 0x01);
+
+	/* return result */
+	tmp &= 0x0E;
+	if (tmp == 0x0E)
+		ret = true;
+	else
+		ret = false;
+
+	/* restore settings */
+	writel(r_rx0, u3_banks->phyd + U3P_U3_PHYD_RX0);
+	writel(r_pipe0, u3_banks->phyd + U3P_U3_PHYD_PIPE0);
+	writel(r_mix0, u3_banks->phyd + U3P_U3_PHYD_MIX0);
+	writel(r_t2rlb, u3_banks->phyd + U3P_U3_PHYD_T2RLB);
+
+	dev_info(dev, "%s, loopback_test=0x%x\n", __func__, tmp);
+
+	return sprintf(buf, "%d\n", ret);
+}
+static DEVICE_ATTR_RO(loopback_test);
+
 static struct attribute *u3_phy_attrs[] = {
+	&dev_attr_loopback_test.attr,
 	NULL
 };
 
