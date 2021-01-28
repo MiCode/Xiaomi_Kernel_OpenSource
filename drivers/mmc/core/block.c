@@ -2693,9 +2693,7 @@ int mmc_blk_cmdq_issue_flush_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_cmdq_req *cmdq_req;
 	struct mmc_cmdq_context_info *ctx_info;
 
-	WARN_ON(!card); /*bug*/
 	host = card->host;
-	WARN_ON(!host); /*bug*/
 	WARN_ON(req->tag > card->ext_csd.cmdq_depth); /*bug*/
 	WARN_ON(test_and_set_bit(req->tag,
 		&host->cmdq_ctx.active_reqs)); /*bug*/
