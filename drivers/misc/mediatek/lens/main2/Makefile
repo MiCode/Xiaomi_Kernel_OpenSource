@@ -37,6 +37,7 @@ MAIN2_CFILES  += common/lc898217afc/LC898217AFC.c
 MAIN2_CFILES  += common/ak7371af/AK7371AF.c
 MAIN2_CFILES  += common/bu6429af/bu64748af.c
 MAIN2_CFILES  += common/bu6429af/bu64748_function.c
+MAIN2_CFILES  += common/dw9800waf/DW9800WAF.c
 
 obj-m := main2af.o
 main2af-objs := $(MAIN2_CFILES:.c=.o)
@@ -51,5 +52,6 @@ obj-y += common/lc898217af/
 obj-y  += common/lc898217afa/
 obj-y  += common/lc898217afb/
 obj-y  += common/lc898217afc/
+obj-y  += common/dw9800waf/
 
 endif
