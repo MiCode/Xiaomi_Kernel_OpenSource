@@ -511,7 +511,8 @@ static void kwdt_print_utc(char *msg_buf, int msg_buf_size)
 static void kwdt_process_kick(int local_bit, int cpu,
 				unsigned long curInterval, char msg_buf[])
 {
-	unsigned int dump_timeout = 0;
+	unsigned int dump_timeout = 0, tmp = 0;
+	void __iomem *apxgpt_base = 0;
 
 	local_bit = kick_bit;
 	if ((local_bit & (1 << cpu)) == 0) {
@@ -541,6 +542,16 @@ static void kwdt_process_kick(int local_bit, int cpu,
 	}
 
 	kick_bit = local_bit;
+
+	apxgpt_base = mtk_wdt_apxgpt_base();
+	if (apxgpt_base) {
+		/* "DB" signature */
+		tmp = 0x4442 << 16;
+		tmp |= (local_bit & 0xFF) << 8;
+		tmp |= wk_check_kick_bit() & 0xFF;
+		__raw_writel(tmp, apxgpt_base + 0x7c);
+	}
+
 	spin_unlock(&lock);
 
 	/*
