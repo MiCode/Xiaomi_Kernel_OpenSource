@@ -212,6 +212,7 @@ static unsigned int g_fixed_vsram_volt_threshold;
 static unsigned int g_fixed_freq;
 static unsigned int g_fixed_volt;
 static unsigned int g_max_limited_idx;
+static int g_limiter;
 static unsigned int g_pbm_limited_power;
 static unsigned int g_thermal_protect_power;
 static unsigned int g_vgpu_sfchg_rrate;
@@ -2424,19 +2425,28 @@ static void __mt_update_gpufreqs_power_table(void)
 static void __mt_gpufreq_update_max_limited_idx(void)
 {
 	int i = 0;
+	int limiter = -1;
 	unsigned int limited_idx = g_segment_max_opp_idx;
 
 	/* Check lowest frequency index in all limitation */
 	for (i = 0; i < NUMBER_OF_LIMITED_IDX; i++) {
 		if (g_limited_idx_array[i] > limited_idx) {
-			if (!g_limited_ignore_array[i])
+			if (!g_limited_ignore_array[i]) {
 				limited_idx = g_limited_idx_array[i];
+				limiter = i;
+			}
 		}
 	}
 
-	g_max_limited_idx = limited_idx;
+	if (g_max_limited_idx != limited_idx || g_limiter != limiter) {
+		g_max_limited_idx = limited_idx;
+		g_limiter = limiter;
 
-	gpufreq_pr_debug("@%s: g_max_limited_idx = %d\n", __func__, g_max_limited_idx);
+		gpufreq_pr_info("@%s: g_max_limited_idx = %d, g_limiter = %d\n",
+			__func__,
+			g_max_limited_idx,
+			g_limiter);
+	}
 }
 
 #ifdef MT_GPUFREQ_BATT_OC_PROTECT
@@ -2579,6 +2589,7 @@ static void __mt_gpufreq_setup_opp_table(struct g_opp_table_info *freqs, int num
 
 	g_max_opp_idx_num = num;
 	g_max_limited_idx = g_segment_max_opp_idx;
+	g_limiter = -1;
 	g_DVFS_off_by_ptpod_idx = g_segment_max_opp_idx;
 
 	g_ptpod_opp_idx_table = g_ptpod_opp_idx_table_segment;
