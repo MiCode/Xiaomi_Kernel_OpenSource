@@ -50,6 +50,11 @@
 	pwr_off_seq = [04 00 00 02];
 };
 
+&mt6360_typec {
+	mt6360pd,intr_gpio_num = <11>; /* direct defined GPIO num */
+	mt6360pd,intr_gpio = <&pio 11 0x0>;
+};
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
@@ -301,4 +306,3 @@
 /* #include <k6833v1_64/cust.dtsi> */
 
 /*End of this file, DO NOT ADD ANYTHING HERE*/
-

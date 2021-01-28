@@ -1950,6 +1950,9 @@ page_owner=on";
 		num_eps = <16>;
 	};
 
+	tcpc_pd: tcpc_pd {
+	};
+
 	imp_iic_wrap_c: imp_iic_wrap_c@11007000 {
 		compatible = "mediatek,imp_iic_wrap_c",
 			"mediatek,mt6833-imp_iic_wrap_c", "syscon";
@@ -4834,3 +4837,4 @@ page_owner=on";
 };
 
 #include "mediatek/mt6315_s3.dtsi"
+#include "mediatek/mt6360_pd.dtsi"
