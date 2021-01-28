@@ -22,6 +22,7 @@
 	|| defined(CONFIG_MTK_ENABLE_GENIEZONE)
 
 #include <tz_cross/trustzone.h>
+#include <gz-trusty/trusty.h>
 
 void KREE_SESSION_LOCK(int32_t handle);
 void KREE_SESSION_UNLOCK(int32_t handle);
@@ -111,6 +112,17 @@ u64 KREE_GetSystemCnt(void);
  */
 u32 KREE_GetSystemCntFrq(void);
 
+/**
+ * KREE_SessionToTID - get tee id from session. Only works after the session
+ * has been completely created.
+ *
+ * @param session	Session handle
+ * @param o_tid		The output tee_id.
+ *			This API always sets a tee_id value even when errors
+ *			happened, but still needs to check the return value.
+ * @return		TZ_RESULT_SUCCESS or errno.
+ */
+TZ_RESULT KREE_SessionToTID(KREE_SESSION_HANDLE session, enum tee_id_t *o_tid);
 
 #endif /* CONFIG_MTK_IN_HOUSE_TEE_SUPPORT || CONFIG_MTK_ENABLE_GENIEZONE */
 #endif /* __KREE_H__ */

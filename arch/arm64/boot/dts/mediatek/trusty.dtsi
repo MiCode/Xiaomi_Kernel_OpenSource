@@ -48,10 +48,7 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		tee-id = <1>;
-		/* FIXME: char device node name.
-		 * correct it when gz 3.3 is ready.
-		 */
-		tee-name = "trusty";
+		tee-name = "nebula";
 
 		nebula-virtio {
 			compatible = "android,nebula-virtio-v1";

@@ -125,6 +125,8 @@ struct trusty_state {
 	enum tee_id_t tee_id;
 };
 
-void trusty_create_debugfs_vmm(struct trusty_state *s, struct device *pdev);
+#ifdef CONFIG_MT_GZ_TRUSTY_DEBUGFS
+void mtee_create_debugfs(struct trusty_state *s, struct device *dev);
+#endif
 
 #endif

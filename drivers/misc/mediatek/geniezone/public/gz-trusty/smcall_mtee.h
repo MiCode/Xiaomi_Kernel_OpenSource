@@ -23,6 +23,7 @@
 #ifndef __SMCALL_MTEE_H__
 #define __SMCALL_MTEE_H__
 
+#ifndef SMC_NUM_ENTITIES
 #define SMC_NUM_ENTITIES	64
 #define SMC_NUM_ARGS		4
 #define SMC_NUM_PARAMS		(SMC_NUM_ARGS - 1)
@@ -61,33 +62,37 @@
 #define	SMC_ENTITY_TRUSTED_OS		50
 /* Used for secure -> nonsecure logging */
 #define	SMC_ENTITY_LOGGING		51
-/* MTK Trusted OS calls */
-#define	SMC_ENTITY_MT_TRUSTED_OS	59
 /* Trusted OS calls internal to secure monitor */
 #define	SMC_ENTITY_SECURE_MONITOR	60
+#endif /* SMC_NUM_ENTITIES */
 
+#ifndef SMC_ENTITY_GZ
 /* Nebula SMC Calls */
 #define	SMC_ENTITY_NEBULA		52
 /* GZ SMC Calls */
 #define	SMC_ENTITY_GZ			53
+#endif /* SMC_ENTITY_GZ */
 
 /* GZ Trusty SMC Calls */
-/* #define SMC_ENTITY_GZ_LOGGING	54
+#define	SMC_ENTITY_TRUSTY		50
+/* TODO: #define SMC_ENTITY_TRUSTY	54
  * set 50 for backward compatible to old Linux kernel
  */
-#define	SMC_ENTITY_TRUSTY		50
 
 /* Used for GZ secure -> nonsecure logging */
-/* #define SMC_ENTITY_GZ_LOGGING	55
+#define	SMC_ENTITY_GZ_LOGGING		51
+/* TODO: #define SMC_ENTITY_GZ_LOGGING	55
  * set 51 for backward compatible to old Linux kernel
  */
-#define	SMC_ENTITY_GZ_LOGGING		51
+
+/* MTK Trusted OS calls */
+#define	SMC_ENTITY_MT_TRUSTED_OS	59
 
 /* Trusted OS calls internal to GZ secure monitor */
-/* #define SMC_ENTITY_GZ_SECURE_MONITOR	56
+#define	SMC_ENTITY_GZ_SECURE_MONITOR	60
+/* TODO: #define SMC_ENTITY_GZ_SECURE_MONITOR	56
  * set 60 for backward compatible to old Linux kernel
  */
-#define	SMC_ENTITY_GZ_SECURE_MONITOR	60
 
 /**********************************/
 /*** SMC route to GZ Hypervisor ***/
@@ -137,6 +142,7 @@
 #define TRUSTY_API_VERSION_SMCNR_TABLE	(3)
 #define TRUSTY_API_VERSION_SMP_NOP	(4)
 #define TRUSTY_API_VERSION_CURRENT	(3)
+#define NEBULA_API_VERSION_CURRENT	(3)
 
 /*************************/
 /*** MT Debugging only ***/
@@ -165,9 +171,9 @@
 			SMC_FASTCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xF09)
 
 #define MT_SMC_SC_GZ_SET_RAMCONSOLE	\
-			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xF0A)
+			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xFF80)
 #define MT_SMC_SC_GZ_VPU		\
-			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xF0B)
+			SMC_STDCALL_NR(SMC_ENTITY_MT_TRUSTED_OS, 0xFF81)
 
 /*********************************************/
 /*** Reserve original secure monitor calls ***/

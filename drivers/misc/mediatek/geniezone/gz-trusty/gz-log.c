@@ -41,7 +41,6 @@
  * so that, set the buffer size (power_of_2 + 1) PAGES.
  **/
 #define TRUSTY_LOG_SIZE (PAGE_SIZE * 65)
-#define BOOTING_LOG_SIZE (PAGE_SIZE * 17)
 #define TRUSTY_LINE_BUFFER_SIZE 256
 
 struct gz_log_state {
@@ -71,7 +70,6 @@ struct gz_log_state {
 
 struct gz_log_context {
 	phys_addr_t paddr;
-	void *ori_virt;
 	void *virt;
 	struct page *pages;
 	size_t size;
@@ -99,32 +97,32 @@ RESERVEDMEM_OF_DECLARE(gz_log, "mediatek,gz-log", gz_log_context_init);
 
 static int gz_log_page_init(void)
 {
-	if (glctx.ori_virt)
+	if (glctx.virt)
 		return 0;
 
 	if (glctx.flag == STATIC) {
-		glctx.ori_virt = ioremap(glctx.paddr, glctx.size);
+		glctx.virt = ioremap(glctx.paddr, glctx.size);
 
-		if (!glctx.ori_virt) {
+		if (!glctx.virt) {
 			pr_info("[%s] ERROR: ioremap failed, use dynamic\n",
 				__func__);
 			glctx.flag = DYNAMIC;
 			goto dynamic_alloc;
 		}
 
-		pr_info("[%s] set by static, ori_virt addr:%p, sz:0x%zx\n",
-			__func__, glctx.ori_virt, glctx.size);
+		pr_info("[%s] set by static, virt addr:%p, sz:0x%zx\n",
+			__func__, glctx.virt, glctx.size);
 	} else {
 dynamic_alloc:
 		glctx.size = TRUSTY_LOG_SIZE;
-		glctx.ori_virt = kzalloc(glctx.size, GFP_KERNEL);
+		glctx.virt = kzalloc(glctx.size, GFP_KERNEL);
 
-		if (!glctx.ori_virt)
+		if (!glctx.virt)
 			return -ENOMEM;
 
-		glctx.paddr = virt_to_phys(glctx.ori_virt);
-		pr_info("[%s] set by dynamic, ori_virt:%p, sz:0x%zx\n",
-			__func__, glctx.ori_virt, glctx.size);
+		glctx.paddr = virt_to_phys(glctx.virt);
+		pr_info("[%s] set by dynamic, virt:%p, sz:0x%zx\n",
+			__func__, glctx.virt, glctx.size);
 	}
 
 	return 0;
@@ -136,12 +134,12 @@ void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 {
 	gz_log_page_init();
 
-	if (!glctx.ori_virt) {
+	if (!glctx.virt) {
 		*addr = *paddr = *size = *start = 0;
 		pr_info("[%s] ERR gz_log init failed\n", __func__);
 		return;
 	}
-	*addr = (unsigned long)glctx.ori_virt;
+	*addr = (unsigned long)glctx.virt;
 	*paddr = (unsigned long)glctx.paddr;
 	pr_info("[%s] virtual address:0x%lx, paddr:0x%lx\n",
 		__func__, (unsigned long)*addr, *paddr);
@@ -350,7 +348,6 @@ static const struct file_operations proc_gz_log_fops = {
 static int trusty_gz_log_probe(struct platform_device *pdev)
 {
 	int ret;
-	unsigned long offset = 0;
 	struct gz_log_state *gls;
 	struct device_node *pnode = pdev->dev.parent->of_node;
 	int tee_id = 0;
@@ -378,33 +375,21 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 	gls->tee_id = tee_id;
 	gls->get = 0;
 
-	if (glctx.flag == STATIC) {
-		dev_info(&pdev->dev,
-			 "[%s] origin pa 0x%llx, ori_virt %p, size 0x%lx\n",
-			 __func__, glctx.paddr, glctx.ori_virt, glctx.size);
-		/* NOTE: remove booting memlog and re-add a new region that
-		 * start behind booting log
-		 */
+	/* STATIC: memlog already is added at preloader stage.
+	 * DYNAMIC: add memlog as usual.
+	 */
+	if (glctx.flag == DYNAMIC) {
 		ret = trusty_std_call32(gls->trusty_dev,
-			MTEE_SMCNR(SMCF_SC_SHARED_LOG_RM, gls->trusty_dev),
-			(u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
-
-		if (glctx.size < (BOOTING_LOG_SIZE * 2)) {
-			offset = round_down(glctx.size / 2, PAGE_SIZE);
+			MTEE_SMCNR(SMCF_SC_SHARED_LOG_ADD, gls->trusty_dev),
+			(u32)(glctx.paddr), (u32)((u64)glctx.paddr >> 32),
+			glctx.size);
+		if (ret < 0) {
 			dev_info(&pdev->dev,
-				 "[%s] WARNING: small log buffer size 0x%lx\n",
-				 __func__, glctx.size);
-		} else
-			offset = BOOTING_LOG_SIZE;
-
-		glctx.paddr += offset;
-		glctx.size -= offset;
+				"std call(GZ_SHARED_LOG_ADD) failed: %d %pa\n",
+				ret, &glctx.paddr);
+			goto error_std_call;
+		}
 	}
-
-	glctx.virt = (void *)((unsigned long)glctx.ori_virt + offset);
-	dev_info(&pdev->dev, "[%s] new pa 0x%llx, ori va %p, va %p, size 0x%lx\n",
-		 __func__, glctx.paddr, glctx.ori_virt, glctx.virt,
-		 glctx.size);
 
 	gls->log = glctx.virt;
 	dev_info(&pdev->dev, "gls->log virtual address:%p\n", gls->log);
@@ -412,19 +397,7 @@ static int trusty_gz_log_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto error_alloc_log;
 	}
-
 	glctx.gls = gls;
-
-	ret = trusty_std_call32(gls->trusty_dev,
-			MTEE_SMCNR(SMCF_SC_SHARED_LOG_ADD, gls->trusty_dev),
-			(u32)(glctx.paddr), (u32)((u64)glctx.paddr >> 32),
-			glctx.size);
-	if (ret < 0) {
-		dev_info(&pdev->dev,
-			 "std call(GZ_SHARED_LOG_ADD) failed: %d %pa\n",
-			 ret, &glctx.paddr);
-		goto error_std_call;
-	}
 
 	gls->call_notifier.notifier_call = trusty_log_call_notify;
 	ret = trusty_call_notifier_register(gls->trusty_dev,
@@ -465,7 +438,7 @@ error_call_notifier:
 			  (u32)glctx.paddr, (u32)((u64)glctx.paddr >> 32), 0);
 error_std_call:
 	if (glctx.flag == STATIC)
-		iounmap(glctx.ori_virt);
+		iounmap(glctx.virt);
 	else
 		kfree(gls->log);
 error_alloc_log:
@@ -494,7 +467,7 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 		pr_info("std call(GZ_SHARED_LOG_RM) failed: %d\n", ret);
 
 	if (glctx.flag == STATIC)
-		iounmap(glctx.ori_virt);
+		iounmap(glctx.virt);
 	else
 		kfree(gls->log);
 
@@ -505,17 +478,10 @@ static int trusty_gz_log_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_MTK_NEBULA_VM_SUPPORT
-static const struct of_device_id trusty_gz_of_match[] = {
-	{ .compatible = "android,nebula-gz-log-v1", },
-	{},
-};
-#else
 static const struct of_device_id trusty_gz_of_match[] = {
 	{ .compatible = "android,trusty-gz-log-v1", },
 	{},
 };
-#endif /* CONFIG_MTK_NEBULA_VM_SUPPORT */
 
 static struct platform_driver trusty_gz_log_driver = {
 	.probe = trusty_gz_log_probe,
