@@ -121,8 +121,8 @@ static ssize_t gz_concurrent_show(struct device *dev,
 			"stress_trusty on CPU %d, succeed %lld, failed %lld\n",
 			cpu[0], s_cnt[0], f_cnt[0]);
 		tmp[i] = '\0';
-		strncat(str, tmp, 256);
-		strncat(str, "MTEE 1.0 :stress_trusty_thread Running\n", 256);
+		strncat(str, tmp, 255);
+		strncat(str, "MTEE 1.0 :stress_trusty_thread Running\n", 255);
 		pr_info("stress_trusty on CPU %d, succeed %lld, failed %lld\n",
 			cpu[0], s_cnt[0], f_cnt[0]);
 	}
@@ -132,8 +132,8 @@ static ssize_t gz_concurrent_show(struct device *dev,
 			"stress_nebula on CPU %d, succeed %lld, failed %lld\n",
 			cpu[1], s_cnt[1], f_cnt[1]);
 		tmp[i] = '\0';
-		strncat(str, tmp, 256);
-		strncat(str, "MTEE 2.0 :stress_nebula_thread Running\n", 256);
+		strncat(str, tmp, 255);
+		strncat(str, "MTEE 2.0 :stress_nebula_thread Running\n", 255);
 		pr_info("stress_nebula on CPU %d, succeed %lld, failed %lld\n",
 			cpu[1], s_cnt[1], f_cnt[1]);
 	}
@@ -141,12 +141,12 @@ static ssize_t gz_concurrent_show(struct device *dev,
 	if (!trusty_task && !nebula_task) {
 		strncat(str,
 			"Usage:\techo 1 > start default smc stress for gz33\n",
-			256);
-		strncat(str, "\techo 55 > both thread on cpu 5\n", 256);
+			255);
+		strncat(str, "\techo 55 > both thread on cpu 5\n", 255);
 		strncat(str,
 			"\techo 56 > one thread on cpu 5, another on cpu 6\n",
-			256);
-		strncat(str, "\techo 0 > to stop\n", 256);
+			255);
+		strncat(str, "\techo 0 > to stop\n", 255);
 	}
 	return scnprintf(buf, PAGE_SIZE, "%s", str);
 }
@@ -154,7 +154,7 @@ static ssize_t gz_concurrent_show(struct device *dev,
 static ssize_t gz_concurrent_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t n)
 {
-	unsigned long tmp;
+	unsigned long tmp = 0;
 
 	if (!buf)
 		return -EINVAL;
