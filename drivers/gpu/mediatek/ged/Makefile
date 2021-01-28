@@ -77,7 +77,7 @@ endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779"))
 ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
-#ccflags-y += -DGED_MODULE_LATE_INIT
+ccflags-y += -DGED_MODULE_LATE_INIT
 endif
 endif
 

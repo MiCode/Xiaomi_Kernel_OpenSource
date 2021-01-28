@@ -400,11 +400,16 @@ unlock_and_return:
  */
 static int ged_pdrv_probe(struct platform_device *pdev)
 {
-	GED_LOGI("@%s: ged driver probe\n", __func__);
+	int ret;
 
-	return 0;
+	ret = ged_dvfs_init_opp_cost();
+	if (ret) {
+		GED_LOGE("@%s: failed to probe ged driver (%d)\n",
+		__func__, ret);
+	}
+
+	return ret;
 }
-
 /*
  * unregister the gpufreq driver, remove fs node
  */
@@ -589,7 +594,7 @@ static int ged_init(void)
 	if (err) {
 		GED_LOGE("@%s: failed to register ged driver\n",
 		__func__);
-		goto ERROR;
+		/* fall through as no impact */
 	}
 
 	return 0;
@@ -599,8 +604,11 @@ ERROR:
 
 	return -EFAULT;
 }
-
+#ifdef GED_MODULE_LATE_INIT
+late_initcall(ged_init);
+#else
 module_init(ged_init);
+#endif
 module_exit(ged_exit);
 
 MODULE_DEVICE_TABLE(of, g_ged_of_match);

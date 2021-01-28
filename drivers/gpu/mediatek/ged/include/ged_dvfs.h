@@ -87,6 +87,12 @@ struct GED_DVFS_BW_DATA {
 
 #define MAX_BW_PROFILE 5
 
+/* unit 1us */
+struct GED_DVFS_OPP_STAT {
+	uint32_t *aTransition;
+	uint64_t ui64Active;
+};
+
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
 
 struct GpuUtilization_Ex {
@@ -135,8 +141,14 @@ GED_ERROR  ged_dvfs_probe_signal(int signo);
 
 void ged_dvfs_gpu_clock_switch_notify(bool bSwitch);
 
+void ged_dvfs_reset_opp_cost(int oppsize);
+void ged_dvfs_update_opp_cost(unsigned int loading,
+	unsigned int TSDiff_us, unsigned long long cur_us, unsigned int idx);
+struct GED_DVFS_OPP_STAT *ged_dvfs_query_opp_cost(uint64_t reset_base_us, uint64_t curTs_us);
+
 GED_ERROR ged_dvfs_system_init(void);
 void ged_dvfs_system_exit(void);
+int ged_dvfs_init_opp_cost(void);
 unsigned long ged_dvfs_get_last_commit_idx(void);
 
 extern void (*ged_kpi_set_gpu_dvfs_hint_fp)(int t_gpu_target,

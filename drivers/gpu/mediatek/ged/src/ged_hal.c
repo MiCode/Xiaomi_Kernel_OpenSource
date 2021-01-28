@@ -16,6 +16,8 @@
 #include <linux/fb.h>
 #include <mt-plat/mtk_gpu_utility.h>
 
+#include <mtk_gpufreq.h>
+
 #include "ged_base.h"
 #include "ged_hal.h"
 #include "ged_sysfs.h"
@@ -26,6 +28,11 @@
 #include "ged_kpi.h"
 #include "ged_global.h"
 
+#ifdef GED_DEBUG_FS
+#include "ged_debugFS.h"
+static struct dentry *gpsHALDir;
+static struct dentry *gpsOppCostsEntry;
+#endif
 static struct kobject *hal_kobj;
 
 int tokenizer(char *pcSrc, int i32len, int *pi32IndexArray, int i32NumToken)
@@ -59,6 +66,131 @@ int tokenizer(char *pcSrc, int i32len, int *pi32IndexArray, int i32NumToken)
 	return -1;
 }
 
+/* -------------------------------------------------------------------------- */
+#ifdef GED_DEBUG_FS
+uint64_t reset_base_us;
+static ssize_t ged_dvfs_opp_cost_write_entry
+(const char __user *pszBuffer, size_t uiCount, loff_t uiPosition, void *pvData)
+{
+#define GED_HAL_DEBUGFS_SIZE 64
+	char acBuffer[GED_HAL_DEBUGFS_SIZE];
+
+	int i32Value;
+
+	if ((uiCount > 0) && (uiCount < GED_HAL_DEBUGFS_SIZE)) {
+		if (ged_copy_from_user(acBuffer, pszBuffer, uiCount) == 0) {
+			acBuffer[uiCount] = '\0';
+			if (kstrtoint(acBuffer, 0, &i32Value) == 0) {
+				ged_dvfs_reset_opp_cost(i32Value);
+				reset_base_us = ged_get_time();
+				reset_base_us = reset_base_us >> 10;
+			}
+		}
+	}
+
+	return uiCount;
+}
+//-------------------------------------------------------------------
+static void *ged_dvfs_opp_cost_seq_start(struct seq_file *psSeqFile,
+			loff_t *puiPosition)
+{
+	if (*puiPosition == 0)
+		return SEQ_START_TOKEN;
+
+	return NULL;
+}
+//-------------------------------------------------------------------
+static void ged_dvfs_opp_cost_seq_stop(struct seq_file *psSeqFile,
+			void *pvData)
+{
+
+}
+//-------------------------------------------------------------------
+static void *ged_dvfs_opp_cost_seq_next(struct seq_file *psSeqFile,
+			void *pvData, loff_t *puiPosition)
+{
+	return NULL;
+}
+//-------------------------------------------------------------------
+static int ged_dvfs_opp_cost_seq_show(struct seq_file *psSeqFile,
+			void *pvData)
+{
+	char acBuffer[32];
+	int len;
+
+	if (pvData != NULL) {
+		int i, j;
+		int cur_idx;
+		unsigned int ui32FqCount, ui32TotalTrans;
+		uint64_t curTS_us;
+		struct GED_DVFS_OPP_STAT *report;
+
+		report = ged_dvfs_query_opp_cost(reset_base_us, curTS_us);
+		if (report) {
+
+			curTS_us = ged_get_time();
+			curTS_us = curTS_us >> 10;
+
+			mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
+			cur_idx = mt_gpufreq_get_cur_freq_index();
+			ui32TotalTrans = 0;
+
+			seq_puts(psSeqFile, "     From  :   To\n");
+			seq_puts(psSeqFile, "           :");
+
+			for (i = 0; i < ui32FqCount; i++) {
+				len = scnprintf(acBuffer, 32,
+					"%10lu", 1000 * mt_gpufreq_get_freq_by_idx(i));
+				acBuffer[len] = 0;
+				seq_puts(psSeqFile, acBuffer);
+			}
+
+			seq_puts(psSeqFile, "   time(ms)\n");
+
+
+			for (i = 0; i < ui32FqCount; i++) {
+				if (i == cur_idx)
+					seq_puts(psSeqFile, "*");
+				else
+					seq_puts(psSeqFile, " ");
+
+
+				len = scnprintf(acBuffer, 32, "%10lu",
+					1000 * mt_gpufreq_get_freq_by_idx(i));
+				acBuffer[len] = 0;
+				seq_puts(psSeqFile, acBuffer);
+
+				for (j = 0; j < ui32FqCount; j++) {
+					len = scnprintf(acBuffer, 32, "%10u",
+						report[i].aTransition[j]);
+					acBuffer[len] = 0;
+					seq_puts(psSeqFile, acBuffer);
+					ui32TotalTrans += report[i].aTransition[j];
+				}
+				/* truncate to ms */
+				len = scnprintf(acBuffer, 32, "%10u\n",
+					(unsigned int)(report[i].ui64Active >> 10));
+				acBuffer[len] = 0;
+				seq_puts(psSeqFile, acBuffer);
+			}
+			len = scnprintf(acBuffer, 32, "Total transition : %u\n", ui32TotalTrans);
+			acBuffer[len] = 0;
+			seq_puts(psSeqFile, acBuffer);
+		} else
+			seq_puts(psSeqFile, "Not Supported.\n");
+
+	}
+
+	return 0;
+}
+/* --------------------------------------------------------------- */
+const struct seq_operations gsDvfsOppCostsReadOps = {
+	.start = ged_dvfs_opp_cost_seq_start,
+	.stop = ged_dvfs_opp_cost_seq_stop,
+	.next = ged_dvfs_opp_cost_seq_next,
+	.show = ged_dvfs_opp_cost_seq_show,
+};
+#endif
 //-----------------------------------------------------------------------------
 static ssize_t total_gpu_freq_level_count_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
@@ -542,6 +674,33 @@ void mtk_ged_event_notify(int events)
 GED_ERROR ged_hal_init(void)
 {
 	GED_ERROR err = GED_OK;
+
+#ifdef GED_DEBUG_FS
+	err = ged_debugFS_create_entry_dir(
+			"hal",
+			NULL,
+			&gpsHALDir);
+
+	if (unlikely(err != GED_OK)) {
+		err = GED_ERROR_FAIL;
+		GED_LOGE("ged: failed to create hal dir!\n");
+		goto ERROR;
+	}
+	/* Report Opp Cost */
+	err = ged_debugFS_create_entry(
+			"opp_logs",
+			gpsHALDir,
+			&gsDvfsOppCostsReadOps,
+			ged_dvfs_opp_cost_write_entry,
+			NULL,
+			&gpsOppCostsEntry);
+
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE(
+		"ged: failed to create opp_logs entry!\n");
+		goto ERROR;
+	}
+#endif
 
 	err = ged_sysfs_create_dir(NULL, "hal", &hal_kobj);
 	if (unlikely(err != GED_OK)) {
