@@ -126,6 +126,23 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 			break;
 		};
 		break;
+	case TCP_NOTIFY_TYPEC_STATE:
+		/* handle No-rp and dual-rp cable */
+		if (noti->typec_state.old_state == TYPEC_UNATTACHED &&
+		   (noti->typec_state.new_state == TYPEC_ATTACHED_CUSTOM_SRC ||
+		    noti->typec_state.new_state == TYPEC_ATTACHED_NORP_SRC)) {
+			pinfo->pd_type = MTK_PD_CONNECT_TYPEC_ONLY_SNK;
+			ret = srcu_notifier_call_chain(&adapter->evt_nh,
+				MTK_PD_CONNECT_TYPEC_ONLY_SNK, NULL);
+		} else if ((noti->typec_state.old_state ==
+			TYPEC_ATTACHED_CUSTOM_SRC ||
+			noti->typec_state.old_state == TYPEC_ATTACHED_NORP_SRC)
+			&& noti->typec_state.new_state == TYPEC_UNATTACHED) {
+			pinfo->pd_type = MTK_PD_CONNECT_NONE;
+			ret = srcu_notifier_call_chain(&adapter->evt_nh,
+				MTK_PD_CONNECT_NONE, NULL);
+		}
+		break;
 	case TCP_NOTIFY_WD_STATUS:
 		ret = srcu_notifier_call_chain(&adapter->evt_nh,
 			MTK_TYPEC_WD_STATUS, &noti->wd_status.water_detected);
