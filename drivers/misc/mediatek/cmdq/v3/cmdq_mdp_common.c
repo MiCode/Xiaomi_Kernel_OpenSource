@@ -1255,7 +1255,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			(cmdqU32Ptr_t)(unsigned long)vzalloc(
 			handle->secData.ispMeta.ispBufs[i].size);
 		if (!handle->secData.ispMeta.ispBufs[i].va) {
-			CMDQ_ERR("fail alloc ispMeta index:%d size:%d\n",
+			CMDQ_ERR("fail alloc ispMeta index:%d size:%#llx\n",
 				 i, handle->secData.ispMeta.ispBufs[i].size);
 			return -ENOMEM;
 		}
@@ -1263,7 +1263,7 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 			CMDQ_U32_PTR(handle->secData.ispMeta.ispBufs[i].va),
 			CMDQ_U32_PTR(secData->ispMeta.ispBufs[i].va),
 			handle->secData.ispMeta.ispBufs[i].size)) {
-			CMDQ_ERR("copy_from_user failed src:%#llx size:%u\n",
+			CMDQ_ERR("copy_from_user failed src:%#llx size:%#llx\n",
 				secData->ispMeta.ispBufs[i].va,
 				handle->secData.ispMeta.ispBufs[i].size);
 			kfree(CMDQ_U32_PTR(handle->secData.ispMeta.ispBufs[i].va));

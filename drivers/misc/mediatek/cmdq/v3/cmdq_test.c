@@ -4441,8 +4441,18 @@ static void testcase_move_data_between_SRAM(void)
 	/* Allocate DRAM memory */
 	p_va_src = cmdq_core_alloc_hw_buffer(cmdq_dev_get(), buffer_size,
 		&pa_src, GFP_KERNEL);
+	if (!p_va_src) {
+		CMDQ_ERR("p_va_src allocate failed\n");
+		return;
+	}
+
 	p_va_dest = cmdq_core_alloc_hw_buffer(cmdq_dev_get(), buffer_size,
 		&pa_dest, GFP_KERNEL);
+	if (!p_va_dest) {
+		CMDQ_ERR("p_va_dest allocate failed\n");
+		return;
+	}
+
 	memset(p_va_src, 0xda, buffer_size);
 	memset(p_va_dest, 0xcc, buffer_size);
 

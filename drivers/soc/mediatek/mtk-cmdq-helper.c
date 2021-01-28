@@ -2094,7 +2094,7 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
 		len = snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] mask %#010x",
+			"%#06x %#010x [Move ] mask %#018llx",
 			offset, *((u32 *)cmdq_inst), ~val);
 	if (len >= txt_sz)
 		cmdq_log("len:%d over txt_sz:%d", len, txt_sz);
