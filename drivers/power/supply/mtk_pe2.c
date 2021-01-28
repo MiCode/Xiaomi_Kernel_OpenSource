@@ -390,7 +390,7 @@ static int pe20_set_ta_vchr(struct chg_alg_device *alg, u32 chr_volt)
 
 	} while (!pe2->is_cable_out_occur &&
 		 (pe2_hal_get_charger_type(alg) !=
-		 POWER_SUPPLY_USB_TYPE_DCP) &&
+		 POWER_SUPPLY_TYPE_USB_DCP) &&
 		 (retry_cnt < retry_cnt_max));
 
 	if (pe2->is_cable_out_occur)
@@ -450,7 +450,7 @@ static int __pe2_check_charger(struct chg_alg_device *alg)
 		pe2_hal_get_charger_type(alg));
 
 	if (pe2_hal_get_charger_type(alg) !=
-		POWER_SUPPLY_USB_TYPE_DCP) {
+		POWER_SUPPLY_TYPE_USB_DCP) {
 		ret_value = ALG_TA_NOT_SUPPORT;
 		goto out;
 	}
@@ -608,7 +608,7 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 	case PE2_HW_READY:
 		uisoc = pe2_hal_get_uisoc(alg);
 		if (pe2_hal_get_charger_type(alg) !=
-			POWER_SUPPLY_USB_TYPE_DCP) {
+			POWER_SUPPLY_TYPE_USB_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
 		} else if (uisoc < pe2->ta_start_battery_soc ||
 			uisoc >= pe2->ta_stop_battery_soc ||

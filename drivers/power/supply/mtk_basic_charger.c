@@ -81,6 +81,44 @@ static void select_cv(struct mtk_charger *info)
 	info->setting.cv = constant_voltage;
 }
 
+static bool is_typec_adapter(struct mtk_charger *info)
+{
+	int rp;
+
+	rp = adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL);
+	if (info->pd_type == MTK_PD_CONNECT_TYPEC_ONLY_SNK &&
+			rp != 500 &&
+			info->chr_type != POWER_SUPPLY_TYPE_USB &&
+			info->chr_type != POWER_SUPPLY_TYPE_USB_CDP)
+		return true;
+
+	return false;
+}
+
+static bool support_fast_charging(struct mtk_charger *info)
+{
+	struct chg_alg_device *alg;
+	int i = 0, state = 0;
+	bool ret = false;
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+
+		chg_alg_set_current_limit(alg, &info->setting);
+		state = chg_alg_is_algo_ready(alg);
+		chr_debug("%s %s ret:%s\n", __func__, dev_name(&alg->dev),
+			chg_alg_state_to_str(state));
+
+		if (state == ALG_READY || state == ALG_RUNNING) {
+			ret = true;
+			break;
+		}
+	}
+	return ret;
+}
+
 static bool select_charging_current_limit(struct mtk_charger *info,
 	struct chg_limit_setting *setting)
 {
@@ -117,29 +155,29 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	}
 
 	if (info->atm_enabled == true
-		&& (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP ||
-		info->chr_type == POWER_SUPPLY_USB_TYPE_CDP)
+		&& (info->chr_type == POWER_SUPPLY_TYPE_USB ||
+		info->chr_type == POWER_SUPPLY_TYPE_USB_CDP)
 		) {
 		pdata->input_current_limit = 100000; /* 100mA */
 		is_basic = true;
 		goto done;
 	}
 
-	if (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP) {
+	if (info->chr_type == POWER_SUPPLY_TYPE_USB) {
 		pdata->input_current_limit =
 				info->data.usb_charger_current;
 		/* it can be larger */
 		pdata->charging_current_limit =
 				info->data.usb_charger_current;
 		is_basic = true;
-	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_CDP) {
 		pdata->input_current_limit =
 			info->data.charging_host_charger_current;
 		pdata->charging_current_limit =
 			info->data.charging_host_charger_current;
 		is_basic = true;
 
-	} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_DCP) {
 		pdata->input_current_limit =
 			info->data.ac_charger_input_current;
 		pdata->charging_current_limit =
@@ -149,11 +187,18 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 				pdata->input_current_limit;
 			pdata2->charging_current_limit = 2000000;
 		}
+	} else if (info->chr_type == POWER_SUPPLY_TYPE_USB_FLOAT) {
+		/* NONSTANDARD_CHARGER */
+		pdata->input_current_limit =
+			info->data.usb_charger_current;
+		pdata->charging_current_limit =
+			info->data.usb_charger_current;
+		is_basic = true;
 	}
 
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
-			&& info->chr_type == POWER_SUPPLY_USB_TYPE_SDP)
+			&& info->chr_type == POWER_SUPPLY_TYPE_USB)
 			chr_debug("USBIF & STAND_HOST skip current check\n");
 		else {
 			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
@@ -207,11 +252,53 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	} else
 		info->setting.input_current_limit2 = -1;
 
-	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
-		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
-		is_basic = false;
+	if (info->setting.input_current_limit1 == -1 &&
+		info->setting.input_current_limit2 == -1 &&
+		info->setting.charging_current_limit1 == -1 &&
+		info->setting.charging_current_limit2 == -1)
+		info->enable_hv_charging = true;
 
+	if (support_fast_charging(info))
+		is_basic = false;
+	else {
+		is_basic = true;
+		/* AICL */
+		charger_dev_run_aicl(info->chg1_dev,
+			&pdata->input_current_limit_by_aicl);
+		if (info->enable_dynamic_mivr) {
+			if (pdata->input_current_limit_by_aicl >
+				info->data.max_dmivr_charger_current)
+				pdata->input_current_limit_by_aicl =
+					info->data.max_dmivr_charger_current;
+		}
+		if (is_typec_adapter(info)) {
+			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
+				== 3000) {
+				pdata->input_current_limit = 3000000;
+				pdata->charging_current_limit = 3000000;
+			} else if (adapter_dev_get_property(info->pd_adapter,
+				TYPEC_RP_LEVEL) == 1500) {
+				pdata->input_current_limit = 1500000;
+				pdata->charging_current_limit = 2000000;
+			} else {
+				chr_err("type-C: inquire rp error\n");
+				pdata->input_current_limit = 500000;
+				pdata->charging_current_limit = 500000;
+			}
+
+			chr_err("type-C:%d current:%d\n",
+				info->pd_type,
+				adapter_dev_get_property(info->pd_adapter,
+					TYPEC_RP_LEVEL));
+		}
+	}
+
+	if (is_basic == true && pdata->input_current_limit_by_aicl != -1) {
+		if (pdata->input_current_limit_by_aicl <
+		    pdata->input_current_limit)
+			pdata->input_current_limit =
+					pdata->input_current_limit_by_aicl;
+	}
 done:
 
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
@@ -220,6 +307,7 @@ done:
 		chr_err("min_charging_current is too low %d %d\n",
 			pdata->charging_current_limit, ichg1_min);
 		is_basic = true;
+		info->enable_hv_charging = false;
 	}
 
 	ret = charger_dev_get_min_input_current(info->chg1_dev, &aicr1_min);
@@ -228,6 +316,7 @@ done:
 		chr_err("min_input_current is too low %d %d\n",
 			pdata->input_current_limit, aicr1_min);
 		is_basic = true;
+		info->enable_hv_charging = false;
 	}
 
 	chr_err("m:%d chg1:%d,%d,%d,%d chg2:%d,%d,%d,%d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",

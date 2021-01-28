@@ -444,21 +444,21 @@ static void hw_bc11_done(struct mtk_charger_type *info)
 static void dump_charger_name(int type)
 {
 	switch (type) {
-	case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+	case POWER_SUPPLY_TYPE_UNKNOWN:
 		pr_info("charger type: %d, CHARGER_UNKNOWN\n", type);
 		break;
-	case POWER_SUPPLY_USB_TYPE_SDP:
+	case POWER_SUPPLY_TYPE_USB:
 		pr_info("charger type: %d, Standard USB Host\n", type);
 		break;
-	case POWER_SUPPLY_USB_TYPE_CDP:
+	case POWER_SUPPLY_TYPE_USB_CDP:
 		pr_info("charger type: %d, Charging USB Host\n", type);
 		break;
 #ifdef FIXME
-	case NONSTANDARD_CHARGER:
+	case POWER_SUPPLY_TYPE_USB_FLOAT:
 		pr_info("charger type: %d, Non-standard Charger\n", type);
 		break;
 #endif
-	case POWER_SUPPLY_USB_TYPE_DCP:
+	case POWER_SUPPLY_TYPE_USB_DCP:
 		pr_info("charger type: %d, Standard Charger\n", type);
 		break;
 	default:
@@ -473,15 +473,21 @@ static int get_charger_type(struct mtk_charger_type *info)
 
 	hw_bc11_init(info);
 	if (hw_bc11_DCD(info)) {
+		info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		type = POWER_SUPPLY_USB_TYPE_DCP;
 	} else {
 		if (hw_bc11_stepA2(info)) {
-			if (hw_bc11_stepB2(info))
+			if (hw_bc11_stepB2(info)) {
+				info->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
 				type = POWER_SUPPLY_USB_TYPE_DCP;
-			else
+			} else {
+				info->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
 				type = POWER_SUPPLY_USB_TYPE_CDP;
-		} else
+			}
+		} else {
+			info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 			type = POWER_SUPPLY_USB_TYPE_SDP;
+		}
 	}
 
 	if (type != POWER_SUPPLY_USB_TYPE_DCP)
@@ -489,7 +495,7 @@ static int get_charger_type(struct mtk_charger_type *info)
 	else
 		pr_info("charger type: skip bc11 release for BC12 DCP SPEC\n");
 
-	dump_charger_name(type);
+	dump_charger_name(info->psy_desc.type);
 
 	return type;
 }
@@ -518,7 +524,7 @@ static int get_vbus_voltage(struct mtk_charger_type *info,
 
 void do_charger_detect(struct mtk_charger_type *info, bool en)
 {
-	union power_supply_propval prop, prop2;
+	union power_supply_propval prop, prop2, prop3;
 	int ret = 0;
 
 #ifndef CONFIG_TCPC_CLASS
@@ -533,27 +539,18 @@ void do_charger_detect(struct mtk_charger_type *info, bool en)
 		ret = power_supply_set_property(info->psy,
 				POWER_SUPPLY_PROP_ONLINE, &prop);
 		ret = power_supply_get_property(info->psy,
-				POWER_SUPPLY_PROP_USB_TYPE, &prop2);
-	} else
-		prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-
-	info->type = prop2.intval;
-	pr_notice("%s type:%d\n", __func__, prop2.intval);
-
-	switch (prop2.intval) {
-	case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+				POWER_SUPPLY_PROP_TYPE, &prop2);
+		ret = power_supply_get_property(info->psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &prop3);
+	} else {
+		prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+		prop3.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-		break;
-	case POWER_SUPPLY_USB_TYPE_SDP:
-		info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-		break;
-	case POWER_SUPPLY_USB_TYPE_CDP:
-		info->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-		break;
-	case POWER_SUPPLY_USB_TYPE_DCP:
-		info->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-		break;
+		info->type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 	}
+
+	pr_notice("%s type:%d usb_type:%d\n", __func__, prop2.intval, prop3.intval);
+
 	power_supply_changed(info->psy);
 }
 
@@ -606,6 +603,9 @@ static int psy_chr_type_get_property(struct power_supply *psy,
 			val->intval = 0;
 		else
 			val->intval = 1;
+		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		 val->intval = info->psy_desc.type;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = info->type;

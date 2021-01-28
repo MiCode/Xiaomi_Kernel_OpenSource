@@ -251,7 +251,7 @@ bool is_charger_exist(struct mtk_charger *info)
 
 int get_charger_type(struct mtk_charger *info)
 {
-	union power_supply_propval prop, prop2;
+	union power_supply_propval prop, prop2, prop3;
 	static struct power_supply *chg_psy;
 	int ret;
 
@@ -265,12 +265,22 @@ int get_charger_type(struct mtk_charger *info)
 			POWER_SUPPLY_PROP_ONLINE, &prop);
 
 		ret = power_supply_get_property(chg_psy,
-			POWER_SUPPLY_PROP_USB_TYPE, &prop2);
+			POWER_SUPPLY_PROP_TYPE, &prop2);
+
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_USB_TYPE, &prop3);
+
+		if (prop.intval == 0)
+			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+		else if (prop2.intval == POWER_SUPPLY_TYPE_USB &&
+		    prop3.intval == POWER_SUPPLY_USB_TYPE_DCP)
+			prop2.intval = POWER_SUPPLY_TYPE_USB_FLOAT;
 	}
 
-	pr_notice("%s online:%d type:%d\n", __func__,
+	pr_notice("%s online:%d type:%d usb_type:%d\n", __func__,
 		prop.intval,
-		prop2.intval);
+		prop2.intval,
+		prop3.intval);
 
 	return prop2.intval;
 }

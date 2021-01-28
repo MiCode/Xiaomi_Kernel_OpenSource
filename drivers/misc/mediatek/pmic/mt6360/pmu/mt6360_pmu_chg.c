@@ -2995,11 +2995,11 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 		}
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
-		if (mpci->psy_desc.type == POWER_SUPPLY_USB_TYPE_SDP)
+		if (mpci->psy_desc.type == POWER_SUPPLY_TYPE_USB)
 			val->intval = 500000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
-		if (mpci->psy_usb_type == POWER_SUPPLY_USB_TYPE_SDP)
+		if (mpci->psy_desc.type == POWER_SUPPLY_TYPE_USB)
 			val->intval = 5000000;
 		break;
 	default:

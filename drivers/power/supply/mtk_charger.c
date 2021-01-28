@@ -1238,7 +1238,7 @@ static void charger_check_status(struct mtk_charger *info)
 	int temperature;
 	struct battery_thermal_protection_data *thermal;
 
-	if (get_charger_type(info) == POWER_SUPPLY_USB_TYPE_UNKNOWN)
+	if (get_charger_type(info) == POWER_SUPPLY_TYPE_UNKNOWN)
 		return;
 
 	temperature = info->battery_temp;
@@ -1417,7 +1417,7 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 	int i;
 
 	chr_err("%s\n", __func__);
-	info->chr_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+	info->chr_type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->charger_thread_polling = false;
 
 	pdata1->disable_charging_count = 0;
@@ -1476,15 +1476,15 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 	int chr_type;
 
 	chr_type = get_charger_type(info);
-	if (chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
-		if (info->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN) {
+	if (chr_type == POWER_SUPPLY_TYPE_UNKNOWN) {
+		if (info->chr_type != POWER_SUPPLY_TYPE_UNKNOWN) {
 			mtk_charger_plug_out(info);
 			mutex_lock(&info->cable_out_lock);
 			info->cable_out_cnt = 0;
 			mutex_unlock(&info->cable_out_lock);
 		}
 	} else {
-		if (info->chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
+		if (info->chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 			mtk_charger_plug_in(info, chr_type);
 		else
 			info->chr_type = chr_type;
@@ -1498,7 +1498,7 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 		}
 	}
 
-	if (chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
+	if (chr_type == POWER_SUPPLY_TYPE_UNKNOWN)
 		return false;
 
 	return true;
@@ -1507,14 +1507,16 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 static char *dump_charger_type(int type)
 {
 	switch (type) {
-	case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+	case POWER_SUPPLY_TYPE_UNKNOWN:
 		return "none";
-	case POWER_SUPPLY_USB_TYPE_SDP:
+	case POWER_SUPPLY_TYPE_USB:
 		return "usb";
-	case POWER_SUPPLY_USB_TYPE_CDP:
+	case POWER_SUPPLY_TYPE_USB_CDP:
 		return "usb-h";
-	case POWER_SUPPLY_USB_TYPE_DCP:
+	case POWER_SUPPLY_TYPE_USB_DCP:
 		return "std";
+	case POWER_SUPPLY_TYPE_USB_FLOAT:
+		return "nonstd";
 	default:
 		return "unknown";
 	}
@@ -2040,6 +2042,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	for (i = 0; i < CHGS_SETTING_MAX; i++) {
 		info->chg_data[i].thermal_charging_current_limit = -1;
 		info->chg_data[i].thermal_input_current_limit = -1;
+		info->chg_data[i].input_current_limit_by_aicl = -1;
 	}
 	info->enable_hv_charging = true;
 

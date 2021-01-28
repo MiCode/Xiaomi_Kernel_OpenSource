@@ -157,7 +157,7 @@ int pe_hal_get_ibat(struct chg_alg_device *alg)
 	pe = dev_get_drvdata(&alg->dev);
 	bat_psy = devm_power_supply_get_by_phandle(&pe->pdev->dev,
 						       "gauge");
-	if (IS_ERR(bat_psy)) {
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 0;
 	} else {
@@ -245,7 +245,7 @@ int pe_hal_get_uisoc(struct chg_alg_device *alg)
 	pe = dev_get_drvdata(&alg->dev);
 	bat_psy = devm_power_supply_get_by_phandle(&pe->pdev->dev,
 						       "gauge");
-	if (IS_ERR(bat_psy)) {
+	if (bat_psy == NULL || IS_ERR(bat_psy)) {
 		pr_notice("%s Couldn't get bat_psy\n", __func__);
 		ret = 50;
 	} else {
