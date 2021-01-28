@@ -32,7 +32,6 @@
 #include <mtk_spm_misc.h>
 /* TODO: fix */
 #if !defined(SPM_K414_EARLY_PORTING)
-#include <mt-plat/mtk_gpio.h>
 #include <mtk_power_gs_api.h>
 #endif
 #if defined(CONFIG_MTK_PMIC) || defined(CONFIG_MTK_PMIC_NEW_ARCH)

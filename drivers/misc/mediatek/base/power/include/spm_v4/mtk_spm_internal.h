@@ -24,10 +24,6 @@
 
 #include "mtk_spm.h"
 #include <mtk_lpae.h>
-/* TODO: fix */
-#if !defined(SPM_K414_EARLY_PORTING)
-#include <mtk_gpio.h>
-#endif
 
 /* SMC call's marco */
 #define SMC_CALL(_name, _arg0, _arg1, _arg2) \
