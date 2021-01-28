@@ -1181,7 +1181,7 @@ static int mtk_dsp_probe(struct snd_soc_component *component)
 	int ret = 0, id = 0;
 
 	pr_info("%s\n", __func__);
-	adsp_audio_wakelock = aud_wake_lock_init("adsp_audio_wakelock");
+	adsp_audio_wakelock = aud_wake_lock_init(NULL, "adsp_audio_wakelock");
 
 	if (adsp_audio_wakelock == NULL)
 		pr_info("%s init adsp_audio_wakelock error\n", __func__);

@@ -311,12 +311,12 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		return -1;
 	}
 
-	if (task_id < 0) {
+	if (task_id < 0 || task_id >= AUDIO_TASK_DAI_NUM) {
 		pr_debug("%s() not support\n", __func__);
 		return -1;
 	}
 
-	dsp_memif = &dsp->dsp_mem[task_id];
+	dsp_memif = (struct mtk_base_dsp_mem *)&dsp->dsp_mem[task_id];
 	payload = (char *)&dsp->dsp_mem[task_id].msg_atod_share_buf.phy_addr;
 
 	/* send msg by task , unsing common function*/
@@ -362,7 +362,7 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 		ipi_audio_buf =
 			(void *)dsp_memif->msg_atod_share_buf.va_addr;
 		memcpy((void *)ipi_audio_buf,
-		       (void *)&dsp->dsp_mem[task_id].audio_afepcm_buf,
+		       (void *)&dsp_memif->audio_afepcm_buf,
 		       sizeof(struct audio_hw_buffer));
 
 #ifdef DEBUG_VERBOSE
@@ -377,8 +377,8 @@ int afe_pcm_ipi_to_dsp(int command, struct snd_pcm_substream *substream,
 				       sizeof(unsigned int),
 				       (unsigned int)
 				       dsp_memif->msg_atod_share_buf.phy_addr,
-				       (char *)&dsp->dsp_mem[task_id]
-				       .msg_atod_share_buf.phy_addr);
+				       (char *)
+				       &dsp_memif->msg_atod_share_buf.phy_addr);
 		break;
 	case AUDIO_DSP_TASK_PCM_HWFREE:
 		set_aud_buf_attr(&dsp_memif->audio_afepcm_buf,
