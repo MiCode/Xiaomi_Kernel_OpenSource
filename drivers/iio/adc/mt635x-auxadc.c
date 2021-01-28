@@ -316,20 +316,21 @@ static void auxadc_reset(struct mt635x_auxadc_device *adc_dev)
 static void auxadc_debug_dump(struct mt635x_auxadc_device *adc_dev,
 			      int timeout_times)
 {
-	int i;
+	int i = 0, len = 0;
 	unsigned char reg_log[631] = "", reg_str[21] = "";
 	unsigned int reg_val = 0;
 
 	for (i = 0; i < adc_dev->info->num_dbg_regs; i++) {
 		regmap_read(adc_dev->regmap,
 			    adc_dev->info->dbg_regs[i], &reg_val);
-		snprintf(reg_str, 20, "Reg[0x%x]=0x%x,",
-			 adc_dev->info->dbg_regs[i], reg_val);
+		len += snprintf(reg_str, 20, "Reg[0x%x]=0x%x,",
+				adc_dev->info->dbg_regs[i], reg_val);
 		strncat(reg_log, reg_str, ARRAY_SIZE(reg_log) - 1);
 	}
-	dev_notice(adc_dev->dev,
-		   "(%s)Time out!(%d) %s\n"
-		   , __func__, timeout_times, reg_log);
+	if (len)
+		dev_notice(adc_dev->dev,
+			   "(%s)Time out!(%d) %s\n"
+			   , __func__, timeout_times, reg_log);
 }
 
 static void imp_timeout_handler(struct mt635x_auxadc_device *adc_dev,
