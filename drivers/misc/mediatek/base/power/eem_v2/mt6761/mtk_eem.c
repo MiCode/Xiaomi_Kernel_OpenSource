@@ -100,6 +100,7 @@ static void eem_buck_set_mode(unsigned int mode);
 /* table used to apply to dvfs at final */
 unsigned int record_tbl_locked[NR_FREQ];
 unsigned int final_init01_flag;
+unsigned int buck_fail;
 #if ENABLE_LOO
 unsigned int final_init02_flag;
 #endif
@@ -2105,8 +2106,7 @@ static int eem_buck_get(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	//eem_regulator_vproc = regulator_get(&pdev->dev, "vproc");
-	eem_regulator_vproc = devm_regulator_get_optional(&pdev->dev, "vproc1");
+	eem_regulator_vproc = regulator_get(&pdev->dev, "vproc");
 	if (!eem_regulator_vproc) {
 		eem_error("eem_regulator_vproc error\n");
 		return -EINVAL;
@@ -2119,6 +2119,10 @@ static void eem_buck_set_mode(unsigned int mode)
 {
 	/* set pwm mode for each buck */
 	eem_debug("pmic set mode (%d)\n", mode);
+	if (buck_fail) {
+		eem_error("get regulator fail\n");
+		return;
+	}
 	if (mode)
 		regulator_set_mode(eem_regulator_vproc, REGULATOR_MODE_FAST);
 	else
@@ -2267,9 +2271,10 @@ static int eem_probe(struct platform_device *pdev)
 	mt_ppm_ptpod_policy_activate();
 
 	ret = eem_buck_get(pdev);
-	if (ret != 0)
+	if (ret != 0) {
+		buck_fail = 1;
 		eem_error("eem_buck_get failed\n");
-
+	}
 	eem_buck_set_mode(1);
 
 	/* for slow idle */
