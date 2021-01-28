@@ -16,6 +16,7 @@
 #define __TEEI_COMMON_H_
 
 #include <linux/types.h>
+#include <mt-plat/met_drv.h>
 
 #define TEEI_MAX_REQ_PARAMS  12
 #define TEEI_MAX_RES_PARAMS  8
@@ -143,5 +144,46 @@ struct service_handler {
 	void (*deinit)(struct service_handler *handler);
 	int (*handle)(struct service_handler *handler);
 };
+
+/* [KTRACE] Begin-End */
+#ifdef CONFIG_MICROTRUST_TZ_DRIVER_MTK_TRACING
+#define KATRACE_MESSAGE_LENGTH	1024
+#define BEGINED_PID		(current->tgid)
+
+static inline void tracing_mark_write(const char *buf)
+{
+	TRACE_PUTS(buf);
+}
+
+#define WRITE_MSG(format, pid, name) { \
+	char buf[KATRACE_MESSAGE_LENGTH]; \
+	int len = snprintf(buf, sizeof(buf), format, pid, name); \
+	if (len >= (int) sizeof(buf)) { \
+		int name_len = strlen(name) - (len - sizeof(buf)) - 1; \
+		len = snprintf(buf, sizeof(buf), "B|%d|%.*s", BEGINED_PID, \
+				name_len, name); \
+	} \
+	tracing_mark_write(buf); \
+}
+
+#define KATRACE_BEGIN(name)	katrace_begin_body(name)
+static inline void katrace_begin_body(const char *name)
+{
+	WRITE_MSG("B|%d|%s", BEGINED_PID, name);
+}
+
+#define KATRACE_END(name)	katrace_end(name)
+static inline void katrace_end(const char *name)
+{
+	WRITE_MSG("E|%d|%s", BEGINED_PID, name);
+}
+#else
+#define KATRACE_BEGIN(name)	\
+	do {							\
+	} while (0)
+#define KATRACE_END(name)		\
+	do {							\
+	} while (0)
+#endif
 
 #endif /* __TEEI_COMMON_H_ */
