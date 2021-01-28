@@ -295,7 +295,6 @@ void mtk_spower_ut(void)
 	int v, t, p, i;
 
 	for (i = 0; i < MTK_SPOWER_MAX; i++) {
-		struct sptab_s *spt = &sptab[i];
 
 		SPOWER_INFO("This is %s\n", spower_name[i]);
 
