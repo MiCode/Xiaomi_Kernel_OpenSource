@@ -1377,6 +1377,10 @@
 				 <&vencltsys CLK_VENCLT_CKE0>;
 			clock-names = "apb", "smi";
 		};
+
+		touch: touch@ {
+			compatible = "mediatek,mt8173-touch";
+		};
 	};
 };
 
