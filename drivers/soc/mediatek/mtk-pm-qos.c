@@ -116,6 +116,142 @@ static struct mtk_pm_qos_object hrt_bandwidth_mtk_pm_qos = {
 	.name = "hrt_bandwidth",
 };
 
+static BLOCKING_NOTIFIER_HEAD(disp_freq_notifier);
+static struct pm_qos_constraints disp_freq_constraints = {
+	.list = PLIST_HEAD_INIT(disp_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &disp_freq_notifier,
+};
+static struct mtk_pm_qos_object disp_freq_pm_qos = {
+	.constraints = &disp_freq_constraints,
+	.req_list = LIST_HEAD_INIT(disp_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(disp_freq_pm_qos.qos_lock),
+	.name = "disp_freq",
+};
+static BLOCKING_NOTIFIER_HEAD(mdp_freq_notifier);
+static struct pm_qos_constraints mdp_freq_constraints = {
+	.list = PLIST_HEAD_INIT(mdp_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &mdp_freq_notifier,
+};
+static struct mtk_pm_qos_object mdp_freq_pm_qos = {
+	.constraints = &mdp_freq_constraints,
+	.req_list = LIST_HEAD_INIT(mdp_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(mdp_freq_pm_qos.qos_lock),
+	.name = "mdp_freq",
+};
+static BLOCKING_NOTIFIER_HEAD(vdec_freq_notifier);
+static struct pm_qos_constraints vdec_freq_constraints = {
+	.list = PLIST_HEAD_INIT(vdec_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &vdec_freq_notifier,
+};
+static struct mtk_pm_qos_object vdec_freq_pm_qos = {
+	.constraints = &vdec_freq_constraints,
+	.req_list = LIST_HEAD_INIT(vdec_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(vdec_freq_pm_qos.qos_lock),
+	.name = "vdec_freq",
+};
+static BLOCKING_NOTIFIER_HEAD(venc_freq_notifier);
+static struct pm_qos_constraints venc_freq_constraints = {
+	.list = PLIST_HEAD_INIT(venc_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &venc_freq_notifier,
+};
+static struct mtk_pm_qos_object venc_freq_pm_qos = {
+	.constraints = &venc_freq_constraints,
+	.req_list = LIST_HEAD_INIT(venc_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(venc_freq_pm_qos.qos_lock),
+	.name = "venc_freq",
+};
+static BLOCKING_NOTIFIER_HEAD(img_freq_notifier);
+static struct pm_qos_constraints img_freq_constraints = {
+	.list = PLIST_HEAD_INIT(img_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &img_freq_notifier,
+};
+static struct mtk_pm_qos_object img_freq_pm_qos = {
+	.constraints = &img_freq_constraints,
+	.req_list = LIST_HEAD_INIT(img_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(img_freq_pm_qos.qos_lock),
+	.name = "img_freq",
+};
+static BLOCKING_NOTIFIER_HEAD(cam_freq_notifier);
+static struct pm_qos_constraints cam_freq_constraints = {
+	.list = PLIST_HEAD_INIT(cam_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &cam_freq_notifier,
+};
+static struct mtk_pm_qos_object cam_freq_pm_qos = {
+	.constraints = &cam_freq_constraints,
+	.req_list = LIST_HEAD_INIT(cam_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(cam_freq_pm_qos.qos_lock),
+	.name = "cam_freq",
+};
+static BLOCKING_NOTIFIER_HEAD(dpe_freq_notifier);
+static struct pm_qos_constraints dpe_freq_constraints = {
+	.list = PLIST_HEAD_INIT(dpe_freq_constraints.list),
+	.target_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_FREQ_DEFAULT_VALUE,
+	.type = PM_QOS_MAX,
+	.notifiers = &dpe_freq_notifier,
+};
+static struct mtk_pm_qos_object dpe_freq_pm_qos = {
+	.constraints = &dpe_freq_constraints,
+	.req_list = LIST_HEAD_INIT(dpe_freq_pm_qos.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(dpe_freq_pm_qos.qos_lock),
+	.name = "dpe_freq",
+};
+
+static BLOCKING_NOTIFIER_HEAD(mm0_bandwidth_limiter_notifier);
+static struct pm_qos_constraints mm0_bw_limiter_constraints = {
+	.list = PLIST_HEAD_INIT(mm0_bw_limiter_constraints.list),
+	.target_value = PM_QOS_MM_BANDWIDTH_LIMITER_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_BANDWIDTH_LIMITER_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_BANDWIDTH_LIMITER_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &mm0_bandwidth_limiter_notifier,
+};
+static struct mtk_pm_qos_object mm0_bandwidth_limiter = {
+	.constraints = &mm0_bw_limiter_constraints,
+	.req_list = LIST_HEAD_INIT(mm0_bandwidth_limiter.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(mm0_bandwidth_limiter.qos_lock),
+	.name = "mm0_bandwidth_limiter",
+};
+static BLOCKING_NOTIFIER_HEAD(mm1_bandwidth_limiter_notifier);
+static struct pm_qos_constraints mm1_bw_limiter_constraints = {
+	.target_value = PM_QOS_MM_BANDWIDTH_LIMITER_DEFAULT_VALUE,
+	.default_value = PM_QOS_MM_BANDWIDTH_LIMITER_DEFAULT_VALUE,
+	.no_constraint_value = PM_QOS_MM_BANDWIDTH_LIMITER_DEFAULT_VALUE,
+	.type = PM_QOS_SUM,
+	.notifiers = &mm1_bandwidth_limiter_notifier,
+};
+static struct mtk_pm_qos_object mm1_bandwidth_limiter = {
+	.constraints = &mm1_bw_limiter_constraints,
+	.req_list = LIST_HEAD_INIT(mm1_bandwidth_limiter.req_list),
+	.qos_lock = __MUTEX_INITIALIZER(mm1_bandwidth_limiter.qos_lock),
+	.name = "mm1_bandwidth_limiter",
+};
+
 static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 	[MTK_PM_QOS_RESERVED] = &null_mtk_pm_qos,
 
@@ -124,6 +260,17 @@ static struct mtk_pm_qos_object *mtk_pm_qos_array[] = {
 	[MTK_PM_QOS_DDR_OPP] = &ddr_opp_mtk_pm_qos,
 	[MTK_PM_QOS_VCORE_OPP] = &vcore_opp_mtk_pm_qos,
 	[MTK_PM_QOS_SCP_VCORE_REQUEST] = &scp_vcore_req_mtk_pm_qos,
+
+	[PM_QOS_DISP_FREQ] = &disp_freq_pm_qos,
+	[PM_QOS_MDP_FREQ] = &mdp_freq_pm_qos,
+	[PM_QOS_VDEC_FREQ] = &vdec_freq_pm_qos,
+	[PM_QOS_VENC_FREQ] = &venc_freq_pm_qos,
+	[PM_QOS_IMG_FREQ] = &img_freq_pm_qos,
+	[PM_QOS_CAM_FREQ] = &cam_freq_pm_qos,
+	[PM_QOS_DPE_FREQ] = &dpe_freq_pm_qos,
+
+	[PM_QOS_MM0_BANDWIDTH_LIMITER] = &mm0_bandwidth_limiter,
+	[PM_QOS_MM1_BANDWIDTH_LIMITER] = &mm1_bandwidth_limiter,
 };
 
 /* unlocked internal variant */
