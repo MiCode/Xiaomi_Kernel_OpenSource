@@ -22,6 +22,7 @@
 #include <linux/interrupt.h>
 #include <linux/suspend.h>
 #include <linux/timer.h>
+#include <linux/kobject.h>
 #include <linux/notifier.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -120,18 +121,6 @@ void adsp_A_unregister_notify(struct notifier_block *nb)
 EXPORT_SYMBOL_GPL(adsp_A_unregister_notify);
 
 #ifdef CFG_RECOVERY_SUPPORT
-static int adsp_event_receive(struct notifier_block *this, unsigned long event,
-			    void *ptr)
-{
-	adsp_read_status_release(event);
-	return 0;
-}
-
-static struct notifier_block adsp_ready_notifier1 = {
-	.notifier_call = adsp_event_receive,
-	.priority = AUDIO_HAL_FEATURE_PRI,
-};
-
 void adsp_extern_notify(enum ADSP_NOTIFY_EVENT notify_status)
 {
 	blocking_notifier_call_chain(&adsp_A_notifier_list,
@@ -676,6 +665,41 @@ static void adsp_syscore_resume(void)
 	}
 }
 
+#ifdef CFG_RECOVERY_SUPPORT
+/* user-space event notify */
+static int adsp_user_event_notify(struct notifier_block *nb,
+				  unsigned long event, void *ptr)
+{
+	struct device *dev = adsp_device.this_device;
+	int ret = 0;
+
+	if (!dev)
+		return NOTIFY_DONE;
+
+	switch (event) {
+	case ADSP_EVENT_STOP:
+		ret = kobject_uevent(&dev->kobj, KOBJ_OFFLINE);
+		break;
+	case ADSP_EVENT_READY:
+		ret = kobject_uevent(&dev->kobj, KOBJ_ONLINE);
+		break;
+	default:
+		pr_info("%s, ignore event %lu", __func__, event);
+		break;
+	}
+
+	if (ret)
+		pr_info("%s, uevent(%lu) fail, ret %d", __func__, event, ret);
+
+	return NOTIFY_OK;
+}
+
+struct notifier_block adsp_uevent_notifier = {
+	.notifier_call = adsp_user_event_notify,
+	.priority = AUDIO_HAL_FEATURE_PRI,
+};
+#endif
+
 static int adsp_device_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -853,7 +877,7 @@ static int __init adsp_module_init(void)
 #endif
 #ifdef CFG_RECOVERY_SUPPORT
 	adsp_recovery_init();
-	adsp_A_register_notify(&adsp_ready_notifier1);
+	adsp_A_register_notify(&adsp_uevent_notifier);
 #endif
 #if ADSP_BUS_MONITOR_INIT_ENABLE
 	adsp_bus_monitor_init();

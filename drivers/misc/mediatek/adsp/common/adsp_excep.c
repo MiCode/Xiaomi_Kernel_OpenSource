@@ -383,7 +383,7 @@ void adsp_aed(enum adsp_excep_id type, enum adsp_core_id id)
 	/* adsp aed api, only detail information available*/
 	aed_common_exception_api("adsp", NULL, 0, NULL, 0, detail, db_opt);
 
-	pr_debug("[ADSP] adsp exception dump is done\n");
+	pr_info("[ADSP] adsp exception dump is done\n");
 	mutex_unlock(&adsp_excep_mutex);
 }
 
