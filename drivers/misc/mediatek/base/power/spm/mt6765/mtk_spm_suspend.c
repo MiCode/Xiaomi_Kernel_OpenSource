@@ -109,8 +109,10 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 		pr_info("[SPM] spm_dormant_sta %d", spm_dormant_sta);
 	}
 
+#if !defined(SECURE_SERIAL_8250)
 	if (is_infra_pdn(pwrctrl->pcm_flags))
 		mtk8250_restore_dev();
+#endif
 }
 
 static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
@@ -216,7 +218,7 @@ static unsigned int spm_output_wake_reason(struct wake_status *wakesta)
 		NULL, 0);
 #endif
 #endif
-	log_wakeup_reason(mtk_spm_get_irq_0());
+	log_irq_wakeup_reason(mtk_spm_get_irq_0());
 
 	return wr;
 }
@@ -357,7 +359,7 @@ unsigned int spm_go_to_sleep(void)
 
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SECURE_SERIAL_8250)
 	if (mtk8250_request_to_sleep()) {
 		last_wr = WR_UART_BUSY;
 		pr_info("Fail to request uart sleep\n");
@@ -371,7 +373,7 @@ unsigned int spm_go_to_sleep(void)
 
 	spm_suspend_footprint(SPM_SUSPEND_LEAVE_WFI);
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SECURE_SERIAL_8250)
 	mtk8250_request_to_wakeup();
 RESTORE_IRQ:
 #endif

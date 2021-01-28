@@ -432,14 +432,14 @@ static int get_base_from_node(
 
 int __init mtk_idle_cond_check_init(void)
 {
-	get_base_from_node("mediatek,infracfg_ao", &infrasys_base, 0);
-	get_base_from_node("mediatek,mmsys_config", &mmsys_base, 0);
-	get_base_from_node("mediatek,imgsys", &imgsys_base, 0);
+	get_base_from_node("mediatek,mt6765-infracfg", &infrasys_base, 0);
+	get_base_from_node("mediatek,mt6765-mmsys_config", &mmsys_base, 0);
+	get_base_from_node("mediatek,mt6765-imgsys", &imgsys_base, 0);
 	get_base_from_node("mediatek,mfgcfg", &mfgsys_base, 0);
 	get_base_from_node("mediatek,venc_gcon", &vencsys_base, 0);
-	get_base_from_node("mediatek,apmixed", &apmixedsys_base, 0);
+	get_base_from_node("mediatek,mt6765-apmixedsys", &apmixedsys_base, 0);
 	get_base_from_node("mediatek,sleep", &sleepsys_base, 0);
-	get_base_from_node("mediatek,topckgen", &topck_base, 0);
+	get_base_from_node("mediatek,mt6765-topckgen", &topck_base, 0);
 	/* update cg address in idle_cg_info */
 	get_cg_addrs();
 

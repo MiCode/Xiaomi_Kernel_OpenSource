@@ -9,7 +9,10 @@
 #include <linux/spinlock.h>
 
 #include <mt-plat/mtk_ccci_common.h> /* exec_ccci_kern_func_by_md_id */
+
+#if defined(CONFIG_MTK_WATCHDOG) && defined(CONFIG_MTK_WD_KICKER)
 #include <mt-plat/mtk_wd_api.h> /* ap wdt related definitons */
+#endif
 
 #include <trace/events/mtk_idle_event.h>
 

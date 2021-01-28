@@ -18,7 +18,6 @@
 #include <mtk_spm.h>
 #include <mtk_spm_irq.h>
 #include <mtk_spm_internal.h>
-#include <mt-plat/mtk_cirq.h>
 
 
 #if defined(CONFIG_MTK_SYS_CIRQ)

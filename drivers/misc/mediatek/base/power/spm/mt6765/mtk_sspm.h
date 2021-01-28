@@ -51,6 +51,8 @@ struct spm_data {
 int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d);
 int spm_to_sspm_command_async(u32 cmd, struct spm_data *spm_d);
 int spm_to_sspm_command_async_wait(u32 cmd);
+void sspm_timesync_ts_get(unsigned int *ts_h, unsigned int *ts_l);
+void sspm_timesync_clk_get(unsigned int *clk_h, unsigned int *clk_l);
 
 
 #endif /* __MTK_SSPM_H__ */

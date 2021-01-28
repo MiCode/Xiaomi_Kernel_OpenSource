@@ -6,14 +6,16 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/uaccess.h> /* copy_from/to_user() */
+#include <linux/sched/clock.h>
+#include <asm/arch_timer.h>
 
 #include <sspm_ipi.h>
-#include <trace/events/mtk_events.h>
+//#include <trace/events/mtk_events.h>
 
 #include <mtk_sspm.h>
 #include <mtk_spm_internal.h>
 
-
+#define mtk_timer_src_count(...)    arch_counter_get_cntvct(__VA_ARGS__)
 #define SPM_D_LEN   (8) /* # of cmd + arg0 + arg1 + ... */
 
 int spm_to_sspm_command_async(u32 cmd, struct spm_data *spm_d)
@@ -200,6 +202,31 @@ void sspm_ipi_lock_spm_scenario(int start, int id, int opt, const char *name)
 		atomic_dec(&ipi_lock_cnt);
 
 	/* FTRACE tag */
-	trace_sspm_ipi(start, id, opt);
+	//trace_sspm_ipi(start, id, opt);
+}
+
+static void sspm_timesync_timestamp(unsigned long long src, unsigned int *ts_h,
+	unsigned int *ts_l)
+{
+	*ts_l = (unsigned int)(src & 0x00000000FFFFFFFF);
+	*ts_h = (unsigned int)((src & 0xFFFFFFFF00000000) >> 32);
+}
+
+void sspm_timesync_ts_get(unsigned int *ts_h, unsigned int *ts_l)
+{
+	unsigned long long ap_ts;
+
+	ap_ts = sched_clock();
+
+	sspm_timesync_timestamp(ap_ts, ts_h, ts_l);
+}
+
+void sspm_timesync_clk_get(unsigned int *clk_h, unsigned int *clk_l)
+{
+	unsigned long long ap_clk;
+
+	ap_clk = mtk_timer_src_count();
+
+	sspm_timesync_timestamp(ap_clk, clk_h, clk_l);
 }
 
