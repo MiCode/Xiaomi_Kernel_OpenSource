@@ -82,9 +82,13 @@ static uint8_t *core_write_cpu_note(int cpu, struct elf32_phdr *nhdr,
 	struct memelfnote notes;
 	struct elf32_prstatus prstatus;
 	char cpustr[16];
+	int n;
 
 	memset(&prstatus, 0, sizeof(struct elf32_prstatus));
-	snprintf(cpustr, sizeof(cpustr), "CPU%d", cpu);
+	n = snprintf(cpustr, sizeof(cpustr), "CPU%d", cpu);
+	if (n < 0)
+		pr_info("%s, snprintf return error", __func__);
+
 	/* set up the process status */
 	notes.name = cpustr;
 	notes.type = NT_PRSTATUS;
