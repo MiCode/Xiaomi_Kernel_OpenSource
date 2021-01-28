@@ -785,8 +785,9 @@ void TEEC_ReleaseSharedMemory(struct TEEC_SharedMemory *shm)
 
 	shm->id = -1;
 	shm->priv = NULL;
+	if (shm->shadow_buffer == NULL)
+		shm->buffer = NULL;
 	shm->shadow_buffer = NULL;
-	shm->buffer = NULL;
 	shm->registered_fd = -1;
 }
 EXPORT_SYMBOL(TEEC_ReleaseSharedMemory);
