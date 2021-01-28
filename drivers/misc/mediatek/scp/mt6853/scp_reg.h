@@ -131,9 +131,9 @@
 #define SCP_BUS_DBG_AW_TRACK7_L		(scpreg.bus_tracker + 0x338)
 
 /* clk reg*/
-#define SCP_A_SLEEP_DEBUG_REG	(scpreg.clkctrl + 0x0028)
-#define SCP_CLK_CTRL_L1_SRAM_PD	(scpreg.clkctrl + 0x002C)
-#define SCP_CLK_HIGH_CORE_CG	(scpreg.clkctrl + 0x005C)
+#define SCP_A_SLEEP_DEBUG_REG		(scpreg.clkctrl + 0x0028)
+#define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x002C)
+#define SCP_CLK_HIGH_CORE_CG		(scpreg.clkctrl + 0x005C)
 #define SCP_CPU0_SRAM_PD		(scpreg.clkctrl + 0x0080)
 #define SCP_CPU1_SRAM_PD		(scpreg.clkctrl + 0x0084)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)
