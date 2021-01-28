@@ -303,6 +303,12 @@ static const struct mfd_cell mt6357_devs[] = {
 		.name = "mtk_ts_pmic",
 		.of_compatible = "mediatek,mtk_ts_pmic"
 	}, {
+		.name = "mt6357_ts_buck1",
+		.of_compatible = "mediatek,mt6357_ts_buck1"
+	}, {
+		.name = "mt6357_ts_buck2",
+		.of_compatible = "mediatek,mt6357_ts_buck2"
+	}, {
 		.name = "mtk-pmic-keys",
 		.num_resources = ARRAY_SIZE(mt6357_keys_resources),
 		.resources = mt6357_keys_resources,
