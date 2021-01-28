@@ -115,6 +115,7 @@ endmenu  # Power
 menu "MultiMedia, Display, Camera"
 
 source "drivers/misc/mediatek/cmdq/Kconfig"
+source "drivers/misc/mediatek/smi/Kconfig"
 
 endmenu  # MM
 
