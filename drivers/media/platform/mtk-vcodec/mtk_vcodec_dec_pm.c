@@ -16,7 +16,6 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/pm_runtime.h>
-#include <soc/mediatek/smi.h>
 
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_util.h"
@@ -182,15 +181,15 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm)
 	if (ret)
 		mtk_v4l2_err("clk_set_parent vdec_sel vdecpll fail %d", ret);
 
-	ret = mtk_smi_larb_get(pm->larbvdec);
-	if (ret)
-		mtk_v4l2_err("mtk_smi_larb_get larbvdec fail %d", ret);
+	ret = pm_runtime_get_sync(pm->larbvdec);
+	if (ret < 0)
+		mtk_v4l2_err("pm_runtime_get_sync larbvdec fail %d", ret);
 
 }
 
 void mtk_vcodec_dec_clock_off(struct mtk_vcodec_pm *pm)
 {
-	mtk_smi_larb_put(pm->larbvdec);
+	pm_runtime_put_sync(pm->larbvdec);
 	clk_disable_unprepare(pm->vdec_sel);
 	clk_disable_unprepare(pm->vdecpll);
 	clk_disable_unprepare(pm->univpll_d2);
