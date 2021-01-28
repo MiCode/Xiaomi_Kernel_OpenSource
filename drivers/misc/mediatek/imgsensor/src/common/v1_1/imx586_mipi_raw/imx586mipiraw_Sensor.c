@@ -4466,6 +4466,7 @@ break;
 			#endif
 			break;
 		}
+		break;
 	case SENSOR_FEATURE_SET_AWB_GAIN:
 		/* modify to separate 3hdr and remosaic */
 		if (imgsensor.sensor_mode == IMGSENSOR_MODE_CUSTOM3) {
