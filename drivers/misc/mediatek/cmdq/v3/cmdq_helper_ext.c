@@ -2388,6 +2388,7 @@ s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 	}
 
 	if (subsysID == -1) {
+		#if 0
 		/* if not supported physAddr is GCE base address,
 		 * then tread as special address
 		 */
@@ -2397,6 +2398,9 @@ s32 cmdq_core_subsys_from_phys_addr(u32 physAddr)
 		else
 			CMDQ_ERR("unrecognized subsys, physAddr:0x%08x\n",
 				physAddr);
+		#else
+		subsysID = CMDQ_SPECIAL_SUBSYS_ADDR;
+		#endif
 	}
 	return subsysID;
 }
