@@ -790,7 +790,14 @@ int ccu_flushLog(int argc, int *argv)
 
 int ccu_read_info_reg(int regNo)
 {
-	int *offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
+	int *offset;
+
+	if (regNo < 0 || regNo >= 32) {
+		LOG_ERR("invalid regNo");
+		return 0;
+	}
+
+	offset = (int *)(uintptr_t)(ccu_base + 0x80 + regNo * 4);
 
 	LOG_DBG("%s: %x\n", __func__, (unsigned int)(*offset));
 
