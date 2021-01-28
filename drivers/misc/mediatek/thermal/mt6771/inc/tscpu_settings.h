@@ -131,8 +131,7 @@
 /* Perf 1st thermal config for turbo
  * Extend steady Tpcb
  */
-/* #define CATM_TPCB_EXTEND
- */ //JOSH
+#define CATM_TPCB_EXTEND
 
 /*=============================================================
  * Chip related
