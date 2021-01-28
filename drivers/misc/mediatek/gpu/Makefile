@@ -32,3 +32,4 @@ endif
 obj-$(CONFIG_MACH_MT6885) += gpu_bm/
 obj-$(CONFIG_MACH_MT6893) += gpu_bm/
 obj-$(CONFIG_MACH_MT6873) += gpu_bm/
+obj-$(CONFIG_MACH_MT6853) += gpu_bm/
