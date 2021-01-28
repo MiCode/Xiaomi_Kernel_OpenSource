@@ -20,6 +20,9 @@
 
 #include "mtk_qos_ipi.h"
 #include "mtk_qos_bound.h"
+#ifdef QOS_PREFETCH_SUPPORT
+#include "mtk_qos_prefetch.h"
+#endif /* QOS_PREFETCH_SUPPORT */
 #include "mtk_qos_sram.h"
 #include "mtk_qos_sysfs.h"
 
@@ -37,6 +40,9 @@ static int mtk_qos_probe(struct platform_device *pdev)
 	qos_add_interface(&pdev->dev);
 	qos_ipi_init();
 	qos_bound_init();
+#ifdef QOS_PREFETCH_SUPPORT
+	qos_prefetch_init();
+#endif /* QOS_PREFETCH_SUPPORT */
 	qos_ipi_recv_init();
 	return 0;
 }
