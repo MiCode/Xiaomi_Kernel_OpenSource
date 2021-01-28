@@ -4,7 +4,7 @@
  * Copyright 2002 Hewlett-Packard Company
  * Copyright 2005-2008 Pierre Ossman
  *
- * Use consistent with the GNU GPL is permitted,
+ * Use consistent with the GNU GPL version 2 is permitted,
  * provided that this copyright notice is
  * preserved in its entirety in all copies and derived works.
  *
@@ -43,9 +43,21 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
+#include <linux/hie.h>
+
+#ifdef CONFIG_MMC_FFU
+#include <linux/mmc/ffu.h>
+#endif
+
+#ifdef CONFIG_MTK_MMC_PWR_WP
+#include <mt-plat/mtk_partition.h>
+#include <linux/types.h>
+#include "mtk_emmc_write_protect.h"
+#endif
 
 #include <linux/uaccess.h>
 
+#include "mtk_mmc_block.h"
 #include "queue.h"
 #include "block.h"
 #include "core.h"
@@ -69,6 +81,14 @@ MODULE_ALIAS("mmc:block");
 
 #define mmc_req_rel_wr(req)	((req->cmd_flags & REQ_FUA) && \
 				  (rq_data_dir(req) == WRITE))
+
+/* emmc cmdq enabled if part idx <= PART_CMDQ_EN
+ * user:  0
+ * boot1: 1
+ * boot2: 2
+ */
+#define PART_CMDQ_EN 0
+
 static DEFINE_MUTEX(block_mutex);
 
 /*
@@ -526,7 +546,13 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
 		return err;
 	}
 
-	mmc_wait_for_req(card->host, &mrq);
+#ifdef CONFIG_MMC_FFU
+	if (cmd.opcode == MMC_FFU_DOWNLOAD_OP
+		|| cmd.opcode == MMC_FFU_INSTALL_OP) {
+		mmc_wait_for_ffu_req(card->host, &mrq);
+	} else
+#endif
+		mmc_wait_for_req(card->host, &mrq);
 
 	if (cmd.error) {
 		dev_err(mmc_dev(card->host), "%s: cmd error %d\n",
@@ -580,6 +606,133 @@ static int __mmc_blk_ioctl_cmd(struct mmc_card *card, struct mmc_blk_data *md,
 
 	return err;
 }
+
+#ifdef CONFIG_MTK_MMC_PWR_WP
+static int mmc_pwr_wp_ioctl(struct block_device *bdev, unsigned long arg)
+{
+	struct mmc_blk_data *md;
+	struct mmc_card *card;
+	unsigned int power_on_wp_en = 0;
+	int err = 0;
+
+	if ((!capable(CAP_SYS_RAWIO)) || (bdev != bdev->bd_contains))
+		return -EPERM;
+
+	if (copy_from_user(&power_on_wp_en, (void *)arg, 1))
+		return -EFAULT;
+
+	/*do noting if power-on write protect arg =0*/
+	if (power_on_wp_en == 0) {
+		pr_debug("%s: power_on_wp_en = %d\n", __func__, power_on_wp_en);
+		return 0;
+	}
+
+	md = mmc_blk_get(bdev->bd_disk);
+	if (!md)
+		return -EINVAL;
+
+	card = md->queue.card;
+	if (IS_ERR(card)) {
+		err = PTR_ERR(card);
+		goto cmd_done;
+	}
+
+	mmc_get_card(card);
+	/*
+	 * Default partitions defined in mtk_emmc_write_protect.c will set
+	 * power-on write protect by this function.
+	 */
+	err = set_power_on_write_protect(card);
+
+	mmc_put_card(card);
+cmd_done:
+	mmc_blk_put(md);
+	return err;
+}
+#endif
+
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+#define MMC_SEND_WRITE_PROT_TYPE        31
+#define EXT_CSD_USR_WP                  171     /* R/W */
+#define US_PERM_WP_EN			4
+
+int mmc_otp_ops_check_bdev(struct block_device *bdev)
+{
+	if (!bdev || !bdev->bd_part || !bdev->bd_part->info
+	|| strcmp(bdev->bd_part->info->volname, "otp"))
+		return 0;
+	return 1;
+}
+
+int mmc_otp_ops_check(struct block_device *bdev,
+	struct mmc_ioc_cmd __user *ic_ptr)
+{
+	u32 opcode, arg;
+
+	if ((get_user(opcode, &ic_ptr->opcode) == 0) &&
+		(get_user(arg, &ic_ptr->arg) == 0)) {
+		if ((opcode == MMC_SET_WRITE_PROT)
+		 || (opcode == MMC_CLR_WRITE_PROT)
+		 || (opcode == MMC_SEND_WRITE_PROT)
+		 || (opcode == MMC_SEND_WRITE_PROT_TYPE)) {
+			if (arg >= bdev->bd_part->nr_sects)
+				return -EFAULT;
+			arg += bdev->bd_part->start_sect;
+		} else if (opcode == MMC_SWITCH) {
+			if (((arg >> 16) & 0xFF) != EXT_CSD_USR_WP)
+				return -EPERM;
+#ifndef CONFIG_MTK_EMMC_SUPPORT_OTP_FOR_CUSTOMER
+			/* prevent users' permanent writ protect in sqc */
+			if (((arg >> 8) & US_PERM_WP_EN)
+	&& ((((arg >> 24) & 0x3) == MMC_SWITCH_MODE_SET_BITS)
+	|| (((arg >> 24) & 0x3) == MMC_SWITCH_MODE_WRITE_BYTE))) {
+				return -EPERM;
+			}
+#endif
+		} else {
+			return -EPERM;
+		}
+	if (put_user(arg, &ic_ptr->arg) != 0)
+		return -EFAULT;
+	} else
+		return -EFAULT;
+
+	return 0;
+
+}
+#endif
+
+#ifdef CONFIG_MMC_FFU
+int mmc_ffu_ops_check_bdev(struct block_device *bdev,
+	struct mmc_ioc_cmd __user *ic_ptr)
+{
+	u32 opcode;
+	struct mmc_blk_data *md;
+	struct mmc_card *card;
+
+	md = mmc_blk_get(bdev->bd_disk);
+	if (!md)
+		return 0;
+
+	card = md->queue.card;
+	if (IS_ERR(card) || !mmc_card_mmc(card)) {
+		mmc_blk_put(md);
+		return 0;
+	}
+
+	if (get_user(opcode, &ic_ptr->opcode) == 0) {
+		if (opcode == MMC_FFU_DOWNLOAD_OP
+				|| opcode == MMC_FFU_INSTALL_OP
+				|| opcode == MMC_SEND_EXT_CSD) {
+			mmc_blk_put(md);
+			return 1;
+		}
+	}
+
+	mmc_blk_put(md);
+	return 0;
+}
+#endif
 
 static int mmc_blk_ioctl_cmd(struct mmc_blk_data *md,
 			     struct mmc_ioc_cmd __user *ic_ptr)
@@ -637,6 +790,7 @@ static int mmc_blk_ioctl_multi_cmd(struct mmc_blk_data *md,
 	int i, err = 0, ioc_err = 0;
 	__u64 num_of_cmds;
 	struct request *req;
+	struct mmc_blk_data *main_md;
 
 	if (copy_from_user(&num_of_cmds, &user->num_of_cmds,
 			   sizeof(num_of_cmds)))
@@ -667,7 +821,6 @@ static int mmc_blk_ioctl_multi_cmd(struct mmc_blk_data *md,
 		goto cmd_err;
 	}
 
-
 	/*
 	 * Dispatch the ioctl()s into the block request queue.
 	 */
@@ -685,6 +838,11 @@ static int mmc_blk_ioctl_multi_cmd(struct mmc_blk_data *md,
 	blk_execute_rq(mq->queue, NULL, req, 0);
 	ioc_err = req_to_mmc_queue_req(req)->drv_op_result;
 
+	/* Always switch back to main area after RPMB access */
+	main_md = dev_get_drvdata(&card->dev);
+	if (md->area_type & MMC_BLK_DATA_AREA_RPMB)
+		mmc_blk_part_switch(card, main_md->part_type);
+
 	/* copy to user if data and response */
 	for (i = 0; i < num_of_cmds && !err; i++)
 		err = mmc_blk_ioctl_copy_to_user(&cmds[i], idata[i]);
@@ -699,6 +857,22 @@ cmd_err:
 	kfree(idata);
 	return ioc_err ? ioc_err : err;
 }
+
+#ifdef CONFIG_MMC_FFU
+static int mt_ffu_mmc_blk_check_blkdev(struct block_device *bdev,
+	struct mmc_ioc_cmd __user *ic_ptr)
+{
+	/*
+	 * The caller must have CAP_SYS_RAWIO, and must be calling this on the
+	 * whole block device, not on a partition.  This prevents overspray
+	 * between sibling partitions.
+	 */
+	if ((!mmc_ffu_ops_check_bdev(bdev, ic_ptr) &&
+		!capable(CAP_SYS_RAWIO)) || (bdev != bdev->bd_contains))
+		return -EPERM;
+	return 0;
+}
+#endif
 
 static int mmc_blk_check_blkdev(struct block_device *bdev)
 {
@@ -717,10 +891,29 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 {
 	struct mmc_blk_data *md;
 	int ret;
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+	bool otp_dev;
+#endif
 
 	switch (cmd) {
 	case MMC_IOC_CMD:
-		ret = mmc_blk_check_blkdev(bdev);
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+		otp_dev = mmc_otp_ops_check_bdev(bdev);
+		if (!otp_dev) {
+#endif
+
+#ifdef CONFIG_MMC_FFU
+			ret = mt_ffu_mmc_blk_check_blkdev(bdev,
+					(struct mmc_ioc_cmd __user *)arg);
+#else
+			ret = mmc_blk_check_blkdev(bdev);
+#endif
+
+#ifdef CONFIG_MTK_EMMC_SUPPORT_OTP
+		} else
+			ret = mmc_otp_ops_check(bdev,
+					(struct mmc_ioc_cmd __user *)arg);
+#endif
 		if (ret)
 			return ret;
 		md = mmc_blk_get(bdev->bd_disk);
@@ -741,6 +934,11 @@ static int mmc_blk_ioctl(struct block_device *bdev, fmode_t mode,
 					(struct mmc_ioc_multi_cmd __user *)arg);
 		mmc_blk_put(md);
 		return ret;
+#ifdef CONFIG_MTK_MMC_PWR_WP
+	case MMC_IOC_WP_CMD:
+		return mmc_pwr_wp_ioctl(bdev, arg);
+#endif
+
 	default:
 		return -EINVAL;
 	}
@@ -770,6 +968,19 @@ static int mmc_blk_part_switch_pre(struct mmc_card *card,
 {
 	int ret = 0;
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	/* disabe cmdq
+	 * if partition does not support cmdq
+	 */
+	if (card->ext_csd.cmdq_en
+	 && !(part_type <= PART_CMDQ_EN)) {
+		ret = mmc_cmdq_disable(card);
+		if (ret)
+			return ret;
+	}
+	if (part_type == EXT_CSD_PART_CONFIG_ACC_RPMB)
+		mmc_retune_pause(card->host);
+#else
 	if (part_type == EXT_CSD_PART_CONFIG_ACC_RPMB) {
 		if (card->ext_csd.cmdq_en) {
 			ret = mmc_cmdq_disable(card);
@@ -778,7 +989,7 @@ static int mmc_blk_part_switch_pre(struct mmc_card *card,
 		}
 		mmc_retune_pause(card->host);
 	}
-
+#endif
 	return ret;
 }
 
@@ -787,11 +998,26 @@ static int mmc_blk_part_switch_post(struct mmc_card *card,
 {
 	int ret = 0;
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (part_type == EXT_CSD_PART_CONFIG_ACC_RPMB)
+		mmc_retune_unpause(card->host);
+
+	/* enable cmdq
+	 * if partition supports cmdq
+	 */
+	if ((!card->ext_csd.cmdq_en) && (part_type <= PART_CMDQ_EN)) {
+		ret = mmc_cmdq_enable(card);
+		if (ret)
+			return ret;
+	}
+#else
+
 	if (part_type == EXT_CSD_PART_CONFIG_ACC_RPMB) {
 		mmc_retune_unpause(card->host);
 		if (card->reenable_cmdq && !card->ext_csd.cmdq_en)
 			ret = mmc_cmdq_enable(card);
 	}
+#endif
 
 	return ret;
 }
@@ -802,8 +1028,20 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 	int ret = 0;
 	struct mmc_blk_data *main_md = dev_get_drvdata(&card->dev);
 
-	if (main_md->part_curr == part_type)
-		return 0;
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
+	/* add for emmc reset when error happen */
+	current_mmc_part_type = part_type;
+#endif
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (card->host->cmdq_support_changed == 1)
+		card->host->cmdq_support_changed = 0;
+	else
+#endif
+	{
+		if (main_md->part_curr == part_type)
+			return 0;
+	}
 
 	if (mmc_card_mmc(card)) {
 		u8 part_config = card->ext_csd.part_config;
@@ -1088,6 +1326,10 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 	/* Flag ECC errors */
 	if ((status & R1_CARD_ECC_FAILED) ||
 	    (brq->stop.resp[0] & R1_CARD_ECC_FAILED) ||
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+		(brq->sbc.resp[0] & R1_CARD_ECC_FAILED) ||
+		(brq->que.resp[0] & R1_CARD_ECC_FAILED) ||
+#endif
 	    (brq->cmd.resp[0] & R1_CARD_ECC_FAILED))
 		*ecc_err = true;
 
@@ -1216,6 +1458,20 @@ static void mmc_blk_issue_drv_op(struct mmc_queue *mq, struct request *req)
 	u32 status;
 	int ret;
 	int i;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	unsigned char cmdq_en;
+
+	cmdq_en = card->ext_csd.cmdq_en;
+	/* disable cmdq if partition doesn't support */
+	if (card->ext_csd.cmdq_en) {
+		ret = mmc_cmdq_disable(card);
+		if (ret) {
+			pr_notice("MMC ioctl:disable CQ fail %s\n", __func__);
+			return;
+		}
+	}
+
+#endif
 
 	mq_rq = req_to_mmc_queue_req(req);
 
@@ -1258,6 +1514,17 @@ static void mmc_blk_issue_drv_op(struct mmc_queue *mq, struct request *req)
 		ret = -EINVAL;
 		break;
 	}
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (cmdq_en && main_md->part_curr <= PART_CMDQ_EN) {
+		ret = mmc_cmdq_enable(card);
+		if (ret) {
+			pr_notice("MMC ioctl:re-enable CQ fail %s\n", __func__);
+			return;
+		}
+	}
+
+#endif
 	mq_rq->drv_op_result = ret;
 	blk_end_request_all(req, ret ? BLK_STS_IOERR : BLK_STS_OK);
 }
@@ -1480,22 +1747,29 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	 * stop.error indicates a problem with the stop command.  Data
 	 * may have been transferred, or may still be transferring.
 	 */
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (!areq->cmdq_en) {
+#endif
 
-	mmc_blk_eval_resp_error(brq);
+		mmc_blk_eval_resp_error(brq);
 
-	if (brq->sbc.error || brq->cmd.error ||
-	    brq->stop.error || brq->data.error) {
-		switch (mmc_blk_cmd_recovery(card, req, brq, &ecc_err, &gen_err)) {
-		case ERR_RETRY:
-			return MMC_BLK_RETRY;
-		case ERR_ABORT:
-			return MMC_BLK_ABORT;
-		case ERR_NOMEDIUM:
-			return MMC_BLK_NOMEDIUM;
-		case ERR_CONTINUE:
-			break;
+		if (brq->sbc.error || brq->cmd.error ||
+		    brq->stop.error || brq->data.error) {
+			switch (mmc_blk_cmd_recovery(card,
+				req, brq, &ecc_err, &gen_err)) {
+			case ERR_RETRY:
+				return MMC_BLK_RETRY;
+			case ERR_ABORT:
+				return MMC_BLK_ABORT;
+			case ERR_NOMEDIUM:
+				return MMC_BLK_NOMEDIUM;
+			case ERR_CONTINUE:
+				break;
+			}
 		}
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	}
+#endif
 
 	/*
 	 * Check for errors relating to the execution of the
@@ -1513,7 +1787,11 @@ static enum mmc_blk_status mmc_blk_err_check(struct mmc_card *card,
 	 * kind.  If it was a write, we may have transitioned to
 	 * program mode, which we have to wait for it to complete.
 	 */
-	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ) {
+	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	&& !areq->cmdq_en
+#endif
+	) {
 		int err;
 
 		/* Check stop command response */
@@ -1716,6 +1994,13 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		readcmd = MMC_READ_SINGLE_BLOCK;
 		writecmd = MMC_WRITE_BLOCK;
 	}
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (card->ext_csd.cmdq_en) {
+		readcmd = MMC_EXECUTE_READ_TASK;
+		writecmd = MMC_EXECUTE_WRITE_TASK;
+	}
+#endif
+
 	brq->cmd.opcode = rq_data_dir(req) == READ ? readcmd : writecmd;
 
 	/*
@@ -1738,7 +2023,11 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	 */
 	if ((md->flags & MMC_BLK_CMD23) && mmc_op_multi(brq->cmd.opcode) &&
 	    (do_rel_wr || !(card->quirks & MMC_QUIRK_BLK_NO_CMD23) ||
-	     do_data_tag)) {
+	     do_data_tag)
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+		&& (!card->ext_csd.cmdq_en)
+#endif
+	) {
 		brq->sbc.opcode = MMC_SET_BLOCK_COUNT;
 		brq->sbc.arg = brq->data.blocks |
 			(do_rel_wr ? (1 << 31) : 0) |
@@ -1748,6 +2037,46 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	}
 
 	mqrq->areq.err_check = mmc_blk_err_check;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	if (card->ext_csd.cmdq_en) {
+		int rt = IS_RT_CLASS_REQ(req);
+
+		brq->mrq.flags = rt;
+		brq->mrq_que.flags = rt;
+
+		brq->sbc.opcode = MMC_QUE_TASK_PARAMS;
+		brq->sbc.arg = brq->data.blocks |
+			(do_rel_wr ? (1 << 31) : 0) |
+			((rq_data_dir(req) == WRITE) ? 0 : (1 << 30)) |
+			(do_data_tag ? (1 << 29) : 0) |
+			(rt << 23) | ((atomic_read(&mqrq->index) - 1) << 16);
+		brq->sbc.flags = MMC_RSP_R1 | MMC_CMD_AC;
+		brq->mrq_que.sbc = &brq->sbc;
+
+		brq->que.opcode = MMC_QUE_TASK_ADDR;
+		brq->que.arg = blk_rq_pos(req);
+		if (!mmc_card_blockaddr(card))
+			brq->que.arg <<= 9;
+		brq->que.flags = MMC_RSP_R1 | MMC_CMD_AC;
+		brq->mrq_que.cmd = &brq->que;
+
+		brq->cmd.arg = (atomic_read(&mqrq->index) - 1) << 16;
+
+		mqrq->areq.mrq_que = &brq->mrq_que;
+
+		brq->mrq.areq = &mqrq->areq;
+		brq->mrq_que.areq = &mqrq->areq;
+	}
+#endif
+
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
+	if (req->bio)
+		brq->mrq.req = req;
+
+	/* request is from mmc layer */
+	brq->mrq.is_mmc_req = true;
+#endif
+
 }
 
 static bool mmc_blk_rw_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
@@ -1828,6 +2157,15 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 	struct mmc_async_req *old_areq;
 	bool req_pending = true;
 
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_host *mmc;
+
+	if (card->ext_csd.cmdq_en && !new_req) {
+		mmc_wait_cmdq_empty(card->host);
+		return;
+	}
+#endif
+
 	if (new_req) {
 		mqrq_cur = req_to_mmc_queue_req(new_req);
 		mq->qcnt++;
@@ -1836,6 +2174,7 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 	if (!mq->qcnt)
 		return;
 
+	mt_biolog_mmcqd_req_check();
 	do {
 		if (new_req) {
 			/*
@@ -1852,6 +2191,16 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 
 			mmc_blk_rw_rq_prep(mqrq_cur, card, 0, mq);
 			new_areq = &mqrq_cur->areq;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			if (card->ext_csd.cmdq_en) {
+				new_areq->cmdq_en = true;
+				card->host->areq_que[
+					atomic_read(&mqrq_cur->index) - 1] =
+					new_areq;
+			} else {
+				new_areq->cmdq_en = false;
+			}
+#endif
 		} else
 			new_areq = NULL;
 
@@ -1882,8 +2231,21 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 			 */
 			mmc_blk_reset_success(md, type);
 
-			req_pending = blk_end_request(old_req, BLK_STS_OK,
-						      brq->data.bytes_xfered);
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			if (status == MMC_BLK_SUCCESS) {
+				req_pending = 0;
+				mmc = brq->mrq.host;
+				spin_lock_irq(&md->lock);
+				blk_complete_request(old_req);
+				spin_unlock_irq(&md->lock);
+			} else
+#endif
+			{
+				req_pending = blk_end_request(old_req,
+						BLK_STS_OK,
+						brq->data.bytes_xfered);
+			}
+
 			/*
 			 * If the blk_end_request function returns non-zero even
 			 * though all data has been transferred and no errors
@@ -1986,20 +2348,206 @@ static void mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *new_req)
 	mq->qcnt--;
 }
 
+/* check if the partition support cmdq or not */
+bool mmc_blk_part_cmdq_en(struct mmc_queue *mq)
+{
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	int ret = false;
+	struct mmc_blk_data *md = mq->blkdata;
+	struct mmc_card *card = md->queue.card;
+
+	/* enable cmdq at support partition */
+	if (card->ext_csd.cmdq_support
+		&& md->part_type <= PART_CMDQ_EN)
+		ret = true;
+
+	return ret;
+#else
+	/* return false for cmdq off */
+	return false;
+#endif
+}
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+int mmc_blk_end_queued_req(struct mmc_host *host,
+	struct mmc_async_req *areq_active, int index, int status)
+{
+	struct mmc_queue *mq;
+	struct mmc_blk_data *md;
+	struct mmc_card *card = host->card;
+	struct mmc_blk_request *brq;
+	struct mmc_host *mmc;
+	int ret = 1, type, areq_cnt;
+	struct mmc_queue_req *mq_rq;
+	struct request *req;
+	unsigned long flags;
+
+	mq_rq = container_of(areq_active, struct mmc_queue_req, areq);
+	brq = &mq_rq->brq;
+	req = mmc_queue_req_to_req(mq_rq);
+	mq = req->q->queuedata;
+	md = mq->blkdata;
+	type = rq_data_dir(req) == READ ? MMC_BLK_READ : MMC_BLK_WRITE;
+
+	switch (status) {
+	case MMC_BLK_SUCCESS:
+	case MMC_BLK_PARTIAL:
+		/*
+		 * A block was successfully transferred.
+		 */
+		mmc_blk_reset_success(md, type);
+
+		mmc = brq->mrq.host;
+#ifdef CONFIG_HIE
+		hie_req_end_size(req, brq->data.bytes_xfered);
+#endif
+		ret = blk_end_request(req, 0,
+			brq->data.bytes_xfered);
+
+		mq->mqrq[index].req = NULL;
+		host->areq_que[index] = NULL;
+
+		/*
+		 * If the blk_end_request function returns non-zero even
+		 * though all data has been transferred and no errors
+		 * were returned by the host controller, it's a bug.
+		 */
+		if (status == MMC_BLK_SUCCESS && ret) {
+			pr_err("%s BUG rq_tot %d d_xfer %d\n",
+				__func__, blk_rq_bytes(req),
+				brq->data.bytes_xfered);
+			goto cmd_abort;
+		}
+		mmc_put_card(card);
+		atomic_set(&mq->mqrq[index].index, 0);
+		atomic_dec(&host->areq_cnt);
+		break;
+	case MMC_BLK_CMD_ERR:
+		ret = mmc_blk_rw_cmd_err(md, card, brq, req, !!ret);
+		mmc_blk_reset(md, card->host, type);
+		goto cmd_abort;
+	case MMC_BLK_RETRY:
+	case MMC_BLK_ABORT:
+		mmc_blk_reset(md, card->host, type);
+		goto cmd_abort;
+	case MMC_BLK_DATA_ERR: {
+		int err;
+
+		err = mmc_blk_reset(md, card->host, type);
+		if (err == -ENODEV)
+			goto cmd_abort;
+		/* Fall through */
+	}
+	case MMC_BLK_ECC_ERR:
+		/*
+		 * After an error, we redo I/O one sector at a
+		 * time, so we only reach here after trying to
+		 * read a single sector.
+		 */
+		spin_lock_irqsave(&md->lock, flags);
+		ret = __blk_end_request(req, -EIO, brq->data.blksz);
+		spin_unlock_irqrestore(&md->lock, flags);
+
+		mq->mqrq[index].req = NULL;
+		host->areq_que[index] = NULL;
+		mmc_put_card(card);
+
+		atomic_set(&mq->mqrq[index].index, 0);
+		atomic_dec(&host->areq_cnt);
+
+		if (!ret)
+			goto start_new_req;
+		break;
+	case MMC_BLK_NOMEDIUM:
+		goto cmd_abort;
+	default:
+		pr_err("%s: Unhandled return value (%d)",
+			req->rq_disk->disk_name, status);
+		goto cmd_abort;
+	}
+	/*
+	 * one request is removed from queue,
+	 * we wakeup mmcqd to insert new request to queue
+	 * wakeup only when queue full or queue empty
+	 */
+	areq_cnt = atomic_read(&host->areq_cnt);
+	if (areq_cnt >= host->card->ext_csd.cmdq_depth -
+			EMMC_MIN_RT_CLASS_TAG_COUNT - 1)
+		wake_up_process(mq->thread);
+	else if (areq_cnt == 0)
+		wake_up_interruptible(&host->cmp_que);
+
+	return 1;
+
+cmd_abort:
+	spin_lock_irq(&md->lock);
+	if (mmc_card_removed(card))
+		req->cmd_flags |= RQF_QUIET;
+	while (ret)
+		ret = __blk_end_request(req, -EIO,
+			blk_rq_cur_bytes(req));
+	spin_unlock_irq(&md->lock);
+
+	mq->mqrq[index].req = NULL;
+	host->areq_que[index] = NULL;
+	mmc_put_card(card);
+
+	atomic_set(&mq->mqrq[index].index, 0);
+	atomic_dec(&host->areq_cnt);
+
+start_new_req:
+	/*
+	 * one request is removed from queue,
+	 * we wakeup mmcqd to insert new request to queue
+	 * wakeup only when queue full or queue empty
+	 */
+	areq_cnt = atomic_read(&host->areq_cnt);
+	if (areq_cnt >= host->card->ext_csd.cmdq_depth -
+			EMMC_MIN_RT_CLASS_TAG_COUNT - 1)
+		wake_up_process(mq->thread);
+	else if (areq_cnt == 0)
+		wake_up_interruptible(&host->cmp_que);
+
+	return 0;
+}
+
+static int mmc_get_cmdq_index(struct mmc_queue *mq)
+{
+	int i;
+
+	/* cmdq should be enabled when calling this function */
+	WARN_ON(!mq->card->ext_csd.cmdq_en);
+
+	for (i = 0; i < mq->card->ext_csd.cmdq_depth; i++) {
+		if (!atomic_read(&mq->mqrq[i].index))
+			break;
+	}
+	return i;
+}
+#endif
+
 void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 {
 	int ret;
 	struct mmc_blk_data *md = mq->blkdata;
 	struct mmc_card *card = md->queue.card;
+	bool part_cmdq_en = mmc_blk_part_cmdq_en(mq);
 
-	if (req && !mq->qcnt)
-		/* claim host only for the first request */
+	if (part_cmdq_en || (req && !mq->qcnt))
+		/* non-cq: claim host only for the first request
+		 * cq: claim host for per request
+		 */
 		mmc_get_card(card);
 
 	ret = mmc_blk_part_switch(card, md->part_type);
 	if (ret) {
 		if (req) {
 			blk_end_request_all(req, BLK_STS_IOERR);
+		}
+		ret = 0;
+		if (part_cmdq_en) {
+			mmc_put_card(card);
+			return;
 		}
 		goto out;
 	}
@@ -2044,6 +2592,20 @@ void mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			mmc_blk_issue_flush(mq, req);
 			break;
 		default:
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+			if (part_cmdq_en) {
+				int index = 0;
+
+				index = mmc_get_cmdq_index(mq);
+				WARN_ON(index >= card->ext_csd.cmdq_depth);
+				mq->mqrq[index].req = req;
+				atomic_set(&req_to_mmc_queue_req(req)->index,
+					index + 1);
+				atomic_set(&mq->mqrq[index].index,
+					index + 1);
+				atomic_inc(&card->host->areq_cnt);
+			}
+#endif
 			/* Normal request, just issue it */
 			mmc_blk_issue_rw_rq(mq, req);
 			card->host->context_info.is_waiting_last_req = false;
@@ -2662,6 +3224,8 @@ static int __init mmc_blk_init(void)
 	if (res)
 		goto out2;
 
+	mt_mmc_biolog_init();
+
 	return 0;
  out2:
 	unregister_blkdev(MMC_BLOCK_MAJOR, "mmc");
@@ -2673,6 +3237,7 @@ static void __exit mmc_blk_exit(void)
 {
 	mmc_unregister_driver(&mmc_driver);
 	unregister_blkdev(MMC_BLOCK_MAJOR, "mmc");
+	mt_mmc_biolog_exit();
 }
 
 module_init(mmc_blk_init);

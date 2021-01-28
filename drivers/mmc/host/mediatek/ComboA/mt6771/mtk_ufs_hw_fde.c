@@ -11,9 +11,11 @@
  * GNU General Public License for more details.
  */
 
-#ifdef CONFIG_MTK_HW_FDE
+#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE))
+#include <linux/hie.h>
 #include "mtk_secure_api.h"
 #endif
+#include <mmc/core/queue.h>
 
 /* map from AES Spec */
 enum {
@@ -33,39 +35,29 @@ enum {
 	BIT_0 = 4,
 };
 
-static void msdc_enable_crypto(struct msdc_host *host)
-{
-	void __iomem *base = host->base;
-	/* enable AES path by clr bypass bit */
-	MSDC_CLR_BIT32(EMMC52_AES_SWST, EMMC52_AES_BYPASS);
-}
-
-static void msdc_disable_crypto(struct msdc_host *host)
-{
-	void __iomem *base = host->base;
-	/* disable AES path by set bypass bit */
-	MSDC_SET_BIT32(EMMC52_AES_SWST, EMMC52_AES_BYPASS);
-}
-
 static void msdc_crypto_switch_config(struct msdc_host *host,
+	struct request *req,
 	u32 block_address, u32 dir)
 {
 	void __iomem *base = host->base;
 	u32 aes_mode_current = 0, aes_sw_reg = 0;
 	u32 ctr[4] = {0};
 	unsigned long polling_tmo = 0;
+	u64 hw_hie_iv_num = 0;
 
 	/* 1. set ctr */
 	aes_sw_reg = MSDC_READ32(EMMC52_AES_EN);
 
-	if (aes_sw_reg & EMMC52_AES_SWITCH_VALID0) {
-		MSDC_GET_FIELD(EMMC52_AES_CFG_GP0, EMMC52_AES_MODE_0,
-			aes_mode_current);
-	} else if (aes_sw_reg & EMMC52_AES_SWITCH_VALID1) {
-		MSDC_GET_FIELD(EMMC52_AES_CFG_GP1, EMMC52_AES_MODE_1,
-			aes_mode_current);
-	} else {
-		pr_info("MSDC: EMMC52_AES_SWITCH_VALID error in msdc reg\n");
+	hw_hie_iv_num = hie_get_iv(req);
+
+	if (aes_sw_reg & EMMC52_AES_SWITCH_VALID0)
+		MSDC_GET_FIELD(EMMC52_AES_CFG_GP0,
+			EMMC52_AES_MODE_0, aes_mode_current);
+	else if (aes_sw_reg & EMMC52_AES_SWITCH_VALID1)
+		MSDC_GET_FIELD(EMMC52_AES_CFG_GP1,
+			EMMC52_AES_MODE_1, aes_mode_current);
+	else {
+		pr_notice("MSDC: EMMC52_AES_SWITCH_VALID error in msdc reg\n");
 		WARN_ON(1);
 		return;
 	}
@@ -74,14 +66,28 @@ static void msdc_crypto_switch_config(struct msdc_host *host,
 	case MSDC_CRYPTO_XTS_AES:
 	case MSDC_CRYPTO_AES_CBC_ESSIV:
 	case MSDC_CRYPTO_BITLOCKER:
-		ctr[0] = block_address;
+	{
+		if (hw_hie_iv_num) {
+			ctr[0] = hw_hie_iv_num & 0xffffffff;
+			ctr[1] = (hw_hie_iv_num >> 32) & 0xffffffff;
+		} else {
+			ctr[0] = block_address;
+		}
 		break;
+	}
 	case MSDC_CRYPTO_AES_ECB:
 	case MSDC_CRYPTO_AES_CBC:
 		break;
 	case MSDC_CRYPTO_AES_CTR:
-		ctr[0] = block_address;
+	{
+		if (hw_hie_iv_num) {
+			ctr[0] = hw_hie_iv_num & 0xffffffff;
+			ctr[1] = (hw_hie_iv_num >> 32) & 0xffffffff;
+		} else {
+			ctr[0] = block_address;
+		}
 		break;
+	}
 	case MSDC_CRYPTO_AES_CBC_MAC:
 		break;
 	default:
@@ -103,7 +109,7 @@ static void msdc_crypto_switch_config(struct msdc_host *host,
 	}
 
 	/* 2. enable AES path */
-	msdc_enable_crypto(host);
+	MSDC_CLR_BIT32(EMMC52_AES_SWST, EMMC52_AES_BYPASS);
 
 	/* 3. AES switch start (flush the configure) */
 	if (dir == DMA_TO_DEVICE) {
@@ -138,13 +144,16 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 dir = DMA_FROM_DEVICE;
 	u32 blk_addr = 0;
 	u32 is_fde = 0, is_fbe = 0;
+#ifdef CONFIG_MTK_HW_FDE
 	unsigned int key_idx;
+#endif
 #ifdef CONFIG_HIE
 	int err;
 #endif
-	struct mmc_queue_req *mq_rq = NULL;
+	struct request *req = NULL;
 	struct mmc_blk_request *brq;
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	struct mmc_queue_req *mq_rq = NULL;
 	struct mmc_async_req *areq;
 #endif
 
@@ -158,8 +167,9 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 	/* CMDQ Command */
 	if (check_mmc_cmd4647(cmd->opcode)) {
 		areq = mmc->areq_que[(cmd->arg >> 16) & 0x1f];
-		mq_rq = container_of(areq, struct mmc_queue_req, mmc_active);
+		mq_rq = container_of(areq, struct mmc_queue_req, areq);
 		blk_addr = mq_rq->brq.que.arg;
+		req = mmc_queue_req_to_req(mq_rq);
 		goto check_hw_crypto;
 	}
 #endif
@@ -171,6 +181,7 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 		brq = container_of(mrq, struct mmc_blk_request, mrq);
 		mq_rq = container_of(brq, struct mmc_queue_req, brq);
 		blk_addr = cmd->arg;
+		req = mmc_queue_req_to_req(mq_rq);
 		goto check_hw_crypto;
 	}
 	return;
@@ -179,44 +190,63 @@ check_hw_crypto:
 	dir = cmd->data->flags & MMC_DATA_READ ?
 		DMA_FROM_DEVICE : DMA_TO_DEVICE;
 
-	if (mq_rq->req->bio && mq_rq->req->bio->bi_hw_fde) {
+#ifdef CONFIG_MTK_HW_FDE
+	if (req->bio && req->bio->bi_hw_fde) {
 		is_fde = 1;
-		key_idx = mq_rq->req->bio->bi_key_idx;
+		key_idx = req->bio->bi_key_idx;
 	}
+#endif
 #ifdef CONFIG_HIE
-	else if (hie_request_crypted(mq_rq->req))
+	if (hie_request_crypted(req))
 		is_fbe = 1;
 #endif
 
 	if (is_fde || is_fbe) {
+#ifdef CONFIG_MTK_HW_FDE
 		if (is_fde &&
 			(!host->is_crypto_init ||
 			(host->key_idx != key_idx))) {
 			/* fde init */
 			mt_secure_call(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-				(1 << 3), 4, 1);
+				(1 << 3), 4, 1, 0);
 			host->is_crypto_init = true;
 			host->key_idx = key_idx;
 		}
+#endif
 #ifdef CONFIG_HIE
 		if (is_fbe) {
 			if (!host->is_crypto_init) {
 				/* fbe init */
 				mt_secure_call(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-					(1 << 0), 4, 1);
+					(1 << 0), 4, 1, 0);
 				host->is_crypto_init = true;
 			}
 			if (dir == DMA_TO_DEVICE)
 				err = hie_encrypt(msdc_hie_get_dev(),
-					mq_rq->req, host);
-		else
-			err = hie_decrypt(msdc_hie_get_dev(),
-				mq_rq->req, host);
+					req, host);
+			else
+				err = hie_decrypt(msdc_hie_get_dev(),
+					req, host);
 			if (err) {
 				err = -EIO;
-				ERR_MSG("%s: fail in crypto hook, req: %p,
-					err %d\n", __func__, mq_rq->req, err);
+				ERR_MSG(
+			"%s: fail in crypto hook,req: %p, err %d\n",
+				__func__, req, err);
 				WARN_ON(1);
+				return;
+			}
+			if (hie_is_nocrypt())
+				return;
+			if (hie_is_dummy()) {
+				struct mmc_data *data = cmd->data;
+
+				if (dir == DMA_TO_DEVICE &&
+				    msdc_use_async_dma(data->host_cookie)) {
+					dma_unmap_sg(mmc_dev(mmc), data->sg,
+						data->sg_len, dir);
+					dma_map_sg(mmc_dev(mmc), data->sg,
+						data->sg_len, dir);
+				}
 				return;
 			}
 		}
@@ -229,13 +259,16 @@ check_hw_crypto:
 		/* Check data addressw with 16bytes alignment */
 		WARN_ON((host->dma.gpd_addr & 0xf) ||
 			(host->dma.bd_addr & 0xf));
-		msdc_crypto_switch_config(host, blk_addr, dir);
+		msdc_crypto_switch_config(host, req, blk_addr, dir);
 	}
 }
 
 static void msdc_post_crypto(struct msdc_host *host)
 {
-	msdc_disable_crypto(host);
+	void __iomem *base = host->base;
+
+	/* disable AES path by set bypass bit */
+	MSDC_SET_BIT32(EMMC52_AES_SWST, EMMC52_AES_BYPASS);
 }
 
 #ifdef CONFIG_HIE
