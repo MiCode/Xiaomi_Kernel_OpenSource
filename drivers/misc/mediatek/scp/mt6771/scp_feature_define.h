@@ -14,9 +14,6 @@
 #ifndef __SCP_FEATURE_DEFINE_H__
 #define __SCP_FEATURE_DEFINE_H__
 
-/* temporal path for build pass */
-#define CONFIG_FPGA_EARLY_PORTING
-
 
 /* scp platform configs*/
 #define SCP_BOOT_TIME_OUT_MONITOR       (1)
