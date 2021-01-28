@@ -787,6 +787,10 @@ static unsigned int sync_vio_dbg(int shift_bit)
 
 static uint32_t get_permission(int vio_index, int domain)
 {
+#ifndef MTK_SIP_KERNEL_DAPC_DUMP
+	DEVAPC_MSG("Not supported get_permission yet\n");
+	return 0xdead;
+#else
 	int slave_type;
 	int config_idx;
 	int apc_set_idx;
@@ -813,6 +817,7 @@ static uint32_t get_permission(int vio_index, int domain)
 			(ret & 0x3));
 
 	return (ret & 0x3);
+#endif
 }
 
 static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
@@ -1022,8 +1027,10 @@ static ssize_t devapc_dbg_write(struct file *file, const char __user *buffer,
 	char *tmp = NULL;
 	long i;
 	int len = 0;
+#ifdef MTK_SIP_KERNEL_DAPC_DUMP
 	int apc_set_idx;
 	uint32_t ret;
+#endif
 	long slave_type = 0, domain = 0, index = 0;
 
 	DEVAPC_MSG("[DEVAPC] debugging...\n");
@@ -1072,6 +1079,9 @@ static ssize_t devapc_dbg_write(struct file *file, const char __user *buffer,
 	}
 	DEVAPC_MSG("[DEVAPC] slave config_idx = %lu\n", index);
 
+#ifndef MTK_SIP_KERNEL_DAPC_DUMP
+	DEVAPC_MSG("Not supported get_permission yet\n");
+#else
 	ret = mt_secure_call(MTK_SIP_KERNEL_DAPC_DUMP, slave_type,
 			domain, index, 0);
 
@@ -1083,7 +1093,7 @@ static ssize_t devapc_dbg_write(struct file *file, const char __user *buffer,
 	DEVAPC_MSG("%s the permission is %s\n",
 			"[DEVAPC]",
 			perm_to_string((ret & 0x3)));
-
+#endif
 	return count;
 }
 #endif
