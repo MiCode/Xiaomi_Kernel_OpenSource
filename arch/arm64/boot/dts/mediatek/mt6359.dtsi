@@ -419,7 +419,8 @@
 				regulator-max-microvolt = <3100000>;
 				regulator-enable-ramp-delay = <480>;
 			};
-			mt_pmic_vsram_others_sshub_ldo_reg: ldo_sshub {
+			mt_pmic_vsram_others_sshub_ldo_reg:
+				ldo_vsram_others_sshub {
 				regulator-name = "vsram_others_sshub";
 				regulator-min-microvolt = <500000>;
 				regulator-max-microvolt = <1193750>;
