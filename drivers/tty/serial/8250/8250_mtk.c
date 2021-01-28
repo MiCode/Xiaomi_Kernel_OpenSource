@@ -19,6 +19,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/delay.h>
+#include "mt-plat/mtk_printk_ctrl.h"
 
 #include "8250.h"
 
@@ -438,7 +439,7 @@ static int mtk8250_handle_irq(struct uart_port *port)
 #ifndef CONFIG_FIQ_DEBUGGER
 #ifdef CONFIG_PRINTK_MTK_UART_CONSOLE
 	if (uart_console(port) && (serial_port_in(port, UART_LSR) & 0x01))
-		printk_disable_uart = 0;
+		mt_enable_uart();
 #endif
 #endif
 
@@ -501,40 +502,6 @@ mtk8250_do_pm(struct uart_port *port, unsigned int state, unsigned int old)
 		if (!pm_runtime_put_sync_suspend(port->dev))
 			mtk8250_runtime_suspend(port->dev);
 }
-
-#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
-char *mtk8250_uart_dump(void)
-{
-	u32 high_speed = 0, dll = 0, dlh = 0, line = 0;
-	u32 lcr = 0, count = 0, point = 0, guide = 0;
-	struct uart_8250_port *up = NULL;
-
-	for (line = 0; line < CONFIG_SERIAL_8250_NR_UARTS; line++) {
-		up = serial8250_get_port(line);
-		if (up->port.dev == NULL)
-			continue;
-		if (dev_get_drvdata(up->port.dev) == NULL)
-			continue;
-		if (!uart_console(&up->port))
-			continue;
-		lcr = serial_in(up, UART_LCR);
-		serial_out(up, 0x27, 0x01);
-		high_speed = serial_in(up, MTK_UART_HIGHS);
-		count = serial_in(up, MTK_UART_SAMPLE_COUNT);
-		point = serial_in(up, MTK_UART_SAMPLE_POINT);
-		dll = serial_in(up, 0x24);
-		dlh = serial_in(up, 0x25);
-		guide = serial_in(up, MTK_UART_GUARD);
-		serial_out(up, 0x27, 0x00);
-	}
-	snprintf(uart_write_statbuf,
-		sizeof(uart_write_statbuf) - 1,
-	"high_speed = 0x%x, dll = 0x%x, dlh = 0x%x, lcr = 0x%x, count = 0x%x, point = 0x%x, guide = 0x%x",
-					high_speed, dll, dlh, lcr,
-					count, point, guide);
-	return uart_write_statbuf;
-}
-#endif
 
 #ifdef CONFIG_SERIAL_8250_DMA
 static bool mtk8250_dma_filter(struct dma_chan *chan, void *param)
