@@ -15,15 +15,18 @@
 
 MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
 
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+             -I$(srctree)/include/linux/soc/mediatek
 
 # mdp platform code
 MDP_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)
 
 platformdir_exists=$(shell if [ -d ${MDP_PLATFORM_DIR} ]; then echo "y"; else echo "n"; fi;)
+$(warning platformdir_exists=$(platformdir_exists))
 ifeq ($(platformdir_exists), y)
 ccflags-y += -I$(MDP_PLATFORM_DIR)/
 else
@@ -91,16 +94,19 @@ obj-y += cmdq_mmp.o
 endif
 
 ifeq ($(platformdir_exists), y)
-obj-y += $(subst ",,$(MTK_PLATFORM))/
+obj-y += $(subst ",,$(MTK_PLATFORM)")/
 endif
+
+
 
 ifeq ($(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)),y)
 obj-y += cmdq_sec.o
 ifeq ($(strip $(CONFIG_MTK_TEE_GP_SUPPORT)),y)
 obj-y += cmdq_sec_gp.o
-else ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+else
+ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 obj-y += cmdq_sec_trustonic.o
 endif
-
+endif
 endif	# end of CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT
 

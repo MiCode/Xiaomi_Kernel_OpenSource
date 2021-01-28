@@ -28,6 +28,9 @@
 #include "cmdq_sec_iwc_common.h"
 #endif
 
+#include "mtk-cmdq.h"
+
+
 #define CMDQ_DATA_VAR		(CMDQ_BIT_VAR<<CMDQ_DATA_BIT)
 #define CMDQ_TASK_TPR_VAR	(CMDQ_DATA_VAR | CMDQ_TPR_ID)
 #define CMDQ_TASK_TEMP_CPR_VAR	(CMDQ_DATA_VAR | CMDQ_SPR_FOR_TEMP)
