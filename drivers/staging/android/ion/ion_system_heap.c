@@ -92,7 +92,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	if (buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE) {
 		__free_pages(page, order);
 		if (atomic64_sub_return((1 << order), &page_sz_cnt) < 0) {
-			seq_printf(NULL, "underflow!, total[%llu]free[%lu]\n",
+			seq_printf(NULL, "underflow!, total[%ld]free[%lu]\n",
 				   atomic64_read(&page_sz_cnt),
 				   (unsigned long)(1 << order));
 			atomic64_set(&page_sz_cnt, 0);
