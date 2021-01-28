@@ -577,7 +577,10 @@ static int mt6370_init_alert(struct tcpc_device *tcpc)
 	if (!name)
 		return -ENOMEM;
 
-	snprintf(name, PAGE_SIZE, "%s-IRQ", chip->tcpc_desc->name);
+	ret = snprintf(name, PAGE_SIZE, "%s-IRQ", chip->tcpc_desc->name);
+	if (ret < 0 || ret >= PAGE_SIZE)
+		pr_info("%s-%d, snprintf fail, ret=%d\n",
+			__func__, __LINE__, ret);
 
 	pr_info("%s name = %s, gpio = %d\n", __func__,
 				chip->tcpc_desc->name, chip->irq_gpio);
