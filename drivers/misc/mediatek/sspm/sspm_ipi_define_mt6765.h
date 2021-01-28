@@ -19,6 +19,7 @@
 #define PINS_SIZE_PPM            7
 #define PINS_SIZE_THERMAL        4
 #define PINS_SIZE_UPOWER         4
+#define PINS_SIZE_UNUSED         0
 /* ============================================================ */
 
 /* definition of slot offset for PINs */
@@ -39,7 +40,8 @@
 #define PINS_OFFSET_PPM          (PINS_OFFSET_PMIC + PINS_SIZE_PMIC)
 #define PINS_OFFSET_THERMAL      (PINS_OFFSET_PPM + PINS_SIZE_PPM)
 #define PINS_OFFSET_UPOWER       (PINS_OFFSET_THERMAL + PINS_SIZE_THERMAL)
-#define PINS_MBOX1_USED          (PINS_OFFSET_UPOWER + PINS_SIZE_UPOWER)
+#define PINS_OFFSET_UNUSED       (PINS_OFFSET_UPOWER + PINS_SIZE_UPOWER)
+#define PINS_MBOX1_USED          (PINS_OFFSET_UNUSED + PINS_SIZE_UNUSED)
 #if (PINS_MBOX1_USED > IPI_MBOX1_SLOTS)
 #error "MBOX1 cannot hold all pin definitions"
 #endif
@@ -87,6 +89,8 @@ struct _pin_send mt6765_send_pintable[] = {
 	 0, 1, 0, 0, 0, 0},
 	{{{0} }, {0}, 1, PINS_OFFSET_UPOWER,  PINS_SIZE_UPOWER,
 	 0, 1, 1, 1, 0, 0},
+	{{{0} }, {0}, 0, PINS_OFFSET_UNUSED,  PINS_SIZE_UNUSED,
+	 0, 0, 0, 0, 0, 0},
  /*====================================================================*/
 };
 #define MT6765_TOTAL_SEND_PIN	\
@@ -123,6 +127,7 @@ char *mt6765_pin_name[IPI_ID_TOTAL] = {
 	"PPM",
 	"Thermal",
 	"UPower",
+	"UN_USED",
 };
 
 #endif /* __SSPM_IPI_DEFINE_H__ */
