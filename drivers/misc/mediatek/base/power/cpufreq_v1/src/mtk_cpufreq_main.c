@@ -1660,16 +1660,20 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 	cpufreq_procfs_init();
 	_mt_cpufreq_aee_init();
 
+	ret = mt_cpufreq_regulator_map(pdev);
+	if (ret)
+		tag_pr_notice("%s regulator map fail\n", __func__);
+
 #ifdef CONFIG_HYBRID_CPU_DVFS
-	/* For SSPM probe */
+#ifdef INIT_MCUPM_VOLTAGE_SETTING
+	cpuhvfs_set_init_volt();
+#endif
+	/* For SSPM/MCUPM probe */
 	cpuhvfs_set_init_sta();
 	/* Default disable schedule assist DVFS */
 	cpuhvfs_set_sched_dvfs_disable(1);
 #endif
 
-	ret = mt_cpufreq_regulator_map(pdev);
-	if (ret)
-		tag_pr_notice("regulator map fail\n");
 
 	/* Prepare OPP table for PPM in probe to avoid nested lock */
 	for_each_cpu_dvfs(j, p) {
