@@ -431,7 +431,7 @@ int _btif_resume(struct _mtk_btif_ *p_btif)
 			i_ret = 0;
 		else if (state == B_S_SUSPEND)
 			i_ret = _btif_enter_dpidle(p_btif);
-		else
+		else if (state >= B_S_OFF && state < B_S_MAX)
 			BTIF_INFO_FUNC
 				("BTIF state: %s before resume, do nothing\n",
 						g_state[state]);
@@ -2024,11 +2024,16 @@ static int _btif_state_set(struct _mtk_btif_ *p_btif,
 	int i_ret = 0;
 	int ori_state = p_btif->state;
 
-	if (ori_state == state) {
-		BTIF_INFO_FUNC("already in %s state\n", g_state[state]);
-		return i_ret;
+	if (ori_state < 0 || ori_state >= B_S_MAX) {
+		BTIF_INFO_FUNC("ori_state is unexpected: %d\n", ori_state);
+		return E_BTIF_INVAL_STATE;
 	}
 	if ((state >= B_S_OFF) && (state < B_S_MAX)) {
+		if (ori_state == state) {
+			BTIF_INFO_FUNC("already in %s state\n", g_state[state]);
+			return i_ret;
+		}
+
 		BTIF_DBG_FUNC("%s->%s request\n", g_state[ori_state],
 			      g_state[state]);
 		if (state == B_S_ON)
@@ -3046,7 +3051,11 @@ int btif_dump_data(const char *p_buf, int len)
 
 	p_str = &str[0];
 	for (idx = 0; idx < len; idx++, p_buf++) {
-		sprintf(p_str, "%02x ", *p_buf);
+		if (sprintf(p_str, "%02x ", *p_buf) < 0) {
+			BTIF_INFO_FUNC("sprintf error");
+			return -1;
+		}
+
 		p_str += 3;
 		if (7 == (idx % 8)) {
 			*p_str++ = '\n';
