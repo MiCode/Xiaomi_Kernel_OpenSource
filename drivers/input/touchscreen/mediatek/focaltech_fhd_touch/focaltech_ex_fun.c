@@ -299,7 +299,7 @@ static int fts_debug_write(struct file *filp, const char __user *buff,
 {
 	u8 *writebuf = NULL;
 	u8 tmpbuf[PROC_BUF_SIZE] = {0};
-	int buflen = count;
+	int buflen = len;
 	int writelen = 0;
 	int ret = 0;
 	char tmp[25];
