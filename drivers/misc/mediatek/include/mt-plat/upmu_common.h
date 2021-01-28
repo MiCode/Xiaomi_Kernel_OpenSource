@@ -7,8 +7,8 @@
 #define _MT_PMIC_COMMON_H_
 
 #include <linux/types.h>
-#include <mach/upmu_sw.h>
-#include <mach/upmu_hw.h>
+//#include <mach/upmu_sw.h>
+//#include <mach/upmu_hw.h>
 
 #define MAX_DEVICE      32
 #define MAX_MOD_NAME    32

@@ -124,7 +124,6 @@ config MACH_MT6761
 	select PINCTRL
 	select PINCTRL_MT6761
 	select MFD_SYSCON
-	select MTK_BASE_POWER
 	select MTK_GIC_V3_EXT
 	select FAST_CIRQ_CLONE_FLUSH
 	select MTK_FIQ_CACHE

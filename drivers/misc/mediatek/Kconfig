@@ -21,6 +21,14 @@ endmenu # Storage
 
 menu "Power, PMIC, Battery & Low Power"
 
+config MTK_BASE_POWER
+	bool "MediaTek power management"
+	help
+	  For MediaTek power management features, such as CPU idle,
+	  CPU suspend, CPU DVFS, GPU DVFS,
+	  Select if you want to enable MediaTek power
+	  management feature.
+
 config MTK_CLK_BUFFER
 	tristate "MediaTek Clock Buffer Support"
 	select REGMAP
@@ -148,6 +156,7 @@ config MTK_UNIFY_POWER
 
 source "drivers/misc/mediatek/lpm/Kconfig"
 source "drivers/misc/mediatek/ppm_v3/Kconfig"
+source "drivers/misc/mediatek/base/power/Kconfig"
 source "drivers/misc/mediatek/pmic/Kconfig"
 endmenu # Power
 

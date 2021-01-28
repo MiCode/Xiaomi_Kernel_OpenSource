@@ -1,0 +1,73 @@
+config MTK_CPU_FREQ
+	bool "MTK CPU FREQ"
+	help
+	  This kernel config can be used to enable CPU FREQ.
+	  When enable this option, CPU frequency and voltage will be
+	  changed which will depended on CPU FREQ governor.
+	  If unsure, say N.
+
+config MTK_PTPOD
+	bool "MTK PTPOD"
+	help
+	  This kernel config can be used to enable PTPOD.
+	  When enable this option, voltage will be
+	  changed which will depended on chip.
+	  If unsure, say N.
+
+config MTK_STATIC_POWER
+	bool "MTK STATIC POWER"
+	help
+	  This kernel config can be used to enable static power.
+	  This information can provide power data to someone who
+	  need it
+	  If unsure, say N.
+
+config MTK_UNIFY_POWER
+	bool "MTK UNIFY POWER"
+	help
+	  This kernel config can be used to enable unified power table.
+	  This table can provide power data and capacity to someone who
+	  need it.
+	  If unsure, say Y.
+
+config CPU_FORCE_TO_BIN2
+	bool "Read extra efuse for BIN2 IC"
+	help
+	  This kernel config can be used to force cpu to segment BIN2.
+	  When enable this option, eem driver will read extra efuse to
+	  obtain parameters for segment BIN2 IC.
+	  If unsure, say N.
+
+config MTK_LP_OPP
+	bool "MTK LP OPP"
+	help
+	  This kernel config can be used to enable MTK LP OPP.
+	  When enable this option,
+	  cpudvfs opp will be changed for low power.
+	  If unsure, say N.
+
+config MTK_SWPM
+	bool "MTK SW Power Meter"
+	help
+	  This kernel config can be used to enable SW power meter. When enable
+	  this option, user can turn on SW power meter and get average power
+	  for each power rail for low power debugging.
+	  If unsure, say N.
+
+config MTK_QOS_FRAMEWORK
+	bool "MTK QOS FRAMEWORK"
+	help
+	  This kernel config can be used to enable MTK QOS FRAMEWORK.
+	  When enabling this option, BW Limiter and BW Bound Detector
+	  will be enabled and set EMI hardware.
+	  If unsure, say N.
+
+config MTK_QOS_V1
+	bool "MTK QOS Framework Ver 1.0"
+	default y if MACH_MT6765
+	default y if MACH_MT6761
+	help
+	  This version support QOS ver 1.0 feature sets.
+	  The dram opp could be controlled by the BW prediction.
+	  It is also mapped with sspm qos v1.
+	  If unsure, say N.

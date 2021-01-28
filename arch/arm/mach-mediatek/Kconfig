@@ -56,7 +56,6 @@ config MACH_MT6761
 	select NEON
 	select AEABI
 	select KERNEL_MODE_NEON
-	select MTK_BASE_POWER
 	select MTK_GIC_V3_EXT
 	select MTK_SYSIRQ
 	select MTK_TIMER
