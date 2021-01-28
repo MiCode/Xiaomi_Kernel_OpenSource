@@ -40,6 +40,7 @@ static struct ppm_limit_data *current_freq;
 static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
 static int log_enable;
 static unsigned long *policy_mask;
+static unsigned long *cpu_isolation;
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
 static int cfp_init_ret;
@@ -182,7 +183,39 @@ ret_update:
 }
 EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
+int update_isolation_cpu(int kicker, int enable, int cpu)
+{
+	if (kicker < 0 || kicker >= CPU_ISO_MAX_KIR) {
+		pr_debug("kicker:%d, error\n", kicker);
+		return -EINVAL;
+	}
 
+	mutex_lock(&boost_freq);
+
+	if (enable != 0)
+		set_bit(kicker, &cpu_isolation[cpu]);
+	else
+		clear_bit(kicker, &cpu_isolation[cpu]);
+
+#ifdef CONFIG_MTK_CPU_CTRL_CFP
+	if (!cfp_init_ret)
+		cpu_ctrl_cfp_isolation(enable, cpu);
+	else if (cpu_isolation[cpu] > 0)
+		sched_isolate_cpu(cpu);
+	else
+		sched_deisolate_cpu(cpu);
+#else
+	if (cpu_isolation[cpu] > 0)
+		sched_isolate_cpu(cpu);
+	else
+		sched_deisolate_cpu(cpu);
+#endif
+
+	mutex_unlock(&boost_freq);
+
+	return 0;
+}
+EXPORT_SYMBOL(update_isolation_cpu);
 
 /***************************************/
 static ssize_t perfmgr_perfserv_freq_proc_write(struct file *filp
@@ -426,6 +459,9 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 			freq_set[i][j].max = -1;
 		}
 	}
+
+	cpu_isolation = kcalloc(num_possible_cpus(), sizeof(unsigned long),
+				GFP_KERNEL);
 out:
 	return ret;
 
@@ -437,6 +473,7 @@ void cpu_ctrl_exit(void)
 
 	kfree(current_freq);
 	kfree(policy_mask);
+	kfree(cpu_isolation);
 	for (i = 0; i < CPU_MAX_KIR; i++)
 		kfree(freq_set[i]);
 

@@ -198,6 +198,7 @@ static int fbt_cap_margin_enable;
 static int ultra_rescue;
 static int loading_policy;
 static int llf_task_policy;
+static int set_isolation;
 
 static int cluster_num;
 static unsigned int cpu_max_freq;
@@ -206,6 +207,7 @@ static int max_cap_cluster, min_cap_cluster;
 static unsigned int def_capacity_margin;
 static int limit_cap;
 static int limit_cluster;
+static int limit_cpu;
 
 static int *clus_max_cap;
 
@@ -581,6 +583,23 @@ static void fbt_set_ultra_rescue_locked(int input)
 	xgf_trace("fpsgo set ultra_rescue %d", input);
 }
 
+static void fbt_set_isolation_locked(int input)
+{
+	int cpu = limit_cpu;
+	int nr_cpus = num_possible_cpus();
+
+	if (set_isolation == input)
+		return;
+
+	if (cpu >= nr_cpus || cpu < 0)
+		return;
+
+	update_isolation_cpu(CPU_ISO_KIR_FPSGO, input, cpu);
+	set_isolation = input;
+
+	xgf_trace("fpsgo set isolation %d, cpu %d", input, cpu);
+}
+
 static void fbt_filter_ppm_log_locked(int filter)
 {
 	ppm_game_mode_change_cb(filter);
@@ -610,6 +629,7 @@ static void fbt_free_bhr(void)
 	kfree(pld);
 
 	fbt_set_cap_margin_locked(0);
+	fbt_set_isolation_locked(0);
 }
 
 static void fbt_set_llf_task(int pid, int policy, unsigned int prefer_type)
@@ -846,8 +866,14 @@ static int fbt_get_heavy_pid(int size, struct fpsgo_loading *dep_arr)
 	for (i = 0; i < size; i++) {
 		struct fpsgo_loading *fl = &dep_arr[i];
 
-		if (!fl->pid || !fl->loading)
+		if (!fl->pid)
 			continue;
+
+		if (fl->loading <= 0) {
+			fl->loading = fpsgo_fbt2minitop_query_single(fl->pid);
+			if (fl->loading <= 0)
+				continue;
+		}
 
 		if (fl->loading > max) {
 			ret_pid = fl->pid;
@@ -1198,6 +1224,8 @@ static void fbt_do_jerk(struct work_struct *work)
 				fbt_do_jerk_boost(thr, blc_wt);
 				fpsgo_systrace_c_fbt(thr->pid,
 						blc_wt,	"perf idx");
+				if (blc_wt > limit_cap)
+					fbt_set_isolation_locked(0);
 			}
 
 			{
@@ -1549,14 +1577,20 @@ static void fbt_do_boost(unsigned int blc_wt, int pid)
 
 	update_userlimit_cpu_freq(CPU_KIR_FPSGO, cluster_num, pld);
 
-	if (cluster_num > 1
-		&& blc_wt < cpu_dvfs[min_cap_cluster].capacity_ratio[0]
-		&& pld[min_cap_cluster].max != -1
-		&& pld[min_cap_cluster].max
-			< cpu_dvfs[min_cap_cluster].power[0])
-		fbt_set_cap_margin_locked(1);
-	else
+	if (cluster_num == 1 || pld[max_cap_cluster].max == -1
+		|| bhr_opp == (NR_FREQ_CPU - 1)) {
 		fbt_set_cap_margin_locked(0);
+		fbt_set_isolation_locked(0);
+	} else {
+		fbt_set_isolation_locked(1);
+
+		if (blc_wt < cpu_dvfs[min_cap_cluster].capacity_ratio[0]
+			&& pld[min_cap_cluster].max
+				< cpu_dvfs[min_cap_cluster].power[0])
+			fbt_set_cap_margin_locked(1);
+		else
+			fbt_set_cap_margin_locked(0);
+	}
 
 	kfree(pld);
 	kfree(clus_opp);
@@ -2214,6 +2248,7 @@ static void fbt_setting_reset(int reset_idleprefer)
 	fbt_set_sync_flag_locked(-1);
 	fbt_set_cap_margin_locked(0);
 	fbt_free_bhr();
+	fbt_set_isolation_locked(0);
 
 	if (boost_ta)
 		fbt_clear_boost_value();
@@ -2603,12 +2638,16 @@ static void fbt_set_cap_limit(void)
 	int limit_freq = 0, limit_ret;
 	int limit_opp;
 	int cluster;
+	struct cpumask cluster_cpus;
+	int nr_cpus;
+	int cpu;
 
 	if (limit_cap)
 		return;
 
 	limit_cluster = -1;
 	limit_cap = 0;
+	limit_cpu = -1;
 
 	limit_ret = fbt_get_cluster_limit(&cluster, &limit_freq);
 	if (!limit_ret)
@@ -2619,6 +2658,14 @@ static void fbt_set_cap_limit(void)
 
 	if (!limit_freq) {
 		limit_cluster = cluster;
+
+		nr_cpus = num_possible_cpus();
+		arch_get_cluster_cpus(&cluster_cpus, cluster);
+		cpu = cpumask_first(&cluster_cpus);
+		if (cpu >= nr_cpus || cpu < 0)
+			return;
+
+		limit_cpu = cpu;
 
 		if (max_cap_cluster > min_cap_cluster)
 			cluster--;
