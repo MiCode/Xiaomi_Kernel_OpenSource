@@ -203,6 +203,10 @@ static long ged_dispatch(struct file *pFile,
 			VALIDATE_ARG(GPU_HINT_TO_CPU);
 			ret = ged_bridge_gpu_hint_to_cpu(pvIn, pvOut);
 			break;
+		case GED_BRIDGE_COMMAND_HINT_FORCE_MDP:
+			VALIDATE_ARG(HINT_FORCE_MDP);
+			ret = ged_bridge_hint_force_mdp(pvIn, pvOut);
+			break;
 		case GED_BRIDGE_COMMAND_GE_ALLOC:
 			VALIDATE_ARG(GE_ALLOC);
 			ret = ged_bridge_ge_alloc(pvIn, pvOut);

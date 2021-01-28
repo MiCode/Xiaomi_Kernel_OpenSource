@@ -173,4 +173,30 @@ int ged_bridge_gpu_hint_to_cpu(
 	return 0;
 }
 
+//-----------------------------------------------------------------------------
+static int ged_force_mdp_enable;
+int ged_bridge_hint_force_mdp(
+	struct GED_BRIDGE_IN_HINT_FORCE_MDP *psHintForceMdpIn,
+	struct GED_BRIDGE_OUT_HINT_FORCE_MDP *psHintForceMdpOut)
+{
+	/* Set flag */
+	if (psHintForceMdpIn->hint != -1) {
+		ged_force_mdp_enable = psHintForceMdpIn->hint;
+		psHintForceMdpOut->eError =
+			(ged_force_mdp_enable == psHintForceMdpIn->hint) ?
+			GED_OK : GED_ERROR_FAIL;
+	}
+	/* Get flag */
+	else {
+		psHintForceMdpOut->mdp_flag = ged_force_mdp_enable;
+		psHintForceMdpOut->eError =
+			(ged_force_mdp_enable == psHintForceMdpOut->mdp_flag) ?
+			GED_OK : GED_ERROR_FAIL;
+	}
+
+	return 0;
+}
+//-----------------------------------------------------------------------------
+
 module_param(ged_boost_enable, uint, 0644);
+module_param(ged_force_mdp_enable, int, 0644);

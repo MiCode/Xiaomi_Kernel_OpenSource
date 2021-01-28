@@ -61,6 +61,10 @@ int ged_bridge_gpu_hint_to_cpu(
 	struct GED_BRIDGE_IN_GPU_HINT_TO_CPU *in,
 	struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU *out);
 
+int ged_bridge_hint_force_mdp(
+	struct GED_BRIDGE_IN_HINT_FORCE_MDP *psHintForceMdpIn,
+	struct GED_BRIDGE_OUT_HINT_FORCE_MDP *psHintForceMdpOut);
+
 int ged_bridge_gpu_timestamp(
 	struct GED_BRIDGE_IN_GPU_TIMESTAMP *psGpuBeginINT,
 	struct GED_BRIDGE_OUT_GPU_TIMESTAMP *psGpuBeginOUT);

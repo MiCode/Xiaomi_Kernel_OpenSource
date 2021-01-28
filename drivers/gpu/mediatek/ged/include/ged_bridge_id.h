@@ -48,6 +48,7 @@ struct GED_BRIDGE_PACKAGE {
 #define GED_BRIDGE_COMMAND_QUERY_TARGET_FPS 11
 #define GED_BRIDGE_COMMAND_VSYNC_WAIT 12
 #define GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU 13
+#define GED_BRIDGE_COMMAND_HINT_FORCE_MDP 14
 
 #define GED_BRIDGE_COMMAND_GE_ALLOC 100
 #define GED_BRIDGE_COMMAND_GE_GET 101
@@ -84,6 +85,8 @@ struct GED_BRIDGE_PACKAGE {
 	GED_IOWR(GED_BRIDGE_COMMAND_VSYNC_WAIT)
 #define GED_BRIDGE_IO_GPU_HINT_TO_CPU \
 	GED_IOWR(GED_BRIDGE_COMMAND_GPU_HINT_TO_CPU)
+#define GED_BRIDGE_IO_HINT_FORCE_MDP \
+	GED_IOWR(GED_BRIDGE_COMMAND_HINT_FORCE_MDP)
 
 #define GED_BRIDGE_IO_GE_ALLOC \
 	GED_IOWR(GED_BRIDGE_COMMAND_GE_ALLOC)
@@ -311,6 +314,19 @@ struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU {
 	GED_ERROR eError;
 	int32_t boost_flag; // 1:boost 0:not_boost
 	int32_t boost_value;
+};
+
+/******************************************************************************
+ *  HINT VIDEO CODEC FORCE MDP
+ ******************************************************************************/
+struct GED_BRIDGE_IN_HINT_FORCE_MDP {
+	int32_t i32BridgeFD;
+	int32_t hint; /* 1: Do MDP, 0: No MDP, -1: No overwrite */
+};
+
+struct GED_BRIDGE_OUT_HINT_FORCE_MDP {
+	GED_ERROR eError;
+	int32_t mdp_flag; /* 1: Do MDP, 0: No MDP */
 };
 
 /*****************************************************************************
