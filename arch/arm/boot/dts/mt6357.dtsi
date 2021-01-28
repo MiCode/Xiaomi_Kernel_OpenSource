@@ -47,6 +47,7 @@
 		compatible = "mediatek,pmic-auxadc",
 			     "mediatek,mt6357-auxadc";
 		#io-channel-cells = <1>;
+		#interconnect-cells = <1>;
 		batadc {
 			channel = <AUXADC_BATADC>;
 			resistance-ratio = <3 1>;
@@ -127,6 +128,35 @@
 
 	mtk_ts_pmic: mtk_ts_pmic {
 		compatible = "mediatek,mtk_ts_pmic";
+		io-channels =
+			<&pmic_auxadc AUXADC_CHIP_TEMP>,
+			<&pmic_auxadc AUXADC_VCORE_TEMP>,
+			<&pmic_auxadc AUXADC_VPROC_TEMP>;
+		io-channel-names =
+			"pmic_chip_temp",
+			"pmic_buck1_temp",
+			"pmic_buck2_temp";
+		interconnects = <&pmic_auxadc 1>;
+		#interconnect-cells = <1>;
+	};
+
+	mt6357_ts_buck1: mt6357_ts_buck1 {
+		compatible = "mediatek,mt6357_ts_buck1";
+		io-channels =
+			<&pmic_auxadc AUXADC_VCORE_TEMP>;
+		io-channel-names =
+			"pmic_buck1_temp";
+		interconnects = <&mtk_ts_pmic 1>;
+
+	};
+	mt6357_ts_buck2: mt6357_ts_buck2 {
+		compatible = "mediatek,mt6357_ts_buck2";
+		io-channels =
+			<&pmic_auxadc AUXADC_VPROC_TEMP>;
+		io-channel-names =
+			"pmic_buck2_temp";
+		interconnects = <&mtk_ts_pmic 1>;
+
 	};
 
 	pmic_efuse: pmic_efuse {
