@@ -7247,7 +7247,7 @@ irqreturn_t ISP_Irq_CAMSV(
 			(unsigned int)(sec);
 
 		if (IspInfo.DebugMask & ISP_DBG_INT) {
-			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_INF,
+			IRQ_LOG_KEEPER(module, m_CurrentPPB, _LOG_DBG,
 				"%s P1_DON_%d(0x%08x_0x%08x) stamp[0x%08x]\n",
 				str,
 				(sof_count[module]) ?
@@ -7280,7 +7280,7 @@ irqreturn_t ISP_Irq_CAMSV(
 			}
 
 			IRQ_LOG_KEEPER(
-				module, m_CurrentPPB, _LOG_INF,
+				module, m_CurrentPPB, _LOG_DBG,
 				"%s P1_SOF_%d_%d(0x%08x_0x%08x,0x%08x),int_us:0x%08x, stamp[0x%08x]\n",
 				str,
 				sof_count[module], cur_v_cnt,
