@@ -36,7 +36,7 @@
 #define MT_MTCMOS_ENABLE	1
 #endif
 
-#define CHECK_VCORE_FREQ	1
+#define CHECK_VCORE_FREQ	0
 #define LOW_POWER_CLK_PDN	0
 /*fmeter div select 4*/
 #define _DIV4_ 1
