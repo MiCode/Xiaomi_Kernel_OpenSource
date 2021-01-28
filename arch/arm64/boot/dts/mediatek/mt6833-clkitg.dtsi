@@ -19,7 +19,6 @@
 		compatible = "mediatek,clk-bring-up";
 		clocks =
 			/* MTCMOS */
-			<&scpsys SCP_SYS_MD1>,
 			<&clk26m>,
 			<&scpsys SCP_SYS_MFG0>,
 			<&scpsys SCP_SYS_MFG1>,
