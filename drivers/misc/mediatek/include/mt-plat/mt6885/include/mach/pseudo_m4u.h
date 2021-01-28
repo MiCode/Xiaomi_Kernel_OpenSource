@@ -114,6 +114,9 @@ struct m4u_buf_info_t {
 	unsigned long size_align;
 	int seq_id;
 	unsigned long mapped_kernel_va_for_debug;
+	unsigned long long timestamp;
+	char task_comm[TASK_COMM_LEN];
+	pid_t pid;
 };
 
 struct m4u_client_t {
@@ -244,6 +247,12 @@ int pseudo_get_iova_space(int port,
 		struct list_head *list);
 void pseudo_put_iova_space(int port,
 		struct list_head *list);
+void m4u_dump_pgtable(unsigned int level);
+void __m4u_dump_pgtable(struct seq_file *s, unsigned int level,
+		bool lock);
+int pseudo_dump_port(int port);
+int pseudo_dump_all_port_status(struct seq_file *s);
+int pseudo_dump_iova_reserved_region(struct seq_file *s);
 
 /* =========== register defination =========== */
 #define F_VAL(val, msb, lsb) (((val)&((1<<(msb-lsb+1))-1))<<lsb)
@@ -264,5 +273,6 @@ void pseudo_put_iova_space(int port,
 #define F_SMI_SEC_MMU_EN(en)	F_BIT_VAL(en, 0)
 #define F_SMI_SEC_EN(sec)	F_BIT_VAL(sec, 1)
 #define F_SMI_DOMN(domain)	F_VAL(domain, 8, 4)
+#define F_SMI_DOMN_VAL(regval)	F_MSK_SHIFT(regval, 8, 4)
 
 #endif

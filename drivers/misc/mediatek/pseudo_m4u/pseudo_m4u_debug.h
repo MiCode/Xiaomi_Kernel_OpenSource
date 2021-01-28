@@ -26,9 +26,7 @@ extern int m4u_sec_init(void);
 extern int m4u_config_port_tee(struct M4U_PORT_STRUCT *pM4uPort);
 #endif
 
-void m4u_dump_pgtable(void);
-struct m4u_client_t *pseudo_create_client(void);
-int pseudo_destroy_client(struct m4u_client_t *client);
+struct m4u_client_t *pseudo_get_m4u_client(void);
 int __pseudo_alloc_mva(struct m4u_client_t *client,
 	int port, unsigned long va, unsigned long size,
 	struct sg_table *sg_table, unsigned int flags,
@@ -36,8 +34,8 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 int pseudo_dealloc_mva(struct m4u_client_t *client,
 	int port, unsigned long mva);
 struct device *pseudo_get_larbdev(int portid);
-int pseudo_dump_all_port_status(struct seq_file *s);
-int pseudo_dump_iova_reserved_region(void);
+int larb_clock_on(int larb, bool config_mtcmos);
+int larb_clock_off(int larb, bool config_mtcmos);
 
 #endif
 
