@@ -2154,7 +2154,7 @@ page_owner=on loop.max_part=7";
 			<GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&adsp_common 2>, /*channel 2*/
 			<&adsp_common 3>; /*channel 3*/
-		feature_control_bits = <0x8F00F>;
+		feature_control_bits = <0x18F00F>;
 	};
 
 	dramc_ch1_rsv0@10900000 {
@@ -2748,6 +2748,7 @@ page_owner=on loop.max_part=7";
 		mtk_dsp_call_final = <0x5 0x0 0x10 0x14 0x18000>;
 		mtk_dsp_fast = <0x5 0xffffffff 0xffffffff 0xffffffff 0x5000>;
 		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
+		mtk_dsp_capture_raw = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
 		mtk_dsp_ver = <0x1>;
 		swdsp_smartpa_process_enable = <0x5>;
 		mtk_dsp_mem_afe = <0x1 0x40000>; /* always enable */
