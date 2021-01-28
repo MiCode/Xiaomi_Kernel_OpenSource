@@ -39,13 +39,6 @@ struct mt6360_regulator_desc {
 	unsigned int moder_mask;
 };
 
-static const struct mt6360_ldo_platform_data def_platform_data = {
-	.ldo1_ctrls = { 0x00, 0x80, 0x01, 0x2c, 0x44 },
-	.ldo2_ctrls = { 0x00, 0x80, 0x01, 0x2c, 0x44 },
-	.ldo3_ctrls = { 0x00, 0x80, 0x01, 0x6c, 0x84 },
-	.ldo5_ctrls = { 0x00, 0x80, 0x81, 0x2c, 0x84 },
-};
-
 static const u8 ldo_ctrl_mask[MT6360_LDO_CTRLS_NUM] = {
 	0xff, 0x8f, 0xff, 0xff, 0xff
 };
@@ -637,35 +630,13 @@ static const struct mt6360_pdata_prop mt6360_pdata_props[] = {
 static int mt6360_ldo_apply_pdata(struct mt6360_ldo_info *mli,
 				  struct mt6360_ldo_platform_data *pdata)
 {
-	int i, ret;
+	int ret;
 
 	dev_dbg(mli->dev, "%s ++\n", __func__);
 	ret = mt6360_pdata_apply_helper(mli, pdata, mt6360_pdata_props,
 					ARRAY_SIZE(mt6360_pdata_props));
 	if (ret < 0)
 		return ret;
-	for (i = 0; i < MT6360_LDO_CTRLS_NUM; i++) {
-		ret = mt6360_ldo_reg_update_bits(mli,
-				 MT6360_LDO_LDO1_EN_CTRL1 + i, ldo_ctrl_mask[i],
-				 pdata->ldo1_ctrls[i]);
-		if (ret < 0)
-			return ret;
-		ret = mt6360_ldo_reg_update_bits(mli,
-				 MT6360_LDO_LDO2_EN_CTRL1 + i, ldo_ctrl_mask[i],
-				 pdata->ldo2_ctrls[i]);
-		if (ret < 0)
-			return ret;
-		ret = mt6360_ldo_reg_update_bits(mli,
-				 MT6360_LDO_LDO3_EN_CTRL1 + i, ldo_ctrl_mask[i],
-				 pdata->ldo3_ctrls[i]);
-		if (ret < 0)
-			return ret;
-		ret = mt6360_ldo_reg_update_bits(mli,
-				 MT6360_LDO_LDO5_EN_CTRL1 + i, ldo_ctrl_mask[i],
-				 pdata->ldo5_ctrls[i]);
-		if (ret < 0)
-			return ret;
-	}
 	dev_dbg(mli->dev, "%s --\n", __func__);
 	return 0;
 }
@@ -681,7 +652,6 @@ static int mt6360_ldo_parse_dt_data(struct device *dev,
 	int res_cnt, ret;
 
 	dev_dbg(dev, "%s ++\n", __func__);
-	memcpy(pdata, &def_platform_data, sizeof(*pdata));
 	mt6360_dt_parser_helper(np, (void *)pdata,
 				mt6360_val_props, ARRAY_SIZE(mt6360_val_props));
 	res_cnt = of_irq_count(np);
@@ -695,14 +665,6 @@ static int mt6360_ldo_parse_dt_data(struct device *dev,
 	ret = of_irq_to_resource_table(np, res, res_cnt);
 	pdata->irq_res = res;
 	pdata->irq_res_cnt = ret;
-	of_property_read_u8_array(np, "ldo1_ctrls",
-				  pdata->ldo1_ctrls, MT6360_LDO_CTRLS_NUM);
-	of_property_read_u8_array(np, "ldo2_ctrls",
-				  pdata->ldo2_ctrls, MT6360_LDO_CTRLS_NUM);
-	of_property_read_u8_array(np, "ldo3_ctrls",
-				  pdata->ldo3_ctrls, MT6360_LDO_CTRLS_NUM);
-	of_property_read_u8_array(np, "ldo5_ctrls",
-				  pdata->ldo5_ctrls, MT6360_LDO_CTRLS_NUM);
 bypass_irq_res:
 	dev_dbg(dev, "%s --\n", __func__);
 	return 0;
