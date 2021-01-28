@@ -567,8 +567,7 @@ static int ion_client_record_show(struct seq_file *seq, void *record,
 {
 	struct ion_client_record *client_record = record;
 
-	if (!client_record || !client_record->client_name ||
-	    !client_record->dbg_name)
+	if (!client_record)
 		return 0;
 
 	if (client_record->address > CLIENT_ADDRESS_FLAG_MAX) {
