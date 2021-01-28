@@ -239,10 +239,11 @@ static ssize_t mtk_dbg_get_system_stats(char *ToUserBuf,
 
 	share_mem = (u32 *)get_smem_start_addr(MD_SYS1,
 		SMEM_USER_LOW_POWER, NULL);
-	share_mem = share_mem + MD_SLEEP_INFO_SMEM_OFFEST;
-	memset(&md_data, 0, sizeof(struct md_sleep_status));
-	memcpy(&md_data, share_mem, sizeof(struct md_sleep_status));
-
+	if (share_mem != NULL) {
+		share_mem = share_mem + MD_SLEEP_INFO_SMEM_OFFEST;
+		memset(&md_data, 0, sizeof(struct md_sleep_status));
+		memcpy(&md_data, share_mem, sizeof(struct md_sleep_status));
+	}
 	len = snprintf(ToUserBuf, sz,
 	"26M:%lld:%lld.%03lld\nAP:%lld:%lld.%03lld\nMD:%lld:%lld.%03lld\n",
 	spm_26M_off_count,
