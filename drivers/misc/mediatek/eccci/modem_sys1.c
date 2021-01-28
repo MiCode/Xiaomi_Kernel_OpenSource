@@ -541,6 +541,8 @@ static void debug_in_flight_mode(struct ccci_modem *md)
 		ccci_get_per_md_data(md->index);
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 
+	en_power_check = check_power_off_en(md);
+
 	count = 5;
 	while (spm_is_md1_sleep() == 0) {
 		count--;
@@ -1368,24 +1370,37 @@ int ccci_modem_init_common(struct platform_device *plat_dev,
 	/* init modem private data */
 	md_info = (struct md_sys1_info *)md->private_data;
 
-	snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
+	ret = snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
 		"md%d_cldma_trm", md_id + 1);
-	md->trm_wake_lock = wakeup_source_register(NULL, md->trm_wakelock_name);
-	if (!md->trm_wake_lock) {
+	if (ret <= 0 || ret >= sizeof(md->trm_wakelock_name)) {
 		CCCI_ERROR_LOG(md->index, TAG,
-			"%s %d: init wakeup source fail",
+			"%s %d, md->trm_wakelock_name maybe wrong\n",
 			__func__, __LINE__);
 		return -1;
 	}
-	snprintf(md_info->peer_wakelock_name,
+/*need review:wakeup_source_register*/
+	md->trm_wake_lock = wakeup_source_register(NULL, md->trm_wakelock_name);
+	if (!md->trm_wake_lock) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s %d: init wakeup source fail\n",
+			__func__, __LINE__);
+		return -1;
+	}
+	ret = snprintf(md_info->peer_wakelock_name,
 		sizeof(md_info->peer_wakelock_name),
 		"md%d_cldma_peer", md_id + 1);
+	if (ret <= 0 || ret >= sizeof(md_info->peer_wakelock_name)) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s %d,md_info->peer_wakelock_name maybe wrong\n",
+			__func__, __LINE__);
+		return -1;
+	}
 
 	md_info->peer_wake_lock =
 		wakeup_source_register(NULL, md_info->peer_wakelock_name);
 	if (!md_info->peer_wake_lock) {
 		CCCI_ERROR_LOG(md->index, TAG,
-			"%s %d: init wakeup source fail",
+			"%s %d: init wakeup source fail\n",
 			__func__, __LINE__);
 		return -1;
 	}

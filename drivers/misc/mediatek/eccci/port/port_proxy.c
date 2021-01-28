@@ -76,6 +76,11 @@ int port_dev_open(struct inode *inode, struct file *file)
 	struct port_t *port;
 
 	port = port_get_by_node(major, minor);
+	if (!port) {
+		CCCI_ERROR_LOG(1, CHAR,
+			"%s:port_get_by_node fail\n", __func__);
+		return -ENODEV;
+	}
 	if (port->rx_ch != CCCI_CCB_CTRL && atomic_read(&port->usage_cnt)) {
 		CCCI_ERROR_LOG(port->md_id, CHAR,
 			"port %s open fail with EBUSY\n", port->name);
@@ -431,7 +436,7 @@ static void port_dump_string(struct port_t *port, int dir,
 #define DUMP_BUF_SIZE 32
 	unsigned char *char_ptr = (unsigned char *)msg_buf;
 	char buf[DUMP_BUF_SIZE];
-	int i, j;
+	int i, j, ret;
 	u64 ts_nsec;
 	unsigned long rem_nsec;
 	char *replace_str;
@@ -458,12 +463,24 @@ static void port_dump_string(struct port_t *port, int dir,
 				replace_str = "";
 				break;
 			}
-			snprintf(buf+j, DUMP_BUF_SIZE - j,
+			ret = snprintf(buf+j, DUMP_BUF_SIZE - j,
 				"%s", replace_str);
+			if (ret <= 0 || ret >= DUMP_BUF_SIZE - j) {
+				CCCI_ERROR_LOG(port->md_id, TAG,
+					"%s snprintf replace_str fail\n",
+					__func__);
+				break;
+			}
 			j += 2;
 		} else {
-			snprintf(buf+j, DUMP_BUF_SIZE - j,
+			ret = snprintf(buf+j, DUMP_BUF_SIZE - j,
 				"[%02X]", char_ptr[i]);
+			if (ret <= 0 || ret >= DUMP_BUF_SIZE - j) {
+				CCCI_ERROR_LOG(port->md_id, TAG,
+					"%s snprintf char_ptr0[%d] fail\n",
+					__func__, i);
+				break;
+			}
 			j += 4;
 		}
 	}
@@ -1102,6 +1119,11 @@ static inline void proxy_dispatch_queue_status(struct port_proxy *proxy_p,
 	int match = 0;
 	int i, matched = 0;
 
+	if (hif < CLDMA_HIF_ID || hif >= CCCI_HIF_NUM) {
+		CCCI_ERROR_LOG(proxy_p->md_id, CORE,
+			"%s:hif:%d is inval\n", __func__, hif);
+		return;
+	}
 	/*EE then notify EE port*/
 	if (unlikely(ccci_fsm_get_md_state(proxy_p->md_id)
 		== EXCEPTION)) {
@@ -1202,6 +1224,12 @@ static inline int proxy_register_char_dev(struct port_proxy *proxy_p)
 {
 	int ret = 0;
 	dev_t dev = 0;
+
+	if (!proxy_p) {
+		CCCI_ERROR_LOG(-1, CHAR, "%s:proxy_p is null\n",
+		__func__);
+		return -1;
+	}
 
 	if (proxy_p->major) {
 		dev = MKDEV(proxy_p->major, proxy_p->minor_base);
