@@ -573,6 +573,10 @@ int pd_core_init(struct tcpc_device *tcpc_dev)
 	pd_port->tcpc_dev = tcpc_dev;
 	pd_port->pe_pd_state = PE_IDLE2;
 
+#ifdef CONFIG_COMPATIBLE_APPLE_TA
+	pd_port->apple_ccopen_flag = false;
+#endif
+
 	ret = pd_parse_pdata(pd_port);
 	if (ret)
 		return ret;
@@ -1176,6 +1180,7 @@ int pd_send_hard_reset(struct pd_port *pd_port)
 	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
 
 	PE_DBG("Send HARD Reset\r\n");
+	__pm_wakeup_event(&tcpc_dev->attach_wake_lock, 6000);
 
 	pd_port->pe_data.hard_reset_counter++;
 	pd_notify_pe_send_hard_reset(pd_port);
@@ -1227,7 +1232,10 @@ int pd_send_svdm_request(struct pd_port *pd_port,
 	uint8_t ver = SVDM_REV10;
 	uint32_t payload[PD_DATA_OBJ_SIZE];
 
-	PD_BUG_ON(cnt > VDO_MAX_NR);
+	if (cnt > VDO_MAX_NR) {
+		PD_BUG_ON(1);
+		return -EINVAL;
+	}
 
 #ifdef CONFIG_USB_PD_REV30
 	if (pd_check_rev30(pd_port))
@@ -1277,7 +1285,7 @@ int pd_reply_svdm_request(struct pd_port *pd_port,
 
 	payload[0] = VDO_REPLY(ver, reply, pd_get_msg_vdm_hdr(pd_port));
 
-	if (cnt > 0) {
+	if (cnt > 0 && cnt <= PD_DATA_OBJ_SIZE - 1) {
 		PD_BUG_ON(data_obj == NULL);
 		memcpy(&payload[1], data_obj, sizeof(uint32_t) * cnt);
 	}

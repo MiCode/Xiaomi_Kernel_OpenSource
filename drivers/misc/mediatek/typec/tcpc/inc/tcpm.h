@@ -143,7 +143,10 @@ enum {
 	TCP_NOTIFY_ALERT,
 	TCP_NOTIFY_STATUS,
 	TCP_NOTIFY_REQUEST_BAT_INFO,
-	TCP_NOTIFY_MISC_END = TCP_NOTIFY_REQUEST_BAT_INFO,
+	TCP_NOTIFY_WD_STATUS,
+	TCP_NOTIFY_CABLE_TYPE,
+	TCP_NOTIFY_PLUG_OUT,
+	TCP_NOTIFY_MISC_END = TCP_NOTIFY_PLUG_OUT,
 };
 
 struct tcp_ny_pd_state {
@@ -286,6 +289,21 @@ struct tcp_ny_request_bat {
 	enum pd_battery_reference ref;
 };
 
+struct tcp_ny_wd_status {
+	bool water_detected;
+};
+
+enum tcpc_cable_type {
+	TCPC_CABLE_TYPE_NONE = 0,
+	TCPC_CABLE_TYPE_A2C,
+	TCPC_CABLE_TYPE_C2C,
+	TCPC_CABLE_TYPE_MAX,
+};
+
+struct tcp_ny_cable_type {
+	enum tcpc_cable_type type;
+};
+
 struct tcp_notify {
 	union {
 		struct tcp_ny_enable_state en_state;
@@ -302,6 +320,8 @@ struct tcp_notify {
 		struct tcp_ny_alert alert_msg;
 		struct tcp_ny_status status_msg;
 		struct tcp_ny_request_bat request_bat;
+		struct tcp_ny_wd_status wd_status;
+		struct tcp_ny_cable_type cable_type;
 	};
 };
 

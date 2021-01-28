@@ -94,9 +94,9 @@
 #define PDO_FIXED_PEAK_CURR(i) \
 	((i & 0x03) << 20) /* [21..20] Peak current */
 #define PDO_FIXED_VOLT(mv)  \
-	((((mv)/50) & 0x3fff) << 10) /* Voltage in 50mV units */
+	((((mv)/50) & 0x3ff) << 10) /* Voltage in 50mV units */
 #define PDO_FIXED_CURR(ma)  \
-	((((ma)/10) & 0x3fff) << 0)  /* Max current in 10mA units */
+	((((ma)/10) & 0x3ff) << 0)  /* Max current in 10mA units */
 
 #define PDO_TYPE(raw)	(raw & PDO_TYPE_MASK)
 #define PDO_TYPE_VAL(raw)	(PDO_TYPE(raw) >> 30)
@@ -1034,7 +1034,9 @@ struct pd_port {
 	struct work_struct fg_bat_work;
 	struct notifier_block fg_bat_nb;
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
-
+#ifdef CONFIG_COMPATIBLE_APPLE_TA
+	bool apple_ccopen_flag;
+#endif /* CONFIG_COMPATIBLE_APPLE_TA */
 };
 
 static inline struct dp_data *pd_get_dp_data(struct pd_port *pd_port)
