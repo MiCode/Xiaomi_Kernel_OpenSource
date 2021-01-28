@@ -4815,6 +4815,9 @@ void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 {
 	struct task_struct *curr = current;
 
+	if (!debug_locks_off())
+		return;
+
 	lockdep_aee();
 
 	/* Note: the following can be executed concurrently, so be careful. */
