@@ -90,8 +90,9 @@ static bool sdio_online_tune_fail;
 static void msdc_dump_all_register(struct msdc_host *host);
 static void msdc_cmd_next(struct msdc_host *host,
 		struct mmc_request *mrq, struct mmc_command *cmd);
+#ifndef SUPPORT_LEGACY_SDIO
 static void msdc_recheck_sdio_irq(struct msdc_host *host);
-
+#endif
 static const u32 cmd_ints_mask = MSDC_INTEN_CMDRDY | MSDC_INTEN_RSPCRCERR |
 			MSDC_INTEN_CMDTMO | MSDC_INTEN_ACMDRDY |
 			MSDC_INTEN_ACMDCRCERR | MSDC_INTEN_ACMDTMO;
@@ -505,7 +506,9 @@ static void msdc_request_done(struct msdc_host *host, struct mmc_request *mrq)
 	if (mrq->data)
 		msdc_unprepare_data(host, mrq);
 	mmc_request_done(host->mmc, mrq);
+#ifndef SUPPORT_LEGACY_SDIO
 	msdc_recheck_sdio_irq(host);
+#endif
 }
 
 /* returns true if command is fully handled; returns false otherwise */
@@ -3440,6 +3443,7 @@ static void msdc_hw_reset(struct mmc_host *mmc)
  * can be processed immediately
  *
  */
+#ifndef SUPPORT_LEGACY_SDIO
 static void msdc_recheck_sdio_irq(struct msdc_host *host)
 {
 	u32 reg_int, reg_ps, reg_inten;
@@ -3454,6 +3458,7 @@ static void msdc_recheck_sdio_irq(struct msdc_host *host)
 			mmc_signal_sdio_irq(host->mmc);
 	}
 }
+#endif
 
 static void msdc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 {
@@ -3469,6 +3474,7 @@ static void msdc_enable_sdio_irq(struct mmc_host *mmc, int enable)
 		else
 			host->disable_sdio_eirq(); /* combo_sdio_disable_eirq */
 	}
+	return;
 #endif
 
 	if (enable) {
@@ -3908,6 +3914,12 @@ static int msdc_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+
+#ifdef SUPPORT_LEGACY_SDIO
+	msdc_save_reg(host);
+	msdc_gate_clock(host);
+	return 0;
+#else
 	unsigned long flags;
 
 	msdc_save_reg(host);
@@ -3927,12 +3939,19 @@ static int msdc_runtime_suspend(struct device *dev)
 	}
 	spin_unlock_irqrestore(&host->irqlock, flags);
 	return 0;
+#endif
 }
 
 static int msdc_runtime_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+
+#ifdef SUPPORT_LEGACY_SDIO
+	msdc_ungate_clock(host);
+	msdc_restore_reg(host);
+	return 0;
+#else
 	unsigned long flags;
 
 	spin_lock_irqsave(&host->irqlock, flags);
@@ -3948,6 +3967,7 @@ static int msdc_runtime_resume(struct device *dev)
 	msdc_restore_reg(host);
 	enable_irq(host->irq);
 	return 0;
+#endif
 }
 #endif
 
