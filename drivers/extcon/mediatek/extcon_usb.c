@@ -131,6 +131,12 @@ static void issue_connection_work(unsigned int dr)
 #if !defined(CONFIG_USB_MU3D_DRV)
 void mt_usb_connect(void)
 {
+#ifndef CONFIG_TCPC_CLASS
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_to_device();
+#endif
+#endif
+
 	pr_info("%s\n", __func__);
 	issue_connection_work(DUAL_PROP_DR_DEVICE);
 }
@@ -138,6 +144,12 @@ EXPORT_SYMBOL_GPL(mt_usb_connect);
 
 void mt_usb_disconnect(void)
 {
+#ifndef CONFIG_TCPC_CLASS
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_to_none();
+#endif
+#endif
+
 	pr_info("%s\n", __func__);
 	issue_connection_work(DUAL_PROP_DR_NONE);
 }
@@ -146,6 +158,12 @@ EXPORT_SYMBOL_GPL(mt_usb_disconnect);
 
 void mt_usbhost_connect(void)
 {
+#ifndef CONFIG_TCPC_CLASS
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_to_host();
+#endif
+#endif
+
 	pr_info("%s\n", __func__);
 	issue_connection_work(DUAL_PROP_DR_HOST);
 }
@@ -153,6 +171,12 @@ EXPORT_SYMBOL_GPL(mt_usbhost_connect);
 
 void mt_usbhost_disconnect(void)
 {
+#ifndef CONFIG_TCPC_CLASS
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_to_none();
+#endif
+#endif
+
 	pr_info("%s\n", __func__);
 	issue_connection_work(DUAL_PROP_DR_NONE);
 }
@@ -197,6 +221,12 @@ static int usb_extcon_probe(struct platform_device *pdev)
 	info->dr = DUAL_PROP_DR_NONE;
 	info->extcon_workq = create_singlethread_workqueue("usb_extcon_workq");
 	g_extcon_info = info;
+
+#ifndef CONFIG_TCPC_CLASS
+#ifdef CONFIG_DUAL_ROLE_USB_INTF
+	mt_usb_dual_role_init(g_extcon_info->dev);
+#endif
+#endif
 
 	/* Perform initial detection */
 	/* issue_connection_work(DUAL_PROP_DR_NONE); */
