@@ -39,15 +39,12 @@
 				 <PINMUX_GPIO174__FUNC_MSDC0_DAT7>,
 				 <PINMUX_GPIO167__FUNC_MSDC0_CMD>;
 			input-enable;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO176__FUNC_MSDC0_CLK>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
 		};
 		pins_rst {
 			pinmux = <PINMUX_GPIO178__FUNC_MSDC0_RSTB>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
 		};
 	};
 	mmc0_pins_uhs: mmc0@0{
@@ -62,23 +59,19 @@
 				 <PINMUX_GPIO174__FUNC_MSDC0_DAT7>,
 				 <PINMUX_GPIO167__FUNC_MSDC0_CMD>;
 			input-enable;
-			drive-strength = <MTK_DRIVE_10mA>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
+			drive-strength = <4>;
 		};
 		pins_clk {
 			pinmux = <PINMUX_GPIO176__FUNC_MSDC0_CLK>;
-			drive-strength = <MTK_DRIVE_10mA>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
+			drive-strength = <4>;
 		};
 		pins_ds {
 			pinmux = <PINMUX_GPIO175__FUNC_MSDC0_DSL>;
-			drive-strength = <MTK_DRIVE_10mA>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
+			drive-strength = <4>;
 		};
 		pins_rst {
 			pinmux = <PINMUX_GPIO178__FUNC_MSDC0_RSTB>;
-			drive-strength = <MTK_DRIVE_10mA>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_00>;
+			drive-strength = <4>;
 		};
 	};
 };
@@ -112,14 +105,12 @@
 				<PINMUX_GPIO136__FUNC_MSDC1_DAT3>,
 				<PINMUX_GPIO135__FUNC_MSDC1_CMD>;
 			input-enable;
-			drive-strength = <MTK_DRIVE_8mA>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
+			drive-strength = <3>;
 		};
 
 		pins_clk {
 			pinmux = <PINMUX_GPIO134__FUNC_MSDC1_CLK>;
-			drive-strength = <MTK_DRIVE_8mA>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
+			drive-strength = <3>;
 		};
 
 		pins_insert {
@@ -136,14 +127,12 @@
 				<PINMUX_GPIO136__FUNC_MSDC1_DAT3>,
 				<PINMUX_GPIO135__FUNC_MSDC1_CMD>;
 			input-enable;
-			drive-strength = <MTK_DRIVE_8mA>;
-			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_01>;
+			drive-strength = <3>;
 		};
 
 		pins_clk {
 			pinmux = <PINMUX_GPIO134__FUNC_MSDC1_CLK>;
-			drive-strength = <MTK_DRIVE_8mA>;
-			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_10>;
+			drive-strength = <3>;
 		};
 	};
 };
