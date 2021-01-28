@@ -480,9 +480,9 @@ void FDVT_DUMPREG(void)
 	log_dbg("FDVT REG:\n ********************\n");
 
 	/* for(u4Index = 0; u4Index < 0x180; u4Index += 4) { */
-	for (u4Index = 0x158; u4Index < 0x180; u4Index += 4) {
+	for (u4Index = 0x0; u4Index < 0x180; u4Index += 4) {
 		u4RegValue = ioread32((void *)(FDVT_ADDR + u4Index));
-		log_dbg("+0x%x 0x%x\n", u4Index, u4RegValue);
+		log_dbg("0x%x 0x%x\n", u4Index, u4RegValue);
 	}
 }
 
@@ -619,11 +619,12 @@ static int FDVT_WaitIRQ(u32 *u4IRQMask)
 
 	timeout = wait_event_interruptible_timeout(
 		g_FDVTWQ, (g_FDVTIRQMSK & g_FDVTIRQ),
-	us_to_jiffies(15 * 1000000));
+	us_to_jiffies(1000000));
 
 	if (timeout == 0) {
 		log_err("wait_event_interruptible_timeout timeout, %d, %d\n",
 			g_FDVTIRQMSK, g_FDVTIRQ);
+		FDVT_DUMPREG();
 		FDVT_WR32(0x00030000, FDVT_START);  /* LDVT Disable */
 		FDVT_WR32(0x00000000, FDVT_START);  /* LDVT Disable */
 		return -EAGAIN;

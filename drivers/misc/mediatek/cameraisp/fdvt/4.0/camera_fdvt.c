@@ -652,7 +652,7 @@ static int FDVT_WaitIRQ(u32 *u4IRQMask)
 	timeout = wait_event_interruptible_timeout
 		(g_FDVTWQ,
 		(g_FDVTIRQMSK & g_FDVTIRQ),
-		us_to_jiffies(15 * 1000000));
+		us_to_jiffies(1000000));
 
 	if (timeout == 0) {
 		LOG_ERR("wait_event_interruptible_timeout timeout, %d, %d\n",
