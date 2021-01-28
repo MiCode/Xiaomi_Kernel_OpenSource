@@ -1151,7 +1151,8 @@ static TZ_RESULT _reg_shmem_from_userspace(
 	}
 
 	pin->pageArray = NULL;
-	cret = _map_user_pages(pin, (unsigned long)(*shm_data).param.buffer,
+	cret = _map_user_pages(pin,
+			untagged_addr((unsigned long)(*shm_data).param.buffer),
 			(*shm_data).param.size, 0);
 	if (cret) {
 		pin->pageArray = NULL;
