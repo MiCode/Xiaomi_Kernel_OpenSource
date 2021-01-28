@@ -514,8 +514,10 @@ void MET_Events_DVFS_Trace(void)
 		dsp1_freq, dsp2_freq);
 }
 
-void MET_Events_Trace(bool enter, int core, int algo_id)
+void MET_Events_Trace(bool enter, int core_s, int algo_id)
 {
+	unsigned int core = (unsigned int)core_s;
+
 	if (enter) {
 		int dsp_freq = 0;
 
@@ -4472,11 +4474,12 @@ int vpu_get_name_of_algo(int core, int id, char **name)
 	return -ENOENT;
 }
 
-int vpu_total_algo_num(int core)
+int vpu_total_algo_num(int core_s)
 {
 	int i;
 	int total = 0;
 	struct vpu_image_header *header;
+	unsigned int core = (unsigned int)core_s;
 
 	LOG_DBG("[vpu] %s +\n", __func__);
 
@@ -5521,13 +5524,14 @@ int vpu_dump_mesg(struct seq_file *s)
 	return 0;
 }
 
-int vpu_dump_mesg_seq(struct seq_file *s, int core)
+int vpu_dump_mesg_seq(struct seq_file *s, int core_s)
 {
 	char *ptr = NULL;
 	char *log_head = NULL;
 	char *log_buf;
 	char *log_a_pos = NULL;
 	bool jump_out = false;
+	unsigned int core = (unsigned int)core_s;
 
 	log_buf = (char *)
 		((uintptr_t)vpu_service_cores[core].work_buf->va +
