@@ -2417,11 +2417,8 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 					m4u_get_port_name(tf_port));
 			larb_id = m4u_port_2_larbid(tf_port);
 			larb_port = m4u_port_2_larb_port(tf_port);
-			M4UMSG("port[%s] sec(%d), larb_id(%d)\n",
-				m4u_get_port_name(tf_port),
-				M4U_ReadReg32(gLarbBaseAddr[larb_id],
-				SMI_LARB_SEC_CONx(larb_port)),
-				larb_id);
+			M4UMSG("port[%s] larb_id(%d) larb_port(%d)\n",
+				m4u_get_port_name(tf_port), larb_id, larb_port);
 	} else {
 		M4UMSG(
 			"%s(), Invalid irq number %d\n",
