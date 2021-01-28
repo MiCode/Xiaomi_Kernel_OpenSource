@@ -1142,7 +1142,8 @@ static int set_power_mtcmos(enum DVFS_USER user, void *param)
 				DRV_WriteReg32(APU_RPC_SW_FIFO_WE,
 					(domain_idx | BIT(4)));
 				LOG_DBG("%s APU_RPC_SW_FIFO_WE write 0x%x\n",
-					__func__, (domain_idx | BIT(4)));
+					__func__,
+					(unsigned int)(domain_idx | BIT(4)));
 
 				if (retry >= 3) {
 					LOG_ERR("%s fail (user:%d, mode:%d)\n",
