@@ -464,13 +464,12 @@ static int battery_get_property(struct power_supply *psy,
 						gm.battery_id].q_max;
 			int remain_ui = 100 - data->BAT_CAPACITY;
 			int remain_mah = remain_ui * q_max_now / 10;
-			int current_now = 0;
 			int time_to_full = 0;
 
 			gauge_get_current(&fgcurrent);
 
 			if (fgcurrent != 0)
-				time_to_full = remain_mah * 360 / current_now;
+				time_to_full = remain_mah * 360 / fgcurrent;
 
 			val->intval = abs(time_to_full);
 		}
