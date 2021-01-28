@@ -5595,6 +5595,7 @@ int primary_display_aod_backlight(int level)
 		/* goto done; */
 	}
 
+	DISPCHECK("%s start trig loop\n", __func__);
 	cmdqRecReset(pgc->cmdq_handle_trigger);
 	cmdqRecStartLoop(pgc->cmdq_handle_trigger);
 	cmdqCoreSetEvent(CMDQ_SYNC_TOKEN_STREAM_EOF);
@@ -5629,7 +5630,8 @@ skip_resume:
 			ret = -1;
 		}
 	}
-
+	DISPCHECK("%s stop trig loop\n", __func__);
+	_cmdq_stop_trigger_loop();
 	dpmgr_path_stop(pgc->dpmgr_handle, CMDQ_DISABLE);
 
 	if (dpmgr_path_is_busy(pgc->dpmgr_handle)) {
