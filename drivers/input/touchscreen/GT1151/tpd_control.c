@@ -363,12 +363,12 @@ static int tpd_fb_notifier_callback(
 		return 0;
 
 	blank = *(int *)evdata->data;
-	TPD_ERR("fb_notify(blank=%d)\n", blank);
+	TPD_DEBUG("fb_notify(blank=%d)\n", blank);
 	switch (blank) {
 	case FB_BLANK_UNBLANK:
 		TPD_DEBUG("LCD ON Notify\n");
 		if (g_tpd_drv && tpd_suspend_flag) {
-			  err = queue_work(touch_resume_workqueue,
+			err = queue_work(touch_resume_workqueue,
 						&touch_resume_work);
 			if (!err) {
 				TPD_ERR("start resume_workqueue failed\n");
@@ -600,7 +600,6 @@ static void __exit tpd_device_exit(void)
 {
 	tpd_log_exit();
 	gt1x_generic_exit();
-	gt1x_tool_exit();
 	misc_deregister(&tpd_misc_device);
 	fb_unregister_client(&tpd_fb_notifier);
 	gt1x_driver_exit();

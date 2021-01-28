@@ -404,7 +404,7 @@ static ssize_t gt1x_debug_write_proc(struct file *file,
 
 s32 _do_i2c_read(struct i2c_msg *msgs, u16 addr, u8 *buffer, s32 len)
 {
-	s32 ret = -1;
+	s32 ret;
 	s32 pos = 0;
 	s32 data_length = len;
 	s32 transfer_length = 0;
@@ -444,7 +444,7 @@ s32 _do_i2c_read(struct i2c_msg *msgs, u16 addr, u8 *buffer, s32 len)
 
 s32 _do_i2c_write(struct i2c_msg *msg, u16 addr, u8 *buffer, s32 len)
 {
-	s32 ret = -1;
+	s32 ret;
 	s32 pos = 0;
 	s32 data_length = len;
 	s32 transfer_length = 0;
@@ -490,7 +490,7 @@ s32 _do_i2c_write(struct i2c_msg *msg, u16 addr, u8 *buffer, s32 len)
 s32 gt1x_i2c_test(void)
 {
 	u8 retry = 0;
-	s32 ret = -1;
+	s32 ret;
 	u32 hw_info = 0;
 
 	GTP_DEBUG_FUNC();
@@ -654,13 +654,8 @@ s32 gt1x_init_panel(void)
 		return -1;
 	}
 
-	sensor_id = gt1x_version.sensor_id;
-	if (sensor_id >= 6 || cfg_lens[sensor_id] < GTP_CONFIG_MIN_LENGTH
-	    || cfg_lens[sensor_id] > GTP_CONFIG_MAX_LENGTH) {
-		sensor_id = 0;
-	}
-
-	cfg_len = cfg_lens[sensor_id];
+	sensor_id = 0;
+	cfg_len = cfg_lens[0];
 
 	GTP_INFO("CTP_CONFIG_GROUP%d used, gt1x_config length: %d",
 		sensor_id, cfg_len);
@@ -833,7 +828,7 @@ s32 gt1x_reset_guitar(void)
  */
 s32 gt1x_read_version(struct gt1x_version_info *ver_info)
 {
-	s32 ret = -1;
+	s32 ret;
 	u8 buf[12] = { 0 };
 	u32 mask_id = 0;
 	u32 patch_id = 0;
@@ -903,7 +898,7 @@ s32 gt1x_get_chip_type(void)
 	u8 opr_buf[4] = { 0x00 };
 	u8 gt1x_data[] = { 0x02, 0x08, 0x90, 0x00 };
 	u8 gt9l_data[] = { 0x01, 0x10, 0x90, 0x00 };
-	s32 ret = -1;
+	s32 ret;
 
 	/* chip type already exist */
 	if (gt1x_chip_type != CHIP_TYPE_NONE)
@@ -1064,7 +1059,7 @@ void gt1x_power_reset(void)
 
 s32 gt1x_request_event_handler(void)
 {
-	s32 ret = -1;
+	s32 ret;
 	u8 rqst_data = 0;
 
 	ret = gt1x_i2c_read(GTP_REG_RQST, &rqst_data, 1);
@@ -1126,7 +1121,7 @@ s32 gt1x_touch_event_handler(u8 *data, struct input_dev *dev,
 	s32 input_w = 0;
 	s32 id = 0;
 	s32 i = 0;
-	s32 ret = -1;
+	s32 ret;
 
 	GTP_DEBUG_FUNC();
 	touch_num = data[0] & 0x0f;
@@ -1817,10 +1812,6 @@ s32 gt1x_init(void)
 /* init auxiliary  node and functions */
 	gt1x_init_debug_node();
 
-#ifdef GTP_CREATE_WR_NODE
-	gt1x_init_tool_node();
-#endif
-
 #if defined(CONFIG_GTP_GESTURE_WAKEUP) || defined(CONFIG_GTP_HOTKNOT)
 	gt1x_init_node();
 #endif
@@ -1844,10 +1835,6 @@ s32 gt1x_init(void)
 
 void gt1x_deinit(void)
 {
-#ifdef GTP_CREATE_WR_NODE
-	gt1x_deinit_tool_node();
-#endif
-
 #ifdef CONFIG_GTP_ESD_PROTECT
 	gt1x_deinit_esd_protect();
 #endif
