@@ -24,6 +24,7 @@
 	mediatek,cqhci;
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	non-removable;
+	msdc_crypto_clk_base = <0x100010ac>;
 };
 
 &pio {
