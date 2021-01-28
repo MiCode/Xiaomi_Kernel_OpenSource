@@ -59,6 +59,9 @@
 
 #define UFSHCD_REQ_SENSE_SIZE	18
 
+#define PWR_INFO_MASK	0xF
+#define PWR_RX_OFFSET	4
+
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
 				 UFSHCD_ERROR_MASK)
@@ -297,6 +300,18 @@ static inline void ufshcd_disable_irq(struct ufs_hba *hba)
 		free_irq(hba->irq, hba);
 		hba->is_irq_enabled = false;
 	}
+}
+
+static void ufshcd_scsi_unblock_requests(struct ufs_hba *hba)
+{
+	if (atomic_dec_and_test(&hba->scsi_block_reqs_cnt))
+		scsi_unblock_requests(hba->host);
+}
+
+static void ufshcd_scsi_block_requests(struct ufs_hba *hba)
+{
+	if (atomic_inc_return(&hba->scsi_block_reqs_cnt) == 1)
+		scsi_block_requests(hba->host);
 }
 
 /* replace non-printable or non-ASCII characters with spaces */
@@ -691,6 +706,14 @@ void ufshcd_print_host_state(struct ufs_hba *hba,
 			SPREAD_DEV_PRINTF(buff, size,
 				m, hba->dev, "TX_FSM_STATE: %u\n", val);
 	}
+
+	SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
+	"[RX, TX]: gear=[%d, %d], lane[%d, %d], pwr[%d, %d], rate = %d\n",
+		 hba->pwr_info.gear_rx, hba->pwr_info.gear_tx,
+		 hba->pwr_info.lane_rx, hba->pwr_info.lane_tx,
+		 hba->pwr_info.pwr_rx,
+		 hba->pwr_info.pwr_tx,
+		 hba->pwr_info.hs_rate);
 }
 
 /**
@@ -1314,12 +1337,12 @@ static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba)
 	 * make sure that there are no outstanding requests when
 	 * clock scaling is in progress
 	 */
-	scsi_block_requests(hba->host);
+	ufshcd_scsi_block_requests(hba);
 	down_write(&hba->clk_scaling_lock);
 	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
 		ret = -EBUSY;
 		up_write(&hba->clk_scaling_lock);
-		scsi_unblock_requests(hba->host);
+		ufshcd_scsi_unblock_requests(hba);
 	}
 
 	return ret;
@@ -1328,7 +1351,7 @@ static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba)
 static void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba)
 {
 	up_write(&hba->clk_scaling_lock);
-	scsi_unblock_requests(hba->host);
+	ufshcd_scsi_unblock_requests(hba);
 }
 
 /**
@@ -1648,7 +1671,7 @@ static void ufshcd_ungate_work(struct work_struct *work)
 		hba->clk_gating.is_suspended = false;
 	}
 unblock_reqs:
-	scsi_unblock_requests(hba->host);
+	ufshcd_scsi_unblock_requests(hba);
 }
 
 /**
@@ -1704,7 +1727,7 @@ start:
 		 * work and to enable clocks.
 		 */
 	case CLKS_OFF:
-		scsi_block_requests(hba->host);
+		ufshcd_scsi_block_requests(hba);
 		hba->clk_gating.state = REQ_CLKS_ON;
 		trace_ufshcd_clk_gating(dev_name(hba->dev),
 					hba->clk_gating.state);
@@ -4284,7 +4307,8 @@ static int ufshcd_change_power_mode(struct ufs_hba *hba,
 	int ret;
 
 	/* if already configured to the requested pwr_mode */
-	if (pwr_mode->gear_rx == hba->pwr_info.gear_rx &&
+	if (!hba->restore_needed &&
+	    pwr_mode->gear_rx == hba->pwr_info.gear_rx &&
 	    pwr_mode->gear_tx == hba->pwr_info.gear_tx &&
 	    pwr_mode->lane_rx == hba->pwr_info.lane_rx &&
 	    pwr_mode->lane_tx == hba->pwr_info.lane_tx &&
@@ -5526,7 +5550,7 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 	hba = container_of(work, struct ufs_hba, eeh_work);
 
 	pm_runtime_get_sync(hba->dev);
-	scsi_block_requests(hba->host);
+	ufshcd_scsi_block_requests(hba);
 	err = ufshcd_get_ee_status(hba, &status);
 	if (err) {
 		dev_err(hba->dev, "%s: failed to get exception status %d\n",
@@ -5540,7 +5564,7 @@ static void ufshcd_exception_event_handler(struct work_struct *work)
 		ufshcd_bkops_exception_event_handler(hba);
 
 out:
-	scsi_unblock_requests(hba->host);
+	ufshcd_scsi_unblock_requests(hba);
 	pm_runtime_put_sync(hba->dev);
 	return;
 }
@@ -5751,7 +5775,7 @@ skip_err_handling:
 
 out:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-	scsi_unblock_requests(hba->host);
+	ufshcd_scsi_unblock_requests(hba);
 	ufshcd_release(hba);
 	pm_runtime_put_sync(hba->dev);
 }
@@ -5762,6 +5786,50 @@ static void ufshcd_update_uic_reg_hist(struct ufs_uic_err_reg_hist *reg_hist,
 	reg_hist->reg[reg_hist->pos] = reg;
 	reg_hist->tstamp[reg_hist->pos] = ktime_get();
 	reg_hist->pos = (reg_hist->pos + 1) % UIC_ERR_REG_HIST_LENGTH;
+}
+
+static void ufshcd_rls_handler(struct work_struct *work)
+{
+	struct ufs_hba *hba;
+	int ret = 0;
+	u32 mode;
+
+	hba = container_of(work, struct ufs_hba, rls_work);
+	ufshcd_scsi_block_requests(hba);
+	pm_runtime_get_sync(hba->dev);
+	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
+	if (ret) {
+		dev_err(hba->dev,
+			"Timed out (%d) waiting for DB to clear\n",
+			ret);
+		goto out;
+	}
+
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_PWRMODE), &mode);
+	if (hba->pwr_info.pwr_rx != ((mode >> PWR_RX_OFFSET) & PWR_INFO_MASK))
+		hba->restore_needed = true;
+
+	if (hba->pwr_info.pwr_tx != (mode & PWR_INFO_MASK))
+		hba->restore_needed = true;
+
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_RXGEAR), &mode);
+	if (hba->pwr_info.gear_rx != mode)
+		hba->restore_needed = true;
+
+	ufshcd_dme_get(hba, UIC_ARG_MIB(PA_TXGEAR), &mode);
+	if (hba->pwr_info.gear_tx != mode)
+		hba->restore_needed = true;
+
+	if (hba->restore_needed)
+		ret = ufshcd_config_pwr_mode(hba, &(hba->pwr_info));
+	if (ret)
+		dev_err(hba->dev, "%s: Failed setting power mode, err = %d\n",
+			__func__, ret);
+	else
+		hba->restore_needed = false;
+out:
+	ufshcd_scsi_unblock_requests(hba);
+	pm_runtime_put_sync(hba->dev);
 }
 
 /**
@@ -5796,13 +5864,16 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 #endif
 	/* Ignore LINERESET indication, as this is not an error */
 	if ((reg & UIC_PHY_ADAPTER_LAYER_ERROR) &&
-			(reg & UIC_PHY_ADAPTER_LAYER_LANE_ERR_MASK)) {
+		(reg & UIC_PHY_ADAPTER_LAYER_ERROR_CODE_MASK)) {
 		/*
 		 * To know whether this error is fatal or not, DB timeout
 		 * must be checked but this error is handled separately.
 		 */
 		dev_dbg(hba->dev, "%s: UIC Lane error reported\n", __func__);
 		ufshcd_update_uic_reg_hist(&hba->ufs_stats.pa_err, reg);
+
+		if (reg & UIC_PHY_ADAPTER_LAYER_GENERIC_ERROR)
+			schedule_work(&hba->rls_work);
 	}
 
 	/* PA_INIT_ERROR is fatal and needs UIC reset */
@@ -5928,7 +5999,7 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 		/* handle fatal errors only when link is functional */
 		if (hba->ufshcd_state == UFSHCD_STATE_OPERATIONAL) {
 			/* block commands from scsi mid-layer */
-			scsi_block_requests(hba->host);
+			ufshcd_scsi_block_requests(hba);
 
 			hba->ufshcd_state = UFSHCD_STATE_EH_SCHEDULED;
 
@@ -9277,6 +9348,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 	/* Initialize work queues */
 	INIT_WORK(&hba->eh_work, ufshcd_err_handler);
 	INIT_WORK(&hba->eeh_work, ufshcd_exception_event_handler);
+	INIT_WORK(&hba->rls_work, ufshcd_rls_handler);
 
 	/* Initialize UIC command mutex */
 	mutex_init(&hba->uic_cmd_mutex);
@@ -9359,6 +9431,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Hold auto suspend until async scan completes */
 	pm_runtime_get_sync(dev);
+	atomic_set(&hba->scsi_block_reqs_cnt, 0);
 
 	/*
 	 * We are assuming that device wasn't put in sleep/power-down
