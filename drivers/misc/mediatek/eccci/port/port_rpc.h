@@ -250,6 +250,7 @@ extern int IMM_GetOneChannelValue(int dwChannel, int data[4], int *rawdata);
 extern bool is_clk_buf_from_pmic(void);
 extern void clk_buf_get_rf_drv_curr(void *rf_drv_curr);
 extern void clk_buf_save_afc_val(unsigned int afcdac);
+extern int ccci_get_adc_val(void);
 
 
 #endif	/* __PORT_RPC_H__ */

@@ -11,7 +11,11 @@
 #endif
 #include "mdee_dumper_v3.h"
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_fsm_sys.h"
+#include "ccci_platform.h"
+#include "md_sys1_platform.h"
+
 
 #ifndef DB_OPT_DEFAULT
 #define DB_OPT_DEFAULT    (0)	/* Dummy macro define to avoid build error */
@@ -658,6 +662,7 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 	unsigned int reg_value[2] = { 0 };
 	unsigned int ccif_sram[CCCI_EE_SIZE_CCIF_SRAM/sizeof(unsigned int)]
 	= { 0 };
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
 
 	ccci_md_dump_info(md_id,
 		DUMP_MD_BOOTUP_STATUS, reg_value, 2);
@@ -673,17 +678,25 @@ static void md_HS1_Fail_dump(int md_id, char *ex_info, unsigned int len)
 			"boot_status0: 0x%x\nboot_status1: 0x%x\n"
 			"MD Offender:DVFS\n",
 			0, reg_value[0], reg_value[1]);
-#if MD_GENERATION >= (6295)
-	} else if ((reg_value[0] == 0x5443000C) ||
+
+	} else if (((reg_value[0] == 0x5443000C) ||
 				(reg_value[0] == 0) ||
 				(reg_value[0] >= 0x53310000 &&
-				reg_value[0] <= 0x533100FF)) {
-#else
-	} else if ((reg_value[0] == 0x54430007) ||
+				reg_value[0] <= 0x533100FF)) &&
+				(md->hw_info->plat_val->md_gen >= 6295)) {
+		snprintf(ex_info, len,
+			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
+			1);
+		ccci_md_dump_info(md_id,
+			DUMP_FLAG_REG, NULL, 0);
+		msleep(10000);
+		ccci_md_dump_info(md_id,
+			DUMP_FLAG_REG, NULL, 0);
+	} else if (((reg_value[0] == 0x54430007) ||
 				(reg_value[0] == 0) ||
 				(reg_value[0] >= 0x53310000 &&
-				reg_value[0] <= 0x533100FF)) {
-#endif
+				reg_value[0] <= 0x533100FF)) &&
+				(md->hw_info->plat_val->md_gen < 6295)) {
 		snprintf(ex_info, len,
 			"\n[Others] MD_BOOT_UP_FAIL(HS%d)\n",
 			1);

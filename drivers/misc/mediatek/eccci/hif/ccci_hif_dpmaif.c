@@ -33,6 +33,7 @@
 #include <linux/clk.h>
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #ifndef CCCI_KMODULE_ENABLE
 #include "ccci_core.h"
 #include "modem_sys.h"
@@ -75,7 +76,6 @@ struct hif_dpmaif_ctrl *dpmaif_ctrl;
 #define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
 #endif
 unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
-void __iomem *infra_ao_base;
 
 static inline struct device *ccci_md_get_dev_by_id(int md_id)
 {
@@ -325,7 +325,7 @@ static void dpmaif_dump_txq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 
 /*actrually, length is dump flag's private argument*/
 static int dpmaif_dump_status(unsigned char hif_id,
-		enum MODEM_DUMP_FLAG flag, int length)
+		enum MODEM_DUMP_FLAG flag, void *buff, int length)
 {
 	struct hif_dpmaif_ctrl *hif_ctrl = dpmaif_ctrl;
 
@@ -2657,10 +2657,13 @@ int dpmaif_late_init(unsigned char hif_id)
 	}
 
 	/* wakeup source init */
-	reg_val = ccci_read32(infra_ao_base, INFRA_DPMAIF_CTRL_REG);
+	reg_val =
+		ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_DPMAIF_CTRL_REG);
 	reg_val |= DPMAIF_IP_BUSY_MASK;
 	reg_val &= ~(1 << 13); /* MD to AP wakeup event */
-	ccci_write32(infra_ao_base, INFRA_DPMAIF_CTRL_REG, reg_val);
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_DPMAIF_CTRL_REG, reg_val);
 
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:%s end\n", __func__);
@@ -3046,10 +3049,11 @@ void dpmaif_hw_reset(unsigned char md_id)
 	int count = 0;
 
 	/* pre- DPMAIF HW reset: bus-protect */
-	ccci_write32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_SET,
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_TOPAXI_PROTECTEN_1_SET,
 		DPMAIF_SLEEP_PROTECT_CTRL);
 
-	while ((ccci_read32(infra_ao_base,
+	while ((ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
 		INFRA_TOPAXI_PROTECT_READY_STA1_1)&(1<<4)) != (1 << 4)) {
 		udelay(1);
 		if (++count >= 1000) {
@@ -3057,39 +3061,49 @@ void dpmaif_hw_reset(unsigned char md_id)
 			break;
 		}
 	}
-	reg_value = ccci_read32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1);
+	reg_value = ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_TOPAXI_PROTECTEN_1);
 	CCCI_NORMAL_LOG(md_id, TAG,
 		"infra_topaxi_protecten_1: 0x%x\n", reg_value);
 	/* DPMAIF HW reset */
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:rst dpmaif\n", __func__);
 	/* reset dpmaif hw: AO Domain */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST0_REG_AO);
+	reg_value = ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST0_REG_AO);
 	reg_value &= ~(DPMAIF_AO_RST_MASK); /* the bits in reg is WO, */
 	reg_value |= (DPMAIF_AO_RST_MASK);/* so only this bit effective */
-	ccci_write32(infra_ao_base, INFRA_RST0_REG_AO, reg_value);
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST0_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST1_REG_AO);
+	reg_value = ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST1_REG_AO);
 	reg_value &= ~(DPMAIF_AO_RST_MASK);/* read no use, maybe a time delay */
 	reg_value |= (DPMAIF_AO_RST_MASK);
-	ccci_write32(infra_ao_base, INFRA_RST1_REG_AO, reg_value);
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST1_REG_AO, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	/* reset dpmaif hw: PD Domain */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST0_REG_PD);
+	reg_value = ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
+	INFRA_RST0_REG_PD);
 	reg_value &= ~(DPMAIF_PD_RST_MASK);
 	reg_value |= (DPMAIF_PD_RST_MASK);
-	ccci_write32(infra_ao_base, INFRA_RST0_REG_PD, reg_value);
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST0_REG_PD, reg_value);
 	CCCI_BOOTUP_LOG(md_id, TAG, "%s:clear reset\n", __func__);
 	/* reset dpmaif clr */
-	reg_value = ccci_read32(infra_ao_base, INFRA_RST1_REG_PD);
+	reg_value = ccci_read32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST1_REG_PD);
 	reg_value &= ~(DPMAIF_PD_RST_MASK);
 	reg_value |= (DPMAIF_PD_RST_MASK);
-	ccci_write32(infra_ao_base, INFRA_RST1_REG_PD, reg_value);
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_RST1_REG_PD, reg_value);
 	CCCI_DEBUG_LOG(md_id, TAG, "%s:done\n", __func__);
 
 	/* post- DPMAIF HW reset: bus-protect */
-	ccci_write32(infra_ao_base, INFRA_TOPAXI_PROTECTEN_1_CLR,
+	ccci_write32(dpmaif_ctrl->plat_val->infra_ao_base,
+		INFRA_TOPAXI_PROTECTEN_1_CLR,
 		DPMAIF_SLEEP_PROTECT_CTRL);
 }
 
@@ -3279,6 +3293,8 @@ static u64 dpmaif_dmamask = DMA_BIT_MASK(36);
 int ccci_dpmaif_hif_init(struct device *dev)
 {
 	struct device_node *node = NULL;
+	struct device_node *node_md = NULL;
+	struct device_node *node_infrao = NULL;
 	struct hif_dpmaif_ctrl *hif_ctrl = NULL;
 	int ret = 0;
 	unsigned char md_id = 0;
@@ -3291,23 +3307,31 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		ret = -3;
 		goto DPMAIF_INIT_FAIL;
 	}
+	node_md = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	of_property_read_u32(node_md,
+			"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
+	node_infrao = of_find_compatible_node(NULL, NULL,
+			"mediatek,mt6761-infracfg");
+	md_cd_plat_val_ptr.infra_ao_base = of_iomap(node_infrao, 0);
+	hif_ctrl->plat_val = &md_cd_plat_val_ptr;
+	if (hif_ctrl->plat_val == NULL)
+		return -1;
 #ifdef CCCI_KMODULE_ENABLE
 	/* Get infra cfg ao base */
 	node = of_find_compatible_node(NULL, NULL,
-			"mediatek,mt6779-infracfg_ao");
+			"mediatek,mt6761-infracfg");
 	if (!node) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao node in dtsi\n");
 		ret = -3;
 		goto DPMAIF_INIT_FAIL;
 	}
-	infra_ao_base = of_iomap(node, 0);
-	if (!infra_ao_base) {
+	if (!hif_ctrl->plat_val->infra_ao_base) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
 		ret = -4;
 		goto DPMAIF_INIT_FAIL;
 	}
 #endif
-
 	node = dev->of_node;
 	if (!node) {
 		CCCI_ERROR_LOG(-1, TAG, "No dpmaif driver in dtsi\n");
@@ -3322,12 +3346,12 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		ret = -1;
 		goto DPMAIF_INIT_FAIL;
 	}
-
 	memset(hif_ctrl, 0, sizeof(struct hif_dpmaif_ctrl));
 
 	hif_ctrl->md_id = md_id; /* maybe can get from dtsi or phase-out. */
 	hif_ctrl->hif_id = DPMAIF_HIF_ID;
 	dpmaif_ctrl = hif_ctrl;
+	dpmaif_ctrl->plat_val = &md_cd_plat_val_ptr;
 
 	hif_ctrl->clk_ref = devm_clk_get(dev, "infra-dpmaif-clk");
 	if (IS_ERR(hif_ctrl->clk_ref)) {
@@ -3337,6 +3361,11 @@ int ccci_dpmaif_hif_init(struct device *dev)
 		goto DPMAIF_INIT_FAIL;
 	}
 
+	if (!dpmaif_ctrl->plat_val->infra_ao_base) {
+		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
+		ret = -4;
+		goto DPMAIF_INIT_FAIL;
+	}
 	/* HW: register, interrupt id,  */
 	hif_ctrl->dpmaif_ao_ul_base = of_iomap(node, 0);
 	hif_ctrl->dpmaif_ao_dl_base = of_iomap(node, 1);

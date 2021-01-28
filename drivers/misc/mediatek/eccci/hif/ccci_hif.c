@@ -9,8 +9,6 @@
 #include "ccci_debug.h"
 #include "ccci_core.h"
 #include "ccci_hif_cldma.h"
-#include "ccci_hif_ccif.h"
-
 #define TAG "hif"
 
 void *ccci_hif[CCCI_HIF_NUM];
@@ -24,8 +22,6 @@ int ccci_hif_init(unsigned char md_id, unsigned int hif_flag)
 
 	if (hif_flag & (1 << CLDMA_HIF_ID))
 		ret = ccci_cldma_hif_init(CLDMA_HIF_ID, md_id);
-	if (hif_flag & (1 << CCIF_HIF_ID))
-		ret = ccci_ccif_hif_init(CCIF_HIF_ID, md_id);
 	/* DPMAIF_HIF_ID is moved to a standalone driver. */
 	return ret;
 }
@@ -53,21 +49,40 @@ int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag)
 }
 
 int ccci_hif_dump_status(unsigned int hif_flag, enum MODEM_DUMP_FLAG dump_flag,
-	int length)
+	void *buff, int length)
 {
 	int ret = 0;
 
 	if (hif_flag & (1 << CLDMA_HIF_ID))
-		ret = ccci_cldma_hif_dump_status(CLDMA_HIF_ID,
-			dump_flag, length);
-	if (hif_flag & (1 << CCIF_HIF_ID))
-		ret = ccci_ccif_hif_dump_status(CCIF_HIF_ID,
-			dump_flag, length);
+		ret |= ccci_cldma_hif_dump_status(CLDMA_HIF_ID,
+			dump_flag, buff, length);
+	if (hif_flag & (1 << CCIF_HIF_ID) && ccci_hif[CCIF_HIF_ID])
+		ret |= ccci_hif_op[CCIF_HIF_ID]->dump_status(CCIF_HIF_ID,
+			dump_flag, buff, length);
 	if (hif_flag & (1 << DPMAIF_HIF_ID) && ccci_hif[DPMAIF_HIF_ID])
-		ret = ccci_hif_op[DPMAIF_HIF_ID]->dump_status(DPMAIF_HIF_ID,
-			dump_flag, length);
+		ret |= ccci_hif_op[DPMAIF_HIF_ID]->dump_status(DPMAIF_HIF_ID,
+			dump_flag, buff, length);
 
 	return ret;
+}
+
+int ccci_hif_debug(unsigned char hif_id, enum ccci_hif_debug_flg debug_id,
+		int *paras, int len)
+{
+	if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->debug)
+		return  ccci_hif_op[hif_id]->debug(hif_id, debug_id, paras);
+	else
+		return 0;
+}
+
+void *ccci_hif_fill_rt_header(unsigned char hif_id,
+	int packet_size, unsigned int tx_ch, unsigned int txqno)
+{
+	if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->fill_rt_header)
+		return ccci_hif_op[hif_id]->fill_rt_header(hif_id,
+			packet_size, tx_ch, txqno);
+	CCCI_ERROR_LOG(-1, CORE, "rt header : %d\n", hif_id);
+	return NULL;
 }
 
 int ccci_hif_set_wakeup_src(unsigned char hif_id, int value)
@@ -79,13 +94,10 @@ int ccci_hif_set_wakeup_src(unsigned char hif_id, int value)
 		ret = ccci_cldma_hif_set_wakeup_src(CLDMA_HIF_ID, value);
 		break;
 	case CCIF_HIF_ID:
-		ret = ccci_ccif_hif_set_wakeup_src(CCIF_HIF_ID, value);
-		break;
 	case DPMAIF_HIF_ID:
-		if (ccci_hif[DPMAIF_HIF_ID] &&
-			ccci_hif_op[DPMAIF_HIF_ID]->debug)
-			ret = ccci_hif_op[DPMAIF_HIF_ID]->debug(DPMAIF_HIF_ID,
-			CCCI_HIF_DEBUG_SET_WAKEUP, &value);
+		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->debug)
+			ret = ccci_hif_op[hif_id]->debug(hif_id,
+				CCCI_HIF_DEBUG_SET_WAKEUP, &value);
 		break;
 	default:
 		break;
@@ -105,23 +117,27 @@ int ccci_hif_send_skb(unsigned char hif_id, int tx_qno, struct sk_buff *skb,
 			skb, from_pool, blocking);
 		break;
 	case CCIF_HIF_ID:
-		ret = ccci_ccif_hif_send_skb(CCIF_HIF_ID, tx_qno,
-			skb, from_pool, blocking);
-		break;
 	case DPMAIF_HIF_ID:
-		if (ccci_hif[DPMAIF_HIF_ID] &&
-			ccci_hif_op[DPMAIF_HIF_ID]->send_skb)
-			ret = ccci_hif_op[DPMAIF_HIF_ID]->send_skb(
-				DPMAIF_HIF_ID,
+		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->send_skb)
+			ret = ccci_hif_op[hif_id]->send_skb(hif_id,
 				tx_qno, skb, from_pool, blocking);
-		CCCI_HISTORY_TAG_LOG(-1, TAG, "ccci_hif_dpmaif: %d (%p, %p)\n",
-			hif_id, ccci_hif[DPMAIF_HIF_ID],
-			ccci_hif_op[DPMAIF_HIF_ID]);
+		CCCI_HISTORY_TAG_LOG(-1, TAG,
+			"%s: %d (%p, %p)\n", __func__,
+			hif_id, ccci_hif[hif_id], ccci_hif_op[hif_id]);
 		break;
 	default:
 		break;
 	}
 
+	return ret;
+}
+
+int ccci_hif_send_data(unsigned char hif_id, int tx_qno)
+{
+	int ret = 0;
+
+	if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->send_data)
+		ret = ccci_hif_op[hif_id]->send_data(hif_id, tx_qno);
 	return ret;
 }
 
@@ -134,13 +150,9 @@ int ccci_hif_write_room(unsigned char hif_id, unsigned char qno)
 		ret = ccci_cldma_hif_write_room(CLDMA_HIF_ID, qno);
 		break;
 	case CCIF_HIF_ID:
-		ret = ccci_ccif_hif_write_room(CCIF_HIF_ID, qno);
-		break;
 	case DPMAIF_HIF_ID:
-		if (ccci_hif[DPMAIF_HIF_ID] &&
-			ccci_hif_op[DPMAIF_HIF_ID]->write_room)
-			ret = ccci_hif_op[DPMAIF_HIF_ID]->write_room(
-				DPMAIF_HIF_ID, qno);
+		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->write_room)
+			ret = ccci_hif_op[hif_id]->write_room(hif_id, qno);
 		break;
 	default:
 		break;
@@ -157,13 +169,9 @@ int ccci_hif_ask_more_request(unsigned char hif_id, int rx_qno)
 		ret = ccci_cldma_hif_give_more(CLDMA_HIF_ID, rx_qno);
 		break;
 	case CCIF_HIF_ID:
-		ret = ccci_ccif_hif_give_more(CCIF_HIF_ID, rx_qno);
-		break;
 	case DPMAIF_HIF_ID:
-		if (ccci_hif[DPMAIF_HIF_ID] &&
-			ccci_hif_op[DPMAIF_HIF_ID]->give_more)
-			ret = ccci_hif_op[DPMAIF_HIF_ID]->give_more(
-				DPMAIF_HIF_ID, rx_qno);
+		if (ccci_hif[hif_id] && ccci_hif_op[hif_id]->give_more)
+			ret = ccci_hif_op[hif_id]->give_more(hif_id, rx_qno);
 		break;
 	default:
 		break;
@@ -310,6 +318,8 @@ static int ccci_hif_start(void)
 {
 	int ret = 0;
 
+	if (ccci_hif[CCIF_HIF_ID] && ccci_hif_op[CCIF_HIF_ID]->start)
+		ret |= ccci_hif_op[CCIF_HIF_ID]->start(CCIF_HIF_ID);
 	if (ccci_hif[DPMAIF_HIF_ID] && ccci_hif_op[DPMAIF_HIF_ID]->start)
 		ret |= ccci_hif_op[DPMAIF_HIF_ID]->start(DPMAIF_HIF_ID);
 	return ret;
@@ -332,17 +342,19 @@ int ccci_hif_state_notification(int md_id, unsigned char state)
 		if (ccci_hif[DPMAIF_HIF_ID] &&
 			ccci_hif_op[DPMAIF_HIF_ID]->pre_stop) {
 			ccci_hif_dump_status(1 << DPMAIF_HIF_ID,
-				DUMP_FLAG_REG, -1);
+				DUMP_FLAG_REG, NULL, -1);
 			 ccci_hif_op[DPMAIF_HIF_ID]->pre_stop(DPMAIF_HIF_ID);
 		}
 		break;
 	case GATED:
+		if (ccci_hif[CCIF_HIF_ID] && ccci_hif_op[CCIF_HIF_ID]->stop)
+			ret |= ccci_hif_op[CCIF_HIF_ID]->stop(CCIF_HIF_ID);
 		/* later than ccmni */
 		if (ccci_hif[DPMAIF_HIF_ID] &&
 			ccci_hif_op[DPMAIF_HIF_ID]->stop) {
 			ccci_hif_dump_status(1 << DPMAIF_HIF_ID,
-				DUMP_FLAG_REG, -1);
-			ret = ccci_hif_op[DPMAIF_HIF_ID]->stop(DPMAIF_HIF_ID);
+				DUMP_FLAG_REG, NULL, -1);
+			ret |= ccci_hif_op[DPMAIF_HIF_ID]->stop(DPMAIF_HIF_ID);
 		}
 		break;
 	default:
@@ -383,4 +395,5 @@ void *ccci_hif_get_by_id(unsigned char hif_id)
 	} else
 		return ccci_hif[hif_id];
 }
+EXPORT_SYMBOL(ccci_hif_get_by_id);
 #endif

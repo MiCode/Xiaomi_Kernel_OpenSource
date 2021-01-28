@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #include <linux/list.h>
@@ -14,11 +14,22 @@
 #include <linux/atomic.h>
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_platform.h"
 #include "ccci_core.h"
 #include "ccci_bm.h"
 #include "modem_sys.h"
 #include "ccci_hif.h"
+#include "ccci_platform.h"
+#include "md_sys1_platform.h"
+
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
+
 
 
 #include <memory-amms.h>
@@ -59,8 +70,8 @@ struct ccci_smem_region md1_6293_noncacheable_fat[] = {
 {SMEM_USER_RAW_USB,		104*1024,	4*1024,		0, },
 {SMEM_USER_RAW_AUDIO,		108*1024,	52*1024,
 	SMF_NCLR_FIRST, },
-{SMEM_USER_CCISM_MCU,		160*1024,	(720+1)*1024,	0, },
-{SMEM_USER_CCISM_MCU_EXP,	881*1024,	(120+1)*1024,	0, },
+{SMEM_USER_CCISM_MCU,		160*1024, (720+1)*1024, SMF_NCLR_FIRST, },
+{SMEM_USER_CCISM_MCU_EXP,	881*1024, (120+1)*1024, SMF_NCLR_FIRST, },
 {SMEM_USER_RAW_DFD,		1*1024*1024,	448*1024,	0, },
 {SMEM_USER_RAW_UDC_DATA, (1*1024+448)*1024, 0*1024*1024,	0, },
 {SMEM_USER_RAW_AMMS_POS,	(1*1024 + 448)*1024,	0,
@@ -546,46 +557,35 @@ void ccci_md_config(struct ccci_modem *md)
 		round_down(
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
 		0x02000000);
-#if (MD_GENERATION >= 6295)
-	ccci_md_smem_layout_config(md);
-#else
-	/* cacheable region */
-#if (MD_GENERATION >= 6292)
-	get_md_resv_ccb_info(md->index,
+	if (md->hw_info->plat_val->md_gen >= 6295)
+		ccci_md_smem_layout_config(md);
+	else {
+		/* cacheable region */
+		get_md_resv_ccb_info(md->index,
 		&md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
-		&md->mem_layout.md_bank4_cacheable_total.size);
-	if (md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy &&
-		md->mem_layout.md_bank4_cacheable_total.size)
-		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir =
-			ccci_map_phy_addr(
-		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
-			md->mem_layout.md_bank4_cacheable_total.size);
-	else
-		CCCI_ERROR_LOG(md->index, TAG,
-			"get ccb info base:%lx size:%x\n", (unsigned long)
-		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
-			md->mem_layout.md_bank4_cacheable_total.size);
-#if (MD_GENERATION >= 6293)
-	if (md->index == MD_SYS1) {
-		md->mem_layout.md_bank4_cacheable_total.base_md_view_phy =
-			0x40000000 + (224 * 1024 * 1024) +
+			&md->mem_layout.md_bank4_cacheable_total.size);
+		if (md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
+			&& md->mem_layout.md_bank4_cacheable_total.size)
+			md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir
+				= ccci_map_phy_addr(
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
-			- round_down(
+			, md->mem_layout.md_bank4_cacheable_total.size);
+		else
+			CCCI_ERROR_LOG(md->index, TAG,
+				"get ccb info base:%lx size:%x\n",
+			(unsigned long)
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
-			, 0x00100000);
+			, md->mem_layout.md_bank4_cacheable_total.size);
+		if (md->index == MD_SYS1) {
+			md->mem_layout.md_bank4_cacheable_total.base_md_view_phy
+				= 0x40000000 + (224 * 1024 * 1024) +
+			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
+				- round_down(
+			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
+				, 0x00100000);
+		}
 	}
-#else
-	if (md->index == MD_SYS1) {
-		md->mem_layout.md_bank4_cacheable_total.base_md_view_phy =
-			0x40000000 + get_md_smem_cachable_offset(MD_SYS1) +
-			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
-			- round_down(
-			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
-			, 0x00100000);
-	}
-#endif
-#endif
-#endif
+
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"smem info: (%lx %lx %llx %d) (%lx %lx %llx %d)\n",
 		(unsigned long)
@@ -602,7 +602,39 @@ void ccci_md_config(struct ccci_modem *md)
 		(u64)md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir,
 		md->mem_layout.md_bank4_cacheable_total.size);
 
-#if (MD_GENERATION == 6293)
+	if (md->hw_info->plat_val->md_gen == 6293)
+		ccci_md_config_layout_6293(md);
+
+	init_smem_regions(md->mem_layout.md_bank4_noncacheable,
+		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
+		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir,
+		md->mem_layout.md_bank4_noncacheable_total.base_md_view_phy);
+	init_smem_regions(md->mem_layout.md_bank4_cacheable,
+		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
+		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir,
+		md->mem_layout.md_bank4_cacheable_total.base_md_view_phy);
+
+	/* updae image info */
+	md->per_md_data.img_info[IMG_MD].type = IMG_MD;
+	md->per_md_data.img_info[IMG_MD].address =
+		md->mem_layout.md_bank0.base_ap_view_phy;
+	md->per_md_data.img_info[IMG_DSP].type = IMG_DSP;
+	md->per_md_data.img_info[IMG_ARMV7].type = IMG_ARMV7;
+}
+
+void ccci_md_config_layout_6293(struct ccci_modem *md)
+{
+	int dfd_size;
+	phys_addr_t smem_amms_pos_addr = 0;
+	unsigned int offset_adjust_flag = 0;
+	unsigned int udc_noncache_size = 0;
+	unsigned int udc_cache_size = 0;
+	int size;
+	unsigned int md_bank4_cacheable_total_size = 0;
+	phys_addr_t smem_align_padding_addr = 0;
+	phys_addr_t md_resv_smem_addr = 0;
+	unsigned int i;
+
 	/* Get udc cache&noncache size */
 	get_md_resv_udc_info(md->index,
 			&udc_noncache_size, &udc_cache_size);
@@ -677,7 +709,8 @@ void ccci_md_config(struct ccci_modem *md)
 					smem_align_padding_addr =
 					md_resv_smem_addr
 					+ md1_6293_noncacheable_fat[i].offset;
-					amms_cma_free(smem_align_padding_addr,
+					amms_cma_free(
+					smem_align_padding_addr,
 					size);
 				}
 				CCCI_BOOTUP_LOG(md->index, TAG,
@@ -709,16 +742,17 @@ void ccci_md_config(struct ccci_modem *md)
 						"UDC offset:%d\n",
 						md1_6293_cacheable[i].offset);
 						md1_6293_cacheable[i].size
-							= udc_cache_size;
+						= udc_cache_size;
 						continue;
 					}
 					md1_6293_cacheable[i].size =
 					md_bank4_cacheable_total_size -
-					udc_cache_size - CCB_CACHE_MIN_SIZE;
+					udc_cache_size -
+					CCB_CACHE_MIN_SIZE;
 
-					CCCI_BOOTUP_LOG(md->index, TAG,
-						"RAW size:%d\n",
-						md1_6293_cacheable[i].size);
+				CCCI_BOOTUP_LOG(md->index, TAG,
+					"RAW size:%d\n",
+					md1_6293_cacheable[i].size);
 				}
 			}
 		} else if (udc_cache_size) {
@@ -726,7 +760,8 @@ void ccci_md_config(struct ccci_modem *md)
 				sizeof(struct ccci_smem_region)); i++) {
 				if (md1_6293_cacheable[i].id ==
 					SMEM_USER_RAW_UDC_DESCTAB) {
-					md1_6293_cacheable[i].offset = 0;
+					md1_6293_cacheable[i].offset
+						= 0;
 					CCCI_BOOTUP_LOG(md->index, TAG,
 					"UDC offset:%d\n",
 					md1_6293_cacheable[i].offset);
@@ -739,43 +774,8 @@ void ccci_md_config(struct ccci_modem *md)
 			}
 		} else
 			md->mem_layout.md_bank4_cacheable = NULL;
-	} else {
-		WARN_ON(1);
-	}
-#elif (MD_GENERATION == 6292)
-	if (md->index == MD_SYS1) {
-		md->mem_layout.md_bank4_noncacheable
-			= md1_6292_noncacheable_fat;
-		md->mem_layout.md_bank4_cacheable
-			= md1_6292_cacheable;
-	} else if (md->index == MD_SYS3) {
-		md->mem_layout.md_bank4_noncacheable
-			= md3_6292_noncacheable_fat;
-	}
-#elif (MD_GENERATION == 6291)
-	if (md->index == MD_SYS1)
-		md->mem_layout.md_bank4_noncacheable
-			= md1_6291_noncacheable_fat;
-	else if (md->index == MD_SYS3)
-		md->mem_layout.md_bank4_noncacheable
-			= md3_6291_noncacheable_fat;
-#endif
-
-	init_smem_regions(md->mem_layout.md_bank4_noncacheable,
-		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
-		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir,
-		md->mem_layout.md_bank4_noncacheable_total.base_md_view_phy);
-	init_smem_regions(md->mem_layout.md_bank4_cacheable,
-		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
-		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir,
-		md->mem_layout.md_bank4_cacheable_total.base_md_view_phy);
-
-	/* updae image info */
-	md->per_md_data.img_info[IMG_MD].type = IMG_MD;
-	md->per_md_data.img_info[IMG_MD].address =
-		md->mem_layout.md_bank0.base_ap_view_phy;
-	md->per_md_data.img_info[IMG_DSP].type = IMG_DSP;
-	md->per_md_data.img_info[IMG_ARMV7].type = IMG_ARMV7;
+		} else
+			WARN_ON(1);
 }
 
 int boot_md_show(int md_id, char *buf, int size)
@@ -859,7 +859,7 @@ int ccci_md_register(struct ccci_modem *md)
 
 	modem_sys[md->index] = md;
 	ccci_sysfs_add_md(md->index, (void *)&md->kobj);
-	ccci_platform_init(md);
+	ccci_platform_common_init(md);
 	ccci_fsm_init(md->index);
 	ccci_port_init(md->index);
 	return 0;
@@ -912,6 +912,7 @@ struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 		modem_sys[md_id]->mem_layout.md_bank4_cacheable, user_id);
 	return curr;
 }
+EXPORT_SYMBOL(ccci_md_get_smem_by_user_id);
 
 void ccci_md_clear_smem(int md_id, int first_boot)
 {
@@ -966,7 +967,11 @@ int __weak md_cd_vcore_config(unsigned int md_id, unsigned int hold_req)
 
 int ccci_md_pre_start(unsigned char md_id)
 {
-	return md_cd_vcore_config(md_id, 1);
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md->hw_info->plat_ptr->vcore_config)
+		return md->hw_info->plat_ptr->vcore_config(md_id, 1);
+	return -1;
 }
 int ccci_md_start(unsigned char md_id)
 {
@@ -976,7 +981,11 @@ int ccci_md_start(unsigned char md_id)
 }
 int ccci_md_post_start(unsigned char md_id)
 {
-	return md_cd_vcore_config(md_id, 0);
+	struct ccci_modem *md = ccci_md_get_modem_by_id(md_id);
+
+	if (md->hw_info->plat_ptr->vcore_config)
+		return md->hw_info->plat_ptr->vcore_config(md_id, 0);
+	return -1;
 }
 int ccci_md_soft_stop(unsigned char md_id, unsigned int sim_mode)
 {
@@ -1137,17 +1146,8 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		= CCCI_FEATURE_MUST_SUPPORT;
 	md_feature->feature_set[EXCEPTION_SHARE_MEMORY].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
-#if (MD_GENERATION >= 6293)
 	md_feature->feature_set[CCIF_SHARE_MEMORY].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
-#else
-	if (md->index == MD_SYS1)
-		md_feature->feature_set[CCIF_SHARE_MEMORY].support_mask
-			= CCCI_FEATURE_NOT_SUPPORT;
-	else
-		md_feature->feature_set[CCIF_SHARE_MEMORY].support_mask
-			= CCCI_FEATURE_MUST_SUPPORT;
-#endif
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	md_feature->feature_set[CCISM_SHARE_MEMORY].support_mask
@@ -1157,7 +1157,6 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		= CCCI_FEATURE_NOT_SUPPORT;
 #endif
 
-#if (MD_GENERATION >= 6293)
 	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 	if ((md->index == MD_SYS1) && (get_md_resv_phy_cap_size(MD_SYS1) > 0))
@@ -1184,23 +1183,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	else
 		md_feature->feature_set[MD_POS_SHARE_MEMORY].support_mask =
 			CCCI_FEATURE_NOT_SUPPORT;
-#else
-	md_feature->feature_set[CCISM_SHARE_MEMORY_EXP].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[MD_PHY_CAPTURE].support_mask
-	= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[MD_CONSYS_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	if (get_modem_is_enabled(MD_SYS3))
-		md_feature->feature_set[MD1MD3_SHARE_MEMORY].support_mask
-			= CCCI_FEATURE_MUST_SUPPORT;
-	else
-		md_feature->feature_set[MD1MD3_SHARE_MEMORY].support_mask
-			= CCCI_FEATURE_NOT_SUPPORT;
 
-#endif
-
-#if (MD_GENERATION >= 6293)
 	/* notice: CCB_SHARE_MEMORY should be set to support
 	 * when at least one CCB region exists
 	 */
@@ -1216,36 +1199,7 @@ static void config_ap_side_feature(struct ccci_modem *md,
 		= CCCI_FEATURE_MUST_SUPPORT;
 	md_feature->feature_set[AUDIO_RAW_SHARE_MEMORY].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
-#elif (MD_GENERATION == 6292)
-	/* notice: CCB_SHARE_MEMORY should be set to support
-	 * when at least one CCB region exists
-	 */
-	md_feature->feature_set[CCB_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[DHL_RAW_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[LWA_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_MUST_SUPPORT;
-	md_feature->feature_set[DT_NETD_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_MUST_SUPPORT;
-	md_feature->feature_set[DT_USB_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_MUST_SUPPORT;
-	md_feature->feature_set[AUDIO_RAW_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_MUST_SUPPORT;
-#else
-	md_feature->feature_set[CCB_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[DHL_RAW_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[LWA_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[DT_NETD_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[DT_USB_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-	md_feature->feature_set[AUDIO_RAW_SHARE_MEMORY].support_mask
-		= CCCI_FEATURE_NOT_SUPPORT;
-#endif
+
 	md_feature->feature_set[MISC_INFO_HIF_DMA_REMAP].support_mask
 		= CCCI_FEATURE_MUST_SUPPORT;
 	md_feature->feature_set[MULTI_MD_MPU].support_mask
@@ -1309,13 +1263,14 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[SMART_LOGGING_SHARE_MEMORY].support_mask
 		= CCCI_FEATURE_NOT_SUPPORT;
 
-#if (MD_GENERATION >= 6295)
-	md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
-		CCCI_FEATURE_OPTIONAL_SUPPORT;
-#else
-	md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
-		CCCI_FEATURE_NOT_SUPPORT;
-#endif
+
+	if (md->hw_info->plat_val->md_gen >= 6295)
+		md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_OPTIONAL_SUPPORT;
+	else
+		md_feature->feature_set[MD_USIP_SHARE_MEMORY].support_mask =
+			CCCI_FEATURE_NOT_SUPPORT;
+
 	md_feature->feature_set[MD_MTEE_SHARE_MEMORY_ENABLE].support_mask
 		= CCCI_FEATURE_OPTIONAL_SUPPORT;
 }
@@ -1889,9 +1844,7 @@ static void receive_wakeup_src_notify(int md_id, char *buf, unsigned int len)
 		/* before spm add MD_WAKEUP_SOURCE parameter. */
 		if (md_id == MD_SYS1)
 			ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
-#if (MD_GENERATION >= 6293)
 			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
-#endif
 		if (md_id == MD_SYS3)
 			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
 		return;
@@ -2035,4 +1988,5 @@ int exec_ccci_kern_func_by_md_id(int md_id, unsigned int id, char *buf,
 	};
 	return ret;
 }
+EXPORT_SYMBOL(exec_ccci_kern_func_by_md_id);
 

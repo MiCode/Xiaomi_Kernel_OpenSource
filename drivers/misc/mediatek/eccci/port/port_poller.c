@@ -14,6 +14,7 @@
 #include <linux/rtc.h>
 #include <linux/timer.h>
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 
 #include "ccci_core.h"
 #include "ccci_bm.h"

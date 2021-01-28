@@ -1,7 +1,9 @@
-/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * SPDX-License-Identifier: GPL-2.0
+ *
+ * Copyright (C) 2019 MediaTek Inc.
  */
+
 
 #ifndef __MODEM_REG_BASE_H__
 #define __MODEM_REG_BASE_H__
@@ -12,10 +14,6 @@
 
 #define MD_BOOT_VECTOR_EN 0x20000024
 #define INFRA_AO_MD_SRCCLKENA    (0xF0C) /* SRC CLK ENA */
-
-#define MD_PCORE_PCCIF_BASE 0x20510000
-
-#define CCIF_SRAM_SIZE 512
 
 #define BASE_ADDR_MDRSTCTL   0x200f0000  /* From md, no use by AP directly */
 #define MD_RGU_BASE          (BASE_ADDR_MDRSTCTL + 0x100)  /* AP use */

@@ -224,10 +224,8 @@ static inline int ccci_md_recv_skb(unsigned char md_id,
 {
 	int flag = NORMAL_DATA;
 
-#if MD_GENERATION >= (6293)
 	if (hif_id == MD1_NET_HIF)
 		flag = CLDMA_NET_DATA;
-#endif
 	return ccci_port_recv_skb(md_id, hif_id, skb, flag);
 }
 
@@ -262,4 +260,6 @@ extern u32 mt_irq_get_pending(unsigned int irq);
 extern int gf_port_list_reg[GF_PORT_LIST_MAX];
 extern int gf_port_list_unreg[GF_PORT_LIST_MAX];
 extern int ccci_ipc_set_garbage_filter(struct ccci_modem *md, int reg);
+void ccci_md_config_layout_6293(struct ccci_modem *md);
+
 #endif	/* __CCCI_MODEM_H__ */

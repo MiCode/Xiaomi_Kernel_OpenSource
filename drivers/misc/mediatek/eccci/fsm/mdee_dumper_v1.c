@@ -6,6 +6,7 @@
 #include <linux/rtc.h>
 #include <linux/timer.h>
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif

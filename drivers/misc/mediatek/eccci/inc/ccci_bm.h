@@ -6,6 +6,7 @@
 #ifndef __CCCI_BM_H__
 #define __CCCI_BM_H__
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_core.h"
 
 /*

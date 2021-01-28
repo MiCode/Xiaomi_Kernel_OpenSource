@@ -4,23 +4,10 @@
  */
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_hif.h"
 #include "port_cfg.h"
 
-#if (MD_GENERATION <= 6292)
-#define EXP_CTRL_Q		3
-#define DATA_TX_Q		3
-#define DATA_RX_Q		3
-#define DATA_TX_ACK_Q		4
-#define DATA1_TX_Q		3
-#define DATA1_RX_Q		4
-#define DATA2_Q			5
-#define DATA2_RX_Q		5
-#define DATA_MDT_Q		7
-#define DATA_C2K_PPP_Q	1
-#define DATA_FSD_Q		1
-#define DATA_AT_CMD_Q	1
-#else
 #define EXP_CTRL_Q		6
 #define DATA_TX_Q		0
 #define DATA_RX_Q		0
@@ -33,7 +20,7 @@
 #define DATA_C2K_PPP_Q	3
 #define DATA_FSD_Q		4
 #define DATA_AT_CMD_Q	5
-#endif
+
 
 #define DATA_TCHE	8
 
@@ -242,11 +229,10 @@ static struct port_t md1_ccci_ports[] = {
 	{CCCI_CCB_CTRL, CCCI_CCB_CTRL, 0xFF, 0xFF, 0xFF, 0xFF,
 		CCIF_HIF_ID, PORT_F_WITH_CHAR_NODE, &smem_port_ops,
 		SMEM_USER_RAW_CCB_CTRL, "ccci_ccb_ctrl",},
-#if (MD_GENERATION >= 6292)
 	{CCCI_SMEM_CH, CCCI_SMEM_CH, SMEM_Q, SMEM_Q, SMEM_Q, SMEM_Q,
 		CCIF_HIF_ID, PORT_F_WITH_CHAR_NODE,
 		&smem_port_ops, SMEM_USER_CCB_DHL, "ccci_ccb_dhl",},
-#endif
+
 	{CCCI_SMEM_CH, CCCI_SMEM_CH, 0xFF, 0xFF, 0xFF, 0xFF,
 		CCIF_HIF_ID, PORT_F_WITH_CHAR_NODE, &smem_port_ops,
 		SMEM_USER_RAW_DHL, "ccci_raw_dhl",},

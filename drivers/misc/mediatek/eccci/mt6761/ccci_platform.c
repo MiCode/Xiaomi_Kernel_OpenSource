@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  */
+
 
 #include <linux/platform_device.h>
 #include <linux/device.h>
@@ -13,7 +14,7 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
-#include "mt-plat/mtk_ccci_common.h"
+#include <mt-plat/mtk_ccci_common.h>
 #include "ccci_config.h"
 #include "ccci_common_config.h"
 #include "ccci_modem.h"
@@ -100,8 +101,13 @@ static int ccci_platform_init(struct ccci_modem *md)
 	struct device_node *node;
 	/* Get infra cfg ao base */
 	node = of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6779-infracfg_ao");
+		"mediatek,mt6761-infracfg");
 	md_cd_plat_val_ptr.infra_ao_base = of_iomap(node, 0);
+	if (!md_cd_plat_val_ptr.infra_ao_base) {
+		CCCI_ERROR_LOG(md->index, TAG,
+			"%s: infra_ao_base of_iomap failed\n", node->full_name);
+		return -1;
+	}
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_base:0x%p\n",
 		(void *)md_cd_plat_val_ptr.infra_ao_base);
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
@@ -113,9 +119,10 @@ static int ccci_platform_init(struct ccci_modem *md)
 	return 0;
 }
 
-void ccci_platform_init_6779(struct ccci_modem *md)
+void ccci_platform_init_6761(struct ccci_modem *md)
 {
 
 	ccci_platform_init(md);
 }
+
 

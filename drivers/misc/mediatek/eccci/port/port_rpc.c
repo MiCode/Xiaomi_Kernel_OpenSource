@@ -24,6 +24,7 @@
 #include <linux/of_gpio.h>
 #include <linux/of_address.h>
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 
 #ifdef FEATURE_INFORM_NFC_VSIM_CHANGE
 #include <mach/mt6605.h>

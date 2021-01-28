@@ -8,7 +8,16 @@
 
 #include <linux/io.h>
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "modem_sys.h"
+
+struct  ccci_plat_val {
+	void __iomem *infra_ao_base;
+	unsigned int md_gen;
+	unsigned long offset_epof_md1;
+	void __iomem *md_plat_info;
+};
+static struct ccci_plat_val md_cd_plat_val_ptr;
 
 #define ccci_write32(b, a, v)  \
 do { \
@@ -40,17 +49,17 @@ void ccci_set_mem_access_protection_1st_stage(struct ccci_modem *md);
 void ccci_set_mem_access_protection_second_stage(int md_id);
 #endif
 
-unsigned int ccci_get_md_debug_mode(struct ccci_modem *md);
-void ccci_get_platform_version(char *ver);
+//void ccci_get_platform_version(char *ver);
+void ccci_platform_common_init(struct ccci_modem *md);
+void ccci_platform_init_6779(struct ccci_modem *md);
+
 
 int ccci_plat_common_init(void);
-int ccci_platform_init(struct ccci_modem *md);
-void ccci_reset_ccif_hw(unsigned char md_id,
-			int ccif_id, void __iomem *baseA, void __iomem *baseB);
-void ccci_set_clk_cg(struct ccci_modem *md, unsigned int is_on);
+//void ccci_set_clk_cg(struct ccci_modem *md, unsigned int is_on);
 #ifdef ENABLE_DRAM_API
 extern phys_addr_t get_max_DRAM_size(void);
 #endif
 int Is_MD_EMI_voilation(void);
+
 #define MD_IN_DEBUG(md) (0)
 #endif	/* __CCCI_PLATFORM_H__ */

@@ -15,28 +15,21 @@
 #include "mt-plat/mtk_ccci_common.h"
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_bm.h"
 #include "ccci_hif_internal.h"
+#include "modem_sys.h"
 /*
  * hardcode, max queue number should be synced with port array in port_cfg.c
  * and macros in ccci_core.h following number should sync with MAX_TXQ/RXQ_NUM
  * in ccci_core.h and bitmask in modem_cldma.c
  */
-#if MD_GENERATION >= (6293)
 #define CLDMA_TXQ_NUM 4
 #define CLDMA_RXQ_NUM 1
 #define NET_TXQ_NUM 4
 #define NET_RXQ_NUM 1
 #define NORMAL_TXQ_NUM 0
 #define NORMAL_RXQ_NUM 0
-#else
-#define CLDMA_TXQ_NUM 8
-#define CLDMA_RXQ_NUM 8
-#define NET_TXQ_NUM 4
-#define NET_RXQ_NUM 4
-#define NORMAL_TXQ_NUM 5
-#define NORMAL_RXQ_NUM 5
-#endif
 
 #define MAX_BD_NUM (MAX_SKB_FRAGS + 1)
 #define TRAFFIC_MONITOR_INTERVAL 10	/* seconds */
@@ -271,6 +264,7 @@ struct md_cd_ctrl {
 
 	unsigned long cldma_irq_flags;
 	struct ccci_hif_ops *ops;
+	struct ccci_plat_val *plat_val;
 };
 
 struct cldma_tgpd {
@@ -359,6 +353,7 @@ static inline void md_cd_queue_struct_init(struct md_cd_queue *queue,
 #endif
 }
 
+
 static inline int ccci_cldma_hif_send_skb(unsigned char hif_id, int tx_qno,
 	struct sk_buff *skb, int from_pool, int blocking)
 {
@@ -397,13 +392,14 @@ static inline int ccci_cldma_hif_give_more(unsigned char hif_id, int rx_qno)
 }
 
 static inline int ccci_cldma_hif_dump_status(unsigned char hif_id,
-	enum MODEM_DUMP_FLAG dump_flag, int length)
+	enum MODEM_DUMP_FLAG dump_flag, void *buff, int length)
 {
 	struct md_cd_ctrl *md_ctrl =
 		(struct md_cd_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (md_ctrl)
-		return md_ctrl->ops->dump_status(hif_id, dump_flag, length);
+		return md_ctrl->ops->dump_status(hif_id, dump_flag,
+			buff, length);
 	else
 		return -1;
 
@@ -428,13 +424,12 @@ int md_cd_late_init(unsigned char hif_id);
 void cldma_start(unsigned char hif_id);
 void cldma_stop(unsigned char hif_id);
 void cldma_stop_for_ee(unsigned char hif_id);
-void md_cldma_clear(unsigned char hif_id);
+void md_cldma_clear(unsigned char hif_id, struct ccci_modem *md);
 void cldma_reset(unsigned char hif_id);
 void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir);
 void md_cd_ccif_allQreset_work(unsigned char hif_id);
 
 extern void mt_irq_dump_status(int irq);
-extern unsigned int ccci_get_md_debug_mode(struct ccci_modem *md);
 
 /* used for throttling feature - start */
 extern unsigned long ccci_modem_boot_count[];

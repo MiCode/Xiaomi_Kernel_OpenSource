@@ -25,6 +25,7 @@
 #endif
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_core.h"
 #include "ccci_bm.h"
 #include "ccci_fsm.h"
@@ -1392,6 +1393,7 @@ void ccci_port_dump_status(int md_id)
 	proxy_p = GET_PORT_PROXY(md_id);
 	proxy_dump_status(proxy_p);
 }
+EXPORT_SYMBOL(ccci_port_dump_status);
 
 static inline void user_broadcast_wrapper(int md_id, unsigned int state)
 {
@@ -1513,7 +1515,7 @@ int ccci_port_send_msg_to_md(int md_id, int ch, unsigned int msg,
 	proxy_p = GET_PORT_PROXY(md_id);
 	return proxy_send_msg_to_md(proxy_p, ch, msg, resv, blocking);
 }
-
+EXPORT_SYMBOL(ccci_port_send_msg_to_md);
 /*
  * This API is called by ccci fsm,
  * and used to set port traffic flag to catch traffic history on
@@ -1546,19 +1548,12 @@ int modem_dtr_set(int on, int low_latency)
 	else
 		c2k_ctl_msg.option &= 0xFB;
 
-#if (MD_GENERATION <= 6292)
-	md_id = MD_SYS3;
-	CCCI_NORMAL_LOG(md_id, TAG, "usb bypass dtr set(%d)(0x%x)\n",
-		on, (u32) (*((u32 *)&c2k_ctl_msg)));
-	ccci_port_send_msg_to_md(md_id, CCCI_CONTROL_TX, C2K_STATUS_IND_MSG,
-		(u32) (*((u32 *)&c2k_ctl_msg)), 1);
-#else
 	md_id = MD_SYS1;
 	CCCI_NORMAL_LOG(md_id, TAG, "usb bypass dtr set(%d)(0x%x)\n",
 		on, (u32) (*((u32 *)&c2k_ctl_msg)));
 	ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX, C2K_PPP_LINE_STATUS,
 		(u32) (*((u32 *)&c2k_ctl_msg)), 1);
-#endif
+
 	return ret;
 }
 
@@ -1574,18 +1569,11 @@ int modem_dcd_state(void)
 	c2k_ctl_msg.id_low = C2K_STATUS_QUERY_MSG & 0xFF;
 	c2k_ctl_msg.option = 0;
 
-#if (MD_GENERATION <= 6292)
-	md_id = MD_SYS3;
-	ret = ccci_port_send_msg_to_md(md_id, CCCI_CONTROL_TX,
-			C2K_STATUS_QUERY_MSG,
-			(u32) (*((u32 *)&c2k_ctl_msg)), 1);
-#else
 	md_id = MD_SYS1;
 	ret = ccci_port_send_msg_to_md(md_id, CCCI_SYSTEM_TX,
 			C2K_PPP_LINE_STATUS,
 			(u32) (*((u32 *)&c2k_ctl_msg)), 1);
 
-#endif
 	CCCI_NORMAL_LOG(md_id, TAG,
 		"usb bypass query state(0x%x)\n",
 		(u32) (*((u32 *)&c2k_ctl_msg)));
@@ -1609,11 +1597,8 @@ int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception)
 	struct list_head *port_list = NULL;
 	char matched = 0;
 	int ch_id_tx, ch_id_rx = 0;
-#if (MD_GENERATION <= 6292)
-	int md_id = MD_SYS3;
-#else
 	int md_id = MD_SYS1;
-#endif
+
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
 
 	/* USB bypass's channel id offset,
@@ -1626,13 +1611,9 @@ int ccci_c2k_rawbulk_intercept(int ch_id, unsigned int interception)
 
 	/*only data and log channel are legal*/
 	if (ch_id == DATA_PPP_CH_C2K) {
-#if (MD_GENERATION <= 6292)
-		ch_id_tx = CCCI_C2K_PPP_DATA;
-		ch_id_rx = CCCI_C2K_PPP_DATA;
-#else
 		ch_id_tx = CCCI_C2K_PPP_TX;
 		ch_id_rx = CCCI_C2K_PPP_RX;
-#endif
+
 	} else if (ch_id == MDLOG_CH_C2K) {
 		ch_id_tx = CCCI_MD_LOG_TX;
 		ch_id_rx = CCCI_MD_LOG_RX;
@@ -1689,11 +1670,7 @@ int ccci_c2k_buffer_push(int ch_id, void *buf, int count)
 	unsigned char blk1 = 0;
 	/* non-blocking for all request from USB */
 	unsigned char blk2 = 0;
-#if (MD_GENERATION <= 6292)
-	int md_id = MD_SYS3;
-#else
 	int md_id = MD_SYS1;
-#endif
 
 	/* USB bypass's channel id offset, please refer to viatel_rawbulk.h */
 	if (ch_id >= FS_CH_C2K)
@@ -1703,13 +1680,8 @@ int ccci_c2k_buffer_push(int ch_id, void *buf, int count)
 
 	/* only data and log channel are legal */
 	if (ch_id == DATA_PPP_CH_C2K) {
-#if (MD_GENERATION <= 6292)
-		ch_id_tx = CCCI_C2K_PPP_DATA;
-		ch_id_rx = CCCI_C2K_PPP_DATA;
-#else
 		ch_id_tx = CCCI_C2K_PPP_TX;
 		ch_id_rx = CCCI_C2K_PPP_RX;
-#endif
 	} else if (ch_id == MDLOG_CH_C2K) {
 		ch_id_tx = CCCI_MD_LOG_TX;
 		ch_id_rx = CCCI_MD_LOG_RX;

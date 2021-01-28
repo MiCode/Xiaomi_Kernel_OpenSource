@@ -19,5 +19,5 @@ enum MD_REG_ID {
 	MD_REG_AP_MDSRC_ACK,
 	MD_REG_AP_MDSRC_SETTLE,
 };
+void md_dump_register_6779(unsigned int md_index);
 
-void internal_md_dump_debug_register(unsigned int md_index);

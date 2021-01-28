@@ -12,6 +12,7 @@
 
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_bm.h"
 #ifdef CCCI_BM_TRACE
 #define CREATE_TRACE_POINTS
@@ -384,6 +385,7 @@ struct sk_buff *ccci_alloc_skb(int size, unsigned char from_pool,
 
 	return skb;
 }
+EXPORT_SYMBOL(ccci_alloc_skb);
 
 void ccci_free_skb(struct sk_buff *skb)
 {

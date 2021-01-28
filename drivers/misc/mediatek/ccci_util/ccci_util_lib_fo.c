@@ -1646,7 +1646,7 @@ static void cal_md_settings(int md_id)
 	/* MD*_SMEM_SIZE */
 	if (md_id == MD_SYS1) {
 		/* For cldma case */
-		node_name = "mediatek,mdcldma";
+		node_name = "mediatek,mddriver";
 		/* For ccif case */
 		node_name2 = "mediatek,ap_ccif0";
 	} else if (md_id == MD_SYS2) {

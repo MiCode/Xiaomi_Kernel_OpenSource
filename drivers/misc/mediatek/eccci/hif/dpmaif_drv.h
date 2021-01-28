@@ -6,6 +6,7 @@
 #ifndef __MODEM_DPMAIF_DRV_H__
 #define __MODEM_DPMAIF_DRV_H__
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "dpmaif_reg.h"
 
 /* == RX part == */

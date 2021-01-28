@@ -84,11 +84,20 @@ static struct md_check_header_v6 md_img_header_v6[MAX_MD_NUM];
 /*static struct ccci_image_info		img_info[MAX_MD_NUM][IMG_NUM]; */
 char md_img_info_str[MAX_MD_NUM][256];
 
-#define AP_PLATFORM_INFO    "MT6779"
-
 char *ccci_get_ap_platform(void)
 {
-	return AP_PLATFORM_INFO;
+	struct device_node *node;
+	int ap_plat_info;
+	char *ap_platform = NULL;
+
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	of_property_read_u32(node,
+		"mediatek,ap_plat_info", &ap_plat_info);
+	ap_platform = kzalloc(sizeof(int), GFP_KERNEL);
+	sprintf(ap_platform, "%d", ap_plat_info);
+
+	return ap_platform;
 }
 
 /*--- MD header check ------------ */
@@ -386,7 +395,6 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 		head = (struct md_check_header_struct *)headv12;
 		header_up = 2;
 	}
-
 	start = (unsigned char *)(head);
 	ptr = (unsigned char *)(parse_addr - header_size);
 	for (idx = 0; idx < header_size; idx++)
@@ -1194,7 +1202,6 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 			"fail to allocate memor for chk_hdr\n");
 		return -1;
 	}
-
 	img_str = md_img_info_str[md_id];
 
 	ret = get_raw_check_hdr(md_id, buf, 1024);
@@ -1204,7 +1211,6 @@ int ccci_get_md_check_hdr_inf(int md_id, void *img_inf, char post_fix[])
 		kfree(buf);
 		return -1;
 	}
-
 	img_ptr->size = get_md_img_raw_size(md_id);
 	ret = check_md_header(md_id, buf+ret, img_ptr);
 	if (ret < 0) {

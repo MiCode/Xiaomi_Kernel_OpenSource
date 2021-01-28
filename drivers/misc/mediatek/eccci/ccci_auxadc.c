@@ -11,6 +11,7 @@
 #include <linux/iio/iio.h>
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_core.h"
 #include "ccci_debug.h"
 

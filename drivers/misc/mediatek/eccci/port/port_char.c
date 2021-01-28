@@ -13,6 +13,7 @@
 #include <linux/compat.h>
 #endif
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_bm.h"
 #include "port_proxy.h"
 #include "port_char.h"
@@ -115,11 +116,7 @@ static int c2k_req_push_to_usb(struct port_t *port, struct sk_buff *skb)
 	struct ccci_header *ccci_h = NULL;
 	int read_len, read_count, ret = 0;
 	int c2k_ch_id;
-#if (MD_GENERATION <= 6292)
-	int ppp_rx_ch = CCCI_C2K_PPP_DATA;
-#else
 	int ppp_rx_ch = CCCI_C2K_PPP_RX;
-#endif
 
 	if (port->rx_ch == ppp_rx_ch)
 		c2k_ch_id = DATA_PPP_CH_C2K-1;

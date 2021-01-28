@@ -26,21 +26,42 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/clk.h> /* for clk_prepare/un* */
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
 #include "ccci_hif_ccif.h"
-#if (MD_GENERATION <= 6292)
-#include "ccif_c2k_platform.h"
-#else
 #include "md_sys1_platform.h"
+#include "modem_sys.h"
+
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
 #endif
 
 #define TAG "cif"
+/* struct md_ccif_ctrl *ccif_ctrl; */
+#ifdef CCCI_KMODULE_ENABLE
+unsigned int devapc_check_flag = 1;
+#endif
+unsigned int devapc_check_flag = 1;
 
+/* this table maybe can be set array when multi, or else. */
+static struct ccci_clk_node ccif_clk_table[] = {
+	{ NULL, "infra-ccif-ap"},
+	{ NULL, "infra-ccif-md"},
+	{ NULL, "infra-ccif1-ap"},
+	{ NULL, "infra-ccif1-md"},
+	{ NULL, "infra-ccif2-ap"},
+	{ NULL, "infra-ccif2-md"},
+	{ NULL, "infra-ccif4-md"},
+};
 #define IS_PASS_SKB(per_md_data, qno)	\
 	(!per_md_data->data_usb_bypass && (per_md_data->is_in_ee_dump == 0) \
 	 && ((1<<qno) & NET_RX_QUEUE_MASK))
@@ -138,40 +159,31 @@ static struct c2k_port c2k_ports[] = {
 
 /*ccif share memory setting*/
 /*need confirm with md. haow*/
-#if (MD_GENERATION <= 6292)
-static int rx_queue_buffer_size[QUEUE_NUM] = { 10 * 1024, 100 * 1024,
-	100 * 1024, 150 * 1024, 50 * 1024, 10 * 1024, 10 * 1024, 10 * 1024,
-};
 
-static int tx_queue_buffer_size[QUEUE_NUM] = { 10 * 1024, 100 * 1024,
-	50 * 1024, 50 * 1024, 50 * 1024, 10 * 1024, 10 * 1024, 10 * 1024,
-};
-#endif
 
-#if (MD_GENERATION >= 6295)
-static int rx_queue_buffer_size[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
+static int rx_queue_buffer_size_up_95[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
 	40 * 1024, 80 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024,
 };
 
-static int tx_queue_buffer_size[QUEUE_NUM] = { 128 * 1024, 40 * 1024,
+static int tx_queue_buffer_size_up_95[QUEUE_NUM] = { 128 * 1024, 40 * 1024,
 	8 * 1024, 40 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024,
 };
-static int rx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
+static int rx_exp_buffer_size_up_95[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 8 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024,
 };
 
-static int tx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
+static int tx_exp_buffer_size_up_95[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 8 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 0 * 1024,
 	0 * 1024, 0 * 1024,
 };
-#else
+
 static int rx_queue_buffer_size[QUEUE_NUM] = { 80 * 1024, 80 * 1024,
 	40 * 1024, 80 * 1024, 20 * 1024, 20 * 1024, 64 * 1024, 0 * 1024,
 };
@@ -186,7 +198,20 @@ static int rx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 static int tx_exp_buffer_size[QUEUE_NUM] = { 12 * 1024, 32 * 1024,
 	8 * 1024, 0 * 1024, 0 * 1024, 0 * 1024, 8 * 1024, 0 * 1024,
 };
+
+#ifdef CCCI_KMODULE_ENABLE
+/*
+ * for debug log:
+ * 0 to disable; 1 for print to ram; 2 for print to uart
+ * other value to desiable all log
+ */
+#ifndef CCCI_LOG_LEVEL /* for platform override */
+#define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
 #endif
+unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
+//void __iomem *infra_ao_base;
+#endif
+
 static void md_ccif_dump(unsigned char *title, unsigned char hif_id)
 {
 	int idx;
@@ -254,6 +279,215 @@ static void md_ccif_dump(unsigned char *title, unsigned char hif_id)
 
 }
 
+static void md_ccif_queue_dump(unsigned char hif_id)
+{
+	int idx;
+	unsigned long long ts = 0;
+	unsigned long nsec_rem = 0;
+
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+
+	if (!md_ctrl || !md_ctrl->rxq[0].ringbuf)
+		return;
+
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Dump md_ctrl->channel_id 0x%lx\n",
+		md_ctrl->channel_id);
+	ts = md_ctrl->traffic_info.latest_isr_time;
+	nsec_rem = do_div(ts, NSEC_PER_SEC);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Dump CCIF latest isr %5llu.%06lu\n", ts,
+		nsec_rem / 1000);
+#ifdef DEBUG_FOR_CCB
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Dump CCIF latest r_ch: 0x%x\n",
+		md_ctrl->traffic_info.last_ccif_r_ch);
+	ts = md_ctrl->traffic_info.latest_ccb_isr_time;
+	nsec_rem = do_div(ts, NSEC_PER_SEC);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Dump CCIF latest ccb_isr %5llu.%06lu\n", ts,
+		nsec_rem / 1000);
+#endif
+
+	for (idx = 0; idx < QUEUE_NUM; idx++) {
+		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Q%d TX: w=%d, r=%d, len=%d, %p\n",
+		idx, md_ctrl->txq[idx].ringbuf->tx_control.write,
+		md_ctrl->txq[idx].ringbuf->tx_control.read,
+		md_ctrl->txq[idx].ringbuf->tx_control.length,
+		md_ctrl->txq[idx].ringbuf);
+		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Q%d RX: w=%d, r=%d, len=%d\n",
+		idx, md_ctrl->rxq[idx].ringbuf->rx_control.write,
+		md_ctrl->rxq[idx].ringbuf->rx_control.read,
+		md_ctrl->rxq[idx].ringbuf->rx_control.length);
+		ts = md_ctrl->traffic_info.latest_q_rx_isr_time[idx];
+		nsec_rem = do_div(ts, NSEC_PER_SEC);
+		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Q%d RX: last isr %5llu.%06lu\n", idx, ts,
+		nsec_rem / 1000);
+		ts = md_ctrl->traffic_info.latest_q_rx_time[idx];
+		nsec_rem = do_div(ts, NSEC_PER_SEC);
+		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Q%d RX: last wq  %5llu.%06lu\n", idx, ts,
+		nsec_rem / 1000);
+	}
+	ccci_md_dump_log_history(md_ctrl->md_id,
+		&md_ctrl->traffic_info, 1, QUEUE_NUM, QUEUE_NUM);
+}
+
+static void md_ccif_dump_queue_history(unsigned char hif_id, unsigned int qno)
+{
+	struct md_ccif_ctrl *md_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+
+	if (!md_ctrl || !md_ctrl->rxq[qno].ringbuf)
+		return;
+
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Dump md_ctrl->channel_id 0x%lx\n", md_ctrl->channel_id);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Dump CCIF Queue%d Control\n", qno);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Q%d TX: w=%d, r=%d, len=%d\n",
+		qno, md_ctrl->txq[qno].ringbuf->tx_control.write,
+		md_ctrl->txq[qno].ringbuf->tx_control.read,
+		md_ctrl->txq[qno].ringbuf->tx_control.length);
+	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
+		"Q%d RX: w=%d, r=%d, len=%d\n",
+		qno, md_ctrl->rxq[qno].ringbuf->rx_control.write,
+		md_ctrl->rxq[qno].ringbuf->rx_control.read,
+		md_ctrl->rxq[qno].ringbuf->rx_control.length);
+	ccci_md_dump_log_history(md_ctrl->md_id,
+		&md_ctrl->traffic_info, 0, qno, qno);
+}
+
+static void md_cd_dump_ccif_reg(unsigned char hif_id)
+{
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int idx;
+
+	if (ccif_ctrl->ccif_state == HIFCCIF_STATE_PWROFF
+		|| ccif_ctrl->ccif_state == HIFCCIF_STATE_MIN) {
+		CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG,
+			"CCIF not power on, skip dump\n");
+		return;
+	}
+
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_CON(%p)=%x\n",
+		ccif_ctrl->ccif_ap_base + APCCIF_CON,
+		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_CON));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_BUSY(%p)=%x\n",
+		ccif_ctrl->ccif_ap_base + APCCIF_BUSY,
+		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_BUSY));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_START(%p)=%x\n",
+		ccif_ctrl->ccif_ap_base + APCCIF_START,
+		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_START));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_TCHNUM(%p)=%x\n",
+		ccif_ctrl->ccif_ap_base + APCCIF_TCHNUM,
+		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_TCHNUM));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_RCHNUM(%p)=%x\n",
+		ccif_ctrl->ccif_ap_base + APCCIF_RCHNUM,
+		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_RCHNUM));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "AP_ACK(%p)=%x\n",
+		ccif_ctrl->ccif_ap_base + APCCIF_ACK,
+		ccif_read32(ccif_ctrl->ccif_ap_base, APCCIF_ACK));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "MD_CON(%p)=%x\n",
+		ccif_ctrl->ccif_md_base + APCCIF_CON,
+		ccif_read32(ccif_ctrl->ccif_md_base, APCCIF_CON));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "MD_BUSY(%p)=%x\n",
+		ccif_ctrl->ccif_md_base + APCCIF_BUSY,
+		ccif_read32(ccif_ctrl->ccif_md_base, APCCIF_BUSY));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "MD_START(%p)=%x\n",
+		ccif_ctrl->ccif_md_base + APCCIF_START,
+		ccif_read32(ccif_ctrl->ccif_md_base, APCCIF_START));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "MD_TCHNUM(%p)=%x\n",
+		ccif_ctrl->ccif_md_base + APCCIF_TCHNUM,
+		ccif_read32(ccif_ctrl->ccif_md_base, APCCIF_TCHNUM));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "MD_RCHNUM(%p)=%x\n",
+		ccif_ctrl->ccif_md_base + APCCIF_RCHNUM,
+		ccif_read32(ccif_ctrl->ccif_md_base, APCCIF_RCHNUM));
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG, "MD_ACK(%p)=%x\n",
+		ccif_ctrl->ccif_md_base + APCCIF_ACK,
+		ccif_read32(ccif_ctrl->ccif_md_base, APCCIF_ACK));
+
+	for (idx = 0; idx < ccif_ctrl->sram_size / sizeof(u32);
+		idx += 4) {
+		CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG,
+			"CHDATA(%p): %08X %08X %08X %08X\n",
+			ccif_ctrl->ccif_ap_base + APCCIF_CHDATA +
+			idx * sizeof(u32),
+			ccif_read32(ccif_ctrl->ccif_ap_base + APCCIF_CHDATA,
+				(idx + 0) * sizeof(u32)),
+			ccif_read32(ccif_ctrl->ccif_ap_base + APCCIF_CHDATA,
+				(idx + 1) * sizeof(u32)),
+			ccif_read32(ccif_ctrl->ccif_ap_base + APCCIF_CHDATA,
+				(idx + 2) * sizeof(u32)),
+			ccif_read32(ccif_ctrl->ccif_ap_base + APCCIF_CHDATA,
+				(idx + 3) * sizeof(u32)));
+	}
+}
+
+static int ccif_debug_dump_data(unsigned int hif_id, int *buff, int length)
+{
+	int i;
+	unsigned int *dest_buff = NULL;
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int sram_size = ccif_ctrl->sram_size;
+
+	if (!buff || length < 0 || length > sram_size)
+		return 0;
+
+	dest_buff = (unsigned int *)buff;
+
+	for (i = 0; i < length / sizeof(unsigned int); i++) {
+		*(dest_buff + i) = ccif_read32(ccif_ctrl->ccif_ap_base,
+			APCCIF_CHDATA + (sram_size - length) +
+			i * sizeof(unsigned int));
+	}
+	CCCI_MEM_LOG_TAG(ccif_ctrl->md_id, TAG,
+		"Dump CCIF SRAM (last %d bytes)\n", length);
+	ccci_util_mem_dump(ccif_ctrl->md_id,
+		CCCI_DUMP_MEM_DUMP, dest_buff, length);
+
+	return 0;
+}
+
+static int md_ccif_op_dump_status(unsigned char hif_id,
+	enum MODEM_DUMP_FLAG flag, void *buff, int length)
+{
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+
+	if (!ccif_ctrl)
+		return -1;
+
+	/*runtime data, boot, long time no response EE */
+	if (flag & DUMP_FLAG_CCIF) {
+		ccif_debug_dump_data(hif_id, buff, length);
+		md_ccif_dump("Dump CCIF SRAM\n", hif_id);
+		md_ccif_queue_dump(hif_id);
+	}
+	if (flag & DUMP_FLAG_IRQ_STATUS) {
+		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
+		"Dump AP CCIF IRQ status not support\n");
+		/* mt_irq_dump_status(md_ctrl->ccif_irq_id);*/
+	}
+	if (flag & DUMP_FLAG_QUEUE_0)
+		md_ccif_dump_queue_history(hif_id, 0);
+	if (flag & DUMP_FLAG_QUEUE_0_1) {
+		md_ccif_dump_queue_history(hif_id, 0);
+		md_ccif_dump_queue_history(hif_id, 1);
+	}
+	if (flag & (DUMP_FLAG_CCIF_REG | DUMP_FLAG_REG))
+		md_cd_dump_ccif_reg(hif_id);
+
+	return 0;
+}
+
 /*direction: 1: tx; 0: rx*/
 static int c2k_ch_to_ccci_ch(int c2k_ch, int direction)
 {
@@ -303,6 +537,36 @@ static int ccci_ch_to_c2k_ch(int md_state, int ccci_ch, int direction)
 		"%s:ERR cannot find mapped ccci ch ID(%d)\n",
 		direction ? "TX" : "RX", ccci_ch);
 	return C2K_OVER_MAX_CH;
+}
+
+static inline void ccci_md_check_rx_seq_num(unsigned char md_id,
+	struct ccci_hif_traffic *traffic_info,
+	struct ccci_header *ccci_h, int qno)
+{
+	u16 channel, seq_num, assert_bit;
+	unsigned int param[3] = {0};
+
+	channel = ccci_h->channel;
+	seq_num = ccci_h->seq_num;
+	assert_bit = ccci_h->assert_bit;
+
+	if (assert_bit && traffic_info->seq_nums[IN][channel] != 0
+		&& ((seq_num - traffic_info->seq_nums[IN][channel])
+		& 0x7FFF) != 1) {
+		CCCI_ERROR_LOG(md_id, CORE,
+			"channel %d seq number out-of-order %d->%d (data: %X, %X)\n",
+			channel, seq_num, traffic_info->seq_nums[IN][channel],
+			ccci_h->data[0], ccci_h->data[1]);
+		md_ccif_op_dump_status(CCIF_HIF_ID, DUMP_FLAG_CCIF, NULL, qno);
+		param[0] = channel;
+		param[1] = traffic_info->seq_nums[IN][channel];
+		param[2] = seq_num;
+		ccci_md_force_assert(md_id, MD_FORCE_ASSERT_BY_MD_SEQ_ERROR,
+			(char *)param, sizeof(param));
+
+	} else {
+		traffic_info->seq_nums[IN][channel] = seq_num;
+	}
 }
 
 static void md_ccif_sram_rx_work(struct work_struct *work)
@@ -530,10 +794,8 @@ static void md_ccif_traffic_work_func(struct work_struct *work)
 		jiffies + CCIF_TRAFFIC_MONITOR_INTERVAL * HZ);
 }
 
-//static void md_ccif_traffic_monitor_func(unsigned long data)
 static void md_ccif_traffic_monitor_func(struct timer_list *t)
 {
-	//struct md_ccif_ctrl *md_ctrl = (struct md_ccif_ctrl *)data;
 	struct md_ccif_ctrl *md_ctrl = from_timer(md_ctrl, t, traffic_monitor);
 
 	schedule_work(&md_ctrl->traffic_info.traffic_work_struct);
@@ -765,7 +1027,7 @@ void ccif_polling_ready(unsigned char hif_id, int step)
 		md_ctrl->channel_id);
 }
 
-int md_ccif_send(unsigned char hif_id, int channel_id)
+static int md_ccif_send(unsigned char hif_id, int channel_id)
 {
 	int busy = 0;
 	struct md_ccif_ctrl *md_ctrl =
@@ -788,6 +1050,21 @@ int md_ccif_send(unsigned char hif_id, int channel_id)
 	return 0;
 }
 
+static int md_ccif_send_data(unsigned char hif_id, int channel_id)
+{
+	switch (channel_id) {
+	case H2D_EXCEPTION_CLEARQ_ACK:
+		md_ccif_switch_ringbuf(CCIF_HIF_ID, RB_EXP);
+		md_ccif_reset_queue(CCIF_HIF_ID, 0);
+		break;
+	case H2D_SRAM:
+		break;
+	default:
+		break;
+	}
+	return md_ccif_send(hif_id, channel_id);
+}
+
 void md_ccif_sram_reset(unsigned char hif_id)
 {
 	int idx = 0;
@@ -802,60 +1079,6 @@ void md_ccif_sram_reset(unsigned char hif_id)
 			idx * sizeof(u32), 0);
 	ccci_reset_seq_num(&md_ctrl->traffic_info);
 
-}
-
-static void md_ccif_queue_dump(unsigned char hif_id)
-{
-	int idx;
-	unsigned long long ts = 0;
-	unsigned long nsec_rem = 0;
-
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Dump md_ctrl->channel_id 0x%lx\n",
-		md_ctrl->channel_id);
-	ts = md_ctrl->traffic_info.latest_isr_time;
-	nsec_rem = do_div(ts, NSEC_PER_SEC);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Dump CCIF latest isr %5llu.%06lu\n", ts,
-		nsec_rem / 1000);
-#ifdef DEBUG_FOR_CCB
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Dump CCIF latest r_ch: 0x%x\n",
-		md_ctrl->traffic_info.last_ccif_r_ch);
-	ts = md_ctrl->traffic_info.latest_ccb_isr_time;
-	nsec_rem = do_div(ts, NSEC_PER_SEC);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Dump CCIF latest ccb_isr %5llu.%06lu\n", ts,
-		nsec_rem / 1000);
-#endif
-
-	for (idx = 0; idx < QUEUE_NUM; idx++) {
-		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d TX: w=%d, r=%d, len=%d\n",
-		idx, md_ctrl->txq[idx].ringbuf->tx_control.write,
-		md_ctrl->txq[idx].ringbuf->tx_control.read,
-		md_ctrl->txq[idx].ringbuf->tx_control.length);
-		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d RX: w=%d, r=%d, len=%d\n",
-		idx, md_ctrl->rxq[idx].ringbuf->rx_control.write,
-		md_ctrl->rxq[idx].ringbuf->rx_control.read,
-		md_ctrl->rxq[idx].ringbuf->rx_control.length);
-		ts = md_ctrl->traffic_info.latest_q_rx_isr_time[idx];
-		nsec_rem = do_div(ts, NSEC_PER_SEC);
-		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d RX: last isr %5llu.%06lu\n", idx, ts,
-		nsec_rem / 1000);
-		ts = md_ctrl->traffic_info.latest_q_rx_time[idx];
-		nsec_rem = do_div(ts, NSEC_PER_SEC);
-		CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d RX: last wq  %5llu.%06lu\n", idx, ts,
-		nsec_rem / 1000);
-	}
-	ccci_md_dump_log_history(md_ctrl->md_id,
-		&md_ctrl->traffic_info, 1, QUEUE_NUM, QUEUE_NUM);
 }
 
 void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
@@ -873,7 +1096,8 @@ void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start)
 	} else {
 		del_timer(&md_ctrl->traffic_monitor);
 		ccci_reset_ccif_hw(md_ctrl->md_id,
-			ccif_id, md_ctrl->ccif_ap_base, md_ctrl->ccif_md_base);
+			ccif_id, md_ctrl->ccif_ap_base,
+			md_ctrl->ccif_md_base, md_ctrl);
 	}
 
 	CCCI_NORMAL_LOG(md_ctrl->md_id, TAG, "%s\n", __func__);
@@ -961,8 +1185,7 @@ static void md_ccif_handle_exception(struct md_ccif_ctrl *md_ctrl)
 	}
 	if (md_ctrl->channel_id & (1 << D2H_EXCEPTION_INIT)) {
 		clear_bit(D2H_EXCEPTION_INIT, &md_ctrl->channel_id);
-		ccci_fsm_recv_md_interrupt(md_ctrl->md_id,
-			MD_IRQ_CCIF_EX);
+		md_fsm_exp_info(md_ctrl->md_id, (1 << D2H_EXCEPTION_INIT));
 	}
 
 	if (md_ctrl->channel_id & (1 << AP_MD_SEQ_ERROR)) {
@@ -989,7 +1212,6 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 		schedule_work(&md_ctrl->ccif_sram_work);
 	}
 
-#if (MD_GENERATION >= 6293)
 	if (md_ctrl->channel_id & (1 << AP_MD_CCB_WAKEUP)) {
 		clear_bit(AP_MD_CCB_WAKEUP, &md_ctrl->channel_id);
 		CCCI_DEBUG_LOG(md_ctrl->md_id, TAG, "CCB wakeup\n");
@@ -1006,7 +1228,6 @@ static void md_ccif_launch_work(struct md_ccif_ctrl *md_ctrl)
 		ccci_port_queue_status_notify(md_ctrl->md_id, CCIF_HIF_ID,
 			AP_MD_CCB_WAKEUP, -1, RX_IRQ);
 	}
-#endif
 	for (i = 0; i < QUEUE_NUM; i++) {
 		if (md_ctrl->channel_id & (1 << (i + D2H_RINGQ0))) {
 			md_ctrl->traffic_info.latest_q_rx_isr_time[i]
@@ -1114,12 +1335,13 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 
 	if (ccci_h->channel == CCCI_C2K_LB_DL)
 		qno = atomic_read(&lb_dl_q);
-#if (MD_GENERATION < 6295)
-	if (qno > 7) {
-		CCCI_ERROR_LOG(md_ctrl->md_id, TAG, "qno error (%d)\n", qno);
-		return -CCCI_ERR_INVALID_QUEUE_INDEX;
+	if (md_ctrl->plat_val->md_gen < 6295) {
+		if (qno > 7) {
+			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+				"qno error (%d)\n", qno);
+			return -CCCI_ERR_INVALID_QUEUE_INDEX;
+		}
 	}
-#endif
 	queue = &md_ctrl->txq[qno];
  retry:
 	/* we use irqsave as network require a lock in softirq,
@@ -1253,34 +1475,14 @@ static int md_ccif_op_give_more(unsigned char hif_id, unsigned char qno)
 	struct md_ccif_ctrl *md_ctrl =
 		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
+	if (!md_ctrl)
+		return -CCCI_ERR_HIF_NOT_POWER_ON;
+
 	if (qno == 0xFF)
 		return -CCCI_ERR_INVALID_QUEUE_INDEX;
 	queue_work(md_ctrl->rxq[qno].worker,
 		&md_ctrl->rxq[qno].qwork);
 	return 0;
-}
-
-static void md_ccif_dump_queue_history(unsigned char hif_id, unsigned int qno)
-{
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
-
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Dump md_ctrl->channel_id 0x%lx\n", md_ctrl->channel_id);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Dump CCIF Queue%d Control\n", qno);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d TX: w=%d, r=%d, len=%d\n",
-		qno, md_ctrl->txq[qno].ringbuf->tx_control.write,
-		md_ctrl->txq[qno].ringbuf->tx_control.read,
-		md_ctrl->txq[qno].ringbuf->tx_control.length);
-	CCCI_MEM_LOG_TAG(md_ctrl->md_id, TAG,
-		"Q%d RX: w=%d, r=%d, len=%d\n",
-		qno, md_ctrl->rxq[qno].ringbuf->rx_control.write,
-		md_ctrl->rxq[qno].ringbuf->rx_control.read,
-		md_ctrl->rxq[qno].ringbuf->rx_control.length);
-	ccci_md_dump_log_history(md_ctrl->md_id,
-		&md_ctrl->traffic_info, 0, qno, qno);
 }
 
 static int md_ccif_stop_queue(unsigned char hif_id,
@@ -1318,7 +1520,6 @@ static int md_ccif_start_queue(unsigned char hif_id,
 	return 0;
 }
 
-#if (MD_GENERATION >= 6293)
 int md_ccif_exp_ring_buf_init(struct md_ccif_ctrl *md_ctrl)
 {
 	int i = 0;
@@ -1329,18 +1530,39 @@ int md_ccif_exp_ring_buf_init(struct md_ccif_ctrl *md_ctrl)
 
 	ccism = ccci_md_get_smem_by_user_id(md_ctrl->md_id,
 		SMEM_USER_CCISM_MCU_EXP);
+	if (ccism->size)
+		memset_io(ccism->base_ap_view_vir, 0, ccism->size);
 
 	buf = (unsigned char *)ccism->base_ap_view_vir;
+
 	for (i = 0; i < QUEUE_NUM; i++) {
-		bufsize = CCCI_RINGBUF_CTL_LEN + rx_exp_buffer_size[i]
-			+ tx_exp_buffer_size[i];
-		ringbuf =
+
+		if (md_ctrl->plat_val->md_gen >= 6295) {
+			bufsize = CCCI_RINGBUF_CTL_LEN +
+			rx_exp_buffer_size_up_95[i]
+			+ tx_exp_buffer_size_up_95[i];
+			ringbuf =
 		    ccci_create_ringbuf(md_ctrl->md_id, buf, bufsize,
-				rx_exp_buffer_size[i], tx_exp_buffer_size[i]);
-		if (ringbuf == NULL) {
-			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
-				"ccci_create_ringbuf %d failed\n", i);
-			return -1;
+				rx_exp_buffer_size_up_95[i],
+				tx_exp_buffer_size_up_95[i]);
+			if (ringbuf == NULL) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"ccci_create_ringbuf %d failed\n", i);
+				return -1;
+			}
+
+		} else {
+			bufsize = CCCI_RINGBUF_CTL_LEN + rx_exp_buffer_size[i]
+				+ tx_exp_buffer_size[i];
+			ringbuf =
+			    ccci_create_ringbuf(md_ctrl->md_id, buf, bufsize,
+					rx_exp_buffer_size[i],
+					tx_exp_buffer_size[i]);
+			if (ringbuf == NULL) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"ccci_create_ringbuf %d failed\n", i);
+				return -1;
+			}
 		}
 		/*rx */
 		md_ctrl->rxq[i].ringbuf_bak[RB_EXP] = ringbuf;
@@ -1353,7 +1575,6 @@ int md_ccif_exp_ring_buf_init(struct md_ccif_ctrl *md_ctrl)
 
 	return 0;
 }
-#endif
 
 int md_ccif_ring_buf_init(unsigned char hif_id)
 {
@@ -1367,22 +1588,43 @@ int md_ccif_ring_buf_init(unsigned char hif_id)
 	md_ctrl = (struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 	ccism = ccci_md_get_smem_by_user_id(md_ctrl->md_id,
 		SMEM_USER_CCISM_MCU);
+	if (ccism->size)
+		memset_io(ccism->base_ap_view_vir, 0, ccism->size);
 	md_ctrl->total_smem_size = 0;
 	/*CCIF_MD_SMEM_RESERVE; */
 	buf = (unsigned char *)ccism->base_ap_view_vir;
+
 	for (i = 0; i < QUEUE_NUM; i++) {
-		bufsize = CCCI_RINGBUF_CTL_LEN + rx_queue_buffer_size[i]
-			+ tx_queue_buffer_size[i];
-		if (md_ctrl->total_smem_size + bufsize > ccism->size) {
-			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
-				"share memory too small,please check configure,smem_size=%d\n",
-				ccism->size);
-			return -1;
+		if (md_ctrl->plat_val->md_gen >= 6295) {
+			bufsize = CCCI_RINGBUF_CTL_LEN
+			+ rx_queue_buffer_size_up_95[i]
+			+ tx_queue_buffer_size_up_95[i];
+
+			if (md_ctrl->total_smem_size + bufsize > ccism->size) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"share memory too small,please check configure,smem_size=%d\n",
+					ccism->size);
+				return -1;
+			}
+			ringbuf =
+			    ccci_create_ringbuf(md_ctrl->md_id, buf, bufsize,
+					rx_queue_buffer_size_up_95[i],
+					tx_queue_buffer_size_up_95[i]);
+		} else {
+			bufsize = CCCI_RINGBUF_CTL_LEN + rx_queue_buffer_size[i]
+				+ tx_queue_buffer_size[i];
+			if (md_ctrl->total_smem_size + bufsize > ccism->size) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"share memory too small,please check configure,smem_size=%d\n",
+					ccism->size);
+				return -1;
+			}
+			ringbuf =
+			    ccci_create_ringbuf(md_ctrl->md_id, buf, bufsize,
+					rx_queue_buffer_size[i],
+					tx_queue_buffer_size[i]);
 		}
-		ringbuf =
-		    ccci_create_ringbuf(md_ctrl->md_id, buf, bufsize,
-				rx_queue_buffer_size[i],
-				tx_queue_buffer_size[i]);
+
 		if (ringbuf == NULL) {
 			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 				"ccci_create_ringbuf %d failed\n", i);
@@ -1411,9 +1653,7 @@ int md_ccif_ring_buf_init(unsigned char hif_id)
 		md_ctrl->total_smem_size += bufsize;
 	}
 
-#if (MD_GENERATION >= 6293)
 	md_ccif_exp_ring_buf_init(md_ctrl);
-#endif
 
 	/*flow control zone is behind ring buffer zone*/
 #ifdef FLOW_CTRL_ENABLE
@@ -1434,122 +1674,231 @@ int md_ccif_ring_buf_init(unsigned char hif_id)
 	return 0;
 }
 
-static int md_ccif_op_dump_status(unsigned char hif_id,
-	enum MODEM_DUMP_FLAG flag, int length)
+#define PCCIF_BUSY (0x4)
+#define PCCIF_TCHNUM (0xC)
+#define PCCIF_ACK (0x14)
+#define PCCIF_CHDATA (0x100)
+#define PCCIF_SRAM_SIZE (512)
+void ccci_reset_ccif_hw(unsigned char md_id,
+	int ccif_id, void __iomem *baseA,
+	void __iomem *baseB, struct md_ccif_ctrl *md_ctrl)
 {
-	struct md_ccif_ctrl *md_ctrl =
-		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int i;
+	struct ccci_smem_region *region;
 
-	/*runtime data, boot, long time no response EE */
-	if (flag & DUMP_FLAG_CCIF) {
-		md_ccif_dump("Dump CCIF SRAM\n", hif_id);
-		md_ccif_queue_dump(hif_id);
+	{
+		int reset_bit = -1;
+
+		switch (ccif_id) {
+		case AP_MD1_CCIF:
+			reset_bit = 8;
+			break;
+		}
+
+		if (reset_bit == -1)
+			return;
+
+		/*
+		 *this reset bit will clear
+		 *CCIF's busy/wch/irq, but not SRAM
+		 */
+		/*set reset bit*/
+		ccci_write32(md_ctrl->plat_val->infra_ao_base,
+			0x150, 1 << reset_bit);
+		/*clear reset bit*/
+		ccci_write32(md_ctrl->plat_val->infra_ao_base,
+			0x154, 1 << reset_bit);
 	}
-	if (flag & DUMP_FLAG_IRQ_STATUS) {
-		CCCI_NORMAL_LOG(md_ctrl->md_id, TAG,
-		"Dump AP CCIF IRQ status not support\n");
-		/* mt_irq_dump_status(md_ctrl->ccif_irq_id);*/
+
+	/* clear SRAM */
+	for (i = 0; i < PCCIF_SRAM_SIZE/sizeof(unsigned int); i++) {
+		ccif_write32(baseA, PCCIF_CHDATA+i*sizeof(unsigned int), 0);
+		ccif_write32(baseB, PCCIF_CHDATA+i*sizeof(unsigned int), 0);
 	}
-	if (flag & DUMP_FLAG_QUEUE_0)
-		md_ccif_dump_queue_history(hif_id, 0);
-	if (flag & DUMP_FLAG_QUEUE_0_1) {
-		md_ccif_dump_queue_history(hif_id, 0);
-		md_ccif_dump_queue_history(hif_id, 1);
+
+	/* extend from 36bytes to 72bytes in CCIF SRAM */
+	/* 0~60bytes for bootup trace,
+	 *last 12bytes for magic pattern,smem address and size
+	 */
+	region = ccci_md_get_smem_by_user_id(md_id,
+		SMEM_USER_RAW_MDSS_DBG);
+	ccif_write32(baseA,
+		PCCIF_CHDATA + PCCIF_SRAM_SIZE - 3 * sizeof(u32),
+		0x7274626E);
+	ccif_write32(baseA,
+		PCCIF_CHDATA + PCCIF_SRAM_SIZE - 2 * sizeof(u32),
+		region->base_md_view_phy);
+	ccif_write32(baseA,
+		PCCIF_CHDATA + PCCIF_SRAM_SIZE - sizeof(u32),
+		region->size);
+}
+EXPORT_SYMBOL(ccci_reset_ccif_hw);
+
+static int ccif_debug(unsigned char hif_id,
+		enum ccci_hif_debug_flg flag, int *para)
+{
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int ret = -1;
+
+	switch (flag) {
+	case CCCI_HIF_DEBUG_SET_WAKEUP:
+		ret = atomic_set(&ccif_ctrl->wakeup_src, para[0]);
+		break;
+	case CCCI_HIF_DEBUG_RESET:
+		ccci_reset_ccif_hw(ccif_ctrl->md_id, AP_MD1_CCIF,
+			ccif_ctrl->ccif_ap_base,
+			ccif_ctrl->ccif_md_base, ccif_ctrl);
+		break;
+	default:
+		break;
 	}
+	return ret;
+}
+static irqreturn_t md_cd_ccif_isr(int irq, void *data)
+{
+	struct md_ccif_ctrl *ccif_ctrl = (struct md_ccif_ctrl *)data;
+	int channel_id;
+
+	/* must ack first, otherwise IRQ will rush in */
+	channel_id = ccif_read32(ccif_ctrl->ccif_ap_base,
+		APCCIF_RCHNUM);
+	CCCI_DEBUG_LOG(ccif_ctrl->md_id, TAG,
+		"MD CCIF IRQ 0x%X\n", channel_id);
+	/*don't ack data queue to avoid missing rx intr*/
+	ccif_write32(ccif_ctrl->ccif_ap_base, APCCIF_ACK,
+		channel_id & (0xFFFF << RINGQ_EXP_BASE));
+
+	md_fsm_exp_info(ccif_ctrl->md_id, channel_id);
+
+	return IRQ_HANDLED;
+}
+
+static int ccif_late_init(unsigned char hif_id)
+{
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int ret = 0;
+
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s\n", __func__);
+
+	/* IRQ is enabled after requested, so call enable_irq after
+	 * request_irq will get a unbalance warning
+	 */
+	ret = request_irq(ccif_ctrl->ap_ccif_irq1_id, md_cd_ccif_isr,
+			ccif_ctrl->ap_ccif_irq1_flags, "CCIF_AP_DATA",
+			ccif_ctrl);
+	if (ret) {
+		CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
+			"request CCIF_AP_DATA IRQ1(%d) error %d\n",
+			ccif_ctrl->ap_ccif_irq1_id, ret);
+		return -1;
+	}
+	md_ccif_ring_buf_init(CCIF_HIF_ID);
 
 	return 0;
 }
 
-
-static struct ccci_hif_ops ccci_hif_ccif_ops = {
-	.send_skb = &md_ccif_op_send_skb,
-	.give_more = &md_ccif_op_give_more,
-	.write_room = &md_ccif_op_write_room,
-	.stop_queue = &md_ccif_stop_queue,
-	.start_queue = &md_ccif_start_queue,
-	.dump_status = &md_ccif_op_dump_status,
-};
-
-static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
+static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 {
-	struct md_hw_info *hw_info =
-		(struct md_hw_info *)ccci_md_get_hw_info(md_ctrl->md_id);
-	int ret;
-	unsigned long ccif_irq_flags;
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
+	int idx = 0;
+	int ret = 0;
 
-	/*Copy HW info */
-	md_ctrl->ccif_ap_base = (void __iomem *)hw_info->ap_ccif_base;
-	md_ctrl->ccif_md_base = (void __iomem *)hw_info->md_ccif_base;
-#if (MD_GENERATION <= 6292)
-	md_ctrl->ccif_irq_id = hw_info->ap_ccif_irq_id;
-	ccif_irq_flags = hw_info->ap_ccif_irq_flags;
-#else
-	md_ctrl->ccif_irq_id = hw_info->ap_ccif_irq0_id;
-	ccif_irq_flags = hw_info->ap_ccif_irq0_flags;
-#endif
-	md_ctrl->sram_size = hw_info->sram_size;
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s: on=%d\n", __func__, on);
 
-	md_ctrl->ccif_sram_layout =
-		(struct ccif_sram_layout *)(md_ctrl->ccif_ap_base
-		+ APCCIF_CHDATA);
+	/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
 
-	CCCI_INIT_LOG(md_ctrl->md_id, TAG,
-		"CCIF_AP IRQ(%d) flag 0x%lx\n",
-		md_ctrl->ccif_irq_id, ccif_irq_flags);
+	if (!on)
+		ccif_write32(ccif_ctrl->plat_val->infra_ao_base,
+		0x22C, 0x0);
 
-	ret = request_irq(md_ctrl->ccif_irq_id, md_ccif_isr,
-			ccif_irq_flags, "CCIF_AP_DATA", md_ctrl);
-	if (ret) {
-		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
-			"request CCIF_AP_DATA IRQ(%d) error %d\n",
-			md_ctrl->ccif_irq_id, ret);
-		return;
+	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+		if (ccif_clk_table[idx].clk_ref == NULL)
+			continue;
+		if (on) {
+			ret = clk_prepare_enable(ccif_clk_table[idx].clk_ref);
+			if (ret)
+				CCCI_ERROR_LOG(ccif_ctrl->md_id, TAG,
+					"%s: on=%d,ret=%d\n",
+					__func__, on, ret);
+			devapc_check_flag = 1;
+		} else {
+			if (strcmp(ccif_clk_table[idx].clk_name,
+				"infra-ccif4-md") == 0) {
+				udelay(1000);
+				CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
+					"ccif4 %s: after 1ms, set 0x%p + 0x14 = 0xFF\n",
+					__func__, ccif_ctrl->md_ccif4_base);
+				ccci_write32(ccif_ctrl->md_ccif4_base, 0x14,
+					0xFF); /* special use ccci_write32 */
+			}
+			devapc_check_flag = 0;
+			clk_disable_unprepare(ccif_clk_table[idx].clk_ref);
+		}
 	}
-
+	/* Set MD_PCCIF4_PWR_ON */
+	if (on) {
+		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
+			"ccif4 %s:  set 0x%p + 0x22C = 0x1\n",
+			__func__,
+			(void *)ccif_ctrl->plat_val->infra_ao_base);
+		ccif_write32(ccif_ctrl->plat_val->infra_ao_base,
+			0x22C, 0x1);
+	}
 }
 
-int ccci_ccif_hif_init(unsigned char hif_id, unsigned char md_id)
+static int ccif_start(unsigned char hif_id)
 {
-	int i;
-	struct md_ccif_ctrl *md_ctrl;
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
-	md_ctrl = kzalloc(sizeof(struct md_ccif_ctrl), GFP_KERNEL);
+	if (ccif_ctrl->ccif_state == HIFCCIF_STATE_PWRON)
+		return 0;
+	if (ccif_ctrl->ccif_state == HIFCCIF_STATE_MIN)
+		ccif_late_init(hif_id);
+	if (hif_id != CCIF_HIF_ID)
+		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s but %d\n",
+			__func__, hif_id);
+	ccif_set_clk_cg(hif_id, 1);
+	md_ccif_sram_reset(CCIF_HIF_ID);
+	md_ccif_switch_ringbuf(CCIF_HIF_ID, RB_EXP);
+	md_ccif_reset_queue(CCIF_HIF_ID, 1);
+	md_ccif_switch_ringbuf(CCIF_HIF_ID, RB_NORMAL);
+	md_ccif_reset_queue(CCIF_HIF_ID, 1);
 
-	INIT_WORK(&md_ctrl->ccif_sram_work, md_ccif_sram_rx_work);
+	/* clear all ccif irq before enable it.*/
+	ccci_reset_ccif_hw(ccif_ctrl->md_id, AP_MD1_CCIF,
+		ccif_ctrl->ccif_ap_base,
+		ccif_ctrl->ccif_md_base, ccif_ctrl);
+	ccif_ctrl->ccif_state = HIFCCIF_STATE_PWRON;
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s\n", __func__);
+	return 0;
+}
 
-	//init_timer(&md_ctrl->traffic_monitor);
-	//md_ctrl->traffic_monitor.function = md_ccif_traffic_monitor_func;
-	//md_ctrl->traffic_monitor.data = (unsigned long)md_ctrl;
-	timer_setup(&md_ctrl->traffic_monitor, md_ccif_traffic_monitor_func, 0);
-	md_ctrl->heart_beat_counter = 0;
-	INIT_WORK(&md_ctrl->traffic_info.traffic_work_struct,
-		md_ccif_traffic_work_func);
+static int ccif_stop(unsigned char hif_id)
+{
+	struct md_ccif_ctrl *ccif_ctrl =
+		(struct md_ccif_ctrl *)ccci_hif_get_by_id(hif_id);
 
-	md_ctrl->channel_id = 0;
-	md_ctrl->md_id = md_id;
-	md_ctrl->hif_id = hif_id;
-	atomic_set(&md_ctrl->reset_on_going, 1);
-	atomic_set(&md_ctrl->wakeup_src, 0);
-	ccci_reset_seq_num(&md_ctrl->traffic_info);
-
-	/*init queue */
-	for (i = 0; i < QUEUE_NUM; i++) {
-		md_ccif_queue_struct_init(&md_ctrl->txq[i],
-			md_ctrl->hif_id, OUT, i);
-		md_ccif_queue_struct_init(&md_ctrl->rxq[i],
-			md_ctrl->hif_id, IN, i);
-	}
-
-	md_ctrl->ops = &ccci_hif_ccif_ops;
-	ccci_hif[hif_id] = (void *)md_ctrl;
-
-	ccif_hif_hw_init(md_ctrl);
-
+	if (ccif_ctrl->ccif_state == HIFCCIF_STATE_PWROFF
+		|| ccif_ctrl->ccif_state == HIFCCIF_STATE_MIN)
+		return 0;
+	/* ACK CCIF for MD. while entering flight mode,
+	 * we may send something after MD slept
+	 */
+	ccif_ctrl->ccif_state = HIFCCIF_STATE_PWROFF;
+	ccci_reset_ccif_hw(ccif_ctrl->md_id, AP_MD1_CCIF,
+		ccif_ctrl->ccif_ap_base, ccif_ctrl->ccif_md_base, ccif_ctrl);
+	/*disable ccif clk*/
+	ccif_set_clk_cg(hif_id, 0);
+	CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG, "%s\n", __func__);
 	return 0;
 }
 
 /*return ap_rt_data pointer after filling header*/
-void *ccif_hif_fill_rt_header(unsigned char hif_id, int packet_size,
+static void *ccif_hif_fill_rt_header(unsigned char hif_id, int packet_size,
 	unsigned int tx_ch, unsigned int txqno)
 {
 	struct ccci_header *ccci_h;
@@ -1578,3 +1927,253 @@ void *ccif_hif_fill_rt_header(unsigned char hif_id, int packet_size,
 
 	return (void *)&md_ctrl->ccif_sram_layout->ap_rt_data;
 }
+
+static struct ccci_hif_ops ccci_hif_ccif_ops = {
+	.send_skb = &md_ccif_op_send_skb,
+	.give_more = &md_ccif_op_give_more,
+	.write_room = &md_ccif_op_write_room,
+	.stop_queue = &md_ccif_stop_queue,
+	.start_queue = &md_ccif_start_queue,
+	.dump_status = &md_ccif_op_dump_status,
+
+	.start = &ccif_start,
+	.stop = &ccif_stop,
+	.debug = &ccif_debug,
+	.send_data = &md_ccif_send_data,
+	.fill_rt_header = &ccif_hif_fill_rt_header,
+};
+
+static u64 ccif_dmamask = DMA_BIT_MASK(36);
+static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
+{
+	struct device_node *node = NULL;
+	int idx = 0;
+	int ret;
+
+	if (!dev) {
+		CCCI_ERROR_LOG(-1, TAG, "No ccif driver in dtsi\n");
+		ret = -3;
+		return ret;
+	}
+
+	if (!md_ctrl->plat_val->infra_ao_base) {
+		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
+		ret = -4;
+		return ret;
+	}
+
+#ifdef CCCI_KMODULE_ENABLE
+	/* Get infra cfg ao base */
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,mt6761-infracfg");
+	if (!node) {
+		CCCI_ERROR_LOG(-1, TAG, "No infra_ao node in dtsi\n");
+		ret = -3;
+		return ret;
+	}
+	if (!md_ctrl->plat_val->infra_ao_base) {
+		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
+		ret = -4;
+		return ret;
+	}
+#endif
+	node = dev->of_node;
+	if (!node) {
+		CCCI_ERROR_LOG(-1, TAG, "No ccif node in dtsi\n");
+		ret = -3;
+		return ret;
+	}
+	md_ctrl->ccif_ap_base = of_iomap(node, 0);
+	md_ctrl->ccif_md_base = of_iomap(node, 1);
+
+	md_ctrl->ap_ccif_irq0_id = irq_of_parse_and_map(node, 0);
+	md_ctrl->ap_ccif_irq1_id = irq_of_parse_and_map(node, 1);
+
+	md_ctrl->md_pcore_pccif_base =
+		ioremap_nocache(MD_PCORE_PCCIF_BASE, 0x20);
+	CCCI_BOOTUP_LOG(-1, TAG, "pccif:%x\n", MD_PCORE_PCCIF_BASE);
+
+	/* Device tree using none flag to register irq,
+	 * sensitivity has set at "irq_of_parse_and_map"
+	 */
+	md_ctrl->ap_ccif_irq0_flags = IRQF_TRIGGER_NONE;
+	md_ctrl->ap_ccif_irq1_flags = IRQF_TRIGGER_NONE;
+	ret = of_property_read_u32(dev->of_node,
+		"mediatek,sram_size", &md_ctrl->sram_size);
+	if (ret < 0)
+		md_ctrl->sram_size = CCIF_SRAM_SIZE;
+	md_ctrl->ccif_sram_layout =
+		(struct ccif_sram_layout *)(md_ctrl->ccif_ap_base
+		+ APCCIF_CHDATA);
+	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
+		ccif_clk_table[idx].clk_ref = devm_clk_get(dev,
+			ccif_clk_table[idx].clk_name);
+		if (IS_ERR(ccif_clk_table[idx].clk_ref)) {
+			CCCI_ERROR_LOG(-1, TAG,
+				 "ccif get %s failed\n",
+					ccif_clk_table[idx].clk_name);
+			ccif_clk_table[idx].clk_ref = NULL;
+		}
+	}
+	dev->dma_mask = &ccif_dmamask;
+	dev->coherent_dma_mask = ccif_dmamask;
+	dev->platform_data = md_ctrl;
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,md_ccif4");
+	if (node) {
+		md_ctrl->md_ccif4_base = of_iomap(node, 0);
+		if (!md_ctrl->md_ccif4_base) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"ccif4_base fail: 0x%p!\n",
+				md_ctrl->md_ccif4_base);
+			return -2;
+		}
+	}
+
+	if (md_ctrl->ccif_ap_base == 0 ||
+		md_ctrl->ccif_md_base == 0) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"ap_ccif_base:0x%p, ccif_md_base:0x%p\n",
+			md_ctrl->ccif_ap_base,
+			md_ctrl->ccif_md_base);
+		return -2;
+	}
+	if (md_ctrl->ap_ccif_irq0_id == 0 ||
+		md_ctrl->ap_ccif_irq1_id == 0) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"ccif_irq0:%d,ccif_irq1:%d\n",
+			md_ctrl->ap_ccif_irq0_id, md_ctrl->ap_ccif_irq1_id);
+		return -2;
+	}
+
+	CCCI_DEBUG_LOG(-1, TAG,
+		"ap_ccif_base:0x%p, ccif_md_base:0x%p\n",
+		md_ctrl->ccif_ap_base,
+		md_ctrl->ccif_md_base);
+	CCCI_DEBUG_LOG(-1, TAG, "ccif_irq0:%d,ccif_irq1:%d\n",
+		md_ctrl->ap_ccif_irq0_id, md_ctrl->ap_ccif_irq1_id);
+	ret = request_irq(md_ctrl->ap_ccif_irq0_id, md_ccif_isr,
+			md_ctrl->ap_ccif_irq0_flags, "CCIF_AP_DATA", md_ctrl);
+	if (ret) {
+		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+			"request CCIF_AP_DATA IRQ0(%d) error %d\n",
+			md_ctrl->ap_ccif_irq0_id, ret);
+		return -1;
+	}
+	return 0;
+
+}
+
+int ccci_ccif_hif_init(struct platform_device *pdev,
+	unsigned char hif_id, unsigned char md_id)
+{
+	int i, ret;
+	struct device_node *node_md;
+	struct device_node *node_infrao;
+	struct md_ccif_ctrl *md_ctrl;
+
+	md_ctrl = kzalloc(sizeof(struct md_ccif_ctrl), GFP_KERNEL);
+	if (!md_ctrl) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"%s:alloc hif_ctrl fail\n", __func__);
+		return -1;
+	}
+	/* ccif_ctrl = md_ctrl; */
+	INIT_WORK(&md_ctrl->ccif_sram_work, md_ccif_sram_rx_work);
+
+	timer_setup(&md_ctrl->traffic_monitor, md_ccif_traffic_monitor_func, 0);
+	md_ctrl->heart_beat_counter = 0;
+	INIT_WORK(&md_ctrl->traffic_info.traffic_work_struct,
+		md_ccif_traffic_work_func);
+
+	md_ctrl->channel_id = 0;
+	md_ctrl->md_id = md_id;
+	md_ctrl->hif_id = hif_id;
+	node_md = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	of_property_read_u32(node_md,
+		"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
+	node_infrao = of_find_compatible_node(NULL, NULL,
+		"mediatek,mt6761-infracfg");
+	md_cd_plat_val_ptr.infra_ao_base = of_iomap(node_infrao, 0);
+	md_ctrl->plat_val = &md_cd_plat_val_ptr;
+	if (md_ctrl->plat_val == NULL)
+		return -1;
+	atomic_set(&md_ctrl->reset_on_going, 1);
+	atomic_set(&md_ctrl->wakeup_src, 0);
+	atomic_set(&md_ctrl->ccif_irq_enabled, 1);
+	atomic_set(&md_ctrl->ccif_irq1_enabled, 1);
+	ccci_reset_seq_num(&md_ctrl->traffic_info);
+
+	/*init queue */
+	for (i = 0; i < QUEUE_NUM; i++) {
+		md_ccif_queue_struct_init(&md_ctrl->txq[i],
+			md_ctrl->hif_id, OUT, i);
+		md_ccif_queue_struct_init(&md_ctrl->rxq[i],
+			md_ctrl->hif_id, IN, i);
+	}
+
+	md_ctrl->ops = &ccci_hif_ccif_ops;
+	md_ctrl->plat_dev = pdev;
+	ret = ccif_hif_hw_init(&pdev->dev, md_ctrl);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci ccif hw init fail");
+		return ret;
+	}
+
+	ccci_hif_register(md_ctrl->hif_id, (void *)md_ctrl, &ccci_hif_ccif_ops);
+
+	return 0;
+}
+
+int ccci_hif_ccif_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = ccci_ccif_hif_init(pdev, CCIF_HIF_ID, MD_SYS1);
+	if (ret < 0) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci ccif init fail");
+		return ret;
+	}
+
+	return 0;
+}
+
+static const struct of_device_id ccci_ccif_of_ids[] = {
+	{.compatible = "mediatek,ccci_ccif"},
+	{}
+};
+
+static struct platform_driver ccci_hif_ccif_driver = {
+
+	.driver = {
+		.name = "ccci_hif_ccif",
+		.of_match_table = ccci_ccif_of_ids,
+	},
+
+	.probe = ccci_hif_ccif_probe,
+};
+
+static int __init ccci_hif_ccif_init(void)
+{
+	int ret;
+
+	ret = platform_driver_register(&ccci_hif_ccif_driver);
+	if (ret) {
+		CCCI_ERROR_LOG(-1, TAG, "ccci hif_ccif driver init fail %d",
+			ret);
+		return ret;
+	}
+	return 0;
+}
+
+static void __exit ccci_hif_ccif_exit(void)
+{
+}
+
+module_init(ccci_hif_ccif_init);
+module_exit(ccci_hif_ccif_exit);
+
+MODULE_AUTHOR("ccci");
+MODULE_DESCRIPTION("ccci hif ccif driver");
+MODULE_LICENSE("GPL");

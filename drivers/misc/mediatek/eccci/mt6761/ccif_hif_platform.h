@@ -1,40 +1,26 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
+
 
 #ifndef __CCIF_HIF_PLATFORM_H__
 #define __CCIF_HIF_PLATFORM_H__
 #include "ccci_config.h"
 #include "ccci_common_config.h"
-
-#include <linux/io.h>
+#include <mt-plat/sync_write.h>
 
 extern unsigned int devapc_check_flag;
-
 #define ccif_write32(b, a, v) \
-do {\
-	if (devapc_check_flag == 1) {\
-		writel(v, (b) + (a));\
-		mb(); /* make sure register access in order */ \
-	} \
+do { \
+	if (devapc_check_flag == 1) \
+		mt_reg_sync_writel(v, (b) + (a)); \
 } while (0)
 
-#define ccif_write16(b, a, v) \
-do {\
-	writew(v, (b) + (a));\
-	mb(); /* make sure register access in order */ \
-} while (0)
-
-#define ccif_write8(b, a, v) \
-do {\
-	writeb(v, (b) + (a));\
-	mb(); /* make sure register access in order */ \
-} while (0)
-
-
+#define ccif_write16(b, a, v)           mt_reg_sync_writew(v, (b)+(a))
+#define ccif_write8(b, a, v)            mt_reg_sync_writeb(v, (b)+(a))
 #define ccif_read32(b, a) \
-	((devapc_check_flag == 1) ? ioread32((void __iomem *)((b)+(a))):0)
+	((devapc_check_flag == 1) ? ioread32((void __iomem *)((b)+(a))) : 0)
 
 #define ccif_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccif_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
@@ -53,7 +39,6 @@ do {\
 #define RINGQ_EXP_BASE (15)
 #define CCIF_CH_NUM 24
 #define AP_MD_CCB_WAKEUP (7)
-
 
 /*AP to MD*/
 #define H2D_EXCEPTION_ACK        (RINGQ_EXP_BASE+1)
@@ -92,6 +77,6 @@ do {\
 /* peer */
 #define AP_MD_PEER_WAKEUP	(RINGQ_EXP_BASE+5)
 #define MD_PCORE_PCCIF_BASE 0x20510000
-
 #define CCIF_SRAM_SIZE 512
+
 #endif /*__CCIF_HIF_PLATFORM_H__*/

@@ -28,16 +28,14 @@ struct ccci_hif_intf {
 	struct ccci_hif_ops *ccci_hif_ops;
 };
 
-#if (MD_GENERATION <= 6292)
-#define MD1_NET_HIF		CLDMA_HIF_ID
-#define MD1_NORMAL_HIF		CLDMA_HIF_ID
-#elif (MD_GENERATION == 6293)
-#define MD1_NET_HIF		CLDMA_HIF_ID
-#define MD1_NORMAL_HIF		CCIF_HIF_ID
-#else
+enum ccci_hif_debug_flg {
+	CCCI_HIF_DEBUG_SET_WAKEUP,
+	CCCI_HIF_DEBUG_RESET,
+};
+
 #define MD1_NET_HIF		DPMAIF_HIF_ID
 #define MD1_NORMAL_HIF		CCIF_HIF_ID
-#endif
+
 
 int ccci_hif_init(unsigned char md_id, unsigned int hif_flag);
 int ccci_hif_late_init(unsigned char md_id, unsigned int hif_flag);
@@ -48,10 +46,15 @@ int ccci_hif_ask_more_request(unsigned char hif_id, int rx_qno);
 void ccci_hif_start_queue(unsigned char hif_id, unsigned int reserved,
 	enum DIRECTION dir);
 int ccci_hif_dump_status(unsigned int hif_flag, enum MODEM_DUMP_FLAG dump_flag,
-	int length);
+	void *buff, int length);
+int ccci_hif_debug(unsigned char hif_id, enum ccci_hif_debug_flg debug_id,
+		int *paras, int len);
+void *ccci_hif_fill_rt_header(unsigned char hif_id, int packet_size,
+	unsigned int tx_ch, unsigned int txqno);
 int ccci_hif_set_wakeup_src(unsigned char hif_id, int value);
 void ccci_hif_md_exception(unsigned int hif_flag, unsigned char stage);
 int ccci_hif_state_notification(int md_id, unsigned char state);
 void ccci_hif_resume(unsigned char md_id, unsigned int hif_flag);
 void ccci_hif_suspend(unsigned char md_id, unsigned int hif_flag);
+int ccci_hif_send_data(unsigned char hif_id, int tx_qno);
 #endif

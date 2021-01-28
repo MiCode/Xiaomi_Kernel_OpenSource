@@ -362,11 +362,7 @@ int fsm_ee_init(struct ccci_fsm_ee *ee_ctl)
 	ee_ctl->md_id = ctl->md_id;
 	spin_lock_init(&ee_ctl->ctrl_lock);
 	if (ee_ctl->md_id == MD_SYS1) {
-#if (MD_GENERATION >= 6292)
 		ret = mdee_dumper_v3_alloc(ee_ctl);
-#elif (MD_GENERATION == 6291)
-		ret = mdee_dumper_v2_alloc(ee_ctl);
-#endif
 	} else if (ee_ctl->md_id == MD_SYS3) {
 		ret = mdee_dumper_v1_alloc(ee_ctl);
 	}

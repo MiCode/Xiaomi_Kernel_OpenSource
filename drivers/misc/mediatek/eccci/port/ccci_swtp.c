@@ -13,6 +13,7 @@
 
 #include "ccci_debug.h"
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_modem.h"
 #include "ccci_swtp.h"
 #include "ccci_fsm.h"

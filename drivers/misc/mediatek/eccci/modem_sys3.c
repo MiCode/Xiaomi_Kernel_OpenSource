@@ -27,10 +27,13 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
+
+#ifdef MODEM_SYS1_CONFIG_FILE
 #if (MD_GENERATION <= 6292)
 #include <mach/mtk_pbm.h>
 #include "ccif_c2k_platform.h"
@@ -72,7 +75,7 @@ static void md_ccif_exception(struct ccci_modem *md, enum HIF_EX_STAGE stage)
 	case HIF_EX_INIT_DONE:
 		break;
 	case HIF_EX_CLEARQ_DONE:
-		ccci_hif_dump_status(md->hif_flag, DUMP_FLAG_CCIF, 0);
+		ccci_hif_dump_status(md->hif_flag, DUMP_FLAG_CCIF, NULL, 0);
 		md_ccif_reset_queue(CCIF_HIF_ID, 0);
 		md_ccif_send(CCIF_HIF_ID, H2D_EXCEPTION_CLEARQ_ACK);
 		break;
@@ -153,7 +156,7 @@ static int md_ccif_op_start(struct ccci_modem *md)
 #endif
 
 	/*enable ccif clk*/
-	ccci_set_clk_cg(md, 1);
+	md->hw_info->plat_ptr->set_clk_cg(md, 1);
 	/* 0. init security, as security depends on dummy_char,
 	 * which is ready very late.
 	 */
@@ -233,7 +236,7 @@ static int md_ccif_op_stop(struct ccci_modem *md, unsigned int stop_type)
 		"ccif modem is power off done, %d\n", ret);
 
 	/*disable ccif clk*/
-	ccci_set_clk_cg(md, 0);
+	md->hw_info->plat_ptr->set_clk_cg(md, 0);
 
 #ifdef FEATURE_BSI_BPI_SRAM_CFG
 	ccci_set_bsi_bpi_SRAM_cfg(md, 0, stop_type);
@@ -441,7 +444,7 @@ static int md_ccif_dump_info(struct ccci_modem *md, enum MODEM_DUMP_FLAG flag,
 	if (flag & DUMP_FLAG_CCIF_REG)
 		dump_c2k_register(md, 2);
 	/*runtime data, boot, long time no response EE */
-	ccci_hif_dump_status(md->hif_flag, flag, length);
+	ccci_hif_dump_status(md->hif_flag, flag, NULL, length);
 
 	return 0;
 }
@@ -686,4 +689,5 @@ module_init(md_ccif_init);
 MODULE_AUTHOR("Yanbin Ren <Yanbin.Ren@mediatek.com>");
 MODULE_DESCRIPTION("CCIF modem driver v0.1");
 MODULE_LICENSE("GPL");
+#endif
 #endif

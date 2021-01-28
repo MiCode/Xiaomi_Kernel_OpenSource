@@ -16,8 +16,10 @@
 #include "mt-plat/mtk_ccci_common.h"
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_bm.h"
 #include "ccci_hif_internal.h"
+#include "ccci_platform.h"
 /*
  * hardcode, max queue number should be synced with port array in port_cfg.c
  */
@@ -311,6 +313,7 @@ struct hif_dpmaif_ctrl {
 #endif
 	struct clk *clk_ref;
 	struct platform_device *plat_dev; /* maybe: no need. */
+	struct ccci_plat_val *plat_val;
 
 };
 
@@ -353,13 +356,14 @@ static inline int ccci_dpma_hif_give_more(unsigned char hif_id, int rx_qno)
 }
 
 static inline int ccci_dpmaif_hif_dump_status(unsigned char hif_id,
-	enum MODEM_DUMP_FLAG dump_flag, int length)
+	enum MODEM_DUMP_FLAG dump_flag, void *buff, int length)
 {
 	struct hif_dpmaif_ctrl *hif_ctrl =
 		(struct hif_dpmaif_ctrl *)ccci_hif_get_by_id(hif_id);
 
 	if (hif_ctrl)
-		return hif_ctrl->ops->dump_status(hif_id, dump_flag, length);
+		return hif_ctrl->ops->dump_status(hif_id, dump_flag,
+			buff, length);
 	else
 		return -1;
 

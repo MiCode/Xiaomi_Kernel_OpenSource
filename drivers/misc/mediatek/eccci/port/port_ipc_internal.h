@@ -9,6 +9,7 @@
 #include <linux/wait.h>
 #include "ccci_core.h"
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "port_t.h"
 
 #define MAX_NUM_IPC_TASKS 10

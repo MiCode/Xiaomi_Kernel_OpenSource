@@ -4,6 +4,7 @@
  */
 
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_fsm_internal.h"
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT

@@ -19,16 +19,16 @@ enum MD_FORCE_ASSERT_TYPE {
 };
 
 enum MODEM_DUMP_FLAG {
-	DUMP_FLAG_CCIF = (1 << 0),
+	DUMP_FLAG_CCIF = (1 << 0), /* dump ccif sw data. */
 	/* tricky part, use argument length as queue index */
 	DUMP_FLAG_CLDMA = (1 << 1),
-	DUMP_FLAG_REG = (1 << 2),
+	DUMP_FLAG_REG = (1 << 2), /* dump modem reg. */
 	DUMP_FLAG_SMEM_EXP = (1 << 3),
 	DUMP_FLAG_IMAGE = (1 << 4),
 	DUMP_FLAG_LAYOUT = (1 << 5),
 	DUMP_FLAG_QUEUE_0 = (1 << 6),
 	DUMP_FLAG_QUEUE_0_1 = (1 << 7),
-	DUMP_FLAG_CCIF_REG = (1 << 8),
+	DUMP_FLAG_CCIF_REG = (1 << 8), /* dump ccif reg. */
 	DUMP_FLAG_SMEM_MDSLP = (1 << 9),
 	DUMP_FLAG_MD_WDT = (1 << 10),
 	DUMP_FLAG_SMEM_CCISM = (1<<11),
@@ -208,9 +208,7 @@ struct md_query_ap_feature {
 	u32 head_pattern;
 	struct ccci_feature_support feature_set[FEATURE_COUNT];
 	u32 tail_pattern;
-#if (MD_GENERATION >= 6293)
 	u8  reserved[CCCI_MD_RUNTIME_RESERVED_SIZE];
-#endif
 };
 
 struct ap_query_md_feature {
@@ -224,9 +222,7 @@ struct ap_query_md_feature {
 	u32 set_md_mpu_start_addr;
 	u32 set_md_mpu_total_size;
 	u32 tail_pattern;
-#if (MD_GENERATION >= 6293)
 	u8  reserved[CCCI_AP_RUNTIME_RESERVED_SIZE];
-#endif
 };
 
 struct ap_query_md_feature_v2_1 {

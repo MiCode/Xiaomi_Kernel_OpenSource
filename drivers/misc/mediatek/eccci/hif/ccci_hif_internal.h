@@ -12,13 +12,13 @@
 #include "ccci_hif.h"
 #include "ccci_modem.h"
 
-#if (MD_GENERATION >= 6295)
+//#if (MD_GENERATION >= 6295)
 #define MAX_TXQ_NUM 16
 #define MAX_RXQ_NUM 16
-#else
-#define MAX_TXQ_NUM 8
-#define MAX_RXQ_NUM 8
-#endif
+//#else
+//#define MAX_TXQ_NUM 8
+//#define MAX_RXQ_NUM 8
+//#endif
 
 #define PACKET_HISTORY_DEPTH 16	/* must be power of 2 */
 
@@ -62,9 +62,6 @@ struct ccci_hif_traffic {
 		struct work_struct traffic_work_struct;
 };
 
-enum ccci_hif_debug_flg {
-	CCCI_HIF_DEBUG_SET_WAKEUP,
-};
 
 struct ccci_hif_ops {
 	/* must-have */
@@ -78,7 +75,7 @@ struct ccci_hif_ops {
 		enum DIRECTION dir);
 	int (*broadcast_state)(unsigned char hif_id, enum MD_STATE state);
 	int (*dump_status)(unsigned char hif_id, enum MODEM_DUMP_FLAG dump_flag,
-		int length);
+		void *buff, int length);
 	int (*suspend)(unsigned char hif_id);
 	int (*resume)(unsigned char hif_id);
 
@@ -89,6 +86,9 @@ struct ccci_hif_ops {
 	int (*stop)(unsigned char hif_id);
 	int (*debug)(unsigned char hif_id, enum ccci_hif_debug_flg debug_id,
 		int *paras);
+	int (*send_data)(unsigned char hif_id, int channel_id);
+	void* (*fill_rt_header)(unsigned char hif_id,
+		int packet_size, unsigned int tx_ch, unsigned int txqno);
 
 };
 
@@ -168,37 +168,6 @@ static inline void ccci_md_inc_tx_seq_num(unsigned char md_id,
 		|| ccci_h->channel == CCCI_FS_TX)
 		&& ccci_fsm_get_md_state(md_id) != BOOT_WAITING_FOR_HS2)
 		ccci_h->assert_bit = 0;
-}
-
-static inline void ccci_md_check_rx_seq_num(unsigned char md_id,
-	struct ccci_hif_traffic *traffic_info,
-	struct ccci_header *ccci_h, int qno)
-{
-	u16 channel, seq_num, assert_bit;
-	unsigned int param[3] = {0};
-
-	channel = ccci_h->channel;
-	seq_num = ccci_h->seq_num;
-	assert_bit = ccci_h->assert_bit;
-
-	if (assert_bit && traffic_info->seq_nums[IN][channel] != 0
-		&& ((seq_num - traffic_info->seq_nums[IN][channel])
-		& 0x7FFF) != 1) {
-		CCCI_ERROR_LOG(md_id, CORE,
-			"channel %d seq number out-of-order %d->%d (data: %X, %X)\n",
-			channel, seq_num, traffic_info->seq_nums[IN][channel],
-			ccci_h->data[0], ccci_h->data[1]);
-		ccci_hif_dump_status(1 << CLDMA_HIF_ID, DUMP_FLAG_CLDMA,
-			1 << qno);
-		param[0] = channel;
-		param[1] = traffic_info->seq_nums[IN][channel];
-		param[2] = seq_num;
-		ccci_md_force_assert(md_id, MD_FORCE_ASSERT_BY_MD_SEQ_ERROR,
-			(char *)param, sizeof(param));
-
-	} else {
-		traffic_info->seq_nums[IN][channel] = seq_num;
-	}
 }
 
 static inline void ccci_channel_update_packet_counter(

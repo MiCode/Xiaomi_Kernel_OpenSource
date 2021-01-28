@@ -6,8 +6,19 @@
 /*
  * Author: Xiao Wang <xiao.wang@mediatek.com>
  */
+#include <linux/platform_device.h>
+#include <linux/device.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
 
 #include "ccci_fsm_internal.h"
+#include "ccci_platform.h"
 
 static struct ccci_fsm_ctl *ccci_fsm_entries[MAX_MD_NUM];
 
@@ -437,14 +448,21 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 {
 	int reset_md = 0;
 	int is_epon_set = 0;
+	struct device_node *node;
+	unsigned int offset_apon_md1;
 	struct ccci_smem_region *mdss_dbg
 		= ccci_md_get_smem_by_user_id(ctl->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
 
+	node = of_find_compatible_node(NULL, NULL,
+			"mediatek,offset_apon_md1");
+	of_property_read_u32(node,
+			"mediatek,offset_apon_md1", &offset_apon_md1);
+
 	if (ctl->md_id == MD_SYS1)
 		is_epon_set =
 			*((int *)(mdss_dbg->base_ap_view_vir
-				+ CCCI_EE_OFFSET_EPON_MD1)) == 0xBAEBAE10;
+				+ offset_apon_md1)) == 0xBAEBAE10;
 	else if (ctl->md_id == MD_SYS3)
 		is_epon_set = *((int *)(mdss_dbg->base_ap_view_vir
 			+ CCCI_EE_OFFSET_EPON_MD3))
@@ -701,7 +719,6 @@ int ccci_fsm_init(int md_id)
 			__func__, __LINE__);
 		return -1;
 	}
-
 	ctl->fsm_thread = kthread_run(fsm_main_thread, ctl,
 		"ccci_fsm%d", md_id + 1);
 #ifdef FEATURE_SCP_CCCI_SUPPORT
@@ -725,6 +742,7 @@ enum MD_STATE ccci_fsm_get_md_state(int md_id)
 	else
 		return INVALID;
 }
+EXPORT_SYMBOL(ccci_fsm_get_md_state);
 
 enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(int md_id)
 {
@@ -752,7 +770,7 @@ enum MD_STATE_FOR_USER ccci_fsm_get_md_state_for_user(int md_id)
 		return MD_STATE_INVALID;
 	}
 }
-
+EXPORT_SYMBOL(ccci_fsm_get_md_state_for_user);
 
 
 int ccci_fsm_recv_md_interrupt(int md_id, enum MD_IRQ_TYPE type)

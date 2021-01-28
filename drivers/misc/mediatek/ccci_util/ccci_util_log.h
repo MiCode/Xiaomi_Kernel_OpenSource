@@ -6,7 +6,7 @@
 #ifndef __CCCI_UTIL_LOG_H__
 #define __CCCI_UTIL_LOG_H__
 
-/* #define BRING_UP_LOG_MODE */
+/*#define BRING_UP_LOG_MODE*/
 #ifndef BRING_UP_LOG_MODE
 /* ------------------------------------------------------------------------- */
 /* For normal stage log */

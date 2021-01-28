@@ -632,7 +632,7 @@ int modem_dcd_state(void);
 void notify_time_update(void);
 int wait_time_update_notify(void);
 /* callback for system power off*/
-void ccci_power_off(void);
+//void ccci_power_off(void);
 /* LK load modem, Export by ccci util */
 int modem_run_env_ready(int md_id);
 int get_lk_load_md_info(char buf[], int size);

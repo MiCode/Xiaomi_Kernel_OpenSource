@@ -27,10 +27,10 @@ $(info MTK_PLATFORM := $(MTK_PLATFORM))
 
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/inc/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/mt6779/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccmni/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6779/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-amms
@@ -49,7 +49,7 @@ endif
 obj-$(CCCI_OBJ) += ccci_md_all.o
 ccci_md_all-$(CCCI_OBJ) := ccci_core.o ccci_bm.o ccci_modem.o modem_sys1.o \
 		udc/udc.o \
-		hif/ccci_hif.o hif/ccci_hif_cldma.o hif/ccci_ringbuf.o hif/ccci_hif_ccif.o
+		hif/ccci_hif.o hif/ccci_hif_cldma.o
 
 # port start
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/port/
@@ -73,7 +73,7 @@ ccci_md_all-$(CCCI_OBJ) += port/port_cfg.o \
 # port end
 # fsm start
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/fsm/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/mt6779/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
 ccci_md_all-$(CCCI_OBJ) += fsm/ccci_fsm.o \
 			fsm/ccci_fsm_ioctl.o \
 			fsm/ccci_fsm_monitor.o \
@@ -87,12 +87,10 @@ ccci_md_all-$(CCCI_OBJ) += fsm/ccci_fsm.o \
 # fsm end
 
 # plat start
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6779/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/
-#ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi_bwl/$(MTK_PLATFORM)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi_bwl/mt6779/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi_bwl/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/clk/mediatek
 # security objects
 MASP_CORE_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/drivers/masp
@@ -123,15 +121,18 @@ endif
 ifeq ($(CONFIG_MTK_SEC_MODEM_NVRAM_ANTI_CLONE), y)
 ccflags-y  += -DMTK_SEC_MODEM_NVRAM_ANTI_CLONE
 endif
-ccci_md_all-$(CCCI_OBJ) += mt6779/ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj) \
-		mt6779/ap_md_reg_dump.o \
-		mt6779/md_sys1_platform.o
+ccci_md_all-$(CCCI_OBJ) += $(MTK_PLATFORM)/ccci_platform.o $(core_obj) $(mach_obj) $(sec_obj) \
+		$(MTK_PLATFORM)/ap_md_reg_dump.o \
+		$(MTK_PLATFORM)/md_sys1_platform.o
 # plat end
 
 ifeq ($(CONFIG_MTK_ECCCI_C2K), y)
 ccci_md_all-$(CCCI_OBJ) += modem_sys3.o
 endif
 
+# ccci_ccif.ko
+ccci_ccif-y := hif/ccci_ringbuf.o hif/ccci_hif_ccif.o
+obj-$(CCCI_OBJ) += ccci_ccif.o
 
 # ccci_dpmaif.ko
 ccci_dpmaif-y := hif/ccci_hif_dpmaif.o hif/dpmaif_drv.o
@@ -163,7 +164,7 @@ $(info MTK_PLATFORM := $(MTK_PLATFORM))
 
 # platform code
 #obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-obj-$(CCCI_OBJ) += mt6779/
+obj-$(CCCI_OBJ) += $(MTK_PLATFORM)/
 
 endif
 

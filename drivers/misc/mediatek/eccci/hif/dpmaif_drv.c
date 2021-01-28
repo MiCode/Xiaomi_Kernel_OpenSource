@@ -32,8 +32,8 @@ static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG,
 				"DPMAIF_PD_DL_PIT_INIT ready failed\n");
-			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
+				DUMP_FLAG_REG, NULL, -1);
 			count = 0;
 			return;
 		}
@@ -44,8 +44,8 @@ static void drv_dpmaif_dl_pit_only_update_enable_bit_done(unsigned char q_num)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG,
 				"DPMAIF_PD_DL_PIT_INIT not ready failed\n");
-			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
+				DUMP_FLAG_REG, NULL, -1);
 			count = 0;
 			break;
 		}
@@ -71,8 +71,8 @@ static void drv_dpmaif_check_dl_fifo_idle(void)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG,
 				"DPMAIF_AO_DL_PIT_STA3 failed\n");
-			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
+				DUMP_FLAG_REG, NULL, -1);
 			count = 0;
 			return;
 		}
@@ -212,8 +212,8 @@ static int drv_dpmaif_dl_set_idle(bool set_en)
 			if (++count1 >= 1600000) {
 				CCCI_ERROR_LOG(0, TAG,
 					"DPMAIF_AO_DL_PIT_STA3 failed\n");
-				dpmaif_ctrl->ops->dump_status(
-					DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+				dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
+					DUMP_FLAG_REG, NULL, -1);
 				count1 = 0;
 				ret = HW_REG_CHK_FAIL;
 				break;
@@ -622,8 +622,8 @@ int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 		if (++count >= 1600000) {
 			CCCI_ERROR_LOG(0, TAG, "drb_add rdy poll fail: 0x%x\n",
 				DPMA_READ_PD_UL(DPMAIF_PD_UL_DBG_STA2));
-			dpmaif_ctrl->ops->dump_status(
-				DPMAIF_HIF_ID, DUMP_FLAG_REG, -1);
+			dpmaif_ctrl->ops->dump_status(DPMAIF_HIF_ID,
+				DUMP_FLAG_REG, NULL, -1);
 			return HW_REG_CHK_FAIL;
 		}
 	}

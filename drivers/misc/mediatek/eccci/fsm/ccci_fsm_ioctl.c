@@ -6,9 +6,22 @@
 #ifdef CONFIG_MTK_SIM_LOCK_POWER_ON_WRITE_PROTECT
 /* #include <mt-plat/env.h> Fix me, header file not found */
 #endif
+#include <linux/platform_device.h>
+#include <linux/device.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
 
 #include "ccci_auxadc.h"
 #include "ccci_fsm_internal.h"
+#include "ccci_platform.h"
+#include "modem_sys.h"
+#include "md_sys1_platform.h"
 
 signed int __weak battery_get_bat_voltage(void)
 {
@@ -36,27 +49,30 @@ static int fsm_md_data_ioctl(int md_id, unsigned int cmd, unsigned long arg)
 	int data;
 	char buffer[64];
 	unsigned int sim_slot_cfg[4];
+	char ap_platform[5];
+	int md_gen;
+	struct device_node *node = NULL;
 	struct ccci_per_md *per_md_data = ccci_get_per_md_data(md_id);
 	struct ccci_per_md *other_per_md_data
 			= ccci_get_per_md_data(GET_OTHER_MD_ID(md_id));
 
+	node = of_find_compatible_node(NULL, NULL,
+		"mediatek,mddriver");
+	of_property_read_u32(node,
+		"mediatek,md_generation", &md_gen);
+
 	switch (cmd) {
 	case CCCI_IOC_GET_MD_PROTOCOL_TYPE:
-#if (MD_GENERATION < 6292)
-		if (copy_to_user((void __user *)arg, "DHL", sizeof("DHL"))) {
+		snprintf(buffer, sizeof(buffer), "%d",
+			md_gen);
+		snprintf((void *)ap_platform, sizeof(ap_platform), "%d",
+			md_gen);
+		if (copy_to_user((void __user *)arg,
+			ap_platform, sizeof(ap_platform))) {
 			CCCI_ERROR_LOG(md_id, FSM,
 				"CCCI_IOC_GET_MD_PROTOCOL_TYPE: copy_from_user fail\n");
 			return -EFAULT;
 		}
-#else
-		snprintf(buffer, sizeof(buffer), "%d", MD_GENERATION);
-		if (copy_to_user((void __user *)arg, MD_PLATFORM_INFO,
-				sizeof(MD_PLATFORM_INFO))) {
-			CCCI_ERROR_LOG(md_id, FSM,
-				"CCCI_IOC_GET_MD_PROTOCOL_TYPE: copy_from_user fail\n");
-			return -EFAULT;
-		}
-#endif
 		break;
 	case CCCI_IOC_SEND_BATTERY_INFO:
 		data = (int)battery_get_bat_voltage();

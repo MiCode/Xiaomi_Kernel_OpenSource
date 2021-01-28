@@ -10,6 +10,7 @@
 #include <linux/hrtimer.h>
 #include "mt-plat/mtk_ccci_common.h"
 #include "ccci_config.h"
+#include "ccci_common_config.h"
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "port_t.h"

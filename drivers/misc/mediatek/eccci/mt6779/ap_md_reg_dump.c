@@ -21,7 +21,7 @@
  * With ap_md_reg_dump_code_gentool.py v0.1
  * Date 2018-11-14 13:02:08.882000
  */
-void internal_md_dump_debug_register(unsigned int md_index)
+static void internal_md_dump_debug_register(unsigned int md_index)
 {
 	void __iomem *dump_reg0;
 
@@ -419,4 +419,10 @@ void internal_md_dump_debug_register(unsigned int md_index)
 	ccci_util_mem_dump(md_index, CCCI_DUMP_MEM_DUMP,
 		(dump_reg0 + 0x00003400), 0xA0);
 	iounmap(dump_reg0);
+}
+
+void md_dump_register_6779(unsigned int md_index)
+{
+
+	internal_md_dump_debug_register(md_index);
 }

@@ -30,6 +30,9 @@ static void *dev_class;
 #ifndef CCCI_LOG_LEVEL /* for platform override */
 #define CCCI_LOG_LEVEL CCCI_LOG_CRITICAL_UART
 #endif
+
+//#define CCCI_LOG_LEVEL CCCI_LOG_ALL_UART
+
 unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 
 int ccci_register_dev_node(const char *name, int major_id, int minor)

@@ -1458,6 +1458,30 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			interrupts = <GIC_SPI 167 IRQ_TYPE_LEVEL_LOW>;
 		};
 
+		ccifdriver:ccifdriver@10209000 {
+			compatible = "mediatek,ccci_ccif";
+			reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
+				<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/
+			mediatek,sram_size = <512>;
+			/*CCIF0 174/206, CCIF0 175/207*/
+			interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_LOW>,
+				     <GIC_SPI 175 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&infracfg_ao CLK_INFRA_CCIF_AP>,
+				<&infracfg_ao CLK_INFRA_CCIF_MD>,
+				<&infracfg_ao CLK_INFRA_CCIF1_AP>,
+				<&infracfg_ao CLK_INFRA_CCIF1_MD>,
+				<&infracfg_ao CLK_INFRA_CCIF2_AP>,
+				<&infracfg_ao CLK_INFRA_CCIF2_MD>,
+				<&infracfg_ao CLK_INFRA_CCIF4_MD>;
+			clock-names = "infra-ccif-ap",
+				"infra-ccif-md",
+				"infra-ccif1-ap",
+				"infra-ccif1-md",
+				"infra-ccif2-ap",
+				"infra-ccif2-md",
+				"infra-ccif4-md";
+		};
+
 		infracfg: infracfg@1020e000 {
 			compatible = "syscon";
 			reg = <0 0x1020e000 0 0x1000>;
@@ -3534,9 +3558,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	mddriver:mddriver {
-		compatible = "mediatek,mddriver";
+		compatible = "mediatek,mddriver", "mediatek,mddriver-mt6779";
 		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
 		mediatek,md_id = <0>;
+		mediatek,ap_plat_info = <6779>;
+		mediatek,md_generation = <6295>;
+		mediatek,offset_apon_md1 = <0x1C24>;
 		mediatek,cldma_capability = <6>;
 		reg = <0 0x10209000 0 0x1000>, /*AP_CCIF_BASE*/
 			<0 0x1020a000 0 0x1000>; /*MD_CCIF_BASE*/

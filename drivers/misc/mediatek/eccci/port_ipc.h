@@ -9,6 +9,7 @@
 #include <asm/types.h>
 #include <linux/compiler.h>
 #include "ccci_config.h" /* for platform override */
+#include "ccci_common_config.h"
 
 /* MD <-> AP Msg_id mapping enum */
 enum CCCI_IPC_MSG_ID_RANGE {
