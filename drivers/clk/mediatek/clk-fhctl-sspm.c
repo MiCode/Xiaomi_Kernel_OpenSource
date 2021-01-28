@@ -146,6 +146,7 @@ static int clk_mt_fh_sspm_pll_ssc_disable(struct clk_mt_fhctl *fh)
 	pll_id = fh->pll_data->pll_id;
 
 	fh_ctl.pll_id = pll_id;
+	fh_ctl.result = 0;
 
 	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
 	memcpy(&ipi_data.u.fh_ctl, &fh_ctl,
@@ -165,6 +166,7 @@ static int clk_mt_fh_sspm_pll_ssc_enable(struct clk_mt_fhctl *fh, int ssc_rate)
 
 	pll_id = fh->pll_data->pll_id;
 	fh_ctl.pll_id = pll_id;
+	fh_ctl.result = 0;
 
 	if (fh->pll_data->pll_type == FH_PLL_TYPE_NOT_SUPPORT) {
 		pr_info("%s not support SSC.", fh->pll_data->pll_name);
