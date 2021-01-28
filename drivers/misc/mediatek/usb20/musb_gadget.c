@@ -3080,8 +3080,8 @@ void musb_g_reset(struct musb *musb)
 		musb_writeb(mbase, MUSB_DEVCTL, MUSB_DEVCTL_SESSION);
 
 	/* active wake lock */
-	if (!musb->usb_lock.active)
-		__pm_stay_awake(&musb->usb_lock);
+	if (!musb->usb_lock->active)
+		__pm_stay_awake(musb->usb_lock);
 
 	musb_platform_reset(musb);
 	musb_generic_disable(musb);

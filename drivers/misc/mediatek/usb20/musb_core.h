@@ -452,7 +452,7 @@ struct musb {
 	enum musb_g_ep0_state ep0_state;
 	struct usb_gadget g;	/* the gadget */
 	struct usb_gadget_driver *gadget_driver;	/* its driver */
-	struct wakeup_source usb_lock;
+	struct wakeup_source *usb_lock;
 
 	/*
 	 * FIXME: Remove this flag.
