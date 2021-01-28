@@ -25,6 +25,24 @@
 
 void pe_src_startup_entry(struct pd_port *pd_port)
 {
+	enum typec_pwr_opmode opmode;
+
+	switch (pd_port->tcpc_dev->typec_remote_rp_level) {
+	case TYPEC_CC_VOLT_SNK_DFT:
+		opmode = TYPEC_PWR_MODE_USB;
+		break;
+	case TYPEC_CC_VOLT_SNK_1_5:
+		opmode = TYPEC_PWR_MODE_1_5A;
+		break;
+	case TYPEC_CC_VOLT_SNK_3_0:
+		opmode = TYPEC_PWR_MODE_3_0A;
+		break;
+	default:
+		opmode = TYPEC_PWR_MODE_USB;
+		break;
+	}
+
+	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, opmode);
 	pd_reset_protocol_layer(pd_port, false);
 	pd_set_rx_enable(pd_port, PD_RX_CAP_PE_STARTUP);
 
@@ -81,6 +99,7 @@ void pe_src_transition_supply_entry(struct pd_port *pd_port)
 		pd_port->request_i_new = pd_port->request_i_op;
 	}
 
+	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, TYPEC_PWR_MODE_PD);
 	pd_send_sop_ctrl_msg(pd_port, msg);
 }
 
@@ -95,6 +114,7 @@ void pe_src_ready_entry(struct pd_port *pd_port)
 {
 	pd_notify_pe_src_explicit_contract(pd_port);
 	pe_power_ready_entry(pd_port);
+	pd_port->tcpc_dev->typec_caps.type = TYPEC_PORT_DRP;
 }
 
 void pe_src_disabled_entry(struct pd_port *pd_port)

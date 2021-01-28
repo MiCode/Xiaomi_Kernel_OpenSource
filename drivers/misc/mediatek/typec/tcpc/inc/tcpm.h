@@ -149,6 +149,54 @@ enum {
 	TCP_NOTIFY_MISC_END = TCP_NOTIFY_PLUG_OUT,
 };
 
+enum {
+	TCP_ROLE_SUPPORTED_MODES_DFP_AND_UFP = 0,
+	TCP_ROLE_SUPPORTED_MODES_DFP,
+	TCP_ROLE_SUPPORTED_MODES_UFP,
+/*The following should be the last element*/
+	TCP_ROLE_PROP_SUPPORTED_MODES_TOTAL,
+};
+
+enum {
+	TCP_ROLE_PROP_MODE_UFP = 0,
+	TCP_ROLE_PROP_MODE_DFP,
+	TCP_ROLE_PROP_MODE_NONE,
+/*The following should be the last element*/
+	TCP_ROLE_PROP_MODE_TOTAL,
+};
+
+enum {
+	TCP_ROLE_PROP_PR_SRC = 0,
+	TCP_ROLE_PROP_PR_SNK,
+	TCP_ROLE_PROP_PR_NONE,
+/*The following should be the last element*/
+	TCP_ROLE_PROP_PR_TOTAL,
+
+};
+
+enum {
+	TCP_ROLE_PROP_DR_HOST = 0,
+	TCP_ROLE_PROP_DR_DEVICE,
+	TCP_ROLE_PROP_DR_NONE,
+/*The following should be the last element*/
+	TCP_ROLE_PROP_DR_TOTAL,
+};
+
+enum {
+	TCP_ROLE_PROP_VCONN_SUPPLY_NO = 0,
+	TCP_ROLE_PROP_VCONN_SUPPLY_YES,
+/*The following should be the last element*/
+	TCP_ROLE_PROP_VCONN_SUPPLY_TOTAL,
+};
+
+enum {
+	TCP_ROLE_PROP_SUPPORTED_MODES = 0,
+	TCP_ROLE_PROP_MODE,
+	TCP_ROLE_PROP_PR,
+	TCP_ROLE_PROP_DR,
+	TCP_ROLE_PROP_VCONN_SUPPLY,
+};
+
 struct tcp_ny_pd_state {
 	uint8_t connected;
 };

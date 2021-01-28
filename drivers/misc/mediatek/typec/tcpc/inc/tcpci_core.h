@@ -22,6 +22,7 @@
 #include <linux/notifier.h>
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
+#include <linux/usb/typec.h>
 
 #include "tcpm.h"
 #include "tcpci_timer.h"
@@ -419,14 +420,16 @@ struct tcpc_device {
 
 	uint32_t tcpc_flags;
 
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
-	struct dual_role_phy_instance *dr_usb;
-	uint8_t dual_role_supported_modes;
+	struct typec_capability typec_caps;
+	struct typec_port *typec_port;
 	uint8_t dual_role_mode;
 	uint8_t dual_role_pr;
 	uint8_t dual_role_dr;
 	uint8_t dual_role_vconn;
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
+	struct usb_pd_identity partner_ident;
+	struct typec_partner_desc partner_desc;
+	struct typec_partner *partner;
+	bool pd_capable;
 
 #ifdef CONFIG_USB_POWER_DELIVERY
 	/* Event */

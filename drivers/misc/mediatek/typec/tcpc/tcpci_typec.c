@@ -598,6 +598,11 @@ static void typec_unattached_entry(struct tcpc_device *tcpc_dev)
 
 	tcpc_dev->typec_usb_sink_curr = CONFIG_TYPEC_SNK_CURR_DFT;
 
+	if (tcpc_dev->partner)
+		typec_unregister_partner(tcpc_dev->partner);
+	tcpc_dev->pd_capable = false;
+	tcpc_dev->partner = NULL;
+
 	if (tcpc_dev->typec_power_ctrl)
 		tcpci_set_vconn(tcpc_dev, false);
 	typec_unattached_cc_entry(tcpc_dev);
@@ -700,6 +705,8 @@ static inline void typec_source_attached_entry(struct tcpc_device *tcpc_dev)
 	typec_enable_vconn(tcpc_dev);
 	tcpci_source_vbus(tcpc_dev,
 			TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_5V, -1);
+	tcpc_dev->pd_capable = false;
+	tcpc_dev->partner_desc.accessory = TYPEC_ACCESSORY_NONE;
 }
 
 static inline void typec_sink_attached_entry(struct tcpc_device *tcpc_dev)
@@ -727,6 +734,8 @@ static inline void typec_sink_attached_entry(struct tcpc_device *tcpc_dev)
 
 	tcpci_report_power_control(tcpc_dev, true);
 	tcpci_sink_vbus(tcpc_dev, TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SINK_5V, -1);
+	tcpc_dev->pd_capable = false;
+	tcpc_dev->partner_desc.accessory = TYPEC_ACCESSORY_NONE;
 }
 
 static inline void typec_custom_src_attached_entry(
@@ -1336,6 +1345,8 @@ static inline void typec_debug_acc_attached_entry(struct tcpc_device *tcpc_dev)
 	tcpci_report_power_control(tcpc_dev, true);
 	tcpci_source_vbus(tcpc_dev,
 			TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SOURCE_5V, -1);
+	tcpc_dev->pd_capable = false;
+	tcpc_dev->partner_desc.accessory = TYPEC_ACCESSORY_DEBUG;
 }
 
 #ifdef CONFIG_TYPEC_CAP_AUDIO_ACC_SINK_VBUS
@@ -1390,6 +1401,8 @@ static inline bool typec_audio_acc_attached_entry(struct tcpc_device *tcpc_dev)
 		typec_audio_acc_sink_vbus(tcpc_dev, true);
 #endif	/* CONFIG_TYPEC_CAP_AUDIO_ACC_SINK_VBUS */
 
+	tcpc_dev->pd_capable = false;
+	tcpc_dev->partner_desc.accessory = TYPEC_ACCESSORY_AUDIO;
 	return true;
 }
 
