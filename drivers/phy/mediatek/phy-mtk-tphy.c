@@ -46,8 +46,12 @@
 #define U3P_USBPHYACR1		0x004
 #define PA1_RG_VRT_SEL			GENMASK(14, 12)
 #define PA1_RG_VRT_SEL_VAL(x)	((0x7 & (x)) << 12)
+#define PA1_RG_VRT_SEL_MASK	(0x7)
+#define PA1_RG_VRT_SEL_OFST	(12)
 #define PA1_RG_TERM_SEL		GENMASK(10, 8)
 #define PA1_RG_TERM_SEL_VAL(x)	((0x7 & (x)) << 8)
+#define PA1_RG_TERM_SEL_MASK	(0x7)
+#define PA1_RG_TERM_SEL_OFST	(8)
 
 #define U3P_USBPHYACR2		0x008
 #define PA2_RG_SIF_U2PLL_FORCE_EN	BIT(18)
@@ -59,8 +63,16 @@
 #define PA5_RG_U2_HS_100U_U3_EN	BIT(11)
 
 #define U3P_USBPHYACR6		0x018
+#define PA6_RG_U2_PHY_REV6		GENMASK(31, 30)
+#define PA6_RG_U2_PHY_REV6_VAL(x)	((0x3 & (x)) << 30)
+#define PA6_RG_U2_PHY_REV6_MASK	(0x3)
+#define PA6_RG_U2_PHY_REV6_OFET	(30)
 #define PA6_RG_U2_BC11_SW_EN		BIT(23)
 #define PA6_RG_U2_OTG_VBUSCMP_EN	BIT(20)
+#define PA6_RG_U2_DISCTH	GENMASK(7, 4)
+#define PA6_RG_U2_DISCTH_VAL(x)	((0xf & (x)) << 4)
+#define PA6_RG_U2_DISCTH_MASK	(0xf)
+#define PA6_RG_U2_DISCTH_OFET	(4)
 #define PA6_RG_U2_SQTH		GENMASK(3, 0)
 #define PA6_RG_U2_SQTH_VAL(x)	(0xf & (x))
 
@@ -274,26 +286,6 @@
 #define RG_CDR_BIRLTD0_GEN3_MSK		GENMASK(4, 0)
 #define RG_CDR_BIRLTD0_GEN3_VAL(x)	(0x1f & (x))
 
-#define MSK_RG_USB20_TERM_VREF_SEL 0x7
-#define WIDTH_RG_USB20_TERM_VREF_SEL 3
-#define SHFT_RG_USB20_TERM_VREF_SEL 8
-#define OFFSET_RG_USB20_TERM_VREF_SEL 0x4
-
-#define MSK_RG_USB20_VRT_VREF_SEL 0x7
-#define WIDTH_RG_USB20_VRT_VREF_SEL 3
-#define SHFT_RG_USB20_VRT_VREF_SEL 12
-#define OFFSET_RG_USB20_VRT_VREF_SEL 0x4
-
-#define MSK_RG_USB20_PHY_REV6 0x3
-#define WIDTH_RG_USB20_PHY_REV6 2
-#define SHFT_RG_USB20_PHY_REV6 30
-#define OFFSET_RG_USB20_PHY_REV6 0x18
-
-#define MSK_RG_USB20_DISCTH 0xf
-#define WIDTH_RG_USB20_DISCTH 4
-#define SHFT_RG_USB20_DISCTH 4
-#define OFFSET_RG_USB20_DISCTH 0x18
-
 #define PHY_MODE_BC11_SW_SET 1
 #define PHY_MODE_BC11_SW_CLR 2
 
@@ -334,6 +326,8 @@ struct mtk_phy_instance {
 	int eye_src;
 	int eye_vrt;
 	int eye_term;
+	int eye_rev6;
+	int eye_disc;
 	bool bc12_en;
 };
 
@@ -348,27 +342,6 @@ struct mtk_tphy {
 	int src_ref_clk; /* MHZ, reference clock for slew rate calibrate */
 	int src_coef; /* coefficient for slew rate calibrate */
 };
-
-static void phy_write(void __iomem *addr, int offset,
-			     int mask, int value)
-{
-	u32 tmp;
-
-	tmp = readl(addr);
-	tmp &= ~(mask << offset);
-	tmp |= (value & mask) << offset;
-	writel(tmp, addr);
-}
-
-static u32 phy_read(void __iomem *addr, int offset, int mask)
-{
-	u32 tmp;
-
-	tmp = readl(addr);
-	tmp >>= offset;
-	tmp &= mask;
-	return tmp;
-}
 
 void cover_val_to_str(u32 val, u8 width, char *str)
 {
@@ -576,19 +549,17 @@ static ssize_t vrt_sel_store(struct device *dev,
 	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	void __iomem *com = u2_banks->com;
-	u32 tmp;
+	u32 tmp, val;
 
-	if (kstrtouint(buf, 2, &tmp))
+	if (kstrtouint(buf, 2, &val))
 		return -EINVAL;
 
-	if (tmp > MSK_RG_USB20_VRT_VREF_SEL)
-		tmp = MSK_RG_USB20_VRT_VREF_SEL;
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp &= ~PA1_RG_VRT_SEL;
+	tmp |= PA1_RG_VRT_SEL_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR1);
 
-	phy_write(com + OFFSET_RG_USB20_VRT_VREF_SEL,
-		SHFT_RG_USB20_VRT_VREF_SEL,
-		MSK_RG_USB20_VRT_VREF_SEL, tmp);
-
-	dev_info(dev, "%s, vrt_sel=%x\n", __func__, tmp);
+	dev_info(dev, "%s, vrt_sel=%x\n", __func__, val);
 	return count;
 }
 
@@ -601,11 +572,11 @@ static ssize_t vrt_sel_show(struct device *dev,
 	u32 tmp;
 	char str[16];
 
-	tmp = phy_read(com + OFFSET_RG_USB20_VRT_VREF_SEL,
-		SHFT_RG_USB20_VRT_VREF_SEL,
-		MSK_RG_USB20_VRT_VREF_SEL);
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp >>= PA1_RG_VRT_SEL_OFST;
+	tmp &= PA1_RG_VRT_SEL_MASK;
 
-	cover_val_to_str(tmp, WIDTH_RG_USB20_VRT_VREF_SEL, str);
+	cover_val_to_str(tmp, 3, str);
 
 	dev_info(dev, "%s, vrt_sel=%s\n", __func__, str);
 	return sprintf(buf, "vrt_sel = %s\n", str);
@@ -619,19 +590,17 @@ static ssize_t term_sel_store(struct device *dev,
 	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	void __iomem *com = u2_banks->com;
-	u32 tmp;
+	u32 tmp, val;
 
-	if (kstrtouint(buf, 2, &tmp))
+	if (kstrtouint(buf, 2, &val))
 		return -EINVAL;
 
-	if (tmp > MSK_RG_USB20_TERM_VREF_SEL)
-		tmp = MSK_RG_USB20_TERM_VREF_SEL;
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp &= ~PA1_RG_TERM_SEL;
+	tmp |= PA1_RG_TERM_SEL_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR1);
 
-	phy_write(com + OFFSET_RG_USB20_TERM_VREF_SEL,
-		SHFT_RG_USB20_TERM_VREF_SEL,
-		MSK_RG_USB20_TERM_VREF_SEL, tmp);
-
-	dev_info(dev, "%s, term_sel=%x\n", __func__, tmp);
+	dev_info(dev, "%s, term_sel=%x\n", __func__, val);
 	return count;
 }
 
@@ -644,11 +613,11 @@ static ssize_t term_sel_show(struct device *dev,
 	u32 tmp;
 	char str[16];
 
-	tmp = phy_read(com + OFFSET_RG_USB20_TERM_VREF_SEL,
-		SHFT_RG_USB20_TERM_VREF_SEL,
-		MSK_RG_USB20_TERM_VREF_SEL);
+	tmp = readl(com + U3P_USBPHYACR1);
+	tmp >>= PA1_RG_TERM_SEL_OFST;
+	tmp &= PA1_RG_TERM_SEL_MASK;
 
-	cover_val_to_str(tmp, WIDTH_RG_USB20_TERM_VREF_SEL, str);
+	cover_val_to_str(tmp, 3, str);
 
 	dev_info(dev, "%s, term_sel=%s\n", __func__, str);
 	return sprintf(buf, "term_sel = %s\n", str);
@@ -662,19 +631,17 @@ static ssize_t phy_rev6_store(struct device *dev,
 	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	void __iomem *com = u2_banks->com;
-	u32 tmp;
+	u32 tmp, val;
 
-	if (kstrtouint(buf, 2, &tmp))
+	if (kstrtouint(buf, 2, &val))
 		return -EINVAL;
 
-	if (tmp > MSK_RG_USB20_PHY_REV6)
-		tmp = MSK_RG_USB20_PHY_REV6;
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_PHY_REV6;
+	tmp |= PA6_RG_U2_PHY_REV6_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR6);
 
-	phy_write(com + OFFSET_RG_USB20_PHY_REV6,
-		SHFT_RG_USB20_PHY_REV6,
-		MSK_RG_USB20_PHY_REV6, tmp);
-
-	dev_info(dev, "%s, phy_rev6=%x\n", __func__, tmp);
+	dev_info(dev, "%s, phy_rev6=%x\n", __func__, val);
 	return count;
 }
 
@@ -687,11 +654,11 @@ static ssize_t phy_rev6_show(struct device *dev,
 	u32 tmp;
 	char str[16];
 
-	tmp = phy_read(com + OFFSET_RG_USB20_PHY_REV6,
-		SHFT_RG_USB20_PHY_REV6,
-		MSK_RG_USB20_PHY_REV6);
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp >>= PA6_RG_U2_PHY_REV6_OFET;
+	tmp &= PA6_RG_U2_PHY_REV6_MASK;
 
-	cover_val_to_str(tmp, WIDTH_RG_USB20_PHY_REV6, str);
+	cover_val_to_str(tmp, 2, str);
 
 	dev_info(dev, "%s, phy_rev6=%s\n", __func__, str);
 	return sprintf(buf, "phy_rev6 = %s\n", str);
@@ -706,19 +673,17 @@ static ssize_t discth_store(struct device *dev,
 	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
 	struct u2phy_banks *u2_banks = &instance->u2_banks;
 	void __iomem *com = u2_banks->com;
-	u32 tmp;
+	u32 tmp, val;
 
-	if (kstrtouint(buf, 2, &tmp))
+	if (kstrtouint(buf, 2, &val))
 		return -EINVAL;
 
-	if (tmp > MSK_RG_USB20_DISCTH)
-		tmp = MSK_RG_USB20_DISCTH;
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp &= ~PA6_RG_U2_DISCTH;
+	tmp |= PA6_RG_U2_DISCTH_VAL(val);
+	writel(tmp, com + U3P_USBPHYACR6);
 
-	phy_write(com + OFFSET_RG_USB20_DISCTH,
-		SHFT_RG_USB20_DISCTH,
-		MSK_RG_USB20_DISCTH, tmp);
-
-	dev_info(dev, "%s, discth=%x\n", __func__, tmp);
+	dev_info(dev, "%s, discth=%x\n", __func__, val);
 	return count;
 }
 
@@ -731,11 +696,11 @@ static ssize_t discth_show(struct device *dev,
 	u32 tmp;
 	char str[16];
 
-	tmp = phy_read(com + OFFSET_RG_USB20_DISCTH,
-		SHFT_RG_USB20_DISCTH,
-		MSK_RG_USB20_DISCTH);
+	tmp = readl(com + U3P_USBPHYACR6);
+	tmp >>= PA6_RG_U2_DISCTH_OFET;
+	tmp &= PA6_RG_U2_DISCTH_MASK;
 
-	cover_val_to_str(tmp, WIDTH_RG_USB20_DISCTH, str);
+	cover_val_to_str(tmp, 4, str);
 
 	dev_info(dev, "%s, discth=%s\n", __func__, str);
 	return sprintf(buf, "discth = %s\n", str);
@@ -1346,9 +1311,14 @@ static void phy_parse_property(struct mtk_tphy *tphy,
 				 &instance->eye_vrt);
 	device_property_read_u32(dev, "mediatek,eye-term",
 				 &instance->eye_term);
-	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d\n",
+	device_property_read_u32(dev, "mediatek,eye-rev6",
+				 &instance->eye_rev6);
+	device_property_read_u32(dev, "mediatek,eye-disc",
+				 &instance->eye_disc);
+	dev_dbg(dev, "bc12:%d, src:%d, vrt:%d, term:%d, rev6:%d, disc:%d\n",
 		instance->bc12_en, instance->eye_src,
-		instance->eye_vrt, instance->eye_term);
+		instance->eye_vrt, instance->eye_term,
+		instance->eye_rev6, instance->eye_disc);
 }
 
 static void u2_phy_props_set(struct mtk_tphy *tphy,
@@ -1383,6 +1353,20 @@ static void u2_phy_props_set(struct mtk_tphy *tphy,
 		tmp &= ~PA1_RG_TERM_SEL;
 		tmp |= PA1_RG_TERM_SEL_VAL(instance->eye_term);
 		writel(tmp, com + U3P_USBPHYACR1);
+	}
+
+	if (instance->eye_rev6) {
+		tmp = readl(com + U3P_USBPHYACR6);
+		tmp &= ~PA6_RG_U2_PHY_REV6;
+		tmp |= PA6_RG_U2_PHY_REV6_VAL(instance->eye_rev6);
+		writel(tmp, com + U3P_USBPHYACR6);
+	}
+
+	if (instance->eye_disc) {
+		tmp = readl(com + U3P_USBPHYACR6);
+		tmp &= ~PA6_RG_U2_DISCTH;
+		tmp |= PA6_RG_U2_DISCTH_VAL(instance->eye_disc);
+		writel(tmp, com + U3P_USBPHYACR6);
 	}
 }
 
