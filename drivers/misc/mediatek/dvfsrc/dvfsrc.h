@@ -35,6 +35,7 @@ struct dvfsrc_qos_config {
 };
 
 struct dvfsrc_met_config {
+	u32 ip_verion;
 	int (*dvfsrc_get_src_req_num)(void);
 	char **(*dvfsrc_get_src_req_name)(void);
 	unsigned int *(*dvfsrc_get_src_req)(struct mtk_dvfsrc *dvfs);
@@ -91,6 +92,8 @@ extern unsigned int *vcorefs_get_src_req(void);
 extern const struct dvfsrc_met_config mt6779_met_config;
 extern const struct dvfsrc_qos_config mt6779_qos_config;
 extern const struct dvfsrc_config mt6779_dvfsrc_config;
-
+extern const struct dvfsrc_met_config mt6761_met_config;
+extern const struct dvfsrc_qos_config mt6761_qos_config;
+extern const struct dvfsrc_config mt6761_dvfsrc_config;
 #endif
 

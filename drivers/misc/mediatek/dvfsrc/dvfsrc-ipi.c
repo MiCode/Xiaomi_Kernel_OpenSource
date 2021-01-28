@@ -41,6 +41,13 @@ struct dvfsrc_ipi_data {
 	} u;
 };
 
+static const int mt6761_qos_ipi_pin[] = {
+	[IPI_DVFSRC_ENABLE] = 0,
+	[IPI_OPP_TABLE] = 1,
+	[IPI_VCORE_OPP] = 2,
+	[IPI_DDR_OPP] = 3,
+};
+
 static const int mt6779_qos_ipi_pin[] = {
 	[IPI_DVFSRC_ENABLE] = 1,
 	[IPI_OPP_TABLE] = 2,
@@ -106,6 +113,11 @@ static int mt6779_qos_dvfsrc_init(struct mtk_dvfsrc *dvfsrc)
 
 const struct dvfsrc_qos_config mt6779_qos_config = {
 	.ipi_pin = mt6779_qos_ipi_pin,
+	.qos_dvfsrc_init = mt6779_qos_dvfsrc_init,
+};
+
+const struct dvfsrc_qos_config mt6761_qos_config = {
+	.ipi_pin = mt6761_qos_ipi_pin,
 	.qos_dvfsrc_init = mt6779_qos_dvfsrc_init,
 };
 

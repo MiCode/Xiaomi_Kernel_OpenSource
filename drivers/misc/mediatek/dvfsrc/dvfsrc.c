@@ -374,6 +374,38 @@ static const struct dvfsrc_debug_data mt6779_data = {
 	.setup_opp_table = dvfsrc_setup_opp_table,
 };
 
+static struct dvfsrc_opp dvfsrc_opp_mt6761[] = {
+	{0, 0, 0, 0},
+	{1, 0, 0, 0},
+	{1, 0, 0, 0},
+	{2, 0, 0, 0},
+	{2, 1, 0, 0},
+	{2, 0, 0, 0},
+	{2, 1, 0, 0},
+	{2, 1, 0, 0},
+	{3, 1, 0, 0},
+	{3, 2, 0, 0},
+	{3, 1, 0, 0},
+	{3, 2, 0, 0},
+	{3, 1, 0, 0},
+	{3, 2, 0, 0},
+	{3, 2, 0, 0},
+	{3, 2, 0, 0},
+};
+
+static struct dvfsrc_opp_desc dvfsrc_opp_mt6761_desc[] = {
+	MT_DVFSRC_OPP(4, 3, dvfsrc_opp_mt6761),
+};
+
+static const struct dvfsrc_debug_data mt6761_data = {
+	.opps_desc = dvfsrc_opp_mt6761_desc,
+	.num_opp_desc = ARRAY_SIZE(dvfsrc_opp_mt6761_desc),
+	.config = &mt6761_dvfsrc_config,
+	.met = &mt6761_met_config,
+	.qos = &mt6761_qos_config,
+	.setup_opp_table = dvfsrc_setup_opp_table,
+};
+
 static int mtk_dvfsrc_debug_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
