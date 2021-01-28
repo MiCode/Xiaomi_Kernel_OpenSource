@@ -3159,7 +3159,7 @@ err_irq:
 static int mt6779_afe_runtime_suspend(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
-	unsigned int value;
+	unsigned int value = 0;
 	int ret;
 
 	dev_info(afe->dev, "%s()\n", __func__);
