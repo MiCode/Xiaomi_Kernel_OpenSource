@@ -265,6 +265,7 @@ static int _check_apusys_hdr(struct apusys_cmd_hdr *hdr)
 		mdw_drv_err("cmd priority(%d/%d) mismatch\n",
 			hdr->priority,
 			APUSYS_PRIORITY_MAX);
+		return -EINVAL;
 	}
 
 	return 0;
