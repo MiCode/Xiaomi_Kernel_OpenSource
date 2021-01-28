@@ -57,9 +57,28 @@ static struct mtk_chip_config mtk_test_chip_info = {
 	.tx_mlsb = 0,
 	.cs_pol = 0,
 	.sample_sel = 0,
+
+	.cs_setuptime = 0,
+	.cs_holdtime = 0,
+	.cs_idletime = 0,
+	.cs_hightime = 0,
+	.cs_lowtime = 0,
 };
 
+#define SPI_CFG0_REG                      0x0000
 #define SPI_CFG1_REG                      0x0004
+#define SPI_TX_SRC_REG                    0x0008
+#define SPI_RX_DST_REG                    0x000c
+#define SPI_TX_DATA_REG                   0x0010
+#define SPI_RX_DATA_REG                   0x0014
+#define SPI_CMD_REG                       0x0018
+#define SPI_STATUS0_REG                   0x001c
+#define SPI_STATUS1_REG                   0x0020
+#define SPI_PAD_SEL_REG                   0x0024
+#define SPI_CFG2_REG                      0x0028
+#define SPI_TX_SRC_REG_64                 0x002c
+#define SPI_RX_DST_REG_64                 0x0030
+
 #define SPI_CFG1_CS_IDLE_OFFSET           0
 #define SPI_CFG1_GET_TICK_DLY_OFFSET      29
 
@@ -419,6 +438,8 @@ static ssize_t spi_store(struct device *dev, struct device_attribute *attr,
 	int cpol, cpha, tx_mlsb, rx_mlsb;
 	int sample_sel, tckdly, cs_pol;
 	u32 reg_val;
+	int dump_all, dump;
+	int index;
 #if 0
 /* #ifdef CONFIG_TRUSTONIC_TEE_SUPPORT */
 	u32 spinum;
@@ -585,6 +606,49 @@ set:
 		if (sscanf(buf + 6, "%d", &speed) == 1)
 			pr_info("%s() Set speed=%d as global parameter.\n",
 				__func__, speed);
+	} else if (!strncmp(buf, "dump_all=", 9)) {
+		if (sscanf(buf + 9, "%d", &dump_all) == 1) {
+			pr_info("%s() dump all register.\n", __func__);
+			pr_info("||* spi_dump_reg *******************||\n");
+			pr_info("cfg0:0x%.8x\n",
+				readl(mdata->base + SPI_CFG0_REG));
+			pr_info("cfg1:0x%.8x\n",
+				readl(mdata->base + SPI_CFG1_REG));
+			pr_info("tx_s:0x%.8x\n",
+				readl(mdata->base + SPI_TX_SRC_REG));
+			pr_info("rx_d:0x%.8x\n",
+				readl(mdata->base + SPI_RX_DST_REG));
+			pr_info("tx_data:0x%.8x\n",
+				readl(mdata->base + SPI_TX_DATA_REG));
+			pr_info("rx_data:0x%.8x\n",
+				readl(mdata->base + SPI_RX_DATA_REG));
+			pr_info("cmd :0x%.8x\n",
+				readl(mdata->base + SPI_CMD_REG));
+			pr_info("status0:0x%.8x\n",
+				readl(mdata->base + SPI_STATUS0_REG));
+			pr_info("status1:0x%.8x\n",
+				readl(mdata->base + SPI_STATUS1_REG));
+			pr_info("pad_sel:0x%.8x\n",
+				readl(mdata->base + SPI_PAD_SEL_REG));
+			pr_info("cfg2:0x%.8x\n",
+				readl(mdata->base + SPI_CFG2_REG));
+			pr_info("tx_s64:0x%.8x\n",
+				readl(mdata->base + SPI_TX_SRC_REG_64));
+			pr_info("rx_d64:0x%.8x\n",
+				readl(mdata->base + SPI_RX_DST_REG_64));
+			pr_info("||*****************************************||\n");
+		}
+	} else if (!strncmp(buf, "dump=", 5)) {
+		if (sscanf(buf + 5, "%d", &dump) == 1) {
+			pr_info("%s() dump TX FIFO.\n", __func__);
+			for (index = 1; index <= 8; index++)
+				pr_info("%d tx_data:0x%.8x\n",
+				index, readl(mdata->base + SPI_TX_DATA_REG));
+			pr_info("%s() dump RX FIFO.\n", __func__);
+			for (index = 1; index <= 8; index++)
+				pr_info("%d rx_data:0x%.8x\n",
+				index, readl(mdata->base + SPI_RX_DATA_REG));
+		}
 	} else {
 		pr_notice("%s() Wrong parameters.Do nothing.\n", __func__);
 		mt_spi_disable_master_clk(spi);
