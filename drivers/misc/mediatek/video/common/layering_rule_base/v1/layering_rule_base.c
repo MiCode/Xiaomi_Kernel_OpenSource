@@ -1944,6 +1944,8 @@ static char *parse_hrt_data_value(char *start, long int *value)
 	int ret;
 
 	tok_start = strchr(start + 1, ']');
+	if (unlikely(!tok_start))
+		goto out;
 	tok_end = strchr(tok_start + 1, '[');
 	if (tok_end)
 		*tok_end = 0;
@@ -1951,7 +1953,7 @@ static char *parse_hrt_data_value(char *start, long int *value)
 	if (ret)
 		DISPWARN("Parsing error gles_num:%d, p:%s, ret:%d\n",
 			(int)*value, tok_start + 1, ret);
-
+out:
 	return tok_end;
 }
 
@@ -2024,13 +2026,19 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			if (!tok)
 				goto end;
 			tok = parse_hrt_data_value(tok, &disp_id);
+			if (!tok)
+				goto end;
 			for (i = 0 ; i < HRT_LAYER_DATA_NUM ; i++) {
 				tok = parse_hrt_data_value(tok, &tmp_info);
+				if (!tok)
+					goto end;
 				debug_set_layer_data(disp_info,
 					disp_id, i, tmp_info);
 			}
 		} else if (strncmp(line_buf, "[test_start]", 12) == 0) {
 			tok = parse_hrt_data_value(line_buf, &test_case);
+			if (!tok)
+				goto end;
 			layering_rule_start(disp_info, 1);
 			is_test_pass = true;
 		} else if (strncmp(line_buf, "[test_end]", 10) == 0) {
@@ -2069,6 +2077,8 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			if (!tok)
 				goto end;
 			tok = parse_hrt_data_value(tok, &layer_result);
+			if (!tok)
+				goto end;
 			if (layer_result != tmp_config.ext_sel_layer) {
 				pr_info("[DISP][%s #%d]warn:Test case:%d, ext_sel_layer incorrect, real is %d, expect is %d\n",
 					__func__, __LINE__,
