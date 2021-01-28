@@ -80,7 +80,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 		.dominator_ts_idx = 1,
 		.tc_offset = 0x0,
 		.tc_speed = {
-			0x04F,
+			0x001,
 			0x00C,
 			0x001,
 			0x001,
@@ -92,8 +92,8 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 		.dominator_ts_idx = 1,
 		.tc_offset = 0x100,
 		.tc_speed = {
-			0x04F,
-			0x00C,
+			0x001,
+			0x007,
 			0x001,
 			0x001,
 		}
@@ -104,7 +104,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 		.dominator_ts_idx = 0,
 		.tc_offset = 0x200,
 		.tc_speed = {
-			0x04F,
+			0x001,
 			0x00C,
 			0x001,
 			0x001,
@@ -116,7 +116,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 		.dominator_ts_idx = 0,
 		.tc_offset = 0x300,
 		.tc_speed = {
-			0x04F,
+			0x005,
 			0x00C,
 			0x001,
 			0x001,
