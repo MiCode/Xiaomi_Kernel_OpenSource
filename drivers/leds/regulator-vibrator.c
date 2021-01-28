@@ -384,13 +384,19 @@ static int vib_probe(struct platform_device *pdev)
 	INIT_WORK(&m_vibr->vibr_work, update_vibrator);
 	spin_lock_init(&m_vibr->vibr_lock);
 	m_vibr->vibr_shutdown = 0;
-	if (m_vibr->vibr_conf.reg == NULL)
+	m_vibr->oc_handle.notifier_call = regulator_oc_event;
+	if (m_vibr->vibr_conf.reg == NULL) {
 		m_vibr->reg_status = 0;
-	else if (regulator_is_enabled(m_vibr->vibr_conf.reg))
-		m_vibr->reg_status = 1;
-	else
-		m_vibr->reg_status = 0;
-
+	} else {
+		if (regulator_is_enabled(m_vibr->vibr_conf.reg))
+			m_vibr->reg_status = 1;
+		else
+			m_vibr->reg_status = 0;
+		/* register oc notification for this regulator */
+		if (devm_regulator_register_notifier(m_vibr->vibr_conf.reg,
+			&m_vibr->oc_handle))
+			pr_info("regulator notifier request failed\n");
+	}
 	hrtimer_init(&(m_vibr->vibr_timer), CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	m_vibr->vibr_timer.function = mtk_vibrator_timer_func;
 	ret = devm_led_classdev_register(&pdev->dev, &led_vibr);
@@ -398,13 +404,6 @@ static int vib_probe(struct platform_device *pdev)
 		pr_info("led class register fail\n");
 		goto err;
 	}
-
-	/* register oc notification for this regulator */
-	m_vibr->oc_handle.notifier_call = regulator_oc_event;
-	ret = devm_regulator_register_notifier(m_vibr->vibr_conf.reg,
-		&m_vibr->oc_handle);
-	if (ret)
-		pr_info("regulator notifier request failed\n");
 
 	platform_set_drvdata(pdev, m_vibr);
 	ret = vibr_power_set(m_vibr);
