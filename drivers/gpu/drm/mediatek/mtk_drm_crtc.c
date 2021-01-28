@@ -5522,9 +5522,12 @@ static void mtk_crtc_init_gce_obj(struct drm_device *drm_dev,
 			cmdq_mbox_create(dev, index);
 		if (i != CLIENT_SEC_CFG)
 			continue;
+
+		if (drm_crtc_index(&mtk_crtc->base) == 0)
+			continue;
+
 		/* crtc1 & crtc2 share same secure gce thread */
-		if (drm_crtc_index(&mtk_crtc->base) != 0
-				&& priv->ext_sec_client == NULL)
+		if (priv->ext_sec_client == NULL)
 			priv->ext_sec_client = mtk_crtc->gce_obj.client[i];
 		else
 			mtk_crtc->gce_obj.client[i] = priv->ext_sec_client;
