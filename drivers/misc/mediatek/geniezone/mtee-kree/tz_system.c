@@ -29,7 +29,7 @@
 #include <kree/mem.h>
 #include <linux/atomic.h>
 #include <linux/vmalloc.h>
-#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 #include <linux/pm_wakeup.h>
 #else
 #include <linux/wakelock.h>
@@ -85,7 +85,7 @@ int perf_boost_cnt;
 struct mutex perf_boost_lock;
 struct platform_device *tz_system_dev;
 
-#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 struct wakeup_source TeeServiceCall_wake_lock; /*4.14*/
 #else
 struct wake_lock TeeServiceCall_wake_lock;
@@ -1010,7 +1010,7 @@ static void kree_perf_boost(int enable)
 			 * freq_to_set);
 			 */
 			KREE_DEBUG("%s wake_lock\n", __func__);
-#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 			__pm_stay_awake(&TeeServiceCall_wake_lock); /*4.14*/
 #else
 			wake_lock(&TeeServiceCall_wake_lock);
@@ -1030,7 +1030,7 @@ static void kree_perf_boost(int enable)
 			 * KREE_ERR("%s disable\n", __func__);
 			 */
 			KREE_DEBUG("%s wake_unlock\n", __func__);
-#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 			__pm_relax(&TeeServiceCall_wake_lock); /*4.14*/
 #else
 			wake_unlock(&TeeServiceCall_wake_lock);
