@@ -118,7 +118,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		goto done;
 	}
 
-	if (info->chr_type == STANDARD_HOST) {
+	if (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)) {
 			if (info->usb_state == USB_SUSPEND)
 				pdata->input_current_limit =
@@ -143,17 +143,19 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 						info->data.usb_charger_current;
 			}
 			is_basic = true;
+/*
 		} else if (info->chr_type == NONSTANDARD_CHARGER) {
 			pdata->input_current_limit =
 				info->data.non_std_ac_charger_current;
 			pdata->charging_current_limit =
 				info->data.non_std_ac_charger_current;
-		} else if (info->chr_type == STANDARD_CHARGER) {
+*/
+		} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_DCP) {
 			pdata->input_current_limit =
 				info->data.ac_charger_input_current;
 			pdata->charging_current_limit =
 				info->data.ac_charger_current;
-		} else if (info->chr_type == CHARGING_HOST) {
+		} else if (info->chr_type == POWER_SUPPLY_USB_TYPE_CDP) {
 			pdata->input_current_limit =
 				info->data.charging_host_charger_current;
 			pdata->charging_current_limit =
@@ -163,7 +165,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
-			&& info->chr_type == STANDARD_HOST)
+			&& info->chr_type == POWER_SUPPLY_USB_TYPE_SDP)
 			chr_debug("USBIF & STAND_HOST skip current check\n");
 		else {
 			if (info->sw_jeita.sm == TEMP_T0_TO_T1) {
@@ -226,7 +228,7 @@ static int do_algorithm(struct mtk_charger *info)
 
 	pdata = &info->chg_data[CHGS_SETTING];
 	is_basic = select_charging_current_limit(info, &setting);
-
+	is_basic = true;
 	chr_err("%s is_basic:%d\n", __func__, is_basic);
 	if (is_basic != true) {
 		is_basic = true;
@@ -261,10 +263,10 @@ static int do_algorithm(struct mtk_charger *info)
 				chg_alg_set_setting(alg, &info->setting);
 				chg_alg_start_algo(alg);
 				break;
+			} else {
+				chr_err("algorithm ret is error");
+				is_basic = true;
 			}
-
-			chr_err("algorithm ret is error");
-			is_basic = true;
 		}
 	}
 

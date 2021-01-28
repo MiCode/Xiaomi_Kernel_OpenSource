@@ -37,6 +37,8 @@ extern int register_charger_det_callback(int (*func)(int));
 extern bool is_usb_rdy(void);
 extern bool mt_usb_is_device(void);
 extern int is_otg_en(void);
+extern void Charger_Detect_Init(void);
+extern void Charger_Detect_Release(void);
 
 #ifndef CONFIG_MTK_EXTERNAL_CHARGER_TYPE_DETECT
 extern void mtk_pmic_enable_chr_type_det(bool en);

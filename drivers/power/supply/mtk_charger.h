@@ -207,19 +207,6 @@ struct charger_data {
 };
 
 /* todo */
-enum charger_type {
-	CHARGER_UNKNOWN = 0,
-	STANDARD_HOST,		/* USB : 450mA */
-	CHARGING_HOST,
-	NONSTANDARD_CHARGER,	/* AC : 450mA~1A */
-	STANDARD_CHARGER,	/* AC : ~1A */
-	APPLE_2_1A_CHARGER, /* 2.1A apple charger */
-	APPLE_1_0A_CHARGER, /* 1A apple charger */
-	APPLE_0_5A_CHARGER, /* 0.5A apple charger */
-	WIRELESS_CHARGER,
-};
-
-/* todo */
 enum usb_state_enum {
 	USB_SUSPEND = 0,
 	USB_UNCONFIGURED,
@@ -254,7 +241,7 @@ struct mtk_charger {
 
 	/* system lock */
 	spinlock_t slock;
-	struct wakeup_source charger_wakelock;
+	struct wakeup_source *charger_wakelock;
 	struct mutex charger_lock;
 
 	/* thread related */
@@ -320,6 +307,7 @@ extern int get_battery_current(struct mtk_charger *info);
 extern int get_vbus(struct mtk_charger *info);
 extern bool is_battery_exist(struct mtk_charger *info);
 extern int get_charger_type(struct mtk_charger *info);
+extern int disable_hw_ovp(struct mtk_charger *info, int en);
 
 /* functions for other */
 extern int mtk_chg_enable_vbus_ovp(bool enable);

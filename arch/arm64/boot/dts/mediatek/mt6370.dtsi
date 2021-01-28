@@ -45,6 +45,8 @@
 			enable_wdt;
 			/* enable_polling; */	/* is this charger needs*/
 						/* polling */
+			charger = <&mt6370_chg>;
+			bc12_sel = <0>;
 			otg_vbus: usb-otg-vbus {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";

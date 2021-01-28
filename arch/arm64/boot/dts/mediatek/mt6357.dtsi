@@ -116,6 +116,12 @@
 		nvmem-cell-names = "initialization", "state-of-charge";
 	};
 
+	mtk_charger_type: mtk_charger_type {
+		compatible = "mediatek,mt6357-charger-type";
+		io-channels = <&pmic_auxadc AUXADC_VCDT>;
+		io-channel-names = "pmic_vbus";
+	};
+
 	mtk_ts_pmic: mtk_ts_pmic {
 		compatible = "mediatek,mtk_ts_pmic";
 	};

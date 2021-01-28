@@ -90,4 +90,4 @@ obj-$(CONFIG_BATTERY_MT6357) += mt6357_battery.o
 mt6357_battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o  mt6357-gauge.o
 obj-$(CONFIG_BATTERY_MT6359) += mt6359_battery.o
 mt6359_battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o mtk_battery_daemon.o mt6359-gauge.o
-obj-$(CONFIG_MTK_CHARGER_NEW) += charger_class.o mtk_basic_charger.o mtk_charger.o mtk_charger_algorithm_class.o mtk_charger_intf.o
+obj-$(CONFIG_MTK_CHARGER) += charger_class.o mtk_basic_charger.o mtk_charger.o mtk_charger_algorithm_class.o mtk_charger_intf.o mt6357-charger-type.o

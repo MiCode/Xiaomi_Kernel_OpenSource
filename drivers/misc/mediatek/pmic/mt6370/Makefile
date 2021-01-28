@@ -1,6 +1,6 @@
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc
-subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply
 
 obj-$(CONFIG_MFD_MT6370_PMU)		+= mt6370_pmu_i2c.o mt6370_pmu_regmap.o\
 					mt6370_pmu_irq.o mt6370_pmu_subdevs.o\
