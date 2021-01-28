@@ -224,6 +224,7 @@
 #include <linux/nospec.h>
 
 #include "configfs.h"
+#include "usb_boost.h"
 
 
 /*------------------------------------------------------------------------*/
@@ -690,6 +691,7 @@ static int do_read(struct fsg_common *common)
 		}
 
 		/* Perform the read */
+		usb_boost();
 		file_offset_tmp = file_offset;
 		nread = kernel_read(curlun->filp, bh->buf, amount,
 				&file_offset_tmp);
@@ -886,6 +888,7 @@ static int do_write(struct fsg_common *common)
 			goto empty_write;
 
 		/* Perform the write */
+		usb_boost();
 		file_offset_tmp = file_offset;
 		nwritten = kernel_write(curlun->filp, bh->buf, amount,
 				&file_offset_tmp);

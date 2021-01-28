@@ -28,10 +28,8 @@
 #include <linux/usb/composite.h>
 
 #include "configfs.h"
-#ifdef CONFIG_MEDIATEK_SOLUTION
 #include "usb_boost.h"
-//#include "aee.h"
-#endif
+
 
 #define MTP_BULK_BUFFER_SIZE       16384
 #define INTR_BUFFER_SIZE           28
@@ -592,10 +590,8 @@ static void mtp_complete_out(struct usb_ep *ep, struct usb_request *req)
 		rx_cont_abort = true;
 	}
 
-#ifdef CONFIG_MEDIATEK_SOLUTION
 	if (mtp_rx_boost)
 		usb_boost();
-#endif
 
 	wake_up(&dev->read_wq);
 	atomic_inc(&usb_rdone);
@@ -1085,9 +1081,8 @@ static void send_file_work(struct work_struct *data)
 			header->transaction_id =
 					__cpu_to_le32(dev->xfer_transaction_id);
 		}
-#ifdef CONFIG_MEDIATEK_SOLUTION
 		usb_boost();
-#endif
+
 		monitor_in(MTP_VFS_R);
 		if (mtp_skip_vfs_read) {
 			ret = (xfer - hdr_size);
@@ -1186,9 +1181,8 @@ static void receive_file_work(struct work_struct *data)
 		}
 
 		if (write_req) {
-#ifdef CONFIG_MEDIATEK_SOLUTION
 			usb_boost();
-#endif
+
 			DBG(cdev, "rx %p %d\n", write_req, write_req->actual);
 			monitor_in(MTP_VFS_W);
 			if (mtp_skip_vfs_write) {
@@ -1305,9 +1299,8 @@ static void vfs_write_work(struct work_struct *data)
 			MTP_RX_DBG("write_req<%p>, len<%d>, usb_rdone<%d>\n",
 					write_req, write_req->actual,
 					atomic_read(&usb_rdone));
-#ifdef CONFIG_MEDIATEK_SOLUTION
+
 			usb_boost();
-#endif
 			monitor_in(MTP_VFS_W);
 			if (mtp_skip_vfs_write) {
 				rc = write_req->actual;

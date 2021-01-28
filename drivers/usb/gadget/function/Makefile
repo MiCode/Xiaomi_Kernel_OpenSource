@@ -5,6 +5,7 @@
 
 ccflags-y			:= -I$(srctree)/drivers/usb/gadget/
 ccflags-y			+= -I$(srctree)/drivers/usb/gadget/udc/
+ccflags-y			+= -I$(srctree)/drivers/misc/mediatek/usb_boost/
 
 # USB Functions
 usb_f_acm-y			:= f_acm.o
