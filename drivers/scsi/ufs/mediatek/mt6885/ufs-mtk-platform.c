@@ -815,8 +815,10 @@ int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 	clk_buf_ctrl(CLK_BUF_UFS, false);
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
 #endif
+#ifdef SPM_READY
 	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
 		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
+#endif
 
 	/* Set regulator to turn off VA09 LDO */
 	ret = regulator_disable(reg_va09);

@@ -53,6 +53,9 @@
 #include "ufs-mtk-dbg.h"
 #include "ufs-mtk-block.h"
 #include "ufs-mtk-platform.h"
+#ifdef CONFIG_MTK_AEE_FEATURE
+#include <mt-plat/aee.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/ufs.h>
@@ -640,11 +643,11 @@ static void ufshcd_print_tmrs(struct ufs_hba *hba, unsigned long bitmap)
 		dev_err(hba->dev, "TM[%d] - Task Management Request UPIU\n",
 				tag);
 		ufshcd_hex_dump("TM REQ: ", tmrdp->task_req_upiu,
-				sizeof(struct utp_upiu_req));
+				sizeof(__le32) * TASK_REQ_UPIU_SIZE_DWORDS);
 		dev_err(hba->dev, "TM[%d] - Task Management Response UPIU\n",
 				tag);
 		ufshcd_hex_dump("TM RSP: ", tmrdp->task_rsp_upiu,
-				sizeof(struct utp_task_req_desc));
+				sizeof(__le32) * TASK_RSP_UPIU_SIZE_DWORDS);
 	}
 }
 
@@ -659,7 +662,7 @@ void ufshcd_print_host_state(struct ufs_hba *hba,
 		"UFS Host state=%d\n", hba->ufshcd_state);
 	SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
 		"lrb in use=0x%lx, outstanding reqs=0x%lx tasks=0x%lx\n",
-		hba->lrb_in_use, hba->outstanding_tasks, hba->outstanding_reqs);
+		hba->lrb_in_use, hba->outstanding_reqs, hba->outstanding_tasks);
 	SPREAD_DEV_PRINTF(buff, size, m, hba->dev,
 		"saved_err=0x%x, saved_uic_err=0x%x\n",
 		hba->saved_err, hba->saved_uic_err);
@@ -2518,11 +2521,10 @@ static int ufshcd_comp_devman_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	u32 upiu_flags;
 	int ret = 0;
 
-	if ((hba->ufs_version == UFSHCI_VERSION_10) ||
-	    (hba->ufs_version == UFSHCI_VERSION_11))
-		lrbp->command_type = UTP_CMD_TYPE_DEV_MANAGE;
-	else
+	if (hba->ufs_version == UFSHCI_VERSION_20)
 		lrbp->command_type = UTP_CMD_TYPE_UFS_STORAGE;
+	else
+		lrbp->command_type = UTP_CMD_TYPE_DEV_MANAGE;
 
 	/* MTK PATCH */
 	ufshcd_prepare_req_desc_hdr(hba, lrbp, &upiu_flags, DMA_NONE);
@@ -2547,11 +2549,10 @@ static int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	u32 upiu_flags;
 	int ret = 0;
 
-	if ((hba->ufs_version == UFSHCI_VERSION_10) ||
-	    (hba->ufs_version == UFSHCI_VERSION_11))
-		lrbp->command_type = UTP_CMD_TYPE_SCSI;
-	else
+	if (hba->ufs_version == UFSHCI_VERSION_20)
 		lrbp->command_type = UTP_CMD_TYPE_UFS_STORAGE;
+	else
+		lrbp->command_type = UTP_CMD_TYPE_SCSI;
 
 	if (likely(lrbp->cmd)) {
 		 /* MTK PATCH */
@@ -3439,6 +3440,9 @@ int ufshcd_map_desc_id_to_length(struct ufs_hba *hba,
 	case QUERY_DESC_IDN_RFU_1:
 		*desc_len = 0;
 		break;
+	case QUERY_DESC_IDN_HEALTH:
+		*desc_len = 0x25;
+		break;
 	default:
 		*desc_len = 0;
 		return -EINVAL;
@@ -3844,6 +3848,7 @@ static int ufshcd_dme_link_startup(struct ufs_hba *hba)
 		ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
 		dev_err(hba->dev,
 			"dme-link-startup: error code %d\n", ret);
+		dump_stack(); /* MTK Patch */
 	}
 	return ret;
 }
@@ -4998,16 +5003,6 @@ static int ufshcd_task_req_compl(struct ufs_hba *hba, u32 index, u8 *resp)
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 
-	/* Clear completed tasks from outstanding_tasks */
-	__clear_bit(index, &hba->outstanding_tasks);
-	/* MTK patch for Deepidle & SODI */
-	/* Only release DRAM when there no outstanding tasks&reqs. */
-	/* MAINPLL and 26M will be released in Deepidle callback */
-	/* Because they are still resources required to enter H8 */
-	if (!hba->outstanding_tasks && !hba->outstanding_reqs)
-		ufs_mtk_pltfrm_res_req(hba, UFS_MTK_RESREQ_MPHY_NON_H8);
-	ufs_mtk_auto_hiber8_quirk_handler(hba, true);
-
 	task_req_descp = hba->utmrdl_base_addr;
 	ocs_value = ufshcd_get_tmr_ocs(&task_req_descp[index]);
 
@@ -5252,6 +5247,11 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 					/* cmd->result = DID_IMM_RETRY << 16; */
 					ufshcd_cond_add_cmd_trace(hba, index,
 					UFS_TRACE_DI_FAIL);
+					#ifdef CONFIG_MTK_AEE_FEATURE
+					aee_kernel_warning_api(__FILE__,
+						__LINE__, DB_OPT_FS_IO_LOG,
+						"ufs_mtk_di", "crc16 fail");
+					#endif
 				}
 			}
 #endif
@@ -5871,8 +5871,8 @@ static void ufshcd_rls_handler(struct work_struct *work)
 	u32 mode;
 
 	hba = container_of(work, struct ufs_hba, rls_work);
-	ufshcd_scsi_block_requests(hba);
 	pm_runtime_get_sync(hba->dev);
+	ufshcd_scsi_block_requests(hba);
 	ret = ufshcd_wait_for_doorbell_clr(hba, U64_MAX);
 	if (ret) {
 		dev_err(hba->dev,
@@ -5958,7 +5958,8 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 				hba->full_init_linereset = true;
 			}
 
-			if (!hba->full_init_linereset)
+			if ((!hba->full_init_linereset) &&
+				(!(work_pending(&hba->rls_work))))
 				schedule_work(&hba->rls_work);
 		}
 	}
@@ -6297,6 +6298,18 @@ static int ufshcd_issue_tm_cmd(struct ufs_hba *hba, int lun_id, int task_id,
 	} else {
 		err = ufshcd_task_req_compl(hba, free_slot, tm_response);
 	}
+
+	/*MTK patch: Clear tasks from outstanding_tasks */
+	spin_lock_irqsave(host->host_lock, flags);
+	__clear_bit(free_slot, &hba->outstanding_tasks);
+	/* MTK patch for Deepidle & SODI */
+	/* Only release DRAM when there no outstanding tasks&reqs. */
+	/* MAINPLL and 26M will be released in Deepidle callback */
+	/* Because they are still resources required to enter H8 */
+	if (!hba->outstanding_tasks && !hba->outstanding_reqs)
+		ufs_mtk_pltfrm_res_req(hba, UFS_MTK_RESREQ_MPHY_NON_H8);
+	ufs_mtk_auto_hiber8_quirk_handler(hba, true);
+	spin_unlock_irqrestore(host->host_lock, flags);
 
 	/* MTK PATCH */
 	/* get response for cmd trace */
@@ -6642,6 +6655,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	do {
 		/* MTK PATCH */
 		err = ufs_mtk_pltfrm_ufs_device_reset(hba);
+		/* may need ufs_mtk_pltfrm_host_sw_rst? */
 		ufshcd_device_reset_log(hba);
 		if (err)
 			dev_warn(hba->dev, "%s: device reset failed. err %d\n",
@@ -9004,8 +9018,6 @@ out:
 		ktime_to_us(ktime_sub(ktime_get(), start)),
 		hba->curr_dev_pwr_mode, hba->uic_link_state);
 
-	if (!ret)
-		hba->is_sys_suspended = false;
 	/* MTK PATCH */
 	dev_info(hba->dev, "sr,ret %d,%d us\n", ret,
 		(int)ktime_to_us(ktime_sub(ktime_get(), start)));
@@ -9026,8 +9038,12 @@ int ufshcd_runtime_suspend(struct ufs_hba *hba)
 	int ret = 0;
 	ktime_t start = ktime_get();
 
+	/* MTK PATCH: return 0 if hba not ready.
+	 * Otherwise, rpm_callback will set dev->power.runtime_error and make
+	 * runtime suspend return at rpm_idle() -> rpm_check_suspend_allowed().
+	 */
 	if (!hba)
-		return -EINVAL;
+		return 0;
 
 	if (!hba->is_powered)
 		goto out;
@@ -9071,8 +9087,12 @@ int ufshcd_runtime_resume(struct ufs_hba *hba)
 	int ret = 0;
 	ktime_t start = ktime_get();
 
+	/* MTK PATCH: return 0 if hba not ready.
+	 * Otherwise, rpm_callback will set dev->power.runtime_error and make
+	 * runtime suspend return at rpm_idle() -> rpm_check_suspend_allowed().
+	 */
 	if (!hba)
-		return -EINVAL;
+		return 0;
 
 	if (!hba->is_powered)
 		goto out;
@@ -9238,11 +9258,7 @@ int ufshcd_shutdown(struct ufs_hba *hba)
 	if (ufshcd_is_ufs_dev_poweroff(hba) && ufshcd_is_link_off(hba))
 		goto out;
 
-	if (pm_runtime_suspended(hba->dev)) {
-		ret = ufshcd_runtime_resume(hba);
-		if (ret)
-			goto out;
-	}
+	pm_runtime_get_sync(hba->dev);
 
 	/* MTK PATCH */
 	ufs_mtk_device_quiesce(hba);
