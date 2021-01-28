@@ -157,6 +157,12 @@ static int dsp_pcm_dev_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", "snd_audio_dsp");
 
+	/*
+	 * fix uaf(use afer free) issue:backup pdev->name,
+	 * device_rename will free pdev->name
+	 */
+	pdev->name = pdev->dev.kobj.name;
+
 	ret = snd_soc_register_platform(&pdev->dev, &mtk_dsp_pcm_platform);
 	if (ret) {
 		dev_warn(&pdev->dev, "err_platform\n");
