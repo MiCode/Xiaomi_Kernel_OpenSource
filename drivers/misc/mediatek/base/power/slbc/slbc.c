@@ -36,7 +36,9 @@
 static struct mmsram_data mmsram;
 #endif /* CONFIG_MTK_SLBC_MMSRAM */
 
+#ifdef CONFIG_MTK_L3C_PART
 #include <l3c_part.h>
+#endif /* CONFIG_MTK_L3C_PART */
 
 /* #define SLBC_THREAD */
 /* #define SLBC_TRACE */
@@ -175,7 +177,7 @@ int register_slbc_ops(struct slbc_ops *ops)
 
 		return -EINVAL;
 	}
-#endif /* CONFIG_MTK_L3C_PART */
+#endif /* CONFIG_MTK_SLBC_MMSRAM */
 
 	if (ops && ops->data) {
 		d = ops->data;
@@ -1204,8 +1206,8 @@ int __init slbc_module_init(void)
 	} else
 		pr_info("find slbc node failed\n");
 
-#ifdef CONFIG_PM_WAKELOCKS
-	slbc_ws = wakeup_source_register("slbc");
+#ifdef CONFIG_PM_SLEEP
+	slbc_ws = wakeup_source_register(NULL, "slbc");
 	if (!slbc_ws)
 		pr_debug("slbc wakelock register fail!\n");
 #endif
