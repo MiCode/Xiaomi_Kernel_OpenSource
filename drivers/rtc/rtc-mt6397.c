@@ -534,8 +534,8 @@ reboot:
 #ifndef USER_BUILD_KERNEL
 void mtk_rtc_lp_exception(struct mt6397_rtc *rtc)
 {
-	u32 bbpu, irqsta, irqen, osc32;
-	u32 pwrkey1, pwrkey2, prot, con, sec1, sec2;
+	u32 bbpu = 0, irqsta = 0, irqen = 0, osc32 = 0;
+	u32 pwrkey1 = 0, pwrkey2 = 0, prot = 0, con = 0, sec1 = 0, sec2 = 0;
 
 	regmap_read(rtc->regmap,
 				rtc->addr_base + RTC_BBPU, &bbpu);
@@ -577,7 +577,7 @@ void mtk_rtc_lp_exception(struct mt6397_rtc *rtc)
 
 static bool mtk_rtc_is_alarm_irq(struct mt6397_rtc *rtc)
 {
-	u32 irqsta, bbpu;
+	u32 irqsta = 0, bbpu;
 	int ret;
 
 	/* read clear */
@@ -644,7 +644,7 @@ exit:
 static int mtk_rtc_restore_alarm(struct mt6397_rtc *rtc, struct rtc_time *tm)
 {
 	int ret;
-	u16 data[RTC_OFFSET_COUNT];
+	u16 data[RTC_OFFSET_COUNT] = { 0 };
 
 	ret = regmap_bulk_read(rtc->regmap, rtc->addr_base + RTC_AL_SEC,
 			    data, RTC_OFFSET_COUNT);
@@ -695,9 +695,9 @@ exit:
 bool mtk_rtc_is_pwron_alarm(struct mt6397_rtc *rtc,
 	struct rtc_time *nowtm, struct rtc_time *tm)
 {
-	u32 pdn1, spar1, pdn2, spar0;
-	int ret, sec;
-	u16 data[RTC_OFFSET_COUNT];
+	u32 pdn1 = 0, spar1 = 0, pdn2 = 0, spar0 = 0;
+	int ret, sec = 0;
+	u16 data[RTC_OFFSET_COUNT] = { 0 };
 
 	ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_PDN1, &pdn1);
 	if (ret < 0)
@@ -812,6 +812,11 @@ static irqreturn_t mtk_rtc_irq_handler_thread(int irq, void *data)
 		    mktime(tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour,
 			   tm.tm_min, tm.tm_sec);
 
+		if (now_time == -1 || time == -1) {
+			mutex_unlock(&rtc->lock);
+			goto out;
+		}
+
 		/* power on */
 		if (now_time >= time - 1 && now_time <= time + 4) {
 			if (bootmode == KERNEL_POWER_OFF_CHARGING_BOOT ||
@@ -908,7 +913,7 @@ exit:
 void mtk_rtc_save_pwron_time(struct mt6397_rtc *rtc,
 	bool enable, struct rtc_time *tm, bool logo)
 {
-	u32 pdn1, pdn2;
+	u32 pdn1 = 0, pdn2 = 0;
 	int ret;
 
 	dev_notice(rtc->dev, "%s\n", __func__);
@@ -1372,8 +1377,8 @@ static void mtk_rtc_lpsd(struct device *dev)
 static void mtk_rtc_shutdown(struct platform_device *pdev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(&pdev->dev);
-	struct rtc_time rtc_time_now;
-	struct rtc_time rtc_time_alarm;
+	struct rtc_time rtc_time_now = { 0 };
+	struct rtc_time rtc_time_alarm = { 0 };
 	ktime_t ktime_now;
 	ktime_t ktime_alarm;
 	bool is_pwron_alarm;
