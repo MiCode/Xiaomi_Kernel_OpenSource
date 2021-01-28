@@ -16,30 +16,6 @@
 #include "adsp_helper.h"
 #include "adsp_timesync.h"
 
-#ifdef CONFIG_ARM64
-#define IOMEM(a)       ((void __force __iomem *)((a)))
-#endif
-
-#define adsp_reg_sync_writel(v, a) \
-	do { \
-		__raw_writel((v), IOMEM(a)); \
-		dsb(sy); \
-	} while (0)
-
-#define TIMESYNC_TAG                      "[ADSP_TS]"
-
-#define TIMESYNC_MAX_VER             (0xFF)
-
-#define TIMESYNC_FLAG_SYNC     (1 << 0)
-#define TIMESYNC_FLAG_ASYNC    (1 << 1)
-#define TIMESYNC_FLAG_FREEZE   (1 << 2)
-#define TIMESYNC_FLAG_UNFREEZE (1 << 3)
-
-/* sched_clock wrap time is 4398 seconds for arm arch timer
- * applying a period less than it for tinysys timesync
- */
-#define TIMESYNC_WRAP_TIME (4000*NSEC_PER_SEC)
-
 struct adsp_ts_context_t {
 	spinlock_t lock;
 	struct work_struct work;
@@ -50,7 +26,6 @@ struct adsp_ts_context_t {
 	u64 base_ts;
 };
 
-static struct workqueue_struct *adsp_ts_workqueue;
 static struct adsp_ts_context_t adsp_ts_ctx;
 static struct timecounter adsp_ts_counter;
 static struct hrtimer adsp_ts_refresh_timer;
@@ -59,8 +34,7 @@ static u32 adsp_base_ver;
 static int adsp_ts_update(int fz, u64 tick, u64 ts)
 {
 	adsp_base_ver = (adsp_base_ver+1) & TIMESYNC_MAX_VER;
-	if ((is_adsp_ready(ADSP_A_ID) == 1) || adsp_feature_is_active()
-		|| adsp_ts_ctx.init_synced == 0) {
+	if (is_adsp_ready(ADSP_A_ID) == 1 || !adsp_ts_ctx.init_synced) {
 		adsp_reg_sync_writel((tick >> 32) & 0xFFFFFFFF,
 			ADSP_TIMESYNC_TICK_H);
 		adsp_reg_sync_writel(tick & 0xFFFFFFFF,
@@ -119,7 +93,7 @@ void adsp_timesync_sync_base(unsigned int flag)
 		return;
 
 	if (flag & TIMESYNC_FLAG_ASYNC)
-		queue_work(adsp_ts_workqueue, &(adsp_ts_ctx.work));
+		schedule_work(&(adsp_ts_ctx.work));
 	else
 		adsp_timesync_sync_base_internal(flag);
 }
@@ -140,13 +114,8 @@ static void adsp_timesync_ws(struct work_struct *ws)
 
 int __init adsp_timesync_init(void)
 {
-	adsp_ts_workqueue = create_workqueue("adsp_ts_wq");
-	if (!adsp_ts_workqueue) {
-		pr_info("%s workqueue create failed\n", __func__);
-		adsp_ts_ctx.enabled = 0;
-		adsp_ts_ctx.init_synced = 0;
-		return -1;
-	}
+	adsp_ts_ctx.enabled = 0;
+	adsp_ts_ctx.init_synced = 0;
 
 	INIT_WORK(&(adsp_ts_ctx.work), adsp_timesync_ws);
 
@@ -182,16 +151,18 @@ int __init adsp_timesync_init(void)
 	return 0;
 }
 
-void adsp_timesync_suspend(void)
+void adsp_timesync_suspend(u8 fz)
 {
 	if (!adsp_ts_ctx.enabled)
 		return;
 
 	hrtimer_cancel(&adsp_ts_refresh_timer);
 
+	flush_work(&(adsp_ts_ctx.work));
+
 	/* snchronize new sched_clock base to co-processors */
-	adsp_timesync_sync_base(TIMESYNC_FLAG_SYNC |
-		TIMESYNC_FLAG_FREEZE);
+	fz = (fz) ? TIMESYNC_FLAG_FREEZE : 0;
+	adsp_timesync_sync_base(TIMESYNC_FLAG_SYNC | fz);
 }
 void adsp_timesync_resume(void)
 {

@@ -611,6 +611,8 @@ void adsp_suspend(enum adsp_core_id core_id)
 #if ADSP_DVFS_PROFILE
 		begin = ktime_get();
 #endif
+		adsp_timesync_suspend(0);
+
 		ret = scp_send_msg_to_queue(AUDIO_OPENDSP_USE_HIFI3_A,
 					    ADSP_IPI_DVFS_SUSPEND,
 					    &value, sizeof(value), 100);

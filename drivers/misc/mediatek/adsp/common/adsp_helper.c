@@ -616,7 +616,7 @@ static int adsp_system_sleep_suspend(struct device *dev)
 {
 	mutex_lock(&adsp_suspend_mutex);
 	if ((is_adsp_ready(ADSP_A_ID) == 1) || adsp_feature_is_active()) {
-		adsp_timesync_suspend();
+		adsp_timesync_suspend(1);
 		adsp_awake_unlock_adsppll(ADSP_A_ID, 1);
 	}
 	mutex_unlock(&adsp_suspend_mutex);
