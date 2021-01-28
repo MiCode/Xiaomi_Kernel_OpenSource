@@ -1290,7 +1290,7 @@ static int __mmc_start_data_req(struct mmc_host *host, struct mmc_request *mrq)
 	mmc_wait_ongoing_tfr_cmd(host);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (host->card && mmc_card_cmdq(host->card))
+	if (mmc_card_cmdq(host->card))
 		mrq->done = mmc_wait_cmdq_done;
 	else
 #endif
@@ -1646,6 +1646,12 @@ struct mmc_async_req *mmc_start_areq(struct mmc_host *host,
 	enum mmc_blk_status status;
 	int start_err = 0;
 	struct mmc_async_req *previous = host->areq;
+	struct mmc_request *mrq;
+	bool cmdq_en = false;
+
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+	cmdq_en = mmc_card_cmdq(host->card);
+#endif
 
 	/* Prepare a new request */
 	if (areq)
@@ -1665,41 +1671,29 @@ struct mmc_async_req *mmc_start_areq(struct mmc_host *host,
 	/* Fine so far, start the new request! */
 	if (status == MMC_BLK_SUCCESS && areq) {
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-		if (areq->cmdq_en)
-			start_err = __mmc_start_data_req(host, areq->mrq_que);
+		if (cmdq_en)
+			mrq = areq->mrq_que;
 		else
 #endif
-		{
-			do {
-				start_err =
-					__mmc_start_data_req(host, areq->mrq);
-				mt_biolog_mmcqd_req_start(host);
-			} while (0);
-		}
+			mrq = areq->mrq;
+		start_err =
+			__mmc_start_data_req(host, mrq);
+		if (!cmdq_en)
+			mt_biolog_mmcqd_req_start(host);
 	}
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (!(areq && areq->cmdq_en) && host->areq)
-#else
 	/* Postprocess the old request at this point */
-	if (host->areq)
-#endif
+	if (!cmdq_en && host->areq)
 		mmc_post_req(host, host->areq->mrq, 0);
 
 	/* Cancel a prepared request if it was not started. */
 	if ((status != MMC_BLK_SUCCESS || start_err) && areq)
 		mmc_post_req(host, areq->mrq, -EINVAL);
 
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	if (!(areq && areq->cmdq_en)) {
-#endif
-		if (status != MMC_BLK_SUCCESS)
-			host->areq = NULL;
-		else
-			host->areq = areq;
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	}
-#endif
+	if (status != MMC_BLK_SUCCESS || cmdq_en)
+		host->areq = NULL;
+	else
+		host->areq = areq;
 
 	return previous;
 }
