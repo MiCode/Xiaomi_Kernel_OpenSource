@@ -31,6 +31,7 @@
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <asm/cacheflush.h>
+#include <asm/cputype.h>
 #include <linux/delay.h>
 #include <linux/irq.h>
 #include <linux/of.h>
