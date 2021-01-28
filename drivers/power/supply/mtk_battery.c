@@ -39,6 +39,8 @@ int __attribute__ ((weak))
 	gm = gauge->gm;
 
 	gm->algo.active = true;
+	bm_err("[%s]: weak function,kernel algo=%d\n", __func__,
+		gm->algo.active);
 	return -EIO;
 }
 
@@ -263,6 +265,7 @@ static int battery_psy_get_property(struct power_supply *psy,
 	return ret;
 }
 
+
 static void mtk_battery_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_battery *gm;
@@ -378,7 +381,7 @@ int BattVoltToTemp(struct mtk_battery *gm, int dwVolt, int volt_cali)
 		delta_v = abs(vbif28 - dwVolt);
 		if (delta_v == 0)
 			delta_v = 1;
-#if defined(__LP64__) || defined(_LP64)
+#if IS_ENABLED(__LP64__) || IS_ENABLED(_LP64)
 			do_div(TRes_temp, delta_v);
 #else
 			TRes_temp = div_s64(TRes_temp, delta_v);
@@ -390,17 +393,17 @@ int BattVoltToTemp(struct mtk_battery *gm, int dwVolt, int volt_cali)
 		delta_v = abs(gm->rbat.rbat_pull_up_volt - dwVolt);
 		if (delta_v == 0)
 			delta_v = 1;
-#if defined(__LP64__) || defined(_LP64)
+#if IS_ENABLED(__LP64__) || IS_ENABLED(_LP64)
 		do_div(TRes_temp, delta_v);
 #else
 		TRes_temp = div_s64(TRes_temp, delta_v);
 #endif
 	}
 
-#ifdef RBAT_PULL_DOWN_R
+#if IS_ENABLED(RBAT_PULL_DOWN_R)
 	TRes = (TRes_temp * RBAT_PULL_DOWN_R);
 
-#if defined(__LP64__) || defined(_LP64)
+#if IS_ENABLED(__LP64__) || IS_ENABLED(_LP64)
 	do_div(TRes, abs(RBAT_PULL_DOWN_R - TRes_temp));
 #else
 	TRes_temp = div_s64(TRes, abs(RBAT_PULL_DOWN_R - TRes_temp));
@@ -983,7 +986,7 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	}
 }
 
-#ifdef CONFIG_OF
+#if IS_ENABLED(CONFIG_OF)
 static int fg_read_dts_val(const struct device_node *np,
 		const char *node_srting,
 		int *param, int unit)
@@ -1425,7 +1428,7 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 	fg_read_dts_val(np, "ACTIVE_TABLE",
 		&(fg_table_cust_data->active_table_number), 1);
 
-#if defined(CONFIG_MTK_ADDITIONAL_BATTERY_TABLE)
+#if IS_ENABLED(CONFIG_MTK_ADDITIONAL_BATTERY_TABLE)
 	if (fg_table_cust_data->active_table_number == 0)
 		fg_table_cust_data->active_table_number = 5;
 #else
@@ -1435,6 +1438,11 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 
 	bm_err("fg active table:%d\n",
 		fg_table_cust_data->active_table_number);
+
+	/* battery temperature  related*/
+	fg_read_dts_val(np, "RBAT_PULL_UP_R", &(gm->rbat.rbat_pull_up_r), 1);
+	fg_read_dts_val(np, "RBAT_PULL_UP_VOLT",
+		&(gm->rbat.rbat_pull_up_volt), 1);
 
 	/* battery temperature, TEMPERATURE_T0 ~ T9 */
 	for (i = 0; i < fg_table_cust_data->active_table_number; i++) {
@@ -2723,6 +2731,7 @@ static int mtk_power_misc_psy_event(
 			}
 		}
 	}
+
 	return NOTIFY_DONE;
 }
 

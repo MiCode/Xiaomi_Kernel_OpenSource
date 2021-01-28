@@ -16,6 +16,8 @@
 #include <linux/wait.h>
 #include "mtk_gauge.h"
 
+
+#define NETLINK_FGD 26
 #define UNIT_TRANS_10	10
 #define UNIT_TRANS_100	100
 #define UNIT_TRANS_1000	1000
@@ -747,7 +749,11 @@ struct mtk_battery {
 	struct battery_data bs_data;
 	struct mtk_coulomb_service cs;
 	struct mtk_gauge *gauge;
+	struct sock *mtk_battery_sk;
+
 	struct mtk_battery_algo algo;
+
+	u_int fgd_pid;
 
 	/* adb */
 	int fixed_bat_tmp;

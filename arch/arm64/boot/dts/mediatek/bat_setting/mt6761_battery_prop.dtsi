@@ -67,6 +67,9 @@
 	/* Table numbers per battery */
 	MULTI_TEMP_GAUGE0 = <(1)>;
 	/* Multi gauge0 enable */
+	RBAT_PULL_UP_R = <(16900)>;
+	RBAT_PULL_UP_VOLT = <(1800)>;
+
 	battery0_profile_t0_num = <100>;
 	battery0_profile_t0_col = <3>;
 	battery0_profile_t0 = <

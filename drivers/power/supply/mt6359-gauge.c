@@ -4,6 +4,9 @@
  * Author Wy Chuang<wy.chuang@mediatek.com>
  */
 
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
+#include <linux/socket.h>
 #include <linux/device.h>
 #include <linux/iio/consumer.h>
 #include <linux/interrupt.h>
@@ -12,6 +15,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <net/sock.h>
 #include "mtk_battery.h"
 #include "mtk_gauge.h"
 
@@ -364,6 +368,11 @@
 /* 1000 * 1000 / CHARGE_LSB */
 #define UNIT_FGCAR				(174080)
 /* CHARGE_LSB 0.085 * 2^11 */
+
+void __attribute__ ((weak))
+	mtk_battery_netlink_handler(struct sk_buff *skb)
+{
+}
 
 static signed int reg_to_mv_value(signed int _reg)
 {
@@ -2036,23 +2045,42 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 }
 
 static enum power_supply_property gauge_properties[] = {
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY,
+
 };
 
 static int psy_gauge_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mtk_gauge *gauge;
+	struct mtk_battery *gm;
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+		/* store disableGM30 status to mtk-gauge psy for DLPT */
+		if (gauge == NULL || gauge->gm == NULL)
+			val->intval = 0;
+		else
+			val->intval = gauge->gm->disableGM30;
+		break;
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = 0;
+		if (gauge == NULL || gauge->gm == NULL)
+			val->intval = 0;
+		else
+			val->intval = gauge->gm->disableGM30;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_ptim_current(gauge);
+		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		gm = gauge->gm;
+		if (gm != NULL)
+			val->intval = gm->sdc.shutdown_status.is_dlpt_shutdown;
 		break;
 	default:
 		return -EINVAL;
@@ -2061,11 +2089,13 @@ static int psy_gauge_get_property(struct power_supply *psy,
 	return 0;
 }
 
-int psy_gauge_set_property(struct power_supply *psy,
+static int psy_gauge_set_property(struct power_supply *psy,
 			enum power_supply_property psp,
 			const union power_supply_propval *val)
 {
+	int ret = 0;
 	struct mtk_gauge *gauge;
+	struct mtk_battery *gm;
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 
@@ -2073,11 +2103,17 @@ int psy_gauge_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		pr_notice("%s: %d %d\n", __func__, psp, val->intval);
 		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		gm = gauge->gm;
+		if (gm != NULL && val->intval == 1)
+			set_shutdown_cond(gm, DLPT_SHUTDOWN);
+		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		break;
 	}
 
-	return 0;
+	return ret;
 
 }
 
@@ -3484,6 +3520,33 @@ static int mt6359_gauge_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtk_gauge_netlink_handler(struct sk_buff *skb)
+{
+	mtk_battery_netlink_handler(skb);
+}
+
+int bat_create_netlink(struct platform_device *pdev)
+{
+	struct mtk_gauge *gauge;
+	struct netlink_kernel_cfg cfg = {
+		.input = mtk_gauge_netlink_handler,
+	};
+
+	gauge = dev_get_drvdata(&pdev->dev);
+	gauge->gm->mtk_battery_sk =
+		netlink_kernel_create(&init_net, NETLINK_FGD, &cfg);
+
+	if (gauge->gm->mtk_battery_sk == NULL) {
+		bm_err("netlink_kernel_create error\n");
+		return -EIO;
+	}
+
+	bm_err("[%s]netlink_kernel_create protol= %d\n",
+		__func__, NETLINK_FGD);
+
+	return 0;
+}
+
 static int mt6359_gauge_probe(struct platform_device *pdev)
 {
 	struct mtk_gauge *gauge;
@@ -3585,7 +3648,7 @@ static int mt6359_gauge_probe(struct platform_device *pdev)
 			&gauge->psy_cfg);
 	gauge->attr = mt6359_sysfs_field_tbl;
 	mt6359_sysfs_create_group(gauge);
-
+	bat_create_netlink(pdev);
 	battery_init(pdev);
 
 	bm_err("%s: done\n", __func__);

@@ -4,6 +4,9 @@
  * Author Wy Chuang<wy.chuang@mediatek.com>
  */
 
+#include <linux/netlink.h>
+#include <linux/skbuff.h>
+#include <linux/socket.h>
 #include <linux/device.h>
 #include <linux/iio/consumer.h>
 #include <linux/interrupt.h>
@@ -12,8 +15,10 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <net/sock.h>
 #include "mtk_battery.h"
 #include "mtk_gauge.h"
+
 
 /* ============================================================ */
 /* pmic control start*/
@@ -222,21 +227,27 @@
 #define UNIT_FGCAR				(11176)
 /* CHARGE_LSB 0.085 * 2^11 */
 
+void __attribute__ ((weak))
+	mtk_battery_netlink_handler(struct sk_buff *skb)
+{
+}
+
+
 static signed int reg_to_mv_value(signed int _reg)
 {
 	long long _reg64 = _reg;
 	int ret;
 
 #if defined(__LP64__) || defined(_LP64)
-	_reg64 = (_reg64 * VOLTAGE_FULL_RANGES
+	_reg64 = (_reg64 * VOLTAGE_FULL_RANGES * 10
 		* R_VAL_TEMP_3) / ADC_PRECISE;
 #else
-	_reg64 = div_s64(_reg64 * VOLTAGE_FULL_RANGES
+	_reg64 = div_s64(_reg64 * VOLTAGE_FULL_RANGES * 10
 		* R_VAL_TEMP_3, ADC_PRECISE);
 #endif
 	ret = _reg64;
-	bm_debug("[%s] %lld => %d\n",
-		__func__, _reg64, ret);
+	bm_debug("[%s] %d=>%lld=> %d\n",
+		__func__, _reg, _reg64, ret);
 	return ret;
 }
 
@@ -245,11 +256,11 @@ static signed int mv_to_reg_value(signed int _mv)
 	int ret;
 	long long _reg64 = _mv;
 #if defined(__LP64__) || defined(_LP64)
-	_reg64 = (_reg64 * ADC_PRECISE) / (VOLTAGE_FULL_RANGES
-		* R_VAL_TEMP_3);
+	_reg64 = (_reg64 * ADC_PRECISE) /
+		(VOLTAGE_FULL_RANGES * 10 * R_VAL_TEMP_3);
 #else
-	_reg64 = div_s64((_reg64 * ADC_PRECISE), (VOLTAGE_FULL_RANGES
-		* R_VAL_TEMP_3));
+	_reg64 = div_s64((_reg64 * ADC_PRECISE),
+		(VOLTAGE_FULL_RANGES * 10 * R_VAL_TEMP_3));
 #endif
 	ret = _reg64;
 
@@ -694,12 +705,6 @@ int nafg_vbat_get(struct mtk_gauge *gauge,
 int bat_plugout_en_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int val)
 {
-	if (val != 0) {
-		val = 1;
-		enable_gauge_irq(gauge, BAT_PLUGOUT_IRQ);
-	} else
-		disable_gauge_irq(gauge, BAT_PLUGOUT_IRQ);
-
 	return 0;
 }
 
@@ -1042,8 +1047,8 @@ static int coulomb_get(struct mtk_gauge *gauge,
 
 	post_gauge_update(gauge);
 
-	uvalue32_car = temp_car_15_0 & 0xffff;
-	uvalue32_car |= (temp_car_31_16 & 0x7fff) << 16;
+	uvalue32_car = temp_car_15_0 >> 11;
+	uvalue32_car |= (temp_car_31_16 & 0x7fff) << 5;
 
 	uvalue32_car_msb = (temp_car_31_16 & 0x8000) >> 15;
 
@@ -1052,9 +1057,11 @@ static int coulomb_get(struct mtk_gauge *gauge,
 
 	if (uvalue32_car == 0) {
 		temp_value = 0;
+	} else if (uvalue32_car == 0xfffff) {
+		temp_value = 0;
 	} else if (uvalue32_car_msb == 0x1) {
 		/* dis-charging */
-		temp_value = (long long) (dvalue_CAR - 0x7fffffff);
+		temp_value = (long long) (dvalue_CAR - 0xfffff);
 		/* keep negative value */
 		temp_value = temp_value - (temp_value * 2);
 	} else {
@@ -1063,9 +1070,9 @@ static int coulomb_get(struct mtk_gauge *gauge,
 	}
 
 #if defined(__LP64__) || defined(_LP64)
-	temp_value = temp_value * UNIT_CHARGE / 1000;
+	temp_value = temp_value * UNIT_FGCAR / 1000;
 #else
-	temp_value = div_s64(temp_value * UNIT_CHARGE, 1000);
+	temp_value = div_s64(temp_value * UNIT_FGCAR, 1000);
 #endif
 
 
@@ -1094,12 +1101,12 @@ static int coulomb_get(struct mtk_gauge *gauge,
 		dvalue_CAR);
 
 /*Auto adjust value*/
-	if (r_fg_value != DEFAULT_R_FG) {
+	if (r_fg_value != 100) {
 		bm_debug("[%s] Auto adjust value deu to the Rfg is %d\n Ori CAR=%d",
 			 __func__,
 			 r_fg_value, dvalue_CAR);
 
-		dvalue_CAR = (dvalue_CAR * DEFAULT_R_FG) /
+		dvalue_CAR = (dvalue_CAR * 100) /
 			r_fg_value;
 
 		bm_debug("[%s] new CAR=%d\n",
@@ -1290,29 +1297,72 @@ static int get_ptim_current(struct mtk_gauge *gauge)
 }
 
 static enum power_supply_property gauge_properties[] = {
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_ENERGY_EMPTY,
 };
 
 static int psy_gauge_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mtk_gauge *gauge;
+	struct mtk_battery *gm;
 
 	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
 
 	switch (psp) {
+	case POWER_SUPPLY_PROP_PRESENT:
+		/* store disableGM30 status to mtk-gauge psy for DLPT */
+		if (gauge == NULL || gauge->gm == NULL)
+			val->intval = 0;
+		else
+			val->intval = gauge->gm->disableGM30;
+		break;
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = 0;
+		if (gauge == NULL || gauge->gm == NULL)
+			val->intval = 0;
+		else
+			val->intval = gauge->gm->disableGM30;
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_NOW:
 		val->intval = get_ptim_current(gauge);
 		break;
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		gm = gauge->gm;
+		if (gm != NULL)
+			val->intval = gm->sdc.shutdown_status.is_dlpt_shutdown;
+
 	default:
 		return -EINVAL;
 	}
 
 	return 0;
+}
+
+static int psy_gauge_set_property(struct power_supply *psy,
+	enum power_supply_property psp, const union power_supply_propval *val)
+{
+	int ret = 0;
+	struct mtk_gauge *gauge;
+	struct mtk_battery *gm;
+
+	gauge = (struct mtk_gauge *)power_supply_get_drvdata(psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ENERGY_EMPTY:
+		gm = gauge->gm;
+		if (gm != NULL && val->intval == 1)
+			set_shutdown_cond(gm, DLPT_SHUTDOWN);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+		}
+
+	bm_debug("%s psp:%d ret:%d val:%d", __func__, psp, ret, val->intval);
+
+	return ret;
 }
 
 static void fgauge_read_RTC_boot_status(struct mtk_gauge *gauge)
@@ -2066,9 +2116,9 @@ static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 
 	post_gauge_update(gauge);
 
-	uvalue32_car_msb = (temp_car_31_16 & 0x8000) >> 15;
 	value32_car = temp_car_15_0 & 0xffff;
 	value32_car |= (temp_car_31_16 & 0xffff) << 16;
+	uvalue32_car_msb = (temp_car_31_16 & 0x8000) >> 15;
 
 	bm_debug("[%s] FG_CAR = 0x%x:%d uvalue32_car_msb:0x%x 0x%x 0x%x\r\n",
 		__func__, value32_car, value32_car, uvalue32_car_msb,
@@ -2175,10 +2225,10 @@ static int coulomb_interrupt_lt_set(struct mtk_gauge *gauge,
 
 	post_gauge_update(gauge);
 
-	uvalue32_car_msb =
-		(temp_car_31_16 & 0x8000) >> 15;
 	value32_car = temp_car_15_0 & 0xffff;
 	value32_car |= (temp_car_31_16 & 0xffff) << 16;
+	uvalue32_car_msb =
+		(temp_car_31_16 & 0x8000) >> 15;
 
 	bm_debug("[%s] FG_CAR = 0x%x:%d uvalue32_car_msb:0x%x 0x%x 0x%x\r\n",
 		__func__,
@@ -2551,6 +2601,35 @@ static int mt6357_gauge_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtk_gauge_netlink_handler(struct sk_buff *skb)
+{
+	mtk_battery_netlink_handler(skb);
+}
+
+int bat_create_netlink(struct platform_device *pdev)
+{
+	struct mtk_gauge *gauge;
+	struct netlink_kernel_cfg cfg = {
+		.input = mtk_gauge_netlink_handler,
+	};
+
+	gauge = dev_get_drvdata(&pdev->dev);
+	gauge->gm->mtk_battery_sk =
+		netlink_kernel_create(&init_net, NETLINK_FGD, &cfg);
+
+	if (gauge->gm->mtk_battery_sk == NULL) {
+		bm_err("netlink_kernel_create error\n");
+		return -EIO;
+	}
+
+	bm_err("[%s]netlink_kernel_create protol= %d\n",
+		__func__, NETLINK_FGD);
+
+
+	return 0;
+}
+
+
 static int mt6357_gauge_probe(struct platform_device *pdev)
 {
 	struct mtk_gauge *gauge;
@@ -2632,12 +2711,13 @@ static int mt6357_gauge_probe(struct platform_device *pdev)
 	gauge->psy_desc.properties = gauge_properties;
 	gauge->psy_desc.num_properties = ARRAY_SIZE(gauge_properties);
 	gauge->psy_desc.get_property = psy_gauge_get_property;
+	gauge->psy_desc.set_property = psy_gauge_set_property;
 	gauge->psy_cfg.drv_data = gauge;
 	gauge->psy = power_supply_register(&pdev->dev, &gauge->psy_desc,
 			&gauge->psy_cfg);
 	gauge->attr = mt6357_sysfs_field_tbl;
 	mt6357_sysfs_create_group(gauge);
-
+	bat_create_netlink(pdev);
 	battery_init(pdev);
 
 	bm_err("%s: done\n", __func__);

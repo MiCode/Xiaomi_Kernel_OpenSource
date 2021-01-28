@@ -4,7 +4,6 @@
  * Author Wy Chuang<wy.chuang@mediatek.com>
  */
 
-#define NETLINK_FGD 26
 #define MAX_NL_LEN_SND	4096
 #define MAX_NL_LEN_RCV	9200
 #define FGD_NL_LEN			sizeof(struct fgd_nl_msg_t)
@@ -27,6 +26,8 @@ struct fgd_nl_msg_t {
 
 extern int mtk_battery_daemon_init(struct platform_device *pdev);
 extern int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1);
+
+extern void mtk_battery_netlink_handler(struct sk_buff *skb);
 
 #define DATA_SIZE 2048
 struct fgd_cmd_param_t_4 {

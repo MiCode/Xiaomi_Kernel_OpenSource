@@ -16,8 +16,6 @@
 #include "mtk_battery_daemon.h"
 #include "mtk_battery.h"
 
-static struct sock *mtk_battery_sk;
-static u_int g_fgd_pid;
 
 static int interpolation(int i1, int b1, int i2, int b2, int i)
 {
@@ -111,16 +109,22 @@ int gauge_get_average_current(struct mtk_battery *gm, bool *valid)
 	return iavg;
 }
 
-void mtk_battery_send_to_user(int seq, struct fgd_nl_msg_t *reply_msg)
+void mtk_battery_send_to_user(struct mtk_battery *gm,
+	int seq, struct fgd_nl_msg_t *reply_msg)
 {
 	struct sk_buff *skb;
 	struct nlmsghdr *nlh;
-	u32 pid = g_fgd_pid;
-
+	u32 pid = 0;
 	int size = reply_msg->fgd_data_len + FGD_NL_HDR_LEN;
 	int len = NLMSG_SPACE(size);
 	void *data;
-	int ret;
+	int ret = -1;
+
+	if (gm == NULL)
+		gm = get_mtk_battery();
+
+	if (gm != NULL)
+		pid = gm->fgd_pid;
 
 	reply_msg->identity = FGD_NL_MAGIC;
 
@@ -138,7 +142,10 @@ void mtk_battery_send_to_user(int seq, struct fgd_nl_msg_t *reply_msg)
 	NETLINK_CB(skb).portid = 0;	/* from kernel */
 	NETLINK_CB(skb).dst_group = 0;	/* unicast */
 
-	ret = netlink_unicast(mtk_battery_sk, skb, pid, MSG_DONTWAIT);
+	if (gm->mtk_battery_sk != NULL)
+		ret = netlink_unicast
+			(gm->mtk_battery_sk, skb, pid, MSG_DONTWAIT);
+
 	if (ret < 0) {
 		bm_err("[%s]send failed ret=%d pid=%d\n", __func__, ret, pid);
 		return;
@@ -299,16 +306,16 @@ void fg_daemon_get_data(int cmd,
 
 }
 
-static void mtk_battery_daemon_handler(void *nl_data,
+static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	struct fgd_nl_msg_t *ret_msg)
 {
 	struct fgd_nl_msg_t *msg;
 	static int ptim_vbat, ptim_i;
-	struct mtk_battery *gm;
 	int int_value;
 	static int badcmd;
 
-	gm = get_mtk_battery();
+	if (gm == NULL)
+		gm = get_mtk_battery();
 
 	msg = nl_data;
 	ret_msg->nl_cmd = msg->nl_cmd;
@@ -1416,16 +1423,16 @@ static void mtk_battery_daemon_handler(void *nl_data,
 	{
 		fg_cmd_check(msg);
 		/* check is daemon killed case*/
-		if (g_fgd_pid == 0) {
-			memcpy(&g_fgd_pid, &msg->fgd_data[0],
-				sizeof(g_fgd_pid));
+		if (gm->fgd_pid == 0) {
+			memcpy(&gm->fgd_pid, &msg->fgd_data[0],
+				sizeof(gm->fgd_pid));
 			bm_err("[K]FG_DAEMON_CMD_SET_DAEMON_PID = %d(first launch)\n",
-				g_fgd_pid);
+				gm->fgd_pid);
 		} else {
-			memcpy(&g_fgd_pid, &msg->fgd_data[0],
-				sizeof(g_fgd_pid));
+			memcpy(&gm->fgd_pid, &msg->fgd_data[0],
+				sizeof(gm->fgd_pid));
 			bm_err("[K]FG_DAEMON_CMD_SET_DAEMON_PID = %d(re-launch)\n",
-				g_fgd_pid);
+				gm->fgd_pid);
 			/* kill daemon dod_init 14 , todo*/
 		}
 	}
@@ -1678,7 +1685,7 @@ static void mtk_battery_daemon_handler(void *nl_data,
 	}
 }
 
-static void mtk_battery_netlink_handler(struct sk_buff *skb)
+void mtk_battery_netlink_handler(struct sk_buff *skb)
 {
 	u32 pid;
 	kuid_t uid;
@@ -1687,6 +1694,10 @@ static void mtk_battery_netlink_handler(struct sk_buff *skb)
 	struct nlmsghdr *nlh;
 	struct fgd_nl_msg_t *fgd_msg, *fgd_ret_msg;
 	int size = 0;
+	static struct mtk_battery *gm;
+
+	if (gm == NULL)
+		gm = get_mtk_battery();
 
 	nlh = (struct nlmsghdr *)skb->data;
 	pid = NETLINK_CREDS(skb)->pid;
@@ -1696,7 +1707,6 @@ static void mtk_battery_netlink_handler(struct sk_buff *skb)
 	data = NLMSG_DATA(nlh);
 
 	fgd_msg = (struct fgd_nl_msg_t *)data;
-
 
 	bm_debug("rcv:%d %d %d %d %d %d\n",
 		fgd_msg->nl_cmd,
@@ -1712,17 +1722,16 @@ static void mtk_battery_netlink_handler(struct sk_buff *skb)
 		return;
 	}
 
-	if (g_fgd_pid != pid &&
+	if (gm->fgd_pid != pid &&
 		fgd_msg->fgd_cmd > FG_DAEMON_CMD_SET_DAEMON_PID) {
 		bm_err("[%s]drop rev netlink pid:%d:%d  cmd:%d:%d\n",
 			__func__,
 			pid,
-			g_fgd_pid,
+			gm->fgd_pid,
 			fgd_msg->fgd_cmd,
 			FG_DAEMON_CMD_SET_DAEMON_PID);
 		return;
 	}
-
 
 	size = fgd_msg->fgd_ret_data_len + FGD_NL_HDR_LEN;
 
@@ -1747,11 +1756,12 @@ static void mtk_battery_netlink_handler(struct sk_buff *skb)
 		return;
 
 	memset(fgd_ret_msg, 0, size);
-	mtk_battery_daemon_handler(data, fgd_ret_msg);
-	mtk_battery_send_to_user(seq, fgd_ret_msg);
+	mtk_battery_daemon_handler(gm, data, fgd_ret_msg);
+	mtk_battery_send_to_user(gm, seq, fgd_ret_msg);
 
 	kvfree(fgd_ret_msg);
 }
+
 
 unsigned int TempConverBattThermistor(struct mtk_battery *gm, int temp)
 {
@@ -2324,7 +2334,12 @@ void fg_update_sw_iavg(struct mtk_battery *gm)
 
 int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 {
-	if (g_fgd_pid != 0) {
+	static struct mtk_battery *gm;
+
+	if (gm == NULL)
+		gm = get_mtk_battery();
+
+	if (gm->fgd_pid != 0) {
 		struct fgd_nl_msg_t *fgd_msg;
 		int size = FGD_NL_HDR_LEN + sizeof(flow_state);
 
@@ -2347,12 +2362,12 @@ int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 
 		bm_debug("[%s] malloc size=%d pid=%d cmd:%d\n",
 			__func__,
-			size, g_fgd_pid, flow_state);
+			size, gm->fgd_pid, flow_state);
 		memset(fgd_msg, 0, size);
 		fgd_msg->fgd_cmd = FG_DAEMON_CMD_NOTIFY_DAEMON;
 		memcpy(fgd_msg->fgd_data, &flow_state, sizeof(flow_state));
 		fgd_msg->fgd_data_len += sizeof(flow_state);
-		mtk_battery_send_to_user(0, fgd_msg);
+		mtk_battery_send_to_user(gm, 0, fgd_msg);
 
 		kvfree(fgd_msg);
 
@@ -2451,8 +2466,10 @@ static int mtk_battery_resume(struct mtk_battery *gm)
 
 bool is_daemon_support(struct mtk_battery *gm)
 {
-	pr_notice("%s: CONFIG_NET = false\n", __func__);
-	return false;
+	bool is_support = true;
+
+	pr_notice("%s: is_support = %d\n", __func__, is_support);
+	return is_support;
 }
 
 int mtk_battery_daemon_init(struct platform_device *pdev)
@@ -2461,9 +2478,6 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	int hw_version;
 	struct mtk_battery *gm;
 	struct mtk_gauge *gauge;
-	struct netlink_kernel_cfg cfg = {
-		.input = mtk_battery_netlink_handler,
-	};
 
 	gauge = dev_get_drvdata(&pdev->dev);
 	gm = gauge->gm;
@@ -2471,15 +2485,10 @@ int mtk_battery_daemon_init(struct platform_device *pdev)
 	if (is_daemon_support(gm) == false)
 		return -EIO;
 
-	mtk_battery_sk = netlink_kernel_create(&init_net, NETLINK_FGD, &cfg);
-	bm_debug("[%s]netlink_kernel_create protol= %d\n",
-		__func__, NETLINK_FGD);
-
-	if (mtk_battery_sk == NULL) {
-		bm_err("netlink_kernel_create error\n");
+	if (gm->mtk_battery_sk == NULL) {
+		bm_err("[%s]netlink_kernel_create error\n", __func__);
 		return -EIO;
 	}
-	bm_err("[%s]netlink_kernel_create ok\n", __func__);
 
 	gm->pl_two_sec_reboot = gauge_get_int_property(GAUGE_PROP_2SEC_REBOOT);
 	gauge_set_property(GAUGE_PROP_2SEC_REBOOT, 0);
