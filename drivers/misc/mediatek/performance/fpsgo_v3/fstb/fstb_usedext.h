@@ -22,26 +22,18 @@
 #include <linux/list.h>
 #include <linux/sched.h>
 
-#define CFG_MAX_FPS_LIMIT	60
+#define DEFAULT_DFPS 60
+#define CFG_MAX_FPS_LIMIT	120
 #define CFG_MIN_FPS_LIMIT	10
 #define FRAME_TIME_BUFFER_SIZE 200
 #define MAX_NR_FPS_LEVELS	1
-#define MAX_NR_RENDER_FPS_LEVELS	5
+#define MAX_NR_RENDER_FPS_LEVELS	10
 #define DISPLAY_FPS_FILTER_NS 100000000ULL
 #define ASFC_THRESHOLD_NS 20000000ULL
 #define ASFC_THRESHOLD_PERCENTAGE 30
 #define VPU_MAX_CAP 100
 #define MDLA_MAX_CAP 100
 #define RESET_TOLERENCE 3
-
-static int max_fps_limit = CFG_MAX_FPS_LIMIT;
-static int dfps_ceiling = CFG_MAX_FPS_LIMIT;
-static int min_fps_limit = CFG_MIN_FPS_LIMIT;
-static int fps_error_threshold = 10;
-static int QUANTILE = 50;
-static long long FRAME_TIME_WINDOW_SIZE_US = 1000000;
-static long long ADJUST_INTERVAL_US = 1000000;
-static int margin_mode;
 
 extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
 	int pid,
@@ -51,7 +43,6 @@ extern int (*fbt_notifier_cpu_frame_time_fps_stabilizer)(
 	unsigned int Curr_cap,
 	unsigned int Max_cap,
 	unsigned int Target_fps);
-extern void (*display_time_fps_stablizer)(unsigned long long ts);
 extern void (*ged_kpi_output_gfx_info2_fp)(long long t_gpu,
 	unsigned int cur_freq, unsigned int cur_max_freq, u64 ulID);
 
