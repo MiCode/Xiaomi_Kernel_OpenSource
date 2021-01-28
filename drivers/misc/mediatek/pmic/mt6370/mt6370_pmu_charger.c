@@ -2445,7 +2445,7 @@ out:
 static int mt6370_is_charging_done(struct charger_device *chg_dev, bool *done)
 {
 	int ret = 0;
-	enum mt6370_charging_status chg_stat = MT6370_CHG_STATUS_READY;
+	unsigned int chg_stat = MT6370_CHG_STATUS_READY;
 	struct mt6370_pmu_charger_data *chg_data =
 		dev_get_drvdata(&chg_dev->dev);
 
