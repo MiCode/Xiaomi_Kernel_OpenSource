@@ -29,7 +29,7 @@ static int vpu_map_kva_to_sgt(
 
 static dma_addr_t vpu_map_sg_to_iova(
 	struct platform_device *pdev, struct scatterlist *sg,
-	unsigned int nents,	size_t len, dma_addr_t given_iova);
+	unsigned int nents, size_t len, dma_addr_t given_iova);
 
 static void vpu_dump_sg(struct scatterlist *s, unsigned int nents)
 {
@@ -168,7 +168,7 @@ out:
 static dma_addr_t
 vpu_map_sg_to_iova(
 	struct platform_device *pdev, struct scatterlist *sg,
-	unsigned int nents,	size_t len, dma_addr_t given_iova)
+	unsigned int nents, size_t len, dma_addr_t given_iova)
 {
 	dma_addr_t mask;
 	dma_addr_t iova = 0;
