@@ -412,6 +412,23 @@ int trusty_adjust_task_attr(struct device *dev,
 }
 EXPORT_SYMBOL(trusty_adjust_task_attr);
 
+int trusty_dump_systrace(struct device *dev, void *data)
+{
+#if ENABLE_GZ_TRACE_DUMP
+	struct trusty_state *s;
+
+	if (IS_ERR_OR_NULL(dev))
+		return -EINVAL;
+
+	s = platform_get_drvdata(to_platform_device(dev));
+
+	blocking_notifier_call_chain(&s->callback,
+			TRUSTY_CALLBACK_SYSTRACE, data);
+#endif
+	return 0;
+}
+EXPORT_SYMBOL(trusty_dump_systrace);
+
 static int trusty_remove_child(struct device *dev, void *data)
 {
 	platform_device_unregister(to_platform_device(dev));

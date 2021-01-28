@@ -192,18 +192,20 @@ static void trusty_task_adjust_pri_cpu(struct trusty_ctx *tctx,
 static int trusty_callback_notifier(struct notifier_block *nb,
 			      unsigned long action, void *data)
 {
-	struct trusty_ctx *tctx;
-	struct trusty_task_attr *task_attr = (struct trusty_task_attr *)data;
+	if (action == TRUSTY_CALLBACK_VIRTIO_WQ_ATTR) {
+		struct trusty_ctx *tctx;
+		struct trusty_task_attr *task_attr = (struct trusty_task_attr *)data;
 
-	uint32_t task_mask[TRUSTY_TASK_MAX_ID];
-	int32_t task_pri[TRUSTY_TASK_MAX_ID];
+		uint32_t task_mask[TRUSTY_TASK_MAX_ID];
+		int32_t task_pri[TRUSTY_TASK_MAX_ID];
 
-	tctx = container_of(nb, struct trusty_ctx, callback_notifier);
+		tctx = container_of(nb, struct trusty_ctx, callback_notifier);
 
-	memcpy(task_mask, task_attr->mask, sizeof(task_mask));
-	memcpy(task_pri, task_attr->pri, sizeof(task_pri));
+		memcpy(task_mask, task_attr->mask, sizeof(task_mask));
+		memcpy(task_pri, task_attr->pri, sizeof(task_pri));
 
-	trusty_task_adjust_pri_cpu(tctx, task_mask, task_pri);
+		trusty_task_adjust_pri_cpu(tctx, task_mask, task_pri);
+	}
 
 	return NOTIFY_OK;
 }
@@ -832,9 +834,10 @@ static int trusty_task_kick(void *data)
 	while (!kthread_should_stop()) {
 		wait_for_completion_interruptible_timeout(
 				&tctx->task_info[TRUSTY_TASK_KICK_ID].run, timeout);
-		if (atomic_read(&tctx->task_info[TRUSTY_TASK_KICK_ID].task_num))
+		if (atomic_read(&tctx->task_info[TRUSTY_TASK_KICK_ID].task_num)) {
 			kick_vqs(tctx);
-		else
+			trusty_dump_systrace(tctx->trusty_dev, NULL);
+		} else
 			timeout = msecs_to_jiffies(1000);
 	}
 	pr_info("tee%d/%s_%d -<\n", tctx->tee_id, __func__, task_idx);
