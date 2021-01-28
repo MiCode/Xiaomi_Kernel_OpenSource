@@ -42,7 +42,7 @@
 /* For clock mgr APIS. enable_clock()/disable_clock(). */
 /* #include <mach/mt_clkmgr.h> */
 /* #endif */
-/* #include <mt-plat/sync_write.h> */	/* For mt65xx_reg_sync_writel(). */
+#include <mt-plat/sync_write.h>	/* For mt65xx_reg_sync_writel(). */
 /* For spm_enable_sodi()/spm_disable_sodi(). */
 /* #include <mach/mt_spm_idle.h> */
 #include <linux/of_platform.h>
@@ -1653,7 +1653,7 @@ static inline void FDVT_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-	smi_bus_prepare_enable(SMI_LARB8_REG_INDX, "camera-fdvt", true);
+	smi_bus_prepare_enable(SMI_LARB8, "camera-fdvt");
 #endif
 
 	ret = clk_prepare_enable(fdvt_clk.CG_IPESYS_FD);
@@ -1683,7 +1683,7 @@ static inline void FDVT_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
-	smi_bus_disable_unprepare(SMI_LARB8_REG_INDX, "camera-fdvt", true);
+	smi_bus_disable_unprepare(SMI_LARB8, "camera-fdvt");
 #endif
 }
 #endif
