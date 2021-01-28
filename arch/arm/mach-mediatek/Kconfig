@@ -259,6 +259,7 @@ config MACH_MT6771
 	select MTK_PLAT_SRAM_FLAG
 	select MTK_GIC_V3_EXT
 	select ARM_GIC_V3
+	select MTK_GIC_TARGET_ALL
 	select MTK_SYSIRQ
 	select MTK_EINT_MULTI_TRIGGER_DESIGN
 	select MTK_ES_REG
