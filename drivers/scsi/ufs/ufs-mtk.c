@@ -2140,6 +2140,81 @@ static int ufs_mtk_scsi_dev_cfg(struct scsi_device *sdev,
 	return 0;
 }
 
+
+#if !defined(HIE_CHANGE_KEY_IN_NORMAL_WORLD)
+enum bc_flags_bits {
+	__BC_CRYPT,        /* marks the request needs crypt */
+	__BC_IV_PAGE_IDX,  /* use page index as iv. */
+	__BC_IV_CTX,       /* use the iv saved in crypt context */
+	__BC_AES_128_XTS,  /* crypt algorithms */
+	__BC_AES_192_XTS,
+	__BC_AES_256_XTS,
+	__BC_AES_128_CBC,
+	__BC_AES_256_CBC,
+	__BC_AES_128_ECB,
+	__BC_AES_256_ECB,
+};
+
+#define BC_CRYPT	(1UL << __BC_CRYPT)
+#define BC_IV_PAGE_IDX  (1UL << __BC_IV_PAGE_IDX)
+#define BC_IV_CTX       (1UL << __BC_IV_CTX)
+#define BC_AES_128_XTS	(1UL << __BC_AES_128_XTS)
+#define BC_AES_192_XTS	(1UL << __BC_AES_192_XTS)
+#define BC_AES_256_XTS	(1UL << __BC_AES_256_XTS)
+#define BC_AES_128_CBC	(1UL << __BC_AES_128_CBC)
+#define BC_AES_256_CBC	(1UL << __BC_AES_256_CBC)
+#define BC_AES_128_ECB	(1UL << __BC_AES_128_ECB)
+#define BC_AES_256_ECB	(1UL << __BC_AES_256_ECB)
+static u8 ufshcd_crypto_gie_get_mode(u8 cap_idx)
+{
+	if (cap_idx == 0)
+		return BC_AES_128_XTS;
+	else if (cap_idx == 1)
+		return BC_AES_256_XTS;
+	else
+		return -1;
+}
+
+static int ufs_mtk_program_key(struct ufs_hba *hba,
+			      const union ufs_crypto_cfg_entry *cfg, int slot)
+{
+	int i;
+	unsigned long flags;
+	u32 gie_para;
+	u8 mode;
+
+	mode = ufshcd_crypto_gie_get_mode(cfg->crypto_cap_idx);
+
+	gie_para = ((slot & 0xFF) << UFS_HIE_PARAM_OFS_CFG_ID) |
+		((mode & 0xFF) << UFS_HIE_PARAM_OFS_MODE) |
+		((0x40 & 0xFF) << UFS_HIE_PARAM_OFS_KEY_TOTAL_BYTE);
+
+	/* disable encryption */
+	if (cfg->config_enable == 0)
+		gie_para |= 0x01;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	/* init ufs crypto IP for program key by first 8B */
+	mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST,
+		gie_para,
+		le32_to_cpu(cfg->reg_val[0]),
+		le32_to_cpu(cfg->reg_val[1]), 0);
+
+	/* program remaining key */
+	for (i = 2; i < 16; i += 3) {
+		mt_secure_call(MTK_SIP_KERNEL_CRYPTO_HIE_CFG_REQUEST,
+			le32_to_cpu(cfg->reg_val[i]),
+			le32_to_cpu(cfg->reg_val[i + 1]),
+			le32_to_cpu(cfg->reg_val[i + 2]), 0);
+	}
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	return 0;
+}
+#endif
+
 void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 {
 	/*
@@ -2586,7 +2661,11 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	ufs_mtk_res_ctrl,             /* res_ctrl */
 	ufs_mtk_pltfrm_deepidle_lock, /* deepidle_lock */
 	ufs_mtk_scsi_dev_cfg,         /* scsi_dev_cfg */
+#if defined(HIE_CHANGE_KEY_IN_NORMAL_WORLD)
 	NULL,                         /* program_key */
+#else
+	ufs_mtk_program_key,          /* program_key */
+#endif
 	ufs_mtk_abort_handler         /* abort_handler */
 };
 
