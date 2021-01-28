@@ -540,7 +540,10 @@ static int mt6397_probe(struct platform_device *pdev)
 		ret = mt6358_irq_init(pmic);
 		break;
 	case MT6358_CHIP_ID:
+		ret = mt6358_irq_init(pmic);
+		break;
 	case MT6359_CHIP_ID:
+		ret = mt6358_ipi_init(pmic);
 		ret = mt6358_irq_init(pmic);
 		break;
 
