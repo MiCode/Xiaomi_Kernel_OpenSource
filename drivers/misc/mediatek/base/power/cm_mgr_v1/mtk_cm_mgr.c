@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
-#include <linux/hrtimer.h>
+#include <linux/timer.h>
 #include <linux/sched/rt.h>
 #include <linux/atomic.h>
 #include <linux/clk.h>
@@ -42,8 +42,8 @@
 #include <mtk_cpufreq_api.h>
 #endif /* CONFIG_MTK_CPU_FREQ */
 
-#include <linux/pm_qos.h>
-#include <helio-dvfsrc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <dvfsrc-exp.h>
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 #include <sspm_ipi.h>
@@ -119,7 +119,7 @@ static void update_v2f(int update, int debug)
 #ifdef USE_TIMER_CHECK
 struct timer_list cm_mgr_timer;
 
-static void cm_mgr_timer_fn(unsigned long data)
+static void cm_mgr_timer_fn(struct timer_list *t)
 {
 	if (cm_mgr_timer_enable)
 		check_cm_mgr_status_internal();
@@ -301,7 +301,7 @@ static int cm_mgr_check_down_status(int level, int *cpu_ratio_idx)
 struct timer_list cm_mgr_perf_timer;
 #define USE_TIMER_PERF_CHECK_TIME msecs_to_jiffies(50)
 
-static void cm_mgr_perf_timer_fn(unsigned long data)
+static void cm_mgr_perf_timer_fn(struct timer_list *t)
 {
 	if (cm_mgr_perf_timer_enable)
 		check_cm_mgr_status_internal();
@@ -1252,14 +1252,12 @@ int __init cm_mgr_module_init(void)
 
 	vcore_power_gain = vcore_power_gain_ptr(cm_mgr_get_idx());
 
-	init_timer_deferrable(&cm_mgr_perf_timer);
-	cm_mgr_perf_timer.function = cm_mgr_perf_timer_fn;
-	cm_mgr_perf_timer.data = 0;
+	timer_setup(&cm_mgr_perf_timer, cm_mgr_perf_timer_fn,
+			TIMER_DEFERRABLE);
 
 #ifdef USE_TIMER_CHECK
-	init_timer_deferrable(&cm_mgr_timer);
-	cm_mgr_timer.function = cm_mgr_timer_fn;
-	cm_mgr_timer.data = 0;
+	timer_setup(&cm_mgr_timer, cm_mgr_timer_fn,
+			TIMER_DEFERRABLE);
 #endif /* USE_TIMER_CHECK */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)

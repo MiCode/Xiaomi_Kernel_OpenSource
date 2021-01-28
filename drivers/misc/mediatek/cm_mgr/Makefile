@@ -18,9 +18,9 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
 	-I$(srctree)/include \
 
-MTK_CM_MGR_MODULE_LOCAL_NAME = mtk_cm_mgr
-MTK_CM_MGR_MODULE_SRC = mtk_cm_mgr_common.o \
-			mtk_cm_mgr_platform.o
-$(MTK_CM_MGR_MODULE_LOCAL_NAME)-objs = $(MTK_CM_MGR_MODULE_SRC:.c=.o)
-obj-${CONFIG_MTK_CM_MGR} += $(MTK_CM_MGR_MODULE_LOCAL_NAME).o
+obj-${CONFIG_MTK_CM_MGR} += mtk_cm_mgr.o
+mtk_cm_mgr-y = mtk_cm_mgr_common.o
+
+mtk_cm_mgr-${CONFIG_MTK_CM_MGR_MT6779} += mtk_cm_mgr_mt6779.o
+mtk_cm_mgr-${CONFIG_MACH_MT6761} += mtk_cm_mgr_mt6761.o
 

@@ -6,3 +6,19 @@ config MTK_CM_MGR
 	  on power table.
 	  If unsure, say N.
 
+config MTK_CM_MGR_LEGACY
+	tristate "MTK CM_MGR for LEGACY"
+	help
+	  This kernel config can be used to enable CM_MGR. When enable
+	  this option, dram opp level will be changed which will depended
+	  on power table.
+	  If unsure, say N.
+
+config MTK_CM_MGR_MT6779
+	bool "MTK CM_MGR for MT6779"
+	help
+	  This kernel config can be used to enable CM_MGR MT6779. When enable
+	  this option, dram opp level will be changed which will depended
+	  on power table.
+	  If unsure, say N.
+

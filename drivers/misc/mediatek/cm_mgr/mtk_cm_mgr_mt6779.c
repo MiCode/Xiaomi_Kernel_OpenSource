@@ -29,12 +29,12 @@
 #include <linux/topology.h>
 #include <linux/math64.h>
 
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
-#include <linux/of.h>
-#include <linux/of_address.h>
-#include "mtk_cm_mgr_platform.h"
+#include "mtk_cm_mgr_mt6779.h"
 #include "mtk_cm_mgr_common.h"
 #include "dvfsrc-exp.h"
 
@@ -57,7 +57,7 @@ static int cm_mgr_check_dram_type(void)
 			__func__, __LINE__, ddr_type, ddr_hz, cm_mgr_idx);
 #else
 	cm_mgr_idx = 0;
-	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC !!! set cm_mgr_idx to 0x%x\n",
+	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC_LEGACY !!! set cm_mgr_idx to 0x%x\n",
 			__func__, __LINE__, cm_mgr_idx);
 #endif /* CONFIG_MTK_DRAMC_LEGACY */
 
@@ -77,6 +77,7 @@ static int cm_mgr_get_idx(void)
 		return cm_mgr_idx;
 };
 
+static int cm_mgr_get_dram_opp(void);
 /* static struct pm_qos_request ddr_opp_req; */
 static ktime_t perf_now;
 void cm_mgr_perf_platform_set_status(int enable)
@@ -193,7 +194,7 @@ static int phy_to_virt_dram_opp[] = {
 	0x0, 0x1, 0x2, 0x3, 0x5, 0x5
 };
 
-int cm_mgr_get_dram_opp(void)
+static int cm_mgr_get_dram_opp(void)
 {
 	int dram_opp_cur;
 
@@ -203,7 +204,6 @@ int cm_mgr_get_dram_opp(void)
 
 	return phy_to_virt_dram_opp[dram_opp_cur];
 }
-EXPORT_SYMBOL_GPL(cm_mgr_get_dram_opp);
 
 static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
@@ -315,13 +315,11 @@ static int platform_cm_mgr_remove(struct platform_device *pdev)
 
 static const struct of_device_id platform_cm_mgr_of_match[] = {
 	{ .compatible = "mediatek,mt6779-cm_mgr", },
-	{ .compatible = "mediatek,mt6761-cm_mgr", },
 	{},
 };
 
 static const struct platform_device_id platform_cm_mgr_id_table[] = {
 	{ "mt6779-cm_mgr", 0},
-	{ "mt6761-cm_mgr", 0},
 	{ },
 };
 

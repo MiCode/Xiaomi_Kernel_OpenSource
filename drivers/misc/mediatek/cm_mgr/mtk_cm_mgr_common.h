@@ -77,6 +77,9 @@ extern int pm_qos_update_request_status;
 extern int cm_mgr_dram_opp_base;
 extern int cm_mgr_dram_opp;
 
+extern int cm_mgr_loop_count;
+extern int total_bw_value;
+
 /* common api */
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);

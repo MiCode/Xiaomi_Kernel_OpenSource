@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
-#include <linux/hrtimer.h>
+#include <linux/timer.h>
 #include <linux/sched/rt.h>
 #include <linux/atomic.h>
 #include <linux/clk.h>
@@ -46,15 +46,15 @@
 #include <linux/fb.h>
 #include <linux/notifier.h>
 
-#include <linux/pm_qos.h>
-#include <helio-dvfsrc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <dvfsrc-exp.h>
 #ifdef USE_IDLE_NOTIFY
 #include "mtk_idle.h"
 #endif /* USE_IDLE_NOTIFY */
 
 #ifdef USE_CPU_TO_DRAM_MAP
 static struct delayed_work cm_mgr_work;
-static struct pm_qos_request ddr_opp_req_by_cpu_opp;
+static struct mtk_pm_qos_request ddr_opp_req_by_cpu_opp;
 static int cm_mgr_cpu_to_dram_opp;
 
 static void cm_mgr_process(struct work_struct *work);
@@ -234,7 +234,7 @@ void debug_stall_all(void)
 
 static int cm_mgr_check_dram_type(void)
 {
-#ifdef CONFIG_MTK_DRAMC
+#ifdef CONFIG_MTK_DRAMC_LEGACY
 	int ddr_type = get_ddr_type();
 	int ddr_hz = dram_steps_freq(0);
 
@@ -246,9 +246,9 @@ static int cm_mgr_check_dram_type(void)
 			__func__, __LINE__, ddr_type, ddr_hz, cm_mgr_idx);
 #else
 	cm_mgr_idx = 0;
-	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC !!! set cm_mgr_idx to 0x%x\n",
+	pr_info("#@# %s(%d) NO CONFIG_MTK_DRAMC_LEGACY !!! set cm_mgr_idx to 0x%x\n",
 			__func__, __LINE__, cm_mgr_idx);
-#endif /* CONFIG_MTK_DRAMC */
+#endif /* CONFIG_MTK_DRAMC_LEGACY */
 
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 	if (cm_mgr_idx >= 0)
@@ -398,8 +398,10 @@ static void init_cpu_stall_counter(int cluster)
 {
 	unsigned int val;
 
-	cm_mgr_init_time = ktime_get();
-	cm_mgr_init_flag = 1;
+	if (!timekeeping_suspended) {
+		cm_mgr_init_time = ktime_get();
+		cm_mgr_init_flag = 1;
+	}
 
 	if (cluster == 0) {
 		val = 0x11000;
@@ -430,27 +432,45 @@ static void init_cpu_stall_counter(int cluster)
 	}
 }
 
-#ifdef CONFIG_CPU_PM
-static int cm_mgr_sched_pm_notifier(struct notifier_block *self,
-			       unsigned long cmd, void *v)
+static int cm_mgr_cpuhp_online(unsigned int cpu)
 {
-	unsigned int cur_cpu = smp_processor_id();
 	unsigned long spinlock_save_flags;
 
 	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
 
-	if (cmd == CPU_PM_EXIT) {
-		if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
-				(cur_cpu < CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(0);
-		else if (((cm_mgr_idle_mask & CLUSTER1_MASK) == 0x0) &&
-				(cur_cpu >= CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(1);
-		cm_mgr_idle_mask |= (1 << cur_cpu);
-	} else if (cmd == CPU_PM_ENTER)
-		cm_mgr_idle_mask &= ~(1 << cur_cpu);
+	if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
+			(cpu < CM_MGR_CPU_LIMIT))
+		init_cpu_stall_counter(0);
+	cm_mgr_idle_mask |= (1 << cpu);
 
 	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
+
+	return 0;
+}
+
+static int cm_mgr_cpuhp_offline(unsigned int cpu)
+{
+	unsigned long spinlock_save_flags;
+
+	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
+
+	cm_mgr_idle_mask &= ~(1 << cpu);
+
+	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
+
+	return 0;
+}
+
+#ifdef CONFIG_CPU_PM
+static int cm_mgr_sched_pm_notifier(struct notifier_block *self,
+			       unsigned long cmd, void *v)
+{
+	unsigned int cpu = smp_processor_id();
+
+	if (cmd == CPU_PM_EXIT)
+		cm_mgr_cpuhp_online(cpu);
+	else if (cmd == CPU_PM_ENTER)
+		cm_mgr_cpuhp_offline(cpu);
 
 	return NOTIFY_OK;
 }
@@ -467,47 +487,6 @@ static void cm_mgr_sched_pm_init(void)
 #else
 static inline void cm_mgr_sched_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
-
-static int cm_mgr_cpu_callback(struct notifier_block *nfb,
-				   unsigned long action, void *hcpu)
-{
-	unsigned int cur_cpu = (long)hcpu;
-	unsigned long spinlock_save_flags;
-
-	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-
-	switch (action) {
-	case CPU_ONLINE:
-		if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
-				(cur_cpu < CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(0);
-		else if (((cm_mgr_idle_mask & CLUSTER1_MASK) == 0x0) &&
-				(cur_cpu >= CM_MGR_CPU_LIMIT))
-			init_cpu_stall_counter(1);
-		cm_mgr_idle_mask |= (1 << cur_cpu);
-		break;
-	case CPU_DOWN_PREPARE:
-		cm_mgr_idle_mask &= ~(1 << cur_cpu);
-		break;
-	}
-
-	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-
-	return NOTIFY_OK;
-}
-
-/* FIXME: */
-#define CPU_PRI_PERF 20
-
-static struct notifier_block cm_mgr_cpu_notifier = {
-	.notifier_call = cm_mgr_cpu_callback,
-	.priority = CPU_PRI_PERF + 1,
-};
-
-static void cm_mgr_hotplug_cb_init(void)
-{
-	register_cpu_notifier(&cm_mgr_cpu_notifier);
-}
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 		unsigned long event, void *data)
@@ -555,7 +534,8 @@ static int cm_mgr_idle_cb(struct notifier_block *nfb,
 	switch (id) {
 	case NOTIFY_SOIDLE_ENTER:
 	case NOTIFY_SOIDLE3_ENTER:
-		if (get_cur_ddr_opp() != CM_MGR_EMI_OPP)
+		if (mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP)
+				!= CM_MGR_EMI_OPP)
 			check_cm_mgr_status_internal();
 		break;
 	case NOTIFY_DPIDLE_ENTER:
@@ -577,7 +557,7 @@ static struct notifier_block cm_mgr_idle_notify = {
 struct timer_list cm_mgr_ratio_timer;
 #define CM_MGR_RATIO_TIMER_MS	msecs_to_jiffies(1)
 
-static void cm_mgr_ratio_timer_fn(unsigned long data)
+static void cm_mgr_ratio_timer_fn(struct timer_list *t)
 {
 	trace_CM_MGR__stall_raio_0(
 			(unsigned int)cm_mgr_read(MP0_CPU_AVG_STALL_RATIO));
@@ -596,9 +576,9 @@ void cm_mgr_ratio_timer_en(int enable)
 	}
 }
 
-static struct pm_qos_request ddr_opp_req;
+static struct mtk_pm_qos_request ddr_opp_req;
 static int debounce_times_perf_down_local;
-static int pm_qos_update_request_status;
+static int mtk_pm_qos_update_request_status;
 void cm_mgr_perf_platform_set_status(int enable)
 {
 	if (enable) {
@@ -607,15 +587,15 @@ void cm_mgr_perf_platform_set_status(int enable)
 		if (cm_mgr_perf_enable == 0)
 			return;
 
-		pm_qos_update_request(&ddr_opp_req, 0);
-		pm_qos_update_request_status = enable;
+		mtk_pm_qos_update_request(&ddr_opp_req, 0);
+		mtk_pm_qos_update_request_status = enable;
 	} else {
 		if (++debounce_times_perf_down_local < debounce_times_perf_down)
 			return;
 
-		pm_qos_update_request(&ddr_opp_req,
-				PM_QOS_DDR_OPP_DEFAULT_VALUE);
-		pm_qos_update_request_status = enable;
+		mtk_pm_qos_update_request(&ddr_opp_req,
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		mtk_pm_qos_update_request_status = enable;
 
 		debounce_times_perf_down_local = 0;
 	}
@@ -630,21 +610,21 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 			return;
 
 		if ((cm_mgr_perf_force_enable == 0) ||
-				(pm_qos_update_request_status == 1))
+				(mtk_pm_qos_update_request_status == 1))
 			return;
 
-		pm_qos_update_request(&ddr_opp_req, 0);
-		pm_qos_update_request_status = enable;
+		mtk_pm_qos_update_request(&ddr_opp_req, 0);
+		mtk_pm_qos_update_request_status = enable;
 	} else {
-		if (pm_qos_update_request_status == 0)
+		if (mtk_pm_qos_update_request_status == 0)
 			return;
 
 		if ((cm_mgr_perf_force_enable == 0) ||
 				(++debounce_times_perf_down_local >=
 				 debounce_times_perf_force_down)) {
-			pm_qos_update_request(&ddr_opp_req,
-					PM_QOS_DDR_OPP_DEFAULT_VALUE);
-			pm_qos_update_request_status = enable;
+			mtk_pm_qos_update_request(&ddr_opp_req,
+					MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+			mtk_pm_qos_update_request_status = enable;
 
 			debounce_times_perf_down_local = 0;
 		}
@@ -702,25 +682,27 @@ int cm_mgr_platform_init(void)
 		return r;
 	}
 
-	cm_mgr_hotplug_cb_init();
+	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+			"cm_mgr:online",
+			cm_mgr_cpuhp_online,
+			cm_mgr_cpuhp_offline);
 
 #ifdef USE_IDLE_NOTIFY
 	mtk_idle_notifier_register(&cm_mgr_idle_notify);
 #endif /* USE_IDLE_NOTIFY */
-	init_timer_deferrable(&cm_mgr_ratio_timer);
-	cm_mgr_ratio_timer.function = cm_mgr_ratio_timer_fn;
-	cm_mgr_ratio_timer.data = 0;
+	timer_setup(&cm_mgr_ratio_timer, cm_mgr_ratio_timer_fn,
+			TIMER_DEFERRABLE);
 
 #ifdef CONFIG_MTK_CPU_FREQ
 	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status);
 #endif /* CONFIG_MTK_CPU_FREQ */
 
-	pm_qos_add_request(&ddr_opp_req, PM_QOS_DDR_OPP,
-			PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&ddr_opp_req, MTK_PM_QOS_DDR_OPP,
+			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
 #ifdef USE_CPU_TO_DRAM_MAP
-	pm_qos_add_request(&ddr_opp_req_by_cpu_opp, PM_QOS_DDR_OPP,
-			PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&ddr_opp_req_by_cpu_opp, MTK_PM_QOS_DDR_OPP,
+			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
 	INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
 #endif /* USE_CPU_TO_DRAM_MAP */
@@ -743,7 +725,7 @@ int cm_mgr_get_dram_opp(void)
 {
 	int dram_opp_cur;
 
-	dram_opp_cur = get_cur_ddr_opp();
+	dram_opp_cur = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP);
 	if (dram_opp_cur < 0 || dram_opp_cur > CM_MGR_EMI_OPP)
 		dram_opp_cur = 0;
 
@@ -760,7 +742,9 @@ int cm_mgr_check_bw_status(void)
 
 int cm_mgr_get_bw(void)
 {
-	return dvfsrc_get_emi_bw(QOS_EMI_BW_TOTAL);
+	/* FIXME: */
+	/* return dvfsrc_get_emi_bw(QOS_EMI_BW_TOTAL); */
+	return 0;
 }
 
 #ifdef USE_CPU_TO_DRAM_MAP
@@ -786,7 +770,8 @@ static int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE] = {
 
 static void cm_mgr_process(struct work_struct *work)
 {
-	pm_qos_update_request(&ddr_opp_req_by_cpu_opp, cm_mgr_cpu_to_dram_opp);
+	mtk_pm_qos_update_request(&ddr_opp_req_by_cpu_opp,
+			cm_mgr_cpu_to_dram_opp);
 }
 
 void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)

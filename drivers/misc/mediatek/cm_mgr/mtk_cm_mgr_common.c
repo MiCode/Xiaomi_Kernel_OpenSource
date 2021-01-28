@@ -75,9 +75,9 @@ int pm_qos_update_request_status;
 int cm_mgr_dram_opp_base = -1;
 int cm_mgr_dram_opp = -1;
 
-static int cm_mgr_loop_count;
+int cm_mgr_loop_count;
 static int cm_mgr_dram_level;
-static int total_bw_value;
+int total_bw_value;
 
 static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
 		unsigned long event, void *data)
