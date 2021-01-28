@@ -179,7 +179,8 @@ EXPORT_SYMBOL_GPL(hwmsen_read_block);
 /*----------------------------------------------------------------------------*/
 int hwmsen_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
-	int err, idx, num;
+	int err;
+	u32 idx, num;
 	char buf[C_I2C_FIFO_SIZE];
 
 	if (!client)
