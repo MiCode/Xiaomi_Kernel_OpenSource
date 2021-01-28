@@ -183,22 +183,7 @@
 	moisture-internal-r = <47000>;
 	/*moisture of water resister ohm*/
 	moisture-water-r = <10000>;
-	/* ACCDET GPIO standardization ACC mode no use */
-	pinctrl-names = "default", "state_eint_as_int";
-	pinctrl-0 = <&accdet_pins_default>;
-	pinctrl-1 = <&accdet_pins_eint_as_int>;
 	status = "okay";
-};
-&pio {
-	accdet_pins_default: accdetdefault {
-	};
-	accdet_pins_eint_as_int: accdeteint@0 {
-		pins_cmd_dat {
-			/*pinmux = <PINMUX_GPIO7__FUNC_GPIO7>;*/
-			slew-rate = <0>;
-			bias-disable;
-		};
-	};
 };
 /* accdet end */
 
