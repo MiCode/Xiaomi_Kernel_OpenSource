@@ -34,7 +34,7 @@
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
 #include <mtk_swpm.h>
-
+#include <swpm_v1/mtk_swpm_interface.h>
 /****************************************************************************
  *  Macro Definitions
  ****************************************************************************/
@@ -80,10 +80,21 @@
 /****************************************************************************
  *  Type Definitions
  ****************************************************************************/
+struct swpm_manager {
+	bool initialize;
+	struct swpm_mem_ref_tbl *mem_ref_tbl;
+	unsigned int ref_tbl_size;
+};
 
 /****************************************************************************
  *  Local Variables
  ****************************************************************************/
+static struct swpm_manager swpm_m = {
+	.initialize = 0,
+	.mem_ref_tbl = NULL,
+	.ref_tbl_size = 0,
+};
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
@@ -96,6 +107,9 @@ static unsigned int log_mask = DEFAULT_LOG_MASK;
 /****************************************************************************
  *  Global Variables
  ****************************************************************************/
+/* swpm periodic timer for ftrace output */
+unsigned int swpm_log_mask = DEFAULT_LOG_MASK;
+struct timer_list swpm_timer;
 struct swpm_rec_data *swpm_info_ref;
 unsigned int swpm_status;
 bool swpm_debug;
@@ -523,7 +537,7 @@ PROC_FOPS_RW(log_mask);
 PROC_FOPS_RW(idd_tbl);
 #endif
 
-static int create_procfs(void)
+int swpm_create_procfs(void)
 {
 	struct proc_dir_entry *swpm_dir = NULL;
 	int i = 0;
@@ -570,6 +584,24 @@ static int create_procfs(void)
 	}
 
 	return 0;
+}
+
+void swpm_get_rec_addr(phys_addr_t *phys,
+		       phys_addr_t *virt,
+		       unsigned long long *size)
+{
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	/* get sspm reserved mem */
+	*phys = sspm_reserve_mem_get_phys(SWPM_MEM_ID);
+	*virt = sspm_reserve_mem_get_virt(SWPM_MEM_ID);
+	*size = sspm_reserve_mem_get_size(SWPM_MEM_ID);
+
+	swpm_info("phy_addr = 0x%llx, virt_addr=0x%llx, size = %llu\n",
+		(unsigned long long) *phys,
+		(unsigned long long) *virt,
+		*size);
+
+#endif
 }
 
 static void get_rec_addr(void)
@@ -647,6 +679,84 @@ static int log_loop(void)
 	return 0;
 }
 
+int swpm_reserve_mem_init(phys_addr_t *virt,
+			   unsigned long long *size)
+{
+	int i;
+	unsigned char *ptr;
+
+	if (!virt)
+		return -1;
+
+	/* clear reserve mem */
+	ptr = (unsigned char *)(uintptr_t)*virt;
+	for (i = 0; i < *size; i++)
+		ptr[i] = 0x0;
+
+	return 0;
+}
+
+int swpm_interface_manager_init(struct swpm_mem_ref_tbl *ref_tbl,
+				unsigned int tbl_size)
+{
+	if (!ref_tbl)
+		return -1;
+
+	swpm_lock(&swpm_mutex);
+	swpm_m.initialize = true;
+	swpm_m.mem_ref_tbl = ref_tbl;
+	swpm_m.ref_tbl_size = tbl_size;
+	swpm_unlock(&swpm_mutex);
+
+	return 0;
+}
+
+int swpm_set_periodic_timer(void *func)
+{
+	swpm_lock(&swpm_mutex);
+
+	if (func != NULL) {
+		swpm_timer.function = func;
+		swpm_timer.data = (unsigned long)&swpm_timer;
+		init_timer_deferrable(&swpm_timer);
+	}
+	swpm_unlock(&swpm_mutex);
+
+	return 0;
+}
+
+void swpm_update_periodic_timer(void)
+{
+	mod_timer(&swpm_timer, jiffies + msecs_to_jiffies(log_interval_ms));
+}
+
+int swpm_mem_addr_request(enum swpm_type id, phys_addr_t **ptr)
+{
+	int ret = 0;
+
+	if (!swpm_m.initialize || !swpm_m.mem_ref_tbl) {
+		swpm_err("swpm not initialize\n");
+		ret = -1;
+		goto end;
+	} else if (id >= swpm_m.ref_tbl_size) {
+		swpm_err("swpm_type invalid\n");
+		ret = -2;
+		goto end;
+	} else if (!(swpm_m.mem_ref_tbl[id].valid)
+		   || !(swpm_m.mem_ref_tbl[id].virt)) {
+		ret = -3;
+		swpm_err("swpm_mem_ref id not initialize\n");
+		goto end;
+	}
+
+	swpm_lock(&swpm_mutex);
+	*ptr = (swpm_m.mem_ref_tbl[id].virt);
+	swpm_unlock(&swpm_mutex);
+
+end:
+	return ret;
+}
+
 static int __init swpm_init(void)
 {
 #ifdef BRINGUP_DISABLE
@@ -658,7 +768,7 @@ static int __init swpm_init(void)
 		swpm_err("get sspm dram addr failed\n");
 		goto end;
 	}
-	create_procfs();
+	swpm_create_procfs();
 
 	swpm_platform_init();
 
