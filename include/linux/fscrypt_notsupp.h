@@ -100,7 +100,7 @@ static inline int fscrypt_set_bio_ctx(struct inode *inode,
 }
 
 static inline int fscrypt_key_payload(struct bio_crypt_ctx *ctx,
-	const char *data, const unsigned char **key)
+	const unsigned char **key)
 {
 	return -EOPNOTSUPP;
 }
@@ -124,6 +124,11 @@ static inline int fscrypt_get_encryption_info(struct inode *inode)
 static inline void fscrypt_put_encryption_info(struct inode *inode)
 {
 	return;
+}
+
+void *fscrypt_crypt_info_act(void *ci, int act)
+{
+	return NULL;
 }
 
  /* fname.c */

@@ -18,16 +18,19 @@ struct io_context;
 struct cgroup_subsys_state;
 typedef void (bio_end_io_t) (struct bio *);
 
+#define BIO_BC_INFO_GET     (1 << 0)
+#define BIO_BC_INFO_PUT     (1 << 1)
+
 struct bio_crypt_ctx {
-	unsigned int	bc_flags;
-	unsigned int	bc_key_size;
-	unsigned long	bc_fs_type;
-	struct super_block	*bc_sb;
-	unsigned long	bc_ino;
-	unsigned long   bc_iv;
-	struct key	*bc_keyring_key;
+	unsigned int        bc_flags;
+	unsigned int        bc_key_size;
+	struct super_block  *bc_sb;
+	unsigned long       bc_ino;
+	unsigned long       bc_iv;              /* for BC_IV_CTX only */
+	void                *bc_info;
+	void                *(*bc_info_act)(void *ci, int act);
 #ifdef CONFIG_HIE_DUMMY_CRYPT
-	u32		dummy_crypt_key;
+	u32                dummy_crypt_key;
 #endif
 };
 /*
@@ -429,14 +432,19 @@ static inline bool bio_encrypted(struct bio *bio)
 	return bio_bcf_test(bio, BC_CRYPT);
 }
 
-static inline unsigned long bio_bc_ino(struct bio *bio)
+static inline unsigned long bio_bc_inode(const struct bio *bio)
 {
 	return bio->bi_crypt_ctx.bc_ino;
 }
 
-static inline void *bio_bc_sb(struct bio *bio)
+static inline void *bio_bc_sb(const struct bio *bio)
 {
 	return (void *)bio->bi_crypt_ctx.bc_sb;
+}
+
+static inline unsigned int bio_bc_key_size(const struct bio *bio)
+{
+	return bio->bi_crypt_ctx.bc_key_size;
 }
 
 static inline

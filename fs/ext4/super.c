@@ -5926,12 +5926,12 @@ static int __ext4_set_bio_ctx(struct inode *inode,
 }
 
 static int __ext4_key_payload(struct bio_crypt_ctx *ctx,
-	const char *data, const unsigned char **key)
+	const unsigned char **key)
 {
-	if (ctx->bc_fs_type != EXT4_SUPER_MAGIC)
+	if (ctx->bc_sb->s_magic != EXT4_SUPER_MAGIC)
 		return -EINVAL;
 
-	return fscrypt_key_payload(ctx, data, key);
+	return fscrypt_key_payload(ctx, key);
 }
 
 struct hie_fs ext4_hie = {
