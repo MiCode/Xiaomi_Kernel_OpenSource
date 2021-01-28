@@ -466,23 +466,6 @@ static int mt_charger_probe(struct platform_device *pdev)
 	}
 	cti->dev = &pdev->dev;
 
-#ifdef CONFIG_TCPC_CLASS
-	cti->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
-	if (cti->tcpc_dev == NULL) {
-		pr_info("%s: tcpc device not ready, defer\n", __func__);
-		ret = -EPROBE_DEFER;
-		goto err_get_tcpc_dev;
-	}
-	cti->pd_nb.notifier_call = pd_tcp_notifier_call;
-	ret = register_tcp_dev_notifier(cti->tcpc_dev,
-		&cti->pd_nb, TCP_NOTIFY_TYPE_ALL);
-	if (ret < 0) {
-		pr_info("%s: register tcpc notifer fail\n", __func__);
-		ret = -EINVAL;
-		goto err_get_tcpc_dev;
-	}
-#endif
-
 	cti->chg_consumer = charger_manager_get_by_name(cti->dev,
 							"charger_port1");
 	if (!cti->chg_consumer) {
@@ -658,6 +641,43 @@ static void __exit mt_charger_det_exit(void)
 
 subsys_initcall(mt_charger_det_init);
 module_exit(mt_charger_det_exit);
+
+#ifdef CONFIG_TCPC_CLASS
+static int __init mt_charger_det_notifier_call_init(void)
+{
+	int ret = 0;
+	struct power_supply *psy = power_supply_get_by_name("charger");
+	struct mt_charger *mt_chg = NULL;
+	struct chg_type_info *cti = NULL;
+
+	if (!psy) {
+		pr_notice("%s: get power supply fail\n", __func__);
+		return -ENODEV;
+	}
+	mt_chg = power_supply_get_drvdata(psy);
+	cti = mt_chg->cti;
+
+	cti->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
+	if (cti->tcpc_dev == NULL) {
+		pr_notice("%s: get tcpc dev fail\n", __func__);
+		ret = -ENODEV;
+		goto out;
+	}
+	cti->pd_nb.notifier_call = pd_tcp_notifier_call;
+	ret = register_tcp_dev_notifier(cti->tcpc_dev,
+		&cti->pd_nb, TCP_NOTIFY_TYPE_ALL);
+	if (ret < 0) {
+		pr_notice("%s: register tcpc notifier fail(%d)\n",
+			  __func__, ret);
+		goto out;
+	}
+	pr_info("%s done\n", __func__);
+out:
+	power_supply_put(psy);
+	return ret;
+}
+late_initcall(mt_charger_det_notifier_call_init);
+#endif
 
 MODULE_DESCRIPTION("mt-charger-detection");
 MODULE_AUTHOR("MediaTek");
