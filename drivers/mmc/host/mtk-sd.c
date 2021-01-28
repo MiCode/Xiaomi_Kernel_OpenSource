@@ -757,7 +757,7 @@ static void msdc_gate_clock(struct mmc_host *mmc)
 	if (!host)
 		return;
 
-	if (mmc->caps2 | MMC_CAP2_CRYPTO)
+	if (mmc->caps2 & MMC_CAP2_CRYPTO)
 		clk_disable_unprepare(host->crypto_clk);
 	clk_disable_unprepare(host->src_clk_cg);
 	clk_disable_unprepare(host->src_clk);
@@ -776,7 +776,7 @@ static void msdc_ungate_clock(struct mmc_host *mmc)
 	clk_prepare_enable(host->bus_clk);
 	clk_prepare_enable(host->src_clk);
 	clk_prepare_enable(host->src_clk_cg);
-	if (mmc->caps2 | MMC_CAP2_CRYPTO)
+	if (mmc->caps2 & MMC_CAP2_CRYPTO)
 		clk_prepare_enable(host->crypto_clk);
 
 	while (!(readl(host->base + MSDC_CFG) & MSDC_CFG_CKSTB))
