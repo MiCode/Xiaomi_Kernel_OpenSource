@@ -110,9 +110,11 @@ enum swpm_cmd_type {
 struct swpm_internal_ops {
 	void (*const cmd)(unsigned int type,
 			  unsigned int val);
-	int32_t (*const ddr_times_get)
+	int32_t (*const ddr_act_times_get)
 		(int32_t freq_num,
-		 struct ddr_times *ddr_times);
+		 struct ddr_act_times *ddr_times);
+	int32_t (*const ddr_sr_pd_times_get)
+		(struct ddr_sr_pd_times *ddr_times);
 	int32_t (*const ddr_freq_data_ip_stats_get)
 		(int32_t data_ip_num,
 		 int32_t freq_num,
@@ -123,7 +125,7 @@ struct swpm_internal_ops {
 		 void *stats);
 	int32_t (*const vcore_vol_duration_get)
 		(int32_t vol_num,
-		 int64_t *duration);
+		 struct vol_duration *duration);
 	int32_t (*const num_get)
 		(enum swpm_num_type type);
 };

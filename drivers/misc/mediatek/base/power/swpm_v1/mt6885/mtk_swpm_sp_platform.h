@@ -76,8 +76,14 @@ struct mem_ip_bc {
 
 /* dram extension structure */
 struct mem_index_ext {
-	/* dram freq in state distribution (us) */
-	unsigned int acc_time[NR_DDR_FREQ][NR_POWER_STATE];
+	/* dram freq in active state distribution (us) */
+	unsigned int acc_time[NR_DDR_FREQ];
+
+	/* dram in self-refresh state (us) */
+	unsigned int acc_sr_time;
+
+	/* dram in power-down state (us) */
+	unsigned int acc_pd_time;
 
 	/* dram ip byte count in freq distribution */
 	struct mem_ip_bc data[NR_DDR_BC_IP];
