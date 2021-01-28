@@ -34,6 +34,8 @@ static unsigned long get_ns_systemtime(void)
 {
 	struct timespec ts;
 
+	ts.tv_sec = 0;
+	ts.tv_nsec = 0;
 	getnstimeofday(&ts);
 	return ((unsigned long)(ts.tv_sec)) * 1000000000 + (ts.tv_nsec);
 }
@@ -149,7 +151,7 @@ int ccu_config_m4u_port(void)
 	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
-	strcpy(port.name, "L13_CAM_CCUI_MDP");
+	strncpy(port.name, "L13_CAM_CCUI_MDP", sizeof(port.name));
 	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUI_MDP, %d\n",
 		M4U_PORT_L13_CAM_CCUI_MDP);
 
@@ -161,7 +163,7 @@ int ccu_config_m4u_port(void)
 	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
-	strcpy(port.name, "L13_CAM_CCUO_MDP");
+	strncpy(port.name, "L13_CAM_CCUO_MDP", sizeof(port.name));
 	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUO_MDP, %d\n",
 		M4U_PORT_L13_CAM_CCUO_MDP);
 
@@ -304,9 +306,6 @@ static int _ccu_ion_get_mva(struct ion_client *client,
 		CCU_CTRL_BUFS_LOWER_BOUND;
 		mm_data.config_buffer_param.reserve_iova_end =
 		CCU_CTRL_BUFS_UPPER_BOUND;
-	} else {
-		mm_data.config_buffer_param.reserve_iova_start = 0x10000000;
-		mm_data.config_buffer_param.reserve_iova_end = 0xFFFFFFFF;
 	}
 
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
