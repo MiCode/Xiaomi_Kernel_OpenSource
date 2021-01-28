@@ -18,6 +18,7 @@
 #include <linux/uaccess.h>
 #include <linux/poll.h>
 #include <linux/anon_inodes.h>
+#include <linux/kmemleak.h>
 #include "mdw_usr.h"
 #include "mdw_cmd.h"
 #include "mdw_cmn.h"
@@ -100,6 +101,10 @@ int apu_sync_file_create(struct mdw_apu_cmd *c)
 		return -EINVAL;
 
 	desc = kzalloc(sizeof(struct apu_poll_desc), GFP_KERNEL);
+
+	/* Ignore kmemleak false positive */
+	kmemleak_ignore(desc);
+
 	desc->c = c;
 	desc->u = c->usr;
 	c->file = anon_inode_getfile("apu_file", &apu_sync_file_fops, desc, 0);
