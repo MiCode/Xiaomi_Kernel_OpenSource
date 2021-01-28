@@ -113,6 +113,11 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 		if (hba->lrb[tag].cmd && hba->lrb[tag].cmd->request) {
 			ufs_cmd_hlist[ptr].rq =
 				hba->lrb[tag].cmd->request;
+			ufs_cmd_hlist[ptr].crypted =
+				hba->lrb[tag].crypto_en;
+			ufs_cmd_hlist[ptr].keyslot =
+				ufs_cmd_hlist[ptr].crypted ?
+				hba->lrb[tag].crypto_cfgid : 0;
 		}
 	}
 
@@ -242,13 +247,15 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 
 		} else {
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-r,%5d,%2d,0x%2x,t=%2d,lun=0x%x,lba=0x%llx,len=%6d,%llu,\t%llu",
+				"%3d-r,%5d,%2d,0x%2x,t=%2d,lun=0x%x,crypt:%d,%d,lba=0x%llx,len=%6d,%llu,\t%llu",
 				ptr,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
 				ufs_cmd_hlist[ptr].opcode,
 				ufs_cmd_hlist[ptr].tag,
 				ufs_cmd_hlist[ptr].lun,
+				ufs_cmd_hlist[ptr].crypted,
+				ufs_cmd_hlist[ptr].keyslot,
 				(long long int)ufs_cmd_hlist[ptr].lba,
 				ufs_cmd_hlist[ptr].transfer_len,
 				(u64)ufs_cmd_hlist[ptr].time,
