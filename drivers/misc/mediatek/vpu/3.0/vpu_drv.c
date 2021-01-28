@@ -1609,7 +1609,7 @@ static int vpu_mmap(struct file *flip, struct vm_area_struct *vma)
 static dev_t vpu_devt;
 static struct cdev *vpu_chardev;
 static struct class *vpu_class;
-static int vpu_num_devs;
+static unsigned int vpu_num_devs;
 
 static inline void vpu_unreg_chardev(void)
 {
