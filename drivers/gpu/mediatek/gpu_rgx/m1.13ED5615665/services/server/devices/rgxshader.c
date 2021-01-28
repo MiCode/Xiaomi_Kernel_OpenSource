@@ -160,16 +160,16 @@ PVRSRVTQLoadShaders(CONNECTION_DATA     * psConnection,
 				psShaderFW = OSLoadFirmware(psDeviceNode, RGX_SH_FILENAME, NULL);
 				if (psShaderFW == NULL)
 				{
-					PVR_DPF((PVR_DBG_ERROR, "%s: Failed to load shader binary file %s",
-							__func__,
-							pszLoadedShaderStr));
+					PVR_DPF((PVR_DBG_ERROR,
+							"%s: Failed to load shader binary file '%s'",
+							__func__, pszLoadedShaderStr));
 					eError = PVRSRV_ERROR_UNABLE_TO_FIND_RESOURCE ;
 					goto failed_lock;
 				}
 			}
 		}
 
-		PVR_LOG(("RGX shader binary '%s' loaded", pszLoadedShaderStr));
+		PVR_LOG(("RGX TQ shaders '%s' loaded", pszLoadedShaderStr));
 
 		RGXShaderReadHeader(psShaderFW, &sHeader);
 

@@ -1,7 +1,5 @@
 config MTK_GPU_SUPPORT
 	tristate "Support MTK GPU"
-	select FW_LOADER_USER_HELPER
-	select FW_LOADER_USER_HELPER_FALLBACK
 	help
 	  config supports MTK GPU driver
 	  CONFIG_MTK_GPU_SUPPORT defines

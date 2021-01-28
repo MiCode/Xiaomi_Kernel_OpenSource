@@ -98,6 +98,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "rgxta3d.h"
 #include "rgxtimecorr.h"
+#include "rgxshader.h"
 
 #include "rgx_bvnc_defs_km.h"
 #if defined(PDUMP)
@@ -1393,6 +1394,16 @@ PVRSRV_ERROR RGXInitDevPart2(PVRSRV_DEVICE_NODE	*psDeviceNode,
 		}
 	}
 #endif
+
+	eError = PVRSRVTQLoadShaders(NULL,
+								 psDeviceNode,
+								 (PMR**)&psDevInfo->hTQCLISharedMem,
+								 (PMR**)&psDevInfo->hTQUSCSharedMem);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to load TQ shaders", __func__));
+		return eError;
+	}
 
 	psDevInfo->bDevInit2Done = IMG_TRUE;
 
@@ -3356,6 +3367,18 @@ PVRSRV_ERROR DevDeInitRGX(PVRSRV_DEVICE_NODE *psDeviceNode)
 	if (psDevInfo->bDevInit2Done)
 	{
 		psDevInfo->bDevInit2Done = IMG_FALSE;
+
+		eError = PVRSRVTQUnloadShaders(psDeviceNode, psDevInfo->hTQCLISharedMem);
+		if (eError != PVRSRV_OK)
+		{
+			return eError;
+		}
+
+		eError = PVRSRVTQUnloadShaders(psDeviceNode, psDevInfo->hTQUSCSharedMem);
+		if (eError != PVRSRV_OK)
+		{
+			return eError;
+		}
 
 #if !defined(NO_HARDWARE)
 		(void) SysUninstallDeviceLISR(psDevInfo->pvLISRData);
