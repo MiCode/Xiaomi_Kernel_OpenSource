@@ -171,6 +171,12 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 		mtk_idle_gs_dump(idle_type);
 
 	pwrctrl = get_pwrctrl(idle_type);
+
+	if (!pwrctrl) {
+		pr_info("Error: pwrctrl is NULL!\n");
+		return 0;
+	}
+
 /* FIXME
 	print_ftrace_tag(idle_type, cpu, 1);
 */
@@ -262,6 +268,11 @@ void mtk_idle_pre_process_by_chip(
 	unsigned int pcm_flags;
 	unsigned int pcm_flags1;
 
+	if (!pwrctrl) {
+		pr_info("Error: pwrctrl is NULL!\n");
+		return;
+	}
+
 	/* get pcm_flags and update if needed */
 	pcm_flags = idle_pcm_flags[idle_type];
 	pcm_flags1 = idle_pcm_flags1[idle_type];
@@ -338,6 +349,14 @@ void mtk_idle_post_process_by_chip(
 	struct pwr_ctrl *pwrctrl = get_pwrctrl(idle_type);
 	struct wake_status wakesta;
 	unsigned int wr = WR_NONE;
+
+	if (!pwrctrl) {
+		pr_info("Error: pwrctrl is NULL!\n");
+		return;
+	}
+
+	if (unlikely(idle_type < 0 || idle_type >= NR_IDLE_TYPES))
+		return;
 
 	/* get spm info */
 	__spm_get_wakeup_status(&wakesta);

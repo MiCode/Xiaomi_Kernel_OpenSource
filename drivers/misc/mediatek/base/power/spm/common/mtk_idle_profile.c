@@ -286,6 +286,9 @@ static void mtk_idle_dump_cnt(int type)
 	int i;
 	unsigned long total_cnt = 0;
 
+	if (unlikely(type < 0 || type >= NR_IDLE_TYPES))
+		return;
+
 	p_idle = &idle_prof[type].block;
 
 	if (unlikely(p_idle->init == false)) {
