@@ -1056,7 +1056,7 @@
 		/* necessary */
 		/* VCCQ: Not supported by current UFS devices */
 		#ifndef CONFIG_FPGA_EARLY_PORTING
-		vcc-supply = <&mt_pmic_vemc_ldo_reg>;
+		/* vcc-supply = <&mt_pmic_vemc_ldo_reg>; */
 		vcc-fixed-regulator;
 		#endif
 
