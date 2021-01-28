@@ -3,7 +3,7 @@
 config USB_MTU3
 	tristate "MediaTek USB3 Dual Role controller"
 	depends on EXTCON && (USB || USB_GADGET) && HAS_DMA
-	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on ARCH_MEDIATEK || COMPILE_TEST || MEDIATEK_SOLUTION
 	depends on EXTCON || !EXTCON
 	select USB_XHCI_MTK if USB_SUPPORT && USB_XHCI_HCD
 	help
@@ -46,6 +46,15 @@ config USB_MTU3_DUAL_ROLE
 	  both host and gadget features are enabled.
 
 endchoice
+
+config USB_MTU3_PLAT_PHONE
+	bool "MTU3 Phone mode"
+	depends on ((USB=y || USB=USB_MTU3) && (USB_GADGET=y || USB_GADGET=USB_MTU3))
+	help
+	  This is the default mode of working of MTU3 controller where
+	  both host and gadget features are enabled.
+	  This support on phone project.
+	  If yes , please choose y.
 
 config USB_MTU3_DEBUG
 	bool "Enable Debugging Messages"

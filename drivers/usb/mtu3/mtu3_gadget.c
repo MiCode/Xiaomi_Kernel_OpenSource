@@ -17,6 +17,8 @@
  */
 
 #include "mtu3.h"
+#include "mtu3_dr.h"
+#include <linux/usb/composite.h>
 
 void mtu3_req_complete(struct mtu3_ep *mep,
 		     struct usb_request *req, int status)
@@ -70,6 +72,73 @@ static void nuke(struct mtu3_ep *mep, const int status)
 	}
 }
 
+static int is_db_ok(struct mtu3_ep *mep)
+{
+	struct mtu3 *mtu = mep->mtu;
+	struct usb_composite_dev *cdev = (mtu->g).ep0->driver_data;
+	struct usb_configuration *c = cdev->config;
+	struct usb_gadget *gadget = &(mtu->g);
+	int tmp;
+	int ret = 1;
+
+	for (tmp = 0; tmp < MAX_CONFIG_INTERFACES; tmp++) {
+		struct usb_function *f = c->interface[tmp];
+		struct usb_descriptor_header **descriptors;
+
+		if (!f)
+			break;
+
+		pr_info("Ifc name=%s\n", f->name);
+
+		switch (gadget->speed) {
+		case USB_SPEED_SUPER:
+			descriptors = f->ss_descriptors;
+			break;
+		case USB_SPEED_HIGH:
+			descriptors = f->hs_descriptors;
+			break;
+		default:
+			descriptors = f->fs_descriptors;
+		}
+
+		for (; *descriptors; ++descriptors) {
+			struct usb_endpoint_descriptor *ep;
+			int is_in;
+			int epnum;
+
+			if ((*descriptors)->bDescriptorType != USB_DT_ENDPOINT)
+				continue;
+
+			ep = (struct usb_endpoint_descriptor *)*descriptors;
+
+			is_in = (ep->bEndpointAddress & 0x80) >> 7;
+			epnum = (ep->bEndpointAddress & 0x0f);
+
+			/*
+			 * Under saving mode, some kinds of EPs have to be set
+			 * as Single Buffer
+			 * ACM OUT-BULK - Signle
+			 * ACM IN-BULK - Double
+			 * ADB OUT-BULK - Signle
+			 * ADB IN-BULK - Single
+			 */
+
+			/* ep must be matched */
+			if (ep->bEndpointAddress == (mep->ep).address) {
+
+				if (gadget->speed == USB_SPEED_SUPER) {
+					if (!strcmp(f->name,
+						"Function FS Gadget"))
+						ret = 0;
+				}
+				goto end;
+			}
+		}
+	}
+end:
+	return ret;
+}
+
 static int mtu3_ep_enable(struct mtu3_ep *mep)
 {
 	const struct usb_endpoint_descriptor *desc;
@@ -121,6 +190,17 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 
 	/* slot mainly affects bulk/isoc transfer, so ignore int */
 	mep->slot = usb_endpoint_xfer_int(desc) ? 0 : mtu->slot;
+
+	if (is_saving_mode()) {
+		if (is_db_ok(mep)) {
+			dev_info(mtu->dev, "Saving mode, but EP%d supports DBBUF\n",
+				mep->epnum);
+		} else {
+			dev_info(mtu->dev, "EP%d supports single buffer\n",
+				mep->epnum);
+			mep->slot = 0;
+		}
+	}
 
 	ret = mtu3_config_ep(mtu, mep, interval, burst, mult);
 	if (ret < 0)
@@ -478,12 +558,28 @@ static int mtu3_gadget_set_self_powered(struct usb_gadget *gadget,
 	return 0;
 }
 
+static int usb_rdy;		/* default value 0 */
+
+void set_usb_rdy(void)
+{
+	pr_info("set usb_rdy, wake up bat\n");
+	usb_rdy = 1;
+}
+
+bool is_usb_rdy(void)
+{
+	if (usb_rdy)
+		return true;
+	else
+		return false;
+}
+
 static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct mtu3 *mtu = gadget_to_mtu3(gadget);
 	unsigned long flags;
 
-	dev_dbg(mtu->dev, "%s (%s) for %sactive device\n", __func__,
+	dev_info(mtu->dev, "%s (%s) for %sactive device\n", __func__,
 		is_on ? "on" : "off", mtu->is_active ? "" : "in");
 
 	/* we'd rather not pullup unless the device is active. */
@@ -496,6 +592,16 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 	} else if (is_on != mtu->softconnect) {
 		mtu->softconnect = is_on;
 		mtu3_dev_on_off(mtu, is_on);
+	}
+
+	if (is_usb_rdy() == false && is_on)
+		set_usb_rdy();
+
+	/* Trigger connection when force on*/
+	if (mtu3_cable_mode == CABLE_MODE_FORCEON) {
+		dev_info(mtu->dev, "%s CABLE_MODE_FORCEON\n", __func__);
+		ssusb_set_mailbox(&mtu->ssusb->otg_switch,
+			MTU3_VBUS_VALID);
 	}
 
 	spin_unlock_irqrestore(&mtu->lock, flags);
@@ -532,6 +638,7 @@ static int mtu3_gadget_start(struct usb_gadget *gadget,
 
 static void stop_activity(struct mtu3 *mtu)
 {
+#if 0
 	struct usb_gadget_driver *driver = mtu->gadget_driver;
 	int i;
 
@@ -562,6 +669,7 @@ static void stop_activity(struct mtu3 *mtu)
 		driver->disconnect(&mtu->g);
 		spin_lock(&mtu->lock);
 	}
+#endif
 }
 
 static int mtu3_gadget_stop(struct usb_gadget *g)
@@ -667,6 +775,8 @@ int mtu3_gadget_setup(struct mtu3 *mtu)
 
 	mtu3_gadget_init_eps(mtu);
 
+	mtu->g.quirk_ep_out_aligned_size = true;
+
 	ret = usb_add_gadget_udc(mtu->dev, &mtu->g);
 	if (ret) {
 		dev_err(mtu->dev, "failed to register udc\n");
@@ -719,7 +829,9 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu)
 
 void mtu3_gadget_reset(struct mtu3 *mtu)
 {
-	dev_dbg(mtu->dev, "gadget RESET\n");
+	struct mtu3_ep *mep;
+
+	dev_info(mtu->dev, "gadget RESET\n");
 
 	/* report disconnect, if we didn't flush EP state */
 	if (mtu->g.speed != USB_SPEED_UNKNOWN)
@@ -728,7 +840,11 @@ void mtu3_gadget_reset(struct mtu3 *mtu)
 	mtu->address = 0;
 	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
 	mtu->may_wakeup = 0;
-	mtu->u1_enable = 0;
-	mtu->u2_enable = 0;
 	mtu->delayed_status = false;
+
+	mep = mtu->ep0;
+	if (!list_empty(&mep->req_list)) {
+		pr_info("%s reinit EP[0] req_list\n", __func__);
+		INIT_LIST_HEAD(&mep->req_list);
+	}
 }
