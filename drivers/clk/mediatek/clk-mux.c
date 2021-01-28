@@ -20,9 +20,14 @@ static inline struct mtk_clk_mux *to_mtk_clk_mux(struct clk_hw *hw)
 static int mtk_mux_enable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
-	u32 mask = BIT(mux->gate_shift);
+	u32 mask = 0;
 	unsigned long flags = 0;
 	int ret = 0;
+
+	if (mux->gate_shift < 0)
+		return 0;
+
+	mask = BIT(mux->gate_shift);
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
@@ -42,8 +47,13 @@ static int mtk_mux_enable(struct clk_hw *hw)
 static void mtk_mux_disable(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
-	u32 mask = BIT(mux->gate_shift);
+	u32 mask = 0;
 	unsigned long flags = 0;
+
+	if (mux->gate_shift < 0)
+		return;
+
+	mask = BIT(mux->gate_shift);
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
@@ -63,6 +73,9 @@ static int mtk_mux_enable_setclr(struct clk_hw *hw)
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	u32 val = 0;
 	unsigned long flags = 0;
+
+	if (mux->gate_shift < 0)
+		return 0;
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
@@ -85,6 +98,9 @@ static void mtk_mux_disable_setclr(struct clk_hw *hw)
 {
 	struct mtk_clk_mux *mux = to_mtk_clk_mux(hw);
 	unsigned long flags = 0;
+
+	if (mux->gate_shift < 0)
+		return;
 
 	if (mux->lock)
 		spin_lock_irqsave(mux->lock, flags);
