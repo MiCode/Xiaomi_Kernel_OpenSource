@@ -160,7 +160,8 @@ obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 
 ifeq ($(CONFIG_DEBUG_FS),y)
 ccflags-y += -DGED_DEBUG_FS
-ged-y +=src/ged_debugFS.o \
+ged-y += \
+	src/ged_debugFS.o \
 	src/ged_hal.o \
 	src/ged_gpu_tuner.o
 endif
@@ -169,6 +170,7 @@ ged-y += \
 	src/ged.o \
 	src/ged_base.o \
 	src/ged_main.o \
+	src/ged_sysfs.o \
 	src/ged_log.o \
 	src/ged_bridge.o \
 	src/ged_monitor_3D_fence.o \
@@ -178,5 +180,3 @@ ged-y += \
 	src/ged_ge.o \
 	src/ged_dvfs.o \
 	src/ged_kpi.o
-
-

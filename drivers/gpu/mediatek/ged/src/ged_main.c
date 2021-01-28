@@ -25,6 +25,7 @@
 #include <mt-plat/aee.h>
 
 #include "ged_debugFS.h"
+#include "ged_sysfs.h"
 #include "ged_log.h"
 #include "ged_hal.h"
 #include "ged_bridge.h"
@@ -379,14 +380,18 @@ static void ged_exit(void)
 	ged_notify_sw_vsync_system_exit();
 
 	ged_log_system_exit();
+
+	ged_ge_exit();
+
 #ifdef GED_DEBUG_FS
+	ged_gpu_tuner_exit();
+
 	ged_hal_exit();
 
 	ged_debugFS_exit();
-
-	ged_gpu_tuner_exit();
 #endif
-	ged_ge_exit();
+
+	ged_sysfs_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
 
@@ -402,6 +407,13 @@ static int ged_init(void)
 		GED_LOGE("ged: failed to register ged proc entry!\n");
 		goto ERROR;
 	}
+
+	err = ged_sysfs_init();
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to init sys FS!\n");
+		goto ERROR;
+	}
+
 #ifdef GED_DEBUG_FS
 	err = ged_debugFS_init();
 	if (unlikely(err != GED_OK)) {
@@ -421,6 +433,7 @@ static int ged_init(void)
 		goto ERROR;
 	}
 #endif
+
 	err = ged_log_system_init();
 	if (unlikely(err != GED_OK)) {
 		GED_LOGE("ged: failed to create gedlog entry!\n");

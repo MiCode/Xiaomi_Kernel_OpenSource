@@ -1753,7 +1753,7 @@ static void ged_timer_base_dvfs_margin(int i32MarginValue)
 
 static int ged_get_timer_base_dvfs_margin(void)
 {
-	return gx_tb_dvfs_margin_cur;
+	return g_tb_dvfs_margin_value;
 }
 
 int ged_dvfs_get_tb_dvfs_margin_cur(void)

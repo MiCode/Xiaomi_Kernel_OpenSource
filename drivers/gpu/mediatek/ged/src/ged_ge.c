@@ -17,6 +17,7 @@
 #include <linux/anon_inodes.h>
 
 #include <ged_debugFS.h>
+#include "ged_sysfs.h"
 
 struct GEEntry {
 	uint64_t unique_id;
@@ -46,6 +47,58 @@ static DEFINE_SPINLOCK(ge_entry_list_lock);
 
 /* region alloc and free lock */
 static DEFINE_SPINLOCK(ge_raf_lock);
+
+static ssize_t ge_show(struct kobject *kobj, struct kobj_attribute *attr,
+		char *buf)
+{
+	char temp[GED_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
+	int count = 0;
+	const struct GEEntry *entry = list_first_entry(
+			&ge_entry_list_head, struct GEEntry, ge_entry_list);
+
+	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+			"================================================\n");
+	pos += length;
+
+	do {
+		int memory_size = 0;
+		int memory_ksize = 0;
+		int i;
+		struct list_head *next = entry->ge_entry_list.next;
+
+		memory_size += (sizeof(uint32_t) + sizeof(uint32_t *))
+			* entry->region_num;
+		memory_ksize += ksize(entry->data);
+		for (i = 0; i < entry->region_num; ++i) {
+			if (entry->region_data[i]) {
+				memory_size += entry->region_sizes[i];
+				memory_ksize += ksize(entry->region_data[i]);
+			}
+		}
+		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+				"GEEntry id:0x%llx memory size: %d bytes, ksize: %3d bytes\n",
+				entry->unique_id, memory_size, memory_ksize);
+		pos += length;
+		count++;
+		entry = (next != &ge_entry_list_head) ?
+			list_entry(next, struct GEEntry, ge_entry_list) : NULL;
+	} while (entry != NULL);
+	num_entry = count;
+	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+			"================================================\n"
+			"Total entries: %d\n", num_entry);
+	pos += length;
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+}
+static ssize_t ge_store(struct kobject *kobj, struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	return count;
+}
+static KOBJ_ATTR_RW(ge);
 
 static uint64_t gen_unique_id(void)
 {
@@ -161,10 +214,15 @@ int ged_ge_init(void)
 			_ge_debugfs_write_entry,
 			NULL,
 			&gDFSEntry);
+	if (unlikely(err != GED_OK)) {
+		GED_PDEBUG("failed to create ge entry!\n");
+		return 1;
+	}
 #endif
 
+	err = ged_sysfs_create_file(NULL, &kobj_attr_ge);
 	if (unlikely(err != GED_OK)) {
-		GED_PDEBUG("fail to create ge entry!");
+		GED_PDEBUG("failed to create ge entry!\n");
 		return 1;
 	}
 
@@ -176,6 +234,7 @@ int ged_ge_exit(void)
 #ifdef GED_DEBUG_FS
 	ged_debugFS_remove_entry(gDFSEntry);
 #endif
+	ged_sysfs_remove_file(NULL, &kobj_attr_ge);
 
 	/* TODO : free all memory */
 	kmem_cache_destroy(gPoolCache);
