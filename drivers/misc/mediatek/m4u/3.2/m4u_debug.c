@@ -23,12 +23,12 @@
 #include "trusted_mem_api.h"
 #endif
 
-int m4u_test_domain;
-int test_mva;
-
 /* global variables */
 int gM4U_log_to_uart = 2;
 int gM4U_log_level = 2;
+
+#if IS_ENABLED(CONFIG_DEBUG_FS) || IS_ENABLED(CONFIG_PROC_FS)
+int m4u_test_domain;
 
 unsigned int gM4U_seed_mva;
 
@@ -819,26 +819,19 @@ static int m4u_debug_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_fops, m4u_debug_get, m4u_debug_set, "%llu\n");
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_fops,
+	m4u_debug_get,
+	m4u_debug_set,
+	"%llu\n");
+#endif
 
-static int m4u_mva_set(void *data, u64 val)
-{
-	int valid = 0;
-
-	test_mva = (int)val;
-	valid = m4u_mva_check(1, test_mva);
-	M4UMSG("debug m4u mva check, valid:%d, mva:0x%x\n", valid, test_mva);
-
-	return 0;
-}
-
-static int m4u_mva_get(void *data, u64 *val)
-{
-	*val = 0;
-	return 0;
-}
-
-DEFINE_SIMPLE_ATTRIBUTE(m4u_mva_debug, m4u_mva_get, m4u_mva_set, "%llu\n");
+#if IS_ENABLED(CONFIG_PROC_FS)
+DEFINE_SIMPLE_ATTRIBUTE(m4u_proc_fops,
+	m4u_debug_get,
+	m4u_debug_set,
+	"%llu\n");
+#endif
 
 #if (M4U_DVT != 0)
 static void m4u_test_init(void)
@@ -1430,7 +1423,19 @@ static int m4u_test_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(m4u_test_fops, m4u_test_get, m4u_test_set, "%llu\n");
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_test_fops,
+	m4u_test_get,
+	m4u_test_set,
+	"%llu\n");
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+DEFINE_PROC_ATTRIBUTE(m4u_proc_test_fops,
+	m4u_test_get,
+	m4u_test_set,
+	"%llu\n");
+#endif
 #endif
 
 static int m4u_log_level_set(void *data, u64 val)
@@ -1450,8 +1455,19 @@ static int m4u_log_level_get(void *data, u64 *val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(m4u_log_level_fops,
-	m4u_log_level_get, m4u_log_level_set, "%llu\n");
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_log_level_fops,
+	m4u_log_level_get,
+	m4u_log_level_set,
+	"%llu\n");
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+DEFINE_PROC_ATTRIBUTE(m4u_proc_log_level_fops,
+	m4u_log_level_get,
+	m4u_log_level_set,
+	"%llu\n");
+#endif
 
 static int m4u_debug_freemva_set(void *data, u64 val)
 {
@@ -1473,8 +1489,20 @@ static int m4u_debug_freemva_get(void *data, u64 *val)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_freemva_fops,
-	m4u_debug_freemva_get, m4u_debug_freemva_set, "%llu\n");
+	m4u_debug_freemva_get,
+	m4u_debug_freemva_set,
+	"%llu\n");
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+DEFINE_PROC_ATTRIBUTE(m4u_proc_freemva_fops,
+	m4u_debug_freemva_get,
+	m4u_debug_freemva_set,
+	"%llu\n");
+#endif
+
 
 int m4u_debug_port_show(struct seq_file *s, void *unused)
 {
@@ -1482,6 +1510,7 @@ int m4u_debug_port_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int m4u_debug_port_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, m4u_debug_port_show, inode->i_private);
@@ -1493,6 +1522,21 @@ const struct file_operations m4u_debug_port_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+int m4u_proc_port_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, m4u_debug_port_show, PDE_DATA(inode));
+}
+
+const struct file_operations m4u_proc_port_fops = {
+	.open = m4u_proc_port_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 
 int m4u_debug_mva_show(struct seq_file *s, void *unused)
 {
@@ -1500,6 +1544,7 @@ int m4u_debug_mva_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int m4u_debug_mva_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, m4u_debug_mva_show, inode->i_private);
@@ -1511,6 +1556,21 @@ const struct file_operations m4u_debug_mva_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+int m4u_proc_mva_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, m4u_debug_mva_show, PDE_DATA(inode));
+}
+
+const struct file_operations m4u_proc_mva_fops = {
+	.open = m4u_proc_mva_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 
 int m4u_debug_buf_show(struct seq_file *s, void *unused)
 {
@@ -1518,6 +1578,7 @@ int m4u_debug_buf_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int m4u_debug_buf_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, m4u_debug_buf_show, inode->i_private);
@@ -1529,6 +1590,21 @@ const struct file_operations m4u_debug_buf_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+int m4u_proc_buf_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, m4u_debug_buf_show, PDE_DATA(inode));
+}
+
+const struct file_operations m4u_proc_buf_fops = {
+	.open = m4u_proc_buf_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 
 int m4u_debug_monitor_show(struct seq_file *s, void *unused)
 {
@@ -1536,6 +1612,7 @@ int m4u_debug_monitor_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int m4u_debug_monitor_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, m4u_debug_monitor_show, inode->i_private);
@@ -1547,6 +1624,21 @@ const struct file_operations m4u_debug_monitor_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+int m4u_proc_monitor_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, m4u_debug_monitor_show, PDE_DATA(inode));
+}
+
+const struct file_operations m4u_proc_monitor_fops = {
+	.open = m4u_proc_monitor_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 
 int m4u_debug_register_show(struct seq_file *s, void *unused)
 {
@@ -1554,6 +1646,7 @@ int m4u_debug_register_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 int m4u_debug_register_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, m4u_debug_register_show, inode->i_private);
@@ -1565,12 +1658,33 @@ const struct file_operations m4u_debug_register_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+int m4u_proc_register_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, m4u_debug_register_show, PDE_DATA(inode));
+}
+
+const struct file_operations m4u_proc_register_fops = {
+	.open = m4u_proc_register_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 
 int m4u_debug_init(struct m4u_device *m4u_dev)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *debug_file;
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	struct proc_dir_entry *proc_file;
+#endif
 	struct m4u_domain_t *domain = m4u_get_domain_by_id(0);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	m4u_dev->debug_root = debugfs_create_dir("m4u", NULL);
 
 	if (IS_ERR_OR_NULL(m4u_dev->debug_root))
@@ -1588,7 +1702,7 @@ int m4u_debug_init(struct m4u_device *m4u_dev)
 
 #if (M4U_DVT != 0)
 	debug_file = debugfs_create_file("test",
-		0644, m4u_dev->debug_root, domain, &m4u_test_fops);
+		0644, m4u_dev->debug_root, domain, &m4u_debug_test_fops);
 	if (IS_ERR_OR_NULL(debug_file))
 		M4UMSG("m4u: failed to create debug files 3.\n");
 #endif
@@ -1599,7 +1713,7 @@ int m4u_debug_init(struct m4u_device *m4u_dev)
 		M4UMSG("m4u: failed to create debug files 4.\n");
 
 	debug_file = debugfs_create_file("log_level",
-		0644, m4u_dev->debug_root, domain, &m4u_log_level_fops);
+		0644, m4u_dev->debug_root, domain, &m4u_debug_log_level_fops);
 	if (IS_ERR_OR_NULL(debug_file))
 		M4UMSG("m4u: failed to create debug files 5.\n");
 
@@ -1622,6 +1736,94 @@ int m4u_debug_init(struct m4u_device *m4u_dev)
 		0644, m4u_dev->debug_root, domain, &m4u_debug_mva_fops);
 	if (IS_ERR_OR_NULL(debug_file))
 		M4UMSG("m4u: failed to create debug files 9.\n");
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+		m4u_dev->proc_root = proc_mkdir("m4u_dbg", NULL);
+
+		if (IS_ERR_OR_NULL(m4u_dev->proc_root))
+			M4UMSG("m4u: failed to create proc dir.\n");
+
+		proc_file = proc_create_data("buffer",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_buf_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 1.\n");
+
+		proc_file = proc_create_data("debug",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 2.\n");
+
+#if (M4U_DVT != 0)
+		proc_file = proc_create_data("test",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_test_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 3.\n");
+#endif
+
+		proc_file = proc_create_data("port",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_port_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 4.\n");
+
+		proc_file = proc_create_data("log_level",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_log_level_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 5.\n");
+
+		proc_file = proc_create_data("monitor",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_monitor_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 6.\n");
+
+		proc_file = proc_create_data("register",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_register_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 7.\n");
+
+		proc_file = proc_create_data("freemva",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_freemva_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 8.\n");
+
+		proc_file = proc_create_data("mva",
+					     S_IFREG | 0644,
+					     m4u_dev->proc_root,
+					     &m4u_proc_mva_fops,
+					     domain);
+		if (IS_ERR_OR_NULL(proc_file))
+			M4UMSG("m4u: failed to create proc files 9.\n");
+#endif
 
 	return 0;
 }
+#else
+int m4u_debug_init(struct m4u_device *m4u_dev)
+{
+	/* do nothing */
+}
+#endif
