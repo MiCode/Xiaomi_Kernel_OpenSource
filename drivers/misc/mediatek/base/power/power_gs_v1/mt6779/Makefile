@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
-/*
- * Copyright (C) 2017 MediaTek Inc.
- */
+# SPDX-License-Identifier: GPL-2.0
+#
+#  Copyright (C) 2017 MediaTek Inc.
+#
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/power_gs_v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/power_gs_v1/$(MTK_PLATFORM)/
