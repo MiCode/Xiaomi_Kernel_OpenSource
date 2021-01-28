@@ -30,20 +30,23 @@
 
 #define FG_RG_INT_EN_NAG_C_DLTV INT_NAG_C_DLTV
 
-#define FG_BAT0_INT_H_NO INT_FG_BAT0_H
-#define FG_BAT0_INT_L_NO INT_FG_BAT0_L
-#define FG_BAT_INT_H_NO INT_FG_BAT0_H
-#define FG_BAT_INT_L_NO INT_FG_BAT0_L
+#define FG_BAT0_INT_H_NO INT_FG_BAT_H
+#define FG_BAT0_INT_L_NO INT_FG_BAT_L
+#define FG_BAT_INT_H_NO INT_FG_BAT_H
+#define FG_BAT_INT_L_NO INT_FG_BAT_L
+
+
+#define FG_BAT1_INT_H_NO INT_FG_BAT_H
+#define FG_BAT1_INT_L_NO INT_FG_BAT_L
 
 #define FG_CUR_H_NO INT_FG_CUR_H
 #define FG_CUR_L_NO INT_FG_CUR_L
+
 #define FG_ZCV_NO INT_FG_ZCV
-#define FG_BAT1_INT_H_NO INT_FG_BAT1_H
-#define FG_BAT1_INT_L_NO INT_FG_BAT1_L
 #define FG_N_CHARGE_L_NO INT_FG_N_CHARGE_L
 #define FG_IAVG_H_NO INT_FG_IAVG_H
 #define FG_IAVG_L_NO INT_FG_IAVG_L
-#define FG_TIME_NO INT_FG_TIME_H
+#define FG_TIME_NO INT_ENUM_MAX
 #define FG_BAT_PLUGOUT_NO INT_BATON_BAT_OUT
 
 /* =============================================================================
@@ -71,6 +74,7 @@ enum LOW_BATTERY_PRIO_TAG {
 	LOW_BATTERY_PRIO_BACKLIGHT = 8
 };
 
+extern void (*low_battery_callback)(LOW_BATTERY_LEVEL tag);
 extern void register_low_battery_notify(
 			void (*low_battery_callback)(LOW_BATTERY_LEVEL tag),
 			LOW_BATTERY_PRIO prio_val);
@@ -94,9 +98,11 @@ enum BATTERY_OC_PRIO_TAG {
 	BATTERY_OC_PRIO_GPU = 2,
 	BATTERY_OC_PRIO_MD = 3,
 	BATTERY_OC_PRIO_MD5 = 4,
-	BATTERY_OC_PRIO_FLASHLIGHT = 5
+	BATTERY_OC_PRIO_FLASHLIGHT = 5,
+	BATTERY_OC_PRIO_CHARGER = 6
 };
 
+extern void (*battery_oc_callback)(BATTERY_OC_LEVEL tag);
 extern void register_battery_oc_notify(
 			void (*battery_oc_callback)(BATTERY_OC_LEVEL tag),
 			BATTERY_OC_PRIO prio_val);
@@ -125,6 +131,7 @@ enum BATTERY_PERCENT_PRIO_TAG {
 	BATTERY_PERCENT_PRIO_BACKLIGHT = 8
 };
 
+extern void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag);
 extern void
 register_battery_percent_notify(
 		void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag),
@@ -149,6 +156,7 @@ enum DLPT_PRIO_TAG {
 	DLPT_PRIO_BACKLIGHT = 9
 };
 
+extern void (*dlpt_callback)(unsigned int val);
 extern void register_dlpt_notify(
 		void (*dlpt_callback)(unsigned int val), DLPT_PRIO prio_val);
 extern const PMU_FLAG_TABLE_ENTRY pmu_flags_table[];
@@ -162,17 +170,17 @@ extern unsigned short is_wdt_reboot_pmic_chk;
  *=============================================================================
  */
 enum PMIC_IRQ_ENUM {
-	INT_VPROC11_OC,
-	SP_BUCK_TOP_START = INT_VPROC11_OC,
-	INT_VPROC12_OC,
+	INT_VPU_OC,
+	SP_BUCK_TOP_START = INT_VPU_OC,
 	INT_VCORE_OC,
-	INT_VGPU_OC,
+	INT_VGPU11_OC,
+	INT_VGPU12_OC,
 	INT_VMODEM_OC,
-	INT_VDRAM1_OC,
+	INT_VPROC1_OC,
+	INT_VPROC2_OC,
 	INT_VS1_OC,
 	INT_VS2_OC,
 	INT_VPA_OC,
-	INT_VCORE_PREOC,
 	NO_USE_0_10,
 	NO_USE_0_11,
 	NO_USE_0_12,
@@ -185,32 +193,32 @@ enum PMIC_IRQ_ENUM {
 	INT_VRF18_OC,
 	INT_VRF12_OC,
 	INT_VEFUSE_OC,
-	INT_VCN33_OC,
-	INT_VCN28_OC,
+	INT_VCN33_1_OC,
+	INT_VCN33_2_OC,
+	INT_VCN13_OC,
 	INT_VCN18_OC,
-	INT_VCAMA1_OC,
-	INT_VCAMA2_OC,
-	INT_VCAMD_OC,
+	INT_VA09_OC,
 	INT_VCAMIO_OC,
-	INT_VLDO28_OC,
 	INT_VA12_OC,
 	INT_VAUX18_OC,
-	INT_VAUD28_OC,
-	INT_VIO28_OC,
+	INT_VAUD18_OC,
 	INT_VIO18_OC,
-	INT_VSRAM_PROC11_OC,
-	INT_VSRAM_PROC12_OC,
+	INT_VSRAM_PROC1_OC,
+	INT_VSRAM_PROC2_OC,
 	INT_VSRAM_OTHERS_OC,
-	INT_VSRAM_GPU_OC,
-	INT_VDRAM2_OC,
-	INT_VMC_OC,
-	INT_VMCH_OC,
+	INT_VSRAM_MD_OC,
 	INT_VEMC_OC,
 	INT_VSIM1_OC,
 	INT_VSIM2_OC,
-	INT_VIBR_OC,
 	INT_VUSB_OC,
+	INT_VRFCK_OC,
+	INT_VBBCK_OC,
 	INT_VBIF28_OC,
+	INT_VIBR_OC,
+	INT_VIO28_OC,
+	INT_VM18_OC,
+	INT_VUFS_OC,
+	NO_USE_2_14,
 	NO_USE_2_15,
 	INT_PWRKEY,
 	SP_PSC_TOP_START = INT_PWRKEY,
@@ -218,9 +226,9 @@ enum PMIC_IRQ_ENUM {
 	INT_PWRKEY_R,
 	INT_HOMEKEY_R,
 	INT_NI_LBAT_INT,
-	INT_CHRDET,
 	INT_CHRDET_EDGE,
-	INT_VCDT_HV_DET,
+	NO_USE_3_6,
+	NO_USE_3_7,
 	NO_USE_3_8,
 	NO_USE_3_9,
 	NO_USE_3_10,
@@ -246,25 +254,25 @@ enum PMIC_IRQ_ENUM {
 	NO_USE_4_13,
 	NO_USE_4_14,
 	NO_USE_4_15,
-	INT_FG_BAT0_H,
-	SP_BM_TOP_START = INT_FG_BAT0_H,
-	INT_FG_BAT0_L,
+	INT_FG_BAT_H,
+	SP_BM_TOP_START = INT_FG_BAT_H,
+	INT_FG_BAT_L,
 	INT_FG_CUR_H,
 	INT_FG_CUR_L,
 	INT_FG_ZCV,
-	INT_FG_BAT1_H,
-	INT_FG_BAT1_L,
+	NO_USE_5_5,
+	NO_USE_5_6,
 	INT_FG_N_CHARGE_L,
 	INT_FG_IAVG_H,
 	INT_FG_IAVG_L,
-	INT_FG_TIME_H,
+	NO_USE_5_10,
 	INT_FG_DISCHARGE,
 	INT_FG_CHARGE,
 	NO_USE_5_13,
 	NO_USE_5_14,
 	NO_USE_5_15,
 	INT_BATON_LV,
-	INT_BATON_HT,
+	NO_USE_6_1,
 	INT_BATON_BAT_IN,
 	INT_BATON_BAT_OUT,
 	INT_BIF,
@@ -286,10 +294,10 @@ enum PMIC_IRQ_ENUM {
 	INT_BAT2_L,
 	INT_BAT_TEMP_H,
 	INT_BAT_TEMP_L,
+	INT_THR_H,
+	INT_THR_L,
 	INT_AUXADC_IMP,
 	INT_NAG_C_DLTV,
-	NO_USE_7_8,
-	NO_USE_7_9,
 	NO_USE_7_10,
 	NO_USE_7_11,
 	NO_USE_7_12,
@@ -365,4 +373,3 @@ extern void PMIC_INIT_SETTING_V1(void);
 extern int do_ptim_ex(bool isSuspend, unsigned int *bat, signed int *cur);
 
 #endif /* _MT_PMIC_UPMU_SW_H_ */
-
