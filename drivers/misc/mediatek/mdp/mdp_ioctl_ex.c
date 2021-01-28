@@ -736,7 +736,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 done:
 	CMDQ_TRACE_FORCE_END();
 
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	exec_cost = div_u64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 3000)
 		CMDQ_LOG("[warn]%s job:%u cost translate:%lluus exec:%lluus\n",
 			__func__, user_job.meta_count, trans_cost, exec_cost);
@@ -815,7 +815,7 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 		/* copy read result to user space */
 		status = mdp_process_read_request(&job_result.read_result);
 	} while (0);
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	exec_cost = div_u64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 150000)
 		CMDQ_LOG("[warn]job wait and close cost:%lluus handle:0x%p\n",
 			exec_cost, handle);
@@ -899,7 +899,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 		return -EFAULT;
 	}
 
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	exec_cost = div_u64(sched_clock() - exec_cost, 1000);
 	if (exec_cost > 10000)
 		CMDQ_LOG("[warn]%s cost:%lluus\n",
 			__func__, exec_cost);
@@ -991,9 +991,10 @@ s32 mdp_ioctl_simulate(unsigned long param)
 	struct cmdq_command_buffer cmd_buf = {0};
 	struct cmdqRecStruct *handle = NULL;
 	struct cmdq_pkt_buffer *buf;
-	u8 *result_buffer = NULL, exec_cost;
+	u8 *result_buffer = NULL;
 	s32 status = 0;
 	u32 size, result_size = 0;
+	u64 exec_cost;
 
 	if (copy_from_user(&user_job, (void *)param, sizeof(user_job))) {
 		CMDQ_ERR("%s copy mdp_simulate from user fail\n", __func__);
@@ -1037,7 +1038,7 @@ s32 mdp_ioctl_simulate(unsigned long param)
 		status = -EFAULT;
 		goto done;
 	}
-	exec_cost = div_s64(sched_clock() - exec_cost, 1000);
+	exec_cost = div_u64(sched_clock() - exec_cost, 1000);
 	CMDQ_LOG("simulate translate job[%d] cost:%lluus\n",
 		user_job.meta_count, exec_cost);
 
@@ -1055,7 +1056,7 @@ s32 mdp_ioctl_simulate(unsigned long param)
 		memcpy(result_buffer + result_size, buf->va_base, size);
 		result_size += size;
 		if (result_size >= user_job.command_size) {
-			CMDQ_ERR("instruction buf size not enough %u < %u\n",
+			CMDQ_ERR("instruction buf size not enough %u < %lu\n",
 				result_size, handle->pkt->cmd_buf_size);
 			break;
 		}
@@ -1069,7 +1070,8 @@ s32 mdp_ioctl_simulate(unsigned long param)
 		goto done;
 	}
 
-	if (copy_to_user((void *)(unsigned long)user_job.result_size,
+	if (user_job.result_size &&
+		copy_to_user((void *)(unsigned long)user_job.result_size,
 		&result_size, sizeof(u32))) {
 		CMDQ_ERR("%s fail to copy result size to user\n", __func__);
 		status = -EINVAL;
