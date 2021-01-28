@@ -535,7 +535,10 @@ static const char *pll_name[NR_PLLS] = {
 
 const char *mtk_get_pll_group_name(int id)
 {
-	return pll_name[id];
+	if (id >= 0 && id < NR_PLLS)
+		return pll_name[id];
+	else
+		return NULL;
 }
 
 bool mtk_idle_check_pll(unsigned int *condition_mask, unsigned int *block_mask)
