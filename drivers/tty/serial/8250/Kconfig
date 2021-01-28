@@ -409,7 +409,7 @@ config SERIAL_8250_LPC18XX
 
 config SERIAL_8250_MT6577
 	tristate "Mediatek serial port support"
-	depends on SERIAL_8250 && ARCH_MEDIATEK
+	depends on SERIAL_8250
 	help
 	  If you have a Mediatek based board and want to use the
 	  serial port, say Y to this option. If unsure, say N.

@@ -151,6 +151,17 @@ config DMA_JZ4780
 	  If you have a board based on such a SoC and wish to use DMA for
 	  devices which can use the DMA controller, say Y or M here.
 
+config DMA_MTK_UART
+	tristate "MediaTek SoCs APDMA support for UART"
+	depends on OF
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+	help
+	  Enable support for MediaTek SoC uart DMA engine.
+	  This DMA engine just only used when 8250 mtk uart is enabled.
+	  This DMA controller transfers data from memory to peripheral.
+	  It does not support memory to memory data transfer.
+
 config DMA_OMAP
 	tristate "OMAP DMA support"
 	depends on ARCH_OMAP || COMPILE_TEST
