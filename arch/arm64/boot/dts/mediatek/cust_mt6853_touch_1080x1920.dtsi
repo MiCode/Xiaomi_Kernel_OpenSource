@@ -145,27 +145,23 @@
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
 			input-enable;
-			bias-pill-up = <MTK_PUPD_SET_R1R0_11>;
 		};
 	};
 	ctp_ts_reset_active: reset_active {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
 	ctp_ts_int_suspend: int_suspend {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
 	ctp_ts_reset_suspend: reset_suspend {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
@@ -178,35 +174,30 @@
 	ctp_ts_int_as_gpio: int_high {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
 	ctp_gt9896s_int_active: int1_active {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
-			slew-rate = <0>;
-			bias-pull-up = <11>;
+			input-enable;
 		};
 	};
 	ctp_gt9896s_reset_active: reset1_active {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
 	ctp_gt9896s_int_suspend: int1_suspend {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
 	ctp_gt9896s_reset_suspend: reset1_suspend {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
