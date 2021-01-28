@@ -492,6 +492,7 @@ static void process_dbg_opt(const char *opt)
 
 		DDPMSG("%s: module=%d\n", __func__, module);
 		if (module < DISP_MODULE_NUM) {
+			primary_display_idlemgr_kick(__func__, 1);
 			ddp_dump_reg(module);
 			sprintf(buf, "dump_reg: %d\n", module);
 		} else {
