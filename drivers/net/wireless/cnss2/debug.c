@@ -195,28 +195,29 @@ static ssize_t cnss_dev_boot_debug_write(struct file *fp,
 					     CNSS_DRIVER_EVENT_POWER_DOWN,
 					     0, NULL);
 		clear_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
-	}
-
-	pci_priv = plat_priv->bus_priv;
-	if (!pci_priv)
-		return -ENODEV;
-
-	if (sysfs_streq(cmd, "download")) {
-		set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
-		ret = cnss_pci_start_mhi(pci_priv);
-	} else if (sysfs_streq(cmd, "linkup")) {
-		ret = cnss_resume_pci_link(pci_priv);
-	} else if (sysfs_streq(cmd, "linkdown")) {
-		ret = cnss_suspend_pci_link(pci_priv);
-	} else if (sysfs_streq(cmd, "assert")) {
-		cnss_pr_info("FW Assert triggered for debug\n");
-		ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
-	} else if (sysfs_streq(cmd, "set_cbc_done")) {
-		cnss_pr_dbg("Force set cold boot cal done status\n");
-		set_bit(CNSS_COLD_BOOT_CAL_DONE, &plat_priv->driver_state);
 	} else {
-		cnss_pr_err("Device boot debugfs command is invalid\n");
-		ret = -EINVAL;
+		pci_priv = plat_priv->bus_priv;
+		if (!pci_priv)
+			return -ENODEV;
+
+		if (sysfs_streq(cmd, "download")) {
+			set_bit(CNSS_DRIVER_DEBUG, &plat_priv->driver_state);
+			ret = cnss_pci_start_mhi(pci_priv);
+		} else if (sysfs_streq(cmd, "linkup")) {
+			ret = cnss_resume_pci_link(pci_priv);
+		} else if (sysfs_streq(cmd, "linkdown")) {
+			ret = cnss_suspend_pci_link(pci_priv);
+		} else if (sysfs_streq(cmd, "assert")) {
+			cnss_pr_info("FW Assert triggered for debug\n");
+			ret = cnss_force_fw_assert(&pci_priv->pci_dev->dev);
+		} else if (sysfs_streq(cmd, "set_cbc_done")) {
+			cnss_pr_dbg("Force set cold boot cal done status\n");
+			set_bit(CNSS_COLD_BOOT_CAL_DONE,
+				&plat_priv->driver_state);
+		} else {
+			cnss_pr_err("Device boot debugfs command is invalid\n");
+			ret = -EINVAL;
+		}
 	}
 
 	if (ret < 0)
