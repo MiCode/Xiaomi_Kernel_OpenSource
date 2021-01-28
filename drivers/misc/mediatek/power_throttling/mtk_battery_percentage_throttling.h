@@ -29,7 +29,7 @@ enum BATTERY_PERCENT_PRIO_TAG {
 
 typedef void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag);
 
-#ifdef CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING
+#if IS_ENABLED(CONFIG_MTK_BATTERY_PERCENTAGE_POWER_THROTTLING)
 void register_battery_percent_notify(
 		battery_percent_callback bp_cb,
 		BATTERY_PERCENT_PRIO prio_val);

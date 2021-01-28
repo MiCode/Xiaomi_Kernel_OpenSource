@@ -154,7 +154,7 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = 0;
 
-#if defined(GAUGE_DTS)
+#if IS_ENABLED(GAUGE_DTS)
 	//TODO
 	/* Get r_fg_value/car_tune_value */
 	np = of_find_node_by_name(pdev->dev.parent->of_node, "mtk_gauge");

@@ -7,20 +7,20 @@
 #include <linux/platform_device.h>
 #include <linux/ratelimit.h>
 #include <linux/regmap.h>
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include <sspm_ipi_pin.h>
 #include <sspm_ipi.h>
 #endif
 
 /* Legacy PMIC SSPM/IPI driver interface */
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-#if defined(CONFIG_MACH_MT6761)
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#if IS_ENABLED(CONFIG_MACH_MT6761)
 /*#define IPIMB*/
 /* disable for Bring up */
 #endif
 #endif
 
-#if defined(IPIMB)
+#if IS_ENABLED(IPIMB)
 #define MAIN_PMIC_WRITE_REGISTER		0x00000201
 #define MAIN_PMIC_READ_REGISTER			0x00000202
 #define MAIN_PMIC_REGULATOR			0x00000203
@@ -152,7 +152,7 @@ int mt6358_ipi_init(struct mt6397_chip *chip)
 {
 	int ret = 0;
 
-#if defined(IPIMB)
+#if IS_ENABLED(IPIMB)
 	pmic_read_regmap = chip->regmap;
 	chip->regmap = devm_regmap_init(chip->dev, &regmap_pmic_ipi_bus,
 					NULL, &pmic_ipi_regmap_config);

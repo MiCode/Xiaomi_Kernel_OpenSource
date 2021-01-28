@@ -88,7 +88,7 @@ static struct reg_oc_debug_t mt6357_reg_oc_debug[] = {
 
 static int md_reg_oc_notify(struct reg_oc_debug_t *reg_oc_dbg)
 {
-#ifdef CONFIG_MTK_CCCI_DEVICES
+#if IS_ENABLED(CONFIG_MTK_CCCI_DEVICES)
 	int ret;
 #endif
 	int data_int32 = 0;
@@ -97,7 +97,7 @@ static int md_reg_oc_notify(struct reg_oc_debug_t *reg_oc_dbg)
 		data_int32 = 1 << reg_oc_dbg->md_reg_idx;
 	else
 		return 0;
-#ifdef CONFIG_MTK_CCCI_DEVICES
+#if IS_ENABLED(CONFIG_MTK_CCCI_DEVICES)
 	ret = exec_ccci_kern_func_by_md_id(MD_SYS1, ID_PMIC_INTR,
 					   (char *)&data_int32, 4);
 	if (ret)
@@ -127,14 +127,14 @@ static int regulator_oc_notify(struct notifier_block *nb, unsigned long event,
 	pr_notice("regulator:%s OC %d times\n",
 		  reg_oc_dbg->name, reg_oc_dbg->times);
 	if (reg_oc_dbg->is_md_reg) {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning(oc_str,
 				   "\nCRDISPATCH_KEY:MD OC\nOC Interrupt: %s",
 				   reg_oc_dbg->name);
 #endif
 		md_reg_oc_notify(reg_oc_dbg);
 	} else {
-#if defined(CONFIG_MTK_AEE_FEATURE)
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		aee_kernel_warning(oc_str,
 				   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
 				   reg_oc_dbg->name);
