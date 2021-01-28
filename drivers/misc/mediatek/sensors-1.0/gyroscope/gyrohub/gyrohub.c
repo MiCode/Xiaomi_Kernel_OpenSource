@@ -203,7 +203,9 @@ static int gyrohub_ReadChipInfo(char *buf, int bufsize)
 	if ((buf == NULL) || (bufsize <= 30))
 		return -1;
 
-	sprintf(buf, "GYROHUB Chip");
+	if (sprintf(buf, "GYROHUB Chip") <= 0)
+		return -1;
+
 	return 0;
 }
 
