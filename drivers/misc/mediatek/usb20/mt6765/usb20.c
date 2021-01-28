@@ -30,7 +30,7 @@
 #include <mt-plat/mtk_usb2jtag.h>
 #endif
 
-#ifndef FPGA_PLATFORM
+#if defined(CONFIG_R_PORTING)
 #include "mtk_spm_resource_req.h"
 
 static int dpidle_status = USB_DPIDLE_ALLOWED;
@@ -75,6 +75,7 @@ static void issue_dpidle_timer(void)
 
 static void usb_6765_dpidle_request(int mode)
 {
+#if defined(CONFIG_R_PORTING)
 	unsigned long flags;
 
 	spin_lock_irqsave(&usb_hal_dpidle_lock, flags);
@@ -117,6 +118,7 @@ static void usb_6765_dpidle_request(int mode)
 	}
 
 	spin_unlock_irqrestore(&usb_hal_dpidle_lock, flags);
+#endif
 }
 #endif
 
@@ -239,13 +241,16 @@ exit:
 
 static struct timer_list musb_idle_timer;
 
+#if defined(CONFIG_R_PORTING)
 static void musb_do_idle(unsigned long _musb)
 {
 	struct musb *musb = (void *)_musb;
 
 	queue_delayed_work(musb->st_wq, &idle_work, 0);
 }
+#endif
 
+#if defined(CONFIG_R_PORTING)
 static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 {
 	unsigned long default_timeout = jiffies + msecs_to_jiffies(3);
@@ -280,6 +285,7 @@ static void mt_usb_try_idle(struct musb *musb, unsigned long timeout)
 	    (unsigned long)jiffies_to_msecs(timeout - jiffies));
 	mod_timer(&musb_idle_timer, timeout);
 }
+#endif
 
 #ifdef CONFIG_MACH_MT6761
 static void __iomem *infra_mbist;
@@ -1612,9 +1618,9 @@ static int __init mt_usb_init(struct musb *musb)
 		    USBCOM_INT_STATUS |
 		    DMA_INT_STATUS);
 #endif
-
+#if defined(CONFIG_R_PORTING)
 	setup_timer(&musb_idle_timer, musb_do_idle, (unsigned long)musb);
-
+#endif
 #ifdef CONFIG_USB_MTK_OTG
 	mt_usb_otg_init(musb);
 #endif
@@ -1664,7 +1670,9 @@ static const struct musb_platform_ops mt_usb_ops = {
 	.init = mt_usb_init,
 	.exit = mt_usb_exit,
 	/*.set_mode     = mt_usb_set_mode, */
+#if defined(CONFIG_R_PORTING)
 	.try_idle = mt_usb_try_idle,
+#endif
 	.enable = mt_usb_enable,
 	.disable = mt_usb_disable,
 	/* .set_vbus = mt_usb_set_vbus, */
@@ -1794,7 +1802,9 @@ static int mt_usb_probe(struct platform_device *pdev)
 	mtk_host_qmu_force_isoc_restart = 0;
 #endif
 #ifndef FPGA_PLATFORM
+#if defined(CONFIG_R_PORTING)
 	register_usb_hal_dpidle_request(usb_6765_dpidle_request);
+#endif
 #endif
 	register_usb_hal_disconnect_check(trigger_disconnect_check_work);
 
@@ -1840,12 +1850,6 @@ static int mt_usb_probe(struct platform_device *pdev)
 	musb_force_on = 1;
 #endif
 
-#ifndef FPGA_PLATFORM
-	if (get_boot_mode() == META_BOOT) {
-		DBG(0, "in special mode %d\n", get_boot_mode());
-		musb_force_on = 1;
-	}
-#endif
 	return 0;
 
 err2:

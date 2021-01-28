@@ -55,7 +55,7 @@ int musb_fake_CDP;
  * init.$platform.usb.rc
  */
 int kernel_init_done;
-int musb_force_on;
+int musb_force_on = 1;
 int musb_host_dynamic_fifo = 1;
 int musb_host_dynamic_fifo_usage_msk;
 bool musb_host_db_enable;
@@ -152,9 +152,9 @@ module_param_named(dbg_uart, musb_uart_debug, uint, 0644);
 
 #define MUSB_DRIVER_NAME "musb-hdrc"
 const char musb_driver_name[] = MUSB_DRIVER_NAME;
-
+#if defined(CONFIG_R_PORTING)
 static DEFINE_IDA(musb_ida);
-
+#endif
 MODULE_DESCRIPTION(DRIVER_INFO);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
@@ -261,7 +261,7 @@ static inline struct musb *dev_to_musb(struct device *dev)
 }
 
 /*-------------------------------------------------------------------------*/
-
+#if defined(CONFIG_R_PORTING)
 int musb_get_id(struct device *dev, gfp_t gfp_mask)
 {
 	int ret;
@@ -290,6 +290,7 @@ void musb_put_id(struct device *dev, int id)
 	ida_remove(&musb_ida, id);
 }
 EXPORT_SYMBOL_GPL(musb_put_id);
+#endif
 
 #ifdef NEVER				/* #ifndef CONFIG_BLACKFIN */
 static int musb_ulpi_read(struct usb_phy *phy, u32 offset)
@@ -523,6 +524,7 @@ void musb_load_testpacket(struct musb *musb)
 /*
  * Handles OTG hnp timeouts, such as b_ase0_brst
  */
+#if defined(CONFIG_R_PORTING)
 static void musb_otg_timer_func(unsigned long data)
 {
 	struct musb *musb = (struct musb *)data;
@@ -564,6 +566,7 @@ static void musb_otg_timer_func(unsigned long data)
 	if (vbus_off)
 		musb_platform_set_vbus(musb, 0);
 }
+#endif
 
 #if defined(CONFIG_USBIF_COMPLIANCE)
 void musb_set_host_request_flag(struct musb *musb,
@@ -2055,8 +2058,8 @@ irqreturn_t musb_interrupt(struct musb *musb)
 					ref_cnt = host_tx_refcnt_inc(ep_num);
 
 					if (__ratelimit(&rlmt)) {
-						DBG(0, "unexpect TX
-							<%d,%d,%d>\n",
+						DBG(0,
+							"unexpect TX <%d,%d,%d>\n",
 							ep_num, ref_cnt,
 							skip_cnt);
 						dump_tx_ops(ep_num);
@@ -2481,9 +2484,9 @@ static int musb_init_controller
 			? MUSB_CONTROLLER_MHDRC : MUSB_CONTROLLER_HDRC, musb);
 	if (status < 0)
 		goto fail3;
-
+#if defined(CONFIG_R_PORTING)
 	setup_timer(&musb->otg_timer, musb_otg_timer_func, (unsigned long)musb);
-
+#endif
 #if defined(CONFIG_USBIF_COMPLIANCE)
 	vbus_polling_tsk =
 		kthread_create(polling_vbus_value, NULL, "polling_vbus_thread");

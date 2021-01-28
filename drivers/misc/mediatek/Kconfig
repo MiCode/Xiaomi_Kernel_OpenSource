@@ -1,4 +1,5 @@
 source "drivers/misc/mediatek/Kconfig.default"
+source "drivers/misc/mediatek/usb20/Kconfig"
 
 config MTK_PLATFORM
 	string "MTK platform name"

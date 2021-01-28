@@ -2525,7 +2525,8 @@ int musb_gadget_setup(struct musb *musb)
 	musb->is_active = 0;
 	musb_platform_try_idle(musb, 0);
 
-#ifdef CONFIG_OF
+//#ifdef CONFIG_OF
+#if defined(CONFIG_R_PORTING)
 	/*gadget device dma ops is null,so add musb controller dma ops*/
 	/* to gadget device dma ops, otherwise will go do dma dump ops.*/
 	if (musb->controller->archdata.dma_ops) {
