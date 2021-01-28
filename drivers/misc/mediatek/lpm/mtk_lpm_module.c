@@ -221,6 +221,7 @@ int mtk_lp_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	unsigned int model_flags = 0;
 	unsigned long flags;
 	const int cpuid = smp_processor_id();
+	int ret = 0;
 
 	if (index < 0)
 		return -1;
@@ -242,6 +243,7 @@ int mtk_lp_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	if (lpm && lpm->op.prompt)
 		prompt = lpm->op.prompt(cpuid, nb_data.issuer);
 
+
 	if (!unlikely(flags & MTK_LP_REQ_NOBROADCAST)) {
 		prompt = mtk_lp_notify_var(MTK_LPM_NB_AFTER_PROMPT, prompt);
 		mtk_lp_pm_notify(prompt, &nb_data);
@@ -250,11 +252,11 @@ int mtk_lp_cpuidle_prepare(struct cpuidle_driver *drv, int index)
 	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
 
 	if (lpm && lpm->op.prepare_enter)
-		lpm->op.prepare_enter(prompt, cpuid, nb_data.issuer);
+		ret = lpm->op.prepare_enter(prompt, cpuid, nb_data.issuer);
 
 	mtk_lp_pm_notify(MTK_LPM_NB_PREPARE, &nb_data);
 
-	return 0;
+	return ret;
 }
 
 void mtk_lp_cpuidle_resume(struct cpuidle_driver *drv, int index)

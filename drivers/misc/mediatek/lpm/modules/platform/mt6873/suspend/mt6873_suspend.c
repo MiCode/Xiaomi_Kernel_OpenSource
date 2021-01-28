@@ -14,6 +14,7 @@
 #include <linux/cpumask.h>
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
+#include <linux/timekeeping.h>
 #include <linux/rtc.h>
 #include <asm/cpuidle.h>
 #include <asm/suspend.h>
@@ -33,7 +34,7 @@ unsigned int mt6873_suspend_status;
 u64 before_md_sleep_time;
 u64 after_md_sleep_time;
 struct cpumask s2idle_cpumask;
-
+struct mtk_lpm_model mt6873_model_suspend;
 
 void __attribute__((weak)) subsys_if_on(void)
 {
@@ -151,6 +152,10 @@ static void __mt6873_suspend_reflect(int type, int cpu,
 	printk_deferred("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
 
+	/* skip calling issuer when prepare fail*/
+	if (mt6873_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+		return;
+
 	if (issuer)
 		issuer->log(MT_LPM_ISSUER_SUSPEND, "suspend", NULL);
 
@@ -181,6 +186,7 @@ int mt6873_suspend_s2idle_prompt(int cpu,
 
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
+
 #ifdef CONFIG_PM_SLEEP
 		/* Notice
 		 * Fix the rcu_idle workaround later.
@@ -191,11 +197,27 @@ int mt6873_suspend_s2idle_prompt(int cpu,
 		 * enter idle state means there won't care r/w sync problem
 		 * and RCU_NOIDLE maybe the right solution.
 		 */
-		RCU_NONIDLE(syscore_suspend());
+		RCU_NONIDLE({
+			ret = syscore_suspend();
+		});
 #endif
+		if (ret < 0)
+			mt6873_model_suspend.flag |= MTK_LP_PREPARE_FAIL;
+
 		ret = __mt6873_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
 					      cpu, issuer);
 	}
+	return ret;
+}
+
+int mt6873_suspend_s2idle_prepare_enter(int prompt, int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	int ret = 0;
+
+	if (mt6873_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+		ret = -1;
+
 	return ret;
 }
 
@@ -213,8 +235,12 @@ void mt6873_suspend_s2idle_reflect(int cpu,
 		 * enter idle state. So we need to using RCU_NONIDLE()
 		 * with syscore.
 		 */
-		RCU_NONIDLE(syscore_resume());
-		RCU_NONIDLE(pm_system_wakeup());
+		if (!(mt6873_model_suspend.flag & MTK_LP_PREPARE_FAIL))
+			RCU_NONIDLE(syscore_resume());
+
+		if (mt6873_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+			mt6873_model_suspend.flag &= (~MTK_LP_PREPARE_FAIL);
+
 #endif
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
@@ -285,7 +311,7 @@ int __init mt6873_model_suspend_init(void)
 
 	if (suspend_type == MTK_LPM_SUSPEND_S2IDLE) {
 		MT6873_SUSPEND_OP_INIT(mt6873_suspend_s2idle_prompt,
-					NULL,
+					mt6873_suspend_s2idle_prepare_enter,
 					NULL,
 					mt6873_suspend_s2idle_reflect);
 		mtk_lpm_suspend_registry("s2idle", &mt6873_model_suspend);
