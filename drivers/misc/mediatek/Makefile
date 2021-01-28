@@ -104,6 +104,7 @@ obj-$(CONFIG_MTK_DYNAMIC_FPS_FRAMEWORK_SUPPORT) += dfrc/
 obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
+obj-$(CONFIG_MTK_JPEG) += jpeg/
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
 obj-y += power/
 endif
