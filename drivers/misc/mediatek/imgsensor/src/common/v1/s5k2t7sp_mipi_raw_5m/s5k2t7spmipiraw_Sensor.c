@@ -302,6 +302,9 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[5] = {
  * .i4BlockNumY = 54,
  * };
  */
+#define RWB_ID_OFFSET 0x0F73
+#define EEPROM_READ_ID  0xA4
+#define EEPROM_WRITE_ID   0xA5
 static void write_cmos_sensor(kal_uint16 addr, kal_uint16 para)
 {
 	char pusendcmd[4] = {
