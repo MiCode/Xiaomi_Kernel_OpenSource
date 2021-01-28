@@ -844,6 +844,20 @@ static int m4u_debug_set(void *data, u64 val)
 		break;
 	}
 
+	//case 49: backup test, should use KASAN project to test
+	case 49:
+	{
+		int i;
+
+		M4UINFO("case %lld start: backup test\n", val);
+		for (i = 0; i < 5; i++) {
+			M4UINFO("times %d\n", i);
+			m4u_reg_backup();
+		}
+		M4UINFO("case %lld end\n", val);
+	}
+	break;
+
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
