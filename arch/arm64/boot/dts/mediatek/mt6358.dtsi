@@ -254,7 +254,8 @@
 		};
 	};
 
-	buck_regulators {
+	mt6358regulator: mt6358regulator {
+		compatible = "mediatek,mt6358-regulator";
 		mt_pmic_vdram1_buck_reg: buck_vdram1 {
 			regulator-name = "vdram1";
 			regulator-min-microvolt = <500000>;
@@ -309,8 +310,7 @@
 			regulator-max-microvolt = <2587500>;
 			regulator-enable-ramp-delay = <0>;
 		};
-	};	/* End of buck_regulators */
-	ldo_regulators {
+
 		mt_pmic_vdram2_ldo_reg: ldo_vdram2 {
 			regulator-name = "vdram2";
 			regulator-min-microvolt = <600000>;
