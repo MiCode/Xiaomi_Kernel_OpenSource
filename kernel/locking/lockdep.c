@@ -893,6 +893,7 @@ look_up_lock_class(struct lockdep_map *lock, unsigned int subclass)
 		printk(KERN_ERR
 			"turning off the locking correctness validator.\n");
 		dump_stack();
+		lockdep_aee();
 		return NULL;
 	}
 
@@ -988,6 +989,7 @@ register_lock_class(struct lockdep_map *lock, unsigned int subclass, int force)
 		printk("the code is fine but needs lockdep annotation.\n");
 		printk("turning off the locking correctness validator.\n");
 		dump_stack();
+		lockdep_aee();
 		return NULL;
 	}
 
@@ -3524,6 +3526,7 @@ static void __lockdep_init_map(struct lockdep_map *lock, const char *name,
 		 * What it says above ^^^^^, I suggest you read it.
 		 */
 		DEBUG_LOCKS_WARN_ON(1);
+		lockdep_aee();
 		return;
 	}
 	lock->key = key;
