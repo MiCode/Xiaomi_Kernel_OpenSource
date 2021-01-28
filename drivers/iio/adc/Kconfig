@@ -544,6 +544,18 @@ config MT635X_AUXADC
 	  This driver can also be built as a module. If so, the module will be
 	  called mt635x-auxadc.
 
+config MT6362_ADC
+	tristate "MT6362 SPMI ADC driver"
+	depends on MFD_MT6362
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  Say yes here to have support for the MT6362 ADC.
+	  Provide VBUS, VSYS, VBAT, IBUS, IBAT several channel.
+
+	  The driver can also be build as a module.
+	  If so, the module will be called mt6362_adc.
+
 config NAU7802
 	tristate "Nuvoton NAU7802 ADC driver"
 	depends on I2C

@@ -197,6 +197,49 @@ static inline bool pd_process_ctrl_msg_wait(struct pd_port *pd_port)
 	return pd_process_ctrl_msg_wait_reject(pd_port);
 }
 
+static bool pd_process_tx_msg(struct pd_port *pd_port, uint8_t msg)
+{
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+	if (msg != PD_HW_TX_DISCARD)
+		pd_port->pe_data.pd_sent_ams_init_cmd = true;
+
+	if (pd_port->pe_state_curr == PE_SEND_SOFT_RESET_TX_WAIT) {
+		pe_transit_soft_reset_state(pd_port);
+		return true;
+	} else if (pd_port->pe_state_curr == PE_RECV_SOFT_RESET_TX_WAIT) {
+		pe_transit_soft_reset_recv_state(pd_port);
+		return true;
+	} else if (pd_port->pe_state_curr == PE_UNEXPECTED_TX_WAIT) {
+		if (msg == PD_HW_TX_DISCARD)
+			pe_transit_ready_state(pd_port);
+		else
+			pe_transit_soft_reset_state(pd_port);
+		return true;
+	}
+#endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
+
+	return false;
+}
+
+static inline bool pd_process_ctrl_msg_good_crc(
+	struct pd_port *pd_port, struct pd_event *pd_event)
+{
+	if (pd_process_tx_msg(pd_port, PD_CTRL_GOOD_CRC))
+		return true;
+
+	if (pd_port->pe_data.pe_state_flags2 &
+		PE_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC) {
+		pe_transit_ready_state(pd_port);
+		return true;
+	}
+
+	if (pd_port->pe_data.pe_state_flags &
+		PE_STATE_FLAG_ENABLE_SENDER_RESPONSE_TIMER)
+		pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
+
+	return false;
+}
+
 static inline bool pd_process_ctrl_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
@@ -212,15 +255,7 @@ static inline bool pd_process_ctrl_msg(
 
 	switch (pd_event->msg) {
 	case PD_CTRL_GOOD_CRC:
-		if (pd_port->pe_data.pe_state_flags &
-			PE_STATE_FLAG_ENABLE_SENDER_RESPONSE_TIMER)
-			pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
-
-		if (pd_port->pe_data.pe_state_flags2 &
-			PE_STATE_FLAG_BACK_READY_IF_RECV_GOOD_CRC) {
-			pe_transit_ready_state(pd_port);
-			return true;
-		}
+		ret = pd_process_ctrl_msg_good_crc(pd_port, pd_event);
 		break;
 
 	case PD_CTRL_REJECT:
@@ -243,6 +278,15 @@ static inline bool pd_process_ctrl_msg(
 	case PD_CTRL_SOFT_RESET:
 		if (!pd_port->pe_data.during_swap &&
 			!pd_check_pe_during_hard_reset(pd_port)) {
+
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+			if (pd_is_pe_wait_pd_transmit_done(pd_port)) {
+				PE_TRANSIT_STATE(pd_port,
+						 PE_RECV_SOFT_RESET_TX_WAIT);
+				return true;
+			}
+#endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
+
 			pe_transit_soft_reset_recv_state(pd_port);
 			return true;
 		}
@@ -440,6 +484,13 @@ static inline bool pd_process_dpm_msg(
 
 	switch (pd_event->msg) {
 	case PD_DPM_ACK:
+#ifdef CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG
+		if (pd_port->pe_state_curr == PE_SEND_SOFT_RESET_STANDBY) {
+			pe_transit_soft_reset_state(pd_port);
+			return true;
+		}
+#endif	/* CONFIG_USB_PD_DISCARD_AND_UNEXPECT_MSG */
+
 		if (pd_port->pe_data.pe_state_flags2 &
 			PE_STATE_FLAG_BACK_READY_IF_DPM_ACK) {
 			pe_transit_ready_state(pd_port);
@@ -485,7 +536,7 @@ static inline bool pd_process_recv_hard_reset(
 	return true;
 }
 
-static inline bool pd_process_hw_msg_tx_failed(
+static bool pd_process_hw_msg_tx_failed_discard(
 	struct pd_port *pd_port, struct pd_event *pd_event)
 {
 #ifdef CONFIG_USB_PD_RENEGOTIATION_COUNTER
@@ -496,7 +547,9 @@ static inline bool pd_process_hw_msg_tx_failed(
 	}
 #endif	/* CONFIG_USB_PD_RENEGOTIATION_COUNTER */
 
-	if (pd_port->pe_data.pe_state_flags &
+	if (pd_process_tx_msg(pd_port, pd_event->msg))
+		return true;
+	else if (pd_port->pe_data.pe_state_flags &
 		PE_STATE_FLAG_BACK_READY_IF_TX_FAILED) {
 		pd_notify_tcp_event_2nd_result(
 			pd_port, TCP_DPM_RET_NO_RESPONSE);
@@ -519,7 +572,8 @@ static inline bool pd_process_hw_msg(
 		return pd_process_recv_hard_reset(pd_port, pd_event);
 
 	case PD_HW_TX_FAILED:
-		return pd_process_hw_msg_tx_failed(pd_port, pd_event);
+	case PD_HW_TX_DISCARD:
+		return pd_process_hw_msg_tx_failed_discard(pd_port, pd_event);
 
 	default:
 		return false;
@@ -530,9 +584,11 @@ static inline bool pd_process_hw_msg(
  * [BLOCK] Porcess Timer MSG
  */
 
-#ifdef CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT
 static inline bool pd_check_rx_pending(struct pd_port *pd_port)
 {
+	bool pending = false;
+
+#ifdef CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT
 	uint32_t alert;
 
 	if (tcpci_get_alert_status(pd_port->tcpc_dev, &alert))
@@ -540,15 +596,20 @@ static inline bool pd_check_rx_pending(struct pd_port *pd_port)
 
 	if (alert & TCPC_REG_ALERT_RX_STATUS) {
 		PE_INFO("rx_pending\r\n");
-#ifndef CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY
-		pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
-#endif
-		return true;
+		pending = true;
+	} else if (!pd_is_msg_empty(pd_port->tcpc_dev)) {
+		PE_INFO("rx_pending2\r\n");
+		pending = true;
 	}
 
-	return false;
-}
+#ifndef CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY
+	if (pending)
+		pd_enable_timer(pd_port, PD_TIMER_SENDER_RESPONSE);
+#endif /* CONFIG_USB_PD_ONLY_PRINT_SYSTEM_BUSY */
 #endif	/* CONFIG_USB_PD_CHECK_RX_PENDING_IF_SRTOUT */
+
+	return pending;
+}
 
 static inline bool pd_process_timer_msg(
 	struct pd_port *pd_port, struct pd_event *pd_event)

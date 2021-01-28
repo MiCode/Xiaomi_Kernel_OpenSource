@@ -114,6 +114,7 @@ menu "Power, PMIC, Battery & Low Power related configs"
 source "drivers/misc/mediatek/pmic/Kconfig"
 source "drivers/misc/mediatek/pmic_wrap/Kconfig"
 source "drivers/misc/mediatek/power/Kconfig"
+source "drivers/misc/mediatek/subpmic/Kconfig"
 
 config MTK_BASE_POWER
 	bool "MediaTek power management"

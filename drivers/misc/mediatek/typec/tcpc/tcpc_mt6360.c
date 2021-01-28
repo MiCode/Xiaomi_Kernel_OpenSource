@@ -52,7 +52,7 @@
 
 /* #define DEBUG_GPIO	66 */
 
-#define MT6360_DRV_VERSION	"2.0.3_MTK"
+#define MT6360_DRV_VERSION	"2.0.4_MTK"
 
 #define MT6360_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -2756,6 +2756,11 @@ MODULE_DESCRIPTION("MT6360 TCPC Driver");
 MODULE_VERSION(MT6360_DRV_VERSION);
 
 /**** Release Note ****
+ * 2.0.4_MTK
+ *	(1) support mt6360 pd discard retry
+ *	(2) fix system busy when rx pending2
+ *	(3) handle mask alert event when unmask irq
+ *
  * 2.0.3_MTK
  *	(1) Single Rp as Attatched.SRC for Ellisys TD.4.9.4
  *

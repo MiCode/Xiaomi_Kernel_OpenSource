@@ -99,6 +99,15 @@ config MTK_BQ24296_SUPPORT
 	  and config MTK_SWCHR_SUPPORT
 	  Set to Yes if BQ24296 is used.
 
+config CHARGER_MT6362
+	tristate "MT6362 SPMI CHG driver"
+	depends on MFD_MT6362
+	help
+	  Say yes here to have support for the MT6362 CHG
+	  It supports BC1.2 and OTG boost.
+	  The driver can also be build as a module.
+	  If so, the module will be called mt6362_chg
+
 config CHARGER_RT9465
 	bool "Charger Driver for Richtek RT9465 Charger IC"
 	depends on MTK_CHARGER

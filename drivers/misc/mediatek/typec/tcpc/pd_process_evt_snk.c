@@ -305,7 +305,8 @@ static inline bool pd_process_hw_msg(
 		return false;
 
 	case PD_HW_TX_FAILED:
-		return pd_process_tx_failed(pd_port);
+	case PD_HW_TX_DISCARD:
+		return pd_process_tx_failed_discard(pd_port, pd_event->msg);
 
 #ifdef CONFIG_USB_PD_REV30_COLLISION_AVOID
 	case PD_HW_SINK_TX_CHANGE:

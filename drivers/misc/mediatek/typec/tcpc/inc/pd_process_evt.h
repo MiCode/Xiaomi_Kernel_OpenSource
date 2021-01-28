@@ -46,7 +46,7 @@ struct pe_state_reaction {
 bool pd_process_protocol_error(
 	struct pd_port *pd_port, struct pd_event *pd_event);
 
-bool pd_process_tx_failed(struct pd_port *pd_port);
+bool pd_process_tx_failed_discard(struct pd_port *pd_port, uint8_t msg);
 
 /*---------------------------------------------------------------------------*/
 

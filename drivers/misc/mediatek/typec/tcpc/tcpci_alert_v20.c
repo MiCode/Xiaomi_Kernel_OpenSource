@@ -368,6 +368,11 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 	if (rv)
 		return rv;
 
+	/* mask all alert */
+	rv = tcpci_set_alert_mask(tcpc_dev, 0);
+	if (rv)
+		return rv;
+
 #ifdef CONFIG_USB_PD_DBG_ALERT_STATUS
 	if (alert_status != 0)
 		TCPC_INFO("Alert:0x%04x, Mask:0x%04x\r\n",
@@ -397,6 +402,11 @@ static inline int __tcpci_alert(struct tcpc_device *tcpc_dev)
 		}
 	}
 #endif /* CONFIG_USB_PD_DBG_SKIP_ALERT_HANDLER */
+
+	/* unmask alert */
+	rv = tcpci_set_alert_mask(tcpc_dev, alert_mask);
+	if (rv)
+		return rv;
 
 	tcpci_vbus_level_refresh(tcpc_dev);
 	tcpci_vbus_level_changed(tcpc_dev);

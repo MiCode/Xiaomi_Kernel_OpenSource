@@ -1,0 +1,8 @@
+config MT6362_DBG
+	tristate "Mediatek MT6362 Debug core"
+	depends on MFD_MT6362
+	help
+	  Say Y here to enable MT6362 Debug support.
+	  Provide Read/Write interface by debugfs
+	  ext_dev_io.
+	  Also support multiple size condition.

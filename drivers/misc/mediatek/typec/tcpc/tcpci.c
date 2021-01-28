@@ -133,6 +133,16 @@ int tcpci_fault_status_clear(
 	return tcpc->ops->fault_status_clear(tcpc, status);
 }
 
+int tcpci_set_alert_mask(struct tcpc_device *tcpc, uint32_t mask)
+{
+	int rv = 0;
+
+	if (tcpc->ops->set_alert_mask)
+		return tcpc->ops->set_alert_mask(tcpc, mask);
+
+	return rv;
+}
+
 int tcpci_get_alert_mask(
 	struct tcpc_device *tcpc, uint32_t *mask)
 {

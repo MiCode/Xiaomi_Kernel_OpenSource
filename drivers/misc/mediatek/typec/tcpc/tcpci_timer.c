@@ -415,7 +415,7 @@ static inline void on_pe_timer_timeout(
 #ifdef CONFIG_USB_PD_RETRY_CRC_DISCARD
 	case PD_TIMER_DISCARD:
 		tcpc_dev->pd_discard_pending = false;
-		pd_put_hw_event(tcpc_dev, PD_HW_TX_FAILED);
+		pd_put_hw_event(tcpc_dev, PD_HW_TX_DISCARD);
 		break;
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 
