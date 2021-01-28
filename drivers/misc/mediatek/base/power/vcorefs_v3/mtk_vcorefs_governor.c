@@ -31,6 +31,7 @@
 #if defined(CONFIG_MTK_DRAMC)
 #include <mtk_dramc.h>
 #endif
+#include <mtk_spm.h>
 /* #include <mtk_eem.h> */
 /* hh, temp fix build error */
 /* #include "mmdvfs_mgr.h" */
