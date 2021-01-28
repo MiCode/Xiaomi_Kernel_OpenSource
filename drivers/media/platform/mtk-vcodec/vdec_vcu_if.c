@@ -62,6 +62,8 @@ static void handle_query_cap_ack_msg(struct vdec_vcu_ipi_query_cap_ack *msg)
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 	/* mapping VCU address to kernel virtual address */
 	data = vcu_mapping_dm_addr(vcu->dev, msg->vcu_data_addr);
+	if (data == NULL)
+		return;
 	switch (msg->id) {
 	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
 		size = sizeof(struct mtk_video_fmt);
