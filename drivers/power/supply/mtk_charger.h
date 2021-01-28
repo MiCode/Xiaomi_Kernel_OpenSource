@@ -55,6 +55,11 @@ struct mtk_charger;
 #define NON_STD_AC_CHARGER_CURRENT		500000
 #define CHARGING_HOST_CHARGER_CURRENT		650000
 
+/* dynamic mivr */
+#define V_CHARGER_MIN_1 4400000 /* 4.4 V */
+#define V_CHARGER_MIN_2 4200000 /* 4.2 V */
+#define MAX_DMIVR_CHARGER_CURRENT 1800000 /* 1.8 A */
+
 /* battery warning */
 #define BATTERY_NOTIFY_CASE_0001_VCHARGER
 #define BATTERY_NOTIFY_CASE_0002_VBATTEMP
@@ -307,6 +312,8 @@ struct mtk_charger {
 
 	/* water detection */
 	bool water_detected;
+
+	bool enable_dynamic_mivr;
 };
 
 /* functions which framework needs*/

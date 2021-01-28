@@ -173,7 +173,6 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	info->enable_sw_safety_timer =
 			of_property_read_bool(np, "enable_sw_safety_timer");
 	info->sw_safety_timer_setting = info->enable_sw_safety_timer;
-	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
 
 	/* common */
 
@@ -426,6 +425,32 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 					CHARGING_HOST_CHARGER_CURRENT;
 	}
 
+	/* dynamic mivr */
+	info->enable_dynamic_mivr =
+			of_property_read_bool(np, "enable_dynamic_mivr");
+
+	if (of_property_read_u32(np, "min_charger_voltage_1", &val) >= 0)
+		info->data.min_charger_voltage_1 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_1: %d\n", V_CHARGER_MIN_1);
+		info->data.min_charger_voltage_1 = V_CHARGER_MIN_1;
+	}
+
+	if (of_property_read_u32(np, "min_charger_voltage_2", &val) >= 0)
+		info->data.min_charger_voltage_2 = val;
+	else {
+		chr_err("use default V_CHARGER_MIN_2: %d\n", V_CHARGER_MIN_2);
+		info->data.min_charger_voltage_2 = V_CHARGER_MIN_2;
+	}
+
+	if (of_property_read_u32(np, "max_dmivr_charger_current", &val) >= 0)
+		info->data.max_dmivr_charger_current = val;
+	else {
+		chr_err("use default MAX_DMIVR_CHARGER_CURRENT: %d\n",
+			MAX_DMIVR_CHARGER_CURRENT);
+		info->data.max_dmivr_charger_current =
+					MAX_DMIVR_CHARGER_CURRENT;
+	}
 }
 
 static void mtk_charger_start_timer(struct mtk_charger *info)
@@ -478,6 +503,41 @@ static void check_battery_exist(struct mtk_charger *info)
 		}
 	}
 #endif
+}
+
+static void check_dynamic_mivr(struct mtk_charger *info)
+{
+	int i = 0, ret = 0;
+	int vbat = 0;
+	bool is_fast_charge = false;
+	struct chg_alg_device *alg = NULL;
+
+	if (!info->enable_dynamic_mivr)
+		return;
+
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = info->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if (ret == ALG_RUNNING) {
+			is_fast_charge = true;
+			break;
+		}
+	}
+
+	if (!is_fast_charge) {
+		vbat = get_battery_voltage(info);
+		if (vbat < info->data.min_charger_voltage_2 / 1000 - 200)
+			charger_dev_set_mivr(info->chg1_dev,
+				info->data.min_charger_voltage_2);
+		else if (vbat < info->data.min_charger_voltage_1 / 1000 - 200)
+			charger_dev_set_mivr(info->chg1_dev,
+				info->data.min_charger_voltage_1);
+		else
+			charger_dev_set_mivr(info->chg1_dev,
+				info->data.min_charger_voltage);
+	}
 }
 
 /* sw jeita */
@@ -1507,6 +1567,7 @@ static int charger_routine_thread(void *arg)
 			mtk_charger_start_timer(info);
 
 		check_battery_exist(info);
+		check_dynamic_mivr(info);
 		charger_check_status(info);
 
 		if (is_disable_charger(info) == false &&
