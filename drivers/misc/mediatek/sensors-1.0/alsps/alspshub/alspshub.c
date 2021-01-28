@@ -333,8 +333,9 @@ static int ps_recv_data(struct data_unit_t *event, void *reserved)
 	else if (event->flush_action == DATA_ACTION &&
 			READ_ONCE(obj->ps_android_enable) == true) {
 		__pm_wakeup_event(&obj->ps_wake_lock, msecs_to_jiffies(100));
-		err = ps_data_report(event->proximity_t.oneshot,
-			SENSOR_STATUS_ACCURACY_HIGH);
+		err = ps_data_report_t(event->proximity_t.oneshot,
+			SENSOR_STATUS_ACCURACY_HIGH,
+			(int64_t)event->time_stamp);
 	} else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->ps_thd_val_high, event->data[0]);
@@ -356,8 +357,9 @@ static int als_recv_data(struct data_unit_t *event, void *reserved)
 		err = als_flush_report();
 	else if ((event->flush_action == DATA_ACTION) &&
 			READ_ONCE(obj->als_android_enable) == true)
-		err = als_data_report(event->light,
-			SENSOR_STATUS_ACCURACY_MEDIUM);
+		err = als_data_report_t(event->light,
+				SENSOR_STATUS_ACCURACY_MEDIUM,
+				(int64_t)event->time_stamp);
 	else if (event->flush_action == CALI_ACTION) {
 		spin_lock(&calibration_lock);
 		atomic_set(&obj->als_cali, event->data[0]);
@@ -374,7 +376,8 @@ static int rgbw_recv_data(struct data_unit_t *event, void *reserved)
 	if (event->flush_action == FLUSH_ACTION)
 		err = rgbw_flush_report();
 	else if (event->flush_action == DATA_ACTION)
-		err = rgbw_data_report(event->data);
+		err = rgbw_data_report_t(event->data,
+			(int64_t)event->time_stamp);
 	return err;
 }
 

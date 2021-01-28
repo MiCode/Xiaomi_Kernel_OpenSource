@@ -24,7 +24,7 @@ int last_als_report_data = -1;
 
 static struct alsps_init_info *alsps_init_list[MAX_CHOOSE_ALSPS_NUM] = {0};
 
-int als_data_report(int value, int status)
+int als_data_report_t(int value, int status, int64_t time_stamp)
 {
 	int err = 0;
 	struct alsps_context *cxt = NULL;
@@ -33,6 +33,7 @@ int als_data_report(int value, int status)
 	memset(&event, 0, sizeof(struct sensor_event));
 
 	cxt = alsps_context_obj;
+	event.time_stamp = time_stamp;
 	/* pr_debug(" +als_data_report! %d, %d\n", value, status); */
 	/* force trigger data update after sensor enable. */
 	if (cxt->is_get_valid_als_data_after_enable == false) {
@@ -52,7 +53,10 @@ int als_data_report(int value, int status)
 	}
 	return err;
 }
-
+int als_data_report(int value, int status)
+{
+	return als_data_report_t(value, status, 0);
+}
 int als_cali_report(int *value)
 {
 	int err = 0;
@@ -80,7 +84,7 @@ int als_flush_report(void)
 	return err;
 }
 
-int rgbw_data_report(int *value)
+int rgbw_data_report_t(int *value, int64_t time_stamp)
 {
 	int err = 0;
 	struct alsps_context *cxt = alsps_context_obj;
@@ -90,6 +94,7 @@ int rgbw_data_report(int *value)
 
 	event.handle = ID_RGBW;
 	event.flush_action = DATA_ACTION;
+	event.time_stamp = time_stamp;
 	event.word[0] = value[0];
 	event.word[1] = value[1];
 	event.word[2] = value[2];
@@ -97,7 +102,10 @@ int rgbw_data_report(int *value)
 	err = sensor_input_event(cxt->als_mdev.minor, &event);
 	return err;
 }
-
+int rgbw_data_report(int *value)
+{
+	return rgbw_data_report_t(value, 0);
+}
 int rgbw_flush_report(void)
 {
 	struct sensor_event event;
@@ -112,7 +120,7 @@ int rgbw_flush_report(void)
 	return err;
 }
 
-int ps_data_report(int value, int status)
+int ps_data_report_t(int value, int status, int64_t time_stamp)
 {
 	int err = 0;
 	struct sensor_event event;
@@ -121,12 +129,16 @@ int ps_data_report(int value, int status)
 
 	pr_notice("[ALS/PS]%s! %d, %d\n", __func__, value, status);
 	event.flush_action = DATA_ACTION;
+	event.time_stamp = time_stamp;
 	event.word[0] = value + 1;
 	event.status = status;
 	err = sensor_input_event(alsps_context_obj->ps_mdev.minor, &event);
 	return err;
 }
-
+int ps_data_report(int value, int status)
+{
+	return ps_data_report_t(value, status, 0);
+}
 int ps_cali_report(int *value)
 {
 	int err = 0;

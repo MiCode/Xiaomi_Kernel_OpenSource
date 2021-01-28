@@ -84,7 +84,8 @@ static int motion_detect_recv_data(struct data_unit_t *event,
 	if (event->flush_action == FLUSH_ACTION)
 		pr_debug("stat do not support flush\n");
 	else if (event->flush_action == DATA_ACTION)
-		err = situation_notify(ID_MOTION_DETECT);
+		err = situation_notify_t(ID_MOTION_DETECT,
+				(int64_t)event->time_stamp);
 	return err;
 }
 
