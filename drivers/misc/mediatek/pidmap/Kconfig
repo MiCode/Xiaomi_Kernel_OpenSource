@@ -1,5 +1,7 @@
 config MTK_PID_MAP
 	tristate "Map of PID and Task Name"
+	default y if DEBUG_FS
+	depends on DEBUG_FS
 	help
 	  Enable task name recorder to
 	  provide more pid and task name mappings.

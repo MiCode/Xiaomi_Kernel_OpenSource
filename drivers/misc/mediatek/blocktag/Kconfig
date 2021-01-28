@@ -9,6 +9,7 @@ config MTK_BLOCK_TAG
 	depends on BLOCK
 	depends on (MTK_GMO_RAM_OPTIMIZE && MTK_ENG_BUILD) || \
 		   !MTK_GMO_RAM_OPTIMIZE
+	default y if DEBUG_FS
 	depends on DEBUG_FS
 	help
 	  Enable block tagging at block driver, tag requester pid to
