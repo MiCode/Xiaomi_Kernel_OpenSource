@@ -143,6 +143,8 @@ CONFIG_DM_UEVENT,COMMON,,,y,y,y,y
 CONFIG_DM_VERITY,PROJECT,Calvin.Liao,for dm-verity,X,X,X,X
 CONFIG_DM_VERITY_FEC,PROJECT,pangyen.chen, new config I1b7b0441f385f77703b529b6efe6b78d122676b1,X,X,X,X
 CONFIG_DMA_API_DEBUG,USER,miles.chen,,N,N,N,N
+CONFIG_DMA_MTK_UART,PLATFORM,qiangming.xia,,N,N,y,y
+CONFIG_DMADEVICES,PLATFORM,qiangming.xia,,N,N,y,y
 CONFIG_DMAUSER_PAGES,PROJECT,Miles.Chen,new config 246784055571763c932926925ddb585948ce81cd,,,,
 CONFIG_DRM,PLATFORM,vincent.sung,whitney gpu requirement,X,X,X,X
 CONFIG_DUAL_ROLE_USB_INTF,PROJECT,vend_jeff_chang001,new config at this commit ebc855c95fb2bdff04b66d63675dbac9387577a8,,,,
@@ -769,6 +771,11 @@ CONFIG_SCSI_UFSHCD,PROJECT,chun-hung.wu,new config in this commit 6c0e95524c592f
 CONFIG_SCSI_UFSHCD_PLATFORM,PROJECT,chun-hung.wu,new config in this commit 6c0e95524c592fe1b6fe1b2b10a066b5b1406f50,,,,
 CONFIG_SDCARD_FS,PROJECT,perry.hsu,new config in this commit f8cb18613009e6d05030b8866b8347ee5fddbdf4,,,,
 CONFIG_SECTION_MISMATCH_WARN_ONLY,COMMON,jades.shih,force build error if section mismatch,X,X,X,X
+CONFIG_SERIAL_8250,PLATFORM,qiangming.xia,,N,N,y,y
+CONFIG_SERIAL_8250_CONSOLE,PLATFORM,qiangming.xia,,N,N,y,y
+CONFIG_SERIAL_8250_MT6577,PLATFORM,qiangming.xia,,N,N,y,y
+CONFIG_SERIAL_8250_NR_UARTS,PLATFORM,qiangming.xia,,N,N,2,2
+CONFIG_SERIAL_8250_RUNTIME_UARTS,PLATFORM,qiangming.xia,,N,N,2,2
 CONFIG_SERIAL_MTK_EARLY_CONSOLE,PROJECT,Cool.Lee,,,,,
 CONFIG_SERIO,COMMON,Unused,,N,N,N,N
 CONFIG_SLOB,PROJECT,miles.chen,,X,X,X,X
