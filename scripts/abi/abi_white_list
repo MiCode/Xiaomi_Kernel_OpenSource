@@ -4,10 +4,12 @@ bypass_arr=(\
 "function void ion_device_add_heap" \
 "function int ufshcd_" \
 "function int v4l2_" \
+"function int phy_set_mode" \
 "net init_net" \
 "struct musb " \
 "struct musb_io " \
 "struct musb_platform_ops " \
+"struct phy_ops " \
 "struct net " \
 "struct net_device " \
 "struct ufs_dev_info " \
