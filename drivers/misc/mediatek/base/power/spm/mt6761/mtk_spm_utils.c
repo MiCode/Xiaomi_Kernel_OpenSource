@@ -8,6 +8,7 @@
 #include <linux/kernel.h>
 #include <linux/device.h>
 #include <linux/delay.h>
+#include <linux/of_device.h>
 #include <asm/setup.h>
 
 #include <mtk_spm_internal.h>
@@ -104,10 +105,8 @@ void spm_ap_mdsrc_req(u8 set)
 				"[SPM ]warning: set = %d spm_ap_mdsrc_req_cnt = %d\n",
 				set, spm_ap_mdsrc_req_cnt);
 		} else {
-
 			if (spm_ap_mdsrc_req_cnt == 0)
 				SMC_CALL(AP_MDSRC_REQ, 0, 0, 0);
-
 		}
 
 		spin_unlock_irqrestore(&__spm_lock, flags);
@@ -141,6 +140,40 @@ ssize_t get_spm_last_debug_flag(char *ToUserBuf
 	return (bLen > sz) ? sz : bLen;
 }
 EXPORT_SYMBOL(get_spm_last_debug_flag);
+
+ssize_t get_spmfw_version(char *ToUserBuf
+		, size_t sz, void *priv)
+{
+	int index = 0;
+	const char *version;
+	char *p = ToUserBuf;
+
+#undef log
+#define log(fmt, args...) ({\
+	p += scnprintf(p, sz - strlen(ToUserBuf), fmt, ##args); p; })
+
+	struct device_node *node =
+	of_find_compatible_node(NULL, NULL, "mediatek,sleep");
+
+	if (node == NULL) {
+		log("No Found mediatek,sleep\n");
+		goto return_size;
+	}
+
+	while (!of_property_read_string_index(node,
+		"spmfw_version", index, &version)) {
+		log("%d: %s\n", index, version);
+		index++;
+	}
+
+	log("spmfw index: %d\n", spm_get_spmfw_idx());
+
+	if (node)
+		of_node_put(node);
+return_size:
+	return p - ToUserBuf;
+}
+EXPORT_SYMBOL(get_spmfw_version);
 
 void spm_output_sleep_option(void)
 {

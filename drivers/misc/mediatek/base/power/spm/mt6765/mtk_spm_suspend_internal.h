@@ -43,6 +43,8 @@ ssize_t get_spm_last_wakeup_src(char *ToUserBuf
 			, size_t sz, void *priv);
 ssize_t get_spm_last_debug_flag(char *ToUserBuf
 			, size_t sz, void *priv);
+ssize_t get_spmfw_version(char *ToUserBuf
+			, size_t sz, void *priv);
 void spm_output_sleep_option(void);
 
 /* record last wakesta */

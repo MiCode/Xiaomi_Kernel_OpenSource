@@ -9,6 +9,7 @@
 #include <linux/string.h>
 
 #include <mtk_spm_internal.h>
+#include <mtk_spm_suspend_internal.h>
 #include <mtk_spm_resource_req_internal.h>
 
 /**************************************
@@ -210,6 +211,11 @@ static ssize_t vcore_dvfs_ctrl_show(struct kobject *kobj,
 	return 0;
 }
 
+static ssize_t spmfw_version_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	return get_spmfw_version(buf, PAGE_SIZE, NULL);
+}
 /**************************************
  * xxx_ctrl_store Function
  **************************************/
@@ -577,6 +583,12 @@ static ssize_t vcore_dvfs_ctrl_store(struct kobject *kobj,
 	return 0;
 }
 
+static ssize_t spmfw_version_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
+				     const char *buf, size_t count)
+{
+	return 0;
+}
 /**************************************
  * fm_suspend Function
  **************************************/
@@ -597,6 +609,7 @@ DEFINE_ATTR_RW(dpidle_ctrl);
 DEFINE_ATTR_RW(sodi3_ctrl);
 DEFINE_ATTR_RW(sodi_ctrl);
 DEFINE_ATTR_RW(vcore_dvfs_ctrl);
+DEFINE_ATTR_RW(spmfw_version);
 DEFINE_ATTR_RO(fm_suspend);
 
 static struct attribute *spm_attrs[] = {
@@ -606,6 +619,7 @@ static struct attribute *spm_attrs[] = {
 	__ATTR_OF(sodi3_ctrl),
 	__ATTR_OF(sodi_ctrl),
 	__ATTR_OF(vcore_dvfs_ctrl),
+	__ATTR_OF(spmfw_version),
 	__ATTR_OF(fm_suspend),
 
 	/* must */
