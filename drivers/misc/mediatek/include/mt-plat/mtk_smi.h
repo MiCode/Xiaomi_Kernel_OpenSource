@@ -46,7 +46,7 @@ static char *MTK_SMI_BWC_SCEN_NAME[SMI_BWC_SCEN_CNT] = {
 
 static inline char *smi_bwc_scen_name_get(const enum MTK_SMI_BWC_SCEN scen)
 {
-	if (scen < SMI_BWC_SCEN_CNT)
+	if (scen >= 0 && scen < SMI_BWC_SCEN_CNT)
 		return MTK_SMI_BWC_SCEN_NAME[scen];
 	else
 		return "SMI_BWC_SCEN_UNKNOWN";
