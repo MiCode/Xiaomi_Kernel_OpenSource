@@ -486,8 +486,9 @@ static void vpu_dmp_seq_req(struct seq_file *s, int c)
 	}
 }
 
-void vpu_dmp_seq_core(struct seq_file *s, int c)
+void vpu_dmp_seq_core(struct seq_file *s, int c_s)
 {
+	unsigned int c = (unsigned int)c_s;
 	struct vpu_dmp *d = vpu_dmp_get(c);
 
 	if (!d)
