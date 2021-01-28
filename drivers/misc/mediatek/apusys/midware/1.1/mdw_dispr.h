@@ -11,12 +11,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __APUSYS_MDW_PACK_H__
-#define __APUSYS_MDW_PACK_H__
+#ifndef __APUSYS_MDW_DISPR_H__
+#define __APUSYS_MDW_DISPR_H__
 
-int mdw_pack_check(void);
-int mdw_pack_dispatch(struct mdw_apu_sc *sc);
-int mdw_pack_init(void);
-void mdw_pack_exit(void);
+int mdw_dispr_check(void);
+int mdw_dispr_norm(struct mdw_apu_sc *sc);
+int mdw_dispr_multi(struct mdw_apu_sc *sc);
+int mdw_dispr_pack(struct mdw_apu_sc *sc);
+int mdw_dispr_init(void);
+void mdw_dispr_exit(void);
 
 #endif

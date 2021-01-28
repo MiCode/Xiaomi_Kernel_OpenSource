@@ -393,7 +393,7 @@ static struct mdw_apu_cmd *mdw_cmd_create_cmd(int fd,
 
 	/* init sc list */
 	INIT_LIST_HEAD(&c->sc_list);
-	INIT_LIST_HEAD(&c->pack_list);
+	INIT_LIST_HEAD(&c->di_list);
 
 	/* init mutex*/
 	mutex_init(&c->mtx);
@@ -544,6 +544,7 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 	sc->pdr_num = mdw_cmd_get_pdr_num(sc);
 	sc->scr_bmp = mdw_cmd_get_scr(sc);
 	sc->runtime = sc->hdr->ip_time;
+	kref_init(&sc->multi_ref);
 	sc->d_hdr = (void *)((uint64_t)(sc->u_hdr) +
 		sizeof(struct apu_sc_hdr_cmn));
 	if (mdw_cmd_get_codebuf_info(sc))

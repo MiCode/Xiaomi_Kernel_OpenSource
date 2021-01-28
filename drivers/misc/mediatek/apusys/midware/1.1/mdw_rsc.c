@@ -53,8 +53,7 @@ static char * const rsc_dev_name[] = {
 	"sample",
 	"mdla",
 	"vpu",
-	"edma", // edma 2.0
-	"edma3.0", // edma 3.0
+	"edma",
 };
 
 #ifdef CONFIG_PM_SLEEP
@@ -128,7 +127,7 @@ static int mdw_rsc_get_name(int type, char *name)
 	int name_idx = 0;
 
 	name_idx = type % APUSYS_DEVICE_RT;
-	if (name_idx >= sizeof(rsc_dev_name)/sizeof(char *) - 1) {
+	if (name_idx >= sizeof(rsc_dev_name)/sizeof(char *)) {
 		mdw_drv_err("unknown dev(%d/%d) name\n", type, name_idx);
 		return -ENODEV;
 	}
@@ -892,7 +891,7 @@ int mdw_rsc_get_dev(struct mdw_rsc_req *req)
 			mutex_lock(&rsc_mgr.mtx);
 		}
 		if (req->mode == MDW_DEV_INFO_GET_MODE_ASYNC)
-			ret = EAGAIN;
+			ret = -EAGAIN;
 	} else {
 		/* call async cb if done */
 		if (req->cb_async)

@@ -25,7 +25,7 @@
 #include "mdw_rsc.h"
 #include "mdw_cmd.h"
 #include "mdw_sched.h"
-#include "mdw_pack.h"
+#include "mdw_dispr.h"
 #include "midware_trace.h"
 #include "mnoc_api.h"
 #include "reviser_export.h"
@@ -340,73 +340,26 @@ static int mdw_sched_get_type(uint64_t bmp)
 	return find_last_bit((unsigned long *)&tmp, APUSYS_DEVICE_MAX);
 }
 
-int mdw_sched_dispatch_pack(struct mdw_apu_sc *sc)
+static int mdw_sched_dispatch(struct mdw_apu_sc *sc)
 {
-	return mdw_pack_dispatch(sc);
-}
-
-static int mdw_sched_dispatch_norm(struct mdw_apu_sc *sc)
-{
-	struct mdw_rsc_req r;
-	struct mdw_dev_info *d = NULL;
-	struct list_head *tmp = NULL, *list_ptr = NULL;
 	int ret = 0, dev_num = 0, exec_num = 0;
 
+	/* get dev num */
 	dev_num =  mdw_rsc_get_dev_num(sc->type);
 
-	memset(&r, 0, sizeof(r));
+	/* check exec #dev */
 	exec_num = cmd_parser->exec_core_num(sc);
 	exec_num = exec_num < dev_num ? exec_num : dev_num;
-	r.num[sc->type] = exec_num;
-	r.total_num = exec_num;
-	r.acq_bmp |= (1ULL << sc->type);
-	r.mode = MDW_DEV_INFO_GET_MODE_TRY;
-	if (cmd_parser->is_deadline(sc))
-		r.policy = MDW_DEV_INFO_GET_POLICY_RR;
+	sc->multi_total = exec_num;
+
+	/* select dispatch policy */
+	if (sc->hdr->pack_id)
+		ret = mdw_dispr_pack(sc);
+	else if (sc->parent->multi == HDR_FLAG_MULTI_MULTI && exec_num >= 2)
+		ret = mdw_dispr_multi(sc);
 	else
-		r.policy = MDW_DEV_INFO_GET_POLICY_SEQ;
+		ret = mdw_dispr_norm(sc);
 
-	ret = mdw_rsc_get_dev(&r);
-	if (ret)
-		goto out;
-
-	mutex_lock(&sc->mtx);
-	sc->multi_total = r.get_num[sc->type];
-	refcount_set(&sc->multi_ref.refcount, r.get_num[sc->type]);
-
-	/* power on each device if multicore */
-	if (r.get_num[sc->type] > 1) {
-		list_for_each_safe(list_ptr, tmp, &r.d_list) {
-			d = list_entry(list_ptr, struct mdw_dev_info, r_item);
-			d->pwr_on(d, sc->boost, MDW_RSC_SET_PWR_TIMEOUT);
-			sc->multi_bmp |= (1ULL << d->idx);
-			mdw_flw_debug("pwron dev(%s%d)\n", d->name, d->idx);
-		}
-	}
-
-	mutex_unlock(&sc->mtx);
-	mdw_flw_debug("sc(0x%llx-#%d) #dev(%u/%u) ref(%d)\n",
-		sc->parent->kid, sc->idx, r.get_num[sc->type],
-		r.num[sc->type], kref_read(&sc->multi_ref));
-
-	/* dispatch cmd */
-	list_for_each_safe(list_ptr, tmp, &r.d_list) {
-		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
-		ret = d->exec(d, sc);
-		if (ret)
-			goto fail_exec_sc;
-		list_del(&d->r_item);
-	}
-
-	goto out;
-
-fail_exec_sc:
-	list_for_each_safe(list_ptr, tmp, &r.d_list) {
-		d = list_entry(list_ptr, struct mdw_dev_info, r_item);
-		list_del(&d->r_item);
-		mdw_rsc_put_dev(d);
-	}
-out:
 	return ret;
 }
 
@@ -432,7 +385,7 @@ static int mdw_sched_routine(void *arg)
 			goto next;
 		}
 
-		mdw_pack_check();
+		mdw_dispr_check();
 
 		bmp = mdw_rsc_get_avl_bmp();
 		t = mdw_sched_get_type(bmp);
@@ -452,11 +405,7 @@ static int mdw_sched_routine(void *arg)
 			sc->parent->kid, sc->idx, sc->type, sc->period);
 
 		/* dispatch cmd */
-		if (sc->hdr->pack_id)
-			ret = mdw_sched_dispatch_pack(sc);
-		else
-			ret = mdw_sched_dispatch_norm(sc);
-
+		ret = mdw_sched_dispatch(sc);
 		if (ret) {
 			mdw_flw_debug("sc(0x%llx-#%d) dispatch fail",
 				sc->parent->kid, sc->idx);
@@ -629,7 +578,7 @@ int mdw_sched_init(void)
 		return -ENOMEM;
 	}
 
-	mdw_pack_init();
+	mdw_dispr_init();
 
 	return 0;
 }
@@ -638,5 +587,5 @@ void mdw_sched_exit(void)
 {
 	ms_mgr.stop = true;
 	mdw_sched(NULL);
-	mdw_pack_exit();
+	mdw_dispr_exit();
 }

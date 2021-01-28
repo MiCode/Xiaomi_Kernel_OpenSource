@@ -51,7 +51,7 @@ struct mdw_apu_cmd {
 	uint8_t ctx_cnt[MDW_CMD_SC_MAX]; // ctx count
 	uint8_t ctx_repo[MDW_CMD_SC_MAX]; // ctx tmp storage
 	uint8_t pack_cnt[MDW_CMD_SC_MAX]; // pack count
-	struct list_head pack_list; //for pack item
+	struct list_head di_list; //for dispr item
 
 	int state;
 
@@ -94,7 +94,7 @@ struct mdw_apu_sc {
 	struct kref multi_ref;
 
 	struct list_head ds_item; // to done sc q
-	struct list_head pk_item; // to pack item
+	struct list_head di_item; // to dispr item
 
 	struct mutex mtx;
 
