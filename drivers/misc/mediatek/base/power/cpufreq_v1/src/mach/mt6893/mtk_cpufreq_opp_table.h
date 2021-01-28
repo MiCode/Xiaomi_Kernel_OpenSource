@@ -15,22 +15,22 @@
 #include "mtk_cpufreq_config.h"
 
 /* LL */
-#define CPU_DVFS_FREQ0_LL_FY          2000000
-#define CPU_DVFS_FREQ1_LL_FY          1895000
-#define CPU_DVFS_FREQ2_LL_FY          1833000
-#define CPU_DVFS_FREQ3_LL_FY          1750000
-#define CPU_DVFS_FREQ4_LL_FY          1666000
-#define CPU_DVFS_FREQ5_LL_FY          1583000
-#define CPU_DVFS_FREQ6_LL_FY          1500000
-#define CPU_DVFS_FREQ7_LL_FY          1393000
-#define CPU_DVFS_FREQ8_LL_FY          1287000
-#define CPU_DVFS_FREQ9_LL_FY          1181000
-#define CPU_DVFS_FREQ10_LL_FY          1101000
-#define CPU_DVFS_FREQ11_LL_FY          1021000
-#define CPU_DVFS_FREQ12_LL_FY          889000
-#define CPU_DVFS_FREQ13_LL_FY          729000
-#define CPU_DVFS_FREQ14_LL_FY          650000
-#define CPU_DVFS_FREQ15_LL_FY          500000
+#define CPU_DVFS_FREQ0_LL_FY          2000000         /* KHz */
+#define CPU_DVFS_FREQ1_LL_FY          1895000         /* KHz */
+#define CPU_DVFS_FREQ2_LL_FY		1791000		/* KHz */
+#define CPU_DVFS_FREQ3_LL_FY		1708000		/* KHz */
+#define CPU_DVFS_FREQ4_LL_FY		1625000		/* KHz */
+#define CPU_DVFS_FREQ5_LL_FY		1500000		/* KHz */
+#define CPU_DVFS_FREQ6_LL_FY		1393000		/* KHz */
+#define CPU_DVFS_FREQ7_LL_FY		1287000		/* KHz */
+#define CPU_DVFS_FREQ8_LL_FY		1181000		/* KHz */
+#define CPU_DVFS_FREQ9_LL_FY		1048000		/* KHz */
+#define CPU_DVFS_FREQ10_LL_FY		968000		/* KHz */
+#define CPU_DVFS_FREQ11_LL_FY		862000		/* KHz */
+#define CPU_DVFS_FREQ12_LL_FY		756000		/* KHz */
+#define CPU_DVFS_FREQ13_LL_FY		703000		/* KHz */
+#define CPU_DVFS_FREQ14_LL_FY		650000		/* KHz */
+#define CPU_DVFS_FREQ15_LL_FY		500000		/* KHz */
 
 /* BL */
 #define CPU_DVFS_FREQ0_L_FY		2202000		/* KHz */
