@@ -9491,7 +9491,7 @@ static inline void ISP_StopHW(signed int module)
 	do {
 		regTGSt = (ISP_RD32(CAM_REG_TG_INTER_ST(module)) & 0x00003F00)
 			   >> 8;
-		if (regTGSt == 1)
+		if (regTGSt == 1 || regTGSt == 0)
 			break;
 
 		pr_info("%s: wait 1VD (%d)\n", moduleName, loopCnt);
@@ -9508,19 +9508,10 @@ static inline void ISP_StopHW(signed int module)
 		do_div(m_sec, 1000); /* usec */
 		m_usec = do_div(m_sec, 1000000); /* sec and usec */
 
-		while (regTGSt != 1) {
-			regTGSt = (ISP_RD32(CAM_REG_TG_INTER_ST(module))
-				   & 0x00003F00) >> 8;
-			/*timer*/
-			sec = ktime_get(); /* ns */
-			do_div(sec, 1000); /* sec */
-			usec = do_div(sec, 1000000); /* sec and usec */
-			/* wait time>timeoutMs, break */
-			if ((sec - m_sec) > timeoutMs)
-				break;
-		}
 		if (regTGSt == 1)
 			pr_info("%s: wait idle done\n", moduleName);
+		else if (regTGSt == 0)
+			pr_info("plz check regTGSt value");
 		else
 			pr_info("%s: wait idle timeout(%lld)\n", moduleName,
 				(sec - m_sec));
