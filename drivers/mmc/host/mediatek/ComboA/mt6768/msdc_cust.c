@@ -473,7 +473,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		pr_notice("[msdc%d] can not get clock control\n", pdev->id);
 		return 1;
 	}
-	if (clk_prepare(host->clk_ctl)) {
+	if (clk_prepare_enable(host->clk_ctl)) {
 		pr_notice("[msdc%d] can not prepare clock control\n", pdev->id);
 		return 1;
 	}
@@ -482,7 +482,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		pr_notice("[msdc%d] can not get clock control\n", pdev->id);
 		return 1;
 	}
-	if (hclk_names[pdev->id] && clk_prepare(host->hclk_ctl)) {
+	if (hclk_names[pdev->id] && clk_prepare_enable(host->hclk_ctl)) {
 		pr_notice("[msdc%d] can not prepare hclock control\n",
 			pdev->id);
 		return 1;
@@ -498,7 +498,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 			WARN_ON(1);
 			return 1;
 		}
-		if (clk_prepare(host->aes_clk_ctl)) {
+		if (clk_prepare_enable(host->aes_clk_ctl)) {
 			pr_notice(
 				"[msdc%d] can not prepare aes clock control\n",
 				pdev->id);

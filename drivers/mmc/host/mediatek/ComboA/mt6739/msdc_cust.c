@@ -523,7 +523,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 			pr_notice("[msdc%d] cannot get clk ctrl\n", pdev->id);
 			return 1;
 		}
-		if (clk_prepare(host->clk_ctl)) {
+		if (clk_prepare_enable(host->clk_ctl)) {
 			pr_notice("[msdc%d] cannot prepare clk ctrl\n",
 				pdev->id);
 			return 1;
@@ -536,7 +536,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 			pr_notice("[msdc%d] cannot get hclk ctrl\n", pdev->id);
 			return 1;
 		}
-		if (clk_prepare(host->hclk_ctl)) {
+		if (clk_prepare_enable(host->hclk_ctl)) {
 			pr_notice("[msdc%d] cannot prepare hclk ctrl\n", pdev->id);
 			return 1;
 		}
