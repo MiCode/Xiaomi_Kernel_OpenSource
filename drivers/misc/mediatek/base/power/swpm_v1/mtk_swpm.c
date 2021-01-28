@@ -151,6 +151,7 @@ static int dump_power_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#ifndef CPU_LKG_NOT_SUPPORT
 static int dump_lkg_power_proc_show(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -167,6 +168,7 @@ static int dump_lkg_power_proc_show(struct seq_file *m, void *v)
 
 	return 0;
 }
+#endif
 
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 static int gpu_debug_proc_show(struct seq_file *m, void *v)
@@ -504,7 +506,9 @@ end:
 #endif
 
 PROC_FOPS_RO(dump_power);
+#ifndef CPU_LKG_NOT_SUPPORT
 PROC_FOPS_RO(dump_lkg_power);
+#endif
 #ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
 PROC_FOPS_RW(gpu_debug);
 #endif
@@ -531,7 +535,9 @@ static int create_procfs(void)
 
 	struct pentry swpm_entries[] = {
 		PROC_ENTRY(dump_power),
+#ifndef CPU_LKG_NOT_SUPPORT
 		PROC_ENTRY(dump_lkg_power),
+#endif
 		PROC_ENTRY(debug),
 		PROC_ENTRY(enable),
 		PROC_ENTRY(update_cnt),
