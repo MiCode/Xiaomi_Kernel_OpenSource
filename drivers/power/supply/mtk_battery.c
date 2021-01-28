@@ -1632,6 +1632,12 @@ void battery_update(struct mtk_battery *gm)
 	struct battery_data *bat_data = &gm->bs_data;
 	struct power_supply *bat_psy = bat_data->psy;
 
+	if (gm->is_probe_done == false || bat_psy == NULL) {
+		bm_err("[%s]battery is not rdy:probe:%d\n",
+			__func__, gm->is_probe_done);
+		return;
+	}
+
 	battery_update_psd(gm);
 	bat_data->bat_technology = POWER_SUPPLY_TECHNOLOGY_LION;
 	bat_data->bat_health = POWER_SUPPLY_HEALTH_GOOD;
