@@ -45,7 +45,7 @@ extern void scp_aed_reset(enum scp_excep_id type, enum scp_core_id id);
 extern void scp_aed_reset_inplace(enum scp_excep_id type,
 		enum scp_core_id id);
 extern void scp_get_log(enum scp_core_id id);
-extern char *scp_get_last_log(enum scp_core_id id);
+extern char *scp_pickup_log_for_aee(void);
 extern void aed_scp_exception_api(const int *log, int log_size,
 		const int *phy, int phy_size, const char *detail,
 		const int db_opt);
