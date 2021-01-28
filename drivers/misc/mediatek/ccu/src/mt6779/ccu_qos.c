@@ -27,7 +27,7 @@ static DEFINE_MUTEX(ccu_qos_mutex);
 #define CCU_BW_O 60
 #define CCU_BW_G 15
 #define LTMSO_BW_O 5
-#define AFO_BW_O 30
+#define AFO_BW_O 35
 
 void ccu_qos_init(void)
 {
