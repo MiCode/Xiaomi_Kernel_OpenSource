@@ -700,7 +700,9 @@ static int vpu_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	snprintf(vd->name, sizeof(vd->name), "vpu%d", vd->id);
+	ret = snprintf(vd->name, sizeof(vd->name), "vpu%d", vd->id);
+	if (ret < 0)
+		goto out;
 
 	/* put efuse judgement at beginning */
 	if (vpu_is_disabled(vd)) {

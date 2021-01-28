@@ -235,9 +235,10 @@ static int wait_idle(struct vpu_device *vd, uint32_t latency, uint32_t retry)
 	return -EBUSY;
 }
 
-static int wait_command(struct vpu_device *vd, int prio)
+static int wait_command(struct vpu_device *vd, int prio_s)
 {
 	int ret = 0;
+	unsigned int prio = prio_s;
 	bool retry = true;
 
 start:

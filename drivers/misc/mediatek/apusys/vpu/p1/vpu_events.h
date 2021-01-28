@@ -37,7 +37,8 @@ TRACE_EVENT(vpu_cmd,
 		__entry->core = core;
 		__entry->prio = prio;
 		__entry->start_time = start_time;
-		snprintf(__entry->algo, ALGO_NAMELEN, "%s", algo);
+		if (snprintf(__entry->algo, ALGO_NAMELEN, "%s", algo) <= 0)
+			__entry->algo[0] = '\0';
 		__entry->cmd = cmd;
 		__entry->boost = boost;
 		__entry->ret = ret;
@@ -67,7 +68,8 @@ TRACE_EVENT(vpu_dmp,
 	),
 	TP_fast_assign(
 		__entry->core = core;
-		snprintf(__entry->stage, STAGE_NAMELEN, "%s", stage);
+		if (snprintf(__entry->stage, STAGE_NAMELEN, "%s", stage) <= 0)
+			__entry->stage[0] = '\0';
 		__entry->pc = pc;
 	),
 	TP_printk(

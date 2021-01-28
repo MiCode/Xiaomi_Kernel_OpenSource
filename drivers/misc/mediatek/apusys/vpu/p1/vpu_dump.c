@@ -321,14 +321,16 @@ static void vpu_dmp_seq_pl_algo(struct seq_file *s, struct vpu_device *vd)
 		a_name = strrchr(alg->a.name, '_');
 		a_name = (a_name) ? (a_name + 1) : alg->a.name;
 
-		snprintf(str, sizeof(str), "p%d/%s/prog ",
-			i, a_name);
+		if (snprintf(str, sizeof(str), "p%d/%s/prog ",
+			i, a_name) <= 0)
+			str[0] = '\0';
 		vpu_dmp_seq_mem(s, vd, alg->a.mva, str,
 			d->m_pl_algo[i],
 			min(VPU_DMP_PRELOAD_SZ, alg->prog.size));
 
-		snprintf(str, sizeof(str), "p%d/%s/iram ",
-			i, a_name);
+		if (snprintf(str, sizeof(str), "p%d/%s/iram ",
+			i, a_name) <= 0)
+			str[0] = '\0';
 		vpu_dmp_seq_mem(s, vd, alg->a.iram_mva, str,
 			d->m_pl_iram[i],
 			min(VPU_DMP_IRAM_SZ, alg->iram.size));

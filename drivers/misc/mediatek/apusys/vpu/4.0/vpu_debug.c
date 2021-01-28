@@ -608,7 +608,7 @@ void vpu_seq_boost(struct seq_file *s, int boost)
 static uint64_t
 vpu_debug_cmd_entry_seq(struct seq_file *s, struct vpu_cmd_ctl *c, int prio)
 {
-	int i;
+	unsigned int i;
 
 	seq_printf(s, "priority %d: #%llu: ", prio, c->exe_cnt);
 	for (i = 0; vc_str[i].n; i++) {
@@ -657,7 +657,7 @@ int vpu_debug_cmd_seq(struct seq_file *s, struct vpu_device *vd, int prio,
 
 const char *vpu_debug_cmd_str(int cmd)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; vc_str[i].n; i++) {
 		if (cmd == vc_str[i].t)
