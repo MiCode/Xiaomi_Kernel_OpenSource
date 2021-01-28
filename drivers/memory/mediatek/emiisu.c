@@ -72,8 +72,6 @@ static ssize_t emiisu_ctrl_store
 	if (!command)
 		return count;
 	backup_command = command;
-	if (!command)
-		return count;
 	strncpy(command, buf, (size_t)MTK_EMI_MAX_CMD_LEN);
 
 	for (i = 0; i < MTK_EMI_MAX_TOKEN; i++) {
