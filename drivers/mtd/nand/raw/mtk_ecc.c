@@ -263,8 +263,8 @@ static void mtk_ecc_hw_init(struct mtk_ecc *ecc)
 
 static struct mtk_ecc *mtk_ecc_get(struct device_node *np)
 {
+	struct mtk_ecc *ecc = NULL;
 	struct platform_device *pdev;
-	struct mtk_ecc *ecc;
 
 	pdev = of_find_device_by_node(np);
 	if (!pdev || !platform_get_drvdata(pdev))
