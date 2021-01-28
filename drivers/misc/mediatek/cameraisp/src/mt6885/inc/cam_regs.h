@@ -332,8 +332,10 @@ enum{
 #define CAM_REG_CTL_RAW_INT4_EN(module)         (isp_devs[module].regs + 0x0130)
 #define CAM_REG_CTL_RAW_INT4_STATUS(module)     (isp_devs[module].regs + 0x0134)
 #define CAM_REG_CTL_RAW_INT4_STATUSX(module)    (isp_devs[module].regs + 0x0138)
-#define CAM_REG_CTL_RAW_INT5_STATUS(module)     (isp_devs[module].regs + 0x0140)
-#define CAM_REG_CTL_RAW_INT5_STATUSX(module)    (isp_devs[module].regs + 0x0144)
+#define CAM_REG_CTL_RAW_INT5_EN(module)         (isp_devs[module].regs + 0x0140)
+#define CAM_REG_CTL_RAW_INT5_STATUS(module)     (isp_devs[module].regs + 0x0144)
+#define CAM_REG_CTL_RAW_INT5_STATUSX(module)    (isp_devs[module].regs + 0x0148)
+#define CAM_REG_CTL_RAW_INT6_EN(module)         (isp_devs[module].regs + 0x0150)
 #define CAM_REG_CTL_RAW_INT6_STATUS(module)     (isp_devs[module].regs + 0x0154)
 #define CAM_REG_CTL_RAW_INT6_STATUSX(module)    (isp_devs[module].regs + 0x0158)
 
