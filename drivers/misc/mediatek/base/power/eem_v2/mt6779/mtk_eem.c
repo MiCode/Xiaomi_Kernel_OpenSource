@@ -41,7 +41,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/suspend.h>
 
-
+#include <linux/of_platform.h>
+#include <linux/nvmem-consumer.h>
 
 #ifdef CONFIG_OF
 	#include <linux/cpu.h>
@@ -209,26 +210,45 @@ static struct eem_det *id_to_eem_det(enum eem_det_id id)
 
 static int get_devinfo(void)
 {
+	int ret = 0;
+	int *val;
+	int i = 0;
+	unsigned int tmp;
 	struct pi_efuse_index *p;
 	struct eem_det *det;
-	int ret = 0, i = 0;
-	unsigned int tmp;
-	int *val;
+	struct platform_device *pdev;
+	struct nvmem_device *nvmem_dev;
+	struct device_node *node;
 
 	FUNC_ENTER(FUNC_LV_HELP);
+
 	val = (int *)&eem_devinfo;
+	node = of_find_node_by_name(NULL, "eem_fsm");
+	//node = of_find_compatible_node(NULL, NULL, "mediatek,eem_fsm");
+	if (node == NULL) {
+		eem_error("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
+
+	if (IS_ERR(nvmem_dev)) {
+		eem_error("%s ptpod failed to get mtk_efuse device\n",
+				__func__);
+		return 0;
+	}
 
 	/* FTPGM */
-	val[0] = get_devinfo_with_index(DEVINFO_IDX_0);
-	val[1] = get_devinfo_with_index(DEVINFO_IDX_4);
-	val[2] = get_devinfo_with_index(DEVINFO_IDX_5);
-	val[3] = get_devinfo_with_index(DEVINFO_IDX_6);
-	val[4] = get_devinfo_with_index(DEVINFO_IDX_16);
-	val[5] = get_devinfo_with_index(DEVINFO_IDX_17);
-	val[6] = get_devinfo_with_index(DEVINFO_IDX_18);
-	val[7] = get_devinfo_with_index(DEVINFO_IDX_19);
-	val[8] = get_devinfo_with_index(DEVINFO_IDX_23);
-	val[9] = get_devinfo_with_index(DEVINFO_IDX_24);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_0, sizeof(__u32), &val[0]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_4, sizeof(__u32), &val[1]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_5, sizeof(__u32), &val[2]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_6, sizeof(__u32), &val[3]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_16, sizeof(__u32), &val[4]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_17, sizeof(__u32), &val[5]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_18, sizeof(__u32), &val[6]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_19, sizeof(__u32), &val[7]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_23, sizeof(__u32), &val[8]);
+	nvmem_device_read(nvmem_dev, DEVINFO_OFF_24, sizeof(__u32), &val[9]);
 
 
 #if EEM_FAKE_EFUSE
@@ -255,7 +275,6 @@ static int get_devinfo(void)
 	eem_debug("M_HW_RES19 = 0x%08X\n", val[7]);
 	eem_debug("M_HW_RES23 = 0x%08X\n", val[8]);
 	eem_debug("M_HW_RES24 = 0x%08X\n", val[9]);
-
 
 	/* Update MTDES/BDES/MDES if they are modified by PICACHU. */
 	for (p = &pi_efuse_idx[0]; p->mdes_bdes_index != 0; p++) {
@@ -322,13 +341,16 @@ static int get_devinfo(void)
 	aee_rr_rec_ptp_e7((unsigned int)val[8]);
 	aee_rr_rec_ptp_e8((unsigned int)val[9]);
 #endif
-	tmp = get_devinfo_with_index(CPU_SEG_CODE_IDX) & 0xff;
+
+	nvmem_device_read(nvmem_dev, CPU_SEG_CODE_OFF, sizeof(__u32), &tmp);
+	tmp = tmp & 0xff;
 	if ((tmp == 0x09) || (tmp == 0x90) || (tmp == 0x08) ||
 		(tmp == 0x10) || (tmp == 0x06) || (tmp == 0x60) ||
 		(tmp == 0x04) || (tmp == 0x20))
 		cpu_level4 = 1;
 
-	gpu_bin = (get_devinfo_with_index(GPU_BIN_CODE_IDX) >> 9) & 0x7;
+	nvmem_device_read(nvmem_dev, GPU_BIN_CODE_OFF, sizeof(__u32), &gpu_bin);
+	gpu_bin = gpu_bin & 0x7;
 	if (gpu_bin > 5)
 		gpu_bin = 0;
 

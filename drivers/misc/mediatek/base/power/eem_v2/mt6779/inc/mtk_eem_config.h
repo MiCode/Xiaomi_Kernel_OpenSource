@@ -66,6 +66,28 @@
 #define GPU_BIN_CODE_IDX 64		/* 05B8 for GPU bin */
 #define CPU_SEG_CODE_IDX 7		/* 05B8 for CPU SEG */
 
+#define DEVINFO_OFF_0 0xc8	/* 10580 */
+#define DEVINFO_OFF_1 0xcc	/* 10584 */
+#define DEVINFO_OFF_2 0xd0	/* 10588 */
+#define DEVINFO_OFF_3 0xd4	/* 1058C */
+#define DEVINFO_OFF_4 0xd8	/* 10590 */
+#define DEVINFO_OFF_5 0xdc	/* 10594 */
+#define DEVINFO_OFF_6 0xe0	/* 10598 */
+#define DEVINFO_OFF_7 0xe4	/* 1059C */
+#define DEVINFO_OFF_8 0xe8	/* 105A0 */
+#define DEVINFO_OFF_9 0xec	/* 105A4 */
+#define DEVINFO_OFF_10 0xf0	/* 105A8 */
+#define DEVINFO_OFF_11 0xf4	/* 105AC */
+#define DEVINFO_OFF_12 0xf8	/* 105B0 */
+#define DEVINFO_OFF_16 0x108	/* 105C0 */
+#define DEVINFO_OFF_17 0x10c	/* 105C4 */
+#define DEVINFO_OFF_18 0x110	/* 105C8 */
+#define DEVINFO_OFF_19 0x114	/* 105CC */
+#define DEVINFO_OFF_23 0x124	/* 105DC */
+#define DEVINFO_OFF_24 0x128	/* 105E0 */
+#define GPU_BIN_CODE_OFF 0x100	/* 05B8 for GPU bin */
+#define CPU_SEG_CODE_OFF 0x1c	/* 05B8 for CPU SEG */
+
 #ifdef FIX_ME
 /* Fake EFUSE */
 #define DEVINFO_0 0xFF00
