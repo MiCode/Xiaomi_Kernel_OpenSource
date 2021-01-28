@@ -68,10 +68,13 @@
 #endif
 
 struct wakeup_source *fdvt_wake_lock;
+
 #define FDVT_SMI_READY
 #ifdef FDVT_SMI_READY
 #include <smi_public.h>
 #endif
+
+#include <m4u.h>
 #define FDVT_DEVNAME     "camera-fdvt"
 
 #define LOG_VRB(format, args...) \
