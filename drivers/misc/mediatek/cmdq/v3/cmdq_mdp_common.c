@@ -1089,7 +1089,8 @@ s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 		}
 	}
 
-	if (!cmdq_core_check_pkt_valid(handle->pkt))
+	if (!cmdq_core_check_user_valid((void *)(unsigned long)desc->pVABase,
+		copy_size))
 		return -EFAULT;
 
 	if (desc->regRequest.count &&
