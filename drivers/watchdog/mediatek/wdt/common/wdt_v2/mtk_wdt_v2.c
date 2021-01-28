@@ -45,6 +45,7 @@
 #include <mach/wd_api.h>
 #include <linux/irqchip/mtk-eic.h>
 #include <linux/sched/clock.h>
+#include <linux/soc/mediatek/pmic_wrap.h>
 #ifndef __USING_DUMMY_WDT_DRV__
 #include <mt-plat/upmu_common.h>
 #endif
@@ -724,6 +725,8 @@ void wdt_arch_reset(char mode)
 #endif
 	{
 		/* trigger SW reset */
+		pr_info("%s: disable pwrap before wdt reset\n", __func__);
+		pwrap_disable();
 		mt_reg_sync_writel(MTK_WDT_SWRST_KEY, MTK_WDT_SWRST);
 	}
 
