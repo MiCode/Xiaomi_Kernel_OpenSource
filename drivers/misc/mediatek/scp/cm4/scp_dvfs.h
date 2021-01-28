@@ -9,17 +9,19 @@
 #define PLL_ENABLE				(1)
 #define PLL_DISABLE				(0)
 
-#define DVFS_STATUS_OK				(0)
-#define DVFS_STATUS_BUSY			(-1)
-#define DVFS_REQUEST_SAME_CLOCK			(-2)
+#define DVFS_STATUS_OK			(0)
+#define DVFS_STATUS_BUSY		(-1)
+#define DVFS_REQUEST_SAME_CLOCK	(-2)
 #define DVFS_STATUS_ERR			(-3)
-#define DVFS_STATUS_TIMEOUT			(-4)
-#define DVFS_CLK_ERROR				(-5)
-#define DVFS_STATUS_CMD_FIX			(-6)
-#define DVFS_STATUS_CMD_LIMITED			(-7)
-#define DVFS_STATUS_CMD_DISABLE			(-8)
+#define DVFS_STATUS_TIMEOUT		(-4)
+#define DVFS_CLK_ERROR			(-5)
+#define DVFS_STATUS_CMD_FIX		(-6)
+#define DVFS_STATUS_CMD_LIMITED	(-7)
+#define DVFS_STATUS_CMD_DISABLE	(-8)
 
 #define CLK_26M					(26)
+#define MAINPLL_273M			(273)
+#define UNIVPLL_416M			(416)
 
 enum scp_state_enum {
 	IN_DEBUG_IDLE = 1,
@@ -120,7 +122,6 @@ struct dvfs_data {
 	int dvfsrc_opp_num;
 };
 
-extern void scp_to_spm_resource_req(unsigned long cmd, unsigned long val);
 extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
 extern int scp_set_pmic_vcore(unsigned int cur_freq);
 extern unsigned int scp_get_dvfs_opp(void);

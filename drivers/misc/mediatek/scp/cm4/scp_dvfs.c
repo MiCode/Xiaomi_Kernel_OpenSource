@@ -42,6 +42,7 @@
 #include "scp_excep.h"
 #include "scp_dvfs.h"
 #include "dvfsrc-exp.h"
+#include "mtk_spm_resource_req.h"
 
 #ifdef pr_fmt
 #undef pr_fmt
@@ -76,22 +77,6 @@ static struct regulator *reg_vcore, *reg_vsram;
 
 static struct mtk_pm_qos_request dvfsrc_scp_vcore_req;
 
-void scp_to_spm_resource_req(unsigned long cmd, unsigned long val)
-{
-	struct arm_smccc_res res;
-
-	pr_notice("%s(0x%x, 0x%x)\n", __func__, (int)cmd, (int)val);
-
-	arm_smccc_smc(MTK_SIP_KERNEL_SCP_DVFS_CTRL,
-			cmd, val,
-			0, 0, 0, 0, 0, &res);
-	if (res.a0) {
-		pr_err("%s: failed to request resource, ret0=0x%lx, ret1=0x%lx\n",
-				__func__, res.a0, res.a1);
-		/* WARN_ON(1); */
-	}
-}
-
 static struct subsys_data *sd;
 
 const char *sub_feature_name[SUB_FEATURE_NUM] = {
@@ -104,6 +89,13 @@ const char *subsys_name[SYS_NUM] = {
 	"gpio",
 	"pmic",
 };
+
+bool __attribute__((weak))
+spm_resource_req(unsigned int user, unsigned int req_mask)
+{
+	pr_err("ERROR: %s is not linked\n", __func__);
+	return true;
+}
 
 static int scp_get_sub_feature_idx(enum subsys_enum sys_e,
 		enum sub_feature_enum comp_e)
@@ -260,19 +252,20 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 {
 	int ret = 0;
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
-	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
-	int idx = scp_get_freq_idx(cur_freq);
+	int idx = 0;
 	unsigned int ret_vc = 0, ret_vs = 0;
 
 	/* if vcore/vsram define as 0xff, means no pmic op during dvfs */
-	if (dvfs->opp[dvfs->scp_opp_num - 1].vcore == 0xff
-			&& dvfs->opp[dvfs->scp_opp_num - 1].vsram == 0xff)
+	if (dvfs->opp[dvfs->scp_opp_num - 1].vcore == 0xff &&
+		dvfs->opp[dvfs->scp_opp_num - 1].vsram == 0xff)
 		return ret;
 
+	idx = scp_get_freq_idx(cur_freq);
 	if (idx >= 0 && idx < dvfs->scp_opp_num) {
 		unsigned int vcore;
 		unsigned int uv = dvfs->opp[idx].uv_idx;
+		int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore + 100000;
+		int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram + 100000;
 
 		if (uv != 0xff)
 			vcore = mtk_dvfsrc_vcore_uv_table(uv);
@@ -288,7 +281,7 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 	} else {
 		ret = -2;
 		pr_err("cur_freq=%d is not supported\n", cur_freq);
-				WARN_ON(1);
+		WARN_ON(1);
 	}
 
 	if (ret_vc != 0 || ret_vs != 0) {
@@ -367,8 +360,12 @@ void scp_vcore_request(unsigned int clk_opp)
 	 * 2'b10: scp request 0.8v
 	 */
 	idx = scp_get_freq_idx(clk_opp);
-	if (idx < 0)
+	if (idx < 0) {
+		pr_err("%s: invalid clk_opp %d\n", __func__, clk_opp);
+		/* WARN_ON(1); */
 		return;
+	}
+
 	/*
 	 * dvfs->opp[idx].dvfsrc_opp == 0xff,
 	 * means scp opp[idx] not supported
@@ -421,10 +418,10 @@ int scp_request_freq(void)
 
 		/* Request SPM not to turn off mainpll/26M/infra */
 		/* because SCP may park in it during DFS process */
-		scp_to_spm_resource_req(SCP_DVFS_SMC_RESOURCE_REQ,
-				SCP_REQ_RESOURCE_26M |
-				SCP_REQ_RESOURCE_INFRA |
-				SCP_REQ_RESOURCE_SYSPLL);
+		spm_resource_req(SPM_RESOURCE_USER_SCP,
+						SPM_RESOURCE_MAINPLL |
+						SPM_RESOURCE_CK_26M |
+						SPM_RESOURCE_AXI_BUS);
 
 		/*  turn on PLL if necessary */
 		scp_pll_ctrl_set(PLL_ENABLE, scp_expected_freq);
@@ -462,13 +459,16 @@ int scp_request_freq(void)
 		if (is_increasing_freq == 0)
 			scp_vcore_request(scp_expected_freq);
 
-		if (scp_expected_freq == dvfs->opp[dvfs->scp_opp_num - 1].freq)
-			/* request SPM not to turn off 26M/infra */
-			scp_to_spm_resource_req(SCP_DVFS_SMC_RESOURCE_REQ,
-					SCP_REQ_RESOURCE_26M |
-					SCP_REQ_RESOURCE_INFRA);
+		if (scp_expected_freq == MAINPLL_273M)
+			spm_resource_req(SPM_RESOURCE_USER_SCP,
+						SPM_RESOURCE_MAINPLL);
+		else if (scp_expected_freq == UNIVPLL_416M)
+			spm_resource_req(SPM_RESOURCE_USER_SCP,
+						SPM_RESOURCE_CK_26M |
+						SPM_RESOURCE_AXI_BUS);
 		else
-			scp_to_spm_resource_req(SCP_DVFS_SMC_RESOURCE_REL, 0);
+			spm_resource_req(SPM_RESOURCE_USER_SCP,
+							 SPM_RESOURCE_RELEASE);
 	}
 
 	__pm_relax(scp_suspend_lock);
@@ -493,7 +493,6 @@ void wait_scp_dvfs_init_done(void)
 
 int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 {
-	int max_freq = dvfs->opp[dvfs->scp_opp_num - 1].freq;
 	int idx;
 	int mux_idx = 0;
 	int ret = 0;
@@ -517,7 +516,8 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 	}
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
-		if (pre_pll_sel != max_freq) {
+		if (pre_pll_sel != MAINPLL_273M &&
+			pre_pll_sel != UNIVPLL_416M) {
 			ret = clk_prepare_enable(mt_scp_pll->clk_mux);
 			if (ret) {
 				pr_err("clk_prepare_enable() failed\n");
@@ -541,19 +541,20 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 		}
 
 		if (ret) {
-			pr_debug("clk_set_parent() failed, opp=%d\n",
+			pr_err("clk_set_parent() failed, opp=%d\n",
 					pll_sel);
 			WARN_ON(1);
 		}
 
 		if (pre_pll_sel != pll_sel)
 			pre_pll_sel = pll_sel;
-	} else if (pll_ctrl_flag == PLL_DISABLE
-			&& (pll_sel != max_freq)) {
+	} else if ((pll_ctrl_flag == PLL_DISABLE) &&
+			   (pll_sel != MAINPLL_273M &&
+			    pll_sel != UNIVPLL_416M)) {
 		clk_disable_unprepare(mt_scp_pll->clk_mux);
-		pr_debug("clk_disable_unprepare()\n");
+		/*pr_debug("clk_disable_unprepare()\n");*/
 	} else {
-		pr_debug("no need to do clk_disable_unprepare\n");
+		/*pr_debug("no need to do clk_disable_unprepare\n");*/
 	}
 
 	return ret;
@@ -751,12 +752,19 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 				for (i = 0; i < dvfs->scp_opp_num; i++) {
 					freq = dvfs->opp[i].freq;
 
-					if (dvfs_opp == i && sum < freq)
+					if (dvfs_opp == i && sum < freq) {
 						added_freq = freq - sum;
+						break;
+					}
 				}
 
-				feature_table[VCORE_TEST_FEATURE_ID].freq =
-						added_freq;
+				for (i = 0; i < NUM_FEATURE_ID; i++)
+					if (VCORE_TEST_FEATURE_ID ==
+						feature_table[i].feature) {
+						feature_table[i].freq =
+							added_freq;
+						break;
+					}
 
 				pr_debug("request freq: %d + %d = %d (MHz)\n",
 						sum,
