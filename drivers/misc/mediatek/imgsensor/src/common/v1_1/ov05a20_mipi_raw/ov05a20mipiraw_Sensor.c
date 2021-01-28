@@ -136,7 +136,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		},
 	.custom1 = {
 		.pclk = 108000000,
-		.linelength = 720*2,
+		.linelength = 1440,
 		.framelength = 2500,
 		.startx = 0,
 		.starty = 0,
