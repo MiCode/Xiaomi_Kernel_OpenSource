@@ -4,11 +4,3 @@ CC=gcc
 DEFCONFIG=defconfig
 KERNEL_DIR=kernel-4.19
 LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN=prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1/bin
-POST_DEFCONFIG_CMDS="update_config"
-function update_config() {
-    ${KERNEL_DIR}/scripts/config --file ${OUT_DIR}/.config \
-         -d CONFIG_DRM_RCAR_DU \
-
-    (cd ${OUT_DIR} && \
-     make O=${OUT_DIR} $archsubarch CROSS_COMPILE=${CROSS_COMPILE} olddefconfig)
-}
