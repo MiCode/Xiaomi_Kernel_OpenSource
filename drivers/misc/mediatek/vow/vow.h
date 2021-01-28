@@ -57,6 +57,7 @@
 #define VOW_STOP_DUMP_WAIT             50
 #define FRAME_BUF_SIZE                 8192
 #define RESERVED_DATA                  4
+#define VOW_RECOVERY_WAIT              100
 
 /* length limitation sync by audio hal */
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
@@ -98,7 +99,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "1.0.1"
+#define KERNEL_VOW_DRV_VER "1.0.2"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
