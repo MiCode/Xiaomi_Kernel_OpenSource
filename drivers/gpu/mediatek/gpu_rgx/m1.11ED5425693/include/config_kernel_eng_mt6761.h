@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
 #define SUPPORT_PERCONTEXT_FREELIST
 #define GPUVIRT_VALIDATION_NUM_OS 8
 #define GPUVIRT_VALIDATION_NUM_REGIONS 2

@@ -55,6 +55,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* Maximum number of debugfs files present at a time */
 #define NUM_HASH_ENTRIES 250
 
+#ifdef CONFIG_DEBUG_FS
+
 /* Lock used when :
  * 1) adjusting refCounts
  * 2) deleting entries
@@ -64,6 +66,8 @@ static struct mutex gDebugFSHashAndRefLock;
 /* Hash table to store pointers to allocated memories.
    It is supposed to help avoiding use-after-free cases */
 static HASH_TABLE *gHashTable;
+
+#endif // CONFIG_DEBUG_FS
 
 typedef struct _PVR_DEBUGFS_DIR_
 {
@@ -82,6 +86,8 @@ typedef struct _PVR_DEBUGFS_FILE_
 	IMG_UINT32                   ui32FileRefCount;
 	void*                        pvData;
 } PVR_DEBUGFS_FILE;
+
+#ifdef CONFIG_DEBUG_FS
 
 static struct dentry* gpsPVRDebugFSEntryDir;
 
@@ -833,3 +839,57 @@ static void _UnrefAndMaybeDestroyDebugFSFile(PVR_DEBUGFS_FILE **ppsDebugFSFile)
 	}
 }
 
+#else /* CONFIG_DEBUG_FS */
+
+int PVRDebugFSInit(void)
+{
+	return 0;
+}
+
+void PVRDebugFSDeInit(void)
+{
+}
+
+int PVRDebugFSCreateEntryDir(const char *pszName,
+							 PPVR_DEBUGFS_DIR_DATA psParentDir,
+							 PPVR_DEBUGFS_DIR_DATA *ppsNewDir)
+{
+	PVR_UNREFERENCED_PARAMETER(pszName);
+	PVR_UNREFERENCED_PARAMETER(psParentDir);
+
+	*ppsNewDir = (void *) 0xdeadbeef;
+
+	return 0;
+}
+
+void PVRDebugFSRemoveEntryDir(PPVR_DEBUGFS_DIR_DATA *ppsDir)
+{
+	PVR_UNREFERENCED_PARAMETER(ppsDir);
+}
+
+int PVRDebugFSCreateFile(const char *pszName,
+						 PPVR_DEBUGFS_DIR_DATA psParentDir,
+						 const struct seq_operations *psReadOps,
+						 PVRSRV_ENTRY_WRITE_FUNC *pfnWrite,
+						 OS_STATS_PRINT_FUNC *pfnStatsPrint,
+						 void *pvData,
+						 PPVR_DEBUGFS_ENTRY_DATA *ppsNewFile)
+{
+	PVR_UNREFERENCED_PARAMETER(pszName);
+	PVR_UNREFERENCED_PARAMETER(psParentDir);
+	PVR_UNREFERENCED_PARAMETER(psReadOps);
+	PVR_UNREFERENCED_PARAMETER(pfnWrite);
+	PVR_UNREFERENCED_PARAMETER(pfnStatsPrint);
+	PVR_UNREFERENCED_PARAMETER(pvData);
+
+	*ppsNewFile = (void *) 0xdeadbeef;
+
+	return 0;
+}
+
+void PVRDebugFSRemoveFile(PPVR_DEBUGFS_ENTRY_DATA *ppsDebugFSEntry)
+{
+	*ppsDebugFSEntry = NULL;
+}
+
+#endif /* CONFIG_DEBUG_FS */
