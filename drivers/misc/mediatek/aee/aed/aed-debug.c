@@ -30,6 +30,7 @@
 #include "aed.h"
 #include <mt-plat/mrdump.h>
 #include <mrdump_private.h>
+#include <log_store_kernel.h>
 
 #if defined(CONFIG_ARM_PSCI) || defined(CONFIG_ARM64)
 #include <mt-plat/mtk_secure_api.h>
@@ -377,6 +378,16 @@ static ssize_t proc_generate_oops_write(struct file *file,
 	if (copy_from_user(msg, buf, size)) {
 		pr_notice("%s: error\n", __func__);
 		return -EFAULT;
+	}
+
+	if (strncmp(msg, "aee1", 4) == 0) {
+		set_emmc_config(KEDUMP_CTL, KEDUMP_ENABLE);
+		pr_info("kedump enabled\n");
+		return size;
+	} else if (strncmp(msg, "aee0", 4) == 0) {
+		set_emmc_config(KEDUMP_CTL, KEDUMP_DISABLE);
+		pr_info("kedump disabled\n");
+		return size;
 	}
 	test_case = (unsigned int)msg[0] - '0';
 	test_subcase = (unsigned int)msg[2] - '0';
