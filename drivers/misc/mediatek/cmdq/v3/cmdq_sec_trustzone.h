@@ -29,7 +29,8 @@ struct cmdq_sec_tee_context {
 	KREE_SESSION_HANDLE mem_session;
 
 	struct iwcCmdqMessage_t *share_memory;
-
+	struct iwcCmdqMessageEx_t *wsm_buf_ex;
+	struct iwcCmdqMessageEx2_t *wsm_buf_ex2;
 };
 
 s32 cmdq_sec_trustzone_create_share_memory(void **va, u32 *pa, u32 size);
