@@ -491,7 +491,8 @@ bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 			__func__, t, t->list.next, t->list.prev);
 
 	/* init timer and start it */
-	setup_timer(&t->timeout_used, mddp_f_timeout_router_tuple, 0);
+	setup_timer(&t->timeout_used,
+			mddp_f_timeout_router_tuple, (unsigned long)t);
 	t->timeout_used.expires = jiffies + HZ * USED_TIMEOUT;
 
 	add_timer(&t->timeout_used);
