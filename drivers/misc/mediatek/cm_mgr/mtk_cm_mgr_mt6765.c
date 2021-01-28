@@ -1326,7 +1326,7 @@ static void __exit platform_cm_mgr_exit(void)
 	pr_info("[CM_MGR] platform-cm_mgr Exit.\n");
 }
 
-subsys_initcall(platform_cm_mgr_init);
+late_initcall(platform_cm_mgr_init);
 module_exit(platform_cm_mgr_exit);
 
 MODULE_DESCRIPTION("Mediatek cm_mgr driver");
