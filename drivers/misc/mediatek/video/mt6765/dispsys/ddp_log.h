@@ -94,7 +94,10 @@
 #define DDPAEE(string, args...)						\
 	do {								\
 		char str[200];						\
-		snprintf(str, 199, "DDP:"string, ##args);		\
+		int n;							\
+		n = snprintf(str, 199, "DDP:"string, ##args);		\
+		if (n < 0 || n >= 199)					\
+			pr_info("DDP copy str error\n");		\
 		aee_kernel_warning_api(__FILE__, __LINE__,		\
 			DB_OPT_DEFAULT | DB_OPT_MMPROFILE_BUFFER, str, \
 			string, ##args);	\
