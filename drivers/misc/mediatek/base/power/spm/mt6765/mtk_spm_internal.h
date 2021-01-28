@@ -33,16 +33,6 @@
 /* For mt6739/mt6775/mt6771 or later project, use cpuidle_v3/mtk_cpuidle.h */
 #include <cpuidle_v3/mtk_cpuidle.h> /* atf/dormant header file */
 
-
-
-/********************************************************************
- * dpidle/sodi3/sodi default feature enable/disable
- *******************************************************************/
-#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (1)
-#define MTK_IDLE_FEATURE_ENABLE_SODI    (1)
-#define MTK_IDLE_FEATURE_ENABLE_SODI3   (1)
-
-
 /**************************************
  * Config and Parameter
  **************************************/

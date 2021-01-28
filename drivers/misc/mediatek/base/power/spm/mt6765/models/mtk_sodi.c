@@ -27,9 +27,6 @@ static bool sodi_feature_enable = MTK_IDLE_FEATURE_ENABLE_SODI;
 static bool sodi_bypass_idle_cond;
 static unsigned int sodi_flag = MTK_IDLE_LOG_REDUCE;
 
-unsigned long so_cnt[NR_CPUS] = {0};
-static unsigned long so_block_cnt[NR_REASONS] = {0};
-
 /*SODI3 section*/
 static bool sodi3_feature_enable = MTK_IDLE_FEATURE_ENABLE_SODI3;
 static bool sodi3_bypass_idle_cond;
@@ -37,8 +34,6 @@ static bool sodi3_bypass_pwm_check;
 static unsigned int sodi3_force_vcore_lp_mode;
 static unsigned int sodi3_flag = MTK_IDLE_LOG_REDUCE;
 
-unsigned long so3_cnt[NR_CPUS] = {0};
-static unsigned long so3_block_cnt[NR_REASONS] = {0};
 /* [ByChip] Internal weak functions: implemented in mtk_idle_cond_check.c */
 void __attribute__((weak)) mtk_idle_cg_monitor(int sel) {}
 bool __attribute__((weak)) mtk_idle_cond_check(int idle_type) {return false; }
@@ -105,6 +100,7 @@ static ssize_t soidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	int i;
 	char *p = ToUserBuf;
+	struct MTK_IDLE_MODEL_COUNTER cnt;
 
 	if (!ToUserBuf)
 		return -EINVAL;
@@ -113,13 +109,16 @@ static ssize_t soidle_state_read(char *ToUserBuf, size_t sz, void *priv)
 		p += scnprintf(p, sz - strlen(ToUserBuf), fmt, ##args); p; })
 
 	log("*************** sodi state ***********************\n");
-	for (i = 0; i < NR_REASONS; i++) {
-		if (so_block_cnt[i] > 0)
-			log("[%d] block_cnt[%s]=%lu\n"
-				, i, mtk_idle_block_reason_name(i),
-				so_block_cnt[i]);
+	if (mtk_idle_model_count_get(IDLE_TYPE_SO, &cnt)
+		== MTK_IDLE_MOD_OK) {
+		for (i = 0; i < NR_REASONS; i++) {
+			if (cnt.block[i] > 0)
+				log("[%d] block_cnt[%s]=%lu\n"
+					, i, mtk_idle_block_reason_name(i),
+					cnt.block[i]);
+		}
+		log("\n");
 	}
-	log("\n");
 
 	p += mtk_idle_cond_append_info(
 		false, IDLE_TYPE_SO, p, sz - strlen(ToUserBuf));
@@ -220,6 +219,7 @@ static ssize_t soidle3_state_read(char *ToUserBuf, size_t sz, void *priv)
 {
 	int i;
 	char *p = ToUserBuf;
+	struct MTK_IDLE_MODEL_COUNTER cnt;
 
 	if (!ToUserBuf)
 		return -EINVAL;
@@ -229,13 +229,16 @@ static ssize_t soidle3_state_read(char *ToUserBuf, size_t sz, void *priv)
 		p += scnprintf(p, sz - strlen(ToUserBuf), fmt, ##args); p; })
 
 	log("*************** sodi3 state **********************\n");
-	for (i = 0; i < NR_REASONS; i++) {
-		if (so3_block_cnt[i] > 0)
-			log("[%d] block_cnt[%s]=%lu\n", i
-				, mtk_idle_block_reason_name(i)
-				, so3_block_cnt[i]);
+	if (mtk_idle_model_count_get(IDLE_TYPE_SO3, &cnt)
+		== MTK_IDLE_MOD_OK) {
+		for (i = 0; i < NR_REASONS; i++) {
+			if (cnt.block[i] > 0)
+				log("[%d] block_cnt[%s]=%lu\n"
+					, i, mtk_idle_block_reason_name(i),
+					cnt.block[i]);
+		}
+		log("\n");
 	}
-	log("\n");
 
 	p += mtk_idle_cond_append_info(
 		false, IDLE_TYPE_SO3, p, sz - strlen(ToUserBuf));
@@ -318,8 +321,6 @@ void mtk_sodi_init(struct mtk_idle_init_data *pData)
 
 	mtk_idle_sysfs_entry_node_add("soidle_state"
 			, 0644, &sodi_state_fops, NULL);
-
-	mtk_idle_block_setting(IDLE_TYPE_SO, so_cnt, so_block_cnt);
 }
 void mtk_sodi3_init(struct mtk_idle_init_data *pData)
 {
@@ -337,6 +338,4 @@ void mtk_sodi3_init(struct mtk_idle_init_data *pData)
 
 	mtk_idle_sysfs_entry_node_add("soidle3_state"
 				, 0644, &sodi3_state_fops, NULL);
-
-	mtk_idle_block_setting(IDLE_TYPE_SO3, so3_cnt, so3_block_cnt);
 }
