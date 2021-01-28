@@ -340,7 +340,11 @@ struct ufs_hba_variant_ops {
 					struct ufs_pa_layer_attr *,
 					struct ufs_pa_layer_attr *);
 	void	(*setup_xfer_req)(struct ufs_hba *, int, bool);
+	void    (*compl_xfer_req)(struct ufs_hba *hba, int tag,
+					unsigned long completed_req,
+					bool is_scsi);
 	void	(*setup_task_mgmt)(struct ufs_hba *, int, u8);
+	void    (*compl_task_mgmt)(struct ufs_hba *hba, int tag, int err);
 	void    (*hibern8_notify)(struct ufs_hba *, enum uic_cmd_dme,
 					enum ufs_notify_change_status);
 	int	(*apply_dev_quirks)(struct ufs_hba *hba);
@@ -1156,11 +1160,28 @@ static inline void ufshcd_vops_setup_xfer_req(struct ufs_hba *hba, int tag,
 		return hba->vops->setup_xfer_req(hba, tag, is_scsi_cmd);
 }
 
+static inline void ufshcd_vops_compl_xfer_req(struct ufs_hba *hba,
+					      int tag,
+					      unsigned long completed_reqs,
+					      bool is_scsi)
+{
+	if (hba->vops && hba->vops->compl_xfer_req)
+		return hba->vops->compl_xfer_req(hba, tag, completed_reqs,
+						 is_scsi);
+}
+
 static inline void ufshcd_vops_setup_task_mgmt(struct ufs_hba *hba,
 					int tag, u8 tm_function)
 {
 	if (hba->vops && hba->vops->setup_task_mgmt)
 		return hba->vops->setup_task_mgmt(hba, tag, tm_function);
+}
+
+static inline void ufshcd_vops_compl_task_mgmt(struct ufs_hba *hba,
+					       int tag, int err)
+{
+	if (hba->vops && hba->vops->compl_task_mgmt)
+		return hba->vops->compl_task_mgmt(hba, tag, err);
 }
 
 static inline void ufshcd_vops_hibern8_notify(struct ufs_hba *hba,

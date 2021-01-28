@@ -11,6 +11,7 @@
 #include <linux/bitfield.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
@@ -44,6 +45,18 @@
 
 int ufsdbg_perf_dump = 0;
 static struct ufs_hba *ufs_mtk_hba;
+
+static const struct ufs_mtk_host_cfg ufs_mtk_mt8183_cfg = {
+	.quirks = UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8
+};
+
+static const struct of_device_id ufs_mtk_of_match[] = {
+	{
+		.compatible = "mediatek,mt8183-ufshci",
+		.data = &ufs_mtk_mt8183_cfg
+	},
+	{},
+};
 
 struct rpmb_dev *ufs_mtk_rpmb_get_raw_dev()
 {
@@ -441,6 +454,15 @@ out:
 	return ret;
 }
 
+bool ufs_mtk_has_broken_auto_hibern8(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	return (ufshcd_is_auto_hibern8_supported(hba) && hba->ahit &&
+		host->cfg &&
+		(host->cfg->quirks & UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8));
+}
+
 bool ufs_mtk_get_unipro_lpm(struct ufs_hba *hba)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
@@ -521,7 +543,6 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 				     enum ufs_notify_change_status status)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	unsigned long flags;
 
 	if (status == PRE_CHANGE) {
 		if (host->unipro_lpm)
@@ -531,13 +552,6 @@ static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
 
 		if (ufshcd_hba_is_crypto_supported(hba))
 			ufs_mtk_crypto_enable(hba);
-
-		/* Disable Auto-Hibern8 */
-		spin_lock_irqsave(hba->host->host_lock, flags);
-		hba->ahit = 0;
-		hba->capabilities &= ~MASK_AUTO_HIBERN8_SUPPORT;
-		ufshcd_writel(hba, hba->ahit, REG_AUTO_HIBERNATE_IDLE_TIMER);
-		spin_unlock_irqrestore(hba->host->host_lock, flags);
 	}
 
 	return 0;
@@ -763,8 +777,9 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
  */
 static int ufs_mtk_init(struct ufs_hba *hba)
 {
-	struct ufs_mtk_host *host;
+	const struct of_device_id *id;
 	struct device *dev = hba->dev;
+	struct ufs_mtk_host *host;
 	int err = 0;
 
 	host = devm_kzalloc(dev, sizeof(*host), GFP_KERNEL);
@@ -777,6 +792,19 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_hba = hba;
 	host->hba = hba;
 	ufshcd_set_variant(hba, host);
+
+	/* Get host quirks */
+	id = of_match_device(ufs_mtk_of_match, dev);
+	if (!id) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	if (id->data) {
+		host->cfg = (struct ufs_mtk_host_cfg *)id->data;
+		if (host->cfg->quirks & UFS_MTK_HOST_QUIRK_BROKEN_AUTO_HIBERN8)
+			host->auto_hibern_enabled = true;
+	}
 
 	err = ufs_mtk_bind_mphy(hba);
 	if (err)
@@ -793,9 +821,6 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	/* Allow auto bkops to enabled during runtime suspend */
 	/* Need to fix VCCQ2 issue first */
 	/* hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND; */
-
-	/* Enable hibern8 duriing clk-gating */
-	hba->caps |= UFSHCD_CAP_HIBERN8_WITH_CLK_GATING;
 
 	/*
 	 * ufshcd_vops_init() is invoked after
@@ -816,12 +841,40 @@ out:
 	return err;
 }
 
+static void _ufs_mtk_auto_hibern8_update(struct ufs_hba *hba, bool enable)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	/*
+	 * To prevent dummy "enable" while multiple slots are finished in
+	 * the same loop in __ufshcd_transfer_req_compl().
+	 */
+	if (enable && host->auto_hibern_enabled)
+		return;
+
+	ufshcd_writel(hba, (enable) ? hba->ahit : 0,
+		REG_AUTO_HIBERNATE_IDLE_TIMER);
+	host->auto_hibern_enabled = enable;
+}
+
+static void ufs_mtk_auto_hibern8_update(struct ufs_hba *hba, bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	_ufs_mtk_auto_hibern8_update(hba, enable);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+}
+
 static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 				  struct ufs_pa_layer_attr *dev_max_params,
 				  struct ufs_pa_layer_attr *dev_req_params)
 {
 	struct ufs_dev_params host_cap;
 	int ret;
+
+	if (ufs_mtk_has_broken_auto_hibern8(hba))
+		ufs_mtk_auto_hibern8_update(hba, false);
 
 	host_cap.tx_lanes = UFS_MTK_LIMIT_NUM_LANES_TX;
 	host_cap.rx_lanes = UFS_MTK_LIMIT_NUM_LANES_RX;
@@ -922,7 +975,7 @@ static void ufs_mtk_setup_clk_gating(struct ufs_hba *hba)
 			delay = FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK,
 					  hba->ahit) + 5;
 		else
-			delay = 10;
+			delay = 15;
 		spin_lock_irqsave(hba->host->host_lock, flags);
 		hba->clk_gating.delay_ms = delay;
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -934,7 +987,7 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
 
-	/* configure auto-hibern8 timer to 10ms */
+	/* configure auto-hibern8 timer to 10 ms */
 	if (ufshcd_is_auto_hibern8_supported(hba)) {
 		ufshcd_auto_hibern8_update(hba,
 			FIELD_PREP(UFSHCI_AHIBERN8_TIMER_MASK, 10) |
@@ -1145,6 +1198,72 @@ static void ufs_mtk_abort_handler(struct ufs_hba *hba, int tag,
 #endif
 }
 
+static void ufs_mtk_handle_broken_auto_hibern8(struct ufs_hba *hba,
+					       unsigned long out_reqs,
+					       bool enable)
+{
+	/*
+	 * Always allow "disable" and allow "enable" in non-PM scenario
+	 * only. For PM scenario, auto-hibern8 will be enabled by core
+	 * driver, e.g., ufshcd_resume().
+	 */
+	if (!out_reqs && !hba->outstanding_tasks &&
+		(!enable || (enable && !hba->pm_op_in_progress)))
+		_ufs_mtk_auto_hibern8_update(hba, enable);
+}
+
+static void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag,
+				   bool is_scsi_cmd)
+{
+	if (!ufs_mtk_has_broken_auto_hibern8(hba))
+		return;
+	ufs_mtk_handle_broken_auto_hibern8(hba, hba->outstanding_reqs, false);
+}
+
+static void ufs_mtk_compl_xfer_req(struct ufs_hba *hba, int tag,
+				   unsigned long completed_reqs,
+				   bool is_scsi_cmd)
+{
+	if (!ufs_mtk_has_broken_auto_hibern8(hba))
+		return;
+	ufs_mtk_handle_broken_auto_hibern8(hba,
+				hba->outstanding_reqs ^ completed_reqs,
+				true);
+}
+
+static void ufs_mtk_setup_task_mgmt(struct ufs_hba *hba,
+				    int tag, u8 tm_function)
+{
+	if (!ufs_mtk_has_broken_auto_hibern8(hba))
+		return;
+	ufs_mtk_handle_broken_auto_hibern8(hba, hba->outstanding_reqs, false);
+}
+
+static void ufs_mtk_compl_task_mgmt(struct ufs_hba *hba,
+				    int tag, int err)
+{
+	if (!ufs_mtk_has_broken_auto_hibern8(hba))
+		return;
+	ufs_mtk_handle_broken_auto_hibern8(hba, hba->outstanding_reqs, true);
+}
+
+static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
+				   enum ufs_notify_change_status status)
+{
+	int ret;
+
+	if (!ufs_mtk_has_broken_auto_hibern8(hba))
+		return;
+
+	if (cmd == UIC_CMD_DME_HIBER_ENTER && status == PRE_CHANGE) {
+		ufs_mtk_auto_hibern8_update(hba, false);
+
+		ret = ufs_mtk_wait_link_state(hba, VS_LINK_UP, 100);
+		if (ret)
+			ufshcd_link_recovery(hba);
+	}
+}
+
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -1158,6 +1277,11 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
+	.setup_xfer_req      = ufs_mtk_setup_xfer_req,
+	.compl_xfer_req      = ufs_mtk_compl_xfer_req,
+	.setup_task_mgmt     = ufs_mtk_setup_task_mgmt,
+	.compl_task_mgmt     = ufs_mtk_compl_task_mgmt,
+	.hibern8_notify      = ufs_mtk_hibern8_notify,
 	.apply_dev_quirks    = ufs_mtk_apply_dev_quirks,
 	.suspend             = ufs_mtk_suspend,
 	.resume              = ufs_mtk_resume,
@@ -1205,11 +1329,6 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	ufshcd_remove(hba);
 	return 0;
 }
-
-static const struct of_device_id ufs_mtk_of_match[] = {
-	{ .compatible = "mediatek,mt8183-ufshci"},
-	{},
-};
 
 static const struct dev_pm_ops ufs_mtk_pm_ops = {
 	.suspend         = ufshcd_pltfrm_suspend,
