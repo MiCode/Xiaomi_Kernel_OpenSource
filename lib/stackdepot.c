@@ -250,9 +250,11 @@ void show_max_hit_page(void)
 		.skip = 0
 	};
 	spin_lock_irqsave(&max_found_lock, flags);
-	depot_fetch_stack(max_found->handle.handle, &trace);
-	pr_info("max found hit=%d\n", max_found->hit);
-	print_stack_trace(&trace, 2);
+	if (max_found) {
+		depot_fetch_stack(max_found->handle.handle, &trace);
+		pr_info("max found hit=%d\n", max_found->hit);
+		print_stack_trace(&trace, 2);
+	}
 	spin_unlock_irqrestore(&max_found_lock, flags);
 }
 #endif
