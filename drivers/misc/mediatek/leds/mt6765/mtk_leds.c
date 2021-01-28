@@ -105,10 +105,11 @@ static void backlight_debug_log(int level, int mappingLevel)
 
 	current_t = sched_clock();
 	cur_time_display = current_t;
-	cur_time_mod = do_div(cur_time_display, 1000000000);
+	do_div(cur_time_display, 1000000);
+	cur_time_mod = do_div(cur_time_display, 1000);
 
 	sprintf(buffer + strlen(buffer), "T:%lld.%ld,L:%d map:%d    ",
-		cur_time_display, cur_time_mod/1000000, level, mappingLevel);
+		cur_time_display, cur_time_mod, level, mappingLevel);
 
 	count++;
 
