@@ -201,6 +201,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	 * cached mapping that mapping has been invalidated
 	 */
 	for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents, i) {
+	#ifdef CONFIG_MTK_IOMMU_V2
 		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA &&
 		    align < PAGE_OFFSET && sg_dma_len(sg) != 0) {
 			if (align < VMALLOC_START || align > VMALLOC_END) {
@@ -209,6 +210,16 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 				continue;
 			}
 		}
+	#else
+		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
+		/*
+		 * We don't overwrite the sg dma information of the
+		 * buffer comes from mtk mm heap, because it will be
+		 * mapped iova by get_phys.
+		 */
+			continue;
+		}
+	#endif
 		sg_dma_address(sg) = sg_phys(sg);
 		sg_dma_len(sg) = sg->length;
 	}
