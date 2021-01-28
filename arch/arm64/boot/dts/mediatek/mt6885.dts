@@ -1828,6 +1828,11 @@ page_owner=on loop.max_part=7";
 		compatible = "mediatek,mt-cpufreq";
 	};
 
+	cpumssv: cpumssv {
+		compatible = "mediatek,cpumssv";
+		state = <0>;
+	};
+
 	gce_clock: gce_clock@10228000 {
 		compatible = "mediatek,gce_clock", "syscon";
 		reg = <0 0x10228000 0 0x1000>;
