@@ -138,6 +138,8 @@ static int kbasep_hwcnt_backend_gpu_metadata_v4_create(
 		}
 	}
 
+	desc.clk_cnt = v4_info->clk_cnt;
+
 	errcode = kbase_hwcnt_metadata_create(&desc, metadata);
 
 	/* Always clean up, as metadata will make a copy of the input args */
@@ -258,6 +260,7 @@ static int kbasep_hwcnt_backend_gpu_metadata_v5_create(
 
 	desc.grp_cnt = 1;
 	desc.grps = &group;
+	desc.clk_cnt = v5_info->clk_cnt;
 
 	/* The JM, Tiler, and L2s are always available, and are before cores */
 	desc.avail_mask = (1ull << non_sc_block_count) - 1;
@@ -287,6 +290,8 @@ int kbase_hwcnt_gpu_info_init(
 	struct kbase_device *kbdev,
 	struct kbase_hwcnt_gpu_info *info)
 {
+	size_t clk;
+
 	if (!kbdev || !info)
 		return -EINVAL;
 
@@ -307,6 +312,14 @@ int kbase_hwcnt_gpu_info_init(
 		info->v5.core_mask = core_mask;
 	}
 #endif
+
+	/* Determine the number of available clock domains. */
+	for (clk = 0; clk < BASE_MAX_NR_CLOCKS_REGULATORS; clk++) {
+		if (kbdev->pm.clk_rtm.clks[clk] == NULL)
+			break;
+	}
+	info->v5.clk_cnt = clk;
+
 	return 0;
 }
 
