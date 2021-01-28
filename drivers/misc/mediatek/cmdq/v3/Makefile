@@ -16,8 +16,11 @@
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 ccflags-$(CONFIG_MACH_MT6768) += -DCMDQ_MDP_ENABLE_SPR
+ifneq ($(filter mt6768,$(shell echo $(MTK_PLATFORM)|tr A-Z a-z)),)
+ccflags-y += -DCMDQ_MDP_ENABLE_SPR
+endif
 
-ifeq ($(CONFIG_MACH_MT6785),y)
+ifneq ($(filter mt6785,$(shell echo $(MTK_PLATFORM)|tr A-Z a-z)),)
 ccflags-y += -DPMQOS_VERSION2
 ccflags-y += -DMDP_MMPATH
 ccflags-y += -DCMDQ_MDP_ENABLE_SPR
@@ -26,7 +29,7 @@ ccflags-y += -DCMDQ_DEVAPC
 endif
 endif
 
-ifeq ($(CONFIG_MACH_MT6779),y)
+ifneq ($(filter mt6779,$(shell echo $(MTK_PLATFORM)|tr A-Z a-z)),)
 ccflags-y += -DPMQOS_VERSION2
 ccflags-y += -DMDP_MMPATH
 ccflags-y += -DCMDQ_MDP_ENABLE_SPR

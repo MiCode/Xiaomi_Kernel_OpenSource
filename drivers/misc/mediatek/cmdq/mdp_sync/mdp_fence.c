@@ -287,7 +287,7 @@ static struct sync_pt *sync_pt_create(struct sync_timeline *obj,
 
 	pt = kzalloc(sizeof(*pt), GFP_KERNEL);
 	if (!pt)
-		return NULL;
+		return ERR_PTR(-ENOMEM);
 
 	sync_timeline_get(obj);
 	dma_fence_init(&pt->base, &timeline_fence_ops, &obj->lock,
@@ -316,7 +316,7 @@ static struct sync_pt *sync_pt_create(struct sync_timeline *obj,
 			} else {
 				if (dma_fence_get_rcu(&other->base)) {
 					dma_fence_put(&pt->base);
-					pt = other;
+					pt = ERR_PTR(-EEXIST);
 					goto unlock;
 				}
 				p = &parent->rb_left;
@@ -392,8 +392,8 @@ static long mdp_sync_ioctl_create_fence(struct sync_timeline *obj,
 	}
 
 	pt = sync_pt_create(obj, data.value);
-	if (!pt) {
-		err = -ENOMEM;
+	if (IS_ERR(pt)) {
+		err = PTR_ERR(pt);
 		goto err;
 	}
 
