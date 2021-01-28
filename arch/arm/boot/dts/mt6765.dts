@@ -3644,6 +3644,12 @@
 		/* use_cpu_to_dram_map_new = "enable"; */
 	};
 
+	dram_ctrl {
+		compatible = "mediatek,dram-qosctrl";
+		required-opps = <&dvfsrc_freq_opp0>,
+				<&dvfsrc_freq_opp1>;
+	};
+
 };
 
 #include "cust_mt6765_msdc.dtsi"
