@@ -183,11 +183,12 @@ static ssize_t cpufreq_oppidx_proc_write(struct file *file,
 			p->dvfs_disable_by_procfs = true;
 #ifdef CONFIG_HYBRID_CPU_DVFS
 			/* if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI)) */
-			cpuhvfs_set_freq(arch_get_cluster_id(p->cpu_id),
-			cpu_dvfs_get_freq_by_idx(p, oppidx));
+				cpuhvfs_set_freq(
+					cpufreq_get_cluster_id(p->cpu_id),
+					cpu_dvfs_get_freq_by_idx(p, oppidx));
 #else
 			_mt_cpufreq_dvfs_request_wrapper(p, oppidx,
-			MT_CPU_DVFS_NORMAL, NULL);
+				MT_CPU_DVFS_NORMAL, NULL);
 #endif
 		} else {
 			p->dvfs_disable_by_procfs = false;
@@ -246,15 +247,25 @@ static ssize_t cpufreq_freq_proc_write(struct file *file,
 
 			if (found == 1) {
 				p->dvfs_disable_by_procfs = true;
+
 #ifdef CONFIG_HYBRID_CPU_DVFS
 				/* if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI)) */
-				cpuhvfs_set_freq(
-				arch_get_cluster_id(p->cpu_id),
-				cpu_dvfs_get_freq_by_idx(p, i));
+#ifdef SINGLE_CLUSTER
+				cpuhvfs_set_freq(cpufreq_get_cluster_id(
+					p->cpu_id), freq);
 #else
-				_mt_cpufreq_dvfs_request_wrapper(p,
-				i, MT_CPU_DVFS_NORMAL, NULL);
+				cpuhvfs_set_freq(
+					arch_get_cluster_id(p->cpu_id), freq);
 #endif
+				/* else */
+					/* cpuhvfs_set_freq( */
+						/* MT_CPU_DVFS_CCI, freq); */
+#else
+				_mt_cpufreq_dvfs_request_wrapper(
+					p, i, MT_CPU_DVFS_NORMAL, NULL);
+#endif
+
+
 			} else {
 				p->dvfs_disable_by_procfs = false;
 				tag_pr_info
@@ -310,14 +321,20 @@ static ssize_t cpufreq_volt_proc_write(struct file *file,
 		p->dvfs_disable_by_procfs = true;
 		cpufreq_lock(flags);
 #ifdef CONFIG_HYBRID_CPU_DVFS
+#ifdef CONFIG_MTK_CPU_MSSV
 		/* if (!cpu_dvfs_is(p, MT_CPU_DVFS_CCI)) */
-		/* cpuhvfs_set_volt(arch_get_cluster_id(p->cpu_id), uv / 10); */
+#ifdef SINGLE_CLUSTER
+		cpuhvfs_set_volt(cpufreq_get_cluster_id(p->cpu_id), uv/10);
+#else
+		cpuhvfs_set_volt(arch_get_cluster_id(p->cpu_id), uv/10);
+#endif
+#endif
 #else
 		vproc_p->fix_volt = uv / 10;
 		ret = set_cur_volt_wrapper(p, vproc_p->fix_volt);
 		if (ret)
 			tag_pr_info("%s err to set_cur_volt_wrapper ret = %d\n",
-				__func__, ret);
+				    __func__, ret);
 #endif
 		cpufreq_unlock(flags);
 	}
