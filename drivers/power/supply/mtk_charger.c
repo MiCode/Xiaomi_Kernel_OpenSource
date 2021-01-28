@@ -134,7 +134,7 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 				struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-	u32 val;
+	u32 val = 0;
 	struct device_node *boot_node = NULL;
 	struct tag_bootmode *tag = NULL;
 
@@ -146,13 +146,14 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 							"atag,boot", NULL);
 		if (!tag)
 			chr_err("%s: failed to get atag,boot\n", __func__);
-		else
+		else {
 			chr_err("%s: size:0x%x tag:0x%x bootmode:0x%x boottype:0x%x\n",
 				__func__, tag->size, tag->tag,
 				tag->bootmode, tag->boottype);
+			info->bootmode = tag->bootmode;
+			info->boottype = tag->boottype;
+		}
 	}
-	info->bootmode = tag->bootmode;
-	info->boottype = tag->boottype;
 
 	if (of_property_read_string(np, "algorithm_name",
 		&info->algorithm_name) < 0) {
@@ -636,6 +637,19 @@ void do_sw_jeita_state_machine(struct mtk_charger *info)
 		sw_jeita->cv);
 }
 
+static int mtk_chgstat_notify(struct mtk_charger *info)
+{
+	int ret = 0;
+	char *env[2] = { "CHGSTAT=1", NULL };
+
+	chr_err("%s: 0x%x\n", __func__, info->notify_code);
+	ret = kobject_uevent_env(&info->pdev->dev.kobj, KOBJ_CHANGE, env);
+	if (ret)
+		chr_err("%s: kobject_uevent_fail, ret=%d", __func__, ret);
+
+	return ret;
+}
+
 static ssize_t sw_jeita_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
 {
@@ -665,66 +679,6 @@ static ssize_t sw_jeita_store(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR_RW(sw_jeita);
 /* sw jeita end*/
-
-static ssize_t usb_unlimited_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
-{
-	struct mtk_charger *pinfo = dev->driver_data;
-
-	chr_err("%s: %d\n", __func__, pinfo->usb_unlimited);
-	return sprintf(buf, "%d\n", pinfo->usb_unlimited);
-}
-
-static ssize_t usb_unlimited_store(struct device *dev,
-				   struct device_attribute *attr,
-				   const char *buf, size_t size)
-{
-	struct mtk_charger *pinfo = dev->driver_data;
-	signed int temp;
-
-	if (kstrtoint(buf, 10, &temp) == 0) {
-		if (temp == 0)
-			pinfo->usb_unlimited = false;
-		else
-			pinfo->usb_unlimited = true;
-
-	} else {
-		chr_err("%s: format error!\n", __func__);
-	}
-	return size;
-}
-
-static DEVICE_ATTR_RW(usb_unlimited);
-
-static ssize_t disable_charging_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	struct mtk_charger *pinfo = dev->driver_data;
-
-	chr_err("%s: %d\n", __func__, pinfo->cmd_discharging);
-	return sprintf(buf, "%d\n", pinfo->cmd_discharging);
-}
-
-static ssize_t disable_charging_store(struct device *dev,
-				      struct device_attribute *attr,
-				      const char *buf, size_t size)
-{
-	struct mtk_charger *pinfo = dev->driver_data;
-	signed int temp;
-
-	if (kstrtoint(buf, 10, &temp) == 0) {
-		if (temp == 0)
-			pinfo->cmd_discharging = false;
-		else
-			pinfo->cmd_discharging = true;
-
-	} else {
-		chr_err("%s: format error!\n", __func__);
-	}
-	return size;
-}
-
-static DEVICE_ATTR_RW(disable_charging);
 
 static ssize_t chr_type_show(struct device *dev, struct device_attribute *attr,
 					       char *buf)
@@ -773,40 +727,6 @@ static ssize_t ADC_Charger_Voltage_show(struct device *dev,
 }
 
 static DEVICE_ATTR_RO(ADC_Charger_Voltage);
-
-static ssize_t en_safety_timer_show(struct device *dev,
-				    struct device_attribute *attr, char *buf)
-{
-	struct mtk_charger *pinfo = dev->driver_data;
-	bool safety_timer_en = false;
-
-	charger_dev_is_safety_timer_enabled(pinfo->chg1_dev, &safety_timer_en);
-	chr_err("%s: %d\n", __func__, safety_timer_en);
-	return sprintf(buf, "%d\n", safety_timer_en);
-}
-
-static ssize_t en_safety_timer_store(struct device *dev,
-		struct device_attribute *attr, const char *buf, size_t size)
-{
-	struct mtk_charger *pinfo = dev->driver_data;
-	signed int temp;
-
-	if (kstrtoint(buf, 10, &temp) == 0) {
-		if (temp == 0) {
-			charger_dev_enable_safety_timer(pinfo->chg1_dev, false);
-			pinfo->enable_sw_safety_timer = false;
-		} else {
-			charger_dev_enable_safety_timer(pinfo->chg1_dev, true);
-			pinfo->enable_sw_safety_timer = true;
-		}
-
-	} else {
-		chr_err("%s: format error!\n", __func__);
-	}
-	return size;
-}
-
-static DEVICE_ATTR_RW(en_safety_timer);
 
 static ssize_t input_current_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -873,6 +793,227 @@ static ssize_t charger_log_level_store(struct device *dev,
 
 static DEVICE_ATTR_RW(charger_log_level);
 
+static ssize_t BatteryNotify_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+
+	chr_info("%s: 0x%x\n", __func__, pinfo->notify_code);
+
+	return sprintf(buf, "%u\n", pinfo->notify_code);
+}
+
+static ssize_t BatteryNotify_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct mtk_charger *pinfo = dev->driver_data;
+	unsigned int reg = 0;
+	int ret = 0;
+
+	if (buf != NULL && size != 0) {
+		ret = kstrtouint(buf, 16, &reg);
+		if (ret < 0) {
+			chr_err("%s: failed, ret = %d\n", __func__, ret);
+			return ret;
+		}
+		pinfo->notify_code = reg;
+		chr_info("%s: store code=0x%x\n", __func__, pinfo->notify_code);
+		mtk_chgstat_notify(pinfo);
+	}
+	return size;
+}
+
+static DEVICE_ATTR_RW(BatteryNotify);
+
+/* procfs */
+static int mtk_chg_current_cmd_show(struct seq_file *m, void *data)
+{
+	struct mtk_charger *pinfo = m->private;
+
+	seq_printf(m, "%d %d\n", pinfo->usb_unlimited, pinfo->cmd_discharging);
+	return 0;
+}
+
+static int mtk_chg_current_cmd_open(struct inode *node, struct file *file)
+{
+	return single_open(file, mtk_chg_current_cmd_show, PDE_DATA(node));
+}
+
+static ssize_t mtk_chg_current_cmd_write(struct file *file,
+		const char *buffer, size_t count, loff_t *data)
+{
+	int len = 0;
+	char desc[32] = {0};
+	int current_unlimited = 0;
+	int cmd_discharging = 0;
+	struct mtk_charger *info = PDE_DATA(file_inode(file));
+
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return -EFAULT;
+
+	desc[len] = '\0';
+
+	if (sscanf(desc, "%d %d", &current_unlimited, &cmd_discharging) == 2) {
+		info->usb_unlimited = current_unlimited;
+		if (cmd_discharging == 1) {
+			info->cmd_discharging = true;
+			charger_dev_enable(info->chg1_dev, false);
+#ifdef FIXME
+			charger_manager_notifier(info,
+						CHARGER_NOTIFY_STOP_CHARGING);
+#endif
+		} else if (cmd_discharging == 0) {
+			info->cmd_discharging = false;
+			charger_dev_enable(info->chg1_dev, true);
+#ifdef FIXME
+			charger_manager_notifier(info,
+						CHARGER_NOTIFY_START_CHARGING);
+#endif
+		}
+
+		chr_info("%s: current_unlimited=%d, cmd_discharging=%d\n",
+			__func__, current_unlimited, cmd_discharging);
+		return count;
+	}
+
+	chr_err("bad argument, echo [usb_unlimited] [disable] > current_cmd\n");
+	return count;
+}
+
+static const struct file_operations mtk_chg_current_cmd_fops = {
+	.owner = THIS_MODULE,
+	.open = mtk_chg_current_cmd_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = mtk_chg_current_cmd_write,
+};
+
+static int mtk_chg_en_power_path_show(struct seq_file *m, void *data)
+{
+	struct mtk_charger *pinfo = m->private;
+	bool power_path_en = true;
+
+	charger_dev_is_powerpath_enabled(pinfo->chg1_dev, &power_path_en);
+	seq_printf(m, "%d\n", power_path_en);
+
+	return 0;
+}
+
+static int mtk_chg_en_power_path_open(struct inode *node, struct file *file)
+{
+	return single_open(file, mtk_chg_en_power_path_show, PDE_DATA(node));
+}
+
+static ssize_t mtk_chg_en_power_path_write(struct file *file,
+		const char *buffer, size_t count, loff_t *data)
+{
+	int len = 0, ret = 0;
+	char desc[32] = {0};
+	unsigned int enable = 0;
+	struct mtk_charger *info = PDE_DATA(file_inode(file));
+
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return -EFAULT;
+
+	desc[len] = '\0';
+
+	ret = kstrtou32(desc, 10, &enable);
+	if (ret == 0) {
+		charger_dev_enable_powerpath(info->chg1_dev, enable);
+		chr_info("%s: enable power path = %d\n", __func__, enable);
+		return count;
+	}
+
+	chr_err("bad argument, echo [enable] > en_power_path\n");
+	return count;
+}
+
+static const struct file_operations mtk_chg_en_power_path_fops = {
+	.owner = THIS_MODULE,
+	.open = mtk_chg_en_power_path_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = mtk_chg_en_power_path_write,
+};
+
+static int mtk_chg_en_safety_timer_show(struct seq_file *m, void *data)
+{
+	struct mtk_charger *pinfo = m->private;
+	bool safety_timer_en = false;
+
+	charger_dev_is_safety_timer_enabled(pinfo->chg1_dev, &safety_timer_en);
+	seq_printf(m, "%d\n", safety_timer_en);
+
+	return 0;
+}
+
+static int mtk_chg_en_safety_timer_open(struct inode *node, struct file *file)
+{
+	return single_open(file, mtk_chg_en_safety_timer_show, PDE_DATA(node));
+}
+
+static ssize_t mtk_chg_en_safety_timer_write(struct file *file,
+	const char *buffer, size_t count, loff_t *data)
+{
+	int len = 0, ret = 0;
+	char desc[32] = {0};
+	unsigned int enable = 0;
+	struct mtk_charger *info = PDE_DATA(file_inode(file));
+
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
+
+	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (copy_from_user(desc, buffer, len))
+		return -EFAULT;
+
+	desc[len] = '\0';
+
+	ret = kstrtou32(desc, 10, &enable);
+	if (ret == 0) {
+		charger_dev_enable_safety_timer(info->chg1_dev, enable);
+		chr_info("%s: enable safety timer = %d\n", __func__, enable);
+
+		/* SW safety timer */
+		if (info->sw_safety_timer_setting == true) {
+			if (enable)
+				info->enable_sw_safety_timer = true;
+			else
+				info->enable_sw_safety_timer = false;
+		}
+
+		return count;
+	}
+
+	chr_err("bad argument, echo [enable] > en_safety_timer\n");
+	return count;
+}
+
+static const struct file_operations mtk_chg_en_safety_timer_fops = {
+	.owner = THIS_MODULE,
+	.open = mtk_chg_en_safety_timer_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = mtk_chg_en_safety_timer_write,
+};
+
 int mtk_chg_enable_vbus_ovp(bool enable)
 {
 	static struct mtk_charger *pinfo;
@@ -921,19 +1062,6 @@ static bool mtk_chg_check_vbus(struct mtk_charger *info)
 		return false;
 	}
 	return true;
-}
-
-static int mtk_chgstat_notify(struct mtk_charger *info)
-{
-	int ret = 0;
-	char *env[2] = { "CHGSTAT=1", NULL };
-
-	chr_err("%s: 0x%x\n", __func__, info->notify_code);
-	ret = kobject_uevent_env(&info->pdev->dev.kobj, KOBJ_CHANGE, env);
-	if (ret)
-		chr_err("%s: kobject_uevent_fail, ret=%d", __func__, ret);
-
-	return ret;
 }
 
 static void mtk_battery_notify_VCharger_check(struct mtk_charger *info)
@@ -1467,17 +1595,10 @@ static void mtk_charger_init_timer(struct mtk_charger *info)
 static int mtk_charger_setup_files(struct platform_device *pdev)
 {
 	int ret = 0;
-	//struct proc_dir_entry *battery_dir = NULL;
-	//struct mtk_charger *info = platform_get_drvdata(pdev);
+	struct proc_dir_entry *battery_dir = NULL, *entry = NULL;
+	struct mtk_charger *info = platform_get_drvdata(pdev);
+
 	ret = device_create_file(&(pdev->dev), &dev_attr_sw_jeita);
-	if (ret)
-		goto _out;
-
-	ret = device_create_file(&(pdev->dev), &dev_attr_usb_unlimited);
-	if (ret)
-		goto _out;
-
-	ret = device_create_file(&(pdev->dev), &dev_attr_disable_charging);
 	if (ret)
 		goto _out;
 
@@ -1492,11 +1613,6 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	ret = device_create_file(&(pdev->dev), &dev_attr_ADC_Charger_Voltage);
 	if (ret)
 		goto _out;
-
-	ret = device_create_file(&(pdev->dev), &dev_attr_en_safety_timer);
-	if (ret)
-		goto _out;
-
 	ret = device_create_file(&(pdev->dev), &dev_attr_input_current);
 	if (ret)
 		goto _out;
@@ -1505,35 +1621,71 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	if (ret)
 		goto _out;
 
+	/* Battery warning */
+	ret = device_create_file(&(pdev->dev), &dev_attr_BatteryNotify);
+	if (ret)
+		goto _out;
+
+	battery_dir = proc_mkdir("mtk_battery_cmd", NULL);
+	if (!battery_dir) {
+		chr_err("%s: mkdir /proc/mtk_battery_cmd failed\n", __func__);
+		return -ENOMEM;
+	}
+
+	entry = proc_create_data("current_cmd", 0644, battery_dir,
+			&mtk_chg_current_cmd_fops, info);
+	if (!entry) {
+		ret = -ENODEV;
+		goto fail_procfs;
+	}
+	entry = proc_create_data("en_power_path", 0644, battery_dir,
+			&mtk_chg_en_power_path_fops, info);
+	if (!entry) {
+		ret = -ENODEV;
+		goto fail_procfs;
+	}
+	entry = proc_create_data("en_safety_timer", 0644, battery_dir,
+			&mtk_chg_en_safety_timer_fops, info);
+	if (!entry) {
+		ret = -ENODEV;
+		goto fail_procfs;
+	}
+
+	return 0;
+
+fail_procfs:
+	remove_proc_subtree("mtk_battery_cmd", NULL);
 _out:
 	return ret;
 }
 
 void mtk_charger_get_atm_mode(struct mtk_charger *info)
 {
-	char atm_str[64];
-	char *ptr, *ptr_e;
+	char atm_str[64] = {0};
+	char *ptr = NULL, *ptr_e = NULL;
+	char keyword[] = "androidboot.atm=";
+	int size = 0;
 
-	memset(atm_str, 0x0, sizeof(atm_str));
-	ptr = strstr(saved_command_line, "androidboot.atm=");
+	info->atm_enabled = false;
+
+	ptr = strstr(saved_command_line, keyword);
 	if (ptr != 0) {
 		ptr_e = strstr(ptr, " ");
+		if (ptr_e == 0)
+			goto end;
 
-		if (ptr_e != 0) {
-			strncpy(atm_str, ptr + 16, ptr_e - ptr - 16);
-			atm_str[ptr_e - ptr - 16] = '\0';
-		}
+		size = ptr_e - (ptr + strlen(keyword));
+		if (size <= 0)
+			goto end;
+		strncpy(atm_str, ptr + strlen(keyword), size);
+		atm_str[size] = '\0';
 
 		if (!strncmp(atm_str, "enable", strlen("enable")))
 			info->atm_enabled = true;
-		else
-			info->atm_enabled = false;
-	} else
-		info->atm_enabled = false;
-
+	}
+end:
 	chr_err("%s: atm_enabled = %d\n", __func__, info->atm_enabled);
 }
-
 
 static int psy_charger_property_is_writeable(struct power_supply *psy,
 					       enum power_supply_property psp)
