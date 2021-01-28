@@ -17,6 +17,23 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/supply/mediatek/misc
 
+
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
+subdir-ccflags-y += -Werror -I$(srctree)/drivers/power/mediatek/charger
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/flashlight/inc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/spm_v2/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
+subdir-ccflags-$(CONFIG_USB_MU3D_DRV) += -Werror -I$(srctree)/drivers/misc/mediatek/mu3d/drv
+subdir-ccflags-$(CONFIG_USB_MTK_HDRC) += -I$(srctree)/drivers/misc/mediatek/usb20/
+subdir-ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/u3_switch
+subdir-ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/inc
+ccflags-y += -I$(srctree)/drivers/power/mediatek/
+ccflags-y += -I$(srctree)/drivers/power/mediatek/battery
+ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/u3_switch
+ccflags-$(CONFIG_USB_C_SWITCH_U3_MUX) += -I$(srctree)/drivers/misc/mediatek/usb_c/inc
+
 ifeq ($(CONFIG_MACH_MT6761),y)
 obj-y += mt6765/
 else
