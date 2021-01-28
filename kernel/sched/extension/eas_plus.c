@@ -826,14 +826,38 @@ done:
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
 DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
 DEFINE_PER_CPU(unsigned long, rotate_flags);
+struct task_rotate_reset_uclamp_work task_rotate_reset_uclamp_works;
 bool big_task_rotation_enable;
+bool set_uclamp;
+
+unsigned int scale_to_percent(unsigned int value)
+{
+	WARN_ON(value > SCHED_CAPACITY_SCALE);
+
+	return (value * 100 / SCHED_CAPACITY_SCALE);
+}
+
+bool is_min_capacity_cpu(int cpu)
+{
+	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
+
+	if (rd->min_cap_orig_cpu < 0)
+		return false;
+
+	if (capacity_orig_of(cpu) == capacity_orig_of(rd->min_cap_orig_cpu))
+		return true;
+
+	return false;
+}
 
 static void task_rotate_work_func(struct work_struct *work)
 {
 	struct task_rotate_work *wr = container_of(work,
 				struct task_rotate_work, w);
 
-	migrate_swap(wr->src_task, wr->dst_task,
+	int ret = -1;
+
+	ret = migrate_swap(wr->src_task, wr->dst_task,
 			task_cpu(wr->dst_task), task_cpu(wr->src_task));
 
 	put_task_struct(wr->src_task);
@@ -841,6 +865,23 @@ static void task_rotate_work_func(struct work_struct *work)
 
 	clear_reserved(wr->src_cpu);
 	clear_reserved(wr->dst_cpu);
+
+	if (ret == 0) {
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_BIG_TASK, CGROUP_TA,
+				scale_to_percent(SCHED_CAPACITY_SCALE));
+		set_uclamp = true;
+		trace_sched_big_task_rotation(wr->src_cpu, wr->dst_cpu,
+						wr->src_task->pid,
+						wr->dst_task->pid,
+						true, set_uclamp);
+	}
+}
+
+static void task_rotate_reset_uclamp_work_func(struct work_struct *work)
+{
+	update_eas_uclamp_min(EAS_UCLAMP_KIR_BIG_TASK, CGROUP_TA, 0);
+	set_uclamp = false;
+	trace_sched_big_task_rotation_reset(set_uclamp);
 }
 
 void task_rotate_work_init(void)
@@ -852,6 +893,9 @@ void task_rotate_work_init(void)
 
 		INIT_WORK(&wr->w, task_rotate_work_func);
 	}
+
+	INIT_WORK(&task_rotate_reset_uclamp_works.w,
+			task_rotate_reset_uclamp_work_func);
 }
 #endif /* CONFIG_MTK_SCHED_BIG_TASK_MIGRATE */
 
