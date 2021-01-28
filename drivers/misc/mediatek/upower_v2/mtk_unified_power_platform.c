@@ -26,7 +26,7 @@
 /* #include "upmu_common.h" */
 
 #ifndef EARLY_PORTING_SPOWER
-#include "mtk_common_static_power.h"
+#include "mtk_common_spower.h"
 #endif
 
 #undef  BIT

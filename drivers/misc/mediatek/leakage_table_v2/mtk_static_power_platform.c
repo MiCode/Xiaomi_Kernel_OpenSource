@@ -4,7 +4,7 @@
  */
 
 #include <linux/stringify.h>
-#include <mtk_common_static_power.h>
+#include <mtk_common_spower.h>
 
 char *spower_name[] = {
 	"MTK_SPOWER_CPULL",

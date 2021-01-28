@@ -13,7 +13,7 @@
 #include <linux/seq_file.h>
 
 #include "mtk_spower_data.h"
-#include "mtk_common_static_power.h"
+#include "mtk_common_spower.h"
 
 #define SP_TAG     "[Power/spower] "
 #define SPOWER_LOG_NONE		0

@@ -37,7 +37,7 @@
 #endif
 
 #ifndef EARLY_PORTING_SPOWER
-#include "mtk_common_static_power.h"
+#include "mtk_common_spower.h"
 #endif
 
 #ifdef UPOWER_USE_QOS_IPI
