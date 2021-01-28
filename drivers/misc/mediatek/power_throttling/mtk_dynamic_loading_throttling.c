@@ -287,11 +287,12 @@ static int get_dlpt_imix_charging(void)
 	return imix;
 }
 
+#define	IMP_VOLT_TENFOLD	(10)
 static int get_dlpt_imix(void)
 {
 	int volt[5], curr[5], volt_avg = 0, curr_avg = 0;
 	int vbat = 0, ibat = 0, imix = 0;
-	int lbatInt1 = DLPT_VOLT_MIN * 10;
+	int lbatInt1 = DLPT_VOLT_MIN * IMP_VOLT_TENFOLD;
 	int i = 0, ret = 0;
 
 	for (i = 0; i < 5; i++) {
@@ -302,7 +303,7 @@ static int get_dlpt_imix(void)
 				  __func__);
 			return 0;
 		}
-		volt[i] = vbat;
+		volt[i] = vbat * IMP_VOLT_TENFOLD;
 		curr[i] = ibat;
 	}
 
