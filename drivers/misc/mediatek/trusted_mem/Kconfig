@@ -149,6 +149,7 @@ config MTK_SSMR
 	default y
 	depends on HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	select CMA
+	select DMA_CMA
 	select ZONE_MOVABLE_CMA
 	help
 	  Enable the support of MediaTek shareable secure memory region.
