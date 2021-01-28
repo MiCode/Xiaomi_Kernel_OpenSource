@@ -48,6 +48,7 @@ static atomic_t md1_md3_smem_clear = ATOMIC_INIT(0);
 
 #define DBM_S (CCCI_SMEM_SIZE_DBM + CCCI_SMEM_SIZE_DBM_GUARD * 2)
 #define CCB_CACHE_MIN_SIZE    (2 * 1024 * 1024)
+static const char *s_smem_user_names[SMEM_USER_MAX];
 
 #ifdef CCCI_USE_DFD_OFFSET_0
 struct ccci_smem_region md1_6297_noncacheable_fat[] = {
@@ -248,6 +249,53 @@ struct ccci_smem_region md3_6291_noncacheable_fat[] = {
 {SMEM_USER_MAX, },
 };
 
+static void init_smem_user_name(void)
+{
+	s_smem_user_names[SMEM_USER_RAW_DBM] = "RAW_DBM";
+	s_smem_user_names[SMEM_USER_CCB_DHL] = "CCB_DHL";
+	s_smem_user_names[SMEM_USER_CCB_MD_MONITOR] = "CCB_MD_MONITOR";
+	s_smem_user_names[SMEM_USER_CCB_META] = "CCB_META";
+	s_smem_user_names[SMEM_USER_RAW_CCB_CTRL] = "RAW_CCB_CTRL";
+	s_smem_user_names[SMEM_USER_RAW_DHL] = "RAW_DHL";
+	s_smem_user_names[SMEM_USER_RAW_MDM] = "RAW_MDM";
+	s_smem_user_names[SMEM_USER_RAW_NETD] = "RAW_NETD";
+	s_smem_user_names[SMEM_USER_RAW_USB] = "RAW_USB";
+	s_smem_user_names[SMEM_USER_RAW_AUDIO] = "RAW_AUDIO";
+	s_smem_user_names[SMEM_USER_RAW_DFD] = "RAW_DFD";
+	s_smem_user_names[SMEM_USER_RAW_LWA] = "RAW_LWA";
+	s_smem_user_names[SMEM_USER_RAW_MDCCCI_DBG] = "RAW_MDCCCI_DBG";
+	s_smem_user_names[SMEM_USER_RAW_MDSS_DBG] = "RAW_MDSS_DBG";
+	s_smem_user_names[SMEM_USER_RAW_RUNTIME_DATA] = "RAW_RUNTIME_DATA";
+	s_smem_user_names[SMEM_USER_RAW_FORCE_ASSERT] = "RAW_FORCE_ASSERT";
+	s_smem_user_names[SMEM_USER_CCISM_SCP] = "CCISM_SCP";
+	s_smem_user_names[SMEM_USER_RAW_MD2MD] = "RAW_MD2MD";
+	s_smem_user_names[SMEM_USER_RAW_RESERVED] = "RAW_RESERVED";
+	s_smem_user_names[SMEM_USER_CCISM_MCU] = "CCISM_MCU";
+	s_smem_user_names[SMEM_USER_CCISM_MCU_EXP] = "CCISM_MCU_EXP";
+	s_smem_user_names[SMEM_USER_SMART_LOGGING] = "SMART_LOGGING";
+	s_smem_user_names[SMEM_USER_RAW_MD_CONSYS] = "RAW_MD_CONSYS";
+	s_smem_user_names[SMEM_USER_RAW_PHY_CAP] = "RAW_PHY_CAP";
+	s_smem_user_names[SMEM_USER_RAW_USIP] = "RAW_USIP";
+	s_smem_user_names[SMEM_USER_RESV_0] = "RESV_0";
+	s_smem_user_names[SMEM_USER_ALIGN_PADDING] = "ALIGN_PADDING";
+	s_smem_user_names[SMEM_USER_RAW_UDC_DATA] = "RAW_UDC_DATA";
+	s_smem_user_names[SMEM_USER_RAW_UDC_DESCTAB] = "RAW_UDC_DESCTAB";
+	s_smem_user_names[SMEM_USER_RAW_AMMS_POS] = "RAW_AMMS_POS";
+	s_smem_user_names[SMEM_USER_RAW_ALIGN_PADDING] = "RAW_ALIGN_PADDING";
+	s_smem_user_names[SMEM_USER_MD_WIFI_PROXY] = "MD_WIFI_PROXY";
+	s_smem_user_names[SMEM_USER_MD_NVRAM_CACHE] = "MD_NVRAM_CACHE";
+	s_smem_user_names[SMEM_USER_LOW_POWER] = "LOW_POWER";
+}
+
+
+static const char *get_smem_user_name(int user_id)
+{
+	if (user_id < 0 || user_id >= SMEM_USER_MAX)
+		return "";
+
+	return s_smem_user_names[user_id];
+}
+
 static struct ccci_smem_region *get_smem_by_user_id(
 	struct ccci_smem_region *regions, enum SMEM_USER_ID user_id)
 {
@@ -274,6 +322,7 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 	phys_addr_t base_md_view_phy)
 {
 	int i;
+	int calc_offset = 0;
 
 	for (i = 0; ; i++) {
 		if (!regions || regions[i].id == SMEM_USER_MAX)
@@ -289,9 +338,30 @@ static void init_smem_regions(struct ccci_smem_region *regions,
 			base_ap_view_vir + regions[i].offset;
 		regions[i].base_md_view_phy =
 			base_md_view_phy + regions[i].offset;
+
+		if (calc_offset != regions[i].offset) {
+			if ((i > 0) &&
+				(regions[i-1].offset == regions[i].offset))
+				CCCI_BOOTUP_LOG(-1, TAG,
+					"[%s] (%s) and (%s) is overlap.\n",
+					__func__,
+					get_smem_user_name(regions[i-1].id),
+					get_smem_user_name(regions[i].id));
+			else
+				CCCI_BOOTUP_LOG(-1, TAG,
+					"[%s] <%d>(%s) padding size: %x\n",
+					__func__, regions[i].id,
+					get_smem_user_name(regions[i].id),
+					regions[i].offset - calc_offset);
+
+			calc_offset = regions[i].offset + regions[i].size;
+
+		} else
+			calc_offset += regions[i].size;
+
 		CCCI_BOOTUP_LOG(-1, TAG,
-			"%s: reg[%d]<%d>(%lx %lx %lx)[%x]\n", __func__,
-			i, regions[i].id,
+			"%s: reg[%d](%s)<%d>(%lx %lx %lx)[%x]\n", __func__,
+			i, get_smem_user_name(regions[i].id), regions[i].id,
 			(unsigned long)regions[i].base_ap_view_phy,
 			(unsigned long)regions[i].base_ap_view_vir,
 			(unsigned long)regions[i].base_md_view_phy,
@@ -1029,10 +1099,15 @@ void ccci_md_config(struct ccci_modem *md)
 			= md3_6291_noncacheable_fat;
 #endif
 
+	CCCI_BOOTUP_LOG(-1, TAG,
+		"[%s] init bank4 noncacheable:\n", __func__);
 	init_smem_regions(md->mem_layout.md_bank4_noncacheable,
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_phy,
 		md->mem_layout.md_bank4_noncacheable_total.base_ap_view_vir,
 		md->mem_layout.md_bank4_noncacheable_total.base_md_view_phy);
+
+	CCCI_BOOTUP_LOG(-1, TAG,
+		"[%s] init bank4 cacheable:\n", __func__);
 	init_smem_regions(md->mem_layout.md_bank4_cacheable,
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy,
 		md->mem_layout.md_bank4_cacheable_total.base_ap_view_vir,
@@ -1052,6 +1127,9 @@ int ccci_md_register(struct ccci_modem *md)
 
 	/* init per-modem sub-system */
 	CCCI_INIT_LOG(md->index, TAG, "register modem\n");
+
+	init_smem_user_name();
+
 	/* init modem */
 	ret = md->ops->init(md);
 	if (ret < 0)
