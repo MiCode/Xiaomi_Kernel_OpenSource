@@ -29,164 +29,48 @@ enum scp_excep_id {
 	SCP_NR_EXCEP,
 };
 
+struct scp_status_reg {
+	uint32_t status;
+	uint32_t pc;
+	uint32_t lr;
+	uint32_t sp;
+	uint32_t pc_latch;
+	uint32_t lr_latch;
+	uint32_t sp_latch;
+};
+
+extern void scp_dump_last_regs(void);
 extern void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id);
 extern void scp_aed_reset(enum scp_excep_id type, enum scp_core_id id);
 extern void scp_aed_reset_inplace(enum scp_excep_id type,
 		enum scp_core_id id);
 extern void scp_get_log(enum scp_core_id id);
-extern char *scp_get_last_log(enum scp_core_id id);
-extern void scp_A_dump_regs(void);
-extern uint32_t scp_dump_pc(void);
-extern uint32_t scp_dump_lr(void);
+extern char *scp_pickup_log_for_aee(void);
 extern void aed_scp_exception_api(const int *log, int log_size,
 		const int *phy, int phy_size, const char *detail,
 		const int db_opt);
 extern void scp_excep_cleanup(void);
 enum { r0, r1, r2, r3, r12, lr, pc, psr};
 extern int scp_ee_enable;
+extern int scp_reset_counts;
 
-struct TaskContextType {
-	unsigned int r0;
-	unsigned int r1;
-	unsigned int r2;
-	unsigned int r3;
-	unsigned int r4;
-	unsigned int r5;
-	unsigned int r6;
-	unsigned int r7;
-	unsigned int r8;
-	unsigned int r9;
-	unsigned int r10;
-	unsigned int r11;
-	unsigned int r12;
-	unsigned int sp;         /* after pop r0-r3, lr, pc, xpsr */
-	unsigned int lr;         /* lr before exception           */
-	unsigned int pc;         /* pc before exception           */
-	unsigned int psr;        /* xpsr before exeption          */
-	unsigned int control;/*nPRIV bit & FPCA bit, SPSEL bit = 0*/
-	unsigned int exc_return; /* current lr                    */
-	unsigned int msp;        /* msp                           */
-};
+extern struct scp_status_reg c0_m;
+extern struct scp_status_reg c1_m;
 
-#define MDUMP_CDMP_SIZE		(8 * 1024)
-#define MDUMP_L2TCM_SIZE	(512 * 1024)
-
-#define CRASH_REG_SIZE  (9 * 32)
-
-#include <linux/elf.h>
-#define ELF_NGREGS 18
-#define CORE_STR "CORE"
-#define ELF_PRARGSZ 80
-#define ELF_CORE_EFLAGS	0
-#define EM_ARM 40
-static inline void elf_setup_eident(unsigned char e_ident[EI_NIDENT],
-		unsigned char elfclasz)
-{
-	memcpy(e_ident, ELFMAG, SELFMAG);
-	e_ident[EI_CLASS] = elfclasz;
-	e_ident[EI_DATA] = ELFDATA2LSB;
-	e_ident[EI_VERSION] = EV_CURRENT;
-	e_ident[EI_OSABI] = ELFOSABI_NONE;
-	memset(e_ident+EI_PAD, 0, EI_NIDENT-EI_PAD);
-}
-
-struct elf_siginfo {
-	int	si_signo;
-	int	si_code;
-	int	si_errno;
-};
-
-struct elf32_note_t {
-	Elf32_Word   n_namesz;       /* Name size */
-	Elf32_Word   n_descsz;       /* Content size */
-	Elf32_Word   n_type;         /* Content type */
-};
-
-struct elf32_timeval {
-	int32_t tv_sec;
-	int32_t tv_usec;
-};
-struct elf32_prstatus {
-	struct elf_siginfo pr_info;
-	short pr_cursig;
-	uint32_t pr_sigpend;
-	uint32_t pr_sighold;
-
-	int32_t pr_pid;
-	int32_t pr_ppid;
-	int32_t pr_pgrp;
-
-	int32_t pr_sid;
-	struct elf32_timeval pr_utime;
-	struct elf32_timeval pr_stime;
-	struct elf32_timeval pr_cutime;
-	struct elf32_timeval pr_cstime;
-
-	uint32_t pr_reg[ELF_NGREGS];
-
-	int32_t pr_fpvalid;
-};
-
-struct elf32_prpsinfo {
-	char pr_state;
-	char pr_sname;
-	char pr_zomb;
-	char pr_nice;
-	uint32_t pr_flag;
-
-	uint16_t pr_uid;
-	uint16_t pr_gid;
-
-	int32_t pr_pid;
-	int32_t pr_ppid;
-	int32_t pr_pgrp;
-	int32_t pr_sid;
-
-	char pr_fname[16];
-	char pr_psargs[ELF_PRARGSZ];
-};
-
-/* scp reg dump*/
-struct scp_reg_dump_list {
-	uint32_t scp_reg_magic;
-	uint32_t ap_resource;
-	uint32_t bus_resource;
-	uint32_t slp_protect;
-	uint32_t cpu_sleep_status;
-	uint32_t clk_sw_sel;
-	uint32_t clk_enable;
-	uint32_t clk_high_core;
-	uint32_t debug_wdt_sp;
-	uint32_t debug_wdt_lr;
-	uint32_t debug_wdt_psp;
-	uint32_t debug_wdt_pc;
-	uint32_t debug_addr_s2r;
-	uint32_t debug_addr_dma;
-	uint32_t debug_addr_spi0;
-	uint32_t debug_addr_spi1;
-	uint32_t debug_addr_spi2;
-	uint32_t debug_bus_status;
-	uint32_t debug_infra_mon;
-	uint32_t infra_addr_latch;
-	uint32_t ddebug_latch;
-	uint32_t pdebug_latch;
-	uint32_t pc_value;
-	uint32_t scp_reg_magic_end;
-};
-
-struct scp_dump_header_list {
-	uint32_t scp_head_magic;
-	struct scp_region_info_st scp_region_info;
-	uint32_t scp_head_magic_end;
-};
+#define MDUMP_L2TCM_SIZE	0x180000 /* L2_TCM */
+#define MDUMP_L1C_SIZE		0x03c000
+#define MDUMP_REGDUMP_SIZE	0x003f00 /* register backup (max size) */
+#define MDUMP_TBUF_SIZE		0x000100
+#define MDUMP_DRAM_SIZE		SCP_DRAM_MAPSIZE
 
 struct MemoryDump {
-	char cdmp[MDUMP_CDMP_SIZE];
 	/*scp sram*/
 	char l2tcm[MDUMP_L2TCM_SIZE];
+	char l1c[MDUMP_L1C_SIZE];
 	/*scp reg*/
-	struct scp_reg_dump_list scp_reg_dump;
+	char regdump[MDUMP_REGDUMP_SIZE];
+	char tbuf[MDUMP_TBUF_SIZE];
+	char dram[MDUMP_DRAM_SIZE];
 };
-
 
 #endif

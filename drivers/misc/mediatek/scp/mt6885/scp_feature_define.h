@@ -18,9 +18,8 @@
 /* scp platform configs*/
 #define SCP_BOOT_TIME_OUT_MONITOR	(1)
 #define SCP_LOGGER_ENABLE		(1)
-#define SCP_VCORE_TEST_ENABLE		(1)
-#define SCP_DVFS_INIT_ENABLE		(0)
-#define SCP_VOW_LOW_POWER_MODE		(0)
+#define SCP_DVFS_INIT_ENABLE		(1)
+#define SCP_VOW_LOW_POWER_MODE		(1)
 #define SCP_RESERVED_MEM		(1)
 /* scp rescovery feature option*/
 #define SCP_RECOVERY_SUPPORT		(1)
@@ -34,29 +33,24 @@
 #define SCP_REGISTER_SUB_SENSOR		(1)
 
 /* emi mpu define*/
-#ifdef CONFIG_MTK_EMI
-	#define ENABLE_SCP_EMI_PROTECTION       (1)
-#else
-	#define ENABLE_SCP_EMI_PROTECTION       (0)
-#endif
-#define MPU_REGION_ID_SCP_SMEM       6
+#define ENABLE_SCP_EMI_PROTECTION       (1)
+
+#define MPU_REGION_ID_SCP_SMEM       7
+#define MPU_DOMAIN_D0       0
+#define MPU_DOMAIN_D3       3
+
+
+#define SCPSYS_CORE0           0
+#define SCPSYS_CORE1           1
 
 /* scp feature ID list */
 enum feature_id {
 	VOW_FEATURE_ID,
-	OPEN_DSP_FEATURE_ID,
 	SENS_FEATURE_ID,
-	MP3_FEATURE_ID,
 	FLP_FEATURE_ID,
 	RTOS_FEATURE_ID,
 	SPEAKER_PROTECT_FEATURE_ID,
-#if SCP_VCORE_TEST_ENABLE
 	VCORE_TEST_FEATURE_ID,
-	VCORE_TEST2_FEATURE_ID,
-	VCORE_TEST3_FEATURE_ID,
-	VCORE_TEST4_FEATURE_ID,
-	VCORE_TEST5_FEATURE_ID,
-#endif
 	VOW_BARGEIN_FEATURE_ID,
 	VOW_DUMP_FEATURE_ID,
 	VOW_VENDOR_M_FEATURE_ID,
@@ -122,7 +116,7 @@ struct scp_feature_tb {
 	uint32_t feature;
 	uint32_t freq;
 	uint32_t enable;
-	uint32_t sub_feature;
+	uint32_t sys_id; /* run at which subsys? */
 };
 
 struct scp_sub_feature_tb {

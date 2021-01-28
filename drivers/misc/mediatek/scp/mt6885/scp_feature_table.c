@@ -14,123 +14,96 @@
 #include <linux/module.h>       /* needed by all modules */
 #include "scp_feature_define.h"
 #include "scp_ipi_pin.h"
+
+
 /*scp feature list*/
 struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
-	{
-		.feature     = VOW_FEATURE_ID,
-		.freq        = 5,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = OPEN_DSP_FEATURE_ID,
-		.freq        = 356,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = SENS_FEATURE_ID,
-		.freq        = 0,
-		.enable      = 0,
-		.sub_feature = 1,
-	},
-	{
-		.feature     = MP3_FEATURE_ID,
-		.freq        = 47,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = FLP_FEATURE_ID,
-		.freq        = 26,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = RTOS_FEATURE_ID,
-		.freq        = 0,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = SPEAKER_PROTECT_FEATURE_ID,
-		.freq        = 200,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-#if SCP_VCORE_TEST_ENABLE
-	{
-		.feature     = VCORE_TEST_FEATURE_ID,
-		.freq        = 50,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST2_FEATURE_ID,
-		.freq        = 150,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST3_FEATURE_ID,
-		.freq        = 250,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST4_FEATURE_ID,
-		.freq        = 300,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-	{
-		.feature     = VCORE_TEST5_FEATURE_ID,
-		.freq        = 400,
-		.enable      = 0,
-		.sub_feature = 0,
-	},
-#endif
+/* VFFP:20 + default:5 */
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 	{
-		.feature     = VOW_BARGEIN_FEATURE_ID,
-		.freq        = 200,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= VOW_FEATURE_ID,
+		.freq		= 25,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 #else
 	{
-		.feature     = VOW_BARGEIN_FEATURE_ID,
-		.freq        = 120,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= VOW_FEATURE_ID,
+		.freq		= 5,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
 	},
 #endif
 	{
-		.feature     = VOW_DUMP_FEATURE_ID,
-		.freq        = 10,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= SENS_FEATURE_ID,
+		.freq		= 29,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
-		.feature     = VOW_VENDOR_M_FEATURE_ID,
-		.freq        = 43,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= FLP_FEATURE_ID,
+		.freq		= 26,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
-		.feature     = VOW_VENDOR_A_FEATURE_ID,
-		.freq        = 43,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= RTOS_FEATURE_ID,
+		.freq		= 0,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
 	},
 	{
-		.feature     = VOW_VENDOR_G_FEATURE_ID,
-		.freq        = 22,
-		.enable      = 0,
-		.sub_feature = 0,
+		.feature	= SPEAKER_PROTECT_FEATURE_ID,
+		.freq		= 200,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
+	},
+	{
+		.feature	= VCORE_TEST_FEATURE_ID,
+		.freq		= 0,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE0,
+	},
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+	{
+		.feature	= VOW_BARGEIN_FEATURE_ID,
+		.freq		= 120,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
+	},
+#else
+	{
+		.feature        = VOW_BARGEIN_FEATURE_ID,
+		.freq           = 120,
+		.enable         = 0,
+		.sys_id         = SCPSYS_CORE1,
+	},
+#endif
+	{
+		.feature	= VOW_DUMP_FEATURE_ID,
+		.freq		= 10,
+		.enable		= 0,
+		.sys_id		= SCPSYS_CORE1,
+	},
+	{
+		.feature        = VOW_VENDOR_M_FEATURE_ID,
+		.freq           = 80,
+		.enable         = 0,
+		.sys_id         = SCPSYS_CORE1,
+	},
+	{
+		.feature        = VOW_VENDOR_A_FEATURE_ID,
+		.freq           = 43,
+		.enable         = 0,
+		.sys_id         = SCPSYS_CORE1,
+	},
+	{
+		.feature        = VOW_VENDOR_G_FEATURE_ID,
+		.freq           = 22,
+		.enable         = 0,
+		.sys_id         = SCPSYS_CORE1,
 	},
 };
-
 
 /*scp sensor type list*/
 struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
@@ -229,5 +202,5 @@ struct scp_sub_feature_tb sensor_type_table[NUM_SENSOR_TYPE] = {
 		.freq    = 3,
 		.enable  = 0,
 	},
-	};
+};
 

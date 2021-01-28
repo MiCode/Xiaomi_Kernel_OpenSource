@@ -23,19 +23,26 @@ enum scp_ipi_status {
 };
 
 struct scp_ipi_wrapper {
-	uint8_t out_id_0;
-	uint8_t out_id_1;
-	uint8_t in_id_0;
-	uint8_t in_id_1;
+	uint32_t out_id_0;
+	uint32_t out_id_1;
+	uint32_t in_id_0;
+	uint32_t in_id_1;
 	uint32_t out_size;
 	uint32_t in_size;
-	void *msg;
+	void *msg_0;
+	void *msg_1;
 };
+
+extern struct mtk_mbox_device scp_mboxdev;
+extern struct mtk_ipi_device scp_ipidev;
+extern struct mtk_mbox_info scp_mbox_info[SCP_MBOX_TOTAL];
 
 extern enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name);
 extern enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
 	unsigned int len, unsigned int wait, enum scp_core_id scp_id);
+extern enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id);
+extern enum scp_ipi_status scp_legacy_ipi_init(void);
 
 #endif

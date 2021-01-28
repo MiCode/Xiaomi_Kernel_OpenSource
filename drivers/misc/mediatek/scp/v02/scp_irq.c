@@ -28,10 +28,38 @@
  */
 static void scp_A_wdt_handler(void)
 {
-	pr_debug("[SCP] CM4 A WDT exception\n");
-	scp_A_dump_regs();
+	pr_notice("[SCP] %s\n", __func__);
+	scp_dump_last_regs();
+	if (scp_set_reset_status() == RESET_STATUS_STOP) {
+		pr_debug("[SCP] start to reset scp...\n");
+		scp_send_reset_wq(RESET_TYPE_WDT);
+	} else
+		pr_notice("scp_A_wdt_handler: scp resetting\n");
 }
 
+static void wait_scp_wdt_irq_done(void)
+{
+	int retry = 0;
+	unsigned long c0, c1;
+
+	/* clr after SCP side INT trigger,
+	 * or SCP may lost INT max wait = 200ms
+	 */
+	for (retry = SCP_AWAKE_TIMEOUT; retry > 0; retry--) {
+		c0 = readl(SCP_GPR_CORE0_REBOOT);
+		c1 = readl(SCP_GPR_CORE1_REBOOT);
+		if ((c0 == CORE_RDY_TO_REBOOT) && (c1 == CORE_RDY_TO_REBOOT))
+			break;
+		udelay(2);
+	}
+
+	if (retry == 0)
+		pr_debug("[SCP] SCP wakeup timeout c0:%x c1:%x\n", c0, c1);
+
+	udelay(10);
+
+
+}
 /*
  * dispatch scp irq
  * reset scp and generate exception if needed
@@ -40,47 +68,18 @@ static void scp_A_wdt_handler(void)
  */
 irqreturn_t scp_A_irq_handler(int irq, void *dev_id)
 {
-	unsigned int reg = readl(SCP_A_TO_HOST_REG);
-#if 1//SCP_RECOVERY_SUPPORT
-	/* if WDT and IPI triggered on the same time, ignore the IPI */
-	if (reg & SCP_IRQ_WDT) {
-		int retry;
-		unsigned long tmp;
+	unsigned int reg0 = readl(R_CORE0_WDT_IRQ);
+	unsigned int reg1 = readl(R_CORE1_WDT_IRQ);
 
+	if (reg0 | reg1) {
 		scp_A_wdt_handler();
-		if (scp_set_reset_status() == RESET_STATUS_STOP) {
-			pr_debug("[SCP] CM4 WDT handler start to reset scp...\n");
-			scp_send_reset_wq(RESET_TYPE_WDT);
-		} else
-			pr_notice("scp_A_wdt_handler: scp resetting\n");
-
-		/* clr after SCP side INT trigger,
-		 * or SCP may lost INT max wait 5000*40u = 200ms
-		 */
-		for (retry = SCP_AWAKE_TIMEOUT; retry > 0; retry--) {
-			tmp = readl(SCP_GPR_CM4_A_REBOOT);
-			if (tmp == CM4_A_READY_TO_REBOOT)
-				break;
-			udelay(40);
-		}
-		if (retry == 0)
-			pr_debug("[SCP] SCP_A wakeup timeout\n");
-		udelay(10);
-		writel(SCP_IRQ_WDT, SCP_A_TO_HOST_REG);
-	} else if (reg & SCP_IRQ_SCP2HOST) {
-		/* if WDT and IPI triggered on the same time, ignore the IPI */
-		//scp_A_ipi_handler();
-		writel(SCP_IRQ_SCP2HOST, SCP_A_TO_HOST_REG);
+		/* clear IRQ */
+		wait_scp_wdt_irq_done();
+		if (reg0)
+			writel(B_WDT_IRQ, R_CORE0_WDT_IRQ);
+		if (reg1)
+			writel(B_WDT_IRQ, R_CORE1_WDT_IRQ);
 	}
-#endif  // SCP_RECOVERY_SUPPORT
-
 	return IRQ_HANDLED;
 }
 
-/*
- * scp irq initialize
- */
-void scp_A_irq_init(void)
-{
-	writel(SCP_IRQ_SCP2HOST, SCP_A_TO_HOST_REG); /* clear scp irq */
-}
