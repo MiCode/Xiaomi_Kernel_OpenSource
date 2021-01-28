@@ -14,7 +14,7 @@
 #define _MTK_EEM_CONFIG_H_
 
 /* CONFIG (SW related) */
-#define EEM_NOT_READY		(1)
+/* #define EEM_NOT_READY		(1) */
 #define CONFIG_EEM_SHOWLOG	(0)
 #define EN_ISR_LOG		(0)
 #define EEM_BANK_SOC		(0) /* use voltage bin, so disable it */

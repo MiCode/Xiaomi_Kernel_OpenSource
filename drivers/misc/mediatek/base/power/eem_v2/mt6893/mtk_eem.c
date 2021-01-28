@@ -2748,6 +2748,12 @@ static int eem_probe(struct platform_device *pdev)
 	for_each_det(det) {
 		if (det->ops->get_orig_volt_table)
 			det->ops->get_orig_volt_table(det);
+
+		if ((det->num_freq_tbl < 8) ||
+			(det->volt_tbl_orig[0] == 0) ||
+			(det->freq_tbl[0] == 0)) {
+			return 0;
+		}
 	}
 
 #if SUPPORT_DCONFIG
