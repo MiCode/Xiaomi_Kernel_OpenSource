@@ -37,3 +37,5 @@ subdir-ccflags-$(CONFIG_MACH_MT8167) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMI
 endif
 
 obj-$(CONFIG_DUAL_ROLE_USB_INTF) += mtk_dual_role.o
+
+subdir-ccflags-$(CONFIG_MACH_MT6833) += -DUSB2_PHY_V2
