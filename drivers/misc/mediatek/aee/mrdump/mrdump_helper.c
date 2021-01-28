@@ -496,7 +496,7 @@ void aee_zap_locks(void)
 	if (!p_logbuf_lock) {
 		p_logbuf_lock = (void *)aee_addr_find("logbuf_lock");
 		if (!p_logbuf_lock) {
-			aee_sram_printk("%s failed to get logbuf lock",
+			aee_sram_printk("%s failed to get logbuf lock\n",
 					__func__);
 			return;
 		}
@@ -504,7 +504,7 @@ void aee_zap_locks(void)
 	if (!p_console_sem) {
 		p_console_sem = (void *)aee_addr_find("console_sem");
 		if (!p_console_sem) {
-			aee_sram_printk("%s failed to get logbuf lock",
+			aee_sram_printk("%s failed to get console_sem\n",
 					__func__);
 			return;
 		}
@@ -717,7 +717,7 @@ void aee_zap_locks(void)
 	if (!p_logbuf_lock) {
 		p_logbuf_lock = (void *)kallsyms_lookup_name("logbuf_lock");
 		if (!p_logbuf_lock) {
-			aee_sram_printk("%s failed to get logbuf lock",
+			aee_sram_printk("%s failed to get logbuf lock\n",
 					__func__);
 			return;
 		}
@@ -725,7 +725,7 @@ void aee_zap_locks(void)
 	if (!p_console_sem) {
 		p_console_sem = (void *)kallsyms_lookup_name("console_sem");
 		if (!p_console_sem) {
-			aee_sram_printk("%s failed to get logbuf lock",
+			aee_sram_printk("%s failed to get console_sem\n",
 					__func__);
 			return;
 		}
