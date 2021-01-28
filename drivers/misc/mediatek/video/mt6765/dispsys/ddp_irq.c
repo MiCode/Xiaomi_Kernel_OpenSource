@@ -21,6 +21,10 @@
 #include <linux/timer.h>
 #include <linux/sched/clock.h>
 
+#if defined(CONFIG_MTK_SMI_EXT)
+#include <smi_public.h>
+#endif
+
 /* #include <mach/mt_irq.h> */
 #include "disp_drv_platform.h"	/* must be at the top-most */
 #include "ddp_log.h"
@@ -38,7 +42,6 @@
 #include "layering_rule.h"
 
 #include <asm/arch_timer.h>
-#include "mt-plat/mtk_smi.h"
 
 /* IRQ log print kthread */
 static struct task_struct *disp_irq_log_task;
@@ -234,7 +237,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 	} else if (irq == ddp_get_module_irq(DISP_MODULE_OVL0) ||
 		irq == ddp_get_module_irq(DISP_MODULE_OVL0_2L)) {
 /*
- *		mt6765 not use this module
+ *		not use this module
  *		irq == ddp_get_module_irq(DISP_MODULE_OVL1_2L)) {
  */
 		module = disp_irq_to_module(irq);
@@ -313,6 +316,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 		if (reg_val & (1 << 1)) {
 			DDPERR("IRQ: WDMA%d underrun! cnt=%d\n", index,
 			       cnt_wdma_underflow[index]++);
+
 			disp_irq_log_module |= 1 << module;
 		}
 		/* clear intr */
@@ -469,6 +473,7 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 	}
 
 	disp_invoke_irq_callbacks(module, reg_val);
+
 	if (disp_irq_log_module != 0)
 		wake_up_interruptible(&disp_irq_log_wq);
 
@@ -484,10 +489,10 @@ static void disp_irq_rdma_underflow_aee_trigger(void)
 
 	if (disp_irq_rdma_underflow) {
 		/* Request highest dvfs */
-		primary_display_request_dvfs_perf(SMI_BWC_SCEN_UI_IDLE,
-				HRT_LEVEL_LEVEL2,
-				layering_rule_get_mm_freq_table
-					(HRT_OPP_LEVEL_LEVEL0));
+		#ifdef MTK_FB_MMDVFS_SUPPORT
+		primary_display_request_dvfs_perf(0,
+				HRT_LEVEL_LEVEL2);
+		#endif
 
 		if (disp_helper_get_option(DISP_OPT_RDMA_UNDERFLOW_AEE)) {
 			/* Just count underflow which happens more frequently */

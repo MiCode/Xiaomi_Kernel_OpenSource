@@ -69,9 +69,9 @@ int rect_intersect(const struct disp_rect *src, const struct disp_rect *dst,
 			fBottom = bottom;
 		rect_set(out, fLeft, fTop, fRight, fBottom);
 		DISPDBG(
-			"rect_intersect (%d,%d,%d,%d) & (%d,%d,%d,%d) to (%d,%d,%d,%d)\n",
-			src->x, src->y, src->width, src->height,
-			dst->x, dst->y, dst->width,	dst->height,
+			"%s (%d,%d,%d,%d) & (%d,%d,%d,%d) to (%d,%d,%d,%d)\n",
+			__func__, src->x, src->y, src->width, src->height,
+			dst->x, dst->y, dst->width, dst->height,
 			out->x, out->y, out->width, out->height);
 		return 1;
 	}
@@ -126,8 +126,8 @@ void rect_join(const struct disp_rect *in1, const struct disp_rect *in2,
 			rect_set(out, fLeft, fTop, fRight, fBottom);
 		}
 	}
-	DISPDBG("rect_join (%d,%d,%d,%d) & (%d,%d,%d,%d) to (%d,%d,%d,%d)\n",
-		in1->x, in1->y, in1->width, in1->height, in2_x, in2_y,
+	DISPDBG("%s (%d,%d,%d,%d) & (%d,%d,%d,%d) to (%d,%d,%d,%d)\n",
+		__func__, in1->x, in1->y, in1->width, in1->height, in2_x, in2_y,
 		in2_w, in2_h, in2->x, in2->y, in2->width, in2->height);
 }
 

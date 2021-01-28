@@ -43,11 +43,14 @@ static unsigned int disp_global_stage =
 	MAGIC_CODE | DISP_HELPER_STAGE_EARLY_PORTING;
 #else
 /* please change this to DISP_HELPER_STAGE_NORMAL after bring up done */
-/* static unsigned int disp_global_stage =
- * MAGIC_CODE | DISP_HELPER_STAGE_BRING_UP;
- */
+#if 0
+static unsigned int disp_global_stage =
+	MAGIC_CODE | DISP_HELPER_STAGE_BRING_UP;
+#endif
+
 static unsigned int disp_global_stage =
 	MAGIC_CODE | DISP_HELPER_STAGE_NORMAL;
+
 #endif
 
 static unsigned int _is_early_porting_stage(void)

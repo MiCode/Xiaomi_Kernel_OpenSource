@@ -12,7 +12,7 @@
  */
 
 #include <linux/delay.h>
-#include <linux/sched/clock.h>
+#include <linux/sched.h>
 #include <linux/semaphore.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -20,6 +20,7 @@
 #include <linux/mutex.h>
 #include <linux/string.h>
 #include <linux/printk.h>
+#include <linux/sched/clock.h>
 #include <stdarg.h>
 #include <linux/slab.h>
 #include "ddp_mmp.h"
@@ -893,7 +894,6 @@ int dprec_logger_get_result_string_all(char *stringbuf, int strlen)
 
 	return n;
 }
-
 
 int dprec_logger_get_result_value(enum DPREC_LOGGER_ENUM source,
 	struct fpsEx *fps)

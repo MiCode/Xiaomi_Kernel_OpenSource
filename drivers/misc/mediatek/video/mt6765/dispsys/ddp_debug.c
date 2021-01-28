@@ -50,6 +50,7 @@
 #include "disp_lowpower.h"
 #include "disp_drv_log.h"
 #include "disp_recovery.h"
+#include "disp_cust.h"
 
 static struct dentry *debugfs;
 static struct dentry *debugDir;
@@ -332,8 +333,8 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 		ddp_init_met_tag(met_on, rdma0_mode, rdma1_mode);
-		DDPMSG("process_dbg_opt, met_on=%d,rdma0_mode %d, rdma1 %d\n",
-			met_on, rdma0_mode, rdma1_mode);
+		DDPMSG("%s: met_on=%d,rdma0_mode %d, rdma1 %d\n",
+			__func__, met_on, rdma0_mode, rdma1_mode);
 		sprintf(buf, "met_on:%d,rdma0_mode:%d,rdma1_mode:%d\n",
 			met_on, rdma0_mode,	rdma1_mode);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
@@ -362,13 +363,12 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		if (test_type < 1) {
+		if (test_type < 1)
 			_ddic_test_read();
-		} else if (test_type > 1 && test_type < 5) {
+		else if (test_type > 1 && test_type < 5)
 			_ddic_test_write();
-		} else if (test_type > 10) {
+		else if (test_type > 10)
 			_ddic_test_read_write();
-		}
 
 	} else if (strncmp(opt, "partial:", 8) == 0) {
 		ret = sscanf(opt, "partial:%d,%d,%d,%d,%d\n", &dbg_force_roi,
@@ -378,7 +378,7 @@ static void process_dbg_opt(const char *opt)
 			snprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
-		DDPMSG("process_dbg_opt, partial force=%d (%d,%d,%d,%d)\n",
+		DDPMSG("%s: partial force=%d (%d,%d,%d,%d)\n", __func__,
 			dbg_force_roi, dbg_partial_x, dbg_partial_y,
 			dbg_partial_w, dbg_partial_h);
 	} else if (strncmp(opt, "partial_s:", 10) == 0) {
@@ -387,7 +387,7 @@ static void process_dbg_opt(const char *opt)
 			snprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
-		DDPMSG("process_dbg_opt, partial_s:%d\n", dbg_partial_statis);
+		DDPMSG("%s: partial_s:%d\n", __func__, dbg_partial_statis);
 	} else if (strncmp(opt, "pwm0:", 5) == 0 ||
 			strncmp(opt, "pwm1:", 5) == 0) {
 		char *p = (char *)opt + 5;
@@ -490,7 +490,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		DDPMSG("process_dbg_opt, module=%d\n", module);
+		DDPMSG("%s: module=%d\n", __func__, module);
 		if (module < DISP_MODULE_NUM) {
 			ddp_dump_reg(module);
 			sprintf(buf, "dump_reg: %d\n", module);
@@ -508,7 +508,7 @@ static void process_dbg_opt(const char *opt)
 			return;
 		}
 
-		DDPMSG("process_dbg_opt, path mutex=%d\n", mutex_idx);
+		DDPMSG("%s: path mutex=%d\n", __func__, mutex_idx);
 		dpmgr_debug_path_status(mutex_idx);
 		sprintf(buf, "dump_path: %d\n", mutex_idx);
 
@@ -626,6 +626,58 @@ static void process_dbg_opt(const char *opt)
 			tmp += snprintf(buf + tmp, buf_size_left - tmp,
 				"para[%d]=0x%x,", i, para[i]);
 		DISPMSG("%s\n", buf);
+	} else if (strncmp(opt, "set_customer_cmd:", 17) == 0) {
+		int cmd;
+		int hs;
+		int para_cnt, i;
+		char para[15] = {0};
+		struct LCM_setting_table_V3 test;
+		static char fmt[256] = "set_customer_cmd:0x%x, %d";
+
+		for (i = 0; i < ARRAY_SIZE(para); i++)
+			strncat(fmt, ",0x%hhx", sizeof(fmt) - strlen(fmt) - 1);
+
+		strncat(fmt, "\n", sizeof(fmt) - strlen(fmt) - 1);
+
+		ret = sscanf(opt, fmt, &cmd,
+			&hs, &para[0], &para[1], &para[2], &para[3], &para[4],
+			&para[5], &para[6], &para[7], &para[8], &para[9],
+			&para[10], &para[11], &para[12], &para[13], &para[14]);
+
+		if (ret < 1 || ret > ARRAY_SIZE(para) + 1) {
+			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			return;
+		}
+
+		para_cnt = ret - 2;
+		test.id = REGFLAG_ESCAPE_ID;
+		test.cmd = cmd;
+		test.count = para_cnt;
+		for (i = 0; i < 15; i++)
+			test.para_list[i] = para[i];
+		pr_info("set_dsi_cmd cmd=0x%x\n", cmd);
+		for (i = 0; i < para_cnt; i++)
+			pr_info("para[%d] = 0x%x\n", i, para[i]);
+		set_lcm(&test, 1, hs);
+
+	} else if (strncmp(opt, "read_customer_cmd:", 18) == 0) {
+		int cmd;
+		int size, i;
+		char para[15] = {0};
+		int sendhs;
+
+		ret = sscanf(opt, "read_customer_cmd:0x%x, %d, %d\n",
+						&cmd, &size, &sendhs);
+
+		if (ret != 3 || size > ARRAY_SIZE(para)) {
+			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			return;
+		}
+		pr_info(" read_lcm: 0x%x, size= %d %d\n", cmd, size, sendhs);
+		read_lcm(cmd, para, size, sendhs);
+
+		for (i = 0; i < size; i++)
+			pr_info("para[%d] = 0x%x\n", i, para[i]);
 	} else {
 		dbg_buf[0] = '\0';
 		goto Error;
@@ -636,7 +688,6 @@ static void process_dbg_opt(const char *opt)
 Error:
 	DDPERR("parse command error!\n%s\n\n%s", opt, STR_HELP);
 }
-
 
 static void process_dbg_cmd(char *cmd)
 {

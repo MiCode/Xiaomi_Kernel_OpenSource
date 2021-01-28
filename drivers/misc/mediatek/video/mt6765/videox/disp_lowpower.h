@@ -56,7 +56,7 @@ unsigned int is_mipi_enterulps(void);
 unsigned int get_mipi_clk(void);
 
 int primary_display_request_dvfs_perf(
-	int scenario, int req, unsigned int freq_req);
+	int scenario, int req);
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)

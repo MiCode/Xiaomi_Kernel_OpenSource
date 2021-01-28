@@ -95,10 +95,11 @@ static int ddp_get_mutex_src(enum DISP_MODULE_ENUM dest_module,
 	return 0;
 }
 
-static int ddp_mutex_add_module(int mutex_id, enum DISP_MODULE_ENUM module,
-	void *handle)
+static unsigned int ddp_mutex_add_module(int mutex_id,
+	enum DISP_MODULE_ENUM module, void *handle)
 {
-	int value = 0;
+	unsigned int value = 0;
+
 
 	if (!is_ddp_module(module))
 		return value;
@@ -125,11 +126,11 @@ static int ddp_mutex_add_module(int mutex_id, enum DISP_MODULE_ENUM module,
 	return value;
 }
 
-int ddp_mutex_remove_module(int mutex_id, enum DISP_MODULE_ENUM module,
+int ddp_mutex_remove_module(unsigned int mutex_id, enum DISP_MODULE_ENUM module,
 	void *handle)
 {
 	int ret = 0;
-	int value = 0;
+	unsigned int value = 0;
 
 	if (!is_ddp_module(module))
 		return ret;
@@ -156,7 +157,7 @@ int ddp_mutex_remove_module(int mutex_id, enum DISP_MODULE_ENUM module,
 }
 
 /* id: mutex ID, 0~3 */
-static int ddp_mutex_set_l(int mutex_id, int *module_list,
+static int ddp_mutex_set_l(unsigned int mutex_id, int *module_list,
 	enum DDP_MODE ddp_mode, void *handle)
 {
 	int i = 0;
@@ -249,7 +250,7 @@ static void ddp_check_mutex_l(int mutex_id, int *module_list,
 }
 
 
-void ddp_mutex_interrupt_enable(int mutex_id, void *handle)
+void ddp_mutex_interrupt_enable(unsigned int mutex_id, void *handle)
 {
 	DDPDBG("mutex %d interrupt enable\n", mutex_id);
 	DISP_REG_MASK(handle, DISP_REG_CONFIG_MUTEX_INTEN,
@@ -265,7 +266,7 @@ void ddp_mutex_interrupt_enable(int mutex_id, void *handle)
 		0x1 << (mutex_id + DISP_MUTEX_TOTAL)); /* update timeout irq */
 }
 
-void ddp_mutex_interrupt_disable(int mutex_id, void *handle)
+void ddp_mutex_interrupt_disable(unsigned int mutex_id, void *handle)
 {
 	DDPDBG("mutex %d interrupt disenable\n", mutex_id);
 	DISP_REG_MASK(handle, DISP_REG_CONFIG_MUTEX_INTEN,
@@ -279,7 +280,7 @@ void ddp_mutex_interrupt_disable(int mutex_id, void *handle)
 		0, 0x1 << (mutex_id + DISP_MUTEX_TOTAL));
 }
 
-void ddp_mutex_reset(int mutex_id, void *handle)
+void ddp_mutex_reset(unsigned int mutex_id, void *handle)
 {
 	DDPDBG("mutex %d reset\n", mutex_id);
 	DISP_REG_SET(handle, DISP_REG_CONFIG_MUTEX_RST(mutex_id), 1);
@@ -319,7 +320,7 @@ int ddp_is_moudule_in_mutex(int mutex_id, enum DISP_MODULE_ENUM module)
 }
 
 
-void ddp_mutex_clear(int mutex_id, void *handle)
+void ddp_mutex_clear(unsigned int mutex_id, void *handle)
 {
 	DDPDBG("mutex %d clear\n", mutex_id);
 	/*reset mutex */
@@ -330,7 +331,7 @@ void ddp_mutex_clear(int mutex_id, void *handle)
 
 
 int ddp_mutex_set_sof_wait(int mutex_id, struct cmdqRecStruct *handle,
-	int wait)
+	unsigned int wait)
 {
 	if (mutex_id < DISP_MUTEX_DDP_FIRST ||
 		mutex_id > DISP_MUTEX_DDP_LAST) {
@@ -344,13 +345,13 @@ int ddp_mutex_set_sof_wait(int mutex_id, struct cmdqRecStruct *handle,
 }
 
 
-int ddp_mutex_enable(int mutex_id, enum DDP_SCENARIO_ENUM scenario,
+int ddp_mutex_enable(unsigned int mutex_id, enum DDP_SCENARIO_ENUM scenario,
 	enum DDP_MODE mode, void *handle)
 {
 	DDPDBG("mutex %d enable\n", mutex_id);
 
 	/* disable mutex dcm */
-	/* mt6765 use default value */
+	/* use default value */
 /*	DISP_REG_SET(handle, DISP_REG_CONFIG_MUTEX_CFG, 0); */
 
 	DISP_REG_SET(handle, DISP_REG_CONFIG_MUTEX_EN(mutex_id), 1);

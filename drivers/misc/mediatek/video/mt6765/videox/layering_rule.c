@@ -40,13 +40,13 @@ static struct layering_rule_info_t l_rule_info;
 
 int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */
-	{500, 600, 700, 700},
+	{350, 600, 700, 700},
 	/* HRT_BOUND_TYPE_LP4_PLUS */
-	{400, 500, 600, 600},
+	{300, 500, 600, 600},
 	/* HRT_BOUND_TYPE_LP3 */
 	{350, 350, 350, 350},
 	/* HRT_BOUND_TYPE_LP3_PLUS */
-	{250, 250, 250, 250},
+	{300, 300, 300, 300},
 	/* HRT_BOUND_TYPE_LP4_1CH */
 	{350, 350, 350, 350},
 	/* HRT_BOUND_TYPE_LP4_HYBRID */
@@ -54,11 +54,11 @@ int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP3_HD */
 	{750, 750, 750, 750},
 	/* HRT_BOUND_TYPE_LP4_HD */
-	{1100, 1350, 1550, 1550},
+	{750, 1350, 1550, 1550},
 	/* HRT_BOUND_TYPE_LP3_HD_PLUS */
-	{550, 550, 550, 550},
+	{650, 650, 650, 650},
 	/* HRT_BOUND_TYPE_LP4_HD_PLUS */
-	{900, 1100, 1350, 1350},
+	{650, 1100, 1350, 1350},
 };
 
 int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
@@ -85,22 +85,15 @@ int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 };
 
 int mm_freq_table[HRT_DRAMC_TYPE_NUM][HRT_OPP_LEVEL_NUM] = {
-#if defined(CONFIG_MACH_MT6765)
 	/* HRT_DRAMC_TYPE_LP4_3733 */
 	{457, 312, 228},
 	/* HRT_DRAMC_TYPE_LP4_3200 */
 	{457, 312, 228},
 	/* HRT_DRAMC_TYPE_LP3 */
 	{457, 312, 228},
-#elif defined(CONFIG_MACH_MT6761)
-	/* HRT_DRAMC_TYPE_LP4_3733 */
-	{436, 312, 227},
-	/* HRT_DRAMC_TYPE_LP4_3200 */
-	{436, 312, 227},
-	/* HRT_DRAMC_TYPE_LP3 */
-	{436, 312, 227},
-#endif
 };
+
+static enum HRT_LEVEL max_hrt_level = HRT_LEVEL_NUM - 1;
 
 /**
  * The layer mapping table define ovl layer dispatch rule for both
@@ -353,11 +346,11 @@ static bool lr_rsz_layout(struct disp_layer_info *disp_info)
 			else if (rsz_idx != -1)
 				l_rule_info.disp_path = HRT_PATH_RPO_BOTH;
 			} else {
-			rollback_all_resize_layer_to_GPU(disp_info,
+				rollback_all_resize_layer_to_GPU(disp_info,
 								HRT_PRIMARY);
-			l_rule_info.scale_rate = HRT_SCALE_NONE;
-			l_rule_info.disp_path = HRT_PATH_UNKNOWN;
-		}
+				l_rule_info.scale_rate = HRT_SCALE_NONE;
+				l_rule_info.disp_path = HRT_PATH_UNKNOWN;
+			}
 	}
 
 	return 0;
@@ -527,6 +520,57 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 	return flag;
 }
 
+static bool post_hw_limitation(struct disp_layer_info *disp_info)
+{
+	bool flag = false;
+	unsigned int i;
+	struct layer_config *info;
+	unsigned int disp_idx = 0;
+	int yuv_tb = -1, yuv_bb = -1;
+
+	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
+		for (i = 0; i < disp_info->layer_num[disp_idx] ; i++) {
+			info = &(disp_info->input_config[disp_idx][i]);
+			if (is_gles_layer(disp_info, disp_idx, i))
+				continue;
+			if (!is_yuv(info->src_fmt))
+				continue;
+
+			/* NOTICE: assume there are two yuv layer at most */
+			/* YUV format might need alignment, keep some margin */
+			if (yuv_tb == -1) {
+				yuv_tb = info->dst_offset_y;
+				yuv_tb = (yuv_tb < 2) ? 0 : yuv_tb - 2;
+				yuv_bb = yuv_tb + info->dst_height + 1;
+			} else {
+				unsigned int firs_tb, firs_bb, seco_tb, seco_bb;
+				unsigned int tmp_tb, tmp_bb;
+				bool sort_res;
+
+				tmp_tb = info->dst_offset_y;
+				tmp_tb = (tmp_tb < 2) ? 0 : tmp_tb - 2;
+				tmp_bb = tmp_tb + info->dst_height + 1;
+
+				sort_res = yuv_tb < info->dst_offset_y;
+
+				firs_tb = sort_res ? yuv_tb : tmp_tb;
+				firs_bb = sort_res ? yuv_bb : tmp_bb;
+				seco_tb = sort_res ? tmp_tb : yuv_tb;
+				seco_bb = sort_res ? tmp_bb : yuv_bb;
+
+				if (seco_tb <= firs_bb) {
+					 /* yuv overlap */
+					 /* mmclk should be 450MHZ*/
+					disp_info->hrt_num = max_hrt_level;
+					DISPINFO("set HRT max level %d\n",
+						disp_info->hrt_num);
+				}
+			}
+		}
+	}
+
+	return flag;
+}
 
 static int get_hrt_bound(int is_larb, int hrt_level)
 {
@@ -631,4 +675,5 @@ static struct layering_rule_ops l_rule_ops = {
 	.get_mapping_table = get_mapping_table,
 	.rollback_to_gpu_by_hw_limitation = filter_by_hw_limitation,
 	.unset_disp_rsz_attr = lr_unset_disp_rsz_attr,
+	.adjust_hrt_level = post_hw_limitation,
 };

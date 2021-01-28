@@ -42,6 +42,10 @@ int rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len,
 	u32 tile_in_len[2] = { 0 };
 	u32 tile_out_len = 0;
 
+	if (t == NULL) {
+		DDPMSG("rsz_tile_params pointer is NULL\n");
+		return -EINVAL;
+	}
 	if (tile_mode)
 		tile_loss = TILE_LOSS;
 
@@ -52,6 +56,7 @@ int rsz_calc_tile_params(u32 frm_in_len, u32 frm_out_len,
 	offset[0] = (step * (frm_out_len - 1) - UNIT * (frm_in_len - 1)) / 2;
 	init_phase = UNIT - offset[0];
 	sub_offset[0] = -offset[0];
+
 	if (sub_offset[0] < 0) {
 		int_offset[0]--;
 		sub_offset[0] = UNIT + sub_offset[0];

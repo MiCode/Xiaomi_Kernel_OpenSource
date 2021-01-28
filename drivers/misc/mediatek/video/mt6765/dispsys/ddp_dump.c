@@ -24,6 +24,7 @@
 #include "ddp_dsi.h"
 #include "ddp_rsz.h"
 #include "smi_public.h"
+#include "disp_helper.h"
 
 static char *ddp_signal_0(int bit)
 {
@@ -217,8 +218,8 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 		case 12:
 			return "nv12";
 		default:
-			DDPDUMP("ddp_get_fmt_name, unknown fmt=%d, module=%d\n",
-				fmt, module);
+			DDPDUMP("%s: unknown fmt=%d, module=%d\n",
+				__func__, fmt, module);
 			return "unknown";
 		}
 	} else if (module == DISP_MODULE_OVL0) {
@@ -236,8 +237,8 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 		case 5:
 			return "yuyv";
 		default:
-			DDPDUMP("ddp_get_fmt_name, unknown fmt=%d, module=%d\n",
-				fmt, module);
+			DDPDUMP("%s: unknown fmt=%d, module=%d\n",
+				__func__, fmt, module);
 			return "unknown";
 		}
 	} else if (module == DISP_MODULE_RDMA0 || module == DISP_MODULE_RDMA1) {
@@ -255,12 +256,12 @@ char *ddp_get_fmt_name(enum DISP_MODULE_ENUM module, unsigned int fmt)
 		case 5:
 			return "yuyv";
 		default:
-			DDPDUMP("ddp_get_fmt_name, unknown fmt=%d, module=%d\n",
-				fmt, module);
+			DDPDUMP("%s: unknown fmt=%d, module=%d\n",
+				__func__, fmt, module);
 			return "unknown";
 		}
 	} else {
-		DDPDUMP("ddp_get_fmt_name, unknown module=%d\n", module);
+		DDPDUMP("%s: unknown module=%d\n", __func__, module);
 	}
 
 	return "unknown";
@@ -308,7 +309,7 @@ static char *ddp_clock_0(int bit)
 	}
 }
 
-/* mt6765 no need ddp_clock_1 */
+/* no need ddp_clock_1 */
 /*
  *
  *	static char *ddp_clock_1(int bit)
@@ -809,7 +810,7 @@ static void mmsys_config_dump_analysis(void)
 		}
 	}
 
-/* mt6765 no need ddp_clock_1 */
+/* no need ddp_clock_1 */
 /*
  *	reg = DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1);
  *	for (i = 0; i < 32; i++) {
@@ -887,8 +888,10 @@ static void mmsys_config_dump_analysis(void)
 	DDPDUMP("%s\n", clock_on);
 
 	/* dump SMI status, when maybe SMI hang */
-	if (greq)
-		smi_debug_bus_hang_detect(false, "DISP");
+	if (disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
+		if (greq)
+			smi_debug_bus_hang_detect(false, "DISP");
+	}
 }
 
 static void gamma_dump_reg(enum DISP_MODULE_ENUM module)
@@ -1431,7 +1434,8 @@ static void ccorr_dump_analyze(enum DISP_MODULE_ENUM module)
 {
 	int i;
 	unsigned int offset = 0x1000;
-	int ccorr_en, ccorr_cfg, ccorr_size, ccorr_in_cnt, ccorr_out_cnt;
+	unsigned int ccorr_en, ccorr_cfg, ccorr_size;
+	unsigned int ccorr_in_cnt, ccorr_out_cnt;
 
 	if (module == DISP_MODULE_CCORR0)
 		i = 0;
@@ -1505,7 +1509,7 @@ static void dither_dump_analyze(enum DISP_MODULE_ENUM module)
 {
 	int i;
 	unsigned int offset = 0x1000;
-	int dither_size, dither_in_cnt, dither_out_cnt;
+	unsigned int dither_size, dither_in_cnt, dither_out_cnt;
 
 	if (module == DISP_MODULE_DITHER0)
 		i = 0;

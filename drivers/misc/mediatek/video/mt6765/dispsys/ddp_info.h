@@ -221,7 +221,7 @@ struct OVL_CONFIG_STRUCT {
 	int const_bld;
 	int ext_sel_layer;
 	int ext_layer;
-	int phy_layer;
+	unsigned int phy_layer;
 };
 
 struct OVL_BASIC_STRUCT {
@@ -359,7 +359,7 @@ struct disp_ddp_path_config {
 	/*each bit represent one layer */
 	int ovl_layer_dirty;
 	/*each bit reprsent one layer, used for ovl engines */
-	int ovl_layer_scanned;
+	unsigned int ovl_layer_scanned;
 	int overlap_layer_num;
 	struct OVL_CONFIG_STRUCT ovl_config[TOTAL_REAL_OVL_LAYER_NUM];
 	struct disp_rect ovl_partial_roi;
