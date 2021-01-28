@@ -259,6 +259,11 @@ int scp_set_pmic_vcore(unsigned int cur_freq)
 	int idx = scp_get_freq_idx(cur_freq);
 	unsigned int ret_vc = 0, ret_vs = 0;
 
+	/* if vcore/vsram define as 0xff, means no pmic op during dvfs */
+	if (dvfs->opp[dvfs->scp_opp_num - 1].vcore == 0xff
+			&& dvfs->opp[dvfs->scp_opp_num - 1].vsram == 0xff)
+		return ret;
+
 	if (idx >= 0 && idx < dvfs->scp_opp_num) {
 		ret_vc = regulator_set_voltage(reg_vcore, dvfs->opp[idx].vcore,
 				max_vcore);
@@ -491,7 +496,8 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 			/* default boot-up clk : 26 MHz */
 			ret = clk_set_parent(mt_scp_pll->clk_mux,
 					mt_scp_pll->clk_pll[0]);
-		else if (idx >= 0 && idx < dvfs->scp_opp_num)
+		else if (idx >= 0 && idx < dvfs->scp_opp_num
+				&& idx < mt_scp_pll->pll_num)
 			ret = clk_set_parent(mt_scp_pll->clk_mux,
 					mt_scp_pll->clk_pll[mux_idx]);
 		else {
@@ -891,17 +897,15 @@ fail:
 static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
 		struct sub_feature_data *fd)
 {
-	struct reg_info *reg = kcalloc(fd->num, sizeof(*reg), GFP_KERNEL);
-	struct reg_cfg *cfg = kcalloc(fd->num, sizeof(*cfg), GFP_KERNEL);
 	char *buf = kzalloc(sizeof(char) * 25, GFP_KERNEL);
+	struct reg_info *reg;
+	struct reg_cfg *cfg;
 	unsigned int cfg_num;
 	int ret = 0;
 	int i;
 
-	if (!reg || !cfg || !buf) {
-		ret = -ENOMEM;
-		goto fail;
-	}
+	if (!buf)
+		return -ENOMEM;
 
 	snprintf(buf, 25, "%s-reg", fd->name);
 
@@ -909,30 +913,37 @@ static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
 	if (fd->num <= 0)
 		goto pass;
 
+	reg = kcalloc(fd->num, sizeof(struct reg_info), GFP_KERNEL);
+
+	if (!reg) {
+		ret = -ENOMEM;
+		goto fail_1;
+	}
+
 	for (i = 0; i < fd->num; i++) {
 		ret = of_property_read_u32_index(node, buf, i * 4,
 			&reg[i].ofs);
 		if (ret) {
 			pr_err("Cannot get property offset(%d)\n", ret);
-			goto fail;
+			goto fail_2;
 		}
 		ret = of_property_read_u32_index(node, buf, (i * 4) + 1,
 			&reg[i].msk);
 		if (ret) {
 			pr_err("Cannot get property mask(%d)\n", ret);
-			goto fail;
+			goto fail_2;
 		}
 		ret = of_property_read_u32_index(node, buf, (i * 4) + 2,
 			&reg[i].bit);
 		if (ret) {
 			pr_err("Cannot get property bit shift(%d)\n", ret);
-			goto fail;
+			goto fail_2;
 		}
 		ret = of_property_read_u32_index(node, buf, (i * 4) + 3,
 			&reg[i].setclr);
 		if (ret) {
 			pr_err("Cannot get property set/clr type(%d)\n", ret);
-			goto fail;
+			goto fail_2;
 		}
 	}
 
@@ -945,18 +956,25 @@ static  int __init mt_scp_sub_feature_init_internal(struct device_node *node,
 		goto pass;
 	}
 
+	cfg = kcalloc(cfg_num, sizeof(struct reg_cfg), GFP_KERNEL);
+
+	if (!cfg) {
+		ret = -ENOMEM;
+		goto fail_2;
+	}
+
 	for (i = 0; i < fd->num; i++) {
 		ret = of_property_read_u32_index(node, buf, i * 2,
 				&cfg[i].on);
 		if (ret) {
 			pr_err("Cannot get property cfg on(%d)\n", ret);
-			goto fail;
+			goto fail_3;
 		}
 		ret = of_property_read_u32_index(node, buf, (i * 2) + 1,
 			&cfg[i].off);
 		if (ret) {
 			pr_err("Cannot get property cfg off(%d)\n", ret);
-			goto fail;
+			goto fail_3;
 		}
 	}
 
@@ -965,10 +983,13 @@ pass:
 	kfree(buf);
 
 	return 0;
-fail:
-	kfree(buf);
+fail_3:
 	kfree(cfg);
+fail_2:
 	kfree(reg);
+fail_1:
+	kfree(buf);
+
 	WARN_ON(1);
 
 	return ret;
@@ -978,22 +999,23 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 		struct subsys_data *sys,
 		const char *str)
 {
-	struct sub_feature_data *fd =
-			kcalloc(sys->num, sizeof(*fd), GFP_KERNEL);
-	char *buf = kzalloc(sizeof(char) * 25, GFP_KERNEL);
+	struct sub_feature_data *fd;
+	char *buf;
 	int ret;
 	int i, j;
-
-	if (!fd || !buf) {
-		ret = -ENOMEM;
-		goto fail;
-	}
 
 	/* init  feature data struct */
 	sys->num = of_property_count_strings(node, str);
 	if (sys->num <= 0) {
 		kfree(fd);
 		goto pass;
+	}
+	/* init feature data structure */
+	fd = kcalloc(sys->num, sizeof(*fd), GFP_KERNEL);
+	buf = kzalloc(sizeof(char) * 25, GFP_KERNEL);
+	if (!fd || !buf) {
+		ret = -ENOMEM;
+		goto fail;
 	}
 
 	for (i = 0; i < sys->num; i++) {
@@ -1013,6 +1035,7 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 			goto fail_2;
 		}
 
+		fd[i].name = name;
 		ret = mt_scp_sub_feature_init_internal(node, &fd[i]);
 		if (ret) {
 			kfree(name);
@@ -1027,8 +1050,6 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 			kfree(name);
 			goto fail_2;
 		}
-
-		fd[i].name = name;
 	}
 
 	sys->fd = fd;
@@ -1052,6 +1073,10 @@ static void __init mt_pmic_sshub_init(void)
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	int max_vcore = dvfs->opp[dvfs->scp_opp_num - 1].vcore;
 	int max_vsram = dvfs->opp[dvfs->scp_opp_num - 1].vsram;
+
+	/* if vcore/vsram define as 0xff, means no pmic op during dvfs */
+	if (max_vcore == 0xff && max_vsram == 0xff)
+		return;
 
 	/* set SCP VCORE voltage */
 	if (regulator_set_voltage(reg_vcore, dvfs->opp[0].vcore,
@@ -1165,17 +1190,16 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 		ret =  PTR_ERR(mt_scp_pll->clk_mux);
 		goto fail;
 	}
-	/* scp_sel has 7 member of clk source */
-	for (i = 0; i < 7; i++) {
+	/* scp_sel has most 8 member of clk source */
+	for (i = 0; i < 8; i++) {
 		snprintf(buf, 15, "clk_pll_%d", i);
 		mt_scp_pll->clk_pll[i] = devm_clk_get(&pdev->dev, buf);
 		if (IS_ERR(mt_scp_pll->clk_pll[i])) {
 			dev_notice(&pdev->dev,
 					"cannot get %dst clock parent\n",
 					i);
-			WARN_ON(1);
-			ret = PTR_ERR(mt_scp_pll->clk_pll[i]);
-			goto fail;
+			mt_scp_pll->pll_num = i;
+			break;
 		}
 	}
 
@@ -1255,9 +1279,8 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 	}
 
 	if (dvfs->dvfsrc_opp_num == 0) {
-		pr_err("dvfsrc table has zero opp count\n");
-		ret = -EINVAL;
-		goto fail;
+		pr_notice("dvfsrc table has zero opp count\n");
+		goto pmic_cfg;
 	}
 
 	/* get dvfsrc regulator */
@@ -1274,23 +1297,24 @@ static int __init mt_scp_dvfs_pdrv_probe(struct platform_device *pdev)
 				i, dvfsrc_opp_uv[i]);
 	}
 
+pmic_cfg:
 	/* get Vcore/Vsram Regulator */
 	reg_vcore = devm_regulator_get_optional(&pdev->dev, "sshub-vcore");
 	if (IS_ERR(reg_vcore) || !reg_vcore) {
-		pr_err("regulator vcore sshub supply is not available\n");
+		pr_notice("regulator vcore sshub supply is not available\n");
 		ret = PTR_ERR(reg_vcore);
-		goto fail;
+		goto pass;
 	}
 
 	reg_vsram = devm_regulator_get_optional(&pdev->dev, "sshub-vsram");
 	if (IS_ERR(reg_vsram) || !reg_vsram) {
-		pr_err("regulator vsram sshub supply is not available\n");
+		pr_notice("regulator vsram sshub supply is not available\n");
 		ret = PTR_ERR(reg_vsram);
-		goto fail;
+		goto pass;
 	}
 
 	mt_pmic_sshub_init();
-
+pass:
 	kfree(buf);
 
 	g_scp_dvfs_init_flag = 1;

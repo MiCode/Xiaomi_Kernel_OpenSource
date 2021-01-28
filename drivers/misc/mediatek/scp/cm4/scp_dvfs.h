@@ -74,7 +74,8 @@ enum scp_request_resources {
 
 struct mt_scp_pll_t {
 	struct clk *clk_mux;
-	struct clk *clk_pll[7];
+	struct clk *clk_pll[8];
+	unsigned int pll_num;
 };
 
 struct reg_info {
