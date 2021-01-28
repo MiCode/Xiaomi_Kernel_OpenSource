@@ -345,16 +345,14 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
 	u32 tmp;
 
 	/**
-	 * If current device is not active, it means it is after
+	 * If current device is not active or link is h8, it means it is after
 	 * ufshcd_suspend() through
 	 * a. runtime or system pm b. ufshcd_shutdown
 	 * Both a. and b. will disable 26MHz ref clk(XO_UFS),
 	 * so that deepidle/SODI do not need to disable 26MHz ref clk here.
-	 * Not use hba->uic_link_state to judge it's after ufshcd_suspend()
-	 * is because
-	 * hba->uic_link_state also used by ufshcd_gate_work()
 	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE) {
+	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE ||
+		ufshcd_is_link_hibern8(ufs_mtk_hba)) {
 		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
 		return UFS_H8_SUSPEND;
 	}
