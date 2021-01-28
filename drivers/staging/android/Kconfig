@@ -91,13 +91,21 @@ config MTK_ION_SEC_HEAP
 # MTK_ION
 
 config MTK_ION
-	tristate "MTK ION -- ion multimedia heap"
+	bool "MTK ION -- ion multimedia heap"
 	depends on ION
 	help
 	  Choose this option to support multimedia heap.
 	  It means support ION.
 	  It set in xxxx_defconfig.mk
 	  default is on.
+
+config MTK_ION_FOLDER_NAME_UNDER_STAGING
+	string "MTK ion folder name under drivers/stanging/android/"
+	help
+	  since R, mtk-ion and aosp-ion coexist under
+	  drivers/staging/android/.    To separate
+	  mtk-ion and aosp ion, we can use this config in
+	  Makefile to ensure user can build correct file and version
 
 config ION_TEST
 	tristate "Ion Test Device"
