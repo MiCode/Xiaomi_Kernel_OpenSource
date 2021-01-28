@@ -63,6 +63,7 @@
 	#include "mtk_ptp3_pdp.h"
 	#include "mtk_ptp3_dt.h"
 	#include "mtk_ptp3_adcc.h"
+	#include "mtk_ptp3_iglre.h"
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -120,6 +121,7 @@
 #define PTP3_PDP_MEM_OFFSET 0x35000
 #define PTP3_DT_MEM_OFFSET  0x40000
 #define PTP3_ADCC_MEM_OFFSET 0x50000
+#define PTP3_IGLRE_MEM_OFFSET 0x60000
 
 /* TO BE FIXED: avoid system reboot */
 #if 0
@@ -230,6 +232,7 @@ static int create_procfs(void)
 	pdp_create_procfs(proc_name, dir);
 	dt_create_procfs(proc_name, dir);
 	adcc_create_procfs(proc_name, dir);
+	iglre_create_procfs(proc_name, dir);
 	return 0;
 }
 
@@ -280,6 +283,11 @@ static int ptp3_probe(struct platform_device *pdev)
 			(char *)(uintptr_t)
 			(ptp3_mem_base_virt+PTP3_ADCC_MEM_OFFSET),
 			ptp3_mem_size);
+		/* IGLRE: save register status for reserved memory */
+		iglre_save_memory_info(
+			(char *)(uintptr_t)
+			(ptp3_mem_base_virt+PTP3_IGLRE_MEM_OFFSET),
+			ptp3_mem_size);
 	} else
 		ptp3_err("ptp3_mem_base_virt is null !\n");
 #endif
@@ -297,6 +305,7 @@ static int ptp3_probe(struct platform_device *pdev)
 	ctt_probe(pdev);
 	adcc_probe(pdev);
 #endif
+	iglre_probe(pdev);
 	return 0;
 }
 
@@ -308,6 +317,7 @@ static int ptp3_suspend(struct platform_device *pdev, pm_message_t state)
 	pdp_suspend(pdev, state);
 	dt_suspend(pdev, state);
 	adcc_suspend(pdev, state);
+	iglre_suspend(pdev, state);
 	return 0;
 }
 
@@ -319,6 +329,7 @@ static int ptp3_resume(struct platform_device *pdev)
 	pdp_resume(pdev);
 	dt_resume(pdev);
 	adcc_resume(pdev);
+	iglre_resume(pdev);
 	return 0;
 }
 

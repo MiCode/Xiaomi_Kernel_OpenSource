@@ -183,7 +183,7 @@ static unsigned int ctt_smc_handle(unsigned int key,
 		__func__, key, val, cpu);
 
 	/* update atf via smc */
-	ret = mt_secure_call(MTK_SIP_KERNEL_PTP3_CONTROL,
+	ret = ptp3_smc_handle(
 		PTP3_FEATURE_CTT,
 		key,
 		val,

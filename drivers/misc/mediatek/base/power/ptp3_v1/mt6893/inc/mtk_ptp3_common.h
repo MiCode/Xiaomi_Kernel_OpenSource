@@ -88,6 +88,7 @@ enum PTP3_FEATURE {
 	PTP3_FEATURE_CINST,
 	PTP3_FEATURE_DT,
 	PTP3_FEATURE_PDP,
+	PTP3_FEATURE_IGLRE,
 
 	NR_PTP3_FEATURE,
 };
@@ -108,6 +109,7 @@ enum {
 	PTP3_IPI_CINST,
 	PTP3_IPI_DT,
 	PTP3_IPI_PDP,
+	PTP3_IPI_IGLRE,
 
 	NR_PTP3_IPI,
 };
@@ -154,6 +156,10 @@ struct ptp3_ipi_data {
 			unsigned int cfg;
 			unsigned int val;
 		} pdp;
+		struct {
+			unsigned int cfg;
+			unsigned int val;
+		} iglre;
 
 	} u;
 };
