@@ -41,8 +41,6 @@
 			reg = <0x000>;
 			enable-method = "psci";
 			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
@@ -51,8 +49,6 @@
 			reg = <0x001>;
 			enable-method = "psci";
 			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu2: cpu@002 {
@@ -61,8 +57,6 @@
 			reg = <0x002>;
 			enable-method = "psci";
 			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu3: cpu@003 {
@@ -71,8 +65,6 @@
 			reg = <0x003>;
 			enable-method = "psci";
 			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu-map {
@@ -179,19 +171,6 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-
-		reserve-memory-sspm_share {
-			compatible = "mediatek,reserve-memory-sspm_share";
-			no-map;
-			status = "okay";
-#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE
-			size = <0 0x110000>; /* 1M + 64K */
-#else
-			size = <0 0x510000>; /* 5M + 64K */
-#endif
-			alignment = <0 0x10000>;
-			alloc-ranges = <0 0x40000000 0 0x60000000>;
-		};
 
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
