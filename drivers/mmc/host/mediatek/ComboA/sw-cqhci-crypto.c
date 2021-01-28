@@ -33,12 +33,6 @@ static int set_crypto(struct msdc_host *host,
 	case MSDC_CRYPTO_ALG_AES_XTS:
 	{
 		ctr[0] = data_unit_num & 0xffffffff;
-		/* Now, mediatek host had a
-		 * fixed the crypto data unit (512bytes).
-		 * That means that we cannot support the
-		 * non-512bytes sector size.
-		 */
-		ctr[0] = ctr[0] * 8;
 		ctr[1] = (data_unit_num >> 32) & 0xffffffff;
 		break;
 	}
@@ -130,10 +124,19 @@ static void msdc_crypto_program_key(struct mmc_host *host,
 static int msdc_prepare_mqr_crypto(struct mmc_host *host,
 		u64 data_unit_num, int ddir, int tag, int slot)
 {
+	u32 data_unit_size;
+	u32 aes_config;
 	struct msdc_host *ll_host = mmc_priv(host);
 	u32 aes_key[8] = {0}, aes_tkey[8] = {0};
 
-	u32 aes_config = (512) << 16 |
+	data_unit_size = host->crypto_cfgs[slot].data_unit_size * 512;
+
+	if (data_unit_size > 4096) {
+		WARN_ON(1);
+		return -EDOM;
+	}
+
+	aes_config = (data_unit_size) << 16 |
 		host->crypto_cap_array[slot].key_size << 8 |
 		host->crypto_cap_array[slot].algorithm_id << 0;
 
