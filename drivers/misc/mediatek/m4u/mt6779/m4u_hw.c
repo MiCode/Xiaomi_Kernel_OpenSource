@@ -1344,24 +1344,6 @@ void m4u_port_array_init(struct m4u_port_array *port_array)
 	memset(port_array, 0, sizeof(struct m4u_port_array));
 }
 
-int m4u_port_array_add(
-		struct m4u_port_array *port_array, int port,
-		int m4u_en, int secure)
-{
-	if (port >= M4U_PORT_NR) {
-		M4UMSG(
-			"error: port_array_add, port=%d, v(%d), s(%d)\n",
-			port, m4u_en, secure);
-		return -1;
-	}
-	port_array->ports[port] = M4U_PORT_ATTR_EN;
-	if (m4u_en)
-		port_array->ports[port] |= M4U_PORT_ATTR_VIRTUAL;
-	if (secure)
-		port_array->ports[port] |= M4U_PORT_ATTR_SEC;
-	return 0;
-}
-
 int m4u_config_port_array(struct m4u_port_array *port_array)
 {
 	int port, larb, larb_port;
