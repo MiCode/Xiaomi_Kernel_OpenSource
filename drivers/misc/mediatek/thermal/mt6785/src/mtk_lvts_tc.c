@@ -220,7 +220,7 @@ int diff_error_count;
 static unsigned int  lvts_temp_to_raw(int ret, enum lvts_sensor_enum ts_name);
 
 static void lvts_set_tc_trigger_hw_protect(
-		int temperature, int temperature2, int tc_num);
+		int temperature, int temperature2, unsigned int tc_num);
 /*=============================================================
  *Weak functions
  *=============================================================
@@ -256,7 +256,7 @@ void mt_reg_sync_writel_print(unsigned int val, void *addr)
 /*=============================================================*/
 
 static int lvts_write_device(unsigned int config, unsigned int dev_reg_idx,
-unsigned int data, int tc_num)
+unsigned int data, unsigned int tc_num)
 {
 	int offset;
 
@@ -280,7 +280,7 @@ unsigned int data, int tc_num)
 }
 
 static unsigned int lvts_read_device(unsigned int config,
-unsigned int dev_reg_idx, int tc_num)
+unsigned int dev_reg_idx, unsigned int tc_num)
 {
 	int offset, cnt;
 	unsigned int data;
@@ -330,7 +330,7 @@ int lvts_raw_to_temp(unsigned int msr_raw, enum lvts_sensor_enum ts_name)
 	return temp_mC;
 }
 
-static void lvts_device_check_counting_status(int tc_num)
+static void lvts_device_check_counting_status(unsigned int tc_num)
 {
 	/* Check this when LVTS device is counting for
 	 * a temperature or a RC now
@@ -352,7 +352,7 @@ static void lvts_device_check_counting_status(int tc_num)
 	}
 }
 
-static void lvts_device_check_read_write_status(int tc_num)
+static void lvts_device_check_read_write_status(unsigned int tc_num)
 {
 	/* Check this when LVTS device is doing a register
 	 * read or write operation
@@ -378,8 +378,8 @@ void lvts_device_read_count_RC_N(void)
 {
 	/* Resistor-Capacitor Calibration */
 	/* count_RC_N: count RC now */
-	int i, j, offset, num_ts, s_index;
-	unsigned int data;
+	unsigned int i, j, num_ts, offset, data;
+	int ret, s_index;
 	char buffer[512];
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
@@ -428,10 +428,18 @@ void lvts_device_read_count_RC_N(void)
 		lvts_write_device(0x81030000, 0x0D, 0x10, i);
 	}
 
-	offset = sprintf(buffer, "[COUNT_RC_NOW] ");
-	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		offset += sprintf(buffer + offset, "%d:%d ",
+	ret = sprintf(buffer, "[COUNT_RC_NOW] ");
+	if (ret < 0)
+		return;
+
+	for (i = 0; i < L_TS_LVTS_NUM; i++) {
+		ret = sprintf(buffer + offset, "%d:%d ",
 				i, g_count_rc_now[i]);
+		if (ret < 0)
+			return;
+
+		offset += ret;
+	}
 
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
@@ -594,8 +602,7 @@ void read_controller_reg_when_error(void)
 
 void read_device_reg_before_active(void)
 {
-	int i, j;
-	unsigned int addr, data;
+	unsigned int i, j, addr, data;
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
@@ -712,7 +719,7 @@ void dump_lvts_register_value(void)
 
 void lvts_device_identification(void)
 {
-	int tc_num, data, offset;
+	unsigned int tc_num, data, offset;
 
 	lvts_dbg_printk("%s\n", __func__);
 
@@ -741,7 +748,7 @@ void lvts_device_identification(void)
 void lvts_reset_device_and_stop_clk(void)
 {
 	__u32 offset;
-	int tc_num;
+	unsigned int tc_num;
 
 	lvts_dbg_printk("%s\n", __func__);
 
@@ -798,8 +805,8 @@ void lvts_Device_Enable_Init_all_Devices(void)
 
 void lvts_thermal_cal_prepare(void)
 {
-	unsigned int temp[16];
-	int i, offset;
+	unsigned int temp[16], offset;
+	int i, ret;
 	char buffer[512];
 
 	temp[0] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_1); /* 0x01B0 */
@@ -887,10 +894,20 @@ void lvts_thermal_cal_prepare(void)
 
 	lvts_printk("[lvts_cal] g_golden_temp = %d\n", g_golden_temp);
 
-	offset = sprintf(buffer, "[lvts_cal] num:g_count_r:g_count_rc ");
-	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		offset += sprintf(buffer + offset, "%d:%d:%d ",
+	ret = sprintf(buffer, "[lvts_cal] num:g_count_r:g_count_rc ");
+	if (ret < 0)
+		return;
+
+	offset = ret;
+
+	for (i = 0; i < L_TS_LVTS_NUM; i++) {
+		ret = sprintf(buffer + offset, "%d:%d:%d ",
 				i, g_count_r[i], g_count_rc[i]);
+		if (ret < 0)
+			return;
+
+		offset += ret;
+	}
 
 	buffer[offset] = '\0';
 	lvts_printk("%s\n", buffer);
@@ -927,7 +944,7 @@ static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
 	return msr_raw;
 }
 
-static void lvts_interrupt_handler(int tc_num)
+static void lvts_interrupt_handler(unsigned int tc_num)
 {
 	unsigned int  ret = 0;
 	int offset;
@@ -1069,7 +1086,7 @@ irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void lvts_configure_polling_speed_and_filter(int tc_num)
+static void lvts_configure_polling_speed_and_filter(unsigned int tc_num)
 {
 	__u32 offset, lvtsMonCtl1, lvtsMonCtl2;
 
@@ -1118,7 +1135,7 @@ static void lvts_configure_polling_speed_and_filter(int tc_num)
  * -275000 to disable it.
  */
 static void lvts_set_tc_trigger_hw_protect(
-int temperature, int temperature2, int tc_num)
+int temperature, int temperature2, unsigned int tc_num)
 {
 	int temp = 0, raw_high, config, offset;
 #if LVTS_USE_DOMINATOR_SENSING_POINT
@@ -1176,7 +1193,7 @@ int temperature, int temperature2, int tc_num)
 	mt_reg_sync_writel_print(temp | 0x80000000, offset + LVTSMONINT_0);
 }
 
-static void dump_lvts_device(int tc_num, __u32 offset)
+static void dump_lvts_device(unsigned int tc_num, __u32 offset)
 {
 	lvts_printk("%s, LVTS_CONFIG_%d= 0x%x\n", __func__,
 				tc_num, readl(LVTS_CONFIG_0 + offset));
@@ -1301,7 +1318,7 @@ static int lvts_read_tc_raw_and_temp(
 }
 
 static void lvts_tscpu_thermal_read_tc_temp(
-		int tc_num, enum lvts_sensor_enum type, int order)
+		unsigned int tc_num, enum lvts_sensor_enum type, int order)
 {
 	__u32 offset;
 
@@ -1550,7 +1567,8 @@ void lvts_enable_all_sensing_points(void)
 
 void lvts_tscpu_thermal_initial_all_tc(void)
 {
-	int i = 0, offset;
+	unsigned int i = 0;
+	int offset;
 
 	lvts_dbg_printk("%s\n", __func__);
 
@@ -1576,7 +1594,7 @@ void lvts_tscpu_thermal_initial_all_tc(void)
 
 void lvts_config_all_tc_hw_protect(int temperature, int temperature2)
 {
-	int i = 0;
+	unsigned int i = 0;
 	int wd_api_ret;
 	struct wd_api *wd_api;
 
