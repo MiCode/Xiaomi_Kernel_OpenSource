@@ -99,7 +99,7 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 	struct power_supply *psy = v;
 	union power_supply_propval val;
 	int ret = 0;
-	int uisoc, bat_status;
+	int uisoc = -1, bat_status = -1;
 
 	if (strcmp(psy->desc->name, "battery") != 0)
 		return NOTIFY_DONE;
@@ -116,7 +116,8 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 
 	bat_status = val.intval;
 
-	if ((bat_status != POWER_SUPPLY_STATUS_CHARGING) &&
+	if ((bat_status != POWER_SUPPLY_STATUS_CHARGING &&
+		bat_status != -1) &&
 		(g_battery_percent_level == BATTERY_PERCENT_LEVEL_0) &&
 		(uisoc <= BAT_PERCENT_LIMIT && uisoc >= 0)) {
 		g_battery_percent_level = BATTERY_PERCENT_LEVEL_1;
@@ -124,8 +125,9 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 		wake_up_interruptible(&bat_percent_notify_waiter);
 		pr_info("bat_percent_notify called, l=%d s=%d soc=%d\n",
 			g_battery_percent_level, bat_status, uisoc);
-	} else if ((g_battery_percent_level == BATTERY_PERCENT_LEVEL_1) &&
-		(uisoc > BAT_PERCENT_LIMIT)) {
+	} else if (((bat_status == POWER_SUPPLY_STATUS_CHARGING) ||
+		(uisoc > BAT_PERCENT_LIMIT)) &&
+		(g_battery_percent_level == BATTERY_PERCENT_LEVEL_1)) {
 		g_battery_percent_level = BATTERY_PERCENT_LEVEL_0;
 		bat_percent_notify_flag = true;
 		wake_up_interruptible(&bat_percent_notify_waiter);
