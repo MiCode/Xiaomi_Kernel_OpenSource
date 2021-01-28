@@ -27,6 +27,7 @@ ccci_fsm_all-y += ccci_fsm_monitor.o
 ccci_fsm_all-y += ccci_fsm_poller.o
 ccci_fsm_all-y += ccci_fsm_scp.o
 ccci_fsm_all-y += ccci_fsm_ee.o
+ccci_fsm_all-y += ccci_fsm_sys.o
 ccci_fsm_all-y += mdee_dumper_v1.o
 ccci_fsm_all-y += mdee_dumper_v2.o
 ccci_fsm_all-y += mdee_dumper_v3.o

@@ -20,8 +20,14 @@
 #include "ccci_hif.h"
 #include "ccci_modem.h"
 
+#if (MD_GENERATION >= 6295)
+#define MAX_TXQ_NUM 16
+#define MAX_RXQ_NUM 16
+#else
 #define MAX_TXQ_NUM 8
 #define MAX_RXQ_NUM 8
+#endif
+
 #define PACKET_HISTORY_DEPTH 16	/* must be power of 2 */
 
 extern void *ccci_hif[CCCI_HIF_NUM];

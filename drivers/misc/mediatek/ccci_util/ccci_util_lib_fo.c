@@ -126,6 +126,7 @@ struct _modem_info {
 static int lk_load_img_err_no[MAX_MD_NUM_AT_LK];
 
 static void __iomem *s_g_lk_inf_base;
+static phys_addr_t s_g_tag_phy_addr;
 static unsigned int s_g_tag_cnt;
 /* Note, this for tag info solution version */
 static unsigned int s_g_lk_info_tag_version;
@@ -163,71 +164,6 @@ static int s_g_curr_ccci_fo_version;
 
 #define LEGACY_UBIN_START_ID	(8)
 #define LEGACY_UBIN_END_ID	(21)
-
-static unsigned int get_capability_bit(char cap_str[])
-{
-	if (cap_str == NULL)
-		return 0;
-	if ((strcmp(cap_str, "LF") == 0)
-		|| (strcmp(cap_str, "Lf") == 0)
-		|| (strcmp(cap_str, "lf") == 0))
-		return MD_CAP_FDD_LTE;
-	if ((strcmp(cap_str, "LT") == 0)
-		|| (strcmp(cap_str, "Lt") == 0)
-		|| (strcmp(cap_str, "lt") == 0))
-		return MD_CAP_TDD_LTE;
-	if ((strcmp(cap_str, "W") == 0) || (strcmp(cap_str, "w") == 0))
-		return MD_CAP_WCDMA;
-	if ((strcmp(cap_str, "C") == 0) || (strcmp(cap_str, "c") == 0))
-		return MD_CAP_CDMA2000;
-	if ((strcmp(cap_str, "T") == 0) || (strcmp(cap_str, "t") == 0))
-		return MD_CAP_TDS_CDMA;
-	if ((strcmp(cap_str, "G") == 0) || (strcmp(cap_str, "g") == 0))
-		return MD_CAP_GSM;
-
-	return 0;
-}
-
-#define MAX_CAP_STR_LENGTH	16
-static unsigned int ccci_rat_str_to_bitmap(char str[])
-{
-	char tmp_str[MAX_CAP_STR_LENGTH];
-	int tmp_str_curr_pos = 0;
-	unsigned int capability_bit_map = 0;
-	int str_len;
-	int i;
-
-	if (str == NULL)
-		return 0;
-
-	str_len = strlen(str);
-	for (i = 0; i < str_len; i++) {
-		if (str[i] == ' ')
-			continue;
-		if (str[i] == '\t')
-			continue;
-		if ((str[i] == '/') || (str[i] == '_')) {
-			if (tmp_str_curr_pos) {
-				tmp_str[tmp_str_curr_pos] = 0;
-				capability_bit_map
-					|= get_capability_bit(tmp_str);
-			}
-			tmp_str_curr_pos = 0;
-			continue;
-		}
-		if (tmp_str_curr_pos < (MAX_CAP_STR_LENGTH-1)) {
-			tmp_str[tmp_str_curr_pos] = str[i];
-			tmp_str_curr_pos++;
-		} else
-			break;
-	}
-	if (tmp_str_curr_pos) {
-		tmp_str[tmp_str_curr_pos] = 0;
-		capability_bit_map |= get_capability_bit(tmp_str);
-	}
-
-	return capability_bit_map;
-}
 
 static const unsigned int ubin_convert_table_src[] = {
 	(MD_CAP_GSM|MD_CAP_TDD_LTE|MD_CAP_FDD_LTE|MD_CAP_CDMA2000),
@@ -354,7 +290,7 @@ static int find_ccci_tag_inf(char *name, char *buf, unsigned int size)
 	for (i = 0; i < s_g_tag_cnt; i++) {
 		/* 1. Copy tag */
 		memcpy_fromio(&tag, curr, sizeof(union u_tag));
-		if (s_g_lk_info_tag_version == CCCI_LK_INFO_VER_V2) {
+		if (s_g_lk_info_tag_version >= CCCI_LK_INFO_VER_V2) {
 			snprintf(tag_name, 64, "%s", tag.v2.tag_name);
 			data_offset = tag.v2.data_offset;
 			data_size = tag.v2.data_size;
@@ -670,6 +606,9 @@ struct _ccb_layout {
 };
 static struct _ccb_layout ccb_info;
 static unsigned int md1_phy_cap_size;
+static int md1_smem_dfd_size = -1;
+static int smem_amms_pos_size = -1;
+static int smem_align_padding_size = -1;
 static unsigned int md1_bank4_cache_offset;
 struct _udc_info {
 	unsigned int noncache_size;
@@ -686,6 +625,8 @@ struct _csmem_item {
 };
 static struct _csmem_item csmem_info;
 static struct _csmem_item *csmem_layout;
+
+static unsigned int md_mtee_support;
 
 static void cshare_memory_info_parsing(void)
 {
@@ -772,7 +713,6 @@ static void share_memory_info_parsing(void)
 		udc_size.cache_size, udc_size.noncache_size);
 
 	/* Get md1_phy_cap_size  */
-	md1_phy_cap_size = 0;
 	if (find_ccci_tag_inf("md1_phy_cap",
 						  (char *)&md1_phy_cap_size,
 						  sizeof(md1_phy_cap_size))
@@ -781,6 +721,34 @@ static void share_memory_info_parsing(void)
 
 	CCCI_UTIL_INF_MSG("ccci_util get md1_phy_cap_size: 0x%x\n",
 				md1_phy_cap_size);
+
+	/* Get md1_smem_dfd_size  */
+	if (find_ccci_tag_inf("smem_dfd_size",
+						(char *)&md1_smem_dfd_size,
+						sizeof(md1_smem_dfd_size))
+			!= sizeof(md1_smem_dfd_size))
+		CCCI_UTIL_ERR_MSG("get smem dfd size fail\n");
+
+	CCCI_UTIL_INF_MSG("ccci_util get md1_smem_dfd_size: %d\n",
+			md1_smem_dfd_size);
+
+	/* Get smem_amms_pos_size  */
+	if (find_ccci_tag_inf("smem_amms_pos_size", (char *)&smem_amms_pos_size,
+		sizeof(smem_amms_pos_size)) != sizeof(smem_amms_pos_size))
+		CCCI_UTIL_ERR_MSG("get smem amms pos size fail\n");
+
+	CCCI_UTIL_INF_MSG("ccci_util get smem_amms_pos_size: %d\n",
+			smem_amms_pos_size);
+
+	/* Get smem_align_padding_size  */
+	if (find_ccci_tag_inf("smem_align_padding_size",
+				(char *)&smem_align_padding_size,
+		sizeof(smem_align_padding_size)) !=
+				sizeof(smem_align_padding_size))
+		CCCI_UTIL_ERR_MSG("get smem align padding size fail\n");
+
+	CCCI_UTIL_INF_MSG("ccci_util get smem_align_padding_size: %d\n",
+			smem_align_padding_size);
 
 	/* Get smem cachable offset  */
 	md1_bank4_cache_offset = 0;
@@ -838,6 +806,12 @@ static void share_memory_info_parsing(void)
 				(md_resv_smem_addr[MD_SYS3] +
 				 md_resv_smem_size[MD_SYS3]));
 #endif
+	if (find_ccci_tag_inf("mtee_support", (char *)&md_mtee_support,
+		sizeof(md_mtee_support)) != sizeof(md_mtee_support))
+		CCCI_UTIL_ERR_MSG("using 0 as MTEE support\n");
+	else
+		CCCI_UTIL_INF_MSG("MTEE support: 0x%x\n", md_mtee_support);
+
 	cshare_memory_info_parsing();
 {
 	int i;
@@ -930,6 +904,28 @@ static int md3_check_hdr_info_size;
 static int md1_raw_img_size;
 static int md3_raw_img_size;
 
+void __iomem *ccci_map_phy_addr(phys_addr_t phy_addr, unsigned int size)
+{
+	void __iomem *map_addr = NULL;
+	pgprot_t prot;
+
+	phy_addr &= PAGE_MASK;
+	if (!pfn_valid(__phys_to_pfn(phy_addr))) {
+		map_addr = ioremap_wc(phy_addr, size);
+		CCCI_UTIL_INF_MSG(
+			"ioremap_wc: (%lx %p %d)\n",
+			(unsigned long)phy_addr, map_addr, size);
+	} else {
+		prot = pgprot_writecombine(PAGE_KERNEL);
+		map_addr = (void __iomem *)vmap_reserved_mem(
+			phy_addr, size, prot);
+		CCCI_UTIL_INF_MSG(
+			"vmap_reserved_mem: (%lx %p %d)\n",
+			(unsigned long)phy_addr, map_addr, size);
+	}
+	return map_addr;
+}
+
 static void md_chk_hdr_info_parse(void)
 {
 	int ret;
@@ -1019,10 +1015,11 @@ static void lk_info_parsing_v1(unsigned int *raw_ptr)
 	s_g_lk_info_tag_version = 1;
 	s_g_tag_cnt = (unsigned int)lk_inf.lk_info_tag_num;
 
-	s_g_lk_inf_base = ioremap_nocache((phys_addr_t)lk_inf.lk_info_base_addr,
-						MAX_LK_INFO_SIZE);
+	s_g_lk_inf_base = ccci_map_phy_addr(
+		(phys_addr_t)lk_inf.lk_info_base_addr, MAX_LK_INFO_SIZE);
+
 	if (s_g_lk_inf_base == NULL) {
-		CCCI_UTIL_ERR_MSG("ioremap lk info buf fail\n");
+		CCCI_UTIL_ERR_MSG("remap lk info buf fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_NO_MD_LOAD;
 	}
 }
@@ -1065,13 +1062,15 @@ static int lk_info_parsing_v2(unsigned int *raw_ptr)
 		return -1;
 	}
 
+	s_g_tag_phy_addr = (phys_addr_t)lk_inf.lk_info_base_addr;
 	s_g_lk_info_tag_version = (unsigned int)lk_inf.lk_info_version;
 	s_g_tag_cnt = (unsigned int)lk_inf.lk_info_tag_num;
 
-	s_g_lk_inf_base = ioremap_nocache((phys_addr_t)lk_inf.lk_info_base_addr,
-		MAX_LK_INFO_SIZE);
+	s_g_lk_inf_base = ccci_map_phy_addr(
+		(phys_addr_t)lk_inf.lk_info_base_addr, MAX_LK_INFO_SIZE);
+
 	if (s_g_lk_inf_base == NULL) {
-		CCCI_UTIL_ERR_MSG("ioremap lk info buf fail\n");
+		CCCI_UTIL_ERR_MSG("remap lk info buf fail\n");
 		s_g_lk_load_img_status |= LK_LOAD_MD_ERR_NO_MD_LOAD;
 	}
 
@@ -1252,10 +1251,20 @@ _common_process:
 		/* This function must at the end for global var */
 		parse_meta_boot_arguments(raw_ptr);
 
-	if (s_g_lk_inf_base) {
+	if (s_g_lk_inf_base && s_g_lk_info_tag_version < 3) {
 		/* clear memory to zero that used by tag info. */
 		memset_io(s_g_lk_inf_base, 0, s_g_tag_inf_size);
 		iounmap(s_g_lk_inf_base);
+	} else if (s_g_lk_info_tag_version >= 3) {
+		if (!pfn_valid(__phys_to_pfn(s_g_tag_phy_addr))) {
+			iounmap(s_g_lk_inf_base);
+		} else {
+			vunmap(s_g_lk_inf_base);
+			ret = free_reserved_memory(s_g_tag_phy_addr,
+				s_g_tag_phy_addr + MAX_LK_INFO_SIZE);
+			CCCI_UTIL_INF_MSG(
+				"unmap && free reserved tag result=%d\n", ret);
+		}
 	}
 
 	return 0;
@@ -1321,6 +1330,11 @@ int get_lk_load_md_info(char buf[], int size)
 	}
 
 	return has_write;
+}
+
+unsigned int get_mtee_is_enabled(void)
+{
+	return md_mtee_support;
 }
 
 int get_md_img_raw_size(int md_id)
@@ -1392,6 +1406,30 @@ unsigned int get_md_resv_phy_cap_size(int md_id)
 {
 	if (md_id == MD_SYS1)
 		return md1_phy_cap_size;
+
+	return 0;
+}
+
+int get_md_smem_dfd_size(int md_id)
+{
+	if (md_id == MD_SYS1)
+		return md1_smem_dfd_size;
+
+	return 0;
+}
+
+int get_smem_amms_pos_size(int md_id)
+{
+	if (md_id == MD_SYS1)
+		return smem_amms_pos_size;
+
+	return 0;
+}
+
+int get_smem_align_padding_size(int md_id)
+{
+	if (md_id == MD_SYS1)
+		return smem_align_padding_size;
 
 	return 0;
 }
@@ -1913,109 +1951,6 @@ int get_legacy_md_type(int md_id)
 		return 0;
 	}
 	return val;
-}
-
-
-void ccci_set_rat_str_to_drv(int md_id, char rat_str[])
-{
-	unsigned int bit_map = 0;
-
-	if (md_id != MD_SYS1)
-		return;
-
-	bit_map = ccci_rat_str_to_bitmap(rat_str);
-	bit_map |= MD_CAP_ENHANCE;
-
-	set_modem_support_cap(MD_SYS1, (int)bit_map);
-}
-
-int ccci_get_rat_str_from_drv(int md_id, char rat_str[], int size)
-{
-	int md_support_val = 0;
-	int ret;
-	unsigned int bit_map = 0;
-	int has_gen = 0;
-	char tmp_buf[8];
-
-	md_support_val = get_modem_support_cap(md_id);
-	if (md_support_val < 0)
-		return -1;
-
-	if ((md_support_val & MD_CAP_ENHANCE) == MD_CAP_ENHANCE)
-		bit_map = (unsigned int)(md_support_val & MD_CAP_MASK);
-	else {
-		/* 1, 3, 4 */
-		if (md_support_val == 1)
-			bit_map = MD_CAP_GSM;
-		else if (md_support_val == 3)
-			bit_map = MD_CAP_WCDMA|MD_CAP_GSM;
-		else if (md_support_val == 4)
-			bit_map = MD_CAP_TDS_CDMA|MD_CAP_GSM;
-		/* 5, 6, 7 phase out */
-		else if (md_support_val == 5)
-			bit_map = MD_CAP_FDD_LTE|MD_CAP_WCDMA|MD_CAP_GSM;
-		else if (md_support_val == 6)
-			bit_map = MD_CAP_TDD_LTE|MD_CAP_TDS_CDMA|MD_CAP_GSM;
-		else{
-			bit_map = ubin_md_support_id_to_rat(md_support_val);
-			if (bit_map == 0) {
-				pr_notice("[ccci0/rat] get rat str not support\r\n");
-				WARN_ON(1);
-				return -2;
-			}
-		}
-	}
-
-	/* Gen string */
-	if (bit_map & MD_CAP_GSM) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/G");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_WCDMA) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/W");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_TDS_CDMA) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/T");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_FDD_LTE) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/Lf");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_TDD_LTE) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/Lt");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	if (bit_map & MD_CAP_CDMA2000) {
-		ret = snprintf(tmp_buf, sizeof(tmp_buf), "/C");
-		if ((size - has_gen) < ret)
-			return has_gen;
-		ret = snprintf(&rat_str[has_gen],
-				size - has_gen, "%s", tmp_buf);
-		has_gen += ret;
-	}
-	return has_gen;
 }
 
 void ccci_md_mem_reserve(void)

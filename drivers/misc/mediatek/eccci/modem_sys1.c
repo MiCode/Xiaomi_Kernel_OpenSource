@@ -414,12 +414,6 @@ static int md_cd_start(struct ccci_modem *md)
 	int ret = 0;
 
 	if (md->per_md_data.config.setting & MD_SETTING_FIRST_BOOT) {
-		ret = md_start_platform(md);
-		if (ret) {
-			CCCI_BOOTUP_LOG(md->index, TAG,
-				"power on MD BROM fail %d\n", ret);
-			goto out;
-		}
 		md_cd_io_remap_md_side_register(md);
 		md_sys1_sw_init(md);
 
@@ -432,6 +426,12 @@ static int md_cd_start(struct ccci_modem *md)
 #if (MD_GENERATION >= 6293)
 		md_ccif_ring_buf_init(CCIF_HIF_ID);
 #endif
+		ret = md_start_platform(md);
+		if (ret) {
+			CCCI_BOOTUP_LOG(md->index, TAG,
+				"power on MD BROM fail %d\n", ret);
+			goto out;
+		}
 		md->per_md_data.config.setting &= ~MD_SETTING_FIRST_BOOT;
 	} else
 		ccci_md_clear_smem(md->index, 0);
@@ -1131,7 +1131,7 @@ static int md_cd_dump_info(struct ccci_modem *md,
 			ccci_md_get_smem_by_user_id(md->index,
 				SMEM_USER_RAW_DHL);
 
-		if (ccb_data) {
+		if (ccb_data && ccb_data->size != 0) {
 			CCCI_MEM_LOG_TAG(md->index, TAG,
 				"Dump CCB DATA share memory\n");
 			curr_ch_p = ccb_data->base_ap_view_vir;
@@ -1328,90 +1328,6 @@ static ssize_t md_cd_dump_store(struct ccci_modem *md,
 	return count;
 }
 
-static ssize_t md_cd_control_show(struct ccci_modem *md, char *buf)
-{
-	int count = 0;
-
-	count = snprintf(buf, 256,
-		"support: cldma_reset cldma_stop ccif_assert md_type trace_sample\n");
-	return count;
-}
-
-static ssize_t md_cd_control_store(struct ccci_modem *md,
-	const char *buf, size_t count)
-{
-	int size = 0;
-
-	if (md->hif_flag&(1<<CLDMA_HIF_ID)) {
-		if (strncmp(buf, "cldma_reset", count - 1) == 0) {
-			CCCI_NORMAL_LOG(md->index, TAG, "reset CLDMA\n");
-			md_cd_lock_cldma_clock_src(1);
-			cldma_stop(CLDMA_HIF_ID);
-			md_cd_clear_all_queue(CLDMA_HIF_ID, OUT);
-			md_cd_clear_all_queue(CLDMA_HIF_ID, IN);
-			cldma_reset(CLDMA_HIF_ID);
-			cldma_start(CLDMA_HIF_ID);
-			md_cd_lock_cldma_clock_src(0);
-		}
-		if (strncmp(buf, "cldma_stop", count - 1) == 0) {
-			CCCI_NORMAL_LOG(md->index, TAG, "stop CLDMA\n");
-			md_cd_lock_cldma_clock_src(1);
-			cldma_stop(CLDMA_HIF_ID);
-			md_cd_lock_cldma_clock_src(0);
-		}
-	}
-	if (strncmp(buf, "ccif_assert", count - 1) == 0) {
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"use CCIF to force MD assert\n");
-		md->ops->force_assert(md, CCIF_INTERRUPT);
-	}
-	if (strncmp(buf, "ccif_reset", count - 1) == 0) {
-		struct md_sys1_info *md_info =
-			(struct md_sys1_info *)md->private_data;
-
-		CCCI_NORMAL_LOG(md->index, TAG, "reset AP MD1 CCIF\n");
-		ccci_reset_ccif_hw(md->index, AP_MD1_CCIF,
-			md_info->ap_ccif_base, md_info->md_ccif_base);
-	}
-	if (strncmp(buf, "ccci_trm", count - 1) == 0) {
-		CCCI_NORMAL_LOG(md->index, TAG, "TRM triggered\n");
-		/* ccci_md_send_msg_to_user(md, CCCI_MONITOR_CH,
-		 * CCCI_MD_MSG_RESET_REQUEST, 0);
-		 */
-	}
-	if (strncmp(buf, "wdt", count - 1) == 0) {
-		CCCI_NORMAL_LOG(md->index, TAG, "WDT triggered\n");
-		md_cd_wdt_isr(0, md);
-	}
-	size = strlen("md_type=");
-	if (strncmp(buf, "md_type=", size) == 0) {
-		md->per_md_data.config.load_type_saving = buf[size] - '0';
-		CCCI_NORMAL_LOG(md->index, TAG, "md_type_store %d\n",
-			md->per_md_data.config.load_type_saving);
-		/* ccci_md_send_msg_to_user(md, CCCI_MONITOR_CH,
-		 * CCCI_MD_MSG_STORE_NVRAM_MD_TYPE, 0);
-		 */
-	}
-	size = strlen("trace_sample=");
-	if (strncmp(buf, "trace_sample=", size) == 0) {
-		trace_sample_time = (buf[size] - '0') * 100000000;
-		CCCI_NORMAL_LOG(md->index, TAG,
-			"trace_sample_time %u\n", trace_sample_time);
-	}
-	size = strlen("md_dbg_dump=");
-	if (strncmp(buf, "md_dbg_dump=", size)
-		== 0 && size < count - 1) {
-		size = kstrtouint(buf+size, 16,
-				&md->per_md_data.md_dbg_dump_flag);
-		if (size)
-			md->per_md_data.md_dbg_dump_flag = MD_DBG_DUMP_ALL;
-		CCCI_NORMAL_LOG(md->index, TAG, "md_dbg_dump 0x%X\n",
-			md->per_md_data.md_dbg_dump_flag);
-	}
-
-	return count;
-}
-
 static ssize_t md_cd_parameter_show(struct ccci_modem *md, char *buf)
 {
 	int count = 0;
@@ -1430,7 +1346,6 @@ static ssize_t md_cd_parameter_store(struct ccci_modem *md,
 }
 
 CCCI_MD_ATTR(NULL, dump, 0660, md_cd_dump_show, md_cd_dump_store);
-CCCI_MD_ATTR(NULL, control, 0660, md_cd_control_show, md_cd_control_store);
 CCCI_MD_ATTR(NULL, parameter, 0660, md_cd_parameter_show,
 	md_cd_parameter_store);
 
@@ -1444,13 +1359,6 @@ static void md_cd_sysfs_init(struct ccci_modem *md)
 		CCCI_ERROR_LOG(md->index, TAG,
 			"fail to add sysfs node %s %d\n",
 			ccci_md_attr_dump.attr.name, ret);
-
-	ccci_md_attr_control.modem = md;
-	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_control.attr);
-	if (ret)
-		CCCI_ERROR_LOG(md->index, TAG,
-			"fail to add sysfs node %s %d\n",
-			ccci_md_attr_control.attr.name, ret);
 
 	ccci_md_attr_parameter.modem = md;
 	ret = sysfs_create_file(&md->kobj, &ccci_md_attr_parameter.attr);
