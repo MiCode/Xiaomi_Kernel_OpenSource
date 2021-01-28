@@ -270,6 +270,24 @@ static inline int mt6370_pmu_reg_clr_bit(struct mt6370_pmu_chip *chip, u8 addr,
 	return mt6370_pmu_reg_update_bits(chip, addr, mask, 0x00);
 }
 
+static inline int mt6370_pmu_reg_test_bit(
+	struct mt6370_pmu_chip *chip, u8 cmd, u8 shift, bool *is_one)
+{
+	int ret = 0;
+	u8 data = 0;
+
+	ret = mt6370_pmu_reg_read(chip, cmd);
+	if (ret < 0) {
+		*is_one = false;
+		return ret;
+	}
+
+	data = ret & (1 << shift);
+	*is_one = (data == 0 ? false : true);
+
+	return ret;
+}
+
 extern int mt6370_pmu_reg_block_read(struct mt6370_pmu_chip *chip, u8 addr,
 	int len, u8 *dest);
 extern int mt6370_pmu_reg_block_write(struct mt6370_pmu_chip *chip, u8 addr,
