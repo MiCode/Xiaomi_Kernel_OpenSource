@@ -877,7 +877,9 @@ static void mtk_venc_set_param(struct mtk_vcodec_ctx *ctx,
 		break;
 
 	default:
-		mtk_v4l2_err("Unsupport fourcc =%d", q_data_src->fmt->fourcc);
+		mtk_v4l2_err("Unsupport fourcc =%d default use I420",
+			q_data_src->fmt->fourcc);
+		param->input_yuv_fmt = VENC_YUV_FORMAT_I420;
 		break;
 	}
 	param->profile = enc_params->profile;
