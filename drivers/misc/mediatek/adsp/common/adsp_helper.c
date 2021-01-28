@@ -60,6 +60,7 @@
 struct adsp_regs adspreg;
 char *adsp_core_ids[ADSP_CORE_TOTAL] = {"ADSP A"};
 unsigned int adsp_ready[ADSP_CORE_TOTAL];
+unsigned int adsp_enable;
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *adsp_debugfs;
 #endif
@@ -737,6 +738,7 @@ static int adsp_device_probe(struct platform_device *pdev)
 	set_adsp_mpu(adspreg.sharedram, adspreg.shared_size);
 #endif
 
+	adsp_enable = 1;
 	return 0;
 ERROR:
 	return -ENODEV;
@@ -784,6 +786,7 @@ static int __init adsp_init(void)
 {
 	int ret = 0;
 
+	adsp_enable = 0;
 	ret = platform_driver_register(&mtk_adsp_device);
 	if (unlikely(ret != 0)) {
 		pr_err("[ADSP] platform driver register fail\n");
@@ -805,6 +808,11 @@ static int __init adsp_init(void)
 static int __init adsp_module_init(void)
 {
 	int ret = 0;
+
+	if (!adsp_enable) {
+		pr_info("[adsp] core 0 is not enabled\n");
+		return ret;
+	}
 
 	adsp_workqueue = create_workqueue("ADSP_WQ");
 #ifdef CONFIG_DEBUG_FS
@@ -861,8 +869,10 @@ static int __init adsp_module_init(void)
 			jiffies + ADSP_READY_TIMEOUT);
 #endif
 	pr_debug("[ADSP] driver_init_done\n");
+	return ret;
 
 ERROR:
+	pr_info("%s fail ret(%d)\n", __func__, ret);
 	return ret;
 }
 

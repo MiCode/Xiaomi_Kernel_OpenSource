@@ -30,7 +30,7 @@ enum {
 };
 
 /* first time to inint scp dram segment */
-void init_mtk_adsp_dram_segment(void);
+int init_mtk_adsp_dram_segment(void);
 
 int get_mtk_adsp_dram(struct audio_dsp_dram *dsp_dram, int id);
 

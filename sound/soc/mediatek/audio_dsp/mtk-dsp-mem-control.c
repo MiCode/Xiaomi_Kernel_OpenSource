@@ -680,8 +680,10 @@ int mtk_adsp_gen_pool_create(int min_alloc_order, int nid)
 			return -ENOMEM;
 
 		va_start = dsp_dram_buffer[i].va_addr;
-
 		va_chunk = dsp_dram_buffer[i].size;
+		if ((!va_start) || (!va_chunk))
+			return -ENOMEM;
+
 		if (gen_pool_add_virt(dsp_dram_pool[i], (unsigned long)va_start,
 				      dsp_dram_buffer[i].phy_addr, va_chunk,
 				      -1)) {
@@ -715,7 +717,7 @@ int wrap_dspdram_sndbuffer(struct snd_dma_buffer *dma_audio_buffer,
 	return 0;
 }
 
-void init_mtk_adsp_dram_segment(void)
+int init_mtk_adsp_dram_segment(void)
 {
 	int i;
 
@@ -725,8 +727,7 @@ void init_mtk_adsp_dram_segment(void)
 				       &dsp_dram_buffer[i]);
 	}
 
-	mtk_adsp_gen_pool_create(MIN_DSP_SHIFT, -1);
-	dump_all_adsp_dram();
+	return mtk_adsp_gen_pool_create(MIN_DSP_SHIFT, -1);
 }
 
 int mtk_reinit_adsp_audio_share_mem(void)
