@@ -330,7 +330,7 @@ void homekey_int_handler(void)
 
 void homekey_int_handler_r(void)
 {
-	IRQLOG("[%s] Release homekey %d\n", __fun__,
+	IRQLOG("[%s] Release homekey %d\n", __func__,
 		pmic_get_register_value(PMIC_HOMEKEY_DEB));
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	kpd_pmic_rstkey_handler(0x0);
