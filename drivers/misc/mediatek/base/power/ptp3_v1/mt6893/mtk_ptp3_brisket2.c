@@ -234,12 +234,12 @@ static ssize_t brisket2_ctrl_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		brisket2_err("buf(%d) is illegal\n");
+		brisket2_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		brisket2_err("count(%d) >= PAGE_SIZE\n");
+		brisket2_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -341,12 +341,12 @@ static ssize_t brisket2_reg_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		brisket2_err("buf(%d) is illegal\n");
+		brisket2_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		brisket2_err("count(%d) >= PAGE_SIZE\n");
+		brisket2_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -446,12 +446,12 @@ static ssize_t brisket2_cfg_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		brisket2_err("buf(%d) is illegal\n");
+		brisket2_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		brisket2_err("count(%d) >= PAGE_SIZE\n");
+		brisket2_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
@@ -537,12 +537,12 @@ static ssize_t brisket2_GlobalEventEn_proc_write(struct file *file,
 	char *buf = (char *) __get_free_page(GFP_USER);
 
 	if (!buf) {
-		brisket2_err("buf(%d) is illegal\n");
+		brisket2_err("buf is illegal\n");
 		goto out;
 	}
 
 	if (count >= PAGE_SIZE) {
-		brisket2_err("count(%d) >= PAGE_SIZE\n");
+		brisket2_err("count(%u) >= PAGE_SIZE\n", (unsigned int)count);
 		goto out;
 	}
 
