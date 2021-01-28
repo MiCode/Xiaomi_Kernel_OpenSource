@@ -22,7 +22,7 @@
 	no-sd;
 	hs400-ds-delay = <0x12814>;
 	mediatek,cqhci;
-	vmmc-supply = <&mt6359_vemc_ldo_reg>;
+	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
 	non-removable;
 };
 
