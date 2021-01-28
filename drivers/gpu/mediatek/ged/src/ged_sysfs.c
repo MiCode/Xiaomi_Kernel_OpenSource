@@ -46,8 +46,7 @@ GED_ERROR ged_sysfs_create_file(struct kobject *parent,
 
 	parent = (parent != NULL) ? parent : ged_kobj;
 	if (sysfs_create_file(parent, &(kobj_attr->attr))) {
-		GED_LOGE("Failed to create '%s' sysfs file\n",
-				(kobj_attr->attr).name);
+		GED_LOGE("Failed to create sysfs file\n");
 		return GED_ERROR_FAIL;
 	}
 

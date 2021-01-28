@@ -343,12 +343,12 @@ bool ged_dvfs_cal_gpu_utilization(unsigned int *pui32Loading,
 		ged_dvfs_cal_gpu_utilization_fp(pui32Loading,
 			pui32Block, pui32Idle);
 #endif
-		ged_log_perf_trace_counter("gpu_loading",
-			(long long)*pui32Loading,
-			5566, 0, 0);
 		if (pui32Loading) {
+			ged_log_perf_trace_counter("gpu_loading",
+				(long long)*pui32Loading,
+				5566, 0, 0);
 			gpu_av_loading = *pui32Loading;
-		gpu_sub_loading = *pui32Loading;
+			gpu_sub_loading = *pui32Loading;
 
 			spin_lock_irqsave(&load_info_lock, ui32IRQFlags);
 			g_loading2_sum += gpu_av_loading;
