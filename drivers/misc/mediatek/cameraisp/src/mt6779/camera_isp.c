@@ -4259,6 +4259,14 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			Ret = -EFAULT;
 			break;
 		}
+
+		if (cq0_data[CAM_A][0] == ISP_CAM_A_IDX)
+			mutex_lock(&cq_reset_mutex[ISP_IRQ_TYPE_INT_CAM_A_ST]);
+		else if (cq0_data[CAM_B][0] == ISP_CAM_B_IDX)
+			mutex_lock(&cq_reset_mutex[ISP_IRQ_TYPE_INT_CAM_B_ST]);
+		else if (cq0_data[CAM_C][0] == ISP_CAM_C_IDX)
+			mutex_lock(&cq_reset_mutex[ISP_IRQ_TYPE_INT_CAM_C_ST]);
+
 		if ((cq0_data[CAM_A][0] >= ISP_CAM_A_IDX) &&
 			(cq0_data[CAM_A][0] <= ISP_CAM_C_IDX)) {
 			if (cq0_data[CAM_A][1] != 0) {
@@ -4289,6 +4297,13 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				 */
 			}
 		}
+
+		if (cq0_data[CAM_A][0] == ISP_CAM_A_IDX)
+			mutex_unlock(&cq_reset_mutex[ISP_IRQ_TYPE_INT_CAM_A_ST]);
+		else if (cq0_data[CAM_B][0] == ISP_CAM_B_IDX)
+			mutex_unlock(&cq_reset_mutex[ISP_IRQ_TYPE_INT_CAM_B_ST]);
+		else if (cq0_data[CAM_C][0] == ISP_CAM_C_IDX)
+			mutex_unlock(&cq_reset_mutex[ISP_IRQ_TYPE_INT_CAM_C_ST]);
 	}
 	break;
 	#ifdef ENABLE_KEEP_ION_HANDLE
@@ -5334,10 +5349,13 @@ static inline void ISP_StopHW(int module)
 		regTGSt = (ISP_RD32(
 		CAM_REG_TG_INTER_ST(module)) & 0x00003F00) >> 8;
 
-		if (regTGSt == 1)
+		//regTGSt should never be 0 except HW issue
+		//add "regTGSt == 0" for workaround
+		if (regTGSt == 1 || regTGSt == 0)
 			break;
 
-		LOG_INF("%s: wait 1VD (%d)\n", moduleName, loopCnt);
+		LOG_INF("%s: wait 1VD(%x) regTGSt(%d)\n",
+				moduleName, loopCnt, regTGSt);
 		ret = ISP_WaitIrq(&waitirq);
 		/* first wait is clear wait, others are non-clear wait */
 		waitirq.EventInfo.Clear = ISP_IRQ_CLEAR_NONE;
@@ -5361,9 +5379,14 @@ static inline void ISP_StopHW(int module)
 			/* wait time>timeoutMs, break */
 			if ((sec - m_sec) > timeoutMs)
 				break;
+			//add "regTGSt == 0" for workaround
+			if (regTGSt == 0)
+				break;
 		}
 		if (regTGSt == 1) {
 			LOG_INF("%s: wait idle done\n", moduleName);
+		} else if (regTGSt == 0) {
+			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n",
 				moduleName, (sec - m_sec));
@@ -5467,10 +5490,13 @@ static inline void ISP_StopSVHW(int module)
 		regTGSt = (ISP_RD32(
 			CAMSV_REG_TG_INTER_ST(module)) & 0x00003F00) >> 8;
 
-		if (regTGSt == 1)
+		//regTGSt should never be 0 except HW issue
+		//add "regTGSt == 0" for workaround
+		if (regTGSt == 1 || regTGSt == 0)
 			break;
 
-		LOG_INF("%s: wait 1VD (%d)\n", moduleName, loopCnt);
+		LOG_INF("%s: wait 1VD(%x) regTGSt(%d)\n",
+				moduleName, loopCnt, regTGSt);
 		ret = ISP_WaitIrq(&waitirq);
 		/* first wait is clear wait, others are non-clear wait */
 		waitirq.EventInfo.Clear = ISP_IRQ_CLEAR_NONE;
@@ -5494,9 +5520,14 @@ static inline void ISP_StopSVHW(int module)
 			/* wait time>timeoutMs, break */
 			if ((sec - m_sec) > timeoutMs)
 				break;
+			//add "regTGSt == 0" for workaround
+			if (regTGSt == 0)
+				break;
 		}
 		if (regTGSt == 1) {
 			LOG_INF("%s: wait idle done\n", moduleName);
+		} else if (regTGSt == 0) {
+			LOG_INF("%s: plz check regTGSt value\n", moduleName);
 		} else {
 			LOG_INF("%s: wait idle timeout(%lld)\n",
 				moduleName, (sec - m_sec));
