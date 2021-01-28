@@ -35,19 +35,8 @@
 #include "private/tmem_error.h"
 #include "private/tmem_priv.h"
 #include "private/tmem_utils.h"
-/* clang-format off */
-#include "tee_impl/tee_priv.h"
-/* clang-format on */
-#include "tee_impl/tee_common.h"
-
-struct tee_secure_memory_configs {
-	enum TRUSTED_MEM_TYPE tmem_type;
-	enum TEE_MEM_TYPE tee_smem_type;
-	u32 ssmr_feature_id;
-	struct tee_op_cmd_mappings *priv_data;
-	struct trusted_mem_configs *mem_cfg;
-	char *dev_name;
-};
+#include "private/tmem_dev_desc.h"
+#include "tee_impl/tee_ops.h"
 
 static struct trusted_mem_configs tee_smem_general_configs = {
 	.session_keep_alive_enable = false,
@@ -59,15 +48,26 @@ static struct trusted_mem_configs tee_smem_general_configs = {
 	.caps = 0,
 };
 
-static struct tee_secure_memory_configs tee_smem_devs[] = {
+static struct tmem_device_description tee_smem_devs[] = {
 #ifdef CONFIG_MTK_SECURE_MEM_SUPPORT
 	{
-		.tmem_type = TRUSTED_MEM_SVP,
-		.tee_smem_type = TEE_MEM_SVP,
+		.kern_tmem_type = TRUSTED_MEM_SVP,
+		.tee_smem_type = TEE_SMEM_SVP,
+		.mtee_chunks_id = MTEE_MCUHNKS_INVALID,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 		.ssmr_feature_id = SSMR_FEAT_SVP,
 #endif
-		.priv_data = NULL,
+		/* clang-format off */
+		.u_ops_data.tee = {
+			.tee_cmds[TEE_OP_ALLOC] = CMD_SEC_MEM_ALLOC,
+			.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_SEC_MEM_ALLOC_ZERO,
+			.tee_cmds[TEE_OP_FREE] = CMD_SEC_MEM_UNREF,
+			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_SEC_MEM_ENABLE,
+			.tee_cmds[TEE_OP_REGION_DISABLE] = CMD_SEC_MEM_DISABLE,
+		},
+		/* clang-format on */
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
 		.mem_cfg = &tee_smem_general_configs,
 		.dev_name = "SECMEM_SVP",
 	},
@@ -75,12 +75,23 @@ static struct tee_secure_memory_configs tee_smem_devs[] = {
 
 #ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
 	{
-		.tmem_type = TRUSTED_MEM_2D_FR,
-		.tee_smem_type = TEE_MEM_2D_FR,
+		.kern_tmem_type = TRUSTED_MEM_2D_FR,
+		.tee_smem_type = TEE_SMEM_2D_FR,
+		.mtee_chunks_id = MTEE_MCUHNKS_INVALID,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 		.ssmr_feature_id = SSMR_FEAT_2D_FR,
 #endif
-		.priv_data = NULL,
+		/* clang-format off */
+		.u_ops_data.tee = {
+			.tee_cmds[TEE_OP_ALLOC] = CMD_SEC_MEM_ALLOC,
+			.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_SEC_MEM_ALLOC_ZERO,
+			.tee_cmds[TEE_OP_FREE] = CMD_SEC_MEM_UNREF,
+			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_SEC_MEM_ENABLE,
+			.tee_cmds[TEE_OP_REGION_DISABLE] = CMD_SEC_MEM_DISABLE,
+		},
+		/* clang-format on */
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
 		.mem_cfg = &tee_smem_general_configs,
 		.dev_name = "SECMEM_2DFR",
 	},
@@ -88,12 +99,23 @@ static struct tee_secure_memory_configs tee_smem_devs[] = {
 
 #ifdef CONFIG_MTK_WFD_SMEM_SUPPORT
 	{
-		.tmem_type = TRUSTED_MEM_WFD,
-		.tee_smem_type = TEE_MEM_WFD,
+		.kern_tmem_type = TRUSTED_MEM_WFD,
+		.tee_smem_type = TEE_SMEM_WFD,
+		.mtee_chunks_id = MTEE_MCUHNKS_INVALID,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 		.ssmr_feature_id = SSMR_FEAT_WFD,
 #endif
-		.priv_data = NULL,
+		/* clang-format off */
+		.u_ops_data.tee = {
+			.tee_cmds[TEE_OP_ALLOC] = CMD_WFD_SMEM_ALLOC,
+			.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_WFD_SMEM_ALLOC_ZERO,
+			.tee_cmds[TEE_OP_FREE] = CMD_WFD_SMEM_UNREF,
+			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_WFD_SMEM_ENABLE,
+			.tee_cmds[TEE_OP_REGION_DISABLE] = CMD_WFD_SMEM_DISABLE,
+		},
+		/* clang-format on */
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
 		.mem_cfg = &tee_smem_general_configs,
 		.dev_name = "SECMEM_WFD",
 	},
@@ -102,12 +124,29 @@ static struct tee_secure_memory_configs tee_smem_devs[] = {
 #if defined(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                                \
 	&& (defined(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE))
 	{
-		.tmem_type = TRUSTED_MEM_SDSP_SHARED,
-		.tee_smem_type = TEE_MEM_SDSP_SHARED,
+		.kern_tmem_type = TRUSTED_MEM_SDSP_SHARED,
+		.tee_smem_type = TEE_SMEM_SDSP_SHARED,
+		.mtee_chunks_id = MTEE_MCHUNKS_SDSP_SHARED_VPU_TEE,
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 		.ssmr_feature_id = SSMR_FEAT_SDSP_TEE_SHAREDMEM,
 #endif
-		.priv_data = NULL,
+		/* clang-format off */
+		.u_ops_data.tee = {
+			.tee_cmds[TEE_OP_ALLOC] = CMD_SDSP_SMEM_ALLOC,
+			.tee_cmds[TEE_OP_ALLOC_ZERO] = CMD_SDSP_SMEM_ALLOC_ZERO,
+			.tee_cmds[TEE_OP_FREE] = CMD_SDSP_SMEM_UNREF,
+			.tee_cmds[TEE_OP_REGION_ENABLE] = CMD_SDSP_SMEM_ENABLE,
+			.tee_cmds[TEE_OP_REGION_DISABLE] =
+				CMD_SDSP_SMEM_DISABLE,
+		},
+/* clang-format on */
+#if defined(CONFIG_MTK_GZ_KREE)
+		.notify_remote = true,
+		.notify_remote_fn = mtee_set_mchunks_region,
+#else
+		.notify_remote = false,
+		.notify_remote_fn = NULL,
+#endif
 		.mem_cfg = &tee_smem_general_configs,
 		.dev_name = "SECMEM_SDSP",
 	},
@@ -119,8 +158,8 @@ static struct tee_secure_memory_configs tee_smem_devs[] = {
 static struct trusted_mem_device *
 create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 		       struct trusted_mem_configs *cfg,
-		       struct tee_op_cmd_mappings *priv_data, u32 ssmr_feat_id,
-		       const char *dev_name)
+		       struct tmem_device_description *dev_desc,
+		       u32 ssmr_feat_id, const char *dev_name)
 {
 	int ret = TMEM_OK;
 	struct trusted_mem_device *t_device;
@@ -132,7 +171,7 @@ create_tee_smem_device(enum TRUSTED_MEM_TYPE mem_type,
 	}
 
 	get_tee_peer_ops(&t_device->peer_ops);
-	t_device->peer_priv = priv_data;
+	t_device->dev_desc = dev_desc;
 
 	snprintf(t_device->name, MAX_DEVICE_NAME_LEN, "%s", dev_name);
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
@@ -159,17 +198,14 @@ static int __init tee_smem_devs_init(void)
 		TEE_SECURE_MEM_DEVICE_COUNT);
 
 	for (idx = 0; idx < TEE_SECURE_MEM_DEVICE_COUNT; idx++) {
-		get_tee_peer_priv_data(tee_smem_devs[idx].tee_smem_type,
-				       &tee_smem_devs[idx].priv_data);
 		t_device = create_tee_smem_device(
-			tee_smem_devs[idx].tmem_type,
-			tee_smem_devs[idx].mem_cfg,
-			tee_smem_devs[idx].priv_data,
+			tee_smem_devs[idx].kern_tmem_type,
+			tee_smem_devs[idx].mem_cfg, &tee_smem_devs[idx],
 			tee_smem_devs[idx].ssmr_feature_id,
 			tee_smem_devs[idx].dev_name);
 		if (INVALID(t_device)) {
 			pr_err("create tee smem device failed: %d:%s\n",
-			       tee_smem_devs[idx].tmem_type,
+			       tee_smem_devs[idx].kern_tmem_type,
 			       tee_smem_devs[idx].dev_name);
 			return TMEM_CREATE_DEVICE_FAILED;
 		}

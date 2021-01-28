@@ -11,21 +11,21 @@
  * GNU General Public License for more details.
  */
 
-#ifndef MTEE_PRIVATE_H_
-#define MTEE_PRIVATE_H_
+#ifndef TEE_REGIONS_H
+#define TEE_REGIONS_H
 
-struct mtee_driver_params {
-	u64 param0;
-	u64 param1;
-	u64 param2;
-	u64 param3;
+/* Refer to drSecMemApi.h */
+enum TEE_SMEM_TYPE {
+	TEE_SMEM_SVP = 0,
+	TEE_SMEM_PROT = 1,
+	TEE_SMEM_2D_FR = 2,
+	TEE_SMEM_WFD = 3,
+	TEE_SMEM_SDSP_SHARED = 4,
+	TEE_SMEM_SDSP_FIRMWARE = 5,
+	TEE_SMEM_HAPP_ELF = 6,
+	TEE_SMEM_HAPP_EXTRA = 7,
+
+	TEE_SMEM_INVALID = 0xFFFFFFFF,
 };
 
-struct mtee_peer_ops_priv_data {
-	enum TRUSTED_MEM_TYPE mem_type;
-	char *service_name;
-};
-
-void get_mtee_peer_ops(struct trusted_driver_operations **ops);
-
-#endif /* MTEE_PRIVATE_H_ */
+#endif /* end of TEE_REGIONS_H */

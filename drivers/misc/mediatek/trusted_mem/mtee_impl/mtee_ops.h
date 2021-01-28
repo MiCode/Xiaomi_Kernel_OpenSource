@@ -11,16 +11,21 @@
  * GNU General Public License for more details.
  */
 
-#ifndef TEE_PRIVATE_H_
-#define TEE_PRIVATE_H_
+#ifndef MTEE_OPS_H_
+#define MTEE_OPS_H_
 
-struct secmem_param {
-	u64 alignment;  /* IN */
-	u64 size;       /* IN */
-	u32 refcount;   /* INOUT */
-	u64 sec_handle; /* OUT */
+struct mtee_driver_params {
+	u64 param0;
+	u64 param1;
+	u64 param2;
+	u64 param3;
 };
 
-void get_tee_peer_ops(struct trusted_driver_operations **ops);
+struct mtee_peer_ops_data {
+	enum TRUSTED_MEM_TYPE mem_type;
+	char *service_name;
+};
 
-#endif /* TEE_PRIVATE_H_ */
+void get_mtee_peer_ops(struct trusted_driver_operations **ops);
+
+#endif /* MTEE_OPS_H_ */

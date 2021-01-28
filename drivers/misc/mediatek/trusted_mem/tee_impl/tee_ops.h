@@ -11,8 +11,15 @@
  * GNU General Public License for more details.
  */
 
-#ifndef TEE_COMMON_H_
-#define TEE_COMMON_H_
+#ifndef TEE_OPS_H_
+#define TEE_OPS_H_
+
+struct secmem_param {
+	u64 alignment;  /* IN */
+	u64 size;       /* IN */
+	u32 refcount;   /* INOUT */
+	u64 sec_handle; /* OUT */
+};
 
 #define CMD_SEC_MEM_ALLOC 1
 #define CMD_SEC_MEM_UNREF 3
@@ -56,14 +63,11 @@ enum TEE_MEM_TYPE {
 	TEE_MEM_SDSP_SHARED = 2,
 };
 
-struct tee_op_cmd_mappings {
+struct tee_peer_ops_data {
 	enum TEE_OP tee_cmds[TEE_OP_MAX];
 	enum TEE_MEM_TYPE tee_mem_type;
 };
 
-u32 get_tee_cmd(enum TEE_OP op, void *peer_priv);
-u32 get_tee_mem_type(void *peer_priv);
-void get_tee_peer_priv_data(enum TEE_MEM_TYPE tee_mem_type,
-			    struct tee_op_cmd_mappings **peer_priv);
+void get_tee_peer_ops(struct trusted_driver_operations **ops);
 
-#endif /* TEE_COMMON_H_ */
+#endif /* TEE_OPS_H_ */
