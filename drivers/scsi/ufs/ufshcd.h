@@ -97,7 +97,6 @@ struct uic_command {
 	u32 argument1;
 	u32 argument2;
 	u32 argument3;
-	int cmd_active;
 	int result;
 	struct completion done;
 };
