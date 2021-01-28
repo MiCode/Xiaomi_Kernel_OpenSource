@@ -38,6 +38,20 @@ ccflags-y += -I$(srctree)/drivers/clk/mediatek
 obj-y += mmdvfs_mgr_v3.o
 obj-y += mmdvfs_profile_adaptor.o
 obj-y += mmdvfs_mgr_util.o
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))
+ccflags-y += -DSMI_SYL
+ccflags-y += -DDYNAMIC_DISP_HRT
+ccflags-y += -I$(srctree)/drivers/clk/mediatek
+obj-y += mmdvfs_mgr_v3.o
+obj-y += mmdvfs_profile_adaptor.o
+obj-y += mmdvfs_mgr_util.o
+SUPPORT_USE_DDR_TYPE := true
+endif
+
+ifeq (true, $(SUPPORT_USE_DDR_TYPE))
+ccflags-y += -DUSE_DDR_TYPE
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
 endif
 
 obj-y += smi_drv.o
