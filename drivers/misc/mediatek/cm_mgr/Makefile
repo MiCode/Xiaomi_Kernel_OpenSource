@@ -19,7 +19,7 @@ ccflags-y += \
 
 MTK_CM_MGR_MODULE_LOCAL_NAME = mtk_cm_mgr
 MTK_CM_MGR_MODULE_SRC = mtk_cm_mgr_common.o \
-			mtk_cm_mgr_mt6779.o
+			mtk_cm_mgr_platform.o
 $(MTK_CM_MGR_MODULE_LOCAL_NAME)-objs = $(MTK_CM_MGR_MODULE_SRC:.c=.o)
 obj-${CONFIG_MTK_CM_MGR} += $(MTK_CM_MGR_MODULE_LOCAL_NAME).o
 

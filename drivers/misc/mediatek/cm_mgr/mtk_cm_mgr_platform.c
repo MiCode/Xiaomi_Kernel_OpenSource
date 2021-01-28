@@ -36,7 +36,7 @@
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include "mtk_cm_mgr_mt6779.h"
+#include "mtk_cm_mgr_platform.h"
 #include "mtk_cm_mgr_common.h"
 #include "dvfsrc-opp.h"
 
@@ -207,7 +207,7 @@ int cm_mgr_get_dram_opp(void)
 }
 EXPORT_SYMBOL_GPL(cm_mgr_get_dram_opp);
 
-static int mt6779_cm_mgr_probe(struct platform_device *pdev)
+static int platform_cm_mgr_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource *res;
@@ -232,7 +232,7 @@ static int mt6779_cm_mgr_probe(struct platform_device *pdev)
 		return -1;
 	}
 
-	pr_info("[CM_MGR] mt6779-cm_mgr cm_mgr_base=%p\n",
+	pr_info("[CM_MGR] platform-cm_mgr cm_mgr_base=%p\n",
 			cm_mgr_base);
 
 	cm_mgr_num_perf = of_count_phandle_with_args(node,
@@ -250,7 +250,7 @@ static int mt6779_cm_mgr_probe(struct platform_device *pdev)
 
 		for (i = 0; i < cm_mgr_num_perf; i++) {
 			cm_mgr_perfs[i] =
-				dvfsrc_get_required_opp_performance_state(node, i);
+			dvfsrc_get_required_opp_performance_state(node, i);
 		}
 		cm_mgr_num_array = cm_mgr_num_perf - 2;
 	} else
@@ -295,7 +295,7 @@ static int mt6779_cm_mgr_probe(struct platform_device *pdev)
 
 	cm_mgr_pdev = pdev;
 
-	pr_info("[CM_MGR] mt6779-cm_mgr_probe Done.\n");
+	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
 
 	return 0;
 
@@ -305,7 +305,7 @@ ERROR:
 	return ret;
 }
 
-static int mt6779_cm_mgr_remove(struct platform_device *pdev)
+static int platform_cm_mgr_remove(struct platform_device *pdev)
 {
 	cm_mgr_common_exit();
 
@@ -315,43 +315,45 @@ static int mt6779_cm_mgr_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static const struct of_device_id mt6779_cm_mgr_of_match[] = {
+static const struct of_device_id platform_cm_mgr_of_match[] = {
 	{ .compatible = "mediatek,mt6779-cm_mgr", },
+	{ .compatible = "mediatek,mt6761-cm_mgr", },
 	{},
 };
 
-static const struct platform_device_id mt6779_cm_mgr_id_table[] = {
+static const struct platform_device_id platform_cm_mgr_id_table[] = {
 	{ "mt6779-cm_mgr", 0},
+	{ "mt6761-cm_mgr", 0},
 	{ },
 };
 
-static struct platform_driver mtk_mt6779_cm_mgr_driver = {
-	.probe = mt6779_cm_mgr_probe,
-	.remove	= mt6779_cm_mgr_remove,
+static struct platform_driver mtk_platform_cm_mgr_driver = {
+	.probe = platform_cm_mgr_probe,
+	.remove	= platform_cm_mgr_remove,
 	.driver = {
 		.name = "mt6779-cm_mgr",
 		.owner = THIS_MODULE,
-		.of_match_table = mt6779_cm_mgr_of_match,
+		.of_match_table = platform_cm_mgr_of_match,
 	},
-	.id_table = mt6779_cm_mgr_id_table,
+	.id_table = platform_cm_mgr_id_table,
 };
 
 /*
  * driver initialization entry point
  */
-static int __init mt6779_cm_mgr_init(void)
+static int __init platform_cm_mgr_init(void)
 {
-	return platform_driver_register(&mtk_mt6779_cm_mgr_driver);
+	return platform_driver_register(&mtk_platform_cm_mgr_driver);
 }
 
-static void __exit mt6779_cm_mgr_exit(void)
+static void __exit platform_cm_mgr_exit(void)
 {
-	platform_driver_unregister(&mtk_mt6779_cm_mgr_driver);
-	pr_info("[CM_MGR] mt6779-cm_mgr Exit.\n");
+	platform_driver_unregister(&mtk_platform_cm_mgr_driver);
+	pr_info("[CM_MGR] platform-cm_mgr Exit.\n");
 }
 
-subsys_initcall(mt6779_cm_mgr_init);
-module_exit(mt6779_cm_mgr_exit);
+subsys_initcall(platform_cm_mgr_init);
+module_exit(platform_cm_mgr_exit);
 
 MODULE_DESCRIPTION("Mediatek cm_mgr driver");
 MODULE_AUTHOR("Morven-CF Yeh<morven-cf.yeh@mediatek.com>");

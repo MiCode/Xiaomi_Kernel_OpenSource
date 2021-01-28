@@ -8,10 +8,10 @@
 
 #define PERF_TIME 3000
 
-#include "mtk_cm_mgr_reg_mt6779.h"
+#include "mtk_cm_mgr_reg_platform.h"
 
 #define CREATE_TRACE_POINTS
-#include "mtk_cm_mgr_events_mt6779.h"
+#include "mtk_cm_mgr_events_platform.h"
 
 enum {
 	CM_MGR_LP4X_2CH = 0,
