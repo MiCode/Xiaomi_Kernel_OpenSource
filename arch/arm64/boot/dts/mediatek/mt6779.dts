@@ -1130,6 +1130,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "infra-dpmaif-clk";
 		};
 
+		dfd@10200b00 {
+			compatible = "mediatek,dfd";
+			reg = <0 0x10200b00 0 0x10000>;
+
+			mediatek,enabled = <1>;
+			mediatek,chain_length = <0xa7f8>;
+			mediatek,rg_dfd_timeout = <0xa0>;
+			reg_base = <&toprgu>;
+		};
 
 		devapc: devapc@10207000 {
 			compatible = "mediatek,mt6779-devapc";
