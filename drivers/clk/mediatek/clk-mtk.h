@@ -299,7 +299,10 @@ struct mtk_pll_data {
 	const char *name;
 	uint32_t reg;
 	uint32_t pwr_reg;
+	uint32_t en_reg;
 	uint32_t en_mask;
+	uint32_t iso_mask;
+	uint32_t pwron_mask;
 	uint32_t pd_reg;
 	uint32_t tuner_reg;
 	uint32_t tuner_en_reg;
