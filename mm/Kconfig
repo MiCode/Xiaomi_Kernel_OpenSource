@@ -755,6 +755,8 @@ config DEVICE_PUBLIC
 	  memory; i.e., memory that is accessible from both the device and
 	  the CPU
 
+config ARCH_HAS_PTE_SPECIAL
+	bool
 config FRAME_VECTOR
 	bool
 
