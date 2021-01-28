@@ -53,10 +53,7 @@ struct trusty_irq_state {
 	struct notifier_block trusty_call_notifier;
 	struct hlist_node cpuhp_node;
 	enum tee_id_t tee_id;
-	struct list_head node;
 };
-
-static LIST_HEAD(trusty_irq_state_list);
 
 static int trusty_irq_cpuhp_slot = -1;
 
@@ -192,7 +189,7 @@ irqreturn_t trusty_irq_handler(int irq, void *data)
 	}
 	spin_unlock(&is->normal_irqs_lock);
 
-	trusty_enqueue_nop(is->trusty_dev, NULL, is->tee_id);
+	trusty_enqueue_nop(is->trusty_dev, NULL);
 
 	dev_dbg(is->dev, "%s: irq %d done\n", __func__, irq);
 
@@ -491,6 +488,7 @@ err_request_percpu_irq:
 static int trusty_smc_get_next_irq(struct trusty_irq_state *is,
 				   unsigned long min_irq, bool per_cpu)
 {
+/* FIXME */
 #if defined(CONFIG_MTK_NEBULA_VM_SUPPORT)
 	return trusty_fast_call32(is->trusty_dev,
 				  SMC_FC_PLAT_GET_NEXT_IRQ,
@@ -508,6 +506,7 @@ static int trusty_irq_init_one(struct trusty_irq_state *is,
 	int ret;
 
 	irq = trusty_smc_get_next_irq(is, irq, per_cpu);
+
 	if (irq < 0)
 		return irq;
 
@@ -516,11 +515,8 @@ static int trusty_irq_init_one(struct trusty_irq_state *is,
 	else
 		ret = trusty_irq_init_normal_irq(is, irq);
 
-	if (ret) {
-		dev_info(is->dev,
-			 "failed to initialize irq %d, irq will be ignored\n",
-			 irq);
-	}
+	if (ret)
+		dev_info(is->dev, "init irq %d failed, ignored irq\n", irq);
 
 	return irq + 1;
 }
@@ -582,74 +578,77 @@ static void init_irq_node(struct device_node *node)
 
 static int trusty_irq_probe(struct platform_device *pdev)
 {
-	int ret;
-	int irq;
+	int ret, irq, tee_id = -1;
 	unsigned long irq_flags;
 	struct trusty_irq_state *is;
-	int i;
+	struct device_node *node = pdev->dev.of_node;
 
-	dev_dbg(&pdev->dev, "%s\n", __func__);
+	if (!node) {
+		dev_info(&pdev->dev, "of_node required\n");
+		return -EINVAL;
+	}
+
 #ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
-	init_irq_node(pdev->dev.of_node);
+	init_irq_node(node);
 #endif
 
-	is = kzalloc(sizeof(struct trusty_irq_state) * TEE_ID_END, GFP_KERNEL);
+	ret = of_property_read_u32(node, "tee_id", &tee_id);
+	if (ret != 0 || !is_tee_id(tee_id)) {
+		dev_info(&pdev->dev, "tee_id is not set on device tree\n");
+		return -EINVAL;
+	}
+
+	is = kzalloc(sizeof(struct trusty_irq_state), GFP_KERNEL);
 	if (!is) {
 		ret = -ENOMEM;
 		goto err_alloc_is;
 	}
 
-	for (i = 0; i < TEE_ID_END; i++) {
-		is[i].tee_id = i;
-		is[i].dev = &pdev->dev;
-		is[i].trusty_dev = is[i].dev->parent;
-		spin_lock_init(&is[i].normal_irqs_lock);
-		is[i].percpu_irqs = alloc_percpu(struct trusty_irq_irqset);
-		if (!is[i].percpu_irqs) {
-			ret = -ENOMEM;
-			goto err_alloc_pending_percpu_irqs;
-		}
-
-		is[i].trusty_call_notifier.notifier_call =
-		    trusty_irq_call_notify;
-		ret =
-		    trusty_call_notifier_register(is[i].trusty_dev,
-						  &is[i].trusty_call_notifier);
-		if (ret) {
-			dev_info(&pdev->dev,
-				 "failed to register trusty call notifier\n");
-			goto err_trusty_call_notifier_register;
-		}
-
-		for (irq = 0; irq >= 0;)
-			irq = trusty_irq_init_one(is + i, irq, true);
-		for (irq = 0; irq >= 0;)
-			irq = trusty_irq_init_one(is + i, irq, false);
-
-		ret =
-		    cpuhp_state_add_instance(trusty_irq_cpuhp_slot,
-					     &is[i].cpuhp_node);
-		if (ret < 0) {
-			dev_info(&pdev->dev,
-				 "cpuhp_state_add_instance failed %d\n", ret);
-			goto err_add_cpuhp_instance;
-		}
-
-		list_add_tail(&is[i].node, &trusty_irq_state_list);
+	is->tee_id = tee_id;
+	is->dev = &pdev->dev;
+	is->trusty_dev = is->dev->parent;
+	spin_lock_init(&is->normal_irqs_lock);
+	is->percpu_irqs = alloc_percpu(struct trusty_irq_irqset);
+	if (!is->percpu_irqs) {
+		ret = -ENOMEM;
+		goto err_alloc_pending_percpu_irqs;
 	}
 
-	platform_set_drvdata(pdev, &trusty_irq_state_list);
+	is->trusty_call_notifier.notifier_call = trusty_irq_call_notify;
+	ret = trusty_call_notifier_register(is->trusty_dev,
+					    &is->trusty_call_notifier);
+	if (ret) {
+		dev_info(&pdev->dev,
+			 "failed to register trusty call notifier\n");
+		goto err_trusty_call_notifier_register;
+	}
+
+	for (irq = 0; irq >= 0;)
+		irq = trusty_irq_init_one(is, irq, true);
+	for (irq = 0; irq >= 0;)
+		irq = trusty_irq_init_one(is, irq, false);
+
+	ret = cpuhp_state_add_instance(trusty_irq_cpuhp_slot,
+				       &is->cpuhp_node);
+	if (ret < 0) {
+		dev_info(&pdev->dev,
+			 "cpuhp_state_add_instance failed %d\n", ret);
+		goto err_add_cpuhp_instance;
+	}
+
+	platform_set_drvdata(pdev, is);
+
 	return 0;
 
 err_add_cpuhp_instance:
-	spin_lock_irqsave(&is[i].normal_irqs_lock, irq_flags);
-	trusty_irq_disable_irqset(is + i, &is[i].normal_irqs);
-	spin_unlock_irqrestore(&is[i].normal_irqs_lock, irq_flags);
-	trusty_irq_free_irqs(is + i);
-	trusty_call_notifier_unregister(is[i].trusty_dev,
-					&is[i].trusty_call_notifier);
+	spin_lock_irqsave(&is->normal_irqs_lock, irq_flags);
+	trusty_irq_disable_irqset(is, &is->normal_irqs);
+	spin_unlock_irqrestore(&is->normal_irqs_lock, irq_flags);
+	trusty_irq_free_irqs(is);
+	trusty_call_notifier_unregister(is->trusty_dev,
+					&is->trusty_call_notifier);
 err_trusty_call_notifier_register:
-	free_percpu(is[i].percpu_irqs);
+	free_percpu(is->percpu_irqs);
 err_alloc_pending_percpu_irqs:
 	kfree(is);
 err_alloc_is:
@@ -660,35 +659,33 @@ static int trusty_irq_remove(struct platform_device *pdev)
 {
 	int ret;
 	unsigned long irq_flags;
-	struct trusty_irq_state *is, *tmp;
-	struct list_head *is_list = platform_get_drvdata(pdev);
+	struct trusty_irq_state *is = platform_get_drvdata(pdev);
 
 	dev_dbg(&pdev->dev, "%s\n", __func__);
 
-	list_for_each_entry_safe(is, tmp, is_list, node) {
-		ret = cpuhp_state_remove_instance(trusty_irq_cpuhp_slot,
-						  &is->cpuhp_node);
-		if (WARN_ON(ret))
-			return ret;
+	ret = cpuhp_state_remove_instance(trusty_irq_cpuhp_slot,
+					  &is->cpuhp_node);
+	if (WARN_ON(ret))
+		return ret;
 
-		spin_lock_irqsave(&is->normal_irqs_lock, irq_flags);
-		trusty_irq_disable_irqset(is, &is->normal_irqs);
-		spin_unlock_irqrestore(&is->normal_irqs_lock, irq_flags);
+	spin_lock_irqsave(&is->normal_irqs_lock, irq_flags);
+	trusty_irq_disable_irqset(is, &is->normal_irqs);
+	spin_unlock_irqrestore(&is->normal_irqs_lock, irq_flags);
 
-		trusty_irq_free_irqs(is);
+	trusty_irq_free_irqs(is);
 
-		trusty_call_notifier_unregister(is->trusty_dev,
-						&is->trusty_call_notifier);
-		free_percpu(is->percpu_irqs);
+	trusty_call_notifier_unregister(is->trusty_dev,
+					&is->trusty_call_notifier);
+	free_percpu(is->percpu_irqs);
 
-		list_del(&is->node);
-		kfree(is);
-	}
+	kfree(is);
+
 	return 0;
 }
 
-static const struct of_device_id trusty_test_of_match[] = {
-	{.compatible = "android,trusty-irq-v1",},
+/* for trusty */
+static const struct of_device_id trusty_irq_of_match[] = {
+	{ .compatible = "android,trusty-irq-v1", },
 	{},
 };
 
@@ -698,13 +695,31 @@ static struct platform_driver trusty_irq_driver = {
 	.driver = {
 		   .name = "trusty-irq",
 		   .owner = THIS_MODULE,
-		   .of_match_table = trusty_test_of_match,
+		   .of_match_table = trusty_irq_of_match,
+		   },
+};
+
+/* for nebula */
+static const struct of_device_id nebula_irq_of_match[] = {
+	{ .compatible = "android,nebula-irq-v1", },
+	{},
+};
+
+static struct platform_driver nebula_irq_driver = {
+	.probe = trusty_irq_probe,
+	.remove = trusty_irq_remove,
+	.driver = {
+		   .name = "nebula-irq",
+		   .owner = THIS_MODULE,
+		   .of_match_table = nebula_irq_of_match,
 		   },
 };
 
 static int __init trusty_irq_driver_init(void)
 {
 	int ret;
+
+	pr_info("%s multi-tee version\n", __func__);
 
 	/* allocate dynamic cpuhp state slot */
 	ret = cpuhp_setup_state_multi(CPUHP_AP_ONLINE_DYN,
@@ -714,14 +729,21 @@ static int __init trusty_irq_driver_init(void)
 		return ret;
 	trusty_irq_cpuhp_slot = ret;
 
-	/* Register platform driver */
+	pr_info("---------- register the trusty irq driver ----------\n");
 	ret = platform_driver_register(&trusty_irq_driver);
 	if (ret < 0)
-		goto err_driver_register;
+		goto err_trusty_register;
+
+	pr_info("---------- register the nebula irq driver ----------\n");
+	ret = platform_driver_register(&nebula_irq_driver);
+	if (ret < 0)
+		goto err_nebula_register;
 
 	return ret;
 
-err_driver_register:
+err_nebula_register:
+	platform_driver_unregister(&trusty_irq_driver);
+err_trusty_register:
 	/* undo cpuhp slot allocation */
 	cpuhp_remove_multi_state(trusty_irq_cpuhp_slot);
 	trusty_irq_cpuhp_slot = -1;
@@ -731,7 +753,9 @@ err_driver_register:
 
 static void __exit trusty_irq_driver_exit(void)
 {
+	platform_driver_unregister(&nebula_irq_driver);
 	platform_driver_unregister(&trusty_irq_driver);
+
 	cpuhp_remove_multi_state(trusty_irq_cpuhp_slot);
 	trusty_irq_cpuhp_slot = -1;
 }

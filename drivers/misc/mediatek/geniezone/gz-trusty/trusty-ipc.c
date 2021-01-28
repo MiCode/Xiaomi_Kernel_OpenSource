@@ -44,7 +44,6 @@
 #define TXBUF_TIMEOUT			15000
 
 #define MAX_SRV_NAME_LEN		256
-#define MAX_DEV_NAME_LEN		32
 
 #define DEFAULT_MSG_BUF_SIZE		PAGE_SIZE
 #define DEFAULT_MSG_BUF_ALIGN		PAGE_SIZE
@@ -64,12 +63,6 @@
 DEFINE_HASHTABLE(tee_routing_htable, 5);
 
 struct tipc_virtio_dev;
-
-struct tipc_dev_config {
-	u32 msg_buf_max_size;
-	u32 msg_buf_alignment;
-	char dev_name[MAX_DEV_NAME_LEN];
-} __packed;
 
 struct tipc_msg_hdr {
 	u32 src;
@@ -128,6 +121,8 @@ struct tipc_virtio_dev {
 	struct virtio_device *vdev;
 	struct virtqueue *rxvq;
 	struct virtqueue *txvq;
+	char rxvq_name[MAX_DEV_NAME_LEN];
+	char txvq_name[MAX_DEV_NAME_LEN];
 	uint msg_buf_cnt;
 	uint msg_buf_max_cnt;
 	size_t msg_buf_max_sz;
@@ -165,7 +160,7 @@ struct tipc_chan {
 static struct class *tipc_class;
 static unsigned int tipc_major;
 
-struct virtio_device *vdev_array[TEE_NUM];
+struct virtio_device *vdev_array[TEE_ID_END];
 
 static DEFINE_IDR(tipc_devices);
 static DEFINE_MUTEX(tipc_devices_lock);
@@ -328,7 +323,7 @@ static int is_valid_vds(struct tipc_virtio_dev *vds)
 	if (unlikely(!virt_addr_valid(vds)))
 		return -EFAULT;
 
-	for (i = 0 ; i < TEE_NUM ; i++)
+	for (i = 0 ; i < TEE_ID_END ; i++)
 		if (vdev_array[i])
 			ret |= (vds == vdev_array[i]->priv);
 
@@ -510,8 +505,6 @@ static void fill_msg_hdr(struct tipc_msg_buf *mb, u32 src, u32 dst)
 	hdr->flags = 0;
 	hdr->reserved = 0;
 }
-
-/*****************************************************************************/
 
 struct tipc_chan *tipc_create_channel(struct device *dev,
 				      const struct tipc_chan_ops *ops,
@@ -1495,8 +1488,7 @@ static int _create_cdev_node(struct device *parent,
 	}
 
 	/* Create a device node */
-	cdn->dev = device_create(tipc_class, parent,
-				 devt, NULL, "trusty-ipc-%s", name);
+	cdn->dev = device_create(tipc_class, parent, devt, NULL, name);
 
 	if (IS_ERR(cdn->dev)) {
 		ret = PTR_ERR(cdn->dev);
@@ -1767,7 +1759,7 @@ drop_it:
 
 	if (!rxbuf) {
 		dev_info(dev, "rxbuf is null. failed\n");
-		return -1;
+		return -ENOMEM;
 	}
 	/* add the buffer back to the virtqueue */
 	sg_init_one(&sg, rxbuf->buf_va, rxbuf->buf_sz);
@@ -1840,12 +1832,10 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 {
 	int err, i;
 	struct tipc_virtio_dev *vds;
-	/*trusty struct tipc_dev_config is the same */
 	struct tipc_dev_config config;
 	struct virtqueue *vqs[2];
 	vq_callback_t *vq_cbs[] = { _rxvq_cb, _txvq_cb };
-	const char * const trusty_vq_names[] = { "trusty-rx", "trusty-tx" };
-	const char * const nebula_vq_names[] = { "nebula-rx", "nebula-tx" };
+	char *vq_names[2];
 	int tee_id = vdev->dev.id;
 
 	dev_dbg(&vdev->dev, "%s:\n", __func__);
@@ -1873,15 +1863,22 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 	/* get configuration if present */
 	vdev->config->get(vdev, 0, &config, sizeof(config));
 
-	/* copy dev name */
-	strncpy(vds->cdev_name, config.dev_name, sizeof(vds->cdev_name));
-	vds->cdev_name[sizeof(vds->cdev_name) - 1] = '\0';
+	/* set char device name*/
+	snprintf(vds->cdev_name, MAX_DEV_NAME_LEN, "%s-ipc-%s",
+		 config.dev_name.tee_name, config.dev_name.cdev_name);
 
+	/* set vqueue name */
+	snprintf(vds->rxvq_name, MAX_DEV_NAME_LEN, "%s-rxvq",
+		 config.dev_name.tee_name);
+
+	snprintf(vds->txvq_name, MAX_DEV_NAME_LEN, "%s-txvq",
+		 config.dev_name.tee_name);
+
+	vq_names[0] = vds->rxvq_name;
+	vq_names[1] = vds->txvq_name;
 	/* find tx virtqueues (rx and tx and in this order) */
 	err = vdev->config->find_vqs(vdev, 2, vqs, vq_cbs,
-				     (is_trusty_tee(tee_id)) ?
-				     trusty_vq_names : nebula_vq_names,
-				     NULL, NULL);
+				     (const char **)vq_names, NULL, NULL);
 
 	if (err)
 		goto err_find_vqs;
