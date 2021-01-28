@@ -29,7 +29,6 @@
 #include "fpsgo_usedext.h"
 #include "fpsgo_sysfs.h"
 #include "fbt_cpu.h"
-#include "fbt_cpu_platform.h"
 #include "fps_composer.h"
 
 #include <linux/preempt.h>
@@ -479,7 +478,7 @@ void fpsgo_clear_llf_cpu_policy(int policy)
 	fpsgo_render_tree_unlock(__func__);
 }
 
-static void fpsgo_clear_uclamp_boost_locked(int check)
+static void fpsgo_clear_uclamp_boost_locked(void)
 {
 	struct rb_node *n;
 	struct render_info *iter;
@@ -490,20 +489,18 @@ static void fpsgo_clear_uclamp_boost_locked(int check)
 		iter = rb_entry(n, struct render_info, render_key_node);
 
 		fpsgo_thread_lock(&iter->thr_mlock);
-		fpsgo_base2fbt_set_min_cap(iter, 0, check);
+		fpsgo_base2fbt_set_min_cap(iter, 0);
 		fpsgo_thread_unlock(&iter->thr_mlock);
 	}
 }
 
-void fpsgo_clear_uclamp_boost(int check)
+void fpsgo_clear_uclamp_boost(void)
 {
 	fpsgo_render_tree_lock(__func__);
 
-	fpsgo_clear_uclamp_boost_locked(check);
+	fpsgo_clear_uclamp_boost_locked();
 
 	fpsgo_render_tree_unlock(__func__);
-
-	fbt_notify_CM_limit(0);
 }
 
 void fpsgo_check_thread_status(void)
