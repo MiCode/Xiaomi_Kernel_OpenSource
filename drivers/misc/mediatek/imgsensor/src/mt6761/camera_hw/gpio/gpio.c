@@ -35,7 +35,7 @@ static struct GPIO gpio_instance;
  */
 static enum IMGSENSOR_RETURN gpio_release(void *pinstance)
 {
-	int i, j;
+	unsigned int i, j;
 	struct platform_device *pplatform_dev = gpimgsensor_hw_platform_device;
 	struct GPIO            *pgpio         = (struct GPIO *)pinstance;
 	enum   IMGSENSOR_RETURN ret           = IMGSENSOR_RETURN_SUCCESS;
@@ -72,7 +72,7 @@ static enum IMGSENSOR_RETURN gpio_release(void *pinstance)
 }
 static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 {
-	int    i, j;
+	unsigned int i, j;
 	struct platform_device *pplatform_dev = gpimgsensor_hw_platform_device;
 	struct GPIO            *pgpio         = (struct GPIO *)pinstance;
 	enum   IMGSENSOR_RETURN ret           = IMGSENSOR_RETURN_SUCCESS;
@@ -92,11 +92,15 @@ static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 			lookup_names =
 				gpio_pinctrl_list_cam[i].ppinctrl_lookup_names;
 			if (lookup_names) {
-				snprintf(str_pinctrl_name,
+				ret = snprintf(str_pinctrl_name,
 					sizeof(str_pinctrl_name),
 					"cam%d_%s",
 					j,
 					lookup_names);
+				if (ret == 0) {
+					pr_info("error! alloc 0 byte!");
+					return IMGSENSOR_RETURN_ERROR;
+				}
 				pgpio->ppinctrl_state_cam[j][i] =
 					pinctrl_lookup_state(
 					    pgpio->ppinctrl,
@@ -174,7 +178,7 @@ static enum IMGSENSOR_RETURN gpio_set(
 #endif
 	{
 		ppinctrl_state =
-		    pgpio->ppinctrl_state_cam[sensor_idx][
+		    pgpio->ppinctrl_state_cam[(unsigned int)sensor_idx][
 			((pin - IMGSENSOR_HW_PIN_PDN) << 1) + gpio_state];
 
 	}

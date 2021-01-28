@@ -78,20 +78,25 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	struct regulator *preg = NULL;
 	struct device *pdevice = gimgsensor_device;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
-	int i = 0;
-#ifndef NO_OC
+	unsigned int i = 0;
+
 	int ret = 0;
-#endif
+
 	gimgsensor.status.oc = 0;
 
 	if (enable) {
 		mdelay(5);
 		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
-			snprintf(str_regulator_name,
+			ret = snprintf(str_regulator_name,
 					sizeof(str_regulator_name),
 					"cam%d_%s",
 					sensor_idx,
 					regulator_control[i].pregulator_type);
+			if (ret == 0) {
+				pr_info(
+				"[regulator]%s error, ret = %d", __func__, ret);
+				return IMGSENSOR_RETURN_ERROR;
+			}
 			preg = regulator_get_optional(
 					pdevice, str_regulator_name);
 			if (IS_ERR(preg))
@@ -125,11 +130,16 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 		/* Disable interrupt before power off */
 		pr_debug("Unregister OC notifier");
 		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
-			snprintf(str_regulator_name,
+			ret = snprintf(str_regulator_name,
 					sizeof(str_regulator_name),
 					"cam%d_%s",
 					sensor_idx,
 					regulator_control[i].pregulator_type);
+			if (ret == 0) {
+				pr_info(
+				"[regulator]%s error, ret = %d", __func__, ret);
+				return IMGSENSOR_RETURN_ERROR;
+			}
 			preg = regulator_get_optional(
 					pdevice, str_regulator_name);
 			if (IS_ERR(preg))
@@ -165,9 +175,9 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 	struct REGULATOR *preg = (struct REGULATOR *)pinstance;
 	struct device            *pdevice;
 	struct device_node       *pof_node;
-	int j, i;
+	unsigned int j, i;
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
-
+	int ret = 0;
 	pdevice  = gimgsensor_device;
 	pof_node = pdevice->of_node;
 	pdevice->of_node =
@@ -183,11 +193,16 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 		j < IMGSENSOR_SENSOR_IDX_MAX_NUM;
 		j++) {
 		for (i = 0; i < REGULATOR_TYPE_MAX_NUM; i++) {
-			snprintf(str_regulator_name,
+			ret = snprintf(str_regulator_name,
 					sizeof(str_regulator_name),
 					"cam%d_%s",
 					j,
 					regulator_control[i].pregulator_type);
+			if (ret == 0) {
+				pr_info(
+				"[regulator]%s error, ret = %d", __func__, ret);
+				return IMGSENSOR_RETURN_ERROR;
+			}
 			preg->pregulator[j][i] =
 			    regulator_get_optional(
 				pdevice, str_regulator_name);
@@ -209,7 +224,7 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 static enum IMGSENSOR_RETURN regulator_release(void *pinstance)
 {
 	struct REGULATOR *preg = (struct REGULATOR *)pinstance;
-	int type, idx;
+	unsigned int type, idx;
 	struct regulator *pregulator = NULL;
 	atomic_t *enable_cnt = NULL;
 
