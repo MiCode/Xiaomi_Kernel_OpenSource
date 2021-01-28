@@ -20,7 +20,7 @@ int arch_get_nr_clusters(void)
 
 int arch_get_cluster_id(unsigned int cpu)
 {
-	return arch_cpu_cluster_id();
+	return arch_cpu_cluster_id(cpu);
 }
 
 void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
