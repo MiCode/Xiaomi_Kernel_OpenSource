@@ -3342,7 +3342,8 @@ done_no_data:
 #endif
 
 #ifdef MTK_MSDC_USE_CACHE
-	msdc_update_cache_flush_status(host, mrq, data, l_bypass_flush);
+	if (data)
+		msdc_update_cache_flush_status(host, mrq, data, l_bypass_flush);
 #endif
 
 	return host->error;
