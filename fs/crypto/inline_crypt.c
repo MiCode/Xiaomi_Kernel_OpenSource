@@ -300,7 +300,7 @@ static void fscrypt_generate_iv_spec(union fscrypt_iv *iv, u64 lblk_num,
 
 		/* eMMC + F2FS security OTA only */
 		if (flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32)
-			lblk_num = (u32)(((u64)(ci->ci_hashed_info) & 0xFFFFFFFFULL) + lblk_num);
+			lblk_num = (u32)(((u64)(ci->ci_hashed_info) & 0xFFFFFFFF) + lblk_num);
 
 		lblk_num = (((u64)ci->ci_inode->i_ino & 0xFFFFFFFF) << 32)
 				| (lblk_num & 0xFFFFFFFF);
