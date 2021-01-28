@@ -46,20 +46,25 @@
 #include "mtk_iommu_ext.h"
 #endif
 #include "mach/pseudo_m4u.h"
+
+#ifdef CONFIG_MACH_MT6853
 #include <clk-mt6853-pg.h>
+#elif defined CONFIG_MACH_MT6833
+#include <clk-mt6833-pg.h>
+#endif
 
 /* MET: define to enable MET*/
 #define ISP_MET_READY
+
+/* Clkmgr is not ready in early porting, en/disable clock by hardcode */
+#ifdef CONFIG_FPGA_EARLY_PORTING
+#define EP_NO_CLKMGR
+#endif
 
 /* #define EP_STAGE */
 #ifdef EP_STAGE
 #define EP_MARK_SMI /* disable SMI related for EP */
 //#define DUMMY_INT   /* For early if load dont need to use camera */
-
-/* Clkmgr is not ready in early porting, en/disable clock  by hardcode */
-#ifdef CONFIG_FPGA_EARLY_PORTING
-#define EP_NO_CLKMGR
-#endif
 
 /* EP no need to adjust upper bound of kernel log count */
 //#define EP_NO_K_LOG_ADJUST
