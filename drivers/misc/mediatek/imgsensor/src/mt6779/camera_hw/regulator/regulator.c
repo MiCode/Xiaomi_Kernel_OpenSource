@@ -173,6 +173,8 @@ static enum IMGSENSOR_RETURN regulator_dump(void *pinstance)
 		for (i = REGULATOR_TYPE_VCAMA;
 		i < REGULATOR_TYPE_MAX_NUM;
 		i++) {
+			if (!preg->pregulator[j][i])
+				continue;
 			if (regulator_is_enabled(preg->pregulator[j][i]) &&
 				atomic_read(&preg->enable_cnt[j][i]) != 0)
 				PK_DBG("index= %d %s = %d\n",
