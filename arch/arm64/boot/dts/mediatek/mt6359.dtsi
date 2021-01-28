@@ -119,6 +119,25 @@
 			nvmem-cell-names = "initialization", "state-of-charge";
 		};
 
+		mtk_ts_pmic: mtk_ts_pmic {
+			compatible = "mediatek,mtk_ts_pmic";
+			io-channels =
+				<&pmic_auxadc AUXADC_CHIP_TEMP>,
+				<&pmic_auxadc AUXADC_VCORE_TEMP>,
+				<&pmic_auxadc AUXADC_VPROC_TEMP>,
+				<&pmic_auxadc AUXADC_VGPU_TEMP>,
+				<&pmic_auxadc AUXADC_TSX_TEMP>,
+				<&pmic_auxadc AUXADC_DCXO_TEMP>;
+			io-channel-names =
+				"pmic_chip_temp",
+				"pmic_buck1_temp",
+				"pmic_buck2_temp",
+				"pmic_buck3_temp",
+				"pmic_tsx_temp",
+				"pmic_dcxo_temp";
+			interconnects = <&accdet 1>;
+			#interconnect-cells = <1>;
+		};
 		pmic_efuse: pmic_efuse {
 			compatible = "mediatek,mt6359-efuse";
 			#address-cells = <1>;
