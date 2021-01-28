@@ -132,18 +132,6 @@ struct xfrm_state_offload {
 	u8			flags;
 };
 
-#define XFRM_TRACK_ADDRS_COUNT 32
-#define MAX_TRACE_LEN  1024
-
-struct xfrm_state_trace {
-	int cpu;
-	int pid;
-	int count;
-	unsigned long long when_sec;
-	unsigned long when_nsec;
-	unsigned long addrs[XFRM_TRACK_ADDRS_COUNT];
-};
-
 /* Full description of state of transformer. */
 struct xfrm_state {
 	possible_net_t		xs_net;
@@ -156,19 +144,6 @@ struct xfrm_state {
 
 	refcount_t		refcnt;
 	spinlock_t		lock;
-
-	bool			user_del_flag;
-	struct xfrm_state_trace xfrm_alloc_trace;
-	struct xfrm_state_trace xfrm_free_trace;
-	struct xfrm_state_trace xfrm_transfer_trace;
-	struct xfrm_state_trace xfrm_find_trace;
-	struct xfrm_state_trace xfrm_insert_trace;
-
-#ifdef CONFIG_MTK_ENG_BUILD
-	struct xfrm_state_trace xfrm_refcount_trace[MAX_TRACE_LEN];
-	int xfrm_refcount_trace_idx;
-	int xfrm_refcount_trace_overwrite;
-#endif
 	struct xfrm_id		id;
 	struct xfrm_selector	sel;
 	struct xfrm_mark	mark;
@@ -875,95 +850,19 @@ static inline void xfrm_pols_put(struct xfrm_policy **pols, int npols)
 
 void __xfrm_state_destroy(struct xfrm_state *);
 
-#define XFRM_PUT_FLAG   (1 << 28)
-#define XFRM_HOLD_FLAG  (1 << 29)
-
 static inline void __xfrm_state_put(struct xfrm_state *x)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
-	unsigned int cpu, idx;
-	struct stack_trace stack_trace;
-	u64 ts_nsc = sched_clock();
-
-	cpu = get_cpu();
-	idx = x->xfrm_refcount_trace_idx;
-	if (++x->xfrm_refcount_trace_idx >= MAX_TRACE_LEN) {
-		x->xfrm_refcount_trace_idx = 0;
-		x->xfrm_refcount_trace_overwrite++;
-	}
-
-	stack_trace.max_entries = XFRM_TRACK_ADDRS_COUNT;
-	stack_trace.nr_entries = 0;
-	stack_trace.entries = (x->xfrm_refcount_trace)[idx].addrs;
-	stack_trace.skip = 0;
-	save_stack_trace(&stack_trace);
-	(x->xfrm_refcount_trace)[idx].cpu = cpu;
-	(x->xfrm_refcount_trace)[idx].pid = current->pid | XFRM_PUT_FLAG;
-	(x->xfrm_refcount_trace)[idx].count = refcount_read(&x->refcnt);
-	(x->xfrm_refcount_trace)[idx].when_nsec = do_div(ts_nsc, 1000000000);
-	(x->xfrm_refcount_trace)[idx].when_sec = ts_nsc;
-	put_cpu();
-#endif
 	refcount_dec(&x->refcnt);
 }
 
 static inline void xfrm_state_put(struct xfrm_state *x)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
-	unsigned int cpu, idx;
-	struct stack_trace stack_trace;
-	u64 ts_nsc = sched_clock();
-
-	cpu = get_cpu();
-	idx = x->xfrm_refcount_trace_idx;
-	if (++x->xfrm_refcount_trace_idx >= MAX_TRACE_LEN) {
-		x->xfrm_refcount_trace_idx = 0;
-		x->xfrm_refcount_trace_overwrite++;
-	}
-
-	stack_trace.max_entries = XFRM_TRACK_ADDRS_COUNT;
-	stack_trace.nr_entries = 0;
-	stack_trace.entries = (x->xfrm_refcount_trace)[idx].addrs;
-	stack_trace.skip = 0;
-	save_stack_trace(&stack_trace);
-	(x->xfrm_refcount_trace)[idx].cpu = cpu;
-	(x->xfrm_refcount_trace)[idx].pid = current->pid | XFRM_PUT_FLAG;
-	(x->xfrm_refcount_trace)[idx].count = refcount_read(&x->refcnt);
-	(x->xfrm_refcount_trace)[idx].when_nsec = do_div(ts_nsc, 1000000000);
-	(x->xfrm_refcount_trace)[idx].when_sec = ts_nsc;
-	put_cpu();
-#endif
-
 	if (refcount_dec_and_test(&x->refcnt))
 		__xfrm_state_destroy(x);
 }
 
 static inline void xfrm_state_hold(struct xfrm_state *x)
 {
-#ifdef CONFIG_MTK_ENG_BUILD
-	unsigned int cpu, idx;
-	struct stack_trace stack_trace;
-	u64 ts_nsc = sched_clock();
-
-	cpu = get_cpu();
-	idx = x->xfrm_refcount_trace_idx;
-	if (++x->xfrm_refcount_trace_idx >= MAX_TRACE_LEN) {
-		x->xfrm_refcount_trace_idx = 0;
-		x->xfrm_refcount_trace_overwrite++;
-	}
-
-	stack_trace.max_entries = XFRM_TRACK_ADDRS_COUNT;
-	stack_trace.nr_entries = 0;
-	stack_trace.entries = (x->xfrm_refcount_trace)[idx].addrs;
-	stack_trace.skip = 0;
-	save_stack_trace(&stack_trace);
-	(x->xfrm_refcount_trace)[idx].cpu = cpu;
-	(x->xfrm_refcount_trace)[idx].pid = current->pid | XFRM_HOLD_FLAG;
-	(x->xfrm_refcount_trace)[idx].count = refcount_read(&x->refcnt);
-	(x->xfrm_refcount_trace)[idx].when_nsec = do_div(ts_nsc, 1000000000);
-	(x->xfrm_refcount_trace)[idx].when_sec = ts_nsc;
-	put_cpu();
-#endif
 	refcount_inc(&x->refcnt);
 }
 
