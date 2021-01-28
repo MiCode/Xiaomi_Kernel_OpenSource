@@ -9,11 +9,15 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
 struct mtk_dvfsrc_boost {
 	struct device *dev;
+	int qos_boost;
 	int perf_state;
 };
+
+static struct mtk_pm_qos_request ddr_request;
 
 static ssize_t dramboost_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
@@ -24,10 +28,21 @@ static ssize_t dramboost_store(struct device *dev,
 	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
-	if (val == 1)
-		dev_pm_genpd_set_performance_state(dev, boost->perf_state);
-	else
-		dev_pm_genpd_set_performance_state(dev, 0);
+	if (boost->qos_boost) {
+		if (val == 1)
+			mtk_pm_qos_update_request(&ddr_request,
+				boost->perf_state);
+		else
+			mtk_pm_qos_update_request(&ddr_request,
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	} else {
+		if (val == 1)
+			dev_pm_genpd_set_performance_state(dev,
+				boost->perf_state);
+		else
+			dev_pm_genpd_set_performance_state(dev,
+				0);
+	}
 
 	return count;
 }
@@ -61,6 +76,12 @@ static int mtk_dvfsrc_boost_probe(struct platform_device *pdev)
 	if (dramboost->perf_state < 0)
 		return -EINVAL;
 
+	if (of_device_is_compatible(node, "mediatek,dvfsrc-qosboost")) {
+		mtk_pm_qos_add_request(&ddr_request, MTK_PM_QOS_DDR_OPP,
+			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		dramboost->qos_boost = 1;
+	}
+
 	dramboost->dev = dev;
 	platform_set_drvdata(pdev, dramboost);
 
@@ -78,6 +99,8 @@ static int mtk_dvfsrc_boost_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_dvfsrc_boost_of_match[] = {
 	{
 		.compatible = "mediatek,dvfsrc-boost",
+	}, {
+		.compatible = "mediatek,dvfsrc-qosboost",
 	}, {
 		/* sentinel */
 	},
