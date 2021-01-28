@@ -3792,7 +3792,7 @@ static void __init mtk_topckgen_init(struct device_node *node)
 	clk_writel(cksys_base + CLK_CFG_7_SET, 0x80808080);
 
 	clk_writel(cksys_base + CLK_CFG_8_CLR, 0x00800080);
-	clk_writel(cksys_base + CLK_CFG_8_SET, 0x00800080);
+	clk_writel(cksys_base + CLK_CFG_8_SET, 0x00000080);
 
 	clk_writel(cksys_base + CLK_CFG_9_CLR, 0x00808080);
 	clk_writel(cksys_base + CLK_CFG_9_SET, 0x00808080);

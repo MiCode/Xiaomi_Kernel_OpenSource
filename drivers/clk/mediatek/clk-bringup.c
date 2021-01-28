@@ -13,6 +13,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -28,20 +29,36 @@ MODULE_DEVICE_TABLE(of, bring_up_id_table);
 
 static int bring_up_probe(struct platform_device *pdev)
 {
-	const int NR_CLKS = 300;
-	char clk_name_buf[16];
 	struct clk *clk;
-	int i;
+	int clk_con, i;
+	int ret = 0;
 
-	for (i = 0; i < NR_CLKS; i++) {
-		sprintf(clk_name_buf, "%d", i);
+	clk_con = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+			"#clock-cells");
+	pr_notice("sum: %d\n", clk_con);
+	for (i = 0; i < clk_con; i++) {
+		clk = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(clk)) {
+			long ret = PTR_ERR(clk);
 
-		clk = devm_clk_get(&pdev->dev, clk_name_buf);
-		if (!IS_ERR(clk))
-			clk_prepare_enable(clk);
+			if (ret == -EPROBE_DEFER)
+				pr_notice("clk %d is not ready\n", i);
+			else
+				pr_notice("get clk %d fail, ret=%d, clk_con=%d\n",
+				       i, (int)ret, clk_con);
+		} else {
+			pr_notice("get clk [%d]: %s ok\n", i,
+					__clk_get_name(clk));
+			ret = clk_prepare_enable(clk);
+			if (ret) {
+				pr_err("cannot force-on bringup clk node\n");
+				goto fail;
+			}
+		}
 	}
 
-	return 0;
+fail:
+	return ret;
 }
 
 static int bring_up_remove(struct platform_device *pdev)
