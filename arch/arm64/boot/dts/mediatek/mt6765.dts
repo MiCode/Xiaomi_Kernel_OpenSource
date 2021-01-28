@@ -1049,16 +1049,6 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,goodix-fp";
 	};
 
-	mt6357_gauge {
-		compatible = "mediatek,mt6357_gauge";
-		gauge_name = "gauge";
-		alias_name = "mt6357";
-	};
-
-	gauge_timer {
-		compatible = "mediatek,gauge_timer_service";
-	};
-
 	topmisc@10011000 {
 		compatible = "mediatek,topmisc";
 		reg = <0 0x10011000 0 0x1000>;
