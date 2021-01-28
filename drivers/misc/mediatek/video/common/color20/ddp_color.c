@@ -1256,6 +1256,30 @@ static atomic_t g_color_is_clock_on[COLOR_TOTAL_MODULE_NUM] = {
 	ATOMIC_INIT(0)};
 #endif
 
+#if defined(CONFIG_MACH_MT6785)
+struct color_backup {
+	unsigned int COLOR_CFG_MAIN;
+};
+static struct color_backup g_color_backup;
+
+static void ddp_color_backup(enum DISP_MODULE_ENUM module)
+{
+	int offset = C0_OFFSET;
+
+	offset = color_get_offset(module);
+	g_color_backup.COLOR_CFG_MAIN =
+		DISP_REG_GET(offset + DISP_COLOR_CFG_MAIN);
+}
+
+static void ddp_color_restore(enum DISP_MODULE_ENUM module)
+{
+	int offset = C0_OFFSET;
+
+	offset = color_get_offset(module);
+	DISP_REG_SET(NULL, offset + DISP_COLOR_CFG_MAIN, g_color_backup.COLOR_CFG_MAIN);
+}
+#endif
+
 bool disp_color_reg_get(enum DISP_MODULE_ENUM module, unsigned long addr,
 		unsigned int *value)
 {
@@ -3077,6 +3101,11 @@ static int _color_clock_on(enum DISP_MODULE_ENUM module, void *cmq_handle)
 	defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6833)
 
 	ddp_clk_prepare_enable(ddp_get_module_clk_id(module));
+
+#if defined(CONFIG_MACH_MT6785)
+	ddp_color_restore(module);
+#endif
+
 	return 0;
 #else
 
@@ -3110,7 +3139,6 @@ static int _color_clock_on(enum DISP_MODULE_ENUM module, void *cmq_handle)
 		DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0));
 #endif
 #endif
-
 	return 0;
 #endif
 
@@ -3123,6 +3151,10 @@ static int _color_clock_off(enum DISP_MODULE_ENUM module, void *cmq_handle)
 #if defined(CONFIG_MACH_MT6755)
 	/* color is DCM , do nothing */
 	return 0;
+#endif
+
+#if defined(CONFIG_MACH_MT6785)
+	ddp_color_backup(module);
 #endif
 
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6758) || \
@@ -4064,6 +4096,25 @@ static int _color_build_cmdq(enum DISP_MODULE_ENUM module,
 
 	return ret;
 }
+
+#if defined(CONFIG_MACH_MT6785)
+void mtk_color_setbypass(enum DISP_MODULE_ENUM module, bool bypass)
+{
+	int offset = C0_OFFSET;
+
+	offset = color_get_offset(module);
+	COLOR_DBG("%s, bypass: %d\n", __func__, bypass);
+	if (bypass) {
+		_color_reg_mask(NULL, DISP_COLOR_CFG_MAIN + offset, (1 << 7),
+			0x000000FF);	/* bypass all */
+		g_color_bypass[index_of_color(module)] = 0x1;
+	} else {
+		_color_reg_mask(NULL, DISP_COLOR_CFG_MAIN + offset, (0 << 7),
+			0x000000FF);	/* resume all */
+		g_color_bypass[index_of_color(module)] = 0x0;
+	}
+}
+#endif
 
 void disp_color_dbg_log_level(unsigned int debug_level)
 {

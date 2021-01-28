@@ -39,6 +39,7 @@
 #include <ddp_path.h>
 #include <ddp_pq.h>
 #include <ddp_gamma.h>
+#include <ddp_color.h>
 #include <disp_drv_platform.h>
 #if defined(CONFIG_MACH_MT6755) || defined(CONFIG_MACH_MT6797) || \
 	defined(CONFIG_MACH_MT6757) || defined(CONFIG_MACH_KIBOPLUS) || \
@@ -58,6 +59,10 @@
 /* # echo corr_dbg:1 > /sys/kernel/debug/dispsys */
 int corr_dbg_en;
 int ccorr_scenario;
+/* for MT6785 bypass color  */
+#if defined(CONFIG_MACH_MT6785)
+static bool bypass_color;
+#endif
 #define GAMMA_ERR(fmt, arg...) \
 	pr_notice("[GAMMA] %s: " fmt "\n", __func__, ##arg)
 #define GAMMA_NOTICE(fmt, arg...) \
@@ -996,7 +1001,95 @@ static int disp_ccorr_config(enum DISP_MODULE_ENUM module,
 
 	return 0;
 }
+#if defined(CONFIG_MACH_MT6785)
+int disp_ccorr_set_color_matrix(void *cmdq, int32_t matrix[16],
+	bool fte_flag, int32_t hint)
+{
+	int ret = 0;
+	int i, j;
+	int ccorr_without_gamma = 0;
+	bool need_refresh = false;
+	bool identity_matrix = true;
 
+	if (cmdq == NULL) {
+		CCORR_ERR("cmdq can not be NULL\n");
+		return -EFAULT;
+	}
+	mutex_lock(&g_gamma_global_lock);
+
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			/* Copy Color Matrix */
+			g_ccorr_color_matrix[i][j] = matrix[j*4 + i];
+
+			/* early jump out */
+			if (ccorr_without_gamma == 1)
+				continue;
+
+			if (i == j && g_ccorr_color_matrix[i][j] != 1024) {
+				ccorr_without_gamma = 1;
+				identity_matrix = false;
+			} else if (i != j && g_ccorr_color_matrix[i][j] != 0) {
+				ccorr_without_gamma = 1;
+				identity_matrix = false;
+			}
+		}
+	}
+
+// hint: 0: identity matrix; 1: arbitraty matrix
+// fte_flag: true: gpu overlay && hwc not identity matrix
+// arbitraty matrix maybe identity matrix or color transform matrix;
+// only when set identity matrix and not gpu overlay, open display color
+	CCORR_DBG("hint: %d, identity: %d, fte_flag: %d, bypass_color: %d",
+		hint, identity_matrix, fte_flag, bypass_color);
+
+	if (((hint == 0) || ((hint == 1) && identity_matrix)) && (!fte_flag)) {
+		if (bypass_color == true) {
+			mtk_color_setbypass(DISP_MODULE_COLOR0, false);
+			bypass_color = false;
+		}
+	} else {
+		if (bypass_color == false) {
+			mtk_color_setbypass(DISP_MODULE_COLOR0, true);
+			bypass_color = true;
+		}
+	}
+
+	g_disp_ccorr_without_gamma = ccorr_without_gamma;
+
+	disp_ccorr_write_coef_reg(cmdq, CCORR0_MODULE_NAMING, 0, 0);
+
+	for (i = 0; i < 3; i++) {
+		for (j = 0; j < 3; j++) {
+			if (g_ccorr_prev_matrix[i][j]
+				!= g_ccorr_color_matrix[i][j]) {
+				/* refresh when matrix changed */
+				need_refresh = true;
+			}
+			/* Copy Color Matrix */
+			g_ccorr_prev_matrix[i][j] = g_ccorr_color_matrix[i][j];
+		}
+	}
+
+	for (i = 0; i < 3; i += 1) {
+		CCORR_DBG("g_ccorr_color_matrix[%d][0-2] = {%d, %d, %d}\n",
+				i,
+				g_ccorr_color_matrix[i][0],
+				g_ccorr_color_matrix[i][1],
+				g_ccorr_color_matrix[i][2]);
+	}
+
+	CCORR_DBG("g_disp_ccorr_without_gamma: [%d], need_refresh: [%d]\n",
+		g_disp_ccorr_without_gamma, need_refresh);
+
+	mutex_unlock(&g_gamma_global_lock);
+
+	if (need_refresh == true)
+		disp_ccorr_trigger_refresh(DISP_CCORR0);
+
+	return ret;
+}
+#else
 int disp_ccorr_set_color_matrix(void *cmdq, int32_t matrix[16], int32_t hint)
 {
 	int ret = 0;
@@ -1061,6 +1154,7 @@ int disp_ccorr_set_color_matrix(void *cmdq, int32_t matrix[16], int32_t hint)
 
 	return ret;
 }
+#endif
 
 int disp_ccorr_set_RGB_Gain(int r, int g, int b)
 {

@@ -3566,7 +3566,7 @@ static void DC_config_nightlight(struct cmdqRecStruct *cmdq_handle)
 	if (all_zero)
 		DISP_PR_INFO("Night light backup param is zero matrix\n");
 	else
-		disp_ccorr_set_color_matrix(cmdq_handle, ccorr_matrix, mode);
+		disp_ccorr_set_color_matrix(cmdq_handle, ccorr_matrix, false, mode);
 }
 
 static int _decouple_update_rdma_config_nolock(void)
@@ -7426,6 +7426,7 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 			disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 			disp_ccorr_set_color_matrix(cmdq_handle,
 				m_ccorr_config.color_matrix,
+				m_ccorr_config.featureFlag,
 				m_ccorr_config.mode);
 
 			/* backup night params here */
