@@ -1051,7 +1051,8 @@ page_owner=on";
 			<0 0x10275000 0 0x1000>,
 			<0 0x11020000 0 0x1000>,
 			<0 0x10030000 0 0x1000>,
-			<0 0x1020e000 0 0x1000>;
+			<0 0x1020e000 0 0x1000>,
+			<0 0x10033000 0 0x1000>;
 		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&infracfg_ao CLK_IFRAO_DEVICE_APC>;
 		clock-names = "devapc-infra-clock";
