@@ -342,6 +342,9 @@ bool ged_dvfs_cal_gpu_utilization(unsigned int *pui32Loading,
 		ged_dvfs_cal_gpu_utilization_fp(pui32Loading,
 			pui32Block, pui32Idle);
 #endif
+		ged_log_perf_trace_counter("gpu_loading",
+			(long long)*pui32Loading,
+			5566, 0, 0);
 		if (pui32Loading) {
 			gpu_av_loading = *pui32Loading;
 		gpu_sub_loading = *pui32Loading;
@@ -528,23 +531,36 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 		if (ui32NewFreqID > g_bottom_freq_id) {
 			ui32NewFreqID = g_bottom_freq_id;
 			g_CommitType = MTK_GPU_DVFS_TYPE_SMARTBOOST;
+			ged_log_perf_trace_counter("gpu_api_boost",
+				(long long)g_bottom_freq_id,
+				5566, 0, 0);
 		}
 
 		if (ui32NewFreqID > g_cust_boost_freq_id) {
 			ui32NewFreqID = g_cust_boost_freq_id;
 			g_CommitType = MTK_GPU_DVFS_TYPE_CUSTOMIZATION;
+			ged_log_perf_trace_counter("gpu_cust_floor",
+				(long long)g_cust_boost_freq_id,
+				5566, 0, 0);
 		}
 
 		/* up bound */
 		if (ui32NewFreqID < g_cust_upbound_freq_id) {
 			ui32NewFreqID = g_cust_upbound_freq_id;
 			g_CommitType = MTK_GPU_DVFS_TYPE_CUSTOMIZATION;
+			ged_log_perf_trace_counter("gpu_cust_ceiling",
+				(long long)g_cust_upbound_freq_id,
+				5566, 0, 0);
 		}
 
 		/* thermal power limit */
 		if (ui32NewFreqID < mt_gpufreq_get_thermal_limit_index()) {
 			ui32NewFreqID = mt_gpufreq_get_thermal_limit_index();
 			g_CommitType = MTK_GPU_DVFS_TYPE_THERMAL;
+			ged_log_perf_trace_counter("gpu_limit_idx",
+				(long long)
+				mt_gpufreq_get_thermal_limit_index(),
+				5566, 0, 0);
 		}
 
 		g_ulCommitFreq = mt_gpufreq_get_freq_by_idx(ui32NewFreqID);
@@ -580,6 +596,13 @@ bool ged_dvfs_gpu_freq_commit(unsigned long ui32NewFreqID,
 				g_ui32PreFreqID = ui32CurFreqID;
 			}
 		}
+		ged_log_perf_trace_counter("gpu_freq",
+			(long long)(mt_gpufreq_get_cur_freq() / 1000),
+			5566, 0, 0);
+		ged_log_perf_trace_counter("gpu_freq_max",
+			(long long)(mt_gpufreq_get_freq_by_idx(
+			mt_gpufreq_get_cur_ceiling_idx()) / 1000),
+			5566, 0, 0);
 	}
 
 	return bCommited;
@@ -1388,9 +1411,9 @@ static bool ged_dvfs_policy(
 #ifdef CONFIG_MTK_QOS_V1_SUPPORT
 	return GED_TRUE;
 #else
-	return *pui32NewFreqID != ui32GPUFreq ? GED_TRUE : GED_FALSE;
+	return ((*pui32NewFreqID != ui32GPUFreq) || ged_log_perf_trace_enable)
+		? GED_TRUE : GED_FALSE;
 #endif
-
 }
 
 

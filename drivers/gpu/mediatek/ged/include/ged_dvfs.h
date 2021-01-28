@@ -187,4 +187,6 @@ extern int (*mtk_get_dvfs_loading_mode_fp)(void);
 extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))
 #endif
+
+extern unsigned int ged_log_perf_trace_enable;
 #endif
