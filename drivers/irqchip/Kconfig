@@ -329,6 +329,13 @@ config STM32_EXTI
 	select IRQ_DOMAIN
 	select GENERIC_IRQ_CHIP
 
+config MTK_GIC_TARGET_ALL
+	bool
+	help
+	Support for new interrupt distribution design for MediaTek solutions.
+	With this feature enabled, the SPI interrupts would be routed to all the
+	cores rather than cpu0 to achieve better load balance of interrupt handling.
+
 config QCOM_IRQ_COMBINER
 	bool "QCOM IRQ combiner support"
 	depends on ARCH_QCOM && ACPI
