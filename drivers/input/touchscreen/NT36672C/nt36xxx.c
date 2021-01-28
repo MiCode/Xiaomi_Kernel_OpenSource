@@ -1688,7 +1688,11 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		else if (strcmp("nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_tianma_lcm_drv",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name_tm, sizeof(firmware_name_tm));
-		else if (strcmp("td4330_fhdp_dsi_vdo_auo_rt5081_lcm_drv",
+		else if (strcmp("nt36672c_fhdp_dsi_vdo_120hz_shenchao_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_90hz_shenchao_lcm_drv",
+			videolfb_tag->lcmname) == 0 ||
+			strcmp("nt36672c_fhdp_dsi_vdo_60hz_shenchao_lcm_drv",
 			videolfb_tag->lcmname) == 0)
 			strncpy(novatek_firmware, firmware_name, sizeof(firmware_name));
 		else
