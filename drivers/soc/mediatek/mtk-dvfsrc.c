@@ -103,7 +103,7 @@ struct mtk_dvfsrc {
 	struct clk *clk_dvfsrc;
 	const struct dvfsrc_soc_data *dvd;
 	int dram_type;
-	u32 mode;
+	u32 vmode;
 	u32 flag;
 	int num_domains;
 	struct dvfsrc_domain *domains;
@@ -956,14 +956,16 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->mode);
-	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
+	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->flag);
+	of_property_read_u32(node, "dvfsrc_flag", &dvfsrc->flag);
+	of_property_read_u32(node, "dvfsrc_vmode", &dvfsrc->vmode);
+
 
 	mutex_init(&dvfsrc->lock);
 	mutex_init(&dvfsrc->sw_req_lock);
 
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
-		dvfsrc->mode, dvfsrc->flag, 0, 0, 0, 0,
+		dvfsrc->flag, dvfsrc->vmode, 0, 0, 0, 0,
 		&ares);
 
 	if (!ares.a0)
@@ -1030,16 +1032,20 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6779_lp4),
 	.regs = mt6779_regs,
 	.caps = DVFSRC_CAP_CLK_INIT |
+		DVFSRC_CAP_MTKQOS |
 		DVFSRC_CAP_V_OPP_INIT |
 		DVFSRC_CAP_V_CHECKER,
+	.qos_data = &qos_data_dvfsrc,
 	.get_target_level = mt6779_get_target_level,
 	.get_current_level = mt6779_get_current_level,
 	.get_vcore_level = mt6779_get_vcore_level,
 	.get_vcp_level = mt6779_get_vcp_level,
 	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,
+	.wait_for_dram_level = dvfsrc_wait_for_dram_level,
 	.wait_for_opp_level = dvfsrc_wait_for_opp_level,
 	.set_dram_bw = mt6779_set_dram_bw,
 	.set_dram_ext_bw = mt6779_set_dram_ext_bw,
+	.set_dram_level = mt6779_set_dram_level,
 	.set_opp_level = mt6779_set_opp_level,
 	.set_dram_hrtbw = mt6779_set_dram_hrtbw,
 	.set_vcore_level = mt6779_set_vcore_level,

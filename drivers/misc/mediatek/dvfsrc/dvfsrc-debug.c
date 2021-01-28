@@ -222,6 +222,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 }
 
 static const struct dvfsrc_debug_data mt6779_data = {
+	.pmqos_enable = true,
 	.config = &mt6779_dvfsrc_config,
 };
 
