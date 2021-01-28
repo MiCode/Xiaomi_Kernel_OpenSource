@@ -97,16 +97,6 @@ static bool is_critical_lock_held(void)
 	return false;
 }
 
-bool is_logbuf_lock_held(raw_spinlock_t *lock)
-{
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	/* The lock is needed by kmalloc and aee_kernel_warning_api */
-	if (!strcmp(lock->dep_map.name, "logbuf_lock"))
-		return true;
-#endif
-	return false;
-}
-
 #ifdef MTK_DEBUG_SPINLOCK_V2
 static void spin_lock_get_timestamp(unsigned long long *ts)
 {
@@ -253,13 +243,13 @@ static void spin_bug(raw_spinlock_t *lock, const char *msg)
 		BUG_ON(1);
 	}
 
-#ifdef CONFIG_MTK_AEE_FEATURE
 	if (!is_critical_spinlock(lock) && !is_critical_lock_held()) {
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning_api(__FILE__, __LINE__,
 			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
 			aee_str, "spinlock debugger\n");
-	}
 #endif
+	}
 }
 
 #define SPIN_BUG_ON(cond, lock, msg) if (unlikely(cond)) spin_bug(lock, msg)
@@ -333,6 +323,16 @@ static void show_cpu_backtrace(void *info)
 
 	csd = this_cpu_ptr(&spinlock_debug_csd);
 	csd->info = NULL;
+}
+
+bool is_logbuf_lock_held(raw_spinlock_t *lock)
+{
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	/* The lock is needed by kmalloc and aee_kernel_warning_api */
+	if (!strcmp(lock->dep_map.name, "logbuf_lock"))
+		return true;
+#endif
+	return false;
 }
 
 static void __spin_lock_debug(raw_spinlock_t *lock)
