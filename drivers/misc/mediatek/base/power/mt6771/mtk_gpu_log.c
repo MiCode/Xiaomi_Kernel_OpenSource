@@ -41,7 +41,7 @@ void mtk_gpu_log_trigger_aee(const char *msg)
 
 		GPULOG2("trigger aee [%s], count: %d", msg, count);
 
-		//queue_work(g_aee_workqueue, &g_aee_work);
+		queue_work(g_aee_workqueue, &g_aee_work);
 	} else {
 		GPULOG2("skip aee [%s], count: %d, aee_dumping: %d", msg, count, aee_dumping);
 	}
@@ -51,10 +51,11 @@ void mtk_gpu_log_init(void)
 {
 	int ret;
 
-	//g_aee_workqueue = alloc_ordered_workqueue("gpu_aee_wq", WQ_FREEZABLE | WQ_MEM_RECLAIM);
-	//INIT_WORK(&g_aee_work, aee_Handle);
+	g_aee_workqueue = alloc_ordered_workqueue("gpu_aee_wq",
+		WQ_FREEZABLE | WQ_MEM_RECLAIM);
+	INIT_WORK(&g_aee_work, aee_Handle);
 
 	/* init log hnd */
-	//ret = ged_log_buf_get_early("fence_trace", &_mtk_gpu_log_hnd);
+	ret = ged_log_buf_get_early("fence_trace", &_mtk_gpu_log_hnd);
 }
 
