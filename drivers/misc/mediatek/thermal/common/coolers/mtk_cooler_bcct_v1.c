@@ -448,13 +448,13 @@ static void bat_chg_info_update(void)
 	if (chr_psy == NULL) {
 		pr_notice("%s Couldn't get chr_psy\n", __func__);
 	} else {
-		ret = power_supply_get_property(psy,
+		ret = power_supply_get_property(chr_psy,
 			POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
 		if (ret == 0)
 			bat_info_vbus = prop.intval;
 		mtk_cooler_bcct_dprintk("vbus %d\n",
 					bat_info_vbus);
-		ret = power_supply_get_property(psy,
+		ret = power_supply_get_property(chr_psy,
 			POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT, &prop);
 		if (ret == 0)
 			bat_info_aicr = prop.intval;

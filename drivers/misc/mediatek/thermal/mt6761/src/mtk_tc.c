@@ -226,26 +226,27 @@ mt_ptp_unlock(unsigned long *flags)
 static int read_nvmem_cell(char *cell_name, u8 *buf, int len)
 {
 	struct nvmem_cell *cell;
-	size_t size;
-	u8 *tmp;
+	size_t size = 0;
+	u8 *tmp = NULL;
+
+	if (IS_ERR(buf)) {
+		tscpu_warn("[%s] buffer fail\n", __func__);
+		return -EINVAL;
+	}
 
 	cell = nvmem_cell_get(tscpu_dev, cell_name);
-	if (IS_ERR(cell)) {
-		if (PTR_ERR(cell) == -EPROBE_DEFER) {
-			tscpu_warn("[%s] nvmem_cell_get fail\n", __func__);
-			return PTR_ERR(cell);
-		}
-		return 0;
+	if ((cell == NULL) || (IS_ERR(cell))) {
+		tscpu_warn("[%s] nvmem_cell_get fail\n", __func__);
+		return -EINVAL;
 	}
 
 	tmp = (u8 *)nvmem_cell_read(cell, &size);
+	if ((tmp == NULL) || (size <= 0)) {
+		tscpu_warn("[%s] nvmem_cell_read error\n", __func__);
+		return -EINVAL;
+	}
 
 	nvmem_cell_put(cell);
-
-	if (IS_ERR(buf)) {
-		tscpu_warn("[%s] nvmem_cell_read fail\n", __func__);
-		return PTR_ERR(buf);
-	}
 
 	if (len < size) {
 		tscpu_warn("[%s] buffer too small(%d<%d)\n",
