@@ -27,6 +27,9 @@ void eara_thrm_systrace(pid_t pid, int val, const char *fmt, ...)
 	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
 
+	if (len == 256)
+		log[255] = '\0';
+
 	preempt_disable();
 	event_trace_printk(mark_addr, "C|%d|%s|%d\n", pid, log, val);
 	preempt_enable();
