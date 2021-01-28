@@ -142,7 +142,11 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 		}
 	}
 
-	strncat(msg, msg1, LOG_BUF_SIZE);
+	if (len >= 0 && len < LOG_BUF_SIZE) {
+		len1 = LOG_BUF_SIZE - len - 1;
+		if (len1 > 0)
+			strncat(msg, msg1, len1);
+	}
 	if (log_enable)
 		pr_debug("%s", msg);
 
