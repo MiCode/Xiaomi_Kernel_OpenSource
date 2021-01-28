@@ -158,7 +158,6 @@ struct cust_mt65xx_led {
 	char *name;
 	enum mt65xx_led_mode mode;
 	long data;
-	int led_bits;
 	struct PWM_config config_data;
 };
 
