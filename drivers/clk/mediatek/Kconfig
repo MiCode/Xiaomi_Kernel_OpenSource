@@ -112,6 +112,17 @@ config COMMON_CLK_MT8135
 	---help---
 	  This driver supports Mediatek MT8135 clocks.
 
+config COMMON_CLK_MT8167
+	bool "Clock driver for Mediatek MT8167"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select COMMON_CLK_MEDIATEK
+	default y if MACH_MT8167 && !FPGA_EARLY_PORTING
+	---help---
+	  This driver supports Mediatek MT8167 clocks,
+	  which descripts the whole clock hierarchy about
+	  IC; It will be used to enable IC-special driver
+	  part of CCF framework on MT8167 platform.
+
 config COMMON_CLK_MT8173
 	bool "Clock driver for Mediatek MT8173"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
