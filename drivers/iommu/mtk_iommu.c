@@ -220,8 +220,7 @@ static void mtk_iommu_tlb_add_flush_nosync(unsigned long iova, size_t size,
 		writel_relaxed(iova, data->base + REG_MMU_INVLD_START_A);
 		writel_relaxed(iova + size - 1,
 			       data->base + REG_MMU_INVLD_END_A);
-		writel_relaxed(F_MMU_INV_RANGE,
-			       data->base + REG_MMU_INVALIDATE);
+		writel(F_MMU_INV_RANGE, data->base + REG_MMU_INVALIDATE);
 		data->tlb_flush_active = true;
 	}
 }
@@ -554,6 +553,14 @@ static int mtk_iommu_attach_device(struct iommu_domain *domain,
 	}
 
 	mtk_iommu_config(data, dev, true);
+
+	if (!dev->dma_parms) {
+		dev->dma_parms = kzalloc(sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
+	}
+	dma_set_max_seg_size(dev, DMA_BIT_MASK(32));
+
 	return 0;
 }
 
@@ -564,6 +571,10 @@ static void mtk_iommu_detach_device(struct iommu_domain *domain,
 
 	if (!data)
 		return;
+
+	if (!dev->dma_parms)
+		kfree(dev->dma_parms);
+	dev->dma_parms = NULL;
 
 	mtk_iommu_config(data, dev, false);
 }

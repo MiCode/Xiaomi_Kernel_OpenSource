@@ -322,7 +322,7 @@ static void smi_larb_monitor_start(struct device *dev, void __iomem *base,
 
 	reg = 0x1 << 9;
 	reg |= (mode & 0x3) << 2; /* read/write.*/
-	writel_relaxed(portid, base + 0x40c);
+	writel_relaxed(reg, base + 0x40c);
 	writel(0x1, base + 0x400); /* start */
 }
 

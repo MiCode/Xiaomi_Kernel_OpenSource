@@ -46,6 +46,15 @@ void arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
 #ifdef CONFIG_IOMMU_DMA
 void arch_teardown_dma_ops(struct device *dev);
 #define arch_teardown_dma_ops	arch_teardown_dma_ops
+int dma_map_sg_within_reserved_iova(struct device *dev, struct scatterlist *sg,
+				    int nents, int prot, dma_addr_t dma_addr);
+void dma_unmap_sg_within_reserved_iova(struct device *dev,
+				       struct scatterlist *sg, int nents,
+				       int prot, size_t size);
+void *dma_alloc_coherent_fix_iova(struct device *dev, dma_addr_t dma_addr,
+				  size_t size, gfp_t flag);
+void dma_free_coherent_fix_iova(struct device *dev, void *cpu_addr,
+				dma_addr_t dma_addr, size_t size);
 #endif
 
 /* do not use this function in a driver */

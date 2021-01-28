@@ -184,7 +184,7 @@ bool m4u_tee_en;
 static DEFINE_MUTEX(gM4u_port_tee);
 static int pseudo_m4u_session_init(void)
 {
-	TZ_RESULT ret;
+	int ret;
 
 	ret = KREE_CreateSession(TZ_TA_M4U_UUID, &m4u_session);
 	if (ret != TZ_RESULT_SUCCESS) {
@@ -198,9 +198,9 @@ static int pseudo_m4u_session_init(void)
 
 int m4u_larb_restore_sec(unsigned int larb_idx)
 {
-	MTEEC_PARAM param[4];
+	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	if (!m4u_tee_en)  /*tee may not init*/
 		return -2;
@@ -222,9 +222,9 @@ int m4u_larb_restore_sec(unsigned int larb_idx)
 
 int m4u_larb_backup_sec(unsigned int larb_idx)
 {
-	MTEEC_PARAM param[4];
+	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	if (!m4u_tee_en)  /*tee may not init */
 		return -2;
@@ -247,7 +247,7 @@ int m4u_larb_backup_sec(unsigned int larb_idx)
 int smi_reg_backup_sec(void)
 {
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	paramTypes = TZ_ParamTypes1(TZPT_NONE);
 	ret = KREE_TeeServiceCall(m4u_session, M4U_TZCMD_REG_BACKUP,
@@ -262,7 +262,7 @@ int smi_reg_backup_sec(void)
 int smi_reg_restore_sec(void)
 {
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	paramTypes = TZ_ParamTypes1(TZPT_NONE);
 	ret = KREE_TeeServiceCall(m4u_session, M4U_TZCMD_REG_RESTORE,
@@ -277,9 +277,9 @@ int smi_reg_restore_sec(void)
 
 int pseudo_m4u_do_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 {
-	MTEEC_PARAM param[4];
+	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	/* do not config port if session has not been inited. */
 	if (!m4u_session)
@@ -306,9 +306,9 @@ int pseudo_m4u_do_config_port(struct M4U_PORT_STRUCT *pM4uPort)
 static int pseudo_m4u_sec_init(unsigned int u4NonSecPa,
 			unsigned int L2_enable, unsigned int *security_mem_size)
 {
-	MTEEC_PARAM param[4];
+	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	param[0].value.a = u4NonSecPa;
 	param[0].value.b = 0;/* 4gb */
@@ -343,9 +343,9 @@ int pseudo_config_port_tee(int kernelport)
 int m4u_dump_secpgd(unsigned int larbid, unsigned int portid,
 		    unsigned long fault_mva)
 {
-	MTEEC_PARAM param[4];
+	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
-	TZ_RESULT ret;
+	int ret;
 
 	param[0].value.a = larbid << 5 | portid;
 	param[0].value.b = fault_mva & 0xfffff000;
@@ -467,6 +467,7 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 		if (IS_ERR_OR_NULL(table)) {
 			table = NULL;
 			M4U_ERR("pseudo_get_sg failed\n");
+			ret = -EINVAL;
 			goto err;
 		}
 	}
@@ -502,12 +503,17 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 			(unsigned long)dma_addr, size);
 		M4U_ERR(
 			"SUSPECT that iova have been all exhaust, maybe there's someone hold too much mva\n");
+		ret = -ENOMEM;
 		goto err;
 	}
 
 	*retmva = dma_addr;
 
 	mva_sg = kzalloc(sizeof(*mva_sg), GFP_KERNEL);
+	if (!mva_sg) {
+		ret = -ENOMEM;
+		goto err;
+	}
 	mva_sg->table = table;
 	mva_sg->mva = *retmva;
 
@@ -523,7 +529,7 @@ err:
 		kfree(table);
 	}
 	*retmva = 0;
-	return -EINVAL;
+	return ret;
 }
 
 static struct m4u_buf_info_t *m4u_alloc_buf_info(void)
