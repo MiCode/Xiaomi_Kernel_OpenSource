@@ -23,12 +23,18 @@
 #include <linux/fs.h>
 #include <linux/seq_file.h>
 
+#define MTK_LP_KERNFS_IDIOTYPE	(1<<0UL)
 
-int mtk_lp_kernfs_create_group(struct kobject *kobj
-						, struct attribute_group *grp);
+int mtk_lp_kernfs_create_group(struct kobject *kobj,
+				      struct attribute_group *grp);
 
-int mtk_lp_kernfs_create_file(struct kernfs_node *parent
-		, const struct attribute *attr);
+int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
+				  struct kernfs_node **node,
+				  unsigned int flag,
+				  const char *name, umode_t mode,
+				  void *attr);
+
+int mtk_lp_kernfs_remove_file(struct kernfs_node *node);
 
 size_t get_mtk_lp_kernfs_bufsz_max(void);
 
