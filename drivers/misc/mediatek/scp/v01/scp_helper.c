@@ -1598,8 +1598,8 @@ void scp_recovery_init(void)
 	if ((int)(scp_region_info_copy.ap_dram_size) > 0) {
 		/*if l1c enable, map it */
 		scp_l1c_start_virt = ioremap_wc(
-		scp_region_info_copy.ap_dram_start,
-		scp_region_info_copy.ap_dram_size);
+			scp_region_info_copy.ap_dram_start,
+			scp_region_info_copy.ap_dram_size);
 	}
 #endif
 }
@@ -1688,7 +1688,7 @@ static int scpsys_device_probe(struct platform_device *pdev)
 	scpreg.scpsys = devm_ioremap_resource(dev, res);
 	pr_debug("[SCP] scpreg.scpsys = %p\n", scpreg.scpsys);
 	if (IS_ERR((void const *) scpreg.scpsys)) {
-		pr_err("[SCP] scpreg.sram error\n");
+		pr_err("[SCP] scpreg.scpsys error\n");
 		return -1;
 	}
 	return ret;
