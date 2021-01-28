@@ -555,7 +555,7 @@ static void disp_irq_rdma_underflow_aee_trigger(void)
 			/*trigger sspm to collect SMI, EMI debug info */
 			/*increase cnt to 20 to avoid too many underflow aee*/
 			if (considerable_cnt >= 20) {
-				primary_display_diagnose();
+				primary_display_diagnose(__func__, __LINE__);
 #if 0	/*SHANG: TODO: wait smi offer this API */
 				smi_dumpDebugMsg();
 #endif

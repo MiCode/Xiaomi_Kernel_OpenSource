@@ -24,6 +24,9 @@
 #include <linux/fs.h>
 #include <linux/file.h>
 #include <linux/sched.h>
+#ifdef CONFIG_MTK_M4U
+#include "m4u.h"
+#endif
 #include "ddp_m4u.h"
 #include "disp_drv_log.h"
 #include "mtkfb.h"
@@ -479,7 +482,6 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 	}
 	buf_info->size = size;
 
-#ifdef CONFIG_MTK_M4U
 	if (disp_helper_get_option(DISP_OPT_USE_M4U)) {
 		static struct sg_table table;
 		struct sg_table *sg_table = &table;
@@ -498,7 +500,6 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 		if (ret)
 			DISPWARN("m4u_alloc_mva returns fail: %d\n", ret);
 	}
-#endif
 	buf_info->buf_mva = mva;
 	DISPMSG("%s MVA is 0x%x PA is 0x%pa\n",
 		__func__, mva, &buf_info->buf_pa);
@@ -1050,7 +1051,7 @@ static void process_dbg_opt(const char *opt)
 		return;
 #endif
 	} else if (strncmp(opt, "diagnose", 8) == 0) {
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 		return;
 	} else if (strncmp(opt, "_efuse_test", 11) == 0) {
 		primary_display_check_test();
@@ -1420,7 +1421,7 @@ static void process_dbg_opt(const char *opt)
 
 	if (strncmp(opt, "dsi_ut:restart_vdo_mode", 23) == 0) {
 		dpmgr_path_stop(primary_get_dpmgr_handle(), CMDQ_DISABLE);
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 		dpmgr_path_start(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 		dpmgr_path_trigger(primary_get_dpmgr_handle(),
 			NULL, CMDQ_DISABLE);
@@ -1428,13 +1429,13 @@ static void process_dbg_opt(const char *opt)
 
 	if (strncmp(opt, "dsi_ut:restart_cmd_mode", 23) == 0) {
 		dpmgr_path_stop(primary_get_dpmgr_handle(), CMDQ_DISABLE);
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 
 		dpmgr_path_start(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 		dpmgr_path_trigger(primary_get_dpmgr_handle(),
 			NULL, CMDQ_DISABLE);
 		dpmgr_path_stop(primary_get_dpmgr_handle(), CMDQ_DISABLE);
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 
 		dpmgr_path_start(primary_get_dpmgr_handle(), CMDQ_DISABLE);
 		dpmgr_path_trigger(primary_get_dpmgr_handle(),

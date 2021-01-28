@@ -574,7 +574,7 @@ long primary_display_wait_not_state(enum DISP_POWER_STATE state, long timeout)
 int dynamic_debug_msg_print(unsigned int mva, int w, int h, int pitch,
 	int bytes_per_pix)
 {
-#ifdef CONFIG_MTK_M4U
+#if 0 //def CONFIG_MTK_M4U
 	int ret = -1;
 	unsigned int layer_size = pitch * h;
 	unsigned int real_mva = 0;
@@ -584,7 +584,7 @@ int dynamic_debug_msg_print(unsigned int mva, int w, int h, int pitch,
 	static MFC_HANDLE mfc_handle;
 
 	if (disp_helper_get_option(DISP_OPT_SHOW_VISUAL_DEBUG_INFO)) {
-		ret = m4u_query_mva_info(mva, layer_size,
+		ret = m4u_query_mva_info(0, mva, layer_size,
 					&real_mva, &real_size);
 		if (ret < 0) {
 			pr_debug("m4u_query_mva_info error\n");
@@ -2757,7 +2757,7 @@ int _trigger_display_interface(int blocking, void *callback,
 		ret = dpmgr_wait_event_timeout(pgc->dpmgr_handle,
 			DISP_PATH_EVENT_FRAME_DONE, HZ * 1);
 		if (ret <= 0)
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 	}
 
 	if (_should_update_lcm()) {
@@ -3018,7 +3018,7 @@ unsigned int cmdqDdpDumpInfo(uint64_t engineFlag, char *pOutBuf,
 	unsigned int bufSize)
 {
 	DISPERR("cmdq timeout:%llu\n", engineFlag);
-	primary_display_diagnose();
+	primary_display_diagnose(__func__, __LINE__);
 
 	if (primary_display_is_decouple_mode())
 		ddp_dump_analysis(DISP_MODULE_OVL0);
@@ -3099,7 +3099,7 @@ static int _Interface_fence_release_callback(unsigned long userdata)
 			/* disp_aee_print("dither_stat 0x%x\n", status); */
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_error,
 					 MMPROFILE_FLAG_PULSE, status, 1);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -3302,7 +3302,7 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 			/* disp_aee_print("ovl_stat 0x%x\n", status); */
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_error,
 					 MMPROFILE_FLAG_PULSE, status, 0);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -4110,7 +4110,7 @@ done:
 	__pm_stay_awake(&pri_wk_lock);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		primary_display_diagnose();
+		primary_display_diagnose(__func__, __LINE__);
 
 	layering_rule_init();
 	_primary_path_unlock(__func__);
@@ -4644,7 +4644,7 @@ int primary_display_suspend(void)
 			DISPERR("wait frame done in suspend timeout\n");
 			mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
 				MMPROFILE_FLAG_PULSE, 3, 2);
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}
@@ -5090,7 +5090,7 @@ int primary_display_resume(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_PULSE, 0, 9);
 
-	/* primary_display_diagnose(); */
+	/* primary_display_diagnose(__func__, __LINE__); */
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 		MMPROFILE_FLAG_PULSE, 0, 10);
 
@@ -6901,7 +6901,7 @@ int do_primary_display_switch_mode(int sess_mode, unsigned int session,
 		   sess_mode == DISP_SESSION_DIRECT_LINK_MODE) {
 		/* dc to dl */
 		ret = DC_switch_to_DL_fast(sw_only, block);
-		/* primary_display_diagnose(); */
+		/* primary_display_diagnose(__func__, __LINE__); */
 	} else if (pgc->session_mode == DISP_SESSION_DIRECT_LINK_MODE &&
 		   sess_mode == DISP_SESSION_DIRECT_LINK_MIRROR_MODE) {
 		/* dl to dl mirror */
@@ -7425,11 +7425,11 @@ int primary_display_is_video_mode(void)
 	return disp_lcm_is_video_mode(pgc->plcm);
 }
 
-int primary_display_diagnose(void)
+int primary_display_diagnose(const char *func, int line)
 {
 	int ret = 0;
 
-	DISPMSG("==== %s ===>\n", __func__);
+	DISPMSG("==== %s of func:%s, line:%d===>\n", __func__, func, line);
 	/* confirm mm clk*/
 	/* check_mm0_clk_sts(); */
 	dpmgr_check_status(pgc->dpmgr_handle);
@@ -8049,7 +8049,6 @@ struct LCM_DRIVER *DISP_GetLcmDrv(void)
 	return NULL;
 }
 
-#ifdef CONFIG_MTK_M4U
 static int _screen_cap_by_cmdq(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 			       enum DISP_MODULE_ENUM after_eng)
 {
@@ -8154,7 +8153,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 		ret = dpmgr_wait_event_timeout(pgc->dpmgr_handle,
 			DISP_PATH_EVENT_FRAME_DONE, HZ * 1);
 		if (ret <= 0)
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 	}
 
 	_primary_path_lock(__func__);
@@ -8184,7 +8183,7 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 		ret = dpmgr_wait_event_timeout(pgc->dpmgr_handle,
 			DISP_PATH_EVENT_FRAME_DONE, HZ * 1);
 		if (ret <= 0)
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 	}
 
 	dpmgr_path_remove_memout(pgc->dpmgr_handle, NULL);
@@ -8193,7 +8192,6 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 	_primary_path_unlock(__func__);
 	return 0;
 }
-#endif
 
 #ifdef CONFIG_MTK_IOMMU_V2
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
@@ -8631,7 +8629,7 @@ int Panel_Master_dsi_config_entry(const char *name, void *config_value)
 		DISPCHECK("[ESD]wait frame done ret:%d\n", ret);
 		if (event_ret <= 0) {
 			DISPCHECK("wait frame done in suspend timeout\n");
-			primary_display_diagnose();
+			primary_display_diagnose(__func__, __LINE__);
 			ret = -1;
 		}
 	}

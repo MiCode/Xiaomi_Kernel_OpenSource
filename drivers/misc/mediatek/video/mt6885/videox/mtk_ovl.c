@@ -37,6 +37,9 @@
 #include "m4u.h"
 #include "m4u_port.h"
 #endif
+#ifdef CONFIG_MTK_IOMMU_V2
+#include "mach/pseudo_m4u.h"
+#endif
 #include "cmdq_def.h"
 #include "cmdq_record.h"
 #include "cmdq_reg.h"

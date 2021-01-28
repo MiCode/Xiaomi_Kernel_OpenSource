@@ -369,7 +369,7 @@ struct disp_iommu_device *disp_get_iommu_dev(void)
 		larb_node[larb_idx] = of_parse_phandle(mydev.dev.of_node,
 						"mediatek,larb", larb_idx);
 		if (!larb_node[larb_idx]) {
-			DDPERR("disp driver get larb fail\n");
+			DDPERR("disp driver get larb %d fail\n", larb_idx);
 			return NULL;
 		}
 		larb_pdev[larb_idx] =

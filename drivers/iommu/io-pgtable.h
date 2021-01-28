@@ -123,6 +123,11 @@ struct io_pgtable_ops {
 		     size_t size);
 	phys_addr_t (*iova_to_phys)(struct io_pgtable_ops *ops,
 				    unsigned long iova);
+#ifdef CONFIG_MTK_IOMMU_V2
+	int (*switch_acp)(struct io_pgtable_ops *ops,
+				    unsigned long iova, size_t size,
+				    bool is_acp);
+#endif
 };
 
 /**
