@@ -298,6 +298,8 @@ int disp_helper_get_option(enum DISP_HELPER_OPT option)
 			return 0;
 		else if (_is_early_porting_stage())
 			return 0;
+
+		break;
 	}
 	case DISP_OPT_SWITCH_DST_MODE:
 	{
