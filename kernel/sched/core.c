@@ -1694,16 +1694,14 @@ static void uclamp_fork(struct task_struct *p, bool reset)
 		return;
 
 	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
-		unsigned int clamp_value = p->uclamp[clamp_id].value;
+		unsigned int clamp_value = uclamp_none(clamp_id);
 
-		if (unlikely(reset)) {
-			clamp_value = uclamp_none(clamp_id);
-			p->uclamp[clamp_id].user_defined = false;
-		}
+		memset(&p->uclamp[clamp_id], 0, sizeof(struct uclamp_se));
 
+		p->uclamp[clamp_id].user_defined = false;
 		p->uclamp[clamp_id].mapped = false;
 		p->uclamp[clamp_id].active = false;
-		uclamp_group_get(NULL, NULL, &p->uclamp[clamp_id],
+		uclamp_group_get(p, NULL, &p->uclamp[clamp_id],
 				 clamp_id, clamp_value);
 	}
 }
