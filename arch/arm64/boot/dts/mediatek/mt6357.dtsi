@@ -28,78 +28,76 @@
 		status = "okay";
 	};
 
-		mt6359keys: mt6359keys {
-			compatible = "mediatek,mt6357-keys";
-			mediatek,long-press-mode = <1>;
-			power-off-time-sec = <0>;
+	mt6357keys: mt6357keys {
+		compatible = "mediatek,mt6357-keys";
+		mediatek,long-press-mode = <1>;
+		power-off-time-sec = <0>;
 
-			power {
-				linux,keycodes = <116>;
-				wakeup-source;
-			};
-
-			home {
-				linux,keycodes = <115>;
-			};
+		power {
+			linux,keycodes = <116>;
+			wakeup-source;
 		};
 
-		pmic_auxadc: pmic_auxadc {
-			compatible = "mediatek,pmic-auxadc",
-				     "mediatek,mt6359-auxadc";
-			#io-channel-cells = <1>;
+		home {
+			linux,keycodes = <115>;
+		};
+	};
 
-			batadc {
-				channel = <AUXADC_BATADC>;
-				resistance-ratio = <7 2>;
-				avg-num = <128>;
-			};
-			bat_temp {
-				channel = <AUXADC_BAT_TEMP>;
-				resistance-ratio = <5 2>;
-			};
-			chip_temp {
-				channel = <AUXADC_CHIP_TEMP>;
-			};
-			vcore_temp {
-				channel = <AUXADC_VCORE_TEMP>;
-			};
-			vproc_temp {
-				channel = <AUXADC_VPROC_TEMP>;
-			};
-			vgpu_temp {
-				channel = <AUXADC_VGPU_TEMP>;
-			};
-			accdet {
-				channel = <AUXADC_ACCDET>;
-			};
-			dcxo_volt {
-				channel = <AUXADC_VDCXO>;
-				resistance-ratio = <3 2>;
-			};
-			tsx_temp {
-				channel = <AUXADC_TSX_TEMP>;
-				avg-num = <128>;
-			};
-			hpofs_cal {
-				channel = <AUXADC_HPOFS_CAL>;
-				avg-num = <256>;
-			};
-			dcxo_temp {
-				channel = <AUXADC_DCXO_TEMP>;
-				avg-num = <16>;
-			};
-			vbif {
-				channel = <AUXADC_VBIF>;
-				resistance-ratio = <5 2>;
-			};
-			imp {
-				channel = <AUXADC_IMP>;
-				resistance-ratio = <7 2>;
-				avg-num = <128>;
-			};
-			imix_r {
-				channel = <AUXADC_IMIX_R>;
-			};
+	pmic_auxadc: pmic_auxadc {
+		compatible = "mediatek,mt6357-auxadc";
+		#io-channel-cells = <1>;
+		batadc {
+			channel = <AUXADC_BATADC>;
+			resistance-ratio = <3 1>;
+			avg-num = <128>;
+		};
+		isense {
+			channel = <AUXADC_ISENSE>;
+			resistance-ratio = <3 1>;
+			avg-num = <128>;
+		};
+		vcdt {
+			channel = <AUXADC_VCDT>;
+		};
+		bat_temp {
+			channel = <AUXADC_BAT_TEMP>;
+			resistance-ratio = <1 1>;
+		};
+		chip_temp {
+			channel = <AUXADC_CHIP_TEMP>;
+		};
+		vcore_temp {
+			channel = <AUXADC_VCORE_TEMP>;
+		};
+		vproc_temp {
+			channel = <AUXADC_VPROC_TEMP>;
+		};
+		accdet {
+			channel = <AUXADC_ACCDET>;
+		};
+		tsx_temp {
+			channel = <AUXADC_TSX_TEMP>;
+			avg-num = <128>;
+		};
+		hpofs_cal {
+			channel = <AUXADC_HPOFS_CAL>;
+			avg-num = <256>;
+		};
+		dcxo_temp {
+			channel = <AUXADC_DCXO_TEMP>;
+			avg-num = <16>;
+		};
+		vbif {
+			channel = <AUXADC_VBIF>;
+			resistance-ratio = <1 1>;
+		};
+		imp {
+			channel = <AUXADC_IMP>;
+			resistance-ratio = <3 1>;
+			avg-num = <128>;
+		};
+		imix_r {
+			channel = <AUXADC_IMIX_R>;
 		};
 	};
 
