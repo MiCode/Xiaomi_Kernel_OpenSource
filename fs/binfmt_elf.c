@@ -2394,8 +2394,12 @@ static int elf_core_dump(struct coredump_params *cprm)
 				put_page(page);
 			} else
 				stop = !dump_skip(cprm, PAGE_SIZE);
-			if (stop)
+			if (stop) {
+				pr_info("%s: stop:0x%lx, vm_start:0x%lx, vm_end:0x%lx\n",
+					__func__, addr,
+					vma->vm_start, vma->vm_end);
 				goto end_coredump;
+			}
 		}
 	}
 	dump_truncate(cprm);
