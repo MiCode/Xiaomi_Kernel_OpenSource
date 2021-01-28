@@ -124,7 +124,7 @@ void mcdi_of_init(void **base)
 
 	*base = of_iomap(node, 0);
 
-	if (*base)
+	if (!*base)
 		pr_info("node '%s' can not iomap!\n", mcdi_node_name);
 
 	pr_info("mcdi_sysram_base = %p\n", *base);
