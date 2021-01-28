@@ -62,12 +62,12 @@ static int total_bw_value;
 int cpu_power_bcpu_weight_max = 350;
 int cpu_power_bcpu_weight_min = 100;
 #endif /* USE_BCPU_WEIGHT */
-int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {140, 100, 140, 100, 140};
-int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
-int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
-int vcore_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
-int debounce_times_up_adb[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0};
-int debounce_times_down_adb[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 0};
+unsigned int cpu_power_ratio_up[CM_MGR_EMI_OPP] = {140, 100, 140, 100, 140};
+unsigned int cpu_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
+unsigned int vcore_power_ratio_up[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
+unsigned int vcore_power_ratio_down[CM_MGR_EMI_OPP] = {100, 100, 100, 100, 100};
+unsigned int debounce_times_up_adb[CM_MGR_EMI_OPP] = {0, 0, 0, 0, 0};
+unsigned int debounce_times_down_adb[CM_MGR_EMI_OPP] = {3, 0, 0, 0, 0};
 int debounce_times_reset_adb;
 int debounce_times_perf_down = 5;
 int debounce_times_perf_force_down = 100;

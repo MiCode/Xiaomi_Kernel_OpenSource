@@ -110,7 +110,7 @@ extern void dbg_cm_mgr_platform_show(struct seq_file *m);
 extern void dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2);
 extern int x_ratio_enable;
 extern int cm_mgr_camera_enable;
-extern int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP];
-extern int cpu_power_ratio_up_x[CM_MGR_EMI_OPP];
+extern unsigned int cpu_power_ratio_up_x_camera[CM_MGR_EMI_OPP];
+extern unsigned int cpu_power_ratio_up_x[CM_MGR_EMI_OPP];
 
 #endif	/* __MTK_CM_MGR_PLATFORM_H__ */
