@@ -1659,6 +1659,14 @@ static void ged_kpi_work_cb(struct work_struct *psWork)
 						psTimeStamp->i32GPUloading =
 						MAX(util_ex.util_3d,
 						util_ex.util_ta);
+
+					/* hint JS0, JS1 info to EAT */
+					ged_log_perf_trace_counter("gpu_ta_loading",
+					util_ex.util_ta, psTimeStamp->pid,
+					psTimeStamp->i32FrameID, ulID);
+					ged_log_perf_trace_counter("gpu_3d_loading",
+					util_ex.util_3d, psTimeStamp->pid,
+					psTimeStamp->i32FrameID, ulID);
 #endif /* GED_ENABLE_DVFS_LOADING_MODE */
 					time_spent =
 					(int)(cur_3D_done - last_3D_done)
