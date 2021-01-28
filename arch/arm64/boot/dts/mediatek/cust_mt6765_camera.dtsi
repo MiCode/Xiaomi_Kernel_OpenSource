@@ -244,7 +244,7 @@
 	cam1_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam2_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
 	cam1_enable_sensor = "s5k2t7sp_mipi_raw";
-	cam2_enable_sensor = "imx338_mipi_raw";
+	cam2_enable_sensor = "imx338_mipi_raw ov8856_mipi_raw";
 	status = "okay";
 
 };
