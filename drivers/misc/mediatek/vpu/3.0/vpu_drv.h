@@ -20,6 +20,7 @@
 #define VPU_MAX_NUM_PORTS 32
 #define VPU_MAX_NUM_PROPS 32
 #define VPU_MAX_NUM_CORES 3
+#define VPU_MAX_NUM_PLANE 3
 
 /** Request core values
  *  b0..b15: Core Bit Mask and Trylock
@@ -328,7 +329,7 @@ struct vpu_buffer {
 	uint8_t plane_count;
 	uint32_t width;
 	uint32_t height;
-	struct vpu_plane planes[3];
+	struct vpu_plane planes[VPU_MAX_NUM_PLANE];
 };
 
 struct vpu_sett {
@@ -369,7 +370,7 @@ struct vpu_request {
 	uint64_t priv;           /* reserved for user */
 	struct vpu_buffer buffers[VPU_MAX_NUM_PORTS];
 	/* driver usage only, fd in user space / ion handle in kernel */
-	uint64_t buf_ion_infos[VPU_MAX_NUM_PORTS * 3];
+	uint64_t buf_ion_infos[VPU_MAX_NUM_PORTS * VPU_MAX_NUM_PLANE];
 	struct vpu_power power_param;
 	uint64_t busy_time;
 	uint32_t bandwidth;
