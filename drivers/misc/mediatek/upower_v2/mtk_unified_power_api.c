@@ -4,7 +4,7 @@
  */
 
 #include <linux/module.h>
-#include "mtk_upower.h"
+#include "mtk_common_upower.h"
 
 
 /* PTP will update volt in init2 isr handler */

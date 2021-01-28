@@ -24,12 +24,12 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/devfreq
 endif
 
-#obj-y += mtk_unified_power.o
-#obj-y += mtk_unified_power_internal.o
-#obj-y += mtk_unified_power_api.o
+obj-y += mtk_unified_power.o
+obj-y += mtk_unified_power_internal.o
+obj-y += mtk_unified_power_api.o
 obj-$(CONFIG_MACH_MT6763) += mtk_unified_power_mt6763.o
 obj-$(CONFIG_MACH_MT6758) += mtk_unified_power_mt6758.o
 #obj-$(CONFIG_MACH_MT6765) += mtk_unified_power_mt6765.o
-#obj-$(CONFIG_MACH_MT6761) += mtk_unified_power_mt6761.o
+obj-$(CONFIG_MACH_MT6761) += mtk_unified_power_mt6761.o
 obj-$(CONFIG_MACH_MT3967) += mtk_unified_power_mt3967.o
 obj-$(CONFIG_MACH_MT6779) += mtk_unified_power_mt6779.o

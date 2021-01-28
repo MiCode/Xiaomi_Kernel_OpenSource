@@ -61,6 +61,11 @@ struct upower_tbl_row {
 
 /* struct idle_state defined at sched.h */
 /* sizeof(struct upower_tbl) = 5264bytes */
+
+struct idle_state {
+	unsigned long power;
+};
+
 struct upower_tbl {
 	struct upower_tbl_row row[UPOWER_OPP_NUM];
 	unsigned int lkg_idx;

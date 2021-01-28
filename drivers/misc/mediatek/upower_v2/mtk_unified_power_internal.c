@@ -13,7 +13,7 @@
 #include <linux/module.h>
 #include <linux/ktime.h>
 
-#include "mtk_upower.h"
+#include "mtk_common_upower.h"
 
 #ifdef UPOWER_PROFILE_API_TIME
 #define TEST_TIMES (10)

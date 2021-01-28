@@ -3,8 +3,8 @@
  * Copyright (C) 2015 MediaTek Inc.
  */
 
-#ifndef _COMMON_MTK_UPOWER_H
-#define _COMMON_MTK_UPOWER_H
+#ifndef _MTK_COMMON_UPOWER_H
+#define _MTK_COMMON_UPOWER_H
 
 #if defined(CONFIG_MTK_UNIFY_POWER)
 #include "upower_v2/mtk_unified_power.h"

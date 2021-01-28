@@ -26,7 +26,7 @@ extern "C" {
 #include "mtk_ppm_ipi.h"
 
 #ifdef CONFIG_MTK_UNIFY_POWER
-#include "mtk_upower.h"
+#include "mtk_common_upower.h"
 #endif
 
 /*==============================================================*/

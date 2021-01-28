@@ -25,7 +25,7 @@
 #include <linux/math64.h>
 
 /* local include */
-#include "mtk_upower.h"
+#include "mtk_common_upower.h"
 /*
  * #ifdef UPOWER_NUM_LARGER
  * #include "mtk_eem.h"

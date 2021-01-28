@@ -19,7 +19,7 @@
 #include <linux/types.h>
 
 /* local include */
-#include "mtk_upower.h"
+#include "mtk_common_upower.h"
 #include "mtk_unified_power_data.h"
 /* #include "mtk_devinfo.h" */
 /* #include "mtk_eem.h" */

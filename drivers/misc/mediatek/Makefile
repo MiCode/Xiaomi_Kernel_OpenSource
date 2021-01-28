@@ -60,8 +60,10 @@ obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
 obj-$(CONFIG_MTK_LEGACY_THERMAL) += thermal/
 obj-$(CONFIG_MTK_PLAT_SRAM_FLAG) += debug_latch/
 obj-$(CONFIG_MEDIATEK_CACHE_API) += cache/
+ifneq ($(CONFIG_MACH_MT6761), y)
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
+endif
 obj-$(CONFIG_PRINTK_MTK) += mtprintk/
 obj-$(CONFIG_MTK_LEDS) += leds/
 obj-$(CONFIG_MT6360_DBG) += subpmic/
