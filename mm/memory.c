@@ -4056,8 +4056,10 @@ static vm_fault_t do_numa_page(struct vm_fault *vmf)
 	 * validation through pte_unmap_same(). It's of NUMA type but
 	 * the pfn may be screwed if the read is non atomic.
 	 */
-	if (!pte_spinlock(vmf))
+	if (!pte_spinlock(vmf)) {
+		pte_unmap(vmf->pte);
 		return VM_FAULT_RETRY;
+	}
 	if (unlikely(!pte_same(*vmf->pte, vmf->orig_pte))) {
 		pte_unmap_unlock(vmf->pte, vmf->ptl);
 		goto out;
@@ -4264,8 +4266,10 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 	if (pte_protnone(vmf->orig_pte) && vma_is_accessible(vmf->vma))
 		return do_numa_page(vmf);
 
-	if (!pte_spinlock(vmf))
+	if (!pte_spinlock(vmf)) {
+		pte_unmap(vmf->pte);
 		return VM_FAULT_RETRY;
+	}
 	entry = vmf->orig_pte;
 	if (unlikely(!pte_same(*vmf->pte, entry)))
 		goto unlock;
@@ -4579,11 +4583,16 @@ vm_fault_t __handle_speculative_fault(struct mm_struct *mm,
 	 * We need to re-validate the VMA after checking the bounds, otherwise
 	 * we might have a false positive on the bounds.
 	 */
-	if (read_seqcount_retry(&vma->vm_sequence, seq))
+	if (read_seqcount_retry(&vma->vm_sequence, seq)) {
+		/* If leaving spf earilier, try to unmap the pte */
+		if (vmf.pte)
+			pte_unmap(vmf.pte);
 		goto out_put;
+	}
 
 	mem_cgroup_enter_user_fault();
 	ret = handle_pte_fault(&vmf);
+	/* NOTE: vmf.pte should be unmapped after handle_pte_fault */
 	mem_cgroup_exit_user_fault();
 
 	put_vma(vma);
