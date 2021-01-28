@@ -348,6 +348,10 @@ struct mtk_tphy {
 static void u2_phy_props_set(struct mtk_tphy *tphy,
 			     struct mtk_phy_instance *instance);
 
+static void u2_phy_instance_set_mode_ext(struct mtk_tphy *tphy,
+				     struct mtk_phy_instance *instance,
+				     int submode);
+
 void cover_val_to_str(u32 val, u8 width, char *str)
 {
 	int i, temp;
@@ -987,6 +991,10 @@ static void u2_phy_instance_power_on(struct mtk_tphy *tphy,
 		tmp |= P2C_RG_SUSPENDM | P2C_FORCE_SUSPENDM;
 		writel(tmp, com + U3P_U2PHYDTM0);
 	}
+
+	/* set SW_BC11_EN as 0 which is usb control DPDM */
+	u2_phy_instance_set_mode_ext(tphy, instance,
+				PHY_MODE_BC11_SW_CLR);
 	dev_dbg(tphy->dev, "%s(%d)\n", __func__, index);
 }
 
@@ -1022,6 +1030,12 @@ static void u2_phy_instance_power_off(struct mtk_tphy *tphy,
 		writel(tmp, com + U3D_U2PHYDCR0);
 	}
 
+	/*
+	 * set SW_BC11_EN as 0 which is charger control DPDM
+	 * to disable USB DPDM
+	 */
+	u2_phy_instance_set_mode_ext(tphy, instance,
+				PHY_MODE_BC11_SW_SET);
 	dev_dbg(tphy->dev, "%s(%d)\n", __func__, index);
 }
 
