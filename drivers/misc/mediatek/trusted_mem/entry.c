@@ -137,8 +137,8 @@ static int min_chunk_size_check(enum TRUSTED_MEM_TYPE mem_type, u32 *size,
 		pr_debug("change size from 0x%x to 0x%x\n", *size, adjust_size);
 		*size = adjust_size;
 	} else if (*size < cfg->minimal_chunk_size) {
-		pr_err("wrong minimal dev size: 0x%x, expected sz:0x%x\n", size,
-		       cfg->minimal_chunk_size);
+		pr_err("wrong minimal dev size: 0x%x, expected sz:0x%x\n",
+		       *size, cfg->minimal_chunk_size);
 		return TMEM_INVALID_DEVICE_MIN_CHUNK_SIZE;
 	}
 
