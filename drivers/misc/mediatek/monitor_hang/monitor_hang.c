@@ -1264,6 +1264,7 @@ static int DumpThreadNativeMaps(pid_t pid, struct task_struct *current_task)
 	char tpath[512];
 	char *path_p = NULL;
 	struct path base_path;
+	unsigned long long pgoff = 0;
 
 	if (!current_task)
 		return -ESRCH;
@@ -1288,6 +1289,7 @@ static int DumpThreadNativeMaps(pid_t pid, struct task_struct *current_task)
 	while (vma && (mapcount < current_task->mm->map_count)) {
 		file = vma->vm_file;
 		flags = vma->vm_flags;
+		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 		if (file) {	/* !!!!!!!!only dump 1st mmaps!!!!!!!!!!!! */
 			if (flags & VM_EXEC) {
 				/* we only catch code section for reduce
@@ -1295,20 +1297,20 @@ static int DumpThreadNativeMaps(pid_t pid, struct task_struct *current_task)
 				 */
 				base_path = file->f_path;
 				path_p = d_path(&base_path, tpath, 512);
-				Log2HangInfo("%08lx-%08lx %c%c%c%c    %s\n",
+				Log2HangInfo("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
 					flags & VM_MAYSHARE ? 's' : 'p',
-					path_p);
-				hang_log("%08lx-%08lx %c%c%c%c    %s\n",
+					pgoff, path_p);
+				hang_log("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
 					flags & VM_MAYSHARE ? 's' : 'p',
-					path_p);
+					pgoff, path_p);
 			}
 		} else {
 #ifdef MODULE
@@ -1334,18 +1336,18 @@ static int DumpThreadNativeMaps(pid_t pid, struct task_struct *current_task)
 			}
 
 			if (flags & VM_EXEC) {
-				Log2HangInfo("%08lx-%08lx %c%c%c%c %s\n",
+				Log2HangInfo("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
-					flags & VM_MAYSHARE ? 's' : 'p', name);
-				hang_log("%08lx-%08lx %c%c%c%c %s\n",
+					flags & VM_MAYSHARE ? 's' : 'p', pgoff, name);
+				hang_log("%08lx-%08lx %c%c%c%c %08llx %s\n",
 					vma->vm_start, vma->vm_end,
 					flags & VM_READ ? 'r' : '-',
 					flags & VM_WRITE ? 'w' : '-',
 					flags & VM_EXEC ? 'x' : '-',
-					flags & VM_MAYSHARE ? 's' : 'p', name);
+					flags & VM_MAYSHARE ? 's' : 'p', pgoff,  name);
 			}
 		}
 		vma = vma->vm_next;
@@ -1381,16 +1383,16 @@ static int DumpThreadNativeInfo_By_tid(pid_t tid,
 		return ret;
 	}
 #ifndef __aarch64__		/* 32bit */
-	Log2HangInfo(" pc/lr/sp 0x%08lx/0x%08lx/0x%08lx\n", user_ret->ARM_pc,
+	Log2HangInfo(" pc/lr/sp 0x%08x/0x%08x/0x%08x\n", user_ret->ARM_pc,
 			user_ret->ARM_lr, user_ret->ARM_sp);
-	Log2HangInfo("r12-r0 0x%lx/0x%x/0x%lx/0x%lx\n",
+	Log2HangInfo("r12-r0 0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_ip), (long)(user_ret->ARM_fp),
 		(long)(user_ret->ARM_r10), (long)(user_ret->ARM_r9));
-	Log2HangInfo("0x%lx/0x%lx/0x%lx/0x%lx/0x%lx\n",
+	Log2HangInfo("0x%08x/0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_r8), (long)(user_ret->ARM_r7),
 		(long)(user_ret->ARM_r6), (long)(user_ret->ARM_r5),
 		(long)(user_ret->ARM_r4));
-	Log2HangInfo("0x%lx/0x%lx/0x%lx/0x%lx\n",
+	Log2HangInfo("0x%08x/0x%08x/0x%08x/0x%08x\n",
 		(long)(user_ret->ARM_r3), (long)(user_ret->ARM_r2),
 		(long)(user_ret->ARM_r1), (long)(user_ret->ARM_r0));
 
@@ -1425,7 +1427,7 @@ static int DumpThreadNativeInfo_By_tid(pid_t tid,
 
 		SPStart = userstack_start;
 		SPEnd = SPStart + length;
-		Log2HangInfo("UserSP_start:%x,Length:%x,End:%x\n",
+		Log2HangInfo("UserSP_start:%08x,Length:%x,End:%08x\n",
 				SPStart, length, SPEnd);
 		while (SPStart < SPEnd) {
 			copied =
@@ -1442,7 +1444,7 @@ static int DumpThreadNativeInfo_By_tid(pid_t tid,
 				tempSpContent[1] != 0 ||
 				tempSpContent[2] != 0 ||
 				tempSpContent[3] != 0) {
-				Log2HangInfo("%08x:%x %x %x %x\n", SPStart,
+				Log2HangInfo("%08x:%08x %08x %08x %08x\n", SPStart,
 						tempSpContent[0],
 						tempSpContent[1],
 						tempSpContent[2],
@@ -1688,6 +1690,27 @@ static void show_bt_by_pid(int task_pid)
 	put_pid(pid);
 }
 
+static int show_white_list_bt(struct task_struct *p)
+{
+	struct name_list *pList = NULL;
+
+	if (!white_list)
+		return -1;
+	raw_spin_lock(&white_list_lock);
+	pList = white_list;
+	while (pList) {
+		if (!strcmp(p->comm, pList->name)) {
+			raw_spin_unlock(&white_list_lock);
+			show_bt_by_pid(p->pid);
+			return 0;
+		}
+		pList = pList->next;
+	}
+	raw_spin_unlock(&white_list_lock);
+	return -1;
+}
+
+
 static void hang_dump_backtrace(void)
 {
 	struct task_struct *p, *t, *system_server_task = NULL;
@@ -1700,11 +1723,7 @@ static void hang_dump_backtrace(void)
 #endif
 	Log2HangInfo("dump backtrace start: %llu\n", local_clock());
 
-#ifdef MODULE
-	read_lock(Ptasklist_lock);
-#else
-	read_lock(&tasklist_lock);
-#endif
+	rcu_read_lock();
 	for_each_process(p) {
 		get_task_struct(p);
 		if (Hang_Detect_first == false) {
@@ -1722,19 +1741,15 @@ static void hang_dump_backtrace(void)
 			!strcmp(p->comm, "mmcqd/0")  ||
 			!strcmp(p->comm, "debuggerd64") ||
 			!strcmp(p->comm, "mmcqd/1") ||
+			!strcmp(p->comm, "vold") ||
 			!strcmp(p->comm, "vdc") ||
 			!strcmp(p->comm, "debuggerd")) {
-#ifdef MODULE
-			read_unlock(Ptasklist_lock);
-#else
-			read_unlock(&tasklist_lock);
-#endif
 			show_bt_by_pid(p->pid);
-#ifdef MODULE
-			read_lock(Ptasklist_lock);
-#else
-			read_lock(&tasklist_lock);
-#endif
+			put_task_struct(p);
+			continue;
+		}
+		//test if there's any process need dump
+		if (!show_white_list_bt(p)) {
 			put_task_struct(p);
 			continue;
 		}
@@ -1752,11 +1767,7 @@ static void hang_dump_backtrace(void)
 		}
 		put_task_struct(p);
 	}
-#ifdef MODULE
-	read_unlock(Ptasklist_lock);
-#else
-	read_unlock(&tasklist_lock);
-#endif
+	rcu_read_unlock();
 	Log2HangInfo("dump backtrace end.\n");
 
 	if (Hang_Detect_first == false) {
