@@ -25,7 +25,7 @@ extern struct led_conf_info {
 int mtk_leds_register_notifier(struct notifier_block *nb);
 int mtk_leds_unregister_notifier(struct notifier_block *nb);
 int mt_leds_brightness_set(char *name, int bl_1024);
-int setMaxBrightness(char *name, int percent, bool enable);
+int setMaxbrightness(char *name, int percent, bool enable);
 
 
 extern int mtkfb_set_backlight_level(unsigned int level);
