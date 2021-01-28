@@ -48,8 +48,9 @@ static const char longname[] = "Gadget Android";
 #define VENDOR_ID		0x0E8D
 #define PRODUCT_ID		0x0001
 
-/* k414 FIXME */
-/* #include <mt-plat/mtk_boot_common.h> */
+#ifdef CONFIG_MTK_BOOT
+#include <mt-plat/mtk_boot_common.h>
+#endif
 
 #ifdef CONFIG_MTPROF
 #include "bootprof.h"
@@ -1301,8 +1302,7 @@ int acm_shortcut(void)
 	char *ptr;
 	char mode = 0;
 
-	/* k414 FIXME */
-#if 0
+#ifdef CONFIG_MTK_BOOT
 	if (get_boot_mode() != META_BOOT)
 		return 0;
 #else

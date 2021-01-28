@@ -472,8 +472,7 @@ static inline void mtu3d_link_intr_handler(struct musb *musb, u32 dwLinkIntValue
 			musb_g_reset(musb);
 		speed_last = speed;
 		speed = SSUSB_SPEED_SUPER;
-		/* k414 FIXME */
-//		ss_timestamp = CURRENT_TIME;
+		ss_timestamp = current_kernel_time();
 #endif
 		break;
 
