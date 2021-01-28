@@ -5391,8 +5391,8 @@ int32_t DIP_MDPClockOnCallback(uint64_t engineFlag)
 
 int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 {
-// Justin EP, mt6789 no support cmdq_core_query
-#ifndef CONFIG_FPGA_EARLY_PORTING
+// Justin Todo, check mt6885 support cmdq_core_query or not support
+#if 0
 	const char *pCmdq1stErrCmd;
 
 	LOG_DBG("DIP_MDPDumpCallback");
