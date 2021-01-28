@@ -419,6 +419,13 @@
 
 	clock_buffer_ctrl: clock_buffer_ctrl {
 		compatible = "mediatek,clock_buffer";
+		n-clkbuf-pmic-dependent = <5>;
+		clkbuf-pmic-dependent = "pmic-drvcurr",
+					"pmic-auxout-sel",
+					"pmic-auxout-xo",
+					"pmic-auxout-drvcurr",
+					"pmic-auxout-bblpm-en";
+
 		pmic-dcxo-cw = <0x788>;
 		pmic-xo-mode = <0x788 0 0x788 3 0x788 6 0x788 9
 			0xffff 0xffff 0x7a2 8 0x7a2 11>;
@@ -426,15 +433,21 @@
 			0xffff 0xffff 0x7a2 10 0x7a2 13>;
 		pmic-bblpm-sw = <0x788 12>;
 		pmic-srclkeni3 = <0x44a 0>;
+
+		n-pmic-drvcurr = <7>;
 		pmic-drvcurr = <0x7b0 0 0x7b0 2 0x7b0 4 0x7b0 6
 			0xffff 0xffff 0x7b0 10 0x7b0 12>;
+		n-pmic-auxout-sel = <6>;
 		pmic-auxout-sel = <0x7b4 0 0x7b4 5 0x7b4 6 0x7b4 7
 			0x7b4 6 0x7b4 24>;
+		n-pmic-auxout-xo = <7>;
 		pmic-auxout-xo = <0x7b6 0 0x7b6 6 0x7b6 0 0x7b6 6
 			0xffff 0xffff 0x7b6 6 0x7b6 12>;
+		n-pmic-auxout-drvcurr = <7>;
 		pmic-auxout-drvcurr = <0x7b6 1 0x7b6 7 0x7b6 1
 			0x7b6 7 0xffff 0xffff 0x7b6 1 0x7b6 12>;
-		auxout-bblpm-en = <0x7b6 0>;
+		n-pmic-auxout-bblpm-en = <1>;
+		pmic-auxout-bblpm-en = <0x7b6 0>;
 	};
 };
 
