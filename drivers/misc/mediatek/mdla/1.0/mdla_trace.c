@@ -43,12 +43,14 @@ void mdla_trace_custom(const char *fmt, ...)
 {
 	char buf[TRACE_LEN];
 	va_list args;
+	int len;
 
 	va_start(args, fmt);
-	vsnprintf(buf, TRACE_LEN, fmt, args);
+	len = vsnprintf(buf, TRACE_LEN, fmt, args);
 	va_end(args);
 
-	tracing_mark_write(buf);
+	if (len > 0)
+		tracing_mark_write(buf);
 }
 
 void mdla_trace_begin(struct command_entry *ce)
@@ -74,8 +76,10 @@ void mdla_trace_begin(struct command_entry *ce)
 		1,
 		cmd_num);
 
-	if (len >= TRACE_LEN)
-		len = TRACE_LEN - 1;
+	if (len <= 0)
+		return;
+	else if (len >= TRACE_LEN)
+		buf[TRACE_LEN - 1] = '\0';
 
 	mdla_perf_debug("%s\n", __func__);
 	tracing_mark_write(buf);

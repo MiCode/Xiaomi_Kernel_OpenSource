@@ -207,6 +207,10 @@ mdla_cmd_parse(u32 swid, u32 exec, int func_map[8], char *str, int size)
 		func_map[7]);
 
 	out = snprintf(ptr, remain, "mdla_cmd_id:%u,", swid);
+
+	if (out <= 0)
+		return;
+
 	remain -= out;
 	ptr += out;
 
