@@ -1064,6 +1064,16 @@ page_owner=on";
 		reg = <0 0x0d0c0000 0 0x40000>;
 	};
 
+	usb0@11200000 {
+		compatible = "mediatek,mt6833-usb20";
+		reg = <0 0x11200000 0 0x10000>,
+			<0 0x11e40000 0 0x10000>;
+		interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+		mode = <2>;
+		multipoint = <1>;
+		num_eps = <16>;
+	};
+
 	dfd@13e00000 {
 		compatible = "mediatek,dfd";
 		reg = <0 0x13e00000 0 0x112000>;
