@@ -79,6 +79,8 @@ static snd_pcm_uframes_t snd_usb_pcm_pointer(struct snd_pcm_substream *substream
 {
 	struct snd_usb_substream *subs = substream->runtime->private_data;
 	unsigned int hwptr_done;
+	struct snd_pcm_runtime *runtime;
+	snd_pcm_uframes_t avail;
 
 	if (atomic_read(&subs->stream->chip->shutdown))
 		return SNDRV_PCM_POS_XRUN;
@@ -86,6 +88,28 @@ static snd_pcm_uframes_t snd_usb_pcm_pointer(struct snd_pcm_substream *substream
 	hwptr_done = subs->hwptr_done;
 	substream->runtime->delay = snd_usb_pcm_delay(subs,
 						substream->runtime->rate);
+
+	/* show notification if stop_threshold has been disabled */
+	if (substream->runtime->stop_threshold >
+			substream->runtime->buffer_size) {
+
+		runtime = substream->runtime;
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+			avail = snd_pcm_playback_avail(runtime);
+		else
+			avail = snd_pcm_capture_avail(runtime);
+
+		if (avail >= runtime->buffer_size)
+			usb_audio_info_ratelimited(subs->stream->chip,
+			"dir<%d>,avail<%ld>,thld<%ld>,sz<%ld>,bound<%ld>",
+			substream->stream,
+			avail,
+			runtime->stop_threshold,
+			runtime->buffer_size,
+			runtime->boundary
+		);
+	}
+
 	spin_unlock(&subs->lock);
 	return hwptr_done / (substream->runtime->frame_bits >> 3);
 }
@@ -641,6 +665,11 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 
 	snd_usb_set_format_quirk(subs, fmt);
 
+	dev_info(&dev->dev,
+		"iface=%d:%d format = %dbit rate = %d, channels = %d dir = %d\n",
+		subs->interface, subs->altset_idx,
+		snd_pcm_format_physical_width(subs->pcm_format),
+		subs->cur_rate, subs->channels, subs->direction);
 	return 0;
 }
 
