@@ -171,8 +171,6 @@ static int ddp_mutex_set_l(int mutex_id, int *module_list,
 		value |= ddp_mutex_add_module(mutex_id,
 			module_list[i], handle);
 
-	value |= ddp_mutex_add_module(mutex_id,
-		DISP_MODULE_PWM0, handle);
 	/* Notice: to reduce cmdq mask write, set mutex mod here */
 	DISP_REG_SET(handle, DISP_REG_CONFIG_MUTEX_MOD0(mutex_id), value);
 

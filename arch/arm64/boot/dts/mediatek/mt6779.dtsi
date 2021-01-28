@@ -2258,7 +2258,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			reg = <0 0x1100e000 0 0x1000>;
 			interrupts = <GIC_SPI 151 IRQ_TYPE_LEVEL_LOW>;
 			#pwm-cells = <2>;
-			clocks = <&infracfg_ao CLK_INFRA_DISP_PWM>,
+			clocks = <&mmsys CLK_MM_26M>,
 				<&topckgen CLK_TOP_DISP_PWM>,
 				<&topckgen CLK_TOP_OSC_D4>;
 			clock-names = "main", "mm", "pwm_src";

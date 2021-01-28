@@ -15,7 +15,7 @@
 #include <linux/types.h>
 #include "ddp_reg.h"
 
-#define BYPASS_CLK_SELECT
+/*#define BYPASS_CLK_SELECT*/
 /*
  *
  * dummy function
@@ -105,7 +105,7 @@ enum DDP_CLK_ID disp_pwm_get_clkid(unsigned int clk_req)
  * get disp pwm source mux node
  *
  */
-#define DTSI_TOPCKGEN "mediatek,topckgen"
+#define DTSI_TOPCKGEN "mediatek,mt6779-topckgen"
 static int disp_pwm_get_muxbase(void)
 {
 	int ret = 0;
