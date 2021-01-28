@@ -290,6 +290,7 @@ static ssize_t apu_tags_proc_write(struct file *file, const char *buf,
 	if (copy_from_user(b, buf, count))
 		return -EINVAL;
 
+	b[APU_TAG_CMD_SZ - 1] = 0;
 	cur = &b[0];
 	cmd = strsep(&cur, " \t\n");
 
