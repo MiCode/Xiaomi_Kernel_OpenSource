@@ -217,6 +217,9 @@ int gauge_enable_interrupt(int intr_number, int en)
 	if (gm.pmic_dev == NULL && gm.pdevice != NULL)
 		gm.pmic_dev = &gm.pdevice->dev;
 
+	if (gm.pmic_dev == NULL)
+		return -EINVAL;
+
 	irq = mt6358_irq_get_virq(gm.pmic_dev->parent, intr_number);
 
 	desc = irq_to_desc(irq);
@@ -3423,7 +3426,7 @@ struct device *dev, struct device_attribute *attr,
 	int ret_value = 8888;
 
 	ret_value = battery_get_bat_avg_current();
-	bm_err("[EM] FG_Battery_CurrentConsumption : %d mA\n", ret_value);
+	bm_err("[EM] FG_Battery_CurrentConsumption : %d .1mA\n", ret_value);
 	return sprintf(buf, "%d\n", ret_value);
 }
 
