@@ -479,6 +479,12 @@ static int vcu_ipi_get(struct mtk_vcu *vcu, unsigned long arg)
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&share_buff_data, user_data_addr,
 				   (unsigned long)sizeof(struct share_obj));
+	if (ret != 0) {
+		pr_info("[VCU] %s(%d) Copy data from user failed!\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
 	i = ipi_id_to_inst_id(share_buff_data.id);
 
 	/* mutex protection here is unnecessary, since different app service
@@ -794,9 +800,11 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&buff.cmdq_buff, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmdq_obj));
-	if (ret != 0L)
+	if (ret != 0L) {
 		pr_info("[VCU] %s(%d) gce_cmdq_obj copy_from_user failed!%d\n",
 			__func__, __LINE__, ret);
+		return -EINVAL;
+	}
 
 	i = (buff.cmdq_buff.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
 	cmds = vcu->gce_cmds[i];
@@ -805,9 +813,11 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu,
 				   (unsigned long)buff.cmdq_buff.cmds_user_ptr;
 	ret = (long)copy_from_user(cmds, user_data_addr,
 				   (unsigned long)sizeof(struct gce_cmds));
-	if (ret != 0L)
+	if (ret != 0L) {
 		pr_info("[VCU] %s(%d) gce_cmds copy_from_user failed!%d\n",
 			__func__, __LINE__, ret);
+		return -EINVAL;
+	}
 
 	buff.cmdq_buff.cmds_user_ptr = (u64)(unsigned long)cmds;
 	core_id = buff.cmdq_buff.core_id;
@@ -927,6 +937,11 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&obj, user_data_addr,
 				   (unsigned long)sizeof(struct gce_obj));
+	if (ret != 0L) {
+		pr_info("[VCU] %s(%d) copy_from_user failed!%d\n",
+			__func__, __LINE__, ret);
+		return -EINVAL;
+	}
 
 	i = (obj.codec_type == VCU_VDEC) ? VCU_VDEC : VCU_VENC;
 	vcu_dbg_log("[VCU] %s: type %d handle %llx\n",
@@ -1684,6 +1699,11 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		user_data_addr = (unsigned char *)arg;
 		ret = (long)copy_from_user(&mem_buff_data, user_data_addr,
 			(unsigned long)sizeof(struct mem_obj));
+		if (ret != 0L) {
+			pr_info("[VCU] %s(%d) Copy data from user failed!\n",
+			       __func__, __LINE__);
+			return -EINVAL;
+		}
 		if (vcu_ptr->iommu_padding)
 			mem_buff_data.iova |= 0x100000000UL;
 		vcu_buffer_cache_sync(dev, vcu_queue,
