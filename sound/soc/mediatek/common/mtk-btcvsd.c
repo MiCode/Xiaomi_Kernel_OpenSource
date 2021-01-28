@@ -11,8 +11,6 @@
 #include <linux/sched/clock.h>
 
 #include <sound/soc.h>
-#include <mt-plat/mtk_wcn_cmb_stub.h>
-#include <linux/kthread.h>
 
 #define BT_CVSD_TX_NREADY	BIT(21)
 #define BT_CVSD_RX_READY	BIT(22)
@@ -137,6 +135,7 @@ struct mtk_btcvsd_snd {
 	struct mtk_btcvsd_snd_stream *rx;
 	u8 tx_packet_buf[BTCVSD_TX_BUF_SIZE];
 	u8 rx_packet_buf[BTCVSD_RX_BUF_SIZE];
+	u8 disable_write_silence;
 
 	enum BT_SCO_BAND band;
 };
@@ -191,11 +190,6 @@ static const u8 table_msbc_silence[SCO_PACKET_180] = {
 	0x6d, 0xb6, 0xdd, 0xdb, 0x6d, 0xb7, 0x76, 0xdb, 0x6c, 0x00
 };
 
-static struct task_struct *g_kthread;
-static bool g_is_btcvsd_bus_dump;
-static bool g_btcvsd_bus_dump_thread_enable;
-static DEFINE_MUTEX(mutex_dump_thread_enable);
-
 static void mtk_btcvsd_snd_irq_enable(struct mtk_btcvsd_snd *bt)
 {
 	regmap_update_bits(bt->infra, bt->infra_misc_offset,
@@ -212,10 +206,8 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 				     struct mtk_btcvsd_snd_stream *bt_stream,
 				     int state)
 {
-	dev_dbg(bt->dev, "%s(), stream %d, state %d, tx->state %d, rx->state %d, irq_disabled %d\n",
-		__func__,
-		bt_stream->stream, state,
-		bt->tx->state, bt->rx->state, bt->irq_disabled);
+	int pre_state = bt_stream->state;
+	int pre_irq_disabled = bt->irq_disabled;
 
 	bt_stream->state = state;
 
@@ -233,6 +225,11 @@ static void mtk_btcvsd_snd_set_state(struct mtk_btcvsd_snd *bt,
 			bt->irq_disabled = 0;
 		}
 	}
+	dev_dbg(bt->dev,
+		"%s(), stream %d, state %d->%d, tx->state %d, rx->state %d, irq_disabled %d->%d\n"
+		, __func__,
+		bt_stream->stream, pre_state, state, bt->tx->state,
+		bt->rx->state, pre_irq_disabled, bt->irq_disabled);
 }
 
 static int mtk_btcvsd_snd_tx_init(struct mtk_btcvsd_snd *bt)
@@ -348,18 +345,9 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	unsigned int num_valid_addr;
 	unsigned long flags;
 	enum BT_SCO_BAND band = bt->band;
-	int is_readable = 0;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
-
-	is_readable = mtk_wcn_conninfra_reg_readable();
-	if (!is_readable) {
-		dev_info(bt->dev, "%s(), is_readable = %d\n",
-			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
-		return -EIO;
-	}
 
 	/* prepare encoded mute data */
 	if (band == BT_SCO_NB)
@@ -372,8 +360,8 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	spin_lock_irqsave(&bt->tx_lock, flags);
 	num_valid_addr = bt->tx->buffer_info.num_valid_addr;
 
-	dev_info(bt->dev, "%s(), band %d, num_valid_addr %u, readable %d\n",
-		 __func__, band, num_valid_addr, is_readable);
+	dev_info(bt->dev, "%s(), band %d, num_valid_addr %u\n",
+		 __func__, band, num_valid_addr);
 
 	connsys_addr_tx = *bt->bt_reg_pkt_w;
 	ap_addr_tx = (unsigned long)bt->bt_sram_bank2_base +
@@ -381,8 +369,8 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 
 	if (connsys_addr_tx == 0xdeadfeed) {
 		/* bt return 0xdeadfeed if read register during bt sleep */
-		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed, readable %d\n",
-			 __func__, is_readable);
+		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed\n",
+			 __func__);
 		spin_unlock_irqrestore(&bt->tx_lock, flags);
 		return -EIO;
 	}
@@ -422,18 +410,9 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 	unsigned int packet_buf_ofs;
 	unsigned long flags;
 	unsigned long connsys_addr_rx, ap_addr_rx;
-	int is_readable = 0;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
-
-	is_readable = mtk_wcn_conninfra_reg_readable();
-	if (!is_readable) {
-		dev_info(bt->dev, "%s(), is_readable = %d\n",
-			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
-		return -EIO;
-	}
 
 	connsys_addr_rx = *bt->bt_reg_pkt_r;
 	ap_addr_rx = (unsigned long)bt->bt_sram_bank2_base +
@@ -441,8 +420,8 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 
 	if (connsys_addr_rx == 0xdeadfeed) {
 		/* bt return 0xdeadfeed if read register during bt sleep */
-		dev_warn(bt->dev, "%s(), connsys_addr_rx == 0xdeadfeed, readable %d",
-			 __func__, is_readable);
+		dev_warn(bt->dev, "%s(), connsys_addr_rx == 0xdeadfeed\n",
+			 __func__);
 		return -EIO;
 	}
 
@@ -474,26 +453,6 @@ static int mtk_btcvsd_read_from_bt(struct mtk_btcvsd_snd *bt,
 	return 0;
 }
 
-static int btcvsd_bus_dump_thread(void *arg)
-{
-	int ret_conninfra_bus;
-	struct mtk_btcvsd_snd *bt = (struct mtk_btcvsd_snd *) arg;
-
-	while (g_btcvsd_bus_dump_thread_enable) {
-		if (g_is_btcvsd_bus_dump) {
-			g_is_btcvsd_bus_dump = false;
-			dev_info(bt->dev, "+%s(), dump conninfra start...\n",
-				 __func__);
-			ret_conninfra_bus = mtk_wcn_conninfra_is_bus_hang();
-			dev_info(bt->dev, "-%s(), ret_conninfra_bus = %d\n",
-				 __func__, ret_conninfra_bus);
-		}
-		mdelay(10);
-	}
-	do_exit(0);
-	return 0;
-}
-
 int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 			   enum bt_sco_packet_len packet_type,
 			   unsigned int packet_length,
@@ -505,18 +464,9 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	u8 *dst;
 	unsigned long connsys_addr_tx, ap_addr_tx;
 	bool new_ap_addr_tx = true;
-	int is_readable = 0;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
-
-	is_readable = mtk_wcn_conninfra_reg_readable();
-	if (!is_readable) {
-		dev_info(bt->dev, "%s(), is_readable = %d\n",
-			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
-		return -EIO;
-	}
 
 	connsys_addr_tx = *bt->bt_reg_pkt_w;
 	ap_addr_tx = (unsigned long)bt->bt_sram_bank2_base +
@@ -524,8 +474,8 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 
 	if (connsys_addr_tx == 0xdeadfeed) {
 		/* bt return 0xdeadfeed if read register during bt sleep */
-		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed, readable %d\n",
-			 __func__, is_readable);
+		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed\n",
+			 __func__);
 		return -EIO;
 	}
 
@@ -583,22 +533,12 @@ static irqreturn_t mtk_btcvsd_snd_irq_handler(int irq_id, void *dev)
 	unsigned int packet_type, packet_num, packet_length;
 	unsigned int buf_cnt_tx, buf_cnt_rx, control;
 	static DEFINE_RATELIMIT_STATE(_rs, 2 * HZ, 1);
-	int is_readable;
 
 	if (__ratelimit(&_rs))
-		dev_info(bt->dev, "%s()\n", __func__);
+		dev_info(bt->dev, "%s(), irq_id=%d\n", __func__, irq_id);
 
 	if (bt->bypass_bt_access)
 		goto irq_handler_exit;
-
-	is_readable = mtk_wcn_conninfra_reg_readable();
-
-	if (!is_readable) {
-		dev_info(bt->dev, "%s(), is_readable = %d, dump conn infra\n",
-			 __func__, is_readable);
-		g_is_btcvsd_bus_dump = true;
-		goto irq_handler_exit;
-	}
 
 	if (bt->rx->state != BT_SCO_STATE_RUNNING &&
 	    bt->rx->state != BT_SCO_STATE_ENDING &&
@@ -1009,15 +949,6 @@ static int mtk_pcm_btcvsd_open(struct snd_pcm_substream *substream)
 		ret = mtk_btcvsd_snd_rx_init(bt);
 		bt->rx->substream = substream;
 	}
-	mutex_lock(&mutex_dump_thread_enable);
-	if (!g_btcvsd_bus_dump_thread_enable) {
-		g_btcvsd_bus_dump_thread_enable = true;
-		g_is_btcvsd_bus_dump = false;
-		g_kthread = kthread_run(btcvsd_bus_dump_thread,
-					 bt,
-					 "btcvsd_bus_dump_thread");
-	}
-	mutex_unlock(&mutex_dump_thread_enable);
 
 	return ret;
 }
@@ -1029,11 +960,6 @@ static int mtk_pcm_btcvsd_close(struct snd_pcm_substream *substream)
 	struct mtk_btcvsd_snd_stream *bt_stream = get_bt_stream(bt, substream);
 
 	dev_dbg(bt->dev, "%s(), stream %d\n", __func__, substream->stream);
-
-	mutex_lock(&mutex_dump_thread_enable);
-	if (g_btcvsd_bus_dump_thread_enable)
-		g_btcvsd_bus_dump_thread_enable = false;
-	mutex_unlock(&mutex_dump_thread_enable);
 
 	mtk_btcvsd_snd_set_state(bt, bt_stream, BT_SCO_STATE_IDLE);
 	bt_stream->substream = NULL;
@@ -1063,9 +989,11 @@ static int mtk_pcm_btcvsd_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_btcvsd_snd *bt = snd_soc_platform_get_drvdata(rtd->platform);
-	dev_dbg(bt->dev, "%s(), stream %d\n", __func__, substream->stream);
+	dev_dbg(bt->dev, "%s(), stream %d, bt->disable_write_silence %d\n",
+		__func__, substream->stream, bt->disable_write_silence);
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) &&
+	     (bt->disable_write_silence == 0))
 		btcvsd_tx_clean_buffer(bt);
 
 	return 0;
@@ -1169,6 +1097,7 @@ static int mtk_pcm_btcvsd_copy(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct mtk_btcvsd_snd *bt = snd_soc_platform_get_drvdata(rtd->platform);
 
+	/* count: bytes */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		mtk_btcvsd_snd_write(bt, buf, count);
 	else
@@ -1445,6 +1374,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 	u32 offset[5] = {0, 0, 0, 0, 0};
 	struct mtk_btcvsd_snd *btcvsd;
 	struct device *dev = &pdev->dev;
+	u32 disable_write_silence = 0;
 
 	/* init btcvsd private data */
 	btcvsd = devm_kzalloc(dev, sizeof(*btcvsd), GFP_KERNEL);
@@ -1470,9 +1400,6 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 
 	mtk_btcvsd_snd_tx_init(btcvsd);
 	mtk_btcvsd_snd_rx_init(btcvsd);
-	g_is_btcvsd_bus_dump = false;
-	g_kthread = NULL;
-	g_btcvsd_bus_dump_thread_enable = false;
 
 	/* irq */
 	irq_id = platform_get_irq(pdev, 0);
@@ -1517,9 +1444,18 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 					 offset,
 					 ARRAY_SIZE(offset));
 	if (ret) {
-		dev_warn(dev, "%s(), get offest fail, ret %d\n", __func__, ret);
+		dev_warn(dev, "%s(), get offset fail, ret %d\n", __func__, ret);
 		return ret;
 	}
+	/* get disable_write_silence */
+	ret = of_property_read_u32(dev->of_node, "disable_write_silence",
+				     &disable_write_silence);
+	if (ret) {
+		dev_dbg(dev,
+			"%s(), get disable_write_silence fail %d, set 0\n"
+			, __func__, ret);
+	}
+
 	btcvsd->infra_misc_offset = offset[0];
 	btcvsd->conn_bt_cvsd_mask = offset[1];
 	btcvsd->cvsd_mcu_read_offset = offset[2];
@@ -1532,6 +1468,7 @@ static int mtk_btcvsd_snd_probe(struct platform_device *pdev)
 			       btcvsd->cvsd_mcu_write_offset;
 	btcvsd->bt_reg_ctl = btcvsd->bt_pkv_base +
 			     btcvsd->cvsd_packet_indicator;
+	btcvsd->disable_write_silence = (u8) disable_write_silence;
 
 	/* init state */
 	mtk_btcvsd_snd_set_state(btcvsd, btcvsd->tx, BT_SCO_STATE_IDLE);
