@@ -42,5 +42,9 @@
 #define MTK_SIP_MCUSYS_CPU_CONTROL \
 	(0x82000521 | MTK_SIP_SMC_AARCH_BIT)
 
+/* display port control related SMC call */
+#define MTK_SIP_DP_CONTROL \
+	(0x82000523 | MTK_SIP_SMC_AARCH_BIT)
+
 #endif
 /* _MTK_SECURE_API_H_ */
