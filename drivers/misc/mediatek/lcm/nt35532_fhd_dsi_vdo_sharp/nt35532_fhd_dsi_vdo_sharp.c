@@ -50,12 +50,17 @@
 static unsigned int GPIO_LCD_RST; /* GPIO45: panel reset pin for control */
 static unsigned int GPIO_LCD_PWR_EN; /* GPIO158: panel 1.8V for control */
 static unsigned int GPIO_LCD_PWR2_EN; /* GPIO159: panel 2.8V for control */
+static unsigned int GPIO_LCD_PWR; /* GPIO166: panel power enable */
 
 static void lcm_request_gpio_control(struct device *dev)
 {
 	GPIO_LCD_RST = of_get_named_gpio(dev->of_node, "gpio_lcd_rst", 0);
 	gpio_request(GPIO_LCD_RST, "GPIO_LCD_RST");
 	pr_notice("[KE/LCM] GPIO_LCD_RST = 0x%x\n", GPIO_LCD_RST);
+
+	GPIO_LCD_PWR = of_get_named_gpio(dev->of_node, "gpio_lcd_pwr", 0);
+	gpio_request(GPIO_LCD_PWR, "GPIO_LCD_PWR");
+	pr_notice("[KE/LCM] GPIO_LCD_PWR = 0x%x\n", GPIO_LCD_PWR);
 
 	GPIO_LCD_PWR_EN = of_get_named_gpio(dev->of_node, "gpio_lcd_pwr_en", 0);
 	gpio_request(GPIO_LCD_PWR_EN, "GPIO_LCD_PWR_EN");
@@ -325,6 +330,9 @@ static void lcm_init_power(void)
 #ifdef BUILD_LK
 	printf("[LK/LCM] %s enter\n", __func__);
 
+	lcm_set_gpio_output(GPIO_LCD_PWR, GPIO_OUT_ONE);
+	MDELAY(20);
+
 	lcm_set_gpio_output(GPIO_LCD_PWR_EN, GPIO_OUT_ONE);
 	MDELAY(10);
 	lcm_set_gpio_output(GPIO_LCD_PWR2_EN, GPIO_OUT_ONE);
@@ -350,6 +358,9 @@ static void lcm_resume(void)
 static void lcm_resume_power(void)
 {
 	pr_notice("[Kernel/LCM] %s\n", __func__);
+	lcm_set_gpio_output(GPIO_LCD_PWR, GPIO_OUT_ONE);
+	MDELAY(20);
+
 	lcm_set_gpio_output(GPIO_LCD_PWR_EN, GPIO_OUT_ONE);
 	MDELAY(10);
 
@@ -379,6 +390,7 @@ static void lcm_suspend_power(void)
 
 	lcm_set_gpio_output(GPIO_LCD_PWR_EN, GPIO_OUT_ZERO);
 	MDELAY(10);
+	lcm_set_gpio_output(GPIO_LCD_PWR, GPIO_OUT_ZERO);
 }
 
 struct LCM_DRIVER nt35532_fhd_dsi_vdo_sharp_lcm_drv = {
