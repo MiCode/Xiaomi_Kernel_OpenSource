@@ -506,6 +506,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			alignment = <0 0x10000>;
 			alloc-ranges = <0 0x40000000 0 0x60000000>;
 		};
+
 		consys-reserve-memory {
 			compatible = "mediatek,consys-reserve-memory";
 			no-map;
@@ -513,6 +514,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+
+		reserve-memory-scp_share {
+			compatible = "mediatek,reserve-memory-scp_share";
+			no-map;
+			size = <0 0x00380000>;
+			alignment = <0 0x1000000>;
+			alloc-ranges = <0 0x40000000 0 0x50000000>;
+		};
+
 		wifi-reserve-memory {
 			compatible = "mediatek,wifi-reserve-memory";
 			no-map;
@@ -989,6 +999,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			compatible = "mediatek,mt6779-infracfg_ao", "syscon";
 			reg = <0 0x10001000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		scp_infra: scp_infra@10001000 {
+			compatible = "mediatek,scpinfra";
+			reg = <0 0x10001000 0 0x1000>;
 		};
 
 		dcm: dcm@10001000 {
@@ -1884,6 +1899,88 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<&infracfg_ao CLK_INFRA_SSPM_BUS_HCLK>;
 
 			clock-names = "sspm_26m", "sspm_32k", "sspm_bus_hclk";
+		};
+
+		scp: scp@10500000 {
+			compatible = "mediatek,scp";
+			status = "okay";
+			reg = <0 0x10500000 0 0x80000>,
+			      <0 0x105c0000 0 0x3000>,
+			      <0 0x105c4000 0 0x1000>,
+			      <0 0x105d4000 0 0x6000>;
+			interrupts = <GIC_SPI 201 IRQ_TYPE_LEVEL_HIGH>;
+			core_1 = "enable";
+			scp_sramSize = <0x00080000>;
+			scp_feature_tbl = <0 47>,   /* vow */
+					  <1 356>,  /* dsp */
+					  <2 62>,   /* sensor */
+					  <3 47>,   /* mp3 */
+					  <4 26>,   /* flp */
+					  <5 0>,    /* rtos */
+					  <6 200>,  /* speaker */
+					  <7 0>,    /* vcore */
+					  <8 100>,  /* barge in */
+					  <9 10>;   /* vow dump */
+
+			scp_mem_key = "mediatek,reserve-memory-scp_share";
+			scp_mem_tbl = <1 0x100000>, /* sensor */
+				      <3 0x001000>, /* flp */
+				      <4 0x200000>; /* logger */
+		};
+
+		scp_dvfs {
+			compatible = "mediatek,scp_dvfs";
+			clocks = <&topckgen CLK_TOP_SCP>,
+				 <&clk26m>,
+				 <&topckgen CLK_TOP_UNIVPLL_D2_D8>,
+				 <&topckgen CLK_TOP_MAINPLL_D2_D4>,
+				 <&topckgen CLK_TOP_MAINPLL_D3>,
+				 <&topckgen CLK_TOP_UNIVPLL_D3>,
+				 <&topckgen CLK_TOP_AD_OSC2_CK>,
+				 <&topckgen CLK_TOP_OSC2_D2>,
+				 <&topckgen CLK_TOP_OSC2_D3>;
+
+			clock-names = "clk_mux",
+				      "clk_pll_0",
+				      "clk_pll_1",
+				      "clk_pll_2",
+				      "clk_pll_3",
+				      "clk_pll_4",
+				      "clk_pll_5",
+				      "clk_pll_6",
+				      "clk_pll_7";
+
+			dvfsrc-opp-num = <3>;
+			dvfs-opp = <575000 825000 0xff 0x0 110 1>,
+				   <600000 875000 0xff 0x0 130 1>,
+				   <625000 875000 2 0x1 165 2>,
+				   <700000 875000 1 0x12 330 2>,
+				   <800000 875000 0 0x28 416 4>;
+
+			sshub-vcore-supply = <&mt6359_vcore_sshub_buck_reg>;
+			sshub-vsram-supply =
+					<&mt6359_vsram_others_sshub_ldo_reg>;
+
+			pmic = <&pmic>;
+			pmic-feature = "pmic-vow-lp", "pmic-pmrc";
+			/*
+			 * feature on off setting.
+			 * 1: turns on, 0: turns off.
+			 */
+			pmic-feature-cfg = <1 0>;
+			pmic-vow-lp-reg = <0x1520 0x1 11 1>,
+					  <0x1514 0x1 11 1>,
+					  <0x151a 0x1 11 1>,
+					  <0x1f14 0x1 11 1>,
+					  <0x1f1a 0x1 11 1>;
+			pmic-vow-lp-cfg = <0 0>, <1 0>, <1 0>, <1 0>, <1 0>;
+			pmic-pmrc-reg = <0x1ac 0x1 2 1>;
+			pmic-pmrc-cfg = <1 0>;
+
+			gpio = <&pio 1>;
+			gpio-feature = "gpio-mode";
+			gpio-feature-cfg = <1>;
+			gpio-mode-reg = <0x410 0x7 24 1>;
 		};
 
 		auxadc: auxadc@11001000 {
