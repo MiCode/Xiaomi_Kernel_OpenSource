@@ -144,7 +144,7 @@ int tipc_test_rcv(struct tipc_k_handle *handle, void *data, size_t len)
 int gz_tipc_test(void *args)
 {
 	int i, rc;
-	struct tipc_k_handle h;
+	struct tipc_k_handle h = {0};
 
 	TEST_BEGIN("tipc basic test");
 	RESET_UNITTESTS;
@@ -266,8 +266,8 @@ void test_gz_syscall(void)
 void test_gz_mem_api(void)
 {
 	TZ_RESULT ret;
-	KREE_SESSION_HANDLE mem_session;
-	KREE_SECUREMEM_HANDLE mem_handle[4];
+	KREE_SESSION_HANDLE mem_session = 0;
+	KREE_SECUREMEM_HANDLE mem_handle[4] = {0};
 
 	TEST_BEGIN("mem service & mem APIs");
 
@@ -404,7 +404,7 @@ int gz_test(void *arg)
 int gz_abort_test(void *args)
 {
 	TZ_RESULT ret;
-	KREE_SESSION_HANDLE session;
+	KREE_SESSION_HANDLE session = 0;
 	union MTEEC_PARAM param[4];
 	uint32_t types;
 

@@ -327,7 +327,7 @@ static TZ_RESULT kree_register_desc_shm(union MTEEC_PARAM *p,
 #ifdef DBG_KREE_SHM
 	int prt_id;
 #endif
-	int tmp_ary_entryNum[MAX_NUM_OF_PARAM];
+	int tmp_ary_entryNum[MAX_NUM_OF_PARAM] = {0};
 	struct KREE_SHM_RUNLENGTH_ENTRY tmp_ary[MAX_NUM_OF_PARAM]
 	    [MAX_MARY_SIZE];
 	struct KREE_SHM_RUNLENGTH_ENTRY *runLengAry = NULL;
@@ -974,7 +974,7 @@ static TZ_RESULT _kree_mcm_Alloc_ion(KREE_SESSION_HANDLE session,
 	uint32_t alignment, uint32_t size, int isZalloc)
 {
 	TZ_RESULT ret;
-	KREE_SECUREMEM_HANDLE mem_handle;
+	KREE_SECUREMEM_HANDLE mem_handle = 0;
 
 	*IONHandle = 0;
 
