@@ -4242,7 +4242,26 @@ int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 
 void fg_drv_update_daemon(struct mtk_battery *gm)
 {
+
+	int fg_current_iavg = 0;
+	bool valid = 0;
+
 	fg_update_sw_iavg(gm);
+	fg_nafg_monitor(gm);
+
+	fg_current_iavg = gauge_get_average_current(gm, &valid);
+
+	bm_err("[%s]ui_ht_gap:%d ui_lt_gap:%d sw_iavg:%d %d %d nafg_m:%d %d %d\n",
+		__func__,
+		gm->uisoc_int_ht_gap, gm->uisoc_int_lt_gap,
+		gm->sw_iavg, fg_current_iavg, valid,
+		gm->last_nafg_cnt, gm->is_nafg_broken, gm->disable_nafg_int);
+
+	wakeup_fg_algo_cmd(
+		gm,
+		FG_INTR_KERNEL_CMD,
+		FG_KERNEL_CMD_DUMP_REGULAR_LOG,
+		0);
 }
 
 static void mtk_battery_shutdown(struct mtk_battery *gm)

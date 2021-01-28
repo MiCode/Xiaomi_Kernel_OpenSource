@@ -965,6 +965,7 @@ extern int battery_get_int_property(enum battery_property bp);
 extern int battery_set_property(enum battery_property bp, int val);
 extern void battery_update(struct mtk_battery *gm);
 extern bool fg_interrupt_check(struct mtk_battery *gm);
+extern void fg_nafg_monitor(struct mtk_battery *gm);
 extern bool is_algo_active(struct mtk_battery *gm);
 extern int disable_shutdown_cond(struct mtk_battery *gm, int shutdown_cond);
 extern int set_shutdown_cond(struct mtk_battery *gm, int shutdown_cond);

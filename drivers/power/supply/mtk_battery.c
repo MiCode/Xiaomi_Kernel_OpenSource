@@ -2186,6 +2186,48 @@ static int battery_sysfs_create_group(struct power_supply *psy)
 }
 
 /* ============================================================ */
+/* nafg monitor */
+/* ============================================================ */
+void fg_nafg_monitor(struct mtk_battery *gm)
+{
+	int nafg_cnt = 0;
+	struct timespec now_time, dtime;
+
+	if (gm->disableGM30 || gm->cmd_disable_nafg || gm->ntc_disable_nafg)
+		return;
+
+	now_time.tv_sec = 0;
+	now_time.tv_nsec = 0;
+	dtime.tv_sec = 0;
+	dtime.tv_nsec = 0;
+
+	nafg_cnt = gauge_get_int_property(GAUGE_PROP_NAFG_CNT);
+
+	if (gm->last_nafg_cnt != nafg_cnt) {
+		gm->last_nafg_cnt = nafg_cnt;
+		get_monotonic_boottime(&gm->last_nafg_update_time);
+	} else {
+		get_monotonic_boottime(&now_time);
+		dtime = timespec_sub(now_time, gm->last_nafg_update_time);
+		if (dtime.tv_sec >= 600) {
+			gm->is_nafg_broken = true;
+			wakeup_fg_algo_cmd(
+				gm,
+				FG_INTR_KERNEL_CMD,
+				FG_KERNEL_CMD_DISABLE_NAFG,
+				true);
+		}
+	}
+	bm_debug("[%s]time:%d nafg_cnt:%d, now:%d, last_t:%d\n",
+		__func__,
+		(int)dtime.tv_sec,
+		gm->last_nafg_cnt,
+		(int)now_time.tv_sec,
+		(int)gm->last_nafg_update_time.tv_sec);
+
+}
+
+/* ============================================================ */
 /* periodic timer */
 /* ============================================================ */
 void fg_drv_update_hw_status(struct mtk_battery *gm)
@@ -2211,7 +2253,11 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 	if (gm->algo.active == true)
 		battery_update(gm);
 
-	ktime = ktime_set(10, 0);
+	if (bat_get_debug_level() >= BMLOG_DEBUG_LEVEL)
+		ktime = ktime_set(10, 0);
+	else
+		ktime = ktime_set(60, 0);
+
 	hrtimer_start(&gm->fg_hrtimer, ktime, HRTIMER_MODE_REL);
 }
 
