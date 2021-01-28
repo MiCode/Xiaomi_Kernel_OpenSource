@@ -9,6 +9,8 @@ obj-$(CONFIG_MTK_MET) += met_drv/
 obj-$(CONFIG_MTK_BASE_POWER) += base/
 obj-$(CONFIG_MTK_PWM)	    += pwm/
 obj-$(CONFIG_MTK_IRTX_PWM_SUPPORT) += irtx/
+obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += adsp/
+obj-$(CONFIG_MTK_AUDIO_IPI) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
 ifeq ($(subst ",,$(CONFIG_MTK_SENSOR_ARCHITECTURE)), 1.0)
 obj-y += sensors-1.0/
