@@ -47,7 +47,8 @@ struct ut_test_case {
 	u64 param3;
 	struct ut_test_case_statistics statistics;
 	char *test_description;
-	int (*test_case_cb)(struct ut_params *params, char *test_desc);
+	enum UT_RET_STATE (*test_case_cb)(struct ut_params *params,
+					  char *test_desc);
 };
 
 struct UT_TEST_CASE {
