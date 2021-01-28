@@ -7,3 +7,11 @@ config MTK_SMI_EXT
 	  mainly help arbitrate memory bandwidth of multimedia,
 	  and optimize multimedia memory usage in different scenarios.
 	  If you are not sure about this, set y.
+
+config MTK_SMI_VARIANT
+	bool "MTK SMI Tablet Code"
+	help
+	  It's for smi common tablet framework,
+	  it is used to arbitrate memory bandwidth of multimedia,
+	  it can optimize multimedia memory usage in different scenarios,
+	  and it will enable power-domain.

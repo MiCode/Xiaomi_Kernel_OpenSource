@@ -168,5 +168,9 @@ struct MTK_MMDVFS_QOS_CMD {
 #define MTK_IOC_MMDVFS_QOS_CMD \
 	_IOW('O', 89, struct MTK_MMDVFS_QOS_CMD)
 
-
+#ifdef CONFIG_MTK_SMI_VARIANT
+int mtk_smi_larb_clock_on(int larbid, bool pm);
+void mtk_smi_larb_clock_off(int larbid, bool pm);
+unsigned long mtk_smi_larb_get_base(int larbid);
+#endif
 #endif

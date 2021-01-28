@@ -37,7 +37,9 @@
 //smart phone m4u
 #ifdef CONFIG_MTK_M4U
 #include <m4u.h>
+#ifndef CONFIG_MTK_SMI_VARIANT
 #include "m4u_v2_ext.h"
+#endif
 #endif
 //smart phone iommu
 #ifdef CONFIG_MTK_IOMMU_V2

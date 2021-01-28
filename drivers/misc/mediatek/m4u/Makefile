@@ -25,7 +25,7 @@ ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6761" "mt6765"))
 else ifneq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt6779"))
     $(info M4U version:3.2)
     obj-y += 3.2/
-else
+else ifeq (,$(filter $(strip $(CONFIG_MTK_PLATFORM)), "mt8173"))
     $(error M4U error: platform error)
 endif
 

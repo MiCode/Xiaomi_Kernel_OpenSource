@@ -11,6 +11,8 @@
 # GNU General Public License for more details.
 #
 
+ifneq ($(CONFIG_MTK_SMI_VARIANT),y)
+
 ifeq ($(CONFIG_MTK_SMI_EXT), y)
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/
@@ -65,4 +67,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
 endif
 
 obj-y += smi_drv.o
+endif
+
+else
+obj-y += $(subst ",,variant)/
 endif
