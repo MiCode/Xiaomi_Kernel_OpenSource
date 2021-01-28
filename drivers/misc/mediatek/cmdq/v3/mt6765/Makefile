@@ -19,10 +19,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3 \
 ifeq ($(strip $(CONFIG_MTK_PQ_COLOR_MODE)),"MDP")
 ccflags-y += -DCMDQ_MDP_COLOR
 endif
-ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 ccflags-y += -DCMDQ_SECURE_PATH_SUPPORT
-endif
 endif
 # Enable MET
 ccflags-y += -DMET_USER_EVENT_SUPPORT
