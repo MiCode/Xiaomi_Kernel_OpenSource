@@ -193,6 +193,7 @@ config MTK_TEE_GP_SUPPORT
 	  TEE or other 3rd-party TEE)
 
 source "drivers/misc/mediatek/gud/Kconfig"
+source "drivers/misc/mediatek/teei/Kconfig"
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
 
