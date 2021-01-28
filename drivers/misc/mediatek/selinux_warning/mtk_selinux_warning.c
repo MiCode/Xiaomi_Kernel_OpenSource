@@ -48,7 +48,7 @@ static atomic_t ne_warning_count;
 
 
 static const char *aee_filter_list[AEE_FILTER_NUM] = {
-//	"u:r:bootanim:s0",
+	"u:r:bootanim:s0",
 //	"u:r:bluetooth:s0",
 //	"u:r:binderservicedomain:s0",
 //	"u:r:dex2oat:s0",
@@ -75,7 +75,7 @@ static const char *aee_filter_list[AEE_FILTER_NUM] = {
 //	"u:r:runas:s0",
 //	"u:r:sdcardd:s0",
 //	"u:r:shared_relro:s0",
-//	"u:r:system_server:s0",
+	"u:r:system_server:s0",
 //	"u:r:tee:s0",
 //	"u:r:uncrypt:s0",
 //	"u:r:watchdogd:s0",
@@ -83,7 +83,7 @@ static const char *aee_filter_list[AEE_FILTER_NUM] = {
 //	"u:r:ueventd:s0",
 //	"u:r:vold:s0",
 //	"u:r:vdc:s0",
-//	"u:r:zygote:s0",
+	"u:r:zygote:s0",
 };
 
 #define AEE_AV_FILTER_NUM 5
