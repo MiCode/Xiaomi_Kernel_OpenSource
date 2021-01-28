@@ -592,9 +592,7 @@ int mmc_run_queue_thread(void *data)
 					__func__, task_id, host->task_id_index,
 					atomic_read(&host->areq_cnt),
 					atomic_read(&host->cq_wait_rdy));
-					/* mmc_cmd_dump(host); */
-					while (1)
-						;
+					WARN_ON(1);
 				}
 				set_bit(task_id, &host->task_id_index);
 
