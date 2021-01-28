@@ -78,15 +78,8 @@ static int __init mrdump_key_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	if (of_property_read_string(node, "interrupts", &interrupts)) {
-		pr_notice("mrdump_key:no interrupts attribute from dws config\n");
-		goto out;
-	}
-
 	pr_notice("%s:default to %s\n", __func__,
 		(source == MRDUMP_EINT) ? "EINT":"SYSRST");
-
-
 
 	if (!of_property_read_string(node, "force_mode", &source_str)) {
 		if (strcmp(source_str, "SYSRST") == 0) {
@@ -95,6 +88,11 @@ static int __init mrdump_key_probe(struct platform_device *pdev)
 		} else if (strcmp(source_str, "EINT") == 0) {
 			source = MRDUMP_EINT;
 			pr_notice("%s:force_mode=%s\n", __func__, "EINT");
+			if (of_property_read_string(node,
+				"interrupts", &interrupts)) {
+				pr_notice("mrdump_key:no interrupts in dws config, exit\n");
+				goto out;
+			}
 		} else
 			pr_notice("%s:no valid force_mode\n", __func__);
 	} else
