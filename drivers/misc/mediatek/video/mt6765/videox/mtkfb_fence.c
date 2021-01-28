@@ -1174,10 +1174,23 @@ static int prepare_ion_buf(struct disp_buffer_info *buf,
 
 #if defined(MTK_FB_ION_SUPPORT)
 	handle = mtkfb_ion_import_handle(ion_client, buf->ion_fd);
-	if (handle)
+	if (handle) {
+		struct ion_mm_data mm_data;
+
+		memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+		mm_data.config_buffer_param.module_id = 0;
+		mm_data.config_buffer_param.kernel_handle = handle;
+		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+		if (ion_kernel_ioctl(ion_client, ION_CMD_MULTIMEDIA,
+			(unsigned long)&mm_data) < 0) {
+			DISPERR("disp_ion_get_mva: config buffer failed.%p -%p\n",
+			ion_client, handle);
+			ion_free(ion_client, handle);
+			return -1;
+		}
 		buf_info->size =
 			mtkfb_ion_phys_mmu_addr(ion_client, handle, &mva);
-	else
+	} else
 		DISPERR("can't import ion handle for fd:%d\n",
 			buf->ion_fd);
 #endif
@@ -1251,7 +1264,10 @@ struct mtkfb_fence_buf_info *disp_sync_prepare_buf(
 	buf_info->idx = data.value;
 
 	if (buf->ion_fd >= 0)
-		prepare_ion_buf(buf, buf_info);
+		if (prepare_ion_buf(buf, buf_info) < 0) {
+			DISPERR("prepare ion buf failed\n");
+			return NULL;
+		}
 
 	buf_info->mva_offset = 0;
 	buf_info->trigger_ticket = 0;
