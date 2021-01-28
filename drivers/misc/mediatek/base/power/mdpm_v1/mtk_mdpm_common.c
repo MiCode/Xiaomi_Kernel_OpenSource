@@ -9,7 +9,7 @@
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <mach/mtk_pbm.h>
+#include <mtk_pbm.h>
 #include "mtk_mdpm.h"
 
 #if MD_POWER_METER_ENABLE
@@ -18,7 +18,7 @@
 #endif
 
 bool mt_mdpm_debug;
-int g_dbm_power[POWER_CATEGORY_NUM], g_scenario_power[POWER_CATEGORY_NUM];
+static int g_dbm_power[POWER_TYPE_NUM], g_scenario_power[POWER_TYPE_NUM];
 #ifdef MD_POWER_UT
 u32 fake_share_reg;
 u32 fake_share_mem[SHARE_MEM_BLOCK_NUM];
@@ -60,7 +60,7 @@ void init_md_section_level(enum pbm_kicker kicker)
 		pr_warn("unknown MD kicker: %d\n", kicker);
 }
 
-int get_md1_power(unsigned int power_category, bool need_update)
+int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 {
 	u32 share_reg, *share_mem;
 	unsigned int scenario;
@@ -70,15 +70,15 @@ int get_md1_power(unsigned int power_category, bool need_update)
 	return 0;
 #endif
 
-	if (need_update == false)
-		return g_scenario_power[MAX_POWER] + g_dbm_power[MAX_POWER];
-
-	if (power_category >= POWER_CATEGORY_NUM ||
-		power_category < 0) {
-		pr_err("[md1_power] invalid power_category=%d\n",
-			power_category);
+	if (power_type >= POWER_TYPE_NUM ||
+		power_type < 0) {
+		pr_notice("[md1_power] invalid power_type=%d\n",
+			power_type);
 		return 0;
 	}
+
+	if (need_update == false)
+		return g_scenario_power[MAX_POWER] + g_dbm_power[MAX_POWER];
 
 #ifdef MD_POWER_UT
 	share_reg = fake_share_reg;
@@ -88,18 +88,18 @@ int get_md1_power(unsigned int power_category, bool need_update)
 
 	share_reg = spm_vcorefs_get_MD_status();
 #endif
-	scenario = get_md1_scenario(share_reg, power_category);
+	scenario = get_md1_scenario(share_reg, power_type);
 
-	scenario_power = get_md1_scenario_power(scenario, power_category);
-	g_scenario_power[power_category] = scenario_power;
+	scenario_power = get_md1_scenario_power(scenario, power_type);
+	g_scenario_power[power_type] = scenario_power;
 
 #ifdef MD_POWER_UT
 	share_mem = fake_share_mem;
 #else
 	share_mem = (u32 *)get_smem_start_addr(MD_SYS1, 0, NULL);
 #endif
-	dbm_power = get_md1_dBm_power(scenario, share_mem, power_category);
-	g_dbm_power[power_category] = dbm_power;
+	dbm_power = get_md1_dBm_power(scenario, share_mem, power_type);
+	g_dbm_power[power_type] = dbm_power;
 
 	if (mt_mdpm_debug)
 		pr_info("[md1_power] scenario_power=%d dbm_power=%d total=%d\n",
@@ -229,7 +229,7 @@ void init_md_section_level(enum pbm_kicker kicker)
 	pr_notice("MD_POWER_METER_ENABLE:0\n");
 }
 
-int get_md1_power(unsigned int power_category, bool need_update)
+int get_md1_power(enum mdpm_power_type power_type, bool need_update)
 {
 #if defined(CONFIG_MTK_ECCCI_DRIVER)
 	return MAX_MD1_POWER;

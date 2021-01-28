@@ -7,10 +7,10 @@
 #define _MT_PBM_
 
 /* #include <cust_pmic.h> */
-#include <mach/mtk_pmic.h>
-#include <mach/mtk_mdpm_api.h>
+#include <mtk_dlpt.h>
+#include <mtk_mdpm_api.h>
 
-#ifdef DISABLE_DLPT_FEATURE
+#if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 #define DISABLE_PBM_FEATURE
 #endif
 

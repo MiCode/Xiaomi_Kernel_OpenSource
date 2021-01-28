@@ -3,12 +3,11 @@
  * Copyright (c) 2017 MediaTek Inc.
  */
 
-
 #ifndef _MTK_MDPM_API_H_
 #define _MTK_MDPM_API_H_
 
-#include <mach/mtk_pmic.h>
-#include <mach/mtk_pbm.h>
+#include <mtk_dlpt.h>
+#include <mtk_pbm.h>
 
 enum mdpm_power_type {
 	MAX_POWER = 0,

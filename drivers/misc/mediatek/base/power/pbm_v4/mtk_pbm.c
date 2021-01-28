@@ -18,7 +18,7 @@
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
 
-#include <mach/mtk_pbm.h>
+#include <mtk_pbm.h>
 #include <mtk_pbm_common.h>
 #include <mtk_pbm_data.h>
 #include <mtk_dynamic_loading_throttling.h>

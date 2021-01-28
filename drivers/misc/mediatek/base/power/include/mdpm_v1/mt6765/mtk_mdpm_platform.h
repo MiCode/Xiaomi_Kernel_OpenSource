@@ -362,7 +362,7 @@ enum md1_rf_avg_pwr_tbl_c2k {
 #define MAX_DBM_FUNC_NUM 5
 
 struct mdpm {
-	int scenario_power[POWER_CATEGORY_NUM];
+	int scenario_power[POWER_TYPE_NUM];
 
 	int (*dbm_power_func[MAX_DBM_FUNC_NUM])(u32 *, unsigned int);
 
@@ -373,10 +373,10 @@ extern void md_power_meter_ut(void);
 #endif
 extern void init_md1_section_level(u32 *share_mem);
 extern unsigned int get_md1_scenario(u32 share_reg,
-	unsigned int power_category);
+	enum mdpm_power_type power_type);
 extern int get_md1_scenario_power(unsigned int scenario,
-	unsigned int power_category);
+	enum mdpm_power_type power_type);
 extern int get_md1_dBm_power(unsigned int scenario, u32 *share_mem,
-	unsigned int power_category);
+	enum mdpm_power_type power_type);
 
 #endif /* _MTK_MDPM_PLATFORM_H_ */

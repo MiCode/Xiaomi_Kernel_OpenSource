@@ -3,8 +3,8 @@
  * Copyright (c) 2017 MediaTek Inc.
  */
 
-#ifndef _CUST_PMIC_H_
-#define _CUST_PMIC_H_
+#ifndef _MTK_DLPT_H_
+#define _MTK_DLPT_H_
 
 #if !IS_ENABLED(CONFIG_MTK_LOW_BATTERY_POWER_THROTTLING)
 #define DISABLE_LOW_BATTERY_PROTECT
@@ -22,4 +22,4 @@
 #define DISABLE_DLPT_FEATURE
 #endif
 
-#endif /* _CUST_PMIC_H_ */
+#endif /* _MTK_DLPT_H_ */
