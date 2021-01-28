@@ -955,8 +955,8 @@ config MMC_SDHCI_BRCMSTB
 
 	  If unsure, say Y.
 
-config MMC_MTK_SDIO
-	tristate "MediaTek SDIO Card Interface support"
+config MMC_MTK_LEGACY_SDIO
+	tristate "MediaTek Legacy SDIO Card Interface support"
 	depends on HAS_DMA
 	help
 	  This selects the MediaTek(R) MT6630 SDIO Interface.
@@ -964,7 +964,7 @@ config MMC_MTK_SDIO
 	  This is needed if support for any SDIO devices is required.
 	  If unsure, say N.
 
-config MMC_MTK_COMM_SDIO
+config MMC_MTK_SDIO
 	tristate "MediaTek SDIO driver support"
 	depends on HAS_DMA
 	help
