@@ -2953,8 +2953,6 @@ static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 	struct mmc_cmdq_req *cmdq_req;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 
-	WARN_ON(!host); /*bug*/
-
 	if (host->cmdq_ops->dumpstate)
 		host->cmdq_ops->dumpstate(host, true);
 	/*
