@@ -300,7 +300,7 @@ int _btif_restore_noirq(struct _mtk_btif_ *p_btif);
 int btif_lpbk_ctrl(struct _mtk_btif_ *p_btif, bool flag);
 int btif_log_buf_dmp_in(struct _btif_log_queue_t_ *p_log_que, const char *p_buf,
 			int len);
-int btif_dump_data(char *p_buf, int len);
+int btif_dump_data(const char *p_buf, int len);
 int btif_log_buf_dmp_out(struct _btif_log_queue_t_ *p_log_que);
 int btif_log_buf_enable(struct _btif_log_queue_t_ *p_log_que);
 int btif_log_buf_disable(struct _btif_log_queue_t_ *p_log_que);

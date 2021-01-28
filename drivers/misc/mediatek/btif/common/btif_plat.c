@@ -108,11 +108,11 @@ static int btif_tx_thr_set(struct _MTK_BTIF_INFO_STR_ *p_btif,
 			   unsigned int thr_count);
 #endif
 
-static int btif_dump_array(char *string, char *p_buf, int len)
+static int btif_dump_array(const char *string, const char *p_buf, int len)
 {
 	unsigned int idx = 0;
 	unsigned char str[30];
-	unsigned char *p_str;
+	unsigned char *p_str = NULL;
 
 	pr_debug("========dump %s start <length:%d>========\n", string, len);
 	p_str = &str[0];

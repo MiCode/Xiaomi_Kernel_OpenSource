@@ -93,8 +93,8 @@ int mtk_wcn_btif_open(char *p_owner, unsigned long *p_id)
 
 /*check if btif is already opened or not, if yes, just return fail*/
 	if (!list_empty(p_user_list)) {
-		struct list_head *pos;
-		struct _mtk_btif_user_ *p_user;
+		struct list_head *pos = NULL;
+		struct _mtk_btif_user_ *p_user = NULL;
 
 		BTIF_ERR_FUNC("BTIF's user list is not empty\n");
 		list_for_each(pos, p_user_list) {

@@ -358,7 +358,7 @@ int _btif_restore_noirq(struct _mtk_btif_ *p_btif)
 		return i_ret;
 	}
 /*BTIF DMA restore no irq*/
-	if (p_btif->tx_mode & BTIF_MODE_DMA) {
+	if (p_btif->tx_mode == BTIF_MODE_DMA) {
 		i_ret = hal_dma_pm_ops(p_btif->p_tx_dma->p_dma_info,
 				       BTIF_PM_RESTORE_NOIRQ);
 		if (i_ret == 0) {
@@ -370,7 +370,7 @@ int _btif_restore_noirq(struct _mtk_btif_ *p_btif)
 			return i_ret;
 		}
 	}
-	if (p_btif->rx_mode & BTIF_MODE_DMA) {
+	if (p_btif->rx_mode == BTIF_MODE_DMA) {
 		i_ret = hal_dma_pm_ops(p_btif->p_rx_dma->p_dma_info,
 				       BTIF_PM_RESTORE_NOIRQ);
 		if (i_ret == 0) {
@@ -401,7 +401,7 @@ static int mtk_btif_restore_noirq(struct device *dev)
 	i_ret = _btif_restore_noirq(p_btif);
 	BTIF_STATE_RELEASE(p_btif);
 	BTIF_INFO_FUNC("--\n");
-	return 0;
+	return i_ret;
 }
 
 int _btif_resume(struct _mtk_btif_ *p_btif)
@@ -728,14 +728,14 @@ long btif_unlocked_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 /*-----------device property----------------*/
 static ssize_t driver_flag_read(struct device_driver *drv, char *buf)
 {
-	return sprintf(buf, "btif driver debug level:%d\n", mtk_btif_dbg_lvl);
+	return snprintf(buf, PAGE_SIZE, "dbg level:%d\n", mtk_btif_dbg_lvl);
 }
 
 static ssize_t driver_flag_set(struct device_driver *drv,
 			       const char *buffer, size_t count)
 {
 	char buf[256];
-	char *p_buf;
+	char *p_buf = NULL;
 	unsigned long len = count;
 	long x = 0;
 	long y = 0;
@@ -2907,7 +2907,7 @@ int btif_rx_notify_reg(struct _mtk_btif_ *p_btif, MTK_BTIF_RX_NOTIFY rx_notify)
 	return 0;
 }
 
-int btif_dump_data(char *p_buf, int len)
+int btif_dump_data(const char *p_buf, int len)
 {
 	unsigned int idx = 0;
 	unsigned char str[30];
