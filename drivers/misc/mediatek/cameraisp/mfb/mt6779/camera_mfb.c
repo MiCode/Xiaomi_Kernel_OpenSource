@@ -256,9 +256,9 @@ struct MFB_REQUEST_STRUCT {
 };
 
 struct MFB_REQUEST_RING_STRUCT {
-	signed int WriteIdx;	/* enque how many request  */
-	signed int ReadIdx;		/* read which request index */
-	signed int HWProcessIdx;	/* HWWriteIdx */
+	unsigned int WriteIdx;	/* enque how many request  */
+	unsigned int ReadIdx;		/* read which request index */
+	unsigned int HWProcessIdx;	/* HWWriteIdx */
 	struct MFB_REQUEST_STRUCT
 		MFBReq_Struct[_SUPPORT_MAX_MFB_REQUEST_RING_SIZE_];
 };
@@ -356,6 +356,7 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
 	unsigned int str_leng;\
 	unsigned int i = 0;\
+	int ret; \
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	if (logT == _LOG_ERR) {\
 		str_leng = NORMAL_STR_LEN*ERR_PAGE; \
@@ -367,18 +368,21 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 		str_leng = 0;\
 	} \
 	ptr = pDes = \
-	(char *)&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);\
-	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
-	if (avaLen > 1) {\
-		snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt,\
-		gSvLog[irq]._lastIrqTime.sec, gSvLog[irq]._lastIrqTime.usec,\
-		##__VA_ARGS__);   \
-	if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
-		log_err("log str over flow(%d)", irq);\
-	} \
-	while (*ptr++ != '\0') {        \
-		(*ptr2)++;\
-	}     \
+	(char *)&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]); \
+	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT]; \
+	if (avaLen > 1) { \
+		ret = snprintf((char *)(pDes), avaLen, "[%d.%06d]" fmt, \
+		gSvLog[irq]._lastIrqTime.sec, gSvLog[irq]._lastIrqTime.usec, \
+		##__VA_ARGS__); \
+		if (ret < 0) { \
+			log_err("snprintf fail(%d)\n", ret); \
+		} \
+		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) { \
+			log_err("log str over flow(%d)\n", irq); \
+		} \
+		while (*ptr++ != '\0') { \
+			(*ptr2)++; \
+		} \
 	} else { \
 		log_inf("(%d)(%d)log str avalible=0, print log\n", irq, logT);\
 	ptr = pSrc->_str[ppb][logT];\
@@ -437,8 +441,8 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int logT = 0;\
+	unsigned int ppb = 0;\
+	unsigned int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} else {\
@@ -1371,7 +1375,7 @@ void MFB_DumpUserSpaceReg(MFB_Config *pMfbConfig)
 	log_inf("UNP_CONT_C = 0x%08X\n", pMfbConfig->UNP_CONT_C);
 }
 
-static bool ConfigMFBRequest(signed int ReqIdx)
+static bool ConfigMFBRequest(unsigned int ReqIdx)
 {
 #ifdef MFB_USE_GCE
 	unsigned int j;
@@ -3042,7 +3046,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	MFB_CLEAR_IRQ_STRUCT ClearIrq;
 	MFB_Config mfb_MfbConfig;
 	MFB_Request mfb_MfbReq;
-	signed int MfbWriteIdx = 0;
+	unsigned int MfbWriteIdx = 0;
 	int idx;
 	struct MFB_USER_INFO_STRUCT *pUserInfo;
 	int enqueNum;
@@ -4647,7 +4651,7 @@ static ssize_t mfb_reg_write(
 	loff_t *data)
 {
 	char desc[128];
-	int len = 0;
+	unsigned int len = 0;
 	/*char *pEnd;*/
 	char addrSzBuf[24];
 	char valSzBuf[24];
