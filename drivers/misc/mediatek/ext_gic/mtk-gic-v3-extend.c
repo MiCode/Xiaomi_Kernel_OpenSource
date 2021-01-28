@@ -572,7 +572,7 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 static spinlock_t domain_lock;
 int print_en;
 
-int add_cpu_to_prefer_schedule_domain(unsigned long cpu)
+int add_cpu_to_prefer_schedule_domain(unsigned int cpu)
 {
 	unsigned long domain;
 
@@ -587,7 +587,7 @@ int add_cpu_to_prefer_schedule_domain(unsigned long cpu)
 	return 0;
 }
 
-int remove_cpu_from_prefer_schedule_domain(unsigned long cpu)
+int remove_cpu_from_prefer_schedule_domain(unsigned int cpu)
 {
 	unsigned long domain;
 
@@ -632,6 +632,7 @@ static inline void gic_cpu_pm_init(void) { }
 void irq_sw_mode_init(void)
 {
 	struct device_node *node;
+	int ret;
 
 	if (irq_sw_mode_support() != 1) {
 		pr_notice("### IRQ SW mode not support ###\n");
@@ -641,6 +642,13 @@ void irq_sw_mode_init(void)
 	MCUSYS_BASE_SWMODE = of_iomap(node, 0);
 	spin_lock_init(&domain_lock);
 	gic_sched_pm_init();
+
+	ret = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+			"irq_sw_mode:online",
+			add_cpu_to_prefer_schedule_domain,
+			remove_cpu_from_prefer_schedule_domain);
+	WARN_ON(ret < 0);
+
 }
 
 int __init mt_gic_ext_init(void)

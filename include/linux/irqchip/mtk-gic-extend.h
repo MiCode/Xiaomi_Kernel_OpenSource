@@ -85,8 +85,8 @@ void irq_raise_softirq(const struct cpumask *mask, unsigned int irq);
 void gic_set_primask(void);
 /* restore the priority mask value */
 void gic_clear_primask(void);
-int add_cpu_to_prefer_schedule_domain(unsigned long cpu);
-int remove_cpu_from_prefer_schedule_domain(unsigned long cpu);
+int add_cpu_to_prefer_schedule_domain(unsigned int cpu);
+int remove_cpu_from_prefer_schedule_domain(unsigned int cpu);
 
 #ifdef CONFIG_MTK_SYSIRQ
 static inline struct irq_data *get_gic_irq_data(struct irq_data *d)
