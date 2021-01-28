@@ -1730,8 +1730,13 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	info->log_level = CHRLOG_DEBUG_LEVEL;
 
 	info->pd_adapter = get_adapter_by_name("pd_adapter");
-	info->pd_nb.notifier_call = notify_adapter_event;
-	register_adapter_device_notifier(info->pd_adapter, &info->pd_nb);
+	if (!info->pd_adapter)
+		chr_err("%s: No pd adapter found\n");
+	else {
+		info->pd_nb.notifier_call = notify_adapter_event;
+		register_adapter_device_notifier(info->pd_adapter,
+						 &info->pd_nb);
+	}
 
 	info->chg_alg_nb.notifier_call = chg_alg_event;
 

@@ -108,7 +108,10 @@ static const struct attribute_group *adapter_groups[] = {
 int register_adapter_device_notifier(struct adapter_device *adapter_dev,
 				struct notifier_block *nb)
 {
-	int ret;
+	int ret = 0;
+
+	if (!adapter_dev)
+		return -ENODEV;
 
 	ret = srcu_notifier_chain_register(&adapter_dev->evt_nh, nb);
 	return ret;
@@ -118,6 +121,9 @@ EXPORT_SYMBOL(register_adapter_device_notifier);
 int unregister_adapter_device_notifier(struct adapter_device *adapter_dev,
 				struct notifier_block *nb)
 {
+	if (!adapter_dev)
+		return -ENODEV;
+
 	return srcu_notifier_chain_unregister(&adapter_dev->evt_nh, nb);
 }
 EXPORT_SYMBOL(unregister_adapter_device_notifier);
