@@ -18,7 +18,11 @@
 
 /* ===== constants ===== */
 #define INCFS_NAME "incremental-fs"
+#ifdef CONFIG_ARM64
 #define INCFS_MAGIC_NUMBER (0x5346434e49ul)
+#else
+#define INCFS_MAGIC_NUMBER (unsigned long)(0x5346434e49ul)
+#endif
 #define INCFS_DATA_FILE_BLOCK_SIZE 4096
 #define INCFS_HEADER_VER 1
 
