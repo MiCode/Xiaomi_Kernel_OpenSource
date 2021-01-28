@@ -262,7 +262,7 @@ int mdw_sched_dev_routine(void *arg)
 
 		sc = (struct mdw_apu_sc *)d->sc;
 		if (!sc) {
-			mdw_drv_err("no sc to exec\n");
+			mdw_drv_warn("no sc to exec\n");
 			goto next;
 		}
 
@@ -273,7 +273,7 @@ int mdw_sched_dev_routine(void *arg)
 			goto next;
 		}
 
-		/* contruct cmd hnd */
+		/* construct cmd hnd */
 		mdw_queue_deadline_boost(sc);
 		cmd_parser->set_hnd(sc, &h);
 
@@ -323,6 +323,8 @@ next:
 		mdw_flw_debug("done\n");
 		continue;
 	}
+
+	complete(&d->thd_done);
 
 	return 0;
 }
