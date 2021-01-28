@@ -3834,7 +3834,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x11210000 0 0x1000>;
 		interrupts = <GIC_SPI 184 IRQ_TYPE_LEVEL_LOW>;
 		topckgen = <&topckgen>;
-		power-domains = <&scpsys MT6779_POWER_DOMAIN_AUDIO>;
 		clocks = <&audclk CLK_AUD_AFE>,
 			 <&audclk CLK_AUD_DAC>,
 			 <&audclk CLK_AUD_DAC_PREDIS>,
@@ -3855,6 +3854,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			 <&audclk CLK_AUD_3RD_DAC_PREDIS>,
 			 <&audclk CLK_AUD_3RD_DAC_TML>,
 			 <&audclk CLK_AUD_3RD_DAC_HIRES>,
+			 <&scpsys SCP_SYS_AUDIO>,
 			 <&infracfg_ao CLK_INFRA_AUD>,
 			 <&infracfg_ao CLK_INFRA_AUD_26M_BCLK_CK>,
 			 <&topckgen CLK_TOP_AUD>,
@@ -3903,6 +3903,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			      "aud_3rd_dac_predis_clk",
 			      "aud_3rd_dac_tml",
 			      "aud_3rd_dac_hires_clk",
+			      "scp_sys_audio",
 			      "aud_infra_clk",
 			      "mtkaif_26m_clk",
 			      "top_mux_audio",
