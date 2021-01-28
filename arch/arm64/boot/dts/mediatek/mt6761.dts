@@ -40,53 +40,12 @@ firmware_class.path=/vendor/firmware";
 			reg = <0x000>;
 			enable-method = "psci";
 			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
-		};
-
-		cpu1: cpu@001 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a53";
-			reg = <0x001>;
-			enable-method = "psci";
-			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
-		};
-
-		cpu2: cpu@002 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a53";
-			reg = <0x002>;
-			enable-method = "psci";
-			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
-		};
-
-		cpu3: cpu@003 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a53";
-			reg = <0x003>;
-			enable-method = "psci";
-			clock-frequency = <2340000000>;
-			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
-					  <&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu-map {
 			cluster0 {
 				core0 {
 					cpu = <&cpu0>;
-				};
-				core1 {
-					cpu = <&cpu1>;
-				};
-				core2 {
-					cpu = <&cpu2>;
-				};
-				core3 {
-					cpu = <&cpu3>;
 				};
 			};
 		};
