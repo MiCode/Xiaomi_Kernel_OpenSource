@@ -20,7 +20,7 @@
 #define DEBUGLINE dcm_pr_info("%s %d\n", __func__, __LINE__)
 
 static short dcm_cpu_cluster_stat;
-
+static short dcm_debug;
 
 unsigned int all_dcm_type =
 		(ARMCORE_DCM_TYPE | MCUSYS_DCM_TYPE | STALL_DCM_TYPE |
@@ -314,12 +314,18 @@ void get_init_by_k_type(unsigned int *type)
 #endif
 }
 
+void set_debug_mode(unsigned int mode)
+{
+	 dcm_debug = mode;
+}
+
 struct DCM_OPS dcm_ops = {
 	.dump_regs = (DCM_FUNC_VOID_VOID) dcm_dump_regs,
 	.get_default = (DCM_FUNC_VOID_UINTR_INTR) get_default,
 	.get_init_type = (DCM_FUNC_VOID_UINTR) get_init_type,
 	.get_all_type = (DCM_FUNC_VOID_UINTR) get_all_type,
 	.get_init_by_k_type = (DCM_FUNC_VOID_UINTR) get_init_by_k_type,
+	.set_debug_mode = (DCM_FUNC_VOID_UINT) set_debug_mode,
 };
 
 struct DCM_BASE dcm_base_array[] = {
@@ -529,6 +535,8 @@ static int __init mt6779_dcm_init(void)
 	dcm_array_register();
 
 	ret = mt_dcm_common_init();
+
+	dcm_debug = 0;
 
 	return ret;
 }

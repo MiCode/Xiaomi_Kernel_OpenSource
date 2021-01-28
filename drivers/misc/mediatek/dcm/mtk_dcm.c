@@ -283,6 +283,14 @@ static ssize_t dcm_state_store(struct kobject *kobj,
 		} else if (!strcmp(cmd, "dump")) {
 			dcm_dump_state(mask);
 			common_dcm_ops->dump_regs();
+		} else if (!strcmp(cmd, "debug")) {
+			if (mask == 0) {
+				dcm_debug = 0;
+				common_dcm_ops->set_debug_mode(dcm_debug);
+			} else if (mask == 1) {
+				dcm_debug = 1;
+				common_dcm_ops->set_debug_mode(dcm_debug);
+			}
 		} else if (!strcmp(cmd, "set")) {
 			if (sscanf(buf, "%15s %x %d", cmd, &mask, &mode) == 3) {
 				mask &= common_all_dcm_type;

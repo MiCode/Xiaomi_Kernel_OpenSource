@@ -167,6 +167,7 @@ typedef void (*DCM_FUNC_VOID_VOID)(void);
 typedef void (*DCM_FUNC_VOID_UINTR)(unsigned int *);
 typedef void (*DCM_FUNC_VOID_UINTR_INTR)(unsigned int *, int *);
 typedef void (*DCM_PRESET_FUNC)(void);
+typedef void (*DCM_FUNC_VOID_UINT)(unsigned int);
 
 struct DCM_OPS {
 	DCM_FUNC_VOID_VOID dump_regs;
@@ -174,6 +175,7 @@ struct DCM_OPS {
 	DCM_FUNC_VOID_UINTR get_init_type;
 	DCM_FUNC_VOID_UINTR get_all_type;
 	DCM_FUNC_VOID_UINTR get_init_by_k_type;
+	DCM_FUNC_VOID_UINT set_debug_mode;
 };
 
 struct DCM_BASE {
