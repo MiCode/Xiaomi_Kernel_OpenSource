@@ -10,7 +10,6 @@ config MTK_BLOCK_TAG
 	depends on MEDIATEK_SOLUTION
 	depends on (MTK_GMO_RAM_OPTIMIZE && MTK_ENG_BUILD) || \
 		   !MTK_GMO_RAM_OPTIMIZE
-	depends on DEBUG_FS
 	default y
 	help
 	  Enable block tagging at block driver, tag requester pid to
