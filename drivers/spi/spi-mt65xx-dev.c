@@ -55,6 +55,27 @@ void secspi_disable_clk(struct spi_device *spidev)
 		clk_disable_unprepare(ms->spare_clk);
 }
 
+void mt_spi_disable_master_clk(struct spi_device *spidev)
+{
+	struct mtk_spi *ms;
+
+	ms = spi_master_get_devdata(spidev->master);
+
+	clk_disable_unprepare(ms->spi_clk);
+}
+EXPORT_SYMBOL(mt_spi_disable_master_clk);
+
+void mt_spi_enable_master_clk(struct spi_device *spidev)
+{
+	int ret;
+	struct mtk_spi *ms;
+
+	ms = spi_master_get_devdata(spidev->master);
+
+	ret = clk_prepare_enable(ms->spi_clk);
+}
+EXPORT_SYMBOL(mt_spi_enable_master_clk);
+
 void spi_transfer_malloc(struct spi_transfer *trans, int is2spis)
 {
 	int i;
@@ -226,6 +247,7 @@ static int spi_mt65xx_dev_remove(struct spi_device *spi)
 }
 
 static const struct of_device_id spi_mt65xx_dev_dt_ids[] = {
+	{ .compatible = "mediatek,spi-mt65xx-test" },
 	{ .compatible = "spi-mt65xx-dev" },
 	{ .compatible = "spi-slave-autotest" },
 	{},
@@ -242,5 +264,6 @@ static struct spi_driver spi_mt65xx_dev_driver = {
 };
 module_spi_driver(spi_mt65xx_dev_driver);
 
+MODULE_DESCRIPTION("MTK SPI test device driver");
 MODULE_AUTHOR("Mediatek");
 MODULE_LICENSE("GPL v2");
