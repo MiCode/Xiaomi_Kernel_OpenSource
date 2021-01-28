@@ -33,7 +33,7 @@ while getopts "cuh" opt; do
 		break
 	fi
 
-	CONFIGS=`git show ${CHECK_COMMIT} --stat | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
+	CONFIGS=`git show ${CHECK_COMMIT} --stat-width=500 | gawk '/arch\/(arm64|arm)\/configs\/.*_defconfig +\| +[0-9]*/{print $1}'`
 	if [ ".$CONFIGS" != "." ]; then
 		echo From git commit: Checking $CONFIGS
 	fi
