@@ -91,7 +91,6 @@ obj-$(CONFIG_MTK_LENS)      += lens/
 endif
 obj-$(CONFIG_MTK_CAM_CAL)   += cam_cal/
 obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
-obj-y += devinfo/
 obj-$(CONFIG_MTK_M4U) += m4u/
 obj-y += pmic/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
