@@ -1915,7 +1915,7 @@ static int pxa3xx_nand_remove(struct platform_device *pdev)
 	clk_disable_unprepare(info->clk);
 
 	for (cs = 0; cs < pdata->num_cs; cs++)
-		nand_release(nand_to_mtd(&info->host[cs]->chip));
+		nand_release(&info->host[cs]->chip);
 	return 0;
 }
 
