@@ -149,6 +149,19 @@ static void timesync_ws(struct work_struct *ws)
 	timesync_sync_base(TIMESYNC_FLAG_SYNC);
 }
 
+static u64 get_ts_max_nsecs(u32 mult, u32 shift, u64 mask)
+{
+	u64 max_nsecs, max_cycles;
+
+	max_cycles = ULLONG_MAX;
+	do_div(max_cycles, mult);
+	max_cycles = min(max_cycles, mask);
+	max_nsecs = clocksource_cyc2ns(max_cycles, mult, shift);
+	/* Return 50% of the actual maximum, so we can detect bad values */
+	max_nsecs >>= 1;
+	return max_nsecs;
+}
+
 unsigned int __init sspm_timesync_init(void)
 {
 	u64 wrap;
@@ -166,10 +179,10 @@ unsigned int __init sspm_timesync_init(void)
 
 	/* init cyclecounter mult and shift as sched_clock */
 	clocks_calc_mult_shift(&timesync_cc.mult, &timesync_cc.shift,
-				arch_timer_get_rate(), NSEC_PER_SEC, 3600);
+				arch_timer_get_cntfrq(), NSEC_PER_SEC, 3600);
 
-	wrap = clocks_calc_max_nsecs(timesync_cc.mult, timesync_cc.shift,
-				0, timesync_cc.mask, NULL);
+	wrap = get_ts_max_nsecs(timesync_cc.mult, timesync_cc.shift,
+				timesync_cc.mask);
 	timesync_ctx.wrap_kt = ns_to_ktime(wrap);
 
 	/* Init time counter:
