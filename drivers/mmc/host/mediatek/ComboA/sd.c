@@ -3769,6 +3769,10 @@ static void msdc_dump_trans_error(struct msdc_host   *host,
 	}
 
 #ifdef SDIO_ERROR_BYPASS
+
+	if (!data)
+		return;
+
 	if (is_card_sdio(host) &&
 	    (host->sdio_error != -EILSEQ) &&
 	    (cmd->opcode == 53) &&
