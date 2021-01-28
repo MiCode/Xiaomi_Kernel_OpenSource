@@ -33,7 +33,6 @@
 #define CMDQ_THR_SLOT_CYCLES		0x30
 #define CMDQ_THR_EXEC_CYCLES		0x34
 #define CMDQ_THR_TIMEOUT_TIMER		0x38
-#define GCE_GCTL_VALUE			0x48
 #define CMDQ_SYNC_TOKEN_ID		0x60
 #define CMDQ_SYNC_TOKEN_VAL		0x64
 #define CMDQ_SYNC_TOKEN_UPD		0x68
@@ -58,6 +57,11 @@
 #define CMDQ_THR_INST_CYCLES		0x50
 #define CMDQ_THR_INST_THRESX		0x54
 #define CMDQ_THR_SPR			0x60
+
+#define GCE_GCTL_VALUE			0x48
+#define GCE_GPR_R0_START		0x80
+#define GCE_DEBUG_START_ADDR		0x1104
+#define GCE_DEBUG_END_ADDR		0x1108
 
 #define CMDQ_THR_ENABLED		0x1
 #define CMDQ_THR_DISABLED		0x0
@@ -258,6 +262,10 @@ static s32 cmdq_clk_enable(struct cmdq *cmdq)
 			writel(cmdq->prefetch,
 				cmdq->base + CMDQ_PREFETCH_GSIZE);
 		writel(CMDQ_TPR_EN, cmdq->base + CMDQ_TPR_MASK);
+#if IS_ENABLED(CONFIG_MACH_MT6873) || IS_ENABLED(CONFIG_MACH_MT6853)
+		writel((0x7 << 16) + 0x7, cmdq->base + GCE_GCTL_VALUE);
+		writel(0, cmdq->base + GCE_DEBUG_START_ADDR);
+#endif
 		/* make sure pm not suspend */
 		cmdq_lock_wake_lock(cmdq, true);
 		cmdq_init(cmdq);
@@ -293,8 +301,9 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 		cmdq_log("cmdq shutdown mbox");
 		/* clear tpr mask */
 		writel(0, cmdq->base + CMDQ_TPR_MASK);
+#if IS_ENABLED(CONFIG_MACH_MT6873) || IS_ENABLED(CONFIG_MACH_MT6853)
 		writel(0x7, cmdq->base + GCE_GCTL_VALUE);
-
+#endif
 		/* now allow pm suspend */
 		cmdq_lock_wake_lock(cmdq, false);
 	}
@@ -433,6 +442,16 @@ static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 #endif
 	cmdq_thread_reset(cmdq, thread);
 	writel(CMDQ_THR_DISABLED, thread->base + CMDQ_THR_ENABLE_TASK);
+#if IS_ENABLED(CONFIG_MACH_MT6873) || IS_ENABLED(CONFIG_MACH_MT6853)
+	if (cmdq_thread_ddr_user_check(thread->idx)) {
+		unsigned long flags;
+
+		spin_lock_irqsave(&cmdq->lock, flags);
+		writel(readl(cmdq->base + GCE_DEBUG_START_ADDR) - 1,
+			cmdq->base + GCE_DEBUG_START_ADDR);
+		spin_unlock_irqrestore(&cmdq->lock, flags);
+	}
+#endif
 }
 
 /* notify GCE to re-fetch commands by setting GCE thread PC */
@@ -602,6 +621,18 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 			&task->pa_base, pkt->cmd_buf_size, thread->base,
 			thread->idx);
 
+#if IS_ENABLED(CONFIG_MACH_MT6873) || IS_ENABLED(CONFIG_MACH_MT6853)
+		if (cmdq_thread_ddr_user_check(thread->idx)) {
+			unsigned long flags;
+
+			spin_lock_irqsave(&cmdq->lock, flags);
+			writel(readl(cmdq->base + GCE_GCTL_VALUE) | (1 << 16),
+				cmdq->base + GCE_GCTL_VALUE);
+			writel(readl(cmdq->base + GCE_DEBUG_START_ADDR) + 1,
+				cmdq->base + GCE_DEBUG_START_ADDR);
+			spin_unlock_irqrestore(&cmdq->lock, flags);
+		}
+#endif
 		writel(CMDQ_INST_CYCLE_TIMEOUT,
 			thread->base + CMDQ_THR_INST_CYCLES);
 		writel(thread->priority & CMDQ_THR_PRIORITY,
@@ -1072,6 +1103,30 @@ void cmdq_dump_core(struct mbox_chan *chan)
 }
 EXPORT_SYMBOL(cmdq_dump_core);
 
+void cmdq_thread_dump_spr(struct cmdq_thread *thread)
+{
+	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
+	u32 i, spr[4] = {0}, dbg[2] = {0}, gpr[16] = {0};
+
+	for (i = 0; i < 4; i++)
+		spr[i] = readl(thread->base + CMDQ_THR_SPR + i * 4);
+	dbg[0] = readl(cmdq->base + GCE_DEBUG_START_ADDR);
+	dbg[1] = readl(cmdq->base + GCE_DEBUG_END_ADDR);
+
+	cmdq_util_msg("thrd:%u spr:%#x %#x %#x %#x dbg:%#x %#x",
+		thread->idx, spr[0], spr[1], spr[2], spr[3], dbg[0], dbg[1]);
+
+	for (i = 0; i < 16; i++)
+		gpr[i] = readl(cmdq->base + GCE_GPR_R0_START + i * 4);
+
+	cmdq_util_msg(
+		"cmdq:%pa gpr:%#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x %#x",
+		&cmdq->base_pa, gpr[0], gpr[1], gpr[2], gpr[3], gpr[4], gpr[5],
+		gpr[6], gpr[7], gpr[8], gpr[9], gpr[10], gpr[11], gpr[12],
+		gpr[13], gpr[14], gpr[15]);
+}
+EXPORT_SYMBOL(cmdq_thread_dump_spr);
+
 void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	u64 **inst_out, dma_addr_t *pc_out)
 {
@@ -1083,7 +1138,7 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 
 	struct cmdq_pkt *pkt = NULL;
 	u32 warn_rst, en, suspend, status, irq, irq_en, curr_pa, end_pa, cnt,
-		wait_token, cfg, prefetch, pri = 0, spr[4];
+		wait_token, cfg, prefetch, pri = 0;
 	size_t size = 0;
 	u64 *end_va, *curr_va = NULL, inst = 0, last_inst[2] = {0};
 	void *va_base = NULL;
@@ -1113,10 +1168,6 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	wait_token = readl(thread->base + CMDQ_THR_WAIT_TOKEN);
 	cfg = readl(thread->base + CMDQ_THR_CFG);
 	prefetch = readl(thread->base + CMDQ_THR_PREFETCH);
-	spr[0] = readl(thread->base + CMDQ_THR_SPR);
-	spr[1] = readl(thread->base + CMDQ_THR_SPR + 4);
-	spr[2] = readl(thread->base + CMDQ_THR_SPR + 8);
-	spr[3] = readl(thread->base + CMDQ_THR_SPR + 12);
 
 	list_for_each_entry(task, &thread->task_busy_list, list_entry) {
 		empty = false;
@@ -1152,8 +1203,8 @@ void cmdq_thread_dump(struct mbox_chan *chan, struct cmdq_pkt *cl_pkt,
 	cmdq_util_msg(
 		"rst:%#x en:%#x suspend:%#x status:%#x irq:%x en:%#x cfg:%#x",
 		warn_rst, en, suspend, status, irq, irq_en, cfg);
-	cmdq_util_msg("spr:%#x %#x %#x %#x",
-		spr[0], spr[1], spr[2], spr[3]);
+	cmdq_thread_dump_spr(thread);
+
 	if (pkt) {
 		cmdq_util_msg(
 			"cur pkt:0x%p size:%zu va:0x%p pa:%pa priority:%u",
@@ -1220,8 +1271,8 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 
 		cmdq_util_msg("thd idx:%u pc:%#x end:%#x",
 			thread->idx, curr_pa, end_pa);
+		cmdq_thread_dump_spr(thread);
 	}
-
 }
 EXPORT_SYMBOL(cmdq_thread_dump_all);
 
