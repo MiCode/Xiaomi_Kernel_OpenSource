@@ -54,6 +54,7 @@ obj-$(CONFIG_MTK_TINYSYS_MCUPM_SUPPORT) += mcupm/
 obj-y += timer/
 obj-$(CONFIG_MTK_ACCDET) += accdet/
 obj-$(CONFIG_MTK_DRAMC) += dramc/
+obj-$(CONFIG_MTK_DRAMC_WA) += dramc/
 obj-$(CONFIG_MTK_DBGTOP) += dbgtop/
 obj-$(CONFIG_MTK_DEBUG_LATCH) += debug_latch/
 obj-$(CONFIG_MTK_GIC_EXT) += ext_gic/
