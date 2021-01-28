@@ -1255,7 +1255,7 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 			      struct dma_buf_attachment *attachment)
 {
 	struct ion_dma_buf_attachment *a;
-	struct sg_table *table;
+	struct sg_table *table = NULL;
 	struct ion_buffer *buffer;
 
 	if (!attachment) {
@@ -1279,7 +1279,12 @@ static int ion_dma_buf_attach(struct dma_buf *dmabuf, struct device *dev,
 	if (!a)
 		return -ENOMEM;
 
-	table = dup_sg_table(buffer->sg_table);
+#ifdef CONFIG_MTK_IOMMU_V2
+	if (buffer->sg_table_orig)
+		table = dup_sg_table(buffer->sg_table_orig);
+#endif
+	if (!table)
+		table = dup_sg_table(buffer->sg_table);
 	if (IS_ERR(table)) {
 		kfree(a);
 		return -ENOMEM;
