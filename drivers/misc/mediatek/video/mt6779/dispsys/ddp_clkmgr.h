@@ -10,7 +10,6 @@
 #include "ddp_hal.h"
 
 #include <linux/clk.h>
-#include <linux/pm_runtime.h>
 
 
 /**
@@ -18,6 +17,12 @@
  * -- by chip
  */
 enum DDP_CLK_ID {
+	/* top clk */
+	CLK_SMI_COMMON = 0,
+	CLK_SMI_LARB0,
+	CLK_SMI_LARB1,
+	CLK_GALS_COMM0,
+	CLK_GALS_COMM1,
 	/* module clk */
 	CLK_DISP_OVL0,
 	CLK_DISP_OVL0_2L,
@@ -69,15 +74,6 @@ struct ddp_clk {
 	enum DISP_MODULE_ENUM module_id;
 };
 
-struct ddp_power {
-	struct device *pdev;
-	/* power_name: it should be synchronized with DT */
-	const char *power_name;
-	int refcnt;
-	/* bit 0: main display , bit 1: second display */
-	unsigned int belong_to;
-};
-
 const char *ddp_get_clk_name(unsigned int n);
 int ddp_clk_set_handle(struct clk *pclk, unsigned int n);
 
@@ -100,7 +96,4 @@ int ddp_clk_check(void);
 int ddp_ovl_dcm_reset(void);
 int ddp_clk_enable_by_module(enum DISP_MODULE_ENUM module);
 int ddp_clk_disable_by_module(enum DISP_MODULE_ENUM module);
-int ddp_power_set_handle(struct device *pdev);
-int ddp_power_enable(void);
-int ddp_power_disable(void);
 #endif /* __DDP_CLK_MGR_H__ */

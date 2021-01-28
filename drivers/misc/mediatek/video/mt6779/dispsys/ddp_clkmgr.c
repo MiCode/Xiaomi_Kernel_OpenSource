@@ -7,7 +7,6 @@
 #include <linux/of_address.h>
 #include <linux/types.h>
 #include <linux/io.h>
-#include <linux/pm_runtime.h>
 /* #include "mt-plat/sync_write.h" */
 
 #include "ddp_reg.h"
@@ -36,6 +35,17 @@
  *	enum DISP_MODULE_ENUM module_id;
  */
 static struct ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
+	/* top clk */
+	[CLK_SMI_COMMON] = {
+		NULL, "CLK_SMI_COMMON", 0, (0), DISP_MODULE_UNKNOWN},
+	[CLK_SMI_LARB0] = {
+		NULL, "CLK_SMI_LARB0", 0, (0), DISP_MODULE_UNKNOWN},
+	[CLK_SMI_LARB1] = {
+		NULL, "CLK_SMI_LARB1", 0, (0), DISP_MODULE_UNKNOWN},
+	[CLK_GALS_COMM0] = {
+		NULL, "CLK_GALS_COMM0", 0, (0), DISP_MODULE_UNKNOWN},
+	[CLK_GALS_COMM1] = {
+		NULL, "CLK_GALS_COMM1", 0, (0), DISP_MODULE_UNKNOWN},
 	/* module clk */
 	[CLK_DISP_OVL0] = {
 		NULL, "CLK_DISP_OVL0", 0, (1), DISP_MODULE_OVL0},
@@ -108,10 +118,6 @@ static struct ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
 		NULL, "CLK_TVDPLL_CK", 0, (0), DISP_MODULE_UNKNOWN},
 	[CLK_MIPID0_26M] = {
 		NULL, "CLK_MIPID0_26M", 0, (0), DISP_MODULE_UNKNOWN},
-};
-
-static struct ddp_power ddp_powers = {
-	{NULL, "MT6779_POWER_DOMAIN_MM", 0, 0},
 };
 
 static void __iomem *ddp_apmixed_base;
@@ -323,7 +329,11 @@ void ddp_clk_top_clk_switch(bool on)
 		smi_bus_prepare_enable(SMI_LARB0, "DISP");
 		smi_bus_prepare_enable(SMI_LARB1, "DISP");
 #else
-		ddp_power_enable();
+		ddp_clk_prepare_enable(CLK_GALS_COMM0);
+		ddp_clk_prepare_enable(CLK_GALS_COMM1);
+		ddp_clk_prepare_enable(CLK_SMI_COMMON);
+		ddp_clk_prepare_enable(CLK_SMI_LARB0);
+		ddp_clk_prepare_enable(CLK_SMI_LARB1);
 #endif
 		ddp_clk_prepare_enable(CLK_MM_26M);
 	} else {
@@ -332,7 +342,11 @@ void ddp_clk_top_clk_switch(bool on)
 		smi_bus_disable_unprepare(SMI_LARB0, "DISP");
 		smi_bus_disable_unprepare(SMI_LARB1, "DISP");
 #else
-		ddp_power_disable();
+		ddp_clk_disable_unprepare(CLK_SMI_LARB0);
+		ddp_clk_disable_unprepare(CLK_SMI_LARB1);
+		ddp_clk_disable_unprepare(CLK_SMI_COMMON);
+		ddp_clk_disable_unprepare(CLK_GALS_COMM1);
+		ddp_clk_disable_unprepare(CLK_GALS_COMM0);
 #endif
 	}
 }
@@ -667,68 +681,3 @@ int ddp_clk_disable_by_module(enum DISP_MODULE_ENUM module)
 
 	return ret;
 }
-
-int ddp_power_set_handle(struct device *pdev)
-{
-	if (!pdev) {
-		DDP_PR_ERR("%s:%d cannot support NULL dev\n",
-				__func__, __LINE__);
-		return -1;
-	}
-
-	pm_runtime_enable(pdev);
-	ddp_powers.pdev = pdev;
-	DDPMSG("%s:%d set handle:%p\n", __func__, __LINE__, ddp_powers.pdev);
-	return 0;
-}
-
-int ddp_power_enable(void)
-{
-	int ret = 0;
-
-	DDPDBG("%s:%d\n", __func__, __LINE__);
-
-	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		return ret;
-
-	if (!ddp_powers.pdev) {
-		DDP_PR_ERR("%s:%d cannot support NULL dev\n",
-				__func__, __LINE__);
-		return -1;
-	}
-
-	ret = pm_runtime_get_sync(ddp_powers.pdev);
-	if (ret) {
-		DDP_PR_ERR("%s:%d, PM get_sync failed:%d\n",
-				__func__, __LINE__, ret);
-	}
-	ddp_powers.refcnt++;
-
-	return ret;
-}
-
-int ddp_power_disable(void)
-{
-	int ret = 0;
-
-	DDPDBG("%s:%d\n", __func__, __LINE__);
-
-	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)
-		return ret;
-
-	if (!ddp_powers.pdev) {
-		DDP_PR_ERR("%s:%d cannot support NULL dev\n",
-				__func__, __LINE__);
-		return -1;
-	}
-
-	ret = pm_runtime_put_sync(ddp_powers.pdev);
-	if (ret) {
-		DDP_PR_ERR("%s:%d, PM put_sync failed:%d\n",
-				__func__, __LINE__, ret);
-	}
-	ddp_powers.refcnt--;
-
-	return ret;
-}
-
