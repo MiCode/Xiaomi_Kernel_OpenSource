@@ -934,20 +934,7 @@ EXPORT_SYMBOL(get_vpu_init_done);
 
 static void get_segment_from_efuse(void)
 {
-	int segment = 0;
-
-	segment = get_devinfo_with_index(7) & 0xFF;
-	switch (segment) {
-	case 0x7://segment p90M 5mode
-		segment_max_opp = 5;
-		break;
-	case 0xE0://segment p90M 6mode 525M
-		segment_max_opp = 5;
-		break;
-	default: //segment p90
-		segment_max_opp = 0;
-		break;
-	}
+	segment_max_opp = 0;
 	LOG_INF("vpu segment_max_opp: %d\n", segment_max_opp);
 }
 
