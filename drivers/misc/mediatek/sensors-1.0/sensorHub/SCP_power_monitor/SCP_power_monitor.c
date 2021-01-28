@@ -31,7 +31,10 @@ void scp_power_monitor_notify(uint8_t action, void *data)
 
 	spin_lock_irqsave(&pm_lock, flags);
 	list_for_each_entry(c, &power_monitor_list, list) {
-		WARN_ON(c->notifier_call == NULL);
+		if (c->notifier_call == NULL) {
+			WARN_ON(true);
+			continue;
+		}
 		c->notifier_call(action, data);
 		pr_debug("%s, module name:%s notify\n", __func__, c->name);
 	}
@@ -50,7 +53,10 @@ int scp_power_monitor_register(struct scp_power_monitor *monitor)
 	int err = 0;
 	struct scp_power_monitor *c;
 
-	WARN_ON(monitor->name == NULL || monitor->notifier_call == NULL);
+	if (monitor->name == NULL || monitor->notifier_call == NULL) {
+		WARN_ON(true);
+		return -1;
+	}
 
 	spin_lock_irq(&pm_lock);
 	list_for_each_entry(c, &power_monitor_list, list) {
