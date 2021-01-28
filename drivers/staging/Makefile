@@ -50,4 +50,6 @@ obj-$(CONFIG_BCM2835_VCHIQ)	+= vc04_services/
 obj-$(CONFIG_CRYPTO_DEV_CCREE)	+= ccree/
 obj-$(CONFIG_DRM_VBOXVIDEO)	+= vboxvideo/
 obj-$(CONFIG_PI433)		+= pi433/
+ifneq ($(subst ",,$(CONFIG_MTK_SENSOR_ARCHITECTURE)),2.0)
 obj-$(CONFIG_NANOHUB)		+= nanohub/
+endif
