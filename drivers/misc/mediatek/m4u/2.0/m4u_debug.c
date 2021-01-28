@@ -744,7 +744,7 @@ static int m4u_debug_set(void *data, u64 val)
 		u32 sec_handle = 0;
 		u32 refcount = 0;
 		int ret = 0;
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 		trusted_mem_api_alloc(0, 0, 0x1000, &refcount, &sec_handle,
@@ -769,6 +769,10 @@ static int m4u_debug_set(void *data, u64 val)
 			IONMSG("KREE_Alloc failed, ret is 0x%x\n", ret);
 			return ret;
 		}
+#else
+		(void)sec_handle;
+		(void)refcount;
+		(void)ret;
 #endif
 		m4u_sec_init();
 	break;
