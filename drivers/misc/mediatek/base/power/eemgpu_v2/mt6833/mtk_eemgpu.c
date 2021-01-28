@@ -137,12 +137,13 @@ static DEFINE_SPINLOCK(eemg_spinlock);
 static int eemg_log_en;
 static unsigned int eemg_checkEfuse = 1;
 static unsigned int informEEMisReady;
+#if SUPPORT_GPU_VB
 unsigned int gpu_vb_volt;
 unsigned int gpu_vb_turn_pt;
 unsigned int gpu_opp0_t_volt[4] = {
 	80000, 77500, 75000, 72500
 };
-
+#endif
 
 #ifdef CONFIG_OF
 void __iomem *eemg_base;
@@ -232,6 +233,7 @@ static int get_devinfo(void)
 	gpu_2line = 0;
 #endif
 
+#if SUPPORT_GPU_VB
 	efuse_val = (get_devinfo_with_index(209)
 		>> 11) & 0x7;
 	if (efuse_val && efuse_val <= 4)
@@ -240,6 +242,7 @@ static int get_devinfo(void)
 	else
 		gpu_vb_volt =
 			gpu_opp0_t_volt[0];
+
 #ifdef MC50_LOAD
 	gpu_vb_volt = gpu_opp0_t_volt[3];
 	eemg_error("mc50 load setting\n");
@@ -249,16 +252,12 @@ static int get_devinfo(void)
 	eemg_error("gpu_vb_volt:%d, efuse_val:%d\n",
 			gpu_vb_volt, efuse_val);
 
-	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
-		if ((i == 5) || (i == 6) ||
-			(i == 11) || (i == 12) || (i == 15))
-			continue;
-		else if (val[i] == 0) {
-			ret = 1;
-			safeEfuse = 1;
-			eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
-			break;
-		}
+#endif
+	if (val[17] == 0) {
+		ret = 1;
+		safeEfuse = 1;
+		eemg_error("No EFUSE (val[%d]), use safe efuse\n", i);
+		break;
 	}
 
 #if (EEMG_FAKE_EFUSE)
@@ -1051,6 +1050,7 @@ static void eemg_save_final_volt_aee(struct eemg_det *ndet)
 #endif
 }
 
+#if SUPPORT_GPU_VB
 static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
 {
 	int i;
@@ -1065,7 +1065,7 @@ static void eemg_interpolate_mid_opp(struct eemg_det *ndet)
 		ndet->freq_tbl[i]));
 	}
 }
-
+#endif
 static void get_volt_table_in_thread(struct eemg_det *det)
 {
 #if ENABLE_LOO
@@ -1269,6 +1269,7 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 		switch (ndet->ctrl_id) {
 		case EEMG_CTRL_GPU:
+#if SUPPORT_GPU_VB
 			if ((i == 0) && (gpu_vb_turn_pt != 0))
 				ndet->volt_tbl_pmic[i] = min(
 				(unsigned int)(clamp(
@@ -1280,6 +1281,7 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 				ndet->volt_tbl_orig[i] + ndet->volt_clamp +
 				t_clamp);
 			else
+#endif
 				ndet->volt_tbl_pmic[i] = min(
 				(unsigned int)(clamp(
 				ndet->ops->eemg_2_pmic(ndet,
@@ -1355,10 +1357,12 @@ static void get_volt_table_in_thread(struct eemg_det *det)
 
 	}
 
+#if SUPPORT_GPU_VB
 	if ((ndet->ctrl_id == EEMG_CTRL_GPU) &&
 		(gpu_vb_turn_pt != 0))
 		eemg_interpolate_mid_opp(ndet);
 	eemg_save_final_volt_aee(ndet);
+#endif
 
 #if ENABLE_LOO_G
 		if (ndet->set_volt_to_upower == 0) {

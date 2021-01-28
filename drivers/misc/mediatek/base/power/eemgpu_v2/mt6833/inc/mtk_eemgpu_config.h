@@ -25,6 +25,7 @@
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
 #define EEMG_FAKE_EFUSE		(0)
+#define SUPPORT_GPU_VB		(0)
 
 /* FIX ME */
 #define EEMG_LOCKTIME_LIMIT	(3000)
@@ -207,23 +208,23 @@ enum mt_cpu_dvfs_id {
 
 /* MC99 Safe EFUSE */
 #define DEVINFO_0 0x0
-#define DEVINFO_1 0x6610240A
-#define DEVINFO_2 0x98EB2424
-#define DEVINFO_3 0x4112243E
-#define DEVINFO_4 0x70152430
-#define DEVINFO_5 0x591F2450
-#define DEVINFO_6 0x4513243C
-#define DEVINFO_7 0x70152430
-#define DEVINFO_8 0x2E152404
-#define DEVINFO_9 0x56112477
-#define DEVINFO_10 0x3914243F
-#define DEVINFO_11 0xC3990089
-#define DEVINFO_12 0xDC910089
+#define DEVINFO_1 0x5C1A2C25
+#define DEVINFO_2 0x22082C3F
+#define DEVINFO_3 0x46172C0A
+#define DEVINFO_4 0x411A2C20
+#define DEVINFO_5 0x6AEB2C20
+#define DEVINFO_6 0x3B1F2C36
+#define DEVINFO_7 0x4B162C20
+#define DEVINFO_8 0x3A1C2C36
+#define DEVINFO_9 0xC15B249E
+#define DEVINFO_10 0x82AA24BA
+#define DEVINFO_11 0x00000000
+#define DEVINFO_12 0x5F052C39
 #define DEVINFO_13 0x1B031B03
 #define DEVINFO_14 0x1B031B03
 #define DEVINFO_15 0x1B031B03
 #define DEVINFO_16 0x1B031B03
-#define DEVINFO_17 0x1B031B03
+#define DEVINFO_17 0xA8FBA8FB
 
 #endif
 #endif
@@ -256,9 +257,9 @@ enum mt_cpu_dvfs_id {
 #define L_FREQ_BASE			2000000
 #define B_FREQ_BASE			2300000
 #define	CCI_FREQ_BASE		1540000
-#define GPU_FREQ_BASE		880000
+#define GPU_FREQ_BASE		1000000
 #define B_M_FREQ_BASE		1750000
-#define GPU_M_FREQ_BASE		640000
+#define GPU_M_FREQ_BASE		700000
 
 #define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	6
@@ -329,20 +330,20 @@ enum mt_cpu_dvfs_id {
 
 /* different for GPU */
 #define VMAX_VAL_GPU                    (0x48) /* eem domain: 1v*/
-#define VMIN_VAL_GPU                    (0x1C) /* eem domain: 0.55v*/
-#define VCO_VAL_GPU                     (0x1C) /* eem domain: 0.55v*/
+#define VMIN_VAL_GPU                    (0x18) /* eem domain: 0.55v*/
+#define VCO_VAL_GPU                     (0x10) /* eem domain: 0.55v*/
 
 /* different for GPU_L */
 #define VMAX_VAL_GL                     (0x48)
-#define VMIN_VAL_GL                     (0x1C)
-#define VCO_VAL_GL                      (0x1C)
+#define VMIN_VAL_GL                     (0x18)
+#define VCO_VAL_GL                      (0x10)
 #define DVTFIXED_VAL_GL					(0x01)
 #define DVTFIXED_VAL_GPU				(0x05)
 
 /* different for GPU_H */
 #define VMAX_VAL_GH                     (0x48) /* volt domain: 1.11875v*/
-#define VMIN_VAL_GH                     (0x1C)
-#define VCO_VAL_GH                      (0x1C)
+#define VMIN_VAL_GH                     (0x18)
+#define VCO_VAL_GH                      (0x10)
 
 /* different for L_L */
 #define VMAX_VAL_LL                     (0x37)
