@@ -165,6 +165,10 @@
 			compatible = "mediatek,mt63xx-debug";
 		};
 
+		mt63xx-oc-debug {
+			compatible = "mediatek,mt63xx-oc-debug";
+		};
+
 		mt6359regulator: mt6359regulator {
 			compatible = "mediatek,mt6359-regulator";
 			mt_pmic_vs1_buck_reg: buck_vs1 {
