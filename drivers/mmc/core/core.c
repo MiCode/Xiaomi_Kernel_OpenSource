@@ -668,6 +668,9 @@ int mmc_run_queue_thread(void *data)
 		if (atomic_read(&host->areq_cnt) == 0)
 			schedule();
 		set_current_state(TASK_RUNNING);
+
+		if (kthread_should_stop())
+			break;
 	}
 	mt_bio_queue_free(current);
 	return 0;
