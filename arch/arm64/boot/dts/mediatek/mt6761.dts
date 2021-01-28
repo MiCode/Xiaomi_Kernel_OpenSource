@@ -325,6 +325,26 @@ firmware_class.path=/vendor/firmware";
 		#clock-cells = <1>;
 	};
 
+	dcm: dcm@10001000 {
+		compatible = "mediatek,mt6761-dcm";
+		reg = <0 0x10001000 0 0x1000>,
+		      <0 0x10200000 0 0x4000>,
+		      <0 0x10228000 0 0x2000>,
+		      <0 0x1022a000 0 0x2000>,
+		      <0 0x10230000 0 0x2000>,
+		      <0 0x10232000 0 0x2000>,
+		      <0 0x1022d000 0 0x1000>,
+		      <0 0x10235000 0 0x1000>;
+		reg-names = "infra_ao",
+			"mcucfg",
+			"ddrphy0_ao",
+			"dramc0_ao",
+			"ddrphy1_ao",
+			"dramc1_ao",
+			"emi_ch0",
+			"emi_ch1";
+	};
+
 	io_cfg_lt@10002000 {
 		compatible = "mediatek,io_cfg_lt";
 		reg = <0 0x10002000 0 0x200>;

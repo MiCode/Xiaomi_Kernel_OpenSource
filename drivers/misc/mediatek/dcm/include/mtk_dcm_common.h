@@ -192,7 +192,7 @@ struct DCM {
 	char *name;
 };
 
-/*extern short dcm_debug;*/
+extern short dcm_debug;
 /*extern short dcm_initiated;*/
 /*extern unsigned int all_dcm_type;*/
 /*extern unsigned int init_dcm_type;*/

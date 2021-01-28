@@ -39,24 +39,7 @@ config MTK_CLKBUF_BBLPM
 	  But with restrict condition for some of  XO_BUFFER need to
 	  be disabled.
 
-config MTK_DCM_COMMON
-	bool "Mediatek DCM COMMON"
-	depends on ARCH_MEDIATEK && OF
-	help
-	  For Mediatek dcm control. Provid a common interface to
-	  adjust dcm setting. Setting will not keep after reboot
-	  Select "y" if you want to use.
-	  Select "n" if you are not sure.
-
-config MTK_DCM_MT6779
-	bool "Mediatek MT6779 DCM control"
-	depends on ARCH_MEDIATEK && OF
-	select MTK_DCM_COMMON
-	help
-	  For Mediatek MT6779 dcm HW control. Only enable when you
-	  neet to change mt6779 dcm setting. Setting will not keep after reboot
-	  Select "y" if you want to change mt6779 dcm setting.
-	  Select "n" if you do not need to change
+source "drivers/misc/mediatek/dcm/Kconfig"
 
 config MTK_QOS_FRAMEWORK
 	bool "MTK QOS FRAMEWORK"
