@@ -296,7 +296,8 @@ static inline unsigned int virq_to_hwirq(unsigned int virq)
 	desc = irq_to_desc(virq);
 
 	WARN_ON(!desc);
-
+	if (unlikely(!desc))
+		return 0;
 	hwirq = gic_irq(&desc->irq_data);
 
 	return hwirq;
