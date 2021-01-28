@@ -179,8 +179,8 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	panel@0 {
-		compatible = "truly,td4330,vdo";
+	panel1@0 {
+		compatible = "nt36672a,rt4801,vdo";
 		reg = <0>;
 		pm-enable-gpios = <&pio 41 0>;
 		reset-gpios = <&pio 42 0>;
@@ -188,7 +188,21 @@
 			<&pio 29 0>;
 		pinctrl-names = "default";
 		port {
-			panel_in: endpoint {
+			panel_in1: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	panel2@0 {
+		compatible = "truly,td4330,vdo";
+		reg = <1>;
+		pm-enable-gpios = <&pio 41 0>;
+		reset-gpios = <&pio 42 0>;
+		bias-gpios = <&pio 28 0>,
+			<&pio 29 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in2: endpoint {
 				remote-endpoint = <&dsi_out>;
 			};
 		};
@@ -196,7 +210,7 @@
 	ports {
 		port {
 			dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
+				remote-endpoint = <&panel_in2>;
 			};
 		};
 	};
