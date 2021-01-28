@@ -1644,6 +1644,7 @@
 		interrupts = <GIC_SPI 76 IRQ_TYPE_EDGE_FALLING>;
 		clocks = <&infracfg_ao CLK_IFR_AUXADC>;
 		clock-names = "auxadc-main";
+		#interconnect-cells = <1>;
 	};
 
 	apdma: dma-controller@11000580 {
@@ -1885,6 +1886,26 @@
 		interrupts = <GIC_SPI 78 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&infracfg_ao CLK_IFR_THERM>;
 		clock-names = "therm-main";
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&cpu_freq_segment>,
+					<&thermal_efuse>;
+		nvmem-cell-names = "cpu_freq_segment_cell",
+						"thermal_efuse_cell";
+	};
+
+	tboard_thermistor1: thermal-sensor1 {
+		compatible = "mediatek,mtboard-thermistor1";
+		io-channels = <&auxadc 0>;
+		io-channel-names = "thermistor-ch0";
+		interconnects = <&auxadc 0>;
+	};
+
+	tboard_thermistor2: thermal-sensor2 {
+		compatible = "mediatek,mtboard-thermistor2";
+		io-channels = <&auxadc 1>;
+		io-channel-names = "thermistor-ch1";
+		interconnects = <&auxadc 1>;
 	};
 
 	btif@1100c000 {
@@ -2208,6 +2229,12 @@
 
 		efuse_segment: segment@78 {
 			reg = <0x78 0x4>;
+		};
+		cpu_freq_segment: segment@1c {
+			reg = <0x1c 0x4>;
+		};
+		thermal_efuse: segment@190 {
+			reg = <0x190 0xc>;
 		};
 	};
 

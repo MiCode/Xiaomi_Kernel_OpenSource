@@ -26,7 +26,6 @@
 		nvmem = <&pmic_efuse>;
 		nvmem-names = "mt63xx-accdet-efuse";
 		status = "okay";
-		#interconnect-cells = <1>;
 	};
 
 	mt6357keys: mt6357keys {
@@ -48,6 +47,7 @@
 		compatible = "mediatek,pmic-auxadc",
 			     "mediatek,mt6357-auxadc";
 		#io-channel-cells = <1>;
+		#interconnect-cells = <1>;
 		batadc {
 			channel = <AUXADC_BATADC>;
 			resistance-ratio = <3 1>;
@@ -136,7 +136,7 @@
 			"pmic_chip_temp",
 			"pmic_buck1_temp",
 			"pmic_buck2_temp";
-		interconnects = <&pmic_accdet 1>;
+		interconnects = <&pmic_auxadc 1>;
 		#interconnect-cells = <1>;
 	};
 	mt6357_ts_buck1: mt6357_ts_buck1 {
