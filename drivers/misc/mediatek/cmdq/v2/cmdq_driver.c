@@ -49,6 +49,7 @@
 static const struct of_device_id cmdq_of_ids[] = {
 	{.compatible = "mediatek,gce",},
 	{.compatible = "mediatek,mt8167-gce",},
+	{.compatible = "mediatek,mt8173-gce",},
 	{}
 };
 #endif
