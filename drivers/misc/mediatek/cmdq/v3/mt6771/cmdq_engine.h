@@ -92,6 +92,8 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_MDP_TDSHP1,		/* 59 */
 	CMDQ_ENG_MDP_WROT1,		/* 60 */
 
+	CMDQ_ENG_INORDER,		/* 61 */
+
 	CMDQ_MAX_ENGINE_COUNT	/* ALWAYS keep at the end */
 };
 
