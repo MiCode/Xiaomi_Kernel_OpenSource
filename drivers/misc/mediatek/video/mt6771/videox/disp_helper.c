@@ -147,6 +147,7 @@ static struct {
 	{DISP_OPT_ANTILATENCY, 0, "DISP_OPT_ANTILATENCY"},
 	{DISP_OPT_DC_BY_HRT, 0, "DISP_OPT_DC_BY_HRT"},
 	{DISP_OPT_OVL_DCM, 0, "DISP_OPT_OVL_DCM"},
+	{DISP_OPT_MOD_RECOVERY, 0, "DISP_OPT_MOD_RECOVERY"},
 };
 
 const char *disp_helper_option_spy(enum DISP_HELPER_OPT option)
@@ -424,6 +425,7 @@ void disp_helper_option_init(void)
 #ifndef CONFIG_MTK_HDMI_SUPPORT
 	disp_helper_set_option(DISP_OPT_OVL_DCM, 1);
 #endif
+	disp_helper_set_option(DISP_OPT_MOD_RECOVERY, 0);
 }
 
 int disp_helper_get_option_list(char *stringbuf, int buf_len)
