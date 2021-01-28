@@ -21,6 +21,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/$(POWER_VER)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/$(POWER_VER)/$(PDIR)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/$(MIDWARE_VER)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug
 
 # MTK platform
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/qos/$(PDIR)
