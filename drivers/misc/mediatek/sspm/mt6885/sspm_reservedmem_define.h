@@ -25,6 +25,7 @@ enum {
 #else
 	MET_MEM_ID,
 #endif
+	SMI_MEM_ID,
 	GPU_MEM_ID,
 	NUMS_MEM_ID,
 };
@@ -68,6 +69,10 @@ static struct sspm_reserve_mblock sspm_reserve_mblock[NUMS_MEM_ID] = {
 		.size = 0x400000, /* 4M */
 	},
 #endif
+	{
+		.num = SMI_MEM_ID,
+		.size = 0x9000, /* 36K */
+	},
 	{
 		.num = GPU_MEM_ID,
 		.size = 0x1000,  /* 4K */
