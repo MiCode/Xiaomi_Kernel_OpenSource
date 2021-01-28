@@ -44,7 +44,7 @@ struct mtk_jpeg_enc_fb {
 };
 void mtk_jpeg_enc_reset(void __iomem *base);
 u32 mtk_jpeg_enc_get_int_status(void __iomem *base);
-u32 mtk_jpeg_enc_get_file_size(void __iomem *base);
+u32 mtk_jpeg_enc_get_file_size(const void __iomem *base);
 u32 mtk_jpeg_enc_enum_result(void __iomem *base, u32 irq_status, u32 *fileSize);
 void mtk_jpeg_enc_start(void __iomem *enc_reg_base);
 void mtk_jpeg_enc_set_config(void __iomem *base,
