@@ -38,6 +38,8 @@
 #include <linux/math64.h>
 #include <linux/uaccess.h>
 #include <mt-plat/mtk_chip.h>
+#include <linux/regulator/consumer.h>
+
 
 #ifdef CONFIG_OF
 	#include <linux/cpu.h>
@@ -66,9 +68,6 @@
 #include "mtk_eem_internal.h"
 #include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
-#include "pmic_regulator.h"
-#include "mtk_pmic_regulator.h"
-#include "pmic_api_buck.h"
 
 
 #if UPDATE_TO_UPOWER
@@ -2113,7 +2112,8 @@ static int eem_buck_get(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	eem_regulator_vproc = regulator_get(&pdev->dev, "vproc");
+	//eem_regulator_vproc = regulator_get(&pdev->dev, "vproc");
+	eem_regulator_vproc = devm_regulator_get_optional(&pdev->dev, "vproc1");
 	if (!eem_regulator_vproc) {
 		eem_error("eem_regulator_vproc error\n");
 		return -EINVAL;

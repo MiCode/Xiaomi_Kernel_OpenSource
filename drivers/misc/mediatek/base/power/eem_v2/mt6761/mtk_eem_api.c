@@ -10,7 +10,6 @@
  */
 
 #define __MTK_EEM_API_C__
-#include "mtk_eem_api.h"
 #include "mtk_eem_config.h"
 #include "mtk_eem.h"
 #include "mtk_eem_internal_ap.h"
