@@ -2474,6 +2474,10 @@ static void init_thermal(void)
 #endif
 
 #if CFG_THERM_LVTS
+	lvts_tscpu_reset_thermal();
+#endif
+
+#if CFG_THERM_LVTS
 #if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
 	clear_lvts_register_value_array();
 #endif
