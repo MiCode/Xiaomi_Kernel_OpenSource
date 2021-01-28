@@ -335,8 +335,10 @@ static int battery_psy_get_property(struct power_supply *psy,
 
 			int time_to_full = 0;
 
-			time_to_full = remain_mah * 360 / current_now;
-			val->intval = time_to_full;
+			if (current_now != 0)
+				time_to_full = remain_mah * 360 / current_now;
+
+			val->intval = abs(time_to_full);
 		}
 		ret = 0;
 		break;
