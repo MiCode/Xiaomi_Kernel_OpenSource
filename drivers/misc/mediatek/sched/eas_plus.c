@@ -171,7 +171,9 @@ static ssize_t show_eas_info_attr(struct kobject *kobj,
 	unsigned int max_len = 4096;
 	int max_cpu = -1, max_pid = 0, max_util = 0, boost = 0;
 	struct task_struct *task = NULL;
-	int cpu = smp_processor_id();
+	int cpu = 0;
+
+	rcu_read_lock();
 
 	len += snprintf(buf, max_len, "version=%d.%d(%s)\n\n",
 		ver_major, ver_minor, module_name);
@@ -206,6 +208,8 @@ static ssize_t show_eas_info_attr(struct kobject *kobj,
 	len += snprintf(buf+len, max_len - len,
 			"top-app boost=%d, prefer_idle=%d\n",
 			group_boost_read(3), group_prefer_idle_read(3));
+
+	rcu_read_unlock();
 
 	return len;
 }
