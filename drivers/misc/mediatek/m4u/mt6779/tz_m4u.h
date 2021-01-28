@@ -101,7 +101,7 @@ struct m4u_systrace_param {
 };
 
 struct m4u_cfg_port_array_param {
-	unsigned char m4u_port_array[(M4U_PORT_NR+1)/2];
+	unsigned int m4u_port_array[M4U_PORT_NR];
 };
 
 struct m4u_larb_restore_param {
@@ -117,6 +117,7 @@ struct m4u_msg {
 	unsigned int     cmd;
 	unsigned int     retval_for_tbase; /* it must be 0 */
 	unsigned int     rsp;
+	unsigned int	 iommu_type;
 
 	union {
 		struct m4u_session_param session_param;
