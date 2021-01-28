@@ -13,6 +13,68 @@ config MMC_DEBUG
 	  added host drivers please don't invent their private macro for
 	  debugging.
 
+config MMC_MTK_PRO
+	tristate "MediaTek SD/MMC Card Proprietary Interface support"
+	depends on !MMC_MTK
+	select RPMB
+	help
+	  This selects the MediaTek(R) Secure digital and Multimedia card
+	  Interface. If you have a machine with a integrated SD/MMC card
+	  reader, say Y or M here.
+
+	  If unsure, say N.
+
+config MTK_EMMC_SUPPORT
+	bool "MediaTek eMMC Card boot support"
+	depends on MMC_MTK_PRO
+	help
+	  This enables using embedded Multimedia card (eMMC) as booting
+	  device on MTK platform. Say Y if you turns on MTK_EMMC and want to
+	  use eMMC as booting device.
+
+	  If unsure, say N.
+
+config MTK_EMMC_CACHE
+	tristate "MediaTek eMMC Card cache support"
+	depends on MTK_EMMC_SUPPORT
+	default n
+	help
+	  This enables eMMC cache scheme designed by MTK.
+	  Say Y if you turns on MTK_EMMC_SUPPORT and want to use MTK eMMC
+	  cacheas scheme.
+
+	  If unsure, say N.
+
+config MTK_EMMC_SUPPORT_OTP
+	tristate "MediaTek eMMC Card OTP support"
+	depends on MTK_EMMC_SUPPORT
+	help
+	  This enables MTK One-Time-Programming (OTP) partition support on eMMC
+	  device. Say Y if you turns on MTK_EMMC and want to use MTK OTP
+	  partition for storing One-Time-Programming data.
+
+	  If unsure, say N.
+
+config MTK_EMMC_CQ_SUPPORT
+	tristate "MediaTek eMMC Command Queuing support"
+	depends on MTK_EMMC_SUPPORT
+	default n
+	help
+	  This enables eMMC Command Queuing support by MTK.
+	  Say Y if you turns on MTK_EMMC_SUPPORT and want to
+	  use MTK eMMC Command Queuing scheme.
+	  If unsure, say N.
+
+config MTK_EMMC_HW_CQ
+	tristate "MediaTek eMMC hardware Command Queuing support"
+	depends on MTK_EMMC_SUPPORT
+	depends on !MTK_EMMC_CQ_SUPPORT
+	default n
+	help
+	  This enables eMMC hardware Command Queuing support by MTK.
+	  Say Y if you turns on MTK_EMMC_HW_CQ and want to
+	  use MTK eMMC hardware Command Queuing scheme.
+	  If unsure, say N.
 config MMC_ARMMMCI
 	tristate "ARM AMBA Multimedia Card Interface support"
 	depends on ARM_AMBA
@@ -943,3 +1005,5 @@ config MMC_SDHCI_OMAP
 	  If you have a controller with this interface, say Y or M here.
 
 	  If unsure, say N.
+
+source "drivers/mmc/host/mediatek/Kconfig"

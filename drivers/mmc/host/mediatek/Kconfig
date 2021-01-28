@@ -1,0 +1,11 @@
+#
+# MTK MSDC Driver Configs
+#
+config MTK_MMC_DEBUG
+	bool "enable msdc debug buffer"
+	depends on MMC_MTK_PRO||MMC_MTK_SDIO
+	help
+	  This is an option for use by developers;
+	  Customer can disable it to save a few megabytes of memory。
+
+	  If y, then enable msdc debug buffer.
