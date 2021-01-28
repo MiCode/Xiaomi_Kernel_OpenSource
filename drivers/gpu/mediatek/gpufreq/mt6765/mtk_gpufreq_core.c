@@ -29,9 +29,9 @@
 #include "mtk_gpufreq_core.h"
 #include "mtk_gpufreq.h"
 
-#ifdef CONFIG_COMMON_CLK_MT6761
+#ifdef CONFIG_COMMON_CLK_MT6765
 #ifdef CONFIG_MTK_GPU_SUPPORT
-#include "mt6761_clkmgr.h"
+#include "mt6765_clkmgr.h"
 #endif
 #endif
 
@@ -143,20 +143,32 @@ static struct g_opp_table_info *g_opp_table;
 static struct g_opp_table_info *g_opp_table_default;
 static struct g_pmic_info *g_pmic;
 static struct g_clk_info *g_clk;
-
-static struct g_opp_table_info g_opp_table_6761[] = {
-GPUOP(GPU_DVFS_FREQ0, GPU_DVFS_VOLT0, GPU_DVFS_VSRAM0, 0),
-GPUOP(GPU_DVFS_FREQ1, GPU_DVFS_VOLT1, GPU_DVFS_VSRAM1, 1),
-GPUOP(GPU_DVFS_FREQ2, GPU_DVFS_VOLT2, GPU_DVFS_VSRAM2, 2),
+static struct g_opp_table_info g_opp_table_segment1[] = {
+GPUOP(SEG1_GPU_DVFS_FREQ0, SEG1_GPU_DVFS_VOLT0, SEG1_GPU_DVFS_VSRAM0, 0),
 };
-static struct g_opp_table_info g_opp_table_6761D[] = {
+static struct g_opp_table_info g_opp_table_segment2[] = {
+GPUOP(SEG2_GPU_DVFS_FREQ0, SEG2_GPU_DVFS_VOLT0, SEG2_GPU_DVFS_VSRAM0, 0),
+GPUOP(SEG2_GPU_DVFS_FREQ1, SEG2_GPU_DVFS_VOLT1, SEG2_GPU_DVFS_VSRAM1, 1),
+GPUOP(SEG2_GPU_DVFS_FREQ2, SEG2_GPU_DVFS_VOLT2, SEG2_GPU_DVFS_VSRAM2, 2),
+};
+static struct g_opp_table_info g_opp_table_segment3[] = {
+GPUOP(SEG3_GPU_DVFS_FREQ0, SEG3_GPU_DVFS_VOLT0, SEG3_GPU_DVFS_VSRAM0, 0),
+GPUOP(SEG3_GPU_DVFS_FREQ1, SEG3_GPU_DVFS_VOLT1, SEG3_GPU_DVFS_VSRAM1, 1),
+GPUOP(SEG3_GPU_DVFS_FREQ2, SEG3_GPU_DVFS_VOLT2, SEG3_GPU_DVFS_VSRAM2, 2),
+};
+static struct g_opp_table_info g_opp_table_segment4[] = {
+GPUOP(SEG4_GPU_DVFS_FREQ0, SEG4_GPU_DVFS_VOLT0, SEG4_GPU_DVFS_VSRAM0, 0),
+GPUOP(SEG4_GPU_DVFS_FREQ1, SEG4_GPU_DVFS_VOLT1, SEG4_GPU_DVFS_VSRAM1, 1),
+GPUOP(SEG4_GPU_DVFS_FREQ2, SEG4_GPU_DVFS_VOLT2, SEG4_GPU_DVFS_VSRAM2, 2),
+};
+static struct g_opp_table_info g_opp_table_segment5[] = {
 GPUOP(SEG5_GPU_DVFS_FREQ0, SEG5_GPU_DVFS_VOLT0, SEG5_GPU_DVFS_VSRAM0, 0),
 GPUOP(SEG5_GPU_DVFS_FREQ1, SEG5_GPU_DVFS_VOLT1, SEG5_GPU_DVFS_VSRAM1, 1),
 GPUOP(SEG5_GPU_DVFS_FREQ2, SEG5_GPU_DVFS_VOLT2, SEG5_GPU_DVFS_VSRAM2, 2),
 };
 
 static const struct of_device_id g_gpufreq_of_match[] = {
-	{ .compatible = "mediatek,mt6761-gpufreq" },
+	{ .compatible = "mediatek,mt6765-gpufreq" },
 	{ /* sentinel */ }
 };
 static struct platform_driver g_gpufreq_pdrv = {
@@ -254,7 +266,7 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 		gpufreq_pr_debug("@%s: OPP stress test index: %d\n",
 			__func__, idx);
 	}
-#endif /* MT_GPUFREQ_OPP_STRESS_TEST */
+#endif /* ifdef MT_GPUFREQ_OPP_STRESS_TEST */
 
 	if (idx > (g_opp_idx_num - 1)) {
 		gpufreq_pr_debug("@%s: OPP index (%d) is out of range\n",
@@ -1010,11 +1022,11 @@ static int mt_gpufreq_var_dump_proc_show(struct seq_file *m, void *v)
 			__mt_gpufreq_get_cur_volt(),
 			__mt_gpufreq_get_cur_vsram_volt());
 	seq_printf(m, "current vcore opp = %d\n", g_cur_vcore_opp);
-#ifdef CONFIG_COMMON_CLK_MT6761
+#ifdef CONFIG_COMMON_CLK_MT6765
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	seq_printf(m, "clock freq = %d\n", mt_get_abist_freq(25));
 #endif /* CONFIG_MTK_GPU_SUPPORT */
-#endif /* CONFIG_COMMON_CLK_MT6761 */
+#endif /* CONFIG_COMMON_CLK_MT6765 */
 	seq_printf(m, "g_segment_id = %d\n", g_segment_id);
 	seq_printf(m, "g_volt_enable_state = %d\n", g_volt_enable_state);
 	seq_printf(m, "g_opp_stress_test_state = %d\n",
@@ -1444,14 +1456,14 @@ static void __mt_gpufreq_set(unsigned int freq_old, unsigned int freq_new,
 		__mt_gpufreq_vcore_volt_switch(volt_new);
 	}
 
-#ifdef CONFIG_COMMON_CLK_MT6761
+#ifdef CONFIG_COMMON_CLK_MT6765
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	gpufreq_pr_debug(
 		"@%s: real_freq = %d, real_volt = %d, real_vsram_volt = %d\n",
 		__func__, mt_get_ckgen_freq(9), __mt_gpufreq_get_cur_volt(),
 		__mt_gpufreq_get_cur_vsram_volt());
 #endif /* CONFIG_MTK_GPU_SUPPORT */
-#endif /* CONFIG_COMMON_CLK_MT6761 */
+#endif /* CONFIG_COMMON_CLK_MT6765 */
 
 	g_cur_opp_freq = freq_new;
 	g_cur_opp_volt = volt_new;
@@ -1473,7 +1485,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	cur_volt = __mt_gpufreq_get_cur_volt();
 	cur_freq = __mt_gpufreq_get_cur_freq();
 
-	/* [MT6761] GPUPLL_CON1[24:26] is POST_DIVIDER
+	/* [MT6765] GPUPLL_CON1[24:26] is POST_DIVIDER
 	 *    000 : /1
 	 *    001 : /2
 	 *    010 : /4
@@ -1632,7 +1644,7 @@ static unsigned int __mt_gpufreq_calculate_dds(unsigned int freq_khz,
 	gpufreq_pr_debug("@%s: request freq = %d, post_divider = %d\n",
 		__func__, freq_khz, (1 << post_divider_power));
 
-	/* [MT6761] dds is GPUPLL_CON1[21:0] */
+	/* [MT6765] dds is GPUPLL_CON1[21:0] */
 	if ((freq_khz >= POST_DIV_16_MIN_FREQ) &&
 		(freq_khz <= POST_DIV_4_MAX_FREQ)) {
 		dds = (((freq_khz / TO_MHz_HEAD * (1 << post_divider_power))
@@ -1690,14 +1702,14 @@ static void __mt_gpufreq_calculate_power(unsigned int idx,
  * is 900MHz, so post
  * divider could be 2(X), 4(3600/4), 8(X), 16(X).
  * - It may have special requiremt by DE in different efuse value
- * - e.g: In MT6761, efuse value(3'b001), VCO range is 1.5GHz - 3.8GHz,
+ * - e.g: In MT6765, efuse value(3'b001), VCO range is 1.5GHz - 3.8GHz,
  * required frequency
  * range is 375MHz - 900MHz, It can only use post divider 4, no post divider 2.
  */
 static enum g_post_divider_power_enum
 __mt_gpufreq_get_post_divider_power(unsigned int freq, unsigned int efuse)
 {
-	/* [MT6761]
+	/* [MT6765]
 	 *    VCO range: 1.5GHz - 3.8GHz by divider 1/2/4/8/16,
 	 *    PLL range: 125MHz - 3.8GHz,
 	 *    | VCO MAX | VCO MIN | POSTDIV | PLL OUT MAX | PLL OUT MIN |
@@ -2154,12 +2166,12 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	GPUFREQ_UNREFERENCED(g_efuse_base);
 	GPUFREQ_UNREFERENCED(__mt_gpufreq_get_opp_idx_by_volt);
 
-#ifdef CONFIG_COMMON_CLK_MT6761
+#ifdef CONFIG_COMMON_CLK_MT6765
 #ifdef CONFIG_MTK_GPU_SUPPORT
 	gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
 			__func__, mt_get_ckgen_freq(9));
 #endif /* CONFIG_MTK_GPU_SUPPORT */
-#endif /* CONFIG_COMMON_CLK_MT6761 */
+#endif /* CONFIG_COMMON_CLK_MT6765 */
 
 	g_opp_stress_test_state = false;
 	g_DVFS_off_by_ptpod_idx = 0;
@@ -2218,6 +2230,17 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	pr_info("mtcmos_mfg is at 0x%p, mtcmos_mfg_core0 is at 0x%p, ",
 		g_clk->mtcmos_mfg, g_clk->mtcmos_mfg_core0);
 
+
+	/* check EFUSE register 0x11f10050[27:24] */
+	/* Free Version : 4'b0000 */
+	/* 1GHz Version : 4'b0001 */
+	/* 950MHz Version : 4'b0010 */
+	/* 900MHz Version : 4'b0011 (Segment1) */
+	/* 850MHz Version : 4'b0100 */
+	/* 800MHz Version : 4'b0101 (Segment2) */
+	/* 750MHz Version : 4'b0110 */
+	/* 700MHz Version : 4'b0111 (Segment3) */
+
 #ifdef CONFIG_MTK_DEVINFO
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
@@ -2238,13 +2261,22 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	g_efuse_id = 0x0;
 #endif /* CONFIG_MTK_DEVINFO */
 
-	if (g_efuse_id == 0x10 || g_efuse_id == 0x11
-		|| g_efuse_id == 0x90 || g_efuse_id == 0x91) {
-		/* 6761D */
-		g_segment_id = MT6761D_SEGMENT;
+	if (g_efuse_id == 0x8 || g_efuse_id == 0xf) {
+		/* 6762M */
+		g_segment_id = MT6762M_SEGMENT;
+	} else if (g_efuse_id == 0x1 || g_efuse_id == 0x7
+		|| g_efuse_id == 0x9) {
+		/* 6762 */
+		g_segment_id = MT6762_SEGMENT;
+	} else if (g_efuse_id == 0x2 || g_efuse_id == 0x5) {
+		/* SpeedBin */
+		g_segment_id = MT6765T_SEGMENT;
+	} else if (g_efuse_id == 0x20) {
+		/* 6762D */
+		g_segment_id = MT6762D_SEGMENT;
 	} else {
 		/* Other Version, set default segment */
-		g_segment_id = MT6761_SEGMENT;
+		g_segment_id = MT6765_SEGMENT;
 	}
 
 	gpufreq_pr_info("@%s: g_efuse_id = 0x%08X, g_segment_id = %d\n",
@@ -2270,14 +2302,26 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #endif /* CONFIG_MTK_STATIC_POWER */
 
 	/* setup OPP table by device ID */
-	if (g_segment_id == MT6761D_SEGMENT) {
-		__mt_gpufreq_setup_opp_table(g_opp_table_6761D,
-			ARRAY_SIZE(g_opp_table_6761D));
+	if (g_segment_id == MT6762M_SEGMENT) {
+		__mt_gpufreq_setup_opp_table(g_opp_table_segment1,
+			ARRAY_SIZE(g_opp_table_segment1));
 		g_fixed_vsram_volt_idx = 0;
-	} else if (g_segment_id == MT6761_SEGMENT) {
-		__mt_gpufreq_setup_opp_table(g_opp_table_6761,
-			ARRAY_SIZE(g_opp_table_6761));
-		g_fixed_vsram_volt_idx = 0;
+	} else if (g_segment_id == MT6762_SEGMENT) {
+		__mt_gpufreq_setup_opp_table(g_opp_table_segment2,
+			ARRAY_SIZE(g_opp_table_segment2));
+		g_fixed_vsram_volt_idx = 2;
+	} else if (g_segment_id == MT6765_SEGMENT) {
+		__mt_gpufreq_setup_opp_table(g_opp_table_segment3,
+			ARRAY_SIZE(g_opp_table_segment3));
+		g_fixed_vsram_volt_idx = 2;
+	} else if (g_segment_id == MT6765T_SEGMENT) {
+		__mt_gpufreq_setup_opp_table(g_opp_table_segment4,
+			ARRAY_SIZE(g_opp_table_segment4));
+		g_fixed_vsram_volt_idx = 2;
+	} else if (g_segment_id == MT6762D_SEGMENT) {
+		__mt_gpufreq_setup_opp_table(g_opp_table_segment5,
+			ARRAY_SIZE(g_opp_table_segment5));
+		g_fixed_vsram_volt_idx = 2;
 	}
 
 	/*pr_info("[GPU/DVFS][INFO]@%s: VGPU is enabled = %d (%d mV),"
@@ -2292,7 +2336,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 
 	/* init APMIXED base address */
 	apmixed_node = of_find_compatible_node(NULL, NULL,
-					"mediatek,mt6761-apmixedsys");
+					"mediatek,mt6765-apmixedsys");
 	g_apmixed_base = of_iomap(apmixed_node, 0);
 	if (!g_apmixed_base) {
 		gpufreq_perr("@%s: APMIXED iomap failed", __func__);

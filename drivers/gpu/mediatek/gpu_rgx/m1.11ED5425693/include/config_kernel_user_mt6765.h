@@ -1,3 +1,8 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (C) 2020 MediaTek Inc.
+ */
+
 #define SUPPORT_PERCONTEXT_FREELIST
 #define GPUVIRT_VALIDATION_NUM_OS 8
 #define GPUVIRT_VALIDATION_NUM_REGIONS 2
@@ -36,6 +41,7 @@
 #define PVRSRV_FULL_SYNC_TRACKING_HISTORY_LEN 256
 #define SUPPORT_MMU_PENDING_FAULT_PROTECTION
 #define CACHEFLUSH_NO_KMRBF_USING_UMVA
+#define IMG_1_11_OPTS 0xffffffff
 #define PVR_LINUX_BLOB_CACHE_SIZE_MEGABYTES 20
 #define HWR_DEFAULT_ENABLED
 #define PVRSRV_APPHINT_HWRDEBUGDUMPLIMIT APPHNT_BLDVAR_DBGDUMPLIMIT
@@ -141,7 +147,7 @@
 #define PVRSRV_RGX_LOG2_CLIENT_CCB_MAX_SIZE_KICKSYNC 13
 #define ANDROID
 #define SUPPORT_ION
-#define PVR_ANDROID_ION_HEADER "../drivers/staging/android/ion/ion.h"
+#define PVR_ANDROID_ION_HEADER "../drivers/staging/android/aosp_ion/ion.h"
 #define PVR_ANDROID_ION_PRIV_HEADER "../drivers/staging/android/ion/ion_priv.h"
 #define PVR_ANDROID_ION_USE_SG_LENGTH
 #define PVR_ANDROID_SYNC_HEADER "linux/sync.h"

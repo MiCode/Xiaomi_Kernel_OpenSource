@@ -82,6 +82,10 @@
 #include <linux/nvmem-consumer.h>
 #endif
 
+#ifdef CONFIG_MTK_AEE_IPANIC
+#include "mboot_params.h"
+#endif
+
 /**
  * ===============================================
  * SECTION : Local functions declaration
