@@ -1378,8 +1378,20 @@ static void print_vma_name(unsigned char *Userthread_maps,
 		len = min(max_len, PAGE_SIZE - page_offset);
 		write_len = strnlen(kaddr + page_offset, len);
 		if (strnstr((kaddr + page_offset), "signal stack", write_len)) {
-			Maps2Buffer(Userthread_maps, Userthread_mapsLength,
-				"%s[anon:%s]\n", str, (kaddr + page_offset));
+			char *name = vmalloc(write_len + 1);
+
+			if (!name) {
+				Maps2Buffer(Userthread_maps,
+					Userthread_mapsLength,
+					"%s[anon:%s]\n", str, "NULL");
+			} else {
+				memcpy(name, kaddr + page_offset, write_len);
+				name[write_len] = '\0';
+				Maps2Buffer(Userthread_maps,
+					Userthread_mapsLength,
+					"%s[anon:%s]\n", str, name);
+				vfree(name);
+			}
 		}
 		kunmap(page);
 		put_page(page);
