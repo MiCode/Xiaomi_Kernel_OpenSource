@@ -89,3 +89,4 @@ obj-$(CONFIG_MTK_PID_MAP) += pidmap/
 ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/selinux_warning_enable),)
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING)	+= selinux_warning/
 endif
+obj-y += timer/
