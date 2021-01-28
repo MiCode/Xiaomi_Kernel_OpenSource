@@ -66,6 +66,8 @@ struct gce_cmds {
 	u64 addr[VCODEC_CMDQ_CMD_MAX];
 	u64 data[VCODEC_CMDQ_CMD_MAX];
 	u32 mask[VCODEC_CMDQ_CMD_MAX];
+	u32 dma_offset[VCODEC_CMDQ_CMD_MAX];
+	u32 dma_size[VCODEC_CMDQ_CMD_MAX];
 	u32 cmd_cnt;
 };
 
@@ -83,6 +85,7 @@ struct gce_cmdq_obj {
 	u32	flush_order;
 	u32	codec_type;
 	u32	core_id;
+	u32 secure;
 };
 
 /**
@@ -106,6 +109,7 @@ enum gce_cmd_id {
 	CMD_MEM_MV,      /* copy memory data from PA to another PA */
 	CMD_POLL_ADDR,
 	/* polling addr until get some value (with timeout) */
+	CMD_SEC_WRITE,   /* sec dma write register */
 	CMD_MAX
 };
 
