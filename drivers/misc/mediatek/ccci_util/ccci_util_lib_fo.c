@@ -410,39 +410,11 @@ struct fos_item {
 #define MTK_MD1_SUPPORT	(0)
 #endif
 
-/* MD2 */
-#ifdef CONFIG_MTK_MD2_SUPPORT
-#define MTK_MD2_SUPPORT	(CONFIG_MTK_MD2_SUPPORT)
-#else
-#define MTK_MD2_SUPPORT	(0)
-#endif
-
 /* MD3 */
 #ifdef CONFIG_MTK_MD3_SUPPORT
 #define MTK_MD3_SUPPORT	(CONFIG_MTK_MD3_SUPPORT)
 #else
 #define MTK_MD3_SUPPORT	(0)
-#endif
-
-/* MTK_C2K_SUPPORT */
-#if defined(CONFIG_MTK_MD3_SUPPORT) && (CONFIG_MTK_MD3_SUPPORT > 0)
-#define MTK_C2K_SUPPORT	(1)
-#else
-#define MTK_C2K_SUPPORT	(0)
-#endif
-
-/* MD5 */
-#ifdef CONFIG_MTK_MD5_SUPPORT
-#define MTK_MD5_SUPPORT	(CONFIG_MTK_MD5_SUPPORT)
-#else
-#define MTK_MD5_SUPPORT	(3)
-#endif
-
-/* MTK_IRAT_SUPPORT */
-#ifdef CONFIG_MTK_IRAT_SUPPORT
-#define MTK_IRAT_SUPPORT	(1)
-#else
-#define MTK_IRAT_SUPPORT	(0)
 #endif
 
 /* MTK_ECCCI_C2K */
@@ -464,12 +436,12 @@ struct fos_item {
  */
 static struct fos_item ccci_fos_setting[] = {
 	{"opt_md1_support", MTK_MD1_SUPPORT},
-	{"opt_md2_support", MTK_MD2_SUPPORT},
+	{"opt_md2_support", 0}, /* phase out */
 	{"opt_md3_support", MTK_MD3_SUPPORT},
-	{"opt_md5_support", MTK_MD5_SUPPORT},
-	{"opt_irat_support", MTK_IRAT_SUPPORT},
+	{"opt_md5_support", 0}, /* phase out */
+	{"opt_irat_support", 0}, /* phase out */
 	{"opt_eccci_c2k", MTK_ECCCI_C2K},
-	{"opt_c2k_support", MTK_C2K_SUPPORT},
+	{"opt_c2k_support", 0}, /* phase out */
 	{"opt_c2k_lte_mode", MTK_C2K_LTE_MODE},
 };
 
