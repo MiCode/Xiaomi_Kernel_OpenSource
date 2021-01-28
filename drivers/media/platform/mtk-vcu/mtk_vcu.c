@@ -682,7 +682,8 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 				__func__, data);
 	break;
 	case CMD_MEM_MV:
-		if (vcu_check_reg_base(vcu, addr, 4) == 0 &&
+		if ((vcu_check_reg_base(vcu, addr, 4) == 0 ||
+			vcu_check_gce_pa_base(q, addr, 4) == 0) &&
 			vcu_check_gce_pa_base(q, data, 4) == 0)
 			cmdq_pkt_mem_move(pkt, vcu->clt_base, addr,
 				data, CMDQ_THR_SPR_IDX1);
