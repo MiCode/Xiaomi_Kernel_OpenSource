@@ -1585,7 +1585,7 @@ static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_queue_req *mqrq = req_to_mmc_queue_req(req);
 
 	mmc_blk_data_prep(mq, mqrq, 0, NULL, NULL);
-
+	mt_bio_queue_alloc(current, NULL, false);
 	mt_biolog_cqhci_check();
 	mt_biolog_cqhci_queue_task(mqrq->brq.mrq.tag,
 		&(mqrq->brq.mrq));
@@ -2238,17 +2238,10 @@ static int mmc_blk_mq_issue_rw_rq(struct mmc_queue *mq,
 	struct request *prev_req = NULL;
 	int err = 0;
 
-	int minor = req->rq_disk ? MINOR(disk_devt(req->rq_disk)) : 0;
-
-	if (minor) {
-		mt_bio_queue_alloc(current, NULL, true);
-		mt_biolog_mmcqd_req_check(true);
-		mt_biolog_mmcqd_req_start(host, true);
-	} else {
-		mt_bio_queue_alloc(current, NULL, false);
-		mt_biolog_mmcqd_req_check(false);
-		mt_biolog_mmcqd_req_start(host, false);
-	}
+	/* blocktag SD Card path only */
+	mt_bio_queue_alloc(current, NULL, true);
+	mt_biolog_mmcqd_req_check(true);
+	mt_biolog_mmcqd_req_start(host, true);
 
 	mmc_blk_rw_rq_prep(mqrq, mq->card, 0, mq);
 
@@ -2273,12 +2266,8 @@ static int mmc_blk_mq_issue_rw_rq(struct mmc_queue *mq,
 	if (err || mmc_host_done_complete(host))
 		mmc_retune_release(host);
 
-	if (!err) {
-		if (minor)
-			mt_biolog_mmcqd_req_end(mqrq->brq.mrq.data, true);
-		else
-			mt_biolog_mmcqd_req_end(mqrq->brq.mrq.data, false);
-	}
+	if (!err)
+		mt_biolog_mmcqd_req_end(mqrq->brq.mrq.data, true);
 
 out_post_req:
 	if (err)
