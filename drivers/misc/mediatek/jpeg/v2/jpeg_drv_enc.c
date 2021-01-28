@@ -31,7 +31,84 @@
 
 unsigned int _jpeg_enc_int_status;
 
+static struct ion_handle *jpeg_ion_import_handle(struct ion_client *client, int fd)
+{
+	struct ion_handle *handle = NULL;
+	struct ion_mm_data mm_data;
 
+	/* If no need Ion support, do nothing! */
+	if (fd < 0) {
+		JPEG_MSG("NO NEED ion support, fd %d\n", fd);
+		return handle;
+	}
+
+	if (!client) {
+		JPEG_MSG("invalid ion client!\n");
+		return handle;
+	}
+
+	handle = ion_import_dma_buf_fd(client, fd);
+	if (IS_ERR(handle)) {
+		JPEG_MSG("import ion handle failed!\n");
+		return NULL;
+	}
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.config_buffer_param.module_id = 0;
+	mm_data.config_buffer_param.security = 0;
+	mm_data.config_buffer_param.coherent = 0;
+
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data))
+		JPEG_MSG("configure ion buffer failed!\n");
+
+	JPEG_MSG("import ion handle fd=%d,hnd=0x%p\n", fd, handle);
+
+	return handle;
+}
+
+static int jpeg_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
+		     dma_addr_t *mva, unsigned int *size, int port)
+{
+	struct ion_mm_data mm_data;
+	size_t mva_size;
+	ion_phys_addr_t phy_addr = 0;
+
+	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
+	mm_data.config_buffer_param.module_id = port;
+	mm_data.config_buffer_param.kernel_handle = handle;
+	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
+		(unsigned long)&mm_data) < 0) {
+
+		JPEG_MSG("config buffer failed.%p -%p\n",
+			client, handle);
+		ion_free(client, handle);
+		return -1;
+	}
+
+	ion_phys(client, handle, &phy_addr, &mva_size);
+	*mva = phy_addr;
+	*size = mva_size;
+	JPEG_MSG("alloc mmu addr hnd=0x%p,mva=0x%p size %d\n",
+		   handle, *mva, *size);
+
+	return 0;
+}
+
+static void jpeg_ion_free_handle(struct ion_client *client, struct ion_handle *handle)
+{
+	if (!client) {
+		JPEG_MSG("invalid ion client!\n");
+		return;
+	}
+	if (!handle)
+		return;
+
+	ion_free(client, handle);
+
+	JPEG_MSG("free ion handle 0x%p\n", handle);
+}
 int jpeg_isr_enc_lisr(void)
 {
 	unsigned int tmp, tmp1;
@@ -78,11 +155,16 @@ unsigned int jpeg_drv_enc_set_src_image(
 
 
 
-unsigned int jpeg_drv_enc_set_src_buf(
+unsigned int jpeg_drv_enc_set_src_buf(struct ion_client *pIonClient,
 	unsigned int yuv_format, unsigned int img_stride,
-	 unsigned int mem_stride, unsigned int srcAddr, unsigned int srcAddr_C)
+	 unsigned int mem_stride, unsigned int mem_height,
+	 int srcFd, int srcFd2)
 {
 	unsigned int ret = 1;
+	dma_addr_t srcAddr = 0;
+	dma_addr_t srcAddr_C = 0;
+	unsigned int bufSize = 0;
+	struct ion_handle *handle = NULL;
 
 	if (yuv_format == 0x00 || yuv_format == 0x01) {
 		if ((mem_stride & 0x1f) || (img_stride & 0x1f)) {
@@ -91,6 +173,55 @@ unsigned int jpeg_drv_enc_set_src_buf(
 			 yuv_format, mem_stride, img_stride);
 			ret = 0;
 		}
+	}
+
+	if (yuv_format == YUYV || yuv_format == YVYU) {
+		handle = jpeg_ion_import_handle(pIonClient, srcFd);
+		if (handle == NULL) {
+			JPEG_MSG("import handle fail line %d\n", __LINE__);
+			return 0;
+		}
+		if (jpeg_ion_get_mva(pIonClient, handle, &srcAddr, &bufSize, 0) != 0)
+			return 0;
+
+		jpeg_ion_free_handle(pIonClient, handle);
+		srcAddr_C = 0;
+
+		JPEG_MSG("srcAddr 0x%p srcAddr_C 0x%p line %d\n", srcAddr, srcAddr_C, __LINE__);
+	} else if (srcFd == srcFd2) {
+		handle = jpeg_ion_import_handle(pIonClient, srcFd);
+		if (handle == NULL) {
+			JPEG_MSG("import handle fail line %d\n", __LINE__);
+			return 0;
+		}
+		if (jpeg_ion_get_mva(pIonClient, handle, &srcAddr, &bufSize, 0) != 0)
+			return 0;
+
+		jpeg_ion_free_handle(pIonClient, handle);
+		srcAddr_C = srcAddr + mem_stride*mem_height;
+		JPEG_MSG("srcAddr 0x%p srcAddr_C 0x%p line %d\n", srcAddr, srcAddr_C, __LINE__);
+	} else {
+		handle = jpeg_ion_import_handle(pIonClient, srcFd);
+		if (handle == NULL) {
+			JPEG_MSG("import handle fail line %d\n", __LINE__);
+			return 0;
+		}
+		if (jpeg_ion_get_mva(pIonClient, handle, &srcAddr, &bufSize, 0) != 0)
+			return 0;
+
+		jpeg_ion_free_handle(pIonClient, handle);
+
+		handle = jpeg_ion_import_handle(pIonClient, srcFd2);
+		if (handle == NULL) {
+			JPEG_MSG("import handle fail line %d\n", __LINE__);
+			return 0;
+		}
+		if (jpeg_ion_get_mva(pIonClient, handle, &srcAddr_C, &bufSize, 0) != 0)
+			return 0;
+
+		jpeg_ion_free_handle(pIonClient, handle);
+
+		JPEG_MSG("srcAddr 0x%p srcAddr_C 0x%p line %d\n", srcAddr, srcAddr_C, __LINE__);
 	}
 
 	ret &= jpeg_drv_enc_set_image_stride(img_stride);
@@ -291,7 +422,7 @@ unsigned int jpeg_drv_enc_set_blk_num(unsigned int blk_num)	/* NO_USE */
 }
 
 
-unsigned int jpeg_drv_enc_set_luma_addr(unsigned int src_luma_addr)
+unsigned int jpeg_drv_enc_set_luma_addr(dma_addr_t src_luma_addr)
 {
 	if (src_luma_addr & 0x0F)
 		JPEG_MSG("JPGENC: set LUMA addr not align (%x)\n",
@@ -303,7 +434,7 @@ unsigned int jpeg_drv_enc_set_luma_addr(unsigned int src_luma_addr)
 }
 
 
-unsigned int jpeg_drv_enc_set_chroma_addr(unsigned int src_chroma_addr)
+unsigned int jpeg_drv_enc_set_chroma_addr(dma_addr_t src_chroma_addr)
 {
 	if (src_chroma_addr & 0x0F)
 		JPEG_MSG("JPGENC: set CHROMA addr not align (%x)\n",
@@ -372,10 +503,14 @@ unsigned int jpeg_drv_enc_set_offset_addr(unsigned int offset)
 	return 1;
 }
 
-unsigned int jpeg_drv_enc_set_dst_buff(
-		unsigned int dst_addr, unsigned int stall_size,
+unsigned int jpeg_drv_enc_set_dst_buff(struct ion_client *pIonClient,
+		 int dstFd, unsigned int stall_size,
 		 unsigned int init_offset, unsigned int offset_mask)
 {
+	struct ion_handle *handle = NULL;
+	dma_addr_t dst_addr = 0;
+	unsigned int bufSize = 0;
+
 	if (stall_size < 624) {
 		JPEG_MSG("JPGENC:stall size less than 624 to write %d\n",
 		 stall_size);
@@ -387,7 +522,27 @@ unsigned int jpeg_drv_enc_set_dst_buff(
 		/* return 0; */
 	}
 
-	IMG_REG_WRITE((init_offset & (~0xF)), REG_ADDR_JPEG_ENC_OFFSET_ADDR);
+	handle = jpeg_ion_import_handle(pIonClient, dstFd);
+	if (handle == NULL) {
+		JPEG_MSG("import handle fail line %d\n", __LINE__);
+		return 0;
+	}
+	if (jpeg_ion_get_mva(pIonClient, handle, &dst_addr, &bufSize, 0) != 0)
+		return 0;
+
+	jpeg_ion_free_handle(pIonClient, handle);
+
+	if (init_offset >= bufSize) {
+		JPEG_MSG("invalid offset %d bufsize %d line %d\n", init_offset, bufSize, __LINE__);
+		return 0;
+	}
+
+	dst_addr += init_offset;
+	JPEG_MSG("dst_addr 0x%p  offset 0x%x line %d\n", dst_addr, init_offset, __LINE__);
+
+
+
+	IMG_REG_WRITE((0 & (~0xF)), REG_ADDR_JPEG_ENC_OFFSET_ADDR);
 
 	IMG_REG_WRITE((offset_mask & 0xF), REG_ADDR_JPEG_ENC_BYTE_OFFSET_MASK);
 
