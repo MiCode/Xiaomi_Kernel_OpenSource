@@ -364,9 +364,7 @@ struct iommu_group *iommu_group_alloc(void)
 				   NULL, "%d", group->id);
 	if (ret) {
 		ida_simple_remove(&iommu_group_ida, group->id);
-		kfree(group);
-		pr_notice("%s, %d, err ida simple remove\n",
-			__func__, __LINE__);
+		kobject_put(&group->kobj);
 		return ERR_PTR(ret);
 	}
 
