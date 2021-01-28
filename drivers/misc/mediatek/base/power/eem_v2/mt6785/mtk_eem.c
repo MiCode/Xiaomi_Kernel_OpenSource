@@ -1951,15 +1951,16 @@ static int eem_init1stress_thread_handler(void *data)
 		wait_event_interruptible(wqStress, eem_init1stress_en);
 		eem_error("eem init1stress start\n");
 		testCnt = 0;
+		/* Disable GPU test due to MTCMOS can't force enable */
+		det = id_to_eem_det(EEM_DET_GPU);
+		det->features = 0;
+		final_init01_flag &= ~(BIT(EEM_DET_GPU));
 
 		/* CPU/GPU pre-process (need to fix )*/
 		mt_cpufreq_ctrl_cci_volt(VBOOT_PMIC_VAL);
 		mcdi_pause(MCDI_PAUSE_BY_EEM, true);
 		mt_ppm_ptpod_policy_activate();
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
-		mt_gpufreq_disable_by_ptpod();
-#endif
 		eem_debug("vpu_disable_by_ptpod 2\n");
 #if ENABLE_VPU
 		/* vpu_disable_by_ptpod(); */
@@ -2031,9 +2032,7 @@ static int eem_init1stress_thread_handler(void *data)
 
 		/* CPU/GPU post-process */
 		eem_buck_set_mode(0);
-#ifdef CONFIG_MTK_GPU_SUPPORT
-		mt_gpufreq_enable_by_ptpod(); /* enable gpu DVFS */
-#endif
+
 #if ENABLE_VPU
 		eem_error("vpu_enable_by_ptpod 2\n");
 		/* vpu_enable_by_ptpod(); */
