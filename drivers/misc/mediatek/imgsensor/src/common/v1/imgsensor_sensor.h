@@ -13,10 +13,10 @@
 
 #ifndef __IMGSENSOR_SENSOR_H__
 #define __IMGSENSOR_SENSOR_H__
-
+#include "imgsensor_i2c.h"
 #include "kd_camera_feature.h"
 #include "kd_imgsensor_define.h"
-#include "imgsensor_i2c.h"
+
 
 enum IMGSENSOR_STATE {
 	IMGSENSOR_STATE_CLOSE,

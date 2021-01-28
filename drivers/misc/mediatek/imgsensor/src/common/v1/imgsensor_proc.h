@@ -19,7 +19,9 @@
 #include "imgsensor_common.h"
 
 #define PROC_CAMERA_INFO "driver/camera_info"
+#define PROC_SENSOR_STAT "driver/imgsensor_status_info"
 
+#define IMGSENSOR_STATUS_INFO_LENGTH 128
 #define camera_info_size 4096
 
 extern char mtk_ccm_name[camera_info_size];

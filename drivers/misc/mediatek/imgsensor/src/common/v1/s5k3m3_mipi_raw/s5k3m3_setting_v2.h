@@ -417,7 +417,7 @@ static void preview_setting_v2(kal_uint16 fps)
 
 	write_cmos_sensor_byte(0x0100, 0x01);
 
-}				/*      preview_setting  */
+}			/*      preview_setting  */
 
 
 
