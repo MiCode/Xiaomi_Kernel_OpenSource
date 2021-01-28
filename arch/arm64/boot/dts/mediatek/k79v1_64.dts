@@ -113,7 +113,7 @@
 	interrupts = <1 IRQ_TYPE_EDGE_FALLING 1 0>;
 	goodix,eint-gpio = <&pio 1 0x0>;
 	goodix,reset-gpio = <&pio 2 0x0>;
-	vtouch-supply = <&mt_pmic_vldo28_ldo_reg>;
+	vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
 
 	/* goodix rotate cord should close for hw rotate */
 	goodix,x2x;
