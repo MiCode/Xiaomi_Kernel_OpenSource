@@ -372,8 +372,12 @@
 
 	pmic_codec: pmic_codec {
 		compatible = "mediatek,mt6357-sound";
-		io-channels = <&pmic_auxadc AUXADC_HPOFS_CAL>;
-		io-channel-names = "pmic_codec";
+		io-channels =
+			<&pmic_auxadc AUXADC_HPOFS_CAL>,
+			<&pmic_auxadc AUXADC_ACCDET>;
+		io-channel-names =
+			"pmic_codec",
+			"pmic_accdet";
 		use_hp_depop_flow = <0>; /* select 1: use, 0: not use */
 		use_ul_260k = <0>; /* select 1: use, 0: not use */
 	};
