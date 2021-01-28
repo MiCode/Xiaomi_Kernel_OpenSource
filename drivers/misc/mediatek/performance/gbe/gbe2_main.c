@@ -61,6 +61,7 @@ enum {
 
 struct gbe_boost_unit {
 	int pid;
+	unsigned long long bufID;
 	int state;
 	int boost_cnt;
 	int dep_num;
@@ -170,7 +171,7 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 	}
 
 	gbe_trace_printk(iter->pid, "gbe", dep_str);
-	gbe_trace_count(iter->pid, ret, "gbe_dep_run");
+	gbe_trace_count(iter->pid, ret, "gbe_dep_run_0x%llx", iter->bufID);
 
 	return ret;
 }
@@ -191,9 +192,9 @@ static void gbe_do_timer2(struct work_struct *work)
 		iter->state = FREE;
 		iter->boost_cnt = 0;
 		gbe_trace_count(iter->pid,
-			iter->boost_cnt, "gbe_boost_cnt");
+			iter->boost_cnt, "gbe_boost_cnt_0x%llx", iter->bufID);
 		gbe_trace_count(iter->pid,
-			iter->state, "gbe_state");
+			iter->state, "gbe_state_0x%llx", iter->bufID);
 		gbe_boost_cpu();
 		hrtimer_cancel(&iter->timer2);
 		hrtimer_start(&iter->timer2,
@@ -201,8 +202,8 @@ static void gbe_do_timer2(struct work_struct *work)
 	} else if (check_dep_run_and_update(iter)) {
 		if (cur_ts_ms - iter->q_ts_ms > TIMER1_MS) {
 			iter->boost_cnt++;
-			gbe_trace_count(iter->pid,
-				iter->boost_cnt, "gbe_boost_cnt");
+			gbe_trace_count(iter->pid, iter->boost_cnt,
+				"gbe_boost_cnt_0x%llx", iter->bufID);
 			hrtimer_cancel(&iter->timer2);
 			hrtimer_start(&iter->timer2,
 				ms_to_ktime(TIMER2_MS), HRTIMER_MODE_REL);
@@ -210,10 +211,10 @@ static void gbe_do_timer2(struct work_struct *work)
 			iter->state = FPS_UPDATE;
 			iter->boost_cnt = 0;
 			gbe_boost_cpu();
+			gbe_trace_count(iter->pid, iter->boost_cnt,
+				"gbe_boost_cnt_0x%llx", iter->bufID);
 			gbe_trace_count(iter->pid,
-				iter->boost_cnt, "gbe_boost_cnt");
-			gbe_trace_count(iter->pid,
-				iter->state, "gbe_state");
+				iter->state, "gbe_state_0x%llx", iter->bufID);
 			hrtimer_cancel(&iter->timer1);
 			hrtimer_start(&iter->timer1,
 				ms_to_ktime(TIMER1_MS), HRTIMER_MODE_REL);
@@ -222,9 +223,9 @@ static void gbe_do_timer2(struct work_struct *work)
 		iter->state = FREE;
 		iter->boost_cnt = 0;
 		gbe_trace_count(iter->pid,
-			iter->boost_cnt, "gbe_boost_cnt");
+			iter->boost_cnt, "gbe_boost_cnt_0x%llx", iter->bufID);
 		gbe_trace_count(iter->pid,
-			iter->state, "gbe_state");
+			iter->state, "gbe_state_0x%llx", iter->bufID);
 		gbe_boost_cpu();
 		hrtimer_cancel(&iter->timer2);
 		hrtimer_start(&iter->timer2,
@@ -266,15 +267,15 @@ static void gbe_do_timer1(struct work_struct *work)
 		iter->boost_cnt = 1;
 		gbe_boost_cpu();
 		gbe_trace_count(iter->pid,
-			iter->boost_cnt, "gbe_boost_cnt");
+			iter->boost_cnt, "gbe_boost_cnt_0x%llx", iter->bufID);
 		gbe_trace_count(iter->pid,
-			iter->state, "gbe_state");
+			iter->state, "gbe_state_0x%llx", iter->bufID);
 		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
 			HRTIMER_MODE_REL);
 	} else {
 		iter->state = FREE;
 		gbe_trace_count(iter->pid,
-			iter->state, "gbe_state");
+			iter->state, "gbe_state_0x%llx", iter->bufID);
 		hrtimer_start(&iter->timer2, ms_to_ktime(TIMER2_MS),
 			HRTIMER_MODE_REL);
 	}
@@ -323,7 +324,7 @@ out:
 	return ret;
 }
 
-void fpsgo_comp2gbe_frame_update(int pid)
+void fpsgo_comp2gbe_frame_update(int pid, unsigned long long bufID)
 {
 	struct gbe_boost_unit *iter;
 
@@ -335,7 +336,7 @@ void fpsgo_comp2gbe_frame_update(int pid)
 	}
 
 	hlist_for_each_entry(iter, &gbe_boost_units, hlist) {
-		if (iter->pid == pid)
+		if (iter->pid == pid && iter->bufID == bufID)
 			break;
 	}
 
@@ -347,6 +348,7 @@ void fpsgo_comp2gbe_frame_update(int pid)
 			goto out;
 
 		iter->pid = pid;
+		iter->bufID = bufID;
 		iter->state = NEW_RENDER;
 		iter->boost_cnt = 0;
 		hlist_add_head(&iter->hlist,
@@ -355,19 +357,19 @@ void fpsgo_comp2gbe_frame_update(int pid)
 
 	switch (iter->state) {
 	case NEW_RENDER:
-		iter->dep_num = gbe2xgf_get_dep_list_num(pid);
+		iter->dep_num = gbe2xgf_get_dep_list_num(pid, bufID);
 		iter->dep_num = iter->dep_num > MAX_DEP_NUM ?
 			MAX_DEP_NUM : iter->dep_num;
-		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep);
+		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep, bufID);
 		update_runtime(iter);
 
 		gbe_trace_count(iter->pid,
-			iter->state, "gbe_state");
+			iter->state, "gbe_state_0x%llx", iter->bufID);
 		iter->state = FPS_UPDATE;
 		gbe_trace_count(iter->pid,
-			iter->boost_cnt, "gbe_boost_cnt");
+			iter->boost_cnt, "gbe_boost_cnt_0x%llx", iter->bufID);
 		gbe_trace_count(iter->pid,
-			iter->state, "gbe_state");
+			iter->state, "gbe_state_0x%llx", iter->bufID);
 
 		gbe_init_timer1(iter);
 		gbe_init_timer2(iter);
@@ -376,10 +378,10 @@ void fpsgo_comp2gbe_frame_update(int pid)
 			HRTIMER_MODE_REL);
 		break;
 	case FPS_UPDATE:
-		iter->dep_num = gbe2xgf_get_dep_list_num(pid);
+		iter->dep_num = gbe2xgf_get_dep_list_num(pid, bufID);
 		iter->dep_num = iter->dep_num > MAX_DEP_NUM ?
 			MAX_DEP_NUM : iter->dep_num;
-		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep);
+		gbe2xgf_get_dep_list(pid, iter->dep_num, iter->dep, bufID);
 		update_runtime(iter);
 
 		hrtimer_cancel(&iter->timer1);

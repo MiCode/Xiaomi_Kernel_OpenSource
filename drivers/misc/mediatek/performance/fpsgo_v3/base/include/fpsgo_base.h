@@ -55,6 +55,7 @@ struct fbt_frame_info {
 
 struct fbt_thread_loading {
 	int pid;
+	unsigned long long buffer_id;
 	atomic_t loading;
 	atomic_t *loading_cl;
 	atomic_t last_cb_ts;
@@ -63,6 +64,7 @@ struct fbt_thread_loading {
 
 struct fbt_thread_blc {
 	int pid;
+	unsigned long long buffer_id;
 	unsigned int blc;
 	int freerun;
 	struct list_head entry;
@@ -90,12 +92,14 @@ struct fbt_boost_info {
 };
 
 struct render_info {
-	struct rb_node pid_node;
+	struct rb_node render_key_node;
 	struct list_head bufferid_list;
 	struct rb_node linger_node;
 
 	/*render basic info pid bufferId..etc*/
 	int pid;
+	unsigned long long render_key; /*pid,identifier*/
+	unsigned long long identifier;
 	unsigned long long buffer_id;
 	int queue_SF;
 	int tgid;	/*render's process pid*/
@@ -171,8 +175,10 @@ void fpsgo_thread_lock(struct mutex *mlock);
 void fpsgo_thread_unlock(struct mutex *mlock);
 void fpsgo_lockprove(const char *tag);
 void fpsgo_thread_lockprove(const char *tag, struct mutex *mlock);
-void fpsgo_delete_render_info(int pid);
-struct render_info *fpsgo_search_and_add_render_info(int pid, int force);
+void fpsgo_delete_render_info(int pid,
+	unsigned long long buffer_id, unsigned long long identifier);
+struct render_info *fpsgo_search_and_add_render_info(int pid,
+		unsigned long long identifier, int force);
 int fpsgo_has_bypass(void);
 void fpsgo_check_thread_status(void);
 void fpsgo_clear(void);
