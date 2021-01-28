@@ -77,6 +77,8 @@
 
 #define KICK_DUMP_MAX_LENGTH (1024 * 16 * 4)
 
+#define MAX_IDLE_RSZ_RATIO 250
+
 static unsigned char kick_string_buffer_analysize[KICK_DUMP_MAX_LENGTH];
 static unsigned int kick_buf_length;
 static atomic_t idlemgr_task_active = ATOMIC_INIT(1);
@@ -915,10 +917,6 @@ static void _cmd_mode_leave_idle(void)
 	if (disp_helper_get_option(DISP_OPT_IDLEMGR_ENTER_ULPS))
 		_primary_display_enable_mmsys_clk();
 
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	prim_disp_request_hrt_bw(overlap_num, scen, __func__);
-#endif
-
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		; /* enter_share_sram(CMDQ_SYNC_RESOURCE_WROT0); */
 
@@ -954,6 +952,83 @@ unsigned long long disp_lp_set_idle_check_interval(
 
 	idle_check_interval = new_interval;
 	return old_interval;
+}
+
+static int get_rsz_ratio(void)
+{
+	struct disp_ddp_path_config *config =
+		dpmgr_path_get_last_config(primary_get_dpmgr_handle());
+	struct RSZ_CONFIG_STRUCT *rsz_config = &config->rsz_config;
+	int ratio_w, ratio_h;
+
+	if (rsz_config->frm_in_w == 0 || rsz_config->frm_in_h == 0
+		|| rsz_config->frm_out_w == 0 || rsz_config->frm_out_h == 0)
+		return 100;
+
+	ratio_w = rsz_config->frm_out_w * 100 / rsz_config->frm_in_w;
+	ratio_h = rsz_config->frm_out_h * 100 / rsz_config->frm_in_h;
+
+	return (ratio_w >= ratio_h) ? ratio_w : ratio_h;
+}
+
+static bool check_dim_layer(void)
+{
+	struct disp_ddp_path_config *config =
+		dpmgr_path_get_last_config(primary_get_dpmgr_handle());
+	struct OVL_CONFIG_STRUCT *cfg;
+	int i = 0;
+	bool exist = 0;
+
+	for (i = 0; i < TOTAL_OVL_LAYER_NUM; i++) {
+		cfg = &config->ovl_config[i];
+		if (cfg->layer_en &&
+			cfg->source == OVL_LAYER_SOURCE_RESERVED) {
+			exist = 1;
+			break;
+		}
+	}
+
+	return exist;
+}
+
+static int has_yuv_layer(void)
+{
+	struct disp_ddp_path_config *config =
+		dpmgr_path_get_last_config(primary_get_dpmgr_handle());
+	struct OVL_CONFIG_STRUCT *ovl_cfg;
+	enum UNIFIED_COLOR_FMT fmt;
+	int i = 0;
+
+	for (i = 0; i < TOTAL_OVL_LAYER_NUM; i++) {
+		ovl_cfg = &config->ovl_config[i];
+		if (ovl_cfg->layer_en == 0)
+			continue;
+
+		fmt = ovl_cfg->fmt;
+		if (fmt == UFMT_UYVY || fmt == UFMT_VYUY ||
+		    fmt == UFMT_YUYV || fmt == UFMT_YVYU)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* small video would shake due to low resolution */
+static int rsz_skip_idle(void)
+{
+	int ratio = get_rsz_ratio();
+
+	if (ratio >= MAX_IDLE_RSZ_RATIO) {
+		DISPINFO("%s ratio:%d\n", __func__, ratio);
+		return 1;
+	}
+
+	if (has_yuv_layer()) {
+		DISPINFO("%s ratio:%d, has yuv\n", __func__, ratio);
+		return 1;
+	}
+
+	return 0;
 }
 
 static int _primary_path_idlemgr_monitor_thread(void *data)
@@ -1010,6 +1085,17 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 			continue;
 		}
 #endif
+
+		if (primary_display_is_video_mode() &&
+			rsz_skip_idle()) {
+			primary_display_manual_unlock();
+			continue;
+		}
+
+		if (primary_display_is_video_mode() && check_dim_layer()) {
+			primary_display_manual_unlock();
+			continue;
+		}
 
 		t_idle = local_clock() - idlemgr_pgc->idlemgr_last_kick_time;
 		if (t_idle < idle_check_interval * 1000 * 1000) {
