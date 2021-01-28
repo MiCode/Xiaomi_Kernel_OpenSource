@@ -273,8 +273,10 @@ void die(const char *str, struct pt_regs *regs, int err)
 	if (ESR_ELx_EC(err) == ESR_ELx_EC_DABT_CUR)
 		thread->cpu_excp++;
 
+#ifdef CONFIG_MTK_AEE_IPANIC
 	if (die_owner == -1)
 		aee_save_excp_regs(regs);
+#endif
 
 	oops_enter();
 

@@ -566,7 +566,9 @@ el1_sync_nest:
 el1_sync_nest_skip_dec:
 	cmp	w4, #0x2
 	b.lt	el1_sync_nest_skip
+#ifdef CONFIG_MTK_AEE_IPANIC
 	bl	aee_stop_nested_panic
+#endif
 el1_sync_nest_skip:
 	mrs	x1, esr_el1			// read the syndrome register
 	lsr	x24, x1, #ESR_ELx_EC_SHIFT	// exception class
