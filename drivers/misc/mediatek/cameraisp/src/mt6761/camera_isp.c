@@ -1011,118 +1011,119 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = {0};
 	}
 
 /* snprintf: avaLen, 1 for null termination*/
-#define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...)                               \
-	do {                                                                   \
-		char *ptr;                                                     \
-		char *pDes;                                                    \
-		signed int avaLen;                                             \
-		unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];             \
-		unsigned int str_leng;                                         \
-		if (logT == _LOG_ERR) {                                        \
-			str_leng = NORMAL_STR_LEN * ERR_PAGE;                  \
-		} else if (logT == _LOG_DBG) {                                 \
-			str_leng = NORMAL_STR_LEN * DBG_PAGE;                  \
-		} else if (logT == _LOG_INF) {                                 \
-			str_leng = NORMAL_STR_LEN * INF_PAGE;                  \
-		} else {                                                       \
-			str_leng = 0;                                          \
-		}                                                              \
-		ptr = pDes = (char *)&(                                        \
-			gSvLog[irq]._str[ppb][logT]                            \
-					[gSvLog[irq]._cnt[ppb][logT]]);        \
-		avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];           \
-		if (avaLen > 1) {                                              \
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
-			if ('\0' !=                                            \
-			    gSvLog[irq]._str[ppb][logT][str_leng - 1]) {       \
-				log_err("(%d)(%d)log str over flow", irq,      \
-					logT);                                 \
-			}                                                      \
-			while (*ptr++ != '\0') {                               \
-				(*ptr2)++;                                     \
-			}                                                      \
-		} else {                                                       \
-			log_err("(%d)(%d)log str avalible=0", irq, logT);      \
-		}                                                              \
+#define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, ...)                                       \
+	do {                                                                           \
+		char *ptr;                                                             \
+		char *pDes;                                                            \
+		signed int avaLen;                                                     \
+		unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];                     \
+		unsigned int str_leng;                                                 \
+		if (logT == _LOG_ERR) {                                                \
+			str_leng = NORMAL_STR_LEN * ERR_PAGE;                          \
+		} else if (logT == _LOG_DBG) {                                         \
+			str_leng = NORMAL_STR_LEN * DBG_PAGE;                          \
+		} else if (logT == _LOG_INF) {                                         \
+			str_leng = NORMAL_STR_LEN * INF_PAGE;                          \
+		} else {                                                               \
+			str_leng = 0;                                                  \
+		}                                                                      \
+		if ((irq >= 0) && (irq < _IRQ_MAX)) {                                  \
+			ptr = pDes = (char *)&(                                        \
+				gSvLog[irq]._str[ppb][logT]                            \
+						[gSvLog[irq]._cnt[ppb][logT]]);        \
+			avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];           \
+			if (avaLen > 1) {                                              \
+				snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+				if ('\0' !=                                            \
+				    gSvLog[irq]._str[ppb][logT][str_leng - 1]) {       \
+					log_err("(%d)(%d)log str over flow", irq,      \
+						logT);                                 \
+				}                                                      \
+				while (*ptr++ != '\0') {                               \
+					(*ptr2)++;                                     \
+				}                                                      \
+			} else {                                                       \
+				log_err("(%d)(%d)log str avalible=0", irq, logT);      \
+			}                                                              \
+		}                                                                      \
 	} while (0)
 // #define IRQ_LOG_KEEPER(irq, ppb, logT, fmt, args...)
 // pr_info(IRQTag fmt, ##args)
 
-#define IRQ_LOG_PRINTER(irq, ppb_in, logT_in)                                  \
-	do {                                                                   \
-		struct SV_LOG_STR *pSrc = &gSvLog[irq];                        \
-		char *ptr;                                                     \
-		unsigned int i;                                                \
-		signed int ppb = 0;                                            \
-		signed int logT = 0;                                           \
-		if (ppb_in > 1) {                                              \
-			ppb = 1;                                               \
-		} else {                                                       \
-			ppb = ppb_in;                                          \
-		}                                                              \
-		if (logT_in > _LOG_ERR) {                                      \
-			logT = _LOG_ERR;                                       \
-		} else {                                                       \
-			logT = logT_in;                                        \
-		}                                                              \
-		ptr = pSrc->_str[ppb][logT];                                   \
-		if (pSrc->_cnt[ppb][logT] != 0) {                              \
-			if (logT == _LOG_DBG) {                                \
-				for (i = 0; i < DBG_PAGE; i++) {               \
-					if (ptr[NORMAL_STR_LEN * (i + 1) -     \
-						1] != '\0') {                  \
-						ptr[NORMAL_STR_LEN * (i + 1) - \
-						    1] = '\0';                 \
-						log_inf("%s",                  \
-							&ptr[NORMAL_STR_LEN *  \
-							     i]);              \
-					} else {                               \
-						log_inf("%s",                  \
-							&ptr[NORMAL_STR_LEN *  \
-							     i]);              \
-						break;                         \
-					}                                      \
-				}                                              \
-			} else if (logT == _LOG_INF) {                         \
-				for (i = 0; i < INF_PAGE; i++) {               \
-					if (ptr[NORMAL_STR_LEN * (i + 1) -     \
-						1] != '\0') {                  \
-						ptr[NORMAL_STR_LEN * (i + 1) - \
-						    1] = '\0';                 \
-						log_inf("%s",                  \
-							&ptr[NORMAL_STR_LEN *  \
-							     i]);              \
-					} else {                               \
-						log_inf("%s",                  \
-							&ptr[NORMAL_STR_LEN *  \
-							     i]);              \
-						break;                         \
-					}                                      \
-				}                                              \
-			} else if (logT == _LOG_ERR) {                         \
-				for (i = 0; i < ERR_PAGE; i++) {               \
-					if (ptr[NORMAL_STR_LEN * (i + 1) -     \
-						1] != '\0') {                  \
-						ptr[NORMAL_STR_LEN * (i + 1) - \
-						    1] = '\0';                 \
-						log_err("%s",                  \
-							&ptr[NORMAL_STR_LEN *  \
-							     i]);              \
-					} else {                               \
-						log_err("%s",                  \
-							&ptr[NORMAL_STR_LEN *  \
-							     i]);              \
-						break;                         \
-					}                                      \
-				}                                              \
-			} else {                                               \
-				log_err("N.S.%d", logT);                       \
-			}                                                      \
-			ptr[0] = '\0';                                         \
-			pSrc->_cnt[ppb][logT] = 0;                             \
-		}                                                              \
+#define IRQ_LOG_PRINTER(irq, ppb_in, logT_in)                                          \
+	do {                                                                           \
+		struct SV_LOG_STR *pSrc = &gSvLog[irq];                                \
+		char *ptr;                                                             \
+		unsigned int i;                                                        \
+		unsigned int ppb = 0;                                                  \
+		unsigned int logT = 0;                                                 \
+		if (ppb_in > 1) {                                                      \
+			ppb = 1;                                                       \
+		} else {                                                               \
+			ppb = ppb_in;                                                  \
+		}                                                                      \
+		if (logT_in > _LOG_ERR) {                                              \
+			logT = _LOG_ERR;                                               \
+		} else {                                                               \
+			logT = logT_in;                                                \
+		}                                                                      \
+		ptr = pSrc->_str[ppb][logT];                                           \
+		if (pSrc->_cnt[ppb][logT] != 0) {                                      \
+			if (logT == _LOG_DBG) {                                        \
+				for (i = 0; i < DBG_PAGE; i++) {                       \
+					if (ptr[NORMAL_STR_LEN * (i + 1) -             \
+						1] != '\0') {                          \
+						ptr[NORMAL_STR_LEN * (i + 1) -         \
+						    1] = '\0';                         \
+						log_inf("%s",                          \
+							&ptr[NORMAL_STR_LEN *          \
+							     i]);                      \
+					} else {                                       \
+						log_inf("%s",                          \
+							&ptr[NORMAL_STR_LEN *          \
+							     i]);                      \
+						break;                                 \
+					}                                              \
+				}                                                      \
+			} else if (logT == _LOG_INF) {                                 \
+				for (i = 0; i < INF_PAGE; i++) {                       \
+					if (ptr[NORMAL_STR_LEN * (i + 1) -             \
+						1] != '\0') {                          \
+						ptr[NORMAL_STR_LEN * (i + 1) -         \
+						    1] = '\0';                         \
+						log_inf("%s",                          \
+							&ptr[NORMAL_STR_LEN *          \
+							     i]);                      \
+					} else {                                       \
+						log_inf("%s",                          \
+							&ptr[NORMAL_STR_LEN *          \
+							     i]);                      \
+						break;                                 \
+					}                                              \
+				}                                                      \
+			} else if (logT == _LOG_ERR) {                                 \
+				for (i = 0; i < ERR_PAGE; i++) {                       \
+					if (ptr[NORMAL_STR_LEN * (i + 1) -             \
+						1] != '\0') {                          \
+						ptr[NORMAL_STR_LEN * (i + 1) -         \
+						    1] = '\0';                         \
+						log_err("%s",                          \
+							&ptr[NORMAL_STR_LEN *          \
+							     i]);                      \
+					} else {                                       \
+						log_err("%s",                          \
+							&ptr[NORMAL_STR_LEN *          \
+							     i]);                      \
+						break;                                 \
+					}                                              \
+				}                                                      \
+			} else {                                                       \
+				log_err("N.S.%d", logT);                               \
+			}                                                              \
+			ptr[0] = '\0';                                                 \
+			pSrc->_cnt[ppb][logT] = 0;                                     \
+		}                                                                      \
 	} while (0)
-
 // #define IRQ_LOG_PRINTER(irq, ppb, logT)
 
 
@@ -1318,6 +1319,7 @@ static inline unsigned int ISP_GetEDBufQueWaitDequeState(signed int idx)
 	unsigned int ret = MFALSE;
 	/*      */
 	spin_lock(&(SpinLockEDBufQueList));
+
 	if (P2_EDBUF_RingList[idx].bufSts == ISP_ED_BUF_STATE_RUNNING)
 		ret = MTRUE;
 
@@ -1332,6 +1334,7 @@ static inline unsigned int ISP_GetEDBufQueWaitFrameState(signed int idx)
 	unsigned int ret = MFALSE;
 	/*      */
 	spin_lock(&(SpinLockEDBufQueList));
+
 	if (P2_EDBUF_MgrList[idx].dequedNum == P2_EDBUF_MgrList[idx].frameNum)
 		ret = MTRUE;
 
@@ -4164,36 +4167,42 @@ static signed int ISP_RTBC_ENQUE(signed int dma,
 	unsigned int index = 0;
 
 	/* check max */
-	if (pstRTBuf->ring_buf[rt_dma].total_count == ISP_RT_BUF_SIZE) {
-		log_err("[rtbc][ENQUE]:real	time buffer	number FULL:rt_dma(%d)",
-			rt_dma);
-		Ret = -EFAULT;
-		/* break; */
+	if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+		if (pstRTBuf->ring_buf[rt_dma].total_count == ISP_RT_BUF_SIZE) {
+			log_err("[rtbc][ENQUE]:real	time buffer	number FULL:rt_dma(%d)",
+				rt_dma);
+			Ret = -EFAULT;
+			/* break; */
+		}
 	}
 
 	/*      */
 	/* spin_lock_irqsave(&(IspInfo.SpinLockRTBC),g_Flash_SpinLock); */
 	/* check if     buffer exist */
 	for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
-		if (pstRTBuf->ring_buf[rt_dma].data[i].base_pAddr ==
-		    prt_buf_info->base_pAddr) {
-			buffer_exist = 1;
-			break;
+		if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+			if (pstRTBuf->ring_buf[rt_dma].data[i].base_pAddr ==
+			    prt_buf_info->base_pAddr) {
+				buffer_exist = 1;
+				break;
+			}
+			/*      */
+			if (pstRTBuf->ring_buf[rt_dma].data[i].base_pAddr == 0)
+				break;
 		}
-		/*      */
-		if (pstRTBuf->ring_buf[rt_dma].data[i].base_pAddr == 0)
-			break;
-
 	}
+
 	/*      */
 	if (buffer_exist) {
 		/*      */
-		if (pstRTBuf->ring_buf[rt_dma].data[i].bFilled !=
-		    ISP_RTBC_BUF_EMPTY) {
-			pstRTBuf->ring_buf[rt_dma].data[i].bFilled =
-				ISP_RTBC_BUF_EMPTY;
-			pstRTBuf->ring_buf[rt_dma].empty_count++;
-			index = i;
+		if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+			if (pstRTBuf->ring_buf[rt_dma].data[i].bFilled !=
+			    ISP_RTBC_BUF_EMPTY) {
+				pstRTBuf->ring_buf[rt_dma].data[i].bFilled =
+					ISP_RTBC_BUF_EMPTY;
+				pstRTBuf->ring_buf[rt_dma].empty_count++;
+				index = i;
+			}
 		}
 		/*      */
 		/* if(IspInfo.DebugMask & ISP_DBG_BUF_CTRL)     { */
@@ -4205,102 +4214,105 @@ static signed int ISP_RTBC_ENQUE(signed int dma,
 
 	} else {
 		/* overwrite oldest     element if buffer is full */
-		if (pstRTBuf->ring_buf[rt_dma].total_count == ISP_RT_BUF_SIZE) {
-			log_err("[ENQUE]:[rtbc]:buffer full(%d)",
-				pstRTBuf->ring_buf[rt_dma].total_count);
-		} else {
-			/* first time add */
-			index = pstRTBuf->ring_buf[rt_dma].total_count %
-				ISP_RT_BUF_SIZE;
-			/*      */
-			pstRTBuf->ring_buf[rt_dma].data[index].memID =
-				prt_buf_info->memID;
-			pstRTBuf->ring_buf[rt_dma].data[index].size =
-				prt_buf_info->size;
-			pstRTBuf->ring_buf[rt_dma].data[index].base_vAddr =
-				prt_buf_info->base_vAddr;
-			pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr =
-				prt_buf_info->base_pAddr;
-			pstRTBuf->ring_buf[rt_dma].data[index].bFilled =
-				ISP_RTBC_BUF_EMPTY;
-			pstRTBuf->ring_buf[rt_dma].data[index].bufIdx =
-				prt_buf_info->bufIdx;
-			/*      */
-			pstRTBuf->ring_buf[rt_dma].total_count++;
-			pstRTBuf->ring_buf[rt_dma].empty_count++;
-			/*      */
-			/* if(IspInfo.DebugMask & ISP_DBG_BUF_CTRL)     { */
-			log_dbg("[rtbc][ENQUE]:dma(%d),index(%d),bufIdx(0x%x),PA(0x%x)/empty(%d)/total(%d)",
-				rt_dma, index, prt_buf_info->bufIdx,
-				pstRTBuf->ring_buf[rt_dma]
-					.data[index]
-					.base_pAddr,
-				pstRTBuf->ring_buf[rt_dma].empty_count,
-				pstRTBuf->ring_buf[rt_dma].total_count);
-			/* } */
+		if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+			if (pstRTBuf->ring_buf[rt_dma].total_count == ISP_RT_BUF_SIZE) {
+				log_err("[ENQUE]:[rtbc]:buffer full(%d)",
+					pstRTBuf->ring_buf[rt_dma].total_count);
+			} else {
+				/* first time add */
+				index = pstRTBuf->ring_buf[rt_dma].total_count %
+					ISP_RT_BUF_SIZE;
+				/*      */
+				pstRTBuf->ring_buf[rt_dma].data[index].memID =
+					prt_buf_info->memID;
+				pstRTBuf->ring_buf[rt_dma].data[index].size =
+					prt_buf_info->size;
+				pstRTBuf->ring_buf[rt_dma].data[index].base_vAddr =
+					prt_buf_info->base_vAddr;
+				pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr =
+					prt_buf_info->base_pAddr;
+				pstRTBuf->ring_buf[rt_dma].data[index].bFilled =
+					ISP_RTBC_BUF_EMPTY;
+				pstRTBuf->ring_buf[rt_dma].data[index].bufIdx =
+					prt_buf_info->bufIdx;
+				/*      */
+				pstRTBuf->ring_buf[rt_dma].total_count++;
+				pstRTBuf->ring_buf[rt_dma].empty_count++;
+				/*      */
+				/* if(IspInfo.DebugMask & ISP_DBG_BUF_CTRL)     { */
+				log_dbg("[rtbc][ENQUE]:dma(%d),index(%d),bufIdx(0x%x),PA(0x%x)/empty(%d)/total(%d)",
+					rt_dma, index, prt_buf_info->bufIdx,
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index]
+						.base_pAddr,
+					pstRTBuf->ring_buf[rt_dma].empty_count,
+					pstRTBuf->ring_buf[rt_dma].total_count);
+				/* } */
+			}
 		}
 	}
 	/*      */
 
 	/* count ==1 means DMA stalled already or NOT start     yet     */
-	if (pstRTBuf->ring_buf[rt_dma].empty_count == 1) {
-		if (_imgo_ == rt_dma) {
-			/* set base_addr at     beginning before VF_EN */
-			ISP_WR32(ISP_REG_ADDR_IMGO_BASE_ADDR,
-				 pstRTBuf->ring_buf[rt_dma]
-					 .data[index]
-					 .base_pAddr);
-		} else if (_rrzo_ == rt_dma) {
-			/* set base_addr at     beginning before VF_EN */
-			ISP_WR32(ISP_REG_ADDR_RRZO_BASE_ADDR,
-				 pstRTBuf->ring_buf[rt_dma]
-					 .data[index]
-					 .base_pAddr);
-		}
+	if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+		if (pstRTBuf->ring_buf[rt_dma].empty_count == 1) {
+			if (_imgo_ == rt_dma) {
+				/* set base_addr at beginning before VF_EN */
+				ISP_WR32(ISP_REG_ADDR_IMGO_BASE_ADDR,
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index]
+						.base_pAddr);
+			} else if (_rrzo_ == rt_dma) {
+				/* set base_addr at beginning before VF_EN */
+				ISP_WR32(ISP_REG_ADDR_RRZO_BASE_ADDR,
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index]
+						.base_pAddr);
+			}
 #if (ISP_RAW_D_SUPPORT == 1)
-		else if (_imgo_d_ == rt_dma) {
-			/* set base_addr at     beginning before VF_EN */
-			ISP_WR32(ISP_REG_ADDR_IMGO_D_BASE_ADDR,
-				 pstRTBuf->ring_buf[rt_dma]
-					 .data[index]
-					 .base_pAddr);
-		} else if (_rrzo_d_ == rt_dma) {
-			/* set base_addr at     beginning before VF_EN */
-			ISP_WR32(ISP_REG_ADDR_RRZO_D_BASE_ADDR,
-				 pstRTBuf->ring_buf[rt_dma]
-					 .data[index]
-					 .base_pAddr);
-		}
+			else if (_imgo_d_ == rt_dma) {
+				/* set base_addr at beginning before VF_EN */
+				ISP_WR32(ISP_REG_ADDR_IMGO_D_BASE_ADDR,
+					 pstRTBuf->ring_buf[rt_dma]
+						 .data[index]
+						 .base_pAddr);
+			} else if (_rrzo_d_ == rt_dma) {
+				/* set base_addr at beginning before VF_EN */
+				ISP_WR32(ISP_REG_ADDR_RRZO_D_BASE_ADDR,
+					 pstRTBuf->ring_buf[rt_dma]
+						 .data[index]
+						 .base_pAddr);
+			}
 #endif
-		else if (_camsv_imgo_ == rt_dma) {
-		/*ISP_WR32(ISP_REG_ADDR_IMGO_SV_BASE_ADDR,
-		 *	pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr);
-		 */
-			pr_debug("[rtbc][ENQUE]IMGO_SV:addr should write by MVHDR");
-		} else if (_camsv2_imgo_ == rt_dma) {
-		/*ISP_WR32(ISP_REG_ADDR_IMGO_SV_D_BASE_ADDR,
-		 *	 pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr);
-		 */
-			pr_debug("[rtbc][ENQUE]IMGO_SV_D:addr should write by PD");
-		}
+			else if (_camsv_imgo_ == rt_dma) {
+			/*ISP_WR32(ISP_REG_ADDR_IMGO_SV_BASE_ADDR,
+			 *	pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr);
+			 */
+				pr_debug("[rtbc][ENQUE]IMGO_SV:addr should write by MVHDR");
+			} else if (_camsv2_imgo_ == rt_dma) {
+			/*ISP_WR32(ISP_REG_ADDR_IMGO_SV_D_BASE_ADDR,
+			 *	pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr);
+			 */
+				pr_debug("[rtbc][ENQUE]IMGO_SV_D:addr should write by PD");
+			}
 
-/* if(IspInfo.DebugMask & ISP_DBG_BUF_CTRL)     { */
+/* if(IspInfo.DebugMask & ISP_DBG_BUF_CTRL) { */
 #if (ISP_RAW_D_SUPPORT == 1)
-		log_dbg("[rtbc][ENQUE]:dma(%d),base_pAddr(0x%x)/imgo(0x%x)/rrzo(0x%x)/imgo_d(0x%x)/rrzo_d(0x%x)/empty_count(%d)",
-			rt_dma,
-			pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr,
-			ISP_RD32(ISP_REG_ADDR_IMGO_BASE_ADDR),
-			ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
-			ISP_RD32(ISP_REG_ADDR_IMGO_D_BASE_ADDR),
-			ISP_RD32(ISP_REG_ADDR_RRZO_D_BASE_ADDR),
-			pstRTBuf->ring_buf[rt_dma].empty_count);
+			log_dbg("[rtbc][ENQUE]:dma(%d),base_pAddr(0x%x)/imgo(0x%x)/rrzo(0x%x)/imgo_d(0x%x)/rrzo_d(0x%x)/empty_count(%d)",
+				rt_dma,
+				pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr,
+				ISP_RD32(ISP_REG_ADDR_IMGO_BASE_ADDR),
+				ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
+				ISP_RD32(ISP_REG_ADDR_IMGO_D_BASE_ADDR),
+				ISP_RD32(ISP_REG_ADDR_RRZO_D_BASE_ADDR),
+				pstRTBuf->ring_buf[rt_dma].empty_count);
 #else
-		log_dbg("[rtbc][ENQUE]:dma(%d),base_pAddr(0x%x)/imgo(0x%x)/rrzo(0x%x)/empty_count(%d)    ",
-			rt_dma,
-			pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr,
-			ISP_RD32(ISP_REG_ADDR_IMGO_BASE_ADDR),
-			ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
-			pstRTBuf->ring_buf[rt_dma].empty_count);
+			log_dbg("[rtbc][ENQUE]:dma(%d),base_pAddr(0x%x)/imgo(0x%x)/rrzo(0x%x)/empty_count(%d)	 ",
+				rt_dma,
+				pstRTBuf->ring_buf[rt_dma].data[index].base_pAddr,
+				ISP_RD32(ISP_REG_ADDR_IMGO_BASE_ADDR),
+				ISP_RD32(ISP_REG_ADDR_RRZO_BASE_ADDR),
+				pstRTBuf->ring_buf[rt_dma].empty_count);
 #endif
 
 /* } */
@@ -4308,28 +4320,30 @@ static signed int ISP_RTBC_ENQUE(signed int dma,
 #if defined(_rtbc_use_cq0c_)
 /* Do nothing */
 #else
-		unsigned int reg_val = 0;
+			unsigned int reg_val = 0;
 
-		/* disable FBC control to go on download */
-		if (_imgo_ == rt_dma) {
-			reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_FBC);
-			reg_val &= ~0x4000;
-			ISP_WR32(ISP_REG_ADDR_IMGO_FBC, reg_val);
-		} else {
-			reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_D_FBC);
-			reg_val &= ~0x4000;
-			ISP_WR32(ISP_REG_ADDR_IMGO_D_FBC, reg_val);
-		}
+			/* disable FBC control to go on download */
+			if (_imgo_ == rt_dma) {
+				reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_FBC);
+				reg_val &= ~0x4000;
+				ISP_WR32(ISP_REG_ADDR_IMGO_FBC, reg_val);
+			} else {
+				reg_val = ISP_RD32(ISP_REG_ADDR_IMGO_D_FBC);
+				reg_val &= ~0x4000;
+				ISP_WR32(ISP_REG_ADDR_IMGO_D_FBC, reg_val);
+			}
 
-		if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL)
-			log_dbg("[rtbc][ENQUE]:dma(%d),disable fbc:IMGO(0x%x),IMG2O(0x%x)",
-				rt_dma, ISP_RD32(ISP_REG_ADDR_IMGO_FBC),
-				ISP_RD32(ISP_REG_ADDR_IMGO_D_FBC));
+			if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL)
+				log_dbg("[rtbc][ENQUE]:dma(%d),disable fbc:IMGO(0x%x),IMG2O(0x%x)",
+					rt_dma, ISP_RD32(ISP_REG_ADDR_IMGO_FBC),
+					ISP_RD32(ISP_REG_ADDR_IMGO_D_FBC));
 
 #endif
-		pstRTBuf->ring_buf[rt_dma].pre_empty_count =
-			pstRTBuf->ring_buf[rt_dma].empty_count;
+			pstRTBuf->ring_buf[rt_dma].pre_empty_count =
+				pstRTBuf->ring_buf[rt_dma].empty_count;
+		}
 	}
+
 
 	/*      */
 	/* spin_unlock_irqrestore(&(IspInfo.SpinLockRTBC),g_Flash_SpinLock); */
@@ -4644,16 +4658,18 @@ static signed int ISP_RTBC_DEQUE(signed int dma,
 	DMA_TRANS(dma, out);
 	pdeque_buf->sof_cnt = sof_count[out];
 	/* in SOF, "start" is next buffer index */
-	for (i = 0; i < pstRTBuf->ring_buf[rt_dma].total_count; i++) {
-		index = (pstRTBuf->ring_buf[rt_dma].start + i) %
-			pstRTBuf->ring_buf[rt_dma].total_count;
+	if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+		for (i = 0; i < pstRTBuf->ring_buf[rt_dma].total_count; i++) {
+			index = (pstRTBuf->ring_buf[rt_dma].start + i) %
+				pstRTBuf->ring_buf[rt_dma].total_count;
 
-		if (pstRTBuf->ring_buf[rt_dma].data[index].bFilled ==
-		    ISP_RTBC_BUF_FILLED) {
-			pstRTBuf->ring_buf[rt_dma].data[index].bFilled =
-				ISP_RTBC_BUF_LOCKED;
-			pdeque_buf->count = P1_DEQUE_CNT;
-			break;
+			if (pstRTBuf->ring_buf[rt_dma].data[index].bFilled ==
+			    ISP_RTBC_BUF_FILLED) {
+				pstRTBuf->ring_buf[rt_dma].data[index].bFilled =
+					ISP_RTBC_BUF_LOCKED;
+				pdeque_buf->count = P1_DEQUE_CNT;
+				break;
+			}
 		}
 	}
 	/*      */
@@ -4665,14 +4681,16 @@ static signed int ISP_RTBC_DEQUE(signed int dma,
 			pstRTBuf->ring_buf[rt_dma].empty_count,
 			pdeque_buf->count);
 		/*      */
-		for (i = 0; i <= pstRTBuf->ring_buf[rt_dma].total_count - 1;
-		     i++) {
-			log_dbg("[rtbc][DEQUE]Buf List:%d/%d/0x%x/0x%llx/0x%x/%d/",
-				i, pstRTBuf->ring_buf[rt_dma].data[i].memID,
-				pstRTBuf->ring_buf[rt_dma].data[i].size,
-				pstRTBuf->ring_buf[rt_dma].data[i].base_vAddr,
-				pstRTBuf->ring_buf[rt_dma].data[i].base_pAddr,
-				pstRTBuf->ring_buf[rt_dma].data[i].bFilled);
+		if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+			for (i = 0; i <= pstRTBuf->ring_buf[rt_dma].total_count - 1;
+			     i++) {
+				log_dbg("[rtbc][DEQUE]Buf List:%d/%d/0x%x/0x%llx/0x%x/%d/",
+					i, pstRTBuf->ring_buf[rt_dma].data[i].memID,
+					pstRTBuf->ring_buf[rt_dma].data[i].size,
+					pstRTBuf->ring_buf[rt_dma].data[i].base_vAddr,
+					pstRTBuf->ring_buf[rt_dma].data[i].base_pAddr,
+					pstRTBuf->ring_buf[rt_dma].data[i].bFilled);
+			}
 		}
 	}
 	/*      */
@@ -4687,35 +4705,37 @@ static signed int ISP_RTBC_DEQUE(signed int dma,
 		}
 		/*      */
 		for (i = 0; i < pdeque_buf->count; i++) {
-			pdeque_buf->data[i].memID = pstRTBuf->ring_buf[rt_dma]
-							    .data[index + i]
-							    .memID;
-			pdeque_buf->data[i].size =
-				pstRTBuf->ring_buf[rt_dma].data[index + i].size;
-			pdeque_buf->data[i].base_vAddr =
-				pstRTBuf->ring_buf[rt_dma]
-					.data[index + i]
-					.base_vAddr;
-			pdeque_buf->data[i].base_pAddr =
-				pstRTBuf->ring_buf[rt_dma]
-					.data[index + i]
-					.base_pAddr;
-			pdeque_buf->data[i].timeStampS =
-				pstRTBuf->ring_buf[rt_dma]
-					.data[index + i]
-					.timeStampS;
-			pdeque_buf->data[i].timeStampUs =
-				pstRTBuf->ring_buf[rt_dma]
-					.data[index + i]
-					.timeStampUs;
-			/*      */
-			if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL) {
-				log_dbg("[rtbc][DEQUE]:index(%d)/PA(0x%x)/memID(%d)/size(0x%x)/VA(0x%llx)",
-					index + i,
-					pdeque_buf->data[i].base_pAddr,
-					pdeque_buf->data[i].memID,
-					pdeque_buf->data[i].size,
-					pdeque_buf->data[i].base_vAddr);
+			if ((rt_dma >= 0) && (rt_dma < _rt_dma_max_)) {
+				pdeque_buf->data[i].memID = pstRTBuf->ring_buf[rt_dma]
+								    .data[index + i]
+								    .memID;
+				pdeque_buf->data[i].size =
+					pstRTBuf->ring_buf[rt_dma].data[index + i].size;
+				pdeque_buf->data[i].base_vAddr =
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index + i]
+						.base_vAddr;
+				pdeque_buf->data[i].base_pAddr =
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index + i]
+						.base_pAddr;
+				pdeque_buf->data[i].timeStampS =
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index + i]
+						.timeStampS;
+				pdeque_buf->data[i].timeStampUs =
+					pstRTBuf->ring_buf[rt_dma]
+						.data[index + i]
+						.timeStampUs;
+				/*      */
+				if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL) {
+					log_dbg("[rtbc][DEQUE]:index(%d)/PA(0x%x)/memID(%d)/size(0x%x)/VA(0x%llx)",
+						index + i,
+						pdeque_buf->data[i].base_pAddr,
+						pdeque_buf->data[i].memID,
+						pdeque_buf->data[i].size,
+						pdeque_buf->data[i].base_vAddr);
+				}
 			}
 		}
 		/*      */
@@ -7143,6 +7163,7 @@ static signed int ISP_CAMSV_SOF_Buf_Get(unsigned int dma,
 			IRQ_LOG_KEEPER(irqT, m_CurrentPPB, _LOG_ERR,
 				       "sv%d overlap prv(0x%x) = Cur(0x%x)\n",
 				       dma, PrvAddr[out], curr_pa);
+
 		/* ISP_DumpReg(); */
 
 		PrvAddr[out] = curr_pa;
@@ -7318,9 +7339,7 @@ static signed int ISP_CAMSV_DONE_Buf_Time(unsigned int dma,
 			pstRTBuf->ring_buf[dma].img_cnt = sof_count[out];
 
 			if (g1stSof[irqT] == MTRUE)
-				log_err("Done&&Sof receive at the same time	in 1st f\n");
-
-
+				log_err("Done&&Sof receive at the same time in 1st f\n");
 			break;
 		}
 		if (IspInfo.DebugMask & ISP_DBG_INT_2) {
@@ -7366,7 +7385,7 @@ static signed int ISP_DONE_Buf_Time(enum eISPIrq irqT, union CQ_RTBC_FBC *pFbc,
 				unsigned long long sec, unsigned long usec)
 {
 	int i, k, m;
-	int i_dma;
+	unsigned int i_dma;
 	unsigned int curr;
 	/* unsigned     int     reg_fbc; */
 	/* unsigned int reg_val = 0; */
@@ -7479,7 +7498,6 @@ static signed int ISP_DONE_Buf_Time(enum eISPIrq irqT, union CQ_RTBC_FBC *pFbc,
 						"[rtbc][DONE]:dma(%d)buf num empty,start(%d)\n",
 						i_dma, pstRTBuf->ring_buf[i_dma]
 							       .start);
-
 				/*      */
 				continue;
 			}
@@ -7516,45 +7534,29 @@ static signed int ISP_DONE_Buf_Time(enum eISPIrq irqT, union CQ_RTBC_FBC *pFbc,
 					pstRTBuf->ring_buf[i_dma].empty_count--;
 					/*      */
 					if (g1stSof[irqT] == MTRUE)
-						log_err("Done&&Sof receive at the same time	in 1st f(%d)\n",
+						log_err("Done&&Sof receive at the same time in 1st f(%d)\n",
 							i_dma);
-
 					break;
 				}
 				if (1) {
 			/* (IspInfo.DebugMask & ISP_DBG_INT_2) { */
-					for (m = 0;
-						m <
-						     ISP_RT_BUF_SIZE;) {
-						log_err("dma_%d,cur_%d,bFilled_%d != EMPTY(%d %d %d	%d)\n",
+					for (m = 0; m < ISP_RT_BUF_SIZE; ) {
+						log_err("dma_%d,cur_%d,bFilled_%d != EMPTY(%d %d %d %d)\n",
 							i_dma, curr,
-							pstRTBuf
-								->ring_buf
-									[i_dma]
+							pstRTBuf->ring_buf[i_dma]
 								.data[curr]
 								.bFilled,
-							pstRTBuf
-								->ring_buf
-									[i_dma]
+							pstRTBuf->ring_buf[i_dma]
 								.data[m]
 								.bFilled,
-							pstRTBuf
-								->ring_buf
-									[i_dma]
-								.data[m +
-								      1]
+							pstRTBuf->ring_buf[i_dma]
+								.data[m + 1]
 								.bFilled,
-							pstRTBuf
-								->ring_buf
-									[i_dma]
-								.data[m +
-								      2]
+							pstRTBuf->ring_buf[i_dma]
+								.data[m + 2]
 								.bFilled,
-							pstRTBuf
-								->ring_buf
-									[i_dma]
-								.data[m +
-								      3]
+							pstRTBuf->ring_buf[i_dma]
+								.data[m + 3]
 								.bFilled);
 						m = m + 4;
 					}
@@ -7567,11 +7569,13 @@ static signed int ISP_DONE_Buf_Time(enum eISPIrq irqT, union CQ_RTBC_FBC *pFbc,
 			}
 			/*      */
 			if (IspInfo.DebugMask & ISP_DBG_INT_2) {
-				IRQ_LOG_KEEPER(
-					irqT, m_CurrentPPB, _LOG_INF,
-					"[rtbc][DONE]:dma(%d),start(%d),empty(%d)\n",
-					i_dma, pstRTBuf->ring_buf[i_dma].start,
-					pstRTBuf->ring_buf[i_dma].empty_count);
+				if ((i_dma >= 0) && (i_dma < _rt_dma_max_)) {
+					IRQ_LOG_KEEPER(
+						irqT, m_CurrentPPB, _LOG_INF,
+						"[rtbc][DONE]:dma(%d),start(%d),empty(%d)\n",
+						i_dma, pstRTBuf->ring_buf[i_dma].start,
+						pstRTBuf->ring_buf[i_dma].empty_count);
+				}
 			}
 			/*      */
 			DMA_TRANS(i_dma, out);
@@ -7774,7 +7778,7 @@ static signed int ISP_ED_BufQue_Erase(signed int idx, int listTag)
 		P2_EDBUF_MgrList[idx].p2Scenario = -1;
 		/* [2] update first     index */
 		if (P2_EDBUF_MgrList[tmpIdx].p2dupCQIdx == -1) {
-			/* traverse     count needed, cuz user may erase the
+			/* traverse count needed, cuz user may erase the
 			 * element
 			 * but not the one at first idx(pip or vss scenario)
 			 */
@@ -7823,7 +7827,7 @@ static signed int ISP_ED_BufQue_Erase(signed int idx, int listTag)
 		EDBufQueRemainNodeCnt--;
 		/* [2]update first index */
 		if (P2_EDBUF_RingList[tmpIdx].bufSts == ISP_ED_BUF_STATE_NONE) {
-			/* traverse     count needed, cuz user may erase the */
+			/* traverse count needed, cuz user may erase the */
 			/* element but not the one at first idx */
 			if (P2_EDBUF_RList_FirstBufIdx <=
 			    P2_EDBUF_RList_LastBufIdx) {
@@ -7834,7 +7838,7 @@ static signed int ISP_ED_BufQue_Erase(signed int idx, int listTag)
 				      P2_EDBUF_RList_FirstBufIdx;
 				cnt += P2_EDBUF_RList_LastBufIdx;
 			}
-			/* to find the newest first     lindex */
+			/* to find the newest first lindex */
 			do {
 				tmpIdx = (tmpIdx + 1) %
 					 _MAX_SUPPORT_P2_FRAME_NUM_;
@@ -8254,7 +8258,9 @@ static signed int ISP_ED_BufQue_CTRL_FUNC(struct ISP_ED_BUFQUE_STRUCT param)
 			ret = -EFAULT;
 			return ret;
 		}
+
 		P2_EDBUF_MgrList[idx].dequedNum++;
+
 		/* [3]update global     pointer */
 		ISP_ED_BufQue_Update_GPtr(P2_EDBUF_RLIST_TAG);
 		/* [4]erase     node in ring buffer     list */
@@ -8618,18 +8624,32 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT irqinfo)
 	usec = do_div(sec, 1000000); /* sec and usec */
 
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	IspInfo.IrqInfo.MarkedTime_usec[irqinfo.UserInfo.UserKey]
-				       [irqinfo.UserInfo.Type][idx] =
-		(unsigned int)usec;
-	IspInfo.IrqInfo.MarkedTime_sec[irqinfo.UserInfo.UserKey]
-				      [irqinfo.UserInfo.Type][idx] =
-		(unsigned int)sec;
+	if ((irqinfo.UserInfo.UserKey >= 0) &&
+		(irqinfo.UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
+		(irqinfo.UserInfo.Type >= 0) &&
+		(irqinfo.UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+		(idx >= 0) &&
+		(idx < 32)) {
+		IspInfo.IrqInfo.MarkedTime_usec[irqinfo.UserInfo.UserKey]
+					       [irqinfo.UserInfo.Type][idx] =
+			(unsigned int)usec;
+		IspInfo.IrqInfo.MarkedTime_sec[irqinfo.UserInfo.UserKey]
+					      [irqinfo.UserInfo.Type][idx] =
+			(unsigned int)sec;
+	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
 
 	/* 3. clear     passed by signal count */
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	IspInfo.IrqInfo.PassedBySigCnt[irqinfo.UserInfo.UserKey]
-				      [irqinfo.UserInfo.Type][idx] = 0;
+	if ((irqinfo.UserInfo.UserKey >= 0) &&
+		(irqinfo.UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
+		(irqinfo.UserInfo.Type >= 0) &&
+		(irqinfo.UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+		(idx >= 0) &&
+		(idx < 32)) {
+		IspInfo.IrqInfo.PassedBySigCnt[irqinfo.UserInfo.UserKey]
+					      [irqinfo.UserInfo.Type][idx] = 0;
+	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
 
 	log_dbg("[MARK]	 key/type/sts/idx (%d/%d/0x%x/%d), t(%d/%d)\n",
@@ -8695,47 +8715,60 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	}
 
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
+
+
 	if (irqinfo->UserInfo.Status &
 	    IspInfo.IrqInfo.MarkedFlag[irqinfo->UserInfo.UserKey]
 				      [irqinfo->UserInfo.Type]) {
-		/*      */
-		irqinfo->TimeInfo.passedbySigcnt =
-			IspInfo.IrqInfo
-				.PassedBySigCnt[irqinfo->UserInfo.UserKey]
-					       [irqinfo->UserInfo.Type][idx];
-		/*      */
-		irqinfo->TimeInfo.tMark2WaitSig_usec =
-			(time_ready2return.tv_usec -
-			 IspInfo.IrqInfo
-				 .MarkedTime_usec[irqinfo->UserInfo.UserKey]
-						 [irqinfo->UserInfo.Type][idx]);
-		irqinfo->TimeInfo.tMark2WaitSig_sec =
-			(time_ready2return.tv_sec -
-			 IspInfo.IrqInfo
-				 .MarkedTime_sec[irqinfo->UserInfo.UserKey]
-						[irqinfo->UserInfo.Type][idx]);
+		if ((irqinfo->UserInfo.UserKey >= 0) &&
+			(irqinfo->UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
+			(irqinfo->UserInfo.Type >= 0) &&
+			(irqinfo->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+			(idx >= 0) &&
+			(idx < 32)) {
+			/*      */
+			irqinfo->TimeInfo.passedbySigcnt =
+				IspInfo.IrqInfo
+					.PassedBySigCnt[irqinfo->UserInfo.UserKey]
+						       [irqinfo->UserInfo.Type][idx];
+			/*      */
+			irqinfo->TimeInfo.tMark2WaitSig_usec =
+				(time_ready2return.tv_usec -
+				 IspInfo.IrqInfo
+					 .MarkedTime_usec[irqinfo->UserInfo.UserKey]
+							 [irqinfo->UserInfo.Type][idx]);
+			irqinfo->TimeInfo.tMark2WaitSig_sec =
+				(time_ready2return.tv_sec -
+				 IspInfo.IrqInfo
+					 .MarkedTime_sec[irqinfo->UserInfo.UserKey]
+							[irqinfo->UserInfo.Type][idx]);
+		}
 		if ((int)(irqinfo->TimeInfo.tMark2WaitSig_usec) < 0) {
 			irqinfo->TimeInfo.tMark2WaitSig_sec =
 				irqinfo->TimeInfo.tMark2WaitSig_sec - 1;
 
 			if ((int)(irqinfo->TimeInfo.tMark2WaitSig_sec) < 0)
 				irqinfo->TimeInfo.tMark2WaitSig_sec = 0;
-
-
 			irqinfo->TimeInfo.tMark2WaitSig_usec =
 				1 * 1000000 +
 				irqinfo->TimeInfo.tMark2WaitSig_usec;
 		}
 		/*      */
 		if (irqinfo->TimeInfo.passedbySigcnt > 0) {
-			irqinfo->TimeInfo.tLastSig2GetSig_usec =
-				(time_ready2return.tv_usec -
-				 IspInfo.IrqInfo.LastestSigTime_usec
-					 [irqinfo->UserInfo.Type][idx]);
-			irqinfo->TimeInfo.tLastSig2GetSig_sec =
-				(time_ready2return.tv_sec -
-				 IspInfo.IrqInfo.LastestSigTime_sec
-					 [irqinfo->UserInfo.Type][idx]);
+			if ((irqinfo->UserInfo.Type >= 0) &&
+				(irqinfo->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+				(idx >= 0) &&
+				(idx < 32)) {
+				irqinfo->TimeInfo.tLastSig2GetSig_usec =
+					(time_ready2return.tv_usec -
+					 IspInfo.IrqInfo.LastestSigTime_usec
+						 [irqinfo->UserInfo.Type][idx]);
+
+				irqinfo->TimeInfo.tLastSig2GetSig_sec =
+					(time_ready2return.tv_sec -
+					 IspInfo.IrqInfo.LastestSigTime_sec
+						 [irqinfo->UserInfo.Type][idx]);
+			}
 			if ((int)(irqinfo->TimeInfo.tLastSig2GetSig_usec) < 0) {
 				irqinfo->TimeInfo.tLastSig2GetSig_sec =
 					irqinfo->TimeInfo.tLastSig2GetSig_sec -
@@ -8763,19 +8796,26 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		Ret = -EFAULT;
 	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	pr_info("[%s] user/type/idx(%d/%d/%d),mark sec/usec (%d/%d), irq sec/usec (%d/%d),query sec/usec(%d/%d),sig(%d)\n",
-		__func__,
-		irqinfo->UserInfo.UserKey, irqinfo->UserInfo.Type, idx,
-		IspInfo.IrqInfo.MarkedTime_sec[irqinfo->UserInfo.UserKey]
-					      [irqinfo->UserInfo.Type][idx],
-		IspInfo.IrqInfo.MarkedTime_usec[irqinfo->UserInfo.UserKey]
-					       [irqinfo->UserInfo.Type][idx],
-		IspInfo.IrqInfo.LastestSigTime_sec[irqinfo->UserInfo.Type][idx],
-		IspInfo.IrqInfo
-			.LastestSigTime_usec[irqinfo->UserInfo.Type][idx],
-		(int)time_ready2return.tv_sec, (int)time_ready2return.tv_usec,
-		IspInfo.IrqInfo.PassedBySigCnt[irqinfo->UserInfo.UserKey]
-					      [irqinfo->UserInfo.Type][idx]);
+	if ((irqinfo->UserInfo.UserKey >= 0) &&
+		(irqinfo->UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
+		(irqinfo->UserInfo.Type >= 0) &&
+		(irqinfo->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+		(idx >= 0) &&
+		(idx < 32)) {
+		pr_info("[%s] user/type/idx(%d/%d/%d),mark sec/usec (%d/%d), irq sec/usec (%d/%d),query sec/usec(%d/%d),sig(%d)\n",
+			__func__,
+			irqinfo->UserInfo.UserKey, irqinfo->UserInfo.Type, idx,
+			IspInfo.IrqInfo.MarkedTime_sec[irqinfo->UserInfo.UserKey]
+						      [irqinfo->UserInfo.Type][idx],
+			IspInfo.IrqInfo.MarkedTime_usec[irqinfo->UserInfo.UserKey]
+						       [irqinfo->UserInfo.Type][idx],
+			IspInfo.IrqInfo.LastestSigTime_sec[irqinfo->UserInfo.Type][idx],
+			IspInfo.IrqInfo
+				.LastestSigTime_usec[irqinfo->UserInfo.Type][idx],
+			(int)time_ready2return.tv_sec, (int)time_ready2return.tv_usec,
+			IspInfo.IrqInfo.PassedBySigCnt[irqinfo->UserInfo.UserKey]
+						      [irqinfo->UserInfo.Type][idx]);
+	}
 	return Ret;
 }
 
@@ -8914,41 +8954,42 @@ static signed int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		eIrq = _IRQ;
 		break;
 	}
-
-	if (WaitIrq->Clear == ISP_IRQ_CLEAR_WAIT) {
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
-		if (IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] &
-		    WaitIrq->Status) {
-	/* log_dbg("WARNING: Clear(%d), Type(%d):
-	 *   IrqStatus(0x%08X)     has     been cleared",
-	 *   WaitIrq->Clear,WaitIrq->Type,IspInfo.IrqInfo.Status[WaitIrq->Type]
-	 *   & WaitIrq->Status);
-	 */
-			IspInfo.IrqInfo
-				.Status[WaitIrq->UserNumber][WaitIrq->Type] &=
+	if ((WaitIrq->UserNumber >= 0) && (WaitIrq->UserNumber < IRQ_USER_NUM_MAX)) {
+		if (WaitIrq->Clear == ISP_IRQ_CLEAR_WAIT) {
+			spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
+			if (IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] &
+			    WaitIrq->Status) {
+		/* log_dbg("WARNING: Clear(%d), Type(%d):
+		 *   IrqStatus(0x%08X)     has     been cleared",
+		 *   WaitIrq->Clear,WaitIrq->Type,IspInfo.IrqInfo.Status[WaitIrq->Type]
+		 *   & WaitIrq->Status);
+		 */
+				IspInfo.IrqInfo
+					.Status[WaitIrq->UserNumber][WaitIrq->Type] &=
+					(~WaitIrq->Status);
+			}
+			spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
+		} else if (WaitIrq->Clear == ISP_IRQ_CLEAR_ALL) {
+			spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
+		/* log_dbg("WARNING: Clear(%d), Type(%d): IrqStatus(0x%08X)
+		 *   has     been cleared",
+		 *   WaitIrq->Clear,WaitIrq->Type,
+		 *   IspInfo.IrqInfo.Status[WaitIrq->Type]);
+		 */
+			IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] = 0;
+			spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
+		} else if (WaitIrq->Clear == ISP_IRQ_CLEAR_STATUS) {
+			spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
+		/* log_dbg("WARNING: Clear(%d), Type(%d): IrqStatus(0x%08X)
+		 *   has     been cleared",
+		 *   WaitIrq->Clear,WaitIrq->Type,
+		 *   IspInfo.IrqInfo.Status[WaitIrq->Type]);
+		 */
+			IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] &=
 				(~WaitIrq->Status);
+			spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
+			return Ret;
 		}
-		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	} else if (WaitIrq->Clear == ISP_IRQ_CLEAR_ALL) {
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	/* log_dbg("WARNING: Clear(%d), Type(%d): IrqStatus(0x%08X)
-	 *   has     been cleared",
-	 *   WaitIrq->Clear,WaitIrq->Type,
-	 *   IspInfo.IrqInfo.Status[WaitIrq->Type]);
-	 */
-		IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] = 0;
-		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	} else if (WaitIrq->Clear == ISP_IRQ_CLEAR_STATUS) {
-		spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
-	/* log_dbg("WARNING: Clear(%d), Type(%d): IrqStatus(0x%08X)
-	 *   has     been cleared",
-	 *   WaitIrq->Clear,WaitIrq->Type,
-	 *   IspInfo.IrqInfo.Status[WaitIrq->Type]);
-	 */
-		IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] &=
-			(~WaitIrq->Status);
-		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
-		return Ret;
 	}
 	/*      */
 	Timeout = wait_event_interruptible_timeout(
@@ -8970,13 +9011,14 @@ static signed int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	/* timeout */
 	if (Timeout == 0) {
 		spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
-		log_err("v1 ERR WaitIrq Timeout Clear(%d), Type(%d), IrqStatus(0x%08X), WaitStatus(0x%08X), Timeout(%d),user(%d)",
+		if ((WaitIrq->UserNumber >= 0) && (WaitIrq->UserNumber < IRQ_USER_NUM_MAX)) {
+			log_err("v1 ERR WaitIrq Timeout Clear(%d), Type(%d), IrqStatus(0x%08X), WaitStatus(0x%08X), Timeout(%d),user(%d)",
 			WaitIrq->Clear, WaitIrq->Type,
 			IspInfo.IrqInfo
 				.Status[WaitIrq->UserNumber][WaitIrq->Type],
 			WaitIrq->Status, WaitIrq->Timeout, WaitIrq->UserNumber);
+		}
 		spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
-
 		if (WaitIrq->bDumpReg ||
 		    (WaitIrq->UserNumber == ISP_IRQ_USER_3A) ||
 		    (WaitIrq->UserNumber == ISP_IRQ_USER_MW)) {
@@ -9077,8 +9119,10 @@ static signed int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		}
 	}
 	/* clear the status     if someone get the irq */
-	IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] &=
-		(~WaitIrq->Status);
+	if ((WaitIrq->UserNumber >= 0) && (WaitIrq->UserNumber < IRQ_USER_NUM_MAX)) {
+		IspInfo.IrqInfo.Status[WaitIrq->UserNumber][WaitIrq->Type] &=
+			(~WaitIrq->Status);
+	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
 	/*      */
 	/* check CQ     status, when pass2,     pass2b, pass2c done     */
@@ -9423,63 +9467,69 @@ static signed int ISP_WaitIrq_v3(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 	if (WaitIrq->UserInfo.Status &
 	    IspInfo.IrqInfo.MarkedFlag[WaitIrq->UserInfo.UserKey]
 				      [WaitIrq->UserInfo.Type]) {
-		WaitIrq->TimeInfo.tMark2WaitSig_usec =
-			(time_getrequest.tv_usec -
-			 IspInfo.IrqInfo
-				 .MarkedTime_usec[WaitIrq->UserInfo.UserKey]
-						 [WaitIrq->UserInfo.Type][idx]);
-		WaitIrq->TimeInfo.tMark2WaitSig_sec =
-			(time_getrequest.tv_sec -
-			 IspInfo.IrqInfo
-				 .MarkedTime_sec[WaitIrq->UserInfo.UserKey]
-						[WaitIrq->UserInfo.Type][idx]);
-		if ((int)(WaitIrq->TimeInfo.tMark2WaitSig_usec) < 0) {
-			WaitIrq->TimeInfo.tMark2WaitSig_sec =
-				WaitIrq->TimeInfo.tMark2WaitSig_sec - 1;
-
-			if ((int)(WaitIrq->TimeInfo.tMark2WaitSig_sec) < 0)
-				WaitIrq->TimeInfo.tMark2WaitSig_sec = 0;
-
-
+		if ((WaitIrq->UserInfo.UserKey >= 0) &&
+			(WaitIrq->UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
+			(WaitIrq->UserInfo.Type >= 0) &&
+			(WaitIrq->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+			(idx >= 0) &&
+			(idx < 32)) {
 			WaitIrq->TimeInfo.tMark2WaitSig_usec =
-				1 * 1000000 +
-				WaitIrq->TimeInfo.tMark2WaitSig_usec;
-		}
-		/*      */
-		WaitIrq->TimeInfo.tLastSig2GetSig_usec =
-			(time_ready2return.tv_usec -
-			 IspInfo.IrqInfo
-				 .LastestSigTime_usec[WaitIrq->UserInfo.Type]
-						     [idx]);
-		WaitIrq->TimeInfo.tLastSig2GetSig_sec =
-			(time_ready2return.tv_sec -
-			 IspInfo.IrqInfo
-				 .LastestSigTime_sec[WaitIrq->UserInfo.Type]
-						    [idx]);
-		if ((int)(WaitIrq->TimeInfo.tLastSig2GetSig_usec) < 0) {
-			WaitIrq->TimeInfo.tLastSig2GetSig_sec =
-				WaitIrq->TimeInfo.tLastSig2GetSig_sec - 1;
+				(time_getrequest.tv_usec -
+				 IspInfo.IrqInfo
+					 .MarkedTime_usec[WaitIrq->UserInfo.UserKey]
+							 [WaitIrq->UserInfo.Type][idx]);
+			WaitIrq->TimeInfo.tMark2WaitSig_sec =
+				(time_getrequest.tv_sec -
+				 IspInfo.IrqInfo
+					 .MarkedTime_sec[WaitIrq->UserInfo.UserKey]
+							[WaitIrq->UserInfo.Type][idx]);
+			if ((int)(WaitIrq->TimeInfo.tMark2WaitSig_usec) < 0) {
+				WaitIrq->TimeInfo.tMark2WaitSig_sec =
+					WaitIrq->TimeInfo.tMark2WaitSig_sec - 1;
 
-			if ((int)(WaitIrq->TimeInfo.tLastSig2GetSig_sec) < 0)
-				WaitIrq->TimeInfo.tLastSig2GetSig_sec = 0;
+				if ((int)(WaitIrq->TimeInfo.tMark2WaitSig_sec) < 0)
+					WaitIrq->TimeInfo.tMark2WaitSig_sec = 0;
 
-
+				WaitIrq->TimeInfo.tMark2WaitSig_usec =
+					1 * 1000000 +
+					WaitIrq->TimeInfo.tMark2WaitSig_usec;
+			}
+			/*		*/
 			WaitIrq->TimeInfo.tLastSig2GetSig_usec =
-				1 * 1000000 +
-				WaitIrq->TimeInfo.tLastSig2GetSig_usec;
+				(time_ready2return.tv_usec -
+				 IspInfo.IrqInfo
+					 .LastestSigTime_usec[WaitIrq->UserInfo.Type]
+								 [idx]);
+			WaitIrq->TimeInfo.tLastSig2GetSig_sec =
+				(time_ready2return.tv_sec -
+				 IspInfo.IrqInfo
+					 .LastestSigTime_sec[WaitIrq->UserInfo.Type]
+								[idx]);
+			if ((int)(WaitIrq->TimeInfo.tLastSig2GetSig_usec) < 0) {
+				WaitIrq->TimeInfo.tLastSig2GetSig_sec =
+					WaitIrq->TimeInfo.tLastSig2GetSig_sec - 1;
+
+				if ((int)(WaitIrq->TimeInfo.tLastSig2GetSig_sec) < 0)
+					WaitIrq->TimeInfo.tLastSig2GetSig_sec = 0;
+
+
+				WaitIrq->TimeInfo.tLastSig2GetSig_usec =
+					1 * 1000000 +
+					WaitIrq->TimeInfo.tLastSig2GetSig_usec;
+			}
+			/*	*/
+			if (freeze_passbysigcnt)
+				WaitIrq->TimeInfo.passedbySigcnt =
+					IspInfo.IrqInfo.PassedBySigCnt
+						[WaitIrq->UserInfo.UserKey]
+						[WaitIrq->UserInfo.Type][idx] -
+					1;
+			else
+				WaitIrq->TimeInfo.passedbySigcnt =
+					IspInfo.IrqInfo.PassedBySigCnt
+						[WaitIrq->UserInfo.UserKey]
+						[WaitIrq->UserInfo.Type][idx];
 		}
-		/*      */
-		if (freeze_passbysigcnt)
-			WaitIrq->TimeInfo.passedbySigcnt =
-				IspInfo.IrqInfo.PassedBySigCnt
-					[WaitIrq->UserInfo.UserKey]
-					[WaitIrq->UserInfo.Type][idx] -
-				1;
-		else
-			WaitIrq->TimeInfo.passedbySigcnt =
-				IspInfo.IrqInfo.PassedBySigCnt
-					[WaitIrq->UserInfo.UserKey]
-					[WaitIrq->UserInfo.Type][idx];
 	}
 	IspInfo.IrqInfo
 		.Status[WaitIrq->UserInfo.UserKey][WaitIrq->UserInfo.Type] &=
@@ -9561,13 +9611,19 @@ EXIT:
 		IspInfo.IrqInfo.MarkedFlag[WaitIrq->UserInfo.UserKey]
 					  [WaitIrq->UserInfo.Type] &=
 			(~WaitIrq->UserInfo.Status);
-		IspInfo.IrqInfo.MarkedTime_usec[WaitIrq->UserInfo.UserKey]
-					       [WaitIrq->UserInfo.Type][idx] =
-			0;
-		IspInfo.IrqInfo.MarkedTime_sec[WaitIrq->UserInfo.UserKey]
-					      [WaitIrq->UserInfo.Type][idx] = 0;
-		IspInfo.IrqInfo.PassedBySigCnt[WaitIrq->UserInfo.UserKey]
-					      [WaitIrq->UserInfo.Type][idx] = 0;
+		if ((WaitIrq->UserInfo.UserKey >= 0) &&
+			(WaitIrq->UserInfo.UserKey < IRQ_USER_NUM_MAX) &&
+			(WaitIrq->UserInfo.Type >= 0) &&
+			(WaitIrq->UserInfo.Type < ISP_IRQ_TYPE_AMOUNT) &&
+			(idx >= 0) &&
+			(idx < 32)) {
+			IspInfo.IrqInfo.MarkedTime_usec[WaitIrq->UserInfo.UserKey]
+						       [WaitIrq->UserInfo.Type][idx] = 0;
+			IspInfo.IrqInfo.MarkedTime_sec[WaitIrq->UserInfo.UserKey]
+						      [WaitIrq->UserInfo.Type][idx] = 0;
+			IspInfo.IrqInfo.PassedBySigCnt[WaitIrq->UserInfo.UserKey]
+						      [WaitIrq->UserInfo.Type][idx] = 0;
+		}
 	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
 
@@ -10702,10 +10758,15 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 			(unsigned int)(sec);
 		IspInfo.IrqInfo.LastestSigTime_sec[ISP_IRQ_TYPE_INT_P1_ST][0] =
 			(unsigned int)(usec);
-		IspInfo.IrqInfo.Eismeta[ISP_IRQ_TYPE_INT_P1_ST][gEismetaWIdx]
-			.tLastSOF2P1done_sec = (unsigned int)(sec);
-		IspInfo.IrqInfo.Eismeta[ISP_IRQ_TYPE_INT_P1_ST][gEismetaWIdx]
-			.tLastSOF2P1done_usec = (unsigned int)(usec);
+		if ((ISP_IRQ_TYPE_INT_P1_ST >= 0) &&
+			(ISP_IRQ_TYPE_INT_P1_ST < ISP_IRQ_TYPE_INT_STATUSX) &&
+			(gEismetaWIdx >= 0) &&
+			(gEismetaWIdx < EISMETA_RINGSIZE)) {
+			IspInfo.IrqInfo.Eismeta[ISP_IRQ_TYPE_INT_P1_ST][gEismetaWIdx]
+				.tLastSOF2P1done_sec = (unsigned int)(sec);
+			IspInfo.IrqInfo.Eismeta[ISP_IRQ_TYPE_INT_P1_ST][gEismetaWIdx]
+				.tLastSOF2P1done_usec = (unsigned int)(usec);
+		}
 		gEismetaInSOF = 1;
 		gEismetaWIdx = ((gEismetaWIdx + 1) % EISMETA_RINGSIZE);
 		if (sof_pass1done[0] == 1) {
@@ -10715,7 +10776,6 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 			ISP_SOF_Buf_Get(_IRQ, p1_fbc, (unsigned int *)curr_pa,
 							sec, usec, MFALSE);
 		}
-
 	}
 	spin_unlock(&(IspInfo.SpinLockIrq[_IRQ]));
 
@@ -10973,12 +11033,18 @@ static __tcmfunc irqreturn_t ISP_Irq_CAM(signed int Irq, void *DeviceId)
 		IspInfo.IrqInfo
 			.LastestSigTime_sec[ISP_IRQ_TYPE_INT_P1_ST_D][0] =
 			(unsigned int)(usec);
-		IspInfo.IrqInfo
-			.Eismeta[ISP_IRQ_TYPE_INT_P1_ST_D][gEismetaWIdx_D]
-			.tLastSOF2P1done_sec = (unsigned int)(sec);
-		IspInfo.IrqInfo
-			.Eismeta[ISP_IRQ_TYPE_INT_P1_ST_D][gEismetaWIdx_D]
-			.tLastSOF2P1done_usec = (unsigned int)(usec);
+		if ((ISP_IRQ_TYPE_INT_P1_ST_D >= 0) &&
+			(ISP_IRQ_TYPE_INT_P1_ST_D < ISP_IRQ_TYPE_INT_STATUSX) &&
+			(gEismetaWIdx_D >= 0) &&
+			(gEismetaWIdx_D < EISMETA_RINGSIZE)
+		) {
+			IspInfo.IrqInfo
+				.Eismeta[ISP_IRQ_TYPE_INT_P1_ST_D][gEismetaWIdx_D]
+				.tLastSOF2P1done_sec = (unsigned int)(sec);
+			IspInfo.IrqInfo
+				.Eismeta[ISP_IRQ_TYPE_INT_P1_ST_D][gEismetaWIdx_D]
+				.tLastSOF2P1done_usec = (unsigned int)(usec);
+		}
 		gEismetaInSOF_D = 1;
 		gEismetaWIdx_D = ((gEismetaWIdx_D + 1) % EISMETA_RINGSIZE);
 		/*      */
@@ -13814,7 +13880,8 @@ bool ISP_RegCallback(struct ISP_CALLBACK_STRUCT *pCallback)
 	}
 	/*      */
 	log_dbg("Type(%d)", pCallback->Type);
-	IspInfo.Callback[pCallback->Type].Func = pCallback->Func;
+	if ((pCallback->Type >= 0) && (pCallback->Type < ISP_CALLBACK_AMOUNT))
+		IspInfo.Callback[pCallback->Type].Func = pCallback->Func;
 	/*      */
 	return MTRUE;
 }
@@ -13832,7 +13899,8 @@ bool ISP_UnregCallback(enum ISP_CALLBACK_ENUM Type)
 	}
 	/*      */
 	log_dbg("Type(%d)", Type);
-	IspInfo.Callback[Type].Func = NULL;
+	if ((Type >= 0) && (Type < ISP_CALLBACK_AMOUNT))
+		IspInfo.Callback[Type].Func = NULL;
 	/*      */
 	return MTRUE;
 }
