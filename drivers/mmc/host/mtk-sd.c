@@ -2505,6 +2505,11 @@ static int msdc_runtime_suspend(struct device *dev)
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
 
+#ifdef CONFIG_MMC_CQHCI
+	if (mmc->caps2 & MMC_CAP2_CQE)
+		cqhci_suspend(mmc);
+#endif
+
 	msdc_save_reg(host);
 	msdc_gate_clock(host);
 	return 0;
@@ -2517,6 +2522,12 @@ static int msdc_runtime_resume(struct device *dev)
 
 	msdc_ungate_clock(host);
 	msdc_restore_reg(host);
+
+#ifdef CONFIG_MMC_CQHCI
+	if (mmc->caps2 & MMC_CAP2_CQE)
+		cqhci_resume(mmc);
+#endif
+
 	return 0;
 }
 #endif
