@@ -17,7 +17,12 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach	\
+	-I$(srctree)/drivers/misc/mediatek/mcupm/$(CONFIG_MTK_PLATFORM)	\
 	-I$(srctree)/include/linux/	\
+	-I$(PTP3_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
 
-obj-y += mtk_credit_didt.o
+obj-y += mtk_ptp3_main.o
+obj-y += mtk_ptp3_fll.o
+obj-y += mtk_ptp3_cinst.o
+obj-y += mtk_ptp3_drcc.o
 
