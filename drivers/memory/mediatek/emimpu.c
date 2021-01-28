@@ -18,8 +18,19 @@
 #include <linux/arm-smccc.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <memory/mediatek/emi.h>
-
+#include <linux/list.h>
+#include <linux/spinlock.h>
 #include <mt-plat/aee.h>
+
+LIST_HEAD(mpucb_list);
+static DEFINE_MUTEX(mpucb_mutex);
+
+static struct emimpu_callbacks {
+	struct list_head list;
+	unsigned long owner;
+	irqreturn_t (*debug_dump)(unsigned int emi_id, struct reg_info_t *dump, unsigned int len);
+	bool handled;
+};
 
 static struct platform_device *emimpu_pdev;
 
@@ -289,6 +300,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	bool violation;
 	char aee_msg[MTK_EMI_MAX_CMD_LEN];
 	ssize_t aee_msg_cnt;
+	struct emimpu_callbacks *mpucb;
 
 	aee_msg_cnt = snprintf(aee_msg, MTK_EMI_MAX_CMD_LEN, "violation\n");
 	for (emi_id = 0; emi_id < emimpu_dev_ptr->emi_cen_cnt; emi_id++) {
@@ -326,6 +338,18 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				mtk_clear_md_violation();
 				continue;
 			}
+
+		list_for_each_entry_reverse(mpucb, &mpucb_list, list) {
+			if (mpucb->debug_dump)
+				if (mpucb->debug_dump(emi_id,
+					dump_reg, emimpu_dev_ptr->dump_cnt)
+					== IRQ_HANDLED) {
+					mpucb->handled = true;
+					clear_violation(emimpu_dev_ptr, emi_id);
+					mtk_clear_md_violation();
+					continue;
+				}
+		}
 
 		if (md_handling_cb) {
 			md_handling_cb(emi_id,
@@ -901,6 +925,42 @@ int mtk_emimpu_md_handling_register(
 }
 EXPORT_SYMBOL(mtk_emimpu_md_handling_register);
 
+/*
+ * mtk_emimpu_register_callback - register callback for debug handling
+ * @mpucb:   function point for debug handling
+ *
+ * Return 0 for success, -EINVAL or -ENOMEN for fail
+ *
+ * This function can only be called in a non-atomic context since it may sleep
+ */
+int mtk_emimpu_register_callback(
+	irqreturn_t (*debug_dump)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int len))
+{
+	struct emimpu_callbacks *mpucb;
+
+	if (!debug_dump) {
+		pr_info("%s: %p is NULL", __func__, __builtin_return_address(0));
+		return -EINVAL;
+	}
+
+	mpucb = kmalloc(sizeof(struct emimpu_callbacks), GFP_KERNEL);
+	if (!mpucb)
+		return -ENOMEM;
+
+	mpucb->owner = __builtin_return_address(0);
+	memcpy(mpucb->debug_dump, debug_dump, sizeof(debug_dump));
+	mpucb->handled = false;
+
+	INIT_LIST_HEAD(&mpucb->list);
+
+	mutex_lock(&mpucb_mutex);
+	list_add(&mpucb->list, &mpucb_list);
+	mutex_unlock(&mpucb_mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_emimpu_register_callback);
 /*
  * mtk_clear_md_violation - clear irq for md violation
  *
