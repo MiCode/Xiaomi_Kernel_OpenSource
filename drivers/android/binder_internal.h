@@ -217,27 +217,4 @@ struct binder_transaction_log {
 
 extern struct binder_transaction_log binder_transaction_log;
 extern struct binder_transaction_log binder_transaction_log_failed;
-
-#ifdef BINDER_WATCHDOG
-static struct binder_transaction_log_entry entry_failed[32];
-
-#define BINDER_LOG_RESUME       0x2
-#define BINDER_BUF_WARN         0x4
-
-#ifdef CONFIG_MTK_EXTMEM
-#include <linux/exm_driver.h>
-#else
-struct binder_transaction_log_entry entry_t[MAX_ENG_TRANS_LOG_BUFF_LEN];
-#endif
-#endif
-
-#ifdef BINDER_WATCHDOG
-#ifdef CONFIG_MTK_EXTMEM
-#include <linux/exm_driver.h>
-#else
-struct binder_transaction_log_entry entry_t[MAX_ENG_TRANS_LOG_BUFF_LEN];
-#endif
-#endif
-
-
 #endif /* _LINUX_BINDER_INTERNAL_H */

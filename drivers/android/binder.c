@@ -255,6 +255,19 @@ static struct binder_transaction_log_entry *binder_transaction_log_add(
 	return e;
 }
 
+#ifdef BINDER_WATCHDOG
+static struct binder_transaction_log_entry entry_failed[32];
+
+#define BINDER_LOG_RESUME       0x2
+#define BINDER_BUF_WARN         0x4
+
+#ifdef CONFIG_MTK_EXTMEM
+#include <linux/exm_driver.h>
+#else
+struct binder_transaction_log_entry entry_t[MAX_ENG_TRANS_LOG_BUFF_LEN];
+#endif
+#endif
+
 /**
  * struct binder_work - work enqueued on a worklist
  * @entry:             node enqueued on list
