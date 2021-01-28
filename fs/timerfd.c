@@ -441,7 +441,7 @@ SYSCALL_DEFINE2(timerfd_create, int, clockid, int, flags)
 	return ufd;
 }
 
-static void alarm_set_power_on(struct timespec new_pwron_time, bool logo)
+static void alarm_set_power_on(struct timespec64 new_pwron_time, bool logo)
 {
 	unsigned long pwron_time;
 	struct rtc_wkalrm alm;
