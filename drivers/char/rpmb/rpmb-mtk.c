@@ -494,6 +494,8 @@ int emmc_rpmb_req_handle(struct mmc_card *card, struct emmc_rpmb_req *rpmb_req)
 			break;
 	}
 
+	down(&part_md->queue.thread_sem);
+
 	/*  MSG(INFO, "%s start.\n", __func__); */
 
 	mmc_get_card(card);
@@ -528,6 +530,8 @@ error:
 			__func__, ret);
 
 	mmc_put_card(card);
+
+	up(&part_md->queue.thread_sem);
 
 	rpmb_dump_frame(rpmb_req->data_frame);
 
