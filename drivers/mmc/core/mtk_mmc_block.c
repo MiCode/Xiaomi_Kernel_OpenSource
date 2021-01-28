@@ -26,6 +26,7 @@
 #include <linux/exm_driver.h>
 #endif
 
+#include "queue.h"
 #include "mtk_mmc_block.h"
 #include <mt-plat/mtk_blocktag.h>
 
@@ -249,17 +250,35 @@ static struct mt_bio_context *mt_bio_get_ctx(int id)
 
 /* append a pidlog to given context */
 int mtk_btag_pidlog_add_mmc(struct request_queue *q, pid_t pid, __u32 len,
-	int write, bool ext_sd)
+	int write)
 {
 	unsigned long flags;
 	struct mt_bio_context *ctx;
+	struct mmc_queue *mq;
+	struct mmc_host *host;
 
-	ctx = mt_bio_curr_queue(q, ext_sd);
-	if (!ctx)
+	if (q && q->queuedata) {
+		mq = (struct mmc_queue *)(q->queuedata);
+		host = mq->card->host;
+	}
+
+	if (!host)
 		return 0;
 
-	spin_lock_irqsave(&ctx->lock, flags);
-	mtk_mq_btag_pidlog_insert(&ctx->pidlog, pid, len, write, ext_sd);
+	if (host->caps2 & MMC_CAP2_NO_SD) {
+		ctx = mt_bio_curr_queue(q, false);
+		if (!ctx)
+			return 0;
+		spin_lock_irqsave(&ctx->lock, flags);
+		mtk_mq_btag_pidlog_insert(&ctx->pidlog, pid, len, write, false);
+	} else if (host->caps2 & MMC_CAP2_NO_MMC) {
+		ctx = mt_bio_curr_queue(q, true);
+		if (!ctx)
+			return 0;
+		spin_lock_irqsave(&ctx->lock, flags);
+		mtk_mq_btag_pidlog_insert(&ctx->pidlog, pid, len, write, true);
+	} else
+		spin_lock_irqsave(&ctx->lock, flags);
 
 	if (ctx->qid == BTAG_STORAGE_EMBEDDED)
 		mtk_btag_mictx_eval_req(write, 1, len);
