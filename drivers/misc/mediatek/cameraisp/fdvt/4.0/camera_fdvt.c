@@ -411,7 +411,11 @@ static inline void FD_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 
+#if (MTK_FD_LARB == 2)
+	smi_bus_prepare_enable(SMI_LARB2, "camera_fdvt");
+#else
 	smi_bus_prepare_enable(SMI_LARB5, "camera_fdvt");
+#endif
 
 	ret = clk_prepare_enable(fd_clk.CG_IMGSYS_FDVT);
 	if (ret)
@@ -423,7 +427,11 @@ static inline void FD_Prepare_Enable_ccf_clock(void)
 static inline void FD_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(fd_clk.CG_IMGSYS_FDVT);
+#if (MTK_FD_LARB == 2)
+	smi_bus_disable_unprepare(SMI_LARB2, "camera_fdvt");
+#else
 	smi_bus_disable_unprepare(SMI_LARB5, "camera_fdvt");
+#endif
 }
 #endif
 
