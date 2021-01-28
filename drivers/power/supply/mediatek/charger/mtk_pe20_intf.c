@@ -643,7 +643,8 @@ int mtk_pe20_start_algorithm(struct charger_manager *pinfo)
 				pe20_set_mivr(pinfo, pe20->vbus - 500000);
 			else
 				pe20_leave(pinfo);
-		}
+		} else
+			pe20_set_mivr(pinfo, pe20->vbus - 500000);
 		break;
 	}
 	pes = 2;
