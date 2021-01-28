@@ -1229,8 +1229,34 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	handle->secData.ispMeta = secData->ispMeta;
 
 	/* clear isp buf since free in task destroy */
-	for (i = 0; i < ARRAY_SIZE(secData->ispMeta.ispBufs); i++)
-		secData->ispMeta.ispBufs[i].va = 0;
+	for (i = 0; i < ARRAY_SIZE(secData->ispMeta.ispBufs); i++) {
+		if (!handle->secData.ispMeta.ispBufs[i].size ||
+			!secData->ispMeta.ispBufs[i].va) {
+			handle->secData.ispMeta.ispBufs[i].va = 0;
+			handle->secData.ispMeta.ispBufs[i].size = 0;
+			continue;
+		}
+		handle->secData.ispMeta.ispBufs[i].va =
+			(cmdqU32Ptr_t)(unsigned long)vzalloc(
+			handle->secData.ispMeta.ispBufs[i].size);
+		if (!handle->secData.ispMeta.ispBufs[i].va) {
+			CMDQ_ERR("fail alloc ispMeta index:%d size:%d\n",
+				 i, handle->secData.ispMeta.ispBufs[i].size);
+			return -ENOMEM;
+		}
+		if (copy_from_user(
+			CMDQ_U32_PTR(handle->secData.ispMeta.ispBufs[i].va),
+			CMDQ_U32_PTR(secData->ispMeta.ispBufs[i].va),
+			handle->secData.ispMeta.ispBufs[i].size)) {
+			CMDQ_ERR("copy_from_user failed src:%#llx size:%u\n",
+				secData->ispMeta.ispBufs[i].va,
+				handle->secData.ispMeta.ispBufs[i].size);
+			kfree(CMDQ_U32_PTR(handle->secData.ispMeta.ispBufs[i].va));
+			handle->secData.ispMeta.ispBufs[i].size = 0;
+			return -ENOMEM;
+		}
+	}
+
 
 	if (!handle->secData.addrMetadataCount)
 		return 0;
