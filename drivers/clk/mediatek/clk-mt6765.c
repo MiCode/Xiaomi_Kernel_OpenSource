@@ -18,7 +18,6 @@
 #include "clk-mux.h"
 
 #include <dt-bindings/clock/mt6765-clk.h>
-#include <mt-plat/mtk_devinfo.h>
 
 #define MT_CCF_BRINGUP		0
 #if MT_CCF_BRINGUP
@@ -1254,9 +1253,10 @@ static int clk_mt6765_apmixed_probe(struct platform_device *pdev)
 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	struct device_node *node = pdev->dev.of_node;
 	struct clk_onecell_data *clk_data;
+	unsigned int armpll_ll_enable = 0;
 	void __iomem *base;
+	unsigned int val;
 	int r;
-	int project_id = get_devinfo_with_index(30);
 
 	base = devm_ioremap_resource(&pdev->dev, res);
 	if (IS_ERR(base)) {
@@ -1266,14 +1266,26 @@ static int clk_mt6765_apmixed_probe(struct platform_device *pdev)
 
 	clk_data = mtk_alloc_clk_data(CLK_APMIXED_NR_CLK);
 
-	/* FIXME: add code for APMIXEDSYS */
-	if (project_id != 0x8 && project_id != 0xF)
+	r = of_property_read_u32(node, "armpll_ll_enable",
+		&val);
+	if (r) {
+		pr_info("fail to read armpll_ll_enable\n");
+		val = 0;
+	}
+
+	armpll_ll_enable = ((val >> 24) & 0xff) | // move byte 3 to byte 0
+			((val << 8) & 0xff0000) | // move byte 1 to byte 2
+			((val >> 8) & 0xff00) | // move byte 2 to byte 1
+			((val << 24) & 0xff000000); // byte 0 to byte 3
+
+	pr_notice("armpll_ll_enable = %d\n", armpll_ll_enable);
+
+	if (armpll_ll_enable)
 		mtk_clk_register_plls(node, plls, ARRAY_SIZE(plls), clk_data);
-	else {
+	else
 		/* ARMPLL_LL disable */
 		mtk_clk_register_plls(node, plls_no_armpll_ll,
 			ARRAY_SIZE(plls_no_armpll_ll), clk_data);
-	}
 
 	mtk_clk_register_gates(node, apmixed_clks,
 		ARRAY_SIZE(apmixed_clks), clk_data);
