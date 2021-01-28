@@ -31,7 +31,7 @@ enum {
 	CLK_APLL1_TUNER,
 	CLK_APLL2_TUNER,
 	CLK_NLE,
-	/* CLK_SCP_SYS_AUD, */
+	CLK_SCP_SYS_AUD,
 	CLK_INFRA_SYS_AUDIO,
 	/*CLK_MTKAIF_26M,*/
 	CLK_MUX_AUDIO,
@@ -75,7 +75,7 @@ static const char *aud_clks[CLK_NUM] = {
 	[CLK_APLL1_TUNER] = "aud_apll1_tuner_clk",
 	[CLK_APLL2_TUNER] = "aud_apll2_tuner_clk",
 	[CLK_NLE] = "aud_nle",
-	/* [CLK_SCP_SYS_AUD] = "scp_sys_audio", */
+	[CLK_SCP_SYS_AUD] = "scp_sys_audio",
 	[CLK_INFRA_SYS_AUDIO] = "aud_infra_clk",
 	/*[CLK_MTKAIF_26M] = "mtkaif_26m_clk",*/
 	[CLK_MUX_AUDIO] = "top_mux_audio",
@@ -279,6 +279,13 @@ int mt6779_afe_enable_clock(struct mtk_base_afe *afe)
 
 	dev_info(afe->dev, "%s()\n", __func__);
 
+	ret = clk_prepare_enable(afe_priv->clk[CLK_SCP_SYS_AUD]);
+	if (ret) {
+		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
+			__func__, aud_clks[CLK_SCP_SYS_AUD], ret);
+		goto CLK_SCP_SYS_AUD_ERR;
+	}
+
 	ret = clk_prepare_enable(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
 	if (ret) {
 		dev_err(afe->dev, "%s(), clk_prepare_enable %s fail %d\n",
@@ -335,14 +342,16 @@ int mt6779_afe_enable_clock(struct mtk_base_afe *afe)
 CLK_AFE_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_AFE]);
 CLK_MUX_AUDIO_H_PARENT_ERR:
-	mt6779_set_audio_int_bus_parent(afe, CLK_CLK26M);
 CLK_MUX_AUDIO_INTBUS_PARENT_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
+	mt6779_set_audio_int_bus_parent(afe, CLK_CLK26M);
 CLK_MUX_AUDIO_INTBUS_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
+	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 CLK_MUX_AUDIO_ERR:
-	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
+	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
 CLK_INFRA_SYS_AUDIO_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
+CLK_SCP_SYS_AUD_ERR:
+	clk_disable_unprepare(afe_priv->clk[CLK_SCP_SYS_AUD]);
 	return ret;
 
 }
@@ -360,6 +369,7 @@ void mt6779_afe_disable_clock(struct mtk_base_afe *afe)
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIO]);
 
 	clk_disable_unprepare(afe_priv->clk[CLK_INFRA_SYS_AUDIO]);
+	clk_disable_unprepare(afe_priv->clk[CLK_SCP_SYS_AUD]);
 }
 
 int mt6779_afe_suspend_clock(struct mtk_base_afe *afe)
