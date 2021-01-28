@@ -232,7 +232,6 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 	int i;
 	unsigned long high, bottom, fp;
 	struct stackframe cur_frame;
-	struct pt_regs *excp_regs;
 
 	bottom = regs->reg_sp;
 	if (!mrdump_virt_addr_valid(bottom)) {
@@ -268,22 +267,6 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 			aee_wdt_percpu_printf(cpu,
 				"i=%d, mrdump_virt_addr_valid fail\n", i);
 			break;
-		}
-		if (in_exception_text(cur_frame.pc)) {
-#ifdef CONFIG_ARM64
-			/* work around for unknown reason do_mem_abort stack
-			 * abnormal
-			 */
-			excp_regs = (void *)(cur_frame.fp + 0x10 + 0xa0);
-			if (unwind_frame(current, &cur_frame) < 0) {
-				/* skip do_mem_abort & el1_da */
-				aee_wdt_percpu_printf(cpu,
-					"in_exception_text unwind_frame < 0\n");
-			}
-#else
-			excp_regs = (void *)(cur_frame.fp + 4);
-#endif
-			cur_frame.pc = excp_regs->reg_pc;
 		}
 
 		/* pc -4: bug fixed for add2line */
