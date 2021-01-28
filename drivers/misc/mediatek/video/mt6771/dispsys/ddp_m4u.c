@@ -117,7 +117,7 @@ int config_display_m4u_port(void)
 	/* if you config to pa mode, please contact iommu owner */
 	struct device *disp_larbdev = NULL;
 
-	ret = mtk_smi_larb_get(disp_larbdev);
+	ret = pm_runtime_get_sync(disp_larbdev);
 #elif defined(CONFIG_MTK_M4U)
 	struct M4U_PORT_STRUCT sPort;
 	unsigned int i;
