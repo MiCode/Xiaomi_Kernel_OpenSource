@@ -18,6 +18,7 @@
 #include "ufs-mediatek-dbg.h"
 
 #define MAX_CMD_HIST_ENTRY_CNT (500)
+#define UFS_AEE_BUFFER_SIZE (100 * 1024)
 
 /*
  * Currently only global variables are used.
@@ -31,6 +32,7 @@ static spinlock_t cmd_hist_lock;
 static unsigned int cmd_hist_cnt;
 static unsigned int cmd_hist_ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
 static struct cmd_hist_struct *cmd_hist;
+static char ufs_aee_buffer[UFS_AEE_BUFFER_SIZE];
 
 static void probe_ufshcd_command(void *data, const char *dev_name,
 				 const char *str, unsigned int tag,
@@ -55,8 +57,12 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 
 	if (!strcmp(str, "send"))
 		event = CMD_SEND;
-	else
+	else if (!strcmp(str, "complete"))
 		event = CMD_COMPLETED;
+	else if (!strcmp(str, "dev_complete"))
+		event = CMD_DEV_COMPLETED;
+	else
+		event = CMD_GENERIC;
 
 	cmd_hist[ptr].pid = current->pid;
 	cmd_hist[ptr].event = event;
@@ -70,6 +76,34 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 	cmd_hist[ptr].crypt_en = crypt_en;
 	cmd_hist[ptr].crypt_keyslot = crypt_keyslot;
 
+	if (event == CMD_COMPLETED) {
+		if (cmd_hist_ptr == 0)
+			ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
+		else
+			ptr = cmd_hist_ptr - 1;
+
+		while (1) {
+			if (cmd_hist[ptr].tag == tag) {
+				cmd_hist[cmd_hist_ptr].duration =
+					sched_clock() - cmd_hist[ptr].time;
+				break;
+			}
+
+			ptr--;
+			if (ptr < 0)
+				ptr = MAX_CMD_HIST_ENTRY_CNT - 1;
+
+
+			if (cmd_hist_ptr == 0) {
+				if (ptr == (MAX_CMD_HIST_ENTRY_CNT - 1))
+					break;
+			} else {
+				if (ptr == cmd_hist_ptr - 1)
+					break;
+			}
+		}
+	}
+
 	cmd_hist_cnt++;
 
 out_unlock:
@@ -77,7 +111,7 @@ out_unlock:
 }
 
 /**
- * Data structures to store tracepoints informations
+ * Data structures to store tracepoints information
  */
 struct tracepoints_table {
 	const char *name;
@@ -90,7 +124,8 @@ static struct tracepoints_table interests[] = {
 	{.name = "ufshcd_command", .func = probe_ufshcd_command}, };
 
 #define FOR_EACH_INTEREST(i) \
-	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); i++)
+	for (i = 0; i < sizeof(interests) / sizeof(struct tracepoints_table); \
+	i++)
 
 /**
  * Find the struct tracepoint* associated with a given tracepoint
@@ -99,9 +134,10 @@ static struct tracepoints_table interests[] = {
 static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 {
 	int i;
+
 	FOR_EACH_INTEREST(i) {
 		if (strcmp(interests[i].name, tp->name) == 0)
-			   interests[i].tp = tp;
+			interests[i].tp = tp;
 	}
 }
 
@@ -113,7 +149,7 @@ static int cmd_hist_enable(void)
 	spin_lock_irqsave(&cmd_hist_lock, flags);
 
 	if (!cmd_hist) {
-		cmd_hist = kzalloc(MAX_CMD_HIST_ENTRY_CNT *
+		cmd_hist = kcalloc(MAX_CMD_HIST_ENTRY_CNT,
 				   sizeof(struct cmd_hist_struct), GFP_NOFS);
 		if (!cmd_hist) {
 			ret = -ENOMEM;
@@ -180,7 +216,7 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 			      cmd_hist[ptr].tag,
 			      cmd_hist[ptr].crypt_en,
 			      cmd_hist[ptr].crypt_keyslot,
-			      (long long int)cmd_hist[ptr].lba,
+			      (long long)cmd_hist[ptr].lba,
 			      cmd_hist[ptr].transfer_len,
 			      (u64)cmd_hist[ptr].time,
 			      (u64)cmd_hist[ptr].duration
@@ -194,6 +230,25 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 
 }
+
+void get_ufs_aee_buffer(unsigned long *vaddr, unsigned long *size)
+{
+	unsigned long free_size = UFS_AEE_BUFFER_SIZE;
+	char *buff;
+
+	if (!cmd_hist) {
+		pr_info("====== Null cmd_hist, dump skipped ======\n");
+		return;
+	}
+
+	buff = ufs_aee_buffer;
+	cmd_hist_dump(&buff, &free_size, MAX_CMD_HIST_ENTRY_CNT, NULL);
+
+	/* retrun start location */
+	*vaddr = (unsigned long)ufs_aee_buffer;
+	*size = UFS_AEE_BUFFER_SIZE - free_size;
+}
+EXPORT_SYMBOL(get_ufs_aee_buffer);
 
 #ifndef USER_BUILD_KERNEL
 #define PROC_PERM		0660
@@ -258,7 +313,8 @@ int ufsdbg_init_procfs(void)
 	gid = make_kgid(&init_user_ns, 1001);
 
 	/* Create "ufs_debug" node */
-	prEntry = proc_create("ufs_debug", PROC_PERM, NULL, &ufs_debug_proc_fops);
+	prEntry = proc_create("ufs_debug", PROC_PERM, NULL,
+			      &ufs_debug_proc_fops);
 
 	if (prEntry)
 		proc_set_user(prEntry, uid, gid);
