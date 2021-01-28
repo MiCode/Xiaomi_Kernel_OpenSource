@@ -1311,7 +1311,7 @@ static struct tcpc_ops mt6370_tcpc_ops = {
 
 static int mt_parse_dt(struct mt6370_chip *chip, struct device *dev)
 {
-	struct device_node *np = NULL;
+	struct device_node *np = dev->of_node;
 	int ret;
 
 	if (!np)
