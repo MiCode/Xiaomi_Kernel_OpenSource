@@ -246,7 +246,7 @@ static u32 musb_default_busctl_offset(u8 epnum, u16 offset)
 	return 0x80 + (0x08 * epnum) + offset;
 }
 
-static u8 musb_default_readb(void __iomem *addr, unsigned offset)
+static u8 musb_default_readb(void __iomem *addr, u32 offset)
 {
 	u8 data =  __raw_readb(addr + offset);
 
@@ -254,13 +254,13 @@ static u8 musb_default_readb(void __iomem *addr, unsigned offset)
 	return data;
 }
 
-static void musb_default_writeb(void __iomem *addr, unsigned offset, u8 data)
+static void musb_default_writeb(void __iomem *addr, u32 offset, u8 data)
 {
 	trace_musb_writeb(__builtin_return_address(0), addr, offset, data);
 	__raw_writeb(data, addr + offset);
 }
 
-static u16 musb_default_readw(void __iomem *addr, unsigned offset)
+static u16 musb_default_readw(void __iomem *addr, u32 offset)
 {
 	u16 data = __raw_readw(addr + offset);
 
@@ -268,7 +268,7 @@ static u16 musb_default_readw(void __iomem *addr, unsigned offset)
 	return data;
 }
 
-static void musb_default_writew(void __iomem *addr, unsigned offset, u16 data)
+static void musb_default_writew(void __iomem *addr, u32 offset, u16 data)
 {
 	trace_musb_writew(__builtin_return_address(0), addr, offset, data);
 	__raw_writew(data, addr + offset);
@@ -396,25 +396,25 @@ static void musb_default_read_fifo(struct musb_hw_ep *hw_ep, u16 len, u8 *dst)
 /*
  * Old style IO functions
  */
-u8 (*musb_readb)(void __iomem *addr, unsigned offset);
+u8 (*musb_readb)(void __iomem *addr, u32 offset);
 EXPORT_SYMBOL_GPL(musb_readb);
 
-void (*musb_writeb)(void __iomem *addr, unsigned offset, u8 data);
+void (*musb_writeb)(void __iomem *addr, u32 offset, u8 data);
 EXPORT_SYMBOL_GPL(musb_writeb);
 
-u8 (*musb_clearb)(void __iomem *addr, unsigned int offset);
+u8 (*musb_clearb)(void __iomem *addr, u32 offset);
 EXPORT_SYMBOL_GPL(musb_clearb);
 
-u16 (*musb_readw)(void __iomem *addr, unsigned offset);
+u16 (*musb_readw)(void __iomem *addr, u32 offset);
 EXPORT_SYMBOL_GPL(musb_readw);
 
-void (*musb_writew)(void __iomem *addr, unsigned offset, u16 data);
+void (*musb_writew)(void __iomem *addr, u32 offset, u16 data);
 EXPORT_SYMBOL_GPL(musb_writew);
 
-u16 (*musb_clearw)(void __iomem *addr, unsigned int offset);
+u16 (*musb_clearw)(void __iomem *addr, u32 offset);
 EXPORT_SYMBOL_GPL(musb_clearw);
 
-u32 musb_readl(void __iomem *addr, unsigned offset)
+u32 musb_readl(void __iomem *addr, u32 offset)
 {
 	u32 data = __raw_readl(addr + offset);
 
@@ -423,7 +423,7 @@ u32 musb_readl(void __iomem *addr, unsigned offset)
 }
 EXPORT_SYMBOL_GPL(musb_readl);
 
-void musb_writel(void __iomem *addr, unsigned offset, u32 data)
+void musb_writel(void __iomem *addr, u32 offset, u32 data)
 {
 	trace_musb_writel(__builtin_return_address(0), addr, offset, data);
 	__raw_writel(data, addr + offset);

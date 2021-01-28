@@ -166,12 +166,12 @@ struct musb_platform_ops {
 	u16	fifo_mode;
 	u32	(*fifo_offset)(u8 epnum);
 	u32	(*busctl_offset)(u8 epnum, u16 offset);
-	u8	(*readb)(void __iomem *addr, unsigned offset);
-	void	(*writeb)(void __iomem *addr, unsigned offset, u8 data);
-	u8	(*clearb)(void __iomem *addr, unsigned int offset);
-	u16	(*readw)(void __iomem *addr, unsigned offset);
-	void	(*writew)(void __iomem *addr, unsigned offset, u16 data);
-	u16	(*clearw)(void __iomem *addr, unsigned int offset);
+	u8	(*readb)(void __iomem *addr, u32 offset);
+	void	(*writeb)(void __iomem *addr, u32 offset, u8 data);
+	u8	(*clearb)(void __iomem *addr, u32 offset);
+	u16	(*readw)(void __iomem *addr, u32 offset);
+	void	(*writew)(void __iomem *addr, u32 offset, u16 data);
+	u16	(*clearw)(void __iomem *addr, u32 offset);
 	void	(*read_fifo)(struct musb_hw_ep *hw_ep, u16 len, u8 *buf);
 	void	(*write_fifo)(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf);
 	u16	(*get_toggle)(struct musb_qh *qh, int is_out);
