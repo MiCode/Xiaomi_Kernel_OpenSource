@@ -1126,7 +1126,7 @@ static int find_energy_efficient_cpu_enhanced(struct task_struct *p,
 	unsigned long prev_energy = 0;
 	unsigned long prev_delta = ULONG_MAX, best_delta = ULONG_MAX;
 	int max_spare_cap_cpu_ls = prev_cpu, best_idle_cpu = -1;
-	unsigned long max_spare_cap_ls, target_cap;
+	unsigned long max_spare_cap_ls = 0, target_cap;
 	unsigned long cpu_cap, util, wake_util;
 	bool boosted, prefer_idle = false;
 	unsigned int min_exit_lat = UINT_MAX;
