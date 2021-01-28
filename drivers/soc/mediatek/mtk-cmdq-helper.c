@@ -1182,6 +1182,9 @@ s32 cmdq_pkt_poll_timeout(struct cmdq_pkt *pkt, u32 value, u8 subsys,
 	}
 
 	/* assign temp spr as empty, shoudl fill in end addr later */
+	if (unlikely(!pkt->avail_buf_size))
+		if (cmdq_pkt_add_cmd_buffer(pkt) < 0)
+			return -ENOMEM;
 	end_addr_mark = pkt->cmd_buf_size;
 	cmdq_pkt_assign_command(pkt, reg_tmp, 0);
 
@@ -1517,7 +1520,7 @@ static void cmdq_pkt_err_irq_dump(struct cmdq_pkt *pkt)
 	cmdq_util_error_enable();
 
 	cmdq_util_err("begin of error irq %u", err_num++);
-
+	cmdq_util_dump_dbg_reg(client->chan);
 	cmdq_task_get_thread_pc(client->chan, &pc);
 	cmdq_util_err("pkt:%lx thread:%d pc:%lx",
 		(unsigned long)pkt, thread_id, (unsigned long)pc);
