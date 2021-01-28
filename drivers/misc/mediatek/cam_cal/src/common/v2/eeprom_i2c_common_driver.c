@@ -58,7 +58,7 @@
 #define EEPROM_I2C_WRITE_MSG_LENGTH_MAX 32
 #endif
 #ifndef EEPROM_WRITE_EN
-#define EEPROM_WRITE_EN 0
+#define EEPROM_WRITE_EN 1
 #endif
 
 static int Read_I2C_CAM_CAL(struct i2c_client *client,
@@ -129,6 +129,33 @@ static int iReadData_CAM_CAL(struct i2c_client *client,
 }
 
 #if EEPROM_WRITE_EN
+/*20200716 Add Feature: burn MTK cal data in EEPROM*/
+static int Erase_I2C_CAM_CAL(struct i2c_client *client)
+{
+	int i4RetValue = 0;
+	char puCmd[2];
+	struct i2c_msg msg;
+
+	puCmd[0] = (char)(0x81);
+	puCmd[1] = (char)(0xFF);
+
+	msg.addr = client->addr;
+	msg.flags = client->flags & I2C_M_TEN;
+	msg.len = 2;
+	msg.buf = puCmd;
+
+	i4RetValue = i2c_transfer(client->adapter, &msg, 1);
+
+	if (i4RetValue != 1) {
+		pr_debug("I2C erase data failed!!\n");
+		return -1;
+	}
+
+	/* Wait for erase complete */
+	mdelay(30);
+
+	return 0;
+}
 
 static int Write_I2C_CAM_CAL(struct i2c_client *client,
 			     u16 a_u2Addr,
@@ -184,7 +211,7 @@ static int iWriteData_CAM_CAL(struct i2c_client *client,
 			? EEPROM_I2C_WRITE_MSG_LENGTH_MAX : i4ResidueSize;
 
 		if (Write_I2C_CAM_CAL(client, (u16) u4CurrentOffset,
-				      u4Size, pBuff) != 0) {
+					u4Size, pBuff) != 0) {
 			pr_debug("I2C iWriteData failed!!\n");
 			return -1;
 		}
@@ -222,6 +249,31 @@ unsigned int Common_write_region(struct i2c_client *client, unsigned int addr,
 	struct timeval t;
 
 	EEPROM_PROFILE_INIT(&t);
+
+	if (iWriteData_CAM_CAL(client, addr, size, data) == 0)
+		ret = size;
+
+	EEPROM_PROFILE(&t, "common_write_time");
+#else
+	pr_debug("Write operation disabled\n");
+#endif
+
+	return ret;
+}
+
+unsigned int DW9763_write_region(struct i2c_client *client, unsigned int addr,
+				unsigned char *data, unsigned int size)
+{
+	unsigned int ret = 0;
+#if EEPROM_WRITE_EN
+	struct timeval t;
+
+	EEPROM_PROFILE_INIT(&t);
+
+	if (Erase_I2C_CAM_CAL(client) != 0) {
+		pr_debug("Erase_I2C_CAM_CAL failed!!\n");
+		return -1;
+	}
 
 	if (iWriteData_CAM_CAL(client, addr, size, data) == 0)
 		ret = size;
