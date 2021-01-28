@@ -35,7 +35,6 @@ struct vpu_iova {
 	struct vpu_mem m;
 	/* allocated iova */
 	struct sg_table sgt;
-	struct page **pages;
 };
 
 dma_addr_t vpu_iova_alloc(struct platform_device *pdev,
