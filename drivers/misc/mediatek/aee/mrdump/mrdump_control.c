@@ -17,7 +17,6 @@
 #include "mrdump_private.h"
 
 struct mrdump_control_block *mrdump_cblock;
-struct mrdump_rsvmem_block mrdump_sram_cb;
 
 #if defined(CONFIG_KALLSYMS) && !defined(CONFIG_KALLSYMS_BASE_RELATIVE)
 static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
@@ -58,23 +57,22 @@ static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *unused)
 
 #endif
 
-__init void mrdump_cblock_init(void)
+__init void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size)
 {
 	struct mrdump_machdesc *machdesc_p;
 
-	if (mrdump_sram_cb.start_addr == 0) {
+	if (cb_addr == 0) {
 		pr_notice("%s: mrdump control address cannot be 0\n",
 			  __func__);
 		return;
 	}
-	if (mrdump_sram_cb.size < sizeof(struct mrdump_control_block)) {
+	if (cb_size < sizeof(struct mrdump_control_block)) {
 		pr_notice("%s: not enough space for mrdump control block\n",
 			  __func__);
 		return;
 	}
 
-	mrdump_cblock = ioremap_wc(mrdump_sram_cb.start_addr,
-				   mrdump_sram_cb.size);
+	mrdump_cblock = ioremap_wc(cb_addr, cb_size);
 	if (!mrdump_cblock) {
 		pr_notice("%s: mrdump_cb not mapped\n", __func__);
 		return;

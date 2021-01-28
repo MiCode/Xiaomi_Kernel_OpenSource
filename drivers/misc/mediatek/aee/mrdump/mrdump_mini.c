@@ -1004,7 +1004,7 @@ static void __init mrdump_mini_elf_header_init(void)
 	fill_elf_header(&mrdump_mini_ehdr->ehdr, MRDUMP_MINI_NR_SECTION);
 }
 
-int __init mrdump_mini_init(void)
+int __init mrdump_mini_init(const struct mrdump_params *mparams)
 {
 	int i;
 	unsigned long size, offset;
@@ -1041,12 +1041,10 @@ int __init mrdump_mini_init(void)
 			offsetof(struct mrdump_mini_elf_header, misc));
 
 	if (mrdump_cblock) {
-
 		mrdump_mini_add_entry_ext(
 		  (unsigned long)mrdump_cblock,
-		  (unsigned long)mrdump_cblock + mrdump_sram_cb.size,
-		  mrdump_sram_cb.start_addr
-		);
+		  (unsigned long)mrdump_cblock + mparams->cb_size,
+		  mparams->cb_addr);
 
 		mrdump_mini_add_entry(
 		  (unsigned long)mrdump_cblock,

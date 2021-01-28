@@ -23,9 +23,16 @@ extern int kernel_addr_valid(unsigned long addr);
 
 struct pt_regs;
 
-extern bool mrdump_ddr_reserve_ready;
-extern struct mrdump_rsvmem_block mrdump_sram_cb;
+struct mrdump_params {
+	char lk_version[12];
+	bool drm_ready;
+
+	phys_addr_t cb_addr;
+	phys_addr_t cb_size;
+};
+
 extern struct mrdump_control_block *mrdump_cblock;
+
 extern const unsigned long kallsyms_addresses[] __weak;
 extern const u8 kallsyms_names[] __weak;
 extern const u8 kallsyms_token_table[] __weak;
@@ -37,10 +44,11 @@ __attribute__((weak, section(".rodata")));
 #ifdef MODULE
 int mrdump_module_init_mboot_params(void);
 #endif
-int mrdump_hw_init(void);
-void mrdump_cblock_init(void);
+int mrdump_hw_init(bool drm_enabled);
+void mrdump_cblock_init(phys_addr_t cb_addr, phys_addr_t cb_size);
 int mrdump_full_init(void);
 int mrdump_wdt_init(void);
+int mrdump_mini_init(const struct mrdump_params *mparams);
 
 void mrdump_save_control_register(void *creg);
 

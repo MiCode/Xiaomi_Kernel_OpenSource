@@ -197,11 +197,6 @@ struct mrdump_mini_elf_header {
 	struct mrdump_mini_elf_note misc[MRDUMP_MINI_NR_MISC];
 };
 
-struct mrdump_rsvmem_block {
-	phys_addr_t start_addr;
-	phys_addr_t size;
-};
-
 
 #define MRDUMP_MINI_HEADER_SIZE	\
 	ALIGN(sizeof(struct mrdump_mini_elf_header), PAGE_SIZE)

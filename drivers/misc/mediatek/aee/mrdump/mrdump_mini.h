@@ -9,7 +9,7 @@ struct mrdump_mini_extra_misc {
 	const char *dump_name;
 	unsigned long max_size;
 };
-int mrdump_mini_init(void);
+
 #ifdef CONFIG_STACKTRACE
 extern unsigned long *stack_trace;
 #endif

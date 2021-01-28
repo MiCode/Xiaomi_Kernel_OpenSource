@@ -27,9 +27,6 @@
 #include <linux/arm-smccc.h>
 #include <uapi/linux/psci.h>
 
-static char mrdump_lk[12];
-bool mrdump_ddr_reserve_ready;
-
 static inline unsigned long get_linear_memory_size(void)
 {
 	return (unsigned long)high_memory - PAGE_OFFSET;
@@ -227,32 +224,34 @@ static struct notifier_block die_blk = {
 	.notifier_call = ipanic_die,
 };
 
-static __init int mrdump_parse_chosen(void)
+static __init int mrdump_parse_chosen(struct mrdump_params *mparams)
 {
 	struct device_node *node;
 	u32 reg[2];
 	const char *lkver, *ddr_rsv;
 
+	memset(mparams, 0, sizeof(struct mrdump_params));
+
 	node = of_find_node_by_path("/chosen");
 	if (node) {
 		if (of_property_read_u32_array(node, "mrdump,cblock",
 					       reg, ARRAY_SIZE(reg)) == 0) {
-			mrdump_sram_cb.start_addr = reg[0];
-			mrdump_sram_cb.size = reg[1];
+			mparams->cb_addr = reg[0];
+			mparams->cb_size = reg[1];
 			pr_notice("%s: mrdump_cbaddr=%x, mrdump_cbsize=%x\n",
-				  __func__, mrdump_sram_cb.start_addr,
-				  mrdump_sram_cb.size);
+				  __func__, mparams->cb_addr, mparams->cb_size);
 		}
 
 		if (of_property_read_string(node, "mrdump,lk", &lkver) == 0) {
-			strlcpy(mrdump_lk, lkver, sizeof(mrdump_lk));
+			strlcpy(mparams->lk_version, lkver,
+				sizeof(mparams->lk_version));
 			pr_notice("%s: lk version %s\n", __func__, lkver);
 		}
 
 		if (of_property_read_string(node, "mrdump,ddr_rsv",
 					    &ddr_rsv) == 0) {
 			if (strcmp(ddr_rsv, "yes") == 0)
-				mrdump_ddr_reserve_ready = true;
+				mparams->drm_ready = true;
 			pr_notice("%s: ddr reserve mode %s\n", __func__,
 				  ddr_rsv);
 		}
@@ -266,24 +265,25 @@ static __init int mrdump_parse_chosen(void)
 
 static int __init mrdump_panic_init(void)
 {
-	mrdump_parse_chosen();
+	struct mrdump_params mparams = {};
+
+	mrdump_parse_chosen(&mparams);
 #ifdef MODULE
 	mrdump_module_init_mboot_params();
 #endif
-	mrdump_hw_init();
-	mrdump_cblock_init();
+	mrdump_hw_init(mparams.drm_ready);
+	mrdump_cblock_init(mparams.cb_addr, mparams.cb_size);
 	if (mrdump_cblock == NULL) {
-		memset(mrdump_lk, 0, sizeof(mrdump_lk));
 		pr_notice("%s: MT-RAMDUMP no control block\n", __func__);
 		return -EINVAL;
 	}
-	mrdump_mini_init();
+	mrdump_mini_init(&mparams);
 
-	if (strcmp(mrdump_lk, MRDUMP_GO_DUMP) == 0) {
+	if (strcmp(mparams.lk_version, MRDUMP_GO_DUMP) == 0) {
 		mrdump_full_init();
 	} else {
 		pr_notice("%s: Full ramdump disabled, version %s not matched.\n",
-			  __func__, mrdump_lk);
+			  __func__, mparams.lk_version);
 	}
 
 	mrdump_wdt_init();
