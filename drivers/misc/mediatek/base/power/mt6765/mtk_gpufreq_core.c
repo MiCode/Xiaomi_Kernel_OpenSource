@@ -43,8 +43,8 @@
 
 /* #include "mtk_thermal_typedefs.h" */
 #include "mtk_thermal.h"
-#include "mt_freqhopping.h"
-#include "mt_fhreg.h"
+#include "mtk_freqhopping.h"
+#include "mtk_fhreg.h"
 #include "upmu_sw.h"
 #include "upmu_hw.h"
 #include "mtk_pbm.h"
