@@ -364,6 +364,8 @@ static ssize_t proc_generate_oops_read(struct file *file,
 	char buffer[BUFSIZE];
 
 	len = snprintf(buffer, BUFSIZE, "Oops Generated!\n");
+	if (len <= 0)
+		pr_debug("%s: snprintf error\n", __func__);
 	if (copy_to_user(buf, buffer, len))
 		pr_notice("%s fail to output info.\n", __func__);
 
@@ -573,7 +575,7 @@ static ssize_t proc_generate_md32_read(struct file *file, char __user *buf,
 
 	len = sprintf(buffer, "MD32 EE log here\n");
 	if (len <= 0)
-		return -EINVAL;
+		pr_debug("%s: sprintf error\n", __func__);
 	aed_md32_exception((int *)buffer, (int)sizeof(buffer), (int *)ptr,
 			TEST_MD32_PHY_SIZE, __FILE__);
 	kfree(ptr);
@@ -608,7 +610,7 @@ static ssize_t proc_generate_scp_read(struct file *file,
 
 	len = sprintf(buffer, "SCP EE log here\n");
 	if (len <= 0)
-		return -EINVAL;
+		pr_debug("%s: sprintf error\n", __func__);
 	aed_scp_exception((int *)buffer, (int)sizeof(buffer), (int *)ptr,
 						TEST_SCP_PHY_SIZE, __FILE__);
 	kfree(ptr);
@@ -666,7 +668,7 @@ static ssize_t proc_generate_kernel_notify_read(struct file *file,
 	int len = snprintf(buffer, BUFSIZE,
 			   "Usage: write message with format \"R|W|E:Tag:You Message\" into this file to generate kernel warning\n");
 	if (len <= 0)
-		return -EINVAL;
+		pr_debug("%s: snprintf error\n", __func__);
 	if (*ppos)
 		return 0;
 	if (copy_to_user(buf, buffer, len)) {

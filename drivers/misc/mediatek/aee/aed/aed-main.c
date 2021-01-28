@@ -764,7 +764,7 @@ static void ee_gen_process_msg(void)
 		n = snprintf(data, sizeof(eerec->assert_type), "%s",
 				eerec->assert_type);
 		if (n <= 0)
-			return;
+			pr_debug("%s: snprintf error\n", __func__);
 		if (eerec->exp_filename[0] != 0) {
 			n += snprintf(data + n, (PROCESS_STRLEN - n),
 				", filename=%s,line=%d", eerec->exp_filename,
@@ -777,7 +777,7 @@ static void ee_gen_process_msg(void)
 	} else {
 		n = snprintf(data, PROCESS_STRLEN, "%s", eerec->exp_filename);
 		if (n <= 0)
-			return;
+			pr_debug("%s: snprintf error\n", __func__);
 	}
 
 	rep_msg->cmdType = AE_RSP;
@@ -885,7 +885,7 @@ static void ee_gen_coredump_msg(void)
 	rep_msg->arg = 0;
 	len = snprintf(data, 256, "/proc/aed/%s", CURRENT_EE_COREDUMP);
 	if (len <= 0)
-		return;
+		pr_debug("%s: snprintf error\n", __func__);
 	rep_msg->len = strlen(data) + 1;
 }
 
@@ -1352,7 +1352,7 @@ void Maps2Buffer(unsigned char *Userthread_maps, int *Userthread_mapsLength,
 	if ((len + sizeof(buf)) < MaxMapsSize) {
 		n = vsnprintf(&Userthread_maps[len], sizeof(buf), fmt, ap);
 		if (n <= 0)
-			return;
+			pr_debug("%s: vsnprintf error\n", __func__);
 		*Userthread_mapsLength = len + sizeof(buf);
 	}
 	va_end(ap);
@@ -1495,7 +1495,7 @@ static void show_map_vma(unsigned char *Userthread_maps,
 				flags & VM_MAYSHARE ? 's' : 'p',
 				pgoff, MAJOR(dev), MINOR(dev), ino);
 			if (len <= 0)
-				return;
+				pr_debug("%s: snprintf error\n", __func__);
 			print_vma_name(Userthread_maps, Userthread_mapsLength,
 				vma, str);
 			return;
@@ -2128,7 +2128,7 @@ void Log2Buffer(struct aee_oops *oops, const char *fmt, ...)
 		n = vsnprintf(&oops->userthread_maps.Userthread_maps[len],
 				sizeof(buf), fmt, ap);
 		if (n <= 0)
-			return;
+			pr_debug("%s: vsnprintf error\n", __func__);
 		oops->userthread_maps.Userthread_mapsLength = len + sizeof(buf);
 	}
 	va_end(ap);
@@ -2349,7 +2349,7 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 		len = snprintf(oops->backtrace + n, AEE_BACKTRACE_LENGTH - n,
 				"\nBacktrace:\n");
 		if (len <= 0)
-			return;
+			pr_debug("%s: snprintf error\n", __func__);
 		aed_get_traces(oops->backtrace);
 		oops->detail = (char *)(oops->backtrace);
 		oops->detail_len = strlen(oops->backtrace) + 1;
