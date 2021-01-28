@@ -2242,7 +2242,8 @@ static int mmc_blk_mq_issue_rw_rq(struct mmc_queue *mq,
 	int err = 0;
 
 	/* blocktag SD Card path only */
-	if (req) {
+	if (req && req->__data_len &&
+		(host->caps2 & MMC_CAP2_NO_MMC)) {
 		mt_bio_queue_alloc(current, req->q, true);
 		mt_biolog_mmcqd_req_check(true);
 		mt_biolog_mmcqd_req_start(host, true);

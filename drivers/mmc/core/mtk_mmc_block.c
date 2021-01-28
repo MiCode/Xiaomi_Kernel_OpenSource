@@ -221,11 +221,13 @@ static struct mt_bio_context *mt_bio_curr_queue(struct request_queue *q,
 	for (i = 0; i < MMC_BIOLOG_CONTEXTS; i++)	{
 		if (ctx[i].pid == 0)
 			continue;
-		if ((!strncmp(ctx[i].comm, REQ_MMCQD0, strlen(REQ_MMCQD0)) ||
-		(qd_pid == ctx[i].pid) || (ctx[i].q && ctx[i].q == q)) &&
-		ctx[i].pid) {
-			return ext_sd ? &ctx[i+1] : &ctx[i];
-		}
+		if (!ext_sd && (!strncmp(ctx[i].comm, REQ_MMCQD0, strlen(REQ_MMCQD0)) ||
+		(qd_pid == ctx[i].pid) || (ctx[i].q && ctx[i].q == q)))
+			return &ctx[i];
+		/* It means hardcore ctx[3] as SD card, it's not elegant */
+		else if (ext_sd && (!strncmp(ctx[i+2].comm, REQ_MMCQD0, strlen(REQ_MMCQD0)) ||
+		(qd_pid == ctx[i+2].pid) || (ctx[i+2].q && ctx[i+2].q == q)))
+			return &ctx[i+2];
 	}
 	return NULL;
 }
