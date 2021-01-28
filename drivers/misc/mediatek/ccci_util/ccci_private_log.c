@@ -812,7 +812,7 @@ static void ccci_dump_buffer_init(void)
 	struct buffer_node *node_ptr;
 	struct ccci_dump_buffer *ptr;
 
-	ccci_dump_proc = proc_create("ccci_dump", 0444, NULL, &ccci_dump_fops);
+	ccci_dump_proc = proc_create("ccci_dump", 0440, NULL, &ccci_dump_fops);
 	if (ccci_dump_proc == NULL) {
 		pr_notice("[ccci0/util]fail to create proc entry for dump\n");
 		return;
@@ -1165,7 +1165,7 @@ void ccci_log_init(void)
 {
 	struct proc_dir_entry *ccci_log_proc;
 
-	ccci_log_proc = proc_create("ccci_log", 0444, NULL, &ccci_log_fops);
+	ccci_log_proc = proc_create("ccci_log", 0440, NULL, &ccci_log_fops);
 	if (ccci_log_proc == NULL) {
 		pr_notice("[ccci0/util]fail to create proc entry for log\n");
 		return;
