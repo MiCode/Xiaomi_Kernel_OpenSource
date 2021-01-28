@@ -111,6 +111,12 @@ struct cmdq_client {
 	void *cl_priv;
 };
 
+struct cmdq_buf_pool {
+	struct dma_pool *pool;
+	atomic_t cnt;
+	u32 limit;
+};
+
 struct cmdq_operand {
 	/* register type */
 	bool reg;
