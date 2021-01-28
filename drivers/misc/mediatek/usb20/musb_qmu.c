@@ -23,7 +23,8 @@ static unsigned int host_qmu_tx_max_active_isoc_gpd[MAX_QMU_EP + 1];
 static unsigned int host_qmu_tx_max_number_of_pkts[MAX_QMU_EP + 1];
 static unsigned int host_qmu_rx_max_active_isoc_gpd[MAX_QMU_EP + 1];
 static unsigned int host_qmu_rx_max_number_of_pkts[MAX_QMU_EP + 1];
-static u8 mtk_host_active_dev_table[128];
+#define MTK_HOST_ACTIVE_DEV_TABLE_SZ 128
+static u8 mtk_host_active_dev_table[MTK_HOST_ACTIVE_DEV_TABLE_SZ];
 #ifdef CONFIG_MTK_UAC_POWER_SAVING
 static struct workqueue_struct *low_power_timer_test_wq;
 static struct work_struct low_power_timer_test_work;
@@ -268,10 +269,12 @@ void mtk_host_active_dev_resource_reset(void)
 	mtk_host_active_dev_cnt = 0;
 }
 
-void musb_host_active_dev_add(int addr)
+void musb_host_active_dev_add(unsigned int addr)
 {
 	DBG(1, "devnum:%d\n", addr);
-	if (!mtk_host_active_dev_table[addr]) {
+
+	if (addr < MTK_HOST_ACTIVE_DEV_TABLE_SZ &&
+		!mtk_host_active_dev_table[addr]) {
 		mtk_host_active_dev_table[addr] = 1;
 		mtk_host_active_dev_cnt++;
 	}

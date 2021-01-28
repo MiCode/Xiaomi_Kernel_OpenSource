@@ -27,6 +27,6 @@ extern void mtk_qmu_enable(struct musb *musb, u8 EP_Num, u8 isRx);
 extern void __iomem *qmu_base;
 extern int mtk_kick_CmdQ(struct musb *musb,
 				int isRx, struct musb_qh *qh, struct urb *urb);
-extern void musb_host_active_dev_add(int addr);
+extern void musb_host_active_dev_add(unsigned int addr);
 #endif
 #endif
