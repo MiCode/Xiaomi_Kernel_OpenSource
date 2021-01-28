@@ -36,7 +36,7 @@ static enum IMGSENSOR_RETURN mclk_init(void *pinstance)
 {
 	struct mclk *pinst = (struct mclk *)pinstance;
 	struct platform_device *pplatform_dev = gpimgsensor_hw_platform_device;
-	int i, j;
+	unsigned int i, j;
 	enum   IMGSENSOR_RETURN ret           = IMGSENSOR_RETURN_SUCCESS;
 	char str_pinctrl_name[LENGTH_FOR_SNPRINTF];
 	int ret_snprintf = 0;
@@ -109,7 +109,8 @@ static enum IMGSENSOR_RETURN mclk_set(
 		state_index = (pin_state > IMGSENSOR_HW_PIN_STATE_LEVEL_0)
 		    ? MCLK_STATE_ENABLE : MCLK_STATE_DISABLE;
 
-		ppinctrl_state = pinst->ppinctrl_state[sensor_idx][state_index];
+		ppinctrl_state =
+pinst->ppinctrl_state[(unsigned int)sensor_idx][(unsigned int)state_index];
 		mutex_lock(&pinctrl_mutex);
 		if (ppinctrl_state != NULL && !IS_ERR(ppinctrl_state))
 			pinctrl_select_state(pinst->ppinctrl, ppinctrl_state);

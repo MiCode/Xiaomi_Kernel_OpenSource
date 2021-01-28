@@ -97,8 +97,9 @@ static enum IMGSENSOR_RETURN gpio_init(void *pinstance)
 					"cam%d_%s",
 					j,
 					lookup_names);
-				if (ret == 0) {
-					pr_info("error! alloc 0 byte!");
+				if (ret < 0) {
+					pr_info("error! alloc byte!, ret = %d",
+					ret);
 					return IMGSENSOR_RETURN_ERROR;
 				}
 				pgpio->ppinctrl_state_cam[j][i] =

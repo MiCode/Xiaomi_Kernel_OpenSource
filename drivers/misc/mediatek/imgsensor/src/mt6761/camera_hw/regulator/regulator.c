@@ -92,7 +92,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 					"cam%d_%s",
 					sensor_idx,
 					regulator_control[i].pregulator_type);
-			if (ret == 0) {
+			if (ret < 0) {
 				pr_info(
 				"[regulator]%s error, ret = %d", __func__, ret);
 				return IMGSENSOR_RETURN_ERROR;
@@ -135,7 +135,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 					"cam%d_%s",
 					sensor_idx,
 					regulator_control[i].pregulator_type);
-			if (ret == 0) {
+			if (ret < 0) {
 				pr_info(
 				"[regulator]%s error, ret = %d", __func__, ret);
 				return IMGSENSOR_RETURN_ERROR;
@@ -198,7 +198,7 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 					"cam%d_%s",
 					j,
 					regulator_control[i].pregulator_type);
-			if (ret == 0) {
+			if (ret < 0) {
 				pr_info(
 				"[regulator]%s error, ret = %d", __func__, ret);
 				return IMGSENSOR_RETURN_ERROR;
@@ -254,7 +254,7 @@ static enum IMGSENSOR_RETURN regulator_set(
 {
 	struct regulator     *pregulator;
 	struct REGULATOR     *preg = (struct REGULATOR *)pinstance;
-	int reg_type_offset;
+	unsigned int reg_type_offset;
 	atomic_t             *enable_cnt;
 
 
@@ -267,10 +267,10 @@ static enum IMGSENSOR_RETURN regulator_set(
 
 	reg_type_offset = REGULATOR_TYPE_VCAMA;
 
-	pregulator = preg->pregulator[sensor_idx][
+	pregulator = preg->pregulator[(unsigned int)sensor_idx][
 		reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD];
 
-	enable_cnt = &preg->enable_cnt[sensor_idx][
+	enable_cnt = &preg->enable_cnt[(unsigned int)sensor_idx][
 		reg_type_offset + pin - IMGSENSOR_HW_PIN_AVDD];
 
 	if (pregulator) {
