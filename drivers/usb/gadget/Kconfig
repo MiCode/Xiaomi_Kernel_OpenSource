@@ -188,6 +188,9 @@ config USB_F_RNDIS
 config USB_F_MASS_STORAGE
 	tristate
 
+config USB_F_BICR
+	tristate
+
 config USB_F_FS
 	tristate
 
@@ -353,6 +356,19 @@ config USB_CONFIGFS_MASS_STORAGE
 	select USB_F_MASS_STORAGE
 	help
 	  The Mass Storage Gadget acts as a USB Mass Storage disk drive.
+	  As its storage repository it can use a regular file or a block
+	  device (in much the same way as the "loop" device driver),
+	  specified as a module parameter or sysfs option.
+
+config USB_CONFIGFS_BICR
+	bool "Built-In CDROM emulation"
+	depends on USB_CONFIGFS
+	depends on BLOCK
+	depends on USB_CONFIGFS_MASS_STORAGE
+	select USB_F_BICR
+	help
+	  The Build-In CDROM Gadget acts as a CDROM emulation disk drive.
+	  It is based on kernel option "USB_CONFIGFS_MASS_STORAGE".
 	  As its storage repository it can use a regular file or a block
 	  device (in much the same way as the "loop" device driver),
 	  specified as a module parameter or sysfs option.
