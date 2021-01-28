@@ -3,6 +3,7 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/sysfs.h>
@@ -11,6 +12,7 @@
 #include <linux/interconnect.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include "dvfsrc-debug.h"
 #include <linux/sysfs.h>
@@ -182,6 +184,41 @@ static ssize_t dvfsrc_dump_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(dvfsrc_dump);
 
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
+#define VCOREFS_SMC_CMD_DVFS_HOPPING_STATE 20
+static ssize_t dvfsrc_freq_hopping_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct arm_smccc_res ares;
+	int gps_on = 0;
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL,
+		VCOREFS_SMC_CMD_DVFS_HOPPING_STATE,
+		0, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (!ares.a0)
+		gps_on = ares.a1;
+
+	return sprintf(buf, "%d\n", gps_on);
+}
+
+static ssize_t dvfsrc_freq_hopping_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int val = 0;
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	dvfsrc_enable_dvfs_freq_hopping(val);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(dvfsrc_freq_hopping);
+#endif
+
 static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_bw.attr,
 	&dev_attr_dvfsrc_req_hrtbw.attr,
@@ -190,6 +227,9 @@ static struct attribute *dvfsrc_sysfs_attrs[] = {
 	&dev_attr_dvfsrc_req_vscp.attr,
 	&dev_attr_dvfsrc_dump.attr,
 	&dev_attr_dvfsrc_force_vcore_dvfs_opp.attr,
+#if defined(CONFIG_MACH_MT6761) || defined(CONFIG_MACH_MT6765)
+	&dev_attr_dvfsrc_freq_hopping.attr,
+#endif
 	NULL,
 };
 
