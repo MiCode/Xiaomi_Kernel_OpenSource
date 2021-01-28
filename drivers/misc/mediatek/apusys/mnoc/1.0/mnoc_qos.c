@@ -206,21 +206,27 @@ static inline void enque_qos_wq(struct work_struct *work)
 
 static int add_qos_request(struct pm_qos_request *req)
 {
+#ifndef APU_QOS_DVFSRC
 	pm_qos_add_request(req, PM_QOS_APU_MEMORY_BANDWIDTH,
 		PM_QOS_DEFAULT_VALUE);
+#endif
 	return 0;
 }
 
 static void update_qos_request(struct pm_qos_request *req, uint32_t val)
 {
 	LOG_DEBUG("bw = %d\n", val);
+#ifndef APU_QOS_DVFSRC
 	pm_qos_update_request(req, val);
+#endif
 }
 
 static int destroy_qos_request(struct pm_qos_request *req)
 {
+#ifndef APU_QOS_DVFSRC
 	pm_qos_update_request(req, PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 	pm_qos_remove_request(req);
+#endif
 	return 0;
 }
 
