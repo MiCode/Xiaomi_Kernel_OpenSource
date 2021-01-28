@@ -25,7 +25,4 @@
 #define CLUSTER_L	0
 #define CPU_CORE_NUM	8
 
-extern struct mt_gpufreq_power_table_info *pass_gpu_table_to_eara(void);
-extern unsigned int mt_gpufreq_get_dvfs_table_num(void);
-
 #endif

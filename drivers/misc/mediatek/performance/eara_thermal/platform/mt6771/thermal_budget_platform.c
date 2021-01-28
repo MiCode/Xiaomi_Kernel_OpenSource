@@ -37,15 +37,6 @@ void update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 		opp_num = mt_gpufreq_get_dvfs_table_num();
 		if (!opp_num) {
 			*input_opp_num = 0;
-			*in_max_opp_idx = 0;
-			return;
-		}
-
-		*in_max_opp_idx = mt_gpufreq_get_seg_max_opp_index();
-		if (*in_max_opp_idx + opp_num
-			!= mt_gpufreq_get_real_dvfs_table_num()) {
-			*input_opp_num = 0;
-			*in_max_opp_idx = 0;
 			return;
 		}
 
@@ -60,18 +51,16 @@ void update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 			kfree(*opp_ratio);
 			*opp_ratio = NULL;
 			*input_opp_num = 0;
-			*in_max_opp_idx = 0;
 			return;
 		}
 
 		*input_opp_num = opp_num;
 	}
 
-	tbl = pass_gpu_table_to_eara();
+	tbl = mt_gpufreq_get_power_table();
 	if (!tbl)
 		return;
 
-	memcpy((*gpu_tbl), &tbl[*in_max_opp_idx],
-			opp_num * sizeof(*tbl));
+	memcpy((*gpu_tbl), tbl, opp_num * sizeof(*tbl));
 }
 
