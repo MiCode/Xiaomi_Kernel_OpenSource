@@ -5218,9 +5218,9 @@ static int ufshcd_change_queue_depth(struct scsi_device *sdev, int depth)
  */
 static int ufshcd_slave_configure(struct scsi_device *sdev)
 {
+	struct ufs_hba *hba = shost_priv(sdev->host);
 	struct request_queue *q = sdev->request_queue;
 #if defined(CONFIG_UFSFEATURE)
-	struct ufs_hba *hba = shost_priv(sdev->host);
 	struct ufsf_feature *ufsf = &hba->ufsf;
 
 	if (ufsf_is_valid_lun(sdev->lun)) {
