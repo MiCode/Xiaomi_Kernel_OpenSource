@@ -27,6 +27,7 @@ struct mm_larb_request {
 	s32 total_mix_limit;
 	s32 total_occupied;
 	u32 comm_port;
+	u32 channel;
 	bool is_max_ostd;
 };
 
