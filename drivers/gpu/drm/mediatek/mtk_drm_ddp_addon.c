@@ -91,7 +91,7 @@ static void mtk_addon_path_start(struct drm_crtc *crtc,
 				 struct cmdq_pkt *cmdq_handle)
 {
 	int i;
-	struct mtk_ddp_comp *add_comp;
+	struct mtk_ddp_comp *add_comp = NULL;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	for (i = 0; i < path_data->path_len; i++) {
@@ -109,7 +109,7 @@ static void mtk_addon_path_stop(struct drm_crtc *crtc,
 				struct cmdq_pkt *cmdq_handle)
 {
 	int i;
-	struct mtk_ddp_comp *add_comp;
+	struct mtk_ddp_comp *add_comp = NULL;
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	for (i = 0; i < path_data->path_len; i++) {
@@ -193,7 +193,7 @@ void mtk_addon_connect_between(struct drm_crtc *crtc, unsigned int ddp_mode,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *comp = NULL;
 	enum mtk_ddp_comp_id attach_comp_id, next_attach_comp_id, prev_comp_id,
 		cur_comp_id, next_comp_id;
 	const struct mtk_addon_path_data *path_data =
@@ -299,7 +299,7 @@ void mtk_addon_disconnect_between(
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *comp = NULL;
 	enum mtk_ddp_comp_id attach_comp_id, next_attach_comp_id, prev_comp_id,
 		next_comp_id;
 	const struct mtk_addon_path_data *path_data =
@@ -366,7 +366,7 @@ void mtk_addon_connect_before(struct drm_crtc *crtc, unsigned int ddp_mode,
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *comp = NULL;
 	enum mtk_ddp_comp_id next_attach_comp_id, prev_comp_id, cur_comp_id,
 		next_comp_id;
 	const struct mtk_addon_path_data *path_data =
@@ -443,7 +443,7 @@ void mtk_addon_disconnect_before(
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
-	struct mtk_ddp_comp *comp;
+	struct mtk_ddp_comp *comp = NULL;
 	enum mtk_ddp_comp_id prev_comp_id, next_comp_id, next_attach_comp_id;
 	const struct mtk_addon_path_data *path_data =
 		mtk_addon_module_get_path(module_data->module);

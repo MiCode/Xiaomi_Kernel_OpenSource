@@ -46,7 +46,7 @@ struct drm_gem_object *mtk_fb_get_gem_obj(struct drm_framebuffer *fb)
 size_t mtk_fb_get_size(struct drm_framebuffer *fb)
 {
 	struct mtk_drm_fb *mtk_fb = to_mtk_fb(fb);
-	struct mtk_drm_gem_obj *mtk_gem;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
 
 	if (!mtk_fb->gem_obj)
 		return 0;
@@ -61,7 +61,7 @@ size_t mtk_fb_get_size(struct drm_framebuffer *fb)
 dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb)
 {
 	struct mtk_drm_fb *mtk_fb = to_mtk_fb(fb);
-	struct mtk_drm_gem_obj *mtk_gem;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
 
 	if (!mtk_fb->gem_obj)
 		return 0;
@@ -75,8 +75,8 @@ dma_addr_t mtk_fb_get_dma(struct drm_framebuffer *fb)
 
 bool mtk_drm_fb_is_secure(struct drm_framebuffer *fb)
 {
-	struct drm_gem_object *gem;
-	struct mtk_drm_gem_obj *mtk_gem;
+	struct drm_gem_object *gem = NULL;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
 
 
 	if (!fb)
@@ -189,9 +189,9 @@ struct drm_framebuffer *
 mtk_drm_mode_fb_create(struct drm_device *dev, struct drm_file *file,
 		       const struct drm_mode_fb_cmd2 *cmd)
 {
-	struct mtk_drm_fb *mtk_fb;
+	struct mtk_drm_fb *mtk_fb = NULL;
 	struct drm_gem_object *gem = NULL;
-	struct mtk_drm_gem_obj *mtk_gem;
+	struct mtk_drm_gem_obj *mtk_gem = NULL;
 	unsigned int width = cmd->width;
 	unsigned int height = cmd->height;
 	unsigned int size, bpp;
