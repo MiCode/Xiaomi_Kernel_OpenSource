@@ -16,16 +16,40 @@
 #include <linux/delay.h>
 #include "mtk_charger_intf.h"
 
-static bool check_impedance = true;
-static int pd_idx = -1;
-static int vbus_l = PD_VBUS_LOW_BOUND / 1000;
-static int vbus_h = PD_VBUS_UPPER_BOUND / 1000;
-
+#define PD_VBUS_IR_DROP_THRESHOLD 1200
 
 void mtk_pdc_plugout(struct charger_manager *info)
 {
-	check_impedance = true;
-	pd_idx = -1;
+	info->pdc.check_impedance = true;
+	info->pdc.pd_cap_max_watt = -1;
+	info->pdc.pd_idx = -1;
+	info->pdc.pd_reset_idx = -1;
+	info->pdc.pd_boost_idx = 0;
+	info->pdc.pd_buck_idx = 0;
+}
+
+int mtk_pdc_set_mivr(struct charger_manager *info, int uV)
+{
+	int ret = 0;
+	bool chg2_chip_enabled = false;
+
+	ret = charger_dev_set_mivr(info->chg1_dev, uV);
+	if (ret < 0)
+		chr_err("%s: failed, ret = %d\n", __func__, ret);
+
+	if (info->chg2_dev) {
+		charger_dev_is_chip_enabled(info->chg2_dev,
+			&chg2_chip_enabled);
+		if (chg2_chip_enabled) {
+			ret = charger_dev_set_mivr(info->chg2_dev,
+				uV + info->data.slave_mivr_diff);
+			if (ret < 0)
+				pr_info("%s: chg2 failed, ret = %d\n", __func__,
+					ret);
+		}
+	}
+
+	return ret;
 }
 
 void mtk_pdc_check_cable_impedance(struct charger_manager *pinfo)
@@ -36,10 +60,10 @@ void mtk_pdc_check_cable_impedance(struct charger_manager *pinfo)
 	bool mivr_state = false;
 	struct timespec ptime[2], diff;
 
-	if (check_impedance == false)
+	if (pinfo->pdc.check_impedance == false)
 		return;
 
-	check_impedance = false;
+	pinfo->pdc.check_impedance = false;
 	pr_debug("%s: starts\n", __func__);
 
 	get_monotonic_boottime(&ptime[0]);
@@ -47,8 +71,7 @@ void mtk_pdc_check_cable_impedance(struct charger_manager *pinfo)
 	/* Set ichg = 2500mA, set MIVR */
 	charger_dev_set_charging_current(pinfo->chg1_dev, 2500000);
 	mdelay(240);
-	ret = charger_dev_set_mivr(pinfo->chg1_dev,
-				pinfo->data.min_charger_voltage);
+	ret = mtk_pdc_set_mivr(pinfo, pinfo->data.min_charger_voltage);
 	if (ret < 0)
 		chr_err("%s: failed, ret = %d\n", __func__, ret);
 
@@ -99,11 +122,12 @@ end:
 
 static bool mtk_is_pdc_ready(struct charger_manager *info)
 {
-	if (info->tcpc == NULL)
-		return false;
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30)
+		return true;
 
-	if (info->pd_type == PD_CONNECT_PE_READY_SNK ||
-		info->pd_type == PD_CONNECT_PE_READY_SNK_PD30)
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO &&
+		info->enable_pe_4 == false)
 		return true;
 
 	return false;
@@ -111,7 +135,6 @@ static bool mtk_is_pdc_ready(struct charger_manager *info)
 
 bool mtk_pdc_check_charger(struct charger_manager *info)
 {
-
 	if (mtk_is_pdc_ready(info) == false)
 		return false;
 
@@ -125,7 +148,7 @@ void mtk_pdc_plugout_reset(struct charger_manager *info)
 
 void mtk_pdc_set_max_watt(struct charger_manager *info, int watt)
 {
-	vbus_h = 10000;
+	info->pdc.vbus_h = 10000;
 	info->pdc.pdc_max_watt_setting = watt;
 }
 
@@ -133,9 +156,6 @@ int mtk_pdc_get_max_watt(struct charger_manager *info)
 {
 	int charging_current = info->data.pd_charger_current / 1000;
 	int vbat = pmic_get_battery_voltage();
-
-	if (info->tcpc == NULL)
-		return 0;
 
 	if (info->pdc.pdc_max_watt_setting != -1)
 		info->pdc.pdc_max_watt = info->pdc.pdc_max_watt_setting;
@@ -153,159 +173,414 @@ int mtk_pdc_get_max_watt(struct charger_manager *info)
 	return info->pdc.pdc_max_watt;
 }
 
+int mtk_pdc_get_idx(struct charger_manager *info, int selected_idx,
+	int *boost_idx, int *buck_idx)
+{
+	struct mtk_pdc *pd = &info->pdc;
+	struct adapter_power_cap *cap;
+	int i = 0;
+	int idx = 0;
+
+	cap = &pd->cap;
+	idx = selected_idx;
+
+	if (idx < 0) {
+		chr_err("[%s] invalid idx:%d\n", __func__, idx);
+		*boost_idx = 0;
+		*buck_idx = 0;
+		return -1;
+	}
+
+	/* get boost_idx */
+	for (i = 0; i < cap->nr; i++) {
+
+		if (cap->min_mv[i] < pd->vbus_l ||
+			cap->max_mv[i] < pd->vbus_l) {
+			chr_err("min_mv error:%d %d %d\n",
+					cap->min_mv[i],
+					cap->max_mv[i],
+					pd->vbus_l);
+			continue;
+		}
+
+		if (cap->min_mv[i] > pd->vbus_h ||
+			cap->max_mv[i] > pd->vbus_h) {
+			chr_err("max_mv error:%d %d %d\n",
+					cap->min_mv[i],
+					cap->max_mv[i],
+					pd->vbus_h);
+			continue;
+		}
+
+		if (idx == selected_idx) {
+			if (cap->maxwatt[i] > cap->maxwatt[idx])
+				idx = i;
+		} else {
+			if (cap->maxwatt[i] < cap->maxwatt[idx] &&
+				cap->maxwatt[i] > cap->maxwatt[selected_idx])
+				idx = i;
+		}
+	}
+	*boost_idx = idx;
+	idx = selected_idx;
+
+	/* get buck_idx */
+	for (i = 0; i < cap->nr; i++) {
+
+		if (cap->min_mv[i] < pd->vbus_l ||
+			cap->max_mv[i] < pd->vbus_l) {
+			chr_err("min_mv error:%d %d %d\n",
+					cap->min_mv[i],
+					cap->max_mv[i],
+					pd->vbus_l);
+			continue;
+		}
+
+		if (cap->min_mv[i] > pd->vbus_h ||
+			cap->max_mv[i] > pd->vbus_h) {
+			chr_err("max_mv error:%d %d %d\n",
+					cap->min_mv[i],
+					cap->max_mv[i],
+					pd->vbus_h);
+			continue;
+		}
+
+		if (idx == selected_idx) {
+			if (cap->maxwatt[i] < cap->maxwatt[idx])
+				idx = i;
+		} else {
+			if (cap->maxwatt[i] > cap->maxwatt[idx] &&
+				cap->maxwatt[i] < cap->maxwatt[selected_idx])
+				idx = i;
+		}
+	}
+	*buck_idx = idx;
+
+	return 0;
+}
+
 int mtk_pdc_setup(struct charger_manager *info, int idx)
 {
 	int ret = -100;
+	unsigned int mivr;
+	unsigned int oldmivr;
+	unsigned int oldmA;
+	bool chg2_chip_enabled = false;
+	bool force_update = false;
 
 	struct mtk_pdc *pd = &info->pdc;
 
-	if (info->tcpc == NULL)
-		return -1;
+	if (pd->pd_idx == idx) {
+		charger_dev_get_mivr(info->chg1_dev, &oldmivr);
 
-	if (pd_idx != idx)
-		ret = tcpm_dpm_pd_request(info->tcpc, pd->cap.max_mv[idx],
-					pd->cap.ma[idx], NULL);
+		if (pd->cap.max_mv[idx] - oldmivr / 1000 >
+			PD_VBUS_IR_DROP_THRESHOLD)
+			force_update = true;
 
-	chr_err("[%s]idx:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
-		pd_idx, idx, pd->cap.max_mv[idx], pd->cap.ma[idx], ret);
-	pd_idx = idx;
+		if (info->chg2_dev) {
+			charger_dev_is_chip_enabled(info->chg2_dev,
+				&chg2_chip_enabled);
+			if (chg2_chip_enabled) {
+				charger_dev_get_mivr(info->chg2_dev, &oldmivr);
+
+				if (pd->cap.max_mv[idx] - oldmivr / 1000  >
+					PD_VBUS_IR_DROP_THRESHOLD -
+					info->data.slave_mivr_diff / 1000)
+					force_update = true;
+			}
+		}
+	}
+
+	if (pd->pd_idx != idx || force_update) {
+		if (pd->cap.max_mv[idx] > 5000)
+			charger_enable_vbus_ovp(info, false);
+		else
+			charger_enable_vbus_ovp(info, true);
+
+		charger_dev_get_mivr(info->chg1_dev, &oldmivr);
+		mivr = info->data.min_charger_voltage / 1000;
+		mtk_pdc_set_mivr(info, info->data.min_charger_voltage);
+
+		charger_dev_get_input_current(info->chg1_dev, &oldmA);
+		oldmA = oldmA / 1000;
+
+		if (info->data.parallel_vbus && (oldmA * 2 > pd->cap.ma[idx])) {
+			charger_dev_set_input_current(info->chg1_dev,
+					pd->cap.ma[idx] * 1000 / 2);
+			charger_dev_set_input_current(info->chg2_dev,
+					pd->cap.ma[idx] * 1000 / 2);
+		} else if (info->data.parallel_vbus == false &&
+			(oldmA > pd->cap.ma[idx]))
+			charger_dev_set_input_current(info->chg1_dev,
+						pd->cap.ma[idx] * 1000);
+
+		ret = adapter_dev_set_cap(info->pd_adapter, MTK_PD,
+			pd->cap.max_mv[idx], pd->cap.ma[idx]);
+
+		if (ret == MTK_ADAPTER_OK) {
+			if (info->data.parallel_vbus &&
+				(oldmA * 2 < pd->cap.ma[idx])) {
+				charger_dev_set_input_current(info->chg1_dev,
+						pd->cap.ma[idx] * 1000 / 2);
+				charger_dev_set_input_current(info->chg2_dev,
+						pd->cap.ma[idx] * 1000 / 2);
+			} else if (info->data.parallel_vbus == false &&
+				(oldmA < pd->cap.ma[idx]))
+				charger_dev_set_input_current(info->chg1_dev,
+						pd->cap.ma[idx] * 1000);
+
+			if ((pd->cap.max_mv[idx] - PD_VBUS_IR_DROP_THRESHOLD)
+				> mivr)
+				mivr = pd->cap.max_mv[idx] -
+					PD_VBUS_IR_DROP_THRESHOLD;
+
+			mtk_pdc_set_mivr(info, mivr * 1000);
+		} else {
+			if (info->data.parallel_vbus &&
+				(oldmA * 2 > pd->cap.ma[idx])) {
+				charger_dev_set_input_current(info->chg1_dev,
+						oldmA * 1000 / 2);
+				charger_dev_set_input_current(info->chg2_dev,
+						oldmA * 1000 / 2);
+			} else if (info->data.parallel_vbus == false &&
+				(oldmA > pd->cap.ma[idx]))
+				charger_dev_set_input_current(info->chg1_dev,
+					oldmA * 1000);
+
+			mtk_pdc_set_mivr(info, oldmivr);
+		}
+
+		mtk_pdc_get_idx(info, idx, &pd->pd_boost_idx, &pd->pd_buck_idx);
+	}
+
+	chr_err("[%s]idx:%d:%d:%d:%d vbus:%d cur:%d ret:%d\n", __func__,
+		pd->pd_idx, idx, pd->pd_boost_idx, pd->pd_buck_idx,
+		pd->cap.max_mv[idx], pd->cap.ma[idx], ret);
+
+	pd->pd_idx = idx;
 
 	return ret;
 }
 
-int mtk_pdc_get_setting(struct charger_manager *info, int *vbus, int *cur,
-			int *idx)
+void mtk_pdc_get_cap_max_watt(struct charger_manager *info)
 {
-	int i = 0;
-	unsigned int max_watt;
 	struct mtk_pdc *pd = &info->pdc;
-	int min_vbus_idx = -1;
+	struct adapter_power_cap *cap;
+	int i = 0;
+	int idx = 0;
 
-	if (info->tcpc == NULL)
-		return -1;
+	cap = &pd->cap;
+
+	if (pd->pd_cap_max_watt == -1) {
+		for (i = 0; i < cap->nr; i++) {
+			if (cap->min_mv[i] <= pd->vbus_h ||
+				cap->max_mv[i] <= pd->vbus_h) {
+
+				if (cap->maxwatt[i] > pd->pd_cap_max_watt) {
+					pd->pd_cap_max_watt = cap->maxwatt[i];
+					idx = i;
+				}
+				continue;
+			}
+		}
+		chr_err("[%s]idx:%d vbus:%d %d maxwatt:%d\n", __func__,
+			idx, cap->min_mv[idx], cap->max_mv[idx],
+			pd->pd_cap_max_watt);
+	}
+}
+
+void mtk_pdc_get_reset_idx(struct charger_manager *info)
+{
+	struct mtk_pdc *pd = &info->pdc;
+	struct adapter_power_cap *cap;
+	int i = 0;
+	int idx = 0;
+
+	cap = &pd->cap;
+
+	if (pd->pd_reset_idx == -1) {
+		for (i = 0; i < cap->nr; i++) {
+
+			if (cap->min_mv[i] < pd->vbus_l ||
+				cap->max_mv[i] < pd->vbus_l ||
+				cap->min_mv[i] > pd->vbus_l ||
+				cap->max_mv[i] > pd->vbus_l) {
+				continue;
+			}
+			idx = i;
+		}
+		pd->pd_reset_idx = idx;
+		chr_err("[%s]reset idx:%d vbus:%d %d\n", __func__,
+			idx, cap->min_mv[idx], cap->max_mv[idx]);
+	}
+}
+
+void mtk_pdc_reset(struct charger_manager *info)
+{
+	struct mtk_pdc *pd = &info->pdc;
+
+	chr_err("%s: reset to default profile\n", __func__);
+	mtk_pdc_init_table(info);
+	mtk_pdc_get_reset_idx(info);
+	mtk_pdc_setup(info, pd->pd_reset_idx);
+}
+
+int mtk_pdc_get_setting(struct charger_manager *info, int *newvbus, int *newcur,
+			int *newidx)
+{
+	int ret = 0;
+	int idx, selected_idx;
+	unsigned int pd_max_watt, pd_min_watt, now_max_watt;
+	struct mtk_pdc *pd = &info->pdc;
+	int ibus = 0, vbus;
+	int ibat = 0, chg1_ibat = 0, chg2_ibat = 0;
+	int chg2_watt = 0;
+	bool boost = false, buck = false;
+	struct adapter_power_cap *cap;
+	unsigned int mivr1 = 0;
+	unsigned int mivr2 = 0;
+	bool chg1_mivr = false;
+	bool chg2_mivr = false;
+	bool chg2_enable = false;
 
 	mtk_pdc_init_table(info);
+	mtk_pdc_get_reset_idx(info);
+	mtk_pdc_get_cap_max_watt(info);
 
-	if (pd->cap.nr == 0)
+	cap = &pd->cap;
+
+	if (cap->nr == 0)
 		return -1;
 
 	if (info->enable_hv_charging == false)
-		vbus_h = 5000;
+		goto reset;
 
-	max_watt = mtk_pdc_get_max_watt(info);
-	*idx = -1;
-
-	for (i = 0; i < pd->cap.nr; i++) {
-
-		if (pd->cap.min_mv[i] < vbus_l || pd->cap.max_mv[i] < vbus_l)
-			continue;
-
-		if (pd->cap.min_mv[i] > vbus_h || pd->cap.max_mv[i] > vbus_h)
-			continue;
-
-		if (min_vbus_idx == -1) {
-			*vbus = pd->cap.max_mv[i];
-			*cur = pd->cap.ma[i];
-			*idx = i;
-			min_vbus_idx = i;
-			chr_err("[%s]0:%d:watt:%d vbus:%d current:%d idx:%d default_idx:%d\n",
-				__func__, i, info->pdc.pdc_max_watt, *vbus,
-				*cur, *idx, pd->cap.selected_cap_idx);
-			continue;
-		}
-
-		if (pd->cap.maxwatt[min_vbus_idx] < max_watt) {
-			if (pd->cap.maxwatt[i] >
-			    pd->cap.maxwatt[min_vbus_idx]) {
-				*vbus = pd->cap.max_mv[i];
-				*cur = pd->cap.ma[i];
-				*idx = i;
-				min_vbus_idx = i;
-			}
-			chr_err("[%s]1:%d:watt:%d vbus:%d current:%d idx:%d default_idx:%d\n",
-				__func__, i, info->pdc.pdc_max_watt, *vbus,
-				*cur, *idx, pd->cap.selected_cap_idx);
-
-		} else {
-			if (pd->cap.min_mv[i] < pd->cap.min_mv[min_vbus_idx] &&
-				pd->cap.maxwatt[i] >= max_watt) {
-				*vbus = pd->cap.max_mv[i];
-				*cur = pd->cap.ma[i];
-				*idx = i;
-				min_vbus_idx = i;
-			}
-			chr_err("[%s]2:%d:watt:%d vbus:%d current:%d idx:%d default_idx:%d\n",
-				__func__, i, info->pdc.pdc_max_watt, *vbus,
-				*cur, *idx, pd->cap.selected_cap_idx);
-		}
-
+	ret = charger_dev_get_ibus(info->chg1_dev, &ibus);
+	if (ret < 0) {
+		chr_err("[%s] get ibus fail, keep default voltage\n", __func__);
+		return -1;
 	}
 
-	chr_err("[%s]watt:%d vbus:%d:%d:%d current:%d idx:%d default_idx:%d\n",
-		__func__, info->pdc.pdc_max_watt, *vbus, vbus_h, vbus_l,
-		*cur, *idx, pd->cap.selected_cap_idx);
+	if (info->data.parallel_vbus) {
+		ret = charger_dev_get_ibat(info->chg1_dev, &chg1_ibat);
+		if (ret < 0)
+			chr_err("[%s] get ibat fail\n", __func__);
+
+		ret = charger_dev_get_ibat(info->chg2_dev, &chg2_ibat);
+		if (ret < 0) {
+			ibat = battery_get_bat_current();
+			chg2_ibat = ibat * 100 - chg1_ibat;
+		}
+
+		if (ibat < 0 || chg2_ibat < 0)
+			chg2_watt = 0;
+		else
+			chg2_watt = chg2_ibat / 1000 * battery_get_bat_voltage()
+					/ info->data.chg2_eff * 100;
+
+		chr_err("[%s] chg2_watt:%d ibat2:%d ibat1:%d ibat:%d\n",
+			__func__, chg2_watt, chg2_ibat, chg1_ibat, ibat * 100);
+	}
+
+	charger_dev_get_mivr_state(info->chg1_dev, &chg1_mivr);
+	charger_dev_get_mivr(info->chg1_dev, &mivr1);
+
+	if (is_dual_charger_supported(info)) {
+		charger_dev_is_enabled(info->chg2_dev, &chg2_enable);
+		if (chg2_enable) {
+			charger_dev_get_mivr_state(info->chg2_dev, &chg2_mivr);
+			charger_dev_get_mivr(info->chg2_dev, &mivr2);
+		}
+	}
+
+	vbus = battery_get_vbus();
+	ibus = ibus / 1000;
+
+	if ((chg1_mivr && (vbus < mivr1 / 1000 - 500)) ||
+	    (chg2_mivr && (vbus < mivr2 / 1000 - 500)))
+		goto reset;
+
+	selected_idx = cap->selected_cap_idx;
+	idx = selected_idx;
+
+	if (idx < 0 || idx >= ADAPTER_CAP_MAX_NR)
+		idx = selected_idx = 0;
+
+	pd_max_watt = cap->max_mv[idx] * (cap->ma[idx]
+			/ 100 * (100 - info->data.ibus_err) - 100);
+	now_max_watt = cap->max_mv[idx] * ibus + chg2_watt;
+	pd_min_watt = cap->max_mv[pd->pd_buck_idx] * cap->ma[pd->pd_buck_idx]
+			/ 100 * (100 - info->data.ibus_err)
+			- info->data.vsys_watt;
+
+	if (pd_min_watt <= 5000000)
+		pd_min_watt = 5000000;
+
+	if ((now_max_watt >= pd_max_watt) || chg1_mivr || chg2_mivr) {
+		*newidx = pd->pd_boost_idx;
+		boost = true;
+	} else if (now_max_watt <= pd_min_watt) {
+		*newidx = pd->pd_buck_idx;
+		buck = true;
+	} else {
+		*newidx = selected_idx;
+		boost = false;
+		buck = false;
+	}
+
+	*newvbus = cap->max_mv[*newidx];
+	*newcur = cap->ma[*newidx];
+
+	chr_err("[%s]watt:%d,%d,%d up:%d,%d vbus:%d ibus:%d, mivr:%d,%d\n",
+		__func__,
+		pd_max_watt, now_max_watt, pd_min_watt,
+		boost, buck,
+		vbus, ibus, chg1_mivr, chg2_mivr);
+
+	chr_err("[%s]vbus:%d:%d:%d current:%d idx:%d default_idx:%d\n",
+		__func__, pd->vbus_h, pd->vbus_l, *newvbus,
+		*newcur, *newidx, selected_idx);
+
+	return 0;
+
+reset:
+	mtk_pdc_reset(info);
+	*newidx = pd->pd_reset_idx;
+	*newvbus = cap->max_mv[*newidx];
+	*newcur = cap->ma[*newidx];
 
 	return 0;
 }
 
 void mtk_pdc_init_table(struct charger_manager *info)
 {
-	struct tcpm_remote_power_cap cap;
-	int i;
 	struct mtk_pdc *pd = &info->pdc;
 
-	if (info->tcpc == NULL)
-		return;
-	cap.nr = 0;
-	cap.selected_cap_idx = -1;
-	if (mtk_is_pdc_ready(info)) {
-		tcpm_get_remote_power_cap(info->tcpc, &cap);
+	pd->cap.nr = 0;
+	pd->cap.selected_cap_idx = -1;
 
-		if (cap.nr != 0) {
-			pd->cap.nr = cap.nr;
-			pd->cap.selected_cap_idx = cap.selected_cap_idx;
-			for (i = 0; i < cap.nr; i++) {
-				pd->cap.ma[i] = cap.ma[i];
-				pd->cap.max_mv[i] = cap.max_mv[i];
-				pd->cap.min_mv[i] = cap.min_mv[i];
-				if (cap.max_mv[i] != cap.min_mv[i]) {
-					pd->cap.maxwatt[i] = pd->cap.ma[i] *
-							     pd->cap.min_mv[i];
-					pd->cap.minwatt[i] = 100 *
-							     pd->cap.min_mv[i];
-				} else {
-					pd->cap.maxwatt[i] = pd->cap.ma[i] *
-							    pd->cap.max_mv[i];
-					pd->cap.minwatt[i] = 100 *
-							    pd->cap.max_mv[i];
-				}
-				chr_err("[%s]:%d mv:[%d,%d] %d max:%d min:%d\n",
-					__func__, i, pd->cap.min_mv[i],
-					pd->cap.max_mv[i], pd->cap.ma[i],
-					pd->cap.maxwatt[i], pd->cap.minwatt[i]);
-			}
-		}
-	} else
+	if (mtk_is_pdc_ready(info))
+		adapter_dev_get_cap(info->pd_adapter, MTK_PD, &pd->cap);
+	else
 		chr_err("mtk_is_pdc_ready is fail\n");
 
-#ifdef PDC_TEST
-	for (i = 0; i < 35000000; i = i + 2000000) {
-		int vbus, cur, idx;
-
-		mtk_pdc_set_max_watt(i);
-		mtk_pdc_get_setting(&vbus, &cur, &idx);
-		chr_err("[%s]watt:%d,vbus:%d,cur:%d,idx:%d\n",
-			__func__, pdc_max_watt, vbus, cur, idx);
-	}
-#endif
-
-	chr_err("[%s] nr:%d default:%d\n", __func__, cap.nr,
-	cap.selected_cap_idx);
+	chr_err("[%s] nr:%d default:%d\n", __func__, pd->cap.nr,
+	pd->cap.selected_cap_idx);
 }
 
 bool mtk_pdc_init(struct charger_manager *info)
 {
 	info->pdc.pdc_max_watt_setting = -1;
+
+	info->pdc.check_impedance = true;
+	info->pdc.pd_cap_max_watt = -1;
+	info->pdc.pd_idx = -1;
+	info->pdc.pd_reset_idx = -1;
+	info->pdc.pd_boost_idx = 0;
+	info->pdc.pd_buck_idx = 0;
+	info->pdc.vbus_l = info->data.pd_vbus_low_bound / 1000;
+	info->pdc.vbus_h = info->data.pd_vbus_upper_bound / 1000;
+
 	return true;
 }
 
