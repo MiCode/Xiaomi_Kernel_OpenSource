@@ -165,6 +165,7 @@ void mtk_spm_irq_backup(void)
 #endif
 
 #if defined(CONFIG_MTK_SYS_CIRQ)
+	mt_cirq_sw_reset();
 	mt_cirq_clone_gic();
 	mt_cirq_enable();
 #endif

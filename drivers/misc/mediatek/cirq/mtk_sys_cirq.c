@@ -41,6 +41,7 @@
 void __iomem *SYS_CIRQ_BASE;
 static unsigned int CIRQ_IRQ_NUM;
 static unsigned int CIRQ_SPI_START;
+static unsigned int sw_reset;
 #ifdef LATENCY_CHECK
 unsigned long long clone_t1;
 unsigned long long clone_t2;
@@ -318,6 +319,18 @@ static int mt_cirq_set_pol(unsigned int cirq_num, unsigned int pol)
 	return 0;
 }
 
+void mt_cirq_sw_reset(void)
+{
+	unsigned int st;
+
+	if (sw_reset) {
+		st = readl(IOMEM(CIRQ_CON));
+		st |= (CIRQ_SW_RESET << CIRQ_CON_SW_RST_BITS);
+		mt_reg_sync_writel(st, CIRQ_CON);
+	}
+}
+EXPORT_SYMBOL(mt_cirq_sw_reset);
+
 /*
  * mt_cirq_enable: Enable SYS_CIRQ
  */
@@ -325,7 +338,7 @@ void mt_cirq_enable(void)
 {
 	unsigned int st;
 
-
+	/* level only */
 	mt_cirq_ack_all();
 
 	st = readl(IOMEM(CIRQ_CON));
@@ -1145,6 +1158,10 @@ int __init mt_cirq_init(void)
 
 	sys_cirq_num = irq_of_parse_and_map(node, 0);
 	pr_debug("[CIRQ] sys_cirq_num = %d\n", sys_cirq_num);
+
+	if (of_property_read_u32(node, "sw_reset", &sw_reset))
+		sw_reset = 0;
+	pr_debug("[CIRQ] sw_reset = %d\n", sw_reset);
 #endif
 
 #ifdef CONFIG_OF
