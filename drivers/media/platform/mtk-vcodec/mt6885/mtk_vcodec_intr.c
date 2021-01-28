@@ -291,10 +291,10 @@ void mtk_vcodec_enc_timeout_dump(void *ctx)
 	struct mtk_vcodec_ctx *curr_ctx = ctx;
 	struct mtk_vcodec_dev *dev = curr_ctx->dev;
 
-	#define REG1_COUNT 14
+	#define REG1_COUNT 15
 	#define REG2_COUNT 20
 	unsigned int Reg_1[REG1_COUNT] = {
-		0x14, 0xEC, 0x1C0, 0x1168, 0x11C0,
+		0x0, 0x14, 0xEC, 0x1C0, 0x1168, 0x11C0,
 		0x11C4, 0xF4, 0x5C, 0x60, 0x130,
 		0x24, 0x114C, 0x1164, 0x0140};
 	unsigned int Reg_2[REG2_COUNT] = {
