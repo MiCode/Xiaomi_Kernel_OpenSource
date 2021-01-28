@@ -96,7 +96,8 @@ static enum UT_RET_STATE mem_alloc_variant(enum TRUSTED_MEM_TYPE mem_type,
 					   bool clean, bool un_order_sz_enable)
 {
 	int ret;
-	u32 alignment, chunk_size, handle, ref_count;
+	u32 alignment, chunk_size, ref_count;
+	u32 handle = 0;
 	u32 try_size;
 	u32 max_try_size = SZ_16M;
 	u32 min_alloc_sz = tmem_core_get_min_chunk_size(mem_type);
