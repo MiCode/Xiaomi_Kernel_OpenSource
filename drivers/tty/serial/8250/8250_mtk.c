@@ -392,7 +392,7 @@ mtk8250_set_termios(struct uart_port *port, struct ktermios *termios,
 		/* Set to next lower baudrate supported */
 		if ((baud == 500000) || (baud == 576000))
 			baud = 460800;
-		quot = DIV_ROUND_UP(port->uartclk, 4 * baud);
+		quot = DIV_ROUND_CLOSEST(port->uartclk, 4 * baud);
 	} else {
 		serial_port_out(port, MTK_UART_HIGHS, 0x3);
 		quot = DIV_ROUND_UP(port->uartclk, 256 * baud);
