@@ -1485,7 +1485,7 @@ out:
 	return ret;
 }
 
-static int mt6360_get_adc(struct charger_device *chg_dev, u32 chan,
+static int mt6360_get_adc(struct charger_device *chg_dev, enum adc_channel chan,
 			  int *min, int *max)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
