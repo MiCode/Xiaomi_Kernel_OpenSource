@@ -783,7 +783,7 @@ static int cmdq_sec_mbox_send_data(struct mbox_chan *chan, void *data)
 			sec_data->enginesNeedPortSecurity;
 	} else {
 		cmdq_err("pkt:%p sec_data not ready from thrd_idx:%u",
-			pkt, thread);
+			pkt, thread->idx);
 		return -EINVAL;
 	}
 
