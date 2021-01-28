@@ -241,7 +241,7 @@ static void dump_register(void)
 {
 	int addr = 0, st_addr = 0, end_addr = 0, idx = 0;
 
-	pr_info("Accdet EINTx support,MODE_%d regs:\n", accdet_dts.mic_mode);
+	pr_notice("Accdet EINTx support,MODE_%d regs:\n", accdet_dts.mic_mode);
 
 	st_addr = RG_AUDACCDETRSV_ADDR;
 	end_addr = ACCDET_EINT1_CUR_DEB_ADDR;
@@ -255,31 +255,31 @@ static void dump_register(void)
 		idx+6, accdet_read(idx+6));
 	}
 
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
-			RG_RTC32K_CK_PDN_ADDR,
-			accdet_read(RG_RTC32K_CK_PDN_ADDR),
-			RG_ACCDET_CK_PDN_ADDR,
-			accdet_read(RG_ACCDET_CK_PDN_ADDR),
-			RG_ACCDET_RST_ADDR,
-			accdet_read(RG_ACCDET_RST_ADDR),
-			RG_INT_EN_ACCDET_ADDR,
-			accdet_read(RG_INT_EN_ACCDET_ADDR));
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
-			RG_INT_MASK_ACCDET_ADDR,
-			accdet_read(RG_INT_MASK_ACCDET_ADDR),
-			RG_INT_STATUS_ACCDET_ADDR,
-			accdet_read(RG_INT_STATUS_ACCDET_ADDR),
-			RG_AUDACCDETMICBIAS1PULLLOW_ADDR,
-			accdet_read(RG_AUDACCDETMICBIAS1PULLLOW_ADDR),
-			RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
-			accdet_read(RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x\n",
-			AUXADC_RQST_CH0_ADDR,
-			accdet_read(AUXADC_RQST_CH0_ADDR),
-			AUXADC_ACCDET_AUTO_SPL_ADDR,
-			accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
+	pr_notice("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
+		RG_RTC32K_CK_PDN_ADDR,
+		accdet_read(RG_RTC32K_CK_PDN_ADDR),
+		RG_ACCDET_CK_PDN_ADDR,
+		accdet_read(RG_ACCDET_CK_PDN_ADDR),
+		RG_ACCDET_RST_ADDR,
+		accdet_read(RG_ACCDET_RST_ADDR),
+		RG_INT_EN_ACCDET_ADDR,
+		accdet_read(RG_INT_EN_ACCDET_ADDR));
+	pr_notice("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
+		RG_INT_MASK_ACCDET_ADDR,
+		accdet_read(RG_INT_MASK_ACCDET_ADDR),
+		RG_INT_STATUS_ACCDET_ADDR,
+		accdet_read(RG_INT_STATUS_ACCDET_ADDR),
+		RG_AUDACCDETMICBIAS1PULLLOW_ADDR,
+		accdet_read(RG_AUDACCDETMICBIAS1PULLLOW_ADDR),
+		RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
+		accdet_read(RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
+	pr_notice("(0x%x)=0x%x (0x%x)=0x%x\n",
+		AUXADC_RQST_CH0_ADDR,
+		accdet_read(AUXADC_RQST_CH0_ADDR),
+		AUXADC_ACCDET_AUTO_SPL_ADDR,
+		accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
 
-	pr_info("accdet_dts:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
+	pr_notice("accdet_dts:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
 }
@@ -1798,6 +1798,8 @@ static void config_eint_init_by_mode(void)
 				ACCDET_EINT0_PWM_EN_SFT);
 		accdet_update_bit(ACCDET_EINT0_PWM_IDLE_ADDR,
 				ACCDET_EINT0_PWM_IDLE_SFT);
+		accdet_update_bit(ACCDET_EINT0_EN_ADDR,
+				ACCDET_EINT0_EN_SFT);
 	} else if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_EINT1)) {
 		accdet_update_bits(ACCDET_EINT0_PWM_THRESH_ADDR, 0x8, 0x6, 0x6);
 		accdet_update_bits(ACCDET_EINT0_PWM_WIDTH_ADDR, 0xc, 0x2, 0x2);
@@ -1806,6 +1808,8 @@ static void config_eint_init_by_mode(void)
 				ACCDET_EINT1_PWM_EN_SFT);
 		accdet_update_bit(ACCDET_EINT1_PWM_IDLE_ADDR,
 				ACCDET_EINT1_PWM_IDLE_SFT);
+		accdet_update_bit(ACCDET_EINT1_EN_ADDR,
+				ACCDET_EINT1_EN_SFT);
 	} else if (HAS_CAP(accdet->data->caps, ACCDET_PMIC_BI_EINT)) {
 		accdet_update_bits(ACCDET_EINT0_PWM_THRESH_ADDR, 0x8, 0x6, 0x6);
 		accdet_update_bits(ACCDET_EINT0_PWM_WIDTH_ADDR, 0xc, 0x2, 0x2);
@@ -1821,6 +1825,10 @@ static void config_eint_init_by_mode(void)
 				ACCDET_EINT1_PWM_EN_SFT);
 		accdet_update_bit(ACCDET_EINT1_PWM_IDLE_ADDR,
 				ACCDET_EINT1_PWM_IDLE_SFT);
+		accdet_update_bit(ACCDET_EINT0_EN_ADDR,
+				ACCDET_EINT0_EN_SFT);
+		accdet_update_bit(ACCDET_EINT1_EN_ADDR,
+				ACCDET_EINT1_EN_SFT);
 
 	}
 }
