@@ -77,7 +77,9 @@
 #include "mtk_auxadc.h"
 
 #include <ap_thermal_limit.h>
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #include "mtk_thermal_ipi.h"
+#endif
 
 #if !defined(CFG_THERM_LVTS)
 #define CFG_THERM_LVTS		0
