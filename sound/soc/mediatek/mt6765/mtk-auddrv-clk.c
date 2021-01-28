@@ -234,6 +234,8 @@ static int audio_idle_notify_call(struct notifier_block *nfb,
 				  unsigned long id,
 				  void *arg)
 {
+	if (!aud_clks[CLOCK_MUX_AUDIOINTBUS].clk_prepare)
+		return NOTIFY_OK;
 
 	switch (id) {
 	case NOTIFY_DPIDLE_ENTER:
