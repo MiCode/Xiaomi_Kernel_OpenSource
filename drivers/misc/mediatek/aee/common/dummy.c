@@ -107,6 +107,13 @@ __weak void aed_combo_exception_api(const int *log, int log_size,
 }
 EXPORT_SYMBOL(aed_combo_exception_api);
 
+__weak void aed_common_exception_api(const char *assert_type, const int *log,
+				int log_size, const int *phy, int phy_size,
+				const char *detail, const int db_opt)
+{
+}
+EXPORT_SYMBOL(aed_common_exception_api);
+
 __weak void mt_fiq_printf(const char *fmt, ...)
 {
 }
