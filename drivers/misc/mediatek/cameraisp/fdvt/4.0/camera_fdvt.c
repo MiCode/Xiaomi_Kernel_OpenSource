@@ -60,7 +60,7 @@
 #endif
 
 struct wakeup_source *fdvt_wake_lock;
-/* #define FDVT_SMI_READY */
+#define FDVT_SMI_READY
 #ifdef FDVT_SMI_READY
 #include <smi_public.h>
 #endif
