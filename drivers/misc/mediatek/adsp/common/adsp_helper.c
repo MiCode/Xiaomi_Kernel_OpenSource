@@ -37,7 +37,9 @@
 #include <linux/of_irq.h>
 #include <linux/of_fdt.h>
 #include <linux/ioport.h>
+#ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
+#endif
 #include <linux/syscore_ops.h>
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -68,7 +70,9 @@
 struct adsp_regs adspreg;
 char *adsp_core_ids[ADSP_CORE_TOTAL] = {"ADSP A"};
 unsigned int adsp_ready[ADSP_CORE_TOTAL];
+#ifdef CONFIG_DEBUG_FS
 static struct dentry *adsp_debugfs;
+#endif
 
 /* adsp workqueue & work */
 struct workqueue_struct *adsp_workqueue;
@@ -564,6 +568,7 @@ static struct miscdevice adsp_device = {
 	.fops = &adsp_device_fops,
 };
 
+#ifdef CONFIG_DEBUG_FS
 static ssize_t adsp_debug_read(struct file *file, char __user *buf,
 			       size_t count, loff_t *pos)
 {
@@ -602,6 +607,7 @@ static const struct file_operations adsp_debug_ops = {
 	.read = adsp_debug_read,
 	.write = adsp_debug_write,
 };
+#endif
 
 void adsp_update_memory_protect_info(void)
 {
@@ -812,11 +818,12 @@ static int __init adsp_module_init(void)
 	int ret = 0;
 
 	adsp_workqueue = create_workqueue("ADSP_WQ");
+#ifdef CONFIG_DEBUG_FS
 	adsp_debugfs = debugfs_create_file("audiodsp", S_IFREG | 0644, NULL,
 					(void *)&adsp_device, &adsp_debug_ops);
 	if (IS_ERR(adsp_debugfs))
 		return PTR_ERR(adsp_debugfs);
-
+#endif
 	/* adsp initialize */
 	adsp_power_on(true);
 	adsp_update_memory_protect_info();
@@ -870,7 +877,9 @@ static void __exit adsp_exit(void)
 	free_irq(adspreg.ipc_irq, NULL);
 
 	misc_deregister(&adsp_device);
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove(adsp_debugfs);
+#endif
 
 	flush_workqueue(adsp_workqueue);
 	destroy_workqueue(adsp_workqueue);
