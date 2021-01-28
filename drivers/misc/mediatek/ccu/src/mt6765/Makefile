@@ -12,9 +12,13 @@
 #
 
 #ion
-ccflags-y += -I$(srctree)/drivers/staging/android/ion \
-             -I$(srctree)/drivers/staging/android/ion/mtk \
-             -I$(srctree)/drivers/iommu/
+ccflags-y += -I$(srctree)/drivers/iommu/
+ifeq ($(CONFIG_MTK_ION),y)
+    ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/
+    ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion/mtk/
+else
+     ccflags-$(CONFIG_ION) += -I$(srctree)/drivers/staging/android/aosp_ion/
+endif
 #for sensorType in ccu_set_sensor_info
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc
 #

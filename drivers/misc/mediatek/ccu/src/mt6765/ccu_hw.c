@@ -93,7 +93,7 @@ static int _ccu_config_m4u_port(void)
 	int ret = 0;
 
 #if defined(CONFIG_MTK_M4U)
-	M4U_PORT_STRUCT port;
+	struct m4u_port_config_struct port;
 
 	port.ePortID = CCUG_OF_M4U_PORT;
 	port.Virtuality = 1;

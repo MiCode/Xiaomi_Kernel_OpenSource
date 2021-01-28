@@ -8,6 +8,7 @@
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
+#include <linux/wait.h>
 #include "ccu_mailbox_extif.h"
 
 #ifdef CONFIG_COMPAT
