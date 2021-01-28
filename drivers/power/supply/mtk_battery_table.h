@@ -97,12 +97,18 @@
 #define CALI_CAR_TUNE_AVG_NUM	60
 
 /* Aging Compensation 1*/
-#define AGING_FACTOR_MIN			10
-#define AGING_FACTOR_DIFF			90
+#define AGING_FACTOR_MIN			90
+#define AGING_FACTOR_DIFF			10
 #define DIFFERENCE_VOLTAGE_UPDATE	50
 #define AGING_ONE_EN				1
 #define AGING1_UPDATE_SOC			30
 #define AGING1_LOAD_SOC				70
+#define AGING4_UPDATE_SOC			40
+#define AGING4_LOAD_SOC				70
+#define AGING5_UPDATE_SOC			30
+#define AGING5_LOAD_SOC				70
+#define AGING6_UPDATE_SOC			30
+#define AGING6_LOAD_SOC				70
 #define AGING_TEMP_DIFF				10
 #define AGING_100_EN				1
 
@@ -111,6 +117,10 @@
 
 /* Aging Compensation 3*/
 #define AGING_THIRD_EN				1
+
+#define AGING_4_EN				0
+#define AGING_5_EN				0
+#define AGING_6_EN				0
 
 /* threshold */
 #define HWOCV_SWOCV_DIFF			300

@@ -214,6 +214,7 @@ enum fg_daemon_cmds {
 	FG_DAEMON_CMD_GET_VBAT,
 	FG_DAEMON_CMD_GET_DISABLE_NAFG,
 	FG_DAEMON_CMD_DUMP_LOG,
+
 	FG_DAEMON_CMD_GET_SHUTDOWN_CAR,
 	FG_DAEMON_CMD_GET_NCAR,
 	FG_DAEMON_CMD_GET_CURR_1,
@@ -235,6 +236,10 @@ enum fg_daemon_cmds {
 	FG_DAEMON_CMD_SET_OCV_VTEMP,
 	FG_DAEMON_CMD_SET_OCV_SOC,
 	FG_DAEMON_CMD_SET_CON0_SOFF_VALID,
+	FG_DAEMON_CMD_SET_AGING_INFO,
+	FG_DAEMON_CMD_GET_SOC_DECIMAL_RATE,
+	FG_DAEMON_CMD_GET_DIFF_SOC_SET,
+	FG_DAEMON_CMD_SET_ZCV_INTR_EN,
 
 	FG_DAEMON_CMD_FROM_USER_NUMBER
 
@@ -255,6 +260,7 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_SAVE_DEBUG_PARAM,
 	FG_KERNEL_CMD_REQ_CHANGE_AGING_DATA,
 	FG_KERNEL_CMD_AG_LOG_TEST,
+	FG_KERNEL_CMD_CHG_DECIMAL_RATE,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -371,6 +377,13 @@ struct fuel_gauge_custom_data {
 	int aging_one_en;
 	int aging1_update_soc;
 	int aging1_load_soc;
+	int aging4_update_soc;
+	int aging4_load_soc;
+	int aging5_update_soc;
+	int aging5_load_soc;
+	int aging6_update_soc;
+	int aging6_load_soc;
+
 	int aging_temp_diff;
 	int aging_temp_low_limit;
 	int aging_temp_high_limit;
@@ -382,6 +395,9 @@ struct fuel_gauge_custom_data {
 
 	/* Aging Compensation 3*/
 	int aging_third_en;
+	int aging_4_en;
+	int aging_5_en;
+	int aging_6_en;
 
 	/* ui_soc */
 	int diff_soc_setting;
@@ -530,6 +546,8 @@ struct fuel_gauge_custom_data {
 	int power_on_car_chr;
 	int power_on_car_nochr;
 	int shutdown_car_ratio;
+
+	int min_uisoc_at_kpoc;
 
 	/* log_level */
 	int daemon_log_level;
@@ -813,6 +831,7 @@ struct mtk_battery {
 	int coulomb_int_gap;
 	int coulomb_int_ht;
 	int coulomb_int_lt;
+	int soc_decimal_rate;
 	struct gauge_consumer coulomb_plus;
 	struct gauge_consumer coulomb_minus;
 

@@ -159,7 +159,7 @@ int wakeup_fg_algo_cmd(
 	struct mtk_battery *gm, unsigned int flow_state, int cmd, int para1)
 {
 
-	bm_debug("[%s] %d %d %d\n", __func__, flow_state, cmd, para1);
+	bm_debug("[%s] 0x%x %d %d\n", __func__, flow_state, cmd, para1);
 	if (gm->disableGM30) {
 		bm_err("FG daemon is disabled\n");
 		return -1;
@@ -361,6 +361,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
 		}
 */
+
 	}
 
 	bm_err("%s event, name:%s online:%d, status:%d, EOC:%d, cur_chr_type:%d old:%d\n",
@@ -461,8 +462,8 @@ int BattVoltToTemp(struct mtk_battery *gm, int dwVolt, int volt_cali)
 #else
 			TRes_temp = div_s64(TRes_temp, delta_v);
 #endif
-		if (vbif28 > 3000 || vbif28 < 2500)
-			bm_err("[RBAT_PULL_UP_VOLT_BY_BIF] vbif28:%d\n",
+		if (vbif28 > 3000 || vbif28 < 1700)
+			bm_debug("[RBAT_PULL_UP_VOLT_BY_BIF] vbif28:%d\n",
 				vbif28_raw);
 	} else {
 		delta_v = abs(gm->rbat.rbat_pull_up_volt - dwVolt);
@@ -568,7 +569,7 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 				vol_cali);
 		}
 
-		bm_err("[%s] %d,%d,%d,%d,%d,%d r:%d %d %d\n",
+		bm_notice("[%s] %d,%d,%d,%d,%d,%d r:%d %d %d\n",
 			__func__,
 			bat_temperature_volt_temp, bat_temperature_volt,
 			fg_current_state, fg_current_temp,
@@ -619,7 +620,8 @@ int force_get_tbat_internal(struct mtk_battery *gm, bool update)
 			pre_fg_r_value = fg_r_value;
 			pre_bat_temperature_val2 = bat_temperature_val;
 			pre_time = ctime;
-			bm_err("[%s] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
+			bm_trace(
+				"[%s] current:%d,%d,%d,%d,%d,%d pre:%d,%d,%d,%d,%d,%d time:%d\n",
 				__func__,
 				bat_temperature_volt_temp, bat_temperature_volt,
 				fg_current_state, fg_current_temp,
@@ -780,6 +782,12 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->aging_one_en = AGING_ONE_EN;
 	fg_cust_data->aging1_update_soc = UNIT_TRANS_100 * AGING1_UPDATE_SOC;
 	fg_cust_data->aging1_load_soc = UNIT_TRANS_100 * AGING1_LOAD_SOC;
+	fg_cust_data->aging4_update_soc = UNIT_TRANS_100 * AGING4_UPDATE_SOC;
+	fg_cust_data->aging4_load_soc = UNIT_TRANS_100 * AGING4_LOAD_SOC;
+	fg_cust_data->aging5_update_soc = UNIT_TRANS_100 * AGING5_UPDATE_SOC;
+	fg_cust_data->aging5_load_soc = UNIT_TRANS_100 * AGING5_LOAD_SOC;
+	fg_cust_data->aging6_update_soc = UNIT_TRANS_100 * AGING6_UPDATE_SOC;
+	fg_cust_data->aging6_load_soc = UNIT_TRANS_100 * AGING6_LOAD_SOC;
 	fg_cust_data->aging_temp_diff = AGING_TEMP_DIFF;
 	fg_cust_data->aging_100_en = AGING_100_EN;
 	fg_cust_data->difference_voltage_update = DIFFERENCE_VOLTAGE_UPDATE;
@@ -789,6 +797,9 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->aging_two_en = AGING_TWO_EN;
 	/* Aging Compensation 3*/
 	fg_cust_data->aging_third_en = AGING_THIRD_EN;
+	fg_cust_data->aging_4_en = AGING_4_EN;
+	fg_cust_data->aging_5_en = AGING_5_EN;
+	fg_cust_data->aging_6_en = AGING_6_EN;
 
 	/* ui_soc related */
 	fg_cust_data->diff_soc_setting = DIFF_SOC_SETTING;
@@ -2950,7 +2961,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
-	gm->log_level = BMLOG_TRACE_LEVEL;
+	gm->log_level = BMLOG_ERROR_LEVEL;
 	gm->sw_iavg_gap = 3000;
 
 	init_waitqueue_head(&gm->wait_que);

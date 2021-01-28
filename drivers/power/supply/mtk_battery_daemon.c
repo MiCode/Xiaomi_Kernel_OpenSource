@@ -1373,7 +1373,7 @@ void exec_BAT_EC(int cmd, int param)
 		break;
 	case 795:
 		{
-/*TODO*/
+			/*TODO*/
 			bm_err(
 				"exe_BAT_EC cmd %d,change aging to=%d\n",
 				cmd, param);
@@ -1381,7 +1381,7 @@ void exec_BAT_EC(int cmd, int param)
 		break;
 	case 796:
 		{
-/*TODO*/
+			/*TODO*/
 			bm_err(
 				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_AG_LOG_TEST=%d\n",
 				cmd, param);
@@ -2294,12 +2294,13 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	break;
 	case FG_DAEMON_CMD_IS_CHARGER_EXIST:
 	{
+		/* todo */
 		int is_charger_exist = 0;
 
 		if (gm->bs_data.bat_status == POWER_SUPPLY_STATUS_CHARGING)
-			is_charger_exist = false;
-		else
 			is_charger_exist = true;
+		else
+			is_charger_exist = false;
 
 		ret_msg->fgd_data_len += sizeof(is_charger_exist);
 		memcpy(ret_msg->fgd_data,
@@ -3293,7 +3294,7 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_PRINT_LOG:
 	{
 		fg_cmd_check(msg);
-		bm_debug("%s", &msg->fgd_data[0]);
+		bm_err("%s", &msg->fgd_data[0]);
 	}
 	break;
 	case FG_DAEMON_CMD_SEND_CUSTOM_TABLE:
@@ -3519,6 +3520,35 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 			ori_value, int_value);
 	}
 	break;
+	case FG_DAEMON_CMD_SET_AGING_INFO:
+		bm_debug("[K]FG_DAEMON_CMD_SET_AGING_INFO\n");
+	break;
+	case FG_DAEMON_CMD_GET_SOC_DECIMAL_RATE:
+	{
+		int decimal_rate = gm->soc_decimal_rate;
+
+		ret_msg->fgd_data_len += sizeof(decimal_rate);
+		memcpy(ret_msg->fgd_data, &decimal_rate,
+			sizeof(decimal_rate));
+		bm_debug("[K]FG_DAEMON_CMD_GET_SOC_DECIMAL_RATE %d",
+			decimal_rate);
+	}
+	break;
+	case FG_DAEMON_CMD_GET_DIFF_SOC_SET:
+	{
+		int soc_setting = 1;
+
+		ret_msg->fgd_data_len += sizeof(soc_setting);
+		memcpy(ret_msg->fgd_data, &soc_setting,
+			sizeof(soc_setting));
+
+		bm_debug("[K]FG_DAEMON_CMD_GET_DIFF_SOC_SET %d", soc_setting);
+	}
+	break;
+	case FG_DAEMON_CMD_SET_ZCV_INTR_EN:
+		bm_debug("[K]FG_DAEMON_CMD_SET_ZCV_INTR_EN");
+	break;
+
 
 	default:
 		badcmd++;
@@ -4222,12 +4252,14 @@ int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 				return -1;
 		}
 		Intr_Number_to_Name(intr_name, flow_state);
-		bm_debug("[%s] malloc size=%d pid=%d cmd:[%s],%d\n",
+		bm_debug("[%s] malloc size=%d pid=%d cmd:[%s],0x%x,cmd:%d,para1:%d\n",
 			__func__,
-			size, gm->fgd_pid, intr_name, flow_state);
+			size, gm->fgd_pid, intr_name, flow_state, cmd, para1);
 
 		memset(fgd_msg, 0, size);
 		fgd_msg->fgd_cmd = FG_DAEMON_CMD_NOTIFY_DAEMON;
+		fgd_msg->fgd_subcmd = cmd;
+		fgd_msg->fgd_subcmd_para1 = para1;
 		memcpy(fgd_msg->fgd_data, &flow_state, sizeof(flow_state));
 		fgd_msg->fgd_data_len += sizeof(flow_state);
 		mtk_battery_send_to_user(gm, 0, fgd_msg);
