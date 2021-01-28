@@ -62,11 +62,6 @@ static int MaxHangInfoSize = MAX_HANG_INFO_SIZE;
 #define MAX_STRING_SIZE 256
 char *Hang_Info;
 static int Hang_Info_Size;
-#ifdef CONFIG_MTK_ENG_BUILD
-static int hang_aee_warn = 2;
-#else
-static int hang_aee_warn;
-#endif
 static bool watchdog_thread_exist;
 #endif
 
@@ -300,14 +295,6 @@ static ssize_t monitor_hang_proc_write(struct file *filp, const char *ubuf,
 	} else if (val == 3) {
 		reset_hang_info();
 		ShowStatus(1);
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-	} else if (val == 4) {
-		hang_aee_warn = 0;
-		pr_info("[hang_detect] disable coredump.\n");
-	} else if (val == 5) {
-		hang_aee_warn = 2;
-		pr_info("[hang_detect] denable coredump.\n");
-#endif
 	} else if (val > 10) {
 		show_native_bt_by_pid((int)val);
 	}
@@ -387,21 +374,6 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	}
 
 #ifdef CONFIG_MTK_HANG_DETECT_DB
-	if ((cmd == HANG_SET_FLAG) &&
-		(!strncmp(current->comm, "aee_aed", 7))) {
-		const struct cred *cred = current_cred();
-
-		if (!uid_eq(cred->euid, GLOBAL_ROOT_UID))
-			return -EACCES;
-
-		if ((int)arg == 1) {
-			hang_aee_warn = CORE_DUMP_ENABLE;
-			pr_info("hang_detect: aee enable system_server coredump.\n");
-		}
-		return ret;
-	}
-
-
 	if (cmd == HANG_SET_REBOOT) {
 		reboot_flag = true;
 #ifdef CONFIG_MTK_ENG_BUILD
@@ -1882,43 +1854,6 @@ static void ShowStatus(int flag)
 	}
 }
 
-
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-static int hang_detect_warn_thread(void *arg)
-{
-	/* unsigned long flags; */
-	struct sched_param param = {
-		.sched_priority = 99
-	};
-
-	char string_tmp[30];
-	int system_server_pid;
-
-	system_server_pid = FindTaskByName("system_server");
-	if (system_server_pid < 0)
-		return 0;
-
-	sched_setscheduler(current, SCHED_FIFO, &param);
-	if (snprintf(string_tmp, 30, "hang_detect:[pid:%d]\n",
-			system_server_pid) != 0)
-		pr_notice("hang_detect create warning api: %s.", string_tmp);
-#ifdef __aarch64__
-		aee_kernel_warning_api(__FILE__, __LINE__,
-		DB_OPT_PROCESS_COREDUMP | DB_OPT_AARCH64 | DB_OPT_FTRACE,
-		"maybe have other hang_detect KE DB, please send together!!\n",
-		string_tmp);
-#else
-		aee_kernel_warning_api(__FILE__, __LINE__,
-		DB_OPT_PROCESS_COREDUMP | DB_OPT_FTRACE,
-		"maybe have other hang_detect KE DB, please send together!!\n",
-		string_tmp);
-#endif
-	hang_aee_warn = CORE_DUMP_DONE;
-
-	return 0;
-}
-#endif
-
 static int dump_last_thread(void *arg)
 {
 	/* unsigned long flags; */
@@ -1935,10 +1870,6 @@ static int dump_last_thread(void *arg)
 
 static int hang_detect_dump_thread(void *arg)
 {
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-	struct task_struct *hd_thread;
-#endif
-
 	/* unsigned long flags; */
 	struct sched_param param = {
 		.sched_priority = 99
@@ -1949,16 +1880,7 @@ static int hang_detect_dump_thread(void *arg)
 	dump_bt_done = 1;
 	while (1) {
 		wait_event_interruptible(dump_bt_start_wait, dump_bt_done == 0);
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-		if (hang_aee_warn == CORE_DUMP_START) {
-			hd_thread = kthread_create(hang_detect_warn_thread,
-				NULL, "hang_detect2");
-			if (hd_thread)
-				wake_up_process(hd_thread);
-		} else
-#endif
-			ShowStatus(0);
-
+		ShowStatus(0);
 		dump_bt_done = 1;
 		wake_up_interruptible(&dump_bt_done_wait);
 	}
@@ -2027,17 +1949,6 @@ static int hang_detect_thread(void *arg)
 #endif
 		{
 
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-			if (hang_detect_counter == 1 &&
-				hang_aee_warn == CORE_DUMP_ENABLE &&
-				hd_timeout != COUNT_ANDROID_REBOOT &&
-				reboot_flag == false) {
-				/*get  coredump*/
-				hang_detect_counter = hd_timeout / 2;
-				hang_aee_warn = CORE_DUMP_START;
-				wake_up_dump();
-			}
-#endif
 			if (hang_detect_counter <= 0) {
 				Log2HangInfo(
 					"[Hang_detect]Dump the %d time process bt.\n",
@@ -2058,6 +1969,7 @@ static int hang_detect_thread(void *arg)
 							HZ*10);
 				} else
 					wake_up_dump();
+
 
 				if (Hang_Detect_first == true) {
 #ifdef CONFIG_MTK_HANG_DETECT_DB
@@ -2108,10 +2020,6 @@ void MonitorHangKick(int lParam)
 			hang_detect_counter = 10;
 			hd_timeout = 10;
 		}
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-		if (hang_aee_warn == CORE_DUMP_DONE)
-			hang_aee_warn = CORE_DUMP_ENABLE;
-#endif
 		pr_info("[Hang_Detect] hang_detect enabled %d\n", hd_timeout);
 	}
 	reset_hang_info();

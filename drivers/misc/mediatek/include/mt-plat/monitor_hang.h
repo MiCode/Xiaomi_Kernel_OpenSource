@@ -14,14 +14,6 @@ struct name_list {
 	struct name_list *next;
 };
 
-#ifdef CONFIG_MTK_HANG_DETECT_DB
-
-#define CORE_DUMP_DISABLE 0
-#define CORE_DUMP_ENABLE 1
-#define CORE_DUMP_START 2
-#define CORE_DUMP_DONE 3
-#endif
-
 /* hang detect timeout value*/
 #define	COUNT_SWT_INIT	0
 #define	COUNT_SWT_NORMAL	10
