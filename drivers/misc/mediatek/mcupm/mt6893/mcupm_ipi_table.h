@@ -34,7 +34,7 @@
 #define PIN_S_OFFSET_MCDI		0
 #define PIN_S_OFFSET_SUSPEND		0
 
-#define PIN_S_MSG_SIZE_PLATFORM		3	//uint 4 byts
+#define PIN_S_MSG_SIZE_PLATFORM		4	//uint 4 byts
 #define PIN_S_MSG_SIZE_CPU_DVFS		4	//uint 4 byts
 #define PIN_S_MSG_SIZE_FHCTL		9	//uint 4 byts
 #define PIN_S_MSG_SIZE_MCDI		3	//uint 4 byts
