@@ -51,6 +51,7 @@
 
 /* macros definition */
 /* mtk touch factory test: "mtk-tpd2" */
+#define GOODIX_TS_PID "9886"
 #define GOODIX_CORE_DRIVER_NAME	"mtk-tpd2"
 #define GOODIX_DRIVER_VERSION	"v1.2.0.1"
 #define GOODIX_BUS_RETRY_TIMES	3
@@ -405,6 +406,8 @@ struct goodix_ts_hw_ops {
 	int (*check_hw)(struct goodix_ts_device *dev);
 	int (*suspend)(struct goodix_ts_device *dev);
 	int (*resume)(struct goodix_ts_device *dev);
+	int (*read_pid)(struct goodix_ts_device *dev,
+			struct goodix_ts_version *version);
 };
 
 /*
