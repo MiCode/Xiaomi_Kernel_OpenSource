@@ -1009,6 +1009,8 @@ static int vidioc_venc_s_fmt_cap(struct file *file, void *priv,
 		if (ret) {
 			mtk_v4l2_err("venc_if_init failed=%d, codec type=%x",
 				     ret, q_data->fmt->fourcc);
+			ctx->state = MTK_STATE_ABORT;
+			mtk_venc_queue_error_event(ctx);
 			return -EBUSY;
 		}
 		ctx->state = MTK_STATE_INIT;
@@ -1548,7 +1550,7 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	/* Once state turn into MTK_STATE_ABORT, we need stop_streaming
 	  * to clear it
 	  */
-	if (ctx->state == MTK_STATE_ABORT) {
+	if (ctx->state == MTK_STATE_ABORT || ctx->state == MTK_STATE_FREE) {
 		ret = -EIO;
 		goto err_set_param;
 	}
@@ -1649,7 +1651,6 @@ static void vb2ops_venc_stop_streaming(struct vb2_queue *q)
 		return;
 	}
 
-	ctx->state = MTK_STATE_FREE;
 }
 
 static const struct vb2_ops mtk_venc_vb2_ops = {
