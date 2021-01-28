@@ -437,6 +437,7 @@
 
 	sleep: sleep@10006000 {
 		compatible = "mediatek,sleep", "syscon";
+		mediatek,pwrap-regmap = <&pwrap>;
 		reg = <0 0x10006000 0 0x1000>;
 		interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_LOW>;
 		wakeup-source = <&keypad 0 (1 << 2)>,
