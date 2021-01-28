@@ -134,7 +134,7 @@ int tipc_test_rcv(struct tipc_k_handle *handle, void *data, size_t len)
 {
 	ssize_t rc;
 
-	if (!handle || !data || !!(handle->dn)) {
+	if (!handle || !data || !(handle->dn)) {
 		KREE_DEBUG("%s: invalid param\n", __func__);
 		return -1;
 	}
@@ -207,7 +207,7 @@ void test_gz_syscall(void)
 {
 	int i, tmp;
 	TZ_RESULT ret;
-	KREE_SESSION_HANDLE session, session2;
+	KREE_SESSION_HANDLE session = 0, session2 = 0;
 	union MTEEC_PARAM param[4];
 	uint32_t types;
 
