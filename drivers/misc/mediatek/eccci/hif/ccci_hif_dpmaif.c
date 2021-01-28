@@ -2274,8 +2274,11 @@ static unsigned short dpmaif_relase_tx_buffer(unsigned char q_num,
 					txq->drb_rd_idx,
 					txq->drb_rel_rd_idx);
 				CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
-					"drb pd: 0x%x, 0x%x\n",
-					temp[0], temp[1]);
+					"drb pd: 0x%x, 0x%x (0x%x, 0x%x, 0x%x)\n",
+					temp[0], temp[1],
+					drv_dpmaif_ul_get_rwidx(0),
+					drv_dpmaif_ul_get_rwidx(1),
+					drv_dpmaif_ul_get_rwidx(3));
 				dpmaif_dump_register(dpmaif_ctrl,
 					CCCI_DUMP_MEM_DUMP);
 				dpmaif_dump_txq_history(dpmaif_ctrl,
@@ -2403,8 +2406,15 @@ static void dpmaif_tx_done(struct work_struct *work)
 			__func__, txq->index);
 		return;
 	}
-	if (atomic_read(&dpmaif_ctrl->tx_resume_done))
+	if (atomic_read(&txq->tx_resume_done)) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"txq%d done/resume: 0x%x, 0x%x, 0x%x\n",
+			txq->index,
+			drv_dpmaif_ul_get_rwidx(0),
+			drv_dpmaif_ul_get_rwidx(1),
+			drv_dpmaif_ul_get_rwidx(3));
 		return;
+	}
 	if (!txq->que_started) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"%s meet queue stop(%d)\n",
@@ -2807,6 +2817,16 @@ retry:
 	atomic_sub(send_cnt, &txq->tx_budget);
 	/* 3.3 submit drb descriptor*/
 	wmb();
+	if (atomic_read(&txq->tx_resume_done) &&
+		atomic_read(&txq->tx_resume_tx)) {
+		CCCI_NOTICE_LOG(0, TAG,
+			"tx%d_resume_tx: 0x%x, 0x%x, 0x%x\n",
+			txq->index,
+			drv_dpmaif_ul_get_rwidx(0),
+			drv_dpmaif_ul_get_rwidx(1),
+			drv_dpmaif_ul_get_rwidx(3));
+		atomic_set(&txq->tx_resume_tx, 0);
+	}
 	ret = drv_dpmaif_ul_add_wcnt(txq->index,
 		send_cnt * DPMAIF_UL_DRB_ENTRY_WORD);
 	ul_add_wcnt_record(txq->index, send_cnt * DPMAIF_UL_DRB_ENTRY_WORD,
@@ -2919,12 +2939,19 @@ static void dpmaif_irq_tx_done(unsigned int tx_done_isr)
 	int i, ret;
 	unsigned int intr_ul_que_done;
 
-	if (atomic_read(&dpmaif_ctrl->tx_resume_done))
-		atomic_set(&dpmaif_ctrl->tx_resume_done, 0);
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		intr_ul_que_done =
 			tx_done_isr & (1 << (i + UL_INT_DONE_OFFSET));
 		if (intr_ul_que_done) {
+			if (atomic_read(&dpmaif_ctrl->txq[i].tx_resume_done)) {
+				atomic_set(&dpmaif_ctrl->txq[i].tx_resume_done,
+					0);
+				CCCI_NOTICE_LOG(0, TAG,
+					"clear txq%d_resume_done: 0x%x, 0x%x, 0x%x\n",
+					i, drv_dpmaif_ul_get_rwidx(0),
+					drv_dpmaif_ul_get_rwidx(1),
+					drv_dpmaif_ul_get_rwidx(3));
+			}
 			drv_dpmaif_mask_ul_que_interrupt(i);
 			ret = queue_delayed_work(dpmaif_ctrl->txq[i].worker,
 					&dpmaif_ctrl->txq[i].dpmaif_tx_work,
@@ -3968,9 +3995,8 @@ int dpmaif_stop_tx_sw(unsigned char hif_id)
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		txq = &dpmaif_ctrl->txq[i];
 		dpmaif_stop_txq(txq);
+		atomic_set(&txq->tx_resume_done, 0);
 	}
-
-	atomic_set(&dpmaif_ctrl->tx_resume_done, 0);
 	return 0;
 }
 
@@ -4128,14 +4154,22 @@ static int dpmaif_resume(unsigned char hif_id)
 		CCCI_DEBUG_LOG(0, TAG, "sys_resume no need restore\n");
 	} else {
 		/*IP power down before and need to restore*/
-		CCCI_NORMAL_LOG(0, TAG, "sys_resume need to restore\n");
+		CCCI_NORMAL_LOG(0, TAG,
+			"sys_resume need to restore(0x%x, 0x%x, 0x%x)\n",
+			drv_dpmaif_ul_get_rwidx(0),
+			drv_dpmaif_ul_get_rwidx(1),
+			drv_dpmaif_ul_get_rwidx(3));
 		/*flush and release UL descriptor*/
 		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 			queue = &hif_ctrl->txq[i];
 			if (queue->drb_rd_idx != queue->drb_wr_idx) {
 				CCCI_NOTICE_LOG(0, TAG,
-					"resume: pkt force release: rd(0x%x), wr(0x%x)\n",
-					queue->drb_rd_idx, queue->drb_wr_idx);
+					"resume(%d): pkt force release: rd(0x%x), wr(0x%x), 0x%x, 0x%x, 0x%x\n",
+					i, queue->drb_rd_idx,
+					queue->drb_wr_idx,
+					drv_dpmaif_ul_get_rwidx(0),
+					drv_dpmaif_ul_get_rwidx(1),
+					drv_dpmaif_ul_get_rwidx(3));
 				/*queue->drb_rd_idx = queue->drb_wr_idx;*/
 			}
 			if (queue->drb_wr_idx != queue->drb_rel_rd_idx)
@@ -4149,6 +4183,7 @@ static int dpmaif_resume(unsigned char hif_id)
 			queue->drb_rd_idx = 0;
 			queue->drb_wr_idx = 0;
 			queue->drb_rel_rd_idx = 0;
+			atomic_set(&queue->tx_resume_tx, 1);
 		}
 		/* there are some inter for init para. check. */
 		/* maybe need changed to drv_dpmaif_intr_hw_init();*/
@@ -4166,8 +4201,8 @@ static int dpmaif_resume(unsigned char hif_id)
 		for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 			queue = &hif_ctrl->txq[i];
 			dpmaif_tx_hw_init(queue);
+			atomic_set(&queue->tx_resume_done, 1);
 		}
-		atomic_set(&dpmaif_ctrl->tx_resume_done, 1);
 	}
 	return 0;
 }
