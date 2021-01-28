@@ -7466,6 +7466,11 @@ int sched_cpu_deactivate(unsigned int cpu)
 static void sched_rq_cpu_starting(unsigned int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
+	struct rq_flags rf;
+
+	rq_lock(rq, &rf);
+	walt_set_window_start(rq, &rf);
+	rq_unlock(rq, &rf);
 
 	rq->calc_load_update = calc_load_update;
 	update_max_interval();
