@@ -1113,6 +1113,11 @@ static unsigned int fbt_get_new_base_blc(struct ppm_limit_data *pld, int floor)
 	return blc_wt;
 }
 
+static int cmpint(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
 static void fbt_pidlist_add(int pid, struct list_head *dest_list)
 {
 	struct fbt_pid_list *obj = NULL;
@@ -1124,14 +1129,6 @@ static void fbt_pidlist_add(int pid, struct list_head *dest_list)
 	INIT_LIST_HEAD(&obj->entry);
 	obj->pid = pid;
 	list_add_tail(&obj->entry, dest_list);
-}
-
-static int __cmp_list(void *priv, struct list_head *a, struct list_head *b)
-{
-	struct fbt_pid_list *pa = container_of(a, struct fbt_pid_list, entry);
-	struct fbt_pid_list *pb = container_of(b, struct fbt_pid_list, entry);
-
-	return pa->pid - pb->pid;
 }
 
 static int fbt_task_running_locked(struct task_struct *tsk)
@@ -1193,52 +1190,57 @@ EXIT:
 	return ret;
 }
 
+#define MAX_RQ_COUNT 100
 static int fbt_query_rq(int tgid, struct list_head *proc_list)
 {
 	int ret = 0;
 	unsigned long flags;
 	struct task_struct *p;
 	int cpu;
-	struct list_head rq_list;
-	struct fbt_pid_list *rq_pos, *rq_next;
 	struct fbt_pid_list *pos, *next;
+	int *rq_pid;
+	int rq_idx = 0, i;
 
 	/* get rq */
-	INIT_LIST_HEAD(&rq_list);
+	rq_pid = kcalloc(MAX_RQ_COUNT, sizeof(int), GFP_KERNEL);
+	if (!rq_pid)
+		return 0;
+
 	for_each_possible_cpu(cpu) {
 		raw_spin_lock_irqsave(&cpu_rq(cpu)->lock, flags);
-		list_for_each_entry(p, &cpu_rq(cpu)->cfs_tasks, se.group_node)
-			fbt_pidlist_add(p->pid, &rq_list);
+		list_for_each_entry(p, &cpu_rq(cpu)->cfs_tasks, se.group_node) {
+			rq_pid[rq_idx] = p->pid;
+			rq_idx++;
+			if (rq_idx >= MAX_RQ_COUNT)
+				break;
+		}
 		raw_spin_unlock_irqrestore(&cpu_rq(cpu)->lock, flags);
 	}
 
-	if (list_empty(&rq_list))
-		return 0;
+	if (!rq_idx)
+		goto EXIT;
 
-	list_sort(NULL, &rq_list, __cmp_list);
+	sort(rq_pid, rq_idx, sizeof(int), cmpint, NULL);
 
 	/* compare */
 	pos = list_first_entry_or_null(proc_list, typeof(*pos), entry);
 	if (!pos)
 		goto EXIT;
 
-	list_for_each_entry_safe(rq_pos, rq_next, &rq_list, entry) {
+	for (i = 0; i < rq_idx; i++) {
 		list_for_each_entry_safe_from(pos, next, proc_list, entry) {
-			if (rq_pos->pid == pos->pid) {
+			if (rq_pid[i] == pos->pid) {
 				ret = 1;
 				goto EXIT;
 			}
 
-			if (rq_pos->pid < pos->pid)
+			if (rq_pid[i] < pos->pid)
 				break;
 		}
 	}
 
 EXIT:
-	list_for_each_entry_safe(rq_pos, rq_next, &rq_list, entry) {
-		list_del(&rq_pos->entry);
-		kfree(rq_pos);
-	}
+	kfree(rq_pid);
 
 	return ret;
 }
@@ -1549,11 +1551,6 @@ static void fbt_check_CM_limit(struct render_info *thread_info,
 		fbt_notify_CM_limit(1);
 	else
 		fbt_notify_CM_limit(0);
-}
-
-static int cmpint(const void *a, const void *b)
-{
-	return *(int *)a - *(int *)b;
 }
 
 static void fbt_check_var(long loading,
