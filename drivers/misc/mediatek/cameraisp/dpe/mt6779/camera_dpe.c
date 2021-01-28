@@ -56,9 +56,9 @@
 #include <smi_public.h>
 #include "engine_request.h"
 
-#define DPE_PMQOS
+/* #define DPE_PMQOS */
 #ifdef DPE_PMQOS
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <mmdvfs_pmqos.h>
 #endif
 
@@ -82,7 +82,11 @@
 
 /*  #include "smi_common.h" */
 
+#ifdef CONFIG_PM_WAKELOCKS
 #include <linux/pm_wakeup.h>
+#else
+#include <linux/wakelock.h>
+#endif
 /* CCF */
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
@@ -218,7 +222,11 @@ static struct Tasklet_table DPE_tasklet[DPE_IRQ_TYPE_AMOUNT] = {
 static struct work_struct logWork;
 static void logPrint(struct work_struct *data);
 
+#ifdef CONFIG_PM_WAKELOCKS
+struct wakeup_source *DPE_wake_lock;
+#else
 struct wakeup_source DPE_wake_lock;
+#endif
 
 static DEFINE_MUTEX(gDpeMutex);
 static DEFINE_MUTEX(gDpeDequeMutex);
@@ -1810,10 +1818,10 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 
+	smi_bus_prepare_enable(SMI_LARB7, DPE_DEV_NAME);
 	ret = clk_prepare_enable(dpe_clk.CG_TOP_MUX_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_TOP_MUX_DPE clock\n");
-	smi_bus_prepare_enable(SMI_LARB7_REG_INDX, DPE_DEV_NAME, true);
 	ret = clk_prepare_enable(dpe_clk.CG_IPESYS_DPE);
 	if (ret)
 		LOG_ERR("cannot prepare and enable CG_IPESYS_DPE clock\n");
@@ -1823,8 +1831,8 @@ static inline void DPE_Prepare_Enable_ccf_clock(void)
 static inline void DPE_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(dpe_clk.CG_IPESYS_DPE);
-	smi_bus_disable_unprepare(SMI_LARB7_REG_INDX, DPE_DEV_NAME, true);
 	clk_disable_unprepare(dpe_clk.CG_TOP_MUX_DPE);
+	smi_bus_disable_unprepare(SMI_LARB7, DPE_DEV_NAME);
 }
 #endif
 
@@ -3613,7 +3621,8 @@ static signed int DPE_probe(struct platform_device *pDev)
 			LOG_ERR("NULL DPE-CMDQ-WQ\n");
 
 #ifdef CONFIG_PM_WAKELOCKS
-		wakeup_source_init(&DPE_wake_lock, "DPE_wake_lock");
+		/* wakeup_source_init(&DPE_wake_lock, "DPE_wake_lock"); */
+		DPE_wake_lock = wakeup_source_register(NULL, "DPE_wake_lock");
 #else
 		wake_lock_init(&DPE_wake_lock, WAKE_LOCK_SUSPEND,
 			"DPE_wakelock");
@@ -4072,7 +4081,7 @@ int32_t DPE_ClockOnCallback(uint64_t engineFlag)
 	/* LOG_DBG("+CmdqEn:%d", g_u4EnableClockCount); */
 
 #ifdef CONFIG_PM_WAKELOCKS
-	__pm_stay_awake(&DPE_wake_lock);
+	__pm_stay_awake(DPE_wake_lock);
 #else
 	wake_lock(&DPE_wake_lock);
 #endif
@@ -4104,7 +4113,7 @@ int32_t DPE_ClockOffCallback(uint64_t engineFlag)
 	/* LOG_DBG("DPE_ClockOffCallback"); */
 	/* DPE_EnableClock(MFALSE); */
 #ifdef CONFIG_PM_WAKELOCKS
-	__pm_relax(&DPE_wake_lock);
+	__pm_relax(DPE_wake_lock);
 #else
 	wake_unlock(&DPE_wake_lock);
 #endif

@@ -36,7 +36,7 @@
 #include <cmdq_record.h>
 #include <smi_public.h>
 
-#define MFB_PMQOS
+/* #define MFB_PMQOS */
 #ifdef MFB_PMQOS
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
@@ -2531,7 +2531,7 @@ static signed int MFB_DumpReg(void)
 static inline void MFB_Prepare_Enable_ccf_clock(void)
 {
 	int ret;
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, MFB_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB5, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMGSYS_MFB);
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_MFB clock\n");
@@ -2540,7 +2540,7 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 static inline void MFB_Disable_Unprepare_ccf_clock(void)
 {
 	clk_disable_unprepare(mfb_clk.CG_IMGSYS_MFB);
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, MFB_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB5, MFB_DEV_NAME);
 }
 #endif
 
