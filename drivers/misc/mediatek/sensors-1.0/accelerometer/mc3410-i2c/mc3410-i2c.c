@@ -114,7 +114,7 @@ struct data_resolution {
 struct data_filter {
 	s16 raw[C_MAX_FIR_LENGTH][MC3XXX_AXES_NUM];
 	int sum[MC3XXX_AXES_NUM];
-	int num;
+	unsigned int num;
 	int idx;
 };
 
@@ -614,7 +614,7 @@ static void MC3XXX_LPF(struct mc3xxx_i2c_data *priv, s16 data[MC3XXX_AXES_NUM])
 	if (atomic_read(&priv->filter)) {
 		if (atomic_read(&priv->fir_en) &&
 		    !atomic_read(&priv->suspend)) {
-			int idx, firlen = atomic_read(&priv->firlen);
+			unsigned int idx, firlen = atomic_read(&priv->firlen);
 
 			if (priv->fir.num < firlen) {
 				priv->fir.raw[priv->fir.num][MC3XXX_AXIS_X] =
@@ -668,7 +668,7 @@ static void MC3XXX_LPF(struct mc3xxx_i2c_data *priv, s16 data[MC3XXX_AXES_NUM])
 /*****************************************
  *** _MC3XXX_LowResFilter
  *****************************************/
-static void _MC3XXX_LowResFilter(s16 nAxis, s16 naData[MC3XXX_AXES_NUM])
+static void _MC3XXX_LowResFilter(u16 nAxis, s16 naData[MC3XXX_AXES_NUM])
 {
 #define _LRF_DIFF_COUNT_POS 2
 #define _LRF_DIFF_COUNT_NEG (-_LRF_DIFF_COUNT_POS)
