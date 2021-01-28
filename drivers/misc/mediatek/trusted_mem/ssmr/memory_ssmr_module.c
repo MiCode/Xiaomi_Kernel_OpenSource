@@ -75,9 +75,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "svp",
 		.cmd_online = "svp=on",
 		.cmd_offline = "svp=off",
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
 	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
-	defined(CONFIG_MICROTRUST_TEE_SUPPORT)
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -178,8 +178,8 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 		.feat_name = "tui",
 		.cmd_online = "tui=on",
 		.cmd_offline = "tui=off",
-#if defined(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
-	defined(CONFIG_BLOWFISH_TUI_SUPPORT)
+#if IS_ENABLED(CONFIG_TRUSTONIC_TRUSTED_UI) ||\
+	IS_ENABLED(CONFIG_BLOWFISH_TUI_SUPPORT)
 		.enable = "on",
 #else
 		.enable = "off",
@@ -191,7 +191,9 @@ static struct SSMR_Feature _ssmr_feats[__MAX_NR_SSMR_FEATURES] = {
 
 struct SSMR_HEAP_INFO _ssmr_heap_info[__MAX_NR_SSMR_FEATURES];
 
-#ifdef SSMR_SECMEM_REGION_ENABLE
+#if IS_ENABLED(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) ||\
+	IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) ||\
+	IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
 static int __init dedicate_svp_memory(struct reserved_mem *rmem)
 {
 	struct SSMR_Feature *feature;

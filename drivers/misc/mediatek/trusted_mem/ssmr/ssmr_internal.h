@@ -6,30 +6,6 @@
 #ifndef __SSMR_INTERNAL_H__
 #define __SSMR_INTERNAL_H__
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)                                 \
-	|| IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)                            \
-	|| defined(CONFIG_MICROTRUST_TEE_SUPPORT)                              \
-	|| defined(CONFIG_MTK_IRIS_SUPPORT)                                    \
-	|| defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-#define SSMR_SECMEM_REGION_ENABLE
-#else
-#undef SSMR_SECMEM_REGION_ENABLE
-#endif
-
-#if defined(CONFIG_TRUSTONIC_TRUSTED_UI)                                       \
-	|| defined(CONFIG_BLOWFISH_TUI_SUPPORT)                                \
-	|| defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-#define SSMR_TUI_REGION_ENABLE
-#else
-#undef SSMR_TUI_REGION_ENABLE
-#endif
-
-#if defined(CONFIG_MTK_PROT_MEM_SUPPORT)
-#define SSMR_PROT_SHAREDMEM_REGION_ENABLE
-#else
-#undef SSMR_PROT_SHAREDMEM_REGION_ENABLE
-#endif
-
 #include "memory_ssmr.h"
 
 #define SVP_REGION_IOC_MAGIC 'S'
