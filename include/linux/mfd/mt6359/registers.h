@@ -17448,6 +17448,9 @@
 	MT6359_PCHR_VREF_ANA_CON1
 #define MT6359_RG_UVLO_VTHL_MASK                              0x1F
 #define MT6359_RG_UVLO_VTHL_SHIFT                             2
-
+#define MT6359_RG_LDO_VUFS_LP_ADDR                            \
+	MT6359_LDO_VUFS_CON0
+#define MT6359_RG_LDO_VUFS_LP_MASK                            0x1
+#define MT6359_RG_LDO_VUFS_LP_SHIFT                           1
 
 #endif /* __MFD_MT6359_REGISTERS_H__ */

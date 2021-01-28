@@ -20,6 +20,9 @@
 #define MT6359_BUCK_MODE_NORMAL		0
 #define MT6359_BUCK_MODE_LP		2
 
+#define MT6359_LDO_MODE_NORMAL		0
+#define MT6359_LDO_MODE_LP		1
+
 #define DEF_OC_IRQ_ENABLE_DELAY_MS	10
 
 /*
@@ -175,6 +178,34 @@ struct mt_regulator_init_data {
 	},								\
 	.da_reg = _da_reg,						\
 	.qi = BIT(0),							\
+}
+
+#define MT_LDO_NON_REGULAR_WITH_LP(match, _name, _ops,			\
+			   _volt_table, _enable_reg, _enable_mask,	\
+			   _da_reg,					\
+			   _vsel_reg, _vsel_mask,			\
+			   _lp_mode_reg, _lp_mode_shift)		\
+[MT6359_ID_##_name] = {							\
+	.desc = {							\
+		.name = #_name,						\
+		.of_match = of_match_ptr(match),			\
+		.ops = &_ops,						\
+		.type = REGULATOR_VOLTAGE,				\
+		.id = MT6359_ID_##_name,				\
+		.owner = THIS_MODULE,					\
+		.n_voltages = ARRAY_SIZE(_volt_table),			\
+		.volt_table = _volt_table,				\
+		.vsel_reg = _vsel_reg,					\
+		.vsel_mask = _vsel_mask,				\
+		.enable_reg = _enable_reg,				\
+		.enable_mask = BIT(_enable_mask),			\
+		.of_map_mode = mt6359_map_ldo_lp_mode,			\
+	},								\
+	.da_reg = _da_reg,						\
+	.qi = BIT(0),							\
+	.lp_mode_reg = _lp_mode_reg,					\
+	.lp_mode_mask = BIT(_lp_mode_shift),				\
+	.lp_mode_shift = _lp_mode_shift,				\
 }
 
 //vs1
@@ -565,6 +596,18 @@ static const u32 vsim2_voltages[] = {
 	3100000,
 };
 
+static inline unsigned int mt6359_map_ldo_lp_mode(unsigned int mode)
+{
+	switch (mode) {
+	case MT6359_LDO_MODE_NORMAL:
+		return REGULATOR_MODE_NORMAL;
+	case MT6359_LDO_MODE_LP:
+		return REGULATOR_MODE_IDLE;
+	default:
+		return REGULATOR_MODE_INVALID;
+	}
+}
+
 static inline unsigned int mt6359_map_mode(unsigned int mode)
 {
 	switch (mode) {
@@ -713,6 +756,63 @@ static int mt6359_get_status(struct regulator_dev *rdev)
 	return (regval & info->qi) ? REGULATOR_STATUS_ON : REGULATOR_STATUS_OFF;
 }
 
+static int mt6359_regulator_set_ldo_lp_mode(struct regulator_dev *rdev,
+					    unsigned int mode)
+{
+	struct mt6359_regulator_info *info = rdev_get_drvdata(rdev);
+	int ret = 0, val;
+
+	switch (mode) {
+	case REGULATOR_MODE_NORMAL:
+		val = MT6359_LDO_MODE_NORMAL;
+		val <<= info->lp_mode_shift;
+		ret = regmap_update_bits(rdev->regmap,
+					 info->lp_mode_reg,
+					 info->lp_mode_mask,
+					 val);
+		udelay(100);
+		break;
+	case REGULATOR_MODE_IDLE:
+		val = MT6359_LDO_MODE_LP;
+		val <<= info->lp_mode_shift;
+		ret = regmap_update_bits(rdev->regmap,
+					 info->lp_mode_reg,
+					 info->lp_mode_mask,
+					 val);
+		break;
+	default:
+		ret = -EINVAL;
+		goto err_mode;
+	}
+
+err_mode:
+	if (ret != 0) {
+		dev_notice(&rdev->dev,
+			"Failed to set mt6359 ldo mode: %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static unsigned int mt6359_regulator_get_ldo_lp_mode(struct regulator_dev *rdev)
+{
+	struct mt6359_regulator_info *info = rdev_get_drvdata(rdev);
+	int ret, regval = 0;
+
+	ret = regmap_read(rdev->regmap, info->lp_mode_reg, &regval);
+	if (ret != 0) {
+		dev_notice(&rdev->dev,
+			"Failed to get mt6359 buck lp mode: %d\n", ret);
+		return ret;
+	}
+
+	if (regval & info->lp_mode_mask)
+		return REGULATOR_MODE_IDLE;
+	else
+		return REGULATOR_MODE_NORMAL;
+}
+
 static const struct regulator_ops mt6359_volt_range_ops = {
 	.list_voltage = regulator_list_voltage_linear_range,
 	.map_voltage = regulator_map_voltage_linear_range,
@@ -737,6 +837,20 @@ static const struct regulator_ops mt6359_volt_table_ops = {
 	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6359_get_status,
+};
+
+static const struct regulator_ops mt6359_volt_table_ops_with_lp = {
+	.list_voltage = regulator_list_voltage_table,
+	.map_voltage = regulator_map_voltage_iterate,
+	.set_voltage_sel = regulator_set_voltage_sel_regmap,
+	.get_voltage_sel = regulator_get_voltage_sel_regmap,
+	.set_voltage_time_sel = regulator_set_voltage_time_sel,
+	.enable = regulator_enable_regmap,
+	.disable = regulator_disable_regmap,
+	.is_enabled = regulator_is_enabled_regmap,
+	.get_status = mt6359_get_status,
+	.set_mode = mt6359_regulator_set_ldo_lp_mode,
+	.get_mode = mt6359_regulator_get_ldo_lp_mode,
 };
 
 static const struct regulator_ops mt6359_volt_fixed_ops = {
@@ -1048,14 +1162,17 @@ static struct mt6359_regulator_info mt6359_regulators[] = {
 		MT6359_RG_LDO_VSRAM_MD_VOSEL_ADDR,
 		MT6359_RG_LDO_VSRAM_MD_VOSEL_MASK <<
 		MT6359_RG_LDO_VSRAM_MD_VOSEL_SHIFT),
-	MT_LDO_NON_REGULAR("ldo_vufs", VUFS,
+	MT_LDO_NON_REGULAR_WITH_LP("ldo_vufs", VUFS,
+		mt6359_volt_table_ops_with_lp,
 		vufs_voltages,
 		MT6359_RG_LDO_VUFS_EN_ADDR,
 		MT6359_RG_LDO_VUFS_EN_SHIFT,
 		MT6359_DA_VUFS_B_EN_ADDR,
 		MT6359_RG_VUFS_VOSEL_ADDR,
 		MT6359_RG_VUFS_VOSEL_MASK <<
-		MT6359_RG_VUFS_VOSEL_SHIFT),
+		MT6359_RG_VUFS_VOSEL_SHIFT,
+		MT6359_RG_LDO_VUFS_LP_ADDR,
+		MT6359_RG_LDO_VUFS_LP_SHIFT),
 	MT_LDO_NON_REGULAR("ldo_vm18", VM18,
 		vm18_voltages,
 		MT6359_RG_LDO_VM18_EN_ADDR,
