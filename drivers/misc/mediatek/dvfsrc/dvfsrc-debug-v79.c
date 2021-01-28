@@ -177,7 +177,7 @@ static char *dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc,
 
 	p += snprintf(p, buff_end - p, "%-10s: %-8u uv\n",
 			"Vcore", vcore_uv);
-#if IS_ENABLED(CONFIG_MTK_DRAMC)
+#if !IS_ENABLED(CONFIG_MTK_DRAMC)
 	p += snprintf(p, buff_end - p, "%-10s: %-8u khz\n",
 			"DDR", mtk_dramc_get_data_rate() * 1000);
 #endif
