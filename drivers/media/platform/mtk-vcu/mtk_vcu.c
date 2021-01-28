@@ -842,7 +842,8 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	i = buff.cmdq_buff.flush_order % GCE_PENDING_CNT;
 	memcpy(&vcu_ptr->gce_info[j].buff[i], &buff, sizeof(buff));
 
-	pkt_ptr->err_cb.cb = vcu_gce_timeout_callback;
+	pkt_ptr->err_cb.cb =
+		(buff.cmdq_buff.secure == 0)?vcu_gce_timeout_callback:NULL;
 	pkt_ptr->err_cb.data = (void *)&vcu_ptr->gce_info[j].buff[i];
 
 	pr_info("[VCU][%d] %s: buff %p type %d cnt %d order %d hndl %llx %d %d\n",
@@ -2212,6 +2213,10 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		cmdq_dev_get_event(dev, "venc_wp_2nd_done");
 	vcu->gce_codec_eid[VENC_WP_3ND_DONE] =
 		cmdq_dev_get_event(dev, "venc_wp_3nd_done");
+	vcu->gce_codec_eid[VENC_SPS_DONE] =
+		cmdq_dev_get_event(dev, "venc_sps_done");
+	vcu->gce_codec_eid[VENC_PPS_DONE] =
+		cmdq_dev_get_event(dev, "venc_pps_done");
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++) {
 		vcu->gce_cmds[i] = devm_kzalloc(dev,
