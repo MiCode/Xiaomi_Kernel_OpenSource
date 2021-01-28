@@ -260,6 +260,13 @@ static int ovl2mem_callback(unsigned int userdata)
 	DISPINFO("%s(%x), current tick=%d, release tick: %d\n", __func__,
 		pgcl->session, get_ovl2mem_ticket(), userdata);
 	for (layid = 0; layid < (MEMORY_SESSION_INPUT_LAYER_COUNT); layid++) {
+		fence_idx = mtkfb_query_idx_by_ticket(pgcl->session, layid, userdata);
+		if (fence_idx >= 0)
+			mtkfb_release_fence(pgcl->session, layid, fence_idx);
+
+		/* for corner case: config1-->config2-->callback1-->callback2
+		 * it will casue buffer free when using.
+
 		cmdqBackupReadSlot(pgcl->ovl2mem_cur_config_fence,
 			layid, &fence_idx);
 		cmdqBackupReadSlot(pgcl->ovl2mem_subtractor_when_free,
@@ -267,6 +274,8 @@ static int ovl2mem_callback(unsigned int userdata)
 
 		mtkfb_release_fence(pgcl->session, layid,
 			fence_idx - subtractor);
+
+		*/
 	}
 
 	layid = disp_sync_get_output_timeline_id();
@@ -511,7 +520,7 @@ int ovl2mem_trigger(int blocking, void *callback, unsigned int userdata)
 		(atomic_read(&g_trigger_ticket)<<16) |
 		atomic_read(&g_release_ticket));
 
-	DISPINFO("%s done %d\n", __func__, get_ovl2mem_ticket());
+	DISPINFO("%s done, next:%d\n", __func__, get_ovl2mem_ticket());
 
 	return ret;
 }
@@ -524,6 +533,7 @@ static int ovl2mem_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	struct disp_ddp_path_config *data_config;
 	struct ddp_io_golden_setting_arg gset_arg;
 	unsigned int ext_last_fence, ext_cur_fence, ext_sub;
+	unsigned int session_id = cfg->session_id;
 
 	DISPFUNC();
 
@@ -555,6 +565,12 @@ static int ovl2mem_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 		dprec_logger_done(DPREC_LOGGER_PRIMARY_CONFIG,
 			cfg->input_cfg[i].src_offset_x,
 			cfg->input_cfg[i].src_offset_y);
+
+		/* Update input buffer trigger ticket */
+		mtkfb_update_buf_ticket(session_id,
+			config_layer_id,
+			cfg->input_cfg[i].next_buff_idx, get_ovl2mem_ticket());
+
 	}
 
 	if (dpmgr_path_is_busy(pgcl->dpmgr_handle))
