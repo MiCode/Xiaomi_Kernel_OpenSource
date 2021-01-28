@@ -202,8 +202,10 @@ static int mdw_sched_sc_done(void)
 	if (!s)
 		return -ENODATA;
 
+	trace_tag_begin("subcmd solve dependency");
 	/* recv finished subcmd */
 	while (1) {
+		trace_tag_begin("subcmd end sc");
 		c = s->parent;
 		ret = cmd_parser->end_sc(s, &sc);
 		mdw_flw_debug("\n");
@@ -211,6 +213,7 @@ static int mdw_sched_sc_done(void)
 		if (ret) {
 			mdw_drv_err("parse done sc fail(%d)\n", ret);
 			complete(&c->cmplt);
+			trace_tag_end();
 			break;
 		}
 		/* check parsed sc */
@@ -225,9 +228,12 @@ static int mdw_sched_sc_done(void)
 		} else {
 		/* finished sc parse done, break loop */
 			mdw_sched(NULL);
+			trace_tag_end();
 			break;
 		}
+		trace_tag_end();
 	};
+	trace_tag_end();
 
 	return ret;
 }
@@ -238,12 +244,14 @@ static void mdw_sched_enque_done_sc(struct kref *ref)
 		container_of(ref, struct mdw_apu_sc, multi_ref);
 
 	mdw_flw_debug("sc(0x%llx-#%d)\n", sc->parent->kid, sc->idx);
+	trace_tag_begin("put vlm ctx");
 	cmd_parser->put_ctx(sc);
+	trace_tag_end();
 
 	mutex_lock(&ms_mgr.mtx);
 	list_add_tail(&sc->ds_item, &ms_mgr.ds_list);
-	mdw_sched(NULL);
 	mutex_unlock(&ms_mgr.mtx);
+	mdw_sched(NULL);
 }
 
 int mdw_sched_dev_routine(void *arg)
@@ -260,6 +268,7 @@ int mdw_sched_dev_routine(void *arg)
 		if (ret)
 			goto next;
 
+		trace_tag_begin("execute subcmd");
 		sc = (struct mdw_apu_sc *)d->sc;
 		if (!sc) {
 			mdw_drv_warn("no sc to exec\n");
@@ -267,15 +276,21 @@ int mdw_sched_dev_routine(void *arg)
 		}
 
 		/* get mem ctx */
+		trace_tag_begin("get vlm ctx");
 		if (cmd_parser->get_ctx(sc)) {
 			mdw_drv_err("cmd(0x%llx-#%d) get ctx fail\n",
 				sc->parent->kid, sc->idx);
 			goto next;
 		}
+		trace_tag_end();
 
 		/* construct cmd hnd */
+		trace_tag_begin("check boost");
 		mdw_queue_boost(sc);
+		trace_tag_end();
+		trace_tag_begin("set handle");
 		cmd_parser->set_hnd(sc, d->idx, &h);
+		trace_tag_end();
 
 		/*
 		 * Execute reviser to switch VLM:
@@ -283,45 +298,56 @@ int mdw_sched_dev_routine(void *arg)
 		 * context should be set by engine driver itself.
 		 * Give engine a callback to set context id.
 		 */
+		trace_tag_begin("set vlm ctx");
 		if (d->type != APUSYS_DEVICE_MDLA &&
 			d->type != APUSYS_DEVICE_MDLA_RT) {
 			reviser_set_context(d->type,
 					d->idx, sc->ctx);
 		}
+		trace_tag_end();
 
 		/* count qos start */
+		trace_tag_begin("cmd qos start");
 		apu_cmd_qos_start(sc->parent->kid, sc->idx,
 			sc->type, d->idx, h.boost_val);
+		trace_tag_end();
 
 		/* execute */
 		mdw_sched_trace(sc, d, &h, ret, 0);
+		trace_tag_begin("driver execute");
 		getnstimeofday(&sc->ts_start);
 		ret = d->dev->send_cmd(APUSYS_CMD_EXECUTE, &h, d->dev);
 		getnstimeofday(&sc->ts_end);
+		trace_tag_end();
 		sc->driver_time = mdw_cmn_get_time_diff(&sc->ts_start,
 			&sc->ts_end);
 		mdw_sched_trace(sc, d, &h, ret, 1);
 
 		/* count qos end */
 		mutex_lock(&sc->mtx);
+		trace_tag_begin("cmd qos end");
 		sc->bw += apu_cmd_qos_end(sc->parent->kid, sc->idx,
 			sc->type, d->idx);
+		trace_tag_end();
 		sc->ip_time = sc->ip_time > h.ip_time ? sc->ip_time : h.ip_time;
 		sc->boost = h.boost_val;
 		sc->status = ret;
 		mdw_flw_debug("multi bmp(0x%llx)\n", sc->multi_bmp);
 		mutex_unlock(&sc->mtx);
 
+		trace_tag_begin("push dev");
 		/* put device */
 		if (mdw_rsc_put_dev(d))
 			mdw_drv_err("put dev(%d-#%d) fail\n",
 				d->type, d->dev->idx);
+		trace_tag_end();
 
 		mdw_flw_debug("sc(0x%llx-#%d) ref(%d)\n", sc->parent->kid,
 			sc->idx, kref_read(&sc->multi_ref));
 		kref_put(&sc->multi_ref, mdw_sched_enque_done_sc);
 next:
 		mdw_flw_debug("done\n");
+		trace_tag_end();
 		continue;
 	}
 
@@ -427,12 +453,18 @@ static int mdw_sched_routine(void *arg)
 		if (ms_mgr.pause == true)
 			continue;
 
+		trace_tag_begin("sched routine");
+		trace_tag_begin("check done subcmd");
 		if (!mdw_sched_sc_done()) {
 			mdw_sched(NULL);
+			trace_tag_end();
 			goto next;
 		}
+		trace_tag_end();
 
+		trace_tag_begin("check pack");
 		mdw_pack_check();
+		trace_tag_end();
 
 		bmp = mdw_rsc_get_avl_bmp();
 		t = mdw_sched_get_type(bmp);
@@ -442,21 +474,23 @@ static int mdw_sched_routine(void *arg)
 		}
 
 		/* get queue */
+		trace_tag_begin("pop subcmd");
 		sc = mdw_queue_pop(t);
 		if (!sc) {
 			mdw_drv_err("pop sc(%d) fail\n", t);
 			goto fail_pop_sc;
 		}
-		getnstimeofday(&sc->ts_deque);
+		trace_tag_end();
 		mdw_flw_debug("pop sc(0x%llx-#%d/%d/%llu)\n",
 			sc->parent->kid, sc->idx, sc->type, sc->period);
 
+		trace_tag_begin("dispatch subcmd");
 		/* dispatch cmd */
 		if (sc->hdr->pack_id)
 			ret = mdw_sched_dispatch_pack(sc);
 		else
 			ret = mdw_sched_dispatch_norm(sc);
-
+		trace_tag_end();
 		if (ret) {
 			mdw_flw_debug("sc(0x%llx-#%d) dispatch fail",
 				sc->parent->kid, sc->idx);
@@ -475,6 +509,7 @@ next:
 		mdw_flw_debug("\n");
 		if (mdw_rsc_get_avl_bmp())
 			mdw_sched(NULL);
+		trace_tag_end();
 	}
 
 	mdw_drv_warn("schedule thread end\n");
