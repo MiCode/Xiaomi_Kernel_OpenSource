@@ -1740,7 +1740,7 @@ static int hang_detect_thread(void *arg)
 					/* eng load can detect whether KE*/
 #endif
 						/* BUG(); */
-						show_kaslr();
+						show_kaslr(true);
 						mrdump_mini_add_hang_raw(
 						(unsigned long)Hang_Info,
 							MaxHangInfoSize);

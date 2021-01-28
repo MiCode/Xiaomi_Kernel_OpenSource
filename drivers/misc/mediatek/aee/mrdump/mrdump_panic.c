@@ -122,7 +122,7 @@ void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 	struct pt_regs saved_regs;
 
 	bust_spinlocks(1);
-	show_kaslr();
+	show_kaslr(false);
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_exp_type(AEE_EXP_TYPE_NESTED_PANIC);
 #endif
@@ -158,7 +158,7 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	bust_spinlocks(1);
 	aee_disable_api();
 
-	show_kaslr();
+	show_kaslr(true);
 	print_modules();
 #ifdef CONFIG_MTK_RAM_CONSOLE
 	aee_rr_rec_fiq_step(fiq_step);
