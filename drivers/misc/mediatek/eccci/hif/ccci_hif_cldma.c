@@ -96,6 +96,11 @@ struct md_cd_ctrl *cldma_ctrl;
 
 static void __iomem *md_cldma_misc_base;
 
+/* mp1 1, mp2 0, ro 1 */
+#define UIDMASK 0x80000000
+
+static unsigned int g_cd_uid_mask_count;
+
 struct ccci_clk_node cldma_clk_table[CLDMA_CLOCK_COUNT] = {
 	{ NULL,	"infra-cldma-bclk"},
 
@@ -473,6 +478,10 @@ void md_cd_traffic_monitor_func(struct timer_list *t)
 	struct ccci_hif_traffic *tinfo = &md_ctrl->traffic_info;
 	unsigned long q_rx_rem_nsec[CLDMA_RXQ_NUM] = {0};
 	unsigned long isr_rem_nsec;
+
+	CCCI_ERROR_LOG(-1, TAG,
+		"[%s] g_cd_uid_mask_count = %u\n",
+		__func__, g_cd_uid_mask_count);
 
 	ccci_port_dump_status(md_ctrl->md_id);
 	CCCI_REPEAT_LOG(md_ctrl->md_id, TAG,
@@ -2539,6 +2548,13 @@ static int cldma_gpd_bd_handle_tx_request(struct md_cd_queue *queue,
 	/* update GPD */
 	cldma_write32(&tgpd->data_buff_len, 0, skb->len);
 	cldma_write8(&tgpd->netif, 0, ccci_h->data[0]);
+
+	/* mp1 1, mp2 0, ro 1 */
+	if (skb->mark & UIDMASK) {
+		g_cd_uid_mask_count++;
+		tgpd->psn = 0x1000;
+	}
+
 	tgpd->non_used = 1;
 	/* set HWO */
 	spin_lock(&md_ctrl->cldma_timeout_lock);

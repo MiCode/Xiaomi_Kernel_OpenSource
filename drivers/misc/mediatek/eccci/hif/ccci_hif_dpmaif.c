@@ -64,6 +64,8 @@
 
 struct hif_dpmaif_ctrl *dpmaif_ctrl;
 
+static unsigned int g_dp_uid_mask_count;
+
 #ifdef CCCI_KMODULE_ENABLE
 /*
  * for debug log:
@@ -395,6 +397,10 @@ static void dpmaif_traffic_monitor_func(struct timer_list *t)
 	unsigned long q_rx_rem_nsec[DPMAIF_RXQ_NUM] = {0};
 	unsigned long isr_rem_nsec;
 	int i, q_state = 0;
+
+	CCCI_ERROR_LOG(-1, TAG,
+		"[%s] g_dp_uid_mask_count = %u\n",
+		__func__, g_dp_uid_mask_count);
 
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		if (hif_ctrl->txq[i].busy_count != 0) {
@@ -1850,8 +1856,10 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	if (!skb)
 		return 0;
 
-	if (skb->mark & UIDMASK)
+	if (skb->mark & UIDMASK) {
+		g_dp_uid_mask_count++;
 		prio_count = 0x1000;
+	}
 
 	if (qno >= DPMAIF_TXQ_NUM) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
