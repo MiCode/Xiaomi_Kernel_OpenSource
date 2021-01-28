@@ -340,7 +340,7 @@ page_owner=on loop.max_part=7";
 		ion-carveout-heap {
 			compatible = "mediatek,ion-carveout-heap";
 			no-map;
-			size = <0 0x4000>;
+			size = <0 0xc000>;
 			alignment = <0 0x1000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
