@@ -99,7 +99,7 @@ subdir-ccflags-y += -DMT6853
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_rf6190_4gb_1866_mcl)
+ifeq ($(PROJECT_DTB_NAMES),mediatek/k6853v1_64_6360_alpha_90hz_4gb_mcl)
 subdir-ccflags-y += -DMT6853
 subdir-ccflags-y += -DMC50_LOAD
 endif
