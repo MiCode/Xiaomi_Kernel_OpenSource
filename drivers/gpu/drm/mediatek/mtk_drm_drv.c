@@ -99,19 +99,10 @@ static void mtk_atomic_state_free(struct kref *k)
 	kfree(mtk_state);
 }
 
-void mtk_atomic_state_get(struct drm_atomic_state *state)
-{
-	struct mtk_atomic_state *mtk_state = to_mtk_state(state);
-
-	kref_get(&mtk_state->kref);
-	kref_get(&state->ref);
-}
-
 void mtk_atomic_state_put(struct drm_atomic_state *state)
 {
 	struct mtk_atomic_state *mtk_state = to_mtk_state(state);
 
-	drm_atomic_state_put(state);
 	kref_put(&mtk_state->kref, mtk_atomic_state_free);
 }
 
@@ -163,7 +154,7 @@ static void mtk_unreference_work(struct work_struct *work)
 	list_for_each_entry_safe(state, tmp, &mtk_drm->unreference.list, list) {
 		list_del(&state->list);
 		spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
-		mtk_atomic_state_put(&state->base);
+		drm_atomic_state_put(&state->base);
 		spin_lock_irqsave(&mtk_drm->unreference.lock, flags);
 	}
 	spin_unlock_irqrestore(&mtk_drm->unreference.lock, flags);
@@ -695,7 +686,7 @@ static void mtk_atomic_complete(struct mtk_drm_private *private,
 		drm_atomic_helper_wait_for_vblanks(drm, state);
 
 	drm_atomic_helper_cleanup_planes(drm, state);
-	mtk_atomic_state_put(state);
+	drm_atomic_state_put(state);
 }
 
 static void mtk_atomic_work(struct work_struct *work)
@@ -780,7 +771,7 @@ static int mtk_atomic_commit(struct drm_device *drm,
 		goto err_mutex_unlock;
 	}
 
-	mtk_atomic_state_get(state);
+	drm_atomic_state_get(state);
 	if (async)
 		mtk_atomic_schedule(private, state);
 	else
