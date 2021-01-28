@@ -8716,7 +8716,7 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 
 	unsigned long long sec = 0;
 	unsigned long usec = 0;
-	unsigned int idx;
+	unsigned int idx = 0;
 
 	enum eISPIrq eIrq = _IRQ;
 
@@ -8834,6 +8834,12 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		Ret = -EFAULT;
 	}
 	spin_unlock_irqrestore(&(IspInfo.SpinLockIrq[eIrq]), flags);
+	if ((irqinfo->UserInfo.Type < 0) || (irqinfo->UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
+		(idx < 0) || (idx >= 32)) {
+		log_err("Error: invalid index");
+		Ret = -EFAULT;
+		return Ret;
+	}
 	pr_info("[%s] user/type/idx(%d/%d/%d),mark sec/usec (%d/%d), irq sec/usec (%d/%d),query sec/usec(%d/%d),sig(%d)\n",
 		__func__,
 		irqinfo->UserInfo.UserKey, irqinfo->UserInfo.Type, idx,
@@ -8847,7 +8853,6 @@ static signed int ISP_GET_MARKtoQEURY_TIME(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 		(int)time_ready2return.tv_sec, (int)time_ready2return.tv_usec,
 		IspInfo.IrqInfo.PassedBySigCnt[irqinfo->UserInfo.UserKey]
 						[irqinfo->UserInfo.Type][idx]);
-
 	return Ret;
 }
 
