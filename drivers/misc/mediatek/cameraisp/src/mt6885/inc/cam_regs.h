@@ -339,7 +339,7 @@ enum{
 
 #define CAM_REG_CTL_SW_CTL(module)              (isp_devs[module].regs + 0x007C)
 #define CAM_REG_CTL_CD_DONE_SEL(module)         (isp_devs[module].regs + 0x0058)
-#define CAM_REG_CTL_TWIN_STATUS(module)         (isp_devs[module].regs + 0x008C)
+#define CAM_REG_CTL_TWIN_STATUS(module)         (isp_devs[module].regs + 0x00A8)
 #define CAM_REG_CTL_MISC(module)                (isp_devs[module].regs + 0x0054)
 
 /* FBC_DMAO_CTL */
@@ -824,3 +824,14 @@ union CAMCTL_INT6_STATUS_ {
 	unsigned int Raw;
 };
 
+union CAMCTL_TWIN_STATUS_ {
+	struct { /* 0x1A0300A8 */
+		unsigned int TWIN_EN            : 4;  /*  0.. 3, 0x0000000F */
+		unsigned int MASTER_MODULE      : 4;  /*  4.. 7, 0x000000F0 */
+		unsigned int SLAVE_CAM_NUM      : 4;  /*  8..11, 0x00000F00 */
+		unsigned int TWIN_MODULE        : 4;  /* 12..15, 0x0000F000 */
+		unsigned int TRIPLE_MODULE      : 4;  /* 16..19, 0x000F0000 */
+		unsigned int rsv_16             : 16;  /* 20..31, 0xFFF00000 */
+	} Bits;
+	unsigned int Raw;
+};
