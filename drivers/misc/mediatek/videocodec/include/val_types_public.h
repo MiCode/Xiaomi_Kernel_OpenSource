@@ -152,14 +152,12 @@ enum VAL_DRIVER_TYPE_T {
 	VAL_DRIVER_TYPE_RV9_DEC,	 /* /< RV9 decoder */
 	VAL_DRIVER_TYPE_MP1_MP2_DEC,     /* /< MPEG1/2 decoder */
 	VAL_DRIVER_TYPE_XVID_DEC,	/* /< Xvid decoder */
-	VAL_DRIVER_TYPE_DIVX4_DIVX5_DEC, /* /< Divx4/5 decoder */
 	/* /< VC-1 main profile (WMV9) decoder */
 	VAL_DRIVER_TYPE_VC1_MP_WMV9_DEC,
 	VAL_DRIVER_TYPE_RV8_DEC,       /* /< RV8 decoder */
 	VAL_DRIVER_TYPE_WMV7_DEC,      /* /< WMV7 decoder */
 	VAL_DRIVER_TYPE_WMV8_DEC,      /* /< WMV8 decoder */
 	VAL_DRIVER_TYPE_AVS_DEC,       /* /< AVS decoder */
-	VAL_DRIVER_TYPE_DIVX_3_11_DEC, /* /< Divx3.11 decoder */
 	/* /< H.264 main profile decoder (due to different packet) == 20 */
 	VAL_DRIVER_TYPE_H264_DEC_MAIN,
 	/* /< H.264 main profile decoder for CABAC type but packet is the same,
