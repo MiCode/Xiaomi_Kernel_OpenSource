@@ -74,7 +74,6 @@ void mtk_check_subsys_swcg(enum subsys_id id);
  * Resident in clkdbg-mt6873.c
  * For debug use.
  */
-void init_regbase_mt6873(void);
 void print_subsys_reg(char *subsys_name);
 
 /*ram console api*/

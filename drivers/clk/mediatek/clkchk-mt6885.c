@@ -14,33 +14,13 @@
 #include <linux/clk-provider.h>
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
-#include "clk-mt6885-pg.h"
 
-#define WARN_ON_CHECK_PLL_FAIL	0
-#define CLKDBG_CCF_API_4_4	1
+#include <mt-plat/aee.h>
+#include "clk-mt6885-pg.h"
+#include "clkdbg-mt6885.h"
 
 #define TAG	"[clkchk] "
-
-#if !CLKDBG_CCF_API_4_4
-
-/* backward compatible */
-
-static const char *clk_hw_get_name(const struct clk_hw *hw)
-{
-	return __clk_get_name(hw->clk);
-}
-
-static bool clk_hw_is_prepared(const struct clk_hw *hw)
-{
-	return __clk_is_prepared(hw->clk);
-}
-
-static bool clk_hw_is_enabled(const struct clk_hw *hw)
-{
-	return __clk_is_enabled(hw->clk);
-}
-
-#endif /* !CLKDBG_CCF_API_4_4 */
+#define	BUG_ON_CHK_ENABLE	1
 
 const char * const *get_mt6885_all_clk_names(void)
 {
@@ -588,6 +568,57 @@ const char * const *get_mt6885_all_clk_names(void)
 	return clks;
 }
 
+static const char * const off_pll_names[] = {
+	"univpll",
+	"mfgpll",
+	"msdcpll",
+	"tvdpll",
+	"mmpll",
+	"apupll",
+	NULL
+};
+
+static const char * const notice_pll_names[] = {
+	"adsppll",
+	"apll1",
+	"apll2",
+	NULL
+};
+
+static const char * const off_mtcmos_names[] = {
+	"PG_MDP",
+	"PG_DIS",
+	"PG_MFG0",
+	"PG_MFG1",
+	"PG_MFG2",
+	"PG_MFG3",
+	"PG_MFG4",
+	"PG_MFG5",
+	"PG_MFG6",
+	"PG_ISP",
+	"PG_ISP2",
+	"PG_IPE",
+	"PG_VDEC",
+	"PG_VDEC2",
+	"PG_VENC",
+	"PG_VENC_C1",
+	"PG_CAM",
+	"PG_CAM_RAWA",
+	"PG_CAM_RAWB",
+	"PG_CAM_RAWC",
+	"PG_DP_TX",
+	"PG_VPU",
+	NULL
+};
+
+static const char * const notice_mtcmos_names[] = {
+	"PG_MD1",
+	"PG_CONN",
+	"PG_ADSP",
+	"PG_AUDIO",
+	NULL
+};
+
 static const char *ccf_state(struct clk_hw *hw)
 {
 	if (__clk_get_enable_count(hw->clk))
@@ -599,70 +630,65 @@ static const char *ccf_state(struct clk_hw *hw)
 	return "disabled";
 }
 
-static void print_enabled_clks(int is_deferred)
+static void print_enabled_clks(void)
 {
 	const char * const *cn = get_mt6885_all_clk_names();
+	const char *fix_clk = "clk26m";
 
-	if (is_deferred)
-		printk_deferred("enabled clks:\n");
-	else
-		pr_notice("enabled clks:\n");
-
+	pr_notice("enabled clks:\n");
 
 	for (; *cn; cn++) {
+		int valid = 0;
 		struct clk *c = __clk_lookup(*cn);
 		struct clk_hw *c_hw = __clk_get_hw(c);
 		struct clk_hw *p_hw;
+		const char *c_name;
+		const char *p_name;
+		const char * const *pn;
 
 		if (IS_ERR_OR_NULL(c) || !c_hw)
 			continue;
 
-		p_hw = clk_hw_get_parent(c_hw);
-
-		/*
-		 *if (!p_hw)
-		 *	continue;
-		 */
-
-		/*if (!clk_hw_is_prepared(c_hw) && !__clk_get_enable_count(c))*/
 		if (!__clk_get_enable_count(c))
 			continue;
 
-		if (is_deferred)
-			printk_deferred(
-				"[%-17s: %8s, %3d, %3d, %10ld, %17s]\n",
-				clk_hw_get_name(c_hw),
-				ccf_state(c_hw),
-				clk_hw_is_prepared(c_hw),
-				__clk_get_enable_count(c),
-				clk_hw_get_rate(c_hw),
-				p_hw ? clk_hw_get_name(p_hw) : "- ");
-		else
-			pr_notice("[%-17s: %8s, %3d, %3d, %10ld, %17s]\n",
-				clk_hw_get_name(c_hw),
-				ccf_state(c_hw),
-				clk_hw_is_prepared(c_hw),
-				__clk_get_enable_count(c),
-				clk_hw_get_rate(c_hw),
-				p_hw ? clk_hw_get_name(p_hw) : "- ");
+		p_hw = clk_hw_get_parent(c_hw);
+		c_name = clk_hw_get_name(c_hw);
+		p_name = p_hw ? clk_hw_get_name(p_hw) : 0;
+		while (p_name && strcmp(p_name, fix_clk)) {
+			struct clk_hw *p_hw_temp;
+
+			p_hw_temp = clk_hw_get_parent(p_hw);
+			p_name = p_hw_temp ? clk_hw_get_name(p_hw_temp) : 0;
+			if (p_name && strcmp(p_name, fix_clk))
+				p_hw = p_hw_temp;
+			else if (p_name && !strcmp(p_name, fix_clk)) {
+				c_name = clk_hw_get_name(p_hw);
+				break;
+			}
+		}
+		for (pn = off_pll_names; *pn && c_name; pn++)
+			if (!strncmp(c_name, *pn, 10)) {
+				valid++;
+				break;
+			}
+
+		if (!valid)
+			continue;
+
+		p_hw = clk_hw_get_parent(c_hw);
+		pr_notice("[%-17s: %8s, %3d, %3d, %10ld, %17s]\n",
+			clk_hw_get_name(c_hw),
+			ccf_state(c_hw),
+			clk_hw_is_prepared(c_hw),
+			__clk_get_enable_count(c),
+			clk_hw_get_rate(c_hw),
+			p_hw ? clk_hw_get_name(p_hw) : "- ");
 	}
 }
 
 static void check_pll_off(void)
 {
-	static const char * const off_pll_names[] = {
-		"univpll",
-		"mfgpll",
-		"msdcpll",
-		"tvdpll",
-		"adsppll",
-		"mmpll",
-		"apll1",
-		"apll2",
-		"apupll",
-		NULL
-	};
-
 	static struct clk *off_plls[ARRAY_SIZE(off_pll_names)];
 
 	struct clk **c;
@@ -683,24 +709,145 @@ static void check_pll_off(void)
 		if (!c_hw)
 			continue;
 
-		/*if (!clk_hw_is_prepared(c_hw) && !clk_hw_is_enabled(c_hw))*/
 		if (!clk_hw_is_enabled(c_hw))
 			continue;
 
-		n += snprintf(buf + n, sizeof(buf) - n, "%s ",
+		pr_notice("suspend warning[0m: %s is on\n",
 				clk_hw_get_name(c_hw));
 
 		invalid++;
 	}
 
 	if (invalid) {
-		pr_notice("unexpected unclosed PLL: %s\n", buf);
+		print_enabled_clks();
 
-		print_enabled_clks(1);
 
-#if WARN_ON_CHECK_PLL_FAIL
+#ifdef CONFIG_MTK_ENG_BUILD
+#if BUG_ON_CHK_ENABLE
+		BUG_ON(1);
+#else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
 		WARN_ON(1);
 #endif
+#else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
+		WARN_ON(1);
+#endif
+	}
+}
+
+static void check_pll_notice(void)
+{
+	static struct clk *off_plls[ARRAY_SIZE(notice_pll_names)];
+
+	struct clk **c;
+	int invalid = 0;
+	char buf[128] = {0};
+	int n = 0;
+
+	if (!off_plls[0]) {
+		const char * const *pn;
+
+		for (pn = notice_pll_names, c = off_plls; *pn; pn++, c++)
+			*c = __clk_lookup(*pn);
+	}
+
+	for (c = off_plls; *c; c++) {
+		struct clk_hw *c_hw = __clk_get_hw(*c);
+
+		if (!c_hw)
+			continue;
+
+		if (!clk_hw_is_enabled(c_hw))
+			continue;
+
+		pr_notice("suspend warning[0m: %s is on\n",
+				clk_hw_get_name(c_hw));
+
+		invalid++;
+	}
+
+	if (invalid)
+		print_enabled_clks();
+}
+
+static void check_mtcmos_off(void)
+{
+	static struct clk *off_mtcmos[ARRAY_SIZE(off_mtcmos_names)];
+
+	struct clk **c;
+	int invalid = 0;
+	char buf[128] = {0};
+	int n = 0;
+
+	if (!off_mtcmos[0]) {
+		const char * const *pn;
+
+		for (pn = off_mtcmos_names, c = off_mtcmos; *pn; pn++, c++)
+			*c = __clk_lookup(*pn);
+	}
+
+	for (c = off_mtcmos; *c; c++) {
+		struct clk_hw *c_hw = __clk_get_hw(*c);
+
+		if (!c_hw)
+			continue;
+
+		if (!clk_hw_is_prepared(c_hw) && !clk_hw_is_enabled(c_hw))
+			continue;
+
+		pr_notice("suspend warning[0m: %s is on\n",
+				clk_hw_get_name(c_hw));
+
+		invalid++;
+	}
+
+	if (invalid) {
+#ifdef CONFIG_MTK_ENG_BUILD
+#if BUG_ON_CHK_ENABLE
+		BUG_ON(1);
+#else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, MTCMOSs are not off\n", __func__, __LINE__);
+		WARN_ON(1);
+#endif
+#else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, MTCMOSs are not off\n", __func__, __LINE__);
+		WARN_ON(1);
+#endif
+	}
+}
+
+static void check_mtcmos_notice(void)
+{
+	static struct clk *notice_mtcmos[ARRAY_SIZE(notice_mtcmos_names)];
+
+	struct clk **c;
+	int invalid = 0;
+	char buf[128] = {0};
+	int n = 0;
+
+	if (!notice_mtcmos[0]) {
+		const char * const *pn;
+
+		for (pn = notice_mtcmos_names, c = notice_mtcmos;
+				*pn; pn++, c++)
+			*c = __clk_lookup(*pn);
+	}
+
+	for (c = notice_mtcmos; *c; c++) {
+		struct clk_hw *c_hw = __clk_get_hw(*c);
+
+		if (!c_hw)
+			continue;
+
+		if (!clk_hw_is_prepared(c_hw) && !clk_hw_is_enabled(c_hw))
+			continue;
+
+		pr_notice("suspend warning[0m: %s\n", clk_hw_get_name(c_hw));
 	}
 }
 
@@ -710,13 +857,16 @@ void print_enabled_clks_once(void)
 
 	if (first_flag) {
 		first_flag = false;
-		print_enabled_clks(0);
+		print_enabled_clks();
 	}
 }
 
 static int clkchk_syscore_suspend(void)
 {
+	check_pll_notice();
 	check_pll_off();
+	check_mtcmos_notice();
+	check_mtcmos_off();
 
 	return 0;
 }
@@ -729,21 +879,6 @@ static struct syscore_ops clkchk_syscore_ops = {
 	.suspend = clkchk_syscore_suspend,
 	.resume = clkchk_syscore_resume,
 };
-
-static int __init clkchk_init(void)
-{
-	if (!of_machine_is_compatible("mediatek,MT6885"))
-		return -ENODEV;
-
-	register_syscore_ops(&clkchk_syscore_ops);
-
-	return 0;
-}
-subsys_initcall(clkchk_init);
-
-
-
-
 
 /*
  *	Before MTCMOS off procedure, perform the Subsys CGs sanity check.
@@ -760,7 +895,7 @@ struct pg_check_swcg {
 struct subsys_cgs_check {
 	enum subsys_id id;		/* the Subsys id */
 	struct pg_check_swcg *swcgs;	/* those CGs that would be checked */
-	char *subsys_name;		/*
+	enum dbg_sys_id dbg_id;		/*
 					 * subsys_name is used in
 					 * print_subsys_reg() and can be NULL
 					 * if not porting ready yet.
@@ -828,6 +963,7 @@ struct pg_check_swcg mm_swcgs[] = {
 	SWCG("MM_32KHZ"),
 	SWCG(NULL),
 };
+
 struct pg_check_swcg mdp_swcgs[] = {
 	SWCG("MDP_MDP_RDMA0"),
 	SWCG("MDP_MDP_FG0"),
@@ -984,19 +1120,19 @@ struct pg_check_swcg cam_rawc_swcgs[] = {
 
 struct subsys_cgs_check mtk_subsys_check[] = {
 	/*{SYS_DIS, mm_swcgs, NULL}, */
-	{SYS_DIS, mm_swcgs, "mmsys"},
-	{SYS_MDP, mdp_swcgs, "mdpsys"},
-	{SYS_VDE, vde_swcgs, "vdec_soc_sys"},
-	{SYS_VDE2, vde2_swcgs, "vdecsys"},
-	{SYS_VEN, venc_swcgs, "vencsys"},
-	{SYS_VEN_CORE1, venc_c1_swcgs, "venc_c1_sys"},
-	{SYS_ISP, img1_swcgs, "img1sys"},
-	{SYS_ISP2, img2_swcgs, "img2sys"},
-	{SYS_IPE, ipe_swcgs, "ipesys"},
-	{SYS_CAM, cam_swcgs, "camsys"},
-	{SYS_CAM_RAWA, cam_rawa_swcgs, "cam_rawa_sys"},
-	{SYS_CAM_RAWB, cam_rawb_swcgs, "cam_rawb_sys"},
-	{SYS_CAM_RAWC, cam_rawc_swcgs, "cam_rawc_sys"},
+	{SYS_DIS, mm_swcgs, mmsys},
+	{SYS_MDP, mdp_swcgs, mdpsys},
+	{SYS_VDE, vde_swcgs, vdec_soc_sys},
+	{SYS_VDE2, vde2_swcgs, vdecsys},
+	{SYS_VEN, venc_swcgs, vencsys},
+	{SYS_VEN_CORE1, venc_c1_swcgs, venc_c1_sys},
+	{SYS_ISP, img1_swcgs, img1sys},
+	{SYS_ISP2, img2_swcgs, img2sys},
+	{SYS_IPE, ipe_swcgs, ipesys},
+	{SYS_CAM, cam_swcgs, camsys},
+	{SYS_CAM_RAWA, cam_rawa_swcgs, cam_rawa_sys},
+	{SYS_CAM_RAWB, cam_rawb_swcgs, cam_rawb_sys},
+	{SYS_CAM_RAWC, cam_rawc_swcgs, cam_rawc_sys},
 };
 
 static unsigned int check_cg_state(struct pg_check_swcg *swcg)
@@ -1037,15 +1173,12 @@ void mtk_check_subsys_swcg(enum subsys_id id)
 			pr_notice("%s:(%d) warning!\n", __func__, id);
 
 			/* print registers dump */
-			if (mtk_subsys_check[i].subsys_name)
-				print_subsys_reg(
-					mtk_subsys_check[i].subsys_name);
+			print_subsys_reg(mtk_subsys_check[i].dbg_id);
 		}
-		break;
 	}
 
 	if (ret) {
-		pr_notice("%s(%d): %d\n", __func__, id, ret);
+		pr_err("%s(%d): %d\n", __func__, id, ret);
 		BUG_ON(1);
 	}
 }
@@ -1066,17 +1199,19 @@ static void __init pg_check_swcg_init_common(struct pg_check_swcg *swcg)
 	}
 }
 
-/*
- * Init procedure for CG checking before MTCMOS off.
- */
-static int __init pg_check_swcg_init_mt6885(void)
+static int __init clkchk_init(void)
 {
 	/* fill the 'struct clk *' ptr of every CGs*/
 	int i;
-#if 0
+
+	if (!of_machine_is_compatible("mediatek,MT6885"))
+		return -ENODEV;
+
+	register_syscore_ops(&clkchk_syscore_ops);
+
 	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++)
 		pg_check_swcg_init_common(mtk_subsys_check[i].swcgs);
-#endif
+
 	return 0;
 }
-late_initcall(pg_check_swcg_init_mt6885);
+subsys_initcall(clkchk_init);

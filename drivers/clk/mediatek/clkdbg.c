@@ -346,12 +346,29 @@ void print_regs(void)
 static void seq_print_reg(const struct regname *rn, void *data)
 {
 	struct seq_file *s = data;
+	const char *pg = rn->base->pg;
+	struct clk *clk;
+	struct clk_hw *c_hw;
+	bool is_pwr_on = true;
 
 	if (!is_valid_reg(ADDR(rn)))
 		return;
 
-	seq_printf(s, "%-21s: [0x%08x][0x%p] = 0x%08x\n",
-		rn->name, PHYSADDR(rn), ADDR(rn), clk_readl(ADDR(rn)));
+	if (pg) {
+		clk = __clk_lookup(pg);
+		if (!clk)
+			return;
+		c_hw = __clk_get_hw(clk);
+		if (c_hw)
+			is_pwr_on = clk_hw_is_prepared(c_hw);
+	}
+
+	if (is_pwr_on)
+		seq_printf(s, "%-21s: [0x%08x][0x%p] = 0x%08x\n",
+			rn->name, PHYSADDR(rn), ADDR(rn), clk_readl(ADDR(rn)));
+	else
+		seq_printf(s, "%-21s: [0x%08x][0x%p] cannot read, pwr_off\n",
+			rn->name, PHYSADDR(rn), ADDR(rn));
 }
 
 static int seq_print_regs(struct seq_file *s, void *v)
@@ -415,12 +432,18 @@ static bool pvdck_pwr_is_on(struct provider_clk *pvdck, u32 spm_pwr_status)
 
 static bool pvdck_is_on(struct provider_clk *pvdck)
 {
-	u32 spm_pwr_status = 0;
+	u32 val = 0;
 
-	if (pvdck->pwr_mask != 0U)
-		spm_pwr_status = read_spm_pwr_status();
+	if (clkdbg_ops == NULL || clkdbg_ops->is_pwr_on == NULL) {
+		if (pvdck->pwr_mask != 0U)
+			val = read_spm_pwr_status();
 
-	return pvdck_pwr_is_on(pvdck, spm_pwr_status);
+		return pvdck_pwr_is_on(pvdck, val);
+	}
+
+	val = clkdbg_ops->is_pwr_on(pvdck);
+
+	return val;
 }
 
 static const char *ccf_state(struct clk_hw *hw)

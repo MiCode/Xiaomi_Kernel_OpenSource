@@ -11,20 +11,19 @@
  * GNU General Public License for more details.
  */
 #include <linux/clk.h>
+#include <linux/clkdev.h>
+#include <linux/clk-provider.h>
+#include <linux/delay.h>
+#include <linux/io.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-
-#include <linux/io.h>
+#include <linux/sched/clock.h>
 #include <linux/slab.h>
-#include <linux/delay.h>
-#include <linux/clkdev.h>
+#include <dt-bindings/clock/mt6885-clk.h>
 
-#include <linux/clk-provider.h>
-#include <linux/clk.h>
 #include "clk-mtk-v1.h"
 #include "clk-mt6885-pg.h"
-
-#include <dt-bindings/clock/mt6885-clk.h>
+#include "clkdbg-mt6885.h"
 #include <mt-plat/aee.h>
 
 #define MT_CCF_DEBUG	0
@@ -103,6 +102,9 @@ void __iomem *clk_apu_conn_base;
 #define STA_POWER_ON		1
 #define SUBSYS_PWR_DOWN		0
 #define SUBSYS_PWR_ON		1
+
+static spinlock_t pgcb_lock;
+LIST_HEAD(pgcb_list);
 
 struct subsys;
 
@@ -898,13 +900,17 @@ static struct subsys syss[] =	/* NR_SYSS */
 			},
 };
 
-LIST_HEAD(pgcb_list);
-
 struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 {
+	unsigned long spinlock_save_flags;
+
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
+
 	INIT_LIST_HEAD(&pgcb->list);
 
 	list_add(&pgcb->list, &pgcb_list);
+
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return pgcb;
 }
@@ -948,11 +954,15 @@ static struct subsys *id_to_sys(unsigned int id)
 #define STEP_MASK 0x000000FF
 
 #define INCREASE_STEPS \
-	do { DBG_STEP++; } while (0)
+	do { DBG_STEP++; hang_release = true; } while (0)
 
 static int DBG_ID;
 static int DBG_STA;
 static int DBG_STEP;
+
+static unsigned long long block_time;
+static unsigned long long upd_block_time;
+static bool hang_release;
 /*
  * ram console data0 define
  * [31:24] : DBG_ID
@@ -961,13 +971,14 @@ static int DBG_STEP;
  */
 static void ram_console_update(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+	unsigned long spinlock_save_flags;
 	struct pg_callbacks *pgcb;
-	u32 data[8] = {0x0};
-	u32 i = 0, j = 0;
 	static u32 pre_data;
-	static int k;
-	static bool print_once = true;
+	static s32 loop_cnt = -1;
+	static bool log_over_cnt;
+	static bool log_timeout;
+	u32 data[8] = {0x0};
+	u32 i = 0;
 
 	data[i] = ((DBG_ID << 24) & ID_MADK)
 		| ((DBG_STA << 20) & STA_MASK)
@@ -981,133 +992,48 @@ static void ram_console_update(void)
 	data[++i] = clk_readl(PWR_STATUS_2ND);
 	data[++i] = clk_readl(CAM_PWR_CON);
 
-
-	if (pre_data == data[0])
-		k++;
-	else if (pre_data != data[0]) {
-		k = 0;
-		pre_data = data[0];
-		print_once = true;
+	if (pre_data == data[0]) {
+		upd_block_time = sched_clock();
+		if (loop_cnt >= 0)
+			loop_cnt++;
 	}
 
-	if (k > 10000 && print_once) {
-		print_once = false;
-		k = 0;
+	if (pre_data != data[0] || hang_release) {
+		hang_release = false;
+		pre_data = data[0];
+		block_time = sched_clock();
+		loop_cnt = 0;
+		log_over_cnt = false;
+	}
+
+	if (loop_cnt > 5000) {
+		log_over_cnt = true;
+		loop_cnt = -1;
+	}
+
+	if ((upd_block_time > 0  && block_time > 0)
+			&& (upd_block_time > block_time)
+			&& (upd_block_time - block_time > 5000000000))
+		log_timeout = true;
+
+	if (log_over_cnt || log_timeout) {
+		pr_notice("%s: upd(%llu ns), ori(%llu ns)\n", __func__,
+				upd_block_time, block_time);
+
+		log_over_cnt = false;
 
 		print_enabled_clks_once();
 
-		for (i = 0; i < 8; i++)
+		for (i = 0; i < ARRAY_SIZE(data); i++)
 			pr_notice("%s: data[%i]=%08x\n", __func__, i, data[i]);
-
-		pr_notice("%s: TOPAXI_PROTECTEN = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN));
-		pr_notice("%s: TOPAXI_PROTECTEN_SET = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_CLR = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_STA0 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_STA0));
-		pr_notice("%s: TOPAXI_PROTECTEN_STA1 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_STA1));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_1 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_1));
-		pr_notice("%s: TOPAXI_PROTECTEN_1_SET = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_1_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_1_CLR = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_1_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_STA0_1 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_STA0_1));
-		pr_notice("%s: TOPAXI_PROTECTEN_STA1_1 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_STA1_1));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_MM = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_SET = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_CLR = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_STA0 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_STA0));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_STA1 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_STA1));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_2 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_2));
-		pr_notice("%s: TOPAXI_PROTECTEN_2_SET = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_2_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_2_CLR = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_2_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_STA0_2 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_STA0_2));
-		pr_notice("%s: TOPAXI_PROTECTEN_STA1_2 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_STA1_2));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_2 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_2));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_2_SET = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_2_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_2_CLR = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_2_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_2_STA0 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_2_STA0));
-		pr_notice("%s: TOPAXI_PROTECTEN_MM_2_STA1 = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_MM_2_STA1));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR = 0x%08x\n",
-			__func__, clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_SET = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_CLR = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_STA0 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA0));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_STA1 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_STA1));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_1 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_1));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_1_SET = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_1_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_1_CLR = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_1_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_1_STA0 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_1_STA0));
-		pr_notice("%s: TOPAXI_PROTECTEN_INFRA_VDNR_1_STA1 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_INFRA_VDNR_1_STA1));
-
-		pr_notice("%s: TOPAXI_PROTECTEN_SUB_INFRA_VDNR = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR));
-		pr_notice("%s: TOPAXI_PROTECTEN_SUB_INFRA_VDNR_SET = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_SET));
-		pr_notice("%s: TOPAXI_PROTECTEN_SUB_INFRA_VDNR_CLR = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_CLR));
-		pr_notice("%s: TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA0 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA0));
-		pr_notice("%s: TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA1 = 0x%08x\n",
-			__func__,
-			clk_readl(INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA1));
 
 		/* The code based on  clkdbg/clkdbg-mt6885. */
 		/* When power on/off fails, dump the related registers. */
-		//init_regbase_mt6885();
-		print_subsys_reg("topckgen");
-		print_subsys_reg("infracfg");
-		print_subsys_reg("scpsys");
-		print_subsys_reg("apmixed");
+		print_subsys_reg(topckgen);
+		print_subsys_reg(infracfg);
+		print_subsys_reg(infracfg_dbg);
+		print_subsys_reg(scpsys);
+		print_subsys_reg(apmixed);
 
 		if (DBG_STA == STA_POWER_DOWN) {
 			/* dump only when power off failes */
@@ -1115,92 +1041,104 @@ static void ram_console_update(void)
 			|| DBG_ID == DBG_ID_MFG2 || DBG_ID == DBG_ID_MFG3
 			|| DBG_ID == DBG_ID_MFG4 || DBG_ID == DBG_ID_MFG5
 			|| DBG_ID == DBG_ID_MFG6)
-				print_subsys_reg("mfgsys");
+				print_subsys_reg(mfgsys);
 
 			if (DBG_ID == DBG_ID_AUDIO)
-				print_subsys_reg("audio");
+				print_subsys_reg(audio);
 
 			if (DBG_ID == DBG_ID_DIS)
-				print_subsys_reg("mmsys");
+				print_subsys_reg(mmsys);
 
 			if (DBG_ID == DBG_ID_MDP)
-				print_subsys_reg("mdpsys");
+				print_subsys_reg(mdpsys);
 
 			/* isp/img */
 			if (DBG_ID == DBG_ID_ISP) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("img1sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(img1sys);
 				}
 			if (DBG_ID == DBG_ID_ISP2) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("img2sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(img2sys);
 			}
 
 			/* ipe */
 			if (DBG_ID == DBG_ID_IPE) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("ipesys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(ipesys);
 			}
 
 			/* venc */
 			if (DBG_ID == DBG_ID_VEN) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("vencsys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(vencsys);
 			}
 			if (DBG_ID == DBG_ID_VEN_CORE1) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("venc_c1_sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(venc_c1_sys);
 			}
 
 			/* vdec */
 			if (DBG_ID == DBG_ID_VDE) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("vdec_soc_sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(vdec_soc_sys);
 			}
 			if (DBG_ID == DBG_ID_VDE2) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("vdec_soc_sys");
-				print_subsys_reg("vdecsys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(vdec_soc_sys);
+				print_subsys_reg(vdecsys);
 			}
 
 			/* cam */
 			if (DBG_ID == DBG_ID_CAM) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("camsys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(camsys);
 			}
 			if (DBG_ID == DBG_ID_CAM_RAWA) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("camsys");
-				print_subsys_reg("cam_rawa_sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(camsys);
+				print_subsys_reg(cam_rawa_sys);
 			}
 			if (DBG_ID == DBG_ID_CAM_RAWB) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("camsys");
-				print_subsys_reg("cam_rawb_sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(camsys);
+				print_subsys_reg(cam_rawb_sys);
 			}
 			if (DBG_ID == DBG_ID_CAM_RAWC) {
-				print_subsys_reg("mmsys");
-				print_subsys_reg("mdpsys");
-				print_subsys_reg("camsys");
-				print_subsys_reg("cam_rawc_sys");
+				print_subsys_reg(mmsys);
+				print_subsys_reg(mdpsys);
+				print_subsys_reg(camsys);
+				print_subsys_reg(cam_rawc_sys);
 			}
 		}
 
+		pr_notice("%s %s MTCMOS BUS hang at %s flow step %d\n",
+				"[clkmgr]",
+				syss[DBG_ID].name,
+				DBG_STA ? "pwron":"pdn",
+				DBG_STEP);
+
+		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 			if (pgcb->debug_dump)
 				pgcb->debug_dump(DBG_ID);
 		}
+		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
-	for (j = 0; j < ARRAY_SIZE(data); j++)
-		aee_rr_rec_clk(j, data[j]);
+#ifdef CONFIG_MTK_RAM_CONSOLE
+	for (i = 0; i < ARRAY_SIZE(data); i++)
+		aee_rr_rec_clk(i, data[i]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
+
+	if (log_timeout)
+		BUG_ON(1);
 }
 
 /* auto-gen begin, 0724 */
@@ -4669,8 +4607,9 @@ static int isNeedMfgFakePowerOn(enum subsys_id id)
 
 static int enable_subsys(enum subsys_id id)
 {
-	int r;
+	int r = 0;
 	unsigned long flags;
+	unsigned long spinlock_save_flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
@@ -4726,18 +4665,21 @@ static int enable_subsys(enum subsys_id id)
 
 	mtk_clk_unlock(flags);
 
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 	list_for_each_entry(pgcb, &pgcb_list, list) {
 		if (pgcb->after_on)
 			pgcb->after_on(id);
 	}
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	return r;
 }
 
 static int disable_subsys(enum subsys_id id)
 {
-	int r;
+	int r = 0;
 	unsigned long flags;
+	unsigned long spinlock_save_flags;
 	struct subsys *sys = id_to_sys(id);
 	struct pg_callbacks *pgcb;
 
@@ -4778,10 +4720,12 @@ static int disable_subsys(enum subsys_id id)
 
 	/* TODO: check all clocks related to this subsys are off */
 	/* could be power off or not */
+	spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 	list_for_each_entry_reverse(pgcb, &pgcb_list, list) {
 		if (pgcb->before_off)
 			pgcb->before_off(id);
 	}
+	spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 
 	mtk_clk_lock(flags);
 
@@ -4796,7 +4740,7 @@ static int disable_subsys(enum subsys_id id)
 	 * Check if subsys CGs are still on before the mtcmos  is going
 	 * to be off. (Could do nothing here for early porting)
 	 */
-	//mtk_check_subsys_swcg(id);
+	mtk_check_subsys_swcg(id);
 
 	r = sys->ops->disable(sys);
 	WARN_ON(r);
@@ -5182,14 +5126,14 @@ void enable_subsys_hwcg(enum subsys_id id)
 		clk_writel(VDEC_SOC_CKEN_SET, 0x1);
 		clk_writel(VDEC_SOC_LAT_CKEN_SET, 0x1);
 		clk_writel(VDEC_SOC_LARB1_CKEN_SET, 0x1);
-		//print_subsys_reg("vdec_soc_sys");
+		//print_subsys_reg(vdec_soc_sys);
 	} else if (id == SYS_VDE2) {
 		/* VDEC_CKEN, LAT_CKEN */
 		clk_writel(VDEC_CKEN_SET, 0x1);
 		clk_writel(VDEC_LAT_CKEN_SET, 0x1);
 		clk_writel(VDEC_LARB1_CKEN_SET, 0x1);
-		//print_subsys_reg("vdec_soc_sys");
-		//print_subsys_reg("vdecsys");
+		//print_subsys_reg(vdec_soc_sys);
+		//print_subsys_reg(vdecsys);
 	} else if (id == SYS_VEN) {
 		/* SET1_VENC */
 		clk_writel(VENC_CG_SET, 0x4);
@@ -5248,6 +5192,8 @@ static void __init mt_scpsys_init(struct device_node *node)
 	/*MM Bus*/
 	iomap_mm();
 
+	spin_lock_init(&pgcb_lock);
+
 #if !MT_CCF_BRINGUP
 	/* subsys init: per modem owner request, remain modem power */
 	/* disable_subsys(SYS_MD1); */
@@ -5302,7 +5248,6 @@ static void __init mt_scpsys_init(struct device_node *node)
 	pr_notice("MTCMOS AO end\n");
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 #endif /* !MT_CCF_BRINGUP */
-	init_regbase_mt6885();
 }
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
 
@@ -5407,163 +5352,6 @@ static void dump_cg_state(const char *clkname)
 }
 
 #endif
-void subsys_if_on(void)
-{
-	unsigned int sta = spm_read(PWR_STATUS);
-	unsigned int sta_s = spm_read(PWR_STATUS_2ND);
-	unsigned int other_sta = spm_read(OTHER_PWR_STATUS);
-	int ret = 0;
-
-	/* size_t cam_num, img_num, ipe_num, mm_num, venc_num, vdec_num = 0; */
-	/* size_t num, cam_num, img_num, mm_num, venc_num, vdec_num = 0;*/
-
-	/* const char * const *clks = get_all_clk_names(&num);*/
-	/* const char * const *cam_clks = get_cam_clk_names(&cam_num); */
-
-	if ((sta & MD1_PWR_STA_MASK) && (sta_s & MD1_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MD1 is on!!\n");
-		/* ret++; */
-	}
-
-	if ((sta & CONN_PWR_STA_MASK) && (sta_s & CONN_PWR_STA_MASK)) {
-		pr_notice("suspend warning: CONN is on!!\n");
-		/* ret++; */
-	}
-
-	if ((sta & MFG0_PWR_STA_MASK) && (sta_s & MFG0_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG0 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MFG1_PWR_STA_MASK) && (sta_s & MFG1_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG1 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MFG2_PWR_STA_MASK) && (sta_s & MFG2_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG2 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MFG3_PWR_STA_MASK) && (sta_s & MFG3_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG3 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MFG4_PWR_STA_MASK) && (sta_s & MFG4_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG4 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MFG5_PWR_STA_MASK) && (sta_s & MFG5_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG5 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MFG6_PWR_STA_MASK) && (sta_s & MFG6_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MFG6 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & ISP_PWR_STA_MASK) && (sta_s & ISP_PWR_STA_MASK)) {
-		pr_notice("suspend warning: ISP is on!!\n");
-		ret++;
-	}
-
-	if ((sta & ISP2_PWR_STA_MASK) && (sta_s & ISP2_PWR_STA_MASK)) {
-		pr_notice("suspend warning: ISP2 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & IPE_PWR_STA_MASK) && (sta_s & IPE_PWR_STA_MASK)) {
-		pr_notice("suspend warning: IPE is on!!\n");
-		ret++;
-	}
-
-	if ((sta & VDE_PWR_STA_MASK) && (sta_s & VDE_PWR_STA_MASK)) {
-		pr_notice("suspend warning: VDE is on!!\n");
-		ret++;
-	}
-
-	if ((sta & VDE2_PWR_STA_MASK) && (sta_s & VDE2_PWR_STA_MASK)) {
-		pr_notice("suspend warning: VDE2 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & VEN_PWR_STA_MASK) && (sta_s & VEN_PWR_STA_MASK)) {
-		pr_notice("suspend warning: VEN is on!!\n");
-		ret++;
-	}
-
-	if ((sta & VEN_CORE1_PWR_STA_MASK) && (sta_s &
-					VEN_CORE1_PWR_STA_MASK)) {
-		pr_notice("suspend warning: VEN_CORE1 is on!!\n");
-		ret++;
-	}
-
-	if ((sta & MDP_PWR_STA_MASK) && (sta_s & MDP_PWR_STA_MASK)) {
-		pr_notice("suspend warning: MDP is on!!\n");
-		ret++;
-	}
-
-	if ((sta & DIS_PWR_STA_MASK) && (sta_s & DIS_PWR_STA_MASK)) {
-		pr_notice("suspend warning: DIS is on!!\n");
-		ret++;
-	}
-
-	if ((sta & AUDIO_PWR_STA_MASK) && (sta_s & AUDIO_PWR_STA_MASK)) {
-		pr_notice("suspend warning: AUDIO is on!!\n");
-		/* ret++; */
-	}
-
-	if ((sta & ADSP_PWR_STA_MASK) && (sta_s & ADSP_PWR_STA_MASK)) {
-		pr_notice("suspend warning: ADSP is on!!\n");
-		/* ret++; */
-	}
-
-	if ((sta & CAM_PWR_STA_MASK) && (sta_s & CAM_PWR_STA_MASK)) {
-		pr_notice("suspend warning: CAM is on!!\n");
-		ret++;
-	}
-
-	if ((sta & CAM_RAWA_PWR_STA_MASK) && (sta_s & CAM_RAWA_PWR_STA_MASK)) {
-		pr_notice("suspend warning: CAM_RAWA is on!!\n");
-		ret++;
-	}
-
-	if ((sta & CAM_RAWB_PWR_STA_MASK) && (sta_s & CAM_RAWB_PWR_STA_MASK)) {
-		pr_notice("suspend warning: CAM_RAWB is on!!\n");
-		ret++;
-	}
-
-	if ((sta & CAM_RAWC_PWR_STA_MASK) && (sta_s & CAM_RAWC_PWR_STA_MASK)) {
-		pr_notice("suspend warning: CAM_RAWC is on!!\n");
-		ret++;
-	}
-
-	if ((sta & DP_TX_PWR_STA_MASK) && (sta_s & DP_TX_PWR_STA_MASK)) {
-		pr_notice("suspend warning: DP_TX is on!!\n");
-		ret++;
-	}
-
-	if (other_sta & (0x1 << 5)) {
-		pr_notice("suspend warning: VPU is on!!\n");
-		ret++;
-	}
-
-	if (ret > 0) {
-#ifdef CONFIG_MTK_ENG_BUILD
-		print_enabled_clks_once();
-		BUG_ON(1);
-#else
-		aee_kernel_warning("CCF MT6885",
-			"@%s():%d, MTCMOS are not off\n", __func__, __LINE__);
-
-		print_enabled_clks_once();
-		WARN_ON(1);
-#endif
-	}
-}
 
 #if 1 /*only use for suspend test*/
 void mtcmos_force_off(void)

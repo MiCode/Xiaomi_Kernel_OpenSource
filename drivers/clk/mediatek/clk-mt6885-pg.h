@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 20w0 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -62,20 +62,8 @@ extern void check_img_clk_sts(void);
 extern void check_ipe_clk_sts(void);
 extern void check_ven_clk_sts(void);
 extern void check_cam_clk_sts(void);
-extern unsigned int mt_get_abist_freq(unsigned int ID);
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
-extern void print_enabled_clks_once(void);
-extern void mtk_wcn_cmb_stub_clock_fail_dump(void);
-extern int get_sw_req_vcore_opp(void);
 void enable_subsys_hwcg(enum subsys_id id);
 void mtk_check_subsys_swcg(enum subsys_id id);
-
-/*
- * Resident in clkdbg-mt6885.c
- * For debug use.
- */
-void init_regbase_mt6885(void);
-void print_subsys_reg(char *subsys_name);
 
 /*ram console api*/
 /*
@@ -91,7 +79,6 @@ extern void aee_rr_rec_clk(int id, u32 val);
 /* for cam debug only */
 extern void __iomem *cam_base, *cam_rawa_base, *cam_rawb_base, *cam_rawc_base;
 extern void __iomem *spm_base_debug;
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
 extern void mtk_ccf_cam_debug(const char *str1, const char *str2,
 							const char *str3);
 /* for cam debug only */
