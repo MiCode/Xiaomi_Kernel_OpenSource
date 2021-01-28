@@ -38,19 +38,33 @@
 #define CQ_DB_LOAD_ERR_ST (1L<<11)
 #define CQ_VS_ERR_ST    (1L<<12)
 #define DMA_ERR_ST      (1L<<23)
+//RDMA Warning, packed with err status
+#define LSCI_ERR_ST     (1L<<18)
+
 
 /* warming status */ /* CAMCTL_R1A_CAMCTL_INT5_EN */
 #define IMGO_ERR_ST     (1L<<0)
 #define UFEO_ERR_ST     (1L<<1)
 #define RRZO_ERR_ST     (1L<<2)
 #define UFGO_ERR_ST     (1L<<3)
+#define YUVO_ERR_ST     (1L<<4)
+#define YUVBO_ERR_ST    (1L<<5)
+#define YUVCO_ERR_ST    (1L<<6)
+#define TSFO_ERR_ST     (1L<<7)
 #define AAO_ERR_ST      (1L<<8)
 #define AAHO_ERR_ST     (1L<<9)
 #define AFO_ERR_ST      (1L<<10)
 #define PDO_ERR_ST      (1L<<11)
 #define FLKO_ERR_ST     (1L<<12)
+#define LCESO_ERR_ST    (1L<<13)
+#define LCESHO_ERR_ST   (1L<<14)
+#define LTMSO_ERR_ST    (1L<<15)
 #define LMVO_ERR_ST     (1L<<16)
 #define RSSO_ERR_ST     (1L<<17)
+#define RSSO_R2_ERR_ST  (1L<<18)
+#define CRZO_ERR_ST     (1L<<19)
+#define CRZBO_ERR_ST    (1L<<20)
+#define CRZO_R2_ERR_ST  (1L<<21)
 
 /* err status_2 */
 
@@ -78,8 +92,7 @@ enum{
 	_CRZO_R1_EN_   = (1L<<19),
 	_CRZBO_R1_EN_  = (1L<<20),
 	_CRZO_R2_EN_   = (1L<<21),
-	/* _CRZBO_R2_EN_  = (1L<<2),
-	 * _MQEO_R1_EN_   = (1L<<17),
+	/* _MQEO_R1_EN_   = (1L<<17),
 	 * _MAEO_R1_EN_   = (1L<<18),
 	 * _BPCI_R4_EN_   = (1L<<21),
 	 * _RAWI_R4_EN_   = (1L<<23),
@@ -190,13 +203,18 @@ enum{
 			     IMGO_DONE_ST |\
 			     UFEO_DONE_ST |\
 			     RRZO_DONE_ST |\
-			     EISO_DONE_ST |\
+			     LMVO_DONE_ST |\
 			     FLKO_DONE_ST |\
 			     AFO_DONE_ST  |\
-			     LCSO_DONE_ST |\
+			     LCESO_DONE_ST |\
+			     LCESHO_DONE_ST |\
 			     AAO_DONE_ST  |\
-			     BPCI_DONE_ST |\
-			     LSCI_DONE_ST |\
+			     AAHO_DONE_ST   |\
+			     YUVO_DONE_ST  |\
+			     CRZO_DONE_ST  |\
+			     CRZO_R2_DONE_ST  |\
+			     RSSO_R2_DONE_ST  |\
+			     RSSO_DONE_ST   |\
 			     PDO_DONE_ST)
 
 /**
@@ -210,11 +228,24 @@ enum{
 				 AFO_ERR_ST      |\
 				 IMGO_ERR_ST     |\
 				 AAO_ERR_ST      |\
+				 AAHO_ERR_ST      |\
+				 TSFO_ERR_ST      |\
 				 FLKO_ERR_ST     |\
 				 RSSO_ERR_ST     |\
+				 RSSO_R2_ERR_ST     |\
+				 LCESO_ERR_ST   |\
+				 LCESHO_ERR_ST  |\
+				 LTMSO_ERR_ST  |\
+				 CRZO_ERR_ST    |\
+				 CRZBO_ERR_ST   |\
+				 CRZO_R2_ERR_ST |\
+				 YUVO_ERR_ST    |\
+				 YUVBO_ERR_ST   |\
+				 YUVCO_ERR_ST   |\
 				 LMVO_ERR_ST)
 
-#define INT_ST_MASK_CAM_WARN_2 0
+#define INT_ST_MASK_CAM_WARN_2 (                 \
+				 LSCI_ERR_ST)
 /**
  *    IRQ Error Mask
  */
@@ -222,9 +253,9 @@ enum{
 				 TG_ERR_ST       |\
 				 TG_GBERR_ST     |\
 				 CQ_CODE_ERR_ST  |\
+				 CQ_DB_LOAD_ERR_ST  |\
 				 CQ_VS_ERR_ST    |\
 				 DMA_ERR_ST)
-
 
 /**
  *    IRQ signal mask
@@ -302,6 +333,10 @@ enum{
 #define CAM_REG_CTL_RAW_INT4_STATUS(module)     (isp_devs[module].regs + 0x0134)
 #define CAM_REG_CTL_RAW_INT4_STATUSX(module)    (isp_devs[module].regs + 0x0138)
 #define CAM_REG_CTL_RAW_INT5_STATUS(module)     (isp_devs[module].regs + 0x0140)
+#define CAM_REG_CTL_RAW_INT5_STATUSX(module)    (isp_devs[module].regs + 0x0144)
+#define CAM_REG_CTL_RAW_INT6_STATUS(module)     (isp_devs[module].regs + 0x0154)
+#define CAM_REG_CTL_RAW_INT6_STATUSX(module)    (isp_devs[module].regs + 0x0158)
+
 #define CAM_REG_CTL_SW_CTL(module)              (isp_devs[module].regs + 0x007C)
 #define CAM_REG_CTL_CD_DONE_SEL(module)         (isp_devs[module].regs + 0x0058)
 #define CAM_REG_CTL_TWIN_STATUS(module)         (isp_devs[module].regs + 0x008C)
@@ -354,8 +389,6 @@ enum{
 #define CAM_REG_FBC_RSSO_R2_CTL1(module)        (isp_devs[module].regs + 0x0E98)
 #define CAM_REG_FBC_RSSO_R2_CTL2(module)        (isp_devs[module].regs + 0x0E9C)
 
-/* isp6s remove CRZBO_R2_CTL1 */
-/* isp6s remove CRZBO_R2_CTL2*/
 
 #define CAM_REG_CAMCQ_CQ_EN(module)             (isp_devs[module].regs + 0x0200)
 #define CAM_REG_CQ_THR0_CTL(module)             (isp_devs[module].regs + 0x0210)
@@ -602,6 +635,7 @@ enum{
 #define CAM_REG_PDO_ERR_STAT(module)            (isp_devs[module].regs + 0x4028)
 #define CAM_REG_BPCI_ERR_STAT(module)           (isp_devs[module].regs + 0x402C)
 #define CAM_REG_BPCI_R2_ERR_STAT(module)        (isp_devs[module].regs + 0x4030)
+#define CAM_REG_BPCI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x4034)
 #define CAM_REG_UFDI_R2_ERR_STAT(module)        (isp_devs[module].regs + 0x4038)
 #define CAM_REG_LSCI_ERR_STAT(module)           (isp_devs[module].regs + 0x403C)
 
@@ -612,6 +646,7 @@ enum{
 #define CAM_REG_FLKO_ERR_STAT(module)           (isp_devs[module].regs + 0x4050)
 #define CAM_REG_LTMSO_ERR_STAT(module)          (isp_devs[module].regs + 0x4054)
 #define CAM_REG_LCESO_ERR_STAT(module)          (isp_devs[module].regs + 0x4058)
+#define CAM_REG_LCESHO_ERR_STAT(module)         (isp_devs[module].regs + 0x405C)
 #define CAM_REG_RSSO_A_ERR_STAT(module)         (isp_devs[module].regs + 0x4060)
 #define CAM_REG_LMVO_ERR_STAT(module)           (isp_devs[module].regs + 0x4064)
 #define CAM_REG_IMGO_ERR_STAT(module)           (isp_devs[module].regs + 0x4068)
