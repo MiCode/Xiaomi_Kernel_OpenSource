@@ -1356,7 +1356,7 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space)
 	s32 status;
 
 	status = cmdq_mdp_flush_async(desc, user_space, &handle);
-	if (!handle) {
+	if (!handle || status < 0) {
 		CMDQ_ERR("mdp flush async failed:%d\n", status);
 		return status;
 	}
