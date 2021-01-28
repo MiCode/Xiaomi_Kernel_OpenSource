@@ -642,8 +642,9 @@ void ccci_md_config(struct ccci_modem *md)
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
 			, md->mem_layout.md_bank4_cacheable_total.size);
 		if (md->index == MD_SYS1) {
+			/* sync with lk:md1_bank4_cache_offset */
 			md->mem_layout.md_bank4_cacheable_total.base_md_view_phy
-				= 0x40000000 + (224 * 1024 * 1024) +
+				= 0x40000000 + get_md_smem_cachable_offset(MD_SYS1) +
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
 				- round_down(
 			md->mem_layout.md_bank4_cacheable_total.base_ap_view_phy
