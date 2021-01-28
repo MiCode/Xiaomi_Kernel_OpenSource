@@ -71,7 +71,6 @@ enum LOW_BATTERY_PRIO_TAG {
 	LOW_BATTERY_PRIO_BACKLIGHT = 8
 };
 
-extern void (*low_battery_callback)(LOW_BATTERY_LEVEL tag);
 extern void register_low_battery_notify(
 			void (*low_battery_callback)(LOW_BATTERY_LEVEL tag),
 			LOW_BATTERY_PRIO prio_val);
@@ -98,7 +97,6 @@ enum BATTERY_OC_PRIO_TAG {
 	BATTERY_OC_PRIO_FLASHLIGHT = 5
 };
 
-extern void (*battery_oc_callback)(BATTERY_OC_LEVEL tag);
 extern void register_battery_oc_notify(
 			void (*battery_oc_callback)(BATTERY_OC_LEVEL tag),
 			BATTERY_OC_PRIO prio_val);
@@ -127,7 +125,6 @@ enum BATTERY_PERCENT_PRIO_TAG {
 	BATTERY_PERCENT_PRIO_BACKLIGHT = 8
 };
 
-extern void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag);
 extern void
 register_battery_percent_notify(
 		void (*battery_percent_callback)(BATTERY_PERCENT_LEVEL tag),
@@ -152,9 +149,8 @@ enum DLPT_PRIO_TAG {
 	DLPT_PRIO_BACKLIGHT = 9
 };
 
-extern void (*dlpt_callback)(unsigned int);
 extern void register_dlpt_notify(
-		void (*dlpt_callback)(unsigned int), DLPT_PRIO prio_val);
+		void (*dlpt_callback)(unsigned int val), DLPT_PRIO prio_val);
 extern const PMU_FLAG_TABLE_ENTRY pmu_flags_table[];
 
 extern unsigned short is_battery_remove;

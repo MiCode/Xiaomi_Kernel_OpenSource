@@ -763,7 +763,7 @@ static DEFINE_MUTEX(dlpt_notify_mutex);
 #define DLPT_NUM 16
 
 struct dlpt_callback_table {
-	void (*dlpt_cb)(unsigned int);
+	void (*dlpt_cb)(unsigned int val);
 };
 
 struct dlpt_callback_table dlpt_cb_tb[] = {
