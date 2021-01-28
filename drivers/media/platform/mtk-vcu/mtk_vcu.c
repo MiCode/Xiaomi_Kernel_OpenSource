@@ -738,13 +738,6 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 	vcu_dbg_log("[VCU] %s +\n", __func__);
 
-	if (strcmp(current->comm, "vdec_srv") != 0 &&
-		strcmp(current->comm, "venc_srv") != 0) {
-		pr_info("[VCU] %s invalid user: %s\n",
-			__func__, current->comm);
-		return -EINVAL;
-	}
-
 	time_check_start();
 	user_data_addr = (unsigned char *)arg;
 	ret = (long)copy_from_user(&buff.cmdq_buff, user_data_addr,
