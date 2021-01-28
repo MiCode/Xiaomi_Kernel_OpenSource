@@ -1416,13 +1416,15 @@ static ssize_t show_AUXADC_channel(struct device *dev,
 					"[%2d,%4d,%4d]-%15.15s-\n",
 					i, rawdata, tmp_vol[0],
 					g_adc_info[i].channel_name);
-			strncat(buf, tmp_buf, strlen(tmp_buf));
+			if (tmp_len > 0)
+				strncat(buf, tmp_buf, strlen(tmp_buf));
 		} else {
 			tmp_len = snprintf(tmp_buf, 255,
 					"[%2d,%4d,%4d]-%15.15s-\n", i, rawdata,
 					(tmp_vol[0]*1000+tmp_vol[2]),
 					g_adc_info[i].channel_name);
-			strncat(buf, tmp_buf, strlen(tmp_buf));
+			if (tmp_len > 0)
+				strncat(buf, tmp_buf, strlen(tmp_buf));
 			pr_info(TAG "len:%d,chn[%d]=%d mv, [%s]\n",
 					(int)strlen(buf), i,
 					(tmp_vol[0]*1000+tmp_vol[2]),
@@ -1430,10 +1432,11 @@ static ssize_t show_AUXADC_channel(struct device *dev,
 		}
 	}
 
-	sprintf(tmp_buf,
+	ret = sprintf(tmp_buf,
 		"-->REG:0x%4x,GAIN:%4u,GE_A:%4u,OE_A:%4u,GE:%4d,OE:%4d\n",
 		cali_reg, gain, cali_ge_a, cali_oe_a, cali_ge, cali_oe);
-	strncat(buf, tmp_buf, strlen(tmp_buf));
+	if (ret > 0)
+		strncat(buf, tmp_buf, strlen(tmp_buf));
 	/* mt_auxadc_dump_register(tmp_buf); */
 	/* strncat(buf, tmp_buf, strlen(tmp_buf)); */
 	return strlen(buf);
