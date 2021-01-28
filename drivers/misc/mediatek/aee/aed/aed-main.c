@@ -2524,7 +2524,7 @@ static int warn_aee(struct notifier_block *self, unsigned long cmd, void *ptr)
 	char *p_module;
 	char *p_msg;
 	u32 line_num;
-	u64 db_opt;
+	u64 db_opt = 0;
 
 	memcpy(msg, ptr, SZ_512);
 	msg[SZ_512 - 1] = 0;
