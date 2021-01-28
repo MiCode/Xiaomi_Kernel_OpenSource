@@ -50,7 +50,11 @@
 #endif
 
 #if defined(CONFIG_MACH_MT6885)
+#if !defined(TRIGEAR_UPOWER)
 #include "mtk_unified_power_data_mt6885.h"
+#else
+#include "mtk_unified_power_data_mt6893.h"
+#endif
 #endif
 
 #if defined(CONFIG_MACH_MT6893)

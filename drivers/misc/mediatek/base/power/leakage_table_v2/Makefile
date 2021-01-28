@@ -11,6 +11,10 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/mt6885_3gear")
+ccflags-y += -DTRIGEAR_LEAKAGE
+endif
+
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/ \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/leakage_table_v2/ \
@@ -61,9 +65,14 @@ obj-$(CONFIG_MACH_MT6785) += mtk_static_power.o
 obj-$(CONFIG_MACH_MT6785) += mtk_static_power_mt6785.o
 
 # MT6885
+ifeq ($(CONFIG_MACH_MT6885), y)
 obj-$(CONFIG_MACH_MT6885) += mtk_static_power.o
-
-obj-$(CONFIG_MACH_MT6885) += mtk_static_power_mt6885.o
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/mt6885")
+obj-y += mtk_static_power_mt6885.o
+else
+obj-y += mtk_static_power_mt6893.o
+endif
+endif
 
 # MT6893
 obj-$(CONFIG_MACH_MT6893) += mtk_static_power.o

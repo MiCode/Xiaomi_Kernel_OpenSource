@@ -27,7 +27,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/thermal/$(CONFIG_MTK_PLATFORM)/inc/mach	\
 	-I$(srctree)/include/linux/	\
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)	\
-	-I$(EEMGPU_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
+	-I$(EEMGPU_ROOT_DIR)/mt6893/inc	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/	\
 
 ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6885v1_64_alpha_mcl50")
