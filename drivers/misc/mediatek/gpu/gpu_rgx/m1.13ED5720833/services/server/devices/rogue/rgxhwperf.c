@@ -1603,9 +1603,10 @@ PVRSRV_ERROR PVRSRVRGXCtrlHWPerfCountersKM(
 	PVR_DPF_ENTERED;
 
 	PVR_LOG_RETURN_IF_INVALID_PARAM(psBlockIDs != NULL, "psBlockIDs");
+	PVR_LOG_RETURN_IF_INVALID_PARAM(ui32ArrayLen <= RGXFWIF_HWPERF_CTRL_BLKS_MAX,
+	                                "ui32ArrayLen exceeds the size of the block ID array.");
 	PVR_ASSERT(psDeviceNode);
 	PVR_ASSERT(ui32ArrayLen>0);
-	PVR_ASSERT(ui32ArrayLen<=RGXFWIF_HWPERF_CTRL_BLKS_MAX);
 
 	/* Fill in the command structure with the parameters needed
 	 */
