@@ -189,6 +189,7 @@ config MACH_MT6765
 	select CRYPTO_AES_ARM_CE
 	select MTK_PMQOS
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select DEVAPC_LEGACY
 	help
 	  This enables support for MediaTek MT6765
 	  Highly power-efficient, performance-oriented 4G LTE processor
