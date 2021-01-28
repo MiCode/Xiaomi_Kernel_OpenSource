@@ -493,8 +493,10 @@ static void check_battery_exist(struct mtk_charger *info)
 
 #ifdef FIXME
 	if (count >= 3) {
-		if (boot_mode == META_BOOT || boot_mode == ADVMETA_BOOT ||
-		    boot_mode == ATE_FACTORY_BOOT)
+		/*1 = META_BOOT, 5 = ADVMETA_BOOT*/
+		/*6 = ATE_FACTORY_BOOT */
+		if (boot_mode == 1 || boot_mode == 5 ||
+		    boot_mode == 6)
 			chr_info("boot_mode = %d, bypass battery check\n",
 				boot_mode);
 		else {
@@ -1504,6 +1506,22 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 	return true;
 }
 
+static void kpoc_power_off_check(struct mtk_charger *info)
+{
+	unsigned int boot_mode = info->bootmode;
+	int vbus = 0;
+
+	/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
+	/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
+	if (boot_mode == 8 || boot_mode == 9) {
+		vbus = get_vbus(info);
+		if (vbus >= 0 && vbus < 2500 && !mtk_is_charger_on(info)) {
+			chr_err("Unplug Charger/USB in KPOC mode, vbus=%d, shutdown\n", vbus);
+			kernel_power_off();
+		}
+	}
+}
+
 static char *dump_charger_type(int type)
 {
 	switch (type) {
@@ -1569,6 +1587,7 @@ static int charger_routine_thread(void *arg)
 		check_battery_exist(info);
 		check_dynamic_mivr(info);
 		charger_check_status(info);
+		kpoc_power_off_check(info);
 
 		if (is_disable_charger(info) == false &&
 			is_charger_on == true &&

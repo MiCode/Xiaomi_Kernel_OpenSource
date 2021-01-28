@@ -14,6 +14,7 @@
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
 #include <mtk_musb.h>
+#include <linux/reboot.h>
 
 /* ============================================================ */
 /* pmic control start*/
@@ -88,10 +89,20 @@ struct mtk_charger_type {
 
 	int first_connect;
 	int bc12_active;
+	u32 bootmode;
+	u32 boottype;
+};
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
 };
 
 static enum power_supply_property chr_type_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 };
@@ -568,6 +579,21 @@ static void do_charger_detection_work(struct work_struct *data)
 	pr_notice("%s: chrdet:%d\n", __func__, chrdet);
 	if (chrdet)
 		do_charger_detect(info, chrdet);
+	else {
+		hw_bc11_done(info);
+		/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
+		/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
+		if (info->bootmode == 8 || info->bootmode == 9) {
+			pr_info("%s: Unplug Charger/USB\n", __func__);
+
+#ifndef CONFIG_TCPC_CLASS
+			pr_info("%s: system_state=%d\n", __func__,
+				system_state);
+			if (system_state != SYSTEM_POWER_OFF)
+				kernel_power_off();
+#endif
+		}
+	}
 }
 
 
@@ -580,7 +606,21 @@ irqreturn_t chrdet_int_handler(int irq, void *data)
 		PMIC_RGS_CHRDET_ADDR,
 		PMIC_RGS_CHRDET_MASK,
 		PMIC_RGS_CHRDET_SHIFT);
+	if (!chrdet) {
+		hw_bc11_done(info);
+		/* 8 = KERNEL_POWER_OFF_CHARGING_BOOT */
+		/* 9 = LOW_POWER_OFF_CHARGING_BOOT */
+		if (info->bootmode == 8 || info->bootmode == 9) {
+			pr_info("%s: Unplug Charger/USB\n", __func__);
 
+#ifndef CONFIG_TCPC_CLASS
+			pr_info("%s: system_state=%d\n", __func__,
+				system_state);
+			if (system_state != SYSTEM_POWER_OFF)
+				kernel_power_off();
+#endif
+		}
+	}
 	pr_notice("%s: chrdet:%d\n", __func__, chrdet);
 	do_charger_detect(info, chrdet);
 
@@ -716,6 +756,30 @@ static char *mt6357_charger_supplied_to[] = {
 	"mtk-master-charger"
 };
 
+static int check_boot_mode(struct mtk_charger_type *info, struct device *dev)
+{
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
+
+	boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
+	if (!boot_node)
+		pr_notice("%s: failed to get boot mode phandle\n", __func__);
+	else {
+		tag = (struct tag_bootmode *)of_get_property(boot_node,
+							"atag,boot", NULL);
+		if (!tag)
+			pr_notice("%s: failed to get atag,boot\n", __func__);
+		else {
+			pr_notice("%s: size:0x%x tag:0x%x bootmode:0x%x boottype:0x%x\n",
+				__func__, tag->size, tag->tag,
+				tag->bootmode, tag->boottype);
+			info->bootmode = tag->bootmode;
+			info->boottype = tag->boottype;
+		}
+	}
+	return 0;
+}
+
 static int mt6357_charger_type_probe(struct platform_device *pdev)
 {
 	struct mtk_charger_type *info;
@@ -746,6 +810,8 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, info);
 	info->pdev = pdev;
 	mutex_init(&info->ops_lock);
+
+	check_boot_mode(info, &pdev->dev);
 
 	info->psy_desc.name = "mtk_charger_type";
 	info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;

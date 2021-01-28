@@ -196,6 +196,41 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		is_basic = true;
 	}
 
+	if (support_fast_charging(info))
+		is_basic = false;
+	else {
+		is_basic = true;
+		/* AICL */
+		charger_dev_run_aicl(info->chg1_dev,
+			&pdata->input_current_limit_by_aicl);
+		if (info->enable_dynamic_mivr) {
+			if (pdata->input_current_limit_by_aicl >
+				info->data.max_dmivr_charger_current)
+				pdata->input_current_limit_by_aicl =
+					info->data.max_dmivr_charger_current;
+		}
+		if (is_typec_adapter(info)) {
+			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
+				== 3000) {
+				pdata->input_current_limit = 3000000;
+				pdata->charging_current_limit = 3000000;
+			} else if (adapter_dev_get_property(info->pd_adapter,
+				TYPEC_RP_LEVEL) == 1500) {
+				pdata->input_current_limit = 1500000;
+				pdata->charging_current_limit = 2000000;
+			} else {
+				chr_err("type-C: inquire rp error\n");
+				pdata->input_current_limit = 500000;
+				pdata->charging_current_limit = 500000;
+			}
+
+			chr_err("type-C:%d current:%d\n",
+				info->pd_type,
+				adapter_dev_get_property(info->pd_adapter,
+					TYPEC_RP_LEVEL));
+		}
+	}
+
 	if (info->enable_sw_jeita) {
 		if (IS_ENABLED(CONFIG_USBIF_COMPLIANCE)
 			&& info->chr_type == POWER_SUPPLY_TYPE_USB)
@@ -251,47 +286,6 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		}
 	} else
 		info->setting.input_current_limit2 = -1;
-
-	if (info->setting.input_current_limit1 == -1 &&
-		info->setting.input_current_limit2 == -1 &&
-		info->setting.charging_current_limit1 == -1 &&
-		info->setting.charging_current_limit2 == -1)
-		info->enable_hv_charging = true;
-
-	if (support_fast_charging(info))
-		is_basic = false;
-	else {
-		is_basic = true;
-		/* AICL */
-		charger_dev_run_aicl(info->chg1_dev,
-			&pdata->input_current_limit_by_aicl);
-		if (info->enable_dynamic_mivr) {
-			if (pdata->input_current_limit_by_aicl >
-				info->data.max_dmivr_charger_current)
-				pdata->input_current_limit_by_aicl =
-					info->data.max_dmivr_charger_current;
-		}
-		if (is_typec_adapter(info)) {
-			if (adapter_dev_get_property(info->pd_adapter, TYPEC_RP_LEVEL)
-				== 3000) {
-				pdata->input_current_limit = 3000000;
-				pdata->charging_current_limit = 3000000;
-			} else if (adapter_dev_get_property(info->pd_adapter,
-				TYPEC_RP_LEVEL) == 1500) {
-				pdata->input_current_limit = 1500000;
-				pdata->charging_current_limit = 2000000;
-			} else {
-				chr_err("type-C: inquire rp error\n");
-				pdata->input_current_limit = 500000;
-				pdata->charging_current_limit = 500000;
-			}
-
-			chr_err("type-C:%d current:%d\n",
-				info->pd_type,
-				adapter_dev_get_property(info->pd_adapter,
-					TYPEC_RP_LEVEL));
-		}
-	}
 
 	if (is_basic == true && pdata->input_current_limit_by_aicl != -1) {
 		if (pdata->input_current_limit_by_aicl <
@@ -371,7 +365,9 @@ static int do_algorithm(struct mtk_charger *info)
 			if (alg == NULL)
 				continue;
 
-			if (!info->enable_hv_charging) {
+			if (!info->enable_hv_charging ||
+			    pdata->charging_current_limit == 0 ||
+			    pdata->input_current_limit == 0) {
 				chg_alg_get_prop(alg, ALG_MAX_VBUS, &val);
 				if (val > 5000)
 					chg_alg_stop_algo(alg);
@@ -418,7 +414,9 @@ static int do_algorithm(struct mtk_charger *info)
 			}
 		}
 	} else {
-		if (info->enable_hv_charging != true) {
+		if (info->enable_hv_charging != true ||
+		    pdata->charging_current_limit == 0 ||
+		    pdata->input_current_limit == 0) {
 			for (i = 0; i < MAX_ALG_NO; i++) {
 				alg = info->alg[i];
 				if (alg == NULL)

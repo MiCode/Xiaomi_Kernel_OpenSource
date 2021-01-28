@@ -564,6 +564,7 @@ static inline void typec_unattached_cc_entry(struct tcpc_device *tcpc_dev)
 			break;
 		default:
 			TYPEC_NEW_STATE(typec_unattached_snk);
+			tcpc_dev->typec_remote_rp_level = typec_get_cc_res();
 			tcpci_set_cc(tcpc_dev, TYPEC_CC_DRP);
 			typec_enable_low_power_mode(tcpc_dev, TYPEC_CC_DRP);
 			break;
