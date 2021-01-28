@@ -107,6 +107,7 @@ struct mtk_drm_private {
 	unsigned int session_id[MAX_SESSION_COUNT];
 	unsigned int num_sessions;
 	enum MTK_DRM_SESSION_MODE session_mode;
+	atomic_t crtc_present[MAX_CRTC];
 
 	struct device_node *mutex_node;
 	struct device *mutex_dev;

@@ -5779,9 +5779,9 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_fence *args = data;
 	struct mtk_drm_private *private;
 	struct fence_data fence;
-	static unsigned int fence_idx;
+	unsigned int fence_idx;
 	struct mtk_fence_info *l_info = NULL;
-	int tl;
+	int tl, idx;
 
 	crtc = drm_crtc_find(dev, file_priv, args->crtc_id);
 	if (!crtc) {
@@ -5791,6 +5791,7 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 	}
 	DDPDBG("[CRTC:%d:%s]\n", crtc->base.id, crtc->name);
 
+	idx = drm_crtc_index(crtc);
 	if (!crtc->dev) {
 		DDPPR_ERR("%s:%d dev is null\n", __func__, __LINE__);
 		ret = -EFAULT;
@@ -5802,6 +5803,7 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 		return ret;
 	}
 	private = crtc->dev->dev_private;
+	fence_idx = atomic_read(&private->crtc_present[idx]);
 	tl = mtk_fence_get_present_timeline_id(mtk_get_session_id(crtc));
 	l_info = mtk_fence_get_layer_info(mtk_get_session_id(crtc), tl);
 	if (!l_info) {
@@ -5812,6 +5814,7 @@ int mtk_drm_crtc_getfence_ioctl(struct drm_device *dev, void *data,
 	/* create fence */
 	fence.fence = MTK_INVALID_FENCE_FD;
 	fence.value = ++fence_idx;
+	atomic_inc(&private->crtc_present[idx]);
 	ret = mtk_sync_fence_create(l_info->timeline, &fence);
 	if (ret) {
 		DDPPR_ERR("%d,L%d create Fence Object failed!\n",
