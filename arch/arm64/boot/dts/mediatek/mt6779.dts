@@ -3282,7 +3282,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		venc_gcon: venc_gcon@17000000 {
-			compatible = "mediatek,venc_gcon", "syscon";
+			compatible = "mediatek,mt6779-vcodec-enc", "syscon";
 			reg = <0 0x17000000 0 0x1000>,
 			      <0 0x17020000 0 0x1000>;
 			interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_LOW>;

@@ -1,14 +1,32 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
- * Author: Andrew-CT Chen <andrew-ct.chen@mediatek.com>
  */
 
 #ifndef MTK_VCU_H
 #define MTK_VCU_H
 
+#include <aee.h>
 #include <linux/fdtable.h>
 #include <linux/platform_device.h>
+
+#ifdef CONFIG_MTK_AEE_FEATURE
+#define vcu_aee_print(string, args...) do {\
+	char vcu_name[100];\
+	snprintf(vcu_name, 100, "[VCU] "string, ##args); \
+	aee_kernel_warning_api(__FILE__, __LINE__, \
+		DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
+		vcu_name, "[VCU] error:"string, ##args); \
+	pr_info("[VCU] error:"string, ##args);  \
+	} while (0)
+#else
+#define vcu_aee_print(string, args...) do {\
+		char vcu_name[100];\
+		snprintf(vcu_name, 100, "[VCU] "string, ##args); \
+		pr_info("[VCU] error:"string, ##args);  \
+	} while (0)
+
+#endif
 
 /**
  * VCU (Video Communication/Controller Unit)
@@ -73,6 +91,10 @@ typedef int (*ipi_handler_t)(void *data,
  *                      handle RV40 video decoder job, and vice versa.
  *                      Decode output format is always MT21 no matter what
  *                      the input format is.
+ * @IPI_VDEC_AV1:       The interrupt from vcu is to notify kernel to
+ *                      handle AV1 video decoder job, and vice versa.
+ *                      Decode output format is always MT21 no matter what
+ *                      the input format is.
  * @IPI_VENC_COMMON:    The interrupt from vcu is to notify kernel to
  *                      handle video codecs job, and vice versa.
  * @IPI_VENC_H264:      The interrupt from vcu is to notify kernel to
@@ -111,9 +133,11 @@ enum ipi_id {
 	IPI_VDEC_WMV,
 	IPI_VDEC_RV30,
 	IPI_VDEC_RV40,
+	IPI_VDEC_AV1,
 	IPI_VENC_COMMON,
 	IPI_VENC_H264,
 	IPI_VENC_H265,
+	IPI_VENC_HEIF,
 	IPI_VENC_VP8,
 	IPI_VENC_MPEG4,
 	IPI_VENC_HYBRID_H264,
@@ -122,7 +146,7 @@ enum ipi_id {
 	IPI_MDP_1,
 	IPI_MDP_2,
 	IPI_MDP_3,
-	IPI_CAMERA = 20,
+	IPI_CAMERA,
 	IPI_MAX = 50,
 };
 
@@ -130,21 +154,6 @@ enum vcu_codec_type {
 	VCU_VDEC = 0,
 	VCU_VENC,
 	VCU_CODEC_MAX
-};
-
-/**
- * enum rst_id - reset id to register reset function for VPU watchdog timeout
- *
- * @VPU_RST_ENC: encoder reset id
- * @VPU_RST_DEC: decoder reset id
- * @VPU_RST_MDP: MDP (Media Data Path) reset id
- * @VPU_RST_MAX: maximum reset id
- */
-enum rst_id {
-	VPU_RST_ENC,
-	VPU_RST_DEC,
-	VPU_RST_MDP,
-	VPU_RST_MAX,
 };
 
 /**
@@ -180,7 +189,7 @@ int vcu_ipi_register(struct platform_device *pdev, enum ipi_id id,
  **/
 int vcu_ipi_send(struct platform_device *pdev,
 				 enum ipi_id id, void *buf,
-				 unsigned int len);
+				 unsigned int len, void *priv);
 
 /**
  * vcu_get_plat_device - get VCU's platform device
@@ -254,16 +263,31 @@ void *vcu_mapping_dm_addr(struct platform_device *pdev,
  * vcu_get_task - Get VCUD task information
  *
  * @task:       VCUD task
- * @f:          VCUD task file
+ * @f:          VCUD task filie
+ * @reset:      flag to reset task and file
  *
  * Get VCUD task information from mtk_vcu driver.
  *
  **/
-void vcu_get_task(struct task_struct **task, struct files_struct **f);
+void vcu_get_task(struct task_struct **task, struct files_struct **f,
+		int reset);
+void vcu_get_file_lock(void);
+void vcu_put_file_lock(void);
+int vcu_get_sig_lock(unsigned long flags);
+void vcu_put_sig_lock(unsigned long flags);
+int vcu_check_vpud_alive(void);
 extern void smp_inner_dcache_flush_all(void);
 int vcu_set_codec_ctx(struct platform_device *pdev,
+		 void *codec_ctx, void *codec_dev, unsigned long type);
+int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type);
-extern void venc_encode_prepare(void *ctx_prepare, unsigned long *flags);
-extern void venc_encode_unprepare(void *ctx_prepare, unsigned long *flags);
-
+extern void venc_encode_prepare(void *ctx_prepare,
+		int core_id, unsigned long *flags);
+extern void venc_encode_unprepare(void *ctx_prepare,
+		int core_id, unsigned long *flags);
+extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
+		int core_id, int job_cnt);
+extern void venc_encode_pmqos_gce_end(void *ctx_end,
+		int core_id, int job_cnt);
+extern void mtk_vcodec_gce_timeout_dump(void *ctx);
 #endif /* _MTK_VCU_H */

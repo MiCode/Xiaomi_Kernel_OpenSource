@@ -7,9 +7,9 @@
 #ifndef __UAPI_MTK_VCU_CONTROLS_H__
 #define __UAPI_MTK_VCU_CONTROLS_H__
 
-#define SHARE_BUF_SIZE 64
+#define SHARE_BUF_SIZE 72
 #define LOG_INFO_SIZE 1024
-#define VCODEC_CMDQ_CMD_MAX           (1024)
+#define VCODEC_CMDQ_CMD_MAX           (2048)
 
 /**
  * struct mem_obj - memory buffer allocated in kernel
@@ -20,10 +20,26 @@
  * @va: kernel virtual address
  */
 struct mem_obj {
-	u32 iova;
+	u64 iova;
 	u32 len;
 	u64 pa;
 	u64 va;
+};
+
+/**
+ * struct map_obj - memory buffer mmaped in kernel
+ *
+ * @map_buf:	iova of buffer
+ *	0: not mapped buf; 1: mapped buf
+ * @map_type:	the type of mmap
+ *	0: reserved; 1: MM_BASE;
+ *	2: MM_CACHEABLE_BASE; 3: PA_BASE
+ * @reserved: reserved
+ */
+struct map_obj {
+	u32 map_buf;
+	u32 map_type;
+	u64 reserved;
 };
 
 /**
@@ -56,6 +72,7 @@ struct gce_cmdq_obj {
 	u64	gce_handle;
 	u32	flush_order;
 	u32	codec_type;
+	u32	core_id;
 };
 
 /**
@@ -77,6 +94,8 @@ enum gce_cmd_id {
 	/* polling register until get some value (no timeout, blocking wait) */
 	CMD_WAIT_EVENT,      /* gce wait HW done event & clear */
 	CMD_MEM_MV,      /* copy memory data from PA to another PA */
+	CMD_POLL_ADDR,
+	/* polling addr until get some value (with timeout) */
 	CMD_MAX
 };
 
@@ -122,10 +141,30 @@ enum gce_event_id {
 	VDEC_EVENT_13,   /* reserved */
 	VDEC_EVENT_14,   /* reserved */
 	VDEC_EVENT_15,   /* Queue Counter OP threshold */
-	VENC_EOF,
+	VDEC_LAT_EVENT_0,
+	VDEC_LAT_EVENT_1,
+	VDEC_LAT_EVENT_2,
+	VDEC_LAT_EVENT_3,
+	VDEC_LAT_EVENT_4,
+	VDEC_LAT_EVENT_5,
+	VDEC_LAT_EVENT_6,
+	VDEC_LAT_EVENT_7,
+	VDEC_LAT_EVENT_8,
+	VDEC_LAT_EVENT_9,
+	VDEC_LAT_EVENT_10,
+	VDEC_LAT_EVENT_11,
+	VDEC_LAT_EVENT_12,
+	VDEC_LAT_EVENT_13,
+	VDEC_LAT_EVENT_14,
+	VDEC_LAT_EVENT_15,
+	VDEC_EVENT_COUNT,
+	VENC_EOF = VDEC_EVENT_COUNT,
 	VENC_CMDQ_PAUSE_DONE,
 	VENC_MB_DONE,
-	VENC_128BYTE_CNT_DONE
+	VENC_128BYTE_CNT_DONE,
+	VENC_EOF_C1,
+	VENC_WP_2ND_DONE,
+	VENC_WP_3ND_DONE
 };
 
 
@@ -141,6 +180,8 @@ enum gce_event_id {
 #define VCU_GCE_WAIT_CALLBACK _IOW('v', 9, struct gce_obj)
 #define VCU_GET_OBJECT		_IOWR('v', 10, struct share_obj)
 #define VCU_GET_LOG_OBJECT	_IOW('v', 11, struct log_test_nofuse)
+#define VCU_SET_LOG_OBJECT	_IOW('v', 12, struct log_test)
+#define VCU_SET_MMAP_TYPE	_IOW('v', 13, struct map_obj)
 
 #define COMPAT_VCU_SET_OBJECT		_IOW('v', 0, struct share_obj)
 #define COMPAT_VCU_MVA_ALLOCATION	_IOWR('v', 1, struct compat_mem_obj)
@@ -150,10 +191,11 @@ enum gce_event_id {
 #define COMPAT_VCU_CACHE_INVALIDATE_BUFF _IOWR('v', 5, struct compat_mem_obj)
 #define COMPAT_VCU_PA_ALLOCATION	_IOWR('v', 6, struct compat_mem_obj)
 #define COMPAT_VCU_PA_FREE		_IOWR('v', 7, struct compat_mem_obj)
+#define COMPAT_VCU_SET_MMAP_TYPE	_IOW('v', 13, struct map_obj)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 struct compat_mem_obj {
-	u32 iova;
+	u64 iova;
 	u32 len;
 	compat_u64 pa;
 	compat_u64 va;

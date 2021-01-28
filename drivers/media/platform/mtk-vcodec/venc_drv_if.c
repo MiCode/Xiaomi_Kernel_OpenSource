@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #include <linux/interrupt.h>
@@ -13,7 +13,7 @@
 #include "mtk_vcodec_enc.h"
 #include "mtk_vcodec_enc_pm.h"
 
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
 #include "mtk_vcu.h"
 const struct venc_common_if *get_enc_common_if(void);
 #endif
@@ -29,11 +29,13 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 	int ret = 0;
 
 	ctx->oal_vcodec = 0;
-	ctx->slowmotion = 0;
-#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+	mtk_venc_init_ctx_pm(ctx);
+
+#ifdef CONFIG_VIDEO_MEDIATEK_VCU
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_H265:
+	case V4L2_PIX_FMT_HEIF:
 	case V4L2_PIX_FMT_MPEG4:
 	case V4L2_PIX_FMT_H263:
 		ctx->enc_if = get_enc_common_if();
@@ -55,18 +57,11 @@ int venc_if_init(struct mtk_vcodec_ctx *ctx, unsigned int fourcc)
 		return -EINVAL;
 	}
 #endif
+	ret = ctx->enc_if->init(ctx, (unsigned long *)&ctx->drv_handle);
 
-	if (!ctx->oal_vcodec) {
-		mtk_venc_lock(ctx);
-		mtk_vcodec_enc_clock_on(&ctx->dev->pm);
-	}
-	ret = ctx->enc_if->init(ctx);
-	if (!ctx->oal_vcodec) {
-		mtk_vcodec_enc_clock_off(&ctx->dev->pm);
-		mtk_venc_unlock(ctx);
-	}
 	return ret;
 }
+
 int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 					  void *out)
 {
@@ -77,17 +72,15 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 	if (!ctx->drv_handle) {
 		inst = kzalloc(sizeof(struct venc_inst), GFP_KERNEL);
 		inst->ctx = ctx;
-		ctx->drv_handle = (void *)(inst);
-		#if IS_ENABLED(CONFIG_VIDEO_MEDIATEK_VCU)
+		ctx->drv_handle = (unsigned long)(inst);
 		ctx->enc_if = get_enc_common_if();
-		#endif
 		drv_handle_exist = 0;
+		mtk_v4l2_debug(0, "%s init drv_handle = 0x%lx",
+			__func__, ctx->drv_handle);
 	}
-	if (!ctx->slowmotion)
-		mtk_venc_lock(ctx);
+
 	ret = ctx->enc_if->get_param(ctx->drv_handle, type, out);
-	if (!ctx->slowmotion)
-		mtk_venc_unlock(ctx);
+
 	if (!drv_handle_exist) {
 		kfree(inst);
 		ctx->drv_handle = 0;
@@ -98,61 +91,79 @@ int venc_if_get_param(struct mtk_vcodec_ctx *ctx, enum venc_get_param_type type,
 }
 
 int venc_if_set_param(struct mtk_vcodec_ctx *ctx,
-		enum venc_set_param_type type, struct venc_enc_param *in)
+	enum venc_set_param_type type, struct venc_enc_param *in)
 {
 	int ret = 0;
 
-	if (!ctx->oal_vcodec) {
-		mtk_venc_lock(ctx);
-		mtk_vcodec_enc_clock_on(&ctx->dev->pm);
-	}
 	ret = ctx->enc_if->set_param(ctx->drv_handle, type, in);
-	if (!ctx->oal_vcodec) {
-		mtk_vcodec_enc_clock_off(&ctx->dev->pm);
-		mtk_venc_unlock(ctx);
-	}
+
 	return ret;
 }
-void venc_encode_prepare(void *ctx_prepare, unsigned long *flags)
+
+void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
 
-	mtk_venc_lock(ctx);
+	if (ctx == NULL)
+		return;
+
+	mtk_venc_pmqos_prelock(ctx, core_id);
+	mtk_venc_lock(ctx, core_id);
+	mtk_venc_pmqos_begin_frame(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
-	ctx->dev->curr_ctx = ctx;
+	ctx->dev->curr_enc_ctx[0] = ctx;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
-	mtk_vcodec_enc_clock_on(&ctx->dev->pm);
+	mtk_vcodec_enc_clock_on(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_prepare);
-void venc_encode_unprepare(void *ctx_unprepare, unsigned long *flags)
+
+void venc_encode_unprepare(void *ctx_unprepare,
+	int core_id, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
-	mtk_vcodec_enc_clock_off(&ctx->dev->pm);
+	if (ctx == NULL)
+		return;
+
+	if (ctx->dev->enc_sem[core_id].count != 0) {
+		mtk_v4l2_err("HW not prepared, enc_sem[%d].count = %d",
+			core_id, ctx->dev->enc_sem[core_id].count);
+		return;
+	}
+
+	mtk_vcodec_enc_clock_off(ctx, core_id);
 	spin_lock_irqsave(&ctx->dev->irqlock, *flags);
-	ctx->dev->curr_ctx = NULL;
+	ctx->dev->curr_enc_ctx[0] = NULL;
 	spin_unlock_irqrestore(&ctx->dev->irqlock, *flags);
-	mtk_venc_unlock(ctx);
+	mtk_venc_pmqos_end_frame(ctx, core_id);
+	mtk_venc_unlock(ctx, core_id);
 }
 EXPORT_SYMBOL_GPL(venc_encode_unprepare);
 
+void venc_encode_pmqos_gce_begin(void *ctx_begin, int core_id, int job_cnt)
+{
+	mtk_venc_pmqos_gce_flush(ctx_begin, core_id, job_cnt);
+}
+EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_begin);
+
+void venc_encode_pmqos_gce_end(void *ctx_end, int core_id, int job_cnt)
+{
+	mtk_venc_pmqos_gce_done(ctx_end, core_id, job_cnt);
+}
+EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_end);
+
 int venc_if_encode(struct mtk_vcodec_ctx *ctx,
-		   enum venc_start_opt opt, struct venc_frm_buf *frm_buf,
-		   struct mtk_vcodec_mem *bs_buf,
-		   struct venc_done_result *result)
+	enum venc_start_opt opt, struct venc_frm_buf *frm_buf,
+	struct mtk_vcodec_mem *bs_buf,
+	struct venc_done_result *result)
 {
 	int ret = 0;
-	unsigned long flags;
 
-	if (ctx->oal_vcodec == 0 && ctx->slowmotion == 0)
-
-		venc_encode_prepare(ctx, &flags);
+	if (ctx->drv_handle == 0)
+		return 0;
 
 	ret = ctx->enc_if->encode(ctx->drv_handle, opt, frm_buf,
-				  bs_buf, result);
-
-	if (ctx->oal_vcodec == 0 && ctx->slowmotion == 0)
-		venc_encode_unprepare(ctx, &flags);
+							  bs_buf, result);
 
 	return ret;
 }
@@ -161,19 +172,14 @@ int venc_if_deinit(struct mtk_vcodec_ctx *ctx)
 {
 	int ret = 0;
 
-	if (!ctx->drv_handle)
+	if (ctx->drv_handle == 0)
 		return 0;
 
-	if (!ctx->oal_vcodec) {
-		mtk_venc_lock(ctx);
-		mtk_vcodec_enc_clock_on(&ctx->dev->pm);
-	}
 	ret = ctx->enc_if->deinit(ctx->drv_handle);
-	if (!ctx->oal_vcodec) {
-		mtk_vcodec_enc_clock_off(&ctx->dev->pm);
-		mtk_venc_unlock(ctx);
-	}
+
 	ctx->drv_handle = 0;
+
+	mtk_venc_deinit_ctx_pm(ctx);
 
 	return ret;
 }

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2019 MediaTek Inc.
- * Author: Yunfei Dong <yunfei.dong@mediatek.com>
  */
 
 #ifndef MTK_VCODEC_MEM_H
@@ -14,14 +13,19 @@
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
 
-#ifdef CONFIG_VB2_MEDIATEK_DMA
-#include "mtk-dma-contig.h"
-#endif
-
-#if !IS_ENABLED(CONFIG_ARM64)
+#ifndef CONFIG_ARM64
 #include "mm/dma.h"
 #endif
 
+#ifndef dmac_map_area
+#define dmac_map_area __dma_map_area
+#endif
+#ifndef dmac_unmap_area
+#define dmac_unmap_area __dma_unmap_area
+#endif
+#ifndef dmac_flush_range
+#define dmac_flush_range __dma_flush_range
+#endif
 
 #define CODEC_MAX_BUFFER 512U
 #define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x8000000UL /*128MB*/

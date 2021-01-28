@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-
 #include <linux/module.h>
 #include <linux/slab.h>
 
@@ -14,8 +13,6 @@
 #include "mtk_vcodec_drv.h"
 #include "vdec_drv_if.h"
 
-static int vdec_set_param(void *h_vdec,
-	enum vdec_set_param_type type, void *in);
 
 static void put_fb_to_free(struct vdec_inst *inst, struct vdec_fb *fb)
 {
@@ -52,23 +49,23 @@ static void get_pic_info(struct vdec_inst *inst,
 
 	mtk_vcodec_debug(inst, "pic(%d, %d), buf(%d, %d), bitdepth = %d, fourcc = %d\n",
 		pic->pic_w, pic->pic_h, pic->buf_w, pic->buf_h,
-		pic->bitdepth, pic->cap_fourcc);
+		pic->bitdepth, pic->fourcc);
 	mtk_vcodec_debug(inst, "Y/C(%d, %d)", pic->fb_sz[0], pic->fb_sz[1]);
 }
 
-static void get_crop_info(struct vdec_inst *inst, struct v4l2_rect *cr)
+static void get_crop_info(struct vdec_inst *inst, struct v4l2_crop *cr)
 {
 	if (inst == NULL)
 		return;
 	if (inst->vsi == NULL)
 		return;
 
-	cr->left      = inst->vsi->crop.left;
-	cr->top       = inst->vsi->crop.top;
-	cr->width     = inst->vsi->crop.width;
-	cr->height    = inst->vsi->crop.height;
+	cr->c.left      = inst->vsi->crop.left;
+	cr->c.top       = inst->vsi->crop.top;
+	cr->c.width     = inst->vsi->crop.width;
+	cr->c.height    = inst->vsi->crop.height;
 	mtk_vcodec_debug(inst, "l=%d, t=%d, w=%d, h=%d",
-		cr->left, cr->top, cr->width, cr->height);
+		cr->c.left, cr->c.top, cr->c.width, cr->c.height);
 }
 
 static void get_dpb_size(struct vdec_inst *inst, unsigned int *dpb_sz)
@@ -82,7 +79,7 @@ static void get_dpb_size(struct vdec_inst *inst, unsigned int *dpb_sz)
 	mtk_vcodec_debug(inst, "sz=%d", *dpb_sz);
 }
 
-static int vdec_init(struct mtk_vcodec_ctx *ctx)
+static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 {
 	struct vdec_inst *inst = NULL;
 	int err = 0;
@@ -154,6 +151,9 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx)
 	case V4L2_PIX_FMT_RV40:
 		inst->vcu.id = IPI_VDEC_RV40;
 		break;
+	case V4L2_PIX_FMT_AV1:
+		inst->vcu.id = IPI_VDEC_AV1;
+		break;
 	default:
 		mtk_vcodec_err(inst, "%s no fourcc", __func__);
 		break;
@@ -170,18 +170,21 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx)
 	}
 
 	inst->vsi = (struct vdec_vsi *)inst->vcu.vsi;
+	ctx->input_driven = inst->vsi->input_driven;
 
 	mtk_vcodec_debug(inst, "Decoder Instance >> %p", inst);
 
-	ctx->drv_handle = inst;
+	*h_vdec = (unsigned long)inst;
 	return 0;
 
 error_free_inst:
 	kfree(inst);
+	*h_vdec = (unsigned long)NULL;
+
 	return err;
 }
 
-static void vdec_deinit(void *h_vdec)
+static void vdec_deinit(unsigned long h_vdec)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
 
@@ -189,10 +192,12 @@ static void vdec_deinit(void *h_vdec)
 
 	vcu_dec_deinit(&inst->vcu);
 
+	vcu_dec_clear_ctx(&inst->vcu);
+
 	kfree(inst);
 }
 
-static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
+static int vdec_decode(unsigned long h_vdec, struct mtk_vcodec_mem *bs,
 	struct vdec_fb *fb, unsigned int *src_chg)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
@@ -218,10 +223,8 @@ static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 		inst->num_nalu, fb_dma[0], fb_dma[1], fb, num_planes);
 
 	/* bs NULL means flush decoder */
-	if (bs == NULL) {
-		mtk_vcodec_err(inst, "BS is NULL !!");
+	if (bs == NULL)
 		return vcu_dec_reset(vcu);
-	}
 
 	mtk_vcodec_debug(inst, "+ BS dma=0x%llx dmabuf=%p format=%c%c%c%c",
 		(uint64_t)bs->dma_addr, bs->dmabuf, bs_fourcc & 0xFF,
@@ -234,18 +237,41 @@ static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	for (i = 0; i < num_planes; i++)
 		inst->vsi->dec.fb_dma[i] = fb_dma[i];
 
-	inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 	inst->vsi->dec.bs_fd = (uint64_t)get_mapped_fd(bs->dmabuf);
 
 	if (fb != NULL) {
+		vcu_dec_set_ctx(&inst->vcu);
+		inst->vsi->dec.vdec_fb_va = vdec_fb_va;
 		inst->vsi->dec.index = fb->index;
 		for (i = 0; i < num_planes; i++) {
 			inst->vsi->dec.fb_fd[i] =
 				(uint64_t)get_mapped_fd(fb->fb_base[i].dmabuf);
 		}
+		if (fb->dma_general_buf != 0) {
+			fb->general_buf_fd =
+				(uint32_t)get_mapped_fd(fb->dma_general_buf);
+			inst->vsi->general_buf_fd = fb->general_buf_fd;
+			inst->vsi->general_buf_size = fb->dma_general_buf->size;
+			inst->vsi->general_buf_dma = fb->dma_general_addr;
+			mtk_vcodec_debug(inst, "dma_general_buf dma_buf=%p fd=%d dma=%llx size=%lu",
+			    fb->dma_general_buf, inst->vsi->general_buf_fd,
+			    inst->vsi->general_buf_dma,
+			    fb->dma_general_buf->size);
+		} else {
+			fb->general_buf_fd = -1;
+			inst->vsi->general_buf_fd = -1;
+			inst->vsi->general_buf_size = 0;
+			mtk_vcodec_debug(inst, "no general buf dmabuf");
+		}
 	} else {
-		inst->vsi->dec.index = 0xFF;
+		if (!inst->ctx->input_driven)
+			inst->vsi->dec.index = 0xFF;
 	}
+
+	inst->vsi->dec.queued_frame_buf_count =
+		inst->ctx->dec_params.queued_frame_buf_count;
+	inst->vsi->dec.timestamp =
+		inst->ctx->dec_params.timestamp;
 
 	mtk_vcodec_debug(inst, "+ FB y_fd=%llx c_fd=%llx BS fd=%llx format=%c%c%c%c",
 		inst->vsi->dec.fb_fd[0], inst->vsi->dec.fb_fd[1],
@@ -259,15 +285,15 @@ static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 	ret = vcu_dec_start(vcu, data, 3);
 
 	*src_chg = inst->vsi->dec.vdec_changed_info;
-	*(errormap_info + bs->index % VB2_MAX_FRAME) = inst->vsi->dec.error_map;
+	*(errormap_info + bs->index % VB2_MAX_FRAME) =
+		inst->vsi->dec.error_map;
 
 	if ((*src_chg & VDEC_NEED_SEQ_HEADER) != 0U)
 		mtk_vcodec_err(inst, "- need first seq header -");
 	else if ((*src_chg & VDEC_RES_CHANGE) != 0U)
-		mtk_vcodec_err(inst, "- resolution changed -");
+		mtk_vcodec_debug(inst, "- resolution changed -");
 	else if ((*src_chg & VDEC_HW_NOT_SUPPORT) != 0U)
-		mtk_vcodec_err(inst, "-hw unsupported -");
-
+		mtk_vcodec_err(inst, "- unsupported -");
 	/*ack timeout means vpud has crashed*/
 	if (ret == -EIO) {
 		mtk_vcodec_err(inst, "- IPI msg ack timeout  -");
@@ -286,7 +312,7 @@ static int vdec_decode(void *h_vdec, struct mtk_vcodec_mem *bs,
 		|| ((*src_chg & VDEC_NEED_SEQ_HEADER) != 0U))
 		goto err_free_fb_out;
 
-	mtk_vcodec_debug(inst, "\n - NALU[%d] -\n", inst->num_nalu);
+	inst->ctx->input_driven = inst->vsi->input_driven;
 	inst->num_nalu++;
 	return ret;
 
@@ -327,12 +353,6 @@ static void vdec_get_fb(struct vdec_inst *inst,
 	unsigned long vdec_fb_va;
 	struct vdec_fb *fb;
 
-	if (!disp_list) {
-		vdec_set_param((void *)inst,
-			SET_PARAM_FREE_FRAME_BUFQ_COUNT, &(list->count));
-		mtk_vcodec_debug(inst, "free list->count = %d", list->count);
-	}
-
 	if (list->count == 0) {
 		mtk_vcodec_debug(inst, "[FB] there is no %s fb",
 						 disp_list ? "disp" : "free");
@@ -342,16 +362,22 @@ static void vdec_get_fb(struct vdec_inst *inst,
 
 	vdec_fb_va = (unsigned long)list->fb_list[list->read_idx].vdec_fb_va;
 	fb = (struct vdec_fb *)vdec_fb_va;
+	if (fb == NULL)
+		return;
+	fb->timestamp = list->fb_list[list->read_idx].timestamp;
+
 	if (disp_list)
 		fb->status |= FB_ST_DISPLAY;
 	else
 		fb->status |= FB_ST_FREE;
 
 	*out_fb = fb;
-	mtk_vcodec_debug(inst, "[FB] get %s fb st=%d poc=%d %llx",
+	mtk_vcodec_debug(inst, "[FB] get %s fb st=%d poc=%d ts=%llu %llx gbuf fd %d dma %p",
 		disp_list ? "disp" : "free",
 		fb->status, list->fb_list[list->read_idx].poc,
-		list->fb_list[list->read_idx].vdec_fb_va);
+		list->fb_list[list->read_idx].timestamp,
+		list->fb_list[list->read_idx].vdec_fb_va,
+		fb->general_buf_fd, fb->dma_general_buf);
 
 	list->read_idx = (list->read_idx == DEC_MAX_FB_NUM - 1U) ?
 					 0U : list->read_idx + 1U;
@@ -404,9 +430,6 @@ static void get_frame_sizes(struct vdec_inst *inst,
 static void get_color_desc(struct vdec_inst *inst,
 	struct mtk_color_desc *color_desc)
 {
-	if (inst->vsi == NULL)
-		return;
-
 	inst->vcu.ctx = inst->ctx;
 	memcpy(color_desc, &inst->vsi->color_desc, sizeof(*color_desc));
 }
@@ -452,7 +475,15 @@ static void get_codec_type(struct vdec_inst *inst,
 		*codec_type = inst->vsi->codec_type;
 }
 
-static int vdec_get_param(void *h_vdec,
+static void get_input_driven(struct vdec_inst *inst,
+			   unsigned int *input_driven)
+{
+	inst->vcu.ctx = inst->ctx;
+	if (inst->vsi != NULL)
+		*input_driven = inst->vsi->input_driven;
+}
+
+static int vdec_get_param(unsigned long h_vdec,
 	enum vdec_get_param_type type, void *out)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
@@ -469,16 +500,57 @@ static int vdec_get_param(void *h_vdec,
 		break;
 
 	case GET_PARAM_DISP_FRAME_BUFFER:
+	{
+		struct vdec_fb *pfb;
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		vdec_get_fb(inst, &inst->vsi->list_disp, true, out);
+
+		pfb = *((struct vdec_fb **)out);
+		if (pfb != NULL) {
+			if (pfb->general_buf_fd >= 0) {
+				mtk_vcodec_debug(inst, "free pfb->general_buf_fd:%d pfb->dma_general_buf %p\n",
+					pfb->general_buf_fd,
+					pfb->dma_general_buf);
+				close_mapped_fd((unsigned int)
+					pfb->general_buf_fd);
+				pfb->general_buf_fd = -1;
+			}
+		}
 		break;
+	}
 
 	case GET_PARAM_FREE_FRAME_BUFFER:
+	{
+		struct vdec_fb *pfb;
+		int i;
+
 		if (inst->vsi == NULL)
 			return -EINVAL;
 		vdec_get_fb(inst, &inst->vsi->list_free, false, out);
+
+		pfb = *((struct vdec_fb **)out);
+		if (pfb != NULL) {
+			for (i = 0; i < pfb->num_planes; i++) {
+				if (pfb->fb_base[i].buf_fd >= 0) {
+					mtk_vcodec_debug(inst, "free pfb->fb_base[%d].buf_fd:%llx\n",
+						i, pfb->fb_base[i].buf_fd);
+					close_mapped_fd((unsigned int)
+						pfb->fb_base[i].buf_fd);
+					pfb->fb_base[i].buf_fd = -1;
+				}
+			}
+			if (pfb->general_buf_fd >= 0) {
+				mtk_vcodec_debug(inst, "free pfb->general_buf_fd:%d pfb->dma_general_buf %p\n",
+					pfb->general_buf_fd,
+					pfb->dma_general_buf);
+				close_mapped_fd((unsigned int)
+					pfb->general_buf_fd);
+				pfb->general_buf_fd = -1;
+			}
+		}
 		break;
+	}
 
 	case GET_PARAM_PIC_INFO:
 		get_pic_info(inst, out);
@@ -501,6 +573,8 @@ static int vdec_get_param(void *h_vdec,
 		break;
 
 	case GET_PARAM_COLOR_DESC:
+		if (inst->vsi == NULL)
+			return -EINVAL;
 		get_color_desc(inst, out);
 		break;
 
@@ -524,6 +598,10 @@ static int vdec_get_param(void *h_vdec,
 		get_codec_type(inst, out);
 		break;
 
+	case GET_PARAM_INPUT_DRIVEN:
+		get_input_driven(inst, out);
+		break;
+
 	default:
 		mtk_vcodec_err(inst, "invalid get parameter type=%d", type);
 		ret = -EINVAL;
@@ -533,7 +611,7 @@ static int vdec_get_param(void *h_vdec,
 	return ret;
 }
 
-static int vdec_set_param(void *h_vdec,
+static int vdec_set_param(unsigned long h_vdec,
 	enum vdec_set_param_type type, void *in)
 {
 	struct vdec_inst *inst = (struct vdec_inst *)h_vdec;
@@ -552,7 +630,6 @@ static int vdec_set_param(void *h_vdec,
 	case SET_PARAM_NAL_SIZE_LENGTH:
 	case SET_PARAM_WAIT_KEY_FRAME:
 	case SET_PARAM_OPERATING_RATE:
-	case SET_PARAM_FREE_FRAME_BUFQ_COUNT:
 	case SET_PARAM_TOTAL_FRAME_BUFQ_COUNT:
 		vcu_dec_set_param(&inst->vcu, (unsigned int)type, in, 1U);
 		break;
@@ -585,11 +662,11 @@ static int vdec_set_param(void *h_vdec,
 }
 
 static struct vdec_common_if vdec_if = {
-	.init = vdec_init,
-	.decode = vdec_decode,
-	.get_param = vdec_get_param,
-	.set_param = vdec_set_param,
-	.deinit = vdec_deinit,
+	vdec_init,
+	vdec_decode,
+	vdec_get_param,
+	vdec_set_param,
+	vdec_deinit,
 };
 
 struct vdec_common_if *get_dec_common_if(void)

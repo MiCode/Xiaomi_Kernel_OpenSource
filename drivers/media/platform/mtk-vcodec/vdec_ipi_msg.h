@@ -1,24 +1,16 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016 MediaTek Inc.
- * Author: PC Chen <pc.chen@mediatek.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2019 MediaTek Inc.
  */
 
 #ifndef _VDEC_IPI_MSG_H_
 #define _VDEC_IPI_MSG_H_
+#include "vcodec_ipi_msg.h"
 
 #define MTK_MAX_DEC_CODECS_SUPPORT       (128)
 #define DEC_MAX_FB_NUM              VIDEO_MAX_FRAME
 #define DEC_MAX_BS_NUM              VIDEO_MAX_FRAME
+
 /**
  * enum vdec_src_chg_type - decoder src change type
  * @VDEC_NO_CHANGE      : no change
@@ -39,37 +31,19 @@ enum vdec_src_chg_type {
 	VDEC_CROP_CHANGED           = (1 << 5),
 };
 
-/*
- * enum vdec_set_param_type -
- *                  The type of set parameter used in vdec_if_set_param()
- * (VCU related: If you change the order, you must also update the VCU codes.)
- * SET_PARAM_DECODE_MODE: set decoder mode
- * SET_PARAM_FRAME_SIZE: set container frame size
- * SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER: set fixed maximum buffer size
- * SET_PARAM_UFO_MODE: set UFO mode
- * SET_PARAM_CRC_PATH: set CRC path used for UT
- * SET_PARAM_GOLDEN_PATH: set Golden YUV path used for UT
- * SET_PARAM_FB_NUM_PLANES                      : frame buffer plane count
- */
-enum vdec_set_param_type {
-	SET_PARAM_DECODE_MODE,
-	SET_PARAM_FRAME_SIZE,
-	SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER,
-	SET_PARAM_UFO_MODE,
-	SET_PARAM_CRC_PATH,
-	SET_PARAM_GOLDEN_PATH,
-	SET_PARAM_FB_NUM_PLANES,
-	SET_PARAM_WAIT_KEY_FRAME,
-	SET_PARAM_NAL_SIZE_LENGTH,
-	SET_PARAM_OPERATING_RATE,
-	SET_PARAM_FREE_FRAME_BUFQ_COUNT,
-	SET_PARAM_TOTAL_FRAME_BUFQ_COUNT
+enum vdec_ipi_msg_status {
+	VDEC_IPI_MSG_STATUS_OK      = 0,
+	VDEC_IPI_MSG_STATUS_FAIL    = -1,
+	VDEC_IPI_MSG_STATUS_MAX_INST    = -2,
+	VDEC_IPI_MSG_STATUS_ILSEQ   = -3,
+	VDEC_IPI_MSG_STATUS_INVALID_ID  = -4,
+	VDEC_IPI_MSG_STATUS_DMA_FAIL    = -5,
 };
 
 /**
- * enum vdec_ipi_msgid - message id between AP and VPU
- * @AP_IPIMSG_XXX	: AP to VPU cmd message id
- * @VPU_IPIMSG_XXX_ACK	: VPU ack AP cmd message id
+ * enum vdec_ipi_msgid - message id between AP and VCU
+ * @AP_IPIMSG_XXX       : AP to VCU cmd message id
+ * @VCU_IPIMSG_XXX_ACK  : VCU ack AP cmd message id
  */
 enum vdec_ipi_msgid {
 	AP_IPIMSG_DEC_INIT = 0xA000,
@@ -80,18 +54,21 @@ enum vdec_ipi_msgid {
 	AP_IPIMSG_DEC_SET_PARAM = 0xA005,
 	AP_IPIMSG_DEC_QUERY_CAP = 0xA006,
 
-	VPU_IPIMSG_DEC_INIT_ACK = 0xB000,
-	VPU_IPIMSG_DEC_START_ACK = 0xB001,
-	VPU_IPIMSG_DEC_END_ACK = 0xB002,
-	VPU_IPIMSG_DEC_DEINIT_ACK = 0xB003,
-	VPU_IPIMSG_DEC_RESET_ACK = 0xB004,
-	VPU_IPIMSG_DEC_SET_PARAM_ACK = 0xB005,
-	VPU_IPIMSG_DEC_QUERY_CAP_ACK = 0xB006,
+	VCU_IPIMSG_DEC_INIT_ACK = 0xB000,
+	VCU_IPIMSG_DEC_START_ACK = 0xB001,
+	VCU_IPIMSG_DEC_END_ACK = 0xB002,
+	VCU_IPIMSG_DEC_DEINIT_ACK = 0xB003,
+	VCU_IPIMSG_DEC_RESET_ACK = 0xB004,
+	VCU_IPIMSG_DEC_SET_PARAM_ACK = 0xB005,
+	VCU_IPIMSG_DEC_QUERY_CAP_ACK = 0xB006,
 
-	VPU_IPIMSG_DEC_WAITISR = 0xC000,
-	VPU_IPIMSG_DEC_GET_FRAME_BUFFER = 0xC001,
-	VPU_IPIMSG_DEC_CLOCK_ON = 0xC002,
-	VPU_IPIMSG_DEC_CLOCK_OFF = 0xC003
+	VCU_IPIMSG_DEC_WAITISR = 0xC000,
+	VCU_IPIMSG_DEC_GET_FRAME_BUFFER = 0xC001,
+	VCU_IPIMSG_DEC_PUT_FRAME_BUFFER = 0xC002,
+	VCU_IPIMSG_DEC_LOCK_CORE = 0xC003,
+	VCU_IPIMSG_DEC_UNLOCK_CORE = 0xC004,
+	VCU_IPIMSG_DEC_LOCK_LAT = 0xC005,
+	VCU_IPIMSG_DEC_UNLOCK_LAT = 0xC006
 };
 
 /* For GET_PARAM_DISP_FRAME_BUFFER and GET_PARAM_FREE_FRAME_BUFFER,
@@ -125,84 +102,132 @@ enum vdec_get_param_type {
 	GET_PARAM_PLATFORM_SUPPORTED_FIX_BUFFERS,
 	GET_PARAM_PLATFORM_SUPPORTED_FIX_BUFFERS_SVP,
 	GET_PARAM_INTERLACING,
-	GET_PARAM_CODEC_TYPE
+	GET_PARAM_CODEC_TYPE,
+	GET_PARAM_INPUT_DRIVEN
 };
-/**
- * struct vdec_ap_ipi_cmd - generic AP to VPU ipi command format
- * @msg_id	: vdec_ipi_msgid
- * @vpu_inst_addr	: VPU decoder instance address
+
+/*
+ * enum vdec_set_param_type -
+ *                  The type of set parameter used in vdec_if_set_param()
+ * (VCU related: If you change the order, you must also update the VCU codes.)
+ * SET_PARAM_DECODE_MODE: set decoder mode
+ * SET_PARAM_FRAME_SIZE: set container frame size
+ * SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER: set fixed maximum buffer size
+ * SET_PARAM_UFO_MODE: set UFO mode
+ * SET_PARAM_CRC_PATH: set CRC path used for UT
+ * SET_PARAM_GOLDEN_PATH: set Golden YUV path used for UT
+ * SET_PARAM_FB_NUM_PLANES                      : frame buffer plane count
  */
-struct vdec_ap_ipi_cmd {
-	uint32_t msg_id;
-	uint32_t vpu_inst_addr;
+enum vdec_set_param_type {
+	SET_PARAM_DECODE_MODE,
+	SET_PARAM_FRAME_SIZE,
+	SET_PARAM_SET_FIXED_MAX_OUTPUT_BUFFER,
+	SET_PARAM_UFO_MODE,
+	SET_PARAM_CRC_PATH,
+	SET_PARAM_GOLDEN_PATH,
+	SET_PARAM_FB_NUM_PLANES,
+	SET_PARAM_WAIT_KEY_FRAME,
+	SET_PARAM_NAL_SIZE_LENGTH,
+	SET_PARAM_OPERATING_RATE,
+	SET_PARAM_TOTAL_FRAME_BUFQ_COUNT
 };
 
 /**
- * struct vdec_vpu_ipi_ack - generic VPU to AP ipi command format
- * @msg_id	: vdec_ipi_msgid
- * @status	: VPU exeuction result
- * @ap_inst_addr	: AP video decoder instance address
+ * struct vdec_ap_ipi_cmd - generic AP to VCU ipi command format
+ * @msg_id      : vdec_ipi_msgid
+ * @vcu_inst_addr       : VCU decoder instance address
  */
-struct vdec_vpu_ipi_ack {
-	uint32_t msg_id;
-	int32_t status;
-	uint64_t ap_inst_addr;
+struct vdec_ap_ipi_cmd {
+	__u32 msg_id;
+	__u32 vcu_inst_addr;
+};
+
+/**
+ * struct vdec_vcu_ipi_ack - generic VCU to AP ipi command format
+ * @msg_id      : vdec_ipi_msgid
+ * @status      : VCU exeuction result
+ * @ap_inst_addr        : AP video decoder instance address
+ */
+struct vdec_vcu_ipi_ack {
+	__u32 msg_id;
+	__s32 status;
+#ifndef CONFIG_64BIT
+	union {
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
+	};
+#else
+	__u64 ap_inst_addr;
+#endif
 };
 
 /**
  * struct vdec_ap_ipi_init - for AP_IPIMSG_DEC_INIT
- * @msg_id	: AP_IPIMSG_DEC_INIT
- * @reserved	: Reserved field
- * @ap_inst_addr	: AP video decoder instance address
+ * @msg_id      : AP_IPIMSG_DEC_INIT
+ * @reserved    : Reserved field
+ * @ap_inst_addr        : AP video decoder instance address
  */
 struct vdec_ap_ipi_init {
-	uint32_t msg_id;
-	uint32_t reserved;
-	uint64_t ap_inst_addr;
+	__u32 msg_id;
+	__u32 reserved;
+#ifndef CONFIG_64BIT
+	union {
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
+	};
+#else
+	__u64 ap_inst_addr;
+#endif
+};
+
+/**
+ * struct vdec_vcu_ipi_init_ack - for VCU_IPIMSG_DEC_INIT_ACK
+ * @msg_id        : VCU_IPIMSG_DEC_INIT_ACK
+ * @status        : VCU exeuction result
+ * @ap_inst_addr        : AP vcodec_vcu_inst instance address
+ * @vcu_inst_addr : VCU decoder instance address
+ */
+struct vdec_vcu_ipi_init_ack {
+	__u32 msg_id;
+	__s32 status;
+#ifndef CONFIG_64BIT
+	union {
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
+	};
+#else
+	__u64 ap_inst_addr;
+#endif
+	__u32 vcu_inst_addr;
 };
 
 /**
  * struct vdec_ap_ipi_dec_start - for AP_IPIMSG_DEC_START
- * @msg_id	: AP_IPIMSG_DEC_START
- * @vpu_inst_addr	: VPU decoder instance address
- * @data	: Header info
- *	H264 decoder [0]:buf_sz [1]:nal_start
- *	VP8 decoder  [0]:width/height
- *	VP9 decoder  [0]:profile, [1][2] width/height
- * @reserved	: Reserved field
+ * @msg_id      : AP_IPIMSG_DEC_START
+ * @vcu_inst_addr       : VCU decoder instance address
+ * @data        : Header info
+ * @reserved    : Reserved field
+ * @ack msg use vdec_vcu_ipi_ack
  */
 struct vdec_ap_ipi_dec_start {
-	uint32_t msg_id;
-	uint32_t vpu_inst_addr;
-	uint32_t data[3];
-	uint32_t reserved;
+	__u32 msg_id;
+	__u32 vcu_inst_addr;
+	__u32 data[3];
+	__u32 reserved;
 };
 
 /**
- * struct vdec_vpu_ipi_init_ack - for VPU_IPIMSG_DEC_INIT_ACK
- * @msg_id	: VPU_IPIMSG_DEC_INIT_ACK
- * @status	: VPU exeuction result
- * @ap_inst_addr	: AP vcodec_vpu_inst instance address
- * @vpu_inst_addr	: VPU decoder instance address
- */
-struct vdec_vpu_ipi_init_ack {
-	uint32_t msg_id;
-	int32_t status;
-	uint64_t ap_inst_addr;
-	uint32_t vpu_inst_addr;
-};
-/**
  * struct vdec_ap_ipi_set_param - for AP_IPIMSG_DEC_SET_PARAM
  * @msg_id        : AP_IPIMSG_DEC_SET_PARAM
- * @vpu_inst_addr : VPU decoder instance address
+ * @vcu_inst_addr : VCU decoder instance address
  * @id            : set param  type
  * @data          : param data
  */
 struct vdec_ap_ipi_set_param {
-	uint32_t msg_id;
-	uint32_t vpu_inst_addr;
-	uint32_t id;
-	uint32_t data[8];
+	__u32 msg_id;
+	__u32 vcu_inst_addr;
+	__u32 id;
+	__u32 data[8];
 };
 
 /**
@@ -212,64 +237,67 @@ struct vdec_ap_ipi_set_param {
  * @vdec_inst     : AP query data address
  */
 struct vdec_ap_ipi_query_cap {
-	uint32_t msg_id;
-	uint32_t id;
+	__u32 msg_id;
+	__u32 id;
 #ifndef CONFIG_64BIT
 	union {
-		uint64_t ap_inst_addr_64;
-		uint32_t ap_inst_addr;
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
 	};
 	union {
-		uint64_t ap_data_addr_64;
-		uint32_t ap_data_addr;
+		__u64 ap_data_addr_64;
+		__u32 ap_data_addr;
 	};
 #else
-	uint64_t ap_inst_addr;
-	uint64_t ap_data_addr;
+	__u64 ap_inst_addr;
+	__u64 ap_data_addr;
 #endif
 };
 
 /**
- * struct vdec_vpu_ipi_query_cap_ack - for VCU_IPIMSG_DEC_QUERY_CAP_ACK
- * @msg_id      : VPU_IPIMSG_DEC_QUERY_CAP_ACK
- * @status      : VPU exeuction result
+ * struct vdec_vcu_ipi_query_cap_ack - for VCU_IPIMSG_DEC_QUERY_CAP_ACK
+ * @msg_id      : VCU_IPIMSG_DEC_QUERY_CAP_ACK
+ * @status      : VCU exeuction result
  * @ap_data_addr   : AP query data address
- * @vpu_data_addr  : VCU query data address
+ * @vcu_data_addr  : VCU query data address
  */
-struct vdec_vpu_ipi_query_cap_ack {
-	uint32_t msg_id;
-	int32_t status;
+struct vdec_vcu_ipi_query_cap_ack {
+	__u32 msg_id;
+	__s32 status;
 #ifndef CONFIG_64BIT
 	union {
-		uint64_t ap_inst_addr_64;
-		uint32_t ap_inst_addr;
+		__u64 ap_inst_addr_64;
+		__u32 ap_inst_addr;
 	};
-	uint32_t id;
+	__u32 id;
 	union {
-		uint64_t ap_data_addr_64;
-		uint32_t ap_data_addr;
+		__u64 ap_data_addr_64;
+		__u32 ap_data_addr;
 	};
 #else
-	uint64_t ap_inst_addr;
-	uint32_t id;
-	uint64_t ap_data_addr;
+	__u64 ap_inst_addr;
+	__u32 id;
+	__u64 ap_data_addr;
 #endif
-	uint32_t vpu_data_addr;
+	__u32 vcu_data_addr;
 };
+
 /*
  * struct vdec_ipi_fb - decoder frame buffer information
  * @vdec_fb_va  : virtual address of struct vdec_fb
  * @y_fb_dma    : dma address of Y frame buffer
  * @c_fb_dma    : dma address of C frame buffer
  * @poc         : picture order count of frame buffer
+ * @timestamp : timestamp of frame buffer
  * @reserved    : for 8 bytes alignment
  */
 struct vdec_ipi_fb {
-	uint64_t vdec_fb_va;
-	uint64_t y_fb_dma;
-	uint64_t c_fb_dma;
-	int32_t poc;
-	uint32_t reserved;
+	__u64 vdec_fb_va;
+	__u64 y_fb_dma;
+	__u64 c_fb_dma;
+	__s32 poc;
+	__u64 timestamp;
+	__u32 reserved;
 };
 
 /**
@@ -277,14 +305,14 @@ struct vdec_ipi_fb {
  * @vdec_bs_va_list   : bitstream buffer arrary
  * @read_idx  : read index
  * @write_idx : write index
- * @count	  : buffer count in list
+ * @count     : buffer count in list
  */
 struct ring_bs_list {
-	uint64_t vdec_bs_va_list[DEC_MAX_BS_NUM];
-	int32_t read_idx;
-	int32_t write_idx;
-	int32_t count;
-	int32_t reserved;
+	__u64 vdec_bs_va_list[DEC_MAX_BS_NUM];
+	__s32 read_idx;
+	__s32 write_idx;
+	__s32 count;
+	__s32 reserved;
 };
 
 /**
@@ -296,61 +324,17 @@ struct ring_bs_list {
  */
 struct ring_fb_list {
 	struct vdec_ipi_fb fb_list[DEC_MAX_FB_NUM];
-	int32_t read_idx;
-	int32_t write_idx;
-	int32_t count;
-	int32_t reserved;
-};
-/**
- * struct vdec_dec_info - decode information
- * @dpb_sz		: decoding picture buffer size
- * @vdec_changed_info  : some changed flags
- * @bs_dma		: Input bit-stream buffer dma address
- * @bs_fd               : Input bit-stream buffer dmabuf fd
- * @fb_dma		: Y frame buffer dma address
- * @fb_fd             : Y frame buffer dmabuf fd
- * @vdec_bs_va		: VDEC bitstream buffer struct virtual address
- * @vdec_fb_va		: VDEC frame buffer struct virtual address
- * @fb_num_planes	: frame buffer plane count
- * @reserved		: reserved variable for 64bit align
- */
-struct vdec_dec_info {
-	__u32 dpb_sz;
-	__u32 vdec_changed_info;
-	__u64 bs_dma;
-	__u64 bs_fd;
-	__u64 fb_dma[VIDEO_MAX_PLANES];
-	__u64 fb_fd[VIDEO_MAX_PLANES];
-	__u64 vdec_bs_va;
-	__u64 vdec_fb_va;
-	__u32 fb_num_planes;
-	__u32 index;
-	__u32 wait_key_frame;
-	__u32 error_map;
-	__u32 timestamp;
-	__u32 queued_frame_buf_count;
+	__s32 read_idx;
+	__s32 write_idx;
+	__s32 count;
+	__s32 reserved;
 };
 
-struct mtk_color_desc {
-	__u32	full_range;
-	__u32	color_primaries;
-	__u32	transform_character;
-	__u32	matrix_coeffs;
-	__u32	display_primaries_x[3];
-	__u32	display_primaries_y[3];
-	__u32	white_point_x;
-	__u32	white_point_y;
-	__u32	max_display_mastering_luminance;
-	__u32	min_display_mastering_luminance;
-	__u32	max_content_light_level;
-	__u32	max_pic_light_level;
-	__u32	is_hdr;
-};
 /**
  * struct vdec_vsi - shared memory for decode information exchange
  *                        between VCU and Host.
  *                        The memory is allocated by VCU and mapping to Host
- *                        in vpu_dec_init()
+ *                        in vcu_dec_init()
  * @ppl_buf_dma : HW working buffer ppl dma address
  * @mv_buf_dma  : HW working buffer mv dma address
  * @list_free   : free frame buffer ring list
@@ -371,12 +355,17 @@ struct vdec_vsi {
 	struct v4l2_rect crop;
 	struct mtk_video_fmt video_formats[MTK_MAX_DEC_CODECS_SUPPORT];
 	struct mtk_codec_framesizes vdec_framesizes[MTK_MAX_DEC_CODECS_SUPPORT];
-	uint32_t aspect_ratio;
-	uint32_t fix_buffers;
-	uint32_t fix_buffers_svp;
-	uint32_t interlacing;
-	uint32_t codec_type;
-	uint8_t crc_path[256];
-	uint8_t golden_path[256];
+	__u32 aspect_ratio;
+	__u32 fix_buffers;
+	__u32 fix_buffers_svp;
+	__u32 interlacing;
+	__u32 codec_type;
+	__u8 crc_path[256];
+	__u8 golden_path[256];
+	__u8 input_driven;
+	__s32 general_buf_fd;
+	__u64 general_buf_dma;
+	__u32 general_buf_size;
 };
+
 #endif
