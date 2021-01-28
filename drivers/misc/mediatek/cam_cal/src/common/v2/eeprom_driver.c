@@ -241,10 +241,10 @@ static long eeprom_ioctl(struct file *a_file, unsigned int a_cmd,
 	if (_IOC_DIR(a_cmd) == _IOC_NONE)
 		return -EFAULT;
 
-	pBuff = kzalloc(_IOC_SIZE(a_cmd), GFP_KERNEL);
+	pBuff = kmalloc(_IOC_SIZE(a_cmd), GFP_KERNEL);
 	if (pBuff == NULL)
 		return -ENOMEM;
-	((struct CAM_CAL_SENSOR_INFO *)pBuff)->sensor_id = 0;
+	memset(pBuff, 0, _IOC_SIZE(a_cmd));
 
 	if ((_IOC_WRITE & _IOC_DIR(a_cmd)) &&
 	    copy_from_user(pBuff,
