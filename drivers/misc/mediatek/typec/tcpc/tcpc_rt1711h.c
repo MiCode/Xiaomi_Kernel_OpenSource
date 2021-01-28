@@ -49,7 +49,7 @@ struct rt1711_chip {
 	struct kthread_worker irq_worker;
 	struct kthread_work irq_work;
 	struct task_struct *irq_worker_task;
-	struct wakeup_source irq_wake_lock;
+	struct wakeup_source *irq_wake_lock;
 
 	atomic_t poll_count;
 	struct delayed_work	poll_work;
@@ -520,7 +520,7 @@ static irqreturn_t rt1711_intr_handler(int irq, void *data)
 {
 	struct rt1711_chip *chip = data;
 
-	__pm_wakeup_event(&chip->irq_wake_lock, RT1711H_IRQ_WAKE_TIME);
+	__pm_wakeup_event(chip->irq_wake_lock, RT1711H_IRQ_WAKE_TIME);
 
 #ifdef DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 0);
@@ -1497,8 +1497,8 @@ static int rt1711_i2c_probe(struct i2c_client *client,
 	sema_init(&chip->suspend_lock, 1);
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, rt1711_poll_work);
-	wake_lock_init(&chip->irq_wake_lock, WAKE_LOCK_SUSPEND,
-		"rt1711h_irq_wakelock");
+	chip->irq_wake_lock =
+		wakeup_source_register("rt1711h_irq_wakelock");
 
 	chip->chip_id = chip_id;
 	pr_info("rt1711h_chipID = 0x%0x\n", chip_id);

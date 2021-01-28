@@ -1166,7 +1166,7 @@ int pd_send_hard_reset(struct pd_port *pd_port)
 	struct tcpc_device *tcpc_dev = pd_port->tcpc_dev;
 
 	PE_DBG("Send HARD Reset\r\n");
-	__pm_wakeup_event(&tcpc_dev->attach_wake_lock, 6000);
+	__pm_wakeup_event(tcpc_dev->attach_wake_lock, 6000);
 
 	pd_port->pe_data.hard_reset_counter++;
 	pd_notify_pe_send_hard_reset(pd_port);

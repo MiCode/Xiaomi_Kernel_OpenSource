@@ -293,8 +293,8 @@ struct tcpc_device {
 	struct device dev;
 	bool wake_lock_user;
 	uint8_t wake_lock_pd;
-	struct wakeup_source attach_wake_lock;
-	struct wakeup_source dettach_temp_wake_lock;
+	struct wakeup_source *attach_wake_lock;
+	struct wakeup_source *dettach_temp_wake_lock;
 
 	/* For tcpc timer & event */
 	uint32_t timer_handle_index;
@@ -302,7 +302,7 @@ struct tcpc_device {
 
 	struct alarm wake_up_timer;
 	struct delayed_work wake_up_work;
-	struct wakeup_source wakeup_wake_lock;
+	struct wakeup_source *wakeup_wake_lock;
 
 	ktime_t last_expire[PD_TIMER_NR];
 	struct mutex access_lock;

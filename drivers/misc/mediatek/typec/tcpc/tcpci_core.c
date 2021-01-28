@@ -396,10 +396,10 @@ struct tcpc_device *tcpc_device_register(struct device *parent,
 	/* If system support "WAKE_LOCK_IDLE",
 	 * please use it instead of "WAKE_LOCK_SUSPEND"
 	 */
-	wakeup_source_init(&tcpc->attach_wake_lock,
-		"tcpc_attach_wakelock");
-	wakeup_source_init(&tcpc->dettach_temp_wake_lock,
-		"tcpc_detach_wakelock");
+	tcpc->attach_wake_lock =
+		wakeup_source_register("tcpc_attach_wakelock");
+	tcpc->dettach_temp_wake_lock =
+		wakeup_source_register("tcpc_detach_wakelock");
 
 	tcpci_timer_init(tcpc);
 #ifdef CONFIG_USB_POWER_DELIVERY
@@ -773,10 +773,10 @@ void tcpc_device_unregister(struct device *dev, struct tcpc_device *tcpc)
 	tcpc_typec_deinit(tcpc);
 
 #ifdef CONFIG_USB_POWER_DELIVERY
-	wakeup_source_trash(&tcpc->pd_port.pps_request_wake_lock);
+	wakeup_source_trash(tcpc->pd_port.pps_request_wake_lock);
 #endif /* CONFIG_USB_POWER_DELIVERY */
-	wakeup_source_trash(&tcpc->dettach_temp_wake_lock);
-	wakeup_source_trash(&tcpc->attach_wake_lock);
+	wakeup_source_trash(tcpc->dettach_temp_wake_lock);
+	wakeup_source_trash(tcpc->attach_wake_lock);
 
 #ifdef CONFIG_DUAL_ROLE_USB_INTF
 	devm_dual_role_instance_unregister(&tcpc->dev, tcpc->dr_usb);

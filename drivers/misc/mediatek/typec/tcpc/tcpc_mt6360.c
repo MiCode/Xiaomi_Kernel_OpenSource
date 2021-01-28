@@ -65,8 +65,8 @@ struct mt6360_chip {
 	struct kthread_worker irq_worker;
 	struct kthread_work irq_work;
 	struct task_struct *irq_worker_task;
-	struct wakeup_source irq_wake_lock;
-	struct wakeup_source i2c_wake_lock;
+	struct wakeup_source *irq_wake_lock;
+	struct wakeup_source *i2c_wake_lock;
 
 	atomic_t poll_count;
 	struct delayed_work poll_work;
@@ -312,7 +312,7 @@ static int mt6360_read_device(void *client, u32 reg, int len, void *dst)
 	struct mt6360_chip *chip = i2c_get_clientdata(i2c);
 	int ret, count = MT6360_I2C_RETRY_CNT;
 
-	__pm_stay_awake(&chip->i2c_wake_lock);
+	__pm_stay_awake(chip->i2c_wake_lock);
 	down(&chip->suspend_lock);
 	while (count) {
 		if (len > 1) {
@@ -334,7 +334,7 @@ static int mt6360_read_device(void *client, u32 reg, int len, void *dst)
 	}
 out:
 	up(&chip->suspend_lock);
-	__pm_relax(&chip->i2c_wake_lock);
+	__pm_relax(chip->i2c_wake_lock);
 	return ret;
 }
 
@@ -345,7 +345,7 @@ static int mt6360_write_device(void *client, u32 reg, int len, const void *src)
 	struct mt6360_chip *chip = i2c_get_clientdata(i2c);
 	int ret, count = MT6360_I2C_RETRY_CNT;
 
-	__pm_stay_awake(&chip->i2c_wake_lock);
+	__pm_stay_awake(chip->i2c_wake_lock);
 	down(&chip->suspend_lock);
 	while (count) {
 		if (len > 1) {
@@ -367,7 +367,7 @@ static int mt6360_write_device(void *client, u32 reg, int len, const void *src)
 	}
 out:
 	up(&chip->suspend_lock);
-	__pm_relax(&chip->i2c_wake_lock);
+	__pm_relax(chip->i2c_wake_lock);
 	return ret;
 }
 
@@ -761,7 +761,7 @@ static irqreturn_t mt6360_intr_handler(int irq, void *data)
 {
 	struct mt6360_chip *chip = data;
 
-	__pm_wakeup_event(&chip->irq_wake_lock, MT6360_IRQ_WAKE_TIME);
+	__pm_wakeup_event(chip->irq_wake_lock, MT6360_IRQ_WAKE_TIME);
 
 #ifdef DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 0);
@@ -2516,8 +2516,10 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	sema_init(&chip->suspend_lock, 1);
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, mt6360_poll_work);
-	wakeup_source_init(&chip->irq_wake_lock, "mt6360_irq_wakelock");
-	wakeup_source_init(&chip->i2c_wake_lock, "mt6370_i2c_wakelock");
+	chip->irq_wake_lock =
+		wakeup_source_register("mt6360_irq_wakelock");
+	chip->i2c_wake_lock =
+		wakeup_source_register("mt6360_i2c_wakelock");
 
 #ifdef CONFIG_WATER_DETECTION
 	wakeup_source_init(&chip->wd_wakeup_src, "mt6360_wd_wakeup_src");

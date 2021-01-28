@@ -51,8 +51,8 @@ struct mt6370_chip {
 	struct kthread_worker irq_worker;
 	struct kthread_work irq_work;
 	struct task_struct *irq_worker_task;
-	struct wakeup_source irq_wake_lock;
-	struct wakeup_source i2c_wake_lock;
+	struct wakeup_source *irq_wake_lock;
+	struct wakeup_source *i2c_wake_lock;
 
 	atomic_t poll_count;
 	struct delayed_work	poll_work;
@@ -168,7 +168,7 @@ static int mt6370_read_device(void *client, u32 reg, int len, void *dst)
 	struct mt6370_chip *chip = i2c_get_clientdata(i2c);
 	int ret = 0, count = 5;
 
-	__pm_stay_awake(&chip->i2c_wake_lock);
+	__pm_stay_awake(chip->i2c_wake_lock);
 	down(&chip->suspend_lock);
 	while (count) {
 		if (len > 1) {
@@ -190,7 +190,7 @@ static int mt6370_read_device(void *client, u32 reg, int len, void *dst)
 	}
 out:
 	up(&chip->suspend_lock);
-	__pm_relax(&chip->i2c_wake_lock);
+	__pm_relax(chip->i2c_wake_lock);
 	return ret;
 }
 
@@ -201,7 +201,7 @@ static int mt6370_write_device(void *client, u32 reg, int len, const void *src)
 	struct mt6370_chip *chip = i2c_get_clientdata(i2c);
 	int ret = 0, count = 5;
 
-	__pm_stay_awake(&chip->i2c_wake_lock);
+	__pm_stay_awake(chip->i2c_wake_lock);
 	down(&chip->suspend_lock);
 	while (count) {
 		if (len > 1) {
@@ -223,7 +223,7 @@ static int mt6370_write_device(void *client, u32 reg, int len, const void *src)
 	}
 out:
 	up(&chip->suspend_lock);
-	__pm_relax(&chip->i2c_wake_lock);
+	__pm_relax(chip->i2c_wake_lock);
 	return ret;
 }
 
@@ -533,7 +533,7 @@ static irqreturn_t mt6370_intr_handler(int irq, void *data)
 {
 	struct mt6370_chip *chip = data;
 
-	__pm_wakeup_event(&chip->irq_wake_lock, MT6370_IRQ_WAKE_TIME);
+	__pm_wakeup_event(chip->irq_wake_lock, MT6370_IRQ_WAKE_TIME);
 
 #ifdef DEBUG_GPIO
 	gpio_set_value(DEBUG_GPIO, 0);
@@ -1575,10 +1575,10 @@ static int mt6370_i2c_probe(struct i2c_client *client,
 	sema_init(&chip->suspend_lock, 1);
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, mt6370_poll_work);
-	wakeup_source_init(&chip->irq_wake_lock,
-		"mt6370_irq_wakelock");
-	wakeup_source_init(&chip->i2c_wake_lock,
-		"mt6370_i2c_wakelock");
+	chip->irq_wake_lock =
+		wakeup_source_register("mt6370_irq_wakelock");
+	chip->i2c_wake_lock =
+		wakeup_source_register("mt6370_i2c_wakelock");
 
 	chip->chip_id = chip_id;
 	pr_info("mt6370_chipID = 0x%0x\n", chip_id);
@@ -1609,8 +1609,8 @@ err_irq_init:
 	tcpc_device_unregister(chip->dev, chip->tcpc);
 err_tcpc_reg:
 	mt6370_regmap_deinit(chip);
-	wakeup_source_trash(&chip->i2c_wake_lock);
-	wakeup_source_trash(&chip->irq_wake_lock);
+	wakeup_source_trash(chip->i2c_wake_lock);
+	wakeup_source_trash(chip->irq_wake_lock);
 	return ret;
 }
 

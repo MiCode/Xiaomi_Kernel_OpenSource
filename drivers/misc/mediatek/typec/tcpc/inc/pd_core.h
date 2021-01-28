@@ -870,7 +870,7 @@ struct pd_port {
 	wait_queue_head_t pps_request_event_queue;
 	atomic_t pps_request_event;
 	struct task_struct *pps_request_task;
-	struct wakeup_source pps_request_wake_lock;
+	struct wakeup_source *pps_request_wake_lock;
 	bool pps_request_stop;
 #ifdef CONFIG_USB_PD_REV30_SYNC_SPEC_REV
 	uint8_t pd_revision[2];
