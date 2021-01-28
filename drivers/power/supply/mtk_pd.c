@@ -1071,6 +1071,11 @@ static int pd_plugout_reset(struct chg_alg_device *alg)
 			pd_hal_charger_enable_chip(alg,
 			CHG2, false);
 		}
+		pd->pd_cap_max_watt = -1;
+		pd->pd_idx = -1;
+		pd->pd_reset_idx = -1;
+		pd->pd_boost_idx = 0;
+		pd->pd_buck_idx = 0;
 		break;
 	default:
 		pd_err("PD unknown state:%d\n", pd->state);
