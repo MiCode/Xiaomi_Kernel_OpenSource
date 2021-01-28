@@ -132,6 +132,8 @@ int mmc_cmdq_wait_for_dcmd(struct mmc_host *host,
 int mmc_cmdq_erase(struct mmc_cmdq_req *cmdq_req,
 	      struct mmc_card *card, unsigned int from, unsigned int nr,
 	      unsigned int arg);
+void mmc_cmdq_up_rwsem(struct mmc_host *host);
+int mmc_cmdq_down_rwsem(struct mmc_host *host, struct request *rq);
 #endif
 
 struct mmc_async_req *mmc_start_areq(struct mmc_host *host,
