@@ -623,10 +623,7 @@ static int save_trace(struct stackframe *frame, void *d)
 	 * not the saved PC value.  So, we need to track the previous
 	 * frame PC value when doing this.
 	 */
-	addr = data->last_pc;
 	data->last_pc = frame->pc;
-	if (!in_exception_text(addr))
-		return 0;
 
 	regs = (struct pt_regs *)frame->sp;
 
