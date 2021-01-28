@@ -133,7 +133,7 @@ struct dpmaifq_normal_pit {
 /* buffer_type */
 #define PKT_BUF_FRAG    0x1
 
-#if 0
+#if MD_GENERATION < 6297
 struct dpmaifq_msg_pit {
 	unsigned int    packet_type:1;
 	unsigned int    c_bit:1;
