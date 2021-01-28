@@ -35,13 +35,9 @@
 #include "private/tmem_utils.h"
 #include "private/tmem_proc.h"
 #include "private/tmem_cfg.h"
-#include "private/ut_entry.h"
-#include "private/ut_macros.h"
-#include "private/ut_common.h"
-
-#include "private/ut_tests.h"
+#include "private/tmem_entry.h"
 #include "private/ut_cmd.h"
-DEFINE_UT_SUPPORT(common);
+#include "tests/ut_common.h"
 
 static enum UT_RET_STATE regmgr_state_check(int mem_idx, int region_final_state)
 {
@@ -497,7 +493,7 @@ mem_regmgr_region_online_count_test(enum TRUSTED_MEM_TYPE mem_type,
 		tmem_core_get_regmgr_region_online_cnt(mem_type);
 	regmgr_reg_on_cnt_diff =
 		regmgr_reg_on_cnt_end - regmgr_reg_on_cnt_start;
-	ASSERT_EQ64(4ULL, regmgr_reg_on_cnt_diff, "region online cnt");
+	ASSERT_EQ(4, (u32)regmgr_reg_on_cnt_diff, "region online cnt");
 	ASSERT_FALSE(tmem_core_is_regmgr_region_on(mem_type),
 		     "regmgr reg state check");
 
@@ -513,7 +509,7 @@ mem_regmgr_region_online_count_test(enum TRUSTED_MEM_TYPE mem_type,
 		tmem_core_get_regmgr_region_online_cnt(mem_type);
 	regmgr_reg_on_cnt_diff =
 		regmgr_reg_on_cnt_end - regmgr_reg_on_cnt_start;
-	ASSERT_EQ64(1ULL, regmgr_reg_on_cnt_diff, "region online cnt");
+	ASSERT_EQ(1, (u32)regmgr_reg_on_cnt_diff, "region online cnt");
 	ASSERT_TRUE(tmem_core_is_regmgr_region_on(mem_type),
 		    "regmgr reg state check");
 
@@ -786,16 +782,3 @@ enum UT_RET_STATE mem_mtee_mchunks_alloc_multithread_test(void)
 	return UT_STATE_PASS;
 }
 #endif
-
-enum UT_RET_STATE ut_dummy(void)
-{
-	BEGIN_UT_TEST;
-	UNUSED(ut_status_dump);
-	UNUSED(ut_status_reset);
-	UNUSED(ut_get_spend_msec);
-	UNUSED(ut_get_spend_sec);
-	UNUSED(ut_get_fail_cnt);
-	UNUSED(ut_get_pass_cnt);
-	UNUSED(ut_is_halt);
-	END_UT_TEST;
-}
