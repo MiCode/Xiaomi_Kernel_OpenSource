@@ -648,7 +648,7 @@
 	keypad: kp@10010000 {
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
-		interrupts = <GIC_SPI 124 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <GIC_SPI 180 IRQ_TYPE_EDGE_FALLING>;
 		clocks = <&clk26m>;
 		clock-names = "kpd";
 	};
