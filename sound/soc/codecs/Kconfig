@@ -1301,6 +1301,14 @@ config SND_SOC_MT6359
 	  three DAC for downlink path(handset,
 	  headset, lineout).
 
+config SND_SOC_MT6357_ACCDET
+	tristate "MediaTek MT6357 ACCDET driver"
+	default m
+	help
+	  ACCDET means Accessory Detection technology, MediaTek develop it
+	  for ASoC codec soc-jack detection mechanism.
+	  Select N if you don't have jack on board.
+
 config SND_SOC_MT6359_ACCDET
 	tristate "MediaTek MT6359 ACCDET driver"
 	default m
