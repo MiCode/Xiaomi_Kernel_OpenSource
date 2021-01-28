@@ -38,9 +38,13 @@ obj-$(CONFIG_MTK_AEE_FEATURE) += aee/
 obj-$(CONFIG_MTK_CLK_BUFFER) += clkbuf/
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += qos/
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr/
-ifneq ($(CONFIG_MACH_MT6761), y)
+ifneq ($(CONFIG_MTK_BASE_POWER), y)
 obj-$(CONFIG_MTK_PPM) += ppm_v3/
 endif
+ifneq (y, $(filter y, $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6779)))
+obj-$(CONFIG_MTK_PPM) += ppm_v3/
+endif
+
 obj-$(CONFIG_MTK_SRCLKEN_RC) += srclken_rc/
 obj-$(CONFIG_MTK_COMBO) += connectivity/
 obj-$(CONFIG_MTK_BTIF) += btif/
@@ -62,10 +66,16 @@ obj-$(CONFIG_MTK_POWER_THROTTLING_COMMON) += power_throttling/
 obj-$(CONFIG_MTK_LEGACY_THERMAL) += thermal/
 obj-$(CONFIG_MTK_PLAT_SRAM_FLAG) += debug_latch/
 obj-$(CONFIG_MEDIATEK_CACHE_API) += cache/
-ifneq ($(CONFIG_MACH_MT6761), y)
+
+ifneq ($(CONFIG_MTK_BASE_POWER), y)
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 endif
+ifneq (y, $(filter y, $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6779)))
+obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
+obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
+endif
+
 obj-$(CONFIG_PRINTK_MTK) += mtprintk/
 obj-$(CONFIG_MTK_LEDS) += leds/
 obj-$(CONFIG_MT6360_DBG) += subpmic/
