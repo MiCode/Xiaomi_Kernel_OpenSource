@@ -73,14 +73,14 @@ enum slbc_flag {
 #define SLBC_TRY_FLAG_BIT(d, bit) (((d)->flag & (bit)) == (bit))
 
 struct slbc_data {
-	int uid;
+	unsigned int uid;
 	int type;
 	ssize_t size;
 	int flag;
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
-	int sid;
+	unsigned int sid;
 	int slot_used;
 	void *config;
 	int ref;

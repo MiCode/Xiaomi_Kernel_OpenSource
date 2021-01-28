@@ -140,11 +140,14 @@ static void slbc_debug_log(const char *fmt, ...)
 #ifdef SLBC_DEBUG
 	static char buf[1024];
 	va_list va;
+	int len;
 
 	va_start(va, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, va);
+	len = vsnprintf(buf, sizeof(buf), fmt, va);
 	va_end(va);
-	pr_info("#@# %s\n", buf);
+
+	if (len)
+		pr_info("#@# %s\n", buf);
 #endif /* SLBC_DEBUG */
 }
 
@@ -166,8 +169,8 @@ static int get_slbc_sid_by_uid(enum slbc_uid uid)
  */
 int register_slbc_ops(struct slbc_ops *ops)
 {
-	int uid;
-	int sid;
+	unsigned int uid;
+	unsigned int sid;
 	struct slbc_data *d;
 
 #ifdef CONFIG_MTK_SLBC_MMSRAM
@@ -220,7 +223,7 @@ EXPORT_SYMBOL_GPL(register_slbc_ops);
  */
 int unregister_slbc_ops(struct slbc_ops *ops)
 {
-	int uid;
+	unsigned int uid;
 	struct slbc_data *d;
 
 	if (ops && ops->data) {
@@ -262,7 +265,7 @@ static void slbc_deactivate_timer_fn(unsigned long data)
 
 	list_for_each_entry(ops, &slbc_ops_list, node) {
 		struct slbc_data *d = ops->data;
-		int uid = d->uid;
+		unsigned int uid = d->uid;
 
 		if (test_bit(uid, &slbc_release_status)) {
 #ifdef SLBC_TRACE
@@ -299,7 +302,7 @@ static void slbc_deactivate_timer_fn(unsigned long data)
 int slbc_activate(struct slbc_data *d)
 {
 	struct slbc_ops *ops;
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 	int ret;
 
 	if (slbc_enable == 0)
@@ -353,10 +356,13 @@ EXPORT_SYMBOL_GPL(slbc_activate);
 int slbc_deactivate(struct slbc_data *d)
 {
 	struct slbc_ops *ops;
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
+
+	if (d->uid <= 0)
+		return -EINVAL;
 
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
@@ -405,7 +411,7 @@ static struct slbc_data *slbc_find_next_low_used(struct slbc_data *d_old)
 	list_for_each_entry(ops, &slbc_ops_list, node) {
 		struct slbc_data *d = ops->data;
 		struct slbc_config *config = d->config;
-		int uid = d->uid;
+		unsigned int uid = d->uid;
 		unsigned int p = config->priority;
 
 		if (test_bit(uid, &slbc_status) && (p > p_old) &&
@@ -442,7 +448,7 @@ static struct slbc_data *slbc_find_next_high_req(struct slbc_data *d_old)
 		struct slbc_data *d = ops->data;
 		struct slbc_config *config = d->config;
 		unsigned int res = config->res_slot;
-		int uid = d->uid;
+		unsigned int uid = d->uid;
 		unsigned int p = config->priority;
 
 		if (test_bit(uid, &slbc_req_status) && (p <= p_old) &&
@@ -468,7 +474,7 @@ static struct slbc_data *slbc_find_next_high_req(struct slbc_data *d_old)
 static int slbc_activate_thread(void *arg)
 {
 	struct slbc_data *d = arg;
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
@@ -485,7 +491,7 @@ static int slbc_activate_thread(void *arg)
 static int slbc_deactivate_thread(void *arg)
 {
 	struct slbc_data *d = arg;
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 	struct slbc_data *d_used;
 
 #ifdef SLBC_TRACE
@@ -507,7 +513,7 @@ static void check_slot_by_data(struct slbc_data *d)
 {
 	struct slbc_config *config = d->config;
 	unsigned int res = config->res_slot;
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
@@ -521,7 +527,7 @@ static void check_slot_by_data(struct slbc_data *d)
 
 static int find_slbc_slot_by_data(struct slbc_data *d)
 {
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 
 #ifdef SLBC_TRACE
 	trace_slbc_api((void *)__func__, slbc_uid_str[uid]);
@@ -550,8 +556,8 @@ static void clr_slbc_slot_by_data(struct slbc_data *d)
 int slbc_request(struct slbc_data *d)
 {
 	int ret = 0;
-	int uid;
-	int sid;
+	unsigned int uid;
+	unsigned int sid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -559,7 +565,7 @@ int slbc_request(struct slbc_data *d)
 	if (d == 0)
 		return -EINVAL;
 
-	if (d->uid == 0)
+	if (d->uid <= 0)
 		return -EINVAL;
 
 	uid = d->uid;
@@ -697,7 +703,7 @@ EXPORT_SYMBOL_GPL(slbc_request);
 
 static void slbc_debug_dump_data(struct slbc_data *d)
 {
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 
 	pr_info("\nID %s", slbc_uid_str[uid]);
 
@@ -754,8 +760,8 @@ int slbc_release(struct slbc_data *d)
 #ifdef SLBC_THREAD
 	struct slbc_data *d_req;
 #endif /* SLBC_THREAD */
-	int uid;
-	int sid;
+	unsigned int uid;
+	unsigned int sid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -763,7 +769,7 @@ int slbc_release(struct slbc_data *d)
 	if (d == 0)
 		return -EINVAL;
 
-	if (d->uid == 0)
+	if (d->uid <= 0)
 		return -EINVAL;
 
 	uid = d->uid;
@@ -891,7 +897,7 @@ EXPORT_SYMBOL_GPL(slbc_release);
 
 int slbc_power_on(struct slbc_data *d)
 {
-	int uid;
+	unsigned int uid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -899,7 +905,7 @@ int slbc_power_on(struct slbc_data *d)
 	if (d == 0)
 		return -EINVAL;
 
-	if (d->uid == 0)
+	if (d->uid <= 0)
 		return -EINVAL;
 
 	uid = d->uid;
@@ -925,7 +931,7 @@ EXPORT_SYMBOL_GPL(slbc_power_on);
 
 int slbc_power_off(struct slbc_data *d)
 {
-	int uid;
+	unsigned int uid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -933,7 +939,7 @@ int slbc_power_off(struct slbc_data *d)
 	if (d == 0)
 		return -EINVAL;
 
-	if (d->uid == 0)
+	if (d->uid <= 0)
 		return -EINVAL;
 
 	uid = d->uid;
@@ -959,7 +965,7 @@ EXPORT_SYMBOL_GPL(slbc_power_off);
 
 int slbc_secure_on(struct slbc_data *d)
 {
-	int uid;
+	unsigned int uid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -967,7 +973,7 @@ int slbc_secure_on(struct slbc_data *d)
 	if (d == 0)
 		return -EINVAL;
 
-	if (d->uid == 0)
+	if (d->uid <= 0)
 		return -EINVAL;
 
 	uid = d->uid;
@@ -990,7 +996,7 @@ EXPORT_SYMBOL_GPL(slbc_secure_on);
 
 int slbc_secure_off(struct slbc_data *d)
 {
-	int uid;
+	unsigned int uid;
 
 	if (slbc_enable == 0)
 		return -EDISABLED;
@@ -998,7 +1004,7 @@ int slbc_secure_off(struct slbc_data *d)
 	if (d == 0)
 		return -EINVAL;
 
-	if (d->uid == 0)
+	if (d->uid <= 0)
 		return -EINVAL;
 
 	uid = d->uid;
@@ -1021,7 +1027,7 @@ EXPORT_SYMBOL_GPL(slbc_secure_off);
 
 static void slbc_dump_data(struct seq_file *m, struct slbc_data *d)
 {
-	int uid = d->uid;
+	unsigned int uid = d->uid;
 
 	seq_printf(m, "\nID %s", slbc_uid_str[uid]);
 
@@ -1110,7 +1116,7 @@ static ssize_t dbg_slbc_proc_write(struct file *file,
 			mutex_lock(&slbc_ops_lock);
 			list_for_each_entry(ops, &slbc_ops_list, node) {
 				struct slbc_data *d = ops->data;
-				int uid = d->uid;
+				unsigned int uid = d->uid;
 
 				if (test_bit(uid, &slbc_status))
 					ops->deactivate(d);
