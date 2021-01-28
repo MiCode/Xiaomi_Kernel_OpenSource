@@ -1178,20 +1178,12 @@ int apusys_sched_del_cmd(struct apusys_cmd *cmd)
 
 int apusys_sched_wait_cmd(struct apusys_cmd *cmd)
 {
-	int ret = 0, state = -1;
+	int ret = 0;
 	int retry = 140, retry_time = 50;
 	unsigned long timeout = usecs_to_jiffies(APUSYS_PARAM_WAIT_TIMEOUT);
 
 	if (cmd == NULL)
 		return -EINVAL;
-
-	/* wait all subcmd completed */
-	mutex_lock(&cmd->mtx);
-	state = cmd->state;
-	mutex_unlock(&cmd->mtx);
-
-	if (state == CMD_STATE_DONE)
-		return ret;
 
 	sched_ws_lock();
 
