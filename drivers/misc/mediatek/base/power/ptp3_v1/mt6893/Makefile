@@ -26,4 +26,5 @@ obj-y += mtk_ptp3_fll.o
 obj-y += mtk_ptp3_cinst.o
 obj-y += mtk_ptp3_drcc.o
 obj-y += mtk_ptp3_brisket2.o
+obj-y += mtk_ptp3_ctt.o
 

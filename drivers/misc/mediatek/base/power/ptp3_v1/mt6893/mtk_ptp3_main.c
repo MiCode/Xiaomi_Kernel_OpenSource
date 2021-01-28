@@ -59,6 +59,7 @@
 	#include "mtk_ptp3_cinst.h"
 	#include "mtk_ptp3_drcc.h"
 	#include "mtk_ptp3_brisket2.h"
+	#include "mtk_ptp3_ctt.h"
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -112,6 +113,7 @@
 #define PTP3_FLL_MEM_OFFSET 0x0
 #define PTP3_CINST_MEM_OFFSET 0x10000
 #define PTP3_DRCC_MEM_OFFSET 0x20000
+#define PTP3_CTT_MEM_OFFSET 0x30000
 
 static unsigned long long ptp3_reserve_memory_init(void)
 {
@@ -215,6 +217,7 @@ static int create_procfs(void)
 	fll_create_procfs(proc_name, dir);
 	cinst_create_procfs(proc_name, dir);
 	drcc_create_procfs(proc_name, dir);
+	ctt_create_procfs(proc_name, dir);
 	return 0;
 }
 
@@ -245,6 +248,11 @@ static int ptp3_probe(struct platform_device *pdev)
 			(char *)(uintptr_t)
 			(ptp3_mem_base_virt+PTP3_DRCC_MEM_OFFSET),
 			ptp3_mem_size);
+		/* CTT: save register status for reserved memory */
+		ctt_save_memory_info(
+			(char *)(uintptr_t)
+			(ptp3_mem_base_virt+PTP3_CTT_MEM_OFFSET),
+			ptp3_mem_size);
 	} else
 		ptp3_err("ptp3_mem_base_virt is null !\n");
 
@@ -253,6 +261,7 @@ static int ptp3_probe(struct platform_device *pdev)
 	fll_probe(pdev);
 	cinst_probe(pdev);
 	drcc_probe(pdev);
+	ctt_probe(pdev);
 
 	return 0;
 }
@@ -261,6 +270,7 @@ static int ptp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	fll_suspend(pdev, state);
 	cinst_suspend(pdev, state);
+	ctt_suspend(pdev, state);
 	return 0;
 }
 
@@ -268,6 +278,7 @@ static int ptp3_resume(struct platform_device *pdev)
 {
 	fll_resume(pdev);
 	cinst_resume(pdev);
+	ctt_resume(pdev);
 	return 0;
 }
 
