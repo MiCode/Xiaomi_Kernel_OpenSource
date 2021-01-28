@@ -8,5 +8,12 @@ bypass_arr=(\
 "struct musb " \
 "struct musb_io " \
 "struct musb_platform_ops " \
+"struct mem_cgroup " \
+"struct mem_cgroup_stat_cpu " \
+"struct mm_struct " \
+"struct rfkill " \
+"struct vm_area_struct " \
+"struct vm_event_state " \
+"struct vm_fault " \
 "struct poll_wqueues " \
 "struct scsi_device ")
