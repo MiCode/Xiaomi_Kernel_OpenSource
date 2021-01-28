@@ -1105,6 +1105,7 @@ static ssize_t flashlight_charger_show(
 	struct flashlight_dev *fdev;
 	char status[FLASHLIGHT_CHARGER_STATUS_BUF_SIZE];
 	char status_tmp[FLASHLIGHT_CHARGER_STATUS_TMPBUF_SIZE];
+	int ret;
 
 	pr_debug("Charger status show\n");
 
@@ -1116,11 +1117,14 @@ static ssize_t flashlight_charger_show(
 			continue;
 
 		flashlight_update_charger_status(fdev);
-		snprintf(status_tmp,
+		ret = snprintf(status_tmp,
 				FLASHLIGHT_CHARGER_STATUS_TMPBUF_SIZE,
 				"%d %d %d %d\n", fdev->dev_id.type,
 				fdev->dev_id.ct, fdev->dev_id.part,
 				fdev->charger_status);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
+
 		strncat(status, status_tmp,
 				FLASHLIGHT_CHARGER_STATUS_TMPBUF_SIZE);
 	}
@@ -1224,6 +1228,7 @@ static ssize_t flashlight_capability_show(
 	int max_torch_duty;
 	char capability[FLASHLIGHT_CAPABILITY_BUF_SIZE];
 	char capability_tmp[FLASHLIGHT_CAPABILITY_TMPBUF_SIZE];
+	int ret;
 
 	pr_debug("Capability show\n");
 
@@ -1251,12 +1256,15 @@ static ssize_t flashlight_capability_show(
 				(unsigned long)&fl_dev_arg);
 		max_torch_duty = fl_dev_arg.arg;
 
-		snprintf(capability_tmp, FLASHLIGHT_CAPABILITY_TMPBUF_SIZE,
+		ret = snprintf(capability_tmp,
+				FLASHLIGHT_CAPABILITY_TMPBUF_SIZE,
 				"%d %d %d %s %d %d %d %d %d\n",
 				fdev->dev_id.type, fdev->dev_id.ct,
 				fdev->dev_id.part, fdev->dev_id.name,
 				fdev->dev_id.channel, fdev->dev_id.decouple,
 				hw_timeout, max_duty, max_torch_duty);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
 		strncat(capability, capability_tmp,
 				FLASHLIGHT_CAPABILITY_TMPBUF_SIZE);
 	}
@@ -1274,7 +1282,7 @@ static ssize_t flashlight_current_show(
 {
 	struct flashlight_dev *fdev;
 	struct flashlight_dev_arg fl_dev_arg;
-	int i;
+	int i, ret;
 
 	/* flashlight current */
 	int duty_num = 0;
@@ -1298,9 +1306,11 @@ static ssize_t flashlight_current_show(
 				(unsigned long)&fl_dev_arg);
 		duty_num = fl_dev_arg.arg;
 
-		snprintf(duty_current, FLASHLIGHT_DUTY_CURRENT_BUF_SIZE,
+		ret = snprintf(duty_current, FLASHLIGHT_DUTY_CURRENT_BUF_SIZE,
 				"%d %d %d %d ", fdev->dev_id.type,
 				fdev->dev_id.ct, fdev->dev_id.part, duty_num);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
 
 		for (i = 0; i < duty_num; i++) {
 			fl_dev_arg.arg = i;
@@ -1316,10 +1326,12 @@ static ssize_t flashlight_current_show(
 		}
 		duty_current[strlen(duty_current) - 1] = '\0';
 	} else {
-		snprintf(duty_current, FLASHLIGHT_DUTY_CURRENT_BUF_SIZE,
+		ret = snprintf(duty_current, FLASHLIGHT_DUTY_CURRENT_BUF_SIZE,
 				"%d %d %d %d ", duty_current_arg.type,
 				duty_current_arg.ct, duty_current_arg.part,
 				duty_num);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
 	}
 
 	return scnprintf(buf, PAGE_SIZE,
@@ -1399,6 +1411,7 @@ static ssize_t flashlight_fault_show(
 	int fault_flag2;
 	char fault[FLASHLIGHT_FAULT_BUF_SIZE];
 	char fault_tmp[FLASHLIGHT_FAULT_TMPBUF_SIZE];
+	int ret;
 
 	pr_debug("Fault show\n");
 
@@ -1421,12 +1434,14 @@ static ssize_t flashlight_fault_show(
 				(unsigned long)&fl_dev_arg);
 		fault_flag2 = fl_dev_arg.arg;
 
-		snprintf(fault_tmp, FLASHLIGHT_FAULT_TMPBUF_SIZE,
+		ret = snprintf(fault_tmp, FLASHLIGHT_FAULT_TMPBUF_SIZE,
 				"%d %d %d %s %d %d %d %d\n",
 				fdev->dev_id.type, fdev->dev_id.ct,
 				fdev->dev_id.part, fdev->dev_id.name,
 				fdev->dev_id.channel, fdev->dev_id.decouple,
 				fault_flag1, fault_flag2);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
 		strncat(fault, fault_tmp,
 				FLASHLIGHT_FAULT_TMPBUF_SIZE);
 	}
@@ -1445,6 +1460,7 @@ static ssize_t flashlight_sw_disable_show(
 	struct flashlight_dev *fdev;
 	char status[FLASHLIGHT_SW_DISABLE_STATUS_BUF_SIZE];
 	char status_tmp[FLASHLIGHT_SW_DISABLE_STATUS_TMPBUF_SIZE];
+	int ret;
 
 	pr_debug("Charger status show\n");
 
@@ -1455,10 +1471,12 @@ static ssize_t flashlight_sw_disable_show(
 		if (!fdev->ops)
 			continue;
 
-		snprintf(status_tmp,
+		ret = snprintf(status_tmp,
 				FLASHLIGHT_SW_DISABLE_STATUS_TMPBUF_SIZE,
 				"%d %d\n", fdev->dev_id.type,
 				fdev->sw_disable_status);
+		if (ret < 0)
+			pr_info("snprintf failed\n");
 		strncat(status, status_tmp,
 				FLASHLIGHT_SW_DISABLE_STATUS_TMPBUF_SIZE);
 	}

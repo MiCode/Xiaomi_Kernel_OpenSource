@@ -295,6 +295,9 @@ static int mt6370_set_level_ch1(int level)
 		return -1;
 	}
 
+	if (level < 0)
+		return -1;
+
 	/* set brightness level */
 	if (!mt6370_is_torch(level))
 		flashlight_set_torch_brightness(
@@ -314,6 +317,9 @@ static int mt6370_set_level_ch2(int level)
 		pr_info("Failed to set lt level since no flashlight device.\n");
 		return -1;
 	}
+
+	if (level < 0)
+		return -1;
 
 	/* set brightness level */
 	if (!mt6370_is_torch(level))
