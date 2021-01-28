@@ -510,9 +510,50 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		#clock-cells = <1>;
 	};
 
-	fhctl@1000ce00 {
-		compatible = "mediatek,fhctl";
-		reg = <0 0x1000ce00 0 0x0>;
+	fhctl-new@1000ce00 {
+		compatible = "mediatek,mt6739-fhctl";
+		reg = <0 0x1000ce00 0 0x100>,
+			  <0 0x1000c000 0 0x1000>;
+		num-pll = <6>;
+		map0 {
+			domain = "top";
+			method = "fhctl-ap";
+
+			armpll {
+				fh-id = <0>;
+				pll-id = <999>;
+				perms = <0x1>;
+			};
+
+			mainpll {
+				fh-id = <1>;
+				pll-id = <999>;
+				perms = <0x1C>;
+			};
+
+			msdcpll {
+				fh-id = <2>;
+				pll-id = <999>;
+				perms = <0x1C>;
+			};
+
+			mfgpll {
+				fh-id = <3>;
+				pll-id = <999>;
+			};
+
+			mempll {
+				fh-id = <4>;
+				pll-id = <999>;
+				perms = <0x1C>;
+				/* ssc-rate = <8>; */
+			};
+
+			mmpll {
+				fh-id = <5>;
+				pll-id = <999>;
+			};
+		};
 	};
 
 	pwrap: pwrap@1000d000 {
