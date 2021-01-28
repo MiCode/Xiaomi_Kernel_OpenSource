@@ -227,7 +227,7 @@ source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
 
 menu "Other Peripherals"
-
+source "drivers/misc/mediatek/typec/Kconfig"
 
 
 

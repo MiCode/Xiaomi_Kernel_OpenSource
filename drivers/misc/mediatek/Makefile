@@ -60,3 +60,4 @@ obj-y += pmic/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_USB_MTK_HDRC) += usb20/
+obj-$(CONFIG_MTK_USB_TYPEC) += typec/

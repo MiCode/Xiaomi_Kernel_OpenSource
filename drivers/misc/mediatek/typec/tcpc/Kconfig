@@ -1,0 +1,110 @@
+#
+# TypeC Port Controller Device Configuration
+#
+
+config TCPC_CLASS
+	bool "TypeC Port Controller Device Class"
+	select MTK_USB_TYPEC
+	help
+	  Say Y to enable
+	  Typec Port
+	  Controller Device
+	  Class
+
+config TCPC_ALERT_V20
+	bool "TCPCI Alert v2.0"
+	depends on TCPC_CLASS
+	help
+	  Say Y to use tcpci_alert_v20
+	  Vendor defined interrupts
+	  should be handled by
+	  tcpc driver itself
+
+config TCPC_RT1711H
+	bool "Richtek RT1711H TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  Richtek RT1711H
+	  TypeC port Controller
+	  Driver
+
+config TCPC_RT5081
+	bool "Richtek RT5081 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable Richtek RT5081
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6360
+	bool "MediaTek MT6360 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	select TCPC_ALERT_V20
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config TCPC_MT6370
+	bool "MediaTek MT6370 TypeC port Controller Driver"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable MediaTek MT6370
+	  TypeC port Controller
+	  Also Support Power Delivery
+	  Say N to disable
+
+config PD_DBG_INFO
+	bool "TCPC power delivery debug information"
+	depends on TCPC_CLASS
+	default y
+	help
+	  Say Y to enable
+	  power delivery
+	  debug information
+	  Say N to disable
+
+config USB_POWER_DELIVERY
+	bool "Support USB power delivery Function"
+	depends on TCPC_CLASS
+	default n
+	help
+	  Say Y to enable
+	  USB
+	  Power Delivery
+	  support
+
+config USB_PD_VBUS_STABLE_TOUT
+	int "PD VBUS Stable Timeout"
+	depends on USB_POWER_DELIVERY
+	range 0 1000                       # >= 0,  <= 1000
+	default 125
+	help
+	  Setup a timeout value (ms)
+	  for
+	  VBUS change
+	  stable
+
+config MTK_TYPEC_WATER_DETECT
+	bool "Water detection function for type-c connector"
+	depends on TCPC_CLASS
+	help
+	  Say Yes to enable water detection on type-c connector.
+	  If water is detected on the connector, it will show
+	  warning to notify end user.
+	  If unsure, say N.
+
+config MTK_TYPEC_WATER_DETECT_BY_PCB
+	bool "Let PCB decides enabling water detection or not"
+	depends on MTK_TYPEC_WATER_DETECT
+	help
+	  Query GPIO on PCB to judge whether type-c water detection
+	  need to be enabled.
+	  Say Yes to let PCB decides enabling water detection or not.
+	  If unsure, say N.
