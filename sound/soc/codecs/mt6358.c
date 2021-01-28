@@ -6674,6 +6674,18 @@ static const struct snd_kcontrol_new mt6358_snd_vow_controls[] = {
 		       audio_vow_cfg_get, audio_vow_cfg_set),
 };
 
+static int dmic_used_get(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	ucontrol->value.integer.value[0] =
+		priv->mux_select[MUX_MIC_TYPE] == MIC_TYPE_MUX_DMIC;
+
+	return 0;
+}
+
 static const struct snd_kcontrol_new mt6358_snd_misc_controls[] = {
 	SOC_ENUM_EXT("Headphone Plugged In", misc_control_enum[0],
 		     hp_plugged_in_get, hp_plugged_in_set),
@@ -6689,6 +6701,7 @@ static const struct snd_kcontrol_new mt6358_snd_misc_controls[] = {
 		     mt6358_codec_debug_get, mt6358_codec_debug_set),
 	SOC_ENUM_EXT("PMIC_REG_CLEAR", rcv_mic_enum[0],
 		     mt6358_rcv_mic_get, mt6358_rcv_mic_set),
+	SOC_ENUM_EXT("DMic Used", misc_control_enum[0], dmic_used_get, NULL),
 };
 
 static int mt6358_codec_init_reg(struct mt6358_priv *priv)
