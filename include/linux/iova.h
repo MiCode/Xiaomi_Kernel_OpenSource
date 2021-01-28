@@ -162,9 +162,7 @@ void copy_reserved_iova(struct iova_domain *from, struct iova_domain *to);
 void iovad_scan_reserved_iova(void *arg,
 		struct iova_domain *iovad,
 		void (*f)(void *domain, unsigned long start,
-			unsigned long end, unsigned long size,
-			unsigned long target),
-		unsigned long target);
+			unsigned long end, unsigned long size));
 #endif
 void init_iova_domain(struct iova_domain *iovad, unsigned long granule,
 	unsigned long start_pfn, unsigned long pfn_32bit);

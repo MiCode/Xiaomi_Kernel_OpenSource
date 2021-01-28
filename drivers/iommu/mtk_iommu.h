@@ -36,6 +36,7 @@ struct mtk_iommu_suspend_reg {
 	u32				vld_pa_range;
 	u32				pt_base;
 	u32				wr_ctrl;
+	u32				dummy;
 };
 
 enum mtk_iommu_plat {
@@ -78,7 +79,6 @@ struct mtk_iommu_pgtable {
 
 struct mtk_iommu_domain {
 	unsigned int		id;
-	int		owner;
 	struct iommu_domain		domain;
 	struct iommu_group		*group;
 #ifndef CONFIG_ARM64
@@ -94,17 +94,14 @@ struct mtk_iommu_domain {
 struct mtk_iommu_clks {
 	unsigned int	nr_clks;
 	struct clk *clks[IOMMU_CLK_ID_COUNT];
-	unsigned int	nr_powers;
-	struct clk *powers[IOMMU_CLK_ID_COUNT];
 };
 #endif
 
-#define MTK_IOMMU_BANK_NODE_COUNT (3)
 struct mtk_iommu_data {
 	void __iomem *base;
 	int irq;
 	void __iomem *base_sec;
-	void __iomem *base_bank[MTK_IOMMU_BANK_NODE_COUNT];
+	int irq_sec;
 	struct device *dev;
 	struct clk *bclk;
 	phys_addr_t protect_base; /* protect memory base */
@@ -112,16 +109,14 @@ struct mtk_iommu_data {
 #ifdef CONFIG_MTK_IOMMU_V2
 	struct mtk_iommu_pgtable	*pgtable;
 	struct mtk_iommu_clks		*m4u_clks;
-	spinlock_t     reg_lock;
-	bool poweron;
-	unsigned long isr_ref;
-	struct timer_list iommu_isr_pause_timer;
+	unsigned int		power_id;
 #else
 	struct mtk_iommu_domain	*m4u_dom;
 	struct iommu_group *m4u_group;
 #endif
 	struct mtk_smi_iommu smi_imu; /* SMI larb iommu info */
 	bool enable_4GB;   /* Dram is over 4gb */
+	bool tlb_flush_active;
 
 	struct iommu_device iommu;
 	const struct mtk_iommu_plat_data *plat_data;

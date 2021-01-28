@@ -31,15 +31,19 @@ struct pseudo_device pseudo_dev_larb_fake[] = {
 		.name = "misc",
 	},
 	{
-		.larbid = CCU_PSEUDO_LARBID_NODE,
+		.larbid = CCU_PSEUDO_LARBID_DISP,
 		.port = {
-			M4U_PORT_L23_CCU_MDP, -1},
+			M4U_PORT_L14_CAM_CCUI_DISP,
+			M4U_PORT_L14_CAM_CCUO_DISP,
+			M4U_PORT_L22_CCU_DISP, -1},
 		.name = "ccu_disp",
 	},
 	{
-		.larbid = CCU_PSEUDO_LARBID_LARB,
+		.larbid = CCU_PSEUDO_LARBID_MDP,
 		.port = {
-			M4U_PORT_L22_CCU_DISP, -1},
+			M4U_PORT_L13_CAM_CCUI_MDP,
+			M4U_PORT_L13_CAM_CCUO_MDP,
+			M4U_PORT_L23_CCU_MDP, -1},
 		.name = "ccu_mdp",
 	},
 	{

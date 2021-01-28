@@ -14,8 +14,6 @@
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
-#include "clk-mt6885-pg.h"
-
 #define MMU0_SET_ORDER   7
 #define MMU1_SET_ORDER   7
 #define MMU_SET_ORDER(mmu)      ((mmu == 0) ? MMU0_SET_ORDER : MMU1_SET_ORDER)
@@ -24,7 +22,6 @@
 #define MMU_SET_MSB_OFFSET(mmu)	 (MMU_SET_LSB_OFFSET+MMU_SET_ORDER(mmu)-1)
 #define MMU_PFH_VA_TO_SET(mmu, va)     \
 	F_MSK_SHIFT(va, MMU_SET_MSB_OFFSET(mmu), MMU_SET_LSB_OFFSET)
-#define IOMMU_DESIGN_OF_BANK
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64};
@@ -43,32 +40,26 @@ char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
 	"iommu_null_larb21", "iommu_null_larb22", "iommu_null_larb23"
 };
 
-enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
-	SYS_DIS, SYS_MDP, SYS_VPU, SYS_VPU
-};
-
 unsigned int port_size_not_aligned[] = {
 	M4U_PORT_L21_APU_FAKE_CODE
 };
 const char *smi_larb_id = "mediatek,larb-id";
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
+unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
+	0
+};
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 	"mediatek,sec_m4u",
 };
 #else
+unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
+	0, 0, 0, 0
+};
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
 	"mediatek,sec_m4u2", "mediatek,sec_m4u3",
 };
-#ifdef IOMMU_DESIGN_OF_BANK
-char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
-	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
-	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"},
-	{"mediatek,bank1_m4u2", "mediatek,bank2_m4u2", "mediatek,bank3_m4u2"},
-	{"mediatek,bank1_m4u3", "mediatek,bank2_m4u3", "mediatek,bank3_m4u3"},
-};
-#endif
 #endif
 
 /* ================ register control ================ */
@@ -80,6 +71,7 @@ char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
 #define F_BIT_VAL(val, bit)	((!!(val))<<(bit))
 #define F_MSK_SHIFT(regval, msb, lsb) (((regval)&F_MSK(msb, lsb))>>lsb)
 
+#define IOMMU_DESIGN_OF_BANK
 #ifdef IOMMU_DESIGN_OF_BANK
 /* m4u atf debug parameter */
 #define IOMMU_ATF_INDEX_MASK     F_MSK(3, 0)
@@ -445,7 +437,6 @@ struct mtk_iova_domain_data {
 	unsigned long resv_size[MTK_IOVA_REMOVE_CNT];
 	unsigned int resv_type;
 	unsigned int port_mask[MTK_IOMMU_LARB_NR];
-	int owner;
 };
 
 #define DMA_BIT_MASK(n)	(((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
@@ -454,12 +445,10 @@ struct mtk_iova_domain_data {
 #define RESERVED_IOVA_SIZE_SECURE (SZ_1G - SZ_4K)
 
 #if (CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-#define RESERVED_IOVA_ADDR_CCU_NODE (0x0240000000UL)
-#define RESERVED_IOVA_SIZE_CCU_NODE (0x0004000000UL)
-#define RESERVED_IOVA_ADDR_CCU_LARB (0x0244000000UL)
-#define RESERVED_IOVA_SIZE_CCU_LARB (0x0004000000UL)
+#define RESERVED_IOVA_ADDR_CCU (0x0240000000UL)
+#define RESERVED_IOVA_SIZE_CCU (0x0008000000UL)
 #define RESERVED_IOVA_ADDR_APU_CODE (0x0370000000UL)
-#define RESERVED_IOVA_SIZE_APU_CODE (0x0012600000UL)
+#define RESERVED_IOVA_SIZE_APU_CODE (0x0010000000UL)
 #define RESERVED_IOVA_ADDR_APU_DATA (0x0310000000UL)
 #define RESERVED_IOVA_SIZE_APU_DATA (0x0010000000UL)
 #define RESERVED_IOVA_ADDR_APU_VLM (0x0304000000UL)
@@ -470,11 +459,9 @@ struct mtk_iova_domain_data {
 #define IOVA_ADDR_16GB   (4UL << 32)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
-	defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
 	{ // boundary(0~4GB) IOVA space for OVL
 	 .boundary = 0,
-	 .owner = -1,
 	 .min_iova = SZ_1G,
 	 .max_iova = IOVA_ADDR_4GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
@@ -488,7 +475,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #else
 	{ // boundary(0~4GB) IOVA space for display
 	 .boundary = 0,
-	 .owner = -1,
 	 .min_iova = SZ_4K,
 	 .max_iova = IOVA_ADDR_4GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
@@ -502,65 +488,45 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 	{ // boundary(4GB~8GB) IOVA space for CODEC
 	 .boundary = 1,
-	 .owner = -1,
 	 .min_iova = IOVA_ADDR_4GB,
 	 .max_iova = IOVA_ADDR_8GB - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
 	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
 				 0x7ff, 0xff, 0x0, 0x7ffffff, //4~7
-				 0x7ffffff, 0x0, 0x0, 0x0, //8~11
+				 0x7ffffff, 0x1fffffff, 0x0, 0x1fffffff, //8~11
 				 0x0, 0x0, 0x0, 0x0, //12~15
 				 0x0, 0x0, 0x0, 0x0, //16~19
 				 0x0, 0x0, 0x0, 0x0} //20~23
 	},
 	{ // boundary(8GB~12GB) IOVA space for CMA MDP
 	 .boundary = 2,
-	 .owner = -1,
 	 .min_iova = IOVA_ADDR_8GB,
 	 .max_iova = IOVA_ADDR_12GB - 1,
-	 .resv_start = {RESERVED_IOVA_ADDR_CCU_NODE,
-			RESERVED_IOVA_ADDR_CCU_LARB},
-	 .resv_size = {RESERVED_IOVA_SIZE_CCU_NODE,
-			RESERVED_IOVA_SIZE_CCU_LARB},
+	 .resv_start = {RESERVED_IOVA_ADDR_CCU},
+	 .resv_size = {RESERVED_IOVA_SIZE_CCU},
 	 .resv_type = IOVA_REGION_REMOVE,
 	 .port_mask = {0x0, 0x0, 0x3f, 0x3f, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
-				 0x0, 0x1fffffff, 0x0, 0x1fffffff, //8~11
-				 0x0, 0xfff, 0x3f, 0x0, //12~15
+				 0x0, 0x0, 0x0, 0x0, //8~11
+				 0x0, 0x9ff, 0xf, 0x0, //12~15
 				 0x1ffff, 0x1ffff, 0x1ffff, 0xf, //16~19
-				 0x3f, 0x0, 0x0, 0x0} //20~23
+				 0x0, 0x0, 0x0, 0x0} //20~23
 	},
-	{ //CCU_NODE IOVA space
+	{ //CCU IOVA space
 	 .boundary = 2,
-	 .owner = -1,
-	 .min_iova = RESERVED_IOVA_ADDR_CCU_NODE,
-	 .max_iova = RESERVED_IOVA_ADDR_CCU_NODE +
-			RESERVED_IOVA_SIZE_CCU_NODE - 1,
+	 .min_iova = RESERVED_IOVA_ADDR_CCU,
+	 .max_iova = RESERVED_IOVA_ADDR_CCU +
+			RESERVED_IOVA_SIZE_CCU - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
 	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
 				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x0, 0x0, 0x0, //12~15
+				 0x0, 0x600, 0x30, 0x0, //12~15
 				 0x0, 0x0, 0x0, 0x0, //16~19
-				 0x0, 0x0, 0x0, 0x1} //20~23
-	},
-	{ //CCU_LARB IOVA space
-	 .boundary = 2,
-	 .owner = -1,
-	 .min_iova = RESERVED_IOVA_ADDR_CCU_LARB,
-	 .max_iova = RESERVED_IOVA_ADDR_CCU_LARB +
-			RESERVED_IOVA_SIZE_CCU_LARB - 1,
-	 .resv_type = IOVA_REGION_UNDEFINE,
-	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
-				 0x0, 0x0, 0x0, 0x0, //4~7
-				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x0, 0x0, 0x0, //12~15
-				 0x0, 0x0, 0x0, 0x0, //16~19
-				 0x0, 0x0, 0x1, 0x0} //20~23
+				 0x0, 0x0, 0x1, 0x1} //20~23
 	},
 	{ // boundary(12GB~16GB) IOVA space for APU DATA
 	 .boundary = 3,
-	 .owner = M4U_PORT_L21_APU_FAKE_DATA,
 	 .min_iova = IOVA_ADDR_12GB,
 	 .max_iova = IOVA_ADDR_16GB - 1,
 	 .resv_start = {RESERVED_IOVA_ADDR_APU_DATA,
@@ -579,7 +545,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ //VPU CODE IOVA space
 	 .boundary = 3,
-	 .owner = M4U_PORT_L21_APU_FAKE_CODE,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_CODE,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_CODE +
 			RESERVED_IOVA_SIZE_APU_CODE - 1,
@@ -593,7 +558,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 	{ //VPU VLM IOVA space
 	 .boundary = 3,
-	 .owner = M4U_PORT_L21_APU_FAKE_VLM,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_VLM +
 			RESERVED_IOVA_SIZE_APU_VLM - 1,
@@ -608,22 +572,18 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 };
 
 #else
-#define RESERVED_IOVA_ADDR_CCU_NODE (0x40000000U)
-#define RESERVED_IOVA_SIZE_CCU_NODE (0x04000000U)
-#define RESERVED_IOVA_ADDR_CCU_LARB (0x44000000U)
-#define RESERVED_IOVA_SIZE_CCU_LARB (0x04000000U)
+#define RESERVED_IOVA_ADDR_CCU (0x40000000U)
+#define RESERVED_IOVA_SIZE_CCU (0x08000000U)
 #define RESERVED_IOVA_ADDR_APU_CODE (0x70000000U)
-#define RESERVED_IOVA_SIZE_APU_CODE (0x12600000U)
+#define RESERVED_IOVA_SIZE_APU_CODE (0x10000000U)
 #define RESERVED_IOVA_ADDR_APU_DATA (0x10000000U)
 #define RESERVED_IOVA_SIZE_APU_DATA (0x10000000U)
 #define RESERVED_IOVA_ADDR_APU_VLM  (0x48000000U)
 #define RESERVED_IOVA_SIZE_APU_VLM  (0x04000000U)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
-	defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT))
 	{ //REE IOVA space
-	 .owner = -1,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM +
 			RESERVED_IOVA_SIZE_APU_VLM,
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
@@ -639,16 +599,13 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	},
 #else
 	{ //public IOVA space
-	 .owner = -1,
 	 .min_iova = SZ_4K,
 	 .max_iova = DMA_BIT_MASK(MTK_IOVA_ADDR_BITS),
-	 .resv_start = {RESERVED_IOVA_ADDR_CCU_NODE,
-			RESERVED_IOVA_ADDR_CCU_LARB,
+	 .resv_start = {RESERVED_IOVA_ADDR_CCU,
 			RESERVED_IOVA_ADDR_APU_CODE,
 			RESERVED_IOVA_ADDR_APU_VLM,
 			RESERVED_IOVA_ADDR_APU_DATA},
-	 .resv_size = {RESERVED_IOVA_SIZE_CCU_NODE,
-			RESERVED_IOVA_SIZE_CCU_LARB,
+	 .resv_size = {RESERVED_IOVA_SIZE_CCU,
 			RESERVED_IOVA_SIZE_APU_CODE,
 			RESERVED_IOVA_SIZE_APU_VLM,
 			RESERVED_IOVA_SIZE_APU_DATA},
@@ -656,39 +613,24 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 	 .port_mask = {0x7fff, 0x7fff, 0x3f, 0x3f, //0~3
 				 0x7ff, 0xff, 0x0, 0x7ffffff, //4~7
 				 0x7ffffff, 0x1fffffff, 0x0, 0x1fffffff, //8~11
-				 0x0, 0xfff, 0x3f, 0x0, //12~15
+				 0x0, 0x9ff, 0xf, 0x0, //12~15
 				 0x1ffff, 0x1ffff, 0x1ffff, 0xf, //16~19
 				 0x3f, 0x2, 0x0, 0x0} //20~23
 	},
 #endif
-	{ //CCU_NODE IOVA space
-	 .owner = -1,
-	 .min_iova = RESERVED_IOVA_ADDR_CCU_NODE,
-	 .max_iova = RESERVED_IOVA_ADDR_CCU_NODE +
-			RESERVED_IOVA_SIZE_CCU_NODE - 1,
+	{ //CCU IOVA space
+	 .min_iova = RESERVED_IOVA_ADDR_CCU,
+	 .max_iova = RESERVED_IOVA_ADDR_CCU +
+			RESERVED_IOVA_SIZE_CCU - 1,
 	 .resv_type = IOVA_REGION_UNDEFINE,
 	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
 				 0x0, 0x0, 0x0, 0x0, //4~7
 				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x0, 0x0, 0x0, //12~15
+				 0x0, 0x600, 0x30, 0x0, //12~15
 				 0x0, 0x0, 0x0, 0x0, //16~19
-				 0x0, 0x0, 0x0, 0x1} //20~23
-	},
-	{ //CCU_LARB IOVA space
-	 .owner = -1,
-	 .min_iova = RESERVED_IOVA_ADDR_CCU_LARB,
-	 .max_iova = RESERVED_IOVA_ADDR_CCU_LARB +
-			RESERVED_IOVA_SIZE_CCU_LARB - 1,
-	 .resv_type = IOVA_REGION_UNDEFINE,
-	 .port_mask = {0x0, 0x0, 0x0, 0x0, //0~3
-				 0x0, 0x0, 0x0, 0x0, //4~7
-				 0x0, 0x0, 0x0, 0x0, //8~11
-				 0x0, 0x0, 0x0, 0x0, //12~15
-				 0x0, 0x0, 0x0, 0x0, //16~19
-				 0x0, 0x0, 0x1, 0x0} //20~23
+				 0x0, 0x0, 0x1, 0x1} //20~23
 	},
 	{ //VPU CODE IOVA space
-	 .owner = M4U_PORT_L21_APU_FAKE_CODE,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_CODE,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_CODE +
 			RESERVED_IOVA_SIZE_APU_CODE - 1,
@@ -701,7 +643,6 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 				 0x0, 0x1, 0x0, 0x0} //20~23
 	},
 	{ //VPU VLM IOVA space
-	 .owner = M4U_PORT_L21_APU_FAKE_VLM,
 	 .min_iova = RESERVED_IOVA_ADDR_APU_VLM,
 	 .max_iova = RESERVED_IOVA_ADDR_APU_VLM +
 			RESERVED_IOVA_SIZE_APU_VLM - 1,
@@ -717,85 +658,5 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #endif
 
 #define MTK_IOMMU_PAGE_TABLE_SHARE (1)
-//#define MTK_APU_TFRP_SUPPORT
-#define IOMMU_POWER_CLK_SUPPORT
-#ifdef IOMMU_POWER_CLK_SUPPORT
-#define MTK_IOMMU_LOW_POWER_SUPPORT
-#endif
 
-#define MTK_IOMMU_SIZE_NOT_ALIGNMENT
-#define MTK_IOMMU_BANK_IRQ_SUPPORT
-
-#if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
-	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
-	defined(CONFIG_MTK_TEE_GP_SUPPORT)
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-#define MTK_M4U_SECURE_IRQ_SUPPORT
-#elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-#define MTK_M4U_SECURE_IRQ_SUPPORT
-#elif defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
-#define MTK_M4U_SECURE_IRQ_SUPPORT
-#endif
-#elif defined(MTK_IOMMU_BANK_IRQ_SUPPORT)
-#define MTK_M4U_SECURE_IRQ_SUPPORT
-#endif
-
-#define IOMMU_SECURITY_DBG_SUPPORT
-
-struct mau_config_info mt6885_mau_info[MTK_IOMMU_M4U_COUNT] = {
-	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
-		.port_mask = 0xffffffff,
-		.larb_mask = 0xffffffff,
-		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
-	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
-		.port_mask = 0xffffffff,
-		.larb_mask = 0xffffffff,
-		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
-	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
-		.port_mask = 0xffffffff,
-		.larb_mask = 0xffffffff,
-		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
-	{
-		.start = 0x0,
-		.end = SZ_4K - 1,
-		.port_mask = 0xffffffff,
-		.larb_mask = 0xffffffff,
-		.wr = 0x1,
-		.virt = 0x1,
-		.io = 0x0,
-		.start_bit32 = 0x0,
-		.end_bit32 = 0x0,
-	},
-};
-
-struct mau_config_info *get_mau_info(int m4u_id)
-{
-	if (m4u_id < MTK_IOMMU_M4U_COUNT)
-		return &mt6885_mau_info[m4u_id];
-	else
-		return NULL;
-}
-
-extern bool __attribute__((weak)) apusys_power_check(void);
 #endif

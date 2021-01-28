@@ -19,7 +19,6 @@
 #include <aee.h>
 #endif
 
-#define MTK_IOMMU_PERFORMANCE_IMPROVEMENT
 #define MMU_INT_REPORT(mmu, mmu_2nd_id, id) \
 	pr_notice( \
 	"iommu%d_%d " #id "(0x%x) int happens!!\n",\
@@ -42,14 +41,6 @@
 	} while (0)
 
 #endif
-
-#define mmu_seq_print(seq_file, fmt, args...) \
-	do {\
-		if (seq_file)\
-			seq_printf(seq_file, fmt, ##args);\
-		else\
-			pr_notice(fmt, ##args);\
-	} while (0)
 
 struct IOMMU_PERF_COUNT {
 	unsigned int transaction_cnt;
@@ -106,20 +97,11 @@ int mtk_iommu_iova_to_va(struct device *dev,
 
 bool enable_custom_tf_report(void);
 bool report_custom_iommu_fault(
-	unsigned int m4uid,
 	void __iomem	*base,
+	unsigned int	int_state,
 	unsigned long	fault_iova,
 	unsigned long	fault_pa,
-	unsigned int	fault_id,
-	bool is_vpu,
-	bool is_sec);
-
-void report_custom_iommu_leakage(char *port_name,
-	unsigned int size);
-
-void report_custom_config_port(char *port_name,
-	char *err_name,
-	unsigned int portid);
+	unsigned int	fault_id, bool is_vpu);
 
 void mtk_iommu_debug_init(void);
 void mtk_iommu_debug_reset(void);
@@ -161,14 +143,14 @@ void mtk_iommu_trace_unmap(unsigned long orig_iova,
 			   size_t size,
 			   size_t unmapped);
 void mtk_iommu_trace_log(int event,
-			 unsigned long data1,
-			 unsigned long data2,
-			 unsigned long data3);
+			 unsigned int data1,
+			 unsigned int data2,
+			 unsigned int data3);
 
 void mtk_iommu_log_dump(void *seq_file);
 int m4u_user2kernel_port(int userport);
 
-int mtk_iommu_get_pgtable_base_addr(unsigned long *pgd_pa);
+int mtk_iommu_get_pgtable_base_addr(unsigned int *pgd_pa);
 int mtk_iommu_port_clock_switch(unsigned int port, bool enable);
 int mtk_iommu_larb_clock_switch(unsigned int larb, bool enable);
 unsigned int mtk_get_iommu_index(unsigned int larb);
@@ -190,59 +172,44 @@ struct mau_config_info {
 	unsigned int end;
 	unsigned int port_mask;
 	unsigned int larb_mask;
-	unsigned int wr;/* 1:w, 0:R */
-	unsigned int virt;	/* 1:mva, 0:pa */
-	unsigned int io;	/* 1:output, 0:input  */
+	unsigned int write_monitor;	/* :1; */
+	unsigned int virt;	/* :1; */
+	unsigned int io;	/* :1; */
 	unsigned int start_bit32;	/* :1; */
 	unsigned int end_bit32;	/* :1; */
 };
 
 int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
-			  unsigned int mau,
-			  struct mau_config_info *mau_info);
+		      unsigned int mau,
+		      int wr, int vir, int io, int bit32,
+		      unsigned int start, unsigned int end,
+		      unsigned int port_mask, unsigned int larb_mask);
 void mau_stop_monitor(unsigned int m4u_id, unsigned int slave,
-		      unsigned int mau, bool force);
-int mau_get_config_info(struct mau_config_info *cfg);
+		      unsigned int mau);
 int iommu_perf_monitor_start(int m4u_id);
 int iommu_perf_monitor_stop(int m4u_id);
 void iommu_perf_print_counter(int m4u_index,
 		      int m4u_slave_id, const char *msg);
 char *mtk_iommu_get_vpu_port_name(unsigned int tf_id);
-char *mtk_iommu_get_mm_port_name(unsigned int m4uid,
-		      unsigned int tf_id);
-int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id,
-		struct seq_file *s);
-int mtk_dump_pfh_tlb(int m4u_id,
-		struct seq_file *s);
+char *mtk_iommu_get_mm_port_name(unsigned int tf_id);
+int mtk_dump_main_tlb(int m4u_id, int m4u_slave_id);
+int mtk_dump_pfh_tlb(int m4u_id);
 int mtk_iommu_dump_reg(int m4u_index, unsigned int start,
-		unsigned int end, char *user);
+		unsigned int end);
 int mtk_iommu_get_boundary_id(struct device *dev);
 int mtk_iommu_get_iova_space(struct device *dev,
 		unsigned long *base, unsigned long *max,
-		int *owner, struct list_head *list);
+		struct list_head *list);
 void mtk_iommu_put_iova_space(struct device *dev,
 		struct list_head *list);
-void mtk_iommu_dump_iova_space(unsigned long target);
+void mtk_iommu_dump_iova_space(void);
 unsigned int mtk_iommu_get_larb_port_count(unsigned int larb);
 int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		unsigned int bank);
-#ifndef SMI_LARB_SEC_CON_EN
-int mtk_iommu_set_sec_larb(int larb, int port,
-		int sec_en, int dom);
-int mtk_iommu_dump_sec_larb(int larb, int port);
-#endif
-int mtk_switch_secure_debug_func(unsigned int m4u_id, bool enable);
 void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd);
 bool mtk_dev_is_size_alignment(struct device *dev);
 char *mtk_iommu_get_port_name(unsigned int m4u_id,
 		unsigned int tf_id);
-int __mtk_dump_reg_for_hang_issue(unsigned int m4u_id,
-		struct seq_file *s);
-void mtk_dump_reg_for_hang_issue(unsigned int type);
+void mtk_dump_reg_for_hang_issue(void);
 void mtk_iommu_switch_tf_test(bool enable, const char *msg);
-int mtk_iommu_power_switch_by_id(unsigned int m4uid,
-			bool enable, char *master);
-unsigned int mtk_iommu_power_support(void);
-void mtk_iommu_tlb_flush_all(void *cookie);
-int mtk_iommu_get_port_id(struct device *dev);
 #endif

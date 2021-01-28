@@ -14,25 +14,10 @@
 #ifndef __ION_DRV_H__
 #define __ION_DRV_H__
 #include <linux/version.h>
-#include <linux/seq_file.h>
 
 #include <ion.h>
 
 #define BACKTRACE_SIZE 10
-
-#if !defined(CONFIG_MACH_MT6885)
-#define ION_RECORD_TOTAL_SIZE_SUPPORT
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-#define ION_NOT_SUPPORT_RETRY
-#endif
-#endif
-
-#define CLIENT_THRESHOLD_SIZE		(1024 * 1024 * 1024)
-#define CLIENT_THRESHOLD_SIZE_INC	(200 * 1024 * 1024)
-#define CLIENT_DEC_NUM			(3)
-#define CLIENT_THRESHOLD_SIZE_DEC	\
-	(CLIENT_DEC_NUM * CLIENT_THRESHOLD_SIZE_INC)
 
 /* Structure definitions */
 
@@ -81,13 +66,6 @@ enum ION_ERRORE {
 	ION_ERROR_CONFIG_CONFLICT = 0x10001
 };
 
-enum ION_HEAP_NUM {
-	NORMAL_HEAP,
-	SECURE_HEAP,
-	SYSTEM_HEAP,
-	HEAP_NUM
-};
-
 /* mm or mm_sec heap flag which is do not conflist */
 /* with ION_HEAP_FLAG_DEFER_FREE */
 #define ION_FLAG_MM_HEAP_INIT_ZERO BIT(16)
@@ -103,7 +81,6 @@ struct ion_sys_cache_sync_param {
 	void *va;
 	unsigned int size;
 	enum ION_CACHE_SYNC_TYPE sync_type;
-	unsigned long iova;
 };
 
 enum ION_DMA_TYPE {
@@ -302,8 +279,6 @@ int ion_device_destroy_heaps(struct ion_device *dev);
 struct ion_heap *ion_sec_heap_create(struct ion_platform_heap *unused);
 void ion_sec_heap_destroy(struct ion_heap *heap);
 void ion_sec_heap_dump_info(void);
-void ion_dmabuf_init(void);
-void ion_dmabuf_dbg_show(struct seq_file *s);
 #endif
 
 #endif

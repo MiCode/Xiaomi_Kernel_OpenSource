@@ -120,18 +120,10 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		IONMSG("%s: Error. Invalid buffer.\n", __func__);
 		return -EFAULT;	/* Invalid buffer */
 	}
-#if defined(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
 	if (buffer_info->module_id == -1) {
 		IONMSG("%s: Error. Buffer not configured.\n", __func__);
-		return -EDOM;
+		return -EFAULT;	/* Buffer not configured. */
 	}
-#endif
-
-#ifdef MTK_ION_DMABUF_SUPPORT
-	if (buffer_info->module_id == M4U_PORT_GPU)
-		return 0;
-#endif
 
 	memset((void *)&port_info, 0, sizeof(port_info));
 	port_info.emoduleid = buffer_info->module_id;
