@@ -34,6 +34,49 @@ config MACH_MT8135
 	bool "MediaTek MT8135 SoCs support"
 	default ARCH_MEDIATEK
 
+config MACH_MT8167
+	bool "MediaTek MT8167"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select MTK_SYS_CIRQ
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT8167
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_EXT
+	select ARM_GIC_V3
+	select SMP
+	select POWER_SUPPLY
+	select POWER_RESET
+	select HAVE_ARM_ARCH_TIMER
+	select ARM_PSCI
+	select HAVE_MTK_IN_HOUSE_TEE_SUPPORT
+	select MTK_ICE_DEBUG
+	select VFP
+	select AEABI
+	select NEON
+	select KERNEL_MODE_NEON
+	select HAVE_FUTEX_CMPXCHG
+	select HIGHMEM
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	help
+	  This enables support for MediaTek MT8167
+	  If you need support for MediaTek MT8167, say Y here.
+	  This including the basic selections,
+	  But not all of them.
+
 config MACH_MT8168
 	bool "MediaTek MT8168"
 	select GENERIC_TIME
