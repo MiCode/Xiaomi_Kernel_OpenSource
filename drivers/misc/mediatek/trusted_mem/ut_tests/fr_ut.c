@@ -34,13 +34,14 @@
 #include "private/tmem_error.h"
 #include "private/tmem_utils.h"
 #include "private/ut_entry.h"
-#include "private/secmem_ext.h"
 #include "private/ut_macros.h"
 #include "private/ut_common.h"
 
 #include "private/ut_tests.h"
 #include "private/ut_cmd.h"
 DEFINE_UT_SUPPORT(fr);
+
+#include "tee_impl/tee_invoke.h"
 
 #define PROT_TEST_PA_ADDR64_START (0x180000000ULL)
 #define PROT_TEST_PA_ADDR64_ZERO (0x0ULL)

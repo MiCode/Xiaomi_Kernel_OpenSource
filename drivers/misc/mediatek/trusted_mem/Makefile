@@ -87,7 +87,6 @@ pmem-y += pmem/pmem_device.o
 #==========================================================================
 obj-$(CONFIG_MTK_SECURE_MEM_SUPPORT) += secmem.o
 secmem-y += secmem/secmem_device.o
-secmem-y += secmem/secmem_api.o
 
 ifeq ($(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT),y)
 obj-$(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE) += sdsp_smem.o
