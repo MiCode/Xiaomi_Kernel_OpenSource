@@ -104,7 +104,12 @@ int mt6833_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 {
 	int ret = 0;
 	unsigned int spm_res = 0;
-
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	int len;
+	int is_resume_enter = 0;
+#endif
+#endif
 	mt6833_suspend_status = 0;
 
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend enter\n",
@@ -124,6 +129,19 @@ int mt6833_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 	/* Record md sleep time */
 	before_md_sleep_time = get_md_sleep_time();
 
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+		"_lp", 3) == 0) {
+		printk_deferred("[name:spm&][%s:%d] - notify MD that AP suspend\n",
+			__func__, __LINE__);
+		is_resume_enter = 1 << 0;
+		exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
+			(char *)&is_resume_enter, 4);
+	}
+#endif
+#endif
 
 PLAT_LEAVE_SUSPEND:
 	return ret;
@@ -132,9 +150,28 @@ PLAT_LEAVE_SUSPEND:
 void mt6833_suspend_reflect(int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	int len;
+	int is_resume_enter = 0;
+#endif
+#endif
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
 			__func__, __LINE__);
 
+#ifdef CONFIG_MTK_CCCI_DEVICES
+#if defined(CONFIG_ARM64)
+	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
+		"_lp", 3) == 0) {
+		printk_deferred("[name:spm&][%s:%d] - notify MD that AP resume\n",
+			__func__, __LINE__);
+		is_resume_enter = 1 << 1;
+		exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
+			(char *)&is_resume_enter, 4);
+	}
+#endif
+#endif
 	mt6833_suspend_common_resume(mt6833_suspend_status);
 	mt6833_do_mcusys_prepare_on();
 

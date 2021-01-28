@@ -172,17 +172,17 @@
 #define IFR_PWR_CON                    (SPM_BASE + 0x324)
 #define IFR_SUB_PWR_CON                (SPM_BASE + 0x328)
 #define DPY_PWR_CON                    (SPM_BASE + 0x32C)
-#define ISP_PWR_CON                    (SPM_BASE + 0x330)
-#define ISP2_PWR_CON                   (SPM_BASE + 0x334)
-#define IPE_PWR_CON                    (SPM_BASE + 0x338)
-#define VDE_PWR_CON                    (SPM_BASE + 0x33C)
-#define VDE2_PWR_CON                   (SPM_BASE + 0x340)
-#define VEN_PWR_CON                    (SPM_BASE + 0x344)
-#define VEN_CORE1_PWR_CON              (SPM_BASE + 0x348)
-#define MDP_PWR_CON                    (SPM_BASE + 0x34C)
-#define DIS_PWR_CON                    (SPM_BASE + 0x350)
-#define AUDIO_PWR_CON                  (SPM_BASE + 0x354)
-#define ADSP_PWR_CON                   (SPM_BASE + 0x358)
+#define DRAMC_MD32_PWR_CON             (SPM_BASE + 0x330)
+#define ISP_PWR_CON                    (SPM_BASE + 0x334)
+#define ISP2_PWR_CON                   (SPM_BASE + 0x338)
+#define IPE_PWR_CON                    (SPM_BASE + 0x33C)
+#define VDE_PWR_CON                    (SPM_BASE + 0x340)
+#define VDE2_PWR_CON                   (SPM_BASE + 0x344)
+#define VEN_PWR_CON                    (SPM_BASE + 0x348)
+#define VEN_CORE1_PWR_CON              (SPM_BASE + 0x34C)
+#define MDP_PWR_CON                    (SPM_BASE + 0x350)
+#define DIS_PWR_CON                    (SPM_BASE + 0x354)
+#define AUDIO_PWR_CON                  (SPM_BASE + 0x358)
 #define CAM_PWR_CON                    (SPM_BASE + 0x35C)
 #define CAM_RAWA_PWR_CON               (SPM_BASE + 0x360)
 #define CAM_RAWB_PWR_CON               (SPM_BASE + 0x364)
@@ -1313,7 +1313,15 @@
 #define DPY_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define DPY_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_DPY_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* ISP_PWR_CON (0x10006000+0x330) */
+/* DRAMC_MD32_PWR_CON (0x10006000+0x330) */
+#define DRAMC_MD32_PWR_RST_B_LSB            (1U << 0)       /* 1b */
+#define DRAMC_MD32_PWR_ISO_LSB              (1U << 1)       /* 1b */
+#define DRAMC_MD32_PWR_ON_LSB               (1U << 2)       /* 1b */
+#define DRAMC_MD32_PWR_ON_2ND_LSB           (1U << 3)       /* 1b */
+#define DRAMC_MD32_PWR_CLK_DIS_LSB          (1U << 4)       /* 1b */
+#define DRAMC_MD32_SRAM_PDN_LSB             (1U << 8)       /* 1b */
+#define SC_DRAMC_MD32_SRAM_PDN_ACK_LSB      (1U << 12)      /* 1b */
+/* ISP_PWR_CON (0x10006000+0x334) */
 #define ISP_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define ISP_PWR_ISO_LSB                     (1U << 1)       /* 1b */
 #define ISP_PWR_ON_LSB                      (1U << 2)       /* 1b */
@@ -1321,7 +1329,7 @@
 #define ISP_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define ISP_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_ISP_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* ISP2_PWR_CON (0x10006000+0x334) */
+/* ISP2_PWR_CON (0x10006000+0x338) */
 #define ISP2_PWR_RST_B_LSB                  (1U << 0)       /* 1b */
 #define ISP2_PWR_ISO_LSB                    (1U << 1)       /* 1b */
 #define ISP2_PWR_ON_LSB                     (1U << 2)       /* 1b */
@@ -1329,7 +1337,7 @@
 #define ISP2_PWR_CLK_DIS_LSB                (1U << 4)       /* 1b */
 #define ISP2_SRAM_PDN_LSB                   (1U << 8)       /* 1b */
 #define SC_ISP2_SRAM_PDN_ACK_LSB            (1U << 12)      /* 1b */
-/* IPE_PWR_CON (0x10006000+0x338) */
+/* IPE_PWR_CON (0x10006000+0x33C) */
 #define IPE_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define IPE_PWR_ISO_LSB                     (1U << 1)       /* 1b */
 #define IPE_PWR_ON_LSB                      (1U << 2)       /* 1b */
@@ -1337,7 +1345,7 @@
 #define IPE_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define IPE_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_IPE_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* VDE_PWR_CON (0x10006000+0x33C) */
+/* VDE_PWR_CON (0x10006000+0x340) */
 #define VDE_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define VDE_PWR_ISO_LSB                     (1U << 1)       /* 1b */
 #define VDE_PWR_ON_LSB                      (1U << 2)       /* 1b */
@@ -1345,7 +1353,7 @@
 #define VDE_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define VDE_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_VDE_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* VDE2_PWR_CON (0x10006000+0x340) */
+/* VDE2_PWR_CON (0x10006000+0x344) */
 #define VDE2_PWR_RST_B_LSB                  (1U << 0)       /* 1b */
 #define VDE2_PWR_ISO_LSB                    (1U << 1)       /* 1b */
 #define VDE2_PWR_ON_LSB                     (1U << 2)       /* 1b */
@@ -1353,7 +1361,7 @@
 #define VDE2_PWR_CLK_DIS_LSB                (1U << 4)       /* 1b */
 #define VDE2_SRAM_PDN_LSB                   (1U << 8)       /* 1b */
 #define SC_VDE2_SRAM_PDN_ACK_LSB            (1U << 12)      /* 1b */
-/* VEN_PWR_CON (0x10006000+0x344) */
+/* VEN_PWR_CON (0x10006000+0x348) */
 #define VEN_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define VEN_PWR_ISO_LSB                     (1U << 1)       /* 1b */
 #define VEN_PWR_ON_LSB                      (1U << 2)       /* 1b */
@@ -1361,7 +1369,7 @@
 #define VEN_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define VEN_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_VEN_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* VEN_CORE1_PWR_CON (0x10006000+0x348) */
+/* VEN_CORE1_PWR_CON (0x10006000+0x34C) */
 #define VEN_CORE1_PWR_RST_B_LSB             (1U << 0)       /* 1b */
 #define VEN_CORE1_PWR_ISO_LSB               (1U << 1)       /* 1b */
 #define VEN_CORE1_PWR_ON_LSB                (1U << 2)       /* 1b */
@@ -1369,7 +1377,7 @@
 #define VEN_CORE1_PWR_CLK_DIS_LSB           (1U << 4)       /* 1b */
 #define VEN_CORE1_SRAM_PDN_LSB              (1U << 8)       /* 1b */
 #define SC_VEN_CORE1_SRAM_PDN_ACK_LSB       (1U << 12)      /* 1b */
-/* MDP_PWR_CON (0x10006000+0x34C) */
+/* MDP_PWR_CON (0x10006000+0x350) */
 #define MDP_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define MDP_PWR_ISO_LSB                     (1U << 1)       /* 1b */
 #define MDP_PWR_ON_LSB                      (1U << 2)       /* 1b */
@@ -1377,7 +1385,7 @@
 #define MDP_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define MDP_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_MDP_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* DIS_PWR_CON (0x10006000+0x350) */
+/* DIS_PWR_CON (0x10006000+0x354) */
 #define DIS_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define DIS_PWR_ISO_LSB                     (1U << 1)       /* 1b */
 #define DIS_PWR_ON_LSB                      (1U << 2)       /* 1b */
@@ -1385,7 +1393,7 @@
 #define DIS_PWR_CLK_DIS_LSB                 (1U << 4)       /* 1b */
 #define DIS_SRAM_PDN_LSB                    (1U << 8)       /* 1b */
 #define SC_DIS_SRAM_PDN_ACK_LSB             (1U << 12)      /* 1b */
-/* AUDIO_PWR_CON (0x10006000+0x354) */
+/* AUDIO_PWR_CON (0x10006000+0x358) */
 #define AUDIO_PWR_RST_B_LSB                 (1U << 0)       /* 1b */
 #define AUDIO_PWR_ISO_LSB                   (1U << 1)       /* 1b */
 #define AUDIO_PWR_ON_LSB                    (1U << 2)       /* 1b */
@@ -1393,18 +1401,6 @@
 #define AUDIO_PWR_CLK_DIS_LSB               (1U << 4)       /* 1b */
 #define AUDIO_SRAM_PDN_LSB                  (1U << 8)       /* 1b */
 #define SC_AUDIO_SRAM_PDN_ACK_LSB           (1U << 12)      /* 1b */
-/* ADSP_PWR_CON (0x10006000+0x358) */
-#define ADSP_PWR_RST_B_LSB                  (1U << 0)       /* 1b */
-#define ADSP_PWR_ISO_LSB                    (1U << 1)       /* 1b */
-#define ADSP_PWR_ON_LSB                     (1U << 2)       /* 1b */
-#define ADSP_PWR_ON_2ND_LSB                 (1U << 3)       /* 1b */
-#define ADSP_PWR_CLK_DIS_LSB                (1U << 4)       /* 1b */
-#define ADSP_SRAM_CKISO_LSB                 (1U << 5)       /* 1b */
-#define ADSP_SRAM_ISOINT_B_LSB              (1U << 6)       /* 1b */
-#define ADSP_SRAM_PDN_LSB                   (1U << 8)       /* 1b */
-#define ADSP_SRAM_SLEEP_B_LSB               (1U << 9)       /* 1b */
-#define SC_ADSP_SRAM_PDN_ACK_LSB            (1U << 12)      /* 1b */
-#define SC_ADSP_SRAM_SLEEP_B_ACK_LSB        (1U << 13)      /* 1b */
 /* CAM_PWR_CON (0x10006000+0x35C) */
 #define CAM_PWR_RST_B_LSB                   (1U << 0)       /* 1b */
 #define CAM_PWR_ISO_LSB                     (1U << 1)       /* 1b */
@@ -1981,7 +1977,7 @@
 #define SSPM2SPM_MAILBOX_1_LSB              (1U << 0)       /* 32b */
 /* SSPM2SPM_MAILBOX_2 (0x10006000+0x6E4) */
 #define SSPM2SPM_MAILBOX_2_LSB              (1U << 0)       /* 32b */
-/* SSPMSPM_MAILBOX_3 (0x10006000+0x6E8) */
+/* SSPM2SPM_MAILBOX_3 (0x10006000+0x6E8) */
 #define SSPM2SPM_MAILBOX_3_LSB              (1U << 0)       /* 32b */
 /* UFS_PSRI_SW (0x10006000+0x6EC) */
 #define UFS_PSRI_SW_LSB                     (1U << 0)       /* 1b */

@@ -59,7 +59,7 @@ const char *mt6833_wakesrc_str[32] = {
 	[9] = " R12_LOWBATTERY_IRQ_B",
 	[10] = " R12_SC_SSPM2SPM_WAKEUP_B",
 	[11] = " R12_SC_SCP2SPM_WAKEUP_B",
-	[12] = " R12_SC_ADSP2SPM_WAKEUP_B",
+	[12] = " R12_RESERVED_BIT_12",
 	[13] = " R12_PCM_WDT_WAKEUP_B",
 	[14] = " R12_USB_CDSC_B",
 	[15] = " R12_USB_POWERDWN_B",
@@ -76,9 +76,9 @@ const char *mt6833_wakesrc_str[32] = {
 	[26] = " R12_AP2AP_PEER_WAKEUPEVENT_B",
 	[27] = " R12_SEJ_EVENT_B",
 	[28] = " R12_SPM_CPU_WAKEUPEVENT_B",
-	[29] = " R12_APUSYS",
-	[30] = " R12_PCIE_BRIDGE_IRQ",
-	[31] = " R12_PCIE_IRQ",
+	[29] = " R12_RESERVED_BIT_29",
+	[30] = " R12_RESERVED_BIT_30",
+	[31] = " R12_RESERVED_BIT_31",
 };
 
 struct spm_wakesrc_irq_list mt6833_spm_wakesrc_irqs[] = {
