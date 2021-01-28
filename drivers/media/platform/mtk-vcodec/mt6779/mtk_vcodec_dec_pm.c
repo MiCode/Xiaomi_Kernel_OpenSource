@@ -307,10 +307,6 @@ void mtk_vdec_emi_bw_begin(struct mtk_vcodec_ctx *ctx)
 	case V4L2_PIX_FMT_H263:
 	case V4L2_PIX_FMT_S263:
 	case V4L2_PIX_FMT_XVID:
-	case V4L2_PIX_FMT_DIVX3:
-	case V4L2_PIX_FMT_DIVX4:
-	case V4L2_PIX_FMT_DIVX5:
-	case V4L2_PIX_FMT_DIVX6:
 	case V4L2_PIX_FMT_MPEG1:
 	case V4L2_PIX_FMT_MPEG2:
 		emi_bw = emi_bw * mp24_frm_scale[f_type] / (2 * STD_VDEC_FREQ);

@@ -131,17 +131,6 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	case V4L2_PIX_FMT_XVID:
 		inst->vcu.id = IPI_VDEC_XVID;
 		break;
-	case V4L2_PIX_FMT_DIVX3:
-		inst->vcu.id = IPI_VDEC_DIVX3;
-		break;
-	case V4L2_PIX_FMT_DIVX:
-	case V4L2_PIX_FMT_DIVX4:
-		inst->vcu.id = IPI_VDEC_DIVX4;
-		break;
-	case V4L2_PIX_FMT_DIVX5:
-	case V4L2_PIX_FMT_DIVX6:
-		inst->vcu.id = IPI_VDEC_DIVX5;
-		break;
 	case V4L2_PIX_FMT_MPEG1:
 	case V4L2_PIX_FMT_MPEG2:
 		inst->vcu.id = IPI_VDEC_MPEG12;
