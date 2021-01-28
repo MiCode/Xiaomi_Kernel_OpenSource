@@ -200,6 +200,7 @@ static int __cache_sync_by_range(struct ion_client *client,
 				 unsigned long start, size_t size)
 {
 	int ret = 0;
+	int len = 0;
 	char ion_name[100];
 	int is_user_addr;
 
@@ -210,13 +211,17 @@ static int __cache_sync_by_range(struct ion_client *client,
 		IONMSG("TASK_SIZE:0x%lx, PAGE_OFFSET:0x%lx\n",
 		       (unsigned long)TASK_SIZE,
 		       (unsigned long)PAGE_OFFSET);
-		snprintf(ion_name, 100,
-			 "[ION]CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx",
-			 (*client->dbg_name) ? client->dbg_name : client->name,
-			 (unsigned int)current->pid,
-			 size, start);
-		IONMSG("%s %s\n", __func__, ion_name);
-		//aee_kernel_warning(ion_name, "[ION]: Wrong Address Range");
+		len = snprintf(ion_name, 100,
+			       "[ION]CRDISPATCH_KEY(%s),(%d) sz/addr %zx/%lx",
+			       (*client->dbg_name) ? client->dbg_name
+			       : client->name,
+			       (unsigned int)current->pid,
+			       size, start);
+		if (len > 0) {
+			IONMSG("%s %s\n", __func__, ion_name);
+			// aee_kernel_warning(ion_name,
+			//		      "[ION]: Wrong Address Range");
+		}
 		return -EFAULT;
 	}
 
