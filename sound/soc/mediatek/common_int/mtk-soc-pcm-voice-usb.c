@@ -970,6 +970,7 @@ static int mtk_voice_usb_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_VOICE_USB);
+	pdev->name = pdev->dev.kobj.name;
 
 	usb_memif_lpbk.dev = &pdev->dev;
 

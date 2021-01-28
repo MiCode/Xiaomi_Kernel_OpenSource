@@ -977,6 +977,7 @@ static int mtk_dloffload_probe(struct snd_soc_component *component)
 {
 	if (component->dev.of_node)
 		dev_set_name(&component->dev, "%s", "mt_soc_offload_common");
+	component->name = component->dev.kobj.name;
 
 	pr_info("%s: dev name %s\n", __func__, dev_name(&component->dev));
 

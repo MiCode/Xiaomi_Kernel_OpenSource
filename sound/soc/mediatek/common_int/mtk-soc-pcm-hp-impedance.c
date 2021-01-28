@@ -297,6 +297,7 @@ static int mtk_soc_hp_impedance_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_HP_IMPEDANCE_PCM);
+	pdev->name = pdev->dev.kobj.name;
 #if defined(AUD_DEBUG_LOG)
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 #endif

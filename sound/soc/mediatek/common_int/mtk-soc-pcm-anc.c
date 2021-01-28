@@ -1037,6 +1037,8 @@ static int mtk_anc_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_ANC_PCM);
+	pdev->name = pdev->dev.kobj.name;
+
 	Register_Aud_ANC_Irq(&pdev->dev);
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 

@@ -924,6 +924,7 @@ static int mtk_scp_voice_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_SCP_VOICE_PCM);
+	pdev->name = pdev->dev.kobj.name;
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	mDev = &pdev->dev;

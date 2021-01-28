@@ -981,6 +981,7 @@ static int mtk_soc_dl2_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_DL2_PCM);
+		pdev->name = pdev->dev.kobj.name;
 	} else {
 		pr_err("%s invalid of_node\n", __func__);
 		return -ENODEV;
