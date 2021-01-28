@@ -1106,21 +1106,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<&camsys CLK_CAM_CAMSV2>,
 				<&camsys CLK_CAM_CAMSV3>,
 				<&camsys CLK_CAM_CCU>,
-				<&camsys CLK_CAM_FAKE_ENG>,
-
-				<&apu_conn CLK_APU_CONN_APU>,	/*vconn pclks*/
-				<&apu_conn CLK_APU_CONN_AHB>,
-				<&apu_conn CLK_APU_CONN_AXI>,
-				<&apu_conn CLK_APU_CONN_ISP>,
-				<&apu_conn CLK_APU_CONN_CAM_ADL>,
-				<&apu_conn CLK_APU_CONN_IMG_ADL>,
-				<&apu_conn CLK_APU_CONN_EMI_26M>,
-				<&apu_conn CLK_APU_CONN_VPU_UDI>,
-
-				/* vcore clks but active in vconn */
-				<&apu_vcore CLK_APU_VCORE_AHB>,
-				<&apu_vcore CLK_APU_VCORE_AXI>,
-				<&apu_vcore CLK_APU_VCORE_ADL>;
+				<&camsys CLK_CAM_FAKE_ENG>;
 
 			clock-names = "mm",
 				"cam",
@@ -1167,18 +1153,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"cam-9",
 				"cam-10",
 				"cam-11",
-				"cam-12",
-				"vpuconn-0",
-				"vpuconn-1",
-				"vpuconn-2",
-				"vpuconn-3",
-				"vpuconn-4",
-				"vpuconn-5",
-				"vpuconn-6",
-				"vpuconn-7",
-				"vpuconn-8",
-				"vpuconn-9",
-				"vpuconn-10";
+				"cam-12";
 
 			infracfg = <&infracfg_ao>;
 			smi_comm = <&smi_common>;
