@@ -759,21 +759,21 @@ static s32 get_io_width(void)
 
 	return io_width;
 }
-#elif defined(USE_MTK_DRAMC)
-static s32 get_io_width(void)
-{
-	s32 io_width;
-	s32 ddr_type = get_ddr_type();
+//#elif defined(USE_MTK_DRAMC)
+//static s32 get_io_width(void)
+//{
+//	s32 io_width;
+//	s32 ddr_type = get_ddr_type();
 
-	if (ddr_type == TYPE_LPDDR3)
-		io_width = 4;
-	else if (ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X)
-		io_width = 2;
-	else
-		io_width = 4;
-
-	return io_width;
-}
+//	if (ddr_type == TYPE_LPDDR3)
+//		io_width = 4;
+//	else if (ddr_type == TYPE_LPDDR4 || ddr_type == TYPE_LPDDR4X)
+//		io_width = 2;
+//	else
+//		io_width = 4;
+//
+//	return io_width;
+//}
 #endif
 
 #ifdef HRT_MECHANISM
@@ -1546,12 +1546,12 @@ static s32 get_total_hrt_bw(void)
 	s32 io_width = get_io_width();
 
 	result = MULTIPLY_BW_THRESH_HIGH(max_freq * ch_num * io_width);
-#elif defined(USE_MTK_DRAMC)
-	s32 max_freq = dram_steps_freq(0);
-	s32 ch_num = get_emi_ch_num();
-	s32 io_width = get_io_width();
+//#elif defined(USE_MTK_DRAMC)
+//	s32 max_freq = dram_steps_freq(0);
+//	s32 ch_num = get_emi_ch_num();
+//	s32 io_width = get_io_width();
 
-	result = MULTIPLY_BW_THRESH_HIGH(max_freq * ch_num * io_width);
+//	result = MULTIPLY_BW_THRESH_HIGH(max_freq * ch_num * io_width);
 #else
 	result = UNINITIALIZED_VALUE;
 #endif

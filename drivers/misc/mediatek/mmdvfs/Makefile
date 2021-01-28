@@ -71,6 +71,10 @@ else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))
 SUPPORT_MMP := true
 FORCE_STEP0 := true
 BUILD_MMDVFS := true
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779"))
+SUPPORT_MMP := true
+FORCE_STEP0 := true
+BUILD_MMDVFS := true
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
