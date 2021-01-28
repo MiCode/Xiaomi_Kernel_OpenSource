@@ -35,15 +35,24 @@ EXPORT_SYMBOL(trace_hardirqs_on);
 
 void trace_hardirqs_off(void)
 {
+#ifdef CONFIG_MTK_IRQ_OFF_TRACER
+	int trace_time = 0;
+#endif
 	if (!this_cpu_read(tracing_irq_cpu)) {
 		this_cpu_write(tracing_irq_cpu, 1);
-		trace_hardirqs_off_time();
+#ifdef CONFIG_MTK_IRQ_OFF_TRACER
+		trace_time = 1;
+#endif
 		tracer_hardirqs_off(CALLER_ADDR0, CALLER_ADDR1);
 		if (!in_nmi())
 			trace_irq_disable_rcuidle(CALLER_ADDR0, CALLER_ADDR1);
 	}
 
 	lockdep_hardirqs_off(CALLER_ADDR0);
+#ifdef CONFIG_MTK_IRQ_OFF_TRACER
+	if (trace_time)
+		trace_hardirqs_off_time();
+#endif
 }
 EXPORT_SYMBOL(trace_hardirqs_off);
 
