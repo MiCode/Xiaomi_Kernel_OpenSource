@@ -32,7 +32,7 @@ extern void dvfsrc_enable_dvfs_freq_hopping(int on);
 #else
 static inline int mtk_dvfsrc_query_opp_info(u32 id)
 { return 0; }
-static int mtk_dvfsrc_vcore_opp_count(void)
+static inline int mtk_dvfsrc_vcore_opp_count(void)
 { return 0; }
 static inline int mtk_dvfsrc_vcore_uv_table(u32 opp)
 { return 0; }
