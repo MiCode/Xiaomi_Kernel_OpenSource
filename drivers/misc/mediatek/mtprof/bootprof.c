@@ -112,6 +112,23 @@ out:
 	mutex_unlock(&bootprof_lock);
 }
 
+void bootprof_bootloader(void)
+{
+	struct device_node *node;
+	int err = 0;
+
+	node = of_find_node_by_name(NULL, "bootprof");
+	if (node) {
+		err |= of_property_read_s32(node, "pl_t", &bootprof_pl_t);
+		err |= of_property_read_s32(node, "lk_t", &bootprof_lk_t);
+		err |= of_property_read_s32(node, "lk_logo_t",
+						&bootprof_logo_t);
+
+		pr_info("BOOTPROF: DT(Err:0x%x) pl_t=%d, lk_t=%d, lk_logo_t=%d\n",
+			err, bootprof_pl_t, bootprof_lk_t, bootprof_logo_t);
+	}
+}
+
 void bootprof_initcall(initcall_t fn, unsigned long long ts)
 {
 #define INITCALL_THRESHOLD 15000000
@@ -299,10 +316,12 @@ static int __init init_boot_prof(void)
 static int __init init_bootprof_buf(void)
 {
 	memset(bootprof, 0, sizeof(struct log_t *) * BUF_COUNT);
-	bootprof[0] = kzalloc(sizeof(struct log_t) * LOGS_PER_BUF,
+	bootprof[0] = kcalloc(LOGS_PER_BUF, sizeof(struct log_t),
 			      GFP_ATOMIC | __GFP_NORETRY | __GFP_NOWARN);
 	if (!bootprof[0])
 		goto fail;
+
+	bootprof_bootloader();
 	mt_bootprof_switch(1);
 fail:
 	return 0;
