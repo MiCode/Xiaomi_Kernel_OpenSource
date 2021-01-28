@@ -570,11 +570,6 @@
 };
 /* DISPSYS GPIO standardization end */
 
-&mt6360_tcpc {
-	dev-conn-end = "11201000.usb-role-switch";
-	status = "okay";
-};
-
 &ssusb {
 	dr_mode = "otg";
 	mediatek,force-vbus = <1>;
