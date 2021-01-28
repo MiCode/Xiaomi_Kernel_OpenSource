@@ -89,7 +89,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.grabwindow_width = 3264,
 		.grabwindow_height = 2448,
 		.mipi_data_lp2hs_settle_dc = 85, /*unit, ns*/
-		.mipi_pixel_rate = 257200000,
+		.mipi_pixel_rate = 480000000,
 		.max_framerate = 300,
 	},
 	.cap1 = {
@@ -2230,7 +2230,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM
 		switch (*feature_data) {
 		case MSDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG:
 			*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) =
-				(imgsensor_info.cap.pclk /
+				(imgsensor_info.cap.pclk*2 /
 				 (imgsensor_info.cap.linelength - 80)) *
 				imgsensor_info.cap.grabwindow_width;
 
