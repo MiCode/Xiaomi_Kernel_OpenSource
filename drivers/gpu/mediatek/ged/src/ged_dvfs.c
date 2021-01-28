@@ -2149,7 +2149,7 @@ struct GED_DVFS_OPP_STAT *ged_dvfs_query_opp_cost(uint64_t reset_base_us, uint64
 	if (!g_report)
 		g_report = vmalloc(sizeof(struct GED_DVFS_OPP_STAT) * g_num);
 
-	if (g_aOppStat)
+	if (g_aOppStat && g_report)
 		memcpy(g_report, g_aOppStat, g_num*sizeof(struct GED_DVFS_OPP_STAT));
 
 	return g_report;

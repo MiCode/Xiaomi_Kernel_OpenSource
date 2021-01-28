@@ -116,7 +116,7 @@ static int ged_dvfs_opp_cost_seq_show(struct seq_file *psSeqFile,
 			void *pvData)
 {
 	char acBuffer[32];
-	int len;
+	unsigned int len;
 
 	if (pvData != NULL) {
 		int i, j;
@@ -125,15 +125,14 @@ static int ged_dvfs_opp_cost_seq_show(struct seq_file *psSeqFile,
 		uint64_t curTS_us;
 		struct GED_DVFS_OPP_STAT *report;
 
+		curTS_us = ged_get_time();
+		curTS_us = curTS_us >> 10;
 		report = ged_dvfs_query_opp_cost(reset_base_us, curTS_us);
 		if (report) {
-
-			curTS_us = ged_get_time();
-			curTS_us = curTS_us >> 10;
-
+			ui32FqCount = 0;
+			ui32TotalTrans = 0;
 			mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
 			cur_idx = mt_gpufreq_get_cur_freq_index();
-			ui32TotalTrans = 0;
 
 			seq_puts(psSeqFile, "     From  :   To\n");
 			seq_puts(psSeqFile, "           :");
