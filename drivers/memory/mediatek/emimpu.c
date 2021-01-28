@@ -172,8 +172,10 @@ static ssize_t emimpu_ctrl_store
 		pr_info("%s: %s %s\n", __func__, token[0], token[1]);
 
 		ret = kstrtoul(token[1], 10, &region);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("%s: fail to parse region\n", __func__);
+			goto emimpu_ctrl_store_end;
+		}
 
 		if (region < emimpu_dev_ptr->region_cnt) {
 			emimpu_dev_ptr->show_region = (unsigned int) region;
@@ -188,11 +190,15 @@ static ssize_t emimpu_ctrl_store
 			__func__, token[0], token[1], token[2]);
 
 		ret = kstrtoul(token[1], 10, &dgroup);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("%s: fail to parse dgroup\n", __func__);
+			goto emimpu_ctrl_store_end;
+		}
 		ret = kstrtoul(token[2], 16, &apc);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("[MPU] fail to parse apc\n");
+			goto emimpu_ctrl_store_end;
+		}
 
 		if (dgroup < (emimpu_dev_ptr->domain_cnt / 8)) {
 			pr_info("%s: apc[%lu]: 0x%lx\n",
@@ -212,14 +218,20 @@ static ssize_t emimpu_ctrl_store
 			__func__, token[0], token[1], token[2], token[3]);
 
 		ret = kstrtoull(token[1], 16, &start);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("%s: fail to parse start\n", __func__);
+			goto emimpu_ctrl_store_end;
+		}
 		ret = kstrtoull(token[2], 16, &end);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("%s: fail to parse end\n", __func__);
+			goto emimpu_ctrl_store_end;
+		}
 		ret = kstrtoul(token[3], 10, &region);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("%s: fail to parse region\n", __func__);
+			goto emimpu_ctrl_store_end;
+		}
 
 		if (region < emimpu_dev_ptr->region_cnt) {
 			rg_info->start = start;
@@ -234,8 +246,10 @@ static ssize_t emimpu_ctrl_store
 		pr_info("%s: %s %s\n", __func__, token[0], token[1]);
 
 		ret = kstrtoul(token[1], 10, &region);
-		if (ret != 0)
+		if (ret != 0) {
 			pr_info("%s: fail to parse region\n", __func__);
+			goto emimpu_ctrl_store_end;
+		}
 
 		if (region < emimpu_dev_ptr->region_cnt) {
 			rg_info->rg_num = (unsigned int)region;
