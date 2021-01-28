@@ -214,7 +214,7 @@ const struct ISR_TABLE DIP_IRQ_CB_TBL[DIP_IRQ_TYPE_AMOUNT] = {
  *  "DIP_DEV_NODE_ENUM" in camera_dip.h
  */
 static const struct of_device_id dip_of_ids[] = {
-	{ .compatible = "mediatek,mt6779-imgsys", },
+	{ .compatible = "mediatek,imgsys", },
 	{ .compatible = "mediatek,dip", },
 	{}
 };
