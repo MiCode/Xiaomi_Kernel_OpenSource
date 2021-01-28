@@ -2316,23 +2316,23 @@ static int mmprofile_probe(void)
 	if (g_p_debug_fs_dir) {
 		/* Create debugfs files. */
 		g_p_debug_fs_enable =
-		    debugfs_create_file("enable", 0x600,
+		    debugfs_create_file("enable", 0600,
 				g_p_debug_fs_dir, NULL,
 				&mmprofile_dbgfs_enable_fops);
 		g_p_debug_fs_start =
-		    debugfs_create_file("start", 0x600,
+		    debugfs_create_file("start", 0600,
 				g_p_debug_fs_dir, NULL,
 				&mmprofile_dbgfs_start_fops);
 		g_p_debug_fs_buffer =
-		    debugfs_create_file("buffer", 0x400,
+		    debugfs_create_file("buffer", 0400,
 				g_p_debug_fs_dir, NULL,
 				&mmprofile_dbgfs_buffer_fops);
 		g_p_debug_fs_global =
-		    debugfs_create_file("global", 0x400,
+		    debugfs_create_file("global", 0400,
 				g_p_debug_fs_dir, NULL,
 				&mmprofile_dbgfs_global_fops);
 		g_p_debug_fs_reset =
-		    debugfs_create_file("reset", 0x200,
+		    debugfs_create_file("reset", 0200,
 				g_p_debug_fs_dir, NULL,
 				&mmprofile_dbgfs_reset_fops);
 	}
