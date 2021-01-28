@@ -1036,5 +1036,5 @@ static void __exit trusty_driver_exit(void)
 	platform_driver_unregister(&nebula_driver);
 }
 
-subsys_initcall(trusty_driver_init);
+arch_initcall(trusty_driver_init);
 module_exit(trusty_driver_exit);
