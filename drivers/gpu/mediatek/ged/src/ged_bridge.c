@@ -5,8 +5,10 @@
 
 #include <linux/kernel.h>
 #include <mt-plat/mtk_gpu_utility.h>
-/* To-Do: FPSGO*/
-/* #include <mt-plat/fpsgo_common.h>*/
+
+#ifdef CONFIG_MTK_FPSGO_V3
+#include <mt-plat/fpsgo_common.h>
+#endif
 
 #include "ged_base.h"
 #include "ged_bridge.h"
@@ -155,18 +157,15 @@ int ged_bridge_gpu_timestamp(
 	return 0;
 }
 
-/* -------------------------------------------------------------------------- */
-
-
 //-----------------------------------------------------------------------------
 int ged_bridge_gpu_hint_to_cpu(
 		struct GED_BRIDGE_IN_GPU_HINT_TO_CPU *in,
 		struct GED_BRIDGE_OUT_GPU_HINT_TO_CPU *out)
 {
 	int ret = 0;
-	/* To-Do: FPSGo*/
-	/*ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);*/
-
+#ifdef CONFIG_MTK_FPSGO_V3
+	ret = fpsgo_notify_gpu_block(in->tid, in->i32BridgeFD, in->hint);
+#endif
 	out->eError = GED_OK;
 	out->boost_flag = ret;
 	out->boost_value = ged_dvfs_boost_value();

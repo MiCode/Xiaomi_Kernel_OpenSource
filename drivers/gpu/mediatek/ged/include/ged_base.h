@@ -34,5 +34,8 @@ long ged_get_pid(void);
 
 unsigned long long ged_get_time(void);
 
+struct GED_FILE_PRIVATE_BASE {
+	void (*free_func)(void *f);
+};
 
 #endif

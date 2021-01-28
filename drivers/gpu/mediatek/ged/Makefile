@@ -20,16 +20,43 @@ VER:=eng
 subdir-ccflags-y += -Wno-error
 #ccflags-y += -DGED_KPI_DEBUG
 
-ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))
+ccflags-y += -DMTK_GPUFREQ_V1
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6739" "mt6758" "mt6775" "mt6771" "mt6765" "mt6761" "mt3967" "mt6779" "mt6768" "mt6785" "mt6885" "mt6873"))
+#ccflags-y += -DGED_KPI_MET_DEBUG
 ccflags-y += -DMTK_GED_KPI
 ccflags-y += -DGED_KPI_CPU_BOOST
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6775" "mt6771" "mt6765" "mt6761" "mt6763" "mt6779" "mt6768" "mt6785" "mt6739" "mt6885" "mt6873"))
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_FB_DVFS
+endif
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761" "mt6765" "mt6779" "mt6768" "mt6771" "mt6785" "mt6885" "mt6873"))
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
 ccflags-y += -DGED_ENABLE_DYNAMIC_DVFS_MARGIN
 ccflags-y += -DGED_CONFIGURE_LOADING_BASE_DVFS_STEP
+ccflags-y += -DGED_ENABLE_TIMER_BASED_DVFS_MARGIN
 endif
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6885" "mt6873"))
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+ccflags-y += -DGED_ENABLE_DVFS_LOADING_MODE
+endif
+endif
+
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6775" "mt6771"))
 #ccflags-y += -DGED_KPI_CPU_INFO
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799" "mt6763" "mt6775" "mt6771"))
+#ccflags-y += -DGED_KPI_DFRC
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6759" "mt6799"))
@@ -41,20 +68,24 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739"))
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
-#ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
+#ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
 endif
 
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
-ccflags-y += -DCONFIG_MTK_QOS_SUPPORT
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768" "mt6771"))
+ccflags-y += -DCONFIG_MTK_QOS_V1_SUPPORT
 endif
 
-ifneq ($(strip $(CONFIG_MTK_ENG_BUILD )),)
-ifneq ($(strip $(CONFIG_MTK_ENG_BUILD )),eng)
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779"))
+ifeq ($(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT),y)
+#ccflags-y += -DGED_MODULE_LATE_INIT
+endif
+endif
+
+ifneq ($(CONFIG_MTK_ENG_BUILD),y)
 VER:=user
 ifeq ($(CONFIG_EXTREME_LOW_RAM), y)
 ccflags-y += -DGED_LOG_SIZE_LIMITED
 ccflags-y += -DGED_BUFFER_LOG_DISABLE
-endif
 endif
 endif
 
@@ -113,8 +144,7 @@ $(info $[GED]CONFIG_FPGA_EARLY_PORTING is [${CONFIG_FPGA_EARLY_PORTING}])
 endif
 
 ifeq ($(CONFIG_MTK_FTRACE_DEFAULT_ENABLE),y)
-# To-DO:
-#ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
+ccflags-y += -DENABLE_GED_SYSTRACE_UTIL
 endif
 
 

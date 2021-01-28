@@ -21,12 +21,10 @@ static int ged_thread_run(void *pvData)
 	if (psThreadData == NULL)
 		return 0;
 
-
 	psThreadData->pFunc(psThreadData->pvData);
 
 	while (!kthread_should_stop())
 		schedule();
-
 
 	return 0;
 }
@@ -39,12 +37,10 @@ GED_ERROR ged_thread_create(GED_THREAD_HANDLE *phThread,
 	if (phThread == NULL)
 		return GED_ERROR_INVALID_PARAMS;
 
-
 	psThreadData =
 	(struct GED_THREAD_DATA *)ged_alloc(sizeof(struct GED_THREAD_DATA));
 	if (psThreadData == NULL)
 		return GED_ERROR_OOM;
-
 
 	psThreadData->pFunc = pFunc;
 	psThreadData->pvData = pvData;

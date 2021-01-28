@@ -8,8 +8,8 @@
 
 #include "ged_type.h"
 
-#define GED_NOTIFICATION_TYPE int
-#define GED_NOTIFICATION_TYPE_SW_VSYNC 0
+#define GED_NOTIFICATION_TYPE                          int
+#define GED_NOTIFICATION_TYPE_SW_VSYNC                 0
 #define GED_NOTIFICATION_TYPE_HW_VSYNC_PRIMARY_DISPLAY 1
 
 void ged_notification(GED_NOTIFICATION_TYPE eType);

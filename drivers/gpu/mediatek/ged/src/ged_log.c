@@ -290,7 +290,7 @@ static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf,
 	const char *pszName)
 {
 	struct list_head *psListEntry, *psListEntryTemp, *psList;
-	struct GED_LOG_LISTEN *psFound = NULL, *psLogListen;
+	struct GED_LOG_LISTEN *psFound = NULL, *psLogListen = NULL;
 
 	read_lock_bh(&gsGEDLogBufList.sLock);
 
@@ -298,7 +298,9 @@ static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf,
 	list_for_each_safe(psListEntry, psListEntryTemp, psList) {
 		psLogListen = list_entry(psListEntry,
 			struct GED_LOG_LISTEN, sList);
-		if (strcmp(psLogListen->acName, pszName) == 0) {
+		if ((pszName != NULL)
+			&& (psLogListen != NULL)
+			&& strcmp(psLogListen->acName, pszName) == 0) {
 			psFound = psLogListen;
 			break;
 		}
@@ -512,7 +514,6 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	/* Init Line */
 	{
 		int i = 0;
-
 		for (i = 0; i < psGEDLogBuf->i32LineCount; ++i)
 			psGEDLogBuf->psLine[i].offset = -1;
 	}
@@ -530,7 +531,6 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 
 	if (pszNodeName) {
 		int err;
-
 		snprintf(psGEDLogBuf->acNodeName,
 			GED_LOG_BUF_NODE_NAME_LENGTH, "%s", pszNodeName);
 		err = ged_debugFS_create_entry(
@@ -833,7 +833,6 @@ GED_ERROR ged_log_buf_reset(GED_LOG_BUF_HANDLE hLogBuf)
 
 	if (psGEDLogBuf) {
 		int i;
-
 		spin_lock_irqsave(&psGEDLogBuf->sSpinLock,
 			psGEDLogBuf->ulIRQFlags);
 

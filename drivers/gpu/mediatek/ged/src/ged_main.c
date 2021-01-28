@@ -22,9 +22,7 @@
 #include <linux/semaphore.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
-/* To-Do: aee is not ready
- * #include <mt-plat/aee.h>
- */
+#include <mt-plat/aee.h>
 
 #include "ged_debugFS.h"
 #include "ged_log.h"
@@ -77,7 +75,8 @@ static int ged_release(struct inode *inode, struct file *filp)
 {
 	if (filp->private_data) {
 		void (*free_func)(void *f) =
-			(void (*)(void *))(filp->private_data);
+			((struct GED_FILE_PRIVATE_BASE *)
+			filp->private_data)->free_func;
 
 		free_func(filp->private_data);
 	}
@@ -116,8 +115,17 @@ static long ged_dispatch(struct file *pFile,
 		&& psBridgePackageKM->i32OutBufferSize >= 0) {
 
 		if (psBridgePackageKM->i32InBufferSize > 0) {
-			pvIn =
-			kmalloc(psBridgePackageKM->i32InBufferSize, GFP_KERNEL);
+			int32_t inputBufferSize =
+					psBridgePackageKM->i32InBufferSize;
+
+			if (GED_BRIDGE_COMMAND_GE_ALLOC ==
+					GED_GET_BRIDGE_ID(
+					psBridgePackageKM->ui32FunctionID)) {
+				inputBufferSize = sizeof(int) +
+				sizeof(uint32_t) * GE_ALLOC_STRUCT_NUM;
+			}
+
+			pvIn = kmalloc(inputBufferSize, GFP_KERNEL);
 
 			if (pvIn == NULL)
 				goto dispatch_exit;

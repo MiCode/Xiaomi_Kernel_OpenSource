@@ -18,10 +18,10 @@
 #define GED_LOG_BUF_NODE_NAME_LENGTH 64
 
 
-#define GED_LOG_BUF_TYPE_RINGBUFFER			0
-#define GED_LOG_BUF_TYPE_QUEUEBUFFER			1
+#define GED_LOG_BUF_TYPE_RINGBUFFER			        0
+#define GED_LOG_BUF_TYPE_QUEUEBUFFER			    1
 #define GED_LOG_BUF_TYPE_QUEUEBUFFER_AUTO_INCREASE	2
-#define GED_LOG_BUF_TYPE int
+#define GED_LOG_BUF_TYPE                            int
 
 GED_LOG_BUF_HANDLE ged_log_buf_alloc(int i32MaxLineCount,
 	int i32MaxBufferSizeByte, GED_LOG_BUF_TYPE eType, const char *pszName,

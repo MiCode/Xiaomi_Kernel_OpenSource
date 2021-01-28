@@ -23,9 +23,9 @@
 #include "ged_monitor_3D_fence.h"
 #include "ged.h"
 
-#undef CONFIG_MTK_QOS_SUPPORT
+#undef CONFIG_MTK_QOS_V1_SUPPORT
 
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 #include <mtk_gpu_bw.h>
 #endif
 
@@ -80,6 +80,7 @@ struct GED_DUMP_FW {
 #endif
 
 int (*ged_sw_vsync_event_fp)(bool bMode) = NULL;
+EXPORT_SYMBOL(ged_sw_vsync_event_fp);
 static struct mutex gsVsyncModeLock;
 static int ged_sw_vsync_event(bool bMode)
 {
@@ -405,7 +406,7 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 
 	if (bSwitch) {
 		ged_gpu_power_on_notified = true;
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 		mt_gpu_bw_toggle(1);
 #endif
 		g_ns_gpu_on_ts = ged_get_time();
@@ -421,7 +422,7 @@ void ged_dvfs_gpu_clock_switch_notify(bool bSwitch)
 			timer_switch(true);
 		}
 	} else {
-#ifdef CONFIG_MTK_QOS_SUPPORT
+#ifdef CONFIG_MTK_QOS_V1_SUPPORT
 		mt_gpu_bw_toggle(0);
 #endif
 		ged_gpu_power_off_notified = true;

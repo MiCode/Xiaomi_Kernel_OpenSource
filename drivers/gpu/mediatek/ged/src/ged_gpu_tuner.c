@@ -8,7 +8,6 @@
 #include "ged_log.h"
 #include "ged_debugFS.h"
 
-
 #define DEBUG_ON	1
 #define DEBUG_OFF	0
 

@@ -38,13 +38,13 @@
 #define GED_DVFS_SET_BOTTOM_COMMIT      3
 #define GED_DVFS_SET_LIMIT_COMMIT       4
 #define GED_DVFS_INPUT_BOOST_COMMIT     5
-#define GED_DVFS_COMMIT_TYPE int
+#define GED_DVFS_COMMIT_TYPE            int
 
-#define GED_DVFS_DEFAULT         0
-#define GED_DVFS_LP              1
-#define GED_DVFS_JUST_MAKE       2
-#define GED_DVFS_PERFORMANCE     3
-#define GED_DVFS_TUNING_MODE int
+#define GED_DVFS_DEFAULT                0
+#define GED_DVFS_LP                     1
+#define GED_DVFS_JUST_MAKE              2
+#define GED_DVFS_PERFORMANCE            3
+#define GED_DVFS_TUNING_MODE            int
 
 #define GED_EVENT_TOUCH            (1 << 0)
 #define GED_EVENT_THERMAL          (1 << 1)
@@ -87,9 +87,23 @@ struct GED_DVFS_BW_DATA {
 
 #define MAX_BW_PROFILE 5
 
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+
+struct GpuUtilization_Ex {
+	unsigned int util_active;
+	unsigned int util_3d;
+	unsigned int util_ta;
+	unsigned int util_compute;
+};
+
+bool ged_dvfs_cal_gpu_utilization_ex(unsigned int *pui32Loading,
+	unsigned int *pui32Block, unsigned int *pui32Idle,
+	struct GpuUtilization_Ex *Util_Ex);
+#else
 bool ged_dvfs_cal_gpu_utilization(unsigned int *pui32Loading,
 	unsigned int *pui32Block, unsigned int *pui32Idle);
-void ged_dvfs_cal_gpu_utilization_force(void);
+#endif
+
 
 void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime);
 
@@ -144,6 +158,8 @@ int ged_dvfs_boost_value(void);
 #if (defined(GED_ENABLE_FB_DVFS) && defined(GED_ENABLE_DYNAMIC_DVFS_MARGIN))
 extern void (*mtk_dvfs_margin_value_fp)(int i32MarginValue);
 extern int (*mtk_get_dvfs_margin_value_fp)(void);
+extern int ged_get_dvfs_margin(void);
+extern unsigned int ged_get_dvfs_margin_mode(void);
 #endif
 
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
@@ -151,4 +167,24 @@ extern void (*mtk_loading_base_dvfs_step_fp)(int i32MarginValue);
 extern int (*mtk_get_loading_base_dvfs_step_fp)(void);
 #endif
 
+#ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
+extern void (*mtk_timer_base_dvfs_margin_fp)(int i32MarginValue);
+extern int (*mtk_get_timer_base_dvfs_margin_fp)(void);
+/* it is not good that ged_dvfs extern API of ged_kpi, need to refactor */
+extern GED_ERROR ged_kpi_timer_based_pick_riskyBQ(int *pT_gpu_real,
+	int *pT_gpu_pipe, int *pT_gpu_target, unsigned long long *pullWnd);
+int ged_dvfs_get_tb_dvfs_margin_cur(void);
+unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
+#endif
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+#define LOADING_ACTIVE 0
+#define LOADING_MAX_3DTA_COM 1
+#define LOADING_MAX_3DTA 2
+
+extern void (*mtk_dvfs_loading_mode_fp)(int ui32LoadingMode);
+extern int (*mtk_get_dvfs_loading_mode_fp)(void);
+extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
+#define MAX(x, y)	((x) < (y) ? (y) : (x))
+#endif
 #endif

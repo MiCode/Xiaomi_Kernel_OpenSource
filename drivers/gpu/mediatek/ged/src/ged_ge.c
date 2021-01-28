@@ -198,6 +198,9 @@ int ged_ge_alloc(int region_num, uint32_t *region_sizes)
 		goto err_entry_file;
 	}
 
+	/* Avoid using the unpredictable value for Fuzzing */
+	region_num = GE_ALLOC_STRUCT_NUM;
+
 	entry->region_num = region_num;
 	entry->data =
 		kzalloc((sizeof(uint32_t) + sizeof(uint32_t *)) * region_num,

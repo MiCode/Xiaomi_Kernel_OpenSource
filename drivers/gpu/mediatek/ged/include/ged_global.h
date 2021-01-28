@@ -40,8 +40,16 @@ extern void ged_monitor_3D_fence_set_enable(GED_BOOL bEnable);
 extern unsigned int g_ui32EventStatus;
 extern unsigned int g_ui32EventDebugStatus;
 
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+extern void (*ged_dvfs_cal_gpu_utilization_ex_fp)(
+		unsigned int *pui32Loading,
+		unsigned int *pui32Block,
+		unsigned int *pui32Idle,
+		void *Util_Ex);
+#else
 extern void (*ged_dvfs_cal_gpu_utilization_fp)(unsigned int *pui32Loading,
 	unsigned int *pui32Block, unsigned int *pui32Idle);
+#endif
 extern void (*ged_dvfs_gpu_freq_commit_fp)(unsigned long ui32NewFreqID,
 	GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited);
 extern bool ged_gpu_power_on_notified;
@@ -54,8 +62,11 @@ extern void (*mtk_gpu_sodi_entry_fp)(void);
 extern void (*mtk_gpu_sodi_exit_fp)(void);
 
 extern unsigned int g_gpu_timer_based_emu;
-extern unsigned long g_ulCalResetTS_us; // calculate loading reset time stamp
-extern unsigned long g_ulPreCalResetTS_us; // previous reset time stamp
-extern unsigned long g_ulWorkingPeriod_us; // last frame half, t0
+// calculate loading reset time stamp
+extern unsigned long g_ulCalResetTS_us;
+// previous calculate loading reset time stamp
+extern unsigned long g_ulPreCalResetTS_us;
+// last frame half, t0
+extern unsigned long g_ulWorkingPeriod_us;
 
 #endif
