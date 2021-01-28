@@ -13,7 +13,7 @@ config TRUSTONIC_TEE_SUPPORT
 config TRUSTONIC_TEE_VERSION
 	string "TRUSTONIC TEE Version"
 	depends on TRUSTONIC_TEE_SUPPORT
-	default "400b"
+	default "410"
 
 config TRUSTONIC_TEE_DEBUG
 	bool "Trustonic TEE driver debug mode"
