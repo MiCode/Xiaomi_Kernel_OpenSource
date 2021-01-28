@@ -243,7 +243,8 @@ static int find_and_derive_key(struct fscrypt_info *crypt_info,
 		if (!fscrypt_is_private_mode(crypt_info)) {
 			err = derive_key_aes(payload->raw, ctx, derived_key,
 					     mode->keysize);
-		}
+		} else
+			err = 0;
 	}
 	up_read(&key->sem);
 	key_put(key);
