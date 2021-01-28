@@ -212,13 +212,15 @@
 		compatible = "arm,armv8-timer";
 		interrupt-parent = <&gic>;
 		interrupts = <GIC_PPI 13
-			      (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+			     (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 14
-			      (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+			     (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 11
-			      (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+			     (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
 			     <GIC_PPI 10
-			      (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+			     (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+		clock-frequency = <13000000>;
+		arm,no-tick-in-suspend;
 	};
 
 	soc {
@@ -342,13 +344,15 @@
 			reg = <0 0x10007000 0 0x100>;
 		};
 
-		timer: timer@10008000 {
+		timer: apxgpt@10008000 {
 			compatible = "mediatek,mt8173-timer",
 				     "mediatek,mt6577-timer";
 			reg = <0 0x10008000 0 0x1000>;
 			interrupts = <GIC_SPI 144 IRQ_TYPE_LEVEL_LOW>;
 			clocks = <&infracfg CLK_INFRA_CLK_13M>,
 				 <&topckgen CLK_TOP_RTC_SEL>;
+			clock-names = "clk13m",
+				      "clk32k";
 		};
 
 		pwrap: pwrap@1000d000 {
