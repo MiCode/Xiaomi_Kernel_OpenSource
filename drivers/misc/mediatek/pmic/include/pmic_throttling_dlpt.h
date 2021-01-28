@@ -22,13 +22,11 @@
 #if defined PMIC_DEBUG_PR_DBG
 #define pmic_spm_crit2(fmt, args...)		\
 do {					\
-	aee_sram_printk(fmt, ##args);	\
 	pr_notice("[SPM-PMIC] " fmt, ##args);		\
 } while (0)
 #else
 #define pmic_spm_crit2(fmt, args...)		\
 do {					\
-	aee_sram_printk(fmt, ##args);	\
 	pr_info("[SPM-PMIC] " fmt, ##args);		\
 } while (0)
 #endif
