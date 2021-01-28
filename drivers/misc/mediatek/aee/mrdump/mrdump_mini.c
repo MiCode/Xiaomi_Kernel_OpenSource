@@ -632,7 +632,10 @@ void mrdump_mini_build_task_info(struct pt_regs *regs)
 	trace.nr_entries = 0;
 	trace.max_entries = MAX_STACK_TRACE_DEPTH;
 	trace.entries = ipanic_stack_entries;
-	trace.skip = 8;
+	/* the value is only from experience and without strict rules
+	 * need to pay attention to the value
+	 */
+	trace.skip = 4;
 	save_stack_trace_tsk(cur, &trace);
 	/* Skip the entries -
 	 * ipanic_save_current_tsk_info/save_stack_trace_tsk
