@@ -2788,6 +2788,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			/* 2nd layer behavoir of copy from user
 			 * is implemented in ISP_ReadReg(...)
 			 */
+			RegIo.Count = 0;
 			Ret = ISP_ReadReg(&RegIo);
 		} else {
 			LOG_NOTICE("copy_from_user failed\n");
