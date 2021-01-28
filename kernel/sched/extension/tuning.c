@@ -270,7 +270,7 @@ EXPORT_SYMBOL(get_isolated_prio);
 
 void set_capacity_margin(unsigned int margin)
 {
-	if (margin > SCHED_CAPACITY_SCALE)
+	if (margin >= SCHED_CAPACITY_SCALE)
 		capacity_margin = margin;
 }
 EXPORT_SYMBOL(set_capacity_margin);
