@@ -3518,7 +3518,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	};
 
 	touch: touch {
-		compatible = "mediatek,touch";
+		compatible = "goodix,touch";
 	};
 
 	nfc:nfc {
