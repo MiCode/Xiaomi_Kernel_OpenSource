@@ -573,7 +573,7 @@ static void ppm_main_log_print(unsigned int policy_mask,
 		filter_cnt++;
 	}
 
-	if (!filter_log)
+	if (!filter_log && strcmp(CONFIG_MTK_PLATFORM, "mt6779"))
 		ppm_info("(0x%x)(%d)(%d)%s\n", policy_mask,
 			min_power_budget, root_cluster, msg);
 	else

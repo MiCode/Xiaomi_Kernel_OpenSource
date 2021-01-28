@@ -143,7 +143,8 @@ static const struct file_operations ppm_ ## name ## _proc_fops = {            \
 static inline void mtk_cpu_update_policy(void)
 {
 #ifdef CONFIG_CPU_FREQ
-	ppm_info("trigger cpufreq_update_policy(*)\n");
+	if (strcmp(CONFIG_MTK_PLATFORM, "mt6779"))
+		ppm_info("trigger cpufreq_update_policy(*)\n");
 	cpufreq_update_policy(0); /* little core */
 	cpufreq_update_policy(CORE_NUM_L); /* big core */
 #endif
