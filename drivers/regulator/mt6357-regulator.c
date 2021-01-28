@@ -294,6 +294,20 @@ static const u32 vusb33_idx[] = {
 	3, 4,
 };
 
+static int mt6357_regulator_disable(struct regulator_dev *rdev)
+{
+	int ret = 0;
+
+	if (rdev->use_count == 0) {
+		dev_notice(&rdev->dev, "%s:%s should not be disable.(use_count=0)\n"
+			   , __func__, rdev->desc->name);
+		ret = -EIO;
+	} else
+		ret = regulator_disable_regmap(rdev);
+
+	return ret;
+}
+
 static inline unsigned int mt6357_map_mode(unsigned int mode)
 {
 	switch (mode) {
@@ -439,7 +453,7 @@ static const struct regulator_ops mt6357_volt_range_ops = {
 	.get_voltage_sel = mt6357_get_linear_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
 	.set_mode = mt6357_regulator_set_mode,
@@ -453,14 +467,14 @@ static const struct regulator_ops mt6357_volt_table_ops = {
 	.get_voltage_sel = mt6357_get_voltage_sel,
 	.set_voltage_time_sel = regulator_set_voltage_time_sel,
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
 };
 
 static const struct regulator_ops mt6357_volt_fixed_ops = {
 	.enable = regulator_enable_regmap,
-	.disable = regulator_disable_regmap,
+	.disable = mt6357_regulator_disable,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = mt6357_get_status,
 };
