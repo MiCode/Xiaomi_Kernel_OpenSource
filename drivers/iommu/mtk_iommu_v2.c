@@ -2802,9 +2802,8 @@ int mau_start_monitor(unsigned int m4u_id, unsigned int slave,
 		   REG_MMU_MAU_EA_EXT(slave, mau));
 
 	/*config larb id*/
-	iommu_set_field_by_mask(base, REG_MMU_MAU_LARB_EN(slave),
-				F_MAU_LARB_MSK(mau),
-				F_MAU_LARB_VAL(mau, larb_mask));
+	writel_relaxed(larb_mask, base +
+		   REG_MMU_MAU_LARB_EN(slave));
 
 	/*config port id*/
 	writel_relaxed(port_mask, base +
@@ -2860,10 +2859,8 @@ int mau_get_config_info(struct mau_config_info *cfg)
 			REG_MMU_MAU_SA_EXT(slave, mau));
 	cfg->port_mask = readl_relaxed(base +
 			REG_MMU_MAU_PORT_EN(slave, mau));
-	cfg->larb_mask =
-		iommu_get_field_by_mask(base,
-				REG_MMU_MAU_LARB_EN(slave),
-				F_MAU_LARB_MSK(mau));
+	cfg->larb_mask = readl_relaxed(base +
+			REG_MMU_MAU_LARB_EN(slave));
 
 	cfg->io =
 		!!(iommu_get_field_by_mask(base,
