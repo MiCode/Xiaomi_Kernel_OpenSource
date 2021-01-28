@@ -3504,14 +3504,12 @@ static inline void update_load_avg(struct sched_entity *se, int flags)
 	if (se->avg.last_update_time && !(flags & SKIP_AGE_LOAD)) {
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
 		if (entity_is_task(se) && se->on_rq)
-			inc_nr_heavy_running("__update_load_avg-",
-				task_of(se), -1, false);
+			inc_nr_heavy_running(0, task_of(se), -1, false);
 #endif
 		__update_load_avg_se(now, cpu, cfs_rq, se);
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
 		if (entity_is_task(se) && se->on_rq)
-			inc_nr_heavy_running("__update_load_avg+",
-				task_of(se), 1, false);
+			inc_nr_heavy_running(1, task_of(se), 1, false);
 #endif
 	}
 
@@ -5273,7 +5271,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	if (!se) {
 		add_nr_running(rq, 1);
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
-		inc_nr_heavy_running(__func__, p, 1, false);
+		inc_nr_heavy_running(2, p, 1, false);
 #endif
 		if (!task_new)
 			update_overutilized_status(rq);
@@ -5349,7 +5347,7 @@ static void dequeue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	if (!se) {
 		sub_nr_running(rq, 1);
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
-		inc_nr_heavy_running(__func__, p, -1, false);
+		inc_nr_heavy_running(3, p, -1, false);
 #endif
 		walt_dec_cumulative_runnable_avg(rq, p);
 	}
@@ -5942,6 +5940,7 @@ static inline unsigned long cpu_util_freq(int cpu)
 	return cpu_util(cpu);
 #endif
 }
+
 
 /*
  * cpu_util_wake: Compute CPU utilization with any contributions from
@@ -6680,6 +6679,13 @@ boosted_task_util(struct task_struct *task)
 	trace_sched_boost_task(task, util, margin);
 
 	return util + margin;
+}
+
+void get_task_util(struct task_struct *p, unsigned long *util,
+	unsigned long *boost_util)
+{
+	*boost_util = boosted_task_util(p);
+	*util = task_util(p);
 }
 
 static unsigned long capacity_spare_wake(int cpu, struct task_struct *p)
