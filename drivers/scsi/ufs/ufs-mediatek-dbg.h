@@ -75,7 +75,6 @@ struct uic_cmd_struct {
 	u32 arg1;
 	u32 arg2;
 	u32 arg3;
-	int result;
 };
 
 struct cmd_hist_struct {

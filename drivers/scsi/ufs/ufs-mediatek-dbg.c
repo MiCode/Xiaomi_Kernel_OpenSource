@@ -124,7 +124,7 @@ out_unlock:
 
 static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 				     const char *str, u32 cmd,
-				     int result, u32 arg1, u32 arg2, u32 arg3)
+				     u32 arg1, u32 arg2, u32 arg3)
 {
 	int ptr;
 	unsigned long flags;
@@ -137,7 +137,7 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 
 	ptr = cmd_hist_advance_ptr();
 
-	if (!strcmp(str, "uic_send"))
+	if (!strcmp(str, "send"))
 		event = CMD_UIC_SEND;
 	else
 		event = CMD_UIC_CMPL_GENERAL;
@@ -151,7 +151,6 @@ static void probe_ufshcd_uic_command(void *data, const char *dev_name,
 	cmd_hist[ptr].cmd.uic.arg1 = arg1;
 	cmd_hist[ptr].cmd.uic.arg2 = arg2;
 	cmd_hist[ptr].cmd.uic.arg3 = arg3;
-	cmd_hist[ptr].cmd.uic.result = result;
 
 	if (event == CMD_UIC_CMPL_GENERAL) {
 		ptr = cmd_hist_get_prev_ptr(cmd_hist_ptr);
@@ -291,7 +290,7 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 				);
 		} else if (cmd_hist[ptr].event < CMD_REG_TOGGLE) {
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-u(%d),%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,ret=%d,%llu.%lu,\t%llu\n",
+				"%3d-u(%d),%5d,%2d,0x%2x,arg1=0x%X,arg2=0x%X,arg3=0x%X,%llu.%lu,\t%llu\n",
 				ptr,
 				cmd_hist[ptr].cpu,
 				cmd_hist[ptr].pid,
@@ -300,7 +299,6 @@ void cmd_hist_dump(char **buff, unsigned long *size, u32 latest_cnt,
 				cmd_hist[ptr].cmd.uic.arg1,
 				cmd_hist[ptr].cmd.uic.arg2,
 				cmd_hist[ptr].cmd.uic.arg3,
-				cmd_hist[ptr].cmd.uic.result,
 				dur.tv_sec, dur.tv_nsec,
 				cmd_hist[ptr].duration
 				);

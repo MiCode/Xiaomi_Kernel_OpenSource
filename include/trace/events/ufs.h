@@ -264,16 +264,15 @@ TRACE_EVENT(ufshcd_command,
 );
 
 TRACE_EVENT(ufshcd_uic_command,
-	TP_PROTO(const char *dev_name, const char *str, u32 cmd, int result,
+	TP_PROTO(const char *dev_name, const char *str, u32 cmd,
 		 u32 arg1, u32 arg2, u32 arg3),
 
-	TP_ARGS(dev_name, str, cmd, result, arg1, arg2, arg3),
+	TP_ARGS(dev_name, str, cmd, arg1, arg2, arg3),
 
 	TP_STRUCT__entry(
 		__string(dev_name, dev_name)
 		__string(str, str)
 		__field(u32, cmd)
-		__field(int, result)
 		__field(u32, arg1)
 		__field(u32, arg2)
 		__field(u32, arg3)
@@ -283,16 +282,15 @@ TRACE_EVENT(ufshcd_uic_command,
 		__assign_str(dev_name, dev_name);
 		__assign_str(str, str);
 		__entry->cmd = cmd;
-		__entry->result = result;
 		__entry->arg1 = arg1;
 		__entry->arg2 = arg2;
 		__entry->arg3 = arg3;
 	),
 
 	TP_printk(
-		"%s: %s: cmd: 0x%x, arg1: 0x%x, arg2: 0x%x, arg3: 0x%x, result: %d",
+		"%s: %s: cmd: 0x%x, arg1: 0x%x, arg2: 0x%x, arg3: 0x%x",
 		__get_str(str), __get_str(dev_name), __entry->cmd,
-		__entry->arg1, __entry->arg2, __entry->arg3, __entry->result
+		__entry->arg1, __entry->arg2, __entry->arg3
 	)
 );
 

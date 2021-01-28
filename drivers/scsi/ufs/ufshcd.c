@@ -317,13 +317,12 @@ static void ufshcd_add_uic_command_trace(struct ufs_hba *hba,
 	if (!trace_ufshcd_uic_command_enabled())
 		return;
 
-	if (!strcmp(str, "uic_send"))
+	if (!strcmp(str, "send"))
 		cmd = ucmd->command;
 	else
 		cmd = ufshcd_readl(hba, REG_UIC_COMMAND);
 
 	trace_ufshcd_uic_command(dev_name(hba->dev), str, cmd,
-		ucmd->result,
 		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_1),
 		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2),
 		ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3));
@@ -2087,11 +2086,11 @@ ufshcd_dispatch_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	ufshcd_writel(hba, uic_cmd->argument2, REG_UIC_COMMAND_ARG_2);
 	ufshcd_writel(hba, uic_cmd->argument3, REG_UIC_COMMAND_ARG_3);
 
+	ufshcd_add_uic_command_trace(hba, uic_cmd, "send");
+
 	/* Write UIC Cmd */
 	ufshcd_writel(hba, uic_cmd->command & COMMAND_OPCODE_MASK,
 		      REG_UIC_COMMAND);
-
-	ufshcd_add_uic_command_trace(hba, uic_cmd, "uic_send");
 }
 
 /**
@@ -2117,9 +2116,6 @@ ufshcd_wait_for_uic_cmd(struct ufs_hba *hba, struct uic_command *uic_cmd)
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	hba->active_uic_cmd = NULL;
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
-
-	uic_cmd->result = ret;
-	ufshcd_add_uic_command_trace(hba, uic_cmd, "uic_complete");
 
 	return ret;
 }
@@ -3877,9 +3873,6 @@ static int ufshcd_uic_pwr_ctrl(struct ufs_hba *hba, struct uic_command *cmd)
 		ret = (status != PWR_OK) ? status : -1;
 	}
 out:
-	cmd->result = ret;
-	ufshcd_add_uic_command_trace(hba, cmd, "uic_complete");
-
 	if (ret) {
 		ufshcd_print_host_state(hba);
 		ufshcd_print_pwr_info(hba);
@@ -4947,11 +4940,15 @@ static irqreturn_t ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 			ufshcd_get_uic_cmd_result(hba);
 		hba->active_uic_cmd->argument3 =
 			ufshcd_get_dme_attr_val(hba);
+		ufshcd_add_uic_command_trace(hba, hba->active_uic_cmd,
+					     "complete");
 		complete(&hba->active_uic_cmd->done);
 		retval = IRQ_HANDLED;
 	}
 
 	if ((intr_status & UFSHCD_UIC_PWR_MASK) && hba->uic_async_done) {
+		ufshcd_add_uic_command_trace(hba, hba->active_uic_cmd,
+					     "complete");
 		complete(hba->uic_async_done);
 		retval = IRQ_HANDLED;
 	}
