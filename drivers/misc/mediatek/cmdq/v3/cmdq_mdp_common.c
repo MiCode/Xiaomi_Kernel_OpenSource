@@ -104,7 +104,7 @@ struct mdp_task {
 	char userDebugStr[DEBUG_STR_LEN];
 };
 static struct mdp_task mdp_tasks[MDP_MAX_TASK_NUM];
-static int mdp_tasks_idx;
+static u32 mdp_tasks_idx;
 static struct cmdqMDPFuncStruct mdp_funcs;
 static long cmdq_mmsys_base;
 
@@ -608,7 +608,7 @@ static u64 cmdq_mdp_get_engine_flag_for_enable_clock(
 static void cmdq_mdp_lock_thread(struct cmdqRecStruct *handle)
 {
 	u64 engine_flag = handle->engineFlag;
-	s32 thread = handle->thread;
+	u32 thread = (u32)handle->thread;
 
 	/* engine clocks enable flag decide here but call clock on before flush
 	 * common clock enable here to avoid disable when mdp engines still
@@ -658,7 +658,7 @@ static u64 cmdq_mdp_get_not_used_engine(const u64 engine_flag)
 void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle)
 {
 	u64 engine_flag = handle->engineFlag;
-	s32 thread = handle->thread;
+	u32 thread = (u32)handle->thread;
 
 	mutex_lock(&mdp_thread_mutex);
 
