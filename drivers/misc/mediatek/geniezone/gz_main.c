@@ -514,6 +514,9 @@ int gz_get_cpuinfo_thread(void *data)
 	//wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
 
 	/*kernel-4.19*/
+	if (IS_ERR_OR_NULL(tz_system_dev))
+		return TZ_RESULT_ERROR_GENERIC;
+
 	TeeServiceCall_wake_lock =
 		wakeup_source_register(
 		tz_system_dev->dev.parent, "KREE_TeeServiceCall");
