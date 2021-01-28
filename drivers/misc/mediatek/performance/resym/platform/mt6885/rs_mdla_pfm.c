@@ -21,6 +21,7 @@
 #ifdef CONFIG_MTK_APUSYS_SUPPORT
 #include <linux/platform_device.h>
 #include "apusys_power.h"
+#include "apu_power_table.h"
 #endif
 
 int rs_get_mdla_core_num(void)
@@ -35,7 +36,7 @@ int rs_get_mdla_core_num(void)
 int rs_get_mdla_opp_max(int core)
 {
 #ifdef CONFIG_MTK_APUSYS_SUPPORT
-	return 9;
+	return APU_OPP_NUM - 1;
 #else
 	return -1;
 #endif

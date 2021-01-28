@@ -17,7 +17,6 @@
 #ifndef EARA_THRM_PB_PLAT_H
 #define EARA_THRM_PB_PLAT_H
 
-#define GPU_OPP_RANGE	5
 #define CPU_OPP_NUM	16
 #define KEEP_L_CORE	1
 
