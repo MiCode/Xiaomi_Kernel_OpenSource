@@ -3700,12 +3700,12 @@ signed int battery_meter_meta_tool_cali_car_tune(struct mtk_battery *gm,
 		return gm->fg_cust_data.car_tune_value * 10;
 
 	gm->gauge->hw_status.meta_current = meta_current;
-	bm_err("%s meta_current=%d\n", meta_current);
+	bm_err("%s meta_current=%d\n", __func__, meta_current);
 
 	calculate_car_tune(gm->gauge);
 	cali_car_tune = gm->gauge->hw_status.tmp_car_tune;
 
-	bm_err("%s cali_car_tune=%d\n", cali_car_tune);
+	bm_err("%s cali_car_tune=%d\n", __func__, cali_car_tune);
 
 	return cali_car_tune;		/* 1000 base */
 }
