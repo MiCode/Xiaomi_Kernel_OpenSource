@@ -100,6 +100,7 @@ obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_USB_MTK_HDRC) += usb20/
+obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb/
 obj-$(CONFIG_MTK_USB_TYPEC) += typec/
 obj-$(CONFIG_MTK_MDLA_SUPPORT) += mdla/
 obj-$(CONFIG_MTK_VPU_SUPPORT) += vpu/
