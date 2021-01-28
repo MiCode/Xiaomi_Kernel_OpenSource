@@ -1070,6 +1070,25 @@ static void eem_save_final_volt_aee(struct eem_det *ndet)
 		switch (ndet->ctrl_id) {
 		case EEM_CTRL_L:
 			if (i < 8) {
+				aee_rr_rec_ptp_cpu_2_little_volt_2(
+				((unsigned long long)(ndet->volt_tbl_pmic[i])
+				<< (8 * i)) |
+				(aee_rr_curr_ptp_cpu_2_little_volt_2() & ~
+				((unsigned long long)(0xFF) << (8 * i)))
+				);
+			} else {
+				aee_rr_rec_ptp_cpu_2_little_volt_3(
+				((unsigned long long)(ndet->volt_tbl_pmic[i])
+				 << (8 * (i - 8))) |
+				(aee_rr_curr_ptp_cpu_2_little_volt_3() & ~
+					((unsigned long long)(0xFF)
+					<< (8 * (i - 8))))
+				);
+			}
+			break;
+
+		case EEM_CTRL_BL:
+			if (i < 8) {
 				aee_rr_rec_ptp_cpu_little_volt_2(
 				((unsigned long long)(ndet->volt_tbl_pmic[i])
 				<< (8 * i)) |
@@ -1646,6 +1665,9 @@ static void eem_init_det(struct eem_det *det, struct eem_devinfo *devinfo)
 			devinfo->CPU_L_HI_DCBDET;
 		det->phase_ef[EEM_PHASE_INIT022].MTDES =
 			devinfo->CPU_B_LO_MTDES;
+		if ((get_devinfo_with_index(DEVINFO_SEG_IDX)
+			& 0xFF) == 0x40)
+			det->high_temp_off = HIGH_TEMP_OFF_B_3G;
 		break;
 
 	case EEM_DET_CCI:

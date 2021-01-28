@@ -110,9 +110,9 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
 #define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
 #define DEVINFO_2 0x97A52597 /* CPU_L_MID */
-#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
-#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_3 0x9C592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x93A52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x89A825E3 /* CPU_BL_LOW */
 #define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
 #define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
 #define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
@@ -129,9 +129,9 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
 #define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
 #define DEVINFO_2 0x97A52597 /* CPU_L_MID */
-#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
-#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_3 0x9C592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x93A52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x89A825E3 /* CPU_BL_LOW */
 #define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
 #define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
 #define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
@@ -148,9 +148,9 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
 #define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
 #define DEVINFO_2 0x97A52597 /* CPU_L_MID */
-#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
-#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_3 0x9C592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x93A52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x89A825E3 /* CPU_BL_LOW */
 #define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
 #define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
 #define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
@@ -168,9 +168,9 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_0 0x0 /* MC50 Safe EFUSE */
 #define DEVINFO_1 0x92A82589 /* CPU_L_HIGH */
 #define DEVINFO_2 0x97A52597 /* CPU_L_MID */
-#define DEVINFO_3 0x96592585 /* CPU_BL_HIGH */
-#define DEVINFO_4 0x8BA52589 /* CPU_BL_MID */
-#define DEVINFO_5 0x86A825E3 /* CPU_BL_LOW */
+#define DEVINFO_3 0x9C592585 /* CPU_BL_HIGH */
+#define DEVINFO_4 0x93A52589 /* CPU_BL_MID */
+#define DEVINFO_5 0x89A825E3 /* CPU_BL_LOW */
 #define DEVINFO_6 0x86A825E3 /* CPU_BL_ULV */
 #define DEVINFO_7 0x96B72585 /* CPU_B_HIGH */
 #define DEVINFO_8 0xFBA12589 /* CPU_B_MID */
@@ -198,7 +198,7 @@ enum mt_cpu_dvfs_id {
 #define L_FREQ_BASE			2000
 #define L_M2_FREQ_BASE		1600
 
-#define BL_MAX_FREQ_BASE	1000
+#define BL_MAX_FREQ_BASE	1200
 #define BL_FREQ_BASE		2800
 #define BL_M2_FREQ_BASE		2600
 #define BL_M3_FREQ_BASE		1740
@@ -293,6 +293,7 @@ enum mt_cpu_dvfs_id {
 #define HIGH_TEMP_OFF_L		(3)
 #define LOW_TEMP_OFF_B		(8)
 #define HIGH_TEMP_OFF_B		(3)
+#define HIGH_TEMP_OFF_B_3G		(5)
 #define LOW_TEMP_OFF_GPU		(4)
 #define HIGH_TEMP_OFF_GPU		(3)
 #define EXTRA_LOW_TEMP_OFF_GPU	(7)
