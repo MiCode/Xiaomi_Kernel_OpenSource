@@ -1736,9 +1736,8 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	void __iomem *regBase;
 
 	/*  */
-	struct ISP_REG_STRUCT reg;
-	struct ISP_REG_STRUCT *pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
-	struct ISP_REG_STRUCT *pTmpData = NULL;
+	struct ISP_REG_STRUCT *pReg = NULL;
+	struct ISP_REG_STRUCT *pTmp = NULL;
 
 	if ((pRegIo->pData == NULL) ||
 		(pRegIo->Count == 0) ||
@@ -1749,10 +1748,10 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		goto EXIT;
 	}
 
-	pTmpData = kmalloc((pRegIo->Count) *
+	pReg = kmalloc((pRegIo->Count) *
 		sizeof(struct ISP_REG_STRUCT), GFP_ATOMIC);
 
-	if (pTmpData == NULL) {
+	if (pReg == NULL) {
 		LOG_DBG(
 		"ERROR: kmalloc failed,(process, pid, tgid)=(%s, %d, %d)\n",
 		current->comm,
@@ -1762,14 +1761,14 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		goto EXIT;
 	}
 
-	if (copy_from_user(&pTmpData, (void __user *)pData,
-		sizeof(struct ISP_REG_IO_STRUCT) * pRegIo->Count) != 0) {
+	if (copy_from_user(pReg, (void __user *)pRegIo->pData,
+		sizeof(struct ISP_REG_STRUCT) * pRegIo->Count) != 0) {
 		LOG_NOTICE("copy_from_user failed\n");
 		Ret = -EFAULT;
 		goto EXIT;
 	}
 
-	switch (pData->module) {
+	switch (pReg->module) {
 	case ISP_CAM_A_IDX:
 		regBase = ISP_CAM_A_BASE;
 		break;
@@ -1801,7 +1800,7 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		regBase = ISP_CAM_UNI_BASE;
 		break;
 	default:
-		LOG_NOTICE("Unsupported module(%x)!!!\n", pData->module);
+		LOG_NOTICE("Unsupported module(%x)!!!\n", pReg->module);
 		Ret = -EFAULT;
 		goto EXIT;
 	}
@@ -1811,37 +1810,30 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 	else
 		ispRange = PAGE_SIZE;
 
+	pTmp = pReg;
 	for (i = 0; i < pRegIo->Count; i++) {
-		if (get_user(reg.Addr,
-			(unsigned int *)&pData->Addr) != 0) {
-			LOG_NOTICE("get_user failed\n");
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-
-		if ((regBase + reg.Addr) <
+		if ((regBase + pTmp->Addr) <
 			(regBase + ispRange)) {
-			reg.Val = ISP_RD32(regBase + reg.Addr);
+			pTmp->Val = ISP_RD32(regBase + pTmp->Addr);
 		} else {
 			LOG_NOTICE("Wrong address(0x%lx)\n",
-				(unsigned long)(regBase + reg.Addr));
-			reg.Val = 0;
+				(unsigned long)(regBase + pTmp->Addr));
+			pTmp->Val = 0;
 		}
-
-		if (put_user(reg.Val,
-			(unsigned int *) &(pData->Val)) != 0) {
-			LOG_NOTICE("put_user failed\n");
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-		pData++;
+		pTmp++;
 		/*  */
 	}
 	/*  */
+
+	if (copy_to_user((void __user *)pRegIo->pData, pReg,
+		sizeof(struct ISP_REG_STRUCT) * pRegIo->Count) != 0) {
+		LOG_NOTICE("copy to user fail");
+		Ret = -EFAULT;
+	}
 EXIT:
-	if (pTmpData != NULL) {
-		kfree(pTmpData);
-		pTmpData = NULL;
+	if (pReg != NULL) {
+		kfree(pReg);
+		pReg = NULL;
 	}
 	return Ret;
 }
