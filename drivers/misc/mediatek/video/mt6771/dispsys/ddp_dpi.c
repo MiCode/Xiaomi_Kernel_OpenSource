@@ -499,6 +499,10 @@ int ddp_dpi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle)
 	DISPINFO("DISP/DPI,%s, s_isDpiPowerOn %d\n",
 			__func__, s_isDpiPowerOn);
 	if (!s_isDpiPowerOn) {
+		DISP_REG_SET_FIELD(NULL, REG_FLD(1, 26),
+			DISP_REG_CONFIG_MMSYS_SW0_RST_B, 0x0);
+		DISP_REG_SET_FIELD(NULL, REG_FLD(1, 26),
+			DISP_REG_CONFIG_MMSYS_SW0_RST_B, 0x1);
 		ddp_path_top_clock_on();
 
 		ret += ddp_clk_prepare_enable(DISP1_DPI_MM_CLOCK);
