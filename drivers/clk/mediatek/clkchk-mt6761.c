@@ -5,17 +5,15 @@
  */
 
 #include <linux/clk-provider.h>
+#include <linux/module.h>
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
 
 #define WARN_ON_CHECK_FAIL		0
-#define CLKDBG_CCF_API_4_4		1
 
 #define TAG	"[clkchk] "
 
 #define clk_warn(fmt, args...)	pr_notice(TAG fmt, ##args)
-
-#if !CLKDBG_CCF_API_4_4
 
 /* backward compatible */
 
@@ -33,8 +31,6 @@ static bool clk_hw_is_enabled(const struct clk_hw *hw)
 {
 	return __clk_is_enabled(hw->clk);
 }
-
-#endif /* !CLKDBG_CCF_API_4_4 */
 
 static const char * const *get_all_clk_names(void)
 {
@@ -504,6 +500,7 @@ void print_enabled_clks_once(void)
 		print_enabled_clks();
 	}
 }
+EXPORT_SYMBOL(print_enabled_clks_once);
 
 static int clkchk_syscore_suspend(void)
 {
@@ -522,7 +519,7 @@ static struct syscore_ops clkchk_syscore_ops = {
 	.resume = clkchk_syscore_resume,
 };
 
-static int __init clkchk_init(void)
+static int __init clkchk_mt6761_init(void)
 {
 	if (!of_machine_is_compatible("mediatek,MT6761"))
 		return -ENODEV;
@@ -531,4 +528,11 @@ static int __init clkchk_init(void)
 
 	return 0;
 }
-subsys_initcall(clkchk_init);
+static void __exit clkchk_mt6761_exit(void)
+{
+}
+
+subsys_initcall(clkchk_mt6761_init);
+module_exit(clkchk_mt6761_exit);
+
+MODULE_LICENSE("GPL");

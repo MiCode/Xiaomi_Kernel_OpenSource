@@ -4,10 +4,11 @@
  * Author: Owen Chen <owen.chen@mediatek.com>
  */
 
+#include <linux/mfd/syscon.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
-#include <linux/mfd/syscon.h>
 
 #include "clk-mtk.h"
 #include "clk-mux.h"
@@ -133,11 +134,13 @@ const struct clk_ops mtk_mux_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_lock,
 };
+EXPORT_SYMBOL(mtk_mux_ops);
 
 const struct clk_ops mtk_mux_clr_set_upd_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
 };
+EXPORT_SYMBOL(mtk_mux_clr_set_upd_ops);
 
 const struct clk_ops mtk_mux_gate_ops = {
 	.enable = mtk_clk_mux_enable,
@@ -146,6 +149,7 @@ const struct clk_ops mtk_mux_gate_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_lock,
 };
+EXPORT_SYMBOL(mtk_mux_gate_ops);
 
 const struct clk_ops mtk_mux_gate_clr_set_upd_ops = {
 	.enable = mtk_clk_mux_enable_setclr,
@@ -154,8 +158,9 @@ const struct clk_ops mtk_mux_gate_clr_set_upd_ops = {
 	.get_parent = mtk_clk_mux_get_parent,
 	.set_parent = mtk_clk_mux_set_parent_setclr_lock,
 };
+EXPORT_SYMBOL(mtk_mux_gate_clr_set_upd_ops);
 
-struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
+static struct clk *mtk_clk_register_mux(const struct mtk_mux *mux,
 				 struct regmap *regmap,
 				 spinlock_t *lock)
 {
@@ -221,3 +226,8 @@ int mtk_clk_register_muxes(const struct mtk_mux *muxes,
 
 	return 0;
 }
+EXPORT_SYMBOL(mtk_clk_register_muxes);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek MUX");
+MODULE_AUTHOR("MediaTek Inc.");

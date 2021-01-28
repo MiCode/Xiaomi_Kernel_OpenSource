@@ -5,6 +5,7 @@
  */
 
 #include <linux/clk-provider.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 
 #include "clk-mtk.h"
@@ -85,11 +86,12 @@ static int clk_mt6761_mm_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id of_match_clk_mt6761_mm[] = {
-	{ .compatible = "mediatek,mt6761-mmsys", },
+	{ .compatible = "mediatek,mt6761-mmsys_config", },
 	{}
 };
 
 static struct platform_driver clk_mt6761_mm_drv = {
+	.probe = clk_mt6761_mm_probe,
 	.driver = {
 		.name = "clk-mt6761-mm",
 		.of_match_table = of_match_clk_mt6761_mm,
@@ -98,7 +100,13 @@ static struct platform_driver clk_mt6761_mm_drv = {
 
 static int __init clk_mt6761_mm_init(void)
 {
-	return platform_driver_probe(&clk_mt6761_mm_drv,
-			clk_mt6761_mm_probe);
+	return platform_driver_register(&clk_mt6761_mm_drv);
 }
-subsys_initcall(clk_mt6761_mm_init);
+
+static void __exit clk_mt6761_mm_exit(void)
+{
+}
+
+postcore_initcall(clk_mt6761_mm_init);
+module_exit(clk_mt6761_mm_exit);
+MODULE_LICENSE("GPL");

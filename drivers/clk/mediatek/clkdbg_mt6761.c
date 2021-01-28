@@ -6,6 +6,7 @@
 
 #include <linux/clk-provider.h>
 #include <linux/io.h>
+#include <linux/module.h>
 
 #include "clkdbg.h"
 #include "mt6761_clkmgr.h"
@@ -670,7 +671,7 @@ static const char * const *get_pwr_names(void)
  * clkdbg dump_clks
  */
 
-void setup_provider_clk(struct provider_clk *pvdck)
+static void setup_provider_clk(struct provider_clk *pvdck)
 {
 	static const struct {
 		const char *pvdname;
@@ -766,4 +767,12 @@ static int __init clkdbg_mt6761_init(void)
 
 	return 0;
 }
-device_initcall(clkdbg_mt6761_init);
+
+static void __exit clkdbg_mt6761_exit(void)
+{
+}
+
+subsys_initcall(clkdbg_mt6761_init);
+module_exit(clkdbg_mt6761_exit);
+
+MODULE_LICENSE("GPL");

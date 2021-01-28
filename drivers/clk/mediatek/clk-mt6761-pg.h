@@ -35,13 +35,7 @@ struct pg_callbacks {
 
 /* register new pg_callbacks and return previous pg_callbacks. */
 extern struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb);
-extern int spm_topaxi_protect(unsigned int mask_value, int en);
 
-extern void subsys_if_on(void);
-extern void mtcmos_force_off(void);
-
-extern unsigned int mt_get_ckgen_freq(unsigned int ID);
-/*extern void aee_sram_printk(const char *fmt, ...);*/
 /*ram console api*/
 #ifdef CONFIG_MTK_RAM_CONSOLE
 extern void aee_rr_rec_clk(int id, u32 val);

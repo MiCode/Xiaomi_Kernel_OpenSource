@@ -4,16 +4,17 @@
  * Author: Owen Chen <owen.chen@mediatek.com>
  */
 
+#include <linux/clk.h>
+#include <linux/clk-provider.h>
+#include <linux/clkdev.h>
+#include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-
-#include <linux/io.h>
-#include <linux/slab.h>
-#include <linux/delay.h>
-#include <linux/clkdev.h>
-#include <linux/clk-provider.h>
-#include <linux/clk.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include "clk-mt6761-pg.h"
 
@@ -61,17 +62,6 @@ while (0)
 #define clk_readl(addr)			__raw_readl(IOMEM(addr))
 
 void __attribute__((weak)) mtk_wcn_cmb_stub_clock_fail_dump(void) {}
-
-/*MM Bus*/
-#ifdef CONFIG_OF
-void __iomem *clk_mmsys_config_base;
-void __iomem *clk_imgsys_base;
-void __iomem *clk_venc_gcon_base;
-void __iomem *clk_camsys_base;
-#endif
-
-
-
 
 /*
  * MTCMOS
@@ -445,6 +435,7 @@ struct pg_callbacks *register_pg_callback(struct pg_callbacks *pgcb)
 
 	return pgcb;
 }
+EXPORT_SYMBOL(register_pg_callback);
 
 static struct subsys *id_to_sys(unsigned int id)
 {
@@ -494,7 +485,6 @@ static int DBG_STEP;
  */
 static void ram_console_update(void)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
 	struct pg_callbacks *pgcb;
 	u32 data[8] = {0x0};
 	u32 i = 0, j = 0;
@@ -533,7 +523,7 @@ static void ram_console_update(void)
 			}
 		}
 		/* print_log with enabled clk/mux/pll */
-		print_enabled_clks_once();
+		/* print_enabled_clks_once(); */
 		/* wmt callback function for their debug logs */
 		mtk_wcn_cmb_stub_clock_fail_dump();
 		/* debug callback hook searching */
@@ -582,8 +572,8 @@ static void ram_console_update(void)
 				DBG_STA ? "pwron":"pdn",
 				DBG_STEP);
 
-		for (j = 1; j <= i; j++)
-			pr_notice("%s: clk[%d] = 0x%x\n", __func__, j, data[j]);
+		for (i = 1; i < ARRAY_SIZE(data); i++)
+			pr_notice("%s: clk[%d] = 0x%x\n", __func__, i, data[i]);
 
 		pr_notice("INFRA_TOPAXI_SI0_STA =0x%x\n",
 			spm_read(INFRA_TOPAXI_SI0_STA));
@@ -603,14 +593,15 @@ static void ram_console_update(void)
 			spm_read(INFRA_MCI_SI2_STA));
 	}
 
-	for (j = 0; j <= i; j++)
-		aee_rr_rec_clk(j, data[j]);
+#ifdef CONFIG_MTK_RAM_CONSOLE
+	for (i = 0; ARRAY_SIZE(data) < 8; i++)
+		aee_rr_rec_clk(i, data[i]);
 	/*todo: add each domain's debug register to ram console*/
 #endif
 }
 
 /* auto-gen begin*/
-int spm_mtcmos_ctrl_md1_bus_prot(int state)
+static int spm_mtcmos_ctrl_md1_bus_prot(int state)
 {
 	int err = 0;
 
@@ -688,7 +679,7 @@ int spm_mtcmos_ctrl_md1_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_md1_pwr(int state)
+static int spm_mtcmos_ctrl_md1_pwr(int state)
 {
 	int err = 0;
 
@@ -775,7 +766,7 @@ int spm_mtcmos_ctrl_md1_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_conn_bus_prot(int state)
+static int spm_mtcmos_ctrl_conn_bus_prot(int state)
 {
 	int err = 0;
 
@@ -867,7 +858,7 @@ int spm_mtcmos_ctrl_conn_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_conn_pwr(int state)
+static int spm_mtcmos_ctrl_conn_pwr(int state)
 {
 	int err = 0;
 
@@ -943,7 +934,7 @@ int spm_mtcmos_ctrl_conn_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dpy_bus_prot(int state)
+static int spm_mtcmos_ctrl_dpy_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1065,7 +1056,7 @@ int spm_mtcmos_ctrl_dpy_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dpy_pwr(int state)
+static int spm_mtcmos_ctrl_dpy_pwr(int state)
 {
 	int err = 0;
 
@@ -1141,7 +1132,7 @@ int spm_mtcmos_ctrl_dpy_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dis_bus_prot(int state)
+static int spm_mtcmos_ctrl_dis_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1216,7 +1207,7 @@ int spm_mtcmos_ctrl_dis_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_dis_pwr(int state)
+static int spm_mtcmos_ctrl_dis_pwr(int state)
 {
 	int err = 0;
 
@@ -1292,7 +1283,7 @@ int spm_mtcmos_ctrl_dis_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_bus_prot(int state)
+static int spm_mtcmos_ctrl_mfg_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1367,7 +1358,7 @@ int spm_mtcmos_ctrl_mfg_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_pwr(int state)
+static int spm_mtcmos_ctrl_mfg_pwr(int state)
 {
 	int err = 0;
 
@@ -1443,7 +1434,7 @@ int spm_mtcmos_ctrl_mfg_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_ifr_bus_prot(int state)
+static int spm_mtcmos_ctrl_ifr_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1488,7 +1479,7 @@ int spm_mtcmos_ctrl_ifr_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_ifr_pwr(int state)
+static int spm_mtcmos_ctrl_ifr_pwr(int state)
 {
 	int err = 0;
 
@@ -1563,7 +1554,7 @@ int spm_mtcmos_ctrl_ifr_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_core0_bus_prot(int state)
+static int spm_mtcmos_ctrl_mfg_core0_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1605,7 +1596,7 @@ int spm_mtcmos_ctrl_mfg_core0_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_core0_pwr(int state)
+static int spm_mtcmos_ctrl_mfg_core0_pwr(int state)
 {
 	int err = 0;
 
@@ -1682,7 +1673,7 @@ int spm_mtcmos_ctrl_mfg_core0_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_async_bus_prot(int state)
+static int spm_mtcmos_ctrl_mfg_async_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1706,7 +1697,7 @@ int spm_mtcmos_ctrl_mfg_async_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_mfg_async_pwr(int state)
+static int spm_mtcmos_ctrl_mfg_async_pwr(int state)
 {
 	int err = 0;
 
@@ -1783,7 +1774,7 @@ int spm_mtcmos_ctrl_mfg_async_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_cam_bus_prot(int state)
+static int spm_mtcmos_ctrl_cam_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1880,7 +1871,7 @@ int spm_mtcmos_ctrl_cam_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_cam_pwr(int state)
+static int spm_mtcmos_ctrl_cam_pwr(int state)
 {
 	int err = 0;
 
@@ -1956,7 +1947,7 @@ int spm_mtcmos_ctrl_cam_pwr(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_vcodec_bus_prot(int state)
+static int spm_mtcmos_ctrl_vcodec_bus_prot(int state)
 {
 	int err = 0;
 
@@ -1998,7 +1989,7 @@ int spm_mtcmos_ctrl_vcodec_bus_prot(int state)
 	return err;
 }
 
-int spm_mtcmos_ctrl_vcodec_pwr(int state)
+static int spm_mtcmos_ctrl_vcodec_pwr(int state)
 {
 	int err = 0;
 
@@ -2560,8 +2551,10 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 #define CLK_NUM	10
 struct mt_power_gate {
 	struct clk_hw hw;
-	struct cg_list *pre_clk1_list;
-	struct cg_list *pre_clk2_list;
+	struct clk *clks;
+	struct clk **subsys_clks;
+	int clk_num;
+	int sub_clk_num;
 	enum subsys_id pd_id;
 };
 
@@ -2581,15 +2574,14 @@ static int pg_is_enabled(struct clk_hw *hw)
 		return subsys_is_on(pg->pd_id);
 }
 
-int pg_prepare(struct clk_hw *hw)
+static int pg_prepare(struct clk_hw *hw)
 {
-	int ret1 = 0, ret2 = 0, ret3 = 0, ret4 = 0;
-	int i = 0;
-	unsigned long flags;
-	int skip_pg = 0;
-	struct clk *clk;
 	struct mt_power_gate *pg = to_power_gate(hw);
 	struct subsys *sys =  id_to_sys(pg->pd_id);
+	unsigned long flags;
+	int skip_pg = 0;
+	int ret = 0;
+	int i = 0;
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
@@ -2597,83 +2589,60 @@ int pg_prepare(struct clk_hw *hw)
 		skip_pg = 1;
 #endif				/* CHECK_PWR_ST */
 
-	do {
-		if (pg->pre_clk1_list == NULL)
+	for (i = 0; i < pg->clk_num; i++) {
+		if (pg->clks == NULL)
 			break;
 
-		clk = pg->pre_clk1_list->cg[i] ?
-			__clk_lookup(pg->pre_clk1_list->cg[i]) : NULL;
-
-		if (clk)
-			ret1 = clk_prepare_enable(clk);
-		else
-			break;
-		if (ret1)
-			break;
+		ret = clk_prepare_enable(pg->clks);
+		if (ret)
+			goto fail;
 
 #if MT_CCF_DEBUG
-		pr_notice("[CCF] %s 1: sys=%s, pre_clk=%s\n", __func__,
-			__clk_get_name(hw->clk),
-			pg->pre_clk1_list->cg[i] ?
-			pg->pre_clk1_list->cg[i]:NULL);
+		pr_notice("[CCF] %s 1: sys=%s, pre_clk=%s done\n", __func__,
+				__clk_get_name(hw->clk),
+				pg->clks ?
+				__clk_get_name(pg->clks):NULL);
 #endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
+	}
 
 	if (!skip_pg)
-		ret2 = enable_subsys(pg->pd_id, MTCMOS_PWR);
+		ret = enable_subsys(pg->pd_id, MTCMOS_PWR);
+		if (ret)
+			goto fail;
 
-	i = 0;
-
-	do {
-		if (pg->pre_clk2_list == NULL)
+	for (i = 0; i < pg->sub_clk_num; i++) {
+		if (pg->subsys_clks[i] == NULL)
 			break;
 
-		clk = pg->pre_clk2_list->cg[i] ?
-			__clk_lookup(pg->pre_clk2_list->cg[i]) : NULL;
-		if (clk)
-			ret3 = clk_prepare_enable(clk);
-		else
-			break;
-		if (ret3)
-			break;
+		ret = clk_prepare_enable(pg->subsys_clks[i]);
+		if (ret)
+			goto fail;
 
 #if MT_CCF_DEBUG
-		pr_notice("[CCF] %s 2: sys=%s, pre_clk=%s\n", __func__,
+		pr_notice("[CCF] %s 2: sys=%s, pre_clk=%s done\n", __func__,
 			__clk_get_name(hw->clk),
-			pg->pre_clk2_list->cg[i] ?
-			pg->pre_clk2_list->cg[i]:NULL);
+			pg->subsys_clks[i] ?
+			__clk_get_name(pg->subsys_clks[i]):NULL);
 #endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
+	}
 
 	if (!skip_pg && sys->ops->prepare)
-		ret4 = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
-	if (ret2) {
-		mtk_mtcmos_unlock(flags);
-		return ret2;
-	}
-	if (ret3) {
-		mtk_mtcmos_unlock(flags);
-		return ret3;
-	}
-	if (ret4) {
-		mtk_mtcmos_unlock(flags);
-		return ret4;
-	}
+		ret = enable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
+		if (ret)
+			goto fail;
 
+fail:
 	mtk_mtcmos_unlock(flags);
-	return ret1;
+	return ret;
 }
 
-void pg_unprepare(struct clk_hw *hw)
+static void pg_unprepare(struct clk_hw *hw)
 {
-	int i = 0;
-	unsigned long flags;
-	int skip_pg = 0;
-	struct clk *clk;
 	struct mt_power_gate *pg = to_power_gate(hw);
 	struct subsys *sys =  id_to_sys(pg->pd_id);
+	unsigned long flags;
+	int skip_pg = 0;
+	int i = 0;
 
 	mtk_mtcmos_lock(flags);
 #if CHECK_PWR_ST
@@ -2683,49 +2652,35 @@ void pg_unprepare(struct clk_hw *hw)
 	if (!skip_pg && sys->ops->unprepare)
 		disable_subsys(pg->pd_id, MTCMOS_BUS_PROT);
 
-	do {
-		if (pg->pre_clk2_list == NULL)
+	for (i = 0; i < pg->sub_clk_num; i++) {
+		if (pg->subsys_clks[i] == NULL)
 			break;
 
-		clk = pg->pre_clk2_list->cg[i] ?
-			__clk_lookup(pg->pre_clk2_list->cg[i]) : NULL;
-
-		if (clk)
-			clk_disable_unprepare(clk);
-		else
-			break;
+		clk_disable_unprepare(pg->subsys_clks[i]);
 #if MT_CCF_DEBUG
 		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n", __func__,
 			__clk_get_name(hw->clk),
-			pg->pre_clk2_list->cg[i] ?
-			pg->pre_clk2_list->cg[i]:NULL);
+			pg->subsys_clks[i] ?
+			__clk_get_name(pg->subsys_clks[i]):NULL);
 #endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
+	}
 
 	if (!skip_pg)
 		disable_subsys(pg->pd_id, MTCMOS_PWR);
 
-	i = 0;
-	do {
-		if (pg->pre_clk1_list == NULL)
+	for (i = 0; i < pg->clk_num; i++) {
+		if (pg->clks == NULL)
 			break;
 
-		clk = pg->pre_clk1_list->cg[i] ?
-			__clk_lookup(pg->pre_clk1_list->cg[i]) : NULL;
-
-		if (clk)
-			clk_disable_unprepare(clk);
-		else
-			break;
+		clk_disable_unprepare(pg->clks);
 #if MT_CCF_DEBUG
 		pr_notice("[CCF] %s: sys=%s, pre_clk=%s\n", __func__,
 			__clk_get_name(hw->clk),
-			pg->pre_clk1_list->cg[i] ?
-			pg->pre_clk1_list->cg[i]:NULL);
-#endif				/* MT_CCF_DEBUG */
-		i++;
-	} while (i < CLK_NUM);
+			pg->clks ?
+			__clk_get_name(pg->clks):NULL);
+#endif			/* MT_CCF_DEBUG */
+	}
+
 	mtk_mtcmos_unlock(flags);
 }
 
@@ -2735,37 +2690,24 @@ static const struct clk_ops mt_power_gate_ops = {
 	.is_enabled = pg_is_enabled,
 };
 
-struct clk *mt_clk_register_power_gate(const char *name,
-					const char *parent_name,
-					struct cg_list *pre_clk1_list,
-					struct cg_list *pre_clk2_list,
-					enum subsys_id pd_id)
-{
-	struct mt_power_gate *pg;
-	struct clk *clk;
-	struct clk_init_data init;
+#define MAX_CLKS	3
+#define MAX_SUBSYS_CLKS 13
 
-	pg = kzalloc(sizeof(*pg), GFP_KERNEL);
-	if (!pg)
-		return ERR_PTR(-ENOMEM);
+enum clk_id {
+	CLK_NONE,
+	CLK_MM,
+	CLK_MFG,
+	CLK_CAMSYS,
+	CLK_MAX,
+};
 
-	init.name = name;
-	init.flags = CLK_IGNORE_UNUSED;
-	init.parent_names = parent_name ? &parent_name : NULL;
-	init.num_parents = parent_name ? 1 : 0;
-	init.ops = &mt_power_gate_ops;
-
-	pg->pre_clk1_list = pre_clk1_list;
-	pg->pre_clk2_list = pre_clk2_list;
-	pg->pd_id = pd_id;
-	pg->hw.init = &init;
-
-	clk = clk_register(NULL, &pg->hw);
-	if (IS_ERR(clk))
-		kfree(pg);
-
-	return clk;
-}
+static const char * const clk_names[] = {
+	NULL,
+	"mm",
+	"mfg",
+	"cam",
+	NULL,
+};
 
 #define pg_md1 "pg_md1"
 #define pg_conn "pg_conn"
@@ -2778,110 +2720,206 @@ struct clk *mt_clk_register_power_gate(const char *name,
 #define pg_cam "pg_cam"
 #define pg_vcodec "pg_vcodec"
 
-struct cg_list mm_cg1 = {.cg = {"mm_sel"},};
-
-struct cg_list mm_cg2 = {
-		.cg = {
-			"mm_smi_common",
-			"mm_smi_comm0",
-			"mm_smi_comm1",
-			"mm_smi_larb0"
-		},
-};
-
-struct cg_list mfg_cg = {.cg = {"mfg_sel"},};
-struct cg_list cam_cg = {
-		.cg = {
-			"cam_larb2",
-			"cam",
-			"mm_smi_cam_ck",
-			"mm_smi_img_ck"
-		},
-};
-
 struct mtk_power_gate {
 	int id;
 	const char *name;
 	const char *parent_name;
+	enum clk_id clk_id;
+	enum clk_id subclk_id;
 	enum subsys_id pd_id;
-	struct cg_list *pre_clk1_names;
-	struct cg_list *pre_clk2_names;
+	struct clk *subsys_clks[MAX_SUBSYS_CLKS];
 };
 
-#define PGATE(_id, _name, _parent, _pre_clk, _pd_id) {	\
+#define PGATE(_id, _name, _parent, _clk_id, _subclk_id, _pd_id) {	\
 		.id = _id,				\
 		.name = _name,				\
 		.parent_name = _parent,			\
-		.pre_clk_name = _pre_clk,		\
-		.pd_id = _pd_id,			\
-	}
-
-#define PGATE2(_id, _name, _parent, _pre_clks1, _pre_clks2, _pd_id) {	\
-		.id = _id,				\
-		.name = _name,				\
-		.parent_name = _parent,			\
-		.pd_id = _pd_id,			\
-		.pre_clk1_names = _pre_clks1,		\
-		.pre_clk2_names = _pre_clks2,		\
+		.pd_id = _pd_id,				\
+		.clk_id = _clk_id,			\
+		.subclk_id = _subclk_id,		\
 	}
 
 /* FIXME: all values needed to be verified */
-struct mtk_power_gate scp_clks[] = {
-	PGATE2(SCP_SYS_MD1, pg_md1, NULL, NULL, NULL, SYS_MD1),
-	PGATE2(SCP_SYS_CONN, pg_conn, NULL, NULL, NULL, SYS_CONN),
-	PGATE2(SCP_SYS_DPY, pg_dpy, NULL, NULL, NULL, SYS_DPY),
-	PGATE2(SCP_SYS_DIS, pg_dis, NULL, &mm_cg1, &mm_cg2, SYS_DIS),
-	PGATE2(SCP_SYS_MFG, pg_mfg, pg_mfg_async, NULL, NULL, SYS_MFG),
-	PGATE2(SCP_SYS_IFR, pg_ifr, NULL, NULL, NULL, SYS_IFR),
-	PGATE2(SCP_SYS_MFG_CORE0, pg_mfg_core0, pg_mfg,
-		NULL, NULL, SYS_MFG_CORE0),
-	PGATE2(SCP_SYS_MFG_ASYNC, pg_mfg_async, NULL,
-		&mfg_cg, NULL, SYS_MFG_ASYNC),
-	PGATE2(SCP_SYS_CAM, pg_cam, pg_dis, NULL, &cam_cg, SYS_CAM),
-	PGATE2(SCP_SYS_VCODEC, pg_vcodec, pg_dis, NULL, NULL, SYS_VCODEC),
+static struct mtk_power_gate scp_clks[] = {
+	PGATE(SCP_SYS_MD1, pg_md1, NULL, CLK_NONE, CLK_NONE, SYS_MD1),
+	PGATE(SCP_SYS_CONN, pg_conn, NULL, CLK_NONE, CLK_NONE, SYS_CONN),
+	PGATE(SCP_SYS_DPY, pg_dpy, NULL, CLK_NONE, CLK_NONE, SYS_DPY),
+	PGATE(SCP_SYS_DIS, pg_dis, NULL, CLK_MM, CLK_MM, SYS_DIS),
+	PGATE(SCP_SYS_MFG, pg_mfg, pg_mfg_async, CLK_NONE, CLK_NONE, SYS_MFG),
+	PGATE(SCP_SYS_IFR, pg_ifr, NULL, CLK_NONE, CLK_NONE, SYS_IFR),
+	PGATE(SCP_SYS_MFG_CORE0, pg_mfg_core0, pg_mfg,
+			CLK_NONE, CLK_NONE, SYS_MFG_CORE0),
+	PGATE(SCP_SYS_MFG_ASYNC, pg_mfg_async, NULL, CLK_MFG, CLK_NONE,
+			SYS_MFG_ASYNC),
+	PGATE(SCP_SYS_CAM, pg_cam, pg_dis, CLK_NONE, CLK_CAMSYS, SYS_CAM),
+	PGATE(SCP_SYS_VCODEC, pg_vcodec, pg_dis, CLK_NONE, CLK_NONE,
+			SYS_VCODEC),
 };
 
-static void init_clk_scpsys(struct clk_onecell_data *clk_data)
+static struct clk *mt_clk_register_power_gate(const char *name,
+					const char *parent_name,
+					struct clk *clk,
+					struct clk **subsys_clk,
+					int clk_num,
+					int sub_clk_num,
+					enum subsys_id pd_id)
 {
-	int i;
-	struct clk *clk;
+	struct mt_power_gate *pg;
+	struct clk *pg_clk;
+	struct clk_init_data init;
 
-	syss[SYS_MD1].ctl_addr = MD1_PWR_CON;
-	syss[SYS_CONN].ctl_addr = CONN_PWR_CON;
-	syss[SYS_DPY].ctl_addr = DPY_PWR_CON;
-	syss[SYS_DIS].ctl_addr = DIS_PWR_CON;
-	syss[SYS_MFG].ctl_addr = MFG_PWR_CON;
-	syss[SYS_IFR].ctl_addr = IFR_PWR_CON;
-	syss[SYS_MFG_CORE0].ctl_addr = MFG_CORE0_PWR_CON;
-	syss[SYS_MFG_ASYNC].ctl_addr = MFG_ASYNC_PWR_CON;
-	syss[SYS_CAM].ctl_addr = CAM_PWR_CON;
-	syss[SYS_VCODEC].ctl_addr = VCODEC_PWR_CON;
+	pg = kzalloc(sizeof(*pg), GFP_KERNEL);
+	if (!pg)
+		return ERR_PTR(-ENOMEM);
+
+	init.name = name;
+	init.flags = CLK_IGNORE_UNUSED;
+	init.parent_names = parent_name ? &parent_name : NULL;
+	init.num_parents = parent_name ? 1 : 0;
+	init.ops = &mt_power_gate_ops;
+
+	pg->clks = clk;
+	pg->clk_num = clk_num;
+	pg->subsys_clks = subsys_clk;
+	pg->sub_clk_num = sub_clk_num;
+	pg->pd_id = pd_id;
+	pg->hw.init = &init;
+
+	pg_clk = clk_register(NULL, &pg->hw);
+	if (IS_ERR(pg_clk)) {
+		pr_err("%s: clk register fail\n", __func__);
+		kfree(pg);
+	}
+
+	return pg_clk;
+}
+
+static int init_subsys_clks(struct platform_device *pdev,
+		enum clk_id clk_id, struct clk **clk)
+{
+	struct device_node *node = pdev->dev.of_node;
+	struct property *prop;
+	const char *prefix = clk_names[clk_id];
+	const char *clk_name;
+	u32 prefix_len;
+	u32 clk_cnt = 0;
+
+	if (clk_id == CLK_NONE)
+		return clk_cnt;
+
+	if (!node) {
+		dev_err(&pdev->dev, "Cannot find scpsys node: %ld\n",
+			PTR_ERR(node));
+		return PTR_ERR(node);
+	}
+
+	prefix_len = strlen(prefix);
+	of_property_for_each_string(node, "clock-names", prop, clk_name) {
+		if (!strncmp(clk_name, prefix, prefix_len) &&
+				(clk_name[prefix_len] == '-')) {
+			struct clk *tmp;
+
+			if (clk_cnt >= MAX_SUBSYS_CLKS) {
+				dev_err(&pdev->dev,
+					"subsys clk out of range %d\n",
+					clk_cnt);
+				return -ENOMEM;
+			}
+
+			tmp = devm_clk_get(&pdev->dev,
+						clk_name);
+
+			if (IS_ERR(tmp)) {
+				dev_err(&pdev->dev,
+					"Subsys clk(%s) read fail %ld\n",
+					clk_name, PTR_ERR(tmp));
+				return PTR_ERR(tmp);
+			}
+			clk[clk_cnt] = tmp;
+			clk_cnt++;
+		}
+	}
+
+	return clk_cnt;
+}
+
+static int init_clks(struct platform_device *pdev, struct clk **clk)
+{
+	int ret = 0;
+	int i;
+
+	for (i = CLK_NONE + 1; i < CLK_MAX; i++) {
+		struct clk *tmp;
+
+		tmp = devm_clk_get(&pdev->dev, clk_names[i]);
+		if (IS_ERR(tmp)) {
+			pr_err("fail to get scpsys %s clk = (%d)\n",
+				clk_names[i], PTR_ERR(tmp));
+
+			continue;
+		}
+		clk[i] = tmp;
+	}
+
+	return ret;
+}
+
+static int init_clk_scpsys(struct platform_device *pdev,
+		struct clk_onecell_data *clk_data)
+{
+	struct clk *clk[CLK_MAX];
+	struct clk *ret_clk;
+	int clk_num;
+	int ret = 0;
+	int i;
+
+	ret = init_clks(pdev, clk);
+	if (ret)
+		goto fail;
 
 	for (i = 0; i < ARRAY_SIZE(scp_clks); i++) {
 		struct mtk_power_gate *pg = &scp_clks[i];
+		int sub_clk_num;
 
-		if (mtk_is_mtcmos_enable())
-			clk = mt_clk_register_power_gate(pg->name,
-				pg->parent_name, pg->pre_clk1_names,
-				pg->pre_clk2_names, pg->pd_id);
-		else
-			clk = mt_clk_register_power_gate(pg->name,
+		sub_clk_num = init_subsys_clks(pdev, pg->subclk_id,
+				pg->subsys_clks);
+		if (sub_clk_num < 0) {
+			ret = sub_clk_num;
+			goto fail;
+		}
+
+		if (mtk_is_mtcmos_enable()) {
+			if (pg->clk_id == CLK_NONE)
+				clk_num = 0;
+			else
+				clk_num = 1;
+
+			ret_clk = mt_clk_register_power_gate(pg->name,
+				pg->parent_name, clk[pg->clk_id],
+				pg->subsys_clks, clk_num, sub_clk_num,
+				pg->pd_id);
+		} else
+			ret_clk = mt_clk_register_power_gate(pg->name,
 				pg->parent_name, NULL,
-				NULL, pg->pd_id);
+				NULL, 0, 0,
+				pg->pd_id);
 
-		if (IS_ERR(clk)) {
-			pr_debug("[CCF] %s: Failed to register clk %s: %ld\n",
-				__func__, pg->name, PTR_ERR(clk));
+		if (IS_ERR(ret_clk)) {
+			pr_err("[CCF] %s: Failed to register clk %s: %ld\n",
+				__func__, pg->name, PTR_ERR(ret_clk));
 			continue;
 		}
 
 		if (clk_data)
-			clk_data->clks[pg->id] = clk;
+			clk_data->clks[pg->id] = ret_clk;
 
 #if MT_CCF_DEBUG
-		pr_notice("[CCF] %s: pgate %3d: %s\n", __func__, i, pg->name);
+		pr_notice("[CCF] %s: pgate %d: %s\n", __func__,
+				pg->id, pg->name);
 #endif				/* MT_CCF_DEBUG */
 	}
+fail:
+	return ret;
 }
 
 /*
@@ -2928,6 +2966,8 @@ static int clk_mt6761_scpsys_probe(struct platform_device *pdev)
 	struct clk_onecell_data *clk_data;
 	int ret = 0;
 
+	pr_notice("%s: start\n", __func__);
+
 	infracfg_base = get_reg(node, 0);
 	spm_base = get_reg(node, 1);
 	smi_common_base = get_reg(node, 2);
@@ -2942,8 +2982,10 @@ static int clk_mt6761_scpsys_probe(struct platform_device *pdev)
 	}
 
 	clk_data = alloc_clk_data(SCP_NR_SYSS);
+	if (!clk_data)
+		return -ENOMEM;
 
-	init_clk_scpsys(clk_data);
+	init_clk_scpsys(pdev, clk_data);
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 	if (ret) {
@@ -2987,84 +3029,10 @@ static int clk_mt6761_scpsys_probe(struct platform_device *pdev)
 #endif
 	}
 
+	pr_notice("%s done(%d)\n", __func__, ret);
+
 	return ret;
 }
-
-void subsys_if_on(void)
-{
-#if SUBSYS_IF_ON
-	unsigned int sta = spm_read(PWR_STATUS);
-	unsigned int sta_s = spm_read(PWR_STATUS_2ND);
-	int ret = 0;
-
-	if ((sta & (1U << 0)) && (sta_s & (1U << 0)))
-		pr_debug("suspend warning: SYS_MD1 is on!!!\n");
-
-	if ((sta & (1U << 1)) && (sta_s & (1U << 1))) {
-		pr_notice("suspend warning: SYS_CONN is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 2)) && (sta_s & (1U << 2)))
-		pr_debug("suspend warning: SYS_DPY is on!!!\n");
-
-	if ((sta & (1U << 3)) && (sta_s & (1U << 3))) {
-		pr_notice("suspend warning: SYS_DIS is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 4)) && (sta_s & (1U << 4))) {
-		pr_notice("suspend warning: SYS_MFG is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 5)) && (sta_s & (1U << 5))) {
-		pr_notice("suspend warning: SYS_ISP is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 6)) && (sta_s & (1U << 6)))
-		pr_debug("suspend warning: SYS_IFR is on!!!\n");
-
-	if ((sta & (1U << 7)) && (sta_s & (1U << 7))) {
-		pr_notice("suspend warning: SYS_MFG_CORE0 is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 23)) && (sta_s & (1U << 23))) {
-		pr_notice("suspend warning: SYS_MFG_ASYNC is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 25)) && (sta_s & (1U << 25))) {
-		pr_notice("suspend warning: SYS_CAM is on!!!\n");
-		ret++;
-	}
-	if ((sta & (1U << 26)) && (sta_s & (1U << 26))) {
-		pr_notice("suspend warning: SYS_VCODEC is on!!!\n");
-		ret++;
-	}
-	if (ret > 0)
-		WARN_ON(1);
-#endif
-}
-
-#if MTCMOS_FORCE_OFF
-void mtcmos_force_off(void)
-{
-	spm_mtcmos_ctrl_md1_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_md1_pwr(STA_POWER_DOWN);/*do after ccif*/
-	spm_mtcmos_ctrl_conn_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_conn_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_core0_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_core0_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_async_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_mfg_async_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_cam_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_cam_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_vcodec_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_vcodec_pwr(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_dis_bus_prot(STA_POWER_DOWN);
-	spm_mtcmos_ctrl_dis_pwr(STA_POWER_DOWN);
-
-}
-#endif
 
 static const struct of_device_id of_match_clk_mt6761_scpsys[] = {
 	{ .compatible = "mediatek,mt6761-scpsys", },
@@ -3085,5 +3053,10 @@ static int __init clk_mt6761_scpsys_init(void)
 	return platform_driver_register(&clk_mt6761_scpsys_drv);
 }
 
-arch_initcall(clk_mt6761_scpsys_init);
+static void __exit clk_mt6761_scpsys_exit(void)
+{
+}
 
+arch_initcall(clk_mt6761_scpsys_init);
+module_exit(clk_mt6761_scpsys_exit);
+MODULE_LICENSE("GPL");

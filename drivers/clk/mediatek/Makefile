@@ -54,7 +54,7 @@ obj-$(CONFIG_COMMON_CLK_MT8173) += clk-mt8173.o
 ifeq ($(CONFIG_DEBUG_FS), y)
 obj-$(CONFIG_COMMON_CLK_MEDIATEK) += clkdbg.o
 obj-$(CONFIG_COMMON_CLK_MT2712) += clkdbg-mt2712.o
-obj-$(CONFIG_COMMON_CLK_MT6761) += clkdbg_mt6761.o clkchk-mt6761.o
+obj-$(CONFIG_COMMON_CLK_MT6761) += clkdbg_mt6761.o
 obj-$(CONFIG_COMMON_CLK_MT6779) += clkdbg-mt6779.o clkchk-mt6779.o
 endif
 obj-$(CONFIG_COMMON_CLK_MTK_FREQ_HOPPING) += fhctl.o

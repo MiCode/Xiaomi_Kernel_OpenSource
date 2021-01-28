@@ -115,7 +115,7 @@ config COMMON_CLK_MT2712_VENCSYS
 	  This driver supports MediaTek MT2712 vencsys clocks.
 
 config COMMON_CLK_MT6761
-	bool "Clock driver for MediaTek MT6761"
+	tristate "Clock driver for MediaTek MT6761"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select COMMON_CLK_MEDIATEK
 	default MACH_MT6761
@@ -126,7 +126,7 @@ config COMMON_CLK_MT6761
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6761_AUDIOSYS
-	bool "Clock driver for MediaTek MT6761 audiosys"
+	tristate "Clock driver for MediaTek MT6761 audiosys"
 	depends on COMMON_CLK_MT6761
 	help
 	  This driver supports MediaTek MT6761 audsys clocks,
@@ -135,7 +135,7 @@ config COMMON_CLK_MT6761_AUDIOSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6761_CAMSYS
-	bool "Clock driver for MediaTek MT6761 camsys"
+	tristate "Clock driver for MediaTek MT6761 camsys"
 	depends on COMMON_CLK_MT6761
 	help
 	  This driver supports MediaTek MT6761 camsys clocks,
@@ -144,7 +144,7 @@ config COMMON_CLK_MT6761_CAMSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6761_MMSYS
-	bool "Clock driver for MediaTek MT6761 mmsys"
+	tristate "Clock driver for MediaTek MT6761 mmsys"
 	depends on COMMON_CLK_MT6761
 	help
 	  This driver supports MediaTek MT6761 mmsys clocks,
@@ -153,7 +153,7 @@ config COMMON_CLK_MT6761_MMSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6761_VCODECSYS
-	bool "Clock driver for MediaTek MT6761 vcodecsys"
+	tristate "Clock driver for MediaTek MT6761 vcodecsys"
 	depends on COMMON_CLK_MT6761
 	help
 	  This driver supports MediaTek MT6761 vcodecsys clocks,
@@ -162,7 +162,7 @@ config COMMON_CLK_MT6761_VCODECSYS
 	  say Y. Otherwise, say N.
 
 config COMMON_CLK_MT6761_MIPI0ASYS
-	bool "Clock driver for MediaTek MT6761 mipi0asys"
+	tristate "Clock driver for MediaTek MT6761 mipi0asys"
 	depends on COMMON_CLK_MT6761
 	help
 	  This driver supports MediaTek MT6761 mipi0asys clocks,

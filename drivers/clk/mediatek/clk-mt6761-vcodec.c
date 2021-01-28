@@ -5,6 +5,7 @@
  */
 
 #include <linux/clk-provider.h>
+#include <linux/module.h>
 #include <linux/platform_device.h>
 
 #include "clk-mtk.h"
@@ -64,6 +65,7 @@ static const struct of_device_id of_match_clk_mt6761_vcodec[] = {
 };
 
 static struct platform_driver clk_mt6761_vcodec_drv = {
+	.probe = clk_mt6761_vcodec_probe,
 	.driver = {
 		.name = "clk-mt6761-vcodec",
 		.of_match_table = of_match_clk_mt6761_vcodec,
@@ -72,7 +74,13 @@ static struct platform_driver clk_mt6761_vcodec_drv = {
 
 static int __init clk_mt6761_vcodec_init(void)
 {
-	return platform_driver_probe(&clk_mt6761_vcodec_drv,
-			clk_mt6761_vcodec_probe);
+	return platform_driver_register(&clk_mt6761_vcodec_drv);
 }
-subsys_initcall(clk_mt6761_vcodec_init);
+
+static void __exit clk_mt6761_vcodec_exit(void)
+{
+}
+
+postcore_initcall(clk_mt6761_vcodec_init);
+module_exit(clk_mt6761_vcodec_exit);
+MODULE_LICENSE("GPL");

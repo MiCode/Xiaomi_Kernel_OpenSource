@@ -12,12 +12,13 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/of.h>
-#include <linux/of_address.h>
-#include <linux/io.h>
-#include <linux/slab.h>
 #include <linux/clkdev.h>
 #include <linux/delay.h>
+#include <linux/io.h>
+#include <linux/module.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/slab.h>
 
 #include "clk-mtk.h"
 
@@ -381,3 +382,8 @@ void mtk_clk_register_plls(struct device_node *node,
 		clk_data->clks[pll->id] = clk;
 	}
 }
+EXPORT_SYMBOL(mtk_clk_register_plls);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek PLL");
+MODULE_AUTHOR("MediaTek Inc.");

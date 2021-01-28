@@ -5,12 +5,13 @@
  */
 
 #include <linux/delay.h>
+#include <linux/mfd/syscon.h>
+#include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/slab.h>
-#include <linux/mfd/syscon.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
@@ -381,6 +382,7 @@ int mtk_is_mtcmos_enable(void)
 	return 0;
 #endif
 }
+EXPORT_SYMBOL(mtk_is_mtcmos_enable);
 
 unsigned int mt_get_ckgen_freq(unsigned int ID)
 {
@@ -426,6 +428,7 @@ unsigned int mt_get_ckgen_freq(unsigned int ID)
 		return output;
 
 }
+EXPORT_SYMBOL(mt_get_ckgen_freq);
 
 unsigned int mt_get_abist_freq(unsigned int ID)
 {
@@ -466,6 +469,7 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 	else
 		return output * 4;
 }
+EXPORT_SYMBOL(mt_get_abist_freq);
 
 static const struct mtk_fixed_clk fixed_clks[] = {
 	FIXED_CLK(CLK_TOP_CLK32K, "f_frtc_ck", "clk32k", 32768),
@@ -557,7 +561,7 @@ static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_ARMPLL_DIVIDER_PLL1, "arm_div_pll1", "syspll_ck", 1, 1),
 	FACTOR(CLK_TOP_ARMPLL_DIVIDER_PLL2, "arm_div_pll2", "univpll_d2", 1, 1),
 	FACTOR(CLK_TOP_UFS_TICK1US, "ufs_tick1us_ck", "f_f26m_ck", 1, 1),
-	FACTOR(CLK_TOP_CLK13M, "clk13m", "f_f26m_ck", 1, 2),
+	FACTOR(CLK_TOP_CLK13M, "top_clk13m", "f_f26m_ck", 1, 2),
 };
 
 static const char * const axi_parents[] = {
@@ -1358,5 +1362,11 @@ static int __init clk_mt6761_init(void)
 	return platform_driver_register(&clk_mt6761_drv);
 }
 
-arch_initcall(clk_mt6761_init);
+static void __exit clk_mt6761_exit(void)
+{
+}
 
+postcore_initcall_sync(clk_mt6761_init);
+module_exit(clk_mt6761_exit);
+
+MODULE_LICENSE("GPL");

@@ -122,6 +122,7 @@ void set_clkdbg_ops(const struct clkdbg_ops *ops)
 {
 	clkdbg_ops = ops;
 }
+EXPORT_SYMBOL(set_clkdbg_ops);
 
 static const struct fmeter_clk *get_all_fmeter_clks(void)
 {
@@ -290,6 +291,7 @@ void print_fmeter_all(void)
 {
 	proc_all_fclk_freq(print_fclk_freq, NULL);
 }
+EXPORT_SYMBOL(print_fmeter_all);
 
 static void seq_print_fclk_freq(const struct fmeter_clk *fclk,
 				u32 freq, void *data)
@@ -332,6 +334,7 @@ void print_regs(void)
 {
 	proc_all_regname(print_reg, NULL);
 }
+EXPORT_SYMBOL(print_regs);
 
 static void seq_print_reg(const struct regname *rn, void *data)
 {
@@ -539,6 +542,7 @@ struct provider_clk *get_all_provider_clks(void)
 
 	return provider_clks;
 }
+EXPORT_SYMBOL(get_all_provider_clks);
 
 static void dump_provider_clk(struct provider_clk *pvdck, struct seq_file *s)
 {
@@ -645,6 +649,7 @@ const char *get_last_cmd(void)
 {
 	return last_cmd;
 }
+EXPORT_SYMBOL(get_last_cmd);
 
 static int clkop_int_ckname(int (*clkop)(struct clk *clk),
 			const char *clkop_name, const char *clk_name,
@@ -808,6 +813,7 @@ void prepare_enable_provider(const char *pvd)
 		}
 	}
 }
+EXPORT_SYMBOL(prepare_enable_provider);
 
 void disable_unprepare_provider(const char *pvd)
 {
@@ -820,6 +826,7 @@ void disable_unprepare_provider(const char *pvd)
 			clk_disable_unprepare(pvdck->ck);
 	}
 }
+EXPORT_SYMBOL(disable_unprepare_provider);
 
 static void clkpvdop(void (*pvdop)(const char *), const char *clkpvdop_name,
 			struct seq_file *s)
@@ -1795,6 +1802,7 @@ void reg_pdrv(const char *pdname)
 	reg_pdev_drv(pdname, NULL);
 #endif
 }
+EXPORT_SYMBOL(reg_pdrv);
 
 void unreg_pdrv(const char *pdname)
 {
@@ -1802,6 +1810,7 @@ void unreg_pdrv(const char *pdname)
 	unreg_pdev_drv(pdname, NULL);
 #endif
 }
+EXPORT_SYMBOL(unreg_pdrv);
 
 /*
  * Suspend / resume handler
@@ -1995,36 +2004,6 @@ static struct notifier_block clkdbg_pm_notifier = {
 	.notifier_call = clkdbg_pm_event_handler,
 };
 
-static int clkdbg_syscore_suspend(void)
-{
-	if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_2))
-		store_save_point(&save_point_2);
-
-	return 0;
-}
-
-static void clkdbg_syscore_resume(void)
-{
-}
-
-static struct syscore_ops clkdbg_syscore_ops = {
-	.suspend = clkdbg_syscore_suspend,
-	.resume = clkdbg_syscore_resume,
-};
-
-static int __init clkdbg_pm_init(void)
-{
-	int r;
-
-	register_syscore_ops(&clkdbg_syscore_ops);
-	r = register_pm_notifier(&clkdbg_pm_notifier);
-	if (r != 0)
-		pr_warn("%s(): register_pm_notifier(%d)\n", __func__, r);
-
-	return r;
-}
-subsys_initcall(clkdbg_pm_init);
-
 static int clkdbg_suspend_ops_valid(suspend_state_t state)
 {
 	return state == PM_SUSPEND_MEM ? 1 : 0;
@@ -2078,6 +2057,7 @@ void set_custom_cmds(const struct cmd_fn *cmds)
 {
 	custom_cmds = cmds;
 }
+EXPORT_SYMBOL(set_custom_cmds);
 
 static int clkdbg_cmds(struct seq_file *s, void *v);
 
@@ -2219,4 +2199,56 @@ static int __init clkdbg_debug_init(void)
 
 	return 0;
 }
-module_init(clkdbg_debug_init);
+
+static int clkdbg_syscore_suspend(void)
+{
+	if (has_clkdbg_flag(CLKDBG_EN_SUSPEND_SAVE_2))
+		store_save_point(&save_point_2);
+
+	return 0;
+}
+
+static void clkdbg_syscore_resume(void)
+{
+}
+
+static struct syscore_ops clkdbg_syscore_ops = {
+	.suspend = clkdbg_syscore_suspend,
+	.resume = clkdbg_syscore_resume,
+};
+
+static int __init clkdbg_pm_init(void)
+{
+	int r;
+
+	register_syscore_ops(&clkdbg_syscore_ops);
+	r = register_pm_notifier(&clkdbg_pm_notifier);
+	if (r != 0)
+		pr_warn("%s(): register_pm_notifier(%d)\n", __func__, r);
+
+	return r;
+}
+
+static int __init clkdbg_module_init(void)
+{
+	int r = 0;
+
+	r = clkdbg_debug_init();
+	if (r != 0)
+		goto err;
+
+	r = clkdbg_pm_init();
+	if (r != 0)
+		goto err;
+
+err:
+	return r;
+}
+
+static void __exit clkdbg_module_exit(void)
+{
+}
+
+module_init(clkdbg_module_init);
+module_exit(clkdbg_module_exit);
+MODULE_LICENSE("GPL");
