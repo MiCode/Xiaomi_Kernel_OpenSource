@@ -588,7 +588,7 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 	struct task_private desc_private = {0};
 	struct cmdqRecStruct *handle = NULL;
 	s32 status;
-	u64 trans_cost, exec_cost = sched_clock();
+	u64 trans_cost = 0, exec_cost = sched_clock();
 	struct cmdq_command_buffer cmd_buf;
 	struct mdp_job_mapping *mapping_job = NULL;
 
