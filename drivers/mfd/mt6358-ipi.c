@@ -12,6 +12,9 @@
 #include <sspm_ipi.h>
 #endif
 
+#include <linux/kprobes.h>
+#include <asm/traps.h>
+
 /* Legacy PMIC SSPM/IPI driver interface */
 #if IS_ENABLED(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if IS_ENABLED(CONFIG_MACH_MT6761) || IS_ENABLED(CONFIG_MACH_MT6779)
@@ -71,6 +74,11 @@ static unsigned int pmic_ipi_config_interface(unsigned int RegNum,
 	struct pmic_ipi_ret_datas recv = { {0} };
 	unsigned int ret = 0;
 
+	if (RegNum == 0x20) {
+		dump_stack();
+		pr_info("[%s] ipi_config: Regnum:%d, val:%d,MASK:%d,SHIFT,%d\n",
+			__func__, RegNum, val, MASK, SHIFT);
+	}
 	send.cmd[0] = MAIN_PMIC_WRITE_REGISTER;
 	send.cmd[1] = RegNum;
 	send.cmd[2] = val;
