@@ -13,6 +13,8 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/suspend.h>
+#include <linux/rtc.h>
 #include <asm/setup.h>
 
 #if defined(CONFIG_MTK_WATCHDOG) && defined(CONFIG_MTK_WD_KICKER)
@@ -137,6 +139,47 @@ static void get_spm_wakesrc_irq(void)
 		}
 	}
 }
+#endif
+
+#ifdef CONFIG_PM
+static int spm_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct timespec ts;
+	struct rtc_time tm;
+
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &tm);
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE:
+		printk_deferred(
+		"[name:spm&][SPM] PM: suspend entry %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:
+		printk_deferred(
+		"[name:spm&][SPM] PM: suspend exit %d-%02d-%02d %02d:%02d:%02d.%09lu UTC\n",
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
+
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block spm_suspend_pm_notifier_func = {
+	.notifier_call = spm_suspend_pm_event,
+	.priority = 0,
+};
 #endif
 
 static inline void spm_suspend_footprint(enum spm_suspend_step step)
@@ -504,9 +547,20 @@ RESTORE_IRQ:
 
 int __init spm_logger_init(void)
 {
+	int ret;
+
 #if defined(CONFIG_MTK_GIC_V3_EXT)
 	get_spm_wakesrc_irq();
 #endif
+
+#ifdef CONFIG_PM
+	ret = register_pm_notifier(&spm_suspend_pm_notifier_func);
+	if (ret) {
+		pr_debug("[name:spm&][SPM] Failed to register PM notifier.\n");
+		return ret;
+	}
+#endif /* CONFIG_PM */
+
 	return 0;
 }
 
