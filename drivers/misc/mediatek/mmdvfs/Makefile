@@ -69,7 +69,7 @@ ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DCHECK_OSTD_UPDATE
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))
 SUPPORT_MMP := true
-FORCE_STEP0 := true
+FORCE_STEP0 := false
 BUILD_MMDVFS := true
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6779"))
 SUPPORT_MMP := true
