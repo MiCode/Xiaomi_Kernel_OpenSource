@@ -59,7 +59,6 @@ struct mtk_codec_framesizes {
 
 
 struct mtk_color_desc {
-	__u32	full_range;
 	__u32	color_primaries;
 	__u32	transform_character;
 	__u32	matrix_coeffs;
@@ -72,6 +71,7 @@ struct mtk_color_desc {
 	__u32	max_content_light_level;
 	__u32	max_pic_light_level;
 	__u32	is_hdr;
+	__u32	full_range;
 };
 
 /**
