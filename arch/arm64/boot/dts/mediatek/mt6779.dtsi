@@ -1842,7 +1842,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<0 0x10006000 0 0x1000>; /* SLEEP BASE */
 			mr4_version = <1>;
 			mr4_rg = <0x0090 0x0000ffff 0>;
-			fmeter_version = <1>;
+			fmeter_version = <0>;
 			crystal_freq = <52>;
 			pll_id = <0x0510 0x80000000 31>;
 			shu_lv = <0x00e4 0x00000006 1>;
