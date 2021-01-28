@@ -1357,22 +1357,22 @@ static SOC_VALUE_ENUM_SINGLE_DECL(dmic0_mux_map_enum,
 static const struct snd_kcontrol_new dmic0_mux_control =
 	SOC_DAPM_ENUM("DMIC_MUX Select", dmic0_mux_map_enum);
 
-/* ul1 ch2 use RG_DMIC_ADC3_SOURCE_SEL */
+/* ul2 ch1 use RG_DMIC_ADC2_SOURCE_SEL */
 static SOC_VALUE_ENUM_SINGLE_DECL(dmic1_mux_map_enum,
 				  MT6359_AFE_MIC_ARRAY_CFG,
-				  RG_DMIC_ADC3_SOURCE_SEL_SFT,
-				  RG_DMIC_ADC3_SOURCE_SEL_MASK,
+				  RG_DMIC_ADC2_SOURCE_SEL_SFT,
+				  RG_DMIC_ADC2_SOURCE_SEL_MASK,
 				  dmic_mux_map,
 				  dmic_mux_map_value);
 
 static const struct snd_kcontrol_new dmic1_mux_control =
 	SOC_DAPM_ENUM("DMIC_MUX Select", dmic1_mux_map_enum);
 
-/* ul2 ch1 use RG_DMIC_ADC2_SOURCE_SEL */
+/* ul1 ch2 use RG_DMIC_ADC3_SOURCE_SEL */
 static SOC_VALUE_ENUM_SINGLE_DECL(dmic2_mux_map_enum,
 				  MT6359_AFE_MIC_ARRAY_CFG,
-				  RG_DMIC_ADC2_SOURCE_SEL_SFT,
-				  RG_DMIC_ADC2_SOURCE_SEL_MASK,
+				  RG_DMIC_ADC3_SOURCE_SEL_SFT,
+				  RG_DMIC_ADC3_SOURCE_SEL_MASK,
 				  dmic_mux_map,
 				  dmic_mux_map_value);
 
