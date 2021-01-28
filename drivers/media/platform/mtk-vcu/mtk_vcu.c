@@ -91,7 +91,7 @@
 /* vcu extended iova address*/
 #define VCU_PMEM0_IOVA(vcu_data)        (vcu_data->extmem.p_iova)
 #define VCU_DMEM0_IOVA(vcu_data)        (vcu_data->extmem.d_iova)
-#define VCU_SHMEM_SIZE 0x240000
+#define VCU_SHMEM_SIZE 0x80000
 
 #define MAP_SHMEM_ALLOC_BASE    0x80000000UL
 #define MAP_SHMEM_ALLOC_RANGE   VCU_SHMEM_SIZE
