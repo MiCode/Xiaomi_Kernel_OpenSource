@@ -102,6 +102,13 @@ static int ccci_util_skbtime_getdata(struct input_event *data)
 	spin_lock_irqsave(&s_event_update_lock, flag);
 
 	if (skb_times_ring.count > 0) {
+		if (skb_times_ring.beg < 0
+			|| skb_times_ring.beg >= SKB_TIME_BUF_LEN) {
+			pr_notice("%s:invalid index = %d\n",
+				__func__, skb_times_ring.beg);
+			spin_unlock_irqrestore(&s_event_update_lock, flag);
+			return 0;
+		}
 		*data = skb_times_ring.times[skb_times_ring.beg];
 
 		if (skb_times_ring.beg == SKB_TIME_BUF_LEN - 1)
@@ -127,6 +134,11 @@ static void ccci_util_skbtime_adddata(__be16 ipid, int skb_len, __u16 port)
 	spin_lock_irqsave(&s_event_update_lock, flag);
 
 	index = skb_times_ring.end;
+	if (index < 0 || index >= SKB_TIME_BUF_LEN) {
+		pr_notice("%s:invalid index = %d\n", __func__, index);
+		spin_unlock_irqrestore(&s_event_update_lock, flag);
+		return;
+	}
 	if (skb_times_ring.count == SKB_TIME_BUF_LEN) { // buff is full
 		if (skb_times_ring.beg == SKB_TIME_BUF_LEN - 1) {
 			skb_times_ring.beg = 0;

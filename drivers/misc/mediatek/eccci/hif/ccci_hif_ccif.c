@@ -1513,6 +1513,11 @@ static void ccif_hif_hw_init(struct md_ccif_ctrl *md_ctrl)
 	unsigned long ccif_irq_flags;
 
 	/*Copy HW info */
+	if (hw_info == NULL) {
+		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+			"%s:ccci_md_get_hw_info fail\n", __func__);
+		return;
+	}
 	md_ctrl->ccif_ap_base = (void __iomem *)hw_info->ap_ccif_base;
 	md_ctrl->ccif_md_base = (void __iomem *)hw_info->md_ccif_base;
 #if (MD_GENERATION <= 6292)

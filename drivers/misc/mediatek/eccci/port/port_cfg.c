@@ -487,6 +487,10 @@ int find_port_by_channel(int index, struct port_t **port)
 
 int mtk_ccci_open_port(int index)
 {
+	if (index < 0 || index >= ARRAY_SIZE(md1_ccci_ports)) {
+		CCCI_ERROR_LOG(-1, PORT, "invalid index = %d\n", index);
+		return -EBUSY;
+	}
 	if (md1_ccci_ports[index].rx_ch != CCCI_CCB_CTRL &&
 		atomic_read(&md1_ccci_ports[index].usage_cnt))
 		return -EBUSY;
@@ -496,7 +500,10 @@ int mtk_ccci_open_port(int index)
 
 int mtk_ccci_release_port(int index)
 {
-
+	if (index < 0 || index >= ARRAY_SIZE(md1_ccci_ports)) {
+		CCCI_ERROR_LOG(-1, PORT, "invalid index = %d\n", index);
+		return -EBUSY;
+	}
 	atomic_dec(&md1_ccci_ports[index].usage_cnt);
 	return 0;
 }

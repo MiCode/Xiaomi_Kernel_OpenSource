@@ -1467,9 +1467,10 @@ static inline void proxy_dispatch_queue_status(struct port_proxy *proxy_p,
 	int match = 0;
 	int i, matched = 0;
 
-	if (hif < CLDMA_HIF_ID || hif >= CCCI_HIF_NUM) {
+	if (hif < CLDMA_HIF_ID || hif >= CCCI_HIF_NUM
+		|| qno >= MAX_QUEUE_NUM || qno < 0) {
 		CCCI_ERROR_LOG(proxy_p->md_id, CORE,
-			"%s:hif:%d is inval\n", __func__, hif);
+			"%s:hif=%d or qno=%d is inval\n", __func__, hif, qno);
 		return;
 	}
 	/*EE then notify EE port*/

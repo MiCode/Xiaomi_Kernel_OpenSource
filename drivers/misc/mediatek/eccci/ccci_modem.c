@@ -1163,7 +1163,7 @@ int ccci_md_set_boot_data(unsigned char md_id, unsigned int data[], int len)
 
 struct ccci_mem_layout *ccci_md_get_mem(int md_id)
 {
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 	return &modem_sys[md_id]->mem_layout;
 }
@@ -1173,7 +1173,7 @@ struct ccci_smem_region *ccci_md_get_smem_by_user_id(int md_id,
 {
 	struct ccci_smem_region *curr = NULL;
 
-	if (md_id >= MAX_MD_NUM)
+	if (md_id >= MAX_MD_NUM || md_id < 0)
 		return NULL;
 
 	if (modem_sys[md_id] == NULL) {

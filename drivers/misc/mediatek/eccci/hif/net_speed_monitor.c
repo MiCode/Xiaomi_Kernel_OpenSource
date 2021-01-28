@@ -207,6 +207,12 @@ static int get_speed_str(u64 speed, char buf[], int size)
 		ret = snprintf(buf, size, "%llu.%03lluKbps", speed, rem);
 	} else
 		ret = snprintf(buf, size, "%llubps", speed);
+	if (ret < 0 || ret >= size) {
+		CCCI_REPEAT_LOG(-1, "Speed",
+			"%s-%d:snprintf fail,ret=%d\n",
+			__func__, __LINE__, ret);
+		return -1;
+	}
 
 	return ret;
 }
