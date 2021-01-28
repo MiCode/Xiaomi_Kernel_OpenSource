@@ -38,6 +38,6 @@ int disp_input_free_dirty_roi(struct disp_frame_cfg_t *cfg);
 int disp_validate_ioctl_params(struct disp_frame_cfg_t *cfg);
 int disp_mgr_has_mem_session(void);
 int get_HWC_gpid(void);
-int mtk_disp_mgr_set_dev(struct device *dev);
+void mtk_disp_mgr_set_dev(struct device *dev);
 
 #endif /* __H_MTK_DISP_MGR__ */

@@ -109,7 +109,7 @@ static LIST_HEAD(repaint_job_pool);
 
 static int HWC_gpid;
 
-inline int mtk_disp_mgr_set_dev(struct device *dev)
+inline void mtk_disp_mgr_set_dev(struct device *dev)
 {
 	mtk_disp_mgr_dev = dev;
 }
