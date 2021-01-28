@@ -1265,14 +1265,13 @@ void musb_start(struct musb *musb)
 			musb->is_host, musb->is_active);
 
 	musb_platform_enable(musb);
+	musb_platform_reset(musb);
 	musb_generic_disable(musb);
 
 	intrusbe = musb_readb(regs, MUSB_INTRUSBE);
 	if (musb->is_host) {
 		musb->intrtxe = 0xffff;
-		musb_writew(regs, MUSB_INTRTXE, musb->intrtxe);
 		musb->intrrxe = 0xfffe;
-		musb_writew(regs, MUSB_INTRRXE, musb->intrrxe);
 		intrusbe = 0xf7;
 
 		while (!musb_platform_get_vbus_status(musb)) {
@@ -1284,6 +1283,9 @@ void musb_start(struct musb *musb)
 		}
 
 	} else if (!musb->is_host) {
+		/* enable ep0 interrupt */
+		musb->intrtxe = 0x1;
+		musb->intrrxe = 0;
 		/* device mode enable reset interrupt */
 		intrusbe |= MUSB_INTR_RESET;
 #if defined(CONFIG_USBIF_COMPLIANCE)
@@ -1292,6 +1294,8 @@ void musb_start(struct musb *musb)
 #endif
 	}
 
+	musb_writew(regs, MUSB_INTRTXE, musb->intrtxe);
+	musb_writew(regs, MUSB_INTRRXE, musb->intrrxe);
 	musb_writeb(regs, MUSB_INTRUSBE, intrusbe);
 
 	/* In U2 host mode, USB bus will issue
