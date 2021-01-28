@@ -26,6 +26,12 @@ ccflags-y += -DCMDQ_DEVAPC
 endif
 endif
 
+ifeq ($(CONFIG_MACH_MT6779),y)
+ccflags-y += -DPMQOS_VERSION2
+ccflags-y += -DMDP_MMPATH
+ccflags-y += -DCMDQ_MDP_ENABLE_SPR
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
