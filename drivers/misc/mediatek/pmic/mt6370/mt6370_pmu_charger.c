@@ -2135,13 +2135,6 @@ static int mt6370_enable_otg(struct charger_device *chg_dev, bool en)
 
 	mt6370_enable_hidden_mode(chg_data, true);
 
-	/* Set OTG_OC to 500mA */
-	ret = mt6370_set_otg_current_limit(chg_dev, 500000);
-	if (ret < 0) {
-		dev_err(chg_data->dev, "%s: set otg oc failed\n", __func__);
-		goto out;
-	}
-
 	/*
 	 * Woraround :
 	 * slow Low side mos Gate driver slew rate for decline VBUS noise
