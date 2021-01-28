@@ -3676,3 +3676,4 @@
 #ifdef CONFIG_CHARGER_RT9471
 #include "mediatek/rt9471.dtsi"
 #endif
+#include "mediatek/trusty.dtsi"
