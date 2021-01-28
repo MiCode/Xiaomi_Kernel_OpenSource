@@ -39,6 +39,11 @@
 
 #include <mt-plat/mtk_blocktag.h>
 
+/*
+ * snprintf may return a value of size or "more" to indicate
+ * that the output was truncated, thus be careful of "more"
+ * case.
+ */
 #define SPREAD_PRINTF(buff, size, evt, fmt, args...) \
 do { \
 	if (buff && size && *(size)) { \
