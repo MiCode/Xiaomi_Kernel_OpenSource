@@ -1462,11 +1462,11 @@ static int vow_pcm_dump_set(bool enable)
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	bargein_resv_dram.vir_addr =
 	    (char *)(scp_get_reserve_mem_virt(VOW_BARGEIN_MEM_ID))
-	    + VOW_BARGEIN_DUMP_OFFSET;
+	    + VOW_BARGEIN_AFE_MEMIF_SIZE;
 	bargein_resv_dram.phy_addr =
 	    scp_get_reserve_mem_phys(VOW_BARGEIN_MEM_ID)
-	    + VOW_BARGEIN_DUMP_OFFSET;
-	bargein_resv_dram.size = VOW_BARGEIN_DUMP_SIZE;
+	    + VOW_BARGEIN_AFE_MEMIF_SIZE;
+	bargein_resv_dram.size = BARGEIN_DUMP_TOTAL_BYTE_CNT;
 
 	VOWDRV_DEBUG("[Barge]vir: %p, phys: 0x%x\n",
 		     bargein_resv_dram.vir_addr,
@@ -1478,7 +1478,7 @@ static int vow_pcm_dump_set(bool enable)
 	recog_resv_dram.phy_addr =
 	    scp_get_reserve_mem_phys(VOW_MEM_ID)
 	    + VOW_RECOGDATA_OFFSET;
-	recog_resv_dram.size = VOW_RECOGDATA_SIZE;
+	recog_resv_dram.size = RECOG_DUMP_TOTAL_BYTE_CNT;
 
 	VOWDRV_DEBUG("[Recog]vir: %p, phys: 0x%x\n",
 		     recog_resv_dram.vir_addr,
@@ -1490,7 +1490,7 @@ static int vow_pcm_dump_set(bool enable)
 	vffp_resv_dram.phy_addr =
 	    scp_get_reserve_mem_phys(VOW_MEM_ID)
 	    + VOW_VFFPDATA_OFFSET;
-	vffp_resv_dram.size = VOW_VFFPDATA_SIZE;
+	vffp_resv_dram.size = VFFP_DUMP_TOTAL_BYTE_CNT;
 
 	VOWDRV_DEBUG("[vffp]vir: %p, phys: 0x%x\n",
 		     vffp_resv_dram.vir_addr,

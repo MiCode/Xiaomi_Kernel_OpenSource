@@ -74,29 +74,45 @@
 #define RESERVED_DATA                  4
 #define VOW_RECOVERY_WAIT              100
 
-//#define DUAL_CH_TRANSFER
+#ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
+#define VOW_MAX_MIC_NUM	(2)
+#else
+#define VOW_MAX_MIC_NUM	(1)
+#endif
 
 /* length limitation sync by audio hal */
 #if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
-#define VOW_VBUF_LENGTH      (0x12E80 * 2)  /*(0x12480 + 0x0A00) * 2*/
+#define VOW_VBUF_LENGTH      (0x12E80 * VOW_MAX_MIC_NUM)  /* (0x12480 + 0x0A00) * 2 */
 #else
 #define VOW_VBUF_LENGTH      (0x12E80)  /* 0x12480 + 0x0A00 */
 #endif
 
-#define VOW_RECOGDATA_SIZE             0x2800
-#define VOW_VFFPDATA_SIZE              0x1400
+#define VOW_FRM_LEN                    (160)
+#define RECOG_DUMP_SMPL_CNT            (VOW_FRM_LEN * 16)
+#define RECOG_DUMP_BYTE_CNT            (RECOG_DUMP_SMPL_CNT * sizeof(short))
+#define RECOG_DUMP_TOTAL_BYTE_CNT      (RECOG_DUMP_BYTE_CNT * VOW_MAX_MIC_NUM)
+#define VFFP_DUMP_SMPL_CNT             (VOW_FRM_LEN * 16)
+#define VFFP_DUMP_BYTE_CNT             (VFFP_DUMP_SMPL_CNT * sizeof(short))
+#define VFFP_DUMP_TOTAL_BYTE_CNT       (VFFP_DUMP_BYTE_CNT)
+#define BARGEIN_DUMP_SMPL_CNT_MIC      (VOW_FRM_LEN * 16)
+#define BARGEIN_DUMP_BYTE_CNT_MIC      (BARGEIN_DUMP_SMPL_CNT_MIC * sizeof(short))
+#define BARGEIN_DUMP_SMPL_CNT_ECHO     (VOW_FRM_LEN * 16)
+#define BARGEIN_DUMP_BYTE_CNT_ECHO     (BARGEIN_DUMP_SMPL_CNT_ECHO * sizeof(short))
+#define BARGEIN_DUMP_TOTAL_BYTE_CNT    (BARGEIN_DUMP_BYTE_CNT_MIC * VOW_MAX_MIC_NUM + \
+					BARGEIN_DUMP_BYTE_CNT_ECHO)
+
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 
 #define VOW_ENGINE_INFO_LENGTH_BYTE    32
 
 #if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
-#define VOW_RECOGDATA_OFFSET    (VOW_VOICEDATA_OFFSET + 2 * VOW_VOICEDATA_SIZE)
+#define VOW_RECOGDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_MAX_MIC_NUM * VOW_VOICEDATA_SIZE)
 #else
-#define VOW_RECOGDATA_OFFSET        (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
+#define VOW_RECOGDATA_OFFSET          (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
 #endif
-#define VOW_VFFPDATA_OFFSET         (VOW_RECOGDATA_OFFSET + VOW_RECOGDATA_SIZE)
-#define VOW_EXTRA_DATA_OFFSET       (VOW_VFFPDATA_OFFSET + VOW_VFFPDATA_SIZE)
+#define VOW_VFFPDATA_OFFSET           (VOW_RECOGDATA_OFFSET + RECOG_DUMP_TOTAL_BYTE_CNT)
+#define VOW_EXTRA_DATA_OFFSET         (VOW_VFFPDATA_OFFSET + VFFP_DUMP_TOTAL_BYTE_CNT)
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -118,15 +134,15 @@
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 
 #ifdef VOW_ECHO_SW_SRC
-#define VOW_BARGEIN_DUMP_OFFSET 0x1E00
+#define VOW_BARGEIN_AFE_MEMIF_SIZE    0x1E00
 #else
-#define VOW_BARGEIN_DUMP_OFFSET 0xA00
+#define VOW_BARGEIN_AFE_MEMIF_SIZE    0xA00
 #endif
-#define VOW_BARGEIN_DUMP_SIZE   0x3C00
-#define VOW_BARGEIN_IRQ_MAX_NUM 32
+
+#define VOW_BARGEIN_IRQ_MAX_NUM       32
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.12"
+#define KERNEL_VOW_DRV_VER "2.0.13"
 
 struct dump_package_t {
 	uint32_t dump_data_type;
