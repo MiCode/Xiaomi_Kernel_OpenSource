@@ -1893,6 +1893,7 @@ static int push_rt_task(struct rq *rq)
 	struct task_struct *next_task;
 	struct rq *lowest_rq;
 	int ret = 0;
+	struct rt_rq *rt_rq;
 
 	if (!rq->rt.overloaded)
 		return 0;
@@ -1902,6 +1903,7 @@ static int push_rt_task(struct rq *rq)
 		return 0;
 
 retry:
+	rt_rq = next_task->rt.rt_rq;
 	if (unlikely(next_task == rq->curr)) {
 		WARN_ON(1);
 		return 0;
@@ -1913,8 +1915,11 @@ retry:
 	 * just reschedule current.
 	 */
 	if (unlikely(next_task->prio < rq->curr->prio)) {
-		resched_curr(rq);
-		return 0;
+		/* We only reschedule when next_task not throttle */
+		if (!rt_rq_throttled(rt_rq)) {
+			resched_curr(rq);
+			return 0;
+		}
 	}
 
 	/* We might release rq lock */
