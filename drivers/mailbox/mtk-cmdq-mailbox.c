@@ -1034,9 +1034,8 @@ unlock_free_done:
 		kfree(task);
 	}
 }
-static void cmdq_thread_handle_timeout(unsigned long data)
+static void cmdq_thread_handle_timeout(struct timer_list *t)
 {
-	struct timer_list *t = (struct timer_list *)data;
 	struct cmdq_thread *thread = from_timer(thread, t, timeout);
 	struct cmdq *cmdq = container_of(thread->chan->mbox, struct cmdq, mbox);
 	unsigned long flags;
@@ -1689,7 +1688,6 @@ static int cmdq_probe(struct platform_device *pdev)
 		cmdq->thread[i].gce_pa = cmdq->base_pa;
 		INIT_LIST_HEAD(&cmdq->thread[i].task_busy_list);
 		timer_setup(&cmdq->thread[i].timeout,
-			(void (*)(struct timer_list *))
 			cmdq_thread_handle_timeout, 0);
 		cmdq->thread[i].idx = i;
 		cmdq->mbox.chans[i].con_priv = &cmdq->thread[i];
