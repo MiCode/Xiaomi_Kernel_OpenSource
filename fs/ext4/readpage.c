@@ -89,7 +89,7 @@ static void mpage_end_io(struct bio *bio)
 		ext4_trace_read_completion(bio);
 
 	if (bio_encrypted(bio)) {
-		fscrypt_release_ctx(bio->bi_private);
+		WARN_ON(bio->bi_private);
 		goto uptodate;
 	}
 
@@ -288,7 +288,8 @@ int ext4_mpage_readpages(struct address_space *mapping,
 			struct fscrypt_ctx *ctx = NULL;
 
 			if (ext4_encrypted_inode(inode) &&
-			    S_ISREG(inode->i_mode)) {
+			    S_ISREG(inode->i_mode) &&
+			    !fscrypt_is_hw_encrypt(inode)) {
 				ctx = fscrypt_get_ctx(inode, GFP_NOFS);
 				if (IS_ERR(ctx))
 					goto set_error_page;
