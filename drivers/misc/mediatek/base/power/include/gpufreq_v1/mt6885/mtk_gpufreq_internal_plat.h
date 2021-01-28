@@ -29,15 +29,15 @@
  **************************************************/
 #define MT_GPUFREQ_DVFS_ENABLE          1
 #define MT_GPUFREQ_CUST_CONFIG          0
-#define MT_GPUFREQ_CUST_INIT_OPP        (850000)
+#define MT_GPUFREQ_CUST_INIT_OPP        (g_opp_table_segment[0].gpufreq_khz)
 
 /**************************************************
  * DVFS Setting
  **************************************************/
 #define NUM_OF_OPP_IDX (sizeof(g_opp_table_segment) / \
 			sizeof(g_opp_table_segment[0]))
-#define FIXED_VSRAM_VOLT                (85000)
-#define FIXED_VSRAM_VOLT_THSRESHOLD     (75000)
+#define FIXED_VSRAM_VOLT                (75000)
+#define FIXED_VSRAM_VOLT_THSRESHOLD     (65000)
 
 /**************************************************
  * PMIC Setting
