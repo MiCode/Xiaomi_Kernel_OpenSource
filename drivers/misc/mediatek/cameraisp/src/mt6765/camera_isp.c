@@ -9452,6 +9452,20 @@ EXIT:
 		/* Enable clock */
 		ISP_EnableClock(MTRUE);
 	}
+	/*  */
+	if (g_WaitLockCt) {
+		g_WaitLockCt++;
+		pr_info("add wakelock cnt(%d)\n", g_WaitLockCt);
+	} else {
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_stay_awake(isp_wake_lock);
+#else
+		wake_lock(&isp_wake_lock);
+#endif
+		g_WaitLockCt++;
+		pr_info("wakelock enable!! cnt(%d)\n", g_WaitLockCt);
+	}
+	/*  */
 	mutex_unlock(&gDipMutex);
 
 	pr_info("- X. Ret: %d. UserCount: %d. G_u4EnableClockCount:%d\n", Ret,
