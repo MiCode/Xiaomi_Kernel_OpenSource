@@ -11,4 +11,4 @@
 # GNU General Public License for more details.
 #
 
-obj-y += log_store.o
+obj-$(CONFIG_MTK_DRAM_LOG_STORE) += log_store.o
