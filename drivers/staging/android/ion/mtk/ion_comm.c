@@ -44,7 +44,7 @@ static int ion_comm_cache_pool(void *data)
 	unsigned int req_cache_size = 0;
 	unsigned int cached_size = 0;
 	int cache_buffer = 0;
-	int ret;
+	int ret = 0;
 	unsigned int gfp_flags = __GFP_HIGHMEM;
 	struct ion_buffer *buffer = NULL;
 	struct ion_heap *ion_cam_heap;
@@ -63,11 +63,10 @@ static int ion_comm_cache_pool(void *data)
 
 		ret = wait_event_interruptible(ion_comm_wq,
 					       atomic_read(&ion_comm_event));
-		if (ret < 0) {
-			IONMSG("%s is waked up error", __func__);
+		if (ret) {
+			IONMSG("%s wait event error:%d\n", __func__, ret);
 			continue;
 		}
-
 		req_cache_size = atomic_read(&ion_comm_event);
 		cache_buffer = atomic_read(&ion_comm_cache_event);
 		atomic_set(&ion_comm_event, 0);
