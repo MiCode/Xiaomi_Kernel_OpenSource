@@ -17,6 +17,7 @@ GPU_TOP = $(srctree)/drivers/gpu/mediatek/
 
 VER:=eng
 
+subdir-ccflags-y += -Wno-error
 #ccflags-y += -DGED_KPI_DEBUG
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885"))

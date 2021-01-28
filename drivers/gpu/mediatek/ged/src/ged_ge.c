@@ -40,8 +40,8 @@ struct GEEntry {
 static struct kmem_cache *gPoolCache;
 #ifdef GED_DEBUG_FS
 static struct dentry *gDFSEntry;
-#endif
 static int num_entry;
+#endif
 static LIST_HEAD(ge_entry_list_head);
 static DEFINE_SPINLOCK(ge_entry_list_lock);
 
