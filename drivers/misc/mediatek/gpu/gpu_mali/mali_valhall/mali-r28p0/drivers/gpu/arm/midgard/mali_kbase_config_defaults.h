@@ -111,7 +111,9 @@ enum {
  * (can be overridden by platform header).
  */
 #ifndef DEFAULT_PM_POWEROFF_TICK_SHADER
-#define DEFAULT_PM_POWEROFF_TICK_SHADER (2) /* 400-800us */
+// *** MTK ***
+//#define DEFAULT_PM_POWEROFF_TICK_SHADER (2) /* 400-800us */
+#define DEFAULT_PM_POWEROFF_TICK_SHADER (7) /* 2400-2800us */
 #endif
 
 /**
