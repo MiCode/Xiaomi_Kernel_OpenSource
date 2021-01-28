@@ -995,6 +995,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			};
 		};
 
+		hacc@1000a000 {
+			compatible = "mediatek,hacc";
+			reg = <0 0x1000a000 0 0x1000>;
+			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_LOW>;
+		};
+
 		apmixed: clock-controller@1000c000 {
 			compatible = "mediatek,mt6779-apmixed", "syscon";
 			reg = <0 0x1000c000 0 0xe00>;
