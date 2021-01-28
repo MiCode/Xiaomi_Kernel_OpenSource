@@ -17,9 +17,9 @@
 #include <asm/arch_timer.h>
 
 #define SSPM_MBOX_MAX		5
-#define MBOX_IN_IRQ_OFS		0x0
-#define MBOX_OUT_IRQ_OFS	0x4
-#define MBOX_SLOT_SIZE		0x4
+#define SSPM_MBOX_IN_IRQ_OFS	0x0
+#define SSPM_MBOX_OUT_IRQ_OFS	0x4
+#define SSPM_MBOX_SLOT_SIZE		0x4
 
 #define SSPM_CFG_OFS_SEMA	0x048
 #define SSPM_MPU_REGION_ID  9
