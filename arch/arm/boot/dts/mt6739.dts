@@ -1818,6 +1818,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			"MMDVFS_CLK_TOP_MMPLL_CK", "mmdvfs_clk_top_vencpll_ck",
 			"mmdvfs_clk_top_syspll2_d2";
 		mediatek,smi-id = <3>;
+		mmsys_config = <&mmsys_config>;
 	};
 
 	smi_larb0: smi_larb0@14003000 {
