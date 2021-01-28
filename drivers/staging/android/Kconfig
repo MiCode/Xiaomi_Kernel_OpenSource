@@ -22,6 +22,16 @@ config ANDROID_VSOC
 	  This option adds support for the Virtual SoC driver needed to boot
 	  a 'cuttlefish' Android image inside QEmu. The driver interacts with
 	  a QEmu ivshmem device. If built as a module, it will be called vsoc.
+
+config ANDROID_INTF_ALARM_DEV
+	tristate "Android alarm driver"
+	depends on RTC_CLASS
+	help
+	  Provides non-wakeup and rtc backed wakeup alarms based on rtc or
+	  elapsed realtime, and a non-wakeup alarm on the monotonic clock.
+	  Espically for wake up alarm ioctl.
+	  Also exports the alarm interface to user-space.
+
 ############################################################################
 menuconfig ION
 	bool "Ion Memory Manager"
