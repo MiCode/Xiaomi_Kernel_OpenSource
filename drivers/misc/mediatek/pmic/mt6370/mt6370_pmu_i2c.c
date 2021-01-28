@@ -210,15 +210,29 @@ static inline void rt_config_of_node(struct device *dev)
 static inline int mt6370_pmu_chip_id_check(struct i2c_client *i2c)
 {
 	int ret = 0;
+	int vendor_id = 0;
 
 	ret = i2c_smbus_read_byte_data(i2c, MT6370_PMU_REG_DEVINFO);
 	if (ret < 0)
 		return ret;
 
-	if ((ret & 0xF0) == 0x80 || (ret & 0xF0) == 0xE0 ||
-		(ret & 0xF0) == 0xF0)
-		return (ret & 0xff);
-	return -ENODEV;
+	vendor_id = ret & 0xF0;
+
+	switch (vendor_id) {
+	case 0x80:
+	case 0xE0:
+	case 0xF0:
+	case 0x90:
+	case 0xB0:
+		dev_info(&i2c->dev, "vendor id (%x) match!!\n", vendor_id);
+		vendor_id = (ret & 0xFF);
+		break;
+	default:
+		dev_info(&i2c->dev, "vendor id (%x) not match!!\n", vendor_id);
+		vendor_id = -ENODEV;
+	}
+
+	return vendor_id;
 }
 
 static int mt6370_pmu_suspend(struct device *dev)

@@ -83,9 +83,13 @@ struct mt6370_pmu_charger_desc {
 	u32 ircmp_resistor;
 	u32 ircmp_vclamp;
 	u32 dc_wdt;
+	u32 lbp_hys_sel;
+	u32 lbp_dt;
 	bool en_te;
 	bool en_wdt;
 	bool en_polling;
+	bool disable_vlgc;
+	bool fast_unknown_ta_dect;
 	const char *chg_dev_name;
 	const char *ls_dev_name;
 };
@@ -120,6 +124,7 @@ struct mt6370_pmu_charger_data {
 	u32 ieoc;
 	u32 ichg;
 	bool ieoc_wkard;
+	bool dcd_timeout;
 	atomic_t bc12_cnt;
 	atomic_t bc12_wkard;
 	int tchg;
@@ -721,6 +726,10 @@ static int __mt6370_enable_chgdet_flow(struct mt6370_pmu_charger_data *chg_data,
 	return ret;
 }
 
+#ifdef CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT
+static int mt6370_inform_psy_changed(struct mt6370_pmu_charger_data *chg_data);
+#endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT */
+
 static int mt6370_enable_chgdet_flow(struct mt6370_pmu_charger_data *chg_data,
 	bool en)
 {
@@ -876,6 +885,7 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 	u8 usb_status = 0;
 
 	dev_info(chg_data->dev, "%s\n", __func__);
+
 #ifdef CONFIG_TCPC_CLASS
 	pwr_rdy = atomic_read(&chg_data->tcpc_usb_connected);
 #else
@@ -910,6 +920,12 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 	atomic_inc(&chg_data->bc12_cnt);
 
 	/* plug in */
+	if (chg_data->dcd_timeout) {
+		chg_data->chg_type = NONSTANDARD_CHARGER;
+		chg_data->dcd_timeout = false;
+		goto dcd_timeout;
+	}
+
 	ret = mt6370_pmu_reg_read(chg_data->chip, MT6370_PMU_REG_USBSTATUS1);
 	if (ret < 0) {
 		dev_err(chg_data->dev, "%s: read chg type fail\n", __func__);
@@ -960,6 +976,7 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 out:
 	atomic_set(&chg_data->bc12_wkard, 0);
 
+dcd_timeout:
 	/* Turn off USB charger detection */
 	ret = __mt6370_enable_chgdet_flow(chg_data, false);
 	if (ret < 0)
@@ -3310,8 +3327,22 @@ static irqreturn_t mt6370_pmu_dcdti_irq_handler(int irq, void *data)
 {
 	struct mt6370_pmu_charger_data *chg_data =
 		(struct mt6370_pmu_charger_data *)data;
+	int ret = 0;
 
 	dev_info(chg_data->dev, "%s\n", __func__);
+	if (chg_data->chg_desc->fast_unknown_ta_dect) {
+		ret = mt6370_pmu_reg_read(
+			chg_data->chip, MT6370_PMU_REG_USBSTATUS1);
+		if (ret < 0)
+			return IRQ_HANDLED;
+		if (ret & 0x04) {
+			dev_info(chg_data->dev, "unknown TA Detected\n");
+			mutex_lock(&chg_data->bc12_access_lock);
+			chg_data->dcd_timeout = true;
+			mutex_unlock(&chg_data->bc12_access_lock);
+			mt6370_chgdet_handler(chg_data);
+		}
+	}
 	return IRQ_HANDLED;
 }
 
@@ -3595,13 +3626,64 @@ static inline int mt_parse_dt(struct device *dev,
 		&chg_desc->ircmp_vclamp) < 0)
 		dev_err(chg_data->dev, "%s: no ircmp vclamp\n", __func__);
 
+	if (of_property_read_u32(np, "lbp_hys_sel", &chg_desc->lbp_hys_sel) < 0)
+		dev_err(chg_data->dev, "%s: no lbp_hys_sel\n", __func__);
+
+	if (of_property_read_u32(np, "lbp_dt", &chg_desc->lbp_dt) < 0)
+		dev_err(chg_data->dev, "%s: no lbp_dt\n", __func__);
+
 	chg_desc->en_te = of_property_read_bool(np, "enable_te");
 	chg_desc->en_wdt = of_property_read_bool(np, "enable_wdt");
 	chg_desc->en_polling = of_property_read_bool(np, "enable_polling");
+	chg_desc->disable_vlgc = of_property_read_bool(np, "disable_vlgc");
+	chg_desc->fast_unknown_ta_dect =
+		of_property_read_bool(np, "fast_unknown_ta_dect");
 
 	chg_data->chg_desc = chg_desc;
 
 	return 0;
+}
+
+static int mt6370_set_otglbp(
+	struct mt6370_pmu_charger_data *chg_data, u32 lbp_hys_sel, u32 lbp_dt)
+{
+	u8 reg_data = (lbp_hys_sel << MT6370_SHIFT_LBPHYS_SEL)
+		| (lbp_dt << MT6370_SHIFT_LBP_DT);
+
+	dev_info(chg_data->dev, "%s: otglbp(%d), dt(%d)\n",
+		__func__, lbp_hys_sel, lbp_dt);
+
+	return mt6370_pmu_reg_update_bits(
+		chg_data->chip, MT6370_PMU_REG_VDDASUPPLY,
+		MT6370_MASK_LBP, reg_data);
+}
+
+static int mt6370_set_vlgc(
+	struct mt6370_pmu_charger_data *chg_data, bool disable_vlgc)
+{
+	u8 reg_data = disable_vlgc ? 0x1 : 0x0;
+
+	return mt6370_pmu_reg_update_bits(chg_data->chip,
+		MT6370_PMU_REG_QCSTATUS1, MT6370_MASK_VLGC_DISABLE,
+		reg_data << MT6370_SHIFT_VLGC_DISABLE);
+}
+
+static int mt6370_enable_fast_unknown_ta_dect(
+	struct mt6370_pmu_charger_data *chg_data, bool fast_unknown_ta_dect)
+{
+	int ret = 0;
+
+	if (fast_unknown_ta_dect)
+		ret = mt6370_pmu_reg_clr_bit(chg_data->chip,
+			MT6370_PMU_REG_USBSTATUS1,
+			MT6370_MASK_FAST_UNKNOWN_TA_DECT);
+	else {
+		ret = mt6370_pmu_reg_set_bit(chg_data->chip,
+			MT6370_PMU_REG_USBSTATUS1,
+			MT6370_MASK_FAST_UNKNOWN_TA_DECT);
+	}
+
+	return ret;
 }
 
 static int mt6370_chg_init_setting(struct mt6370_pmu_charger_data *chg_data)
@@ -3701,6 +3783,21 @@ static int mt6370_chg_init_setting(struct mt6370_pmu_charger_data *chg_data)
 		dev_err(chg_data->dev,
 			"%s: disable usb chrdet failed\n", __func__);
 
+	ret = mt6370_set_otglbp(
+		chg_data, chg_desc->lbp_hys_sel, chg_desc->lbp_dt);
+	if (ret < 0)
+		dev_err(chg_data->dev, "%s: set otg lbp fail\n", __func__);
+
+	ret = mt6370_set_vlgc(chg_data, chg_desc->disable_vlgc);
+	if (ret < 0)
+		dev_err(chg_data->dev, "%s: set vlgc fail\n", __func__);
+
+	ret = mt6370_enable_fast_unknown_ta_dect(
+		chg_data, chg_desc->fast_unknown_ta_dect);
+	if (ret < 0) {
+		dev_err(chg_data->dev,
+			"%s: set fast unknown ta dect fail\n", __func__);
+	}
 	return ret;
 }
 
@@ -3939,8 +4036,7 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 #endif /* CONFIG_MT6370_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
 
 	dev_info(&pdev->dev, "%s successfully\n", __func__);
-
-	return ret;
+	return 0;
 
 err_register_ls_dev:
 	charger_device_unregister(chg_data->chg_dev);

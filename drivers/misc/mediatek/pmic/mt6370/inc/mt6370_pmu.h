@@ -135,6 +135,7 @@ struct mt6370_pmu_chip {
 #define MT6370_PMU_REG_ADCBATDATAL	(0x53)
 #define MT6370_PMU_REG_CHGCTRL19	(0x60)
 #define MT6370_PMU_REG_OVPCTRL		(0x61)
+#define MT6370_PMU_REG_VDDASUPPLY	(0x62)
 /* flashled control */
 #define MT6370_PMU_REG_FLEDCFG		(0x70)
 #define MT6370_PMU_REG_FLED1CTRL	(0x72)
@@ -174,6 +175,9 @@ struct mt6370_pmu_chip {
 #define MT6370_PMU_REG_RGBCHRINDTF	(0x95)
 #define MT6370_PMU_REG_RGBCHRINDTONTOFF	(0x96)
 #define MT6370_PMU_REG_RGBOPENSHORTEN	(0x97)
+#define MT6370_PMU_REG_RGBTONTOFF	(0x98)
+#define MT6370_PMU_REG_RGBHIDDEN1	(0x99)
+#define MT6370_PMU_REG_RGBHIDDEN2	(0x9A)
 #define MT6370_PMU_REG_RESERVED1	(0x9F)
 /* backlight control */
 #define MT6370_PMU_REG_BLEN		(0xA0)
@@ -188,6 +192,7 @@ struct mt6370_pmu_chip {
 #define MT6370_PMU_REG_BLTORCTRL	(0xA9)
 #define MT6370_PMU_REG_BLSTRBCTRL	(0xAA)
 #define MT6370_PMU_REG_BLAVG		(0xAB)
+#define MT6370_PMU_REG_BLMODECTRL	(0xAD)
 /* display bias control */
 #define MT6370_PMU_REG_DBCTRL1		(0xB0)
 #define MT6370_PMU_REG_DBCTRL2		(0xB1)
