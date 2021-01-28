@@ -16,6 +16,10 @@ static struct mm_qos_request pccu_o_request;
 static struct mm_qos_request ltmso_a_o_request;
 static struct mm_qos_request ltmso_b_o_request;
 static struct mm_qos_request ltmso_c_o_request;
+static struct mm_qos_request afo_a_o_request;
+static struct mm_qos_request afo_b_o_request;
+static struct mm_qos_request afo_c_o_request;
+
 #endif
 static DEFINE_MUTEX(ccu_qos_mutex);
 
@@ -23,13 +27,14 @@ static DEFINE_MUTEX(ccu_qos_mutex);
 #define CCU_BW_O 60
 #define CCU_BW_G 15
 #define LTMSO_BW_O 5
+#define AFO_BW_O 25
 
 void ccu_qos_init(void)
 {
 	#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	mutex_lock(&ccu_qos_mutex);
 
-	LOG_DBG_MUST("ccu qos init++");
+	LOG_DBG_MUST("ccu qos init+++");
 
 	/*Initialize request list*/
 	plist_head_init(&ccu_request_list);
@@ -45,6 +50,12 @@ void ccu_qos_init(void)
 		SMI_PORT_LTMSO_R1_B);
 	mm_qos_add_request(&ccu_request_list, &ltmso_c_o_request,
 		SMI_PORT_LTMSO_R1_C);
+	mm_qos_add_request(&ccu_request_list, &afo_a_o_request,
+		SMI_PORT_AFO_R1_A);
+	mm_qos_add_request(&ccu_request_list, &afo_b_o_request,
+		SMI_PORT_AFO_R1_B);
+	mm_qos_add_request(&ccu_request_list, &afo_c_o_request,
+		SMI_PORT_AFO_R1_C);
 
 	mm_qos_set_request(&pccu_i_request, CCU_BW_I, CCU_BW_I, BW_COMP_NONE);
 	mm_qos_set_request(&pccu_g_request, CCU_BW_G, CCU_BW_G, BW_COMP_NONE);
@@ -55,6 +66,13 @@ void ccu_qos_init(void)
 		BW_COMP_NONE);
 	mm_qos_set_request(&ltmso_c_o_request, LTMSO_BW_O, LTMSO_BW_O,
 		BW_COMP_NONE);
+	mm_qos_set_request(&afo_a_o_request, AFO_BW_O, AFO_BW_O,
+		BW_COMP_NONE);
+	mm_qos_set_request(&afo_b_o_request, AFO_BW_O, AFO_BW_O,
+		BW_COMP_NONE);
+	mm_qos_set_request(&afo_c_o_request, AFO_BW_O, AFO_BW_O,
+		BW_COMP_NONE);
+
 
 	mm_qos_update_all_request(&ccu_request_list);
 	mutex_unlock(&ccu_qos_mutex);
