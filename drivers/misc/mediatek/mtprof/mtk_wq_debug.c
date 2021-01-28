@@ -464,7 +464,7 @@ static int __init init_wq_debug(void)
 					    0, NULL);
 
 	if (work_info_cache) {
-		work_debug_enable(1);
+		work_debug_enable(0);
 		pe = proc_create("mtprof/wq_debug", 0664,
 			NULL, &mt_wq_debug_fops);
 		if (!pe)
