@@ -207,6 +207,6 @@ void mtk_iommu_dump_iova_space(void);
 unsigned int mtk_iommu_get_larb_port_count(unsigned int larb);
 int mtk_iommu_atf_call(unsigned int cmd, unsigned int m4u_id,
 		unsigned int bank);
-void mtk_iommu_atf_test(unsigned int m4u_id);
+void mtk_iommu_atf_test(unsigned int m4u_id, unsigned int cmd);
 bool mtk_dev_is_size_alignment(struct device *dev);
 #endif
