@@ -26,6 +26,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
+#include <linux/pm_qos.h>
+
 
 #define SPI_CFG0_REG                      0x0000
 #define SPI_CFG1_REG                      0x0004
@@ -112,6 +114,7 @@ struct mtk_spi {
 	struct scatterlist *tx_sgl, *rx_sgl;
 	u32 tx_sgl_len, rx_sgl_len;
 	const struct mtk_spi_compatible *dev_comp;
+	struct pm_qos_request spi_qos_request;
 };
 
 static const struct mtk_spi_compatible mtk_common_compat;
@@ -533,6 +536,14 @@ static int mtk_spi_transfer_one(struct spi_master *master,
 				struct spi_device *spi,
 				struct spi_transfer *xfer)
 {
+	unsigned long  us;
+	struct mtk_spi *mdata = spi_master_get_devdata(master);
+
+	spi_debug("xfer->len:%d\n", xfer->len);
+	us = xfer->len * 8 * 1000 * 1000 / xfer->speed_hz;
+	us = us + 20*1000;
+	pm_qos_update_request_timeout(&mdata->spi_qos_request, 500, us);
+
 	if (master->can_dma(master, spi, xfer))
 		return mtk_spi_dma_transfer(master, spi, xfer);
 	else
@@ -741,6 +752,9 @@ static int mtk_spi_probe(struct platform_device *pdev)
 		}
 	}
 
+	pm_qos_add_request(&mdata->spi_qos_request, PM_QOS_CPU_DMA_LATENCY,
+		PM_QOS_DEFAULT_VALUE);
+
 	platform_set_drvdata(pdev, master);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -886,6 +900,7 @@ static int mtk_spi_remove(struct platform_device *pdev)
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct mtk_spi *mdata = spi_master_get_devdata(master);
 
+	pm_qos_remove_request(&mdata->spi_qos_request);
 	pm_runtime_disable(&pdev->dev);
 
 	mtk_spi_reset(mdata);
