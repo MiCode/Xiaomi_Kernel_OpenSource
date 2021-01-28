@@ -171,6 +171,7 @@ struct cmdq {
 	dma_addr_t		dma_pa;
 	u32			*dma_va;
 	s32			gpr[CMDQ_GPR_CNT_ID];
+	bool			pair;
 };
 
 struct gce_plat {
@@ -311,8 +312,9 @@ static void cmdq_clk_disable(struct cmdq *cmdq)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (usage == -1)
-		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d",
-			__func__, &cmdq->base_pa, cmdq->suspended, usage);
+		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d pair:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended, usage,
+			cmdq->pair);
 #endif
 	if (usage < 0) {
 		/* print error but still try close */
@@ -837,8 +839,14 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 	else
 		return;
 
-	if (list_empty(&thread->task_busy_list))
+	if (list_empty(&thread->task_busy_list)) {
 		cmdq_err("empty! may we hang later?");
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		cmdq_util_aee("CMDQ", "%s cmdq:%pa suspend:%d usage:%d pair:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage), cmdq->pair);
+#endif
+	}
 
 	curr_pa = cmdq_thread_get_pc(thread);
 	task_end_pa = cmdq_thread_get_end(thread);
@@ -934,9 +942,10 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 	if (atomic_read(&cmdq->usage) == -1)
-		cmdq_util_aee("CMDQ", "%s irq:%d cmdq:%pa suspend:%d usage:%d",
+		cmdq_util_aee("CMDQ",
+			"%s irq:%d cmdq:%pa suspend:%d usage:%d pair:%d",
 			__func__, irq, &cmdq->base_pa, cmdq->suspended,
-			atomic_read(&cmdq->usage));
+			atomic_read(&cmdq->usage), cmdq->pair);
 #endif
 	if (atomic_read(&cmdq->usage) <= 0) {
 		if (cmdq->suspended)
@@ -1042,6 +1051,16 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 	 * It may have pending IRQ before GCE thread is suspended,
 	 * so check this condition again.
 	 */
+	if (!atomic_read(&cmdq->usage)) {
+		cmdq->pair = false;
+#if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
+		cmdq_util_aee("CMDQ",
+			"%s cmdq:%pa suspend:%d usage:%d pair:%d",
+			__func__, &cmdq->base_pa, cmdq->suspended,
+			atomic_read(&cmdq->usage), cmdq->pair);
+#endif
+	}
+
 	cmdq_thread_irq_handler(cmdq, thread, &removes);
 
 	if (list_empty(&thread->task_busy_list)) {
@@ -1934,7 +1953,7 @@ static int cmdq_probe(struct platform_device *pdev)
 		INIT_WORK(&cmdq->thread[i].timeout_work,
 			cmdq_thread_handle_timeout_work);
 	}
-
+	cmdq->pair = true;
 
 	err = mbox_controller_register(&cmdq->mbox);
 	if (err < 0) {
