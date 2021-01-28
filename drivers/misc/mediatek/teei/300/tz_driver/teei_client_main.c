@@ -38,13 +38,6 @@
 #include <uapi/linux/sched/types.h>
 #endif
 
-
-#ifdef TUI_SUPPORT
-#include <utr_tui_cmd.h>
-#include <linux/notifier.h>
-#include <linux/reboot.h>
-#endif
-
 #ifdef CONFIG_MTPROF
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
 #include <linux/bootprof.h>
@@ -92,10 +85,6 @@
 DECLARE_RW_SEMA(teei_cpus_lock);
 DECLARE_SEMA(boot_sema, 0);
 DECLARE_SEMA(pm_sema, 0);
-
-#ifdef TUI_SUPPORT
-DECLARE_SEMA(tui_notify_sema, 0);
-#endif
 
 DECLARE_COMPLETION(boot_decryto_lock);
 
@@ -184,14 +173,6 @@ static struct notifier_block tz_driver_cpu_notifer = {
 	.notifier_call = tz_driver_cpu_callback,
 };
 #endif
-#endif
-
-#ifdef TUI_SUPPORT
-static struct notifier_block tui_notifier = {
-	.notifier_call = tui_notify_reboot,
-	.next = NULL,
-	.priority = INT_MAX,
-};
 #endif
 
 unsigned long teei_config_flag;
@@ -572,37 +553,6 @@ long teei_service_init_second(void)
 
 	if (soter_error_flag == 1)
 		return -1;
-
-#ifdef TUI_SUPPORT
-	IMSG_DEBUG("[%s][%d] begin to tui display command buffer!\n",
-						__func__, __LINE__);
-
-	tui_display_message_buff = create_tui_buff(
-				TUI_DISPLAY_BUFFER, TUI_DISPLAY_SYS_NO);
-
-	if ((unsigned char *)tui_display_message_buff == NULL) {
-		IMSG_ERROR("[%s][%d] create tui display buffer failed!\n",
-						__func__, __LINE__);
-		return -1;
-	}
-
-	if (soter_error_flag == 1)
-		return -1;
-
-	IMSG_DEBUG("[%s][%d] begin to tui notice command buffer!\n",
-						__func__, __LINE__);
-
-	tui_notice_message_buff = create_tui_buff(
-				TUI_NOTICE_BUFFER, TUI_NOTICE_SYS_NO);
-
-	if ((unsigned char *)tui_notice_message_buff == NULL) {
-		IMSG_ERROR("[%s][%d] create tui notice buffer failed!\n",
-						__func__, __LINE__);
-		return -1;
-	}
-	if (soter_error_flag == 1)
-		return -1;
-#endif
 
 	return 0;
 }
@@ -1087,10 +1037,6 @@ static int teei_client_init(void)
 	int ret_code = 0;
 	struct device *class_dev = NULL;
 
-#ifdef TUI_SUPPORT
-	int pwr_pid = 0;
-#endif
-
 	/* struct sched_param param = {.sched_priority = 50 }; */
 
 	/* IMSG_DEBUG("TEEI Agent Driver Module Init ...\n"); */
@@ -1223,14 +1169,6 @@ static int teei_client_init(void)
 
 	IMSG_DEBUG("create the sub_thread successfully!\n");
 
-#ifdef TUI_SUPPORT
-	pwr_pid = kthread_run(wait_for_power_down, 0, POWER_DOWN);
-	if (IS_ERR(pwr_pid)) {
-		pwr_pid = PTR_ERR(pwr_pid);
-		IMSG_ERROR("failed to create kernel thread: %d\n", pwr_pid);
-	}
-	register_reboot_notifier(&tui_notifier);
-#endif
 
 	teei_config_init();
 
@@ -1259,9 +1197,6 @@ return_fn:
 static void teei_client_exit(void)
 {
 	IMSG_INFO("teei_client exit");
-#ifdef TUI_SUPPORT
-	unregister_reboot_notifier(&tui_notifier);
-#endif
 	device_destroy(driver_class, teei_client_device_no);
 	class_destroy(driver_class);
 	unregister_chrdev_region(teei_client_device_no, 1);
