@@ -510,6 +510,8 @@ static void cat_register(char *buf)
 	dump_register();
 	dump_reg = false;
 	ret = sprintf(accdet_log_buf, "ACCDET_RG\n");
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = PMIC_ACCDET_AUXADC_SEL_ADDR;
 	end_addr = PMIC_ACCDET_MON_FLAG_EN_ADDR;
@@ -521,9 +523,13 @@ static void cat_register(char *buf)
 			idx+2, pmic_read(idx+2),
 			idx+4, pmic_read(idx+4),
 			idx+6, pmic_read(idx+6));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 	ret = sprintf(accdet_log_buf, "AUDDEC_ANA_RG\n");
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	st_addr = PMIC_RG_AUDPREAMPLON_ADDR;
 	end_addr = PMIC_RG_CLKSQ_EN_ADDR;
@@ -535,20 +541,28 @@ static void cat_register(char *buf)
 			idx+2, pmic_read(idx+2),
 			idx+4, pmic_read(idx+4),
 			idx+6, pmic_read(idx+6));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 #ifdef CONFIG_ACCDET_EINT_IRQ
 #ifdef CONFIG_ACCDET_SUPPORT_EINT0
 	ret = sprintf(accdet_log_buf, "[Accdet EINT0 support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #elif defined CONFIG_ACCDET_SUPPORT_EINT1
 	ret = sprintf(accdet_log_buf, "[Accdet EINT1 support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #elif defined CONFIG_ACCDET_SUPPORT_BI_EINT
 	ret = sprintf(accdet_log_buf, "[Accdet EINT support][MODE_%d] regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #else
 	strncat(buf, "ACCDET_EINT_IRQ:NO EINT configed.Error!!\n", 64);
@@ -556,6 +570,8 @@ static void cat_register(char *buf)
 #elif defined CONFIG_ACCDET_EINT
 	ret = sprintf(accdet_log_buf, "[Accdet AP EINT][MODE_%d] regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #else
 	strncat(buf, "ACCDET EINT:No configed.Error!!\n", 64);
@@ -564,10 +580,14 @@ static void cat_register(char *buf)
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		PMIC_RG_SCK32K_CK_PDN_ADDR,
 		pmic_read(PMIC_RG_SCK32K_CK_PDN_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		PMIC_RG_ACCDET_RST_ADDR, pmic_read(PMIC_RG_ACCDET_RST_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
@@ -577,6 +597,8 @@ static void cat_register(char *buf)
 		pmic_read(PMIC_RG_INT_MASK_ACCDET_ADDR),
 		PMIC_RG_INT_STATUS_ACCDET_ADDR,
 		pmic_read(PMIC_RG_INT_STATUS_ACCDET_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x,[0x%x]=0x%x\n",
@@ -584,21 +606,25 @@ static void cat_register(char *buf)
 		pmic_read(PMIC_RG_AUDPWDBMICBIAS1_ADDR),
 		PMIC_RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
 		pmic_read(PMIC_RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
 		PMIC_AUXADC_RQST_CH5_ADDR, pmic_read(PMIC_AUXADC_RQST_CH5_ADDR),
 		PMIC_AUXADC_ACCDET_AUTO_SPL_ADDR,
 		pmic_read(PMIC_AUXADC_ACCDET_AUTO_SPL_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
-	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	if (ret < 0)
 		pr_notice("sprintf failed\n");
+	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 }
 
 static int dbug_thread(void *unused)
