@@ -33,6 +33,7 @@
 #include <linux/slab.h>
 #include "gbe2_usedext.h"
 #include "gbe_common.h"
+#include "gbe_sysfs.h"
 #include <linux/pm_qos.h>
 
 #define MAX_DEP_NUM 30
@@ -394,293 +395,292 @@ out:
 
 }
 
-#define GBE_DEBUGFS_ENTRY(name) \
-	static int gbe_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, gbe_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations gbe_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = gbe_##name##_open, \
-	.read = seq_read, \
-	.write = gbe_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
-
-static int gbe_timer1_show(struct seq_file *m, void *unused)
+static ssize_t gbe2_timer1_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	mutex_lock(&gbe_lock);
-	seq_printf(m, "%d\n", TIMER1_MS);
-	mutex_unlock(&gbe_lock);
-	return 0;
-}
-
-static ssize_t gbe_timer1_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
-
-	int ret;
 	int val;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	if ((val < 0) || (val > 1000))
-		return -EINVAL;
-
 	mutex_lock(&gbe_lock);
-	TIMER1_MS = val;
+	val = TIMER1_MS;
 	mutex_unlock(&gbe_lock);
 
-	return cnt;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-GBE_DEBUGFS_ENTRY(timer1);
-
-static int gbe_timer2_show(struct seq_file *m, void *unused)
+static ssize_t gbe2_timer1_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	mutex_lock(&gbe_lock);
-	seq_printf(m, "%d\n", TIMER2_MS);
-	mutex_unlock(&gbe_lock);
-	return 0;
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&gbe_lock);
+				if (arg >= 0 && arg <= 1000)
+					TIMER1_MS = arg;
+				mutex_unlock(&gbe_lock);
+			}
+		}
+	}
+
+	return count;
 }
 
-static ssize_t gbe_timer2_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
+static KOBJ_ATTR_RW(gbe2_timer1);
 
-	int ret;
+static ssize_t gbe2_timer2_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
 	int val;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	if ((val < 0) || (val > 10000))
-		return -EINVAL;
-
 	mutex_lock(&gbe_lock);
-	TIMER2_MS = val;
+	val = TIMER2_MS;
 	mutex_unlock(&gbe_lock);
 
-	return cnt;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-GBE_DEBUGFS_ENTRY(timer2);
-
-static int gbe_max_boost_cnt_show(struct seq_file *m, void *unused)
+static ssize_t gbe2_timer2_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	mutex_lock(&gbe_lock);
-	seq_printf(m, "%d\n", MAX_BOOST_CNT);
-	mutex_unlock(&gbe_lock);
-	return 0;
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&gbe_lock);
+				if (arg >= 0 && arg <= 10000)
+					TIMER2_MS = arg;
+				mutex_unlock(&gbe_lock);
+			}
+		}
+	}
+
+	return count;
 }
 
-static ssize_t gbe_max_boost_cnt_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
+static KOBJ_ATTR_RW(gbe2_timer2);
 
-	int ret;
+static ssize_t gbe2_max_boost_cnt_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
 	int val;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	if ((val <= 0) || (val > 15))
-		return -EINVAL;
-
 	mutex_lock(&gbe_lock);
-	MAX_BOOST_CNT = val;
+	val = MAX_BOOST_CNT;
 	mutex_unlock(&gbe_lock);
 
-	return cnt;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-GBE_DEBUGFS_ENTRY(max_boost_cnt);
-
-static int gbe_loading_th_show(struct seq_file *m, void *unused)
+static ssize_t gbe2_max_boost_cnt_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	mutex_lock(&gbe_lock);
-	seq_printf(m, "%d\n", LOADING_TH);
-	mutex_unlock(&gbe_lock);
-	return 0;
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&gbe_lock);
+				if (arg > 0 && arg <= 15)
+					MAX_BOOST_CNT = arg;
+				mutex_unlock(&gbe_lock);
+			}
+		}
+	}
+
+	return count;
 }
 
-static ssize_t gbe_loading_th_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
+static KOBJ_ATTR_RW(gbe2_max_boost_cnt);
 
-	int ret;
+static ssize_t gbe2_loading_th_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
 	int val;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	if ((val < 0) || (val > 100))
-		return -EINVAL;
-
 	mutex_lock(&gbe_lock);
-	LOADING_TH = val;
+	val = LOADING_TH;
 	mutex_unlock(&gbe_lock);
 
-	return cnt;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-GBE_DEBUGFS_ENTRY(loading_th);
-
-static int gbe_enable2_show(struct seq_file *m, void *unused)
+static ssize_t gbe2_loading_th_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	mutex_lock(&gbe_lock);
-	seq_printf(m, "%d\n", gbe_enable);
-	mutex_unlock(&gbe_lock);
-	return 0;
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&gbe_lock);
+				if (arg >= 0 && arg <= 100)
+					LOADING_TH = arg;
+				mutex_unlock(&gbe_lock);
+			}
+		}
+	}
+
+	return count;
 }
 
-static ssize_t gbe_enable2_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
+static KOBJ_ATTR_RW(gbe2_loading_th);
 
-	int ret;
+static ssize_t gbe_enable2_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
 	int val;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	if ((val < 0) || (val > 1))
-		return -EINVAL;
-
 	mutex_lock(&gbe_lock);
-	gbe_enable = val;
+	val = gbe_enable;
 	mutex_unlock(&gbe_lock);
 
-	return cnt;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-GBE_DEBUGFS_ENTRY(enable2);
-
-static int gbe_fg_pid_show(struct seq_file *m, void *unused)
+static ssize_t gbe_enable2_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	mutex_lock(&gbe_lock);
-	seq_printf(m, "%d\n", fg_pid);
-	mutex_unlock(&gbe_lock);
-	return 0;
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&gbe_lock);
+				gbe_enable = !!arg;
+				mutex_unlock(&gbe_lock);
+			}
+		}
+	}
+
+	return count;
 }
 
-static ssize_t gbe_fg_pid_write(struct file *flip,
-		const char *ubuf, size_t cnt, loff_t *data)
-{
+static KOBJ_ATTR_RW(gbe_enable2);
 
-	int ret;
+static ssize_t gbe2_fg_pid_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
 	int val;
 
-	ret = kstrtoint_from_user(ubuf, cnt, 0, &val);
-	if (ret)
-		return ret;
-
-	if (val < 0)
-		return -EINVAL;
-
 	mutex_lock(&gbe_lock);
-	fg_pid = val;
+	val = fg_pid;
 	mutex_unlock(&gbe_lock);
 
-	return cnt;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
 }
 
-GBE_DEBUGFS_ENTRY(fg_pid);
+static ssize_t gbe2_fg_pid_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
 
-static int gbe_boost_list_show(struct seq_file *m, void *unused)
+	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0) {
+				mutex_lock(&gbe_lock);
+				fg_pid = arg;
+				mutex_unlock(&gbe_lock);
+			}
+		}
+	}
+
+	return count;
+
+}
+
+static KOBJ_ATTR_RW(gbe2_fg_pid);
+
+static ssize_t gbe_boost_list2_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
 	struct gbe_boost_unit *iter;
 	int i;
+	char temp[GBE_SYSFS_MAX_BUFF_SIZE] = "";
+	int pos = 0;
+	int length;
 
 	mutex_lock(&gbe_lock);
 	hlist_for_each_entry(iter, &gbe_boost_units, hlist) {
-		seq_printf(m, "%s\t%s\t%s\t%s\n",
+		length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
+				"%s\t%s\t%s\t%s\n",
 				"pid",
 				"state",
 				"boost_cnt",
 				"dep_num");
-		seq_printf(m, "%d\t%d\t%d\t%d\n",
+		pos += length;
+
+		length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d\t%d\t%d\t%d\n",
 				iter->pid,
 				iter->state,
 				iter->boost_cnt,
 				iter->dep_num);
-		seq_puts(m, "dep-list:\n");
-		for (i = 0; i < iter->dep_num; i++)
-			seq_printf(m, "%d ", iter->dep[i].pid);
-		seq_puts(m, "\n");
+		pos += length;
+
+		length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
+				"dep-list:\n");
+		pos += length;
+
+		for (i = 0; i < iter->dep_num; i++) {
+			length =
+				scnprintf(temp + pos,
+				GBE_SYSFS_MAX_BUFF_SIZE - pos,
+				"%d ", iter->dep[i].pid);
+			pos += length;
+		}
+		length = scnprintf(temp + pos, GBE_SYSFS_MAX_BUFF_SIZE - pos,
+				"\n");
+		pos += length;
 	}
 	mutex_unlock(&gbe_lock);
 
-	return 0;
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-static ssize_t gbe_boost_list_write(struct file *flip,
-		const char *buffer, size_t count, loff_t *data)
-{
-	return count;
-}
-
-GBE_DEBUGFS_ENTRY(boost_list);
+static KOBJ_ATTR_RO(gbe_boost_list2);
 
 void gbe2_exit(void)
 {
+	gbe_sysfs_remove_file(&kobj_attr_gbe_enable2);
+	gbe_sysfs_remove_file(&kobj_attr_gbe2_fg_pid);
+	gbe_sysfs_remove_file(&kobj_attr_gbe_boost_list2);
+	gbe_sysfs_remove_file(&kobj_attr_gbe2_timer1);
+	gbe_sysfs_remove_file(&kobj_attr_gbe2_timer2);
+	gbe_sysfs_remove_file(&kobj_attr_gbe2_max_boost_cnt);
+	gbe_sysfs_remove_file(&kobj_attr_gbe2_loading_th);
 }
 
 int gbe2_init(void)
 {
-
-	if (!gbe_debugfs_dir)
-		return -ENODEV;
-
-	debugfs_create_file("gbe_enable2",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_enable2_fops);
-
-	debugfs_create_file("gbe2_fg_pid",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_fg_pid_fops);
-
-	debugfs_create_file("gbe_boost_list2",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_boost_list_fops);
-
-	debugfs_create_file("gbe2_timer1",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_timer1_fops);
-
-	debugfs_create_file("gbe2_timer2",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_timer2_fops);
-
-	debugfs_create_file("gbe2_max_boost_cnt",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_max_boost_cnt_fops);
-
-	debugfs_create_file("gbe2_loading_th",
-			0644,
-			gbe_debugfs_dir,
-			NULL,
-			&gbe_loading_th_fops);
+	gbe_sysfs_create_file(&kobj_attr_gbe_enable2);
+	gbe_sysfs_create_file(&kobj_attr_gbe2_fg_pid);
+	gbe_sysfs_create_file(&kobj_attr_gbe_boost_list2);
+	gbe_sysfs_create_file(&kobj_attr_gbe2_timer1);
+	gbe_sysfs_create_file(&kobj_attr_gbe2_timer2);
+	gbe_sysfs_create_file(&kobj_attr_gbe2_max_boost_cnt);
+	gbe_sysfs_create_file(&kobj_attr_gbe2_loading_th);
 
 
 	return 0;

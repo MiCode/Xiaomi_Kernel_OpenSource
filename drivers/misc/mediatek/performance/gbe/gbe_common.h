@@ -16,7 +16,6 @@
 
 #ifndef GBE_H
 #define GBE_H
-
 enum GBE_KICKER {
 	KIR_GBE1,
 	KIR_GBE2,
