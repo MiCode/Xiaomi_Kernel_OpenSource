@@ -27,7 +27,6 @@
 
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)
-#define CMDQ_IRQ_MASK			GENMASK(CMDQ_THR_MAX_COUNT - 1, 0)
 
 #define CMDQ_CURR_IRQ_STATUS		0x10
 #define CMDQ_CURR_LOADED_THR		0x18
@@ -126,6 +125,8 @@ struct cmdq {
 	phys_addr_t		base_pa;
 	u8			hwid;
 	u32			irq;
+	u32			thread_nr;
+	u32			irq_mask;
 	struct workqueue_struct	*buf_dump_wq;
 	struct cmdq_thread	thread[CMDQ_THR_MAX_COUNT];
 	u32			prefetch;
@@ -854,18 +855,18 @@ static irqreturn_t cmdq_irq_handler(int irq, void *dev)
 		return IRQ_HANDLED;
 	}
 
-	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & CMDQ_IRQ_MASK;
+	irq_status = readl(cmdq->base + CMDQ_CURR_IRQ_STATUS) & cmdq->irq_mask;
 	cmdq_log("gce:%lx irq: %#x, %#x",
 		(unsigned long)cmdq->base_pa, (u32)irq_status,
-		(u32)(irq_status ^ CMDQ_IRQ_MASK));
-	if (!(irq_status ^ CMDQ_IRQ_MASK)) {
+		(u32)(irq_status ^ cmdq->irq_mask));
+	if (!(irq_status ^ cmdq->irq_mask)) {
 		cmdq_msg("not handle for empty status:0x%x",
 			(u32)irq_status);
 		return IRQ_NONE;
 	}
 
 	INIT_LIST_HEAD(&removes);
-	for_each_clear_bit(bit, &irq_status, fls(CMDQ_IRQ_MASK)) {
+	for_each_clear_bit(bit, &irq_status, fls(cmdq->irq_mask)) {
 		struct cmdq_thread *thread = &cmdq->thread[bit];
 
 		cmdq_log("bit=%d, thread->base=%p", bit, thread->base);
@@ -1637,7 +1638,9 @@ static int cmdq_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	cmdq->thread_nr = plat_data->thread_nr;
 	gce_shift_bit = plat_data->shift;
+	cmdq->irq_mask = GENMASK(cmdq->thread_nr - 1, 0);
 
 	dev_notice(dev, "cmdq thread:%u shift:%u base:0x%lx pa:0x%lx\n",
 		plat_data->thread_nr, plat_data->shift,
@@ -1666,12 +1669,12 @@ static int cmdq_probe(struct platform_device *pdev)
 	}
 
 	cmdq->mbox.dev = dev;
-	cmdq->mbox.chans = devm_kcalloc(dev, CMDQ_THR_MAX_COUNT,
+	cmdq->mbox.chans = devm_kcalloc(dev, plat_data->thread_nr,
 					sizeof(*cmdq->mbox.chans), GFP_KERNEL);
 	if (!cmdq->mbox.chans)
 		return -ENOMEM;
 
-	cmdq->mbox.num_chans = CMDQ_THR_MAX_COUNT;
+	cmdq->mbox.num_chans = plat_data->thread_nr;
 	cmdq->mbox.ops = &cmdq_mbox_chan_ops;
 	cmdq->mbox.of_xlate = cmdq_xlate;
 
