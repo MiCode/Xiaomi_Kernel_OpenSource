@@ -5657,7 +5657,7 @@ static int lock_monitor_work(void *data)
 		force = 0;
 
 		/* print backtrace or not */
-		if (++count == lock_mon_period_cnt) {
+		if (++count >= lock_mon_period_cnt) {
 			count = 0;
 			force = 1;
 		}
