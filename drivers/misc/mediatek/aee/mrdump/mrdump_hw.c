@@ -18,9 +18,78 @@
 #include <mtk_platform_debug.h>
 #endif
 
+#ifdef CONFIG_MTK_DBGTOP
+#include <dbgtop.h>
+#else
 #ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
+#endif
+#endif
 
+#if defined(CONFIG_MTK_DBGTOP) || defined(CONFIG_MTK_WATCHDOG)
+static char mrdump_lk_ddr_reserve_ready[4];
+
+static int __init mrdump_get_ddr_reserve_status(char *str)
+{
+	strlcpy(mrdump_lk_ddr_reserve_ready, str,
+			sizeof(mrdump_lk_ddr_reserve_ready));
+	return 0;
+}
+
+early_param("mrdump_ddrsv", mrdump_get_ddr_reserve_status);
+
+static bool mrdump_ddr_reserve_is_ready(void)
+{
+	if (strncmp(mrdump_lk_ddr_reserve_ready, "yes", 3) == 0)
+		return true;
+	else
+		return false;
+}
+#endif
+
+#ifdef CONFIG_MTK_DBGTOP
+static void mrdump_dbgtop_dram_reserved(bool enable)
+{
+	int res;
+
+	pr_notice("%s: DDR Reserved Mode ready or not? (%s)\n", __func__,
+			mrdump_lk_ddr_reserve_ready);
+
+	if (mrdump_ddr_reserve_is_ready()) {
+
+		if (enable == true) {
+			pr_notice("%s: Trying to enable DDR Reserve Mode(%d)\n",
+					__func__, enable);
+
+			res = mtk_dbgtop_dram_reserved(enable);
+			if (res == 0) {
+				pr_notice("%s: DDR reserved mode enable ok\n",
+					 __func__);
+
+#ifdef CONFIG_MTK_DFD_INTERNAL_DUMP
+				res = dfd_setup(DFD_BASIC_DUMP);
+				if (res == -1)
+					pr_notice("%s: DFD_BASIC_DUMP disabled\n",
+							__func__);
+				else
+					pr_notice("%s: DFD_BASIC_DUMP enabled\n",
+							__func__);
+#else
+				pr_notice("%s: config is not enabled yet\n",
+						__func__);
+#endif
+			} else {
+				pr_notice("%s: mtk_dbgtop_dram_reserved error(%d)\n",
+						__func__, res);
+			}
+		} else {
+			pr_notice("%s: DDR Reserve Mode disabled.(%d)\n",
+					__func__, enable);
+		}
+	}
+}
+#else
+#ifdef CONFIG_MTK_WATCHDOG
 #ifdef CONFIG_MTK_LASTPC_V2
 static void mrdump_set_sram_lastpc_flag(void)
 {
@@ -49,25 +118,6 @@ static void mrdump_wd_mcu_cache_preserve(bool enabled)
 	}
 }
 #endif /* CONFIG_MTK_LASTPC_V2 */
-
-static char mrdump_lk_ddr_reserve_ready[4];
-
-static int __init mrdump_get_ddr_reserve_status(char *str)
-{
-	strlcpy(mrdump_lk_ddr_reserve_ready, str,
-			sizeof(mrdump_lk_ddr_reserve_ready));
-	return 0;
-}
-
-early_param("mrdump_ddrsv", mrdump_get_ddr_reserve_status);
-
-static bool mrdump_ddr_reserve_is_ready(void)
-{
-	if (strncmp(mrdump_lk_ddr_reserve_ready, "yes", 3) == 0)
-		return true;
-	else
-		return false;
-}
 
 static void mrdump_wd_dram_reserved_mode(bool enabled)
 {
@@ -107,25 +157,25 @@ static void mrdump_wd_dram_reserved_mode(bool enabled)
 	}
 }
 
+#endif
+#endif
+
 int __init mrdump_hw_init(void)
 {
+#ifdef CONFIG_MTK_DBGTOP
+	mrdump_dbgtop_dram_reserved(true);
+#else
+#if CONFIG_MTK_WATCHDOG
 	mrdump_wd_dram_reserved_mode(true);
 #ifdef CONFIG_MTK_LASTPC_V2
 	mrdump_wd_mcu_cache_preserve(true);
 	mrdump_set_sram_lastpc_flag();
 #endif /* CONFIG_MTK_LASTPC_V2 */
+#endif
+#endif
 	pr_info("%s: init_done.\n", __func__);
 	return 0;
 }
-
-#else
-
-int __init mrdump_hw_init(void)
-{
-	return 0;
-}
-
-#endif /* CONFIG_MTK_WATCHDOG */
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek AEE module");
