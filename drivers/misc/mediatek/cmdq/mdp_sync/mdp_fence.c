@@ -178,7 +178,7 @@ static void timeline_fence_release(struct dma_fence *fence)
 	struct sync_pt *pt = fence_to_sync_pt(fence);
 	struct sync_timeline *parent = fence_parent(fence);
 
-	if (!list_empty(&pt->link)) {
+	if (pt && !list_empty(&pt->link)) {
 		unsigned long flags;
 
 		spin_lock_irqsave(fence->lock, flags);
