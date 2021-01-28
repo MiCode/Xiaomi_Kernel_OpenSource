@@ -431,7 +431,26 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 	accdet: accdet {
 		compatible = "mediatek,pmic-accdet";
+		/* ACCDET GPIO standardization for AP EINT */
+		/*
+		 * pinctrl-names = "default", "state_eint_as_int";
+		 * pinctrl-0 = <&accdet_pins_default>;
+		 * pinctrl-1 = <&accdet_pins_eint_as_int>;
+		 */
 	};
+	/*
+	 *&pio {
+	 *	accdet_pins_default: accdetdefault {
+	 *	};
+	 *	accdet_pins_eint_as_int: accdeteint@0 {
+	 *		pins_cmd_dat {
+	 *			pinmux = <PINMUX_GPIO9__FUNC_GPIO9>;
+	 *			slew-rate = <0>;
+	 *			bias-disable;
+	 *		};
+	 *	};
+	 *};
+	 */
 
 	pio: 1000b000.pinctrl {
 		compatible = "mediatek,mt6739-pinctrl";

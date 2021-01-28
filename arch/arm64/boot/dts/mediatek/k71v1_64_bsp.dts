@@ -1,3 +1,17 @@
+/*
+ * Mediatek's mt6771 SoC device tree source
+ *
+ * Copyright (C) 2016 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
+ */
 /dts-v1/;
 /plugin/;
 #include <dt-bindings/interrupt-controller/irq.h>
@@ -177,12 +191,6 @@
 	headset-three-key-threshold-CDD = <0 121 192 600>;
 	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
 	headset-four-key-threshold = <0 58 121 192 400>;
-	/*moisture external resister ohm*/
-	moisture-external-r = <2000000>;
-	/*moisture internal resister ohm*/
-	moisture-internal-r = <47000>;
-	/*moisture of water resister ohm*/
-	moisture-water-r = <10000>;
 	status = "okay";
 };
 /* accdet end */
