@@ -212,9 +212,9 @@ static irqreturn_t spm_irq0_handler(int irq, void *dev_id)
 	}
 
 	/* clean ISR status */
-	/* FIXME
+
 	SMC_CALL(IRQ0_HANDLER, isr, 0, 0);
-	*/
+
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
 	if (isr & (ISRS_SW_INT1)) {

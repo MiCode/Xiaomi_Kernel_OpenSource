@@ -331,10 +331,10 @@ static void update_secure_cg_state(unsigned int clk[NR_CG_GRPS])
 	#define INFRA0_BIT27	(1 << 27)
 
 	clk[1] = clk[1] & ~INFRA0_BIT27;
-/* FIXME
+
 	if (mt_secure_call(MTK_SIP_KERNEL_CHECK_SECURE_CG, 0, 0, 0, 0))
 		clk[1] |= INFRA0_BIT27;
-*/
+
 }
 
 /* update all idle condition state: mtcmos/pll/cg/secure_cg */

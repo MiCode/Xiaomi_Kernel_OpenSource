@@ -116,11 +116,11 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 	else {
 		/* need to comment out all cmd in CPU_PM_ENTER case, */
 		/* at gic_cpu_pm_notifier() @ drivers/irqchip/irq-gic-v3.c */
-		/* FIXME
+
 		SMC_CALL(ARGS, SPM_ARGS_SUSPEND, 0, 0);
 		SMC_CALL(LEGACY_SLEEP, 0, 0, 0);
 		SMC_CALL(ARGS, SPM_ARGS_SUSPEND_FINISH, 0, 0);
-		*/
+
 	}
 
 	if (spm_dormant_sta < 0) {
@@ -150,10 +150,10 @@ static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
 	spm_set_sysclk_settle();
 	__spm_sync_pcm_flags(pwrctrl);
 	pwrctrl->timer_val = __spm_get_pcm_timer_val(pwrctrl);
-	/* FIXME
+
 	mt_secure_call(MTK_SIP_KERNEL_SPM_SUSPEND_ARGS, pwrctrl->pcm_flags,
 		pwrctrl->pcm_flags1, pwrctrl->timer_val, resource_usage);
-	*/
+
 }
 
 static void spm_suspend_pcm_setup_after_wfi(u32 cpu, struct pwr_ctrl *pwrctrl)
@@ -270,10 +270,10 @@ int spm_set_sleep_wakesrc(u32 wakesrc, bool enable, bool replace)
 		else
 			__spm_suspend.pwrctrl->wake_src &= ~wakesrc;
 	}
-	/* FIXME
+
 	SMC_CALL(PWR_CTRL_ARGS, SPM_PWR_CTRL_SUSPEND,
 			PW_WAKE_SRC, __spm_suspend.pwrctrl->wake_src);
-	*/
+
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
 	return 0;
@@ -284,11 +284,9 @@ int spm_set_sleep_wakesrc(u32 wakesrc, bool enable, bool replace)
  */
 u32 spm_get_sleep_wakesrc(void)
 {
-	return 0;
-/* FIXME
 	return SMC_CALL(GET_PWR_CTRL_ARGS,
 			SPM_PWR_CTRL_SUSPEND, PW_WAKE_SRC, 0);
-*/
+
 }
 
 bool spm_is_enable_sleep(void)
@@ -345,10 +343,10 @@ unsigned int spm_go_to_sleep(void)
 #endif
 
 	pwrctrl = __spm_suspend.pwrctrl;
-/* FIXME
+
 	pwrctrl->wake_src = SMC_CALL(GET_PWR_CTRL_ARGS,
 			SPM_PWR_CTRL_SUSPEND, PW_WAKE_SRC, 0);
-*/
+
 	__spm_set_pwrctrl_pcm_flags(pwrctrl, spm_flags);
 
 	__spm_set_pwrctrl_pcm_flags1(pwrctrl, spm_flags1);
@@ -358,9 +356,9 @@ unsigned int spm_go_to_sleep(void)
 	sec = __spm_get_wake_period(-1, last_wr);
 #endif
 	pwrctrl->timer_val = sec * 32768;
-/* FIXME
+
 	SMC_CALL(ARGS, SPM_ARGS_PCM_WDT, 1, 30);
-*/
+
 #if defined(CONFIG_MTK_WATCHDOG) && defined(CONFIG_MTK_WD_KICKER)
 	wd_ret = get_wd_api(&wd_api);
 	if (!wd_ret) {
@@ -433,9 +431,9 @@ RESTORE_IRQ:
 		wd_api->wd_spmwdt_mode_config(WD_REQ_DIS, WD_REQ_RST_MODE);
 	}
 #endif
-/* FIXME
+
 	SMC_CALL(ARGS, SPM_ARGS_PCM_WDT, 0, 0);
-*/
+
 #ifdef CONFIG_MTK_USB2JTAG_SUPPORT
 	if (usb2jtag_mode())
 		mtk_usb2jtag_resume();

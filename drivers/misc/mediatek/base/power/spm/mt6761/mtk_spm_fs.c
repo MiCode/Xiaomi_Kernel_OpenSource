@@ -35,7 +35,7 @@
 	}
 
 #define __ATTR_OF(_name)	(&_name##_attr.attr)
-/* FIXME
+
 static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	[PW_PCM_FLAGS] = "pcm_flags",
 	[PW_PCM_FLAGS_CUST] = "pcm_flags_cust",
@@ -160,7 +160,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 	// MP1_CPU3_WFI_EN
 	[PW_MP1_CPU3_WFI_EN] = "mp1_cpu3_wfi_en",
 };
-*/
+
 
 /**************************************
  * xxx_ctrl_show Function
@@ -169,7 +169,7 @@ static char *pwr_ctrl_str[PW_MAX_COUNT] = {
 static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 {
 	char *p = buf;
-/* FIXME
+
 	p += sprintf(p, "pcm_flags = 0x%zx\n",
 			SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, PW_PCM_FLAGS, 0));
@@ -496,7 +496,7 @@ static ssize_t show_pwr_ctrl(int id, const struct pwr_ctrl *pwrctrl, char *buf)
 				id, PW_MP1_CPU3_WFI_EN, 0));
 
 	WARN_ON(p - buf >= PAGE_SIZE);
-*/
+
 	return p - buf;
 }
 
@@ -545,7 +545,6 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 
 	pr_info("[SPM] pwr_ctrl: cmd = %s, val = 0x%x\n", cmd, val);
 
-/* FIXME
 	if (!strcmp(cmd,
 		pwr_ctrl_str[PW_PCM_FLAGS])) {
 		pwrctrl->pcm_flags = val;
@@ -1109,7 +1108,7 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 		SMC_CALL(PWR_CTRL_ARGS,
 				id, PW_MP1_CPU3_WFI_EN, val);
 	}
-*/
+
 	return count;
 }
 

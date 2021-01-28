@@ -43,15 +43,6 @@ enum {
 	SPMFW_LP4_2CH_2400,
 };
 
-#ifdef CONFIG_ARM64
-#define MTK_SIP_SMC_AARCH_BIT	0x40000000
-#else
-#define MTK_SIP_SMC_AARCH_BIT	0x00000000
-#endif
-
-#define MTK_SIP_KERNEL_SPM_ARGS \
-		(0x8200022A | MTK_SIP_SMC_AARCH_BIT)
-
 static int __init spmfw_init(void)
 {
 	struct arm_smccc_res ares;

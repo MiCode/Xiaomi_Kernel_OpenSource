@@ -12,10 +12,10 @@ static void spm_dvfsfw_init(void)
 	unsigned long flags;
 
 	spin_lock_irqsave(&__spm_lock, flags);
-/* FIXME
+
 	mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
 			VCOREFS_SMC_CMD_0, 0, 0, 0);
-*/
+
 	spin_unlock_irqrestore(&__spm_lock, flags);
 }
 
@@ -24,10 +24,10 @@ void spm_go_to_vcorefs(int spm_flags)
 	unsigned long flags;
 
 	spin_lock_irqsave(&__spm_lock, flags);
-/* FIXME
+
 	mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
 			VCOREFS_SMC_CMD_1, spm_flags, 0, 0);
-*/
+
 	spin_unlock_irqrestore(&__spm_lock, flags);
 }
 
@@ -46,9 +46,9 @@ void spm_dvfs_pwrap_cmd(int pwrap_cmd, int pwrap_vcore)
 	unsigned long flags;
 
 	spin_lock_irqsave(&__spm_lock, flags);
-/* FIXME
+
 	mt_secure_call(MTK_SIP_KERNEL_SPM_VCOREFS_ARGS,
 			VCOREFS_SMC_CMD_3, pwrap_cmd, pwrap_vcore, 0);
-*/
+
 	spin_unlock_irqrestore(&__spm_lock, flags);
 }

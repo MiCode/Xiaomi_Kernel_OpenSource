@@ -300,12 +300,11 @@ static int spm_module_init(void)
 #endif /* CONFIG_PM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
-/*FIXME
 	SMC_CALL(ARGS, SPM_ARGS_SPMFW_IDX, spm_get_spmfw_idx(), 0);
 
-	if (is_pmic_mrv())
-		SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
-*/
+	// FIXME if (is_pmic_mrv())
+	//	SMC_CALL(ARGS, SPM_ARGS_PMIC_MRV, 0, 0);
+
 	return 0;
 }
 

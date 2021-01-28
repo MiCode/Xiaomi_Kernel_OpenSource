@@ -126,10 +126,18 @@ int mtk_lp_kernfs_create_file(struct kernfs_node *parent
 		, const struct attribute *attr)
 {
 	struct kernfs_node *kn;
-
+/* FIXME
 	kn = __kernfs_create_file(parent, attr->name
 				, attr->mode & 0755, 4096
 				, &mtk_lp_kernfs_kfops_rw
+				, (void *)attr, NULL, NULL);
+
+*/
+
+	kn = __kernfs_create_file(parent, attr->name
+				, attr->mode & 0755
+				, GLOBAL_ROOT_UID, GLOBAL_ROOT_GID
+				, 4096, &mtk_lp_kernfs_kfops_rw
 				, (void *)attr, NULL, NULL);
 
 	if (IS_ERR(kn))

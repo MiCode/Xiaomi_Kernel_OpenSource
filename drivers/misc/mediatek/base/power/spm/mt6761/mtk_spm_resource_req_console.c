@@ -11,7 +11,7 @@
 
 
 DEFINE_MUTEX(__spm_mutex);
-/* FIXME
+
 #define IS_MTK_CONSOLE_SPM_RES_REQ(x) ({\
 	SMC_CALL(GET_PWR_CTRL_ARGS,\
 		SPM_PWR_CTRL_SODI, PW_SPM_##x##_REQ, 0);\
@@ -22,7 +22,7 @@ DEFINE_MUTEX(__spm_mutex);
 	SMC_CALL(GET_PWR_CTRL_ARGS,\
 		SPM_PWR_CTRL_SUSPEND, PW_SPM_##x##_REQ, 0);\
 })
-*/
+
 #define IDLE_TYPE_SO_PWR	(&pwrctrl_so)
 #define IDLE_TYPE_SO3_PWR	(&pwrctrl_so3)
 #define IDLE_TYPE_DP_PWR	(&pwrctrl_dp)
@@ -51,7 +51,7 @@ int spm_resource_req_console_by_id(int id
 
 	if (pPwrctrl) {
 		req_value = (req == SPM_RESOURCE_CONSOLE_REQ) ? 1:0;
-/* FIXME
+
 		if (res_bitmask & _RES_MASK(MTK_SPM_RES_EX_DRAM_S0)) {
 			SMC_CALL(PWR_CTRL_ARGS, id
 					, PW_SPM_DDREN_REQ, req_value);
@@ -77,7 +77,7 @@ int spm_resource_req_console_by_id(int id
 				, PW_SPM_F26M_REQ, req_value);
 			pPwrctrl->spm_f26m_req = req_value;
 		}
-*/
+
 	}
 
 	mutex_unlock(&__spm_mutex);
@@ -99,7 +99,7 @@ int spm_get_resource_req_console_status(unsigned int *res_bitmask)
 
 	if (!res_bitmask)
 		return -1;
-/* FIXME
+
 	if (IS_MTK_CONSOLE_SPM_RES_REQ(DDREN))
 		res |= _RES_MASK(MTK_SPM_RES_EX_DRAM_S0);
 
@@ -114,7 +114,7 @@ int spm_get_resource_req_console_status(unsigned int *res_bitmask)
 
 	if (IS_MTK_CONSOLE_SPM_RES_REQ(F26M))
 		res |= _RES_MASK(MTK_SPM_RES_EX_26M);
-*/
+
 	*res_bitmask = res;
 
 	return 0;
