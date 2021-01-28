@@ -93,6 +93,7 @@ struct mtk_base_afe {
 
 	struct mtk_base_afe_memif *memif;
 	int memif_size;
+	int memif_32bit_supported;
 	struct mtk_base_afe_irq *irqs;
 	int irqs_size;
 

@@ -5308,6 +5308,7 @@ static int mt6779_afe_pcm_dev_probe(struct platform_device *pdev)
 		return ret;
 
 	/* init memif */
+	afe->memif_32bit_supported = 0;
 	afe->memif_size = MT6779_MEMIF_NUM;
 	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
 				  GFP_KERNEL);

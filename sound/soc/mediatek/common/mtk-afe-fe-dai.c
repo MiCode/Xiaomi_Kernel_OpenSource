@@ -694,6 +694,7 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 {
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	int hd_audio = 0;
+	int memif_32bit_supported = afe->memif_32bit_supported;
 
 	/* set hd mode */
 	switch (format) {
@@ -703,7 +704,10 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 		break;
 	case SNDRV_PCM_FORMAT_S32_LE:
 	case SNDRV_PCM_FORMAT_U32_LE:
-		hd_audio = 1;
+		if (memif_32bit_supported)
+			hd_audio = 2;
+		else
+			hd_audio = 1;
 		break;
 	case SNDRV_PCM_FORMAT_S24_LE:
 	case SNDRV_PCM_FORMAT_U24_LE:
@@ -716,7 +720,7 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 	}
 
 	return mtk_regmap_update_bits(afe->regmap, memif->data->hd_reg,
-				      1 << memif->data->hd_shift,
+				      0x3 << memif->data->hd_shift,
 				      hd_audio << memif->data->hd_shift);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_format);
