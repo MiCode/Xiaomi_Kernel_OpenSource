@@ -109,6 +109,7 @@ obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
 obj-$(CONFIG_MTK_VIDEOCODEC_DRIVER) += videocodec/
 obj-$(CONFIG_MTK_JPEG) += jpeg/
+obj-$(CONFIG_MTK_CCU) += ccu/src/
 
 obj-$(CONFIG_MTK_CQDMA) += cqdma/
 
