@@ -626,6 +626,7 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 	unsigned int max_packs_per_period, urbs_per_period, urb_packs;
 	unsigned int max_urbs, i;
 	int frame_bits = snd_pcm_format_physical_width(pcm_format) * channels;
+	unsigned int max_queue;
 	int tx_length_quirk = (ep->chip->tx_length_quirk &&
 			       usb_pipeout(ep->pipe));
 
@@ -697,9 +698,11 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 	if (snd_usb_get_speed(ep->chip->dev) != USB_SPEED_FULL) {
 		packs_per_ms = 8 >> ep->datainterval;
 		max_packs_per_urb = MAX_PACKS_HS;
+		max_queue = MAX_QUEUE_HS;
 	} else {
 		packs_per_ms = 1;
 		max_packs_per_urb = MAX_PACKS;
+		max_queue = MAX_QUEUE;
 	}
 	if (sync_ep && !snd_usb_endpoint_implicit_feedback_sink(ep))
 		max_packs_per_urb = min(max_packs_per_urb,
@@ -762,6 +765,13 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 		/* how many packets will contain an entire ALSA period? */
 		max_packs_per_period = DIV_ROUND_UP(period_bytes, minsize);
 
+		/* This is a special case for latency requirement.*/
+		/* Limit the max packets and max queuein a single URB */
+		if (periods_per_buffer == 4) {
+			max_packs_per_urb = packs_per_ms;
+			max_queue = LOW_LATENCY_MAX_QUEUE;
+		}
+
 		/* how many URBs will contain a period? */
 		urbs_per_period = DIV_ROUND_UP(max_packs_per_period,
 				max_packs_per_urb);
@@ -774,8 +784,11 @@ static int data_ep_set_params(struct snd_usb_endpoint *ep,
 
 		/* try to use enough URBs to contain an entire ALSA buffer */
 		max_urbs = min((unsigned) MAX_URBS,
-				MAX_QUEUE * packs_per_ms / urb_packs);
+				max_queue * packs_per_ms / urb_packs);
 		ep->nurbs = min(max_urbs, urbs_per_period * periods_per_buffer);
+
+		if (ep->nurbs <= 2)
+			ep->nurbs++;
 
 		usb_audio_info(ep->chip,
 			"interval=%d, frames_per_period=%d, urbs_per_period=%d\n",
