@@ -366,6 +366,6 @@
 /* AUDIO end */
 
 #include <k61v1_64_bsp/cust.dtsi>
-#include "cust_mt6761_camera.dtsi"
-#include "cust_mt6761_touch_720x1280.dtsi"
+#include "mediatek/cust_mt6761_camera.dtsi"
+#include "mediatek/cust_mt6761_touch_720x1280.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/

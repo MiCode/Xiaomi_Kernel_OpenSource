@@ -321,6 +321,7 @@ endif
 
 all:	$(notdir $(KBUILD_IMAGE)) $(KBUILD_DTBS)
 
+
 archheaders:
 	$(Q)$(MAKE) $(build)=arch/arm/tools uapi
 

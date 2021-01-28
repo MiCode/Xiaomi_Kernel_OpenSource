@@ -8,8 +8,8 @@
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 
-#include "mt7622.dtsi"
-#include "mt6380.dtsi"
+#include "mediatek/mt7622.dtsi"
+#include "mediatek/mt6380.dtsi"
 
 / {
 	model = "Bananapi BPI-R64";

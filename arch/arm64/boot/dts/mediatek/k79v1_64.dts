@@ -793,5 +793,5 @@
 };
 
 #include <k79v1_64/cust.dtsi>
-#include "cust_mt6779_touch_1080x2160.dtsi"
+#include "mediatek/cust_mt6779_touch_1080x2160.dtsi"
 

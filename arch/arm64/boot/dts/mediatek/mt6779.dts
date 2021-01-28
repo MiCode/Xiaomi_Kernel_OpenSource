@@ -4393,10 +4393,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	status = "okay";
 };
 
-#include "mt6360_pd.dtsi"
-#include "mt6360.dtsi"
-#include "mt6359.dtsi"
-#include "bat_setting/mt6779_battery_prop.dtsi"
-#include "cust_mt6779_msdc.dtsi"
-#include "cust_mt6779_camera.dtsi"
-#include "trusty.dtsi"
+#include "mediatek/mt6360_pd.dtsi"
+#include "mediatek/mt6360.dtsi"
+#include "mediatek/mt6359.dtsi"
+#include "mediatek/bat_setting/mt6779_battery_prop.dtsi"
+#include "mediatek/cust_mt6779_msdc.dtsi"
+#include "mediatek/cust_mt6779_camera.dtsi"
+#include "mediatek/trusty.dtsi"

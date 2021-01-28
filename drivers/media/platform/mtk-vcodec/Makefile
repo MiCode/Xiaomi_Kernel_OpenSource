@@ -1,3 +1,4 @@
+MTK_PLATFORM := $(CONFIG_MTK_PLATFORM:"%"=%)
 
 obj-$(CONFIG_VIDEO_MEDIATEK_VCODEC) += mtk-vcodec-dec.o \
 				       mtk-vcodec-enc.o \

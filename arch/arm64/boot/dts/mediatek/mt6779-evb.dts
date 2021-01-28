@@ -6,9 +6,9 @@
  */
 
 /dts-v1/;
-#include "mt6779.dtsi"
-#include "mt6359.dtsi"
-#include "bat_setting/mt6779_battery_prop.dtsi"
+#include "mediatek/mt6779.dtsi"
+#include "mediatek/mt6359.dtsi"
+#include "mediatek/bat_setting/mt6779_battery_prop.dtsi"
 #include <dt-bindings/pinctrl/mt6779-pinfunc.h>
 
 / {

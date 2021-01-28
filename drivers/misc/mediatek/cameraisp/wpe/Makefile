@@ -13,7 +13,7 @@
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
-ifneq (, $(findstring $(MTK_PLATFORM), mt6779)))
+ifneq (, $(findstring $(MTK_PLATFORM), mt6779))
 obj-y += mt6779/
 else
 obj-y := camerawpe_dummy.o

@@ -131,6 +131,7 @@ KBUILD_DTBS	:= dtbs
 
 all:	Image.gz $(KBUILD_DTBS)
 
+
 Image: vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
 
@@ -145,7 +146,7 @@ zinstall install:
 
 PHONY += dtbs dtbs_install
 
-dtbs: prepare scripts $(DRVGEN_FILE_LIST)
+dtbs: prepare scripts
 	$(Q)$(MAKE) $(build)=$(boot)/dts
 
 dtbs_install:
