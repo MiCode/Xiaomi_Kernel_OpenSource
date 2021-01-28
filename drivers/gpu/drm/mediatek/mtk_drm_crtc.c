@@ -167,15 +167,14 @@ int mtk_drm_crtc_wait_blank(struct mtk_drm_crtc *mtk_crtc)
 {
 	int ret = 0;
 
-	/* TODO: figure out mutex lock is necessary or not */
+	DDPMSG("%s wait TUI finish\n", __func__);
 	while (mtk_crtc->crtc_blank == true) {
-//		DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDPMSG("%s wait TUI finish\n", __func__);
+//		DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 		ret |= mtk_drm_wait_blank(mtk_crtc, false, HZ / 5);
-//		DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-		DDPMSG("%s TUI done state=%d\n", __func__,
-			mtk_crtc->crtc_blank);
+//		DDP_MUTEX_LOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 	}
+	DDPMSG("%s TUI done state=%d\n", __func__,
+		mtk_crtc->crtc_blank);
 
 	return ret;
 }
@@ -6004,6 +6003,8 @@ int mtk_drm_crtc_create(struct drm_device *drm_dev,
 			kthread_create(_mtk_crtc_check_trigger_delay,
 						mtk_crtc, "ddp_trig_d");
 		wake_up_process(mtk_crtc->trigger_delay_task);
+		/* For protect crtc blank state */
+		mutex_init(&mtk_crtc->blank_lock);
 		init_waitqueue_head(&mtk_crtc->state_wait_queue);
 	}
 
@@ -7193,13 +7194,14 @@ int mtk_crtc_enter_tui(struct drm_crtc *crtc)
 	if (i >= 60)
 		DDPPR_ERR("wait repaint %d\n", i);
 
-	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
+	DDP_MUTEX_LOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
 	/* TODO: HardCode select OVL0, maybe store in platform data */
 	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = true;
-	wake_up(&mtk_crtc->state_wait_queue);
 
-	DDP_MUTEX_UNLOCK(&mtk_crtc->lock, __func__, __LINE__);
+	DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
+
+	wake_up(&mtk_crtc->state_wait_queue);
 
 	return 0;
 }
@@ -7211,15 +7213,20 @@ int mtk_crtc_exit_tui(struct drm_crtc *crtc)
 
 	DDPMSG("%s\n", __func__);
 
+	DDP_MUTEX_LOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
+
+	/* TODO: Hard Code select OVL0, maybe store in platform data */
+	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = false;
+
 	mtk_crtc->crtc_blank = false;
+
+	atomic_set(&priv->rollback_all, 0);
+
+	DDP_MUTEX_UNLOCK(&mtk_crtc->blank_lock, __func__, __LINE__);
 
 	wake_up(&mtk_crtc->state_wait_queue);
 
 	DDP_MUTEX_LOCK(&mtk_crtc->lock, __func__, __LINE__);
-
-	/* TODO: Hard Code select OVL0, maybe store in platform data */
-	priv->ddp_comp[DDP_COMPONENT_OVL0]->blank_mode = false;
-	atomic_set(&priv->rollback_all, 0);
 
 	mtk_drm_set_idlemgr(crtc, 1, 0);
 
