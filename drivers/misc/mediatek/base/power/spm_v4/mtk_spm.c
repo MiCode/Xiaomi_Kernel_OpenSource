@@ -390,7 +390,7 @@ static void spm_register_init(void)
 		 edge_trig_irqs[1],
 		 edge_trig_irqs[2]);
 #elif defined(CONFIG_MACH_MT6771)
-	spm_err("edge trigger irqs: %d, %d, %d, %d\n",
+	spm_err("edge trigger irqs: %d, %d, %d\n",
 		 edge_trig_irqs[0],
 		 edge_trig_irqs[1],
 		 edge_trig_irqs[2]);
