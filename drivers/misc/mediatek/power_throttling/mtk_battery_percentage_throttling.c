@@ -16,7 +16,7 @@
 static struct task_struct *bat_percent_notify_thread;
 static bool bat_percent_notify_flag;
 static DECLARE_WAIT_QUEUE_HEAD(bat_percent_notify_waiter);
-static struct wakeup_source bat_percent_notify_lock;
+static struct wakeup_source *bat_percent_notify_lock;
 static DEFINE_MUTEX(bat_percent_notify_mutex);
 static int g_battery_percent_level;
 
@@ -70,14 +70,14 @@ int bat_percent_notify_handler(void *unused)
 		wait_event_interruptible(bat_percent_notify_waiter,
 			(bat_percent_notify_flag == true));
 
-		__pm_stay_awake(&bat_percent_notify_lock);
+		__pm_stay_awake(bat_percent_notify_lock);
 		mutex_lock(&bat_percent_notify_mutex);
 
 		exec_battery_percent_callback(g_battery_percent_level);
 		bat_percent_notify_flag = false;
 
 		mutex_unlock(&bat_percent_notify_mutex);
-		__pm_relax(&bat_percent_notify_lock);
+		__pm_relax(bat_percent_notify_lock);
 	} while (!kthread_should_stop());
 
 	return 0;
@@ -127,8 +127,10 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 
 void bat_percent_notify_init(void)
 {
-	wakeup_source_init(&bat_percent_notify_lock,
+	bat_percent_notify_lock = wakeup_source_register(
 		"bat_percent_notify_lock wakelock");
+	if (!bat_percent_notify_lock)
+		pr_notice("bat_percent_notify_lock wakeup source fail\n");
 
 	bat_percent_notify_thread =
 		kthread_run(bat_percent_notify_handler, 0,
