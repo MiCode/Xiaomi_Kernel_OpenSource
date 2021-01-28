@@ -4,13 +4,13 @@
  * Author: Argus Lin <argus.lin@mediatek.com>
  */
 
+#include <linux/mfd/mt6315/registers.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/spmi.h>
 #include <linux/pmif.h>
 #include <linux/regmap.h>
 #include <linux/of_platform.h>
-#include <mach/mt6315_upmu_hw.h>
 
 #define PMIC_VER		0x1510
 #define COMMON_SUBTYPE		0x00

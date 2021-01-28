@@ -12,6 +12,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
+#include <linux/mfd/mt6315/registers.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -22,7 +23,6 @@
 #include <linux/spmi.h>
 #include <linux/pmif.h>
 #include <spmi_sw.h>
-#include <mach/mt6315_upmu_hw.h>
 #include <dt-bindings/spmi/spmi.h>
 
 /*
