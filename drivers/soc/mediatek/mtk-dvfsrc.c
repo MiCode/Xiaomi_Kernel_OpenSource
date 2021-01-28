@@ -17,7 +17,9 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "mtk-scpsys.h"
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
+#endif
 
 #define DVFSRC_IDLE		0x00
 #define DVFSRC_GET_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
@@ -192,7 +194,10 @@ static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 level)
 			level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "VCORE fail");
+#endif
 	}
 }
 
@@ -423,7 +428,9 @@ static int mt6779_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 			__func__, level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "FORCE OPP fail");
+#endif
 	}
 	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 	spin_unlock_irqrestore(&force_req_lock, flags);
@@ -557,7 +564,9 @@ static int mt6761_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 			__func__, level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "FORCE OPP fail");
+#endif
 	}
 	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 	spin_unlock_irqrestore(&force_req_lock, flags);
@@ -812,7 +821,9 @@ out:
 			__func__, cmd, data,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "LEVEL CHANGE fail");
+#endif
 	}
 }
 EXPORT_SYMBOL(mtk_dvfsrc_send_request);

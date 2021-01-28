@@ -32,7 +32,9 @@
 #include "ion_priv.h"
 #include "compat_ion.h"
 #include <trace/events/kmem.h>
+#ifdef CONFIG_MTK_AEE_FEATURE
 #include "aee.h"
+#endif
 #include "mtk/ion_profile.h"
 #include "mtk/mtk_ion.h"
 #include "mtk/ion_drv_priv.h"
@@ -1195,12 +1197,14 @@ static struct sg_table *ion_map_dma_buf(struct dma_buf_attachment *attachment,
 			mutex_unlock(&buffer->lock);
 			IONMSG("%s, failed at get phys, ret:%d\n",
 			       __func__, ret);
+#ifdef CONFIG_MTK_AEE_FEATURE
 			if (ret == -EDOM)
 				aee_kernel_warning_api(__FILE__, __LINE__,
 						       DB_OPT_DEFAULT |
 						       DB_OPT_NATIVE_BACKTRACE,
 						       "ion phys failed",
 						       "dump user backtrace");
+#endif
 			return ERR_PTR(ret);
 		}
 		table = a->table;
@@ -2164,12 +2168,14 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
 		IONMSG("warn: ion phys time: %lluns, nents:%u\n",
 		       end - start, buffer->sg_table->nents);
 #endif
+#ifdef CONFIG_MTK_AEE_FEATURE
 	if (ret == -EDOM)
 		aee_kernel_warning_api(__FILE__, __LINE__,
 				       DB_OPT_DEFAULT |
 				       DB_OPT_NATIVE_BACKTRACE,
 				       "ion phys failed",
 				       "dump user backtrace");
+#endif
 	/*avoid camelcase, will modify in a letter*/
 	mmprofile_log_ex(ion_mmp_events[PROFILE_GET_PHYS], MMPROFILE_FLAG_END,
 			 buffer->size, (unsigned long)*addr);

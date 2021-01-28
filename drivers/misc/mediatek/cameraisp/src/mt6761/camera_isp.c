@@ -63,7 +63,9 @@ static u32 PMQoS_BW_value;
 #else
 #include "mach/mt_iommu.h"
 #endif
+#ifdef CONFIG_MTK_CMDQ_V3
 #include <cmdq_core.h>
+#endif
 #ifndef EP_MARK_SMI
 #include <smi_public.h>
 #endif
@@ -14846,10 +14848,12 @@ static signed int __init ISP_Init(void)
 
 	/*      */
 	/* Register ISP callback */
+#ifdef CONFIG_MTK_CMDQ_V3
 	log_dbg("register isp callback for MDP");
 	cmdqCoreRegisterCB(CMDQ_GROUP_ISP, ISP_MDPClockOnCallback,
 			   ISP_MDPDumpCallback, ISP_MDPResetCallback,
 			   ISP_MDPClockOffCallback);
+#endif
 
 	/* Register M4U callback dump */
 	log_dbg("register M4U callback dump");
@@ -14940,11 +14944,12 @@ static void __exit ISP_Exit(void)
 	platform_driver_unregister(&IspDriver);
 	/*      */
 	/* Unregister ISP callback */
+#ifdef CONFIG_MTK_CMDQ_V3
 	cmdqCoreRegisterCB(CMDQ_GROUP_ISP, NULL, NULL, NULL, NULL);
 	/* Un-Register GCE callback */
 	log_dbg("Un-register isp callback for GCE");
 	cmdqCoreRegisterDebugRegDumpCB(NULL, NULL);
-
+#endif
 	/*      */
 	/* Un-Register M4U callback dump */
 	log_dbg("Un-Register M4U callback dump");
