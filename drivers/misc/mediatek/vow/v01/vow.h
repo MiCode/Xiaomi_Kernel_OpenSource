@@ -122,7 +122,7 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.10"
+#define KERNEL_VOW_DRV_VER "2.0.11"
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -427,7 +427,7 @@ enum ipi_type_flag_t {
 struct vow_ipi_combined_info_t {
 	unsigned short ipi_type_flag;
 	/* IPIMSG_VOW_RECOGNIZE_OK */
-	unsigned short recog_ok_keywordid;
+	unsigned short recog_ok_uuid;
 	/* unsigned int recog_ret_info; */
 	unsigned int confidence_lv;
 	unsigned long long recog_ok_os_timer;
