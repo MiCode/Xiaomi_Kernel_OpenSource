@@ -138,7 +138,7 @@ enum VAL_RESULT_T eVideoWaitEvent(struct VAL_EVENT_T *a_prParam,
 				__func__, a_prParam->u4TimeoutMs);
 		status = VAL_RESULT_INVALID_ISR;	/* timeout */
 	} else if (-ERESTARTSYS == i4Ret) {
-		pr_info("[VCODEC] %s wake up by ERESTARTSYS", __func__);
+		pr_info("[VCODEC] %s wake up by ERESTARTSYS", __func__);
 		status = VAL_RESULT_RESTARTSYS;
 	} else if (i4Ret > 0) {
 		status = VAL_RESULT_NO_ERROR;

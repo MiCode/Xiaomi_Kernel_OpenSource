@@ -2812,7 +2812,7 @@ static int vcodec_release(struct inode *inode, struct file *file)
 		/* check if someone didn't unlockHW */
 		if (CodecHWLock.pvHandle != 0) {
 			pr_info("err %s %d, type = %d, 0x%lx\n",
-				c__func__, urrent->pid,
+				__func__, current->pid,
 				CodecHWLock.eDriverType,
 				(unsigned long)CodecHWLock.pvHandle);
 			pr_info("err VCODEC_SEL 0x%x\n",
