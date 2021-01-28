@@ -4371,8 +4371,6 @@ static kal_uint32 feature_control(
 			(*feature_para_len) / sizeof(UINT32), feature_data_16);
 		break;
 	case SENSOR_FEATURE_SET_PDAF_REG_SETTING:
-		LOG_INF("SENSOR_FEATURE_SET_PDAF_REG_SETTING %d",
-			(*feature_para_len));
 		imx338_set_pdaf_reg_setting(
 			(*feature_para_len) / sizeof(UINT32), feature_data_16);
 		break;
