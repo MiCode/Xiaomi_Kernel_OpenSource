@@ -405,6 +405,9 @@ void mmc_crypto_disable(struct mmc_host *host)
 
 int mmc_init_crypto(struct mmc_host *host)
 {
+	if (!(host->caps2 & MMC_CAP2_NO_SD))
+		return 0;
+
 	host->caps2 |= MMC_CAP2_CRYPTO;
 
 	if (host->crypto_vops && host->crypto_vops->init_crypto)
