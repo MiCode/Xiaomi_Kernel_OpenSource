@@ -290,6 +290,10 @@ static ssize_t mt_gpio_store(struct device *dev,
 			&attrs[0], &attrs[1], &attrs[2], &attrs[3],
 			&attrs[4], &attrs[5], &attrs[6], &attrs[7],
 			&attrs[8], &attrs[9], &attrs[10], &attrs[11]);
+		if (val <= 0 || val > 13) {
+			pr_notice("invalid input count %d\n", val);
+			goto out;
+		}
 		for (i = 0; i < ARRAY_SIZE(attrs); i++) {
 			if ((attrs[i] >= '0') && (attrs[i] <= '9'))
 				vals[i] = attrs[i] - '0';
