@@ -1702,11 +1702,13 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			(unsigned long)sizeof(struct mem_obj));
 		if (vcu_ptr->iommu_padding)
 			mem_buff_data.iova |= 0x100000000UL;
-		vcu_buffer_cache_sync(dev, vcu_queue,
+		ret = vcu_buffer_cache_sync(dev, vcu_queue,
 			(dma_addr_t)mem_buff_data.iova,
 			(size_t)mem_buff_data.len,
 			(cmd == VCU_CACHE_FLUSH_BUFF) ?
 				DMA_TO_DEVICE : DMA_FROM_DEVICE);
+		if (ret < 0)
+			return -EINVAL;
 
 		dev_dbg(dev, "[VCU] Cache flush buffer pa = %llx, size = %d\n",
 			mem_buff_data.iova, (unsigned int)mem_buff_data.len);
