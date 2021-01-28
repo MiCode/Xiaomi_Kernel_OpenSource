@@ -397,11 +397,17 @@ static int vvpu_vbin(int opp);
 
 static void dvfs_get_timestamp(char *p)
 {
+	int ret = 0;
+
 	u64 sec = local_clock();
 	u64 usec = do_div(sec, 1000000000);
 
 	do_div(usec, 1000000);
-	sprintf(p, "%llu.%llu", sec, usec);
+	ret = sprintf(p, "%llu.%llu", sec, usec);
+
+	if (ret < 0)
+		LOG_ERR("%s sprintf fail\n", __func__);
+
 }
 
 void dump_opp_table(void)

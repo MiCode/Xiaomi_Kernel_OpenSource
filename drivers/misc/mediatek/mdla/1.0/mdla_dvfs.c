@@ -696,7 +696,7 @@ static void get_segment_from_efuse(void)
 
 /* expected range, vmdla_index: 0~15 */
 /* expected range, freq_index: 0~15 */
-void mdla_opp_check(int core, uint8_t vmdla_index, uint8_t freq_index)
+void mdla_opp_check(int core_s, uint8_t vmdla_index, uint8_t freq_index)
 {
 	int i = 0;
 	bool freq_check = false;
@@ -704,6 +704,7 @@ void mdla_opp_check(int core, uint8_t vmdla_index, uint8_t freq_index)
 	//int get_vcore_opp = 0;
 	//int get_vvpu_opp = 0;
 	int get_vmdla_opp = 0;
+	unsigned int core = (unsigned int)core_s;
 
 	if (is_power_debug_lock) {
 		force_change_vcore_opp[core] = false;
@@ -891,7 +892,7 @@ out:
 }
 EXPORT_SYMBOL(mdla_opp_check);
 
-static bool mdla_change_opp(int core, int type)
+static bool mdla_change_opp(int core_s, int type)
 {
 #ifdef MTK_MDLA_FPGA_PORTING
 	mdla_dvfs_debug("[mdla_%d] %d Skip at FPGA", core, type);
@@ -899,6 +900,7 @@ static bool mdla_change_opp(int core, int type)
 	return true;
 #else
 	int ret = 0;
+	unsigned int core = (unsigned int)core_s;
 
 
 	switch (type) {
@@ -1820,8 +1822,10 @@ static void mdla_power_counter_routine(struct work_struct *work)
 
 	mdla_dvfs_debug("mdla_%d counterR -", core);
 }
-int mdla_quick_suspend(int core)
+int mdla_quick_suspend(int core_s)
 {
+	unsigned int core = (unsigned int)core_s;
+
 	mdla_dvfs_debug("[mdla_%d] q_suspend +\n", core);
 	mutex_lock(&power_counter_mutex[core]);
 	//mdla_dvfs_debug("[mdla_%d] q_suspend (%d/%d)\n", core,
@@ -2287,6 +2291,7 @@ mdla_print_seq(s, "%s[%d], %s[%d], %s[%d]\n",
 int mdla_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
+	unsigned int lv = 0;
 
 	switch (param) {
 	case MDLA_POWER_PARAM_FIX_OPP:
@@ -2323,7 +2328,8 @@ int mdla_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		ret = args[0] >= opps.count;
+		lv = (unsigned int)args[0];
+		ret = lv >= opps.count;
 		if (ret) {
 			LOG_ERR("opp step(%d) is out-of-bound, count:%d\n",
 					(int)(args[0]), opps.count);
@@ -2331,12 +2337,12 @@ int mdla_set_power_parameter(uint8_t param, int argc, int *args)
 		}
 		LOG_ERR("@@test%d\n", argc);
 
-		opps.vcore.index = opps.vcore.opp_map[args[0]];
-		opps.vvpu.index = opps.vvpu.opp_map[args[0]];
-		opps.vmdla.index = opps.vmdla.opp_map[args[0]];
-		opps.dsp.index = opps.dsp.opp_map[args[0]];
-		opps.ipu_if.index = opps.ipu_if.opp_map[args[0]];
-		opps.mdlacore.index = opps.mdlacore.opp_map[args[0]];
+		opps.vcore.index = opps.vcore.opp_map[lv];
+		opps.vvpu.index = opps.vvpu.opp_map[lv];
+		opps.vmdla.index = opps.vmdla.opp_map[lv];
+		opps.dsp.index = opps.dsp.opp_map[lv];
+		opps.ipu_if.index = opps.ipu_if.opp_map[lv];
+		opps.mdlacore.index = opps.mdlacore.opp_map[lv];
 
 		is_power_debug_lock = true;
 
@@ -2353,7 +2359,8 @@ int mdla_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		ret = args[0] >= opps.count;
+		lv = (unsigned int)args[0];
+		ret = lv >= opps.count;
 		if (ret) {
 			LOG_ERR("opp step(%d) is out-of-bound, count:%d\n",
 					(int)(args[0]), opps.count);
@@ -2361,12 +2368,12 @@ int mdla_set_power_parameter(uint8_t param, int argc, int *args)
 		}
 		LOG_ERR("@@lock%d\n", argc);
 
-		opps.vcore.index = opps.vcore.opp_map[args[0]];
-		opps.vvpu.index = opps.vvpu.opp_map[args[0]];
-		opps.vmdla.index = opps.vmdla.opp_map[args[0]];
-		opps.dsp.index = opps.dsp.opp_map[args[0]];
-		opps.ipu_if.index = opps.ipu_if.opp_map[args[0]];
-		opps.mdlacore.index = opps.mdlacore.opp_map[args[0]];
+		opps.vcore.index = opps.vcore.opp_map[lv];
+		opps.vvpu.index = opps.vvpu.opp_map[lv];
+		opps.vmdla.index = opps.vmdla.opp_map[lv];
+		opps.dsp.index = opps.dsp.opp_map[lv];
+		opps.ipu_if.index = opps.ipu_if.opp_map[lv];
+		opps.mdlacore.index = opps.mdlacore.opp_map[lv];
 
 
 		mdla_opp_check(0, opps.dsp.index, opps.dsp.index);
@@ -2531,7 +2538,7 @@ static bool mdla_update_lock_power_parameter
 	(struct mdla_lock_power *mdla_lock_power)
 {
 	bool ret = true;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 	unsigned int priority = mdla_lock_power->priority;
 
 	for (i = 0 ; i < MTK_MDLA_USER ; i++) {
@@ -2541,7 +2548,7 @@ static bool mdla_update_lock_power_parameter
 		}
 	}
 
-	if (core >= MTK_MDLA_USER || core < 0) {
+	if (core >= MTK_MDLA_USER) {
 		LOG_ERR("wrong core index (0x%x/%d/%d)",
 			mdla_lock_power->core, core, MTK_MDLA_USER);
 		ret = false;
@@ -2566,7 +2573,7 @@ static bool mdla_update_unlock_power_parameter
 	(struct mdla_lock_power *mdla_lock_power)
 {
 	bool ret = true;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 	unsigned int priority = mdla_lock_power->priority;
 
 	for (i = 0 ; i < MTK_MDLA_USER ; i++) {
@@ -2576,7 +2583,7 @@ static bool mdla_update_unlock_power_parameter
 		}
 	}
 
-	if (core >= MTK_MDLA_USER || core < 0) {
+	if (core >= MTK_MDLA_USER) {
 		LOG_ERR("wrong core index (0x%x/%d/%d)",
 			mdla_lock_power->core, core, MTK_MDLA_USER);
 		ret = false;
@@ -2613,7 +2620,7 @@ uint8_t mdla_max_of(uint8_t value1, uint8_t value2)
 bool mdla_update_max_opp(struct mdla_lock_power *mdla_lock_power)
 {
 	bool ret = true;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 	uint8_t first_priority = MDLA_OPP_NORMAL;
 	uint8_t first_priority_max_boost_value = 100;
 	uint8_t first_priority_min_boost_value = 0;
@@ -2631,7 +2638,7 @@ bool mdla_update_max_opp(struct mdla_lock_power *mdla_lock_power)
 		}
 	}
 
-	if (core >= MTK_MDLA_USER || core < 0) {
+	if (core >= MTK_MDLA_USER) {
 		LOG_ERR("wrong core index (0x%x/%d/%d)",
 			mdla_lock_power->core, core, MTK_MDLA_USER);
 		ret = false;
@@ -2686,7 +2693,7 @@ bool mdla_update_max_opp(struct mdla_lock_power *mdla_lock_power)
 static int mdla_lock_set_power(struct mdla_lock_power *mdla_lock_power)
 {
 	int ret = -1;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 
 	mutex_lock(&power_lock_mutex);
 	for (i = 0 ; i < MTK_MDLA_USER ; i++) {
@@ -2696,7 +2703,7 @@ static int mdla_lock_set_power(struct mdla_lock_power *mdla_lock_power)
 		}
 	}
 
-	if (core >= MTK_MDLA_USER || core < 0) {
+	if (core >= MTK_MDLA_USER) {
 		LOG_ERR("wrong core index (0x%x/%d/%d)",
 			mdla_lock_power->core, core, MTK_MDLA_USER);
 		ret = -1;
@@ -2720,7 +2727,7 @@ static int mdla_lock_set_power(struct mdla_lock_power *mdla_lock_power)
 static int mdla_unlock_set_power(struct mdla_lock_power *mdla_lock_power)
 {
 	int ret = -1;
-	int i, core = -1;
+	unsigned int i, core = 0xFFFFFFFF;
 
 	mutex_lock(&power_lock_mutex);
 	for (i = 0 ; i < MTK_MDLA_USER ; i++) {
@@ -2730,10 +2737,11 @@ static int mdla_unlock_set_power(struct mdla_lock_power *mdla_lock_power)
 		}
 	}
 
-	if (core >= MTK_MDLA_USER || core < 0) {
+	if (core >= MTK_MDLA_USER) {
 		LOG_ERR("wrong core index (0x%x/%d/%d)",
 			mdla_lock_power->core, core, MTK_MDLA_USER);
 		ret = false;
+		mutex_unlock(&power_lock_mutex);
 		return ret;
 	}
 	if (!mdla_update_unlock_power_parameter(mdla_lock_power)) {
