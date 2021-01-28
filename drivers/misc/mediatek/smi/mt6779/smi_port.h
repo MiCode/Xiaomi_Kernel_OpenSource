@@ -25,7 +25,7 @@
 #define SMI_DEV_NUM		((SMI_LARB_NUM) + (SMI_COMM_NUM))
 
 static const bool
-SMI_COMM_BUS_SEL[SMI_COMM_MASTER_NUM] = {0, 1, 1, 0, 1, 1, 1, 1, 1, 1};
+SMI_COMM_BUS_SEL[SMI_COMM_MASTER_NUM] = {0, 1, 1, 0, 1, 1, 1, 1};
 static const u32
 SMI_LARB_L1ARB[SMI_LARB_NUM] = {
 	0, 1, 2, 3, SMI_COMM_MASTER_NUM, 4,
