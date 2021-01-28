@@ -59,7 +59,8 @@ struct trusty_ctx {
 	struct mutex mlock;	/* protects vdev_list */
 	struct workqueue_struct *kick_wq;
 	struct workqueue_struct *check_wq;
-	struct workqueue_attrs *attrs;
+	struct workqueue_attrs *kick_wq_attrs;
+	struct workqueue_attrs *check_wq_attrs;
 	enum tee_id_t tee_id;	/* For multiple TEEs */
 };
 
@@ -709,7 +710,8 @@ err_load_descr:
 }
 
 /* parse dtsi to find big core and set to mask */
-static int bind_big_core(struct cpumask *mask)
+static int find_wq_cpumask(struct cpumask *kick_mask,
+						   struct cpumask *check_mask)
 {
 	struct device_node *cpus = NULL, *cpu = NULL;
 	struct property *cpu_pp = NULL;
@@ -747,11 +749,22 @@ static int bind_big_core(struct cpumask *mask)
 		}
 	}
 
-	cpumask_clear(mask);
+	cpumask_clear(kick_mask);
+	cpumask_clear(check_mask);
+
+	/* check_wq only handle process, no high loading, put in little core */
+	for (i = 0; i < big_start_num; i++) {
+		/* dev_info(&pdev->dev, "%s bind cpu%d\n", __func__, i); */
+		cpumask_set_cpu(i, check_mask);
+	}
+
 	// final CPU is for TEE
+	/* skip core 4 for multi core use in 4+4 core combination */
+	if (big_start_num == 4)
+		big_start_num++;
 	for (i = big_start_num; i < cpu_num - 1; i++) {
 		/* dev_info(&pdev->dev, "%s bind cpu%d\n", __func__, i); */
-		cpumask_set_cpu(i, mask);
+		cpumask_set_cpu(i, kick_mask);
 	}
 
 	return 0;
@@ -840,18 +853,29 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	/* this function is not supported when compiled as .ko */
 	//tctx->attrs = alloc_workqueue_attrs(GFP_KERNEL);
 	/* replace with _alloc_workqueue_attrs() */
-	tctx->attrs = _alloc_workqueue_attrs(GFP_KERNEL);
+	tctx->kick_wq_attrs = _alloc_workqueue_attrs(GFP_KERNEL);
 
-	if (!tctx->attrs) {
+	if (!tctx->kick_wq_attrs) {
 		ret = -ENOMEM;
-		goto err_free_workqueue;
+		goto err_alloc_kick_wq_attrs;
 	}
 
-	ret = bind_big_core(tctx->attrs->cpumask);
-	if (ret)
-		dev_info(&pdev->dev, "Failed to bind big cores\n");
+	tctx->check_wq_attrs = _alloc_workqueue_attrs(GFP_KERNEL);
 
-	apply_workqueue_attrs(tctx->kick_wq, tctx->attrs);
+	if (!tctx->check_wq_attrs) {
+		ret = -ENOMEM;
+		goto err_alloc_check_wq_attrs;
+	}
+
+	ret = find_wq_cpumask(tctx->kick_wq_attrs->cpumask,
+						tctx->check_wq_attrs->cpumask);
+	if (ret) {
+		dev_info(&pdev->dev, "Failed to bind big cores\n");
+		goto err_bind_big_small_core;
+	}
+
+	apply_workqueue_attrs(tctx->kick_wq, tctx->kick_wq_attrs);
+	apply_workqueue_attrs(tctx->check_wq, tctx->check_wq_attrs);
 
 	ret = trusty_virtio_add_devices(tctx);
 
@@ -864,17 +888,18 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	return 0;
 
 err_add_devices:
-	destroy_workqueue(tctx->kick_wq);
-err_free_workqueue:
-
-	/* this function is not supported when compiled as .ko */
-	//free_workqueue_attrs(tctx->attrs);
-
-	/* replace with this */
-	if (tctx->attrs) {
-		free_cpumask_var(tctx->attrs->cpumask);
-		kfree(tctx->attrs);
+err_bind_big_small_core:
+	if (tctx->check_wq_attrs) {
+		free_cpumask_var(tctx->check_wq_attrs->cpumask);
+		kfree(tctx->check_wq_attrs);
 	}
+err_alloc_check_wq_attrs:
+	if (tctx->kick_wq_attrs) {
+		free_cpumask_var(tctx->kick_wq_attrs->cpumask);
+		kfree(tctx->kick_wq_attrs);
+	}
+err_alloc_kick_wq_attrs:
+	destroy_workqueue(tctx->kick_wq);
 err_create_kick_wq:
 	destroy_workqueue(tctx->check_wq);
 err_create_check_wq:
@@ -911,9 +936,14 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	//free_workqueue_attrs(tctx->attrs);
 
 	/* replace with this */
-	if (tctx->attrs) {
-		free_cpumask_var(tctx->attrs->cpumask);
-		kfree(tctx->attrs);
+	if (tctx->kick_wq_attrs) {
+		free_cpumask_var(tctx->kick_wq_attrs->cpumask);
+		kfree(tctx->kick_wq_attrs);
+	}
+
+	if (tctx->check_wq_attrs) {
+		free_cpumask_var(tctx->check_wq_attrs->cpumask);
+		kfree(tctx->check_wq_attrs);
 	}
 
 	/* free context */

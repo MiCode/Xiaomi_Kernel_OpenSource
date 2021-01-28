@@ -44,6 +44,8 @@
 #include <linux/platform_device.h>
 #include <tz_cross/trustzone.h>
 #include <tz_cross/ta_system.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 /* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
 #if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
 #include "tee_client_api.h"
@@ -737,7 +739,9 @@ int ree_dummy_thread(void *data)
 	/* uint32_t boost_enabled = 0; */
 	uint32_t param_type = 0;
 	uint64_t param_value = 0;
+	struct sched_param param = { .sched_priority = 1 };
 
+	sched_setscheduler(current, SCHED_FIFO, &param);
 	init_completion(&ree_dummy_event);
 	KREE_DEBUG("%s +++++\n", __func__);
 
@@ -749,7 +753,7 @@ int ree_dummy_thread(void *data)
 		param_type = new_param.type;
 		param_value = new_param.value;
 
-		usleep_range(100, 200);
+		/* usleep_range(100, 200); */
 
 		/* get into GZ through NOP SMC call */
 		ret = tz_system_nop_std32(param_type, param_value);
