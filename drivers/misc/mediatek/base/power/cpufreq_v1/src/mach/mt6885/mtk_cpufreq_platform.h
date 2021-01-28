@@ -27,12 +27,18 @@
 #define MET_READY              1
 /* #define IMAX_ENABLE             1 */
 #define IMAX_INIT_STATE         1
-/* #define CPU_DVFS_NOT_READY	1 */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#else
+#define CPU_DVFS_NOT_READY	1
+#endif
 #define REPORT_IDLE_FREQ	1
 #define ENABLE_CLUSTER_ONOFF_SRAM	1
 #else
 /* #define SUPPORT_VOLT_HW_AUTO_TRACK 1 */
-/* #define CPU_DVFS_NOT_READY	1 */
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#else
+#define CPU_DVFS_NOT_READY	1
+#endif
 #endif
 #define DFD_WORKAROUND  1
 #define INIT_MCUPM_VOLTAGE_SETTING  1
