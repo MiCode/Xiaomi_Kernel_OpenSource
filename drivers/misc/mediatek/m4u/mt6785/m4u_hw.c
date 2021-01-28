@@ -2237,12 +2237,6 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 		M4UMSG("m4u main interrupt happened: sta=0x%x\n", IntrSrc);
 
-		if (m4u_index == 0)
-			M4UMSG("normal world port trans control reg: 0x%x\n",
-				M4U_ReadReg32(gLarbBaseAddr[0],
-					SMI_LARB_NON_SEC_CONx(0))
-				);
-
 		if (IntrSrc & (F_INT_MMU0_MAIN_MSK | F_INT_MMU0_MAU_MSK))
 			m4u_slave_id = 0;
 		else if (IntrSrc & (F_INT_MMU1_MAIN_MSK | F_INT_MMU1_MAU_MSK))
