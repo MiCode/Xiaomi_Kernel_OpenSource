@@ -172,8 +172,7 @@ imgsensor_sensor_open(struct IMGSENSOR_SENSOR *psensor)
 #ifdef CONFIG_MTK_CCU
 	struct ccu_sensor_info ccuSensorInfo;
 	enum IMGSENSOR_SENSOR_IDX sensor_idx = psensor->inst.sensor_idx;
-	struct i2c_client *pi2c_client =
-		psensor_inst->i2c_cfg.pinst->pi2c_client;
+	struct i2c_client *pi2c_client = NULL;
 #endif
 
 	IMGSENSOR_FUNCTION_ENTRY();
@@ -223,10 +222,13 @@ imgsensor_sensor_open(struct IMGSENSOR_SENSOR *psensor)
 			ccuSensorInfo.sensor_name_string =
 			    (char *)(psensor_inst->psensor_name);
 
+			pi2c_client = psensor_inst->i2c_cfg.pinst->pi2c_client;
 			if (pi2c_client)
 				ccuSensorInfo.i2c_id =
 					(((struct mt_i2c *) i2c_get_adapdata(
 						pi2c_client->adapter))->id);
+			else
+				ccuSensorInfo.i2c_id = -1;
 
 			ccu_set_sensor_info(sensor_idx, &ccuSensorInfo);
 #endif
