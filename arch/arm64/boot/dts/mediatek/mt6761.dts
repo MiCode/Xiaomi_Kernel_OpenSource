@@ -448,7 +448,9 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	toprgu@10007000 {
-		compatible = "mediatek,toprgu";
+		compatible = "mediatek,mt6761-wdt",
+			      "mediatek,mt6589-wdt",
+			      "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 83 IRQ_TYPE_NONE>;
 	};
