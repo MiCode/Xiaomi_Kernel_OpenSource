@@ -280,13 +280,12 @@ static int get_devinfo(void)
 	for (i = 0; i < n; i++) {
 		det = id_to_eem_det(pi_eem_ctrl_id[i]);
 
-		if (det == NULL)
+		if (det == NULL || !det->pi_efuse_count)
 			return 0;
 
-		if (det->pi_efuse_count)
-			idx = i % det->pi_efuse_count;
+		idx = i % det->pi_efuse_count;
 
-		if (!det->pi_efuse[idx])
+		if ((idx >= NR_PI_SHARED_CTRL) || !det->pi_efuse[idx])
 			continue;
 
 		p = &pi_efuse_idx[i];
