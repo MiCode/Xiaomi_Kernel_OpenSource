@@ -255,6 +255,10 @@ do {									\
 
 #define per_cpu(var, cpu)	(*per_cpu_ptr(&(var), cpu))
 
+#if defined(CONFIG_MTK_RT_THROTTLE_MON) || defined(CONFIG_MTK_SCHED_MONITOR)
+#define __raw_get_cpu_var(var)  (*raw_cpu_ptr(&(var)))
+#endif
+
 /*
  * Must be an lvalue. Since @var must be a simple identifier,
  * we force a syntax error here if it isn't.
