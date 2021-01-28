@@ -176,11 +176,11 @@ int sspm_reserve_memory_init(void)
 	return 0;
 }
 
-void sspm_lock_emi_mpu(void)
+void sspm_lock_emi_mpu(unsigned int region)
 {
-#if SSPM_EMI_PROTECTION_SUPPORT
+#ifdef CONFIG_MTK_EMI_LEGACY
 	if (sspm_mem_size > 0)
-		sspm_set_emi_mpu(sspm_mem_base_phys, sspm_mem_size);
+		sspm_set_emi_mpu(region, sspm_mem_base_phys, sspm_mem_size);
 #endif
 }
 

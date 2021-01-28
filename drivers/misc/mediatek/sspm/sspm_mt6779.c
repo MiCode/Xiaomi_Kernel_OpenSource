@@ -99,7 +99,7 @@ static int __init mt6779_sspm_module_init(void)
 	}
 #endif
 
-	sspm_lock_emi_mpu();
+	sspm_lock_emi_mpu(4);
 
 	return 0;
 

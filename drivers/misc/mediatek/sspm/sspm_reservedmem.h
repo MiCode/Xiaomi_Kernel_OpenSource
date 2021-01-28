@@ -35,8 +35,8 @@ phys_addr_t sspm_reserve_mem_get_phys(unsigned int id);
 phys_addr_t sspm_reserve_mem_get_virt(unsigned int id);
 phys_addr_t sspm_reserve_mem_get_size(unsigned int id);
 int sspm_reserve_memory_init(void);
-void sspm_set_emi_mpu(phys_addr_t base, phys_addr_t size);
-void sspm_lock_emi_mpu(void);
+void sspm_set_emi_mpu(unsigned int id, phys_addr_t base, phys_addr_t size);
+void sspm_lock_emi_mpu(unsigned int region);
 
 #ifdef SSPM_SHARE_BUFFER_SUPPORT
 #define SSPM_SHARE_REGION_BASE  0x20000
