@@ -45,8 +45,6 @@ void mmc_crypto_enable_spec(struct mmc_host *host);
 void mmc_crypto_disable_spec(struct mmc_host *host);
 
 struct keyslot_mgmt_ll_ops;
-int mmc_init_crypto_spec(struct mmc_host *host,
-				const struct keyslot_mgmt_ll_ops *ksm_ops);
 
 void mmc_crypto_setup_rq_keyslot_manager_spec(struct mmc_host *host,
 						 struct request_queue *q);

@@ -21,9 +21,10 @@
 #include "queue.h"
 #include "block.h"
 #include "core.h"
+#include "crypto.h"
 #include "card.h"
 #include "host.h"
-#include "mmc-crypto.h"
+#include "mmc_crypto.h"
 #include "mtk_mmc_block.h"
 
 static inline bool mmc_cqe_dcmd_busy(struct mmc_queue *mq)
@@ -486,7 +487,7 @@ static int mmc_mq_init(struct mmc_queue *mq, struct mmc_card *card,
 
 	mmc_setup_queue(mq, card);
 	/* inline crypto */
-	mmc_crypto_setup_rq_keyslot_manager(card->host, mq->queue);
+	mmc_crypto_setup_queue(host, mq->queue);
 
 	return 0;
 }
@@ -504,22 +505,20 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		   spinlock_t *lock, const char *subname)
 {
 	struct mmc_host *host = card->host;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	int err;
-
+#endif
 	mq->card = card;
 
 	mq->use_cqe = host->cqe_enabled;
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	mq->use_swcq = host->swcq_enabled;
-#endif
-
 	/* inline crypto */
 	err = mmc_init_crypto(card->host);
 	if (err)
 		return err;
-	if (mmc_is_crypto_supported(card->host))
-		mmc_crypto_enable(card->host);
+#endif
 
 	return mmc_mq_init(mq, card, lock);
 }
@@ -545,8 +544,6 @@ void mmc_cleanup_queue(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
 
-	/* inline crypto */
-	mmc_crypto_destroy_rq_keyslot_manager(mq->card->host, q);
 
 	/*
 	 * The legacy code handled the possibility of being suspended,
