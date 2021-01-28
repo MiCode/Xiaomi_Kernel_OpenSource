@@ -318,6 +318,11 @@ struct fsg_common {
 
 	/* For build-in CDROM */
 	u8 bicr;
+
+	/* For Fast META */
+#ifdef CONFIG_USB_CONFIGFS_MTK_FASTMETA
+	char name[FSG_MAX_LUNS][LUN_NAME_LEN];
+#endif
 };
 
 struct fsg_dev {
@@ -2937,6 +2942,63 @@ ssize_t fsg_bicr_store(struct fsg_common *common, const char *buf, size_t size)
 	}
 
 	return size;
+}
+#endif
+
+#ifdef CONFIG_USB_CONFIGFS_MTK_FASTMETA
+ssize_t fsg_inquiry_show(struct fsg_common *common, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", common->inquiry_string);
+}
+
+ssize_t fsg_inquiry_store(struct fsg_common *common,
+		const char *buf, size_t size)
+{
+	if (size >= sizeof(common->inquiry_string))
+		return -EINVAL;
+
+	if (sscanf(buf, "%28s", common->inquiry_string) != 1)
+		return -EINVAL;
+	return size;
+}
+
+int fsg_sysfs_update(struct fsg_common *common, struct device *dev, bool create)
+{
+	int ret = 0, i, nluns;
+
+	nluns = _fsg_common_get_max_lun(common) + 1;
+
+	pr_info("%s(): nluns:%d\n", __func__, nluns);
+	if (create) {
+		for (i = 0; i < nluns; i++) {
+			if (i == 0)
+				snprintf(common->name[i], 8, "lun");
+			else
+				snprintf(common->name[i], 8, "lun%d", i-1);
+			ret = sysfs_create_link(&dev->kobj,
+					&common->luns[i]->dev.kobj,
+					common->name[i]);
+			if (ret) {
+				pr_info("%s(): failed creating sysfs:%d %s)\n",
+						__func__, i, common->name[i]);
+				goto remove_sysfs;
+			}
+		}
+	} else {
+		i = nluns;
+		goto remove_sysfs;
+	}
+
+	return 0;
+
+remove_sysfs:
+	for (; i > 0; i--) {
+		pr_info("%s(): delete sysfs for lun(id:%d)(name:%s)\n",
+					__func__, i, common->name[i-1]);
+		sysfs_remove_link(&dev->kobj, common->name[i-1]);
+	}
+
+	return ret;
 }
 #endif
 
