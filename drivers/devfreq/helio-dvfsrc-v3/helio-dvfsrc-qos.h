@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/devfreq.h>
 #include <linux/io.h>
+#include "helio-dvfsrc-smc-control.h"
 
 #define dvfsrc_wait_for_completion(condition, timeout)			\
 ({								\
@@ -73,6 +74,7 @@ struct helio_dvfsrc {
 	int dvfsrc_flag;
 
 	void __iomem		*regs;
+	void __iomem		*spm_regs;
 	void __iomem		*sram_regs;
 
 	struct notifier_block	pm_qos_memory_bw_nb;
@@ -99,12 +101,12 @@ struct helio_dvfsrc {
 };
 
 extern int is_dvfsrc_enabled(void);
-extern void mtk_spmfw_init(int dvfsrc_en, int skip_check);
 extern void helio_dvfsrc_enable(int dvfsrc_en);
 extern void helio_dvfsrc_flag_set(int flag);
 extern int helio_dvfsrc_flag_get(void);
 extern char *dvfsrc_dump_reg(char *ptr);
 extern u32 dvfsrc_read(u32 offset);
+extern u32 spm_reg_read(u32 offset);
 extern void dvfsrc_write(u32 offset, u32 val);
 extern void dvfsrc_opp_table_init(void);
 extern int helio_dvfsrc_add_interface(struct device *dev);
@@ -114,17 +116,19 @@ extern void dvfsrc_opp_level_mapping(void);
 extern void get_opp_info(char *p);
 extern void get_dvfsrc_reg(char *p);
 extern void get_dvfsrc_record(char *p);
-extern void get_spm_reg(char *p);
-extern void spm_dvfs_pwrap_cmd(int pwrap_cmd, int pwrap_vcore);
-extern u32 spm_get_dvfs_level(void);
+
 extern void vcorefs_trace_qos(void);
 extern int helio_dvfsrc_config(struct helio_dvfsrc *dvfsrc);
 extern int commit_data(int type, int data, int check_spmfw);
 extern void dvfsrc_enable_level_intr(int en);
 
+extern void get_spm_reg(char *p);
 
 extern int vcore_pmic_to_uv(int pmic_val);
 extern int vcore_uv_to_pmic(int vcore_uv);
+extern int helio_dvfsrc_level_mask_get(void);
+extern int helio_dvfsrc_level_mask_set(bool en, int level);
+
 
 #endif /* __HELIO_DVFSRC_QOS_H */
 
