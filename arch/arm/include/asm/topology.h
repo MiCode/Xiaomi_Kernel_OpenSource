@@ -53,6 +53,8 @@ static inline void store_cpu_topology(unsigned int cpuid) { }
 
 #endif
 
+void arch_build_cpu_topology_domain(void);
+
 #include <asm-generic/topology.h>
 
 #endif /* _ASM_ARM_TOPOLOGY_H */

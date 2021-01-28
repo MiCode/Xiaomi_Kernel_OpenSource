@@ -19,6 +19,7 @@
 #include <trace/events/sched.h>
 #include <linux/stop_machine.h>
 #include <linux/cpumask.h>
+#include <linux/list_sort.h>
 
 
 /*
@@ -31,9 +32,8 @@
  */
 
 DEFINE_PER_CPU(struct hmp_domain *, hmp_cpu_domain);
-
 /* Setup hmp_domains */
-static void __init hmp_cpu_mask_setup(void)
+void hmp_cpu_mask_setup(void)
 {
 	struct hmp_domain *domain;
 	struct list_head *pos;
@@ -54,6 +54,93 @@ static void __init hmp_cpu_mask_setup(void)
 		for_each_cpu(cpu, &domain->possible_cpus)
 			per_cpu(hmp_cpu_domain, cpu) = domain;
 	}
+	pr_info("Initializing HMP scheduler done\n");
+}
+
+/*
+ * Heterogenous CPU capacity compare function
+ * Only inspect lowest id of cpus in same domain.
+ * Assume CPUs in same domain has same capacity.
+ */
+struct cluster_info {
+	struct hmp_domain *hmpd;
+	unsigned long cpu_perf;
+	int cpu;
+};
+
+static inline void fillin_cluster(struct cluster_info *cinfo,
+		struct hmp_domain *hmpd)
+{
+	int cpu;
+	unsigned long cpu_perf;
+
+	cinfo->hmpd = hmpd;
+	cinfo->cpu = cpumask_any(&cinfo->hmpd->possible_cpus);
+
+	for_each_cpu(cpu, &hmpd->possible_cpus) {
+		cpu_perf = arch_scale_cpu_capacity(NULL, cpu);
+		if (cpu_perf > 0)
+			break;
+	}
+	cinfo->cpu_perf = cpu_perf;
+
+	if (cpu_perf == 0)
+		pr_info("Uninitialized CPU performance (CPU mask: %lx)",
+				cpumask_bits(&hmpd->possible_cpus)[0]);
+}
+
+/*
+ * Negative, if @a should sort before @b
+ * Positive, if @a should sort after @b.
+ * Return 0, if ordering is to be preserved
+ */
+int hmp_compare(void *priv, struct list_head *a, struct list_head *b)
+{
+	struct cluster_info ca;
+	struct cluster_info cb;
+
+	fillin_cluster(&ca, list_entry(a, struct hmp_domain, hmp_domains));
+	fillin_cluster(&cb, list_entry(b, struct hmp_domain, hmp_domains));
+
+	return (ca.cpu_perf > cb.cpu_perf) ? -1 : 1;
+}
+
+void init_hmp_domains(void)
+{
+	struct hmp_domain *domain;
+	struct cpumask cpu_mask;
+	int id, maxid;
+
+	cpumask_clear(&cpu_mask);
+	maxid = arch_get_nr_clusters();
+
+	/*
+	 * Initialize hmp_domains
+	 * Must be ordered with respect to compute capacity.
+	 * Fastest domain at head of list.
+	 */
+	for (id = 0; id < maxid; id++) {
+		arch_get_cluster_cpus(&cpu_mask, id);
+		domain = (struct hmp_domain *)
+			kmalloc(sizeof(struct hmp_domain), GFP_KERNEL);
+		if (domain) {
+			cpumask_copy(&domain->possible_cpus, &cpu_mask);
+			cpumask_and(&domain->cpus, cpu_online_mask,
+				&domain->possible_cpus);
+			list_add(&domain->hmp_domains, &hmp_domains);
+		}
+	}
+
+	/*
+	 * Sorting HMP domain by CPU capacity
+	 */
+	list_sort(NULL, &hmp_domains, &hmp_compare);
+	pr_info("Sort hmp_domains from little to big:\n");
+	for_each_hmp_domain_L_first(domain) {
+		pr_info("    cpumask: 0x%02lx\n",
+				*cpumask_bits(&domain->possible_cpus));
+	}
+	hmp_cpu_mask_setup();
 }
 
 #ifdef CONFIG_SCHED_HMP
