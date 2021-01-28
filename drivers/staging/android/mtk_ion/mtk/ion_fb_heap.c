@@ -19,7 +19,6 @@
 #include "ion_drv_priv.h"
 #include "mtk/ion_drv.h"
 #include "mtk/mtk_ion.h"
-
 //tablet
 #ifdef CONFIG_MTK_IOMMU
 #include "pseudo_m4u.h"
@@ -34,7 +33,6 @@
 #endif
 
 #define ION_FB_ALLOCATE_FAIL	-1
-
 /*fb heap base and size denamic access*/
 struct ion_fb_heap {
 	struct ion_heap heap;
@@ -105,7 +103,7 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct ion_fb_buffer_info *buffer_info =
 	    (struct ion_fb_buffer_info *)buffer->priv_virt;
 	struct port_mva_info_t port_info;
-
+	int domain_idx = 0;
 	if (!buffer_info) {
 		IONMSG("%s: Error. Invalid buffer.\n", __func__);
 		return -EFAULT;	/* Invalid buffer */
@@ -129,10 +127,10 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	port_info.security = buffer_info->security;
 	port_info.buf_size = buffer->size;
 	port_info.flags = 0;
-
+	domain_idx = ion_get_domain_id(1, &port_info.emoduleid);
 	/*Allocate MVA */
 	mutex_lock(&buffer_info->lock);
-	if (buffer_info->MVA == 0) {
+	if (buffer_info->MVA[domain_idx] == 0) {
 #if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_PSEUDO_M4U)
 		int ret = m4u_alloc_mva_sg(&port_info, buffer->sg_table);
 
@@ -142,10 +140,10 @@ static int ion_fb_heap_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 			return -EFAULT;
 		}
 #endif
-		buffer_info->MVA = port_info.mva;
-		*addr = (ion_phys_addr_t)buffer_info->MVA;
+		buffer_info->MVA[domain_idx] = port_info.mva;
+		*addr = (ion_phys_addr_t)buffer_info->MVA[domain_idx];
 	} else {
-		*addr = (ion_phys_addr_t)buffer_info->MVA;
+		*addr = (ion_phys_addr_t)buffer_info->MVA[domain_idx];
 	}
 
 	mutex_unlock(&buffer_info->lock);
@@ -159,6 +157,7 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 				unsigned long align, unsigned long flags)
 {
 	struct ion_fb_buffer_info *buffer_info = NULL;
+	int domain_idx = 0;
 	ion_phys_addr_t paddr;
 
 	if (align > PAGE_SIZE)
@@ -175,10 +174,16 @@ static int ion_fb_heap_allocate(struct ion_heap *heap,
 
 	buffer_info->priv_phys = paddr;
 	buffer_info->VA = 0;
-	buffer_info->MVA = 0;
-	buffer_info->FIXED_MVA = 0;
-	buffer_info->iova_start = 0;
-	buffer_info->iova_end = 0;
+	buffer_info->fix_module_id = -1;
+	buffer_info->pid = -1;
+	buffer_info->mva_cnt = 0;
+	for (domain_idx = 0; domain_idx < DOMAIN_NUM; domain_idx++) {
+		buffer_info->MVA[domain_idx] = 0;
+		buffer_info->FIXED_MVA[domain_idx] = 0;
+		buffer_info->iova_start[domain_idx] = 0;
+		buffer_info->iova_end[domain_idx] = 0;
+		buffer_info->port[domain_idx] = -1;
+	}
 	buffer_info->module_id = -1;
 	buffer_info->dbg_info.value1 = 0;
 	buffer_info->dbg_info.value2 = 0;
@@ -201,7 +206,7 @@ static void ion_fb_heap_free(struct ion_buffer *buffer)
 	struct ion_fb_buffer_info *buffer_info =
 	    (struct ion_fb_buffer_info *)buffer->priv_virt;
 	struct sg_table *table = buffer->sg_table;
-
+	int domain_idx = 0;
 	if (!buffer_info) {
 		IONMSG(" %s: Error: buffer_info is NULL.\n", __func__);
 		return;
@@ -209,9 +214,12 @@ static void ion_fb_heap_free(struct ion_buffer *buffer)
 
 	buffer->priv_virt = NULL;
 #if (defined(CONFIG_MTK_M4U)) || defined(CONFIG_MTK_PSEUDO_M4U)
-	if (buffer_info->MVA)
-		m4u_dealloc_mva_sg(buffer_info->module_id, table, buffer->size,
-				   buffer_info->MVA);
+	for (domain_idx = 0; domain_idx < DOMAIN_NUM; domain_idx++) {
+		if (buffer_info->MVA[domain_idx])
+			m4u_dealloc_mva_sg(buffer_info->module_id, table,
+					   buffer->size,
+					   buffer_info->MVA[domain_idx]);
+	}
 #endif
 	ion_fb_free(heap, buffer_info->priv_phys, buffer->size);
 	ion_fb_heap_unmap_dma(heap, buffer);

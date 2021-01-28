@@ -227,7 +227,7 @@ static int ion_mm_pool_total(struct ion_system_heap *heap,
 }
 
 #define MTK_GET_DOMAIN_IGNORE (DOMAIN_NUM + 1)
-static int ion_get_domain_id(int from_kernel, int *port)
+int ion_get_domain_id(int from_kernel, int *port)
 {
 	int domain_idx = 0;
 #ifdef CONFIG_MTK_IOMMU_V2
@@ -1988,10 +1988,11 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 		} else if ((int)buffer->heap->type == ION_HEAP_TYPE_FB) {
 			struct ion_fb_buffer_info *buffer_info =
 			    buffer->priv_virt;
-
+			int domain_idx = ion_get_domain_id(1,
+				&param.config_buffer_param.module_id);
 			buffer_sec = buffer_info->security;
 #ifndef CONFIG_MTK_IOMMU_V2
-			if (buffer_info->MVA == 0) {
+			if (buffer_info->MVA[domain_idx] == 0) {
 #endif
 				buffer_info->module_id =
 				    param.config_buffer_param.module_id;
@@ -2000,9 +2001,9 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 				buffer_info->coherent =
 				    param.config_buffer_param.coherent;
 				if (param.mm_cmd == ION_MM_CONFIG_BUFFER_EXT) {
-					buffer_info->iova_start =
+					buffer_info->iova_start[domain_idx] =
 				param.config_buffer_param.reserve_iova_start;
-					buffer_info->iova_end =
+					buffer_info->iova_end[domain_idx] =
 				param.config_buffer_param.reserve_iova_end;
 				}
 #ifndef CONFIG_MTK_IOMMU_V2
