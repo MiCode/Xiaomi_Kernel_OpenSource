@@ -422,6 +422,7 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 	    path_handle->hwmutexid >= DDP_MAX_MANAGER_HANDLE) {
 		DISP_LOG_E("%s: error hwmutexid:%d\n",
 			   __func__, path_handle->hwmutexid);
+		kfree(path_handle);
 		return NULL;
 	}
 	path_handle->cmdqhandle = cmdq_handle;
