@@ -1296,11 +1296,6 @@ static void vfs_write_work(struct work_struct *data)
 		while (atomic_read(&usb_rdone) > 0) {
 			int rc;
 
-			if (index < 0 && index >= ARRAY_SIZE(dev->rx_req)) {
-				MTP_RX_DBG("%s-%d, array %d outbound!\n",
-					__func__, __LINE__, index);
-				break;
-			}
 			write_req = dev->rx_req[index];
 			index = (index + 1) % RX_REQ_MAX;
 			atomic_dec(&usb_rdone);
