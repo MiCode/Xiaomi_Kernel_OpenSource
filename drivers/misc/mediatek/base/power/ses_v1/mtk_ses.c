@@ -289,7 +289,7 @@ static int ses_reserve_memory_dump(char *buf, unsigned int log_offset)
 	return 0;
 }
 
-#define EEM_TEMPSPARE0		0x112788F0
+#define EEM_TEMPSPARE0		0x11278F20
 
 static void ses_reserve_memory_init(unsigned int log_offset)
 {
