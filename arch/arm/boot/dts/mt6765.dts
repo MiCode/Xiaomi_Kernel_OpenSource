@@ -2121,11 +2121,9 @@
 		interrupts = <GIC_SPI 210 IRQ_TYPE_LEVEL_LOW>;
 	};
 
-	smi_common@14002000 {
+	smi_common: smi_common@14002000 {
 		compatible = "mediatek,smi_common";
 		reg = <0 0x14002000 0 0x1000>;
-		nr_larbs = <4>;
-		larbs = <&smi_larb0>, <&smi_larb1>, <&smi_larb2>, <&smi_larb3>;
 		mmsys_config = <&dispsys_config>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&mmsys_config CLK_MM_SMI_COMM0>,
@@ -2140,6 +2138,8 @@
 			"mmdvfs_clk_mm_sel_ck",
 			"mmdvfs_clk_mmpll_ck", "mmdvfs_clk_univpll1_d2_ck",
 			"mmdvfs_clk_mmpll_d2_ck";
+		mediatek,smi-id = <4>;
+		mediatek,smi-cnt = <5>;
 	};
 
 	mmdvfs_pmqos {
@@ -2214,9 +2214,11 @@
 		cell-index = <0>;
 		compatible = "mediatek,smi_larb0", "mediatek,smi_larb";
 		reg = <0 0x14003000 0 0x1000>;
+		mediatek,larb-id = <0>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&mmsys_config CLK_MM_SMI_LARB0>;
 		clock-names = "mtcmos-mm", "mm-larb0";
+		mediatek,smi-id = <0>;
 	};
 
 	mdp_rdma0: mdp_rdma0@14004000 {
@@ -2411,9 +2413,11 @@
 		cell-index = <2>;
 		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
 		reg = <0 0x15021000 0 0x1000>;
+		mediatek,larb-id = <2>;
 		clocks = <&scpsys SCP_SYS_ISP>, <&mmsys_config CLK_MM_SMI_IMG>,
 			<&imgsys CLK_IMG_LARB2>;
 		clock-names = "mtcmos-isp", "gals-img2mm", "img-larb2";
+		mediatek,smi-id = <2>;
 	};
 
 	fdvt@1502b000 {
@@ -2453,9 +2457,11 @@
 		cell-index = <1>;
 		compatible = "mediatek,smi_larb1", "mediatek,smi_larb";
 		reg = <0 0x17010000 0 0x1000>;
+		mediatek,larb-id = <1>;
 		clocks = <&scpsys SCP_SYS_VCODEC>,
-			<&venc_gcon CLK_VENC_SET1_VENC>;
+			<&vcodecsys CLK_VENC_SET1_VENC>;
 		clock-names = "mtcmos-vcodec", "venc-larb1";
+		mediatek,smi-id = <1>;
 	};
 
 	venc@17020000 {
@@ -2495,9 +2501,11 @@
 		cell-index = <3>;
 		compatible = "mediatek,smi_larb3", "mediatek,smi_larb";
 		reg = <0 0x1a002000 0 0x1000>;
+		mediatek,larb-id = <3>;
 		clocks = <&scpsys SCP_SYS_CAM>, <&mmsys_config CLK_MM_SMI_CAM>,
 			<&camsys CLK_CAM_LARB3>;
 		clock-names = "mtcmos-cam", "gals-cam2mm", "cam-larb3";
+		mediatek,smi-id = <3>;
 	};
 
 	cam1@1a003000 {
