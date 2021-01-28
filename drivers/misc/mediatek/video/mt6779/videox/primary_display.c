@@ -2835,9 +2835,8 @@ static int init_decouple_buffers(void)
 
 	/* INTERNAL Buf 3 frames */
 	for (i = 0; i < DISP_INTERNAL_BUFFER_COUNT; i++) {
-		decouple_buffer_info[i] = allocat_decouple_buffer(buffer_size);
-		if (decouple_buffer_info[i])
-			pgc->dc_buf[i] = decouple_buffer_info[i]->mva;
+		pgc->dc_buf[i] = i * buffer_size +
+			primary_display_get_frame_buffer_mva_address();
 	}
 
 	/* initialize RDMA config */
