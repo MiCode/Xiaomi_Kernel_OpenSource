@@ -1542,9 +1542,9 @@ TRACE_EVENT(sched_avg_heavy_task_load,
 	)
 )
 
-#endif /* _TRACE_SCHED_H */
 
 #include "sched_enhance.h"
 
+#endif /* _TRACE_SCHED_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
