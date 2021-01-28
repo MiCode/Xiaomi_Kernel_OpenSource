@@ -716,6 +716,8 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 int cm_mgr_register_init(void)
 {
 	struct device_node *node;
+	int ret;
+	const char *buf;
 
 	node = of_find_compatible_node(NULL, NULL,
 			"mediatek,mcucfg_mp0_counter");
@@ -725,6 +727,18 @@ int cm_mgr_register_init(void)
 	if (!mcucfg_mp0_counter_base) {
 		pr_info("base mcucfg_mp0_counter_base failed\n");
 		return -1;
+	}
+
+	if (node) {
+		ret = of_property_read_string(node,
+				"status", (const char **)&buf);
+
+		if (ret == 0) {
+			if (!strcmp(buf, "enable"))
+				cm_mgr_enable = 1;
+			else
+				cm_mgr_enable = 0;
+		}
 	}
 
 	node = of_find_compatible_node(NULL, NULL,
