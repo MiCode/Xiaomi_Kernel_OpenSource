@@ -181,7 +181,6 @@ static int mtk_otg_switch_init(struct mtk_glue *glue)
 
 	role_sx_desc.set = musb_usb_role_sx_set;
 	role_sx_desc.get = musb_usb_role_sx_get;
-	role_sx_desc.fwnode = dev_fwnode(glue->dev);
 	glue->role_sw = usb_role_switch_register(glue->dev, &role_sx_desc);
 
 	return PTR_ERR_OR_ZERO(glue->role_sw);
