@@ -171,7 +171,7 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 }
 
 /* save binary register and stack value into ram console */
-static void aee_save_reg_stack_sram(int cpu)
+static void aee_save_reg_stack_sram(unsigned int cpu)
 {
 	int i;
 	int len = 0;
