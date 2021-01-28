@@ -129,6 +129,7 @@ static struct dts_predef clkbuf_dts[DTS_NUM] = {
 	[XO_HW_SEL] = {"pmic-xo-mode", 7, 0, 0x3, 0},
 
 	[BBL_SW_EN] = {"pmic-bblpm-sw", 1, 0, 0x1, 0},
+	[DEF_CAP_ID] = {"pmic-default-capid", 1, 0, 0xff, 0},
 
 	[MISC_SRCLKENI_EN] = {"pmic-srclkeni3", 1, 0, 0x1, 0},
 
@@ -1012,15 +1013,54 @@ static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 	return len;
 }
 
+static u32 default_cap_id = 0x55;
+static ssize_t clk_buf_capid_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u32 cap_id = 0;
+
+	if ((kstrtouint(buf, 10, &cap_id))) {
+		pr_info("cap id input error\n");
+		return -EPERM;
+	}
+
+	pr_info("cap id input (%d)\n", cap_id);
+	if (cap_id < 256) {
+		if (default_cap_id == 0x55)
+			clkbuf_read(DEF_CAP_ID, 0, &default_cap_id);
+
+		clkbuf_update(DEF_CAP_ID, 0, cap_id);
+	} else {
+		return -EPERM;
+	}
+
+	return count;
+}
+
+static ssize_t clk_buf_capid_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	u32 cap_id = 0;
+	int len = 0;
+
+	clkbuf_read(DEF_CAP_ID, 0, &cap_id);
+	pr_info("default cap id(%#x), cap id(%#x)\n", default_cap_id, cap_id);
+	len = snprintf(buf, PAGE_SIZE, "default cap id(%#x), cap id(%#x)\n",
+		default_cap_id, cap_id);
+	return len;
+}
+
 DEFINE_ATTR_RW(clk_buf_ctrl);
 DEFINE_ATTR_RW(clk_buf_debug);
 DEFINE_ATTR_RW(clk_buf_bblpm);
+DEFINE_ATTR_RW(clk_buf_capid);
 
 static struct attribute *clk_buf_attrs[] = {
 	/* for clock buffer control */
 	__ATTR_OF(clk_buf_ctrl),
 	__ATTR_OF(clk_buf_debug),
 	__ATTR_OF(clk_buf_bblpm),
+	__ATTR_OF(clk_buf_capid),
 
 	/* must */
 	NULL,
