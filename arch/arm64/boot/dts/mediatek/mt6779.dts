@@ -2552,6 +2552,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<&topckgen CLK_TOP_UNIVPLL_D3>;
 			compatible = "mediatek,mt6779-gpufreq";
 			power-domains = <&scpsys MT6779_POWER_DOMAIN_MFG3>;
+			nvmem = <&efuse>;
+			nvmem-names = "mtk_efuse";
 		};
 
 		mfgcfg: clock-controller@13fbf000 {

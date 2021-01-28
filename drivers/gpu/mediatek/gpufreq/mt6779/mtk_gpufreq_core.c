@@ -77,6 +77,11 @@
 #include "mtk_battery_percentage_throttling.h"
 #endif
 
+#ifdef CONFIG_MTK_DEVINFO
+#include <linux/nvmem-consumer.h>
+#endif
+
+
 #include <linux/string.h>
 
 
@@ -2557,6 +2562,11 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 {
 	struct device_node *apmixed_node;
 	struct device_node *node;
+#ifdef CONFIG_MTK_DEVINFO
+	struct nvmem_cell *efuse_cell;
+	unsigned int *efuse_buf;
+	size_t efuse_len;
+#endif
 	int i;
 
 	g_opp_stress_test_state = false;
@@ -2618,6 +2628,25 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	pr_info("clk_main_parent is at 0x%p, ", g_clk->clk_main_parent);
 	pr_info("mtcmos_mfg is at 0x%p, ", g_clk->mtcmos_mfg);
 
+#ifdef CONFIG_MTK_DEVINFO
+	//efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	//if (IS_ERR(efuse_cell)) {
+	//gpufreq_perr("@%s: cannot get efuse_cell\n", __func__);
+	//return PTR_ERR(efuse_cell);
+	//}
+	//
+	//efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	//nvmem_cell_put(efuse_cell);
+	//if (IS_ERR(efuse_buf)) {
+	//	gpufreq_perr("@%s: cannot get efuse_buf\n", __func__);
+	//	return PTR_ERR(efuse_buf);
+	//}
+	//
+	//g_efuse_id = *efuse_buf;
+	//kfree(efuse_buf);
+#else
+	//g_efuse_id = 0x0;
+#endif /* CONFIG_MTK_DEVINFO */
 
 	/* check EFUSE register 0x11f10050[27:24] */
 	/* Free Version : 4'b0000 */
@@ -2630,13 +2659,13 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	/* 700MHz Version : 4'b0111 (Segment3) */
 
 	/* efuse part */
-	/* g_efuse_id = get_devinfo_with_index(30);
-	 *if (g_efuse_id == 0x8 || g_efuse_id == 0xf) {
-	 *} else {
-	 *}
-	 *gpufreq_pr_info("@%s: g_efuse_id = 0x%08X, g_segment_id = %d\n",
-	 *	__func__, g_efuse_id, g_segment_id);
-	 */
+	//g_efuse_id = get_devinfo_with_index(30);
+	//if (g_efuse_id == 0x8 || g_efuse_id == 0xf) {
+	//} else {
+	//}
+	//gpufreq_pr_info("@%s: g_efuse_id = 0x%08X, g_segment_id = %d\n",
+	//	__func__, g_efuse_id, g_segment_id);
+
 	/* alloc PMIC regulator */
 	g_pmic = kzalloc(sizeof(struct g_pmic_info), GFP_KERNEL);
 	if (g_pmic == NULL)
