@@ -23,6 +23,7 @@
 
 #include "autok.h"
 #include "autok_dvfs.h"
+#include "msdc_inline_crypt.h"
 
 #if defined(CONFIG_MTK_HW_FDE) && defined(CONFIG_MTK_HW_FDE_AES)
 #include <fde_aes.h>
@@ -426,7 +427,7 @@ struct msdc_host {
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	atomic_t                cq_error_need_stop;
 #endif
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
+#if defined(CONFIG_MTK_HW_FDE) \
 	&& !defined(CONFIG_MTK_HW_FDE_AES)
 	bool                    is_crypto_init;
 	u32                     key_idx;
@@ -710,9 +711,6 @@ void msdc_restore_timing_setting(struct msdc_host *host);
 void msdc_save_timing_setting(struct msdc_host *host);
 void msdc_set_bad_card_and_remove(struct msdc_host *host);
 void msdc_remove_card(struct work_struct *work);
-#ifdef CONFIG_HIE
-struct hie_dev *msdc_hie_get_dev(void);
-#endif
 
 /* Function provided by mmc/core/sd.c */
 /* FIX ME: maybe removed in kernel 4.4 */

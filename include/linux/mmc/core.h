@@ -158,13 +158,18 @@ struct mmc_request {
 	struct list_head	link;
 	struct list_head	hlist;
 #endif
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	struct request		*req;
 	bool		is_mmc_req; /* request is from mmc layer */
 #endif
 	struct completion	completion;
 	struct completion	cmd_completion;
 	void			(*done)(struct mmc_request *);/* completion function */
+#ifdef CONFIG_MMC_CRYPTO
+	bool crypto_enable;
+	u8 crypto_key_slot;
+	u64 data_unit_num;
+#endif
 	/*
 	 * Notify uppers layers (e.g. mmc block driver) that recovery is needed
 	 * due to an error associated with the mmc_request. Currently used only

@@ -214,6 +214,30 @@ struct mmc_cqe_ops {
 	void	(*cqe_recovery_finish)(struct mmc_host *host);
 };
 
+struct keyslot_mgmt_ll_ops;
+struct mmc_crypto_variant_ops {
+	void (*setup_rq_keyslot_manager)(struct mmc_host *host,
+					 struct request_queue *q);
+	void (*destroy_rq_keyslot_manager)(struct mmc_host *host,
+					   struct request_queue *q);
+	int (*init_crypto)(struct mmc_host *host,
+			       const struct keyslot_mgmt_ll_ops *ksm_ops);
+	void (*enable)(struct mmc_host *host);
+	void (*disable)(struct mmc_host *host);
+	int (*suspend)(struct mmc_host *host);
+	int (*resume)(struct mmc_host *host);
+	int (*debug)(struct mmc_host *host);
+	void (*host_init_crypto)(struct mmc_host *host);
+	int (*get_crypto_capabilities)(struct mmc_host *host);
+	int (*prepare_mqr_crypto)(struct mmc_host *host,
+		u64 data_unit_num, int ddir, int tag, int slot);
+	void (*host_program_key)(struct mmc_host *host,
+			u32 *key, u32 *tkey, u32 config);
+	int (*complete_mqr_crypto)(struct mmc_host *host);
+	void (*msdc_crypto_keyslot_evict)(struct mmc_host *host);
+	void *priv;
+};
+
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
@@ -272,6 +296,65 @@ struct mmc_supply {
 
 struct mmc_ctx {
 	struct task_struct *task;
+};
+
+/* CCAP - Crypto Capability 100h */
+union mmc_crypto_capabilities {
+	__le32 reg_val;
+	struct {
+		u8 num_crypto_cap;
+		u8 config_count;
+		u8 reserved;
+		u8 config_array_ptr;
+	};
+};
+
+enum mmc_crypto_key_size {
+	MMC_CRYPTO_KEY_SIZE_128		= 1,
+	MMC_CRYPTO_KEY_SIZE_192		= 2,
+	MMC_CRYPTO_KEY_SIZE_256		= 3,
+	MMC_CRYPTO_KEY_SIZE_512		= 4,
+	MMC_CRYPTO_KEY_SIZE_INVALID	= 5,
+};
+
+enum mmc_crypto_alg {
+	MMC_CRYPTO_ALG_AES_XTS				= 0,
+	MMC_CRYPTO_ALG_BITLOCKER_AES_CBC	= 1,
+	MMC_CRYPTO_ALG_AES_ECB				= 2,
+	MMC_CRYPTO_ALG_ESSIV_AES_CBC		= 3,
+	MMC_CRYPTO_ALG_INVALID				= 4,
+};
+
+/* x-CRYPTOCAP - Crypto Capability X */
+union mmc_crypto_cap_entry {
+	__le32 reg_val;
+	struct {
+		u8 algorithm_id;
+		u8 sdus_mask; /* Supported data unit size mask */
+		u8 key_size;
+		u8 reserved;
+	};
+};
+
+/* Please note that enable bit @ bit15 for spec */
+#define MMC_CRYPTO_CONFIGURATION_ENABLE (1 << 7)
+#define MMC_CRYPTO_KEY_MAX_SIZE 64
+/* x-CRYPTOCFG - Crypto Configuration X */
+/* key info will be fill in here, find slot will use, # of array == # of slot */
+union mmc_crypto_cfg_entry {
+	__le32 reg_val[32];
+	struct {
+		u8 crypto_key[MMC_CRYPTO_KEY_MAX_SIZE];
+		/* 4KB/512 = 8 */
+		u8 data_unit_size;
+		u8 crypto_cap_idx;
+		u8 reserved_1;
+		u8 config_enable;
+		u8 reserved_multi_host;
+		u8 reserved_2;
+		u8 vsb[2];
+		u8 reserved_3[56];
+	};
 };
 
 struct mmc_host {
@@ -374,6 +457,14 @@ struct mmc_host {
 #define MMC_CAP2_CQE		(1 << 23)	/* Has eMMC command queue engine */
 #define MMC_CAP2_CQE_DCMD	(1 << 24)	/* CQE can issue a direct command */
 #define MMC_CAP2_AVOID_3_3V	(1 << 25)	/* Host must negotiate down from 3.3V */
+
+#define MMC_CAP2_INLINECRYPT	(1 << 26)	/* Support inline encryption */
+/*
+ * This capability allows the host controller driver to use the
+ * inline crypto engine, if it is present
+ */
+#define MMC_CAP2_CRYPTO      (1 << 27)
+
 #define MMC_CAP2_SWCQ		(1 << 30)	/* CAP_SW_CMDQ */
 
 	int			fixed_drv_type;	/* fixed driver type for non-removable media */
@@ -507,6 +598,15 @@ struct mmc_host {
 	int			cqe_qdepth;
 	bool			cqe_enabled;
 	bool			cqe_on;
+#ifdef CONFIG_MMC_CRYPTO
+	/* crypto */
+	const struct mmc_crypto_variant_ops *crypto_vops;
+	union mmc_crypto_capabilities crypto_capabilities;
+	union mmc_crypto_cap_entry *crypto_cap_array;
+	u8 crypto_cfg_register;
+	union mmc_crypto_cfg_entry *crypto_cfgs;
+	struct keyslot_manager *ksm;
+#endif /* CONFIG_MMC_CRYPTO */
 
 	unsigned long		private[0] ____cacheline_aligned;
 };

@@ -764,8 +764,8 @@ void msdc_cmdq_status_print(struct msdc_host *host, struct seq_file *m)
 #if defined(CONFIG_MTK_HW_FDE) && !defined(CONFIG_MTK_HW_FDE_AES)
 	seq_puts(m, "hardware fde support\n");
 #endif
-#if defined(CONFIG_HIE)
-	seq_puts(m, "hardware hie support\n");
+#if defined(CONFIG_MMC_CRYPTO)
+	seq_puts(m, "hardware inline crypto\n");
 #endif
 }
 

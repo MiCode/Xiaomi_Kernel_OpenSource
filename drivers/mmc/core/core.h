@@ -14,6 +14,8 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 
+#include "mmc-crypto.h"
+
 struct mmc_host;
 struct mmc_card;
 struct mmc_request;

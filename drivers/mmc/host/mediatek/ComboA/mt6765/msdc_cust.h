@@ -40,7 +40,7 @@
 #define DT_COMPATIBLE_NAME      "mediatek,msdc"
 #define MSDC0_CLK_NAME          "msdc0-clock"
 
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 #define MSDC0_AES_CLK_NAME          "msdc0-aes-clock"
 #endif
 

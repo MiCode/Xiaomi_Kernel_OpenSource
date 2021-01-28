@@ -214,6 +214,8 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 	 */
 	if (mrq->done)
 		mrq->done(mrq);
+
+	/* mmc_crypto_debug(host); */
 }
 
 EXPORT_SYMBOL(mmc_request_done);
@@ -944,6 +946,7 @@ int mmc_run_queue_thread(void *data)
 				mmc_check_write(host, done_mrq);
 				host->cur_rw_task = CQ_TASK_IDLE;
 				is_done = true;
+				mmc_complete_mqr_crypto(host);
 
 				if (atomic_read(&host->cq_tuning_now) == 1) {
 					mmc_restore_tasks(host);
@@ -974,6 +977,10 @@ int mmc_run_queue_thread(void *data)
 				task_id = ((dat_mrq->cmd->arg >> 16) & 0x1f);
 				host->cur_rw_task = task_id;
 				trace_mmc_request_start(host, dat_mrq);
+				err = mmc_swcq_prepare_mqr_crypto(host,
+					dat_mrq);
+				if (err == -EINVAL)
+					WARN_ON(1);
 				host->ops->request(host, dat_mrq);
 				//mt_biolog_cmdq_dma_start(task_id);
 				atomic_dec(&host->cq_rdy_cnt);
@@ -3474,6 +3481,9 @@ void mmc_stop_host(struct mmc_host *host)
 
 	/* clear pm flags now and let card drivers set them as needed */
 	host->pm_flags = 0;
+
+	/* inline crypto */
+	mmc_crypto_disable(host);
 
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {

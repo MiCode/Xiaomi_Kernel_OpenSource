@@ -51,11 +51,6 @@
 #include <mtk_hibernate_dpm.h>
 #endif
 
-#ifdef CONFIG_HIE
-#include <linux/hie.h>
-#include <linux/blk_types.h>
-#endif
-
 #include "dbg.h"
 
 #define CAPACITY_2G             (2 * 1024 * 1024 * 1024ULL)
@@ -143,8 +138,8 @@ int msdc_rsp[] = {
 			MSDC_WRITE32(MSDC_AES_SEL, 0x0); }
 #define MSDC_CHECK_FDE_ERR(mmc, mrq)    msdc_check_fde_err(mmc, mrq)
 
-#elif (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
-		&& !defined(CONFIG_MTK_HW_FDE_AES)
+#elif defined(CONFIG_MTK_HW_FDE) && !defined(CONFIG_MTK_HW_FDE_AES) \
+	&& !defined(CONFIG_MMC_CRYPTO)
 #define msdc_dma_on()           { msdc_pre_crypto(mmc, mrq); \
 			MSDC_CLR_BIT32(MSDC_CFG, MSDC_CFG_PIO); }
 #define msdc_dma_off()          { MSDC_SET_BIT32(MSDC_CFG, MSDC_CFG_PIO); \
@@ -2498,8 +2493,8 @@ error:
 #include "mtk_sd_hw_fde.c"
 #endif
 
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
-		&& !defined(CONFIG_MTK_HW_FDE_AES)
+#if defined(CONFIG_MTK_HW_FDE) && !defined(CONFIG_MTK_HW_FDE_AES) \
+	&& !defined(CONFIG_MMC_CRYPTO)
 #include "mtk_ufs_hw_fde.c"
 #endif
 
@@ -5033,11 +5028,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		if (host->hw->host_function == MSDC_EMMC)
 			mmc->caps2 |= MMC_CAP2_SWCQ;
 #endif
-
-#ifdef CONFIG_HIE
-	if (host->hw->host_function == MSDC_EMMC)
-		mmc->caps2 |= MMC_CAP2_INLINECRYPT;
-#endif
+	/* inline crypto */
+	msdc_crypto_init_vops(mmc);
 
 	/* If 0  < mmc->max_busy_timeout < cmd.busy_timeout,
 	 * R1B will change to R1, host will not detect DAT0 busy,
@@ -5203,9 +5195,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	msdc_dump_clock_sts(NULL, 0, NULL, host);
 #endif
 
-#ifdef CONFIG_HIE
-	msdc_hie_register(host);
-#endif
 	//if (host->hw->host_function == MSDC_EMMC)
 	//	msdc_debug_proc_init_bootdevice();
 
@@ -5233,7 +5222,7 @@ static int msdc_drv_remove(struct platform_device *pdev)
 		clk_disable_unprepare(host->clk_ctl);
 	if (host->hclk_ctl)
 		clk_disable_unprepare(host->hclk_ctl);
-#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	if (host->aes_clk_ctl)
 		clk_disable_unprepare(host->aes_clk_ctl);
 #endif
@@ -5311,7 +5300,7 @@ static int msdc_suspend(struct device *dev)
 	ret = msdc_runtime_suspend(dev);
 
 out:
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
+#if defined(CONFIG_MTK_HW_FDE) \
 	&& !defined(CONFIG_MTK_HW_FDE_AES)
 	host->is_crypto_init = false;
 #endif
