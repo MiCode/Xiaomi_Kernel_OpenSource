@@ -20,6 +20,9 @@
 #include <linux/proc_fs.h>
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
+#ifdef CONFIG_MACH_MT8168
+#include "mtk_power_throttle.h"
+#endif
 #include "mt-plat/mtk_thermal_platform.h"
 #if defined(CONFIG_MTK_CLKMGR)
 #include <mach/mtk_clkmgr.h>
@@ -2544,6 +2547,9 @@ static int tscpu_read_atm(struct seq_file *m, void *v)
 	seq_printf(m, "tp_ratio_low_rise = %d\n", tp_ratio_low_rise);
 	seq_printf(m, "tp_ratio_low_fall = %d\n", tp_ratio_low_fall);
 
+#ifdef CONFIG_MACH_MT8168
+	dump_power_table();
+#endif
 	return 0;
 }
 
