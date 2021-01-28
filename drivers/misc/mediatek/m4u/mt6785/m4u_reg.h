@@ -415,8 +415,9 @@
 #define F_MMU_TBWALK_FAULT_VA_MSK_SEC   F_MSK(31, 12)
 #define F_MMU_TBWALK_FAULT_LAYER_SEC(regval) F_MSK_SHIFT(regval, 0, 0)
 
-#define REG_MMU_FAULT_VA_SEC(mmu)	 (0x13c+((mmu)<<3))
-#define F_MMU_FAULT_VA_MSK_SEC	F_MSK(31, 12)
+#define REG_MMU_FAULT_VA_SEC(mmu)       (0x13c+((mmu)<<3))
+#define F_MMU_FAULT_VA_MSK_SEC          F_MSK(31, 12)
+#define F_MMU_FAULT_PA_33_32(val)       F_MSK_SHIFT(val, 7, 6)
 #define F_MMU_FAULT_VA_WRITE_BIT_SEC    F_BIT_SET(1)
 #define F_MMU_FAULT_VA_LAYER_BIT_SEC    F_BIT_SET(0)
 

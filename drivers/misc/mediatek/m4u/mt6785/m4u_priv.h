@@ -32,24 +32,16 @@
 #include "m4u_reg.h"
 #include "../3.2/m4u_pgtable.h"
 
-#define M4UMSG(string, args...)	pr_info("[M4U] "string, ##args)
-#define M4UINFO(string, args...) pr_info("[M4U] "string, ##args)
+#define M4UMSG(string, args...)	     pr_info("[M4U] "string, ##args)
+#define M4UINFO(string, args...)     pr_info("[M4U] "string, ##args)
 
-#define m4u_info(string, args...)   pr_info("[M4U] "string, ##args)
-#define m4u_debug(string, args...)  pr_debug("[M4U] "string, ##args)
+#define m4u_info(string, args...)    pr_info("[M4U] "string, ##args)
+#define m4u_debug(string, args...)   pr_debug("[M4U] "string, ##args)
 
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
-	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
-	defined(CONFIG_MTK_TEE_GP_SUPPORT)
-
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT))
 #define M4U_TEE_SERVICE_ENABLE
-
-#endif
-
 #endif
 
 #if defined(CONFIG_MTK_ENABLE_GENIEZONE)
@@ -60,7 +52,7 @@
 #define M4U_MTEE_SERVICE_ENABLE
 #endif
 
-
+#define __MTK_M4U_BANK_IRQ_SUPPORT__
 
 #include "m4u_hw.h"
 
@@ -91,26 +83,6 @@ extern int gM4U_L2_enable;
 #endif
 
 extern void show_pte(struct mm_struct *mm, unsigned long addr);
-
-#ifndef dmac_map_area
-#define dmac_map_area __dma_map_area
-#endif
-
-#ifndef dmac_unmap_area
-#define dmac_unmap_area __dma_unmap_area
-#endif
-
-#ifndef dmac_flush_range
-#define dmac_flush_range __dma_flush_range
-#endif
-
-#ifndef outer_clean_all
-#define outer_clean_all(...)
-#endif
-
-#ifndef outer_flush_all
-#define outer_flush_all(...)
-#endif
 
 #include <linux/clk.h>
 
@@ -195,17 +167,11 @@ struct M4U_TF_STRUCT {
 typedef int (mva_buf_fn_t)(void *priv, unsigned int mva_start,
 		unsigned int mva_end, void *data);
 
-typedef int (mva_buf_fn_sync_t)(struct m4u_client_t *client,
-		   unsigned int port,
-		   unsigned long va, unsigned int size, unsigned int mva,
-		   enum M4U_CACHE_SYNC_ENUM sync_type);
 void m4u_mvaGraph_init(void *priv_reserve, int domain_idx);
 void m4u_mvaGraph_dump_raw(void);
 void m4u_mvaGraph_dump(unsigned int domain_idx);
 void *mva_get_priv_ext(unsigned int domain_idx, unsigned int mva);
 int mva_foreach_priv(mva_buf_fn_t *fn, void *data, unsigned int domain_idx);
-int mva_foreach_priv_sync(mva_buf_fn_sync_t *fn,
-		unsigned int type, unsigned int domain_idx);
 void *mva_get_priv(unsigned int mva, unsigned int domain_idx);
 unsigned int m4u_do_mva_alloc(unsigned int domain_idx,
 		unsigned long va, unsigned int size, void *priv);
@@ -340,24 +306,23 @@ extern int gM4U_log_to_uart;
 		aee_kernel_exception("M4U", "[M4U] error:"string, ##args);  \
 	} while (0)
 
-#define m4u_aee_print(string, args...) do {\
-		char m4u_name[100];\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
-	aee_kernel_warning_api(__FILE__, __LINE__, \
-		DB_OPT_MMPROFILE_BUFFER | DB_OPT_DUMP_DISPLAY, \
-		m4u_name, "[M4U] error"string, ##args); \
-	pr_info("[M4U] error:"string, ##args);  \
+#define m4u_aee_print(string, args...) do {                             \
+		char m4u_name[100];                                     \
+		int ret;                                                \
+		ret = snprintf(m4u_name, 100, "[M4U]"string, ##args);   \
+		if (ret < 0)                                            \
+			m4u_name[0] = '\0';                             \
+		aee_kernel_warning_api(__FILE__, __LINE__,              \
+					DB_OPT_MMPROFILE_BUFFER |       \
+					DB_OPT_DUMP_DISPLAY,            \
+					m4u_name,                       \
+					"[M4U] error"string, ##args);   \
+		pr_info("[M4U] error:"string, ##args);                  \
 	} while (0)
 /*aee_kernel_warning(m4u_name, "[M4U] error:"string,##args); */
 #else
-#define M4UERR(string, args...) \
-	pr_debug("[M4U] error:"string, ##args)
-
-#define m4u_aee_print(string, args...) do {\
-		char m4u_name[100];\
-		snprintf(m4u_name, 100, "[M4U]"string, ##args); \
-	pr_debug("[M4U] error:"string, ##args);  \
-	} while (0)
+#define M4UERR(string, args...)        pr_debug("[M4U] error:"string, ##args)
+#define m4u_aee_print(string, args...) pr_debug("[M4U] error:"string, ##args)
 
 #endif
 #define M4U_PRINT_SEQ(seq_file, fmt, args...) \
@@ -396,53 +361,32 @@ struct M4U_MOUDLE_STRUCT {
 	unsigned int flags;
 };
 
-struct M4U_CACHE_STRUCT {
-	int port;
-	enum M4U_CACHE_SYNC_ENUM eCacheSync;
-	unsigned long va;
-	unsigned int size;
-	unsigned int mva;
-};
-
-struct M4U_DMA_STRUCT {
-	int port;
-	enum M4U_DMA_TYPE eDMAType;
-	enum M4U_DMA_DIR eDMADir;
-	unsigned long va;
-	unsigned int size;
-	unsigned int mva;
-};
-
 /* IOCTL commnad */
 #define MTK_M4U_MAGICNO 'g'
-#define MTK_M4U_T_POWER_ON                  _IOW(MTK_M4U_MAGICNO, 0, int)
-#define MTK_M4U_T_POWER_OFF                 _IOW(MTK_M4U_MAGICNO, 1, int)
-#define MTK_M4U_T_DUMP_REG                  _IOW(MTK_M4U_MAGICNO, 2, int)
-#define MTK_M4U_T_DUMP_INFO                 _IOW(MTK_M4U_MAGICNO, 3, int)
-#define MTK_M4U_T_ALLOC_MVA                 _IOWR(MTK_M4U_MAGICNO, 4, int)
-#define MTK_M4U_T_DEALLOC_MVA               _IOW(MTK_M4U_MAGICNO, 5, int)
-#define MTK_M4U_T_INSERT_TLB_RANGE          _IOW(MTK_M4U_MAGICNO, 6, int)
-#define MTK_M4U_T_INVALID_TLB_RANGE         _IOW(MTK_M4U_MAGICNO, 7, int)
-#define MTK_M4U_T_INVALID_TLB_ALL           _IOW(MTK_M4U_MAGICNO, 8, int)
-#define MTK_M4U_T_MANUAL_INSERT_ENTRY       _IOW(MTK_M4U_MAGICNO, 9, int)
-#define MTK_M4U_T_CACHE_SYNC                _IOW(MTK_M4U_MAGICNO, 10, int)
-#define MTK_M4U_T_CONFIG_PORT               _IOW(MTK_M4U_MAGICNO, 11, int)
-#define MTK_M4U_T_CONFIG_ASSERT             _IOW(MTK_M4U_MAGICNO, 12, int)
-#define MTK_M4U_T_INSERT_WRAP_RANGE         _IOW(MTK_M4U_MAGICNO, 13, int)
-#define MTK_M4U_T_MONITOR_START             _IOW(MTK_M4U_MAGICNO, 14, int)
-#define MTK_M4U_T_MONITOR_STOP              _IOW(MTK_M4U_MAGICNO, 15, int)
-#define MTK_M4U_T_RESET_MVA_RELEASE_TLB     _IOW(MTK_M4U_MAGICNO, 16, int)
-#define MTK_M4U_T_CONFIG_PORT_ROTATOR       _IOW(MTK_M4U_MAGICNO, 17, int)
-#define MTK_M4U_T_QUERY_MVA                 _IOW(MTK_M4U_MAGICNO, 18, int)
-#define MTK_M4U_T_M4UDrv_CONSTRUCT          _IOW(MTK_M4U_MAGICNO, 19, int)
-#define MTK_M4U_T_M4UDrv_DECONSTRUCT        _IOW(MTK_M4U_MAGICNO, 20, int)
-#define MTK_M4U_T_DUMP_PAGETABLE            _IOW(MTK_M4U_MAGICNO, 21, int)
-#define MTK_M4U_T_REGISTER_BUFFER           _IOW(MTK_M4U_MAGICNO, 22, int)
-#define MTK_M4U_T_CACHE_FLUSH_ALL           _IOW(MTK_M4U_MAGICNO, 23, int)
-#define MTK_M4U_T_CONFIG_PORT_ARRAY         _IOW(MTK_M4U_MAGICNO, 26, int)
-#define MTK_M4U_T_CONFIG_MAU                _IOW(MTK_M4U_MAGICNO, 27, int)
-#define MTK_M4U_T_CONFIG_TF                 _IOW(MTK_M4U_MAGICNO, 28, int)
-#define MTK_M4U_T_DMA_OP                    _IOW(MTK_M4U_MAGICNO, 29, int)
+#define MTK_M4U_T_POWER_ON	    _IOW(MTK_M4U_MAGICNO, 0, int)
+#define MTK_M4U_T_POWER_OFF	   _IOW(MTK_M4U_MAGICNO, 1, int)
+#define MTK_M4U_T_DUMP_REG	    _IOW(MTK_M4U_MAGICNO, 2, int)
+#define MTK_M4U_T_DUMP_INFO	   _IOW(MTK_M4U_MAGICNO, 3, int)
+#define MTK_M4U_T_INSERT_TLB_RANGE    _IOW(MTK_M4U_MAGICNO, 6, int)
+#define MTK_M4U_T_INVALID_TLB_RANGE   _IOW(MTK_M4U_MAGICNO, 7, int)
+#define MTK_M4U_T_INVALID_TLB_ALL     _IOW(MTK_M4U_MAGICNO, 8, int)
+#define MTK_M4U_T_MANUAL_INSERT_ENTRY _IOW(MTK_M4U_MAGICNO, 9, int)
+#define MTK_M4U_T_CONFIG_PORT	 _IOW(MTK_M4U_MAGICNO, 11, int)
+#define MTK_M4U_T_CONFIG_ASSERT       _IOW(MTK_M4U_MAGICNO, 12, int)
+#define MTK_M4U_T_INSERT_WRAP_RANGE   _IOW(MTK_M4U_MAGICNO, 13, int)
+#define MTK_M4U_T_MONITOR_START       _IOW(MTK_M4U_MAGICNO, 14, int)
+#define MTK_M4U_T_MONITOR_STOP	_IOW(MTK_M4U_MAGICNO, 15, int)
+#define MTK_M4U_T_RESET_MVA_RELEASE_TLB  _IOW(MTK_M4U_MAGICNO, 16, int)
+#define MTK_M4U_T_CONFIG_PORT_ROTATOR _IOW(MTK_M4U_MAGICNO, 17, int)
+#define MTK_M4U_T_QUERY_MVA	   _IOW(MTK_M4U_MAGICNO, 18, int)
+#define MTK_M4U_T_M4UDrv_CONSTRUCT    _IOW(MTK_M4U_MAGICNO, 19, int)
+#define MTK_M4U_T_M4UDrv_DECONSTRUCT  _IOW(MTK_M4U_MAGICNO, 20, int)
+#define MTK_M4U_T_DUMP_PAGETABLE      _IOW(MTK_M4U_MAGICNO, 21, int)
+#define MTK_M4U_T_REGISTER_BUFFER     _IOW(MTK_M4U_MAGICNO, 22, int)
+#define MTK_M4U_T_CONFIG_PORT_ARRAY   _IOW(MTK_M4U_MAGICNO, 26, int)
+#define MTK_M4U_T_CONFIG_MAU	  _IOW(MTK_M4U_MAGICNO, 27, int)
+#define MTK_M4U_T_CONFIG_TF	   _IOW(MTK_M4U_MAGICNO, 28, int)
+#define MTK_M4U_T_DMA_OP	      _IOW(MTK_M4U_MAGICNO, 29, int)
 
 #define MTK_M4U_T_SEC_INIT                  _IOW(MTK_M4U_MAGICNO, 50, int)
 #define MTK_M4U_T_GZ_SEC_INIT               _IOW(MTK_M4U_MAGICNO, 60, int)
