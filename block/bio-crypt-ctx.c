@@ -49,7 +49,8 @@ struct bio_crypt_ctx *bio_crypt_alloc_ctx(gfp_t gfp_mask)
 {
 	struct bio_crypt_ctx *bc = mempool_alloc(bio_crypt_ctx_pool, gfp_mask);
 
-	bc->hie_ext4 = false;
+	if (bc)
+		bc->hie_ext4 = false;
 
 	return bc;
 }
