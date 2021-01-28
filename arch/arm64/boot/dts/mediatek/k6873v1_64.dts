@@ -1,5 +1,5 @@
 /*
- * Mediatek's mt6885 SoC device tree source
+ * Mediatek's mt6873 SoC device tree source
  *
  * Copyright (C) 2016 MediaTek Inc.
  *
@@ -16,26 +16,7 @@
 /plugin/;
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
-#include <dt-bindings/spmi/spmi.h>
-#include <dt-bindings/pinctrl/mt6885-pinfunc.h>
-
-&mmc_fixed_3v3 {
-	status = "okay";
-	regulator-name = "mmc_power";
-	regulator-min-microvolt = <3300000>;
-	regulator-max-microvolt = <3300000>;
-	enable-active-high;
-	regulator-always-on;
-};
-
-&mmc_fixed_1v8_io {
-	status = "okay";
-	regulator-name = "mmc_io";
-	regulator-min-microvolt = <1800000>;
-	regulator-max-microvolt = <1800000>;
-	enable-active-high;
-	regulator-always-on;
-};
+#include <dt-bindings/pinctrl/mt6873-pinfunc.h>
 
 &reserved_memory {
 };
@@ -43,7 +24,7 @@
 /* chosen */
 &chosen {
 
-	atag,videolfb-fb_base_l = <0x7e020000>;
+	atag,videolfb-fb_base_l = <0x7e605000>;
 	atag,videolfb-fb_base_h = <0x0>;
 	atag,videolfb-islcmfound = <1>;
 	atag,videolfb-islcm_inited = <0>;
@@ -51,21 +32,6 @@
 	atag,videolfb-vramSize= <0x1be0000>;
 	atag,videolfb-lcmname=
 		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
-};
-
-&mmc0 {
-	status = "okay";
-	/* pinctrl-names = "default", "state_uhs"; */
-	/* pinctrl-0 = <&mmc0_pins_default>; */
-	/* pinctrl-1 = <&mmc0_pins_uhs>; */
-	bus-width = <8>;
-	max-frequency = <5000000>;
-	cap-mmc-highspeed;
-	no-sdio;
-	no-sd;
-	vmmc-supply = <&mmc_fixed_3v3>;
-	vqmmc-supply = <&mmc_fixed_1v8_io>;
-	non-removable;
 };
 
 &odm {
@@ -123,15 +89,64 @@
 };
 
 /* TOUCH start */
+&spi7 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default", "gt9896s_int_active",
+		"gt9896s_reset_active", "gt9896s_int_suspend",
+		"gt9896s_reset_suspend", "gt9896s_spi_mode";
+	pinctrl-0 = <&ctp_gt9896s_pins_default>;
+	pinctrl-1 = <&ctp_gt9896s_int_active>;
+	pinctrl-2 = <&ctp_gt9896s_reset_active>;
+	pinctrl-3 = <&ctp_gt9896s_int_suspend>;
+	pinctrl-4 = <&ctp_gt9896s_reset_suspend>;
+	pinctrl-5 = <&ctp_gt9896s_spi_mode>;
+
+	gt9896s@0 {
+		compatible = "goodix,gt9896s";
+		reg = <0>; //Same as CS ID
+		spi-max-frequency = <1000000>;
+
+		goodix,avdd-name = "vtouch";
+		vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
+		goodix,reset-gpio = <&pio 20 0x0>;
+		goodix,irq-gpio = <&pio 21 0x0>;
+		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
+		goodix,panel-max-id = <10>;
+		goodix,panel-max-x = <1080>;
+		goodix,panel-max-y = <2280>;
+		goodix,panel-max-w = <256>;
+		goodix,panel-max-p = <256>;
+		goodix,input-max-x = <1080>;
+		goodix,input-max-y = <2280>;
+		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
+		goodix,power-on-delay-us = <10000>; /*10ms*/
+		goodix,power-off-delay-us = <5000>;
+		goodix,firmware-version = "6873v00";
+		goodix,config-version = "6873v01";
+		/*goodix,swap-axis;*/
+		/*goodix,x2x;*/
+		/*goodix,y2y;*/
+		goodix,pen-enable;
+		tpd-filter-enable = <0>;
+		tpd-filter-pixel-density = <161>;
+		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
+		tpd-filter-custom-speed = <0 0 0>;
+	};
+};
+
 &i2c0 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default", "ts_int_active",
-		"ts_reset_active", "ts_int_suspend", "ts_reset_suspend";
+		"ts_reset_active", "ts_int_suspend",
+		"ts_reset_suspend", "ts_i2c_mode";
 	pinctrl-0 = <&ctp_pins_default>;
 	pinctrl-1 = <&ctp_ts_int_active>;
 	pinctrl-2 = <&ctp_ts_reset_active>;
 	pinctrl-3 = <&ctp_ts_int_suspend>;
 	pinctrl-4 = <&ctp_ts_reset_suspend>;
+	pinctrl-5 = <&ctp_ts_i2c_mode>;
 
 	gt9886@5d {
 		compatible = "goodix,gt9886";
@@ -160,7 +175,7 @@
 		goodix,y2y;
 		goodix,pen-enable;
 		goodix,key-of-pen = <331 332>;/*BTN_STYLUS, BTN_STYLUS2*/
-		tpd-filter-enable = <1>;
+		tpd-filter-enable = <0>;
 		tpd-filter-pixel-density = <161>;
 		tpd-filter-custom-prameters = <0 0 0 0 0 0 0 0 0 0 0 0>;
 		tpd-filter-custom-speed = <0 0 0>;
@@ -174,6 +189,8 @@
 
 &pio {
 	ctp_pins_default: eintdefault {
+	};
+	ctp_gt9896s_pins_default: pins_default {
 	};
 	ctp_ts_int_active: int_active {
 		pins_cmd_dat {
@@ -203,10 +220,55 @@
 			output-low;
 		};
 	};
+	ctp_ts_i2c_mode: i2cmode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO204__FUNC_SCL0>,
+				<PINMUX_GPIO205__FUNC_SDA0>;
+			mediatek,drive-strength-adv = <0>;/*EH[2:0]*/
+		};
+	};
+	ctp_gt9896s_int_active: int1_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <0>;
+			bias-pull-up = <11>;
+		};
+	};
+	ctp_gt9896s_reset_active: reset1_active {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			slew-rate = <1>;
+			output-high;
+		};
+	};
+	ctp_gt9896s_int_suspend: int1_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_gt9896s_reset_suspend: reset1_suspend {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			slew-rate = <1>;
+			output-low;
+		};
+	};
+	ctp_gt9896s_spi_mode: spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO16__FUNC_SPI7_A_MI>,
+				<PINMUX_GPIO17__FUNC_SPI7_A_MO>,
+				<PINMUX_GPIO204__FUNC_SPI7_A_CLK>,
+				<PINMUX_GPIO205__FUNC_SPI7_A_CSB>;
+			drive-strength = <2>;
+		};
+	};
 };
 /* TOUCH end */
 
 /* DISPSYS GPIO standardization */
+
 &pio {
 	mtkfb_pins_lcd_bias_enp1: lcd_bias_enp1_gpio {
 		pins_cmd_dat {
@@ -255,12 +317,16 @@
 			output-low;
 		};
 	};
-
 	mtkfb_pins_lcm_dsi_te: lcm_dsi_te {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO41__FUNC_DSI_TE>;
 		};
 	};
+};
+
+&camera_af_hw_node {
+	vcamaf-supply = <&mt_pmic_vcamio_ldo_reg>;
+	status = "okay";
 };
 
 &mtkfb {
@@ -287,7 +353,33 @@
 	pinctrl-2 = <&mtkfb_pins_lcm_dsi_te>;
 	status = "okay";
 };
-/* DISPSYS GPIO standardization end */
+
+&dsi0 {
+	status = "okay";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	panel@0 {
+		compatible = "truly,td4330,vdo";
+		reg = <0>;
+		pm-enable-gpios = <&pio 41 0>;
+		reset-gpios = <&pio 42 0>;
+		bias-gpios = <&pio 28 0>,
+			<&pio 29 0>;
+		pinctrl-names = "default";
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+	ports {
+		port {
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
 
 /* accdet start */
 &accdet {
@@ -408,12 +500,14 @@
 };
 
 &mt6360_pmic {
-	pwr_off_seq = [04 00 02 02];
+	pwr_off_seq = [06 00 02 04];
 };
 
 &mt6360_typec {
 	mt6360pd,intr_gpio_num = <25>; /* direct defined GPIO num */
 	mt6360pd,intr_gpio = <&pio 25 0x0>;
+	mt6360pd,pcb_gpio = <&pio 19 0x0>;
+	mt6360pd,pcb_gpio_num = <19>;
 };
 
 /* USB SWITCH GPIO start */
@@ -551,100 +645,39 @@
 };
 /* USB SWITCH GPIO end */
 
-/* GPS GPIO standardization start */
+/* CONSYS GPIO standardization */
 &pio {
-	gps_pins_default: gps_default {
+	consys_pins_default: consys_default {
 	};
-
-	gps_l1_lna_pins_ol: gps_l1_lna@0 {
+	gpslna_pins_init: gpslna@0 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
 			output-low;
 		};
 	};
-	gps_l1_lna_pins_dsp_ctrl: gps_l1_lna@1 {
+	gpslna_pins_oh: gpslna@1 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPS_L1_ELNA_EN>;
 		};
 	};
-	gps_l1_lna_pins_oh: gps_l1_lna@2 {
+	gpslna_pins_ol: gpslna@2 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO162__FUNC_GPIO162>;
-			output-high;
-		};
-	};
-
-	gps_l5_lna_pins_ol: gps_l5_lna@0 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO163__FUNC_GPIO163>;
 			output-low;
 		};
 	};
-	gps_l5_lna_pins_dsp_ctrl: gps_l5_lna@1 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO163__FUNC_GPS_L5_ELNA_EN>;
-		};
-	};
-	gps_l5_lna_pins_oh: gps_l5_lna@2 {
-		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO163__FUNC_GPIO163>;
-			output-high;
-		};
-	};
 };
-
-&gps {
-	pinctrl-names = "default",
-		"gps_l1_lna_disable",
-		"gps_l1_lna_dsp_ctrl",
-		"gps_l1_lna_enable",
-		"gps_l5_lna_disable",
-		"gps_l5_lna_dsp_ctrl",
-		"gps_l5_lna_enable";
-	pinctrl-0 = <&gps_pins_default>;
-	pinctrl-1 = <&gps_l1_lna_pins_ol>;
-	pinctrl-2 = <&gps_l1_lna_pins_dsp_ctrl>;
-	pinctrl-3 = <&gps_l1_lna_pins_oh>;
-	pinctrl-4 = <&gps_l5_lna_pins_ol>;
-	pinctrl-5 = <&gps_l5_lna_pins_dsp_ctrl>;
-	pinctrl-6 = <&gps_l5_lna_pins_oh>;
+&consys {
+	pinctrl-names = "default", "gps_lna_state_init",
+		"gps_lna_state_oh", "gps_lna_state_ol";
+	pinctrl-0 = <&consys_pins_default>;
+	pinctrl-1 = <&gpslna_pins_init>;
+	pinctrl-2 = <&gpslna_pins_oh>;
+	pinctrl-3 = <&gpslna_pins_ol>;
 	status = "okay";
 };
-/* GPS GPIO standardization end */
+/* CONSYS end */
 
-&dsi0 {
-	status = "okay";
-	#address-cells = <1>;
-	#size-cells = <0>;
-	panel@0 {
-		compatible = "truly,td4330,cmd";
-		reg = <0>;
-		pm-enable-gpios = <&pio 41 0>;
-		reset-gpios = <&pio 42 0>;
-		bias-gpios = <&pio 28 0>,
-			<&pio 29 0>;
-		pinctrl-names = "default";
-		port {
-			panel_in: endpoint {
-				remote-endpoint = <&dsi_out>;
-			};
-		};
-	};
-	ports {
-		port {
-			dsi_out: endpoint {
-				remote-endpoint = <&panel_in>;
-			};
-		};
-	};
-};
-
-/* CAMERA specify sensor */
-&kd_camera_hw1 {
-	cam2_enable_sensor = "imx350_mipi_raw imx386_mipi_mono imx319_mipi_raw";
-};
-/* CAMERA specify sensor end */
-
-#include "cust_mt6885_camera.dtsi"
-#include <k6885v1_64/cust.dtsi>
+#include "cust_mt6873_camera.dtsi"
+#include <k6873v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/

@@ -639,12 +639,6 @@
 	};
 };
 
-/* CAMERA specify sensor */
-&kd_camera_hw1 {
-	cam2_enable_sensor = "imx350_mipi_raw imx386_mipi_mono imx319_mipi_raw";
-};
-/* CAMERA specify sensor end */
-
 #include "cust_mt6885_camera.dtsi"
-#include <k6885v1_64/cust.dtsi>
+#include <k6889v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/

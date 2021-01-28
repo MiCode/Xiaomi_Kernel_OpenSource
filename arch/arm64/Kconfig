@@ -462,6 +462,16 @@ config ARM64_ERRATUM_1024718
 
 	  If unsure, say Y.
 
+config ARM64_ERRATUM_1542418
+	bool "Cortex-A77: 1542418: The core might fetch a stale instruction from the L0 Macro-op"
+	default n
+	help
+	  This option adds work around for Arm Cortex-A77 Erratum 1542418.
+
+	  Affected Cortex-A77 cores (r0p0, r1p0) could cause the core might
+	  fetch a stale instructions from the L0 Macro-op cache which violates
+	  the ordefing of instruction fetches.
+
 config CAVIUM_ERRATUM_22375
 	bool "Cavium erratum 22375, 24313"
 	default y
