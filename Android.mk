@@ -71,18 +71,6 @@ clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(KERNEL_MODULES_OUT) $(INSTALLED_KERNEL_TARGET)
 	$(hide) rm -f $(INSTALLED_DTB_OVERLAY_TARGET)
 
-
-.PHONY: check-kernel-config check-kernel-dotconfig check-mtk-config
-droid: check-kernel-config check-kernel-dotconfig
-check-mtk-config: check-kernel-config check-kernel-dotconfig
-check-kernel-config: PRIVATE_COMMAND := $(if $(wildcard device/mediatek/build/build/tools/check_kernel_config.py),$(if $(filter yes,$(DISABLE_MTK_CONFIG_CHECK)),-)python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(KERNEL_CONFIG_FILE) -p $(MTK_PROJECT_NAME))
-check-kernel-config:
-	$(PRIVATE_COMMAND)
-
-check-kernel-dotconfig: PRIVATE_COMMAND := $(if $(wildcard device/mediatek/build/build/tools/check_kernel_config.py),$(if $(filter yes,$(DISABLE_MTK_CONFIG_CHECK)),-)python device/mediatek/build/build/tools/check_kernel_config.py -c $(MTK_TARGET_PROJECT_FOLDER)/ProjectConfig.mk -k $(TARGET_KERNEL_CONFIG) -p $(MTK_PROJECT_NAME))
-check-kernel-dotconfig: $(TARGET_KERNEL_CONFIG)
-	$(PRIVATE_COMMAND)
-
 ### DTB
 ifdef BOARD_PREBUILT_DTBIMAGE_DIR
 INSTALLED_MTK_DTB_TARGET := $(BOARD_PREBUILT_DTBIMAGE_DIR)/mtk_dtb
