@@ -728,7 +728,7 @@ void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &rt);
 	snprintf(curr_time_str, MDDP_CURR_TIME_STR_SZ,
-			"%d%02d%02d %02d:%02d:%02d.%09d UTC",
+			"%d%02d%02d %02d:%02d:%02d.%09ld UTC",
 			rt.tm_year + 1900, rt.tm_mon + 1, rt.tm_mday,
 			rt.tm_hour, rt.tm_min, rt.tm_sec, ts.tv_nsec);
 
