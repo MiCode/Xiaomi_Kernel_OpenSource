@@ -1,0 +1,117 @@
+config MTK_CHARGER
+	bool "MediaTek Charging Driver"
+	depends on MEDIATEK_SOLUTION
+	help
+	  Say yes here to enable MediaTek charging driver.
+	  This driver contains charging control flow and
+	  maintains charging status.
+	  Say no if not using MediaTek charging driver.
+
+config POWER_EXT
+	bool "MediaTek Power Ext"
+	help
+	  Check this if the device is not powered by battery.
+	  For example, if the device is powered by AC adapter.
+	  Select No if the device needs info about
+	  battery voltage, temperature, etc.
+
+config MTK_SWCHR_SUPPORT
+	bool "MediaTek switch charger"
+	depends on MTK_CHARGER
+	help
+	  This is to enable switching charger control flow.
+	  switching charger has better performance than pulse charger
+	  Set to yes if switching charger is used.
+	  Set to no if pmic pulse charger is used.
+
+config MTK_KERNEL_POWER_OFF_CHARGING
+	bool "MTK kernel power off charging"
+	depends on MTK_CHARGER
+	help
+	  yes : support KPOC feature, power off charging would running by
+	  kernel and charging animation by kpoc service. no: not support KPOC
+	  feature.
+	  device won't enter charging mode if config is no.
+
+config MTK_PUMP_EXPRESS_PLUS_SUPPORT
+	bool "MediaTek PUMP EXPRESS PLUS"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability.
+	  Set Yes to enable PE+
+	  Set No to disable PE+
+
+config MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
+	bool "MediaTek PUMP EXPRESS PLUS 2.0"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable PE+2.0
+	  Set No to disable PE+2.0
+
+config MTK_DUAL_CHARGER_SUPPORT
+	bool "MediaTek dual charger support"
+	depends on MTK_CHARGER
+	help
+	  Use two charging ICs (master and slave) to charge the system.
+	  The master IC is connected to VBUS, VSYS, and VBAT, the slave
+	  IC is conneceted to PMID pin from the master and VBAT.
+	  Say Yes to enable dual charger support.
+
+config SWCHR_POWER_PATH
+	bool "External charger IC supports powerpath"
+	depends on MTK_CHARGER
+	help
+	  Set Yes if the external charger IC
+	  supports power path function.
+	  This affects setting of auxadc channels
+	  used to representing voltage of system
+	  or battery.
+
+config CHARGER_RT9465
+	bool "Charger Driver for Richtek RT9465 Charger IC"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable Richtek RT9465 driver.
+	  It is mainly used as slave IC for dual charger
+	  application.
+	  It depends on config MTK_CHARGER.
+
+config CHARGER_RT9458
+	bool "Charger Driver for Richtek RT9458 Charger IC"
+	depends on MTK_SWCHR_SUPPORT
+	help
+	  Say Y to enable
+	  Richtek RT9458 driver.
+	  It depends on
+	  the config MTK_SWCHR_SUPPORT.
+
+config CHARGER_RT9467
+	bool "Charger Driver for Richtek RT9467 Charger IC"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable Richtek RT9467 driver.
+	  It is mainly used as slave IC for dual charger
+	  application.
+	  It depends on config MTK_CHARGER.
+
+config CHARGER_RT9471
+	bool "Charger Driver for Richtek RT9471 Charger IC"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable Richtek RT9471 driver.
+	  It supports RT9470/RT9470D/RT9471/RT9471D,
+	  which RT9470D and RT9471D support BC1.2
+	  It depends on config MTK_CHARGER.
+
+config MTK_CHARGER_UNLIMITED
+	bool "MediaTek Charger Unlimited"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to release charging current restrictions.
+	  Say No to not release charging current restrictions.
+	  It is mainly used for long-term tests.
+	  It depends on config MTK_CHARGER.

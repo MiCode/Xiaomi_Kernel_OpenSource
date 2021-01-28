@@ -677,4 +677,6 @@ config CHARGER_MT6360
 	  Average Input Current Regulation, Battery Tempature Sensing,
 	  Over-Temperature Protection, DPDM Detection for BC1.2
 
+source "drivers/power/supply/mediatek/charger/Kconfig"
+
 endif # POWER_SUPPLY
