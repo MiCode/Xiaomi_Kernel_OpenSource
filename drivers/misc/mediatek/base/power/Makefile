@@ -77,3 +77,6 @@ obj-$(CONFIG_MACH_MT6785) += ppm_v3/
 obj-$(CONFIG_MTK_SWPM) += swpm_v1/
 obj-$(CONFIG_MTK_QOS_V2) += qos/
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
+ifeq ($(CONFIG_MTK_UNIFY_POWER), y)
+obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
+endif
