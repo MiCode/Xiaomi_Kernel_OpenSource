@@ -356,6 +356,7 @@ static int afs_test_super(struct super_block *sb, void *data)
 	return (as->net_ns == as1->net_ns &&
 		as->volume &&
 		as->volume->vid == as1->volume->vid &&
+		as->cell == as1->cell &&
 		!as->dyn_root);
 }
 
@@ -404,7 +405,6 @@ static int afs_fill_super(struct super_block *sb,
 	/* allocate the root inode and dentry */
 	if (as->dyn_root) {
 		inode = afs_iget_pseudo_dir(sb, true);
-		sb->s_flags	|= SB_RDONLY;
 	} else {
 		sprintf(sb->s_id, "%u", as->volume->vid);
 		afs_activate_volume(as->volume);

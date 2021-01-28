@@ -993,11 +993,11 @@ static bool of_is_ancestor_of(struct device_node *test_ancestor,
 	while (child) {
 		if (child == test_ancestor) {
 			of_node_put(child);
-			return false;
+			return true;
 		}
 		child = of_get_next_parent(child);
 	}
-	return true;
+	return false;
 }
 
 /**
@@ -1043,7 +1043,7 @@ static int of_link_to_phandle(struct device *dev, struct device_node *sup_np,
 	 * descendant nodes. By definition, a child node can't be a functional
 	 * dependency for the parent node.
 	 */
-	if (!of_is_ancestor_of(dev->of_node, sup_np)) {
+	if (of_is_ancestor_of(dev->of_node, sup_np)) {
 		dev_dbg(dev, "Not linking to %pOFP - is descendant\n", sup_np);
 		of_node_put(sup_np);
 		return -EINVAL;
@@ -1188,15 +1188,33 @@ DEFINE_SIMPLE_PROP(interconnects, "interconnects", "#interconnect-cells")
 DEFINE_SIMPLE_PROP(iommus, "iommus", "#iommu-cells")
 DEFINE_SIMPLE_PROP(mboxes, "mboxes", "#mbox-cells")
 DEFINE_SIMPLE_PROP(io_channels, "io-channel", "#io-channel-cells")
+DEFINE_SIMPLE_PROP(interrupt_parent, "interrupt-parent", NULL)
+DEFINE_SIMPLE_PROP(dmas, "dmas", "#dma-cells")
 DEFINE_SUFFIX_PROP(regulators, "-supply", NULL)
+DEFINE_SUFFIX_PROP(gpio, "-gpio", "#gpio-cells")
+DEFINE_SUFFIX_PROP(gpios, "-gpios", "#gpio-cells")
+
+static struct device_node *parse_iommu_maps(struct device_node *np,
+					    const char *prop_name, int index)
+{
+	if (strcmp(prop_name, "iommu-map"))
+		return NULL;
+
+	return of_parse_phandle(np, prop_name, (index * 4) + 1);
+}
 
 static const struct supplier_bindings of_supplier_bindings[] = {
 	{ .parse_prop = parse_clocks, },
 	{ .parse_prop = parse_interconnects, },
 	{ .parse_prop = parse_iommus, },
+	{ .parse_prop = parse_iommu_maps, },
 	{ .parse_prop = parse_mboxes, },
 	{ .parse_prop = parse_io_channels, },
+	{ .parse_prop = parse_interrupt_parent, },
+	{ .parse_prop = parse_dmas, },
 	{ .parse_prop = parse_regulators, },
+	{ .parse_prop = parse_gpio, },
+	{ .parse_prop = parse_gpios, },
 	{}
 };
 
