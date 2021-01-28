@@ -35,12 +35,22 @@ struct musb_hw_ep;
  *    whether shared with the Inventra core or separate.
  */
 
+<<<<<<< HEAD
 #define MUSB_HSDMA_BASE		0x200
 #define MUSB_HSDMA_INTR		(MUSB_HSDMA_BASE + 0)
 #define MUSB_HSDMA_CONTROL		0x4
 #define MUSB_HSDMA_ADDRESS		0x8
 #define MUSB_HSDMA_COUNT		0xc
 
+||||||| merged common ancestors
+=======
+#define MUSB_HSDMA_BASE		0x200
+#define MUSB_HSDMA_INTR		(MUSB_HSDMA_BASE + 0)
+#define MUSB_HSDMA_CONTROL	0x4
+#define MUSB_HSDMA_ADDRESS	0x8
+#define MUSB_HSDMA_COUNT	0xc
+
+>>>>>>> android-4.19-stable
 #define	DMA_ADDR_INVALID	(~(dma_addr_t)0)
 
 #ifdef CONFIG_MUSB_PIO_ONLY

@@ -25,6 +25,7 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 #include <linux/usb/ch9.h>
+#include <linux/android_kabi.h>
 
 #define UDC_TRACE_STR_MAX	512
 
@@ -133,6 +134,9 @@ struct usb_request {
  * @db_reg_phs_addr_lsb: IPA channel doorbell register's physical address LSB
  * @mapped_db_reg_phs_addr_lsb: doorbell LSB IOVA address mapped with IOMMU
  * @db_reg_phs_addr_msb: IPA channel doorbell register's physical address MSB
+ * @sgt_trb_xfer_ring: USB TRB ring related sgtable entries
+ * @sgt_data_buff: Data buffer related sgtable entries
+ * @dev: pointer to the DMA-capable dwc device
  */
 struct usb_gsi_request {
 	void *buf_base_addr;
@@ -144,6 +148,7 @@ struct usb_gsi_request {
 	u32 db_reg_phs_addr_msb;
 	struct sg_table sgt_trb_xfer_ring;
 	struct sg_table sgt_data_buff;
+	struct device *dev;
 };
 
 enum gsi_ep_op {
@@ -494,6 +499,11 @@ struct usb_gadget {
 	unsigned			connected:1;
 	unsigned			lpm_capable:1;
 	unsigned			remote_wakeup:1;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 

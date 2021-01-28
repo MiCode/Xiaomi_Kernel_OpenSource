@@ -26,6 +26,7 @@
 #include <linux/module.h>
 #include <linux/irq_work.h>
 #include <linux/posix-timers.h>
+#include <linux/timer.h>
 #include <linux/context_tracking.h>
 #include <linux/mm.h>
 
@@ -1258,6 +1259,18 @@ void tick_irq_enter(void)
  * High resolution timer specific code
  */
 #ifdef CONFIG_HIGH_RES_TIMERS
+
+static void (*wake_callback)(void);
+
+void register_tick_sched_wakeup_callback(void (*cb)(void))
+{
+	if (!wake_callback)
+		wake_callback = cb;
+	else
+		pr_warn("tick-sched wake cb already exists; skipping.\n");
+}
+EXPORT_SYMBOL_GPL(register_tick_sched_wakeup_callback);
+
 /*
  * We rearm the timer until we get disabled by the idle code.
  * Called with interrupts disabled.
@@ -1275,8 +1288,15 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 	 * Do not call, when we are not in irq context and have
 	 * no valid regs pointer
 	 */
-	if (regs)
+	if (regs) {
 		tick_sched_handle(ts, regs);
+		if (wake_callback && tick_do_timer_cpu == smp_processor_id()) {
+			/*
+			 * wakeup user if needed
+			 */
+			wake_callback();
+		}
+	}
 	else
 		ts->next_tick = 0;
 
