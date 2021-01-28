@@ -253,6 +253,7 @@ enum {
 	MSG_TO_DSP_LOAD_MODEL_OPEN,
 	MSG_TO_DSP_LOAD_MODEL_CLOSE,
 	MSG_TO_DSP_LOAD_MODEL_WRITE,
+	MSG_TO_DSP_SCENE_VA_WW_ARCH,	// Get wakeword arch info,
 	MSG_TO_DSP_NUM,
 	// message from DSP to host
 	MSG_TO_HOST_DSP_IRQUL = 0x1000,			// Uplink IRQ
