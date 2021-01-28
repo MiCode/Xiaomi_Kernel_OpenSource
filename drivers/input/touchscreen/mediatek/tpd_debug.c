@@ -169,8 +169,12 @@ static int tpd_debug_log_release(struct inode *inode, struct file *file)
 {
 
 	pr_debug("[tpd_em_log]: close log file\n");
+	if (tpd_buf.buffer == NULL)
+		return 0;
+
 	vfree(tpd_buf.buffer);
 	/* free(tpd_buf); */
+	tpd_buf.buffer = NULL;
 	return 0;
 }
 
