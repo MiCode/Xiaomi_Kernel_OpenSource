@@ -34,8 +34,9 @@
 #include <linux/syscalls.h>
 #include <linux/timekeeping.h>
 #include <linux/uaccess.h>
-#include <linux/wakelock.h>
+/*#include <linux/wakelock.h>*/
 #include <linux/writeback.h>
+#include <linux/pm_wakeup.h>
 
 #include "include/pmic.h"
 #include "include/pmic_auxadc.h"
@@ -54,6 +55,10 @@
 
 #define AEE_DBG 0
 
+#ifndef VOLTAGE_FULL_RANGE
+#define VOLTAGE_FULL_RANGE	(1800)
+#endif
+
 static int count_time_out = 100;
 static int battmp;
 #if AEE_DBG
@@ -62,7 +67,7 @@ static unsigned int aee_count;
 static unsigned int dbg_count;
 static unsigned char dbg_flag;
 
-static struct wake_lock pmic_auxadc_wake_lock;
+static struct wakeup_source pmic_auxadc_wake_lock;
 static struct mutex pmic_adc_mutex;
 static DEFINE_MUTEX(auxadc_ch3_mutex);
 
@@ -233,7 +238,7 @@ int wk_auxadc_battmp_dbg(int bat_temp)
 
 void pmic_auxadc_lock(void)
 {
-	wake_lock(&pmic_auxadc_wake_lock);
+	__pm_stay_awake(&pmic_auxadc_wake_lock);
 	mutex_lock(&pmic_adc_mutex);
 }
 
@@ -244,7 +249,7 @@ void unlockadcch3(void) { mutex_unlock(&auxadc_ch3_mutex); }
 void pmic_auxadc_unlock(void)
 {
 	mutex_unlock(&pmic_adc_mutex);
-	wake_unlock(&pmic_auxadc_wake_lock);
+	__pm_relax(&pmic_auxadc_wake_lock);
 }
 
 struct pmic_auxadc_channel_new {
@@ -288,7 +293,7 @@ struct pmic_auxadc_channel_new mt6357_auxadc_channel[] = {
 static int mts_timestamp;
 static unsigned int mts_count;
 static unsigned int mts_adc;
-static struct wake_lock mts_monitor_wake_lock;
+static struct wakeup_source mts_monitor_wake_lock;
 static struct mutex mts_monitor_mutex;
 static struct task_struct *mts_thread_handle;
 /*--wake up thread to polling MTS data--*/
@@ -296,7 +301,7 @@ void wake_up_mts_monitor(void)
 {
 	HKLOG("[%s]\n", __func__);
 	if (mts_thread_handle != NULL) {
-		wake_lock(&mts_monitor_wake_lock);
+		__pm_stay_awake(&mts_monitor_wake_lock);
 		wake_up_process(mts_thread_handle);
 	} else
 		pr_debug(PMICTAG "[%s] mts_thread_handle not ready\n",
@@ -440,7 +445,7 @@ int mts_kthread(void *x)
 			polling_cnt++;
 		}
 		mutex_unlock(&mts_monitor_mutex);
-		wake_unlock(&mts_monitor_wake_lock);
+		__pm_relax(&mts_monitor_wake_lock);
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
@@ -657,11 +662,9 @@ static void mts_thread_init(void)
 void mt6357_auxadc_init(void)
 {
 	HKLOG("%s\n", __func__);
-	wake_lock_init(&pmic_auxadc_wake_lock, WAKE_LOCK_SUSPEND,
-		       "PMIC AuxADC wakelock");
+	wakeup_source_init(&pmic_auxadc_wake_lock, "PMIC AuxADC wakelock");
 	mutex_init(&pmic_adc_mutex);
-	wake_lock_init(&mts_monitor_wake_lock, WAKE_LOCK_SUSPEND,
-		       "PMIC MTS Monitor wakelock");
+	wakeup_source_init(&mts_monitor_wake_lock, "PMIC MTS Monitor wakelock");
 	mutex_init(&mts_monitor_mutex);
 	/* Remove register setting which is set by PMIC initial setting in PL */
 

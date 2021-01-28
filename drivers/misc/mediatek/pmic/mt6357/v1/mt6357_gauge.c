@@ -31,7 +31,7 @@
 #include "include/pmic_throttling_dlpt.h"
 #include <linux/proc_fs.h>
 #include <linux/math64.h>
-
+#include <linux/of.h>
 #include <mtk_gauge_class.h>
 #include <mtk_charger.h>
 #include <mtk_battery_internal.h>
