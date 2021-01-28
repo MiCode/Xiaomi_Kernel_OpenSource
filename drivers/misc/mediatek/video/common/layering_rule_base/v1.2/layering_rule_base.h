@@ -145,11 +145,10 @@ struct layering_rule_info_t {
 	int disp_path;
 	int scale_rate;
 	int dal_enable;
-	unsigned int primary_fps;
+	int primary_fps;
 	int hrt_sys_state;
 	int wrot_sram;
 	unsigned int hrt_idx;
-	int active_config_id;
 };
 
 struct layering_rule_ops {
@@ -161,8 +160,7 @@ struct layering_rule_ops {
 	/* should be removed */
 	int (*get_hrt_bound)(int is_larb, int hrt_level);
 
-	void (*copy_hrt_bound_table)(int is_larb, int *hrt_table,
-					int config_id);
+	void (*copy_hrt_bound_table)(int is_larb, int *hrt_table);
 	void (*rsz_by_gpu_info_change)(void);
 	bool (*rollback_to_gpu_by_hw_limitation)(
 					struct disp_layer_info *disp_info);

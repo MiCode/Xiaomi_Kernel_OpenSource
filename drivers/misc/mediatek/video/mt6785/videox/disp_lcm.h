@@ -73,12 +73,4 @@ int disp_lcm_aod(struct disp_lcm_handle *plcm, int enter);
 
 int disp_lcm_is_arr_support(struct disp_lcm_handle *plcm);
 
-/*DynFPS start*/
-int disp_lcm_is_dynfps_support(struct disp_lcm_handle *plcm);
-unsigned int disp_lcm_dynfps_get_def_fps(
-		struct disp_lcm_handle *plcm);
-unsigned int disp_lcm_get_fps_change_index(
-	unsigned int from_fps, unsigned int to_fps);
-/*DynFPS end*/
-
 #endif /* _DISP_LCM_H_ */

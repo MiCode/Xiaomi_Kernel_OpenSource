@@ -233,7 +233,7 @@ struct display_primary_path_context {
 	 */
 	unsigned int working_dfps;
 	unsigned int hw_current_fps;
-	unsigned int lcm_refresh_rate;
+	int lcm_refresh_rate;
 	int max_layer;
 	int need_trigger_overlay;
 	int need_trigger_ovl1to2;
@@ -289,16 +289,6 @@ struct display_primary_path_context {
 
 	wait_queue_head_t fps_chg_wait_queue;
 	unsigned int fps_chg_last_notify;
-	/*DynFPS start*/
-	unsigned int current_disp_fps;
-	unsigned int req_new_disp_fps;
-	bool dynfps_update_hrt;
-	bool dynfps_update_mmdvfs;
-	bool dynfps_update_golden;
-	int active_cfg;
-
-	struct multi_configs multi_cfg_table;
-	/*DynFPS end*/
 };
 
 static inline char *lcm_power_state_to_string(enum lcm_power_state ps)
@@ -529,25 +519,10 @@ void primary_display_update_vfp_line_slot(
 		struct cmdqRecStruct *handle, unsigned int apply_vfp);
 unsigned int primary_display_current_fps(enum arr_fps_type fps_type,
 		int need_lock);
-/**************function for ARR end************************/
-
 bool disp_idle_check_rsz(void);
 int primary_display_is_directlink_mode(void);
 bool disp_input_has_yuv(void);
 
-/**************function for DynFPS start************************/
-unsigned int primary_display_is_support_DynFPS(void);
-unsigned int primary_display_get_default_disp_fps(int need_lock);
-unsigned int primary_display_get_cfg_fps(int config_id);
-unsigned int primary_display_get_current_disp_fps(void);
-unsigned int primary_display_get_current_cfg_id(void);
-void primary_display_update_cfg_id(int cfg_id);
-void primary_display_init_multi_cfg_info(void);
-bool primary_display_need_update_golden_fps(
-	unsigned int last_fps, unsigned int new_fps);
-bool primary_display_need_update_hrt_fps(
-	unsigned int last_fps, unsigned int new_fps);
 
-/**************function for DynFPS end************************/
-
+/**************function for ARR end************************/
 #endif

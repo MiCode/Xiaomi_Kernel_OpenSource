@@ -175,15 +175,7 @@ static struct golden_setting_context *__get_golden_setting_context(void)
 	gs_ctx.is_display_idle = 0;
 	gs_ctx.is_wrot_sram = 0;
 	gs_ctx.mmsys_clk = MMSYS_CLK_LOW;
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*fps is no use for ovl golden but may useful for rdma*/
-	gs_ctx.fps = primary_display_get_default_disp_fps(0);
-	if (primary_display_is_support_DynFPS()) {
-		/*ToDo: if VFP solution,
-		 * lcm need add related hrt fps for default fps
-		 */
-	}
-#endif
+
 	/* primary_display */
 	gs_ctx.dst_width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
 	gs_ctx.dst_height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
@@ -809,19 +801,8 @@ static void _vdo_mode_enter_idle(void)
 	unsigned int out_fps = 60;
 	unsigned int in_fps = 0;
 #endif
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	unsigned int cur_disp_fps = 60;
-#endif
 
 	DISPDBG("[LP]%s\n", __func__);
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	/*ToDo, enter idle need get VFP according current disp fps*/
-	cur_disp_fps = primary_display_get_current_disp_fps();
-	DISPINFO("%s,cur_disp_fps=%d\n", __func__, cur_disp_fps);
-	/*get timing fps according to current disp fps*/
-	out_fps = cur_disp_fps;
-#endif
 
 	/* backup for DL <-> DC */
 	idlemgr_pgc->session_mode_before_enter_idle = primary_get_sess_mode();
@@ -896,13 +877,9 @@ static void _vdo_mode_enter_idle(void)
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* update bandwidth */
-	in_fps = primary_display_is_directlink_mode() ? out_fps : 0;
+	in_fps = primary_display_is_directlink_mode() ? 60 : 0;
 	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
-#endif
-
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*update current disp fps*/
 #endif
 
 }
@@ -914,20 +891,9 @@ static void _vdo_mode_leave_idle(void)
 	unsigned int in_fps = 60;
 	unsigned int out_fps = 60;
 #endif
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	unsigned int cur_disp_fps = 60;
-#endif
 
 	DISPDBG("[LP]%s\n", __func__);
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	/*DynFPS*/
-	/*ToDo, whether vfp change will change current disp fps*/
-	cur_disp_fps = primary_display_get_current_disp_fps();
-	DISPINFO("%s,cur_disp_fps=%d\n", __func__, cur_disp_fps);
-	/*get timing fps according to current disp fps*/
-	in_fps = out_fps = cur_disp_fps;
-#endif
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		leave_share_sram(CMDQ_SYNC_RESOURCE_WROT1);
 
@@ -983,10 +949,8 @@ static void _cmd_mode_enter_idle(void)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 #endif
-	unsigned int cfg_id;
 
 	DISPDBG("[LP]%s\n", __func__);
-	cfg_id = primary_display_get_current_cfg_id();
 
 	/* need to leave share SRAM for disable mmsys clk */
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
@@ -1001,14 +965,13 @@ static void _cmd_mode_enter_idle(void)
 	disp_pm_qos_set_default_bw(&bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
-			DDP_SCENARIO_PRIMARY_DISP, __func__, cfg_id);
+			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
 
 }
 
 static void _cmd_mode_leave_idle(void)
 {
-	unsigned int cfg_id;
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 	unsigned int in_fps = 60;
@@ -1022,10 +985,7 @@ static void _cmd_mode_leave_idle(void)
 	int overlap_num = (primary_display_is_decouple_mode()) ? 2 :
 	    primary_display_get_dvfs_last_req();
 
-	/*DynFPS*/
-	cfg_id = primary_display_get_current_cfg_id();
-
-	prim_disp_request_hrt_bw(overlap_num, scen, __func__, cfg_id);
+	prim_disp_request_hrt_bw(overlap_num, scen, __func__);
 
 #endif
 	DISPDBG("[LP]%s\n", __func__);
@@ -1275,13 +1235,10 @@ static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 {
 	int ret, i;
 	unsigned int hrt_idx;
-	int active_cfg_id = 0;
+
 
 	primary_display_manual_lock();
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	active_cfg_id = primary_display_get_current_cfg_id();
-#endif
 	switch (value) {
 	case BW_THROTTLE_START: /* CAM on */
 		DISPMSG("DISP BW Throttle start\n");
@@ -1291,7 +1248,7 @@ static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 		}
 		/* switch to decouple mode */
 		if (disp_mgr_has_mem_session() ||
-				layering_get_valid_hrt(active_cfg_id) >= 400) {
+				layering_get_valid_hrt() >= 400) {
 			/* enable HRT throttle */
 			DISPINFO("Cam trigger repain\n");
 			hrt_idx = layering_rule_get_hrt_idx();
