@@ -2605,156 +2605,6 @@ static inline void MFB_Reset(void)
 
 }
 
-/**************************************************************
- *
- **************************************************************/
-static signed int MFB_ReadReg(MFB_REG_IO_STRUCT *pRegIo)
-{
-	unsigned int i;
-	signed int Ret = 0;
-	/*  */
-	MFB_REG_STRUCT reg;
-	/* unsigned int* pData = (unsigned int*)pRegIo->Data; */
-	MFB_REG_STRUCT *pData = (MFB_REG_STRUCT *) pRegIo->pData;
-
-	if ((pRegIo->pData == NULL) ||
-		(pRegIo->Count == 0) ||
-		(pRegIo->Count > (MFB_REG_RANGE>>2))) {
-		log_err("ERROR: pRegIo->pData is NULL or Count:%d\n",
-			pRegIo->Count);
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-
-	for (i = 0; i < pRegIo->Count; i++) {
-		if (get_user(reg.Addr, (unsigned int *) &pData->Addr) != 0) {
-			log_err("get_user failed");
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-		/* pData++; */
-		/*  */
-		if ((ISP_MFB_BASE + reg.Addr >= ISP_MFB_BASE)
-			&& (reg.Addr < MFB_REG_RANGE)
-			&& ((reg.Addr & 0x3) == 0)) {
-			reg.Val = MFB_RD32(ISP_MFB_BASE + reg.Addr);
-		} else {
-			log_err("Wrong address(0x%p), MFB_BASE(0x%p), Addr(0x%lx)",
-			(ISP_MFB_BASE + reg.Addr),
-			ISP_MFB_BASE, (unsigned long)reg.Addr);
-			reg.Val = 0;
-		}
-		/*  */
-
-		if (put_user(reg.Val, (unsigned int *) &(pData->Val)) != 0) {
-			log_err("put_user failed");
-			Ret = -EFAULT;
-			goto EXIT;
-		}
-		pData++;
-		/*  */
-	}
-	/*  */
-EXIT:
-	return Ret;
-}
-
-
-/**************************************************************
- *
- **************************************************************/
-static signed int MFB_WriteRegToHw(
-	MFB_REG_STRUCT *pReg,
-	unsigned int Count)
-{
-	signed int Ret = 0;
-	unsigned int i;
-	bool dbgWriteReg;
-
-	spin_lock(&(MFBInfo.SpinLockMFB));
-	dbgWriteReg = MFBInfo.DebugMask & MFB_DBG_WRITE_REG;
-	spin_unlock(&(MFBInfo.SpinLockMFB));
-
-	/*  */
-	if (dbgWriteReg)
-		log_dbg("- E.\n");
-
-	/*  */
-	for (i = 0; i < Count; i++) {
-		if (dbgWriteReg) {
-			log_dbg("Addr(0x%lx), Val(0x%x)\n",
-				(unsigned long)(ISP_MFB_BASE + pReg[i].Addr),
-				(unsigned int) (pReg[i].Val));
-		}
-
-		if ((pReg[i].Addr < MFB_REG_RANGE) &&
-			((pReg[i].Addr & 0x3) == 0)) {
-			MFB_WR32(ISP_MFB_BASE + pReg[i].Addr, pReg[i].Val);
-		} else {
-			log_err("wrong address(0x%p), MFB_BASE(0x%p), Addr(0x%lx)\n",
-			(ISP_MFB_BASE + pReg[i].Addr),
-			ISP_MFB_BASE,
-			(unsigned long)pReg[i].Addr);
-		}
-	}
-
-	/*  */
-	return Ret;
-}
-
-
-
-/**************************************************************
- *
- **************************************************************/
-static signed int MFB_WriteReg(MFB_REG_IO_STRUCT *pRegIo)
-{
-	signed int Ret = 0;
-	/* unsigned char* pData = NULL; */
-	MFB_REG_STRUCT *pData = NULL;
-	/*	*/
-	if (MFBInfo.DebugMask & MFB_DBG_WRITE_REG)
-		log_dbg("Data(0x%p), Count(%d)\n",
-		(pRegIo->pData),
-		(pRegIo->Count));
-
-	if ((pRegIo->pData == NULL) ||
-		(pRegIo->Count == 0) ||
-		(pRegIo->Count > (MFB_REG_RANGE>>2))) {
-		log_err("ERROR: pRegIo->pData is NULL or Count:%d\n",
-			pRegIo->Count);
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-	pData = kmalloc((pRegIo->Count) * sizeof(MFB_REG_STRUCT), GFP_KERNEL);
-	if (pData == NULL) {
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-	if (copy_from_user(
-		pData,
-		(void __user *)(pRegIo->pData),
-		pRegIo->Count * sizeof(MFB_REG_STRUCT)) != 0) {
-		log_err("copy_from_user failed\n");
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-	/*  */
-	Ret = MFB_WriteRegToHw(pData, pRegIo->Count);
-	/*  */
-EXIT:
-	if (pData != NULL) {
-		kfree(pData);
-		pData = NULL;
-	}
-	return Ret;
-}
-
-
-
-/**************************************************************
- *
- **************************************************************/
 static signed int MFB_WaitIrq(MFB_WAIT_IRQ_STRUCT *WaitIrq)
 {
 
@@ -3014,7 +2864,6 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	signed int Ret = 0;
 
 	/*unsigned int pid = 0;*/
-	MFB_REG_IO_STRUCT RegIo;
 	MFB_WAIT_IRQ_STRUCT IrqInfo;
 	MFB_CLEAR_IRQ_STRUCT ClearIrq;
 	MFB_Config mfb_MfbConfig;
@@ -3052,47 +2901,6 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 	case MFB_DUMP_REG:
 	{
 	Ret = MFB_DumpReg();
-	break;
-	}
-	case MFB_DUMP_ISR_LOG:
-	{
-	unsigned int currentPPB = m_CurrentPPB;
-
-	spin_lock_irqsave(
-		&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MFB_ST]),
-		flags);
-	m_CurrentPPB = (m_CurrentPPB + 1) % LOG_PPNUM;
-	spin_unlock_irqrestore(
-		&(MFBInfo.SpinLockIrq[MFB_IRQ_TYPE_INT_MFB_ST]),
-		flags);
-
-	IRQ_LOG_PRINTER(MFB_IRQ_TYPE_INT_MFB_ST, currentPPB, _LOG_INF);
-	IRQ_LOG_PRINTER(MFB_IRQ_TYPE_INT_MFB_ST, currentPPB, _LOG_ERR);
-	break;
-	}
-	case MFB_READ_REGISTER:
-	{
-	if (copy_from_user(
-		&RegIo,
-		(void *)Param, sizeof(MFB_REG_IO_STRUCT)) == 0) {
-		Ret = MFB_ReadReg(&RegIo);
-	} else {
-		log_err("MFB_READ_REGISTER copy_from_user failed");
-		Ret = -EFAULT;
-	}
-	break;
-	}
-	case MFB_WRITE_REGISTER:
-	{
-	if (copy_from_user(
-		&RegIo,
-		(void *)Param,
-		sizeof(MFB_REG_IO_STRUCT)) == 0) {
-		Ret = MFB_WriteReg(&RegIo);
-	} else {
-		log_err("MFB_WRITE_REGISTER copy_from_user failed");
-		Ret = -EFAULT;
-	}
 	break;
 	}
 	case MFB_WAIT_IRQ:
@@ -3647,35 +3455,6 @@ EXIT:
 /**************************************************************
  *
  **************************************************************/
-static int compat_get_MFB_read_register_data(
-	compat_MFB_REG_IO_STRUCT __user *data32,
-	MFB_REG_IO_STRUCT __user *data)
-{
-	compat_uint_t count;
-	compat_uptr_t uptr;
-	int err;
-
-	err = get_user(uptr, &data32->pData);
-	err |= put_user(compat_ptr(uptr), &data->pData);
-	err |= get_user(count, &data32->Count);
-	err |= put_user(count, &data->Count);
-	return err;
-}
-
-static int compat_put_MFB_read_register_data(
-	compat_MFB_REG_IO_STRUCT __user *data32,
-	MFB_REG_IO_STRUCT __user *data)
-{
-	compat_uint_t count;
-	/*compat_uptr_t uptr;*/
-	int err = 0;
-	/* Assume data pointer is unchanged. */
-	/* err = get_user(compat_ptr(uptr), &data->pData); */
-	/* err |= put_user(uptr, &data32->pData); */
-	err |= get_user(count, &data->Count);
-	err |= put_user(count, &data32->Count);
-	return err;
-}
 
 static int compat_get_MFB_enque_req_data(
 	compat_MFB_Request __user *data32,
@@ -3753,55 +3532,6 @@ static long MFB_ioctl_compat(
 		return -ENOTTY;
 	}
 	switch (cmd) {
-	case COMPAT_MFB_READ_REGISTER:
-		{
-			compat_MFB_REG_IO_STRUCT __user *data32;
-			MFB_REG_IO_STRUCT __user *data;
-			int err;
-
-			data32 = compat_ptr(arg);
-			data = compat_alloc_user_space(sizeof(*data));
-			if (data == NULL)
-				return -EFAULT;
-
-			err = compat_get_MFB_read_register_data(data32, data);
-			if (err) {
-				log_inf(
-				"compat_get_MFB_read_register_data error!!!\n");
-				return err;
-			}
-			ret =
-			filp->f_op->unlocked_ioctl(filp, MFB_READ_REGISTER,
-				   (unsigned long)data);
-			err = compat_put_MFB_read_register_data(data32, data);
-			if (err) {
-				log_inf(
-				"compat_put_MFB_read_register_data error!!!\n");
-				return err;
-			}
-			return ret;
-		}
-	case COMPAT_MFB_WRITE_REGISTER:
-		{
-			compat_MFB_REG_IO_STRUCT __user *data32;
-			MFB_REG_IO_STRUCT __user *data;
-			int err;
-
-			data32 = compat_ptr(arg);
-			data = compat_alloc_user_space(sizeof(*data));
-			if (data == NULL)
-				return -EFAULT;
-
-			err = compat_get_MFB_read_register_data(data32, data);
-			if (err) {
-				log_inf("COMPAT_MFB_WRITE_REGISTER error!!!\n");
-				return err;
-			}
-			ret =
-			filp->f_op->unlocked_ioctl(filp, MFB_WRITE_REGISTER,
-				   (unsigned long)data);
-			return ret;
-		}
 	case COMPAT_MFB_ENQUE_REQ:
 		{
 			compat_MFB_Request __user *data32;
@@ -3863,7 +3593,6 @@ static long MFB_ioctl_compat(
 	case MFB_DEQUE:
 	case MFB_RESET:
 	case MFB_DUMP_REG:
-	case MFB_DUMP_ISR_LOG:
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
