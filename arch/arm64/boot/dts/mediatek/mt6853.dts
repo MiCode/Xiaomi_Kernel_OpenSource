@@ -49,6 +49,7 @@ earlycon=mtk8250,mmio32,0x11002000 \
 initcall_debug=1 \
 firmware_class.path=/vendor/firmware \
 page_owner=on";
+		kaslr-seed = <0 0>;
 	};
 
 	cpus {
