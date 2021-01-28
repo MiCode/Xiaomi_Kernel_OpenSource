@@ -59,6 +59,7 @@ int sspm_mbox_read(unsigned int mbox, unsigned int slot, void *data,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(sspm_mbox_read);
 
 int sspm_mbox_write(unsigned int mbox, unsigned int slot, void *data,
 	unsigned int len)
@@ -71,6 +72,7 @@ int sspm_mbox_write(unsigned int mbox, unsigned int slot, void *data,
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(sspm_mbox_write);
 
 int sspm_mbox_polling(unsigned int mbox, unsigned int irq, unsigned int slot,
 	unsigned int *retdata, unsigned int retlen, unsigned int retries)

@@ -31,7 +31,6 @@
 #include <linux/clk.h>
 #include "sspm_define.h"
 #include "sspm_ipi.h"
-#include "sspm_excep.h"
 #include "sspm_sysfs.h"
 #include "sspm_reservedmem.h"
 
@@ -41,9 +40,6 @@
 #include "sspm_ipi_define_mt6779.h"
 #include "sspm_reservedmem_define_mt6779.h"
 #include "sspm_timesync.h"
-
-#define SEM_TIMEOUT		5000
-#define SSPM_INIT_FLAG	0x1
 
 static struct workqueue_struct *mt6779_sspm_workqueue;
 static atomic_t sspm_inited = ATOMIC_INIT(0);

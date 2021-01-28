@@ -97,8 +97,3 @@ int sspm_sysfs_create_file(const struct device_attribute *attr)
 {
 	return device_create_file(sspm_log_device.this_device, attr);
 }
-
-int sspm_sysfs_create_bin_file(const struct bin_attribute *attr)
-{
-	return device_create_bin_file(sspm_log_device.this_device, attr);
-}

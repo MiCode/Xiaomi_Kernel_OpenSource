@@ -10,20 +10,20 @@
 #include <linux/atomic.h>
 #include <linux/io.h>
 #include <linux/sched/clock.h>
+
 #include "sspm_define.h"
+#include "sspm_common.h"
+
 #include "sspm_mbox.h"
 #include "sspm_ipi.h"
 #include "sspm_ipi_mbox.h"
-#define IPI_MONITOR
-
-#define TIMEOUT_COMPLETE msecs_to_jiffies(2000)
-
 #ifdef SSPM_STF_ENABLED
 #include <linux/cpu.h>
 #include "sspm_stf.h"
 #endif
 
-#include "sspm_common.h"
+#define IPI_MONITOR
+#define TIMEOUT_COMPLETE msecs_to_jiffies(2000)
 
 /* #define GET_IPI_TIMESTAMP */
 #ifdef GET_IPI_TIMESTAMP
@@ -333,7 +333,7 @@ int sspm_ipi_recv_registration(int mid, struct ipi_action *act)
 
 	return IPI_REG_OK;
 }
-EXPORT_SYMBOL(sspm_ipi_recv_registration);
+EXPORT_SYMBOL_GPL(sspm_ipi_recv_registration);
 
 int sspm_ipi_recv_registration_ex(int mid, spinlock_t *lock,
 	struct ipi_action *act)
@@ -347,6 +347,7 @@ int sspm_ipi_recv_registration_ex(int mid, spinlock_t *lock,
 	act->lock = lock;
 	return IPI_REG_OK;
 }
+EXPORT_SYMBOL_GPL(sspm_ipi_recv_registration_ex);
 
 int sspm_ipi_recv_wait(int mid)
 {
@@ -368,13 +369,13 @@ int sspm_ipi_recv_wait(int mid)
 
 	return 0;
 }
-EXPORT_SYMBOL(sspm_ipi_recv_wait);
+EXPORT_SYMBOL_GPL(sspm_ipi_recv_wait);
 
 void sspm_ipi_recv_complete(int mid)
 {
 	complete(&sema_ipi_task[mid]);
 }
-EXPORT_SYMBOL(sspm_ipi_recv_complete);
+EXPORT_SYMBOL_GPL(sspm_ipi_recv_complete);
 
 int sspm_ipi_recv_unregistration(int mid)
 {
@@ -384,7 +385,7 @@ int sspm_ipi_recv_unregistration(int mid)
 	pin->act = NULL;
 	return IPI_REG_OK;
 }
-EXPORT_SYMBOL(sspm_ipi_recv_unregistration);
+EXPORT_SYMBOL_GPL(sspm_ipi_recv_unregistration);
 
 static void ipi_do_ack(struct _mbox_info *mbox, unsigned int in_irq,
 	void __iomem *base)
@@ -556,6 +557,7 @@ int sspm_ipi_send_async(int mid, int opts, void *buffer, int slot)
 	}
 	return IPI_DONE;
 }
+EXPORT_SYMBOL_GPL(sspm_ipi_send_async);
 
 int sspm_ipi_send_async_wait(int mid, int opts, void *retbuf)
 {
@@ -566,6 +568,7 @@ int sspm_ipi_send_async_wait(int mid, int opts, void *retbuf)
 
 	return sspm_ipi_send_async_wait_ex(mid, opts, retbuf, slot);
 }
+EXPORT_SYMBOL_GPL(sspm_ipi_send_async_wait);
 
 int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot)
 {
@@ -649,6 +652,7 @@ int sspm_ipi_send_async_wait_ex(int mid, int opts, void *retbuf, int retslot)
 	ipi_check_ack(mid, opts, ret);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(sspm_ipi_send_async_wait_ex);
 
 int sspm_ipi_send_ack(int mid, unsigned int *data)
 {
@@ -659,7 +663,7 @@ int sspm_ipi_send_ack(int mid, unsigned int *data)
 
 	return sspm_ipi_send_ack_ex(mid, data, len);
 }
-EXPORT_SYMBOL(sspm_ipi_send_ack);
+EXPORT_SYMBOL_GPL(sspm_ipi_send_ack);
 
 int sspm_ipi_send_ack_ex(int mid, void *data, int retslot)
 {
@@ -692,6 +696,7 @@ int sspm_ipi_send_ack_ex(int mid, void *data, int retslot)
 
 	return 0;
 }
+EXPORT_SYMBOL_GPL(sspm_ipi_send_ack_ex);
 
 int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 						   void *retbuf, int retslot)
@@ -796,7 +801,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 
 		spin_unlock_irqrestore(&lock_polling[mid], flags);
 
-	} else {                    /* WAIT mode */
+	} else { /* WAIT mode */
 		wait_comp = wait_for_completion_timeout(&pin->comp_ack,
 							TIMEOUT_COMPLETE);
 		if ((wait_comp == 0) && (atomic_read(&lock_ack[mid]) == 0)) {
@@ -816,7 +821,7 @@ int sspm_ipi_send_sync(int mid, int opts, void *buffer, int slot,
 
 	return ret;
 }
-EXPORT_SYMBOL(sspm_ipi_send_sync);
+EXPORT_SYMBOL_GPL(sspm_ipi_send_sync);
 
 static unsigned int ipi_isr_cb(unsigned int mbno, void __iomem *base,
 	unsigned int irq)
