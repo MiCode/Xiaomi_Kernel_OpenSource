@@ -94,7 +94,7 @@ char *ccci_get_ap_platform(void)
 		"mediatek,mddriver");
 	of_property_read_u32(node,
 		"mediatek,ap_plat_info", &ap_plat_info);
-	ap_platform = kzalloc(sizeof(int), GFP_KERNEL);
+	ap_platform = kzalloc(16, GFP_KERNEL);
 	sprintf(ap_platform, "%d", ap_plat_info);
 
 	return ap_platform;
