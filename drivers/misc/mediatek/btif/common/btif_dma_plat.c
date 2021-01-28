@@ -401,7 +401,7 @@ int hal_btif_dma_clk_ctrl(struct _MTK_DMA_INFO_STR_ *p_dma_info,
 int hal_btif_dma_hw_init(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 {
 	int i_ret = 0;
-	unsigned int dat = 0;
+	unsigned int dat = 0, count = 0;
 	unsigned long base = p_dma_info->base;
 	unsigned long addr_h = 0;
 	struct _DMA_VFIFO_ *p_vfifo = p_dma_info->p_vfifo;
@@ -416,7 +416,19 @@ int hal_btif_dma_hw_init(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 		BTIF_SET_BIT(RX_DMA_RST(base), DMA_WARM_RST);
 		do {
 			dat = BTIF_READ32(RX_DMA_EN(base));
-		} while (0x01 & dat);
+			if ((0x01 & dat) == 0)
+				break;
+			udelay(100);
+			count++;
+		} while (count < 10);
+
+		/* If soft reset is failed, do hard reset. */
+		if (count >= 10) {
+			BTIF_SET_BIT(RX_DMA_RST(base), DMA_HARD_RST);
+			BTIF_CLR_BIT(RX_DMA_RST(base), DMA_HARD_RST);
+			BTIF_INFO_FUNC("RX dma hard reset\n");
+		}
+
 		/*write vfifo base address to VFF_ADDR*/
 		btif_reg_sync_writel(p_vfifo->phy_addr, RX_DMA_VFF_ADDR(base));
 		addr_h = p_vfifo->phy_addr >> 16;
@@ -446,7 +458,19 @@ int hal_btif_dma_hw_init(struct _MTK_DMA_INFO_STR_ *p_dma_info)
 		BTIF_SET_BIT(TX_DMA_RST(base), DMA_WARM_RST);
 		do {
 			dat = BTIF_READ32(TX_DMA_EN(base));
-		} while (0x01 & dat);
+			if ((0x01 & dat) == 0)
+				break;
+			udelay(100);
+			count++;
+		} while (count < 10);
+
+		/* If soft reset is failed, do hard reset. */
+		if (count >= 10) {
+			BTIF_SET_BIT(TX_DMA_RST(base), DMA_HARD_RST);
+			BTIF_CLR_BIT(TX_DMA_RST(base), DMA_HARD_RST);
+			BTIF_INFO_FUNC("TX dma hard reset\n");
+		}
+
 /*write vfifo base address to VFF_ADDR*/
 		btif_reg_sync_writel(p_vfifo->phy_addr, TX_DMA_VFF_ADDR(base));
 		addr_h = p_vfifo->phy_addr >> 16;
