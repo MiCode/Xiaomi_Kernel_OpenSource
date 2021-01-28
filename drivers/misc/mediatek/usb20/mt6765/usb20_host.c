@@ -67,6 +67,7 @@ static void mt_usb_host_disconnect(int delay);
 struct device_node		*usb_node;
 static int iddig_eint_num;
 static ktime_t ktime_start, ktime_end;
+static struct regulator *reg_vbus;
 
 static struct musb_fifo_cfg fifo_cfg_host[] = {
 { .hw_ep_num = 1, .style = MUSB_FIFO_TX,
@@ -123,17 +124,34 @@ bool usb20_check_vbus_on(void)
 
 static void _set_vbus(int is_on)
 {
+	if (!reg_vbus) {
+		DBG(0, "vbus_init\n");
+		reg_vbus = regulator_get(mtk_musb->controller, "usb-otg-vbus");
+		if (IS_ERR_OR_NULL(reg_vbus)) {
+			DBG(0, "failed to get vbus\n");
+			return;
+		}
+	}
+
 	DBG(0, "op<%d>, status<%d>\n", is_on, vbus_on);
 	if (is_on && !vbus_on) {
 		/* update flag 1st then enable VBUS to make
 		 * host mode correct used by PMIC
 		 */
 		vbus_on = true;
+
+		if (regulator_set_voltage(reg_vbus, 5000000, 5000000))
+			DBG(0, "vbus regulator set voltage failed\n");
+
+		if (regulator_enable(reg_vbus))
+			DBG(0, "vbus regulator enable failed\n");
+
 	} else if (!is_on && vbus_on) {
 		/* disable VBUS 1st then update flag
 		 * to make host mode correct used by PMIC
 		 */
 		vbus_on = false;
+		regulator_disable(reg_vbus);
 	}
 }
 
@@ -414,7 +432,8 @@ static void do_host_plug_test_work(struct work_struct *data)
 
 	if (!wake_lock_inited) {
 		DBG(0, "wake_lock_init\n");
-		host_test_wakelock = wakeup_source_register("host.test.lock");
+		host_test_wakelock = wakeup_source_register(NULL,
+					"host.test.lock");
 		wake_lock_inited = 1;
 	}
 
@@ -542,7 +561,7 @@ static void do_host_work(struct work_struct *data)
 #endif
 		/* setup fifo for host mode */
 		ep_config_from_table_for_host(mtk_musb);
-		__pm_stay_awake(&mtk_musb->usb_lock);
+		__pm_stay_awake(mtk_musb->usb_lock);
 		mt_usb_set_vbus(mtk_musb, 1);
 
 		/* this make PHY operation workable */
@@ -587,8 +606,8 @@ static void do_host_work(struct work_struct *data)
 		DBG(1, "devctl is %x\n",
 				musb_readb(mtk_musb->mregs, MUSB_DEVCTL));
 		musb_writeb(mtk_musb->mregs, MUSB_DEVCTL, 0);
-		if (mtk_musb->usb_lock.active)
-			__pm_relax(&mtk_musb->usb_lock);
+		if (mtk_musb->usb_lock->active)
+			__pm_relax(mtk_musb->usb_lock);
 		mt_usb_set_vbus(mtk_musb, 0);
 
 		/* for no VBUS sensing IP */
@@ -698,6 +717,8 @@ static int iddig_int_init(void)
 
 void mt_usb_otg_init(struct musb *musb)
 {
+
+#if defined(CONFIG_R_PORTING)
 	/* BYPASS OTG function in special mode */
 	if (get_boot_mode() == META_BOOT
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
@@ -714,6 +735,7 @@ void mt_usb_otg_init(struct musb *musb)
 		return;
 #endif
 	}
+#endif
 
 	/* test */
 	INIT_DELAYED_WORK(&host_plug_test_work, do_host_plug_test_work);
