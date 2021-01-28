@@ -258,6 +258,7 @@ struct mt6359_priv {
 
 	int ana_gain[AUDIO_ANALOG_VOLUME_TYPE_MAX];
 	unsigned int mux_select[MUX_NUM];
+	int dmic_one_wire_mode;
 
 	int dev_counter[DEVICE_NUM];
 
@@ -2824,8 +2825,13 @@ static int mt_ul_src_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* default two wire, 3.25M */
-		regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H, 0x0080);
+		if (priv->dmic_one_wire_mode)
+			regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H,
+				     0x0400);
+		else
+			regmap_write(priv->regmap, MT6359_AFE_UL_SRC_CON0_H,
+				     0x0080);
+
 		regmap_update_bits(priv->regmap, MT6359_AFE_UL_SRC_CON0_L,
 				   0xfffc, 0x0000);
 		break;
@@ -2851,9 +2857,13 @@ static int mt_ul_src_34_dmic_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* default two wire, 3.25M */
-		regmap_write(priv->regmap,
-			     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0080);
+		if (priv->dmic_one_wire_mode)
+			regmap_write(priv->regmap,
+				     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0400);
+		else
+			regmap_write(priv->regmap,
+				     MT6359_AFE_ADDA6_L_SRC_CON0_H, 0x0080);
+
 		regmap_update_bits(priv->regmap, MT6359_AFE_ADDA6_UL_SRC_CON0_L,
 				   0xfffc, 0x0000);
 		break;
@@ -7513,6 +7523,56 @@ static const struct regmap_config mt6359_regmap = {
 };
 #endif
 
+static int mt6359_parse_dt(struct mt6359_priv *priv)
+{
+	int ret, i;
+	const int mux_num = 3;
+	unsigned int mic_type_mux[mux_num];
+	struct device *dev = priv->dev;
+
+	ret = of_property_read_u32(dev->of_node, "mediatek,dmic-mode",
+				   &priv->dmic_one_wire_mode);
+	if (ret) {
+		dev_info(dev, "%s() failed to read dmic-mode, default 1 wire\n",
+			 __func__);
+		priv->dmic_one_wire_mode = 0;
+	}
+	ret = of_property_read_u32_array(dev->of_node, "mediatek,mic-type",
+					 mic_type_mux, mux_num);
+	if (ret) {
+		dev_info(dev, "%s() failed to read mic-type, default DCC\n",
+			 __func__);
+		priv->mux_select[MUX_MIC_TYPE_0] = MIC_TYPE_MUX_DCC;
+		priv->mux_select[MUX_MIC_TYPE_1] = MIC_TYPE_MUX_DCC;
+		priv->mux_select[MUX_MIC_TYPE_2] = MIC_TYPE_MUX_DCC;
+	} else {
+		for (i = MUX_MIC_TYPE_0; i <= MUX_MIC_TYPE_2; ++i)
+			priv->mux_select[i] = mic_type_mux[i];
+	}
+
+	/* get pmic codec auxadc iio channel handler */
+	priv->codec_auxadc = devm_iio_channel_get(dev, "pmic_hpofs_cal");
+	ret = PTR_ERR_OR_ZERO(priv->codec_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(dev, "%s(), Error: Get iio ch failed (%d)\n",
+				__func__, ret);
+		return ret;
+	}
+
+	/* get pmic accdet auxadc iio channel handler */
+	priv->accdet_auxadc = devm_iio_channel_get(dev,	"pmic_accdet");
+	ret = PTR_ERR_OR_ZERO(priv->accdet_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(dev, "%s(), Error: Get iio ch failed (%d)\n",
+				__func__, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int mt6359_platform_driver_probe(struct platform_device *pdev)
 {
 	struct mt6359_priv *priv;
@@ -7560,34 +7620,18 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, priv);
 	priv->dev = &pdev->dev;
 
-	/* get pmic codec auxadc iio channel handler */
-	priv->codec_auxadc = devm_iio_channel_get(&pdev->dev,
-			"pmic_hpofs_cal");
-	ret = PTR_ERR_OR_ZERO(priv->codec_auxadc);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
-				ret);
-		return ret;
-	}
-
-	/* get pmic accdet auxadc iio channel handler */
-	priv->accdet_auxadc = devm_iio_channel_get(&pdev->dev,
-			"pmic_accdet");
-	ret = PTR_ERR_OR_ZERO(priv->accdet_auxadc);
-	if (ret) {
-		if (ret != -EPROBE_DEFER)
-			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
-				ret);
-		return ret;
-	}
-
 #ifdef CONFIG_DEBUG_FS
 	/* create debugfs file */
 	priv->debugfs = debugfs_create_file("mtksocanaaudio",
 					    S_IFREG | 0444, NULL,
 					    priv, &mt6359_debugfs_ops);
 #endif
+	ret = mt6359_parse_dt(priv);
+	if (ret) {
+		dev_warn(&pdev->dev,
+			 "%s() fail to parse dts: %d\n", __func__, ret);
+		return ret;
+	}
 
 	dev_info(&pdev->dev, "%s(), dev name %s\n",
 		 __func__, dev_name(&pdev->dev));
