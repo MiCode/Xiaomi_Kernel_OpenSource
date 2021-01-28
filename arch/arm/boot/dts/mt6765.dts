@@ -637,7 +637,8 @@
 	};
 
 	infracfg_ao: infracfg_ao@10001000 {
-		compatible = "mediatek,mt6765-infracfg", "syscon";
+		compatible = "mediatek,common-infracfg_ao",
+			     "mediatek,mt6765-infracfg", "syscon";
 		reg = <0 0x10001000 0 0x1000>;
 		interrupts = <GIC_SPI 147 IRQ_TYPE_EDGE_RISING>;
 		#clock-cells = <1>;
@@ -1802,6 +1803,11 @@
 		mediatek,enabled = <1>;
 		mediatek,chain_length = <0xc350>;
 		mediatek,rg_dfd_timeout = <0xa0>;
+		mediatek,check_dfd_support = <1>;
+		mediatek,dfd_infra_base = <0x390>;
+		mediatek,dfd_ap_addr_offset = <24>;
+		mediatek,dfd_latch_offset = <0x48>;
+		reg_base = <&toprgu>;
 	};
 
 	dbg_cti@0d020000 {
