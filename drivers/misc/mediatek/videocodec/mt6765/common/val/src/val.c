@@ -189,6 +189,7 @@ enum VAL_RESULT_T eVideoCreateMutex(struct VAL_MUTEX_T *a_prParam,
 		a_prParam->pvMutex = (void *)pLock;
 	} else {
 		pr_info("[VCODEC] Unable to create mutex!\n");
+		return VAL_RESULT_INVALID_MEMORY;
 	}
 	/* init_MUTEX(pLock); */
 	sema_init(pLock, 1);
