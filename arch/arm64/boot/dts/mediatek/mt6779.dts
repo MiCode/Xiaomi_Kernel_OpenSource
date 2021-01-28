@@ -2181,13 +2181,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 		mmc0: mmc@11230000 {
 			compatible = "mediatek,mt6779-mmc";
-			reg = <0 0x11230000 0 0x1000>,
-			      <0 0x11f50000 0 0x1000>;
+			reg = <0 0x11230000 0 0x10000>,
+			      <0 0x11f50000 0 0x10000>;
 			interrupts = <GIC_SPI 101 IRQ_TYPE_LEVEL_LOW>;
 			clocks = <&topckgen CLK_TOP_MSDC50_0>,
 				 <&infracfg_ao CLK_INFRA_MSDC0>,
-				 <&infracfg_ao CLK_INFRA_MSDC0_SCK>;
-			clock-names = "source", "hclk", "source_cg";
+				 <&infracfg_ao CLK_INFRA_MSDC0_SCK>,
+				 <&infracfg_ao CLK_INFRA_AES_UFSFDE>;
+			clock-names = "source", "hclk", "source_cg",
+				"crypto_clk";
 			status = "disabled";
 		};
 
