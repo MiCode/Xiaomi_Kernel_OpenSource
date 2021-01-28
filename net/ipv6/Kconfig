@@ -304,15 +304,6 @@ config IPV6_PIMSM_V2
 	  Support for IPv6 PIM multicast routing protocol PIM-SMv2.
 	  If unsure, say N.
 
-config MTK_IPV6_VZW
-	bool "IPV6: RS triggering to extend route lifetime"
-	depends on IPV6
-	help
-	  VzW REQ6378 propose that RS should be sent to request RA
-	  from gateway for extending ipv6 route lifetime. the feature
-	  is developed to meet VzW's demandings and should be disabled
-	  by default.
-
 config IPV6_SEG6_LWTUNNEL
 	bool "IPv6: Segment Routing Header encapsulation support"
 	depends on IPV6
