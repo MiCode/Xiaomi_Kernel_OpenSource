@@ -222,11 +222,15 @@ static irqreturn_t mtk_stmr_handler(int irq, void *dev_id)
 	dev = mtk_stmr_id_to_dev(id);
 
 	if (likely(dev)) {
+#ifdef CONFIG_MTK_RAM_CONSOLE
 		spin_lock(&systimer_lock);
+#endif
 
 		mtk_stmr_ack_irq(dev);
 
+#ifdef CONFIG_MTK_RAM_CONSOLE
 		spin_unlock(&systimer_lock);
+#endif
 
 		if (likely(stmr_handlers[id]))
 			stmr_handlers[id]((unsigned long)dev_id);
@@ -302,7 +306,9 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 	 * by old compare value.
 	 */
 
+#ifdef CONFIG_MTK_RAM_CONSOLE
 	spin_lock(&systimer_lock);
+#endif
 
 	mtk_stmr_reset(dev);
 
@@ -313,7 +319,9 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 	mt_reg_sync_writel(STMR_CON_EN | STMR_CON_IRQ_EN,
 		dev->base_addr + STMR_CON);
 
+#ifdef CONFIG_MTK_RAM_CONSOLE
 	spin_unlock(&systimer_lock);
+#endif
 
 #if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_setevt_out = sched_clock();
