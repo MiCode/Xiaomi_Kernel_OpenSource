@@ -16,6 +16,7 @@
 
 #include <linux/mfd/mt6397/core.h>
 #include <linux/regulator/consumer.h>
+#include <linux/iio/consumer.h>
 #include <linux/nvmem-consumer.h>
 
 #include <sound/soc.h>
@@ -249,6 +250,7 @@ struct mt6359_vow_periodic_on_off_data {
 struct mt6359_priv {
 	struct device *dev;
 	struct regmap *regmap;
+	struct iio_channel *codec_auxadc, *accdet_auxadc;
 	struct nvmem_device *hp_efuse;
 
 	unsigned int dl_rate[MT6359_AIF_NUM];
@@ -605,22 +607,36 @@ int mt6359_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
 }
 EXPORT_SYMBOL_GPL(mt6359_set_mtkaif_calibration_phase);
 
-static int get_auxadc_audio(void)
+static int get_auxadc_audio(struct mt6359_priv *priv)
 {
-#ifdef CONFIG_MTK_AUXADC_INTF
-	return pmic_get_auxadc_value(AUXADC_LIST_HPOFS_CAL);
-#else
-	return 0;
-#endif
+	int value = 0, ret = 0;
+
+	if (!IS_ERR(priv->codec_auxadc)) {
+		ret = iio_read_channel_raw(priv->codec_auxadc,
+					   &value);
+		if (ret < 0) {
+			pr_notice("Error: %s read fail (%d)\n", __func__, ret);
+			return ret;
+		}
+	}
+	pr_debug("%s() value :%d\n", __func__, value);
+	return value;
 }
 
-static int get_accdet_auxadc(void)
+static int get_accdet_auxadc(struct mt6359_priv *priv)
 {
-#ifdef CONFIG_MTK_AUXADC_INTF
-	return pmic_get_auxadc_value(AUXADC_LIST_ACCDET);
-#else
-	return 0;
-#endif
+	int value = 0, ret = 0;
+
+	if (!IS_ERR(priv->accdet_auxadc)) {
+		ret = iio_read_channel_processed(priv->accdet_auxadc,
+						 &value);
+		if (ret < 0) {
+			pr_notice("Error: %s read fail (%d)\n", __func__, ret);
+			return ret;
+		}
+	}
+	pr_debug("%s() value :%d\n", __func__, value);
+	return value;
 }
 
 /* dl pga gain */
@@ -4728,7 +4744,7 @@ static void get_hp_dctrim_offset(struct mt6359_priv *priv,
 	dev_info(priv->dev, "%s(), get on_valueL\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
-		on_valueL[i] = get_auxadc_audio();
+		on_valueL[i] = get_auxadc_audio(priv);
 
 	/* trimming buffer mux selection : AU_REFN */
 	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
@@ -4737,7 +4753,7 @@ static void get_hp_dctrim_offset(struct mt6359_priv *priv,
 	dev_info(priv->dev, "%s(), get off_valueL\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
-		off_valueL[i] = get_auxadc_audio();
+		off_valueL[i] = get_auxadc_audio(priv);
 
 	/* r-channel */
 	/* trimming buffer mux selection : HPR */
@@ -4747,7 +4763,7 @@ static void get_hp_dctrim_offset(struct mt6359_priv *priv,
 	dev_info(priv->dev, "%s(), get on_valueR\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
-		on_valueR[i] = get_auxadc_audio();
+		on_valueR[i] = get_auxadc_audio(priv);
 
 	/* trimming buffer mux selection : AU_REFN */
 	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
@@ -4756,7 +4772,7 @@ static void get_hp_dctrim_offset(struct mt6359_priv *priv,
 	dev_info(priv->dev, "%s(), get off_valueR\n", __func__);
 	usleep_range(1 * 1000, 10 * 1000);
 	for (i = 0; i < TRIM_TIMES; i++)
-		off_valueR[i] = get_auxadc_audio();
+		off_valueR[i] = get_auxadc_audio(priv);
 
 	/* disable trim buffer */
 	enable_trim_buf(priv, false);
@@ -5291,7 +5307,7 @@ static int detect_impedance(struct mt6359_priv *priv)
 			usleep_range(1 * 1000, 1 * 1000);
 			dc_sum = 0;
 			for (i = 0; i < num_detect; i++)
-				dc_sum += get_auxadc_audio();
+				dc_sum += get_auxadc_audio(priv);
 
 			if ((dc_sum / num_detect) > auxadc_upper_bound) {
 				dev_info(priv->dev, "%s(), cur_dc == 0, auxadc value %d > auxadc_upper_bound %d\n",
@@ -5307,7 +5323,7 @@ static int detect_impedance(struct mt6359_priv *priv)
 		if (cur_dc == dc_phase0) {
 			usleep_range(1 * 1000, 1 * 1000);
 			detect_sum = 0;
-			detect_sum = get_auxadc_audio();
+			detect_sum = get_auxadc_audio(priv);
 
 			if ((dc_sum / num_detect) == detect_sum) {
 				dev_info(priv->dev, "%s(), dc_sum / num_detect %d == detect_sum %d\n",
@@ -5332,7 +5348,7 @@ static int detect_impedance(struct mt6359_priv *priv)
 
 			/* Phase 0 : detect range 1kohm to 5kohm impedance */
 			for (i = 1; i < num_detect; i++)
-				detect_sum += get_auxadc_audio();
+				detect_sum += get_auxadc_audio(priv);
 
 			/* if auxadc > 32630 , the hpImpedance is over 5k ohm */
 			if ((detect_sum / num_detect) > auxadc_upper_bound)
@@ -5351,7 +5367,7 @@ static int detect_impedance(struct mt6359_priv *priv)
 			usleep_range(1 * 1000, 1 * 1000);
 			detect_sum = 0;
 			for (i = 0; i < num_detect; i++)
-				detect_sum += get_auxadc_audio();
+				detect_sum += get_auxadc_audio(priv);
 
 			impedance = calculate_impedance(priv,
 							dc_sum, detect_sum,
@@ -5364,7 +5380,7 @@ static int detect_impedance(struct mt6359_priv *priv)
 			usleep_range(1 * 1000, 1 * 1000);
 			detect_sum = 0;
 			for (i = 0; i < num_detect; i++)
-				detect_sum += get_auxadc_audio();
+				detect_sum += get_auxadc_audio(priv);
 
 			impedance = calculate_impedance(priv,
 							dc_sum, detect_sum,
@@ -5555,7 +5571,7 @@ static int hp_plugged_in_set(struct snd_kcontrol *kcontrol,
 	}
 
 	if (ucontrol->value.integer.value[0] == 1) {
-		priv->dc_trim.mic_vinp_mv = get_accdet_auxadc();
+		priv->dc_trim.mic_vinp_mv = get_accdet_auxadc(priv);
 		dev_info(priv->dev, "%s(), mic_vinp_mv = %d\n",
 			 __func__, priv->dc_trim.mic_vinp_mv);
 	}
@@ -7543,6 +7559,28 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, priv);
 	priv->dev = &pdev->dev;
+
+	/* get pmic codec auxadc iio channel handler */
+	priv->codec_auxadc = devm_iio_channel_get(&pdev->dev,
+			"pmic_hpofs_cal");
+	ret = PTR_ERR_OR_ZERO(priv->codec_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
+				ret);
+		return ret;
+	}
+
+	/* get pmic accdet auxadc iio channel handler */
+	priv->accdet_auxadc = devm_iio_channel_get(&pdev->dev,
+			"pmic_accdet");
+	ret = PTR_ERR_OR_ZERO(priv->accdet_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
+				ret);
+		return ret;
+	}
 
 #ifdef CONFIG_DEBUG_FS
 	/* create debugfs file */
