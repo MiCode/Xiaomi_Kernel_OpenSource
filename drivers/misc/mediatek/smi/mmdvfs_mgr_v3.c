@@ -25,7 +25,7 @@
 #include "mtk_gpu_utility.h"
 #include "mtk_smi.h"
 #include "mtk_vcorefs_manager.h"
-#include "mach/mtk_freqhopping.h"
+#include "mtk_freqhopping_drv.h"
 #include "mmdvfs_mgr.h"
 #include "mmdvfs_config_util.h"
 #include "mmdvfs_internal.h"

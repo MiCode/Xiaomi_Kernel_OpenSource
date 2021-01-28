@@ -51,8 +51,8 @@
 #include "mt-plat/sync_write.h"
 #include "mach/mtk_pmic_wrap.h"
 
-#include "mach/mtk_fhreg.h"
-#include "mach/mtk_freqhopping.h"
+#include "mtk_fhreg.h"
+#include "mtk_freqhopping_drv.h"
 
 static void __iomem *g_apmixed_base;
 

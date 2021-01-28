@@ -24,8 +24,8 @@
 #include <linux/sched_clock.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
-#include "mach/mtk_freqhopping.h"
-#include "mach/mtk_fhreg.h"
+#include "mtk_freqhopping.h"
+#include "mtk_fhreg.h"
 #include "sync_write.h"
 #include "mtk_freqhopping_drv.h"
 #include <linux/seq_file.h>
@@ -687,145 +687,6 @@ static int mt_fh_hal_dfs_armpll(unsigned int coreid, unsigned int target_dds)
 	return mt_fh_hal_general_pll_dfs(FH_ARM_PLLID, target_dds);
 }
 
-static int mt_fh_hal_dfs_mmpll(unsigned int target_dds)
-{
-	return mt_fh_hal_general_pll_dfs(FH_MM_PLLID, target_dds);
-}
-
-static int mt_fh_hal_dfs_mempll(unsigned int target_dds)
-{
-	return mt_fh_hal_general_pll_dfs(FH_MEM_PLLID, target_dds);
-}
-
-static int mt_fh_hal_l2h_dvfs_mempll(void)
-{
-	FH_BUG_ON(1);
-	return 0;
-}
-
-static int mt_fh_hal_h2l_dvfs_mempll(void)
-{
-	FH_BUG_ON(1);
-	return 0;
-}
-
-static int mt_fh_hal_dram_overclock(int clk)
-{
-	FH_BUG_ON(1);
-	return 0;
-}
-
-static int mt_fh_hal_get_dramc(void)
-{
-	FH_BUG_ON(1);
-	return 0;
-}
-
-static void mt_fh_hal_popod_save(void)
-{
-	/* MAINPLL Only, This is legacy function. Nobody know what purpose is. */
-	const unsigned int pll_id = FH_MAIN_PLLID;
-
-	FH_MSG_DEBUG("EN: %s", __func__);
-	FH_BUG_ON(1); /* [MT6763] should not using */
-
-	/* disable maipll SSC mode */
-	if (g_fh_pll[pll_id].fh_status == FH_FH_ENABLE_SSC) {
-		unsigned int fh_dds = 0;
-		unsigned int pll_dds = 0;
-		const unsigned long reg_cfg = g_reg_cfg[pll_id];
-
-		/* only when SSC is enable, turn off MAINPLL hopping */
-		fh_set_field(reg_cfg, FH_FRDDSX_EN, 0);	/* disable SSC mode */
-		fh_set_field(reg_cfg, FH_SFSTRX_EN, 0);	/* disable dvfs mode */
-		fh_set_field(reg_cfg, FH_FHCTLX_EN, 0);	/* disable hopping control */
-
-		pll_dds = (fh_read32(g_reg_dds[pll_id])) & MASK21b;
-		fh_dds = (fh_read32(g_reg_mon[pll_id])) & MASK21b;
-
-		FH_MSG("Org pll_dds:%x fh_dds:%x", pll_dds, fh_dds);
-
-		wait_dds_stable(pll_dds, g_reg_mon[pll_id], 100);
-
-
-		/* write back to ncpo, only for MAINPLL. */
-		fh_write32(g_reg_pll_con1[pll_id],
-			   (fh_read32(g_reg_dds[pll_id]) & MASK21b) |
-			   ((fh_read32(g_reg_pll_con1[pll_id]) & 0xFFC00000)) | (BIT32));
-
-		FH_MSG("MAINPLL_CON1: 0x%08x", (fh_read32(g_reg_pll_con1[pll_id]) & MASK21b));
-
-		/* switch to register control */
-		fh_switch2fhctl(pll_id, 0);
-
-		mb(); /* prevent reg setting value not sync */
-	}
-}
-
-
-static void mt_fh_hal_popod_restore(void)
-{
-	/* MAINPLL Only, This is legacy function. Nobody know what purpose is. */
-	const unsigned int pll_id = FH_MAIN_PLLID;
-
-	FH_MSG_DEBUG("EN: %s", __func__);
-	FH_BUG_ON(1); /* [MT6763] should not using */
-
-	/* enable maipll SSC mode */
-	if (g_fh_pll[pll_id].fh_status == FH_FH_ENABLE_SSC) {
-
-		/* Default setting index is 2 */
-		const struct freqhopping_ssc *p_setting =
-		    &g_pll_ssc_setting_tbl[pll_id][PLL_SETTING_IDX__DEF];
-		const unsigned long reg_cfg = g_reg_cfg[pll_id];
-
-		fh_set_field(reg_cfg, FH_FRDDSX_EN, 0);	/* disable SSC mode */
-		fh_set_field(reg_cfg, FH_SFSTRX_EN, 0);	/* disable dvfs mode */
-		fh_set_field(reg_cfg, FH_FHCTLX_EN, 0);	/* disable hopping control */
-
-		fh_sync_ncpo_to_fhctl_dds(pll_id);
-
-		FH_MSG("Enable mainpll SSC mode");
-		FH_MSG("sync ncpo to DDS of FHCTL");
-		FH_MSG("FHCTL1_DDS: 0x%08x", (fh_read32(g_reg_dds[pll_id]) & MASK21b));
-
-		fh_set_field(reg_cfg, MASK_FRDDSX_DYS, p_setting->df);
-		fh_set_field(reg_cfg, MASK_FRDDSX_DTS, p_setting->dt);
-
-		fh_write32(g_reg_updnlmt[pll_id],
-			   (PERCENT_TO_DDSLMT
-			    ((fh_read32(g_reg_dds[pll_id]) & MASK21b), p_setting->lowbnd) << 16));
-		FH_MSG("REG_FHCTL2_UPDNLMT: 0x%08x", fh_read32(g_reg_updnlmt[pll_id]));
-
-		fh_switch2fhctl(pll_id, 1);
-
-		fh_set_field(reg_cfg, FH_FRDDSX_EN, 1);	/* enable SSC mode */
-		fh_set_field(reg_cfg, FH_FHCTLX_EN, 1);	/* enable hopping control */
-
-		FH_MSG("REG_FHCTL2_CFG: 0x%08x", fh_read32(reg_cfg));
-	}
-}
-
-static int fh_dvfs_proc_read(struct seq_file *m, void *v)
-{
-	int i = 0;
-
-	FH_MSG("EN: %s", __func__);
-
-	seq_puts(m, "DVFS:\r\n");
-	seq_puts(m, "CFG: 0x3 is SSC mode;  0x5 is DVFS mode \r\n");
-	for (i = 0; i < FH_PLL_NUM; ++i) {
-		seq_printf(m, "FHCTL%d:   CFG:0x%08x    DVFS:0x%08x\r\n",
-			   i, fh_read32(g_reg_cfg[i]), fh_read32(g_reg_dvfs[i]));
-	}
-	return 0;
-}
-
-static int fh_dvfs_proc_write(struct file *file, const char *buffer, unsigned long count,
-			      void *data)
-{
-	return count;
-}
 
 /* #define UINT_MAX (unsigned int)(-1) */
 static int fh_dumpregs_proc_read(struct seq_file *m, void *v)
@@ -1016,7 +877,7 @@ static void __global_var_init(void)
 
 }
 
-static void mt_fh_hal_init(void)
+static int mt_fh_hal_init(void)
 {
 	int i = 0;
 	unsigned long flags = 0;
@@ -1024,7 +885,7 @@ static void mt_fh_hal_init(void)
 	FH_MSG_DEBUG("EN: %s", __func__);
 
 	if (g_initialize == 1)
-		return;
+		return 0;
 
 	/* Init relevant register base address by device tree */
 	__reg_base_addr_init();
@@ -1057,6 +918,8 @@ static void mt_fh_hal_init(void)
 	g_initialize = 1;
 
 	FH_MSG("mt_fh_hal_init done");
+
+	return 0;
 }
 
 static void mt_fh_hal_lock(unsigned long *flags)
@@ -1074,11 +937,6 @@ static void mt_fh_hal_unlock(unsigned long *flags)
 static int mt_fh_hal_get_init(void)
 {
 	return g_initialize;
-}
-
-static int mt_fh_hal_is_support_DFS_mode(void)
-{
-	return true;
 }
 
 /* Engineer mode will use the proc msg to create UI!!! */
@@ -1221,29 +1079,29 @@ static void __ioctl(unsigned int ctlid, void *arg)
 
 static struct mt_fh_hal_driver g_fh_hal_drv = {
 	.fh_pll = g_fh_pll,
-	.fh_usrdef = mt_ssc_fhpll_userdefined,
+	//.fh_usrdef = mt_ssc_fhpll_userdefined,
 	.pll_cnt = FH_PLL_NUM,
-	.proc.dumpregs_read = fh_dumpregs_proc_read,
-	.proc.dvfs_read = fh_dvfs_proc_read,
-	.proc.dvfs_write = fh_dvfs_proc_write,
+	.mt_fh_hal_dumpregs_read = fh_dumpregs_proc_read,
+	//.proc.dvfs_read = fh_dvfs_proc_read,
+	//.proc.dvfs_write = fh_dvfs_proc_write,
 	.mt_fh_hal_init = mt_fh_hal_init,
 	.mt_fh_hal_ctrl = __freqhopping_ctrl,
 	.mt_fh_lock = mt_fh_hal_lock,
 	.mt_fh_unlock = mt_fh_hal_unlock,
 	.mt_fh_get_init = mt_fh_hal_get_init,
-	.mt_fh_popod_restore = mt_fh_hal_popod_restore,
-	.mt_fh_popod_save = mt_fh_hal_popod_save,
-	.mt_l2h_mempll = NULL,
-	.mt_h2l_mempll = NULL,
+	//.mt_fh_popod_restore = mt_fh_hal_popod_restore,
+	//.mt_fh_popod_save = mt_fh_hal_popod_save,
+	//.mt_l2h_mempll = NULL,
+	//.mt_h2l_mempll = NULL,
 	.mt_dfs_armpll = mt_fh_hal_dfs_armpll,
-	.mt_dfs_mmpll = mt_fh_hal_dfs_mmpll,
-	.mt_dfs_mempll = mt_fh_hal_dfs_mempll,
-	.mt_is_support_DFS_mode = mt_fh_hal_is_support_DFS_mode,
-	.mt_l2h_dvfs_mempll = mt_fh_hal_l2h_dvfs_mempll,	/* TODO: should set to NULL */
-	.mt_h2l_dvfs_mempll = mt_fh_hal_h2l_dvfs_mempll,	/* TODO: should set to NULL */
-	.mt_dram_overclock = mt_fh_hal_dram_overclock,
-	.mt_get_dramc = mt_fh_hal_get_dramc,
-	.mt_fh_default_conf = mt_fh_hal_default_conf,
+	//.mt_dfs_mmpll = mt_fh_hal_dfs_mmpll,
+	//.mt_dfs_mempll = mt_fh_hal_dfs_mempll,
+	//.mt_is_support_DFS_mode = mt_fh_hal_is_support_DFS_mode,
+	//.mt_l2h_dvfs_mempll = mt_fh_hal_l2h_dvfs_mempll,
+	//.mt_h2l_dvfs_mempll = mt_fh_hal_h2l_dvfs_mempll,
+	//.mt_dram_overclock = mt_fh_hal_dram_overclock,
+	//.mt_get_dramc = mt_fh_hal_get_dramc,
+	.mt_fh_hal_default_conf = mt_fh_hal_default_conf,
 	.mt_dfs_general_pll = mt_fh_hal_general_pll_dfs,
 	.ioctl = __ioctl
 };
@@ -1290,13 +1148,15 @@ int mt_pause_armpll(unsigned int pll, unsigned int pause)
 
 	return 0;
 }
+
+#if 0
 /*TODO: init in hal. Should find a proper place*/
 static int __init mt_fh_driver_init(void)
 {
 	mt_freqhopping_init();
 	return 0;
 }
-
 arch_initcall(mt_fh_driver_init);
+#endif
 
 /* TODO: module_exit(cpufreq_exit); */
