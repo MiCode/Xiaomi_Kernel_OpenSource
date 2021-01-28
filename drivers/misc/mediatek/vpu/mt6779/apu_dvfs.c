@@ -35,7 +35,7 @@
 #include <linux/regulator/consumer.h>
 #include <mtk_devinfo.h>
 
-#define CCF_GET_CKGEN_READY	(0)
+#define CCF_GET_CKGEN_READY	(1)
 
 /*regulator id*/
 static struct regulator *vvpu_reg_id;
