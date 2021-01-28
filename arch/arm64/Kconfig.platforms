@@ -109,7 +109,6 @@ config MTK_IGNORE_SSBS
 config MACH_MT6785
 	bool "MediaTek MT6785"
 	select ARM_DSU_PMU
-	select HIE
 	select MTK_TIMER_SYSTIMER
 	select MTK_GIC_V3_EXT
 	select PINCTRL
@@ -205,7 +204,6 @@ config MACH_MT6771
 	select ARM_AMBA
 	select CPU_V7
 	select HAVE_SMP
-	select HIE
 	select MTK_PID_MAP
 	select MTK_IO_BOOST
 	select NEED_MACH_MEMORY_H
