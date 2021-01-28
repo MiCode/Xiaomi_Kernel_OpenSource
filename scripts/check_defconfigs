@@ -17,15 +17,21 @@ function build_config_parse ()
 {
 	build_config=$1
 
-	CC=
-	LD=
+	CC="undef"
+	LD="undef"
+	NM="undef"
+	OBJCOPY="undef"
 	cc=`cat ${build_config} | grep ^CC= | cut -d'=' -f 2`
 	ld=`cat ${build_config} | grep ^LD= | cut -d'=' -f 2`
+	nm=`cat ${build_config} | grep ^NM= | cut -d'=' -f 2`
+	objcopy=`cat ${build_config} | grep ^OBJCOPY= | cut -d'=' -f 2`
 
 	if [ $cc == clang ]; then
 		toolchain=`cat ${build_config} | grep CLANG_PREBUILT_BIN | cut -d'=' -f 2`
 		CC="${PWD}/../${toolchain}/${cc}"
 		LD="${PWD}/../${toolchain}/${ld}"
+		NM="${PWD}/../${toolchain}/${nm}"
+		OBJCOPY="${PWD}/../${toolchain}/${objcopy}"
 	else
 		toolchain=`cat ${build_config} | grep LINUX_GCC_CROSS_COMPILE_PREBUILTS_BIN | cut -d'=' -f 2`
 		cross_compile=`cat ${build_config} | grep ^CROSS_COMPILE | cut -d'=' -f 2`
@@ -42,6 +48,8 @@ function build_config_read ()
 	build_config_parse ${ARM64_CONFIG}
 	CC_ARM64="${CC}"
 	LD_ARM64="${LD}"
+	NM_ARM64="${NM}"
+	OBJCOPY_ARM64="${OBJCOPY}"
 
 	build_config_parse ${ARM64_GCC_CONFIG}
 	CC_ARM64_GCC="${CC}"
@@ -92,6 +100,8 @@ CHECK_COMMIT=0
 CHECK_SERVICE=0
 CC=
 LD=
+NM=
+OBJCOPY=
 CC_ARM=
 CC_ARM64=
 CC_ARM64_GCC=
@@ -102,6 +112,8 @@ LD_ARM64=
 LD_ARM64_GCC=
 LD_KASAN=
 LD_UBSAN=
+NM_ARM64=
+OBJCOPY_ARM64=
 ARM_CONFIG='build.config.mtk.arm'
 ARM64_CONFIG='build.config.mtk.aarch64'
 ARM64_GCC_CONFIG='build.config.mtk.aarch64.gcc'
@@ -125,6 +137,8 @@ echo "LD_ARM64=${LD_ARM64}"
 echo "LD_ARM64_GCC=${LD_ARM64_GCC}"
 echo "LD_KASAN=${LD_KASAN}"
 echo "LD_UBSAN=${LD_UBSAN}"
+echo "NM_ARM64=${NM_ARM64}"
+echo "OBJCOPY_ARM64=${OBJCOPY_ARM64}"
 
 while getopts "cuh" opt; do
     case $opt in
@@ -185,6 +199,8 @@ check_defconfig() {
 	LD_ARM64_GCC=${10}
 	LD_KASAN=${11}
 	LD_UBSAN=${12}
+	NM_ARM64=${13}
+	OBJCOPY_ARM64=${14}
 	FAIL=0
 	echo "Checking ${CONFIG}"
 
@@ -203,6 +219,8 @@ check_defconfig() {
 		ARCH=arm64
 		CC=${CC_ARM64}
 		LD=${LD_ARM64}
+		NM=${NM_ARM64}
+		OBJCOPY=${OBJCOPY_ARM64}
 	fi
 
 	echo $CONFIG | grep kasan > /dev/null
@@ -230,6 +248,14 @@ check_defconfig() {
 
 	if [ -n "${LD}" ]; then
 		ARGS+=("LD=${LD}")
+	fi
+
+	if [ -n "${NM}" ]; then
+		ARGS+=("NM=${NM}")
+	fi
+
+	if [ -n "${OBJCOPY}" ]; then
+		ARGS+=("OBJCOPY=${OBJCOPY}")
 	fi
 
 	CMD="make ARCH=${ARCH} ${ARGS[@]} O=${OUT} `basename ${CONFIG}` savedefconfig 2>&1"
@@ -291,7 +317,7 @@ check_defconfig() {
 export -f check_defconfig
 
 toolchain_check
-parallel check_defconfig ::: $CONFIGS ::: $UPDATE ::: $CC_ARM ::: $CC_ARM64 ::: $CC_ARM64_GCC ::: $CC_KASAN ::: $CC_UBSAN ::: $LD_ARM ::: $LD_ARM64 ::: $LD_ARM64_GCC ::: $LD_KASAN ::: $LD_UBSAN
+parallel check_defconfig ::: $CONFIGS ::: $UPDATE ::: $CC_ARM ::: $CC_ARM64 ::: $CC_ARM64_GCC ::: $CC_KASAN ::: $CC_UBSAN ::: $LD_ARM ::: $LD_ARM64 ::: $LD_ARM64_GCC ::: $LD_KASAN ::: $LD_UBSAN ::: $NM_ARM64 ::: $OBJCOPY_ARM64
 RETVAL=$?
 
 if [ $RETVAL != 0 ]; then
