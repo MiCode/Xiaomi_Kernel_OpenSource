@@ -1985,7 +1985,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	audio: audio@11220000 {
-		compatible = "mediatek,audio", "syscon";
+		compatible = "mediatek,mt6761-audsys", "syscon";
 		reg = <0 0x11220000 0 0x1000>;
 		/* interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_LOW>; */
 		#clock-cells = <1>;
@@ -2050,7 +2050,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	mipi_rx_ana_csi0a: mipi_rx_ana_csi0a@11c10000 {
-		compatible = "mediatek,mipi_rx_ana_csi0a", "syscon";
+		compatible = "mediatek,mt6761-mipi0a", "syscon";
 		reg = <0 0x11c10000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -2061,31 +2061,31 @@ firmware_class.path=/vendor/firmware";
 	};
 
 mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
-		compatible = "mediatek,mipi_rx_ana_csi0b", "syscon";
+		compatible = "mediatek,mt6761-mipi0b", "syscon";
 		reg = <0 0x11c11000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi1a: mipi_rx_ana_csi1a@11c12000 {
-		compatible = "mediatek,mipi_rx_ana_csi1a", "syscon";
+		compatible = "mediatek,mt6761-mipi1a", "syscon";
 		reg = <0 0x11c12000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi1b: mipi_rx_ana_csi1b@11c13000 {
-		compatible = "mediatek,mipi_rx_ana_csi1b", "syscon";
+		compatible = "mediatek,mt6761-mipi1b", "syscon";
 		reg = <0 0x11c13000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi2a: mipi_rx_ana_csi2a@11c14000 {
-		compatible = "mediatek,mipi_rx_ana_csi2a", "syscon";
+		compatible = "mediatek,mt6761-mipi2a", "syscon";
 		reg = <0 0x11c14000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi2b: mipi_rx_ana_csi2b@11c15000 {
-		compatible = "mediatek,mipi_rx_ana_csi2b", "syscon";
+		compatible = "mediatek,mt6761-mipi2b", "syscon";
 		reg = <0 0x11c15000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -2149,7 +2149,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 
 	mmsys_config: mmsys_config@14000000 {
-		compatible = "mediatek,mmsys_config", "syscon";
+		compatible = "mediatek,mt6761-mmsys", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
 		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_LOW>;
 		#clock-cells = <1>;
@@ -2419,7 +2419,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 	};
 
 	camsys: camsys@15000000  {
-		compatible = "mediatek,camsys", "syscon";
+		compatible = "mediatek,mt6761-camsys", "syscon";
 		reg = <0 0x15000000  0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -2609,7 +2609,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 	};
 
 	venc_gcon: venc_gcon@17000000 {
-		compatible = "mediatek,venc_gcon", "syscon";
+		compatible = "mediatek,mt6761-vcodecsys", "syscon";
 		reg = <0 0x17000000 0 0x10000>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&scpsys SCP_SYS_VCODEC>,
