@@ -391,8 +391,6 @@ int primary_display_diagnose_oneshot(const char *func, int line);
 
 int primary_display_get_info(struct disp_session_info *info);
 int primary_display_capture_framebuffer(unsigned long pbuf);
-int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
-					    unsigned int format);
 
 int primary_display_is_video_mode(void);
 int primary_is_sec(void);
