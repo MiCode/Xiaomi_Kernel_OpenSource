@@ -79,6 +79,7 @@ function toolchain_check ()
 CONFIGS=
 UPDATE=0
 CHECK_COMMIT=0
+CHECK_SERVICE=0
 CC=
 LD=
 CC_ARM=
@@ -119,6 +120,10 @@ while getopts "cuh" opt; do
       c)
 	if [ $# == 2 ]; then
 		CHECK_COMMIT=$2
+		if [ ${CHECK_COMMIT} == FETCH_HEAD ]; then
+			CHECK_SERVICE=1
+			echo Checking from check service
+		fi
 	else
 		CHECK_COMMIT="HEAD"
 	fi
@@ -279,6 +284,10 @@ if [ $RETVAL != 0 ]; then
 	echo Please check the following wiki for detail, thanks!
 	echo http://wiki.mediatek.inc/display/KernelStandardization/Check+defconfig+in+kernel+preflight
 	echo http://wiki.mediatek.inc/display/KernelStandardization/SOP+to+update+kernel+config
+fi
+
+if [ ${CHECK_SERVICE} == 1 ]; then
+	rm -rf ../prebuilts
 fi
 
 exit $RETVAL
