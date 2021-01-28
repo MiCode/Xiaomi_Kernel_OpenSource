@@ -60,7 +60,8 @@ enum IMGSENSOR_RETURN imgsensor_hw_init(struct IMGSENSOR_HW *phw)
 		psensor_pwr = &phw->sensor_pwr[i];
 
 		pcust_pwr_cfg = imgsensor_custom_config;
-		while (pcust_pwr_cfg->sensor_idx != i)
+		while (pcust_pwr_cfg->sensor_idx != i &&
+		       pcust_pwr_cfg->sensor_idx != IMGSENSOR_SENSOR_IDX_NONE)
 			pcust_pwr_cfg++;
 
 		if (pcust_pwr_cfg->sensor_idx == IMGSENSOR_SENSOR_IDX_NONE)
