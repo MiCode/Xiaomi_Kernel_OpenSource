@@ -25,8 +25,9 @@
 #include "mnoc_api.h"
 #include "mnoc_drv.h"
 
-static ssize_t mnoc_apu_qos_boost_show(struct device *dev,
-				struct device_attribute *attr, char *buf)
+static ssize_t mnoc_apu_qos_boost_show(struct kobject *kobj,
+				       struct kobj_attribute *attr,
+				       char *buf)
 {
 	int ret = 0;
 #if MNOC_QOS_BOOST_ENABLE
@@ -35,9 +36,9 @@ static ssize_t mnoc_apu_qos_boost_show(struct device *dev,
 	return ret;
 }
 
-static ssize_t mnoc_apu_qos_boost_store(struct device *dev,
-				 struct device_attribute *attr, const char *buf,
-				 size_t count)
+static ssize_t mnoc_apu_qos_boost_store(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					const char *buf, size_t count)
 {
 	unsigned int val;
 
@@ -60,7 +61,10 @@ static ssize_t mnoc_apu_qos_boost_store(struct device *dev,
 
 	return count;
 }
-static DEVICE_ATTR_RW(mnoc_apu_qos_boost);
+
+static const struct kobj_attribute apu_qos_boost_attr =
+	__ATTR(mnoc_apu_qos_boost, 0660, mnoc_apu_qos_boost_show,
+	       mnoc_apu_qos_boost_store);
 
 static ssize_t mnoc_cmd_qos_start_show(struct device *dev,
 			struct device_attribute *attr, char *buf)
@@ -178,7 +182,7 @@ int mnoc_qos_create_sys(struct device *dev)
 		return -EINVAL;
 
 	/* create /sys/kernel/apusys/mnoc_apu_qos_boost */
-	ret = sysfs_create_file(p_mnoc->root_dir, &dev_attr_mnoc_apu_qos_boost.attr);
+	ret = sysfs_create_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
 	if (!ret)
 		LOG_ERR("%s create boost attribute fail, ret %d\n", __func__, ret);
 
@@ -202,6 +206,6 @@ void mnoc_qos_remove_sys(struct device *dev)
 {
 	struct apu_mnoc *p_mnoc = dev_get_drvdata(dev);
 
-	sysfs_remove_file(p_mnoc->root_dir, &dev_attr_mnoc_apu_qos_boost.attr);
+	sysfs_remove_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
 	sysfs_remove_group(&dev->kobj, &mnoc_qos_attr_group);
 }
