@@ -110,7 +110,15 @@
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION == 3)
+struct MFB_CLK_STRUCT {
+	struct clk *CG_IMG2_LARB11;
+	struct clk *CG_IMG2_MSS;
+	struct clk *CG_IMG2_MFB;
+	struct clk *CG_IMG1_GALS;
+};
+struct MFB_CLK_STRUCT mfb_clk;
+#elif (MTK_MFB_REG_VERSION == 2)
 struct MFB_CLK_STRUCT {
 	struct clk *CG_IMG2_LARB11;
 	struct clk *CG_IMG2_MSS;
@@ -630,7 +638,7 @@ static struct SV_LOG_STR gSvLog[MFB_IRQ_TYPE_AMOUNT];
 #define MFB_MSS_TOP_DBG_OUT3    (ISP_MSS_BASE + 0x444)
 #define MFB_MSS_DMA_DEBUG_SEL   (ISP_MSS_BASE + 0x888)
 
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION >= 2)
 #define MSS_BASE 0x15812000
 #define MSF_BASE 0x15810000
 #else
@@ -808,7 +816,7 @@ void MFBQOS_Init(void)
 
 	/* Call mm_qos_add_request */
 	/* when initialize module or driver prob */
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION >= 2)
 	mm_qos_add_request(&module_request_list,
 		&mfb_mmqos_request, M4U_PORT_L11_IMG_MFB_RDMA0);
 #else
@@ -1688,7 +1696,24 @@ static inline void MFB_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> MFB clk
 	 */
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION == 3)
+	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_LARB11 clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MSS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_MSS clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG2_MFB);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG2_MFB clock\n");
+
+	ret = clk_prepare_enable(mfb_clk.CG_IMG1_GALS);
+	if (ret)
+		LOG_ERR("cannot prepare and enable CG_IMG1_GALS clock\n");
+#elif (MTK_MFB_REG_VERSION == 2)
 	smi_bus_prepare_enable(SMI_LARB11, MFB_DEV_NAME);
 	ret = clk_prepare_enable(mfb_clk.CG_IMG2_LARB11);
 	if (ret)
@@ -1722,7 +1747,13 @@ static inline void MFB_Disable_Unprepare_ccf_clock(void)
 	/* must keep this clk close order:
 	 * MFB clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION == 3)
+	clk_disable_unprepare(mfb_clk.CG_IMG1_GALS);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
+	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
+	smi_bus_disable_unprepare(SMI_LARB11, MFB_DEV_NAME);
+#elif (MTK_MFB_REG_VERSION == 2)
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MFB);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_MSS);
 	clk_disable_unprepare(mfb_clk.CG_IMG2_LARB11);
@@ -1748,7 +1779,7 @@ static inline int m4u_control_iommu_port(void)
 	int count_of_ports = 0;
 	int i = 0;
 
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION >= 2)
 	/* LARB11 */
 	count_of_ports = M4U_PORT_L11_IMG_MFB_WDMA1 -
 		M4U_PORT_L11_IMG_MFB_RDMA0 + 1;
@@ -4156,7 +4187,33 @@ static signed int MFB_probe(struct platform_device *pDev)
 #ifndef __MFB_EP_NO_CLKMGR__
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 		    /*CCF: Grab clock pointer (struct clk*) */
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION == 3)
+		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_LARB11");
+		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_MSS");
+		mfb_clk.CG_IMG2_MFB = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG2_MFB");
+		mfb_clk.CG_IMG1_GALS = devm_clk_get(&pDev->dev,
+				"MFB_CG_IMG1_GALS");
+
+		if (IS_ERR(mfb_clk.CG_IMG2_LARB11)) {
+			LOG_ERR("cannot get CG_IMG2_LARB11 clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_LARB11);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_MSS)) {
+			LOG_ERR("cannot get CG_IMG2_MSS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_MSS);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG2_MFB)) {
+			LOG_ERR("cannot get CG_IMG2_MFB clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG2_MFB);
+		}
+		if (IS_ERR(mfb_clk.CG_IMG1_GALS)) {
+			LOG_ERR("cannot get CG_IMG1_GALS clock\n");
+			return PTR_ERR(mfb_clk.CG_IMG1_GALS);
+		}
+#elif (MTK_MFB_REG_VERSION == 2)
 		mfb_clk.CG_IMG2_LARB11 = devm_clk_get(&pDev->dev,
 				"MFB_CG_IMG2_LARB11");
 		mfb_clk.CG_IMG2_MSS = devm_clk_get(&pDev->dev,
@@ -4434,7 +4491,7 @@ int MFB_pm_restore_noirq(struct device *device)
  * Note!!! The order and member of .compatible must be the same with that in
  *  "MFB_DEV_NODE_ENUM" in camera_MFB.h
  */
-#if (MTK_MFB_REG_VERSION == 2)
+#if (MTK_MFB_REG_VERSION >= 2)
 static const struct of_device_id MFB_of_ids[] = {
 	{.compatible = "mediatek,mss_b",},
 	{.compatible = "mediatek,msf_b",},
