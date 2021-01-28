@@ -15,6 +15,13 @@ ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
 GCOV_PROFILE := y
 endif
 
+ifdef CONFIG_MTK_PLATFORM
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile),)
+include $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile
+endif
+endif
+
 ifeq ($(SSPM_VER),v2)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 ccflags-y += -DUSE_SSMP_VER_V2

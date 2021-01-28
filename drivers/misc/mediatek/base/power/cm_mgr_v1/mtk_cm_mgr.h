@@ -47,6 +47,8 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_LOADING_ENABLE 19
 #define IPI_CM_MGR_LOADING_LEVEL 20
 #define IPI_CM_MGR_EMI_DEMAND_CHECK 21
+#define IPI_CM_MGR_OPP_FREQ_SET 22
+#define IPI_CM_MGR_OPP_VOLT_SET 23
 
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;
