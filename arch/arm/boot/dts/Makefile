@@ -1081,6 +1081,10 @@ else
 DTB_LIST := $(dtb-y)
 endif
 
+ifeq ($(strip $(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE)), y)
+DTB_LIST += $(addsuffix .dtb, $(subst $\",,$(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES)))
+endif
+
 targets += dtbs dtbs_install
 targets += $(DTB_LIST)
 
