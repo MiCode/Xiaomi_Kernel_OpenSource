@@ -426,7 +426,12 @@ firmware_class.path=/vendor/firmware";
 				<&mdcldma 3 (1 << 25)>;
 	};
 
-	pio: pinctrl@1000b000 {
+	eint: eint@1000b000 {
+		compatible = "mediatek,eint";
+		reg = <0 0x1000b000 0 0x1000>;
+	};
+
+	pio: pinctrl@10005000 {
 		compatible = "mediatek,mt6761-pinctrl";
 		reg_bases = <&gpio>,
 			<&io_cfg_lt>,
@@ -440,6 +445,10 @@ firmware_class.path=/vendor/firmware";
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 179>;
 		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupts = <GIC_SPI 115 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
 	};
 
 	toprgu@10007000 {

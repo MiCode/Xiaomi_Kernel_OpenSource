@@ -1043,8 +1043,8 @@ static const struct mtk_pin_reg_calc mt6761_reg_cals[PINCTRL_PIN_REG_MAX] = {
 static const struct mtk_eint_hw mt6761_eint_hw = {
 	.port_mask = 7,
 	.ports     = 6,
-	.ap_num    = 212,
-	.db_cnt    = 13,
+	.ap_num    = 160,
+	.db_cnt    = 16,
 };
 
 static const struct mtk_pin_soc mt6761_data = {

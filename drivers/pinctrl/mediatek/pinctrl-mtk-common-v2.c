@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/of_irq.h>
+#include <linux/of_address.h>
 
 #include <dt-bindings/pinctrl/mt65xx.h>
 
@@ -372,7 +373,7 @@ static const struct mtk_eint_xt mtk_eint_xt = {
 
 int mtk_build_eint(struct mtk_pinctrl *hw, struct platform_device *pdev)
 {
-	struct device_node *np = pdev->dev.of_node;
+	struct device_node *np = pdev->dev.of_node, *node;
 	struct resource *res;
 
 	if (!IS_ENABLED(CONFIG_EINT_MTK))
@@ -385,15 +386,24 @@ int mtk_build_eint(struct mtk_pinctrl *hw, struct platform_device *pdev)
 	if (!hw->eint)
 		return -ENOMEM;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "eint");
-	if (!res) {
-		dev_err(&pdev->dev, "Unable to get eint resource\n");
-		return -ENODEV;
-	}
+	if (hw->soc->nbase_names) {
+		res = platform_get_resource_byname(pdev,
+				IORESOURCE_MEM, "eint");
+		if (!res) {
+			dev_err(&pdev->dev, "Unable to get eint resource\n");
+			return -ENODEV;
+		}
 
-	hw->eint->base = devm_ioremap_resource(&pdev->dev, res);
-	if (IS_ERR(hw->eint->base))
-		return PTR_ERR(hw->eint->base);
+		hw->eint->base = devm_ioremap_resource(&pdev->dev, res);
+		if (IS_ERR(hw->eint->base))
+			return PTR_ERR(hw->eint->base);
+	} else {
+		node = of_find_node_by_name(NULL, "eint");
+		if (!node)
+			return -ENODEV;
+		hw->eint->base = of_iomap(node, 0);
+		of_node_put(node);
+	}
 
 	hw->eint->irq = irq_of_parse_and_map(np, 0);
 	if (!hw->eint->irq)
