@@ -26,6 +26,9 @@
 #define MT8183_DVFSRC_OPP_LP4X	1
 #define MT8183_DVFSRC_OPP_LP3	2
 
+#define POLL_TIMEOUT		1000
+#define STARTUP_TIME		1
+
 /**  VCORE UV table */
 static u32 num_vopp;
 static u32 *vopp_uv_tlb;
@@ -74,6 +77,7 @@ struct mtk_dvfsrc {
 	struct dvfsrc_domain *domains;
 	void __iomem *regs;
 	struct mutex lock;
+	struct mutex sw_req_lock;
 	struct notifier_block scpsys_notifier;
 	struct regulator *vcore_power;
 	bool opp_forced;
@@ -213,65 +217,39 @@ static bool dvfsrc_is_idle(struct mtk_dvfsrc *dvfsrc)
 	if (!dvfsrc->dvd->get_target_level)
 		return true;
 
-	return dvfsrc->dvd->get_target_level(dvfsrc) == DVFSRC_IDLE;
+	return dvfsrc->dvd->get_target_level(dvfsrc);
 }
 
 static int dvfsrc_wait_for_idle(struct mtk_dvfsrc *dvfsrc)
 {
-	unsigned long timeout;
+	int state;
 
-	timeout = jiffies + usecs_to_jiffies(1000);
-	udelay(1);
-	do {
-		if (dvfsrc_is_idle(dvfsrc))
-			return 0;
-	} while (!time_after(jiffies, timeout));
-
-	return -ETIMEDOUT;
-}
-
-static int dvfsrc_wait_for_dram_opp(struct mtk_dvfsrc *dvfsrc, u32 level)
-{
-	unsigned long timeout;
-	const struct dvfsrc_opp *opp;
-
-	timeout = jiffies + usecs_to_jiffies(1000);
-	udelay(1);
-	do {
-		opp = get_current_opp(dvfsrc);
-		if (opp->dram_opp >= level)
-			return 0;
-	} while (!time_after(jiffies, timeout));
-
-	return -ETIMEDOUT;
+	return readx_poll_timeout_atomic(dvfsrc_is_idle, dvfsrc,
+		state, state == DVFSRC_IDLE,
+		STARTUP_TIME, POLL_TIMEOUT);
 }
 
 static int dvfsrc_wait_for_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	const struct dvfsrc_opp *opp;
+	const struct dvfsrc_opp *target, *curr;
 
-	opp = &dvfsrc->dvd->opps[dvfsrc->dram_type][level];
+	target = &dvfsrc->dvd->opps[dvfsrc->dram_type][level];
+	udelay(STARTUP_TIME);
 
-	return dvfsrc_wait_for_dram_opp(dvfsrc, opp->dram_opp);
+	return readx_poll_timeout_atomic(get_current_opp, dvfsrc, curr,
+		curr->dram_opp >= target->dram_opp,
+		STARTUP_TIME, POLL_TIMEOUT);
 }
-
 
 static int dvfsrc_wait_for_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
-	unsigned long timeout;
-	const struct dvfsrc_opp *opp;
+	const struct dvfsrc_opp *curr;
 
-	timeout = jiffies + usecs_to_jiffies(1000);
-	udelay(1);
-	do {
-		opp = get_current_opp(dvfsrc);
-		if (opp->vcore_opp >= level)
-			return 0;
-	} while (!time_after(jiffies, timeout));
-
-	return -ETIMEDOUT;
+	udelay(STARTUP_TIME);
+	return readx_poll_timeout_atomic(get_current_opp, dvfsrc, curr,
+		curr->vcore_opp >= level,
+		STARTUP_TIME, POLL_TIMEOUT);
 }
-
 
 static int mt6779_get_target_level(struct mtk_dvfsrc *dvfsrc)
 {
@@ -322,19 +300,26 @@ static void mt6779_set_dram_hrtbw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 static void mt6779_set_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
 	dev_dbg(dvfsrc->dev, "vcore_level: %d\n", level);
+	mutex_lock(&dvfsrc->sw_req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x7, 4);
+	mutex_unlock(&dvfsrc->sw_req_lock);
+	udelay(STARTUP_TIME);
 }
 
 static void mt6779_set_vscp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
 	dev_dbg(dvfsrc->dev, "vscp_level: %d\n", level);
 	dvfsrc_rmw(dvfsrc, DVFSRC_VCORE_REQUEST, level, 0x7, 12);
+	udelay(STARTUP_TIME);
 }
 
 static void mt6779_set_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
 	dev_dbg(dvfsrc->dev, "dram_opp: %d\n", level);
+	mutex_lock(&dvfsrc->sw_req_lock);
 	dvfsrc_rmw(dvfsrc, DVFSRC_SW_REQ, level, 0x7, 12);
+	mutex_unlock(&dvfsrc->sw_req_lock);
+	udelay(STARTUP_TIME);
 }
 
 static void mt6779_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
@@ -359,19 +344,24 @@ static int mt6779_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 		return 0;
 	}
 
+	dvfsrc->opp_forced = true;
 	spin_lock_irqsave(&force_req_lock, flags);
 	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 1 << level);
 	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 15);
 	ret = readl_poll_timeout_atomic(
 			dvfsrc->regs + dvfsrc->dvd->regs[DVFSRC_LEVEL],
-			val, val == (1 << level), 1, 1000);
+			val, val == (1 << level), STARTUP_TIME, POLL_TIMEOUT);
 
-	if (ret < 0)
-		dev_info(dvfsrc->dev, "force opp %d fail\n", level);
+	if (ret < 0) {
+		dev_info(dvfsrc->dev,
+			"[%s] wait idle, level: %d, last: %d -> %x\n",
+			__func__, level,
+			dvfsrc->dvd->get_current_level(dvfsrc),
+			dvfsrc->dvd->get_target_level(dvfsrc));
 
+	}
 	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 	spin_unlock_irqrestore(&force_req_lock, flags);
-	dvfsrc->opp_forced = true;
 
 	return ret;
 }
@@ -412,12 +402,11 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	int ret = 0;
 
 	dev_dbg(dvfsrc->dev, "cmd: %d, data: %llu\n", cmd, data);
-	mutex_lock(&dvfsrc->lock);
 
 	if (cmd == MTK_DVFSRC_CMD_FORCE_OPP_REQUEST) {
 		if (dvfsrc->dvd->set_force_opp_level)
-			ret = dvfsrc->dvd->set_force_opp_level(dvfsrc, data);
-		goto out;
+			dvfsrc->dvd->set_force_opp_level(dvfsrc, data);
+		return;
 	}
 
 	switch (cmd) {
@@ -441,6 +430,7 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		break;
 	default:
 		dev_err(dvfsrc->dev, "unknown command: %d\n", cmd);
+		goto out;
 		break;
 	}
 
@@ -453,33 +443,27 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	case MTK_DVFSRC_CMD_OPP_REQUEST:
 		if (dvfsrc->dvd->wait_for_opp_level)
 			ret = dvfsrc->dvd->wait_for_opp_level(dvfsrc, data);
-		else
-			ret = dvfsrc_wait_for_idle(dvfsrc);
 		break;
 	case MTK_DVFSRC_CMD_VCORE_REQUEST:
 	case MTK_DVFSRC_CMD_VSCP_REQUEST:
-		if (dvfsrc->dvd->wait_for_vcore_level)
+		if (dvfsrc->dvd->wait_for_vcore_level) {
 			ret = dvfsrc->dvd->wait_for_vcore_level(dvfsrc, data);
-		else
-			ret = dvfsrc_wait_for_idle(dvfsrc);
-
-		if (dvfsrc->dvd->vcore_check)
-			mtk_dvfsrc_vcore_check(dvfsrc, data);
+			if (dvfsrc->dvd->vcore_check)
+				mtk_dvfsrc_vcore_check(dvfsrc, data);
+		}
 		break;
 	case MTK_DVFSRC_CMD_HRTBW_REQUEST:
 		ret = dvfsrc_wait_for_idle(dvfsrc);
 		break;
 	}
-
+out:
 	if (ret) {
 		dev_warn(dvfsrc->dev,
-			"[%s][%d] wait idle, level: %llu, last: %d -> %d\n",
+			"[%s][%d] wait idle, level: %llu, last: %d -> %x\n",
 			__func__, cmd, data,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
 	}
-out:
-	mutex_unlock(&dvfsrc->lock);
 }
 EXPORT_SYMBOL(mtk_dvfsrc_send_request);
 
@@ -606,6 +590,7 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
 
 	mutex_init(&dvfsrc->lock);
+	mutex_init(&dvfsrc->sw_req_lock);
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
 		dvfsrc->mode, dvfsrc->flag, 0, 0, 0, 0,
 		&ares);
