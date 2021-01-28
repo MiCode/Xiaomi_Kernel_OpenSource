@@ -1983,6 +1983,9 @@
 			"mtcmos_mfg_async",
 			"mtcmos_mfg",
 			"mtcmos_mfg_core0";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
+		vcore-supply = <&mt_pmic_vcore_buck_reg>;
 	};
 
 	ged: ged {
