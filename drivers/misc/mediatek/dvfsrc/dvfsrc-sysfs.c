@@ -26,6 +26,9 @@ static ssize_t dvfsrc_req_bw_store(struct device *dev,
 	if (kstrtoint(buf, 10, &val))
 		return -EINVAL;
 
+	if (!dvfsrc->path)
+		return -EINVAL;
+
 	mutex_lock(&bw_lock);
 	bw = val;
 	icc_set_bw(dvfsrc->path, MBps_to_icc(bw), MBps_to_icc(hrt_bw));
@@ -42,6 +45,9 @@ static ssize_t dvfsrc_req_hrtbw_store(struct device *dev,
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
 
 	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	if (!dvfsrc->path)
 		return -EINVAL;
 
 	mutex_lock(&bw_lock);

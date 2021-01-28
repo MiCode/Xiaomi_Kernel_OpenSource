@@ -21,6 +21,7 @@
 
 #define MTK_DVFSRC_MET_SUPPORT 1
 
+#define MTK_SIP_VCOREFS_KICK 1
 #define MTK_SIP_VCOREFS_DRAM_TYPE 2
 #define MTK_SIP_VCOREFS_VCORE_UV  4
 #define MTK_SIP_VCOREFS_DRAM_FREQ 5
@@ -248,7 +249,16 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 	if (!ares.a0)
 		dvfsrc->dram_type = ares.a1;
 	else {
-		dev_info(dev, "init fails: %lu\n", ares.a0);
+		dev_info(dev, "get dram type fails\n");
+		return ares.a0;
+	}
+
+	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_VCOREFS_KICK,
+		0, 0, 0, 0, 0, 0,
+		&ares);
+
+	if (ares.a0) {
+		dev_info(dev, "vcore_dvfs kick fail\n");
 		return ares.a0;
 	}
 
@@ -289,24 +299,29 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 		return PTR_ERR(dvfsrc->regs);
 
 	dvfsrc->path = of_icc_get(&pdev->dev, "icc-bw-port");
-	if (IS_ERR(dvfsrc->path))
-		return IS_ERR(dvfsrc->path);
+	if (IS_ERR(dvfsrc->path)) {
+		dev_info(dev, "get icc-bw-port fail\n");
+		dvfsrc->path = NULL;
+	}
 
-	dvfsrc->vcore_power = regulator_get(&pdev->dev, "vcore");
+	dvfsrc->vcore_power =
+		regulator_get_optional(&pdev->dev, "vcore");
 	if (IS_ERR(dvfsrc->vcore_power)) {
 		dev_info(dev, "regulator_get vcore failed = %ld\n",
 			PTR_ERR(dvfsrc->vcore_power));
 		dvfsrc->vcore_power = NULL;
 	}
 
-	dvfsrc->dvfsrc_vcore_power = regulator_get(&pdev->dev, "rc-vcore");
+	dvfsrc->dvfsrc_vcore_power =
+		regulator_get_optional(&pdev->dev, "rc-vcore");
 	if (IS_ERR(dvfsrc->dvfsrc_vcore_power)) {
-		dev_info(dev, "mtk_dvfsrc dvfsrc vcore failed = %ld\n",
+		dev_info(dev, "regulator_get dvfsrc vcore failed = %ld\n",
 			PTR_ERR(dvfsrc->dvfsrc_vcore_power));
 		dvfsrc->dvfsrc_vcore_power = NULL;
 	}
 
-	dvfsrc->dvfsrc_vscp_power = regulator_get(&pdev->dev, "rc-vscp");
+	dvfsrc->dvfsrc_vscp_power =
+		regulator_get_optional(&pdev->dev, "rc-vscp");
 	if (IS_ERR(dvfsrc->dvfsrc_vscp_power)) {
 		dev_info(dev, "regulator_get dvfsrc vscp failed = %ld\n",
 			PTR_ERR(dvfsrc->dvfsrc_vscp_power));
@@ -391,7 +406,7 @@ static int __init mtk_dvfsrc_debug_init(void)
 {
 	return platform_driver_register(&mtk_dvfsrc_debug_driver);
 }
-late_initcall(mtk_dvfsrc_debug_init)
+late_initcall_sync(mtk_dvfsrc_debug_init)
 
 static void __exit mtk_dvfsrc_debug_exit(void)
 {

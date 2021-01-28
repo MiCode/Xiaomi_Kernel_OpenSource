@@ -18,11 +18,13 @@
 #if IS_ENABLED(CONFIG_MTK_DVFSRC)
 extern void register_dvfsrc_opp_handler(int (*handler)(u32 id));
 extern int mtk_dvfsrc_query_opp_info(u32 id);
+extern int mtk_dvfsrc_vcore_uv_table(u32 opp);
 #else
 static inline void register_dvfsrc_opp_handler(int (*handler)(u32 id))
 { }
 static inline int mtk_dvfsrc_query_opp_info(u32 id)
 { return 0; }
-
+static inline int mtk_dvfsrc_vcore_uv_table(u32 opp)
+{ return 0; }
 #endif /* CONFIG_MTK_DVFSRC */
 #endif
