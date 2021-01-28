@@ -29,7 +29,7 @@ enum ION_PROFILE_TYPE {
 	PROFILE_MAX,
 };
 
-//#define ION_PROFILE
+#define ION_PROFILE
 
 #define mmp_root_event 1
 
