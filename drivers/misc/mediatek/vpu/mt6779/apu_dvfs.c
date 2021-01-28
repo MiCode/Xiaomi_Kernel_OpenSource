@@ -1114,7 +1114,7 @@ int mdla_get_hw_vmdla_opp(int core)
 	} else
 		vmdla_opp_1_vol = 725000;
 
-		vmdla_opp_2_vol = 650000;
+	vmdla_opp_2_vol = 650000;
 #endif
 	get_vmdla_value = (int)regulator_get_voltage(vmdla_reg_id);
 	if (get_vmdla_value >= vmdla_opp_0_vol)
