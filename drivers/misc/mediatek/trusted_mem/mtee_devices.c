@@ -58,6 +58,15 @@ static struct trusted_mem_configs mchunk_general_configs = {
 };
 
 static struct mtee_chunk_memory_configs mtee_mchunks[] = {
+#ifdef CONFIG_MTK_PROT_MEM_SUPPORT
+	{
+		.mem_type = TRUSTED_MEM_PROT,
+		.ssmr_feature_id = SSMR_FEAT_PROT_SHAREDMEM,
+		.priv_data = {.mem_type = TRUSTED_MEM_PROT},
+		.mem_cfg = &mchunk_general_configs,
+		.dev_name = "PMEM",
+	},
+#endif
 #ifdef CONFIG_MTK_HAPP_MEM_SUPPORT
 	{
 		.mem_type = TRUSTED_MEM_HAPP,
