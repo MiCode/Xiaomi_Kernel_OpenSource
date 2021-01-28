@@ -18,6 +18,10 @@
 #include <linux/usb/ch9.h>
 #include "mtk_gadget.h"
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+#include <mt-plat/mtk_usb2jtag.h>
+#endif
+
 #ifdef CONFIG_USB_CONFIGFS_F_ACC
 extern int acc_ctrlrequest(struct usb_composite_dev *cdev,
 				const struct usb_ctrlrequest *ctrl);

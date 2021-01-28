@@ -28,6 +28,10 @@
 #include "mtu3_dr.h"
 #include <mtk_sloa_fs.h>
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+#include <mtk_usb2jtag.h>
+#endif
+
 #define PORT_PLS_MASK   (0xf << 5)
 #define XDEV_U0         (0x0 << 5)
 #define XDEV_U1         (0x1 << 5)
@@ -415,6 +419,11 @@ static int mtu3_probe(struct platform_device *pdev)
 	struct ssusb_mtk *ssusb;
 	int ret = -ENOMEM;
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode())
+		return 0;
+#endif
+
 	/* all elements are set to ZERO as default value */
 	ssusb = devm_kzalloc(dev, sizeof(*ssusb), GFP_KERNEL);
 	if (!ssusb)
@@ -511,6 +520,11 @@ static int mtu3_remove(struct platform_device *pdev)
 {
 	struct ssusb_mtk *ssusb = platform_get_drvdata(pdev);
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode())
+		return 0;
+#endif
+
 	switch (ssusb->dr_mode) {
 	case USB_DR_MODE_PERIPHERAL:
 		ssusb_gadget_exit(ssusb);
@@ -564,6 +578,11 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 
 	dev_dbg(dev, "%s\n", __func__);
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode())
+		return 0;
+#endif
+
 	if (ssusb->is_host)
 		port0_dev_exist = is_usb_dev_connect(ssusb, 0);
 	if (ssusb->keep_ao)
@@ -599,8 +618,14 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	struct platform_device *pdev = to_platform_device(dev);
 	struct device_node *node = pdev->dev.of_node;
 	struct ssusb_mtk *ssusb = platform_get_drvdata(pdev);
-	void __iomem *ibase = ssusb->ippc_base;
+	void __iomem *ibase;
 	int ret;
+
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+	if (usb2jtag_mode())
+		return 0;
+#endif
+	ibase = ssusb->ippc_base;
 
 	if (!ssusb->infra_on)
 		sloa_suspend_infra_power(true);

@@ -1138,6 +1138,51 @@ void Charger_Detect_Release(void)
 }
 EXPORT_SYMBOL_GPL(Charger_Detect_Release);
 
+#ifdef CONFIG_MTK_USB2JTAG_SUPPORT
+int usb2jtag_usb_init(void)
+{
+	struct device_node *node;
+	void __iomem *usb_phy_base;
+	unsigned int temp;
+
+	pr_notice("[USB2JTAG] %s ++\n", __func__);
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,generic-tphy-v2");
+	if (!node) {
+		pr_err("[USB2JTAG] node mediatek,generic-tphy-v2 not found\n");
+		return -1;
+	}
+
+	node = of_get_child_by_name(node, "u2port0");
+	if (!node) {
+		pr_err("[USB2JTAG] node u2port0 not found\n");
+		return -2;
+	}
+
+	usb_phy_base = of_iomap(node, 1);
+	if (!usb_phy_base) {
+		pr_err("[USB2JTAG] iomap usb_phy_base failed\n");
+		return -3;
+	}
+
+	temp = readl(usb_phy_base + 0x320);
+	writel(temp | (1 << 9), usb_phy_base + 0x320);
+
+	temp = readl(usb_phy_base + 0x318);
+	writel(temp & ~(1 << 23), usb_phy_base + 0x318);
+
+	temp = readl(usb_phy_base + 0x300);
+	writel(temp | 0x21, usb_phy_base + 0x300);
+
+	/* wait stable */
+	mdelay(1);
+
+	iounmap(usb_phy_base);
+
+	return 0;
+}
+#endif
+
 MODULE_AUTHOR("Chunfeng Yun <chunfeng.yun@mediatek.com>");
 MODULE_DESCRIPTION("MediaTek T-PHY driver");
 MODULE_LICENSE("GPL v2");
