@@ -33,7 +33,7 @@
 #include <emi_mbw.h>
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-#include <mach/mt_iommu.h>
+//#include <mach/mt_iommu.h>
 #elif IS_ENABLED(CONFIG_MTK_M4U)
 //#include <m4u.h>
 #endif
@@ -471,7 +471,7 @@ s32 smi_debug_bus_hang_detect(const bool gce, const char *user)
 	dump_emi_outstanding();
 #endif
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-	mtk_dump_reg_for_hang_issue();
+	//mtk_dump_reg_for_hang_issue();
 #elif IS_ENABLED(CONFIG_MTK_M4U)
 	//m4u_dump_reg_for_smi_hang_issue();
 #endif

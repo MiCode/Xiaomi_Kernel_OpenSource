@@ -2482,7 +2482,7 @@ static int mtkfb_probe(struct platform_device *pdev)
 		pdev->name, pdev->dev.init_name, (void *)&pdev->dev);
 
 #ifdef CONFIG_MTK_SMI_EXT
-	if (!smi_mm_clk_first_get()) {
+	if (!smi_mm_first_get()) {
 		DISPMSG("SMI not start probe\n");
 		return -EPROBE_DEFER;
 	}

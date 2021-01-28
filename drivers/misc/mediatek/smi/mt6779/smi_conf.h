@@ -25,7 +25,7 @@ static unsigned int smi_scen_map[SMI_BWC_SCEN_CNT] = {
 	SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_ICFP, SMI_ESL_INIT
 };
 
-static unsigned int smi_larb_cmd_gr_en_port[SMI_LARB_NUM][2] = {
+static unsigned int smi_larb_cmd_gp_en_port[SMI_LARB_NUM][2] = {
 	{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
 	{0, 0}, {0, 0}, {0, 0}, {0, 0}
 };
@@ -38,10 +38,11 @@ static unsigned int smi_larb_bw_thrt_en_port[SMI_LARB_NUM][2] = { /* non-HRT */
 };
 
 /* conf */
-#define SMI_COMM_CONF_NUM	(6)
+#define SMI_COMM_CONF_NUM	(7)
 struct mtk_smi_pair smi_comm_conf_pair[SMI_COMM_CONF_NUM] = {
 	{SMI_L1LEN, 0xb}, {SMI_M4U_TH, 0xe100e10}, {SMI_FIFO_TH1, 0x506090a},
 	{SMI_FIFO_TH2, 0x506090a}, {SMI_DCM, 0x4f1}, {SMI_DUMMY, 0x1},
+	{SMI_BUS_SEL, 0x5514},
 };
 
 #define SMI_LARB0_CONF_NUM	(11)
@@ -95,18 +96,18 @@ u32 smi_conf_pair_num[SMI_LARB_NUM + 1] = {
 };
 
 struct mtk_smi_pair *smi_conf_pair[SMI_LARB_NUM + 1] = {
-	smi_larb0_config_pair, smi_larb1_config_pair, smi_larb2_config_pair,
-	smi_larb0_config_pair, smi_larb0_config_pair, smi_larb5_config_pair,
-	smi_larb6_config_pair, smi_larb0_config_pair, smi_larb0_config_pair,
-	smi_larb0_config_pair, smi_larb0_config_pair, smi_larb6_config_pair,
-	smi_comm_config_pair
+	smi_larb0_conf_pair, smi_larb1_conf_pair, smi_larb2_conf_pair,
+	smi_larb0_conf_pair, smi_larb0_conf_pair, smi_larb5_conf_pair,
+	smi_larb6_conf_pair, smi_larb0_conf_pair, smi_larb0_conf_pair,
+	smi_larb0_conf_pair, smi_larb0_conf_pair, smi_larb6_conf_pair,
+	smi_comm_conf_pair
 };
 
 /* scen: init */
-struct mtk_smi_pair smi_comm_init_pair[SMI_COMM_SCEN_NUM] = {
+struct mtk_smi_pair smi_comm_init_pair[SMI_COMM_MASTER_NUM] = {
 	{SMI_L1ARB(0), 0x0}, {SMI_L1ARB(1), 0x0}, {SMI_L1ARB(2), 0x0},
 	{SMI_L1ARB(3), 0x0}, {SMI_L1ARB(4), 0x0}, {SMI_L1ARB(5), 0x0},
-	{SMI_L1ARB(6), 0x0}, {SMI_L1ARB(7), 0x0}, {SMI_BUS_SEL, 0x5514}
+	{SMI_L1ARB(6), 0x0}, {SMI_L1ARB(7), 0x0},
 };
 
 struct mtk_smi_pair smi_larb0_init_pair[SMI_LARB0_PORT_NUM] = {
@@ -228,55 +229,55 @@ struct mtk_smi_pair smi_larb11_init_pair[SMI_LARB11_PORT_NUM] = {
 
 /* scen: all */
 struct mtk_smi_pair *smi_comm_scen_pair[SMI_SCEN_NUM] = {
-	smi_comm_init_pair
+	smi_comm_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb0_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb0_init_pair
+	smi_larb0_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb1_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb1_init_pair
+	smi_larb1_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb2_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb2_init_pair
+	smi_larb2_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb3_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb3_init_pair
+	smi_larb3_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb4_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb4_init_pair
+	smi_larb4_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb5_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb5_init_pair
+	smi_larb5_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb6_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb6_init_pair
+	smi_larb6_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb7_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb7_init_pair
+	smi_larb7_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb8_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb8_init_pair
+	smi_larb8_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb9_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb9_init_pair
+	smi_larb9_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb10_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb10_init_pair
+	smi_larb10_init_pair,
 };
 
 struct mtk_smi_pair *smi_larb11_scen_pair[SMI_SCEN_NUM] = {
-	smi_larb11_init_pair
+	smi_larb11_init_pair,
 };
 
 u32 smi_scen_pair_num[SMI_LARB_NUM + 1] = {
@@ -284,7 +285,7 @@ u32 smi_scen_pair_num[SMI_LARB_NUM + 1] = {
 	SMI_LARB3_PORT_NUM, SMI_LARB4_PORT_NUM, SMI_LARB5_PORT_NUM,
 	SMI_LARB6_PORT_NUM, SMI_LARB7_PORT_NUM, SMI_LARB8_PORT_NUM,
 	SMI_LARB9_PORT_NUM, SMI_LARB10_PORT_NUM, SMI_LARB11_PORT_NUM,
-	SMI_COMM_SCEN_NUM
+	SMI_COMM_MASTER_NUM,
 };
 
 
@@ -294,7 +295,7 @@ struct mtk_smi_pair **smi_scen_pair[SMI_LARB_NUM + 1] = {
 	smi_larb3_scen_pair, smi_larb4_scen_pair, smi_larb5_scen_pair,
 	smi_larb6_scen_pair, smi_larb7_scen_pair, smi_larb8_scen_pair,
 	smi_larb9_scen_pair, smi_larb10_scen_pair, smi_larb11_scen_pair,
-	smi_comm_scen_pair
+	smi_comm_scen_pair,
 };
 #endif
 

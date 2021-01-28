@@ -11,13 +11,12 @@
 
 static const u32 smi_subsys_to_larbs[NR_SYSS] = {
 
-	[SYS_DIS] = (1 << 9) | (1 << 14),
-	[SYS_VDE] = (1 << 12),
-	[SYS_VEN] = (1 << 19),
-	[SYS_ISP] = (1 << 26),
-	[SYS_IPU] = (1 << 3) | (1 << 5),
-	[SYS_IPE] = (1 << 4) | (1 << 10),
-	[SYS_CAM] = (1 << 24) | (1 << 31),
+	[SYS_DIS] = (1 << 0) | (1 << 1) | (1 << 12),
+	[SYS_VDE] = (1 << 2),
+	[SYS_VEN] = (1 << 3),
+	[SYS_ISP] = (1 << 5) | (1 << 6),
+	[SYS_IPE] = (1 << 7) | (1 << 8),
+	[SYS_CAM] = (1 << 9) | (1 << 10) | (1 << 11),
 
 };
 
@@ -30,7 +29,6 @@ static const char *smi_mmp_name[NR_SYSS] = {
 	[SYS_VDE] = "VDE",
 	[SYS_VEN] = "VEN",
 	[SYS_ISP] = "ISP",
-	[SYS_IPU] = "IPU",
 	[SYS_IPE] = "IPE",
 	[SYS_CAM] = "CAM",
 };

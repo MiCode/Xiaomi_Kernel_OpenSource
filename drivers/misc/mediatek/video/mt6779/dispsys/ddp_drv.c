@@ -499,8 +499,8 @@ static int disp_probe(struct platform_device *pdev)
 	static unsigned int disp_probe_cnt;
 
 #ifdef CONFIG_MTK_SMI_EXT
-	pr_notice("%s: %d\n", __func__, smi_mm_clk_first_get());
-	if (!smi_mm_clk_first_get()) {
+	pr_notice("%s: %d\n", __func__, smi_mm_first_get());
+	if (!smi_mm_first_get()) {
 		pr_notice("SMI not start probe\n");
 		return -EPROBE_DEFER;
 	}

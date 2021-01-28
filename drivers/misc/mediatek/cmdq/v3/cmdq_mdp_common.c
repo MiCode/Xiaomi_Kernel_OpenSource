@@ -2259,7 +2259,7 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 				total_pixel,
 				act_throughput,
 				isp_curr_bandwidth);
-			mtk_mm_qos_set_request(request, isp_curr_bandwidth,
+			mm_qos_set_request(request, isp_curr_bandwidth,
 						0, BW_COMP_NONE);
 		}
 		mm_qos_update_all_request(
