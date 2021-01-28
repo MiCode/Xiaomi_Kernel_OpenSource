@@ -908,8 +908,10 @@ rewait:
 	/* Remove u_item anyway */
 	mutex_lock(&c->usr->mtx);
 	list_del(&c->u_item);
-	if (c->file)
+	if (c->file && c->file->private_data) {
+		kfree(c->file->private_data);
 		c->file->private_data = NULL;
+	}
 	mutex_unlock(&c->usr->mtx);
 
 	if (ret < 0) { /* Wait fail handle */
