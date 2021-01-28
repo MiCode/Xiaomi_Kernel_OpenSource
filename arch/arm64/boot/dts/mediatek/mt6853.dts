@@ -2930,7 +2930,6 @@ page_owner=on";
 	seninf_top@1a004000 {
 		compatible = "mediatek,seninf_top";
 		reg = <0 0x1a004000 0 0x1000>;
-		interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&scpsys SCP_SYS_CAM>,
 			<&camsys_main_clk CLK_CAM_M_SENINF>,
 			<&topckgen_clk CLK_TOP_SENINF_SEL>,
