@@ -19,6 +19,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
 #Platform
 obj-$(CONFIG_MACH_MT6768) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
 obj-$(CONFIG_USB_MTK_HDRC) += musb_hdrc.o
@@ -27,5 +28,10 @@ musb_hdrc-$(CONFIG_USB_MTK_HDRC) += musb_gadget_ep0.o musb_gadget.o
 musb_hdrc-$(CONFIG_USB_MTK_HDRC) += musb_virthub.o musb_host.o
 musb_hdrc-$(CONFIG_USB_MTK_HDRC) += musbhsdma.o
 musb_hdrc-$(CONFIG_DEBUG_FS) += musb_debugfs.o
+# QMU Realted
 obj-$(CONFIG_MTK_MUSB_QMU_SUPPORT) += mtk_qmu.o musb_qmu.o
+ifeq ($(CONFIG_MTK_MUSB_QMU_SUPPORT),y)
+subdir-ccflags-$(CONFIG_MACH_MT8167) += -DMUSB_QMU_LIMIT_SUPPORT -DMUSB_QMU_LIMIT_RXQ_NUM=4 -DMUSB_QMU_LIMIT_TXQ_NUM=4
+endif
+
 obj-$(CONFIG_DUAL_ROLE_USB_INTF) += mtk_dual_role.o

@@ -35,8 +35,9 @@
 
 extern bool mtk_usb_power;
 #ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-extern void mt_usb_clock_prepare(void);
-extern void mt_usb_clock_unprepare(void);
+extern int usb20_clk_prepared_cnt;
+extern void mt_usb_clock_prepare(struct musb *musb);
+extern void mt_usb_clock_unprepare(struct musb *musb);
 #endif
 extern bool usb_enable_clock(bool enable);
 extern spinlock_t usb_io_lock;
@@ -50,9 +51,6 @@ static inline u16 musb_readw(const void __iomem *addr, unsigned int offset)
 	} else {
 		unsigned long flags = 0;
 
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_prepare();
-		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
 		usb_enable_clock(true);
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
@@ -60,9 +58,6 @@ static inline u16 musb_readw(const void __iomem *addr, unsigned int offset)
 		rc = readw(addr + offset);
 		usb_enable_clock(false);
 		spin_unlock_irqrestore(&usb_io_lock, flags);
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_unprepare();
-		#endif
 	}
 	return rc;
 }
@@ -77,9 +72,6 @@ static inline u32
 	} else {
 		unsigned long flags = 0;
 
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_prepare();
-		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
 		usb_enable_clock(true);
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
@@ -87,9 +79,6 @@ static inline u32
 		rc = readl(addr + offset);
 		usb_enable_clock(false);
 		spin_unlock_irqrestore(&usb_io_lock, flags);
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_unprepare();
-		#endif
 	}
 	return rc;
 }
@@ -103,9 +92,6 @@ static inline void
 	} else {
 		unsigned long flags = 0;
 
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_prepare();
-		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
 		usb_enable_clock(true);
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
@@ -113,9 +99,6 @@ static inline void
 		writew(data, addr + offset);
 		usb_enable_clock(false);
 		spin_unlock_irqrestore(&usb_io_lock, flags);
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_unprepare();
-		#endif
 	}
 }
 
@@ -127,9 +110,6 @@ static inline void
 	} else {
 		unsigned long flags = 0;
 
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_prepare();
-		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
 		usb_enable_clock(true);
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
@@ -137,9 +117,6 @@ static inline void
 		writel(data, addr + offset);
 		usb_enable_clock(false);
 		spin_unlock_irqrestore(&usb_io_lock, flags);
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_unprepare();
-		#endif
 	}
 }
 
@@ -152,9 +129,6 @@ static inline u8 musb_readb(const void __iomem *addr, unsigned int offset)
 	} else {
 		unsigned long flags = 0;
 
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_prepare();
-		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
 		usb_enable_clock(true);
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
@@ -162,9 +136,6 @@ static inline u8 musb_readb(const void __iomem *addr, unsigned int offset)
 		rc = readb(addr + offset);
 		usb_enable_clock(false);
 		spin_unlock_irqrestore(&usb_io_lock, flags);
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_unprepare();
-		#endif
 	}
 	return rc;
 }
@@ -177,9 +148,6 @@ static inline void musb_writeb
 	} else {
 		unsigned long flags = 0;
 
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_prepare();
-		#endif
 		spin_lock_irqsave(&usb_io_lock, flags);
 		usb_enable_clock(true);
 		DBG(1, "[MUSB]:access %s function when usb clock is off 0x%X\n",
@@ -187,9 +155,6 @@ static inline void musb_writeb
 		writeb(data, addr + offset);
 		usb_enable_clock(false);
 		spin_unlock_irqrestore(&usb_io_lock, flags);
-		#ifdef CONFIG_MTK_MUSB_PORT0_LOWPOWER_MODE
-		mt_usb_clock_unprepare();
-		#endif
 	}
 }
 
