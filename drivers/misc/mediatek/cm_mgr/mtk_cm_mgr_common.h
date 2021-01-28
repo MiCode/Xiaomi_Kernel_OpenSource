@@ -41,12 +41,19 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_LOADING_ENABLE 19
 #define IPI_CM_MGR_LOADING_LEVEL 20
 #define IPI_CM_MGR_EMI_DEMAND_CHECK 21
+#define IPI_CM_MGR_OPP_FREQ_SET 22
+#define IPI_CM_MGR_OPP_VOLT_SET 23
+#define IPI_CM_MGR_BCPU_WEIGHT_MAX_SET 24
+#define IPI_CM_MGR_BCPU_WEIGHT_MIN_SET 25
 
 extern struct platform_device *cm_mgr_pdev;
 extern void __iomem *cm_mgr_base;
 extern int cm_mgr_num_perf;
 extern int *cm_mgr_perfs;
 extern int cm_mgr_num_array;
+extern int *cm_mgr_buf;
+extern int *cm_mgr_cpu_opp_to_dram;
+extern int cm_mgr_cpu_opp_size;
 
 extern int cm_mgr_blank_status;
 extern int cm_mgr_disable_fb;
@@ -79,12 +86,24 @@ extern int cm_mgr_dram_opp;
 
 extern int cm_mgr_loop_count;
 extern int total_bw_value;
+extern int cm_mgr_cpu_map_dram_enable;
+extern int cm_mgr_cpu_map_emi_opp;
+extern int cm_mgr_cpu_map_skip_cpu_opp;
+extern void cm_mgr_cpu_map_update_table(void);
+
+/* setting in DTS */
+extern int cm_mgr_use_bcpu_weight;
+extern int cm_mgr_use_cpu_to_dram_map;
+extern int cm_mgr_use_cpu_to_dram_map_new;
+extern int cpu_power_bcpu_weight_max;
+extern int cpu_power_bcpu_weight_min;
 
 /* common api */
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);
 extern void cm_mgr_enable_fn(int enable);
 extern int cm_mgr_to_sspm_command(u32 cmd, int val);
+extern int cm_mgr_check_dts_setting(struct platform_device *pdev);
 extern int cm_mgr_common_init(void);
 extern void cm_mgr_common_exit(void);
 
