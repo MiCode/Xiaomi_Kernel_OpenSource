@@ -1228,7 +1228,7 @@ int set_task_util_min(pid_t pid, unsigned int util_min)
 	rcu_read_unlock();
 
 	if (likely(p)) {
-		ret = sched_setattr(p, &attr);
+		ret = sched_setattr_nocheck(p, &attr);
 		put_task_struct(p);
 	}
 
