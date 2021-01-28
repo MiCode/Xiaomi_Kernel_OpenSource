@@ -34,6 +34,8 @@
 #endif
 #endif
 
+extern unsigned long long notrace sched_clock(void);
+
 /*
  * Broadcast support for broken x86 hardware, where the local apic
  * timer stops in C3 state.
