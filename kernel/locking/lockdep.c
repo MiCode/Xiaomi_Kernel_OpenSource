@@ -4217,56 +4217,6 @@ void lock_acquired(struct lockdep_map *lock, unsigned long ip)
 	raw_local_irq_restore(flags);
 }
 EXPORT_SYMBOL_GPL(lock_acquired);
-#elif defined(MTK_LOCK_MONITOR)
-static void
-set_acquired(struct lockdep_map *lock, unsigned long ip, bool acquired)
-{
-	struct task_struct *curr = current;
-	struct held_lock *hlock;
-	unsigned int depth = curr->lockdep_depth;
-	int i;
-
-	if (DEBUG_LOCKS_WARN_ON(!depth))
-		return;
-
-	hlock = find_held_lock(curr, lock, depth, &i);
-	if (!hlock)
-		return;
-
-	if (hlock->instance != lock)
-		return;
-
-	hlock->acquired = acquired;
-}
-
-static void
-set_lock_acquired(struct lockdep_map *lock, unsigned long ip, bool acquired)
-{
-	unsigned long flags;
-
-	if (unlikely(current->lockdep_recursion))
-		return;
-
-	raw_local_irq_save(flags);
-	check_flags(flags);
-	current->lockdep_recursion = 1;
-	set_acquired(lock, ip, acquired);
-	current->lockdep_recursion = 0;
-	raw_local_irq_restore(flags);
-}
-
-void lock_contended(struct lockdep_map *lock, unsigned long ip)
-{
-	set_lock_acquired(lock, ip, false);
-}
-
-void lock_acquired(struct lockdep_map *lock, unsigned long ip)
-{
-	set_lock_acquired(lock, ip, true);
-}
-#else
-void lock_contended(struct lockdep_map *lock, unsigned long ip) {}
-void lock_acquired(struct lockdep_map *lock, unsigned long ip) {}
 #endif
 
 /*
@@ -4607,6 +4557,10 @@ asmlinkage __visible void lockdep_sys_exit(void)
 void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 {
 	struct task_struct *curr = current;
+
+	/* To avoid recursive aee dump in this warning */
+	if (!debug_locks_off())
+		return;
 
 	/* Note: the following can be executed concurrently, so be careful. */
 	pr_warn("\n");
@@ -5049,10 +5003,6 @@ static void lockdep_aee(void)
 {
 	char aee_str[64];
 
-	/* To avoid recursive aee dump in suspicious RCU usage*/
-	if (!debug_locks_off())
-		return;
-
 	if (!is_critical_lock_held()) {
 		snprintf(aee_str, sizeof(aee_str),
 			"[%s]LockProve Warning", current->comm);
@@ -5294,6 +5244,60 @@ static void lockdep_print_held_locks(struct task_struct *p)
 	}
 }
 #endif /* MTK_LOCK_DEBUG_HELD_LOCK */
+
+#ifndef CONFIG_LOCK_STAT
+#ifdef MTK_LOCK_MONITOR
+static void
+set_acquired(struct lockdep_map *lock, unsigned long ip, bool acquired)
+{
+	struct task_struct *curr = current;
+	struct held_lock *hlock;
+	unsigned int depth = curr->lockdep_depth;
+	int i;
+
+	if (DEBUG_LOCKS_WARN_ON(!depth))
+		return;
+
+	hlock = find_held_lock(curr, lock, depth, &i);
+	if (!hlock)
+		return;
+
+	if (hlock->instance != lock)
+		return;
+
+	hlock->acquired = acquired;
+}
+
+static void
+set_lock_acquired(struct lockdep_map *lock, unsigned long ip, bool acquired)
+{
+	unsigned long flags;
+
+	if (unlikely(current->lockdep_recursion))
+		return;
+
+	raw_local_irq_save(flags);
+	check_flags(flags);
+	current->lockdep_recursion = 1;
+	set_acquired(lock, ip, acquired);
+	current->lockdep_recursion = 0;
+	raw_local_irq_restore(flags);
+}
+
+void lock_contended(struct lockdep_map *lock, unsigned long ip)
+{
+	set_lock_acquired(lock, ip, false);
+}
+
+void lock_acquired(struct lockdep_map *lock, unsigned long ip)
+{
+	set_lock_acquired(lock, ip, true);
+}
+#else /* !MTK_LOCK_MONITOR */
+void lock_contended(struct lockdep_map *lock, unsigned long ip) {}
+void lock_acquired(struct lockdep_map *lock, unsigned long ip) {}
+#endif
+#endif /* !CONFIG_LOCK_STAT */
 
 #ifdef MTK_LOCK_MONITOR
 
