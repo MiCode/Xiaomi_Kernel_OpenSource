@@ -36,6 +36,9 @@ enum {
 	QOS_IPI_QOS_PREFETCH_FORCE,
 	QOS_IPI_QOS_PREFETCH_UPDATE,
 	QOS_IPI_QOS_PREFETCH_ENABLE,
+	QOS_IPI_QOS_PREFETCH_CPU_OPP,
+	QOS_IPI_QOS_PREFETCH_POWER_RATIO_UP,
+	QOS_IPI_QOS_PREFETCH_POWER_RATIO_DN,
 
 	NR_QOS_IPI,
 };
@@ -109,6 +112,9 @@ struct qos_ipi_data {
 		struct {
 			unsigned int update;
 		} qos_prefetch_update;
+		struct {
+			unsigned int val;
+		} qos_prefetch_setting;
 		struct {
 			unsigned int arg[5];
 		} max;
