@@ -122,21 +122,21 @@ static void __iomem *ulposc_base;
 struct ulposc_cali_t ulposc_cfg[MAX_ULPOSC_CALI_NUM] = {
 	{
 		.freq = CLK_OPP0,
-		.ulposc_rg0 = 0x38a94d,
+		.ulposc_rg0 = 0x38a940,
 		.ulposc_rg1 = 0x2900,
 		.ulposc_rg2 = 0x40,
 		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
 	},
 	{
 		.freq = CLK_OPP1,
-		.ulposc_rg0 = 0x4ea94d,
+		.ulposc_rg0 = 0x4ea940,
 		.ulposc_rg1 = 0x2900,
 		.ulposc_rg2 = 0x40,
 		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,
 	},
 	{
 		.freq = CLK_OPP2,
-		.ulposc_rg0 = 0x5aa955,
+		.ulposc_rg0 = 0x5aa940,
 		.ulposc_rg1 = 0x2900,
 		.ulposc_rg2 = 0x40,
 		.fmeter_id = FREQ_METER_ABIST_AD_OSC_CK_2,

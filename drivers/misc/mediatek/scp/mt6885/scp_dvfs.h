@@ -29,6 +29,8 @@
 #define DVFS_STATUS_CMD_LIMITED	(-7)
 #define DVFS_STATUS_CMD_DISABLE	(-8)
 
+#define ULPOSC_CALI_BY_AP
+
 enum scp_state_enum {
 	IN_DEBUG_IDLE = 1,
 	ENTERING_SLEEP = 2,
@@ -55,6 +57,24 @@ enum scp_req_r {
 	SCP_REQ_MAX = 0xffff,
 };
 
+enum {
+	SCP_SLEEP_OFF = 0,
+	SCP_SLEEP_ON,
+	SCP_SLEEP_NO_WAKEUP,
+	SCP_SLEEP_NO_CONDITION
+};
+
+enum {
+	SLP_DBG_CMD_SET_OFF = SCP_SLEEP_OFF,
+	SLP_DBG_CMD_SET_ON = SCP_SLEEP_ON,
+	SLP_DBG_CMD_SET_NO_WAKEUP = SCP_SLEEP_NO_WAKEUP,
+	SLP_DBG_CMD_SET_NO_CONDITION = SCP_SLEEP_NO_CONDITION,
+	SLP_DBG_CMD_GET_FLAG,
+	SLP_DBG_CMD_GET_CNT,
+	SLP_DBG_CMD_RESET,
+	SLP_DBG_CMD_ULPOSC_CALI_VAL,
+};
+
 struct mt_scp_pll_t {
 	struct clk *clk_mux;
 	struct clk *clk_pll0;
@@ -67,6 +87,27 @@ struct mt_scp_pll_t {
 	struct clk *clk_pll7;
 };
 
+#ifdef ULPOSC_CALI_BY_AP
+enum {
+	ULPOSC_1 = 1,
+	ULPOSC_2
+};
+
+enum {
+	FREQ_METER_ABIST_AD_OSC_CK = 37,
+	FREQ_METER_ABIST_AD_OSC_CK_2 = 36,
+};
+
+struct ulposc_cali_t {
+	unsigned int ulposc_rg0;
+	unsigned int ulposc_rg1;
+	unsigned int ulposc_rg2;
+	unsigned int fmeter_id;
+	unsigned short freq;
+	unsigned short cali_val;
+};
+#endif
+
 extern int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel);
 extern int scp_set_pmic_vcore(unsigned int cur_freq);
 extern unsigned int scp_get_dvfs_opp(void);
@@ -77,6 +118,7 @@ extern void wait_scp_dvfs_init_done(void);
 extern int __init scp_dvfs_init(void);
 extern void __exit scp_dvfs_exit(void);
 extern int scp_resource_req(unsigned int req_type);
+extern void scp_slp_ipi_init(void);
 extern void scp_vcore_request(unsigned int clk_opp);
 
 /* scp dvfs variable*/
@@ -84,5 +126,10 @@ extern unsigned int scp_expected_freq;
 extern unsigned int scp_current_freq;
 extern spinlock_t scp_awake_spinlock;
 extern int scp_dvfs_flag;
+
+#ifdef ULPOSC_CALI_BY_AP
+extern void ulposc_cali_init(void);
+extern void sync_ulposc_cali_data_to_scp(void);
+#endif
 
 #endif  /* __SCP_DVFS_H__ */
