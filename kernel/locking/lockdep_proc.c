@@ -28,7 +28,7 @@
 #include <mt-plat/mtk_boot_common.h>
 #endif
 
-#ifdef MTK_ENHANCE_PROC_LOCKDEP
+#ifdef MTK_ENHANCE_LOCKDEP_PROC
 static unsigned int lockdep_mode;
 
 #define __USAGE(__STATE)						\
@@ -76,7 +76,6 @@ static void print_name(struct seq_file *m, struct lock_class *class)
 	}
 }
 
-#ifdef MTK_ENHANCE_PROC_LOCKDEP
 void lock_show_trace(struct seq_file *m, struct stack_trace *trace)
 {
 	int i;
@@ -88,7 +87,6 @@ void lock_show_trace(struct seq_file *m, struct stack_trace *trace)
 		seq_printf(m, "%*c%pS\n", 7, ' ',
 			(void *)trace->entries[i]);
 }
-#endif
 
 static int l_show(struct seq_file *m, void *v)
 {
@@ -117,7 +115,7 @@ static int l_show(struct seq_file *m, void *v)
 	print_name(m, class);
 	seq_puts(m, "\n");
 
-#ifdef MTK_ENHANCE_PROC_LOCKDEP
+#ifdef MTK_ENHANCE_LOCKDEP_PROC
 	/* 0x1: print usage traces of this lock */
 	if (lockdep_mode & 0x1) {
 		int bit;
@@ -180,7 +178,7 @@ static int lockdep_open(struct inode *inode, struct file *file)
 	return seq_open(file, &lockdep_ops);
 }
 
-#ifdef MTK_ENHANCE_PROC_LOCKDEP
+#ifdef MTK_ENHANCE_LOCKDEP_PROC
 /*
  * 0x0: print basic dependency information
  * 0x1: print usage traces of this lock
@@ -215,7 +213,7 @@ static ssize_t lockdep_write(struct file *filp,
 
 static const struct file_operations proc_lockdep_operations = {
 	.open		= lockdep_open,
-#ifdef MTK_ENHANCE_PROC_LOCKDEP
+#ifdef MTK_ENHANCE_LOCKDEP_PROC
 	.write		= lockdep_write,
 #endif
 	.read		= seq_read,
@@ -796,7 +794,7 @@ static int __init lockdep_proc_init(void)
 	if (get_boot_mode() == META_BOOT)
 		debug_locks_off();
 #endif
-#ifdef MTK_ENHANCE_PROC_LOCKDEP
+#ifdef MTK_ENHANCE_LOCKDEP_PROC
 	proc_create("lockdep", 0600, NULL, &proc_lockdep_operations);
 #else
 	proc_create("lockdep", S_IRUSR, NULL, &proc_lockdep_operations);
@@ -812,6 +810,10 @@ static int __init lockdep_proc_init(void)
 #ifdef CONFIG_LOCK_STAT
 	proc_create("lock_stat", S_IRUSR | S_IWUSR, NULL,
 		    &proc_lock_stat_operations);
+#endif
+
+#ifdef MTK_LOCK_MONITOR
+	lock_monitor_init();
 #endif
 	lockdep_test_init();
 	return 0;

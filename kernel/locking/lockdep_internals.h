@@ -187,3 +187,7 @@ DECLARE_PER_CPU(struct lockdep_stats, lockdep_stats);
 #endif
 
 void lockdep_test_init(void);
+
+#ifdef MTK_LOCK_MONITOR
+void lock_monitor_init(void);
+#endif
