@@ -56,6 +56,25 @@ function build_config_read ()
 	LD_UBSAN="${LD}"
 }
 
+function toolchain_check ()
+{
+	if [ ! -d "../${TOOLCHAIN_CLANG_PATH}" ]; then
+		echo "CLANG does not exist, clone it"
+		mkdir -p "../${TOOLCHAIN_CLANG_PATH}"
+		cd "../${TOOLCHAIN_CLANG_PATH}"
+		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_CLANG_REPO}"
+		cd -
+	fi
+
+	if [ ! -d "../${TOOLCHAIN_GCC_PATH}" ]; then
+		echo "GCC does not exist, clone it"
+		mkdir -p "../prebuilts/gcc/linux-x86/aarch64"
+		cd "../prebuilts/gcc/linux-x86/aarch64"
+		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_GCC_REPO}"
+		cd -
+	fi
+}
+
 CONFIGS=
 UPDATE=0
 CHECK_COMMIT=0
@@ -76,6 +95,11 @@ ARM64_CONFIG='build.config.mtk.aarch64'
 ARM64_GCC_CONFIG='build.config.mtk.aarch64.gcc'
 KASAN_CONFIG='build.config.mtk.aarch64.kasan'
 UBSAN_CONFIG='build.config.mtk.aarch64.ubsan'
+TOOLCHAIN_CLANG_PATH='prebuilts/clang/host'
+TOOLCHAIN_GCC_PATH='prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
+TOOLCHAIN_CLANG_REPO='platform/prebuilts/clang/host/linux-x86'
+TOOLCHAIN_GCC_REPO='alps/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
+toolchain_check
 build_config_read
 
 echo "CC_ARM=${CC_ARM}"
