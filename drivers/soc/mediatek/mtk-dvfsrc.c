@@ -20,7 +20,7 @@
 #define DVFSRC_IDLE		0x00
 #define DVFSRC_GET_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
 #define DVFSRC_GET_CURRENT_LEVEL(x)	(((x) >> 16) & 0x0000ffff)
-#define kBps_to_MBps(x)	(x / 1000)
+#define kBps_to_MBps(x)	(div_u64(x, 1000))
 
 #define MT8183_DVFSRC_OPP_LP4	0
 #define MT8183_DVFSRC_OPP_LP4X	1
@@ -288,7 +288,7 @@ static u32 mt6779_get_vcp_level(struct mtk_dvfsrc *dvfsrc)
 
 static void mt6779_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
-	bw = kBps_to_MBps(bw) / 100;
+	bw = div_u64(kBps_to_MBps(bw), 100);
 	bw = (bw < 0xFF) ? bw : 0xff;
 
 	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, bw);
@@ -297,7 +297,7 @@ static void mt6779_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 /* bw unit 30MBps */
 static void mt6779_set_dram_hrtbw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
-	bw = (kBps_to_MBps(bw) + 29) / 30;
+	bw = div_u64((kBps_to_MBps(bw) + 29), 30);
 	if (bw > 0x3FF)
 		bw = 0x3FF;
 
@@ -400,7 +400,7 @@ static u32 mt6761_get_vcp_level(struct mtk_dvfsrc *dvfsrc)
 
 static void mt6761_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
-	bw = kBps_to_MBps(bw) / 100;
+	bw = div_u64(kBps_to_MBps(bw), 100);
 	bw = (bw < 0xFF) ? bw : 0xff;
 
 	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, bw);
@@ -486,7 +486,7 @@ static int mt8183_get_current_level(struct mtk_dvfsrc *dvfsrc)
 
 static void mt8183_set_dram_bw(struct mtk_dvfsrc *dvfsrc, u64 bw)
 {
-	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, kBps_to_MBps(bw) / 100);
+	dvfsrc_write(dvfsrc, DVFSRC_SW_BW, div_u64(kBps_to_MBps(bw), 100));
 }
 
 static void mt8183_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
