@@ -719,6 +719,8 @@ static int m4u_debug_set(void *data, u64 val)
 					    &refcount, &sec_handle,
 					    "m4u_ut", 0);
 #endif
+		M4UMSG("m4u atf dump test\n");
+		m4u_call_atf_debug(M4U_ATF_DUMP_INFO);
 		if (ret == -ENOMEM) {
 			M4UMSG("%s[%d] UT FAIL: out of memory\n",
 			       __func__, __LINE__);

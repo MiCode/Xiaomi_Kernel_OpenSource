@@ -16,9 +16,10 @@
 
 //#include <mt-plat/mtk_lpae.h>
 
-#ifndef M4U_WORDAROUND_FOR_BUILD_PASS
-#include <mt-plat/mtk_secure_api.h>
-#endif
+//smccc related include
+//#include <mt-plat/mtk_secure_api.h> //old
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <linux/arm-smccc.h>
 
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
@@ -2218,14 +2219,18 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 void m4u_call_atf_debug(int m4u_debug_id)
 {
-#ifndef M4U_WORDAROUND_FOR_BUILD_PASS
-	size_t tf_port = 0;
-	size_t tf_en = 0;
+	struct arm_smccc_res res;
+	unsigned long tf_port = 0;
+	unsigned long tf_en = 0;
 
-	M4UMSG("M4U CALL ATF ID:%d\n", m4u_debug_id);
-	tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-				m4u_debug_id, 0, 0, 0, &tf_port);
-#endif
+	M4UMSG("%s[%lx:%d]\n", __func__, MTK_M4U_DEBUG_DUMP, m4u_debug_id);
+	arm_smccc_smc(MTK_M4U_DEBUG_DUMP, m4u_debug_id,
+			      0, 0, 0, 0, 0, 0, &res);
+	tf_en = res.a0;
+	tf_port = res.a1;
+	if (tf_en)
+		M4UMSG("%s:has_tf:%d, tf_port:0x%x\n",
+		       __func__, tf_en, tf_port);
 }
 
 irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
@@ -2233,6 +2238,7 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	size_t tf_en = 0;
 	size_t tf_port = 0;
 	size_t m4u_id = 0;
+	struct arm_smccc_res res;
 
 	if (irq == M4USecIrq[0]) {
 		m4u_id = 0;
@@ -2246,10 +2252,11 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	}
 
 	M4UMSG("secure bank irq in normal world!\n");
-#ifndef M4U_WORDAROUND_FOR_BUILD_PASS
-	tf_en = mt_secure_call_ret2(MTK_M4U_DEBUG_DUMP,
-			m4u_id, 0, 0, 0, &tf_port);
-#endif
+	arm_smccc_smc(MTK_M4U_DEBUG_DUMP, m4u_id,
+			      0, 0, 0, 0, 0, 0, &res);
+	tf_en = res.a0;
+	tf_port = res.a1;
+
 	M4UMSG("secure bank go back form secure world! en:%zu\n",
 	       tf_en);
 	if (tf_en) {

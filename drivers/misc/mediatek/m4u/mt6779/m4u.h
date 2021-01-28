@@ -8,6 +8,4 @@
 
 #include "../3.2/m4u_v2.h"
 
-#define M4U_WORDAROUND_FOR_BUILD_PASS
-
 #endif

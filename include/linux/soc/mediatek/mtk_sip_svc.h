@@ -134,7 +134,7 @@
 
 /* M4U related SMC call */
 #define MTK_M4U_DEBUG_DUMP \
-	MTK_SIP_SMC_CMD(0x3E0)
+	MTK_SIP_SMC_CMD(0x2B0)
 
 /* Debug related SMC call */
 #define MTK_SIP_KERNEL_CCCI_CONTROL \
