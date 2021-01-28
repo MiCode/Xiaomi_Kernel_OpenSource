@@ -2069,7 +2069,7 @@ static void ccci_ccif_sysresume(void)
 
 	} else
 		CCCI_ERROR_LOG(-1, TAG,
-			"[%s] error: get modem1 failed.");
+			"[%s] error: get modem1 failed.", __func__);
 }
 
 static struct syscore_ops ccci_ccif_sysops = {
