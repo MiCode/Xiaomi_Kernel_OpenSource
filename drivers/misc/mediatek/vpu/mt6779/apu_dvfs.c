@@ -1801,13 +1801,17 @@ static int get_nvmem_cell_efuse(struct device *dev)
 		return -1;
 	}
 
-	buf = (uint32_t *)nvmem_cell_read(cell, NULL);
-	nvmem_cell_put(cell);
+	/* Add null checking for Coverity */
+	if (cell != NULL) {
+		buf = (uint32_t *)nvmem_cell_read(cell, NULL);
+		nvmem_cell_put(cell);
 
-	if (IS_ERR(buf)) {
-		LOG_ERR("[%s] nvmem_cell_read fail\n", __func__);
-		return PTR_ERR(buf);
-	}
+		if (IS_ERR(buf)) {
+			LOG_ERR("[%s] nvmem_cell_read fail\n", __func__);
+			return PTR_ERR(buf);
+		}
+	} else
+		LOG_ERR("[%s] cell was null\n", __func__);
 
 	g_efuse_ptpod = *buf;
 	kfree(buf);
