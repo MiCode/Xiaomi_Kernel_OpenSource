@@ -444,6 +444,10 @@ static int set_memory_mapping(unsigned long start, phys_addr_t size, int map)
 	struct page_change_data data;
 	int ret;
 
+	/* flush dcache when unmap */
+	if (!map)
+		__flush_dcache_area((void *)start, size);
+
 	if (map) {
 		data.set_mask = __pgprot(PTE_VALID);
 		data.clear_mask = __pgprot(0);
@@ -477,6 +481,10 @@ static int set_memory_mapping(unsigned long start, phys_addr_t size, int map)
 
 	pr_debug("start=0x%lx, size=%pa, address=0x%p, map=%d\n", start, &size,
 		 (void *)address, map);
+
+	/* flush dcache when unmap */
+	if (!map)
+		__flush_dcache_area((void *)start, size);
 
 	while (address < (start + size)) {
 
