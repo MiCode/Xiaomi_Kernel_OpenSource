@@ -45,6 +45,11 @@
 #include <linux/of_reserved_mem.h>
 
 #if ENABLE_GZ_TRACE_DUMP
+#if IS_BUILTIN(CONFIG_MTK_GZ_LOG)
+	#include "gz_trace_builtin.h"
+#else
+	#include "gz_trace_module.h"
+#endif
 #include <linux/vmalloc.h>
 #include <linux/sched/clock.h>
 
