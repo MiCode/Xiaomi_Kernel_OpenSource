@@ -225,7 +225,7 @@ static void get_picachu_efuse(void)
 			PICACHU_SIGNATURE_SHIFT_BIT) & 0xff;
 
 		if (sig == PICACHU_SIG) {
-			cnt = eem_read(addr_ptr) & 0xff;
+			cnt = (eem_read(addr_ptr) & 0xff00) >> 8;
 			if (cnt > NR_HW_RES_FOR_BANK)
 				cnt = NR_HW_RES_FOR_BANK;
 			addr_ptr += 4;
