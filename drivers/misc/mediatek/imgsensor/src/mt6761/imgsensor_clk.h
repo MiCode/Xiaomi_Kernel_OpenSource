@@ -11,6 +11,8 @@
 #include <linux/platform_device.h>
 #include <kd_imgsensor_define.h>
 
+#define IMGSENSOR_DFS_CTRL_ENABLE
+
 enum IMGSENSOR_CCF {
 	IMGSENSOR_CCF_MCLK_TG_MIN_NUM,
 	IMGSENSOR_CCF_MCLK_TOP_CAMTG_SEL = IMGSENSOR_CCF_MCLK_TG_MIN_NUM,
@@ -77,7 +79,7 @@ int imgsensor_dfs_init(struct imgsensor_dfs_ctx *ctx, struct device *dev);
 #endif
 
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <mmdvfs_pmqos.h>
 extern int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff);
 #endif

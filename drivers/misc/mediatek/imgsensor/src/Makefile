@@ -11,7 +11,8 @@
 # GNU General Public License for more details.
 #
 subdir-ccflags-y += -I$(srctree)/drivers/i2c/busses/ \
-             -I$(srctree)/drivers/misc/mediatek/ccu/inc
+                    -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
+                    -I$(srctree)/drivers/misc/mediatek/ccu/inc
 
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 ARCH_MTK_PROJECT := $(subst ",,$(CONFIG_ARCH_MTK_PROJECT))
