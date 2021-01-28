@@ -32,7 +32,7 @@
 /* Receive PM event */
 #include <linux/suspend.h>
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
 #endif
 #include <linux/uaccess.h>
@@ -64,7 +64,7 @@ static LIST_HEAD(memory_lowpower_handlers);
 static DEFINE_MUTEX(memory_lowpower_lock);
 
 /* Wakeup source */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 static struct wakeup_source mlp_wakeup;
 #endif
 
@@ -477,7 +477,7 @@ static void go_to_mlp_enable(void)
 /* Acquire wakeup source */
 static void acquire_wakelock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&mlp_wakeup);
 #endif
 }
@@ -485,7 +485,7 @@ static void acquire_wakelock(void)
 /* Release wakeup source */
 static void release_wakelock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&mlp_wakeup);
 #endif
 }
@@ -623,7 +623,7 @@ static int __init memory_lowpower_init_pm_ops(void)
 	if (fb_register_client(&fb_notifier_block) != 0)
 		return -1;
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	wakeup_source_init(&mlp_wakeup, "mlp_wakeup_source");
 #endif
 	return 0;
