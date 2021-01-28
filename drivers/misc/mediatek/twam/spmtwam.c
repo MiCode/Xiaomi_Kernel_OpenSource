@@ -138,18 +138,12 @@ static ssize_t dbg_read(struct file *filp, char __user *userbuf,
 static ssize_t dbg_write(struct file *fp, const char __user *userbuf,
 	size_t count, loff_t *f_pos)
 {
-	char cmd[16];
 	unsigned int en = 0;
 
-	count = min(count, sizeof(cmd)-1);
-
-	if (copy_from_user(cmd, userbuf, count))
+	if (kstrtou32_from_user(userbuf, count, 10, &en))
 		return -EFAULT;
 
-	cmd[count] = '\0';
-
-	if (kstrtou32(cmd, 0, &en) == 0)
-		spmtwam_profile_enable(en ? true : false);
+	spmtwam_profile_enable(en ? true : false);
 
 	return count;
 }
@@ -178,15 +172,9 @@ static ssize_t var_write(struct file *fp, const char __user *userbuf,
 	size_t count, loff_t *f_pos)
 {
 	unsigned int *v = PDE_DATA(file_inode(fp));
-	char cmd[16];
 
-	count = min(count, sizeof(cmd)-1);
-
-	if (copy_from_user(cmd, userbuf, count))
+	if (kstrtou32_from_user(userbuf, count, 10, v))
 		return -EFAULT;
-
-	cmd[count] = '\0';
-	kstrtou32(cmd, 0, v);
 
 	return count;
 }
