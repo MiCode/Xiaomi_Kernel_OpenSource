@@ -85,6 +85,10 @@ static const struct mfd_cell mt6359_devs[] = {
 		.name = "mt6359-misc",
 		.of_compatible = "mediatek,mt6359-misc",
 	},
+	{
+		.name = "mt6359p-misc",
+		.of_compatible = "mediatek,mt6359p-misc",
+	},
 };
 
 struct sp_top_t {
