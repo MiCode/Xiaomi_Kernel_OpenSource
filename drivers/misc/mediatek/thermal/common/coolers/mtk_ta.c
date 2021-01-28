@@ -383,7 +383,7 @@ int wakeup_ta_algo(int flow_state)
 		int size = TAD_NL_MSG_T_HDR_LEN + sizeof(flow_state);
 
 		/*tad_msg = (struct tad_nl_msg_t *)vmalloc(size);*/
-		tad_msg = vmalloc(size);
+		tad_msg = kmalloc(size, GFP_KERNEL);
 
 		if (tad_msg == NULL) {
 			g_ta_status = g_ta_status | 0x00100000;
@@ -395,7 +395,7 @@ int wakeup_ta_algo(int flow_state)
 		memcpy(tad_msg->tad_data, &flow_state, sizeof(flow_state));
 		tad_msg->tad_data_len += sizeof(flow_state);
 		ta_nl_send_to_user(g_tad_pid, 0, tad_msg);
-		vfree(tad_msg);
+		kfree(tad_msg);
 		return 0;
 	}
 	tsta_warn("[%s] error,g_tad_pid=0\n", __func__);
