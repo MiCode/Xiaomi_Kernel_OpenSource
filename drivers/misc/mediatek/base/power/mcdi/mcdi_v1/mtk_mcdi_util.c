@@ -182,7 +182,8 @@ unsigned long long idle_get_current_time_us(void)
 {
 	unsigned long long idle_current_time = sched_clock();
 
-	do_div(idle_current_time, 1000);
+	if (idle_current_time > 0)
+		do_div(idle_current_time, 1000);
 	return idle_current_time;
 }
 

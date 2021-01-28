@@ -53,6 +53,9 @@ const char *prof_pwr_seq_item[MCDI_PROF_BK_NUM] = {
 
 void mcdi_prof_set_idle_state(int cpu, int state)
 {
+	if ((cpu < 0) || (cpu >= NF_CPU))
+		return;
+
 	mcdi_usage.dev[cpu].actual_state = state;
 }
 
@@ -117,6 +120,9 @@ static void mcdi_usage_save(struct mcdi_prof_dev *dev, int entered_state,
 	int cpu_idx, cluster;
 	unsigned long flags;
 	s64 diff;
+
+	if ((entered_state < 0) || (entered_state >= CPUIDLE_STATE_MAX))
+		return;
 
 	diff = (s64)div64_u64(leave_ts - enter_ts, 1000);
 
@@ -215,6 +221,9 @@ static unsigned long long mcdi_usage_get_time(int cpu, int state_idx)
 	struct mcdi_prof_dev *dev = &mcdi_usage.dev[cpu];
 	unsigned long long dur;
 
+	if ((state_idx < 0) || (state_idx >= CPUIDLE_STATE_MAX))
+		return 0;
+
 	dur = dev->state[state_idx].dur;
 
 	if (state_idx == MCDI_STATE_CPU_OFF && dur == 0) {
@@ -237,6 +246,8 @@ void mcdi_usage_time_start(int cpu)
 {
 	if (!mcdi_usage.enable)
 		return;
+	if ((cpu < 0) || (cpu >= NF_CPU))
+		return;
 
 	mcdi_usage.dev[cpu].enter = sched_clock();
 }
@@ -244,6 +255,8 @@ void mcdi_usage_time_start(int cpu)
 void mcdi_usage_time_stop(int cpu)
 {
 	if (!mcdi_usage.enable)
+		return;
+	if ((cpu < 0) || (cpu >= NF_CPU))
 		return;
 
 	mcdi_usage.dev[cpu].leave = sched_clock();
@@ -256,6 +269,8 @@ void mcdi_usage_calc(int cpu)
 	unsigned long long leave_ts, enter_ts;
 
 	entered_state = dev->actual_state;
+	if ((entered_state < 0) || (entered_state >= CPUIDLE_STATE_MAX))
+		return;
 
 	dev->state[entered_state].cnt++;
 	dev->last_state_idx = entered_state;
@@ -278,6 +293,8 @@ void mcdi_usage_calc(int cpu)
 static bool mcdi_profile_matched_state(int cpu)
 {
 	if (profile_state < 0)
+		return true;
+	if ((cpu < 0) || (cpu >= NF_CPU))
 		return true;
 
 	/* Idle state was saved to last_state_idx in mcdi_usage_calc() */

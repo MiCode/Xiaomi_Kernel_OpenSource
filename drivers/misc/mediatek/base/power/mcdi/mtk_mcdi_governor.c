@@ -279,6 +279,8 @@ static bool remain_sleep_residency_allowable(unsigned int cpu_mask, int state)
 
 	if (!mcdi_cluster.chk_res_each_core)
 		return true;
+	if ((state < 0) || (state >= CPUIDLE_STATE_MAX))
+		return true;
 
 	mcdi_cluster.chk_res_cnt++;
 
