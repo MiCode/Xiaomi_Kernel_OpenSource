@@ -3,7 +3,6 @@ config MTK_AEE_FEATURE
 	select FIQ_GLUE if !TRUSTONIC_TEE_SUPPORT && !ARM_PSCI && !TRUSTY
 	select TRACER_SNAPSHOT
 	select FTRACE
-	select KALLSYMS_ALL
 	help
 	  AEE (Android Exception Engine) that designed by  Mediatek is an
 	  exception catching and debugging information generation mechanism.
