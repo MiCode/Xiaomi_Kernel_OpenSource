@@ -42,7 +42,7 @@
 static const struct of_device_id sdio_of_ids[] = {
 	{ .compatible = "mediatek,mt8135-mmc", .data = &mt8135_compat},
 	{ .compatible = "mediatek,mt8173-mmc", .data = &mt8173_compat},
-	{ .compatible = "mediatek,mt8167-sdio", .data = &mt8168_compat},
+	{ .compatible = "mediatek,mt8167-sdio", .data = &mt8167_compat},
 	{ .compatible = "mediatek,mt8168-sdio", .data = &mt8168_compat},
 	{ .compatible = "mediatek,mt2701-mmc", .data = &mt2701_compat},
 	{ .compatible = "mediatek,mt2712-mmc", .data = &mt2712_compat},
