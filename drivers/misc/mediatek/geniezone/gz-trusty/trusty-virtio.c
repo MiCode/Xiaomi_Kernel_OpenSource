@@ -965,8 +965,10 @@ static int trusty_thread_create(struct trusty_ctx *tctx)
 
 		for (task_cnt = 0 ; task_cnt < task_max ; task_cnt++) {
 			memset(task_name, '\0', 16);
-			snprintf(task_name, 15, "id%d_trusty_%c/%d",
-				tctx->tee_id, prefix, task_cnt);
+			ret = snprintf(task_name, 15, "id%d_trusty_%c/%d",
+						tctx->tee_id, prefix, task_cnt);
+			if (ret <= 0)
+				return ret;
 
 			init_completion(&task_info->rdy[task_cnt]);
 			task_info->fd[task_cnt] =
