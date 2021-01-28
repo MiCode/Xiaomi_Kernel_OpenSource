@@ -751,7 +751,7 @@ static ssize_t systrace_mask_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	uint32_t val;
+	uint32_t val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	uint32_t arg;
 
@@ -781,7 +781,7 @@ static ssize_t fpsgo_enable_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -897,7 +897,7 @@ static ssize_t force_onoff_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -965,7 +965,7 @@ static ssize_t gpu_block_boost_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
