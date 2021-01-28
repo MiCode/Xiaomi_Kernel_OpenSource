@@ -79,6 +79,10 @@ int m4u_tee_en;
 
 #endif
 
+#ifdef M4U_GZ_SERVICE_ENABLE
+#include "m4u_sec_gz.h"
+#endif
+
 #if IS_ENABLED(CONFIG_COMPAT)
 #include <linux/uaccess.h>
 #include <linux/compat.h>
@@ -2530,16 +2534,14 @@ static long MTK_M4U_ioctl(struct file *filp,
 			ret = copy_from_user(&rM4UTF,
 				(void *)arg, sizeof(struct M4U_TF_STRUCT));
 			if (ret) {
-				M4UMSG
-					("M4U_FG_TF,copy_user failed:%d\n",
-						ret);
+				m4u_info("M4U_FG_TF,copy_user failed:%d\n",
+					 ret);
 				return -EFAULT;
 			}
 			if (rM4UTF.port < 0 ||
 					rM4UTF.port >= M4U_PORT_UNKNOWN) {
-				M4UMSG
-					("M4U_CFG_TF, port%d is invalid\n",
-						rM4UTF.port);
+				m4u_info("M4U_CFG_TF, port%d is invalid\n",
+					 rM4UTF.port);
 				return -EFAULT;
 			}
 
@@ -2549,15 +2551,31 @@ static long MTK_M4U_ioctl(struct file *filp,
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case MTK_M4U_T_SEC_INIT:
 		{
-			M4UMSG
-				("M4U ioctl : M4U_EC_INIT command!! 0x%x\n",
-					cmd);
+			m4u_info("M4U ioctl : M4U_EC_INIT command!! 0x%x\n",
+				 cmd);
 			mutex_lock(&gM4u_sec_init);
 			ret = m4u_sec_init();
 			mutex_unlock(&gM4u_sec_init);
 		}
 		break;
 #endif
+
+#ifdef M4U_GZ_SERVICE_ENABLE
+	case MTK_M4U_T_GZ_SEC_INIT:
+	{
+		int mtk_iommu_sec_id = 0;
+
+		m4u_info("MTK M4U ioctl : MTK_M4U_T_GZ_SEC_INIT command!! 0x%x, arg:%d\n",
+			 cmd, arg);
+		mtk_iommu_sec_id = arg;
+		if (mtk_iommu_sec_id < 0 ||
+			mtk_iommu_sec_id > SEC_ID_COUNT)
+			return -EFAULT;
+		ret = m4u_gz_sec_init(mtk_iommu_sec_id);
+	}
+	break;
+#endif
+
 	default:
 		/* M4UMSG("MTK M4U ioctl:No such command!!\n"); */
 		ret = -EINVAL;
@@ -2800,6 +2818,7 @@ long MTK_M4U_COMPAT_ioctl(struct file *filp,
 	case MTK_M4U_T_CACHE_FLUSH_ALL:
 	case MTK_M4U_T_CONFIG_PORT_ARRAY:
 	case MTK_M4U_T_SEC_INIT:
+	case MTK_M4U_T_GZ_SEC_INIT:
 		return filp->f_op->unlocked_ioctl(filp,
 			cmd, (unsigned long)compat_ptr(arg));
 	default:
@@ -2866,7 +2885,7 @@ static int m4u_probe(struct platform_device *pdev)
 
 	m4u_domain_init(gM4uDev, &gMvaNode_unknown, pdev->id);
 
-#ifdef M4U_TEE_SERVICE_ENABLE
+#if defined(M4U_TEE_SERVICE_ENABLE) || defined(M4U_GZ_SERVICE_ENABLE)
 {
 	struct m4u_buf_info_t *pMvaInfo;
 	unsigned int mva;

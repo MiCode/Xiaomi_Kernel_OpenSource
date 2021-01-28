@@ -982,36 +982,37 @@ char *smi_clk_name[] = {
 	"m4u_smi_larb6",
 };
 
+/* return 0 means pass */
 int larb_clock_on(int larb, bool config_mtcmos)
 {
 #ifdef CONFIG_MTK_SMI_EXT
-	int ret = -1;
+	int ret = 0;
 
 	if (larb < ARRAY_SIZE(smi_clk_name))
 		ret =
 		    smi_bus_prepare_enable(larb, smi_clk_name[larb]);
-	if (ret != 0)
+	if (ret)
 		M4UMSG("%s error: larb %d\n", __func__, larb);
 #endif
 
-	return 0;
+	return ret;
 }
 
-
+/* return 0 means pass */
 int larb_clock_off(int larb, bool config_mtcmos)
 {
 #ifdef CONFIG_MTK_SMI_EXT
 //not defined at early porting: CONFIG_MTK_SMI_EXT
-	int ret = -1;
+	int ret = 0;
 
 	if (larb < ARRAY_SIZE(smi_clk_name))
 		ret =
 		    smi_bus_disable_unprepare(larb, smi_clk_name[larb]);
-	if (ret != 0)
+	if (ret)
 		M4UMSG("larb_clock_on error: larb %d\n", larb);
 #endif
 
-	return 0;
+	return ret;
 }
 
 int m4u_enable_prog_dist_by_id(int port, int id)

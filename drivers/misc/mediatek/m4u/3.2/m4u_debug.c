@@ -30,6 +30,9 @@
 #if defined(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 #include "trusted_mem_api.h"
 #endif
+#ifdef M4U_GZ_SERVICE_ENABLE
+#include "m4u_sec_gz.h"
+#endif
 
 /* global variables */
 int gM4U_log_to_uart = 2;
@@ -1083,6 +1086,22 @@ static int m4u_debug_set(void *data, u64 val)
 		M4UMSG("(2) config port: mmu: %d, sec: %d\n",
 			port.Virtuality, port.Security);
 		m4u_config_port_tee(&port);
+	}
+	break;
+#endif
+#ifdef M4U_GZ_SERVICE_ENABLE
+	case 52:
+	{
+		int mtk_iommu_sec_id = 0;
+		int ret;
+
+		m4u_info("%s : m4u_gz_sec_init start\n", __func__);
+
+		ret = m4u_gz_sec_init(mtk_iommu_sec_id);
+		if (ret)
+			m4u_info("m4u_gz_sec_init fail ret:%d\n", ret);
+		else
+			m4u_info("m4u_gz_sec_init pass\n");
 	}
 	break;
 #endif
