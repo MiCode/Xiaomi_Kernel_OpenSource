@@ -362,7 +362,7 @@ int primary_display_trigger(int blocking, void *callback, int need_merge);
 int primary_display_switch_mode(int sess_mode, unsigned int session, int force);
 int primary_display_switch_mode_blocked(int sess_mode, unsigned int session,
 					int force);
-int primary_display_diagnose(void);
+int primary_display_diagnose(const char *func, int line);
 int primary_display_diagnose_oneshot(const char *func, int line);
 
 int primary_display_get_info(struct disp_session_info *info);

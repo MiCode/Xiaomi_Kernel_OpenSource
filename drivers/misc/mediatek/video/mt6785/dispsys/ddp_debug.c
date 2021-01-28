@@ -24,9 +24,9 @@
 #include <linux/sched/clock.h>
 #include <linux/interrupt.h>
 #include <linux/time.h>
-
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
-
+#endif
 #include "disp_drv_ddp.h"
 
 #include "ddp_debug.h"

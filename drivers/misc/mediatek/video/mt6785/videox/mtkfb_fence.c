@@ -21,8 +21,9 @@
 
 #include <linux/wait.h>
 #include <linux/file.h>
-
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
+#endif
 #include "mtk_sync.h"
 #include "debug.h"
 #include "ddp_ovl.h"

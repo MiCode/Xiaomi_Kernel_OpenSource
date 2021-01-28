@@ -21,6 +21,7 @@
 #include <ion_priv.h>
 #ifdef CONFIG_MTK_IOMMU_V2
 #include "mach/mt_iommu.h"
+#include "mach/pseudo_m4u.h"
 #include <soc/mediatek/smi.h>
 #include "mtk_iommu_ext.h"
 #elif defined(CONFIG_MTK_M4U)
@@ -133,12 +134,7 @@ void disp_m4u_init(void)
 int config_display_m4u_port(void)
 {
 	int ret = 0;
-#ifdef CONFIG_MTK_IOMMU_V2
-	/* if you config to pa mode, please contact iommu owner */
-	//struct device *disp_larbdev = NULL;
-
-	//ret = mtk_smi_larb_get(disp_larbdev);
-#elif defined(CONFIG_MTK_M4U)
+#if defined(CONFIG_MTK_IOMMU_V2) || defined(CONFIG_MTK_M4U)
 	struct M4U_PORT_STRUCT sPort;
 	unsigned int i;
 	char *m4u_usage = disp_helper_get_option(DISP_OPT_USE_M4U) ?
@@ -248,29 +244,47 @@ struct ion_handle *disp_ion_alloc(struct ion_client *client,
 }
 
 int disp_ion_get_mva(struct ion_client *client, struct ion_handle *handle,
-		     unsigned int *mva, int port)
+	unsigned int *mva, unsigned int fixed_mva, int port)
 {
 #if defined(MTK_FB_ION_SUPPORT)
 	struct ion_mm_data mm_data;
+	//struct ion_sys_data sys_data;
+	ion_phys_addr_t phy_addr;
 	size_t mva_size;
-	ion_phys_addr_t phy_addr = 0;
+	size_t len;
 
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	mm_data.config_buffer_param.module_id = port;
 	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	if (fixed_mva > 0) {
+		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER_EXT;
+		mm_data.config_buffer_param.reserve_iova_start = fixed_mva;
+		mm_data.config_buffer_param.reserve_iova_end = fixed_mva;
+	} else {
+		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+	}
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-			     (unsigned long)&mm_data) < 0) {
-		DISP_PR_ERR("%s: config buffer failed.0x%p -0x%p\n",
-			    __func__, client, handle);
+		(unsigned long)&mm_data) < 0) {
+		DDPMSG("disp_ion_get_mva: config buffer failed.%p -%p\n",
+			client, handle);
 		ion_free(client, handle);
 		return -1;
 	}
 
-	ion_phys(client, handle, &phy_addr, &mva_size);
-	*mva = (unsigned int)phy_addr;
-	DDPDBG("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
-		   handle, (unsigned int)*mva);
+	if (fixed_mva == 0) {
+		ion_phys(client, handle,
+			(ion_phys_addr_t *)mva, &mva_size);
+	} else {
+		phy_addr = (port << 24) | ION_FLAG_GET_FIXED_PHYS;
+		len = ION_FLAG_GET_FIXED_PHYS;
+		ion_phys(client, handle,
+			&phy_addr, &len);
+		*mva = phy_addr;
+		mva_size = len;
+	}
+	if (*mva == 0)
+		DDPMSG("alloc mmu addr hnd=0x%p,mva=0x%08lx\n",
+			handle, *mva);
 #endif
 	return 0;
 }

@@ -28,8 +28,9 @@
 #include <linux/interrupt.h>
 #include "ion_drv.h"
 #include "mtk_ion.h"
+#ifdef CONFIG_MTK_M4U
 #include "m4u.h"
-
+#endif
 #include "disp_drv_platform.h"
 #include "debug.h"
 #include "ddp_debug.h"
