@@ -6592,7 +6592,8 @@ static inline int select_energy_cpu_idx(struct energy_env *eenv)
 	 * An energy saving is considered meaningful if it reduces the energy
 	 * consumption of EAS_CPU_PRV CPU candidate by at least ~1.56%
 	 */
-	margin = eenv->cpu[EAS_CPU_PRV].energy >> 6;
+	/* margin = eenv->cpu[EAS_CPU_PRV].energy >> 6;  */
+	margin = 0;
 
 	/*
 	 * By default the EAS_CPU_PRV CPU is considered the most energy

@@ -52,6 +52,45 @@ TRACE_EVENT(sched_system_overutilized,
 /*
  * Tracepoint for share buck calculation
  */
+TRACE_EVENT(group_norm_util,
+
+	TP_PROTO(int cpu_idx, int cpu, int cid, unsigned long util_sum,
+			unsigned long norm_util, unsigned long delta,
+			unsigned long util, unsigned long capacity),
+
+	TP_ARGS(cpu_idx, cpu, cid, util_sum, norm_util, delta, util, capacity),
+
+	TP_STRUCT__entry(
+		__field(int, cpu_idx)
+		__field(int, cpu)
+		__field(int, cid)
+		__field(unsigned long, util_sum)
+		__field(unsigned long, norm_util)
+		__field(unsigned long, delta)
+		__field(unsigned long, util)
+		__field(unsigned long, capacity)
+	),
+
+	TP_fast_assign(
+		__entry->cpu_idx        = cpu_idx;
+		__entry->cpu            = cpu;
+		__entry->cid            = cid;
+		__entry->util_sum       = util_sum;
+		__entry->norm_util      = norm_util;
+		__entry->delta          = delta;
+		__entry->util           = util;
+		__entry->capacity       = capacity;
+	),
+
+	TP_printk("cpu_idx=%d cpu=%d cid=%d util_sum=%lu norm_util=%lu delta=%lu util=%lu capacity=%lu",
+		__entry->cpu_idx, __entry->cpu, __entry->cid,
+		__entry->util_sum, __entry->norm_util, __entry->delta,
+		__entry->util, __entry->capacity)
+);
+
+/*
+ * Tracepoint for share buck calculation
+ */
 TRACE_EVENT(sched_share_buck,
 
 	TP_PROTO(int cpu_idx, int cid, int cap_idx, int co_buck_cid,
