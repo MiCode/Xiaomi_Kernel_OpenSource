@@ -19,9 +19,44 @@
 #ifdef __KERNEL__
 
 #include <linux/version.h>
-#include <../../../../drivers/dma-buf/sync_debug.h>
-
+#include <linux/dma-fence.h>
 //#include <../drivers/staging/android/sw_sync.h>
+
+/**
+ * struct sync_timeline - sync object
+ * @kref:		reference count on fence.
+ * @name:		name of the sync_timeline. Useful for debugging
+ * @lock:		lock protecting @pt_list and @value
+ * @pt_tree:		rbtree of active (unsignaled/errored) sync_pts
+ * @pt_list:		list of active (unsignaled/errored) sync_pts
+ * @sync_timeline_list:	membership in global sync_timeline_list
+ */
+struct sync_timeline {
+	struct kref		kref;
+	char			name[32];
+
+	/* protected by lock */
+	u64			context;
+	int			value;
+
+	struct rb_root		pt_tree;
+	struct list_head	pt_list;
+	spinlock_t		lock;
+
+	struct list_head	sync_timeline_list;
+};
+
+/**
+ * struct sync_pt - sync_pt object
+ * @base: base fence object
+ * @link: link on the sync timeline's list
+ * @node: node in the sync timeline's tree
+ */
+struct sync_pt {
+	struct dma_fence base;
+	struct list_head link;
+	struct rb_node node;
+};
 
 /*
  * sync_timeline, sync_fence data structure

@@ -3,7 +3,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-
 #include <linux/debugfs.h>
 #include <linux/export.h>
 #include <linux/seq_file.h>
@@ -17,6 +16,13 @@
 #include "mtk_sync.h"
 
 /* ---------------------------------------------------------------- */
+static inline struct sync_timeline *dma_fence_parent(struct dma_fence *fence)
+{
+	return container_of(fence->lock, struct sync_timeline, lock);
+}
+
+static LIST_HEAD(sync_timeline_list_head);
+static DEFINE_SPINLOCK(sync_timeline_list_lock);
 
 static const struct dma_fence_ops timeline_fence_ops;
 
@@ -27,12 +33,30 @@ static inline struct sync_pt *fence_to_sync_pt(struct dma_fence *fence)
 	return container_of(fence, struct sync_pt, base);
 }
 
+static void mt_sync_timeline_debug_add(struct sync_timeline *obj)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sync_timeline_list_lock, flags);
+	list_add_tail(&obj->sync_timeline_list, &sync_timeline_list_head);
+	spin_unlock_irqrestore(&sync_timeline_list_lock, flags);
+}
+
+static void mt_sync_timeline_debug_remove(struct sync_timeline *obj)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sync_timeline_list_lock, flags);
+	list_del(&obj->sync_timeline_list);
+	spin_unlock_irqrestore(&sync_timeline_list_lock, flags);
+}
+
 static void sync_timeline_free(struct kref *kref)
 {
 	struct sync_timeline *obj =
 		container_of(kref, struct sync_timeline, kref);
 
-	sync_timeline_debug_remove(obj);
+	mt_sync_timeline_debug_remove(obj);
 
 	kfree(obj);
 }
@@ -243,7 +267,7 @@ static struct sync_timeline *sync_timeline_create(const char *name)
 	INIT_LIST_HEAD(&obj->pt_list);
 	spin_lock_init(&obj->lock);
 
-	sync_timeline_debug_add(obj);
+	mt_sync_timeline_debug_add(obj);
 
 	return obj;
 }
