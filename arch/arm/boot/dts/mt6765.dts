@@ -500,7 +500,11 @@
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
 			no-map;
+#ifdef CONFIG_MTK_TINYSYS_SCP_LOGGER_SUPPORT
 			size = <0 0x00300000>;
+#else
+			size = <0 0x00100000>;
+#endif
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
 		};
@@ -923,9 +927,9 @@
 		compatible = "mediatek,scp";
 		status = "okay";
 		reg =	<0 0x10500000 0 0x40000>,
-				<0 0x105c0000 0 0x3000>,
-				<0 0x105c4000 0 0x1000>,
-				<0 0x105d4000 0 0x6000>;
+			<0 0x105c0000 0 0x3000>,
+			<0 0x105c4000 0 0x1000>,
+			<0 0x105d4000 0 0x6000>;
 		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>;
 		core_1 = "enable";
 		scp_sramSize = <0x00040000>;
@@ -941,8 +945,12 @@
 				  <9 10>;   /* vow dump */
 
 		scp_mem_key = "mediatek,reserve-memory-scp_share";
+#ifdef CONFIG_MTK_TINYSYS_SCP_LOGGER_SUPPORT
 		scp_mem_tbl = <1 0x100000>, /* sensor */
 			      <4 0x200000>; /* logger */
+#else
+		scp_mem_tbl = <1 0x100000>; /* sensor */
+#endif
 	};
 
 	scp_dvfs {
