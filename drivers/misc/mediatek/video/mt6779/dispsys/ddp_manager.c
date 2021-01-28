@@ -431,6 +431,11 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 	       ddp_get_scenario_name(scenario));
 	for (i = 0; i < m_num; i++) {
 		m = list[i];
+		if (m < 0 || m > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id:%d\n",
+				   __func__, m);
+			return 1;
+		}
 		DDPDBG("%s\n", ddp_get_module_name(m));
 		c->module_usage_table[m]++;
 		c->module_path_table[m] = path_handle;
@@ -577,6 +582,11 @@ int dpmgr_modify_path_power_off_old_modules(enum DDP_SCENARIO_ENUM old_scn,
 
 	for (i = 0; i < old_m_num; i++) {
 		m = old_list[i];
+		if (m < 0 || m > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id:%d\n",
+				   __func__, m);
+			return 1;
+		}
 		if (ddp_is_module_in_scenario(new_scn, m))
 			continue;
 
@@ -608,7 +618,11 @@ int dpmgr_destroy_path_handle(disp_path_handle dp_handle)
 		DDP_PR_ERR("%s: error: path handle is NULL\n", __func__);
 		return -EINVAL;
 	}
-
+	if (phandle->hwmutexid < 0) {
+		DISP_LOG_E("%s: error hwmutexid:%d\n",
+				   __func__, phandle->hwmutexid);
+			return 1;
+	}
 	list = ddp_get_scenario_list(phandle->scenario);
 	m_num = ddp_get_module_num(phandle->scenario);
 	c = _get_context();

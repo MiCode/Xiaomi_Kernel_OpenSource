@@ -576,6 +576,10 @@ static enum DSI_STATUS DSI_SetSwitchMode(enum DISP_MODULE_ENUM module,
 	int i = 0;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return DSI_STATUS_ERROR;
+		}
 		if (mode == 0) {
 			/* V2C */
 			DSI_OUTREGBIT(cmdq, struct DSI_MODE_CTRL_REG,
@@ -596,6 +600,10 @@ static enum DSI_STATUS DSI_SetBypassRack(enum DISP_MODULE_ENUM module,
 	int i = 0;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return DSI_STATUS_ERROR;
+		}
 		if (bypass == 0)
 			DSI_OUTREGBIT(cmdq, struct DSI_RACK_REG,
 				DSI_REG[i]->DSI_RACK, DSI_RACK_BYPASS, 0);
@@ -951,6 +959,10 @@ void DSI_Calc_VDO_Timing(enum DISP_MODULE_ENUM module,
 	t_hbllp = ALIGN_TO(dsi_params->horizontal_bllp * dsiTmpBufBpp, 4);
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return;
+		}
 		_dsi_context[i].vsa = t_vsa;
 		_dsi_context[i].vbp = t_vbp;
 		_dsi_context[i].vfp = t_vfp;
@@ -1096,6 +1108,10 @@ void DSI_Config_VDO_Timing(enum DISP_MODULE_ENUM module,
 	int i = 0;
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return;
+		}
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VSA_NL,
 				_dsi_context[i].vsa);
 		DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_VBP_NL,
@@ -1358,6 +1374,10 @@ static void _DSI_PHY_clk_setting(enum DISP_MODULE_ENUM module,
 
 	/* MIPITX lane swap setting */
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return;
+		}
 		/* step 0 MIPITX lane swap setting */
 		swap_base = dsi_params->lane_swap[i];
 		if (unlikely(dsi_params->lane_swap_en)) {
@@ -1638,6 +1658,10 @@ static void _dsi_phy_clk_setting_gce(enum DISP_MODULE_ENUM module,
 	/* DPHY SETTING */
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		/* step 0 MIPITX lane swap setting */
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return;
+		}
 		swap_base = dsi_params->lane_swap[i];
 		if (unlikely(dsi_params->lane_swap_en)) {
 			DISPINFO("MIPI Lane Swap Enable for DSI %d\n", i);
@@ -3588,6 +3612,10 @@ int ddp_dsi_init(enum DISP_MODULE_ENUM module, void *cmdq)
 	memset(&_dsi_context, 0, sizeof(_dsi_context));
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
+		if (i < 0 || i > DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id: %d\n", __func__, i);
+			return DSI_STATUS_ERROR;
+		}
 		DISPCHECK("dsi%d initializing _dsi_context\n", i);
 		mutex_init(&(_dsi_context[i].lock));
 		_init_condition_wq(&(_dsi_context[i].cmddone_wq));
