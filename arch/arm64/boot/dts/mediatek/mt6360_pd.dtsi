@@ -24,7 +24,7 @@
 		mt6360pd,intr_gpio_num = <24>;
 		mt6360pd,pcb_gpio = <&pio 5 0x0>;
 		mt6360pd,pcb_gpio_num = <5>;
-		interrupt-parent = <&mt6360_pmu>;
+		interrupt-parent = <&subpmic_mtk>;
 		interrupts = <64 0>;
 		interrupt-names = "usbid_evt";
 		charger = <&mt6360_chg>;

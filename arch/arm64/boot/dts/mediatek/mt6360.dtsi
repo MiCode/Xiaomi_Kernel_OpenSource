@@ -2,16 +2,16 @@
 /*
  * Copyright (c) 2020 MediaTek Inc.
  */
-
 &i2c5 {
-	mt6360_pmu: subpmic@34 {
+	subpmic_mtk:subpmic@34 {
+		compatible = "mediatek,subpmic";
+		reg = <0x34>;
 		mt6360,intr_gpio_num = <3>; /* direct defined GPIO num */
 		mt6360,intr_gpio = <&pio 3 0x0>; /* GPIO */
 		interrupt-controller;
 		#interrupt-cells = <2>;
 		mt6360_adc: adc {
 			compatible = "mediatek,mt6360_pmu_adc";
-			interrupt-parent = <&mt6360_pmu>;
 			interrupts = <41 0>, <43 0>, <44 0>;
 			interrupt-names = "bat_ovp_adc_evt",
 					  "adc_wakeup_evt",
@@ -20,7 +20,6 @@
 		};
 		mt6360_chg: chg {
 			compatible = "mediatek,mt6360_pmu_chg";
-			interrupt-parent = <&mt6360_pmu>;
 			interrupts = <4 0>, <6 0>, <7 0>, <9 0>,
 				     <12 0>, <13 0>, <14 0>, <15 0>,
 				     <27 0>, <29 0>, <30 0>, <32 0>,
@@ -64,7 +63,6 @@
 		};
 		fled {
 			compatible = "mediatek,mt6360_pmu_fled";
-			interrupt-parent = <&mt6360_pmu>;
 			interrupts = <11 0>, <74 0>, <75 0>, <78 0>,
 				     <79 0>;
 			interrupt-names = "fled_chg_vinovp_evt", "fled_tx_evt",
@@ -99,7 +97,6 @@
 		};
 		core {
 			compatible = "mediatek,mt6360_pmu_core";
-			interrupt-parent = <&mt6360_pmu>;
 			interrupts = <65 0>, <66 0>, <67 0>,
 				     <68 0>, <69 0>, <70 0>,
 				     <71 0>;
@@ -118,8 +115,10 @@
 		};
 	};
 
-	mt6360_pmic: subpmic_pmic@1a {
-		interrupt-parent = <&mt6360_pmu>;
+	subpmic_pmic_mtk:subpmic_pmic@1a {
+		compatible = "mediatek,subpmic_pmic";
+		reg = <0x1a>;
+		interrupt-parent = <&subpmic_mtk>;
 		interrupts = <96 0>, <100 0>, <101 0>, <102 0>,
 			     <104 0>, <108 0>, <109 0>, <110 0>,
 			     <118 0>, <119 0>, <126 0>, <127 0>;
@@ -160,8 +159,10 @@
 		};
 	};
 
-	mt6360_ldo: subpmic_ldo@64 {
-		interrupt-parent = <&mt6360_pmu>;
+	subpmic_ldo_mtk:subpmic_ldo@64 {
+		compatible = "mediatek,subpmic_ldo";
+		reg = <0x64>;
+		interrupt-parent = <&subpmic_mtk>;
 		interrupts = <113 0>, <114 0>, <115 0>, <117 0>,
 			     <121 0>, <122 0>, <123 0>, <125 0>;
 		interrupt-names = "ldo1_oc_evt", "ldo2_oc_evt",
@@ -194,4 +195,3 @@
 		};
 	};
 };
-
