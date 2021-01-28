@@ -67,7 +67,7 @@
 #define RTNL_LOCK_MAX_HOLD_TIME 3
 
 struct rtnl_debug_btrace_t {
-	char *process_name;
+	struct task_struct *task;
 	int   pid;
 	unsigned long long when;
 	unsigned long addrs[RTNL_DEBUG_ADDRS_COUNT];
@@ -78,7 +78,7 @@ struct rtnl_debug_btrace_t {
 };
 
 static struct rtnl_debug_btrace_t rtnl_instance = {
-	.process_name = NULL,
+	.task = NULL,
 	.pid = 0,
 	.when = 0,
 	.entry_nr = 0,
@@ -89,7 +89,7 @@ static struct rtnl_debug_btrace_t rtnl_instance = {
 static void rtnl_print_btrace(struct timer_list *);
 static DEFINE_TIMER(rtnl_chk_timer, rtnl_print_btrace);
 
-void rtnl_get_btrace(void *who)
+void rtnl_get_btrace(struct task_struct *who)
 {
 	struct stack_trace debug_trace;
 
@@ -98,7 +98,7 @@ void rtnl_get_btrace(void *who)
 	debug_trace.entries = rtnl_instance.addrs;
 	debug_trace.skip = 0;
 	save_stack_trace(&debug_trace);
-	rtnl_instance.process_name = who;
+	rtnl_instance.task = who;
 	rtnl_instance.when = sched_clock();
 	rtnl_instance.flag = 1;
 	rtnl_instance.pid = current->pid;
@@ -108,6 +108,7 @@ void rtnl_get_btrace(void *who)
 	mod_timer(&rtnl_chk_timer, jiffies + RTNL_LOCK_MAX_HOLD_TIME * HZ);
 }
 
+#include <linux/sched/debug.h>
 static void rtnl_print_btrace(struct timer_list *unused)
 {
 	if (rtnl_instance.flag) {
@@ -117,11 +118,16 @@ static void rtnl_print_btrace(struct timer_list *unused)
 		show_trace.entries = rtnl_instance.addrs;
 		show_trace.max_entries = RTNL_DEBUG_ADDRS_COUNT;
 		pr_info("-----------%s start-----------\n", __func__);
-		pr_info("[mtk_net][rtnl_lock] %s[%d] hold lock more than 2 sec,start time: %lld\n",
-			rtnl_instance.process_name,
-			rtnl_instance.pid, rtnl_instance.when);
+		pr_info("[mtk_net][rtnl_lock] %s[%d][%c] hold lock more than 2 sec,start time: %lld\n",
+			rtnl_instance.task->comm,
+			rtnl_instance.pid,
+			task_state_to_char(rtnl_instance.task),
+			rtnl_instance.when);
+
 		print_stack_trace(&show_trace, 0);
+		show_stack(rtnl_instance.task, NULL);
 		pr_info("------------%s end-----------\n", __func__);
+		mod_timer(&rtnl_chk_timer, jiffies + 8 * HZ);
 	} else {
 		pr_info("[mtk_net][rtnl_lock]There is no process hold rtnl lock\n");
 	}
@@ -141,11 +147,13 @@ struct rtnl_link {
 };
 
 static DEFINE_MUTEX(rtnl_mutex);
+static unsigned long long rtnl_mutex_ts, rtnl_mutex_te;
 
 void rtnl_lock(void)
 {
 	mutex_lock(&rtnl_mutex);
-	rtnl_get_btrace(current->comm);
+	rtnl_mutex_ts = sched_clock();
+	rtnl_get_btrace(current);
 }
 EXPORT_SYMBOL(rtnl_lock);
 
@@ -171,7 +179,16 @@ void __rtnl_unlock(void)
 
 	defer_kfree_skb_list = NULL;
 
+	rtnl_mutex_te = sched_clock();
+	if (rtnl_mutex_te - rtnl_mutex_ts > 2000000000)
+		pr_info("[mtk_net][rtnl_unlock] rtnl_lock is held by %s[%d][%c] from [%llu] to [%llu]\n",
+			rtnl_instance.task->comm,
+			rtnl_instance.pid,
+			task_state_to_char(rtnl_instance.task),
+			rtnl_mutex_ts, rtnl_mutex_te);
+
 	mutex_unlock(&rtnl_mutex);
+	mod_timer(&rtnl_chk_timer, 0);
 
 	while (head) {
 		struct sk_buff *next = head->next;
