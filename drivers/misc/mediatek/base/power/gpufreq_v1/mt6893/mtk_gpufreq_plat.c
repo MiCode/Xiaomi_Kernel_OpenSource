@@ -1188,6 +1188,10 @@ void mt_gpufreq_update_volt_interpolation(void)
  *    b'110 = 0x6 = 0.7V
  *    others = 0.8V
  */
+ /*
+  * do not use this function.
+  * PTPOD may change the voltage in low temporary
+  */
 void mt_gpufreq_update_ptpod_by_efuse(void)
 {
 	unsigned int efuse_id;
@@ -1262,9 +1266,6 @@ unsigned int mt_gpufreq_update_volt(
 		g_opp_table[target_idx].gpufreq_vsram =
 			__mt_gpufreq_get_vsram_gpu_by_vgpu(pmic_volt[i]);
 	}
-
-	// post process ptpod voltage
-	mt_gpufreq_update_ptpod_by_efuse();
 
 	// update none PTP
 	mt_gpufreq_update_volt_interpolation();
