@@ -646,9 +646,10 @@ TRACE_EVENT(sched_select_task_rq,
 
 	TP_PROTO(struct task_struct *tsk,
 		int policy, int prev_cpu, int target_cpu,
-		int task_util, int boost, bool prefer),
+		int task_util, int boost, bool prefer, int wake_flags),
 
-	TP_ARGS(tsk, policy, prev_cpu, target_cpu, task_util, boost, prefer),
+	TP_ARGS(tsk, policy, prev_cpu, target_cpu, task_util, boost,
+		prefer, wake_flags),
 
 	TP_STRUCT__entry(
 		__field(pid_t, pid)
@@ -659,6 +660,7 @@ TRACE_EVENT(sched_select_task_rq,
 		__field(int, boost)
 		__field(long, task_mask)
 		__field(bool, prefer)
+		__field(int, wake_flags)
 		),
 
 	TP_fast_assign(
@@ -670,9 +672,10 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->boost		= boost;
 		__entry->task_mask	= tsk->cpus_allowed.bits[0];
 		__entry->prefer		= prefer;
+		__entry->wake_flags	= wake_flags;
 		),
 
-	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d boost=%d mask=0x%lx prefer=%d",
+	TP_printk("pid=%4d policy=0x%08x pre-cpu=%d target=%d util=%d boost=%d mask=0x%lx prefer=%d flags=%d",
 		__entry->pid,
 		__entry->policy,
 		__entry->prev_cpu,
@@ -680,7 +683,8 @@ TRACE_EVENT(sched_select_task_rq,
 		__entry->task_util,
 		__entry->boost,
 		__entry->task_mask,
-		__entry->prefer)
+		__entry->prefer,
+		__entry->wake_flags)
 );
 
 /*
