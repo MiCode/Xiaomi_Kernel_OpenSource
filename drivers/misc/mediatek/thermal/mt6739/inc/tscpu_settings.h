@@ -695,6 +695,6 @@ extern void __iomem *INFRACFG_AO_base;
 #define THERMAL_MSRCTL2_MASK    0x000001C0
 
 /*cpu core nums*/
-#define TZCPU_NO_CPU_CORES              (8)
+#define TZCPU_NO_CPU_CORES             CONFIG_NR_CPUS
 
 #endif	/* __TSCPU_SETTINGS_H__ */
