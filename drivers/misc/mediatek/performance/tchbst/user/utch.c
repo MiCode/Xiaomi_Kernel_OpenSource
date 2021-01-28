@@ -25,7 +25,6 @@ static int  touch_boost_value;
 static int touch_boost_opp; /* boost freq of touch boost */
 static struct cpu_ctrl_data *target_freq, *reset_freq;
 static int touch_boost_duration;
-static int prev_boost_pid;
 static long long active_time;
 static int usrtch_debug;
 static int touch_event;/*touch down:1 */
@@ -95,8 +94,7 @@ static int notify_touch(int action)
 	WARN_ON(!mutex_is_locked(&notify_lock));
 	isact = is_fstb_active(active_time);
 
-	prev_boost_pid = current->pid;
-	fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, isact, "isact");
+	perfmgr_trace_count(isact, "isact");
 
 	if (is_fstb_active(active_time) || usrtch_dbg)
 		return ret;
@@ -115,7 +113,7 @@ static int notify_touch(int action)
 				perfmgr_clusters, target_freq);
 		if (usrtch_debug)
 			pr_debug("touch down\n");
-		fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, 1, "touch");
+		perfmgr_trace_count(1, "touch");
 		touch_event = 1;
 	}
 
@@ -135,7 +133,7 @@ static void notify_touch_up_timeout(struct work_struct *work)
 	update_eas_uclamp_min(EAS_KIR_TOUCH, CGROUP_TA, 0);
 #endif
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
-	fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, 0, "touch");
+	perfmgr_trace_count(0, "touch");
 	touch_event = 2;
 	if (usrtch_debug)
 		pr_debug("touch timeout\n");

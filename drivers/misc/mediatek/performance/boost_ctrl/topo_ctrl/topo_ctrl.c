@@ -59,9 +59,8 @@ static void topo_platform_init(void)
 	/* calculate cpu number */
 	for_each_possible_cpu(cpu) {
 		clus_id = arch_cpu_cluster_id(cpu);
-		if (clus_id < topo_cluster_num) {
+		if (clus_id < topo_cluster_num && clus_id >= 0)
 			topo_cluster_info[clus_id].core_num += 1;
-		}
 	}
 
 	for (i = 0; i < topo_cluster_num; i++) {
