@@ -129,7 +129,6 @@ create_mtee_mchunk_device(enum TRUSTED_MEM_TYPE mem_type,
 	t_device->ssmr_feature_id = ssmr_feat_id;
 #endif
 	t_device->mem_type = mem_type;
-	t_device->shared_trusted_mem_device = NULL;
 
 	ret = register_trusted_mem_device(mem_type, t_device);
 	if (ret) {

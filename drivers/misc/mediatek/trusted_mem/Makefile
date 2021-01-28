@@ -101,6 +101,12 @@ sdsp_smem-y += sdsp_smem/sdsp_smem_device.o
 endif # !CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT
 
 #==========================================================================
+# 2D_FR Secure Memory Core Driver
+#==========================================================================
+obj-$(CONFIG_MTK_CAM_SECURITY_SUPPORT) += fr_smem.o
+fr_smem-y += fr_smem/fr_smem_device.o
+
+#==========================================================================
 # WFD Secure Memory Core Driver
 #==========================================================================
 obj-$(CONFIG_MTK_WFD_SMEM_SUPPORT) += wfd_smem.o

@@ -86,7 +86,7 @@ static int get_smem_type(enum TRUSTED_MEM_TYPE mem_type)
 		return SMEM_SDSP_FIRMWARE;
 	case TRUSTED_MEM_SDSP_SHARED:
 		return SMEM_SDSP_SHARED;
-	case TRUSTED_MEM_SVP_VIRT_2D_FR:
+	case TRUSTED_MEM_2D_FR:
 		return SMEM_2D_FR;
 	default:
 		return SMEM_SVP;
