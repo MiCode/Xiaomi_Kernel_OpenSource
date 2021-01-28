@@ -888,15 +888,8 @@ static irqreturn_t musb_stage0_irq(struct musb *musb, u8 int_usb, u8 devctl)
 
 		/* go through A_WAIT_VFALL then start a new session */
 		if (!ignore) {
-			if (is_switch_charger()) {
-				DBG(0,
-					"too many VBUS error, restart power on sequence for switching charger!\n");
-					schedule_delayed_work(&musb->id_pin_work
-						, 400 * HZ / 1000);
-			} else {
-				musb_platform_set_vbus(musb, 0);
-				DBG(0, "too many VBUS error, turn it off!\n");
-			}
+			musb_platform_set_vbus(musb, 0);
+			DBG(0, "too many VBUS error, turn it off!\n");
 		}
 		handled = IRQ_HANDLED;
 	}

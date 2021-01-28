@@ -84,14 +84,10 @@ extern void mt_usb_disconnect(void);
 /* extern bool usb_iddig_state(void); */
 /* ALPS00775710 */
 extern bool usb_cable_connected(void);
-extern void pmic_chrdet_int_en(int is_on);
 extern void musb_platform_reset(struct musb *musb);
 extern void musb_sync_with_bat(struct musb *musb, int usb_state);
 
 extern bool is_saving_mode(void);
-
-/* USB switch charger */
-extern bool is_switch_charger(void);
 
 /* host and otg */
 extern void mt_usb_otg_init(struct musb *musb);

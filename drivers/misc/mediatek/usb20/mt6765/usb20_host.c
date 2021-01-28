@@ -62,12 +62,6 @@ static void do_register_otg_work(struct work_struct *data)
 static void mt_usb_host_connect(int delay);
 static void mt_usb_host_disconnect(int delay);
 
-#ifdef CONFIG_MTK_CHARGER
-#if CONFIG_MTK_GAUGE_VERSION == 30
-#include <mt-plat/charger_class.h>
-static struct charger_device *primary_charger;
-#endif
-#endif
 #include <mt-plat/mtk_boot_common.h>
 
 struct device_node		*usb_node;
@@ -129,48 +123,17 @@ bool usb20_check_vbus_on(void)
 
 static void _set_vbus(int is_on)
 {
-#ifdef CONFIG_MTK_CHARGER
-#if CONFIG_MTK_GAUGE_VERSION == 30
-	if (!primary_charger) {
-		DBG(0, "vbus_init<%d>\n", vbus_on);
-
-		primary_charger = get_charger_by_name("primary_chg");
-		if (!primary_charger) {
-			DBG(0, "get primary charger device failed\n");
-			return;
-	}
-	}
-#endif
-#endif
-
 	DBG(0, "op<%d>, status<%d>\n", is_on, vbus_on);
 	if (is_on && !vbus_on) {
 		/* update flag 1st then enable VBUS to make
 		 * host mode correct used by PMIC
 		 */
 		vbus_on = true;
-#ifdef CONFIG_MTK_CHARGER
-#if CONFIG_MTK_GAUGE_VERSION == 30
-		charger_dev_enable_otg(primary_charger, true);
-		charger_dev_set_boost_current_limit(primary_charger, 1500000);
-#else
-		set_chr_enable_otg(0x1);
-		set_chr_boost_current_limit(1500);
-#endif
-#endif
 	} else if (!is_on && vbus_on) {
 		/* disable VBUS 1st then update flag
 		 * to make host mode correct used by PMIC
 		 */
 		vbus_on = false;
-
-#ifdef CONFIG_MTK_CHARGER
-#if CONFIG_MTK_GAUGE_VERSION == 30
-		charger_dev_enable_otg(primary_charger, false);
-#else
-		set_chr_enable_otg(0x0);
-#endif
-#endif
 	}
 }
 

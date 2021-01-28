@@ -15,7 +15,6 @@
 #include "usb20.h"
 
 #include <mt-plat/mtk_boot_common.h>
-#include <mt-plat/charger_type.h>
 
 #ifdef FPGA_PLATFORM
 #include <linux/i2c.h>
@@ -476,85 +475,27 @@ void trigger_disconnect_check_work(void)
 	queue_delayed_work(mtk_musb->st_wq, &disconnect_check_work, 0);
 }
 
-/* to avoid build error due to PMIC module not ready */
-/* FIXME: skip build error */
-/* #ifndef CONFIG_MTK_CHARGER */
-#define BYPASS_PMIC_LINKAGE
-/* #endif */
-static enum charger_type musb_hal_get_charger_type(void)
-{
-	enum charger_type chg_type;
-#ifdef BYPASS_PMIC_LINKAGE
-	DBG(0, "force on");
-	chg_type = STANDARD_HOST;
-#else
-	chg_type = mt_get_charger_type();
-#endif
-	return chg_type;
-}
 static bool musb_hal_is_vbus_exist(void)
 {
-	bool vbus_exist;
-
-#ifdef BYPASS_PMIC_LINKAGE
-	DBG(0, "force on");
-	vbus_exist = true;
-#else
-#ifdef CONFIG_POWER_EXT
-	vbus_exist = upmu_get_rgs_chrdet();
-#else
-	vbus_exist = upmu_is_chr_det();
-#endif
-#endif
+	bool vbus_exist = true;
 
 	return vbus_exist;
 }
 
-DEFINE_MUTEX(cable_connected_lock);
 /* be aware this could not be used in non-sleep context */
 bool usb_cable_connected(void)
 {
-	enum charger_type chg_type = CHARGER_UNKNOWN;
-	bool connected = false, vbus_exist = false;
-
-	mutex_lock(&cable_connected_lock);
-
-	/* TYPE CHECK */
-	chg_type = musb_hal_get_charger_type();
-
-	if (musb_fake_CDP && chg_type == STANDARD_HOST) {
-		DBG(0, "fake to type 2\n");
-		chg_type = CHARGING_HOST;
-	}
-
-	if (chg_type == STANDARD_HOST || chg_type == CHARGING_HOST)
-		connected = true;
-
-	/* VBUS CHECK to avoid type miss-judge */
-	vbus_exist = musb_hal_is_vbus_exist();
-
-	if (!vbus_exist)
-		connected = false;
-
-	DBG(0, "connected=%d vbus_exist=%d type=%d\n",
-		connected, vbus_exist, chg_type);
-
-	mutex_unlock(&cable_connected_lock);
-	return connected;
+	return true;
 }
 
 static bool cmode_effect_on(void)
 {
-	enum charger_type chg_type = CHARGER_UNKNOWN;
 	bool effect = false;
 
-	/* TYPE CHECK */
-	chg_type = musb_hal_get_charger_type();
-
 	/* CMODE CHECK */
-	if (cable_mode == CABLE_MODE_CHRG_ONLY ||
+	if (cable_mode == CABLE_MODE_CHRG_ONLY /*||
 		(cable_mode == CABLE_MODE_HOST_ONLY &&
-			chg_type != CHARGING_HOST))
+			chg_type != CHARGING_HOST)*/)
 		effect = true;
 
 	DBG(0, "cable_mode=%d, effect=%d\n", cable_mode, effect);
@@ -784,33 +725,9 @@ void musb_platform_reset(struct musb *musb)
 	musb_writew(mbase, MUSB_SWRST, swrst);
 }
 
-bool is_switch_charger(void)
-{
-#ifdef SWITCH_CHARGER
-	return true;
-#else
-	return false;
-#endif
-}
-
-void pmic_chrdet_int_en(int is_on)
-{
-#ifndef FPGA_PLATFORM
-#ifdef CONFIG_MTK_PMIC
-	DBG(0, "is_on<%d>\n", is_on);
-	upmu_interrupt_chrdet_int_en(is_on);
-#else
-	DBG(0, "FIXME, no upmu_interrupt_chrdet_int_en ???\n");
-#endif
-#endif
-}
-
 void musb_sync_with_bat(struct musb *musb, int usb_state)
 {
 	DBG(1, "BATTERY_SetUSBState, state=%d\n", usb_state);
-#ifndef BYPASS_PMIC_LINKAGE
-	BATTERY_SetUSBState(usb_state);
-#endif
 }
 
 /*-------------------------------------------------------------------------*/

@@ -22,19 +22,6 @@ struct mt_usb_glue {
 
 #define glue_to_musb(g)         platform_get_drvdata(g->musb)
 
-#if defined(CONFIG_R_PORTING)
-#if CONFIG_MTK_GAUGE_VERSION == 30
-extern unsigned int upmu_get_rgs_chrdet(void);
-extern bool upmu_is_chr_det(void);
-#else
-extern bool upmu_is_chr_det(void);
-#endif
-#endif
-
-extern enum charger_type mt_charger_type_detection(void);
-extern void BATTERY_SetUSBState(int usb_state);
-extern void upmu_interrupt_chrdet_int_en(unsigned int val);
-
 /* specific USB fuctnion */
 enum CABLE_MODE {
 	CABLE_MODE_CHRG_ONLY = 0,
@@ -95,12 +82,6 @@ extern void __iomem *ap_gpio_base;
 extern bool in_uart_mode;
 #endif
 extern int usb20_phy_init_debugfs(void);
-extern enum charger_type mt_get_charger_type(void);
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#if defined(CONFIG_R_PORTING)
-#include <upmu_common.h>
-#endif
-#endif
 #define PHY_IDLE_MODE       0
 #define PHY_DEV_ACTIVE      1
 #define PHY_HOST_ACTIVE     2
