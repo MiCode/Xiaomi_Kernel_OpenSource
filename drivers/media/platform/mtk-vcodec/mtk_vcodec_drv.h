@@ -18,6 +18,7 @@
 
 #include <linux/platform_device.h>
 #include <linux/videodev2.h>
+#include <linux/semaphore.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
@@ -36,9 +37,12 @@
 #define MTK_VCODEC_ENC_NAME     "mtk-vcodec-enc"
 #define MTK_VCU_FW_VERSION      "0.2.14"
 
+#define MTK_SLOWMOTION_GCE_TH   120
 #define MTK_VCODEC_MAX_PLANES   3
 #define MTK_V4L2_BENCHMARK      0
 #define WAIT_INTR_TIMEOUT_MS    500
+#define SUSPEND_TIMEOUT_CNT     5000
+
 
 /**
  * enum mtk_instance_type - The type of an MTK Vcodec instance.
@@ -82,7 +86,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_PREPEND_SPSPPS_TO_IDR = (1 << 9),
 	MTK_ENCODE_PARAM_OPERATION_RATE = (1 << 10),
 	MTK_ENCODE_PARAM_BITRATE_MODE = (1 << 11),
-	MTK_ENCODE_PARAM_SEC_ENCODE = (1 << 12),
+	MTK_ENCODE_PARAM_ROI_ON = (1 << 12),
 };
 
 /*
@@ -138,7 +142,8 @@ enum mtk_dec_param {
 	MTK_DEC_PARAM_WAIT_KEY_FRAME = (1 << 5),
 	MTK_DEC_PARAM_NAL_SIZE_LENGTH = (1 << 6),
 	MTK_DEC_PARAM_FIXED_MAX_OUTPUT_BUFFER = (1 << 7),
-	MTK_DEC_PARAM_SEC_DECODE = (1 << 8)
+	MTK_DEC_PARAM_SEC_DECODE = (1 << 8),
+	MTK_DEC_PARAM_OPERATING_RATE = (1 << 9)
 };
 
 struct mtk_dec_params {
@@ -153,6 +158,10 @@ struct mtk_dec_params {
 	unsigned int	wait_key_frame;
 	unsigned int	nal_size_length;
 	unsigned int	svp_mode;
+	unsigned int	operating_rate;
+	unsigned int	timestamp;
+	unsigned int	total_frame_bufq_count;
+	unsigned int	queued_frame_buf_count;
 };
 
 /**
@@ -195,7 +204,7 @@ struct mtk_enc_params {
 	unsigned int    prependheader;
 	unsigned int    operationrate;
 	unsigned int    bitratemode;
-	unsigned int    svp_mode;
+	unsigned int    roion;
 };
 
 /*
@@ -233,8 +242,8 @@ struct venc_enc_param {
 	unsigned int prependheader;
 	unsigned int operationrate;
 	unsigned int bitratemode;
+	unsigned int roion;
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
-	unsigned int svp_mode;
 };
 
 /*
@@ -245,6 +254,8 @@ struct venc_enc_param {
 struct venc_frm_buf {
 	struct mtk_vcodec_mem fb_addr[MTK_VCODEC_MAX_PLANES];
 	unsigned int num_planes;
+	unsigned long timestamp;
+	unsigned int roimap;
 };
 
 /**
@@ -279,7 +290,8 @@ struct venc_frm_buf {
  * @decode_work: worker for the decoding
  * @encode_work: worker for the encoding
  * @last_decoded_picinfo: pic information get from latest decode
- * @empty_flush_buf: a fake size-0 capture buffer that indicates flush
+ * @dec_flush_buf: a fake size-1 output buffer that indicates flush
+ * @enc_flush_buf: a fake size-1 output buffer that indicates flush
  * @oal_vcodec: 1: oal encoder, 0:non-oal encoder
  * @pend_src_buf: pending source buffer
  *
@@ -311,7 +323,9 @@ struct mtk_vcodec_ctx {
 
 	struct vdec_pic_info picinfo;
 	int dpb_size;
+	int last_dpb_size;
 	unsigned int errormap_info[VB2_MAX_FRAME];
+	u64 input_max_ts;
 
 	int int_cond;
 	int int_type;
@@ -322,9 +336,11 @@ struct mtk_vcodec_ctx {
 	struct work_struct decode_work;
 	struct work_struct encode_work;
 	struct vdec_pic_info last_decoded_picinfo;
-	struct mtk_video_dec_buf *empty_flush_buf;
-	int oal_vcodec;
+	struct mtk_video_dec_buf *dec_flush_buf;
+	struct mtk_video_enc_buf *enc_flush_buf;
 	struct vb2_buffer *pend_src_buf;
+	int slowmotion;
+	int oal_vcodec;
 
 	enum v4l2_colorspace colorspace;
 	enum v4l2_ycbcr_encoding ycbcr_enc;
@@ -332,7 +348,8 @@ struct mtk_vcodec_ctx {
 	enum v4l2_xfer_func xfer_func;
 
 	int decoded_frame_cnt;
-	struct mutex lock;
+	struct mutex buf_lock;
+	struct mutex worker_lock;
 };
 
 /**
@@ -400,14 +417,17 @@ struct mtk_vcodec_dev {
 	int enc_lt_irq;
 
 	struct mutex dec_mutex;
-	struct mutex enc_mutex;
+	struct semaphore enc_sem;
 
 	struct mutex dec_dvfs_mutex;
 	struct mutex enc_dvfs_mutex;
+	atomic_t enc_smvr;
 
 	struct mtk_vcodec_pm pm;
 	unsigned int dec_capability;
 	unsigned int enc_capability;
+
+	bool is_codec_suspending;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)

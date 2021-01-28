@@ -19,8 +19,8 @@
 #include <linux/types.h>
 #include <linux/dma-direction.h>
 
-#define FPGA_PWRCLK_API_DISABLE
-#define FPGA_INTERRUPT_API_DISABLE
+/* #define FPGA_PWRCLK_API_DISABLE */
+/* #define FPGA_INTERRUPT_API_DISABLE */
 
 struct mtk_vcodec_mem {
 	size_t length;
@@ -30,16 +30,21 @@ struct mtk_vcodec_mem {
 	dma_addr_t dma_addr;
 	struct dma_buf *dmabuf;
 	__u32 flags;
+	__u32 index;
 };
 
 /**
- * enum cache_flags  - decoder different cache operation types
+ * enum flags  - decoder different operation types
  * @NO_CAHCE_FLUSH	: no need to proceed cache flush
  * @NO_CAHCE_INVALIDATE	: no need to proceed cache invalidate
+ * @CROP_CHANGED	: frame buffer crop changed
+ * @REF_FREED	: frame buffer is reference freed
  */
-enum mtk_vcodec_cache_flags {
+enum mtk_vcodec_flags {
 	NO_CAHCE_CLEAN = 1,
-	NO_CAHCE_INVALIDATE = 1 << 1
+	NO_CAHCE_INVALIDATE = 1 << 1,
+	CROP_CHANGED = 1 << 2,
+	REF_FREED = 1 << 3
 };
 
 struct mtk_vcodec_ctx;

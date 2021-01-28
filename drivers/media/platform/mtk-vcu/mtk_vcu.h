@@ -19,13 +19,15 @@
 #include <linux/platform_device.h>
 
 /**
- * VCU (Video Communication/Controller Unit) is a tiny processor controlling
- *video hardware
+ * VCU (Video Communication/Controller Unit)
+ * is a tiny processor controlling video hardware
  * related to video codec, scaling and color format converting.
  * VCU interfaces with other blocks by share memory and interrupt.
  **/
 
-typedef int (*ipi_handler_t)(void *data, unsigned int len, void *priv);
+typedef int (*ipi_handler_t)(void *data,
+							 unsigned int len,
+							 void *priv);
 
 /**
  * enum ipi_id - the id of inter-processor interrupt
@@ -123,7 +125,7 @@ enum ipi_id {
 	IPI_VENC_VP8,
 	IPI_VENC_MPEG4,
 	IPI_VENC_HYBRID_H264,
-	IPI_VENC_INHOUSE_H264,
+	IPI_VENC_H263,
 	IPI_MDP,
 	IPI_MDP_1,
 	IPI_MDP_2,
@@ -133,8 +135,9 @@ enum ipi_id {
 };
 
 enum vcu_codec_type {
-	VCU_VENC = 0,
-	VCU_VDEC,
+	VCU_VDEC = 0,
+	VCU_VENC,
+	VCU_CODEC_MAX
 };
 
 /**
@@ -151,7 +154,7 @@ enum vcu_codec_type {
  * Return: Return 0 if ipi registers successfully, otherwise it is failed.
  */
 int vcu_ipi_register(struct platform_device *pdev, enum ipi_id id,
-		     ipi_handler_t handler, const char *name, void *priv);
+	ipi_handler_t handler, const char *name, void *priv);
 
 /**
  * vcu_ipi_send - send data from AP to vcu.
@@ -168,8 +171,9 @@ int vcu_ipi_register(struct platform_device *pdev, enum ipi_id id,
  *
  * Return: Return 0 if sending data successfully, otherwise it is failed.
  **/
-int vcu_ipi_send(struct platform_device *pdev, enum ipi_id id, void *buf,
-		 unsigned int len);
+int vcu_ipi_send(struct platform_device *pdev,
+				 enum ipi_id id, void *buf,
+				 unsigned int len);
 
 /**
  * vcu_get_plat_device - get VCU's platform device
@@ -221,7 +225,7 @@ int vcu_load_firmware(struct platform_device *pdev);
  *         > 0 if firmware version is newer than expected version
  **/
 int vcu_compare_version(struct platform_device *pdev,
-			const char *expected_version);
+						const char *expected_version);
 
 /**
  * vcu_mapping_dm_addr - Mapping DTCM/DMEM to kernel virtual address
@@ -237,22 +241,26 @@ int vcu_compare_version(struct platform_device *pdev,
  * otherwise the mapped kernel virtual address
  **/
 void *vcu_mapping_dm_addr(struct platform_device *pdev,
-			  uintptr_t dtcm_dmem_addr);
+						  uintptr_t dtcm_dmem_addr);
 
 /**
  * vcu_get_task - Get VCUD task information
  *
  * @task:       VCUD task
- * @f:          VCUD task file
+ * @f:          VCUD task filie
+ * @reset:      flag to reset task and file
  *
  * Get VCUD task information from mtk_vcu driver.
  *
  **/
-void vcu_get_task(struct task_struct **task, struct files_struct **f);
+void vcu_get_task(struct task_struct **task, struct files_struct **f,
+		int reset);
+void vcu_get_file_lock(void);
+void vcu_put_file_lock(void);
 extern void smp_inner_dcache_flush_all(void);
 int vcu_set_codec_ctx(struct platform_device *pdev,
-		 void *codec_ctx, unsigned long codec_type);
-
+		 void *codec_ctx, unsigned long type);
 extern void venc_encode_prepare(void *ctx_prepare, unsigned long *flags);
 extern void venc_encode_unprepare(void *ctx_prepare, unsigned long *flags);
+
 #endif /* _MTK_VCU_H */

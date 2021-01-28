@@ -18,7 +18,6 @@
 
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
-#include "mtk_vcodec_util.h"
 
 #define VCODEC_CAPABILITY_4K_DISABLED   0x10
 #define VCODEC_DEC_4K_CODED_WIDTH       4096U
@@ -66,7 +65,7 @@ enum eos_types {
  * @lastframe:  Output buffer is last buffer - EOS
  * @bs_buffer:  Decode status, and buffer information of Output buffer
  * @frame_buffer:       Decode status, and buffer information of Capture buffer
- * @flags:  flags derived from v4l2_buffer for cache operations
+ * @flags:  flags derived from v4l2_buffer for buffer operations
  *
  * Note : These status information help us track and debug buffer state
  */
@@ -99,6 +98,7 @@ void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	struct vb2_queue *dst_vq);
 void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx);
+void mtk_vcodec_dec_empty_queues(struct file *file, struct mtk_vcodec_ctx *ctx);
 void mtk_vcodec_dec_release(struct mtk_vcodec_ctx *ctx);
 int mtk_vcodec_dec_ctrls_setup(struct mtk_vcodec_ctx *ctx);
 
