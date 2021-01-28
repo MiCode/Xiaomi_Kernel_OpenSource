@@ -65,6 +65,8 @@ struct CRTC_MMP_Events {
 	mmp_event enable;
 	mmp_event disable;
 	mmp_event release_fence;
+	mmp_event update_present_fence;
+	mmp_event release_present_fence;
 	mmp_event atomic_begin;
 	mmp_event atomic_flush;
 	mmp_event enable_vblank;
@@ -90,11 +92,15 @@ struct CRTC_MMP_Events {
 	mmp_event user_cmd_cb;
 	mmp_event bl_cb;
 	mmp_event clk_change;
+	mmp_event layerBmpDump;
+	mmp_event layer_dump[6];
 };
 
 struct DRM_MMP_Events *get_drm_mmp_events(void);
 struct CRTC_MMP_Events *get_crtc_mmp_events(unsigned long id);
 void drm_mmp_init(void);
+int mtk_drm_mmp_ovl_layer(struct mtk_plane_state *state,
+			  u32 downSampleX, u32 downSampleY);
 
 /* print mmp log for DRM_MMP_Events */
 #define DRM_MMP_MARK(event, v1, v2)                                            \

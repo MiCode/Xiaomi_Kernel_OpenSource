@@ -16,6 +16,8 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-mapping.h>
 #include <drm/mediatek_drm.h>
+#include <linux/iommu.h>
+#include <linux/kmemleak.h>
 
 #include "mtk_drm_drv.h"
 #include "mtk_drm_gem.h"
@@ -44,7 +46,7 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 		return ERR_PTR(-ENOMEM);
 
 	ret = drm_gem_object_init(dev, &mtk_gem_obj->base, size);
-	if (ret < 0) {
+	if (ret != 0) {
 		DDPPR_ERR("failed to initialize gem object\n");
 		kfree(mtk_gem_obj);
 		return ERR_PTR(ret);
@@ -55,17 +57,21 @@ static struct mtk_drm_gem_obj *mtk_drm_gem_init(struct drm_device *dev,
 
 /* Following function is not used in mtk_drm_fb_gem_insert() so far,*/
 /* Need verify before use it. */
-static struct sg_table *mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
-			    struct device *dev, unsigned long *fb_pa)
+static struct sg_table *mtk_gem_vmap_pa(struct mtk_drm_gem_obj *mtk_gem,
+					phys_addr_t pa, int cached,
+					struct device *dev,
+					unsigned long *fb_pa)
 {
 	phys_addr_t pa_align;
-	uint sz_align, npages, i;
+	//phys_addr_t addr;
+	uint size, sz_align, npages, i;
 	struct page **pages;
 	pgprot_t pgprot;
 	void *va_align;
 	struct sg_table *sgt;
 	unsigned long attrs;
 
+	size = mtk_gem->size;
 	pa_align = round_down(pa, PAGE_SIZE);
 	sz_align = ALIGN(pa + size - pa_align, PAGE_SIZE);
 	npages = sz_align / PAGE_SIZE;
@@ -91,9 +97,13 @@ static struct sg_table *mtk_gem_vmap_pa(phys_addr_t pa, uint size, int cached,
 	dma_map_sg_attrs(dev, sgt->sgl, sgt->nents, 0, attrs);
 	*fb_pa = sg_dma_address(sgt->sgl);
 
+	mtk_gem->cookie = va_align;
+
+	kfree(pages);
+
 	return sgt;
 }
-
+#if 0
 static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 				   struct mtk_drm_gem_obj *mtk_gem)
 {
@@ -133,7 +143,7 @@ static void mtk_gem_vmap_pa_legacy(phys_addr_t pa, uint size,
 	mtk_gem->size = mm_data.get_phys_param.len;
 #endif
 }
-
+#endif
 static inline void *mtk_gem_dma_alloc(struct device *dev, size_t size,
 				       dma_addr_t *dma_handle, gfp_t flag,
 				       unsigned long attrs, const char *name,
@@ -171,11 +181,10 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 					      size_t size, phys_addr_t fb_base,
 					      unsigned int vramsize)
 {
-	struct mtk_drm_private *priv = dev->dev_private;
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_gem_object *obj;
 	struct sg_table *sgt;
-	unsigned long fb_pa;
+	unsigned long fb_pa = 0;
 
 	DDPINFO("%s+\n", __func__);
 	mtk_gem = mtk_drm_gem_init(dev, vramsize);
@@ -183,31 +192,20 @@ struct mtk_drm_gem_obj *mtk_drm_fb_gem_insert(struct drm_device *dev,
 		return ERR_CAST(mtk_gem);
 
 	obj = &mtk_gem->base;
-	if (1) {
-		/* TODO: This is a temporary workaorund for get
-		 * MVA for LK pre-allocated buffer. The get MVA API of
-		 * iommu version return the wrong MVA value. Once the
-		 * issue fixed, remove this workaround
-		 */
-		mtk_gem_vmap_pa_legacy(fb_base, vramsize, mtk_gem);
-	} else {
-		mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
-		sgt = mtk_gem_vmap_pa(fb_base, vramsize, 0, dev->dev, &fb_pa);
 
-		mtk_gem->sec = false;
-		mtk_gem->dma_addr = (dma_addr_t)fb_pa;
-		mtk_gem->size = size;
-		mtk_gem->cookie =
-			mtk_gem_dma_alloc(priv->dma_dev, size,
-					&mtk_gem->dma_addr, GFP_KERNEL,
-					mtk_gem->dma_attrs, __func__,
-					__LINE__);
-		mtk_gem->kvaddr = mtk_gem->cookie;
-		mtk_gem->sg = sgt;
-	}
+	mtk_gem->size = size;
+	mtk_gem->dma_attrs = DMA_ATTR_WRITE_COMBINE;
+
+	sgt = mtk_gem_vmap_pa(mtk_gem, fb_base, 0, dev->dev, &fb_pa);
+
+	mtk_gem->sec = false;
+	mtk_gem->dma_addr = (dma_addr_t)fb_pa;
+	mtk_gem->kvaddr = mtk_gem->cookie;
+	mtk_gem->sg = sgt;
 
 	DDPINFO("%s cookie = %p dma_addr = %pad size = %zu\n", __func__,
 		mtk_gem->cookie, &mtk_gem->dma_addr, size);
+
 	return mtk_gem;
 }
 
@@ -632,8 +630,8 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	struct mtk_drm_gem_obj *mtk_gem;
 	int ret;
 	struct scatterlist *s;
-	unsigned int i;
-	dma_addr_t expected;
+	unsigned int i, last_len = 0, error_cnt = 0;
+	dma_addr_t expected, last_iova = 0;
 
 	DDPDBG("%s:%d dev:0x%p, attach:0x%p, sg:0x%p +\n",
 			__func__, __LINE__,
@@ -652,11 +650,22 @@ mtk_gem_prime_import_sg_table(struct drm_device *dev,
 	expected = sg_dma_address(sg->sgl);
 	for_each_sg(sg->sgl, s, sg->nents, i) {
 		if (sg_dma_address(s) != expected) {
-			DDPPR_ERR("sg_table is not contiguous");
-			ret = -EINVAL;
-			goto err_gem_free;
+			if (!error_cnt)
+				DDPPR_ERR("sg_table is not contiguous %u\n",
+					  sg->nents);
+			DDPPR_ERR("exp:0x%llx,cur:0x%llx/%u,last:0x%llx+0x%x\n",
+				  expected, sg_dma_address(s),
+				  i, last_iova, last_len);
+			if (error_cnt++ > 5)
+				break;
 		}
+		last_iova = sg_dma_address(s);
+		last_len = sg_dma_len(s);
 		expected = sg_dma_address(s) + sg_dma_len(s);
+	}
+	if (error_cnt) {
+		ret = -EINVAL;
+		goto err_gem_free;
 	}
 
 	mtk_gem->sec = false;
@@ -690,6 +699,8 @@ int mtk_gem_map_offset_ioctl(struct drm_device *drm, void *data,
 int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
 			 struct drm_file *file_priv)
 {
+//avoid security issue
+#if 0
 	struct mtk_drm_gem_obj *mtk_gem;
 	struct drm_mtk_gem_create *args = data;
 	int ret;
@@ -721,6 +732,9 @@ int mtk_gem_create_ioctl(struct drm_device *dev, void *data,
 err_handle_create:
 	mtk_drm_gem_free_object(&mtk_gem->base);
 	return ret;
+#endif
+	DDPPR_ERR("not supported!\n");
+	return 0;
 }
 
 static void prepare_output_buffer(struct drm_device *dev,
@@ -822,3 +836,4 @@ int mtk_drm_sec_hnd_to_gem_hnd(struct drm_device *dev, void *data,
 
 	return 0;
 }
+

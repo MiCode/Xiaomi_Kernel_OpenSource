@@ -515,8 +515,10 @@ int mtk_ddp_comp_init(struct device *dev, struct device_node *node,
 
 	/* get the first clk in the device node */
 	comp->clk = of_clk_get(node, 0);
-	if (IS_ERR(comp->clk))
+	if (IS_ERR(comp->clk)) {
 		comp->clk = NULL;
+		DDPPR_ERR("comp:%d get clock fail!\n", comp_id);
+	}
 
 	if (comp_id == DDP_COMPONENT_BLS || comp_id == DDP_COMPONENT_PWM0) {
 		comp->regs_pa = 0;
@@ -620,7 +622,8 @@ void mtk_ddp_comp_clk_unprepare(struct mtk_ddp_comp *comp)
 }
 
 #ifdef CONFIG_MTK_IOMMU_V2
-static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
+static enum mtk_iommu_callback_ret_t
+	mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 {
 	struct mtk_ddp_comp *comp = data;
 
@@ -632,7 +635,7 @@ static int mtk_ddp_m4u_callback(int port, unsigned long mva, void *data)
 		mtk_dump_reg(comp);
 	}
 
-	return 0;
+	return MTK_IOMMU_CALLBACK_HANDLED;
 }
 #endif
 

@@ -18,7 +18,7 @@
 #include "mtk_drm_crtc.h"
 #include <linux/soc/mediatek/mtk-cmdq.h>
 
-#define DISP_MUTEX_TOTAL (12)
+#define DISP_MUTEX_TOTAL (16)
 #define DISP_MUTEX_DDP_FIRST (0)
 #define DISP_MUTEX_DDP_LAST (5)
 #define DISP_MUTEX_DDP_COUNT (DISP_MUTEX_DDP_LAST - DISP_MUTEX_DDP_FIRST + 1)

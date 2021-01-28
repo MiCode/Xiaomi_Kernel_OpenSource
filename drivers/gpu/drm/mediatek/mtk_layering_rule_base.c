@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/file.h>
 #include <linux/string.h>
+#include <linux/mm.h>
 #include <mt-plat/mtk_chip.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_property.h>
@@ -38,9 +39,10 @@
 #include "mtk_drm_assert.h"
 #include "mtk_log.h"
 #include "mtk_drm_mmp.h"
-
+#include "mtk_drm_fbdev.h"
 #define CREATE_TRACE_POINTS
 #include "mtk_layer_layout_trace.h"
+#include "mtk_drm_gem.h"
 
 static struct drm_mtk_layering_info layering_info;
 #ifdef HRT_UT_DEBUG
@@ -66,6 +68,7 @@ static struct {
 	{LYE_OPT_DUAL_PIPE, 0, "LYE_OPT_DUAL_PIPE"},
 	{LYE_OPT_EXT_LAYER, 0, "LYE_OPT_EXTENDED_LAYER"},
 	{LYE_OPT_RPO, 0, "LYE_OPT_RPO"},
+	{LYE_OPT_CLEAR_LAYER, 0, "LYE_OPT_CLEAR_LAYER"},
 };
 
 void mtk_set_layering_opt(enum LYE_HELPER_OPT opt, int value)
@@ -1562,6 +1565,77 @@ static int mtk_lye_get_lye_id(int disp_idx, struct drm_device *drm_dev,
 	return get_phy_ovl_index(drm_dev, disp_idx, layer_map_idx);
 }
 
+static void clear_layer(struct drm_mtk_layering_info *disp_info)
+{
+	int di = 0;
+	int i = 0;
+	struct drm_mtk_layer_config *c;
+
+	if (!get_layering_opt(LYE_OPT_CLEAR_LAYER))
+		return;
+
+	for (di = 0; di < HRT_TYPE_NUM; di++) {
+		int g_head = disp_info->gles_head[di];
+		int top = -1;
+
+		if (disp_info->layer_num[di] <= 0)
+			continue;
+		if (g_head == -1)
+			continue;
+
+		for (i = disp_info->layer_num[di] - 1; i >= g_head; i--) {
+			c = &disp_info->input_config[di][i];
+			if (mtk_has_layer_cap(c, MTK_LAYERING_OVL_ONLY) &&
+			    mtk_has_layer_cap(c, MTK_CLIENT_CLEAR_LAYER)) {
+				top = i;
+				break;
+			}
+		}
+		if (top == -1)
+			continue;
+		if (!mtk_is_gles_layer(disp_info, di, top))
+			continue;
+
+		DDPMSG("%s:D%d:L%d\n", __func__, di, top);
+
+		disp_info->gles_head[di] = 0;
+		disp_info->gles_tail[di] = disp_info->layer_num[di] - 1;
+
+		c = &disp_info->input_config[di][top];
+		if (top == disp_info->gles_head[di])
+			disp_info->gles_head[di]++;
+		else if (top == disp_info->gles_tail[di])
+			disp_info->gles_tail[di]--;
+		else
+			c->layer_caps |= MTK_DISP_CLIENT_CLEAR_LAYER;
+
+		if ((c->src_width < c->dst_width ||
+		     c->src_height < c->dst_height) &&
+		    top < disp_info->gles_tail[di]) {
+			c->layer_caps |= MTK_DISP_RSZ_LAYER;
+			l_rule_info->addon_scn[di] = ONE_SCALING;
+		} else {
+			c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
+			l_rule_info->addon_scn[di] = NONE;
+
+			if ((c->src_width != c->dst_width ||
+			     c->src_height != c->dst_height) &&
+			    !mtk_has_layer_cap(c, MTK_MDP_RSZ_LAYER)) {
+				c->layer_caps &= ~MTK_DISP_CLIENT_CLEAR_LAYER;
+				DDPMSG("%s:remove clear(rsz), caps:0x%08x\n",
+				       __func__, c->layer_caps);
+			}
+		}
+
+		for (i = 0; i < disp_info->layer_num[di]; i++) {
+			c = &disp_info->input_config[di][i];
+			c->ext_sel_layer = -1;
+			if (i != top)
+				c->layer_caps &= ~MTK_DISP_RSZ_LAYER;
+		}
+	}
+}
+
 static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 				  int layer_map, int disp_idx,
 				  struct mtk_drm_lyeblob_ids *lyeblob_ids,
@@ -1572,10 +1646,35 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 	struct mtk_plane_comp_state comp_state;
 	int prev_comp_id = -1;
 	int i;
+	int clear_idx = -1;
+#if defined(CONFIG_MACH_MT6853)
+	int no_compress_layer_num = 0;
+#endif
+
+	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+		layer_info = &disp_info->input_config[disp_idx][i];
+		if (mtk_has_layer_cap(layer_info,
+				      MTK_DISP_CLIENT_CLEAR_LAYER)) {
+			clear_idx = i;
+			break;
+		}
+	}
 
 	for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
 
 		layer_info = &disp_info->input_config[disp_idx][i];
+
+		if (clear_idx < 0 &&
+		    mtk_has_layer_cap(layer_info, MTK_DISP_CLIENT_CLEAR_LAYER))
+			continue;
+
+		if (i < clear_idx) {
+			continue;
+		} else if (i == clear_idx) {
+			i = -1;
+			clear_idx = -1;
+		}
+
 		comp_state.layer_caps = layer_info->layer_caps;
 
 		if (mtk_is_gles_layer(disp_info, disp_idx, i) &&
@@ -1601,7 +1700,17 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 				ext_cnt = 0;
 			comp_state.ext_lye_id = LYE_NORMAL;
 		}
+#if defined(CONFIG_MACH_MT6853)
+		if (disp_idx == 0 &&
+			(comp_state.comp_id == DDP_COMPONENT_OVL0_2L) &&
+			!is_extended_layer(layer_info) &&
+			layer_info->compress != 1) {
 
+			DDPINFO("%s layer_id %d no compress phy layer\n",
+				__func__, i);
+			no_compress_layer_num++;
+		}
+#endif
 		lye_add_lye_priv_blob(&comp_state, lyeblob_ids, plane_idx,
 				      disp_idx, drm_dev);
 
@@ -1609,6 +1718,15 @@ static int _dispatch_lye_blob_idx(struct drm_mtk_layering_info *disp_info,
 		plane_idx++;
 		prev_comp_id = comp_state.comp_id;
 	}
+#if defined(CONFIG_MACH_MT6853)
+	if (disp_idx == 0) {
+		HRT_SET_NO_COMPRESS_FLAG(disp_info->hrt_num,
+				no_compress_layer_num);
+		DDPINFO("%s disp_info->hrt_num=0x%x,no_comp_layer_num=%d\n",
+				__func__, disp_info->hrt_num,
+				no_compress_layer_num);
+	}
+#endif
 	return 0;
 }
 
@@ -1657,14 +1775,30 @@ static int dispatch_ovl_id(struct drm_mtk_layering_info *disp_info,
 		disp_info->hrt_weight = max_ovl_cnt * 2 / HRT_UINT_WEIGHT;
 	}
 
+	clear_layer(disp_info);
+
 	/* Dispatch OVL id */
 	for (disp_idx = 0; disp_idx < HRT_TYPE_NUM; disp_idx++) {
 		int ovl_cnt;
 		uint16_t layer_map;
+		struct drm_mtk_layer_config *c;
+		bool clear = false;
+		int i = 0;
 
 		if (disp_info->layer_num[disp_idx] <= 0)
 			continue;
+
+		for (i = 0; i < disp_info->layer_num[disp_idx]; i++) {
+			c = &disp_info->input_config[disp_idx][i];
+			if (mtk_has_layer_cap(c, MTK_DISP_CLIENT_CLEAR_LAYER)) {
+				clear = true;
+				break;
+			}
+		}
+
 		ovl_cnt = get_phy_ovl_layer_cnt(disp_info, disp_idx);
+		if (clear)
+			ovl_cnt++;
 		layer_map = l_rule_ops->get_mapping_table(
 			drm_dev, disp_idx, DISP_HW_LAYER_TB, ovl_cnt);
 
@@ -1938,6 +2072,7 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 
 	lyeblob_ids->lye_idx = l_rule_info->hrt_idx;
 	lyeblob_ids->frame_weight = l_info->hrt_weight;
+	lyeblob_ids->hrt_num = l_info->hrt_num;
 	lyeblob_ids->ddp_blob_id = blob->base.id;
 	lyeblob_ids->ref_cnt = crtc_num;
 	lyeblob_ids->ref_cnt_mask = crtc_mask;
@@ -2058,6 +2193,11 @@ static int RPO_rule(struct drm_crtc *crtc,
 
 		if (disp_info->gles_head[disp_idx] >= 0 &&
 		    disp_info->gles_head[disp_idx] <= i)
+			break;
+
+		/* RSZ HW limitation */
+		/* 4x4 < input resolution size */
+		if ((c->src_width <= 4) || (c->src_height <= 4))
 			break;
 
 		if (!is_rsz_valid(c))
@@ -2764,6 +2904,9 @@ static int gen_hrt_pattern(struct drm_device *dev)
 }
 #endif
 
+bool already_free;
+bool second_query;
+
 /**** UT Program end ****/
 int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_priv)
@@ -2771,9 +2914,19 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_layering_info *disp_info_user = data;
 	int ret;
 
+	/*free fb buf in second query valid*/
+	if (second_query && !already_free) {
+		mtk_drm_fb_gem_release(dev);
+		free_fb_buf();
+		already_free = true;
+	}
+
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
 		DDPPR_ERR("layering_rule_start error:%d\n", ret);
+
+	if (!second_query)
+		second_query = true;
 
 	return 0;
 }

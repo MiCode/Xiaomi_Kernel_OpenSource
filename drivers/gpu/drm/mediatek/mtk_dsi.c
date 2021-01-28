@@ -18,6 +18,8 @@
 #include <drm/drm_panel.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/clk.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
 #include <linux/component.h>
 #include <linux/irq.h>
 #include <linux/of.h>
@@ -42,7 +44,6 @@
 #include "mtk_drm_lowpower.h"
 #include "mtk_drm_mmp.h"
 #include "mtk_panel_ext.h"
-
 #define DSI_START 0x00
 #define SLEEPOUT_START BIT(2)
 #define VM_CMD_START BIT(16)
@@ -767,7 +768,6 @@ static void mtk_dsi_set_mode(struct mtk_dsi *dsi)
 		else
 			vid_mode = SYNC_EVENT_MODE;
 	}
-
 	writel(vid_mode, dsi->regs + DSI_MODE_CTRL);
 }
 
@@ -818,12 +818,11 @@ static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
 
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 {
-	struct videomode *vm = &dsi->vm;
 	u32 ps_wc, size;
 	u32 dsi_buf_bpp, val;
 	u32 value = 0, mask = 0;
-	u32 width = dsi->encoder.crtc->mode.hdisplay;
-	u32 height = dsi->encoder.crtc->mode.vdisplay;
+	u32 width = mtk_dsi_get_virtual_width(dsi, dsi->encoder.crtc);
+	u32 height = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
 	struct mtk_panel_ext *ext = mtk_dsi_get_panel_ext(&dsi->ddp_comp);
 	struct mtk_panel_dsc_params *dsc_params = &ext->params->dsc_params;
 
@@ -833,7 +832,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		dsi_buf_bpp = 3;
 
 	if (dsc_params->enable == 0) {
-		ps_wc = vm->hactive * dsi_buf_bpp;
+		ps_wc = width * dsi_buf_bpp;
 		SET_VAL_MASK(value, mask, ps_wc, DSI_PS_WC);
 
 		switch (dsi->format) {
@@ -862,7 +861,7 @@ static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 		size = (height << 16) + (ps_wc / 3);
 	}
 
-	writel(vm->vactive, dsi->regs + DSI_VACT_NL);
+	writel(height, dsi->regs + DSI_VACT_NL);
 
 	val = readl(dsi->regs + DSI_PSCTRL);
 	val = (val & ~mask) | (value & mask);
@@ -939,7 +938,7 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 
 	t_vsa = (dsi->mipi_hopping_sta) ?
 			((dyn && !!dyn->vsa) ?
-			 dyn->vfp : vm->vsync_len) :
+			 dyn->vsa : vm->vsync_len) :
 			vm->vsync_len;
 
 	t_hfp = (dsi->mipi_hopping_sta) ?
@@ -1022,11 +1021,13 @@ static void mtk_dsi_calc_vdo_timing(struct mtk_dsi *dsi)
 static void mtk_dsi_config_vdo_timing(struct mtk_dsi *dsi)
 {
 	struct videomode *vm = &dsi->vm;
+	unsigned int vact = vm->vactive;
 
 	writel(dsi->vsa, dsi->regs + DSI_VSA_NL);
 	writel(dsi->vbp, dsi->regs + DSI_VBP_NL);
 	writel(dsi->vfp, dsi->regs + DSI_VFP_NL);
-	writel(vm->vactive, dsi->regs + DSI_VACT_NL);
+	vact = mtk_dsi_get_virtual_heigh(dsi, dsi->encoder.crtc);
+	writel(vact, dsi->regs + DSI_VACT_NL);
 
 	writel(dsi->hsa_byte, dsi->regs + DSI_HSA_WC);
 	writel(dsi->hbp_byte, dsi->regs + DSI_HBP_WC);
@@ -1098,15 +1099,24 @@ static void mtk_dsi_cmdq_poll(struct mtk_ddp_comp *comp,
 			      struct cmdq_pkt *handle, unsigned int reg,
 			      unsigned int val, unsigned int mask)
 {
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct cmdq_client *client = mtk_crtc->gce_obj.client[CLIENT_DSI_CFG];
+
 	if (handle == NULL)
 		DDPPR_ERR("%s no cmdq handle\n", __func__);
 
 #if 0
 	cmdq_pkt_poll_reg(handle, val, comp->cmdq_subsys, reg & 0xFFFF, mask);
 #else
-	cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
-				  reg, mask, 0xFFFF,
-				  CMDQ_GPR_R07);
+	if (handle->cl == (void *)client) {
+		cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
+					  reg, mask, 0xFFFF,
+					  CMDQ_GPR_R14);
+	} else {
+		cmdq_pkt_poll_timeout(handle, val, SUBSYS_NO_SUPPORT,
+					  reg, mask, 0xFFFF,
+					  CMDQ_GPR_R07);
+	}
 #endif
 }
 
@@ -1182,12 +1192,16 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 {
 	struct mtk_dsi *dsi = dev_id;
 	struct mtk_drm_crtc *mtk_crtc;
+	struct mtk_panel_ext *panel_ext;
 	u32 status;
 	static unsigned int dsi_underrun_trigger = 1;
 	unsigned int ret = 0;
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	static DEFINE_RATELIMIT_STATE(ioctl_ratelimit, 1 * HZ, 20);
 #endif
+	bool doze_enabled = 0;
+	unsigned int doze_wait = 0;
+	static unsigned int cnt;
 
 	if (mtk_drm_top_clk_isr_get("dsi_irq") == false) {
 		DDPIRQ("%s, top clk off\n", __func__);
@@ -1273,6 +1287,11 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 		if (status & TE_RDY_INT_FLAG) {
 			struct mtk_drm_private *priv = NULL;
 
+			if (dsi->ddp_comp.id == DDP_COMPONENT_DSI0) {
+				unsigned long long ext_te_time = sched_clock();
+
+				lcm_fps_ctx_update(ext_te_time, 0, 0);
+			}
 			mtk_crtc = dsi->ddp_comp.mtk_crtc;
 
 			if (mtk_crtc && mtk_crtc->base.dev)
@@ -1282,8 +1301,25 @@ static irqreturn_t mtk_dsi_irq_status(int irq, void *dev_id)
 				wakeup_dsi_wq(&dsi->te_rdy);
 
 			if (mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-				mtk_crtc && mtk_crtc->vblank_en)
-				mtk_crtc_vblank_irq(&mtk_crtc->base);
+				mtk_crtc && mtk_crtc->vblank_en) {
+				panel_ext = dsi->ext;
+
+				if (dsi->encoder.crtc)
+					doze_enabled = mtk_dsi_doze_state(dsi);
+
+				if (panel_ext->params->doze_delay &&
+					doze_enabled) {
+					doze_wait =
+						panel_ext->params->doze_delay;
+					if (cnt % doze_wait == 0) {
+						mtk_crtc_vblank_irq(
+							&mtk_crtc->base);
+						cnt = 0;
+					}
+					cnt++;
+				} else
+					mtk_crtc_vblank_irq(&mtk_crtc->base);
+			}
 		}
 
 		if (status & FRAME_DONE_INT_FLAG) {
@@ -1543,7 +1579,8 @@ static void mtk_output_en_doze_switch(struct mtk_dsi *dsi)
 			mipi_dsi_dcs_write_gce2, NULL);
 
 	if (panel_funcs->doze_post_disp_on)
-		panel_funcs->doze_post_disp_on(dsi->panel);
+		panel_funcs->doze_post_disp_on(dsi->panel,
+			dsi, mipi_dsi_dcs_write_gce2, NULL);
 
 	dsi->doze_enabled = doze_enabled;
 }
@@ -1658,7 +1695,8 @@ static void mtk_output_dsi_enable(struct mtk_dsi *dsi,
 			if (ext && ext->funcs
 				&& ext->funcs->doze_post_disp_on
 				&& ext->funcs->doze_get_mode_flags)
-				ext->funcs->doze_post_disp_on(dsi->panel);
+				ext->funcs->doze_post_disp_on(dsi->panel,
+					dsi, mipi_dsi_dcs_write_gce2, NULL);
 		}
 	}
 
@@ -1996,9 +2034,15 @@ static void _mtk_dsi_set_mode(struct mtk_ddp_comp *comp, void *handle,
 /* STOP VDO MODE */
 static int mtk_dsi_stop_vdo_mode(struct mtk_dsi *dsi, void *handle)
 {
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
+	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
 	int need_create_hnd = 0;
 	struct cmdq_pkt *cmdq_handle;
+
+	if (!mtk_crtc) {
+		DDPPR_ERR("%s, mtk_crtc is NULL\n", __func__);
+		return 1;
+	}
 
 	/* Add blocking flush for waiting dsi idle in other gce client */
 	if (handle) {
@@ -2545,7 +2589,12 @@ static int mtk_dsi_is_busy(struct mtk_ddp_comp *comp)
 
 bool mtk_dsi_is_cmd_mode(struct mtk_ddp_comp *comp)
 {
-	struct mtk_dsi *dsi = container_of(comp, struct mtk_dsi, ddp_comp);
+	struct mtk_dsi *dsi;
+
+	if (mtk_ddp_comp_get_type(comp->id) == MTK_DISP_WDMA)
+		return true;
+
+	dsi = container_of(comp, struct mtk_dsi, ddp_comp);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
 		return false;
@@ -2647,13 +2696,20 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 {
 	struct mtk_panel_ext *ext = dsi->ext;
 	struct mtk_ddp_comp *comp = &dsi->ddp_comp;
-	struct drm_crtc *crtc = dsi->encoder.crtc;
-	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_crtc *mtk_crtc = comp->mtk_crtc;
+	struct drm_crtc *crtc = &mtk_crtc->base;
 	bool mod_vfp, mod_vbp, mod_vsa;
 	bool mod_hfp, mod_hbp, mod_hsa;
 	unsigned int data_rate;
 	struct cmdq_pkt *cmdq_handle;
-	int index = drm_crtc_index(crtc);
+	int index = 0;
+
+	if (!crtc) {
+		DDPPR_ERR("%s, crtc is NULL\n", __func__);
+		return;
+	}
+
+	index = drm_crtc_index(crtc);
 
 	dsi->mipi_hopping_sta = en;
 
@@ -2682,16 +2738,15 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 
 	dsi->data_rate = data_rate;
 	mtk_mipi_tx_pll_rate_set_adpt(dsi->phy, data_rate);
-
-	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		mtk_dsi_phy_timconfig(dsi);
-		mtk_dsi_calc_vdo_timing(dsi);
-	}
-
 	/* implicit way for display power state */
 	if (dsi->clk_refcnt == 0) {
 		CRTC_MMP_MARK(index, clk_change, 0, 1);
 		goto done;
+	}
+
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		mtk_dsi_phy_timconfig(dsi);
+		mtk_dsi_calc_vdo_timing(dsi);
 	}
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
@@ -2751,7 +2806,6 @@ static int mtk_dsi_host_attach(struct mipi_dsi_host *host,
 	dsi->lanes = device->lanes;
 	dsi->format = device->format;
 	dsi->mode_flags = device->mode_flags;
-
 	if (dsi->conn.dev)
 		drm_helper_hpd_irq_event(dsi->conn.dev);
 
@@ -4048,6 +4102,12 @@ static void mtk_dsi_vdo_timing_change(struct mtk_dsi *dsi,
 			}
 			mtk_crtc_pkt_create(&handle, &(mtk_crtc->base), client);
 
+			cmdq_pkt_clear_event(handle,
+				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+
+			cmdq_pkt_wait_no_clear(handle,
+				mtk_crtc->gce_obj.event[EVENT_DSI0_SOF]);
+
 			comp = mtk_ddp_comp_request_output(mtk_crtc);
 			if (dsi->mipi_hopping_sta) {
 				DDPINFO("%s,mipi_clk_change_sta\n", __func__);
@@ -4093,22 +4153,31 @@ unsigned int mtk_dsi_get_dsc_compress_rate(struct mtk_dsi *dsi)
 }
 
 /******************************************************************************
- * PHY Type | DSC | MM Clock (unit: Pixel)
- * CPHY     | OFF | data_rate x (16/7) x lane_num x compress_ratio / bpp
- * CPHY     | ON  | data_ratex(16/7)xlane_numxcompress_ratio/bppx(HACT/HTotal)
- * DPHY     | OFF | data_rate x lane_num x compress_ratio / bpp
- * DPHY     | ON  | data_rate x lane_num x compress_ratio / bpp x (HACT/HTotal)
+ * HRT BW = Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * In Video Mode , Using the Formula below:
+ * MM Clock
+ * DSC on:  vact x hact x vrefresh x  (vtotal / vact)
+ * DSC off: vact x hact x vrefresh x (vtotal x htotal) / (vact x hact)
+
+ * In Command Mode Using the Formula below:
+ * Type     | MM Clock (unit: Pixel)
+ * CPHY     | data_rate x (16/7) x lane_num x compress_ratio / bpp
+ * DPHY     | data_rate x lane_num x compress_ratio / bpp
  ******************************************************************************/
 void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	struct mtk_drm_crtc *mtk_crtc, unsigned int en)
 {
-	unsigned int compress_rate;
 	struct mtk_panel_ext *ext = dsi->ext;
+	unsigned int compress_rate;
 	unsigned int data_rate;
 	unsigned int pixclk = 0;
 	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
-	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
+	unsigned int pixclk_min = 0;
+	unsigned int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
+	unsigned int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
+	unsigned int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	unsigned int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	unsigned int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
 
 	if (!en) {
 		mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk,
@@ -4117,64 +4186,74 @@ void mtk_dsi_set_mmclk_by_datarate(struct mtk_dsi *dsi,
 	}
 	//for FPS change,update dsi->ext
 	dsi->ext = find_panel_ext(dsi->panel);
-	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	data_rate = mtk_dsi_default_rate(dsi);
-	//consider enable dsc case,hact will change
-	htotal = htotal - hact + hact * 100 / compress_rate;
-	hact = hact * 100 / compress_rate;
-	// note:for 5G-7 if dsi have FIFO, there need change
-	pixclk = data_rate * dsi->lanes * compress_rate;
-	if (data_rate && ext->params->is_cphy)
-		pixclk = pixclk * 16 / 7;
-	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp) &&
-		ext->params->dsc_params.enable)
-		pixclk = pixclk * hact / htotal;
-	pixclk = pixclk / bpp / 100;
-	DDPINFO("%s,data_rate =%d,clk=%u comparess_rate=%d\n", __func__,
-			data_rate, pixclk, compress_rate);
+	compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 
+	if (!data_rate) {
+		DDPPR_ERR("DSI data_rate is NULL\n");
+		return;
+	}
+	//If DSI mode is vdo mode
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		if (ext->params->is_cphy)
+			pixclk_min = data_rate * dsi->lanes * 2 / 7 / 3;
+		else
+			pixclk_min = data_rate * dsi->lanes / 8 / 3;
+
+		pixclk = vact * hact * vrefresh / 1000;
+
+		if (ext->params->dsc_params.enable)
+			pixclk = pixclk * vtotal / vact;
+		else
+			pixclk = pixclk * (vtotal * htotal * 100 /
+				(vact * hact)) / 100;
+		pixclk = (unsigned int)(pixclk / 1000);
+		pixclk = (pixclk_min > pixclk) ? pixclk_min : pixclk;
+	}
+
+	else {
+		pixclk = data_rate * dsi->lanes * compress_rate;
+		if (data_rate && ext->params->is_cphy)
+			pixclk = pixclk * 16 / 7;
+		pixclk = pixclk / bpp / 100;
+	}
+	DDPINFO("%s,data_rate =%d,clk=%u pixclk_min=%d\n", __func__,
+			data_rate, pixclk, pixclk_min);
 	mtk_drm_set_mmclk_by_pixclk(&mtk_crtc->base, pixclk, __func__);
 }
 
 /******************************************************************************
- * PHY Type | DSC | HRT_BW (unit: Bytes) one frame ( Overlap * )
- * CPHY     | OFF | data_rate x (16/7) x lane_num x compress_ratio / bpp x 4
- * CPHY     | ON  | data_ratex(16/7)xlane_numxcompress_ratio/bppx4(HACT/HTotal)
- * DPHY     | OFF | data_rate x lane_num x compress_ratio / bpp x 4
- * DPHY     | ON  | data_rate x lane_num x compress_ratio / bpp x4(HACT/HTotal)
+ * DSI Type | PHY TYPE | HRT_BW (unit: Bytes) one frame ( Overlap * )
+ * VDO MODE | CPHY/DPHY| Overlap x vact x hact x vrefresh x 4 x (vtotal/vact)
+ * CMD MODE | CPHY     | (16/7) x data_rate x lane_num x compress_ratio/ bpp x4
+ * CMD MODE | DPHY     | data_rate x lane_num x compress_ratio / bpp x 4
  ******************************************************************************/
 unsigned long long mtk_dsi_get_frame_hrt_bw_base_by_datarate(
 		struct mtk_drm_crtc *mtk_crtc,
 		struct mtk_dsi *dsi)
 {
 	static unsigned long long bw_base;
-	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
-	struct mtk_panel_ext *ext = dsi->ext;
 	int hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-	int htotal = mtk_crtc->base.state->adjusted_mode.htotal;
+	int vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+	int vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
+	int vrefresh = mtk_crtc->base.state->adjusted_mode.vrefresh;
+
+	//For CMD mode to calculate HRT BW
 	unsigned int compress_rate = mtk_dsi_get_dsc_compress_rate(dsi);
 	unsigned int data_rate = mtk_dsi_default_rate(dsi);
+	u32 bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 
-	//consider enable dsc case,hact will change
-	htotal = htotal - hact + hact * 100 / compress_rate;
-	hact = hact * 100 / compress_rate;
-	// note:for 5G-7 if dsi have FIFO, there need change
-	bw_base = data_rate * dsi->lanes * compress_rate * 4;
-	if (data_rate && ext->params->is_cphy)
-		bw_base = bw_base * 16 / 7;
-	if (ext->params->dsc_params.enable)
-		bw_base = bw_base * hact / htotal;
-	bw_base = bw_base / bpp / 100;
-
-	DDPDBG("Is_cphy:%d : dsc_en:%d\n", ext->params->is_cphy,
-		ext->params->dsc_params.enable);
-	DDPDBG("Frame Bw:%llu : data_rate:%u lane_num:%d",
-		bw_base, data_rate, dsi->lanes);
-	DDPDBG("compress_ratio:%d bpp:%u htotal:%d hact:%d\n",
-		compress_rate, bpp, htotal, hact);
+	bw_base = vact * hact * vrefresh * 4 / 1000;
+	if (!mtk_dsi_is_cmd_mode(&dsi->ddp_comp)) {
+		bw_base = bw_base * vtotal / vact;
+		bw_base = bw_base / 1000;
+	} else {
+		bw_base = data_rate * dsi->lanes * compress_rate * 4;
+		bw_base = bw_base / bpp / 100;
+	}
+	DDPDBG("Frame Bw:%llu",	bw_base);
 	return bw_base;
 }
-
 static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			  enum mtk_ddp_io_cmd cmd, void *params)
 {
@@ -4253,7 +4332,7 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case DSI_VFP_DEFAULT_MODE:
 	{
 		unsigned int vfront_porch = 0;
-
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		panel_ext = mtk_dsi_get_panel_ext(comp);
 
 		if (dsi->mipi_hopping_sta && panel_ext && panel_ext->params
@@ -4263,6 +4342,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 			vfront_porch = dsi->vm.vfront_porch;
 
 		DDPINFO("vfront_porch=%d\n", vfront_porch);
+
+		if (panel_ext->params->wait_sof_before_dec_vfp) {
+			cmdq_pkt_clear_event(handle,
+				crtc->gce_obj.event[EVENT_DSI0_SOF]);
+			cmdq_pkt_wait_no_clear(handle,
+				crtc->gce_obj.event[EVENT_DSI0_SOF]);
+		}
 		mtk_dsi_porch_setting(comp, handle, DSI_VFP,
 					vfront_porch);
 	}
@@ -4271,6 +4357,21 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		mode = (struct drm_display_mode **)params;
 		*mode = list_first_entry(&dsi->conn.modes,
 			struct drm_display_mode, head);
+		break;
+
+	case DSI_GET_MODE_BY_MAX_VREFRESH:
+	{
+		struct drm_display_mode *tmp = NULL;
+		unsigned int vrefresh = 0;
+
+		mode = (struct drm_display_mode **)params;
+		list_for_each_entry(tmp, &dsi->conn.modes, head) {
+			if (tmp->vrefresh > vrefresh) {
+				vrefresh = tmp->vrefresh;
+				*mode = tmp;
+			}
+		}
+	}
 		break;
 
 	case IRQ_LEVEL_IDLE:
@@ -4488,10 +4589,13 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		break;
 	case SET_MMCLK_BY_DATARATE:
 	{
+#ifndef CONFIG_FPGA_EARLY_PORTING
+
 		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 		unsigned int *pixclk = (unsigned int *)params;
 
 		mtk_dsi_set_mmclk_by_datarate(dsi, crtc, *pixclk);
+#endif
 	}
 		break;
 	case GET_FRAME_HRT_BW_BY_DATARATE:
@@ -4703,21 +4807,27 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->engine_clk)) {
 		ret = PTR_ERR(dsi->engine_clk);
 		dev_err(dev, "Failed to get engine clock: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	dsi->digital_clk = devm_clk_get(dev, "digital");
 	if (IS_ERR(dsi->digital_clk)) {
 		ret = PTR_ERR(dsi->digital_clk);
 		dev_err(dev, "Failed to get digital clock: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	dsi->hs_clk = devm_clk_get(dev, "hs");
 	if (IS_ERR(dsi->hs_clk)) {
 		ret = PTR_ERR(dsi->hs_clk);
 		dev_err(dev, "Failed to get hs clock: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -4725,7 +4835,9 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (IS_ERR(dsi->regs)) {
 		ret = PTR_ERR(dsi->regs);
 		dev_err(dev, "Failed to ioremap memory: %d\n", ret);
+#ifndef CONFIG_FPGA_EARLY_PORTING
 		goto error;
+#endif
 	}
 
 	dsi->phy = devm_phy_get(dev, "dphy");
@@ -4772,7 +4884,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	}
 
 	init_waitqueue_head(&dsi->irq_wait_queue);
-
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* set ccf reference cnt = 1 */
 	phy_power_on(dsi->phy);
 	ret = clk_prepare_enable(dsi->engine_clk);
@@ -4784,7 +4896,7 @@ static int mtk_dsi_probe(struct platform_device *pdev)
 	if (ret < 0)
 		pr_info("%s Failed to enable digital clock: %d\n",
 			__func__, ret);
-
+#endif
 	dsi->output_en = true;
 	dsi->clk_refcnt = 1;
 
@@ -4816,3 +4928,5 @@ struct platform_driver mtk_dsi_driver = {
 			.name = "mtk-dsi", .of_match_table = mtk_dsi_of_match,
 		},
 };
+
+

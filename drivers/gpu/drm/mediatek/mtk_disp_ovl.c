@@ -37,6 +37,7 @@
 #endif
 #include "cmdq-sec.h"
 #include "mtk_layer_layout_trace.h"
+#include "mtk_drm_mmp.h"
 
 #define REG_FLD(width, shift)                                                  \
 	((unsigned int)((((width)&0xFF) << 16) | ((shift)&0xFF)))
@@ -1398,6 +1399,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 	unsigned int alpha_con;
 	unsigned int value = 0, mask = 0, fmt_ex = 0;
 	unsigned long long temp_bw;
+	unsigned int dim_color;
 
 	/* handle buffer de-compression */
 	if (ovl->data->compr_info && ovl->data->compr_info->l_config) {
@@ -1446,7 +1448,11 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		con |= mtk_ovl_yuv_matrix_convert((enum mtk_drm_dataspace)prop);
 	}
-
+	/* add for color dim */
+	if (fmt == DRM_FORMAT_C8)
+		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
+	else
+		dim_color = 0xff000000;
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
 
@@ -1480,7 +1486,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       offset, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_EL0_CLR(id),
-			       0xff000000, ~0);
+			       dim_color, ~0);
 	} else {
 		SET_VAL_MASK(value, mask, fmt_ex, FLD_Ln_CLRFMT_NB(lye_idx));
 		cmdq_pkt_write(handle, comp->cmdq_base,
@@ -1494,7 +1500,7 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			       offset, ~0);
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_L0_CLR(lye_idx),
-			       0xff000000, ~0);
+			       dim_color, ~0);
 	}
 
 	if (pending->enable) {
@@ -1502,50 +1508,58 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 		struct mtk_drm_crtc *mtk_crtc;
 		u32 vrefresh;
 		u32 ratio_tmp = 0;
-		unsigned int hact = 0;
-		unsigned int htotal = 0;
 		unsigned int vact = 0;
 		unsigned int vtotal = 0;
+		struct mtk_ddp_comp *output_comp;
+		struct drm_display_mode *mode = NULL;
 
 		mtk_crtc = comp->mtk_crtc;
 		crtc = &mtk_crtc->base;
 
-		hact = mtk_crtc->base.state->adjusted_mode.hdisplay;
-		htotal = mtk_crtc->base.state->adjusted_mode.htotal;
-		vact = mtk_crtc->base.state->adjusted_mode.vdisplay;
-		vtotal = mtk_crtc->base.state->adjusted_mode.vtotal;
+		output_comp = mtk_ddp_comp_request_output(comp->mtk_crtc);
 
-		if (mtk_crtc->panel_ext && mtk_crtc->panel_ext->params) {
-			struct mtk_panel_params *params;
+		vrefresh = crtc->state->adjusted_mode.vrefresh;
 
-			params = mtk_crtc->panel_ext->params;
-			if (params->dyn_fps.switch_en == 1 &&
-				params->dyn_fps.vact_timing_fps != 0)
-				vrefresh = params->dyn_fps.vact_timing_fps;
-			else
-				vrefresh = crtc->state->adjusted_mode.vrefresh;
+		if (output_comp && ((output_comp->id == DDP_COMPONENT_DSI0) ||
+				(output_comp->id == DDP_COMPONENT_DSI1))
+				&& !(mtk_dsi_is_cmd_mode(output_comp))) {
+			mtk_ddp_comp_io_cmd(output_comp, NULL,
+				DSI_GET_MODE_BY_MAX_VREFRESH, &mode);
+			vtotal = mode->vtotal;
+			vact = mode->vdisplay;
+			ratio_tmp = vtotal * 100 / vact;
 		} else
-			vrefresh = crtc->state->adjusted_mode.vrefresh;
-		DDPINFO("%s,vrefresh = %d", __func__, vrefresh);
+			ratio_tmp = 125;
+
+		DDPDBG("%s, vrefresh=%d, ratio_tmp=%d\n",
+			__func__, vrefresh, ratio_tmp);
+		DDPDBG("%s, vtotal=%d, vact=%d\n",
+			__func__, vtotal, vact);
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/* TODO: consider FBDC */
+		/* SRT BW (one layer) =
+		 * layer_w * layer_h * bpp * vrefresh * max fps blanking_ratio
+		 * Sum_SRT(all layer) *= 1.33
+		 */
 		temp_bw = (unsigned long long)pending->width * pending->height;
 		temp_bw *= mtk_get_format_bpp(fmt);
 		do_div(temp_bw, 1000);
-		ratio_tmp = ((vtotal*htotal*100)/(vact*hact));
 		temp_bw *= ratio_tmp;
 		do_div(temp_bw, 100);
 		temp_bw = temp_bw * vrefresh;
 		do_div(temp_bw, 1000);
 
-		DDPDBG("comp %d bw %llu vtotal:%d htotal:%d vact:%d hact:%d\n",
-			comp->id, temp_bw, vtotal, htotal, vact, hact);
+		DDPDBG("comp %d bw %llu vtotal:%d vact:%d\n",
+			comp->id, temp_bw, vtotal, vact);
 
 		if (pending->prop_val[PLANE_PROP_COMPRESS])
 			comp->fbdc_bw += temp_bw;
 		else
 			comp->qos_bw += temp_bw;
+
+		mtk_dprec_mmp_dump_ovl_layer(state);
+
 	}
 }
 

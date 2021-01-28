@@ -294,7 +294,7 @@ int mtk_disp_hrt_cond_init(struct drm_crtc *crtc)
 
 	return 0;
 }
-
+#ifdef MTK_FB_MMDVFS_SUPPORT
 void mtk_drm_mmdvfs_init(void)
 {
 
@@ -303,7 +303,7 @@ void mtk_drm_mmdvfs_init(void)
 
 	mmdvfs_qos_get_freq_steps(PM_QOS_DISP_FREQ, g_freq_steps, &step_size);
 }
-
+#endif
 static void mtk_drm_set_mmclk(struct drm_crtc *crtc, int level,
 			const char *caller)
 {

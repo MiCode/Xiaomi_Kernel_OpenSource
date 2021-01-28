@@ -1042,7 +1042,7 @@ static int disp_aal_write_dre3_to_reg(struct mtk_ddp_comp *comp,
 
 	return 0;
 }
-#endif /* CONFIG_MTK_DRE30_SUPPORT */
+#endif
 static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
 {
@@ -1088,10 +1088,10 @@ static int disp_aal_write_dre_to_reg(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		comp->regs_pa + DISP_AAL_DRE_FLT_FORCE(11),
 	    DRE_REG_2(gain[27], 0, gain[28], 9), ~0);
-#endif
+
 	return 0;
 }
-
+#endif /* CONFIG_MTK_DRE30_SUPPORT */
 #if defined(CONFIG_MTK_DRE30_SUPPORT) || !defined(NOT_SUPPORT_CABC_HW)
 static int disp_aal_write_cabc_to_reg(struct mtk_ddp_comp *comp,
 	struct cmdq_pkt *handle, const struct DISP_AAL_PARAM *param)
@@ -1209,7 +1209,7 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		//before config loop.The DSI EOF has 100 us later then
 		//RDMA EOF,and the worst DISP config time is 153us,
 		//so if intervel less than 260 should delay
-		udelay(260-time_use);
+		usleep_range(260-time_use, 270-time_use);
 	}
 
 	ret = disp_aal_write_param_to_reg(comp, handle, &g_aal_param);

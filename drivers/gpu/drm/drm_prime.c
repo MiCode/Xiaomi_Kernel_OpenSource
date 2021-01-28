@@ -34,6 +34,14 @@
 #include <drm/drmP.h>
 
 #include "drm_internal.h"
+#include "mtk_drm_mmp.h"
+//#include "mtk_log.h"
+
+unsigned long long prime_time_start;
+unsigned long long prime_time_end;
+long long prime_time_period;
+unsigned int prime_time_once;
+const char *prime_locker;
 
 /*
  * DMA-BUF/GEM Object references and lifetime overview:
@@ -737,6 +745,7 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 		return PTR_ERR(dma_buf);
 
 	mutex_lock(&file_priv->prime.lock);
+	prime_time_start = sched_clock();
 
 	ret = drm_prime_lookup_buf_handle(&file_priv->prime,
 			dma_buf, handle);
@@ -766,6 +775,16 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 
 	ret = drm_prime_add_buf_handle(&file_priv->prime,
 			dma_buf, *handle);
+	prime_locker = NULL;
+	prime_time_end = sched_clock();
+	prime_time_period = prime_time_end - prime_time_start;
+	if ((prime_time_period > 1000000000) && (!prime_time_once)) {
+#ifdef CONFIG_DRM_MEDIATEK
+		DDPMSG("P2G:%s[%d] timeout:<%lld ns>!\n",
+			__func__, __LINE__, prime_time_period);
+#endif
+		prime_time_once = 1;
+	}
 	mutex_unlock(&file_priv->prime.lock);
 	if (ret)
 		goto fail;
@@ -780,6 +799,7 @@ fail:
 	 */
 	drm_gem_handle_delete(file_priv, *handle);
 	dma_buf_put(dma_buf);
+
 	return ret;
 
 out_unlock:
@@ -787,6 +807,7 @@ out_unlock:
 out_put:
 	mutex_unlock(&file_priv->prime.lock);
 	dma_buf_put(dma_buf);
+
 	return ret;
 }
 EXPORT_SYMBOL(drm_gem_prime_fd_to_handle);

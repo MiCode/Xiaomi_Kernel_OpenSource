@@ -41,5 +41,6 @@ int _parse_tag_videolfb(unsigned int *vramsize, phys_addr_t *fb_base,
 bool mtk_drm_lcm_is_connect(void);
 int free_fb_buf(void);
 #define MTKFB_FACTORY_AUTO_TEST _IOR('O', 25, unsigned long)
+int pan_display_test(int frame_num, int bpp);
 
 #endif /* MTK_DRM_FBDEV_H */
