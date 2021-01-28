@@ -14,13 +14,10 @@
 #include <linux/pm_qos.h>
 #include <linux/topology.h>
 #include <linux/slab.h>
-/* k414, FIXME */
-#if 0
 #include "mtk_ppm_api.h"
 #include "cpu_ctrl.h"
-#endif
 #include "usb_boost.h"
-#include <mtk_vcorefs_manager.h>
+//#include <mtk_vcorefs_manager.h>
 #include <helio-dvfsrc-opp.h>
 
 /* platform specific parameter here */
@@ -33,23 +30,28 @@ static int dram_vcore_test_para[] = {1, 5, 500, 0};
 struct act_arg_obj cpu_freq_test_arg = {2500000, -1, -1};
 struct act_arg_obj cpu_core_test_arg = {4, -1, -1};
 struct act_arg_obj dram_vcore_test_arg = {DDR_OPP_0, -1, -1};
+#elif defined(CONFIG_MACH_MT6739)
+static int cpu_freq_test_para[] = {1, 5, 500, 0};
+static int cpu_core_test_para[] = {1, 5, 500, 0};
+static int dram_vcore_test_para[] = {1, 5, 500, 0};
+
+/* -1 denote not used*/
+struct act_arg_obj cpu_freq_test_arg = {1500000, -1, -1};
+struct act_arg_obj cpu_core_test_arg = {4, -1, -1};
+struct act_arg_obj dram_vcore_test_arg = {DDR_OPP_0, -1, -1};
 #elif defined(CONFIG_ARCH_MT6XXX)
 /* add new here */
 #endif
 
 static struct pm_qos_request pm_qos_req;
-static struct pm_qos_request pm_qos_emi_req;
-/* k414, FIXME */
-#if 0
+static struct pm_qos_request pm_qos_ddr_req;
 static struct ppm_limit_data *freq_to_set;
 static int cluster_num;
-#endif
+
 
 static int freq_hold(struct act_arg_obj *arg)
 {
 
-	/* k414, FIXME */
-#if 0
 	int i;
 
 	USB_BOOST_DBG("\n");
@@ -59,14 +61,11 @@ static int freq_hold(struct act_arg_obj *arg)
 		freq_to_set[i].max = -1;
 	}
 	update_userlimit_cpu_freq(CPU_KIR_USB, cluster_num, freq_to_set);
-#endif
 	return 0;
 }
 
 static int freq_release(struct act_arg_obj *arg)
 {
-	/* k414, FIXME */
-#if 0
 	int i;
 
 	USB_BOOST_DBG("\n");
@@ -77,7 +76,6 @@ static int freq_release(struct act_arg_obj *arg)
 	}
 
 	update_userlimit_cpu_freq(CPU_KIR_USB, cluster_num, freq_to_set);
-#endif
 	return 0;
 }
 
@@ -104,13 +102,13 @@ static int core_release(struct act_arg_obj *arg)
 
 static int vcorefs_hold(struct act_arg_obj *arg)
 {
-	pm_qos_update_request(&pm_qos_emi_req, DDR_OPP_0);
+	pm_qos_update_request(&pm_qos_ddr_req, DDR_OPP_0);
 	return 0;
 }
 
 static int vcorefs_release(struct act_arg_obj *arg)
 {
-	pm_qos_update_request(&pm_qos_emi_req, DDR_OPP_UNREQ);
+	pm_qos_update_request(&pm_qos_ddr_req, DDR_OPP_UNREQ);
 	return 0;
 }
 
@@ -138,12 +136,10 @@ static int __init usbboost(void)
 	pm_qos_add_request(&pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
 		PM_QOS_DEFAULT_VALUE);
 
-	/* k414, FIXME, PM_QOS_EMI_OPP in k44 but PM_QOS_DDR_OPP in k49 */
-	pm_qos_add_request(&pm_qos_emi_req, PM_QOS_EMI_OPP,
-		PM_QOS_EMI_OPP_DEFAULT_VALUE);
+	pm_qos_add_request(&pm_qos_ddr_req, PM_QOS_DDR_OPP,
+		PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
-	/* k414, FIXME */
-#if 0
+
 	/* init freq ppm data */
 	cluster_num = arch_get_nr_clusters();
 
@@ -154,7 +150,6 @@ static int __init usbboost(void)
 		USB_BOOST_DBG("kcalloc freq_to_set fail\n");
 		return -1;
 	}
-#endif
 
 	return 0;
 }
@@ -162,9 +157,6 @@ module_init(usbboost);
 
 static void __exit clean(void)
 {
-	/* k414, FIXME */
-#if 0
 	kfree(freq_to_set);
-#endif
 }
 module_exit(clean);

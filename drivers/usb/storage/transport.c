@@ -63,6 +63,7 @@
 
 #include <linux/blkdev.h>
 #include "../../scsi/sd.h"
+#include "usb_boost.h"
 
 
 /***********************************************************************
@@ -478,7 +479,10 @@ int usb_stor_bulk_srb(struct us_data* us, unsigned int pipe,
 		      struct scsi_cmnd* srb)
 {
 	unsigned int partial;
-	int result = usb_stor_bulk_transfer_sglist(us, pipe, scsi_sglist(srb),
+	int result;
+
+	usb_boost();
+	result = usb_stor_bulk_transfer_sglist(us, pipe, scsi_sglist(srb),
 				      scsi_sg_count(srb), scsi_bufflen(srb),
 				      &partial);
 
