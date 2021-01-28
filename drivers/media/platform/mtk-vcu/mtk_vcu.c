@@ -1327,6 +1327,24 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 	pr_debug("[VCU] vma->start 0x%lx, vma->end 0x%lx, vma->pgoff 0x%lx\n",
 		 vma->vm_start, vma->vm_end, vma->vm_pgoff);
 
+	// First handle map pa case, because maybe pa will smaller than
+	// MAP_PA_BASE_1GB in 32bit project
+	if (vcu_queue->map_buf_pa >= MAP_SHMEM_PA_BASE) {
+		vcu_queue->map_buf_pa = 0;
+		list_for_each_safe(p, q, &vcu_dev->pa_pages.list) {
+			tmp = list_entry(p, struct vcu_pa_pages, list);
+			if (tmp->pa == pa_start && length <= PAGE_SIZE) {
+				vma->vm_pgoff = pa_start >> PAGE_SHIFT;
+				vma->vm_page_prot =
+					pgprot_writecombine(vma->vm_page_prot);
+				goto valid_map;
+			}
+		}
+		pr_info("[VCU] map pa fail with pa_start=0x%lx\n",
+			pa_start);
+		return -EINVAL;
+	}
+
 	/*only vcud need this case*/
 	if (vcu_dev->vcuid == 0 &&
 		pa_start < MAP_PA_BASE_1GB) {
@@ -1386,18 +1404,6 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 #endif
 	}
 
-	if (pa_start_base >= MAP_SHMEM_PA_BASE) {
-		pa_start -= MAP_SHMEM_PA_BASE;
-		list_for_each_safe(p, q, &vcu_dev->pa_pages.list) {
-			tmp = list_entry(p, struct vcu_pa_pages, list);
-			if (tmp->pa == pa_start && length <= PAGE_SIZE) {
-				vma->vm_pgoff = pa_start >> PAGE_SHIFT;
-				vma->vm_page_prot =
-					pgprot_writecombine(vma->vm_page_prot);
-				goto valid_map;
-			}
-		}
-	}
 	dev_dbg(vcu_dev->dev, "[VCU] Invalid argument\n");
 
 	return -EINVAL;
@@ -1516,6 +1522,11 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			       __func__, __LINE__);
 			return -EINVAL;
 		}
+
+		/* store map pa buffer type flag which will use in mmap*/
+		if (cmd == VCU_PA_ALLOCATION)
+			vcu_queue->map_buf_pa = temp_pa + MAP_SHMEM_PA_BASE;
+
 		ret = 0;
 		break;
 	case VCU_MVA_FREE:

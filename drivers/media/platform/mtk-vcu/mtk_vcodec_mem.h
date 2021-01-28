@@ -50,6 +50,7 @@ struct mtk_vcu_mem {
  * @num_buffers:        allocated buffer number
  * @mem_ops:    the file operation of memory allocated
  * @bufs:       store the information of allocated buffers
+ * @map_buf_pa: store map pa and it's flag
  */
 struct mtk_vcu_queue {
 	void *vcu;
@@ -58,6 +59,7 @@ struct mtk_vcu_queue {
 	unsigned int num_buffers;
 	const struct vb2_mem_ops *mem_ops;
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
+	uint64_t map_buf_pa;
 };
 
 /**
