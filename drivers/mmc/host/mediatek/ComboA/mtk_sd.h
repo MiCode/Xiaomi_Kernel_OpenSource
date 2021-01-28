@@ -400,7 +400,7 @@ struct msdc_host {
 	int                     tune_smpl_times;
 	u32                     tune_latch_ck_cnt;
 	struct msdc_saved_para  saved_para;
-	struct wakeup_source    trans_lock;
+	struct wakeup_source    *trans_lock;
 	bool                    block_bad_card;
 	struct delayed_work     remove_card;    /* remove bad card */
 	u32                     data_timeout_ms;  /* timeout ms for worker */

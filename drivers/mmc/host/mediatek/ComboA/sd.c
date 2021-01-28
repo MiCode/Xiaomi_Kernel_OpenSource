@@ -4175,8 +4175,8 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 #endif
 
 	if ((host->hw->host_function == MSDC_SDIO) &&
-	    !(host->trans_lock.active))
-		__pm_stay_awake(&host->trans_lock);
+	    !(host->trans_lock->active))
+		__pm_stay_awake(host->trans_lock);
 
 	/* SDIO need need lock dvfs */
 
@@ -4226,8 +4226,8 @@ static void msdc_ops_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	/* SDIO need check lock dvfs */
 
 	if ((host->hw->host_function == MSDC_SDIO) &&
-	    (host->trans_lock.active))
-		__pm_relax(&host->trans_lock);
+	    (host->trans_lock->active))
+		__pm_relax(host->trans_lock);
 end:
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	if (cq_host_en)
@@ -5326,9 +5326,13 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host->need_tune	= TUNE_NONE;
 	host->err_cmd = -1;
 
-	if (host->hw->host_function == MSDC_SDIO)
-		wakeup_source_init(&host->trans_lock, "MSDC Transfer Lock");
-
+	if (host->hw->host_function == MSDC_SDIO) {
+		host->trans_lock = wakeup_source_register("MSDC Transfer Lock");
+		if (!host->trans_lock) {
+			pr_info("MSDC_SDIO register wakeup_source fail!");
+			return -1;
+		}
+	}
 	INIT_DELAYED_WORK(&host->data_timeout_work, msdc_check_data_timeout);
 	INIT_DELAYED_WORK(&host->work_init, msdc_add_host);
 	INIT_DELAYED_WORK(&host->remove_card, msdc_remove_card);
