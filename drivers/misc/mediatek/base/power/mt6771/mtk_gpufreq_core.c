@@ -64,6 +64,10 @@
 #include "mtk_static_power_mt6771.h"
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
+#undef CONFIG_THERMAL
+/* reference to "mt6771_clkmgr.h" */
+extern unsigned int mt_get_ckgen_freq(unsigned int ID);
+
 /**
  * ===============================================
  * SECTION : Local functions declaration
@@ -689,11 +693,11 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 	int leak_power;
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
-#ifdef CONFIG_THERMAL
-	temp = get_immediate_gpu_wrap() / 1000;
-#else
+//#ifdef CONFIG_THERMAL
+//	temp = get_immediate_gpu_wrap() / 1000;
+//#else
 	temp = 40;
-#endif /* ifdef CONFIG_THERMAL */
+//#endif /* ifdef CONFIG_THERMAL */
 
 #ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
 	leak_power = mt_spower_get_leakage(MTK_SPOWER_GPU, cur_vcore, temp);
@@ -742,10 +746,6 @@ EXPORT_SYMBOL(mt_gpufreq_get_cur_freq);
 
 /*
  * API : get current voltage
- * This is exported API, which reports local backup for latest
- * updated VGPU directly
- * Since some non-preemptive thread could not use regulator_get,
- * This is not a redundant API
  */
 unsigned int mt_gpufreq_get_cur_volt(void)
 {
@@ -2198,11 +2198,11 @@ static void __mt_update_gpufreqs_power_table(void)
 	unsigned int freq = 0;
 	unsigned int volt = 0;
 
-#ifdef CONFIG_THERMAL
-	temp = get_immediate_gpu_wrap() / 1000;
-#else
+//#ifdef CONFIG_THERMAL
+//	temp = get_immediate_gpu_wrap() / 1000;
+//#else
 	temp = 40;
-#endif /* ifdef CONFIG_THERMAL */
+//#endif /* ifdef CONFIG_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
 
@@ -2396,11 +2396,11 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 	if (g_power_table == NULL)
 		return;
 
-#ifdef CONFIG_THERMAL
-	temp = get_immediate_gpu_wrap() / 1000;
-#else
+//#ifdef CONFIG_THERMAL
+//	temp = get_immediate_gpu_wrap() / 1000;
+//#else
 	temp = 40;
-#endif /* ifdef CONFIG_THERMAL */
+//#endif /* ifdef CONFIG_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
 
@@ -2726,7 +2726,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 			g_vsram_sfchg_rrate, g_vsram_sfchg_frate, PMIC_SRCLKEN_HIGH_TIME_US);
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
-	mt_gpu_bw_init();
+	//mt_gpu_bw_init();
 #endif
 
 	g_MFG_base = __mt_gpufreq_of_ioremap("mediatek,mfgcfg", 0);
@@ -2781,7 +2781,7 @@ static int __init __mt_gpufreq_init(void)
 {
 	int ret = 0;
 
-	mtk_gpu_log_init();
+	//mtk_gpu_log_init();
 
 	gpufreq_pr_debug("@%s: start to initialize gpufreq driver\n", __func__);
 
