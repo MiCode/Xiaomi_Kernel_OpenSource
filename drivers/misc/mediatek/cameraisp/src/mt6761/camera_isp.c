@@ -5619,7 +5619,8 @@ for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
 	 * directly(%d,%d)",rt_dma,p1_fbc[rt_dma].Bits.
 	 * FB_NUM,p1_fbc[rt_dma].Bits.FBC_CNT);
 	 */
-				IRQ_LOG_KEEPER(irqT, 0, _LOG_DBG,
+				if (IspInfo.DebugMask & ISP_DBG_BUF_CTRL)
+					IRQ_LOG_KEEPER(irqT, 0, _LOG_DBG,
 					"[rtbc_%d][ENQUE] write2Phy directly(%d,%d) ",
 					rt_dma,
 					p1_fbc[rt_dma].Bits.FB_NUM,
@@ -5666,6 +5667,8 @@ for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
 					ISP_WR32(
 						p1_fbc_reg[rt_dma],
 						p1_fbc[rt_dma].Reg_val);
+					if (IspInfo.DebugMask &
+						ISP_DBG_BUF_CTRL)
 					IRQ_LOG_KEEPER(irqT, 0, _LOG_DBG,
 						" RCNT_INC(dma:0x%x)\n",
 						rt_dma);
@@ -5679,18 +5682,21 @@ for (i = 0; i < ISP_RT_BUF_SIZE; i++) {
 					ISP_WR32(
 						p1_fbc_reg[ch_rrzo],
 						p1_fbc[ch_rrzo].Reg_val);
-					IRQ_LOG_KEEPER(
+					if (IspInfo.DebugMask &
+						ISP_DBG_BUF_CTRL) {
+						IRQ_LOG_KEEPER(
 						irqT,
 						0,
 						_LOG_DBG,
 						"RCNT_INC(dma:0x%x)",
 						ch_imgo);
-					IRQ_LOG_KEEPER(
+						IRQ_LOG_KEEPER(
 						irqT,
 						0,
 						_LOG_DBG,
 						"RCNT_INC(dma:0x%x)\n",
 						ch_rrzo);
+					}
 				}
 			}
 		}
