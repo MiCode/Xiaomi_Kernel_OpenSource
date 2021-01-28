@@ -286,6 +286,20 @@ config VIDEO_MEDIATEK_VCODEC
 	    To compile this driver as a module, choose M here: the
 	    module will be called mtk-vcodec
 
+config VIDEO_MEDIATEK_WARP
+	tristate "Mediatek warp driver"
+	depends on MTK_IOMMU || COMPILE_TEST
+	depends on VIDEO_DEV && VIDEO_V4L2 && HAS_DMA
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	---help---
+	   This is a V4L2 driver which provides hardware capability to warp
+	   image.
+
+	   To compile this driver as a module, choose M here: the
+	   module will be called mtk-warp.
+
 config VIDEO_MEM2MEM_DEINTERLACE
 	tristate "Deinterlace support"
 	depends on VIDEO_DEV && VIDEO_V4L2 && DMA_ENGINE
