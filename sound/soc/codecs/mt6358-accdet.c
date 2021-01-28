@@ -289,6 +289,8 @@ static void cat_register(char *buf)
 
 	ret = sprintf(accdet_log_buf, "[Accdet EINTx support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	st_addr = RG_AUDACCDETRSV_ADDR;
@@ -301,17 +303,23 @@ static void cat_register(char *buf)
 		idx+2, accdet_read(idx+2),
 		idx+4, accdet_read(idx+4),
 		idx+6, accdet_read(idx+6));
+		if (ret < 0)
+			pr_notice("sprintf failed\n");
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_RTC32K_CK_PDN_ADDR,
 		accdet_read(RG_RTC32K_CK_PDN_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_ACCDET_RST_ADDR,
 		accdet_read(RG_ACCDET_RST_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
@@ -321,6 +329,8 @@ static void cat_register(char *buf)
 		accdet_read(RG_INT_MASK_ACCDET_ADDR),
 		RG_INT_STATUS_ACCDET_ADDR,
 		accdet_read(RG_INT_STATUS_ACCDET_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
@@ -328,15 +338,17 @@ static void cat_register(char *buf)
 		accdet_read(AUXADC_RQST_CH5_ADDR),
 		AUXADC_ACCDET_AUTO_SPL_ADDR,
 		accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
 	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
-	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	if (ret < 0)
 		pr_notice("sprintf failed\n");
+	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 }
 
 static int dbug_thread(void *unused)
