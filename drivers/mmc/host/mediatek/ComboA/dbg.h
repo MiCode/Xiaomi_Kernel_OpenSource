@@ -188,7 +188,10 @@ int multi_rw_compare(struct seq_file *m, int host_num,
 void dbg_add_host_log(struct mmc_host *mmc, int type, int cmd, int arg);
 void dbg_add_sirq_log(struct mmc_host *mmc, int type,
 		int cmd, int arg, int cpu, unsigned long active_reqs);
+void dbg_add_sd_log(struct mmc_host *mmc, int type, int cmd, int arg);
 void mmc_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
+		struct mmc_host *mmc, u32 latest_cnt);
+void sd_cmd_dump(char **buff, unsigned long *size, struct seq_file *m,
 		struct mmc_host *mmc, u32 latest_cnt);
 void msdc_dump_host_state(char **buff, unsigned long *size,
 		struct seq_file *m, struct msdc_host *host);

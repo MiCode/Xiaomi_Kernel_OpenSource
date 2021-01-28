@@ -20,15 +20,11 @@
 #include "mtk_sd.h"
 #include <mt-plat/mtk_boot.h>
 
-#define USE_FPGA_PWR_GPIO_CTRL
-
 #define FPGA_PWR_GPIO                   (0x10001E84)
 #define FPGA_PWR_GPIO_EO                (0x10001E88)
 
-#ifdef USE_FPGA_PWR_GPIO_CTRL
 static void __iomem *fpga_pwr_gpio;
 static void __iomem *fpga_pwr_gpio_eo;
-#endif
 
 #define PWR_GPIO                         (fpga_pwr_gpio)
 #define PWR_GPIO_EO                      (fpga_pwr_gpio_eo)
@@ -39,7 +35,6 @@ static void __iomem *fpga_pwr_gpio_eo;
 #define PWR_MASK_CARD_MASK               (~(1 << 8))
 #define PWR_MASK_VOL_18_MASK             (~(1 << 9))
 
-#ifdef USE_FPGA_PWR_GPIO_CTRL
 void msdc_set_pwr_gpio_dir(void __iomem *fpga_pwr_gpio,
 	void __iomem *fpga_pwr_gpio_eo)
 {
@@ -54,11 +49,9 @@ void msdc_set_pwr_gpio_dir(void __iomem *fpga_pwr_gpio,
 
 	pr_debug("[%s]: pwr gpio dir = 0x%x\n", __func__, l_val);
 }
-#endif
 
 void msdc_fpga_pwr_init(void)
 {
-#ifdef USE_FPGA_PWR_GPIO_CTRL
 	if (fpga_pwr_gpio == NULL) {
 		fpga_pwr_gpio = ioremap(FPGA_PWR_GPIO, 8);
 		if (fpga_pwr_gpio == NULL) {
@@ -66,16 +59,14 @@ void msdc_fpga_pwr_init(void)
 			WARN_ON(1);
 		}
 		fpga_pwr_gpio_eo = fpga_pwr_gpio + 0x4;
-		pr_info("FPGA PWR_GPIO, PWR_GPIO_EO address 0x%p, 0x%p\n",
+		pr_notice("FPGA PWR_GPIO, PWR_GPIO_EO address 0x%p, 0x%p\n",
 			fpga_pwr_gpio, fpga_pwr_gpio_eo);
 	}
 	msdc_set_pwr_gpio_dir(fpga_pwr_gpio, fpga_pwr_gpio_eo);
-#endif
 }
 
 bool hwPowerOn_fpga(void)
 {
-#ifdef USE_FPGA_PWR_GPIO_CTRL
 	u16 l_val;
 	int boot_type;
 
@@ -92,14 +83,12 @@ bool hwPowerOn_fpga(void)
 
 	l_val = MSDC_READ16(PWR_GPIO);
 	pr_debug("[%s]: pwr gpio = 0x%x\n", __func__, l_val);
-#endif
 	return true;
 }
 EXPORT_SYMBOL(hwPowerOn_fpga);
 
 bool hwPowerSwitch_fpga(void)
 {
-#ifdef USE_FPGA_PWR_GPIO_CTRL
 	u16 l_val;
 
 	l_val = MSDC_READ16(PWR_GPIO);
@@ -109,19 +98,16 @@ bool hwPowerSwitch_fpga(void)
 
 	l_val = MSDC_READ16(PWR_GPIO);
 	pr_debug("[%s]: pwr gpio = 0x%x\n", __func__, l_val);
-#endif
 	return true;
 }
 EXPORT_SYMBOL(hwPowerSwitch_fpga);
 
 bool hwPowerDown_fpga(void)
 {
-#ifdef USE_FPGA_PWR_GPIO_CTRL
 	u16 l_val;
 	int boot_type;
 
 	l_val = MSDC_READ16(PWR_GPIO);
-
 	boot_type = get_boot_type();
 	if (boot_type == BOOTDEV_SDMMC) {
 		MSDC_WRITE16(PWR_GPIO,
@@ -133,7 +119,6 @@ bool hwPowerDown_fpga(void)
 	}
 	l_val = MSDC_READ16(PWR_GPIO);
 	pr_debug("[%s]: pwr gpio = 0x%x\n", __func__, l_val);
-#endif
 	return true;
 }
 EXPORT_SYMBOL(hwPowerDown_fpga);
@@ -150,6 +135,15 @@ void msdc_sd_power_switch(struct msdc_host *host, u32 on)
 {
 	if (on)
 		hwPowerSwitch_fpga();
+}
+
+void msdc_select_clksrc(struct msdc_host *host, int clksrc)
+{
+	host->hclk = msdc_get_hclk(host->id, clksrc);
+	host->hw->clk_src = clksrc;
+
+	pr_notice("[%s]: msdc%d select clk_src as %d(%dKHz)\n", __func__,
+		host->id, clksrc, host->hclk/1000);
 }
 
 /* do we need sync object or not */

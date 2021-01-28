@@ -427,6 +427,10 @@ struct msdc_host {
 	struct clk              *clk_ctl;
 	struct clk              *aes_clk_ctl;
 	struct clk              *hclk_ctl;
+	/* pclk for msdc register access */
+	struct clk              *pclk_ctl;
+	struct clk              *axi_clk_ctl; /* axi bus clk */
+	struct clk              *ahb2axi_brg_clk_ctl; /* ahb2axi bridge clk */
 	struct delayed_work	work_init; /* for init mmc_host */
 	struct delayed_work	work_sdio; /* for DVFS kickoff */
 	struct platform_device  *pdev;
@@ -718,6 +722,7 @@ void msdc_sdio_restore_after_resume(struct msdc_host *host);
 void msdc_restore_timing_setting(struct msdc_host *host);
 void msdc_save_timing_setting(struct msdc_host *host);
 void msdc_set_bad_card_and_remove(struct msdc_host *host);
+void msdc_ops_set_bad_card_and_remove(struct mmc_host *mmc);
 void msdc_remove_card(struct work_struct *work);
 #ifdef CONFIG_HIE
 struct hie_dev *msdc_hie_get_dev(void);
