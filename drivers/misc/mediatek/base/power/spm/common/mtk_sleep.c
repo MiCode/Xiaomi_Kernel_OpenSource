@@ -383,7 +383,7 @@ void slp_module_init(void)
 		of_node_put(idle_node);
 	}
 
-	slp_suspend_ops_valid_on = false;
+	slp_suspend_ops_valid_on = true;
 
 	mtk_idle_sysfs_entry_create();
 	if (mtk_idle_sysfs_entry_root_get(&pParent) == 0) {
