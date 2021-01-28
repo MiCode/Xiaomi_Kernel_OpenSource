@@ -60,18 +60,18 @@ static irqreturn_t devmpu_irq_handler_emi(unsigned int emi_id,
 	wr_oo_vio = (mpus >> 27) & 0x3;
 	port_id = master_id & 0x7;
 
+#ifdef CONFIG_MTK_ENABLE_GENIEZONE
+	if ((wr_vio == 2) && (wr_oo_vio == 0) &&
+		((port_id == 0) || (port_id == 1)))
+		return IRQ_HANDLED;
+#endif
+
 	/* if is hyperviosr MPU violation, deliver to DevMPU */
 	if (hp_wr_vio) {
 		devmpu_print_violation(vio_addr, master_id, domain_id,
 				hp_wr_vio, true);
 		return IRQ_HANDLED;
 	}
-
-#ifdef CONFIG_MTK_ENABLE_GENIEZONE
-	if ((wr_vio == 2) && (wr_oo_vio == 0) &&
-	    ((port_id == 0) || (port_id == 1)))
-		return IRQ_HANDLED;
-#endif
 
 	return IRQ_NONE;
 }
