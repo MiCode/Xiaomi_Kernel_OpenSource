@@ -398,6 +398,11 @@ page_owner=on";
 		reg = <0 0x1000e000 0 0x1000>;
 	};
 
+	srclken@1000f800 {
+		compatible = "mediatek,srclken";
+		reg = <0 0x1000f800 0 0x1000>;
+	};
+
 	kp@10010000 {
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
@@ -2991,6 +2996,14 @@ page_owner=on";
 	msdc1_top@11c70000 {
 		compatible = "mediatek,msdc1_top";
 		reg = <0 0x11c70000 0 0x1000>;
+	};
+
+	pmic_clock_buffer_ctrl:pmic_clock_buffer_ctrl {
+		compatible = "mediatek,pmic_clock_buffer";
+		mediatek,clkbuf-quantity = <7>;
+		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
+		mediatek,clkbuf-output_impedance = <6 4 4 4 0 0 4>;
+		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
 	};
 };
 
