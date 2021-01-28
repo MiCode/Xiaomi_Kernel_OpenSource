@@ -25,7 +25,8 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/ # qos/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
+
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)/
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/
@@ -53,6 +54,15 @@ ifeq (true, $(SUPPORT_USE_DDR_TYPE))
 ccflags-y += -DUSE_DDR_TYPE
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule/
+endif
+
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6873" "mt6885" "mt6853"))
+ccflags-y += -DSMI_SSPM
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
+ccflags-y += -DSMI_5G
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2/
+else
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 endif
 
 obj-y += smi_drv.o
