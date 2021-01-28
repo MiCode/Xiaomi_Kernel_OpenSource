@@ -71,14 +71,20 @@ clean-kernel:
 	$(hide) rm -rf $(KERNEL_OUT) $(KERNEL_MODULES_OUT) $(INSTALLED_KERNEL_TARGET)
 	$(hide) rm -f $(INSTALLED_DTB_OVERLAY_TARGET)
 
-### DTB
-ifdef BOARD_PREBUILT_DTBIMAGE_DIR
-INSTALLED_MTK_DTB_TARGET := $(BOARD_PREBUILT_DTBIMAGE_DIR)/mtk_dtb
-$(shell if [ ! -f $(INSTALLED_MTK_DTB_TARGET) ]; then mkdir -p $(dir $(INSTALLED_MTK_DTB_TARGET)); touch $(INSTALLED_MTK_DTB_TARGET);fi)
-$(INSTALLED_MTK_DTB_TARGET): $(INSTALLED_KERNEL_TARGET)
-	@mkdir -p $(dir $@)
-	@cp -f $(KERNEL_DTB_FILE) $@
+### DTB build template
+ifeq ($(KERNEL_TARGET_ARCH),arm64)
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_PLATFORM_DIR).dts
+else
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_PLATFORM_DIR).dts
 endif
+include device/mediatek/build/core/build_dtbimage.mk
+ifeq ($(KERNEL_TARGET_ARCH),arm64)
+MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_BASE_PROJECT).dts
+else
+MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_BASE_PROJECT).dts
+endif
+MTK_DTBOIMAGE_DWS := $(KERNEL_DIR)/drivers/misc/mediatek/dws/$(MTK_PLATFORM_DIR)/$(MTK_BASE_PROJECT).dws
+include device/mediatek/build/core/build_dtboimage.mk
 
 endif#TARGET_NO_KERNEL
 endif#LINUX_KERNEL_VERSION
