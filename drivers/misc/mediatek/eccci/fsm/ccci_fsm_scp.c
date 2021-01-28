@@ -107,7 +107,7 @@ static void ccci_scp_ipi_rx_work(struct work_struct *work)
 	while (!skb_queue_empty(&scp_ipi_rx_skb_list.skb_list)) {
 		skb = ccci_skb_dequeue(&scp_ipi_rx_skb_list);
 		if (skb == NULL) {
-			CCCI_ERROR_LOG(ipi_msg_ptr->md_id, CORE,
+			CCCI_ERROR_LOG(-1, CORE,
 				"ccci_skb_dequeue fail\n");
 			return;
 		}
