@@ -72,7 +72,7 @@ extern void show_pte(struct mm_struct *mm, unsigned long addr);
 #define outer_clean_all(...)
 #define outer_flush_all(...)
 #else
-extern void smp_inner_dcache_flush_all(void);
+#define smp_inner_dcache_flush_all(...)
 #define outer_clean_all(...)
 #define outer_flush_all(...)
 #endif
