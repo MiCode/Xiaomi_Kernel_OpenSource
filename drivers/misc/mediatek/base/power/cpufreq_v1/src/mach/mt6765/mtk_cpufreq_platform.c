@@ -571,6 +571,10 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		return 0;
 	}
 	pdev = of_device_alloc(node, NULL, NULL);
+	if (!pdev) {
+		tag_pr_info("%s fail to create device node\n", __func__);
+		return 0;
+	}
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
 		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
@@ -617,6 +621,11 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		lv, turbo_flag, val, val_ly,
 		UP_VPROC_ST, DOWN_VPROC_ST,
 		UP_VSRAM_ST, DOWN_VSRAM_ST);
+	/* free pdev */
+	if (pdev != NULL) {
+		of_platform_device_destroy(&pdev->dev, NULL);
+		of_dev_put(pdev);
+	}
 
 	return lv;
 }
