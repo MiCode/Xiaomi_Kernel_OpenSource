@@ -157,9 +157,9 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 		mem_buff_data->len, 0, 0);
 	vcu_buffer->size = mem_buff_data->len;
 	vcu_buffer->dbuf = NULL;
-	if (IS_ERR(vcu_buffer->mem_priv)) {
+	if (IS_ERR_OR_NULL(vcu_buffer->mem_priv)) {
 		mutex_unlock(&vcu_queue->mmap_lock);
-		goto free;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	cook = vcu_queue->mem_ops->vaddr(vcu_buffer->mem_priv);
@@ -176,11 +176,6 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
 		mem_buff_data->va, (unsigned int)vcu_buffer->size,
 		(unsigned long)vcu_buffer->mem_priv);
 	return vcu_buffer->mem_priv;
-
-free:
-	vcu_queue->mem_ops->put(vcu_buffer->mem_priv);
-
-	return ERR_PTR(-ENOMEM);
 }
 
 int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
