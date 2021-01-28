@@ -6702,7 +6702,8 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
 			/* unprepare ovl 2l */
-			mtk_ddp_comp_unprepare(comp_ovl0_2l);
+			if (atomic_read(&mtk_crtc->already_config))
+				mtk_ddp_comp_unprepare(comp_ovl0_2l);
 
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 1);
 			DDPMSG("Switch vds: Switch ovl0_2l to vds\n");
