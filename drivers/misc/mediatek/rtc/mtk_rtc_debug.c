@@ -37,7 +37,7 @@ static ssize_t mtk_rtc_debug_write(struct file *file,
 		return -EFAULT;
 	lbuf[size] = '\0';
 
-	if (sscanf(lbuf, "%s %d", option, &setting) != 2) {
+	if (sscanf(lbuf, "%15s %d", option, &setting) != 2) {
 		pr_notice("Invalid para %s\n", lbuf);
 		return -EFAULT;
 	}
