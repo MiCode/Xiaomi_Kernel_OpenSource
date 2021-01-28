@@ -30,6 +30,8 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{IMX686_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{HI846_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	{S5KGD1SP_SENSOR_ID, 0xA8, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV16A10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{S5K3P9SP_SENSOR_ID, 0xA8, Common_read_region},
 	{S5K2T7SP_SENSOR_ID, 0xA4, Common_read_region},
 	{IMX386_SENSOR_ID, 0xA0, Common_read_region},
 	{S5K2L7_SENSOR_ID, 0xA0, Common_read_region},
