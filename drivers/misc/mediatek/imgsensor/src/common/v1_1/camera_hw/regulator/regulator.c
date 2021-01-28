@@ -174,6 +174,7 @@ static enum IMGSENSOR_RETURN regulator_dump(void *pinstance)
 {
 	struct REGULATOR *preg = (struct REGULATOR *)pinstance;
 	int i, j;
+	int enable = 0;
 
 	for (j = IMGSENSOR_SENSOR_IDX_MIN_NUM;
 		j < IMGSENSOR_SENSOR_IDX_MAX_NUM;
@@ -184,13 +185,18 @@ static enum IMGSENSOR_RETURN regulator_dump(void *pinstance)
 		i++) {
 			if (!preg->pregulator[j][i])
 				continue;
+
 			if (regulator_is_enabled(preg->pregulator[j][i]) &&
 				atomic_read(&preg->enable_cnt[j][i]) != 0)
-				PK_DBG("index= %d %s = %d\n",
-					j,
-					regulator_control[i].pregulator_type,
-					regulator_get_voltage(
-						preg->pregulator[j][i]));
+				enable = 1;
+			else
+				enable = 0;
+
+			PK_DBG("[sensor_dump][regulator] index= %d, %s = %d, enable = %d\n",
+				j,
+				regulator_control[i].pregulator_type,
+				regulator_get_voltage(preg->pregulator[j][i]),
+				enable);
 		}
 	}
 	return IMGSENSOR_RETURN_SUCCESS;

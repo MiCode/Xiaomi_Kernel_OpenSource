@@ -171,6 +171,8 @@ unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk);
 
 extern unsigned int mt_get_ckgen_freq(int ID);
 extern unsigned long clk_get_rate(struct clk *clk);
+extern bool __clk_is_enabled(struct clk *clk);
+extern unsigned int __clk_get_enable_count(struct clk *clk);
 
 #endif
 

@@ -15,8 +15,6 @@
 
 #include "seninf_clk.h"
 
-
-
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 struct pm_qos_request imgsensor_qos;
 
@@ -262,6 +260,19 @@ void seninf_clk_release(struct SENINF_CLK *pclk)
 
 unsigned int seninf_clk_get_meter(struct SENINF_CLK *pclk, unsigned int clk)
 {
+	unsigned int i = 0;
+
+	if (clk == 0xff) {
+		for (i = SENINF_CLK_IDX_SYS_MIN_NUM; i < SENINF_CLK_IDX_SYS_MAX_NUM; ++i) {
+			PK_DBG("[sensor_dump][mclk]index=%u freq=%lu HW enable=%d enable_cnt=%u\n",
+				i,
+				clk_get_rate(pclk->mclk_sel[i]),
+				__clk_is_enabled(pclk->mclk_sel[i]),
+				__clk_get_enable_count(pclk->mclk_sel[i])
+			);
+		}
+	}
+
 #if 0//SENINF_CLK_CONTROL
 	/* workaround */
 	mt_get_ckgen_freq(1);
