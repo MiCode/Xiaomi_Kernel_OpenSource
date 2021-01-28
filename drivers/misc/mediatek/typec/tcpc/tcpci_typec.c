@@ -624,6 +624,7 @@ static void typec_cc_open_entry(struct tcpc_device *tcpc_dev, uint8_t state)
 static inline void typec_error_recovery_entry(struct tcpc_device *tcpc_dev)
 {
 	typec_cc_open_entry(tcpc_dev, typec_errorrecovery);
+	tcpc_reset_typec_debounce_timer(tcpc_dev);
 	tcpc_enable_timer(tcpc_dev, TYPEC_TIMER_ERROR_RECOVERY);
 }
 
@@ -1585,20 +1586,21 @@ static inline void typec_attach_wait_entry(struct tcpc_device *tcpc_dev)
 #ifdef TYPEC_EXIT_ATTACHED_SNK_VIA_VBUS
 static inline int typec_attached_snk_cc_detach(struct tcpc_device *tcpc_dev)
 {
+	tcpc_reset_typec_debounce_timer(tcpc_dev);
 #ifdef CONFIG_USB_POWER_DELIVERY
-	/* For Source detach during HardReset */
+	/*
+	 * For Source detach during HardReset,
+	 * However Apple TA may keep cc_open about 150 ms during HardReset
+	 */
 	if (tcpc_dev->pd_wait_hard_reset_complete) {
-		TYPEC_INFO2("Detach_CC (HardReset)\r\n");
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
-		if (!(tcpc_dev->pd_port.apple_ccopen_flag)) {
-			tcpc_dev->pd_port.apple_ccopen_flag = true;
-			tcpc_enable_timer(tcpc_dev, TYPEC_TIMER_APPLE_CC_OPEN);
-		}
+		TYPEC_INFO2("Detach_CC (HardReset), compatible apple TA\r\n");
+		tcpc_enable_timer(tcpc_dev, TYPEC_TIMER_APPLE_CC_OPEN);
 #else
+		TYPEC_INFO2("Detach_CC (HardReset)\r\n");
 		tcpc_enable_timer(tcpc_dev, TYPEC_TIMER_PDDEBOUNCE);
 #endif /* CONFIG_COMPATIBLE_APPLE_TA */
-	}
-	if (tcpc_dev->pd_port.pe_data.pd_prev_connected) {
+	} else if (tcpc_dev->pd_port.pe_data.pd_prev_connected) {
 		TYPEC_INFO2("Detach_CC (PD)\r\n");
 		tcpc_enable_timer(tcpc_dev, TYPEC_TIMER_PDDEBOUNCE);
 	}
@@ -2229,7 +2231,6 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 #ifdef CONFIG_USB_POWER_DELIVERY
 #ifdef CONFIG_COMPATIBLE_APPLE_TA
 	case TYPEC_TIMER_APPLE_CC_OPEN:
-		tcpc_dev->pd_port.apple_ccopen_flag = false;
 #endif /* CONFIG_COMPATIBLE_APPLE_TA */
 #endif	/* CONFIG_USB_POWER_DELIVERY */
 	case TYPEC_TIMER_CCDEBOUNCE:

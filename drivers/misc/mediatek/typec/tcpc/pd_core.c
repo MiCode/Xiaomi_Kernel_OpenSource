@@ -572,10 +572,6 @@ int pd_core_init(struct tcpc_device *tcpc_dev)
 	pd_port->pe_pd_state = PE_IDLE2;
 	pd_port->cap_miss_match = 0; /* For src_cap miss match */
 
-#ifdef CONFIG_COMPATIBLE_APPLE_TA
-	pd_port->apple_ccopen_flag = false;
-#endif
-
 	ret = pd_parse_pdata(pd_port);
 	if (ret)
 		return ret;
