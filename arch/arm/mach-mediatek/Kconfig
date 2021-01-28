@@ -86,3 +86,55 @@ config MACH_MT6761
 	  Highly power-efficient, performance-oriented 4G LTE processor
 	  for premium, thin-design smartphones. MT6761 also offers significant
 	  multitasking and multimedia improvements.
+
+config MACH_MT6765
+	bool "MediaTek MT6765"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select MFD_SYSCON
+	select VFP
+	select VFPv3
+	select CPU_V7
+	select NEON
+	select AEABI
+	select KERNEL_MODE_NEON
+	select MTK_GIC_V3_EXT
+	select MTK_SYSIRQ
+	select MTK_TIMER
+	select MTK_TIMER_TIMESYNC
+	select ARM_GIC_V3
+	select POWER_SUPPLY
+	select MTK_EMI_LEGACY
+	select MTK_DRAMC_LEGACY
+	select PM_DEVFREQ
+	select MTK_SYS_CIRQ
+	select ARM_ERRATA_855873
+	select MTK_GIC_TARGET_ALL
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_L2C_PARITY_CHECK
+	select MTK_SYSTRACKER_V2
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select ARM_CRYPTO
+	select CRYPTO_SHA2_ARM_CE
+	select CRYPTO_AES_ARM_CE
+	select MTK_PMQOS
+	help
+	  This enables support for MediaTek MT6765
+	  Highly power-efficient, performance-oriented 4G LTE processor
+	  for premium, thin-design smartphones. MT6765 also offers significant
+	  multitasking and multimedia improvements.
+
