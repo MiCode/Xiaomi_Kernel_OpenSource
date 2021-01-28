@@ -5117,7 +5117,7 @@ static int pg_prepare(struct clk_hw *hw)
 	struct subsys *sys = id_to_sys(pg->pd_id);
 	unsigned long flags;
 	int skip_pg = 0;
-	int ret;
+	int ret = 0;
 
 #if MT_CCF_PG_DEBUG
 	if (strcmp(__clk_get_name(hw->clk), "pg_mfg0") &&
@@ -5430,7 +5430,6 @@ void iomap_mm(void)
 	if (!node)
 		pr_notice("[CLK_MMSYS] find node failed\n");
 
-	pr_info("mmsys: %d\n", node->name);
 	clk_mmsys_config_base = of_iomap(node, 0);
 	if (!clk_mmsys_config_base)
 		pr_notice("[CLK_MMSYS] base failed\n");
@@ -5537,6 +5536,10 @@ static int clk_mt6779_scpsys_probe(struct platform_device *pdev)
 #endif
 
 	clk_data = alloc_clk_data(SCP_NR_SYSS);
+	if (!clk_data) {
+		pr_notice("%s(): alloc clk data failed\n", __func__);
+		return -ENOMEM;
+	}
 
 	init_clk_scpsys(infracfg_reg, spm_reg, infra_reg,
 		smi_common_reg, clk_data);

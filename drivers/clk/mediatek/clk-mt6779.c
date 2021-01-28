@@ -2230,6 +2230,10 @@ static int clk_mt6779_apmixed_probe(struct platform_device *pdev)
 	}
 
 	clk_data = mtk_alloc_clk_data(CLK_APMIXED_NR_CLK);
+	if (!clk_data) {
+		pr_notice("%s(): alloc clk data failed!\n", __func__);
+		return -ENOMEM;
+	}
 
 #if MT_CCF_DEBUG_LOG
 	pr_notice("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
@@ -2293,6 +2297,10 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 	}
 
 	clk_data = mtk_alloc_clk_data(CLK_TOP_NR_CLK);
+	if (!clk_data) {
+		pr_notice("%s(): alloc clk data failed!\n", __func__);
+		return -ENOMEM;
+	}
 
 #if MT_CCF_DEBUG_LOG
 	pr_notice("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
@@ -2390,6 +2398,10 @@ static int clk_mt6779_infra_probe(struct platform_device *pdev)
 	}
 
 	clk_data = mtk_alloc_clk_data(CLK_INFRA_NR_CLK);
+	if (!clk_data) {
+		pr_notice("%s(): alloc clk data failed!\n", __func__);
+		return -ENOMEM;
+	}
 
 #if MT_CCF_DEBUG_LOG
 	pr_notice("%s(): clk data number: %d\n", __func__, clk_data->clk_num);

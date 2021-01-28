@@ -7,6 +7,7 @@
 #include <linux/clk-provider.h>
 #include <linux/platform_device.h>
 #include <dt-bindings/clock/mt6779-clk.h>
+#include <linux/slab.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
@@ -47,6 +48,10 @@ static int clk_mt6779_apu1_probe(struct platform_device *pdev)
 	int ret;
 
 	clk_data = mtk_alloc_clk_data(CLK_APU1_NR_CLK);
+	if (!clk_data) {
+		pr_notice("%s(): alloc clk data\n", __func__);
+		return -ENOMEM;
+	}
 
 #if CCF_SUBSYS_DEBUG
 	pr_info("%s(): clk data number: %d\n", __func__, clk_data->clk_num);
@@ -57,12 +62,14 @@ static int clk_mt6779_apu1_probe(struct platform_device *pdev)
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (ret)
+	if (ret) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 					__func__, ret);
 
-	return ret;
+		kfree(clk_data);
+	}
 
+	return ret;
 }
 
 static struct platform_driver clk_mt6779_apu1_drv = {
