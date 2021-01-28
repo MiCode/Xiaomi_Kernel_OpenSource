@@ -349,6 +349,7 @@ config MTK_ENABLE_AGO
 	select F2FS_FS_SECURITY
 	select F2FS_FS_ENCRYPTION
 	select UID_CPUTIME
+	select PROCESS_RECLAIM
 	help
 	  Enable/Disable AGO related feautre.
 	  This is a group kernel setting of AGO mechanism.
