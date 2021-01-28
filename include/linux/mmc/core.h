@@ -158,8 +158,9 @@ struct mmc_request {
 	struct list_head	link;
 	struct list_head	hlist;
 #endif
-#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
+
 	struct request		*req;
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	bool		is_mmc_req; /* request is from mmc layer */
 #endif
 	struct completion	completion;

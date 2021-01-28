@@ -19,4 +19,5 @@ bypass_arr=(\
 "struct ufs_vreg " \
 "struct ufshcd_lrb " \
 "struct utp_task_req_desc " \
-"struct vm_fault ")
+"struct vm_fault " \
+"struct mmc_request ")
