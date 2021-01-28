@@ -60,7 +60,7 @@
 
 #define DEVINFO_OFF_LL 0
 #define DEVINFO_OFF_L 8
-#define DEVINFO_OFF_B 0
+#define DEVINFO_OFF_B 8
 #define DEVINFO_OFF_CCI 24
 #define DEVINFO_OFF_GPU 16
 #define DEVINFO_OFF_VCORE 8
