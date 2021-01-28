@@ -16,6 +16,8 @@ ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6768" "mt6771" "mt6885" "mt
 	obj-y += v3/
 else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8167"))
 	obj-y += v2/
+else
+	obj-y += mailbox/
 endif
 # mdp_sw_sync
 obj-y += mdp_sync/
