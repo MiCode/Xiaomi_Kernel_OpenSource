@@ -41,6 +41,221 @@
 		vib-supply = <&mt_pmic_vibr_ldo_reg>;
 	};
 
+	cluster0_opp: opp_table0 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp0 {
+			opp-hz = /bits/ 64 <900000000>;
+			opp-microvolt = <600000>;
+		};
+		opp1 {
+			opp-hz = /bits/ 64 <979000000>;
+			opp-microvolt = <618750>;
+		};
+		opp2 {
+			opp-hz = /bits/ 64 <1085000000>;
+			opp-microvolt = <643750>;
+		};
+		opp3 {
+			opp-hz = /bits/ 64 <1218000000>;
+			opp-microvolt = <675000>;
+		};
+		opp4 {
+			opp-hz = /bits/ 64 <1351000000>;
+			opp-microvolt = <706250>;
+		};
+		opp5 {
+			opp-hz = /bits/ 64 <1484000000>;
+			opp-microvolt = <737500>;
+		};
+		opp6 {
+			opp-hz = /bits/ 64 <1617000000>;
+			opp-microvolt = <768750>;
+		};
+		opp7 {
+			opp-hz = /bits/ 64 <1750000000>;
+			opp-microvolt = <800000>;
+		};
+		opp8 {
+			opp-hz = /bits/ 64 <1814000000>;
+			opp-microvolt = <837500>;
+		};
+		opp9 {
+			opp-hz = /bits/ 64 <1879000000>;
+			opp-microvolt = <875000>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <1944000000>;
+			opp-microvolt = <912500>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <2009000000>;
+			opp-microvolt = <950000>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <2074000000>;
+			opp-microvolt = <987500>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <2139000000>;
+			opp-microvolt = <1025000>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <2215000000>;
+			opp-microvolt = <1068750>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <2301000000>;
+			opp-microvolt = <1118750>;
+		};
+	};
+
+	cluster1_opp: opp_table1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp0 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <600000>;
+		};
+		opp1 {
+			opp-hz = /bits/ 64 <501000000>;
+			opp-microvolt = <631250>;
+		};
+		opp2 {
+			opp-hz = /bits/ 64 <542000000>;
+			opp-microvolt = <643750>;
+		};
+		opp3 {
+			opp-hz = /bits/ 64 <643000000>;
+			opp-microvolt = <675000>;
+		};
+		opp4 {
+			opp-hz = /bits/ 64 <745000000>;
+			opp-microvolt = <706250>;
+		};
+		opp5 {
+			opp-hz = /bits/ 64 <846000000>;
+			opp-microvolt = <737500>;
+		};
+		opp6 {
+			opp-hz = /bits/ 64 <948000000>;
+			opp-microvolt = <768750>;
+		};
+		opp7 {
+			opp-hz = /bits/ 64 <1050000000>;
+			opp-microvolt = <800000>;
+		};
+		opp8 {
+			opp-hz = /bits/ 64 <1138000000>;
+			opp-microvolt = <837500>;
+		};
+		opp9 {
+			opp-hz = /bits/ 64 <1226000000>;
+			opp-microvolt = <875000>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <1314000000>;
+			opp-microvolt = <912500>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <1402000000>;
+			opp-microvolt = <950000>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <1491000000>;
+			opp-microvolt = <987500>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <1579000000>;
+			opp-microvolt = <1025000>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <1682000000>;
+			opp-microvolt = <1068740>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <1800000000>;
+			opp-microvolt = <1118750>;
+		};
+	};
+
+	cci_opp: opp_table2 {
+		compatible = "operating-points-v2";
+		opp-shared;
+		opp00 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <600000>;
+		};
+		opp01 {
+			opp-hz = /bits/ 64 <339000000>;
+			opp-microvolt = <618750>;
+		};
+		opp02 {
+			opp-hz = /bits/ 64 <392000000>;
+			opp-microvolt = <643750>;
+		};
+		opp03 {
+			opp-hz = /bits/ 64 <459000000>;
+			opp-microvolt = <675000>;
+		};
+		opp04 {
+			opp-hz = /bits/ 64 <525000000>;
+			opp-microvolt = <706250>;
+		};
+		opp05 {
+			opp-hz = /bits/ 64 <592000000>;
+			opp-microvolt = <737500>;
+		};
+		opp06 {
+			opp-hz = /bits/ 64 <658000000>;
+			opp-microvolt = <768750>;
+		};
+		opp07 {
+			opp-hz = /bits/ 64 <724000000>;
+			opp-microvolt = <800000>;
+		};
+		opp08 {
+			opp-hz = /bits/ 64 <76300000>;
+			opp-microvolt = <837500>;
+		};
+		opp09 {
+			opp-hz = /bits/ 64 <80100000>;
+			opp-microvolt = <875000>;
+		};
+		opp10 {
+			opp-hz = /bits/ 64 <84000000>;
+			opp-microvolt = <912500>;
+		};
+		opp11 {
+			opp-hz = /bits/ 64 <87800000>;
+			opp-microvolt = <950000>;
+		};
+		opp12 {
+			opp-hz = /bits/ 64 <917000000>;
+			opp-microvolt = <987500>;
+		};
+		opp13 {
+			opp-hz = /bits/ 64 <955000000>;
+			opp-microvolt = <1025000>;
+		};
+		opp14 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <1068750>;
+		};
+		opp15 {
+			opp-hz = /bits/ 64 <1051000000>;
+			opp-microvolt = <1118750>;
+		};
+	};
+
+	cci: cci {
+		compatible = "mediatek,mtk-cci";
+		clocks = <&apmixed CLK_APMIXED_CCIPLL>;
+		clock-names = "dsu_clock";
+		operating-points-v2 = <&cci_opp>;
+
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -51,6 +266,11 @@
 			reg = <0x000>;
 			enable-method = "psci";
 			clock-frequency = <2301000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu1: cpu@001 {
@@ -59,6 +279,11 @@
 			reg = <0x001>;
 			enable-method = "psci";
 			clock-frequency = <2301000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu2: cpu@002 {
@@ -67,6 +292,11 @@
 			reg = <0x002>;
 			enable-method = "psci";
 			clock-frequency = <2301000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu3: cpu@003 {
@@ -75,6 +305,11 @@
 			reg = <0x003>;
 			enable-method = "psci";
 			clock-frequency = <2301000000>;
+			operating-points-v2 = <&cluster0_opp>;
+			dynamic-power-coefficient = <275>;
+			capacity-dmips-mhz = <1024>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu4: cpu@100 {
@@ -83,6 +318,11 @@
 			reg = <0x100>;
 			enable-method = "psci";
 			clock-frequency = <1800000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <801>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu5: cpu@101 {
@@ -91,6 +331,11 @@
 			reg = <0x101>;
 			enable-method = "psci";
 			clock-frequency = <1800000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <801>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu6: cpu@102 {
@@ -99,6 +344,11 @@
 			reg = <0x102>;
 			enable-method = "psci";
 			clock-frequency = <1800000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <801>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu7: cpu@103 {
@@ -107,6 +357,11 @@
 			reg = <0x103>;
 			enable-method = "psci";
 			clock-frequency = <1800000000>;
+			operating-points-v2 = <&cluster1_opp>;
+			dynamic-power-coefficient = <85>;
+			capacity-dmips-mhz = <801>;
+			cpu-idle-states = <&STANDBY &MCDI_CPU &MCDI_CLUSTER>,
+				<&SODI &SODI3 &DPIDLE &SUSPEND>;
 		};
 
 		cpu-map {
@@ -1139,12 +1394,74 @@
 		compatible = "mediatek,mt6765-dvfsp";
 		reg = <0 0x00110800 0 0x1400>,
 		      <0 0x00110800 0 0x1400>;
+		state = <1>;
+		change_flag = <0>;
+		little-rise-time = <1000>;
+		little-down-time = <750>;
+		big-rise-time = <1000>;
+		big-down-time = <750>;
+		nvmem-cells = <&efuse_segment &efuse_ly>;
+		nvmem-cell-names = "efuse_segment_cell","efuse_ly_cell";
+		L-table = <2000 96 1 1
+				1933 92 1 1
+				1866 88 1 1
+				1800 83 1 1
+				1733 80 1 1
+				1666 75 1 1
+				1548 71 1 1
+				1475 66 2 1
+				1375 64 2 1
+				1275 58 2 1
+				1175 54 2 1
+				1075 49 2 1
+				999 46 2 1
+				925 43 2 1
+				850 40 2 1
+				774 38 2 1 >;
+
+		B-table = <2200 100 1 1
+				2133 96 1 1
+				2066 92 1 1
+				2000 88 1 1
+				1933 84 1 1
+				1866 80 1 1
+				1800 75 1 1
+				1651 70 1 1
+				1503 64 1 1
+				1414 61 2 1
+				1295 57 2 1
+				1176 53 2 1
+				1087 49 2 1
+				998 46 2 1
+				909 43 2 1
+				850 40 2 1 >;
+
+		CCI-table = <1400 96 2 1
+				1353 92 2 1
+				1306 88 2 1
+				1260 84 2 1
+				1190 78 2 1
+				1155 75 2 1
+				1120 71 2 1
+				984 64 2 1
+				917 62 2 1
+				827 58 2 1
+				737 54 2 2
+				669 51 2 2
+				579 47 2 2
+				512 44 2 2
+				445 41 2 2
+				400 38 2 2 >;
 	};
 
 	eem_fsm@1100b000 {
 		compatible = "mediatek,eem_fsm";
 		reg = <0 0x1100b000 0 0x1000>;
 		interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_LOW>;
+		nvmem = <&efuse>;
+		nvmem-names = "mtk_efuse";
+		nvmem-cells = <&efuse_segment>;
+		nvmem-cell-names = "efuse_segment_cell";
 	};
 
 	dramc@1022a000 {
@@ -2248,6 +2565,9 @@
 		};
 		thermal_efuse: segment@190 {
 			reg = <0x190 0xc>;
+		};
+		efuse_ly: ly@210 {
+			reg = <0x210 0x4>;
 		};
 	};
 
