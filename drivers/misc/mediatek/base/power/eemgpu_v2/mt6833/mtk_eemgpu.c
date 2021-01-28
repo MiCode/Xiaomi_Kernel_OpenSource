@@ -141,7 +141,7 @@ static unsigned int informEEMisReady;
 unsigned int gpu_vb_volt;
 unsigned int gpu_vb_turn_pt;
 unsigned int gpu_opp0_t_volt[4] = {
-	80000, 77500, 75000, 72500
+	85000, 82500, 80000, 77500
 };
 #endif
 
@@ -236,9 +236,9 @@ static int get_devinfo(void)
 #if SUPPORT_GPU_VB
 	efuse_val = (get_devinfo_with_index(209)
 		>> 11) & 0x7;
-	if (efuse_val && efuse_val <= 4)
+	if (efuse_val && efuse_val <= 6)
 		gpu_vb_volt =
-			gpu_opp0_t_volt[efuse_val - 1];
+			gpu_opp0_t_volt[efuse_val - 3];
 	else
 		gpu_vb_volt =
 			gpu_opp0_t_volt[0];
@@ -1515,9 +1515,9 @@ static void eemg_init_ctrl(struct eemg_ctrl *ctrl)
 
 static unsigned int eemg_vmin_init(void)
 {
-	int vmin_idx = (get_devinfo_with_index(134) >> 2) & 3;
+	int vmin_idx = (get_devinfo_with_index(209) >> 9) & 3;
 
-	return vmin_idx == 1 ? 0x20 : vmin_idx == 2 ? 0x24 : 0x1C;
+	return vmin_idx == 0x2 ? 0x20 : 0x1C;
 }
 
 static void eemg_init_det(struct eemg_det *det, struct eemg_devinfo *devinfo)

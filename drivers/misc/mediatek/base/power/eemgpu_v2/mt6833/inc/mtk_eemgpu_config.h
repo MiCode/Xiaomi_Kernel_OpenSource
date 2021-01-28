@@ -25,7 +25,7 @@
 #define DUMP_DATA_TO_DE		(1)
 #define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
 #define EEMG_FAKE_EFUSE		(0)
-#define SUPPORT_GPU_VB		(0)
+#define SUPPORT_GPU_VB		(1)
 
 /* FIX ME */
 #define EEMG_LOCKTIME_LIMIT	(3000)
