@@ -217,6 +217,10 @@ struct DISPLAY_COLOR_REG {
 	unsigned int SKIN_TONE_H[SKIN_TONE_SIZE];
 	unsigned int GRASS_TONE_H[GRASS_TONE_SIZE];
 	unsigned int SKY_TONE_H[SKY_TONE_SIZE];
+	unsigned int S_GAIN_BY_Y[S_GAIN_BY_Y_CONTROL_CNT]
+				[S_GAIN_BY_Y_HUE_PHASE_CNT];
+	unsigned int S_GAIN_BY_Y_EN;
+	unsigned int LSP_EN;
 	unsigned int COLOR_3D[COLOR_3D_WINDOW_CNT][COLOR_3D_WINDOW_SIZE];
 };
 #define DISPLAY_COLOR_REG_T struct DISPLAY_COLOR_REG
