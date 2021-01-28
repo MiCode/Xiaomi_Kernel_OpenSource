@@ -531,4 +531,9 @@ extern struct page *alloc_new_node_page(struct page *page, unsigned long node);
 ssize_t print_max_page_owner(void);
 #endif
 
+#ifdef CONFIG_ZONE_MOVABLE_CMA
+#define IS_ZONE_MOVABLE_CMA_ZONE(z) IS_ZONE_MOVABLE_CMA_ZONE_IDX(\
+					zone_idx(z))
+#endif
+
 #endif	/* __MM_INTERNAL_H */

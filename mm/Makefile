@@ -43,6 +43,11 @@ obj-y			:= filemap.o mempool.o oom_kill.o fadvise.o \
 
 obj-y += init-mm.o
 
+ifdef CONFIG_ZONE_MOVABLE_CMA
+obj-y += zone_movable_cma.o
+KBUILD_CPPFLAGS += -Werror -I$(srctree)/drivers/misc/mediatek/include
+endif
+
 ifdef CONFIG_NO_BOOTMEM
 	obj-y		+= nobootmem.o
 else
