@@ -202,7 +202,7 @@ int mt6779_get_apll_by_name(struct mtk_base_afe *afe, const char *name);
 extern void aud_intbus_mux_sel(unsigned int aud_idx);
 
 /* these will be replaced by using CCF */
-int mt6779_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate);
-void mt6779_mck_disable(struct mtk_base_afe *afe, int mck_id);
+int mt6779_mck_enable(struct mtk_base_afe *afe, unsigned int mck_id, int rate);
+void mt6779_mck_disable(struct mtk_base_afe *afe, unsigned int mck_id);
 
 #endif

@@ -38,14 +38,14 @@ enum {
 };
 
 struct mtk_afe_i2s_priv {
-	int id;
+	unsigned int id;
 	int rate; /* for determine which apll to use */
 	int low_jitter_en;
 
 	const char *share_property_name;
 	int share_i2s_id;
 
-	int mclk_id;
+	unsigned int mclk_id;
 	int mclk_rate;
 	int mclk_apll;
 };

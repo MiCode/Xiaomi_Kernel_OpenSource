@@ -168,7 +168,7 @@ const unsigned int *get_iir_coeff(unsigned int rate_in,
 }
 
 #define DEBUG_COEFF
-static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
+static int mtk_set_src_1_param(struct mtk_base_afe *afe, unsigned int id)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
@@ -264,7 +264,7 @@ static int mtk_set_src_1_param(struct mtk_base_afe *afe, int id)
 	return 0;
 }
 
-static int mtk_set_src_2_param(struct mtk_base_afe *afe, int id)
+static int mtk_set_src_2_param(struct mtk_base_afe *afe, unsigned int id)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
@@ -555,7 +555,7 @@ static int mtk_dai_src_hw_params(struct snd_pcm_substream *substream,
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	int id = dai->id;
+	unsigned int id = dai->id;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
 	unsigned int sft, mask;
 	unsigned int rate = params_rate(params);
@@ -601,7 +601,7 @@ static int mtk_dai_src_hw_free(struct snd_pcm_substream *substream,
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	int id = dai->id;
+	unsigned int id = dai->id;
 	struct mtk_afe_src_priv *src_priv = afe_priv->dai_priv[id];
 
 	dev_info(afe->dev, "%s(), id %d, stream %d\n",

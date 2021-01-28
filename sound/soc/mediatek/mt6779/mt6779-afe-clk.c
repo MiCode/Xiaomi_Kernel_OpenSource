@@ -107,7 +107,7 @@ static const char *aud_clks[CLK_NUM] = {
 };
 
 static int mt6779_set_audio_int_bus_parent(struct mtk_base_afe *afe,
-					   int clk_id)
+					   unsigned int clk_id)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
 	int ret;
@@ -637,14 +637,14 @@ static const struct mt6779_mck_div mck_div[MT6779_MCK_NUM] = {
 	},
 };
 
-int mt6779_mck_enable(struct mtk_base_afe *afe, int mck_id, int rate)
+int mt6779_mck_enable(struct mtk_base_afe *afe, unsigned int mck_id, int rate)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
 	int apll = mt6779_get_apll_by_rate(afe, rate);
 	int apll_clk_id = apll == MT6779_APLL1 ?
 			  CLK_TOP_MUX_AUD_1 : CLK_TOP_MUX_AUD_2;
-	int m_sel_id = mck_div[mck_id].m_sel_id;
-	int div_clk_id = mck_div[mck_id].div_clk_id;
+	unsigned int m_sel_id = mck_div[mck_id].m_sel_id;
+	unsigned int div_clk_id = mck_div[mck_id].div_clk_id;
 	int ret;
 
 	/* i2s5 mck not support */
@@ -697,11 +697,11 @@ ERR_ENABLE_MCLK:
 	return ret;
 }
 
-void mt6779_mck_disable(struct mtk_base_afe *afe, int mck_id)
+void mt6779_mck_disable(struct mtk_base_afe *afe, unsigned int mck_id)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	int m_sel_id = mck_div[mck_id].m_sel_id;
-	int div_clk_id = mck_div[mck_id].div_clk_id;
+	unsigned int m_sel_id = mck_div[mck_id].m_sel_id;
+	unsigned int div_clk_id = mck_div[mck_id].div_clk_id;
 
 	/* i2s5 mck not support */
 	if (mck_id == MT6779_I2S5_MCK)

@@ -1175,7 +1175,7 @@ static int mtk_dai_adda_hw_params(struct snd_pcm_substream *substream,
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
 	unsigned int rate = params_rate(params);
-	int id = dai->id;
+	unsigned int id = dai->id;
 	struct mtk_afe_adda_priv *adda_priv = afe_priv->dai_priv[id];
 
 	dev_info(afe->dev, "%s(), id %d, stream %d, rate %d\n",

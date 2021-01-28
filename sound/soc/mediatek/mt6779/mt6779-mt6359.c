@@ -143,7 +143,7 @@ static int mt6779_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		snd_soc_rtdcom_lookup(rtd, CODEC_MT6359_NAME);
 
 	int phase;
-	unsigned int monitor;
+	unsigned int monitor = 0;
 	int test_done_1, test_done_2, test_done_3;
 	int cycle_1, cycle_2, cycle_3;
 	int prev_cycle_1, prev_cycle_2, prev_cycle_3;

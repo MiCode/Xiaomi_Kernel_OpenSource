@@ -236,7 +236,7 @@ int mt6779_adda_dl_gain_control(bool mute)
 }
 EXPORT_SYMBOL_GPL(mt6779_adda_dl_gain_control);
 
-int mt6779_dai_set_priv(struct mtk_base_afe *afe, int id,
+int mt6779_dai_set_priv(struct mtk_base_afe *afe, unsigned int id,
 			int priv_size, const void *priv_data)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;

@@ -227,6 +227,6 @@ int mt6779_set_lch_dc_compensation(int value);
 int mt6779_set_rch_dc_compensation(int value);
 int mt6779_adda_dl_gain_control(bool mute);
 
-int mt6779_dai_set_priv(struct mtk_base_afe *afe, int id,
+int mt6779_dai_set_priv(struct mtk_base_afe *afe, unsigned int id,
 			int priv_size, const void *priv_data);
 #endif

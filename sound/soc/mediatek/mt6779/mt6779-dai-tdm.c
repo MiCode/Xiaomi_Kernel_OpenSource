@@ -11,10 +11,10 @@
 #include "mt6779-interconnection.h"
 
 struct mtk_afe_tdm_priv {
-	int bck_id;
+	unsigned int bck_id;
 	int bck_rate;
 
-	int mclk_id;
+	unsigned int mclk_id;
 	int mclk_multiple; /* according to sample rate */
 	int mclk_rate;
 	int mclk_apll;
@@ -416,7 +416,7 @@ static int mtk_dai_tdm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	int tdm_id = dai->id;
+	unsigned int tdm_id = dai->id;
 	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[tdm_id];
 	unsigned int rate = params_rate(params);
 	unsigned int channels = params_channels(params);
@@ -539,7 +539,8 @@ static int mtk_dai_tdm_set_sysclk(struct snd_soc_dai *dai,
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dai->dev);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[dai->id];
+	unsigned int tdm_id = dai->id;
+	struct mtk_afe_tdm_priv *tdm_priv = afe_priv->dai_priv[tdm_id];
 
 	if (!tdm_priv) {
 		AUDIO_AEE("tdm_priv == NULL");
