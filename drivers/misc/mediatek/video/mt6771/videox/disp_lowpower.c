@@ -1112,7 +1112,7 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 					atomic_read(&idlemgr_task_active));
 
 		t_idle = local_clock() - idlemgr_pgc->idlemgr_last_kick_time;
-		t_to_check = idle_check_interval * 1000 * 1000 - t_idle;
+		t_to_check = idle_check_interval * 1000ULL * 1000ULL - t_idle;
 		do_div(t_to_check, 1000000);
 
 		mmprofile_log_ex(ddp_mmp_get_events()->idle_monitor,
