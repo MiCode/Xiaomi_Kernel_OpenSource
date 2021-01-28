@@ -543,7 +543,7 @@ static int reg_to_current(struct mtk_gauge *gauge,
 u8 get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
-	u8 *buf;
+	u8 *buf, data;
 
 	cell = nvmem_cell_get(&gauge->pdev->dev, "initialization");
 	if (IS_ERR(cell)) {
@@ -558,7 +558,11 @@ u8 get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 		return 0;
 	}
 	bm_debug("[%s] val=0x%x, %d\n", __func__, *buf, *buf);
-	return *buf;
+
+	data = *buf;
+	kfree(buf);
+
+	return data;
 }
 
 void set_rtc_spare0_fg_value(struct mtk_gauge *gauge, u8 val)
@@ -582,7 +586,7 @@ void set_rtc_spare0_fg_value(struct mtk_gauge *gauge, u8 val)
 u8 get_rtc_spare_fg_value(struct mtk_gauge *gauge)
 {
 	struct nvmem_cell *cell;
-	u8 *buf;
+	u8 *buf, data;
 
 	cell = nvmem_cell_get(&gauge->pdev->dev, "state-of-charge");
 	if (IS_ERR(cell)) {
@@ -599,8 +603,10 @@ u8 get_rtc_spare_fg_value(struct mtk_gauge *gauge)
 	}
 
 	bm_debug("[%s] val=%d\n", __func__, *buf);
+	data = *buf;
+	kfree(buf);
 
-	return *buf;
+	return data;
 }
 
 void set_rtc_spare_fg_value(struct mtk_gauge *gauge, u8 val)
