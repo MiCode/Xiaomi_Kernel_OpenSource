@@ -457,6 +457,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	int ret;
 	unsigned long long start, end;
 	unsigned int heap_mask = ~0;
+	unsigned int alloc_err_heap = 0;
 
 	pr_debug("%s: len %zu align %zu heap_id_mask %u flags %x\n", __func__,
 		 len, align, heap_id_mask, flags);
@@ -500,6 +501,8 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
 		if (!IS_ERR(buffer))
 			break;
+		if (IS_ERR(buffer))
+			alloc_err_heap |= (1 << heap->id);
 	}
 	up_read(&dev->lock);
 
@@ -509,12 +512,18 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	}
 
 	if (IS_ERR(buffer)) {
-		IONMSG("%s error 0x%p, heap_mask: 0x%x size:%zu align:%zu.\n",
-		       __func__, buffer, heap_id_mask, len, align);
-		if (!IS_ERR_OR_NULL(heap->debug_show))
+		IONMSG("%s error 0x%lx, heap_mask: 0x%x size:%zu align:%zu.\n",
+		       __func__, (unsigned long)buffer,
+		       heap_id_mask, len, align);
+		IONMSG("error heap:0x%x\n", alloc_err_heap);
+		plist_for_each_entry(heap, &dev->heaps, node) {
+			if (!((1 << heap->id) & alloc_err_heap))
+				continue;
+			if (IS_ERR_OR_NULL(heap->debug_show))
+				continue;
+			IONMSG("heap[%s][%d] show:\n", heap->name, heap->id);
 			heap->debug_show(heap, NULL, NULL);
-		else
-			IONMSG("no heap show function\n");
+		}
 		return ERR_CAST(buffer);
 	}
 
