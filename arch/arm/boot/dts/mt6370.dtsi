@@ -60,6 +60,8 @@
 				regulator-name = "usb-otg-vbus";
 				regulator-min-microvolt = <4350000>;
 				regulator-max-microvolt = <5800000>;
+				regulator-min-microamp = <500000>;
+				regulator-max-microamp = <3000000>;
 			};
 		};
 		mt6370_pmu_fled1 {
