@@ -2613,7 +2613,6 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 	struct ion_client *client = NULL;
 	struct ion_handle *handle = NULL;
 
-	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
 	client = ion_client_create(g_ion_device, "disp_decouple");
 
 	buf_info = kzalloc(sizeof(struct disp_internal_buffer_info),
@@ -2639,8 +2638,11 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 			return NULL;
 		}
 
-		mm_data.config_buffer_param.kernel_handle = handle;
-		mm_data.mm_cmd = ION_MM_CONFIG_BUFFER;
+		memset((void *)&mm_data, 0, sizeof(mm_data));
+		mm_data.mm_cmd = ION_MM_GET_IOVA;
+		mm_data.get_phys_param.kernel_handle = handle;
+		mm_data.get_phys_param.module_id = 0;
+
 		if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 			(unsigned long)&mm_data) < 0) {
 			DISPERR("ion_test_drv: Config buffer failed.\n");
@@ -2650,8 +2652,7 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 			return NULL;
 		}
 
-		ion_phys(client, handle, &buffer_mva, &mva_size);
-		if (buffer_mva == 0) {
+		if (mm_data.get_phys_param.phy_addr == 0) {
 			DISPERR("Fatal Error, get mva failed\n");
 			ion_free(client, handle);
 			ion_client_destroy(client);
@@ -2660,8 +2661,8 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 		}
 
 		buf_info->handle = handle;
-		buf_info->mva = (uint32_t)buffer_mva;
-		buf_info->size = mva_size;
+		buf_info->mva = (uint32_t)mm_data.get_phys_param.phy_addr;
+		buf_info->size = mm_data.get_phys_param.len;
 		buf_info->va = buffer_va;
 	} else {
 		DISPERR("Fatal error, kzalloc internal buffer info failed!!\n");
