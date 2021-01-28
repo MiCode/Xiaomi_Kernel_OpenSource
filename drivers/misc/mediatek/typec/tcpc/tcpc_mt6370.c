@@ -1027,10 +1027,12 @@ static int mt6370_set_polarity(struct tcpc_device *tcpc, int polarity)
 {
 	int data;
 
-	data = mt6370_init_cc_params(tcpc,
-		tcpc->typec_remote_cc[polarity]);
-	if (data)
-		return data;
+	if (polarity >= 0 && polarity < ARRAY_SIZE(tcpc->typec_remote_cc)) {
+		data = mt6370_init_cc_params(tcpc,
+			tcpc->typec_remote_cc[polarity]);
+		if (data)
+			return data;
+	}
 
 	data = mt6370_i2c_read8(tcpc, TCPC_V10_REG_TCPC_CTRL);
 	if (data < 0)
