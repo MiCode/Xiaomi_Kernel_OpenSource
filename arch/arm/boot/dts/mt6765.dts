@@ -28,7 +28,7 @@
 				slub_debug=OFZPU page_owner=on \
 				swiotlb=noforce androidboot.hardware=mt6765 \
 				maxcpus=8 loop.max_part=7 \
-				earlycon=uart8250,mmio32,0x11002000, \
+				earlycon=uart8250,mmio32,0x11002000 \
 				firmware_class.path=/vendor/firmware";
 	};
 
@@ -1464,6 +1464,7 @@
 			     <GIC_SPI 110 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 111 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 116 IRQ_TYPE_LEVEL_LOW>;
+		dma-requests = <4>;
 		clocks = <&infracfg_ao CLK_IFR_AP_DMA>;
 		clock-names = "apdma";
 		#dma-cells = <1>;
