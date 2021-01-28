@@ -138,3 +138,4 @@ obj-y += met_drv/
 endif
 obj-y += perf/
 obj-$(CONFIG_MTK_JPEG) += jpeg/
+obj-$(CONFIG_MTK_SPMTWAM) += twam/
