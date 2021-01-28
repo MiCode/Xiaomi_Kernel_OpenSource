@@ -1118,6 +1118,7 @@ static int SCP_sensorHub_server_dispatch_data(uint32_t *currWp)
 
 	int64_t scp_time = 0;
 
+	memset(&event, 0, sizeof(struct data_unit_t));
 	pStart = (char *)READ_ONCE(obj->SCP_sensorFIFO) +
 		offsetof(struct sensorFIFO, data);
 	pEnd = pStart +  READ_ONCE(obj->SCP_sensorFIFO->FIFOSize);
