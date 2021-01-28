@@ -346,15 +346,11 @@ static int mtk_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return -EINVAL;
 }
 
-static int mtk_pcm_dl1bt_copy(struct snd_pcm_substream *substream,
-				     int channel,
-				     unsigned long pos,
-				     void __user *buf,
-				     unsigned long bytes)
+static int mtk_pcm_dl1bt_copy(struct snd_pcm_substream *substream, int channel,
+			      unsigned long pos, void __user *dst,
+			      unsigned long count)
 {
-	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
-
-	return mtk_memblk_copy(substream, channel, pos, buf, frames,
+	return mtk_memblk_copy(substream, channel, pos, dst, count,
 			       pdl1btMemControl, bt_dl_mem_blk);
 }
 

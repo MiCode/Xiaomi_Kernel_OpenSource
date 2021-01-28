@@ -522,15 +522,11 @@ static int mtk_capture_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 
 static int mtk_capture_pcm_copy(struct snd_pcm_substream *substream,
-				int channel,
-				unsigned long pos,
-				void __user *buf,
-				unsigned long bytes)
+				int channel, unsigned long pos,
+				void __user *dst, unsigned long count)
 {
-	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
-
 	vcore_dvfs(&vcore_dvfs_enable, false);
-	return mtk_memblk_copy(substream, channel, pos, buf, frames,
+	return mtk_memblk_copy(substream, channel, pos, dst, count,
 			       VUL_Control_context, cap_mem_blk);
 }
 

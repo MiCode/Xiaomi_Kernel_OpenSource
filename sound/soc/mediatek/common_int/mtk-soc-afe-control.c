@@ -4588,16 +4588,14 @@ void mem_blk_spinunlock(enum soc_aud_digital_block mem_blk)
 }
 
 static int mtk_mem_dlblk_copy(struct snd_pcm_substream *substream, int channel,
-			      snd_pcm_uframes_t pos, void __user *dst,
-			      snd_pcm_uframes_t count,
+			      unsigned long pos, void __user *dst,
+			      unsigned long count,
 			      struct afe_mem_control_t *pMemControl,
 			      enum soc_aud_digital_block mem_blk)
 {
 	struct afe_block_t *Afe_Block = NULL;
 	int copy_size = 0, Afe_WriteIdx_tmp;
 	char *data_w_ptr = (char *)dst;
-	/* get total bytes to copy */
-	count = audio_frame_to_bytes(substream, count);
 
 	/* check which memif nned to be write */
 	Afe_Block = &pMemControl->rBlock;
@@ -4762,8 +4760,8 @@ static bool CheckNullPointer(void *pointer)
 }
 
 static int mtk_mem_ulblk_copy(struct snd_pcm_substream *substream, int channel,
-			      snd_pcm_uframes_t pos, void __user *dst,
-			      snd_pcm_uframes_t count,
+			      unsigned long pos, void __user *dst,
+			      unsigned long count,
 			      struct afe_mem_control_t *pMemControl,
 			      enum soc_aud_digital_block mem_blk)
 {
@@ -4776,9 +4774,6 @@ static int mtk_mem_ulblk_copy(struct snd_pcm_substream *substream, int channel,
 	pr_debug("mtk_capture_pcm_copy pos = %lucount = %lu\n ", pos,
 		       count);
 #endif
-	/* get total bytes to copy */
-	count = audio_frame_to_bytes(substream, count);
-
 	/* check which memif nned to be write */
 	pVUL_MEM_ConTrol = pMemControl;
 	Vul_Block = &(pVUL_MEM_ConTrol->rBlock);
@@ -4937,8 +4932,8 @@ static int mtk_mem_ulblk_copy(struct snd_pcm_substream *substream, int channel,
 }
 
 int mtk_memblk_copy(struct snd_pcm_substream *substream, int channel,
-		    snd_pcm_uframes_t pos, void __user *dst,
-		    snd_pcm_uframes_t count,
+		    unsigned long pos, void __user *dst,
+		    unsigned long count,
 		    struct afe_mem_control_t *pMemControl,
 		    enum soc_aud_digital_block mem_blk)
 {

@@ -292,9 +292,7 @@ static int mtk_fm_i2s_awb_pcm_copy(struct snd_pcm_substream *substream,
 				   void __user *buf,
 				   unsigned long bytes)
 {
-	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
-
-	return mtk_memblk_copy(substream, channel, pos, buf, frames,
+	return mtk_memblk_copy(substream, channel, pos, buf, bytes,
 			       FM_I2S_AWB_Control_context, fm_capture_mem_blk);
 }
 

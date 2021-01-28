@@ -242,9 +242,7 @@ static int mtk_i2s2_adc2_pcm_copy(struct snd_pcm_substream *substream,
 				  void __user *buf,
 				  unsigned long bytes)
 {
-	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
-
-	return mtk_memblk_copy(substream, channel, pos, buf, frames,
+	return mtk_memblk_copy(substream, channel, pos, buf, bytes,
 			       I2S2_ADC2_Control_context,
 			       Soc_Aud_Digital_Block_MEM_VUL_DATA2);
 }

@@ -259,14 +259,10 @@ static int mtk_dl1_awb_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 
 static int mtk_dl1_awb_pcm_copy(struct snd_pcm_substream *substream,
-				int channel,
-				unsigned long pos,
-				void __user *buf,
-				unsigned long bytes)
+				int channel, unsigned long pos,
+				void __user *dst, unsigned long count)
 {
-	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
-
-	return mtk_memblk_copy(substream, channel, pos, buf, frames,
+	return mtk_memblk_copy(substream, channel, pos, dst, count,
 			       Dl1_AWB_Control_context,
 			       Soc_Aud_Digital_Block_MEM_AWB);
 }

@@ -979,7 +979,7 @@ static int mtk_pcm_dl1spk_copy(struct snd_pcm_substream *substream,
 	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
 
 	vcore_dvfs(&vcore_dvfs_enable, false);
-	ret = mtk_memblk_copy(substream, channel, pos, buf, frames,
+	ret = mtk_memblk_copy(substream, channel, pos, buf, bytes,
 			      pdl1spkMemControl, Soc_Aud_Digital_Block_MEM_DL1);
 
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT

@@ -546,7 +546,7 @@ static int mtk_pcm_dl2_trigger(struct snd_pcm_substream *substream, int cmd)
 	return -EINVAL;
 }
 
-static int mtk_pcm_dl2_copy_(void __user *dst, snd_pcm_uframes_t *size,
+static int mtk_pcm_dl2_copy_(void __user *dst, unsigned long *size,
 			     struct afe_block_t *Afe_Block, bool bCopy)
 {
 	int copy_size = 0, Afe_WriteIdx_tmp;
@@ -554,7 +554,7 @@ static int mtk_pcm_dl2_copy_(void __user *dst, snd_pcm_uframes_t *size,
 	/* struct snd_pcm_runtime *runtime = substream->runtime; */
 	char *data_w_ptr = (char *)dst;
 
-	snd_pcm_uframes_t count = *size;
+	unsigned long count = *size;
 #ifdef DL2_DEBUG_LOG
 	pr_debug(
 		"AudDrv_write WriteIdx=0x%x, ReadIdx=0x%x, DataRemained=0x%x\n",
@@ -774,7 +774,7 @@ exit:
 void mtk_dl2_copy_l(void)
 {
 	struct afe_block_t Afe_Block = pMemControl->rBlock;
-	snd_pcm_uframes_t count = ISRCopyBuffer.u4BufferSize;
+	unsigned long count = ISRCopyBuffer.u4BufferSize;
 
 	if (unlikely(!ISRCopyBuffer.u4BufferSize || !ISRCopyBuffer.pBufferIndx))
 		return;
@@ -791,8 +791,8 @@ void mtk_dl2_copy_l(void)
 }
 
 static int mtk_pcm_dl2_copy(struct snd_pcm_substream *substream, int channel,
-			    snd_pcm_uframes_t pos, void __user *dst,
-			    snd_pcm_uframes_t count)
+			    unsigned long pos, void __user *dst,
+			    unsigned long count)
 {
 	struct afe_block_t *Afe_Block = &pMemControl->rBlock;
 	int remainCount = 0;
@@ -804,9 +804,6 @@ static int mtk_pcm_dl2_copy(struct snd_pcm_substream *substream, int channel,
 		__func__, pos, count, ISRCopyBuffer.u4BufferSize,
 		ISRCopyBuffer.u4IsrConsumeSize);
 #endif
-	/* get total bytes to copy */
-	count = audio_frame_to_bytes(substream, count);
-
 	Auddrv_Dl2_Spinlock_lock();
 
 	if (unlikely(!ISRCopyBuffer.pBufferIndx))
