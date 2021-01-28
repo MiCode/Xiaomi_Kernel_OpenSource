@@ -126,7 +126,7 @@ enum adsp_ipi_status adsp_ipi_registration(
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name)
 {
-	if (id < ADSP_NR_IPI || id >= 0) {
+	if (id < ADSP_NR_IPI && id >= 0) {
 		adsp_ipi_desc[id].name = name;
 
 		if (ipi_handler == NULL)
@@ -145,7 +145,7 @@ EXPORT_SYMBOL_GPL(adsp_ipi_registration);
  */
 enum adsp_ipi_status adsp_ipi_unregistration(enum adsp_ipi_id id)
 {
-	if (id < ADSP_NR_IPI || id >= 0) {
+	if (id < ADSP_NR_IPI && id >= 0) {
 		adsp_ipi_desc[id].name = "";
 		adsp_ipi_desc[id].handler = NULL;
 		return ADSP_IPI_DONE;
@@ -190,8 +190,8 @@ enum adsp_ipi_status adsp_ipi_send_ipc(enum adsp_ipi_id id, void *buf,
 		pr_info("adsp_ipi_send: cannot use in isr");
 		return ADSP_IPI_ERROR;
 	}
-	if (id >= ADSP_CORE_TOTAL || id < 0) {
-		pr_notice("adsp_ipi_send: id %d is invalid", id);
+	if (adsp_id >= ADSP_CORE_TOTAL || adsp_id < 0) {
+		pr_notice("adsp_ipi_send: adsp_id %d is invalid", adsp_id);
 		return ADSP_IPI_ERROR;
 	}
 	if (is_adsp_ready(adsp_id) != 1) {
