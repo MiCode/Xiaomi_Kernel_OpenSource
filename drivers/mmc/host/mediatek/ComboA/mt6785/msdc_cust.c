@@ -541,7 +541,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 			host->hclk = clk_freq;
 	}
 
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
 	if (pdev->id == 0) {
 		host->aes_clk_ctl = devm_clk_get(&pdev->dev,
 			MSDC0_AES_CLK_NAME);
@@ -1693,7 +1693,7 @@ u16 msdc_offsets[] = {
 	OFFSET_SDC_FIFO_CFG,
 	OFFSET_MSDC_AES_SEL,
 
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
 	OFFSET_EMMC52_AES_EN,
 	OFFSET_EMMC52_AES_CFG_GP0,
 	OFFSET_EMMC52_AES_IV0_GP0,
