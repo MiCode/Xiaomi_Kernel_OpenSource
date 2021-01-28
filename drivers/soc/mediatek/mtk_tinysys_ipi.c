@@ -281,6 +281,7 @@ EXPORT_SYMBOL(mtk_ipi_register);
 
 int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id)
 {
+	unsigned long flags = 0;
 	struct mtk_mbox_pin_recv *pin_recv;
 
 	if (!ipidev->ipi_inited)
@@ -291,6 +292,14 @@ int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id)
 		return IPI_UNAVAILABLE;
 
 	mutex_lock(&ipidev->mutex_ipi_reg);
+
+	/* Drop the ipi and reset the record */
+	complete(&pin_recv->notify);
+
+	spin_lock_irqsave(&ipidev->lock_monitor, flags);
+	ipidev->table[ipi_id].ipi_stage = UNUSED;
+	ipidev->table[ipi_id].ipi_seqno = 0;
+	spin_unlock_irqrestore(&ipidev->lock_monitor, flags);
 
 	pin_recv->mbox_pin_cb = NULL;
 	pin_recv->pin_buf = NULL;
