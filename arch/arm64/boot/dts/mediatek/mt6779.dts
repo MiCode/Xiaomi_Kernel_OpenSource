@@ -3409,6 +3409,112 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			memory-region = <&consys_mem>;
 		};
 
+		camsys1: camsys@1a000000 {
+			compatible = "mediatek,camsys", "syscon";
+			reg = <0 0x1a000000 0 0x10000>;
+			#clock-cells = <1>;
+			#if 1
+			/* Camera CCF */
+			clocks = <&scpsys SCP_SYS_DIS>,
+					<&scpsys SCP_SYS_CAM>,
+					<&camsys CAMSYS_CAM_CGPDN>,
+					<&camsys CAMSYS_CAMTG_CGPDN>,
+					<&camsys CAMSYS_CAMSV0_CGPDN>,
+					<&camsys CAMSYS_CAMSV1_CGPDN>,
+					<&camsys CAMSYS_CAMSV2_CGPDN>,
+					<&camsys CAMSYS_CAMSV3_CGPDN>;
+			clock-names = "ISP_SCP_SYS_DIS",
+					"ISP_SCP_SYS_CAM",
+					"CAMSYS_CAM_CGPDN",
+					"CAMSYS_CAMTG_CGPDN",
+					"CAMSYS_CAMSV0_CGPDN",
+					"CAMSYS_CAMSV1_CGPDN",
+					"CAMSYS_CAMSV2_CGPDN",
+					"CAMSYS_CAMSV3_CGPDN";
+			#endif
+		};
+
+		cam1@1a010000 {
+			compatible = "mediatek,cam1";
+			reg = <0 0x1a010000 0 0x8000>;
+			interrupts = <GIC_SPI 274 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		cam2@1a020000 {
+			compatible = "mediatek,cam2";
+			reg = <0 0x1a020000 0 0x8000>;
+			interrupts = <GIC_SPI 275 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		cam3@1a030000 {
+			compatible = "mediatek,cam3";
+			reg = <0 0x1a030000 0 0x8000>;
+			interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		cam1_inner@1a018000 {
+			compatible = "mediatek,cam1_inner";
+			reg = <0 0x1a018000 0 0x8000>;
+		};
+
+		cam2_inner@1a028000 {
+			compatible = "mediatek,cam2_inner";
+			reg = <0 0x1a028000 0 0x8000>;
+		};
+
+		cam3_inner@1a038000 {
+			compatible = "mediatek,cam3_inner";
+			reg = <0 0x1a038000 0 0x8000>;
+		};
+
+		camsv1@1a051000 {
+			compatible = "mediatek,camsv1";
+			reg = <0 0x1a051000 0 0x1000>;
+			interrupts = <GIC_SPI 279 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv2@1a052000 {
+			compatible = "mediatek,camsv2";
+			reg = <0 0x1a052000 0 0x1000>;
+			interrupts = <GIC_SPI 280 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv3@1a053000 {
+			compatible = "mediatek,camsv3";
+			reg = <0 0x1a053000 0 0x1000>;
+			interrupts = <GIC_SPI 281 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv4@1a054000 {
+			compatible = "mediatek,camsv4";
+			reg = <0 0x1a054000 0 0x1000>;
+			interrupts = <GIC_SPI 282 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv5@1a055000 {
+			compatible = "mediatek,camsv5";
+			reg = <0 0x1a055000 0 0x1000>;
+			interrupts = <GIC_SPI 283 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv6@1a056000 {
+			compatible = "mediatek,camsv6";
+			reg = <0 0x1a056000 0 0x1000>;
+			interrupts = <GIC_SPI 284 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv7@1a057000 {
+			compatible = "mediatek,camsv7";
+			reg = <0 0x1a057000 0 0x1000>;
+			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		camsv8@1a058000 {
+			compatible = "mediatek,camsv8";
+			reg = <0 0x1a058000 0 0x1000>;
+			interrupts = <GIC_SPI 289 IRQ_TYPE_LEVEL_LOW>;
+		};
+
 		apu_conn: clock-controller@19000000 {
 			compatible = "mediatek,mt6779-apu_conn", "syscon";
 			reg = <0 0x19000000 0 0x1000>;
