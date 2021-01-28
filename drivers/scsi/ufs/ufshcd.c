@@ -6309,6 +6309,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 
 	/* Print Transfer Request of aborted task */
 	dev_err(hba->dev, "%s: Device abort task at tag %d\n", __func__, tag);
+	ufshcd_add_command_trace(hba, tag, "abort");
 
 	/*
 	 * Print detailed info about aborted request.
@@ -6482,6 +6483,7 @@ static int ufshcd_reset_and_restore(struct ufs_hba *hba)
 	do {
 		/* Reset the attached device */
 		ufshcd_vops_device_reset(hba);
+		trace_ufshcd_device_reset(dev_name(hba->dev));
 
 		err = ufshcd_host_reset_and_restore(hba);
 	} while (err && --retries);

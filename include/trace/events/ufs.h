@@ -321,6 +321,26 @@ TRACE_EVENT(ufshcd_upiu,
 	)
 );
 
+TRACE_EVENT(ufshcd_device_reset,
+	TP_PROTO(const char *dev_name),
+
+	TP_ARGS(dev_name),
+
+	TP_STRUCT__entry(
+		__string(dev_name, dev_name)
+	),
+
+	TP_fast_assign(
+		__assign_str(dev_name, dev_name);
+	),
+
+	TP_printk(
+		"%s: device reset",
+		__get_str(dev_name)
+	)
+);
+
+
 #endif /* if !defined(_TRACE_UFS_H) || defined(TRACE_HEADER_MULTI_READ) */
 
 /* This part must be outside protection */

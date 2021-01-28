@@ -226,6 +226,8 @@ static void probe_ufshcd_command(void *data, const char *dev_name,
 		event = CMD_COMPLETED;
 	else if (!strcmp(str, "dev_complete"))
 		event = CMD_DEV_COMPLETED;
+	else if (!strcmp(str, "abort"))
+		event = CMD_ABORTING;
 	else
 		event = CMD_GENERIC;
 
@@ -332,6 +334,26 @@ out_unlock:
 	spin_unlock_irqrestore(&cmd_hist_lock, flags);
 }
 
+static void probe_ufshcd_device_reset(void)
+{
+	int ptr;
+	unsigned long flags;
+
+	spin_lock_irqsave(&cmd_hist_lock, flags);
+
+	if (!cmd_hist_enabled)
+		goto out_unlock;
+
+	ptr = cmd_hist_advance_ptr();
+	cmd_hist_init_common_info(ptr);
+	cmd_hist[ptr].event = CMD_DEVICE_RESET;
+
+	if (cmd_hist_cnt <= MAX_CMD_HIST_ENTRY_CNT)
+		cmd_hist_cnt++;
+
+out_unlock:
+	spin_unlock_irqrestore(&cmd_hist_lock, flags);
+}
 
 /**
  * Data structures to store tracepoints information
@@ -347,6 +369,7 @@ static struct tracepoints_table interests[] = {
 	{.name = "ufshcd_command", .func = probe_ufshcd_command},
 	{.name = "ufshcd_uic_command", .func = probe_ufshcd_uic_command},
 	{.name = "ufshcd_clk_gating", .func = probe_ufshcd_clk_gating},
+	{.name = "ufshcd_device_reset", .func = probe_ufshcd_device_reset},
 };
 
 #define FOR_EACH_INTEREST(i) \
@@ -367,7 +390,7 @@ static void lookup_tracepoints(struct tracepoint *tp, void *ignore)
 	}
 }
 
-static int cmd_hist_enable(void)
+int cmd_hist_enable(void)
 {
 	unsigned long flags;
 	int ret = 0;
@@ -389,7 +412,7 @@ out_unlock:
 	return ret;
 }
 
-static int cmd_hist_disable(void)
+int cmd_hist_disable(void)
 {
 	unsigned long flags;
 
@@ -434,6 +457,27 @@ static void ufsdbg_print_clk_gating_event(char **buff, unsigned long *size,
 		cmd_hist[ptr].pid,
 		cmd_hist[ptr].event,
 		clk_gating_state_str[idx]
+		);
+}
+
+static void ufsdbg_print_device_reset_event(char **buff, unsigned long *size,
+					  struct seq_file *m, int ptr)
+{
+	struct timespec64 dur;
+	int idx = cmd_hist[ptr].cmd.clk_gating.state;
+
+	if (idx < 0 || idx >= CLK_GATING_STATE_MAX)
+		idx = CLK_GATING_STATE_MAX;
+
+	dur = ns_to_timespec64(cmd_hist[ptr].time);
+	SPREAD_PRINTF(buff, size, m,
+		"%3d-c(%d),%6llu.%lu,%5d,%2d,%13s\n",
+		ptr,
+		cmd_hist[ptr].cpu,
+		dur.tv_sec, dur.tv_nsec,
+		cmd_hist[ptr].pid,
+		cmd_hist[ptr].event,
+		"device reset"
 		);
 }
 
@@ -517,6 +561,10 @@ static void ufsdbg_print_cmd_hist(char **buff, unsigned long *size,
 			ufsdbg_print_uic_event(buff, size, m, ptr);
 		else if (cmd_hist[ptr].event == CMD_CLK_GATING)
 			ufsdbg_print_clk_gating_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event == CMD_ABORTING)
+			ufsdbg_print_utp_event(buff, size, m, ptr);
+		else if (cmd_hist[ptr].event == CMD_DEVICE_RESET)
+			ufsdbg_print_device_reset_event(buff, size, m, ptr);
 		cnt--;
 		ptr--;
 		if (ptr < 0)

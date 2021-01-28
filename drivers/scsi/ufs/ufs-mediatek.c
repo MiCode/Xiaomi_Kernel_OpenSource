@@ -1192,9 +1192,11 @@ static void ufs_mtk_abort_handler(struct ufs_hba *hba, int tag,
 	if (hba->lrb[tag].cmd)
 		cmd = hba->lrb[tag].cmd->cmnd[0];
 
+	cmd_hist_disable();
 	aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
 		"[UFS] Command Timeout", "Command 0x%x timeout, %s:%d", cmd,
 		file, line);
+	cmd_hist_enable();
 #endif
 }
 
