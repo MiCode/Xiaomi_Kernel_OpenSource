@@ -1,0 +1,9 @@
+config MTK_GZ_KREE
+	bool "MediaTek GenieZone support"
+	depends on MTK_ENABLE_GENIEZONE
+	default y
+	help
+	  Mediatek GenieZone kernel driver
+	  with APIs based on MTEE framework
+	  Note that user-space API requires
+	  This module to be enabled.
