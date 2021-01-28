@@ -156,6 +156,7 @@ void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
 	*size = glctx.size;
 	*start = 0;
 }
+EXPORT_SYMBOL(get_gz_log_buffer);
 
 /* driver functions */
 static int trusty_log_call_notify(struct notifier_block *nb,
