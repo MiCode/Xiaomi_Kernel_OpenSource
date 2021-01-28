@@ -356,7 +356,7 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 
 	err = devm_reset_controller_register(&pdev->dev, &mtk_wdt->rcdev);
 	if (unlikely(err))
-		return err;
+		dev_info(&pdev->dev, "toprgu does not support as reset controller\n");
 
 	dev_info(&pdev->dev, "Watchdog enabled (timeout=%d sec, nowayout=%d)\n",
 			mtk_wdt->wdt_dev.timeout, nowayout);
