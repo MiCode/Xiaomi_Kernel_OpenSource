@@ -1195,7 +1195,8 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
 	if (unlikely(!cl)) {
-		CMDQ_ERR("%s no client for thread:%d\n", handle->thread);
+		CMDQ_ERR("%s no client for thread:%d\n",
+			__func__, handle->thread);
 		return -EINVAL;
 	}
 	handle->pkt->cl = (void *)cl;
@@ -1311,7 +1312,8 @@ s32 cmdq_mdp_handle_sec_setup(struct cmdqSecDataStruct *secData,
 	 */
 	cl = cmdq_helper_mbox_client(handle->thread);
 	if (unlikely(!cl)) {
-		CMDQ_ERR("%s no client for thread:%d\n", handle->thread);
+		CMDQ_ERR("%s no client for thread:%d\n",
+			__func__, handle->thread);
 		return -EINVAL;
 	}
 	handle->pkt->cl = (void *)cl;
