@@ -414,6 +414,7 @@ static struct SV_LOG_STR gSvLog[RSC_IRQ_TYPE_AMOUNT];
 	char *ptr; \
 	char *pDes;\
 	int avaLen;\
+	int ret;\
 	unsigned int *ptr2 = &gSvLog[irq]._cnt[ppb][logT];\
 	unsigned int str_leng;\
 	unsigned int logi;\
@@ -431,8 +432,10 @@ static struct SV_LOG_STR gSvLog[RSC_IRQ_TYPE_AMOUNT];
 		&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);   \
 	avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 	if (avaLen > 1) {\
-		snprintf((char *)(pDes), avaLen, fmt,\
+		ret = snprintf((char *)(pDes), avaLen, fmt,\
 			##__VA_ARGS__);   \
+		if (ret < 0)\
+			LOG_ERR("snprintf error");\
 		if ('\0' != gSvLog[irq]._str[ppb][logT][str_leng - 1]) {\
 			LOG_ERR("log str over flow(%d)", irq);\
 		} \
@@ -497,7 +500,10 @@ static struct SV_LOG_STR gSvLog[RSC_IRQ_TYPE_AMOUNT];
 			ptr = pDes = (char *)\
 			&(pSrc->_str[ppb][logT][pSrc->_cnt[ppb][logT]]);\
 			ptr2 = &(pSrc->_cnt[ppb][logT]);\
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+			ret = snprintf((char *)(pDes), avaLen, fmt,\
+							##__VA_ARGS__);  \
+			if (ret < 0)\
+				LOG_ERR("snprintf error");\
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
