@@ -15,6 +15,7 @@
 #ifndef UTDRIVER_IRQ_H
 #define UTDRIVER_IRQ_H
 
+#define LOAD_IMG_IRQ				            (281)
 #define SWITCH_IRQ                              (282)
 #define BOOT_IRQ                                (283)
 #define SCHED_IRQ                               (284)

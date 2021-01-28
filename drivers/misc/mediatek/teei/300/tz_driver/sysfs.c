@@ -547,6 +547,7 @@ static ssize_t notify_ree_dci_handler_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(notify_ree_dci_handler);
 
+#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
 static ssize_t current_bind_cpu_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -556,23 +557,6 @@ static ssize_t current_bind_cpu_show(struct device *dev,
 	s += sprintf(s, "%d\n", cpu);
 	return (ssize_t)(s - buf);
 }
-
-#ifdef CONFIG_MICROTRUST_TEST_DRIVERS
-static ssize_t current_bind_cpu_store(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t len)
-{
-	uint32_t cpu_id;
-
-	hex_str_to_value(buf, 8, &cpu_id);
-	IMSG_PRINTK("%s cpu_id: 0x%x\n", __func__, cpu_id);
-
-	notify_ree_result = tz_move_core(cpu_id);
-
-	return len;
-}
-static DEVICE_ATTR_RW(current_bind_cpu);
-#else
 static DEVICE_ATTR_RO(current_bind_cpu);
 #endif
 
@@ -613,7 +597,9 @@ static struct device_attribute *attr_list[] = {
 		&dev_attr_dcih_wait_notify_test,
 #endif
 		&dev_attr_notify_ree_dci_handler,
+#ifndef CONFIG_MICROTRUST_DYNAMIC_CORE
 		&dev_attr_current_bind_cpu,
+#endif
 #ifdef CONFIG_MICROTRUST_TZDRIVER_DYNAMICAL_DEBUG
 		&dev_attr_tzdriver_dynamical_debug,
 #endif

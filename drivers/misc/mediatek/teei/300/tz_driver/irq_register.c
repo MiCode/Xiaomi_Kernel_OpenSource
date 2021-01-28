@@ -22,225 +22,189 @@
 #include <linux/of_irq.h>
 #include <linux/cpu.h>
 #include <linux/notifier.h>
+#include <linux/slab.h>
+#include <linux/vmalloc.h>
+
 #include "teei_id.h"
-#include "sched_status.h"
-#include "irq_register.h"
-#include "nt_smc_call.h"
-#include "teei_id.h"
-#include "teei_common.h"
-#include "teei_log.h"
-#include "utdriver_macro.h"
-#include "notify_queue.h"
-#include "switch_queue.h"
-#include "teei_client_main.h"
-#include "utdriver_irq.h"
-#include "notify_queue.h"
-#include "global_function.h"
 #include <teei_secure_api.h>
+#include <backward_driver.h>
+#include <nt_smc_call.h>
+#include <teei_client_main.h>
+#include <utdriver_macro.h>
+#include <utdriver_irq.h>
+#include <switch_queue.h>
+#include <notify_queue.h>
+#include <fdrv.h>
+#include <teei_smc_call.h>
+#include "teei_task_link.h"
 
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 
-static struct load_soter_entry load_ent;
-static struct work_entry work_ent;
-static struct work_entry sched_work_ent;
+#define TEEI_BACK_SW		(0x01)
+#define TEEI_WORK_DONE		(0x02)
+#define TEEI_UNKNOWN_WORK	(0x03)
 
-void sched_func(struct work_struct *entry)
+static int nt_sched_irq_handler(void)
 {
-	down(&(smc_lock));
-	nt_sched_t_call();
+	return TEEI_BACK_SW;
 }
 
-void add_sched_queue(void)
-{
-	INIT_WORK(&(sched_work_ent.work), sched_func);
-	queue_work(secure_wq, &(sched_work_ent.work));
-}
-
-static irqreturn_t nt_sched_irq_handler(void)
-{
-	up(&(smc_lock));
-	add_sched_queue();
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t nt_soter_irq_handler(int irq, void *dev)
-{
-	irq_call_flag = GLSCH_HIGH;
-	up(&smc_lock);
-	if (teei_config_flag == 1)
-		complete(&global_down_lock);
-
-	return IRQ_HANDLED;
-}
-
-
-int register_soter_irq_handler(int irq)
-{
-	return request_irq(irq, nt_soter_irq_handler,
-				0, "tz_drivers_service", NULL);
-}
-
-
-static irqreturn_t nt_error_irq_handler(void)
+static int nt_error_irq_handler(void)
 {
 	unsigned long error_num = 0;
 
 	error_num = teei_secure_call(N_GET_SE_OS_STATE, 0, 0, 0);
 	IMSG_ERROR("secure system ERROR ! error_num = %ld\n",
-					(error_num - 4294967296));
+					(error_num));
 	soter_error_flag = 1;
+
 	up(&(boot_sema));
-	up(&smc_lock);
 
 	WARN_ON(1);
 
-	return IRQ_HANDLED;
+	return TEEI_WORK_DONE;
 }
 
-static irqreturn_t nt_fp_ack_handler(void)
+
+static int nt_boot_irq_handler(void)
 {
-	fp_call_flag = GLSCH_NONE;
-	up(&fdrv_sema);
-	up(&smc_lock);
-	return IRQ_HANDLED;
-}
-
-int get_bdrv_id(void)
-{
-	int driver_id = 0;
-
-	Invalidate_Dcache_By_Area(bdrv_message_buff,
-				bdrv_message_buff + MESSAGE_LENGTH);
-
-	driver_id = *((int *)bdrv_message_buff);
-	return driver_id;
-}
-
-void add_bdrv_queue(int bdrv_id)
-{
-	work_ent.call_no = bdrv_id;
-	INIT_WORK(&(work_ent.work), work_func);
-	queue_work(secure_wq, &(work_ent.work));
-}
-
-static irqreturn_t nt_bdrv_handler(void)
-{
-	int bdrv_id = 0;
-
-	up(&(smc_lock));
-	bdrv_id = get_bdrv_id();
-	add_bdrv_queue(bdrv_id);
-
-	return IRQ_HANDLED;
-}
-
-static irqreturn_t nt_boot_irq_handler(void)
-{
-	if (boot_soter_flag == START_STATUS) {
-		IMSG_DEBUG("boot irq  handler if\n");
+	if (boot_soter_flag == START_STATUS)
 		boot_soter_flag = END_STATUS;
-		up(&smc_lock);
-		up(&(boot_sema));
-	} else {
-		IMSG_DEBUG("boot irq hanler else\n");
-		forward_call_flag = GLSCH_NONE;
-		up(&smc_lock);
-		up(&(boot_sema));
+
+	up(&(boot_sema));
+
+	return TEEI_WORK_DONE;
+}
+
+void teei_handle_bdrv_call(struct NQ_entry *entry)
+{
+	struct bdrv_work_struct *work_ent = NULL;
+	struct NQ_entry *bdrv_ent = NULL;
+
+	work_ent = kmalloc(sizeof(struct bdrv_work_struct), GFP_KERNEL);
+	if (work_ent == NULL) {
+		IMSG_ERROR("NO enough memory for work in %s!\n", __func__);
+		return;
 	}
 
-	return IRQ_HANDLED;
+	bdrv_ent = kmalloc(sizeof(struct NQ_entry), GFP_KERNEL);
+	if (bdrv_ent == NULL) {
+		IMSG_ERROR("NO enough memory for bdrv in %s!\n", __func__);
+		kfree(work_ent);
+		return;
+	}
+
+	INIT_LIST_HEAD(&(work_ent->c_link));
+
+	memcpy(bdrv_ent, entry, sizeof(struct NQ_entry));
+
+	work_ent->bdrv_work_type = TEEI_BDRV_TYPE;
+	work_ent->param_p = bdrv_ent;
+
+	teei_add_to_bdrv_link(&(work_ent->c_link));
+
+	teei_notify_bdrv_fn();
 }
 
-void secondary_load_func(void)
+void teei_handle_schedule_call(struct NQ_entry *entry)
 {
-	unsigned long smc_type = 2;
-
-	Flush_Dcache_By_Area((unsigned long)boot_vfs_addr,
-			(unsigned long)boot_vfs_addr + VFS_SIZE);
-
-	smc_type = teei_secure_call(N_ACK_T_LOAD_IMG, 0, 0, 0);
-	while (smc_type == SMC_CALL_INTERRUPTED_IRQ)
-		smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
 }
 
-
-void load_func(struct work_struct *entry)
+void teei_handle_capi_call(struct NQ_entry *entry)
 {
+	struct completion *bp = NULL;
+
+	bp = (struct completion *)(entry->block_p);
+	if (bp == NULL) {
+		IMSG_ERROR("The block_p of entry is NULL!\n");
+		return;
+	}
+
+	complete(bp);
+}
+
+static int nt_switch_irq_handler(void)
+{
+	struct NQ_entry *entry = NULL;
+	unsigned long long cmd_id = 0;
 	int retVal = 0;
 
-	vfs_thread_function(boot_vfs_addr, 0, 0);
-	down(&smc_lock);
-	retVal = add_work_entry(LOAD_FUNC, 0);
-}
-
-void work_func(struct work_struct *entry)
-{
-
-	struct work_entry *md = container_of(entry, struct work_entry, work);
-	int sys_call_num = md->call_no;
-
-	if (sys_call_num == reetime.sysno)
-		reetime.handle(&reetime);
-	else if (sys_call_num == vfs_handler.sysno)
-		vfs_handler.handle(&vfs_handler);
-}
-
-static irqreturn_t nt_switch_irq_handler(void)
-{
-	struct message_head *msg_head = NULL;
-
-	if (boot_soter_flag == START_STATUS) {
-		INIT_WORK(&(load_ent.work), load_func);
-		queue_work(secure_wq, &(load_ent.work));
-		up(&smc_lock);
-
-		return IRQ_HANDLED;
-
-	} else {
-		Invalidate_Dcache_By_Area(message_buff,
-					message_buff + MESSAGE_LENGTH);
-
-		msg_head = (struct message_head *)message_buff;
-
-		if (msg_head->message_type == FAST_CALL_TYPE) {
-			return IRQ_HANDLED;
-		} else if (msg_head->message_type == STANDARD_CALL_TYPE) {
-			/* Get the smc_cmd struct */
-			if (msg_head->child_type == VDRV_CALL_TYPE) {
-				work_ent.call_no = msg_head->param_length;
-				INIT_WORK(&(work_ent.work), work_func);
-				queue_work(secure_wq, &(work_ent.work));
-				up(&smc_lock);
-			} else if (msg_head->child_type == NQ_CALL_TYPE) {
-				forward_call_flag = GLSCH_NONE;
-				notify_smc_completed();
-				up(&smc_lock);
-#ifdef TUI_SUPPORT
-			} else if (msg_head->child_type == TUI_NOTICE_SYS_NO) {
-				forward_call_flag = GLSCH_NONE;
-				up(&(tui_notify_sema));
-				up(&(smc_lock));
-#endif
-			} else {
-				IMSG_ERROR("[%s][%d] Unknown child_type!\n",
-							__func__, __LINE__);
-			}
-
-			return IRQ_HANDLED;
-		}
-
-		IMSG_ERROR("[%s][%d] Unknown IRQ!\n", __func__, __LINE__);
-		return IRQ_NONE;
+	entry = get_nq_entry();
+	if (entry == NULL) {
+		IMSG_ERROR("Can NOT get entry from t_nt_buffer!\n");
+		return TEEI_UNKNOWN_WORK;
 	}
+
+	cmd_id = entry->cmd_ID;
+
+	switch (cmd_id) {
+	case TEEI_CREAT_FDRV:
+	case TEEI_CREAT_BDRV:
+	case TEEI_LOAD_TEE:
+		switch_output_index = (switch_output_index + 1) % 10000;
+		up(&boot_sema);
+		retVal = TEEI_WORK_DONE;
+		break;
+	case TEEI_FDRV_CALL:
+		switch_output_index = (switch_output_index + 1) % 10000;
+		teei_handle_fdrv_call(entry);
+		retVal = TEEI_WORK_DONE;
+		break;
+	case NEW_CAPI_CALL:
+		switch_output_index = (switch_output_index + 1) % 10000;
+		teei_handle_capi_call(entry);
+		retVal = TEEI_WORK_DONE;
+		break;
+	case TEEI_BDRV_CALL:
+		teei_handle_bdrv_call(entry);
+		retVal = TEEI_WORK_DONE;
+		break;
+	case TEEI_SCHED_CALL:
+		teei_handle_schedule_call(entry);
+		retVal = TEEI_BACK_SW;
+		break;
+#ifdef TUI_SUPPORT
+	case TUI_NOTICE_SYS_NO:
+		up(&(tui_notify_sema));
+		retVal = TEEI_BACK_SW;
+		break;
+#endif
+	default:
+		IMSG_ERROR("[%s][%d] Unknown command ID!\n",
+					__func__, __LINE__);
+		retVal = TEEI_UNKNOWN_WORK;
+	}
+
+	return retVal;
 }
 
-static irqreturn_t ut_drv_irq_handler(int irq, void *dev)
+static int nt_load_img_handler(void)
+{
+	struct bdrv_work_struct *work_ent = NULL;
+
+	work_ent = kmalloc(sizeof(struct bdrv_work_struct), GFP_KERNEL);
+	if (work_ent == NULL) {
+		IMSG_ERROR("NO enough memory for work in %s!\n", __func__);
+		return TEEI_WORK_DONE;
+	}
+
+	INIT_LIST_HEAD(&(work_ent->c_link));
+
+	work_ent->bdrv_work_type = TEEI_LOAD_IMG_TYPE;
+
+	teei_add_to_bdrv_link(&(work_ent->c_link));
+
+	teei_notify_bdrv_fn();
+
+	return TEEI_WORK_DONE;
+}
+
+
+static int ut_smc_handler(void)
 {
 	int irq_id = 0;
 	int retVal = 0;
-	struct tz_driver_state *s = get_tz_drv_state();
 
 	/* Get the interrupt ID */
 	irq_id = teei_secure_call(N_GET_NON_IRQ_NUM, 0, 0, 0);
@@ -249,31 +213,57 @@ static irqreturn_t ut_drv_irq_handler(int irq, void *dev)
 	case SCHED_IRQ:
 		retVal = nt_sched_irq_handler();
 		break;
+	case LOAD_IMG_IRQ:
+		retVal = nt_load_img_handler();
+		break;
 	case SWITCH_IRQ:
 		retVal = nt_switch_irq_handler();
-		break;
-	case BDRV_IRQ:
-		retVal = nt_bdrv_handler();
-		break;
-	case TEEI_LOG_IRQ:
-		retVal = -EINVAL;
-		IMSG_ERROR("tlog not support\n");
-		break;
-	case FP_ACK_IRQ:
-		retVal = nt_fp_ack_handler();
 		break;
 	case SOTER_ERROR_IRQ:
 		retVal = nt_error_irq_handler();
 		break;
 	case BOOT_IRQ:
+		switch_output_index = (switch_output_index + 1) % 10000;
 		retVal = nt_boot_irq_handler();
 		break;
 	default:
-		retVal = -EINVAL;
+		retVal = TEEI_UNKNOWN_WORK;
 		IMSG_ERROR("get undefine IRQ from secure OS!\n");
 	}
 
 	return retVal;
+}
+
+int teei_smc(unsigned long long smc_id, unsigned long long p1,
+		unsigned long long p2, unsigned long long p3)
+{
+	unsigned long long smc_type = 2;
+	int retVal = 0;
+
+	smc_type = teei_secure_call(smc_id, p1, p2, p3);
+	while (1) {
+		if (smc_type == SMC_CALL_INTERRUPTED_IRQ)
+			smc_type = teei_secure_call(NT_SCHED_T, 0, 0, 0);
+		else {
+			retVal = ut_smc_handler();
+			if (retVal == TEEI_BACK_SW) {
+				smc_type = teei_secure_call(
+						NT_SCHED_T, 0, 0, 0);
+				continue;
+			} else if (retVal == TEEI_WORK_DONE)
+				break;
+
+			IMSG_ERROR("ut_smc_handler return %d!\n", retVal);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static irqreturn_t ut_drv_irq_handler(int irq, void *dev)
+{
+	return IRQ_HANDLED;
 }
 
 int register_ut_irq_handler(int irq)
@@ -281,3 +271,5 @@ int register_ut_irq_handler(int irq)
 	return request_irq(irq, ut_drv_irq_handler,
 				0, "tz_drivers_service", NULL);
 }
+
+

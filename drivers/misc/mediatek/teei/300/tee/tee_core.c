@@ -28,6 +28,7 @@
 #include <imsg_log.h>
 #include "tee_private.h"
 #include "capi_proxy.h"
+#include "teei_id.h"
 
 #define TEE_NUM_DEVICES	32
 
@@ -175,6 +176,12 @@ static inline void flush_shm_dcache(void *start, size_t len)
 #endif
 }
 
+static inline void invalid_shm_dcache(void *start, size_t len)
+{
+	__Invalidate_Dcache_By_Area((unsigned long)start,
+					(unsigned long)(start + len));
+}
+
 static int tee_ioctl_shm_kern_op(struct tee_context *ctx,
 			       struct tee_ioctl_shm_kern_op_arg __user *udata)
 {
@@ -197,6 +204,9 @@ static int tee_ioctl_shm_kern_op(struct tee_context *ctx,
 		break;
 	case TEE_IOCTL_SHM_KERN_OP_FLUSH_CACHE:
 		flush_shm_dcache(shm->kaddr, shm->size);
+		break;
+	case TEE_IOCTL_SHM_KERN_OP_INVALID_CACHE:
+		invalid_shm_dcache(shm->kaddr, shm->size);
 		break;
 	default:
 		ret = -EINVAL;
@@ -766,7 +776,7 @@ struct tee_device *tee_device_alloc(const struct tee_desc *teedesc,
 		goto err;
 	}
 
-	snprintf(teedev->name, sizeof(teedev->name), "tee%s%d",
+	snprintf(teedev->name, sizeof(teedev->name), "isee_tee%s%d",
 		 teedesc->flags & TEE_DESC_PRIVILEGED ? "priv" : "",
 		 teedev->id - offs);
 
@@ -1051,13 +1061,13 @@ static int __init tee_init(void)
 {
 	int rc;
 
-	tee_class = class_create(THIS_MODULE, "tee");
+	tee_class = class_create(THIS_MODULE, "isee_tee");
 	if (IS_ERR(tee_class)) {
 		IMSG_ERROR("couldn't create class\n");
 		return PTR_ERR(tee_class);
 	}
 
-	rc = alloc_chrdev_region(&tee_devt, 0, TEE_NUM_DEVICES, "tee");
+	rc = alloc_chrdev_region(&tee_devt, 0, TEE_NUM_DEVICES, "isee_tee");
 	if (rc) {
 		IMSG_ERROR("failed to allocate char dev region\n");
 		class_destroy(tee_class);

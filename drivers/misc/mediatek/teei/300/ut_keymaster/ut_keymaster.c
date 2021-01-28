@@ -29,8 +29,8 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <teei_ioc.h>
+#include <utdriver_macro.h>
 #include "../tz_driver/include/teei_id.h"
-#include "../tz_driver/include/tz_service.h"
 #include "../tz_driver/include/nt_smc_call.h"
 #include "../tz_driver/include/teei_keymaster.h"
 #include "../tz_driver/include/teei_client_main.h"
@@ -78,38 +78,19 @@ static long keymaster_ioctl(struct file *filp,
 {
 
 	down(&keymaster_api_lock);
+
 	switch (cmd) {
 
 	case CMD_KM_MEM_CLEAR:
 		IMSG_DEBUG("microtrust keymaster mem clear.\n");
 		break;
 	case CMD_KM_MEM_SEND:
-		if (!keymaster_buff_addr) {
-			IMSG_ERROR("keymaster fp_buiff_addr is invalid!.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-		memset((void *)keymaster_buff_addr, 0, KEYMASTER_SIZE);
-
-		if (copy_from_user((void *)keymaster_buff_addr, (void *)arg,
-			KEYMASTER_SIZE)) {
-			IMSG_ERROR("keymaster copy from user failed.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-		if (send_keymaster_command((void *)keymaster_buff_addr,
+		if (send_keymaster_command((void *)arg,
 		KEYMASTER_SIZE)) {
 			IMSG_ERROR("keymaster transfer_data failed.\n");
 			up(&keymaster_api_lock);
 			return -EFAULT;
 		}
-		if (copy_to_user((void *)arg,
-			(void *)keymaster_buff_addr, KEYMASTER_SIZE)) {
-			IMSG_ERROR("keymaster copy from user failed.\n");
-			up(&keymaster_api_lock);
-			return -EFAULT;
-		}
-
 		break;
 	case CMD_KM_NOTIFY_UTD:
 		complete(&boot_decryto_lock);

@@ -105,6 +105,7 @@ static inline void Flush_Dcache_By_Area(unsigned long start, unsigned long end)
 
 
 }
+
 /******************************************************************
  * @brief:
  *     Invalidate_Dcache_By_Area

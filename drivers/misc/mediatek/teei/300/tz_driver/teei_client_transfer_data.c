@@ -16,6 +16,7 @@
 #define IMSG_TAG "[tz_driver]"
 #include <imsg_log.h>
 #include <linux/string.h>
+#include <linux/uaccess.h>
 
 int ut_pf_gp_initialize_context(struct TEEC_Context *context)
 {
@@ -56,7 +57,8 @@ int ut_pf_gp_transfer_data(struct TEEC_Context *context, struct TEEC_UUID *uuid,
 	result = TEEC_OpenSession(context, &session, uuid, TEEC_LOGIN_PUBLIC,
 			NULL, NULL, &returnOrigin);
 	if (result != TEEC_SUCCESS) {
-		IMSG_ERROR("Failed to open session,err: %x", result);
+		IMSG_ERROR("Failed to open session:%x size = %lu\n",
+					result, size);
 		goto release_1;
 	}
 
@@ -65,7 +67,8 @@ int ut_pf_gp_transfer_data(struct TEEC_Context *context, struct TEEC_UUID *uuid,
 	sharedmem.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
 	result = TEEC_RegisterSharedMemory(context, &sharedmem);
 	if (result != TEEC_SUCCESS) {
-		IMSG_ERROR("Failed to register shared memory,err: %x", result);
+		IMSG_ERROR("Failed to register %d shared memory,err: %x",
+		(unsigned int)size, result);
 		goto release_2;
 	}
 	memset(&operation, 0x00, sizeof(operation));
@@ -82,10 +85,65 @@ int ut_pf_gp_transfer_data(struct TEEC_Context *context, struct TEEC_UUID *uuid,
 	}
 
 release_3:
-		TEEC_ReleaseSharedMemory(&sharedmem);
+	TEEC_ReleaseSharedMemory(&sharedmem);
 release_2:
-		TEEC_CloseSession(&session);
+	TEEC_CloseSession(&session);
 release_1:
 	return result;
 }
 
+
+int ut_pf_gp_transfer_user_data(struct TEEC_Context *context,
+	struct TEEC_UUID *uuid,
+	unsigned int command, void *buffer, unsigned long size)
+{
+	struct TEEC_Session session;
+	struct TEEC_Operation operation;
+	struct TEEC_SharedMemory sharedmem;
+	TEEC_Result result;
+	uint32_t returnOrigin = 0;
+
+	if (NULL == context || NULL == uuid || NULL == buffer || size < 1)
+		return -1;
+
+	memset(&session, 0, sizeof(session));
+	result = TEEC_OpenSession(context, &session, uuid, TEEC_LOGIN_PUBLIC,
+			NULL, NULL, &returnOrigin);
+	if (result != TEEC_SUCCESS) {
+		IMSG_ERROR("Failed to open session,err: %x", result);
+		goto release_1;
+	}
+
+	sharedmem.size = size;
+	sharedmem.flags = TEEC_MEM_INPUT | TEEC_MEM_OUTPUT;
+	result = TEEC_AllocateSharedMemory(context, &sharedmem);
+	if (result != TEEC_SUCCESS) {
+		IMSG_ERROR("Failed to alloc %d shared memory,err: %x",
+		(unsigned int)size, result);
+		goto release_2;
+	}
+
+	copy_from_user((void *)sharedmem.buffer, buffer, size);
+
+	memset(&operation, 0x00, sizeof(operation));
+	operation.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT,
+				TEEC_NONE, TEEC_NONE, TEEC_NONE);
+	operation.started = 1;
+	operation.params[0].memref.parent = &sharedmem;
+	operation.params[0].memref.offset = 0;
+	operation.params[0].memref.size = sharedmem.size;
+	result = TEEC_InvokeCommand(&session, command, &operation, NULL);
+	if (result != TEEC_SUCCESS) {
+		IMSG_ERROR("Failed to invoke command,err: %x", result);
+		goto release_3;
+	}
+
+	copy_to_user(buffer, (void *)sharedmem.buffer, size);
+
+release_3:
+	TEEC_ReleaseSharedMemory(&sharedmem);
+release_2:
+	TEEC_CloseSession(&session);
+release_1:
+	return result;
+}

@@ -18,25 +18,6 @@
 #include <imsg_log.h>
 #include <linux/vmalloc.h>
 
-unsigned long fp_buff_addr;
-
-unsigned long create_fp_fdrv(int buff_size)
-{
-	unsigned long addr = 0;
-
-	if (buff_size < 1) {
-		IMSG_ERROR("Wrong buffer size %d:", buff_size);
-		return 0;
-	}
-	addr = (unsigned long) vmalloc(buff_size);
-	if (addr == 0) {
-		IMSG_ERROR("kmalloc buffer failed");
-		return 0;
-	}
-	memset((void *)addr, 0, buff_size);
-	return addr;
-}
-
 static struct TEEC_Context context;
 static int context_initialized;
 struct TEEC_UUID uuid_fp = { 0x7778c03f, 0xc30c, 0x4dd0,
@@ -60,7 +41,7 @@ int send_fp_command(void *buffer, unsigned long size)
 		}
 		context_initialized = 1;
 	}
-	ret = ut_pf_gp_transfer_data(&context, &uuid_fp, 1, buffer, size);
+	ret = ut_pf_gp_transfer_user_data(&context, &uuid_fp, 1, buffer, size);
 	if (ret) {
 		IMSG_ERROR("Failed to transfer data,err: %x", ret);
 		goto release_2;
