@@ -561,15 +561,15 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	selected_idx = cap->selected_cap_idx;
 	idx = selected_idx;
 
+	if (idx < 0 || idx >= PD_CAP_MAX_NR)
+		idx = selected_idx = 0;
+
 	pd_err("idx:%d %d %d %d %d %d\n", idx,
 		cap->max_mv[idx],
 		cap->ma[idx],
 		cap->maxwatt[idx],
 		pd->ibus_err,
 		ibus);
-
-	if (idx < 0 || idx >= PD_CAP_MAX_NR)
-		idx = selected_idx = 0;
 
 	pd_max_watt = cap->max_mv[idx] * (cap->ma[idx]
 			/ 100 * (100 - pd->ibus_err) - 100);
