@@ -630,7 +630,7 @@ static int mtu3_probe(struct platform_device *pdev)
 #ifdef CONFIG_MTK_BOOT
 	if (get_boot_mode() == META_BOOT) {
 		dev_info(dev, "in special mode %d\n", get_boot_mode());
-		/*mtu3_cable_mode = CABLE_MODE_FORCEON;*/
+		mtu3_cable_mode = CABLE_MODE_FORCEON;
 	}
 #endif
 
