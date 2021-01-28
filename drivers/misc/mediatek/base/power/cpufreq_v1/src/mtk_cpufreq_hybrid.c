@@ -851,11 +851,12 @@ int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 void __init cpuhvfs_pvt_tbl_create(void)
 {
 	int i;
-	unsigned int lv = _mt_cpufreq_get_cpu_level();
+	unsigned int lv = CPU_LEVEL_0;
 #ifdef CCI_MAP_TBL_SUPPORT
 	int j;
 #endif
 
+	lv = _mt_cpufreq_get_cpu_level();
 	recordRef = ioremap_nocache(DBG_REPO_TBL_S, PVT_TBL_SIZE);
 	tag_pr_info("DVFS - @(Record)%s----->(%p)\n", __func__, recordRef);
 	memset_io((u8 *)recordRef, 0x00, PVT_TBL_SIZE);
