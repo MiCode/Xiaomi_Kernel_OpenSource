@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2018-2019 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2020 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -563,7 +563,7 @@ void kbase_hwcnt_gpu_enable_map_to_physical(
 {
 	const struct kbase_hwcnt_metadata *metadata;
 
-	u64 jm_bm = 0;
+	u64 fe_bm = 0;
 	u64 shader_bm = 0;
 	u64 tiler_bm = 0;
 	u64 mmu_l2_bm = 0;
@@ -601,7 +601,7 @@ void kbase_hwcnt_gpu_enable_map_to_physical(
 				mmu_l2_bm |= *blk_map;
 				break;
 			case KBASE_HWCNT_GPU_V4_BLOCK_TYPE_JM:
-				jm_bm |= *blk_map;
+				fe_bm |= *blk_map;
 				break;
 			case KBASE_HWCNT_GPU_V4_BLOCK_TYPE_RESERVED:
 				break;
@@ -613,7 +613,7 @@ void kbase_hwcnt_gpu_enable_map_to_physical(
 			WARN_ON(blk_val_cnt != KBASE_HWCNT_V5_VALUES_PER_BLOCK);
 			switch ((enum kbase_hwcnt_gpu_v5_block_type)blk_type) {
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_JM:
-				jm_bm |= *blk_map;
+				fe_bm |= *blk_map;
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER:
 				tiler_bm |= *blk_map;
@@ -635,8 +635,8 @@ void kbase_hwcnt_gpu_enable_map_to_physical(
 		}
 	}
 
-	dst->jm_bm =
-		kbasep_hwcnt_backend_gpu_block_map_to_physical(jm_bm, 0);
+	dst->fe_bm =
+		kbasep_hwcnt_backend_gpu_block_map_to_physical(fe_bm, 0);
 	dst->shader_bm =
 		kbasep_hwcnt_backend_gpu_block_map_to_physical(shader_bm, 0);
 	dst->tiler_bm =
@@ -653,7 +653,7 @@ void kbase_hwcnt_gpu_enable_map_from_physical(
 	const struct kbase_hwcnt_metadata *metadata;
 
 	u64 ignored_hi;
-	u64 jm_bm;
+	u64 fe_bm;
 	u64 shader_bm;
 	u64 tiler_bm;
 	u64 mmu_l2_bm;
@@ -665,7 +665,7 @@ void kbase_hwcnt_gpu_enable_map_from_physical(
 	metadata = dst->metadata;
 
 	kbasep_hwcnt_backend_gpu_block_map_from_physical(
-		src->jm_bm, &jm_bm, &ignored_hi);
+		src->fe_bm, &fe_bm, &ignored_hi);
 	kbasep_hwcnt_backend_gpu_block_map_from_physical(
 		src->shader_bm, &shader_bm, &ignored_hi);
 	kbasep_hwcnt_backend_gpu_block_map_from_physical(
@@ -698,7 +698,7 @@ void kbase_hwcnt_gpu_enable_map_from_physical(
 				*blk_map = mmu_l2_bm;
 				break;
 			case KBASE_HWCNT_GPU_V4_BLOCK_TYPE_JM:
-				*blk_map = jm_bm;
+				*blk_map = fe_bm;
 				break;
 			case KBASE_HWCNT_GPU_V4_BLOCK_TYPE_RESERVED:
 				break;
@@ -710,7 +710,7 @@ void kbase_hwcnt_gpu_enable_map_from_physical(
 			WARN_ON(blk_val_cnt != KBASE_HWCNT_V5_VALUES_PER_BLOCK);
 			switch ((enum kbase_hwcnt_gpu_v5_block_type)blk_type) {
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_JM:
-				*blk_map = jm_bm;
+				*blk_map = fe_bm;
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER:
 				*blk_map = tiler_bm;

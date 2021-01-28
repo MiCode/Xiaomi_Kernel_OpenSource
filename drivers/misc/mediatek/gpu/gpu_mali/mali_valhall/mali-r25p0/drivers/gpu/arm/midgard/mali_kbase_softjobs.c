@@ -1093,11 +1093,16 @@ static int kbase_jit_allocate_process(struct kbase_jd_atom *katom)
 
 #if MALI_JIT_PRESSURE_LIMIT
 	/**
-	 * If this is the only JIT_ALLOC atom in-flight then allow it to exceed
-	 * the defined pressure limit.
+	 * If this is the only JIT_ALLOC atom in-flight or if JIT pressure limit
+	 * is disabled at the context scope, then bypass JIT pressure limit
+	 * logic in kbase_jit_allocate().
 	 */
-	if (kctx->jit_current_allocations == 0)
+	if (!kbase_ctx_flag(kctx, KCTX_JPL_ENABLED)
+		|| (kctx->jit_current_allocations == 0)) {
 		ignore_pressure_limit = true;
+	}
+#else
+	ignore_pressure_limit = true;
 #endif /* MALI_JIT_PRESSURE_LIMIT */
 
 	for (i = 0, info = katom->softjob_data; i < count; i++, info++) {
