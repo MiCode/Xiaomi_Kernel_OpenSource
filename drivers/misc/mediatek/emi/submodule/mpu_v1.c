@@ -67,6 +67,16 @@ static const char *id2name(unsigned int axi_id, unsigned int port_id)
 	return (char *)UNKNOWN_MASTER;
 }
 
+static unsigned int emi_mpu_read_protection(
+	unsigned int reg_type, unsigned int region, unsigned int dgroup)
+{
+	struct arm_smccc_res smc_res;
+
+	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_READ,
+		reg_type, region, dgroup, 0, 0, 0, &smc_res);
+	return (unsigned int)smc_res.a0;
+}
+
 static void clear_violation(void)
 {
 	unsigned int mpus, mput, i;
@@ -217,6 +227,61 @@ int emi_mpu_set_protection(struct emi_region_info_t *region_info)
 }
 EXPORT_SYMBOL(emi_mpu_set_protection);
 
+int emi_mpu_set_single_permission(unsigned int region,
+				  unsigned int domain,
+				  unsigned int permission)
+{
+	struct arm_smccc_res smc_res;
+	unsigned int old_apc, new_apc;
+	unsigned long long start, end;
+	int i;
+
+	if (region >= EMI_MPU_REGION_NUM) {
+		pr_debug("[EMI] wrong region %d when calling %s\n",
+		       region, __func__);
+		return -1;
+	}
+
+	if (domain >= EMI_MPU_DOMAIN_NUM) {
+		pr_debug("[EMI] wrong domain %d when calling %s\n",
+		       domain, __func__);
+		return -1;
+	}
+
+	for (i = 0; i < EMI_MPU_DGROUP_NUM; i++) {
+		unsigned int index = domain % 8;
+
+		if ((domain / 8) == i) {
+			old_apc = emi_mpu_read_protection(
+				MTK_EMIMPU_READ_APC, region, i);
+			old_apc &= ~(0x7 << (3 * index));
+			new_apc = old_apc | (permission << (3 * index));
+
+			start = (unsigned long long)emi_mpu_read_protection(
+				MTK_EMIMPU_READ_SA, region, 0) & 0xffffff;
+
+			end = (unsigned long long)emi_mpu_read_protection(
+				MTK_EMIMPU_READ_EA, region, 0) & 0xffffff;
+
+			start = (start << EMI_MPU_ALIGN_BITS) + DRAM_OFFSET;
+			start = start >> EMI_MPU_ALIGN_BITS;
+
+			end = (end << EMI_MPU_ALIGN_BITS) + DRAM_OFFSET;
+			end = end >> EMI_MPU_ALIGN_BITS;
+
+			arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_SET,
+				(region << 24) | start, (i << 24) | end,
+				new_apc, 0, 0, 0, &smc_res);
+		} else {
+			pr_debug("[EMI] don't need to set apc\n");
+			continue;
+		}
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(emi_mpu_set_single_permission);
+
 int emi_mpu_clear_protection(struct emi_region_info_t *region_info)
 {
 	struct arm_smccc_res smc_res;
@@ -231,16 +296,6 @@ int emi_mpu_clear_protection(struct emi_region_info_t *region_info)
 		region_info->region, 0, 0, 0, 0, 0, &smc_res);
 
 	return 0;
-}
-
-static unsigned int emi_mpu_read_protection(
-	unsigned int reg_type, unsigned int region, unsigned int dgroup)
-{
-	struct arm_smccc_res smc_res;
-
-	arm_smccc_smc(MTK_SIP_EMIMPU_CONTROL, MTK_EMIMPU_READ,
-		reg_type, region, dgroup, 0, 0, 0, &smc_res);
-	return (unsigned int)smc_res.a0;
 }
 
 static ssize_t mpu_config_show(struct device_driver *driver, char *buf)

@@ -76,6 +76,9 @@ extern int bypass_violation(unsigned int mpus, unsigned int *init_flag);
 extern int is_md_master(unsigned int master_id, unsigned int domain_id);
 extern void set_ap_region_permission(unsigned int apc[EMI_MPU_DGROUP_NUM]);
 extern int emi_mpu_set_protection(struct emi_region_info_t *region_info);
+extern int emi_mpu_set_single_permission(unsigned int region,
+					 unsigned int domain,
+					 unsigned int permission);
 extern void clear_md_violation(void);
 
 #endif /* __MPU_H__ */
