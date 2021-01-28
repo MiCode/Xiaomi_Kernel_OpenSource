@@ -13,7 +13,7 @@
 
 #ifndef __MTK_IDLE_INTERNAL_H__
 #define __MTK_IDLE_INTERNAL_H__
-#include "mtk_idle_mcdi.h"
+#include "mtk_idle.h"
 
 /*
  * Chip specific declaratinos
