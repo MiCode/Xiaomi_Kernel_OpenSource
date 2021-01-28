@@ -114,6 +114,8 @@ static int pm_callback_power_on_nolock(struct kbase_device *kbdev)
 
 	mt_gpufreq_set_timestamp();
 
+	mt_gpufreq_set_gpm();
+
 	/* set a flag to enable GPU DVFS */
 	mtk_set_vgpu_power_on_flag(MTK_VGPU_POWER_ON);
 

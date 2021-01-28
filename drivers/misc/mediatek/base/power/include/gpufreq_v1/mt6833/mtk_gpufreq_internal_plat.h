@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,27 +54,31 @@
  * PMIC Setting
  **************************************************/
 /* PMIC hardware range:
- * vgpu      0.3 ~ 1.19375 V
- * vsram_gpu 0.5 ~ 1.29375 V
+ * vgpu      0.4 ~ 1.19300 V
+ * vsram_gpu 0.5 ~ 1.29300 V
  */
-#define VGPU_MAX_VOLT                   (119375)        /* mV x 100 */
-#define VGPU_MIN_VOLT                   (30000)         /* mV x 100 */
-#define VSRAM_GPU_MAX_VOLT              (129375)        /* mV x 100 */
+#define VGPU_MAX_VOLT                   (119300)        /* mV x 100 */
+#define VGPU_MIN_VOLT                   (40000)         /* mV x 100 */
+#define VSRAM_GPU_MAX_VOLT              (129300)        /* mV x 100 */
 #define VSRAM_GPU_MIN_VOLT              (50000)         /* mV x 100 */
 #define PMIC_STEP                       (625)           /* mV x 100 */
 /*
- * (-100)mv <= (VSRAM - VGPU) <= (300)mV
+ * (0)mv <= (VSRAM - VGPU) <= (200)mV
  */
-#define BUCK_DIFF_MAX                   (30000)         /* mV x 100 */
-#define BUCK_DIFF_MIN                   (-10000)        /* mV x 100 */
+#define BUCK_DIFF_MAX                   (20000)         /* mV x 100 */
+#define BUCK_DIFF_MIN                   (0)             /* mV x 100 */
 
 /**************************************************
  * Clock Setting
  **************************************************/
+#define POSDIV_2_MAX_FREQ               (1900000)       /* KHz */
+#define POSDIV_2_MIN_FREQ               (750000)        /* KHz */
 #define POSDIV_4_MAX_FREQ               (950000)        /* KHz */
 #define POSDIV_4_MIN_FREQ               (375000)        /* KHz */
 #define POSDIV_8_MAX_FREQ               (475000)        /* KHz */
 #define POSDIV_8_MIN_FREQ               (187500)        /* KHz */
+#define POSDIV_16_MAX_FREQ              (237500)        /* KHz */
+#define POSDIV_16_MIN_FREQ              (125000)        /* KHz */
 #define POSDIV_SHIFT                    (24)            /* bit */
 #define DDS_SHIFT                       (14)            /* bit */
 #define TO_MHZ_HEAD                     (100)
@@ -82,7 +86,10 @@
 #define ROUNDING_VALUE                  (5)
 #define MFGPLL_FIN                      (26)            /* MHz */
 #define MFGPLL_FH_PLL                   FH_PLL6
-#define MFGPLL_CON1                     (g_apmixed_base + 0x026C)
+#define MFGPLL_CON0                     (g_apmixed_base + 0x268)
+#define MFGPLL_CON1                     (g_apmixed_base + 0x26C)
+#define MFGPLL_CON2                     (g_apmixed_base + 0x270)
+#define MFGPLL_CON3                     (g_apmixed_base + 0x274)
 
 /**************************************************
  * Reference Power Setting
@@ -95,7 +102,7 @@
 /**************************************************
  * Battery Over Current Protect
  **************************************************/
-#define MT_GPUFREQ_BATT_OC_PROTECT              1
+#define MT_GPUFREQ_BATT_OC_PROTECT              0
 #define MT_GPUFREQ_BATT_OC_LIMIT_FREQ           (485000)        /* KHz */
 
 /**************************************************
@@ -107,7 +114,7 @@
 /**************************************************
  * Low Battery Volume Protect
  **************************************************/
-#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        1
+#define MT_GPUFREQ_LOW_BATT_VOLT_PROTECT        0
 #define MT_GPUFREQ_LOW_BATT_VOLT_LIMIT_FREQ     (485000)        /* KHz */
 
 /**************************************************
@@ -299,9 +306,6 @@ struct g_clk_info {
 	struct clk *mtcmos_mfg1;
 	struct clk *mtcmos_mfg2;
 	struct clk *mtcmos_mfg3;
-	struct clk *mtcmos_mfg4;
-	struct clk *mtcmos_mfg5;
-	struct clk *mtcmos_mfg6;
 };
 struct g_pmic_info {
 	struct regulator *reg_vgpu;

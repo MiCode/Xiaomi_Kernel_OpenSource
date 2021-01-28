@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,10 +18,10 @@
 #include <linux/clk.h>
 #include "mtk_ram_console.h"
 
-#define MT_GPUFREQ_BRINGUP                      0
-#define MT_GPUFREQ_KICKER_PBM_READY             1
-#define MT_GPUFREQ_STATIC_PWR_READY2USE         1
-#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   1
+#define MT_GPUFREQ_BRINGUP                      1
+#define MT_GPUFREQ_KICKER_PBM_READY             0
+#define MT_GPUFREQ_STATIC_PWR_READY2USE         0
+#define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE   0
 
 #define GPUFERQ_TAG	"[GPU/DVFS] "
 #define gpufreq_pr_info(fmt, args...)	pr_info(GPUFERQ_TAG fmt, ##args)
@@ -65,8 +65,7 @@ do {							\
 
 #define MFG2_SHADER_STACK0         (T0C0)
 #define MFG3_SHADER_STACK2         (T2C0)
-#define MFG5_SHADER_STACK4         (T4C0)
-#define MT_GPU_SHADER_PRESENT_3    (T0C0 | T2C0 | T4C0)
+#define MT_GPU_SHADER_PRESENT_2    (T0C0 | T2C0)
 
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
@@ -153,6 +152,7 @@ extern void mt_gpufreq_set_loading(unsigned int gpu_loading); /* legacy */
 extern void mt_gpufreq_power_control(enum mt_power_state, enum mt_cg_state,
 		enum mt_mtcmos_state, enum mt_buck_state);
 extern void mt_gpufreq_set_timestamp(void);
+extern void mt_gpufreq_set_gpm(void);
 extern void mt_gpufreq_check_bus_idle(void);
 extern unsigned int mt_gpufreq_get_shader_present(void);
 extern void mt_gpufreq_dump_infra_status(void);

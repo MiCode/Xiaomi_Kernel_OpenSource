@@ -10,6 +10,15 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
+
+# SW ReadyGo, need to include mt6833/ prior to mt6853/ if mt6833/ exists
+ifeq ($(CONFIG_MACH_MT6833),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/mt6833/inc/mach/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include/mach/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/mt6833/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/dbgtop/mt6833/
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/gpufreq_v1/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/leakage_table_v2/
