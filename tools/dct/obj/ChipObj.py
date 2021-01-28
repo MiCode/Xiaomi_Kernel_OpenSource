@@ -11,32 +11,41 @@ import collections
 import xml.dom.minidom
 
 from GpioObj import GpioObj
-from GpioObj import GpioObj_whitney
+from GpioObj import GpioObj_MT6799
 from GpioObj import GpioObj_MT6759
 from GpioObj import GpioObj_MT6739
 from GpioObj import GpioObj_MT6771
 from GpioObj import GpioObj_MT6763
 from GpioObj import GpioObj_MT6768
 from GpioObj import GpioObj_MT6785
+
 from EintObj import EintObj
 from EintObj import EintObj_MT6750S
 from EintObj import EintObj_MT6739
+from EintObj import EintObj_MT6885
+from EintObj import EintObj_MT6853
+
 from AdcObj import AdcObj
 from AdcObj import AdcObj_MT6785
+
 from ClkObj import ClkObj
-from ClkObj import ClkObj_Everest
-from ClkObj import ClkObj_Olympus
-from ClkObj import ClkObj_Rushmore
+from ClkObj import ClkObj_MT6797
+from ClkObj import ClkObj_MT6757
+from ClkObj import ClkObj_MT6570
 from ClkObj import ClkObj_MT6779
+
 from I2cObj import I2cObj
 from I2cObj import I2cObj_MT6759
 from I2cObj import I2cObj_MT6775
+
 from PmicObj import PmicObj
 from PmicObj import PmicObj_MT6758
+
 from Md1EintObj import Md1EintObj
 from Md1EintObj import Md1EintObj_MT6739
 from PowerObj import PowerObj
 from KpdObj import KpdObj
+from RfioObj import RfioObj
 from ModuleObj import ModuleObj
 
 from utility.util import log
@@ -51,7 +60,8 @@ para_map = {'adc':['adc_h', 'adc_dtsi'],\
             'md1_eint':['md1_eint_h', 'md1_eint_dtsi'],\
             'kpd':['kpd_h', 'kpd_dtsi'],\
             'pmic':['pmic_drv_h', 'pmic_drv_c', 'pmic_h', 'pmic_c', 'pmic_dtsi'],\
-            'power':['power_h']}
+            'power':['power_h'],\
+            'rfio':['digrf_io_cfgtable.c']}
 
 class ChipObj:
     def __init__(self, path, dest):
@@ -74,6 +84,10 @@ class ChipObj:
         self.__objs["pmic"] = PmicObj()
         self.__objs["power"] = PowerObj()
         self.__objs["kpd"] = KpdObj()
+
+        path = os.path.join(sys.path[0], 'config', 'RFIO.cmp')
+        if os.path.exists(path):
+            self.__objs['rfio'] = RfioObj()
 
     def replace_obj(self, tag, obj):
         if not tag in self.__objs.keys():
@@ -232,7 +246,7 @@ class MT6797(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'clk', ClkObj_Everest())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6797())
 
     def parse(self):
         return ChipObj.parse(self)
@@ -247,7 +261,7 @@ class MT6757(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'clk', ClkObj_Olympus())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6757())
         ChipObj.replace_obj(self, 'i2c', I2cObj_MT6759())
 
     def parse(self):
@@ -280,7 +294,7 @@ class MT6570(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'clk', ClkObj_Rushmore())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6570())
 
     def parse(self):
         return ChipObj.parse(self)
@@ -295,7 +309,7 @@ class MT6799(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'gpio', GpioObj_whitney())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6799())
         ChipObj.replace_obj(self, 'i2c', I2cObj_MT6759())
         ChipObj.refresh_eintGpioMap(self)
 
@@ -382,7 +396,7 @@ class MT6750S(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'clk', ClkObj_Olympus())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6757())
         ChipObj.replace_obj(self, 'eint', EintObj_MT6750S(ChipObj.get_gpioObj(self)))
         ChipObj.refresh_eintGpioMap(self)
 
@@ -398,7 +412,7 @@ class MT8695(ChipObj):
 
     def init_objs(self):
         ChipObj.init_objs(self)
-        ChipObj.replace_obj(self, 'gpio', GpioObj_whitney())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6799())
         ChipObj.refresh_eintGpioMap(self)
 
     def parse(self):
@@ -459,6 +473,36 @@ class MT6785(ChipObj):
         ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
         ChipObj.replace_obj(self, 'gpio', GpioObj_MT6785())
         ChipObj.replace_obj(self, 'eint', EintObj_MT6739(ChipObj.get_gpioObj(self)))
+        ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
+        ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
+        ChipObj.refresh_eintGpioMap(self)
+
+class MT6885(ChipObj):
+    def __init__(self, dws_path, gen_path):
+        ChipObj.__init__(self, dws_path, gen_path)
+
+    def init_objs(self):
+        ChipObj.init_objs(self)
+        ChipObj.replace_obj(self, 'adc', AdcObj_MT6785())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6779())
+        ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6785())
+        ChipObj.replace_obj(self, 'eint', EintObj_MT6885(ChipObj.get_gpioObj(self)))
+        ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
+        ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
+        ChipObj.refresh_eintGpioMap(self)
+
+class MT6853(ChipObj):
+    def __init__(self, dws_path, gen_path):
+        ChipObj.__init__(self, dws_path, gen_path)
+
+    def init_objs(self):
+        ChipObj.init_objs(self)
+        ChipObj.replace_obj(self, 'adc', AdcObj_MT6785())
+        ChipObj.replace_obj(self, 'clk', ClkObj_MT6779())
+        ChipObj.replace_obj(self, 'pmic', PmicObj_MT6758())
+        ChipObj.replace_obj(self, 'gpio', GpioObj_MT6785())
+        ChipObj.replace_obj(self, 'eint', EintObj_MT6853(ChipObj.get_gpioObj(self)))
         ChipObj.replace_obj(self, 'md1_eint', Md1EintObj_MT6739())
         ChipObj.replace_obj(self, "i2c", I2cObj_MT6775())
         ChipObj.refresh_eintGpioMap(self)

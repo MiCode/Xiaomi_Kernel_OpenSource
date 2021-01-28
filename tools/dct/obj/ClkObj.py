@@ -165,7 +165,7 @@ class ClkObj(ModuleObj):
         return gen_str
 
 
-class ClkObj_Everest(ClkObj):
+class ClkObj_MT6797(ClkObj):
     def __init__(self):
         ClkObj.__init__(self)
         self.__rf = 'RF'
@@ -265,7 +265,7 @@ class ClkObj_Everest(ClkObj):
 
         return gen_str
 
-class ClkObj_Olympus(ClkObj_Everest):
+class ClkObj_MT6757(ClkObj_MT6797):
 
     def __init__(self):
         ClkObj_Everest.__init__(self)
@@ -344,7 +344,7 @@ class ClkObj_Olympus(ClkObj_Everest):
 
         return gen_str
 
-class ClkObj_Rushmore(ClkObj):
+class ClkObj_MT6570(ClkObj):
 
     def __init__(self):
         ClkObj.__init__(self)

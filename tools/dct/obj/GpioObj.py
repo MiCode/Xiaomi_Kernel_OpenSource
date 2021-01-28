@@ -618,12 +618,12 @@ class GpioObj(ModuleObj):
     def fill_init_default_dtsiFile(self):
         return ''
 
-class GpioObj_whitney(GpioObj):
+class GpioObj_MT6799(GpioObj):
     def __init__(self):
         GpioObj.__init__(self)
 
     def parse(self, node):
-        log(LogLevel.info, 'GpioObj_whitney parse')
+        log(LogLevel.info, 'GpioObj_MT6799 parse')
         GpioObj.parse(self, node)
 
     def gen_files(self):
