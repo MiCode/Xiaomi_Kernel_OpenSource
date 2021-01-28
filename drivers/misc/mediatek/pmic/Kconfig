@@ -1,0 +1,6 @@
+#
+# MTK PMIC configuration
+#
+
+source "drivers/misc/mediatek/pmic/mt6370/Kconfig"
+

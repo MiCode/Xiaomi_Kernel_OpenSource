@@ -56,3 +56,6 @@ obj-$(CONFIG_MTK_CAMERA_ISP) += cameraisp/
 obj-$(CONFIG_NFC_CHIP_SUPPORT) += nfc/
 obj-y += devinfo/
 obj-$(CONFIG_MTK_M4U) += m4u/
+obj-y += pmic/
+obj-$(CONFIG_RT_REGMAP) += rt-regmap/
+obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/

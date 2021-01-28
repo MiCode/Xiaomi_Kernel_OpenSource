@@ -1,0 +1,8 @@
+config RT_FLASHLIGHT
+	bool "Richtek Flashlight Device Class"
+	help
+	  Say Y to enable Richtek Flashlight Device Class
+	  This Framework is good for
+	  controling flashlight Leds.
+	  Say N to disable Richtek Flahslight Device Class
+
