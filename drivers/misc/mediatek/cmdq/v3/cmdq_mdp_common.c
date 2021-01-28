@@ -1052,7 +1052,7 @@ static s32 cmdq_mdp_setup_sec(struct cmdqCommandStruct *desc,
 	if (!desc->secData.is_secure)
 		return 0;
 
-#ifdef CMDQ_ENG_MTEE_GROUP_BITS
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (desc->engineFlag & CMDQ_ENG_MTEE_GROUP_BITS)
 		cmdq_task_set_mtee(handle, true);
 	else
