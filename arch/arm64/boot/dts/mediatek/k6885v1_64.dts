@@ -561,7 +561,7 @@
 };
 /* CAMERA specify sensor end */
 
-#include "cust_mt6885_touch_1080x2280.dtsi"
-#include "cust_mt6885_camera.dtsi"
+#include "mediatek/cust_mt6885_touch_1080x2280.dtsi"
+#include "mediatek/cust_mt6885_camera.dtsi"
 #include <k6885v1_64/cust.dtsi>
 /*End of this file, DO NOT ADD ANYTHING HERE*/

@@ -6,7 +6,7 @@
  */
 
 /dts-v1/;
-#include "mt2712e.dtsi"
+#include "mediatek/mt2712e.dtsi"
 
 / {
 	model = "MediaTek MT2712 evaluation board";

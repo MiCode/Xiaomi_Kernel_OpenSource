@@ -620,7 +620,7 @@
 };
 
 #include <k71v1_64_bsp/cust.dtsi>
-#include "cust_mt6771_camera.dtsi"
+#include "mediatek/cust_mt6771_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
 
 

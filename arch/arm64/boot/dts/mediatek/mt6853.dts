@@ -27,8 +27,8 @@
 #include <dt-bindings/mmc/mt6853-msdc.h>
 
 #ifdef CONFIG_MFD_MT6360_PMU
-#include "mt6360.dtsi"
-#include "mt6360_pd.dtsi"
+#include "mediatek/mt6360.dtsi"
+#include "mediatek/mt6360_pd.dtsi"
 #else
 #include <dt-bindings/mfd/mt6362.h>
 #endif
@@ -1234,7 +1234,7 @@ page_owner=on";
 	};
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
-	#include "bat_setting/mt6853_battery_prop.dtsi"
+	#include "mediatek/bat_setting/mt6853_battery_prop.dtsi"
 #endif
 
 	subpmic_pmu_eint:subpmic_pmu_eint {
@@ -6158,9 +6158,9 @@ page_owner=on";
 	};
 };
 
-#include "mt6359p.dtsi"
-#include "mt6853-clkitg.dtsi"
-#include "cust_mt6853_msdc.dtsi"
+#include "mediatek/mt6359p.dtsi"
+#include "mediatek/mt6853-clkitg.dtsi"
+#include "mediatek/cust_mt6853_msdc.dtsi"
 
 &spmi_bus {
 	grpid = <11>;
@@ -6617,7 +6617,7 @@ page_owner=on";
 #endif
 };
 
-#include "mt6315_s3.dtsi"
+#include "mediatek/mt6315_s3.dtsi"
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
-#include "trusty.dtsi"
+#include "mediatek/trusty.dtsi"
 #endif

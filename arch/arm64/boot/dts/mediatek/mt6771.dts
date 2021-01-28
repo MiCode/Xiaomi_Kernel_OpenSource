@@ -2131,9 +2131,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 	#if (CONFIG_MTK_ADDITIONAL_BATTERY_TABLE == 1)
-		#include "bat_setting/mt6771_battery_prop_ext.dtsi"
+		#include "mediatek/bat_setting/mt6771_battery_prop_ext.dtsi"
 	#else
-		#include "bat_setting/mt6771_battery_prop.dtsi"
+		#include "mediatek/bat_setting/mt6771_battery_prop.dtsi"
 	#endif
 #endif
 
@@ -4312,13 +4312,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 };
 
-#include "mt6358.dtsi"
-#include "cust_mt6771_msdc.dtsi"
-#include "mt6370.dtsi"
-#include "mt6370_pd.dtsi"
+#include "mediatek/mt6358.dtsi"
+#include "mediatek/cust_mt6771_msdc.dtsi"
+#include "mediatek/mt6370.dtsi"
+#include "mediatek/mt6370_pd.dtsi"
 #ifdef CONFIG_CHARGER_RT9471
-#include "rt9471.dtsi"
+#include "mediatek/rt9471.dtsi"
 #endif
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
-#include "trusty.dtsi"
+#include "mediatek/trusty.dtsi"
 #endif
