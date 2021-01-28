@@ -299,8 +299,12 @@ void mdla_enable_clock(int core)
 	ENABLE_CLK(clk_apu_vcore_axi_cg);
 	ENABLE_CLK(clk_apu_vcore_adl_cg);
 	ENABLE_CLK(clk_apu_vcore_qos_cg);
+
+// FIXME: check if mt6885 need this code
+#if 0
 	/*move vcore cg ctl to atf*/
 	vcore_cg_ctl(1);
+#endif
 	ENABLE_CLK(clk_apu_conn_apu_cg);
 	ENABLE_CLK(clk_apu_conn_ahb_cg);
 	ENABLE_CLK(clk_apu_conn_axi_cg);

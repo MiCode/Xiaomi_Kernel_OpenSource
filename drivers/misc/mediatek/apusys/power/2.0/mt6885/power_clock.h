@@ -26,9 +26,11 @@ extern void check_vpu_clk_sts(void);
  * macro for clock management operation
  **********************************************/
 
+#if 0
 /*move vcore cg ctl to atf*/
 #define vcore_cg_ctl(poweron) \
 	mt_secure_call(MTK_APU_VCORE_CG_CTL, poweron, 0, 0, 0)
+#endif
 
 #define PREPARE_MTCMOS(clk) \
 	{ \

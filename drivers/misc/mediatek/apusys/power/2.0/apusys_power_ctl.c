@@ -113,9 +113,9 @@ uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 			}
 		}
 	}
-	  PWR_LOG_INF("%s, user=%d, boost_value=%d,
-		max_freq=%d, freq=%d, opp=%d\n",
-	  __func__, user, boost_value, max_freq, freq, opp);
+	  PWR_LOG_INF(
+		"%s, user=%d, boost_value=%d,max_freq=%d, freq=%d, opp=%d\n",
+		__func__, user, boost_value, max_freq, freq, opp);
 	return opp;
 
 }
@@ -143,8 +143,8 @@ uint8_t apusys_pwr_max_min_check(enum DVFS_USER user, uint8_t opp)
 	// upper bound for thermal
 	used_opp = MAX(used_opp, apusys_opps.thermal_opp[user]);
 
-	PWR_LOG_INF("%s, %s, used_opp=%d, thermal_opp=%d,
-		pwr_lock_min=%d, pwr_lock_max=%d\n",
+	PWR_LOG_INF(
+	"%s, %s, used_opp=%d,thermal_opp=%d,pwr_lock_min=%d,pwr_lock_max=%d\n",
 		__func__,
 		user_str[user],
 		used_opp,
@@ -384,8 +384,8 @@ void apusys_dvfs_info(void)
 		prev_opp = apusys_opps.prev_opp_index[buck_domain_index];
 		cur_opp = apusys_opps.cur_opp_index[buck_domain_index];
 
-		PWR_LOG_INF("%s, %s, opp(%d, %d),
-			freq(%d, %d), volt(%d, %d) %llu\n",
+		PWR_LOG_INF(
+			"%s, %s, opp(%d, %d),freq(%d, %d), volt(%d, %d) %llu\n",
 			__func__,
 			buck_domain_str[buck_domain_index],
 			prev_opp,
@@ -401,8 +401,8 @@ void apusys_dvfs_info(void)
 			|| buck_domain_index == V_MDLA0
 			|| buck_domain_index == V_MDLA1){
 			user = apusys_buck_domain_to_user[buck_domain_index];
-			PWR_LOG_INF("%s, %s, user_opp=%d,
-				(T=%d, Pmin=%d, Pmax=%d) %llu\n",
+			PWR_LOG_INF(
+			"%s, %s, user_opp=%d,(T=%d, Pmin=%d, Pmax=%d) %llu\n",
 				__func__,
 				buck_domain_str[buck_domain_index],
 				apusys_opps.driver_opp_index[user],
@@ -496,8 +496,11 @@ bool apusys_check_opp_change(void)
 
 void apusys_power_on(enum DVFS_USER user)
 {
+	struct hal_param_pwr_mask pwr_mask;
+
 	if (apusys_opps.is_power_on[user] == false) {
-		apusys_boot_up(user);
+		pwr_mask.power_bit_mask = apusys_opps.power_bit_mask;
+		hal_config_power(PWR_CMD_SET_BOOT_UP, user, (void *)&pwr_mask);
 		apusys_opps.power_bit_mask |= (1<<user);
 		apusys_opps.is_power_on[user] = true;
 	}
@@ -505,9 +508,13 @@ void apusys_power_on(enum DVFS_USER user)
 
 void apusys_power_off(enum DVFS_USER user)
 {
+	struct hal_param_pwr_mask pwr_mask;
+
 	if (apusys_opps.is_power_on[user] == true) {
 		apusys_opps.power_bit_mask &= (~(1<<user));
-		apusys_shut_down(user);
+		pwr_mask.power_bit_mask = apusys_opps.power_bit_mask;
+		hal_config_power(PWR_CMD_SET_SHUT_DOWN,
+					user, (void *)&pwr_mask);
 		apusys_opps.is_power_on[user] = false;
 	}
 }
