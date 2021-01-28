@@ -126,6 +126,16 @@
 		bc12_active = <0>;
 	};
 
+	mt6357_charger: mt6357_charger {
+		compatible = "mediatek,mt6357-pulse-charger";
+		charger_name = "primary_chg";
+		alias_name = "mt6357";
+		ichg = <500000>; /* uA */
+		cv = <4350000>; /* uV */
+		vcdt_hv_thres = <7000000>; /* uV */
+		vbat_ov_thres = <4450000>; /* uV */
+	};
+
 	mtk_ts_pmic: mtk_ts_pmic {
 		compatible = "mediatek,mtk_ts_pmic";
 		io-channels =
