@@ -988,6 +988,10 @@ page_owner=on";
 		reg = <0 0x10208000 0 0x1000>;
 	};
 
+	touch:touch {
+		compatible = "goodix,touch";
+	};
+
 	ap_ccif0@10209000 {
 		compatible = "mediatek,ap_ccif0";
 		reg = <0 0x10209000 0 0x1000>;
