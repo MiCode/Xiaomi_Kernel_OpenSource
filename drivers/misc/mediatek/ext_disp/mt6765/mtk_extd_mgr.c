@@ -200,7 +200,7 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd,
 		if (extd_driver[DEV_MHL]
 			&& extd_driver[DEV_MHL]->set_audio_format)
 			extd_driver[DEV_MHL]->set_audio_format(arg);
-			break;
+		break;
 	}
 	case MTK_HDMI_IS_FORCE_AWAKE:
 	{
@@ -215,7 +215,7 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd,
 		if (extd_driver[DEV_MHL]
 			&& extd_driver[DEV_MHL]->get_edid)
 			r = extd_driver[DEV_MHL]->get_edid(argp);
-			break;
+		break;
 	}
 	case MTK_HDMI_GET_CAPABILITY:
 	{
@@ -233,7 +233,7 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd,
 			&& extd_factory_driver[DEV_MHL]->factory_mode_test)
 			r = extd_factory_driver[DEV_MHL]->factory_mode_test(
 				STEP1_CHIP_INIT, NULL);
-			break;
+		break;
 	}
 	case MTK_HDMI_FACTORY_JUDGE_CALLBACK:
 	{
@@ -241,7 +241,7 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd,
 			&& extd_factory_driver[DEV_MHL]->factory_mode_test)
 			r = extd_factory_driver[DEV_MHL]->factory_mode_test(
 				STEP2_JUDGE_CALLBACK, argp);
-			break;
+		break;
 	}
 	case MTK_HDMI_FACTORY_START_DPI_AND_CONFIG:
 	{
@@ -249,7 +249,7 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd,
 			&& extd_factory_driver[DEV_MHL]->factory_mode_test)
 			r = extd_factory_driver[DEV_MHL]->factory_mode_test(
 				STEP3_START_DPI_AND_CONFIG, (void *)arg);
-			break;
+		break;
 	}
 	case MTK_HDMI_FACTORY_DPI_STOP_AND_POWER_OFF:
 	{
@@ -257,21 +257,21 @@ static long mtk_extd_mgr_ioctl(struct file *file, unsigned int cmd,
 			&& extd_factory_driver[DEV_MHL]->factory_mode_test)
 			r = extd_factory_driver[DEV_MHL]->factory_mode_test(
 				STEP4_DPI_STOP_AND_POWER_OFF, (void *)arg);
-			break;
+		break;
 	}
 	case MTK_HDMI_AUDIO_SETTING:
 	{
 		if (extd_driver[DEV_MHL]
 			&& extd_driver[DEV_MHL]->audio_setting)
 			r = extd_driver[DEV_MHL]->audio_setting(argp);
-			break;
+		break;
 	}
 	case MTK_HDMI_HDCP_KEY:
 	{
 		if (extd_driver[DEV_MHL]
 			&& extd_driver[DEV_MHL]->install_hdcpkey)
 			r = extd_driver[DEV_MHL]->install_hdcpkey(argp);
-			break;
+		break;
 	}
 	default:
 	{
