@@ -19,4 +19,11 @@ s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param);
 s32 mdp_ioctl_read_readback_slots(unsigned long param);
 void mdp_ioctl_free_readback_slots_by_node(void *fp);
 
+#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+int m4u_sec_init(void);
+#endif
+#if defined(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)
+int m4u_gz_sec_init(int mtk_iommu_sec_id);
+#endif
+
 #endif				/* __MDP_IOCTL_EX_H__ */
