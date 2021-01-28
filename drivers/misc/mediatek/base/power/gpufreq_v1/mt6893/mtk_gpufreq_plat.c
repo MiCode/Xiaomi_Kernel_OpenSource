@@ -250,6 +250,7 @@ u64 mt_gpufreq_get_shader_present(void)
 	segment_id = __mt_gpufreq_get_segment_id();
 
 	switch (segment_id) {
+	case MT6891_SEGMENT:
 	case MT6893_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_9;
 		break;
@@ -1773,25 +1774,23 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	static unsigned int segment_id = -1;
 	unsigned int efuse_id;
 
-	return MT6893_SEGMENT;
-
-	//if (segment_id != -1)
-	//	return segment_id;
+	if (segment_id != -1)
+		return segment_id;
 
 	/* spare[7:0] */
-	//efuse_id = (get_devinfo_with_index(30) & 0xFF);
+	efuse_id = (get_devinfo_with_index(30) & 0xFF);
 
-	//switch (efuse_id) {
-	//case 0x1:
-	//	segment_id = MT6883_SEGMENT;
-	//	break;
-	//case 0x4:
-	//	segment_id = MT6885_SEGMENT;
-	//	break;
-	//default:
-	//	segment_id = MT6885T_SEGMENT;
-	//	gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
-	//}
+	switch (efuse_id) {
+	case 0x10:
+		segment_id = MT6891_SEGMENT;
+		break;
+	case 0x40:
+		segment_id = MT6893_SEGMENT;
+		break;
+	default:
+		segment_id = MT6893_SEGMENT;
+		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
+	}
 
 	gpufreq_pr_info("@%s: efuse_id: 0x%x, segment_id: %d\n",
 						__func__, efuse_id, segment_id);
@@ -3086,14 +3085,10 @@ static void __mt_gpufreq_init_table(void)
 	g_segment_max_opp_idx = 0;
 
 	/* determine max_opp/min_opp... by segment */
-	//if (segment_id == MT6883_SEGMENT)
-	//	g_segment_max_opp_idx = 17; //654MHz
-	//else if (segment_id == MT6885_SEGMENT)
-	//	g_segment_max_opp_idx = 14; // 695MHz
-	//else if (segment_id == MT6885T_SEGMENT)
-	//	g_segment_max_opp_idx = 0; // 836MHz
-	//else if (segment_id == MT6885T_PLUS_SEGMENT)
-	//	g_segment_max_opp_idx = 0;
+	if (segment_id == MT6891_SEGMENT)
+		g_segment_max_opp_idx = 8; //836MHz
+	else if (segment_id == MT6893_SEGMENT)
+		g_segment_max_opp_idx = 0; // 886MHz
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
 

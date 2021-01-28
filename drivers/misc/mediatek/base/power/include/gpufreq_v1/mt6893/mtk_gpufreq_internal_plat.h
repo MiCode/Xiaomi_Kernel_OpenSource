@@ -210,7 +210,8 @@
  * Enumerations
  **************************************************/
 enum g_segment_id_enum {
-	MT6893_SEGMENT = 1,
+	MT6891_SEGMENT = 1,
+	MT6893_SEGMENT,
 };
 
 enum g_posdiv_power_enum  {
