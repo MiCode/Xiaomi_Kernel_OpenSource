@@ -490,7 +490,7 @@ int m4u_clean_pte(struct m4u_domain *domain,
 			pte_end = pte + sync_entry_nr;
 			/* do cache sync for [pte, pte_end) */
 
-#ifdef CONFIG_ARM64 //hc2
+#ifdef CONFIG_ARM64
 			__dma_flush_area((void *)pte,
 					sync_entry_nr * sizeof(*pte));
 #else

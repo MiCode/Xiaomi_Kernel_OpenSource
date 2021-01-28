@@ -22,11 +22,8 @@
 
 #include "m4u.h"
 #include "m4u_reg.h"
-#include "../2.4/m4u_pgtable.h"//hc2
-
-#ifndef M4U_MIGRATION_MT6771
+#include "../2.4/m4u_pgtable.h"
 #include <aee.h>
-#endif
 
 #define M4UMSG(string, args...)		pr_notice("[M4U][ERR] "string, ##args)
 #define M4UINFO(string, args...)	pr_debug("[M4U] "string, ##args)
@@ -41,7 +38,7 @@
 #ifdef CONFIG_FPGA_EARLY_PORTING
 #define M4U_FPGAPORTING
 #endif
-//#define M4U_PROFILE //hc1 delete
+#define M4U_PROFILE
 #define M4U_DVT 0
 
 #ifndef M4U_PROFILE
@@ -94,8 +91,7 @@ extern void show_pte(struct mm_struct *mm, unsigned long addr);
 #define disable_clock(...)
 #endif
 
-//#ifdef M4U_FPGAPORTING hc1 delate
-#if defined(M4U_FPGAPORTING) || defined(M4U_MIGRATION_MT6771)
+#ifdef M4U_FPGAPORTING
 #define smp_inner_dcache_flush_all(...)
 /* #define register_larb_monitor(...) */
 #if 0
@@ -300,13 +296,6 @@ extern int gM4U_log_to_uart;
 #define M4ULOG_MID(string, args...) _M4ULOG(M4U_LOG_LEVEL_MID, string, ##args)
 #define M4ULOG_HIGH(string, args...) _M4ULOG(M4U_LOG_LEVEL_HIGH, string, ##args)
 
-
-
-
-#ifdef M4U_MIGRATION_MT6771
-#define m4u_aee_print(...)
-#define M4UERR(...)
-#else
 #define M4UERR(string, args...) do {\
 	pr_notice("[M4U][ERR]:"string, ##args);  \
 		aee_kernel_exception("M4U", "[M4U] error:"string, ##args);  \
@@ -320,7 +309,7 @@ extern int gM4U_log_to_uart;
 		m4u_name, "[M4U] error"string, ##args); \
 	pr_notice("[M4U] error:"string, ##args);  \
 	} while (0)
-#endif
+
 /*aee_kernel_warning(m4u_name, "[M4U] error:"string,##args); */
 
 #define M4U_PRINT_LOG_OR_SEQ(seq_file, fmt, args...) \
