@@ -292,14 +292,13 @@ source "drivers/misc/mediatek/geniezone/Kconfig"
 endmenu # Security
 
 menu "Other Peripherals"
+source "drivers/misc/mediatek/extcon/Kconfig"
 source "drivers/misc/mediatek/typec/Kconfig"
 source "drivers/misc/mediatek/leds/Kconfig"
 source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 source "drivers/misc/mediatek/audio_ipi/Kconfig"
 source "drivers/misc/mediatek/adsp/Kconfig"
-
-
 
 endmenu # Other Peripheral
 
