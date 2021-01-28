@@ -635,7 +635,7 @@ static int mt6359_regulator_disable(struct regulator_dev *rdev)
 static int mt6359_regulator_get_voltage_sel(struct regulator_dev *rdev)
 {
 	struct mt6359_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->da_vsel_reg, &regval);
 	if (ret != 0) {
@@ -652,7 +652,7 @@ static int mt6359_regulator_get_voltage_sel(struct regulator_dev *rdev)
 static unsigned int mt6359_regulator_get_mode(struct regulator_dev *rdev)
 {
 	struct mt6359_regulator_info *info = rdev_get_drvdata(rdev);
-	int ret, regval;
+	int ret, regval = 0;
 
 	ret = regmap_read(rdev->regmap, info->modeset_reg, &regval);
 	if (ret != 0) {
@@ -754,7 +754,7 @@ err_mode:
 static int mt6359_get_status(struct regulator_dev *rdev)
 {
 	int ret;
-	u32 regval;
+	u32 regval = 0;
 	struct mt6359_regulator_info *info = rdev_get_drvdata(rdev);
 
 	ret = regmap_read(rdev->regmap, info->da_reg, &regval);
@@ -803,7 +803,7 @@ static int mt6359_vemc_set_voltage_sel(struct regulator_dev *rdev,
 
 static int mt6359_vemc_get_voltage_sel(struct regulator_dev *rdev)
 {
-	unsigned int val;
+	unsigned int val = 0;
 	int ret;
 
 	ret = regmap_read(rdev->regmap, PMIC_VM_MODE_ADDR, &val);
@@ -1278,7 +1278,7 @@ static int mt6359_regulator_probe(struct platform_device *pdev)
 	struct regulator_dev *rdev;
 	struct regulation_constraints *c;
 	int i;
-	u32 reg_value;
+	u32 reg_value = 0;
 
 	of_id = of_match_device(mt6359_of_match, &pdev->dev);
 	if (!of_id || !of_id->data)
