@@ -879,8 +879,8 @@ static int fps_monitor_thread(void *data)
 int primary_display_get_debug_state(char *stringbuf, int buf_len)
 {
 	int len = 0;
-	LCM_PARAMS *lcm_param = disp_lcm_get_params(pgc->plcm);
-	LCM_DRIVER *lcm_drv = pgc->plcm->drv;
+	struct LCM_PARAMS *lcm_param = disp_lcm_get_params(pgc->plcm);
+	struct LCM_DRIVER *lcm_drv = pgc->plcm->drv;
 
 	len += scnprintf(stringbuf + len, buf_len - len,
 		      "|--------------------------------------------------------------------------------------|\n");
@@ -3167,7 +3167,7 @@ void primary_display_power_control(unsigned int enable)
 int primary_display_init(char *lcm_name, unsigned int lcm_fps, int is_lcm_inited)
 {
 	enum DISP_STATUS ret = DISP_STATUS_OK;
-	LCM_PARAMS *lcm_param = NULL;
+	struct LCM_PARAMS *lcm_param = NULL;
 	int use_cmdq = disp_helper_get_option(DISP_OPT_USE_CMDQ);
 	struct disp_ddp_path_config *data_config;
 	struct ddp_io_golden_setting_arg gset_arg;
@@ -3328,7 +3328,8 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps, int is_lcm_inited
 	DISPINFO("primary_display_init->dpmgr_path_config\n");
 	DISPMSG("state 5\n");
 	data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
-	memcpy(&(data_config->dispif_config), lcm_param, sizeof(LCM_PARAMS));
+	memcpy(&(data_config->dispif_config), lcm_param,
+		sizeof(struct LCM_PARAMS));
 	data_config->dst_w = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
 	data_config->dst_h = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
 	data_config->p_golden_setting_context = get_golden_setting_pgc();
@@ -4068,7 +4069,7 @@ int primary_display_get_lcm_index(void)
 static int check_switch_lcm_mode_for_debug(void)
 {
 	static LCM_DSI_MODE_CON vdo_mode_type;
-	LCM_PARAMS *lcm_param_cv = NULL;
+	struct LCM_PARAMS *lcm_param_cv = NULL;
 
 	if (lcm_mode_status == 0)
 		return 0;
@@ -4155,7 +4156,7 @@ int primary_display_resume(void)
 	DISPDBG("[POWER]dpmanager re-init[begin]\n");
 
 	{
-		LCM_PARAMS *lcm_param;
+		struct LCM_PARAMS *lcm_param;
 		struct disp_ddp_path_config *data_config;
 
 		/* disconnect primary path first *
@@ -4179,7 +4180,8 @@ int primary_display_resume(void)
 		lcm_param = disp_lcm_get_params(pgc->plcm);
 
 		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
-		memcpy(&(data_config->dispif_config), lcm_param, sizeof(LCM_PARAMS));
+		memcpy(&(data_config->dispif_config), lcm_param,
+			sizeof(struct LCM_PARAMS));
 
 		data_config->dst_w = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
 		data_config->dst_h = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
@@ -5967,7 +5969,7 @@ int primary_display_get_max_layer(void)
 int primary_display_get_info(struct disp_session_info *info)
 {
 	struct disp_session_info *dispif_info = (struct disp_session_info *)info;
-	LCM_PARAMS *lcm_param = disp_lcm_get_params(pgc->plcm);
+	struct LCM_PARAMS *lcm_param = disp_lcm_get_params(pgc->plcm);
 
 	if (lcm_param == NULL) {
 		DISPERR("lcm_param is null\n");
@@ -6593,7 +6595,7 @@ uint32_t DISP_GetActiveWidthUm(void)
 	return 0;
 }
 
-LCM_PARAMS *DISP_GetLcmPara(void)
+struct LCM_PARAMS *DISP_GetLcmPara(void)
 {
 	if (pgc->plcm == NULL) {
 		DISPERR("lcm handle is null\n");
@@ -6606,7 +6608,7 @@ LCM_PARAMS *DISP_GetLcmPara(void)
 		return NULL;
 }
 
-LCM_DRIVER *DISP_GetLcmDrv(void)
+struct LCM_DRIVER *DISP_GetLcmDrv(void)
 {
 	if (pgc->plcm == NULL) {
 		DISPERR("lcm handle is null\n");
@@ -7087,8 +7089,8 @@ int Panel_Master_dsi_config_entry(const char *name, void *config_value)
 	int ret = 0;
 	int force_trigger_path = 0;
 	UINT32 *config_dsi = (UINT32 *)config_value;
-	LCM_PARAMS *lcm_param = NULL;
-	LCM_DRIVER *pLcm_drv = DISP_GetLcmDrv();
+	struct LCM_PARAMS *lcm_param = NULL;
+	struct LCM_DRIVER *pLcm_drv = DISP_GetLcmDrv();
 
 	DISPFUNC();
 	if (!strcmp(name, "DRIVER_IC_RESET") || !strcmp(name, "PM_DDIC_CONFIG")) {
@@ -7319,7 +7321,7 @@ done:
 static int width_array[] = {2560, 1440, 1920, 1280, 1200, 800, 960, 640};
 static int heigh_array[] = {1440, 2560, 1200, 800, 1920, 1280, 640, 960};
 static int array_id[] = {6,   2,   7,   4,   3,    0,   5,   1};
-LCM_PARAMS *lcm_param2;
+struct LCM_PARAMS *lcm_param2;
 struct disp_ddp_path_config data_config2;
 
 int primary_display_te_test(void)
