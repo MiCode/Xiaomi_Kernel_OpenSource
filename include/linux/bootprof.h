@@ -10,7 +10,7 @@
 #ifndef _BOOTPROF_H_
 #define _BOOTPROF_H_
 
-#ifdef CONFIG_MTPROF
+#if IS_BUILTIN(CONFIG_MTPROF)
 #include <linux/platform_device.h>
 #include <linux/sched/clock.h>
 
@@ -30,7 +30,7 @@ void bootprof_probe(unsigned long long ts, struct device *dev,
 void bootprof_pdev_register(unsigned long long ts,
 			    struct platform_device *pdev);
 
-void bootprof_log_boot(char *str);
+extern void bootprof_log_boot(char *str);
 
 #else /*CONFIG_MTPROF*/
 #define BOOTPROF_TIME_LOG_START(ts)

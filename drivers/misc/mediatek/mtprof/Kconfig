@@ -1,9 +1,9 @@
 config MTPROF
-	bool "Enable MTK profiler/debugger tool"
+	tristate "Enable MTK profiler/debugger tool"
 	default n
 	help
 	  CONFIG_MTPROF define if mtk profiling/debugger tools should be
-	  built-in or not. It includes bootprof logger which is for
+	  built-in, module or not. It includes bootprof logger which is for
 	  boot time profiling. If you are not sure about whether to
 	  enable it or not, please set n.
 
