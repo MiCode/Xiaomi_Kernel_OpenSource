@@ -17,5 +17,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
 
-obj-y += mtk_gpufreq_core.o
-
+obj-$(CONFIG_MTK_GPU_SUPPORT) += mtk_gpufreq_mt6761.o
+mtk_gpufreq_mt6761-y := mtk_gpufreq_core.o

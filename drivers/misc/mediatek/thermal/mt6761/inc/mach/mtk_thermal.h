@@ -16,7 +16,7 @@
 
 #include "mt-plat/sync_write.h"
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "mtk_gpufreq.h"
 #endif
 

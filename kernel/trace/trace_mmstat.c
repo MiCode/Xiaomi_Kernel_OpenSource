@@ -164,7 +164,7 @@ static void mmstat_trace_meminfo(void)
 	meminfo[num_entries++] = global_zone_page_state(NR_KERNEL_STACK_KB);
 	meminfo[num_entries++] = P2K(global_zone_page_state(NR_PAGETABLE));
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 	/* HW memory */
 	if (mtk_get_gpu_memory_usage(&gpuuse))
 		gpuuse = B2K(gpuuse);

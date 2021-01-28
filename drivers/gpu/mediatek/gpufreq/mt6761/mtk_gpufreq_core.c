@@ -13,8 +13,6 @@
  * SECTION : Include files
  * ===============================================
  */
-
-
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -335,6 +333,7 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_target);
 
 /*
  * enable MTCMOS
@@ -365,6 +364,7 @@ void mt_gpufreq_enable_MTCMOS(bool bEnableHWAPM)
 		gpufreq_pr_debug("@%s: enable MTCMOS done\n", __func__);
 	}
 }
+EXPORT_SYMBOL(mt_gpufreq_enable_MTCMOS);
 
 /*
  * disable MTCMOS
@@ -383,6 +383,7 @@ void mt_gpufreq_disable_MTCMOS(bool bEnableHWAPM)
 
 	gpufreq_pr_debug("@%s: disable MTCMOS done\n", __func__);
 }
+EXPORT_SYMBOL(mt_gpufreq_disable_MTCMOS);
 
 /*
  * API : GPU voltage on/off setting
@@ -428,6 +429,7 @@ unsigned int mt_gpufreq_voltage_enable_set(unsigned int enable)
 
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_voltage_enable_set);
 
 /*
  * API : enable DVFS for PTPOD initializing
@@ -538,6 +540,7 @@ unsigned int mt_gpufreq_get_dvfs_table_num(void)
 {
 	return g_opp_idx_num;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_dvfs_table_num);
 
 /* API : get frequency via OPP table index */
 unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx)
@@ -551,6 +554,7 @@ unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx)
 	gpufreq_pr_debug("@%s: not found, idx = %d\n", __func__, idx);
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_freq_by_idx);
 
 /* API : get voltage via OPP table index */
 unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx)
@@ -588,10 +592,9 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 	int leak_power;
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
+	temp = 40;
 #ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	temp = get_immediate_gpu_wrap() / 1000;
-#else
-	temp = 40;
 #endif /* ifdef CONFIG_THERMAL */
 
 #ifdef MT_GPUFREQ_STATIC_PWR_READY2USE
@@ -606,6 +609,16 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 }
 
 /*
+ * API : get current segment max opp index
+ */
+unsigned int mt_gpufreq_get_seg_max_opp_index(void)
+{
+	/* As mt6761 never hidden the opp-idx 0, 0 is the max opp idx */
+	return 0;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_seg_max_opp_index);
+
+/*
  * API : get current Thermal/Power/PBM limited OPP table index
  */
 unsigned int mt_gpufreq_get_thermal_limit_index(void)
@@ -614,6 +627,7 @@ unsigned int mt_gpufreq_get_thermal_limit_index(void)
 			__func__, g_max_limited_idx);
 	return g_max_limited_idx;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_thermal_limit_index);
 
 /*
  * API : get current Thermal/Power/PBM limited OPP table frequency
@@ -636,6 +650,7 @@ unsigned int mt_gpufreq_get_cur_freq_index(void)
 		__func__, g_cur_opp_cond_idx);
 	return g_cur_opp_cond_idx;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_cur_freq_index);
 
 /*
  * API : get current OPP table frequency
@@ -691,6 +706,7 @@ int mt_gpufreq_get_cur_ceiling_idx(void)
 {
 	return (int)mt_gpufreq_get_thermal_limit_index();
 }
+EXPORT_SYMBOL(mt_gpufreq_get_cur_ceiling_idx);
 
 #ifdef MT_GPUFREQ_BATT_OC_PROTECT
 /*
@@ -1985,10 +2001,9 @@ static void __mt_update_gpufreqs_power_table(void)
 	unsigned int freq = 0;
 	unsigned int volt = 0;
 
+	temp = 40;
 #ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	temp = get_immediate_gpu_wrap() / 1000;
-#else
-	temp = 40;
 #endif /* ifdef CONFIG_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);
@@ -2208,10 +2223,9 @@ static void __mt_gpufreq_setup_opp_power_table(int num)
 	if (g_power_table == NULL)
 		return;
 
+	temp = 40;
 #ifdef MT_GPUFREQ_THERMAL_SUPPORT
 	temp = get_immediate_gpu_wrap() / 1000;
-#else
-	temp = 40;
 #endif /* ifdef CONFIG_THERMAL */
 
 	gpufreq_pr_debug("@%s: temp = %d\n", __func__, temp);

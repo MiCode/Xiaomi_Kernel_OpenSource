@@ -6,7 +6,7 @@
 #undef TRACE_SYSTEM
 #define TRACE_SYSTEM mmstat
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 extern bool mtk_get_gpu_memory_usage(unsigned int *pMemUsage);
 #endif
 

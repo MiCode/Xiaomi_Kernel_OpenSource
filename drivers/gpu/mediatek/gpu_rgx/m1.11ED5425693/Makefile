@@ -55,7 +55,7 @@ pvrsrvkm-y += \
 	generated/sync_bridge/client_sync_direct_bridge.o \
 	generated/sync_bridge/server_sync_bridge.o \
 	generated/synctracking_bridge/client_synctracking_direct_bridge.o \
-        generated/synctracking_bridge/server_synctracking_bridge.o \
+	generated/synctracking_bridge/server_synctracking_bridge.o \
 	generated/srvcore_bridge/server_srvcore_bridge.o \
 	generated/devicememhistory_bridge/client_devicememhistory_direct_bridge.o \
 	generated/devicememhistory_bridge/server_devicememhistory_bridge.o \
