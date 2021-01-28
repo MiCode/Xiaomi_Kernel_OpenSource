@@ -933,7 +933,7 @@ static void mtk_gpu_hal_exit(void)
 	;
 }
 
-module_init(mtk_gpu_hal_init);
+arch_initcall(mtk_gpu_hal_init);
 module_exit(mtk_gpu_hal_exit);
 
 MODULE_LICENSE("GPL");

@@ -22,6 +22,9 @@
 #include <linux/semaphore.h>
 #include <linux/workqueue.h>
 #include <linux/kthread.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
 #include <mt-plat/aee.h>
 
 #ifdef GED_DEBUG_FS
@@ -38,6 +41,36 @@
 #include "ged_ge.h"
 #include "ged_gpu_tuner.h"
 
+/**
+ * ===============================================
+ * SECTION : Local functions declaration
+ * ===============================================
+ */
+static int ged_open(struct inode *inode, struct file *filp);
+static int ged_release(struct inode *inode, struct file *filp);
+static unsigned int ged_poll(struct file *file,
+	struct poll_table_struct *ptable);
+static ssize_t ged_read(struct file *filp,
+	char __user *buf, size_t count, loff_t *f_pos);
+static ssize_t ged_write(struct file *filp,
+	const char __user *buf, size_t count, loff_t *f_pos);
+static long ged_dispatch(struct file *pFile,
+	struct GED_BRIDGE_PACKAGE *psBridgePackageKM);
+static long ged_ioctl(struct file *pFile,
+	unsigned int ioctlCmd, unsigned long arg);
+#ifdef CONFIG_COMPAT
+static long ged_ioctl_compat(struct file *pFile,
+	unsigned int ioctlCmd, unsigned long arg);
+#endif
+static int ged_pdrv_probe(struct platform_device *pdev);
+static void ged_exit(void);
+static int ged_init(void);
+
+/**
+ * ===============================================
+ * SECTION : Local variables definition
+ * ===============================================
+ */
 #define GED_DRIVER_DEVICE_NAME "ged"
 
 static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
@@ -61,6 +94,33 @@ GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
 #endif /* GED_DVFS_DEBUG_BUF */
 
 GED_LOG_BUF_HANDLE gpufreq_ged_log;
+
+static const struct of_device_id g_ged_of_match[] = {
+	{ .compatible = "mediatek,ged" },
+	{ /* sentinel */ }
+};
+static struct platform_driver g_ged_pdrv = {
+	.probe = ged_pdrv_probe,
+	.remove = NULL,
+	.driver = {
+		.name = "ged",
+		.owner = THIS_MODULE,
+		.of_match_table = g_ged_of_match,
+	},
+};
+
+static const struct file_operations ged_fops = {
+	.owner = THIS_MODULE,
+	.open = ged_open,
+	.release = ged_release,
+	.poll = ged_poll,
+	.read = ged_read,
+	.write = ged_write,
+	.unlocked_ioctl = ged_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = ged_ioctl_compat,
+#endif
+};
 
 /******************************************************************************
  * GED File operations
@@ -335,20 +395,19 @@ unlock_and_return:
 /******************************************************************************
  * Module related
  *****************************************************************************/
+/*
+ * ged driver probe
+ */
+static int ged_pdrv_probe(struct platform_device *pdev)
+{
+	GED_LOGI("@%s: ged driver probe\n", __func__);
 
-static const struct file_operations ged_fops = {
-	.owner = THIS_MODULE,
-	.open = ged_open,
-	.release = ged_release,
-	.poll = ged_poll,
-	.read = ged_read,
-	.write = ged_write,
-	.unlocked_ioctl = ged_ioctl,
-#ifdef CONFIG_COMPAT
-	.compat_ioctl = ged_ioctl_compat,
-#endif
-};
+	return 0;
+}
 
+/*
+ * unregister the gpufreq driver, remove fs node
+ */
 static void ged_exit(void)
 {
 #ifndef GED_BUFFER_LOG_DISABLE
@@ -401,12 +460,18 @@ static void ged_exit(void)
 	ged_sysfs_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
+
+	platform_driver_unregister(&g_ged_pdrv);
 }
 
+/*
+ * register the ged driver, create fs node
+ */
 static int ged_init(void)
 {
 	GED_ERROR err = GED_ERROR_FAIL;
 
+	GED_LOGI("@%s: start to initialize ged driver\n", __func__);
 	if (proc_create(GED_DRIVER_DEVICE_NAME, 0644, NULL, &ged_fops)
 		== NULL) {
 		err = GED_ERROR_FAIL;
@@ -519,6 +584,14 @@ static int ged_init(void)
 	gpufreq_ged_log = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 
+	/* register platform driver */
+	err = platform_driver_register(&g_ged_pdrv);
+	if (err) {
+		GED_LOGE("@%s: fail to register ged driver\n",
+		__func__);
+		goto ERROR;
+	}
+
 	return 0;
 
 ERROR:
@@ -530,6 +603,7 @@ ERROR:
 module_init(ged_init);
 module_exit(ged_exit);
 
+MODULE_DEVICE_TABLE(of, g_ged_of_match);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MediaTek GED Driver");
 MODULE_AUTHOR("MediaTek Inc.");

@@ -2290,7 +2290,7 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	mtk_pm_qos_add_request(&g_pmic->mtk_pm_vgpu,
 	MTK_PM_QOS_VCORE_OPP, VCORE_OPP_0);
 
-	g_pmic->reg_vcore = regulator_get(&pdev->dev, "vcore");
+	g_pmic->reg_vcore = devm_regulator_get_optional(&pdev->dev, "vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
 		gpufreq_perr("@%s: cannot get VCORE\n", __func__);
 		return PTR_ERR(g_pmic->reg_vcore);
