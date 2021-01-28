@@ -103,4 +103,5 @@ extern int adsp_irq_registration(u32 core_id, u32 irq_id, void *handler,
 extern int get_adsp_semaphore(unsigned int flags);
 extern int release_adsp_semaphore(unsigned int flags);
 
+extern void adsp_A_register_notify(struct notifier_block *nb);
 #endif
