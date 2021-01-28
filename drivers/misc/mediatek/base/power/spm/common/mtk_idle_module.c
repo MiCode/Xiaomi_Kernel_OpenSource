@@ -300,8 +300,12 @@ static void mtk_idle_post_handler(int idle_type, unsigned long notify)
 int mtk_idle_enter(int idle_type,
 	int cpu, unsigned int op_cond, unsigned int idle_flag)
 {
-	struct MTK_IDLE_MODEL *mod =
-		IS_MTK_IDLE_MODEL_TYPE_VALID(idle_type) ?
+	struct MTK_IDLE_MODEL *mod;
+
+	if (idle_type < 0)
+		return -1;
+
+	mod = IS_MTK_IDLE_MODEL_TYPE_VALID(idle_type) ?
 			MTK_IDLE_MODEL_PTR(idle_type) : NULL;
 
 	if (unlikely(!mod))
@@ -425,13 +429,17 @@ static DEFINE_SPINLOCK(idle_blocking_spin_lock);
 static unsigned long long idle_block_log_prev_time;
 bool mtk_idle_select_state(int type, int reason)
 {
-	struct MTK_IDLE_MODEL *mod =
-		IS_MTK_IDLE_MODEL_TYPE_VALID(type) ?
-			MTK_IDLE_MODEL_PTR(type) : NULL;
-
+	struct MTK_IDLE_MODEL *mod;
 	u64 curr_time;
 	unsigned long flags;
 	bool dump_block_info;
+
+	if (type < 0)
+		return false;
+
+	mod = IS_MTK_IDLE_MODEL_TYPE_VALID(type) ?
+			MTK_IDLE_MODEL_PTR(type) : NULL;
+
 
 	if (unlikely(!mod))
 		return reason == NR_REASONS;
@@ -482,6 +490,9 @@ int mtk_idle_model_count_get(int IdleModelType
 				, struct MTK_IDLE_MODEL_COUNTER *cnt)
 {
 	int bRet = MTK_IDLE_MOD_FAIL;
+
+	if (IdleModelType < 0)
+		return MTK_IDLE_MOD_FAIL;
 
 	atomic_inc(&mtk_idle_module_atomic);
 
@@ -729,7 +740,8 @@ int mtk_idle_module_model_enter(int IdleModelType, int cpuId)
 {
 	int bRet = MTK_IDLE_MOD_FAIL;
 
-	if (!IS_MTK_IDLE_MODULE_STATUS(MTK_IDLE_MODULE_ENABLE))
+	if ((IdleModelType < 0) ||
+	    !IS_MTK_IDLE_MODULE_STATUS(MTK_IDLE_MODULE_ENABLE))
 		return bRet;
 
 	atomic_inc(&mtk_idle_module_atomic);
@@ -773,6 +785,9 @@ int mtk_idle_module_feature(int feature, int enabled)
 
 const char *mtk_idle_module_get_mod_name(int IdleModelType)
 {
+	if (IdleModelType < 0)
+		return "unknown";
+
 	return IS_MTK_IDLE_MODEL_TYPE_VALID(IdleModelType) ?
 		MTK_IDLE_MODEL_PTR(IdleModelType)->clerk.name : "unknown";
 }
@@ -780,6 +795,9 @@ const char *mtk_idle_module_get_mod_name(int IdleModelType)
 int mtk_idle_model_notify(int idle_type, struct MTK_IDLE_MODEL_NOTE *note)
 {
 	int bRet = MTK_IDLE_MOD_FAIL;
+
+	if (idle_type < 0)
+		return MTK_IDLE_MOD_FAIL;
 
 	if (note && IS_MTK_IDLE_MODEL_TYPE_VALID(idle_type)) {
 		struct MTK_IDLE_MODEL *mod = MTK_IDLE_MODEL_PTR(idle_type);
@@ -927,6 +945,9 @@ int mtk_idle_module_register(struct MTK_IDLE_MODULE *module)
 				, (*model)->clerk.type, (*model)->clerk.name);
 			continue;
 		}
+
+		if ((*model)->clerk.type < 0)
+			continue;
 
 		g_mtk_idle_module.mod_map.mods[(*model)->clerk.type] = *model;
 
