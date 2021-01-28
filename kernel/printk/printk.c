@@ -2730,7 +2730,7 @@ skip:
 			snprintf(conwrite_stat_struct.con_write_statbuf,
 				sizeof(conwrite_stat_struct.con_write_statbuf)
 				- 1,
-"cpu%d [%lu.%06lu]--[%lu.%06lu] 'ttyS' %lubytes %lu.%06lus, 'pstore' %lubytes %lu.%06lus\n",
+"cpu%d [%lu.%06lu]--[%lu.%06lu] 'ttyS' %lubytes %lu.%06lus, 'pstore' %lubytes %lu.%06lus, uart dump:%s\n",
 				smp_processor_id(),
 				(unsigned long)con_dura_time,
 				tmp_rem_nsec_start/1000,
@@ -2741,7 +2741,8 @@ skip:
 				rem_nsec_con_write_ttyS/1000,
 				(unsigned long)len_con_write_pstore,
 				(unsigned long)time_con_write_pstore,
-				rem_nsec_con_write_pstore/1000);
+				rem_nsec_con_write_pstore/1000,
+				mtk8250_uart_dump());
 			break;
 		}
 		/* print the uart status next time enter the console_unlock */

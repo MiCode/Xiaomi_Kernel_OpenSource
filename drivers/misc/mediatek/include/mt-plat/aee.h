@@ -125,6 +125,9 @@ struct unwind_info_rms {
 extern int printk_disable_uart;
 #endif
 
+#ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
+extern char *mtk8250_uart_dump(void);
+#endif
 #ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_hang_detect_timeout_count(unsigned int timeout);
 #endif
