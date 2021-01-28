@@ -37,10 +37,10 @@ TRACE_EVENT(MET_touch,
 			),
 
 		TP_fast_assign(
-			memcpy(__entry->_touch_type, touch_type, 16);
+			strlcpy(__entry->_touch_type, touch_type, 16);
 			__entry->_tsec = tsec;
 			__entry->_tusec = tusec;
-			memcpy(__entry->_mode, mode, 16);
+			strlcpy(__entry->_mode, mode, 16);
 			__entry->_value = value;
 			),
 
