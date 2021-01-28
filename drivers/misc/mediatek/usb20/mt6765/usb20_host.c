@@ -155,54 +155,6 @@ static void _set_vbus(int is_on)
 	}
 }
 
-static void do_vbus_work(struct work_struct *data)
-{
-	struct mt_usb_work *work =
-		container_of(data, struct mt_usb_work, dwork.work);
-	bool vbus_on = (work->ops ==
-			VBUS_OPS_ON ? true : false);
-
-	_set_vbus(vbus_on);
-	/* free kfree */
-	kfree(work);
-}
-
-static void issue_vbus_work(int ops, int delay)
-{
-	struct mt_usb_work *work;
-
-	if (!mtk_musb) {
-		DBG(0, "mtk_musb = NULL\n");
-		return;
-	}
-	/* create and prepare worker */
-	work = kzalloc(sizeof(struct mt_usb_work), GFP_ATOMIC);
-	if (!work) {
-		DBG(0, "work is NULL, directly return\n");
-		return;
-	}
-	work->ops = ops;
-	INIT_DELAYED_WORK(&work->dwork, do_vbus_work);
-
-	/* issue vbus work */
-	DBG(0, "issue work, ops<%d>, delay<%d>\n", ops, delay);
-
-	queue_delayed_work(mtk_musb->st_wq,
-				&work->dwork, msecs_to_jiffies(delay));
-}
-
-static void mt_usb_vbus_on(int delay)
-{
-	DBG(0, "vbus_on\n");
-	issue_vbus_work(VBUS_OPS_ON, delay);
-}
-
-static void mt_usb_vbus_off(int delay)
-{
-	DBG(0, "vbus_off\n");
-	issue_vbus_work(VBUS_OPS_OFF, delay);
-}
-
 void mt_usb_set_vbus(struct musb *musb, int is_on)
 {
 #ifndef FPGA_PLATFORM
@@ -293,6 +245,54 @@ void mt_usb_host_disconnect(int delay)
 }
 #ifdef CONFIG_MTK_USB_TYPEC
 #ifdef CONFIG_TCPC_CLASS
+static void do_vbus_work(struct work_struct *data)
+{
+	struct mt_usb_work *work =
+		container_of(data, struct mt_usb_work, dwork.work);
+	bool vbus_on = (work->ops ==
+			VBUS_OPS_ON ? true : false);
+
+	_set_vbus(vbus_on);
+	/* free kfree */
+	kfree(work);
+}
+
+static void issue_vbus_work(int ops, int delay)
+{
+	struct mt_usb_work *work;
+
+	if (!mtk_musb) {
+		DBG(0, "mtk_musb = NULL\n");
+		return;
+	}
+	/* create and prepare worker */
+	work = kzalloc(sizeof(struct mt_usb_work), GFP_ATOMIC);
+	if (!work) {
+		DBG(0, "work is NULL, directly return\n");
+		return;
+	}
+	work->ops = ops;
+	INIT_DELAYED_WORK(&work->dwork, do_vbus_work);
+
+	/* issue vbus work */
+	DBG(0, "issue work, ops<%d>, delay<%d>\n", ops, delay);
+
+	queue_delayed_work(mtk_musb->st_wq,
+				&work->dwork, msecs_to_jiffies(delay));
+}
+
+static void mt_usb_vbus_on(int delay)
+{
+	DBG(0, "vbus_on\n");
+	issue_vbus_work(VBUS_OPS_ON, delay);
+}
+
+static void mt_usb_vbus_off(int delay)
+{
+	DBG(0, "vbus_off\n");
+	issue_vbus_work(VBUS_OPS_OFF, delay);
+}
+
 static int otg_tcp_notifier_call(struct notifier_block *nb,
 		unsigned long event, void *data)
 {
