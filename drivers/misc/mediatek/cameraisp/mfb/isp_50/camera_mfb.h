@@ -239,7 +239,7 @@ struct compat_MFB_Request {
 
 #define MFB_RESET           _IO(MFB_MAGIC, MFB_CMD_RESET)
 #define MFB_DUMP_REG        _IO(MFB_MAGIC, MFB_CMD_DUMP_REG)
-#define MFB_DUMP_ISR_LOG    _IO(MFB_MAGIC, MFB_CMD_DUMP_ISR_LOG)
+/* #define MFB_DUMP_ISR_LOG    _IO(MFB_MAGIC, MFB_CMD_DUMP_ISR_LOG) */
 
 
 #define MFB_READ_REGISTER \

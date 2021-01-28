@@ -2358,6 +2358,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 			Ret = MFB_DumpReg();
 			break;
 		}
+	/*
 	case MFB_DUMP_ISR_LOG:
 		{
 			unsigned int currentPPB = m_CurrentPPB;
@@ -2376,6 +2377,7 @@ static long MFB_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				MFB_IRQ_TYPE_INT_MFB_ST, currentPPB, _LOG_ERR);
 			break;
 		}
+	*/
 	case MFB_READ_REGISTER:
 		{
 			if (copy_from_user(&RegIo, (void *)Param,
@@ -3232,7 +3234,7 @@ static long MFB_ioctl_compat(
 	case MFB_DEQUE:
 	case MFB_RESET:
 	case MFB_DUMP_REG:
-	case MFB_DUMP_ISR_LOG:
+	/* case MFB_DUMP_ISR_LOG: */
 		return filp->f_op->unlocked_ioctl(filp, cmd, arg);
 	default:
 		return -ENOIOCTLCMD;
