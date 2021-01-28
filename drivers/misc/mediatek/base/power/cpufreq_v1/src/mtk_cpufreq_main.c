@@ -4,6 +4,8 @@
  */
 
 #include <linux/random.h>
+#include <linux/pm_opp.h>
+#include <linux/energy_model.h>
 //#include <mt-plat/met_drv.h>
 /* project includes */
 #include "../../include/mtk_ppm_api.h"
@@ -1194,12 +1196,17 @@ int turbo_is_inited;
 static int _mt_cpufreq_init(struct cpufreq_policy *policy)
 {
 	int ret = -EINVAL;
+	int pd_ret = -EINVAL;
 	unsigned long flags;
+	struct device *cpu_dev;
+	struct em_data_callback em_cb = EM_DATA_CB(of_dev_pm_opp_get_cpu_power);
 
 	FUNC_ENTER(FUNC_LV_MODULE);
 
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ANY;
 	cpumask_setall(policy->cpus);
+
+	cpu_dev = get_cpu_device(policy->cpu);
 
 	policy->cpuinfo.transition_latency = 1000;
 
@@ -1281,6 +1288,18 @@ static int _mt_cpufreq_init(struct cpufreq_policy *policy)
 		cpufreq_unlock(flags);
 	}
 
+	if (dev_pm_opp_of_get_sharing_cpus(cpu_dev, policy->cpus))
+		tag_pr_notice("failed to share opp framework table\n");
+
+	if (dev_pm_opp_of_cpumask_add_table(policy->cpus))
+		tag_pr_notice("failed to add opp framework table\n");
+
+	pd_ret = em_register_perf_domain(policy->cpus, NR_FREQ, &em_cb);
+
+	tag_pr_notice("energy model register result %d\n", pd_ret);
+
+	if (pd_ret)
+		tag_pr_notice("energy model regist fail\n");
 	if (ret)
 		tag_pr_notice("failed to setup frequency table\n");
 
