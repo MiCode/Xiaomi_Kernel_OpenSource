@@ -126,6 +126,7 @@ endmenu # Other Peripheral
 menu "Misc configs"
 
 source "drivers/misc/mediatek/Kconfig.default"
+source "drivers/misc/mediatek/timer/Kconfig"
 config MTK_DM_VERITY_OFF
 	bool "Disable dm-verity"
 	default n
