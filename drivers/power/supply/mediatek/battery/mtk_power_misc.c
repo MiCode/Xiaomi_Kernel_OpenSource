@@ -61,6 +61,7 @@ static struct shutdown_controller sdc;
 static int g_vbat_lt;
 static int g_vbat_lt_lv1;
 static int shutdown_cond_flag;
+static int fix_coverity;
 
 static void wake_up_power_misc(struct shutdown_controller *sdd)
 {
@@ -500,8 +501,11 @@ static int power_misc_routine_thread(void *arg)
 			bm_err("%s battery overheat~ power off\n",
 				__func__);
 			kernel_power_off();
+			fix_coverity = 1;
 			return 1;
 		}
+		if (fix_coverity == 1)
+			break;
 	}
 
 	return 0;
