@@ -642,7 +642,7 @@ static int rt_cache_block_read(struct rt_regmap_device *rd, u32 reg,
 			"rt_regmap Error at 0x%02x\n", rm->addr);
 			return -EIO;
 		}
-		for (i = rio.offset; i < rm->size; i++) {
+		for (i = rio.offset; i < rm->size && count < 100; i++) {
 			data[count] = tmp_data[i];
 			count++;
 		}
@@ -986,8 +986,6 @@ static int _rt_regmap_update_bits(struct rt_regmap_device *rd,
 			"Failed: only support 1~4 bytes regmap write\n");
 		break;
 	}
-	up(&rd->semaphore);
-	return ret;
 err_update_bits:
 	up(&rd->semaphore);
 	return ret;
