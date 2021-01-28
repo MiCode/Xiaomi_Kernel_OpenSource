@@ -40,7 +40,8 @@ mediatek-drm-y := mtk_drm_drv.o \
 		  mtk_disp_pmqos.o \
 		  mtk_disp_dsc.o \
 		  mtk_drm_arr.o \
-		  mtk_dmdp_aal.o
+		  mtk_dmdp_aal.o \
+		  mtk_fbconfig_kdebug.o
 
 ifeq ($(CONFIG_DRM_MEDIATEK_DEBUG_FS),y)
 mediatek-drm-y += mtk_drm_debugfs.o
