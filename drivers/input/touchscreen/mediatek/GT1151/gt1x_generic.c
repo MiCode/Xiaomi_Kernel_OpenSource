@@ -1779,10 +1779,6 @@ s32 gt1x_init(void)
 /* init auxiliary  node and functions */
 	gt1x_init_debug_node();
 
-#ifdef CONFIG_GTP_CREATE_WR_NODE
-	gt1x_init_tool_node();
-#endif
-
 #if defined(CONFIG_GTP_GESTURE_WAKEUP) || defined(CONFIG_GTP_HOTKNOT)
 	gt1x_init_node();
 #endif
@@ -1806,10 +1802,6 @@ s32 gt1x_init(void)
 
 void gt1x_deinit(void)
 {
-#ifdef CONFIG_GTP_CREATE_WR_NODE
-	gt1x_deinit_tool_node();
-#endif
-
 #ifdef CONFIG_GTP_ESD_PROTECT
 	gt1x_deinit_esd_protect();
 #endif
