@@ -78,8 +78,8 @@ static const struct file_operations mtk_rtc_debug_ops = {
 
 int __init rtc_debug_init(void)
 {
-	struct dentry *mtk_rtc_dir;
-	struct dentry *mtk_rtc_file;
+	struct dentry *mtk_rtc_dir = NULL;
+	struct dentry *mtk_rtc_file = NULL;
 
 	mtk_rtc_dir = debugfs_create_dir("mtk_rtc", NULL);
 	if (!mtk_rtc_dir) {
