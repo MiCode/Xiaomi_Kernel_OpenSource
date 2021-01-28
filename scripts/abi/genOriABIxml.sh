@@ -22,6 +22,14 @@ ABIGAIL_VERSION=`grep "ABIGAIL_VERSION=" $ABIGAIL_BUILD_SCRIPT | cut -f2- -d=`
 ABIGAIL_DIR_RELEASE=$ABIGAIL_DIR/abigail-inst/$ABIGAIL_VERSION
 echo "ABIGAIL_DIR_RELEASE=$ABIGAIL_DIR_RELEASE"
 
+
+cd $TARGET_KERNEL_DIR
+TARGET_KERNEL_DIR_RELATED_PATH=`pwd`
+TARGET_KERNEL_OUT_DIR_RELATED_PATH=$TARGET_KERNEL_DIR_RELATED_PATH/common/out/..
+echo "TARGET_KERNEL_DIR_RELATED_PATH=$TARGET_KERNEL_DIR_RELATED_PATH"
+echo "TARGET_KERNEL_OUT_DIR_RELATED_PATH=$TARGET_KERNEL_OUT_DIR_RELATED_PATH"
+cd $BASE_DIR
+
 function print_usage(){
 	echo -e "${green}Script for auto generate target_branch's ABI xml \
 based on src_defconfig ${eol}"
@@ -85,7 +93,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=1fd5770 #ACK4.19.71
+target_commit=ef55d52 #ACK4.19.79
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi
@@ -154,6 +162,16 @@ ${ABIGAIL_DIR_RELEASE}/lib/elfutils:${LD_LIBRARY_PATH}
 	cd $ABIGAIL_DIR
 	python dump_abi --linux-tree $TARGET_VMLINUX_DIR \
 		--out-file $ABI_XML_DIR/$TARGET_ABI_XML
+
+	# sanitize the abi.xml by removing any occurences of the kernel path
+	cd $TARGET_KERNEL_DIR
+        sed -i "s#$TARGET_KERNEL_OUT_DIR_RELATED_PATH/##g" \
+	$ABI_XML_DIR/$TARGET_ABI_XML
+	# now also do that with any left over paths sneaking in
+	# (e.g. from the prebuilts)
+        sed -i "s#$TARGET_KERNEL_DIR_RELATED_PATH/##g" \
+	$ABI_XML_DIR/$TARGET_ABI_XML
+
 	#remove temp files
 	del_temp_files
 fi

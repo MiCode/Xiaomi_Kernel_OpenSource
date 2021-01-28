@@ -3,6 +3,4 @@ bypass_arr=(\
 "function long int __probe_kernel_read" \
 "struct net " \
 "struct net_device " \
-"struct scsi_device " \
-"struct tcpci_data " \
-"struct ufs_vreg ")
+"struct scsi_device ")

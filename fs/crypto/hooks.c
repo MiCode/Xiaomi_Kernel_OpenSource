@@ -4,7 +4,6 @@
  * Encryption hooks for higher-level filesystem operations.
  */
 
-#include <linux/ratelimit.h>
 #include "fscrypt_private.h"
 
 /**
@@ -39,9 +38,9 @@ int fscrypt_file_open(struct inode *inode, struct file *filp)
 	dir = dget_parent(file_dentry(filp));
 	if (IS_ENCRYPTED(d_inode(dir)) &&
 	    !fscrypt_has_permitted_context(d_inode(dir), inode)) {
-		fscrypt_warn(inode->i_sb,
-			     "inconsistent encryption contexts: %lu/%lu",
-			     d_inode(dir)->i_ino, inode->i_ino);
+		fscrypt_warn(inode,
+			     "Inconsistent encryption context (parent directory: %lu)",
+			     d_inode(dir)->i_ino);
 		err = -EPERM;
 	}
 	dput(dir);
