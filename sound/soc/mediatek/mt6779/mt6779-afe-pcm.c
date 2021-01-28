@@ -1068,7 +1068,6 @@ static int mt6779_adsp_mem_get(struct snd_kcontrol *kcontrol,
 					      ADSP_TASK_ATTR_MEMDL);
 		break;
 	case AUDIO_TASK_CAPTURE_UL1_ID:
-	case AUDIO_TASK_DATAPROVIDER_ID:
 		memif_num = get_dsp_task_attr(task_id,
 					      ADSP_TASK_ATTR_MEMUL);
 		break;
@@ -1107,7 +1106,6 @@ static int mt6779_adsp_mem_set(struct snd_kcontrol *kcontrol,
 						 ADSP_TASK_ATTR_MEMDL);
 		break;
 	case AUDIO_TASK_CAPTURE_UL1_ID:
-	case AUDIO_TASK_DATAPROVIDER_ID:
 		ul_memif_num = get_dsp_task_attr(task_id,
 						 ADSP_TASK_ATTR_MEMUL);
 		break;
@@ -1212,10 +1210,6 @@ static const struct snd_kcontrol_new mt6779_pcm_kcontrols[] = {
 		       SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6779_adsp_ref_mem_get,
 		       mt6779_adsp_ref_mem_set),
-	SOC_SINGLE_EXT("adsp_a2dp_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6779_adsp_mem_get,
-		       mt6779_adsp_mem_set),
 #endif
 };
 
