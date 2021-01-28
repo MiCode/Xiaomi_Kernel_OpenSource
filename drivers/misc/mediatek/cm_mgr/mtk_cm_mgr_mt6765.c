@@ -605,38 +605,6 @@ static int cm_mgr_check_bw_status(void)
 		return 0;
 }
 
-static int cm_mgr_fb_notifier_callback(struct notifier_block *self,
-		unsigned long event, void *data)
-{
-	struct fb_event *evdata = data;
-	int blank;
-
-	if (event != FB_EVENT_BLANK)
-		return 0;
-
-	blank = *(int *)evdata->data;
-
-	switch (blank) {
-	case FB_BLANK_UNBLANK:
-		pr_info("#@# %s(%d) SCREEN ON\n", __func__, __LINE__);
-		cm_mgr_blank_status = 0;
-		break;
-	case FB_BLANK_POWERDOWN:
-		pr_info("#@# %s(%d) SCREEN OFF\n", __func__, __LINE__);
-		cm_mgr_blank_status = 1;
-		cm_mgr_set_dram_level(0);
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static struct notifier_block cm_mgr_fb_notifier = {
-	.notifier_call = cm_mgr_fb_notifier_callback,
-};
-
 static struct mtk_pm_qos_request ddr_opp_req;
 void cm_mgr_perf_platform_set_status(int enable)
 {
@@ -1316,12 +1284,6 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	spin_lock_init(&cm_mgr_cpu_mask_lock);
 
 	cm_mgr_sched_pm_init();
-
-	ret = fb_register_client(&cm_mgr_fb_notifier);
-	if (ret) {
-		pr_info("FAILED TO REGISTER FB CLIENT (%d)\n", ret);
-		return ret;
-	}
 
 	cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
 			"cm_mgr:online",
