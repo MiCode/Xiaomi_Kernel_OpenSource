@@ -19,8 +19,6 @@
 #include "mtk_spm_misc.h"
 #include "mtk_spm_internal.h"
 #include "mtk_spm_pmic_wrap.h"
-#include "mtk_spm_misc.h"
-#include "mtk_spm_internal.h"
 
 
 #ifdef SPM_SODI_PROFILE_TIME

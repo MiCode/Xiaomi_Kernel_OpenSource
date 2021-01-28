@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <mt-plat/mtk_secure_api.h>
+#include <linux/sched/clock.h>
 
 #include <mtk_gpt.h>
 #if defined(CONFIG_MTK_WATCHDOG) && defined(CONFIG_MTK_WD_KICKER)
@@ -44,7 +45,9 @@
 #include <mtk_spm_resource_req_internal.h>
 #include <mtk_spm_pmic_wrap.h>
 
+#if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_power_gs_api.h>
+#endif
 
 #include <trace/events/mtk_idle_event.h>
 
@@ -228,10 +231,10 @@ static void spm_sodi3_atf_time_sync(void)
 	u64 time_to_sync = local_clock();
 
 #ifdef CONFIG_ARM64
-	mt_secure_call(MTK_SIP_KERNEL_TIME_SYNC,
+	SMC_CALL(MTK_SIP_KERNEL_TIME_SYNC,
 		       time_to_sync, 0, 0);
 #else
-	mt_secure_call(MTK_SIP_KERNEL_TIME_SYNC,
+	SMC_CALL(MTK_SIP_KERNEL_TIME_SYNC,
 		       (u32)time_to_sync, (u32)(time_to_sync >> 32), 0);
 #endif
 }
@@ -310,14 +313,20 @@ unsigned int spm_go_to_sodi3(u32 spm_flags, u32 spm_data, u32 sodi3_flags)
 	spm_sodi3_footprint(SPM_SODI3_ENTER_UART_SLEEP);
 
 	if (!(sodi3_flags & SODI_FLAG_DUMP_LP_GS)) {
+#if defined(CONFIG_MACH_MT6771)
+		if (mtk8250_request_to_sleep()) {
+#else
 		if (request_uart_to_sleep()) {
+#endif
 			wr = WR_UART_BUSY;
 			goto RESTORE_IRQ;
 		}
 	}
 
+#if !defined(SPM_K414_EARLY_PORTING)
 	if (sodi3_flags & SODI_FLAG_DUMP_LP_GS)
 		mt_power_gs_dump_sodi3(GS_ALL);
+#endif
 #endif
 
 	spm_sodi3_footprint_val((1 << SPM_SODI3_ENTER_WFI) |
@@ -338,7 +347,11 @@ unsigned int spm_go_to_sodi3(u32 spm_flags, u32 spm_data, u32 sodi3_flags)
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	if (!(sodi3_flags & SODI_FLAG_DUMP_LP_GS))
+#if defined(CONFIG_MACH_MT6771)
+		mtk8250_request_to_wakeup();
+#else
 		request_uart_to_wakeup();
+#endif
 RESTORE_IRQ:
 
 	spm_sodi3_footprint(SPM_SODI3_ENTER_UART_AWAKE);
