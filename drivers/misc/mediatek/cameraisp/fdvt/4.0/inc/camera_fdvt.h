@@ -86,10 +86,12 @@ struct FDVTMetaData {
 };
 #define FDVTMetaData struct FDVTMetaData
 
+#ifdef CONFIG_COMPAT
 struct compat_FDVTMetaData {
 	compat_uptr_t SecureMeta;
 };
 #define compat_FDVTMetaData struct compat_FDVTMetaData
+#endif
 
 /*below is control message*/
 #define FDVT_IOC_INIT_SETPARA_CMD \
@@ -104,12 +106,14 @@ struct compat_FDVTMetaData {
 	_IOWR(FDVT_IOC_MAGIC, 0x04, FDVTRegIO)
 #define FDVT_IOC_T_SET_SDCONF_CMD \
 	_IOW(FDVT_IOC_MAGIC, 0x05, FDVTRegIO)
+#if (MTK_FD_LARB == 2)
 #define FDVT_IOC_INIT_SETNORMAL_CMD \
 	_IO(FDVT_IOC_MAGIC, 0x06)
 #define FDVT_IOC_INIT_SETSECURE_CMD \
 	_IO(FDVT_IOC_MAGIC, 0x07)
 #define FDVT_IOC_SETMETA_CMD \
 	_IOW(FDVT_IOC_MAGIC, 0x08, FDVTMetaData)
+#endif
 #define FDVT_IOC_T_DUMPREG \
 	_IO(FDVT_IOC_MAGIC, 0x80)
 
@@ -126,12 +130,14 @@ struct compat_FDVTMetaData {
 	_IOWR(FDVT_IOC_MAGIC, 0x04, compat_FDVTRegIO)
 #define COMPAT_FDVT_IOC_T_SET_SDCONF_CMD \
 	_IOW(FDVT_IOC_MAGIC, 0x05, compat_FDVTRegIO)
+#if (MTK_FD_LARB == 2)
 #define COMPAT_FDVT_IOC_INIT_SETNORMAL_CMD \
 	_IO(FDVT_IOC_MAGIC, 0x06)
 #define COMPAT_FDVT_IOC_INIT_SETSECURE_CMD \
 	_IO(FDVT_IOC_MAGIC, 0x07)
 #define COMPAT_FDVT_IOC_SETMETA_CMD \
 	_IOW(FDVT_IOC_MAGIC, 0x08, compat_FDVTMetaData)
+#endif
 #define COMPAT_FDVT_IOC_T_DUMPREG \
 	_IO(FDVT_IOC_MAGIC, 0x80)
 #endif
