@@ -676,7 +676,7 @@ void ddp_debug_init(void)
 	if (debug_init)
 		return;
 
-		debug_init = 1;
+	debug_init = 1;
 	debugfs = debugfs_create_file("dispsys", S_IFREG | 0444, NULL,
 				      (void *)0, &debug_fops);
 
