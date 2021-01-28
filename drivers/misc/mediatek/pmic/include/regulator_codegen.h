@@ -56,6 +56,10 @@
 #include "mt6359/mtk_regulator_codegen.h"
 #endif
 
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6359P
+#include "mt6359p/mtk_regulator_codegen.h"
+#endif
+
 /*****************************************************************************
  * PMIC extern function
  ******************************************************************************/

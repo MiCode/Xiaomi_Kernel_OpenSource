@@ -26,6 +26,9 @@
 #elif defined(CONFIG_MTK_PMIC_CHIP_MT6359)
 #include <linux/mfd/mt6359/irq.h>
 #include <linux/mfd/mt6359/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
+#include <linux/mfd/mt6359p/irq.h>
+#include <linux/mfd/mt6359p/registers.h>
 #endif
 #include <linux/mfd/mt6358/core.h>
 
