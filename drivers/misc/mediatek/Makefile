@@ -88,6 +88,7 @@ obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += audio_ipi/
 obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += audio_scp/
 obj-$(CONFIG_MTK_SSMR) += memory-ssmr/
+obj-$(CONFIG_MTK_CACHE_CONTROL) += cache-auditor/
 obj-$(CONFIG_MTK_AMMS) += memory-amms/
 obj-$(CONFIG_ZONE_MOVABLE_CMA) += zone_movable_cma/
 obj-$(CONFIG_MTK_VIBRATOR) += vibrator/
