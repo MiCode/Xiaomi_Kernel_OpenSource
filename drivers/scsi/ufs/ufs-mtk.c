@@ -240,10 +240,11 @@ static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 	struct scatterlist *sg;
 	u32 lba, blk_cnt, end_lba;
 	u16 crc = 0;
-	int mode = 0;
+	int mode = 0, tag;
 	u8 priv = 0;
 
 	sg = scsi_sglist(cmd);
+	tag = cmd->request->tag;
 
 	lba = cmd->cmnd[5] | (cmd->cmnd[4] << 8) | (cmd->cmnd[3] << 16) |
 		(cmd->cmnd[2] << 24);
@@ -285,6 +286,11 @@ static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 		priv = 1;
 	}
 #endif
+
+	if (hba->lrb[tag].crypto_enable) {
+		mode = UFS_CRYPTO_HW_FDE;
+		priv = 1;
+	}
 
 	for (i = 0; i < scsi_sg_count(cmd); i++) {
 		buffer = (char *)sg_virt(sg);
