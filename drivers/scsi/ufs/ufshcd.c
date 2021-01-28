@@ -9652,7 +9652,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	ufsf_tw_release(&hba->ufsf);
 #endif
 #if defined(CONFIG_SCSI_SKHPB)
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
+	if (hba->card && hba->card->wmanufacturerid == UFS_VENDOR_SKHYNIX)
 		skhpb_release(hba, SKHPB_NEED_INIT);
 #endif
 

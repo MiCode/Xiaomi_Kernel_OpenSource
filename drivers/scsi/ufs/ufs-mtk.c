@@ -777,20 +777,34 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	switch (stage) {
 	case PRE_CHANGE:
 		if (!on) {
-			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, false);
-			if (host) {
+			if (host && host->pm_qos_init) {
 				pm_qos_update_request(
 					&host->req_cpu_dma_latency,
 					PM_QOS_DEFAULT_VALUE);
+
+				ret = ufs_mtk_perf_setup(host, false);
+				if (ret)
+					goto out;
 			}
+
+			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, false);
+			if (ret)
+				goto out;
 		}
 		break;
 	case POST_CHANGE:
 		if (on) {
 			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, true);
-			if (host) {
+			if (ret)
+				goto out;
+
+			if (host && host->pm_qos_init) {
 				pm_qos_update_request(
 					&host->req_cpu_dma_latency, 0);
+
+				ret = ufs_mtk_perf_setup(host, true);
+				if (ret)
+					goto out;
 			}
 		}
 		break;
@@ -798,6 +812,7 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 		break;
 	}
 
+out:
 	return ret;
 }
 
@@ -891,8 +906,35 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 	ufs_mtk_parse_auto_hibern8_timer(hba);
 
 	ufs_mtk_perf_init_crypto(hba);
+
+	pm_qos_add_request(&host->req_cpu_dma_latency, PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
+
+	host->pm_qos_init = true;
+
 out:
 	return err;
+}
+
+/**
+ * ufs_mtk_exit - release resource
+ * @hba: host controller instance
+ */
+void ufs_mtk_exit(struct ufs_hba *hba)
+{
+	struct ufs_mtk_host *host;
+
+	host = ufshcd_get_variant(hba);
+
+	if (host->pm_qos_init) {
+		/* remove pm_qos when exit */
+		pm_qos_remove_request(host->req_vcore);
+		pm_qos_remove_request(&host->req_cpu_dma_latency);
+		host->pm_qos_init = false;
+	}
+
+	/* prevent pointer is used after hba is freed */
+	ufs_mtk_hba = NULL;
 }
 
 static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
@@ -986,14 +1028,6 @@ static int ufs_mtk_enable_crypto(struct ufs_hba *hba)
 	/* restore vendor crypto setting by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
 
-	return 0;
-}
-
-static int ufs_mtk_probe_crypto(struct ufs_hba *hba)
-{
-#if defined(CONFIG_MTK_HW_FDE)
-	hba->crypto_feature |= UFS_CRYPTO_HW_FDE;
-#endif
 	return 0;
 }
 
@@ -2508,7 +2542,7 @@ static void ufs_mtk_abort_handler(struct ufs_hba *hba, int tag,
 static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	"mediatek.ufshci",  /* name */
 	ufs_mtk_init,    /* init */
-	NULL,            /* exit */
+	ufs_mtk_exit,    /* exit */
 	NULL,            /* get_ufs_hci_version */
 	NULL,            /* clk_scale_notify */
 	ufs_mtk_setup_clocks,            /* setup_clocks */
@@ -2583,17 +2617,6 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	hba = platform_get_drvdata(pdev);
-
-	host = ufshcd_get_variant(hba);
-
-	pm_qos_add_request(&host->req_cpu_dma_latency, PM_QOS_CPU_DMA_LATENCY,
-			   PM_QOS_DEFAULT_VALUE);
-
-	err = ufs_mtk_probe_crypto(hba);
-	if (err)
-		dev_info(dev, "ufs_mtk_probe_crypto() failed %d\n", err);
-
 out:
 	return err;
 }
@@ -2612,8 +2635,6 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
 	ufs_mtk_biolog_exit();
-	if (host)
-		pm_qos_remove_request(&host->req_cpu_dma_latency);
 
 	return 0;
 }
