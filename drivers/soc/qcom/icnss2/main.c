@@ -555,7 +555,7 @@ static int icnss_driver_event_server_arrive(struct icnss_priv *priv,
 
 	icnss_ignore_fw_timeout(false);
 
-	if (test_bit(ICNSS_WLFW_CONNECTED, &penv->state)) {
+	if (test_bit(ICNSS_WLFW_CONNECTED, &priv->state)) {
 		icnss_pr_err("QMI Server already in Connected State\n");
 		ICNSS_ASSERT(0);
 	}
