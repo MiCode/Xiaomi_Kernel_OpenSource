@@ -718,13 +718,14 @@ int mtkts_bts_get_hw_temp(void)
 
 	mutex_unlock(&BTS_lock);
 
-
 	if ((tsatm_thermal_get_catm_type() == 2) &&
-		(tsdctm_thermal_get_ttj_on() == 0))
+		(tsdctm_thermal_get_ttj_on() == 0)) {
 		t_ret2 = wakeup_ta_algo(TA_CATMPLUS_TTJ);
 
-	if (t_ret2 < 0)
-		pr_notice("[Thermal/TZ/BTS]wakeup_ta_algo out of memory\n");
+		if (t_ret2 < 0)
+			pr_notice("[Thermal/TZ/BTS]wakeup_ta_algo %d\n",
+				t_ret2);
+	}
 
 	bts_cur_temp = t_ret;
 
