@@ -308,6 +308,14 @@ firmware_class.path=/vendor/firmware";
 			alloc-range = <0 0xc0000000 0 0x10000000>;
 		};
 
+		gpu_mem: gpu-reserve-memory {
+			compatible = "mediatek,gpu-fw-reserve-memory";
+			no-map;
+			size = <0 0x3000>;
+			alignment = <0 0x1000>;
+			alloc-ranges = <0 0x5fc00000 0 0x3000>;
+		};
+
 #ifdef CONFIG_MICROTRUST_TEE_SUPPORT
 		soter-shared-mem {
 			compatible = "microtrust,shared_mem";
