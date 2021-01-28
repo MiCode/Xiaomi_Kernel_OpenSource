@@ -932,9 +932,9 @@ int sd_runtime_autok_merge(struct msdc_host *host)
 #endif
 
 #ifdef EMMC_RUNTIME_AUTOK_MERGE
+#ifndef FPGA_PLATFORM
 int emmc_runtime_autok_merge(u32 opcode)
 {
-#if !defined(FPGA_PLATFORM)
 	struct msdc_host *host = mtk_msdc_host[0];
 	void __iomem *base;
 	int merge_result, merge_mode, merge_window;
@@ -1003,10 +1003,14 @@ int emmc_runtime_autok_merge(u32 opcode)
 		pr_notice("WARN:%s:cqe enable fail", __func__);
 #endif
 
-#endif
-
 	return ret;
 }
+#else
+int emmc_runtime_autok_merge(u32 opcode)
+{
+	return 0;
+}
+#endif
 #endif
 
 /*

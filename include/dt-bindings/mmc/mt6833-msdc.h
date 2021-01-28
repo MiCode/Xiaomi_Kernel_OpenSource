@@ -12,8 +12,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _DT_BINDINGS_MMC_MT6853_H
-#define _DT_BINDINGS_MMC_MT6853_H
+#ifndef _DT_BINDINGS_MMC_MT6833_H
+#define _DT_BINDINGS_MMC_MT6833_H
 
 #define MSDC_EMMC               (0)
 #define MSDC_SD                 (1)
@@ -25,12 +25,12 @@
 #define MSDC0_CLKSRC_26MHZ      (0)
 #define MSDC0_CLKSRC_400MHZ     (1)
 
-#define MSDC1_CLKSRC_26MHZ     (0)
-#define MSDC1_CLKSRC_208MHZ    (1)
-#define MSDC1_CLKSRC_200MHZ    (2)
+#define MSDC1_CLKSRC_26MHZ      (0)
+#define MSDC1_CLKSRC_208MHZ     (1)
+#define MSDC1_CLKSRC_200MHZ     (2)
 
 #define MSDC_SMPL_RISING        (0)
 #define MSDC_SMPL_FALLING       (1)
 #define MSDC_SMPL_SEPARATE      (2)
 
-#endif /* _DT_BINDINGS_MMC_MT6853_H */
+#endif /* _DT_BINDINGS_MMC_MT6833_H */

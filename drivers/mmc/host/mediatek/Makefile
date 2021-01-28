@@ -109,3 +109,8 @@ ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/mt6853
 obj-$(CONFIG_MMC_MTK_PRO) += ComboA/
 endif
 
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6833"))
+ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA
+ccflags-y += -I$(srctree)/drivers/mmc/host/mediatek/ComboA/$(MTK_PLATFORM)
+obj-$(CONFIG_MMC_MTK_PRO) += ComboA/
+endif

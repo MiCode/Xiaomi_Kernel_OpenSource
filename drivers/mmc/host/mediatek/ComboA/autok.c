@@ -3826,6 +3826,7 @@ int execute_cmd_online_tuning(struct msdc_host *host, u8 *res)
 #endif
 		} else {
 			if (host->base_top) {
+#if !defined(FPGA_PLATFORM)
 				MSDC_GET_FIELD(EMMC_TOP_CMD,
 					PAD_CMD_RXDLY,
 					p_autok_tune_res[1]);
@@ -3838,6 +3839,7 @@ int execute_cmd_online_tuning(struct msdc_host *host, u8 *res)
 				MSDC_GET_FIELD(EMMC_TOP_CMD,
 					PAD_CMD_RD_RXDLY2_SEL,
 					p_autok_tune_res[4]);
+#endif
 			} else {
 				MSDC_GET_FIELD(MSDC_PAD_TUNE0,
 					MSDC_PAD_TUNE0_CMDRDLY,
