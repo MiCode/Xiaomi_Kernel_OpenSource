@@ -294,6 +294,7 @@ extern void tscpu_workqueue_start_timer(void);
 
 extern void __iomem  *therm_clk_infracfg_ao_base;
 extern int Num_of_GPU_OPP;
+extern int gpu_max_opp;
 extern struct mt_gpufreq_power_table_info *mtk_gpu_power;
 extern int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num);
 extern int tscpu_read_curr_temp;
