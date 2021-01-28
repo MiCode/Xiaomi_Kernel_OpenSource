@@ -110,7 +110,7 @@ static int update_cmd_qos(struct qos_counter *counter,
 	struct qos_bound *qos_info)
 {
 	struct cmd_qos *cmd_qos = NULL;
-	int idx = 0;
+	unsigned int idx = 0;
 	int qos_smi_idx = 0;
 
 	LOG_DBG("[vpu][qos] %s +\n", __func__);
