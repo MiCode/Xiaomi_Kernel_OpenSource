@@ -20,7 +20,9 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-
+	pinctrl-names = "default", "gt9896s_spi_mode";
+	pinctrl-0 = <&ctp_gt9896s_pins_default>;
+	pinctrl-1 = <&ctp_gt9896s_spi_mode>;
 	/* Novatek device tree node */
 	novatek@0 {
 		compatible = "novatek,NVT-ts-spi";
@@ -522,6 +524,20 @@
 			    (-75) (-75) (-75)>;
 
 			PS_Config_Diff_Test_Frame = <50>;
+		};
+	};
+};
+
+&pio {
+	ctp_gt9896s_pins_default: pins_default {
+	};
+	ctp_gt9896s_spi_mode: spimode_default {
+		pins_cmd_dat {
+			pinmux = <PINMUX_GPIO51__FUNC_SPI5_B_CLK>,
+				<PINMUX_GPIO52__FUNC_SPI5_B_CSB>,
+				<PINMUX_GPIO198__FUNC_SPI5_B_MI>,
+				<PINMUX_GPIO199__FUNC_SPI5_B_MO>;
+			drive-strength = <4>;
 		};
 	};
 };
