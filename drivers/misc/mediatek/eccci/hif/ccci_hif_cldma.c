@@ -1373,7 +1373,19 @@ static void cldma_rx_ring_init(struct md_cd_ctrl *md_ctrl,
 			kzalloc(sizeof(struct cldma_request), GFP_KERNEL);
 			item->gpd = dma_pool_alloc(md_ctrl->gpd_dmapool,
 				GFP_KERNEL, &item->gpd_addr);
+			if (item->gpd == NULL) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"%s:dma_pool_alloc fail\n", __func__);
+				kfree(item);
+				return;
+			}
 			item->skb = ccci_alloc_skb(ring->pkt_size, 1, 1);
+			if (item->skb == NULL) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"%s:ccci_alloc_skb fail\n", __func__);
+				kfree(item);
+				return;
+			}
 			gpd = (struct cldma_rgpd *)item->gpd;
 			memset(gpd, 0, sizeof(struct cldma_rgpd));
 			spin_lock_irqsave(&md_ctrl->cldma_timeout_lock, flags);
@@ -1432,6 +1444,12 @@ static void cldma_tx_ring_init(struct md_cd_ctrl *md_ctrl,
 				GFP_KERNEL);
 			item->gpd = dma_pool_alloc(md_ctrl->gpd_dmapool,
 				GFP_KERNEL, &item->gpd_addr);
+			if (item->gpd == NULL) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"%s-%d:dma_pool_alloc fail\n", __func__, __LINE__);
+				kfree(item);
+				return;
+			}
 			tgpd = (struct cldma_tgpd *)item->gpd;
 			memset(tgpd, 0, sizeof(struct cldma_tgpd));
 			tgpd->gpd_flags = 0x80;	/* IOC */
@@ -1453,6 +1471,12 @@ static void cldma_tx_ring_init(struct md_cd_ctrl *md_ctrl,
 				GFP_KERNEL);
 			item->gpd = dma_pool_alloc(md_ctrl->gpd_dmapool,
 				GFP_KERNEL, &item->gpd_addr);
+			if (item->gpd == NULL) {
+				CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+					"%s-%d:dma_pool_alloc fail\n", __func__, __LINE__);
+				kfree(item);
+				return;
+			}
 			tgpd = (struct cldma_tgpd *)item->gpd;
 			memset(tgpd, 0, sizeof(struct cldma_tgpd));
 			tgpd->gpd_flags = 0x82;	/* IOC|BDP */
@@ -1473,6 +1497,13 @@ static void cldma_tx_ring_init(struct md_cd_ctrl *md_ctrl,
 				bd_item->gpd = dma_pool_alloc(
 					md_ctrl->gpd_dmapool,
 					GFP_KERNEL, &bd_item->gpd_addr);
+				if (bd_item->gpd == NULL) {
+					CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+						"%s-%d:dma_pool_alloc fail\n", __func__, __LINE__);
+					kfree(item);
+					kfree(bd_item);
+					return;
+				}
 				bd = (struct cldma_tbd *)bd_item->gpd;
 				memset(bd, 0, sizeof(struct cldma_tbd));
 				if (j == 0)
@@ -2389,6 +2420,11 @@ void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir)
 					req->skb = ccci_alloc_skb(
 						queue->tr_ring->pkt_size,
 						1, 1);
+					if (req->skb == NULL) {
+						CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+							"%s:ccci_alloc_skb fail\n", __func__);
+						return;
+					}
 					req->data_buffer_ptr_saved =
 						dma_map_single(
 						ccci_md_get_dev_by_id(
@@ -3255,6 +3291,11 @@ int md_cd_late_init(unsigned char hif_id)
 	md_ctrl->gpd_dmapool = dma_pool_create("cldma_request_DMA",
 		ccci_md_get_dev_by_id(md_ctrl->md_id),
 		sizeof(struct cldma_tgpd), 16, 0);
+	if (md_ctrl->gpd_dmapool == NULL) {
+		CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
+			"%s-%d:dma_pool_create fail\n", __func__, __LINE__);
+		return -1;
+	}
 	for (i = 0; i < NET_TXQ_NUM; i++) {
 		INIT_LIST_HEAD(&md_ctrl->net_tx_ring[i].gpd_ring);
 		md_ctrl->net_tx_ring[i].length =
