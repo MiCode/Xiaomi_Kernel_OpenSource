@@ -19,7 +19,7 @@ obj-$(CONFIG_MTK_PTPOD) += eem_v2/
 endif
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 obj-$(CONFIG_MACH_MT6761) += ppm_v3/
-#obj-$(CONFIG_MACH_MT6765) += ppm_v3/
+obj-$(CONFIG_MACH_MT6765) += ppm_v3/
 obj-$(CONFIG_MACH_MT6779) += ppm_v3/
 
 obj-$(CONFIG_MACH_MT6779) += dcm_v1/
