@@ -20,7 +20,7 @@ endif
 
 ifeq ($(CONFIG_LOCKDEP),y)
 ifneq (y, $(filter y, $(CONFIG_KASAN) $(CONFIG_UBSAN)))
-#ccflags-y += -DMTK_LOCK_MONITOR
+ccflags-y += -DMTK_LOCK_MONITOR
 ccflags-y += -DMTK_LOCK_DEBUG_HELD_LOCK
 endif
 endif
