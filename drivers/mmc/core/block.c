@@ -1488,7 +1488,6 @@ static void mmc_blk_cqe_complete_rq(struct mmc_queue *mq, struct request *req)
 			__blk_mq_end_request(req, BLK_STS_OK);
 		}
 	} else {
-		mt_biolog_cqhci_complete(req->tag);
 		blk_mq_end_request(req, BLK_STS_OK);
 	}
 
@@ -1587,7 +1586,7 @@ static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	if (req) {
 		mt_bio_queue_alloc(current, req->q, false);
 		mt_biolog_cqhci_check();
-		mt_biolog_cqhci_queue_task(mq->card->host, mqrq->brq.mrq.tag,
+		mt_biolog_cqhci_queue_task(mq->card->host, req->tag,
 			&(mqrq->brq.mrq));
 	}
 

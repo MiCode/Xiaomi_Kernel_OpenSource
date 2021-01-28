@@ -225,10 +225,11 @@ static struct mt_bio_context *mt_bio_curr_queue(struct request_queue *q,
 		if (!ext_sd && (!strncmp(ctx[i].comm, REQ_MMCQD0, strlen(REQ_MMCQD0)) ||
 		(qd_pid == ctx[i].pid) || (ctx[i].q && ctx[i].q == q)))
 			return &ctx[i];
-		/* It means hardcore ctx[3] as SD card, it's not elegant */
-		else if (ext_sd && (!strncmp(ctx[i+2].comm, REQ_MMCQD0, strlen(REQ_MMCQD0)) ||
-		(qd_pid == ctx[i+2].pid) || (ctx[i+2].q && ctx[i+2].q == q)))
-			return &ctx[i+2];
+		/* It means hardcore ctx[2] or ctx[1] as SD card, it's not elegant */
+		else if ((i < 3) && ext_sd &&
+			(!strncmp(ctx[2-i].comm, REQ_MMCQD0, strlen(REQ_MMCQD0)) ||
+			(qd_pid == ctx[2-i].pid) || (ctx[2-i].q && ctx[2-i].q == q)))
+			return &ctx[2-i];
 	}
 	return NULL;
 }
@@ -959,6 +960,7 @@ static size_t mt_bio_seq_debug_show_info(char **buff, unsigned long *size,
 int mt_mmc_biolog_init(void)
 {
 	struct mtk_blocktag *btag;
+	struct mt_bio_context *ctx;
 
 	btag = mtk_btag_alloc("mmc",
 		MMC_BIOLOG_RINGBUF_MAX,
@@ -968,6 +970,10 @@ int mt_mmc_biolog_init(void)
 
 	if (btag)
 		mtk_btag_mmc = btag;
+
+	ctx = BTAG_CTX(mtk_btag_mmc);
+
+	memset(ctx, 0, sizeof(struct mt_bio_context) * MMC_BIOLOG_CONTEXTS);
 
 	return 0;
 }

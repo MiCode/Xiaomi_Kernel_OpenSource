@@ -165,7 +165,7 @@ void mtk_mq_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 		if (!strncmp(pe->comm, "kworker", strlen("kworker")) ||
 			(pe->pid == pid) || (pe->pid == 0)) {
 			pe->pid = pid;
-			get_task_comm(pe->comm, current);
+			strncpy(pe->comm, current->comm, sizeof(pe->comm));
 			prw = (write) ? &pe->w : &pe->r;
 			prw->count++;
 			prw->length += len;
