@@ -491,7 +491,7 @@ int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 {
 	int max_freq = dvfs->opp[dvfs->scp_opp_num - 1].freq;
 	int idx;
-	int mux_idx;
+	int mux_idx = 0;
 	int ret = 0;
 
 	pr_debug("%s(%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
