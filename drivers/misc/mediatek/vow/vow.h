@@ -31,17 +31,30 @@
 #define VOWDRV_DEBUG(format, args...)
 #endif
 
+#ifdef MTK_VOW_GVA_SUPPORT
+#define VOW_GOOGLE_MODEL 1
+#else
+#define VOW_GOOGLE_MODEL 0
+#endif
+
+#ifdef MTK_VOW_AMAZON_SUPPORT
+#define VOW_AMAZON_MODEL 1
+#else
+#define VOW_AMAZON_MODEL 0
+#endif
 
 #define VOW_DEVNAME                    "vow"
 #define VOW_IOC_MAGIC                  'V'
 #define VOW_PRE_LEARN_MODE             1
-#ifdef CONFIG_MTK_VOW_2E2K_SUPPORT
-#define MAX_VOW_SPEAKER_MODEL          2
+
+#ifdef CONFIG_MTK_VOW_MAX_PDK_NUMBER
+#define MAX_VOW_SPEAKER_MODEL          (CONFIG_MTK_VOW_MAX_PDK_NUMBER)
 #else
-#define MAX_VOW_SPEAKER_MODEL          1
+#define MAX_VOW_SPEAKER_MODEL          (VOW_GOOGLE_MODEL + VOW_AMAZON_MODEL)
 #endif
+
 #define VOW_WAITCHECK_INTERVAL_MS      1
-#define MAX_VOW_INFO_LEN               6
+#define MAX_VOW_INFO_LEN               7
 #define VOW_VOICE_RECORD_THRESHOLD     2560 /* 80ms */
 #define VOW_VOICE_RECORD_BIG_THRESHOLD 8320 /* 260ms */
 #define VOW_IPI_SEND_CNT_TIMEOUT       500 /* 500ms */
@@ -293,6 +306,7 @@ struct vow_eint_data_struct_t {
 struct vow_speaker_model_t {
 	void *model_ptr;
 	int  id;
+	int  keyword;
 	int  uuid;
 	int  flag;
 	int  enabled;
@@ -304,6 +318,7 @@ struct vow_speaker_model_t {
 
 struct vow_model_info_t {
 	long  id;
+	long  keyword;
 	long  addr;
 	long  size;
 	long  return_size_addr;
@@ -319,6 +334,7 @@ struct vow_model_start_t {
 };
 struct vow_model_info_kernel_t {
 	compat_size_t  id;
+	compat_size_t  keyword;
 	compat_size_t  addr;
 	compat_size_t  size;
 	compat_size_t  return_size_addr;
@@ -349,6 +365,7 @@ struct vow_speaker_model_t {
 
 struct vow_model_info_t {
 	long  id;
+	long  keyword;
 	long  addr;
 	long  size;
 	long  return_size_addr;
@@ -383,7 +400,7 @@ enum ipi_type_flag_t {
 struct vow_ipi_combined_info_t {
 	unsigned short ipi_type_flag;
 	/* IPIMSG_VOW_RECOGNIZE_OK */
-	unsigned short recog_ok_uuid;
+	unsigned short recog_ok_keywordid;
 	/* unsigned int recog_ret_info; */
 	unsigned int confidence_lv;
 	unsigned long long recog_ok_os_timer;
