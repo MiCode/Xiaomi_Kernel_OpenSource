@@ -1648,12 +1648,15 @@ static void config_ap_side_feature(struct ccci_modem *md,
 	md_feature->feature_set[NVRAM_CACHE_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
 #endif
+
+/* This item is reserved,only SP use */
+#ifdef ENABLE_SECURITY_SHARE_MEMORY
 	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_MUST_SUPPORT;
-
-	/* This item is reserved */
+#else
 	md_feature->feature_set[SECURITY_SHARE_MEMORY].support_mask =
 		CCCI_FEATURE_NOT_SUPPORT;
+#endif
 
 #if (MD_GENERATION >= 6297)
 	md_feature->feature_set[MD_MEM_AP_VIEW_INF].support_mask =
