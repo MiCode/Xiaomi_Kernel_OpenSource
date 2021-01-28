@@ -1495,6 +1495,16 @@ static int ISP_ReadReg(struct ISP_REG_IO_STRUCT *pRegIo)
 		return -EFAULT;
 	}
 
+	if ((pRegIo->pData == NULL) ||
+			(pRegIo->Count == 0) ||
+			(pRegIo->Count > ISP_REG_RANGE)) {
+		LOG_NOTICE(
+			"pRegIo->pData is NULL, Count:%d!!\n",
+			pRegIo->Count);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
+
 	pData = (struct ISP_REG_STRUCT *)pRegIo->pData;
 
 	if (pData == NULL) {
