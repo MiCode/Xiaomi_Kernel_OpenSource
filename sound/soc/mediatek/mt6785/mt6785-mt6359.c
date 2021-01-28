@@ -144,6 +144,7 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	int cycle_1, cycle_2, cycle_3;
 	int prev_cycle_1, prev_cycle_2, prev_cycle_3;
 	int counter;
+	int mtkaif_calib_ok;
 
 	dev_info(afe->dev, "%s(), start\n", __func__);
 
@@ -162,15 +163,15 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	/* set test type to synchronizer pulse */
 	set_cksys_reg(CKSYS_AUD_TOP_CFG, 0xffff, 0x4);
 
+	mtkaif_calib_ok = true;
 	afe_priv->mtkaif_calibration_num_phase = 42;	/* mt6359: 0 ~ 42 */
-	afe_priv->mtkaif_calibration_ok = true;
 	afe_priv->mtkaif_chosen_phase[0] = -1;
 	afe_priv->mtkaif_chosen_phase[1] = -1;
 	afe_priv->mtkaif_chosen_phase[2] = -1;
 
 	for (phase = 0;
 	     phase <= afe_priv->mtkaif_calibration_num_phase &&
-	     afe_priv->mtkaif_calibration_ok;
+	     mtkaif_calib_ok;
 	     phase++) {
 		mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
 						    phase, phase, phase);
@@ -206,7 +207,7 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 				dev_err(afe->dev, "%s(), test fail, cycle_1 %d, cycle_2 %d, cycle_3 %d, monitor 0x%x\n",
 					__func__,
 					cycle_1, cycle_2, cycle_3, monitor);
-				afe_priv->mtkaif_calibration_ok = false;
+				mtkaif_calib_ok = false;
 				break;
 			}
 		}
@@ -239,20 +240,8 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 
 		if (afe_priv->mtkaif_chosen_phase[0] >= 0 &&
 		    afe_priv->mtkaif_chosen_phase[1] >= 0 &&
-		    afe_priv->mtkaif_chosen_phase[2] >= 0) {
-			dev_info(afe->dev, "%s(), get phase %d pass, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
-				 __func__, phase,
-				 afe_priv->mtkaif_chosen_phase[0],
-				 afe_priv->mtkaif_chosen_phase[1],
-				 afe_priv->mtkaif_chosen_phase[2]);
+		    afe_priv->mtkaif_chosen_phase[2] >= 0)
 			break;
-		} else {
-			dev_info(afe->dev, "%s(), get phase %d fail, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
-				 __func__, phase,
-				 afe_priv->mtkaif_chosen_phase[0],
-				 afe_priv->mtkaif_chosen_phase[1],
-				 afe_priv->mtkaif_chosen_phase[2]);
-		}
 	}
 
 	mt6359_set_mtkaif_calibration_phase(&rtd->codec->component,
@@ -262,13 +251,6 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 		0 : afe_priv->mtkaif_chosen_phase[1],
 		(afe_priv->mtkaif_chosen_phase[2] < 0) ?
 		0 : afe_priv->mtkaif_chosen_phase[2]);
-
-	/* Check miso0 and miso1 only */
-	if (afe_priv->mtkaif_chosen_phase[0] < 0 ||
-	    afe_priv->mtkaif_chosen_phase[1] < 0)
-		afe_priv->mtkaif_calibration_ok = false;
-	else
-		afe_priv->mtkaif_calibration_ok = true;
 
 	/* disable rx fifo */
 	regmap_update_bits(afe->regmap, AFE_AUD_PAD_TOP, 0xff, 0x38);
@@ -281,9 +263,8 @@ static int mt6785_mt6359_mtkaif_calibration(struct snd_soc_pcm_runtime *rtd)
 	mt6785_afe_gpio_request(afe, false, MT6785_DAI_ADDA_CH34, 0);
 	pm_runtime_put(afe->dev);
 
-	dev_info(afe->dev, "%s(), end, calibration ok %d, mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
+	dev_info(afe->dev, "%s(), mtkaif_chosen_phase[0/1/2]:%d/%d/%d\n",
 		 __func__,
-		 afe_priv->mtkaif_calibration_ok,
 		 afe_priv->mtkaif_chosen_phase[0],
 		 afe_priv->mtkaif_chosen_phase[1],
 		 afe_priv->mtkaif_chosen_phase[2]);
