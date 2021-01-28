@@ -7,6 +7,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
+#include <linux/printk.h>
 
 #include <mtk_mcdi_governor.h>
 #include <mtk_mcdi_util.h>
@@ -412,14 +413,21 @@ void mcdi_procfs_cpc_init(struct proc_dir_entry *mcdi_dir)
 void mcdi_cpc_init(void)
 {
 	int i;
+	int ret = 0;
 
 	for (i = 0; i < NF_CPU_TYPE; i++) {
-		snprintf(cpc.cpu[i].name, CPC_LAT_NAME_SIZE,
-				get_cpu_type_str(i));
-		snprintf(cpc.cluster[i].name, CPC_LAT_NAME_SIZE,
-				"cluster off(%s)", get_cpu_type_str(i));
+		ret = snprintf(cpc.cpu[i].name, CPC_LAT_NAME_SIZE,
+			       get_cpu_type_str(i));
+		if (ret < 0)
+			pr_info("[mcdi] [%s] cpc cpu name fail!\n", __func__);
+		ret = snprintf(cpc.cluster[i].name, CPC_LAT_NAME_SIZE,
+			       "cluster off(%s)", get_cpu_type_str(i));
+		if (ret < 0)
+			pr_info("[mcdi] [%s] cpc cluster name fail!\n", __func__);
 	}
-	snprintf(cpc.mcusys.name, CPC_LAT_NAME_SIZE, "mcusys");
+	ret = snprintf(cpc.mcusys.name, CPC_LAT_NAME_SIZE, "mcusys");
+	if (ret < 0)
+		pr_info("[mcdi] [%s] cpc mcusys name fail!\n", __func__);
 }
 
 #else
