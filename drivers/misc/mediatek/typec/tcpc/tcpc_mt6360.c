@@ -82,7 +82,7 @@ struct mt6360_chip {
 
 #ifdef CONFIG_WATER_DETECTION
 	atomic_t wd_protect_rty;
-	struct wakeup_source wd_wakeup_src;
+	struct wakeup_source *wd_wakeup_src;
 #endif /* CONFIG_WATER_DETECTION */
 
 #ifdef CONFIG_WD_SBU_POLLING
@@ -1762,7 +1762,7 @@ static int mt6360_is_water_detected(struct tcpc_device *tcpc)
 	enum tcpc_cable_type cable_type;
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
-	__pm_stay_awake(&chip->wd_wakeup_src);
+	__pm_stay_awake(chip->wd_wakeup_src);
 
 #ifdef CONFIG_WD_SBU_POLLING
 	ret = mt6360_enable_usbid_polling(chip, false);
@@ -1885,7 +1885,7 @@ out:
 err:
 	charger_dev_enable_usbid_floating(chip->chgdev, true);
 	charger_dev_enable_usbid(chip->chgdev, false);
-	__pm_relax(&chip->wd_wakeup_src);
+	__pm_relax(chip->wd_wakeup_src);
 	return ret;
 }
 
@@ -2522,7 +2522,8 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 		wakeup_source_register("mt6360_i2c_wakelock");
 
 #ifdef CONFIG_WATER_DETECTION
-	wakeup_source_init(&chip->wd_wakeup_src, "mt6360_wd_wakeup_src");
+	chip->wd_wakeup_src =
+		wakeup_source_register("mt6360_wd_wakeup_src");
 	atomic_set(&chip->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
 #ifdef CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&chip->usbid_poll_work, mt6360_usbid_poll_work);
