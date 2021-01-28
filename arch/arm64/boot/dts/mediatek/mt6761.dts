@@ -560,11 +560,14 @@ firmware_class.path=/vendor/firmware";
 		clocks = <&clk26m>, <&infracfg_ao CLK_INFRA_PMIC_AP>,
 				<&topckgen CLK_TOP_FPWRAP_ULPOSC>;
 		clock-names = "spi", "wrap", "ulposc";
-	};
 
-	main_pmic: mt-pmic {
-		compatible = "mediatek,mt_pmic";
-		interrupt-controller;
+		main_pmic: main_pmic {
+			compatible = "mediatek,mt6357";
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&pio>;
+			interrupts = <144 IRQ_TYPE_LEVEL_HIGH 144 0>;
+		};
 	};
 
 	scp@10500000 {
