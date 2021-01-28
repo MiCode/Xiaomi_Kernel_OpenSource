@@ -135,7 +135,8 @@ void ufs_mtk_dbg_add_trace(struct ufs_hba *hba,
 #endif
 
 	/* keep request pointer to dig out block layer status */
-	if ((event == UFS_TRACE_SEND) || (event == UFS_TRACE_COMPLETED)) {
+	if (((event == UFS_TRACE_SEND) || (event == UFS_TRACE_COMPLETED) ||
+		(event == UFS_TRACE_GENERIC)) && tag != 0xFF) {
 		if (hba->lrb[tag].cmd && hba->lrb[tag].cmd->request) {
 			ufs_cmd_hlist[ptr].rq =
 				hba->lrb[tag].cmd->request;
@@ -291,14 +292,18 @@ void ufs_mtk_dbg_dump_trace(char **buff, unsigned long *size,
 		} else if (ufs_cmd_hlist[ptr].event == UFS_TRACE_GENERIC) {
 
 			SPREAD_PRINTF(buff, size, m,
-				"%3d-u(%d),%5d,%2d,G,arg1=0x%X,arg2=%d,arg3=%d,%llu\n",
+				"%3d-G(%d),%5d,%2d,0x%2x,t=%2d,lba=0x%llx,len=%6d,arg1=0x%X,arg2=%d,arg3=%d,%llu\n",
 				ptr,
 				ufs_cmd_hlist[ptr].cpu,
 				ufs_cmd_hlist[ptr].pid,
 				ufs_cmd_hlist[ptr].event,
-				ufs_cmd_hlist[ptr].tag,          /* argument1 */
-				ufs_cmd_hlist[ptr].transfer_len, /* argument2 */
-				(u32)ufs_cmd_hlist[ptr].lba,     /* argument3 */
+				ufs_cmd_hlist[ptr].opcode,
+				ufs_cmd_hlist[ptr].tag,
+				(long long int)ufs_cmd_hlist[ptr].lba,
+				ufs_cmd_hlist[ptr].transfer_len,
+				ufs_cmd_hlist[ptr].region,
+				ufs_cmd_hlist[ptr].subregion,
+				ufs_cmd_hlist[ptr].resv,
 				(u64)ufs_cmd_hlist[ptr].time
 				);
 

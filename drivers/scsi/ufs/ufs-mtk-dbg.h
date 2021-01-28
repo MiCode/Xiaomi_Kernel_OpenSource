@@ -30,12 +30,10 @@ struct ufs_cmd_hlist_struct {
 	u64 time;
 	u64 duration;
 	struct request *rq;
-#if defined(CONFIG_UFSHPB)
 	unsigned long long ppn;
 	u32 region;
 	u32 subregion;
 	u32 resv;
-#endif
 };
 
 /*
