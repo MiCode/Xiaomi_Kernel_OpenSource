@@ -79,12 +79,10 @@ void s2idle_set_ops(const struct platform_s2idle_ops *ops)
 	unlock_system_sleep();
 }
 
-#ifndef CONFIG_COMMON_CLK_MT6779
 static void s2idle_begin(void)
 {
 	s2idle_state = S2IDLE_STATE_NONE;
 }
-#endif
 
 static void s2idle_enter(void)
 {
@@ -351,7 +349,6 @@ static int suspend_test(int level)
  * hibernation).  Run suspend notifiers, allocate the "suspend" console and
  * freeze processes.
  */
-#ifndef CONFIG_COMMON_CLK_MT6779
 static int suspend_prepare(suspend_state_t state)
 {
 	int error, nr_calls = 0;
@@ -380,7 +377,6 @@ static int suspend_prepare(suspend_state_t state)
 	pm_restore_console();
 	return error;
 }
-#endif
 
 /* default implementation */
 void __weak arch_suspend_disable_irqs(void)
@@ -557,14 +553,12 @@ int suspend_devices_and_enter(suspend_state_t state)
  * Call platform code to clean up, restart processes, and free the console that
  * we've allocated. This routine is not called for hibernation.
  */
-#ifndef CONFIG_COMMON_CLK_MT6779
 static void suspend_finish(void)
 {
 	suspend_thaw_processes();
 	pm_notifier_call_chain(PM_POST_SUSPEND);
 	pm_restore_console();
 }
-#endif
 
 #if MTK_SOLUTION
 
@@ -630,12 +624,6 @@ int suspend_syssync_enqueue(void)
  * Fail if that's not the case.  Otherwise, prepare for system suspend, make the
  * system enter the given sleep state and clean up after wakeup.
  */
-#ifdef CONFIG_COMMON_CLK_MT6779
-static int enter_state(suspend_state_t state)
-{
-	return 0;
-}
-#else
 static int enter_state(suspend_state_t state)
 {
 	int error;
@@ -696,7 +684,6 @@ static int enter_state(suspend_state_t state)
 	mutex_unlock(&system_transition_mutex);
 	return error;
 }
-#endif
 
 /**
  * pm_suspend - Externally visible function for suspending the system.
