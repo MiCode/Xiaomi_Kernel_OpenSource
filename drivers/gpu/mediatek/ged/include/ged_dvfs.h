@@ -46,18 +46,19 @@
 #define GED_DVFS_PERFORMANCE     3
 #define GED_DVFS_TUNING_MODE int
 
-#define GED_EVENT_TOUCH          (1 << 0)
-#define GED_EVENT_THERMAL        (1 << 1)
-#define GED_EVENT_WFD            (1 << 2)
-#define GED_EVENT_MHL            (1 << 3)
-#define GED_EVENT_GAS            (1 << 4)
-#define GED_EVENT_LOW_POWER_MODE (1 << 5)
-#define GED_EVENT_MHL4K_VID      (1 << 6)
-#define GED_EVENT_BOOST_HOST     (1 << 7)
-#define GED_EVENT_VR             (1 << 8)
-#define GED_EVENT_VILTE_VID      (1 << 9)
-#define GED_EVENT_LCD            (1 << 10)
+#define GED_EVENT_TOUCH            (1 << 0)
+#define GED_EVENT_THERMAL          (1 << 1)
+#define GED_EVENT_WFD              (1 << 2)
+#define GED_EVENT_MHL              (1 << 3)
+#define GED_EVENT_GAS              (1 << 4)
+#define GED_EVENT_LOW_POWER_MODE   (1 << 5)
+#define GED_EVENT_MHL4K_VID        (1 << 6)
+#define GED_EVENT_BOOST_HOST       (1 << 7)
+#define GED_EVENT_VR               (1 << 8)
+#define GED_EVENT_VILTE_VID        (1 << 9)
+#define GED_EVENT_LCD              (1 << 10)
 #define GED_EVENT_LOW_LATENCY_MODE (1 << 13)
+#define GED_EVENT_DHWC             (1 << 14)
 
 typedef void (*ged_event_change_fp)(void *private_data, int events);
 

@@ -393,6 +393,8 @@ static int ged_vsync_offset_enable_seq_show(struct seq_file *psSeqFile,
 				g_ui32EventStatus & GED_EVENT_LCD ? 1 : 0);
 			seq_printf(psSeqFile, "Low latency mode: %d\n",
 			g_ui32EventStatus&GED_EVENT_LOW_LATENCY_MODE ? 1 : 0);
+			seq_printf(psSeqFile, "dHWC: %d\n",
+				g_ui32EventStatus & GED_EVENT_DHWC ? 1 : 0);
 		}
 	}
 
