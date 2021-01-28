@@ -49,6 +49,15 @@ config MTK_CLKBUF_BBLPM
 	  But with restrict condition for some of  XO_BUFFER need to
 	  be disabled.
 
+config MTK_CLKBUF_NFC
+	bool "MediaTek Clock Buffer NFC Support"
+	select REGMAP
+	help
+	  Say yes here to support for MediaTek Clock Buffer XO_NFC,
+	  which support PMIC 26Mhz output to NFC HW component. If
+	  this config is not set, XO_NFC will be disabled when
+	  driver is probed.
+
 source "drivers/misc/mediatek/dcm/Kconfig"
 
 config MTK_QOS_FRAMEWORK
