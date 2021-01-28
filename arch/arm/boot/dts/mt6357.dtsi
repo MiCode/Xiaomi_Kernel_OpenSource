@@ -121,6 +121,7 @@
 		compatible = "mediatek,mt6357-charger-type";
 		io-channels = <&pmic_auxadc AUXADC_VCDT>;
 		io-channel-names = "pmic_vbus";
+		bc12_active = <0>;
 	};
 
 	mtk_ts_pmic: mtk_ts_pmic {
