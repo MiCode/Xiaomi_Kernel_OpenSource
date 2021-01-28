@@ -254,7 +254,7 @@ int ccci_platform_init(struct ccci_modem *md)
 #define MD_META_PAGE_SIZE (65*1024)
 #define MD_META_PAGE_NUM (8)
 
-#define AP_META_PAGE_SIZE (65*1024)
+#define AP_META_PAGE_SIZE (63*1024)
 #define AP_META_PAGE_NUM (8)
 
 struct ccci_ccb_config ccb_configs[] = {
