@@ -2097,7 +2097,8 @@ static ssize_t
 total_heaps_kb_show(struct kobject *kobj, struct kobj_attribute *attr,
 		    char *buf)
 {
-	u64 size_in_bytes = atomic_long_read(&total_heap_bytes);
+	// Workaround for disable ion memory show in dumpsys meminfo report
+	u64 size_in_bytes = 0; //atomic_long_read(&total_heap_bytes);
 
 	return sprintf(buf, "%llu\n", div_u64(size_in_bytes, 1024));
 }
