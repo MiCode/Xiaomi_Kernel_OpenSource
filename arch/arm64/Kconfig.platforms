@@ -187,6 +187,7 @@ config MACH_MT6765
 	select CRYPTO_SHA2_ARM_CE
 	select CRYPTO_AES_ARM_CE
 	select MTK_PMQOS
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	help
 	  This enables support for MediaTek MT6765
 	  Highly power-efficient, performance-oriented 4G LTE processor
@@ -203,6 +204,7 @@ config MACH_MT6779
 	select MTK_BASE_POWER if !MTK_GKI_COMPAT
 	select MTK_DFD_INTERNAL_DUMP
 	select MTK_DBGTOP
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
