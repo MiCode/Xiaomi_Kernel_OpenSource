@@ -17,12 +17,13 @@
 int mt_mmc_biolog_init(void);
 int mt_mmc_biolog_exit(void);
 
-void mt_bio_queue_alloc(struct task_struct *thread, struct request_queue *q);
+void mt_bio_queue_alloc(struct task_struct *thread,
+	struct request_queue *q, bool ext_sd);
 void mt_bio_queue_free(struct task_struct *thread);
 
-void mt_biolog_mmcqd_req_check(void);
-void mt_biolog_mmcqd_req_start(struct mmc_host *host);
-void mt_biolog_mmcqd_req_end(struct mmc_data *data);
+void mt_biolog_mmcqd_req_check(bool ext_sd);
+void mt_biolog_mmcqd_req_start(struct mmc_host *host, bool ext_sd);
+void mt_biolog_mmcqd_req_end(struct mmc_data *data, bool ext_sd);
 
 void mt_biolog_cmdq_check(void);
 void mt_biolog_cmdq_queue_task(unsigned int task_id, struct mmc_request *req);

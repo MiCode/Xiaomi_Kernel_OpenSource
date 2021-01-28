@@ -22,6 +22,7 @@
 #include <linux/blk_types.h>
 #include <linux/module.h>
 #include <linux/vmstat.h>
+#include <linux/types.h>
 
 #define BLOCKIO_MIN_VER	"3.09"
 
@@ -152,11 +153,34 @@ void mtk_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
 }
 EXPORT_SYMBOL_GPL(mtk_btag_pidlog_insert);
 
+void mtk_mq_btag_pidlog_insert(struct mtk_btag_pidlogger *pidlog, pid_t pid,
+	__u32 len, int write, bool ext_sd)
+{
+	int i;
+	struct mtk_btag_pidlogger_entry *pe;
+	struct mtk_btag_pidlogger_entry_rw *prw;
+
+	for (i = 0; i < BLOCKTAG_PIDLOG_ENTRIES; i++) {
+		pe = &pidlog->info[i];
+		if (!strncmp(pe->comm, "kworker", strlen("kworker")) ||
+			(pe->pid == pid) || (pe->pid == 0)) {
+			pe->pid = pid;
+			get_task_comm(pe->comm, current);
+			prw = (write) ? &pe->w : &pe->r;
+			prw->count++;
+			prw->length += len;
+			break;
+		}
+	}
+}
+EXPORT_SYMBOL_GPL(mtk_mq_btag_pidlog_insert);
+
 static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 	unsigned short pid, __u32 len)
 {
 	int write = bio_data_dir(bio);
 	int major = bio->bi_disk ? MAJOR(bio_dev(bio)) : 0;
+	int minor = bio->bi_disk ? MINOR(bio_dev(bio)) : 0;
 
 	if (pid != 0xFFFF && major) {
 #ifdef CONFIG_MTK_UFS_BLOCK_IO_LOG
@@ -166,8 +190,12 @@ static void mtk_btag_pidlog_add(struct request_queue *q, struct bio *bio,
 		}
 #endif
 #ifdef CONFIG_MMC_BLOCK_IO_LOG
-		if (major == MMC_BLOCK_MAJOR || major == BLOCK_EXT_MAJOR) {
-			mtk_btag_pidlog_add_mmc(q, pid, len, write);
+		if (major == MMC_BLOCK_MAJOR && !minor) {
+			mtk_btag_pidlog_add_mmc(q, pid, len, write, false);
+			return;
+		}
+		if (major == MMC_BLOCK_MAJOR && minor) {
+			mtk_btag_pidlog_add_mmc(q, pid, len, write, true);
 			return;
 		}
 #endif
@@ -272,8 +300,8 @@ EXPORT_SYMBOL_GPL(mtk_btag_pidlog_set_pid);
 /* evaluate vmstat trace from global_node_page_state() */
 void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
 {
-	/* int cpu; */
-	/* struct vm_event_state *this; */
+	int cpu;
+	struct vm_event_state *this;
 
 	vm->file_pages = ((global_node_page_state(NR_FILE_PAGES))
 		<< (PAGE_SHIFT - 10));
@@ -288,12 +316,12 @@ void mtk_btag_vmstat_eval(struct mtk_btag_vmstat *vm)
 
 	/* file map fault */
 	vm->fmflt = 0;
-/*
- *	for_each_online_cpu(cpu) {
- *		this = &per_cpu(vm_event_states, cpu);
- *		vm->fmflt += this->event[PGFMFAULT];
- *	}
- */
+
+	for_each_online_cpu(cpu) {
+		this = &per_cpu(vm_event_states, cpu);
+		vm->fmflt += this->event[PGMAJFAULT];
+	}
+
 }
 EXPORT_SYMBOL_GPL(mtk_btag_vmstat_eval);
 
