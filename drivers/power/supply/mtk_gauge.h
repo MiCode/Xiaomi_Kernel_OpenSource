@@ -14,6 +14,8 @@
 #include <linux/sysfs.h>
 #include <linux/wait.h>
 
+#define CALI_CAR_TUNE_AVG_NUM   60
+
 #define GAUGE_SYSFS_FIELD_RW(_name_set, _name_get, _prop)	\
 {									 \
 	.attr   = __ATTR(_name, 0644, gauge_sysfs_show, gauge_sysfs_store),\
@@ -132,6 +134,8 @@ struct gauge_hw_status {
 	/* PCB related */
 	int r_fg_value;
 	int car_tune_value;
+	int meta_current;
+	int tmp_car_tune;
 
 	/* hw setting */
 	int vbat2_det_time;
@@ -226,6 +230,7 @@ struct mtk_gauge {
 
 	struct gauge_hw_status hw_status;
 	struct gauge_hw_info_data fg_hw_info;
+	struct mutex fg_mutex;
 
 	int irq_no[GAUGE_IRQ_MAX];
 

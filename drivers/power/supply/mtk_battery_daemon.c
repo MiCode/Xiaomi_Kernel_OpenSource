@@ -1395,6 +1395,14 @@ void exec_BAT_EC(int cmd, int param)
 				cmd, param);
 		}
 		break;
+	case 797:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,GAUGE_PROP_CAR_TUNE_VALUE, current=%d\n",
+				cmd, param);
+			gauge_set_property(GAUGE_PROP_CAR_TUNE_VALUE,
+				param);
+		}
 
 
 	default:

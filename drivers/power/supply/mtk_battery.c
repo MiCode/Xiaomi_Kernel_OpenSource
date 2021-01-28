@@ -3028,6 +3028,7 @@ void fg_check_bootmode(struct device *dev,
 	}
 }
 
+
 int battery_init(struct platform_device *pdev)
 {
 	int ret = 0;
