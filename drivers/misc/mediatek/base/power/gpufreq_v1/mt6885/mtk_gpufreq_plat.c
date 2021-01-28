@@ -435,25 +435,51 @@ static void mt_gpufreq_external_cg_control(void)
 
 	gpufreq_pr_mask(log_mask(), M_BUCK, "@%s\n", __func__);
 
-	/* [F] & [G] adopt default setting because PD implementation issue */
-	/* it should be free run */
-
-	/* [K] MFG_GLOBAL_CON: 0x13fb_f0b0 bit [8] = 0x0 */
-	/* [D] MFG_GLOBAL_CON: 0x13fb_f0b0 bit [10] = 0x0 */
-	val = readl(g_mfg_base + 0xb0);
-	val &= ~(1UL << 8);
-	val &= ~(1UL << 10);
-	writel(val, g_mfg_base + 0xb0);
-
-	/* [H] MFG_ASYNC_CON: 0x13fb_f020 bit [23] = 0x1 */
-	/* [I] MFG_ASYNC_CON: 0x13fb_f020 bit [25] = 0x1 */
+	/* [F] MFG_ASYNC_CON 0x13FB_F020 [22] MEM0_MST_CG_ENABLE = 0x1 */
+	/* [J] MFG_ASYNC_CON 0x13FB_F020 [23] MEM0_SLV_CG_ENABLE = 0x1 */
+	/* [G] MFG_ASYNC_CON 0x13FB_F020 [24] MEM1_MST_CG_ENABLE = 0x1 */
+	/* [K] MFG_ASYNC_CON 0x13FB_F020 [25] MEM1_SLV_CG_ENABLE = 0x1 */
 	val = readl(g_mfg_base + 0x20);
+	val |= (1UL << 22);
 	val |= (1UL << 23);
+	val |= (1UL << 24);
 	val |= (1UL << 25);
 	writel(val, g_mfg_base + 0x20);
 
-	/* [J] MFG_ASYNC_CON_1: 0x13fb_f024 bit [0] = 0x1 */
-	writel(readl(g_mfg_base + 0x24) | (1UL), g_mfg_base + 0x24);
+	/* [H] MFG_ASYNC_CON_3 0x13FB_F02C [12] MEM0_1_MST_CG_ENABLE = 0x1 */
+	/* [L] MFG_ASYNC_CON_3 0x13FB_F02C [13] MEM0_1_SLV_CG_ENABLE = 0x1 */
+	/* [I] MFG_ASYNC_CON_3 0x13FB_F02C [14] MEM1_1_MST_CG_ENABLE = 0x1 */
+	/* [M] MFG_ASYNC_CON_3 0x13FB_F02C [15] MEM1_1_SLV_CG_ENABLE = 0x1 */
+	val = readl(g_mfg_base + 0x2C);
+	val |= (1UL << 12);
+	val |= (1UL << 13);
+	val |= (1UL << 14);
+	val |= (1UL << 15);
+	writel(val, g_mfg_base + 0x2C);
+
+	/* [D] MFG_GLOBAL_CON 0x13FB_F0B0 [10] GPU_CLK_FREE_RUN = 0x0 */
+	/* [D] MFG_GLOBAL_CON 0x13FB_F0B0 [9] MFG_SOC_OUT_AXI_FREE_RUN = 0x0 */
+	val = readl(g_mfg_base + 0xB0);
+	val &= ~(1UL << 10);
+	val &= ~(1UL << 9);
+	writel(val, g_mfg_base + 0xB0);
+
+	/* [D] MFG_QCHANNEL_CON 0x13FB_F0B4 [4] QCHANNEL_ENABLE = 0x1 */
+	val = readl(g_mfg_base + 0xB4);
+	val |= (1UL << 4);
+	writel(val, g_mfg_base + 0xB4);
+
+	/* [E] MFG_GLOBAL_CON 0x13FB_F0B0 [19] PWR_CG_FREE_RUN = 0x0 */
+	/* [P] MFG_GLOBAL_CON 0x13FB_F0B0 [8] MFG_SOC_IN_AXI_FREE_RUN = 0x0 */
+	val = readl(g_mfg_base + 0xB0);
+	val &= ~(1UL << 19);
+	val &= ~(1UL << 8);
+	writel(val, g_mfg_base + 0xB0);
+
+	/*[O] MFG_ASYNC_CON_1 0x13FB_F024 [0] FAXI_CK_SOC_IN_EN_ENABLE = 0x1*/
+	val = readl(g_mfg_base + 0x24);
+	val |= (1UL << 0);
+	writel(val, g_mfg_base + 0x24);
 }
 
 static void mt_gpufreq_cg_control(enum mt_power_state power)
@@ -485,16 +511,19 @@ static void mt_gpufreq_mtcmos_control(enum mt_power_state power)
 			gpufreq_pr_info("failed when enable mtcmos_mfg\n");
 		if (clk_prepare_enable(g_clk->mtcmos_mfg_core0))
 			gpufreq_pr_info("failed when enable mtcmos_mfg_core0\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core1))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core1\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core2))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core2\n");
-		if (clk_prepare_enable(g_clk->mtcmos_mfg_core3))
-			gpufreq_pr_info("failed when enable mtcmos_mfg_core3\n");
+		if (clk_prepare_enable(g_clk->mtcmos_mfg_core1_2))
+			gpufreq_pr_info("failed when enable mtcmos_mfg_core1_2\n");
+		if (clk_prepare_enable(g_clk->mtcmos_mfg_core3_4))
+			gpufreq_pr_info("failed when enable mtcmos_mfg_core3_4\n");
+		if (clk_prepare_enable(g_clk->mtcmos_mfg_core5_6))
+			gpufreq_pr_info("failed when enable mtcmos_mfg_core5_6\n");
+		if (clk_prepare_enable(g_clk->mtcmos_mfg_core7_8))
+			gpufreq_pr_info("failed when enable mtcmos_mfg_core7_8\n");
 	} else {
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core3);
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core2);
-		clk_disable_unprepare(g_clk->mtcmos_mfg_core1);
+		clk_disable_unprepare(g_clk->mtcmos_mfg_core7_8);
+		clk_disable_unprepare(g_clk->mtcmos_mfg_core5_6);
+		clk_disable_unprepare(g_clk->mtcmos_mfg_core3_4);
+		clk_disable_unprepare(g_clk->mtcmos_mfg_core1_2);
 		clk_disable_unprepare(g_clk->mtcmos_mfg_core0);
 		clk_disable_unprepare(g_clk->mtcmos_mfg);
 		clk_disable_unprepare(g_clk->mtcmos_mfg_async);
@@ -2956,22 +2985,36 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 		return PTR_ERR(g_clk->mtcmos_mfg_core0);
 	}
 
-	g_clk->mtcmos_mfg_core1 = devm_clk_get(&pdev->dev, "mtcmos_mfg_core1");
-	if (IS_ERR(g_clk->mtcmos_mfg_core1)) {
-		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core1\n", __func__);
-		return PTR_ERR(g_clk->mtcmos_mfg_core1);
+	g_clk->mtcmos_mfg_core1_2 = devm_clk_get(&pdev->dev,
+		"mtcmos_mfg_core1_2");
+	if (IS_ERR(g_clk->mtcmos_mfg_core1_2)) {
+		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core1_2\n",
+			__func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_core1_2);
 	}
 
-	g_clk->mtcmos_mfg_core2 = devm_clk_get(&pdev->dev, "mtcmos_mfg_core2");
-	if (IS_ERR(g_clk->mtcmos_mfg_core2)) {
-		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core2\n", __func__);
-		return PTR_ERR(g_clk->mtcmos_mfg_core2);
+	g_clk->mtcmos_mfg_core3_4 = devm_clk_get(&pdev->dev,
+		"mtcmos_mfg_core3_4");
+	if (IS_ERR(g_clk->mtcmos_mfg_core3_4)) {
+		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core3_4\n",
+			__func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_core3_4);
 	}
 
-	g_clk->mtcmos_mfg_core3 = devm_clk_get(&pdev->dev, "mtcmos_mfg_core3");
-	if (IS_ERR(g_clk->mtcmos_mfg_core3)) {
-		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core3\n", __func__);
-		return PTR_ERR(g_clk->mtcmos_mfg_core3);
+	g_clk->mtcmos_mfg_core5_6 = devm_clk_get(&pdev->dev,
+		"mtcmos_mfg_core5_6");
+	if (IS_ERR(g_clk->mtcmos_mfg_core5_6)) {
+		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core5_6\n",
+			__func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_core5_6);
+	}
+
+	g_clk->mtcmos_mfg_core7_8 = devm_clk_get(&pdev->dev,
+		"mtcmos_mfg_core7_8");
+	if (IS_ERR(g_clk->mtcmos_mfg_core7_8)) {
+		gpufreq_pr_info("@%s: cannot get mtcmos_mfg_core7_8\n",
+			__func__);
+		return PTR_ERR(g_clk->mtcmos_mfg_core7_8);
 	}
 
 	return 0;
