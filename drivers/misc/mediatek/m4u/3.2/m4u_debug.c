@@ -827,7 +827,7 @@ DEFINE_SIMPLE_ATTRIBUTE(m4u_debug_fops,
 #endif
 
 #if IS_ENABLED(CONFIG_PROC_FS)
-DEFINE_SIMPLE_ATTRIBUTE(m4u_proc_fops,
+DEFINE_PROC_ATTRIBUTE(m4u_proc_fops,
 	m4u_debug_get,
 	m4u_debug_set,
 	"%llu\n");
