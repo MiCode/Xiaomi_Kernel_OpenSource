@@ -11107,6 +11107,7 @@ static const struct file_operations isp_p2_ke_dump_proc_fops = {
 	.owner = THIS_MODULE,
 	.open = proc_isp_p2_ke_dump_open,
 	.read = seq_read,
+	.release = single_release,
 };
 
 /******************************************************************************
