@@ -846,13 +846,51 @@
 
 	apmixed: apmixed@1000c000 {
 		compatible = "mediatek,mt6765-apmixedsys", "syscon";
-		reg = <0 0x1000c000 0 0x1000>;
+		reg = <0 0x1000c000 0 0xe00>;
 		#clock-cells = <1>;
 	};
 
 	fhctl@1000ce00 {
-		compatible = "mediatek,fhctl";
-		reg = <0 0x1000ce00 0 0x0200>;
+		compatible = "mediatek,mt6765-fhctl";
+		reg = <0 0x1000ce00 0 0x100>;
+		mediatek,apmixed = <&apmixed>;
+
+		armpll {
+			mediatek,fh-id = <0>;
+			mediatek,fh-pll-id = <CLK_APMIXED_ARMPLL>;
+			mediatek,fh-cpu-pll;
+		};
+
+		mainpll {
+			mediatek,fh-id = <1>;
+			mediatek,fh-pll-id = <CLK_APMIXED_MAINPLL>;
+		};
+
+		msdcpll {
+			mediatek,fh-id = <2>;
+			mediatek,fh-pll-id = <CLK_APMIXED_MSDCPLL>;
+		};
+
+		mfgpll {
+			mediatek,fh-id = <3>;
+			mediatek,fh-pll-id = <CLK_APMIXED_MFGPLL>;
+		};
+
+		mpll {
+			mediatek,fh-id = <5>;
+			mediatek,fh-pll-id = <CLK_APMIXED_MPLL>;
+		};
+
+		mmpll {
+			mediatek,fh-id = <6>;
+			mediatek,fh-pll-id = <CLK_APMIXED_MMPLL>;
+		};
+
+		armpll_l {
+			mediatek,fh-id = <7>;
+			mediatek,fh-pll-id = <CLK_APMIXED_ARMPLL_L>;
+			mediatek,fh-cpu-pll;
+		};
 	};
 
 	pwrap: pwrap@1000d000 {
