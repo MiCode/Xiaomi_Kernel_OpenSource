@@ -125,8 +125,27 @@
 			#size-cells = <1>;
 		};
 
+		mtk_dynamic_loading_throttling {
+			compatible =
+				"mediatek,mt6359-dynamic_loading_throttling";
+			/*charger: mtk_charger_thread*/
+			mediatek,charger = <&charger>;
+			/*2600~2900mv ,one gear per 50mv*/
+			uvlo-level = <2600>;
+			io-channels = <&pmic_auxadc AUXADC_IMP>,
+				      <&pmic_auxadc AUXADC_IMIX_R>,
+				      <&pmic_auxadc AUXADC_BATADC>;
+			io-channel-names = "pmic_ptim",
+					   "pmic_imix_r",
+					   "pmic_batadc";
+		};
+
 		pmic_lbat_service {
 			compatible = "mediatek,mt6359-lbat_service";
+		};
+
+		mt6359_debug{
+			compatible = "mediatek,mt63xx-debug";
 		};
 
 		mt6359regulator: mt6359regulator {
