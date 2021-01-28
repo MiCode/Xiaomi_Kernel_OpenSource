@@ -113,9 +113,9 @@ void mddp_f_del_nat_tuple_w_unlock(struct nat_tuple *t, unsigned long flag)
 }
 EXPORT_SYMBOL(mddp_f_del_nat_tuple_w_unlock);
 
-void mddp_f_timeout_nat_tuple(struct timer_list *timer)
+void mddp_f_timeout_nat_tuple(unsigned long data)
 {
-	struct nat_tuple *t = from_timer(t, timer, timeout_used);
+	struct nat_tuple *t = (struct nat_tuple *)data;
 	unsigned long flag;
 
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
@@ -189,7 +189,7 @@ bool mddp_f_add_nat_tuple(struct nat_tuple *t)
 	//	__func__, t, t->list.next, t->list.prev);
 
 	/* init timer and start it */
-	timer_setup(&t->timeout_used, mddp_f_timeout_nat_tuple, 0);
+	setup_timer(&t->timeout_used, mddp_f_timeout_nat_tuple, 0);
 	t->timeout_used.expires = jiffies + HZ * USED_TIMEOUT;
 
 	add_timer(&t->timeout_used);
@@ -392,9 +392,9 @@ void mddp_f_del_router_tuple_w_unlock(struct router_tuple *t,
 }
 EXPORT_SYMBOL(mddp_f_del_router_tuple_w_unlock);
 
-void mddp_f_timeout_router_tuple(struct timer_list *timer)
+void mddp_f_timeout_router_tuple(unsigned long data)
 {
-	struct router_tuple *t = from_timer(t, timer, timeout_used);
+	struct router_tuple *t = (struct router_tuple *)data;
 	unsigned long flag;
 
 	MDDP_F_TUPLE_LOCK(&mddp_f_tuple_lock, flag);
@@ -471,7 +471,7 @@ bool mddp_f_add_router_tuple_tcpudp(struct router_tuple *t)
 	//		__func__, t, t->list.next, t->list.prev);
 
 	/* init timer and start it */
-	timer_setup(&t->timeout_used, mddp_f_timeout_router_tuple, 0);
+	setup_timer(&t->timeout_used, mddp_f_timeout_router_tuple, 0);
 	t->timeout_used.expires = jiffies + HZ * USED_TIMEOUT;
 
 	add_timer(&t->timeout_used);
