@@ -188,9 +188,6 @@ static void bootup_finish(void)
 #ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 	mt_disable_uart();
 #endif
-#ifdef CONFIG_MTK_SCHED_MON_DEFAULT_ENABLE
-	mt_sched_monitor_switch(1);
-#endif
 	set_logtoomuch_enable(1);
 }
 

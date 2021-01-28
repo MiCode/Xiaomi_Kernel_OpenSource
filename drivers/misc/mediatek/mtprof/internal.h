@@ -14,7 +14,6 @@
 /* common and private utility for mtprof */
 #include <linux/seq_file.h>
 #include <linux/sched.h>
-//#include <linux/cputime.h>
 
 #define SEQ_printf(m, x...)	    \
 	do {			    \
@@ -41,17 +40,57 @@ static const struct file_operations mt_##name##_fops = { \
 	.release = single_release, \
 }
 
+#define DEFINE_SCHED_MON_OPS(param, type, min, max) \
+static ssize_t sched_mon_##param##_write(struct file *filp, \
+	const char *ubuf, size_t count, loff_t *data) \
+{ \
+	char buf[32]; \
+	unsigned int val = 0; \
+				\
+	if (!sched_mon_door) \
+		return -EPERM; \
+						\
+	if (count >= sizeof(buf) || count < 1) \
+		return -EINVAL; \
+						\
+	if (copy_from_user(&buf, ubuf, count)) \
+		return -EFAULT; \
+					\
+	buf[count] = 0; \
+	if (kstrtouint(buf, 10, &val))	 \
+		return -EINVAL; \
+					\
+	if (val < min || val > max) \
+		return -EINVAL; \
+						\
+	param = (type)val; \
+					\
+	return count; \
+} \
+static int sched_mon_##param##_show(struct seq_file *s, void *p) \
+{ \
+	seq_printf(s, "%d\n", param); \
+	return 0; \
+} \
+static int sched_mon_##param##_open(struct inode *inode, struct file *file) \
+{ \
+	return single_open(file, sched_mon_##param##_show, inode->i_private); \
+} \
+static const struct file_operations sched_mon_##param##_fops = { \
+	.open = sched_mon_##param##_open, \
+	.write = sched_mon_##param##_write, \
+	.read = seq_read, \
+	.llseek = seq_lseek, \
+	.release = single_release, \
+}
+
 /* for bootprof.c */
 unsigned int gpt_boot_time(void);
-
-const char *isr_name(int irq);
 
 long long msec_high(unsigned long long nsec);
 unsigned long msec_low(unsigned long long nsec);
 long long usec_high(unsigned long long nsec);
-unsigned long usec_low(unsigned long long nsec);
 long long sec_high(unsigned long long nsec);
 unsigned long sec_low(unsigned long long nsec);
 
 void mt_sched_monitor_test_init(struct proc_dir_entry *dir);
-

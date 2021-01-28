@@ -53,9 +53,6 @@
 #include <asm/sections.h>
 
 #include "lockdep_internals.h"
-#ifdef CONFIG_PREEMPT_MONITOR
-#include "mtk_sched_mon.h"
-#endif
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
 #endif
@@ -3197,9 +3194,7 @@ EXPORT_SYMBOL(trace_hardirqs_on_caller);
 
 void trace_hardirqs_on(void)
 {
-#ifdef CONFIG_PREEMPT_MONITOR
-	MT_trace_hardirqs_on();
-#endif
+	trace_hardirqs_on_time();
 	trace_hardirqs_on_caller(CALLER_ADDR0);
 }
 EXPORT_SYMBOL(trace_hardirqs_on);
@@ -3238,9 +3233,7 @@ EXPORT_SYMBOL(trace_hardirqs_off_caller);
 
 void trace_hardirqs_off(void)
 {
-#ifdef CONFIG_PREEMPT_MONITOR
-	MT_trace_hardirqs_off();
-#endif
+	trace_hardirqs_off_time();
 	trace_hardirqs_off_caller(CALLER_ADDR0);
 }
 EXPORT_SYMBOL(trace_hardirqs_off);
