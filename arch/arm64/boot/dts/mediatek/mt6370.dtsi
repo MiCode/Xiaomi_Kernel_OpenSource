@@ -29,7 +29,7 @@
 			compatible = "mediatek,mt6370_pmu_charger";
 			interrupt-names = "chg_mivr", "chg_aiclmeasi",
 				"attachi","ovpctrl_uvp_d_evt", "chg_wdtmri",
-				"chg_vbusov","chg_tmri", "chg_treg";
+				"chg_vbusov","chg_tmri", "chg_treg", "dcdti";
 			charger_name = "primary_chg";
 			load_switch_name = "primary_load_switch";
 			ichg = <2000000>;	/* uA */
@@ -43,8 +43,16 @@
 			ircmp_vclamp = <32000>;		/* uV */
 			enable_te;
 			enable_wdt;
-			/* enable_polling; */	/* is this charger needs*/
-						/* polling */
+			lbp_hys_sel = <1>;	/* 0: 100mV, 1: 200mV */
+			lbp_dt = <1>;		/* 0: 10ms, 1: 20ms */
+						/* 2: 40ms, 3: 500us */
+			/* with it: don't check 1.2v while PD/SD during BC12 */
+			/* disable_vlgc; */
+			/* with it: enable fast unknown TA detection */
+			/* fast_unknown_ta_dect; */
+			/* enable_polling; */
+			/* with it: do post aicl measure */
+			post_aicl;
 			charger = <&mt6370_chg>;
 			bc12_sel = <0>;
 			otg_vbus: usb-otg-vbus {
@@ -164,6 +172,29 @@
 			/* we have 11 bit resolution, quantize in driver */
 			mt,max_bled_brightness = <512>; /* maximum 2047 */
 
+			mt,bled_curr_scale = <0>;	/* 0: 30mA, 1: 22.5mA */
+							/* 2: 20mA, 3: 17.5mA */
+			/* If use bled lpf,
+			 * Set	//mt,map_linear;
+			 *	pwm_lpf_coef = <2>;
+			 *	mt,pwm_lpf_en;
+			 *	mt,bled_curr_mode;
+			 * Else
+			 * Set	mt,map_linear;
+			 *	pwm_lpf_coef = <0>;
+			 *	//mt,pwm_lpf_en;
+			 *	//mt,bled_curr_mode;
+			 */
+			mt,pwm_lpf_coef = <0>;	/* 0: (1)/(2^15) */
+						/* 1: (2)/(2^15) */
+						/* 2: (3)/(2^15) */
+						/* 3: (4)/(2^15) */
+			/* with it, Alpha-LPF enable */
+			/* mt,pwm_lpf_en; */
+			/* with it, pwm duty is multiplied after
+			 * linear/expenential mapper
+			 */
+			/* mt,bled_curr_mode; */
 		};
 		dsv {
 			compatible = "mediatek,mt6370_pmu_dsv";
