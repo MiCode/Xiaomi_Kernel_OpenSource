@@ -8,7 +8,9 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb_c/tcpc/inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery
+ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/charger
 ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 
 subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/pmic/include
 
@@ -33,8 +35,6 @@ obj-$(CONFIG_MTK_PMIC_CHIP_MT6357)	+= pmic.o pmic_common.o \
 		regulator_codegen.o \
 		pmic_lp_api.o \
 		pmic_efuse.o \
-#		pmic_bif.o \
-
 
 # Charger Type Detection
 ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)

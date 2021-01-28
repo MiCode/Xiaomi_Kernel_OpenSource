@@ -1,14 +1,14 @@
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
+ * Copyright (C) 2017 MediaTek Inc.
+
+ * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- *
+
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
 #ifndef _CUST_PMIC_H_
@@ -21,7 +21,9 @@
 #define PT_DLPT_BRINGUP 0
 
 #if defined(CONFIG_FPGA_EARLY_PORTING) || PT_DLPT_BRINGUP
-/*Define for disable low battery protect feature, default no define for enable low battery protect.*/
+/* Define for disable low battery protect feature,
+ * default no define for enable low battery protect.
+ */
 #define DISABLE_LOW_BATTERY_PROTECT
 
 /*Define for disable battery OC protect*/
@@ -56,4 +58,34 @@
 
 /* ADC Channel Number, not uesed and removed */
 
+
+extern const char *pmic_auxadc_channel_name[];
+
+/* Legacy pmic auxadc interface */
+enum {
+	/* mt6357 */
+	AUXADC_LIST_BATADC,
+	AUXADC_LIST_START = AUXADC_LIST_BATADC,
+	AUXADC_LIST_VCDT,
+	AUXADC_LIST_BATTEMP,
+	AUXADC_LIST_VBIF,
+	AUXADC_LIST_MT6357_CHIP_TEMP,
+	AUXADC_LIST_DCXO,
+	AUXADC_LIST_ACCDET,
+	AUXADC_LIST_TSX,
+	AUXADC_LIST_HPOFS_CAL,
+	AUXADC_LIST_ISENSE,
+	AUXADC_LIST_MT6357_BUCK1_TEMP,
+	AUXADC_LIST_MT6357_BUCK2_TEMP,
+	AUXADC_LIST_END = AUXADC_LIST_MT6357_BUCK2_TEMP,
+	AUXADC_LIST_MAX,
+};
+
+
+extern void pmic_auxadc_init(void);
+extern void pmic_auxadc_dump_regs(char *buf);
+extern int pmic_get_auxadc_channel_max(void);
+extern int mt_get_auxadc_value(u8 channel);
+extern void pmic_auxadc_lock(void);
+extern void pmic_auxadc_unlock(void);
 #endif /* _CUST_PMIC_H_ */
