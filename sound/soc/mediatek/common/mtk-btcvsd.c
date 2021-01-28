@@ -323,7 +323,8 @@ static void mtk_btcvsd_snd_data_transfer(enum bt_sco_direct dir,
 /* write encoded mute data to bt sram */
 static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 {
-	unsigned int i;
+	void *dst;
+	unsigned long connsys_addr_tx, ap_addr_tx;
 	unsigned int num_valid_addr;
 	unsigned long flags;
 	enum BT_SCO_BAND band = bt->band;
@@ -345,19 +346,27 @@ static int btcvsd_tx_clean_buffer(struct mtk_btcvsd_snd *bt)
 	dev_info(bt->dev, "%s(), band %d, num_valid_addr %u\n",
 		 __func__, band, num_valid_addr);
 
-	for (i = 0; i < num_valid_addr; i++) {
-		void *dst;
+	connsys_addr_tx = *bt->bt_reg_pkt_w;
+	ap_addr_tx = (unsigned long)bt->bt_sram_bank2_base +
+		     (connsys_addr_tx & 0xFFFF);
 
-		dev_info(bt->dev, "%s(), clean addr 0x%lx\n", __func__,
-			 bt->tx->buffer_info.bt_sram_addr[i]);
-
-		dst = (void *)bt->tx->buffer_info.bt_sram_addr[i];
-
-		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
-					     bt->tx->temp_packet_buf, dst,
-					     bt->tx->buffer_info.packet_length,
-					     bt->tx->buffer_info.packet_num);
+	if (connsys_addr_tx == 0xdeadfeed) {
+		/* bt return 0xdeadfeed if read register during bt sleep */
+		dev_warn(bt->dev, "%s(), connsys_addr_tx == 0xdeadfeed\n",
+			 __func__);
+		spin_unlock_irqrestore(&bt->tx_lock, flags);
+		return -EIO;
 	}
+
+	dst = (void *)ap_addr_tx;
+
+	dev_info(bt->dev, "%s(), clean addr 0x%lx\n", __func__, ap_addr_tx);
+
+	mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
+				     bt->tx->temp_packet_buf, dst,
+				     bt->tx->buffer_info.packet_length,
+				     bt->tx->buffer_info.packet_num);
+
 	spin_unlock_irqrestore(&bt->tx_lock, flags);
 	bt->write_tx = 1;
 
