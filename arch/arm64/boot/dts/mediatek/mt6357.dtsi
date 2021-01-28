@@ -379,12 +379,6 @@
 		};
 	};
 
-	mtk_battery_oc_throttling {
-		compatible = "mediatek,mt6357-battery_oc_throttling";
-		oc-thd-h = <4670>;
-		oc-thd-l = <5500>;
-	};
-
 	mtk_dynamic_loading_throttling {
 		compatible = "mediatek,mt6357-dynamic_loading_throttling";
 		mediatek,charger = <&charger>;

@@ -486,10 +486,6 @@
 			};
 		};
 
-		mtk_battery_oc_throttling {
-			compatible = "mediatek,mt6359-battery_oc_throttling";
-		};
-
 		clock_buffer_ctrl: clock_buffer_ctrl {
 			compatible = "mediatek,clock_buffer";
 			n-clkbuf-pmic-dependent = <5>;

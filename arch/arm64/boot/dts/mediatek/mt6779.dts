@@ -1024,6 +1024,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				#interrupt-cells = <2>;
 				interrupt-parent = <&pio>;
 				interrupts = <193 IRQ_TYPE_LEVEL_HIGH 193 0>;
+
+				mtk_battery_oc_throttling {
+					compatible =
+					"mediatek,mt6359-battery_oc_throttling";
+					oc-thd-h = <5800>;
+					oc-thd-l = <6300>;
+				};
 			};
 		};
 
