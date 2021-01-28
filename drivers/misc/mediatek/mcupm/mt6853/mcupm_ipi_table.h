@@ -152,7 +152,7 @@ struct mtk_mbox_pin_send mcupm_mbox_pin_send[] = {
 	{4, PIN_S_OFFSET_SUSPEND, 1, 0, PIN_S_MSG_SIZE_SUSPEND,
 		4, CH_S_SUSPEND,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
-	{5, PIN_S_OFFSET_RMET, 1, 0, PIN_S_MSG_SIZE_RMET,
+	{5, PIN_S_OFFSET_RMET, 0, 0, PIN_S_MSG_SIZE_RMET,
 		5, IPIR_C_MET,
 		{ { 0 } }, { 0 }, { { { { 0 } } } } },
 	{6, PIN_S_OFFSET_SMET, 1, 0, PIN_S_MSG_SIZE_SMET,
