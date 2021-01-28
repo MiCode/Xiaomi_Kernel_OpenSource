@@ -99,7 +99,9 @@ int port_ipc_recv_match(struct port_t *port, struct sk_buff *skb)
 	return 0;
 }
 
+#if MD_GENERATION <= (6295)
 static int send_new_time_to_md(int md_id, int tz);
+#endif
 int current_time_zone;
 
 long port_ipc_ioctl(struct file *file, unsigned int cmd,
@@ -139,7 +141,11 @@ long port_ipc_ioctl(struct file *file, unsigned int cmd,
 		CCCI_REPEAT_LOG(port->md_id, IPC,
 			"CCCI_IPC_UPDATE_TIME 0x%x\n", (unsigned int)arg);
 		current_time_zone = (int)arg;
+		#if MD_GENERATION <= (6295)
 		ret = send_new_time_to_md(port->md_id, (int)arg);
+		#else
+		ret = send_new_time_to_new_md(port->md_id, (int)arg);
+		#endif
 		break;
 
 	case CCCI_IPC_WAIT_TIME_UPDATE:
@@ -459,6 +465,7 @@ int port_ipc_init(struct port_t *port)
 			.rx_cb = ccci_ipc_send_ilm_to_md1};
 
 			mtk_conn_md_bridge_reg(MD_MOD_EL1, &ccci_ipc_conn_ops);
+			/* mp1 1, mp2 0, ro 1 */
 			mtk_conn_md_bridge_reg(MD_MOD_GMMGR,
 						&ccci_ipc_conn_ops);
 #endif
@@ -474,6 +481,7 @@ struct port_ops ipc_port_ops = {
 	.md_state_notify = &port_ipc_md_state_notify,
 };
 
+#if MD_GENERATION <= (6295)
 int send_new_time_to_md(int md_id, int tz)
 {
 	struct ipc_ilm in_ilm;
@@ -512,6 +520,7 @@ int send_new_time_to_md(int md_id, int tz)
 	CCCI_REPEAT_LOG(md_id, IPC, "Update success\n");
 	return 0;
 }
+#endif
 
 int ccci_get_emi_info(int md_id, struct ccci_emi_info *emi_info)
 {

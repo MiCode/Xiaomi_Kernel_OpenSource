@@ -99,6 +99,7 @@ struct ccb_ctrl_info {
 
 extern unsigned int ccb_configs_len;
 extern struct ccci_ccb_config ccb_configs[];
+extern void mtk_ccci_ccb_info_peek(void);
 
 
 /* ======================================================================= */
@@ -490,7 +491,20 @@ enum CCCI_CH {
 	CCCI_TCHE_TX			= 182,
 	CCCI_DISP_RX			= 183,
 	CCCI_DISP_TX			= 184,
+	CCCI_WIFI_RX			= 187,
+	CCCI_WIFI_TX			= 188,
+	CCCI_VTS_RX			= 189,
+	CCCI_VTS_TX			= 190,
 
+	CCCI_IKERAW_RX			= 191,
+	CCCI_IKERAW_TX			= 192,
+
+	CCCI_MD_DIRC_RX			= 200,
+	CCCI_MD_DIRC_TX			= 201,
+	CCCI_TIME_RX			= 202,
+	CCCI_TIME_TX			= 203,
+	CCCI_GARB_RX			= 204,
+	CCCI_GARB_TX			= 205,
 
 	CCCI_C2K_PPP_DATA, /* data ch for c2k */
 
@@ -588,6 +602,8 @@ int ccci_register_dev_node(const char *name, int major_id, int minor);
 int ccci_get_adc_num(void);
 int ccci_get_adc_val(void);
 #endif
+
+int hif_empty_query(int qno);
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 extern void fsm_scp_init0(void);

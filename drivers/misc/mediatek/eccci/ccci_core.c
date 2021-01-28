@@ -30,6 +30,9 @@
 #endif
 
 static void *dev_class;
+#ifdef FEATURE_SCP_CCCI_SUPPORT
+static int scp_stop;
+#endif
 /*
  * for debug log:
  * 0 to disable; 1 for print to ram; 2 for print to uart
@@ -121,6 +124,16 @@ static int apsync_event(struct notifier_block *this,
 	switch (event) {
 	case SCP_EVENT_READY:
 		fsm_scp_init0();
+		if (scp_stop == 1) {
+			ccci_port_send_msg_to_md(MD_SYS1,
+				CCCI_SYSTEM_TX, CCISM_SHM_INIT, 0, 1);
+			CCCI_NORMAL_LOG(0, CORE, "SCP reboot---\n");
+			scp_stop = 0;
+		}
+		break;
+	case SCP_EVENT_STOP:
+		scp_stop = 1;
+		CCCI_NORMAL_LOG(0, CORE, "SCP stop---\n");
 		break;
 	}
 

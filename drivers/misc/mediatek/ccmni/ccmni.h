@@ -65,7 +65,7 @@
 #define  IS_CCMNI_LAN(dev)      \
 	(strncmp(dev->name, "ccmni-lan", 9) == 0)
 #define  CCMNI_TX_PRINT_F	(0x1 << 0)
-#define MDT_TAG_PATTERN         0x46464646
+#define  MDDP_TAG_PATTERN       0x4646
 #define  CCMNI_FLT_NUM          32
 
 /* #define CCMNI_MET_DEBUG */
@@ -189,15 +189,24 @@ struct ccmni_dev_ops {
 	int (*is_ack_skb)(int md_id, struct sk_buff *skb);
 };
 
-struct md_drt_tag {
-	u8  in_netif_id;
-	u8  out_netif_id;
-	u16 port;
-};
-
 struct md_tag_packet {
-	u32 guard_pattern;
-	struct md_drt_tag info;
+	u_int16_t   guard_pattern; /* 0x4646 */
+	u_int8_t    version;
+	u_int8_t    reserved;
+	union {
+		struct {
+			u_int8_t    in_netif_id;
+			u_int8_t    out_netif_id;
+			u_int16_t   port;
+		} v1;
+		struct {
+			u_int8_t    tag_info;
+			u_int8_t    reserved;
+			u_int16_t   port;
+			u_int32_t   lan_netif_id;
+			u_int32_t   ip;
+		} v2;
+	};
 };
 
 enum {

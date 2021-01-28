@@ -55,29 +55,36 @@
 #define AP_PLATFORM_LEN		(16)
 /*Note: must sync with sec lib, if ccci and sec has dependency change */
 #define CURR_SEC_CCCI_SYNC_VER	(1)
-static char *type_str[] = {[md_type_invalid] = "invalid",
-	[modem_2g] = "2g",
-	[modem_3g] = "3g",
-	[modem_wg] = "wg",
-	[modem_tg] = "tg",
-	[modem_lwg] = "lwg",
-	[modem_ltg] = "ltg",
-	[modem_sglte] = "sglte",
-	[modem_ultg] = "ultg",
-	[modem_ulwg] = "ulwg",
-	[modem_ulwtg] = "ulwtg",
-	[modem_ulwcg] = "ulwcg",
-	[modem_ulwctg] = "ulwctg",
-	[modem_ulttg] = "ulttg",
-	[modem_ulfwg] = "ulfwg",
-	[modem_ulfwcg] = "ulfwcg",
-	[modem_ulctg] = "ulctg",
-	[modem_ultctg] = "ultctg",
-	[modem_ultwg] = "ultwg",
-	[modem_ultwcg] = "ultwcg",
-	[modem_ulftg] = "ulftg",
-	[modem_ulfctg] = "ulfctg"
+
+static char *md_img_type_str[] = {
+	"invalid",
+	"2g",
+	"3g",
+	"wg",
+	"tg",
+	"lwg",
+	"ltg",
+	"sglte",
+	"ulwtg",
+	"ultg",
+	"ulwg",
+	"ulwcg",
+	"ulwctg",
+	"unlwtg",
+	"unlwctg",
 };
+
+static char invalid_img_str[32];
+
+static char *get_md_img_cap_str(int md_img_type)
+{
+	if ((unsigned int)md_img_type >= ARRAY_SIZE(md_img_type_str)) {
+		snprintf(invalid_img_str, 32, "err_img_type%d", md_img_type);
+		return invalid_img_str;
+	}
+
+	return md_img_type_str[md_img_type];
+}
 
 static int curr_ubin_id;
 static char *product_str[] = {[INVALID_VARSION] = INVALID_STR,
@@ -184,9 +191,9 @@ static int check_md_header_v3(int md_id, void *parse_addr,
 		&& (head->image_type >= modem_ultg)
 		&& (head->image_type <= MAX_IMG_NUM))
 		curr_ubin_id = head->image_type;
-	image->ap_info.image_type = type_str[head->image_type];
+	image->ap_info.image_type = get_md_img_cap_str(head->image_type);
 	image->ap_info.platform = ccci_get_ap_platform();
-	image->img_info.image_type = type_str[head->image_type];
+	image->img_info.image_type = get_md_img_cap_str(head->image_type);
 	image->img_info.platform = head->platform;
 	image->img_info.build_time = head->build_time;
 	image->img_info.build_ver = head->build_ver;
@@ -451,9 +458,9 @@ static int md_check_header_parser(int md_id, void *parse_addr,
 		&& (head->image_type >= modem_ultg)
 		&& (head->image_type <= MAX_IMG_NUM))
 		curr_ubin_id = head->image_type;
-	image->ap_info.image_type = type_str[head->image_type];
+	image->ap_info.image_type = get_md_img_cap_str(head->image_type);
 	image->ap_info.platform = ccci_get_ap_platform();
-	image->img_info.image_type = type_str[head->image_type];
+	image->img_info.image_type = get_md_img_cap_str(head->image_type);
 	image->img_info.platform = head->platform;
 	image->img_info.build_time = head->build_time;
 	image->img_info.build_ver = head->build_ver;
@@ -715,9 +722,11 @@ static int check_md_header(int md_id, void *parse_addr,
 			md_size_check = true;
 #endif
 
-			image->ap_info.image_type = type_str[head->image_type];
+			image->ap_info.image_type =
+				get_md_img_cap_str(head->image_type);
 			image->ap_info.platform = ccci_get_ap_platform();
-			image->img_info.image_type = type_str[head->image_type];
+			image->img_info.image_type =
+				get_md_img_cap_str(head->image_type);
 			image->img_info.platform = head->platform;
 			image->img_info.build_time = head->build_time;
 			image->img_info.build_ver = head->build_ver;
@@ -822,7 +831,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	if ((curr_ubin_id != 0) && (md_id == MD_SYS1)) {
 		if (buf) {
 			snprintf(buf, IMG_POSTFIX_LEN,
-				"%d_%s_n", X, type_str[curr_ubin_id]);
+				"%d_%s_n", X, get_md_img_cap_str(curr_ubin_id));
 			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 				"MD%d image postfix=%s\n",
 				md_id + 1, buf);
@@ -831,7 +840,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 		if (buf_ex) {
 			snprintf(buf_ex, IMG_POSTFIX_LEN,
 				"%d_%s_n_E%d", X,
-				type_str[curr_ubin_id], Ex);
+				get_md_img_cap_str(curr_ubin_id), Ex);
 			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 				"MD%d image postfix=%s\n",
 				md_id + 1, buf_ex);
@@ -869,10 +878,10 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	/* K */
 	if (k == NULL)
 		snprintf(YY_K, IMG_POSTFIX_LEN,
-			"_%s_n", type_str[feature_val]);
+			"_%s_n", get_md_img_cap_str(feature_val));
 	else
 		snprintf(YY_K, IMG_POSTFIX_LEN,
-			"_%s_%s", type_str[feature_val], k);
+			"_%s_%s", get_md_img_cap_str(feature_val), k);
 
 	/* [_Ex] Get chip version */
 #if 0
@@ -978,15 +987,15 @@ TRY_LOAD_IMG:
 			if (img->type == IMG_MD)
 				snprintf(img_name, IMG_NAME_LEN,
 					"modem_%d_%s_n.img",
-					md_id+1, type_str[i]);
+					md_id+1, get_md_img_cap_str(i));
 			else if (img->type == IMG_DSP)
 				snprintf(img_name, IMG_NAME_LEN,
 					"dsp_%d_%s_n.bin",
-					md_id+1, type_str[i]);
+					md_id+1, get_md_img_cap_str(i));
 			else if (img->type == IMG_ARMV7)
 				snprintf(img_name, IMG_NAME_LEN,
 					"armv7_%d_%s_n.bin",
-					md_id+1, type_str[i]);
+					md_id+1, get_md_img_cap_str(i));
 			else {
 				CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 					"[Error]Invalid img type%d\n",

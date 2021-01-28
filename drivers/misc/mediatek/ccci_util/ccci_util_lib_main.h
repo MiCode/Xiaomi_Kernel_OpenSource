@@ -376,3 +376,4 @@ extern int __init ccci_util_fo_init(void);
 extern void ccci_timer_for_md_init(void);
 extern const char *ld_md_errno_to_str(int errno);
 extern int ccci_util_broadcast_init(void);
+extern int ccci_sib_init(void);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,16 +11,15 @@
  * GNU General Public License for more details.
  */
 
+#ifndef __CCCI_UTIL_SIB_H__
+#define __CCCI_UTIL_SIB_H__
 
-/* MD_RF_NOTIFY(0, LCM_NOTFY1, "LCM")
- * para. 0: bit in parameter md send;
- * para. 1: function name;
- * para. 2: module name;
- */
-#ifndef CONFIG_DRM_MEDIATEK
-MD_RF_NOTIFY(0, primary_display_ccci_mipi_callback, "MIPI_CLK")
-MD_RF_NOTIFY(1, primary_display_ccci_osc_callback, "LCM_OSC")
-#else
-MD_RF_NOTIFY(0, mtk_disp_mipi_ccci_callback, "MIPI_CLK")
-MD_RF_NOTIFY(1, mtk_disp_osc_ccci_callback, "LCM_OSC")
+struct ccci_sib_region {
+	phys_addr_t base_md_view_phy;
+	phys_addr_t base_ap_view_phy;
+	void __iomem *base_ap_view_vir;
+	unsigned int size;
+};
+
 #endif
+
