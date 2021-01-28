@@ -234,6 +234,19 @@ int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 	return ret;
 }
 
+void vcu_io_buffer_cache_sync(struct device *dev,
+	struct dma_buf *dbuf, int op)
+{
+	struct dma_buf_attachment *buf_att;
+	struct sg_table *sgt;
+
+	buf_att = dma_buf_attach(dbuf, dev);
+	sgt = dma_buf_map_attachment(buf_att, op);
+	dma_sync_sg_for_device(dev, sgt->sgl, sgt->orig_nents, op);
+	dma_buf_unmap_attachment(buf_att, sgt, op);
+	dma_buf_detach(dbuf, buf_att);
+}
+
 int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 {
 	struct mtk_vcu_mem *vcu_buffer;
@@ -256,7 +269,8 @@ int vcu_buffer_flush_all(struct device *dev, struct mtk_vcu_queue *vcu_queue)
 			dmac_map_area((void *)cook, vcu_buffer->size,
 						  DMA_TO_DEVICE);
 		} else
-			dma_buf_end_cpu_access(vcu_buffer->dbuf, DMA_TO_DEVICE);
+			vcu_io_buffer_cache_sync(dev,
+				vcu_buffer->dbuf, DMA_TO_DEVICE);
 	}
 
 	return 0;
@@ -299,14 +313,9 @@ int vcu_buffer_cache_sync(struct device *dev, struct mtk_vcu_queue *vcu_queue,
 					dmac_map_area((void *)cook, size, op);
 				else
 					dmac_unmap_area((void *)cook, size, op);
-			} else {
-				if (op == DMA_TO_DEVICE)
-					dma_buf_end_cpu_access(
-						vcu_buffer->dbuf, op);
-				else
-					dma_buf_begin_cpu_access(
-						vcu_buffer->dbuf, op);
-			}
+			} else
+				vcu_io_buffer_cache_sync(dev,
+					vcu_buffer->dbuf, op);
 			return 0;
 		}
 	}
