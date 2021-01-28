@@ -202,6 +202,7 @@ config ANDROID_DEFAULT_SETTING
 	select PPPOL2TP
 	select PPTP
 	select PREEMPT
+	select PROCESS_RECLAIM
 	select PROC_FS
 	select PROFILING
 	select PSI
