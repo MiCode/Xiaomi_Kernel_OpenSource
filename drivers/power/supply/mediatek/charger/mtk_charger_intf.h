@@ -77,6 +77,8 @@ do {								\
 #define	CHR_PE40_TUNING	(0x0009)
 #define	CHR_PE40_POSTCC	(0x000A)
 #define CHR_PE30	(0x000B)
+#define CHR_PE40	(0x000C)
+#define CHR_PDC		(0x000D)
 
 /* charging abnormal status */
 #define CHG_VBUS_OV_STATUS	(1 << 0)
@@ -350,6 +352,7 @@ struct charger_manager {
 
 	/* pe 4.0 */
 	bool enable_pe_4;
+	bool leave_pe4;
 	struct mtk_pe40 pe4;
 
 	/* type-C*/
@@ -359,6 +362,7 @@ struct charger_manager {
 	bool water_detected;
 
 	/* pd */
+	bool leave_pdc;
 	struct mtk_pdc pdc;
 	bool disable_pd_dual;
 
@@ -396,6 +400,7 @@ struct charger_manager {
 /* charger related module interface */
 extern int charger_manager_notifier(struct charger_manager *info, int event);
 extern int mtk_switch_charging_init(struct charger_manager *info);
+extern int mtk_switch_charging_init2(struct charger_manager *info);
 extern int mtk_dual_switch_charging_init(struct charger_manager *info);
 extern int mtk_linear_charging_init(struct charger_manager *info);
 extern void _wake_up_charger(struct charger_manager *info);

@@ -1009,6 +1009,35 @@ static ssize_t store_pe20(struct device *dev, struct device_attribute *attr,
 
 static DEVICE_ATTR(pe20, 0664, show_pe20, store_pe20);
 
+static ssize_t show_pe40(struct device *dev, struct device_attribute *attr,
+					       char *buf)
+{
+	struct charger_manager *pinfo = dev->driver_data;
+
+	chr_err("%s: %d\n", __func__, pinfo->enable_pe_4);
+	return sprintf(buf, "%d\n", pinfo->enable_pe_4);
+}
+
+static ssize_t store_pe40(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t size)
+{
+	struct charger_manager *pinfo = dev->driver_data;
+	signed int temp;
+
+	if (kstrtoint(buf, 10, &temp) == 0) {
+		if (temp == 0)
+			pinfo->enable_pe_4 = false;
+		else
+			pinfo->enable_pe_4 = true;
+
+	} else {
+		chr_err("%s: format error!\n", __func__);
+	}
+	return size;
+}
+
+static DEVICE_ATTR(pe40, 0664, show_pe40, store_pe40);
+
 /* pump express series end*/
 
 static ssize_t show_charger_log_level(struct device *dev,
@@ -2463,6 +2492,11 @@ static int mtk_charger_parse_dt(struct charger_manager *info,
 		info->data.bc12_charger = DEFAULT_BC12_CHARGER;
 	}
 
+	if (strcmp(info->algorithm_name, "SwitchCharging2") == 0) {
+		chr_err("found SwitchCharging2\n");
+		mtk_switch_charging_init2(info);
+	}
+
 	chr_err("algorithm name:%s\n", info->algorithm_name);
 
 	return 0;
@@ -2818,6 +2852,9 @@ static int mtk_charger_setup_files(struct platform_device *pdev)
 	if (ret)
 		goto _out;
 	ret = device_create_file(&(pdev->dev), &dev_attr_pe20);
+	if (ret)
+		goto _out;
+	ret = device_create_file(&(pdev->dev), &dev_attr_pe40);
 	if (ret)
 		goto _out;
 
