@@ -28,7 +28,12 @@
 
 #define SSPM_PLT_SERV_SUPPORT       (1)
 #define SSPM_LOGGER_SUPPORT         (1)
+
+#ifdef CONFIG_MEDIATEK_EMI
 #define SSPM_EMI_PROTECTION_SUPPORT (1)
+#else
+#define SSPM_EMI_PROTECTION_SUPPORT (0)
+#endif
 
 #define PLT_INIT		0x504C5401
 #define PLT_LOG_ENABLE		0x504C5402
