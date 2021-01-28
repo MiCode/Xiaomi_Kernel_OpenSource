@@ -11,7 +11,7 @@ config HAVE_MTK_GZ_LOG
 	 If the gz_log driver failed or this symbol is false, the mtk logger
 	 can not read the gz message correctly.
 
-config MT_TRUSTY_DEBUGFS
+config MT_GZ_TRUSTY_DEBUGFS
 	tristate "Trusty debugfs for Mediatek platforms"
 
 config TRUSTY_INTERRUPT_MAP
