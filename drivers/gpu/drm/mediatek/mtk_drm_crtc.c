@@ -1817,6 +1817,8 @@ static void mtk_crtc_disp_mode_switch_begin(struct drm_crtc *crtc,
 	mtk_drm_idlemgr_kick(__func__, crtc, 0);
 }
 
+bool already_free;
+
 static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 				      struct drm_crtc_state *old_crtc_state,
 				      struct mtk_crtc_state *crtc_state,
@@ -1830,6 +1832,8 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 	int crtc_mask = 0x1 << index;
 	unsigned int prop_lye_idx;
 	unsigned int pan_disp_frame_weight = 4;
+	struct drm_device *dev = crtc->dev;
+
 	mutex_lock(&mtk_drm->lyeblob_list_mutex);
 	prop_lye_idx = crtc_state->prop_val[CRTC_PROP_LYE_IDX];
 	/*set_hrt_bw for pan display ,set 4 for two RGB layer*/
@@ -1872,6 +1876,12 @@ static void mtk_crtc_update_ddp_state(struct drm_crtc *crtc,
 			mtk_crtc_get_plane_comp_state(crtc, cmdq_handle);
 			mtk_crtc_atmoic_ddp_config(crtc, lyeblob_ids,
 						   cmdq_handle);
+			if (lyeblob_ids->lye_idx == 2 && !already_free) {
+				/*free fb buf in second query valid*/
+				mtk_drm_fb_gem_release(dev);
+				free_fb_buf();
+				already_free = true;
+			}
 			break;
 		} else if (lyeblob_ids->lye_idx < prop_lye_idx) {
 			if (lyeblob_ids->ref_cnt) {
@@ -2434,6 +2444,7 @@ void mtk_crtc_enable_iommu_runtime(struct mtk_drm_crtc *mtk_crtc,
 }
 
 #ifdef MTK_DRM_CMDQ_ASYNC
+
 static void ddp_cmdq_cb(struct cmdq_cb_data data)
 {
 	struct mtk_cmdq_cb_data *cb_data = data.data;

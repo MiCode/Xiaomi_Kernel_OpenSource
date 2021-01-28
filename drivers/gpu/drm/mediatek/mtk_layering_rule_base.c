@@ -2925,9 +2925,6 @@ static int gen_hrt_pattern(struct drm_device *dev)
 }
 #endif
 
-bool already_free;
-bool second_query;
-
 /**** UT Program end ****/
 int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 			    struct drm_file *file_priv)
@@ -2935,19 +2932,9 @@ int mtk_layering_rule_ioctl(struct drm_device *dev, void *data,
 	struct drm_mtk_layering_info *disp_info_user = data;
 	int ret;
 
-	/*free fb buf in second query valid*/
-	if (second_query && !already_free) {
-		mtk_drm_fb_gem_release(dev);
-		free_fb_buf();
-		already_free = true;
-	}
-
 	ret = layering_rule_start(disp_info_user, 0, dev);
 	if (ret < 0)
 		DDPPR_ERR("layering_rule_start error:%d\n", ret);
-
-	if (!second_query)
-		second_query = true;
 
 	return 0;
 }
