@@ -34,7 +34,8 @@ void trusty_fiq_handler(struct pt_regs *regs, void *svc_sp)
 	for (handler = READ_ONCE(fiq_handlers); handler;
 	     handler = READ_ONCE(handler->next)) {
 		/* Barrier paired with smp_wmb in fiq_glue_register_handler */
-		smp_read_barrier_depends();
+		/*smp_read_barrier_depends();*/ /*orig*/
+		smp_rmb(); /*fix check patch*/
 		handler->fiq(handler, regs, svc_sp);
 	}
 }

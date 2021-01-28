@@ -52,6 +52,8 @@
 #define test_case_continuous 0
 #define test_case_discontinuous 1
 
+#define debugFg 0
+
 /*declaration fun*/
 
 INIT_UNITTESTS;
@@ -74,7 +76,7 @@ int _pg_one_Group = 4;		/*can update */
 int _shmem_reg(KREE_SESSION_HANDLE mem_sn,
 	       KREE_SECUREMEM_HANDLE *mem_hd, KREE_SHAREDMEM_PARAM *shm_param)
 {
-	int ret = 0;
+	int ret;
 
 	ret = KREE_RegisterSharedmem(mem_sn, mem_hd, shm_param);
 	if (ret != TZ_RESULT_SUCCESS) {
@@ -92,7 +94,7 @@ int _shmem_upt_data(KREE_SECUREMEM_HANDLE mem_hd, int shm_size, int numOfPA)
 {
 	union MTEEC_PARAM param[4];
 	uint32_t paramTypes;
-	int ret = 0;
+	int ret;
 
 	KREE_SESSION_HANDLE echo_sn;	/*for echo service */
 
@@ -232,6 +234,11 @@ TZ_RESULT _get_region_discontinuous(KREE_SHAREDMEM_PARAM *shm_param,
 	*_num_PA = _total_PAs;
 
 	discon_buf = kmalloc((_num_Group * sizeof(char *)), GFP_KERNEL);
+	if (!discon_buf) {
+		KREE_ERR("[%s] discon_buf kmalloc Fail.\n", __func__);
+		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+	}
+
 	for (m = 0; m < _num_Group; m++) {
 		discon_buf[m] =
 		    kmalloc((_pg_one_Group * PAGE_SIZE), GFP_KERNEL);
@@ -264,13 +271,12 @@ TZ_RESULT _get_region_discontinuous(KREE_SHAREDMEM_PARAM *shm_param,
 		memset(discon_buf[m], 'a', (_pg_one_Group * PAGE_SIZE));
 	}
 
-#if 0
+#if debugFg
 	/*for debug */
 	for (m = 0; m < _idx; m++)
 		KREE_DEBUG("[%s]paAry[%d]=0x%llx\n", __func__, m,
 			   (uint64_t) paAry[m]);
 #endif
-
 	shm_param->buffer = NULL;
 	shm_param->size = _total_PAs * PAGE_SIZE;
 	shm_param->mapAry = (void *)paAry;	/*discountinuous pages */
