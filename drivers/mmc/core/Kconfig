@@ -101,4 +101,3 @@ config MMC_BLOCK_IO_LOG
 	  can be displayed by "cat /sys/kernel/debug/blockio".
 	  The trace is default enabled on user and eng builts, say N here to
 	  disable it.
-

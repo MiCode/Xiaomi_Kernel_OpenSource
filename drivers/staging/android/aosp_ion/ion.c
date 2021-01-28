@@ -29,6 +29,8 @@
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
 
+#define CREATE_TRACE_POINTS
+#include "ion_trace.h"
 #include "ion.h"
 #include "mtk_ion.h"
 
@@ -60,6 +62,20 @@ static void ion_buffer_add(struct ion_device *dev,
 
 	rb_link_node(&buffer->node, parent, p);
 	rb_insert_color(&buffer->node, &dev->buffers);
+}
+
+static void track_buffer_created(struct ion_buffer *buffer)
+{
+	long total = atomic_long_add_return(buffer->size, &total_heap_bytes);
+
+	trace_ion_stat(buffer->sg_table, buffer->size, total);
+}
+
+static void track_buffer_destroyed(struct ion_buffer *buffer)
+{
+	long total = atomic_long_sub_return(buffer->size, &total_heap_bytes);
+
+	trace_ion_stat(buffer->sg_table, -buffer->size, total);
 }
 
 /* this function should only be called while dev->lock is held */
@@ -103,7 +119,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	mutex_lock(&dev->buffer_lock);
 	ion_buffer_add(dev, buffer);
 	mutex_unlock(&dev->buffer_lock);
-	atomic_long_add(len, &total_heap_bytes);
+	track_buffer_created(buffer);
 	return buffer;
 
 err1:
@@ -132,7 +148,7 @@ static void _ion_buffer_destroy(struct ion_buffer *buffer)
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);
 	mutex_unlock(&dev->buffer_lock);
-	atomic_long_sub(buffer->size, &total_heap_bytes);
+	track_buffer_destroyed(buffer);
 
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		ion_heap_freelist_add(heap, buffer);

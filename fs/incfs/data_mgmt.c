@@ -8,12 +8,21 @@
 #include <linux/file.h>
 #include <linux/ktime.h>
 #include <linux/mm.h>
+#include <linux/workqueue.h>
+#include <linux/pagemap.h>
 #include <linux/lz4.h>
 #include <linux/crc32.h>
 
 #include "data_mgmt.h"
 #include "format.h"
 #include "integrity.h"
+
+static void log_wake_up_all(struct work_struct *work)
+{
+	struct delayed_work *dw = container_of(work, struct delayed_work, work);
+	struct read_log *rl = container_of(dw, struct read_log, ml_wakeup_work);
+	wake_up_all(&rl->ml_notif_wq);
+}
 
 struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 					  struct mount_options *options,
@@ -34,8 +43,8 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 	mutex_init(&mi->mi_pending_reads_mutex);
 	init_waitqueue_head(&mi->mi_pending_reads_notif_wq);
 	init_waitqueue_head(&mi->mi_log.ml_notif_wq);
-	rwlock_init(&mi->mi_log.rl_access_lock);
-	spin_lock_init(&mi->mi_log.rl_logging_lock);
+	INIT_DELAYED_WORK(&mi->mi_log.ml_wakeup_work, log_wake_up_all);
+	spin_lock_init(&mi->mi_log.rl_lock);
 	INIT_LIST_HEAD(&mi->mi_reads_list_head);
 
 	error = incfs_realloc_mount_info(mi, options);
@@ -53,6 +62,7 @@ int incfs_realloc_mount_info(struct mount_info *mi,
 			     struct mount_options *options)
 {
 	void *new_buffer = NULL;
+	void *old_buffer;
 	size_t new_buffer_size = 0;
 
 	if (options->read_log_pages != mi->mi_options.read_log_pages) {
@@ -71,16 +81,18 @@ int incfs_realloc_mount_info(struct mount_info *mi,
 				return -ENOMEM;
 		}
 
-		write_lock(&mi->mi_log.rl_access_lock);
-		kfree(mi->mi_log.rl_ring_buf);
-		WRITE_ONCE(mi->mi_log.rl_ring_buf, new_buffer);
-		WRITE_ONCE(mi->mi_log.rl_size,
-			   new_buffer_size / sizeof(*mi->mi_log.rl_ring_buf));
-		log_state = READ_ONCE(mi->mi_log.rl_state);
-		log_state.generation_id++;
-		log_state.next_index = log_state.current_pass_no = 0;
-		WRITE_ONCE(mi->mi_log.rl_state, log_state);
-		write_unlock(&mi->mi_log.rl_access_lock);
+		spin_lock(&mi->mi_log.rl_lock);
+		old_buffer = mi->mi_log.rl_ring_buf;
+		mi->mi_log.rl_ring_buf = new_buffer;
+		mi->mi_log.rl_size = new_buffer_size;
+		log_state = (struct read_log_state){
+			.generation_id = mi->mi_log.rl_head.generation_id + 1,
+		};
+		mi->mi_log.rl_head = log_state;
+		mi->mi_log.rl_tail = log_state;
+		spin_unlock(&mi->mi_log.rl_lock);
+
+		kfree(old_buffer);
 	}
 
 	mi->mi_options = *options;
@@ -91,6 +103,8 @@ void incfs_free_mount_info(struct mount_info *mi)
 {
 	if (!mi)
 		return;
+
+	flush_delayed_work(&mi->mi_log.ml_wakeup_work);
 
 	dput(mi->mi_index_dir);
 	path_put(&mi->mi_backing_dir_path);
@@ -246,41 +260,136 @@ static ssize_t decompress(struct mem_range src, struct mem_range dst)
 	return result;
 }
 
+static void log_read_one_record(struct read_log *rl, struct read_log_state *rs)
+{
+	union log_record *record =
+		(union log_record *)((u8 *)rl->rl_ring_buf + rs->next_offset);
+	size_t record_size;
+
+	switch (record->full_record.type) {
+	case FULL:
+		rs->base_record = record->full_record;
+		record_size = sizeof(record->full_record);
+		break;
+
+	case SAME_FILE:
+		rs->base_record.block_index =
+			record->same_file_record.block_index;
+		rs->base_record.absolute_ts_us +=
+			record->same_file_record.relative_ts_us;
+		record_size = sizeof(record->same_file_record);
+		break;
+
+	case SAME_FILE_NEXT_BLOCK:
+		++rs->base_record.block_index;
+		rs->base_record.absolute_ts_us +=
+			record->same_file_next_block.relative_ts_us;
+		record_size = sizeof(record->same_file_next_block);
+		break;
+
+	case SAME_FILE_NEXT_BLOCK_SHORT:
+		++rs->base_record.block_index;
+		rs->base_record.absolute_ts_us +=
+			record->same_file_next_block_short.relative_ts_us;
+		record_size = sizeof(record->same_file_next_block_short);
+		break;
+	}
+
+	rs->next_offset += record_size;
+	if (rs->next_offset > rl->rl_size - sizeof(*record)) {
+		rs->next_offset = 0;
+		++rs->current_pass_no;
+	}
+	++rs->current_record_no;
+}
+
 static void log_block_read(struct mount_info *mi, incfs_uuid_t *id,
-			int block_index, bool timed_out)
+			   int block_index)
 {
 	struct read_log *log = &mi->mi_log;
-	struct read_log_state state;
-	s64 now_us = ktime_to_us(ktime_get());
-	int rl_size;
-	struct read_log_record record = {
-		.file_id = *id,
-		.block_index = block_index,
-		.timed_out = timed_out,
-		.timestamp_us = now_us
-	};
+	struct read_log_state *head, *tail;
+	s64 now_us;
+	s64 relative_us;
+	union log_record record;
+	size_t record_size;
 
-	read_lock(&log->rl_access_lock);
-	rl_size = READ_ONCE(log->rl_size);
-	if (rl_size != 0) {
-		spin_lock(&log->rl_logging_lock);
-		state = READ_ONCE(log->rl_state);
-		log->rl_ring_buf[state.next_index] = record;
-		if (++state.next_index == rl_size) {
-			state.next_index = 0;
-			++state.current_pass_no;
-		}
-		WRITE_ONCE(log->rl_state, state);
-		spin_unlock(&log->rl_logging_lock);
+	/*
+	 * This may read the old value, but it's OK to delay the logging start
+	 * right after the configuration update.
+	 */
+	if (READ_ONCE(log->rl_size) == 0)
+		return;
+
+	now_us = ktime_to_us(ktime_get());
+
+	spin_lock(&log->rl_lock);
+	if (log->rl_size == 0) {
+		spin_unlock(&log->rl_lock);
+		return;
 	}
-	read_unlock(&log->rl_access_lock);
 
-	if (rl_size != 0)
-		wake_up_all(&log->ml_notif_wq);
+	head = &log->rl_head;
+	tail = &log->rl_tail;
+	relative_us = now_us - head->base_record.absolute_ts_us;
+
+	if (memcmp(id, &head->base_record.file_id, sizeof(incfs_uuid_t)) ||
+	    relative_us >= 1ll << 32) {
+		record.full_record = (struct full_record){
+			.type = FULL,
+			.block_index = block_index,
+			.file_id = *id,
+			.absolute_ts_us = now_us,
+		};
+		head->base_record.file_id = *id;
+		record_size = sizeof(struct full_record);
+	} else if (block_index != head->base_record.block_index + 1 ||
+		   relative_us >= 1 << 30) {
+		record.same_file_record = (struct same_file_record){
+			.type = SAME_FILE,
+			.block_index = block_index,
+			.relative_ts_us = relative_us,
+		};
+		record_size = sizeof(struct same_file_record);
+	} else if (relative_us >= 1 << 14) {
+		record.same_file_next_block = (struct same_file_next_block){
+			.type = SAME_FILE_NEXT_BLOCK,
+			.relative_ts_us = relative_us,
+		};
+		record_size = sizeof(struct same_file_next_block);
+	} else {
+		record.same_file_next_block_short =
+			(struct same_file_next_block_short){
+				.type = SAME_FILE_NEXT_BLOCK_SHORT,
+				.relative_ts_us = relative_us,
+			};
+		record_size = sizeof(struct same_file_next_block_short);
+	}
+
+	head->base_record.block_index = block_index;
+	head->base_record.absolute_ts_us = now_us;
+
+	/* Advance tail beyond area we are going to overwrite */
+	while (tail->current_pass_no < head->current_pass_no &&
+	       tail->next_offset < head->next_offset + record_size)
+		log_read_one_record(log, tail);
+
+	memcpy(((u8 *)log->rl_ring_buf) + head->next_offset, &record,
+	       record_size);
+	head->next_offset += record_size;
+	if (head->next_offset > log->rl_size - sizeof(record)) {
+		head->next_offset = 0;
+		++head->current_pass_no;
+	}
+	++head->current_record_no;
+
+	spin_unlock(&log->rl_lock);
+	if (schedule_delayed_work(&log->ml_wakeup_work, msecs_to_jiffies(16)))
+		pr_debug("incfs: scheduled a log pollers wakeup");
 }
 
 static int validate_hash_tree(struct file *bf, struct data_file *df,
-			      int block_index, struct mem_range data, u8 *buf)
+			      int block_index, struct mem_range data,
+			      u8 *tmp_buf)
 {
 	u8 digest[INCFS_MAX_HASH_SIZE] = {};
 	struct mtree *tree = NULL;
@@ -293,6 +402,7 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 	int hash_per_block;
 	int lvl = 0;
 	int res;
+	struct page *saved_page = NULL;
 
 	tree = df->df_hash_tree;
 	sig = df->df_signature;
@@ -314,17 +424,39 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 				INCFS_DATA_FILE_BLOCK_SIZE);
 		size_t hash_off_in_block = hash_block_index * digest_size
 			% INCFS_DATA_FILE_BLOCK_SIZE;
-		struct mem_range buf_range = range(buf,
-					INCFS_DATA_FILE_BLOCK_SIZE);
-		ssize_t read_res = incfs_kread(bf, buf,
-				INCFS_DATA_FILE_BLOCK_SIZE, hash_block_off);
+		struct mem_range buf_range;
+		struct page *page = NULL;
+		bool aligned = (hash_block_off &
+				(INCFS_DATA_FILE_BLOCK_SIZE - 1)) == 0;
+		u8 *actual_buf;
 
-		if (read_res < 0)
-			return read_res;
-		if (read_res != INCFS_DATA_FILE_BLOCK_SIZE)
-			return -EIO;
+		if (aligned) {
+			page = read_mapping_page(
+				bf->f_inode->i_mapping,
+				hash_block_off / INCFS_DATA_FILE_BLOCK_SIZE,
+				NULL);
 
-		saved_digest_rng = range(buf + hash_off_in_block, digest_size);
+			if (IS_ERR(page))
+				return PTR_ERR(page);
+
+			actual_buf = page_address(page);
+		} else {
+			size_t read_res =
+				incfs_kread(bf, tmp_buf,
+					    INCFS_DATA_FILE_BLOCK_SIZE,
+					    hash_block_off);
+
+			if (read_res < 0)
+				return read_res;
+			if (read_res != INCFS_DATA_FILE_BLOCK_SIZE)
+				return -EIO;
+
+			actual_buf = tmp_buf;
+		}
+
+		buf_range = range(actual_buf, INCFS_DATA_FILE_BLOCK_SIZE);
+		saved_digest_rng =
+			range(actual_buf + hash_off_in_block, digest_size);
 		if (!incfs_equal_ranges(calc_digest_rng, saved_digest_rng)) {
 			int i;
 			bool zero = true;
@@ -339,8 +471,36 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 
 			if (zero)
 				pr_debug("incfs: Note saved_digest all zero - did you forget to load the hashes?\n");
+
+			if (saved_page)
+				put_page(saved_page);
+			if (page)
+				put_page(page);
 			return -EBADMSG;
 		}
+
+		if (saved_page) {
+			/*
+			 * This is something of a kludge. The PageChecked flag
+			 * is reserved for the file system, but we are setting
+			 * this on the pages belonging to the underlying file
+			 * system. incfs is only going to be used on f2fs and
+			 * ext4 which only use this flag when fs-verity is being
+			 * used, so this is safe for now, however a better
+			 * mechanism needs to be found.
+			 */
+			SetPageChecked(saved_page);
+			put_page(saved_page);
+			saved_page = NULL;
+		}
+
+		if (page && PageChecked(page)) {
+			put_page(page);
+			return 0;
+		}
+
+		saved_page = page;
+		page = NULL;
 
 		res = incfs_calc_digest(tree->alg, buf_range, calc_digest_rng);
 		if (res)
@@ -351,7 +511,14 @@ static int validate_hash_tree(struct file *bf, struct data_file *df,
 	root_hash_rng = range(tree->root_hash, digest_size);
 	if (!incfs_equal_ranges(calc_digest_rng, root_hash_rng)) {
 		pr_debug("incfs: Root hash mismatch blk:%d\n", block_index);
+		if (saved_page)
+			put_page(saved_page);
 		return -EBADMSG;
+	}
+
+	if (saved_page) {
+		SetPageChecked(saved_page);
+		put_page(saved_page);
 	}
 	return 0;
 }
@@ -708,8 +875,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 	mi = df->df_mount_info;
 
 	if (timeout_ms == 0) {
-		log_block_read(mi, &df->df_id, block_index,
-			       true /*timed out*/);
+		log_block_read(mi, &df->df_id, block_index);
 		return -ETIME;
 	}
 
@@ -728,8 +894,7 @@ static int wait_for_data_block(struct data_file *df, int block_index,
 
 	if (wait_res == 0) {
 		/* Wait has timed out */
-		log_block_read(mi, &df->df_id, block_index,
-			       true /*timed out*/);
+		log_block_read(mi, &df->df_id, block_index);
 		return -ETIME;
 	}
 	if (wait_res < 0) {
@@ -825,7 +990,7 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
 	}
 
 	if (result >= 0)
-		log_block_read(mi, &df->df_id, index, false /*timed out*/);
+		log_block_read(mi, &df->df_id, index);
 
 out:
 	return result;
@@ -1195,49 +1360,29 @@ struct read_log_state incfs_get_log_state(struct mount_info *mi)
 	struct read_log *log = &mi->mi_log;
 	struct read_log_state result;
 
-	read_lock(&log->rl_access_lock);
-	spin_lock(&log->rl_logging_lock);
-	result = READ_ONCE(log->rl_state);
-	spin_unlock(&log->rl_logging_lock);
-	read_unlock(&log->rl_access_lock);
+	spin_lock(&log->rl_lock);
+	result = log->rl_head;
+	spin_unlock(&log->rl_lock);
 	return result;
 }
 
-static u64 calc_record_count(const struct read_log_state *state, int rl_size)
-{
-	return state->current_pass_no * (u64)rl_size + state->next_index;
-}
-
 int incfs_get_uncollected_logs_count(struct mount_info *mi,
-				     struct read_log_state state)
+				     const struct read_log_state *state)
 {
 	struct read_log *log = &mi->mi_log;
-	struct read_log_state rl_state;
-	int rl_size;
-	u64 count;
+	u32 generation;
+	u64 head_no, tail_no;
 
-	read_lock(&log->rl_access_lock);
-	rl_size = READ_ONCE(log->rl_size);
-	spin_lock(&log->rl_logging_lock);
-	rl_state = READ_ONCE(log->rl_state);
-	spin_unlock(&log->rl_logging_lock);
-	read_unlock(&log->rl_access_lock);
+	spin_lock(&log->rl_lock);
+	tail_no = log->rl_tail.current_record_no;
+	head_no = log->rl_head.current_record_no;
+	generation = log->rl_head.generation_id;
+	spin_unlock(&log->rl_lock);
 
-	count = calc_record_count(&rl_state, rl_size);
-	if (rl_state.generation_id == state.generation_id)
-		count -= calc_record_count(&state, rl_size);
-	return min_t(int, count, rl_size);
-}
-
-static void fill_pending_read_from_log_record(
-	struct incfs_pending_read_info *dest, const struct read_log_record *src,
-	struct read_log_state *state, u64 log_size)
-{
-	dest->file_id = src->file_id;
-	dest->block_index = src->block_index;
-	dest->serial_number =
-		state->current_pass_no * log_size + state->next_index;
-	dest->timestamp_us = src->timestamp_us;
+	if (generation != state->generation_id)
+		return head_no - tail_no;
+	else
+		return head_no - max_t(u64, tail_no, state->current_record_no);
 }
 
 int incfs_collect_logged_reads(struct mount_info *mi,
@@ -1245,82 +1390,48 @@ int incfs_collect_logged_reads(struct mount_info *mi,
 			       struct incfs_pending_read_info *reads,
 			       int reads_size)
 {
-	struct read_log *log = &mi->mi_log;
-	struct read_log_state live_state;
 	int dst_idx;
-	int rl_size;
-	int result = 0;
-	u64 read_count;
-	u64 written_count;
+	struct read_log *log = &mi->mi_log;
+	struct read_log_state *head, *tail;
 
-	read_lock(&log->rl_access_lock);
+	spin_lock(&log->rl_lock);
+	head = &log->rl_head;
+	tail = &log->rl_tail;
 
-	rl_size = READ_ONCE(log->rl_size);
-	spin_lock(&log->rl_logging_lock);
-	live_state = READ_ONCE(log->rl_state);
-	spin_unlock(&log->rl_logging_lock);
-
-	if (reader_state->generation_id != live_state.generation_id) {
-		reader_state->generation_id = live_state.generation_id;
-		reader_state->current_pass_no = reader_state->next_index = 0;
-	}
-
-	read_count = calc_record_count(reader_state, rl_size);
-	written_count = calc_record_count(&live_state, rl_size);
-	if (read_count == written_count) {
-		result = 0;
-		goto out;
-	}
-	if (reader_state->next_index >= rl_size) {
-		result = -ERANGE;
-		goto out;
-	}
-
-	if (read_count > written_count) {
-		/* This reader is somehow ahead of the writer. */
-		pr_debug("incfs: Log reader is ahead of writer\n");
-		*reader_state = live_state;
-	}
-
-	if (written_count - read_count > rl_size) {
-		/*
-		 * Reading pointer is too far behind,
-		 * start from the record following the write pointer.
-		 */
-		pr_debug(
-			"incfs: read pointer is behind, moving: %u/%u -> %u/%u / %u\n",
-			(u32)reader_state->next_index,
-			(u32)reader_state->current_pass_no,
-			(u32)live_state.next_index,
-			(u32)live_state.current_pass_no - 1, (u32)rl_size);
+	if (reader_state->generation_id != head->generation_id) {
+		pr_debug("read ptr is wrong generation: %u/%u",
+			 reader_state->generation_id, head->generation_id);
 
 		*reader_state = (struct read_log_state){
-			.next_index = live_state.next_index,
-			.current_pass_no = live_state.current_pass_no - 1,
+			.generation_id = head->generation_id,
 		};
 	}
 
+	if (reader_state->current_record_no < tail->current_record_no) {
+		pr_debug("read ptr is behind, moving: %u/%u -> %u/%u\n",
+			 (u32)reader_state->next_offset,
+			 (u32)reader_state->current_pass_no,
+			 (u32)tail->next_offset, (u32)tail->current_pass_no);
+
+		*reader_state = *tail;
+	}
+
 	for (dst_idx = 0; dst_idx < reads_size; dst_idx++) {
-		if (reader_state->next_index == live_state.next_index &&
-		    reader_state->current_pass_no == live_state.current_pass_no)
+		if (reader_state->current_record_no == head->current_record_no)
 			break;
 
-		fill_pending_read_from_log_record(
-			&reads[dst_idx],
-			&log->rl_ring_buf[reader_state->next_index],
-			reader_state, rl_size);
+		log_read_one_record(log, reader_state);
 
-		reader_state->next_index++;
-		if (reader_state->next_index == rl_size) {
-			reader_state->next_index = 0;
-			reader_state->current_pass_no++;
-		}
+		reads[dst_idx] = (struct incfs_pending_read_info){
+			.file_id = reader_state->base_record.file_id,
+			.block_index = reader_state->base_record.block_index,
+			.serial_number = reader_state->current_record_no,
+			.timestamp_us = reader_state->base_record.absolute_ts_us
+		};
 	}
-	result = dst_idx;
 
-out:
-	read_unlock(&log->rl_access_lock);
-	return result;
+	spin_unlock(&log->rl_lock);
+	return dst_idx;
 }
 
 bool incfs_equal_ranges(struct mem_range lhs, struct mem_range rhs)

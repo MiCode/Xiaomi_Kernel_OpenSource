@@ -16,7 +16,6 @@
   __arch_copy_from_user
   __arch_copy_to_user
   arch_setup_dma_ops
-  arch_timer_read_ool_enabled
   arm64_const_caps_ready
   atomic_notifier_call_chain
   atomic_notifier_chain_register
@@ -231,6 +230,7 @@
   dma_fence_signal_locked
   __dma_flush_area
   __dma_inv_area
+  dmam_alloc_coherent
   dma_release_from_dev_coherent
   dma_request_slave_channel
   do_exit
@@ -275,7 +275,8 @@
   fwnode_property_read_u32_array
   gcd
   generic_handle_irq
-  genlmsg_put
+  genl_register_family
+  genl_unregister_family
   gen_pool_add_virt
   gen_pool_alloc
   gen_pool_create
@@ -311,7 +312,6 @@
   handle_edge_irq
   handle_level_irq
   handle_nested_irq
-  hex2bin
   hex_dump_to_buffer
   hrtimer_active
   hrtimer_cancel
@@ -535,6 +535,7 @@
   no_llseek
   nr_cpu_ids
   ns_capable
+  ns_to_timespec64
   ns_to_timespec
   nvmem_cell_get
   nvmem_cell_put
@@ -751,6 +752,7 @@
   __regmap_init
   regmap_multi_reg_write
   regmap_raw_read
+  regmap_raw_write
   regmap_read
   regmap_update_bits_base
   regmap_write
@@ -759,6 +761,7 @@
   regulator_disable
   regulator_enable
   regulator_get
+  regulator_get_voltage
   regulator_is_enabled
   regulator_put
   regulator_set_load
@@ -914,6 +917,7 @@
   sysfs_remove_group
   sysfs_remove_groups
   sysfs_streq
+  system_freezable_wq
   system_freezing_cnt
   system_highpri_wq
   system_long_wq
@@ -943,6 +947,8 @@
   trace_event_reg
   trace_handle_return
   trace_print_flags_seq
+  trace_print_hex_seq
+  trace_print_symbols_seq
   trace_raw_output_prep
   trace_seq_printf
   try_module_get
@@ -1127,9 +1133,6 @@
 # required by cam_flash.ko
   thermal_zone_get_cdev_by_name
 
-# required by cam_ife_csid.ko
-  ns_to_timespec64
-
 # required by cam_ife_hw_mgr.ko
   __ll_sc_atomic_fetch_add
 
@@ -1145,6 +1148,10 @@
   led_trigger_event
   led_trigger_register_simple
   led_trigger_unregister_simple
+
+# required by cam_smmu_api.ko
+  iommu_dma_enable_best_fit_algo
+  iommu_dma_reserve_iova
 
 # required by cam_utils.ko
   gpio_free_array
@@ -1223,18 +1230,6 @@
   send_sig_info
   time64_to_tm
 
-# required by dm-default-key.ko
-  bio_crypt_alloc_ctx
-  blk_crypto_evict_key
-  blk_crypto_init_key
-  dm_get_device
-  dm_put_device
-  dm_read_arg_group
-  dm_register_target
-  dm_shift_arg
-  dm_table_get_mode
-  dm_unregister_target
-
 # required by dwc3-haps.ko
   pcim_enable_device
   __pci_register_driver
@@ -1270,7 +1265,6 @@
   pinctrl_pm_select_default_state
   pinctrl_pm_select_sleep_state
   strcat
-  system_freezable_wq
   usb_add_gadget_udc
   usb_del_gadget_udc
   usb_ep_set_maxpacket_limit
@@ -1340,12 +1334,6 @@
 # required by governor_bw_hwmon.ko
   argv_free
   argv_split
-  __tracepoint_bw_hwmon_meas
-  __tracepoint_bw_hwmon_update
-
-# required by governor_memlat.ko
-  __tracepoint_memlat_dev_meas
-  __tracepoint_memlat_dev_update
 
 # required by gpi.ko
   dma_async_device_register
@@ -1384,8 +1372,10 @@
   dma_buf_export
   dma_get_device_base
   dma_get_size
+  __ll_sc_atomic64_sub_return
   mm_event_count
   __next_zones_zonelist
+  ptr_to_hashval
   sched_setattr
   split_page
   vm_map_ram
@@ -1428,6 +1418,7 @@
   snd_soc_dai_set_pll
   snd_soc_dai_set_sysclk
   snd_soc_dai_set_tdm_slot
+  snd_soc_get_pcm_runtime
   snd_soc_of_get_dai_link_codecs
   snd_soc_of_parse_audio_routing
   snd_soc_of_parse_card_name
@@ -1510,6 +1501,7 @@
   __ll_sc_atomic_or
   mmap_min_addr
   mmput
+  mm_trace_rss_stat
   of_devfreq_cooling_register
   plist_del
   rb_last
@@ -1520,7 +1512,6 @@
   sysfs_create_bin_file
   sysfs_remove_bin_file
   sysfs_remove_files
-  trace_print_symbols_seq
   unmapped_area_topdown
   unregister_shrinker
   vm_insert_page
@@ -1830,9 +1821,6 @@
   uart_update_timeout
   uart_write_wakeup
 
-# required by msm_icnss.ko
-  dmam_alloc_coherent
-
 # required by msm_ipc_logging.ko
   _raw_read_lock_irq
   _raw_read_unlock_irq
@@ -1845,7 +1833,7 @@
   __tracepoint_clock_set_rate
 
 # required by msm_minidump.ko
-  linux_banner
+  linux_banner_ptr
 
 # required by msm_npu.ko
   kmem_cache_create_usercopy
@@ -2056,7 +2044,6 @@
 
 # required by qpnp-smb5-charger.ko
   iio_channel_release
-  regulator_get_voltage
 
 # required by qpnp_pdphy.ko
   device_get_named_child_node
@@ -2120,8 +2107,7 @@
   csum_tcpudp_nofold
   __dev_get_by_index
   dev_queue_xmit
-  genl_register_family
-  genl_unregister_family
+  genlmsg_put
   get_current_napi_context
   gro_cells_destroy
   gro_cells_init
@@ -2141,7 +2127,6 @@
   skb_append_pagefrags
   skb_checksum
   synchronize_rcu
-  trace_print_hex_seq
   unregister_netdevice_many
 
 # required by rndis.ko
@@ -2365,7 +2350,6 @@
 
 # required by snd-soc-wm-adsp.ko
   regmap_async_complete
-  regmap_raw_write
   regmap_raw_write_async
   snd_compr_stop_error
   snd_soc_component_disable_pin
@@ -2420,20 +2404,44 @@
   regulator_list_voltage_table
   regulator_map_voltage_ascend
 
-# required by ufs_qcom.ko
-  ufshcd_dme_get_attr
-  ufshcd_dme_set_attr
-  ufshcd_get_local_unipro_ver
-  ufshcd_hold
-  ufshcd_pltfrm_init
-  ufshcd_pltfrm_resume
-  ufshcd_pltfrm_runtime_idle
-  ufshcd_pltfrm_runtime_resume
-  ufshcd_pltfrm_runtime_suspend
-  ufshcd_pltfrm_shutdown
-  ufshcd_pltfrm_suspend
-  ufshcd_release
-  ufshcd_remove
+# required by ufshcd-core.ko
+  async_schedule
+  bio_crypt_should_process
+  blk_queue_max_segment_size
+  blk_queue_rq_timeout
+  blk_queue_update_dma_pad
+  dev_pm_opp_remove
+  down_read_trylock
+  down_write_trylock
+  keyslot_manager_create
+  keyslot_manager_destroy
+  keyslot_manager_private
+  keyslot_manager_reprogram_all_keys
+  keyslot_manager_set_max_dun_bytes
+  __ll_sc_atomic64_fetch_andnot_release
+  __ll_sc_atomic64_fetch_or_acquire
+  __scsi_add_device
+  scsi_add_host_with_dma
+  scsi_block_requests
+  scsi_change_queue_depth
+  scsi_device_get
+  scsi_device_put
+  scsi_dma_map
+  scsi_dma_unmap
+  __scsi_execute
+  scsi_host_alloc
+  scsi_host_put
+  scsi_print_command
+  scsi_print_sense_hdr
+  scsi_remove_device
+  scsi_remove_host
+  scsi_report_bus_reset
+  scsi_scan_host
+  scsi_set_cmd_timeout_override
+  scsi_unblock_requests
+  sdev_prefix_printk
+  trace_output_call
+  utf16s_to_utf8s
 
 # required by wlan.ko
   bitmap_print_to_pagebuf
@@ -2469,7 +2477,6 @@
   cfg80211_unlink_bss
   cfg80211_update_owe_info_event
   cfg80211_vendor_cmd_reply
-  cld80211_get_genl_family
   complete_and_exit
   cpufreq_quick_get_max
   __cpuhp_remove_state
@@ -2481,9 +2488,9 @@
   crypto_alloc_skcipher
   crypto_shash_final
   crypto_shash_update
-  deregister_cld_cmd_cb
   dev_alloc_name
   dump_stack
+  hex2bin
   hex_to_bin
   ieee80211_channel_to_frequency
   ieee80211_frequency_to_channel
@@ -2510,7 +2517,6 @@
   pm_system_wakeup
   proc_create_data
   proc_mkdir
-  register_cld_cmd_cb
   register_netevent_notifier
   register_sysctl_table
   regulatory_set_wiphy_regd

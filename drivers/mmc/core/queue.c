@@ -114,8 +114,7 @@ static enum blk_eh_timer_return mmc_cqe_timed_out(struct request *req)
 				__mmc_cqe_recovery_notifier(mq);
 			return BLK_EH_RESET_TIMER;
 		}
-		/* No timeout (XXX: huh? comment doesn't make much sense) */
-		blk_mq_complete_request(req);
+		/* The request has gone already */
 		return BLK_EH_DONE;
 	default:
 		/* Timeout is handled by mmc core */
@@ -487,6 +486,8 @@ static int mmc_mq_init(struct mmc_queue *mq, struct mmc_card *card,
 
 	mmc_setup_queue(mq, card);
 	/* inline crypto */
+	mmc_crypto_setup_queue(host, mq->queue);
+
 	mmc_crypto_setup_queue(host, mq->queue);
 
 	return 0;
