@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -58,9 +58,14 @@
 #include <linux/sched/types.h>
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 #include "scp_helper.h"
+#include "scp_ipi.h"
 #include "scp_excep.h"
+#include "audio_task_manager.h"
+#include "audio_ipi_queue.h"
 #endif  /* #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT */
 #include "vow.h"
+#include "vow_hw.h"
+#include "vow_assert.h"
 
 /*****************************************************************************
  * Variable Definition
@@ -238,7 +243,7 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 					vow_ipi_reg_ok(
 					    (short)ipi_ptr->recog_ok_keywordid,
 					    ipi_ptr->confidence_lv,
-					    ipi_ptr->extra_data_len);
+					    0); // extra_data_len is 0 in CM4 project
 				}
 			}
 		}
@@ -670,26 +675,7 @@ static int vow_service_SearchSpeakerModelWithId(int id)
 	}
 	return I;
 }
-/*
-static int vow_service_SearchSpeakerModelWithUuid(int uuid)
-{
-	int I;
 
-	I = 0;
-	do {
-		if (vowserv.vow_speaker_model[I].uuid == uuid)
-			break;
-		I++;
-	} while (I < MAX_VOW_SPEAKER_MODEL);
-
-	if (I == MAX_VOW_SPEAKER_MODEL) {
-		VOWDRV_DEBUG("vow Search Speaker Model By UUID Fail:%x\n",
-			     uuid);
-		return -1;
-	}
-	return I;
-}
-*/
 static int vow_service_SearchSpeakerModelWithKeyword(int keyword)
 {
 	int I;
@@ -2264,15 +2250,14 @@ static ssize_t VowDrv_GetDualMicDebug(struct device *kobj,
 	char cstr[35];
 	int size = sizeof(cstr);
 
-	if (vowserv.scp_dual_mic_switch == VOW_ENABLE_DUAL_MIC) {
+	if (vowserv.scp_dual_mic_switch == VOW_ENABLE_DUAL_MIC)
 		return snprintf(buf, size, "use Daul mic\n");
-	} else if (vowserv.scp_dual_mic_switch == VOW_ENABLE_SINGLE_MAIN_MIC) {
+	else if (vowserv.scp_dual_mic_switch == VOW_ENABLE_SINGLE_MAIN_MIC)
 		return snprintf(buf, size, "use Single mic: main mic\n");
-	} else if (vowserv.scp_dual_mic_switch == VOW_ENABLE_SINGLE_REF_MIC) {
+	else if (vowserv.scp_dual_mic_switch == VOW_ENABLE_SINGLE_REF_MIC)
 		return snprintf(buf, size, "use Single mic: ref mic\n");
-	} else {
+	else
 		return snprintf(buf, size, "set mic error\n");
-	}
 }
 
 static ssize_t VowDrv_SetDualMicDebug(struct device *kobj,
@@ -2622,10 +2607,8 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 				vowserv.suspend_lock = 0;
 				/* Let AP will suspend */
 				__pm_relax(&VOW_suspend_lock);
-				/* lock 1sec for screen on */
 				VOWDRV_DEBUG("==VOW DEBUG MODE STOP==\n");
-				__pm_wakeup_event(&VOW_suspend_lock,
-						  jiffies_to_msecs(HZ));
+				__pm_wakeup_event(&VOW_suspend_lock, HZ);
 			}
 			vow_deregister_feature(VOW_DUMP_FEATURE_ID);
 			break;
@@ -2901,7 +2884,7 @@ static ssize_t VowDrv_read(struct file *fp,
 				if (vowserv.suspend_lock == 0) {
 					/* lock 1sec for screen on */
 					__pm_wakeup_event(&VOW_suspend_lock,
-							  jiffies_to_msecs(HZ));
+							  HZ);
 				}
 				vowserv.scp_command_flag = false;
 				if (vowserv.extradata_bytelen > 0)

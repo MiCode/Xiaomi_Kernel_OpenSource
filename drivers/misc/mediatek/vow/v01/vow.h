@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,7 +18,6 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include "vow_hw.h"
-#include "vow_assert.h"
 
 /*****************************************************************************
  * VOW Type Define
@@ -88,7 +87,7 @@
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 
-#define VOW_ENGINE_INFO_LENGTH_BYTE    40
+#define VOW_ENGINE_INFO_LENGTH_BYTE    32
 
 #if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
 #define VOW_RECOGDATA_OFFSET    (VOW_VOICEDATA_OFFSET + 2 * VOW_VOICEDATA_SIZE)

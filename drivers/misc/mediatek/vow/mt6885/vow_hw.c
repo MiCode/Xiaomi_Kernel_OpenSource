@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include "vow_hw.h"
 #include "vow.h"
+#include "vow_assert.h"
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 #include "scp_ipi_pin.h"
 #include "scp_mbox_layout.h"  /* for IPI mbox size */
