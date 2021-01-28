@@ -279,7 +279,7 @@ void KREE_SESSION_LOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
 
-	if (chan_p != NULL)
+	if (chan_p != NULL && handle != _sys_service_Fd[chan_p->tee_id])
 		mutex_lock(&chan_p->sess_lock);
 }
 
@@ -287,7 +287,7 @@ void KREE_SESSION_UNLOCK(int32_t handle)
 {
 	struct tipc_dn_chan *chan_p = _HandleToChanInfo(_FdToHandle(handle));
 
-	if (chan_p != NULL)
+	if (chan_p != NULL && handle != _sys_service_Fd[chan_p->tee_id])
 		mutex_unlock(&chan_p->sess_lock);
 }
 
@@ -1189,10 +1189,17 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 
 	Fd = handle;
 
+	KREE_SESSION_LOCK(Fd);
 	kree_perf_boost(1);
 	cparam = kmalloc(sizeof(*cparam), GFP_KERNEL);
 	if (!cparam) {
 		KREE_ERR("==>cparam kmalloc fail. Stop.\n");
+
+		/*perf. boost reset*/
+		kree_perf_boost(0);
+		/*unlock sess_lock*/
+		KREE_SESSION_UNLOCK(Fd);
+
 		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
 	}
 	cparam->command = command;
@@ -1205,6 +1212,7 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 	memcpy(param, &(cparam->param[0]), sizeof(union MTEEC_PARAM) * 4);
 	kfree(cparam);
 	kree_perf_boost(0);
+	KREE_SESSION_UNLOCK(Fd);
 
 	return iret;
 }

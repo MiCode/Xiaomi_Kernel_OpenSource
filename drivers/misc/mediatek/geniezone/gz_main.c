@@ -897,10 +897,8 @@ static long tz_client_tee_service(struct file *file, unsigned long arg,
 		}
 	}
 
-	KREE_SESSION_LOCK(handle);
 	ret = KREE_TeeServiceCall(handle, cparam.command, cparam.paramTypes,
 			param);
-	KREE_SESSION_UNLOCK(handle);
 
 	cparam.ret = ret;
 	tmpTypes = cparam.paramTypes;
