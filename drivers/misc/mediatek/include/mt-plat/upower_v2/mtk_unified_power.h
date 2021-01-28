@@ -71,7 +71,9 @@ extern struct upower_tbl_info *upower_tbl_infos; /* collect all of raw tbls */
 extern struct upower_tbl_info *p_upower_tbl_infos; /* ptr to list of all tbls */
 extern unsigned char upower_enable;
 extern unsigned char upower_recognize_by_eem[NR_UPOWER_BANK];
+#ifdef CONFIG_MTK_SCHED_TURNING_POINT
 void set_sched_turn_point_cap(void);
+#endif
 void init_cpu_capacity(unsigned int cpu);
 
 /***************************

@@ -897,6 +897,7 @@ static int __init upower_init(void)
 	/* need eas enable */
 	set_sched_turn_point_cap();
 #endif
+
 	upower_debug("@@~turn point is %d\n", turn);
 #ifdef UPOWER_L_PLUS
 	upower_update_L_plus_cap();
