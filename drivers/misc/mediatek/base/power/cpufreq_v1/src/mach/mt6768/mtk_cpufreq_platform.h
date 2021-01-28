@@ -64,6 +64,7 @@
 #define ENTRY_EACH_LOG		5
 #define PPM_AP_SIDE             1
 #define ENABLE_DOE              1
+#define MET_READY               0
 
 extern struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS];
 extern struct cpudvfs_doe dvfs_doe;

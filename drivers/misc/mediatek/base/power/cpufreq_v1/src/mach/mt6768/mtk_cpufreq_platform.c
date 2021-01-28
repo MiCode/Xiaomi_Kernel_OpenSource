@@ -38,7 +38,7 @@ static unsigned long mcucfg_base	= 0x0c530000;
 /* static unsigned long topckgen_base	= 0x10000000; */
 
 #define APMIXED_NODE		"mediatek,apmixed"
-#define MCUCFG_NODE		"mediatek,mcucfg-dvfs"
+#define MCUCFG_NODE		"mediatek,mcucfg"
 /* #define TOPCKGEN_NODE		"mediatek,topckgen" */
 
 #define ARMPLL_LL_CON1		(apmixed_base + 0x21c)	/* ARMPLL1 */
@@ -592,6 +592,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
 	int val = get_devinfo_with_index(30);  /* get segment */
+	int ptp_val = (get_devinfo_with_index(50) & 0xF0);
 
 	turbo_flag = 0;
 	if ((val == 0x80) || (val == 0x01) || (val == 0x40) || (val == 0x02))
@@ -599,6 +600,12 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	else if ((val == 0xC0) || (val == 0x03) ||
 					(val == 0x20) || (val == 0x04))
 		lv = CPU_LEVEL_1;
+
+	if (ptp_val <= 0x10 && lv == CPU_LEVEL_0)
+		lv = CPU_LEVEL_3;
+
+	if (ptp_val <= 0x10 && lv == CPU_LEVEL_1)
+		lv = CPU_LEVEL_4;
 
 	tag_pr_info("%d, %d, (%d, %d)\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE);

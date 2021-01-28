@@ -78,7 +78,7 @@ int degree_set[NR_UPOWER_DEGREE] = {
 #define INIT_UPOWER_TBL_INFOS(name, tbl) {__stringify(name), &tbl}
 struct upower_tbl_info
 	upower_tbl_infos_list[NR_UPOWER_TBL_LIST][NR_UPOWER_BANK] = {
-	/* MT6779_FY */
+	/* MT6768 */
 	[0] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_6768),
@@ -91,7 +91,7 @@ struct upower_tbl_info
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_6768),
 	},
-	/* MT6779_SB */
+	/* MT6767 */
 	[1] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_6767),
@@ -105,7 +105,7 @@ struct upower_tbl_info
 				upower_tbl_cci_6767),
 	},
 
-	/* MT6779_PRO */
+	/* MT6768_PRO */
 	[2] = {
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
 				upower_tbl_l_PRO),
@@ -118,6 +118,47 @@ struct upower_tbl_info
 		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
 				upower_tbl_cci_PRO),
 	},
+	/* MT6768 */
+	[3] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_6768_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_6768_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_6768_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_6768_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_6768_v7),
+	},
+	/* MT6767 */
+	[4] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_6767_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_6767_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_6767_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_6767_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_6767_v7),
+	},
+
+	/* MT6768_PRO */
+	[5] = {
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_LL,
+				upower_tbl_l_PRO_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_L,
+				upower_tbl_b_PRO_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_LL,
+				upower_tbl_cluster_l_PRO_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CLS_L,
+				upower_tbl_cluster_b_PRO_v7),
+		INIT_UPOWER_TBL_INFOS(UPOWER_BANK_CCI,
+				upower_tbl_cci_PRO_v7),
+	},
+
 
 };
 /* Upower will know how to apply voltage that comes from EEM */
