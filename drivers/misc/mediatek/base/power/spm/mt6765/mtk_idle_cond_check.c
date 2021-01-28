@@ -246,6 +246,9 @@ int mtk_idle_cond_append_info(
 		s -= l; \
 	} while (0)
 
+	if (unlikely(idle_type < 0 || idle_type >= NR_IDLE_TYPES))
+		return 0;
+
 	if (short_log) {
 		for (i = 0; i < NR_CG_GRPS; i++)
 			log("0x%08x, ", idle_block_mask[idle_type][i]);
@@ -272,6 +275,9 @@ int mtk_idle_cond_append_info(
 void mtk_idle_cond_update_mask(
 	int idle_type, unsigned int reg, unsigned int mask)
 {
+	if (unlikely(idle_type < 0 || idle_type >= NR_IDLE_TYPES))
+		return;
+
 	if (reg < NR_CG_GRPS)
 		idle_cond_mask[idle_type][reg] = mask;
 	/* special case for sodi3 pll check */
@@ -382,6 +388,9 @@ void mtk_idle_cond_update_state(void)
 bool mtk_idle_cond_check(int idle_type)
 {
 	bool ret = false;
+
+	if (unlikely(idle_type < 0 || idle_type >= NR_IDLE_TYPES))
+		return false;
 
 	/* check cg state */
 	ret = !(idle_block_mask[idle_type][NR_CG_GRPS]);
