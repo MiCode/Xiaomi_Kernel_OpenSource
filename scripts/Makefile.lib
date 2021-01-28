@@ -286,16 +286,9 @@ $(obj)/%.dtb.S: $(obj)/%.dtb FORCE
 	$(call if_changed,dt_S_dtb)
 
 quiet_cmd_dtc = DTC     $@
-
-ifeq ($(BUILD_ARM_DTB_OVERLAY_IMAGE),y)
-DTC_BUILD_CMD = $(srctree)/scripts/dtc/dtc_overlay -@ -O dtb -o $@ -b 0
-else
-DTC_BUILD_CMD = $(DTC) -O dtb -o $@ -b 0
-endif
-
 cmd_dtc = mkdir -p $(dir ${dtc-tmp}) ; \
 	$(CPP) $(dtc_cpp_flags) -x assembler-with-cpp -o $(dtc-tmp) $< ; \
-	$(DTC_BUILD_CMD) \
+	$(srctree)/scripts/dtc/dtc_overlay -@ -O dtb -o $@ -b 0 \
 		$(addprefix -i,$(dir $<) $(DTC_INCLUDE)) $(DTC_FLAGS) \
 		-d $(depfile).dtc.tmp $(dtc-tmp) ; \
 	cat $(depfile).pre.tmp $(depfile).dtc.tmp > $(depfile)
