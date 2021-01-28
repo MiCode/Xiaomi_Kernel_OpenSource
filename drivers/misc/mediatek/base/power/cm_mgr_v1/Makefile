@@ -18,7 +18,9 @@ endif
 ifeq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6771"))
 ifdef CONFIG_MTK_PLATFORM
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+ifeq (,$(filter $(CONFIG_MACH_MT8168), y))
 include $(srctree)/drivers/misc/mediatek/base/power/qos/$(MTK_PLATFORM)/Makefile
+endif
 endif
 endif
 
@@ -41,6 +43,7 @@ ccflags-y += \
 	-I$(CPUFREQ_ROOT_DIR)/inc \
 	-I$(CPUFREQ_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/devfreq \
+	-I$(srctree)/drivers/devfreq/helio-dvfsrc-v4/ \
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/ \
 	-I$(srctree)/drivers/misc/mediatek/base/power/cm_mgr_v1/$(CONFIG_MTK_PLATFORM) \
@@ -48,6 +51,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/src/mach/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(CONFIG_MTK_PLATFORM) \
+	-I$(srctree)/drivers/misc/mediatek/emi/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include \
@@ -60,6 +64,10 @@ ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/mt6885_3gear")
 ccflags-y += -DTRIGEAR_CM
 endif
 # main
+ifeq (,$(filter $(CONFIG_MACH_MT8168), y))
 obj-y += mtk_cm_mgr.o
+else
+obj-y += mtk_cm_mgr_mt8168.o
+endif
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 
