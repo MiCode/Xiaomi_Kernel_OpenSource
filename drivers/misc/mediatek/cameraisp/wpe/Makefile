@@ -11,4 +11,10 @@
 # GNU General Public License for more details.
 #
 
-obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += v1/
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+
+ifeq ($(MTK_PLATFORM), mt6779)
+obj-y += mt6779/
+else
+obj-y := camerawpe_dummy.o
+endif
