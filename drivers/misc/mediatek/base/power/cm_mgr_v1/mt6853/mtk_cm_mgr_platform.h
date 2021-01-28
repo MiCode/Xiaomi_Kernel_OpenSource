@@ -27,14 +27,15 @@
 #define USE_NEW_CPU_OPP
 #define USE_CM_MGR_AT_SSPM
 /* #define USE_SINGLE_CLUSTER */
-/* #define USE_CPU_TO_DRAM_MAP */
-/* #define USE_BCPU_WEIGHT */
+#define USE_CPU_TO_DRAM_MAP
+#define USE_CPU_TO_DRAM_MAP_NEW
+#define USE_BCPU_WEIGHT
 
 #define CM_MGR_EMI_OPP 5
 #define CM_MGR_LOWER_OPP 6
 #define CM_MGR_CPU_CLUSTER 2
 #define CM_MGR_CPU_COUNT 8
-#define CM_MGR_CPU_LIMIT 4
+#define CM_MGR_CPU_LIMIT 6
 
 #define CLUSTER0_MASK   0xff
 
@@ -48,7 +49,7 @@
 #define USE_TIMER_CHECK_TIME msecs_to_jiffies(50)
 #define CM_MGR_INIT_DELAY_MS 1
 #define CM_MGR_BW_VALUE 0
-#define CM_MGR_VCORE_OPP_COUNT 21
+#define CM_MGR_VCORE_OPP_COUNT 25
 
 enum {
 	CM_MGR_LP4 = 0,

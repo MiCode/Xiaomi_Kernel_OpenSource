@@ -49,6 +49,8 @@ struct cm_mgr_data {
 #define IPI_CM_MGR_EMI_DEMAND_CHECK 21
 #define IPI_CM_MGR_OPP_FREQ_SET 22
 #define IPI_CM_MGR_OPP_VOLT_SET 23
+#define IPI_CM_MGR_BCPU_WEIGHT_MAX_SET 24
+#define IPI_CM_MGR_BCPU_WEIGHT_MIN_SET 25
 
 extern spinlock_t cm_mgr_lock;
 extern int cm_mgr_disable_fb;
@@ -73,6 +75,12 @@ extern int cm_mgr_emi_demand_check;
 #ifdef USE_CPU_TO_DRAM_MAP
 extern int cm_mgr_cpu_map_dram_enable;
 #endif /* USE_CPU_TO_DRAM_MAP */
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+extern int cm_mgr_cpu_map_emi_opp;
+extern int cm_mgr_cpu_map_skip_cpu_opp;
+extern int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE];
+extern void cm_mgr_cpu_map_update_table(void);
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 
 extern void cm_mgr_perf_set_status(int status);
 extern void cm_mgr_perf_set_force_status(int status);

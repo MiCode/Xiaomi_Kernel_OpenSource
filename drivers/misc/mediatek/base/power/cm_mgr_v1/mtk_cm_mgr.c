@@ -714,6 +714,8 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
 	case IPI_CM_MGR_OPP_FREQ_SET:
 	case IPI_CM_MGR_OPP_VOLT_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_CM,
@@ -762,6 +764,8 @@ int cm_mgr_to_sspm_command(u32 cmd, int val)
 	case IPI_CM_MGR_LOADING_ENABLE:
 	case IPI_CM_MGR_LOADING_LEVEL:
 	case IPI_CM_MGR_EMI_DEMAND_CHECK:
+	case IPI_CM_MGR_BCPU_WEIGHT_MAX_SET:
+	case IPI_CM_MGR_BCPU_WEIGHT_MIN_SET:
 		cm_mgr_d.cmd = cmd;
 		cm_mgr_d.arg = val;
 		ret = sspm_ipi_send_sync(IPI_ID_CM, IPI_OPT_POLLING,
@@ -819,6 +823,20 @@ void __weak dbg_cm_mgr_platform_show(struct seq_file *m) {}
 void __weak dbg_cm_mgr_platform_write(int len, char *cmd, u32 val_1, u32 val_2)
 {}
 
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+void cm_mgr_cpu_map_update_table(void)
+{
+	int i;
+
+	for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++) {
+		if (i < cm_mgr_cpu_map_skip_cpu_opp)
+			cm_mgr_cpu_opp_to_dram[i] = cm_mgr_cpu_map_emi_opp;
+		else
+			cm_mgr_cpu_opp_to_dram[i] =
+				PM_QOS_DDR_OPP_DEFAULT_VALUE;
+	}
+}
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 
 static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 {
@@ -845,6 +863,17 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "cm_mgr_cpu_map_dram_enable %d\n",
 			cm_mgr_cpu_map_dram_enable);
 #endif /* USE_CPU_TO_DRAM_MAP */
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	seq_printf(m, "cm_mgr_cpu_map_emi_opp %d\n",
+			cm_mgr_cpu_map_emi_opp);
+	seq_printf(m, "cm_mgr_cpu_map_skip_cpu_opp %d\n",
+			cm_mgr_cpu_map_skip_cpu_opp);
+	seq_puts(m, "cm_mgr_cpu_opp_to_dram table");
+	for (i = 0; i < CM_MGR_CPU_OPP_SIZE; i++)
+		seq_printf(m, " %d", cm_mgr_cpu_opp_to_dram[i]);
+	seq_puts(m, "\n");
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
+
 	seq_printf(m, "cm_mgr_disable_fb %d\n", cm_mgr_disable_fb);
 	seq_printf(m, "light_load_cps %d\n", light_load_cps);
 	seq_printf(m, "total_bw_value %d\n", total_bw_value);
@@ -883,6 +912,13 @@ static int dbg_cm_mgr_proc_show(struct seq_file *m, void *v)
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
 		seq_printf(m, " %d", vcore_power_ratio_down[i]);
 	seq_puts(m, "\n");
+
+#ifdef USE_BCPU_WEIGHT
+	seq_printf(m, "cpu_power_bcpu_weight_max %d\n",
+			cpu_power_bcpu_weight_max);
+	seq_printf(m, "cpu_power_bcpu_weight_min %d\n",
+			cpu_power_bcpu_weight_min);
+#endif /* USE_BCPU_WEIGHT */
 
 	seq_puts(m, "debounce_times_up_adb");
 	for (i = 0; i < CM_MGR_EMI_OPP; i++)
@@ -1262,6 +1298,28 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 		cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 				debounce_times_reset_adb);
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#ifdef USE_BCPU_WEIGHT
+	} else if (!strcmp(cmd, "cpu_power_bcpu_weight_max")) {
+		if (cpu_power_bcpu_weight_max < cpu_power_bcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bcpu_weight_max = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MAX_SET,
+					val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
+	} else if (!strcmp(cmd, "cpu_power_bcpu_weight_min")) {
+		if (cpu_power_bcpu_weight_max < cpu_power_bcpu_weight_min) {
+			ret = -1;
+		} else {
+			cpu_power_bcpu_weight_min = val_1;
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+			cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
+					val_1);
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+		}
+#endif /* USE_BCPU_WEIGHT */
 	} else if (!strcmp(cmd, "debounce_times_perf_down")) {
 		debounce_times_perf_down = val_1;
 	} else if (!strcmp(cmd, "debounce_times_perf_force_down")) {
@@ -1282,6 +1340,14 @@ static ssize_t dbg_cm_mgr_proc_write(struct file *file,
 	} else if (!strcmp(cmd, "cm_mgr_cpu_map_dram_enable")) {
 		cm_mgr_cpu_map_dram_enable = !!val_1;
 #endif /* USE_CPU_TO_DRAM_MAP */
+#ifdef USE_CPU_TO_DRAM_MAP_NEW
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_skip_cpu_opp")) {
+		cm_mgr_cpu_map_skip_cpu_opp = val_1;
+		cm_mgr_cpu_map_update_table();
+	} else if (!strcmp(cmd, "cm_mgr_cpu_map_emi_opp")) {
+		cm_mgr_cpu_map_emi_opp = val_1;
+		cm_mgr_cpu_map_update_table();
+#endif /* USE_CPU_TO_DRAM_MAP_NEW */
 	} else {
 		dbg_cm_mgr_platform_write(ret, cmd, val_1, val_2);
 	}
@@ -1412,6 +1478,13 @@ int __init cm_mgr_module_init(void)
 
 	cm_mgr_to_sspm_command(IPI_CM_MGR_DEBOUNCE_TIMES_RESET_ADB,
 			debounce_times_reset_adb);
+#ifdef USE_BCPU_WEIGHT
+	cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MAX_SET,
+			cpu_power_bcpu_weight_max);
+
+	cm_mgr_to_sspm_command(IPI_CM_MGR_BCPU_WEIGHT_MIN_SET,
+			cpu_power_bcpu_weight_min);
+#endif /* USE_BCPU_WEIGHT */
 #endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
 
 	return 0;
