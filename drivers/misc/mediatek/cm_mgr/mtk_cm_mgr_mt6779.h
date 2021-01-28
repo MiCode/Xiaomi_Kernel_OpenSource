@@ -13,11 +13,7 @@
 #define CREATE_TRACE_POINTS
 #include "mtk_cm_mgr_events_mt6779.h"
 
-#ifdef CONFIG_MTK_DRAMC_LEGACY
-#include <mtk_dramc.h>
-#endif /* CONFIG_MTK_DRAMC_LEGACY */
-
-#define CM_MGR_CPU_CLUSTER 2
+#define USE_CM_MGR_AT_SSPM
 
 enum {
 	CM_MGR_LP4X_2CH = 0,

@@ -23,7 +23,9 @@
 /* #define DEBUG_CM_MGR */
 #define USE_TIMER_CHECK
 #define USE_NEW_CPU_OPP
+/* #define USE_CM_MGR_AT_SSPM */
 #define USE_SINGLE_CLUSTER
+#define USE_CPU_TO_DRAM_MAP
 
 #define CM_MGR_EMI_OPP	2
 #define CM_MGR_LOWER_OPP 8
@@ -32,6 +34,8 @@
 #define CM_MGR_CPU_LIMIT 4
 
 #define CLUSTER0_MASK   0x0f
+
+#define CM_MGR_CPU_OPP_SIZE 16
 
 #define VCORE_ARRAY_SIZE CM_MGR_EMI_OPP
 #define CM_MGR_CPU_ARRAY_SIZE (CM_MGR_CPU_CLUSTER * CM_MGR_EMI_OPP)

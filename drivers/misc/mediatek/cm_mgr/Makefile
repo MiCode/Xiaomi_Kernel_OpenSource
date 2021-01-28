@@ -12,14 +12,28 @@
 #
 
 ccflags-y += \
-	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/inc \
-	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/src/mach/$(CONFIG_MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/cm_mgr/ \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
-	-I$(srctree)/drivers/misc/mediatek/qos \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
+	-I$(srctree)/drivers/misc/mediatek/qos \
 	-I$(srctree)/include \
+
+ifeq ($(CONFIG_MACH_MT6761),y)
+ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/inc \
+	-I$(srctree)/./drivers/misc/mediatek/base/power/cpufreq_v1/src/mach/$(CONFIG_MTK_PLATFORM) \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach \
+
+endif
+
+ifeq ($(CONFIG_MACH_MT6765),y)
+ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/base/power/cpufreq_v1/inc \
+	-I$(srctree)/./drivers/misc/mediatek/base/power/cpufreq_v1/src/mach/$(CONFIG_MTK_PLATFORM) \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach \
+
+endif
 
 obj-${CONFIG_MTK_CM_MGR} += mtk_cm_mgr.o
 mtk_cm_mgr-y = mtk_cm_mgr_common.o
