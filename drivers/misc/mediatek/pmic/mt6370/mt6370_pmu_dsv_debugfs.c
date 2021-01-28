@@ -108,7 +108,7 @@ void mt6370_pmu_dsv_auto_vbst_adjustment(struct mt6370_pmu_chip *chip,
 	}
 }
 
-
+#ifdef CONFIG_DEBUG_FS
 static ssize_t mt6370_pmu_dsv_debug_write(struct file *file,
 	const char __user *buf, size_t size, loff_t *ppos)
 {
@@ -213,12 +213,13 @@ static const struct file_operations mt6370_pmu_dsv_debug_ops = {
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
-
+#endif
 
 int mt6370_pmu_dsv_debug_init(struct mt6370_pmu_chip *chip)
 {
+#ifdef CONFIG_DEBUG_FS
 	struct dentry *mt6370_pmu_dir;
-
+#endif
 	g_db_vbst = mt6370_pmu_reg_read(chip, MT6370_PMU_REG_DBVBST);
 	g_vbst_adjustment = 0;
 	g_irq_count_max = IRQ_COUNT_MAX;
@@ -226,6 +227,7 @@ int mt6370_pmu_dsv_debug_init(struct mt6370_pmu_chip *chip)
 	g_irq_mask_warning = 0;
 	g_irq_disable |= (1 << DSV_VPOS_OCP);
 
+#ifdef CONFIG_DEBUG_FS
 	mt6370_pmu_dir = debugfs_create_dir("mt6370_pmu", NULL);
 	if (!mt6370_pmu_dir) {
 		pr_info("create /sys/kernel/debug/mt6370_pmu failed\n");
@@ -235,7 +237,7 @@ int mt6370_pmu_dsv_debug_init(struct mt6370_pmu_chip *chip)
 	debugfs_create_file("mt6370_pmu_dsv", 0644,
 				mt6370_pmu_dir, NULL,
 				&mt6370_pmu_dsv_debug_ops);
-
+#endif
 	return 0;
 }
 
