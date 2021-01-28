@@ -5,3 +5,10 @@ config MTK_PLAT_SRAM_FLAG
 	  Which are kept after exception occurs, and we can dump
 	  these flags as hints or inputs to post-processing scripts
 	  for further analyze.
+
+config MTK_LASTBUS_INTERFACE
+	bool "MTK_LASTBUS"
+	help
+	  LASTBUS is a tool to get the snapshot of peri and infra bus.
+	  Enable this feature, you can dump LASTBUS status for peri and
+	  infra bus for debug purpose.
