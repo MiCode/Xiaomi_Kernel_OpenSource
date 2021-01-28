@@ -29,7 +29,13 @@ static inline bool should_hmp(int cpu)
 
 	rcu_read_lock();
 	sd = rcu_dereference(rq->sd);
-	if (sched_feat(ENERGY_AWARE) && (sd && !sd_overutilized(sd))) {
+	if (sched_feat(ENERGY_AWARE) && sd) {
+		for_each_domain(cpu, sd) {
+			if (sd_overutilized(sd)) {
+				rcu_read_unlock();
+				return true;
+			}
+		}
 		rcu_read_unlock();
 		return false;
 	}
