@@ -24,11 +24,11 @@
 #include <mt-plat/charger_type.h>
 #ifdef CONFIG_RT_REGMAP
 #include <mt-plat/rt-regmap.h>
-#endif
+#endif /* CONFIG_RT_REGMAP */
 
 #include "mtk_charger_intf.h"
 #include "rt9471.h"
-#define RT9471_DRV_VERSION	"1.0.10_MTK"
+#define RT9471_DRV_VERSION	"1.0.11_MTK"
 
 enum rt9471_stat_idx {
 	RT9471_STATIDX_STAT0 = 0,
@@ -234,6 +234,7 @@ static const u8 rt9471_reg_addr[] = {
 	RT9471_REG_EOC,
 	RT9471_REG_INFO,
 	RT9471_REG_JEITA,
+	RT9471_REG_PUMPEXP,
 	RT9471_REG_DPDMDET,
 	RT9471_REG_STATUS,
 	RT9471_REG_STAT0,
@@ -272,6 +273,7 @@ RT_REG_DECL(RT9471_REG_CHGTIMER, 1, RT_VOLATILE, {});
 RT_REG_DECL(RT9471_REG_EOC, 1, RT_VOLATILE, {});
 RT_REG_DECL(RT9471_REG_INFO, 1, RT_VOLATILE, {});
 RT_REG_DECL(RT9471_REG_JEITA, 1, RT_VOLATILE, {});
+RT_REG_DECL(RT9471_REG_PUMPEXP, 1, RT_VOLATILE, {});
 RT_REG_DECL(RT9471_REG_DPDMDET, 1, RT_VOLATILE, {});
 RT_REG_DECL(RT9471_REG_STATUS, 1, RT_VOLATILE, {});
 RT_REG_DECL(RT9471_REG_STAT0, 1, RT_VOLATILE, {});
@@ -301,6 +303,7 @@ static const rt_register_map_t rt9471_rm_map[] = {
 	RT_REG(RT9471_REG_EOC),
 	RT_REG(RT9471_REG_INFO),
 	RT_REG(RT9471_REG_JEITA),
+	RT_REG(RT9471_REG_PUMPEXP),
 	RT_REG(RT9471_REG_DPDMDET),
 	RT_REG(RT9471_REG_STATUS),
 	RT_REG(RT9471_REG_STAT0),
@@ -365,7 +368,7 @@ static inline int __rt9471_i2c_read_byte(struct rt9471_chip *chip, u8 cmd,
 	ret = rt_regmap_block_read(chip->rm_dev, cmd, 1, &regval);
 #else
 	ret = rt9471_read_device(chip->client, cmd, 1, &regval);
-#endif
+#endif /* CONFIG_RT_REGMAP */
 
 	if (ret < 0)
 		dev_notice(chip->dev, "%s reg0x%02X fail(%d)\n",
@@ -399,7 +402,7 @@ static inline int __rt9471_i2c_write_byte(struct rt9471_chip *chip, u8 cmd,
 	ret = rt_regmap_block_write(chip->rm_dev, cmd, 1, &data);
 #else
 	ret = rt9471_write_device(chip->client, cmd, 1, &data);
-#endif
+#endif /* CONFIG_RT_REGMAP */
 
 	if (ret < 0)
 		dev_notice(chip->dev, "%s reg0x%02X = 0x%02X fail(%d)\n",
@@ -431,7 +434,7 @@ static inline int __rt9471_i2c_block_read(struct rt9471_chip *chip, u8 cmd,
 	ret = rt_regmap_block_read(chip->rm_dev, cmd, len, data);
 #else
 	ret = rt9471_read_device(chip->client, cmd, len, data);
-#endif
+#endif /* CONFIG_RT_REGMAP */
 
 	if (ret < 0)
 		dev_notice(chip->dev, "%s reg0x%02X..reg0x%02X fail(%d)\n",
@@ -465,7 +468,7 @@ static inline int __rt9471_i2c_block_write(struct rt9471_chip *chip, u8 cmd,
 	ret = rt_regmap_block_write(chip->rm_dev, cmd, len, data);
 #else
 	ret = rt9471_write_device(chip->client, cmd, len, data);
-#endif
+#endif /* CONFIG_RT_REGMAP */
 
 	if (ret < 0) {
 		dev_notice(chip->dev, "%s fail(%d)\n", __func__, ret);
@@ -1371,20 +1374,7 @@ static int rt9471_bc12_done_irq_handler(struct rt9471_chip *chip)
 
 static int rt9471_chg_done_irq_handler(struct rt9471_chip *chip)
 {
-	int ret = 0;
-	bool chg_done = false;
-
 	dev_info(chip->dev, "%s chip_rev = %d\n", __func__, chip->chip_rev);
-
-	ret = rt9471_i2c_test_bit(chip, RT9471_REG_STAT0,
-				  RT9471_ST_CHGDONE_SHIFT, &chg_done);
-	if (ret < 0)
-		return ret;
-
-	dev_info(chip->dev, "%s chg_done = %d\n", __func__, chg_done);
-	if (!chg_done)
-		return 0;
-	charger_dev_notify(chip->chg_dev, CHARGER_DEV_NOTIFY_EOC);
 
 	if (chip->chip_rev > 4)
 		return 0;
@@ -1404,6 +1394,7 @@ static int rt9471_bg_chg_irq_handler(struct rt9471_chip *chip)
 static int rt9471_ieoc_irq_handler(struct rt9471_chip *chip)
 {
 	dev_info(chip->dev, "%s\n", __func__);
+	charger_dev_notify(chip->chg_dev, CHARGER_DEV_NOTIFY_EOC);
 	return 0;
 }
 
@@ -1412,8 +1403,10 @@ static int rt9471_chg_rdy_irq_handler(struct rt9471_chip *chip)
 	struct chgdev_notify *noti = &(chip->chg_dev->noti);
 
 	dev_info(chip->dev, "%s chip_rev = %d\n", __func__, chip->chip_rev);
+
 	noti->vbusov_stat = false;
 	charger_dev_notify(chip->chg_dev, CHARGER_DEV_NOTIFY_VBUS_OVP);
+
 	if (chip->chip_rev > 4)
 		return 0;
 
@@ -1441,18 +1434,8 @@ static int rt9471_vbus_gd_irq_handler(struct rt9471_chip *chip)
 
 static int rt9471_chg_batov_irq_handler(struct rt9471_chip *chip)
 {
-	int ret = 0;
-	bool batov = false;
-
-	ret = rt9471_i2c_test_bit(chip, RT9471_REG_STAT1, RT9471_ST_BATOV_SHIFT,
-				  &batov);
-	if (ret < 0)
-		return ret;
-
-	dev_info(chip->dev, "%s batov = %d\n", __func__, batov);
-	if (batov)
-		charger_dev_notify(chip->chg_dev, CHARGER_DEV_NOTIFY_BAT_OVP);
-
+	dev_info(chip->dev, "%s\n", __func__);
+	charger_dev_notify(chip->chg_dev, CHARGER_DEV_NOTIFY_BAT_OVP);
 	return 0;
 }
 
@@ -1464,19 +1447,8 @@ static int rt9471_chg_sysov_irq_handler(struct rt9471_chip *chip)
 
 static int rt9471_chg_tout_irq_handler(struct rt9471_chip *chip)
 {
-	int ret = 0;
-	bool tout = false;
-
-	ret = rt9471_i2c_test_bit(chip, RT9471_REG_STAT1, RT9471_ST_TOUT_SHIFT,
-				  &tout);
-	if (ret < 0)
-		return ret;
-
-	dev_info(chip->dev, "%s tout = %d\n", __func__, tout);
-	if (tout)
-		charger_dev_notify(chip->chg_dev,
-				   CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT);
-
+	dev_info(chip->dev, "%s\n", __func__);
+	charger_dev_notify(chip->chg_dev, CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT);
 	return 0;
 }
 
@@ -1949,19 +1921,19 @@ static int rt9471_parse_dt(struct rt9471_chip *chip)
 static int rt9471_check_chg(struct rt9471_chip *chip)
 {
 	int ret = 0;
-	u8 stat0 = 0;
+	u8 regval = 0;
 
 	dev_info(chip->dev, "%s\n", __func__);
 
-	ret = rt9471_i2c_read_byte(chip, RT9471_REG_STAT0, &stat0);
+	ret = rt9471_i2c_read_byte(chip, RT9471_REG_STAT0, &regval);
 	if (ret < 0)
 		return ret;
 
-	if (stat0 & RT9471_ST_VBUSGD_MASK)
+	if (regval & RT9471_ST_VBUSGD_MASK)
 		rt9471_vbus_gd_irq_handler(chip);
-	if (stat0 & RT9471_ST_CHGDONE_MASK)
+	if (regval & RT9471_ST_CHGDONE_MASK)
 		rt9471_chg_done_irq_handler(chip);
-	else if (stat0 & RT9471_ST_CHGRDY_MASK)
+	else if (regval & RT9471_ST_CHGRDY_MASK)
 		rt9471_chg_rdy_irq_handler(chip);
 
 	return ret;
@@ -2161,8 +2133,8 @@ static bool rt9471_check_devinfo(struct rt9471_chip *chip)
 		return false;
 	}
 	chip->dev_rev = (ret & RT9471_DEVREV_MASK) >> RT9471_DEVREV_SHIFT;
-	dev_info(chip->dev, "%s id = 0x%02X, rev = 0x%02X\n", __func__,
-		 chip->dev_id, chip->dev_rev);
+	dev_info(chip->dev, "%s id = 0x%02X, rev = 0x%02X\n",
+			    __func__, chip->dev_id, chip->dev_rev);
 
 	return true;
 }
@@ -2882,7 +2854,7 @@ static int rt9471_probe(struct i2c_client *client,
 				      __func__, ret);
 		goto err_register_rm;
 	}
-#endif
+#endif /* CONFIG_RT_REGMAP */
 
 	ret = rt9471_reset_register(chip);
 	if (ret < 0)
@@ -3110,6 +3082,10 @@ MODULE_VERSION(RT9471_DRV_VERSION);
 
 /*
  * Release Note
+ * 1.0.11
+ * (1) Add RT9471_REG_PUMPEXP to the reg lists
+ * (2) Notify CHARGER_DEV_NOTIFY_EOC in rt9471_ieoc_irq_handler()
+ *
  * 1.0.10
  * (1) Should not enter CV tracking in sys_min
  * (2) Rearrange the resources alloc and free in driver probing/removing

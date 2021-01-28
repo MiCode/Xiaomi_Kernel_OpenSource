@@ -169,8 +169,6 @@ enum rt9471_reg_addr {
 #define RT9471_ST_MIVR_SHIFT	7
 #define RT9471_ST_MIVR_MASK	BIT(7)
 #define RT9471_ST_AICR_MASK	BIT(6)
-#define RT9471_ST_TOUT_SHIFT	3
-#define RT9471_ST_BATOV_SHIFT	1
 #define RT9471_ST_BATOV_MASK	BIT(1)
 
 /* ========== STAT2 0x12 ============ */
