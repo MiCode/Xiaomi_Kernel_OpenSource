@@ -753,6 +753,7 @@ static int mlog_doread(char __user *buf, size_t len)
 	return size;
 }
 
+#if defined(CONFIG_DEBUG_FS)
 static int dmlog_open(struct inode *inode, struct file *file)
 {
 #define FMT_HEADER_LENGTH	sizeof(fmt_hdr)
@@ -866,6 +867,7 @@ static ssize_t dmlog_read(struct file *file, char __user *buf, size_t len,
 	}
 	return size;
 }
+#endif
 
 module_param(min_adj, int, 0644);
 module_param(max_adj, int, 0644);
@@ -1003,11 +1005,104 @@ static const struct file_operations mlog_fmt_proc_fops = {
 	.release = single_release,
 };
 
+#if defined(CONFIG_DEBUG_FS)
 static const struct file_operations proc_dmlog_operations = {
 	.open = dmlog_open,
 	.read = dmlog_read,
 	.release = dmlog_release,
 };
+#elif defined(CONFIG_SYSFS)
+static int _doread2(char *buf, unsigned int *start,
+		unsigned int *end, int *fmt_idx)
+{
+	int size = 0;
+	long v = 0;
+	bool no_update = true;
+
+	spin_lock_bh(&mlogbuf_lock);
+
+	/* mlog_start go over session->start, no data to dump */
+	if (unlikely(*start < mlog_start))
+		goto exit_dump;
+
+	/* retrieve value */
+	while (*start < *end) {
+		v = MLOG_BUF(*start);
+		*start += 1;
+		no_update = false;
+
+		/* check for start point */
+		if (*fmt_idx == 0 && v != MLOG_ID)
+			continue;
+		else if (v == MLOG_ID && (*fmt_idx != 0))
+			*fmt_idx = 0;
+
+		break;
+	}
+
+	/* no more data */
+	if (*start > *end || ((*start == *end) && no_update))
+		goto exit_dump;
+
+	/* hit start point, change to the next line */
+	if (*fmt_idx == 0)
+		v = '\n';
+
+	size = snprintf(buf, MLOG_STR_LEN, strfmt_list[*fmt_idx], v);
+	*fmt_idx += 1;
+
+	/*
+	 * strfmt_list is exhausted, reset it to the beginning.
+	 */
+	if (*fmt_idx >= strfmt_len)
+		*fmt_idx = 0;
+
+	spin_unlock_bh(&mlogbuf_lock);
+
+	return size;
+
+exit_dump:
+	spin_unlock_bh(&mlogbuf_lock);
+	return size;
+}
+
+static ssize_t mlog_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int size, ret;
+	int fmt_idx = 0;
+	unsigned int start, end;
+
+	/* dump fmt */
+	size = mlog_snprint_fmt(buf, PAGE_SIZE);
+
+	/* dump data */
+	start_dump_session();
+	start = mlog_start;
+	end = mlog_end;
+	while (size < (PAGE_SIZE - MLOG_STR_LEN)) {
+		ret = _doread2(buf + size, &start, &end, &fmt_idx);
+
+		if (ret <= 0)
+			break;
+
+		size = size + ret;
+	}
+	stop_dump_session();
+
+	return size;
+}
+
+static DEVICE_ATTR(dump, 0444, mlog_show, NULL);
+static struct attribute *mlog_attrs[] = {
+	&dev_attr_dump.attr,
+	NULL,
+};
+struct attribute_group mlog_attr_group = {
+	.attrs = mlog_attrs,
+	.name = "mlog",
+};
+#endif
 
 static void __init mlog_init_debugfs(void)
 {
@@ -1015,8 +1110,14 @@ static void __init mlog_init_debugfs(void)
 			&mlog_fmt_proc_fops);
 	debugfs_create_file("mlog", 0444, NULL, NULL,
 			&proc_mlog_operations);
+#if defined(CONFIG_DEBUG_FS)
 	debugfs_create_file("dmlog", 0444, NULL, NULL,
 			&proc_dmlog_operations);
+#elif defined(CONFIG_SYSFS)
+	/* No DEBUGFS, choose SYSFS as backup */
+	if (sysfs_create_group(mm_kobj, &mlog_attr_group))
+		pr_info("Failed to create sysfs interface\n");
+#endif
 }
 
 static void mlog_timer_handler(unsigned long data)
