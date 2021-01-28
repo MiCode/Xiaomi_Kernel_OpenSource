@@ -51,8 +51,10 @@ static inline void pd_parse_pdata_bat_info(
 		pr_err("%s get bat,mfrs fail\n", __func__);
 		mstring = "no_bat_mfrs_string";
 	}
-	snprintf(mfrs_info->mfrs_string,
+	ret = snprintf(mfrs_info->mfrs_string,
 		strlen(mstring)+1, "%s", mstring);
+	if (ret < 0 || ret >= (strlen(mstring)+1))
+		pr_info("%s-%d snprintf fail\n", __func__, __LINE__);
 #endif	/* CONFIG_USB_PD_REV30_MFRS_INFO_LOCAL */
 
 	ret = of_property_read_u32(sub, "bat,design_cap", &design_cap);
