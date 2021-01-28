@@ -692,23 +692,12 @@ void kbase_backend_jm_kill_running_jobs_from_kctx(struct kbase_context *kctx)
 		kbase_job_slot_hardstop(kctx, i, NULL);
 }
 
-static inline bool is_later(u64 ready, u64 existing)
-{
-	/* No seq_no set? */
-	if (!ready || !existing)
-		return false;
-
-	/* handle wrapping gracefully */
-	return (s64)(ready - existing) < 0;
-}
-
 void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 				struct kbase_jd_atom *target_katom)
 {
 	struct kbase_device *kbdev;
 	int js = target_katom->slot_nr;
 	int priority = target_katom->sched_priority;
-	int seq_nr = target_katom->seq_nr;
 	int i;
 	bool stop_sent = false;
 
@@ -730,8 +719,7 @@ void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 				(katom->kctx != kctx))
 			continue;
 
-		if ((katom->sched_priority > priority) ||
-		    (katom->kctx == kctx && is_later(seq_nr, katom->seq_nr))) {
+		if (katom->sched_priority > priority) {
 			if (!stop_sent)
 				KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITIZED(
 						kbdev,
