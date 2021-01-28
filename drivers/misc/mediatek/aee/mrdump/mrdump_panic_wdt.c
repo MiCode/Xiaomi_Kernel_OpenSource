@@ -221,6 +221,16 @@ static void aee_wdt_dump_stack_bin(unsigned int cpu, unsigned long bottom,
 		aee_wdt_percpu_printf(cpu, "%04lx:%s\n", first & 0xffff, str);
 	}
 }
+#ifndef CONFIG_ARM64
+static inline int in_exception_text(unsigned long ptr)
+{
+	char *die_ptr = NULL;
+
+	pr_notice("FIXME!!!\n");
+	*die_ptr = 5;
+	return 0;
+}
+#endif
 
 /* dump the backtrace into per CPU buffer */
 static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)

@@ -3,10 +3,8 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <asm/cpuidle.h>
-#include <asm/suspend.h>
-#include <linux/cpu_pm.h>
 #include <linux/cpuidle.h>
+#include <linux/cpu_pm.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -16,6 +14,8 @@
 #include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/syscore_ops.h>
+#include <asm/cpuidle.h>
+#include <asm/suspend.h>
 
 #include <mtk_lpm.h>
 #include "mtk_lpm_registry.h"
