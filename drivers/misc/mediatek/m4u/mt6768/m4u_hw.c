@@ -2134,11 +2134,6 @@ static void larb_backup(unsigned int larb_idx)
 			__M4U_BACKUP(larb_base,
 			SMI_LARB_NON_SEC_CONx(i),
 			larb_reg_backup_buf[larb_idx][i]);
-
-		for (i = 0; i < 32; i++)
-			__M4U_BACKUP(larb_base,
-			SMI_LARB_SEC_CONx(i),
-			larb_reg_backup_buf[larb_idx][i + 32]);
 	}
 }
 
@@ -2168,11 +2163,6 @@ static void larb_restore(unsigned int larb_idx)
 			__M4U_RESTORE(larb_base,
 			SMI_LARB_NON_SEC_CONx(i),
 			larb_reg_backup_buf[larb_idx][i]);
-
-		for (i = 0; i < 32; i++)
-			__M4U_RESTORE(
-			larb_base, SMI_LARB_SEC_CONx(i),
-			larb_reg_backup_buf[larb_idx][i + 32]);
 	}
 }
 
