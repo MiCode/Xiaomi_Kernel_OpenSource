@@ -205,7 +205,7 @@ int ccci_platform_init(struct ccci_modem *md)
 		return -1;
 	}
 	CCCI_INIT_LOG(-1, TAG, "infra_ao_base:0x%p\n", (void *)infra_ao_base);
-	/*Get pericfg  base(0x1000 3000) for ccif5*/
+	/*Get pericfg base(0x1000 3000) for ccif5*/
 	node = of_find_compatible_node(NULL, NULL, "mediatek,pericfg");
 	pericfg_base = (unsigned long)of_iomap(node, 0);
 	if (!pericfg_base) {
@@ -341,7 +341,7 @@ unsigned int ccb_configs_len =
 /* }; */
 
 /* APK setting */
-static struct dvfs_ref s_dvfs_tbl[] = {
+static  struct dvfs_ref s_dvfs_tbl[] = {
 	/* Add DRAM 0 */
 	{1700000000LL, 1530000, 1526000, 0, 0x02, 0xF0, 0xF0},
 	/* Add DRAM 1, inc ll freq */
@@ -361,4 +361,6 @@ struct dvfs_ref *mtk_ccci_get_dvfs_table(int *tbl_num)
 	*tbl_num = (int)ARRAY_SIZE(s_dvfs_tbl);
 	return s_dvfs_tbl;
 }
+
+
 

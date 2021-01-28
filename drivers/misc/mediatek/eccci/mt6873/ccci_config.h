@@ -17,7 +17,7 @@
 /* platform info */
 #define MD_GENERATION       (6297)
 #define MD_PLATFORM_INFO    "6297"
-#define AP_PLATFORM_INFO    "MT6885"
+#define AP_PLATFORM_INFO    "MT6873"
 #define CCCI_DRIVER_VER     0x20110118
 #define MT6297
 #define _97_REORDER_BAT_PAGE_TABLE_
@@ -85,4 +85,7 @@
 #define ENABLE_CPU_AFFINITY
 #define REFINE_BAT_OFFSET_REMOVE
 #define PIT_USING_CACHE_MEM
+
+#define CCCI_USE_DFD_OFFSET_0
+
 #endif

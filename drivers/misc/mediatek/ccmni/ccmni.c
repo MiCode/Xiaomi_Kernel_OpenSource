@@ -48,9 +48,19 @@
 #include <linux/stacktrace.h>
 #include "ccmni.h"
 #include "ccci_debug.h"
+#include "rps_perf.h"
 #if defined(CCMNI_MET_DEBUG)
 #include <mt-plat/met_drv.h>
 #endif
+
+
+#include <linux/hash.h>
+#include <linux/slab.h>
+#include <linux/jhash.h>
+#include <linux/spinlock.h>
+//#include <linux/string.h>
+#include <linux/list.h>
+
 
 struct ccmni_ctl_block *ccmni_ctl_blk[MAX_MD_NUM];
 
@@ -62,6 +72,18 @@ long int gro_flush_timer;
 #endif
 
 #define APP_VIP_MARK		0x80000000
+#define DEV_OPEN                1
+#define DEV_CLOSE               0
+
+void set_ccmni_rps(unsigned long value)
+{
+	int i = 0;
+	struct ccmni_ctl_block *ctlb = ccmni_ctl_blk[0];
+
+	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++)
+		set_rps_map(ctlb->ccmni_inst[i]->dev->_rx, value);
+}
+EXPORT_SYMBOL(set_ccmni_rps);
 
 /********************internal function*********************/
 static void ccmni_make_etherframe(int md_id, struct net_device *dev,
