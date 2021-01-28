@@ -290,6 +290,13 @@ int connectivity_export_pmic_ldo_vcn18_lp(int user,
 }
 EXPORT_SYMBOL(connectivity_export_pmic_ldo_vcn18_lp);
 
+void connectivity_export_pmic_ldo_vfe28_lp(unsigned int user,
+		int op_mode, unsigned char op_en, unsigned char op_cfg)
+{
+	pmic_ldo_vfe28_lp(user, op_mode, op_en, op_cfg);
+}
+EXPORT_SYMBOL(connectivity_export_pmic_ldo_vfe28_lp);
+
 int connectivity_export_pmic_ldo_vcn33_1_lp(int user,
 		int op_mode, unsigned char op_en, unsigned char op_cfg)
 {
