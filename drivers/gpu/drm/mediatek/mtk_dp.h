@@ -17,7 +17,7 @@
 #include "mtk_dp_common.h"
 
 
-#define DPTX_CheckSinkCap_TimeOutCnt		0x30
+#define DPTX_CheckSinkCap_TimeOutCnt		0x3
 
 #define HPD_INT_EVNET		BIT(3)
 #define HPD_CONNECT		BIT(2)
@@ -52,9 +52,14 @@ enum DPTx_SOURCE_TYPE {
 enum DPTx_State {
 	DPTXSTATE_INITIAL		= 0,
 	DPTXSTATE_IDLE			= 1,
-	DPTXSTATE_HDCP_AUTH		= 2,
-	DPTXSTATE_PREPARE		= 3,
-	DPTXSTATE_NORMAL		= 4,
+	DPTXSTATE_PREPARE		= 2,
+	DPTXSTATE_NORMAL		= 3,
+};
+
+enum DPTx_DISP_State {
+	DPTX_DISP_NONE		= 0,
+	DPTX_DISP_RESUME	= 1,
+	DPTX_DISP_SUSPEND	= 2,
 };
 
 enum DPTx_Return_Status {
@@ -64,7 +69,7 @@ enum DPTx_Return_Status {
 	DPTX_AUTH_FAIL			= 3,
 	DPTX_EDID_FAIL			= 4,
 	DPTX_TRANING_FAIL		= 5,
-	DPTX_TRANING_STATE_CHANGE	= 6,
+	DPTX_RETRANING			= 6,
 };
 
 enum DPTX_TRAINING_STATE {
@@ -276,7 +281,7 @@ void mtk_dp_hdcp_enable(bool enable);
 void mtk_dp_force_hdcp1x(bool enable);
 void mtk_dp_set_adjust_phy(uint8_t c0, uint8_t cp1);
 int mtk_dp_hdcp_getInfo(char *buffer, int size);
-int mdrv_DPTx_set_reTraining(struct mtk_dp *mtk_dp);
+void mdrv_DPTx_reAuthentication(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_PatternSet(bool enable, int resolution);
 extern void mhal_DPTx_VideoClock(bool enable, int resolution);
 

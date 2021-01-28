@@ -20,15 +20,6 @@
 
 #ifdef DPTX_HDCP_ENABLE
 
-enum DP_HDCP_VER_CTRL {
-	DP_HDCP_VER_NONE = 0,
-	DP_HDCP_VER_FREERUN,
-	DP_HDCP_VER_14,
-	DP_HDCP_VER_22,
-	DP_HDCP_REFLECT_14,
-	DP_HDCP_REFLECT_22,
-};
-
 struct HDCP1X_INFO {
 	int MainStates;
 	int SubStates;
@@ -65,11 +56,8 @@ struct HDCP2_INFO {
 enum HDCP_RESULT {
 	AUTH_ZERO     = 0,
 	AUTH_INIT     = 1,
-	AUTH_PRE      = 2,
-	AUTH_ENCRYPT  = 3,
-	AUTH_AFT      = 4,
-	AUTH_PASS     = 5,
-	AUTH_FAIL     = 6,
+	AUTH_PASS     = 2,
+	AUTH_FAIL     = 3,
 };
 
 #endif

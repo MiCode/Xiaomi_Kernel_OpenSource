@@ -1555,7 +1555,7 @@ bool mhal_DPTx_AuxRead_Bytes(struct mtk_dp *mtk_dp, BYTE ubCmd,
 					|| (ubCmd == DP_AUX_I2C_READ))
 					udelay(500);
 				else
-					udelay(100);
+					udelay(AUX_WRITE_READ_WAIT_TIME*5);
 
 				*(pRxBuf + ubRdCount)
 					= msReadByte(mtk_dp,
@@ -1769,20 +1769,16 @@ void mhal_DPTx_ISR(struct mtk_dp *mtk_dp)
 
 void mhal_DPTx_EnableFEC(struct mtk_dp *mtk_dp, bool bENABLE)
 {
-	DPTXFUNC("enable = %d\n", bENABLE);
+	DPTXFUNC("Fec enable=%d\n", bENABLE);
 	if (bENABLE)
-		msWriteByteMask(mtk_dp,
-			REG_3540_DP_TRANS_P0, BIT0, BIT0); // [0] : FEC Enable
+		msWriteByteMask(mtk_dp, REG_3540_DP_TRANS_P0, BIT0, BIT0);
 	else
-		msWriteByteMask(mtk_dp,
-			REG_3540_DP_TRANS_P0, 0, BIT0); // FEC Disable
-
-
+		msWriteByteMask(mtk_dp, REG_3540_DP_TRANS_P0, 0, BIT0);
 }
 
 void mhal_DPTx_EnableDSC(struct mtk_dp *mtk_dp, bool bENABLE)
 {
-	DPTXFUNC();
+	DPTXFUNC("DSC enable=%d\n", bENABLE);
 	if (bENABLE) {
 		msWriteByteMask(mtk_dp,
 			REG_336C_DP_ENCODER1_P0,
@@ -1922,7 +1918,6 @@ void mhal_DPTx_SWInterruptSet(struct mtk_dp *mtk_dp, WORD bstatus)
 }
 void mhal_DPTx_SWInterruptClr(struct mtk_dp *mtk_dp, WORD bstatus)
 {
-	DPTXFUNC();
 	msWrite2Byte(mtk_dp, REG_35C8_DP_TRANS_P0, bstatus);
 	msWrite2Byte(mtk_dp, REG_35C8_DP_TRANS_P0, 0);
 
@@ -2216,19 +2211,18 @@ void mhal_DPTx_SetTxTrainingPattern(struct mtk_dp *mtk_dp, int  Value)
 
 void mhal_DPTx_PHY_SetIdlePattern(struct mtk_dp *mtk_dp, bool bENABLE)
 {
-	DPTXFUNC();
-	if (bENABLE) // if Set TPS1
+	DPTXDBG("Idle pattern enable(%d)\n", bENABLE);
+	if (bENABLE)
 		msWriteByteMask(mtk_dp,
 			REG_3580_DP_TRANS_P0 + 1,
 			0x0F,
-			0x0F);  // enable programmable 80bit to zero
+			0x0F);
 	else
 		msWriteByteMask(mtk_dp,
 			REG_3580_DP_TRANS_P0 + 1,
 			0x0,
-			0x0F);  // disable programmable 80bit to zero
+			0x0F);
 }
-
 
 void mhal_DPTx_SetFreeSync(struct mtk_dp *mtk_dp, bool bENABLE)
 {

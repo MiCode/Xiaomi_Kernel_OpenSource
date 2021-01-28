@@ -82,9 +82,11 @@ void mdrv_DPTx_HDCP1X_SetStartAuth(struct mtk_dp *mtk_dp, bool bEnable)
 {
 	mtk_dp->info.hdcp1x_info.bEnable = bEnable;
 	if (bEnable) {
+		mtk_dp->info.bAuthStatus = AUTH_INIT;
 		mtk_dp->info.hdcp1x_info.MainStates = HDCP1X_MainState_A0;
 		mtk_dp->info.hdcp1x_info.SubStates = HDCP1X_SubFSM_IDLE;
 	} else {
+		mtk_dp->info.bAuthStatus = AUTH_ZERO;
 		mtk_dp->info.hdcp1x_info.MainStates = HDCP1X_MainState_H2;
 		mtk_dp->info.hdcp1x_info.SubStates = HDCP1X_SubFSM_IDLE;
 		tee_hdcp_enableEncrypt(false, HDCP_NONE);
@@ -93,7 +95,6 @@ void mdrv_DPTx_HDCP1X_SetStartAuth(struct mtk_dp *mtk_dp, bool bEnable)
 	}
 
 	mtk_dp->info.hdcp1x_info.uRetryCount = 0;
-	mtk_dp->info.bAuthStatus = AUTH_ZERO;
 }
 
 bool mdrv_DPTx_HDCP1x_Support(struct mtk_dp *mtk_dp)
@@ -141,7 +142,7 @@ bool mdrv_DPTx_HDCP1X_irq(struct mtk_dp *mtk_dp)
 	if (RxStatus & BIT2 || RxStatus & BIT3) {
 		DPTXMSG("Re-Auth HDCP1X!\n");
 		mdrv_DPTx_HDCP1X_SetStartAuth(mtk_dp, true);
-		mdrv_DPTx_set_reTraining(mtk_dp);
+		mdrv_DPTx_reAuthentication(mtk_dp);
 	}
 
 	drm_dp_dpcd_write(&mtk_dp->aux, DPCD_00201, &ClearCpirq, 0x1);
@@ -386,16 +387,21 @@ bool mdrv_DPTx_HDCP1X_CheckR0(struct mtk_dp *mtk_dp)
 		return false;
 	}
 
-	drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68029, ubTempValue, 1);
-	bSinkR0Available = ((ubTempValue[0x0] & BIT1) == BIT1) ? true : false;
-
-	if (!bSinkR0Available) {
+	if (!mtk_dp->info.hdcp1x_info.bR0Read) {
 		drm_dp_dpcd_read(&mtk_dp->aux, DPCD_68029, ubTempValue, 1);
 		bSinkR0Available
 			= ((ubTempValue[0x0] & BIT1) == BIT1) ? true : false;
 
-		if (!bSinkR0Available)
-			return false;
+		if (!bSinkR0Available) {
+			drm_dp_dpcd_read(&mtk_dp->aux,
+				DPCD_68029, ubTempValue, 1);
+			bSinkR0Available
+				= ((ubTempValue[0x0] & BIT1) == BIT1)
+					? true : false;
+
+			if (!bSinkR0Available)
+				return false;
+		}
 	}
 
 	while (uuRetryCount < 3) {
@@ -473,7 +479,6 @@ void mdrv_DPTx_HDCP1X_FSM(struct mtk_dp *mtk_dp)
 				mtk_dp->info.hdcp1x_info.SubStates
 					= HDCP1X_SubFSM_AuthFail;
 			} else {
-				mtk_dp->info.bAuthStatus = AUTH_INIT;
 				mdrv_DPTx_HDCP1X_Init(mtk_dp);
 				mtk_dp->info.hdcp1x_info.MainStates
 					= HDCP1X_MainState_A0;
@@ -484,7 +489,6 @@ void mdrv_DPTx_HDCP1X_FSM(struct mtk_dp *mtk_dp)
 			break;
 		case HDCP1X_SubFSM_CHECKHDCPCAPABLE:
 			if (mtk_dp->info.hdcp1x_info.bEnable) {
-				mtk_dp->info.bAuthStatus = AUTH_PRE;
 				tee_hdcp1x_setKey(DPTX_HDCP1X_KEY_REAL);
 				mtk_dp->info.hdcp1x_info.uRetryCount++;
 				mtk_dp->info.hdcp1x_info.MainStates
@@ -569,9 +573,7 @@ void mdrv_DPTx_HDCP1X_FSM(struct mtk_dp *mtk_dp)
 				break;
 			}
 
-			mtk_dp->info.hdcp1x_info.bR0Read = false;
 			if (mdrv_DPTx_HDCP1X_CheckR0(mtk_dp)) {
-				mtk_dp->info.bAuthStatus = AUTH_ENCRYPT;
 				tee_hdcp_enableEncrypt(true, HDCP_V1);
 				mtk_dp->info.hdcp1x_info.MainStates
 					= HDCP1X_MainState_A5;
@@ -610,7 +612,6 @@ void mdrv_DPTx_HDCP1X_FSM(struct mtk_dp *mtk_dp)
 	case HDCP1X_MainState_A5:
 		switch (mtk_dp->info.hdcp1x_info.SubStates) {
 		case HDCP1X_SubFSM_IDLE:
-			mtk_dp->info.bAuthStatus = AUTH_AFT;
 			mdrv_DPTx_HDCP1X_CheckSinkCap(mtk_dp);
 			if (mtk_dp->info.hdcp1x_info.bRepeater) {
 				DPTXMSG("HDCP1X:Repeater!\n");
