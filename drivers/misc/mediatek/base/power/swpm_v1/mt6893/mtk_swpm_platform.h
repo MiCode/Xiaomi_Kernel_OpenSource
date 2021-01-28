@@ -16,9 +16,11 @@
 
 #include <mtk_gpu_swpm_plat.h>
 #include <mtk_isp_swpm_plat.h>
+#include <mtk_me_swpm_plat.h>
 
 #define SWPM_TEST (0)
 
+#define GET_UW_LKG                              (1)
 #define MAX_RECORD_CNT				(64)
 #define MAX_APHY_CORE_PWR			(11)
 #define MAX_APHY_OTHERS_PWR			(11)
@@ -91,7 +93,7 @@ enum aphy_other_pwr_type {
 	APHY_VDDQ_0P6V,
 	APHY_VM_0P75V,
 	APHY_VIO_1P2V,
-	APHY_VIO_1P8V,
+	/* APHY_VIO_1P8V, */
 
 	NR_APHY_OTHERS_PWR_TYPE
 };
@@ -152,7 +154,25 @@ enum mcusys_power_state {
 	NR_MCUSYS_POWER_STATE
 };
 
-/* TODO: cpu power index structure */
+enum cpu_pwr_type {
+	CPU_PWR_TYPE_L,
+	CPU_PWR_TYPE_B,
+	CPU_PWR_TYPE_DSU,
+	CPU_PWR_TYPE_MCUSYS,
+
+	NR_CPU_PWR_TYPE
+};
+
+/* cpu voltage/freq index */
+struct cpu_swpm_vf_index {
+	unsigned int cpu_volt_mv[NR_CPU_TYPE];
+	unsigned int cpu_freq_mhz[NR_CPU_TYPE];
+	unsigned int cpu_opp[NR_CPU_TYPE];
+	unsigned int cci_volt_mv;
+	unsigned int cci_freq_mhz;
+	unsigned int cci_opp;
+};
+/* cpu power index structure */
 struct cpu_swpm_index {
 	/* for calculation */
 	unsigned int core_state_ratio[NR_CPU_CORE_POWER_STATE][NR_CPU_CORE];
@@ -162,14 +182,9 @@ struct cpu_swpm_index {
 	unsigned int pmu_val[MAX_PMU_CNT][NR_CPU_CORE];
 	unsigned int l3_bw;
 	unsigned int cpu_emi_bw;
-
-	/* for recording */
-	unsigned int cpu_volt_mv[NR_CPU_TYPE];
-	unsigned int cpu_freq_mhz[NR_CPU_TYPE];
-	unsigned int cpu_opp[NR_CPU_TYPE];
-	unsigned int cci_volt_mv;
-	unsigned int cci_freq_mhz;
-	unsigned int cci_opp;
+	struct cpu_swpm_vf_index vf;
+	unsigned int cpu_lkg[NR_CPU_LKG_TYPE];
+	unsigned int cpu_pwr[NR_CPU_PWR_TYPE];
 };
 
 /* TODO: infra power state for core power */
@@ -184,27 +199,53 @@ enum infra_power_state {
 
 enum core_lkg_type {
 	CORE_LKG_INFRA,
+	CORE_LKG_AUDIO,
+	CORE_LKG_PERI,
+	CORE_LKG_HIFI3,
+	CORE_LKG_DISP,
+	CORE_LKG_CAMSYS,
+	CORE_LKG_IMGSYS,
+	CORE_LKG_IPESYS,
+	CORE_LKG_VDEC,
+	CORE_LKG_VENC,
 	CORE_LKG_DRAMC,
-	CORE_LKG_MMSYS,
-	CORE_LKG_CHIP_TOP,
-
+	CORE_LKG_TOP,
 	NR_CORE_LKG_TYPE
+};
+
+enum core_lkg_rec_type {
+	CORE_LKG_REC_INFRA,
+	CORE_LKG_REC_DRAMC,
+	NR_CORE_LKG_REC_TYPE
 };
 
 /* sync with mt6885 emi in sspm */
 #define MAX_EMI_NUM (2)
-/* TODO: core power index structure */
+/* core voltage/freq index */
+struct core_swpm_vf_index {
+	unsigned int vcore_mv;
+	unsigned int ddr_freq_mhz;
+};
+/* core lkg index */
+struct core_swpm_lkg_index {
+	unsigned int core_lkg_pwr[NR_CORE_LKG_REC_TYPE];
+	unsigned int thermal;
+};
+/* core power index structure */
 struct core_swpm_index {
 	/* for calculation */
 	unsigned int infra_state_ratio[NR_INFRA_POWER_STATE];
 	unsigned int read_bw[MAX_EMI_NUM];
 	unsigned int write_bw[MAX_EMI_NUM];
-
-	/* for recording */
-	unsigned int vcore_mv;
+	struct core_swpm_vf_index vf;
+	struct core_swpm_lkg_index lkg;
 };
 
-/* TODO: dram power index structure */
+/* dram voltage/freq index */
+struct mem_swpm_vf_index {
+	unsigned int ddr_freq_mhz;
+};
+/* dram power index structure */
 struct mem_swpm_index {
 	/* for calculation */
 	unsigned int read_bw[MAX_EMI_NUM];
@@ -214,9 +255,7 @@ struct mem_swpm_index {
 	unsigned int phr_pct[MAX_EMI_NUM];	/* page-hit rate */
 	unsigned int acc_util[MAX_EMI_NUM];	/* accumulate EMI utilization */
 	unsigned int mr4;
-
-	/* for recording */
-	unsigned int ddr_freq_mhz;
+	struct mem_swpm_vf_index vf;
 };
 
 struct share_index {
@@ -225,6 +264,7 @@ struct share_index {
 	struct mem_swpm_index mem_idx;
 	struct gpu_swpm_index gpu_idx;
 	struct isp_swpm_index isp_idx;
+	struct me_swpm_index me_idx;
 	unsigned int window_cnt;
 };
 
@@ -352,7 +392,9 @@ struct swpm_rec_data {
 	/* 4(int) * 256 = 1024 bytes */
 	unsigned int isp_reserved[ISP_SWPM_RESERVED_SIZE];
 
-	/* remaining size = 136/6144 bytes */
+	/* 4(int) * 11 = 44 bytes */
+	unsigned int me_reserved[ME_SWPM_RESERVED_SIZE];
+	/* remaining size = 92/6144 bytes */
 };
 
 extern struct swpm_rec_data *swpm_info_ref;

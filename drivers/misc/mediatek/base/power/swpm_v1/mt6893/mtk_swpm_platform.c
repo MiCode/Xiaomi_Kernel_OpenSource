@@ -74,6 +74,10 @@ static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
 
+__weak int mt_spower_get_leakage_uW(int dev, int voltage, int deg)
+{
+	return 0;
+}
 struct core_swpm_rec_data *core_ptr;
 struct mem_swpm_rec_data *mem_ptr;
 
@@ -105,6 +109,16 @@ static struct perf_event_attr cycle_event_attr = {
 	.sample_period  = 0, /* 1000000000, */ /* ns ? */
 };
 
+/* rt => /100000, uA => *1000, res => 100 */
+#define CORE_DEFAULT_DEG (30)
+#define CORE_DEFAULT_LKG (64)
+#define CORE_LKG_RT_RES (100)
+static unsigned int core_lkg;
+static unsigned int core_lkg_replaced;
+static unsigned short core_lkg_rt[NR_CORE_LKG_TYPE] = {
+	6764, 562, 1629, 1213, 7155, 17155,
+	11274, 3152, 4835, 3687, 2487, 13547,
+};
 static unsigned short core_volt_tbl[NR_CORE_VOLT] = {
 	575, 600, 650, 725,
 };
@@ -362,53 +376,6 @@ static struct aphy_others_pwr_data aphy_def_others_pwr_tbl[] = {
 	},
 	.coef_idle = {0, 0, 0, 0, 0, 0, 0},
 	},
-	[APHY_VIO_1P8V] = {
-	.pwr = {
-		[DDR_400] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-		[DDR_600] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-		[DDR_800] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-		[DDR_933] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-		[DDR_1200] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-		[DDR_1600] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-		[DDR_1866] = {
-			.read_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-			.write_coef = {3, 3, 3, 3, 3, 3,
-	3, 3, 3, 3, 3},
-		},
-	},
-	.coef_idle = {0, 0, 0, 0, 0, 0, 0},
-	},
 };
 
 static struct dram_pwr_conf dram_def_pwr_conf[] = {
@@ -652,6 +619,31 @@ static inline void swpm_pass_to_sspm(void)
 #endif
 }
 
+static void swpm_core_thermal_cb(void)
+{
+#ifdef CONFIG_THERMAL
+#if CFG_THERM_LVTS
+	int top_temp;
+
+	if (!core_ptr)
+		return;
+
+	/* TODO: verify power plan */
+	top_temp = get_immediate_tslvts3_0_wrap();
+
+	/* truncate negative deg */
+	top_temp = (top_temp < 0) ? 0 : top_temp;
+	core_ptr->thermal = (unsigned int)top_temp;
+
+#if SWPM_TEST
+	swpm_err("swpm_core top lvts3_2 = %d\n", top_temp);
+	swpm_err("swpm_core cpuL = %d\n", get_immediate_cpuL_wrap());
+	swpm_err("swpm_core cpuB = %d\n", get_immediate_cpuB_wrap());
+#endif
+#endif /* CFG_THERM_LVTS */
+#endif
+}
+
 #ifdef CONFIG_THERMAL
 static unsigned int swpm_get_cpu_temp(enum cpu_lkg_type type)
 {
@@ -715,7 +707,11 @@ static void swpm_update_lkg_table(void)
 #endif
 #ifdef CONFIG_MTK_STATIC_POWER
 			dev_id = swpm_get_spower_devid((enum cpu_lkg_type)i);
+#ifdef GET_UW_LKG
+			lkg = mt_spower_get_leakage_uW(dev_id, volt, temp);
+#else
 			lkg = mt_spower_get_leakage(dev_id, volt, temp) * 1000;
+#endif
 #else
 			dev_id = 0;
 			lkg = 5000;
@@ -733,6 +729,8 @@ static void swpm_update_lkg_table(void)
 			mt_gpufreq_get_leakage_no_lock();
 	}
 #endif
+
+	swpm_core_thermal_cb();
 }
 
 static void swpm_idx_snap(void)
@@ -829,6 +827,41 @@ static void swpm_log_loop(unsigned long data)
 }
 
 #endif /* #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT : 573 */
+
+static void swpm_core_static_data_init(void)
+{
+#ifdef CONFIG_MTK_STATIC_POWER
+	unsigned int lkg, lkg_scaled;
+#endif
+	unsigned int i, j;
+
+	if (!core_ptr)
+		return;
+
+#ifdef CONFIG_MTK_STATIC_POWER
+	/* init core static power once */
+	lkg = mt_spower_get_efuse_lkg(MTK_SPOWER_VCORE);
+#else
+	lkg = 0;
+#endif
+
+	/* default 64 mA, efuse default mW to mA */
+	lkg = (!lkg) ? CORE_DEFAULT_LKG
+			: (lkg * 1000 / V_OF_FUSE_VCORE);
+	/* recording default lkg data, and check replacement data */
+	core_lkg = lkg;
+	lkg = (!core_lkg_replaced) ? lkg : core_lkg_replaced;
+
+	/* efuse static power unit mW with voltage scaling */
+	for (i = 0; i < NR_CORE_VOLT; i++) {
+		lkg_scaled = lkg * core_volt_tbl[i] / V_OF_FUSE_VCORE;
+		for (j = 0; j < NR_CORE_LKG_TYPE; j++) {
+			/* unit (uA) */
+			core_ptr->core_lkg_pwr[i][j] =
+				lkg_scaled * core_lkg_rt[j] / CORE_LKG_RT_RES;
+		}
+	}
+}
 
 static void swpm_core_pwr_data_init(void)
 {
@@ -1021,8 +1054,64 @@ end:
 	return count;
 }
 
+static unsigned int pmu_ms_mode;
+static int pmu_ms_mode_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%d\n", pmu_ms_mode);
+	return 0;
+}
+static ssize_t pmu_ms_mode_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int enable = 0;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &enable)) {
+		pmu_ms_mode = enable;
+
+		/* TODO: remove this path after qos commander ready */
+		swpm_set_update_cnt(0, (0x1 << 16 | pmu_ms_mode));
+	} else
+		swpm_err("echo <0/1> > /proc/swpm/pmu_ms_mode\n");
+
+	return count;
+}
+
+static int core_static_replace_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "default: %d, replaced %d (valid:0~99)\n",
+		   core_lkg,
+		   core_lkg_replaced);
+	return 0;
+}
+static ssize_t core_static_replace_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int val = 0;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &val)) {
+		core_lkg_replaced = (val < 100) ? val : core_lkg_replaced;
+
+		/* reset core static power data */
+		swpm_core_static_data_init();
+	} else
+		swpm_err("echo <val> > /proc/swpm/core_static_replace\n");
+
+	return count;
+}
+
+
 PROC_FOPS_RW(idd_tbl);
 PROC_FOPS_RO(dram_bw);
+PROC_FOPS_RW(pmu_ms_mode);
+PROC_FOPS_RW(core_static_replace);
 /***************************************************************************
  *  API
  ***************************************************************************/
@@ -1127,9 +1216,13 @@ static void swpm_platform_procfs(void)
 {
 	struct swpm_entry idd_tbl = PROC_ENTRY(idd_tbl);
 	struct swpm_entry dram_bw = PROC_ENTRY(dram_bw);
+	struct swpm_entry pmu_mode = PROC_ENTRY(pmu_ms_mode);
+	struct swpm_entry core_lkg_rp = PROC_ENTRY(core_static_replace);
 
 	swpm_append_procfs(&idd_tbl);
 	swpm_append_procfs(&dram_bw);
+	swpm_append_procfs(&pmu_mode);
+	swpm_append_procfs(&core_lkg_rp);
 }
 
 static int __init swpm_platform_init(void)
