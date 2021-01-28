@@ -7434,8 +7434,32 @@ page_owner=on loop.max_part=7";
 	md1_sim2_hot_plug_eint: md1_sim2_hot_plug_eint {
 	};
 
-	drcc: drcc {
-		compatible = "mediatek,drcc";
+	ptp3: ptp3 {
+		compatible = "mediatek,ptp3";
+
+		/* brisket2 */
+		brisket2_InitPath = <16>;
+
+		/* ctt */
+		cttBitEn = <15>;
+		cttImax_0 = <8190>;
+		cttImax_1 = <8190>;
+		cttImax_2 = <8190>;
+		cttImax_3 = <8190>;
+		cttTmax_0 = <255>;
+		cttTmax_1 = <255>;
+		cttTmax_2 = <255>;
+		cttTmax_3 = <255>;
+		cttImaxDelta_0 = <200>;
+		cttImaxDelta_1 = <200>;
+		cttImaxDelta_2 = <200>;
+		cttImaxDelta_3 = <200>;
+		cttTmaxDelta_0 = <10>;
+		cttTmaxDelta_1 = <10>;
+		cttTmaxDelta_2 = <10>;
+		cttTmaxDelta_3 = <10>;
+
+		/* drcc */
 		state = <0>;
 		drcc0_Vref = <255>;
 		drcc1_Vref = <255>;
@@ -7461,29 +7485,15 @@ page_owner=on loop.max_part=7";
 		drcc5_Code = <255>;
 		drcc6_Code = <255>;
 		drcc7_Code = <255>;
-	};
 
-	ctt: ctt {
-		compatible = "mediatek,ctt";
-		cttBitEn = <15>;
-		cttImax_0 = <8190>;
-		cttImax_1 = <8190>;
-		cttImax_2 = <8190>;
-		cttImax_3 = <8190>;
-		cttTmax_0 = <255>;
-		cttTmax_1 = <255>;
-		cttTmax_2 = <255>;
-		cttTmax_3 = <255>;
-		cttImaxDelta_0 = <200>;
-		cttImaxDelta_1 = <200>;
-		cttImaxDelta_2 = <200>;
-		cttImaxDelta_3 = <200>;
-		cttTmaxDelta_0 = <10>;
-		cttTmaxDelta_1 = <10>;
-		cttTmaxDelta_2 = <10>;
-		cttTmaxDelta_3 = <10>;
-	};
+		/* pdp */
+		pdp_state = <242>;
+		pdp_state_pinctl = <0>;
 
+		/* dt */
+		dt_state = <241>;
+		dt_state_pinctl = <0>;
+	};
 
 #ifdef CONFIG_MTK_SCHED_MONITOR
 	sched_mon: sched_mon {
