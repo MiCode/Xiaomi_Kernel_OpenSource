@@ -3082,6 +3082,16 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 <&imgsys CLK_IMG_LARB6>;
 			clock-names = "apb", "smi";
 		};
+
+		wpe_a@15011000 {
+			compatible = "mediatek,wpe_a";
+			reg = <0 0x15011000 0 0x1000>;
+			interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_LOW>;
+
+			clocks = <&imgsys IMG_LARB5>, <&imgsys IMG_WPE_A>;
+			clock-names = "WPE_CLK_IMG_LARB5", "WPE_CLK_IMG_WPE_A";
+		};
+
 		vcu: vcu@16000000 {
 			compatible = "mediatek-vcu";
 			mediatek,vcuid = <0>;

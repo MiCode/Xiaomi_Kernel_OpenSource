@@ -8,7 +8,7 @@
 #include <linux/cdev.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
-#include <linux/proc_fs.h>	/* proc file use */
+#include <linux/proc_fs.h> /* proc file use */
 /*  */
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -18,7 +18,10 @@
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/seq_file.h>
-#include <linux/sched/clock.h>
+
+
+#include <mt-plat/sync_write.h> /* For mt65xx_reg_sync_writel(). */
+
 
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
@@ -2450,7 +2453,7 @@ static inline void WPE_Prepare_ccf_clock(void)
 	/* must keep this clk open order: */
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON ->*/
 	/*CG_SCP_SYS_ISP -> WPE clk */
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB5, WPE_DEV_NAME);
 
 	ret = clk_prepare(wpe_clk.CG_IMGSYS_LARB5);
 	if (ret)
@@ -2468,7 +2471,7 @@ static inline void WPE_Enable_ccf_clock(void)
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON*/
 	/*-> CG_SCP_SYS_ISP -> WPE  clk */
 
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB5, WPE_DEV_NAME);
 
 	ret = clk_enable(wpe_clk.CG_IMGSYS_LARB5);
 	if (ret)
@@ -2486,7 +2489,7 @@ static inline void WPE_Prepare_Enable_ccf_clock(void)
 	/*CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON ->*/
 	/*CG_SCP_SYS_ISP -> WPE clk */
 	/*smi_bus_enable(SMI_LARB_IMGSYS1, "camera_wpe");*/
-	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
+	smi_bus_prepare_enable(SMI_LARB5, WPE_DEV_NAME);
 
 	ret = clk_prepare_enable(wpe_clk.CG_IMGSYS_LARB5);
 	if (ret)
@@ -2505,7 +2508,7 @@ static inline void WPE_Unprepare_ccf_clock(void)
 	clk_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_unprepare(wpe_clk.CG_IMGSYS_LARB5);
 
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB5, WPE_DEV_NAME);
 }
 
 static inline void WPE_Disable_ccf_clock(void)
@@ -2516,7 +2519,7 @@ static inline void WPE_Disable_ccf_clock(void)
 	clk_disable(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_disable(wpe_clk.CG_IMGSYS_LARB5);
 
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB5, WPE_DEV_NAME);
 }
 
 static inline void WPE_Disable_Unprepare_ccf_clock(void)
@@ -2527,7 +2530,7 @@ static inline void WPE_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_WPE_A);
 	clk_disable_unprepare(wpe_clk.CG_IMGSYS_LARB5);
 
-	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, WPE_DEV_NAME, true);
+	smi_bus_disable_unprepare(SMI_LARB5, WPE_DEV_NAME);
 	/*smi_bus_disable(SMI_LARB_IMGSYS1, "camera_wpe");*/
 }
 #endif
