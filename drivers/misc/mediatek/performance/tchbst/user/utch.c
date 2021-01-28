@@ -13,7 +13,7 @@
 #include "fstb.h"
 #include "mtk_perfmgr_internal.h"
 
-static void notify_touch_up_timeout(void);
+static void notify_touch_up_timeout(struct work_struct *work);
 static DECLARE_WORK(mt_touch_timeout_work, (void *) notify_touch_up_timeout);
 
 static struct workqueue_struct *wq;
@@ -92,7 +92,7 @@ static int notify_touch(int action)
 	isact = is_fstb_active(active_time);
 
 	prev_boost_pid = current->pid;
-	fpsgo_systrace_c_fbt(prev_boost_pid, isact, "isact");
+	fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, isact, "isact");
 
 	if (is_fstb_active(active_time) || usrtch_dbg)
 		return ret;
@@ -113,7 +113,7 @@ static int notify_touch(int action)
 #endif
 		if (usrtch_debug)
 			pr_debug("touch down\n");
-		fpsgo_systrace_c_fbt(prev_boost_pid, 1, "touch");
+		fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, 1, "touch");
 		touch_event = 1;
 	}
 
@@ -125,7 +125,7 @@ void switch_init_boost(int boost_value)
 {
 	touch_boost_value = boost_value;
 }
-static void notify_touch_up_timeout(void)
+static void notify_touch_up_timeout(struct work_struct *work)
 {
 	mutex_lock(&notify_lock);
 
@@ -135,7 +135,7 @@ static void notify_touch_up_timeout(void)
 #ifdef CONFIG_MTK_PPM
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
 #endif
-	fpsgo_systrace_c_fbt(prev_boost_pid, 0, "touch");
+	fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, 0, "touch");
 	touch_event = 2;
 	if (usrtch_debug)
 		pr_debug("touch timeout\n");

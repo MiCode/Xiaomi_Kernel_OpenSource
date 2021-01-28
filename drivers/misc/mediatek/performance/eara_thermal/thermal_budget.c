@@ -108,7 +108,7 @@
 #define for_each_clusters(i)	for (i = 0; i < g_cluster_num; i++)
 #define CORE_CAP(cls, opp)	(cpu_dvfs_tbl[cls].capacity_ratio[opp])
 
-static void wq_func(unsigned long data);
+static void wq_func(struct work_struct *data);
 static void thrm_pb_turn_record_locked(int ready);
 static void set_major_pair_locked(int pid, int max_time);
 
@@ -389,7 +389,7 @@ static void activate_timer_locked(void)
 	is_timer_active = 1;
 }
 
-static void wq_func(unsigned long data)
+static void wq_func(struct work_struct *data)
 {
 	unsigned long long cur_ts;
 	struct rb_node *n;
