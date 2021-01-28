@@ -226,37 +226,35 @@ inline void accdet_update_bit(u32 addr, u32 shift)
 
 inline void accdet_clear_bits(u32 addr, u32 shift, u32 mask, u32 data)
 {
-	regmap_update_bits(accdet->regmap, addr, mask << shift,
-		~(data << shift));
+	regmap_update_bits(accdet->regmap, addr, mask << shift, 0);
 }
 
 inline void accdet_clear_bit(u32 addr, u32 shift)
 {
 	unsigned int mask = shift;
 
-	regmap_update_bits(accdet->regmap, addr, BIT(mask),
-		~(BIT(shift)));
+	regmap_update_bits(accdet->regmap, addr, BIT(mask), 0);
 }
 
 static void dump_register(void)
 {
 	int addr = 0, st_addr = 0, end_addr = 0, idx = 0;
 
-	pr_info("Accdet EINTx support,MODE_%d regs:\n", accdet_dts.mic_mode);
+	pr_notice("Accdet EINTx support,MODE_%d regs:\n", accdet_dts.mic_mode);
 
 	st_addr = RG_AUDACCDETRSV_ADDR;
 	end_addr = ACCDET_EINT1_CUR_DEB_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 8) {
 		idx = addr;
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x ",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x ",
 		idx, accdet_read(idx),
 		idx+2, accdet_read(idx+2));
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x\n",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x\n",
 		idx+4, accdet_read(idx+4),
 		idx+6, accdet_read(idx+6));
 	}
 
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 			RG_RTC32K_CK_PDN_ADDR,
 			accdet_read(RG_RTC32K_CK_PDN_ADDR),
 			RG_ACCDET_CK_PDN_ADDR,
@@ -265,7 +263,7 @@ static void dump_register(void)
 			accdet_read(RG_ACCDET_RST_ADDR),
 			RG_INT_EN_ACCDET_ADDR,
 			accdet_read(RG_INT_EN_ACCDET_ADDR));
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 			RG_INT_MASK_ACCDET_ADDR,
 			accdet_read(RG_INT_MASK_ACCDET_ADDR),
 			RG_INT_STATUS_ACCDET_ADDR,
@@ -274,13 +272,13 @@ static void dump_register(void)
 			accdet_read(RG_AUDACCDETMICBIAS1PULLLOW_ADDR),
 			RG_AUDACCDETMICBIAS0PULLLOW_ADDR,
 			accdet_read(RG_AUDACCDETMICBIAS0PULLLOW_ADDR));
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x\n",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x\n",
 			AUXADC_RQST_CH0_ADDR,
 			accdet_read(AUXADC_RQST_CH0_ADDR),
 			AUXADC_ACCDET_AUTO_SPL_ADDR,
 			accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
 
-	pr_info("accdet_dts:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
+	pr_notice("accdet_dts:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
 }

@@ -225,16 +225,14 @@ inline void accdet_update_bit(u32 addr, u32 shift)
 
 inline void accdet_clear_bits(u32 addr, u32 shift, u32 mask, u32 data)
 {
-	regmap_update_bits(accdet->regmap, addr, mask << shift,
-		~(data << shift));
+	regmap_update_bits(accdet->regmap, addr, mask << shift, 0);
 }
 
 inline void accdet_clear_bit(u32 addr, u32 shift)
 {
 	unsigned int mask = shift;
 
-	regmap_update_bits(accdet->regmap, addr, BIT(mask),
-		~(BIT(shift)));
+	regmap_update_bits(accdet->regmap, addr, BIT(mask), 0);
 }
 
 static void dump_register(void)
@@ -247,10 +245,10 @@ static void dump_register(void)
 	end_addr = ACCDET_EINT1_CUR_DEB_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 8) {
 		idx = addr;
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x ",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x ",
 		idx, accdet_read(idx),
 		idx+2, accdet_read(idx+2));
-		pr_info("(0x%x)=0x%x (0x%x)=0x%x\n",
+		pr_notice("(0x%x)=0x%x (0x%x)=0x%x\n",
 		idx+4, accdet_read(idx+4),
 		idx+6, accdet_read(idx+6));
 	}
