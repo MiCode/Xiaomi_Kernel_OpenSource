@@ -204,6 +204,7 @@ config MACH_MT6779
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_GIC_TARGET_ALL
 	select MTK_LASTBUS_INTERFACE
+	select DEVMPU_MT6779
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
