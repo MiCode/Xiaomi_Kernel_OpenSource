@@ -1041,6 +1041,8 @@ int mt6660_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_err(chip->dev, "chip power off fail\n");
 		goto probe_fail;
 	}
+	dev_set_name(chip->dev, "MT6660_MT_0");
+	dev_info(chip->dev, "%s--dev name:MT6660_MT_0\n", __func__);
 	return snd_soc_register_component(chip->dev,
 		&mt6660_component_driver, &mt6660_codec_dai, 1);
 probe_fail:
@@ -1061,30 +1063,6 @@ int mt6660_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 EXPORT_SYMBOL(mt6660_i2c_remove);
-
-static const struct of_device_id __maybe_unused mt6660_of_id[] = {
-	{ .compatible = "mediatek,mt6660",},
-	{},
-};
-MODULE_DEVICE_TABLE(of, mt6660_of_id);
-
-static const struct i2c_device_id mt6660_i2c_id[] = {
-	{"mt6660", 0 },
-	{},
-};
-MODULE_DEVICE_TABLE(i2c, mt6660_i2c_id);
-
-static struct i2c_driver mt6660_i2c_driver = {
-	.driver = {
-		.name = "mt6660",
-		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(mt6660_of_id),
-	},
-	.probe = mt6660_i2c_probe,
-	.remove = mt6660_i2c_remove,
-	.id_table = mt6660_i2c_id,
-};
-module_i2c_driver(mt6660_i2c_driver);
 
 MODULE_AUTHOR("Jeff Chang <jeff_chang@richtek.com>");
 MODULE_DESCRIPTION("MT6660 SPKAMP Driver");
