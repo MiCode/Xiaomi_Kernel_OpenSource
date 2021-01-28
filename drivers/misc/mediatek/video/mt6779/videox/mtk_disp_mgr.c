@@ -1073,16 +1073,16 @@ long __frame_config(unsigned long arg)
 		goto error1;
 	}
 
+	if (disp_validate_ioctl_params(cfg)) {
+		ret = -EINVAL;
+		goto error1;
+	}
+
 	cfg->setter = SESSION_USER_HWC;
 
 	input_config_preprocess(cfg);
 	if (cfg->output_en)
 		output_config_preprocess(cfg);
-
-	if (disp_validate_ioctl_params(cfg)) {
-		ret = -EINVAL;
-		goto error2;
-	}
 
 	switch (DISP_SESSION_TYPE(cfg->session_id)) {
 	case DISP_SESSION_PRIMARY:
@@ -1100,7 +1100,6 @@ long __frame_config(unsigned long arg)
 		break;
 	}
 
-error2:
 	disp_input_free_dirty_roi(cfg);
 error1:
 	kfree(cfg);
