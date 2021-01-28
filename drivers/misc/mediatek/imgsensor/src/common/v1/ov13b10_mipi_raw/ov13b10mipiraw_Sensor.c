@@ -247,7 +247,7 @@ static void set_dummy(void)
 {
 	write_cmos_sensor(0x380c, imgsensor.line_length >> 8);
 	write_cmos_sensor(0x380d, imgsensor.line_length & 0xFF);
-	write_cmos_sensor(0x380e, imgsensor.frame_length >> 8);
+	write_cmos_sensor(0x380e, (imgsensor.frame_length >> 8) & 0x7f);
 	write_cmos_sensor(0x380f, imgsensor.frame_length & 0xFF);
 }
 
@@ -310,22 +310,23 @@ static void write_shutter(kal_uint16 shutter)
 			realtime_fps = 146;
 			set_max_framerate(realtime_fps, 0);
 		} else	{
-			imgsensor.frame_length =
-				(imgsensor.frame_length  >> 1) << 1;
+			/* Extend frame length */
+			write_cmos_sensor(0x380e,
+				(imgsensor.frame_length >> 8) & 0x7f);
 			write_cmos_sensor(0x380e, imgsensor.frame_length >> 8);
 			write_cmos_sensor(0x380f,
 				imgsensor.frame_length & 0xFF);
 		}
 	} else	{
-		imgsensor.frame_length = (imgsensor.frame_length  >> 1) << 1;
+		write_cmos_sensor(0x380e, (imgsensor.frame_length >> 8) & 0x7f);
 		write_cmos_sensor(0x380e, imgsensor.frame_length >> 8);
 		write_cmos_sensor(0x380f, imgsensor.frame_length & 0xFF);
 	}
 
-	/*Warning : shutter must be even. Odd might happen Unexpected Results */
-	write_cmos_sensor(0x3500, (shutter >> 12) & 0x0F);
-	write_cmos_sensor(0x3501, (shutter >> 4) & 0xFF);
-	write_cmos_sensor(0x3502, (shutter<<4)  & 0xF0);
+	/* Update Shutter */
+	write_cmos_sensor(0x3500, (shutter >> 16) & 0xFF);
+	write_cmos_sensor(0x3501, (shutter >> 8) & 0xFF);
+	write_cmos_sensor(0x3502, shutter & 0xFF);
 
 	cam_pr_debug("shutter =%d, framelength =%d, realtime_fps =%d\n",
 		shutter, imgsensor.frame_length, realtime_fps);
