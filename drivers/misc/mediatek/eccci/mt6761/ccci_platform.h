@@ -40,17 +40,33 @@ static struct ccci_plat_val md_cd_plat_val_ptr;
 #define DBG_FLAG_JTAG		(1<<1)
 #define MD_DBG_JTAG_BIT		(1<<0)
 
-#define ccci_write32(b, a, v) \
+#ifndef CCCI_KMODULE_ENABLE
+#define ccci_write32(b, a, v)  \
 do { \
-	if (devapc_check_flag == 1) \
-		mt_reg_sync_writel(v, (b) + (a)); \
+	writel(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
 } while (0)
-#define ccci_write16(b, a, v)           mt_reg_sync_writew(v, (b)+(a))
-#define ccci_write8(b, a, v)            mt_reg_sync_writeb(v, (b)+(a))
-#define ccci_read32(b, a) \
-	((devapc_check_flag == 1) ? ioread32((void __iomem *)((b)+(a))) : 0)
+
+
+#define ccci_write16(b, a, v)  \
+do { \
+	writew(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write8(b, a, v)  \
+do { \
+	writeb(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
 #define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
 #define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
+
+#endif
 
 #ifdef SET_EMI_STEP_BY_STAGE
 void ccci_set_mem_access_protection_1st_stage(struct ccci_modem *md);

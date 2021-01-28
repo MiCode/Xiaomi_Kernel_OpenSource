@@ -214,6 +214,13 @@ struct md_cd_queue {
 
 #define QUEUE_LEN(a) (sizeof(a)/sizeof(struct md_cd_queue))
 
+struct  ccci_hif_cldma_val {
+	struct regmap *infra_ao_base;
+	unsigned int md_gen;
+	unsigned long offset_epof_md1;
+	void __iomem *md_plat_info;
+};
+
 struct md_cd_ctrl {
 	struct md_cd_queue txq[CLDMA_TXQ_NUM];
 	struct md_cd_queue rxq[CLDMA_RXQ_NUM];
@@ -264,7 +271,7 @@ struct md_cd_ctrl {
 
 	unsigned long cldma_irq_flags;
 	struct ccci_hif_ops *ops;
-	struct ccci_plat_val *plat_val;
+	struct ccci_hif_cldma_val plat_val;
 };
 
 struct cldma_tgpd {
@@ -428,6 +435,10 @@ void md_cldma_clear(unsigned char hif_id, struct ccci_modem *md);
 void cldma_reset(unsigned char hif_id);
 void md_cd_clear_all_queue(unsigned char hif_id, enum DIRECTION dir);
 void md_cd_ccif_allQreset_work(unsigned char hif_id);
+extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
+	const char *property);
+extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
+extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 
 extern void mt_irq_dump_status(int irq);
 

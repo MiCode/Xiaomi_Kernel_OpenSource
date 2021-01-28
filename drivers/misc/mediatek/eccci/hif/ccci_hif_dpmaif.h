@@ -14,12 +14,8 @@
 #include <linux/hrtimer.h>
 #include <linux/skbuff.h>
 #include "mt-plat/mtk_ccci_common.h"
-
-#include "ccci_config.h"
-#include "ccci_common_config.h"
 #include "ccci_bm.h"
 #include "ccci_hif_internal.h"
-#include "ccci_platform.h"
 /*
  * hardcode, max queue number should be synced with port array in port_cfg.c
  */
@@ -275,6 +271,14 @@ enum hifdpmaif_state {
 	HIFDPMAIF_STATE_MAX,
 };
 
+
+struct  ccci_hif_dpmaif_val {
+	struct regmap *infra_ao_base;
+	unsigned int md_gen;
+	unsigned long offset_epof_md1;
+	void __iomem *md_plat_info;
+};
+
 struct hif_dpmaif_ctrl {
 	enum hifdpmaif_state dpmaif_state;
 	struct dpmaif_tx_queue txq[DPMAIF_TXQ_NUM];
@@ -313,7 +317,7 @@ struct hif_dpmaif_ctrl {
 #endif
 	struct clk *clk_ref;
 	struct platform_device *plat_dev; /* maybe: no need. */
-	struct ccci_plat_val *plat_val;
+	struct ccci_hif_dpmaif_val plat_val;
 
 };
 
@@ -417,6 +421,9 @@ int dpmaif_stop_rx(unsigned char hif_id);
 int dpmaif_stop_tx(unsigned char hif_id);
 int dpmaif_stop(unsigned char hif_id);
 void dpmaif_stop_hw(void);
-
+extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
+	const char *property);
+extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
+extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_dump_status(int irq);
 #endif				/* __MODEM_DPMA_H__ */

@@ -1141,6 +1141,7 @@
 			"infra-ccif2-md";
 		_vmodem-supply = <&mt_pmic_vmodem_buck_reg>;
 		_vcore-supply = <&mt_pmic_vcore_buck_reg>;
+		ccci-infracfg = <&infracfg_ao>;
 	};
 	md_auxadc:md_auxadc {
 		compatible = "mediatek,md_auxadc";

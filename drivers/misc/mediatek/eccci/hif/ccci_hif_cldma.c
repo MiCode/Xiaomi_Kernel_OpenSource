@@ -37,7 +37,6 @@
 #include "ccci_core.h"
 #include "modem_sys.h"
 #include "ccci_bm.h"
-#include "ccci_platform.h"
 #include "ccci_hif_cldma.h"
 #include "md_sys1_platform.h"
 #include "cldma_reg.h"
@@ -876,7 +875,7 @@ again:
 		/* greedy mode */
 		L2RISAR0 = cldma_read32(md_ctrl->cldma_ap_pdn_base,
 					CLDMA_AP_L2RISAR0);
-		if (md_ctrl->plat_val->md_gen == 6293) {
+		if (md_ctrl->plat_val.md_gen == 6293) {
 			L2RISAR0 = cldma_reg_bit_gather(L2RISAR0);
 			l2qe_s_offset = CLDMA_RX_QE_OFFSET * 8;
 		}
@@ -1116,7 +1115,7 @@ static int cldma_gpd_bd_tx_collect(struct md_cd_queue *queue,
 		}
 		spin_unlock_irqrestore(&md_ctrl->cldma_timeout_lock, flags);
 	}
-		if (md_ctrl->plat_val->md_gen == 6293) {
+		if (md_ctrl->plat_val.md_gen == 6293) {
 			/* clear IP busy register to avoid md can't sleep*/
 			if (cldma_read32(md_ctrl->cldma_ap_pdn_base,
 				CLDMA_AP_CLDMA_IP_BUSY)) {
@@ -1275,7 +1274,7 @@ static void cldma_tx_queue_empty_handler(struct md_cd_queue *queue)
 			CCCI_DEBUG_LOG(md_ctrl->md_id, TAG,
 				"resume txq %d in tx empty\n", queue->index);
 		}
-		if (md_ctrl->plat_val->md_gen == 6293) {
+		if (md_ctrl->plat_val.md_gen == 6293) {
 			if (!pending_gpd &&
 				!(cldma_read32(md_ctrl->cldma_ap_pdn_base,
 				CLDMA_AP_UL_STATUS) & (1 << queue->index)) &&
@@ -1667,7 +1666,7 @@ static void cldma_irq_work_cb(struct md_cd_ctrl *md_ctrl)
 #ifndef CLDMA_NO_TX_IRQ
 	L2TISAR0 &= (~L2TIMR0);
 #endif
-	if (md_ctrl->plat_val->md_gen == 6293) {
+	if (md_ctrl->plat_val.md_gen == 6293) {
 		L2RISAR0 = cldma_reg_bit_gather(L2RISAR0);
 		L2RISAR0 &= (~L2RIMR0);
 		L2RISAR0_REG = cldma_reg_bit_scatter(L2RISAR0);
@@ -2841,8 +2840,6 @@ static struct ccci_hif_ops ccci_hif_cldma_ops = {
 int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
 {
 	struct device_node *node = NULL;
-	struct device_node *node_md = NULL;
-	struct device_node *node_infrao = NULL;
 	struct md_cd_ctrl *md_ctrl;
 	int i;
 
@@ -2852,17 +2849,6 @@ int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
 			"%s:alloc md_ctrl fail\n", __func__);
 		return -1;
 	}
-	node_md = of_find_compatible_node(NULL, NULL,
-		"mediatek,mddriver");
-	of_property_read_u32(node_md,
-		"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
-	node_infrao = of_find_compatible_node(NULL, NULL,
-		"mediatek,mt6761-infracfg");
-	md_cd_plat_val_ptr.infra_ao_base = of_iomap(node_infrao, 0);
-	md_ctrl->plat_val = &md_cd_plat_val_ptr;
-	if (md_ctrl->plat_val == NULL)
-		return -1;
-
 	memset(md_ctrl, 0, sizeof(struct md_cd_ctrl));
 
 	md_ctrl->ops = &ccci_hif_cldma_ops;
@@ -2876,7 +2862,8 @@ int ccci_cldma_hif_init(unsigned char hif_id, unsigned char md_id)
 		kfree(md_ctrl);
 		return -1;
 	}
-
+	of_property_read_u32(node,
+		"mediatek,md_generation", &md_ctrl->plat_val.md_gen);
 	md_ctrl->cldma_irq_flags = IRQF_TRIGGER_NONE;
 	md_ctrl->cldma_irq_id = irq_of_parse_and_map(node, 0);
 	if (md_ctrl->cldma_irq_id == 0) {

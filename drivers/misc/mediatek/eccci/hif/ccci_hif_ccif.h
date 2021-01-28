@@ -10,8 +10,6 @@
 #include <linux/dmapool.h>
 #include <linux/atomic.h>
 #include "mt-plat/mtk_ccci_common.h"
-#include "ccci_config.h"
-#include "ccci_common_config.h"
 #include "ccci_ringbuf.h"
 #include "ccci_core.h"
 #include "ccci_modem.h"
@@ -34,6 +32,13 @@ struct ccif_flow_control {
 	unsigned int ap_busy_queue;
 	unsigned int md_busy_queue;
 	unsigned int tail_magic;
+};
+
+struct  ccci_hif_ccif_val {
+	struct regmap *infra_ao_base;
+	unsigned int md_gen;
+	unsigned long offset_epof_md1;
+	void __iomem *md_plat_info;
 };
 
 struct ccif_sram_layout {
@@ -113,7 +118,7 @@ struct md_ccif_ctrl {
 	unsigned short heart_beat_counter;
 	struct ccci_hif_ops *ops;
 	struct platform_device *plat_dev;
-	struct ccci_plat_val *plat_val;
+	struct ccci_hif_ccif_val plat_val;
 };
 
 static inline void ccif_set_busy_queue(struct md_ccif_ctrl *md_ctrl,
@@ -243,6 +248,34 @@ static inline int ccci_ccif_hif_set_wakeup_src(unsigned char hif_id, int value)
 		return -1;
 }
 
+#ifdef CCCI_KMODULE_ENABLE
+
+#define ccci_write32(b, a, v)  \
+do { \
+	writel(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write16(b, a, v)  \
+do { \
+	writew(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+
+#define ccci_write8(b, a, v)  \
+do { \
+	writeb(v, (b) + (a)); \
+	mb(); /* make sure register access in order */ \
+} while (0)
+
+#define ccci_read32(b, a)               ioread32((void __iomem *)((b)+(a)))
+#define ccci_read16(b, a)               ioread16((void __iomem *)((b)+(a)))
+#define ccci_read8(b, a)                ioread8((void __iomem *)((b)+(a)))
+#endif
+
+
 void md_ccif_reset_queue(unsigned char hif_id, unsigned char for_start);
 
 void ccif_polling_ready(unsigned char hif_id, int step);
@@ -261,6 +294,10 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 /* always keep this in mind:
  * what if there are more than 1 modems using CLDMA...
  */
+extern struct regmap *syscon_regmap_lookup_by_phandle(struct device_node *np,
+	const char *property);
+extern int regmap_write(struct regmap *map, unsigned int reg, unsigned int val);
+extern int regmap_read(struct regmap *map, unsigned int reg, unsigned int *val);
 extern void mt_irq_dump_status(int irq);
 extern void mt_irq_set_sens(unsigned int irq, unsigned int sens);
 extern void mt_irq_set_polarity(unsigned int irq, unsigned int polarity);

@@ -28,15 +28,12 @@
 #include <linux/of_address.h>
 #include <linux/clk.h> /* for clk_prepare/un* */
 
-#include "ccci_config.h"
-#include "ccci_common_config.h"
 #include "ccci_core.h"
 #include "ccci_modem.h"
 #include "ccci_bm.h"
 #include "ccci_platform.h"
 #include "ccci_hif_ccif.h"
 #include "md_sys1_platform.h"
-#include "modem_sys.h"
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -47,9 +44,6 @@
 
 #define TAG "cif"
 /* struct md_ccif_ctrl *ccif_ctrl; */
-#ifdef CCCI_KMODULE_ENABLE
-unsigned int devapc_check_flag = 1;
-#endif
 unsigned int devapc_check_flag = 1;
 
 /* this table maybe can be set array when multi, or else. */
@@ -1335,7 +1329,7 @@ static int md_ccif_op_send_skb(unsigned char hif_id, int qno,
 
 	if (ccci_h->channel == CCCI_C2K_LB_DL)
 		qno = atomic_read(&lb_dl_q);
-	if (md_ctrl->plat_val->md_gen < 6295) {
+	if (md_ctrl->plat_val.md_gen < 6295) {
 		if (qno > 7) {
 			CCCI_ERROR_LOG(md_ctrl->md_id, TAG,
 				"qno error (%d)\n", qno);
@@ -1537,7 +1531,7 @@ int md_ccif_exp_ring_buf_init(struct md_ccif_ctrl *md_ctrl)
 
 	for (i = 0; i < QUEUE_NUM; i++) {
 
-		if (md_ctrl->plat_val->md_gen >= 6295) {
+		if (md_ctrl->plat_val.md_gen >= 6295) {
 			bufsize = CCCI_RINGBUF_CTL_LEN +
 			rx_exp_buffer_size_up_95[i]
 			+ tx_exp_buffer_size_up_95[i];
@@ -1595,7 +1589,7 @@ int md_ccif_ring_buf_init(unsigned char hif_id)
 	buf = (unsigned char *)ccism->base_ap_view_vir;
 
 	for (i = 0; i < QUEUE_NUM; i++) {
-		if (md_ctrl->plat_val->md_gen >= 6295) {
+		if (md_ctrl->plat_val.md_gen >= 6295) {
 			bufsize = CCCI_RINGBUF_CTL_LEN
 			+ rx_queue_buffer_size_up_95[i]
 			+ tx_queue_buffer_size_up_95[i];
@@ -1703,10 +1697,10 @@ void ccci_reset_ccif_hw(unsigned char md_id,
 		 *CCIF's busy/wch/irq, but not SRAM
 		 */
 		/*set reset bit*/
-		ccci_write32(md_ctrl->plat_val->infra_ao_base,
+		regmap_write(md_ctrl->plat_val.infra_ao_base,
 			0x150, 1 << reset_bit);
 		/*clear reset bit*/
-		ccci_write32(md_ctrl->plat_val->infra_ao_base,
+		regmap_write(md_ctrl->plat_val.infra_ao_base,
 			0x154, 1 << reset_bit);
 	}
 
@@ -1811,7 +1805,7 @@ static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 	/* Clean MD_PCCIF4_SW_READY and MD_PCCIF4_PWR_ON */
 
 	if (!on)
-		ccif_write32(ccif_ctrl->plat_val->infra_ao_base,
+		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
 		0x22C, 0x0);
 
 	for (idx = 0; idx < ARRAY_SIZE(ccif_clk_table); idx++) {
@@ -1841,10 +1835,10 @@ static void ccif_set_clk_cg(unsigned char hif_id, unsigned int on)
 	/* Set MD_PCCIF4_PWR_ON */
 	if (on) {
 		CCCI_NORMAL_LOG(ccif_ctrl->md_id, TAG,
-			"ccif4 %s:  set 0x%p + 0x22C = 0x1\n",
+			"ccif4 %s:  set 0x%px + 0x22C = 0x1\n",
 			__func__,
-			(void *)ccif_ctrl->plat_val->infra_ao_base);
-		ccif_write32(ccif_ctrl->plat_val->infra_ao_base,
+			ccif_ctrl->plat_val.infra_ao_base);
+		regmap_write(ccif_ctrl->plat_val.infra_ao_base,
 			0x22C, 0x1);
 	}
 }
@@ -1956,27 +1950,12 @@ static int ccif_hif_hw_init(struct device *dev, struct md_ccif_ctrl *md_ctrl)
 		return ret;
 	}
 
-	if (!md_ctrl->plat_val->infra_ao_base) {
+	if (!md_ctrl->plat_val.infra_ao_base) {
 		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
 		ret = -4;
 		return ret;
 	}
 
-#ifdef CCCI_KMODULE_ENABLE
-	/* Get infra cfg ao base */
-	node = of_find_compatible_node(NULL, NULL,
-			"mediatek,mt6761-infracfg");
-	if (!node) {
-		CCCI_ERROR_LOG(-1, TAG, "No infra_ao node in dtsi\n");
-		ret = -3;
-		return ret;
-	}
-	if (!md_ctrl->plat_val->infra_ao_base) {
-		CCCI_ERROR_LOG(-1, TAG, "No infra_ao register in dtsi\n");
-		ret = -4;
-		return ret;
-	}
-#endif
 	node = dev->of_node;
 	if (!node) {
 		CCCI_ERROR_LOG(-1, TAG, "No ccif node in dtsi\n");
@@ -2069,7 +2048,6 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 {
 	int i, ret;
 	struct device_node *node_md;
-	struct device_node *node_infrao;
 	struct md_ccif_ctrl *md_ctrl;
 
 	md_ctrl = kzalloc(sizeof(struct md_ccif_ctrl), GFP_KERNEL);
@@ -2092,13 +2070,10 @@ int ccci_ccif_hif_init(struct platform_device *pdev,
 	node_md = of_find_compatible_node(NULL, NULL,
 		"mediatek,mddriver");
 	of_property_read_u32(node_md,
-		"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
-	node_infrao = of_find_compatible_node(NULL, NULL,
-		"mediatek,mt6761-infracfg");
-	md_cd_plat_val_ptr.infra_ao_base = of_iomap(node_infrao, 0);
-	md_ctrl->plat_val = &md_cd_plat_val_ptr;
-	if (md_ctrl->plat_val == NULL)
-		return -1;
+		"mediatek,md_generation", &md_ctrl->plat_val.md_gen);
+	md_ctrl->plat_val.infra_ao_base =
+		syscon_regmap_lookup_by_phandle(node_md,
+		"ccci-infracfg");
 	atomic_set(&md_ctrl->reset_on_going, 1);
 	atomic_set(&md_ctrl->wakeup_src, 0);
 	atomic_set(&md_ctrl->ccif_irq_enabled, 1);

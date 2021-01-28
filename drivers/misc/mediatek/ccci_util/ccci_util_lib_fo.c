@@ -1386,6 +1386,7 @@ int get_md_resv_ccb_info(int md_id, phys_addr_t *ccb_data_base,
 
 	return 0;
 }
+EXPORT_SYMBOL(get_md_resv_ccb_info);
 
 int get_md_resv_udc_info(int md_id, unsigned int *udc_noncache_size,
 	unsigned int *udc_cache_size)
