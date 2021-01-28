@@ -202,7 +202,8 @@ cmdq_sec_init_context_base(struct cmdq_sec_context *context)
 static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
 {
 #if IS_ENABLED(CONFIG_MMPROFILE)
-	char name[12];
+	char name[32];
+	int len;
 
 	mmprofile_enable(1);
 	if (cmdq->mmp.cmdq) {
@@ -210,7 +211,10 @@ static inline void cmdq_mmp_init(struct cmdq_sec *cmdq)
 		return;
 	}
 
-	snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
+	len = snprintf(name, sizeof(name), "cmdq_sec_%hhu", cmdq->hwid);
+	if (len >= sizeof(name))
+		cmdq_log("len:%d over name size:%d", len, sizeof(name));
+
 	cmdq->mmp.cmdq_root = mmprofile_register_event(MMP_ROOT_EVENT, "CMDQ");
 	cmdq->mmp.cmdq = mmprofile_register_event(cmdq->mmp.cmdq_root, name);
 	cmdq->mmp.queue = mmprofile_register_event(cmdq->mmp.cmdq, "queue");
@@ -1419,7 +1423,8 @@ static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
 {
 	struct cmdq_sec_thread *thread =
 		(struct cmdq_sec_thread *)chan->con_priv;
-	char name[20];
+	char name[32];
+	int len;
 
 	thread->timeout.function = cmdq_sec_thread_timeout;
 	thread->timeout.data = (unsigned long)thread;
@@ -1427,6 +1432,9 @@ static int cmdq_sec_mbox_startup(struct mbox_chan *chan)
 
 	INIT_WORK(&thread->timeout_work, cmdq_sec_task_timeout_work);
 	snprintf(name, sizeof(name), "task_exec_wq_%u", thread->idx);
+	if (len >= sizeof(name))
+		cmdq_log("len:%d over name size:%d", len, sizeof(name));
+
 	thread->task_exec_wq = create_singlethread_workqueue(name);
 	thread->occupied = true;
 	return 0;
