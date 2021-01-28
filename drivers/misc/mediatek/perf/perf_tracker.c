@@ -183,6 +183,16 @@ u32 __attribute__((weak)) qos_sram_read(u32 offset)
 	return 0;
 }
 
+int __attribute__((weak)) get_cur_vcore_uv()
+{
+	return 0;
+}
+
+int __attribute__((weak)) get_cur_ddr_khz()
+{
+	return 0;
+}
+
 static inline u32 cpu_stall_ratio(int cpu)
 {
 #ifdef CM_STALL_RATIO_OFFSET
@@ -204,6 +214,7 @@ void __perf_tracker(u64 wallclock,
 	struct mtk_btag_mictx_iostat_struct *iostat = &iostatptr;
 #endif
 	int bw_c = 0, bw_g = 0, bw_mm = 0, bw_total = 0;
+	int vcore_uv = 0;
 	int i;
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
@@ -217,7 +228,14 @@ void __perf_tracker(u64 wallclock,
 		return;
 
 	/* dram freq */
-	dram_rate = get_dram_data_rate();
+	dram_rate = get_cur_ddr_khz();
+	dram_rate = dram_rate / 1000;
+
+	if (dram_rate <= 0)
+		dram_rate = get_dram_data_rate();
+
+	/* vcore  */
+	vcore_uv = get_cur_vcore_uv();
 
 #ifdef CONFIG_MTK_QOS_FRAMEWORK
 	/* emi */
@@ -233,8 +251,8 @@ void __perf_tracker(u64 wallclock,
 	/* trace for short msg */
 	trace_perf_index_s(
 			sched_freq[0], sched_freq[1], sched_freq[2],
-			dram_rate, bw_c, bw_g, bw_mm, bw_total
-			);
+			dram_rate, bw_c, bw_g, bw_mm, bw_total,
+			vcore_uv);
 
 	if (!hit_long_check())
 		return;
