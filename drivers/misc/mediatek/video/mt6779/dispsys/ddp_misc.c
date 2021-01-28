@@ -185,6 +185,8 @@ void wdma_golden_setting_test(unsigned int w, unsigned int h,
 	gsc.dst_width = w;
 	gsc.dst_height = h;
 	gsc.is_dc = is_dc;
+	gsc.ext_dst_width = w;
+	gsc.ext_dst_height = h;
 
 	wdma_calc_golden_setting(&gsc, 1, gs, format);
 

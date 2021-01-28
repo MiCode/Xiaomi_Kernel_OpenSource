@@ -124,7 +124,7 @@ unsigned long ovl_layer_num(enum DISP_MODULE_ENUM module)
 		return 2;
 	default:
 		DDP_PR_ERR("invalid ovl module=%d\n", module);
-		return -1;
+		return 0;
 	}
 	return 0;
 }
