@@ -35,9 +35,9 @@
 
 
 /* MET: define to enable MET*/
-#define ISP_MET_READY
+//#define ISP_MET_READY
 
-/* #define EP_STAGE */
+#define EP_STAGE
 #ifdef EP_STAGE
 #define EP_MARK_SMI      /* disable SMI related for EP */
 #define DUMMY_INT        /* For early if load dont need to use camera*/
@@ -48,7 +48,7 @@
 /* EP no need to adjust upper bound of kernel log count */
 #define EP_NO_K_LOG_ADJUST
 #endif
-#define ENABLE_TIMESYNC_HANDLE    /* able/disable TimeSync related for EP */
+//#define ENABLE_TIMESYNC_HANDLE    /* able/disable TimeSync related for EP */
 #define IRQ_LOG_EN
 
 #ifdef CONFIG_COMPAT
@@ -329,7 +329,7 @@ static struct isp_sec_dapc_reg lock_reg;
 static unsigned int sec_on;
 
 #ifdef CONFIG_PM_WAKELOCKS
-struct wakeup_source isp_wake_lock;
+struct wakeup_source *isp_wake_lock;
 #else
 struct wake_lock isp_wake_lock;
 #endif
@@ -687,7 +687,7 @@ static struct SV_LOG_STR gSvLog[ISP_IRQ_TYPE_AMOUNT];
 #define IRQ_LOG_KEEPER_T(sec, usec) {\
 		ktime_t time;           \
 		time = ktime_get();     \
-		sec = time.tv64;        \
+		sec = time;        \
 		do_div(sec, 1000);    \
 		usec = do_div(sec, 1000000);\
 	}
@@ -3358,7 +3358,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				} else {
 #ifdef CONFIG_PM_WAKELOCKS
-					__pm_stay_awake(&isp_wake_lock);
+					__pm_stay_awake(isp_wake_lock);
 #else
 					wake_lock(&isp_wake_lock);
 #endif
@@ -3379,7 +3379,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				} else {
 #ifdef CONFIG_PM_WAKELOCKS
-					__pm_relax(&isp_wake_lock);
+					__pm_relax(isp_wake_lock);
 #else
 					wake_unlock(&isp_wake_lock);
 #endif
@@ -4059,6 +4059,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 		break;
 	case ISP_GET_GLOBAL_TIME:
 	{
+#ifdef ENABLE_TIMESYNC_HANDLE
 #ifdef TS_BOOT_T
 		#define TS_TYPE	(2)
 #else
@@ -4089,6 +4090,7 @@ static long ISP_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 				"ISP_GET_GLOBAL_TIME copy_from_user failed\n");
 			Ret = -EFAULT;
 		}
+#endif
 	}
 		break;
 	case ISP_SET_PM_QOS_INFO:
@@ -5338,7 +5340,7 @@ static inline void ISP_StopHW(int module)
 
 		/* timer*/
 		time = ktime_get();
-		m_sec = time.tv64;
+		m_sec = time;
 
 		while (regTGSt != 1) {
 			regTGSt = (ISP_RD32(
@@ -5346,7 +5348,7 @@ static inline void ISP_StopHW(int module)
 
 			/*timer*/
 			time = ktime_get();
-			sec = time.tv64;
+			sec = time;
 			/* wait time>timeoutMs, break */
 			if ((sec - m_sec) > timeoutMs)
 				break;
@@ -5363,7 +5365,7 @@ RESET:
 	LOG_INF("%s: reset\n", moduleName);
 	/* timer*/
 	time = ktime_get();
-	m_sec = time.tv64;
+	m_sec = time;
 
 	/* Reset*/
 	ISP_WR32(CAM_REG_CTL_SW_CTL(module), 0x0);
@@ -5372,7 +5374,7 @@ RESET:
 		/*LOG_DBG("%s resetting...\n", moduleName);*/
 		/*timer*/
 		time = ktime_get();
-		sec = time.tv64;
+		sec = time;
 		/* wait time>timeoutMs, break */
 		if ((sec  - m_sec) > timeoutMs) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
@@ -5471,7 +5473,7 @@ static inline void ISP_StopSVHW(int module)
 
 		/* timer*/
 		time = ktime_get();
-		m_sec = time.tv64;
+		m_sec = time;
 
 		while (regTGSt != 1) {
 			regTGSt = (ISP_RD32(CAMSV_REG_TG_INTER_ST(
@@ -5479,7 +5481,7 @@ static inline void ISP_StopSVHW(int module)
 
 			/*timer*/
 			time = ktime_get();
-			sec = time.tv64;
+			sec = time;
 			/* wait time>timeoutMs, break */
 			if ((sec - m_sec) > timeoutMs)
 				break;
@@ -5495,7 +5497,7 @@ static inline void ISP_StopSVHW(int module)
 	LOG_INF("%s: reset\n", moduleName);
 	/* timer*/
 	time = ktime_get();
-	m_sec = time.tv64;
+	m_sec = time;
 
 	/* Reset*/
 	ISP_WR32(CAMSV_REG_SW_CTL(module), 0x0);
@@ -5511,7 +5513,7 @@ static inline void ISP_StopSVHW(int module)
 		/*LOG_DBG("%s resetting...\n", moduleName);*/
 		/*timer*/
 		time = ktime_get();
-		sec = time.tv64;
+		sec = time;
 		/* wait time>timeoutMs, break */
 		if ((sec  - m_sec) > timeoutMs) {
 			LOG_INF("%s: wait SW idle timeout\n", moduleName);
@@ -5619,7 +5621,7 @@ static int ISP_release(
 	if (g_WaitLockCt) {
 		LOG_INF("wakelock disable!! cnt(%d)\n", g_WaitLockCt);
 #ifdef CONFIG_PM_WAKELOCKS
-		__pm_relax(&isp_wake_lock);
+		__pm_relax(isp_wake_lock);
 #else
 		wake_unlock(&isp_wake_lock);
 #endif
@@ -6065,7 +6067,9 @@ static int ISP_probe(struct platform_device *pDev)
 		}
 
 #ifdef CONFIG_PM_WAKELOCKS
-		wakeup_source_init(&isp_wake_lock, "isp_lock_wakelock");
+		isp_wake_lock = wakeup_source_register(&pDev->dev,
+			"isp_lock_wakelock");
+		/* wakeup_source_init(isp_wake_lock, "isp_lock_wakelock"); */
 #else
 		wake_lock_init(&isp_wake_lock, WAKE_LOCK_SUSPEND,
 			"isp_lock_wakelock");
@@ -6360,7 +6364,7 @@ static int ISP_suspend(
 
 			/* timer*/
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 
 			while (regTGSt != 1) {
 
@@ -6369,7 +6373,7 @@ static int ISP_suspend(
 
 				/*timer*/
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 				/* wait time>timeoutMs, break */
 				if ((sec - m_sec) > timeoutMs)
 					break;
@@ -8567,7 +8571,7 @@ ISP_Irq_CAMSV(
 
 	if (IrqStatus & SV_SOF_INT_ST) {
 		time = ktime_get();     /* ns */
-		sec = time.tv64;
+		sec = time;
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 
@@ -9019,11 +9023,11 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 		ISP_WR32(CAM_REG_DBG_SET(i), 0xF0);
 		ISP_WR32(CAM_REG_DMA_DEBUG_SEL(i), 0x100);/*smi:BPCI_R1*/
 		time = ktime_get();
-		m_sec = time.tv64;
+		m_sec = time;
 		/* smi_debug_data [9:7] == 0: idle*/
 		while (ISP_RD32(CAM_REG_DBG_PORT(i)) & 0x380) {
 			time = ktime_get();
-			sec = time.tv64;
+			sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait BPCI_R1 idle timeout\n");
 				break;
@@ -9031,10 +9035,10 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 		}
 		ISP_WR32(CAM_REG_DMA_DEBUG_SEL(i), 0x101);/*smi:LSCI_R1*/
 		time = ktime_get();
-		m_sec = time.tv64;
+		m_sec = time;
 		while (ISP_RD32(CAM_REG_DBG_PORT(i)) & 0x380) {
 			time = ktime_get();
-			sec = time.tv64;
+			sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait LSCI_R1 idle timeout\n");
 				break;
@@ -9274,12 +9278,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR0_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR0_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ0 timeout0x%x,0x%x\n",
 				(unsigned int)ISP_RD32(
@@ -9309,12 +9313,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR1_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR1_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ1 timeout\n");
 				ret = MFALSE;
@@ -9336,12 +9340,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR4_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR4_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ4 timeout0x%x,0x%x\n",
 				(unsigned int)ISP_RD32(
@@ -9371,12 +9375,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR5_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR5_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ5 timeout\n");
 				ret = MFALSE;
@@ -9398,12 +9402,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR7_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR7_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ7 timeout\n");
 				ret = MFALSE;
@@ -9425,12 +9429,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR8_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR8_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ8 timeout0x%x,0x%x\n",
 					(unsigned int)ISP_RD32(
@@ -9460,12 +9464,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR10_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR10_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ10 timeout\n");
 				ret = MFALSE;
@@ -9487,12 +9491,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR12_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR12_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ12 timeout0x%x, 0x%x\n",
 					(unsigned int)ISP_RD32(
@@ -9522,12 +9526,12 @@ unsigned int CQ_Recover(unsigned int ErrStatus,
 			DmaStatus5.Raw = g_cqDoneStatus[i];
 			cq_done = DmaStatus5.Bits.CQ_THR28_DONE_ST;
 			time = ktime_get();
-			m_sec = time.tv64;
+			m_sec = time;
 			/* wait CQ loading done */
 			while ((ISP_RD32(CAM_REG_CTL_START_ST(i)) &
 			en_ctlStart.Bits.CQ_THR28_START) || (cq_done == 0)) {
 				time = ktime_get();
-				sec = time.tv64;
+				sec = time;
 			if ((sec  - m_sec) > timeoutMs) {
 				LOG_NOTICE("wait CQ28 timeout\n");
 				ret = MFALSE;
@@ -9787,7 +9791,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 	}
 	if (IrqStatus & SW_PASS1_DON_ST) {
 		time = ktime_get(); /* ns */
-		sec = time.tv64;
+		sec = time;
 		do_div(sec, 1000);	  /* usec */
 		usec = do_div(sec, 1000000);	/* sec and usec */
 		/* update pass1 done time stamp for eis user */
@@ -9878,7 +9882,7 @@ irqreturn_t ISP_Irq_CAM(enum ISP_IRQ_TYPE_ENUM irq_module)
 		unsigned int irqDelay = 0;
 
 		time = ktime_get(); /* ns */
-		sec = time.tv64;
+		sec = time;
 		do_div(sec, 1000);    /* usec */
 		usec = do_div(sec, 1000000);    /* sec and usec */
 

@@ -15,6 +15,8 @@
 #include <linux/types.h>
 #include "inc/cam_qos.h"
 
+#define EP_MARK_QOS
+#ifndef EP_MARK_QOS
 #define CONFIG_MTK_QOS_SUPPORT
 
 #ifdef CONFIG_MTK_QOS_SUPPORT
@@ -914,4 +916,20 @@ int SV_SetPMQOS(
 	}
 	return Ret;
 }
+#else
+int ISP_SetPMQOS(
+	enum E_QOS_OP cmd,
+	enum ISP_IRQ_TYPE_ENUM module,
+	unsigned int *pvalue)
+{
+	return 0;
+}
 
+int SV_SetPMQOS(
+	enum E_QOS_OP cmd,
+	enum ISP_IRQ_TYPE_ENUM module,
+	unsigned int *pvalue)
+{
+	return 0;
+}
+#endif
