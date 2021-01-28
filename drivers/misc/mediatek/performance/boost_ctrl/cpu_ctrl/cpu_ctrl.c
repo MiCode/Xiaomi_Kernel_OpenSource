@@ -40,7 +40,7 @@ static struct ppm_limit_data *current_freq;
 static struct ppm_limit_data *freq_set[CPU_MAX_KIR];
 static int log_enable;
 static unsigned long *policy_mask;
-static unsigned long *cpu_isolation;
+static int *cpu_isolation[CPU_ISO_MAX_KIR];
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
 static int cfp_init_ret;
@@ -49,6 +49,42 @@ static int cfp_init_ret;
 int powerhal_tid;
 
 /*******************************************/
+static void update_isolation_cpu_locked(int kicker, int enable, int cpu)
+{
+	int i, final = -1;
+
+	if (enable == cpu_isolation[kicker][cpu])
+		return;
+
+	cpu_isolation[kicker][cpu] = enable;
+
+	for (i = 0; i < CPU_ISO_MAX_KIR; i++) {
+		if (cpu_isolation[i][cpu] == 0) {
+			final = 0;
+			break;
+		} else if (cpu_isolation[i][cpu] == 1)
+			final = 1;
+	}
+
+#ifdef CONFIG_TRACING
+	perfmgr_trace_count(enable, "cpu_ctrl_isolation_%d_%d", kicker, cpu);
+#endif
+
+#ifdef CONFIG_MTK_CPU_CTRL_CFP
+	if (!cfp_init_ret)
+		cpu_ctrl_cfp_isolation((final > 0)?1:0, cpu);
+	else if (final > 0)
+		sched_isolate_cpu(cpu);
+	else
+		sched_deisolate_cpu(cpu);
+#else
+	if (final > 0)
+		sched_isolate_cpu(cpu);
+	else
+		sched_deisolate_cpu(cpu);
+#endif
+}
+
 int update_userlimit_cpu_freq(int kicker, int num_cluster
 		, struct ppm_limit_data *freq_limit)
 {
@@ -91,9 +127,9 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 
 	len += snprintf(msg + len, sizeof(msg) - len, "[%d] ", kicker);
 	if (len < 0) {
+		retval = -EIO;
 		perfmgr_trace_printk("cpu_ctrl", "return -EIO 1\n");
-		mutex_unlock(&boost_freq);
-		return -EIO;
+		goto ret_update;
 	}
 	for_each_perfmgr_clusters(i) {
 		freq_set[kicker][i].min = freq_limit[i].min >= -1 ?
@@ -104,9 +140,9 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 		len += snprintf(msg + len, sizeof(msg) - len, "(%d)(%d) ",
 		freq_set[kicker][i].min, freq_set[kicker][i].max);
 		if (len < 0) {
+			retval = -EIO;
 			perfmgr_trace_printk("cpu_ctrl", "return -EIO 2\n");
-			mutex_unlock(&boost_freq);
-			return -EIO;
+			goto ret_update;
 		}
 
 		if (freq_set[kicker][i].min == -1 &&
@@ -118,9 +154,9 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 		len1 += snprintf(msg1 + len1, sizeof(msg1) - len1,
 				"[0x %lx] ", policy_mask[i]);
 		if (len1 < 0) {
+			retval = -EIO;
 			perfmgr_trace_printk("cpu_ctrl", "return -EIO 3\n");
-			mutex_unlock(&boost_freq);
-			return -EIO;
+			goto ret_update;
 		}
 	}
 
@@ -150,9 +186,9 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 		len += snprintf(msg + len, sizeof(msg) - len, "{%d}{%d} ",
 				current_freq[i].min, current_freq[i].max);
 		if (len < 0) {
+			retval = -EIO;
 			perfmgr_trace_printk("cpu_ctrl", "return -EIO 4\n");
-			mutex_unlock(&boost_freq);
-			return -EIO;
+			goto ret_update;
 		}
 	}
 
@@ -177,6 +213,10 @@ int update_userlimit_cpu_freq(int kicker, int num_cluster
 #endif
 
 ret_update:
+	update_isolation_cpu_locked(CPU_ISO_KIR_CPU_CTRL,
+		(freq_limit[clstr_num-1].min != -1) ? 0 : -1,
+		num_possible_cpus() - 1);
+
 	kfree(final_freq);
 	mutex_unlock(&boost_freq);
 	return retval;
@@ -185,32 +225,21 @@ EXPORT_SYMBOL(update_userlimit_cpu_freq);
 
 int update_isolation_cpu(int kicker, int enable, int cpu)
 {
+	int num_cpu;
+
 	if (kicker < 0 || kicker >= CPU_ISO_MAX_KIR) {
 		pr_debug("kicker:%d, error\n", kicker);
 		return -EINVAL;
 	}
 
+	num_cpu = num_possible_cpus();
+	if (cpu < 0 || cpu >= num_cpu) {
+		pr_debug("cpu:%d, error\n", cpu);
+		return -EINVAL;
+	}
+
 	mutex_lock(&boost_freq);
-
-	if (enable != 0)
-		set_bit(kicker, &cpu_isolation[cpu]);
-	else
-		clear_bit(kicker, &cpu_isolation[cpu]);
-
-#ifdef CONFIG_MTK_CPU_CTRL_CFP
-	if (!cfp_init_ret)
-		cpu_ctrl_cfp_isolation(enable, cpu);
-	else if (cpu_isolation[cpu] > 0)
-		sched_isolate_cpu(cpu);
-	else
-		sched_deisolate_cpu(cpu);
-#else
-	if (cpu_isolation[cpu] > 0)
-		sched_isolate_cpu(cpu);
-	else
-		sched_deisolate_cpu(cpu);
-#endif
-
+	update_isolation_cpu_locked(kicker, enable, cpu);
 	mutex_unlock(&boost_freq);
 
 	return 0;
@@ -401,6 +430,7 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 {
 	struct proc_dir_entry *boost_dir = NULL;
 	int i, j, ret = 0;
+	int num_cpu;
 
 	struct pentry {
 		const char *name;
@@ -460,8 +490,13 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 		}
 	}
 
-	cpu_isolation = kcalloc(num_possible_cpus(), sizeof(unsigned long),
-				GFP_KERNEL);
+	num_cpu = num_possible_cpus();
+	for (i = 0; i < CPU_ISO_MAX_KIR; i++) {
+		cpu_isolation[i] = kcalloc(num_cpu, sizeof(int),
+					GFP_KERNEL);
+		for (j = 0; j < num_cpu; j++)
+			cpu_isolation[i][j] = -1;
+	}
 out:
 	return ret;
 
@@ -473,9 +508,10 @@ void cpu_ctrl_exit(void)
 
 	kfree(current_freq);
 	kfree(policy_mask);
-	kfree(cpu_isolation);
 	for (i = 0; i < CPU_MAX_KIR; i++)
 		kfree(freq_set[i]);
+	for (i = 0; i < CPU_ISO_MAX_KIR; i++)
+		kfree(cpu_isolation[i]);
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
 	if (!cfp_init_ret)
