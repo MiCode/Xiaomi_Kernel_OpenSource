@@ -311,6 +311,19 @@
 				<0 0x14002000 0 0x1000>, /* spi_common */
 				<0 0x1020e000 0 0x1000>, /* infracfg */
 				<0 0x18004000 0 0x1000>; /* connsys */
+		clocks = <&topckgen CLK_TOP_MM_SEL>,
+			<&topckgen CLK_TOP_MFG_SEL>,
+			<&mmsys_config CLK_MM_SMI_COMM0>,
+			<&mmsys_config CLK_MM_SMI_COMM1>,
+			<&mmsys_config CLK_MM_SMI_COMMON>,
+			<&mmsys_config CLK_MM_SMI_LARB0>,
+			<&camsys CLK_CAM_LARB2>,
+			<&camsys CLK_CAM>,
+			<&mmsys_config CLK_MM_SMI_CAM>,
+			<&mmsys_config CLK_MM_SMI_IMG>;
+		clock-names = "mm", "mfg",
+			"mm-0", "mm-1", "mm-2", "mm-3",
+			"cam-0", "cam-1", "cam-2", "cam-3";
 		#clock-cells = <1>;
 	};
 
@@ -1185,7 +1198,6 @@
 	gce: gce@10238000 {
 		compatible = "mediatek,gce", "syscon";
 		reg = <0 0x10238000 0 0x4000>;
-		#clock-cells = <1>;
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_LOW>;
 		g3d_config_base = <0x13000000 0 0xffff0000>;
 		mmsys_config_base = <0x14000000 1 0xffff0000>;
@@ -2317,13 +2329,28 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		reg = <0 0x13000000 0 0x80000>;
 		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "RGX";
+		clocks =
+			<&scpsys SCP_SYS_MFG_ASYNC>,
+			<&scpsys SCP_SYS_MFG>,
+			<&scpsys SCP_SYS_MFG_CORE0>;
+		clock-names =
+			"mtcmos_mfg_async",
+			"mtcmos_mfg",
+			"mtcmos_mfg_core0";
 		clock-frequency = <570000000>;
 	};
 
 	mfg_cfg: mfg_cfg@13ffe000 {
 		compatible = "mediatek,mfgcfg", "syscon";
 		reg = <0 0x13ffe000 0 0x1000>;
-		#clock-cells = <1>;
+		clocks =
+			<&scpsys SCP_SYS_MFG_ASYNC>,
+			<&scpsys SCP_SYS_MFG>,
+			<&scpsys SCP_SYS_MFG_CORE0>;
+		clock-names =
+			"mtcmos_mfg_async",
+			"mtcmos_mfg",
+			"mtcmos_mfg_core0";
 	};
 
 	gpufreq {
