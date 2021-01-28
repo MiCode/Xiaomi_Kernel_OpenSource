@@ -388,6 +388,7 @@ static unsigned int sec_on;
 struct wakeup_source isp_wake_lock;
 #endif
 static int g_WaitLockCt;
+static int irq3a_wait_cnt = 1;
 
 /*prevent isp race condition in vulunerbility test*/
 static struct mutex open_isp_mutex;
@@ -3498,6 +3499,9 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 			irqinfo->Type, irqinfo->EventInfo.UserKey,
 			irqinfo->EventInfo.St_type, irqinfo->EventInfo.Status);
 
+	if (irqinfo->EventInfo.UserKey == 1)
+		LOG_NOTICE("++FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
+
 	if (irqinfo->Type >= ISP_IRQ_TYPE_AMOUNT ||
 	    irqinfo->Type < 0) {
 		LOG_NOTICE("FLUSH_IRQ: type error(%d)", irqinfo->Type);
@@ -3566,6 +3570,9 @@ static int ISP_FLUSH_IRQ(struct ISP_WAIT_IRQ_STRUCT *irqinfo)
 	} else {
 		wake_up_interruptible(&IspInfo.WaitQueueHead[irqinfo->Type]);
 	}
+
+	if (irqinfo->EventInfo.UserKey == 1)
+		LOG_NOTICE("--FLUSH 3a waitirq cnt = %d\n", irq3a_wait_cnt);
 
 	return 0;
 }
@@ -3772,6 +3779,9 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 		WaitIrq->EventInfo.UserKey);
 #endif
 
+	if (WaitIrq->EventInfo.UserKey == 1)
+		irq3a_wait_cnt++;
+
 	/* 2. start to wait signal */
 	if (ISP_CheckUseCamWaitQ(WaitIrq->Type, WaitIrq->EventInfo.St_type,
 				 WaitIrq->EventInfo.Status)) {
@@ -3809,6 +3819,9 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 					WaitIrq->EventInfo.Status),
 			ISP_MsToJiffies(WaitIrq->EventInfo.Timeout));
 	}
+
+	if (WaitIrq->EventInfo.UserKey == 1)
+		irq3a_wait_cnt--;
 
 	/* check if user is interrupted by system signal */
 	if ((Timeout != 0) &&

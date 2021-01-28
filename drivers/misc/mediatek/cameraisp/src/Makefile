@@ -25,6 +25,10 @@ ifeq ($(CONFIG_MACH_MT6885),y)
   obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 
+ifeq ($(CONFIG_MACH_MT6893),y)
+  obj-y += mt6885/
+endif
+
 ifeq ($(CONFIG_MACH_MT6873),y)
   obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
@@ -50,10 +54,6 @@ ifeq ($(CONFIG_MACH_MT6768),y)
 endif
 
 ifeq ($(CONFIG_MACH_MT6765),y)
-  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-endif
-
-ifeq ($(CONFIG_MACH_MT6893),y)
   obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif
 
