@@ -3133,9 +3133,11 @@ static void __init mtk_topckgen_init(struct device_node *node)
 		base, &mt6785_clk_lock, clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	cksys_base = base;
 
 	/* Need Confirm */
@@ -3207,9 +3209,11 @@ static void __init mtk_infracfg_ao_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	infracfg_base = base;
 	/* Need Confirm */
 	clk_writel(INFRA_TOPAXI_SI0_CTL, clk_readl(INFRA_TOPAXI_SI0_CTL) | 0x2);
@@ -3436,9 +3440,11 @@ static void __init mtk_apmixedsys_init(struct device_node *node)
 		ARRAY_SIZE(apmixed_clks), clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	apmixed_base = base;
 	/* ARMPLL4, MPLL, CCIPLL, EMIPLL, MAINPLL */
 	/*clk_writel(AP_PLL_CON3, clk_readl(AP_PLL_CON3) & 0xee2b8ae2);*/
@@ -3521,9 +3527,11 @@ static void __init mtk_audio_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	audio_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3551,9 +3559,11 @@ static void __init mtk_camsys_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	cam_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3579,9 +3589,11 @@ static void __init mtk_imgsys_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	img_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3609,9 +3621,11 @@ static void __init mtk_mfg_cfg_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mfgcfg_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3638,9 +3652,11 @@ static void __init mtk_mmsys_config_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	mmsys_config_base = base;
 #if MT_CCF_BRINGUP
 	/*clk_writel(MM_CG_CLR0, MM_CG0);*/
@@ -3669,9 +3685,11 @@ static void __init mtk_vdec_top_global_con_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	vdec_gcon_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3700,9 +3718,11 @@ static void __init mtk_venc_global_con_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	venc_gcon_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3730,9 +3750,11 @@ static void __init mtk_apu_conn_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	apu_conn_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3759,9 +3781,11 @@ static void __init mtk_apu0_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	apu0_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3788,9 +3812,11 @@ static void __init mtk_apu1_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	apu1_base = base;
 
 #if MT_CCF_BRINGUP
@@ -3817,9 +3843,11 @@ static void __init mtk_apu_vcore_init(struct device_node *node)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
 		pr_notice("%s(): could not register clock provider: %d\n",
 			__func__, r);
+		kfree(clk_data);
+	}
 	apu_vcore_base = base;
 
 #if MT_CCF_BRINGUP
