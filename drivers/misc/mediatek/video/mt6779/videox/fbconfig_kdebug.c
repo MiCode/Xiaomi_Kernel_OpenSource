@@ -1312,7 +1312,6 @@ void PanelMaster_Init(void)
 	ConfigPara_dbgfs = debugfs_create_file("fbconfig", S_IFREG | 0444,
 					       NULL, (void *)0, &fbconfig_fops);
 
-	INIT_LIST_HEAD(&head_list.list);
 #endif
 
 //do samething in procfs
@@ -1327,6 +1326,7 @@ void PanelMaster_Init(void)
 		return;
 	}
 
+	INIT_LIST_HEAD(&head_list.list);
 #endif
 
 }
