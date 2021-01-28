@@ -2095,6 +2095,12 @@ page_owner=on";
 		compatible = "mediatek,atf_logger";
 	};
 
+	/* AMMS SW IRQ number GIC:327 DTS:295 */
+	amms_control {
+		compatible = "mediatek,amms";
+		interrupts = <GIC_SPI 295 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	msdc0: msdc@11230000 {
 		compatible = "mediatek,msdc";
 		reg = <0 0x11230000 0 0x10000>;
