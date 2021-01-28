@@ -224,7 +224,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "config",
 	 0,
 	 NULL,
-	 {"mediatek,mt6761-mmsys",
+	 {"mediatek,mmsys_config",
 	  0x14000000,
 	  0,
 	  0,

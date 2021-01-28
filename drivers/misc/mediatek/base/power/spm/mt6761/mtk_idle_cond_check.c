@@ -445,7 +445,7 @@ static int get_base_from_node(
 int __init mtk_idle_cond_check_init(void)
 {
 	get_base_from_node("mediatek,mt6761-infracfg", &infrasys_base, 0);
-	get_base_from_node("mediatek,mt6761-mmsys", &mmsys_base, 0);
+	get_base_from_node("mediatek,mt6761-mmsys_config", &mmsys_base, 0);
 	//get_base_from_node("mediatek,imgsys", &imgsys_base, 0);
 	get_base_from_node("mediatek,mfgcfg", &mfgsys_base, 0);
 	get_base_from_node("mediatek,mt6761-vcodecsys", &vencsys_base, 0);
