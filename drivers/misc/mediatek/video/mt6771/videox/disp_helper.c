@@ -371,7 +371,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_MET_LOG, 1);
 	/* ================ End: lowpower option setting ================== */
 
-	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 0);
+	disp_helper_set_option(DISP_OPT_PRESENT_FENCE, 1);
 
 	/* use fake vsync timer for low power measurement */
 	disp_helper_set_option(DISP_OPT_NO_LCM_FOR_LOW_POWER_MEASUREMENT, 0);
