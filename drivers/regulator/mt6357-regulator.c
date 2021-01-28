@@ -255,7 +255,7 @@ static const u32 vcama_idx[] = {
 };
 
 static const u32 vcamd_idx[] = {
-	4, 5, 6, 7, 9, 10,
+	4, 5, 6, 7, 9, 12,
 };
 
 static const u32 vldo28_idx[] = {
