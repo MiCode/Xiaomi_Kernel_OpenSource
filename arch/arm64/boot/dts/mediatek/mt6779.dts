@@ -3395,7 +3395,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			interrupts = <GIC_SPI 89 IRQ_TYPE_EDGE_RISING>;
 		};
 
-		ssusb: usb@11201000 {
+		ssusb: usb0@11201000 {
 			compatible = "mediatek,mtu3";
 			reg = <0 0x11201000 0 0x2e00>,
 				<0 0x11203e00 0 0x0100>;
@@ -3413,7 +3413,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			ranges;
 			status = "disabled";
 
-			usb_host: xhci@11200000 {
+			usb_host: xhci0@11200000 {
 				compatible = "mediatek,mtk-xhci";
 				reg = <0 0x11200000 0 0x1000>;
 				reg-names = "mac";
@@ -3447,7 +3447,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			};
 		};
 
-		u3phy: usb-phy@11e40000 {
+		u3phy: usb-phy0@11e40000 {
 			compatible = "mediatek,generic-tphy-v2";
 			clocks = <&clk26m>;
 			clock-names = "u3phya_ref";
@@ -3456,13 +3456,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			ranges;
 			status = "disabled";
 
-			u2port0: usb-phy@11e40000 {
+			u2port0: usb2-phy0@11e40000 {
 				reg = <0 0x11e40000 0 0x700>;
 				#phy-cells = <1>;
 				status = "okay";
 			};
 
-			u3port0: usb-phy@11e40700 {
+			u3port0: usb3-phy0@11e40700 {
 				reg = <0 0x11e40700 0 0x900>;
 				#phy-cells = <1>;
 				status = "okay";
@@ -4371,7 +4371,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		charger = <&mt6360_chg>;
 		vbus-supply = <&otg_vbus>;
 		vbus-voltage = <5000000>;
-		dev-conn = "11201000.usb-role-switch";
+		dev-conn = "usb0-role-switch";
 	};
 };
 
