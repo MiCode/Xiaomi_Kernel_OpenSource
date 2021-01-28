@@ -84,9 +84,8 @@ static int mdw_mem_ion_map_kva(struct apusys_kmem *mem)
 
 	/* import fd */
 	ion_hnd = ion_import_dma_buf_fd(ion_ma.client, mem->fd);
-
 	if (IS_ERR_OR_NULL(ion_hnd))
-		return -ENOMEM;
+		return -EINVAL;
 
 	/* map kernel va*/
 	buffer = ion_map_kernel(ion_ma.client, ion_hnd);
@@ -129,7 +128,7 @@ static int mdw_mem_ion_map_iova(struct apusys_kmem *mem)
 	ion_hnd = ion_import_dma_buf_fd(ion_ma.client, mem->fd);
 
 	if (IS_ERR_OR_NULL(ion_hnd))
-		return -ENOMEM;
+		return -EINVAL;
 
 	/* use get_iova replace config_buffer & get_phys*/
 	memset((void *)&mm_data, 0, sizeof(struct ion_mm_data));
