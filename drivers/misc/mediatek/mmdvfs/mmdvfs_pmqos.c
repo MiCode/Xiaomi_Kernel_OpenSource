@@ -1406,6 +1406,7 @@ void mm_qos_remove_all_request(struct plist_head *owner_list)
 		pr_notice("mm_del(0x%08x)\n", req->master_id);
 		plist_del(&(req->owner_node), owner_list);
 		list_del(&(req->larb_node));
+		list_del(&(req->port_node));
 		req->init = false;
 	}
 	mutex_unlock(&bw_mutex);
