@@ -2664,7 +2664,7 @@ static int eem_probe(struct platform_device *pdev)
 
 	/* node_mcucfg */
 	node_mcucfg = of_find_compatible_node(NULL, NULL, MCUCFG_NODE);
-	if (!node_infra) {
+	if (!node_mcucfg) {
 		eem_debug("MCUCFG_NODE Not Found\n");
 		return 0;
 	}
