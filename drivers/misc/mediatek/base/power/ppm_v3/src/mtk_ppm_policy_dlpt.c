@@ -10,7 +10,6 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 
-#include "mach/mtk_pbm.h"
 #include "mtk_ppm_internal.h"
 #include "mtk_ppm_platform.h"
 

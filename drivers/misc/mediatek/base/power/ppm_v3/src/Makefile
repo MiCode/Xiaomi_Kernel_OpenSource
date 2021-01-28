@@ -17,17 +17,14 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/include	\
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)	\
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include	\
+	-I$(srctree)/drivers/misc/mediatek/power_throttling       \
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/sspm/	\
 	-I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
-
-# only build-in dummy driver for MT6761
-ifeq ($(CONFIG_MACH_MT6761),y)
-obj-y := mtk_ppm_dummy.o
-else
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 # main
@@ -42,7 +39,7 @@ obj-y += mtk_ppm_profile.o
 obj-y += mtk_ppm_ipi.o
 
 # for CPI
-obj-y += mtk_ppm_cpi.o
+# obj-y += mtk_ppm_cpi.o
 
 # policies
 obj-y += mtk_ppm_policy_dlpt.o
@@ -62,5 +59,4 @@ obj-y += mach/
 else
 # dummy driver to avoid build error
 obj-y := mtk_ppm_dummy.o
-endif
 endif

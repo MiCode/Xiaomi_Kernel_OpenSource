@@ -18,7 +18,7 @@
 #include <linux/string.h>
 #include <linux/topology.h>
 #include "mtk_ppm_internal.h"
-#include <trace/events/mtk_events.h>
+/* #include <trace/events/mtk_events.h> */
 #include <linux/of.h>
 
 /*==============================================================*/
@@ -624,7 +624,7 @@ int mt_ppm_main(void)
 	if (!ppm_main_info.is_enabled || ppm_main_info.is_in_suspend)
 		goto end;
 
-#if TODO /* TODO will remove later */
+#ifdef TODO /* TODO will remove later */
 	if (!ppm_main_info.client_info[PPM_CLIENT_DVFS].limit_cb ||
 		!ppm_main_info.client_info[PPM_CLIENT_HOTPLUG].limit_cb) {
 		ppm_info("dvfs/hps clients not yet registed!\n");
