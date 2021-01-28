@@ -62,6 +62,7 @@
 #define WK_MAX_MSG_SIZE (128)
 #define MIN_KICK_INTERVAL	 1
 #define MAX_KICK_INTERVAL	30
+#define DEFAULT_KICK_INTERVAL	20
 #define SOFT_KICK_RANGE     (100*1000) // 100ms
 #define	MRDUMP_SYSRESETB	0
 #define	MRDUMP_EINTRST		1
@@ -85,8 +86,9 @@ static int kwdt_thread(void *arg);
 static int start_kicker(void);
 
 static int g_kicker_init;
+#if (DEBUG_WDK == 1)
 static int debug_sleep;
-
+#endif
 static DEFINE_SPINLOCK(lock);
 
 #define CPU_NR (nr_cpu_ids)
@@ -99,13 +101,9 @@ static char wk_tsk_buf[128] = { 0 };
 static unsigned long kick_bit;
 static unsigned long rtc_update;
 
-enum ext_wdt_mode g_wk_wdt_mode = WDT_DUAL_MODE;
 static struct wd_api *g_wd_api;
-static int g_kinterval = -1;
-static int g_timeout = -1;
 static int g_need_config;
 static int wdt_start;
-static int g_enable = 1;
 static struct work_struct wdk_work;
 static struct workqueue_struct *wdk_workqueue;
 static unsigned int lasthpg_act;
@@ -117,126 +115,6 @@ static struct notifier_block wdt_pm_nb;
 #ifdef KWDT_KICK_TIME_ALIGN
 static unsigned long g_nxtKickTime;
 #endif
-
-static char cmd_buf[256];
-
-
-static int wk_proc_cmd_read(struct seq_file *s, void *v)
-{
-	seq_printf(s, "mode interval timeout enable\n%-4d %-9d %-8d %-7d\n",
-		g_wk_wdt_mode, g_kinterval, g_timeout, g_enable);
-	return 0;
-}
-
-static int wk_proc_cmd_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, wk_proc_cmd_read, NULL);
-}
-
-static ssize_t wk_proc_cmd_write(struct file *file, const char *buf,
-	size_t count, loff_t *data)
-{
-	int ret;
-	int timeout;
-	int mode;
-	int kinterval;
-	int en;	/* enable or disable ext wdt 1<-->enable 0<-->disable */
-	struct wd_api *my_wd_api = NULL;
-
-	ret = get_wd_api(&my_wd_api);
-	if (ret)
-		pr_debug("get public api error in wd common driver %d", ret);
-
-	if (count == 0)
-		return -1;
-
-	if (count > 255)
-		count = 255;
-
-	ret = copy_from_user(cmd_buf, buf, count);
-	if (ret < 0)
-		return -1;
-
-	cmd_buf[count] = '\0';
-
-	pr_debug("Write %s\n", cmd_buf);
-
-	ret = sscanf(cmd_buf, "%d %d %d %d %d", &mode,
-		&kinterval, &timeout, &debug_sleep, &en);
-
-	pr_debug("[wdk] mode=%d interval=%d timeout=%d enable =%d\n",
-		mode, kinterval, timeout, en);
-
-	if (timeout < kinterval) {
-		pr_info("Interval(%d) need smaller than timeout value(%d)\n",
-		       kinterval, timeout);
-		return -1;
-	}
-
-	if ((timeout < MIN_KICK_INTERVAL) || (timeout > MAX_KICK_INTERVAL)) {
-		pr_info("The timeout(%d) is invalid (%d - %d)\n", kinterval,
-			MIN_KICK_INTERVAL, MAX_KICK_INTERVAL);
-		return -1;
-	}
-
-	if ((kinterval < MIN_KICK_INTERVAL) ||
-		(kinterval > MAX_KICK_INTERVAL)) {
-		pr_info("The interval(%d) is invalid (%d - %d)\n", kinterval,
-			MIN_KICK_INTERVAL, MAX_KICK_INTERVAL);
-		return -1;
-	}
-
-	if (!((mode == WDT_IRQ_ONLY_MODE) ||
-	      (mode == WDT_HW_REBOOT_ONLY_MODE) || (mode == WDT_DUAL_MODE))) {
-		pr_info("Tha watchdog kicker wdt mode is not correct %d\n",
-			mode);
-		return -1;
-	}
-
-	if (en == 1) {
-		mtk_wdt_enable(WK_WDT_EN);
-#ifdef CONFIG_LOCAL_WDT
-		local_wdt_enable(WK_WDT_EN);
-		pr_debug("[wdk] enable local wdt\n");
-#endif
-		pr_debug("[wdk] enable wdt\n");
-	}
-	if (en == 0) {
-		mtk_wdt_enable(WK_WDT_DIS);
-#ifdef CONFIG_LOCAL_WDT
-		local_wdt_enable(WK_WDT_DIS);
-		pr_debug("[wdk] disable local wdt\n");
-#endif
-		pr_debug("[wdk] disable wdt\n");
-	}
-
-	spin_lock(&lock);
-
-	g_enable = en;
-	g_kinterval = kinterval;
-
-	g_wk_wdt_mode = mode;
-	if (mode == 1) {
-		/* irq mode only useful to 75 */
-		mtk_wdt_swsysret_config(0x20000000, 1);
-		pr_debug("[wdk] use irq mod\n");
-	} else if (mode == 0) {
-		/* reboot mode only useful to 75 */
-		mtk_wdt_swsysret_config(0x20000000, 0);
-		pr_debug("[wdk] use reboot mod\n");
-	} else if (mode == 2)
-		my_wd_api->wd_set_mode(WDT_IRQ_ONLY_MODE);
-	else
-		pr_debug("[wdk] mode err\n");
-
-	g_timeout = timeout;
-	if (mode != 2)
-		g_need_config = 1;
-
-	spin_unlock(&lock);
-
-	return count;
-}
 
 static int mrdump_proc_cmd_read(struct seq_file *s, void *v)
 {
@@ -319,8 +197,6 @@ static int start_kicker_thread_with_default_setting(void)
 	int ret = 0;
 
 	spin_lock(&lock);
-
-	g_kinterval = 20;	/* default interval: 20s */
 
 	g_need_config = 0;/* Note, we DO NOT want to call configure function */
 
@@ -424,15 +300,6 @@ unsigned int wk_check_kick_bit(void)
 	return cpus_kick_bit;
 }
 
-static const struct file_operations wk_proc_cmd_fops = {
-	.owner = THIS_MODULE,
-	.open = wk_proc_cmd_open,
-	.read = seq_read,
-	.write = wk_proc_cmd_write,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 static const struct file_operations mrdump_rst_proc_cmd_fops = {
 	.owner = THIS_MODULE,
 	.open = mrdump_proc_cmd_open,
@@ -446,11 +313,6 @@ int wk_proc_init(void)
 {
 
 	struct proc_dir_entry *de = NULL;
-
-	de = proc_create(PROC_WK, 0660, NULL, &wk_proc_cmd_fops);
-
-	if (!de)
-		pr_debug("[%s]: create /proc/wdk failed\n", __func__);
 
 	de = proc_create(PROC_MRDUMP_RST, 0660, NULL,
 		&mrdump_rst_proc_cmd_fops);
@@ -568,15 +430,15 @@ static int kwdt_thread(void *arg)
 		spin_lock(&lock);
 		loc_wk_wdt = g_wd_api;
 		loc_need_config = g_need_config;
-		loc_timeout = g_timeout;
+		loc_timeout = MAX_KICK_INTERVAL;
 		spin_unlock(&lock);
 
 		/*
 		 * pr_debug("[wdk] loc_wk_wdt(%x),loc_wk_wdt->ready(%d)\n",
 		 * loc_wk_wdt ,loc_wk_wdt->ready);
 		 */
-		curInterval = g_kinterval*1000*1000;
-		if (loc_wk_wdt && loc_wk_wdt->ready && g_enable) {
+		curInterval = DEFAULT_KICK_INTERVAL*1000*1000;
+		if (loc_wk_wdt && loc_wk_wdt->ready) {
 			if (loc_need_config) {
 				/* daul  mode */
 				loc_wk_wdt->wd_config(WDT_DUAL_MODE,
@@ -607,18 +469,19 @@ static int kwdt_thread(void *arg)
 #ifdef KWDT_KICK_TIME_ALIGN
 					if (kick_bit == 0) {
 						g_nxtKickTime =
-							ktime_to_us(ktime_get())
-							+ g_kinterval*1000*1000;
-						curInterval =
-							g_kinterval*1000*1000;
+					   ktime_to_us(ktime_get())
+					   + DEFAULT_KICK_INTERVAL*1000*1000;
+					   curInterval =
+					    DEFAULT_KICK_INTERVAL*1000*1000;
 					} else {
 						curInterval =	g_nxtKickTime
 						- ktime_to_us(ktime_get());
 					}
 					/* to avoid interval too long */
-					if (curInterval > g_kinterval*1000*1000)
+					if (curInterval >
+					    DEFAULT_KICK_INTERVAL*1000*1000)
 						curInterval =
-							g_kinterval*1000*1000;
+					      DEFAULT_KICK_INTERVAL*1000*1000;
 #endif
 					kwdt_process_kick(local_bit, cpu,
 						curInterval, msg_buf);
@@ -626,8 +489,6 @@ static int kwdt_thread(void *arg)
 					spin_unlock(&lock);
 			} else
 				spin_unlock(&lock);
-		} else if (g_enable == 0) {
-			pr_debug("[wdk] stop to kick\n");
 		} else {
 			pr_info("[wdk] no wdt driver is hooked\n");
 			WARN_ON(1);
@@ -663,14 +524,14 @@ static int kwdt_thread(void *arg)
 #ifdef KWDT_KICK_TIME_ALIGN
 		usleep_range(curInterval, curInterval + SOFT_KICK_RANGE);
 #else
-		usleep_range(g_kinterval*1000*1000,
-			g_kinterval*1000*1000 + SOFT_KICK_RANGE);
+		usleep_range(DEFAULT_KICK_INTERVAL*1000*1000,
+			DEFAULT_KICK_INTERVAL*1000*1000 + SOFT_KICK_RANGE);
 #endif
 
 #ifdef CONFIG_MTK_AEE_POWERKEY_HANG_DETECT
 		if ((cpu == 0) && (wk_tsk[cpu]->pid == current->pid)) {
 			/* only effect at cpu0 */
-			if (aee_kernel_wdt_kick_api(g_kinterval) ==
+			if (aee_kernel_wdt_kick_api(DEFAULT_KICK_INTERVAL) ==
 				WDT_PWK_HANG_FORCE_HWT) {
 				printk_deferred("power key trigger HWT\n");
 				/* Try to force to HWT */
