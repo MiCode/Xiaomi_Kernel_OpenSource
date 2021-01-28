@@ -611,7 +611,7 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	/* video mode timing */
 	params->dsi.word_count = FRAME_WIDTH * 3;
 
-	params->dsi.PLL_CLOCK = 200; /* 270 */
+	params->dsi.PLL_CLOCK = 214; /* 270 */
 }
 
 static void lcm_init_lcm(void)
