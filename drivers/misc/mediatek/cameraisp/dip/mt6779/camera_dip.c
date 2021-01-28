@@ -32,9 +32,8 @@
 /*#include <mach/irqs.h>*/
 /* For clock mgr APIS. enable_clock()/disable_clock(). */
 /*#include <mach/mt_clkmgr.h>*/
-/* [GKI Modify]- */
-/* #include <mt-plat/sync_write.h> */
-/* For spm_enable_sodi()/spm_disable_sodi(). */ /* For reg_sync_writel(). */
+#include <mt-plat/sync_write.h> /* For reg_sync_writel(). */
+/* For spm_enable_sodi()/spm_disable_sodi(). */
 /* #include <mach/mt_spm_idle.h> */
 
 #include <linux/of_platform.h>
@@ -42,8 +41,7 @@
 #include <linux/of_address.h>
 
 #ifdef CONFIG_MTK_IOMMU_V2
-/* #include <mach/mt_iommu.h> */ /* [GKI Modify]- */
-#include "mtk_iommu.h" /* [GKI Modify]+ */
+#include <mach/mt_iommu.h>
 #else
 #include <m4u.h>
 #endif
@@ -51,12 +49,9 @@
 //#define EP_CODE_MARK_CMDQ /*YWopen*/
 #ifndef EP_CODE_MARK_CMDQ
 #include <cmdq_core.h>
-#include <linux/soc/mediatek/mtk-cmdq.h> /* [GKI Modify]+ */
 #endif
 
-#ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
 #include <smi_public.h>
-#endif
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -82,8 +77,6 @@
 #else
 #include <linux/wakelock.h>
 #endif
-
-#include <linux/pm_runtime.h> /* [GKI Modify]+ */
 
 #ifdef CONFIG_OF
 #include <linux/of_platform.h>  /* for device tree */
@@ -165,13 +158,9 @@ bool g_DIP_PMState;
 /**************************************************************
  *
  **************************************************************/
-/* #define DIP_WR32(addr, data)	iowrite32(data, addr) */
-/* [GKI Modify]- */
-/* #define DIP_WR32(addr, data)	mt_reg_sync_writel(data, addr) */
-/* [GKI Modify]- */
-/* #define DIP_RD32(addr)	ioread32((void *)addr) */
-#define DIP_WR32(addr, data)	writel(data, addr) /* [GKI Modify]+ */
-#define DIP_RD32(addr)	readl((void *)addr) /* [GKI Modify]+ */
+/* #define DIP_WR32(addr, data)    iowrite32(data, addr) */
+#define DIP_WR32(addr, data)    mt_reg_sync_writel(data, addr)
+#define DIP_RD32(addr)                  ioread32((void *)addr)
 /**************************************************************
  *
  **************************************************************/
@@ -277,29 +266,20 @@ struct dip_device {
 	int irq;
 };
 
-static struct cmdq_base *dip_clt_base; /* [GKI Modify]+ */
-static struct cmdq_client *dip_clt; /* [GKI Modify]+ */
-#if CHECK_SERVICE_IF_0
-static s32 dip_event_thread0_id; /* [GKI Modify]+ */
-static s32 dip_event_thread1_id; /* [GKI Modify]+ */
-#endif
-
 static struct dip_device *dip_devs;
 static int nr_dip_devs;
 #endif
 
 /*#define AEE_DUMP_BY_USING_ION_MEMORY YWclose*/
-#ifdef CONFIG_MTK_ION /* [GKI Modify]+ */
 #define AEE_DUMP_BY_USING_ION_MEMORY
-#endif
 #define AEE_DUMP_REDUCE_MEMORY
 #ifdef AEE_DUMP_REDUCE_MEMORY
 /* ion */
 
 #ifdef AEE_DUMP_BY_USING_ION_MEMORY
 #include <ion.h>
-/* #include <mtk/ion_drv.h> */ /* [GKI Modify]- */
-/* #include <mtk/mtk_ion.h> */ /* [GKI Modify]- */
+#include <mtk/ion_drv.h>
+#include <mtk/mtk_ion.h>
 
 struct dip_imem_memory {
 	void *handle;
@@ -1785,36 +1765,24 @@ static inline void Prepare_Enable_ccf_clock(void)
 {
 	int ret;
 	/* enable through smi API */
-#ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
 	smi_bus_prepare_enable(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
-#endif
 
-	//ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB5); /* [GKI Modify]- */
-	ret = pm_runtime_get_sync((&dip_devs[0])->dev); /* [GKI Modify]+ */
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_LARB5);
 	if (ret)
 		LOG_ERR("cannot prepare and enable DIP_IMG_LARB5 clock\n");
 
-/* [GKI Modify]- */
-//	ret = clk_prepare_enable(dip_clk.DIP_IMG_DIP);
-//	if (ret)
-//		LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
+	ret = clk_prepare_enable(dip_clk.DIP_IMG_DIP);
+	if (ret)
+		LOG_ERR("cannot prepare and enable DIP_IMG_DIP clock\n");
 
 }
 
 static inline void Disable_Unprepare_ccf_clock(void)
 {
-/* [GKI Modify]- */
-//	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
-//	clk_disable_unprepare(dip_clk.DIP_IMG_LARB5);
-	int ret;
+	clk_disable_unprepare(dip_clk.DIP_IMG_DIP);
+	clk_disable_unprepare(dip_clk.DIP_IMG_LARB5);
 
-	ret = pm_runtime_put_sync((&dip_devs[0])->dev); /* [GKI Modify]+ */
-	if (ret)
-		LOG_ERR("cannot disable DIP_IMG_LARB5 clock\n");
-
-#ifdef CONFIG_MTK_SMI_EXT /* [GKI Modify]+ */
 	smi_bus_disable_unprepare(SMI_LARB5_REG_INDX, DIP_DEV_NAME, true);
-#endif
 }
 
 
@@ -3977,7 +3945,6 @@ static signed int DIP_open(
 
 		/* kernel log limit to (current+150) lines per second */
 	#if (_K_LOG_ADJUST == 1)
-#ifdef CONFIG_LOG_TOO_MUCH_WARNING /* [GKI Modify]+ */
 		DIP_pr_detect_count = get_detect_count();
 		i = DIP_pr_detect_count + 150;
 		set_detect_count(i);
@@ -3987,7 +3954,6 @@ static signed int DIP_open(
 			current->pid,
 			current->tgid);
 		LOG_DBG("log_limit_line(%d), first user\n", i);
-#endif
 	#else
 		LOG_DBG("Curr UserCount(%d)\n", IspInfo.UserCount);
 		LOG_DBG("(process, pid, tgid)=(%s, %d, %d), first user\n",
@@ -4194,9 +4160,7 @@ static signed int DIP_release(
 
 	/* kernel log limit back to default */
 #if (_K_LOG_ADJUST == 1)
-#ifdef CONFIG_LOG_TOO_MUCH_WARNING /* [GKI Modify]+ */
 	set_detect_count(DIP_pr_detect_count);
-#endif
 #endif
 	/*      */
 	LOG_DBG("Curr UserCount(%d), (process, pid, tgid) = (%s, %d, %d)\n",
@@ -4682,27 +4646,13 @@ static signed int DIP_probe(struct platform_device *pDev)
 			IspInfo.IrqCntInfo.m_int_usec[i] = 0;
 		}
 
-		/* [GKI Modify]+ */
-		dip_clt_base = cmdq_register_device(dip_dev->dev);
-		/* [GKI Modify]+ */
-		dip_clt = cmdq_mbox_create(dip_dev->dev, 0);
-#if CHECK_SERVICE_IF_0
-		/* [GKI Modify]+ */
-		dip_event_thread0_id = cmdq_dev_get_event(dip_dev->dev,
-					"dip_event_cq_thread0");
-		/* [GKI Modify]+ */
-		dip_event_thread1_id = cmdq_dev_get_event(dip_dev->dev,
-					"dip_event_cq_thread1");
-#endif
-
 		g_DIP_PMState = 0;
-		pm_runtime_enable(dip_dev->dev); /* [GKI Modify]+ */
-
 EXIT:
 		if (Ret < 0)
 			DIP_UnregCharDev();
 
 	}
+
 	LOG_INF("- X. DIP driver probe.\n");
 
 	return Ret;
@@ -5172,9 +5122,7 @@ static const struct file_operations dip_dump_proc_fops = {
 /**************************************************************
  *
  **************************************************************/
-
-#ifdef CONFIG_MTK_ION /* [GKI Modify]+ */
-#if ifdef CONFIG_MTK_IOMMU_V2
+#ifdef CONFIG_MTK_IOMMU_V2
 enum mtk_iommu_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 	unsigned int mva, void *data)
 #else
@@ -5252,7 +5200,6 @@ enum m4u_callback_ret_t ISP_M4U_TranslationFault_callback(int port,
 	return M4U_CALLBACK_HANDLED;
 #endif
 }
-#endif
 
 static signed int __init DIP_Init(void)
 {
@@ -5368,7 +5315,6 @@ static signed int __init DIP_Init(void)
 		(DIP_BeginGCECallback, DIP_EndGCECallback);
 #endif
 	/* m4u_enable_tf(M4U_PORT_CAM_IMGI, 0);*/
-#ifdef CONFIG_MTK_ION /* [GKI Modify]+ */
 #ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_register_fault_callback(M4U_PORT_IMGI_D1,
 					  ISP_M4U_TranslationFault_callback,
@@ -5398,7 +5344,6 @@ static signed int __init DIP_Init(void)
 			ISP_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_TIMGO_D1,
 			ISP_M4U_TranslationFault_callback, NULL);
-#endif
 #endif
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
@@ -5464,16 +5409,8 @@ int32_t DIP_MDPClockOnCallback(uint64_t engineFlag)
 int32_t DIP_MDPDumpCallback(uint64_t engineFlag, int level)
 {
 	const char *pCmdq1stErrCmd;
-
 	LOG_DBG("DIP_MDPDumpCallback");
-
-	/* [GKI Modify]+ */
-#if CHECK_SERVICE_IF_1
-	pCmdq1stErrCmd = NULL;
-#else
 	pCmdq1stErrCmd = cmdq_core_query_first_err_mod();
-#endif
-
 	if (pCmdq1stErrCmd != NULL) {
 		CMDQ_ERR("Cmdq 1st Error:%s", pCmdq1stErrCmd);
 
