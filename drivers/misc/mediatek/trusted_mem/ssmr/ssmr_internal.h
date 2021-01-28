@@ -141,15 +141,6 @@ static struct SSMR_Scheme _ssmrscheme[__MAX_NR_SCHEME] = {
 
 extern void show_pte(struct mm_struct *mm, unsigned long addr);
 
-#ifdef CONFIG_MTK_ION
-extern void ion_sec_heap_dump_info(void);
-#else
-static inline void ion_sec_heap_dump_info(void)
-{
-	pr_info("%s is not supported\n", __func__);
-}
-#endif
-
 struct SSMR_HEAP_INFO {
 	unsigned int heap_id;
 	char heap_name[NAME_SIZE];
