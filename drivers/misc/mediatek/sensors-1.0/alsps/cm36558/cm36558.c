@@ -1293,6 +1293,9 @@ static int ps_enable_nodata(int en)
 		pr_err("als_enable_nodata is failed!!\n");
 		return -1;
 	}
+	/*Report default ps value(far away) when enable ps*/
+	if (en != 0)
+		ps_data_report(1, 3);
 	return 0;
 }
 
