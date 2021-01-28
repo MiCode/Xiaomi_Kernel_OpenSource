@@ -1438,10 +1438,14 @@ static void __mt_gpufreq_set(unsigned int freq_old, unsigned int freq_new,
 #endif
 	}
 
-	gpufreq_pr_debug(
-		"@%s: real_freq = %d, real_volt = %d, real_vsram_volt = %d\n",
-		__func__, mt_get_ckgen_freq(9), __mt_gpufreq_get_cur_volt(),
-		__mt_gpufreq_get_cur_vsram_volt());
+	/* [Eric] Todo:
+	 * Because clk module is in module init before GKI ready,
+	 * comment their function for now.
+	 */
+	// gpufreq_pr_debug(
+	//	"@%s: real_freq = %d, real_volt = %d, real_vsram_volt = %d\n",
+	//	__func__, mt_get_ckgen_freq(9), __mt_gpufreq_get_cur_volt(),
+	//	__mt_gpufreq_get_cur_vsram_volt());
 
 	g_cur_opp_freq = freq_new;
 	g_cur_opp_volt = volt_new;
@@ -2287,8 +2291,12 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 	GPUFREQ_UNREFERENCED(g_efuse_base);
 	GPUFREQ_UNREFERENCED(__mt_gpufreq_get_opp_idx_by_volt);
 
-	gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
-			__func__, mt_get_ckgen_freq(9));
+	/* [Eric] Todo:
+	 * Because clk module is in module init before GKI ready,
+	 * comment their function for now.
+	 */
+	// gpufreq_pr_info("@%s: gpufreq driver probe, clock is %d KHz\n",
+	//		__func__, mt_get_ckgen_freq(9));
 
 	g_opp_stress_test_state = false;
 	g_DVFS_off_by_ptpod_idx = 0;
