@@ -151,9 +151,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 			int i, j;
 			struct sg_table *table = NULL;
 			int npages = 0;
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-			int ret = 0;
-#endif
 
 			mutex_lock(&client->lock);
 
@@ -161,25 +158,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 
 			table = buffer->sg_table;
 			npages = PAGE_ALIGN(buffer->size) / PAGE_SIZE;
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-			if (sync_type == ION_CACHE_FLUSH_BY_RANGE ||
-			    sync_type == ION_CACHE_FLUSH_BY_RANGE_USE_VA) {
-				mutex_unlock(&client->lock);
-
-				ion_sync_kernel_func = &ion_cache_sync_kernel;
-
-				ret = mt_smp_cache_flush(table,
-							 sync_type,
-							 npages);
-				if (ret < 0) {
-					IONMSG("error in smp_sync_sg_list\n");
-					return -EFAULT;
-				}
-
-				return ret;
-			}
-			{
-#endif
 			mutex_lock(&ion_cache_sync_lock);
 
 			if (!cache_map_vm_st) {
@@ -231,9 +209,6 @@ static long ion_sys_cache_sync(struct ion_client *client,
 
 			mutex_unlock(&ion_cache_sync_lock);
 			mutex_unlock(&client->lock);
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-			}
-#endif
 		} else {
 			start = (unsigned long)param->va;
 			size = param->size;
@@ -325,9 +300,6 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 	struct sg_table *table = NULL;
 	int npages = 0;
 	unsigned long start = -1;
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-	int ret = 0;
-#endif
 
 	struct ion_handle *kernel_handle;
 
@@ -343,24 +315,6 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 
 	table = buffer->sg_table;
 	npages = PAGE_ALIGN(buffer->size) / PAGE_SIZE;
-
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-	if (param->dma_type == ION_DMA_FLUSH_BY_RANGE ||
-	    param->dma_type == ION_DMA_FLUSH_BY_RANGE_USE_VA) {
-		mutex_unlock(&client->lock);
-
-		if (!ion_sync_kernel_func)
-			ion_sync_kernel_func = &ion_cache_sync_flush;
-
-		ret = mt_smp_cache_flush(table, param->dma_type, npages);
-		if (ret < 0) {
-			IONMSG("[smp cache flush] error!!\n");
-			return -EFAULT;
-		}
-
-		return ret;
-	}
-#endif
 	mutex_lock(&ion_cache_sync_lock);
 
 	if (!cache_map_vm_st) {
@@ -414,10 +368,6 @@ long ion_dma_op(struct ion_client *client, struct ion_dma_param *param,
 	mutex_unlock(&client->lock);
 
 	ion_drv_put_kernel_handle(kernel_handle);
-
-#ifdef CONFIG_MTK_CACHE_FLUSH_RANGE_PARALLEL
-	}
-#endif
 	return 0;
 }
 
