@@ -2427,7 +2427,6 @@ PVRSRV_ERROR CacheOpInit2 (void)
 											NULL,
 											CacheOpConfigRead,
 											NULL);
-	PVR_LOG_GOTO_IF_FALSE(gsCwq.pvConfigTune, "OSCreateStatisticEntry", e0);
 
 	/* Register the CacheOp framework (re)configuration handlers */
 	PVRSRVAppHintRegisterHandlersUINT32(APPHINT_ID_CacheOpConfig,
