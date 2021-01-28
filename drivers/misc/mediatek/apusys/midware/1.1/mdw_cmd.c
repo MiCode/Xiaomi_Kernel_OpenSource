@@ -210,6 +210,18 @@ static uint64_t mdw_cmd_get_scr(struct mdw_apu_sc *sc)
 	return scr_bmp;
 }
 
+static int mdw_cmd_hdr_get_status(struct mdw_apu_cmd *c)
+{
+	return ((int)(c->u_hdr->flags & HDR_FlAG_MASK_STATUS_BMP)
+		>> HDR_FLAG_MASK_STATUS_OFS);
+}
+
+static void mdw_cmd_hdr_set_status(struct mdw_apu_cmd *c, int status)
+{
+	c->u_hdr->flags = (c->u_hdr->flags & ~(HDR_FlAG_MASK_STATUS_BMP))
+		| status << HDR_FLAG_MASK_STATUS_OFS;
+}
+
 static void mdw_cmd_set_sc_hdr(struct mdw_apu_sc *sc)
 {
 	/* execution time */
@@ -220,6 +232,10 @@ static void mdw_cmd_set_sc_hdr(struct mdw_apu_sc *sc)
 	sc->u_hdr->bandwidth = sc->bw;
 	/* boost val */
 	sc->u_hdr->boost_val = sc->boost;
+	/* cmd status */
+	if (sc->status)
+		mdw_cmd_hdr_set_status(sc->parent,
+		HDR_FLAG_EXEC_STATUS_HWERROR);
 }
 
 static void *mdw_cmd_get_dev_hdr(struct mdw_apu_sc *sc)
@@ -530,7 +546,7 @@ static struct mdw_apu_sc *mdw_cmd_create_sc(struct mdw_apu_cmd *c)
 	sc->idx = c->parsed_sc_num;
 	sc->pdr_num = mdw_cmd_get_pdr_num(sc);
 	sc->scr_bmp = mdw_cmd_get_scr(sc);
-	sc->runtime = sc->hdr->driver_time;
+	sc->runtime = sc->hdr->ip_time;
 	sc->d_hdr = (void *)((uint64_t)(sc->u_hdr) +
 		sizeof(struct apu_sc_hdr_cmn));
 	if (mdw_cmd_get_codebuf_info(sc))
@@ -588,6 +604,11 @@ static int mdw_cmd_abort_cmd(struct mdw_apu_cmd *c)
 
 	mutex_lock(&c->mtx);
 	c->state = MDW_CMD_STATE_ABORT;
+	if (!mdw_cmd_hdr_get_status(c))
+		mdw_cmd_hdr_set_status(c, HDR_FLAG_EXEC_STATUS_ABORT);
+
+	mdw_flw_debug("exec status in flag(%d)\n", mdw_cmd_hdr_get_status(c));
+
 	list_for_each_safe(list_ptr, tmp, &c->sc_list) {
 		sc = list_entry(list_ptr, struct mdw_apu_sc, cmd_item);
 		list_del(&sc->cmd_item);
