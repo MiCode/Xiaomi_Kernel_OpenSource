@@ -48,24 +48,15 @@
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
-#define CMDQ_COMMON
+
 #ifdef CONFIG_MTK_IOMMU_V2
-#include "mtk_iommu.h"
+#include <mach/mt_iommu.h>
 #else
-#ifndef CMDQ_COMMON
 #include <m4u.h>
 #endif
-#endif
-
 #include <cmdq_core.h>
 #include <cmdq_record.h>
-#ifdef CONFIG_MTK_SMI_EXT
 #include <smi_public.h>
-#endif
-#define TODO
-#ifdef TODO
-/* #include "smi_master_port.h" */
-#endif
 
 /* Measure the kernel performance
  * #define __FDVT_KERNEL_PERFORMANCE_MEASURE__
@@ -88,7 +79,7 @@
 /*  #include "smi_common.h" */
 
 #include <linux/pm_wakeup.h>
-#include <linux/pm_runtime.h>
+
 
 /* CCF */
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
@@ -161,8 +152,8 @@ pr_debug(MyTag "[%s] " format, __func__, ##args)
 // For other projects.
 // #define FDVT_WR32(addr, data)    iowrite32(data, addr)
 // For 89 Only.   // NEED_TUNING_BY_PROJECT
-#define FDVT_WR32(addr, data)    writel(data, addr)
-#define FDVT_RD32(addr)          readl(addr)
+#define FDVT_WR32(addr, data)    mt_reg_sync_writel(data, addr)
+#define FDVT_RD32(addr)          ioread32(addr)
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -253,11 +244,7 @@ struct FDVT_device {
 	void __iomem *regs;
 	struct device *dev;
 	int irq;
-	u16 event_done_id;
 };
-
-static struct cmdq_client *fdvt_clt;
-struct cmdq_base *fdvt_clt_base;
 
 static struct FDVT_device *FDVT_devs;
 static int nr_FDVT_devs;
@@ -1385,60 +1372,6 @@ static bool UpdateFDVT(pid_t *ProcessID)
 }
 
 static signed int ConfigFDVTHW(FDVT_Config *pFdvtConfig)
-#ifdef CMDQ_COMMON
-{
-	/* u16 fdvt_lock_event = CMDQ_ENG_FDVT; */
-	struct cmdq_pkt *pkt;
-
-	pkt = cmdq_pkt_create(fdvt_clt, 0);
-
-	cmdq_pkt_write(pkt, FDVT_WRA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_WRA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_RDA_0_CON3_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_RDA_1_CON3_HW, 0x0, CMDQ_REG_MASK);
-
-	cmdq_pkt_write(pkt, FDVT_WRB_0_CON3_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_WRB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_RDB_0_CON3_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_RDB_1_CON3_HW, 0x0, CMDQ_REG_MASK);
-
-	cmdq_pkt_write(pkt, FDVT_ENABLE_HW, 0x00000111, CMDQ_REG_MASK);
-
-	if (pFdvtConfig->FD_MODE == 0) {
-		cmdq_pkt_write(pkt, FDVT_RS_HW, 0x00000409, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, FDVT_FD_HW, 0x04000042, CMDQ_REG_MASK);
-	} else if (pFdvtConfig->FD_MODE == 1) {
-		cmdq_pkt_write(pkt, FDVT_RS_HW, 0x00000403, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, FDVT_FD_HW, 0x04000012, CMDQ_REG_MASK);
-	} else if (pFdvtConfig->FD_MODE == 2) {
-		cmdq_pkt_write(pkt, FDVT_RS_HW, 0x00000403, CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, FDVT_FD_HW, 0x04000012, CMDQ_REG_MASK);
-	}
-
-	cmdq_pkt_write(pkt, FDVT_RPN_HW, 0x0, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_YUV2RGB_HW,
-		pFdvtConfig->FDVT_YUV2RGB, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_YUV_SRC_WD_HT_HW,
-		pFdvtConfig->FDVT_YUV_SRC_WD_HT, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
-
-	cmdq_pkt_write(pkt, FDVT_RSCON_BASE_ADR_HW,
-		pFdvtConfig->FDVT_RSCON_BASE_ADR, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_FD_CON_BASE_ADR_HW,
-		pFdvtConfig->FDVT_FD_CON_BASE_ADR, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_YUV2RGBCON_BASE_ADR_HW,
-		pFdvtConfig->FDVT_YUV2RGBCON_BASE_ADR, CMDQ_REG_MASK);
-	cmdq_pkt_write(pkt, FDVT_FD_RLT_BASE_ADR_HW, 0x0, CMDQ_REG_MASK);
-
-	cmdq_pkt_write(pkt, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
-	cmdq_pkt_wfe(pkt, (&(FDVT_devs[0]))->event_done_id);
-	cmdq_pkt_write(pkt, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
-
-	cmdq_pkt_flush(pkt);
-	cmdq_pkt_destroy(pkt);
-	return 0;
-}
-#else
 #if !BYPASS_REG
 {
 #ifdef FDVT_USE_GCE
@@ -1542,7 +1475,6 @@ static signed int ConfigFDVTHW(FDVT_Config *pFdvtConfig)
 {
 	return 0;
 }
-#endif
 #endif
 
 #ifndef FDVT_USE_GCE
@@ -1721,9 +1653,7 @@ static inline void FDVT_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		log_err("cannot prepare and enable CG_IMGSYS_LARB clock\n");
 #else
-#ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_prepare_enable(SMI_LARB8_REG_INDX, "camera-fdvt", true);
-#endif
 #endif
 
 	ret = clk_prepare_enable(fdvt_clk.CG_IPESYS_FD);
@@ -1753,9 +1683,7 @@ static inline void FDVT_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(fdvt_clk.CG_MM_SMI_COMMON);
 	clk_disable_unprepare(fdvt_clk.CG_SCP_SYS_MM0);
 #else
-#ifdef CONFIG_MTK_SMI_EXT
 	smi_bus_disable_unprepare(SMI_LARB8_REG_INDX, "camera-fdvt", true);
-#endif
 #endif
 }
 #endif
@@ -1777,8 +1705,7 @@ static void FDVT_EnableClock(bool En)
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
-			/*FDVT_Prepare_Enable_ccf_clock();*/
-			pm_runtime_get_sync((&(FDVT_devs[0]))->dev);
+			FDVT_Prepare_Enable_ccf_clock();
 #else
 			/* Enable clock by hardcode:
 			 * 1. CAMSYS_CG_CLR (0x1A000008) = 0xffffffff;
@@ -1817,8 +1744,7 @@ static void FDVT_EnableClock(bool En)
 		case 0:
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
-			/* FDVT_Disable_Unprepare_ccf_clock(); */
-			pm_runtime_put_sync((&(FDVT_devs[0]))->dev);
+			FDVT_Disable_Unprepare_ccf_clock();
 #else
 			/* Disable clock by hardcode:
 			 *  1. CAMSYS_CG_SET (0x1A000004) = 0xffffffff;
@@ -3288,7 +3214,6 @@ static const struct file_operations FDVTFileOper = {
 /**************************************************************
  *
  **************************************************************/
-#ifndef TODO
 #ifdef CONFIG_MTK_IOMMU_V2
 enum mtk_iommu_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 	unsigned int mva, void *data)
@@ -3327,7 +3252,6 @@ enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 	return M4U_CALLBACK_HANDLED;
 #endif
 }
-#endif
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -3490,10 +3414,6 @@ static signed int FDVT_probe(struct platform_device *pDev)
 			FDVT_dev->irq);
 		}
 
-		if (of_property_read_u16(pDev->dev.of_node,
-			"fdvt_event_done",
-			&FDVT_dev->event_done_id))
-			return -ENODEV;
 
 	} else {
 		log_inf("No IRQ!!: nr_FDVT_devs=%d, devnode(%s), irq=%d\n",
@@ -3646,13 +3566,6 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		/*  */
 		FDVTInfo.IrqInfo.Mask[FDVT_IRQ_TYPE_INT_FDVT_ST] =
 			INT_ST_MASK_FDVT;
-
-		fdvt_clt_base = cmdq_register_device(FDVT_dev->dev);
-		fdvt_clt = cmdq_mbox_create(FDVT_dev->dev, 0, 1000);
-		/* event_done_id = */
-		/* cmdq_dev_get_event(FDVT_dev->dev, "fdvt_event_done");*/
-
-		pm_runtime_enable(FDVT_dev->dev);
 
 	}
 
@@ -4163,7 +4076,7 @@ static signed int __init FDVT_Init(void)
 		tmp = (void *)((char *)tmp + NORMAL_STR_LEN);
 	}
 
-#ifndef TODO
+
 #ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_register_fault_callback(M4U_PORT_FDVT_RDA,
 					  FDVT_M4U_TranslationFault_callback,
@@ -4187,7 +4100,7 @@ static signed int __init FDVT_Init(void)
 	m4u_register_fault_callback(M4U_PORT_FDVT_WRB,
 			FDVT_M4U_TranslationFault_callback, NULL);
 #endif
-#endif
+
 	log_dbg("- X. Ret: %d.", Ret);
 	return Ret;
 }
