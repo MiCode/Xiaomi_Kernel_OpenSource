@@ -56,40 +56,6 @@ long gro_flush_timer;
 #define APP_VIP_MARK		0x80000000
 
 /********************internal function*********************/
-static void ccmni_make_etherframe(int md_id, struct net_device *dev,
-	void *_eth_hdr, unsigned char *mac_addr, unsigned int packet_type)
-{
-	struct ethhdr *eth_hdr = _eth_hdr;
-	static unsigned char dest_mac[6] = {
-		0x0a, 0x1a, 0x2a, 0x3a, 0x4a, 0x5a };
-	static unsigned char src_mac[6] = {
-		0x06, 0x16, 0x26, 0x36, 0x46, 0x56 };
-	struct net_device *br_dev = NULL;
-
-	if (IS_CCMNI_LAN(dev)) {
-		memcpy(eth_hdr->h_source, src_mac, sizeof(eth_hdr->h_source));
-
-		br_dev = __dev_get_by_name(dev_net(dev), "mdbr0");
-		if (br_dev) {
-			memcpy(eth_hdr->h_dest, br_dev->dev_addr,
-				sizeof(eth_hdr->h_dest));
-		} else {
-			CCMNI_DBG_MSG(md_id,
-				"%s can't find mdbr0\n", dev->name);
-			memcpy(eth_hdr->h_dest, dest_mac,
-				sizeof(eth_hdr->h_dest));
-		}
-	} else {
-		memcpy(eth_hdr->h_dest, mac_addr, sizeof(eth_hdr->h_dest));
-		memset(eth_hdr->h_source, 0, sizeof(eth_hdr->h_source));
-	}
-
-	if (packet_type == 0x60)
-		eth_hdr->h_proto = cpu_to_be16(ETH_P_IPV6);
-	else
-		eth_hdr->h_proto = cpu_to_be16(ETH_P_IP);
-}
-
 static inline int is_ack_skb(int md_id, struct sk_buff *skb)
 {
 	u32 packet_type;
@@ -1067,24 +1033,19 @@ static inline void ccmni_dev_init(int md_id, struct net_device *dev)
 #ifdef ENABLE_NAPI_GRO
 		dev->features |= NETIF_F_GRO;
 		dev->hw_features |= NETIF_F_GRO;
-#else
-		/*
-		 * check gro_list_prepare,
-		 * GRO needs hard_header_len == ETH_HLEN.
-		 * CCCI header can use ethernet header and
-		 * padding bytes' region.
-		 */
-		dev->hard_header_len += sizeof(struct ccci_header);
 #endif
 	} else {
 #ifdef ENABLE_WQ_GRO
 		dev->features |= NETIF_F_GRO;
 		dev->hw_features |= NETIF_F_GRO;
-#else
-		dev->hard_header_len += sizeof(struct ccci_header);
 #endif
 	}
-	dev->addr_len = ETH_ALEN; /* ethernet header size */
+	/* check gro_list_prepare
+	 * when skb hasn't ethernet header,
+	 * GRO needs hard_header_len == 0.
+	 */
+	dev->hard_header_len = 0;
+	dev->addr_len = 0;        /* hasn't ethernet header */
 	dev->priv_destructor = free_netdev;
 	dev->netdev_ops = &ccmni_netdev_ops;
 	random_ether_addr((u8 *) dev->dev_addr);
@@ -1389,10 +1350,12 @@ static int ccmni_rx_callback(int md_id, int ccmni_idx, struct sk_buff *skb,
 	dev = ccmni->dev;
 
 	pkt_type = skb->data[0] & 0xF0;
-	ccmni_make_etherframe(md_id, dev, skb->data - ETH_HLEN, dev->dev_addr,
-		pkt_type);
-	skb_set_mac_header(skb, -ETH_HLEN);
+
+	skb_reset_transport_header(skb);
 	skb_reset_network_header(skb);
+	skb_set_mac_header(skb, 0);
+	skb_reset_mac_len(skb);
+
 	skb->dev = dev;
 	if (pkt_type == 0x60)
 		skb->protocol  = htons(ETH_P_IPV6);
