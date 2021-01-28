@@ -23,6 +23,7 @@ endif
 
 obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			disp_assert_layer.o	\
+			disp_pm_qos.o	\
 			mtkfb.o			\
 			mtkfb_fence.o		\
 			fbconfig_kdebug.o	\
@@ -62,7 +63,10 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/video/include/     \
              -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
              -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/ \
-             -I$(srctree)/drivers/iommu/
+             -I$(srctree)/drivers/iommu/  \
+             -I$(srctree)/drivers/misc/mediatek/mmdvfs \
+             -I$(srctree)/drivers/devfreq	\
+             -I$(srctree)/include/linux/soc/mediatek
 
 ifeq ($(CONFIG_MTK_ION), y)
 subdir-ccflags-y += -I$(srctree)/drivers/staging/android/mtk_ion \

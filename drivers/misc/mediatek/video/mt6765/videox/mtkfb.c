@@ -2642,14 +2642,6 @@ static int mtkfb_probe(struct platform_device *pdev)
 #endif
 	fbdev->state = MTKFB_ACTIVE;
 
-#ifdef CONFIG_MTK_ECCCI_DRIVER
-	if (!strcmp(mtkfb_find_lcm_driver(),
-		"nt35521_hd_dsi_vdo_truly_rt5081_drv")) {
-		register_ccci_sys_call_back(MD_SYS1,
-			MD_DISPLAY_DYNAMIC_MIPI, mipi_clk_change);
-	}
-#endif
-
 	MSG_FUNC_LEAVE();
 	pr_info("disp driver(2) mtkfb_probe end\n");
 	return 0;

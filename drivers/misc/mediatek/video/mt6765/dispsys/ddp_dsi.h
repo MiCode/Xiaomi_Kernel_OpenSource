@@ -208,7 +208,8 @@ int dsi_enable_irq(enum DISP_MODULE_ENUM module, void *handle,
 	unsigned int enable);
 int ddp_dsi_power_on(enum DISP_MODULE_ENUM module, void *cmdq_handle);
 int dsi_basic_irq_enable(enum DISP_MODULE_ENUM module, void *cmdq);
-extern int mipi_clk_change(int msg, int en);
+extern int mipi_clk_change(enum DISP_MODULE_ENUM module, int en);
+
 extern int mipi_clk_change_by_data_rate(int en, int mipi_data_rate);
 unsigned int _is_power_on_status(enum DISP_MODULE_ENUM module);
 int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
@@ -216,9 +217,22 @@ int ddp_dsi_read_lcm_cmdq(enum DISP_MODULE_ENUM module,
 		struct cmdqRecStruct *cmdq_trigger_handle,
 		struct ddp_lcm_read_cmd_table *read_table);
 int ddp_dsi_write_lcm_cmdq(enum DISP_MODULE_ENUM module,
-		struct cmdqRecStruct *cmdq,
-		unsigned char cmd, unsigned char count,
-		unsigned char *para_list);
+	struct cmdqRecStruct *cmdq, unsigned  char cmd_char,
+	unsigned char count, unsigned char *para_list);
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*-------------------------------DynFPS start------------------------------*/
+unsigned int ddp_dsi_fps_change_index(unsigned int last_dynfps, unsigned int new_dynfps);
+void ddp_dsi_dynfps_chg_fps(enum DISP_MODULE_ENUM module, void *handle,
+	unsigned int last_fps, unsigned int new_fps, unsigned int chg_index);
+void ddp_dsi_dynfps_get_vfp_info(unsigned int disp_fps,
+	unsigned int *vfp, unsigned int *vfp_for_lp);
+void DSI_dynfps_send_cmd(void *cmdq, unsigned int cmd,
+	unsigned char count, unsigned char *para_list,
+	unsigned char force_update);
+/*-------------------------------DynFPS end------------------------------*/
+#endif
+
 
 #ifdef __cplusplus
 }

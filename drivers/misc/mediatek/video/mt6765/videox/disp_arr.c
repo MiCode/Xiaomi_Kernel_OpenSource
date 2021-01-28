@@ -41,6 +41,9 @@
 #include "disp_arr.h"
 #include "primary_display.h"
 
+static struct mutex cb_table_lock;
+#define DISP_MAX_FPSCHG_CALLBACK 5
+static FPS_CHG_CALLBACK fps_chg_callback_table[DISP_MAX_FPSCHG_CALLBACK];
 
 /* used by ARR2.0 */
 int primary_display_get_cur_refresh_rate(void)
@@ -94,3 +97,15 @@ int primary_display_set_refresh_rate(unsigned int refresh_rate)
 	return ret;
 }
 
+void disp_invoke_fps_chg_callbacks(unsigned int new_fps)
+{
+	unsigned int i = 0;
+
+	DISPMSG("[fps]: %s,new_fps =%d\n", __func__, new_fps);
+	mutex_lock(&cb_table_lock);
+	for (i = 0; i < DISP_MAX_FPSCHG_CALLBACK; i++) {
+		if (fps_chg_callback_table[i])
+			fps_chg_callback_table[i](new_fps);
+	}
+	mutex_unlock(&cb_table_lock);
+}

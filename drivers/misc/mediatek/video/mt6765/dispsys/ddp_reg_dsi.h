@@ -341,6 +341,11 @@ struct DSI_PHY_SYNCON_REG {
 	unsigned rsv25:7;
 };
 
+#define FLD_LPX			REG_FLD_MSB_LSB(7, 0)
+#define FLD_HS_PRPR		REG_FLD_MSB_LSB(15, 8)
+#define FLD_HS_ZERO		REG_FLD_MSB_LSB(23, 16)
+#define FLD_HS_TRAIL	REG_FLD_MSB_LSB(31, 24)
+
 struct DSI_PHY_TIMCON0_REG {
 	unsigned char LPX;
 	unsigned char HS_PRPR;
@@ -348,12 +353,21 @@ struct DSI_PHY_TIMCON0_REG {
 	unsigned char HS_TRAIL;
 };
 
+#define FLD_TA_GO		REG_FLD_MSB_LSB(7, 0)
+#define FLD_TA_SURE		REG_FLD_MSB_LSB(15, 8)
+#define FLD_TA_GET		REG_FLD_MSB_LSB(23, 16)
+#define FLD_DA_HS_EXIT		REG_FLD_MSB_LSB(31, 24)
 struct DSI_PHY_TIMCON1_REG {
 	unsigned char TA_GO;
 	unsigned char TA_SURE;
 	unsigned char TA_GET;
 	unsigned char DA_HS_EXIT;
 };
+
+#define FLD_CONT_DET		REG_FLD_MSB_LSB(7, 0)
+#define FLD_DA_HS_SYNC		REG_FLD_MSB_LSB(15, 8)
+#define FLD_CLK_ZERO		REG_FLD_MSB_LSB(23, 16)
+#define FLD_CLK_TRAIL		REG_FLD_MSB_LSB(31, 24)
 
 struct DSI_PHY_TIMCON2_REG {
 	unsigned char CONT_DET;
@@ -362,11 +376,44 @@ struct DSI_PHY_TIMCON2_REG {
 	unsigned char CLK_TRAIL;
 };
 
+#define FLD_CLK_HS_PRPR		REG_FLD_MSB_LSB(7, 0)
+#define FLD_CLK_HS_POST		REG_FLD_MSB_LSB(15, 8)
+#define FLD_CLK_HS_EXIT		REG_FLD_MSB_LSB(23, 16)
+
 struct DSI_PHY_TIMCON3_REG {
 	unsigned char CLK_HS_PRPR;
 	unsigned char CLK_HS_POST;
 	unsigned char CLK_HS_EXIT;
 	unsigned rsv24:8;
+};
+
+struct DSI_CPHY_CON0_REG {
+	unsigned CPHY_EN:1;
+	unsigned SETTLE_SKIP_EN:1;
+	unsigned PROGSEQ_SKIP_EN:1;
+	unsigned rsv_3:1;
+	unsigned CPHY_PROGSEQMSB:10;
+	unsigned RG_CPHY_LP_RX_B_IGNORE_EN:1;
+	unsigned rsv_15:1;
+	unsigned CPHY_INIT_STATE:9;
+	unsigned rsv_25:3;
+	unsigned CPHY_CONTI_CLK:4;
+};
+
+struct DSI_CPHY_CON1_REG {
+	unsigned CPHY_PROGSEQLSB:32;
+};
+
+struct DSI_CPHY_DBG0_REG {
+	unsigned CPHYHS_STATE_DA0:9;
+	unsigned rsv_9:7;
+	unsigned CPHYHS_STATE_DA1:9;
+	unsigned rsv_25:7;
+};
+
+struct DSI_CPHY_DBG1_REG {
+	unsigned CPHYHS_STATE_DA2:9;
+	unsigned rsv_9:23;
 };
 
 struct DSI_VM_CMD_CON_REG {
@@ -578,7 +625,11 @@ struct DSI_REGS {
 	struct DSI_PHY_TIMCON1_REG DSI_PHY_TIMECON1;	/* 0114 */
 	struct DSI_PHY_TIMCON2_REG DSI_PHY_TIMECON2;	/* 0118 */
 	struct DSI_PHY_TIMCON3_REG DSI_PHY_TIMECON3;	/* 011C */
-	UINT32 rsv_0120[4];	/* 0120..012c */
+	struct DSI_CPHY_CON0_REG DSI_CPHY_CON0;		/* 0x120 */
+	struct DSI_CPHY_CON1_REG DSI_CPHY_CON1;		/* 0x124 */
+	struct DSI_CPHY_DBG0_REG DSI_CPHY_DBG0;		/* 0x128 */
+	struct DSI_CPHY_DBG1_REG DSI_CPHY_DBG1;		/* 0x12C */
+	//UINT32 rsv_0120[4];	/* 0120..012c */
 	struct DSI_VM_CMD_CON_REG DSI_VM_CMD_CON;	/* 0130 */
 	UINT32 DSI_VM_CMD_DATA0;	/* 0134 */
 	UINT32 DSI_VM_CMD_DATA4;	/* 0138 */

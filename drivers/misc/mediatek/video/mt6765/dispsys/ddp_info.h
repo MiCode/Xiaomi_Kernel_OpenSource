@@ -372,6 +372,10 @@ struct disp_ddp_path_config {
 	int hrt_scale;
 	int sbch_enable;
 	int read_dum_reg[OVL_NUM];
+
+	/*DynFPS*/
+	unsigned int last_dynfps;
+	unsigned int dynfps;
 };
 
 struct rx_data {
@@ -416,6 +420,8 @@ enum DDP_IOCTL_NAME {
 	DDP_DSI_MIPI_POWER_ON,
 	DDP_OVL_MVA_REPLACEMENT,
 	DDP_DSI_ENABLE_TE,
+	DDP_DSI_ENTER_IDLE,
+	DDP_DSI_EXIT_IDLE
 };
 
 struct ddp_io_golden_setting_arg {

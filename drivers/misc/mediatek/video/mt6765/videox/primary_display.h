@@ -88,6 +88,8 @@ extern unsigned int ap_fps_changed;
 extern unsigned int arr_fps_backup;
 extern unsigned int arr_fps_enable;
 extern unsigned int round_corner_offset_enable;
+extern bool g_force_cfg;
+extern unsigned int g_force_cfg_id;
 
 struct DISP_LAYER_INFO {
 	unsigned int id;
@@ -234,6 +236,16 @@ struct OPT_BACKUP {
 	int value;
 };
 
+#define LCM_FPS_ARRAY_SIZE	32
+struct lcm_fps_ctx_t {
+	int is_inited;
+	struct mutex lock;
+	unsigned int dsi_mode;
+	unsigned int head_idx;
+	unsigned int num;
+	unsigned long long last_ns;
+	unsigned long long array[LCM_FPS_ARRAY_SIZE];
+};
 /* AOD */
 enum lcm_power_state {
 	LCM_OFF = 0,
@@ -291,7 +303,11 @@ struct display_primary_path_context {
 	cmdqBackupSlotHandle ovl_config_time;
 	cmdqBackupSlotHandle dither_status_info;
 	cmdqBackupSlotHandle dsi_vfp_line;
+	cmdqBackupSlotHandle dsi_vfp_changed;
+	cmdqBackupSlotHandle next_working_fps;
 	cmdqBackupSlotHandle night_light_params;
+	cmdqBackupSlotHandle hrt_idx_id;
+	cmdqBackupSlotHandle trigger_record_slot;
 
 	int is_primary_sec;
 	int primary_display_scenario;
@@ -300,6 +316,18 @@ struct display_primary_path_context {
 #endif
 	enum mtkfb_power_mode pm;
 	enum lcm_power_state lcm_ps;
+	/*DynFPS start*/
+	unsigned int current_disp_fps;
+	unsigned int req_new_disp_fps;
+	bool dynfps_update_hrt;
+	bool dynfps_update_mmdvfs;
+	bool dynfps_update_golden;
+	int active_cfg;
+	cmdqBackupSlotHandle config_id_slot;
+	unsigned int first_cfg;
+	struct mutex dynfps_lock;
+	struct multi_configs multi_cfg_table;
+	/*DynFPS end*/
 };
 
 static inline char *lcm_power_state_to_string(enum lcm_power_state ps)
@@ -509,6 +537,36 @@ int primary_display_config_full_roi(struct disp_ddp_path_config *pconfig,
 int primary_display_set_scenario(int scenario);
 enum DISP_MODULE_ENUM _get_dst_module_by_lcm(struct disp_lcm_handle *plcm);
 extern void check_mm0_clk_sts(void);
+int primary_display_is_directlink_mode(void);
+#ifdef MTK_FB_MMDVFS_SUPPORT
+int primary_display_get_dvfs_last_req(void);
+#endif
+
+extern struct lcm_fps_ctx_t lcm_fps_ctx;
+int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx);
+int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx);
+int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx,
+		unsigned long long cur_ns);
+
+unsigned int primary_display_get_current_disp_fps(void);
+int primary_display_get_dvfs_last_req(void);
+/**************function for DynFPS start************************/
+unsigned int primary_display_is_support_DynFPS(void);
+unsigned int primary_display_get_default_disp_fps(int need_lock);
+unsigned int primary_display_get_def_timing_fps(int need_lock);
+int primary_display_get_cfg_fps(
+	int config_id, unsigned int *fps, unsigned int *vact_timing_fps);
+unsigned int primary_display_get_current_cfg_id(void);
+void primary_display_update_cfg_id(int cfg_id);
+void primary_display_init_multi_cfg_info(void);
+int primary_display_get_multi_configs(struct multi_configs *p_cfgs);
+void primary_display_dynfps_chg_fps(int cfg_id);
+unsigned int primary_display_is_support_ARR(void);
+unsigned int primary_display_get_vfp(unsigned int fps);
+unsigned int primary_display_get_current_cfg_id(void);
+
+void primary_display_dynfps_get_vfp_info(
+	unsigned int *vfp, unsigned int *vfp_for_lp);
 
 extern unsigned int dump_output;
 extern unsigned int dump_output_comp;

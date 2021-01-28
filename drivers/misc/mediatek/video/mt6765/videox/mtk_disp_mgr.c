@@ -95,6 +95,12 @@ static dev_t mtk_disp_mgr_devno;
 static struct cdev *mtk_disp_mgr_cdev;
 static struct class *mtk_disp_mgr_class;
 
+/*---------------- variable for repaint start ------------------*/
+static DEFINE_MUTEX(repaint_queue_lock);
+static DECLARE_WAIT_QUEUE_HEAD(repaint_wq);
+static LIST_HEAD(repaint_job_queue);
+static LIST_HEAD(repaint_job_pool);
+
 static int mtk_disp_mgr_open(struct inode *inode, struct file *file)
 {
 	return 0;
@@ -119,6 +125,15 @@ static int mtk_disp_mgr_flush(struct file *a_pstFile, fl_owner_t a_id)
 int _session_inited(struct disp_session_config config)
 {
 	return 0;
+}
+
+int disp_mgr_has_mem_session(void)
+{
+#if defined(MTK_FB_SHARE_WDMA0_SUPPORT)
+	return has_memory_session;
+#else
+	return 0;
+#endif
 }
 
 int disp_create_session(struct disp_session_config *config)
@@ -1175,6 +1190,13 @@ int _ioctl_get_display_caps(unsigned long arg)
 						RSZ_ALIGNMENT_MARGIN;
 		caps_info.rsz_in_max[1] = RSZ_IN_MAX_HEIGHT;
 	}
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		/*DynFPS*/
+		if (primary_display_is_support_DynFPS()) {
+			caps_info.disp_feature |= DISP_FEATURE_DYNFPS;
+			DISPMSG("%s,support DynFPS feature\n", __func__);
+		}
+#endif
 
 	if (copy_to_user(argp, &caps_info, sizeof(caps_info))) {
 		DISPERR("[FB]: copy_to_user failed! line:%d\n",
@@ -1356,6 +1378,39 @@ int set_session_mode(struct disp_session_config *config_info, int force)
 	return ret;
 }
 
+void trigger_repaint(int type)
+{
+	if (type > WAIT_FOR_REFRESH && type < REFRESH_TYPE_NUM) {
+		struct repaint_job_t *repaint_job;
+
+		/* get a repaint_job_t from pool */
+		mutex_lock(&repaint_queue_lock);
+		if (!list_empty(&repaint_job_pool)) {
+			repaint_job = list_first_entry(&repaint_job_pool,
+				struct repaint_job_t, link);
+			list_del_init(&repaint_job->link);
+		} else { /* create repaint_job_t if pool is empty */
+			repaint_job = kzalloc(sizeof(struct repaint_job_t),
+				GFP_KERNEL);
+			if (IS_ERR_OR_NULL(repaint_job)) {
+				disp_aee_print("allocate repaint_job_t fail\n");
+				return;
+			}
+			INIT_LIST_HEAD(&repaint_job->link);
+			DISPMSG("[REPAINT] allocate a new repaint_job_t\n");
+		}
+
+		/* init & insert repaint_job_t into queue */
+		repaint_job->type = type;
+		list_add_tail(&repaint_job->link, &repaint_job_queue);
+		mutex_unlock(&repaint_queue_lock);
+
+		DISPMSG("[REPAINT] insert repaint_job in queue, type:%d\n",
+				type);
+		wake_up_interruptible(&repaint_wq);
+	}
+}
+
 int _ioctl_set_session_mode(unsigned long arg)
 {
 	int ret = -1;
@@ -1378,7 +1433,38 @@ int _ioctl_set_session_mode(unsigned long arg)
 	}
 	return ret;
 }
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+/*--------------------------DynFPS start-------------------*/
+int _ioctl_get_multi_configs(unsigned long arg)
+{
+	int ret = 0;
+	void __user *argp = (void __user *)arg;
+	struct multi_configs multi_cfgs;
 
+	if (copy_from_user(&multi_cfgs,
+			argp, sizeof(multi_cfgs))) {
+		DISPINFO("[dfps] copy_from_user failed! line:%d\n",
+			__LINE__);
+		return -EFAULT;
+	}
+
+	ret = primary_display_get_multi_configs(&multi_cfgs);
+
+	if (ret != 0) {
+		DISPINFO("[dfps] %s fail! line:%d\n", __func__, __LINE__);
+		ret = -EFAULT;
+		return ret;
+	}
+	if (copy_to_user(argp, &multi_cfgs, sizeof(multi_cfgs))) {
+		DISPINFO("[dfps] copy_to_user failed! line:%d\n", __LINE__);
+		ret = -EFAULT;
+	}
+
+	return ret;
+
+}
+/*--------------------------DynFPS end-------------------*/
+#endif
 const char *_session_ioctl_spy(unsigned int cmd)
 {
 	switch (cmd) {
@@ -1460,6 +1546,8 @@ const char *_session_ioctl_spy(unsigned int cmd)
 		return "DISP_IOCTL_QUERY_VALID_LAYER";
 	case DISP_IOCTL_FRAME_CONFIG:
 		return "DISP_IOCTL_FRAME_CONFIG";
+	case DISP_IOCTL_GET_MULTI_CONFIGS:
+		return "DISP_IOCTL_GET_MULTI_CONFIGS";
 	default:
 		{
 			return "unknown";
@@ -1536,6 +1624,12 @@ long mtk_disp_mgr_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case DISP_IOCTL_SET_SCENARIO:
 	{
 		return _ioctl_set_scenario(arg);
+	}
+	case DISP_IOCTL_GET_MULTI_CONFIGS:
+	{
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		return _ioctl_get_multi_configs(arg);
+#endif
 	}
 	case DISP_IOCTL_AAL_EVENTCTL:
 	case DISP_IOCTL_AAL_GET_HIST:

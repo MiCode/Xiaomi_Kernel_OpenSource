@@ -47,8 +47,11 @@ unsigned int is_mipi_enterulps(void);
 /* read dsi regs to calculate clk */
 unsigned int get_mipi_clk(void);
 
+void hrt_bw_sync_idx(unsigned int cur_idx);
 int primary_display_request_dvfs_perf(
 	int scenario, int req, unsigned int freq_req);
+unsigned long long disp_lp_set_idle_check_interval(
+	unsigned long long new_interval);
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)

@@ -134,6 +134,8 @@ static struct {
 	{DISP_OPT_OVL_SBCH, 0, "DISP_OPT_OVL_SBCH"},
 	{DISP_OPT_GMO_OPTIMIZE, 0, "DISP_OPT_GMO_OPTIMIZE"},
 	{DISP_OPT_TUI_MODE, 0, "DISP_OPT_TUI_MODE"},
+	/*DynFPS*/
+	{DISP_OPT_DYNAMIC_FPS, 0, "DISP_OPT_DYNAMIC_FPS"},
 };
 
 const char *disp_helper_option_spy(enum DISP_HELPER_OPT option)
@@ -415,6 +417,8 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_DSI_UNDERRUN_AEE, 1);
 	disp_helper_set_option(DISP_OPT_RDMA_UNDERFLOW_AEE, 1);
 	disp_helper_set_option(DISP_OPT_TUI_MODE, 0);
+	/*DynFPS*/
+	disp_helper_set_option(DISP_OPT_DYNAMIC_FPS, 1);
 }
 
 int disp_helper_get_option_list(char *stringbuf, int buf_len)

@@ -1404,6 +1404,38 @@ static void process_dbg_opt(const char *opt)
 		primary_display_basic_test(layer_num, layer_en_mask,
 			w, h, fmt, frame_num, vsync_num,
 			x, y, r, g, b, a, mode, cksum);
+	} else if (!strncmp(opt, "set_cfg_id:", 11)) {
+		char *p = (char *)opt + 11;
+		unsigned int cfg_id = 0;
+
+		ret = kstrtouint(p, 10, &cfg_id);
+		DDPMSG("debug:set_cfg_id:%d start\n", cfg_id);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		primary_display_dynfps_chg_fps(cfg_id);
+#endif
+		g_force_cfg_id = cfg_id;
+		DDPMSG("debug:set_cfg_id:%d end\n", cfg_id);
+	} else if (!strncmp(opt, "enable_force_fps:", 17)) {
+		char *p = (char *)opt + 17;
+		unsigned int enable_force_fps = 0;
+
+		ret = kstrtouint(p, 10, &enable_force_fps);
+		g_force_cfg = !!enable_force_fps;
+		DDPMSG("debug:g_force_cfg:%d\n", g_force_cfg);
+	} else if (!strncmp(opt, "get_multi_cfg", 13)) {
+		struct multi_configs cfgs;
+		unsigned int i = 0;
+		struct dyn_config_info *dyn_info = NULL;
+
+		memset(&cfgs, 0, sizeof(cfgs));
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+		primary_display_get_multi_configs(&cfgs);
+#endif
+		DISPMSG("debug:get_multi_cfg:=%d\n", cfgs.config_num);
+		for (i = 0; i < cfgs.config_num; i++) {
+			dyn_info = &(cfgs.dyn_cfgs[i]);
+			DISPMSG("debug:%d,%dfps\n", i, dyn_info->vsyncFPS);
+		}
 	}
 
 	if (strncmp(opt, "pan_disp_test:", 13) == 0) {

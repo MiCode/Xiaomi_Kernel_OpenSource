@@ -130,6 +130,7 @@ struct layering_rule_info_t {
 	int primary_fps;
 	int hrt_sys_state;
 	int wrot_sram;
+	unsigned int hrt_idx;
 };
 
 struct layering_rule_ops {

@@ -24,6 +24,13 @@
 #include "disp_dts_gpio.h"
 #endif
 
+#ifdef BUILD_LK
+#define LCM_LOGI(string, args...)  dprintf(0, "[LK/"LOG_TAG"]"string, ##args)
+#define LCM_LOGD(string, args...)  dprintf(1, "[LK/"LOG_TAG"]"string, ##args)
+#else
+#define LCM_LOGI(fmt, args...)  pr_debug("[KERNEL/"LOG_TAG"]"fmt, ##args)
+#define LCM_LOGD(fmt, args...)  pr_debug("[KERNEL/"LOG_TAG"]"fmt, ##args)
+#endif
 
 #define LCM_ID (0x98)
 
@@ -48,6 +55,11 @@ static struct LCM_UTIL_FUNCS lcm_util;
 	  lcm_util.dsi_dcs_read_lcm_reg(cmd)
 #define read_reg_v2(cmd, buffer, buffer_size) \
 		lcm_util.dsi_dcs_read_lcm_reg_v2(cmd, buffer, buffer_size)
+	/*DynFPS*/
+#define dfps_dsi_send_cmd( \
+			cmdq, cmd, count, para_list, force_update) \
+			lcm_util.dsi_dynfps_send_cmd( \
+			cmdq, cmd, count, para_list, force_update)
 
 #ifndef BUILD_LK
 #include <linux/kernel.h>
@@ -308,6 +320,65 @@ static struct LCM_setting_table bl_level[] = {
 	{REGFLAG_END_OF_TABLE, 0x00, {} }
 };
 
+/*******************Dynfps start*************************/
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+
+#define DFPS_MAX_CMD_NUM 10
+
+struct LCM_dfps_cmd_table {
+	bool need_send_cmd;
+	struct LCM_setting_table prev_f_cmd[DFPS_MAX_CMD_NUM];
+};
+
+static struct LCM_dfps_cmd_table
+	dfps_cmd_table[DFPS_LEVELNUM][DFPS_LEVELNUM] = {
+
+/**********level 0 to 0,1 cmd*********************/
+[DFPS_LEVEL0][DFPS_LEVEL0] = {
+	false,
+	/*prev_frame cmd*/
+	{
+	{REGFLAG_END_OF_TABLE, 0x00, {} },
+	},
+},
+/*60->90*/
+[DFPS_LEVEL0][DFPS_LEVEL1] = {
+	true,
+	/*prev_frame cmd*/
+	{
+	{0xFF, 1, {0x25} },
+	{0xFB, 1, {0x01} },
+	{0x18, 1, {0x20} },
+	{REGFLAG_END_OF_TABLE, 0x00, {} },
+	},
+},
+
+/**********level 1 to 0,1 cmd*********************/
+/*90->60*/
+[DFPS_LEVEL1][DFPS_LEVEL0] = {
+	true,
+	/*prev_frame cmd*/
+	{
+	{0xFF, 1, {0x25} },
+	{0xFB, 1, {0x01} },
+	{0x18, 1, {0x21} },
+	{REGFLAG_END_OF_TABLE, 0x00, {} },
+	},
+},
+
+[DFPS_LEVEL1][DFPS_LEVEL1] = {
+	false,
+	/*prev_frame cmd*/
+	{
+	{REGFLAG_END_OF_TABLE, 0x00, {} },
+	},
+
+},
+
+};
+#endif
+/*******************Dynfps end*************************/
+
 static void push_table(void *cmdq, struct LCM_setting_table *table,
 	unsigned int count, unsigned char force_update)
 {
@@ -345,7 +416,7 @@ static void lcm_set_util_funcs(const struct LCM_UTIL_FUNCS *util)
 {
 	memcpy(&lcm_util, util, sizeof(struct LCM_UTIL_FUNCS));
 }
-
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 /*DynFPS*/
 static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 {
@@ -365,8 +436,8 @@ static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 	/*dfps_params[0].data_rate = xx; */
 	/*if HFP solution*/
 	/*dfps_params[0].horizontal_frontporch = xx;*/
-	dfps_params[0].vertical_frontporch = 1291;
-	dfps_params[0].vertical_frontporch_for_low_power = 2500;
+	dfps_params[0].vertical_frontporch = 36;
+	dfps_params[0].vertical_frontporch_for_low_power = 540;
 
 	/*if need mipi hopping params add here*/
 	/*dfps_params[0].PLL_CLOCK_dyn =xx;
@@ -383,8 +454,8 @@ static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 	/*dfps_params[1].data_rate = xx; */
 	/*if HFP solution*/
 	/*dfps_params[1].horizontal_frontporch = xx;*/
-	dfps_params[1].vertical_frontporch = 54;
-	dfps_params[1].vertical_frontporch_for_low_power = 2500;
+	dfps_params[1].vertical_frontporch = 320;
+	dfps_params[1].vertical_frontporch_for_low_power = 540;
 
 	/*if need mipi hopping params add here*/
 	/*dfps_params[1].PLL_CLOCK_dyn =xx;
@@ -395,7 +466,7 @@ static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 
 	dsi->dfps_num = 2;
 }
-
+#endif
 static void lcm_get_params(struct LCM_PARAMS *params)
 {
 	memset(params, 0, sizeof(struct LCM_PARAMS));
@@ -460,10 +531,11 @@ static void lcm_get_params(struct LCM_PARAMS *params)
 	params->dsi.lcm_esd_check_table[0].cmd = 0x0A;
 	params->dsi.lcm_esd_check_table[0].count = 1;
 	params->dsi.lcm_esd_check_table[0].para_list[0] = 0x9C;
-
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	/****DynFPS start****/
 	lcm_dfps_int(&(params->dsi));
 	/****DynFPS end****/
+#endif
 }
 
 static void lcm_init_power(void)
@@ -684,6 +756,74 @@ static void lcm_validate_roi(int *x, int *y, int *width, int *height)
 }
 #endif
 
+/*******************Dynfps start*************************/
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+static void dfps_dsi_push_table(
+	void *cmdq, struct LCM_setting_table *table,
+	unsigned int count, unsigned char force_update)
+{
+	unsigned int i;
+	unsigned int cmd;
+
+	for (i = 0; i < count; i++) {
+		cmd = table[i].cmd;
+		switch (cmd) {
+		case REGFLAG_END_OF_TABLE:
+			return;
+		default:
+			dfps_dsi_send_cmd(
+				cmdq, cmd, table[i].count,
+				table[i].para_list, force_update);
+			break;
+		}
+	}
+
+}
+static bool lcm_dfps_need_inform_lcm(
+	unsigned int from_level, unsigned int to_level)
+{
+	struct LCM_dfps_cmd_table *p_dfps_cmds = NULL;
+
+	if (from_level == to_level) {
+		LCM_LOGI("%s,same level\n", __func__);
+		return false;
+	}
+	p_dfps_cmds =
+		&(dfps_cmd_table[from_level][to_level]);
+
+	return p_dfps_cmds->need_send_cmd;
+}
+
+static void lcm_dfps_inform_lcm(void *cmdq_handle,
+unsigned int from_level, unsigned int to_level)
+{
+	struct LCM_dfps_cmd_table *p_dfps_cmds = NULL;
+
+	if (from_level == to_level) {
+		LCM_LOGI("%s,same level\n", __func__);
+		goto done;
+	}
+	p_dfps_cmds =
+		&(dfps_cmd_table[from_level][to_level]);
+
+	if (p_dfps_cmds &&
+		!(p_dfps_cmds->need_send_cmd)) {
+		LCM_LOGI("%s,no cmd[L%d->L%d]\n",
+			__func__, from_level, to_level);
+		goto done;
+	}
+
+	dfps_dsi_push_table(
+		cmdq_handle, p_dfps_cmds->prev_f_cmd,
+		ARRAY_SIZE(p_dfps_cmds->prev_f_cmd), 1);
+done:
+	LCM_LOGI("%s,done %d->%d\n",
+		__func__, from_level, to_level);
+
+}
+#endif
+/*******************Dynfps end*************************/
+
 struct LCM_DRIVER ili9881h_hdp_dsi_vdo_ilitek_rt5081_19_9_90hz_lcm_drv = {
 	.name = "ili9881h_hdp_dsi_vdo_ilitek_rt5081_19_9_90hz_drv",
 	.set_util_funcs = lcm_set_util_funcs,
@@ -703,5 +843,9 @@ struct LCM_DRIVER ili9881h_hdp_dsi_vdo_ilitek_rt5081_19_9_90hz_lcm_drv = {
 #if (LCM_DSI_CMD_MODE)
 	.validate_roi = lcm_validate_roi,
 #endif
-
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/*DynFPS*/
+	.dfps_send_lcm_cmd = lcm_dfps_inform_lcm,
+	.dfps_need_send_cmd = lcm_dfps_need_inform_lcm,
+#endif
 };

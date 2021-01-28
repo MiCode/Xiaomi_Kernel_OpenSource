@@ -19,7 +19,7 @@
 #if defined(CONFIG_MTK_DRAMC) && 0
 #include "mtk_dramc.h"
 #endif
-
+#include "mmdvfs_pmqos.h"
 #include "layering_rule.h"
 #include "disp_drv_log.h"
 #include "ddp_rsz.h"
@@ -30,6 +30,7 @@
 
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
+static DEFINE_SPINLOCK(hrt_table_lock);
 
 int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */
@@ -521,6 +522,10 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 	return flag;
 }
 
+unsigned int layering_rule_get_hrt_idx(void)
+{
+	return l_rule_info.hrt_idx;
+}
 
 static int get_hrt_bound(int is_larb, int hrt_level)
 {
@@ -560,6 +565,113 @@ static int get_mapping_table(enum DISP_HW_MAPPING_TB_TYPE tb_type, int param)
 		return -1;
 	}
 }
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+#ifdef MTK_FB_MMDVFS_SUPPORT
+int layering_get_valid_hrt(int active_config_id)
+{
+#ifdef CONFIG_ARM64
+	unsigned long long dvfs_bw;
+	unsigned long long tmp;
+#else
+	unsigned int dvfs_bw;
+	unsigned int tmp;
+#endif
+	int tmp_bw;
+
+	tmp_bw = mm_hrt_get_available_hrt_bw(get_virtual_port(VIRTUAL_DISP));
+	tmp = layering_get_frame_bw(active_config_id);
+	if (tmp_bw < 0) {
+		DISPERR("avail BW less than 0,DRAMC not ready!\n");
+		dvfs_bw = 200;
+		goto done;
+	}
+	dvfs_bw = 10000 * tmp_bw;
+	dvfs_bw /= tmp * 100;
+
+	/* error handling when requested BW is less than 2 layers */
+	if (dvfs_bw < 200) {
+		disp_aee_print("avail BW less than 2 layers, BW: %llu\n",
+			dvfs_bw);
+		dvfs_bw = 200;
+	}
+done:
+	DISPINFO(
+		"get avail HRT BW:%u : %llu %llu\n",
+		mm_hrt_get_available_hrt_bw(
+		get_virtual_port(VIRTUAL_DISP)),
+		dvfs_bw, tmp);
+
+	return dvfs_bw;
+
+}
+#endif
+
+void copy_hrt_bound_table(int is_larb, int *hrt_table,
+	int active_config_id)
+{
+	unsigned long flags = 0;
+	int valid_num, ovl_bound;
+	int i;
+
+	/* Not used in 6779 */
+	if (is_larb)
+		return;
+
+	/* update table if hrt bw is enabled */
+	spin_lock_irqsave(&hrt_table_lock, flags);
+#ifdef MTK_FB_MMDVFS_SUPPORT
+	valid_num = layering_get_valid_hrt(active_config_id);
+#else
+	valid_num = 200;
+#endif
+	ovl_bound = get_phy_layer_limit(
+		get_mapping_table(
+		DISP_HW_LAYER_TB,
+		MAX_PHY_OVL_CNT - 1), 0);
+	valid_num = min(valid_num, ovl_bound * 100);
+	DISPINFO("%s:valid_num:%d,ovl_bound:%d\n",
+		__func__, valid_num, ovl_bound);
+
+	for (i = 0; i < HRT_LEVEL_NUM; i++) {
+		emi_bound_table[l_rule_info.bound_tb_idx][i] =
+			valid_num;
+	}
+	spin_unlock_irqrestore(&hrt_table_lock, flags);
+
+	for (i = 0; i < HRT_LEVEL_NUM; i++)
+		hrt_table[i] = emi_bound_table[l_rule_info.bound_tb_idx][i];
+}
+
+unsigned long long layering_get_frame_bw(int active_cfg_id)
+{
+#ifdef CONFIG_ARM64
+	static unsigned long long bw_base;
+#else
+	static unsigned int bw_base;
+#endif
+	unsigned int timing_fps = 60;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int _vact_timing_FPS = 6000;/*real fps * 100*/
+#endif
+	if (bw_base)
+		return bw_base;
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	/* should use the real timing fps such as VFP solution*/
+	primary_display_get_cfg_fps(
+			active_cfg_id, NULL, &_vact_timing_FPS);
+	timing_fps = _vact_timing_FPS / 100;
+#endif
+	/*ToDo: Resolution switch
+	 *if resolution changed also need change bw_base
+	 */
+	bw_base = (unsigned long long) primary_display_get_width() *
+		primary_display_get_height() * timing_fps * 125 * 4;
+	bw_base /= 100 * 1024 * 1024;
+
+	return bw_base;
+}
+#endif
 
 int set_emi_bound_tb(int idx, int num, int *val)
 {
