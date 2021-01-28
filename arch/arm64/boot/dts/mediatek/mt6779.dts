@@ -4243,7 +4243,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 
 		min_charger_voltage = <4600000>;
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <10000000>;
+		pd_vbus_upper_bound = <5000000>;
 		vsys_watt = <5000000>;
 		ibus_err = <14>;
 
@@ -4261,7 +4261,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		/* dual charger */
 		dual_polling_ieoc = <450000>;
 		slave_mivr_diff = <100000>;
-
 	};
 
 	pe4: pe4 {

@@ -136,6 +136,10 @@
 	charger_configuration= <1>;
 };
 
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+
 &accdet {
 	accdet-mic-vol = <6>;
 	headset-mode-setting = <0x500 0x500 1 0x1f0 0x800 0x800 0x20 0x44>;
