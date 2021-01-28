@@ -51,7 +51,7 @@ static u64 ssmr_upper_limit = UPPER_LIMIT64;
 static struct device *ssmr_dev;
 
 static const struct of_device_id ssmr_of_match_table[] = {
-	{ .compatible = "mediatek,memory_ssmr"},
+	{ .compatible = "mediatek,trusted_mem"},
 	{},
 };
 
@@ -703,7 +703,7 @@ static int memory_ssmr_sysfs_init(void)
 }
 #endif /* end of CONFIG_SYSFS */
 
-static int ssmr_probe(struct platform_device *pdev)
+int ssmr_probe(struct platform_device *pdev)
 {
 	int i;
 

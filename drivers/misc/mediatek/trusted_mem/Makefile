@@ -102,10 +102,6 @@ ifneq ($(filter y m,$(CONFIG_MTK_SVP)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssvp/
 endif # !CONFIG_MTK_SVP
 
-ifneq ($(filter y m,$(CONFIG_MTK_SSMR)),)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr/
-endif # !CONFIG_MTK_SSMR
-
 ifneq ($(filter y m,$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
