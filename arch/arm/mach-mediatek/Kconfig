@@ -124,6 +124,7 @@ config MACH_MT8168
 	select NEON
 	select KERNEL_MODE_NEON
 	select MTK_DRAMC
+	select OVERLAY_FS
 	select MTK_EMI
 	help
 	  This enables support for MediaTek MT8168.
