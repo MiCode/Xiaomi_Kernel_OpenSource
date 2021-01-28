@@ -1833,9 +1833,6 @@ static int mt_usb_probe(struct platform_device *pdev)
 	musb_force_on = 1;
 #endif
 
-#ifdef CONFIG_MACH_MT6765
-	musb_force_on = 1;
-#endif
 	return 0;
 
 err2:
