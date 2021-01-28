@@ -141,28 +141,32 @@ static struct disp_session_sync_info
 	session_ctx[i].session_id = session;
 	s_info = &(session_ctx[i]);
 
-	sprintf(name, "%s%d_prepare", disp_session_type_str(session),
+	scnprintf(name, sizeof(name),
+		"%s%d_prepare", disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_prepare, name,
 				DPREC_LOGGER_LEVEL_DEFAULT |
 				DPREC_LOGGER_LEVEL_SYSTRACE,
 				&ddp_mmp_get_events()->session_Parent);
 
-	sprintf(name, "%s%d_frame_cfg",
+	scnprintf(name, sizeof(name),
+		"%s%d_frame_cfg",
 		disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_frame_cfg, name,
 				DPREC_LOGGER_LEVEL_DEFAULT,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_wait_fence",
+	scnprintf(name, sizeof(name),
+		"%s%d_wait_fence",
 		disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_wait_fence, name,
 				DPREC_LOGGER_LEVEL_DEFAULT,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_setinput",
+	scnprintf(name, sizeof(name),
+		"%s%d_setinput",
 		disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_setinput, name,
@@ -170,7 +174,8 @@ static struct disp_session_sync_info
 				DPREC_LOGGER_LEVEL_SYSTRACE,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_setoutput",
+	scnprintf(name, sizeof(name),
+		"%s%d_setoutput",
 		disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_setoutput, name,
@@ -178,27 +183,31 @@ static struct disp_session_sync_info
 				DPREC_LOGGER_LEVEL_SYSTRACE,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_trigger", disp_session_type_str(session),
+	scnprintf(name, sizeof(name),
+		"%s%d_trigger", disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_trigger, name,
 				DPREC_LOGGER_LEVEL_DEFAULT |
 				DPREC_LOGGER_LEVEL_SYSTRACE,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_findidx", disp_session_type_str(session),
+	scnprintf(name, sizeof(name),
+		"%s%d_findidx", disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_findidx, name,
 				DPREC_LOGGER_LEVEL_DEFAULT,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_release", disp_session_type_str(session),
+	scnprintf(name, sizeof(name),
+		"%s%d_release", disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_release, name,
 				DPREC_LOGGER_LEVEL_DEFAULT |
 				DPREC_LOGGER_LEVEL_SYSTRACE,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_waitvsync",
+	scnprintf(name, sizeof(name),
+		"%s%d_waitvsync",
 		disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_waitvsync, name,
@@ -206,7 +215,8 @@ static struct disp_session_sync_info
 				DPREC_LOGGER_LEVEL_SYSTRACE,
 				&s_info->event_prepare.mmp);
 
-	sprintf(name, "%s%d_err", disp_session_type_str(session),
+	scnprintf(name, sizeof(name),
+		"%s%d_err", disp_session_type_str(session),
 		DISP_SESSION_DEV(session));
 	dprec_logger_event_init(&s_info->event_err, name,
 				DPREC_LOGGER_LEVEL_DEFAULT |
@@ -220,19 +230,23 @@ static struct disp_session_sync_info
 
 		switch (type) {
 		case DISP_SESSION_PRIMARY:
-			sprintf(name, "%s-primary-%d-%d", prefix,
+			scnprintf(name, sizeof(name),
+				"%s-primary-%d-%d", prefix,
 				DISP_SESSION_DEV(session), j);
 			break;
 		case DISP_SESSION_EXTERNAL:
-			sprintf(name, "%s-external-%d-%d", prefix,
+			scnprintf(name, sizeof(name),
+				"%s-external-%d-%d", prefix,
 				DISP_SESSION_DEV(session), j);
 			break;
 		case DISP_SESSION_MEMORY:
-			sprintf(name, "%s-memory-%d-%d", prefix,
+			scnprintf(name, sizeof(name),
+				"%s-memory-%d-%d", prefix,
 				DISP_SESSION_DEV(session), j);
 			break;
 		default:
-			sprintf(name, "%s-unknown-%d-%d", prefix,
+			scnprintf(name, sizeof(name),
+				"%s-unknown-%d-%d", prefix,
 				DISP_SESSION_DEV(session), j);
 			break;
 		}
