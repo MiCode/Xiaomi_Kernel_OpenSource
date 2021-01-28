@@ -1465,8 +1465,6 @@ static int mtk_charger_plug_in(struct mtk_charger *info,
 		chg_alg_notifier_call(alg, &notify);
 	}
 
-	charger_dev_set_input_current(info->chg1_dev,
-				info->chg_data[CHG1].input_current_limit);
 	charger_dev_plug_in(info->chg1_dev);
 
 	return 0;
