@@ -293,6 +293,14 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			if (niceval > retval)
 				retval = niceval;
 		}
+#ifdef CONFIG_MTK_ENG_BUILD
+		if (retval == -ESRCH && current->pid == who) {
+			pr_warn("getpriority return unexpected value who:%d "
+				"current:%d niceval:%d retvale:%d", who,
+				current->pid, niceval, retval);
+			BUG();
+		}
+#endif
 		break;
 	case PRIO_PGRP:
 		if (who)
