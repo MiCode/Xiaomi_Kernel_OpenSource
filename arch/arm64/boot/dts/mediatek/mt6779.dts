@@ -3154,6 +3154,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			mediatek,smi-id = <6>;
 		};
 
+		mfb@15010000 {
+			compatible = "mediatek,mfb";
+			reg = <0 0x15010000 0 0x1000>;
+			interrupts = <GIC_SPI 294 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&imgsys IMG_MFB>;
+			clock-names = "MFB_CLK_IMG_MFB";
+		};
+
 		wpe_a@15011000 {
 			compatible = "mediatek,wpe_a";
 			reg = <0 0x15011000 0 0x1000>;
@@ -3877,6 +3885,26 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<&ipesys IPE_LARB8>;
 			clock-names = "mtcmos-ipe", "ipe-larb8";
 			mediatek,smi-id = <8>;
+		};
+
+		dvs@1b100000 {
+			compatible = "mediatek,dvs";
+			reg = <0 0x1b100000 0 0x1000>;
+			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&topckgen TOP_MUX_DPE>,
+				<&ipesys IPE_DPE>;
+			clock-names = "DPE_TOP_MUX",
+				"DPE_CLK_IPE_DPE";
+		};
+
+		dvp@1b100800 {
+			compatible = "mediatek,dvp";
+			reg = <0 0x1b100000 0 0x1000>;
+			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&topckgen TOP_MUX_DPE>,
+				<&ipesys IPE_DPE>;
+			clock-names = "DPE_TOP_MUX",
+				"DPE_CLK_IPE_DPE";
 		};
 
 		smi_larb7: smi_larb7@1b10f000 {
