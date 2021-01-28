@@ -80,6 +80,10 @@
 
 #include "internal.h"
 
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+int sysctl_speculative_page_fault = 1;
+#endif
+
 #if defined(LAST_CPUPID_NOT_IN_PAGE_FLAGS) && !defined(CONFIG_COMPILE_TEST)
 #warning Unfortunate NUMA and NUMA Balancing config, growing page-frame for last_cpupid.
 #endif
