@@ -62,6 +62,7 @@ MAIN_CFILES  += common/lc898217afc/LC898217AFC.c
 MAIN_CFILES  += common/lc898122af/LC898122AF.c
 MAIN_CFILES  += common/lc898122af/OisCmd.c
 MAIN_CFILES  += common/lc898122af/OisIni.c
+MAIN_CFILES  += common/ov5645af/OV5645AF.c
 MAIN_CFILES  += common/ad5820af/AD5820AF.c
 MAIN_CFILES  += common/wv511aaf/WV511AAF.c
 MAIN_CFILES  += common/ak7371af/AK7371AF.c
@@ -106,6 +107,7 @@ obj-y  += common/lc898217afb/
 obj-y  += common/lc898217afc/
 obj-y  += common/lc898229af/
 obj-y  += common/lc898122af/
+obj-y += common/ov5645af/
 obj-y  += common/wv511aaf/
 obj-y  += common/ak7371af/
 ifeq ($(CONFIG_MTK_LENS_BU63165AF_SUPPORT), y)
