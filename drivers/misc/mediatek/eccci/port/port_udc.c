@@ -597,6 +597,10 @@ int udc_kick_handler(struct port_t *port, struct z_stream_s *zcpr,
 	}
 	/* req_des table is only 4kb */
 	req_des = req_des_base + ap_read;
+	if (req_des == NULL) {
+		CCCI_ERROR_LOG(md_id, UDC, "invalid req_des");
+		return -CMP_INST_ID_ERR;
+	}
 	/* dump req_des */
 	CCCI_NORMAL_LOG(md_id, UDC,
 		"req%d:sdu_idx(%d),buf_type(%d),seg_len(%d),phy_offset(%#x)\n",
