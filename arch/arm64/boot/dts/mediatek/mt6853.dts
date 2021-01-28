@@ -1615,7 +1615,7 @@ page_owner=on";
 	};
 
 	gce_mbox: gce_mbox@10228000 {
-		compatible = "mediatek,mailbox-gce";
+		compatible = "mediatek,mt6853-gce";
 		reg = <0 0x10228000 0 0x4000>;
 		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
 		#mbox-cells = <3>;
