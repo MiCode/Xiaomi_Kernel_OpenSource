@@ -25,28 +25,6 @@ static ssize_t name_show(struct device *dev,
 		       chg_dev->props.alias_name : "anonymous");
 }
 
-#ifdef FIXME
-static int charger_suspend(struct device *dev, pm_message_t state)
-{
-	struct charger_device *chg_dev = to_charger_device(dev);
-
-	if (chg_dev->ops->suspend)
-		return chg_dev->ops->suspend(chg_dev, state);
-
-	return 0;
-}
-
-static int charger_resume(struct device *dev)
-{
-	struct charger_device *chg_dev = to_charger_device(dev);
-
-	if (chg_dev->ops->resume)
-		return chg_dev->ops->resume(chg_dev);
-
-	return 0;
-}
-#endif
-
 static void charger_device_release(struct device *dev)
 {
 	struct charger_device *chg_dev = to_charger_device(dev);
@@ -790,10 +768,6 @@ static int __init charger_class_init(void)
 		return PTR_ERR(charger_class);
 	}
 	charger_class->dev_groups = charger_groups;
-#ifdef FIXME
-	charger_class->suspend = charger_suspend;
-	charger_class->resume = charger_resume;
-#endif
 	return 0;
 }
 

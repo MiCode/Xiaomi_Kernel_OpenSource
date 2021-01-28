@@ -1239,7 +1239,7 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 			mtk_charger_plug_out(info);
 			mtk_charger_plug_in(info, chr_type);
 			mutex_lock(&info->cable_out_lock);
-			info->cable_out_cnt--;
+			info->cable_out_cnt = 0;
 			mutex_unlock(&info->cable_out_lock);
 		}
 	}
