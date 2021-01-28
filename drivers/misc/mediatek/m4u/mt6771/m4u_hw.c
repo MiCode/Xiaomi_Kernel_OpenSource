@@ -2150,6 +2150,7 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 {
 	unsigned long m4u_base;
 	unsigned int m4u_index;
+	unsigned int larb_port;
 
 	if (irq == gM4uDev->irq_num[0]) {
 		m4u_base = gM4UBaseAddr[0];
@@ -2253,15 +2254,21 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 
 		if (IntrSrc & F_INT_TRANSLATION_FAULT(m4u_slave_id)) {
 			int bypass_DISP_TF = 0;
+			unsigned int smi_bank_sel = 0;
 
 			MMU_INT_REPORT(m4u_index, m4u_slave_id,
 				       F_INT_TRANSLATION_FAULT(m4u_slave_id));
-			M4UMSG(
-				"fault: port=%s, mva=0x%x, pa=0x%x, layer=%d, wr=%d, 0x%x, protctPA 0x%x\n",
-			       m4u_get_port_name(m4u_port),
-			       fault_mva, fault_pa, layer, write,
-			       regval,
-			       M4U_ReadReg32(m4u_base, REG_MMU_IVRP_PADDR));
+			larb_port = m4u_port_2_larb_port(m4u_port);
+
+			smi_bank_sel = m4uHw_get_field_by_mask(m4u_base,
+					SMI_LARB_NON_SEC_CONx(larb_port),
+					F_SMI_BIT32_MSK);
+
+			m4u_info("fault: port=%s, mva=0x%x, pa=0x%x, layer=%d, wr=%d, 0x%x, protctPA 0x%x smi_bank_sel=0x%x\n",
+				 m4u_get_port_name(m4u_port),
+				 fault_mva, fault_pa, layer, write, regval,
+				 M4U_ReadReg32(m4u_base, REG_MMU_IVRP_PADDR),
+				 smi_bank_sel);
 
 			if (m4u_port == M4U_PORT_DISP_OVL0) {
 				unsigned int valid_mva = 0;

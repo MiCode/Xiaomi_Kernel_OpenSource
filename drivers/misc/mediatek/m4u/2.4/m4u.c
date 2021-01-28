@@ -2182,6 +2182,30 @@ out:
 
 #endif
 
+#ifdef M4U_GZ_SERVICE_ENABLE
+int m4u_gz_sec_init(int mtk_iommu_sec_id)
+{
+	m4u_info("%s : do nothing!!\n", __func__);
+	return 0;
+}
+
+int m4u_map_gz_nonsec_buf(int iommu_sec_id, int port, unsigned long mva,
+		unsigned long size)
+{
+	m4u_info("%s : do nothing!!\n", __func__);
+	return 0;
+}
+
+int m4u_unmap_gz_nonsec_buffer(int iommu_sec_id, unsigned long mva,
+		unsigned long size)
+{
+	m4u_info("%s : do nothing!!\n", __func__);
+	return 0;
+}
+#endif
+
+
+
 /**********************************************************/
 static long MTK_M4U_ioctl(struct file *filp,
 		unsigned int cmd, unsigned long arg)
@@ -2521,6 +2545,16 @@ static long MTK_M4U_ioctl(struct file *filp,
 		}
 		break;
 #endif
+
+#ifdef M4U_GZ_SERVICE_ENABLE
+	case MTK_M4U_GZ_SEC_INIT:
+	{
+		m4u_info("%s : MTK_M4U_GZ_SEC_INIT command do nothing!! 0x%x\n",
+			 __func__, cmd);
+	}
+	break;
+#endif
+
 	default:
 		M4UMSG("MTK M4U ioctl:No such command!!\n");
 		ret = -EINVAL;
@@ -2766,6 +2800,13 @@ long MTK_M4U_COMPAT_ioctl(struct file *filp,
 	case MTK_M4U_T_SEC_INIT:
 		return filp->f_op->unlocked_ioctl(filp,
 			cmd, (unsigned long)compat_ptr(arg));
+
+#ifdef M4U_GZ_SERVICE_ENABLE
+	case MTK_M4U_GZ_SEC_INIT:
+		return filp->f_op->unlocked_ioctl(filp,
+			cmd, (unsigned long)compat_ptr(arg));
+#endif
+
 	default:
 		return -ENOIOCTLCMD;
 	}
