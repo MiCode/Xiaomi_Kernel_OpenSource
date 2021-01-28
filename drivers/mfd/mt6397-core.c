@@ -284,6 +284,9 @@ static const struct mfd_cell mt6357_devs[] = {
 		.resources = mt6357_keys_resources,
 		.of_compatible = "mediatek,mt6357-keys"
 	}, {
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,mt63xx-debug",
+	}, {
 		.name = "mt6397-rtc",
 		.num_resources = ARRAY_SIZE(mt6357_rtc_resources),
 		.resources = mt6357_rtc_resources,
@@ -353,6 +356,9 @@ static const struct mfd_cell mt6359_devs[] = {
 		.num_resources = ARRAY_SIZE(mt6359_gauge_resources),
 		.resources = mt6359_gauge_resources,
 		.of_compatible = "mediatek,mt6359-gauge",
+	}, {
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,mt63xx-debug",
 	}, {
 		.name = "mt6359-sound",
 		.of_compatible = "mediatek,mt6359-sound"
