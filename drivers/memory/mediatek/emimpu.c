@@ -297,7 +297,7 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 	void __iomem *emi_cen_base;
 	unsigned int emi_id;
 	unsigned int i;
-	bool violation;
+	bool violation, mpu_bypass;
 	char aee_msg[MTK_EMI_MAX_CMD_LEN];
 	ssize_t aee_msg_cnt;
 	struct emimpu_callbacks *mpucb;
@@ -339,17 +339,22 @@ static irqreturn_t emimpu_violation_irq(int irq, void *dev_id)
 				continue;
 			}
 
+		mpu_bypass = false;
 		list_for_each_entry_reverse(mpucb, &mpucb_list, list) {
 			if (mpucb->debug_dump)
 				if (mpucb->debug_dump(emi_id,
 					dump_reg, emimpu_dev_ptr->dump_cnt)
 					== IRQ_HANDLED) {
 					mpucb->handled = true;
+					mpu_bypass = true;
 					clear_violation(emimpu_dev_ptr, emi_id);
 					mtk_clear_md_violation();
-					continue;
+					break;
 				}
 		}
+
+		if (mpu_bypass)
+			continue;
 
 		if (md_handling_cb) {
 			md_handling_cb(emi_id,
