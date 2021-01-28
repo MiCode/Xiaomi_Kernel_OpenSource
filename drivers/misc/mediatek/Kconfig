@@ -241,17 +241,7 @@ config MTK_MEM
 	help
 	  MTK_MEM provides basic platform memory information
 	  for mediatek platform drivers. It also provides
-	  some debug features. Please see
-	  MTK_MEMCFG.
-
-config MTK_MEMCFG
-	bool "Support enhanced memory configurations"
-	depends on MTK_MEM
-	help
-	  MTK_MEMCFG provides debug features such as
-	  platform memory layout information and
-	  fragmentation test tools. The features
-	  cost additional memory.
+	  some debug features.
 
 config MTK_SSMR
 	bool "Support Mediatek Shareable Secure Memory Region technology"
