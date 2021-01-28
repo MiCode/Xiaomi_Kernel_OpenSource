@@ -3,6 +3,8 @@
 // Copyright (c) 2019 MediaTek Inc.
 
 #include <linux/interrupt.h>
+#include <linux/mfd/mt6357/core.h>
+#include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359/core.h>
@@ -33,6 +35,17 @@ struct pmic_irq_data {
 	bool *enable_hwirq;
 	bool *cache_hwirq;
 	struct irq_top_t *pmic_ints;
+};
+
+static struct irq_top_t mt6357_ints[] = {
+	MT6357_TOP_GEN(BUCK),
+	MT6357_TOP_GEN(LDO),
+	MT6357_TOP_GEN(PSC),
+	MT6357_TOP_GEN(SCK),
+	MT6357_TOP_GEN(BM),
+	MT6357_TOP_GEN(HK),
+	MT6357_TOP_GEN(AUD),
+	MT6357_TOP_GEN(MISC),
 };
 
 static struct irq_top_t mt6358_ints[] = {
@@ -221,6 +234,13 @@ int mt6358_irq_init(struct mt6397_chip *chip)
 
 	mutex_init(&chip->irqlock);
 	switch (chip->chip_id) {
+	case MT6357_CHIP_ID:
+		irqd->num_top = ARRAY_SIZE(mt6357_ints);
+		irqd->num_pmic_irqs = MT6357_IRQ_NR;
+		irqd->reg_width = MT6357_REG_WIDTH;
+		irqd->top_int_status_reg = MT6357_TOP_INT_STATUS0;
+		irqd->pmic_ints = mt6357_ints;
+		break;
 	case MT6358_CHIP_ID:
 		irqd->num_top = ARRAY_SIZE(mt6358_ints);
 		irqd->num_pmic_irqs = MT6358_IRQ_NR;
