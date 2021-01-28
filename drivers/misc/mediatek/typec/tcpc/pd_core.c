@@ -1385,13 +1385,17 @@ void pd_set_sink_tx(struct pd_port *pd_port, uint8_t cc)
 	if (cc == PD30_SINK_TX_OK &&
 		pd_port->pe_data.pd_traffic_control != PD_SINK_TX_OK) {
 		PE_INFO("sink_tx_ok\r\n");
+		tcpci_lock_typec(pd_port->tcpc_dev);
 		tcpci_set_cc(pd_port->tcpc_dev, cc);
+		tcpci_unlock_typec(pd_port->tcpc_dev);
 		pd_port->pe_data.pd_traffic_control = PD_SINK_TX_OK;
 		pd_disable_timer(pd_port, PD_TIMER_SINK_TX);
 	} else if (cc == PD30_SINK_TX_NG &&
 		pd_port->pe_data.pd_traffic_control == PD_SINK_TX_OK) {
 		PE_INFO("sink_tx_ng\r\n");
+		tcpci_lock_typec(pd_port->tcpc_dev);
 		tcpci_set_cc(pd_port->tcpc_dev, cc);
+		tcpci_unlock_typec(pd_port->tcpc_dev);
 		pd_port->pe_data.pd_traffic_control = PD_SINK_TX_NG;
 		pd_enable_timer(pd_port, PD_TIMER_SINK_TX);
 	}

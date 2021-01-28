@@ -46,7 +46,7 @@
 
 /* #define DEBUG_GPIO	66 */
 
-#define MT6370_DRV_VERSION	"2.0.2_MTK"
+#define MT6370_DRV_VERSION	"2.0.3_MTK"
 
 #define MT6370_IRQ_WAKE_TIME	(500) /* ms */
 
@@ -739,17 +739,11 @@ static int mt6370_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 			return ret;
 	}
 
-	/* CK_300K from 320K, SHIPPING off, AUTOIDLE enable, TIMEOUT = 32ms */
-	mt6370_i2c_write8(tcpc, MT6370_REG_IDLE_CTRL,
-		MT6370_REG_IDLE_SET(0, 1, 1, 2));
-
 	/* For No-GoodCRC Case (0x70) */
 	mt6370_i2c_write8(tcpc, MT6370_REG_PHY_CTRL2, 0x38);
 	mt6370_i2c_write8(tcpc, MT6370_REG_PHY_CTRL3, 0x82);
 	mt6370_i2c_write8(tcpc, MT6370_REG_PHY_CTRL11, 0xfc);
 	mt6370_i2c_write8(tcpc, MT6370_REG_PHY_CTRL12, 0x50);
-	/* For BIST, Change Transition Toggle Counter (Noise) from 3 to 7 */
-	mt6370_i2c_write8(tcpc, MT6370_REG_PHY_CTRL1, 0x71);
 
 #ifdef CONFIG_TCPC_I2CRST_EN
 	mt6370_i2c_write8(tcpc,
@@ -788,6 +782,7 @@ static int mt6370_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	if (!(tcpc->tcpc_flags & TCPC_FLAGS_RETRY_CRC_DISCARD))
 		retry_discard_old = true;
 
+	/* For BIST, Change Transition Toggle Counter (Noise) from 3 to 7 */
 	mt6370_i2c_write8(tcpc, MT6370_REG_PHY_CTRL1,
 		MT6370_REG_PHY_CTRL1_SET(retry_discard_old, 7, 0, 1));
 
@@ -797,6 +792,11 @@ static int mt6370_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 	mt6370_init_alert_mask(tcpc);
 	mt6370_init_fault_mask(tcpc);
 	mt6370_init_mt_mask(tcpc);
+
+	/* CK_300K from 320K, SHIPPING off, AUTOIDLE enable, TIMEOUT = 32ms */
+	mt6370_i2c_write8(tcpc, MT6370_REG_IDLE_CTRL,
+		MT6370_REG_IDLE_SET(0, 1, 1, 2));
+	mdelay(1);
 
 	return 0;
 }
@@ -1107,7 +1107,7 @@ static int mt6370_set_low_power_mode(
 			data |= MT6370_REG_BMCIO_LPRPRD;
 
 #ifdef CONFIG_TYPEC_CAP_NORP_SRC
-		data |= (MT6370_REG_VBUS_DET_EN | MT6370_REG_BMCIO_BG_EN);
+		data |= MT6370_REG_BMCIO_BG_EN | MT6370_REG_VBUS_DET_EN;
 #endif	/* CONFIG_TYPEC_CAP_NORP_SRC */
 	} else {
 		data = MT6370_REG_BMCIO_BG_EN |
@@ -1336,22 +1336,19 @@ static struct tcpc_ops mt6370_tcpc_ops = {
 #endif	/* CONFIG_USB_PD_RETRY_CRC_DISCARD */
 };
 
-
 static int mt_parse_dt(struct mt6370_chip *chip, struct device *dev)
 {
-	struct device_node *np = dev->of_node;
-	int ret;
-
-	if (!np)
-		return -EINVAL;
+	struct device_node *np = NULL;
+	int ret = 0;
 
 	pr_info("%s\n", __func__);
 
 	np = of_find_node_by_name(NULL, "type_c_port0");
 	if (!np) {
-		pr_err("%s find node mt6370 fail\n", __func__);
+		pr_notice("%s find node type_c_port0 fail\n", __func__);
 		return -ENODEV;
 	}
+	dev->of_node = np;
 
 #if (!defined(CONFIG_MTK_GPIO) || defined(CONFIG_MTK_GPIOLIB_STAND))
 	ret = of_get_named_gpio(np, "mt6370pd,intr_gpio", 0);
@@ -1366,7 +1363,7 @@ static int mt_parse_dt(struct mt6370_chip *chip, struct device *dev)
 	if (ret < 0)
 		pr_err("%s no intr_gpio info\n", __func__);
 #endif
-	return ret;
+	return ret < 0 ? ret : 0;
 }
 
 /*
@@ -1419,15 +1416,11 @@ static void check_printk_performance(void)
 static int mt6370_tcpcdev_init(struct mt6370_chip *chip, struct device *dev)
 {
 	struct tcpc_desc *desc;
-	struct device_node *np;
+	struct device_node *np = dev->of_node;
 	u32 val, len;
 	const char *name = "default";
 
-	np = of_find_node_by_name(NULL, "type_c_port0");
-	if (!np) {
-		pr_err("%s find node mt6370 fail\n", __func__);
-		return -ENODEV;
-	}
+	dev_info(dev, "%s\n", __func__);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -1479,7 +1472,10 @@ static int mt6370_tcpcdev_init(struct mt6370_chip *chip, struct device *dev)
 	}
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
-	of_property_read_string(np, "mt-tcpc,name", (char const **)&name);
+	if (of_property_read_string(np, "mt-tcpc,name",
+				(char const **)&name) < 0) {
+		dev_info(dev, "use default name\n");
+	}
 
 	len = strlen(name);
 	desc->name = kzalloc(len+1, GFP_KERNEL);
@@ -1511,6 +1507,7 @@ static int mt6370_tcpcdev_init(struct mt6370_chip *chip, struct device *dev)
 	else
 		dev_info(dev, "PD_REV20\n");
 #endif	/* CONFIG_USB_PD_REV30 */
+
 	return 0;
 }
 
@@ -1548,7 +1545,7 @@ static inline int mt6370_check_revision(struct i2c_client *client)
 		return -ENODEV;
 	}
 
-	ret = i2c_smbus_read_i2c_block_data(client,
+	ret = i2c_smbus_write_i2c_block_data(client,
 			MT6370_REG_SWRESET, 1, (u8 *)&data);
 	if (ret < 0)
 		return ret;
@@ -1591,9 +1588,11 @@ static int mt6370_i2c_probe(struct i2c_client *client,
 	if (!chip)
 		return -ENOMEM;
 
-	if (use_dt)
-		mt_parse_dt(chip, &client->dev);
-	else {
+	if (use_dt) {
+		ret = mt_parse_dt(chip, &client->dev);
+		if (ret < 0)
+			return ret;
+	} else {
 		dev_err(&client->dev, "no dts node\n");
 		return -ENODEV;
 	}
@@ -1794,10 +1793,13 @@ MODULE_DESCRIPTION("MT6370 TCPC Driver");
 MODULE_VERSION(MT6370_DRV_VERSION);
 
 /**** Release Note ****
+ * 2.0.3_MTK
+ * (1) Move down the shipping off
+ *
  * 2.0.2_MTK
- *	(1) Single Rp as Attatched.SRC for Ellisys TD.4.9.4
- *	(2) Fix Rx Noise for MQP
+ * (1) Single Rp as Attatched.SRC for Ellisys TD.4.9.4
+ * (2) Fix Rx Noise for MQP
  *
  * 2.0.1_MTK
- *	First released PD3.0 Driver on MTK platform
+ *  First released PD3.0 Driver on MTK platform
  */

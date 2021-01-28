@@ -256,7 +256,7 @@ static bool dpm_select_pdo_from_pps(
 	int uw, diff_mv;
 	const int tolerance = 300;	/* 5900 * 5% */
 
-	if (sink->type != DPM_PDO_TYPE_FIXED ||
+	if (sink->type != DPM_PDO_TYPE_APDO ||
 			source->type != DPM_PDO_TYPE_APDO)
 		return false;
 
@@ -269,7 +269,7 @@ static bool dpm_select_pdo_from_pps(
 	if (sink->vmin < source->vmin)
 		return false;
 
-	if (select_info->policy & DPM_CHARGING_POLICY_IGNORE_MISMATCH_CURR) {
+	if (!(select_info->policy & DPM_CHARGING_POLICY_IGNORE_MISMATCH_CURR)) {
 		if (source->ma < sink->ma)
 			return false;
 	}
@@ -291,8 +291,8 @@ static bool dpm_select_pdo_from_pps(
 	if (overload) {
 		select_info->max_uw = uw;
 		select_info->cur_mv = diff_mv;
-	return true;
-}
+		return true;
+	}
 
 	return false;
 }
@@ -307,15 +307,13 @@ typedef bool (*dpm_select_pdo_fun)(
 	struct dpm_pdo_info_t *sink, struct dpm_pdo_info_t *source);
 
 bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
-		uint32_t snk_pdo, int cnt, uint32_t *src_pdos,
+		struct dpm_pdo_info_t *sink, int cnt, uint32_t *src_pdos,
 		int min_uw, uint32_t policy)
 {
 	int i;
 	struct dpm_select_info_t select;
-	struct dpm_pdo_info_t sink, source;
+	struct dpm_pdo_info_t source;
 	dpm_select_pdo_fun select_pdo_fun;
-
-	dpm_extract_pdo_info(snk_pdo, &sink);
 
 	select.pos = 0;
 	select.cur_mv = 0;
@@ -351,7 +349,7 @@ bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
 	for (i = 0; i < cnt; i++) {
 		dpm_extract_pdo_info(src_pdos[i], &source);
 
-		if (select_pdo_fun(&select, &sink, &source))
+		if (select_pdo_fun(&select, sink, &source))
 			select.pos = i+1;
 	}
 
@@ -363,23 +361,23 @@ bool dpm_find_match_req_info(struct dpm_rdo_info_t *req_info,
 		req_info->vmax = source.vmax;
 		req_info->vmin = source.vmin;
 
-		if (sink.type == DPM_PDO_TYPE_BAT)
-			req_info->mismatch = select.max_uw < sink.uw;
+		if (sink->type == DPM_PDO_TYPE_BAT)
+			req_info->mismatch = select.max_uw < sink->uw;
 		else
-			req_info->mismatch = source.ma < sink.ma;
+			req_info->mismatch = source.ma < sink->ma;
 
 		if (source.type == DPM_PDO_TYPE_BAT) {
-			req_info->max_uw = sink.uw;
+			req_info->max_uw = sink->uw;
 			req_info->oper_uw = select.max_uw;
 		} else {
-			req_info->max_ma = sink.ma;
-			req_info->oper_ma = MIN(sink.ma, source.ma);
+			req_info->max_ma = sink->ma;
+			req_info->oper_ma = MIN(sink->ma, source.ma);
 		}
 
 #ifdef CONFIG_USB_PD_REV30_PPS_SINK
 		if (source.type == DPM_PDO_TYPE_APDO) {
-			req_info->vmax = sink.vmax;
-			req_info->vmin = sink.vmin;
+			req_info->vmax = sink->vmax;
+			req_info->vmin = sink->vmin;
 		}
 #endif	/* CONFIG_USB_PD_REV30_PPS_SINK */
 
