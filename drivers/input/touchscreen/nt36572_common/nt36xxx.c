@@ -1554,7 +1554,7 @@ static int32_t nvt_ts_probe(struct i2c_client *client, const struct i2c_device_i
 		input_set_capability(ts->input_dev, EV_KEY, gesture_key_array[retry]);
 	}
 #ifdef CONFIG_PM_WAKELOCKS
-	gestrue_wakelock = wakeup_source_register("poll-wake-lock");
+	gestrue_wakelock = wakeup_source_register(NULL, "poll-wake-lock");
 #else
 	wake_lock_init(&gestrue_wakelock, WAKE_LOCK_SUSPEND, "poll-wake-lock");
 #endif
