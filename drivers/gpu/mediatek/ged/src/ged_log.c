@@ -469,7 +469,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		const char *pszName,
 		const char *pszNodeName)
 {
-	struct GED_LOG_BUF *psGEDLogBuf;
+	struct GED_LOG_BUF *psGEDLogBuf = NULL;
 	GED_ERROR error;
 
 	if (((!pszName) && (!pszNodeName))
@@ -548,7 +548,12 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		if (cx < 0 || cx >= GED_LOG_BUF_NODE_NAME_LENGTH) {
 			GED_LOGE("Failed to snprintf (%s)!\n",
 				pszNodeName);
-			ged_log_buf_free(psGEDLogBuf->ulHashNodeID);
+			write_lock_bh(&gsGEDLogBufList.sLock);
+			list_del(&psGEDLogBuf->sList);
+			write_unlock_bh(&gsGEDLogBufList.sLock);
+			ged_free(psGEDLogBuf->pMemory,
+				psGEDLogBuf->i32MemorySize);
+			ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
 			return (GED_LOG_BUF_HANDLE)0;
 		}
 
