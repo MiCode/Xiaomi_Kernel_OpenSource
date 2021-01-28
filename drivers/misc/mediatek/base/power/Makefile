@@ -83,6 +83,7 @@ obj-$(CONFIG_MACH_MT6771) += mcdi/
 obj-$(CONFIG_MACH_MT6739) += mcdi/
 obj-$(CONFIG_MACH_MT6785) += cpuidle_v3/
 obj-$(CONFIG_MACH_MT6785) += ppm_v3/
+obj-$(CONFIG_MTK_SLBC) += slbc/
 obj-$(CONFIG_MTK_SWPM) += swpm_v1/
 obj-$(CONFIG_MTK_QOS_V2) += qos/
 obj-$(CONFIG_MTK_CM_MGR) += cm_mgr_v1/
