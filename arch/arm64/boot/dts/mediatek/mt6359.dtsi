@@ -4,7 +4,7 @@
  */
 #include <dt-bindings/iio/mt635x-auxadc.h>
 
-&pwrap {
+&pwrap{
 	pmic: pmic {
 		pmic_accdet: pmic_accdet {
 			compatible = "mediatek,mt6359-accdet";
