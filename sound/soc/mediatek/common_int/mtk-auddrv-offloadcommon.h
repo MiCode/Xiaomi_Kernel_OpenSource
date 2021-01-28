@@ -62,9 +62,6 @@
 #include <sound/compress_driver.h>
 #include <sound/pcm.h>
 #include <sound/soc.h>
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include "scp_helper.h"
-#endif
 #include <audio_task_manager.h>
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 #include "mtk-dsp-mem-control.h"
