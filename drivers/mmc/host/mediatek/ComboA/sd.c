@@ -33,6 +33,8 @@
 //#include <mt-plat/mtk_lpae.h>
 #include <linux/seq_file.h>
 #include <linux/pm_runtime.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 
 #include "mtk_sd.h"
 #include <mmc/core/core.h>
@@ -5292,6 +5294,15 @@ static int msdc_resume(struct device *dev)
 {
 	struct msdc_host *host = dev_get_drvdata(dev);
 	int ret = 0;
+	struct arm_smccc_res res;
+
+	/*
+	 * 1: MSDC_AES_CTL_INIT
+	 * 4: cap_id, no-meaning
+	 * 1: cfg_id, we choose the second cfg group
+	 */
+	arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+		1, 4, 1, 0, 0, 0, 0, &res);
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
