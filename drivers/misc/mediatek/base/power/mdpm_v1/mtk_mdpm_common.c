@@ -38,6 +38,13 @@ static bool md1_ccci_ready;
 (((unsigned int)-1>>(31-((1)?_bits_)))&~((1U<<((0)?_bits_))-1))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
+u32 __attribute__ ((weak))
+spm_vcorefs_get_MD_status(void)
+{
+	pr_notice_ratelimited("%s not ready\n", __func__);
+	return 0;
+}
+
 #if MD_POWER_METER_ENABLE
 void init_md_section_level(enum pbm_kicker kicker)
 {

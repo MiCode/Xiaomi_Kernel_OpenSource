@@ -98,6 +98,13 @@ tscpu_get_min_cpu_pwr(void)
 }
 
 unsigned int __attribute__ ((weak))
+mt_ppm_get_leakage_mw(enum ppm_cluster_lkg cluster)
+{
+	pr_notice_ratelimited("%s not ready\n", __func__);
+	return 0;
+}
+
+unsigned int __attribute__ ((weak))
 mt_gpufreq_get_leakage_mw(void)
 {
 	pr_warn_ratelimited("%s not ready\n", __func__);
@@ -114,13 +121,6 @@ void __attribute__ ((weak))
 mt_gpufreq_set_power_limit_by_pbm(unsigned int limited_power)
 {
 	pr_warn_ratelimited("%s not ready\n", __func__);
-}
-
-u32 __attribute__ ((weak))
-spm_vcorefs_get_MD_status(void)
-{
-	pr_warn_ratelimited("%s not ready\n", __func__);
-	return 0;
 }
 
 static int get_battery_volt(void)
