@@ -58,6 +58,12 @@
 #define CMDQ_TOKEN_1_EN_LO	(GCE_BASE_VA + 0x10E8)
 #define CMDQ_TOKEN_1_EN_HI	(GCE_BASE_VA + 0x10EC)
 
+#define GCE_DBG_CTL		(GCE_BASE_VA + 0x3000)
+#define GCE_DBG0		(GCE_BASE_VA + 0x3004)
+#define GCE_DBG1		(GCE_BASE_VA + 0x3008)
+#define GCE_DBG2		(GCE_BASE_VA + 0x300C)
+#define GCE_DBG3		(GCE_BASE_VA + 0x3010)
+
 #define CMDQ_GPR_R32(id)		(GCE_BASE_VA + (0x004 * id) + 0x80)
 #define CMDQ_GPR_R32_PA(id)		(GCE_BASE_PA + (0x004 * id) + 0x80)
 
