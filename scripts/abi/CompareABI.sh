@@ -15,6 +15,7 @@ TARGET_ABI_XML=abi_target.xml
 ABI_REPORT=abi-report.out
 FINAL_ABI_REPORT=abi-report-final.out
 TARGET_KERNEL_DIR=$BASE_DIR/out
+TARGET_VMLINUX_DIR=$BASE_DIR/out_vmlinux
 
 echo "Get ABIGAIL_VERSION from $ABIGAIL_BUILD_SCRIPT"
 ABIGAIL_VERSION=`grep "ABIGAIL_VERSION=" $ABIGAIL_BUILD_SCRIPT | cut -f2- -d=`
@@ -63,6 +64,8 @@ k79v1_64_gki_debug_defconfig mode=m abi_result_path=absolute_path \
 function del_temp_files(){
 	echo "Delete temp files $TARGET_KERNEL_DIR"
 	rm -rf $TARGET_KERNEL_DIR
+	echo "Delete temp files $TARGET_VMLINUX_DIR"
+	rm -rf $TARGET_VMLINUX_DIR
 	echo "Delete temp files $ABI_RESULT_DIR/$TARGET_ABI_XML"
 	rm -rf $ABI_RESULT_DIR/$TARGET_ABI_XML
 	echo "Delete temp files $ABI_RESULT_DIR/$ABI_REPORT"
@@ -110,14 +113,17 @@ $PWD/prebuilts/clang/host/linux-x86/clang-r353983c/bin/:$PATH
 
 
 	echo "Generate ABI xml:$TARGET_ABI_XML from kernel \
-tree:$TARGET_KERNEL_DIR"
+tree:$TARGET_VMLINUX_DIR"
 	#Use abi_dump to generate $TARGET_ABI_XML
 	#export $ABIGAIL_DIR_RELEASE bin and lib
 	export PATH=${ABIGAIL_DIR_RELEASE}/bin:${PATH}
 	export LD_LIBRARY_PATH=${ABIGAIL_DIR_RELEASE}/lib:\
 ${ABIGAIL_DIR_RELEASE}/lib/elfutils:${LD_LIBRARY_PATH}
+	echo "Copy vmlinux from $TARGET_KERNEL_DIR to $TARGET_VMLINUX_DIR"
+	mkdir -p $TARGET_VMLINUX_DIR
+	cp $TARGET_KERNEL_DIR/vmlinux $TARGET_VMLINUX_DIR
 	cd $ABIGAIL_DIR
-	python dump_abi --linux-tree $TARGET_KERNEL_DIR --out-file \
+	python dump_abi --linux-tree $TARGET_VMLINUX_DIR --out-file \
 	$ABI_RESULT_DIR/$TARGET_ABI_XML
 	echo "Generate ABI report:$ABI_REPORT from \
 --baseline:$ABI_XML_DIR/$ORI_ABI_XML --new:$ABI_RESULT_DIR/$TARGET_ABI_XML"
