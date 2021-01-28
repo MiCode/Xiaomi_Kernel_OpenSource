@@ -17,7 +17,7 @@ typedef int (*mtk_pwr_conservation_fn)(int type,
 				struct cpuidle_driver *drv,
 				int index);
 
-static struct mtk_cpuidle_op *mtk_lpm_ops __read_mostly;
+static struct mtk_cpuidle_op __rcu *mtk_lpm_ops __read_mostly;
 
 int mtk_lpm_drv_cpuidle_ops_set(struct mtk_cpuidle_op *op)
 {
@@ -25,7 +25,7 @@ int mtk_lpm_drv_cpuidle_ops_set(struct mtk_cpuidle_op *op)
 
 	cpuidle_pause_and_lock();
 
-	if ((!op && mtk_lpm_ops) || (op && !mtk_lpm_ops))
+	if (op && !mtk_lpm_ops)
 		rcu_assign_pointer(mtk_lpm_ops, op);
 	else
 		ret = -EACCES;
@@ -35,6 +35,14 @@ int mtk_lpm_drv_cpuidle_ops_set(struct mtk_cpuidle_op *op)
 	return ret;
 }
 EXPORT_SYMBOL(mtk_lpm_drv_cpuidle_ops_set);
+
+void mtk_lpm_drv_cpuidle_ops_clr(void)
+{
+	cpuidle_pause_and_lock();
+	rcu_assign_pointer(mtk_lpm_ops, NULL);
+	cpuidle_resume_and_unlock();
+}
+EXPORT_SYMBOL(mtk_lpm_drv_cpuidle_ops_clr);
 
 int mtk_lpm_pwr_conservation(int type,
 			     struct cpuidle_driver *drv,
@@ -80,9 +88,14 @@ static int mtk_lp_pm_driver_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_device;
 
-	platform_device_add_data(mtk_cpuidle_pm_dev,
+	ret = platform_device_add_data(mtk_cpuidle_pm_dev,
 				       &mtk_lpm_pwr,
 				       sizeof(mtk_lpm_pwr));
+	if (ret) {
+		pr_info("[%s:%d] - Device add data fail!\n",
+					__FILE__, __LINE__);
+		goto put_device;
+	}
 
 	device_init_wakeup(&mtk_cpuidle_pm_dev->dev, true);
 
