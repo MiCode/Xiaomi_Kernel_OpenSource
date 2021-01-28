@@ -35,6 +35,20 @@ static int needforcestop;
 static int s_is_normal_mdee;
 static int s_devapc_dump_counter;
 
+static void (*s_md_state_cb)(enum MD_STATE old_state,
+				enum MD_STATE new_state);
+
+int mtk_ccci_register_md_state_cb(
+		void (*md_state_cb)(
+			enum MD_STATE old_state,
+			enum MD_STATE new_state))
+{
+	s_md_state_cb = md_state_cb;
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_ccci_register_md_state_cb);
+
 int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 {
 	int ret = -1;
@@ -89,6 +103,8 @@ static struct ccci_fsm_command *fsm_check_for_ee(struct ccci_fsm_ctl *ctl,
 static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	enum MD_STATE state)
 {
+	enum MD_STATE old_state;
+
 	if (unlikely(ctl->md_state != BOOT_WAITING_FOR_HS2 && state == READY)) {
 		CCCI_NORMAL_LOG(ctl->md_id, FSM,
 		"ignore HS2 when md_state=%d\n",
@@ -97,8 +113,10 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 	}
 
 	CCCI_NORMAL_LOG(ctl->md_id, FSM,
-	"md_state change from %d to %d\n",
-	ctl->md_state, state);
+			"md_state change from %d to %d\n",
+			ctl->md_state, state);
+
+	old_state = ctl->md_state;
 	ctl->md_state = state;
 
 	/* update to port first,
@@ -109,6 +127,11 @@ static inline int fsm_broadcast_state(struct ccci_fsm_ctl *ctl,
 #ifdef FEATURE_SCP_CCCI_SUPPORT
 	schedule_work(&ctl->scp_ctl.scp_md_state_sync_work);
 #endif
+
+	if (old_state != state &&
+		s_md_state_cb != NULL)
+		s_md_state_cb(old_state, state);
+
 	return 0;
 }
 
