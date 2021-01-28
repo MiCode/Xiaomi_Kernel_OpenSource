@@ -1887,7 +1887,8 @@ CLK_OF_DECLARE_DRIVER(mtk_infracfg_ao, "mediatek,infracfg_ao",
 
 #define PLL_B(_id, _name, _reg, _pwr_reg, _en_mask, _flags,	\
 			_rst_bar_mask, _pcwbits, _pd_reg, _pd_shift,	\
-			_tuner_reg, _pcw_reg, _pcw_shift, _div_table) {\
+			_tuner_reg,	\
+			_pcw_reg, _pcw_shift, _div_table) {\
 		.id = _id,						\
 		.name = _name,						\
 		.reg = _reg,						\
@@ -1896,7 +1897,9 @@ CLK_OF_DECLARE_DRIVER(mtk_infracfg_ao, "mediatek,infracfg_ao",
 		.flags = _flags,					\
 		.rst_bar_mask = _rst_bar_mask,				\
 		.fmax = MT6771_PLL_FMAX,				\
+		.fmin = MT6771_PLL_FMIN,				\
 		.pcwbits = _pcwbits,					\
+		.pcwibits = MT6771_INTEGER_BITS,			\
 		.pd_reg = _pd_reg,					\
 		.pd_shift = _pd_shift,					\
 		.tuner_reg = _tuner_reg,				\
