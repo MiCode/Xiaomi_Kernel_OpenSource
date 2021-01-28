@@ -1406,29 +1406,39 @@ static ssize_t show_AUXADC_channel(struct device *dev,
 	char tmp_buf[256];
 
 	for (i = 0; i < ADC_CHANNEL_MAX; i++) {
-		ret = IMM_auxadc_GetOneChannelValue(i, tmp_vol,
-							&rawdata);
-		if (ret < 0) {
-			pr_err(TAG "get chn[%d] data error\n", i);
-			rawdata = 0;
-			tmp_vol[0] = -1;
-			tmp_len = snprintf(tmp_buf, 255,
-					"[%2d,%4d,%4d]-%15.15s-\n",
-					i, rawdata, tmp_vol[0],
-					g_adc_info[i].channel_name);
-			if (tmp_len > 0)
-				strncat(buf, tmp_buf, strlen(tmp_buf));
+		/*Channel 13 & 15 used for APMIXED*/
+		if ((i != 13) && (i != 15)) {
+			ret = IMM_auxadc_GetOneChannelValue(i, tmp_vol,
+								&rawdata);
+			if (ret < 0) {
+				pr_info(TAG "get chn[%d] data error\n", i);
+				rawdata = 0;
+				tmp_vol[0] = -1;
+				tmp_len = snprintf(tmp_buf, 255,
+						"[%2d,%4d,%4d]-%15.15s-\n",
+						i, rawdata, tmp_vol[0],
+						g_adc_info[i].channel_name);
+				if (tmp_len > 0)
+					strncat(buf, tmp_buf, strlen(tmp_buf));
+			} else {
+				tmp_len = snprintf(tmp_buf, 255,
+						"[%2d,%4d,%4d]-%15.15s-\n", i, rawdata,
+						(tmp_vol[0]*1000+tmp_vol[2]),
+						g_adc_info[i].channel_name);
+				if (tmp_len > 0)
+					strncat(buf, tmp_buf, strlen(tmp_buf));
+				pr_info(TAG "len:%d,chn[%d]=%d mv, [%s]\n",
+						(int)strlen(buf), i,
+						(tmp_vol[0]*1000+tmp_vol[2]),
+						g_adc_info[i].channel_name);
+			}
 		} else {
+			rawdata = 0;
+			tmp_vol[0] = 0;
 			tmp_len = snprintf(tmp_buf, 255,
-					"[%2d,%4d,%4d]-%15.15s-\n", i, rawdata,
-					(tmp_vol[0]*1000+tmp_vol[2]),
-					g_adc_info[i].channel_name);
-			if (tmp_len > 0)
-				strncat(buf, tmp_buf, strlen(tmp_buf));
-			pr_info(TAG "len:%d,chn[%d]=%d mv, [%s]\n",
-					(int)strlen(buf), i,
-					(tmp_vol[0]*1000+tmp_vol[2]),
-					g_adc_info[i].channel_name);
+						"[%2d,%4d,%4d]-%15.15s-\n",
+						i, rawdata, tmp_vol[0],
+						g_adc_info[i].channel_name);
 		}
 	}
 
