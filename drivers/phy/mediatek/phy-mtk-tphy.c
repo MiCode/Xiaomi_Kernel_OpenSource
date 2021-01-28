@@ -266,11 +266,6 @@
 #define RG_CDR_BIRLTD0_GEN3_MSK		GENMASK(4, 0)
 #define RG_CDR_BIRLTD0_GEN3_VAL(x)	(0x1f & (x))
 
-#define MSK_RG_USB20_INTR_EN 0x1
-#define WIDTH_RG_USB20_INTR_EN 1
-#define SHFT_RG_USB20_INTR_EN 5
-#define OFFSET_RG_USB20_INTR_EN 0x0
-
 #define MSK_RG_USB20_TERM_VREF_SEL 0x7
 #define WIDTH_RG_USB20_TERM_VREF_SEL 3
 #define SHFT_RG_USB20_TERM_VREF_SEL 8
@@ -280,16 +275,6 @@
 #define WIDTH_RG_USB20_VRT_VREF_SEL 3
 #define SHFT_RG_USB20_VRT_VREF_SEL 12
 #define OFFSET_RG_USB20_VRT_VREF_SEL 0x4
-
-#define MSK_RG_USB20_INTR_CAL 0x1f
-#define WIDTH_RG_USB20_INTR_CAL 5
-#define SHFT_RG_USB20_INTR_CAL 19
-#define OFFSET_RG_USB20_INTR_CAL 0x4
-
-#define MSK_RG_USB20_HSTX_SRCTRL 0x7
-#define WIDTH_RG_USB20_HSTX_SRCTRL 3
-#define SHFT_RG_USB20_HSTX_SRCTRL 12
-#define OFFSET_RG_USB20_HSTX_SRCTRL 0x14
 
 #define MSK_RG_USB20_PHY_REV6 0x3
 #define WIDTH_RG_USB20_PHY_REV6 2
@@ -427,49 +412,6 @@ static int u3_phy_sysfs_exit(struct mtk_tphy *tphy,
 	return 0;
 }
 
-static ssize_t hstx_srctrl_store(struct device *dev,
-				 struct device_attribute *attr,
-				 const char *buf, size_t count)
-{
-	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
-	struct u2phy_banks *u2_banks = &instance->u2_banks;
-	void __iomem *com = u2_banks->com;
-	u32 tmp;
-
-	if (kstrtouint(buf, 2, &tmp))
-		return -EINVAL;
-
-	if (tmp > MSK_RG_USB20_HSTX_SRCTRL)
-		tmp = MSK_RG_USB20_HSTX_SRCTRL;
-
-	phy_write(com + OFFSET_RG_USB20_HSTX_SRCTRL,
-		SHFT_RG_USB20_HSTX_SRCTRL,
-		MSK_RG_USB20_HSTX_SRCTRL, tmp);
-
-	dev_info(dev, "%s, hstx_srctrl=%x\n", __func__, tmp);
-	return count;
-}
-
-static ssize_t hstx_srctrl_show(struct device *dev,
-				 struct device_attribute *attr, char *buf)
-{
-	struct mtk_phy_instance *instance = phy_get_drvdata(to_phy(dev));
-	struct u2phy_banks *u2_banks = &instance->u2_banks;
-	void __iomem *com = u2_banks->com;
-	u32 tmp;
-	char str[16];
-
-	tmp = phy_read(com + OFFSET_RG_USB20_HSTX_SRCTRL,
-		SHFT_RG_USB20_HSTX_SRCTRL,
-		MSK_RG_USB20_HSTX_SRCTRL);
-
-	cover_val_to_str(tmp, WIDTH_RG_USB20_HSTX_SRCTRL, str);
-
-	dev_info(dev, "%s, hstx_srctrl=%s\n", __func__, str);
-	return sprintf(buf, "%s\n", str);
-}
-static DEVICE_ATTR_RW(hstx_srctrl);
-
 static ssize_t vrt_sel_store(struct device *dev,
 				 struct device_attribute *attr,
 				 const char *buf, size_t count)
@@ -509,7 +451,7 @@ static ssize_t vrt_sel_show(struct device *dev,
 	cover_val_to_str(tmp, WIDTH_RG_USB20_VRT_VREF_SEL, str);
 
 	dev_info(dev, "%s, vrt_sel=%s\n", __func__, str);
-	return sprintf(buf, "%s\n", str);
+	return sprintf(buf, "vrt_sel = %s\n", str);
 }
 static DEVICE_ATTR_RW(vrt_sel);
 
@@ -552,7 +494,7 @@ static ssize_t term_sel_show(struct device *dev,
 	cover_val_to_str(tmp, WIDTH_RG_USB20_TERM_VREF_SEL, str);
 
 	dev_info(dev, "%s, term_sel=%s\n", __func__, str);
-	return sprintf(buf, "%s\n", str);
+	return sprintf(buf, "term_sel = %s\n", str);
 }
 static DEVICE_ATTR_RW(term_sel);
 
@@ -595,7 +537,7 @@ static ssize_t phy_rev6_show(struct device *dev,
 	cover_val_to_str(tmp, WIDTH_RG_USB20_PHY_REV6, str);
 
 	dev_info(dev, "%s, phy_rev6=%s\n", __func__, str);
-	return sprintf(buf, "%s\n", str);
+	return sprintf(buf, "phy_rev6 = %s\n", str);
 }
 static DEVICE_ATTR_RW(phy_rev6);
 
@@ -639,14 +581,13 @@ static ssize_t discth_show(struct device *dev,
 	cover_val_to_str(tmp, WIDTH_RG_USB20_DISCTH, str);
 
 	dev_info(dev, "%s, discth=%s\n", __func__, str);
-	return sprintf(buf, "%s\n", str);
+	return sprintf(buf, "discth = %s\n", str);
 }
 static DEVICE_ATTR_RW(discth);
 
 static struct attribute *u2_phy_attrs[] = {
 	&dev_attr_vrt_sel.attr,
 	&dev_attr_term_sel.attr,
-	&dev_attr_hstx_srctrl.attr,
 	&dev_attr_phy_rev6.attr,
 	&dev_attr_discth.attr,
 	NULL
