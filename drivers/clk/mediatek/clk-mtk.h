@@ -69,7 +69,7 @@ struct mtk_composite {
 	const char *name;
 	const char * const *parent_names;
 	const char *parent;
-	unsigned flags;
+	unsigned long flags;
 
 	uint32_t mux_reg;
 	uint32_t divider_reg;
