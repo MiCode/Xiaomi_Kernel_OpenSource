@@ -157,11 +157,14 @@ void vpu_met_event_dvfs(int vcore_opp,
 /*
  * VPU counter reader
  */
-static void vpu_profile_core_read(int core)
+static void vpu_profile_core_read(int core_s)
 {
 	int i;
 	uint32_t value[4];
+	unsigned int core;
 
+	/* Cast to unsigned for Coverity defect */
+	core = (unsigned int)core_s;
 	/* read register and send to met */
 	for (i = 0; i < 4; i++) {
 		uint32_t counter;
