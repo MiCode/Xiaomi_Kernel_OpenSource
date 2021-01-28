@@ -97,6 +97,7 @@ static char *pd_state_to_str(int state)
 static int _pd_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd;
+	int cnt;
 
 	pd = dev_get_drvdata(&alg->dev);
 	pd_dbg("%s\n", __func__);
@@ -107,6 +108,19 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 		pd_err("%s:init hw fail\n", __func__);
 	} else
 		pd->state = PD_HW_READY;
+
+	if (alg->config == DUAL_CHARGERS_IN_PARALLEL) {
+		pd_err("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
+			__func__);
+		alg->config = SINGLE_CHARGER;
+	} else if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+		cnt = pd_hal_get_charger_cnt(alg);
+		if (cnt == 2)
+			alg->config = DUAL_CHARGERS_IN_SERIES;
+		else
+			alg->config = SINGLE_CHARGER;
+	} else
+		alg->config = SINGLE_CHARGER;
 
 	pd->pdc_max_watt_setting = -1;
 
@@ -347,7 +361,7 @@ int __mtk_pdc_setup(struct chg_alg_device *alg, int idx)
 			force_update = true;
 
 		chg_cnt = pd_hal_get_charger_cnt(alg);
-		if (chg_cnt > 1) {
+		if (chg_cnt > 1 && alg->config == DUAL_CHARGERS_IN_SERIES) {
 			for (i = CHG2; i < CHG_MAX; i++) {
 				is_chip_enabled =
 						pd_hal_is_chip_enable(alg, i);
@@ -523,7 +537,7 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	pd_hal_get_mivr(alg, CHG1, &mivr1);
 
 	chg_cnt = pd_hal_get_charger_cnt(alg);
-	if (chg_cnt > 1) {
+	if (chg_cnt > 1 && alg->config == DUAL_CHARGERS_IN_SERIES) {
 		for (i = CHG2; i < CHG_MAX; i++) {
 			is_chip_enabled =
 					pd_hal_is_chip_enable(alg, i);
@@ -1238,29 +1252,10 @@ int _pd_set_setting(struct chg_alg_device *alg_dev,
 	return 0;
 }
 
-
-
 int _pd_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
-	int cnt;
-
 	pr_notice("%s %d %d\n", __func__, s, value);
-	if (s == CHARGER_CONFIGURATION) {
-		if (value == DUAL_CHARGERS_IN_PARALLEL) {
-			pr_notice("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
-				__func__);
-			alg->config = SINGLE_CHARGER;
-		} else if (value == DUAL_CHARGERS_IN_SERIES) {
-			cnt = pd_hal_get_charger_cnt(alg);
-			if (cnt == 2)
-				alg->config = DUAL_CHARGERS_IN_SERIES;
-			else
-				alg->config = SINGLE_CHARGER;
-		} else
-			alg->config = SINGLE_CHARGER;
-	} else
-		pr_notice("%s does not support prop:%d\n", __func__, s);
 	return 0;
 }
 

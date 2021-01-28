@@ -101,6 +101,7 @@ void mtk_pe40_reset(struct chg_alg_device *alg)
 static int _pe4_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe40 *pe4;
+	int cnt;
 
 	pe4 = dev_get_drvdata(&alg->dev);
 	pe4_dbg("%s\n", __func__);
@@ -112,6 +113,19 @@ static int _pe4_init_algo(struct chg_alg_device *alg)
 	} else
 		pe4->state = PE4_HW_READY;
 	mtk_pe40_reset(alg);
+
+	if (alg->config == DUAL_CHARGERS_IN_PARALLEL) {
+		pe4_err("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
+			__func__);
+		alg->config = SINGLE_CHARGER;
+	} else if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+		cnt = pe4_hal_get_charger_cnt(alg);
+		if (cnt == 2)
+			alg->config = DUAL_CHARGERS_IN_SERIES;
+		else
+			alg->config = SINGLE_CHARGER;
+	} else
+		alg->config = SINGLE_CHARGER;
 	mutex_unlock(&pe4->access_lock);
 	return 0;
 }
@@ -732,7 +746,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 	/* disable charger */
 	pe4_hal_enable_powerpath(alg, CHG1, false);
 	chg_cnt = pe4_hal_get_charger_cnt(alg);
-	if (chg_cnt > 1) {
+	if (chg_cnt > 1 && alg->config == DUAL_CHARGERS_IN_SERIES) {
 		for (i = CHG2; i < CHG_MAX; i++) {
 			is_chip_enabled = pe4_hal_is_chip_enable(alg, i);
 			if (is_chip_enabled) {
@@ -772,20 +786,36 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 
 	/*enable charger*/
 	pe4_hal_enable_powerpath(alg, CHG1, true);
-	chg_cnt = pe4_hal_get_charger_cnt(alg);
-	if (chg_cnt > 1) {
-		for (i = CHG2; i < CHG_MAX; i++) {
-			is_chip_enabled = pe4_hal_is_chip_enable(alg, i);
-			if (is_chip_enabled == false) {
-				pe4_hal_charger_enable_chip(alg, i, true);
-				pe4_hal_set_charging_current(alg,
-					CHG2, pe4->charger_current2);
-				pe4_hal_set_input_current(alg,
-					CHG2, pe4->input_current2);
-				pe4_hal_enable_charger(alg, i, true);
+	if (alg->config == SINGLE_CHARGER) {
+		pe4_hal_set_charging_current(alg,
+			CHG1, pe4->sc_charger_current);
+		pe4_hal_set_input_current(alg,
+			CHG1, pe4->sc_input_current);
+	} else if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+		pe4_hal_set_charging_current(alg,
+			CHG1, pe4->dcs_chg2_charger_current);
+		pe4_hal_set_input_current(alg,
+			CHG1, pe4->dcs_input_current);
+		chg_cnt = pe4_hal_get_charger_cnt(alg);
+		if (chg_cnt > 1) {
+			for (i = CHG2; i < CHG_MAX; i++) {
+				is_chip_enabled =
+					pe4_hal_is_chip_enable(alg, i);
+				if (is_chip_enabled == false) {
+					pe4_hal_charger_enable_chip(
+						alg, i, true);
+					pe4_hal_enable_charger(alg, i, true);
+					pe4_hal_set_charging_current(alg,
+						CHG2,
+						pe4->dcs_chg2_charger_current);
+					pe4_hal_set_input_current(alg,
+						CHG2,
+						pe4->dcs_chg2_charger_current);
+				}
 			}
 		}
 	}
+	pe4_hal_dump_registers(alg);
 	msleep(100);
 
 	if (cap.output_ma > 100) {
@@ -1878,24 +1908,7 @@ int _pe4_set_setting(struct chg_alg_device *alg_dev,
 int _pe4_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
-	int cnt;
-
 	pr_notice("%s %d %d\n", __func__, s, value);
-	if (s == CHARGER_CONFIGURATION) {
-		if (value == DUAL_CHARGERS_IN_PARALLEL) {
-			pr_notice("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
-				__func__);
-			alg->config = SINGLE_CHARGER;
-		} else if (value == DUAL_CHARGERS_IN_SERIES) {
-			cnt = pe4_hal_get_charger_cnt(alg);
-			if (cnt == 2)
-				alg->config = DUAL_CHARGERS_IN_SERIES;
-			else
-				alg->config = SINGLE_CHARGER;
-		} else
-			alg->config = SINGLE_CHARGER;
-	} else
-		pr_notice("%s does not support prop:%d\n", __func__, s);
 	return 0;
 }
 

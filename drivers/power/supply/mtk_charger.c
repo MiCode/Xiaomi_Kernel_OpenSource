@@ -1231,8 +1231,8 @@ static bool charger_init_algo(struct mtk_charger *info)
 		chr_err("get pe4 fail\n");
 	else {
 		chr_err("get pe4 success\n");
+		alg->config = info->config;
 		chg_alg_init_algo(alg);
-		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
@@ -1243,8 +1243,8 @@ static bool charger_init_algo(struct mtk_charger *info)
 		chr_err("get pd fail\n");
 	else {
 		chr_err("get pd success\n");
+		alg->config = info->config;
 		chg_alg_init_algo(alg);
-		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
@@ -1255,8 +1255,8 @@ static bool charger_init_algo(struct mtk_charger *info)
 		chr_err("get pe2 fail\n");
 	else {
 		chr_err("get pe2 success\n");
+		alg->config = info->config;
 		chg_alg_init_algo(alg);
-		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
@@ -1267,8 +1267,8 @@ static bool charger_init_algo(struct mtk_charger *info)
 		chr_err("get pe fail\n");
 	else {
 		chr_err("get pe success\n");
+		alg->config = info->config;
 		chg_alg_init_algo(alg);
-		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 

@@ -85,7 +85,6 @@ struct chg_limit_setting {
 };
 
 enum chg_alg_props {
-	CHARGER_CONFIGURATION,
 	ALG_MAX_VBUS,
 };
 

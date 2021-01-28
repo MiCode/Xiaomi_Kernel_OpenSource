@@ -596,17 +596,15 @@ int pe4_hal_get_ibus(struct chg_alg_device *alg, int *ibus)
 
 int pe4_hal_dump_registers(struct chg_alg_device *alg)
 {
-	int ret = 0;
 	struct pe40_hal *hal;
 
 	if (alg == NULL)
 		return -EINVAL;
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	charger_dev_dump_registers(hal->chg1_dev);
-	if (ret < 0)
-		pr_notice("%s: failed: %d\n", __func__, ret);
+	charger_dev_dump_registers(hal->chg2_dev);
 
-	return ret;
+	return 0;
 }
 
 int pe4_hal_get_ibat(struct chg_alg_device *alg)

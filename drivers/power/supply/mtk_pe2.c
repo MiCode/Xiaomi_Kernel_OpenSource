@@ -155,7 +155,7 @@ int pe2_reset_ta_vchr(struct chg_alg_device *alg)
 	/* Reset TA's charging voltage */
 	do {
 		chg_cnt = pe2_hal_get_charger_cnt(alg);
-		if (chg_cnt > 1) {
+		if (chg_cnt > 1 && alg->config == DUAL_CHARGERS_IN_SERIES) {
 			for (i = CHG2; i < CHG_MAX; i++) {
 				is_chip_enabled =
 						pe2_hal_is_chip_enable(alg, i);
@@ -314,7 +314,7 @@ static int _pe20_set_ta_vchr(struct chg_alg_device *alg, u32 chr_volt)
 	}
 
 	chg_cnt = pe2_hal_get_charger_cnt(alg);
-	if (chg_cnt > 1) {
+	if (chg_cnt > 1 && alg->config == DUAL_CHARGERS_IN_SERIES) {
 		for (i = CHG2; i < CHG_MAX; i++) {
 			is_chip_enabled = pe2_hal_is_chip_enable(alg, i);
 			if (is_chip_enabled) {
@@ -533,11 +533,9 @@ static int pe2_leave(struct chg_alg_device *alg)
 static int _pe2_init_algo(struct chg_alg_device *alg)
 {
 	struct mtk_pe20 *pe2;
-	int ret;
+	int ret, cnt;
 
 	pe2 = dev_get_drvdata(&alg->dev);
-	pe2_dbg("%s\n", __func__);
-
 	mutex_lock(&pe2->access_lock);
 	if (pe2_hal_init_hardware(alg) != 0) {
 		pe2->state = PE2_HW_FAIL;
@@ -547,7 +545,21 @@ static int _pe2_init_algo(struct chg_alg_device *alg)
 	ret = pe2_hal_set_efficiency_table(pe2->alg);
 	if (ret != 0)
 		pe2_err("%s: use default table, %d\n", __func__, ret);
+
+	if (alg->config == DUAL_CHARGERS_IN_PARALLEL) {
+		pe2_err("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
+			__func__);
+		alg->config = SINGLE_CHARGER;
+	} else if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+		cnt = pe2_hal_get_charger_cnt(alg);
+		if (cnt == 2)
+			alg->config = DUAL_CHARGERS_IN_SERIES;
+		else
+			alg->config = SINGLE_CHARGER;
+	} else
+		alg->config = SINGLE_CHARGER;
 	mutex_unlock(&pe2->access_lock);
+	pe2_dbg("%s config:%d\n", __func__, alg->config);
 	return 0;
 }
 
@@ -1268,24 +1280,7 @@ int _pe2_get_prop(struct chg_alg_device *alg,
 int _pe2_set_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int value)
 {
-	int cnt;
-
 	pr_notice("%s %d %d\n", __func__, s, value);
-	if (s == CHARGER_CONFIGURATION) {
-		if (value == DUAL_CHARGERS_IN_PARALLEL) {
-			pr_notice("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
-				__func__);
-			alg->config = SINGLE_CHARGER;
-		} else if (value == DUAL_CHARGERS_IN_SERIES) {
-			cnt = pe2_hal_get_charger_cnt(alg);
-			if (cnt == 2)
-				alg->config = DUAL_CHARGERS_IN_SERIES;
-			else
-				alg->config = SINGLE_CHARGER;
-		} else
-			alg->config = SINGLE_CHARGER;
-	} else
-		pr_notice("%s does not support prop:%d\n", __func__, s);
 	return 0;
 }
 
