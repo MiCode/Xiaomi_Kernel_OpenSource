@@ -17,6 +17,7 @@
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <dt-bindings/memory/mt6885-larb-port.h>
 #else
+#define MTK_M4U_ID(larb, port)	(((larb) << 5) | (port))
 #define MTK_IOMMU_TO_LARB(id)	(((id) >> 5) & 0x1f)
 #define MTK_IOMMU_TO_PORT(id)	((id) & 0x1f)
 #endif

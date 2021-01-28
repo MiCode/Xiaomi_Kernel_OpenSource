@@ -2620,6 +2620,137 @@ page_owner=on";
 		mediatek,smi-id = <27>;
 	};
 
+	mmdvfs_pmqos {
+		compatible = "mediatek,mmdvfs_pmqos";
+		larb_groups = <0 1 2 3 4 5 7 8 9 11 13 14 16 17 18 19 20>;
+		larb0 = <8 8 7 7 7 8 8 8 7 7 7 9 8 7 7>;
+		larb1 = <8 8 7 7 7 8 8 8 7 7 7 9 8 7 7>;
+		larb2 = <8 8 9 9 8 8>;
+		larb3 = <8 8 9 9 8 8>;
+		larb4 = <8 7 8 9 9 9 9 7 7 8 7>;
+		larb5 = <7 7 8 9 9 8 7 7>;
+		larb7 = <9 8 8 8 8 7 7 7 7 7 7 7 8 8 8 7 8 8 7 8
+			8 8 7 7 7 7 7>;
+		larb8 = <9 8 8 8 8 7 7 7 7 7 7 7 8 8 8 7 8 8 7 8
+			8 8 7 7 7 7 7>;
+		larb9 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7 7 7
+			7 7 7 7 8 8 8 8 7>;
+		larb11 = <7 7 7 7 7 7 8 8 8 8 7 7 8 9 8 6 6 7 7 7
+			7 7 7 7 8 8 8 8 7>;
+		larb13 = <7 8 8 8 8 8 8 8 8 7 8 7>;
+		larb14 = <7 8 8 8 7 8>;
+		larb16 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb17 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb18 = <8 8 7 7 8 7 7 7 8 8 8 8 8 8 8 8 7>;
+		larb19 = <7 8 7 8>;
+		larb20 = <7 7 8 8 6 7>;
+		/* include SMI common CCU */
+		cam_larb = <13 14 16 17 18 23 24>;
+		max_ostd_larb = <0 1>;
+		max_ostd = <40>;
+		comm_freq = "disp_freq", "mdp_freq";
+		disp_step0 = <546 1 0 9>;
+		disp_step1 = <416 1 0 10>;
+		disp_step2 = <312 1 0 11>;
+		disp_step3 = <249 1 0 12>;
+		mdp_step0 = <594 1 1 13>;
+		mdp_step1 = <416 1 1 10>;
+		mdp_step2 = <312 1 1 11>;
+		mdp_step3 = <273 1 1 14>;
+		cam_step0 = <624 1 2 15>;
+		cam_step1 = <499 1 2 16>;
+		cam_step2 = <392 1 2 17>;
+		cam_step3 = <312 1 2 11>;
+		img1_step0 = <624 1 3 15>;
+		img1_step1 = <416 1 3 10>;
+		img1_step2 = <343 1 3 18>;
+		img1_step3 = <273 1 3 14>;
+		img2_step0 = <624 1 4 15>;
+		img2_step1 = <416 1 4 10>;
+		img2_step2 = <343 1 4 18>;
+		img2_step3 = <273 1 4 14>;
+		venc_step0 = <624 1 5 15>;
+		venc_step1 = <416 1 5 10>;
+		venc_step2 = <312 1 5 11>;
+		venc_step3 = <273 1 5 14>;
+		vdec_step0 = <546 1 6 9>;
+		vdec_step1 = <416 1 6 10>;
+		vdec_step2 = <312 1 6 11>;
+		vdec_step3 = <249 1 6 12>;
+		dpe_step0 = <546 1 7 9>;
+		dpe_step1 = <458 1 7 19>;
+		dpe_step2 = <364 1 7 20>;
+		dpe_step3 = <312 1 7 11>;
+		ipe_step0 = <546 1 8 9>;
+		ipe_step1 = <416 1 8 10>;
+		ipe_step2 = <312 1 8 11>;
+		ipe_step3 = <273 1 8 14>;
+		/* fmeter_mux_ids: Mapping to mux sequence in clocks */
+		fmeter_mux_ids = <5 6 11 7 8 56 57 10 9>;
+		vopp_steps = <0 1 2>;
+		disp_freq = "disp_step0", "disp_step1",
+				"disp_step2", "disp_step3";
+		mdp_freq = "mdp_step0", "mdp_step1",
+				"mdp_step2", "mdp_step3";
+		cam_freq = "cam_step0", "cam_step1",
+				"cam_step2", "cam_step3";
+		img1_freq = "img1_step0", "img1_step1",
+				"img1_step2", "img1_step3";
+		img2_freq = "img2_step0", "img2_step1",
+				"img2_step2", "img2_step3";
+		venc_freq = "venc_step0", "venc_step1",
+				"venc_step2", "venc_step3";
+		vdec_freq = "vdec_step0", "vdec_step1",
+				"vdec_step2", "vdec_step3";
+		dpe_freq = "dpe_step0", "dpe_step1",
+				"dpe_step2", "dpe_step3";
+		ipe_freq = "ipe_step0", "ipe_step1",
+				"ipe_step2", "ipe_step3";
+		clocks = <&topckgen TOP_MUX_DISP>,		/* 0 */
+			<&topckgen TOP_MUX_MDP>,		/* 1 */
+			<&topckgen TOP_MUX_CAM>,		/* 2 */
+			<&topckgen TOP_MUX_IMG1>,		/* 3 */
+			<&topckgen TOP_MUX_IMG2>,		/* 4 */
+			<&topckgen TOP_MUX_VENC>,		/* 5 */
+			<&topckgen TOP_MUX_VDEC>,		/* 6 */
+			<&topckgen TOP_MUX_DPE>,		/* 7 */
+			<&topckgen TOP_MUX_IPE>,		/* 8 */
+			<&topckgen TOP_MAINPLL_D4>,		/* 9 */
+			<&topckgen TOP_UNIVPLL_D6>,		/* 10 */
+			<&topckgen TOP_UNIVPLL_D4_D2>,		/* 11 */
+			<&topckgen TOP_UNIVPLL_D5_D2>,		/* 12 */
+			<&topckgen TOP_TVDPLL_CK>,		/* 13 */
+			<&topckgen TOP_MAINPLL_D4_D2>,		/* 14 */
+			<&topckgen TOP_UNIVPLL_D4>,		/* 15 */
+			<&topckgen TOP_UNIVPLL_D5>,		/* 16 */
+			<&topckgen TOP_MMPLL_D7>,		/* 17 */
+			<&topckgen TOP_MMPLL_D4_D2>,		/* 18 */
+			<&topckgen TOP_MMPLL_D6>,		/* 19 */
+			<&topckgen TOP_MAINPLL_D6>;		/* 20 */
+		clock-names = "TOP_MUX_DISP",	/* 0 */
+			"TOP_MUX_MDP",		/* 1 */
+			"TOP_MUX_CAM",		/* 2 */
+			"TOP_MUX_IMG1",		/* 3 */
+			"TOP_MUX_IMG2",		/* 4 */
+			"TOP_MUX_VENC",		/* 5 */
+			"TOP_MUX_VDEC",		/* 6 */
+			"TOP_MUX_DPE",		/* 7 */
+			"TOP_MUX_IPE",		/* 8 */
+			"TOP_MAINPLL_D4",	/* 9 */
+			"TOP_UNIVPLL_D6",	/* 10 */
+			"TOP_UNIVPLL_D4_D2",	/* 11 */
+			"TOP_UNIVPLL_D5_D2",	/* 12 */
+			"TOP_TVDPLL_CK",	/* 13 */
+			"TOP_MAINPLL_D4_D2",	/* 14 */
+			"TOP_UNIVPLL_D4",	/* 15 */
+			"TOP_UNIVPLL_D5",	/* 16 */
+			"TOP_MMPLL_D7",		/* 17 */
+			"TOP_MMPLL_D4_D2",	/* 18 */
+			"TOP_MMPLL_D6",		/* 19 */
+			"TOP_MAINPLL_D6";	/* 20 */
+	};
+
+
 	disp_dsc_wrap@14124000 {
 		compatible = "mediatek,disp_dsc_wrap";
 		reg = <0 0x14124000 0 0x1000>;
