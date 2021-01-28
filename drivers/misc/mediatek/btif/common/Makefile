@@ -18,8 +18,8 @@ ifneq ($(KERNELRELEASE),)
 	ccflags-y += -I$(src)/inc
 	ccflags-y += -I$(src)/plat_inc
 
-	obj-y += btif.o
-	btif-y	:= mtk_btif.o mtk_btif_exp.o btif_dma_plat.o btif_plat.o
+	obj-$(CONFIG_MTK_BTIF) += btif_drv.o
+	btif_drv-objs := mtk_btif.o mtk_btif_exp.o btif_dma_plat.o btif_plat.o
 
 # Otherwise we were called directly from the command
 # line; invoke the kernel build system.
