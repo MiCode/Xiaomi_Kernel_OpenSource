@@ -190,8 +190,11 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable VDEC_LAT fail %d",
 				ret);
-	} else
+	} else {
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
+		time_check_end(MTK_FMT_DEC, hw_id, 50);
+		return;
+	}
 
 	mutex_lock(&pm->dec_racing_info_mutex);
 	if (atomic_inc_return(&pm->dec_active_cnt) == 1) {

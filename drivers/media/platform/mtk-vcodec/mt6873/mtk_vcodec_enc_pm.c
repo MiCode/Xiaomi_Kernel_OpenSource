@@ -244,8 +244,11 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 		ret = clk_prepare_enable(pm->clk_MT_CG_VENC0);
 		if (ret)
 			mtk_v4l2_err("clk_prepare_enable CG_VENC fail %d", ret);
-	} else
+	} else {
 		mtk_v4l2_err("invalid core_id %d", core_id);
+		time_check_end(MTK_FMT_ENC, core_id, 50);
+		return;
+	}
 	time_check_end(MTK_FMT_ENC, core_id, 50);
 #endif
 
@@ -634,7 +637,8 @@ void mtk_venc_pmqos_gce_flush(struct mtk_vcodec_ctx *ctx, int core_id,
 		frame_rate = ctx->enc_params.framerate_num /
 				ctx->enc_params.framerate_denom;
 	}
-	job->operation_rate = frame_rate;
+	if (job != NULL)
+		job->operation_rate = frame_rate;
 
 	if (job_cnt == 0) {
 		// Adjust dvfs immediately

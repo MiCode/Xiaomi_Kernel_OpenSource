@@ -154,6 +154,8 @@ void mtk_vcodec_dec_clock_on(struct mtk_vcodec_pm *pm, int hw_id)
 		larb_port_num = 0;
 		larb_id = 0;
 		mtk_v4l2_err("invalid hw_id %d", hw_id);
+		time_check_end(MTK_FMT_DEC, hw_id, 50);
+		return;
 	}
 
 	//enable 34bits port configs & sram settings
