@@ -404,7 +404,12 @@ migrate_running_task(int this_cpu, struct task_struct *p, struct rq *target)
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 bool idle_lb_enhance(struct task_struct *p, int cpu)
 {
+	int target_capacity = capacity_orig_of(cpu);
+
 	if (schedtune_prefer_idle(p))
+		return 1;
+
+	if (uclamp_task_effective_util(p, UCLAMP_MIN) > target_capacity)
 		return 1;
 
 	return 0;
@@ -419,6 +424,7 @@ static struct sched_entity
 	int num_tasks = idle_prefer_max_tasks;
 	const struct cpumask *hmp_target_mask = NULL;
 	int target_capacity, src_capacity;
+	unsigned int util_min;
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se;
 
@@ -442,13 +448,18 @@ static struct sched_entity
 			struct task_struct *p;
 
 			p = task_of(se);
+			util_min = uclamp_task_effective_util(p, UCLAMP_MIN);
 
 #ifdef CONFIG_MTK_SCHED_BOOST
 			if (!task_prefer_match_on_cpu(p, cpu, target_cpu))
 				return se;
 #endif
 
-			if (schedtune_prefer_idle(task_of(se))) {
+			if (check_min_cap && util_min >= src_capacity)
+				return se;
+
+			if (schedtune_prefer_idle(task_of(se)) &&
+					target_capacity >= util_min) {
 				if (!check_min_cap)
 					return se;
 

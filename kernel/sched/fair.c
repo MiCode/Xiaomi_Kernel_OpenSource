@@ -6822,14 +6822,16 @@ boosted_task_util(struct task_struct *task)
 {
 	unsigned long util = task_util_est(task);
 	long margin = schedtune_task_margin(task);
+	unsigned int util_min = uclamp_task_effective_util(task, UCLAMP_MIN);
 
-	trace_sched_boost_task(task, util, margin);
+	trace_sched_boost_task(task, util, margin, util_min);
 
 	/* only boosted for heavy task */
-	if (util >= stune_task_threshold)
-		return util + margin;
-	else
-		return util;
+	if (util >= stune_task_threshold) {
+		return util + margin > util_min ? util + margin : util_min;
+	} else {
+		return util > util_min ? util : util_min;
+	}
 }
 
 void get_task_util(struct task_struct *p, unsigned long *util,
@@ -7394,6 +7396,7 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 {
 	struct root_domain *rd = cpu_rq(smp_processor_id())->rd;
 	unsigned long capacity_curr_little;
+	unsigned int util_min;
 	bool turning = false;
 
 	if (rd->min_cap_orig_cpu < 0)
@@ -7407,12 +7410,15 @@ static int start_cpu(struct task_struct *p, bool prefer_idle,
 		return rd->min_cap_orig_cpu;
 
 	capacity_curr_little = capacity_curr_of(rd->min_cap_orig_cpu);
+	util_min = uclamp_task_effective_util(p, UCLAMP_MIN);
+	util_min = util_min * 1280 / 1024;
 
 	/*
 	 * favor higher cpu if hitting
 	 * power turnning point or capacity impact.
 	 */
-	if (capacity_curr_little > cpu_eff_tp)
+	if (capacity_curr_little > cpu_eff_tp ||
+			capacity_orig_of(rd->min_cap_orig_cpu) < util_min)
 		turning = true;
 
 	*t = turning;
