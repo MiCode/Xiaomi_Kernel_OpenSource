@@ -1074,7 +1074,6 @@ static int __init mt_scp_sub_feature_init(struct device_node *node,
 				&name);
 		if (ret) {
 			pr_err("Cannot get property string(%d)\n", ret);
-			kfree(name);
 			ret = -EINVAL;
 			goto fail_2;
 		}

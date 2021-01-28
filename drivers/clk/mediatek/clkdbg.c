@@ -489,7 +489,7 @@ struct provider_clk *get_all_provider_clks(void)
 {
 	static struct provider_clk provider_clks[512];
 	struct device_node *node = NULL;
-	int n = 0;
+	unsigned int n = 0;
 
 	if (provider_clks[0].ck != NULL)
 		return provider_clks;
