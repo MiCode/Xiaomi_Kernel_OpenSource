@@ -51,6 +51,7 @@
 #endif /* CONFIG_MTK_CPU_FREQ */
 
 static struct delayed_work cm_mgr_work;
+static int cm_mgr_work_ready;
 static struct mtk_pm_qos_request ddr_opp_req_by_cpu_opp;
 static int cm_mgr_cpu_to_dram_opp;
 
@@ -1072,6 +1073,9 @@ static void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 	int ret = 0;
 	int dram_opp = 0;
 
+	if (!cm_mgr_work_ready)
+		return;
+
 	if (!cm_mgr_cpu_map_dram_enable) {
 		if (cm_mgr_cpu_to_dram_opp !=
 				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE) {
@@ -1218,6 +1222,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 		cm_mgr_add_cpu_opp_to_ddr_req();
 
 		INIT_DELAYED_WORK(&cm_mgr_work, cm_mgr_process);
+		cm_mgr_work_ready = 1;
 	}
 
 	spin_lock_init(&cm_mgr_lock);
@@ -1232,6 +1237,8 @@ ERROR:
 
 static int platform_cm_mgr_remove(struct platform_device *pdev)
 {
+	cm_mgr_work_ready = 0;
+
 	cm_mgr_common_exit();
 
 	kfree(cm_mgr_perfs);
