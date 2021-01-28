@@ -29,12 +29,16 @@
 #elif defined(CONFIG_MTK_PMIC_CHIP_MT6359P)
 #include <linux/mfd/mt6359p/irq.h>
 #include <linux/mfd/mt6359p/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6390)
+#include <linux/mfd/mt6390/irq.h>
+#include <linux/mfd/mt6390/registers.h>
 #endif
 #include <linux/mfd/mt6358/core.h>
 
 #define MT6357_CID_CODE		0x5700
 #define MT6358_CID_CODE		0x5800
 #define MT6359_CID_CODE		0x5900
+#define MT6390_CID_CODE		0x9000
 
 static const struct mfd_cell mt6357_devs[] = {
 	{
@@ -43,6 +47,15 @@ static const struct mfd_cell mt6357_devs[] = {
 	}, {
 		.name = "mt635x-auxadc",
 		.of_compatible = "mediatek,mt6357-auxadc",
+	}, {
+		.name = "mt6357-rtc",
+		.of_compatible = "mediatek,mt6357-rtc",
+	}, {
+		.name = "mt6357-misc",
+		.of_compatible = "mediatek,mt6357-misc",
+	}, {
+		.name = "mt6357-dcxo",
+		.of_compatible = "mediatek,mt6357-dcxo",
 	},
 };
 
@@ -417,6 +430,7 @@ static int mt6358_probe(struct platform_device *pdev)
 
 	switch (id & 0xFF00) {
 	case MT6357_CID_CODE:
+	case MT6390_CID_CODE:
 		chip->top_int_status_reg = PMIC_INT_STATUS_TOP_RSV_ADDR;
 		ret = mt6358_irq_init(chip);
 		if (ret)

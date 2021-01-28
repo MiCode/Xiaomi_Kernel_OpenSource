@@ -45,4 +45,8 @@
 #ifdef CONFIG_MTK_PMIC_CHIP_MT6359P
 #include "mt6359p/mtk_pmic_api_buck.h"
 #endif
+
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6390
+#include "mt6390/mtk_pmic_api_buck.h"
+#endif
 #endif				/* _PMIC_API_BUCK_H_ */

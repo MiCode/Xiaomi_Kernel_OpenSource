@@ -53,6 +53,9 @@
 #ifdef CONFIG_MTK_PMIC_CHIP_MT6359P
 #include "mt6359p/mtk_pmic_info.h"
 #endif
+#ifdef CONFIG_MTK_PMIC_CHIP_MT6390
+#include "mt6390/mtk_pmic_info.h"
+#endif
 
 #define PMIC_EN REGULATOR_CHANGE_STATUS
 #define PMIC_VOL REGULATOR_CHANGE_VOLTAGE
