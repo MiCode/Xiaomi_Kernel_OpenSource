@@ -1086,7 +1086,13 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 	}
 
 	/* Get reserved memory */
-	of_property_read_string(pdev->dev.of_node, "scp_mem_key", &mem_key);
+	ret = of_property_read_string(pdev->dev.of_node, "scp_mem_key",
+					&mem_key);
+	if (ret) {
+		pr_info("[SCP] cannot find property\n");
+		return -EINVAL;
+	}
+
 	rmem_node = of_find_compatible_node(NULL, NULL, mem_key);
 
 	if (!rmem_node) {
