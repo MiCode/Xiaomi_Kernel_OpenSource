@@ -229,10 +229,8 @@
 	mt6370,intr_gpio = <&pio 11 0x0>;
 };
 
-&charger {
-	algorithm_name = "DualSwitchCharging";
-	chg1_ta_ac_charger_current = <2000000>;
-	chg2_ta_ac_charger_current = <2000000>;
+&mt6370_chg {
+	bc12_sel = <1>;
 };
 
 &i2c3 {

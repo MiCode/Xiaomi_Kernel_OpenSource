@@ -2980,12 +2980,16 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 	charger: charger {
 		compatible = "mediatek,charger";
-		algorithm_name = "SwitchCharging";
+		algorithm_name = "Basic";
+		gauge = <&mtk_gauge>;
+		charger = <&mt6370_chg>;
+		bootmode = <&chosen>;
+
 		/* enable_sw_jeita; */
-		enable_pe_plus;
-		enable_pe_2;
-		enable_pe_3;
-		enable_pe_4;
+		/* enable_pe_plus; */
+		/* enable_pe_2; */
+		/* enable_pe_3; */
+		/* enable_pe_4; */
 		enable_type_c;
 		power_path_support;
 		enable_dynamic_mivr;

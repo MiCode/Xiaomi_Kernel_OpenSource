@@ -25,7 +25,7 @@
 			int_deg = <0>;	/* interrupt deglitch */
 					/* 0: 1ms, 1: 2ms, 2: 5ms, 3: 10ms */
 		};
-		charger {
+		mt6370_chg: charger {
 			compatible = "mediatek,mt6370_pmu_charger";
 			interrupt-names = "chg_mivr", "chg_aiclmeasi",
 				"attachi","ovpctrl_uvp_d_evt", "chg_wdtmri",
@@ -45,6 +45,14 @@
 			enable_wdt;
 			/* enable_polling; */	/* is this charger needs*/
 						/* polling */
+			charger = <&mt6370_chg>;
+			bc12_sel = <0>;
+			otg_vbus: usb-otg-vbus {
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4350000>;
+				regulator-max-microvolt = <5800000>;
+			};
 		};
 		mt6370_pmu_fled1 {
 			compatible = "mediatek,mt6370_pmu_fled1";
