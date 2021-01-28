@@ -61,21 +61,18 @@
 	ctp_ts_reset_active: reset_active {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
 	ctp_ts_int_suspend: int_suspend {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
 	ctp_ts_reset_suspend: reset_suspend {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
-			slew-rate = <1>;
 			output-low;
 		};
 	};
@@ -88,7 +85,6 @@
 	ctp_ts_int_as_gpio: int_high {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO1__FUNC_GPIO1>;
-			slew-rate = <1>;
 			output-high;
 		};
 	};
