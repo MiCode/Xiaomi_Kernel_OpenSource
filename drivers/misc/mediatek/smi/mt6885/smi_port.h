@@ -15,7 +15,7 @@
 #define __SMI_PORT_H__
 
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
-#include <mach/mt_iommu.h>
+#include <dt-bindings/memory/mt6885-larb-port.h>
 #else
 #define MTK_IOMMU_TO_LARB(id)	(((id) >> 5) & 0x1f)
 #define MTK_IOMMU_TO_PORT(id)	((id) & 0x1f)
