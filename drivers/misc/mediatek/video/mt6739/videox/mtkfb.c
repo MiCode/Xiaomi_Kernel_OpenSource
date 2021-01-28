@@ -1268,9 +1268,9 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 		return r;
 	}
 
+#if defined(MTK_CAPTURE_SUPPORT)
 	case MTKFB_CAPTURE_FRAMEBUFFER:
 	{
-#if 0 /* comment this for iofuzzer security issue */
 		unsigned long dst_pbuf = 0;
 		unsigned long *src_pbuf = 0;
 		unsigned int pixel_bpp = primary_display_get_bpp() / 8;
@@ -1302,10 +1302,8 @@ static int mtkfb_ioctl(struct fb_info *info, unsigned int cmd,
 			r = -EFAULT;
 		}
 		vfree(src_pbuf);
-#endif
-		DISPWARN("[FB Driver] CAPTURE_FB not supported\n");
-		return -EINVAL;
 	}
+#endif
 
 	case MTKFB_SLT_AUTO_CAPTURE:
 	{
@@ -1797,6 +1795,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		DISPDBG("MTKFB_GET_POWERSTATE success %d\n", power_state);
 		break;
 	}
+#if defined(MTK_CAPTURE_SUPPORT)
 	case COMPAT_MTKFB_CAPTURE_FRAMEBUFFER:
 	{
 		compat_ulong_t __user *data32;
@@ -1816,6 +1815,7 @@ static int mtkfb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 				  (unsigned long)data);
 		break;
 	}
+#endif
 	case COMPAT_MTKFB_TRIG_OVERLAY_OUT:
 	{
 		arg = (unsigned long)compat_ptr(arg);
