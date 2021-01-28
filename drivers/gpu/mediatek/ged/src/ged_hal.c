@@ -113,22 +113,21 @@ static ssize_t custom_upbound_gpu_freq_show(struct kobject *kobj,
 		char *buf)
 {
 	unsigned int ui32UpboundGpuFreqLevel;
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
 	if (false == mtk_get_custom_upbound_gpu_freq(
 			&ui32UpboundGpuFreqLevel)) {
 		ui32UpboundGpuFreqLevel = 0;
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				"call mtk_get_custom_upbound_gpu_freq false\n");
 		pos += length;
 	}
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"%u\n", ui32UpboundGpuFreqLevel);
 	pos += length;
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static ssize_t custom_upbound_gpu_freq_store(struct kobject *kobj,
@@ -266,21 +265,20 @@ static ssize_t dvfs_margin_value_show(struct kobject *kobj,
 		char *buf)
 {
 	int i32DvfsMarginValue;
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
 	if (false == mtk_get_dvfs_margin_value(&i32DvfsMarginValue)) {
 		i32DvfsMarginValue = 0;
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				"call mtk_get_dvfs_margin_value false\n");
 		pos += length;
 	}
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"%d\n", i32DvfsMarginValue);
 	pos += length;
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static ssize_t dvfs_margin_value_store(struct kobject *kobj,
@@ -309,21 +307,20 @@ static ssize_t loading_base_dvfs_step_show(struct kobject *kobj,
 		char *buf)
 {
 	int i32StepValue;
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
 	if (false == mtk_get_loading_base_dvfs_step(&i32StepValue)) {
 		i32StepValue = 0;
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				"call mtk_get_loading_base_dvfs_step false\n");
 		pos += length;
 	}
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"%x\n", i32StepValue);
 	pos += length;
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static ssize_t loading_base_dvfs_step_store(struct kobject *kobj,
@@ -352,21 +349,20 @@ static ssize_t timer_base_dvfs_margin_show(struct kobject *kobj,
 		char *buf)
 {
 	int i32DvfsMarginValue;
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
 	if (false == mtk_get_timer_base_dvfs_margin(&i32DvfsMarginValue)) {
 		i32DvfsMarginValue = 0;
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				"call mtk_get_timer_base_dvfs_margin false\n");
 		pos += length;
 	}
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"%d\n", i32DvfsMarginValue);
 	pos += length;
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static ssize_t timer_base_dvfs_margin_store(struct kobject *kobj,
@@ -395,21 +391,20 @@ static ssize_t dvfs_loading_mode_show(struct kobject *kobj,
 		char *buf)
 {
 	unsigned int ui32DvfsLoadingMode;
-	char temp[GED_SYSFS_MAX_BUFF_SIZE];
 	int pos = 0;
 	int length;
 
 	if (false == mtk_get_dvfs_loading_mode(&ui32DvfsLoadingMode)) {
 		ui32DvfsLoadingMode = 0;
-		length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+		length = scnprintf(buf + pos, PAGE_SIZE - pos,
 				"call mtk_get_dvfs_loading_mode false\n");
 		pos += length;
 	}
-	length = scnprintf(temp + pos, GED_SYSFS_MAX_BUFF_SIZE - pos,
+	length = scnprintf(buf + pos, PAGE_SIZE - pos,
 			"%d\n", ui32DvfsLoadingMode);
 	pos += length;
 
-	return scnprintf(buf, PAGE_SIZE, "%s", temp);
+	return pos;
 }
 
 static ssize_t dvfs_loading_mode_store(struct kobject *kobj,
