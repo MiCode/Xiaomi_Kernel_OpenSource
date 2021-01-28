@@ -69,7 +69,8 @@ static idle_footprint_t fp[NR_IDLE_TYPES] = {
 int __attribute__((weak)) mtk_idle_trigger_wfi(
 	int idle_type, unsigned int idle_flag, int cpu)
 {
-	pr_notice("Power/swap %s is not implemented!\n", __func__);
+	printk_deferred("[name:spm&]Power/swap %s is not implemented!\n"
+			, __func__);
 
 	do {
 		isb();

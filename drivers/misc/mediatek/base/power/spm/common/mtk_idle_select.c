@@ -185,7 +185,7 @@ int mtk_idle_select(int cpu)
 		(mtk_idle_plat_bootblock_check() == MTK_IDLE_PLAT_READY))
 	) {
 		if (system_state < SYSTEM_RUNNING) {
-			pr_notice("Power/swap %s %s %d\n",
+			printk_deferred("[name:spm&]Power/swap %s %s %d\n",
 				__func__, LOG_STR, system_state);
 		}
 		return -1;

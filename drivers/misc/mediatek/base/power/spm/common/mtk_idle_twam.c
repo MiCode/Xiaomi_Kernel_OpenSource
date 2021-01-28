@@ -50,7 +50,7 @@ static void mtk_idle_twam_callback(struct twam_cfg *ts, struct twam_select *sel)
 	int index = 0;
 
 	for (index = 0; index < 4; index++) {
-		pr_notice("Power/swap spm twam (sel%d: %d) ratio: %5u/1000, %d, %d\n",
+		printk_deferred("[name:spm&]Power/swap spm twam (sel%d: %d) ratio: %5u/1000, %d, %d\n",
 			sel->signal[index], sel->id[index],
 			(idle_twam.speed_mode) ?
 			GET_EVENT_RATIO_SPEED(ts->byte[index].id) :
