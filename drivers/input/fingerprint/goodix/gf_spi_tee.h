@@ -254,6 +254,7 @@ struct gf_device {
 	struct pinctrl_state *miso_pulllow;
 	struct pinctrl_state *rst_high;
 	struct pinctrl_state *rst_low;
+	struct pinctrl_state *eint_init;
 	//struct pinctrl_state *pins_reset_high, *pins_reset_low;
 #endif
 };
