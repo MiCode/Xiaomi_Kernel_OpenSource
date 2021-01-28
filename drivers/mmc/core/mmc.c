@@ -2461,7 +2461,7 @@ static const struct mmc_bus_ops mmc_ops = {
 int mmc_attach_mmc(struct mmc_host *host)
 {
 	int err;
-	u32 ocr, rocr;
+	u32 ocr = 0, rocr;
 
 	WARN_ON(!host->claimed);
 
