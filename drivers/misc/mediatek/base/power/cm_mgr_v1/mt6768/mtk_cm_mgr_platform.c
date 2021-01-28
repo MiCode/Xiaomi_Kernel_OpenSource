@@ -494,37 +494,29 @@ static void init_cpu_stall_counter(int cluster)
 
 static int cm_mgr_cpuhp_online(unsigned int cpu)
 {
-#ifdef CONFIG_MTK_DRAMC
 	unsigned long spinlock_save_flags;
 
 	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-#endif /* CONFIG_MTK_DRAMC */
 
 	if (((cm_mgr_idle_mask & CLUSTER0_MASK) == 0x0) &&
 			(cpu < CM_MGR_CPU_LIMIT))
 		init_cpu_stall_counter(0);
 	cm_mgr_idle_mask |= (1 << cpu);
 
-#ifdef CONFIG_MTK_DRAMC
 	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-#endif /* CONFIG_MTK_DRAMC */
 
 	return 0;
 }
 
 static int cm_mgr_cpuhp_offline(unsigned int cpu)
 {
-#ifdef CONFIG_MTK_DRAMC
 	unsigned long spinlock_save_flags;
 
 	spin_lock_irqsave(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-#endif /* CONFIG_MTK_DRAMC */
 
 	cm_mgr_idle_mask &= ~(1 << cpu);
 
-#ifdef CONFIG_MTK_DRAMC
 	spin_unlock_irqrestore(&cm_mgr_cpu_mask_lock, spinlock_save_flags);
-#endif /* CONFIG_MTK_DRAMC */
 
 	return 0;
 }
