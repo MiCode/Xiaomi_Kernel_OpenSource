@@ -297,24 +297,25 @@ int disp_layer_info_statistic(struct disp_ddp_path_config *last_config,
 		char str[200];
 		int offset = 0;
 
-		offset += snprintf(str + offset, sizeof(str) - offset,
-				   "total:%ld.layers:",
-				   layer_stat.total_frame_cnt);
+		offset += scnprintf(str + offset, sizeof(str) - offset,
+				    "total:%ld.layers:",
+				    layer_stat.total_frame_cnt);
 		for (i = 1; i <= 12; i++)
-			offset += snprintf(str + offset, sizeof(str) - offset,
-					   "%ld,", layer_stat.cnt_by_layers[i]);
+			offset += scnprintf(str + offset, sizeof(str) - offset,
+					"%ld,", layer_stat.cnt_by_layers[i]);
 		DISPMSG("layer_cnt %s\n", str);
 
 		offset = 0;
-		offset += snprintf(str + offset, sizeof(str) - offset, ".ext:");
+		offset += scnprintf(str + offset,
+			sizeof(str) - offset, ".ext:");
 		for (i = 1; i <= 6 ; i++)
-			offset += snprintf(str + offset, sizeof(str) - offset,
+			offset += scnprintf(str + offset, sizeof(str) - offset,
 				"%ld,", layer_stat.cnt_by_layers_with_ext[i]);
 
-		offset += snprintf(str + offset, sizeof(str) - offset,
-				   ".arm_ext:");
+		offset += scnprintf(str + offset, sizeof(str) - offset,
+				".arm_ext:");
 		for (i = 1; i <= 6 ; i++)
-			offset += snprintf(str + offset, sizeof(str) - offset,
+			offset += scnprintf(str + offset, sizeof(str) - offset,
 				"%ld,",
 				layer_stat.cnt_by_layers_with_arm_ext[i]);
 		DISPMSG("layer_cnt %s\n", str);
@@ -1585,7 +1586,8 @@ static ssize_t partial_read(struct file *file, char __user *ubuf,
 				support = 1;
 		}
 	}
-	snprintf(p, 10, "%d\n", support);
+	scnprintf(p, 10, "%d\n", support);
+
 	return simple_read_from_buffer(ubuf, count, ppos, p, strlen(p));
 }
 

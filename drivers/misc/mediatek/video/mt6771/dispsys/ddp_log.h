@@ -98,7 +98,7 @@
 #define DDPAEE(string, args...)						\
 	do {								\
 		char str[200];						\
-		snprintf(str, 199, "DDP:"string, ##args);		\
+		scnprintf(str, 199, "DDP:"string, ##args);		\
 		aee_kernel_warning_api(__FILE__, __LINE__,		\
 			DB_OPT_DEFAULT | DB_OPT_MMPROFILE_BUFFER, str,	\
 			string, ##args);				\
@@ -107,8 +107,6 @@
 #else /* !CONFIG_MTK_AEE_FEATURE */
 #define DDPAEE(string, args...)						\
 	do {								\
-		char str[200];						\
-		snprintf(str, 199, "DDP:"string, ##args);		\
 		pr_err("[DDP Error]"string, ##args);			\
 	} while (0)
 #endif /* CONFIG_MTK_AEE_FEATURE */

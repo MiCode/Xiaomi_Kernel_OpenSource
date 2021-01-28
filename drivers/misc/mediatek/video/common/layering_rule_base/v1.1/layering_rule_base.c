@@ -1922,6 +1922,12 @@ static void debug_set_layer_data(struct disp_layer_info *disp_info,
 	if (data_type != HRT_LAYER_DATA_ID && layer_id == -1)
 		return;
 
+	if (unlikely((unsigned int)disp_id >= 2)) {
+		DISPWARN("%s #%d disp_id error:%d\n",
+			 __func__, __LINE__, disp_id);
+		return;
+	}
+
 	layer_info = &disp_info->input_config[disp_id][layer_id];
 	switch (data_type) {
 	case HRT_LAYER_DATA_ID:

@@ -389,19 +389,19 @@ void dump_reg_row(unsigned long baddr, unsigned long offset, unsigned int count)
 	if (count > 4)
 		return;
 
-	len = snprintf(buf, buf_len, "0x%03lx:", offset);
+	len = scnprintf(buf, buf_len, "0x%03lx:", offset);
 	for (i = 0; i < count; i++) {
 		val = INREG32(baddr + offset + 0x4 * i);
 		if (val)
-			len += snprintf(buf + len, buf_len - len,
+			len += scnprintf(buf + len, buf_len - len,
 					"0x%08x", val);
 		else
-			len += snprintf(buf + len, buf_len - len, "%10x", val);
+			len += scnprintf(buf + len, buf_len - len, "%10x", val);
 
 		if (i < count - 1)
-			len += snprintf(buf + len, buf_len - len, " ");
+			len += scnprintf(buf + len, buf_len - len, " ");
 		else if (i == count - 1)
-			len += snprintf(buf + len, buf_len - len, "\n");
+			len += scnprintf(buf + len, buf_len - len, "\n");
 	}
 
 	DDPDUMP("%s", buf);
@@ -519,12 +519,13 @@ static void mutex_dump_analysis(void)
 			continue;
 
 		val = DISP_REG_GET(DISP_REG_CONFIG_MUTEX_SOF(i));
-		len = sprintf(p, "MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(",
-		      i, ddp_get_mutex_sof_name(
+		len = scnprintf(p, 512,
+			"MUTEX%d:SOF=%s,EOF=%s,WAIT=%d,module=(",
+			i, ddp_get_mutex_sof_name(
 				REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF, val)),
-		      ddp_get_mutex_sof_name(
+			ddp_get_mutex_sof_name(
 				REG_FLD_VAL_GET(SOF_FLD_MUTEX0_EOF, val)),
-		      REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
+			REG_FLD_VAL_GET(SOF_FLD_MUTEX0_SOF_WAIT, val));
 
 		p += len;
 		for (j = 0; j < 32; j++) {
@@ -532,7 +533,7 @@ static void mutex_dump_analysis(void)
 				DISP_REG_GET(DISP_REG_CONFIG_MUTEX_MOD0(i));
 
 			if ((regval & (1 << j))) {
-				len = sprintf(p, "%s,",
+				len = scnprintf(p, 50, "%s,",
 					      ddp_get_mutex_module0_name(j));
 				p += len;
 			}
@@ -847,16 +848,16 @@ static void mmsys_config_dump_analysis(void)
 		pos = clock_on;
 
 		if ((valid0 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
+			pos += scnprintf(pos, 10, "%s,", "v");
 		else
-			pos += sprintf(pos, "%s,", "n");
+			pos += scnprintf(pos, 10, "%s,", "n");
 
 		if ((ready0 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
+			pos += scnprintf(pos, 10, "%s", "r");
 		else
-			pos += sprintf(pos, "%s", "n");
+			pos += scnprintf(pos, 10, "%s", "n");
 
-		pos += sprintf(pos, ": %s", name);
+		pos += scnprintf(pos, 50, ": %s", name);
 
 		DDPDUMP("%s\n", clock_on);
 	}
@@ -869,16 +870,16 @@ static void mmsys_config_dump_analysis(void)
 		pos = clock_on;
 
 		if ((valid1 & (1 << i)))
-			pos += sprintf(pos, "%s,", "v");
+			pos += scnprintf(pos, 10, "%s,", "v");
 		else
-			pos += sprintf(pos, "%s,", "n");
+			pos += scnprintf(pos, 10, "%s,", "n");
 
 		if ((ready1 & (1 << i)))
-			pos += sprintf(pos, "%s", "r");
+			pos += scnprintf(pos, 10, "%s", "r");
 		else
-			pos += sprintf(pos, "%s", "n");
+			pos += scnprintf(pos, 10, "%s", "n");
 
-		pos += sprintf(pos, ": %s", name);
+		pos += scnprintf(pos, 50, ": %s", name);
 
 		DDPDUMP("%s\n", clock_on);
 	}

@@ -128,7 +128,7 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 		if (rdmaInfo.addr == 0 || (rdmaInfo.addr != 0 &&
 				sBufAddr[index] != rdmaInfo.addr)) {
 			sBufAddr[index] = rdmaInfo.addr;
-			sprintf(tag_name, index ?  "ExtDispRefresh" :
+			scnprintf(tag_name, 30, index ?  "ExtDispRefresh" :
 				"PrimDispRefresh");
 
 			met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 1);
@@ -164,7 +164,8 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 	}
 
 	if (b_layer_changed) {
-		sprintf(tag_name, index ? "ExtDispRefresh" : "PrimDispRefresh");
+		scnprintf(tag_name, 30,
+			index ? "ExtDispRefresh" : "PrimDispRefresh");
 		met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 1);
 	}
 #endif
@@ -175,7 +176,7 @@ static void ddp_disp_refresh_tag_end(unsigned int index)
 #if defined(CONFIG_MTK_MET)
 	char tag_name[30] = { '\0' };
 
-	sprintf(tag_name, index ? "ExtDispRefresh" : "PrimDispRefresh");
+	scnprintf(tag_name, 30, index ? "ExtDispRefresh" : "PrimDispRefresh");
 	met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 0);
 #endif
 }
@@ -213,11 +214,11 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 			ddp_disp_refresh_tag_start(index);
 
 		if (reg_val & (1 << 4)) {
-			sprintf(tag_name, "rdma%d_underflow", index);
+			scnprintf(tag_name, 30, "rdma%d_underflow", index);
 			ddp_err_irq_met_tag(tag_name);
 		}
 		if (reg_val & (1 << 3)) {
-			sprintf(tag_name, "rdma%d_abnormal", index);
+			scnprintf(tag_name, 30, "rdma%d_abnormal", index);
 			ddp_err_irq_met_tag(tag_name);
 		}
 		break;
