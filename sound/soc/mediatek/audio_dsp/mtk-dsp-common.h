@@ -117,6 +117,8 @@ int mtk_dsp_register_feature(int id);
 int mtk_dsp_deregister_feature(int id);
 
 int mtk_audio_register_notify(void);
+int mtk_audio_set_adsp_reset_status(int status);
+bool mtk_audio_get_adsp_reset_status(void);
 
 #endif
 #endif

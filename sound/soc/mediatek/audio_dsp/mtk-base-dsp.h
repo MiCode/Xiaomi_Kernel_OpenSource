@@ -81,6 +81,7 @@ struct mtk_base_dsp {
 	int (*release_dram_resource)(struct device *dev);
 
 	bool suspended;
+	int adsp_reset;
 	int dsp_dram_resource_counter;
 	struct mtk_dsp_ipi_ops dsp_ipi_ops;
 

@@ -27,6 +27,7 @@ endif
 
 ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/common
 endif
 
 
