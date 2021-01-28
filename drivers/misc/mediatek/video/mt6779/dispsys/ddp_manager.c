@@ -1801,6 +1801,7 @@ void dpmgr_debug_path_status(int mutex_id)
 	struct DDP_MANAGER_CONTEXT *c = _get_context();
 	disp_path_handle phandle = NULL;
 
+	mutex_lock(&c->mutex_lock);
 	if (mutex_id >= DISP_MUTEX_DDP_FIRST &&
 	    mutex_id < (DISP_MUTEX_DDP_FIRST + DISP_MUTEX_DDP_COUNT)) {
 		phandle = (disp_path_handle)c->handle_pool[mutex_id];
@@ -1814,6 +1815,7 @@ void dpmgr_debug_path_status(int mutex_id)
 				dpmgr_check_status(phandle);
 		}
 	}
+	mutex_unlock(&c->mutex_lock);
 }
 
 int dpmgr_wait_event_timeout(disp_path_handle dp_handle,
