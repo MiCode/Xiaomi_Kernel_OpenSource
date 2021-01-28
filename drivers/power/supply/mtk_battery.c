@@ -2759,7 +2759,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
-	gm->log_level = BMLOG_ERROR_LEVEL;
+	gm->log_level = BMLOG_TRACE_LEVEL;
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 
