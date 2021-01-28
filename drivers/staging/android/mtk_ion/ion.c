@@ -2532,6 +2532,10 @@ struct ion_buffer *ion_drv_file_to_buffer(struct file *file)
 
 	if (strstr(pathname, "dmabuf")) {
 		dmabuf = file->private_data;
+		if (!dmabuf) {
+			IONMSG("%s warnning, dmabuf is NULL\n", __func__);
+			goto file2buf_exit;
+		}
 		if (dmabuf->ops == &dma_buf_ops)
 			buffer = dmabuf->priv;
 	}

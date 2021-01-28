@@ -569,10 +569,6 @@ static int ion_dump_all_share_fds(struct seq_file *s)
 	int res;
 	struct dump_fd_data data;
 
-	/* function is not available, just return */
-	if (ion_drv_file_to_buffer(NULL) == ERR_PTR(-EPERM))
-		return 0;
-
 	ION_DUMP(s, "%18s %9s %16s %5s %5s %16s %4s\n",
 		 "buffer", "alloc_pid", "alloc_client",
 		 "pid", "tgid", "process", "fd");
