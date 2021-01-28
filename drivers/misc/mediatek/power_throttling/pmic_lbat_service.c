@@ -366,15 +366,22 @@ struct lbat_user *lbat_user_register(const char *name, unsigned int hv_thd_volt,
 	user->hv_thd = lbat_thd_init(hv_thd_volt, user);
 	user->lv1_thd = lbat_thd_init(lv1_thd_volt, user);
 	user->lv2_thd = lbat_thd_init(lv2_thd_volt, user);
+	if (!user->hv_thd || !user->lv1_thd || !user->lv2_thd) {
+		ret = -EINVAL;
+		goto out;
+	}
 	user->callback = callback;
 	lbat_user_init_timer(user);
 	INIT_WORK(&user->deb_work, lbat_deb_handler);
 	pr_info("[%s] hv=%d, lv1=%d, lv2=%d\n",
 		__func__, hv_thd_volt, lv1_thd_volt, lv2_thd_volt);
 	ret = lbat_user_update(user);
-	if (ret)
-		pr_notice("[%s] error ret=%d\n", __func__, ret);
 out:
+	if (ret) {
+		pr_notice("[%s] error ret=%d\n", __func__, ret);
+		if (ret == -EINVAL)
+			kfree(user);
+	}
 	mutex_unlock(&lbat_mutex);
 	return ERR_PTR(ret);
 }
