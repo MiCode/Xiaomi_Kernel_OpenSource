@@ -1005,12 +1005,7 @@ static int mt_i2c_do_transfer(struct mt_i2c *i2c)
 			i2c_writel_dma(I2C_DMA_WARM_RST, i2c, OFFSET_RST);
 			udelay(5);
 		}
-#ifdef CONFIG_MTK_LM_MODE
-		if ((i2c->dev_comp->dma_support == 1) && (enable_4G())) {
-			i2c_writel_dma(0x1, i2c, OFFSET_TX_MEM_ADDR2);
-			i2c_writel_dma(0x1, i2c, OFFSET_RX_MEM_ADDR2);
-		}
-#endif
+
 		if (i2c->op == I2C_MASTER_RD) {
 			i2c_writel_dma(I2C_DMA_INT_FLAG_NONE,
 				i2c, OFFSET_INT_FLAG);

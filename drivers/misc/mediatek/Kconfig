@@ -15,6 +15,16 @@ config MTK_ENG_BUILD
 	  Please set N for user mode to avoid performance impact.
 	  If unsure, say N here.
 
+config MTK_LM_MODE
+	bool "MTK Large Memory mode"
+	select ARCH_PHYS_ADDR_T_64BIT
+	select ARCH_DMA_ADDR_T_64BIT
+	help
+	  Large Memory mode for supporting more than 4GB DRAM access
+	  It should only be enabled if hardware can support
+	  more than 4GB DRAM mapping.
+	  If you are not sure about this, set n
+
 menu "Storage"
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/pidmap/Kconfig"
@@ -355,6 +365,16 @@ config MTK_ENABLE_AGO
 	  This is a group kernel setting of AGO mechanism.
 	  Select "y" separately is not suggested.
 	  Select "n" by default.
+
+config DMAUSER_PAGES
+	bool "allocate highuser movable pages from dma zone"
+	depends on MTK_LM_MODE
+	help
+	  An internal debug kernel config for testing large memory mode.
+	  To test if kernel drivers are fully compatible to large
+	  memorys, we replace all GFP_HIGHUSER_MOVABLE/GFP_USER pages by
+	  DMA (<= 4GB) pages. It makes all drivers have more chances
+	  to allocate >= 4GB physical memory.
 
 endmenu # Memory
 
