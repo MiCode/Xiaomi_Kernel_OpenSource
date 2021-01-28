@@ -477,9 +477,10 @@ void trigger_disconnect_check_work(void)
 }
 
 /* to avoid build error due to PMIC module not ready */
-#ifndef CONFIG_MTK_CHARGER
+/* FIXME: skip build error */
+/* #ifndef CONFIG_MTK_CHARGER */
 #define BYPASS_PMIC_LINKAGE
-#endif
+/* #endif */
 static enum charger_type musb_hal_get_charger_type(void)
 {
 	enum charger_type chg_type;
@@ -806,12 +807,9 @@ void pmic_chrdet_int_en(int is_on)
 
 void musb_sync_with_bat(struct musb *musb, int usb_state)
 {
-#ifndef FPGA_PLATFORM
-
 	DBG(1, "BATTERY_SetUSBState, state=%d\n", usb_state);
-#ifdef CONFIG_MTK_CHARGER
+#ifndef BYPASS_PMIC_LINKAGE
 	BATTERY_SetUSBState(usb_state);
-#endif
 #endif
 }
 
