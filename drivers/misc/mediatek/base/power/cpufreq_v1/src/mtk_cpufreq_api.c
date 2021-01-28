@@ -7,7 +7,7 @@
 #include "mtk_cpufreq_hybrid.h"
 #include "mtk_cpufreq_platform.h"
 
-#ifdef CONFIG_MTK_CM_MGR
+//#ifdef CONFIG_MTK_CM_MGR_LEGACY
 cpuFreqsampler_func g_pCpuFreqSampler_func_cpi;
 /* cpu governor freq sampler */
 void mt_cpufreq_set_governor_freq_registerCB(cpuFreqsampler_func pCB)
@@ -15,7 +15,7 @@ void mt_cpufreq_set_governor_freq_registerCB(cpuFreqsampler_func pCB)
 	g_pCpuFreqSampler_func_cpi = pCB;
 }
 EXPORT_SYMBOL(mt_cpufreq_set_governor_freq_registerCB);
-#endif /* CONFIG_MTK_CM_MGR */
+//#endif /* CONFIG_MTK_CM_MGR */
 
 int mt_cpufreq_set_by_wfi_load_cluster(unsigned int cluster_id,
 	unsigned int freq)
@@ -29,10 +29,10 @@ int mt_cpufreq_set_by_wfi_load_cluster(unsigned int cluster_id,
 	if (freq > mt_cpufreq_get_freq_by_idx(id, 0))
 		freq = mt_cpufreq_get_freq_by_idx(id, 0);
 
-#ifdef CONFIG_MTK_CM_MGR
+//#ifdef CONFIG_MTK_CM_MGR_LEGACY
 	if (g_pCpuFreqSampler_func_cpi)
 		g_pCpuFreqSampler_func_cpi(id, freq);
-#endif /* CONFIG_MTK_CM_MGR */
+//#endif /* CONFIG_MTK_CM_MGR */
 
 	cpuhvfs_set_dvfs(id, freq);
 #endif
