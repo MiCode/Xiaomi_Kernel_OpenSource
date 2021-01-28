@@ -426,6 +426,9 @@ void slp_module_init(void)
 #if SLP_SUSPEND_LOG_EN
 	console_suspend_enabled = 0;
 #endif
+#ifdef CONFIG_PM_SLEEP_DEBUG
+	pm_print_times_enabled = false;
+#endif
 }
 
 module_param(slp_ck26m_on, bool, 0644);
