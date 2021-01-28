@@ -1617,7 +1617,7 @@ static void testcase_backup_reg_to_slot(void)
 static void testcase_update_value_to_slot(void)
 {
 	s32 i;
-	u32 value;
+	u32 value = 0;
 	struct cmdqRecStruct *handle = NULL;
 	cmdqBackupSlotHandle hSlot = 0;
 	const u32 PATTERNS[] = {
@@ -3020,8 +3020,8 @@ static void testcase_check_dts_correctness(void)
 static s32 testcase_monitor_callback(unsigned long data)
 {
 	u32 i;
-	u32 monitorValue[CMDQ_MONITOR_EVENT_MAX];
-	u32 durationTime[CMDQ_MONITOR_EVENT_MAX];
+	u32 monitorValue[CMDQ_MONITOR_EVENT_MAX] = {0};
+	u32 durationTime[CMDQ_MONITOR_EVENT_MAX] = {0};
 
 	if (!gEventMonitor.status)
 		return 0;
