@@ -441,7 +441,7 @@ out:
 
 int ccu_uninit_hw(struct ccu_device_s *device)
 {
-	ccu_i2c_free_dma_buf_mva_all();
+	ccu_i2c_free_dma_buf_mva_all(device);
 	device->i2c_dma_mva = 0;
 	if (enque_task) {
 		kthread_stop(enque_task);
@@ -707,7 +707,7 @@ CCU_PWDN_SKIP_STAT_CHK:
 	/*CCF & i2c uninit*/
 	ccu_clock_disable();
 	ccu_i2c_controller_uninit_all();
-	ccu_i2c_free_dma_buf_mva_all();
+	ccu_i2c_free_dma_buf_mva_all(ccu_dev);
 	ccu_dev->i2c_dma_mva = 0;
 	ccuInfo.IsCcuPoweredOn = 0;
 

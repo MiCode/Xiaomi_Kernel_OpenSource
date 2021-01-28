@@ -16,15 +16,9 @@
 #include "ccu_mva.h"
 
 static struct ion_client *_ccu_ion_client;
+static struct m4u_client_t *m4u_client;
 
 static int _ccu_config_m4u_port(void);
-static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
-		unsigned int heap_id_mask, size_t align, unsigned int size);
-static int _ccu_ion_get_mva(struct ion_client *client,
-	struct ion_handle *handle,
-	unsigned int *mva, int port);
-static void _ccu_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle);
 
 int ccu_ion_init(void)
 {
@@ -42,6 +36,10 @@ int ccu_ion_init(void)
 			"CCU ION_client create success: 0x%p\n",
 			_ccu_ion_client);
 	}
+
+	m4u_client = m4u_create_client();
+	if (IS_ERR_OR_NULL(m4u_client))
+		LOG_ERR("create client fail!\n");
 
 	ccu_unlock_ion_client_mutex();
 	return 0;
@@ -63,35 +61,38 @@ int ccu_ion_uninit(void)
 		_ccu_ion_client = NULL;
 	}
 
+	if (m4u_client)
+		m4u_destroy_client(m4u_client);
+
 	ccu_unlock_ion_client_mutex();
 	return 0;
 }
 
-int ccu_deallocate_mva(struct ion_handle **handle)
-{
-	LOG_DBG("X-:%s\n", __func__);
-	if (_ccu_ion_client == NULL) {
-		LOG_ERR("%s: _ccu_ion_client is null!\n", __func__);
-		return -1;
-	}
-
-	if (*handle != NULL) {
-		_ccu_ion_free_handle(_ccu_ion_client, *handle);
-		*handle = NULL;
-	}
-	return 0;
-}
-
-int ccu_allocate_mva(uint32_t *mva, void *va,
-	struct ion_handle **handle, int buffer_size)
+int ccu_deallocate_mva(uint32_t mva)
 {
 	int ret = 0;
-	/*int buffer_size = 4096;*/
 
-	if (_ccu_ion_client == NULL) {
-		LOG_ERR("%s: _ccu_ion_client is null!\n", __func__);
-		return -1;
+	LOG_DBG("X-:%s\n", __func__);
+	if (m4u_client == NULL) {
+		LOG_ERR("%s: _ccu_ion_client is null!\n",
+			__func__);
+		return -EINVAL;
 	}
+
+	if (mva != 0) {
+		ret = m4u_dealloc_mva(m4u_client, CCUG_OF_M4U_PORT, mva);
+		if (ret)
+			LOG_ERR("dealloc mva fail");
+	}
+
+	return ret;
+}
+
+int ccu_allocate_mva(uint32_t *mva, void *va, int buffer_size)
+{
+	int ret = 0;
+	struct sg_table *sg_table;
+	unsigned int flag;
 
 	ret = _ccu_config_m4u_port();
 	if (ret) {
@@ -99,29 +100,16 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return ret;
 	}
 
-	*handle = _ccu_ion_alloc(_ccu_ion_client,
-			ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-			(unsigned long)va, buffer_size);
-
-	/*i2c dma buffer is PAGE_SIZE(4096B)*/
-
-	if (!(*handle)) {
-		LOG_ERR("Fatal Error, ion_alloc for size %d failed\n", 4096);
-		return -1;
-	}
-
-	ret = _ccu_ion_get_mva(_ccu_ion_client, *handle, mva, CCUG_OF_M4U_PORT);
-
-	if (ret) {
-		LOG_ERR("ccu ion_get_mva failed\n");
-		ccu_deallocate_mva(handle);
-		return -1;
-	}
+	/* alloc mva */
+	flag = M4U_FLAGS_START_FROM;
+	ret = m4u_alloc_mva(m4u_client, CCUG_OF_M4U_PORT, (unsigned long)va,
+		sg_table, buffer_size,
+		M4U_PROT_READ | M4U_PROT_WRITE, flag, mva);
+	if (ret)
+		LOG_ERR("alloc mva fail");
 
 	return ret;
 }
-
-
 
 static int _ccu_config_m4u_port(void)
 {
@@ -140,75 +128,6 @@ static int _ccu_config_m4u_port(void)
 	ret = m4u_config_port(&port);
 #endif
 	return ret;
-}
-
-static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
-		unsigned int heap_id_mask, size_t align, unsigned int size)
-{
-	struct ion_handle *disp_handle = NULL;
-
-	disp_handle = ion_alloc(client, size, align, heap_id_mask, 0);
-	if (IS_ERR(disp_handle)) {
-		LOG_ERR("disp_ion_alloc 1error %p\n", disp_handle);
-		return NULL;
-	}
-
-	LOG_DBG("disp_ion_alloc 1 %p\n", disp_handle);
-
-	return disp_handle;
-
-}
-
-static int _ccu_ion_get_mva(struct ion_client *client,
-	struct ion_handle *handle, unsigned int *mva, int port)
-{
-	struct ion_mm_data mm_data;
-	size_t mva_size;
-	ion_phys_addr_t phy_addr = 0;
-
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER_EXT;
-	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id   = port;
-	mm_data.config_buffer_param.security    = 0;
-	mm_data.config_buffer_param.coherent    = 1;
-	mm_data.config_buffer_param.reserve_iova_start  = 0x40000000;
-	mm_data.config_buffer_param.reserve_iova_end    = 0x48000000;
-
-	if (
-	ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
-		(unsigned long)&mm_data) < 0) {
-		LOG_ERR("disp_ion_get_mva: config buffer failed.%p -%p\n",
-		client, handle);
-
-		ion_free(client, handle);
-		return -1;
-	}
-	*mva = 0;
-	*mva = (port<<24) | ION_FLAG_GET_FIXED_PHYS;
-	mva_size = ION_FLAG_GET_FIXED_PHYS;
-
-	phy_addr = *mva;
-	ion_phys(client, handle, &phy_addr, &mva_size);
-	*mva = (unsigned int)phy_addr;
-	LOG_DBG_MUST(
-	"alloc mmu addr hnd=0x%p,mva=0x%08x\n", handle,
-	(unsigned int)*mva);
-	return 0;
-}
-
-static void _ccu_ion_free_handle(struct ion_client *client,
-	struct ion_handle *handle)
-{
-	if (!client) {
-		LOG_ERR("invalid ion client!\n");
-		return;
-	}
-	if (!handle)
-		return;
-
-	ion_free(client, handle);
-
-	LOG_DBG("free ion handle 0x%p\n", handle);
 }
 
 void ccu_ion_free_import_handle(struct ion_handle *handle)

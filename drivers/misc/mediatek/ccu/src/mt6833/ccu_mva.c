@@ -17,8 +17,6 @@
 static struct ion_client *_ccu_ion_client;
 
 static int _ccu_config_m4u_port(void);
-static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
-		unsigned int heap_id_mask, size_t align, unsigned int size);
 static int _ccu_ion_get_mva(struct ion_client *client,
 	struct ion_handle *handle,
 		unsigned int *mva, int port);
@@ -100,9 +98,9 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return ret;
 	}
 
-	*handle = _ccu_ion_alloc(_ccu_ion_client,
-			ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-			(unsigned long)va, buffer_size);
+	// *handle = _ccu_ion_alloc(_ccu_ion_client,
+	// ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
+	// (unsigned long)va, buffer_size, false, false);
 
 	/*i2c dma buffer is PAGE_SIZE(4096B)*/
 
@@ -141,23 +139,6 @@ static int _ccu_config_m4u_port(void)
 	ret = m4u_config_port(&port);
 #endif
 	return ret;
-}
-
-static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
-		unsigned int heap_id_mask, size_t align, unsigned int size)
-{
-	struct ion_handle *disp_handle = NULL;
-
-	disp_handle = ion_alloc(client, size, align, heap_id_mask, 0);
-	if (IS_ERR(disp_handle)) {
-		LOG_ERR("disp_ion_alloc 1error %p\n", disp_handle);
-		return NULL;
-	}
-
-	LOG_DBG("disp_ion_alloc 1 %p\n", disp_handle);
-
-	return disp_handle;
-
 }
 
 static int _ccu_ion_get_mva(struct ion_client *client,
