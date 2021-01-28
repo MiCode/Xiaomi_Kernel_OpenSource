@@ -187,7 +187,7 @@ int vcu_dec_ipi_handler(void *data, unsigned int len, void *priv)
 	mtk_vcodec_debug(vcu, "+ id=%X status = %d\n",
 		msg->msg_id, msg->status);
 
-	if (vcu->abort)
+	if (vcu != NULL && vcu->abort)
 		return -EINVAL;
 
 	if (msg->status == 0) {
