@@ -3341,12 +3341,12 @@ static void addrconf_dev_config(struct net_device *dev)
 		return;
 	}
 
-	/* mobile device doesn't need auto-linklocal addr */
-	if (dev->type == ARPHRD_PUREIP)
-		return;
-
 	idev = addrconf_add_dev(dev);
 	if (IS_ERR(idev))
+		return;
+
+	/* mobile device doesn't need auto-linklocal addr */
+	if (dev->type == ARPHRD_PUREIP)
 		return;
 
 	/* this device type has no EUI support */
