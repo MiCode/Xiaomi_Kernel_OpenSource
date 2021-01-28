@@ -44,6 +44,8 @@
 #include <linux/pm_wakeup.h>
 #include <linux/version.h>
 #include <linux/clk.h>
+#include <mt-plat/charger_type.h>
+
 #if defined(CONFIG_MTK_CHARGER)
 extern enum charger_type mt_get_charger_type(void);
 #endif
