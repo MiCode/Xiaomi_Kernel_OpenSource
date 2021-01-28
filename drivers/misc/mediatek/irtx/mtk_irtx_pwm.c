@@ -48,6 +48,7 @@
 //#define IRTX_DEBUG
 
 static atomic_t ir_usage_cnt;
+static atomic_t ir_transmit;
 char *irtx_gpio_cfg[] = {  "irtx_gpio_led_default", "irtx_gpio_led_set"};
 static u64 irtx_dma_mask = DMA_BIT_MASK(32);
 
@@ -90,6 +91,20 @@ int get_ir_device(void)
 int put_ir_device(void)
 {
 	if (atomic_cmpxchg(&ir_usage_cnt, 1, 0) != 1)
+		return -EFAULT;
+	return 0;
+}
+
+int get_ir_transmit(void)
+{
+	if (atomic_cmpxchg(&ir_transmit, 0, 1) != 0)
+		return -EBUSY;
+	return 0;
+}
+
+int put_ir_transmit(void)
+{
+	if (atomic_cmpxchg(&ir_transmit, 1, 0) != 1)
 		return -EFAULT;
 	return 0;
 }
@@ -191,6 +206,12 @@ static ssize_t dev_char_write(struct file *file, const char __user *buf,
 	int total_time = 0;
 	int *buf_ptr;
 
+	ret = get_ir_transmit();
+	if (ret < 0) {
+		pr_info("%s(), another ir is transmitting\n", __func__);
+		goto exit_0;
+	}
+
 	pr_info("%s() irtx write len=0x%x, pwm=%d\n", __func__,
 		(unsigned int)count, (unsigned int)irtx_pwm_config.pwm_no);
 	if (count == 0) {
@@ -261,6 +282,9 @@ exit_2:
 	dma_free_coherent(&mt_irtx_dev.plat_dev->dev, count, wave_vir,
 			wave_phy);
 exit_1:
+	if (put_ir_transmit() < 0)
+		pr_info("%s, irtx is not transmitting\n");
+exit_0:
 	return ret;
 }
 
