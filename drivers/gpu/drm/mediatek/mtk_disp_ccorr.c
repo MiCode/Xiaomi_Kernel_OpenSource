@@ -744,6 +744,8 @@ int mtk_drm_ioctl_support_color_matrix(struct drm_device *dev, void *data,
 	if (data == NULL) {
 		support_matrix = false;
 		ret = -EFAULT;
+		DDPINFO("unsupported matrix");
+		return ret;
 	}
 
 	color_transform = data;
