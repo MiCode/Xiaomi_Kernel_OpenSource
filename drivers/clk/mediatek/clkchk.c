@@ -57,6 +57,18 @@ static struct clk_hw *clk_hw_get_parent(const struct clk_hw *hw)
 #endif /* !CLKDBG_CCF_API_4_4 */
 
 static struct clkchk_cfg_t *clkchk_cfg;
+/*
+ * for mtcmos debug
+ */
+bool is_valid_reg(void __iomem *addr)
+{
+#ifdef CONFIG_64BIT
+	return ((u64)addr & 0xf0000000) != 0UL ||
+			(((u64)addr >> 32U) & 0xf0000000) != 0UL;
+#else
+	return ((u32)addr & 0xf0000000) != 0U;
+#endif
+}
 
 static const char *ccf_state(struct clk_hw *hw)
 {

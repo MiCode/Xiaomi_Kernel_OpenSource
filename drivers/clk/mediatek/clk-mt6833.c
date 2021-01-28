@@ -161,6 +161,10 @@ static DEFINE_SPINLOCK(mt6833_clk_lock);
 
 static void __iomem *apmixed_base;
 
+static const struct mtk_fixed_clk top_fixed_clks[] = {
+	FIXED_CLK(CLK_TOP_OSC, "ulposc", NULL, 260000000),
+};
+
 static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_MAINPLL, "mainpll_ck",
 			"mainpll", 1, 1),
@@ -316,8 +320,6 @@ static const struct mtk_fixed_factor top_divs[] = {
 			"msdcpll", 1, 8),
 	FACTOR(CLK_TOP_MSDCPLL_D16, "msdcpll_d16",
 			"msdcpll", 1, 16),
-	FACTOR(CLK_TOP_OSC, "osc_ck",
-			"ulposc", 1, 1),
 	FACTOR(CLK_TOP_OSC_D2, "osc_d2",
 			"ulposc", 1, 2),
 	FACTOR(CLK_TOP_OSC_D4, "osc_d4",
@@ -490,7 +492,7 @@ static const char * const spm_parents[] = {
 static const char * const scp_parents[] = {
 	"tck_26m_mx9_ck",
 	"univpll_d4",
-	"adsppll_ck",
+	"npupll_ck",
 	"mainpll_d6",
 	"univpll_d6",
 	"mainpll_d4_d2",
@@ -596,7 +598,7 @@ static const char * const cam_parents[] = {
 	"mmpll_d7",
 	"univpll_d4_d2",
 	"mainpll_d4_d2",
-	"univpll_d6_d2"
+	"npupll_ck"
 };
 
 static const char * const ccu_parents[] = {
@@ -668,8 +670,8 @@ static const char * const ipu_if_parents[] = {
 
 static const char * const mfg_ref_parents[] = {
 	"tck_26m_mx9_ck",
-	"tck_26m_mx9_ck",
-	"univpll_d6",
+	"mainpll_d6_d2",
+	"mainpll_d6",
 	"mainpll_d5_d2"
 };
 
@@ -742,7 +744,11 @@ static const char * const spi_parents[] = {
 	"tck_26m_mx9_ck",
 	"mainpll_d5_d4",
 	"mainpll_d6_d4",
-	"msdcpll_d4"
+	"msdcpll_d4",
+	"msdcpll_d2",
+	"mainpll_d6_d2",
+	"mainpll_d4_d4",
+	"univpll_d5_d4"
 };
 
 static const char * const msdc50_0_h_parents[] = {
@@ -797,11 +803,11 @@ static const char * const atb_parents[] = {
 
 static const char * const sspm_parents[] = {
 	"tck_26m_mx9_ck",
+	"mainpll_d7_d2",
+	"mainpll_d6_d2",
 	"mainpll_d5_d2",
 	"mainpll_d9",
-	"mainpll_d4_d2",
-	"mainpll_d7",
-	"mainpll_d6"
+	"mainpll_d4_d2"
 };
 
 static const char * const scam_parents[] = {
@@ -842,7 +848,7 @@ static const char * const seninf_parents[] = {
 	"univpll_d4_d4",
 	"univpll_d6_d2",
 	"univpll_d4_d2",
-	"mainpll_d4_d2",
+	"npupll_ck",
 	"mmpll_d7",
 	"mmpll_d6",
 	"univpll_d5"
@@ -853,7 +859,7 @@ static const char * const seninf1_parents[] = {
 	"univpll_d4_d4",
 	"univpll_d6_d2",
 	"univpll_d4_d2",
-	"mainpll_d4_d2",
+	"npupll_ck",
 	"mmpll_d7",
 	"mmpll_d6",
 	"univpll_d5"
@@ -864,7 +870,7 @@ static const char * const seninf2_parents[] = {
 	"univpll_d4_d4",
 	"univpll_d6_d2",
 	"univpll_d4_d2",
-	"mainpll_d4_d2",
+	"npupll_ck",
 	"mmpll_d7",
 	"mmpll_d6",
 	"univpll_d5"
@@ -929,7 +935,7 @@ static const char * const adsp_parents[] = {
 	"univpll_d4",
 	"univpll_d6",
 	"osc_ck",
-	"adsppll_ck"
+	"npupll_ck"
 };
 
 static const char * const dpmaif_main_parents[] = {
@@ -1780,98 +1786,98 @@ static const struct mtk_composite top_composites[] = {
 	/* CLK_AUDDIV_2 */
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV0/* dts */, "apll12_div0"/* ccf */,
 		"apll_i2s0_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 0/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		0/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV1/* dts */, "apll12_div1"/* ccf */,
 		"apll_i2s1_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		8/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV2/* dts */, "apll12_div2"/* ccf */,
 		"apll_i2s2_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 16/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		16/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV3/* dts */, "apll12_div3"/* ccf */,
 		"apll_i2s3_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 24/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		24/* lsb */),
 	/* CLK_AUDDIV_3 */
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV4/* dts */, "apll12_div4"/* ccf */,
 		"apll_i2s4_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 0/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		0/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIVB/* dts */, "apll12_divb"/* ccf */,
 		"apll12_div4"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		8/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV5/* dts */, "apll12_div5"/* ccf */,
 		"apll_i2s5_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 16/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		16/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV6/* dts */, "apll12_div6"/* ccf */,
 		"apll_i2s6_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 24/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		24/* lsb */),
 	/* CLK_AUDDIV_4 */
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV7/* dts */, "apll12_div7"/* ccf */,
 		"apll_i2s7_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_4/* ofs */, 0/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
+		0/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV8/* dts */, "apll12_div8"/* ccf */,
 		"apll_i2s8_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
+		8/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV9/* dts */, "apll12_div9"/* ccf */,
 		"apll_i2s9_mck_sel"/* parent */, INV_OFS/* pdn ofs */,
-		INV_BIT/* pdn bit */, CLK_AUDDIV_4/* ofs */, 16/* lsb */,
-		8/* width */),
+		INV_BIT/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
+		16/* lsb */),
 #else
 	/* CLK_AUDDIV_2 */
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV0/* dts */, "apll12_div0"/* ccf */,
 		"apll_i2s0_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		0/* pdn bit */, CLK_AUDDIV_2/* ofs */, 0/* lsb */,
-		8/* width */),
+		0/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		0/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV1/* dts */, "apll12_div1"/* ccf */,
 		"apll_i2s1_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		1/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* lsb */,
-		8/* width */),
+		1/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		8/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV2/* dts */, "apll12_div2"/* ccf */,
 		"apll_i2s2_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		2/* pdn bit */, CLK_AUDDIV_2/* ofs */, 16/* lsb */,
-		8/* width */),
+		2/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		16/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV3/* dts */, "apll12_div3"/* ccf */,
 		"apll_i2s3_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		3/* pdn bit */, CLK_AUDDIV_2/* ofs */, 24/* lsb */,
-		8/* width */),
+		3/* pdn bit */, CLK_AUDDIV_2/* ofs */, 8/* width */,
+		24/* lsb */),
 	/* CLK_AUDDIV_3 */
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV4/* dts */, "apll12_div4"/* ccf */,
 		"apll_i2s4_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		4/* pdn bit */, CLK_AUDDIV_3/* ofs */, 0/* lsb */,
-		8/* width */),
+		4/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		0/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIVB/* dts */, "apll12_divb"/* ccf */,
 		"apll12_div4"/* parent */, 0x320/* pdn ofs */,
-		5/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* lsb */,
-		8/* width */),
+		5/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		8/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV5/* dts */, "apll12_div5"/* ccf */,
 		"apll_i2s5_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		6/* pdn bit */, CLK_AUDDIV_3/* ofs */, 16/* lsb */,
-		8/* width */),
+		6/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		16/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV6/* dts */, "apll12_div6"/* ccf */,
 		"apll_i2s6_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		7/* pdn bit */, CLK_AUDDIV_3/* ofs */, 24/* lsb */,
-		8/* width */),
+		7/* pdn bit */, CLK_AUDDIV_3/* ofs */, 8/* width */,
+		24/* lsb */),
 	/* CLK_AUDDIV_4 */
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV7/* dts */, "apll12_div7"/* ccf */,
 		"apll_i2s7_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		8/* pdn bit */, CLK_AUDDIV_4/* ofs */, 0/* lsb */,
-		8/* width */),
+		8/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
+		0/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV8/* dts */, "apll12_div8"/* ccf */,
 		"apll_i2s8_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		9/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* lsb */,
-		8/* width */),
+		9/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
+		8/* lsb */),
 	DIV_GATE(CLK_TOP_APLL12_CK_DIV9/* dts */, "apll12_div9"/* ccf */,
 		"apll_i2s9_mck_sel"/* parent */, 0x320/* pdn ofs */,
-		10/* pdn bit */, CLK_AUDDIV_4/* ofs */, 16/* lsb */,
-		8/* width */),
+		10/* pdn bit */, CLK_AUDDIV_4/* ofs */, 8/* width */,
+		16/* lsb */),
 #endif /* MT_CCF_MUX_DISABLE */
 };
 
@@ -2128,6 +2134,10 @@ static const struct mtk_gate ifrao_clks[] = {
 			"axi_ck"/* parent */, 16),
 	GATE_IFRAO5(CLK_IFRAO_CCIF2_MD, "ifrao_ccif2_md",
 			"axi_ck"/* parent */, 17),
+	GATE_IFRAO5(CLK_IFRAO_CCIF3_AP, "ifrao_ccif3_ap",
+			"axi_ck"/* parent */, 18),
+	GATE_IFRAO5(CLK_IFRAO_CCIF3_MD, "ifrao_ccif3_md",
+			"axi_ck"/* parent */, 19),
 	GATE_IFRAO5(CLK_IFRAO_FBIST2FPC, "ifrao_fbist2fpc",
 			"msdc50_0_ck"/* parent */, 24),
 	GATE_IFRAO5(CLK_IFRAO_DPMAIF_MAIN, "ifrao_dpmaif_main",
@@ -2356,6 +2366,32 @@ static const struct mtk_pll_data plls[] = {
 		0x03C4, 0, 22/*pcw*/),
 };
 
+void pll_off(u32 i)
+{
+	void __iomem *rst_reg, *en_reg, *pwr_reg;
+
+	/* do not pwrdn the AO PLLs */
+	if ((plls[i].flags & PLL_AO) != PLL_AO) {
+
+		if ((plls[i].flags & HAVE_RST_BAR) == HAVE_RST_BAR) {
+			rst_reg = apmixed_base + plls[i].rst_bar_reg;
+			writel(readl(rst_reg) & ~plls[i].rst_bar_mask,
+				rst_reg);
+		}
+
+		en_reg = apmixed_base + plls[i].en_reg;
+
+		pwr_reg = apmixed_base + plls[i].pwr_reg;
+
+		writel(readl(en_reg) & ~plls[i].en_mask,
+			en_reg);
+		writel(readl(pwr_reg) | plls[i].iso_mask,
+			pwr_reg);
+		writel(readl(pwr_reg) & ~plls[i].pwron_mask,
+			pwr_reg);
+	}
+}
+
 static int clk_mt6833_apmixed_probe(struct platform_device *pdev)
 {
 	struct clk_onecell_data *clk_data;
@@ -2394,7 +2430,8 @@ static int clk_mt6833_apmixed_probe(struct platform_device *pdev)
 #if MT_CCF_BRINGUP
 	pr_notice("%s init end\n", __func__);
 #endif
-
+	pll_off(11);//apll1
+	pll_off(12);//apll2
 	return r;
 }
 
@@ -2420,6 +2457,8 @@ static int clk_mt6833_top_probe(struct platform_device *pdev)
 
 	mt6833_top_clk_data = mtk_alloc_clk_data(CLK_TOP_NR_CLK);
 
+	mtk_clk_register_fixed_clks(top_fixed_clks, ARRAY_SIZE(top_fixed_clks),
+			mt6833_top_clk_data);
 	mtk_clk_register_factors(top_divs, ARRAY_SIZE(top_divs),
 			mt6833_top_clk_data);
 

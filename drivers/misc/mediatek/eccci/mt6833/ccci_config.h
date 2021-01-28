@@ -53,7 +53,7 @@
 
 /* feature option, always try using platform info first! */
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-//#define FEATURE_SCP_CCCI_SUPPORT
+#define FEATURE_SCP_CCCI_SUPPORT
 #endif
 /*#define ENABLE_EMI_PROTECTION*/
 /* #define FEATURE_LOW_BATTERY_SUPPORT */
@@ -89,7 +89,5 @@
 
 #define CCCI_USE_DFD_OFFSET_0
 //define CCCI_ENABLE_MPU_MEMORY_API
-#define MTK_EMI_MPU_DISABLE
-//#define DEVAPC_MD_DEBUG
-#define DISABLE_PBM_FEATURE
+
 #endif

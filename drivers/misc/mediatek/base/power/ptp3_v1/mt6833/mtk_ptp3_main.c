@@ -58,6 +58,10 @@
 	#include "mtk_ptp3_fll.h"
 	#include "mtk_ptp3_cinst.h"
 	#include "mtk_ptp3_drcc.h"
+	#include "mtk_ptp3_iglre.h"
+#ifdef PICACHU_DUMP_DRAM_SUPPORT
+	#include "mtk_picachu.h"
+#endif
 #endif
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
@@ -104,36 +108,10 @@
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 
-#define ptp3_read(addr)		__raw_readl((void __iomem *)(addr))
-#define ptp3_write(addr, val)	mt_reg_sync_writel(val, addr)
-#define EEM_TEMPSPARE0		0x11278F20
-#define PTP3_MEM_SIZE 0x80000
 #define PTP3_FLL_MEM_OFFSET 0x0
 #define PTP3_CINST_MEM_OFFSET 0x10000
 #define PTP3_DRCC_MEM_OFFSET 0x20000
-
-static unsigned long long ptp3_reserve_memory_init(void)
-{
-	/* GAT log use */
-	phys_addr_t ptp3_mem_base_phys = ptp3_read(ioremap(EEM_TEMPSPARE0, 0));
-	phys_addr_t ptp3_mem_size = PTP3_MEM_SIZE;
-	phys_addr_t ptp3_mem_base_virt = 0;
-
-	if ((char *)ptp3_mem_base_phys != NULL) {
-		ptp3_mem_base_virt =
-			(phys_addr_t)(uintptr_t)ioremap_wc(
-			ptp3_mem_base_phys,
-			ptp3_mem_size);
-	}
-
-	ptp3_msg("[PTP3] phys:0x%llx, size:0x%llx, virt:0x%llx\n",
-		(unsigned long long)ptp3_mem_base_phys,
-		(unsigned long long)ptp3_mem_size,
-		(unsigned long long)ptp3_mem_base_virt);
-
-	return (unsigned long long)ptp3_mem_base_virt;
-
-}
+#define PTP3_IGLRE_MEM_OFFSET 0x30000
 
 #endif /* CONFIG_OF_RESERVED_MEM */
 #endif /* CONFIG_FPGA_EARLY_PORTING */
@@ -195,42 +173,60 @@ static int create_procfs(void)
 	fll_create_procfs(proc_name, dir);
 	cinst_create_procfs(proc_name, dir);
 	drcc_create_procfs(proc_name, dir);
+	iglre_create_procfs(proc_name, dir);
 	return 0;
 }
 
 static int ptp3_probe(struct platform_device *pdev)
 {
 #ifndef CONFIG_FPGA_EARLY_PORTING
+#ifdef CONFIG_OF_RESERVED_MEM
+
 	/* GAT log use */
-	unsigned long long ptp3_mem_size = PTP3_MEM_SIZE;
+	unsigned long long ptp3_mem_size;
 	unsigned long long ptp3_mem_base_virt;
 
+#ifdef PICACHU_DUMP_DRAM_SUPPORT
+	ptp3_mem_size =
+		picachu_reserve_mem_get_size(PICACHU_PTP3_ID);
+	ptp3_mem_base_virt =
+		picachu_reserve_mem_get_virt(PICACHU_PTP3_ID);
+#else
+	ptp3_mem_size = 0;
+	ptp3_mem_base_virt = 0;
+#endif
+
 	/* init for DRAM memory request */
-	ptp3_mem_base_virt = ptp3_reserve_memory_init();
 	if ((char *)ptp3_mem_base_virt != NULL) {
 		/* FLL: save register status for reserved memory */
 		fll_save_memory_info(
 			(char *)(uintptr_t)
-			(ptp3_mem_base_virt+PTP3_FLL_MEM_OFFSET),
+			(ptp3_mem_base_virt + PTP3_FLL_MEM_OFFSET),
 			ptp3_mem_size);
 		/* CINST: save register status for reserved memory */
 		cinst_save_memory_info(
 			(char *)(uintptr_t)
-			(ptp3_mem_base_virt+PTP3_CINST_MEM_OFFSET),
+			(ptp3_mem_base_virt + PTP3_CINST_MEM_OFFSET),
 			ptp3_mem_size);
 		/* DRCC: save register status for reserved memory */
 		drcc_save_memory_info(
 			(char *)(uintptr_t)
-			(ptp3_mem_base_virt+PTP3_DRCC_MEM_OFFSET),
+			(ptp3_mem_base_virt + PTP3_DRCC_MEM_OFFSET),
+			ptp3_mem_size);
+		/* IGLRE: save register status for reserved memory */
+		iglre_save_memory_info(
+			(char *)(uintptr_t)
+			(ptp3_mem_base_virt + PTP3_IGLRE_MEM_OFFSET),
 			ptp3_mem_size);
 	} else
-		ptp3_err("ptp3_mem_base_virt is null !\n");
-
+		ptp3_msg("[PTP3][warning] ptp3_mem_base_virt is null !\n");
+#endif
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 	/* probe trigger for ptp3 features */
 	fll_probe(pdev);
 	cinst_probe(pdev);
 	drcc_probe(pdev);
+	iglre_probe(pdev);
 
 	return 0;
 }
@@ -239,6 +235,7 @@ static int ptp3_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	fll_suspend(pdev, state);
 	cinst_suspend(pdev, state);
+	iglre_suspend(pdev, state);
 	return 0;
 }
 
@@ -246,6 +243,7 @@ static int ptp3_resume(struct platform_device *pdev)
 {
 	fll_resume(pdev);
 	cinst_resume(pdev);
+	iglre_resume(pdev);
 	return 0;
 }
 

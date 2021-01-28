@@ -117,7 +117,6 @@ struct pg_callbacks md1_subsys_handle = {
 	.debug_dump = md1_subsys_debug_dump,
 };
 
-#ifdef DEVAPC_MD_DEBUG
 /*devapc_violation_triggered*/
 static enum devapc_cb_status devapc_dump_adv_cb(uint32_t vio_addr)
 {
@@ -156,7 +155,6 @@ void ccci_md_devapc_register_cb(void)
 	/*register handle function*/
 	register_devapc_vio_callback(&devapc_test_handle);
 }
-#endif
 
 void ccci_md_dump_in_interrupt(char *user_info)
 {
@@ -635,7 +633,7 @@ void md_cd_dump_debug_register(struct ccci_modem *md)
 	md_cd_lock_modem_clock_src(1);
 
 	/* This function needs to be cancelled temporarily for bringup*/
-	//internal_md_dump_debug_register(md->index);
+	internal_md_dump_debug_register(md->index);
 
 	md_cd_lock_modem_clock_src(0);
 

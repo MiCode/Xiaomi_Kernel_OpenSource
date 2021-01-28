@@ -32,18 +32,6 @@ struct eemg_ctrl eemg_ctrls[NR_EEMG_CTRL] = {
 		.name = __stringify(EEMG_CTRL_GPU),
 		.det_id = EEMG_DET_GPU,
 	},
-#if ENABLE_MDLA
-	[EEMG_CTRL_MDLA] = {
-		.name = __stringify(EEMG_CTRL_MDLA),
-		.det_id = EEMG_DET_MDLA,
-	},
-#endif
-#if ENABLE_VPU
-	[EEMG_CTRL_VPU] = {
-		.name = __stringify(EEMG_CTRL_VPU),
-		.det_id = EEMG_DET_VPU,
-	},
-#endif
 #if ENABLE_LOO_G
 	[EEMG_CTRL_GPU_HI] = {
 		.name = __stringify(EEMG_CTRL_GPU_HI),
@@ -91,7 +79,7 @@ struct eemg_det eemg_detectors[NR_EEMG_DET] = {
 		.volt_offset	= 0,
 #endif
 		.ctrl_id	= EEMG_CTRL_GPU,
-		.features	= FEA_INIT01 | FEA_INIT02,
+		.features	= FEA_INIT02,
 		.max_freq_khz   = GPU_FREQ_BASE,
 		.VMAX		= VMAX_VAL_GPU,
 		.VBOOT		= VBOOT_VAL, /* 10uV */
@@ -124,68 +112,6 @@ struct eemg_det eemg_detectors[NR_EEMG_DET] = {
 
 	},
 
-#if ENABLE_MDLA
-	[EEMG_DET_MDLA] = {
-		.name		= __stringify(EEMG_DET_MDLA),
-		.ops		= &mdla_det_ops,
-#ifdef EEMG_OFFSET_PROC_SHOW
-		.volt_offset	= 0,
-#endif
-		.ctrl_id	= EEMG_CTRL_MDLA,
-		.features	= FEA_INIT01 | FEA_CORN,
-		.max_freq_khz	= 880000,/* MHz */
-		.VBOOT		= VBOOT_VAL_VPU, /* 10uV */
-		.VMAX		= VMAX_VAL_VPU,
-		.VMIN		= VMIN_VAL_VPU,
-		.eemg_v_base	= EEMG_V_BASE,
-		.eemg_step	= EEMG_STEP,
-		.pmic_base	= CPU_PMIC_BASE_6359,
-		.pmic_step	= CPU_PMIC_STEP,
-		.DETWINDOW	= DETWINDOW_VAL,
-		.DTHI		= DTHI_VAL,
-		.DTLO		= DTLO_VAL,
-		.DETMAX		= DETMAX_VAL,
-		.AGECONFIG	= AGECONFIG_VAL,
-		.AGEM		= AGEM_VAL,
-		.DVTFIXED	= DVTFIXED_VAL_VPU,
-		.VCO		= VCO_VAL_VPU,
-		.DCCONFIG	= DCCONFIG_VAL,
-		.EEMCTL0	= EEMG_CTL0_MDLA,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
-	},
-#endif
-
-#if ENABLE_VPU
-	[EEMG_DET_VPU] = {
-		.name		= __stringify(EEMG_DET_VPU),
-		.ops		= &vpu_det_ops,
-#ifdef EEMG_OFFSET_PROC_SHOW
-		.volt_offset	= 0,
-#endif
-		.ctrl_id	= EEMG_CTRL_VPU,
-		.features	= FEA_INIT01 | FEA_CORN,
-		.max_freq_khz	= 880000,/* MHz */
-		.VBOOT		= VBOOT_VAL_VPU, /* 10uV */
-		.VMAX		= VMAX_VAL_VPU,
-		.VMIN		= VMIN_VAL_VPU,
-		.eemg_v_base	= EEMG_V_BASE,
-		.eemg_step	= EEMG_STEP,
-		.pmic_base	= CPU_PMIC_BASE_6359,
-		.pmic_step	= CPU_PMIC_STEP,
-		.DETWINDOW	= DETWINDOW_VAL,
-		.DTHI		= DTHI_VAL,
-		.DTLO		= DTLO_VAL,
-		.DETMAX		= DETMAX_VAL,
-		.AGECONFIG	= AGECONFIG_VAL,
-		.AGEM		= AGEM_VAL,
-		.DVTFIXED	= DVTFIXED_VAL_VPU,
-		.VCO		= VCO_VAL_VPU,
-		.DCCONFIG	= DCCONFIG_VAL,
-		.EEMCTL0	= EEMG_CTL0_VPU,
-		.low_temp_off	= LOW_TEMP_OFF_DEFAULT,
-	},
-#endif
-
 #if ENABLE_LOO_G
 
 	[EEMG_DET_GPU_HI] = {
@@ -202,8 +128,8 @@ struct eemg_det eemg_detectors[NR_EEMG_DET] = {
 		.VMIN		= VMIN_VAL_GH,
 		.eemg_v_base	= EEMG_V_BASE,
 		.eemg_step	= EEMG_STEP,
-		.pmic_base	= CPU_PMIC_BASE_6359,
-		.pmic_step	= CPU_PMIC_STEP,
+		.pmic_base	= GPU_PMIC_BASE,
+		.pmic_step	= GPU_PMIC_STEP,
 		.DETWINDOW	= DETWINDOW_VAL,
 		.DTHI		= DTHI_VAL,
 		.DTLO		= DTLO_VAL,

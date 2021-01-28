@@ -18,7 +18,7 @@
 #include <mtk_dcm_internal.h>
 #include <mtk_dcm_autogen.h>
 #include <mtk_dcm.h>
-/*====================auto gen code 20200916_234719=====================*/
+/*====================auto gen code 20201013_225344=====================*/
 #define INFRACFG_AO_AXIMEM_BUS_DCM_REG0_MASK ((0x1f << 12) | \
 			(0x1 << 17) | \
 			(0x1 << 18))
@@ -558,17 +558,11 @@ void dcm_infra_ao_bcrm_peri_bus_dcm(int on)
 }
 
 #define MCUSYS_PAR_WRAP_BIG_DCM_REG0_MASK ((0x1 << 0) | \
-			(0x1 << 1) | \
-			(0x1 << 0) | \
-			(0x1 << 1))
-#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_ON ((0x0 << 0) | \
-			(0x0 << 1) | \
-			(0x0 << 0) | \
-			(0x0 << 1))
-#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_OFF ((0x1 << 0) | \
-			(0x1 << 1) | \
-			(0x1 << 0) | \
-			(0x1 << 1))
+			(0x1 << 0))
+#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_ON ((0x1 << 0) | \
+			(0x1 << 0))
+#define MCUSYS_PAR_WRAP_BIG_DCM_REG0_OFF ((0x0 << 0) | \
+			(0x0 << 0))
 
 bool dcm_mcusys_par_wrap_big_dcm_is_on(void)
 {
@@ -604,18 +598,18 @@ void dcm_mcusys_par_wrap_big_dcm(int on)
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0))
-#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_ON ((0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0) | \
-			(0x0 << 0))
-#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_OFF ((0x1 << 0) | \
+#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_ON ((0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0) | \
 			(0x1 << 0))
+#define MCUSYS_PAR_WRAP_LITTLE_DCM_REG0_OFF ((0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0) | \
+			(0x0 << 0))
 
 bool dcm_mcusys_par_wrap_little_dcm_is_on(void)
 {

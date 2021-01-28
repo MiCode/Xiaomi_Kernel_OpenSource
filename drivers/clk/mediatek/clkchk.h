@@ -22,4 +22,5 @@ struct clkchk_cfg_t {
 	const char * const *all_clk_names;
 };
 
+bool is_valid_reg(void __iomem *addr);
 int clkchk_init(struct clkchk_cfg_t *cfg);

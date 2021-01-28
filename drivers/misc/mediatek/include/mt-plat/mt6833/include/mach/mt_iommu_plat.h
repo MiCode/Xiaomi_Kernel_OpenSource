@@ -29,7 +29,10 @@
 #include "clk-mt6833-pg.h"
 
 enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
-	SYS_DIS, SYS_VPU
+	SYS_DIS,
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	SYS_VPU
+#endif
 };
 #endif
 #endif
@@ -60,7 +63,12 @@ enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
 #ifdef CONFIG_FPGA_EARLY_PORTING
 static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64};
 #else
-static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64, 64};
+static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {
+		64,
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		64,
+#endif
+		};
 #endif
 
 char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
@@ -85,12 +93,17 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 };
 #else
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
-	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
+	"mediatek,sec_m4u0",
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	"mediatek,sec_m4u1",
+#endif
 };
 
 char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
 	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"},
+#endif
 };
 #endif
 
@@ -497,8 +510,9 @@ struct mtk_iova_domain_data {
 #define IOVA_ADDR_16GB			(4UL << 32)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
-	defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT) || \
+	defined(CONFIG_MTK_GZ_SUPPORT_SDSP) || \
+	defined(CONFIG_MTK_CAM_GENIEZONE_SUPPORT))
 	{ /* boundary(0~4GB) IOVA space for display(larb0,1) */
 	 .boundary = 0,
 	 .owner = -1,
@@ -759,6 +773,7 @@ struct mau_config_info mt6833_mau_info[MTK_IOMMU_M4U_COUNT] = {
 		.start_bit32 = 0x4,
 		.end_bit32 = 0x7,
 	},
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	{
 		.start = 0x40000000,
 		.end = 0xffffffff,
@@ -770,6 +785,7 @@ struct mau_config_info mt6833_mau_info[MTK_IOMMU_M4U_COUNT] = {
 		.start_bit32 = 0x4,
 		.end_bit32 = 0x7,
 	}
+#endif
 };
 
 struct mau_config_info *get_mau_info(int m4u_id)

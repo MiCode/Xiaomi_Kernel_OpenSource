@@ -237,6 +237,7 @@ static DEFINE_MUTEX(mt_gpufreq_power_lock);
 static DEFINE_MUTEX(mt_gpufreq_limit_table_lock);
 
 static void __iomem *g_apmixed_base;
+static void __iomem *g_topckgen_base;
 static void __iomem *g_mfg_base;
 static void __iomem *g_infracfg_base;
 static void __iomem *g_toprgu_base;
@@ -311,7 +312,8 @@ void mt_gpufreq_dump_infra_status(void)
 	unsigned int start, offset, val;
 
 	gpufreq_pr_info("[GPU_DFD] ====\n");
-	gpufreq_pr_info("[GPU_DFD] mfgpll=%d freq=%d vgpu=%d vsram_gpu=%d\n",
+	gpufreq_pr_info("[GPU_DFD] mfgpll_ref=%d mfgpll=%d freq=%d vgpu=%d vsram_gpu=%d\n",
+			mt_get_ckgen_freq(FM_MFG_CK),
 			mt_get_abist_freq(FM_MGPLL_CK),
 			g_cur_opp_freq,
 			g_cur_opp_vgpu,
@@ -1801,7 +1803,7 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 		segment_id = MT6833M_SEGMENT;    /* 5G-CM */
 		break;
 	default:
-		segment_id = MT6833T_SEGMENT;
+		segment_id = MT6833_SEGMENT;
 		gpufreq_pr_info("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
 	}
@@ -1820,6 +1822,8 @@ static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 	switch (efuse_id) {
 	case 0x2: // EFUSE 0x11C105E8[10:9] = 2'b10
 		return g_opp_table_segment_2;
+	case 0x1: // EFUSE 0x11C105E8[10:9] = 2'b01
+		return g_opp_table_segment_3;
 	default:
 		gpufreq_pr_debug("@%s: invalid efuse_id(0x%x)\n",
 				__func__, efuse_id);
@@ -2449,19 +2453,21 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
-		if (g_cur_opp_freq < freq_new)
-			gpufreq_pr_info("@%s: Clock switch failed, %d -> %d (target: %d)\n",
-					__func__, freq_old,
-					g_cur_opp_freq, freq_new);
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"@%s: Clock switch failed, %d -> %d (target: %d)\n",
+			__func__, freq_old,
+			g_cur_opp_freq, freq_new);
 
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
-		if (g_cur_opp_freq > freq_new)
-			gpufreq_pr_info("@%s: Clock switch failed, %d -> %d (target: %d)\n",
-					__func__, freq_old,
-					g_cur_opp_freq, freq_new);
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"@%s: Clock switch failed, %d -> %d (target: %d)\n",
+			__func__, freq_old,
+			g_cur_opp_freq, freq_new);
 
 		while (g_cur_opp_vgpu != vgpu_new) {
 			sb_idx = g_opp_sb_idx_down[g_cur_opp_idx] > idx_new ?
@@ -2487,9 +2493,10 @@ static void __mt_gpufreq_set(
 	gpu_dvfs_oppidx_footprint(idx_new);
 
 	gpufreq_pr_logbuf(
-		"end idx: %d -> %d, clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
+		"end idx: %d -> %d, clk: %d, ref_clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		idx_old, idx_new,
 		mt_get_abist_freq(FM_MGPLL_CK),
+		mt_get_ckgen_freq(FM_MFG_CK),
 		__mt_gpufreq_get_cur_freq(),
 		__mt_gpufreq_get_cur_vgpu(),
 		__mt_gpufreq_get_cur_vsram_gpu());
@@ -2498,14 +2505,14 @@ static void __mt_gpufreq_set(
 }
 
 /*
- * dds calculation for clock switching
+ * pcw calculation for clock switching
  * Fin is 26 MHz
  * VCO Frequency = Fin * N_INFO
  * MFGPLL output Frequency = VCO Frequency / POSDIV
  * N_INFO = MFGPLL output Frequency * POSDIV / FIN
  * N_INFO[21:14] = FLOOR(N_INFO, 8)
  */
-static unsigned int __mt_gpufreq_calculate_dds(
+static unsigned int __mt_gpufreq_calculate_pcw(
 					unsigned int freq_khz,
 					enum g_posdiv_power_enum posdiv_power)
 {
@@ -2519,12 +2526,12 @@ static unsigned int __mt_gpufreq_calculate_dds(
 	 * |  3800   |  1500   |    8   |    475MHz   |  187.5MHz   |
 	 * |  3800   |  2000   |   16   |  237.5MHz   |    125MHz   |
 	 */
-	unsigned int dds = 0;
+	unsigned int pcw = 0;
 
 	/* only use posdiv 2 or 4 */
 	if ((freq_khz >= POSDIV_4_MIN_FREQ) &&
 		(freq_khz <= POSDIV_2_MAX_FREQ)) {
-		dds = (((freq_khz / TO_MHZ_HEAD * (1 << posdiv_power))
+		pcw = (((freq_khz / TO_MHZ_HEAD * (1 << posdiv_power))
 			<< DDS_SHIFT) /
 			MFGPLL_FIN + ROUNDING_VALUE) / TO_MHZ_TAIL;
 	} else {
@@ -2532,7 +2539,7 @@ static unsigned int __mt_gpufreq_calculate_dds(
 				__func__, freq_khz);
 	}
 
-	return dds;
+	return pcw;
 }
 
 static void __mt_gpufreq_switch_to_clksrc(enum g_clock_source_enum clksrc)
@@ -2580,55 +2587,78 @@ static enum g_posdiv_power_enum __mt_gpufreq_get_posdiv_power(unsigned int freq)
 static enum g_posdiv_power_enum __mt_gpufreq_get_curr_posdiv_power(void)
 {
 	unsigned long mfgpll;
-	enum g_posdiv_power_enum real_posdiv_power;
+	enum g_posdiv_power_enum posdiv_power;
 
 	mfgpll = DRV_Reg32(MFGPLL_CON1);
 
-	real_posdiv_power = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
+	posdiv_power = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
 
-	return real_posdiv_power;
+	return posdiv_power;
 }
 
 static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 {
 	enum g_posdiv_power_enum posdiv_power;
-	enum g_posdiv_power_enum real_posdiv_power;
-	unsigned int dds, pll;
+	enum g_posdiv_power_enum curr_posdiv_power;
+	unsigned int pll, curr_freq, mfgpll, pcw;
 	bool parking = false;
 	int hopping = -1;
 
-	real_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
+	curr_freq = __mt_gpufreq_get_cur_freq();
+	curr_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
 	posdiv_power = __mt_gpufreq_get_posdiv_power(freq_new);
-	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
-	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
+	pcw = __mt_gpufreq_calculate_pcw(freq_new, posdiv_power);
+	/*
+	 * MFGPLL_CON1[31:31] = MFGPLL_SDM_PCW_CHG
+	 * MFGPLL_CON1[26:24] = MFGPLL_POSDIV
+	 * MFGPLL_CON1[21:0]  = MFGPLL_SDM_PCW (dds)
+	 */
+//	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | pcw;
 
 #ifndef CONFIG_MTK_FREQ_HOPPING
 	/* force parking if FHCTL not ready */
 	parking = true;
 #else
-	if (posdiv_power != real_posdiv_power)
+	if (posdiv_power != curr_posdiv_power)
 		parking = true;
 	else
 		parking = false;
 #endif
 
 	if (parking) {
-		__mt_gpufreq_switch_to_clksrc(CLOCK_SUB);
-
 		/*
-		 * MFGPLL_CON1[31:31] = MFGPLL_SDM_PCW_CHG
-		 * MFGPLL_CON1[26:24] = MFGPLL_POSDIV
-		 * MFGPLL_CON1[21:0]  = MFGPLL_SDM_PCW (dds)
+		 * MFGPLL_CON0[0] = RG_MFGPLL_EN
+		 * MFGPLL_CON0[4] = RG_MFGPLL_GLITCH_FREE_EN
 		 */
-		DRV_WriteReg32(MFGPLL_CON1, pll);
-
-		/* PLL spec */
-		udelay(20);
-
-		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
+		if (freq_new > curr_freq) {
+			/* 1. change PCW (by hopping) */
+			hopping = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
+			if (hopping != 0)
+				gpufreq_pr_info("@%s: hopping failing: %d\n",
+						__func__, hopping);
+			/* 2. change POSDIV (by MFGPLL_CON1) */
+			pll = (DRV_Reg32(MFGPLL_CON1) & 0xF8FFFFFF) |
+				(posdiv_power << POSDIV_SHIFT);
+			DRV_WriteReg32(MFGPLL_CON1, pll);
+			/* 3. wait 20us for MFGPLL Stable */
+			udelay(20);
+		} else {
+			/* 1. change POSDIV (by MFGPLL_CON1) */
+			pll = (DRV_Reg32(MFGPLL_CON1) & 0xF8FFFFFF) |
+				(posdiv_power << POSDIV_SHIFT);
+			DRV_WriteReg32(MFGPLL_CON1, pll);
+			/* 2. wait 20us for MFGPLL Stable */
+			udelay(20);
+			/* 3. change PCW (by hopping) */
+			hopping = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
+			if (hopping != 0)
+				gpufreq_pr_info("@%s: hopping failing: %d\n",
+						__func__, hopping);
+		}
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
-		hopping = mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
+		/* change PCW (by hopping) */
+		hopping = mt_dfs_general_pll(MFGPLL_FH_PLL, pcw);
 		if (hopping != 0)
 			gpufreq_pr_info("@%s: hopping failing: %d\n",
 					__func__, hopping);
@@ -2636,8 +2666,9 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	}
 
 	gpufreq_pr_logbuf(
-	"posdiv: %d, real_posdiv: %d, dds: 0x%x, pll: 0x%08x, parking: %d\n",
-	(1 << posdiv_power), (1 << real_posdiv_power), dds, pll, parking);
+		"posdiv: %d, curr_posdiv: %d, pcw: 0x%x, pll: 0x%08x, pll_con0: 0x%08x, pll_con1: 0x%08x, parking: %d, clk_cfg_4: 0x%08x\n",
+		(1 << posdiv_power), (1 << curr_posdiv_power), pcw, pll, DRV_Reg32(MFGPLL_CON0),
+		DRV_Reg32(MFGPLL_CON1), parking, readl(g_topckgen_base + 0x50));
 }
 
 /*
@@ -2860,15 +2891,15 @@ static unsigned int __mt_gpufreq_get_cur_freq(void)
 	unsigned long mfgpll = 0;
 	unsigned int posdiv_power = 0;
 	unsigned int freq_khz = 0;
-	unsigned long dds;
+	unsigned long pcw;
 
 	mfgpll = DRV_Reg32(MFGPLL_CON1);
 
-	dds = mfgpll & (0x3FFFFF);
+	pcw = mfgpll & (0x3FFFFF);
 
 	posdiv_power = (mfgpll & (0x7 << POSDIV_SHIFT)) >> POSDIV_SHIFT;
 
-	freq_khz = (((dds * TO_MHZ_TAIL + ROUNDING_VALUE) * MFGPLL_FIN) >>
+	freq_khz = (((pcw * TO_MHZ_TAIL + ROUNDING_VALUE) * MFGPLL_FIN) >>
 			DDS_SHIFT) / (1 << posdiv_power) * TO_MHZ_HEAD;
 
 	return freq_khz;
@@ -3053,21 +3084,9 @@ static void __mt_gpufreq_init_table(void)
 		g_segment_max_opp_idx = 0;
 
 /* Special SW setting */
-#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"turbo") != NULL) {
-		gpufreq_pr_info("@%s: turbo flavor name: %s\n",
-				__func__,
-				CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		g_segment_max_opp_idx = 0;
-	}
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k6833tv1") != NULL) {
-		gpufreq_pr_info("@%s: k6833tv1 flavor name: %s\n",
-				__func__,
-				CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		g_segment_max_opp_idx = 0;
-	}
+#if defined(K6833V1_64_33M)
+	gpufreq_pr_info("@%s: K6833V1_64_33M load\n", __func__);
+	g_segment_max_opp_idx = 24;
 #endif
 
 	g_segment_min_opp_idx = NUM_OF_OPP_IDX - 1;
@@ -3263,6 +3282,14 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 				"mediatek,mt6833-apmixedsys", 0);
 	if (!g_apmixed_base) {
 		gpufreq_pr_info("@%s: ioremap failed at APMIXED\n", __func__);
+		return -ENOENT;
+	}
+
+	// 0x10000000
+	g_topckgen_base =
+			__mt_gpufreq_of_ioremap("mediatek,topckgen", 0);
+	if (!g_topckgen_base) {
+		gpufreq_pr_info("@%s: ioremap failed at topckgen\n", __func__);
 		return -ENOENT;
 	}
 
@@ -3607,11 +3634,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 static int __init __mt_gpufreq_init(void)
 {
 	int ret = 0;
-
-#ifdef MTK_GED_KPI
-	/* Disable for bring-up */
-	ged_kpi_get_limit_user_fp = mt_gpufreq_get_limit_user;
-#endif
 
 	if (mt_gpufreq_bringup()) {
 		__mt_gpufreq_dump_bringup_status();

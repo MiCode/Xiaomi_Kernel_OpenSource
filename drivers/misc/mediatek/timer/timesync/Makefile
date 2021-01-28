@@ -18,7 +18,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
-ifeq (y, $(filter y, $(CONFIG_MACH_MT6853) $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6873) $(CONFIG_MACH_MT6893)))
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833) $(CONFIG_MACH_MT6853) $(CONFIG_MACH_MT6885) $(CONFIG_MACH_MT6873) $(CONFIG_MACH_MT6893)))
 ccflags-y += -DSSPM_V2
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 else

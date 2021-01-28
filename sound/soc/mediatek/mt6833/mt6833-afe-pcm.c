@@ -36,9 +36,6 @@
 #include "mt6833-afe-gpio.h"
 #include "mt6833-interconnection.h"
 
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#include "../audio_dsp/mtk-dsp-common.h"
-#endif
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 #include "../scp_spk/mtk-scp-spk-common.h"
 #endif
@@ -145,18 +142,11 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		/* with dsp enable, not to set when stop_threshold = ~(0U) */
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
-/* only when adsp enable using hw semaphore to set memif */
-#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-			ret = mtk_dsp_memif_set_enable(afe, id);
-#else
 			ret = mtk_memif_set_enable(afe, id);
-#endif
 #else
 		ret = mtk_memif_set_enable(afe, id);
 #endif
@@ -196,17 +186,11 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				       << irq_data->irq_fs_shift,
 				       fs << irq_data->irq_fs_shift);
 		/* enable interrupt */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold != ~(0U))
-			mtk_dsp_irq_set_enable(afe, irq_data);
-#else
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
 					       1 << irq_data->irq_en_shift,
 					       1 << irq_data->irq_en_shift);
-#endif
 		return 0;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -221,17 +205,11 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				}
 			}
 		}
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (runtime->stop_threshold == ~(0U))
 			ret = 0;
 		else
-/* only when adsp enable using hw semaphore to set memif */
-#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-			ret = mtk_dsp_memif_set_disable(afe, id);
-#else
 			ret = mtk_memif_set_disable(afe, id);
-#endif
 #else
 		ret = mtk_memif_set_disable(afe, id);
 #endif
@@ -241,21 +219,14 @@ int mt6833_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* disable interrupt */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
-		if (runtime->stop_threshold != ~(0U))
-			mtk_dsp_irq_set_disable(afe, irq_data);
-#else
 		if (runtime->stop_threshold != ~(0U))
 			mtk_regmap_update_bits(afe->regmap,
 					       irq_data->irq_en_reg,
 					       1 << irq_data->irq_en_shift,
 					       0 << irq_data->irq_en_shift);
 
-#endif
 		/* and clear pending IRQ */
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
 		if (runtime->stop_threshold != ~(0U))
 #endif
 			regmap_write(afe->regmap, irq_data->irq_clr_reg,
@@ -300,58 +271,13 @@ int mt6833_get_memif_pbuf_size(struct snd_pcm_substream *substream)
 		return MT6833_MEMIF_PBUF_SIZE_32_BYTES;
 }
 
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-int mt6833_fe_prepare(struct snd_pcm_substream *substream,
-		      struct snd_soc_dai *dai)
-{
-	struct snd_soc_pcm_runtime *rtd = substream->private_data;
-	struct snd_pcm_runtime * const runtime = substream->runtime;
-	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
-	int id = rtd->cpu_dai->id;
-	struct mtk_base_afe_memif *memif = &afe->memif[id];
-	int irq_id = memif->irq_usage;
-	struct mtk_base_afe_irq *irqs = &afe->irqs[irq_id];
-	const struct mtk_base_irq_data *irq_data = irqs->irq_data;
-	unsigned int counter = runtime->period_size;
-	int fs;
-	int ret;
-
-	ret = mtk_afe_fe_prepare(substream, dai);
-	if (ret)
-		goto exit;
-
-	/* set irq counter */
-	mtk_regmap_update_bits(afe->regmap, irq_data->irq_cnt_reg,
-			       irq_data->irq_cnt_maskbit
-			       << irq_data->irq_cnt_shift,
-			       counter << irq_data->irq_cnt_shift);
-
-	/* set irq fs */
-	fs = afe->irq_fs(substream, runtime->rate);
-
-	if (fs < 0)
-		return -EINVAL;
-
-	mtk_regmap_update_bits(afe->regmap, irq_data->irq_fs_reg,
-			       irq_data->irq_fs_maskbit
-			       << irq_data->irq_fs_shift,
-			       fs << irq_data->irq_fs_shift);
-exit:
-	return ret;
-}
-#endif
-
 /* FE DAIs */
 static const struct snd_soc_dai_ops mt6833_memif_dai_ops = {
 	.startup	= mt6833_fe_startup,
 	.shutdown	= mt6833_fe_shutdown,
 	.hw_params	= mtk_afe_fe_hw_params,
 	.hw_free	= mtk_afe_fe_hw_free,
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	.prepare	= mt6833_fe_prepare,
-#else
 	.prepare	= mtk_afe_fe_prepare,
-#endif
 	.trigger	= mt6833_fe_trigger,
 };
 
@@ -1030,334 +956,6 @@ static int mt6833_vow_barge_in_irq_id_get(struct snd_kcontrol *kcontrol,
 }
 #endif
 
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-static int mt6833_adsp_primary_mem_get(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_PRIMARY_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_primary_mem_set(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_PRIMARY_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_deepbuffer_mem_get(struct snd_kcontrol *kcontrol,
-					  struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_DEEPBUFFER_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_deepbuffer_mem_set(struct snd_kcontrol *kcontrol,
-					  struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_DEEPBUFFER_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_voip_mem_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_VOIP_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_voip_mem_set(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_VOIP_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_playback_mem_get(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_playback_mem_set(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_numdl = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
-					    ADSP_TASK_ATTR_MEMDL);
-	int memif_numul = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
-					    ADSP_TASK_ATTR_MEMUL);
-	int memif_numref = get_dsp_task_attr(AUDIO_TASK_PLAYBACK_ID,
-					    ADSP_TASK_ATTR_MEMREF);
-	struct mtk_base_afe_memif *memifdl = &afe->memif[memif_numdl];
-	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
-	struct mtk_base_afe_memif *memifref;
-
-	memifdl->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
-
-	if (memif_numref > 0) {
-		memifref = &afe->memif[memif_numref];
-		memifref->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	}
-
-	return 0;
-}
-
-static int mt6833_adsp_call_final_mem_get(struct snd_kcontrol *kcontrol,
-					  struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_call_final_mem_set(struct snd_kcontrol *kcontrol,
-					  struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_numdl = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-					    ADSP_TASK_ATTR_MEMDL);
-	int memif_numul = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-					    ADSP_TASK_ATTR_MEMUL);
-	int memif_numref = get_dsp_task_attr(AUDIO_TASK_CALL_FINAL_ID,
-					    ADSP_TASK_ATTR_MEMREF);
-	struct mtk_base_afe_memif *memifdl = &afe->memif[memif_numdl];
-	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
-	struct mtk_base_afe_memif *memifref;
-
-	memifdl->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
-
-	if (memif_numref > 0) {
-		memifref = &afe->memif[memif_numref];
-		memifref->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	}
-
-	return 0;
-}
-
-static int mt6833_adsp_ktv_mem_get(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_ktv_mem_set(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_numdl = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
-					    ADSP_TASK_ATTR_MEMDL);
-	int memif_numul = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
-					    ADSP_TASK_ATTR_MEMUL);
-	int memif_numref = get_dsp_task_attr(AUDIO_TASK_KTV_ID,
-					    ADSP_TASK_ATTR_MEMREF);
-	struct mtk_base_afe_memif *memifdl = &afe->memif[memif_numdl];
-	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
-	struct mtk_base_afe_memif *memifref;
-
-	memifdl->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
-
-	if (memif_numref > 0) {
-		memifref = &afe->memif[memif_numref];
-		memifref->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	}
-
-	return 0;
-}
-
-static int mt6833_adsp_offload_mem_get(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_OFFLOAD_ID,
-					  ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_offload_mem_set(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_OFFLOAD_ID,
-			ADSP_TASK_ATTR_MEMDL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_capture_mem_get(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CAPTURE_UL1_ID,
-					  ADSP_TASK_ATTR_MEMUL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_capture_mem_set(struct snd_kcontrol *kcontrol,
-				       struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CAPTURE_UL1_ID,
-					  ADSP_TASK_ATTR_MEMUL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_ref_mem_get(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CAPTURE_UL1_ID,
-					  ADSP_TASK_ATTR_MEMREF);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_ref_mem_set(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_CAPTURE_UL1_ID,
-					  ADSP_TASK_ATTR_MEMREF);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	memif->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_a2dp_mem_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_DATAPROVIDER_ID,
-					  ADSP_TASK_ATTR_MEMUL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_a2dp_mem_set(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_numul = get_dsp_task_attr(AUDIO_TASK_DATAPROVIDER_ID,
-					    ADSP_TASK_ATTR_MEMUL);
-	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
-
-	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-static int mt6833_adsp_fast_mem_get(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_num = get_dsp_task_attr(AUDIO_TASK_FAST_ID,
-					  ADSP_TASK_ATTR_MEMUL);
-	struct mtk_base_afe_memif *memif = &afe->memif[memif_num];
-
-	ucontrol->value.integer.value[0] = memif->use_adsp_share_mem;
-	return 0;
-}
-
-static int mt6833_adsp_fast_mem_set(struct snd_kcontrol *kcontrol,
-				    struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
-	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
-	int memif_numul = get_dsp_task_attr(AUDIO_TASK_FAST_ID,
-					    ADSP_TASK_ATTR_MEMUL);
-	struct mtk_base_afe_memif *memiful = &afe->memif[memif_numul];
-
-	memiful->use_adsp_share_mem = ucontrol->value.integer.value[0];
-	return 0;
-}
-
-#endif
-
 #if defined(CONFIG_MTK_ION)
 static int mt6833_mmap_dl_scene_get(struct snd_kcontrol *kcontrol,
 				    struct snd_ctl_elem_value *ucontrol)
@@ -1448,7 +1046,7 @@ static int mt6833_mmap_ion_set(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 	/* for bring up */
-#if 0
+#if 1
 	mtk_get_ion_buffer();
 #endif
 	return 0;
@@ -1526,52 +1124,6 @@ static const struct snd_kcontrol_new mt6833_pcm_kcontrols[] = {
 	SOC_SINGLE_EXT("vow_barge_in_irq_id", SND_SOC_NOPM, 0, 0x3ffff, 0,
 		       mt6833_vow_barge_in_irq_id_get, NULL),
 #endif
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-	SOC_SINGLE_EXT("adsp_primary_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_primary_mem_get,
-		       mt6833_adsp_primary_mem_set),
-	SOC_SINGLE_EXT("adsp_deepbuffer_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_deepbuffer_mem_get,
-		       mt6833_adsp_deepbuffer_mem_set),
-	SOC_SINGLE_EXT("adsp_voip_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_voip_mem_get,
-		       mt6833_adsp_voip_mem_set),
-	SOC_SINGLE_EXT("adsp_playback_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_playback_mem_get,
-		       mt6833_adsp_playback_mem_set),
-	SOC_SINGLE_EXT("adsp_call_final_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_call_final_mem_get,
-		       mt6833_adsp_call_final_mem_set),
-	SOC_SINGLE_EXT("adsp_ktv_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_ktv_mem_get,
-		       mt6833_adsp_ktv_mem_set),
-	SOC_SINGLE_EXT("adsp_offload_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_offload_mem_get,
-		       mt6833_adsp_offload_mem_set),
-	SOC_SINGLE_EXT("adsp_capture_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_capture_mem_get,
-		       mt6833_adsp_capture_mem_set),
-	SOC_SINGLE_EXT("adsp_ref_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_ref_mem_get,
-		       mt6833_adsp_ref_mem_set),
-	SOC_SINGLE_EXT("adsp_a2dp_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_a2dp_mem_get,
-		       mt6833_adsp_a2dp_mem_set),
-	SOC_SINGLE_EXT("adsp_fast_sharemem_scenario",
-		       SND_SOC_NOPM, 0, 0x1, 0,
-		       mt6833_adsp_fast_mem_get,
-		       mt6833_adsp_fast_mem_set),
-#endif
 #if defined(CONFIG_MTK_ION)
 	SOC_SINGLE_EXT("mmap_play_scenario", SND_SOC_NOPM, 0, 0x1, 0,
 		       mt6833_mmap_dl_scene_get, mt6833_mmap_dl_scene_set),
@@ -1598,8 +1150,6 @@ static const struct snd_kcontrol_new memif_ul1_ch1_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN21,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN21,
-				    I_ADDA_UL_CH3, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul1_ch2_mix[] = {
@@ -1607,10 +1157,6 @@ static const struct snd_kcontrol_new memif_ul1_ch2_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN22,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN22,
-				    I_ADDA_UL_CH3, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH4", AFE_CONN22,
-				    I_ADDA_UL_CH4, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul1_ch3_mix[] = {
@@ -1618,8 +1164,6 @@ static const struct snd_kcontrol_new memif_ul1_ch3_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN9,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN9,
-				    I_ADDA_UL_CH3, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul1_ch4_mix[] = {
@@ -1627,10 +1171,6 @@ static const struct snd_kcontrol_new memif_ul1_ch4_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN10,
 				    I_ADDA_UL_CH2, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN10,
-				    I_ADDA_UL_CH3, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH4", AFE_CONN10,
-				    I_ADDA_UL_CH4, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul2_ch1_mix[] = {
@@ -1816,15 +1356,6 @@ static const struct snd_kcontrol_new memif_ul_mono_3_mix[] = {
 				    I_ADDA_UL_CH1, 1, 0),
 };
 
-static const struct snd_kcontrol_new mtk_dsp_dl_playback_mix[] = {
-	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL1", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL2", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL12", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL6", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL3", SND_SOC_NOPM, 0, 1, 0),
-	SOC_DAPM_SINGLE_AUTODISABLE("DSP_DL4", SND_SOC_NOPM, 0, 1, 0),
-};
-
 static const struct snd_soc_dapm_widget mt6833_memif_widgets[] = {
 	/* inter-connections */
 	SND_SOC_DAPM_MIXER("UL1_CH1", SND_SOC_NOPM, 0, 0,
@@ -1883,15 +1414,10 @@ static const struct snd_soc_dapm_widget mt6833_memif_widgets[] = {
 			   memif_ul_mono_3_mix,
 			   ARRAY_SIZE(memif_ul_mono_3_mix)),
 
-	SND_SOC_DAPM_MIXER("DSP_DL", SND_SOC_NOPM, 0, 0,
-			   mtk_dsp_dl_playback_mix,
-			   ARRAY_SIZE(mtk_dsp_dl_playback_mix)),
-
 	SND_SOC_DAPM_INPUT("UL1_VIRTUAL_INPUT"),
 	SND_SOC_DAPM_INPUT("UL2_VIRTUAL_INPUT"),
 	SND_SOC_DAPM_INPUT("UL6_VIRTUAL_INPUT"),
 
-	SND_SOC_DAPM_OUTPUT("DL_TO_DSP"),
 };
 
 static const struct snd_soc_dapm_route mt6833_memif_routes[] = {
@@ -2009,15 +1535,10 @@ static const struct snd_soc_dapm_route mt6833_memif_routes[] = {
 	{"UL8_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"UL8_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 
-	{"DSP_DL", "DSP_DL1", "DL1"},
-	{"DSP_DL", "DSP_DL2", "DL2"},
-	{"DSP_DL", "DSP_DL12", "DL12"},
-	{"DSP_DL", "DSP_DL6", "DL6"},
-	{"DSP_DL", "DSP_DL3", "DL3"},
-	{"DSP_DL", "DSP_DL4", "DL4"},
-
 	{"HW_GAIN2_IN_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
 	{"HW_GAIN2_IN_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+	{"UL7_CH1", "HW_GAIN2_OUT_CH1", "HW Gain 2 Out"},
+	{"UL7_CH2", "HW_GAIN2_OUT_CH2", "HW Gain 2 Out"},
 };
 
 static const struct mtk_base_memif_data memif_data[MT6833_MEMIF_NUM] = {
@@ -3592,18 +3113,16 @@ static ssize_t mt6833_debugfs_read(struct file *file, char __user *buf,
 		return -ENOMEM;
 
 	n += scnprintf(buffer + n, size - n,
-		       "mtkaif calibration phase %d, %d, %d, %d\n",
+		       "mtkaif calibration phase %d, %d, %d\n",
 		       afe_priv->mtkaif_chosen_phase[0],
 		       afe_priv->mtkaif_chosen_phase[1],
-		       afe_priv->mtkaif_chosen_phase[2],
-		       afe_priv->mtkaif_chosen_phase[3]);
+		       afe_priv->mtkaif_chosen_phase[2]);
 
 	n += scnprintf(buffer + n, size - n,
-		       "mtkaif calibration cycle %d, %d, %d, %d\n",
+		       "mtkaif calibration cycle %d, %d, %d\n",
 		       afe_priv->mtkaif_phase_cycle[0],
 		       afe_priv->mtkaif_phase_cycle[1],
-		       afe_priv->mtkaif_phase_cycle[2],
-		       afe_priv->mtkaif_phase_cycle[3]);
+		       afe_priv->mtkaif_phase_cycle[2]);
 
 	for (i = 0; i < afe->memif_size; i++) {
 		n += scnprintf(buffer + n, size - n,
@@ -5948,6 +5467,7 @@ static int mt6833_afe_pcm_dev_probe(struct platform_device *pdev)
 		return ret;
 
 	/* init memif */
+	afe->memif_32bit_supported = 0;
 	afe->memif_size = MT6833_MEMIF_NUM;
 	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
 				  GFP_KERNEL);
@@ -6066,8 +5586,7 @@ static int mt6833_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	dev_info(dev, "%s(), --\n", __func__);
 
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+#if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 	audio_set_dsp_afe(afe);
 #endif
 

@@ -38,11 +38,13 @@
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vemc_ldo_reg>;
-	vcore-supply = <&mt_pmic_vgpu11_buck_reg>;
-	clocks = <&infracfg_ao CLK_IFRAO_MSDC0_SRC>,
+	vcore-supply = <&mt_pmic_vcore_buck_reg>;
+	clocks = <&topckgen CLK_TOP_MSDC50_0_HCLK_SEL>,
+		<&infracfg_ao CLK_IFRAO_MSDC0_SRC>,
 		<&infracfg_ao CLK_IFRAO_MSDC0>,
 		<&infracfg_ao CLK_IFRAO_MSDC0_AES>;
-	clock-names = "msdc0-clock", "msdc0-hclock", "msdc0-aes-clock";
+	clock-names = "msdc0-src-hclock", "msdc0-clock",
+		"msdc0-hclock", "msdc0-aes-clock";
 #endif
 };
 
@@ -53,12 +55,14 @@
 	bus-width = <4>;
 	max-frequency = <200000000>;
 	cap-sd-highspeed;
+	cap-mmc-highspeed;
 	sd-uhs-sdr12;
 	sd-uhs-sdr25;
 	sd-uhs-sdr50;
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
-	no-mmc;
+	mmc-ddr-1_8v;
+	mmc-hs200-1_8v;
 	no-sdio;
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
@@ -66,6 +70,7 @@
 	pinctl_sdr104 = <&msdc1_pins_sdr104>;
 	pinctl_sdr50 = <&msdc1_pins_sdr50>;
 	pinctl_ddr50 = <&msdc1_pins_ddr50>;
+	pinctl_hs200 = <&msdc1_pins_hs200>;
 	register_setting = <&msdc1_register_setting_default>;
 #endif
 
@@ -191,6 +196,18 @@
 	};
 
 	msdc1_pins_ddr50: msdc1@ddr50 {
+		pins_cmd {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_dat {
+			drive-strength = /bits/ 8 <3>;
+		};
+		pins_clk {
+			drive-strength = /bits/ 8 <3>;
+		};
+	};
+
+	msdc1_pins_hs200: msdc1@hs200 {
 		pins_cmd {
 			drive-strength = /bits/ 8 <3>;
 		};

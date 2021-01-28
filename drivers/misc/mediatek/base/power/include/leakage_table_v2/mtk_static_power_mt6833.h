@@ -14,24 +14,25 @@
 #ifndef __MTK_STATIC_POWER_MTK6833_H__
 #define __MTK_STATIC_POWER_MTK6833_H__
 
-#if defined(CONFIG_MACH_MT6833)
-#define SPOWER_NOT_READY 1
-
-#define WITHOUT_LKG_EFUSE
-#endif
+/* #if defined(CONFIG_MACH_MT6833)
+ * #define SPOWER_NOT_READY 1
+ *
+ * #define WITHOUT_LKG_EFUSE
+ * #endif
+ */
 #define PRECISE_NODE
 
 /* mv, "Leakage domain" */
 #define V_OF_FUSE_CPU 900 /* BCPU/LCPU/MCPU */
-#define V_OF_FUSE_GPU 850 /* GPU */
+#define V_OF_FUSE_GPU 800 /* GPU */
 #define V_OF_FUSE_VCORE 725 /* SOC_ON_Total */
 #define V_OF_FUSE_MODEM 825 /* MODEM */
 #define V_OF_FUSE_VPU 775 /* VPU(APU) */
-#define V_OF_FUSE_VSRAM_PROC12 900 /* VSRAM_BCPU */
-#define V_OF_FUSE_VSRAM_PROC11 900 /* VSRAM_LCPU */
-#define V_OF_FUSE_VSRAM_OTHERS 800 /* VSRAM_SOC */
+#define V_OF_FUSE_VSRAM_PROC12 1000 /* VSRAM_BCPU */
+#define V_OF_FUSE_VSRAM_PROC11 1000 /* VSRAM_LCPU */
+#define V_OF_FUSE_VSRAM_OTHERS 750 /* VSRAM_SOC */
 #define V_OF_FUSE_ADSP 800 /* ADSP */
-#define V_OF_FUSE_VSRAM_GPU 850 /* VSRAM_GPU */
+#define V_OF_FUSE_VSRAM_GPU 800 /* VSRAM_GPU */
 #define V_OF_FUSE_VSRAM_VPU_MDLA 800 /* VSRAM_(VPU+MDLA) */
 #define V_OF_FUSE_VSRAM_MODEM 825 /* VSRAM_MODEM */
 #define V_OF_FUSE_VCORE_OFF 550 /* SOC _OFF_Total */

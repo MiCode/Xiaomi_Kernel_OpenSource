@@ -34,7 +34,7 @@
 
 static int opp_min_bin_opp0;
 static int opp_min_bin_opp3;
-static int opp_min_bin_opp3_1;
+
 
 static int is_vcore_ct;
 static int dvfsrc_rsrv;
@@ -147,10 +147,8 @@ static int get_vb_volt(int vcore_opp)
 		break;
 	case VCORE_OPP_3:
 		idx = ptpod & 0xF;
-		if (idx >= opp_min_bin_opp3 && idx < opp_min_bin_opp3_1)
+		if (idx >= opp_min_bin_opp3 && idx < 10)
 			ret = 1;
-		else if (idx >= opp_min_bin_opp3_1 && idx < 9)
-			ret = 2;
 		break;
 	default:
 		break;
@@ -161,13 +159,14 @@ static int get_vb_volt(int vcore_opp)
 
 static int is_rising_need(void)
 {
+
 	int idx;
 	int ptpod = get_devinfo_with_index(209);
 
 	pr_info("%s: PTPOD: 0x%x\n", __func__, ptpod);
 
 	idx = ptpod & 0xF;
-	if (idx == 1 || idx == 9)
+	if (idx == 1 || idx == 2)
 		return idx;
 
 	return 0;
@@ -215,21 +214,19 @@ static int __init dvfsrc_opp_init(void)
 	if (is_vcore_ct) {
 		if (ct_test) {
 			opp_min_bin_opp0 = 2;
-			opp_min_bin_opp3 = 3;
-			opp_min_bin_opp3_1 = 6;
+			opp_min_bin_opp3 = 4;
 		} else {
 			opp_min_bin_opp0 = 3;
-			opp_min_bin_opp3 = 4;
-			opp_min_bin_opp3_1 = 7;
+			opp_min_bin_opp3 = 5;
 		}
 		vcore_opp_0_uv -= get_vb_volt(VCORE_OPP_0);
 		if (ct_opp3_en)
 			vcore_opp_3_uv -= get_vb_volt(VCORE_OPP_3);
 	}
 
-	if (is_rising_need() == 1)
+	if (is_rising_need() == 2)
 		vcore_opp_3_uv = 575000;
-	else if (is_rising_need() == 9)
+	else if (is_rising_need() == 1)
 		vcore_opp_3_uv = 600000;
 
 	if (dvfs_v_mode == 3) {
@@ -248,8 +245,6 @@ static int __init dvfsrc_opp_init(void)
 			vcore_opp_3_uv = 543750;
 		else if (vcore_opp_3_uv == 600000)
 			vcore_opp_3_uv = 568750;
-		else if (vcore_opp_3_uv == 500000)
-			vcore_opp_3_uv = 475000;
 		else
 			vcore_opp_3_uv = 518750;
 	} else if (dvfs_v_mode == 1) {
@@ -268,8 +263,6 @@ static int __init dvfsrc_opp_init(void)
 			vcore_opp_3_uv = 606250;
 		else if (vcore_opp_3_uv == 600000)
 			vcore_opp_3_uv = 631250;
-		else if (vcore_opp_3_uv == 500000)
-			vcore_opp_3_uv = 525000;
 		else
 			vcore_opp_3_uv = 581250;
 	} else if (is_vcore_aging) {

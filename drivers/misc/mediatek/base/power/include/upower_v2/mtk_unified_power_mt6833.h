@@ -27,14 +27,14 @@
 extern "C" {
 #endif
 
-#if defined(CONFIG_MACH_MT6833)
-#define UPOWER_NOT_READY (1)
-#define EEM_NOT_SET_VOLT (1)
-#define EEM_DISABLE (1)
-#define UPOWER_ENABLE (0)
-#else
+/*
+ * #define UPOWER_NOT_READY (1)
+ * #define EEM_NOT_SET_VOLT (1)
+ * #define EEM_DISABLE (1)
+ * #define UPOWER_ENABLE (0)
+ */
 #define UPOWER_ENABLE (1)
-#endif
+
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	#define UPOWER_ENABLE_TINYSYS_SSPM (0)
 	#define UPOWER_USE_QOS_IPI         (0)

@@ -18,9 +18,7 @@
 
 #define CPU_DVFS_DT_REG	1
 
-#if defined(CONFIG_MACH_MT6833)
-#define CPU_DVFS_NOT_READY 1
-#endif
+/* #define CPU_DVFS_NOT_READY 1 */
 
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
 #define CONFIG_HYBRID_CPU_DVFS	1

@@ -47,6 +47,8 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_TIMEOUT_NEXTREQ,    0x00000015 },
 		{ DVFSRC_LEVEL_MASK,         0x00EEE000 },
 
+		{ DVFSRC_SW_REQ8,            0x00001000 },
+
 		{ DVFSRC_DDR_QOS0,           0x0000000c },
 		{ DVFSRC_DDR_QOS1,           0x00000019 },
 		{ DVFSRC_DDR_QOS2,           0x00000026 },
@@ -95,12 +97,12 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_HRT1_REQ_MD_BW_9,   0x00000000 },
 		{ DVFSRC_HRT1_REQ_MD_BW_10,  0x00034800 },
 
-		{ DVFSRC_95MD_SCEN_BW0_T,    0x50555550 },
-		{ DVFSRC_95MD_SCEN_BW1_T,    0x33355555 },
+		{ DVFSRC_95MD_SCEN_BW0_T,    0x30333330 },
+		{ DVFSRC_95MD_SCEN_BW1_T,    0x33333333 },
 		{ DVFSRC_95MD_SCEN_BW2_T,    0x00500555 },
 		{ DVFSRC_95MD_SCEN_BW3_T,    0x70000000 },
-		{ DVFSRC_95MD_SCEN_BW0,      0x30333330 },
-		{ DVFSRC_95MD_SCEN_BW1,      0x00033333},
+		{ DVFSRC_95MD_SCEN_BW0,      0x10111110 },
+		{ DVFSRC_95MD_SCEN_BW1,      0x11111111},
 		{ DVFSRC_95MD_SCEN_BW2,      0x00300333 },
 		{ DVFSRC_95MD_SCEN_BW3,      0x70000000 },
 		{ DVFSRC_95MD_SCEN_BW4,      0x00000007 },

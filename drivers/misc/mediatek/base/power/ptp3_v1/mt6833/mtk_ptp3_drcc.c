@@ -1084,8 +1084,10 @@ int drcc_probe(struct platform_device *pdev)
 			mtk_drcc_code(drcc7_Code, 7);
 	}
 	/* dump reg status into PICACHU dram for DB */
-	drcc_reserve_memory_dump(drcc_buf, drcc_mem_size,
-		DRCC_TRIGGER_STAGE_PROBE);
+	if (drcc_buf != NULL) {
+		drcc_reserve_memory_dump(drcc_buf, drcc_mem_size,
+			DRCC_TRIGGER_STAGE_PROBE);
+	}
 
 	drcc_msg("drcc probe ok!!\n");
 #endif

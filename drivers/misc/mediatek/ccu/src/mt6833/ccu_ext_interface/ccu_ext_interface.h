@@ -76,6 +76,23 @@ struct ccu_msg {
 	uint32_t sensor_idx;
 };
 
+struct ccu_control_info {
+	enum ccu_feature_type feature_type;
+	uint32_t sensor_idx; //new
+	uint32_t msg_id;
+	unsigned long long inDataPtr;
+	uint32_t inDataSize;
+	unsigned long long outDataPtr;
+	uint32_t outDataSize;
+};
+
+struct ap2ccu_ipc_t {
+	MUINT32 write_cnt;
+	MUINT32 read_cnt;
+	struct ccu_msg msg;
+	MBOOL ack;
+};
+
 /******************************************************************************
  * Status definition
  *****************************************************************************/

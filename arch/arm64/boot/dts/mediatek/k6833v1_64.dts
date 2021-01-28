@@ -22,11 +22,6 @@
 
 /* chosen */
 &chosen {
-	bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
-		initrd=0x45000000,0x107815 loglevel=8 \
-		androidboot.selinux=permissive androidboot.hardware=mt6833 \
-		earlycon=mtk8250,mmio32,0x11002000 \
-		initcall_debug=1";
 	atag,videolfb-fb_base_l = <0x7e605000>;
 	atag,videolfb-fb_base_h = <0x0>;
 	atag,videolfb-islcmfound = <1>;
@@ -35,10 +30,6 @@
 	atag,videolfb-vramSize= <0x1be0000>;
 	atag,videolfb-lcmname=
 		"nt35595_fhd_dsi_cmd_truly_nt50358_drv";
-};
-
-&timer {
-	clock-frequency = <150000000>;
 };
 
 &mt6360_pmu {
@@ -192,6 +183,35 @@
 #endif
 
 #include "mediatek/cust_mt6833_touch_1080x2300.dtsi"
+/* accdet start */
+&accdet {
+	/* accdet micbias voltage: 0x09:2.85v 0x08:2.8v 0x07,
+	 * 2.7v;0x05,2.5v;0x02,1.9v
+	 */
+	accdet-mic-vol = <8>;
+	/* accdet pwm_width, pwm_thresh, fall_delay, rise_delay
+	 * debounce0, debounce1, debounce3, debounce4
+	 * eint pwm_width, eint pwm_thresh
+	 * eint deb(debounce0, debounce1, debounce2, debounce3), inv_debounce
+	 */
+	headset-mode-setting = <0x500 0x500 1 0x1f0
+				0x800 0x800 0x20 0x44
+				0x4 0x1
+				0x5 0x3 0x3 0x5 0xe>;
+	accdet-plugout-debounce = <1>;
+	/*1:ACC mode, 2:low cost without in bias, 6:low cost with in bias*/
+	accdet-mic-mode = <2>;
+	/*0--MD_MAX--UP_MAX--DW_MAX*/
+	headset-three-key-threshold = <0 80 220 400>;
+	headset-three-key-threshold-CDD = <0 121 192 600>;
+	/*0--MD_MAX--VOICE_MAX--UP_MAX--DW_MAX*/
+	headset-four-key-threshold = <0 58 121 192 400>;
+
+	/* select VTH to 2v and 500k, use internal resitance */
+	eint_use_ext_res = <0>;
+	status = "okay";
+};
+/* accdet end */
 
 &odm {
 	led0:led@0 {
@@ -232,7 +252,7 @@
 	};
 	led6:led@6 {
 		compatible = "mediatek,lcd-backlight";
-		led_mode = <4>;
+		led_mode = <5>;
 		data = <1>;
 		pwm_config = <0 1 0 0 0>;
 	};
@@ -303,6 +323,8 @@
 	status = "okay";
 };
 /* GPS GPIO standardization end */
-/* #include <k6833v1_64/cust.dtsi> */
+#include "mediatek/cust_mt6833_camera.dtsi"
+#include <k6833v1_64/cust.dtsi>
+
 
 /*End of this file, DO NOT ADD ANYTHING HERE*/

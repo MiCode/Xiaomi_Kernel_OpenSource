@@ -13,6 +13,10 @@
 
 # common driver code for CMDQ
 
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6833)))
+	MTK_PLATFORM := mt6833
+endif
+
 ccflags-$(CONFIG_MACH_MT6768) += -DCMDQ_MDP_ENABLE_SPR
 
 ifeq ($(CONFIG_MACH_MT6785),y)

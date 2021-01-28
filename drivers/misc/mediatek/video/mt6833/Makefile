@@ -17,7 +17,7 @@
 #
 ################################################################################
 
-obj-$(CONFIG_MTK_FB) += cmdq/
+#obj-$(CONFIG_MTK_FB) += cmdq/
 obj-$(CONFIG_MTK_FB) += m4u/
 obj-$(CONFIG_MTK_FB) += dispsys/
 obj-$(CONFIG_MTK_FB) += videox/

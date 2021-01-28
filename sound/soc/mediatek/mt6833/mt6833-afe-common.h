@@ -80,14 +80,6 @@ enum {
 #define MT6833_MMAP_UL_MEMIF MT6833_MEMIF_VUL5
 #define MT6833_BARGEIN_MEMIF MT6833_MEMIF_AWB
 
-#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
-#define MT6833_DSP_PRIMARY_MEMIF MT6833_MEMIF_DL1
-#define MT6833_DSP_DEEPBUFFER_MEMIF MT6833_MEMIF_DL3
-#define MT6833_DSP_VOIP_MEMIF MT6833_MEMIF_DL12
-#define MT6833_DSP_PLAYBACKDL_MEMIF MT6833_MEMIF_DL4
-#define MT6833_DSP_PLAYBACKUL_MEMIF MT6833_MEMIF_VUL4
-#endif
-
 enum {
 	MT6833_IRQ_0,
 	MT6833_IRQ_1,
@@ -150,8 +142,6 @@ enum mtk_audio_smc_call_op {
 	MTK_AUDIO_SMC_OP_DRAM_RELEASE,
 	MTK_AUDIO_SMC_OP_FM_REQUEST,
 	MTK_AUDIO_SMC_OP_FM_RELEASE,
-	MTK_AUDIO_SMC_OP_ADSP_REQUEST,
-	MTK_AUDIO_SMC_OP_ADSP_RELEASE,
 	MTK_AUDIO_SMC_OP_NUM
 };
 
@@ -195,8 +185,8 @@ struct mt6833_afe_private {
 
 	/* adda */
 	int mtkaif_protocol;
-	int mtkaif_chosen_phase[4];
-	int mtkaif_phase_cycle[4];
+	int mtkaif_chosen_phase[3];
+	int mtkaif_phase_cycle[3];
 	int mtkaif_calibration_num_phase;
 	int mtkaif_dmic;
 

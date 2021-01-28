@@ -151,6 +151,7 @@ config COMMON_CLK_MT6833
 config COMMON_CLK_MT6833_AUDIO
 	bool "Clock driver for MediaTek MT6833 audio"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 audio clocks,
 	  which is used to control audio clock output.
@@ -160,6 +161,7 @@ config COMMON_CLK_MT6833_AUDIO
 config COMMON_CLK_MT6833_CAMSYS_MAIN
 	bool "Clock driver for MediaTek MT6833 camsys_main"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 camsys_main clocks,
 	  which is used to control camsys_main clock output.
@@ -169,6 +171,7 @@ config COMMON_CLK_MT6833_CAMSYS_MAIN
 config COMMON_CLK_MT6833_CAMSYS_RAWA
 	bool "Clock driver for MediaTek MT6833 camsys_rawa"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 camsys_rawa clocks,
 	  which is used to control camsys_rawa clock output.
@@ -178,6 +181,7 @@ config COMMON_CLK_MT6833_CAMSYS_RAWA
 config COMMON_CLK_MT6833_CAMSYS_RAWB
 	bool "Clock driver for MediaTek MT6833 camsys_rawb"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 camsys_rawb clocks,
 	  which is used to control camsys_rawb clock output.
@@ -187,6 +191,7 @@ config COMMON_CLK_MT6833_CAMSYS_RAWB
 config COMMON_CLK_MT6833_IMGSYS1
 	bool "Clock driver for MediaTek MT6833 imgsys1"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imgsys1 clocks,
 	  which is used to control imgsys1 clock output.
@@ -196,6 +201,7 @@ config COMMON_CLK_MT6833_IMGSYS1
 config COMMON_CLK_MT6833_IMGSYS2
 	bool "Clock driver for MediaTek MT6833 imgsys2"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imgsys2 clocks,
 	  which is used to control imgsys2 clock output.
@@ -205,6 +211,7 @@ config COMMON_CLK_MT6833_IMGSYS2
 config COMMON_CLK_MT6833_IMP_IIC_WRAP_C
 	bool "Clock driver for MediaTek MT6833 imp_iic_wrap_c"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imp_iic_wrap_c clocks,
 	  which is used to control imp_iic_wrap_c clock output.
@@ -214,6 +221,7 @@ config COMMON_CLK_MT6833_IMP_IIC_WRAP_C
 config COMMON_CLK_MT6833_IMP_IIC_WRAP_E
 	bool "Clock driver for MediaTek MT6833 imp_iic_wrap_e"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imp_iic_wrap_e clocks,
 	  which is used to control imp_iic_wrap_e clock output.
@@ -223,6 +231,7 @@ config COMMON_CLK_MT6833_IMP_IIC_WRAP_E
 config COMMON_CLK_MT6833_IMP_IIC_WRAP_N
 	bool "Clock driver for MediaTek MT6833 imp_iic_wrap_n"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imp_iic_wrap_n clocks,
 	  which is used to control imp_iic_wrap_n clock output.
@@ -232,6 +241,7 @@ config COMMON_CLK_MT6833_IMP_IIC_WRAP_N
 config COMMON_CLK_MT6833_IMP_IIC_WRAP_S
 	bool "Clock driver for MediaTek MT6833 imp_iic_wrap_s"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imp_iic_wrap_s clocks,
 	  which is used to control imp_iic_wrap_s clock output.
@@ -241,6 +251,7 @@ config COMMON_CLK_MT6833_IMP_IIC_WRAP_S
 config COMMON_CLK_MT6833_IMP_IIC_WRAP_W
 	bool "Clock driver for MediaTek MT6833 imp_iic_wrap_w"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imp_iic_wrap_w clocks,
 	  which is used to control imp_iic_wrap_w clock output.
@@ -250,6 +261,7 @@ config COMMON_CLK_MT6833_IMP_IIC_WRAP_W
 config COMMON_CLK_MT6833_IMP_IIC_WRAP_WS
 	bool "Clock driver for MediaTek MT6833 imp_iic_wrap_ws"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 imp_iic_wrap_ws clocks,
 	  which is used to control imp_iic_wrap_ws clock output.
@@ -259,6 +271,7 @@ config COMMON_CLK_MT6833_IMP_IIC_WRAP_WS
 config COMMON_CLK_MT6833_IPESYS
 	bool "Clock driver for MediaTek MT6833 ipesys"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 ipesys clocks,
 	  which is used to control ipesys clock output.
@@ -268,6 +281,7 @@ config COMMON_CLK_MT6833_IPESYS
 config COMMON_CLK_MT6833_MDPSYS_CONFIG
 	bool "Clock driver for MediaTek MT6833 mdpsys_config"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 mdpsys_config clocks,
 	  which is used to control mdpsys_config clock output.
@@ -277,6 +291,7 @@ config COMMON_CLK_MT6833_MDPSYS_CONFIG
 config COMMON_CLK_MT6833_MFGSYS
 	bool "Clock driver for MediaTek MT6833 mfgsys"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 mfgsys clocks,
 	  which is used to control mfgsys clock output.
@@ -286,6 +301,7 @@ config COMMON_CLK_MT6833_MFGSYS
 config COMMON_CLK_MT6833_MMSYS_CONFIG
 	bool "Clock driver for MediaTek MT6833 mmsys_config"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 mmsys_config clocks,
 	  which is used to control mmsys_config clock output.
@@ -295,6 +311,7 @@ config COMMON_CLK_MT6833_MMSYS_CONFIG
 config COMMON_CLK_MT6833_MSDC0SYS
 	bool "Clock driver for MediaTek MT6833 msdc0sys"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 msdc0sys clocks,
 	  which is used to control msdc0sys clock output.
@@ -304,6 +321,7 @@ config COMMON_CLK_MT6833_MSDC0SYS
 config COMMON_CLK_MT6833_VDEC_GCON
 	bool "Clock driver for MediaTek MT6833 vdec_gcon"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 vdec_gcon clocks,
 	  which is used to control vdec_gcon clock output.
@@ -313,6 +331,7 @@ config COMMON_CLK_MT6833_VDEC_GCON
 config COMMON_CLK_MT6833_VENC_GCON
 	bool "Clock driver for MediaTek MT6833 venc_gcon"
 	depends on COMMON_CLK_MT6833
+	default MACH_MT6833
 	---help---
 	  This driver supports MediaTek MT6833 venc_gcon clocks,
 	  which is used to control venc_gcon clock output.

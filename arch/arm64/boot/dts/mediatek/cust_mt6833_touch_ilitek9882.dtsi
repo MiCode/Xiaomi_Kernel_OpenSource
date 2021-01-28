@@ -15,15 +15,6 @@
 	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
-	pinctrl-names = "default", "gt9896s_int_active",
-		"gt9896s_reset_active", "gt9896s_int_suspend",
-		"gt9896s_reset_suspend", "gt9896s_spi_mode";
-	pinctrl-0 = <&ctp_gt9896s_pins_default>;
-	pinctrl-1 = <&ctp_gt9896s_int_active>;
-	pinctrl-2 = <&ctp_gt9896s_reset_active>;
-	pinctrl-3 = <&ctp_gt9896s_int_suspend>;
-	pinctrl-4 = <&ctp_gt9896s_reset_suspend>;
-	pinctrl-5 = <&ctp_gt9896s_spi_mode>;
 
 	ilitek@0 {
 		compatible = "ilitek";

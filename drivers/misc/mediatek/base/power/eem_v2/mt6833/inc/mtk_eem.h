@@ -20,6 +20,13 @@
 
 #define EN_EEM (1) /* enable/disable EEM (SW) */
 
+enum mt_cpu_dvfs_id {
+	MT_CPU_DVFS_LL,
+	MT_CPU_DVFS_L,
+	MT_CPU_DVFS_CCI,
+
+	NR_MT_CPU_DVFS,
+};
 
 enum eemsn_det_id {
 	EEMSN_DET_L,
@@ -105,7 +112,6 @@ enum eem_loo_role {
 
 extern u32 get_devinfo_with_index(u32 index);
 extern unsigned int eem_corn_flag;
-extern const unsigned int reg_dump_addr_off[DUMP_LEN];
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
 #define CONFIG_EEM_AEE_RR_REC 1

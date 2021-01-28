@@ -19,7 +19,15 @@ else
 ifeq ($(CONFIG_MACH_MT6893),y)
 ccflags-y += -I$(CPUFREQ_ROOT_DIR)/src/mach/mt6893
 else
+ifeq ($(CONFIG_MACH_MT6833),y)
+ccflags-y += -I$(CPUFREQ_ROOT_DIR)/src/mach/mt6833
+else
+ifeq ($(CONFIG_MACH_MT6877),y)
+ccflags-y += -I$(CPUFREQ_ROOT_DIR)/src/mach/mt6877
+else
 ccflags-y += -I$(CPUFREQ_ROOT_DIR)/src/mach/$(CONFIG_MTK_PLATFORM)
+endif
+endif
 endif
 endif
 

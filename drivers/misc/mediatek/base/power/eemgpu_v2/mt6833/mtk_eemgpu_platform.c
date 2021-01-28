@@ -52,18 +52,6 @@ struct eemg_det_ops gpu_det_ops = {
 	.get_orig_volt_table_gpu	= get_orig_volt_table_gpu,
 };
 
-#if ENABLE_VPU
-struct eemg_det_ops vpu_det_ops = {
-	.get_volt_gpu		= get_volt_vpu,
-};
-#endif
-
-#if ENABLE_MDLA
-struct eemg_det_ops mdla_det_ops = {
-	.get_volt_gpu		= get_volt_mdla,
-};
-#endif
-
 int get_volt_gpu(struct eemg_det *det)
 {
 	FUNC_ENTER(FUNC_LV_HELP);
@@ -91,7 +79,7 @@ int set_volt_gpu(struct eemg_det *det)
 		eemg_error("set_volt_[%s]=0x%x(%d), ",
 		det->name,
 		det->volt_tbl_pmic[i],
-		det->ops->pmic_2_volt(det, det->volt_tbl_pmic[i]));
+		det->ops->pmic_2_volt_gpu(det, det->volt_tbl_pmic[i]));
 #endif
 	}
 #ifdef CONFIG_MTK_GPU_SUPPORT
@@ -211,40 +199,6 @@ void get_orig_volt_table_gpu(struct eemg_det *det)
 #endif
 #endif
 }
-
-#if ENABLE_VPU
-int get_volt_vpu(struct eemg_det *det)
-{
-#if ENABLE_VPU
-	FUNC_ENTER(FUNC_LV_HELP);
-
-#ifdef EARLY_PORTING_VPU
-	return 0;
-#else
-	return vvpu_get_cur_volt();
-#endif
-	FUNC_EXIT(FUNC_LV_HELP);
-#endif
-	return 0;
-}
-#endif
-
-#if ENABLE_MDLA
-int get_volt_mdla(struct eemg_det *det)
-{
-#if ENABLE_MDLA
-	FUNC_ENTER(FUNC_LV_HELP);
-
-#ifdef EARLY_PORTING_VPU
-	return 0;
-#else
-	return vmdla_get_cur_volt();
-#endif
-	FUNC_EXIT(FUNC_LV_HELP);
-#endif
-	return 0;
-}
-#endif
 
 /************************************************
  * common det operations for legacy and sspm ptp

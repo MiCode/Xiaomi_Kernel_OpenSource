@@ -600,6 +600,8 @@ config MACH_MT6833
 	select MTK_LOW_POWER_MODULE
 	select MTK_TIMER_SYSTIMER
 	select MTK_LPM_MT6833
+	select MTK_SWPM if !FPGA_EARLY_PORTING
+	select MTK_SPMTWAM
 	select OVERLAY_FS
 	select EXT4_FS
 	select EXT4_FS_SECURITY
@@ -618,10 +620,16 @@ config MACH_MT6833
 	select MTK_BUS_TRACER
 	select MTK_PLAT_SRAM_FLAG
 	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
 	select MTK_CACHE_PARITY_CHECK
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
+	select DEVAPC_MT6833
+	select DEVMPU_MT6833
+	select MTK_DBGTOP
 	select MTK_PID_MAP
+	select MTK_CM_MGR
+	select MTK_CPU_KORO
 	help
 	  This enables support for MediaTek MT6833
 	  Support for aarch64 Architecture

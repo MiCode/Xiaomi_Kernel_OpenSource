@@ -23,6 +23,7 @@
 #include <clk-mux.h>
 #include "clkdbg.h"
 #include "clkdbg-mt6833.h"
+#include "clkchk.h"
 #include "clk-fmeter.h"
 
 #define DUMP_INIT_STATE		0
@@ -57,16 +58,16 @@ static struct regbase rb[] = {
 	[apuc]    = REGBASE_V(0x19020000, apuc, "PG_VPU"),
 	[audio]    = REGBASE_V(0x11210000, audio, "PG_AUDIO"),
 	[mfgsys]   = REGBASE_V(0x13fbf000, mfgsys, "PG_MFG5"),
-	[mmsys]    = REGBASE_V(0x14116000, mmsys, "PG_DIS"),
+	[mmsys]    = REGBASE_V(0x14000000, mmsys, "PG_DIS"),
 	[mdpsys]    = REGBASE_V(0x1F000000, mdpsys, "PG_DIS"),
 	[img1sys]   = REGBASE_V(0x15020000, img1sys, "PG_ISP"),
 	[img2sys]   = REGBASE_V(0x15820000, img2sys, "PG_ISP2"),
 	[i2c_c] = REGBASE_V(0x11007000, i2c_c, "i2c_sel"),
-	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e, NULL),
-	[i2c_n] = REGBASE_V(0x11f01000, i2c_n, NULL),
-	[i2c_s] = REGBASE_V(0x11d04000, i2c_s, NULL),
-	[i2c_w] = REGBASE_V(0x11e01000, i2c_w, NULL),
-	[i2c_ws] = REGBASE_V(0x11d23000, i2c_ws, NULL),
+	[i2c_e] = REGBASE_V(0x11cb1000, i2c_e, "i2c_sel"),
+	[i2c_n] = REGBASE_V(0x11f01000, i2c_n, "i2c_sel"),
+	[i2c_s] = REGBASE_V(0x11d04000, i2c_s, "i2c_sel"),
+	[i2c_w] = REGBASE_V(0x11e01000, i2c_w, "i2c_sel"),
+	[i2c_ws] = REGBASE_V(0x11d23000, i2c_ws, "i2c_sel"),
 	[infracfg] = REGBASE_V(0x1020E000, infracfg, NULL),
 	[ipesys]   = REGBASE_V(0x1b000000, ipesys, "PG_IPE"),
 	[camsys]   = REGBASE_V(0x1a000000, camsys, "PG_CAM"),
@@ -344,7 +345,7 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("img2_sel", 624000, 458333, 343750, 275000),
 	MTK_VF_TABLE("ipe_sel", 546000, 416000, 312000, 275000),
 	MTK_VF_TABLE("dpe_sel", 546000, 458333, 364000, 249600),
-	MTK_VF_TABLE("cam_sel", 624000, 499200, 392857, 273000),
+	MTK_VF_TABLE("cam_sel", 624000, 546000, 392857, 286000),
 	MTK_VF_TABLE("ccu_sel", 499200, 392857, 364000, 275000),
 	/* MTK_VF_TABLE("dsp_sel", 728000, 728000, 499200, 242666), */
 	/* MTK_VF_TABLE("dsp1_sel", 624000, 624000, 546000, 273000), */
@@ -357,7 +358,7 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("camtg4_sel", 52000, 52000, 52000, 52000),
 	MTK_VF_TABLE("camtg5_sel", 52000, 52000, 52000, 52000),
 	MTK_VF_TABLE("uart_sel", 52000, 52000, 52000, 52000),
-	MTK_VF_TABLE("spi_sel", 109200, 109200, 109200, 109200),
+	MTK_VF_TABLE("spi_sel", 208000, 208000, 208000, 208000),
 	MTK_VF_TABLE("msdc50_0_hclk_sel", 273000, 273000, 273000, 273000),
 	MTK_VF_TABLE("msdc50_0_sel", 384000, 384000, 384000, 384000),
 	MTK_VF_TABLE("msdc30_1_sel", 208000, 208000, 208000, 208000),
@@ -365,21 +366,21 @@ static struct mtk_vf vf_table[] = {
 	MTK_VF_TABLE("aud_intbus_sel", 136500, 136500, 136500, 136500),
 	MTK_VF_TABLE("pwrap_ulposc_sel", 65000, 65000, 65000, 65000),
 	MTK_VF_TABLE("atb_sel", 273000, 273000, 273000, 273000),
-	MTK_VF_TABLE("sspm_sel", 364000, 312000, 273000, 242666),
+	MTK_VF_TABLE("sspm_sel", 273000, 242667, 218400, 182000),
 	MTK_VF_TABLE("scam_sel", 109200, 109200, 109200, 109200),
 	MTK_VF_TABLE("disp_pwm_sel", 130000, 130000, 130000, 130000),
 	MTK_VF_TABLE("usb_top_sel", 124800, 124800, 124800, 124800),
 	MTK_VF_TABLE("ssusb_xhci_sel", 124800, 124800, 124800, 124800),
 	MTK_VF_TABLE("i2c_sel", 124800, 124800, 124800, 124800),
-	MTK_VF_TABLE("seninf_sel", 499200, 499200, 392857, 273000),
-	MTK_VF_TABLE("seninf1_sel", 499200, 499200, 392857, 273000),
-	MTK_VF_TABLE("seninf2_sel", 499200, 499200, 392857, 273000),
+	MTK_VF_TABLE("seninf_sel", 499200, 499200, 392857, 286000),
+	MTK_VF_TABLE("seninf1_sel", 499200, 499200, 392857, 286000),
+	MTK_VF_TABLE("seninf2_sel", 499200, 499200, 392857, 286000),
 	MTK_VF_TABLE("dxcc_sel", 273000, 273000, 273000, 273000),
-	MTK_VF_TABLE("aud_engen1_sel", 45158, 45158, 45158, 45158),
-	MTK_VF_TABLE("aud_engen2_sel", 49152, 49152, 49152, 49152),
+	MTK_VF_TABLE("aud_engen1_sel", 26000, 26000, 26000, 26000),
+	MTK_VF_TABLE("aud_engen2_sel", 26000, 26000, 26000, 26000),
 	MTK_VF_TABLE("aes_ufsfde_sel", 546000, 546000, 546000, 416000),
 	MTK_VF_TABLE("ufs_sel", 192000, 192000, 192000, 192000),
-	MTK_VF_TABLE("aud_1_sel", 180633, 180633, 180633, 180633),
+	MTK_VF_TABLE("aud_1_sel", 180634, 180634, 180634, 180634),
 	MTK_VF_TABLE("aud_2_sel", 196608, 196608, 196608, 196608),
 	MTK_VF_TABLE("adsp_sel", 750000, 750000, 750000, 750000),
 	MTK_VF_TABLE("dpmaif_main_sel", 364000, 364000, 364000, 273000),
@@ -434,7 +435,7 @@ void warn_vcore(int opp, const char *clk_name, int rate, int id)
 				clk_name, rate/1000, id, opp,
 				vf_table[id].freq_table[opp]);
 
-		WARN_ON(1);
+		BUG_ON(1);
 	}
 }
 
@@ -663,16 +664,6 @@ subsys_initcall(clkdbg_mt6833_init);
 /*
  * MT6833: for mtcmos debug
  */
-static bool is_valid_reg(void __iomem *addr)
-{
-#ifdef CONFIG_64BIT
-	return ((u64)addr & 0xf0000000) != 0UL ||
-			(((u64)addr >> 32U) & 0xf0000000) != 0UL;
-#else
-	return ((u32)addr & 0xf0000000) != 0U;
-#endif
-}
-
 void print_subsys_reg(enum dbg_sys_id id)
 {
 	struct regbase *rb_dump;

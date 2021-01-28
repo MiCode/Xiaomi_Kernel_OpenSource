@@ -13,11 +13,18 @@
 
 #include <mtk_dbg_common_v1.h>
 #include <mtk_lpm_module.h>
+#include <mtk_lpm_call.h>
+#include <mtk_lpm_call_type.h>
+
 #include <mtk_resource_constraint_v1.h>
 #include <mtk_idle_sysfs.h>
 #include <mtk_suspend_sysfs.h>
 #include <mtk_spm_sysfs.h>
+#ifdef CONFIG_MACH_MT6833
+#include <gs/v1/mtk_power_gs.h>
+#else
 #include <mtk_power_gs_api.h>
+#endif
 #include <mt-plat/mtk_ccci_common.h>
 
 #define MTK_DGB_SUSP_NODE	"/sys/kernel/debug/suspend/suspend_state"
@@ -51,9 +58,22 @@ static int spm_syscore_dbg_suspend(void)
 	if (mtk_suspend_debug_flag & MTK_DUMP_GPIO)
 		mtk_suspend_gpio_dbg();
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
+#ifdef CONFIG_MACH_MT6833
+#ifdef CONFIG_MTK_LPM_GS_DUMP_SUPPORT
+	if (mtk_suspend_debug_flag & MTK_DUMP_LP_GOLDEN) {
+		struct mtk_lpm_callee_simple *callee = NULL;
+		struct mtk_lpm_data val;
+
+		val.d.v_u32 = power_golden_dump_type;
+		if (!mtk_lpm_callee_get(MTK_LPM_CALLEE_PWR_GS, &callee))
+			callee->set(MTK_LPM_PWR_GS_TYPE_SUSPEND, &val);
+	}
+#endif
+#else
 #ifdef CONFIG_MTK_BASE_POWER
 	if (mtk_suspend_debug_flag & MTK_DUMP_LP_GOLDEN)
 		mt_power_gs_dump_suspend(power_golden_dump_type);
+#endif
 #endif
 #endif
 	mtk_suspend_clk_dbg();

@@ -1148,8 +1148,10 @@ int cinst_probe(struct platform_device *pdev)
 	}
 
 	/* dump reg status into PICACHU dram for DB */
-	cinst_reserve_memory_dump(
-		cinst_buf, cinst_mem_size, CINST_TRIGGER_STAGE_PROBE);
+	if (cinst_buf != NULL) {
+		cinst_reserve_memory_dump(
+			cinst_buf, cinst_mem_size, CINST_TRIGGER_STAGE_PROBE);
+	}
 
 	cinst_msg("cinst probe ok!!\n");
 #endif
@@ -1162,8 +1164,10 @@ int cinst_suspend(struct platform_device *pdev, pm_message_t state)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	cinst_reserve_memory_dump(
-		cinst_buf+0x1000, cinst_mem_size, CINST_TRIGGER_STAGE_SUSPEND);
+	if (cinst_buf != NULL) {
+		cinst_reserve_memory_dump(
+			cinst_buf+0x1000, cinst_mem_size, CINST_TRIGGER_STAGE_SUSPEND);
+	}
 #endif
 #endif
 	return 0;
@@ -1174,8 +1178,10 @@ int cinst_resume(struct platform_device *pdev)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
-	cinst_reserve_memory_dump(
-		cinst_buf+0x2000, cinst_mem_size, CINST_TRIGGER_STAGE_RESUME);
+	if (cinst_buf != NULL) {
+		cinst_reserve_memory_dump(
+			cinst_buf+0x2000, cinst_mem_size, CINST_TRIGGER_STAGE_RESUME);
+	}
 #endif
 #endif
 	return 0;

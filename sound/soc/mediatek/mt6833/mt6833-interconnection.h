@@ -24,8 +24,6 @@
 #define I_GAIN2_OUT_CH1 12
 #define I_GAIN2_OUT_CH2 13
 #define I_PCM_2_CAP_CH1 14
-#define I_ADDA_UL_CH3 17
-#define I_ADDA_UL_CH4 18
 #define I_DL12_CH1 19
 #define I_DL12_CH2 20
 #define I_PCM_2_CAP_CH2 21

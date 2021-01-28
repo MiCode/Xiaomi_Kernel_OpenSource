@@ -13,82 +13,69 @@
 #ifndef _MTK_EEM_CONFIG_H_
 #define _MTK_EEM_CONFIG_H_
 
+#include "mtk_eem_prj_config.h"
+
 
 /* CONFIG (SW related) */
-#if defined(CONFIG_MACH_MT6833)
-#define EEM_NOT_READY		(1)
-#endif
-
-#define CONFIG_EEM_SHOWLOG	(0)
-#define EN_ISR_LOG		(0)
-#define FULL_REG_DUMP_SNDATA	(0)
+#define EEM_NOT_READY		(0)
 #define EARLY_PORTING		(0)
+#define LOG_INTERVAL		(100LL * MSEC_PER_SEC)
 
-#define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define SN_ENABLE			(1)
-#define EEM_IPI_ENABLE		(1)
-#define VMIN_PREDICT_ENABLE	(0)
 
-/* FIX ME */
-#define EEM_FAKE_EFUSE		(0)
-#define UPDATE_TO_UPOWER	(1)
-#define EEM_LOCKTIME_LIMIT	(3000)
+/*
+ * ##########################
+ * eemsn config
+ * ############################
+ */
+#define SUPPORT_DCONFIG		(1)
 #define SUPPORT_PICACHU		(1)
-#define SUPPORT_PI_LOG_AREA		(0)
-
+#define EEM_IPI_ENABLE		(1)
 #define ENABLE_INIT_TIMER	(1)
 
-
 #define SET_PMIC_VOLT_TO_DVFS	(1)
-#define LOG_INTERVAL		(100LL * MSEC_PER_SEC)
-#define DVT			(0)
-#define SUPPORT_DCONFIG		(1)
-#define ENABLE_HT_FT		(1)
-//#define EARLY_PORTING_VPU
-#define EN_TEST_EQUATION	(0)
-#define FAKE_SN_DVT_EFUSE_FOR_DE	(0)
-#define ENABLE_COUNT_SNTEMP		(1)
+#define UPDATE_TO_UPOWER	(1)
 
-#if DVT
-#define DUMP_LEN		410
-#else
-#define DUMP_LEN		105
-#endif
+#define NR_HW_RES_FOR_BANK (24)	/* real eemsn banks for efuse */
+#define IDX_HW_RES_SN (18)	/* start index of Sensor Network efuse */
+
+#define NR_FREQ 16
+#define NR_FREQ_CPU 16
+#define NR_PI_VF 6
+
+/* 1mV=>10uV */
+/* EEMSN */
+#define EEMSN_V_BASE	(40000)
+#define EEMSN_STEP		(625)
+
+/* CPU */
+#define CPU_PMIC_BASE	(40000)
+#define CPU_PMIC_STEP	(625) /* 1.231/1024=0.001202v=120(10uv)*/
 
 
-/* Sensor network configuration */
-#define SIZE_REG_DUMP_ADDR_OFF		(105)
+/*
+ * ##########################
+ * SN config
+ * ############################
+ */
+#define NUM_SN_CPU					(8)
+
+/* SN dump data */
 #if FULL_REG_DUMP_SNDATA
 #define SIZE_SN_MCUSYS_REG			(16)
 #else
 #define SIZE_SN_MCUSYS_REG			(10)
 #endif
 
-
-
-#define SIZE_REG_DUMP_COMPAREDVOP	(5)
-#define SIZE_REG_DUMP_SENSORMINDATA	(64)
-#define SIZE_SN_COEF				(53)
 #define SIZE_SN_DUMP_SENSOR			(64)
 #define SIZE_SN_DUMP_CPE			(19)
-#define TOTEL_SN_COEF_VER			(2)
-#define TOTEL_SN_DBG_NUM			(5)
-#define MIN_SIZE_SN_DUMP_CPE			(7)
+#define MIN_SIZE_SN_DUMP_CPE		(7)
 
 
-
-#define NUM_SN_CPU			(8)
-
-
-
-enum mt_cpu_dvfs_id {
-	MT_CPU_DVFS_LL,
-	MT_CPU_DVFS_L,
-	MT_CPU_DVFS_CCI,
-
-	NR_MT_CPU_DVFS,
-};
-
+/*
+ * ##########################
+ * safe efuse
+ * ############################
+ */
 #define DEVINFO_HRID_0 12
 #define DEVINFO_SEG_IDX 30
 
@@ -120,9 +107,7 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_25 208
 #define DEVINFO_IDX_27 210
 
-
 #define DEVINFO_TIME_IDX 132
-
 
 #if defined(MC50_LOAD)
 
@@ -175,61 +160,4 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_24 0x3B6B3C6C
 #define DEVINFO_25 0x3A6D3B6E
 #define DEVINFO_27 0x936F8268
-
-
-/*******************************************
- * eemsn sw setting
- ********************************************
- */
-#define NR_HW_RES_FOR_BANK (24) /* real eemsn banks for efuse */
-#define IDX_HW_RES_SN (18) /* start index of Sensor Network efuse */
-
-#define NR_FREQ 16
-#define NR_FREQ_CPU 16
-#define NR_PI_VF 6
-
-
-#define L_FREQ_BASE			2000000
-#define B_FREQ_BASE			2210000
-#define	CCI_FREQ_BASE		1400000
-#define L_M_FREQ_BASE		1500000
-#define B_M_FREQ_BASE		1650000
-#define CCI_M_FREQ_BASE		1050000
-
-#define BANK_L_TURN_PT		0
-#define BANK_B_TURN_PT		6
-
-
-#define SN_V_BASE		(50000)
-#define SN_V_DENOM		(110000 - 50000)
-
-/*
- * 100 us, This is the EEMSN Detector sampling time as represented in
- * cycles of bclk_ck during INIT. 52 MHz
- */
-#define DETWINDOW_VAL		0xA28
-
-/*
- * mili Volt to config value. voltage = 600mV + val * 6.25mV
- * val = (voltage - 600) / 6.25
- * @mV: mili volt
- */
-
-/* 1mV=>10uV */
-/* EEMSN */
-#define EEMSN_V_BASE		(40000)
-#define EEMSN_STEP		(625)
-
-/* CPU */
-#define CPU_PMIC_BASE	(40000)
-#define CPU_PMIC_BASE2	(40000)
-
-#define CPU_PMIC_STEP		(625) /* 1.231/1024=0.001202v=120(10uv)*/
-
-#define LOW_TEMP_OFF		(8)
-#define HIGH_TEMP_OFF			(3)
-#define AGING_VAL_CPU		(0x6) /* CPU aging margin : 37mv*/
-#define AGING_VAL_CPU_B		(0x6) /* CPU aging margin : 37mv*/
-
-
 #endif

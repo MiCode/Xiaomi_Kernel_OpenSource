@@ -10,6 +10,7 @@
 #include <linux/of_irq.h>
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
+#include <linux/cpumask.h>
 #include <linux/syscore_ops.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
@@ -30,6 +31,8 @@
 unsigned int mt6833_suspend_status;
 struct md_sleep_status before_md_sleep_status;
 struct md_sleep_status after_md_sleep_status;
+struct cpumask s2idle_cpumask;
+struct mtk_lpm_model mt6833_model_suspend;
 
 void __attribute__((weak)) subsys_if_on(void)
 {
@@ -142,19 +145,12 @@ static inline int mt6833_suspend_common_resume(unsigned int susp_status)
 	return 0;
 }
 
-int mt6833_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
+static int __mt6833_suspend_prompt(int type, int cpu,
+				   const struct mtk_lpm_issuer *issuer)
 {
 	int ret = 0;
 	unsigned int spm_res = 0;
-/*FIXME: remove after SB*/
-#if 0
-#ifdef CONFIG_MTK_CCCI_DEVICES
-#if defined(CONFIG_ARM64)
-	int len;
-	int is_resume_enter = 0;
-#endif
-#endif
-#endif
+
 	mt6833_suspend_status = 0;
 
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend enter\n",
@@ -174,62 +170,26 @@ int mt6833_suspend_prompt(int cpu, const struct mtk_lpm_issuer *issuer)
 	/* Record md sleep time */
 	get_md_sleep_time(&before_md_sleep_status);
 
-/* FIXME: remove this after SB */
-#if 0
-#ifdef CONFIG_MTK_CCCI_DEVICES
-#if defined(CONFIG_ARM64)
-	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
-		"_lp", 3) == 0) {
-		printk_deferred("[name:spm&][%s:%d] - notify MD that AP suspend\n",
-			__func__, __LINE__);
-		is_resume_enter = 1 << 0;
-		exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
-			(char *)&is_resume_enter, 4);
-	}
-#endif
-#endif
-#endif
 
 PLAT_LEAVE_SUSPEND:
 	return ret;
 }
 
-void mt6833_suspend_reflect(int cpu,
+static void __mt6833_suspend_reflect(int type, int cpu,
 					const struct mtk_lpm_issuer *issuer)
 {
-/*FIXME: remove after SB*/
-#if 0
-#ifdef CONFIG_MTK_CCCI_DEVICES
-#if defined(CONFIG_ARM64)
-	int len;
-	int is_resume_enter = 0;
-#endif
-#endif
-#endif
 	printk_deferred("[name:spm&][%s:%d] - prepare suspend resume\n",
 			__func__, __LINE__);
-/*FIXME: remvoe after SB */
-#if 0
-#ifdef CONFIG_MTK_CCCI_DEVICES
-#if defined(CONFIG_ARM64)
-	len = sizeof(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-	if (strncmp(&CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES[len - 4],
-		"_lp", 3) == 0) {
-		printk_deferred("[name:spm&][%s:%d] - notify MD that AP resume\n",
-			__func__, __LINE__);
-		is_resume_enter = 1 << 1;
-		exec_ccci_kern_func_by_md_id(MD_SYS1, ID_AP2MD_LOWPWR,
-			(char *)&is_resume_enter, 4);
-	}
-#endif
-#endif
-#endif
+
 	mt6833_suspend_common_resume(mt6833_suspend_status);
 	mt6833_do_mcusys_prepare_on();
 
 	printk_deferred("[name:spm&][%s:%d] - resume\n",
 			__func__, __LINE__);
+
+	/* do not call issuer when prepare fail */
+	if (mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+		return;
 
 	if (issuer)
 		issuer->log(MT_LPM_ISSUER_SUSPEND, "suspend", NULL);
@@ -238,12 +198,99 @@ void mt6833_suspend_reflect(int cpu,
 	get_md_sleep_time(&after_md_sleep_status);
 	log_md_sleep_info();
 }
+int mt6833_suspend_system_prompt(int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	return __mt6833_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
+				       cpu, issuer);
+}
+
+void mt6833_suspend_system_reflect(int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	return __mt6833_suspend_reflect(MTK_LPM_SUSPEND_S2IDLE,
+					cpu, issuer);
+}
+
+int mt6833_suspend_s2idle_prompt(int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	int ret = 0;
+
+	cpumask_set_cpu(cpu, &s2idle_cpumask);
+	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
+
+#ifdef CONFIG_PM_SLEEP
+		/* Notice
+		 * Fix the rcu_idle workaround later.
+		 * There are many rcu behaviors in syscore callback.
+		 * In s2idle framework, the rcu enter idle before cpu
+		 * enter idle state. So we need to using RCU_NONIDLE()
+		 * with syscore. But anyway in s2idle, when lastest cpu
+		 * enter idle state means there won't care r/w sync problem
+		 * and RCU_NOIDLE maybe the right solution.
+		 */
+		RCU_NONIDLE({
+			ret = syscore_suspend();
+		});
+#endif
+		if (ret < 0)
+			mt6833_model_suspend.flag |= MTK_LP_PREPARE_FAIL;
+
+		ret = __mt6833_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
+					      cpu, issuer);
+	}
+	return ret;
+}
+
+int mt6833_suspend_s2idle_prepare_enter(int prompt, int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	int ret = 0;
+
+	if (mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+		ret = -1;
+
+	return ret;
+}
+void mt6833_suspend_s2idle_reflect(int cpu,
+					const struct mtk_lpm_issuer *issuer)
+{
+	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
+		__mt6833_suspend_reflect(MTK_LPM_SUSPEND_S2IDLE,
+					 cpu, issuer);
+
+
+#ifdef CONFIG_PM_SLEEP
+		/* Notice
+		 * Fix the rcu_idle/timekeeping workaround later.
+		 * There are many rcu behaviors in syscore callback.
+		 * In s2idle framework, the rcu enter idle before cpu
+		 * enter idle state. So we need to using RCU_NONIDLE()
+		 * with syscore.
+		 */
+		if (!(mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL))
+			RCU_NONIDLE(syscore_resume());
+
+		if (mt6833_model_suspend.flag & MTK_LP_PREPARE_FAIL)
+			mt6833_model_suspend.flag &= (~MTK_LP_PREPARE_FAIL);
+#endif
+	}
+	cpumask_clear_cpu(cpu, &s2idle_cpumask);
+}
+
+#define MT6833_SUSPEND_OP_INIT(_prompt, _enter, _resume, _reflect) ({\
+	mt6833_model_suspend.op.prompt = _prompt;\
+	mt6833_model_suspend.op.prepare_enter = _enter;\
+	mt6833_model_suspend.op.prepare_resume = _resume;\
+	mt6833_model_suspend.op.reflect = _reflect; })
+
 
 struct mtk_lpm_model mt6833_model_suspend = {
 	.flag = MTK_LP_REQ_NONE,
 	.op = {
-		.prompt = mt6833_suspend_prompt,
-		.reflect = mt6833_suspend_reflect,
+		.prompt = mt6833_suspend_system_prompt,
+		.reflect = mt6833_suspend_system_reflect,
 	}
 };
 
@@ -292,7 +339,24 @@ int __init mt6833_model_suspend_init(void)
 {
 	int ret;
 
-	mtk_lpm_suspend_registry("suspend", &mt6833_model_suspend);
+	int suspend_type = mtk_lpm_suspend_type_get();
+
+	if (suspend_type == MTK_LPM_SUSPEND_S2IDLE) {
+		MT6833_SUSPEND_OP_INIT(mt6833_suspend_s2idle_prompt,
+					mt6833_suspend_s2idle_prepare_enter,
+					NULL,
+					mt6833_suspend_s2idle_reflect);
+		mtk_lpm_suspend_registry("s2idle", &mt6833_model_suspend);
+	} else {
+		MT6833_SUSPEND_OP_INIT(mt6833_suspend_system_prompt,
+					NULL,
+					NULL,
+					mt6833_suspend_system_reflect);
+		mtk_lpm_suspend_registry("suspend", &mt6833_model_suspend);
+	}
+
+	cpumask_clear(&s2idle_cpumask);
+
 
 #ifdef CONFIG_PM
 	ret = register_pm_notifier(&mt6833_spm_suspend_pm_notifier_func);

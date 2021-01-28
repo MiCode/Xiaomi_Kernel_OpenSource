@@ -684,20 +684,17 @@ enum dbg_id {
 	DBG_ID_MFG1_BUS =		3,
 	DBG_ID_MFG2_BUS =		4,
 	DBG_ID_MFG3_BUS =		5,
-	DBG_ID_MFG5_BUS =		6,
-	DBG_ID_ISP_BUS =			7,
-	DBG_ID_ISP2_BUS =		8,
-	DBG_ID_IPE_BUS =			9,
-	DBG_ID_VDE_BUS =		10,
-	DBG_ID_VEN_BUS =		11,
-	DBG_ID_DIS_BUS =		12,
-	DBG_ID_AUDIO_BUS =		13,
-	DBG_ID_ADSP_BUS =		14,
-	DBG_ID_CAM_BUS =		15,
-	DBG_ID_CAM_RAWA_BUS =		16,
-	DBG_ID_CAM_RAWB_BUS =		17,
-	DBG_ID_VPU_BUS =		18,
-	DBG_ID_BUS_NUM =		19,
+	DBG_ID_ISP_BUS =		6,
+	DBG_ID_ISP2_BUS =		7,
+	DBG_ID_IPE_BUS =		8,
+	DBG_ID_VDE_BUS =		9,
+	DBG_ID_VEN_BUS =		10,
+	DBG_ID_DIS_BUS =		11,
+	DBG_ID_AUDIO_BUS =		12,
+	DBG_ID_CAM_BUS =		13,
+	DBG_ID_CAM_RAWA_BUS =		14,
+	DBG_ID_CAM_RAWB_BUS =		15,
+	DBG_ID_BUS_NUM =		16,
 
 	DBG_ID_MD1_PWR =	DBG_ID_BUS_NUM + 0,
 	DBG_ID_CONN_PWR =	DBG_ID_BUS_NUM + 1,
@@ -705,19 +702,16 @@ enum dbg_id {
 	DBG_ID_MFG1_PWR =	DBG_ID_BUS_NUM + 3,
 	DBG_ID_MFG2_PWR =	DBG_ID_BUS_NUM + 4,
 	DBG_ID_MFG3_PWR =	DBG_ID_BUS_NUM + 5,
-	DBG_ID_MFG5_PWR =	DBG_ID_BUS_NUM + 6,
-	DBG_ID_ISP_PWR =	DBG_ID_BUS_NUM + 7,
-	DBG_ID_ISP2_PWR =	DBG_ID_BUS_NUM + 8,
-	DBG_ID_IPE_PWR =	DBG_ID_BUS_NUM + 9,
-	DBG_ID_VDE_PWR =	DBG_ID_BUS_NUM + 10,
-	DBG_ID_VEN_PWR =	DBG_ID_BUS_NUM + 11,
-	DBG_ID_DIS_PWR =	DBG_ID_BUS_NUM + 12,
-	DBG_ID_AUDIO_PWR =	DBG_ID_BUS_NUM + 13,
-	DBG_ID_ADSP_PWR =	DBG_ID_BUS_NUM + 14,
-	DBG_ID_CAM_PWR =	DBG_ID_BUS_NUM + 15,
-	DBG_ID_CAM_RAWA_PWR =	DBG_ID_BUS_NUM + 16,
-	DBG_ID_CAM_RAWB_PWR =	DBG_ID_BUS_NUM + 17,
-	DBG_ID_VPU_PWR =	DBG_ID_BUS_NUM + 18,
+	DBG_ID_ISP_PWR =	DBG_ID_BUS_NUM + 6,
+	DBG_ID_ISP2_PWR =	DBG_ID_BUS_NUM + 7,
+	DBG_ID_IPE_PWR =	DBG_ID_BUS_NUM + 8,
+	DBG_ID_VDE_PWR =	DBG_ID_BUS_NUM + 9,
+	DBG_ID_VEN_PWR =	DBG_ID_BUS_NUM + 10,
+	DBG_ID_DIS_PWR =	DBG_ID_BUS_NUM + 11,
+	DBG_ID_AUDIO_PWR =	DBG_ID_BUS_NUM + 12,
+	DBG_ID_CAM_PWR =	DBG_ID_BUS_NUM + 13,
+	DBG_ID_CAM_RAWA_PWR =	DBG_ID_BUS_NUM + 14,
+	DBG_ID_CAM_RAWB_PWR =	DBG_ID_BUS_NUM + 15,
 	DG_ID_PWR_NUM,
 	DBG_ID_NUM = DG_ID_PWR_NUM,
 };
@@ -727,7 +721,14 @@ enum dbg_id {
 #define STEP_MASK 0x000000FF
 
 #define INCREASE_STEPS \
-	do { DBG_STEP++; hang_release = true; } while (0)
+	do { \
+		DBG_STEP++; \
+		first_enter = true; \
+		loop_cnt = 0; \
+		log_over_cnt = false; \
+		log_timeout = false; \
+		log_dump = false; \
+	} while (0)
 
 static int DBG_ID;
 static int DBG_STA;
@@ -735,7 +736,12 @@ static int DBG_STEP;
 
 static unsigned long long block_time;
 static unsigned long long upd_block_time;
-static bool hang_release;
+static u32 loop_cnt;
+static bool log_over_cnt;
+static bool log_timeout;
+static bool log_dump;
+static bool first_enter = true;
+
 /*
  * ram console data0 define
  * [31:24] : DBG_ID
@@ -746,10 +752,6 @@ static void ram_console_update(void)
 {
 	unsigned long spinlock_save_flags;
 	struct pg_callbacks *pgcb;
-	static u32 pre_data;
-	static s32 loop_cnt = -1;
-	static bool log_over_cnt;
-	static bool log_timeout;
 	u32 data[8] = {0x0};
 	u32 i = 0;
 
@@ -765,35 +767,28 @@ static void ram_console_update(void)
 	data[++i] = clk_readl(PWR_STATUS_2ND);
 	data[++i] = clk_readl(CAM_PWR_CON);
 
-	if (pre_data == data[0]) {
-		upd_block_time = sched_clock();
-		if (loop_cnt >= 0)
-			loop_cnt++;
-	}
-
-	if (pre_data != data[0] || hang_release) {
-		hang_release = false;
-		pre_data = data[0];
+	if (first_enter) {
+		first_enter = false;
 		block_time = sched_clock();
-		loop_cnt = 0;
-		log_over_cnt = false;
 	}
+	upd_block_time = sched_clock();
+	loop_cnt++;
 
-	if (loop_cnt > 5000) {
+	if (loop_cnt > 5000)
 		log_over_cnt = true;
-		loop_cnt = -1;
-	}
 
 	if ((upd_block_time > 0  && block_time > 0)
 			&& (upd_block_time > block_time)
 			&& (upd_block_time - block_time > 5000000000))
 		log_timeout = true;
 
-	if (log_over_cnt || log_timeout) {
+	if ((log_over_cnt && !log_dump) || (log_over_cnt && log_timeout)) {
 		pr_notice("%s: upd(%llu ns), ori(%llu ns)\n", __func__,
 				upd_block_time, block_time);
+		pr_notice("%s: over_cnt: %d, time_out: %d, log_dump: %d\n",
+				__func__, log_over_cnt, log_timeout, log_dump);
 
-		log_over_cnt = false;
+		log_dump = true;
 
 		print_enabled_clks_once();
 
@@ -903,7 +898,7 @@ static void ram_console_update(void)
 	/*todo: add each domain's debug register to ram console*/
 #endif
 
-	if (log_timeout)
+	if (log_over_cnt && log_timeout)
 		WARN_ON(1);
 }
 
@@ -2875,8 +2870,8 @@ int spm_mtcmos_ctrl_cam_bus_prot(int state)
 		INCREASE_STEPS;
 #endif
 		/* TINFO="Release bus protect - step2 : 0" */
-		spm_write(INFRA_TOPAXI_PROTECTEN_VDNR_CLR,
-				CAM_PROT_STEP2_2_MASK);
+		spm_write(INFRA_TOPAXI_PROTECTEN_1_CLR,
+				CAM_PROT_STEP2_0_MASK);
 #ifndef IGNORE_MTCMOS_CHECK
 		/* Note that this protect ack check after
 		 * releasing protect has been ignored

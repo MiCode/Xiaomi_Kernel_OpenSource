@@ -891,6 +891,7 @@ int cm_mgr_platform_init(void)
 	r = cm_mgr_register_init();
 	if (r) {
 		pr_info("FAILED TO CREATE REGISTER(%d)\n", r);
+		WARN_ON(1);
 		return r;
 	}
 
@@ -1052,7 +1053,8 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 
 void cm_mgr_setup_cpu_dvfs_info(void)
 {
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM) && \
+	defined(CONFIG_MTK_CPU_FREQ)
 	int i, j;
 	unsigned int val;
 

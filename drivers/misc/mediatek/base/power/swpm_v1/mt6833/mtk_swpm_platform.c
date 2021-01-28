@@ -1073,8 +1073,8 @@ static ssize_t idd_tbl_proc_write(struct file *file,
 
 	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
 		if (type >= NR_DRAM_PWR_TYPE ||
-		    idd_idx > (sizeof(struct dram_pwr_conf)
-			       / sizeof(unsigned int)))
+		    idd_idx >= (sizeof(struct dram_pwr_conf)
+				/ sizeof(unsigned int)))
 			goto end;
 		*(&mem_ptr->dram_conf[type].i_dd0 + idd_idx) = val;
 	} else {
@@ -1319,4 +1319,3 @@ static void __exit swpm_platform_exit(void)
 	swpm_set_enable(ALL_METER_TYPE, 0);
 
 }
-module_exit(swpm_platform_exit)

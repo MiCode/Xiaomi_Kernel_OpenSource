@@ -529,6 +529,16 @@ static void _cmdq_build_trigger_loop(void)
 	EXTDMSG("ext display BUILD cmdq trigger loop finished\n");
 }
 
+s32 cmdqRecStartLoop(struct cmdqRecStruct *handle)
+{
+	return 0;
+}
+
+s32 cmdqRecStopLoop(struct cmdqRecStruct *handle)
+{
+	return 0;
+}
+
 void _cmdq_start_extd_trigger_loop(void)
 {
 	int ret = 0;

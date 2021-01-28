@@ -646,7 +646,7 @@ static void check_pll_off(void)
 
 #ifdef CONFIG_MTK_ENG_BUILD
 #if BUG_ON_CHK_ENABLE
-		WARN_ON(1);
+		BUG_ON(1);
 #else
 		aee_kernel_warning("CCF MT6833",
 			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
@@ -729,7 +729,7 @@ static void check_mtcmos_off(void)
 	if (invalid) {
 #ifdef CONFIG_MTK_ENG_BUILD
 #if BUG_ON_CHK_ENABLE
-		WARN_ON(1);
+		BUG_ON(1);
 #else
 		aee_kernel_warning("CCF MT6833",
 			"@%s():%d, MTCMOSs are not off\n", __func__, __LINE__);
@@ -1015,7 +1015,7 @@ void mtk_check_subsys_swcg(enum subsys_id id)
 
 	if (ret) {
 		pr_notice("%s(%d): %d\n", __func__, id, ret);
-		WARN_ON(1);
+		BUG_ON(1);
 	}
 }
 

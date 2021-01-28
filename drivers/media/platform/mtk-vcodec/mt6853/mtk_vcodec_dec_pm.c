@@ -196,7 +196,7 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	void __iomem *vdec_misc_addr = dev->dec_reg_base[VDEC_MISC];
 	void __iomem *vdec_vld_addr = dev->dec_reg_base[VDEC_VLD];
 	void __iomem *vdec_gcon_addr = dev->dec_reg_base[VDEC_SYS];
-	struct mtk_vcodec_ctx *ctx = NULL;
+	struct mtk_vcodec_ctx *ctx = dev->curr_dec_ctx[hw_id];
 	int misc_offset[4] = {64, 66, 67, 65};
 
 	struct timeval tv_start;
@@ -204,11 +204,9 @@ void mtk_vdec_hw_break(struct mtk_vcodec_dev *dev, int hw_id)
 	s32 usec, timeout = 20000;
 	int offset, idx;
 	unsigned long value;
-	u32 fourcc;
+	u32 fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 
 	if (hw_id == MTK_VDEC_CORE) {
-		ctx = dev->curr_dec_ctx[hw_id];
-		fourcc = ctx->q_data[MTK_Q_DATA_SRC].fmt->fourcc;
 		/* hw break */
 		writel((readl(vdec_misc_addr + 0x0100) | 0x1),
 			vdec_misc_addr + 0x0100);
@@ -385,13 +383,14 @@ void mtk_vdec_dvfs_end(struct mtk_vcodec_ctx *ctx)
 	/* vdec dvfs */
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
 	vdec_cur_job = vdec_jobs;
-	if (vdec_cur_job->handle == &ctx->id) {
+	if (vdec_cur_job != 0 && vdec_cur_job->handle == &ctx->id) {
 		vdec_cur_job->end = get_time_us();
 		update_hist(vdec_cur_job, &vdec_hists, 0);
 		vdec_jobs = vdec_jobs->next;
 		kfree(vdec_cur_job);
 	} else {
 		/* print error log */
+		pr_debug("no vdec job, probably error handling path\n");
 	}
 
 	freq_idx = (vdec_freq_step_size == 0) ? 0 : (vdec_freq_step_size - 1);
