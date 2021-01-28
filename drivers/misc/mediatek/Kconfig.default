@@ -203,7 +203,6 @@ config ANDROID_DEFAULT_SETTING
 	select QUOTA
 	select QUOTACTL
 	select RTC_CLASS
-	select RT_GROUP_SCHED
 	select SCHED_DEBUG
 	select SECCOMP
 	select SECCOMP_FILTER
