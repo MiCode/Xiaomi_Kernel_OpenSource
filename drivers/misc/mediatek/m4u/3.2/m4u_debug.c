@@ -402,17 +402,23 @@ static int m4u_debug_set(void *data, u64 val)
 
 	switch (val) {
 	case 1:
-	{                   /* map4kpageonly */
+	{       /* map 4k page only */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i, ret;
 		struct page *page;
 		int page_num = 512;
 		unsigned int mva = 0x4000;
 
 		page = alloc_pages(GFP_KERNEL, get_order(page_num));
-		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		if (ret) {
+			kfree(sg_table);
+			m4u_info("%s alloc_sgtable fail, ret:%d\n",
+				 __func__, ret);
+			return -ENOMEM;
+		}
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i)
 			sg_set_page(sg, page + i, PAGE_SIZE, 0);
 		m4u_map_sgtable(domain, mva,
@@ -427,16 +433,22 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 2:
-	{                   /* map64kpageonly */
+	{       /* map 64k page only */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i, ret;
 		int page_num = 51;
 		unsigned int page_size = SZ_64K;
 		unsigned int mva = SZ_64K;
 
-		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		if (ret) {
+			kfree(sg_table);
+			m4u_info("%s alloc_sgtable fail, ret:%d\n",
+				 __func__, ret);
+			return -ENOMEM;
+		}
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
 			sg_dma_address(sg) = page_size * (i + 1);
 			sg_dma_len(sg) = page_size;
@@ -452,17 +464,22 @@ static int m4u_debug_set(void *data, u64 val)
 	}
 	break;
 	case 3:
-	{                   /* map1Mpageonly */
+	{       /* map 1M page only */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i, ret;
 		int page_num = 37;
 		unsigned int page_size = SZ_1M;
 		unsigned int mva = SZ_1M;
 
-		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
-
+		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		if (ret) {
+			kfree(sg_table);
+			m4u_info("%s alloc_sgtable fail, ret:%d\n",
+				 __func__, ret);
+			return -ENOMEM;
+		}
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
 			sg_dma_address(sg) = page_size * (i + 1);
 			sg_dma_len(sg) = page_size;
@@ -478,16 +495,22 @@ static int m4u_debug_set(void *data, u64 val)
 		}
 		break;
 	case 4:
-	{                   /* map16Mpageonly */
+	{       /* map 16M page only */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
-		int i;
+		int i, ret;
 		int page_num = 2;
 		unsigned int page_size = SZ_16M;
 		unsigned int mva = SZ_16M;
 
-		sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, page_num, GFP_KERNEL);
+		if (ret) {
+			kfree(sg_table);
+			m4u_info("%s alloc_sgtable fail, ret:%d\n",
+				 __func__, ret);
+			return -ENOMEM;
+		}
 		for_each_sg(sg_table->sgl, sg, sg_table->nents, i) {
 			sg_dma_address(sg) = page_size * (i + 1);
 			sg_dma_len(sg) = page_size;
@@ -502,14 +525,21 @@ static int m4u_debug_set(void *data, u64 val)
 		}
 		break;
 	case 5:
-	{                   /* mapmiscpages */
+	{       /* map misc pages */
 		struct sg_table table;
 		struct sg_table *sg_table = &table;
 		struct scatterlist *sg;
 		unsigned int mva = 0x4000;
 		unsigned int size = SZ_16M * 2;
+		int ret;
 
-		sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		ret = sg_alloc_table(sg_table, 1, GFP_KERNEL);
+		if (ret) {
+			kfree(sg_table);
+			m4u_info("%s alloc_sgtable fail, ret:%d\n",
+				 __func__, ret);
+			return -ENOMEM;
+		}
 		sg = sg_table->sgl;
 		sg_dma_address(sg) = 0x4000;
 		sg_dma_len(sg) = size;
