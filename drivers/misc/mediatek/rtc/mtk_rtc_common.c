@@ -887,6 +887,8 @@ static int __init rtc_device_init(void)
 
 	rtc_xinfo("rtc_init");
 
+	pm_power_off = mt_power_off;
+
 	r = platform_device_register(&rtc_pdev);
 	if (r) {
 		pr_err("register device failed (%d)\n", r);
@@ -929,7 +931,7 @@ static int __init rtc_late_init(void)
 
 static int __init rtc_arch_init(void)
 {
-	pm_power_off = mt_power_off;
+	//pm_power_off = mt_power_off;
 
 	return 0;
 }
