@@ -36,6 +36,11 @@ static void move_master_key_secret(struct fscrypt_master_key_secret *dst,
 {
 	memcpy(dst, src, sizeof(*dst));
 	memzero_explicit(src, sizeof(*src));
+
+#ifdef CONFIG_UBSAN
+/* ALPS05258557 DEBUG */
+	pr_notice("memzero secret\n");
+#endif
 }
 
 static void free_master_key(struct fscrypt_master_key *mk)
@@ -426,6 +431,21 @@ static int add_existing_master_key(struct fscrypt_master_key *mk,
 	return 0;
 }
 
+#ifdef CONFIG_UBSAN
+/* ALPS05258557 DEBUG */
+static int check_if_secret_zero(struct fscrypt_master_key_secret *secret)
+{
+	int i;
+	char *cptr = (char *)secret;
+
+	for (i = 0; i < sizeof(struct fscrypt_master_key_secret); i++) {
+		if (cptr[i])
+			return 0;
+	}
+	return 1;
+}
+#endif
+
 static int do_add_master_key(struct super_block *sb,
 			     struct fscrypt_master_key_secret *secret,
 			     const struct fscrypt_key_specifier *mk_spec)
@@ -491,6 +511,12 @@ static int add_master_key(struct super_block *sb,
 				return err;
 		}
 		err = fscrypt_init_hkdf(&secret->hkdf, kdf_key, kdf_key_size);
+		#ifdef CONFIG_UBSAN
+		/* ALPS05258557 DEBUG */
+		if (err)
+			pr_notice("fs/crypt/kerying/master_key error %d\n",
+				err);
+		#endif
 		/*
 		 * Now that the HKDF context is initialized, the raw HKDF key is
 		 * no longer needed.
@@ -697,6 +723,11 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 	}
 
 	err = add_master_key(sb, &secret, &arg.key_spec);
+#ifdef CONFIG_UBSAN
+/* ALPS05258557 DEBUG */
+	if (check_if_secret_zero(&secret))
+		pr_notice("add_key: secret becomes zero\n");
+#endif
 	if (err)
 		goto out_wipe_secret;
 
