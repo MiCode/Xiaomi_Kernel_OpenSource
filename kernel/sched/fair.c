@@ -7582,9 +7582,6 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			if (!cpu_online(i) || cpu_isolated(i))
 				continue;
 
-			if (is_reserved(i))
-				continue;
-
 			if (walt_cpu_high_irqload(i))
 				continue;
 
@@ -11469,10 +11466,8 @@ out_unlock:
 	busiest_rq->active_balance = 0;
 	rq_unlock(busiest_rq, &rf);
 
-	if (p) {
+	if (p)
 		attach_one_task(target_rq, p);
-		clear_reserved(target_cpu);
-	}
 
 	local_irq_enable();
 
@@ -12069,7 +12064,6 @@ void check_for_migration(struct rq *rq, struct task_struct *p)
 		if (capacity_orig_of(new_cpu) > capacity_orig_of(cpu) &&
 				!should_hmp(cpu)) {
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
-			mark_reserved(new_cpu);
 			raw_spin_unlock(&migration_lock);
 			get_task_struct(p);
 			force = migrate_running_task(new_cpu, p, rq);
