@@ -1559,7 +1559,7 @@ static PVRSRV_ERROR CacheOpPMRExec (PMR *psPMR,
 												(void **)&pbCpuVirtAddr,
 												&uiOutSize,
 												&hPrivOut);
-				PVR_LOG_GOTO_IF_ERROR(eError, "PMRAcquireKernelMappingData", e0);
+				PVR_GOTO_IF_ERROR(eError, e0);
 			}
 		}
 
