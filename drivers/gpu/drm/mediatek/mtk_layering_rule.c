@@ -267,8 +267,14 @@ static void filter_by_wcg(struct drm_device *dev,
 
 static bool can_be_compress(uint32_t format)
 {
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
+	if (mtk_is_yuv(format))
+		return 0;
+#else
 	if (mtk_is_yuv(format) || format == DRM_FORMAT_RGB565)
 		return 0;
+#endif
+
 	else
 		return 1;
 }
