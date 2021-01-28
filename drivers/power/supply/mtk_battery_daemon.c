@@ -3895,7 +3895,7 @@ void fg_sw_bat_cycle_accu(struct mtk_battery *gm)
 	diff_car = fg_coulomb - gm->bat_cycle_car;
 
 	if (diff_car > 0) {
-		bm_err("[%s]ERROR!drop diff_car\n", __func__);
+		bm_err("[%s]drop diff_car\n", __func__);
 		gm->bat_cycle_car = fg_coulomb;
 	} else {
 		gm->bat_cycle_ncar = gm->bat_cycle_ncar + abs(diff_car);
@@ -3996,6 +3996,24 @@ static irqreturn_t bat_temp_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+/* ============================================================ */
+/* charge full interrupt handler */
+/* ============================================================ */
+void notify_fg_chr_full(struct mtk_battery *gm)
+{
+	struct timespec now_time, difftime;
+
+	get_monotonic_boottime(&now_time);
+	difftime = timespec_sub(now_time, gm->chr_full_handler_time);
+	if (now_time.tv_sec <= 10 || difftime.tv_sec >= 10) {
+		gm->chr_full_handler_time = now_time;
+		bm_err("[fg_chr_full_int_handler]\n");
+		wakeup_fg_algo(gm, FG_INTR_CHR_FULL);
+		fg_int_event(gm, EVT_INT_CHR_FULL);
+	}
+}
+
 
 /* ============================================================ */
 /* sw iavg */

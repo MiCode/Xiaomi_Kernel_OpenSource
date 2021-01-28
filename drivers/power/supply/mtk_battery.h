@@ -822,6 +822,10 @@ struct mtk_battery {
 	struct gauge_consumer uisoc_plus;
 	struct gauge_consumer uisoc_minus;
 
+	/* charge full interrupt */
+	struct timespec chr_full_handler_time;
+	bool b_EOC;
+
 	/* battery temperature interrupt */
 	int bat_tmp_int_gap;
 	int bat_tmp_c_int_gap;
@@ -961,6 +965,7 @@ extern bool is_kernel_power_off_charging(void);
 extern void set_shutdown_vbat_lt(struct mtk_battery *gm,
 	int vbat_lt, int vbat_lt_lv1);
 extern void fg_sw_bat_cycle_accu(struct mtk_battery *gm);
+extern void notify_fg_chr_full(struct mtk_battery *gm);
 extern int fgauge_get_profile_id(void);
 extern void disable_fg(struct mtk_battery *gm);
 extern int get_shutdown_cond(struct mtk_battery *gm);

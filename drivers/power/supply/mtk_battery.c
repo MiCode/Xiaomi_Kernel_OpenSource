@@ -56,6 +56,11 @@ void __attribute__ ((weak))
 }
 
 void __attribute__ ((weak))
+	notify_fg_chr_full(struct mtk_battery *gm)
+{
+}
+
+void __attribute__ ((weak))
 	fg_drv_update_daemon(struct mtk_battery *gm)
 {
 }
@@ -265,7 +270,6 @@ static int battery_psy_get_property(struct power_supply *psy,
 	return ret;
 }
 
-
 static void mtk_battery_external_power_changed(struct power_supply *psy)
 {
 	struct mtk_battery *gm;
@@ -283,15 +287,28 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 	} else {
 		ret = power_supply_get_property(chg_psy,
 			POWER_SUPPLY_PROP_ONLINE, &prop);
-		if (prop.intval)
+		if (prop.intval) {
 			bs_data->bat_status = POWER_SUPPLY_STATUS_CHARGING;
-		else
+			fg_sw_bat_cycle_accu(gm);
+		} else
 			bs_data->bat_status = POWER_SUPPLY_STATUS_DISCHARGING;
+
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_STATUS, &prop);
+
+		if (prop.intval == POWER_SUPPLY_STATUS_FULL
+			&& gm->b_EOC != true) {
+			bm_err("POWER_SUPPLY_STATUS_FULL\n");
+			gm->b_EOC = true;
+			notify_fg_chr_full(gm);
+		} else
+			gm->b_EOC = false;
+
 		battery_update(gm);
 	}
 
-	bm_err("%s event, name:%s online:%d\n", __func__,
-		psy->desc->name, prop.intval);
+	bm_err("%s event, name:%s online:%d, EOC:%d\n", __func__,
+		psy->desc->name, prop.intval, gm->b_EOC);
 
 }
 void battery_service_data_init(struct mtk_battery *gm)
