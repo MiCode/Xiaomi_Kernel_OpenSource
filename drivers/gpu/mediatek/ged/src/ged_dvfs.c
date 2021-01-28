@@ -942,6 +942,14 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 	static int margin_low_bound;
 #endif
 
+	if (gpu_dvfs_enable == 0) {
+		ged_log_buf_print(ghLogBuf_DVFS,
+			"[GED_K][FB_DVFS] skip %s due to gpu_dvfs_enable=%u",
+			__func__, gpu_dvfs_enable);
+		gpu_freq_pre = ret_freq = mt_gpufreq_get_cur_freq();
+		goto FB_RET;
+	}
+
 	if (force_fallback_pre != force_fallback) {
 		force_fallback_pre = force_fallback;
 #ifdef GED_CONFIGURE_LOADING_BASE_DVFS_STEP
@@ -1840,7 +1848,9 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 		gpu_loading = 0;
 		gpu_block = 0;
 		gpu_idle = 0;
-
+		ged_log_buf_print(ghLogBuf_DVFS,
+			"[GED_K][LB_DVFS] skip %s due to gpu_dvfs_enable=%u",
+			__func__, gpu_dvfs_enable);
 		goto EXIT_ged_dvfs_run;
 	}
 
