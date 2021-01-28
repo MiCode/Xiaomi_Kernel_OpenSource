@@ -408,6 +408,11 @@ void msdc_dvfs_reg_backup_init(struct msdc_host *host)
 
 int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 {
+/* Chun-Hung temp disable emmc dvfs autok to fix build error of */
+/* host->autok_res[] use before initialized.*/
+#if 1
+	return 0;
+#else
 	int ret = 0;
 	int vcore;
 #if defined(VCOREFS_READY)
@@ -477,6 +482,7 @@ int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 	/* msdc_dump_register_core(host, NULL); */
 
 	return ret;
+#endif
 }
 
 void sdio_execute_dvfs_autok_mode(struct msdc_host *host, bool ddr208)
