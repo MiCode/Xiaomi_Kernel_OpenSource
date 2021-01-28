@@ -156,6 +156,7 @@ config MACH_MT6779
 	select F2FS_FS_ENCRYPTION
 	select F2FS_FS_SECURITY
 	select F2FS_FS_XATTR
+	select MTK_SYSIRQ
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
