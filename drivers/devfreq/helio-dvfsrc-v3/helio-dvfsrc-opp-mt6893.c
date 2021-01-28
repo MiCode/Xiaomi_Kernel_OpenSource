@@ -118,11 +118,11 @@ static int __init dvfsrc_opp_init(void)
 	void __iomem *dvfsrc_base;
 	int val = 0; /*(get_devinfo_with_index(134) & 7);*/
 
-	set_pwrap_cmd(VCORE_OPP_0, 0);
-	set_pwrap_cmd(VCORE_OPP_1, 1);
-	set_pwrap_cmd(VCORE_OPP_2, 2);
-	set_pwrap_cmd(VCORE_OPP_3, 3);
-	set_pwrap_cmd(VCORE_OPP_4, 4);
+	set_pwrap_cmd(VCORE_OPP_0, 16);
+	set_pwrap_cmd(VCORE_OPP_1, 17);
+	set_pwrap_cmd(VCORE_OPP_2, 18);
+	set_pwrap_cmd(VCORE_OPP_3, 19);
+	set_pwrap_cmd(VCORE_OPP_4, 20);
 	if (val > 2)
 		val = 2;
 
@@ -188,7 +188,7 @@ static int __init dvfsrc_opp_init(void)
 			dvfs_v_mode,
 			dvfsrc_rsrv);
 
-	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d, %d\n",
+	pr_info("%s: FINAL vcore_opp_uv: %d, %d, %d, %d, %d\n",
 		__func__,
 		vcore_opp_0_uv,
 		vcore_opp_1_uv,

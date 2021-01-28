@@ -109,11 +109,11 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_EMI_MON_DEBOUNCE_TIME,   0x4C2D0000 },
 		{ DVFSRC_VCORE_REQUEST4,     0x21110000 },
 
-		{ DVFSRC_HRT_HIGH_3,         0x38923892 },
+		{ DVFSRC_HRT_HIGH_3,         0x3A543A54 },
 		{ DVFSRC_HRT_HIGH_2,         0x314C2306 },
 		{ DVFSRC_HRT_HIGH_1,         0x1AD21700 },
 		{ DVFSRC_HRT_HIGH,           0x0E100960 },
-		{ DVFSRC_HRT_LOW_3,          0x38913891 },
+		{ DVFSRC_HRT_LOW_3,          0x3A533A53 },
 		{ DVFSRC_HRT_LOW_2,          0x314B2305 },
 		{ DVFSRC_HRT_LOW_1,          0x1AD116FF },
 		{ DVFSRC_HRT_LOW,            0x0E0F095F },
@@ -122,7 +122,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_INT_EN,             0x00000002 },
 		{ DVFSRC_QOS_EN,             0x0000407C },
 
-		{ DVFSRC_CURRENT_FORCE,      0x00000001 },
+		{ DVFSRC_CURRENT_FORCE,      0x00000004 },
 		{ DVFSRC_BASIC_CONTROL,      0x66F8404B },
 		{ DVFSRC_BASIC_CONTROL,      0x66F8014B },
 		{ DVFSRC_CURRENT_FORCE,      0x00000000 },
@@ -239,7 +239,7 @@ static u32 dvfsrc_calc_hrt_opp(int data)
 		return DDR_OPP_3;
 	else if (data < 0x314C)
 		return DDR_OPP_2;
-	else if (data < 0x3892)
+	else if (data < 0x3A54)
 		return DDR_OPP_1;
 	else
 		return DDR_OPP_0;
@@ -420,12 +420,13 @@ void get_spm_reg(char *p)
 	p += sprintf(p, "%-24s: 0x%08x\n",
 			"SPM_DVFS_MISC",
 			spm_reg_read(SPM_DVFS_MISC));
-	p += sprintf(p, "%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-			"SPM_DVFS_CMD0~3",
-			spm_reg_read(SPM_DVFS_CMD0),
-			spm_reg_read(SPM_DVFS_CMD1),
-			spm_reg_read(SPM_DVFS_CMD2),
-			spm_reg_read(SPM_DVFS_CMD3));
+	p += sprintf(p, "%-24s: 0x%08x, 0x%08x, 0x%08x, 0x%08x 0x%08x\n",
+			"SPM_DVFS_CMD16~20",
+			spm_reg_read(SPM_DVFS_CMD16),
+			spm_reg_read(SPM_DVFS_CMD17),
+			spm_reg_read(SPM_DVFS_CMD18),
+			spm_reg_read(SPM_DVFS_CMD19),
+			spm_reg_read(SPM_DVFS_CMD20));
 }
 
 void get_opp_info(char *p)
@@ -669,7 +670,7 @@ int get_cur_ddr_ratio(void)
 	if (idx >= VCORE_DVFS_OPP_NUM)
 		return 0;
 
-	if (get_ddr_opp(idx) < DDR_OPP_6)
+	if (get_ddr_opp(idx) < DDR_OPP_7)
 		return 8;
 	else
 		return 4;
