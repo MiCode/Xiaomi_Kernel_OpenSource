@@ -213,7 +213,9 @@ static int mmc_queue_thread(void *d)
 	down(&mq->thread_sem);
 	mt_bio_queue_alloc(current, q);
 
+#if defined(CONFIG_MTK_IO_BOOST)
 	mtk_iobst_register_tid(current->pid);
+#endif
 
 	do {
 		struct request *req;
