@@ -113,7 +113,6 @@ TOOLCHAIN_CLANG_REPO='platform/prebuilts/clang/host/linux-x86'
 TOOLCHAIN_GCC_REPO='alps/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-gnu-6.3.1'
 TOOLCHAIN_CLANG_COMMIT='252aba16f513a857bc923172f67b0e55e23de35f'
 KERNEL_PATH=${PWD}
-toolchain_check
 build_config_read
 
 echo "CC_ARM=${CC_ARM}"
@@ -150,6 +149,9 @@ while getopts "cuh" opt; do
 	CONFIGS=`echo $CONFIGS | xargs -n1 | sort -u | xargs`
 	if [ ".$CONFIGS" != "." ]; then
 		echo From git commit: Checking $CONFIGS
+	else
+		echo "Nothing to check"
+		exit 0
 	fi
 	;;
       u)
@@ -288,6 +290,7 @@ check_defconfig() {
 }
 export -f check_defconfig
 
+toolchain_check
 parallel check_defconfig ::: $CONFIGS ::: $UPDATE ::: $CC_ARM ::: $CC_ARM64 ::: $CC_ARM64_GCC ::: $CC_KASAN ::: $CC_UBSAN ::: $LD_ARM ::: $LD_ARM64 ::: $LD_ARM64_GCC ::: $LD_KASAN ::: $LD_UBSAN
 RETVAL=$?
 
