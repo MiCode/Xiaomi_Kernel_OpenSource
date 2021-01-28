@@ -21,8 +21,8 @@
 /* Feature will disable both of DVS/DFS are 0 */
 /* hh, temp */
 /* TODO: enable after function verify on P */
-#define SPM_VCORE_DVS_EN       0 /* SB disabled */
-#define SPM_DDR_DFS_EN         0 /* SB disabled */
+#define SPM_VCORE_DVS_EN       1 /* SB disabled */
+#define SPM_DDR_DFS_EN         1 /* SB disabled */
 #define SPM_MM_CLK_EN          0 /* for intra-frame dvfs */
 #define VMODEM_VCORE_COBUCK    1 /* SB disabled */
 
