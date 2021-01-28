@@ -2904,6 +2904,22 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			#clock-cells = <1>;
 		};
 
+		dip: dip@15021000 {
+			compatible = "mediatek,dip";
+			reg = <0 0x15021000 0 0xc000>;
+			interrupts = <GIC_SPI 292 IRQ_TYPE_LEVEL_LOW>;
+			power-domains = <&scpsys MT6779_POWER_DOMAIN_ISP>;
+			clocks = <&imgsys CLK_IMG_LARB5>,
+				<&imgsys CLK_IMG_DIP>;
+			clock-names = "DIP_CG_IMG_LARB5",
+				"DIP_CG_IMG_DIP";
+			mboxes = <&gce 12 0 CMDQ_THR_PRIO_1>;
+			gce-event-names = "dip_event_cq_thread0",
+					"dip_event_cq_thread1";
+			gce-events = <&gce CMDQ_EVENT_DIP_CQ_THREAD0_EOF>,
+				<&gce CMDQ_EVENT_DIP_CQ_THREAD1_EOF>;
+		};
+
 		larb5: larb@1502e000 {
 			compatible = "mediatek,mt6779-smi-larb";
 			reg = <0 0x1502e000 0 0x1000>;
