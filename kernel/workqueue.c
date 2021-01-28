@@ -52,6 +52,8 @@
 
 #include "workqueue_internal.h"
 
+#include <linux/delay.h>
+
 enum {
 	/*
 	 * worker_pool flags
@@ -1296,6 +1298,15 @@ fail:
 	if (work_is_canceling(work))
 		return -ENOENT;
 	cpu_relax();
+	/*
+	 * if queueing is in progress in another context,
+	 * pool->lock may be in a busy loop,
+	 * if pool->lock is in busy loop,
+	 * the other context may never get the lock.
+	 * just for this case if queueing is in progress,
+	 * give 1 usec delay to avoid live lock problem.
+	 */
+	udelay(1);
 	return -EAGAIN;
 }
 
