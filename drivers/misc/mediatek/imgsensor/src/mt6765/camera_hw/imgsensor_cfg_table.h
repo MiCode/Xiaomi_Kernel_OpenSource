@@ -129,8 +129,9 @@ struct IMGSENSOR_HW_POWER_INFO {
 };
 
 struct IMGSENSOR_HW_POWER_SEQ {
-	char                   *idx;
+	char                   *name;
 	struct IMGSENSOR_HW_POWER_INFO pwr_info[IMGSENSOR_HW_POWER_INFO_MAX];
+	u32                    _idx;
 };
 
 struct IMGSENSOR_HW_DEVICE {
