@@ -5170,29 +5170,8 @@ static void ufshcd_uic_cmd_compl(struct ufs_hba *hba, u32 intr_status)
 		complete(&hba->active_uic_cmd->done);
 	}
 
-	if (intr_status & UFSHCD_UIC_PWR_MASK) {
-		if (hba->uic_async_done)
-			complete(hba->uic_async_done);
-		else if ((intr_status & UFSHCD_UIC_AH8_PWR_MASK) &&
-			(ufs_mtk_auto_hibern8_enabled)) {
-			/*
-			 * If uic_async_done flag is not set then this
-			 * is an Auto hibern8 err interrupt.
-			 * Perform a host reset followed by a full
-			 * link recovery.
-			 */
-			/* block commands from scsi mid-layer */
-			ufshcd_scsi_block_requests(hba);
-			hba->ufshcd_state = UFSHCD_STATE_ERROR;
-			hba->force_host_reset = true;
-			dev_err(hba->dev, "%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x\n",
-				__func__, (intr_status & UIC_HIBERNATE_ENTER) ?
-				"Enter" : "Exit",
-				intr_status, ufshcd_get_upmcrs(hba));
-
-			schedule_work(&hba->eh_work);
-		}
-	}
+	if ((intr_status & UFSHCD_UIC_PWR_MASK) && hba->uic_async_done)
+		complete(hba->uic_async_done);
 }
 
 /**
@@ -5764,6 +5743,7 @@ static void ufshcd_err_handler(struct work_struct *work)
 			goto skip_err_handling;
 	}
 	if ((hba->saved_err & INT_FATAL_ERRORS) ||
+	    (hba->saved_err & UFSHCD_UIC_HIBERN8_MASK) ||
 	    hba->force_host_reset ||
 	    ((hba->saved_err & UIC_ERROR) &&
 	    (hba->saved_uic_err & (UFSHCD_UIC_DL_PA_INIT_ERROR |
@@ -6054,6 +6034,23 @@ static void ufshcd_update_uic_error(struct ufs_hba *hba)
 			__func__, hba->uic_error);
 }
 
+static bool ufshcd_is_auto_hibern8_error(struct ufs_hba *hba,
+					 u32 intr_mask)
+{
+	if (!ufshcd_is_auto_hibern8_supported(hba))
+		return false;
+
+	if (!(intr_mask & UFSHCD_UIC_HIBERN8_MASK))
+		return false;
+
+	if (hba->active_uic_cmd &&
+	    (hba->active_uic_cmd->command == UIC_CMD_DME_HIBER_ENTER ||
+	    hba->active_uic_cmd->command == UIC_CMD_DME_HIBER_EXIT))
+		return false;
+
+	return true;
+}
+
 /**
  * ufshcd_check_errors - Check for errors that need s/w attention
  * @hba: per-adapter instance
@@ -6075,6 +6072,15 @@ static void ufshcd_check_errors(struct ufs_hba *hba)
 			ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
 			queue_eh_work = true;
 		}
+	}
+
+	if (hba->errors & UFSHCD_UIC_HIBERN8_MASK) {
+		dev_info(hba->dev,
+			"%s: Auto Hibern8 %s failed - status: 0x%08x, upmcrs: 0x%08x\n",
+			__func__, (hba->errors & UIC_HIBERNATE_ENTER) ?
+			"Enter" : "Exit",
+			hba->errors, ufshcd_get_upmcrs(hba));
+		queue_eh_work = true;
 	}
 
 	if (queue_eh_work) {
@@ -6139,6 +6145,10 @@ static void ufshcd_tmc_handler(struct ufs_hba *hba)
 static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 {
 	hba->errors = UFSHCD_ERROR_MASK & intr_status;
+
+	if (ufshcd_is_auto_hibern8_error(hba, intr_status))
+		hba->errors |= (UFSHCD_UIC_HIBERN8_MASK & intr_status);
+
 	if (hba->errors)
 		ufshcd_check_errors(hba);
 
