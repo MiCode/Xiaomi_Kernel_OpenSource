@@ -41,7 +41,9 @@
 
 #define SSMR_FEATURES_DT_UNAME "memory-ssmr-features"
 /* memory map/unmap */
+#ifdef CONFIG_ARM64
 static struct mm_struct *init_mm_addr;
+#endif
 #define memory_unmapping(virt, size) set_memory_mapping(virt, size, 0)
 #define memory_mapping(virt, size) set_memory_mapping(virt, size, 1)
 
@@ -414,6 +416,7 @@ static int get_reserved_cma_memory(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_ARM64
 static int  ssmr_memblock_search(struct memblock_type *type, phys_addr_t addr)
 {
 	unsigned int left = 0, right = type->cnt;
@@ -439,8 +442,6 @@ static bool ssmr_memblock_is_memory(phys_addr_t addr)
 	ssmr_memblock = (struct memblock *)kallsyms_lookup_name("memblock");
 	return ssmr_memblock_search(&ssmr_memblock->memory, addr) != -1;
 }
-
-#ifdef CONFIG_ARM64
 #ifdef CONFIG_DEBUG_PAGEALLOC
 static int change_page_range(pte_t *ptep, pgtable_t token, unsigned long addr,
 			     void *data)
