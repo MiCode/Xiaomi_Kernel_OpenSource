@@ -135,8 +135,6 @@
 				"pmic_buck3_temp",
 				"pmic_tsx_temp",
 				"pmic_dcxo_temp";
-			interconnects = <&accdet 1>;
-			#interconnect-cells = <1>;
 		};
 		pmic_efuse: pmic_efuse {
 			compatible = "mediatek,mt6359-efuse";
