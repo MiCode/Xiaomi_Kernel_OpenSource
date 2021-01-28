@@ -7548,7 +7548,7 @@ static int mt6359_parse_dt(struct mt6359_priv *priv)
 	ret = of_property_read_u32(dev->of_node, "mediatek,dmic-mode",
 				   &priv->dmic_one_wire_mode);
 	if (ret) {
-		dev_info(dev, "%s() failed to read dmic-mode, default 1 wire\n",
+		dev_info(dev, "%s() failed to read dmic-mode, default 2 wire\n",
 			 __func__);
 		priv->dmic_one_wire_mode = 0;
 	}
