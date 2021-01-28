@@ -9,6 +9,9 @@
 #include "configfs.h"
 #include "u_f.h"
 #include "u_os_desc.h"
+#ifdef CONFIG_MTPROF
+#include <linux/bootprof.h>
+#endif
 
 #ifdef CONFIG_USB_CONFIGFS_UEVENT
 #include <linux/platform_device.h>
@@ -286,6 +289,20 @@ static int unregister_gadget(struct gadget_info *gi)
 	return 0;
 }
 
+#ifdef CONFIG_MTPROF
+static void bootprof_log(char *str)
+{
+	static int first_shot = 1;
+
+	if (first_shot) {
+		bootprof_log_boot(str);
+		first_shot = 0;
+	}
+}
+#else
+static void bootprof_log(char *str) {}
+#endif
+
 static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 		const char *page, size_t len)
 {
@@ -324,6 +341,10 @@ static ssize_t gadget_dev_desc_UDC_store(struct config_item *item,
 		}
 	}
 	mutex_unlock(&gi->lock);
+
+	if (IS_ENABLED(CONFIG_MTPROF))
+		bootprof_log("USB ready");
+
 	return len;
 err:
 	kfree(name);
@@ -1469,6 +1490,10 @@ static void android_work(struct work_struct *data)
 					KOBJ_CHANGE, configured);
 		pr_info("%s: sent uevent %s\n", __func__, configured[0]);
 		uevent_sent = true;
+
+		if (IS_ENABLED(CONFIG_MTPROF))
+			bootprof_log("USB configured");
+
 	}
 
 	if (status[2]) {
