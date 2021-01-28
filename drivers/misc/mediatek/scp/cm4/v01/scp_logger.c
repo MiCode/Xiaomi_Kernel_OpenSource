@@ -408,7 +408,7 @@ static ssize_t scp_A_logger_wakeup_AP_show(struct device *kobj,
 
 	stat = (scp_A_logger_inited && scp_A_logger_wakeup_ap) ? 1 : 0;
 
-	return sprintf(buf, "[SCP A] logger wakeup AP is %s\n",
+	return scnprintf(buf, PAGE_SIZE, "[SCP A] logger wakeup AP is %s\n",
 			(stat == 0x1) ? "enabled" : "disabled");
 }
 
