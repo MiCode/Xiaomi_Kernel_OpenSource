@@ -325,7 +325,8 @@ static enum UT_RET_STATE profile_dump_all(struct ut_params *params,
 }
 #endif
 
-#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
+	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 #define PROT_TEST_PA_ADDR64_START (0x180000000ULL)
 #define PROT_TEST_PA_ADDR64_ZERO (0x0ULL)
 #define PROT_TEST_POOL_SIZE_NORMAL SIZE_256M
@@ -894,7 +895,8 @@ static struct test_case test_cases[] = {
 	     mtee_mchunks_multiple_thread_alloc),
 #endif
 
-#ifdef CONFIG_MTK_CAM_SECURITY_SUPPORT
+#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
+	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 	CASE(FR_UT_PROC_CONFIG_PROT_REGION, "Set TEE Protect Region Test", 0, 0,
 	     0, config_tee_prot_region_test),
 #endif
