@@ -4264,6 +4264,9 @@ void lock_acquired(struct lockdep_map *lock, unsigned long ip)
 {
 	set_lock_acquired(lock, ip, true);
 }
+#else
+void lock_contended(struct lockdep_map *lock, unsigned long ip) {}
+void lock_acquired(struct lockdep_map *lock, unsigned long ip) {}
 #endif
 
 /*
