@@ -427,10 +427,12 @@ static ssize_t show_pwr_ctrl(int id,
 			char *buf)
 {
 	char *p = buf;
-	int i;
+	int i, buf_len;
+	int max_buf_len = get_mtk_lp_kernfs_bufsz_max();
 
 	for (i = 0; i < PW_MAX_COUNT; i++) {
-		p += sprintf(p, "%s = 0x%zx\n",
+		buf_len = max_buf_len > (p - buf) ? max_buf_len - (p - buf) : 0;
+		p += snprintf(p, buf_len, "%s = 0x%zx\n",
 				pwr_ctrl_str[i],
 				SMC_CALL(GET_PWR_CTRL_ARGS,
 				id, i, 0));
