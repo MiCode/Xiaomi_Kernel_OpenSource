@@ -1726,9 +1726,7 @@ static int mt6360_safety_check(struct charger_device *chg_dev, u32 polling_ieoc)
 	if (eoc_cnt == 3) {
 		dev_info(mpci->dev, "%s: polling_ieoc = %d, ibat = %d\n",
 			 __func__, polling_ieoc, ibat);
-#ifdef FIXME /* TODO: wait mtk_charger_intf.h */
 		charger_dev_notify(mpci->chg_dev, CHARGER_DEV_NOTIFY_EOC);
-#endif
 		eoc_cnt = 0;
 	}
 	return ret;
@@ -2099,7 +2097,6 @@ static irqreturn_t mt6360_pmu_chg_mivr_evt_handler(int irq, void *data)
 
 static irqreturn_t mt6360_pmu_pwr_rdy_evt_handler(int irq, void *data)
 {
-#ifdef FIXME
 	struct mt6360_pmu_chg_info *mpci = data;
 	bool pwr_rdy = false;
 	int ret = 0;
@@ -2109,7 +2106,7 @@ static irqreturn_t mt6360_pmu_pwr_rdy_evt_handler(int irq, void *data)
 		return ret;
 	pwr_rdy = (ret & MT6360_MASK_PWR_RDY_EVT);
 	dev_info(mpci->dev, "%s: pwr_rdy = %d\n", __func__, pwr_rdy);
-#endif
+
 	return IRQ_HANDLED;
 }
 
@@ -2191,9 +2188,8 @@ static irqreturn_t mt6360_pmu_chg_tmri_handler(int irq, void *data)
 	dev_info(mpci->dev, "%s: chg_stat4 = 0x%02x\n", __func__, ret);
 	if (!(ret & MT6360_MASK_CHG_TMRI))
 		return IRQ_HANDLED;
-#ifdef FIXME /* TODO: wait mtk_charger_intf.h */
 	charger_dev_notify(mpci->chg_dev, CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT);
-#endif
+
 	return IRQ_HANDLED;
 }
 
