@@ -377,6 +377,7 @@ static void cpufreq_notify_post_transition(struct cpufreq_policy *policy,
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_POSTCHANGE);
 }
 
+extern int update_cpu_capacity_cpumask(struct cpumask *cpus);
 void cpufreq_freq_transition_begin(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs)
 {
@@ -409,6 +410,7 @@ wait:
 	arch_set_freq_scale(policy->cpus, freqs->new, policy->cpuinfo.max_freq);
 	arch_set_max_freq_scale(policy->cpus, policy->max);
 	arch_set_min_freq_scale(policy->cpus, policy->min);
+	update_cpu_capacity_cpumask(policy->cpus);
 
 	cpufreq_notify_transition(policy, freqs, CPUFREQ_PRECHANGE);
 }
