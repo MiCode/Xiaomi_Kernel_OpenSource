@@ -6,3 +6,12 @@ config MTK_CAM_SECURITY_SUPPORT
 	  It provides hardware-based security that guarantees the data integrity
 	  form image sensor, ISP DMA port access to secure memory.
 	  If you are not sure about this, do not set it to y.
+
+config MTK_CAM_GENIEZONE_SUPPORT
+	bool "M-TEE based Secure Camera Solution"
+	default n
+	help
+	  M-TEE (a.k.a. GENIEZONE) provides a hypervisor (EL2) based environment with
+	  MTK hardware-based security protection.
+	  When this option is set to y, secure camera resides in M-TEE.
+	  If you are not sure about this, do not set it to y.
