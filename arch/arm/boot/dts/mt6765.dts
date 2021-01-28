@@ -1181,6 +1181,10 @@
 		clock-names = "devapc-infra-clock";
 	};
 
+	hwrng: hwrng {
+		compatible = "mediatek,mt67xx-rng";
+	};
+
 	bus_dbg@10208000 {
 		compatible = "mediatek,bus_dbg-v2";
 		reg = <0 0x10208000 0 0x1000>,
