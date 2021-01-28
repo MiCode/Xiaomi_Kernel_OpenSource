@@ -120,21 +120,11 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
 		break;
 	case VCU_IPIMSG_ENC_POWER_ON:
-		mtk_venc_lock(ctx);
-		spin_lock_irqsave(&ctx->dev->irqlock, flags);
-		ctx->dev->curr_ctx = ctx;
-		spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
-		enable_irq(ctx->dev->enc_irq);
-		mtk_vcodec_enc_clock_on(&ctx->dev->pm);
+		venc_encode_prepare(ctx, &flags);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_POWER_OFF:
-		mtk_vcodec_enc_clock_off(&ctx->dev->pm);
-		disable_irq(ctx->dev->enc_irq);
-		spin_lock_irqsave(&ctx->dev->irqlock, flags);
-		ctx->dev->curr_ctx = NULL;
-		spin_unlock_irqrestore(&ctx->dev->irqlock, flags);
-		mtk_venc_unlock(ctx);
+		venc_encode_unprepare(ctx, &flags);
 		ret = 1;
 		break;
 	case VCU_IPIMSG_ENC_QUERY_CAP_ACK:
