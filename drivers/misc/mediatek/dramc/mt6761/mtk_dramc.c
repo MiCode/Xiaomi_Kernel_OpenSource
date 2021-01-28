@@ -16,13 +16,11 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/timer.h>
-#include <linux/slab.h>
 #include <asm/cacheflush.h>
 /* #include <mach/mtk_clkmgr.h> */
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_fdt.h>
-#include <linux/nvmem-consumer.h>
 #include <asm/setup.h>
 #include <mt-plat/sync_write.h>
 #ifdef DVFS_READY
@@ -38,6 +36,7 @@
 
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_chip.h>
+#include <mt-plat/mtk_devinfo.h>
 
 struct mem_desc {
 	u64 start;
@@ -1586,10 +1585,6 @@ static int dram_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *base_temp[8];
 	struct device_node *node = NULL;
-	struct device *dev = &pdev->dev;
-	struct nvmem_cell *efuse_cell;
-	size_t efuse_len;
-	int *efuse_buf;
 
 	pr_debug("[DRAMC] module probe.\n");
 
@@ -1751,20 +1746,7 @@ static int dram_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	efuse_cell = nvmem_cell_get(dev, "efuse_segment_133");
-	if (IS_ERR(efuse_cell)) {
-		pr_info("nvmem_cell_get fail\n");
-		return -1;
-	}
-	efuse_buf = (int *)nvmem_cell_read(efuse_cell, &efuse_len);
-	nvmem_cell_put(efuse_cell);
-	if (IS_ERR(efuse_buf)) {
-		pr_info("nvmem_cell_read fail\n");
-		return -1;
-	}
-	enable_lp3_1333 = *efuse_buf & 0x1;
-	pr_info("lp3 %s 1333\n", (enable_lp3_1333) ? "enable" : "disable");
-	kfree(efuse_buf);
+	enable_lp3_1333 = get_devinfo_with_index(133) & 0x1;
 
 	if (dram_can_support_fh())
 		dramc_info("dram can support DFS\n");
