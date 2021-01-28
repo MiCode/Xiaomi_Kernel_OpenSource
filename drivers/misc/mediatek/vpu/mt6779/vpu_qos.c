@@ -414,9 +414,7 @@ int vpu_qos_counter_start(unsigned int core)
 	mutex_init(&counter->list_mtx);
 
 	/* setup timer */
-	init_timer(&counter->qos_timer);
-	counter->qos_timer.function = &qos_timer_func;
-	counter->qos_timer.data = core;
+	timer_setup(&counter->qos_timer, qos_timer_func, 0);
 	counter->qos_timer.expires =
 		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME);
 	/* record wait time in counter */

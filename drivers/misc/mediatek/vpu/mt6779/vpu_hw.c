@@ -24,10 +24,11 @@
 #include <ion.h>
 #include <mtk/ion_drv.h>
 #include <mtk/mtk_ion.h>
+#ifdef MTK_VPU_SMI_DEBUG_ON
 #include <smi_debug.h>
+#endif
 #include <m4u.h>
 #include "mtk_devinfo.h"
-#include <mtk_vcorefs_manager.h>
 
 #ifdef MTK_PERF_OBSERVER
 #include <mt-plat/mtk_perfobserver.h>
@@ -46,16 +47,12 @@
 #include "vpu_dump.h"
 
 #define ENABLE_PMQOS
-#ifdef ENABLE_PMQOS
-#include "helio-dvfsrc-opp.h"
-#endif
 
 #ifdef CONFIG_PM_WAKELOCKS
-struct wakeup_source vpu_wake_lock[MTK_VPU_CORE];
+struct wakeup_source *vpu_wake_lock[MTK_VPU_CORE];
 #else
 struct wake_lock vpu_wake_lock[MTK_VPU_CORE];
 #endif
-
 
 #include "vpu_dvfs.h"
 #include "apu_dvfs.h"
@@ -2871,7 +2868,7 @@ for (j = 0 ; j < req->buffers[i].plane_count ; j++) { \
 #undef LOG_STRING
 
 			#ifdef CONFIG_PM_WAKELOCKS
-			__pm_stay_awake(&(vpu_wake_lock[service_core]));
+			__pm_stay_awake(vpu_wake_lock[service_core]);
 			#else
 			wake_lock(&(vpu_wake_lock[service_core]));
 			#endif
@@ -2919,7 +2916,7 @@ out:
 			vpu_service_cores[service_core].state = VCT_IDLE;
 		mutex_unlock(&(vpu_service_cores[service_core].state_mutex));
 		#ifdef CONFIG_PM_WAKELOCKS
-		__pm_relax(&(vpu_wake_lock[service_core]));
+		__pm_relax(vpu_wake_lock[service_core]);
 		#else
 		wake_unlock(&(vpu_wake_lock[service_core]));
 		#endif
@@ -3722,10 +3719,10 @@ int vpu_init_hw(int core, struct vpu_device *device)
 
 			#ifdef CONFIG_PM_WAKELOCKS
 			if (i == 0) {
-				wakeup_source_init(&(vpu_wake_lock[i]),
+				vpu_wake_lock[i] = wakeup_source_register(NULL,
 							"vpu_wakelock_0");
 			} else {
-				wakeup_source_init(&(vpu_wake_lock[i]),
+				vpu_wake_lock[i] = wakeup_source_register(NULL,
 							"vpu_wakelock_1");
 			}
 			#else

@@ -8,7 +8,11 @@
 
 #include <linux/hrtimer.h>
 #include <linux/mutex.h>
-#include <mt-plat/met_drv.h>
+/* FIXME: No such file */
+//#include <mt-plat/met_drv.h>
+/* FIXME: Remove TRACE_PUTS definition */
+#undef TRACE_PUTS
+#define TRACE_PUTS(buf) do {} while (0)
 #include "vpu_cmn.h"
 #include "vpu_reg.h"
 #include "vpu_profile.h"
@@ -43,7 +47,7 @@ static int vpu_counter[MTK_VPU_CORE][4];
 
 static noinline int tracing_mark_write(const char *buf)
 {
-	TRACE_PUTS(buf);
+	trace_printk(buf);
 	return 0;
 }
 

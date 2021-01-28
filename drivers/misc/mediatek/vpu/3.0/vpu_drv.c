@@ -48,7 +48,6 @@
 #define VPU_DEV_NAME            "vpu"
 
 static struct vpu_device *vpu_device;
-static struct wakeup_source vpu_wake_lock;
 static struct list_head device_debug_list;
 static struct mutex debug_list_mutex;
 static bool sdsp_locked;
@@ -1791,7 +1790,7 @@ static int vpu_probe(struct platform_device *pdev)
 		/* Get IRQ Flag from device node */
 		if (of_property_read_u32_array(pdev->dev.of_node,
 				"interrupts", irq_info, ARRAY_SIZE(irq_info))) {
-			dev_info("get irq flags from DTS fail!!\n");
+			dev_info(&pdev->dev, "get irq flags from DTS fail!!\n");
 			return -ENODEV;
 		}
 		vpu_device->irq_trig_level = irq_info[2];
@@ -1819,7 +1818,7 @@ static int vpu_probe(struct platform_device *pdev)
 		/* Register char driver */
 		ret = vpu_reg_chardev();
 		if (ret) {
-			dev_info("register char failed");
+			dev_info(&pdev->dev, "register char failed");
 			return ret;
 		}
 		/* Create class register */
@@ -1834,12 +1833,10 @@ static int vpu_probe(struct platform_device *pdev)
 					NULL, VPU_DEV_NAME);
 		if (IS_ERR(dev)) {
 			ret = PTR_ERR(dev);
-			dev_info("Failed to create device: /dev/%s, err = %d",
+			dev_info(&pdev->dev, "Failed to create device: /dev/%s, err = %d",
 				VPU_DEV_NAME, ret);
 			goto out;
 		}
-
-		wakeup_source_init(&vpu_wake_lock, "vpu_lock_wakelock");
 
 out:
 		if (ret < 0)

@@ -76,16 +76,6 @@ static void vpu_dmp_seq_time(struct seq_file *s, uint64_t t)
 		(unsigned long)nsec/1000);
 }
 
-static inline void *kvmalloc(size_t size, gfp_t flags)
-{
-	void *ret;
-
-	ret = kmalloc(size, flags | __GFP_NOWARN);
-	if (!ret)
-		ret = __vmalloc(size, flags, PAGE_KERNEL);
-	return ret;
-}
-
 static int vpu_dmp_alloc(int c)
 {
 	struct vpu_dmp *d;
