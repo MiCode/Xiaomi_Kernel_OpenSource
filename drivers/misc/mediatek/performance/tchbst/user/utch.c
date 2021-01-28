@@ -106,7 +106,7 @@ static int notify_touch(int action)
 
 		/* boost */
 #ifdef CONFIG_MTK_SCHED_EXTENSION
-		update_eas_uclamp_min(EAS_KIR_TOUCH,
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH,
 				CGROUP_TA, touch_boost_value);
 #endif
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
@@ -117,20 +117,20 @@ static int notify_touch(int action)
 		touch_event = 1;
 	}
 
-
-
 	return ret;
 }
+
 void switch_init_boost(int boost_value)
 {
 	touch_boost_value = boost_value;
 }
+
 static void notify_touch_up_timeout(struct work_struct *work)
 {
 	mutex_lock(&notify_lock);
 
 #ifdef CONFIG_MTK_SCHED_EXTENSION
-	update_eas_uclamp_min(EAS_KIR_TOUCH, CGROUP_TA, 0);
+	update_eas_uclamp_min(EAS_UCLAMP_KIR_TOUCH, CGROUP_TA, 0);
 #endif
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
 	perfmgr_trace_count(0, "touch");

@@ -30,7 +30,7 @@ static struct mutex boost_eas;
 static int cur_uclamp_min[NR_CGROUP];
 static unsigned long uclamp_policy_mask[NR_CGROUP];
 #endif
-static int uclamp_min[NR_CGROUP][EAS_MAX_KIR];
+static int uclamp_min[NR_CGROUP][EAS_UCLAMP_MAX_KIR];
 static int debug_uclamp_min[NR_CGROUP];
 static unsigned long prefer_idle[NR_CGROUP];
 static int debug_prefer_idle[NR_CGROUP];
@@ -202,7 +202,7 @@ static ssize_t perfmgr_boot_boost_proc_write(
 	data = check_uclamp_value(data);
 
 	if (cgroup >= 0 && cgroup < NR_CGROUP)
-		update_eas_uclamp_min(EAS_KIR_BOOT, cgroup, data);
+		update_eas_uclamp_min(EAS_UCLAMP_KIR_BOOT, cgroup, data);
 
 	return cnt;
 }
@@ -212,7 +212,7 @@ static int perfmgr_boot_boost_proc_show(struct seq_file *m, void *v)
 	int i;
 
 	for (i = 0; i < NR_CGROUP; i++)
-		seq_printf(m, "%d\n", uclamp_min[i][EAS_KIR_BOOT]);
+		seq_printf(m, "%d\n", uclamp_min[i][EAS_UCLAMP_KIR_BOOT]);
 
 	return 0;
 }
