@@ -744,6 +744,10 @@
 			compatible = "mediatek,mt6761-dvfsrc-met";
 		};
 
+		qos@00110780 {
+			compatible = "mediatek,mt6761-qos";
+			reg = <0 0x00110780 0 0x80>;
+		};
 	};
 
 	mbist_ao@10013000 {
