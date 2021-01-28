@@ -108,8 +108,6 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 
 	init_waitqueue_head(&kbdev->hwaccess.backend.reset_wait);
 
-	kbase_clk_rate_trace_manager_init(kbdev);
-
 	return 0;
 
 fail_update_l2_features:
@@ -140,7 +138,6 @@ fail_reset_gpu_init:
  */
 static void kbase_backend_late_term(struct kbase_device *kbdev)
 {
-	kbase_clk_rate_trace_manager_term(kbdev);
 	kbase_backend_devfreq_term(kbdev);
 	kbase_job_slot_halt(kbdev);
 	kbase_job_slot_term(kbdev);
@@ -189,8 +186,11 @@ static const struct kbase_device_init dev_init[] = {
 			"Job JS devdata initialization failed"},
 	{kbase_device_timeline_init, kbase_device_timeline_term,
 			"Timeline stream initialization failed"},
-	{kbase_device_hwcnt_backend_gpu_init,
-			kbase_device_hwcnt_backend_gpu_term,
+	{kbase_clk_rate_trace_manager_init,
+			kbase_clk_rate_trace_manager_term,
+			"Clock rate trace manager initialization failed"},
+	{kbase_device_hwcnt_backend_jm_init,
+			kbase_device_hwcnt_backend_jm_term,
 			"GPU hwcnt backend creation failed"},
 	{kbase_device_hwcnt_context_init, kbase_device_hwcnt_context_term,
 			"GPU hwcnt context initialization failed"},

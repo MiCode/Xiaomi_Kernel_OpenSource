@@ -496,9 +496,9 @@ struct kbase_jd_atom {
 	struct list_head jd_item;
 	bool in_jd_list;
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	u8 jit_ids[2];
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	u16 nr_extres;
 	struct kbase_ext_res *extres;

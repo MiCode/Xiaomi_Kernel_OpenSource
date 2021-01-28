@@ -288,7 +288,7 @@ DEFINE_EVENT_PRINT(mali_jit_softjob_template, mali_jit_free,
 	TP_printk("start=0x%llx va_pages=0x%zx backed_size=0x%zx",
 		__entry->start_addr, __entry->nr_pages, __entry->backed_pages));
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /* trace_mali_jit_report
  *
  * Tracepoint about the GPU data structure read to form a just-in-time memory
@@ -326,13 +326,13 @@ TRACE_EVENT(mali_jit_report,
 		),
 		__entry->read_val, __entry->used_pages)
 );
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 #if (KERNEL_VERSION(4, 1, 0) <= LINUX_VERSION_CODE)
 TRACE_DEFINE_ENUM(KBASE_JIT_REPORT_ON_ALLOC_OR_FREE);
 #endif
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /* trace_mali_jit_report_pressure
  *
  * Tracepoint about change in physical memory pressure, due to the information
@@ -366,7 +366,7 @@ TRACE_EVENT(mali_jit_report_pressure,
 			{ KBASE_JIT_REPORT_ON_ALLOC_OR_FREE,
 				"HAPPENED_ON_ALLOC_OR_FREE" }))
 );
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 #ifndef __TRACE_SYSGRAPH_ENUM
 #define __TRACE_SYSGRAPH_ENUM
@@ -515,6 +515,47 @@ TRACE_EVENT(mali_jit_trim,
 	),
 	TP_printk("freed_pages=%zu", __entry->freed_pages)
 );
+
+#ifndef CONFIG_TRACE_GPU_MEM
+
+/*
+ * trace_mali_gpu_mem_total
+ *
+ * The gpu_memory_total event indicates that there's an update to either the
+ * global or process total gpu memory counters.
+ *
+ * This event should be emitted whenever the kernel device driver allocates,
+ * frees, imports, unimports memory in the GPU addressable space.
+ *
+ * @gpu_id: Kbase device id.
+ * @pid: This is either the thread group ID of the process for which there was
+ *       an update in the GPU memory usage or 0 so as to indicate an update in
+ *       the device wide GPU memory usage.
+ * @size: GPU memory usage in bytes.
+ */
+TRACE_EVENT(mali_gpu_mem_total,
+	TP_PROTO(uint32_t gpu_id, uint32_t pid, uint64_t size),
+
+	TP_ARGS(gpu_id, pid, size),
+
+	TP_STRUCT__entry(
+		__field(uint32_t, gpu_id)
+		__field(uint32_t, pid)
+		__field(uint64_t, size)
+	),
+
+	TP_fast_assign(
+		__entry->gpu_id = gpu_id;
+		__entry->pid = pid;
+		__entry->size = size;
+	),
+
+	TP_printk("gpu_id=%u pid=%u size=%llu",
+		__entry->gpu_id,
+		__entry->pid,
+		__entry->size)
+);
+#endif
 
 #include "mali_kbase_debug_linux_ktrace.h"
 

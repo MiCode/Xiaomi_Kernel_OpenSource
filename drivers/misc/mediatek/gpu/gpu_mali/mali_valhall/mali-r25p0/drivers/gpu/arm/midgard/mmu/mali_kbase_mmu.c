@@ -45,6 +45,7 @@
 #include <mmu/mali_kbase_mmu_internal.h>
 #include <mali_kbase_cs_experimental.h>
 
+#include <mali_kbase_trace_gpu_mem.h>
 #define KBASE_MMU_PAGE_ENTRIES 512
 
 /**
@@ -545,7 +546,7 @@ void page_fault_worker(struct work_struct *data)
 	struct kbase_sub_alloc *prealloc_sas[2] = { NULL, NULL };
 	int i;
 	size_t current_backed_size;
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	size_t pages_trimmed = 0;
 #endif
 
@@ -571,7 +572,7 @@ void page_fault_worker(struct work_struct *data)
 
 	KBASE_DEBUG_ASSERT(kctx->kbdev == kbdev);
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	mutex_lock(&kctx->jctx.lock);
 #endif
 
@@ -765,7 +766,7 @@ page_fault_retry:
 
 	pages_to_grow = 0;
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if ((region->flags & KBASE_REG_ACTIVE_JIT_ALLOC) && !pages_trimmed) {
 		kbase_jit_request_phys_increase(kctx, new_pages);
 		pages_trimmed = new_pages;
@@ -887,7 +888,7 @@ page_fault_retry:
 		}
 #endif
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 		if (pages_trimmed) {
 			kbase_jit_done_phys_increase(kctx, pages_trimmed);
 			pages_trimmed = 0;
@@ -939,7 +940,7 @@ page_fault_retry:
 	}
 
 fault_done:
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (pages_trimmed) {
 		kbase_gpu_vm_lock(kctx);
 		kbase_jit_done_phys_increase(kctx, pages_trimmed);
@@ -993,6 +994,8 @@ static phys_addr_t kbase_mmu_alloc_pgd(struct kbase_device *kbdev,
 	}
 
 	atomic_add(1, &kbdev->memdev.used_pages);
+
+	kbase_trace_gpu_mem_usage_inc(kbdev, mmut->kctx, 1);
 
 	for (i = 0; i < KBASE_MMU_PAGE_ENTRIES; i++)
 		kbdev->mmu_mode->entry_invalidate(&page[i]);
@@ -1320,6 +1323,8 @@ static inline void cleanup_empty_pte(struct kbase_device *kbdev,
 		atomic_sub(1, &mmut->kctx->used_pages);
 	}
 	atomic_sub(1, &kbdev->memdev.used_pages);
+
+	kbase_trace_gpu_mem_usage_dec(kbdev, mmut->kctx, 1);
 }
 
 u64 kbase_mmu_create_ate(struct kbase_device *const kbdev,
@@ -1962,6 +1967,8 @@ static void mmu_teardown_level(struct kbase_device *kbdev,
 		kbase_process_page_usage_dec(mmut->kctx, 1);
 		atomic_sub(1, &mmut->kctx->used_pages);
 	}
+
+	kbase_trace_gpu_mem_usage_dec(kbdev, mmut->kctx, 1);
 }
 
 int kbase_mmu_init(struct kbase_device *const kbdev,
