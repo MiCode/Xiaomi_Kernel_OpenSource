@@ -436,13 +436,13 @@ static int mdw_sched_insert_sc(struct mdw_apu_sc *sc, int type)
 	mdw_flw_debug("insert sc(0x%llx-#%d/%d/%llu)\n",
 		sc->parent->kid, sc->idx, sc->type, sc->period);
 
+	getnstimeofday(&sc->ts_enque);
+
 	if (cmd_parser->is_deadline(sc))
 		ret = mq->deadline.ops.insert(sc, &mq->deadline,
 			type);
 	else
 		ret = mq->norm.ops.insert(sc, &mq->norm, type);
-
-	getnstimeofday(&sc->ts_enque);
 
 out:
 	return ret;
