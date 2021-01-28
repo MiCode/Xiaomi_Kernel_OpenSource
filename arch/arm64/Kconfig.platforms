@@ -123,7 +123,7 @@ config MACH_MT6761
 	select CPU_IDLE
 	select PINCTRL
 	select MFD_SYSCON
-	select MTK_BASE_POWER
+	select MTK_BASE_POWER if MTK_GKI_COMPAT=n
 	select MTK_GIC_V3_EXT
 	select FAST_CIRQ_CLONE_FLUSH
 	select MTK_FIQ_CACHE

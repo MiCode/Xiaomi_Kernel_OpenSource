@@ -393,6 +393,15 @@ config MTK_MET
 	  Select "Y" if you want to use.
 	  Select "N" if you are not sure.
 
+config MTK_GKI_COMPAT
+	bool "Mediatek GKI compatible enhancement"
+	default n
+	help
+	  For Mediatek GKI enhanced features.
+	  It's testing only, no any guarantee.
+	  Select "Y" if you want to use.
+	  Select "N" if you are not sure.
+
 source "drivers/misc/mediatek/met_drv/Kconfig"
 source "drivers/misc/mediatek/mtprof/Kconfig"
 source "drivers/misc/mediatek/aee/Kconfig"
