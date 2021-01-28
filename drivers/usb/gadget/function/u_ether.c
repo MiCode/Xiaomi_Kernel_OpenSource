@@ -711,7 +711,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	u16			cdc_filter = 0;
 	bool			multi_pkt_xfer = false;
 	uint32_t		max_size = 0;
-	struct skb_shared_info	*pinfo = skb_shinfo(skb);
+	struct skb_shared_info	*pinfo;
 	skb_frag_t		*frag;
 	unsigned int		frag_cnt = 0;
 	unsigned int		frag_idx = 0;
@@ -721,6 +721,11 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	static unsigned long	okCnt, busyCnt;
 	static DEFINE_RATELIMIT_STATE(ratelimit1, 1 * HZ, 2);
 	static DEFINE_RATELIMIT_STATE(ratelimit2, 1 * HZ, 2);
+
+	if (!skb)
+		return -EINVAL;
+
+	pinfo = skb_shinfo(skb);
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb) {
