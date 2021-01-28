@@ -415,6 +415,7 @@
 				regulator-max-microvolt = <1900000>;
 				regulator-enable-ramp-delay = <1920>;
 				regulator-allowed-modes = <0 1>;
+				regulator-always-on;
 			};
 			mt_pmic_vm18_ldo_reg: ldo_vm18 {
 				regulator-name = "vm18";
