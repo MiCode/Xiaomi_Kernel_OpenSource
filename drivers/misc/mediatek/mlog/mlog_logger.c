@@ -1066,8 +1066,8 @@ exit_dump:
 	return size;
 }
 
-static ssize_t mlog_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
+static ssize_t mlog_show(struct kobject *kobj,
+			 struct kobj_attribute *attr, char *buf)
 {
 	int size, ret;
 	int fmt_idx = 0;
@@ -1093,9 +1093,9 @@ static ssize_t mlog_show(struct device *dev,
 	return size;
 }
 
-static DEVICE_ATTR(dump, 0444, mlog_show, NULL);
+static struct kobj_attribute mlog_attr = __ATTR_RO(mlog);
 static struct attribute *mlog_attrs[] = {
-	&dev_attr_dump.attr,
+	&mlog_attr.attr,
 	NULL,
 };
 struct attribute_group mlog_attr_group = {
