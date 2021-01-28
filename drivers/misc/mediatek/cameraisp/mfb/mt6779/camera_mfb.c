@@ -248,8 +248,8 @@ struct MFB_REQUEST_STRUCT {
 	pid_t processID;	/* caller process ID */
 	unsigned int callerID;	/* caller thread ID */
 	unsigned int enqueReqNum; /* judge it belongs to which frame package */
-	signed int FrameWRIdx;	/* Frame write Index */
-	signed int RrameRDIdx;	/* Frame read Index */
+	unsigned int FrameWRIdx;	/* Frame write Index */
+	unsigned int RrameRDIdx;	/* Frame read Index */
 	enum MFB_FRAME_STATUS_ENUM
 		MfbFrameStatus[_SUPPORT_MAX_MFB_FRAME_REQUEST_];
 	MFB_Config MfbFrameConfig[_SUPPORT_MAX_MFB_FRAME_REQUEST_];
