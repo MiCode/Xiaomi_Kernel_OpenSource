@@ -1690,11 +1690,44 @@ static void cmdq_mdp_init_pmqos(void)
 		cmdq_mdp_get_func()->initPmqosMdp(i,
 			qos_mdp_module_request_list);
 
+		mm_qos_add_request(&qos_mdp_module_request_list[i],
+			&mdp_rdma0_request[i], SMI_PORT_MDP_RDMA0);
+		mm_qos_add_request(&qos_mdp_module_request_list[i],
+			&mdp_rdma1_request[i], SMI_PORT_MDP_RDMA1);
+		mm_qos_add_request(&qos_mdp_module_request_list[i],
+			&mdp_wrot0_request[i], SMI_PORT_MDP_WROT0_R);
+		mm_qos_add_request(&qos_mdp_module_request_list[i],
+			&mdp_wrot1_request[i], SMI_PORT_MDP_WROT1_R);
+
 		/* init ISP */
 		plist_head_init(&qos_isp_module_request_list[i]);
 		cmdq_mdp_get_func()->initPmqosIsp(i,
 			qos_isp_module_request_list);
 
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&imgi_request[i], SMI_PORT_IMGI_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&imgci_request[i], SMI_PORT_IMGCI_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&ufdi_request[i], SMI_PORT_UFDI_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&ufocw_request[i], SMI_PORT_UFOCW);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&lci_request[i], SMI_PORT_LCI_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&dmgi_request[i], SMI_PORT_DMGI_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&ufoc2r_request[i], SMI_PORT_UFOC2R);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&crzo_request[i], SMI_PORT_CRZO_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&ufoyw_request[i], SMI_PORT_UFOYW);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&smti1_request[i], SMI_PORT_SMTI_D1);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&smto1_request[i], SMI_PORT_SMTO_D2);
+		mm_qos_add_request(&qos_isp_module_request_list[i],
+			&smto2_request[i], SMI_PORT_SMTO_D1);
 #endif	/* PMQOS_VERSION2 */
 
 		mtk_pm_qos_add_request(&mdp_clk_qos_request[i],
