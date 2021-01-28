@@ -41,6 +41,7 @@
 /* pinctrl implementation */
 long _set_state(struct drm_crtc *crtc, const char *name)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	struct pinctrl_state *pState = 0;
 	long ret = 0;
@@ -64,10 +65,14 @@ long _set_state(struct drm_crtc *crtc, const char *name)
 
 exit:
 	return ret; /* Good! */
+#else
+	return 0; /* Good! */
+#endif
 }
 
 long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	long ret = 0;
 	struct pinctrl *pctrl;
 
@@ -83,6 +88,9 @@ long disp_dts_gpio_init(struct device *dev, struct mtk_drm_private *private)
 
 exit:
 	return ret;
+#else
+	return 0;
+#endif
 }
 
 static inline int _can_switch_check_mode(struct drm_crtc *crtc,

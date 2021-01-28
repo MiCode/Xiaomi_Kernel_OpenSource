@@ -14,7 +14,6 @@
 #include <drm/drmP.h>
 #include <linux/clk.h>
 #include <linux/component.h>
-#include <linux/iommu.h>
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
@@ -33,6 +32,7 @@
 #include "mtk_drm_drv.h"
 #include "mtk_disp_pmqos.h"
 #ifdef CONFIG_MTK_IOMMU_V2
+#include <linux/iommu.h>
 #include "mtk_iommu_ext.h"
 #endif
 #include "cmdq-sec.h"
@@ -234,6 +234,7 @@
 #define DISP_REG_OVL_ADDR_MT6885 0x0f40
 #define DISP_REG_OVL_ADDR_MT6873 0x0f40
 #define DISP_REG_OVL_ADDR_MT6853 0x0f40
+#define DISP_REG_OVL_ADDR_MT6833 0x0f40
 #define DISP_REG_OVL_ADDR_MT8173 0x0f40
 #define DISP_REG_OVL_ADDR(module, n) ((module)->data->addr + 0x20 * (n))
 
@@ -3200,8 +3201,7 @@ static void mtk_ovl_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, DISP_OVL_BYPASS_SHADOW,
 		DISP_REG_OVL_EN, DISP_OVL_BYPASS_SHADOW);
@@ -3535,6 +3535,20 @@ static const struct mtk_disp_ovl_data mt6853_ovl_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct compress_info compr_info_mt6833  = {
+	.name = "AFBC_V1_2_MTK_1",
+	.l_config = &compr_l_config_AFBC_V1_2,
+};
+
+static const struct mtk_disp_ovl_data mt6833_ovl_driver_data = {
+	.addr = DISP_REG_OVL_ADDR_MT6833,
+	.fmt_rgb565_is_0 = true,
+	.fmt_uyvy = 4U << 12,
+	.fmt_yuyv = 5U << 12,
+	.compr_info = &compr_info_mt6833,
+	.support_shadow = false,
+};
+
 static const struct mtk_disp_ovl_data mt8173_ovl_driver_data = {
 	.addr = DISP_REG_OVL_ADDR_MT8173,
 	.fmt_rgb565_is_0 = true,
@@ -3556,6 +3570,8 @@ static const struct of_device_id mtk_disp_ovl_driver_dt_match[] = {
 	 .data = &mt6873_ovl_driver_data},
 	{.compatible = "mediatek,mt6853-disp-ovl",
 	 .data = &mt6853_ovl_driver_data},
+	{.compatible = "mediatek,mt6833-disp-ovl",
+	 .data = &mt6833_ovl_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_ovl_driver_dt_match);

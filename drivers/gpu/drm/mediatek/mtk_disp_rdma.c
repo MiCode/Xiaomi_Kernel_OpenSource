@@ -98,8 +98,7 @@
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00b8
 #endif
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 #define DISP_REG_RDMA_SHADOW_UPDATE 0x00bc
 #define RDMA_BYPASS_SHADOW BIT(1)
 #define RDMA_READ_WORK_REG BIT(2)
@@ -718,11 +717,12 @@ static void mtk_rdma_set_ultra_l(struct mtk_ddp_comp *comp,
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RDMA_MEM_GMC_S3, val,
 		       ~0);
-
+#if !defined(CONFIG_MACH_MT6833)
 	val = gs[GS_RDMA_LAYER_SMI_ID_EN] << 29;
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_RDMA_GREQ_URG_NUM_SEL, val,
 		       REG_FLD_MASK(FLD_RG_LAYER_SMI_ID_EN));
+#endif
 
 	/*esd will wait this target line irq*/
 	mtk_ddp_write(comp, (cfg->h << 3)/10,
@@ -898,9 +898,14 @@ void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 		readl(DISP_REG_RDMA_DVFS_SETTING_ULTRA + baddr),
 		readl(DISP_REG_RDMA_LEAVE_DRS_SETTING + baddr),
 		readl(DISP_REG_RDMA_ENTER_DRS_SETTING + baddr));
+#if !defined(CONFIG_MACH_MT6833)
 	DDPDUMP("0x%03x:0x%08x 0x%03x:0x%08x\n",
 		0xe8, readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr),
 		0x1a8, readl(DISP_REG_RDMA_GREQ_URG_NUM_SEL + baddr));
+#else
+	DDPDUMP("0x%03x:0x%08x\n",
+		0xe8, readl(DISP_REG_RDMA_MEM_GMC_S3 + baddr));
+#endif
 
 
 	value = readl(DISP_REG_RDMA_MEM_GMC_S0 + baddr);
@@ -979,9 +984,11 @@ void mtk_rdma_dump_golden_setting(struct mtk_ddp_comp *comp)
 		REG_FLD_VAL_GET(FLD_LOW_FOR_URGENT, value),
 		REG_FLD_VAL_GET(FLD_HIGH_FOR_URGENT, value));
 
+#if !defined(CONFIG_MACH_MT6833)
 	value = readl(DISP_REG_RDMA_GREQ_URG_NUM_SEL + baddr);
 	DDPDUMP("GREQ URG NUM SEL [29:29]: %u\n",
 		REG_FLD_VAL_GET(FLD_RG_LAYER_SMI_ID_EN, value));
+#endif
 }
 
 int mtk_rdma_dump(struct mtk_ddp_comp *comp)
@@ -1059,7 +1066,7 @@ int mtk_rdma_dump(struct mtk_ddp_comp *comp)
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 		DDPDUMP("(0x0b8)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
 			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
-#else
+#elif defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 		DDPDUMP("(0x0bc)DISP_REG_RDMA_SHADOW_UPDATE=0x%x\n",
 			readl(DISP_REG_RDMA_SHADOW_UPDATE + baddr));
 #endif
@@ -1169,8 +1176,7 @@ static void mtk_rdma_prepare(struct mtk_ddp_comp *comp)
 			DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
 	}
 #else
-#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853) \
-	|| defined(CONFIG_MACH_MT6833)
+#if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 	/* Bypass shadow register and read shadow register */
 	mtk_ddp_write_mask_cpu(comp, RDMA_BYPASS_SHADOW,
 		DISP_REG_RDMA_SHADOW_UPDATE, RDMA_BYPASS_SHADOW);
@@ -1438,6 +1444,12 @@ static const struct mtk_disp_rdma_data mt6853_rdma_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_rdma_data mt6833_rdma_driver_data = {
+	.fifo_size = SZ_1K * 3 + SZ_32K,
+	.sodi_config = mt6833_mtk_sodi_config,
+	.support_shadow = false,
+};
+
 static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	{.compatible = "mediatek,mt2701-disp-rdma",
 	 .data = &mt2701_rdma_driver_data},
@@ -1451,6 +1463,8 @@ static const struct of_device_id mtk_disp_rdma_driver_dt_match[] = {
 	 .data = &mt6873_rdma_driver_data},
 	{.compatible = "mediatek,mt6853-disp-rdma",
 	 .data = &mt6853_rdma_driver_data},
+	{.compatible = "mediatek,mt6833-disp-rdma",
+	 .data = &mt6833_rdma_driver_data},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_rdma_driver_dt_match);
