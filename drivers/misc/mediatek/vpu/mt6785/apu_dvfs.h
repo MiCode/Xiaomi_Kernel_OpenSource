@@ -15,7 +15,6 @@
 #define __APU_DVFS_H
 
 #include <linux/delay.h>
-#include <linux/devfreq.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/consumer.h>
@@ -45,8 +44,6 @@ struct vpu_ptp_count_info {
 
 
 struct apu_dvfs {
-	struct devfreq		*devfreq;
-
 	bool qos_enabled;
 	bool dvfs_enabled;
 

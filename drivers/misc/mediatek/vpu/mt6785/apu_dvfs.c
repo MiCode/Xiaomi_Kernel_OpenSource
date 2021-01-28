@@ -11,7 +11,6 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
-#include <linux/devfreq.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -979,9 +978,6 @@ char *apu_dvfs_dump_reg(char *ptr)
 	return ptr;
 }
 
-static struct devfreq_dev_profile apu_devfreq_profile = {
-	.polling_ms	= 0,
-};
 static int pm_qos_vvpu_opp_notify(struct notifier_block *b,
 		unsigned long l, void *v)
 {
@@ -1019,10 +1015,6 @@ static int apu_dvfs_probe(struct platform_device *pdev)
 		return PTR_ERR(dvfs->regs);
 	platform_set_drvdata(pdev, dvfs);
 
-	dvfs->devfreq = devm_devfreq_add_device(&pdev->dev,
-						 &apu_devfreq_profile,
-						 "apu_dvfs",
-						 NULL);
 	dvfs->dvfs_node = of_find_compatible_node(
 		NULL, NULL, "mediatek,apu_dvfs");
 
@@ -1088,31 +1080,11 @@ MODULE_DEVICE_TABLE(of, apu_dvfs_of_match);
 
 static __maybe_unused int apu_dvfs_suspend(struct device *dev)
 {
-#if 0
-	int ret = 0;
-
-	ret = devfreq_suspend_device(dvfs->devfreq);
-	if (ret < 0) {
-		LOG_DBG("%s failed to suspend the devfreq devices\n", __func__);
-		return ret;
-	}
-#endif
 	return 0;
 }
 
 static __maybe_unused int apu_dvfs_resume(struct device *dev)
 {
-#if 0
-	int ret = 0;
-
-	ret = devfreq_resume_device(dvfs->devfreq);
-	if (ret < 0) {
-		LOG_DBG("%s failed to resume the devfreq devices\n", __func__);
-		return ret;
-	}
-
-	return ret;
-#endif
 	return 0;
 }
 
