@@ -1192,6 +1192,9 @@ static const struct dvfsrc_setting_desc dvfsrc_setting_mt6761[] = {
 	}, {
 		.setting = dvfsrc_mt6761_setting_0,
 		.size = ARRAY_SIZE(dvfsrc_mt6761_setting_0),
+	}, {
+		.setting = dvfsrc_mt6761_setting_0,
+		.size = ARRAY_SIZE(dvfsrc_mt6761_setting_0),
 	}
 };
 
@@ -1207,6 +1210,7 @@ static const struct dvfsrc_opp *dvfsrc_opps_mt6761[] = {
 	[1] = dvfsrc_opp_mt6761_0,
 	[2] = dvfsrc_opp_mt6761_0,
 	[3] = dvfsrc_opp_mt6761_0,
+	[4] = dvfsrc_opp_mt6761_0,
 };
 
 static const struct dvfsrc_soc_data mt6761_data = {

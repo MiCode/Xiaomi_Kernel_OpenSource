@@ -33,6 +33,8 @@ static void spm_dram_type_check(void)
 		spmfw_idx = SPMFW_LP4_2CH_3200;
 	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 3200)
 		spmfw_idx = SPMFW_LP4X_2CH_3200;
+	else if (ddr_type == TYPE_LPDDR4X && ddr_hz == 2400)
+		spmfw_idx = SPMFW_LP4X_2CH_2400;
 	else if (ddr_type == TYPE_LPDDR3 && ddr_hz == 1866)
 		spmfw_idx = SPMFW_LP3_1CH_1866;
 
