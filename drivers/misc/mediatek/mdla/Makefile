@@ -11,16 +11,16 @@
 # GNU General Public License for more details.
 #
 
-obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
-obj-$(CONFIG_MACH_MT6779) += 1.0/
+MTK_MDLA_CORE := 1
 
 ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6779))
-endif
 MTK_MDLA_CORE := 1
-ifneq (,$(filter $(strip $(MTK_PLATFORM)), mt6779))
-MTK_MDLA_CORE := 1
+obj-y += 1.0/
 else
 endif
+
+obj-y += $(MTK_PLATFORM)/
+
 subdir-ccflags-y += -DMTK_MDLA_CORE=$(MTK_MDLA_CORE)
 subdir-ccflags-y += -DMTK_MDLA_DVT
 
@@ -54,3 +54,4 @@ endif
 ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k79v1_64_ctighten")
 subdir-ccflags-y += -DHQA_LOAD
 endif
+
