@@ -46,6 +46,7 @@
 #endif
 
 #define SYS_TIMER_DEBUG                    (0)
+#define SYS_TIMER_DEBUGFS_SUPPORT          (0)
 
 #if SYS_TIMER_DEBUG
 #define sys_timer_print(fmt, ...)          pr_debug(fmt, ##__VA_ARGS__)
@@ -511,7 +512,7 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_DEBUG_FS
+#if defined(CONFIG_DEBUG_FS) && (SYS_TIMER_DEBUGFS_SUPPORT == 1)
 static ssize_t sys_timer_dbgfs_debug_write(struct file *filp,
 				      const char __user *ubuf, size_t cnt,
 				       loff_t *ppos)
