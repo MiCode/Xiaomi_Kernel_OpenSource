@@ -533,7 +533,7 @@ static int mem_thread_alloc_test(void *data)
 	int chunk_size = param->alloc_chunk_size;
 	int max_items = param->alloc_total_size / chunk_size;
 	int idx;
-	u32 ref_count;
+	u32 ref_count = 0;
 	u8 *owner = param->name;
 	int mem_type = param->mem_type;
 
