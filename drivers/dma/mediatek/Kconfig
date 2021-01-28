@@ -2,7 +2,6 @@
 
 config MEDIATEK_CQDMA
 	tristate "MediaTek Command-Queue DMA controller support"
-	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select DMA_ENGINE
 	select DMA_VIRTUAL_CHANNELS
 	select ASYNC_TX_ENABLE_CHANNEL_SWITCH
