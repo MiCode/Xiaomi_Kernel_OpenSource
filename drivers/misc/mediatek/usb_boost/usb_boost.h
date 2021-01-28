@@ -34,7 +34,7 @@ int usb_boost_init(void);
 void register_usb_boost_act(int type_id, int action_id,
 	int (*func)(struct act_arg_obj *arg));
 
-#define USB_BOOST_DBG_ENABLE //modify by Iris
+/* #define USB_BOOST_DBG_ENABLE */
 #define USB_BOOST_NOTICE(fmt, args...) \
 	pr_notice("USB_BOOST, <%s(), %d> " fmt, __func__, __LINE__, ## args)
 
