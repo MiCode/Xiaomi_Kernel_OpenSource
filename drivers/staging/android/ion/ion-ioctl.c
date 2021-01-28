@@ -103,13 +103,6 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ION_IOC_ALLOC:
 	{
 		struct ion_handle *handle;
-		int heap_mask;
-
-		heap_mask = data.allocation.heap_id_mask;
-		if (heap_mask == ION_HEAP_MULTIMEDIA_MAP_MVA_MASK) {
-			IONMSG("no longer support map mva heap for userspace\n");
-			return -EINVAL;
-		}
 
 		handle = ion_alloc(
 						client, data.allocation.len,
@@ -123,6 +116,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return PTR_ERR(handle);
 		}
 
+		pass_to_user(handle);
 		data.allocation.handle = handle->id;
 
 		cleanup_handle = handle;
@@ -151,7 +145,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				data.handle.handle, ret);
 			return PTR_ERR(handle);
 		}
-		ion_free_nolock(client, handle);
+		user_ion_free_nolock(client, handle);
 		ion_handle_put_nolock(handle);
 		time_e = sched_clock();
 		if ((time_e - time_s) > 100000000) //100ms
@@ -199,8 +193,13 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			IONMSG("ion_import fail: fd=%d, ret=%d\n",
 			       data.fd.fd, ret);
 			return ret;
+		} else {
+			handle = pass_to_user(handle);
+			if (IS_ERR(handle))
+				ret = PTR_ERR(handle);
+			else
+				data.handle.handle = handle->id;
 		}
-		data.handle.handle = handle->id;
 		break;
 	}
 	case ION_IOC_SYNC:
@@ -227,8 +226,12 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	if (dir & _IOC_READ) {
 		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd))) {
-			if (cleanup_handle)
-				ion_free(client, cleanup_handle);
+			if (cleanup_handle) {
+				mutex_lock(&client->lock);
+				user_ion_free_nolock(client, cleanup_handle);
+				ion_handle_put_nolock(cleanup_handle);
+				mutex_unlock(&client->lock);
+			}
 			IONMSG(
 				"%s %d fail! cmd = %d, n = %d.\n",
 				__func__, __LINE__,
