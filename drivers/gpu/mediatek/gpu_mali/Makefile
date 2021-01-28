@@ -10,6 +10,3 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
-
-obj-$(CONFIG_GPU_VERSION_MALI_MIDGARD_R26P0) += midgard-r26p0/
-
