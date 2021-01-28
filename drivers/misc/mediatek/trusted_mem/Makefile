@@ -47,14 +47,14 @@ endif # !TCORE_UT_TESTS_SUPPORT
 #==========================================================================
 # TEE Seecure Memory Devices & Trustzone Peer Driver
 #==========================================================================
-ifneq ($(filter y,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
+ifneq ($(filter y m,$(CONFIG_MTK_SECURE_MEM_SUPPORT) \
 		  $(CONFIG_MTK_WFD_SMEM_SUPPORT) \
 		  $(CONFIG_MTK_SDSP_SHARED_PERM_VPU_TEE)),)
 trusted_mem-y += tee_devices.o
 ccflags-y += -DTEE_DEVICES_SUPPORT
 trusted_mem-y += tee_impl/tee_invoke.o
 
-ifneq ($(filter y,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
+ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT) \
 		  $(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 trusted_mem-y += tee_impl/tee_ops.o
 endif
@@ -63,11 +63,11 @@ endif
 #==========================================================================
 # MTEE Multiple Chunk Devices & Geniezone Peer Driver
 #==========================================================================
-ifneq ($(filter y,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
+ifneq ($(filter y m,$(CONFIG_MTK_PROT_MEM_SUPPORT) \
 		  $(CONFIG_MTK_MTEE_MULTI_CHUNK_SUPPORT)),)
 ccflags-y += -DMTEE_DEVICES_SUPPORT
 endif
-ifeq ($(CONFIG_MTK_GZ_KREE),y)
+ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 trusted_mem-y += mtee_impl/mtee_ops.o
 trusted_mem-y += mtee_impl/mtee_invoke.o
 endif
@@ -82,33 +82,33 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr
 #==========================================================================
 # Other Modules Include Header Paths
 #==========================================================================
-ifeq ($(CONFIG_MTK_GZ_KREE),y)
+ifneq ($(filter y m,$(CONFIG_MTK_GZ_KREE)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/gz/
 endif # !CONFIG_MTK_GZ_KREE
 
-ifeq ($(CONFIG_MTK_SVP),y)
+ifneq ($(filter y m,$(CONFIG_MTK_SVP)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssvp/
 endif # !CONFIG_MTK_SVP
 
-ifeq ($(CONFIG_MTK_SSMR),y)
+ifneq ($(filter y m,$(CONFIG_MTK_SSMR)),)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr/
 endif # !CONFIG_MTK_SSMR
 
-ifeq ($(CONFIG_MTK_ION),y)
+ifneq ($(filter y m,$(CONFIG_MTK_ION)),)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 ccflags-y += -I$(srctree)/drivers/staging/android/ion/mtk
 endif # !CONFIG_MTK_ION
 
-ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+ifneq ($(filter y m,$(CONFIG_TRUSTONIC_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
 endif # !CONFIG_TRUSTONIC_TEE_SUPPORT
 
-ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
+ifneq ($(filter y m,$(CONFIG_MICROTRUST_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/tee/teei/$(CONFIG_MICROTRUST_TEE_VERSION)/common/include
 endif # !CONFIG_MICROTRUST_TEE_SUPPORT
 
-ifeq ($(CONFIG_BLOWFISH_TEE_SUPPORT),y)
+ifneq ($(filter y m,$(CONFIG_BLOWFISH_TEE_SUPPORT)),)
 ccflags-y += -I$(srctree)/drivers/misc/tzdev
 endif # !CONFIG_BLOWFISH_TEE_SUPPORT
