@@ -36,10 +36,10 @@
 #include "cmdq_struct.h"
 #include "mdp_m4u.h"
 
-#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+#ifdef MDP_M4U_TEE_SUPPORT
 static atomic_t m4u_init = ATOMIC_INIT(0);
 #endif
-#if defined(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)
+#ifdef MDP_M4U_MTEE_SUPPORT
 static atomic_t m4u_gz_init = ATOMIC_INIT(0);
 #endif
 
@@ -613,13 +613,13 @@ s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 		return status;
 	}
 
-#if IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT) || IS_ENABLED(CONFIG_MICROTRUST_TEE_SUPPORT)
+#ifdef MDP_M4U_TEE_SUPPORT
 	if (atomic_cmpxchg(&m4u_init, 0, 1) == 0) {
 		m4u_sec_init();
 		CMDQ_LOG("[SEC] m4u_sec_init is called\n");
 	}
 #endif
-#if defined(CONFIG_MTK_CAM_GENIEZONE_SUPPORT)
+#ifdef MDP_M4U_MTEE_SUPPORT
 	if (atomic_cmpxchg(&m4u_gz_init, 0, 1) == 0) {
 		// 0: SEC_ID_SEC_CAM
 		m4u_gz_sec_init(0);
