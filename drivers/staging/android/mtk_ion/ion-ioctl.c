@@ -95,10 +95,6 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		int heap_mask;
 
 		heap_mask = data.allocation.heap_id_mask;
-		if (heap_mask == ION_HEAP_MULTIMEDIA_MAP_MVA_MASK) {
-			IONMSG("no longer support map mva heap for userspace\n");
-			return -EINVAL;
-		}
 
 		handle = ion_alloc(client, data.allocation.len,
 				   data.allocation.align,

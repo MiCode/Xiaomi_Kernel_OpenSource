@@ -198,25 +198,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	 * cached mapping that mapping has been invalidated
 	 */
 	for_each_sg(buffer->sg_table->sgl, sg, buffer->sg_table->nents, i) {
-	#ifdef CONFIG_MTK_IOMMU_V2
-		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA &&
-		    align < PAGE_OFFSET && sg_dma_len(sg) != 0) {
-			if (align < VMALLOC_START || align > VMALLOC_END) {
-				/*native va without vmalloc and no page struct*/
-				sg->length = sg_dma_len(sg);
-				continue;
-			}
-		}
-	#else
-		if (heap->id == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA) {
-		/*
-		 * We don't overwrite the sg dma information of the
-		 * buffer comes from mtk mm heap, because it will be
-		 * mapped iova by get_phys.
-		 */
-			continue;
-		}
-	#endif
 		sg_dma_address(sg) = sg_phys(sg);
 		sg_dma_len(sg) = sg->length;
 	}
@@ -522,14 +503,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	if (heap_id_mask == heap_mask)
 		heap_id_mask = ION_HEAP_MULTIMEDIA_MASK;
 
-	/*
-	 * traverse the list of heaps available in this system in priority
-	 * order.  If the heap type is supported by the client, and matches the
-	 * request of the caller allocate from it.  Repeat until allocate has
-	 * succeeded or all heaps have been tried
-	 */
-	if (heap_id_mask != ION_HEAP_MULTIMEDIA_MAP_MVA_MASK)
-		len = PAGE_ALIGN(len);
+	len = PAGE_ALIGN(len);
 
 	if (!len) {
 		IONMSG("%s len cannot be zero.\n", __func__);
@@ -547,6 +521,12 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			 (unsigned long)client, len);
 	start = sched_clock();
 
+	/*
+	 * traverse the list of heaps available in this system in priority
+	 * order.  If the heap type is supported by the client, and matches the
+	 * request of the caller allocate from it.  Repeat until allocate has
+	 * succeeded or all heaps have been tried
+	 */
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
 		/* if the caller didn't specify this heap id */
@@ -2006,8 +1986,7 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 		heapid = handle->buffer->heap->id;
 		if (heapid == id ||
 		    (id == ION_HEAP_TYPE_MULTIMEDIA &&
-		     (heapid == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA ||
-		      heapid == ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA)))
+		     (heapid == ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA)))
 			size += handle->buffer->size;
 	}
 	mutex_unlock(&client->lock);
@@ -2020,16 +1999,13 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	struct ion_device *dev = heap->dev;
 	struct rb_node *n;
 	struct ion_heap *cam_heap = NULL;
-	struct ion_heap *map_mva_heap = NULL;
 	size_t total_size = 0;
 	size_t camera_total_size = 0;
-	size_t va2mva_total_size = 0;
 	size_t total_orphaned_size = 0;
 	unsigned long long current_ts = 0;
 	unsigned int heap_id = heap->id;
 	unsigned int mm_id = ION_HEAP_TYPE_MULTIMEDIA;
 	unsigned int cam_id = ION_HEAP_TYPE_MULTIMEDIA_FOR_CAMERA;
-	unsigned int map_mva_id = ION_HEAP_TYPE_MULTIMEDIA_MAP_MVA;
 
 	seq_printf(s, "total sz[%llu]\n",
 		   (unsigned long long)(4096 * atomic64_read(&page_sz_cnt)));
@@ -2084,9 +2060,6 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		if (heap_id == mm_id && buf_id == cam_id) {
 			cam_heap = buffer->heap;
 			camera_total_size += buffer->size;
-		} else if (heap_id == mm_id && buf_id == map_mva_id) {
-			map_mva_heap = buffer->heap;
-			va2mva_total_size += buffer->size;
 		}
 
 		if (buf_id != heap_id)
@@ -2107,8 +2080,8 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		   total_orphaned_size);
 	seq_printf(s, "%16.s %16zu\n", "total ", total_size);
 	if (heap->id == ION_HEAP_TYPE_MULTIMEDIA)
-		seq_printf(s, "%16.s %16zu %16zu\n", "cam-va2mva total",
-			   camera_total_size, va2mva_total_size);
+		seq_printf(s, "%16.s %16zu\n", "cam total",
+			   camera_total_size);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
 		seq_printf(s, "%16.s %u %16zu\n", "defer free heap_id",
 			   heap->id, heap->free_list_size);
@@ -2116,11 +2089,6 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		seq_printf(s, "%16.s %u %16zu\n",
 			   "cam heap deferred free heap_id",
 			   cam_heap->id, cam_heap->free_list_size);
-	if (map_mva_heap && (map_mva_heap->flags & ION_HEAP_FLAG_DEFER_FREE))
-		seq_printf(s, "%16.s %u %16zu\n",
-			   "map_mva_heap deferred free heap_id",
-			   map_mva_heap->id,
-			   map_mva_heap->free_list_size);
 	seq_puts(s, "----------------------------------------------------\n");
 
 	if (heap->debug_show)
