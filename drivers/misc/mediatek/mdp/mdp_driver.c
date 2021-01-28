@@ -1157,6 +1157,7 @@ static long cmdq_ioctl_compat(struct file *pFile, unsigned int code,
 	case CMDQ_IOCTL_ALLOC_READBACK_SLOTS:
 	case CMDQ_IOCTL_FREE_READBACK_SLOTS:
 	case CMDQ_IOCTL_READ_READBACK_SLOTS:
+	case CMDQ_IOCTL_SIMULATE:
 		/* All ioctl structures should be the same size in
 		 * 32-bit and 64-bit linux.
 		 */
