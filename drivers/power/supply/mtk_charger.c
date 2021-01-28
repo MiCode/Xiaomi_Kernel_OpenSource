@@ -670,21 +670,28 @@ static DEVICE_ATTR_RW(chr_type);
 static ssize_t Pump_Express_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
-	int is_ta_detected = 0;
-	int ret, i;
+	int ret = 0, i = 0;
+	bool is_ta_detected = false;
 	struct mtk_charger *pinfo = dev->driver_data;
-	struct chg_alg_device *alg;
+	struct chg_alg_device *alg = NULL;
+
+	if (!pinfo) {
+		chr_err("%s: pinfo is null\n", __func__);
+		return sprintf(buf, "%d\n", is_ta_detected);
+	}
 
 	for (i = 0; i < MAX_ALG_NO; i++) {
 		alg = pinfo->alg[i];
 		if (alg == NULL)
 			continue;
 		ret = chg_alg_is_algo_ready(alg);
-		if (ret == ALG_RUNNING)
-			is_ta_detected = 1;
+		if (ret == ALG_RUNNING) {
+			is_ta_detected = true;
+			break;
+		}
 	}
-	chr_err("%s: %d\n", __func__, is_ta_detected);
-	return sprintf(buf, "%u\n", is_ta_detected);
+	chr_err("%s: idx = %d, detect = %d\n", __func__, i, is_ta_detected);
+	return sprintf(buf, "%d\n", is_ta_detected);
 }
 
 static DEVICE_ATTR_RO(Pump_Express);
@@ -1674,6 +1681,7 @@ static int psy_charger_property_is_writeable(struct power_supply *psy,
 
 static enum power_supply_property charger_psy_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_TEMP,
@@ -1707,6 +1715,12 @@ static int psy_charger_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = is_charger_exist(info);
+		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		if (chg != NULL)
+			val->intval = true;
+		else
+			val->intval = false;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		val->intval = info->enable_hv_charging;
