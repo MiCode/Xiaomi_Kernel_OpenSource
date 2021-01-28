@@ -2682,10 +2682,17 @@ static int rtc_ui_soc_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
 	u8 rtc_value;
+	int rtc_ui_soc = 0;
 
 	rtc_value = get_rtc_spare_fg_value(gauge);
-	*val = (int)rtc_value;
-	/* *val = get_rtc_spare_fg_value(gauge);*/
+	rtc_ui_soc = (rtc_value & 0x7f);
+
+	*val = rtc_ui_soc;
+
+	if (rtc_ui_soc > 100 || rtc_ui_soc < 0)
+		bm_err("[%s]ERR!rtc=0x%x,ui_soc=%d\n", rtc_value, rtc_ui_soc);
+	else
+		bm_debug("[%s]rtc=0x%x,ui_soc=%d\n", rtc_value, rtc_ui_soc);
 
 	return 0;
 }
@@ -2693,8 +2700,18 @@ static int rtc_ui_soc_get(struct mtk_gauge *gauge,
 static int rtc_ui_soc_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int val)
 {
-	set_rtc_spare_fg_value(gauge, val);
+	u8 spare3_reg = get_rtc_spare_fg_value(gauge);
+	int spare3_reg_valid = 0;
+	int new_spare3_reg = 0;
 
+	spare3_reg_valid = (spare3_reg & 0x80);
+	new_spare3_reg = spare3_reg_valid + val;
+
+	set_rtc_spare_fg_value(gauge, new_spare3_reg);
+
+	bm_debug("[%s] ui_soc=%d, spare3_reg=0x%x, valid:%d, new_spare3_reg:0x%x\n",
+		__func__, val, spare3_reg,
+		spare3_reg_valid, new_spare3_reg);
 	return 1;
 }
 
