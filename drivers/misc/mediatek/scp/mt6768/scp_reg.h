@@ -111,6 +111,7 @@
 #define SCP_INTC_IRQ_ENABLE_MSB		(scpreg.cfg + 0x2084)
 #define SCP_INTC_IRQ_SLEEP_MSB		(scpreg.cfg + 0x208C)
 
+
 /* INFRA_IRQ (always on register) */
 #define INFRA_IRQ_SET			(scpreg.scpsys + 0x0B14)
 	#define AP_AWAKE_LOCK		(0)
@@ -118,6 +119,7 @@
 	#define CONNSYS_AWAKE_LOCK	(2)
 	#define CONNSYS_AWAKE_UNLOCK	(3)
 #define INFRA_IRQ_CLEAR			(scpreg.scpsys + 0x0B18)
+
 #define SCP_SYS_INFRA_MON       (scpreg.scpsys + 0x0D50)
 
 #endif

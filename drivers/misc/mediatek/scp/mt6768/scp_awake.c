@@ -221,15 +221,47 @@ void scp_enable_sram(void)
 /*
  * scp_sys_reset, reset scp
  */
+#if SCP_RECOVERY_SUPPORT
 int scp_sys_full_reset(void)
 {
-	pr_debug("[SCP]reset\n");
+#if SCP_SYSTEM_RESET_SUPPORT
+	unsigned int reset_timeout = SCP_SYS_RESET_TIMEOUT;
+
+	/*sys full scp*/
+	pr_notice("[SCP]full reset start\n");
+
+	writel(SCP_RESET_BIT, MODULE_RESET_SET);
+	if ((readl(MODULE_RESET_STATUS) & SCP_RESET_BIT) == 0x0) {
+		pr_notice("[SCP] sys reset waiting status...\n");
+		while ((reset_timeout > 0) &&
+			((readl(MODULE_RESET_STATUS) & SCP_RESET_BIT) == 0x0)) {
+			mdelay(1);
+			reset_timeout--;
+		}
+
+		if (reset_timeout)
+			pr_notice("[SCP]full reset timeout\n");
+	}
+
+	/*reset clear*/
+	pr_notice("[SCP]reset clear\n");
+	writel(SCP_RESET_BIT, MODULE_RESET_CLR);
+
+	/*enable scp sram*/
+	pr_notice("[SCP]enable sram\n");
+	scp_enable_sram();
+#endif
+
 	/*copy loader to scp sram*/
 	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_base_virt
 		, scp_region_info_copy.ap_loader_size);
 	/*set info to sram*/
 	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy
 			, sizeof(scp_region_info_copy));
+
+	pr_notice("[SCP]full reset done\n");
 	return 0;
 }
-
+#else
+int scp_sys_full_reset(void) { return 0; }
+#endif
