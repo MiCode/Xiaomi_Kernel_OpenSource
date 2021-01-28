@@ -16,7 +16,7 @@
 
 #include <linux/io.h>
 #include <mali_kbase.h>
-#include "mali_kbase_cpu_mt6885.h"
+#include "mali_kbase_cpu_mt6893.h"
 
 #define HZ_IN_MHZ (1000000)
 

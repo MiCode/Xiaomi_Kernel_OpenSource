@@ -29,7 +29,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_defs.h>
 #include <mali_kbase_config.h>
-#include "mali_kbase_cpu_mt6885.h"
+#include "mali_kbase_cpu_mt6893.h"
 #include "mali_kbase_config_platform.h"
 #include "platform/mtk_platform_common.h"
 #include "ged_dvfs.h"

@@ -20,7 +20,7 @@
  *
  */
 
-#include "mali_kbase_cpu_mt6885.h"
+#include "mali_kbase_cpu_mt6893.h"
 
 /**
  * Maximum frequency GPU will be clocked at. Given in kHz.
