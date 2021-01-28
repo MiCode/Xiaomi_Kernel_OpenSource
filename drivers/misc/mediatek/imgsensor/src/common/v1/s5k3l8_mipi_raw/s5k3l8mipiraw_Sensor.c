@@ -18,7 +18,7 @@
 
 #include "s5k3l8mipiraw_Sensor.h"
 
-
+#include <linux/slab.h>
 
 /**************************** Modify end *****************************/
 
@@ -619,12 +619,17 @@ static const int I2C_BUFFER_LEN = 4;
 static kal_uint16 s5k3l8_table_write_cmos_sensor(
 	kal_uint16 *para, kal_uint32 len)
 {
-	char puSendCmd[I2C_BUFFER_LEN];
-	kal_uint32 tosend, IDX;
+	kal_uint32 tosend = 0, IDX = 0;
 	kal_uint16 addr = 0, addr_last = 0, data;
+	char *puSendCmd = NULL;
 
-	tosend = 0;
-	IDX = 0;
+	puSendCmd = kmalloc(
+		sizeof(char) * I2C_BUFFER_LEN,
+		GFP_KERNEL);
+	if (puSendCmd == NULL) {
+		pr_info("allocate mem failed\n");
+		return -ENOMEM;
+	}
 
 	while (len > IDX) {
 		addr = para[IDX];
@@ -654,6 +659,8 @@ static kal_uint16 s5k3l8_table_write_cmos_sensor(
 #endif
 
 	}
+	kfree(puSendCmd);
+
 	return 0;
 }
 
