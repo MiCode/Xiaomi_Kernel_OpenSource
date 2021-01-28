@@ -83,7 +83,7 @@ static struct LCM_UTIL_FUNCS lcm_util;
 static const unsigned char LCD_MODULE_ID = 0x01;
 #define LCM_DSI_CMD_MODE	0
 #define FRAME_WIDTH		(720)
-#define FRAME_HEIGHT		(1440)
+#define FRAME_HEIGHT		(1520)
 #define VIRTUAL_WIDTH		(1080)
 #define VIRTUAL_HEIGHT		(1920)
 
@@ -1662,12 +1662,12 @@ static void lcm_validate_roi(int *x, int *y, int *width, int *height)
 #endif
 
 #if (LCM_DSI_CMD_MODE)
-struct LCM_DRIVER nt35695B_fhd_dsi_cmd_auo_rt5081_hdp_lcm_drv = {
-	.name = "nt35695B_fhd_dsi_cmd_auo_rt5081_hdp_drv",
+struct LCM_DRIVER nt35695B_fhd_dsi_cmd_auo_rt5081_hdp_19_9_lcm_drv = {
+	.name = "nt35695B_fhd_dsi_cmd_auo_rt5081_hdp_19_9_drv",
 #else
 
-struct LCM_DRIVER nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_lcm_drv = {
-	.name = "nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_drv",
+struct LCM_DRIVER nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_19_9_lcm_drv = {
+	.name = "nt35695B_fhd_dsi_vdo_auo_rt5081_hdp_19_9_drv",
 #endif
 	.set_util_funcs = lcm_set_util_funcs,
 	.get_params = lcm_get_params,
