@@ -12,6 +12,7 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 
 struct mtk_dram_ctrl {
 	struct device *dev;
@@ -19,9 +20,11 @@ struct mtk_dram_ctrl {
 	int num_perf;
 	int *perfs;
 	int curr_opp;
+	int qos_ctrl;
 };
 
 struct proc_dir_entry *dram_proc_parent;
+static struct mtk_pm_qos_request ddr_request;
 
 static ssize_t ddr_ctrl_proc_write(struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
@@ -47,11 +50,22 @@ static ssize_t ddr_ctrl_proc_write(struct file *filp, const char *ubuf,
 		return ret;
 	}
 
-	if ((val > -1) && (val < dram_ctrl->num_perf))
-		dev_pm_genpd_set_performance_state(
-			dram_ctrl->dev, dram_ctrl->perfs[val]);
-	else
-		dev_pm_genpd_set_performance_state(dram_ctrl->dev, 0);
+	if (dram_ctrl->qos_ctrl) {
+		if ((val > -1) && (val < dram_ctrl->num_perf))
+			mtk_pm_qos_update_request(&ddr_request,
+				dram_ctrl->perfs[val]);
+		else
+			mtk_pm_qos_update_request(&ddr_request,
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	} else {
+		if ((val > -1) && (val < dram_ctrl->num_perf))
+			dev_pm_genpd_set_performance_state(
+				dram_ctrl->dev,
+				dram_ctrl->perfs[val]);
+		else
+			dev_pm_genpd_set_performance_state(
+				dram_ctrl->dev, 0);
+	}
 
 	dram_ctrl->curr_opp = val;
 
@@ -110,6 +124,12 @@ static int mtk_dram_ctrl_probe(struct platform_device *pdev)
 	} else
 		dram_ctrl->num_perf = 0;
 
+	if (of_device_is_compatible(node, "mediatek,dram-qosctrl")) {
+		mtk_pm_qos_add_request(&ddr_request, MTK_PM_QOS_DDR_OPP,
+			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+		dram_ctrl->qos_ctrl = 1;
+	}
+
 	dram_ctrl->curr_opp = dram_ctrl->num_perf;
 	dram_ctrl->dev = dev;
 	platform_set_drvdata(pdev, dram_ctrl);
@@ -135,6 +155,8 @@ static int mtk_dram_ctrl_remove(struct platform_device *pdev)
 static const struct of_device_id mtk_dram_ctrl_of_match[] = {
 	{
 		.compatible = "mediatek,dram-ctrl",
+	}, {
+		.compatible = "mediatek,dram-qosctrl",
 	}, {
 		/* sentinel */
 	},
