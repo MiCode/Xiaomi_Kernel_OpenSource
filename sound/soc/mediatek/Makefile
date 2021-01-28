@@ -45,9 +45,6 @@ MTK_CODEC := $(subst ",,$(CONFIG_MTK_SND_SOC_CODEC))
 # flags for not ready feature, uncomment after ready
 subdir-ccflags-y += -DAUDIO_USING_WRAP_DRIVER
 subdir-ccflags-y += -D_MT_IDLE_HEADER
-ifeq ($(CONFIG_MACH_MT6765),y)
-  subdir-ccflags-y += -DASOC_TEMP_BYPASS
-endif
 
 ifeq ($(CONFIG_SND_SOC_AW87519),y)
 subdir-ccflags-y += -DSND_SOC_AW87519
