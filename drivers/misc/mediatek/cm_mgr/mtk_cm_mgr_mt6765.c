@@ -1117,7 +1117,7 @@ cm_mgr_opp_end:
 }
 
 static void cm_mgr_update_dram_by_cpu_opp(int cpu_opp);
-void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
+void check_cm_mgr_status_mt6765(unsigned int cluster, unsigned int freq)
 {
 #ifdef CONFIG_MTK_CPU_FREQ
 	int freq_idx = 0;
@@ -1141,7 +1141,7 @@ void check_cm_mgr_status(unsigned int cluster, unsigned int freq)
 
 	check_cm_mgr_status_internal();
 }
-EXPORT_SYMBOL_GPL(check_cm_mgr_status);
+EXPORT_SYMBOL_GPL(check_cm_mgr_status_mt6765);
 
 #ifdef USE_CPU_TO_DRAM_MAP
 static int cm_mgr_cpu_opp_to_dram[CM_MGR_CPU_OPP_SIZE] = {
@@ -1299,7 +1299,7 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 #endif /* USE_TIMER_CHECK */
 
 #ifdef CONFIG_MTK_CPU_FREQ
-	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status);
+	mt_cpufreq_set_governor_freq_registerCB(check_cm_mgr_status_mt6765);
 #endif /* CONFIG_MTK_CPU_FREQ */
 
 	mtk_pm_qos_add_request(&ddr_opp_req, MTK_PM_QOS_DDR_OPP,
