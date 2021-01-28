@@ -26,7 +26,7 @@ ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
 include $(srctree)/drivers/tee/teei/Makefile.include
 endif
 
-ifeq ($(CONFIG_MTK_SECURE_MEM_SUPPORT),y)
+ifneq ($(filter $(CONFIG_MTK_SECURE_MEM_SUPPORT) $(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM),y),)
 include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
 endif
 
