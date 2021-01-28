@@ -177,6 +177,20 @@ int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state)
 	return wakeup_fg_algo_cmd(gm, flow_state, 0, 0);
 }
 
+bool is_recovery_mode(void)
+{
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_debug("%s, bootmdoe = %d\n", gm->bootmode);
+
+	/* RECOVERY_BOOT */
+	if (gm->bootmode == 2)
+		return true;
+
+	return false;
+}
+
 bool is_kernel_power_off_charging(void)
 {
 	struct mtk_battery *gm;
@@ -291,6 +305,9 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 	struct mtk_battery *gm;
 	struct battery_data *bs_data;
 	union power_supply_propval prop;
+	union power_supply_propval prop_type;
+	int cur_chr_type;
+
 	struct power_supply *chg_psy = NULL;
 	int ret;
 
@@ -321,10 +338,28 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 			gm->b_EOC = false;
 
 		battery_update(gm);
+
+		/* check charger type */
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_USB_TYPE, &prop_type);
+
+		/* plug in out */
+		cur_chr_type = prop_type.intval;
+		if (cur_chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN) {
+			if (gm->chr_type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
+				wakeup_fg_algo(gm, FG_INTR_CHARGER_OUT);
+		} else {
+			if (gm->chr_type == POWER_SUPPLY_USB_TYPE_UNKNOWN)
+				wakeup_fg_algo(gm, FG_INTR_CHARGER_IN);
+		}
 	}
 
-	bm_err("%s event, name:%s online:%d, EOC:%d\n", __func__,
-		psy->desc->name, prop.intval, gm->b_EOC);
+	bm_err("%s event, name:%s online:%d, EOC:%d, cur_chr_type:%d old:%d\n",
+		__func__,
+		psy->desc->name, prop.intval, gm->b_EOC,
+		cur_chr_type, gm->chr_type);
+
+	gm->chr_type = cur_chr_type;
 
 }
 void battery_service_data_init(struct mtk_battery *gm)
@@ -2852,6 +2887,8 @@ void fg_check_bootmode(struct device *dev,
 
 int battery_init(struct platform_device *pdev)
 {
+	int ret = 0;
+	bool b_recovery_mode = 0;
 	struct mtk_battery *gm;
 	struct mtk_gauge *gauge;
 
@@ -2902,7 +2939,10 @@ int battery_init(struct platform_device *pdev)
 	gm->bs_data.bat_batt_temp = force_get_tbat(gm, true);
 	mtk_power_misc_init(gm);
 
-	if (mtk_battery_daemon_init(pdev) == 0)
+	ret = mtk_battery_daemon_init(pdev);
+	b_recovery_mode = is_recovery_mode();
+
+	if (ret == 0 && b_recovery_mode == 0)
 		bm_err("[%s]: daemon mode DONE\n", __func__);
 	else {
 		gm->algo.active = true;

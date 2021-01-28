@@ -1880,7 +1880,6 @@ int hw_info_set(struct mtk_gauge *gauge_dev,
 	struct mtk_gauge_sysfs_field_info *attr, int en)
 {
 	int ret;
-	char intr_name[32];
 	int is_iavg_valid;
 	int avg_current;
 	int iavg_th;
@@ -1930,8 +1929,8 @@ int hw_info_set(struct mtk_gauge *gauge_dev,
 	fgauge_get_time(gauge_dev, &time);
 	gauge_dev->fg_hw_info.time = time;
 
-	bm_debug("[FGADC_intr_end][%s][read_fg_hw_info] curr_1 %d curr_2 %d Iavg %d sign %d car %d ncar %d time %d\n",
-		intr_name, gauge_dev->fg_hw_info.current_1,
+	bm_debug("[FGADC_intr_end][read_fg_hw_info] curr_1 %d curr_2 %d Iavg %d sign %d car %d ncar %d time %d\n",
+		gauge_dev->fg_hw_info.current_1,
 		gauge_dev->fg_hw_info.current_2,
 		gauge_dev->fg_hw_info.current_avg,
 		gauge_dev->fg_hw_info.current_avg_sign,

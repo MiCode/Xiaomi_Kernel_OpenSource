@@ -350,6 +350,128 @@ void fg_custom_data_check(struct mtk_battery *gm)
 
 }
 
+void Intr_Number_to_Name(char *intr_name, unsigned int intr_no)
+{
+	switch (intr_no) {
+	case FG_INTR_0:
+		sprintf(intr_name, "FG_INTR_INIT");
+		break;
+
+	case FG_INTR_TIMER_UPDATE:
+		sprintf(intr_name, "FG_INTR_TIMER_UPDATE");
+		break;
+
+	case FG_INTR_BAT_CYCLE:
+		sprintf(intr_name, "FG_INTR_BAT_CYCLE");
+		break;
+
+	case FG_INTR_CHARGER_OUT:
+		sprintf(intr_name, "FG_INTR_CHARGER_OUT");
+		break;
+
+	case FG_INTR_CHARGER_IN:
+		sprintf(intr_name, "FG_INTR_CHARGER_IN");
+		break;
+
+	case FG_INTR_FG_TIME:
+		sprintf(intr_name, "FG_INTR_FG_TIME");
+		break;
+
+	case FG_INTR_BAT_INT1_HT:
+		sprintf(intr_name, "FG_INTR_COULOMB_HT");
+		break;
+
+	case FG_INTR_BAT_INT1_LT:
+		sprintf(intr_name, "FG_INTR_COULOMB_LT");
+		break;
+
+	case FG_INTR_BAT_INT2_HT:
+		sprintf(intr_name, "FG_INTR_UISOC_HT");
+		break;
+
+	case FG_INTR_BAT_INT2_LT:
+		sprintf(intr_name, "FG_INTR_UISOC_LT");
+		break;
+
+	case FG_INTR_BAT_TMP_HT:
+		sprintf(intr_name, "FG_INTR_BAT_TEMP_HT");
+		break;
+
+	case FG_INTR_BAT_TMP_LT:
+		sprintf(intr_name, "FG_INTR_BAT_TEMP_LT");
+		break;
+
+	case FG_INTR_BAT_TIME_INT:
+		sprintf(intr_name, "FG_INTR_BAT_TIME_INT");
+		break;
+
+	case FG_INTR_NAG_C_DLTV:
+		sprintf(intr_name, "FG_INTR_NAFG_VOLTAGE");
+		break;
+
+	case FG_INTR_FG_ZCV:
+		sprintf(intr_name, "FG_INTR_FG_ZCV");
+		break;
+
+	case FG_INTR_SHUTDOWN:
+		sprintf(intr_name, "FG_INTR_SHUTDOWN");
+		break;
+
+	case FG_INTR_RESET_NVRAM:
+		sprintf(intr_name, "FG_INTR_RESET_NVRAM");
+		break;
+
+	case FG_INTR_BAT_PLUGOUT:
+		sprintf(intr_name, "FG_INTR_BAT_PLUGOUT");
+		break;
+
+	case FG_INTR_IAVG:
+		sprintf(intr_name, "FG_INTR_IAVG");
+		break;
+
+	case FG_INTR_VBAT2_L:
+		sprintf(intr_name, "FG_INTR_VBAT2_L");
+		break;
+
+	case FG_INTR_VBAT2_H:
+		sprintf(intr_name, "FG_INTR_VBAT2_H");
+		break;
+
+	case FG_INTR_CHR_FULL:
+		sprintf(intr_name, "FG_INTR_CHR_FULL");
+		break;
+
+	case FG_INTR_DLPT_SD:
+		sprintf(intr_name, "FG_INTR_DLPT_SD");
+		break;
+
+	case FG_INTR_BAT_TMP_C_HT:
+		sprintf(intr_name, "FG_INTR_BAT_TMP_C_HT");
+		break;
+
+	case FG_INTR_BAT_TMP_C_LT:
+		sprintf(intr_name, "FG_INTR_BAT_TMP_C_LT");
+		break;
+
+	case FG_INTR_BAT_INT1_CHECK:
+		sprintf(intr_name, "FG_INTR_COULOMB_C");
+		break;
+
+	case FG_INTR_KERNEL_CMD:
+		sprintf(intr_name, "FG_INTR_KERNEL_CMD");
+		break;
+
+	case FG_INTR_BAT_INT2_CHECK:
+		sprintf(intr_name, "FG_INTR_BAT_INT2_CHECK");
+		break;
+
+	default:
+		sprintf(intr_name, "FG_INTR_UNKNOWN");
+		bm_err("[%s] unknown intr %d\n", __func__, intr_no);
+		break;
+	}
+}
+
 void exec_BAT_EC(int cmd, int param)
 {
 	int i;
@@ -4074,6 +4196,7 @@ void fg_update_sw_iavg(struct mtk_battery *gm)
 int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 {
 	static struct mtk_battery *gm;
+	char intr_name[32];
 
 	if (gm == NULL)
 		gm = get_mtk_battery();
@@ -4098,10 +4221,11 @@ int wakeup_fg_daemon(unsigned int flow_state, int cmd, int para1)
 			if (fgd_msg == NULL)
 				return -1;
 		}
-
-		bm_debug("[%s] malloc size=%d pid=%d cmd:%d\n",
+		Intr_Number_to_Name(intr_name, flow_state);
+		bm_debug("[%s] malloc size=%d pid=%d cmd:[%s],%d\n",
 			__func__,
-			size, gm->fgd_pid, flow_state);
+			size, gm->fgd_pid, intr_name, flow_state);
+
 		memset(fgd_msg, 0, size);
 		fgd_msg->fgd_cmd = FG_DAEMON_CMD_NOTIFY_DAEMON;
 		memcpy(fgd_msg->fgd_data, &flow_state, sizeof(flow_state));
