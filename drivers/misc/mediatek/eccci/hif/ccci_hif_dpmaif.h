@@ -98,7 +98,7 @@ unsigned int buf_len;
 /****************************************************************************
  * Structure of DL PIT
  ****************************************************************************/
-#if 0
+#if MD_GENERATION < 6297
 struct dpmaifq_normal_pit {
 	unsigned int    packet_type:1; /* 0-payload packet; 1-message packet */
 	unsigned int    c_bit:1;/* 1-1/n; 0-the last one */
