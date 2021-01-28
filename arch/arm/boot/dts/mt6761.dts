@@ -2025,11 +2025,16 @@
 		reg = <0 0x11210000 0 0x10000>;
 	};
 
+	audclk: audclk@11220000 {
+		compatible = "mediatek,mt6761-audsys", "syscon";
+		reg = <0 0x11220000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	audio: audio@11220000 {
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11220000 0 0x1000>;
 		/* interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_LOW>; */
-		#clock-cells = <1>;
 		mediatek,btcvsd_snd = <&btcvsd_snd>;
 	};
 
@@ -2037,13 +2042,13 @@
 		compatible = "mediatek,mt_soc_pcm_dl1";
 		reg = <0 0x11220000 0 0x1000>;
 		interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&audio CLK_AUDIO_AFE>,
-			<&audio CLK_AUDIO_DAC>,
-			<&audio CLK_AUDIO_DAC_PREDIS>,
-			<&audio CLK_AUDIO_ADC>,
-			<&audio CLK_AUDIO_22M>,
-			<&audio CLK_AUDIO_APLL_TUNER>,
-			<&audio CLK_AUDIO_TML>,
+		clocks = <&audclk CLK_AUDIO_AFE>,
+			<&audclk CLK_AUDIO_DAC>,
+			<&audclk CLK_AUDIO_DAC_PREDIS>,
+			<&audclk CLK_AUDIO_ADC>,
+			<&audclk CLK_AUDIO_22M>,
+			<&audclk CLK_AUDIO_APLL_TUNER>,
+			<&audclk CLK_AUDIO_TML>,
 			<&infracfg_ao CLK_IFR_AUDIO>,
 			<&infracfg_ao CLK_IFR_AUDIO_26M_BCLK>,
 			<&topckgen CLK_TOP_AUDIO_SEL>,
