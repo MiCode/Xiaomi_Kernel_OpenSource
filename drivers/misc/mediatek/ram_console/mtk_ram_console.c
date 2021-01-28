@@ -34,7 +34,6 @@
 #include <linux/io.h>
 #include <mt-plat/aee.h>
 #include "ram_console.h"
-#include <mach/memory_layout.h>
 
 #define RAM_CONSOLE_HEADER_STR_LEN 1024
 
