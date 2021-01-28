@@ -86,6 +86,7 @@ obj-$(CONFIG_MACH_MT6885) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6893) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6873) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6853) += power_gs_v1/
+obj-$(CONFIG_MACH_MT6833) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6885) += gpufreq_v1/
 obj-$(CONFIG_MACH_MT6893) += gpufreq_v1/
 obj-$(CONFIG_MACH_MT6873) += gpufreq_v1/
