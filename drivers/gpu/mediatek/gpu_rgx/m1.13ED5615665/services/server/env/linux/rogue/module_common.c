@@ -164,9 +164,10 @@ int PVRSRVCommonDriverInit(void)
 		return error;
 	}
 
-	if (HTB_CreateFSEntry() != PVRSRV_OK)
-	{
-		return -ENOMEM;
+	if (HTB_CreateFSEntry() != PVRSRV_OK) {
+		PVR_DPF((PVR_DBG_ERROR,
+		"%s: Cannot create 'HTB_CreateFSEntry'",
+		__func__));
 	}
 
 #if defined(PVRSRV_ENABLE_PROCESS_STATS)
