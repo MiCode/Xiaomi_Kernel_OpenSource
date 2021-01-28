@@ -335,7 +335,6 @@ static void mt6359_clk_buf_get_xo_en(u32 *stat)
 {
 	u32 i = 0;
 	struct pmic_clkbuf_dts *node = NULL;
-	struct pmic_clkbuf_dts *out_node = NULL;
 
 	node = find_pmic_dts_node(PMIC_AUXOUT_SEL);
 	if (!node) {
@@ -344,18 +343,10 @@ static void mt6359_clk_buf_get_xo_en(u32 *stat)
 		return;
 	}
 
-	out_node = find_pmic_dts_node(PMIC_AUXOUT_DRV_CURR);
-	if (!out_node) {
-		pr_info("%s: pmic node property not stored, something wrong!\n",
-				__func__);
-		return;
-	}
-
 	pmic_clkbuf_write(PMIC_AUXOUT_SEL, 0, node->cfg.bit[1]);
 
 	for (i = 0; i < XO_NUMBER; i++)
-		if (out_node->cfg.ofs[i] != NOT_VALID)
-			pmic_clkbuf_read(PMIC_AUXOUT_XO, i, &(stat[i]));
+		pmic_clkbuf_read(PMIC_AUXOUT_XO, i, &(stat[i]));
 
 	pr_info("[%s]: EN_STAT=%u %u %u %u %u %u\n",
 		__func__,
