@@ -33,7 +33,8 @@ static inline bool should_hmp(int cpu)
 		for_each_domain(cpu, sd) {
 			if (sd_overutilized(sd)) {
 				rcu_read_unlock();
-				return true;
+				return sched_smp_initialized &&
+					sched_feat(SCHED_HMP);
 			}
 		}
 		rcu_read_unlock();
