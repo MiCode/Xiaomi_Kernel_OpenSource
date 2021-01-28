@@ -415,9 +415,6 @@
 #define PMIC_VCORE_ADDR	PMIC_RG_BUCK_VCORE_VOSEL
 #define VCORE_BASE	40000
 #define VCORE_STEP	625
-#define VCORE_OPP_0	825000
-#define VCORE_OPP_1	725000
-#define VCORE_OPP_UNREQ	650000
 
 /**************************************************
  * efuse Setting
