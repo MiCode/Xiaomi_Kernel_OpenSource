@@ -193,7 +193,7 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user)
 	}
 	smi_clk_record(id, true, user);
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	if (id == 6 || id == 10 || id == 12) {
 		SMIDBG("Invalid id:%u user:%s\n", id, user);
 		return -EINVAL;
@@ -397,7 +397,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 	}
 	smi_clk_record(id, false, user);
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	if (id == 6 || id == 10 || id == 12) {
 		SMIDBG("Invalid id:%u user:%s\n", id, user);
 		return -EINVAL;
@@ -422,7 +422,7 @@ s32 smi_bus_disable_unprepare(const u32 id, const char *user)
 		smi_unit_disable_unprepare(5);
 #endif
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	switch (id) {
 	case 2:
 	case 3:
@@ -537,7 +537,7 @@ smi_bwl_update(const u32 id, const u32 bwl, const bool soft, const char *user)
 		return;
 	}
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	comm = id >> 16;
 #endif
 	val = (soft ? 0x1000 : 0x3000) | SMI_PMQOS_BWL_MASK(bwl);
@@ -593,7 +593,7 @@ EXPORT_SYMBOL_GPL(smi_ostd_update);
 
 s32 smi_sysram_enable(const u32 master_id, const bool enable, const char *user)
 {
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	u32 larb = MTK_IOMMU_TO_LARB(master_id);
 	u32 port = MTK_IOMMU_TO_PORT(master_id);
 	u32 ostd[2], val;
@@ -688,7 +688,7 @@ static s32 smi_debug_dumper(const bool gce, const bool off, const u32 id)
 		name, id, ATOMR_CLK(j));
 	smi_debug_print(gce, nr_debugs, debugs, temp);
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	if (id != SMI_LARB_NUM + 4 && id != SMI_LARB_NUM + 6)
 		return 0;
 
@@ -1073,7 +1073,7 @@ static void smi_subsys_before_off(enum subsys_id sys)
 			smi_clk_record(i, false, NULL);
 			if ((smi_mm_first & subsys) && sys == SYS_DIS)
 				continue;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 			if ((smi_mm_first & subsys) && sys == SYS_MDP)
 				continue;
 #elif IS_ENABLED(CONFIG_MACH_MT6873) && IS_ENABLED(SMI_ASSERT)
@@ -1225,7 +1225,7 @@ s32 smi_register(void)
 	/* init */
 	spin_lock(&(smi_drv.lock));
 	smi_subsys_on = smi_subsys_to_larbs[SYS_DIS];
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	smi_subsys_on |= smi_subsys_to_larbs[SYS_MDP];
 #endif
 	spin_unlock(&(smi_drv.lock));
