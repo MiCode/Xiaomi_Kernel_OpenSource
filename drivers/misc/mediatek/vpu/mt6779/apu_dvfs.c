@@ -35,6 +35,8 @@
 #include <linux/regulator/consumer.h>
 #include <mtk_devinfo.h>
 
+#define CCF_GET_CKGEN_READY	(0)
+
 /*regulator id*/
 static struct regulator *vvpu_reg_id;
 static struct regulator *vmdla_reg_id;
@@ -436,10 +438,12 @@ void apu_get_power_info(void)
 	int dsp2_freq = 0;
 	int dsp3_freq = 0;
 	int ipuif_freq = 0;
+#if CCF_GET_CKGEN_READY
 	int temp_freq = 0;
-
+#endif
 	mutex_lock(&power_check_lock);
 
+#if CCF_GET_CKGEN_READY
 	dsp_freq = mt_get_ckgen_freq(10);
 	if (dsp_freq == 0)
 		temp_freq = mt_get_ckgen_freq(1);
@@ -456,7 +460,7 @@ void apu_get_power_info(void)
 	if (ipuif_freq == 0)
 		temp_freq = mt_get_ckgen_freq(1);
 	check_vpu_clk_sts();
-
+#endif
 	if (vmdla_reg_id)
 		vmdla = regulator_get_voltage(vmdla_reg_id);
 
@@ -1741,12 +1745,12 @@ static void pm_qos_notifier_register(void)
 
 	dvfs->pm_qos_vvpu_opp_nb.notifier_call =
 		pm_qos_vvpu_opp_notify;
-	pm_qos_add_notifier(MTK_PM_QOS_VVPU_OPP,
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_VVPU_OPP,
 			&dvfs->pm_qos_vvpu_opp_nb);
 
 	dvfs->pm_qos_vmdla_opp_nb.notifier_call =
 		pm_qos_vmdla_opp_notify;
-	pm_qos_add_notifier(MTK_PM_QOS_VMDLA_OPP,
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_VMDLA_OPP,
 			&dvfs->pm_qos_vmdla_opp_nb);
 }
 
