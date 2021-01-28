@@ -12,6 +12,7 @@
 #include <asm/cacheflush.h>
 #include <linux/mm.h>
 #include <linux/dma-mapping.h>
+#include <linux/soc/mediatek/mtk-cmdq.h>
 
 #ifndef CONFIG_ARM64
 #include "mm/dma.h"
@@ -29,6 +30,7 @@
 
 #define CODEC_MAX_BUFFER 512U
 #define CODEC_ALLOCATE_MAX_BUFFER_SIZE 0x8000000UL /*128MB*/
+#define CODEC_MSK(addr) ((addr >> PAGE_SHIFT) & 0xFFFF)
 
 /**
  * struct mtk_vcu_mem - memory buffer allocated in kernel
@@ -43,11 +45,13 @@ struct mtk_vcu_mem {
 	size_t size;
 	struct dma_buf *dbuf;
 	dma_addr_t iova;
+	atomic_t ref_cnt;
 };
 
 struct vcu_pa_pages {
 	unsigned long pa;
 	unsigned long kva;
+	atomic_t ref_cnt;
 	struct list_head list;
 };
 
@@ -66,6 +70,7 @@ struct mtk_vcu_queue {
 	void *vcu;
 	struct mutex mmap_lock;
 	struct device *dev;
+	struct device *cmdq_dev;
 	unsigned int num_buffers;
 	const struct vb2_mem_ops *mem_ops;
 	struct mtk_vcu_mem bufs[CODEC_MAX_BUFFER];
@@ -77,11 +82,13 @@ struct mtk_vcu_queue {
  * mtk_vcu_mem_init - just init vcu_queue
  *
  * @dev:        vcu device.
+ * @cmdq_dev:   cmdq device.
  *
  * Return:      Return NULL if it is failed.
  * otherwise it is vcu queue to store the allocated buffer
  **/
-struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev);
+struct mtk_vcu_queue *mtk_vcu_mem_init(struct device *dev,
+	struct device *cmdq_dev);
 
 /**
  * mtk_vcu_mem_release - just release the vcu_queue
@@ -126,6 +133,17 @@ void *mtk_vcu_get_buffer(struct mtk_vcu_queue *vcu_queue,
  **/
 int mtk_vcu_free_buffer(struct mtk_vcu_queue *vcu_queue,
 						struct mem_obj *mem_buff_data);
+
+/**
+ * mtk_vcu_free_buffer - decreas reference count for mem_priv
+ *
+ * @vcu_queue:  the queue to store allocated buffer.
+ * @mem_buff_data:      store iova/va to free.
+ *
+ * Return:      Return 0 if it is ok, otherwise failed
+ **/
+void mtk_vcu_buffer_ref_dec(struct mtk_vcu_queue *vcu_queue,
+	void *mem_priv);
 
 /**
  * vcu_buffer_flush_all - flush all VCU buffer cache for device

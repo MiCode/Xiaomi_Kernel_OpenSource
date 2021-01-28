@@ -8,6 +8,7 @@
 #include <linux/uaccess.h>
 #include <linux/wait.h>
 #include <media/v4l2-mem2mem.h>
+#include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcodec_dec_pm.h"
 #include "mtk_vcodec_dec.h"
 #include "mtk_vcodec_drv.h"
@@ -17,7 +18,6 @@
 #include "vdec_vcu_if.h"
 #include "vdec_drv_if.h"
 #include "smi_public.h"
-#include "mtk_vcodec_mem.h"
 
 
 static void handle_init_ack_msg(struct vdec_vcu_ipi_init_ack *msg)

@@ -5,7 +5,7 @@
 
 #include <linux/interrupt.h>
 #include <media/v4l2-mem2mem.h>
-#include "mtk_vcodec_mem.h"
+#include <uapi/linux/mtk_vcu_controls.h>
 #include "mtk_vcu.h"
 #include "venc_vcu_if.h"
 #include "mtk_vcodec_intr.h"
