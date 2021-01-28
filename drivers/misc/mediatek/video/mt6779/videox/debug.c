@@ -667,7 +667,7 @@ static struct test_buf_info fake_layer_buf[PRIMARY_SESSION_INPUT_LAYER_COUNT];
 
 unsigned int get_fake_layer_mva(int i)
 {
-	if (i < PRIMARY_SESSION_INPUT_LAYER_COUNT)
+	if (i >= 0 && i < PRIMARY_SESSION_INPUT_LAYER_COUNT)
 		return fake_layer_buf[i].buf_mva;
 
 	return 0;
