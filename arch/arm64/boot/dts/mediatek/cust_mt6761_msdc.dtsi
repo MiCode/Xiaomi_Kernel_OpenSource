@@ -67,7 +67,7 @@
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	vmmc-supply = <&mt_pmic_vmch_ldo_reg>;
 	vqmmc-supply = <&mt_pmic_vmc_ldo_reg>;
-
+	mediatek,pwrap-regmap = <&pwrap>;
 	clocks = <&infracfg_ao CLK_IFR_MSDC1_SRC>, <&infracfg_ao CLK_IFR_MSDC1>;
 	clock-names = "msdc1-clock", "msdc1-hclock";
 #endif
