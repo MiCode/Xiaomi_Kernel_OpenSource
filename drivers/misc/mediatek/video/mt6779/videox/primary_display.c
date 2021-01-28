@@ -614,22 +614,22 @@ static int primary_show_basic_debug_info(struct disp_frame_cfg_t *cfg)
 
 	dprec_logger_get_result_value(DPREC_LOGGER_RDMA0_TRANSFER_1SECOND,
 				      &fps);
-	snprintf(disp_tmp, sizeof(disp_tmp), ",rdma_fps:%lld.%02lld,",
+	scnprintf(disp_tmp, sizeof(disp_tmp), ",rdma_fps:%lld.%02lld,",
 		 fps.fps, fps.fps_low);
 	screen_logger_add_message("rdma_fps", MESSAGE_REPLACE, disp_tmp);
 
 	dprec_logger_get_result_value(DPREC_LOGGER_OVL_FRAME_COMPLETE_1SECOND,
 				      &fps);
-	snprintf(disp_tmp, sizeof(disp_tmp), "ovl_fps:%lld.%02lld,",
+	scnprintf(disp_tmp, sizeof(disp_tmp), "ovl_fps:%lld.%02lld,",
 		 fps.fps, fps.fps_low);
 	screen_logger_add_message("ovl_fps", MESSAGE_REPLACE, disp_tmp);
 
 	dprec_logger_get_result_value(DPREC_LOGGER_PQ_TRIGGER_1SECOND, &fps);
-	snprintf(disp_tmp, sizeof(disp_tmp), "PQ_trigger:%lld.%02lld,",
+	scnprintf(disp_tmp, sizeof(disp_tmp), "PQ_trigger:%lld.%02lld,",
 		 fps.fps, fps.fps_low);
 	screen_logger_add_message("PQ trigger", MESSAGE_REPLACE, disp_tmp);
 
-	snprintf(disp_tmp, sizeof(disp_tmp), primary_display_is_video_mode() ?
+	scnprintf(disp_tmp, sizeof(disp_tmp), primary_display_is_video_mode() ?
 		 "vdo," : "cmd,");
 	screen_logger_add_message("mode", MESSAGE_REPLACE, disp_tmp);
 
@@ -3554,13 +3554,11 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 		cmdqBackupReadSlot(pgc->ovl_config_time, 0, &time_event);
 		cmdqBackupReadSlot(pgc->ovl_config_time, 1, &time_event1);
 		cmdqBackupReadSlot(pgc->ovl_config_time, 2, &time_event2);
-		n = snprintf(msg, len, "ovl config time_event %d ", time_event);
-		n += snprintf(msg + n, len - n, "time_event1 %d ", time_event1);
-		n += snprintf(msg + n, len - n, "time_event2 %d ", time_event2);
-		n += snprintf(msg + n, len - n, "time1_diff %d ",
-			      time_event1 - time_event);
-		n += snprintf(msg + n, len - n, "time2_diff %d\n",
-			      time_event2 - time_event1);
+		n = scnprintf(msg, len,
+			"ovl config time_event %d time_event1 %d time_event2 %d time1_diff %d time2_diff %d\n",
+			time_event, time_event1, time_event2,
+			time_event1 - time_event,
+			time_event2 - time_event1);
 		DISPMSG("%s", msg);
 #endif
 
@@ -4729,17 +4727,17 @@ int primary_display_release_fence_fake(void)
 		disp_sync_get_cached_layer_info(session, i,
 				&layer_en, (unsigned long *)&addr, &fence_idx);
 		if (fence_idx == -1) {
-			n = snprintf(msg, len, "find fence for layer %d,", i);
-			n += snprintf(msg + n, len - n, "addr 0x%08x fail, ",
+			n = scnprintf(msg, len, "find fence for layer %d,", i);
+			n += scnprintf(msg + n, len - n, "addr 0x%08x fail, ",
 				      addr);
-			n += snprintf(msg + n, len - n, "unregistered\n");
+			n += scnprintf(msg + n, len - n, "unregistered\n");
 			DISP_PR_INFO("%s", msg);
 		} else if (fence_idx < 0) {
-			n = snprintf(msg, len, "find fence idx for layer %d,",
+			n = scnprintf(msg, len, "find fence idx for layer %d,",
 				     i);
-			n += snprintf(msg + n, len - n, "addr 0x%08x fail, ",
+			n += scnprintf(msg + n, len - n, "addr 0x%08x fail, ",
 				      addr);
-			n += snprintf(msg + n, len - n, "unknown\n");
+			n += scnprintf(msg + n, len - n, "unknown\n");
 			DISP_PR_INFO("%s", msg);
 		} else {
 			if (layer_en)
@@ -5100,6 +5098,9 @@ static int check_switch_lcm_mode_for_debug(void)
 	lcm_param_cv = disp_lcm_get_params(pgc->plcm);
 	DISPCHECK("lcm_mode_status=%d, lcm_param_cv->dsi.mode %d\n",
 		  lcm_mode_status, lcm_param_cv->dsi.mode);
+	if (unlikely(!lcm_param_cv))
+		return 0;
+
 	if (lcm_param_cv->dsi.mode != CMD_MODE)
 		vdo_mode_type = lcm_param_cv->dsi.mode;
 
@@ -5260,6 +5261,9 @@ int primary_display_resume(void)
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 				 MMPROFILE_FLAG_PULSE, 1, 2);
 		lcm_param = disp_lcm_get_params(pgc->plcm);
+
+		if (unlikely(!lcm_param))
+			return DISP_STATUS_ERROR;
 
 		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 		memcpy(&(data_config->dispif_config), lcm_param,
@@ -5563,6 +5567,13 @@ int primary_display_aod_backlight(int level)
 		mmprofile_log_ex(ddp_mmp_get_events()->primary_resume,
 				MMPROFILE_FLAG_PULSE, 1, 2);
 		lcm_param = disp_lcm_get_params(pgc->plcm);
+		if (unlikely(!lcm_param)) {
+			_DISP_PRINT_FENCE_OR_ERR(1,
+				"%s #%d lcm_param NULL\n",
+				__func__, __LINE__);
+			__pm_relax(pri_wk_lock);
+			return DISP_STATUS_ERROR;
+		}
 
 		data_config = dpmgr_path_get_last_config(pgc->dpmgr_handle);
 		memcpy(&(data_config->dispif_config), lcm_param,
@@ -6874,7 +6885,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 		if (disp_helper_get_option(DISP_OPT_SHOW_VISUAL_DEBUG_INFO)) {
 			char msg[10];
 
-			snprintf(msg, sizeof(msg), "HRT=%d,", hrt_level);
+			scnprintf(msg, sizeof(msg), "HRT=%d,", hrt_level);
 			screen_logger_add_message("HRT", MESSAGE_REPLACE, msg);
 		}
 	}
@@ -8508,6 +8519,9 @@ int primary_display_ccci_mipi_callback(int en, unsigned int usrdata)
 		return 0;
 
 	lcm_param = disp_lcm_get_params(pgc->plcm);
+	if (unlikely(!lcm_param))
+		return 0;
+
 	if (lcm_param->dsi.dynamic_switch_mipi == 0)
 		return 0;
 
@@ -8886,22 +8900,22 @@ int primary_display_capture_framebuffer(unsigned long pbuf)
 	char msg[len];
 	int n = 0;
 
-	n = snprintf(msg, len, "w_res=%d, h_yres=%d, pixel_bpp=%d, w_fb=%d, ",
+	n = scnprintf(msg, len, "w_res=%d, h_yres=%d, pixel_bpp=%d, w_fb=%d, ",
 		     w_xres, h_yres, Bpp, w_fb);
-	n += snprintf(msg + n, len - n, "fbsize=%d, fbaddress=0x%lx\n",
+	n += scnprintf(msg + n, len - n, "fbsize=%d, fbaddress=0x%lx\n",
 		      fbsize, fbaddress);
 	DISPMSG("%s", msg);
 
 	fbv = ioremap(fbaddress, fbsize);
-	n = snprintf(msg, len, "w_xres=%d, h_yres=%d, w_fb=%d, pixel_bpp=%d, ",
+	n = scnprintf(msg, len, "w_xres=%d, h_yres=%d, w_fb=%d, pixel_bpp=%d, ",
 		     w_xres, h_yres, w_fb, Bpp);
-	n += snprintf(msg + n, len - n, "fbsize=%d, fbaddress = 0x%08lx\n",
+	n += scnprintf(msg + n, len - n, "fbsize=%d, fbaddress = 0x%08lx\n",
 		      fbsize, fbaddress);
 	DISPMSG("%s", msg);
 	if (!fbv) {
-		n = snprintf(msg, len, "[FB Driver], Unable to allocate ");
-		n += snprintf(msg + n, len - n, "memory for frame buffer: ");
-		n += snprintf(msg + n, len - n, "address=0x%lx, size=0x%08x\n",
+		n = scnprintf(msg, len, "[FB Driver], Unable to allocate ");
+		n += scnprintf(msg + n, len - n, "memory for frame buffer: ");
+		n += scnprintf(msg + n, len - n, "address=0x%lx, size=0x%08x\n",
 			      fbaddress, fbsize);
 		DISPMSG("%s", msg);
 		return -1;
@@ -9469,6 +9483,9 @@ int primary_display_resolution_test(void)
 		DISPCHECK("%s:width %d, heigh %d\n",
 			  __func__, dst_width, dst_heigh);
 		lcm_param2 = disp_lcm_get_params(pgc->plcm);
+		if (unlikely(!lcm_param2))
+			return ret;
+
 		lcm_param2->dsi.mode = CMD_MODE;
 		lcm_param2->dsi.horizontal_active_pixel = dst_width;
 		lcm_param2->dsi.vertical_active_line = dst_heigh;
@@ -9508,11 +9525,8 @@ int primary_display_resolution_test(void)
 			char msg[len];
 			int n = 0;
 
-			n = snprintf(msg, len, "[display_test]=>Fatal error, ");
-			n += snprintf(msg + n, len - n,
-				      "we didn't trigger display path ");
-			n += snprintf(msg + n, len - n,
-				      "but it's already busy\n");
+			n = scnprintf(msg, len,
+				"[display_test]=>Fatal error, we didn't trigger display path but it's already busy\n");
 			DISP_PR_ERR("%s", msg);
 		}
 
@@ -9537,6 +9551,8 @@ int primary_display_resolution_test(void)
 	}
 	dpmgr_path_stop(pgc->dpmgr_handle, CMDQ_DISABLE);
 	lcm_param2 = disp_lcm_get_params(pgc->plcm);
+	if (unlikely(!lcm_param2))
+		return ret;
 	lcm_param2->dsi.mode = dsi_mode_backup;
 	lcm_param2->dsi.vertical_active_line = h_backup;
 	lcm_param2->dsi.horizontal_active_pixel = w_backup;
@@ -9609,10 +9625,10 @@ int primary_display_check_test(void)
 		char msg[len];
 		int n = 0;
 
-		n = snprintf(msg, len, "[display_test]=>Fatal error, ");
-		n += snprintf(msg + n, len - n,
+		n = scnprintf(msg, len, "[display_test]=>Fatal error, ");
+		n += scnprintf(msg + n, len - n,
 			      "we didn't trigger display path ");
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "but it's already busy\n");
 		DISP_PR_ERR("%s", msg);
 	}

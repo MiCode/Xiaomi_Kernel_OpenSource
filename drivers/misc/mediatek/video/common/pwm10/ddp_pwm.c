@@ -241,11 +241,11 @@ static void disp_pwm_query_backlight(char *debug_output)
 
 	if (high_width > 0) {
 		/* print backlight status */
-		snprintf(temp_buf, buf_max_len,
+		scnprintf(temp_buf, buf_max_len,
 			"backlight is on (%d), ddp_pwm power:(%d)",
 			high_width, atomic_read(&g_pwm_is_power_on[index]));
 	} else {
-		snprintf(temp_buf, buf_max_len,
+		scnprintf(temp_buf, buf_max_len,
 			"backlight is off, ddp_pwm power:(%d)",
 			atomic_read(&g_pwm_is_power_on[index]));
 	}
@@ -456,10 +456,14 @@ static void disp_pwm_log(int level_1024, int log_type)
 	print_log = 0;
 
 	if (g_pwm_log_index >= g_pwm_log_num || level_1024 == 0) {
-		sprintf(buffer + strlen(buffer), "(latest=%2u): ",
+		scnprintf(buffer + strlen(buffer),
+			sizeof(buffer) - strlen(buffer),
+			"(latest=%2u): ",
 			g_pwm_log_index);
 		for (i = 0; i < g_pwm_log_index; i += 1) {
-			sprintf(buffer + strlen(buffer), "%5d(%4lu,%4lu)",
+			scnprintf(buffer + strlen(buffer),
+				sizeof(buffer) - strlen(buffer),
+				"%5d(%4lu,%4lu)",
 				g_pwm_log_buffer[i].value,
 				g_pwm_log_buffer[i].tsec,
 				g_pwm_log_buffer[i].tusec);

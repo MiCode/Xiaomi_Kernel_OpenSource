@@ -533,6 +533,9 @@ void layering_rule_init(void)
 	unsigned int rc_mode =
 			disp_helper_get_option(DISP_OPT_ROUND_CORNER_MODE);
 	struct LCM_PARAMS *lcm_param = disp_lcm_get_params(primary_get_lcm());
+	if (unlikely(!lcm_param))
+		return;
+
 #endif
 
 	l_rule_info.primary_fps = 60;

@@ -218,14 +218,14 @@ static int wdma_config(enum DISP_MODULE_ENUM module,
 	char msg[len];
 	int n = 0;
 
-	n = snprintf(msg, len, "%s,src(%dx%d),clip(%d,%d,%dx%d),fmt=%s,",
-		     ddp_get_module_name(module), srcWidth, srcHeight,
-		     clipX, clipY, clipWidth, clipHeight,
-		     unified_color_fmt_name(out_format));
-	n += snprintf(msg + n, len - n,
-		      "addr=0x%lx,pitch=%d,s_alfa=%d,alpa=%d,hnd=0x%p,sec%d\n",
-		      dstAddress, dstPitch, useSpecifiedAlpha, alpha, handle,
-		      sec);
+	n = scnprintf(msg, len, "%s,src(%dx%d),clip(%d,%d,%dx%d),fmt=%s,",
+		      ddp_get_module_name(module), srcWidth, srcHeight,
+		      clipX, clipY, clipWidth, clipHeight,
+		      unified_color_fmt_name(out_format));
+	n += scnprintf(msg + n, len - n,
+		       "addr=0x%lx,pitch=%d,s_alfa=%d,alpa=%d,hnd=0x%p,sec%d\n",
+		       dstAddress, dstPitch, useSpecifiedAlpha, alpha, handle,
+		       sec);
 	DDPDBG("%s", msg);
 
 	SET_VAL_MASK(value, mask, 0, CFG_FLD_UFO_DCP_ENABLE);
@@ -488,7 +488,7 @@ void wdma_dump_analysis(enum DISP_MODULE_ENUM module)
 	int n = 0;
 
 	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	n = snprintf(msg, len, "en=%d,src(%dx%d),clip=(%d,%d,%dx%d),",
+	n = scnprintf(msg, len, "en=%d,src(%dx%d),clip=(%d,%d,%dx%d),",
 		DISP_REG_GET(DISP_REG_WDMA_EN + idx_offst) & 0x01,
 		DISP_REG_GET(DISP_REG_WDMA_SRC_SIZE + idx_offst) & 0x3fff,
 		(DISP_REG_GET(DISP_REG_WDMA_SRC_SIZE + idx_offst) >> 16) &
@@ -499,7 +499,7 @@ void wdma_dump_analysis(enum DISP_MODULE_ENUM module)
 		DISP_REG_GET(DISP_REG_WDMA_CLIP_SIZE + idx_offst) & 0x3fff,
 		(DISP_REG_GET(DISP_REG_WDMA_CLIP_SIZE + idx_offst) >> 16) &
 			0x3fff);
-	n += snprintf(msg + n, len - n,
+	n += scnprintf(msg + n, len - n,
 		"(pitch=(W=%d,UV=%d),addr=(0x%08x,0x%08x,0x%08x),fmt=%s\n",
 		DISP_REG_GET(DISP_REG_WDMA_DST_W_IN_BYTE + idx_offst),
 		DISP_REG_GET(DISP_REG_WDMA_DST_UV_PITCH + idx_offst),
@@ -514,13 +514,13 @@ void wdma_dump_analysis(enum DISP_MODULE_ENUM module)
 		);
 	DDPDUMP("%s", msg);
 
-	n = snprintf(msg, len, "state=%s,in_req=%d(prev sent data),",
+	n = scnprintf(msg, len, "state=%s,in_req=%d(prev sent data),",
 		wdma_get_state(DISP_REG_GET_FIELD
 				(FLOW_CTRL_DBG_FLD_WDMA_STA_FLOW_CTRL,
 				 DISP_REG_WDMA_FLOW_CTRL_DBG + idx_offst)),
 		DISP_REG_GET_FIELD(FLOW_CTRL_DBG_FLD_WDMA_IN_VALID,
 				   DISP_REG_WDMA_FLOW_CTRL_DBG + idx_offst));
-	n += snprintf(msg + n, len - n,
+	n += scnprintf(msg + n, len - n,
 		"in_ack=%d(ask data to prev),start=%d,end=%d,pos:in(%d,%d)\n",
 		DISP_REG_GET_FIELD(FLOW_CTRL_DBG_FLD_WDMA_IN_READY,
 				   DISP_REG_WDMA_FLOW_CTRL_DBG + idx_offst),
@@ -545,118 +545,118 @@ void wdma_dump_reg(enum DISP_MODULE_ENUM module)
 
 		DDPDUMP("== START: DISP %s REGS ==\n",
 			ddp_get_module_name(module));
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x0, INREG32(module_base + 0x0),
 			     0x4, INREG32(module_base + 0x4));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x8, INREG32(module_base + 0x8),
 			      0xC, INREG32(module_base + 0xC));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x10, INREG32(module_base + 0x10),
 			     0x14, INREG32(module_base + 0x14));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x18, INREG32(module_base + 0x18),
 			      0x1C, INREG32(module_base + 0x1C));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x20, INREG32(module_base + 0x20),
 			     0x28, INREG32(module_base + 0x28));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x2C, INREG32(module_base + 0x2C),
 			      0x38, INREG32(module_base + 0x38));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x3C, INREG32(module_base + 0x3C),
 			     0x40, INREG32(module_base + 0x40));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x44, INREG32(module_base + 0x44),
 			      0x48, INREG32(module_base + 0x48));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x4C, INREG32(module_base + 0x4C),
 			     0x50, INREG32(module_base + 0x50));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x54, INREG32(module_base + 0x54),
 			      0x58, INREG32(module_base + 0x58));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x5C, INREG32(module_base + 0x5C),
 			     0x60, INREG32(module_base + 0x60));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x64, INREG32(module_base + 0x64),
 			      0x78, INREG32(module_base + 0x78));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x80, INREG32(module_base + 0x80),
 			     0x84, INREG32(module_base + 0x84));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0x88, INREG32(module_base + 0x88),
 			      0x90, INREG32(module_base + 0x90));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0x94, INREG32(module_base + 0x94),
 			     0x98, INREG32(module_base + 0x98));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0xA0, INREG32(module_base + 0xA0),
 			      0xA4, INREG32(module_base + 0xA4));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0xA8, INREG32(module_base + 0xA8),
 			     0xAC, INREG32(module_base + 0xAC));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0xB0, INREG32(module_base + 0xB0),
 			      0xB4, INREG32(module_base + 0xB4));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0xB8, INREG32(module_base + 0xB8),
 			     0x100, INREG32(module_base + 0x100));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0xE00, INREG32(module_base + 0xE00),
 			      0xE14, INREG32(module_base + 0xE14));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0xE18, INREG32(module_base + 0xE18),
 			     0xE1C, INREG32(module_base + 0xE1C));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0xE20, INREG32(module_base + 0xE20),
 			      0xE24, INREG32(module_base + 0xE24));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0xE28, INREG32(module_base + 0xE28),
 			     0xE2C, INREG32(module_base + 0xE2C));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0xE30, INREG32(module_base + 0xE30),
 			      0xE34, INREG32(module_base + 0xE34));
 		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
+		n = scnprintf(msg, len, "WDMA0: 0x%04x=0x%08x, 0x%04x=0x%08x, ",
 			     0xE38, INREG32(module_base + 0xE38),
 			     0xE3C, INREG32(module_base + 0xE3C));
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "0x%04x=0x%08x, 0x%04x=0x%08x\n",
 			      0xE40, INREG32(module_base + 0xE40),
 			      0xE44, INREG32(module_base + 0xE44));
@@ -685,11 +685,11 @@ void wdma_dump_reg(enum DISP_MODULE_ENUM module)
 			DISP_REG_GET(DISP_REG_WDMA_SRC_SIZE + off_sft),
 			DISP_REG_GET(DISP_REG_WDMA_CLIP_SIZE + off_sft));
 
-		n = snprintf(msg, len, "0x020:0x%08x 0x028:0x%08x 0x%08x ",
+		n = scnprintf(msg, len, "0x020:0x%08x 0x028:0x%08x 0x%08x ",
 			DISP_REG_GET(DISP_REG_WDMA_CLIP_COORD + off_sft),
 			DISP_REG_GET(DISP_REG_WDMA_DST_W_IN_BYTE + off_sft),
 			DISP_REG_GET(DISP_REG_WDMA_ALPHA + off_sft));
-		n += snprintf(msg + n, len - n, "0x038:0x%08x 0x078:0x%08x\n",
+		n += scnprintf(msg + n, len - n, "0x038:0x%08x 0x078:0x%08x\n",
 			DISP_REG_GET(DISP_REG_WDMA_BUF_CON1 + off_sft),
 			DISP_REG_GET(DISP_REG_WDMA_DST_UV_PITCH + off_sft));
 		DDPDUMP("%s", msg);

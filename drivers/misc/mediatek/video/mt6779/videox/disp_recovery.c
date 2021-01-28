@@ -484,10 +484,9 @@ static int primary_display_check_recovery_worker_kthread(void *data)
 			char msg[len];
 			int n = 0;
 
-			n = snprintf(msg, len, "[ESD]LCM recover fail. ");
-			n += snprintf(msg + n, len - n,
-				      "Try time:%d. Disable esd check\n",
-				      esd_try_cnt);
+			n = scnprintf(msg, len,
+				"[ESD]LCM recover fail. Try time:%d. Disable esd check\n",
+				esd_try_cnt);
 			DISP_PR_ERR("%s", msg);
 			primary_display_esd_check_enable(0);
 		} else if (recovery_done == 1) {
@@ -1074,9 +1073,8 @@ static int external_display_check_recovery_worker_kthread(void *data)
 		ret = wait_event_interruptible(extd_check_task_wq,
 					atomic_read(&extd_check_task_wakeup));
 		if (ret < 0) {
-			n = snprintf(msg, len, "[ext_disp_check]check thread ");
-			n += snprintf(msg + n, len - n,
-				      "waked up accidently\n");
+			n = scnprintf(msg, len,
+				"[ext_disp_check]check thread waked up accidently\n");
 			DISPCHECK("%s", msg);
 			continue;
 		}
@@ -1094,20 +1092,18 @@ static int external_display_check_recovery_worker_kthread(void *data)
 			ret = external_display_esd_check();
 			if (ret != 1)
 				break;
-			n = snprintf(msg, len, "[EXTD-ESD]esd check fail, ");
-			n += snprintf(msg + n, len - n,
-				      "will do esd recovery. try=%d\n", i);
+			n = scnprintf(msg, len,
+				"[EXTD-ESD]esd check fail, will do esd recovery. try=%d\n",
+				i);
 			DISP_PR_ERR("%s", msg);
 			ext_disp_esd_recovery();
 			recovery_done = 1;
 		} while (++i < esd_try_cnt);
 
 		if (ret == 1) {
-			n = snprintf(msg, len,
-				     "[EXTD-ESD]after esd recovery %d times, ",
-				     esd_try_cnt);
-			n += snprintf(msg + n, len - n,
-				      "still fail, disable esd check\n");
+			n = scnprintf(msg, len,
+				"[EXTD-ESD]after esd recovery %d times, still fail, disable esd check\n",
+				esd_try_cnt);
 			DISP_PR_ERR("%s", msg);
 			external_display_esd_check_enable(0);
 		} else if (recovery_done == 1) {

@@ -73,11 +73,10 @@ static int ddp_get_mutex_src(enum DISP_MODULE_ENUM dest_module,
 		char msg[len];
 		int n = 0;
 
-		n = snprintf(msg, len, "get mutex sof, invalid param ");
-		n += snprintf(msg + n, len - n,
-			      "dst module = %s(%d), dsi mode %s\n",
-			      ddp_get_module_name(dest_module), dest_module,
-			      ddp_get_mode_name(ddp_mode));
+		n = scnprintf(msg, len,
+			"get mutex sof, invalid param dst module = %s(%d), dsi mode %s\n",
+			ddp_get_module_name(dest_module), dest_module,
+			ddp_get_mode_name(ddp_mode));
 		DDP_PR_ERR("%s", msg);
 		WARN_ON(1);
 	}

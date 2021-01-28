@@ -434,7 +434,7 @@ void _dump_dsi_params(struct LCM_DSI_PARAMS *dsi_config)
 			break;
 		}
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[DDPDSI] vact: %d, vbp: %d, vfp: %d, vact_line: %d,hact: %d, hbp: %d, hfp: %d, hblank: %d\n",
 			     dsi_config->vertical_sync_active,
 			     dsi_config->vertical_backporch,
@@ -444,56 +444,36 @@ void _dump_dsi_params(struct LCM_DSI_PARAMS *dsi_config)
 			     dsi_config->horizontal_backporch,
 			     dsi_config->horizontal_frontporch,
 			     dsi_config->horizontal_blanking_pixel);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[DDPDSI] pll_select: %d, pll_div1: %d, pll_div2: %d, fbk_div: %d, fbk_sel: %d, rg_bir: %d\n",
 			     dsi_config->pll_select, dsi_config->pll_div1,
 			     dsi_config->pll_div2, dsi_config->fbk_div,
 			     dsi_config->fbk_sel, dsi_config->rg_bir);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[DDPDSI] rg_bic: %d, rg_bp: %d, PLL_CLOCK: %d, dsi_clock: %d, ssc_range: %d\n",
 			     dsi_config->rg_bic, dsi_config->rg_bp,
 			     dsi_config->PLL_CLOCK, dsi_config->dsi_clock,
 			     dsi_config->ssc_range);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[DDPDSI] ssc_disable: %d, compatibility_for_nvk: %d, cont_clock: %d\n",
 			     dsi_config->ssc_disable,
 			     dsi_config->compatibility_for_nvk,
 			     dsi_config->cont_clock);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[DDPDSI] lcm_ext_te_enable: %d, noncont_clock: %d, noncont_clock_period: %d\n",
 			     dsi_config->lcm_ext_te_enable,
 			     dsi_config->noncont_clock,
 			     dsi_config->noncont_clock_period);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
 	}
 }
@@ -1586,15 +1566,11 @@ static void _DSI_PHY_clk_setting(enum DISP_MODULE_ENUM module,
 			MIPITX_OUTREGBIT(DSI_PHY_REG[i] + MIPITX_PLL_CON3,
 					 FLD_RG_DSI_PLL_SDM_SSC_DELTA1,
 					 pdelta1);
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "PLL config:data_rate=%d,pcw_ratio=%d, delta1=%d,pdelta1=0x%x\n",
 				     data_Rate, pcw_ratio,
 				     delta1, pdelta1);
-			if (n < 0)
-				DISP_LOG_E("[%s %d]snprintf err:%d\n",
-					   __func__, __LINE__, n);
-			else
-				DDPMSG("%s", msg);
+			DDPMSG("%s", msg);
 		}
 	}
 
@@ -2260,14 +2236,10 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 	} else if (dsi_params->PLL_CLOCK) {
 		ui = 1000 / (dsi_params->PLL_CLOCK * 2) + 0x01;
 		cycle_time = 8000 / (dsi_params->PLL_CLOCK * 2) + 0x01;
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[DISP] - kernel - %s, Cycle Time = %d(ns), Unit Interval = %d(ns)., lane# = %d\n",
 			     __func__, cycle_time, ui, lane_no);
-		if (n < 0) {
-			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-				     __func__, __LINE__, n);
-		} else
-			DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
+		DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
 
 	} else {
 		DISP_PR_ERR("[dsi_dsi.c] PLL clock should not be 0!\n");
@@ -2343,7 +2315,7 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 				NS_TO_CYCLE((0x60 + 0x34 * ui), cycle_time) :
 				dsi_params->CLK_HS_POST;
 
-	n = snprintf(msg, len,
+	n = scnprintf(msg, len,
 		     "[DISP] - %s %d, HS[TRAIL=%d, ZERO=%d, PRPR=%d], LPX=%d, TA[GET=%d, SURE=%d, GO=%d], CLK[TRAIL=%d, ZERO=%d, HS_PRPR=%d]\n",
 		     __func__, __LINE__,
 		     timcon0.HS_TRAIL, timcon0.HS_ZERO,
@@ -2351,11 +2323,7 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 		     timcon1.TA_GET, timcon1.TA_SURE, timcon1.TA_GO,
 		     timcon2.CLK_TRAIL, timcon2.CLK_ZERO,
 		     timcon3.CLK_HS_PRPR);
-	if (n < 0) {
-		DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-			     __func__, __LINE__, n);
-	} else
-		DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
+	DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		unsigned int value = 0;
@@ -3745,13 +3713,9 @@ static void DSI_PHY_CLK_LP_PerLine_config(enum DISP_MODULE_ENUM module,
 				  (v_a - v_b), hstx_ckl_wc);
 			DISPCHECK("===>v_b+v_c=0x%x,HFP_WC=0x%x\n",
 				  (v_b+v_c), hfp.HFP_WC);
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "===>Will Reconfig in order to fulfill LP clock lane per line\n");
-			if (n < 0)
-				DISPINFO("[%s %d]snprintf err:%d\n",
-					 __func__, __LINE__, n);
-			else
-				DISPCHECK("%s", msg);
+			DISPCHECK("%s", msg);
 
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_HFP_WC,
 				     (v_b + v_c + DIFF_CLK_LANE_LP));
@@ -3787,13 +3751,9 @@ static void DSI_PHY_CLK_LP_PerLine_config(enum DISP_MODULE_ENUM module,
 				  (v_a - v_b), hstx_ckl_wc);
 			DISPCHECK("===>v_b+v_c=0x%x,HFP_WC=0x%x\n",
 				  (v_b+v_c), hfp.HFP_WC);
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "===>Will Reconfig in order to fulfill LP clock lane per line\n");
-			if (n < 0)
-				DISPINFO("[%s %d]snprintf err:%d\n",
-					 __func__, __LINE__, n);
-			else
-				DISPCHECK("%s", msg);
+			DISPCHECK("%s", msg);
 
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_HFP_WC,
 				     (v_b + v_c + DIFF_CLK_LANE_LP));
@@ -3830,14 +3790,9 @@ static void DSI_PHY_CLK_LP_PerLine_config(enum DISP_MODULE_ENUM module,
 				  (v_a - v_b), hstx_ckl_wc);
 			DISPCHECK("===>v_b+v_c=0x%x,HFP_WC=0x%x\n",
 				  (v_b+v_c), hfp.HFP_WC);
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "===>Will Reconfig in order to fulfill LP clock lane per line\n");
-			if (n < 0)
-				DISPINFO("[%s %d]snprintf err:%d\n",
-					 __func__, __LINE__, n);
-			else
-				DISPCHECK("%s", msg);
-
+			DISPCHECK("%s", msg);
 
 			DSI_OUTREG32(cmdq, &DSI_REG[i]->DSI_HFP_WC,
 				     (v_b + v_c + DIFF_CLK_LANE_LP));
@@ -4827,7 +4782,7 @@ void dsi_analysis(enum DISP_MODULE_ENUM module)
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		DDPDUMP("MIPITX Clock:%d\n", dsi_phy_get_clk(module));
 #endif
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			"start:%x,busy:%d,DSI_DUAL_EN:%d,mode:%s,high_speed:%d,FSM_State:%s\n",
 			     DSI_REG[i]->DSI_START.DSI_START,
 			     DSI_REG[i]->DSI_INTSTA.BUSY,
@@ -4836,13 +4791,9 @@ void dsi_analysis(enum DISP_MODULE_ENUM module)
 			     DSI_REG[i]->DSI_PHY_LCCON.LC_HS_TX_EN,
 			     _dsi_cmd_mode_parse_state(
 				    DSI_REG[i]->DSI_STATE_DBG6.CMTRL_STATE));
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "IRQ,RD_RDY:%d,CMD_DONE:%d,SLEEPOUT_DONE:%d,TE_RDY:%d,VM_CMD_DONE:%d,VM_DONE:%d\n",
 			     DSI_REG[i]->DSI_INTSTA.RD_RDY,
 			     DSI_REG[i]->DSI_INTSTA.CMD_DONE,
@@ -4850,35 +4801,23 @@ void dsi_analysis(enum DISP_MODULE_ENUM module)
 			     DSI_REG[i]->DSI_INTSTA.TE_RDY,
 			     DSI_REG[i]->DSI_INTSTA.VM_CMD_DONE,
 			     DSI_REG[i]->DSI_INTSTA.VM_DONE);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			"lane_num:%d,Ext_TE_EN:%d,Ext_TE_Edge:%d,HSTX_CKLP_EN:%d\n",
 			     DSI_REG[i]->DSI_TXRX_CTRL.LANE_NUM,
 			     DSI_REG[i]->DSI_TXRX_CTRL.EXT_TE_EN,
 			     DSI_REG[i]->DSI_TXRX_CTRL.EXT_TE_EDGE,
 			     DSI_REG[i]->DSI_TXRX_CTRL.HSTX_CKLP_EN);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			"LFR_en:%d,LFR_MODE:%d,LFR_TYPE:%d,LFR_SKIP_NUMBER:%d\n",
 			     DSI_REG[i]->DSI_LFR_CON.LFR_EN,
 			     DSI_REG[i]->DSI_LFR_CON.LFR_MODE,
 			     DSI_REG[i]->DSI_LFR_CON.LFR_TYPE,
 			     DSI_REG[i]->DSI_LFR_CON.LFR_SKIP_NUM);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DDPDUMP("%s", msg);
+		DDPDUMP("%s", msg);
 	}
 }
 
@@ -5099,37 +5038,25 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module, void *cmdq_trigger_handle,
 
 			lcm_esd_tb = &dsi_params->lcm_esd_check_table[i];
 
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "[DSI]enter cmp read_data0 byte0=0x%x byte1=0x%x byte2=0x%x byte3=0x%x\n",
 				     read_data0.byte0, read_data0.byte1,
 				     read_data0.byte2, read_data0.byte3);
-			if (unlikely(n < 0))
-				DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-					     __func__, __LINE__, n);
-			else
-				DISPDBG("%s", msg);
+			DISPDBG("%s", msg);
 
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "[DSI]enter cmp read_data1 byte0=0x%x byte1=0x%x byte2=0x%x byte3=0x%x\n",
 				     read_data1.byte0, read_data1.byte1,
 				     read_data1.byte2, read_data1.byte3);
-			if (unlikely(n < 0))
-				DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-					     __func__, __LINE__, n);
-			else
-				DISPDBG("%s", msg);
+			DISPDBG("%s", msg);
 
-			n = snprintf(msg, len,
+			n = scnprintf(msg, len,
 				     "[DSI]enter cmp check_table cmd=0x%x,count=0x%x,para_list[0]=0x%x,para_list[1]=0x%x\n",
 				     lcm_esd_tb->cmd,
 				     lcm_esd_tb->count,
 				     lcm_esd_tb->para_list[0],
 				     lcm_esd_tb->para_list[1]);
-			if (unlikely(n < 0))
-				DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-					     __func__, __LINE__, n);
-			else
-				DISPDBG("%s", msg);
+			DISPDBG("%s", msg);
 
 			DISPDBG("[DSI]enter cmp DSI+0x200=0x%x\n",
 				AS_UINT32(DISPSYS_DSI0_BASE + 0x200));
@@ -5154,14 +5081,10 @@ int ddp_dsi_build_cmdq(enum DISP_MODULE_ENUM module, void *cmdq_trigger_handle,
 				ret = 0; /* esd pass */
 			} else {
 				/* esd fail */
-				n = snprintf(msg, len,
+				n = scnprintf(msg, len,
 					     "[DSI]cmp fail:read(0x%x)!=expect(0x%x)\n",
 					     read_data0.byte1,
 					     lcm_esd_tb->para_list[0]);
-				if (unlikely(n < 0))
-					DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-						     __func__, __LINE__, n);
-				else
 					DISP_PR_ERR("%s", msg);
 				ret = 1;
 				break;

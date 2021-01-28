@@ -53,11 +53,15 @@ int primary_display_get_max_refresh_rate(void)
 	struct LCM_PARAMS *lcm_params = NULL;
 
 	lcm_params = disp_lcm_get_params(primary_get_lcm());
+
+	if (unlikely(!lcm_params))
+		goto out;
+
 	/* _primary_path_lock(__func__); */
 	if (lcm_params->max_refresh_rate)
 		fps = lcm_params->max_refresh_rate;
 	/* _primary_path_unlock(__func__); */
-
+out:
 	return fps;
 }
 
@@ -67,11 +71,15 @@ int primary_display_get_min_refresh_rate(void)
 	struct LCM_PARAMS *lcm_params = NULL;
 
 	lcm_params = disp_lcm_get_params(primary_get_lcm());
+
+	if (unlikely(!lcm_params))
+		goto out;
+
 	/* _primary_path_lock(__func__); */
 	if (lcm_params->min_refresh_rate)
 		ret = lcm_params->min_refresh_rate;
 	/* _primary_path_unlock(__func__); */
-
+out:
 	return ret;
 }
 

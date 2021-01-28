@@ -83,18 +83,14 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 					   sBufAddr[index] != rdmaInfo.addr)) {
 			sBufAddr[index] = rdmaInfo.addr;
 #ifdef CONFIG_TRACING
-			ret = sprintf(tag_name, index ?  "ExtDispRefresh" :
-				      "PrimDispRefresh");
-			if (ret) {
-				preempt_disable();
-				event_trace_printk(disp_get_tracing_mark(),
-						   "C|%d|%s|%d\n",
-						   DDP_IRQ_FPS_ID,
-						   tag_name, 1);
-				preempt_enable();
-			} else
-				pr_info("[%s %d] sprintf error:%d\n",
-					__func__, __LINE__, ret);
+			ret = scnprintf(tag_name, 20,
+				index ? "ExtDispRefresh" : "PrimDispRefresh");
+			preempt_disable();
+			event_trace_printk(disp_get_tracing_mark(),
+					   "C|%d|%s|%d\n",
+					   DDP_IRQ_FPS_ID,
+					   tag_name, 1);
+			preempt_enable();
 #endif
 		}
 		return;
@@ -129,18 +125,14 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 
 	if (b_layer_changed) {
 #ifdef CONFIG_TRACING
-		ret = sprintf(tag_name, index ? "ExtDispRefresh" :
-			      "PrimDispRefresh");
-		if (ret) {
-			preempt_disable();
-			event_trace_printk(disp_get_tracing_mark(),
-					   "C|%d|%s|%d\n",
-					   DDP_IRQ_FPS_ID,
-					   tag_name, 1);
-			preempt_enable();
-		} else
-			pr_info("[%s %d] sprintf error:%d\n",
-				__func__, __LINE__, ret);
+		ret = scnprintf(tag_name, 20,
+			index ? "ExtDispRefresh" : "PrimDispRefresh");
+		preempt_disable();
+		event_trace_printk(disp_get_tracing_mark(),
+				   "C|%d|%s|%d\n",
+				   DDP_IRQ_FPS_ID,
+				   tag_name, 1);
+		preempt_enable();
 #endif
 	}
 }
@@ -151,18 +143,14 @@ static void ddp_disp_refresh_tag_end(unsigned int index)
 	char tag_name[30] = { '\0' };
 	int ret;
 
-	ret = sprintf(tag_name, index ?  "ExtDispRefresh" :
-		      "PrimDispRefresh");
-	if (ret) {
-		preempt_disable();
-		event_trace_printk(disp_get_tracing_mark(),
-							"C|%d|%s|%d\n",
-							DDP_IRQ_FPS_ID,
-							tag_name, 0);
-		preempt_enable();
-	} else
-		pr_info("[%s %d] sprintf error:%d\n",
-			__func__, __LINE__, ret);
+	ret = scnprintf(tag_name, 20,
+		index ?  "ExtDispRefresh" : "PrimDispRefresh");
+	preempt_disable();
+	event_trace_printk(disp_get_tracing_mark(),
+						"C|%d|%s|%d\n",
+						DDP_IRQ_FPS_ID,
+						tag_name, 0);
+	preempt_enable();
 #endif
 }
 
@@ -199,11 +187,11 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 			ddp_disp_refresh_tag_start(index);
 
 		if (reg_val & (1 << 4)) {
-			if (sprintf(tag_name, "rdma%d_underflow", index))
+			if (scnprintf(tag_name, 50, "rdma%d_underflow", index))
 				ddp_err_irq_met_tag(tag_name);
 		}
 		if (reg_val & (1 << 3)) {
-			if (sprintf(tag_name, "rdma%d_abnormal", index))
+			if (scnprintf(tag_name, 50, "rdma%d_abnormal", index))
 				ddp_err_irq_met_tag(tag_name);
 		}
 		break;

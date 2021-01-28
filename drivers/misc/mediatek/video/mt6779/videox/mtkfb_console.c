@@ -493,6 +493,11 @@ void screen_logger_add_message(char *obj, enum message_mode mode, char *message)
 		case MESSAGE_APPEND:
 			len = strlen(p->message) + strlen(message);
 			new = kmalloc(sizeof(char) * (len + 1), GFP_KERNEL);
+			if (unlikely(!new)) {
+				pr_info("%s #%d kmalloc failed\n",
+					__func__, __LINE__);
+				break;
+			}
 			strncpy(new, p->message, strlen(p->message));
 			strncat(new, message, strlen(message));
 			old = p->message;

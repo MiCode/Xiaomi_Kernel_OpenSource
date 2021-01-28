@@ -164,6 +164,10 @@ static u32 *get_ovl_csc(enum ovl_colorspace in, enum ovl_colorspace out)
 	static u32 *ovl_csc[OVL_CS_NUM][OVL_CS_NUM];
 	static bool inited;
 
+	if ((unsigned int)in >= OVL_CS_UNKNOWN ||
+		(unsigned int)out >= OVL_CS_UNKNOWN)
+		return 0;
+
 	if (inited)
 		goto done;
 

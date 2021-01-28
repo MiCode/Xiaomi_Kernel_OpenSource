@@ -367,12 +367,10 @@ static int disp_probe_1(void)
 			node = of_find_compatible_node(NULL,
 					NULL, ddp_get_module_dtname(i));
 			if (node == NULL) {
-				n = snprintf(msg, len,
-						"[ERR]DT, i=%d, module=%s, ",
-						i, ddp_get_module_name(i));
-				n += snprintf(msg + n, len - n,
-						"unable to find node, dt_name=%s\n",
-						ddp_get_module_dtname(i));
+				n = scnprintf(msg, len,
+					"[ERR]DT, i=%d, module=%s, unable to find node, dt_name=%s\n",
+					i, ddp_get_module_name(i),
+					ddp_get_module_dtname(i));
 				DDP_PR_ERR("%s", msg);
 				continue;
 			}
@@ -380,10 +378,9 @@ static int disp_probe_1(void)
 
 		va = (unsigned long)of_iomap(node, 0);
 		if (!va) {
-			n = snprintf(msg, len, "[ERR]DT, i=%d, module=%s, ",
-				     i, ddp_get_module_name(i));
-			n += snprintf(msg + n, len - n,
-				      "unable to ge VA, of_iomap fail\n");
+			n = scnprintf(msg, len,
+				"[ERR]DT, i=%d, module=%s, unable to ge VA, of_iomap fail\n",
+				i, ddp_get_module_name(i));
 			DDP_PR_ERR("%s", msg);
 			continue;
 		} else {
@@ -398,13 +395,12 @@ static int disp_probe_1(void)
 		}
 
 		if (ddp_get_module_pa(i) != res.start) {
-			n = snprintf(msg, len, "[ERR]DT, i=%d, module=%s, ",
-				     i, ddp_get_module_name(i));
-			n += snprintf(msg + n, len - n,
-				      "map_addr=%p, reg_pa=0x%lx!=0x%pa\n",
-				      (void *)ddp_get_module_va(i),
-				      ddp_get_module_pa(i),
-				      (void *)(uintptr_t)res.start);
+			n = scnprintf(msg, len,
+				"[ERR]DT, i=%d, module=%s, map_addr=%p, reg_pa=0x%lx!=0x%pa\n",
+				i, ddp_get_module_name(i),
+				(void *)ddp_get_module_va(i),
+				ddp_get_module_pa(i),
+				(void *)(uintptr_t)res.start);
 			DDP_PR_ERR("%s", msg);
 		}
 
@@ -412,11 +408,11 @@ static int disp_probe_1(void)
 		irq = irq_of_parse_and_map(node, 0);
 		ddp_info_set_module_irq(i, irq);
 
-		n = snprintf(msg, len, "DT,i=%d,module=%s,map_addr=%p,",
-			     i, ddp_get_module_name(i),
-			     (void *)ddp_get_module_va(i));
-		n += snprintf(msg + n, len - n, "map_irq=%d,reg_pa=0x%lx\n",
-			      ddp_get_module_irq(i), ddp_get_module_pa(i));
+		n = scnprintf(msg, len,
+			"DT,i=%d,module=%s,map_addr=%p,map_irq=%d,reg_pa=0x%lx\n",
+			i, ddp_get_module_name(i),
+			(void *)ddp_get_module_va(i),
+			ddp_get_module_irq(i), ddp_get_module_pa(i));
 		DDPMSG("%s", msg);
 	}
 
@@ -436,14 +432,12 @@ static int disp_probe_1(void)
 		/* In MTK SYSIRQ, the irq offset has been removed. */
 		if (ddp_get_module_checkirq(i) - 32 !=
 		    virq_to_hwirq(ddp_get_module_irq(i))) {
-			n = snprintf(msg, len,
-				     "[ERR]DT, i=%d, module=%s, map_irq=%d, ",
+			n = scnprintf(msg, len,
+				     "[ERR]DT, i=%d, module=%s, map_irq=%d, virtohw_irq=%d, check_irq=%d\n",
 				     i, ddp_get_module_name(i),
-				     ddp_get_module_irq(i));
-			n += snprintf(msg + n, len - n,
-				      "virtohw_irq=%d, check_irq=%d\n",
-				      virq_to_hwirq(ddp_get_module_irq(i)),
-				      ddp_get_module_checkirq(i));
+				     ddp_get_module_irq(i),
+				     virq_to_hwirq(ddp_get_module_irq(i)),
+				     ddp_get_module_checkirq(i));
 			DDP_PR_ERR("%s", msg);
 
 			ddp_module_irq_disable(i);

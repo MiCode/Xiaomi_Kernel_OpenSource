@@ -56,7 +56,7 @@ static inline void dbg_print(int level, const char *fmt, ...)
 			DISP_LOG_PRINT(ANDROID_LOG_INFO, "DBG", "%*s",
 				ind * DBG_INDENT_SIZE, "");
 			va_start(args, fmt);
-			vsnprintf(dbg_buf, sizeof(dbg_buf), fmt, args);
+			vscnprintf(dbg_buf, sizeof(dbg_buf), fmt, args);
 			DISP_LOG_PRINT(ANDROID_LOG_INFO, "DBG", dbg_buf);
 			va_end(args);
 			spin_unlock_irqrestore(&dbg_spinlock, flags);

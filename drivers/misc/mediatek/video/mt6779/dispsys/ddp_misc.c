@@ -31,7 +31,7 @@ unsigned long get_smi_larb_va(unsigned int larb)
 	unsigned int id;
 	int i, ret;
 
-	snprintf(smi_larb_dt_name, sizeof(smi_larb_dt_name),
+	scnprintf(smi_larb_dt_name, sizeof(smi_larb_dt_name),
 			"mediatek,mt6779-smi-larb");
 	for (i = 0; i < DISP_LARB_NUM; i++) {
 		node = of_find_compatible_node(node,

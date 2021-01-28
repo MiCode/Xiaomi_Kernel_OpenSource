@@ -147,12 +147,12 @@ static void process_dbg_opt(const char *opt)
 
 		ret = sscanf(opt, "get_reg:0x%lx\n", &pa);
 		if (ret != 1) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 		va = ioremap(pa, 4);
 		DDPMSG("get_reg: 0x%lx = 0x%08X\n", pa, DISP_REG_GET(va));
-		snprintf(buf, buf_size_left, "get_reg: 0x%lx = 0x%08X\n",
+		scnprintf(buf, buf_size_left, "get_reg: 0x%lx = 0x%08X\n",
 			 pa, DISP_REG_GET(va));
 		iounmap(va);
 		return;
@@ -164,14 +164,14 @@ static void process_dbg_opt(const char *opt)
 
 		ret = sscanf(opt, "set_reg:0x%lx,0x%x\n", &pa, &val);
 		if (ret != 2) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 		va = ioremap(pa, 4);
 		DISP_CPU_REG_SET(va, val);
 		DDPMSG("set_reg: 0x%lx = 0x%08X(0x%x)\n",
 		       pa, DISP_REG_GET(va), val);
-		snprintf(buf, buf_size_left, "set_reg: 0x%lx = 0x%08X(0x%x)\n",
+		scnprintf(buf, buf_size_left, "set_reg: 0x%lx = 0x%08X(0x%x)\n",
 			 pa, DISP_REG_GET(va), val);
 		iounmap(va);
 		return;
@@ -184,7 +184,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtoul(p, 16, &addr);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -192,9 +192,11 @@ static void process_dbg_opt(const char *opt)
 			unsigned int regVal = DISP_REG_GET(addr);
 
 			DDPMSG("regr: 0x%lx = 0x%08X\n", addr, regVal);
-			sprintf(buf, "regr: 0x%lx = 0x%08X\n", addr, regVal);
+			scnprintf(buf, 50, "regr: 0x%lx = 0x%08X\n",
+				addr, regVal);
 		} else {
-			sprintf(buf, "regr, invalid address 0x%lx\n", addr);
+			scnprintf(buf, 50, "regr, invalid address 0x%lx\n",
+				addr);
 			goto error;
 		}
 	} else if (strncmp(opt, "lfr_update", 10) == 0) {
@@ -205,7 +207,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = sscanf(opt, "regw:0x%lx,0x%x\n", &addr, &val);
 		if (ret != 2) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -216,10 +218,11 @@ static void process_dbg_opt(const char *opt)
 			regVal = DISP_REG_GET(addr);
 			DDPMSG("regw: 0x%lx, 0x%08X = 0x%08X\n",
 			       addr, val, regVal);
-			sprintf(buf, "regw: 0x%lx, 0x%08X = 0x%08X\n",
+			scnprintf(buf, 50, "regw: 0x%lx, 0x%08X = 0x%08X\n",
 				addr, val, regVal);
 		} else {
-			sprintf(buf, "regw, invalid address 0x%lx\n", addr);
+			scnprintf(buf, 50, "regw, invalid address 0x%lx\n",
+				addr);
 			goto error;
 		}
 	} else if (strncmp(opt, "dbg_log:", 8) == 0) {
@@ -227,11 +230,12 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &dbg_log_level);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
-		sprintf(buf, "dbg_log: %d\n", dbg_log_level);
+		scnprintf(buf, 50, "dbg_log: %d\n",
+			  dbg_log_level);
 	} else if (strncmp(opt, "vfp:", 4) == 0) {
 		char *p = (char *)opt + 4;
 		unsigned int vfp = 0;
@@ -250,7 +254,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 		if (enable)
@@ -258,20 +262,20 @@ static void process_dbg_opt(const char *opt)
 		else
 			irq_log_level = 0;
 
-		sprintf(buf, "irq_log: %d\n", irq_log_level);
+		scnprintf(buf, 50, "irq_log: %d\n", irq_log_level);
 	} else if (strncmp(opt, "met_on:", 7) == 0) {
 		int met_on, rdma0_mode, rdma1_mode;
 
 		ret = sscanf(opt, "met_on:%d,%d,%d\n",
 			     &met_on, &rdma0_mode, &rdma1_mode);
 		if (ret != 3) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 		ddp_init_met_tag(met_on, rdma0_mode, rdma1_mode);
 		DDPMSG("%s, met_on=%d,rdma0_mode %d, rdma1 %d\n", __func__,
 		       met_on, rdma0_mode, rdma1_mode);
-		sprintf(buf, "met_on:%d,rdma0_mode:%d,rdma1_mode:%d\n",
+		scnprintf(buf, 50, "met_on:%d,rdma0_mode:%d,rdma1_mode:%d\n",
 			met_on, rdma0_mode, rdma1_mode);
 	} else if (strncmp(opt, "backlight:", 10) == 0) {
 		char *p = (char *)opt + 10;
@@ -279,7 +283,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &level);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -287,13 +291,13 @@ static void process_dbg_opt(const char *opt)
 			goto error;
 
 		disp_bls_set_backlight(level);
-		sprintf(buf, "backlight: %d\n", level);
+		scnprintf(buf, 30, "backlight: %d\n", level);
 	} else if (strncmp(opt, "partial:", 8) == 0) {
 		ret = sscanf(opt, "partial:%d,%d,%d,%d,%d\n", &dbg_force_roi,
 			     &dbg_partial_x, &dbg_partial_y, &dbg_partial_w,
 			     &dbg_partial_h);
 		if (ret != 5) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 		DDPMSG("%s, partial force=%d (%d,%d,%d,%d)\n", __func__,
@@ -302,7 +306,7 @@ static void process_dbg_opt(const char *opt)
 	} else if (strncmp(opt, "partial_s:", 10) == 0) {
 		ret = sscanf(opt, "partial_s:%d\n", &dbg_partial_statis);
 		if (ret != 5) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 		DDPMSG("%s, partial_s:%d\n", __func__, dbg_partial_statis);
@@ -314,7 +318,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &level);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -325,7 +329,7 @@ static void process_dbg_opt(const char *opt)
 			pwm_id = DISP_PWM1;
 
 		disp_pwm_set_backlight(pwm_id, level);
-		sprintf(buf, "PWM 0x%x : %d\n", pwm_id, level);
+		scnprintf(buf, 30, "PWM 0x%x : %d\n", pwm_id, level);
 	} else if (strncmp(opt, "rdma_color:", 11) == 0) {
 		if (strncmp(opt + 11, "on", 2) == 0) {
 			unsigned int r, g, b; /* red, green, blue */
@@ -336,7 +340,7 @@ static void process_dbg_opt(const char *opt)
 			ret = sscanf(opt, "rdma_color:on,%d,%d,%d\n",
 				     &r, &g, &b);
 			if (ret != 3) {
-				snprintf(buf, 50, "error to parse cmd %s\n",
+				scnprintf(buf, 50, "error to parse cmd %s\n",
 					 opt);
 				pr_info("error to parse cmd %s\n", opt);
 				return;
@@ -356,34 +360,34 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &aal_dbg_en);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
-		sprintf(buf, "aal_dbg_en = 0x%x\n", aal_dbg_en);
+		scnprintf(buf, 30, "aal_dbg_en = 0x%x\n", aal_dbg_en);
 	} else if (strncmp(opt, "color_dbg:", 10) == 0) {
 		char *p = (char *)opt + 10;
 		unsigned int debug_level;
 
 		ret = kstrtouint(p, 0, &debug_level);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
 		disp_color_dbg_log_level(debug_level);
 
-		sprintf(buf, "color_dbg_en = 0x%x\n", debug_level);
+		scnprintf(buf, 30, "color_dbg_en = 0x%x\n", debug_level);
 	} else if (strncmp(opt, "corr_dbg:", 9) == 0) {
 		char *p = (char *)opt + 9;
 
 		ret = kstrtouint(p, 0, &corr_dbg_en);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
-		sprintf(buf, "corr_dbg_en = 0x%x\n", corr_dbg_en);
+		scnprintf(buf, 30, "corr_dbg_en = 0x%x\n", corr_dbg_en);
 	} else if (strncmp(opt, "aal_test:", 9) == 0) {
 		aal_test(opt + 9, buf);
 	} else if (strncmp(opt, "pwm_test:", 9) == 0) {
@@ -400,14 +404,14 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &module);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
 		DDPMSG("%s, module=%d\n", __func__, module);
 		if (module < DISP_MODULE_NUM) {
 			ddp_dump_reg(module);
-			sprintf(buf, "dump_reg: %d\n", module);
+			scnprintf(buf, 30, "dump_reg: %d\n", module);
 		} else {
 			DDPMSG("process_dbg_opt2, module=%d\n", module);
 			goto error;
@@ -418,13 +422,13 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &mutex_idx);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
 		DDPMSG("%s, path mutex=%d\n", __func__, mutex_idx);
 		dpmgr_debug_path_status(mutex_idx);
-		sprintf(buf, "dump_path: %d\n", mutex_idx);
+		scnprintf(buf, 30, "dump_path: %d\n", mutex_idx);
 	} else if (strncmp(opt, "get_module_addr", 15) == 0) {
 		unsigned int i = 0;
 		char *buf_temp = buf;
@@ -435,7 +439,7 @@ static void process_dbg_opt(const char *opt)
 			DDPDUMP("i=%d,module=%s,va=0x%lx,pa=0x%lx,irq(%d)\n",
 				i, ddp_get_module_name(i), ddp_get_module_va(i),
 				ddp_get_module_pa(i), ddp_get_module_irq(i));
-			sprintf(buf_temp,
+			scnprintf(buf_temp, 100,
 				"i=%d,module=%s,va=0x%lx,pa=0x%lx,irq(%d)\n",
 				i, ddp_get_module_name(i), ddp_get_module_va(i),
 				ddp_get_module_pa(i), ddp_get_module_irq(i));
@@ -447,7 +451,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &enable);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -464,7 +468,7 @@ static void process_dbg_opt(const char *opt)
 				gUltraEnable = 1;
 			else
 				gUltraEnable = 0;
-			sprintf(buf, "gUltraEnable: %d\n", gUltraEnable);
+			scnprintf(buf, 50, "gUltraEnable: %d\n", gUltraEnable);
 		}
 	} else if (strncmp(opt, "mmp", 3) == 0) {
 		init_ddp_mmp_events();
@@ -474,7 +478,7 @@ static void process_dbg_opt(const char *opt)
 
 		ret = kstrtouint(p, 0, &mode);
 		if (ret) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -497,7 +501,7 @@ static void process_dbg_opt(const char *opt)
 			     &para[12], &para[13], &para[14]);
 
 		if (ret < 1 || ret > ARRAY_SIZE(para) + 1) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -521,17 +525,17 @@ static void process_dbg_opt(const char *opt)
 		ret = sscanf(opt, "dsi_read:0x%x,%d\n",	&cmd, &size);
 
 		if (ret != 2 || size > ARRAY_SIZE(para)) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
 		DSI_dcs_read_lcm_reg_v2(DISP_MODULE_DSI0, NULL, cmd,
 					para, size);
 
-		tmp += snprintf(buf, buf_size_left, "dsi_read cmd=0x%x:", cmd);
+		tmp += scnprintf(buf, buf_size_left, "dsi_read cmd=0x%x:", cmd);
 
 		for (i = 0; i < size; i++)
-			tmp += snprintf(buf + tmp, buf_size_left - tmp,
+			tmp += scnprintf(buf + tmp, buf_size_left - tmp,
 					"para[%d]=0x%x,", i, para[i]);
 		DISPMSG("%s\n", buf);
 	} else if (strncmp(opt, "set_customer_cmd:", 17) == 0) {
@@ -556,7 +560,7 @@ static void process_dbg_opt(const char *opt)
 
 
 		if (ret < 1 || ret > ARRAY_SIZE(para) + 1) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 
@@ -583,7 +587,7 @@ static void process_dbg_opt(const char *opt)
 				&cmd, &size, &sendhs);
 
 		if (ret != 3 || size > ARRAY_SIZE(para)) {
-			snprintf(buf, 50, "error to parse cmd %s\n", opt);
+			scnprintf(buf, 50, "error to parse cmd %s\n", opt);
 			return;
 		}
 

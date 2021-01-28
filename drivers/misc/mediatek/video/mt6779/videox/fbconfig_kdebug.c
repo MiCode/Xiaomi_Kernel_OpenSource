@@ -219,6 +219,9 @@ static int fbconfig_open(struct inode *inode, struct file *file)
 	pm_params->pLcm_drv = DISP_GetLcmDrv();
 	pm_params->pLcm_params = DISP_GetLcmPara();
 
+	if (unlikely(!pm_params->pLcm_params || pm_params->pLcm_drv))
+		return 0;
+
 	if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI_DUAL)
 		pm_params->dsi_id = PM_DSI_DUAL;
 	else if (pm_params->pLcm_params->lcm_if == LCM_INTERFACE_DSI1)

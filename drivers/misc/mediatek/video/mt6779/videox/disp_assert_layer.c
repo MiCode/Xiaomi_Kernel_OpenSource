@@ -280,11 +280,11 @@ enum DAL_STATUS DAL_Printf(const char *fmt, ...)
 		char msg[len];
 		int n = 0;
 
-		n = snprintf(msg, len, "[DDP] isAEEEnabled from 0 to 1, ");
-		n += snprintf(msg + n, len - n,
-			      "ASSERT_LAYER=%d, dal_fb_pa 0x%lx\n",
-			      primary_display_get_option("ASSERT_LAYER"),
-			      dal_fb_pa);
+		n = scnprintf(msg, len, "[DDP] isAEEEnabled from 0 to 1, ");
+		n += scnprintf(msg + n, len - n,
+			       "ASSERT_LAYER=%d, dal_fb_pa 0x%lx\n",
+			       primary_display_get_option("ASSERT_LAYER"),
+			       dal_fb_pa);
 		DISP_PR_INFO("%s", msg);
 
 		isAEEEnabled = 1;
@@ -295,7 +295,7 @@ enum DAL_STATUS DAL_Printf(const char *fmt, ...)
 	}
 
 	va_start(args, fmt);
-	i = vsprintf(dal_print_buffer, fmt, args);
+	i = vscnprintf(dal_print_buffer, sizeof(dal_print_buffer), fmt, args);
 	va_end(args);
 
 	if (i >= ARRAY_SIZE(dal_print_buffer)) {

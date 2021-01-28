@@ -58,6 +58,7 @@
 	} while (0)
 
 #define DDPDBG(fmt, args...) DISP_LOG_D(fmt, ##args)
+#define DDPDBG_pr_debug      DDPDBG
 #define DDPMSG(fmt, args...) DISP_LOG_I(fmt, ##args)
 #define DDP_PR_WARN(fmt, args...) DISP_LOG_W(fmt, ##args)
 #define DDP_PR_ERR(fmt, args...) DISP_LOG_E(fmt, ##args)
@@ -76,6 +77,8 @@
 		}							\
 	} while (0)
 
+#define DDPDUMP_pr_debug    DDPDUMP
+
 #ifndef ASSERT
 #define ASSERT(expr)							\
 	do {								\
@@ -90,10 +93,7 @@
 #define DDPAEE(string, args...)						\
 	do {								\
 		char str[200];						\
-		int ret;						\
-		ret = snprintf(str, 199, "DDP:"string, ##args);		\
-		if (ret < 0)						\
-			str[0] = '\0';					\
+		scnprintf(str, 199, "DDP:"string, ##args);		\
 		aee_kernel_warning_api(__FILE__, __LINE__,		\
 			DB_OPT_DEFAULT | DB_OPT_MMPROFILE_BUFFER, str,	\
 			string, ##args);				\
@@ -102,8 +102,6 @@
 #else /* !CONFIG_MTK_AEE_FEATURE */
 #define DDPAEE(string, args...)						\
 	do {								\
-		char str[200];						\
-		snprintf(str, 199, "DDP:"string, ##args);		\
 		pr_err("[DDP Error]"string, ##args);			\
 	} while (0)
 #endif /* CONFIG_MTK_AEE_FEATURE */

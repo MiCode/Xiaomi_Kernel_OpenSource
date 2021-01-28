@@ -235,24 +235,25 @@ int disp_layer_info_statistic(struct disp_ddp_path_config *last_config,
 		char str[200];
 		int offset = 0;
 
-		offset += snprintf(str + offset, sizeof(str) - offset,
+		offset += scnprintf(str + offset, sizeof(str) - offset,
 				   "total:%ld.layers:",
 				   layer_stat.total_frame_cnt);
 		for (i = 1; i <= 12; i++)
-			offset += snprintf(str + offset, sizeof(str) - offset,
+			offset += scnprintf(str + offset, sizeof(str) - offset,
 					   "%ld,", layer_stat.cnt_by_layers[i]);
 		DISPMSG("layer_cnt %s\n", str);
 
 		offset = 0;
-		offset += snprintf(str + offset, sizeof(str) - offset, ".ext:");
+		offset += scnprintf(str + offset,
+			sizeof(str) - offset, ".ext:");
 		for (i = 1; i <= 6 ; i++)
-			offset += snprintf(str + offset, sizeof(str) - offset,
+			offset += scnprintf(str + offset, sizeof(str) - offset,
 				"%ld,", layer_stat.cnt_by_layers_with_ext[i]);
 
-		offset += snprintf(str + offset, sizeof(str) - offset,
+		offset += scnprintf(str + offset, sizeof(str) - offset,
 				   ".arm_ext:");
 		for (i = 1; i <= 6 ; i++)
-			offset += snprintf(str + offset, sizeof(str) - offset,
+			offset += scnprintf(str + offset, sizeof(str) - offset,
 				"%ld,",
 				layer_stat.cnt_by_layers_with_arm_ext[i]);
 		DISPMSG("layer_cnt %s\n", str);
@@ -376,14 +377,10 @@ static int alloc_buffer_from_dma(size_t size, struct test_buf_info *buf_info)
 		char msg[len];
 		int n = 0;
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "dma_alloc_coherent error! dma memory not available. size=%zu\n",
 			     size);
-		if (n < 0) {
-			DISP_LOG_E("[%s %d]snprintf err:%d\n",
-				   __func__, __LINE__, n);
-		} else
-			DISPMSG("%s", msg);
+		DISPMSG("%s", msg);
 		return -1;
 	}
 
@@ -571,15 +568,12 @@ primary_display_basic_test(int layer_num, unsigned int layer_en_mask,
 	size = w * h * Bpp;
 	mutex_lock(&basic_test_lock);
 
-	n = snprintf(msg, len,
+	n = scnprintf(msg, len,
 		     "%s: layer_num=%u,en=0x%x,w=%d,h=%d,fmt=%s,frame_num=%d,vsync=%d, size=%lu\n",
 		     __func__, layer_num, layer_en_mask,
 		     w, h, unified_color_fmt_name(ufmt),
 		     frame_num, vsync_num, (unsigned long)size);
-	if (n < 0)
-		DISPINFO("[%s %d]snprintf err:%d\n", __func__, __LINE__, n);
-	else
-		DISPMSG("%s", msg);
+	DISPMSG("%s", msg);
 
 	if (layer_num > PRIMARY_SESSION_INPUT_LAYER_COUNT)
 		goto out_unlock;
@@ -1559,7 +1553,7 @@ static ssize_t partial_read(struct file *file, char __user *ubuf,
 				support = 1;
 		}
 	}
-	snprintf(p, 10, "%d\n", support);
+	scnprintf(p, 10, "%d\n", support);
 	return simple_read_from_buffer(ubuf, count, ppos, p, strlen(p));
 }
 

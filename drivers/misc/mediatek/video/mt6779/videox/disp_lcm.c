@@ -145,7 +145,7 @@ void _dump_lcm_info(struct disp_lcm_handle *plcm)
 		int n = 0;
 
 		DISPCHECK("[LCM] LANE_NUM: %d\n", (int)p->dsi.LANE_NUM);
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			"[LCM] vact: %u, vbp: %u, vfp: %u, vact_line: %u, hact: %u, hbp: %u, hfp: %u, hblank: %u\n",
 			p->dsi.vertical_sync_active,
 			p->dsi.vertical_backporch,
@@ -155,48 +155,32 @@ void _dump_lcm_info(struct disp_lcm_handle *plcm)
 			p->dsi.horizontal_backporch,
 			p->dsi.horizontal_frontporch,
 			p->dsi.horizontal_blanking_pixel);
-		if (n < 0) {
-			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-				     __func__, __LINE__, n);
-		} else
-			DISPCHECK("%s", msg);
+		DISPCHECK("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[LCM] pll_select: %d, pll_div1: %d, pll_div2: %d, fbk_div: %d,fbk_sel: %d, rg_bir: %d\n",
 			     p->dsi.pll_select, p->dsi.pll_div1,
 			     p->dsi.pll_div2, p->dsi.fbk_div,
 			     p->dsi.fbk_sel, p->dsi.rg_bir);
-		if (n < 0) {
-			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-				     __func__, __LINE__, n);
-		} else
-			DISPCHECK("%s", msg);
+		DISPCHECK("%s", msg);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[LCM] rg_bic: %d, rg_bp: %d,PLL_CLOCK: %d, dsi_clock: %d, ssc_range: %d,ssc_disable: %d\n",
 			     p->dsi.rg_bic, p->dsi.rg_bp, p->dsi.PLL_CLOCK,
 			     p->dsi.dsi_clock, p->dsi.ssc_range,
 			     p->dsi.ssc_disable);
-		if (n < 0) {
-			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-				     __func__, __LINE__, n);
-		} else
-			DISPCHECK("%s", msg);
+		DISPCHECK("%s", msg);
 
 		DISPCHECK("[LCM]compatibility_for_nvk: %d, cont_clock: %d\n",
 		     p->dsi.compatibility_for_nvk,
 		     p->dsi.cont_clock);
 
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "[LCM] lcm_ext_te_enable: %d, noncont_clock: %d, noncont_clock_period: %d\n",
 			     p->dsi.lcm_ext_te_enable,
 			     p->dsi.noncont_clock,
 			     p->dsi.noncont_clock_period);
-		if (n < 0) {
-			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
-				     __func__, __LINE__, n);
-		} else
-			DISPCHECK("%s", msg);
+		DISPCHECK("%s", msg);
 	}
 }
 
@@ -977,7 +961,8 @@ int check_lcm_node_from_DT(void)
 	char lcm_node[128] = { 0 };
 	struct device_node *np = NULL;
 
-	sprintf(lcm_node, "mediatek,lcm_params-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_params-%s", lcm_name_list[0]);
 	DISPMSG("LCM PARAMS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */
@@ -987,7 +972,8 @@ int check_lcm_node_from_DT(void)
 		return -1;
 	}
 
-	sprintf(lcm_node, "mediatek,lcm_ops-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_ops-%s", lcm_name_list[0]);
 	DISPMSG("LCM OPS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */
@@ -1015,7 +1001,8 @@ void load_lcm_resources_from_DT(struct LCM_DRIVER *lcm_drv)
 
 	memset((unsigned char *)parse_dts, 0x0, sizeof(struct LCM_DTS));
 
-	sprintf(lcm_node, "mediatek,lcm_params-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_params-%s", lcm_name_list[0]);
 	DISPMSG("LCM PARAMS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */
@@ -1025,7 +1012,8 @@ void load_lcm_resources_from_DT(struct LCM_DRIVER *lcm_drv)
 	else
 		parse_lcm_params_dt_node(np, &(parse_dts->params));
 
-	sprintf(lcm_node, "mediatek,lcm_ops-%s", lcm_name_list[0]);
+	scnprintf(lcm_node, sizeof(lcm_node),
+		"mediatek,lcm_ops-%s", lcm_name_list[0]);
 	DISPMSG("LCM OPS DT compatible: %s\n", lcm_node);
 
 	/* Load LCM parameters from DT */

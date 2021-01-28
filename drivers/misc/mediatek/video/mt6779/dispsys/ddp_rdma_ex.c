@@ -252,11 +252,12 @@ int rdma_reset(enum DISP_MODULE_ENUM module, void *handle)
 		udelay(10);
 		if (delay_cnt > 10000) {
 			ret = -1;
-			n = snprintf(msg, len,
-				     "rdma%d_reset timeout, stage 1! ", idx);
-			n += snprintf(msg + n, len - n,
-			       "DISP_REG_RDMA_GLOBAL_CON=0x%x\n",
-			       DISP_REG_GET(offset + DISP_REG_RDMA_GLOBAL_CON));
+			n = scnprintf(msg, len,
+				      "rdma%d_reset timeout, stage 1! ", idx);
+			n += scnprintf(msg + n, len - n,
+				"DISP_REG_RDMA_GLOBAL_CON=0x%x\n",
+				DISP_REG_GET(offset +
+				DISP_REG_RDMA_GLOBAL_CON));
 			DDP_PR_ERR("%s", msg);
 			break;
 		}
@@ -272,9 +273,9 @@ int rdma_reset(enum DISP_MODULE_ENUM module, void *handle)
 			continue;
 
 		ret = -1;
-		n = snprintf(msg, len,
+		n = scnprintf(msg, len,
 			     "rdma%d_reset timeout, stage 2! ", idx);
-		n += snprintf(msg + n, len - n,
+		n += scnprintf(msg + n, len - n,
 			      "DISP_REG_RDMA_GLOBAL_CON=0x%x\n",
 			      DISP_REG_GET(offset + DISP_REG_RDMA_GLOBAL_CON));
 		DDP_PR_ERR("%s", msg);
@@ -822,7 +823,7 @@ void rdma_dump_analysis(enum DISP_MODULE_ENUM module)
 
 	global_ctrl = DISP_REG_GET(DISP_REG_RDMA_GLOBAL_CON + offset);
 	DDPDUMP("== DISP %s ANALYSIS ==\n", ddp_get_module_name(module));
-	n = snprintf(msg, len,
+	n = scnprintf(msg, len,
 		     "en=%d,mode:%s,smi_busy:%d,wh(%dx%d),pitch=%d,",
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_ENGINE_EN + offset, global_ctrl),
 		REG_FLD_VAL_GET(GLOBAL_CON_FLD_MODE_SEL + offset,
@@ -831,7 +832,7 @@ void rdma_dump_analysis(enum DISP_MODULE_ENUM module)
 		DISP_REG_GET(DISP_REG_RDMA_SIZE_CON_0 + offset) & 0xfff,
 		DISP_REG_GET(DISP_REG_RDMA_SIZE_CON_1 + offset) & 0xfffff,
 		DISP_REG_GET(DISP_REG_RDMA_MEM_SRC_PITCH + offset));
-	n += snprintf(msg + n, len - n,
+	n += scnprintf(msg + n, len - n,
 		      "addr=0x%08x,fmt=%s,fifo_sz=%u,",
 		DISP_REG_GET(DISP_REG_RDMA_MEM_START_ADDR + offset),
 		unified_color_fmt_name(display_fmt_reg_to_unified_fmt(
@@ -840,13 +841,13 @@ void rdma_dump_analysis(enum DISP_MODULE_ENUM module)
 					(DISP_REG_GET(DISP_REG_RDMA_MEM_CON +
 						      offset) >> 8) & 0x1, 0)),
 		REG_FLD_VAL_GET(FIFO_CON_FLD_FIFO_PSEUDO_SIZE, fifo));
-	n += snprintf(msg + n, len - n,
+	n += scnprintf(msg + n, len - n,
 		      "output_valid_threshold=%u,fifo_min=%d\n",
 		REG_FLD_VAL_GET(FIFO_CON_FLD_OUTPUT_VALID_FIFO_THRESHOLD, fifo),
 		DISP_REG_GET(DISP_REG_RDMA_FIFO_LOG + offset));
 	DDPDUMP("%s", msg);
 
-	n = snprintf(msg, len,
+	n = scnprintf(msg, len,
 		     "pos:in(%d,%d)out(%d,%d),bg(t%d,b%d,l%d,r%d),",
 		     DISP_REG_GET(DISP_REG_RDMA_IN_P_CNT + offset),
 		     DISP_REG_GET(DISP_REG_RDMA_IN_LINE_CNT + offset),
@@ -856,7 +857,7 @@ void rdma_dump_analysis(enum DISP_MODULE_ENUM module)
 		     REG_FLD_VAL_GET(RDMA_BG_CON_1_BOTTOM + offset, bg1),
 		     REG_FLD_VAL_GET(RDMA_BG_CON_0_LEFT + offset, bg0),
 		     REG_FLD_VAL_GET(RDMA_BG_CON_0_RIGHT + offset, bg0));
-	n += snprintf(msg + n, len - n,
+	n += scnprintf(msg + n, len - n,
 		      "start=%lld ns,end=%lld ns\n",
 		      rdma_start_time[idx], rdma_end_time[idx]);
 	DDPDUMP("%s", msg);
