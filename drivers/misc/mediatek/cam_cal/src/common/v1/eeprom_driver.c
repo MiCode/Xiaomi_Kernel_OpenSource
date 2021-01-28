@@ -77,13 +77,19 @@ static int EEPROM_set_i2c_bus(unsigned int deviceID,
 			      struct stCAM_CAL_CMD_INFO_STRUCT *cmdInfo)
 {
 	enum IMGSENSOR_SENSOR_IDX idx;
+	enum EEPROM_I2C_DEV_IDX i2c_idx;
 	struct i2c_client *client;
 
 	idx = IMGSENSOR_SENSOR_IDX_MAP(deviceID);
+	i2c_idx = get_i2c_dev_sel(idx);
+
 	if (idx == IMGSENSOR_SENSOR_IDX_NONE)
 		return -EFAULT;
 
-	client = g_pstI2Cclients[get_i2c_dev_sel(idx)];
+	if (i2c_idx < I2C_DEV_IDX_1 || i2c_idx >= I2C_DEV_IDX_MAX)
+		return -EFAULT;
+
+	client = g_pstI2Cclients[i2c_idx];
 	pr_debug("%s end! deviceID=%d index=%u client=%p\n",
 		 __func__, deviceID, idx, client);
 
