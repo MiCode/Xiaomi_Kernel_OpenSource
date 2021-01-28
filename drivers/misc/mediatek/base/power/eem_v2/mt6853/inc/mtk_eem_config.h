@@ -45,7 +45,7 @@
 //#define EARLY_PORTING_VPU
 #define EN_TEST_EQUATION	(0)
 #define FAKE_SN_DVT_EFUSE_FOR_DE	(0)
-#define ENABLE_COUNT_SNTEMP		(0)
+#define ENABLE_COUNT_SNTEMP		(1)
 
 #if DVT
 #define DUMP_LEN		410

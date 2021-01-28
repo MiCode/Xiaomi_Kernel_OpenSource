@@ -2626,11 +2626,41 @@ static int eem_pull_data_proc_show(struct seq_file *m, void *v)
 {
 	struct eem_ipi_data eem_data;
 	unsigned int ipi_ret = 0;
+#if ENABLE_COUNT_SNTEMP
+	unsigned int i;
+	unsigned char lock;
+	unsigned int locklimit = 0;
+#endif
 
 	FUNC_ENTER(FUNC_LV_HELP);
 	memset(&eem_data, 0, sizeof(struct eem_ipi_data));
 	ipi_ret = eem_to_cpueb(IPI_EEMSN_PULL_DATA, &eem_data);
 	seq_printf(m, "ret:%d\n", ipi_ret);
+#if ENABLE_COUNT_SNTEMP
+	while (1) {
+		lock = eemsn_log->lock;
+		locklimit++;
+		mdelay(5); /* wait 5 ms */
+		/* eem_error("1 lock=0x%X\n", lock); */
+		lock = eemsn_log->lock;
+		/* eem_error("2 lock=0x%X\n", lock); */
+		if ((lock & 0x1) && (locklimit < 5))
+			continue; /* if lock, read dram again */
+		else
+			break;
+		/* if unlock, break out while loop, read next det*/
+	}
+	for (i = 0; i < NR_SN_DET; i++) {
+		seq_printf(m,
+		"id:%d, sn_temp_cnt -1:%d, -2:%d, -3:%d, -4:%d, -5:%d\n",
+		i,
+		eemsn_log->sn_temp_cnt[i][0],
+		eemsn_log->sn_temp_cnt[i][1],
+		eemsn_log->sn_temp_cnt[i][2],
+		eemsn_log->sn_temp_cnt[i][3],
+		eemsn_log->sn_temp_cnt[i][4]);
+	}
+#endif
 	FUNC_EXIT(FUNC_LV_HELP);
 
 	return 0;
@@ -2950,6 +2980,8 @@ struct eemsn_det *det;
 		get_orig_volt_table_cpu(det);
 		memcpy(eemsn_log->det_log[det->det_id].volt_tbl_orig,
 			det->volt_tbl_orig, sizeof(det->volt_tbl_orig));
+		eemsn_log->det_log[det->det_id].features =
+				(unsigned char)det->features;
 	}
 
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
