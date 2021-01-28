@@ -16,6 +16,8 @@
 #include <linux/syscore_ops.h>
 #include <linux/version.h>
 
+#include "clkchk-mt6768.h"
+
 #define WARN_ON_CHECK_FAIL		0
 #define CLKDBG_CCF_API_4_4		1
 
@@ -366,7 +368,7 @@ static const char *ccf_state(struct clk_hw *hw)
 	return "disabled";
 }
 
-static void print_enabled_clks(void)
+void print_enabled_clks(void)
 {
 	const char * const *cn = get_all_clk_names();
 

@@ -159,6 +159,7 @@ CONFIG_DEBUG_VIRTUAL,USER,Miles.Chen,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_DEBUG_VM,PROJECT,miles.lin,Need to enable or modify this option according to https://github.com/google/syzkaller/blob/master/docs/linux/kernel_configs.md,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_DEFAULT_HUNG_TASK_TIMEOUT,PROJECT,miles.lin,Need to enable or modify this option according to https://github.com/google/syzkaller/blob/master/docs/linux/kernel_configs.md,O,O,O,O,O,O,O,O,O,O,O,O,O
 CONFIG_DEFAULT_USE_ENERGY_AWARE,PLATFORM,YT.Chang,,,,y,X,X,y,y,y,y,y,y,y,y
+CONFIG_DEVAPC_MT6768,PLATFORM,Neal.Liu,,,,X,X,X,y,y,X,X,X,X,X,X
 CONFIG_DEVKMEM,COMMON,miles.chen,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_DEVMEM,COMMON,miles.chen,,N,N,N,N,N,N,N,N,N,N,N,N,N
 CONFIG_DISABLE_CPU_SCHED_DOMAIN_BALANCE,COMMON,yt.chang,new config in this commit 415c6abc1901c852f7db422fa1f0cac2e9a6e1ef,X,X,X,X,X,X,X,X,X,X,X,X,X

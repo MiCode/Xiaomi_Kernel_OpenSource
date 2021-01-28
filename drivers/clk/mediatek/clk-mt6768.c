@@ -427,7 +427,7 @@ void __iomem *vdec_gcon_base;
 #define INFRA_CG2		0x983fff00
 #define INFRA_CG3		0x86947E16
 #define INFRA_CG4		0x2ffc06d9
-#define INFRA_CG5		0x00020fe7
+#define INFRA_CG5		0x00320fe7
 #define MM_DISABLE_CG		0x0c840040 /* un-gating in preloader */
 
 #else
@@ -2556,8 +2556,9 @@ static void __init mtk_mfgcfg_init(struct device_node *node)
 			__func__, r);
 	mfgcfg_base = base;
 	/* mfg register would cause hang */
-	/* AO */
+#if (!MT_CG_ENABLE)
 	clk_writel(MFG_CG_CLR, MFG_DISABLE_CG);
+#endif
 }
 CLK_OF_DECLARE_DRIVER(mtk_mfgcfg, "mediatek,mfgcfg",
 		mtk_mfgcfg_init);
