@@ -154,7 +154,6 @@
 			regulator-enable-ramp-delay = <220>;
 		};
 		mt_pmic_vfe28_ldo_reg: ldo_vfe28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vfe28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -168,14 +167,12 @@
 			regulator-always-on;
 		};
 		mt_pmic_vrf18_ldo_reg: ldo_vrf18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vrf18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-enable-ramp-delay = <110>;
 		};
 		mt_pmic_vrf12_ldo_reg: ldo_vrf12 {
-			compatible = "regulator-fixed";
 			regulator-name = "vrf12";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
@@ -200,14 +197,12 @@
 			regulator-enable-ramp-delay = <264>;
 		};
 		mt_pmic_vcn28_ldo_reg: ldo_vcn28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vcn28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			regulator-enable-ramp-delay = <264>;
 		};
 		mt_pmic_vcn18_ldo_reg: ldo_vcn18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vcn18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -226,7 +221,6 @@
 			regulator-enable-ramp-delay = <264>;
 		};
 		mt_pmic_vcamio_ldo_reg: ldo_vcamio {
-			compatible = "regulator-fixed";
 			regulator-name = "vcamio";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -255,7 +249,6 @@
 			regulator-always-on;
 		};
 		mt_pmic_vaux18_ldo_reg: ldo_vaux18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vaux18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -263,7 +256,6 @@
 			regulator-always-on;
 		};
 		mt_pmic_vaud28_ldo_reg: ldo_vaud28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vaud28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -271,7 +263,6 @@
 			regulator-always-on;
 		};
 		mt_pmic_vio28_ldo_reg: ldo_vio28 {
-			compatible = "regulator-fixed";
 			regulator-name = "vio28";
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
@@ -279,7 +270,6 @@
 			regulator-always-on;
 		};
 		mt_pmic_vio18_ldo_reg: ldo_vio18 {
-			compatible = "regulator-fixed";
 			regulator-name = "vio18";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
@@ -349,6 +339,10 @@
 
 	mt6357_debug {
 		compatible = "mediatek,mt63xx-debug";
+	};
+
+	mt63xx-oc-debug {
+		compatible = "mediatek,mt63xx-oc-debug";
 	};
 
 	mtk_rtc: mtk_rtc {
