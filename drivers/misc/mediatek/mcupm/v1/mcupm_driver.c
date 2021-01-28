@@ -666,7 +666,13 @@ static int mcupm_device_probe(struct platform_device *pdev)
 			}
 			continue;
 		}
-		snprintf(name, sizeof(name), "mbox%d_base", i);
+		ret = snprintf(name, sizeof(name), "mbox%d_base", i);
+		if (ret < 0 || ret >= sizeof(name)) {
+			pr_err("[MCUPM] snprintf failed for mbox%d_base, ret %d\n",
+				i, ret);
+			return -1;
+		}
+
 		res = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, name);
 		base = devm_ioremap_resource(dev, res);
