@@ -395,6 +395,16 @@
 		compatible = "mediatek,mt63xx-oc-debug";
 	};
 
+	leds-mt6357 {
+		compatible = "mediatek,mt6357_leds";
+		Isink1 {
+			reg = <1>;
+			label = "red";
+			linux,default-trigger = "none";
+			default-state = "off";
+		};
+	};
+
 	mtk_rtc: mtk_rtc {
 		compatible = "mediatek,mt6357-rtc";
 		#address-cells = <1>;
