@@ -224,6 +224,20 @@ config MACH_MT6779
 	  thin-design smartphones.
 	  Support for aarch64 Architecture
 
+config MACH_MT8173
+	bool "MediaTek MT8173"
+	select ARCH_MEDIATEK
+	select MTK_BASE_POWER
+	select MTK_SYS_CIRQ
+	select MTK_GIC_EXT
+	select MTK_SYSIRQ
+	select CPU_IDLE
+	help
+	  This enable support for MediaTek MT8173. If you need support
+	  for MediaTek MT8173, say Y here.
+	  Please note this also select ARCH_MEDIATEK, so driver depends
+	  on it can be selected.
+
 config ARCH_MESON
 	bool "Amlogic Platforms"
 	select PINCTRL
