@@ -162,6 +162,7 @@ extern long DW9719TAF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 extern int DW9719TAF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int DW9719TAF_GetFileName(unsigned char *pFileName);
 
+#if 0
 #define FM50AF_SetI2Cclient FM50AF_SetI2Cclient_Main
 #define FM50AF_Ioctl FM50AF_Ioctl_Main
 #define FM50AF_Release FM50AF_Release_Main
@@ -172,6 +173,7 @@ extern long FM50AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			 unsigned long a_u4Param);
 extern int FM50AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int FM50AF_GetFileName(unsigned char *pFileName);
+#endif
 
 #define LC898122AF_SetI2Cclient LC898122AF_SetI2Cclient_Main
 #define LC898122AF_Ioctl LC898122AF_Ioctl_Main
@@ -207,6 +209,7 @@ extern int LC898212XDAF_Release(struct inode *a_pstInode,
 				struct file *a_pstFile);
 extern int LC898212XDAF_GetFileName(unsigned char *pFileName);
 
+#if 0
 #define LC898212XD_TVC700_SetI2Cclient LC898212XD_TVC700_SetI2Cclient_Main
 #define LC898212XD_TVC700_Ioctl LC898212XD_TVC700_Ioctl_Main
 #define LC898212XD_TVC700_Release LC898212XD_TVC700_Release_Main
@@ -220,6 +223,7 @@ extern long LC898212XD_TVC700_Ioctl(struct file *a_pstFile,
 extern int LC898212XD_TVC700_Release(struct inode *a_pstInode,
 				     struct file *a_pstFile);
 extern int LC898212XD_TVC700_GetFileName(unsigned char *pFileName);
+#endif
 
 #define LC898214AF_SetI2Cclient LC898214AF_SetI2Cclient_Main
 #define LC898214AF_Ioctl LC898214AF_Ioctl_Main
@@ -291,6 +295,7 @@ extern int LC898217AFC_PowerDown(struct i2c_client *pstAF_I2Cclient,
 				int *pAF_Opened);
 extern int LC898217AFC_GetFileName(unsigned char *pFileName);
 
+#if 0
 #define AD5820AF_SetI2Cclient AD5820AF_SetI2Cclient_Main
 #define AD5820AF_Ioctl AD5820AF_Ioctl_Main
 #define AD5820AF_Release AD5820AF_Release_Main
@@ -301,6 +306,7 @@ extern long AD5820AF_Ioctl(struct file *a_pstFile, unsigned int a_u4Command,
 			   unsigned long a_u4Param);
 extern int AD5820AF_Release(struct inode *a_pstInode, struct file *a_pstFile);
 extern int AD5820AF_GetFileName(unsigned char *pFileName);
+#endif
 
 #define WV511AAF_SetI2Cclient WV511AAF_SetI2Cclient_Main
 #define WV511AAF_Ioctl WV511AAF_Ioctl_Main
