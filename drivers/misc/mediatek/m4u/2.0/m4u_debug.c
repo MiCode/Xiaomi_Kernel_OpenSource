@@ -747,6 +747,7 @@ static int m4u_debug_set(void *data, u64 val)
 	break;
 	case 22:
 	{
+#if 0
 		M4UINFO("%s, M4U Cache Clean by range\n", __func__);
 		mva_foreach_priv_sync((void *) m4u_cache_sync,
 		   M4U_CACHE_CLEAN_BY_RANGE);
@@ -756,6 +757,7 @@ static int m4u_debug_set(void *data, u64 val)
 		M4UINFO("%s, M4U Cache flush by range\n", __func__);
 		mva_foreach_priv_sync((void *) m4u_cache_sync,
 		   M4U_CACHE_FLUSH_BY_RANGE);
+#endif
 	}
 	break;
 	case 23:
@@ -939,13 +941,13 @@ static int m4u_debug_set(void *data, u64 val)
 #endif
 	case 34:
 	{
-		g_translation_fault_debug = 1;
+		//g_translation_fault_debug = 1;
 		M4UINFO("%s, enable translation fault debug\n", __func__);
 	}
 	break;
 	case 35:
 	{
-		g_translation_fault_debug = 0;
+		//g_translation_fault_debug = 0;
 		M4UINFO("%s, disable translation fault debug\n", __func__);
 	}
 	break;

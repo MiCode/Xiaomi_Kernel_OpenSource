@@ -168,7 +168,7 @@ int mva_foreach_priv(mva_buf_fn_t *fn, void *data)
 
 	return 0;
 }
-
+#if 0
 int mva_foreach_priv_sync(mva_buf_fn_sync_t *fn, unsigned int type)
 {
 	unsigned short index = 1, nr = 0;
@@ -194,6 +194,7 @@ int mva_foreach_priv_sync(mva_buf_fn_sync_t *fn, unsigned int type)
 
 	return 0;
 }
+#endif
 unsigned int get_first_valid_mva(void)
 {
 	unsigned short index = 1, nr = 0;
