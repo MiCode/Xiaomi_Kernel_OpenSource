@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #include <linux/kernel.h>
@@ -27,13 +27,12 @@
 #include <linux/list.h>
 #include <linux/bitops.h>
 #endif
-#include <linux/irqchip/arm-gic-v3.h>
+//#include <linux/irqchip/arm-gic-v3.h>
 #include <linux/irqchip/mtk-gic-extend.h>
 
 void __iomem *SYS_CIRQ_BASE;
 static unsigned int CIRQ_IRQ_NUM;
 static unsigned int CIRQ_SPI_START;
-static unsigned int sw_reset;
 #ifdef LATENCY_CHECK
 unsigned long long clone_t1;
 unsigned long long clone_t2;
@@ -311,18 +310,6 @@ static int mt_cirq_set_pol(unsigned int cirq_num, unsigned int pol)
 	return 0;
 }
 
-void mt_cirq_sw_reset(void)
-{
-	unsigned int st;
-
-	if (sw_reset) {
-		st = readl(IOMEM(CIRQ_CON));
-		st |= (CIRQ_SW_RESET << CIRQ_CON_SW_RST_BITS);
-		mt_reg_sync_writel(st, CIRQ_CON);
-	}
-}
-EXPORT_SYMBOL(mt_cirq_sw_reset);
-
 /*
  * mt_cirq_enable: Enable SYS_CIRQ
  */
@@ -330,7 +317,7 @@ void mt_cirq_enable(void)
 {
 	unsigned int st;
 
-	/* level only */
+
 	mt_cirq_ack_all();
 
 	st = readl(IOMEM(CIRQ_CON));
@@ -588,14 +575,6 @@ static void dump_cirq_events_mgr(struct cirq_events *events)
 	struct list_head *cur;
 	struct cirq_reg *event;
 
-	pr_info("[CIRQ]%s property\n",
-		__func__);
-	pr_info("[CIRQ]NUM_OF_REG\tSPI_tart");
-	pr_info("\tCIRQ_BASE\tDIST_BASE\n");
-	pr_info("[CIRQ]%d\t%d\t%p\t%p\n",
-		events->num_reg, events->spi_start,
-		events->cirq_base, events->dist_base);
-
 	if (events->num_of_events > 0) {
 		pr_info("[CIRQ]num of source %d",
 			events->num_of_events);
@@ -605,13 +584,11 @@ static void dump_cirq_events_mgr(struct cirq_events *events)
 		pr_info("\n");
 	}
 
-	pr_info("[CIRQ]%s reg table\n", __func__);
 	if (events->table != 0) {
 		for (i = 0; i < events->num_reg; i++)
 			dump_cirq_reg(&events->table[i]);
 	}
 
-	pr_info("[CIRQ]%s wakeup events\n", __func__);
 	if (events->used_reg_head.next != &events->used_reg_head) {
 		list_for_each(cur, &events->used_reg_head) {
 			event = list_entry(cur, struct cirq_reg, the_link);
@@ -669,7 +646,9 @@ static void collect_all_wakeup_events(void)
 		return;
 	for (i = 0; i < cirq_all_events.num_of_events; i++) {
 		if (cirq_all_events.wakeup_events[i] > 0) {
-			gic_irq = virq_to_hwirq(cirq_all_events.wakeup_events[i]);
+			unsigned int w = cirq_all_events.wakeup_events[i];
+
+			gic_irq = virq_to_hwirq(w);
 			cirq = gic_irq - cirq_all_events.spi_start -
 			       GIC_PRIVATE_SIGNALS;
 			cirq_reg = cirq / 32;
@@ -684,8 +663,9 @@ static void collect_all_wakeup_events(void)
 			/*
 			 * CIRQ default pol is low
 			 */
-			pol_mask = mt_irq_get_pol(cirq_all_events.wakeup_events[i])
-				   & irq_mask;
+			pol_mask = mt_irq_get_pol(
+					cirq_all_events.wakeup_events[i])
+					& irq_mask;
 			if (pol_mask == 0)
 				cirq_all_events.table[cirq_reg].pol |= mask;
 			/*
@@ -694,10 +674,12 @@ static void collect_all_wakeup_events(void)
 			cirq_all_events.table[cirq_reg].sen |= mask;
 
 			if (!cirq_all_events.table[cirq_reg].used) {
-				list_add(&cirq_all_events.table[cirq_reg].the_link,
-					 &cirq_all_events.used_reg_head);
+				list_add(
+				    &cirq_all_events.table[cirq_reg].the_link,
+				    &cirq_all_events.used_reg_head);
 				cirq_all_events.table[cirq_reg].used = 1;
-				cirq_all_events.table[cirq_reg].reg_num = cirq_reg;
+				cirq_all_events.table[cirq_reg].reg_num =
+								cirq_reg;
 			}
 		}
 	}
@@ -803,7 +785,8 @@ static void cirq_fast_sw_flush(void)
 		 * we only flush the wakeup sources.
 		 */
 		event->pending &= event->mask;
-		for_each_set_bit(cur_bit, (unsigned long *) &event->pending, 32) {
+		for_each_set_bit(cur_bit,
+				(unsigned long *) &event->pending, 32) {
 			cirq_id = (event->reg_num << 5) + cur_bit;
 #ifdef FAST_CIRQ_DEBUG
 			pr_debug("[CIRQ] reg%d, curbit=%d, fcirq=%d, mask=0x%x\n",
@@ -883,7 +866,7 @@ static ssize_t cirq_dvt_store(struct device_driver *driver, const char *buf,
 	return count;
 }
 
-DRIVER_ATTR(cirq_dvt, 0664, cirq_dvt_show, cirq_dvt_store);
+DRIVER_ATTR_RW(cirq_dvt);
 #endif
 
 /*
@@ -913,8 +896,7 @@ static ssize_t cirq_clone_flush_check_store(struct device_driver *driver,
 	return count;
 }
 
-DRIVER_ATTR(cirq_clone_flush_check, 0664, cirq_clone_flush_check_show,
-	    cirq_clone_flush_check_store);
+DRIVER_ATTR_RW(cirq_clone_flush_check);
 
 /*
  * cirq_pattern_clone_flush_check_show:
@@ -943,9 +925,7 @@ static ssize_t cirq_pattern_clone_flush_check_store(struct device_driver
 	return count;
 }
 
-DRIVER_ATTR(cirq_pattern_clone_flush_check, 0664,
-	    cirq_pattern_clone_flush_check_show,
-	    cirq_pattern_clone_flush_check_store);
+DRIVER_ATTR_RW(cirq_pattern_clone_flush_check);
 
 /*
  * cirq_pattern_clone_flush_check_show:
@@ -971,8 +951,7 @@ static ssize_t cirq_pattern_list_store(struct device_driver *driver,
 	return count;
 }
 
-DRIVER_ATTR(cirq_pattern_list, 0664, cirq_pattern_list_show,
-	    cirq_pattern_list_store);
+DRIVER_ATTR_RW(cirq_pattern_list);
 
 #if defined(__CHECK_IRQ_TYPE)
 #define X_DEFINE_IRQ(__name, __num, __polarity, __sensitivity) \
@@ -1158,10 +1137,6 @@ int __init mt_cirq_init(void)
 
 	sys_cirq_num = irq_of_parse_and_map(node, 0);
 	pr_debug("[CIRQ] sys_cirq_num = %d\n", sys_cirq_num);
-
-	if (of_property_read_u32(node, "sw_reset", &sw_reset))
-		sw_reset = 0;
-	pr_debug("[CIRQ] sw_reset = %d\n", sw_reset);
 #endif
 
 #ifdef CONFIG_OF

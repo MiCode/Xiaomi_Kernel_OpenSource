@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2020 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #ifndef __CIRQ_SYS_H__
@@ -35,7 +35,6 @@
 #define  CIRQ_CON_EN_BITS           (0)
 #define  CIRQ_CON_EDGE_ONLY_BITS    (1)
 #define  CIRQ_CON_FLUSH_BITS        (2)
-#define  CIRQ_CON_SW_RST_BITS       (20)
 #define  CIRQ_CON_EVENT_BITS        (31)
 #define  CIRQ_CON_BITS_MASK         (0x7)
 
@@ -45,7 +44,6 @@
 #define  CIRQ_CON_EN            (0x1)
 #define  CIRQ_CON_EDGE_ONLY     (0x1)
 #define  CIRQ_CON_FLUSH         (0x1)
-#define  CIRQ_SW_RESET		(0x1)
 
 /*
  * Define constant
@@ -58,8 +56,8 @@
 /*
  * Define macro
  */
-#define  IRQ_TO_CIRQ_NUM(irq)       ((irq) - (GIC_PRIVATE_SIGNALS + CIRQ_SPI_START))
-#define  CIRQ_TO_IRQ_NUM(cirq)      ((cirq) + (GIC_PRIVATE_SIGNALS + CIRQ_SPI_START))
+#define IRQ_TO_CIRQ_NUM(irq)  ((irq) - (GIC_PRIVATE_SIGNALS + CIRQ_SPI_START))
+#define CIRQ_TO_IRQ_NUM(cirq) ((cirq) + (GIC_PRIVATE_SIGNALS + CIRQ_SPI_START))
 
 #define print_func() pr_debug("[CIRQ] in %s\n", __func__)
 

@@ -11,13 +11,14 @@
 # GNU General Public License for more details.
 #
 
-ifeq ($(CONFIG_MTK_SYS_CIRQ),y)
-obj-y += mtk_sys_cirq.o
-# include platform-dependent headers
-# ccflags-y += -I$(srctree)/drivers/misc/mediatek/cirq/$(CONFIG_MTK_PLATFORM)/inc/
-ifeq ($(CONFIG_MTK_ENG_BUILD),y)
-CFLAGS_mtk_sys_cirq.o := -DDEBUG
+ifeq ($(CONFIG_MTK_GIC_V3_EXT),y)
+  obj-y += mtk-gic-v3-extend.o
+else
+  obj-$(CONFIG_MTK_GIC_EXT) += mtk-gic-extend.o
 endif
+
+ifeq ($(CONFIG_MACH_MT6761),y)
+obj-y += mt6765/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 endif

@@ -11,7 +11,7 @@
 #include <linux/dmapool.h>
 #include <linux/uaccess.h>
 #include <linux/notifier.h>
-#ifdef CMDQ_IRQ_DUMP_SUPPORT
+#ifdef CONFIG_MTK_GIC_V3_EXT
 #include <linux/irqchip/mtk-gic-extend.h>
 #endif
 #include <linux/sched/clock.h>

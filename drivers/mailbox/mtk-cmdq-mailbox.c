@@ -24,6 +24,9 @@
 #if IS_ENABLED(CONFIG_MTK_CMDQ_MBOX_EXT)
 #include "cmdq-util.h"
 #endif
+#if IS_ENABLED(CONFIG_MTK_GIC_V3_EXT)
+#include <linux/irqchip/mtk-gic-extend.h>
+#endif
 
 /* ddp main/sub, mdp path 0/1/2/3, general(misc) */
 #define CMDQ_OP_CODE_MASK		(0xff << CMDQ_OP_CODE_SHIFT)

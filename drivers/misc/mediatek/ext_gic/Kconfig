@@ -1,0 +1,17 @@
+config MTK_GIC_EXT
+	bool "gic extend"
+	depends on !MTK_GIC
+	help
+	  Add extensions for GIC driver.
+	  Including interrupt polarity setup, check the current interrupt
+	  targart CPUs, debug information dump, and mask/unmask for power
+	  scenario.
+
+config MTK_GIC_V3_EXT
+	bool "gic-v3 extend"
+	select MTK_GIC_EXT
+	help
+	  Add extensions for GIC-v3 driver.
+	  Including interrupt polarity setup, check the current interrupt
+	  targart CPUs, debug information dump, and mask/unmask for power
+	  scenario.

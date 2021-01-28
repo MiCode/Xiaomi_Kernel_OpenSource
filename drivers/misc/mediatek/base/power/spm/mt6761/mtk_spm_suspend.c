@@ -92,8 +92,6 @@ static u32 suspend_pcm_flags1 = {
 struct spm_wakesrc_irq_list spm_wakesrc_irqs[] = {
 	/* mtk-kpd */
 	{ WAKE_SRC_R12_KP_IRQ_B, "mediatek,kp", 0, 0},
-	/* mt6357 int */
-	{ WAKE_SRC_R12_EINT_EVENT_B, "mediatek,mt6357", 0, 0},
 	/* bt_cvsd_int */
 	{ WAKE_SRC_R12_CONN2AP_SPM_WAKEUP_B, "mediatek,mtk-btcvsd-snd", 0, 0},
 	/* wf_hif_int */
