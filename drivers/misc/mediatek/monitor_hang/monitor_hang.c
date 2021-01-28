@@ -169,6 +169,7 @@ int add_white_list(char *name)
 			return -1;
 		}
 		strncpy(new_thread->name, name, TASK_COMM_LEN);
+		new_thread->name[TASK_COMM_LEN - 1] = 0;
 		new_thread->next = NULL;
 		white_list = new_thread;
 		raw_spin_unlock(&white_list_lock);
