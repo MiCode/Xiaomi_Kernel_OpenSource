@@ -159,7 +159,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 
 	mtk_v4l2_debug_enter();
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
-	if (dst_buf) {
+	if (dst_buf != NULL && src_buf_info != NULL) {
 		dst_vb2_v4l2 = container_of(
 			dst_buf, struct vb2_v4l2_buffer, vb2_buf);
 		dst_buf_info = container_of(
@@ -183,7 +183,7 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		}
 
 		pfb->status = 0;
-		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p ad dma_addr[1]=%p Size=%zx fd:%x",
+		mtk_v4l2_debug(1, "[%d] idx=%d pfb=0x%p VA=%p dma_addr[0]=%p dma_addr[1]=%p Size=%zx fd:%x",
 				ctx->id, dst_buf->index, pfb,
 				pfb->fb_base[0].va,
 				&pfb->fb_base[0].dma_addr,

@@ -80,18 +80,6 @@ int mtk_vcodec_init_enc_pm(struct mtk_vcodec_dev *mtkdev)
 	pdev = mtkdev->plat_dev;
 	pm->dev = &pdev->dev;
 
-	pm->clk_MT_SCP_SYS_VEN = devm_clk_get(&pdev->dev, "MT_SCP_SYS_VEN");
-	if (IS_ERR(pm->clk_MT_SCP_SYS_VEN)) {
-		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_VEN\n");
-		return PTR_ERR(pm->clk_MT_SCP_SYS_VEN);
-	}
-
-	pm->clk_MT_SCP_SYS_DIS = devm_clk_get(&pdev->dev, "MT_SCP_SYS_DIS");
-	if (IS_ERR(pm->clk_MT_SCP_SYS_DIS)) {
-		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_SCP_SYS_DIS\n");
-		return PTR_ERR(pm->clk_MT_SCP_SYS_DIS);
-	}
-
 	pm->clk_MT_CG_VENC0 = devm_clk_get(&pdev->dev, "MT_CG_VENC0");
 	if (IS_ERR(pm->clk_MT_CG_VENC0)) {
 		mtk_v4l2_err("[VCODEC][ERROR] Unable to devm_clk_get MT_CG_VENC0\n");

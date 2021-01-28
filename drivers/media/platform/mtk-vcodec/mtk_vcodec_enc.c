@@ -133,6 +133,7 @@ static void return_free_buffers(struct mtk_vcodec_ctx *ctx)
 		pfrm = NULL;
 		pbs = NULL;
 
+		memset(&rResult, 0, sizeof(rResult));
 		get_free_buffers(ctx, &rResult);
 
 		if (rResult.bs_va != 0 && virt_addr_valid(rResult.bs_va)) {
@@ -1673,6 +1674,7 @@ static int mtk_venc_encode_header(void *priv)
 	struct mtk_vcodec_mem bs_buf;
 	struct venc_done_result enc_result;
 
+	memset(&enc_result, 0, sizeof(enc_result));
 	dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
 	if (!dst_buf) {
 		mtk_v4l2_debug(1, "No dst buffer");
@@ -1924,7 +1926,7 @@ static void mtk_venc_worker(struct work_struct *work)
 	struct mtk_video_enc_buf *dst_buf_info, *src_buf_info;
 
 	mutex_lock(&ctx->worker_lock);
-
+	memset(&enc_result, 0, sizeof(enc_result));
 	if (ctx->state == MTK_STATE_ABORT) {
 		v4l2_m2m_job_finish(ctx->dev->m2m_dev_enc, ctx->m2m_ctx);
 		mtk_v4l2_debug(1, " %d", ctx->state);
