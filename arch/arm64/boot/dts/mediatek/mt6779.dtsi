@@ -2079,7 +2079,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			/* 3. Auxadc cali oe bits shift */
 			mediatek,cali-oe-bit = <0>;
 			/* 4. Auxadc cali efuse reg offset */
-			mediatek,cali-efuse-reg-offset = <0x1B4>;
+			mediatek,cali-efuse-reg-offset = <0x1c4>;
 			nvmem = <&efuse>;
 			nvmem-names = "mtk_efuse";
 		};
@@ -2204,7 +2204,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			nvmem-names = "mtk_efuse";
 			therm_ctrl,efuse_num = <6>;
 			therm_ctrl,efuse_offset =
-				<0x184 0x180 0x188 0x1AC 0x1B0 0x1B8>;
+				<0x194 0x190 0x198 0x1bc 0x1c0 0x1c8>;
 		};
 
 		btif@1100c000 {
@@ -3588,11 +3588,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		efuse: efuse@11c10000 {
-			compatible = "mediatek,mt6779-efuse", "mediatek,efuse";
-			reg = <0 0x11c10000 0 0x10000>;
-			#address-cells = <1>;
-			#size-celss = <1>;
-			read-only;
+			compatible = "mediatek,devinfo";
 		};
 
 		u3phy: usb-phy@11e40000 {
