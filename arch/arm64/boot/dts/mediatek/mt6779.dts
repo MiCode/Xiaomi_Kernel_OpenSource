@@ -3471,8 +3471,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 
 	boot_dramboost {
-		compatible = "mediatek,dvfsrc-boost";
-		power-domains = <&scpsys MT6779_POWER_DOMAIN_INFRA>;
+		compatible = "mediatek,dvfsrc-qosboost";
 		required-opps = <&dvfsrc_freq_opp0>;
 	};
 
