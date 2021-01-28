@@ -162,15 +162,16 @@ int adapter_get_pps_cap(struct pps_cap *cap)
 int adapter_get_status(struct ta_status *sta)
 {
 	struct adapter_status tasta = {0};
+	int ret = 0;
 
-	adapter_dev_get_status(pinfo->pd_adapter, &tasta);
+	ret = adapter_dev_get_status(pinfo->pd_adapter, &tasta);
 
 	sta->temperature = tasta.temperature;
 	sta->ocp = tasta.ocp;
 	sta->otp = tasta.otp;
 	sta->ovp = tasta.ovp;
 
-	return 0;
+	return ret;
 }
 
 int adapter_is_support_pd_pps(void)
