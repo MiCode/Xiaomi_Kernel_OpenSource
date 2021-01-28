@@ -2734,42 +2734,12 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	/* reset crypto_en first and set it later only on encrypted request */
 	lrbp->crypto_en = 0;
 
-	if (hie_request_crypted(cmd->request)) {
-		struct ufs_crypt_info info = {
-			.hba = hba,
-			.cmd = cmd,
-		};
+	/*
+	 * configuration for other disk encryption method
+	 * (e.g., hw fde) or not encrypted
+	 */
+	ufs_mtk_hwfde_cfg_cmd(hba, cmd);
 
-		if (ufs_mtk_is_data_write_cmd(cmd->cmnd[0]))
-			err = hie_encrypt(ufs_mtk_hie_get_dev(),
-				cmd->request, &info);
-		else
-			err = hie_decrypt(ufs_mtk_hie_get_dev(),
-				cmd->request, &info);
-
-		if (err) {
-			if (err == -ENOMEM) {
-				/* no available key slots */
-				err = SCSI_MLQUEUE_HOST_BUSY;
-			} else {
-				/* unknown errors (shall not happen) */
-				err = -EIO;
-				dev_info(hba->dev,
-				"%s: fail in crypto hook, req: %p\n",
-				__func__, cmd->request);
-			}
-
-			lrbp->cmd = NULL;
-			clear_bit_unlock(tag, &hba->lrb_in_use);
-			goto out;
-		}
-	} else {
-		/*
-		 * configuration for other disk encryption method
-		 * (e.g., hw fde) or not encrypted
-		 */
-		ufs_mtk_hwfde_cfg_cmd(hba, cmd);
-	}
 	ufs_mtk_dbg_dump_scsi_cmd(hba, cmd, UFSHCD_DBG_PRINT_QCMD_EN);
 
 	ufshcd_comp_scsi_upiu(hba, lrbp);
@@ -5206,9 +5176,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 	int result;
 	int index;
 	/* MTK PATCH: for completion notification feature */
-#ifdef CONFIG_HIE
-	struct request *req;
-#endif
 
 	for_each_set_bit(index, &completed_reqs, hba->nutrs) {
 		lrbp = &hba->lrb[index];
@@ -5218,14 +5185,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			ufshcd_cond_add_cmd_trace(hba, index,
 				UFS_TRACE_COMPLETED);
 			ufs_mtk_biolog_transfer_req_compl(index);
-			/*
-			 * file-based inline encryption:
-			 * call UFS key hint to release usage count
-			 */
-			#ifdef CONFIG_HIE
-			if (hie_request_crypted(cmd->request))
-				ufs_mtk_hie_req_done(hba, lrbp);
-			#endif
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
@@ -5258,27 +5217,6 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
 			clear_bit_unlock(index, &hba->lrb_in_use);
-
-			/*
-			 * MTK PATCH
-			 * Callback for hie dummy crypto.
-			 *
-			 * Dummy crypto use XOR as crypto methodology for hie
-			 * logic verification:
-			 *
-			 * For write, XOR is applied on bio data buffer
-			 * directly to emulate "encryption" thus we need to
-			 * "reverse it" (XOR buffer again) after transfer done
-			 * (written to disk) and before buffer is used
-			 * by upper users in the future.
-			 *
-			 * For read, XOR shall be applied on bio data buffer to
-			 * emulate "decryption".
-			 */
-			#ifdef CONFIG_HIE
-			req = cmd->request;
-			hie_req_end(req);
-			#endif
 
 			/* Do not touch lrbp after scsi done */
 			ufs_mtk_biolog_scsi_done_start(index); /* MTK PATCH */
