@@ -18,15 +18,21 @@ ccflags-y += -I$(srctree)/drivers/staging/android/ion \
 #for sensorType in ccu_set_sensor_info
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc
 #
+ifeq ($(CONFIG_MACH_MT6833),y)
+    platform = mt6833
+else
+    platform = $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
+
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include/mach
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/irq/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(platform)/include
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmp/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/inc/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/$(MTK_PLATFORM)/ccu_ext_interface/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccu/src/$(platform)/ccu_ext_interface/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(srctree)/drivers/i2c/busses/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mmdvfs/

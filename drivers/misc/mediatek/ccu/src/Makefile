@@ -14,7 +14,11 @@
 subdir-ccflags-y += -DMTK_VPU_KERNEL
 subdir-ccflags-y += -DCCU_AF_ENABLE
 
-platform = $(subst ",,$(CONFIG_MTK_PLATFORM))
+ifeq ($(CONFIG_MACH_MT6833),y)
+    platform = mt6833
+else
+    platform = $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 
 obj-y += $(subst ",,$(platform))/
 
