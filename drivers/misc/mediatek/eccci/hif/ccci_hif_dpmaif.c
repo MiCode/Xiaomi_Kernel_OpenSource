@@ -292,18 +292,21 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 		/* rxq struct dump */
 		CCCI_MEM_LOG_TAG(md_id, TAG, "dpmaif:dump rxq(%d): 0x%p\n",
 			i, rxq);
+#ifdef DPMAIF_DEBUG_LOG
 		ccci_util_mem_dump(md_id, CCCI_DUMP_MEM_DUMP, (void *)rxq,
 			(int)sizeof(struct dpmaif_rx_queue));
+#endif
 		/* PIT mem dump */
 		CCCI_MEM_LOG(md_id, TAG,
 			"dpmaif:pit request base: 0x%p(%d*%d)\n",
 			rxq->pit_base,
 			(int)sizeof(struct dpmaifq_normal_pit),
 			rxq->pit_size_cnt);
-#ifdef DPMAIF_DEBUG_LOG
+
 		CCCI_MEM_LOG(md_id, TAG,
 			"Current rxq%d pit pos: w/r/rel=%x, %x, %x\n", i,
 		       rxq->pit_wr_idx, rxq->pit_rd_idx, rxq->pit_rel_rd_idx);
+#ifdef DPMAIF_DEBUG_LOG
 		ccci_util_mem_dump(-1, CCCI_DUMP_MEM_DUMP, rxq->pit_base,
 			(rxq->pit_size_cnt *
 			sizeof(struct dpmaifq_normal_pit)));
@@ -328,7 +331,7 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 			rxq->bat_req.bat_skb_ptr,
 			(rxq->bat_req.skb_pkt_cnt *
 			sizeof(struct dpmaif_bat_skb_t)));
-#endif
+
 #ifdef HW_FRG_FEATURE_ENABLE
 		/* BAT frg mem dump */
 		CCCI_MEM_LOG(md_id, TAG,
@@ -350,7 +353,7 @@ static void dpmaif_dump_rxq_remain(struct hif_dpmaif_ctrl *hif_ctrl,
 			(rxq->bat_frag.skb_pkt_cnt *
 			sizeof(struct dpmaif_bat_page_t)));
 #endif
-
+#endif
 	}
 }
 
@@ -427,6 +430,13 @@ static void dump_drb_queue_data(unsigned int qno)
 		CCCI_ERROR_LOG(-1, TAG,
 			"[%s] error: dpmaif_ctrl = %p; qno = %d",
 			__func__, dpmaif_ctrl, qno);
+		return;
+	}
+
+	if (dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
+		|| dpmaif_ctrl->dpmaif_state == HIFDPMAIF_STATE_MIN) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] DPMAIF not power on, skip dump.", __func__);
 		return;
 	}
 
