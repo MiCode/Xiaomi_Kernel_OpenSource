@@ -18,11 +18,11 @@ config MTK_DCM_MT6779
 	  Select "n" if you do not need to change
 
 config MTK_DCM_MT6761
-	bool "Mediatek MT6761 DCM control"
+	tristate "Mediatek MT6761 DCM control"
 	depends on ARCH_MEDIATEK && OF
 	select MTK_DCM_COMMON
 	help
 	  For Mediatek MT6761 dcm HW control. Only enable when you
 	  neet to change mt6761 dcm setting. Setting will not keep after reboot
-	  Select "y" if you want to change mt6771 dcm setting.
+	  Select "y" if you want to change mt6761 dcm setting.
 	  Select "n" if you do not need to change

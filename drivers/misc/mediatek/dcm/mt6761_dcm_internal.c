@@ -581,8 +581,10 @@ void dcm_pre_init(void)
 	dcm_pr_info("weak function of %s\n", __func__);
 }
 
-int __init mt6761_dcm_init(void)
+static int __init mt6761_dcm_init(void)
 {
+	int ret = 0;
+
 	if (is_dcm_bringup())
 		return 0;
 
@@ -596,14 +598,19 @@ int __init mt6761_dcm_init(void)
 
 	dcm_array_register();
 
-	if (-1 == mt_dcm_common_init())
-		return -1;
+	ret = mt_dcm_common_init();
 
 	dcm_debug = 0;
 
-	return 0;
+	return ret;
 }
-arch_initcall(mt6761_dcm_init);
+
+static void __init mt6761_dcm_exit(void)
+{
+}
+MODULE_SOFTDEP("pre:mtk_dcm.ko");
+module_init(mt6761_dcm_init);
+module_exit(mt6761_dcm_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek DCM driver");
