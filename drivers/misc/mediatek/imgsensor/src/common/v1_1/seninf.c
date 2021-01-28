@@ -119,8 +119,15 @@ static MINT32 seninf_open(struct inode *pInode, struct file *pFile)
 {
 	struct SENINF *pseninf = &gseninf;
 
-	seninf_clk_open(&pseninf->clk);
+	mutex_lock(&pseninf->seninf_mutex);
 
+	if (atomic_inc_return(&pseninf->seninf_open_cnt) == 1)
+		seninf_clk_open(&pseninf->clk);
+
+	PK_DBG("%s %d\n", __func__,
+	       atomic_read(&pseninf->seninf_open_cnt));
+
+	mutex_unlock(&pseninf->seninf_mutex);
 	return 0;
 }
 
@@ -128,7 +135,15 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 {
 	struct SENINF *pseninf = &gseninf;
 
-	seninf_clk_release(&pseninf->clk);
+	mutex_lock(&pseninf->seninf_mutex);
+
+	if (atomic_dec_and_test(&pseninf->seninf_open_cnt))
+		seninf_clk_release(&pseninf->clk);
+
+	PK_DBG("%s %d\n", __func__,
+	       atomic_read(&pseninf->seninf_open_cnt));
+
+	mutex_unlock(&pseninf->seninf_mutex);
 	return 0;
 }
 
@@ -381,6 +396,9 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 	int irq;
 
 	seninf_reg_char_dev(pseninf);
+
+	mutex_init(&pseninf->seninf_mutex);
+	atomic_set(&pseninf->seninf_open_cnt, 0);
 
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	pseninf->clk.pplatform_device = pDev;

@@ -17,6 +17,9 @@
 #include "seninf_cfg.h"
 #include "seninf_clk.h"
 
+#include <linux/atomic.h>
+#include <linux/mutex.h>
+
 #define SENINF_DEV_NAME "seninf"
 
 struct SENINF {
@@ -27,6 +30,9 @@ struct SENINF {
 	struct SENINF_CLK clk;
 
 	void __iomem *pseninf_base[SENINF_MAX_NUM];
+
+	struct mutex seninf_mutex;
+	atomic_t seninf_open_cnt;
 };
 
 #endif

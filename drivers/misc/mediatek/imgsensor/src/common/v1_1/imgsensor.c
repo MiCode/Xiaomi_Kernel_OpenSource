@@ -57,6 +57,7 @@
 #endif
 
 static DEFINE_MUTEX(gimgsensor_mutex);
+static DEFINE_MUTEX(gimgsensor_open_mutex);
 
 struct IMGSENSOR gimgsensor;
 
@@ -1872,9 +1873,13 @@ static int imgsensor_open(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
 
+	mutex_lock(&gimgsensor_open_mutex);
+
 	atomic_inc(&pimgsensor->imgsensor_open_cnt);
 	PK_DBG("%s %d\n", __func__,
 		atomic_read(&pimgsensor->imgsensor_open_cnt));
+
+	mutex_unlock(&gimgsensor_open_mutex);
 	return 0;
 }
 
@@ -1892,6 +1897,8 @@ static int imgsensor_release(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	struct IMGSENSOR *pimgsensor = &gimgsensor;
 
+	mutex_lock(&gimgsensor_open_mutex);
+
 	atomic_dec(&pimgsensor->imgsensor_open_cnt);
 	if (atomic_read(&pimgsensor->imgsensor_open_cnt) == 0) {
 		imgsensor_hw_release_all(&pimgsensor->hw);
@@ -1905,6 +1912,8 @@ static int imgsensor_release(struct inode *a_pstInode, struct file *a_pstFile)
 
 	PK_DBG("%s %d\n", __func__,
 		atomic_read(&pimgsensor->imgsensor_open_cnt));
+
+	mutex_unlock(&gimgsensor_open_mutex);
 	return 0;
 }
 

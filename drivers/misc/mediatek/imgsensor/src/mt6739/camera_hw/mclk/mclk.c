@@ -27,9 +27,11 @@ static enum IMGSENSOR_RETURN mclk_release(void *pinstance)
 	struct mclk *pinst = (struct mclk *)pinstance;
 
 	for (i = IMGSENSOR_SENSOR_IDX_MIN_NUM; i < IMGSENSOR_SENSOR_IDX_MAX_NUM; i++) {
+		mutex_lock(&pinctrl_mutex);
 		if (pinst->ppinctrl_state[i][MCLK_STATE_DISABLE] != NULL &&
 			!IS_ERR(pinst->ppinctrl_state[i][MCLK_STATE_DISABLE]))
 			pinctrl_select_state(pinst->ppinctrl, pinst->ppinctrl_state[i][MCLK_STATE_DISABLE]);
+		mutex_unlock(&pinctrl_mutex);
 	}
 	return IMGSENSOR_RETURN_SUCCESS;
 
@@ -55,6 +57,8 @@ static enum IMGSENSOR_RETURN mclk_init(void *pinstance)
 				pinctrl_lookup_state(pinst->ppinctrl,
 				mclk_pinctrl_list[i][MCLK_STATE_DISABLE].ppinctrl_names);
 
+		mutex_lock(&pinctrl_mutex);
+
 		if (pinst->ppinctrl_state[i][MCLK_STATE_DISABLE] != NULL &&
 			!IS_ERR(pinst->ppinctrl_state[i][MCLK_STATE_DISABLE]))
 			pinctrl_select_state(pinst->ppinctrl, pinst->ppinctrl_state[i][MCLK_STATE_DISABLE]);
@@ -65,6 +69,7 @@ static enum IMGSENSOR_RETURN mclk_init(void *pinstance)
 			ret = IMGSENSOR_RETURN_ERROR;
 		}
 
+		mutex_unlock(&pinctrl_mutex);
 
 		if (mclk_pinctrl_list[i][MCLK_STATE_ENABLE].ppinctrl_names)
 			pinst->ppinctrl_state[i][MCLK_STATE_ENABLE] =
