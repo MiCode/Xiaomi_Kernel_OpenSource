@@ -1741,9 +1741,11 @@ struct ion_handle *ion_import_dma_buf_fd(struct ion_client *client, int fd)
 	mmprofile_log_ex(ion_mmp_events[PROFILE_IMPORT], MMPROFILE_FLAG_END,
 			 (unsigned long)client,
 			 (unsigned long)handle);
-	handle->dbg.fd = fd;
-	handle->dbg.user_ts = sched_clock();
-	do_div(handle->dbg.user_ts, 1000000);
+	if (!IS_ERR(handle)) {
+		handle->dbg.fd = fd;
+		handle->dbg.user_ts = sched_clock();
+		do_div(handle->dbg.user_ts, 1000000);
+	}
 	return handle;
 }
 EXPORT_SYMBOL(ion_import_dma_buf_fd);
