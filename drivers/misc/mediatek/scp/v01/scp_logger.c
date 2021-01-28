@@ -781,6 +781,7 @@ void scp_crash_log_move_to_buf(enum scp_core_id scp_id)
 		if (w_pos >= DRAM_BUF_LEN) {
 			pr_err("[SCP] %s(): w_pos >= DRAM_BUF_LEN, w_pos=%u",
 				__func__, w_pos);
+			mutex_unlock(&scp_logger_mutex);
 			return;
 		}
 
