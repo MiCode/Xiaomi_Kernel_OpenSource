@@ -4163,7 +4163,7 @@ PVRSRV_ERROR RGXRegisterDevice(PVRSRV_DEVICE_NODE *psDeviceNode,
 	if (PVRSRV_OK != eError)
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to create Zero page lock", __func__));
-		goto free_zero_page;
+		goto free_dummy_page;
 	}
 #if defined(PDUMP)
 	psDeviceNode->sDummyPage.hPdumpPg = NULL;
@@ -4430,10 +4430,10 @@ e12:
 	e0:
 	OSFreeMem(psDevInfo);
 
-	free_zero_page:
 	/* Destroy the zero page lock created above */
 	OSLockDestroy(psDeviceNode->sDevZeroPage.psPgLock);
 
+free_dummy_page:
 	/* Destroy the dummy page lock created above */
 	OSLockDestroy(psDeviceNode->sDummyPage.psPgLock);
 

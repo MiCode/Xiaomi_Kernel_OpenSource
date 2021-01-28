@@ -229,9 +229,9 @@ pvr_fence_context_signal_fences(void *data)
 	 * So extract the items we intend to signal and add them to their own
 	 * queue.
 	 */
-	spin_lock_irqsave(&fctx->list_lock, flags1);
 #if defined(PVRSRV_SYNC_CHECKPOINT_CCB)
 	spin_lock_irqsave(&pvr_fence_ufo_lut_spinlock, flags2);
+	spin_lock_irqsave(&fctx->list_lock, flags1);
 	list_for_each_entry_safe(pvr_fence, tmp, &fctx->signal_list,
 				 signal_head) {
 		if (pvr_fence_sync_is_signaled(pvr_fence, PVRSRV_FENCE_FLAG_SUPPRESS_HWP_PKT)) {
@@ -239,16 +239,17 @@ pvr_fence_context_signal_fences(void *data)
 			hash_del(&pvr_fence->ufo_lookup);
 		}
 	}
+	spin_unlock_irqrestore(&fctx->list_lock, flags1);
 	spin_unlock_irqrestore(&pvr_fence_ufo_lut_spinlock, flags2);
 #else
+	spin_lock_irqsave(&fctx->list_lock, flags1);
 	list_for_each_entry_safe(pvr_fence, tmp, &fctx->signal_list,
 	             signal_head) {
 		if (pvr_fence_sync_is_signaled(pvr_fence, PVRSRV_FENCE_FLAG_SUPPRESS_HWP_PKT))
 			list_move_tail(&pvr_fence->signal_head, &signal_list);
 	}
-#endif /* defined(PVRSRV_SYNC_CHECKPOINT_CCB) */
-
 	spin_unlock_irqrestore(&fctx->list_lock, flags1);
+#endif /* defined(PVRSRV_SYNC_CHECKPOINT_CCB) */
 
 	list_for_each_entry_safe(pvr_fence, tmp, &signal_list, signal_head) {
 
@@ -1058,7 +1059,7 @@ void
 pvr_fence_check_state(void)
 {
 	int bkt;
-	unsigned long flags;
+	unsigned long flags, flags2;
 	struct hlist_node *tmp1;
 	struct pvr_fence *pvr_fence, *tmp2;
 	LIST_HEAD(signal_list);
@@ -1071,7 +1072,10 @@ pvr_fence_check_state(void)
 	spin_lock_irqsave(&pvr_fence_ufo_lut_spinlock, flags);
 	hash_for_each_safe(pvr_fence_ufo_lut, bkt, tmp1, pvr_fence, ufo_lookup) {
 		if (pvr_fence_sync_is_signaled(pvr_fence, PVRSRV_FENCE_FLAG_SUPPRESS_HWP_PKT)) {
+			spin_lock_irqsave(&pvr_fence->fctx->list_lock, flags2);
 			list_move_tail(&pvr_fence->signal_head, &signal_list);
+			spin_unlock_irqrestore(&pvr_fence->fctx->list_lock,
+									flags2);
 			hash_del(&pvr_fence->ufo_lookup);
 		}
 	}

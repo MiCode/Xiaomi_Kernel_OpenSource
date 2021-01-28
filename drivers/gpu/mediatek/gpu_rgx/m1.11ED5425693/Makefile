@@ -2,7 +2,19 @@ OPTIM = -Os
 
 MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
 
-MTK_PLATFORM = mt6779
+ifeq ($(word 2,$(MTK_GPU_VERSION)),doma)
+	MTK_PLATFORM = mt6765
+	ccflags-y += -DCONFIG_MACH_MT6765
+else ifeq ($(word 2,$(MTK_GPU_VERSION)),lorne)
+	MTK_PLATFORM = mt6779
+	ccflags-y += -DCONFIG_MACH_MT6779
+else ifeq ($(word 2,$(MTK_GPU_VERSION)),clark)
+	MTK_PLATFORM = mt6761
+	ccflags-y += -DCONFIG_MACH_MT6761
+else ifeq ($(word 2,$(MTK_GPU_VERSION)),auckland)
+	MTK_PLATFORM = mt6739
+	ccflags-y += -DCONFIG_MACH_MT6739
+endif
 
 ccflags-$(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) += -DSSPM_DEBUG
 
@@ -13,11 +25,6 @@ ifeq ($(word 2,$(MTK_GPU_VERSION)),marlowe)
 else
 	ECO := ""
 endif
-
-ifeq ($(word 2,$(MTK_GPU_VERSION)),lorne)
-        ccflags-y += -DCONFIG_MACH_MT6779
-endif
-
 
 RGX_TOP := $(dir $(lastword $(MAKEFILE_LIST)))
 
@@ -243,11 +250,11 @@ ccflags-y += \
 ccflags-y += \
 	-I$(srctree)/drivers/staging/android/ion \
 	-I$(srctree)/drivers/staging/android/ion/mtk \
-	-I$(srctree)/drivers/gpu/mediatek/ged/include \
 	-I$(srctree)/drivers/gpu/mediatek \
+	-I$(srctree)/drivers/gpu/mediatek/ged/include \
+	-I$(srctree)/drivers/gpu/mediatek/mt-plat \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include \
 	-I$(srctree)/drivers/gpu/mediatek/gpu_bm \
-#	-I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
 
 
 

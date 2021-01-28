@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  */
 
 #ifndef __MTK_GPU_UTILITY_H__
