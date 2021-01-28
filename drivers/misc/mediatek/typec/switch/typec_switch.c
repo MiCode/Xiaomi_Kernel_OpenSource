@@ -154,7 +154,7 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 					"switch-names", "ptn36241g");
 	if (index >= 0) {
 		typec_switch->ptn = devm_kzalloc(dev,
-			sizeof(typec_switch->ptn), GFP_KERNEL);
+			sizeof(*typec_switch->ptn), GFP_KERNEL);
 
 		if (!typec_switch->ptn) {
 			dev_err(dev, "ptn alloc fail\n");
@@ -173,7 +173,7 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 					"switch-names", "fusb304");
 	if (index >= 0) {
 		typec_switch->fusb = devm_kzalloc(dev,
-			sizeof(typec_switch->fusb), GFP_KERNEL);
+			sizeof(*typec_switch->fusb), GFP_KERNEL);
 
 		if (!typec_switch->fusb) {
 			dev_err(dev, "fusb alloc fail\n");
