@@ -407,7 +407,7 @@ static ssize_t baro_store_cali(struct device *dev,
 	mutex_lock(&baro_context_obj->baro_op_mutex);
 	cxt = baro_context_obj;
 	if (cxt->baro_ctl.set_cali != NULL)
-		err = cxt->baro_ctl.set_cali((int8_t *)cali_buf, count);
+		err = cxt->baro_ctl.set_cali((uint8_t *)cali_buf, sizeof(cali_buf));
 	else
 		pr_err("DON'T SUPPORT BARO COMMONVERSION CALI\n");
 	if (err < 0)
