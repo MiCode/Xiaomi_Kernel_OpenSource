@@ -1146,18 +1146,16 @@ static int check_enable_cqe(void)
 	enum boot_mode_t mode;
 
 	mode = get_boot_mode();
+	if ((mode == NORMAL_BOOT) || (mode == ALARM_BOOT)
+		|| (mode == SW_REBOOT))
+		return 1;
 	/*
-	 * Disable cqe in recovery/power off mode, for bypass flush
+	 * Disable cqe in other mode, for bypass flush
 	 *
 	 * Device will return switch error if flush cache
 	 * with cache disabled.
 	 */
-	if ((mode == RECOVERY_BOOT) ||
-		(mode == KERNEL_POWER_OFF_CHARGING_BOOT) ||
-		(mode == LOW_POWER_OFF_CHARGING_BOOT))
-		return 0;
-
-	return 1;
+	return 0;
 #else
 	return 1;
 #endif
