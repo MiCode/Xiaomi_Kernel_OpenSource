@@ -255,6 +255,7 @@ endmenu # Security
 
 menu "Other Peripherals"
 source "drivers/misc/mediatek/typec/Kconfig"
+source "drivers/misc/mediatek/leds/Kconfig"
 source "drivers/misc/mediatek/irtx/Kconfig"
 source "drivers/misc/mediatek/pwm/Kconfig"
 
