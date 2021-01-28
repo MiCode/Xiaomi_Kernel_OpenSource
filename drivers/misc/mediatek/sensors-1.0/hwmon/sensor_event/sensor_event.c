@@ -67,7 +67,6 @@ int sensor_input_event(unsigned char handle, const struct sensor_event *event)
 	wake_up_interruptible(&client->wait);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(sensor_input_event);
 
 static int sensor_event_fetch_next(struct sensor_event_client *client,
 				   struct sensor_event *event)
@@ -127,7 +126,6 @@ ssize_t sensor_event_read(unsigned char handle, struct file *file,
 
 	return read;
 }
-EXPORT_SYMBOL_GPL(sensor_event_read);
 
 unsigned int sensor_event_poll(unsigned char handle, struct file *file,
 			       poll_table *wait)
@@ -144,8 +142,6 @@ unsigned int sensor_event_poll(unsigned char handle, struct file *file,
 
 	return mask;
 }
-EXPORT_SYMBOL_GPL(sensor_event_poll);
-
 unsigned int sensor_event_register(unsigned char handle)
 {
 	struct sensor_event_obj *obj = event_obj;
@@ -231,8 +227,6 @@ unsigned int sensor_event_register(unsigned char handle)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(sensor_event_register);
-
 unsigned int sensor_event_deregister(unsigned char handle)
 {
 	struct sensor_event_obj *obj = event_obj;
@@ -240,7 +234,6 @@ unsigned int sensor_event_deregister(unsigned char handle)
 	vfree(obj->client[handle].buffer);
 	return 0;
 }
-EXPORT_SYMBOL(sensor_event_deregister);
 
 static int __init sensor_event_entry(void)
 {
@@ -248,20 +241,9 @@ static int __init sensor_event_entry(void)
 		kzalloc(sizeof(struct sensor_event_obj), GFP_KERNEL);
 
 	event_obj = obj;
-
-	sensor_attr_init();
-
 	return 0;
 }
-
-static void __exit sensor_event_exit(void)
-{
-	sensor_attr_exit();
-	kfree(event_obj);
-}
-
 subsys_initcall(sensor_event_entry);
-module_exit(sensor_event_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("sensor event driver");

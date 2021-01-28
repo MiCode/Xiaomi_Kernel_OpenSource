@@ -109,7 +109,7 @@ static struct miscdevice AAL_device = {
 };
 
 /*----------------------------------------------------------------------------*/
-int __init AAL_init(void)
+static int __init AAL_init(void)
 {
 	int err;
 
@@ -120,9 +120,8 @@ int __init AAL_init(void)
 	pr_debug("OK!\n");
 	return 0;
 }
-
 /*----------------------------------------------------------------------------*/
-void __exit AAL_exit(void)
+static void __exit AAL_exit(void)
 {
 	/*int err;*/
 
@@ -132,4 +131,7 @@ void __exit AAL_exit(void)
 	 */
 
 }
-
+late_initcall(AAL_init);
+MODULE_AUTHOR("Mediatek");
+MODULE_DESCRIPTION("AAL driver");
+MODULE_LICENSE("GPL");

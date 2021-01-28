@@ -166,7 +166,6 @@ int baro_factory_device_register(struct baro_factory_public *dev)
 	}
 	return err;
 }
-EXPORT_SYMBOL(baro_factory_device_register);
 
 int baro_factory_device_deregister(struct baro_factory_public *dev)
 {
@@ -174,4 +173,3 @@ int baro_factory_device_deregister(struct baro_factory_public *dev)
 	misc_deregister(&baro_factory_device);
 	return 0;
 }
-EXPORT_SYMBOL(baro_factory_device_deregister);

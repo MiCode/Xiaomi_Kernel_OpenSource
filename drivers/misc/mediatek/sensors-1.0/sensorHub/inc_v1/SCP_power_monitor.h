@@ -17,7 +17,7 @@ struct scp_power_monitor  {
 	struct list_head list;
 	int (*notifier_call)(uint8_t action, void *data);
 };
-extern int scp_power_monitor_register(struct scp_power_monitor *monitor);
-extern int scp_power_monitor_deregister(struct scp_power_monitor *monitor);
-extern void scp_power_monitor_notify(uint8_t action, void *data);
+int scp_power_monitor_register(struct scp_power_monitor *monitor);
+int scp_power_monitor_deregister(struct scp_power_monitor *monitor);
+void scp_power_monitor_notify(uint8_t action, void *data);
 #endif

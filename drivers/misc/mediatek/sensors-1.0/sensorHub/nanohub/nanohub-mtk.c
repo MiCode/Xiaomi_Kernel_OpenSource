@@ -32,8 +32,33 @@ struct nanohub_ipi_data {
 	/* todo */
 };
 
+/*
+ *Add the function weak defination, to avoid the build error
+ *when the MTK_SENSOR_SUPPORT is not set(SOC bringup).
+ */
+int __attribute__((weak))
+scp_power_monitor_register(struct scp_power_monitor *monitor)
+{
+	return 0;
+}
+
 /* scp_nano_ipi_status: 1 :ready to ipi  0:not ready*/
 int scp_nano_ipi_status;
+
+enum scp_ipi_status __attribute__((weak))
+scp_ipi_registration(enum ipi_id id,
+		     void (*ipi_handler)(int id, void *data, unsigned int len),
+		     const char *name)
+{
+	return SCP_IPI_ERROR;
+}
+
+enum scp_ipi_status __attribute__((weak))
+scp_ipi_send(enum ipi_id id, void *buf, unsigned int  len,
+	     unsigned int wait, enum scp_core_id scp_id)
+{
+	return SCP_IPI_ERROR;
+}
 
 #define NANOHUB_IPI_SEND_RETRY 100
 void mtk_ipi_scp_isr_sim(int got_size)

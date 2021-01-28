@@ -105,6 +105,45 @@ static DEFINE_SPINLOCK(scp_state_lock);
 static uint8_t scp_system_ready;
 static uint8_t scp_chre_ready;
 static struct SCP_sensorHub_data *obj_data;
+enum scp_ipi_status __attribute__((weak)) scp_ipi_registration(enum ipi_id id,
+	void (*ipi_handler)(int id, void *data, unsigned int len),
+	const char *name)
+{
+	return SCP_IPI_ERROR;
+}
+
+void __attribute__((weak)) scp_A_register_notify(struct notifier_block *nb)
+{
+}
+
+enum scp_ipi_status __attribute__((weak)) scp_ipi_send(enum ipi_id id,
+	void *buf, unsigned int  len,
+	unsigned int wait, enum scp_core_id scp_id)
+{
+	return SCP_IPI_ERROR;
+}
+
+phys_addr_t __attribute__((weak))
+	scp_get_reserve_mem_virt(enum scp_reserve_mem_id_t id)
+{
+	return 0;
+}
+
+phys_addr_t __attribute__((weak))
+	scp_get_reserve_mem_phys(enum scp_reserve_mem_id_t id)
+{
+	return 0;
+}
+
+phys_addr_t __attribute__((weak))
+	scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id)
+{
+	return 0;
+}
+
+void __attribute__((weak)) scp_register_feature(enum feature_id id)
+{
+}
 
 /* arch counter is 13M, mult is 161319385, shift is 21 */
 static inline uint64_t arch_counter_to_ns(uint64_t cyc)
@@ -424,7 +463,6 @@ int scp_sensorHub_data_registration(uint8_t sensor,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(scp_sensorHub_data_registration);
 
 static void SCP_sensorHub_write_wp_queue(union SCP_SENSOR_HUB_DATA *rsp)
 {
@@ -1314,7 +1352,6 @@ int sensor_enable_to_hub(uint8_t handle, int enabledisable)
 	mutex_unlock(&mSensorState_mtx);
 	return ret < 0 ? ret : 0;
 }
-EXPORT_SYMBOL_GPL(sensor_enable_to_hub);
 
 int sensor_set_delay_to_hub(uint8_t handle, unsigned int delayms)
 {
@@ -1331,7 +1368,6 @@ int sensor_set_delay_to_hub(uint8_t handle, unsigned int delayms)
 	mutex_unlock(&mSensorState_mtx);
 	return ret < 0 ? ret : 0;
 }
-EXPORT_SYMBOL_GPL(sensor_set_delay_to_hub);
 
 int sensor_batch_to_hub(uint8_t handle,
 	int flag, int64_t samplingPeriodNs, int64_t maxBatchReportLatencyNs)
@@ -1348,7 +1384,6 @@ int sensor_batch_to_hub(uint8_t handle,
 	mutex_unlock(&mSensorState_mtx);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(sensor_batch_to_hub);
 
 int sensor_flush_to_hub(uint8_t handle)
 {
@@ -1363,7 +1398,6 @@ int sensor_flush_to_hub(uint8_t handle)
 	mutex_unlock(&mSensorState_mtx);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(sensor_flush_to_hub);
 
 int sensor_cfg_to_hub(uint8_t handle, uint8_t *data, uint8_t count)
 {
@@ -1392,7 +1426,6 @@ int sensor_cfg_to_hub(uint8_t handle, uint8_t *data, uint8_t count)
 	}
 	return ret;
 }
-EXPORT_SYMBOL_GPL(sensor_cfg_to_hub);
 
 int sensor_calibration_to_hub(uint8_t handle)
 {
@@ -1416,7 +1449,6 @@ int sensor_calibration_to_hub(uint8_t handle)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(sensor_calibration_to_hub);
 
 int sensor_selftest_to_hub(uint8_t handle)
 {
@@ -1440,7 +1472,6 @@ int sensor_selftest_to_hub(uint8_t handle)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(sensor_selftest_to_hub);
 
 int sensor_get_data_from_hub(uint8_t sensorType,
 	struct data_unit_t *data)
@@ -1702,7 +1733,6 @@ int sensor_get_data_from_hub(uint8_t sensorType,
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(sensor_get_data_from_hub);
 
 int sensor_set_cmd_to_hub(uint8_t sensorType,
 	enum CUST_ACTION action, void *data)
@@ -2101,7 +2131,6 @@ int sensor_set_cmd_to_hub(uint8_t sensorType,
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(sensor_set_cmd_to_hub);
 
 static void restoring_enable_sensorHub_sensor(int handle)
 {
@@ -2223,34 +2252,6 @@ static struct notifier_block sensorHub_ready_notifier = {
 	.notifier_call = sensorHub_ready_event,
 };
 
-static int send_sensor_init_start_event(void)
-{
-	enum scp_ipi_status ipi_status = SCP_IPI_ERROR;
-	uint32_t sensor_init_start_event = 0;
-	uint32_t retry = 0;
-
-	do {
-		ipi_status = scp_ipi_send(IPI_SENSOR_INIT_START,
-			&sensor_init_start_event,
-			sizeof(sensor_init_start_event),
-			0, SCP_A_ID);
-		if (ipi_status == SCP_IPI_ERROR) {
-			pr_err("IPI_SENSOR_INIT_START: ipi_send fail\n");
-			return -1;
-		}
-		if (ipi_status == SCP_IPI_BUSY) {
-			if (retry++ == 1000) {
-				pr_err("retry fail\n");
-				return -1;
-			}
-			if (retry % 10 == 0)
-				usleep_range(1000, 2000);
-		}
-	} while (ipi_status == SCP_IPI_BUSY);
-
-	return 0;
-}
-
 static int sensorHub_probe(struct platform_device *pdev)
 {
 	struct SCP_sensorHub_data *obj;
@@ -2284,9 +2285,6 @@ static int sensorHub_probe(struct platform_device *pdev)
 	/* register ipi interrupt handler */
 	scp_ipi_registration(IPI_SENSOR,
 		SCP_sensorHub_IPI_handler, "SCP_sensorHub");
-
-	if (!send_sensor_init_start_event())
-		goto exit_ipi_start;
 
 	/* init receive scp dram data worker */
 	/* INIT_WORK(&obj->direct_push_work, SCP_sensorHub_direct_push_work); */
@@ -2353,7 +2351,6 @@ exit_wakeup:
 	if (!IS_ERR(task))
 		kthread_stop(task);
 exit_direct_push:
-exit_ipi_start:
 	vfree(obj->wp_queue.ringbuffer);
 exit_wp_queue:
 	kfree(obj);
@@ -2540,9 +2537,8 @@ static struct notifier_block sensorHub_pm_notifier_func = {
 };
 #endif /* CONFIG_PM */
 
-int __init SCP_sensorHub_init(void)
+static int __init SCP_sensorHub_init(void)
 {
-	nanohub_init();
 	SCP_sensorHub_ipi_master_init();
 	pr_debug("%s\n", __func__);
 	if (platform_device_register(&sensorHub_device)) {
@@ -2566,14 +2562,13 @@ int __init SCP_sensorHub_init(void)
 	return 0;
 }
 
-void __exit SCP_sensorHub_exit(void)
+static void __exit SCP_sensorHub_exit(void)
 {
 	pr_debug("%s\n", __func__);
-	nanohub_cleanup();
 }
+
 module_init(SCP_sensorHub_init);
 module_exit(SCP_sensorHub_exit);
-
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("SCP sensor hub driver");
 MODULE_AUTHOR("hongxu.zhao@mediatek.com");

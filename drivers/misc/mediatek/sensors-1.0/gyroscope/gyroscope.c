@@ -688,7 +688,6 @@ int gyro_register_data_path(struct gyro_data_path *data)
 		pr_debug("gyro not register temperature path\n");
 	return 0;
 }
-EXPORT_SYMBOL_GPL(gyro_register_data_path);
 
 int gyro_register_control_path(struct gyro_control_path *ctl)
 {
@@ -729,7 +728,6 @@ int gyro_register_control_path(struct gyro_control_path *ctl)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(gyro_register_control_path);
 
 int x_t /* = 0*/;
 int y_t /* = 0*/;
@@ -778,7 +776,6 @@ int gyro_data_report(struct gyro_data *data)
 	err = sensor_input_event(gyro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_data_report);
 
 int gyro_bias_report(struct gyro_data *data)
 {
@@ -795,7 +792,6 @@ int gyro_bias_report(struct gyro_data *data)
 	err = sensor_input_event(gyro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_bias_report);
 
 int gyro_cali_report(struct gyro_data *data)
 {
@@ -812,7 +808,6 @@ int gyro_cali_report(struct gyro_data *data)
 	err = sensor_input_event(gyro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_cali_report);
 
 int gyro_temp_report(int32_t *temp)
 {
@@ -832,7 +827,6 @@ int gyro_temp_report(int32_t *temp)
 	err = sensor_input_event(gyro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_temp_report);
 
 int gyro_flush_report(void)
 {
@@ -846,9 +840,8 @@ int gyro_flush_report(void)
 	err = sensor_input_event(gyro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_flush_report);
 
-int gyro_probe(void)
+static int gyro_probe(void)
 {
 
 	int err;
@@ -878,9 +871,8 @@ exit_alloc_data_failed:
 	pr_err("%s--- fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_probe);
 
-int gyro_remove(void)
+static int gyro_remove(void)
 {
 	int err = 0;
 
@@ -896,21 +888,25 @@ int gyro_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(gyro_remove);
 
 static int __init gyro_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (gyro_probe()) {
+		pr_err("failed to register gyro driver\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static void __exit gyro_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	gyro_remove();
+	platform_driver_unregister(&gyroscope_driver);
 }
-
-module_init(gyro_init);
-module_exit(gyro_exit);
+late_initcall(gyro_init);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("GYROSCOPE device driver");

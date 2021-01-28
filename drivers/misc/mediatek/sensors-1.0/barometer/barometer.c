@@ -552,7 +552,6 @@ int baro_register_data_path(struct baro_data_path *data)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(baro_register_data_path);
 
 int baro_register_control_path(struct baro_control_path *ctl)
 {
@@ -594,7 +593,6 @@ int baro_register_control_path(struct baro_control_path *ctl)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(baro_register_control_path);
 
 int baro_data_report(int value, int status, int64_t nt)
 {
@@ -611,7 +609,6 @@ int baro_data_report(int value, int status, int64_t nt)
 	err = sensor_input_event(baro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(baro_data_report);
 
 int baro_flush_report(void)
 {
@@ -625,9 +622,8 @@ int baro_flush_report(void)
 	err = sensor_input_event(baro_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(baro_flush_report);
 
-int baro_probe(void)
+static int baro_probe(void)
 {
 	int err;
 
@@ -658,9 +654,8 @@ exit_alloc_data_failed:
 	pr_debug("%s----fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(baro_probe);
 
-int baro_remove(void)
+static int baro_remove(void)
 {
 	int err = 0;
 
@@ -678,22 +673,27 @@ int baro_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(baro_remove);
 
 static int __init baro_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (baro_probe()) {
+		pr_err("failed to register baro driver\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static void __exit baro_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	baro_remove();
+	platform_driver_unregister(&barometer_driver);
 }
-
-module_init(baro_init);
-module_exit(baro_exit);
-
+late_initcall(baro_init);
+/* module_init(baro_init); */
+/* module_exit(baro_exit); */
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("BAROMETER device driver");
 MODULE_AUTHOR("Mediatek");

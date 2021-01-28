@@ -145,7 +145,4 @@ extern int gyro_temp_report(int32_t *temp);
 extern int gyro_flush_report(void);
 extern int gyro_register_control_path(struct gyro_control_path *ctl);
 extern int gyro_register_data_path(struct gyro_data_path *data);
-extern int gyro_probe(void);
-extern int gyro_remove(void);
-
 #endif

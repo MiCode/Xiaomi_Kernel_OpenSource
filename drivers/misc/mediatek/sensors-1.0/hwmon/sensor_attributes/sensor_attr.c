@@ -93,8 +93,6 @@ out:
 	mutex_unlock(&sensor_attr_mtx);
 	return err;
 }
-EXPORT_SYMBOL_GPL(sensor_attr_register);
-
 int sensor_attr_deregister(struct sensor_attr_t *misc)
 {
 	if (WARN_ON(list_empty(&misc->list)))
@@ -108,7 +106,6 @@ int sensor_attr_deregister(struct sensor_attr_t *misc)
 	sensor_event_deregister(misc->minor);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(sensor_attr_deregister);
 
 /*
  *static char *sensor_attr_devnode(struct device *dev, umode_t *mode)
@@ -139,10 +136,4 @@ fail_printk:
 	class_destroy(sensor_attr_class);
 	return err;
 }
-
-void __exit sensor_attr_exit(void)
-{
-	unregister_chrdev(sensor_attr_major, "sensor");
-	class_destroy(sensor_attr_class);
-}
-
+subsys_initcall(sensor_attr_init);

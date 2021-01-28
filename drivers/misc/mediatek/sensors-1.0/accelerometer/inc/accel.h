@@ -127,7 +127,5 @@ extern int acc_cali_report(struct acc_data *data);
 extern int acc_flush_report(void);
 extern int acc_register_control_path(struct acc_control_path *ctl);
 extern int acc_register_data_path(struct acc_data_path *data);
-extern int acc_probe(void);
-extern int acc_remove(void);
 
 #endif

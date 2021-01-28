@@ -260,7 +260,6 @@ int accel_factory_device_register(struct accel_factory_public *dev)
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(accel_factory_device_register);
 
 int accel_factory_device_deregister(struct accel_factory_public *dev)
 {
@@ -268,4 +267,3 @@ int accel_factory_device_deregister(struct accel_factory_public *dev)
 	misc_deregister(&accel_factory_device);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(accel_factory_device_deregister);

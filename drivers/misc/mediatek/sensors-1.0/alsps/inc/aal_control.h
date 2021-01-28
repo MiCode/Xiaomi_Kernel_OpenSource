@@ -9,8 +9,5 @@
 #define AAL_TAG                  "[ALS/AAL]"
 
 extern int aal_use;
-int __init AAL_init(void);
-void __exit AAL_exit(void);
-
 #endif
 

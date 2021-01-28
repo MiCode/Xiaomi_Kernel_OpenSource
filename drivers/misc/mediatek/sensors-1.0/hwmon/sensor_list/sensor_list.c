@@ -138,7 +138,6 @@ static void sensorlist_get_deviceinfo(struct work_struct *work)
 
 static int scp_ready_event(uint8_t event, void *ptr)
 {
-	pr_err("%s, event:%u\n", __func__, event);
 	switch (event) {
 	case SENSOR_POWER_UP:
 		if (likely(atomic_xchg(&first_ready_after_boot, 1)))

@@ -46,14 +46,10 @@ int als_data_report_t(int value, int status, int64_t time_stamp)
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(als_data_report_t);
-
 int als_data_report(int value, int status)
 {
 	return als_data_report_t(value, status, 0);
 }
-EXPORT_SYMBOL_GPL(als_data_report);
-
 int als_cali_report(int *value)
 {
 	int err = 0;
@@ -66,7 +62,6 @@ int als_cali_report(int *value)
 	err = sensor_input_event(alsps_context_obj->als_mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(als_cali_report);
 
 int als_flush_report(void)
 {
@@ -81,7 +76,6 @@ int als_flush_report(void)
 	pr_debug_ratelimited("flush\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(als_flush_report);
 
 int rgbw_data_report_t(int *value, int64_t time_stamp)
 {
@@ -101,8 +95,6 @@ int rgbw_data_report_t(int *value, int64_t time_stamp)
 	err = sensor_input_event(cxt->als_mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(rgbw_data_report_t);
-
 int rgbw_data_report(int *value)
 {
 	return rgbw_data_report_t(value, 0);
@@ -120,7 +112,6 @@ int rgbw_flush_report(void)
 	pr_debug_ratelimited("flush\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(rgbw_flush_report);
 
 int ps_data_report_t(int value, int status, int64_t time_stamp)
 {
@@ -137,14 +128,10 @@ int ps_data_report_t(int value, int status, int64_t time_stamp)
 	err = sensor_input_event(alsps_context_obj->ps_mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(ps_data_report_t);
-
 int ps_data_report(int value, int status)
 {
 	return ps_data_report_t(value, status, 0);
 }
-EXPORT_SYMBOL_GPL(ps_data_report);
-
 int ps_cali_report(int *value)
 {
 	int err = 0;
@@ -158,7 +145,6 @@ int ps_cali_report(int *value)
 	err = sensor_input_event(alsps_context_obj->ps_mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(ps_cali_report);
 
 int ps_flush_report(void)
 {
@@ -172,8 +158,6 @@ int ps_flush_report(void)
 	pr_debug_ratelimited("flush\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(ps_flush_report);
-
 static void als_work_func(struct work_struct *work)
 {
 	struct alsps_context *cxt = NULL;
@@ -1129,7 +1113,6 @@ int als_register_data_path(struct als_data_path *data)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(als_register_data_path);
 
 int ps_register_data_path(struct ps_data_path *data)
 {
@@ -1147,7 +1130,6 @@ int ps_register_data_path(struct ps_data_path *data)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ps_register_data_path);
 
 int als_register_control_path(struct als_control_path *ctl)
 {
@@ -1190,7 +1172,6 @@ int als_register_control_path(struct als_control_path *ctl)
 		       KOBJ_ADD);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(als_register_control_path);
 
 int ps_register_control_path(struct ps_control_path *ctl)
 {
@@ -1230,7 +1211,6 @@ int ps_register_control_path(struct ps_control_path *ctl)
 	kobject_uevent(&alsps_context_obj->ps_mdev.this_device->kobj, KOBJ_ADD);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ps_register_control_path);
 
 /* AAL functions**************************************** */
 int alsps_aal_enable(int enable)
@@ -1249,7 +1229,7 @@ int alsps_aal_get_data(void)
 }
 /* *************************************************** */
 
-int alsps_probe(void)
+static int alsps_probe(void)
 {
 	int err;
 
@@ -1276,9 +1256,8 @@ exit_alloc_data_failed:
 	pr_err("%s fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(alsps_probe);
 
-int alsps_remove(void)
+static int alsps_remove(void)
 {
 	int err = 0;
 
@@ -1298,23 +1277,25 @@ int alsps_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(alsps_remove);
 
 static int __init alsps_init(void)
 {
 	pr_debug("%s\n", __func__);
-	AAL_init();
+
+	if (alsps_probe()) {
+		pr_err("failed to register alsps driver\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static void __exit alsps_exit(void)
 {
-	pr_debug("%s\n", __func__);
-	AAL_exit();
+	alsps_remove();
+	platform_driver_unregister(&als_ps_driver);
 }
-
-module_init(alsps_init);
-module_exit(alsps_exit);
+late_initcall(alsps_init);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("ALSPS device driver");

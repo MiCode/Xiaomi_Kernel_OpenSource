@@ -692,7 +692,6 @@ ssize_t nanohub_external_write(const char *buffer, size_t length)
 
 	return ret;
 }
-EXPORT_SYMBOL(nanohub_external_write);
 
 static bool nanohub_os_log(char *buffer, int len)
 {
@@ -978,7 +977,7 @@ int nanohub_resume(struct iio_dev *iio_dev)
 	return 0;
 }
 
-int __init nanohub_init(void)
+static int __init nanohub_init(void)
 {
 	int ret = 0;
 
@@ -1012,7 +1011,7 @@ int __init nanohub_init(void)
 	return ret;
 }
 
-void __exit nanohub_cleanup(void)
+static void __exit nanohub_cleanup(void)
 {
 #ifdef CONFIG_NANOHUB_I2C
 	nanohub_i2c_cleanup();
@@ -1026,3 +1025,8 @@ void __exit nanohub_cleanup(void)
 	sensor_class = 0;
 }
 
+module_init(nanohub_init);
+module_exit(nanohub_cleanup);
+
+MODULE_AUTHOR("Ben Fennema");
+MODULE_LICENSE("GPL");

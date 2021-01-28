@@ -14,8 +14,7 @@
 # In case the platform does NOT support this type of sensors
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/hwmon/include
 
-obj-$(CONFIG_MTK_SENSOR_SUPPORT)  += baro_common.o
-baro_common-$(CONFIG_MTK_SENSOR_SUPPORT) += barometer.o barometer_factory.o
+obj-y   +=  barometer.o barometer_factory.o
 
 obj-$(CONFIG_MTK_BAROHUB) += barohub/
 ifneq ($(CONFIG_MTK_BAROHUB),y)

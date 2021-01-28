@@ -547,8 +547,5 @@ int sensor_cfg_to_hub(uint8_t sensorType, uint8_t *data, uint8_t count);
 int sensor_calibration_to_hub(uint8_t sensorType);
 int sensor_selftest_to_hub(uint8_t sensorType);
 
-extern int __init nanohub_init(void);
-extern void __exit nanohub_cleanup(void);
-
 #endif
 #endif

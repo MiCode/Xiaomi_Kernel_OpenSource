@@ -196,7 +196,4 @@ extern int ps_data_report_t(int value, int status, int64_t time_stamp);
 extern int ps_register_control_path(struct ps_control_path *ctl);
 extern int ps_register_data_path(struct ps_data_path *data);
 extern struct platform_device *get_alsps_platformdev(void);
-extern int alsps_probe(void);
-extern int alsps_remove(void);
-
 #endif

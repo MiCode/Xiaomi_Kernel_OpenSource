@@ -687,7 +687,6 @@ int acc_register_data_path(struct acc_data_path *data)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(acc_register_data_path);
 
 int acc_register_control_path(struct acc_control_path *ctl)
 {
@@ -723,7 +722,6 @@ int acc_register_control_path(struct acc_control_path *ctl)
 	kobject_uevent(&acc_context_obj->mdev.this_device->kobj, KOBJ_ADD);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(acc_register_control_path);
 
 int acc_data_report(struct acc_data *data)
 {
@@ -748,7 +746,6 @@ int acc_data_report(struct acc_data *data)
 	err = sensor_input_event(acc_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(acc_data_report);
 
 int acc_bias_report(struct acc_data *data)
 {
@@ -765,7 +762,6 @@ int acc_bias_report(struct acc_data *data)
 	err = sensor_input_event(acc_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(acc_bias_report);
 
 int acc_cali_report(struct acc_data *data)
 {
@@ -782,7 +778,6 @@ int acc_cali_report(struct acc_data *data)
 	err = sensor_input_event(acc_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(acc_cali_report);
 
 int acc_flush_report(void)
 {
@@ -796,9 +791,7 @@ int acc_flush_report(void)
 	err = sensor_input_event(acc_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(acc_flush_report);
-
-int acc_probe(void)
+static int acc_probe(void)
 {
 
 	int err;
@@ -829,9 +822,8 @@ exit_alloc_data_failed:
 	pr_err("----accel_probe fail !!!\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(acc_probe);
 
-int acc_remove(void)
+static int acc_remove(void)
 {
 	int err = 0;
 
@@ -849,22 +841,25 @@ int acc_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(acc_remove);
 
 static int __init acc_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (acc_probe()) {
+		pr_err("failed to register acc driver\n");
+		return -ENODEV;
+	}
 
 	return 0;
 }
 
 static void __exit acc_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	acc_remove();
+	platform_driver_unregister(&gsensor_driver);
 }
-
-module_init(acc_init);
-module_exit(acc_exit);
+late_initcall(acc_init);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("ACCELEROMETER device driver");

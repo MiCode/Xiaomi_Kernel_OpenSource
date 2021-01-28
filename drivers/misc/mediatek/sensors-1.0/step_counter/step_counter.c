@@ -166,8 +166,6 @@ int step_notify_t(enum STEP_NOTIFY_TYPE type, int64_t time_stamp)
 
 	return err;
 }
-EXPORT_SYMBOL_GPL(step_notify_t);
-
 int step_notify(enum STEP_NOTIFY_TYPE type)
 {
 	return step_notify_t(type, 0);
@@ -781,7 +779,6 @@ int step_c_driver_add(struct step_c_init_info *obj)
 
 	return err;
 }
-EXPORT_SYMBOL_GPL(step_c_driver_add);
 
 static int step_open(struct inode *inode, struct file *file)
 {
@@ -869,7 +866,6 @@ int step_c_register_data_path(struct step_c_data_path *data)
 	}
 	return 0;
 }
-EXPORT_SYMBOL_GPL(step_c_register_data_path);
 
 int step_c_register_control_path(struct step_c_control_path *ctl)
 {
@@ -929,7 +925,6 @@ int step_c_register_control_path(struct step_c_control_path *ctl)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(step_c_register_control_path);
 
 int step_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 {
@@ -950,8 +945,6 @@ int step_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(step_c_data_report_t);
-
 int step_c_data_report(uint32_t new_counter, int status)
 {
 	return step_c_data_report_t(new_counter, status, 0);
@@ -976,14 +969,10 @@ int floor_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp)
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(floor_c_data_report_t);
-
 int floor_c_data_report(uint32_t new_counter, int status)
 {
 	return floor_c_data_report_t(new_counter, status, 0);
 }
-EXPORT_SYMBOL_GPL(floor_c_data_report);
-
 int step_c_flush_report(void)
 {
 	struct sensor_event event;
@@ -997,7 +986,6 @@ int step_c_flush_report(void)
 	pr_debug_ratelimited("flush\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(step_c_flush_report);
 
 int step_d_flush_report(void)
 {
@@ -1012,7 +1000,6 @@ int step_d_flush_report(void)
 	pr_debug_ratelimited("flush\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(step_d_flush_report);
 
 int smd_flush_report(void)
 {
@@ -1032,9 +1019,8 @@ int floor_c_flush_report(void)
 	pr_debug_ratelimited("flush\n");
 	return err;
 }
-EXPORT_SYMBOL_GPL(floor_c_flush_report);
 
-int step_c_probe(void)
+static int step_c_probe(void)
 {
 
 	int err;
@@ -1063,9 +1049,8 @@ exit_alloc_data_failed:
 	pr_debug("%s---- fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(step_c_probe);
 
-int step_c_remove(void)
+static int step_c_remove(void)
 {
 
 	int err = 0;
@@ -1082,22 +1067,26 @@ int step_c_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(step_c_remove);
 
 static int __init step_c_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (step_c_probe()) {
+		pr_err("failed to register step_c driver\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static void __exit step_c_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	step_c_remove();
+	platform_driver_unregister(&step_counter_driver);
 }
 
-module_init(step_c_init);
-module_exit(step_c_exit);
-
+late_initcall(step_c_init);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("STEP_CMETER device driver");
 MODULE_AUTHOR("Mediatek");

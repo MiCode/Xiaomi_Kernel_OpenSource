@@ -35,8 +35,6 @@ void scp_power_monitor_notify(uint8_t action, void *data)
 	}
 	spin_unlock_irqrestore(&pm_lock, flags);
 }
-EXPORT_SYMBOL(scp_power_monitor_notify);
-
 int scp_power_monitor_register(struct scp_power_monitor *monitor)
 {
 	int err = 0;
@@ -68,8 +66,6 @@ int scp_power_monitor_register(struct scp_power_monitor *monitor)
 	spin_unlock_irq(&pm_lock);
 	return err;
 }
-EXPORT_SYMBOL(scp_power_monitor_register);
-
 int scp_power_monitor_deregister(struct scp_power_monitor *monitor)
 {
 	if (WARN_ON(list_empty(&monitor->list)))
@@ -80,4 +76,3 @@ int scp_power_monitor_deregister(struct scp_power_monitor *monitor)
 	spin_unlock_irq(&pm_lock);
 	return 0;
 }
-EXPORT_SYMBOL(scp_power_monitor_deregister);

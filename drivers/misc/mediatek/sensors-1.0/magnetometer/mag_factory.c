@@ -171,7 +171,6 @@ int mag_factory_device_register(struct mag_factory_public *dev)
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_factory_device_register);
 
 int mag_factory_device_deregister(struct mag_factory_public *dev)
 {
@@ -179,4 +178,3 @@ int mag_factory_device_deregister(struct mag_factory_public *dev)
 	misc_deregister(&mag_factory_device);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mag_factory_device_deregister);

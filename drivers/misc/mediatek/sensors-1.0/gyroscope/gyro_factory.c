@@ -280,7 +280,6 @@ int gyro_factory_device_register(struct gyro_factory_public *dev)
 	}
 	return err;
 }
-EXPORT_SYMBOL_GPL(gyro_factory_device_register);
 
 int gyro_factory_device_deregister(struct gyro_factory_public *dev)
 {
@@ -288,4 +287,3 @@ int gyro_factory_device_deregister(struct gyro_factory_public *dev)
 	misc_deregister(&gyro_factory_device);
 	return 0;
 }
-EXPORT_SYMBOL_GPL(gyro_factory_device_deregister);

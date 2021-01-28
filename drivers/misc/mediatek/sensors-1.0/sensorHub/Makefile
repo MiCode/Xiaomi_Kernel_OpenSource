@@ -15,21 +15,9 @@
 #obj-$(CONFIG_MTK_SCP_SENSORHUB) += SCP_sensorHub/
 #obj-$(CONFIG_MTK_SENSOR_HUB_SUPPORT) += SCP_shf/
 #obj-$(CONFIG_MTK_SCP_SENSORHUB_V1) += SCP_sensorHub_v1/
-
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/sensorHub/inc_v1
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/hwmon/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/sensorHub/nanohub
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp
-#ccflags-y += -I$(srctree)/arch/arm/mach-mt2601/pike/dct/dct
-
-ifeq ($(CONFIG_NANOHUB), y)
-obj-$(CONFIG_MTK_SENSOR_SUPPORT) += sensorHub.o
-
-sensorHub-$(CONFIG_NANOHUB_MTK_IPI) := nanohub/main.o \
-            nanohub/bl.o nanohub/comms.o
-sensorHub-$(CONFIG_NANOHUB_MTK_IPI) += nanohub/nanohub-mtk.o
-
-sensorHub-$(CONFIG_NANOHUB_MTK_IPI) += SCP_nanoHub/SCP_nanoHub.o \
-        SCP_power_monitor/SCP_power_monitor.o
+ifeq ($(CONFIG_NANOHUB),y)
+obj-y += nanohub/
+obj-y += SCP_nanoHub/
+obj-y += SCP_power_monitor/
 endif
 

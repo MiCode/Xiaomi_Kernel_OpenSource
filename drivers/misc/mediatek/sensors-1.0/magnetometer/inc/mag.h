@@ -147,7 +147,4 @@ extern int mag_info_record(struct mag_libinfo_t *p_mag_info);
 extern int mag_cali_report(int32_t *param);
 extern int mag_register_control_path(struct mag_control_path *ctl);
 extern int mag_register_data_path(struct mag_data_path *ctl);
-extern int mag_probe(void);
-extern int mag_remove(void);
-
 #endif

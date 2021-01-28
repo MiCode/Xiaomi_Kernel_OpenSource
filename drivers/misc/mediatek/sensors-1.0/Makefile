@@ -1,7 +1,6 @@
-ifneq ($(CONFIG_MTK_SENSOR_SUPPORT), n)
-obj-$(CONFIG_CUSTOM_KERNEL_SENSORHUB) += sensorHub/
-obj-$(CONFIG_MTK_HWMON) += hwmon/
-obj-y += sensor_probe/
+ifeq ($(CONFIG_MTK_SENSOR_SUPPORT),y)
+obj-$(CONFIG_CUSTOM_KERNEL_SENSORHUB)	+= sensorHub/
+obj-$(CONFIG_MTK_HWMON)	    += hwmon/
 obj-$(CONFIG_CUSTOM_KERNEL_ALSPS) += alsps/
 ifeq ($(CONFIG_CUSTOM_KERNEL_ACCELGYRO),y)
 obj-y += accelgyro/

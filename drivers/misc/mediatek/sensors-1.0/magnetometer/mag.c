@@ -589,7 +589,6 @@ int mag_register_data_path(struct mag_data_path *data)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mag_register_data_path);
 
 int mag_register_control_path(struct mag_control_path *ctl)
 {
@@ -634,8 +633,6 @@ int mag_register_control_path(struct mag_control_path *ctl)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mag_register_control_path);
-
 static int x1, y1, z1;
 static long pc;
 
@@ -684,7 +681,6 @@ int mag_data_report(struct mag_data *data)
 	err = sensor_input_event(mag_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_data_report);
 
 int mag_bias_report(struct mag_data *data)
 {
@@ -702,7 +698,6 @@ int mag_bias_report(struct mag_data *data)
 	err = sensor_input_event(mag_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_bias_report);
 
 int mag_cali_report(int32_t *param)
 {
@@ -722,7 +717,6 @@ int mag_cali_report(int32_t *param)
 	err = sensor_input_event(mag_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_cali_report);
 
 int mag_flush_report(void)
 {
@@ -736,7 +730,6 @@ int mag_flush_report(void)
 	err = sensor_input_event(mag_context_obj->mdev.minor, &event);
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_flush_report);
 
 int mag_info_record(struct mag_libinfo_t *p_mag_info)
 {
@@ -752,9 +745,8 @@ int mag_info_record(struct mag_libinfo_t *p_mag_info)
 
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_info_record);
 
-int mag_probe(void)
+static int mag_probe(void)
 {
 	int err;
 
@@ -784,9 +776,8 @@ exit_alloc_data_failed:
 	pr_err("%s fail !!!\n", __func__);
 	return err;
 }
-EXPORT_SYMBOL_GPL(mag_probe);
 
-int mag_remove(void)
+static int mag_remove(void)
 {
 	int err = 0;
 
@@ -803,22 +794,25 @@ int mag_remove(void)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(mag_remove);
 
 static int __init mag_init(void)
 {
 	pr_debug("%s\n", __func__);
+
+	if (mag_probe()) {
+		pr_err("failed to register mag driver\n");
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
 static void __exit mag_exit(void)
 {
-	pr_debug("%s\n", __func__);
+	mag_remove();
+	platform_driver_unregister(&msensor_driver);
 }
-
-module_init(mag_init);
-module_exit(mag_exit);
-
+late_initcall(mag_init);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MAGELEROMETER device driver");
 MODULE_AUTHOR("Mediatek");

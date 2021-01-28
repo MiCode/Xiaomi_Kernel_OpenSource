@@ -14,7 +14,7 @@
 # In case the platform does NOT support this type of sensors
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sensors-1.0/hwmon/include
 
-obj-$(CONFIG_MTK_SENSOR_SUPPORT) += step_counter.o
+obj-y += step_counter.o
 
 obj-$(CONFIG_MTK_STEPSIGNHUB) += stepsignhub/
 

@@ -153,13 +153,10 @@ extern int step_c_data_report(uint32_t new_counter, int status);
 extern int step_c_flush_report(void);
 extern int step_d_flush_report(void);
 extern int smd_flush_report(void);
-extern int floor_c_data_report_t(uint32_t new_counter,
-	int status, int64_t time_stamp);
+int floor_c_data_report_t(uint32_t new_counter, int status, int64_t time_stamp);
 int floor_c_data_report(uint32_t new_counter, int status);
-extern int floor_c_flush_report(void);
+int floor_c_flush_report(void);
 extern int step_c_register_control_path(struct step_c_control_path *ctl);
 extern int step_c_register_data_path(struct step_c_data_path *data);
-extern int step_c_probe(void);
-extern int step_c_remove(void);
 
 #endif
