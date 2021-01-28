@@ -100,10 +100,18 @@ static void _RGXUpdateGPUUtilStats(PVRSRV_RGXDEV_INFO *psDevInfo)
 	IMG_UINT64 ui64LastTime;
 	IMG_UINT64 ui64TimeNow;
 
+#ifdef ENABLE_COMMON_DVFS
+	unsigned long uLockFlags;
+#endif
+
 	psUtilFWCb = psDevInfo->psRGXFWIfGpuUtilFWCb;
 	paui64StatsCounters = &psUtilFWCb->aui64StatsCounters[0];
 
+#ifndef ENABLE_COMMON_DVFS
 	OSLockAcquire(psDevInfo->hGPUUtilLock);
+#else
+	spin_lock_irqsave(&psDevInfo->sGPUUtilLock, uLockFlags);
+#endif
 
 	ui64TimeNow = RGXFWIF_GPU_UTIL_GET_TIME(RGXTimeCorrGetClockns64());
 
@@ -116,7 +124,11 @@ static void _RGXUpdateGPUUtilStats(PVRSRV_RGXDEV_INFO *psDevInfo)
 	/* Update state and time of the latest update */
 	psUtilFWCb->ui64LastWord = RGXFWIF_GPU_UTIL_MAKE_WORD(ui64TimeNow, ui64LastState);
 
+#ifndef ENABLE_COMMON_DVFS
 	OSLockRelease(psDevInfo->hGPUUtilLock);
+#else
+	spin_unlock_irqrestore(&psDevInfo->sGPUUtilLock, uLockFlags);
+#endif
 }
 
 static INLINE PVRSRV_ERROR RGXDoStop(PVRSRV_DEVICE_NODE *psDeviceNode)

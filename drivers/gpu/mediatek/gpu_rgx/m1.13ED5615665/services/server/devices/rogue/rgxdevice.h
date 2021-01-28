@@ -633,7 +633,11 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	                                    IMG_HANDLE hGpuUtilUser,
 	                                    RGXFWIF_GPU_UTIL_STATS *psReturnStats);
 
+#ifndef ENABLE_COMMON_DVFS
 	POS_LOCK				hGPUUtilLock;
+#else
+	spinlock_t				sGPUUtilLock;
+#endif
 
 	/* Register configuration */
 	RGX_REG_CONFIG			sRegCongfig;
