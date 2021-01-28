@@ -381,7 +381,7 @@ static int mtk_rtc_write_trigger(struct mt6397_rtc *rtc)
 {
 	unsigned long timeout = jiffies + HZ;
 	int ret;
-	u32 data;
+	u32 data = 0;
 
 	ret = regmap_write(rtc->regmap,
 			rtc->addr_base + rtc->dev_comp->wrtgr_addr, 1);
@@ -848,7 +848,7 @@ static int __mtk_rtc_read_time(struct mt6397_rtc *rtc,
 			       struct rtc_time *tm, int *sec)
 {
 	int ret;
-	u16 data[RTC_OFFSET_COUNT];
+	u16 data[RTC_OFFSET_COUNT] = { 0 };
 
 	mutex_lock(&rtc->lock);
 	ret = regmap_bulk_read(rtc->regmap, rtc->addr_base + RTC_TC_SEC,
@@ -1024,9 +1024,9 @@ static int mtk_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alm)
 {
 	struct rtc_time *tm = &alm->time;
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
-	u32 irqen, pdn2;
+	u32 irqen = 0, pdn2 = 0;
 	int ret;
-	u16 data[RTC_OFFSET_COUNT];
+	u16 data[RTC_OFFSET_COUNT] = { 0 };
 
 	mutex_lock(&rtc->lock);
 	ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_IRQ_EN, &irqen);
@@ -1165,7 +1165,7 @@ static const struct rtc_class_ops mtk_rtc_ops = {
 static int mtk_rtc_reload(struct mt6397_rtc *rtc)
 {
 	int ret;
-	u32 bbpu;
+	u32 bbpu = 0;
 
 	ret = regmap_read(rtc->regmap, rtc->addr_base +
 		RTC_BBPU, &bbpu);
@@ -1206,7 +1206,7 @@ static void mtk_rtc_disable_2sec_reboot(struct device *dev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
-	u32 reg;
+	u32 reg = 0;
 
 	ret = regmap_read(rtc->regmap, rtc->addr_base + RTC_AL_SEC, &reg);
 	if (ret == 0) {
@@ -1223,7 +1223,7 @@ static void mtk_rtc_enable_k_eosc(struct device *dev)
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
 	u32 td;
-	u32 reg;
+	u32 reg = 0;
 
 	if (!rtc->cali_is_supported)
 		return;
@@ -1296,7 +1296,7 @@ static void mtk_rtc_spar_alarm_clear_wait(struct device *dev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
-	u32 reg;
+	u32 reg = 0;
 	unsigned long long timeout = sched_clock() + 500000000;
 
 	do {
@@ -1317,7 +1317,7 @@ static int rtc_lpsd_restore_al_mask(struct device *dev)
 {
 	struct mt6397_rtc *rtc = dev_get_drvdata(dev);
 	int ret;
-	u32 reg;
+	u32 reg = 0;
 
 	pr_notice("%s\n", __func__);
 
