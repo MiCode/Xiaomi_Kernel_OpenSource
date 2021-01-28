@@ -126,7 +126,7 @@ const char*
 {
 	#define GET_ENUM_STRING(str)	#str
 	return reason == BY_FRM ? GET_ENUM_STRING(BY_FRM) :
-		reason == BY_SRR ? GET_ENUM_STRING(BY_SSR) :
+		reason == BY_SRR ? GET_ENUM_STRING(BY_SRR) :
 		reason == BY_UFS ? GET_ENUM_STRING(BY_UFS) :
 		reason == BY_TEE ? GET_ENUM_STRING(BY_TEE) :
 		reason == BY_DCS ? GET_ENUM_STRING(BY_DCS) :
