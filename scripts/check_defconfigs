@@ -63,8 +63,12 @@ function toolchain_check ()
 		mkdir -p "../${TOOLCHAIN_CLANG_PATH}"
 		cd "../${TOOLCHAIN_CLANG_PATH}"
 		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_CLANG_REPO}"
-		cd -
+	else
+		echo "update CLANG to the latest codebase"
+		cd "../${TOOLCHAIN_CLANG_PATH}/linux-x86"
+		git pull
 	fi
+	cd -
 
 	if [ ! -d "../${TOOLCHAIN_GCC_PATH}/bin" ]; then
 		echo "GCC does not exist, clone it"
@@ -72,8 +76,12 @@ function toolchain_check ()
 		mkdir -p "../prebuilts/gcc/linux-x86/aarch64"
 		cd "../prebuilts/gcc/linux-x86/aarch64"
 		git clone "http://gerrit.mediatek.inc:8080/${TOOLCHAIN_GCC_REPO}" -b alps-trunk-r0.basic
-		cd -
+	else
+		echo "update GCC to the latest codebase"
+		cd "../${TOOLCHAIN_GCC_PATH}"
+		git pull
 	fi
+	cd -
 }
 
 CONFIGS=
