@@ -39,7 +39,7 @@ static u8 mmc_crypto_cap_find(void *mmc_p,
 	struct mmc_host *host = mmc_p;
 	enum mmc_crypto_alg mmc_alg;
 	u8 data_unit_mask, cap_idx;
-	enum mmc_crypto_key_size mmc_key_size;
+	enum mmc_crypto_key_size mmc_key_size = MMC_CRYPTO_KEY_SIZE_INVALID;
 	union mmc_crypto_cap_entry *ccap_array = host->crypto_cap_array;
 
 	if (!mmc_is_crypto_supported(host))
