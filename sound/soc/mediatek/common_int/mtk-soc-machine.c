@@ -85,7 +85,6 @@
 #include <sound/soc-dapm.h>
 #include "mtk-soc-speaker-amp.h"
 
-#include "mtk-hw-component.h"
 #if defined(CONFIG_SND_SOC_CS43130)
 #include "mtk-cs43130-machine-ops.h"
 #endif
@@ -699,16 +698,12 @@ static struct snd_soc_card mt_snd_soc_card_mt = {
 	.num_links = ARRAY_SIZE(mt_soc_dai_common),
 };
 
-static void get_ext_dai_codec_name(void)
-{
-	get_extspk_dai_codec_name(mt_soc_extspk_dai);
-	get_exthp_dai_codec_name(mt_soc_exthp_dai);
-}
-
 static int mt_soc_snd_probe(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = &mt_snd_soc_card_mt;
+#ifdef CONFIG_SND_SOC_MTK_BTCVSD
 	struct device_node *btcvsd_node;
+#endif
 	int ret;
 	int daiLinkNum = 0;
 
@@ -719,7 +714,7 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	get_ext_dai_codec_name();
+	/* get_ext_dai_codec_name(); */
 	pr_debug("%s(), dai_link = %p\n",
 		 __func__, mt_snd_soc_card_mt.dai_link);
 

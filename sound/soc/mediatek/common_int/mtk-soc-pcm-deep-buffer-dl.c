@@ -602,7 +602,9 @@ static int mtk_deep_buffer_dl_probe(struct platform_device *pdev)
 	mDev = &pdev->dev;
 
 	return snd_soc_register_component(&pdev->dev,
-					 &mtk_deep_buffer_dl_soc_component);
+					  &mtk_deep_buffer_dl_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_deep_buffer_dl_remove(struct platform_device *pdev)

@@ -47,6 +47,8 @@
 #include <sound/core.h>
 #include <sound/soc.h>
 
+#define CODEC_DUMMY_NAME "mtk-codec-dummy"
+
 static int dummy_codec_startup(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *Daiport)
 {
@@ -443,20 +445,22 @@ static struct snd_soc_dai_driver dummy_6323_dai_codecs[] = {
 #endif
 };
 
-static int dummy_codec_probe(struct snd_soc_codec *codec)
+static int dummy_codec_probe(struct snd_soc_component *component)
 {
 
 	return 0;
 }
 
-static int dummy_codec_remove(struct snd_soc_codec *codec)
+static int dummy_codec_remove(struct snd_soc_component *component)
 {
 
 	return 0;
 }
 
-static struct snd_soc_codec_driver soc_mtk_codec = {
-	.probe = dummy_codec_probe, .remove = dummy_codec_remove,
+static const struct snd_soc_component_driver soc_mtk_codec = {
+	.name = CODEC_DUMMY_NAME,
+	.probe = dummy_codec_probe,
+	.remove = dummy_codec_remove,
 };
 
 static int mtk_dummy_codec_dev_probe(struct platform_device *pdev)
@@ -469,7 +473,7 @@ static int mtk_dummy_codec_dev_probe(struct platform_device *pdev)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_CODEC_DUMMY_NAME);
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_codec(&pdev->dev, &soc_mtk_codec,
+	return snd_soc_register_component(&pdev->dev, &soc_mtk_codec,
 				      dummy_6323_dai_codecs,
 				      ARRAY_SIZE(dummy_6323_dai_codecs));
 }
@@ -477,7 +481,7 @@ static int mtk_dummy_codec_dev_probe(struct platform_device *pdev)
 static int mtk_dummy_codec_dev_remove(struct platform_device *pdev)
 {
 	pr_debug("%s:\n", __func__);
-	snd_soc_unregister_codec(&pdev->dev);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
 

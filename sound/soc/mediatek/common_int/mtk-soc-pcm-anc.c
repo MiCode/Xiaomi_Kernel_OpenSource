@@ -940,14 +940,14 @@ static int mtk_anc_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 
 static int mtk_anc_copy(struct snd_pcm_substream *substream, int channel,
-			snd_pcm_uframes_t pos, void __user *dst,
-			snd_pcm_uframes_t count)
+			unsigned long pos, void __user *buf,
+			unsigned long bytes)
 {
 	return 0;
 }
 
 static int mtk_anc_silence(struct snd_pcm_substream *substream, int channel,
-			   snd_pcm_uframes_t pos, snd_pcm_uframes_t count)
+			   unsigned long pos, unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -985,8 +985,8 @@ static struct snd_pcm_ops mtk_afe_ops = {
 	.hw_free = mtk_anc_hw_free,
 	.prepare = mtk_anc_prepare,
 	.trigger = mtk_anc_trigger,
-	.copy = mtk_anc_copy,
-	.silence = mtk_anc_silence,
+	.copy_user = mtk_anc_copy,
+	.fill_silence = mtk_anc_silence,
 	.page = mtk_anc_page,
 };
 
@@ -1047,7 +1047,10 @@ static int mtk_anc_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_anc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_anc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_anc_component_probe(struct snd_soc_component *component)

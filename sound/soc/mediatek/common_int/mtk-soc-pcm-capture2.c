@@ -324,17 +324,22 @@ static int mtk_capture2_pcm_trigger(struct snd_pcm_substream *substream,
 }
 
 static int mtk_capture2_pcm_copy(struct snd_pcm_substream *substream,
-				 int channel, snd_pcm_uframes_t pos,
-				 void __user *dst, snd_pcm_uframes_t count)
+				 int channel,
+				 unsigned long pos,
+				 void __user *buf,
+				 unsigned long bytes)
 {
-	return mtk_memblk_copy(substream, channel, pos, dst, count,
+	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
+
+	return mtk_memblk_copy(substream, channel, pos, buf, frames,
 			       VUL2_Control_context,
 			       Soc_Aud_Digital_Block_MEM_VUL_DATA2);
 }
 
 static int mtk_capture2_pcm_silence(struct snd_pcm_substream *substream,
-				    int channel, snd_pcm_uframes_t pos,
-				    snd_pcm_uframes_t count)
+				    int channel,
+				    unsigned long pos,
+				    unsigned long bytes)
 {
 	pr_debug("dummy_pcm_silence\n");
 	return 0; /* do nothing */
@@ -357,8 +362,8 @@ static struct snd_pcm_ops mtk_afe_capture2_ops = {
 	.prepare = mtk_capture2_pcm_prepare,
 	.trigger = mtk_capture2_pcm_trigger,
 	.pointer = mtk_capture2_pcm_pointer,
-	.copy = mtk_capture2_pcm_copy,
-	.silence = mtk_capture2_pcm_silence,
+	.copy_user = mtk_capture2_pcm_copy,
+	.fill_silence = mtk_capture2_pcm_silence,
 	.page = mtk_capture2_pcm_page,
 };
 
@@ -380,7 +385,10 @@ static int mtk_capture2_probe(struct platform_device *pdev)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_UL2_PCM);
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_afe_capture2_component_probe(struct snd_soc_component *component)

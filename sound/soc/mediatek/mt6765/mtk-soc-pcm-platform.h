@@ -74,9 +74,6 @@
 #include <linux/vmalloc.h>
 #include <linux/wait.h>
 #include <mt-plat/aee.h>
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#include <mt-plat/upmu_common.h>
-#endif
 #include <sound/core.h>
 #include <sound/jack.h>
 #include <sound/soc.h>

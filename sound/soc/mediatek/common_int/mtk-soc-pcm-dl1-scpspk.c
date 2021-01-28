@@ -967,22 +967,24 @@ static int mtk_pcm_dl1spk_trigger(struct snd_pcm_substream *substream, int cmd)
 	return -EINVAL;
 }
 
-static int mtk_pcm_dl1spk_copy(struct snd_pcm_substream *substream, int channel,
-			       snd_pcm_uframes_t pos, void __user *dst,
-			       snd_pcm_uframes_t count)
+static int mtk_pcm_dl1spk_copy(struct snd_pcm_substream *substream,
+			       int channel,
+			       unsigned long pos,
+			       void __user *buf,
+			       unsigned long bytes)
 {
 	int ret = 0;
 	unsigned int payloadlen = 0;
 	int acktype = AUDIO_IPI_MSG_DIRECT_SEND;
-	snd_pcm_uframes_t framecount = count;
+	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
 
 	vcore_dvfs(&vcore_dvfs_enable, false);
-	ret = mtk_memblk_copy(substream, channel, pos, dst, count,
+	ret = mtk_memblk_copy(substream, channel, pos, buf, frames,
 			      pdl1spkMemControl, Soc_Aud_Digital_Block_MEM_DL1);
 
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
 	payloadlen = spkproc_ipi_pack_payload(SPK_PROTECT_DLCOPY, pos,
-					      framecount, NULL, substream);
+					      frames, NULL, substream);
 	if (substream->runtime->status->state != SNDRV_PCM_STATE_RUNNING)
 		acktype = AUDIO_IPI_MSG_NEED_ACK;
 
@@ -995,8 +997,9 @@ static int mtk_pcm_dl1spk_copy(struct snd_pcm_substream *substream, int channel,
 }
 
 static int mtk_pcm_dl1spk_silence(struct snd_pcm_substream *substream,
-				  int channel, snd_pcm_uframes_t pos,
-				  snd_pcm_uframes_t count)
+				  int channel,
+				  unsigned long pos,
+				  unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -1018,8 +1021,8 @@ static struct snd_pcm_ops mtk_dl1spk_ops = {
 	.prepare = mtk_pcm_dl1spk_prepare,
 	.trigger = mtk_pcm_dl1spk_trigger,
 	.pointer = mtk_pcm_dl1spk_pointer,
-	.copy = mtk_pcm_dl1spk_copy,
-	.silence = mtk_pcm_dl1spk_silence,
+	.copy_user = mtk_pcm_dl1spk_copy,
+	.fill_silence = mtk_pcm_dl1spk_silence,
 	.page = mtk_dl1spk_pcm_page,
 };
 
@@ -1042,7 +1045,10 @@ static int mtk_dl1spk_probe(struct platform_device *pdev)
 
 	mDev = &pdev->dev;
 
-	return snd_soc_register_component(&pdev->dev, &mtk_dl1spk_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_dl1spk_soc_component,
+					  NULL,
+					  0);
 }
 
 static struct spk_dump_ops dump_ops = {

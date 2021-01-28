@@ -886,10 +886,12 @@ static int mtk_pcm_scp_voice_trigger(struct snd_pcm_substream *substream,
 }
 
 static int mtk_pcm_scp_voice_copy(struct snd_pcm_substream *substream,
-				  int channel, snd_pcm_uframes_t pos,
-				  void __user *dst, snd_pcm_uframes_t count)
+				  int channel,
+				  unsigned long pos,
+				  void __user *buf,
+				  unsigned long bytes)
 {
-	count = audio_frame_to_bytes(substream, count);
+	count = bytes;
 	return count;
 }
 
@@ -902,7 +904,7 @@ static struct snd_pcm_ops mtk_scp_voice_ops = {
 	.prepare = mtk_pcm_scp_voice_prepare,
 	.trigger = mtk_pcm_scp_voice_trigger,
 	.pointer = mtk_pcm_scp_voice_pointer,
-	.copy = mtk_pcm_scp_voice_copy,
+	.copy_user = mtk_pcm_scp_voice_copy,
 };
 
 static struct snd_soc_component_driver mtk_scp_voice_soc_component = {
@@ -927,7 +929,9 @@ static int mtk_scp_voice_probe(struct platform_device *pdev)
 	mDev = &pdev->dev;
 
 	return snd_soc_register_component(&pdev->dev,
-					 &mtk_scp_voice_soc_component);
+					  &mtk_scp_voice_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_asoc_pcm_voice_scp_new(struct snd_soc_pcm_runtime *rtd)

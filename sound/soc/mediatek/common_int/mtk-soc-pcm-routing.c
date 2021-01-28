@@ -869,16 +869,18 @@ static int mtk_routing_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 
 static int mtk_routing_pcm_copy(struct snd_pcm_substream *substream,
-				int channel, snd_pcm_uframes_t pos,
-				void __user *dst, snd_pcm_uframes_t count)
+				int channel,
+				unsigned long pos,
+				void __user *buf,
+				unsigned long bytes)
 {
-	count = count << 2;
 	return 0;
 }
 
 static int mtk_routing_pcm_silence(struct snd_pcm_substream *substream,
-				   int channel, snd_pcm_uframes_t pos,
-				   snd_pcm_uframes_t count)
+				   int channel,
+				   unsigned long pos,
+				   unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -920,8 +922,8 @@ static struct snd_pcm_ops mtk_afe_ops = {
 	.hw_free = mtk_routing_pcm_hw_free,
 	.prepare = mtk_routing_pcm_prepare,
 	.trigger = mtk_routing_pcm_trigger,
-	.copy = mtk_routing_pcm_copy,
-	.silence = mtk_routing_pcm_silence,
+	.copy_user = mtk_routing_pcm_copy,
+	.fill_silence = mtk_routing_pcm_silence,
 	.page = mtk_routing_pcm_page,
 };
 
@@ -943,7 +945,10 @@ static int mtk_afe_routing_probe(struct platform_device *pdev)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_ROUTING_PCM);
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_routing_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_routing_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_afe_routing_component_probe(struct snd_soc_component *component)

@@ -351,20 +351,27 @@ static int mtk_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return -EINVAL;
 }
 
-static int mtk_pcm_copy(struct snd_pcm_substream *substream, int channel,
-			snd_pcm_uframes_t pos, void __user *dst,
-			snd_pcm_uframes_t count)
+static int mtk_pcm_copy(struct snd_pcm_substream *substream,
+			int channel,
+			unsigned long pos,
+			void __user *buf,
+			unsigned long bytes)
 {
 	struct afe_block_t *Afe_Block = NULL;
 	int copy_size = 0, Afe_WriteIdx_tmp;
 	unsigned long flags;
 	/* struct snd_pcm_runtime *runtime = substream->runtime; */
-	char *data_w_ptr = (char *)dst;
-#ifdef DL1_DEBUG_LOG
-	pr_debug("%s(), pos = %lu, count = %lu\n ", _func__, pos, count);
-#endif
+	char *data_w_ptr = (char *)buf;
+
 	/* get total bytes to copy */
-	count = audio_frame_to_bytes(substream, count);
+	unsigned long count = bytes;
+
+#ifdef DL1_DEBUG_LOG
+		pr_debug("%s(), pos = %lu, count = %lu\n",
+			 _func__,
+			 pos,
+			 count);
+#endif
 
 	/* check which memif nned to be write */
 	Afe_Block = &pMemControl->rBlock;
@@ -539,8 +546,10 @@ static int mtk_pcm_copy(struct snd_pcm_substream *substream, int channel,
 	return 0;
 }
 
-static int mtk_pcm_silence(struct snd_pcm_substream *substream, int channel,
-			   snd_pcm_uframes_t pos, snd_pcm_uframes_t count)
+static int mtk_pcm_silence(struct snd_pcm_substream *substream,
+			   int channel,
+			   unsigned long pos,
+			   unsigned long bytes)
 {
 #if defined(DL1_DEBUG_LOG)
 	pr_debug("%s\n", __func__);
@@ -568,8 +577,8 @@ static struct snd_pcm_ops mtk_afe_ops = {
 	.prepare = mtk_pcm_prepare,
 	.trigger = mtk_pcm_trigger,
 	.pointer = mtk_pcm_pointer,
-	.copy = mtk_pcm_copy,
-	.silence = mtk_pcm_silence,
+	.copy_user = mtk_pcm_copy,
+	.fill_silence = mtk_pcm_silence,
 	.page = mtk_pcm_page,
 };
 
@@ -702,7 +711,10 @@ static int mtk_soc_dl1_probe(struct platform_device *pdev)
 	/* config smartpa gpio pins, set initial state : SMARTPA_OFF */
 	AudDrv_GPIO_SMARTPA_Select(0);
 
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_component,
+					  NULL,
+					  0);
 }
 
 static struct platform_driver mtk_afe_driver = {

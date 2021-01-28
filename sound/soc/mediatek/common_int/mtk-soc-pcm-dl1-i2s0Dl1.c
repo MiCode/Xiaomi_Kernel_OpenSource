@@ -476,18 +476,22 @@ static int mtk_pcm_I2S0dl1_trigger(struct snd_pcm_substream *substream, int cmd)
 }
 
 static int mtk_pcm_I2S0dl1_copy(struct snd_pcm_substream *substream,
-				int channel, snd_pcm_uframes_t pos,
-				void __user *dst, snd_pcm_uframes_t count)
+				int channel,
+				unsigned long pos,
+				void __user *buf,
+				unsigned long bytes)
 {
+	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
 	vcore_dvfs(&vcore_dvfs_enable, false);
-	return mtk_memblk_copy(substream, channel, pos, dst, count,
+	return mtk_memblk_copy(substream, channel, pos, buf, frames,
 			       pI2S0dl1MemControl,
 			       Soc_Aud_Digital_Block_MEM_DL1);
 }
 
 static int mtk_pcm_I2S0dl1_silence(struct snd_pcm_substream *substream,
-				   int channel, snd_pcm_uframes_t pos,
-				   snd_pcm_uframes_t count)
+				   int channel,
+				   unsigned long pos,
+				   unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -509,8 +513,8 @@ static struct snd_pcm_ops mtk_I2S0dl1_ops = {
 	.prepare = mtk_pcm_I2S0dl1_prepare,
 	.trigger = mtk_pcm_I2S0dl1_trigger,
 	.pointer = mtk_pcm_I2S0dl1_pointer,
-	.copy = mtk_pcm_I2S0dl1_copy,
-	.silence = mtk_pcm_I2S0dl1_silence,
+	.copy_user = mtk_pcm_I2S0dl1_copy,
+	.fill_silence = mtk_pcm_I2S0dl1_silence,
 	.page = mtk_I2S0dl1_pcm_page,
 	.mmap = mtk_pcm_mmap,
 };
@@ -536,7 +540,10 @@ static int mtk_I2S0dl1_probe(struct platform_device *pdev)
 
 	mDev = &pdev->dev;
 
-	return snd_soc_register_component(&pdev->dev, &mtk_I2S0dl1_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_I2S0dl1_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_afe_I2S0dl1_component_probe(struct snd_soc_component *component)

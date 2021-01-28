@@ -65,11 +65,6 @@
 #ifdef CONFIG_MTK_AUXADC_INTF
 #include <mach/mtk_pmic.h>
 #include <mt-plat/mtk_auxadc_intf.h>
-#include <mt-plat/upmu_common.h>
-#else
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#include <mt-plat/upmu_common.h>
-#endif
 #endif
 
 #include <linux/ftrace.h>

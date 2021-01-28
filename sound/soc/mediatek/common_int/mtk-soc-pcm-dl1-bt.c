@@ -346,17 +346,22 @@ static int mtk_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	return -EINVAL;
 }
 
-static int mtk_pcm_dl1bt_copy(struct snd_pcm_substream *substream, int channel,
-			      snd_pcm_uframes_t pos, void __user *dst,
-			      snd_pcm_uframes_t count)
+static int mtk_pcm_dl1bt_copy(struct snd_pcm_substream *substream,
+				     int channel,
+				     unsigned long pos,
+				     void __user *buf,
+				     unsigned long bytes)
 {
-	return mtk_memblk_copy(substream, channel, pos, dst, count,
+	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
+
+	return mtk_memblk_copy(substream, channel, pos, buf, frames,
 			       pdl1btMemControl, bt_dl_mem_blk);
 }
 
 static int mtk_pcm_dl1bt_silence(struct snd_pcm_substream *substream,
-				 int channel, snd_pcm_uframes_t pos,
-				 snd_pcm_uframes_t count)
+				 int channel,
+				 unsigned long pos,
+				 unsigned long bytes)
 {
 #if defined(AUD_DEBUG_LOG)
 	pr_debug("%s\n", __func__);
@@ -381,8 +386,8 @@ static struct snd_pcm_ops mtk_d1lbt_ops = {
 	.prepare = mtk_dl1bt_pcm_prepare,
 	.trigger = mtk_pcm_trigger,
 	.pointer = mtk_dl1bt_pcm_pointer,
-	.copy = mtk_pcm_dl1bt_copy,
-	.silence = mtk_pcm_dl1bt_silence,
+	.copy_user = mtk_pcm_dl1bt_copy,
+	.fill_silence = mtk_pcm_dl1bt_silence,
 	.page = mtk_pcm_page,
 };
 
@@ -408,7 +413,10 @@ static int mtk_dl1bt_probe(struct platform_device *pdev)
 #endif
 	mDev = &pdev->dev;
 
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_dl1bt_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_dl1bt_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_asoc_dl1bt_component_probe(struct snd_soc_component *component)

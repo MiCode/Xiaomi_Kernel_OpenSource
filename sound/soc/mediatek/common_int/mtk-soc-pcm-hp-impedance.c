@@ -241,15 +241,18 @@ static int mtk_pcm_hp_impedance_trigger(struct snd_pcm_substream *substream,
 }
 
 static int mtk_pcm_hp_impedance_copy(struct snd_pcm_substream *substream,
-				     int channel, snd_pcm_uframes_t pos,
-				     void __user *dst, snd_pcm_uframes_t count)
+				     int channel,
+				     unsigned long pos,
+				     void __user *buf,
+				     unsigned long bytes)
 {
 	return 0;
 }
 
 static int mtk_pcm_hp_impedance_silence(struct snd_pcm_substream *substream,
-					int channel, snd_pcm_uframes_t pos,
-					snd_pcm_uframes_t count)
+					int channel,
+					unsigned long pos,
+					unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -272,8 +275,8 @@ static struct snd_pcm_ops mtk_hp_impedance_ops = {
 	.prepare = mtk_pcm_hp_impedance_prepare,
 	.trigger = mtk_pcm_hp_impedance_trigger,
 	.pointer = mtk_pcm_hp_impedance_pointer,
-	.copy = mtk_pcm_hp_impedance_copy,
-	.silence = mtk_pcm_hp_impedance_silence,
+	.copy_user = mtk_pcm_hp_impedance_copy,
+	.fill_silence = mtk_pcm_hp_impedance_silence,
 	.page = mtk_pcm_hp_impedance_page,
 };
 
@@ -297,7 +300,10 @@ static int mtk_soc_hp_impedance_probe(struct platform_device *pdev)
 #if defined(AUD_DEBUG_LOG)
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 #endif
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_asoc_dhp_impedance_component_probe(struct snd_soc_component *component)

@@ -622,7 +622,9 @@ static int mtk_voice_ultra_probe(struct platform_device *pdev)
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_component(&pdev->dev,
-					 &mtk_soc_voice_ultra_component);
+					  &mtk_soc_voice_ultra_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_voice_ultra_remove(struct platform_device *pdev)

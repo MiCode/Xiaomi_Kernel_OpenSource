@@ -310,16 +310,18 @@ static int mtk_uldlloopbackpcm_trigger(struct snd_pcm_substream *substream,
 }
 
 static int mtk_uldlloopback_pcm_copy(struct snd_pcm_substream *substream,
-				     int channel, snd_pcm_uframes_t pos,
-				     void __user *dst, snd_pcm_uframes_t count)
+				     int channel,
+				     unsigned long pos,
+				     void __user *buf,
+				     unsigned long bytes)
 {
-	count = count << 2;
 	return 0;
 }
 
 static int mtk_uldlloopback_silence(struct snd_pcm_substream *substream,
-				    int channel, snd_pcm_uframes_t pos,
-				    snd_pcm_uframes_t count)
+				    int channel,
+				    unsigned long pos,
+				    unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -447,8 +449,8 @@ static struct snd_pcm_ops mtk_afe_ops = {
 	.hw_free = mtk_uldlloopback_pcm_hw_free,
 	.prepare = mtk_uldlloopback_pcm_prepare,
 	.trigger = mtk_uldlloopbackpcm_trigger,
-	.copy = mtk_uldlloopback_pcm_copy,
-	.silence = mtk_uldlloopback_silence,
+	.copy_user = mtk_uldlloopback_pcm_copy,
+	.fill_silence = mtk_uldlloopback_silence,
 	.page = mtk_uldlloopback_page,
 };
 
@@ -470,7 +472,10 @@ static int mtk_uldlloopback_probe(struct platform_device *pdev)
 		dev_set_name(&pdev->dev, "%s", MT_SOC_ULDLLOOPBACK_PCM);
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_dummy_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_dummy_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_afe_uldlloopback_component_probe(struct snd_soc_component *component)

@@ -983,8 +983,9 @@ static int mtk_dloffload_probe(struct snd_soc_component *component)
 	offload_dev = &component->dev;
 
 	return snd_soc_register_component(&component->dev,
-					  &mtk_dloffload_soc_component);
-
+					  &mtk_dloffload_soc_component,
+					  NULL,
+					  0);
 }
 
 #ifdef CONFIG_OF

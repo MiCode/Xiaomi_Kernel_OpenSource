@@ -784,16 +784,18 @@ static int mtk_pcm_hdmi_trigger(struct snd_pcm_substream *substream, int cmd)
 	return -EINVAL;
 }
 
-static int mtk_pcm_hdmi_copy(struct snd_pcm_substream *substream, int channel,
-			     snd_pcm_uframes_t pos, void __user *dst,
-			     snd_pcm_uframes_t count)
+static int mtk_pcm_hdmi_copy(struct snd_pcm_substream *substream,
+			     int channel,
+			     unsigned long pos,
+			     void __user *buf,
+			     unsigned long bytes)
 {
 	struct afe_block_t *Afe_Block = NULL;
 	int copy_size = 0, Afe_WriteIdx_tmp;
 	unsigned long flags;
-	char *data_w_ptr = (char *)dst;
+	char *data_w_ptr = (char *)buf;
 
-	count = audio_frame_to_bytes(substream, count);
+	unsigned long count = bytes;
 
 	/* check which memif nned to be write */
 	Afe_Block = &(pMemControl->rBlock);
@@ -961,8 +963,9 @@ static int mtk_pcm_hdmi_copy(struct snd_pcm_substream *substream, int channel,
 }
 
 static int mtk_pcm_hdmi_silence(struct snd_pcm_substream *substream,
-				int channel, snd_pcm_uframes_t pos,
-				snd_pcm_uframes_t count)
+				int channel,
+				unsigned long pos,
+				unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -984,8 +987,8 @@ static struct snd_pcm_ops mtk_hdmi_ops = {
 	.prepare = mtk_pcm_hdmi_prepare,
 	.trigger = mtk_pcm_hdmi_trigger,
 	.pointer = mtk_pcm_hdmi_pointer,
-	.copy = mtk_pcm_hdmi_copy,
-	.silence = mtk_pcm_hdmi_silence,
+	.copy_user = mtk_pcm_hdmi_copy,
+	.fill_silence = mtk_pcm_hdmi_silence,
 	.page = mtk_pcm_page,
 };
 
@@ -1009,7 +1012,10 @@ static int mtk_hdmi_probe(struct platform_device *pdev)
 #if defined(HDMI_DEBUG_LOG)
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 #endif
-	return snd_soc_register_component(&pdev->dev, &mtk_hdmi_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_hdmi_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_afe_hdmi_component_probe(struct snd_soc_component *component)

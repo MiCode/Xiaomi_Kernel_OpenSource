@@ -1215,14 +1215,17 @@ static int mtk_voice_usb_copy_play(struct snd_pcm_substream *substream,
 	return 0;
 }
 #endif
-static int mtk_voice_usb_copy(struct snd_pcm_substream *substream, int channel,
-			      snd_pcm_uframes_t pos, void __user *dst,
-			      snd_pcm_uframes_t count)
+static int mtk_voice_usb_copy(struct snd_pcm_substream *substream,
+			      int channel,
+			      unsigned long pos,
+			      void __user *buf,
+			      unsigned long bytes)
 {
 #if 1
 	int stream = substream->stream;
+	snd_pcm_uframes_t frames = audio_bytes_to_frame(substream, bytes);
 
-	return mtk_memblk_copy(substream, channel, pos, dst, count,
+	return mtk_memblk_copy(substream, channel, pos, buf, frames,
 			       Get_Mem_ControlT(usb_mem_blk[stream]),
 			       usb_mem_blk[stream]);
 #else
@@ -1244,7 +1247,7 @@ static struct snd_pcm_ops mtk_voice_usb_ops = {
 	.prepare = mtk_voice_usb_prepare,
 	.trigger = mtk_voice_usb_trigger,
 	.pointer = mtk_voice_usb_pointer,
-	.copy = mtk_voice_usb_copy,
+	.copy_user = mtk_voice_usb_copy,
 };
 
 static int mtk_voice_usb_component_probe(struct snd_soc_component *component)
@@ -1293,7 +1296,9 @@ static int mtk_voice_usb_probe(struct platform_device *pdev)
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_component(&pdev->dev,
-					 &mtk_soc_voice_usb_component);
+					  &mtk_soc_voice_usb_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_voice_usb_remove(struct platform_device *pdev)

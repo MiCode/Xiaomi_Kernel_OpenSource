@@ -908,24 +908,28 @@ static int dataTransfer(void *dest, const void *src, uint32_t size)
 	return ret;
 }
 
-static int mtk_pcm_dl2_copy(struct snd_pcm_substream *substream, int channel,
-			    snd_pcm_uframes_t pos, void __user *dst,
-			    snd_pcm_uframes_t count)
+static int mtk_pcm_dl2_copy(struct snd_pcm_substream *substream,
+			    int channel,
+			    unsigned long pos,
+			    void __user *buf,
+			    unsigned long bytes)
 {
 	struct afe_block_t *Afe_Block = &pMemControl->rBlock;
 
 	/* get total bytes to copy */
-	count = audio_frame_to_bytes(substream, count);
+	unsigned long count = bytes;
 #if defined(DL2_DEBUG_LOG)
 	pr_debug("+%s(), pos = %lu, count = %lu\n", __func__, pos, count);
 #endif
-	return mtk_pcm_dl2_copy_(dst, &count, Afe_Block, true);
+	return mtk_pcm_dl2_copy_(buf, &count, Afe_Block, true);
 }
 
 #endif
 
-static int mtk_pcm_dl2_silence(struct snd_pcm_substream *substream, int channel,
-			       snd_pcm_uframes_t pos, snd_pcm_uframes_t count)
+static int mtk_pcm_dl2_silence(struct snd_pcm_substream *substream,
+			       int channel,
+			       unsigned long pos,
+			       unsigned long bytes)
 {
 	return 0; /* do nothing */
 }
@@ -947,8 +951,8 @@ static struct snd_pcm_ops mtk_dl2_ops = {
 	.prepare = mtk_pcm_dl2_prepare,
 	.trigger = mtk_pcm_dl2_trigger,
 	.pointer = mtk_pcm_dl2_pointer,
-	.copy = mtk_pcm_dl2_copy,
-	.silence = mtk_pcm_dl2_silence,
+	.copy_user = mtk_pcm_dl2_copy,
+	.fill_silence = mtk_pcm_dl2_silence,
 	.page = mtk_pcm_dl2_page,
 	.mmap = mtk_pcm_mmap,
 };
@@ -987,7 +991,10 @@ static int mtk_soc_dl2_probe(struct platform_device *pdev)
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 
-	return snd_soc_register_component(&pdev->dev, &mtk_soc_component);
+	return snd_soc_register_component(&pdev->dev,
+					  &mtk_soc_component,
+					  NULL,
+					  0);
 }
 
 static int mtk_asoc_dl2_component_probe(struct snd_soc_component *component)
