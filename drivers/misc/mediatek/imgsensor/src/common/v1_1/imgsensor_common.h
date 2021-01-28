@@ -49,5 +49,6 @@ enum IMGSENSOR_RETURN {
 	IMGSENSOR_RETURN_ERROR   = -1,
 };
 
+#define LENGTH_FOR_SNPRINTF 256
 #endif
 
