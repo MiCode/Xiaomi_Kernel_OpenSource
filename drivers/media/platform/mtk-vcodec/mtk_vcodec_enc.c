@@ -1586,6 +1586,8 @@ static int vb2ops_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 			goto err_set_param;
 		}
 		ctx->state = MTK_STATE_HEADER;
+	} else {
+		ctx->state = MTK_STATE_INIT;
 	}
 
 	return 0;
