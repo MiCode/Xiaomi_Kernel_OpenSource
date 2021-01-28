@@ -53,7 +53,7 @@ void register_battery_percent_notify(
 void exec_battery_percent_callback(
 	enum BATTERY_PERCENT_LEVEL_TAG battery_percent_level)
 {
-	int i;
+	int i = 0;
 
 #if !IS_ENABLED(CONFIG_MTK_DYNAMIC_LOADING_POWER_THROTTLING)
 	for (i = 0; i < BPCB_MAX_NUM; i++) {

@@ -546,6 +546,7 @@ unsigned int get_md1_scenario(u32 share_reg, enum mdpm_power_type power_type)
 	int pw_scenario = 0, scenario = -1;
 	int i;
 
+	power_type = (power_type < 0) ? 0 : power_type;
 	/* get scenario index when working & max power (bit4 and bit5 no use) */
 	for (i = 0; i < SCENARIO_NUM; i++) {
 		if (is_scenario_hit(share_reg, i)) {
@@ -634,6 +635,7 @@ static int get_md1_2g_dbm_power(u32 *share_mem,
 			SECTION_VALUE) !=
 			((bef_share_mem >> section_level[section]) &
 			SECTION_VALUE)) {
+			power_type = (power_type < 0) ? 0 : power_type;
 			/* get PA power */
 			pa_power = md1_pa_pwr_2g[power_type][section];
 
@@ -672,6 +674,7 @@ static int get_md1_3g_dbm_power(u32 *share_mem, enum mdpm_power_type power_type)
 			SECTION_VALUE) !=
 			((bef_share_mem >> section_level[section]) &
 			SECTION_VALUE)) {
+			power_type = (power_type < 0) ? 0 : power_type;
 			/* get PA power */
 			pa_power = md1_pa_pwr_3g[power_type][section];
 
@@ -710,6 +713,7 @@ static int get_md1_4g_upL1_dbm_power(u32 *share_mem,
 			SECTION_VALUE) !=
 			((bef_share_mem >> section_level[section]) &
 			SECTION_VALUE)) {
+			power_type = (power_type < 0) ? 0 : power_type;
 			/* get PA power */
 			pa_power = md1_pa_pwr_4g_upL1[power_type][section];
 
@@ -749,6 +753,7 @@ static int get_md1_4g_upL2_dbm_power(u32 *share_mem,
 			SECTION_VALUE) !=
 			((bef_share_mem >> section_level[section]) &
 			SECTION_VALUE)) {
+			power_type = (power_type < 0) ? 0 : power_type;
 			/* get PA power */
 			pa_power = md1_pa_pwr_4g_upL2[power_type][section];
 
@@ -798,6 +803,7 @@ static int get_md1_c2k_dbm_power(u32 *share_mem,
 			SECTION_VALUE) !=
 			((bef_share_mem >> section_level[section]) &
 			SECTION_VALUE)) {
+			power_type = (power_type < 0) ? 0 : power_type;
 			/* get PA power */
 			pa_power = md1_pa_pwr_c2k[power_type][section];
 
