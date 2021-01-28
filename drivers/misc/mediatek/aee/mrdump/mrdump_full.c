@@ -22,6 +22,7 @@
 #include <linux/elfcore.h>
 #include <linux/kallsyms.h>
 #include <linux/miscdevice.h>
+#include <mt-plat/aee.h>
 #include <mt-plat/mtk_ram_console.h>
 #include <linux/reboot.h>
 #include <linux/stacktrace.h>
@@ -183,8 +184,13 @@ static void __mrdump_reboot_stop_all(struct mrdump_crash_record *crash_record)
 		mdelay(1);
 		msecs--;
 	}
-	if (atomic_read(&waiting_for_crash_ipi) > 0)
-		pr_notice("Non-crashing CPUs did not react to IPI\n");
+	if (atomic_read(&waiting_for_crash_ipi) > 0) {
+		if (aee_in_nested_panic())
+			aee_nested_printf(
+				"Non-crashing CPUs did not react to IPI\n");
+		else
+			pr_notice("Non-crashing CPUs did not react to IPI\n");
+	}
 }
 
 #endif
