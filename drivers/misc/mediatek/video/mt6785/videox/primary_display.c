@@ -7421,7 +7421,7 @@ static int primary_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 			}
 		}
 		if (all_zero)
-			disp_aee_print("HWC set zero matrix\n");
+			DISP_PR_INFO("HWC set zero matrix\n");
 		else if (!primary_display_is_decouple_mode() &&
 			disp_helper_get_stage() == DISP_HELPER_STAGE_NORMAL) {
 			disp_ccorr_set_color_matrix(cmdq_handle,
