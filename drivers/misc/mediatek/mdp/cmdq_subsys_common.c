@@ -12,7 +12,7 @@
  */
 
 #include "cmdq_subsys_common.h"
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 
 static struct cmdq_subsys_dts_name subsys[] = {
 	[CMDQ_SUBSYS_G3D_CONFIG_BASE] = {

@@ -32,7 +32,7 @@
 #include "cmdq_reg.h"
 #include "cmdq_virtual.h"
 #include "mdp_common.h"
-#include "cmdq_device.h"
+#include "mdp_cmdq_device.h"
 
 #ifdef CMDQ_CONFIG_SMI
 #include "smi_public.h"

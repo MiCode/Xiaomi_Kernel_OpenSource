@@ -40,9 +40,23 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/smi/$(MTK_PLATFORM)/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
              -I$(srctree)/drivers/misc/mediatek/mmp/ \
-             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include
+             -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include \
+	     -I$(srctree)/drivers/iommu/ \
+	     -I$(srctree)/drivers/staging/android/ion \
+	     -I$(srctree)/drivers/staging/android/ion/mtk
 
 ccflags-$(CONFIG_MTK_CMDQ_MBOX_EXT) += -I$(srctree)/drivers/misc/mediatek/cmdq/mailbox/
+
+ifeq ($(CONFIG_MTK_CMDQ_V3),y)
+ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6739" "mt6768" "mt6771" "mt8168" "mt6785"))
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v3/ \
+		-I$(srctree)/drivers/misc/mediatek/cmdq/v3/$(MTK_PLATFORM)
+endif
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8167"))
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/v2/ \
+		-I$(srctree)/drivers/misc/mediatek/cmdq/v2/$(MTK_PLATFORM)
+endif
+
 
 # mdp platform code
 MDP_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mdp/$(MTK_PLATFORM)
@@ -76,25 +90,27 @@ ccflags-y += -DCMDQ_LARGE_MAX_FIRSTERROR_BUFFER
 endif
 
 # driver module
-obj-y += cmdq_record.o
-obj-y += cmdq_virtual.o
-obj-y += cmdq_device.o
-obj-y += mdp_driver.o
-obj-y += mdp_common.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_record.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_virtual.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_device.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mdp_driver.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mdp_common.o
 #obj-y += cmdq_prof.o
 #obj-y += cmdq_test.o
-obj-y += mdp_event_common.o
-obj-y += cmdq_subsys_common.o
-obj-y += cmdq_helper_ext.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += mdp_event_common.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_subsys_common.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_helper_ext.o
+obj-y += mdp_ioctl_ex.o
+obj-y += mdp_m4u.o
 
 ifeq ($(strip $(CONFIG_MMPROFILE)),y)
-obj-y += cmdq_mmp.o
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += cmdq_mmp.o
 endif
 
 ifeq ($(platformdir_exists), y)
-obj-y += $(subst ",,$(MTK_PLATFORM))/
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += $(subst ",,$(MTK_PLATFORM))/
 endif
 
 # mdp_sw_sync
-obj-y += sync/
+obj-$(CONFIG_MTK_CMDQ_MBOX_EXT) += sync/
 

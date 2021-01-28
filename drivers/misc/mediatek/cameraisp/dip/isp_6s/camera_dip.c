@@ -59,7 +59,7 @@
 #endif
 
 #ifndef EP_CODE_MARK_CMDQ
-#include <cmdq_helper_ext.h>
+#include <mdp_cmdq_helper_ext.h>
 #endif
 
 #include <cmdq-util.h>

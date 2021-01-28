@@ -58,7 +58,7 @@
 #endif
 #endif
 
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 #include <smi_public.h>
 #include <mt-plat/mtk_chip.h>
 

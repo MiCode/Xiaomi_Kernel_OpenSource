@@ -11,9 +11,9 @@
  * GNU General Public License for more details.
  */
 
-#include "cmdq_device.h"
+#include "mdp_cmdq_device.h"
 #include "cmdq_virtual.h"
-#include "cmdq_helper_ext.h"
+#include "mdp_cmdq_helper_ext.h"
 
 #ifdef CMDQ_CONFIG_SMI
 #include "smi_public.h"

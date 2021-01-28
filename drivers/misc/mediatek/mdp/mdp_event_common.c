@@ -12,7 +12,7 @@
  */
 
 #include <linux/soc/mediatek/mtk-cmdq.h>
-#include "cmdq_device.h"
+#include "mdp_cmdq_device.h"
 
 #define DECLAR_EVENT(event_enum, dts_name) \
 	{event_enum, #event_enum, #dts_name},
