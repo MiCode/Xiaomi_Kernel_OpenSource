@@ -13,7 +13,7 @@
 
 # common driver code for CMDQ
 
-#MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mmdvfs/ \
@@ -21,7 +21,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/smi/ \
              -I$(srctree)/drivers/misc/mediatek/mach/$(MTK_PLATFORM)/include/ \
              -I$(srctree)/drivers/iommu/
 
- ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/$(CONFIG_MTK_PLATFORM)
+ ccflags-$(CONFIG_MTK_M4U) += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
 ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/ \
