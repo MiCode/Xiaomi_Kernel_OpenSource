@@ -129,11 +129,6 @@ size_t __weak ion_mm_heap_total_memory(void)
 	return 0;
 }
 
-unsigned long __weak zram_memusage(void)
-{
-	return 0;
-}
-
 /*
  * Record basic memory information
  */
@@ -173,7 +168,11 @@ static void mmstat_trace_meminfo(void)
 	meminfo[num_entries++] = B2K((unsigned long)ion_mm_heap_total_memory());
 
 	/* misc */
-	meminfo[num_entries++] = zram_memusage();
+#if IS_ENABLED(CONFIG_ZSMALLOC)
+	meminfo[num_entries++] = P2K(global_zone_page_state(NR_ZSPAGES));
+#else
+	meminfo[num_entries++] = 0;
+#endif
 
 	trace_mmstat_trace_meminfo((unsigned long *)meminfo, num_entries,
 			NR_MEMINFO_ITEMS);
