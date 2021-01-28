@@ -661,7 +661,8 @@ static unsigned int get_limit_opp_and_budget(void)
 				continue;
 
 			idx = j * 4 + cobra_lookup_data.limit[j].core - 1;
-			power += cobra_tbl.ptbl[idx][i].power_idx;
+			if (idx > 0)
+				power += cobra_tbl.ptbl[idx][i].power_idx;
 		}
 
 		if (power <= cobra_lookup_data.budget)
