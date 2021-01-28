@@ -91,10 +91,26 @@ static const char * const mask_string[] = {
 	FPSGO_SYSTRACE_LIST(GENERATE_STRING)
 };
 
+static int fpsgo_update_tracemark(void)
+{
+	if (mark_addr)
+		return 1;
+
+	mark_addr = kallsyms_lookup_name("tracing_mark_write");
+
+	if (unlikely(!mark_addr))
+		return 0;
+
+	return 1;
+}
+
 void __fpsgo_systrace_c(pid_t pid, int val, const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
+
+	if (unlikely(!fpsgo_update_tracemark()))
+		return;
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
@@ -111,6 +127,9 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 	char log[256];
 	va_list args;
 
+	if (unlikely(!fpsgo_update_tracemark()))
+		return;
+
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
 	vsnprintf(log, sizeof(log), fmt, args);
@@ -123,6 +142,9 @@ void __fpsgo_systrace_b(pid_t tgid, const char *fmt, ...)
 
 void __fpsgo_systrace_e(void)
 {
+	if (unlikely(!fpsgo_update_tracemark()))
+		return;
+
 	preempt_disable();
 	event_trace_printk(mark_addr, "E\n");
 	preempt_enable();
@@ -1005,7 +1027,7 @@ int init_fpsgo_common(void)
 		fpsgo_sysfs_create_file(base_kobj, &kobj_attr_gpu_block_boost);
 	}
 
-	mark_addr = kallsyms_lookup_name("tracing_mark_write");
+	fpsgo_update_tracemark();
 	fpsgo_systrace_mask = FPSGO_DEBUG_MANDATORY;
 
 	return 0;
