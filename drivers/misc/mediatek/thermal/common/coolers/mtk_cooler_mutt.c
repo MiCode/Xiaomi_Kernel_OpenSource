@@ -1655,63 +1655,67 @@ struct file *filp, const char __user *buffer, size_t count, loff_t *data)
 					TMC_PA_CTRL_PA_OFF_1PA;
 		}
 
-	if (mutt_off1ca != 0xFF) {
-		if (mutt_off1ca == 0)/*enable*/
-			cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_ON;
-		else/*disable*/
-			cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_OFF;
-	}
+		if (mutt_off1ca != 0xFF) {
+			if (mutt_off1ca == 0)/*enable*/
+				cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_ON;
+			else/*disable*/
+				cl_mutt_tuning_param_ca = TMC_CA_CTRL_CA_OFF;
+		}
 
 
 
-	last_md_tuning_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
+		last_md_tuning_boot_cnt = ccci_get_md_boot_count(MD_SYS1);
 
-	if (mutt_noIMS == 0xFF) {
-		cl_mutt_tuning_param = TMC_THROTTLING_THROT_DISABLE;
+		if (mutt_noIMS == 0xFF) {
+			cl_mutt_tuning_param = TMC_THROTTLING_THROT_DISABLE;
 
-		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param, 4);
-		mtk_cooler_mutt_dprintk_always(
-			"[%s]2 ret %d param %x bcnt %lul\n", __func__,
-			ret, cl_mutt_tuning_param, last_md_tuning_boot_cnt);
-	} else {/*Throttle disable*/
-		ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param, 4);
-		mtk_cooler_mutt_dprintk_always(
-			"[%s]Throttle disable: ret %d param %x bcnt %lul\n",
-			__func__,
-			ret, cl_mutt_tuning_param, last_md_tuning_boot_cnt);
-	}
+			ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param, 4);
+			mtk_cooler_mutt_dprintk_always(
+				"[%s]2 ret %d param %x bcnt %lul\n",
+				__func__, ret, cl_mutt_tuning_param,
+				last_md_tuning_boot_cnt);
+		} else {/*Throttle disable*/
+			ret = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param, 4);
+			mtk_cooler_mutt_dprintk_always(
+				"[%s]Throttle disable: ret %d param %x bcnt %lul\n",
+				__func__, ret, cl_mutt_tuning_param,
+				last_md_tuning_boot_cnt);
+		}
 
 
-	if (mutt_off1pa != 0xFF) {
-		ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param_pa, 4);
+		if (mutt_off1pa != 0xFF) {
+			ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param_pa, 4);
 
-		mtk_cooler_mutt_dprintk_always(
-			"[%s]3 ret_pa %d param %x bcnt %lul\n", __func__,
-			ret_pa, cl_mutt_tuning_param_pa,
+			mtk_cooler_mutt_dprintk_always(
+				"[%s]3 ret_pa %d param %x bcnt %lul\n",
+				__func__, ret_pa, cl_mutt_tuning_param_pa,
+				last_md_tuning_boot_cnt);
+		}
+
+
+		if (mutt_off1ca != 0xFF) {
+			ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
+				ID_THROTTLING_CFG,
+				(char *)&cl_mutt_tuning_param_ca, 4);
+			mtk_cooler_mutt_dprintk_always(
+			"[%s]4 ret_ca %d param %x bcnt %lul\n",
+			__func__, ret_ca, cl_mutt_tuning_param_ca,
 			last_md_tuning_boot_cnt);
-	}
+		}
 
-
-	if (mutt_off1ca != 0xFF) {
-		ret_pa = exec_ccci_kern_func_by_md_id(MD_SYS1,
-			ID_THROTTLING_CFG,
-			(char *)&cl_mutt_tuning_param_ca, 4);
-		mtk_cooler_mutt_dprintk_always(
-		"[%s]4 ret_ca %d param %x bcnt %lul\n", __func__,
-		ret_ca, cl_mutt_tuning_param_ca, last_md_tuning_boot_cnt);
-	}
-
-	return len;
+		return len;
+	} /* scan_count >= 1 */
 #else
 #error	\
 "Change correspondent part when changing MAX_NUM_INSTANCE_MTK_COOLER_MUTT!"
 #endif
+
 	mtk_cooler_mutt_dprintk("[%s] bad arg\n", __func__);
 	return -EINVAL;
 }
