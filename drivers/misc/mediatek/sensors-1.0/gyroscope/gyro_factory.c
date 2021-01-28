@@ -34,6 +34,7 @@ static long gyro_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 	int32_t data_buf[3] = {0};
 	char strbuf[64] = {0};
 	struct SENSOR_DATA sensor_data = {0};
+	int len;
 
 	if (_IOC_DIR(cmd) & _IOC_READ)
 		err = !access_ok(VERIFY_WRITE, (void __user *)arg,
@@ -82,8 +83,12 @@ static long gyro_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 					"GYROSCOPE_IOCTL_READ_SENSORDATA read data fail!\n");
 				return -EINVAL;
 			}
-			sprintf(strbuf, "%x %x %x", data_buf[0], data_buf[1],
-				data_buf[2]);
+
+			len = sprintf(strbuf, "%x %x %x", data_buf[0],
+				      data_buf[1], data_buf[2]);
+			if (len <= 0)
+				return -EINVAL;
+
 			pr_debug(
 				"GYROSCOPE_IOCTL_READ_SENSORDATA read strbuf : (%s)!\n",
 				strbuf);
@@ -103,8 +108,12 @@ static long gyro_factory_unlocked_ioctl(struct file *file, unsigned int cmd,
 					"GSENSOR_IOCTL_READ_RAW_DATA read data fail!\n");
 				return -EINVAL;
 			}
-			sprintf(strbuf, "%x %x %x", data_buf[0], data_buf[1],
-				data_buf[2]);
+
+			len = sprintf(strbuf, "%x %x %x", data_buf[0],
+				      data_buf[1], data_buf[2]);
+			if (len <= 0)
+				return -EINVAL;
+
 			pr_debug(
 				"GYROSCOPE_IOCTL_READ_SENSORDATA_RAW read strbuf : (%s)!\n",
 				strbuf);
