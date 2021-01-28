@@ -54,3 +54,12 @@ config MTK_SWPM
 	  for each power rail for low power debugging.
 	  If unsure, say N.
 
+config MTK_PBM
+	bool "MTK power budget management"
+	select MTK_DYNAMIC_LOADING_POWER_THROTTLING
+	help
+	  This kernel config can be used to enable power budget management.
+	  When enable this option, pbm will allocate limit power budget to
+	  CPU and GPU when battery voltage is low.
+	  If unsure, say N.
+
