@@ -46,11 +46,13 @@ void spm_dpidle_pcm_setup_before_wfi(bool sleep_dpidle,
 	/* Get SPM resource request and update reg_spm_xxx_req */
 	resource_usage = (!sleep_dpidle) ? spm_get_resource_usage() : 0;
 
-	mt_secure_call(MTK_SIP_KERNEL_SPM_DPIDLE_ARGS,
-		       pwrctrl->pcm_flags, pwrctrl->pcm_flags1, resource_usage);
+	SMC_CALL(MTK_SIP_KERNEL_SPM_DPIDLE_ARGS,
+			pwrctrl->pcm_flags,
+			pwrctrl->pcm_flags1,
+			resource_usage);
 
 	if (sleep_dpidle)
-		mt_secure_call(MTK_SIP_KERNEL_SPM_SLEEP_DPIDLE_ARGS,
+		SMC_CALL(MTK_SIP_KERNEL_SPM_SLEEP_DPIDLE_ARGS,
 			       pwrctrl->timer_val, pwrctrl->wake_src, 0);
 }
 

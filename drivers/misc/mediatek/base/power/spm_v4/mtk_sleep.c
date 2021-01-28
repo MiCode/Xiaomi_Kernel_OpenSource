@@ -44,9 +44,10 @@
 #include <mtk-soc-afe-control.h>
 #endif /* CONFIG_MTK_SND_SOC_NEW_ARCH */
 
-#ifdef CONFIG_MTK_ACAO_SUPPORT
+#if !defined(SPM_K414_EARLY_PORTING)
 #include <mtk_mcdi_api.h>
 #endif
+
 /**************************************
  * only for internal debug
  **************************************/
@@ -371,7 +372,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 	}
 #endif /* CONFIG_FPGA_EARLY_PORTING */
 
-#ifdef CONFIG_MTK_ACAO_SUPPORT
+#if !defined(SPM_K414_EARLY_PORTING)
 	mcdi_task_pause(true);
 #endif
 
@@ -390,7 +391,7 @@ static int slp_suspend_ops_enter(suspend_state_t state)
 
 		slp_wake_reason =
 			spm_go_to_sleep(slp_spm_flags, slp_spm_flags1);
-#ifdef CONFIG_MTK_ACAO_SUPPORT
+#if !defined(SPM_K414_EARLY_PORTING)
 	mcdi_task_pause(false);
 #endif
 
