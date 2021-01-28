@@ -24,8 +24,8 @@
 	no-sdio;
 	non-removable;
 	pinctl = <&msdc0_pins_default>;
-	pinctl_hs400 = <&msdc0_pins_hs400>;
-	pinctl_hs200 = <&msdc0_pins_hs200>;
+	pinctl_hs400 = <&msdc0_pins_default>;
+	pinctl_hs200 = <&msdc0_pins_default>;
 	register_setting = <&msdc0_register_setting_default>;
 	host_function = /bits/ 8 <MSDC_EMMC>;
 	bootable;
@@ -79,7 +79,7 @@
 #endif
 };
 
-&pio {
+&msdc0 {
 	msdc0_pins_default: msdc0@default {
 		pins_cmd {
 			drive-strength = /bits/ 8 <4>;
@@ -139,7 +139,9 @@
 		rdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
 		wdata_edge = /bits/ 8 <MSDC_SMPL_RISING>;
 	};
+};
 
+&msdc1 {
 	msdc1_pins_default: msdc1@default {
 		pins_cmd {
 			drive-strength = /bits/ 8 <3>;
