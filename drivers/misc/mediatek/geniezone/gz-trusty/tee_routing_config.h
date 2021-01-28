@@ -42,41 +42,22 @@ struct tee_routing_obj {
  *
  * The conent of tee_routing_config will be added into a hash table.
  * You can add new elements like the example below.
- *
- * Note: If the service both exists in Trusty and Nebula, please
- * add its element inside the CONFIG_MTK_NEBULA_VM_SUPPORT.
  */
 static struct tee_routing_obj tee_routing_config[MAX_TEE_ROUTING_NUM] = {
-#ifdef	CONFIG_MTK_NEBULA_VM_SUPPORT /* For Nebula*/
 	/* The first element is the default. Do not modify it unless needed.*/
-	[0] = { .srv_name = "com",
-		.tee_id = TEE_ID_NEBULA
-	},
-	/* The service exists both in Trusty and Nebula.
-	 * {	.srv_name = "both_service",
-	 *	.tee_id   = TEE_ID_NEBULA
-	 * },
-	 */
-#else /* For Trusty */
-
 	[0] = { .srv_name = "com",
 		.tee_id = TEE_ID_TRUSTY
 	},
 
-	/* The service exists both in Trusty and Nebula.
-	 * {	.srv_name = "both_service",
-	 *	.tee_id   = TEE_ID_TRUSTY
-	 * },
-	 */
-#endif
 	{	.srv_name = "nebula",
 		.tee_id = TEE_ID_NEBULA
 	},
+
 	{	.srv_name = "trusty",
 		.tee_id = TEE_ID_TRUSTY
 	},
 	/* If the service only work for Trusty.
-	 * {	.srv_name = "nebula_service",
+	 * {	.srv_name = "trusty_service",
 	 *	.tee_id   = TEE_ID_TRUSTY
 	 * },
 	 */

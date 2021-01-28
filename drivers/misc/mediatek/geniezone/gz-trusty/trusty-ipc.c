@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -56,7 +57,6 @@
 #define TXBUF_TIMEOUT			15000
 
 #define MAX_SRV_NAME_LEN		256
-#define MAX_DEV_NAME_LEN		32
 
 #define DEFAULT_MSG_BUF_SIZE		PAGE_SIZE
 #define DEFAULT_MSG_BUF_ALIGN		PAGE_SIZE
@@ -76,12 +76,6 @@
 DEFINE_HASHTABLE(tee_routing_htable, 5);
 
 struct tipc_virtio_dev;
-
-struct tipc_dev_config {
-	u32 msg_buf_max_size;
-	u32 msg_buf_alignment;
-	char dev_name[MAX_DEV_NAME_LEN];
-} __packed;
 
 struct tipc_msg_hdr {
 	u32 src;
@@ -140,6 +134,8 @@ struct tipc_virtio_dev {
 	struct virtio_device *vdev;
 	struct virtqueue *rxvq;
 	struct virtqueue *txvq;
+	char rxvq_name[MAX_DEV_NAME_LEN];
+	char txvq_name[MAX_DEV_NAME_LEN];
 	uint msg_buf_cnt;
 	uint msg_buf_max_cnt;
 	size_t msg_buf_max_sz;
@@ -177,7 +173,7 @@ struct tipc_chan {
 static struct class *tipc_class;
 static unsigned int tipc_major;
 
-struct virtio_device *vdev_array[TEE_NUM];
+struct virtio_device *vdev_array[TEE_ID_END];
 
 static DEFINE_IDR(tipc_devices);
 static DEFINE_MUTEX(tipc_devices_lock);
@@ -340,7 +336,7 @@ static int is_valid_vds(struct tipc_virtio_dev *vds)
 	if (unlikely(!virt_addr_valid(vds)))
 		return -EFAULT;
 
-	for (i = 0 ; i < TEE_NUM ; i++)
+	for (i = 0 ; i < TEE_ID_END ; i++)
 		if (vdev_array[i])
 			ret |= (vds == vdev_array[i]->priv);
 
@@ -523,8 +519,6 @@ static void fill_msg_hdr(struct tipc_msg_buf *mb, u32 src, u32 dst)
 	hdr->reserved = 0;
 }
 
-/*****************************************************************************/
-
 struct tipc_chan *tipc_create_channel(struct device *dev,
 				      const struct tipc_chan_ops *ops,
 				      void *ops_arg)
@@ -669,7 +663,7 @@ int tipc_chan_connect(struct tipc_chan *chan, const char *name)
 	switch (chan->state) {
 	case TIPC_DISCONNECTED:
 		/* save service name we are connecting to */
-		strcpy(chan->srv_name, body->name);
+		strncpy(chan->srv_name, body->name, sizeof(body->name) - 1);
 
 		fill_msg_hdr(txbuf, chan->local, TIPC_CTRL_ADDR);
 		err = vds_queue_txbuf(chan->vds, txbuf);
@@ -1005,14 +999,10 @@ static long tipc_ioctl(struct file *filp,
 	if (_IOC_TYPE(cmd) != TIPC_IOC_MAGIC)
 		return -EINVAL;
 
-#if defined(CONFIG_COMPAT)
 	if (is_compat)
 		user_req = (char __user *)compat_ptr(arg);
 	else
 		user_req = (char __user *)arg;
-#else
-	user_req = (char __user *)arg;
-#endif
 
 	switch (cmd) {
 	case TIPC_IOC_CONNECT:
@@ -1035,7 +1025,7 @@ static long tipc_ioctl_entry(struct file *filp,
 	return tipc_ioctl(filp, cmd, arg, false);
 }
 
-#if defined(CONFIG_COMPAT)
+#if IS_ENABLED(CONFIG_COMPAT)
 static long tipc_compat_ioctl_entry(struct file *filp,
 					unsigned int cmd, unsigned long arg)
 {
@@ -1198,7 +1188,7 @@ static const struct file_operations tipc_fops = {
 	.open = tipc_open,
 	.release = tipc_release,
 	.unlocked_ioctl = tipc_ioctl_entry,
-#if defined(CONFIG_COMPAT)
+#if IS_ENABLED(CONFIG_COMPAT)
 	.compat_ioctl = tipc_compat_ioctl_entry,
 #endif
 	.read_iter = tipc_read_iter,
@@ -1207,79 +1197,97 @@ static const struct file_operations tipc_fops = {
 	.owner = THIS_MODULE,
 };
 
-/*****************************************************************************/
-
-
 /* strdup do not free the string memory, pls free it after using */
-static char *strdup(const char *str)
+static char *strdup_s(const char *str)
 {
 	size_t lens = strlen(str);
 	char *tmp = kmalloc(lens + 1, GFP_KERNEL);
 
-	tmp = strncpy(tmp, str, lens);
+	if (!tmp)
+		return ERR_PTR(-ENOMEM);
+
+	strncpy(tmp, str, lens);
 	tmp[lens] = '\0';
 	return tmp;
 }
 
-static struct tipc_virtio_dev *port_lookup_vds(struct tipc_cdev_node *cdn,
-					       const char *port)
+int port_lookup_tid(const char *port, enum tee_id_t *o_tid)
 {
-	struct tipc_virtio_dev *vds = NULL;
 	char *token, *str, *p;
 	const char *delim = ".";
 	u32 hash_val;
 	struct tee_routing_obj *tr_obj;
-	const enum  tee_id_t default_tee_id = tee_routing_config[0].tee_id;
+	const enum tee_id_t default_tee_id = tee_routing_config[0].tee_id;
 
-	if (cdn)
-		return dn_lookup_vds(cdn);
+	/* Set default value */
+	*o_tid = default_tee_id;
 
-	if (vdev_array[default_tee_id]) {
-		pr_debug("[%s] set default vds %d\n", __func__, default_tee_id);
-		vds = vdev_array[default_tee_id]->priv;
-	}
+	str = strdup_s(port);
+	if (IS_ERR(str))
+		return -ENOMEM;
 
-	str = strdup(port);
 	p = str;
 	token = strsep(&p, delim);
-
 	if (!token) {
 		/* we can not determine which vds to be delivered,
-		 * just return an error
+		 * just take the default.
 		 */
-		pr_info("[%s] Service name error %s\n", __func__, port);
-		goto err_port_name;
+		WARN(1, "[%s] Service name error %s\n", __func__, port);
+		kfree(str);
+		return -EINVAL;
 	}
 
 	hash_val = hashlen_hash(hashlen_string(HASH_SALT, token));
 
 	hash_for_each_possible(tee_routing_htable, tr_obj, node, hash_val) {
+		/* If hash table hit, set from tee_routing_config. */
 		if (strcmp(token, tr_obj->srv_name) == 0) {
-			vds = vdev_array[tr_obj->tee_id]->priv;
+			*o_tid = tr_obj->tee_id;
+			pr_debug("[%s] find token %s, tid %d\n",
+				 __func__, token, *o_tid);
 			break;
 		}
 	}
 
-	kref_get(&vds->refcount);
 	kfree(str);
-	return vds;
+	return 0;
+}
+EXPORT_SYMBOL(port_lookup_tid);
 
-err_port_name:
-	pr_info("[%s] Can't find available tipc_virtio_dev\n", __func__);
-	kfree(str);
-	return ERR_PTR(-EINVAL);
+/* Search tipc_virtio_dev by first word of port name. See tee_routing_config.h
+ * for detail rules.
+ */
+static struct tipc_virtio_dev *port_lookup_vds(const char *port)
+{
+	struct tipc_virtio_dev *vds;
+	enum tee_id_t tee_id;
+	int ret;
+
+	ret = port_lookup_tid(port, &tee_id);
+
+	if (ret) {
+		pr_info("[%s] get tee_id failed %d ret %d, may cause failure\n",
+			__func__, tee_id, ret);
+	}
+
+	if (vdev_array[tee_id]) {
+		vds = vdev_array[tee_id]->priv;
+		kref_get(&vds->refcount);
+		return vds;
+	} else
+		return ERR_PTR(-ENODEV);
 }
 
-static int tipc_open_channel(struct tipc_cdev_node *cdn,
-			     struct tipc_dn_chan **o_dn, const char *port)
+static int tipc_open_channel(struct tipc_dn_chan **o_dn, const char *port)
 {
 	int ret;
 	struct tipc_virtio_dev *vds;
 	struct tipc_dn_chan *dn;
 
-	vds = port_lookup_vds(cdn, port);
+	vds = port_lookup_vds(port);
 
 	if (IS_ERR(vds)) {
+		pr_info("[%s] ERROR: virtio device not found\n", __func__);
 		ret = -ENOENT;
 		goto err_vds_lookup;
 	}
@@ -1321,7 +1329,7 @@ int tipc_k_connect(struct tipc_k_handle *h, const char *port)
 	int err;
 	struct tipc_dn_chan *dn = NULL;
 
-	err = tipc_open_channel(NULL, &dn, port);
+	err = tipc_open_channel(&dn, port);
 	if (err)
 		return err;
 
@@ -1461,8 +1469,6 @@ err_out:
 }
 EXPORT_SYMBOL(tipc_k_write);
 
-/*****************************************************************************/
-
 static void chan_trigger_event(struct tipc_chan *chan, int event)
 {
 	if (!event)
@@ -1510,8 +1516,7 @@ static int _create_cdev_node(struct device *parent,
 	}
 
 	/* Create a device node */
-	cdn->dev = device_create(tipc_class, parent,
-				 devt, NULL, "trusty-ipc-%s", name);
+	cdn->dev = device_create(tipc_class, parent, devt, NULL, name);
 
 	if (IS_ERR(cdn->dev)) {
 		ret = PTR_ERR(cdn->dev);
@@ -1780,6 +1785,10 @@ static int _handle_rxbuf(struct tipc_virtio_dev *vds,
 
 drop_it:
 
+	if (!rxbuf) {
+		dev_info(dev, "rxbuf is null. failed\n");
+		return -ENOMEM;
+	}
 	/* add the buffer back to the virtqueue */
 	sg_init_one(&sg, rxbuf->buf_va, rxbuf->buf_sz);
 	err = virtqueue_add_inbuf(vds->rxvq, &sg, 1, rxbuf, GFP_KERNEL);
@@ -1851,15 +1860,14 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 {
 	int err, i;
 	struct tipc_virtio_dev *vds;
-	/*trusty struct tipc_dev_config is the same */
 	struct tipc_dev_config config;
 	struct virtqueue *vqs[2];
 	vq_callback_t *vq_cbs[] = { _rxvq_cb, _txvq_cb };
-	const char * const trusty_vq_names[] = { "trusty-rx", "trusty-tx" };
-	const char * const nebula_vq_names[] = { "nebula-rx", "nebula-tx" };
+	char *vq_names[2];
 	int tee_id = vdev->dev.id;
 
-	dev_dbg(&vdev->dev, "%s:\n", __func__);
+	dev_info(&vdev->dev, "--- init trusty-ipc for MTEE %d ---\n",
+		 tee_id);
 
 	vds = kzalloc(sizeof(*vds), GFP_KERNEL);
 	if (!vds)
@@ -1873,9 +1881,6 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 	INIT_LIST_HEAD(&vds->free_buf_list);
 	idr_init(&vds->addr_idr);
 
-	/* For multiple TEEs */
-	tee_routing_init();
-
 	/* set default max message size and alignment */
 	memset(&config, 0, sizeof(config));
 	config.msg_buf_max_size = DEFAULT_MSG_BUF_SIZE;
@@ -1884,15 +1889,22 @@ static int tipc_virtio_probe(struct virtio_device *vdev)
 	/* get configuration if present */
 	vdev->config->get(vdev, 0, &config, sizeof(config));
 
-	/* copy dev name */
-	strncpy(vds->cdev_name, config.dev_name, sizeof(vds->cdev_name));
-	vds->cdev_name[sizeof(vds->cdev_name) - 1] = '\0';
+	/* set char device name*/
+	snprintf(vds->cdev_name, MAX_DEV_NAME_LEN, "%s-ipc-%s",
+		 config.dev_name.tee_name, config.dev_name.cdev_name);
 
+	/* set vqueue name */
+	snprintf(vds->rxvq_name, MAX_DEV_NAME_LEN, "%s-rxvq",
+		 config.dev_name.tee_name);
+
+	snprintf(vds->txvq_name, MAX_DEV_NAME_LEN, "%s-txvq",
+		 config.dev_name.tee_name);
+
+	vq_names[0] = vds->rxvq_name;
+	vq_names[1] = vds->txvq_name;
 	/* find tx virtqueues (rx and tx and in this order) */
 	err = vdev->config->find_vqs(vdev, 2, vqs, vq_cbs,
-				     (is_trusty_tee(tee_id)) ?
-				     trusty_vq_names : nebula_vq_names,
-				     NULL, NULL);
+				     (const char **)vq_names, NULL, NULL);
 
 	if (err)
 		goto err_find_vqs;
@@ -2001,7 +2013,6 @@ static int __init tipc_init(void)
 	int ret;
 	dev_t dev;
 
-
 	ret = alloc_chrdev_region(&dev, 0, MAX_DEVICES, KBUILD_MODNAME);
 	if (ret) {
 		pr_info("%s: alloc_chrdev_region failed: %d\n", __func__, ret);
@@ -2016,14 +2027,15 @@ static int __init tipc_init(void)
 		goto err_class_create;
 	}
 
-	pr_info("register virtio_tipc_driver\n");
+	/* For multiple TEEs */
+	tee_routing_init();
+
 	ret = register_virtio_driver(&virtio_tipc_driver);
 	if (ret) {
 		pr_info("Register virtio driver failed: %d\n", ret);
 		goto err_register_virtio_drv;
 	}
 
-	pr_info("register virtio_nebula_driver\n");
 	ret = register_virtio_driver(&virtio_nebula_driver);
 	if (ret) {
 		pr_info("Register nebula virtio driver failed: %d\n", ret);

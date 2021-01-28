@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
+
 /*
  * Copyright (c) 2019 MediaTek Inc.
  */
@@ -22,28 +23,23 @@
  * 2. virtio for message/command passing by shared memory
  * 3. IPC driver
  */
-
 /* #define DEBUG */
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
-
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
 #include <linux/workqueue.h>
 #include <linux/remoteproc.h>
-
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <gz-trusty/smcall.h>
 #include <gz-trusty/trusty.h>
-
 #include <linux/virtio.h>
 #include <linux/virtio_config.h>
 #include <linux/virtio_ids.h>
 #include <linux/virtio_ring.h>
-
 #include <linux/atomic.h>
 #include <linux/mod_devicetable.h>
 
@@ -53,6 +49,7 @@ struct trusty_vdev;
 
 struct trusty_ctx {
 	struct device *dev;
+	struct device *trusty_dev;
 	void *shared_va;
 	size_t shared_sz;
 	struct work_struct check_vqs;
@@ -62,6 +59,7 @@ struct trusty_ctx {
 	struct mutex mlock;	/* protects vdev_list */
 	struct workqueue_struct *kick_wq;
 	struct workqueue_struct *check_wq;
+	struct workqueue_attrs *attrs;
 	enum tee_id_t tee_id;	/* For multiple TEEs */
 };
 
@@ -103,13 +101,6 @@ static void check_all_vqs(struct work_struct *work)
 	list_for_each_entry(tvdev, &tctx->vdev_list, node) {
 		for (i = 0; i < tvdev->vring_num; i++) {
 			/* vq->vq.callback(&vq->vq);  trusty_virtio_notify */
-			/*add to avoid NULL access*/
-			if (!tvdev->vrings[i].vq) {
-				dev_info(tctx->dev,
-				"tvdev->vrings.vq null.");
-				break;
-			}
-
 			vring_interrupt(0, tvdev->vrings[i].vq);
 		}
 	}
@@ -134,13 +125,12 @@ static void kick_vq(struct trusty_ctx *tctx,
 		    struct trusty_vdev *tvdev, struct trusty_vring *tvr)
 {
 	int ret;
-	u32 smcnr_kick_vq = (is_trusty_tee(tctx->tee_id)) ?
-	    SMC_SC_VDEV_KICK_VQ : SMC_SC_VM_VDEV_KICK_VQ;
+	u32 smcnr_kick_vq = MTEE_SMCNR(SMCF_SC_VDEV_KICK_VQ, tctx->trusty_dev);
 
 	dev_dbg(tctx->dev, "%s: vdev_id=%d: vq_id=%d\n",
 		__func__, tvdev->notifyid, tvr->notifyid);
 
-	ret = trusty_std_call32(tctx->dev->parent, smcnr_kick_vq,
+	ret = trusty_std_call32(tctx->trusty_dev, smcnr_kick_vq,
 				tvdev->notifyid, tvr->notifyid, 0);
 	if (ret) {
 		dev_info(tctx->dev, "vq notify (%d, %d) returned %d\n",
@@ -155,9 +145,7 @@ static void kick_vqs(struct work_struct *work)
 	struct trusty_ctx *tctx = container_of(work, struct trusty_ctx,
 					       kick_vqs);
 
-
 	set_user_nice(current, -20);
-
 
 	mutex_lock(&tctx->mlock);
 	list_for_each_entry(tvdev, &tctx->vdev_list, node) {
@@ -171,9 +159,7 @@ static void kick_vqs(struct work_struct *work)
 
 	mutex_unlock(&tctx->mlock);
 
-
 	set_user_nice(current, 0);
-
 }
 
 static bool trusty_virtio_notify(struct virtqueue *vq)
@@ -181,14 +167,13 @@ static bool trusty_virtio_notify(struct virtqueue *vq)
 	struct trusty_vring *tvr = vq->priv;
 	struct trusty_vdev *tvdev = tvr->tvdev;
 	struct trusty_ctx *tctx = tvdev->tctx;
-	u32 api_ver = trusty_get_api_version(tctx->dev->parent);
+	u32 api_ver = trusty_get_api_version(tctx->trusty_dev);
 
 	if (api_ver < TRUSTY_API_VERSION_SMP_NOP) {
 		atomic_set(&tvr->needs_kick, 1);
 		queue_work(tctx->kick_wq, &tctx->kick_vqs);
 	} else {
-		trusty_enqueue_nop(tctx->dev->parent, &tvr->kick_nop,
-				   tctx->tee_id);
+		trusty_enqueue_nop(tctx->trusty_dev, &tvr->kick_nop);
 	}
 
 	return true;
@@ -198,12 +183,12 @@ static int trusty_load_device_descr(struct trusty_ctx *tctx,
 				    void *va, size_t sz)
 {
 	int ret;
-	u32 smcnr_get_descr = (is_trusty_tee(tctx->tee_id)) ?
-	    SMC_SC_VIRTIO_GET_DESCR : SMC_SC_VM_VIRTIO_GET_DESCR;
+	u32 smcnr_get_descr = MTEE_SMCNR(SMCF_SC_VIRTIO_GET_DESCR,
+					 tctx->trusty_dev);
 
 	dev_dbg(tctx->dev, "%s: %zu bytes @ %p\n", __func__, sz, va);
 
-	ret = trusty_call32_mem_buf(tctx->dev->parent, smcnr_get_descr,
+	ret = trusty_call32_mem_buf(tctx->trusty_dev, smcnr_get_descr,
 				    virt_to_page(va), sz, PAGE_KERNEL);
 	if (ret < 0) {
 		dev_info(tctx->dev, "%s: virtio get descr returned (%d)\n",
@@ -216,12 +201,12 @@ static int trusty_load_device_descr(struct trusty_ctx *tctx,
 static void trusty_virtio_stop(struct trusty_ctx *tctx, void *va, size_t sz)
 {
 	int ret;
-	u32 smcnr_virtio_stop = (is_trusty_tee(tctx->tee_id)) ?
-	    SMC_SC_VIRTIO_STOP : SMC_SC_VM_VIRTIO_STOP;
+	u32 smcnr_virtio_stop = MTEE_SMCNR(SMCF_SC_VIRTIO_STOP,
+					   tctx->trusty_dev);
 
 	dev_dbg(tctx->dev, "%s: %zu bytes @ %p\n", __func__, sz, va);
 
-	ret = trusty_call32_mem_buf(tctx->dev->parent, smcnr_virtio_stop,
+	ret = trusty_call32_mem_buf(tctx->trusty_dev, smcnr_virtio_stop,
 				    virt_to_page(va), sz, PAGE_KERNEL);
 	if (ret) {
 		dev_info(tctx->dev, "%s: virtio done returned (%d)\n",
@@ -233,12 +218,12 @@ static void trusty_virtio_stop(struct trusty_ctx *tctx, void *va, size_t sz)
 static int trusty_virtio_start(struct trusty_ctx *tctx, void *va, size_t sz)
 {
 	int ret;
-	u32 smcnr_virtio_start = (is_trusty_tee(tctx->tee_id)) ?
-	    SMC_SC_VIRTIO_START : SMC_SC_VM_VIRTIO_START;
+	u32 smcnr_virtio_start = MTEE_SMCNR(SMCF_SC_VIRTIO_START,
+					    tctx->trusty_dev);
 
 	dev_dbg(tctx->dev, "%s: %zu bytes @ %p\n", __func__, sz, va);
 
-	ret = trusty_call32_mem_buf(tctx->dev->parent, smcnr_virtio_start,
+	ret = trusty_call32_mem_buf(tctx->trusty_dev, smcnr_virtio_start,
 				    virt_to_page(va), sz, PAGE_KERNEL);
 	if (ret) {
 		dev_info(tctx->dev, "%s: virtio start returned (%d)\n",
@@ -252,12 +237,11 @@ static void trusty_virtio_reset(struct virtio_device *vdev)
 {
 	struct trusty_vdev *tvdev = vdev_to_tvdev(vdev);
 	struct trusty_ctx *tctx = tvdev->tctx;
-	u32 smcnr_vdev_reset = (is_trusty_tee(tctx->tee_id)) ?
-	    SMC_SC_VDEV_RESET : SMC_SC_VM_VDEV_RESET;
+	u32 smcnr_vdev_reset = MTEE_SMCNR(SMCF_SC_VDEV_RESET, tctx->trusty_dev);
 
 	dev_dbg(&vdev->dev, "reset vdev_id=%d\n", tvdev->notifyid);
 
-	trusty_std_call32(tctx->dev->parent, smcnr_vdev_reset,
+	trusty_std_call32(tctx->trusty_dev, smcnr_vdev_reset,
 			  tvdev->notifyid, 0, 0);
 }
 
@@ -323,7 +307,7 @@ static void _del_vqs(struct virtio_device *vdev)
 
 	for (i = 0; i < tvdev->vring_num; i++, tvr++) {
 		/* dequeue kick_nop */
-		trusty_dequeue_nop(tvdev->tctx->dev->parent, &tvr->kick_nop);
+		trusty_dequeue_nop(tvdev->tctx->trusty_dev, &tvr->kick_nop);
 
 		/* delete vq */
 		if (tvr->vq) {
@@ -381,9 +365,9 @@ static struct virtqueue *_find_vq(struct virtio_device *vdev,
 	 */
 	tvr->vr_descr->pa = (u32) ((u64) pa >> 32);
 
-	dev_info(&vdev->dev, "vring%d: va(pa)  %p(%llx) qsz %d notifyid %d\n",
-		 id, tvr->vaddr, (u64) tvr->paddr, tvr->elem_num,
-		 tvr->notifyid);
+	dev_dbg(&vdev->dev, "vr%d: [%s] va(pa)  %p(%llx) qsz %d notifyid %d\n",
+		id, name, tvr->vaddr, (u64)tvr->paddr, tvr->elem_num,
+		tvr->notifyid);
 
 	/* Linux API vring_new_virtqueue is different in kernel 4.14 and 4.9 */
 	tvr->vq = vring_new_virtqueue(id, tvr->elem_num, tvr->align,
@@ -488,8 +472,8 @@ static int trusty_virtio_add_device(struct trusty_ctx *tctx,
 	for (i = 0; i < tvdev->vring_num; i++, vr_descr++) {
 		/*set up tvdev->vring from vr_descr */
 		struct trusty_vring *tvr = &tvdev->vrings[i];
-		u32 smcnr_kick_nop = (is_trusty_tee(tctx->tee_id)) ?
-		    SMC_NC_VDEV_KICK_VQ : SMC_NC_VM_VDEV_KICK_VQ;
+		u32 smcnr_kick_nop = MTEE_SMCNR(SMCF_NC_VDEV_KICK_VQ,
+						tctx->trusty_dev);
 
 		tvr->tvdev = tvdev;
 		tvr->vr_descr = vr_descr;
@@ -516,6 +500,24 @@ static int trusty_virtio_add_device(struct trusty_ctx *tctx,
 err_register:
 	kfree(tvdev);
 	return ret;
+}
+
+static int trusty_set_tee_name(struct trusty_ctx *tctx,
+			       struct tipc_dev_config *cfg)
+{
+	struct device_node *node = tctx->trusty_dev->of_node;
+	char *str;
+
+	if (!node) {
+		dev_info(tctx->dev, "[%s] of_node required\n", __func__);
+		return -EINVAL;
+	}
+
+	of_property_read_string(node, "tee-name", (const char **)&str);
+	strncpy(cfg->dev_name.tee_name, str, MAX_MINOR_NAME_LEN);
+	pr_info("[%s] set tee_name: %s\n", __func__, cfg->dev_name.tee_name);
+
+	return 0;
 }
 
 static int trusty_parse_device_descr(struct trusty_ctx *tctx,
@@ -598,6 +600,7 @@ static int trusty_parse_device_descr(struct trusty_ctx *tctx,
 		vr = (struct fw_rsc_vdev_vring *)vd->vring;
 		cfg = (void *)(vr + vd->num_of_vrings);
 
+		trusty_set_tee_name(tctx, cfg);
 		trusty_virtio_add_device(tctx, vd, vr, cfg);
 	}
 
@@ -669,7 +672,7 @@ static int trusty_virtio_add_devices(struct trusty_ctx *tctx)
 	 * it may multiple tctx in other device,
 	 * in tipc scope there is one tctx
 	 */
-	ret = trusty_call_notifier_register(tctx->dev->parent,
+	ret = trusty_call_notifier_register(tctx->trusty_dev,
 					    &tctx->call_notifier);
 	if (ret) {
 		dev_info(tctx->dev, "%s: failed (%d) to register notifier\n",
@@ -692,8 +695,7 @@ static int trusty_virtio_add_devices(struct trusty_ctx *tctx)
 	return 0;
 
 err_start_virtio:
-	trusty_call_notifier_unregister(tctx->dev->parent,
-					&tctx->call_notifier);
+	trusty_call_notifier_unregister(tctx->trusty_dev, &tctx->call_notifier);
 	cancel_work_sync(&tctx->check_vqs);
 err_register_notifier:
 err_parse_descr:
@@ -705,10 +707,6 @@ err_load_descr:
 	free_pages_exact(descr_va, descr_buf_sz);
 	return ret;
 }
-
-
-
-static struct workqueue_attrs *attrs[TEE_NUM];
 
 /* parse dtsi to find big core and set to mask */
 static int bind_big_core(struct cpumask *mask)
@@ -736,6 +734,11 @@ static int bind_big_core(struct cpumask *mask)
 				compat_len = strlen(compat_val);
 				i = kstrtoint(compat_val + (compat_len - 2), 10,
 					      &cpu_type);
+				if (i < 0) {
+					pr_info("[%s] Parse cpu_type error\n",
+						__func__);
+					break;
+				}
 				if (big_type < cpu_type) {
 					big_type = cpu_type;
 					big_start_num = cpu_num - 1;
@@ -753,8 +756,6 @@ static int bind_big_core(struct cpumask *mask)
 
 	return 0;
 }
-
-
 
 struct workqueue_attrs *_alloc_workqueue_attrs(gfp_t gfp_mask)
 {
@@ -779,36 +780,40 @@ fail:
 	return NULL;
 }
 
+
 static int trusty_virtio_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct trusty_ctx *tctx;
-	struct device_node *node = pdev->dev.of_node;
+	struct device_node *pnode = pdev->dev.parent->of_node;
 	int tee_id = -1;
 
-	dev_info(&pdev->dev, "initializing\n");
-
-	if (!node) {
+	if (!pnode) {
 		dev_info(&pdev->dev, "of_node required\n");
 		return -EINVAL;
 	}
+
+	/* For multiple TEEs */
+	ret = of_property_read_u32(pnode, "tee-id", &tee_id);
+	if (ret != 0) {
+		dev_info(&pdev->dev,
+			 "[%s] ERROR: tee_id is not set on device tree\n",
+			 __func__);
+		return -EINVAL;
+	}
+
+	dev_info(&pdev->dev, "--- init trusty-virtio for MTEE %d ---\n",
+		 tee_id);
 
 	tctx = kzalloc(sizeof(*tctx), GFP_KERNEL);
 	if (!tctx)
 		return -ENOMEM;
 
-	/* For multiple TEEs */
-	ret = of_property_read_u32(node, "tee_id", &tee_id);
-	if (ret != 0) {
-		dev_info(&pdev->dev,
-			 "tee_id is not set on device tree, please fix it\n");
-		return -EINVAL;
-	}
-
 	pdev->id = tee_id;
 	tctx->tee_id = tee_id;
 
 	tctx->dev = &pdev->dev;
+	tctx->trusty_dev = pdev->dev.parent;
 	/* the notifier will call check_all_vqs */
 	tctx->call_notifier.notifier_call = trusty_call_notify;
 	mutex_init(&tctx->mlock);
@@ -825,23 +830,28 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 	}
 
 	tctx->kick_wq = alloc_workqueue("trusty-kick-wq",
-					WQ_UNBOUND | WQ_CPU_INTENSIVE, 0);
+				WQ_HIGHPRI | WQ_UNBOUND | WQ_CPU_INTENSIVE, 0);
 	if (!tctx->kick_wq) {
 		ret = -ENODEV;
 		dev_info(&pdev->dev, "Failed create trusty-kick-wq\n");
 		goto err_create_kick_wq;
 	}
 
-	attrs[tctx->tee_id] = _alloc_workqueue_attrs(GFP_KERNEL);
-	if (!attrs[tctx->tee_id]) {
+	/* this function is not supported when compiled as .ko */
+	//tctx->attrs = alloc_workqueue_attrs(GFP_KERNEL);
+	/* replace with _alloc_workqueue_attrs() */
+	tctx->attrs = _alloc_workqueue_attrs(GFP_KERNEL);
+
+	if (!tctx->attrs) {
 		ret = -ENOMEM;
 		goto err_free_workqueue;
 	}
-	ret = bind_big_core(attrs[tctx->tee_id]->cpumask);
+
+	ret = bind_big_core(tctx->attrs->cpumask);
 	if (ret)
 		dev_info(&pdev->dev, "Failed to bind big cores\n");
-	apply_workqueue_attrs(tctx->kick_wq, attrs[tctx->tee_id]);
 
+	apply_workqueue_attrs(tctx->kick_wq, tctx->attrs);
 
 	ret = trusty_virtio_add_devices(tctx);
 
@@ -856,11 +866,15 @@ static int trusty_virtio_probe(struct platform_device *pdev)
 err_add_devices:
 	destroy_workqueue(tctx->kick_wq);
 err_free_workqueue:
-	if (attrs[tctx->tee_id]) {
-		free_cpumask_var(attrs[tctx->tee_id]->cpumask);
-		kfree(attrs[tctx->tee_id]);
-	}
 
+	/* this function is not supported when compiled as .ko */
+	//free_workqueue_attrs(tctx->attrs);
+
+	/* replace with this */
+	if (tctx->attrs) {
+		free_cpumask_var(tctx->attrs->cpumask);
+		kfree(tctx->attrs);
+	}
 err_create_kick_wq:
 	destroy_workqueue(tctx->check_wq);
 err_create_check_wq:
@@ -875,8 +889,7 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	dev_info(&pdev->dev, "removing\n");
 
 	/* unregister call notifier and wait until workqueue is done */
-	trusty_call_notifier_unregister(tctx->dev->parent,
-					&tctx->call_notifier);
+	trusty_call_notifier_unregister(tctx->trusty_dev, &tctx->call_notifier);
 	cancel_work_sync(&tctx->check_vqs);
 
 	/* remove virtio devices */
@@ -893,13 +906,15 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	/* free shared area */
 	free_pages_exact(tctx->shared_va, tctx->shared_sz);
 
-
 	/* free workqueue attrs */
-	if (attrs[tctx->tee_id]) {
-		free_cpumask_var(attrs[tctx->tee_id]->cpumask);
-		kfree(attrs[tctx->tee_id]);
-	}
+	/* this function is not supported when compiled as .ko */
+	//free_workqueue_attrs(tctx->attrs);
 
+	/* replace with this */
+	if (tctx->attrs) {
+		free_cpumask_var(tctx->attrs->cpumask);
+		kfree(tctx->attrs);
+	}
 
 	/* free context */
 	kfree(tctx);
@@ -944,12 +959,10 @@ static int __init trusty_virtio_init(void)
 {
 	int ret = 0;
 
-	pr_info("----------  register the trusty virtio driver ----------\n");
 	ret = platform_driver_register(&trusty_virtio_driver);
 	if (ret)
 		goto err_trusty_virtio_driver;
 
-	pr_info("---------- register the nebula virtio driver -----------\n");
 	ret = platform_driver_register(&nebula_virtio_driver);
 	if (ret)
 		goto err_nebula_virtio_driver;

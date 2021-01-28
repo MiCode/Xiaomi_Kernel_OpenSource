@@ -18,7 +18,8 @@ struct log_rb {
 	char data[0];
 } __packed;
 
-#define TRUSTY_LOG_API_VERSION 1
-void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
-		       unsigned long *start);
+#define TRUSTY_LOG_API_VERSION		(1)
+
+void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
+		       unsigned long *size, unsigned long *start);
 #endif

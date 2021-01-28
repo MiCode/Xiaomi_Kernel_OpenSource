@@ -6,7 +6,7 @@
 #ifndef __MEMORY_SSMR_H__
 #define __MEMORY_SSMR_H__
 
-#include "private/tmem_device.h"
+#include "../private/tmem_device.h"
 
 #define NAME_SIZE 32
 

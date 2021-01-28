@@ -42,11 +42,9 @@ struct tipc_dn_chan {
 	wait_queue_head_t readq;
 	struct completion reply_comp;
 	struct list_head rx_msg_queue;
-//#if defined(CONFIG_MTK_GZ_KREE)
 	u32 session;
 	struct mutex sess_lock;
 	enum tee_id_t tee_id;
-//#endif
 };
 
 struct tipc_chan *tipc_create_channel(struct device *dev,
@@ -98,7 +96,6 @@ static inline void *mb_get_data(struct tipc_msg_buf *mb, size_t len)
 	return pos;
 }
 
-
 struct tipc_k_handle {
 	struct tipc_dn_chan *dn;
 };
@@ -109,5 +106,20 @@ ssize_t tipc_k_read(struct tipc_k_handle *h, void *buf, size_t buf_len,
 ssize_t tipc_k_write(struct tipc_k_handle *h, void *buf, size_t len,
 		     unsigned int flags);
 
+extern uint64_t pa_tipc_chan_queue_msg;
+extern uint64_t pa_tipc_create_channel;
+extern uint64_t pa_tipc_k_connect;
+extern uint64_t pa_tipc_k_write;
+extern uint64_t pa_rxbuf;
+
+/* port_lookup_tid() - indicate the tee_id from service port name.
+ * @port: service name
+ * @o_tid: output tee_id value, must be the value in enum tee_id_t
+ *
+ * Return 0 means no error.
+ * port_lookup_tid will set a default tee_id value when errors happened, but
+ * still needs to check the returned err value.
+ */
+int port_lookup_tid(const char *port, enum tee_id_t *o_tid);
 
 #endif				/* __LINUX_TRUSTY_TRUSTY_IPC_H */

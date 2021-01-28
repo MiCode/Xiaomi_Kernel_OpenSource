@@ -11,19 +11,12 @@
 #include <linux/device.h>
 #include <linux/pagemap.h>
 
-
-
-#ifdef CONFIG_TRUSTY_INTERRUPT_MAP
 extern void handle_trusty_ipi(int ipinr);
-#endif
 s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
 s32 trusty_fast_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
-#ifdef CONFIG_TRUSTY_WDT_FIQ_ARMV7_SUPPORT
-s32 trusty_fast_call32_nodev(u32 smcnr, u32 a0, u32 a1, u32 a2);
-#endif
-#ifdef CONFIG_64BIT
+#if IS_ENABLED(CONFIG_64BIT)
 s64 trusty_fast_call64(struct device *dev, u64 smcnr, u64 a0, u64 a1, u64 a2);
-#endif
+#endif	/* CONFIG_64BIT */
 
 struct notifier_block;
 enum {
@@ -61,20 +54,15 @@ static inline void trusty_nop_init(struct trusty_nop *nop,
 }
 
 /* For multiple TEEs */
-#define TEE_NUM 2
-
 enum tee_id_t {
 	TEE_ID_TRUSTY = 0x0,	//MTEE1.x
 	TEE_ID_NEBULA = 0x1,	//MTEE2.x
 	TEE_ID_END
 };
 
-void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop,
-			enum tee_id_t tee_id);
+void trusty_enqueue_nop(struct device *dev, struct trusty_nop *nop);
 
 void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
-
-
 
 #define is_trusty_tee(tee_id) ((tee_id) == TEE_ID_TRUSTY)
 
@@ -94,11 +82,23 @@ void trusty_dequeue_nop(struct device *dev, struct trusty_nop *nop);
  */
 #define VIRTIO_ID_NEBULA_IPC   13	/* virtio trusty ipc */
 
+#define MAX_DEV_NAME_LEN 32
+#define MAX_MINOR_NAME_LEN 16
+
+struct tipc_dev_name {
+	char cdev_name[MAX_MINOR_NAME_LEN];
+	char tee_name[MAX_MINOR_NAME_LEN];
+};
+
+struct tipc_dev_config {
+	u32 msg_buf_max_size;
+	u32 msg_buf_alignment;
+	struct tipc_dev_name dev_name;
+} __packed;
 
 struct trusty_work {
 	struct trusty_state *ts;
 	struct work_struct work;
-	struct work_struct vmm_work;
 };
 
 struct trusty_state {
@@ -110,11 +110,13 @@ struct trusty_state {
 	struct device *dev;
 	struct workqueue_struct *nop_wq;
 	struct trusty_work __percpu *nop_works;
-	struct list_head nop_queue[TEE_NUM];
+	struct list_head nop_queue;
 	spinlock_t nop_lock;	/* protects nop_queue */
 	enum tee_id_t tee_id;
 };
 
-void trusty_create_debugfs_vmm(struct trusty_state *s, struct device *pdev);
+#if IS_ENABLED(CONFIG_MT_GZ_TRUSTY_DEBUGFS)
+void mtee_create_debugfs(struct trusty_state *s, struct device *dev);
+#endif
 
 #endif
