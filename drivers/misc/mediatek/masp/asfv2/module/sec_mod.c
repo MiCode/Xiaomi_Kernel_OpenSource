@@ -30,6 +30,11 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/string.h>
+#include <linux/reboot.h>
+#include <linux/reboot-mode.h>
+#include <linux/of.h>
+#include <sec_hal.h>
+#include <mt-plat/sync_write.h>
 /* #include <mach/memory.h> */
 #include <linux/io.h>
 #include <linux/device.h>
@@ -68,7 +73,6 @@ static struct sec_mod sec = { 0 };
 static struct cdev sec_dev;
 static struct class *sec_class;
 static struct device *sec_device;
-
 void __iomem *hacc_base;
 static const struct of_device_id masp_of_ids[] = {
 	{.compatible = "mediatek,hacc",},
@@ -140,6 +144,26 @@ static const struct file_operations sec_proc_rid_fops = {
 	.release = seq_release,
 };
 
+/**************************************************************************
+ *  set_dmverity_reboot eio flag
+ **************************************************************************/
+
+
+// notify_call function
+static int reboot_handler_set_eio_flag(struct notifier_block *reboot,
+						unsigned long mode,
+					  void *cmd)
+{	int ret = 0;
+	const char *dm_error_cmd = "dm-verity device corrupted";
+
+	if (!strcmp(cmd, dm_error_cmd))
+		ret = masp_hal_set_dm_verity_error();
+	return ret;
+}
+
+static struct notifier_block reboot_handler_notifier = {
+	.notifier_call = reboot_handler_set_eio_flag,
+};
 
 /**************************************************************************
  *  SEC MODULE PARAMETER
@@ -287,7 +311,7 @@ static int __init masp_init(void)
 			  ret);
 		return ret;
 	}
-
+	register_reboot_notifier(&reboot_handler_notifier);
 	return ret;
 }
 
@@ -331,6 +355,7 @@ static void __exit masp_exit(void)
 {
 	/*platform_driver_unregister(&es_driver);*/
 	platform_driver_unregister(&masp_driver);
+	unregister_reboot_notifier(&reboot_handler_notifier);
 }
 module_init(masp_init);
 module_exit(masp_exit);
