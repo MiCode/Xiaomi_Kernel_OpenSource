@@ -282,7 +282,7 @@ int pdc_get_setting(int *newvbus, int *newcur,
 	unsigned int pd_max_watt, pd_min_watt, now_max_watt;
 	int ibus = 0, vbus;
 	bool boost = false, buck = false;
-	struct pd_cap *cap;
+	struct pd_cap *cap = NULL;
 	unsigned int mivr1 = 0;
 	bool chg1_mivr = false;
 
