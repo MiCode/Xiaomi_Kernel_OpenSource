@@ -435,10 +435,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				core5 {
 					cpu = <&cpu5>;
 				};
-				core6 {
+			};
+
+			cluster1 {
+				core0 {
 					cpu = <&cpu6>;
 				};
-				core7 {
+				core1 {
 					cpu = <&cpu7>;
 				};
 			};
@@ -2411,6 +2414,34 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<0x194 0x190 0x198 0x1bc 0x1c0 0x1c8>;
 		};
 
+	drcc: drcc {
+		compatible = "mediatek,drcc";
+		state = <255>;
+		drcc0_Vref = <255>;
+		drcc1_Vref = <255>;
+		drcc2_Vref = <255>;
+		drcc3_Vref = <255>;
+		drcc4_Vref = <255>;
+		drcc5_Vref = <255>;
+		drcc6_Vref = <255>;
+		drcc7_Vref = <255>;
+		drcc0_Hwgatepct = <255>;
+		drcc1_Hwgatepct = <255>;
+		drcc2_Hwgatepct = <255>;
+		drcc3_Hwgatepct = <255>;
+		drcc4_Hwgatepct = <255>;
+		drcc5_Hwgatepct = <255>;
+		drcc6_Hwgatepct = <255>;
+		drcc7_Hwgatepct = <255>;
+		drcc0_Code = <255>;
+		drcc1_Code = <255>;
+		drcc2_Code = <255>;
+		drcc3_Code = <255>;
+		drcc4_Code = <255>;
+		drcc5_Code = <255>;
+		drcc6_Code = <255>;
+		drcc7_Code = <255>;
+	};
 		btif@1100c000 {
 			compatible = "mediatek,btif";
 				/*btif base*/
