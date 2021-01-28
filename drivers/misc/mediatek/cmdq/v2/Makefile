@@ -81,8 +81,6 @@ obj-y += cmdq_driver.o
 obj-y += cmdq_mmp.o
 obj-y += cmdq_mdp_common.o
 obj-y += cmdq_prof.o
-obj-y += cmdq_event_common.o
-obj-y += cmdq_subsys_common.o
 obj-y += cmdq_test.o
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt8167"))
 obj-y += cmdq_sec.o
