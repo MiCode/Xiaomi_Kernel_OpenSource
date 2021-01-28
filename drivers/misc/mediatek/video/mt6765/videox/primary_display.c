@@ -91,7 +91,6 @@
 #ifdef MTK_FB_MMDVFS_SUPPORT
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
-#include "disp_pm_qos.h"
 
 #define MMSYS_CLK_LOW (0)
 #define MMSYS_CLK_HIGH (1)
@@ -1865,14 +1864,9 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 	active_cfg = primary_display_get_current_cfg_id();
 #endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#ifdef CONFIG_HIGH_FRAME_RATE
-	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-		DDP_SCENARIO_PRIMARY_ALL, __func__, active_cfg);
-#else
 	primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
 		HRT_LEVEL_NUM - 1,
 		layering_rule_get_mm_freq_table(HRT_OPP_LEVEL_LEVEL0));
-#endif
 #endif
 	/* configure config thread */
 	_cmdq_insert_wait_frame_done_token_mira(cmdq_handle);
@@ -2041,9 +2035,6 @@ static int _DL_switch_to_DC_fast(int block)
 	struct disp_ddp_path_config *data_config_dc = NULL;
 	unsigned int mva;
 	struct ddp_io_golden_setting_arg gset_arg;
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	int active_cfg = 0;
-#endif
 
 	if ((primary_is_sec() == 1)) {
 		init_sec_buf();
@@ -2132,15 +2123,11 @@ static int _DL_switch_to_DC_fast(int block)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
 		MMPROFILE_FLAG_PULSE, 2, 0);
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	active_cfg = primary_display_get_current_cfg_id();
-#endif
 	/* Switch to lower gear */
 #ifdef MTK_FB_MMDVFS_SUPPORT
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	prim_disp_request_hrt_bw(2,
-		DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
-		__func__, active_cfg);
+	primary_display_request_dvfs_perf(
+		MMDVFS_SCEN_DISP, HRT_LEVEL_LEVEL1, 0);
 #else
 	primary_display_request_dvfs_perf(
 		MMDVFS_SCEN_DISP, HRT_LEVEL_LEVEL0, 0);
@@ -2311,15 +2298,11 @@ static int _DC_switch_to_DL_fast(int block)
 #endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* switch back to last request gear */
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-			DDP_SCENARIO_PRIMARY_DISP, __func__, active_cfg);
-#else
 	primary_display_request_dvfs_perf(
 		MMDVFS_SCEN_DISP, dvfs_last_ovl_req,
 		ovl_throughput_freq_req);
 #endif
-#endif
+
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_switch_mode,
 		MMPROFILE_FLAG_PULSE, 1, 1);
 
@@ -3367,7 +3350,6 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 
 	mmprofile_log_ex(ddp_mmp_get_events()->session_release,
 		MMPROFILE_FLAG_START, 1, userdata);
-
 	/* check overlap layer */
 	cmdqBackupReadSlot(pgc->subtractor_when_free, 0, &real_hrt_level);
 	real_hrt_level >>= 16;
@@ -3387,19 +3369,12 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 #endif
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	if ((real_hrt_level >= dvfs_last_ovl_req) &&
-		(!primary_display_is_decouple_mode()))
-		prim_disp_request_hrt_bw(dvfs_last_ovl_req,
-			DDP_SCENARIO_PRIMARY_DISP,
-			__func__, config_id);
-#else
 	if ((real_hrt_level >= dvfs_last_ovl_req) &&
 	    (!primary_display_is_decouple_mode()))
 		primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
 			dvfs_last_ovl_req, ovl_throughput_freq_req);
 #endif
-#endif
+
 	_primary_path_unlock(__func__);
 
 	/* check last ovl status: should be idle when config */
@@ -3464,13 +3439,6 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 	hrt_bw_sync_idx(hrt_idx);
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* update bandwidth */
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	primary_fps_ctx_get_fps(&in_fps, &stable);
-	if (!primary_display_is_video_mode())
-		out_fps = in_fps;
-	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
-	disp_pm_qos_update_bw(bandwidth);
-#else
 	primary_fps_ctx_get_fps(&in_fps, &stable);
 	if (!primary_display_is_video_mode())
 		out_fps = in_fps;
@@ -3483,7 +3451,7 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
 #endif
-#endif
+
 	mmprofile_log_ex(ddp_mmp_get_events()->session_release,
 		MMPROFILE_FLAG_END, 1, userdata);
 	return ret;
@@ -4814,10 +4782,6 @@ int primary_display_suspend(void)
 		set_enterulps(1);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	disp_pm_qos_set_default_bw(&bandwidth);
-	disp_pm_qos_update_bw(bandwidth);
-#else
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), 0);
@@ -4825,7 +4789,6 @@ int primary_display_suspend(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), 0);
-#endif
 #endif
 	DISPCHECK("[POWER]dpmanager path power off[end]\n");
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_suspend,
@@ -4861,13 +4824,8 @@ done:
 	ddp_clk_check();
 	/* set MMDVFS to default, do not prevent it from stepping into ULPM */
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
-			DDP_SCENARIO_PRIMARY_DISP, __func__, active_cfg);
-#else
 	primary_display_request_dvfs_perf(MMDVFS_SCEN_DISP,
 		HRT_LEVEL_DEFAULT, 0);
-#endif
 #endif
 	return ret;
 }
@@ -5249,10 +5207,6 @@ int primary_display_resume(void)
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	/* update bandwidth */
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
-	disp_pm_qos_update_bw(bandwidth);
-#else
 	disp_get_ovl_bandwidth(in_fps, out_fps, &bandwidth);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
@@ -5261,7 +5215,6 @@ int primary_display_resume(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
-#endif
 #endif
 	/*
 	 * (in suspend) when we stop trigger loop
@@ -6533,21 +6486,6 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	}
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
-	if (primary_display_is_decouple_mode())
-		prim_disp_request_hrt_bw(2,
-			DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP,
-			__func__, cfg->active_config);
-	else {
-		if ((overlap_num - dvfs_last_ovl_req) > 0)
-			prim_disp_request_hrt_bw(overlap_num,
-				DDP_SCENARIO_PRIMARY_DISP,
-				__func__, cfg->active_config);
-		dvfs_last_ovl_req = overlap_num;
-	}
-
-	hrt_level = overlap_num;
-#else
 	/* Adjust MM DVFS by ovl YUV throughput */
 	_ovl_yuv_throughput_freq_request(cfg);
 
@@ -6582,7 +6520,7 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 		screen_logger_add_message("HRT", MESSAGE_REPLACE, msg);
 	}
 #endif
-#endif
+
 	if (disp_helper_get_option(
 			DISP_OPT_DYNAMIC_SWITCH_MMSYSCLK)) {
 		if (bypass) {

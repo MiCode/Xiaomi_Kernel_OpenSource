@@ -23,7 +23,6 @@ endif
 
 obj-$(CONFIG_MTK_FB) += mtkfb_console.o		\
 			disp_assert_layer.o	\
-			disp_pm_qos.o	\
 			mtkfb.o			\
 			mtkfb_fence.o		\
 			fbconfig_kdebug.o	\
