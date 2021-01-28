@@ -159,7 +159,7 @@ s32 gt1x_check_fs_mounted(char *path_name)
 
 int gt1x_i2c_write_with_readback(u16 addr, u8 *buffer, int length)
 {
-	u8 buf[100];
+	u8 buf[100] = {0};
 	int ret = gt1x_i2c_write(addr, buffer, length);
 
 	if (ret)
@@ -214,7 +214,7 @@ int gt1x_update_prepare(char *filename)
 	int retry = 5;
 #ifdef GTP_REQUEST_FW_UPDATE
 	const struct firmware *fw_entry;
-	char buf[64];
+	char buf[64] = {0};
 #endif
 
 	if (filename == NULL) {
@@ -398,7 +398,7 @@ int gt1x_check_firmware(void)
 int gt1x_update_judge(void)
 {
 	int ret;
-	u8 reg_val[1];
+	u8 reg_val[1] = {0};
 	u8 retry = 3;
 	struct gt1x_version_info ver_info;
 	struct gt1x_version_info fw_ver_info;
@@ -466,7 +466,7 @@ u16 gt1x_calc_checksum(u8 *fw, u32 length)
 
 int gt1x_recall_check(u8 *chk_src, u16 start_addr, u16 chk_length)
 {
-	u8 rd_buf[PACK_SIZE];
+	u8 rd_buf[PACK_SIZE] = {0};
 	s32 ret = 0;
 	u16 len = 0;
 	u32 compared_length = 0;
@@ -589,7 +589,7 @@ int gt1x_burn_subsystem(struct fw_subsystem_info *subsystem)
 	int burn_len = 0;
 	u16 cur_addr;
 	u32 length = subsystem->length;
-	u8 buffer[10];
+	u8 buffer[10] = {0};
 	int ret;
 	int wait_time;
 	int burn_state;
@@ -703,7 +703,7 @@ int gt1x_read_flash(u32 addr, int length)
 {
 	int wait_time;
 	int ret = 0;
-	u8 buffer[4];
+	u8 buffer[4] = {0};
 	u16 read_addr = (addr >> 8);
 
 	GTP_INFO("Read flash: 0x%04X, length: %d", addr, length);
@@ -1031,7 +1031,7 @@ void gt1x_leave_update_mode(void)
 void read_reg(u16 addr, int len)
 {
 	int i;
-	u8 buffer[16];
+	u8 buffer[16] = {0};
 	int read_len = 0;
 	int cur_len;
 
