@@ -2124,4 +2124,3 @@ page_owner=on";
 	};
 };
 
-#include "mediatek/cust_mt6833_msdc.dtsi"
