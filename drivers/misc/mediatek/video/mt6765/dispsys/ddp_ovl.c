@@ -147,7 +147,7 @@ unsigned int ovl_to_index(enum DISP_MODULE_ENUM module)
 
 static inline enum DISP_MODULE_ENUM ovl_index_to_module(int index)
 {
-	if (index >= OVL_NUM) {
+	if (index >= OVL_NUM || index < 0) {
 		DDPERR("invalid ovl index=%d\n", index);
 		ASSERT(0);
 	}

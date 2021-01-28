@@ -1904,6 +1904,8 @@ static char *parse_hrt_data_value(char *start, long *value)
 	int ret;
 
 	tok_start = strchr(start + 1, ']');
+	if (!tok_start)
+		return tok_end;
 	tok_end = strchr(tok_start + 1, '[');
 	if (tok_end)
 		*tok_end = 0;
@@ -1967,7 +1969,7 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 				goto end;
 			tok = parse_hrt_data_value(tok, &disp_id);
 
-			if (disp_id > HRT_SECONDARY)
+			if (disp_id > HRT_SECONDARY || disp_id < 0)
 				goto end;
 
 			if (layer_num != 0) {
@@ -1987,6 +1989,8 @@ static int load_hrt_test_data(struct disp_layer_info *disp_info)
 			if (!tok)
 				goto end;
 			tok = parse_hrt_data_value(tok, &disp_id);
+			if (!tok)
+				goto end;
 			for (i = 0 ; i < HRT_LAYER_DATA_NUM ; i++) {
 				tok = parse_hrt_data_value(tok, &tmp_info);
 				debug_set_layer_data(disp_info, disp_id,
