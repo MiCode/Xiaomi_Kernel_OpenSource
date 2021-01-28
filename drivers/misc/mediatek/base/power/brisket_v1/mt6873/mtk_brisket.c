@@ -215,7 +215,7 @@ static int brisket_reserve_memory_dump(char *buf, unsigned int log_offset)
 	return 0;
 }
 
-#define EEM_TEMPSPARE0		0x112788F0
+#define EEM_TEMPSPARE0		0x11278F20
 #define brisket_read(addr)		__raw_readl((void __iomem *)(addr))
 #define brisket_write(addr, val)	mt_reg_sync_writel(val, addr)
 
