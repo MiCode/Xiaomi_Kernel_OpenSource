@@ -27,7 +27,7 @@
 #include <dt-bindings/spmi/spmi.h>
 #include <generated/autoconf.h>
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#include "mt6360.dtsi"
+#include "mediatek/mt6360.dtsi"
 #endif
 
 / {
@@ -6134,7 +6134,7 @@ page_owner=on loop.max_part=7";
 	};
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
-	#include "bat_setting/mt6885_battery_prop.dtsi"
+	#include "mediatek/bat_setting/mt6885_battery_prop.dtsi"
 #endif
 
 	spmi_bus: spmi@10027000 {
@@ -7821,13 +7821,13 @@ page_owner=on loop.max_part=7";
 };
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-#include "mt6315_s6.dtsi"
-#include "mt6315_s7.dtsi"
-#include "mt6315_s3.dtsi"
-#include "mt6360_pd.dtsi"
-#include "mt6359p.dtsi"
-#include "cust_mt6893_msdc.dtsi"
+#include "mediatek/mt6315_s6.dtsi"
+#include "mediatek/mt6315_s7.dtsi"
+#include "mediatek/mt6315_s3.dtsi"
+#include "mediatek/mt6360_pd.dtsi"
+#include "mediatek/mt6359p.dtsi"
+#include "mediatek/cust_mt6893_msdc.dtsi"
 #endif
 #ifdef CONFIG_MTK_ENABLE_GENIEZONE
-#include "trusty.dtsi"
+#include "mediatek/trusty.dtsi"
 #endif
