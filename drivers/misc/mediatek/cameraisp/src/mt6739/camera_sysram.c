@@ -368,6 +368,10 @@ static unsigned int SYSRAM_AllocUserPhy(
 				/* Hit!! Split into 2 */
 				/* pSplitNode pointers to the next available (free) node. */
 				pSplitNode = SYSRAM_AllocNode(pMemPoolInfo);
+				if (pSplitNode == NULL) {
+					LOG_MSG("Error: pSplitNode is NULL");
+					return 0;
+				}
 				pSplitNode->Offset = pCurrNode->Offset + ActualSize;
 				pSplitNode->Length = pCurrNode->Length - ActualSize;
 				pSplitNode->pPrev  = pCurrNode;
