@@ -13,14 +13,17 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include "mtk-scpsys.h"
 #include <linux/regulator/consumer.h>
+#include <mt-plat/aee.h>
 
 #define DVFSRC_IDLE		0x00
 #define DVFSRC_GET_TARGET_LEVEL(x)	(((x) >> 0) & 0x0000ffff)
 #define DVFSRC_GET_CURRENT_LEVEL(x)	(((x) >> 16) & 0x0000ffff)
 #define kBps_to_MBps(x)	(div_u64(x, 1000))
+#define MBps_to_kBps(x)	((x) * 1000)
 
 #define MT8183_DVFSRC_OPP_LP4	0
 #define MT8183_DVFSRC_OPP_LP4X	1
@@ -35,6 +38,14 @@ static u32 *vopp_uv_tlb;
 #define MTK_SIP_VCOREFS_VCORE_NUM  0x6
 #define MTK_SIP_VCOREFS_VCORE_UV  0x4
 
+/* Group of bits used for function enable */
+#define HAS_CAP(_c, _x)	(((_c) & (_x)) == (_x))
+#define DVFSRC_CAP_CLK_INIT BIT(0)
+#define DVFSRC_CAP_V_OPP_INIT BIT(1)
+#define DVFSRC_CAP_V_CHECKER  BIT(2)
+#define DVFSRC_CAP_MTKQOS  BIT(3)
+
+
 struct dvfsrc_opp {
 	u32 vcore_opp;
 	u32 dram_opp;
@@ -46,12 +57,25 @@ struct dvfsrc_domain {
 };
 
 struct mtk_dvfsrc;
+
+struct dvfsrc_qos_data {
+	struct device *dev;
+	int max_vcore_opp;
+	int max_dram_opp;
+	void (*pm_qos_init)(struct mtk_dvfsrc *dvfsrc);
+	struct notifier_block pm_qos_bw_notify;
+	struct notifier_block pm_qos_hrtbw_notify;
+	struct notifier_block pm_qos_ddr_notify;
+	struct notifier_block pm_qos_vcore_notify;
+	struct notifier_block pm_qos_scp_notify;
+};
+
 struct dvfsrc_soc_data {
 	const int *regs;
 	u32 num_opp;
 	const struct dvfsrc_opp **opps;
-	bool vcore_check;
-	bool vopp_table_init;
+	struct dvfsrc_qos_data *qos_data;
+	u32 caps;
 	int (*get_target_level)(struct mtk_dvfsrc *dvfsrc);
 	int (*get_current_level)(struct mtk_dvfsrc *dvfsrc);
 	u32 (*get_vcore_level)(struct mtk_dvfsrc *dvfsrc);
@@ -59,11 +83,15 @@ struct dvfsrc_soc_data {
 	void (*set_dram_bw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
 	void (*set_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	void (*set_dram_hrtbw)(struct mtk_dvfsrc *dvfsrc, u64 bw);
+	void (*set_dram_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	void (*set_vcore_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	void (*set_vscp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
+	void (*set_ext_dram_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*set_force_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
+	int (*wait_for_dram_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*wait_for_vcore_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
 	int (*wait_for_opp_level)(struct mtk_dvfsrc *dvfsrc, u32 level);
+	int (*is_dvfsrc_enabled)(struct mtk_dvfsrc *dvfsrc);
 };
 
 struct mtk_dvfsrc {
@@ -81,7 +109,6 @@ struct mtk_dvfsrc {
 	struct notifier_block scpsys_notifier;
 	struct regulator *vcore_power;
 	bool opp_forced;
-	bool is_dvfsrc_enable;
 };
 
 static DEFINE_MUTEX(pstate_lock);
@@ -148,17 +175,22 @@ static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 level)
 	if (!dvfsrc->vcore_power) {
 		dvfsrc->vcore_power =
 			regulator_get_optional(dvfsrc->dev, "vcore");
-		if (IS_ERR(dvfsrc->vcore_power))
+		if (IS_ERR(dvfsrc->vcore_power)) {
 			dvfsrc->vcore_power = NULL;
-	} else {
-		opp_uv = vopp_uv_tlb[level];
-		vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
-		if (vcore_uv < opp_uv) {
-			pr_info("DVFS FAIL= %d, %d %d 0x%08x 0x%08x\n",
+			return;
+		}
+	}
+
+	opp_uv = vopp_uv_tlb[level];
+	vcore_uv = regulator_get_voltage(dvfsrc->vcore_power);
+	if (vcore_uv < opp_uv) {
+		dev_info(dvfsrc->dev,
+			"DVFS FAIL= %d, %d %d 0x%08x 0x%08x\n",
 			level, opp_uv, vcore_uv,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
-		}
+
+		aee_kernel_warning("DVFSRC", "VCORE fail");
 	}
 }
 
@@ -178,6 +210,7 @@ static void dvfsrc_write(struct mtk_dvfsrc *dvfs, u32 offset, u32 val)
 
 enum dvfsrc_regs {
 	DVFSRC_SW_REQ,
+	DVFSRC_EXT_SW_REQ,
 	DVFSRC_LEVEL,
 	DVFSRC_SW_BW,
 	DVFSRC_SW_HRT_BW,
@@ -206,6 +239,7 @@ static const int mt6779_regs[] = {
 
 static const int mt6761_regs[] = {
 	[DVFSRC_SW_REQ] =	0x4,
+	[DVFSRC_EXT_SW_REQ] =	0x8,
 	[DVFSRC_LEVEL] =	0xDC,
 	[DVFSRC_SW_BW] =	0x160,
 	[DVFSRC_VCORE_REQUEST] = 0x48,
@@ -256,6 +290,20 @@ static int dvfsrc_wait_for_vcore_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	return readx_poll_timeout_atomic(get_current_opp, dvfsrc, curr,
 		curr->vcore_opp >= level,
 		STARTUP_TIME, POLL_TIMEOUT);
+}
+
+static int dvfsrc_wait_for_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
+{
+	const struct dvfsrc_opp *curr;
+
+	return readx_poll_timeout_atomic(get_current_opp, dvfsrc, curr,
+		curr->dram_opp >= level,
+		STARTUP_TIME, POLL_TIMEOUT);
+}
+
+static int mt6779_dvfsrc_enabled(struct mtk_dvfsrc *dvfsrc)
+{
+	return dvfsrc_read(dvfsrc, DVFSRC_BASIC_CONTROL) & 0x1;
 }
 
 static int mt6779_get_target_level(struct mtk_dvfsrc *dvfsrc)
@@ -362,12 +410,17 @@ static int mt6779_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 			__func__, level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
-
+		aee_kernel_warning("DVFSRC", "FORCE OPP fail");
 	}
 	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 	spin_unlock_irqrestore(&force_req_lock, flags);
 
 	return ret;
+}
+
+static int mt6761_dvfsrc_enabled(struct mtk_dvfsrc *dvfsrc)
+{
+	return dvfsrc_read(dvfsrc, DVFSRC_BASIC_CONTROL) & 0x1;
 }
 
 static int mt6761_get_target_level(struct mtk_dvfsrc *dvfsrc)
@@ -428,6 +481,23 @@ static void mt6761_set_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	mutex_unlock(&dvfsrc->sw_req_lock);
 }
 
+static void mt6761_set_ext_dram_level(struct mtk_dvfsrc *dvfsrc, u32 level)
+{
+	const struct dvfsrc_soc_data *dvd = dvfsrc->dvd;
+	int max_dram_opp;
+	u32 opp = dvfsrc->dvd->num_opp;
+	u32 dram_type = dvfsrc->dram_type;
+
+	max_dram_opp =
+		dvd->opps[dram_type][opp - 1].dram_opp;
+
+	if (level > max_dram_opp)
+		level = 0;
+
+	dev_dbg(dvfsrc->dev, "dram_opp: %d\n", level);
+	dvfsrc_rmw(dvfsrc, DVFSRC_EXT_SW_REQ, level, 0x3, 0);
+}
+
 static void mt6761_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
 	const struct dvfsrc_opp *opp;
@@ -465,7 +535,7 @@ static int mt6761_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 			__func__, level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
-
+		aee_kernel_warning("DVFSRC", "FORCE OPP fail");
 	}
 	dvfsrc_write(dvfsrc, DVFSRC_TARGET_FORCE, 0);
 	spin_unlock_irqrestore(&force_req_lock, flags);
@@ -504,6 +574,118 @@ static void mt8183_set_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	dvfsrc_write(dvfsrc, DVFSRC_SW_REQ, dram_opp | vcore_opp << 2);
 }
 
+static int dvfsrc_pm_qos_bw_notify(struct notifier_block *b,
+	unsigned long l, void *v)
+{
+	struct dvfsrc_qos_data *qos;
+
+	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_bw_notify);
+	mtk_dvfsrc_send_request(qos->dev,
+		MTK_DVFSRC_CMD_BW_REQUEST, MBps_to_kBps(l));
+
+	return NOTIFY_OK;
+}
+static int dvfsrc_pm_qos_hrtbw_notify(struct notifier_block *b,
+	unsigned long l, void *v)
+{
+	struct dvfsrc_qos_data *qos;
+
+	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_hrtbw_notify);
+	mtk_dvfsrc_send_request(qos->dev,
+		MTK_DVFSRC_CMD_HRTBW_REQUEST, l);
+
+	return NOTIFY_OK;
+}
+static int dvfsrc_pm_qos_ddr_notify(struct notifier_block *b,
+	unsigned long l, void *v)
+{
+	struct dvfsrc_qos_data *qos;
+	int level;
+
+	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_ddr_notify);
+	if (l > qos->max_dram_opp || l < 0)
+		level = 0;
+	else
+		level = qos->max_dram_opp - l;
+
+	mtk_dvfsrc_send_request(qos->dev,
+		MTK_DVFSRC_CMD_DRAM_REQUEST, level);
+
+	return NOTIFY_OK;
+}
+static int dvfsrc_pm_qos_vcore_notify(struct notifier_block *b,
+	unsigned long l, void *v)
+{
+	struct dvfsrc_qos_data *qos;
+	int level;
+
+	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_vcore_notify);
+
+	if (l > qos->max_vcore_opp || l < 0)
+		level = 0;
+	else
+		level = qos->max_vcore_opp - l;
+
+	mtk_dvfsrc_send_request(qos->dev,
+		MTK_DVFSRC_CMD_VCORE_REQUEST, level);
+
+	return NOTIFY_OK;
+}
+static int dvfsrc_pm_qos_scp_notify(struct notifier_block *b,
+	unsigned long l, void *v)
+{
+	struct dvfsrc_qos_data *qos;
+	int level;
+
+	qos = container_of(b, struct dvfsrc_qos_data, pm_qos_scp_notify);
+	if (l > qos->max_vcore_opp || l < 0)
+		level = 0;
+	else
+		level = l;
+
+	mtk_dvfsrc_send_request(qos->dev,
+		MTK_DVFSRC_CMD_VSCP_REQUEST, level);
+
+	return NOTIFY_OK;
+}
+
+static void dvfsrc_qos_init(struct mtk_dvfsrc *dvfsrc)
+{
+	u32 opp = dvfsrc->dvd->num_opp;
+	u32 dram_type = dvfsrc->dram_type;
+
+	const struct dvfsrc_soc_data *dvd = dvfsrc->dvd;
+	struct dvfsrc_qos_data *qos = dvd->qos_data;
+
+	qos->dev = dvfsrc->dev;
+
+	qos->max_vcore_opp =
+		dvd->opps[dram_type][opp - 1].vcore_opp;
+
+	qos->max_dram_opp =
+		dvd->opps[dram_type][opp - 1].dram_opp;
+
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_MEMORY_BANDWIDTH,
+		&qos->pm_qos_bw_notify);
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_HRT_BANDWIDTH,
+		&qos->pm_qos_hrtbw_notify);
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_DDR_OPP,
+		&qos->pm_qos_ddr_notify);
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_VCORE_OPP,
+		&qos->pm_qos_vcore_notify);
+	mtk_pm_qos_add_notifier(MTK_PM_QOS_SCP_VCORE_REQUEST,
+		&qos->pm_qos_scp_notify);
+}
+
+static struct dvfsrc_qos_data qos_data_dvfsrc = {
+	.pm_qos_init = dvfsrc_qos_init,
+	.pm_qos_bw_notify.notifier_call = dvfsrc_pm_qos_bw_notify,
+	.pm_qos_hrtbw_notify.notifier_call = dvfsrc_pm_qos_hrtbw_notify,
+	.pm_qos_ddr_notify.notifier_call = dvfsrc_pm_qos_ddr_notify,
+	.pm_qos_vcore_notify.notifier_call = dvfsrc_pm_qos_vcore_notify,
+	.pm_qos_scp_notify.notifier_call = dvfsrc_pm_qos_scp_notify,
+};
+
 void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 {
 	struct mtk_dvfsrc *dvfsrc = dev_get_drvdata(dev);
@@ -524,6 +706,9 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	case MTK_DVFSRC_CMD_OPP_REQUEST:
 		dvfsrc->dvd->set_opp_level(dvfsrc, data);
 		break;
+	case MTK_DVFSRC_CMD_DRAM_REQUEST:
+		dvfsrc->dvd->set_dram_level(dvfsrc, data);
+		break;
 	case MTK_DVFSRC_CMD_VCORE_REQUEST:
 		dvfsrc->dvd->set_vcore_level(dvfsrc, data);
 		break;
@@ -536,13 +721,21 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 	case MTK_DVFSRC_CMD_VSCP_REQUEST:
 		dvfsrc->dvd->set_vscp_level(dvfsrc, data);
 		break;
+	case MTK_DVFSRC_CMD_EXT_DRAM_REQUEST:
+		if (dvfsrc->dvd->set_ext_dram_level)
+			dvfsrc->dvd->set_ext_dram_level(dvfsrc, data);
+		goto out;
 	default:
 		dev_err(dvfsrc->dev, "unknown command: %d\n", cmd);
 		goto out;
 		break;
 	}
 
-	if (dvfsrc->opp_forced || !dvfsrc->is_dvfsrc_enable)
+	if (dvfsrc->opp_forced)
+		goto out;
+
+	if (dvfsrc->dvd->is_dvfsrc_enabled
+			&& !dvfsrc->dvd->is_dvfsrc_enabled(dvfsrc))
 		goto out;
 
 	udelay(STARTUP_TIME);
@@ -554,11 +747,15 @@ void mtk_dvfsrc_send_request(const struct device *dev, u32 cmd, u64 data)
 		if (dvfsrc->dvd->wait_for_opp_level)
 			ret = dvfsrc->dvd->wait_for_opp_level(dvfsrc, data);
 		break;
+	case MTK_DVFSRC_CMD_DRAM_REQUEST:
+		if (dvfsrc->dvd->wait_for_dram_level)
+			ret = dvfsrc->dvd->wait_for_dram_level(dvfsrc, data);
+		break;
 	case MTK_DVFSRC_CMD_VCORE_REQUEST:
 	case MTK_DVFSRC_CMD_VSCP_REQUEST:
 		if (dvfsrc->dvd->wait_for_vcore_level) {
 			ret = dvfsrc->dvd->wait_for_vcore_level(dvfsrc, data);
-			if (dvfsrc->dvd->vcore_check)
+			if (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_CHECKER))
 				mtk_dvfsrc_vcore_check(dvfsrc, data);
 		}
 		break;
@@ -573,6 +770,7 @@ out:
 			__func__, cmd, data,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+		aee_kernel_warning("DVFSRC", "LEVEL CHANGE fail");
 	}
 }
 EXPORT_SYMBOL(mtk_dvfsrc_send_request);
@@ -587,6 +785,9 @@ int mtk_dvfsrc_query_info(const struct device *dev, u32 cmd, int *data)
 		break;
 	case MTK_DVFSRC_CMD_VCP_QUERY:
 		*data = dvfsrc->dvd->get_vcp_level(dvfsrc);
+		break;
+	case MTK_DVFSRC_CMD_CURR_LEVEL_QUERY:
+		*data = dvfsrc->dvd->get_current_level(dvfsrc);
 		break;
 	default:
 		return -EINVAL;
@@ -685,44 +886,49 @@ static int mtk_dvfsrc_probe(struct platform_device *pdev)
 	} else
 		dvfsrc->num_domains = 0;
 
-	dvfsrc->clk_dvfsrc = devm_clk_get(dvfsrc->dev, "dvfsrc");
-	if (IS_ERR(dvfsrc->clk_dvfsrc)) {
-		dev_err(dvfsrc->dev, "failed to get clock: %ld\n",
-			PTR_ERR(dvfsrc->clk_dvfsrc));
-		return PTR_ERR(dvfsrc->clk_dvfsrc);
-	}
+	if (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_CLK_INIT)) {
+		dvfsrc->clk_dvfsrc = devm_clk_get(dvfsrc->dev, "dvfsrc");
+		if (IS_ERR(dvfsrc->clk_dvfsrc)) {
+			dev_err(dvfsrc->dev, "failed to get clock: %ld\n",
+				PTR_ERR(dvfsrc->clk_dvfsrc));
+			return PTR_ERR(dvfsrc->clk_dvfsrc);
+		}
 
-	ret = clk_prepare_enable(dvfsrc->clk_dvfsrc);
-	if (ret)
-		return ret;
+		ret = clk_prepare_enable(dvfsrc->clk_dvfsrc);
+		if (ret)
+			return ret;
+	}
 
 	of_property_read_u32(node, "dvfsrc,mode", &dvfsrc->mode);
 	of_property_read_u32(node, "dvfsrc,flag", &dvfsrc->flag);
 
 	mutex_init(&dvfsrc->lock);
 	mutex_init(&dvfsrc->sw_req_lock);
+
 	arm_smccc_smc(MTK_SIP_VCOREFS_CONTROL, MTK_SIP_SPM_DVFSRC_INIT,
 		dvfsrc->mode, dvfsrc->flag, 0, 0, 0, 0,
 		&ares);
 
-	if (!ares.a0) {
+	if (!ares.a0)
 		dvfsrc->dram_type = ares.a1;
-		dvfsrc->is_dvfsrc_enable = true;
-	} else
+	else
 		dev_info(dvfsrc->dev, "spm init fails: %lx\n", ares.a0);
 
 	platform_set_drvdata(pdev, dvfsrc);
 	pstate_notifier_register(dvfsrc);
 
-	if ((dvfsrc->dvd->vopp_table_init) || (dvfsrc->dvd->vcore_check))
+	if (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_OPP_INIT) ||
+		HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_V_CHECKER))
 		mtk_dvfsrc_setup_vopp_table(dvfsrc);
 
 	ret = devm_of_platform_populate(&pdev->dev);
 	if (ret)
 		dev_err(&pdev->dev, "Failed to populate dvfsrc context\n");
 
-	if (dvfsrc->is_dvfsrc_enable)
-		is_dvfsrc_init_complete = true;
+	if (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_MTKQOS))
+		dvfsrc->dvd->qos_data->pm_qos_init(dvfsrc);
+
+	is_dvfsrc_init_complete = true;
 
 	return 0;
 }
@@ -766,8 +972,9 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.opps = dvfsrc_opp_mt6779,
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6779_lp4),
 	.regs = mt6779_regs,
-	.vcore_check = true,
-	.vopp_table_init = true,
+	.caps = DVFSRC_CAP_CLK_INIT |
+		DVFSRC_CAP_V_OPP_INIT |
+		DVFSRC_CAP_V_CHECKER,
 	.get_target_level = mt6779_get_target_level,
 	.get_current_level = mt6779_get_current_level,
 	.get_vcore_level = mt6779_get_vcore_level,
@@ -780,6 +987,7 @@ static const struct dvfsrc_soc_data mt6779_data = {
 	.set_vcore_level = mt6779_set_vcore_level,
 	.set_vscp_level = mt6779_set_vscp_level,
 	.set_force_opp_level = mt6779_set_force_opp_level,
+	.is_dvfsrc_enabled = mt6779_dvfsrc_enabled,
 };
 
 static const struct dvfsrc_opp dvfsrc_opp_mt6761_lp3[] = {
@@ -809,26 +1017,33 @@ static const struct dvfsrc_soc_data mt6761_data = {
 	.opps = dvfsrc_opp_mt6761,
 	.num_opp = ARRAY_SIZE(dvfsrc_opp_mt6761_lp3),
 	.regs = mt6761_regs,
-	.vcore_check = false,
-	.vopp_table_init = false,
+	.caps = DVFSRC_CAP_V_OPP_INIT |
+		DVFSRC_CAP_V_CHECKER |
+		DVFSRC_CAP_MTKQOS,
+	.qos_data = &qos_data_dvfsrc,
 	.get_target_level = mt6761_get_target_level,
 	.get_current_level = mt6761_get_current_level,
 	.get_vcore_level = mt6761_get_vcore_level,
 	.get_vcp_level = mt6761_get_vcp_level,
+	.wait_for_dram_level = dvfsrc_wait_for_dram_level,
 	.wait_for_vcore_level = dvfsrc_wait_for_vcore_level,
 	.wait_for_opp_level = dvfsrc_wait_for_opp_level,
 	.set_dram_bw = mt6761_set_dram_bw,
-	.set_opp_level = mt6761_set_opp_level,
+	.set_dram_level = mt6761_set_dram_level,
 	.set_vcore_level = mt6761_set_vcore_level,
+	.set_opp_level = mt6761_set_opp_level,
 	.set_vscp_level = mt6761_set_vscp_level,
+	.set_ext_dram_level = mt6761_set_ext_dram_level,
 	.set_force_opp_level = mt6761_set_force_opp_level,
+	.is_dvfsrc_enabled = mt6761_dvfsrc_enabled,
 };
 
 static int mtk_dvfsrc_remove(struct platform_device *pdev)
 {
 	struct mtk_dvfsrc *dvfsrc = platform_get_drvdata(pdev);
 
-	clk_disable_unprepare(dvfsrc->clk_dvfsrc);
+	if (HAS_CAP(dvfsrc->dvd->caps, DVFSRC_CAP_CLK_INIT))
+		clk_disable_unprepare(dvfsrc->clk_dvfsrc);
 
 	return 0;
 }
