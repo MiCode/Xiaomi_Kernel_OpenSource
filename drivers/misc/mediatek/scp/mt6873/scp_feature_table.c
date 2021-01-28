@@ -62,6 +62,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 		.feature	= VCORE_TEST_FEATURE_ID,
 		.freq		= 77,
 		.enable		= 0,
+	},
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 	{
 		.feature	= VOW_BARGEIN_FEATURE_ID,
