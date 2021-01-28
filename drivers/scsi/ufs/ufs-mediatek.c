@@ -74,7 +74,7 @@ static inline int ufshcd_read_geometry_desc_param(struct ufs_hba *hba,
 int ufs_mtk_rpmb_security_out(struct scsi_device *sdev,
 			 struct rpmb_frame *frames, u32 cnt)
 {
-	struct scsi_sense_hdr sshdr;
+	struct scsi_sense_hdr sshdr = {0};
 	u32 trans_len = cnt * sizeof(struct rpmb_frame);
 	int reset_retries = SEC_PROTOCOL_RETRIES_ON_RESET;
 	int ret;
@@ -122,7 +122,7 @@ retry:
 int ufs_mtk_rpmb_security_in(struct scsi_device *sdev,
 			struct rpmb_frame *frames, u32 cnt)
 {
-	struct scsi_sense_hdr sshdr;
+	struct scsi_sense_hdr sshdr = {0};
 	u32 alloc_len = cnt * sizeof(struct rpmb_frame);
 	int reset_retries = SEC_PROTOCOL_RETRIES_ON_RESET;
 	int ret;
