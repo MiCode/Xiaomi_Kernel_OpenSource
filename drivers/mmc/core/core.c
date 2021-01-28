@@ -51,6 +51,7 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 #include "sdio_ops.h"
+#include "mtk_mmc_block.h"
 
 /* The max erase timeout, used when host->max_busy_timeout isn't specified */
 #define MMC_ERASE_TIMEOUT_MS	(60 * 1000) /* 60 s */
@@ -897,9 +898,10 @@ int mmc_run_queue_thread(void *data)
 	u64 chk_time = 0;
 
 	pr_info("[CQ] start cmdq thread\n");
+	mt_bio_queue_alloc(current, NULL);
 
 	while (1) {
-
+		mt_biolog_cmdq_check();
 		/* End request stage 1/2 */
 		if (atomic_read(&host->cq_rw)
 		|| (atomic_read(&host->areq_cnt) <= 1)) {
@@ -942,7 +944,7 @@ int mmc_run_queue_thread(void *data)
 			if (done_mrq && !done_mrq->data->error
 			&& !done_mrq->cmd->error) {
 				task_id = (done_mrq->cmd->arg >> 16) & 0x1f;
-				//mt_biolog_cmdq_dma_end(task_id);
+				mt_biolog_cmdq_dma_end(task_id);
 				mmc_check_write(host, done_mrq);
 				host->cur_rw_task = CQ_TASK_IDLE;
 				is_done = true;
@@ -982,7 +984,7 @@ int mmc_run_queue_thread(void *data)
 				if (err == -EINVAL)
 					WARN_ON(1);
 				host->ops->request(host, dat_mrq);
-				//mt_biolog_cmdq_dma_start(task_id);
+				mt_biolog_cmdq_dma_start(task_id);
 				atomic_dec(&host->cq_rdy_cnt);
 				dat_mrq = NULL;
 			}
@@ -991,10 +993,10 @@ int mmc_run_queue_thread(void *data)
 		/* End request stage 2/2 */
 		if (is_done) {
 			task_id = (done_mrq->cmd->arg >> 16) & 0x1f;
-			//mt_biolog_cmdq_isdone_start(task_id,
-			//	host->areq_que[task_id]->mrq_que);
-			//mt_biolog_cmdq_isdone_end(task_id);
-			//mt_biolog_cmdq_check();
+			mt_biolog_cmdq_isdone_start(task_id,
+				host->areq_que[task_id]->mrq_que);
+			mt_biolog_cmdq_isdone_end(task_id);
+			mt_biolog_cmdq_check();
 			mmc_blk_end_queued_req(host, done_mrq->areq, task_id);
 			done_mrq = NULL;
 			is_done = false;
@@ -1009,7 +1011,7 @@ int mmc_run_queue_thread(void *data)
 
 			while (cmd_mrq) {
 				task_id = ((cmd_mrq->sbc->arg >> 16) & 0x1f);
-				//mt_biolog_cmdq_queue_task(task_id, cmd_mrq);
+				mt_biolog_cmdq_queue_task(task_id, cmd_mrq);
 				if (host->task_id_index & (1 << task_id)) {
 					pr_info(
 "[%s] BUG!!! task_id %d used, task_id_index 0x%08lx, areq_cnt = %d, cq_wait_rdy = %d\n",
@@ -1089,14 +1091,14 @@ int mmc_run_queue_thread(void *data)
 		}
 
 		/* Sleep when nothing to do */
-		//mt_biolog_cmdq_check();
+		mt_biolog_cmdq_check();
 		set_current_state(TASK_INTERRUPTIBLE);
 		if (atomic_read(&host->areq_cnt) == 0)
 			schedule();
 
 		set_current_state(TASK_RUNNING);
 	}
-	//mt_bio_queue_free(current);
+	mt_bio_queue_free(current);
 	return 0;
 }
 #endif

@@ -16,7 +16,7 @@ config MTK_ENG_BUILD
 	  If unsure, say N here.
 
 menu "Storage"
-
+source "drivers/misc/mediatek/blocktag/Kconfig"
 endmenu # Storage
 
 menu "Power, PMIC, Battery & Low Power"

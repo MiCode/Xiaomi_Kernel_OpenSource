@@ -89,3 +89,16 @@ config MMC_CRYPTO
 	  capabilities of the MMC device (if present) to perform crypto
 	  operations on data being transferred to/from the device.
 
+config MMC_BLOCK_IO_LOG
+	bool "Block IO log"
+	depends on MMC_BLOCK
+	depends on MTK_BLOCK_TAG
+	default y
+	help
+	  The BLOCK TAG trace provides I/O logs for performance analysis and
+	  application access pattern study. The BLOCK TAG trace summarizes the
+	  I/O of each process every 1 second, and saves to ring buffer. The log
+	  can be displayed by "cat /sys/kernel/debug/blockio".
+	  The trace is default enabled on user and eng builts, say N here to
+	  disable it.
+
