@@ -1885,6 +1885,8 @@ page_owner=on loop.max_part=7";
 		phy-names = "port0_phy";
 		extcon = <&extcon_usb>;
 		dr_mode = "otg";
+		infra_ao = <&infracfg_ao_clk>;
+		apmixed = <&apmixed_clk>;
 	};
 
 	xhci0: usb_xhci@11200000 {
