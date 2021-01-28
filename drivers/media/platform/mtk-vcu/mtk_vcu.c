@@ -819,7 +819,7 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 
 	time_check_start();
 	pkt_ptr = cmdq_pkt_create(cl);
-	if (IS_ERR(pkt_ptr)) {
+	if (IS_ERR_OR_NULL(pkt_ptr)) {
 		pr_info("[VCU] cmdq_pkt_create fail\n");
 		pkt_ptr = NULL;
 	}
@@ -1508,7 +1508,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			mem_priv =
 				mtk_vcu_get_buffer(vcu_queue, &mem_buff_data);
 			mem_buff_data.pa = 0;
-			if (IS_ERR(mem_priv) == true) {
+			if (IS_ERR_OR_NULL(mem_priv) == true) {
 				pr_info("[VCU] Dma alloc buf failed!\n");
 				return PTR_ERR(mem_priv);
 			}
@@ -1520,7 +1520,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 			mem_buff_data.va = (unsigned long)mem_priv;
 			mem_buff_data.pa = (unsigned long)temp_pa;
 			mem_buff_data.iova = 0;
-			if (IS_ERR(mem_priv) == true) {
+			if (IS_ERR_OR_NULL(mem_priv) == true) {
 				mem_buff_data.va = (unsigned long)-1;
 				mem_buff_data.pa = (unsigned long)-1;
 				ret = (long)copy_to_user(user_data_addr,
@@ -1569,7 +1569,7 @@ static long mtk_vcu_unlocked_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		mem_priv = (void *)(unsigned long)mem_buff_data.va;
-		if (IS_ERR(mem_priv) == true) {
+		if (IS_ERR_OR_NULL(mem_priv) == true) {
 			pr_info("[VCU] Dma free invalid buf!\n");
 			return PTR_ERR(mem_priv);
 		}
@@ -2093,7 +2093,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 
 	vcu_mtkdev[vcuid]->vcu_class = class_create(THIS_MODULE,
 						    vcu_mtkdev[vcuid]->vcuname);
-	if (IS_ERR(vcu_mtkdev[vcuid]->vcu_class) == true) {
+	if (IS_ERR_OR_NULL(vcu_mtkdev[vcuid]->vcu_class) == true) {
 		ret = (int)PTR_ERR(vcu_mtkdev[vcuid]->vcu_class);
 		dev_err(dev, "[VCU] class create fail (ret=%d)", ret);
 		goto err_add;
@@ -2104,7 +2104,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 			      NULL,
 			      vcu_mtkdev[vcuid]->vcu_devno,
 			      NULL, vcu_mtkdev[vcuid]->vcuname);
-	if (IS_ERR(vcu_mtkdev[vcuid]->vcu_device) == true) {
+	if (IS_ERR_OR_NULL(vcu_mtkdev[vcuid]->vcu_device) == true) {
 		ret = (int)PTR_ERR(vcu_mtkdev[vcuid]->vcu_device);
 		dev_err(dev, "[VCU] device_create fail (ret=%d)", ret);
 		goto err_device;
