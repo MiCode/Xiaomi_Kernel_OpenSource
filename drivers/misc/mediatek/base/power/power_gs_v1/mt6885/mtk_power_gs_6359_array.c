@@ -17,7 +17,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 
-const unsigned int AP_PMIC_REG_gs_suspend_32kless_data[] = {
+const unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_data[] = {
 	/*	Address		Mask		Golden Setting Value */
 	0x20, 0xA, 0xA,/* TOP_CON */
 	0x24, 0x1F00, 0x1F00,/* TEST_CON0 */
@@ -165,12 +165,12 @@ const unsigned int AP_PMIC_REG_gs_suspend_32kless_data[] = {
 	0x1F30, 0x8000, 0x0 /* LDO_VSRAM_MD_CON1 */
 };
 
-const unsigned int *AP_PMIC_REG_gs_suspend_32kless =
-				AP_PMIC_REG_gs_suspend_32kless_data;
+const unsigned int *AP_PMIC_REG_6359P_gs_suspend_32kless =
+				AP_PMIC_REG_6359P_gs_suspend_32kless_data;
 
-unsigned int AP_PMIC_REG_gs_suspend_32kless_len = 432;
+unsigned int AP_PMIC_REG_6359P_gs_suspend_32kless_len = 432;
 
-const unsigned int AP_PMIC_REG_gs_deepidle___lp_mp3_32kless_data[] = {
+const unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data[] = {
 /*	Address		Mask		Golden Setting Value */
 	0x20, 0xA, 0xA,/* TOP_CON */
 	0x24, 0x1F00, 0x1F00,/* TEST_CON0 */
@@ -316,12 +316,12 @@ const unsigned int AP_PMIC_REG_gs_deepidle___lp_mp3_32kless_data[] = {
 	0x1F30, 0x8000, 0x0 /* LDO_VSRAM_MD_CON1 */
 };
 
-const unsigned int *AP_PMIC_REG_gs_deepidle___lp_mp3_32kless =
-				AP_PMIC_REG_gs_deepidle___lp_mp3_32kless_data;
+const unsigned int *AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless =
+		AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_data;
 
-unsigned int AP_PMIC_REG_gs_deepidle___lp_mp3_32kless_len = 426;
+unsigned int AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_len = 426;
 
-const unsigned int AP_PMIC_REG_gs_sodi3p0_32kless_data[] = {
+const unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data[] = {
 /*	Address		Mask		Golden Setting Value */
 	0x20, 0xA, 0xA,/* TOP_CON */
 	0x24, 0x1F00, 0x1F00,/* TEST_CON0 */
@@ -467,7 +467,7 @@ const unsigned int AP_PMIC_REG_gs_sodi3p0_32kless_data[] = {
 	0x1F30, 0x8000, 0x0 /* LDO_VSRAM_MD_CON1 */
 };
 
-const unsigned int *AP_PMIC_REG_gs_sodi3p0_32kless =
-				AP_PMIC_REG_gs_sodi3p0_32kless_data;
+const unsigned int *AP_PMIC_REG_6359P_gs_sodi3p0_32kless =
+			AP_PMIC_REG_6359P_gs_sodi3p0_32kless_data;
 
-unsigned int AP_PMIC_REG_gs_sodi3p0_32kless_len = 426;
+unsigned int AP_PMIC_REG_6359P_gs_sodi3p0_32kless_len = 426;
