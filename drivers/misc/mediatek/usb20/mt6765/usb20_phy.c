@@ -756,6 +756,10 @@ void usb_phy_recover(struct device *dev)
 
 	/* M_ANALOG8[4:0] => RG_USB20_INTR_CAL[4:0] */
 	cell = nvmem_cell_get(dev, "efuse_idx107");
+	if (cell == NULL) {
+		DBG(0, "nvmem_cell_get return NULL");
+		return;
+	}
 	if (IS_ERR(cell)) {
 		DBG(0, "can not get efuse_cell");
 		return;
