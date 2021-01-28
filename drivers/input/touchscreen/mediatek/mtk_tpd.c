@@ -45,10 +45,7 @@
 #endif
 struct tpd_filter_t tpd_filter;
 struct tpd_dts_info tpd_dts_data;
-struct pinctrl *pinctrl1;
-struct pinctrl_state *pins_default;
-struct pinctrl_state *eint_as_int, *eint_output0,
-		*eint_output1, *rst_output0, *rst_output1;
+
 const struct of_device_id touch_of_match[] = {
 	{ .compatible = "mediatek,touch", },
 	{ .compatible = "mediatek,mt8167-touch", },
@@ -143,96 +140,6 @@ void tpd_get_dts_info(void)
 	} else {
 		TPD_DMESG("can't find touch compatible custom node\n");
 	}
-}
-
-static DEFINE_MUTEX(tpd_set_gpio_mutex);
-void tpd_gpio_as_int(int pin)
-{
-	mutex_lock(&tpd_set_gpio_mutex);
-	TPD_DEBUG("[tpd] %s\n", __func__);
-	if (pin == 1)
-		pinctrl_select_state(pinctrl1, eint_as_int);
-	mutex_unlock(&tpd_set_gpio_mutex);
-}
-
-void tpd_gpio_output(int pin, int level)
-{
-	mutex_lock(&tpd_set_gpio_mutex);
-	TPD_DEBUG("%s pin = %d, level = %d\n", __func__, pin, level);
-	if (pin == 1) {
-		if (level)
-			pinctrl_select_state(pinctrl1, eint_output1);
-		else
-			pinctrl_select_state(pinctrl1, eint_output0);
-	} else {
-		if (tpd_dts_data.tpd_use_ext_gpio) {
-#ifdef CONFIG_MTK_MT6306_GPIO_SUPPORT
-			mt6306_set_gpio_dir(
-				tpd_dts_data.rst_ext_gpio_num, 1);
-			mt6306_set_gpio_out(
-				tpd_dts_data.rst_ext_gpio_num, level);
-#endif
-		} else {
-			if (level)
-				pinctrl_select_state(pinctrl1, rst_output1);
-			else
-				pinctrl_select_state(pinctrl1, rst_output0);
-		}
-	}
-	mutex_unlock(&tpd_set_gpio_mutex);
-}
-int tpd_get_gpio_info(struct platform_device *pdev)
-{
-	int ret;
-
-	TPD_DEBUG("[tpd %d] mt_tpd_pinctrl+++++++++++++++++\n", pdev->id);
-	pinctrl1 = devm_pinctrl_get(&pdev->dev);
-	if (IS_ERR(pinctrl1)) {
-		ret = PTR_ERR(pinctrl1);
-		dev_info(&pdev->dev, "fwq Cannot find pinctrl1!\n");
-		return ret;
-	}
-	pins_default = pinctrl_lookup_state(pinctrl1, "default");
-	if (IS_ERR(pins_default)) {
-		ret = PTR_ERR(pins_default);
-		TPD_DMESG("Cannot find pinctrl default %d!\n", ret);
-	}
-	eint_as_int = pinctrl_lookup_state(pinctrl1, "state_eint_as_int");
-	if (IS_ERR(eint_as_int)) {
-		ret = PTR_ERR(eint_as_int);
-		TPD_DMESG("Cannot find pinctrl state_eint_as_int!\n");
-		return ret;
-	}
-	eint_output0 = pinctrl_lookup_state(pinctrl1, "state_eint_output0");
-	if (IS_ERR(eint_output0)) {
-		ret = PTR_ERR(eint_output0);
-		TPD_DMESG("Cannot find pinctrl state_eint_output0!\n");
-		return ret;
-	}
-	eint_output1 = pinctrl_lookup_state(pinctrl1, "state_eint_output1");
-	if (IS_ERR(eint_output1)) {
-		ret = PTR_ERR(eint_output1);
-		TPD_DMESG("Cannot find pinctrl state_eint_output1!\n");
-		return ret;
-	}
-	if (tpd_dts_data.tpd_use_ext_gpio == false) {
-		rst_output0 =
-			pinctrl_lookup_state(pinctrl1, "state_rst_output0");
-		if (IS_ERR(rst_output0)) {
-			ret = PTR_ERR(rst_output0);
-			TPD_DMESG("Cannot find pinctrl state_rst_output0!\n");
-			return ret;
-		}
-		rst_output1 =
-			pinctrl_lookup_state(pinctrl1, "state_rst_output1");
-		if (IS_ERR(rst_output1)) {
-			ret = PTR_ERR(rst_output1);
-			TPD_DMESG("Cannot find pinctrl state_rst_output1!\n");
-			return ret;
-		}
-	}
-	TPD_DEBUG("[tpd%d] mt_tpd_pinctrl----------\n", pdev->id);
-	return 0;
 }
 
 static int tpd_misc_open(struct inode *inode, struct file *file)
@@ -550,7 +457,7 @@ static int tpd_probe(struct platform_device *pdev)
 
 	if (misc_register(&tpd_misc_device))
 		pr_info("mtk_tpd: tpd_misc_device register failed\n");
-	tpd_get_gpio_info(pdev);
+
 	tpd = kmalloc(sizeof(struct tpd_device), GFP_KERNEL);
 	if (tpd == NULL)
 		return -ENOMEM;

@@ -382,7 +382,7 @@ s32 gt1x_i2c_test(void)
 
 	GTP_DEBUG_FUNC();
 
-	while (retry++ < 5) {
+	while (retry++ < 3) {
 		ret = gt1x_i2c_read(GTP_REG_HW_INFO,
 			(u8 *) &hw_info, sizeof(hw_info));
 		if (!ret) {
