@@ -40,12 +40,6 @@
 #include <linux/kallsyms.h>
 
 #define SSMR_FEATURES_DT_UNAME "memory-ssmr-features"
-/* memory map/unmap */
-#ifdef CONFIG_ARM64
-static struct mm_struct *init_mm_addr;
-#endif
-#define memory_unmapping(virt, size) set_memory_mapping(virt, size, 0)
-#define memory_mapping(virt, size) set_memory_mapping(virt, size, 1)
 
 struct page_change_data {
 	pgprot_t set_mask;
@@ -206,7 +200,6 @@ static int __init dedicate_svp_memory(struct reserved_mem *rmem)
 		rmem->name, &rmem->base, &rmem->size);
 
 	feature->use_cache_memory = true;
-	feature->is_unmapping = true;
 	feature->count = rmem->size / PAGE_SIZE;
 	feature->cache_page = phys_to_page(rmem->base);
 
@@ -248,7 +241,6 @@ static int get_svp_memory_info(void)
 	pr_info("%s, svp base : 0x%llx, size : 0x%llx", __func__,
 							base, size);
 	feature->use_cache_memory = true;
-	feature->is_unmapping = true;
 	feature->count = size / PAGE_SIZE;
 	feature->cache_page = phys_to_page(base);
 	pr_info("%s, feature->count 0x%lx\n", __func__, feature->count);
@@ -416,173 +408,9 @@ static int get_reserved_cma_memory(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_ARM64
-static int  ssmr_memblock_search(struct memblock_type *type, phys_addr_t addr)
-{
-	unsigned int left = 0, right = type->cnt;
-
-	do {
-		unsigned int mid = (right + left) / 2;
-
-		if (addr < type->regions[mid].base)
-			right = mid;
-		else if (addr >= (type->regions[mid].base +
-				  type->regions[mid].size))
-			left = mid + 1;
-		else
-			return mid;
-	} while (left < right);
-	return -1;
-}
-
-static bool ssmr_memblock_is_memory(phys_addr_t addr)
-{
-	struct memblock *ssmr_memblock;
-
-	ssmr_memblock = (struct memblock *)kallsyms_lookup_name("memblock");
-	return ssmr_memblock_search(&ssmr_memblock->memory, addr) != -1;
-}
-#ifdef CONFIG_DEBUG_PAGEALLOC
-static int change_page_range(pte_t *ptep, pgtable_t token, unsigned long addr,
-			     void *data)
-{
-	struct page_change_data *cdata = data;
-	pte_t pte = *ptep;
-
-	pte = clear_pte_bit(pte, cdata->clear_mask);
-	pte = set_pte_bit(pte, cdata->set_mask);
-
-	set_pte(ptep, pte);
-	return 0;
-}
-/*
- * Unmapping memory region kernel mapping
- * SSMR protect memory region with EMI MPU. While protecting, memory prefetch
- * will access memory region and trigger warning.
- * To avoid false alarm of protection, We unmap kernel mapping while protecting
- *
- * @start: start address
- * @size: memory region size
- * @map: 1 for mapping, 0 for unmapping.
- *
- * @return: success return 0, failed return -1;
- */
-static int set_memory_mapping(unsigned long start, phys_addr_t size, int map)
-{
-	struct page_change_data data;
-	int ret;
-
-	/* query init_mm address */
-	init_mm_addr = (struct mm_struct *)kallsyms_lookup_name("init_mm");
-
-	if (!init_mm_addr) {
-		pr_info("get NULL init_mm_addr\n");
-		return -1;
-	}
-
-	if (map) {
-		data.set_mask = __pgprot(PTE_VALID);
-		data.clear_mask = __pgprot(0);
-	} else {
-		data.set_mask = __pgprot(0);
-		data.clear_mask = __pgprot(PTE_VALID);
-	}
-
-	ret = apply_to_page_range(init_mm_addr, start, size, change_page_range,
-				  &data);
-	flush_tlb_kernel_range(start, start + size);
-
-	return ret;
-}
-#else
-static int set_memory_mapping(unsigned long start, phys_addr_t size, int map)
-{
-	unsigned long address = start;
-	pud_t *pud;
-	pmd_t *pmd;
-	pgd_t *pgd;
-	spinlock_t *plt;
-
-	if ((start != (start & PMD_MASK)) || (size != (size & PMD_MASK))
-	    || !ssmr_memblock_is_memory(virt_to_phys((void *)start)) || !size
-	    || !start) {
-		pr_info("[invalid parameter]: start=0x%lx, size=%pa\n", start,
-			&size);
-		return -1;
-	}
-
-	pr_debug("start=0x%lx, size=%pa, address=0x%p, map=%d\n", start, &size,
-		 (void *)address, map);
-
-	/* query init_mm address */
-	init_mm_addr = (struct mm_struct *)kallsyms_lookup_name("init_mm");
-
-	while (address < (start + size)) {
-
-
-		pgd = pgd_offset(init_mm_addr, (address));
-
-		if (pgd_none(*pgd) || pgd_bad(*pgd)) {
-			pr_info("bad pgd break\n");
-			goto fail;
-		}
-
-		pud = pud_offset(pgd, address);
-
-		if (pud_none(*pud) || pud_bad(*pud)) {
-			pr_info("bad pud break\n");
-			goto fail;
-		}
-
-		pmd = pmd_offset(pud, address);
-
-		if (pmd_none(*pmd)) {
-			pr_info("none ");
-			goto fail;
-		}
-
-		if (pmd_table(*pmd)) {
-			pr_info("pmd_table not set PMD\n");
-			goto fail;
-		}
-
-		//plt = pmd_lock(&init_mm, pmd);
-		plt = pmd_lock((struct mm_struct *)init_mm_addr, pmd);
-		if (map)
-			set_pmd(pmd, __pmd(pmd_val(*pmd) | PMD_SECT_VALID));
-		else
-			set_pmd(pmd, __pmd(pmd_val(*pmd) & ~PMD_SECT_VALID));
-
-		spin_unlock(plt);
-		address += PMD_SIZE;
-	}
-
-	flush_tlb_all();
-	return 0;
-fail:
-	pr_info("start=0x%lx, size=%pa, address=0x%p, map=%d\n", start, &size,
-		(void *)address, map);
-	//show_pte(NULL, address);
-	return -1;
-}
-#endif
-#else
-static inline int set_memory_mapping(unsigned long start, phys_addr_t size,
-				     int map)
-{
-	pr_debug("start=0x%lx, size=%pa, map=%d\n", start, &size, map);
-	if (!map) {
-		pr_info("Flush kmap page table\n");
-		kmap_flush_unused();
-	}
-	return 0;
-}
-#endif
-
 static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 				 unsigned long *size, u64 upper_limit)
 {
-	int ret_map;
 	struct device_node *np;
 	size_t alloc_size;
 	struct page *page;
@@ -639,15 +467,6 @@ static int memory_region_offline(struct SSMR_Feature *feature, phys_addr_t *pa,
 		pr_info("%s: ssmr offline failed\n", __func__);
 		return -1;
 	}
-
-	/*unmap offline memory */
-	ret_map = memory_unmapping((unsigned long)
-			phys_to_virt(dma_to_phys(ssmr_dev,
-			feature->phy_addr)), alloc_size);
-	if (ret_map < 0)
-		feature->is_unmapping = false;
-	else
-		feature->is_unmapping = true;
 
 	if (pa)
 		*pa = dma_to_phys(ssmr_dev, feature->phy_addr);
@@ -729,23 +548,7 @@ static int memory_region_online(struct SSMR_Feature *feature)
 
 	alloc_size = feature->alloc_size;
 
-	if (feature->is_unmapping) {
-		int ret_map;
-
-		/* do remapping before free cma */
-		ret_map = memory_mapping((unsigned long)
-			phys_to_virt(dma_to_phys(ssmr_dev, feature->phy_addr)),
-			alloc_size);
-		if (ret_map < 0)
-			pr_info("[remapping fail]: virt:0x%lx, size:0x%lx",
-			(unsigned long)
-			phys_to_virt(dma_to_phys(ssmr_dev, feature->phy_addr)),
-			alloc_size);
-		else
-			feature->is_unmapping = false;
-	}
-
-	if (feature->phy_addr && !feature->is_unmapping) {
+	if (feature->phy_addr) {
 		dma_free_attrs(ssmr_dev, alloc_size,
 				feature->virt_addr, feature->phy_addr, 0);
 		feature->alloc_size = 0;

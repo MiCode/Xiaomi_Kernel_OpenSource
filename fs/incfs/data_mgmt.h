@@ -31,10 +31,13 @@ struct read_log_record {
 } __packed;
 
 struct read_log_state {
-	/* Next slot in rl_ring_buf to write to. */
-	u32 next_index;
+	/* Log buffer generation id, incremented on configuration changes */
+	u32 generation_id : 8;
 
-	/* Current number of writer pass over rl_ring_buf */
+	/* Next slot in rl_ring_buf to write into. */
+	u32 next_index : 24;
+
+	/* Current number of writer passes over rl_ring_buf */
 	u32 current_pass_no;
 };
 
@@ -42,11 +45,21 @@ struct read_log_state {
 struct read_log {
 	struct read_log_record *rl_ring_buf;
 
+	int rl_size;
+
 	struct read_log_state rl_state;
 
-	spinlock_t rl_writer_lock;
+	/*
+	 * A lock for _all_ accesses to the struct, to protect against remounts.
+	 * Taken for writing when resizing the buffer.
+	 */
+	rwlock_t rl_access_lock;
 
-	int rl_size;
+	/*
+	 * A lock to protect the actual logging - adding a new record.
+	 * Note: ALWAYS taken after and under the |rl_access_lock|.
+	 */
+	spinlock_t rl_logging_lock;
 
 	/*
 	 * A queue of waiters who want to be notified about reads.
@@ -105,6 +118,12 @@ struct mount_info {
 
 	/* Temporary buffer for read logger. */
 	struct read_log mi_log;
+
+	void *log_xattr;
+	size_t log_xattr_size;
+
+	void *pending_read_xattr;
+	size_t pending_read_xattr_size;
 };
 
 struct data_file_block {
@@ -177,16 +196,20 @@ struct data_file {
 	/* File size in bytes */
 	loff_t df_size;
 
-	int df_block_count; /* File size in DATA_FILE_BLOCK_SIZE blocks */
+	/* File header flags */
+	u32 df_header_flags;
+
+	/* File size in DATA_FILE_BLOCK_SIZE blocks */
+	int df_data_block_count;
+
+	/* Total number of blocks, data + hash */
+	int df_total_block_count;
 
 	struct file_attr n_attr;
 
 	struct mtree *df_hash_tree;
 
-	struct ondisk_signature *df_signature;
-
-	/* True, if file signature has already been validated. */
-	bool df_signature_validated;
+	struct incfs_df_signature *df_signature;
 };
 
 struct dir_file {
@@ -213,6 +236,9 @@ struct mount_info *incfs_alloc_mount_info(struct super_block *sb,
 					  struct mount_options *options,
 					  struct path *backing_dir_path);
 
+int incfs_realloc_mount_info(struct mount_info *mi,
+			     struct mount_options *options);
+
 void incfs_free_mount_info(struct mount_info *mi);
 
 struct data_file *incfs_open_data_file(struct mount_info *mi, struct file *bf);
@@ -227,14 +253,16 @@ ssize_t incfs_read_data_file_block(struct mem_range dst, struct data_file *df,
 				   int index, int timeout_ms,
 				   struct mem_range tmp);
 
+int incfs_get_filled_blocks(struct data_file *df,
+			    struct incfs_get_filled_blocks_args *arg);
+
 int incfs_read_file_signature(struct data_file *df, struct mem_range dst);
 
 int incfs_process_new_data_block(struct data_file *df,
-				 struct incfs_new_data_block *block, u8 *data);
+				 struct incfs_fill_block *block, u8 *data);
 
 int incfs_process_new_hash_block(struct data_file *df,
-				 struct incfs_new_data_block *block, u8 *data);
-
+				 struct incfs_fill_block *block, u8 *data);
 
 bool incfs_fresh_pending_reads_exist(struct mount_info *mi, int last_number);
 

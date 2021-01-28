@@ -129,16 +129,7 @@ static inline bool is_max_capacity_cpu(int cpu)
 /**
  *for isolation
  */
-enum iso_prio_t {
-	ISO_CUSTOMIZE,
-	ISO_TURBO,
-	ISO_SCHED,
-	ISO_UNSET
-};
-
 extern struct cpumask cpu_all_masks;
-extern struct cpumask available_cpus;
-extern enum iso_prio_t iso_prio;
 
 #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
 
@@ -161,8 +152,9 @@ void migrate_tasks(struct rq *dead_rq, struct rq_flags *rf,
 void iso_init_sched_groups_capacity(int cpu, struct sched_domain *sd);
 void iso_calc_load_migrate(struct rq *rq);
 void nohz_balance_clear_nohz_mask(int cpu);
-int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr);
-
+int __sched_deisolate_cpu_unlocked(int cpu);
+int _sched_isolate_cpu(int cpu);
+int _sched_deisolate_cpu(int cpu);
 /*
  * for sched_boost
  */

@@ -865,9 +865,6 @@ void init_cpu_isolated(const struct cpumask *src)
 
 DEFINE_MUTEX(sched_isolation_mutex);
 struct cpumask cpu_all_masks;
-struct cpumask available_cpus;
-enum iso_prio_t iso_prio = ISO_UNSET;
-
 /*
  * Remove a task from the runqueue and pretend that it's migrating. This
  * should prevent migrations for the detached task and disallow further
@@ -1068,8 +1065,8 @@ out:
 	cpu_maps_update_done();
 	trace_sched_isolate(cpu, cpumask_bits(cpu_isolated_mask)[0],
 			    start_time, 1);
-	printk_deferred("%s: prio=%d, cpu=%d, isolation_cpus=0x%lx\n",
-			__func__, iso_prio, cpu, cpu_isolated_mask->bits[0]);
+	printk_deferred("%s:cpu=%d, isolation_cpus=0x%lx\n",
+			__func__, cpu, cpu_isolated_mask->bits[0]);
 	return ret_code;
 }
 
@@ -1114,8 +1111,8 @@ out:
 	trace_sched_isolate(cpu, cpumask_bits(cpu_isolated_mask)[0],
 			    start_time, 0);
 
-	printk_deferred("%s: prio=%d, cpu=%d, isolation_cpus=0x%lx\n",
-			__func__, iso_prio, cpu, cpu_isolated_mask->bits[0]);
+	printk_deferred("%s:cpu=%d, isolation_cpus=0x%lx\n",
+			__func__, cpu, cpu_isolated_mask->bits[0]);
 	return ret_code;
 }
 
@@ -1133,62 +1130,4 @@ int _sched_deisolate_cpu(int cpu)
 void iso_cpumask_init(void)
 {
 	cpumask_copy(&cpu_all_masks, cpu_possible_mask);
-	cpumask_setall(&available_cpus);
 }
-
-/* Use available_cpus to determine cpu isolated or deisolated */
-int set_cpu_isolation(enum iso_prio_t prio, struct cpumask *cpumask_ptr)
-{
-	struct cpumask iso_mask;
-	struct cpumask deiso_mask;
-	int i = 0;
-
-	if (prio > iso_prio)
-		return -1;
-
-	if (!cpumask_ptr)
-		return -1;
-
-	might_sleep();
-	mutex_lock(&sched_isolation_mutex);
-	iso_prio = prio;
-
-	/* cpumask of isolated */
-	cpumask_or(&iso_mask, cpumask_ptr, cpu_isolated_mask);
-	cpumask_complement(&iso_mask, &iso_mask);
-
-	/* cpumask of de-isolated */
-	cpumask_and(&deiso_mask, cpumask_ptr, cpu_isolated_mask);
-
-	/* set cpu isolated */
-	if (!cpumask_empty(&iso_mask)) {
-		for_each_cpu(i, &iso_mask)
-			_sched_isolate_cpu(i);
-	}
-
-	/* set cpu de-isolated */
-	if (!cpumask_empty(&deiso_mask)) {
-		for_each_cpu(i, &deiso_mask)
-			_sched_deisolate_cpu(i);
-	}
-
-	/* all possible cpu de-isolated*/
-	if (cpumask_empty(cpu_isolated_mask)) {
-		iso_prio = ISO_UNSET;
-		cpumask_setall(&available_cpus);
-	}
-	mutex_unlock(&sched_isolation_mutex);
-
-	return 0;
-}
-
-/* de-isolated all cpu */
-int unset_cpu_isolation(enum iso_prio_t prio)
-{
-	int err;
-
-	err = set_cpu_isolation(prio, &cpu_all_masks);
-
-	return err;
-}
-
