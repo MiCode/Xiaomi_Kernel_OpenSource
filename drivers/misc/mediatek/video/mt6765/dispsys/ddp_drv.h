@@ -118,6 +118,8 @@ struct disp_iommu_device *disp_get_iommu_dev(void);
 	_IOW(DISP_IOCTL_MAGIC, 17, struct DISP_AAL_PARAM)
 #define DISP_IOCTL_AAL_INIT_REG \
 	_IOW(DISP_IOCTL_MAGIC, 18, struct DISP_AAL_INITREG)
+#define DISP_IOCTL_AAL_GET_SIZE \
+	_IOW(DISP_IOCTL_MAGIC, 25, struct DISP_AAL_DISPLAY_SIZE)
 #define DISP_IOCTL_SET_SMARTBACKLIGHT \
 	_IOW(DISP_IOCTL_MAGIC, 19, int)
 /* Add for AAL control - E */

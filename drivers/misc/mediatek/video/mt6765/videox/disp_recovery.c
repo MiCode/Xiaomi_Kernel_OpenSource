@@ -77,6 +77,7 @@ static atomic_t esd_ext_te_event = ATOMIC_INIT(0);
 static unsigned int esd_check_mode;
 static unsigned int esd_check_enable;
 unsigned int esd_checking;
+static int te_irq;
 
 #if defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) && \
 	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)
@@ -241,107 +242,23 @@ static irqreturn_t _esd_check_ext_te_irq_handler(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-#if defined(CONFIG_MTK_LEGACY)
-int primary_display_switch_esd_mode(int mode)
+void primary_display_switch_esd_mode(int mode)
 {
-	int ret = 0;
-	int gpio_mode = 0;
-	struct device_node *node;
-	int irq;
-	u32 ints[2] = { 0, 0 };
-
-#ifndef GPIO_DSI_TE_PIN
-	return ret;
-#endif
-
-	gpio_mode = mt_get_gpio_mode(GPIO_DSI_TE_PIN);
-	node = of_find_compatible_node(NULL, NULL, "mediatek, DSI_TE-eint");
-
-	if (!node) {
-		DISPERR("[ESD][%s] can't find DSI_TE eint compatible node\n",
-				__func__);
-		return ret;
-	}
-	/* switch to eint mode */
 	if (mode == GPIO_EINT_MODE) {
-		of_property_read_u32_array(node, "debounce",
-					   ints, ARRAY_SIZE(ints));
-		mt_gpio_set_debounce(ints[0], ints[1]);
-		irq = irq_of_parse_and_map(node, 0);
-		if (primary_get_lcm()->params->dsi.ext_te_edge ==
-			LCM_POLARITY_FALLING) {
-			if (request_irq(irq, _esd_check_ext_te_irq_handler,
-					IRQF_TRIGGER_FALLING, "DSI_TE-eint",
-					NULL))
-				/*IRQF_TRIGGER_NONE*/
-				DISPERR("[ESD]EINT IRQ LINE NOT AVAILABLE!!\n");
-		} else {
-			if (request_irq(irq, _esd_check_ext_te_irq_handler,
-					IRQF_TRIGGER_RISING, "DSI_TE-eint",
-					NULL))
-				/*IRQF_TRIGGER_NONE*/
-				DISPERR("[ESD]EINT IRQ LINE NOT AVAILABLE!!\n");
-		}
-	}
+		/* Enable TE EINT */
+		enable_irq(te_irq);
 
-	if (mode == GPIO_DSI_MODE) {
-		/* 1. unregister irq handler */
-		irq = irq_of_parse_and_map(node, 0);
-		free_irq(irq, NULL);
-	}
-
-	return ret;
-}
-#else /* CONFIG_MTK_LEGACY */
-int primary_display_switch_esd_mode(int mode)
-{
-	int ret = 0;
-	/* int gpio_mode = 0; */
-	struct device_node *node;
-	int irq;
-	u32 ints[2] = { 0, 0 };
-
-	if (mode == GPIO_EINT_MODE) {
-		/* 1. set mode0 */
-		/* disp_dts_gpio_select_state(DTS_GPIO_STATE_TE_MODE_GPIO); */
-
-		/* 2.register irq handler */
-		node = of_find_compatible_node(NULL, NULL,
-			"mediatek, DSI_TE-eint");
-		if (node) {
-			of_property_read_u32_array(node, "debounce",
-						   ints, ARRAY_SIZE(ints));
-			/* mt_gpio_set_debounce(ints[0], ints[1]); */
-			irq = irq_of_parse_and_map(node, 0);
-			if (request_irq(irq, _esd_check_ext_te_irq_handler,
-					IRQF_TRIGGER_RISING, "DSI_TE-eint",
-					NULL))
-				/* IRQF_TRIGGER_NONE */
-				DISPERR("[ESD]EINT IRQ LINE NOT AVAILABLE!!\n");
-		} else {
-			DISPERR(
-				"[ESD][%s] can't find DSI_TE eint compatible node\n",
-				__func__);
-		}
 	} else if (mode == GPIO_DSI_MODE) {
-		/* 1. unregister irq handler */
-		node = of_find_compatible_node(NULL, NULL,
-			"mediatek, DSI_TE-eint");
-		if (node) {
-			irq = irq_of_parse_and_map(node, 0);
-			free_irq(irq, NULL);
-		}
-
-		/* disp_dts_gpio_select_state(DTS_GPIO_STATE_TE_MODE_TE); */
+		/* Disable TE EINT */
+		disable_irq(te_irq);
 	}
-
-	return ret;
 }
-#endif /* CONFIG_MTK_LEGACY */
 
 int do_esd_check_eint(void)
 {
 	int ret = 0;
+
+	primary_display_switch_esd_mode(GPIO_EINT_MODE);
 
 	if (wait_event_interruptible_timeout(esd_ext_te_wq,
 		atomic_read(&esd_ext_te_event), HZ / 2) > 0)
@@ -350,6 +267,8 @@ int do_esd_check_eint(void)
 		ret = 1; /* esd check fail */
 
 	atomic_set(&esd_ext_te_event, 0);
+
+	primary_display_switch_esd_mode(GPIO_DSI_MODE);
 
 	return ret;
 }
@@ -624,40 +543,20 @@ int primary_display_esd_check(void)
 	if (params->dsi.customization_esd_check_enable == 0) {
 		/* use te for esd check */
 		mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_START, 0, 0);
-
-		mode = get_esd_check_mode();
-		if (mode == GPIO_EINT_MODE) {
-			DISPCHECK("[ESD]ESD check eint\n");
-			mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
-				primary_display_is_video_mode(), mode);
-			mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_PULSE, 2, 0);
-			primary_display_switch_esd_mode(mode);
-			mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_PULSE, 3, 0);
-			ret = do_esd_check_eint();
-			mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_PULSE, 4, 0);
-			mode = GPIO_DSI_MODE; /* used for mode switch */
-			primary_display_switch_esd_mode(mode);
-			mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_PULSE, 5, 0);
-		} else if (mode == GPIO_DSI_MODE) {
-			mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_PULSE,
-				primary_display_is_video_mode(), mode);
-			DISPCHECK("[ESD]ESD check read\n");
-			mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_PULSE, 2, 1);
-			ret = do_esd_check_read();
-			mmprofile_log_ex(mmp_chk, MMPROFILE_FLAG_PULSE, 3, 1);
-			mode = GPIO_EINT_MODE; /* used for mode switch */
-		}
-
-		if (disp_helper_get_option(DISP_OPT_ESD_CHECK_SWITCH)) {
-			if (primary_display_is_video_mode()) {
-				/* try eint & read switch on vdo mode */
+		if (primary_display_is_video_mode()) {
+			mode = get_esd_check_mode();
+			if (mode == GPIO_EINT_MODE) {
+				ret = do_esd_check_eint();
 				if (_can_switch_check_mode())
-					set_esd_check_mode(mode);
+					set_esd_check_mode(GPIO_DSI_MODE);
+			} else {
+				ret = do_esd_check_read();
+				if (_can_switch_check_mode())
+					set_esd_check_mode(GPIO_EINT_MODE);
 			}
-		}
-
+		} else
+			ret = do_esd_check_eint();
 		mmprofile_log_ex(mmp_te, MMPROFILE_FLAG_END, 0, ret);
-
 		goto done;
 	}
 
@@ -898,6 +797,42 @@ done:
 	return ret;
 }
 
+void primary_display_requset_eint(void)
+{
+	struct LCM_PARAMS *params;
+	struct device_node *node;
+	u32 ints[2] = { 0, 0 };
+
+	params = primary_get_lcm()->params;
+	if (params->dsi.customization_esd_check_enable == 0) {
+		node = of_find_compatible_node(NULL, NULL,
+				"mediatek, DSI_TE-eint");
+		if (!node) {
+			DISPERR(
+				"[ESD][%s] can't find DSI_TE eint compatible node\n",
+				    __func__);
+			return;
+		}
+
+		/* 1.register irq handler */
+		of_property_read_u32_array(node, "debounce",
+					   ints, ARRAY_SIZE(ints));
+
+		te_irq = irq_of_parse_and_map(node, 0);
+		if (request_irq(te_irq, _esd_check_ext_te_irq_handler,
+				IRQF_TRIGGER_RISING, "DSI_TE-eint", NULL)) {
+			DISPERR("[ESD]EINT IRQ LINE NOT AVAILABLE!\n");
+			return;
+		}
+
+		/* 2.disable irq */
+		disable_irq(te_irq);
+
+		/* 3.set DSI_TE GPIO to TE MODE */
+		disp_dts_gpio_select_state(DTS_GPIO_STATE_TE_MODE_TE);
+	}
+}
+
 void primary_display_check_recovery_init(void)
 {
 	/* primary display check thread init */
@@ -911,11 +846,9 @@ void primary_display_check_recovery_init(void)
 		if (_need_do_esd_check()) {
 			/* esd check init */
 			init_waitqueue_head(&esd_ext_te_wq);
+			primary_display_requset_eint();
 			set_esd_check_mode(GPIO_EINT_MODE);
 			primary_display_esd_check_enable(1);
-		} else {
-			atomic_set(&_check_task_wakeup, 1);
-			wake_up_interruptible(&_check_task_wq);
 		}
 	}
 }
