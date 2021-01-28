@@ -85,18 +85,22 @@ static void dvfsrc_set_vcore_request(int data, int mask, int shift)
 
 static void dvfsrc_get_timestamp(char *p)
 {
+	int ret = 0;
 	u64 sec = local_clock();
 	u64 usec = do_div(sec, 1000000000);
 
 	do_div(usec, 1000);
-	snprintf(p, TIME_STAMP_SIZE, "%llu.%06llu",
+	ret = snprintf(p, TIME_STAMP_SIZE, "%llu.%06llu",
 		sec, usec);
+	if (ret < 0)
+		pr_info("dvfsrc snprintf fail\n");
 }
 
 static void dvfsrc_get_sys_stamp(char *p)
 {
 	u64 sys_time;
 	u64 kernel_time;
+	int ret = 0;
 
 	kernel_time = sched_clock_get_cyc(&sys_time);
 #if defined(CONFIG_MTK_QOS_V2)
@@ -110,8 +114,10 @@ static void dvfsrc_get_sys_stamp(char *p)
 		sys_time >> 32);
 #endif
 	if (p) {
-		snprintf(p, TIME_STAMP_SIZE, "0x%llx, 0x%llx",
+		ret = snprintf(p, TIME_STAMP_SIZE, "0x%llx, 0x%llx",
 			kernel_time, sys_time);
+		if (ret < 0)
+			pr_info("dvfsrc snprintf fail\n");
 	}
 }
 
