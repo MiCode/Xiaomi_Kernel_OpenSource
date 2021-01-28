@@ -453,11 +453,21 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	struct ccci_smem_region *mdss_dbg
 		= ccci_md_get_smem_by_user_id(ctl->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
+	int ret;
 
-	node = of_find_compatible_node(NULL, NULL,
-			"mediatek,offset_apon_md1");
-	of_property_read_u32(node,
-			"mediatek,offset_apon_md1", &offset_apon_md1);
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mddriver");
+	if (node) {
+		ret = of_property_read_u32(node,
+				"mediatek,offset_apon_md1", &offset_apon_md1);
+		if (ret < 0)
+			CCCI_ERROR_LOG(ctl->md_id, FSM,
+				"[%s] not found: mediatek,offset_apon_md1\n",
+				__func__);
+
+	} else
+		CCCI_ERROR_LOG(ctl->md_id, FSM,
+			"[%s] error: not found the mediatek,mddriver\n",
+			__func__);
 
 	if (ctl->md_id == MD_SYS1)
 		is_epon_set =
