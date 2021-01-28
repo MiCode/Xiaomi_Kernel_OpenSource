@@ -26,7 +26,6 @@
 #include "mtk_drm_session.h"
 #include "mtk_drm_helper.h"
 
-#define MAX_CRTC 3
 #define MAX_CONNECTOR 3
 
 #define MTK_DRM_FENCE_SUPPORT

@@ -32,6 +32,7 @@
 #include "mtk_disp_pmqos.h"
 
 
+#define MAX_CRTC 3
 #define OVL_LAYER_NR 12L
 #define OVL_PHY_LAYER_NR 4L
 #define RDMA_LAYER_NR 1UL
@@ -79,10 +80,10 @@ enum DISP_PMQOS_SLOT {
 #define DISP_SLOT_CUR_CONFIG_FENCE_BASE 0x0000
 #define DISP_SLOT_CUR_CONFIG_FENCE(n)                                          \
 	(DISP_SLOT_CUR_CONFIG_FENCE_BASE + (0x4 * (n)))
-#define DISP_SLOT_PRESENT_FENCE                                          \
-	DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR)
+#define DISP_SLOT_PRESENT_FENCE(n)                                          \
+	(DISP_SLOT_CUR_CONFIG_FENCE(OVL_LAYER_NR) + (0x4 * (n)))
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE                                    \
-	(DISP_SLOT_PRESENT_FENCE + 0x4)
+	(DISP_SLOT_PRESENT_FENCE(MAX_CRTC) + 0x4)
 #define DISP_SLOT_SUBTRACTOR_WHEN_FREE(n)                                      \
 	(DISP_SLOT_SUBTRACTOR_WHEN_FREE_BASE + (0x4 * (n)))
 #define DISP_SLOT_ESD_READ_BASE DISP_SLOT_SUBTRACTOR_WHEN_FREE(OVL_LAYER_NR)
@@ -444,6 +445,7 @@ enum CRTC_GCE_EVENT_TYPE {
 	EVENT_ESD_EOF,
 	EVENT_RDMA0_EOF,
 	EVENT_WDMA0_EOF,
+	EVENT_WDMA1_EOF,
 	EVENT_STREAM_BLOCK,
 	EVENT_CABC_EOF,
 	EVENT_DSI0_SOF,

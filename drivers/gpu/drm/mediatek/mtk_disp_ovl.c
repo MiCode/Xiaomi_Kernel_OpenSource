@@ -1561,9 +1561,10 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
 		/*constant color :non RDMA source*/
-		if (!pending->addr)
-			cmdq_pkt_write(handle, comp->cmdq_base,
-		       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0x0, ~0);
+		/* TODO: cause RPO abnormal */
+//		if (!pending->addr)
+//			cmdq_pkt_write(handle, comp->cmdq_base,
+//		       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0x0, ~0);
 		/* TODO: consider FBDC */
 		/* SRT BW (one layer) =
 		 * layer_w * layer_h * bpp * vrefresh * max fps blanking_ratio

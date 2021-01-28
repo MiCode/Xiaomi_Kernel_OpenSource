@@ -372,6 +372,7 @@
 	#define DISP_TOVL1_OUT1_MOUT_EN_TO_DISP_RDMA1_SEL	BIT(0)
 	#define DISP_TOVL1_OUT1_MOUT_EN_TO_DISP_WDMA1_SEL	BIT(2)
 #define MT6885_DISP_TOVL1_OUT0_MOUT_EN	0xFC0
+	#define DISP_TOVL1_OUT0_MOUT_TO_DISP_WDMA1_SEL	BIT(0)
 	#define DISP_TOVL1_OUT0_MOUT_TO_DISP_RSZ1_SEL	BIT(1)
 #define MT6885_DISP_RDMA1_SEL_IN	0xFC4
 	#define DISP_RDMA1_SEL_IN_FROM_DISP_TOVL1_OUT1_MOUT	0x0
@@ -394,7 +395,9 @@
 #define MT6885_DSI1_SEL_IN		0xFF0
 	#define DSI1_SEL_IN_FROM_DISP_DITHER1_MOUT	0x1
 #define MT6885_DISP_WDMA1_SEL_IN	0xFF4
-	#define WDMA1_SEL_IN_FROM_DISP_TOVL1_OUT1_MOUT	0x1
+	#define WDMA1_SEL_IN_FROM_DISP_DITHER1_MOUT	0x0
+	#define WDMA1_SEL_IN_FROM_DISP_TOVL1_OUT0_MOUT	0x2
+	#define WDMA1_SEL_IN_FROM_DISP_TOVL1_OUT1_MOUT	0x3
 	#define WDMA1_SEL_IN_FROM_DISP_TOVL3_2L_OUT0_MOUT	0x4
 #define MT6885_DISP_PQ0_SOUT_SEL	0xFF8
 
@@ -3026,6 +3029,26 @@ static int mtk_ddp_mout_en_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_WDMA1) {
 		*addr = MT6885_DISP_OVL3_2L_OUT0_MOUT;
 		value = DISP_OVL3_2L_OUT0_MOUT_TO_DISP_WDMA1;
+	} else if (cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 &&
+		next == DDP_COMPONENT_WDMA1) {
+		*addr = MT6885_DISP_TOVL1_OUT0_MOUT_EN;
+		value = DISP_TOVL1_OUT0_MOUT_TO_DISP_WDMA1_SEL;
+	} else {
+		value = -1;
+	}
+
+	return value;
+}
+
+static int mtk_ddp_mout_en_1_MT6885(const struct mtk_mmsys_reg_data *data,
+		enum mtk_ddp_comp_id cur, enum mtk_ddp_comp_id next,
+		unsigned int *addr)
+{
+	int value;
+
+	if (cur == DDP_COMPONENT_OVL3_2L && next == DDP_COMPONENT_WDMA1) {
+		*addr = MT6885_MMSYS_OVL_CON;
+		value = DISP_OVL3_2L_TO_DISP_RDMA5;
 	} else {
 		value = -1;
 	}
@@ -3082,6 +3105,10 @@ static int mtk_ddp_sel_in_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_WDMA1) {
 		*addr = MT6885_DISP_WDMA1_SEL_IN;
 		value = WDMA1_SEL_IN_FROM_DISP_TOVL1_OUT1_MOUT;
+	} else if (cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 &&
+		next == DDP_COMPONENT_WDMA1) {
+		*addr = MT6885_DISP_WDMA1_SEL_IN;
+		value = WDMA1_SEL_IN_FROM_DISP_TOVL1_OUT0_MOUT;
 	} else if (cur == DDP_COMPONENT_RSZ0 &&
 		next == DDP_COMPONENT_OVL0) {
 		*addr = MT6885_DISP_RDMA2_RSZ0_RSZ1_SEL_IN;
@@ -3150,6 +3177,10 @@ static int mtk_ddp_sel_in_MT6885(const struct mtk_mmsys_reg_data *data,
 		next == DDP_COMPONENT_DSC0) {
 		*addr = MT6885_DISP_RDMA4_PQ0_MERGE0_SEL_IN;
 		value = DISP_RDMA4_SOUT_TO_DISP_RDMA4_PQ0_MERGE0_SEL;
+	}  else if (cur == DDP_COMPONENT_OVL1_2L_VIRTUAL0 &&
+		next == DDP_COMPONENT_WDMA1) {
+		*addr = MT6885_DISP_WDMA1_SEL_IN;
+		value = WDMA1_SEL_IN_FROM_DISP_TOVL3_2L_OUT0_MOUT;
 	} else {
 		value = -1;
 	}
@@ -3819,6 +3850,12 @@ void mtk_ddp_add_comp_to_path(struct mtk_drm_crtc *mtk_crtc,
 			writel_relaxed(reg, config_regs + addr);
 		}
 
+		value = mtk_ddp_mout_en_1_MT6885(reg_data, cur, next, &addr);
+		if (value >= 0) {
+			reg = readl_relaxed(config_regs + addr) | value;
+			writel_relaxed(reg, config_regs + addr);
+		}
+
 		value = mtk_ddp_sout_sel_MT6885(reg_data, cur, next, &addr);
 		if (value >= 0)
 			writel_relaxed(value, config_regs + addr);
@@ -3907,6 +3944,13 @@ void mtk_ddp_add_comp_to_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 
 	case MMSYS_MT6885:
 		value = mtk_ddp_mout_en_MT6885(mtk_crtc->mmsys_reg_data,
+			cur, next, &addr);
+		if (value >= 0)
+			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				mtk_crtc->config_regs_pa
+				+ addr, value, value);
+
+		value = mtk_ddp_mout_en_1_MT6885(mtk_crtc->mmsys_reg_data,
 			cur, next, &addr);
 		if (value >= 0)
 			cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
@@ -4011,6 +4055,12 @@ void mtk_ddp_remove_comp_from_path(void __iomem *config_regs,
 		reg = readl_relaxed(config_regs + addr) & ~(unsigned int)value;
 		writel_relaxed(reg, config_regs + addr);
 	}
+
+	value = mtk_ddp_mout_en_1_MT6885(reg_data, cur, next, &addr);
+	if (value >= 0) {
+		reg = readl_relaxed(config_regs + addr) & ~value;
+		writel_relaxed(reg, config_regs + addr);
+	}
 #endif
 
 #if defined(CONFIG_MACH_MT6873)
@@ -4058,6 +4108,13 @@ void mtk_ddp_remove_comp_from_path_with_cmdq(struct mtk_drm_crtc *mtk_crtc,
 		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
 			       mtk_crtc->config_regs_pa + addr,
 			       ~(unsigned int)value, value);
+
+	value = mtk_ddp_mout_en_1_MT6885(mtk_crtc->mmsys_reg_data,
+			cur, next, &addr);
+	if (value >= 0)
+		cmdq_pkt_write(handle, mtk_crtc->gce_obj.base,
+				mtk_crtc->config_regs_pa + addr, ~value, value);
+
 #endif
 
 #if defined(CONFIG_MACH_MT6873)
@@ -5812,7 +5869,7 @@ void mmsys_config_dump_analysis_mt6885(void __iomem *config_regs)
 				(sizeof(clock_on) - strlen(clock_on) - 1));
 		}
 	}
-	DDPFUNC("%s\n", clock_on);
+	DDPDUMP("%s\n", clock_on);
 }
 
 void mmsys_config_dump_analysis_mt6873(void __iomem *config_regs)
