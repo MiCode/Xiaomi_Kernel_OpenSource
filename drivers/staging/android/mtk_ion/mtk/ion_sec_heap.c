@@ -549,7 +549,8 @@ static int __do_dump_share_fd(const void *data,
 	struct ion_sec_buffer_info *bug_info;
 
 	buffer = ion_drv_file_to_buffer(file);
-	if (IS_ERR_OR_NULL(buffer))
+	if (IS_ERR_OR_NULL(buffer) || IS_ERR_OR_NULL(buffer->heap) ||
+	    (int)buffer->heap->type != ION_HEAP_TYPE_MULTIMEDIA_SEC)
 		return 0;
 
 	bug_info = (struct ion_sec_buffer_info *)buffer->priv_virt;

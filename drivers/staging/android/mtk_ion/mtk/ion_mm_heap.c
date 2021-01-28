@@ -1084,7 +1084,8 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	#define MVA_ALIGN_MASK (MVA_SIZE - 1)
 
 	buffer = ion_drv_file_to_buffer(file);
-	if (IS_ERR_OR_NULL(buffer))
+	if (IS_ERR_OR_NULL(buffer) || IS_ERR_OR_NULL(buffer->heap) ||
+	    (int)buffer->heap->type != ION_HEAP_TYPE_MULTIMEDIA)
 		return 0;
 
 	bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
