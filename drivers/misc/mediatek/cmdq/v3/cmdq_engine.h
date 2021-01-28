@@ -76,6 +76,9 @@ enum CMDQ_ENG_ENUM {
 	CMDQ_ENG_ISP_IMGCI,		/* 53 */
 	CMDQ_ENG_ISP_TIMGO,		/* 54 */
 
+	/* MDP : MT6761 */
+	CMDQ_ENG_MDP_CCORR0,		/* 55 */
+
 	/* temp: CMDQ internal usage */
 	CMDQ_ENG_CMDQ = 63,
 

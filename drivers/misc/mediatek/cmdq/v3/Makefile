@@ -77,7 +77,8 @@ endif
 obj-$(CONFIG_MTK_CMDQ)	+= cmdq_core.o
 cmdq_core-y	:= cmdq_driver.o cmdq_device.o cmdq_helper_ext.o \
 		cmdq_event_common.o cmdq_subsys_common.o cmdq_record.o \
-		cmdq_virtual.o cmdq_mdp_common.o cmdq_mdp_mt6779.o
+		cmdq_virtual.o cmdq_mdp_common.o \
+		cmdq_mdp_mt6761.o cmdq_mdp_mt6779.o
 #obj-$(CONFIG_MTK_CMDQ) += cmdq_prof.o
 obj-$(CONFIG_MTK_CMDQ) += cmdq_test.o
 

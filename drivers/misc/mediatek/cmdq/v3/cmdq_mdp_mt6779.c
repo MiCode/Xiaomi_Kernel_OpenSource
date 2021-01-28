@@ -57,13 +57,13 @@ struct CmdqMdpModuleClock {
 };
 static struct CmdqMdpModuleClock gCmdqMdpModuleClock;
 #define IMP_ENABLE_MDP_HW_CLOCK(FN_NAME, HW_NAME)	\
-uint32_t cmdq_mdp_enable_clock_##FN_NAME(bool enable)	\
+static uint32_t cmdq_mdp_enable_clock_##FN_NAME(bool enable)	\
 {		\
 	return cmdq_dev_enable_device_clock(enable,	\
 		gCmdqMdpModuleClock.clk_##HW_NAME, #HW_NAME "-clk");	\
 }
 #define IMP_MDP_HW_CLOCK_IS_ENABLE(FN_NAME, HW_NAME)	\
-bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
+static bool cmdq_mdp_clock_is_enable_##FN_NAME(void)	\
 {		\
 	return cmdq_dev_device_clock_is_enable(	\
 		gCmdqMdpModuleClock.clk_##HW_NAME);	\
@@ -82,11 +82,11 @@ IMP_ENABLE_MDP_HW_CLOCK(MDP_HDR, MDP_HDR);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_WROT0, MDP_WROT0);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_WROT1, MDP_WROT1);
 IMP_ENABLE_MDP_HW_CLOCK(MDP_TDSHP0, MDP_TDSHP);
+#ifdef CMDQ_MDP_COLOR
 IMP_ENABLE_MDP_HW_CLOCK(MDP_COLOR0, MDP_COLOR);
+#endif
 IMP_MDP_HW_CLOCK_IS_ENABLE(CAM_MDP_TX, CAM_MDP_TX);
-IMP_MDP_HW_CLOCK_IS_ENABLE(CAM_MDP_RX, CAM_MDP_RX);
 IMP_MDP_HW_CLOCK_IS_ENABLE(CAM_MDP2_TX, CAM_MDP2_TX);
-IMP_MDP_HW_CLOCK_IS_ENABLE(CAM_MDP2_RX, CAM_MDP2_RX);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA0, MDP_RDMA0);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RDMA1, MDP_RDMA1);
 IMP_MDP_HW_CLOCK_IS_ENABLE(MDP_RSZ0, MDP_RSZ0);

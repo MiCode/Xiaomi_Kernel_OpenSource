@@ -40,6 +40,7 @@
 
 enum mdp_platforms {
 	MDP_MT6779 = 0,
+	MDP_MT6761 = 1,
 };
 
 static struct pm_qos_request mdp_bw_qos_request[MDP_TOTAL_THREAD];
@@ -3236,6 +3237,9 @@ void cmdq_mdp_set_platform(struct device *dev)
 	}
 
 	switch (mdp_plat) {
+	case MDP_MT6761:
+		cmdq_mdp_set_mt6761();
+		break;
 	case MDP_MT6779:
 		cmdq_mdp_set_mt6779();
 		break;

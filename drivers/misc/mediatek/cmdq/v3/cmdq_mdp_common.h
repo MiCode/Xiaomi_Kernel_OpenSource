@@ -204,6 +204,7 @@ const char *cmdq_mdp_parse_handle_error_module_by_hwflag(
 
 /* Platform virtual function setting */
 void cmdq_mdp_set_platform(struct device *dev);
+void cmdq_mdp_set_mt6761(void);
 void cmdq_mdp_set_mt6779(void);
 
 #endif				/* __CMDQ_MDP_COMMON_H__ */
