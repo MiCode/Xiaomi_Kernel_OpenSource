@@ -94,7 +94,7 @@ static const char *aee_av_filter_list[AEE_AV_FILTER_NUM] = {
 
 #define SKIP_PATTERN_NUM 5
 static const char *skip_pattern[SKIP_PATTERN_NUM] = {
-		"ioctlcmd=0x8927"
+		"scontext=u:r:untrusted_app"
 };
 
 static int mtk_check_filter(char *scontext);
