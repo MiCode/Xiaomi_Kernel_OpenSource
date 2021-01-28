@@ -36,8 +36,11 @@
 
 /* MET: define to enable MET*/
 //#define ISP_MET_READY
+#define EP_MARK_SMI
+#define EP_NO_K_LOG_ADJUST
 
-#define EP_STAGE
+
+/* #define EP_STAGE */
 #ifdef EP_STAGE
 #define EP_MARK_SMI      /* disable SMI related for EP */
 #define DUMMY_INT        /* For early if load dont need to use camera*/
@@ -48,8 +51,8 @@
 /* EP no need to adjust upper bound of kernel log count */
 #define EP_NO_K_LOG_ADJUST
 #endif
-//#define ENABLE_TIMESYNC_HANDLE    /* able/disable TimeSync related for EP */
-#define IRQ_LOG_EN
+#define ENABLE_TIMESYNC_HANDLE    /* able/disable TimeSync related for EP */
+//#define IRQ_LOG_EN
 
 #ifdef CONFIG_COMPAT
 /* 64 bit */

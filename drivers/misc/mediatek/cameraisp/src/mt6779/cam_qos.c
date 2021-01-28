@@ -15,11 +15,13 @@
 #include <linux/types.h>
 #include "inc/cam_qos.h"
 
-#define EP_MARK_QOS
-#ifndef EP_MARK_QOS
-#define CONFIG_MTK_QOS_SUPPORT
-
 #ifdef CONFIG_MTK_QOS_SUPPORT
+#undef CONFIG_MTK_QOS_SUPPORT
+#endif
+#define EP_PMQOS
+#define EP_USE_PQMS
+
+#ifdef EP_USE_PQMS
 #include <mmdvfs_pmqos.h>
 #else
 #include <mmdvfs_mgr.h>
@@ -93,11 +95,12 @@
 
 
 	struct pm_qos_request isp_qos;
-#else
-
-	struct mmdvfs_pm_qos_request isp_qos;
-
 #endif
+//#else
+
+//	struct mmdvfs_pm_qos_request isp_qos;
+
+//#endif
 
 static u32 target_clk;
 
@@ -500,7 +503,7 @@ void mtk_pmqos_add(enum ISP_IRQ_TYPE_ENUM module, u32 portID)
 		}
 	break;
 	}
-	}
+}
 
 void mtk_pmqos_set(enum ISP_IRQ_TYPE_ENUM module, u32 portID, struct ISP_BW bw)
 {
@@ -673,8 +676,15 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 	#define mtk_pmqos_clr(module)		\
 		LOG_NOTICE("MTK_SET_PM_QOS is not supported\n")
 
-
-
+#ifdef EP_PMQOS
+#define mtk_dfs_add()
+#define mtk_dfs_remove()
+#define mtk_dfs_clr()
+#define mtk_dfs_set()
+#define mtk_dfs_update(clk)
+#define mtk_dfs_supported(frq, step)
+#define mtk_dfs_cur()
+#else
 	#define mtk_dfs_add()		\
 		mmdvfs_pm_qos_add_request(&isp_qos, \
 					  MMDVFS_PM_QOS_SUB_SYS_CAMERA, 0)
@@ -703,8 +713,8 @@ void mtk_pmqos_clr(enum ISP_IRQ_TYPE_ENUM module)
 		mmdvfs_qos_get_cur_thres(&isp_qos, \
 					 MMDVFS_PM_QOS_SUB_SYS_CAMERA)
 #endif
+#endif
 
-//#define EP_PMQOS
 int ISP_SetPMQOS(
 	enum E_QOS_OP cmd,
 	enum ISP_IRQ_TYPE_ENUM module,
@@ -725,8 +735,9 @@ int ISP_SetPMQOS(
 	case E_BW_ADD:
 		{
 			u32 i = 0;
-
+#ifdef CONFIG_MTK_QOS_SUPPORT
 			plist_head_init(&gBW_LIST[module]);
+#endif
 			for (; i < _cam_max_; i++)
 				mtk_pmqos_add(module, i);
 
@@ -837,8 +848,9 @@ int SV_SetPMQOS(
 	case E_BW_ADD:
 		{
 			u32 i = 0;
-
+#ifdef CONFIG_MTK_QOS_SUPPORT
 			plist_head_init(gSVBW_LIST(module));
+#endif
 			for (; i < _camsv_max_; i++)
 				mtk_pmqos_add(module, i);
 
@@ -916,20 +928,4 @@ int SV_SetPMQOS(
 	}
 	return Ret;
 }
-#else
-int ISP_SetPMQOS(
-	enum E_QOS_OP cmd,
-	enum ISP_IRQ_TYPE_ENUM module,
-	unsigned int *pvalue)
-{
-	return 0;
-}
 
-int SV_SetPMQOS(
-	enum E_QOS_OP cmd,
-	enum ISP_IRQ_TYPE_ENUM module,
-	unsigned int *pvalue)
-{
-	return 0;
-}
-#endif
