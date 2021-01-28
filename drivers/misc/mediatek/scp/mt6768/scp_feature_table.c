@@ -66,7 +66,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	},
 	{
 		.feature     = VOW_BARGEIN_FEATURE_ID,
-		.freq        = 100,
+		.freq        = 120,
 		.enable      = 0,
 		.sub_feature = 0,
 	},
