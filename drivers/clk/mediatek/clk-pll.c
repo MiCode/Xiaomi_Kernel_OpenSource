@@ -15,6 +15,7 @@
 #include <linux/clkdev.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -200,7 +201,7 @@ static void mtk_pll_calc_values(struct mtk_clk_pll *pll, u32 *pcw, u32 *postdiv,
 	ibits = pll->data->pcwibits ? pll->data->pcwibits : INTEGER_BITS;
 	_pcw = ((u64)freq << val) << (pll->data->pcwbits - ibits);
 	if (fin != 0)
-		div64_ul(_pcw, fin);
+		_pcw = div_u64(_pcw, fin);
 
 	*pcw = (u32)_pcw;
 }
@@ -213,6 +214,7 @@ static int mtk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	u32 postdiv;
 
 	mtk_pll_calc_values(pll, &pcw, &postdiv, rate, parent_rate);
+
 	if (!mtk_fh_set_rate || !mtk_fh_set_rate(pll->data->id, pcw, postdiv))
 		mtk_pll_set_rate_regs(pll, pcw, postdiv);
 

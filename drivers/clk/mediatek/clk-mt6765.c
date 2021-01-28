@@ -1143,7 +1143,7 @@ static const struct mtk_gate apmixed_clks[] = {
 
 /* FIXME: modify FMAX/FMIN/RSTBAR */
 #define MT6765_PLL_FMAX		(3800UL * MHZ)
-#define MT6765_PLL_FMIN		(1500UL * MHZ)
+#define MT6765_PLL_FMIN		(1600UL * MHZ)
 
 #define CON0_MT6765_RST_BAR	BIT(23)
 
