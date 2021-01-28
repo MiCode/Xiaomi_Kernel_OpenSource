@@ -442,10 +442,13 @@ void mdrv_DPTx_DSC_Support(struct mtk_dp *mtk_dp);
 void mtk_dp_dsc_pps_send(u8 *PPS_128);
 bool mdrv_DPTx_PHY_AutoTest(struct mtk_dp *mtk_dp, u8 ubDPCD_201);
 void mdrv_DPTx_VideoMute(struct mtk_dp *mtk_dp, bool bENABLE);
-void mdrv_DPTx_OutPutMute(struct mtk_dp *mtk_dp, bool bEnable);
+void mdrv_DPTx_AudioMute(struct mtk_dp *mtk_dp, bool bENABLE);
 void mdrv_DPTx_SPKG_SDP(struct mtk_dp *mtk_dp, bool bEnable, u8 ucSDPType,
 	u8 *pHB, u8 *pDB);
+void mdrv_DPTx_I2S_Audio_Config(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_I2S_Audio_Enable(struct mtk_dp *mtk_dp, bool bEnable);
+void mdrv_DPTx_I2S_Audio_Ch_Status_Set(struct mtk_dp *mtk_dp, u8 ucChannel,
+	u8 ucFs, u8 ucWordlength);
 void mdrv_DPTx_I2S_Audio_SDP_Channel_Setting(struct mtk_dp *mtk_dp,
 	u8 ucChannel, u8 ucFs, u8 ucWordlength);
 int mdrv_DPTx_HPD_HandleInThread(struct mtk_dp *mtk_dp);
