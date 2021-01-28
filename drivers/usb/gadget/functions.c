@@ -61,6 +61,9 @@ struct usb_function *usb_get_function(struct usb_function_instance *fi)
 	f = fi->fd->alloc_func(fi);
 	if (IS_ERR(f))
 		return f;
+
+	pr_info("%s usb_function name=%s\n", __func__, f->name);
+
 	f->fi = fi;
 	return f;
 }
@@ -72,6 +75,8 @@ void usb_put_function_instance(struct usb_function_instance *fi)
 
 	if (!fi)
 		return;
+
+	pr_info("%s fd name=%s\n", __func__, fi->fd->name);
 
 	mod = fi->fd->mod;
 	fi->free_func_inst(fi);
@@ -94,6 +99,8 @@ int usb_function_register(struct usb_function_driver *newf)
 	int ret;
 
 	ret = -EEXIST;
+
+	pr_info("%s name=%s\n", __func__, newf->name);
 
 	mutex_lock(&func_lock);
 	list_for_each_entry(fd, &func_list, list) {
