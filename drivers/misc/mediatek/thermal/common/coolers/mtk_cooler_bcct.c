@@ -18,10 +18,12 @@
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #include "mach/mtk_thermal.h"
+
+#define CONFIG_MTK_GAUGE_VERSION 30
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/charger_type.h>
 #include <mt-plat/mtk_charger.h>
-#include <mt-plat/mtk_battery.h>
+//#include <mt-plat/mtk_battery.h>
 #else
 #include <tmp_battery.h>
 #include <charging.h>

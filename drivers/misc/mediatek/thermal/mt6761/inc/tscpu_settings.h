@@ -323,6 +323,7 @@ extern int fast_polling_factor;
 extern int tscpu_cur_fp_factor;
 extern int tscpu_next_fp_factor;
 #endif
+extern struct platform_device *tscpu_pdev;
 
 /*In common/thermal_zones/mtk_ts_cpu.c*/
 extern long long thermal_get_current_time_us(void);
@@ -737,5 +738,6 @@ extern void __iomem *INFRACFG_AO_base;
 
 /*cpu core nums*/
 #define TZCPU_NO_CPU_CORES             CONFIG_NR_CPUS
+
 
 #endif	/* __TSCPU_SETTINGS_H__ */

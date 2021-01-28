@@ -195,6 +195,7 @@ struct regulator *vcore_reg_id;
 #endif
 #endif
 struct platform_device *tscpu_pdev;
+EXPORT_SYMBOL_GPL(tscpu_pdev);
 
 /*=============================================================
  * Local function definition

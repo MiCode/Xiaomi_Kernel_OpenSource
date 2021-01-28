@@ -124,10 +124,9 @@ int tspa_get_MD_tx_tput(void)
 {
 	return tx_throughput;
 }
-
-static int pa_cal_stats(unsigned long data)
+static void pa_cal_stats(struct timer_list *t)
 {
-	struct pa_stats *stats_info = (struct pa_stats *) data;
+	struct pa_stats *stats_info = &pa_stats_info;
 	struct timeval cur_time;
 
 	mtktspa_dprintk("[%s] pre_time=%lu, pre_data=%lu\n", __func__,
@@ -177,7 +176,7 @@ static int pa_cal_stats(unsigned long data)
 
 	pa_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&pa_stats_timer);
-	return 0;
+	//return 0;
 }
 #endif
 
@@ -799,12 +798,10 @@ static int __init mtktspa_init(void)
 	/* init a timer for stats tx bytes */
 	pa_stats_info.pre_time = 0;
 	pa_stats_info.pre_tx_bytes = 0;
-
-	init_timer_deferrable(&pa_stats_timer);
-	pa_stats_timer.function = (void *)&pa_cal_stats;
-	pa_stats_timer.data = (unsigned long) &pa_stats_info;
+	timer_setup(&pa_stats_timer, pa_cal_stats, TIMER_DEFERRABLE);
 	pa_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&pa_stats_timer);
+
 #endif
 
 	mtkTTimer_register("mtktspa", mtkts_pa_start_thermal_timer,

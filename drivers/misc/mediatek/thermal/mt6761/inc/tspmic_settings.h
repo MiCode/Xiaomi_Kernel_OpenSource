@@ -4,9 +4,9 @@
  */
 #ifndef __TSPMIC_SETTINGS_H__
 #define __TSPMIC_SETTINGS_H__
-
-#include <mach/upmu_hw.h>
+//#include <mach/upmu_hw.h>
 /*#include <mach/mtk_pmic_wrap.h>*/
+#include <linux/regmap.h>
 
 /*=============================================================
  * Genernal
@@ -30,10 +30,12 @@
 			pr_notice("[Thermal/TZ/PMIC] " fmt, ##args); \
 		}							\
 	} while (0)
+#define THERMAL_USE_IIO_CHANNEL
 
 extern int mtktspmic_debug_log;
-extern void mtktspmic_cali_prepare(void);
+void mtktspmic_cali_prepare(struct regmap *pmic_map);
 extern void mtktspmic_cali_prepare2(void);
+extern void mtktspmic_get_from_dts(void);
 extern int mtktspmic_get_hw_temp(void);
 extern int mt6357tsbuck1_get_hw_temp(void);
 extern int mt6357tsbuck2_get_hw_temp(void);

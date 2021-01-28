@@ -463,10 +463,9 @@ int tswmt_get_WiFi_tx_tput(void)
 {
 	return tx_throughput;
 }
-
-static int wmt_cal_stats(unsigned long data)
+static void wmt_cal_stats(struct timer_list *t)
 {
-	struct wmt_stats *stats_info = (struct wmt_stats *)data;
+	struct wmt_stats *stats_info = &wmt_stats_info;
 	struct timeval cur_time;
 
 	wmt_tm_dprintk("[%s] pre_time=%lu, pre_data=%lu\n", __func__, pre_time,
@@ -517,7 +516,7 @@ static int wmt_cal_stats(unsigned long data)
 
 	wmt_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&wmt_stats_timer);
-	return 0;
+	//return 0;
 }
 
 static int wmt_thz_bind(struct thermal_zone_device *thz_dev,
@@ -1956,16 +1955,14 @@ static int __init wmt_tm_init(void)
 	err = wmt_tm_proc_register();
 	if (err)
 		return err;
-
-	/* init a timer for stats tx bytes */
+/* init a timer for stats tx bytes */
 	wmt_stats_info.pre_time = 0;
 	wmt_stats_info.pre_tx_bytes = 0;
 
-	init_timer_deferrable(&wmt_stats_timer);
-	wmt_stats_timer.function = (void *)&wmt_cal_stats;
-	wmt_stats_timer.data = (unsigned long)&wmt_stats_info;
+	timer_setup(&wmt_stats_timer, wmt_cal_stats, TIMER_DEFERRABLE);
 	wmt_stats_timer.expires = jiffies + 1 * HZ;
 	add_timer(&wmt_stats_timer);
+
 
 	err = wmt_tm_thz_cl_register();
 	if (err)

@@ -11,16 +11,20 @@
 # GNU General Public License for more details.
 #
 
-THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
+#THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
+THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/mt6761
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/mt6761
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/mt6761
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/mt6761/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/pmic/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y  += -I$(srctree)/include/dt-bindings/
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
 obj-$(CONFIG_THERMAL) += mtk_tc.o
 #obj-$(CONFIG_THERMAL) += mtk_thermal_ipi.o

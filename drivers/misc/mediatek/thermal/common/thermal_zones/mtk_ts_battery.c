@@ -24,8 +24,10 @@
 #include <linux/uidgid.h>
 #include <linux/slab.h>
 #include "tzbatt_initcfg.h"
+#define CONFIG_MTK_GAUGE_VERSION 30
+
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
-#include <mtk_battery.h>
+//#include <mtk_battery.h>
 #else
 #include <tmp_battery.h>
 #endif

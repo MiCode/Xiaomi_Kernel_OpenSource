@@ -19,6 +19,8 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#define CONFIG_MTK_GAUGE_VERSION 30
+
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/mtk_charger.h>
 #else

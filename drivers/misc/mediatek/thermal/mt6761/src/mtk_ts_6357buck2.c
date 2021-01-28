@@ -17,10 +17,12 @@
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
 #include "mtk_thermal_timer.h"
-#include <mt-plat/upmu_common.h>
+//#include <mt-plat/upmu_common.h>
 #include <tspmic_settings.h>
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#include <linux/mfd/mt6397/core.h>/* PMIC MFD core header */
+#include <linux/regmap.h>
 
 /*=============================================================
  *Local variable definition
@@ -546,16 +548,17 @@ static const struct file_operations mt6357tsbuck2_fops = {
 	.release = single_release,
 };
 
-static int __init mt6357tsbuck2_init(void)
+static int mt6357_ts_buck2_probe(struct platform_device *pdev)
 {
 	int err = 0;
-
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mt6357tsbuck2_dir = NULL;
+	struct mt6397_chip *chip;
 
+	chip = (struct mt6397_chip *)dev_get_drvdata(pdev->dev.parent);
 	mtktspmic_info("[%s]\n", __func__);
 
-	mtktspmic_cali_prepare();
+	mtktspmic_cali_prepare(chip->regmap);
 	mtktspmic_cali_prepare2();
 
 	err = mt6357tsbuck2_register_cooler();
@@ -571,7 +574,7 @@ static int __init mt6357tsbuck2_init(void)
 			__func__);
 	} else {
 		entry =
-		    proc_create("tz6357buck2", 0664,
+			proc_create("tz6357buck2", 0664,
 				mt6357tsbuck2_dir, &mt6357tsbuck2_fops);
 		if (entry)
 			proc_set_user(entry, uid, gid);
@@ -585,6 +588,29 @@ static int __init mt6357tsbuck2_init(void)
 err_unreg:
 	mt6357tsbuck2_unregister_cooler();
 	return err;
+
+
+}
+
+static const struct of_device_id mt6357_ts_buck2_of_match[] = {
+	{.compatible = "mediatek,mt6357_ts_buck2",},
+	{},
+};
+
+
+MODULE_DEVICE_TABLE(of, mt6357_ts_buck2_of_match);
+
+static struct platform_driver mt6357_ts_buck2_driver = {
+	.probe = mt6357_ts_buck2_probe,
+	.driver = {
+		.name = "mt6357_ts_buck2",
+		.of_match_table = mt6357_ts_buck2_of_match,
+		},
+};
+
+static int __init mt6357tsbuck2_init(void)
+{
+	return platform_driver_register(&mt6357_ts_buck2_driver);
 }
 
 static void __exit mt6357tsbuck2_exit(void)
@@ -593,6 +619,7 @@ static void __exit mt6357tsbuck2_exit(void)
 	mt6357tsbuck2_unregister_thermal();
 	mt6357tsbuck2_unregister_cooler();
 	mtkTTimer_unregister("mt6357tsbuck2");
+	platform_driver_unregister(&mt6357_ts_buck2_driver);
 }
 module_init(mt6357tsbuck2_init);
 module_exit(mt6357tsbuck2_exit);

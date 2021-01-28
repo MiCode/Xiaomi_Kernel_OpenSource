@@ -18,10 +18,12 @@
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
 #include "mtk_thermal_timer.h"
-#include <mt-plat/upmu_common.h>
+//#include <mt-plat/upmu_common.h>
 #include <tspmic_settings.h>
 #include <linux/uidgid.h>
 #include <linux/slab.h>
+#include <linux/mfd/mt6397/core.h>/* PMIC MFD core header */
+#include <linux/regmap.h>
 
 /*=============================================================
  *Local variable definition
@@ -664,30 +666,31 @@ static const struct file_operations mtktspmic_ate_fops = {
 	.write = mtktspmic_write_ate,
 	.release = single_release,
 };
-
-static int __init mtktspmic_init(void)
+static int mtk_ts_pmic_probe(struct platform_device *pdev)
 {
 	int err = 0;
-
 	struct proc_dir_entry *entry = NULL;
 	struct proc_dir_entry *mtktspmic_dir = NULL;
+	struct mt6397_chip *chip;
 
+	chip = (struct mt6397_chip *)dev_get_drvdata(pdev->dev.parent);
 	mtktspmic_info("[%s]\n", __func__);
 
 	/*
 	 *	bit4	RG_VBUF_EN	1: turn on Vbuf.
 	 *						0: turn off Vbuf.
-	 *	bit2	RG_VBUF_BYP	1: Bypass Vbuf.
+	 *	bit2	RG_VBUF_BYP 1: Bypass Vbuf.
 	 *						0: turn on Vbuf.
 	 *
 	 *	RG_VBUF_EN = 1 / RG_VBUF_BYP = 0
 	 *
 	 *	pmic_data = ts_pmic_read(0x0E9E);
-	 *    if((pmic_data>>4&0x1)!=1 || (pmic_data>>2&0x1)!=0)
+	 *	  if((pmic_data>>4&0x1)!=1 || (pmic_data>>2&0x1)!=0)
 	 *	mtktspmic_info("[mtktspmic_init]: Warrning !!!"
 	 *				"Need to checking this !!!!!\n");
 	 */
-	mtktspmic_cali_prepare();
+	mtktspmic_cali_prepare(chip->regmap);
+
 	mtktspmic_cali_prepare2();
 #if defined(THERMAL_USE_IIO_CHANNEL)
 	mtktspmic_get_from_dts();
@@ -711,10 +714,10 @@ static int __init mtktspmic_init(void)
 			proc_set_user(entry, uid, gid);
 
 		entry =
-		    proc_create("tzpmic_log", 0644, mtktspmic_dir,
+			proc_create("tzpmic_log", 0644, mtktspmic_dir,
 							&mtktspmic_log_fops);
 		entry =
-		    proc_create("tzpmic_ate", 0644, mtktspmic_dir,
+			proc_create("tzpmic_ate", 0644, mtktspmic_dir,
 				&mtktspmic_ate_fops);
 	}
 
@@ -726,6 +729,29 @@ static int __init mtktspmic_init(void)
 err_unreg:
 	mtktspmic_unregister_cooler();
 	return err;
+
+
+}
+
+static const struct of_device_id mtk_ts_pmic_of_match[] = {
+	{.compatible = "mediatek,mtk_ts_pmic",},
+	{},
+};
+
+
+MODULE_DEVICE_TABLE(of, mtk_ts_pmic_of_match);
+
+static struct platform_driver mtk_ts_pmic_driver = {
+	.probe = mtk_ts_pmic_probe,
+	.driver = {
+		.name = "mtk_ts_pmic",
+		.of_match_table = mtk_ts_pmic_of_match,
+		},
+};
+
+static int __init mtktspmic_init(void)
+{
+	return platform_driver_register(&mtk_ts_pmic_driver);
 }
 
 static void __exit mtktspmic_exit(void)
@@ -734,6 +760,10 @@ static void __exit mtktspmic_exit(void)
 	mtktspmic_unregister_thermal();
 	mtktspmic_unregister_cooler();
 	mtkTTimer_unregister("mtktspmic");
+	platform_driver_unregister(&mtk_ts_pmic_driver);
 }
 module_init(mtktspmic_init);
 module_exit(mtktspmic_exit);
+
+MODULE_DESCRIPTION("MEDIATEK Thermal zone PMIC temperature sensor");
+MODULE_LICENSE("GPL v2");
