@@ -388,8 +388,7 @@ static inline int typec_norp_src_attached_entry(struct tcpc_device *tcpc_dev)
 #ifdef CONFIG_WATER_DETECTION
 #ifdef CONFIG_WD_POLLING_ONLY
 	if (!tcpc_dev->typec_power_ctrl) {
-		if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT ||
-		    get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT)
+		if (tcpc_dev->bootmode == 8 || tcpc_dev->bootmode == 9)
 			typec_check_water_status(tcpc_dev);
 
 		tcpci_set_usbid_polling(tcpc_dev, false);
@@ -2033,8 +2032,7 @@ int tcpc_typec_handle_cc_change(struct tcpc_device *tcpc_dev)
 		if (typec_state_old == typec_unattached_snk ||
 		    typec_state_old == typec_unattached_src) {
 #ifdef CONFIG_WD_POLLING_ONLY
-			if (get_boot_mode() == KERNEL_POWER_OFF_CHARGING_BOOT
-			    || get_boot_mode() == LOW_POWER_OFF_CHARGING_BOOT)
+			if (tcpc_dev->bootmode == 8 || tcpc_dev->bootmode == 9)
 				typec_check_water_status(tcpc_dev);
 #else
 			typec_check_water_status(tcpc_dev);
@@ -2817,9 +2815,7 @@ int tcpc_typec_handle_wd(struct tcpc_device *tcpc_dev, bool wd)
 	}
 
 #ifdef CONFIG_MTK_KERNEL_POWER_OFF_CHARGING
-	ret = get_boot_mode();
-	if (ret == KERNEL_POWER_OFF_CHARGING_BOOT ||
-	    ret == LOW_POWER_OFF_CHARGING_BOOT) {
+	if (tcpc_dev->bootmode == 8 || tcpc_dev->bootmode == 9) {
 		TYPEC_INFO("KPOC does not enter water protection\r\n");
 		goto out;
 	}

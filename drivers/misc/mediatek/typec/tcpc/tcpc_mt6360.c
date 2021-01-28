@@ -35,9 +35,7 @@
 #include <linux/sched/rt.h>
 
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#if CONFIG_MTK_GAUGE_VERSION == 30
-#include <mt-plat/charger_class.h>
-#endif /* CONFIG_MTK_GAUGE_VERSION == 30 */
+#include <charger_class.h>
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
 
 /* #define DEBUG_GPIO	66 */
@@ -100,11 +98,18 @@ struct mt6360_chip {
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#if CONFIG_MTK_GAUGE_VERSION == 30
 	struct charger_device *chgdev;
-#endif /* CONFIG_MTK_GAUGE_VERSION == 30 */
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
 };
+
+#ifdef CONFIG_WATER_DETECTION
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+#endif
 
 static const u8 mt6360_vend_alert_clearall[MT6360_VEND_INT_MAX] = {
 	0x3F, 0xDF, 0xFF, 0xFF, 0xFF,
@@ -1691,7 +1696,8 @@ static inline int mt6360_init_water_detection(struct tcpc_device *tcpc)
 	 * 0xc1[1:0] -> Rust exiting counts during rust protection flow
 	 * (when RUST_PROTECT_EN is "1"), set as 4
 	 */
-	mt6360_i2c_write8(tcpc, MT6360_REG_WD_DET_CTRL2, 0x02);
+	/* TODO: Modify PINS_SEL to CC1/CC2/DP/DM if USB setting is ready */
+	mt6360_i2c_write8(tcpc, MT6360_REG_WD_DET_CTRL2, 0x82);
 
 	/* DPDM Pull up capability, 220u */
 	mt6360_i2c_write8(tcpc, MT6360_REG_WD_DET_CTRL3, 0xFF);
@@ -1937,7 +1943,6 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 {
 	int ret;
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
-#if CONFIG_MTK_GAUGE_VERSION == 30
 	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
 
 	chip->chgdev = get_charger_by_name("primary_chg");
@@ -1945,7 +1950,6 @@ static int mt6360_tcpc_init(struct tcpc_device *tcpc, bool sw_reset)
 		dev_info(chip->dev, "%s get charger device fail\n", __func__);
 		return -EINVAL;
 	}
-#endif /* CONFIG_MTK_GAUGE_VERSION == 30 */
 #endif /* CONFIG_WATER_DETECTION || CONFIG_CABLE_TYPE_DETECTION */
 
 	MT6360_INFO("\n");
@@ -2189,9 +2193,7 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
 	u8 ctd_evt;
-#if CONFIG_MTK_GAUGE_VERSION == 30
 	u8 status;
-#endif
 
 	chip->tcpc->typec_cable_type = TCPC_CABLE_TYPE_NONE;
 	chip->handle_init_ctd = true;
@@ -2200,14 +2202,12 @@ static int mt6360_init_ctd(struct mt6360_chip *chip)
 		return ret;
 	if (ctd_evt & MT6360_M_CTD) {
 		mt6360_get_cable_type(chip->tcpc, &chip->init_cable_type);
-#if CONFIG_MTK_GAUGE_VERSION == 30
 		if (chip->init_cable_type == TCPC_CABLE_TYPE_C2C) {
 			ret = charger_dev_get_ctd_dischg_status(chip->chgdev,
 								&status);
 			if (ret >= 0 && (status & 0x82))
 				chip->init_cable_type = TCPC_CABLE_TYPE_A2C;
 		}
-#endif
 	}
 #endif /* CONFIG_CABLE_TYPE_DETECTION */
 
@@ -2342,6 +2342,10 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 {
 	struct tcpc_desc *desc;
 	struct device_node *np = dev->of_node;
+#ifdef CONFIG_WATER_DETECTION
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
+#endif
 	u32 val, len;
 	const char *name = "default";
 
@@ -2434,6 +2438,26 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_WATER_DETECTION;
 #endif /* CONFIG_MTK_TYPEC_WATER_DETECT_BY_PCB */
 	chip->tcpc->tcpc_flags |= TCPC_FLAGS_CABLE_TYPE_DETECTION;
+
+#ifdef CONFIG_WATER_DETECTION
+	boot_node = of_parse_phandle(np, "bootmode", 0);
+	if (!boot_node) {
+		dev_notice(chip->dev,
+			"%s: failed to get boot mode phandle\n", __func__);
+	} else {
+		tag = (struct tag_bootmode *)of_get_property(
+			boot_node, "atag,boot", NULL);
+		if (!tag)
+			dev_notice(chip->dev,
+				"%s: failed to get atag,boot\n", __func__);
+		else {
+			dev_info(chip->dev,
+				"%s, bootmode:%d\n", __func__, tag->bootmode);
+			chip->tcpc->bootmode = tag->bootmode;
+		}
+	}
+#endif
+
 	return 0;
 }
 
@@ -2524,13 +2548,13 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, mt6360_poll_work);
 	chip->irq_wake_lock =
-		wakeup_source_register(NULL, "mt6360_irq_wakelock");
+		wakeup_source_register(&client->dev, "mt6360_irq_wakelock");
 	chip->i2c_wake_lock =
-		wakeup_source_register(NULL, "mt6360_i2c_wakelock");
+		wakeup_source_register(&client->dev, "mt6360_i2c_wakelock");
 
 #ifdef CONFIG_WATER_DETECTION
 	chip->wd_wakeup_src =
-		wakeup_source_register("mt6360_wd_wakeup_src");
+		wakeup_source_register(&client->dev, "mt6360_wd_wakeup_src");
 	atomic_set(&chip->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
 #ifdef CONFIG_WD_POLLING_ONLY
 	INIT_DELAYED_WORK(&chip->usbid_poll_work, mt6360_usbid_poll_work);

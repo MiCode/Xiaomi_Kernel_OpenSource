@@ -305,6 +305,8 @@ struct mtk_charger {
 	struct notifier_block chg_alg_nb;
 	bool enable_hv_charging;
 
+	/* water detection */
+	bool water_detected;
 };
 
 /* functions which framework needs*/

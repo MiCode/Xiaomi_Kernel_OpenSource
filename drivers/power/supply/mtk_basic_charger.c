@@ -102,6 +102,13 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 		goto done;
 	}
 
+	if (info->water_detected) {
+		pdata->input_current_limit = info->data.usb_charger_current;
+		pdata->charging_current_limit = info->data.usb_charger_current;
+		is_basic = true;
+		goto done;
+	}
+
 	if ((info->bootmode == 1) ||
 	    (info->bootmode == 5)) {
 		pdata->input_current_limit = 200000; /* 200mA */

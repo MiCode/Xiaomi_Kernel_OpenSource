@@ -126,6 +126,10 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 			break;
 		};
 		break;
+	case TCP_NOTIFY_WD_STATUS:
+		ret = srcu_notifier_call_chain(&adapter->evt_nh,
+			MTK_TYPEC_WD_STATUS, &noti->wd_status.water_detected);
+		break;
 	}
 	return ret;
 }

@@ -1795,7 +1795,7 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 }
 
 int notify_adapter_event(struct notifier_block *notifier,
-			unsigned long evt, void *unused)
+			unsigned long evt, void *val)
 {
 	struct mtk_charger *pinfo = NULL;
 
@@ -1855,6 +1855,15 @@ int notify_adapter_event(struct notifier_block *notifier,
 		mutex_unlock(&pinfo->pd_lock);
 		/* type C is ready */
 		_wake_up_charger(pinfo);
+		break;
+	case MTK_TYPEC_WD_STATUS:
+		chr_err("wd status = %d\n", *(bool *)val);
+		pinfo->water_detected = *(bool *)val;
+		if (pinfo->water_detected == true)
+			pinfo->notify_code |= CHG_TYPEC_WD_STATUS;
+		else
+			pinfo->notify_code &= ~CHG_TYPEC_WD_STATUS;
+		mtk_chgstat_notify(pinfo);
 		break;
 	}
 	return NOTIFY_DONE;
