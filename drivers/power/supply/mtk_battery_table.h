@@ -254,6 +254,9 @@
 #define UI_LOW_LIMIT_VTH4	34500
 #define UI_LOW_LIMIT_TIME	99999
 
+#define MOVING_BATTEMP_EN	1
+#define MOVING_BATTEMP_THR	20
+
 /* Qmax for battery  */
 #define Q_MAX_L_CURRENT		0
 #define Q_MAX_H_CURRENT		10000

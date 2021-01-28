@@ -1024,6 +1024,9 @@ void fg_custom_init_from_header(struct mtk_battery *gm)
 	fg_cust_data->ui_low_limit_vth4 = UI_LOW_LIMIT_VTH4;
 	fg_cust_data->ui_low_limit_time = UI_LOW_LIMIT_TIME;
 
+	fg_cust_data->moving_battemp_en = MOVING_BATTEMP_EN;
+	fg_cust_data->moving_battemp_thr = MOVING_BATTEMP_THR;
+
 	if (version == GAUGE_HW_V2001) {
 		bm_debug("GAUGE_HW_V2001 disable nafg\n");
 		fg_cust_data->disable_nafg = 1;
@@ -1578,6 +1581,12 @@ void fg_custom_init_from_dts(struct platform_device *dev,
 		&(fg_cust_data->ui_low_limit_vth4), 1);
 	fg_read_dts_val(np, "UI_LOW_LIMIT_TIME",
 		&(fg_cust_data->ui_low_limit_time), 1);
+
+	/* average battemp */
+	fg_read_dts_val(np, "MOVING_BATTEMP_EN",
+		&(fg_cust_data->moving_battemp_en), 1);
+	fg_read_dts_val(np, "MOVING_BATTEMP_THR",
+		&(fg_cust_data->moving_battemp_thr), 1);
 
 	gm->disableGM30 = of_property_read_bool(
 		np, "DISABLE_MTKBATTERY");
