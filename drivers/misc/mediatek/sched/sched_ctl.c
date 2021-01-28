@@ -386,6 +386,7 @@ int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
 		p->cpu_prefer = prefer_type;
 		raw_spin_unlock_irqrestore(&p->pi_lock, flags);
 		trace_sched_set_cpuprefer(p);
+		retval = 0;
 	}
 	rcu_read_unlock();
 
