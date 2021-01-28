@@ -84,7 +84,7 @@ bool mt_get_irq_gic_targets(struct irq_data *d, cpumask_t *mask)
 	u32 cpu;
 	u32 cluster;
 	u64 routing_val;
-	u32 target_mask;
+	u64 target_mask;
 
 	/* for SPI/PPI, target to current cpu */
 	if (gic_irq(d) < 32) {
@@ -114,7 +114,7 @@ bool mt_get_irq_gic_targets(struct irq_data *d, cpumask_t *mask)
 		 */
 		target_mask = 1<<(cluster*4 + cpu);
 
-		pr_debug("%s:%d: irq(%d) target_mask(0x%x)\n",
+		pr_debug("%s:%d: irq(%d) target_mask(0x%llx)\n",
 				__func__, __LINE__, gic_irq(d), target_mask);
 	}
 
