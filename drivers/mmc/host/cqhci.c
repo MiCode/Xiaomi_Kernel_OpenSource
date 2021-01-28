@@ -104,6 +104,26 @@ static void cqhci_set_irqs(struct cqhci_host *cq_host, u32 set)
 
 #define DRV_NAME "cqhci"
 
+static void cqhci_dump_desc_by_tag(struct cqhci_host *cq_host, u8 tag)
+{
+	u8 *task_desc = NULL;
+	u8 *tran_desc = NULL;
+	int i;
+
+	pr_info("%s cqhci dump task%d desc:", __func__, tag);
+	if (tag < 31) {
+		tran_desc = get_trans_desc(cq_host, tag);
+		task_desc = get_desc(cq_host, tag);
+		for (i = 0; i < cq_host->task_desc_len; i++)
+			pr_info("task desc[%d] %02x\n", i, task_desc[i]);
+		for (i = 0; i < cq_host->trans_desc_len; i++)
+			pr_info("trans_desc[%d] %02x\n", i, tran_desc[i]);
+	} else {
+		return;
+	}
+
+}
+
 #define CQHCI_DUMP(f, x...) \
 	pr_err("%s: " DRV_NAME ": " f, mmc_hostname(mmc), ## x)
 
@@ -146,11 +166,18 @@ static void cqhci_dumpregs(struct cqhci_host *cq_host)
 	CQHCI_DUMP("Resp idx:  0x%08x | Resp arg: 0x%08x\n",
 		   cqhci_readl(cq_host, CQHCI_CRI),
 		   cqhci_readl(cq_host, CQHCI_CRA));
+	CQHCI_DUMP("CRNQP:     0x%08x | CRNQDUN:  0x%08x\n",
+		   cqhci_readl(cq_host, CQHCI_CRNQP),
+		   cqhci_readl(cq_host, CQHCI_CRNQDUN));
+	CQHCI_DUMP("CRNQIS:    0x%08x | CRNQIE:   0x%08x\n",
+		   cqhci_readl(cq_host, CQHCI_CRNQIS),
+		   cqhci_readl(cq_host, CQHCI_CRNQIE));
 
 	if (cq_host->ops->dumpregs)
 		cq_host->ops->dumpregs(mmc);
 	else
 		CQHCI_DUMP(": ===========================================\n");
+
 }
 
 /**
@@ -878,6 +905,7 @@ static bool cqhci_timeout(struct mmc_host *mmc, struct mmc_request *mrq,
 	if (timed_out) {
 		pr_err("%s: cqhci: timeout for tag %d\n",
 		       mmc_hostname(mmc), tag);
+		cqhci_dump_desc_by_tag(cq_host, tag);
 		cqhci_dumpregs(cq_host);
 	}
 

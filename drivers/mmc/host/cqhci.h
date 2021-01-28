@@ -119,6 +119,11 @@
 /* command response argument */
 #define CQHCI_CRA			0x5C
 
+#define CQHCI_CRNQP         0x70
+#define CQHCI_CRNQDUN       0x74
+#define CQHCI_CRNQIS        0x78
+#define CQHCI_CRNQIE        0x7c
+
 #define CQHCI_INT_ALL			0xF
 #define CQHCI_IC_DEFAULT_ICCTH		31
 #define CQHCI_IC_DEFAULT_ICTOVAL	1

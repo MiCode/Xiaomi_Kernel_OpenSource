@@ -429,6 +429,9 @@ struct msdc_host {
 	struct clk *bus_clk;	/* bus clock which used to access register */
 	struct clk *src_clk_cg; /* msdc source clock control gate */
 	struct clk *crypto_clk; /* msdc crypto clock */
+
+	void __iomem *crypto_clk_base; /*dbg use: for dump aes clk cg*/
+
 	u32 mclk;		/* mmc subsystem clock frequency */
 	u32 src_clk_freq;	/* source clock frequency */
 	unsigned char timing;
@@ -2210,15 +2213,31 @@ static const struct mmc_host_ops mt_msdc_ops = {
 	.hw_reset = msdc_hw_reset,
 };
 
+void msdc_dump_info(struct mmc_host *mmc)
+{
+	struct msdc_host *host = mmc_priv(mmc);
+	int i;
+	/*dump clock*/
+	if (host->crypto_clk_base)
+		dev_info(host->dev, "crypto_clk=%08x, bit29 should 2b0",
+			readl(host->crypto_clk_base));
+	/*dump nomral regs*/
+	for (i = 0; i <= 64; i++)
+		dev_info(host->dev, "[%08x]=%08x", i*4,
+			readl(host->base + i*4));
+}
 static const struct cqhci_host_ops msdc_cmdq_ops = {
 	.enable         = msdc_cqe_enable,
 	.disable        = msdc_cqe_disable,
+	.dumpregs       = msdc_dump_info,
 };
 
 
 static void msdc_of_property_parse(struct platform_device *pdev,
 				   struct msdc_host *host)
 {
+	unsigned int msdc_crypto_clk_base;
+
 	of_property_read_u32(pdev->dev.of_node, "mediatek,latch-ck",
 			     &host->latch_ck);
 
@@ -2242,6 +2261,10 @@ static void msdc_of_property_parse(struct platform_device *pdev,
 		host->cqhci = true;
 	else
 		host->cqhci = false;
+
+	if (!of_property_read_u32(pdev->dev.of_node, "msdc_crypto_clk_base",
+			     &msdc_crypto_clk_base))
+		host->crypto_clk_base = ioremap(msdc_crypto_clk_base, 4);
 }
 
 static int msdc_drv_probe(struct platform_device *pdev)
