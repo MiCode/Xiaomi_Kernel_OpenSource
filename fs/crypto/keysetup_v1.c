@@ -281,25 +281,32 @@ static int setup_v1_file_key_direct(struct fscrypt_info *ci,
 static int setup_v1_file_key_derived(struct fscrypt_info *ci,
 				     const u8 *raw_master_key)
 {
-	u8 *derived_key;
+	u8 *derived_key = NULL;
 	int err;
 
+	if (ci->ci_policy.version == FSCRYPT_POLICY_V1) {
+		err = fscrypt_set_derived_key(ci, raw_master_key);
+	} else {
 	/*
 	 * This cannot be a stack buffer because it will be passed to the
 	 * scatterlist crypto API during derive_key_aes().
 	 */
-	derived_key = kmalloc(ci->ci_mode->keysize, GFP_NOFS);
-	if (!derived_key)
-		return -ENOMEM;
 
-	err = derive_key_aes(raw_master_key, ci->ci_nonce,
-			     derived_key, ci->ci_mode->keysize);
-	if (err)
-		goto out;
+		derived_key = kmalloc(ci->ci_mode->keysize, GFP_NOFS);
+		if (!derived_key)
+			return -ENOMEM;
 
-	err = fscrypt_set_derived_key(ci, derived_key);
+		err = derive_key_aes(raw_master_key, ci->ci_nonce,
+				     derived_key, ci->ci_mode->keysize);
+		if (err)
+			goto out;
+
+		err = fscrypt_set_derived_key(ci, derived_key);
+	}
+
 out:
-	kzfree(derived_key);
+	if (derived_key)
+		kzfree(derived_key);
 	return err;
 }
 
