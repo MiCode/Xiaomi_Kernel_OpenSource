@@ -494,7 +494,7 @@ u16 gt1x_calc_checksum(u8 *fw, u32 length)
 
 int gt1x_recall_check(u8 *chk_src, u16 start_addr, u16 chk_length)
 {
-	u8 rd_buf[PACK_SIZE];
+	u8 rd_buf[PACK_SIZE] = {0};
 	s32 ret = 0;
 	u16 len = 0;
 	u32 compared_length = 0;
