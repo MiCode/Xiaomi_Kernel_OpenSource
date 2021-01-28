@@ -826,7 +826,7 @@ static int __init upower_init(void)
 	get_L_pwr_efficiency();
 	get_LL_pwr_efficiency();
 	turn = upower_cal_turn_point();
-	set_sched_turn_point_cap();
+	/* set_sched_turn_point_cap(); */
 	upower_debug("@@~turn point is %d\n", turn);
 #ifdef UPOWER_L_PLUS
 	upower_update_L_plus_cap();
