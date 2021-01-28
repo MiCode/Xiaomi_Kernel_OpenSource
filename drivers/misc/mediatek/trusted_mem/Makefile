@@ -19,8 +19,12 @@ ccflags-y += -Werror
 # Ensure module is built only when option is enabled
 obj-$(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM) = trusted_mem.o
 obj-$(CONFIG_MTK_SSMR) += ssmr_module.o
-
+ifeq ($(filter y m,$(CONFIG_MTK_SSMR)),m)
 ssmr_module-y += ssmr/memory_ssmr_module.o
+endif
+ifeq ($(filter y m,$(CONFIG_MTK_SSMR)),y)
+ssmr_module-y += ssmr/memory_ssmr.o
+endif
 trusted_mem-y += dev_mgr.o
 trusted_mem-y += entry.o
 trusted_mem-y += region_mgr.o
