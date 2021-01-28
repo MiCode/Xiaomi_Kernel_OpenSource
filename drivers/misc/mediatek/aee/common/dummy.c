@@ -150,10 +150,6 @@ __weak void aee_disable_api(void)
 {
 }
 
-__weak void aee_disable_api(void)
-{
-}
-
 #endif
 
 
