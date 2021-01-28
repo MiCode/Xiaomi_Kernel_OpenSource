@@ -118,6 +118,7 @@ config ANDROID_DEFAULT_SETTING
 	select MODULE_UNLOAD
 	select MODVERSIONS
 	select MULTIUSER
+	select NAMESPACES
 	select NET
 	select NET_CLS_ACT
 	select NET_CLS_BPF
@@ -165,6 +166,7 @@ config ANDROID_DEFAULT_SETTING
 	select NET_IPGRE_DEMUX
 	select NET_IPVTI
 	select NET_KEY
+	select NET_NS
 	select NET_SCHED
 	select NET_SCH_HTB
 	select NET_SCH_INGRESS
@@ -244,6 +246,7 @@ config ANDROID_DEFAULT_SETTING
 	select USB_CONFIGFS_UEVENT
 	select USB_GADGET
 	select USB_SUPPORT
+	select UTS_NS
 	select XFRM_INTERFACE
 	select XFRM_STATISTICS
 	select XFRM_USER
