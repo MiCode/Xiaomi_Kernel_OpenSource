@@ -1966,20 +1966,6 @@ int cmdqCoreAllocWriteAddress(u32 count, dma_addr_t *paStart,
 			break;
 		}
 
-		/* clear buffer content */
-		do {
-			u32 *pInt = (u32 *) pWriteAddr->va;
-			int i = 0;
-
-			for (i = 0; i < count; ++i) {
-				*(pInt + i) = 0xcdcdabab;
-				/* make sure instructions are really in DRAM */
-				mb();
-				/* make sure instructions are really in DRAM */
-				smp_mb();
-			}
-		} while (0);
-
 		/* assign output pa */
 		*paStart = pWriteAddr->pa;
 
