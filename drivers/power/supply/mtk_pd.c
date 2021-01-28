@@ -618,59 +618,110 @@ reset:
 	return 0;
 }
 
+static int pd_sc_set_charger(struct chg_alg_device *alg)
+{
+	struct mtk_pd *pd;
+	int ichg1_min = -1, aicr1_min = -1;
+	int ret;
+
+	pd = dev_get_drvdata(&alg->dev);
+
+	if (pd->input_current_limit1 == 0 ||
+		pd->charging_current_limit1 == 0) {
+		pr_notice("input/charging current is 0, end Pd\n");
+		return -1;
+	}
+
+	mutex_lock(&pd->data_lock);
+	if (pd->charging_current_limit1 != -1) {
+		if (pd->charging_current_limit1 <
+			pd->sc_charger_current)
+			pd->charging_current1 =
+				pd->charging_current_limit1;
+		ret = pd_hal_get_min_charging_current(alg, CHG1, &ichg1_min);
+		if (ret != -ENOTSUPP &&
+			pd->charging_current_limit1 < ichg1_min)
+			pd->charging_current1 = 0;
+	} else
+		pd->charging_current1 = pd->sc_charger_current;
+
+	if (pd->input_current_limit1 != -1 &&
+		pd->input_current_limit1 <
+		pd->sc_input_current) {
+		pd->input_current1 = pd->input_current_limit1;
+		ret = pd_hal_get_min_input_current(alg, CHG1, &aicr1_min);
+		if (ret != -ENOTSUPP &&
+			pd->input_current_limit1 < aicr1_min)
+			pd->input_current1 = 0;
+	} else
+		pd->input_current1 = pd->sc_input_current;
+	mutex_unlock(&pd->data_lock);
+
+
+	if (pd->input_current1 == 0 ||
+		pd->charging_current1 == 0) {
+		pd_err("current is zero %d %d\n",
+			pd->input_current1,
+			pd->charging_current1);
+		return -1;
+	}
+
+	pd_hal_set_charging_current(alg,
+		CHG1, pd->charging_current1);
+	pd_hal_set_input_current(alg,
+		CHG1, pd->input_current1);
+	pd_hal_set_cv(alg,
+		CHG1, pd->cv);
+
+	pd_dbg("%s m:%d s:%d cv:%d chg1:%d,%d min:%d:%d\n", __func__,
+		alg->config,
+		pd->state,
+		pd->cv,
+		pd->input_current1,
+		pd->charging_current1,
+		ichg1_min,
+		aicr1_min);
+
+	return 0;
+}
+
+static int pd_dcs_set_charger(struct chg_alg_device *alg)
+{
+	return 0;
+}
 
 static int __pd_run(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
-	int vbus, cur, idx, ret;
+	int vbus, cur, idx, ret, ret_value = ALG_RUNNING;
 
 	ret = __mtk_pdc_get_setting(alg, &vbus, &cur, &idx);
 
 	if (ret != -1 && idx != -1) {
-		if ((pd->input_current_limit != -1 &&
-			pd->input_current_limit < cur * 1000) == false)
-			pd->input_current_limit = cur * 1000;
+		if ((pd->input_current_limit1 != -1 &&
+			pd->input_current_limit1 < cur * 1000) == false)
+			pd->input_current_limit1 = cur * 1000;
 		__mtk_pdc_setup(alg, idx);
 	} else {
-		pd->input_current_limit =
+		pd->input_current_limit1 =
 			PD_FAIL_CURRENT;
-		pd->charging_current_limit =
+		pd->charging_current_limit1 =
 			PD_FAIL_CURRENT;
 	}
 
-	pd_err("[%s]vbus:%d input_cur:%d idx:%d\n",
-		__func__, vbus, cur, idx);
+	if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+		if (pd_dcs_set_charger(alg) != 0) {
+			ret_value = ALG_DONE;
+			//goto out;
+		}
+	} else {
+		if (pd_sc_set_charger(alg) != 0) {
+			ret_value = ALG_DONE;
+			//goto out;
+		}
+	}
 
-	if (pd->charging_current_limit != -1 &&
-		pd->charging_current_limit <
-		pd->pd_charging_current)
-		pd->charging_current = pd->charging_current_limit;
-	else
-		pd->charging_current = pd->pd_charging_current;
-
-	if (pd->input_current_limit != -1 &&
-		pd->input_current_limit <
-		pd->pd_input_current)
-		pd->input_current = pd->input_current_limit;
-	else
-		pd->input_current = pd->pd_input_current;
-
-	pd_err("[%s]input_cur:%d %d %d charger_current:%d %d %d\n",
-		__func__,
-		pd->input_current_limit,
-		pd->pd_input_current,
-		pd->input_current,
-		pd->charging_current_limit,
-		pd->pd_charging_current,
-		pd->charging_current);
-
-	pd_hal_set_charging_current(alg,
-		CHG1, pd->charging_current);
-	pd_hal_set_input_current(alg,
-		CHG1, pd->input_current);
-	pd_hal_set_cv(alg,
-		CHG1, pd->cv);
-	return ALG_RUNNING;
+	return ret_value;
 }
 
 static int _pd_start_algo(struct chg_alg_device *alg)
@@ -782,6 +833,9 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 {
 	struct mtk_pd *pd;
 	int ret = 0;
+	bool chg_en, chg2_enabled = false;
+	int ichg2, ichg2_min;
+	int ret_value = 0;
 
 	pd = dev_get_drvdata(&alg->dev);
 	pd_err("%s evt:%d\n", __func__, notify->evt);
@@ -797,16 +851,67 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 		case PD_TA_NOT_SUPPORT:
 			break;
 		case PD_RUN:
+		case PD_TUNING:
+		case PD_POSTCC:
 			pd->state = PD_HW_READY;
 			break;
 		default:
 			pd_err("PD unknown state:%d\n", pd->state);
 			break;
 		}
-
-
-
 		break;
+	case EVT_FULL:
+		if (alg->config == DUAL_CHARGERS_IN_SERIES) {
+			pd_hal_is_charger_enable(
+				alg, CHG2, &chg_en);
+			chg2_enabled = pd_hal_is_chip_enable(alg, CHG2);
+
+			if (!chg_en || !chg2_enabled) {
+				/* notify eoc , fix me */
+				pd->state = PD_HW_READY;
+				pd_err("charging done:%d %d\n",
+					__func__, chg_en, chg2_enabled);
+				if (alg->is_polling_mode == false)
+					ret_value = 1;
+			} else {
+				pd_hal_get_charging_current(alg, CHG2, &ichg2);
+				ret = pd_hal_get_min_charging_current(
+					alg, CHG2, &ichg2_min);
+				if (ret == -ENOTSUPP)
+					ichg2_min = 100000;
+
+				pd_err("ichg2:%d, ichg2_min:%d state:%d\n",
+					ichg2, ichg2_min, pd->state);
+				if (ichg2 - 500000 <= ichg2_min) {
+					pd->state = PD_POSTCC;
+					pd_hal_enable_charger(alg,
+						CHG2, false);
+					pd_hal_set_eoc_current(alg,
+						CHG1, 150000);
+					pd_hal_enable_termination(alg,
+						CHG1, true);
+				} else {
+					pd->state = PD_TUNING;
+					mutex_lock(&pd->data_lock);
+					if (pd->charging_current2 >= 500000)
+						pd->charging_current2 =
+							ichg2 - 500000;
+					pd_hal_set_charging_current(alg,
+						CHG2, pd->charging_current2);
+					mutex_unlock(&pd->data_lock);
+				}
+				ret_value = 1;
+			}
+
+		} else {
+			if (pd->state == PD_RUN) {
+				pd_err("%s evt full\n",  __func__);
+				//pd_leave(alg);
+				pd->state = PD_HW_READY;
+			}
+		}
+		break;
+
 	default:
 		ret = -EINVAL;
 	}
@@ -860,20 +965,46 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd->ibus_err = IBUS_ERR;
 	}
 
-	if (of_property_read_u32(np, "pd_charger_current", &val) >= 0) {
-		pd->pd_charging_current = val;
+	/* single charger */
+	if (of_property_read_u32(np, "sc_input_current", &val) >= 0) {
+		pd->sc_input_current = val;
 	} else {
-		pd_err("use default pd_charger_current:%d\n",
-			PD_CHARGER_CURRENT);
-		pd->pd_charging_current = PD_CHARGER_CURRENT;
+		pd_err("use default sc_input_current:%d\n",
+			PD_SC_INPUT_CURRENT);
+		pd->sc_input_current = PD_SC_INPUT_CURRENT;
 	}
 
-	if (of_property_read_u32(np, "pd_input_current", &val) >= 0) {
-		pd->pd_input_current = val;
+	if (of_property_read_u32(np, "sc_charger_current", &val) >= 0) {
+		pd->sc_charger_current = val;
 	} else {
-		pd_err("use default pd_charger_current:%d\n",
-			PD_INPUT_CURRENT);
-		pd->pd_input_current = PD_INPUT_CURRENT;
+		pd_err("use default sc_charger_current:%d\n",
+			PD_SC_CHARGER_CURRENT);
+		pd->sc_charger_current = PD_SC_CHARGER_CURRENT;
+	}
+
+	/* dual charger in series*/
+	if (of_property_read_u32(np, "dcs_input_current", &val) >= 0) {
+		pd->dcs_input_current = val;
+	} else {
+		pd_err("use default dcs_input_current:%d\n",
+			PD_DCS_INPUT_CURRENT);
+		pd->dcs_input_current = PD_DCS_INPUT_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "dcs_chg1_charger_current", &val) >= 0) {
+		pd->dcs_chg1_charger_current = val;
+	} else {
+		pd_err("use default dcs_chg1_charger_current:%d\n",
+			PD_DCS_CHG1_CHARGER_CURRENT);
+		pd->dcs_chg1_charger_current = PD_DCS_CHG1_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "dcs_chg2_charger_current", &val) >= 0) {
+		pd->dcs_chg2_charger_current = val;
+	} else {
+		pd_err("use default dcs_chg2_charger_current:%d\n",
+			PD_DCS_CHG2_CHARGER_CURRENT);
+		pd->dcs_chg2_charger_current = PD_DCS_CHG2_CHARGER_CURRENT;
 	}
 
 	/* dual charger */
@@ -887,7 +1018,7 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 
 }
 
-int _pd_get_status(struct chg_alg_device *alg,
+int _pd_get_prop(struct chg_alg_device *alg,
 		enum chg_alg_props s, int *value)
 {
 
@@ -900,25 +1031,56 @@ int _pd_get_status(struct chg_alg_device *alg,
 }
 
 int _pd_set_setting(struct chg_alg_device *alg_dev,
-	struct chg_alg_setting *setting)
+	struct chg_limit_setting *setting)
 {
 	struct mtk_pd *pd;
 
-	pd_dbg("%s cv:%d icl:%d cc:%d\n",
+	pd_dbg("%s cv:%d icl:%d,%d cc:%d,%d\n",
 		__func__,
 		setting->cv,
-		setting->input_current_limit,
-		setting->charging_current_limit);
+		setting->input_current_limit1,
+		setting->input_current_limit2,
+		setting->charging_current_limit1,
+		setting->charging_current_limit2);
 	pd = dev_get_drvdata(&alg_dev->dev);
 
 	mutex_lock(&pd->access_lock);
 	pd->cv = setting->cv;
-	pd->input_current_limit = setting->input_current_limit;
-	pd->charging_current_limit = setting->charging_current_limit;
+	pd->input_current_limit1 = setting->input_current_limit1;
+	pd->charging_current_limit1 = setting->charging_current_limit1;
+	pd->input_current_limit2 = setting->input_current_limit2;
+	pd->charging_current_limit2 = setting->charging_current_limit2;
 	mutex_unlock(&pd->access_lock);
 
 	return 0;
 }
+
+
+
+int _pd_set_prop(struct chg_alg_device *alg,
+		enum chg_alg_props s, int value)
+{
+	int cnt;
+
+	pr_notice("%s %d %d\n", __func__, s, value);
+	if (s == CHARGER_CONFIGURATION) {
+		if (value == DUAL_CHARGERS_IN_PARALLEL) {
+			pr_notice("%s does not support DUAL_CHARGERS_IN_PARALLEL\n",
+				__func__);
+			alg->config = SINGLE_CHARGER;
+		} else if (value == DUAL_CHARGERS_IN_SERIES) {
+			cnt = pd_hal_get_charger_cnt(alg);
+			if (cnt == 2)
+				alg->config = DUAL_CHARGERS_IN_SERIES;
+			else
+				alg->config = SINGLE_CHARGER;
+		} else
+			alg->config = SINGLE_CHARGER;
+	} else
+		pr_notice("%s does not support prop:%d\n", __func__, s);
+	return 0;
+}
+
 
 static struct chg_alg_ops pd_alg_ops = {
 	.init_algo = _pd_init_algo,
@@ -927,8 +1089,9 @@ static struct chg_alg_ops pd_alg_ops = {
 	.is_algo_running = _pd_is_algo_running,
 	.stop_algo = _pd_stop_algo,
 	.notifier_call = _pd_notifier_call,
-	.get_status = _pd_get_status,
-	.set_setting = _pd_set_setting,
+	.get_prop = _pd_get_prop,
+	.set_prop = _pd_set_prop,
+	.set_current_limit = _pd_set_setting,
 };
 
 static int mtk_pd_probe(struct platform_device *pdev)
@@ -943,6 +1106,7 @@ static int mtk_pd_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pd);
 	pd->pdev = pdev;
 	mutex_init(&pd->access_lock);
+	mutex_init(&pd->data_lock);
 	mtk_pd_parse_dt(pd, &pdev->dev);
 
 	pd->alg = chg_alg_device_register("pd", &pdev->dev,

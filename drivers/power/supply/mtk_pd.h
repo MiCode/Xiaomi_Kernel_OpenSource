@@ -12,11 +12,18 @@
 #define V_CHARGER_MIN 4600000 /* 4.6 V */
 
 /* pd */
-#define PD_VBUS_UPPER_BOUND 10000000	/* uv */
-#define PD_VBUS_LOW_BOUND 5000000	/* uv */
+#define PD_VBUS_UPPER_BOUND		10000000	/* uv */
+#define PD_VBUS_LOW_BOUND		5000000	/* uv */
 #define PD_FAIL_CURRENT			500000	/* 500mA */
-#define PD_INPUT_CURRENT			3000000	/* 3000mA */
-#define PD_CHARGER_CURRENT			3000000	/* 3000mA */
+
+#define PD_SC_INPUT_CURRENT		3000000	/* 3000mA */
+#define PD_SC_CHARGER_CURRENT	3000000	/* 3000mA */
+
+/* dual charger in series */
+#define PD_DCS_INPUT_CURRENT 3200000
+#define PD_DCS_CHG1_CHARGER_CURRENT 1500000
+#define PD_DCS_CHG2_CHARGER_CURRENT 1500000
+
 
 /* dual charger */
 #define SLAVE_MIVR_DIFF 100000
@@ -57,6 +64,8 @@ enum pd_state_enum {
 	PD_TA_NOT_SUPPORT,
 	PD_STOP,
 	PD_RUN,
+	PD_TUNING,
+	PD_POSTCC,
 };
 
 #define PD_CAP_MAX_NR 10
@@ -80,15 +89,21 @@ struct mtk_pd {
 	struct chg_alg_device *alg;
 	int state;
 	struct mutex access_lock;
-
+	struct mutex data_lock;
 
 	int cv;
 	int pd_input_current;
 	int pd_charging_current;
-	int input_current_limit;
-	int charging_current_limit;
-	int input_current;
-	int charging_current;
+
+	int input_current_limit1;
+	int input_current_limit2;
+	int charging_current_limit1;
+	int charging_current_limit2;
+
+	int input_current1;
+	int input_current2;
+	int charging_current1;
+	int charging_current2;
 
 	/* dtsi setting */
 	int vbus_l;
@@ -97,6 +112,15 @@ struct mtk_pd {
 	int ibus_err;
 	int slave_mivr_diff;
 	int min_charger_voltage;
+
+	/* single charger dtsi setting*/
+	int sc_input_current;
+	int sc_charger_current;
+
+	/* dual charger in series dtsi setting*/
+	int dcs_input_current;
+	int dcs_chg1_charger_current;
+	int dcs_chg2_charger_current;
 
 	struct pd_power_cap cap;
 	int pdc_max_watt;
@@ -145,7 +169,22 @@ extern int pd_hal_set_input_current(struct chg_alg_device *alg,
 	enum chg_idx chgidx, u32 ua);
 extern int pd_hal_set_adapter_cap(struct chg_alg_device *alg,
 	int mV, int mA);
-
+extern int pd_hal_is_charger_enable(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool *en);
+extern int pd_hal_get_charging_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *ua);
+extern int pd_hal_get_min_charging_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *uA);
+extern int pd_hal_get_min_input_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 *uA);
+extern int pd_hal_safety_check(struct chg_alg_device *alg,
+	int ieoc);
+extern int pd_hal_set_eoc_current(struct chg_alg_device *alg,
+	enum chg_idx chgidx, u32 uA);
+extern int pd_hal_enable_termination(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool enable);
+extern int pd_hal_enable_charger(struct chg_alg_device *alg,
+	enum chg_idx chgidx, bool en);
 
 #endif /* __MTK_PD_H */
 

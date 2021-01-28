@@ -554,19 +554,19 @@ int _pe_get_status(struct chg_alg_device *alg,
 }
 
 int _pe_set_setting(struct chg_alg_device *alg_dev,
-	struct chg_alg_setting *setting)
+	struct chg_limit_setting *setting)
 {
 	struct mtk_pe *pe;
 
 	pe_dbg("%s cv:%d icl:%d cc:%d\n",
 		__func__,
 		setting->cv,
-		setting->input_current_limit,
-		setting->charging_current_limit);
+		setting->input_current_limit1,
+		setting->charging_current_limit1);
 	pe = dev_get_drvdata(&alg_dev->dev);
 	pe->cv = setting->cv;
-	pe->input_current_limit = setting->input_current_limit;
-	pe->charging_current_limit = setting->charging_current_limit;
+	pe->input_current_limit = setting->input_current_limit1;
+	pe->charging_current_limit = setting->charging_current_limit1;
 
 	return 0;
 }
@@ -766,8 +766,8 @@ static struct chg_alg_ops pe_alg_ops = {
 	.is_algo_running = _pe_is_algo_running,
 	.stop_algo = _pe_stop_algo,
 	.notifier_call = _pe_notifier_call,
-	.get_status = _pe_get_status,
-	.set_setting = _pe_set_setting,
+	.get_prop = _pe_get_status,
+	.set_current_limit = _pe_set_setting,
 };
 
 static void mtk_pe_parse_dt(struct mtk_pe *pe,

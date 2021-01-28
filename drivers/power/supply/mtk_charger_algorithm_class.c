@@ -52,17 +52,27 @@ int chg_alg_start_algo(struct chg_alg_device *alg_dev)
 }
 EXPORT_SYMBOL(chg_alg_start_algo);
 
-int chg_alg_get_status(struct chg_alg_device *alg_dev,
+int chg_alg_get_prop(struct chg_alg_device *alg_dev,
 	enum chg_alg_props s, int *value)
 {
 	if (alg_dev != NULL && alg_dev->ops != NULL &&
-	    alg_dev->ops->get_status)
-		return alg_dev->ops->get_status(alg_dev, s, value);
+	    alg_dev->ops->get_prop)
+		return alg_dev->ops->get_prop(alg_dev, s, value);
 
 	return -ENOTSUPP;
 }
-EXPORT_SYMBOL(chg_alg_get_status);
+EXPORT_SYMBOL(chg_alg_get_prop);
 
+int chg_alg_set_prop(struct chg_alg_device *alg_dev,
+	enum chg_alg_props s, int value)
+{
+	if (alg_dev != NULL && alg_dev->ops != NULL &&
+	    alg_dev->ops->set_prop)
+		return alg_dev->ops->set_prop(alg_dev, s, value);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(chg_alg_set_prop);
 
 int chg_alg_stop_algo(struct chg_alg_device *alg_dev)
 {
@@ -85,17 +95,17 @@ int chg_alg_notifier_call(struct chg_alg_device *alg_dev,
 }
 EXPORT_SYMBOL(chg_alg_notifier_call);
 
-int chg_alg_set_setting(struct chg_alg_device *alg_dev,
-	struct chg_alg_setting *setting)
+int chg_alg_set_current_limit(struct chg_alg_device *alg_dev,
+	struct chg_limit_setting *setting)
 {
 	pr_notice("%s\n", __func__);
 	if (alg_dev != NULL && alg_dev->ops != NULL &&
-	    alg_dev->ops->set_setting)
-		return alg_dev->ops->set_setting(alg_dev, setting);
+	    alg_dev->ops->set_current_limit)
+		return alg_dev->ops->set_current_limit(alg_dev, setting);
 
 	return -ENOTSUPP;
 }
-EXPORT_SYMBOL(chg_alg_set_setting);
+EXPORT_SYMBOL(chg_alg_set_current_limit);
 
 char *chg_alg_state_to_str(int state)
 {

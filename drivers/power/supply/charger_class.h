@@ -30,6 +30,15 @@ struct chgdev_notify {
 	bool vbusov_stat;
 };
 
+/* charger_dev notify */
+enum {
+	CHARGER_DEV_NOTIFY_VBUS_OVP,
+	CHARGER_DEV_NOTIFY_BAT_OVP,
+	CHARGER_DEV_NOTIFY_EOC,
+	CHARGER_DEV_NOTIFY_RECHG,
+	CHARGER_DEV_NOTIFY_SAFETY_TIMEOUT,
+};
+
 struct charger_device {
 	struct charger_properties props;
 	struct chgdev_notify noti;
@@ -51,7 +60,6 @@ struct charger_ops {
 
 	/* enable/disable charger */
 	int (*enable)(struct charger_device *dev, bool en);
-
 	int (*is_enabled)(struct charger_device *dev, bool *en);
 
 	/* enable/disable chip */

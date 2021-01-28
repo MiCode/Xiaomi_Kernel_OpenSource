@@ -733,6 +733,17 @@ config MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
 	  Set Yes to enable PE+2.0
 	  Set No to disable PE+2.0
 
+config MTK_PUMP_EXPRESS_40_SUPPORT
+	bool "MediaTek PUMP EXPRESS 4.0"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable PE 4.0
+	  Set No to disable PE 4.0
+
+
 config CHARGER_RT9458
 	bool "Charger Driver for Richtek RT9458 Charger IC"
 	depends on MTK_CHARGER

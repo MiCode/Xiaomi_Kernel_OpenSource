@@ -46,9 +46,16 @@ enum chg_idx {
 	CHG_MAX,
 };
 
+enum charger_configuration {
+	SINGLE_CHARGER,
+	DUAL_CHARGERS_IN_SERIES,
+	DUAL_CHARGERS_IN_PARALLEL,
+};
+
 struct chg_alg_device {
 	struct chg_alg_properties props;
 	const struct chg_alg_ops *ops;
+	enum charger_configuration config;
 	struct mutex ops_lock;
 	struct device dev;
 	struct srcu_notifier_head evt_nh;
@@ -69,13 +76,16 @@ struct chg_alg_notify {
 	int value;
 };
 
-struct chg_alg_setting {
+struct chg_limit_setting {
 	int cv;
-	int input_current_limit;
-	int charging_current_limit;
+	int input_current_limit1;
+	int input_current_limit2;
+	int charging_current_limit1;
+	int charging_current_limit2;
 };
 
 enum chg_alg_props {
+	CHARGER_CONFIGURATION,
 	ALG_MAX_VBUS,
 };
 
@@ -88,10 +98,13 @@ struct chg_alg_ops {
 	int (*stop_algo)(struct chg_alg_device *alg);
 	int (*notifier_call)(struct chg_alg_device *alg,
 		struct chg_alg_notify *notify);
-	int (*get_status)(struct chg_alg_device *alg,
+	int (*get_prop)(struct chg_alg_device *alg,
 		enum chg_alg_props s, int *value);
-	int (*set_setting)(struct chg_alg_device *alg_dev,
-		struct chg_alg_setting *setting);
+	int (*set_prop)(struct chg_alg_device *alg,
+		enum chg_alg_props s, int value);
+	int (*set_current_limit)(struct chg_alg_device *alg_dev,
+		struct chg_limit_setting *setting);
+
 };
 
 #define to_chg_alg_dev(obj) container_of(obj, struct chg_alg_device, dev)
@@ -135,12 +148,14 @@ extern int unregister_chg_alg_notifier(struct chg_alg_device *alg_dev,
 
 extern int chg_alg_init_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_is_algo_ready(struct chg_alg_device *alg_dev);
-extern int chg_alg_set_setting(struct chg_alg_device *alg_dev,
-	struct chg_alg_setting *setting);
 extern int chg_alg_start_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_stop_algo(struct chg_alg_device *alg_dev);
-extern int chg_alg_get_status(struct chg_alg_device *alg_dev,
+extern int chg_alg_get_prop(struct chg_alg_device *alg_dev,
 	enum chg_alg_props s, int *value);
+extern int chg_alg_set_prop(struct chg_alg_device *alg_dev,
+	enum chg_alg_props s, int value);
+extern int chg_alg_set_current_limit(struct chg_alg_device *alg_dev,
+	struct chg_limit_setting *setting);
 extern int chg_alg_notifier_call(struct chg_alg_device *alg_dev,
 	struct chg_alg_notify *notify);
 extern char *chg_alg_state_to_str(int state);

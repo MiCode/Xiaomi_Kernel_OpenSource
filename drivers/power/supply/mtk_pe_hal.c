@@ -332,9 +332,9 @@ int pe_hal_enable_chip(struct chg_alg_device *alg, enum chg_idx chgidx, bool en)
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	if (chgidx == CHG1)
-		charger_dev_enable(hal->chg1_dev, en);
+		charger_dev_enable_chip(hal->chg1_dev, en);
 	else if (chgidx == CHG2)
-		charger_dev_enable(hal->chg2_dev, en);
+		charger_dev_enable_chip(hal->chg2_dev, en);
 
 	return 0;
 }

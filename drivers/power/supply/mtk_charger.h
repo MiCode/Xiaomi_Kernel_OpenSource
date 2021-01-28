@@ -139,10 +139,9 @@ struct mtk_charger_algorithm {
 
 	int (*do_algorithm)(struct mtk_charger *info);
 	int (*enable_charging)(struct mtk_charger *info, bool en);
-	int (*do_event)(struct mtk_charger *info,
-		enum chg_alg_notifier_events evt, int val);
+	int (*do_event)(struct notifier_block *nb, unsigned long ev, void *v);
 	int (*change_current_setting)(struct mtk_charger *info);
-
+	void *algo_data;
 };
 
 struct charger_custom_data {
@@ -214,21 +213,28 @@ enum usb_state_enum {
 };
 
 enum chg_data_idx_enum {
-	CHGS_SETTING,
 	CHG1_SETTING,
-	CHG2_SETTING
+	CHG2_SETTING,
+	CHGS_SETTING_MAX,
 };
 
 struct mtk_charger {
 	struct platform_device *pdev;
 	struct charger_device *chg1_dev;
-	struct charger_data chg_data[3];
-	struct chg_alg_setting setting;
+	struct notifier_block chg1_nb;
+	struct charger_device *chg2_dev;
 
+	struct charger_data chg_data[CHGS_SETTING_MAX];
+	struct chg_limit_setting setting;
+	enum charger_configuration config;
 
-	struct power_supply_desc psy_desc;
-	struct power_supply_config psy_cfg;
-	struct power_supply *psy;
+	struct power_supply_desc psy_desc1;
+	struct power_supply_config psy_cfg1;
+	struct power_supply *psy1;
+
+	struct power_supply_desc psy_desc2;
+	struct power_supply_config psy_cfg2;
+	struct power_supply *psy2;
 
 	struct adapter_device *pd_adapter;
 	struct notifier_block pd_nb;
@@ -308,18 +314,24 @@ struct mtk_charger {
 
 /* functions which framework needs*/
 extern int mtk_basic_charger_init(struct mtk_charger *info);
+extern int mtk_pulse_charger_init(struct mtk_charger *info);
 extern int get_uisoc(struct mtk_charger *info);
 extern int get_battery_voltage(struct mtk_charger *info);
 extern int get_battery_temperature(struct mtk_charger *info);
 extern int get_battery_current(struct mtk_charger *info);
 extern int get_vbus(struct mtk_charger *info);
+extern int get_ibus(struct mtk_charger *info);
 extern bool is_battery_exist(struct mtk_charger *info);
 extern int get_charger_type(struct mtk_charger *info);
 extern int disable_hw_ovp(struct mtk_charger *info, int en);
 extern bool is_charger_exist(struct mtk_charger *info);
-extern int get_charger_temperature(struct mtk_charger *info);
-extern int get_charger_charging_current(struct mtk_charger *info);
-extern int get_charger_input_current(struct mtk_charger *info);
+extern int get_charger_temperature(struct mtk_charger *info,
+	struct charger_device *chg);
+extern int get_charger_charging_current(struct mtk_charger *info,
+	struct charger_device *chg);
+extern int get_charger_input_current(struct mtk_charger *info,
+	struct charger_device *chg);
+extern void _wake_up_charger(struct mtk_charger *info);
 
 /* functions for other */
 extern int mtk_chg_enable_vbus_ovp(bool enable);

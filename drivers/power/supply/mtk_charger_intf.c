@@ -144,7 +144,7 @@ int get_battery_current(struct mtk_charger *info)
 	} else {
 		ret = power_supply_get_property(bat_psy,
 			POWER_SUPPLY_PROP_CURRENT_NOW, &prop);
-		ret = prop.intval / 100;
+		ret = prop.intval / 1000;
 	}
 
 	chr_debug("%s:%d\n", __func__,
@@ -190,6 +190,20 @@ int get_vbus(struct mtk_charger *info)
 		vchr /= 1000;
 
 	return vchr;
+}
+
+int get_ibus(struct mtk_charger *info)
+{
+	int ret = 0;
+	int ibus;
+
+	if (info == NULL)
+		return -EINVAL;
+	ret = charger_dev_get_ibus(info->chg1_dev, &ibus);
+	if (ret < 0)
+		pr_notice("%s: get ibus failed: %d\n", __func__, ret);
+
+	return ibus / 1000;
 }
 
 bool is_battery_exist(struct mtk_charger *info)
@@ -260,19 +274,19 @@ int get_charger_type(struct mtk_charger *info)
 		prop.intval,
 		prop2.intval);
 
-	if (prop.intval == 0)
-		return POWER_SUPPLY_USB_TYPE_UNKNOWN;
 	return prop2.intval;
 }
 
-int get_charger_temperature(struct mtk_charger *info)
+int get_charger_temperature(struct mtk_charger *info,
+	struct charger_device *chg)
 {
 	int ret = 0;
 	int tchg_min = 0, tchg_max = 0;
 
 	if (info == NULL)
 		return 0;
-	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
+
+	ret = charger_dev_get_temperature(chg, &tchg_min, &tchg_max);
 	if (ret < 0)
 		chr_err("%s: get temperature failed: %d\n", __func__, ret);
 	else
@@ -283,14 +297,15 @@ int get_charger_temperature(struct mtk_charger *info)
 	return ret;
 }
 
-int get_charger_charging_current(struct mtk_charger *info)
+int get_charger_charging_current(struct mtk_charger *info,
+	struct charger_device *chg)
 {
 	int ret = 0;
 	int olduA = 0;
 
 	if (info == NULL)
 		return 0;
-	ret = charger_dev_get_charging_current(info->chg1_dev, &olduA);
+	ret = charger_dev_get_charging_current(chg, &olduA);
 	if (ret < 0)
 		chr_err("%s: get charging current failed: %d\n", __func__, ret);
 	else
@@ -301,14 +316,15 @@ int get_charger_charging_current(struct mtk_charger *info)
 	return ret;
 }
 
-int get_charger_input_current(struct mtk_charger *info)
+int get_charger_input_current(struct mtk_charger *info,
+	struct charger_device *chg)
 {
 	int ret = 0;
 	int olduA = 0;
 
 	if (info == NULL)
 		return 0;
-	ret = charger_dev_get_input_current(info->chg1_dev, &olduA);
+	ret = charger_dev_get_input_current(chg, &olduA);
 	if (ret < 0)
 		chr_err("%s: get input current failed: %d\n", __func__, ret);
 	else

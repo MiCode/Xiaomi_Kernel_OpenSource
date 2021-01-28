@@ -163,6 +163,9 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	if (strcmp(info->algorithm_name, "Basic") == 0) {
 		chr_err("found Basic\n");
 		mtk_basic_charger_init(info);
+	} else if (strcmp(info->algorithm_name, "Pulse") == 0) {
+		chr_err("found Pulse\n");
+		mtk_pulse_charger_init(info);
 	}
 
 	info->disable_charger = of_property_read_bool(np, "disable_charger");
@@ -172,6 +175,15 @@ static void mtk_charger_parse_dt(struct mtk_charger *info,
 	info->enable_sw_jeita = of_property_read_bool(np, "enable_sw_jeita");
 
 	/* common */
+
+	if (of_property_read_u32(np, "charger_configuration", &val) >= 0)
+		info->config = val;
+	else {
+		chr_err("use default charger_configuration:%d\n",
+			SINGLE_CHARGER);
+		info->config = SINGLE_CHARGER;
+	}
+
 	if (of_property_read_u32(np, "battery_cv", &val) >= 0)
 		info->data.battery_cv = val;
 	else {
@@ -802,7 +814,7 @@ static ssize_t input_current_show(struct device *dev,
 	struct mtk_charger *pinfo = dev->driver_data;
 	int aicr = 0;
 
-	aicr = pinfo->chg_data[CHGS_SETTING].thermal_input_current_limit;
+	aicr = pinfo->chg_data[CHG1_SETTING].thermal_input_current_limit;
 	chr_err("%s: %d\n", __func__, aicr);
 	return sprintf(buf, "%d\n", aicr);
 }
@@ -815,7 +827,7 @@ static ssize_t input_current_store(struct device *dev,
 	struct charger_data *chg_data;
 	signed int temp;
 
-	chg_data = &pinfo->chg_data[CHGS_SETTING];
+	chg_data = &pinfo->chg_data[CHG1_SETTING];
 	if (kstrtoint(buf, 10, &temp) == 0) {
 		if (temp < 0)
 			chg_data->thermal_input_current_limit = 0;
@@ -1123,6 +1135,18 @@ static bool charger_init_algo(struct mtk_charger *info)
 	struct chg_alg_device *alg;
 	int idx = 0;
 
+	alg = get_chg_alg_by_name("pe4");
+	info->alg[idx] = alg;
+	if (alg == NULL)
+		chr_err("get pe4 fail\n");
+	else {
+		chr_err("get pe4 success\n");
+		chg_alg_init_algo(alg);
+		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
+	}
+	idx++;
+
 	alg = get_chg_alg_by_name("pd");
 	info->alg[idx] = alg;
 	if (alg == NULL)
@@ -1130,6 +1154,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pd success\n");
 		chg_alg_init_algo(alg);
+		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
@@ -1141,6 +1166,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe2 success\n");
 		chg_alg_init_algo(alg);
+		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
@@ -1151,6 +1177,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe success\n");
 		chg_alg_init_algo(alg);
+		chg_alg_set_prop(alg, CHARGER_CONFIGURATION, info->config);
 		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 
@@ -1161,12 +1188,34 @@ static bool charger_init_algo(struct mtk_charger *info)
 		chr_err("*** Error : can't find primary charger ***\n");
 		return false;
 	}
+
+	chr_err("config is %d\n", info->config);
+	if (info->config == DUAL_CHARGERS_IN_SERIES) {
+		info->chg2_dev = get_charger_by_name("secondary_chg");
+		if (info->chg2_dev)
+			chr_err("Found secondary charger\n");
+		else {
+			chr_err("*** Error : can't find secondary charger ***\n");
+			return false;
+		}
+	}
+
+	chr_err("register chg1 notifier %d %d\n",
+		info->chg1_dev != NULL, info->algo.do_event != NULL);
+	if (info->chg1_dev != NULL && info->algo.do_event != NULL) {
+		chr_err("register chg1 notifier done\n");
+		info->chg1_nb.notifier_call = info->algo.do_event;
+		register_charger_device_notifier(info->chg1_dev,
+						&info->chg1_nb);
+		charger_dev_set_drvdata(info->chg1_dev, info);
+	}
+
 	return true;
 }
 
 static int mtk_charger_plug_out(struct mtk_charger *info)
 {
-	struct charger_data *pdata1 = &info->chg_data[CHGS_SETTING];
+	struct charger_data *pdata1 = &info->chg_data[CHG1_SETTING];
 	struct charger_data *pdata2 = &info->chg_data[CHG2_SETTING];
 	struct chg_alg_device *alg;
 	struct chg_alg_notify notify;
@@ -1306,9 +1355,10 @@ static int charger_routine_thread(void *arg)
 		info->charger_thread_timeout = false;
 
 		info->battery_temp = get_battery_temperature(info);
-		chr_err("Vbat=%d vbus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d\n",
+		chr_err("Vbat=%d vbus:%d ibus:%d I=%d T=%d uisoc:%d type:%s>%s pd:%d\n",
 			get_battery_voltage(info),
 			get_vbus(info),
+			get_ibus(info),
 			get_battery_current(info),
 			info->battery_temp,
 			get_uisoc(info),
@@ -1513,8 +1563,24 @@ static int psy_charger_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mtk_charger *info;
+	struct charger_device *chg;
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
+
+	chr_err("%s psp:%d\n",
+		__func__, psp);
+
+
+	if (info->psy1 != NULL &&
+		info->psy1 == psy)
+		chg = info->chg1_dev;
+	else if (info->psy2 != NULL &&
+		info->psy2 == psy)
+		chg = info->chg2_dev;
+	else {
+		chr_err("%s fail\n", __func__);
+		return 0;
+	}
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
@@ -1527,13 +1593,16 @@ static int psy_charger_get_property(struct power_supply *psy,
 		val->intval = get_vbus(info);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = get_charger_temperature(info);
+		val->intval = get_charger_temperature(info, chg);
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		val->intval = get_charger_charging_current(info);
+		val->intval = get_charger_charging_current(info, chg);
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		val->intval = get_charger_input_current(info);
+		val->intval = get_charger_input_current(info, chg);
+		break;
+	case POWER_SUPPLY_PROP_USB_TYPE:
+		val->intval = info->chr_type;
 		break;
 	default:
 		return -EINVAL;
@@ -1547,10 +1616,23 @@ int psy_charger_set_property(struct power_supply *psy,
 			const union power_supply_propval *val)
 {
 	struct mtk_charger *info;
+	int idx;
 
 	chr_err("%s: prop:%d %d\n", __func__, psp, val->intval);
 
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
+
+	if (info->psy1 != NULL &&
+		info->psy1 == psy)
+		idx = CHG1_SETTING;
+	else if (info->psy2 != NULL &&
+		info->psy2 == psy)
+		idx = CHG2_SETTING;
+	else {
+		chr_err("%s fail\n", __func__);
+		return 0;
+	}
+
 	switch (psp) {
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		if (val->intval > 0)
@@ -1559,11 +1641,11 @@ int psy_charger_set_property(struct power_supply *psy,
 			info->enable_hv_charging = false;
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
-		info->chg_data[CHGS_SETTING].thermal_charging_current_limit =
+		info->chg_data[idx].thermal_charging_current_limit =
 			val->intval;
 		break;
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
-		info->chg_data[CHGS_SETTING].thermal_input_current_limit =
+		info->chg_data[idx].thermal_input_current_limit =
 			val->intval;
 		break;
 	default:
@@ -1707,25 +1789,45 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	mtk_charger_setup_files(pdev);
 	mtk_charger_get_atm_mode(info);
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < CHGS_SETTING_MAX; i++) {
 		info->chg_data[i].thermal_charging_current_limit = -1;
 		info->chg_data[i].thermal_input_current_limit = -1;
 	}
 	info->enable_hv_charging = true;
 
-	info->psy_desc.name = "mtk-master-charger";
-	info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-	info->psy_desc.properties = charger_psy_properties;
-	info->psy_desc.num_properties = ARRAY_SIZE(charger_psy_properties);
-	info->psy_desc.get_property = psy_charger_get_property;
-	info->psy_desc.set_property = psy_charger_set_property;
-	info->psy_desc.property_is_writeable =
+	info->psy_desc1.name = "mtk-master-charger";
+	info->psy_desc1.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	info->psy_desc1.properties = charger_psy_properties;
+	info->psy_desc1.num_properties = ARRAY_SIZE(charger_psy_properties);
+	info->psy_desc1.get_property = psy_charger_get_property;
+	info->psy_desc1.set_property = psy_charger_set_property;
+	info->psy_desc1.property_is_writeable =
 			psy_charger_property_is_writeable;
-	info->psy_desc.external_power_changed =
+	info->psy_desc1.external_power_changed =
 		mtk_charger_external_power_changed;
-	info->psy_cfg.drv_data = info;
-	info->psy = power_supply_register(&pdev->dev, &info->psy_desc,
-			&info->psy_cfg);
+	info->psy_cfg1.drv_data = info;
+	info->psy1 = power_supply_register(&pdev->dev, &info->psy_desc1,
+			&info->psy_cfg1);
+
+	if (IS_ERR(info->psy1))
+		chr_err("register psy1 fail:%d\n",
+			PTR_ERR(info->psy1));
+
+	info->psy_desc2.name = "mtk-slave-charger";
+	info->psy_desc2.type = POWER_SUPPLY_TYPE_UNKNOWN;
+	info->psy_desc2.properties = charger_psy_properties;
+	info->psy_desc2.num_properties = ARRAY_SIZE(charger_psy_properties);
+	info->psy_desc2.get_property = psy_charger_get_property;
+	info->psy_desc2.set_property = psy_charger_set_property;
+	info->psy_desc2.property_is_writeable =
+			psy_charger_property_is_writeable;
+	info->psy_cfg2.drv_data = info;
+	info->psy2 = power_supply_register(&pdev->dev, &info->psy_desc2,
+			&info->psy_cfg2);
+
+	if (IS_ERR(info->psy2))
+		chr_err("register psy2 fail:%d\n",
+			PTR_ERR(info->psy2));
 
 	info->log_level = CHRLOG_DEBUG_LEVEL;
 
@@ -1762,12 +1864,12 @@ static const struct of_device_id mtk_charger_of_match[] = {
 
 MODULE_DEVICE_TABLE(of, mtk_charger_of_match);
 
-struct platform_device charger_device = {
+struct platform_device mtk_charger_device = {
 	.name = "charger",
 	.id = -1,
 };
 
-static struct platform_driver charger_driver = {
+static struct platform_driver mtk_charger_driver = {
 	.probe = mtk_charger_probe,
 	.remove = mtk_charger_remove,
 	.shutdown = mtk_charger_shutdown,
@@ -1779,13 +1881,13 @@ static struct platform_driver charger_driver = {
 
 static int __init mtk_charger_init(void)
 {
-	return platform_driver_register(&charger_driver);
+	return platform_driver_register(&mtk_charger_driver);
 }
 late_initcall(mtk_charger_init);
 
 static void __exit mtk_charger_exit(void)
 {
-	platform_driver_unregister(&charger_driver);
+	platform_driver_unregister(&mtk_charger_driver);
 }
 module_exit(mtk_charger_exit);
 
