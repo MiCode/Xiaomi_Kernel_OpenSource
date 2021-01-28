@@ -1403,7 +1403,25 @@ void exec_BAT_EC(int cmd, int param)
 			gauge_set_property(GAUGE_PROP_CAR_TUNE_VALUE,
 				param);
 		}
+		break;
+	case 798:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d,FG_KERNEL_CMD_CHG_DECIMAL_RATE=%d\n",
+				cmd, param);
 
+		}
+		break;
+	case 799:
+		{
+			bm_err(
+				"exe_BAT_EC cmd %d, FG_DAEMON_CMD_GET_IS_FORCE_FULL, force_full =%d\n",
+				cmd, param);
+
+			gm->is_force_full = param;
+			wakeup_fg_algo(gm, FG_INTR_CHR_FULL);
+		}
+		break;
 
 	default:
 		bm_err(
@@ -3570,6 +3588,19 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	break;
 	case FG_DAEMON_CMD_SET_ZCV_INTR_EN:
 		bm_debug("[K]FG_DAEMON_CMD_SET_ZCV_INTR_EN");
+	break;
+	case FG_DAEMON_CMD_GET_IS_FORCE_FULL:
+	{
+		/* 1 = trust customer full condition */
+		/* 0 = using gauge ori full flow */
+		int force_full = gm->is_force_full;
+
+		ret_msg->fgd_data_len += sizeof(force_full);
+		memcpy(ret_msg->fgd_data, &force_full,
+			sizeof(force_full));
+
+		bm_debug("[K]FG_DAEMON_CMD_GET_IS_FORCE_FULL %d", force_full);
+	};
 	break;
 
 
