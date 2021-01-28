@@ -524,11 +524,13 @@ void cmdq_pkt_destroy(struct cmdq_pkt *pkt)
 {
 	struct cmdq_client *client = pkt->cl;
 
-	mutex_lock(&client->chan_mutex);
+	if (client)
+		mutex_lock(&client->chan_mutex);
 	cmdq_pkt_free_buf(pkt);
 	kfree(pkt->flush_item);
 	kfree(pkt);
-	mutex_unlock(&client->chan_mutex);
+	if (client)
+		mutex_unlock(&client->chan_mutex);
 }
 EXPORT_SYMBOL(cmdq_pkt_destroy);
 
