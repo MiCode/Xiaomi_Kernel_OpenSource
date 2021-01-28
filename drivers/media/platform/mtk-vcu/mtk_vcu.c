@@ -361,6 +361,11 @@ int vcu_ipi_send(struct platform_device *pdev,
 	}
 
 	if (vcu_ptr->abort) {
+		if (vcu_ptr->open_cnt > 0) {
+			dev_info(vcu->dev, "wait for vpud killed %d\n",
+				vcu_ptr->vpud_killed.count);
+			ret = down_interruptible(&vcu_ptr->vpud_killed);
+		}
 		dev_info(&pdev->dev, "[VCU] vpud killed\n");
 		return -EIO;
 	}
@@ -1105,7 +1110,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 			vcud_task = NULL;
 			files = NULL;
 		}
-		dev_info(vcu->dev, "[VCU] vpud killed\n");
+		dev_info(vcu->dev, "[VCU] vpud killing\n");
 
 		return 0;
 	}
