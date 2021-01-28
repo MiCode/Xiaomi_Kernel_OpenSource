@@ -34,6 +34,7 @@
 #include <mtk_mcdi_profile.h>
 #include <mtk_mcdi_util.h>
 #include <mtk_mcdi_cpc.h>
+#include <mtk_mcdi_mcupm.h>
 
 #include <mtk_mcdi_plat.h>
 #include <mtk_mcdi_reg.h>
@@ -711,6 +712,8 @@ int mcdi_enter(int cpu)
 
 		aee_rr_rec_mcdi_val(cpu, MCDI_STATE_CPU_OFF << 16 | 0xff);
 
+		mcdi_cluster_counter_set_cpu_residency(cpu);
+
 		mtk_enter_idle_state(MTK_MCDI_CPU_MODE);
 
 		aee_rr_rec_mcdi_val(cpu, 0x0);
@@ -725,6 +728,8 @@ int mcdi_enter(int cpu)
 		trace_mcdi_rcuidle(cpu, 1);
 
 		aee_rr_rec_mcdi_val(cpu, MCDI_STATE_CLUSTER_OFF << 16 | 0xff);
+
+		mcdi_cluster_counter_set_cpu_residency(cpu);
 
 		mtk_enter_idle_state(MTK_MCDI_CLUSTER_MODE);
 
