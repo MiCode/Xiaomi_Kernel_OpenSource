@@ -2749,14 +2749,19 @@ static ssize_t mtk_chg_current_cmd_write(struct file *file,
 		const char *buffer, size_t count, loff_t *data)
 {
 	int len = 0;
-	char desc[32];
+	char desc[32] = {0};
 	int current_unlimited = 0;
 	int cmd_discharging = 0;
 	struct charger_manager *info = PDE_DATA(file_inode(file));
 
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
+
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
-		return 0;
+		return -EFAULT;
 
 	desc[len] = '\0';
 
@@ -2798,14 +2803,18 @@ static ssize_t mtk_chg_en_power_path_write(struct file *file,
 		const char *buffer, size_t count, loff_t *data)
 {
 	int len = 0, ret = 0;
-	char desc[32];
+	char desc[32] = {0};
 	unsigned int enable = 0;
 	struct charger_manager *info = PDE_DATA(file_inode(file));
 
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
-		return 0;
+		return -EFAULT;
 
 	desc[len] = '\0';
 
@@ -2835,13 +2844,18 @@ static ssize_t mtk_chg_en_safety_timer_write(struct file *file,
 	const char *buffer, size_t count, loff_t *data)
 {
 	int len = 0, ret = 0;
-	char desc[32];
+	char desc[32] = {0};
 	unsigned int enable = 0;
 	struct charger_manager *info = PDE_DATA(file_inode(file));
 
+	if (!info)
+		return -EINVAL;
+	if (count <= 0)
+		return -EINVAL;
+
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
-		return 0;
+		return -EFAULT;
 
 	desc[len] = '\0';
 
