@@ -58,7 +58,7 @@ static struct tcpc_device *dp_tcpc_dev;
 static int hdp_state;
 static bool dp_sw_connect;
 
-#define CHECK_HPD_DELAY 1000
+#define CHECK_HPD_DELAY 2000
 static struct delayed_work check_wk;
 
 /*
