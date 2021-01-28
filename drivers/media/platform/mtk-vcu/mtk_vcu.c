@@ -643,7 +643,7 @@ static int vcu_check_reg_base(struct mtk_vcu *vcu, u64 addr, u64 length)
 {
 	int i;
 
-	if (vcu->vcuid != 0 && addr >= MAP_PA_BASE_1GB)
+	if (vcu->vcuid != 0 || addr >= MAP_PA_BASE_1GB)
 		return -EINVAL;
 
 	for (i = 0; i < (int)VCU_MAP_HW_REG_NUM; i++)
@@ -1317,9 +1317,12 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	}
 
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
+	if (IS_ERR_OR_NULL(vcu_mtkdev[vcuid]->clt_vdec[0]))
+		return -EINVAL;
 
 	vcu_queue = mtk_vcu_mem_init(vcu_mtkdev[vcuid]->dev,
 		vcu_mtkdev[vcuid]->clt_vdec[0]->chan->mbox->dev);
+
 	if (vcu_queue == NULL)
 		return -ENOMEM;
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
@@ -2231,6 +2234,9 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		cmdq_mbox_create(dev,
 		vcu->gce_th_num[VCU_VDEC] + vcu->gce_th_num[VCU_VENC]);
 
+	if (IS_ERR_OR_NULL(vcu->clt_vdec[0]))
+		goto err_device;
+
 	dev_dbg(dev, "[VCU] GCE clt_base %p clt_vdec %d %p %p clt_venc %d %p %p %p dev %p",
 		vcu->clt_base, vcu->gce_th_num[VCU_VDEC],
 		vcu->clt_vdec[0], vcu->clt_vdec[1],
@@ -2315,7 +2321,7 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		vcu->gce_cmds[i] = devm_kzalloc(dev,
 			sizeof(struct gce_cmds), GFP_KERNEL);
 		if (vcu->gce_cmds[i] == NULL)
-			return -ENOMEM;
+			goto err_device;
 	}
 	sema_init(&vcu->vpud_killed, 1);
 
