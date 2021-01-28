@@ -88,6 +88,13 @@
 	};
 };
 
+&mt6360_typec {
+	mt6360pd,intr_gpio_num = <9>; /* direct defined GPIO num */
+	mt6360pd,intr_gpio = <&pio 9 0x0>;
+	mt6360pd,pcb_gpio = <&pio 57 0x0>;
+	mt6360pd,pcb_gpio_num = <57>;
+};
+
 /* USB SWITCH GPIO start */
 &pio {
 	usb_default: usb_default {
