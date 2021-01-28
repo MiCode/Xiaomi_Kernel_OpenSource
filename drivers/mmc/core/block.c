@@ -2295,12 +2295,15 @@ int mmc_blk_end_queued_req(struct mmc_host *host,
 	brq = &mq_rq->brq;
 	req = mmc_queue_req_to_req(mq_rq);
 	mq = req->q->queuedata;
-
-	mmc_blk_mq_post_req(mq, req);
-
-	mq->mqrq[index].req = NULL;
 	host->areq_que[index] = NULL;
-
+	/* make sure host->areq_que[index] clear earlier than atomic_set(&mq->mqrq[index].index
+	 * which maybe caused by cpu out of order execution or C compiler optimization.
+	 * Otherwise, there is a competition risk at  mmc_blk_swcq_issue_rw_rq :
+	 * "card->host->areq_que[atomic_read(&mqrq->index) - 1] = new_areq;"
+	 */
+	mb();
+	mmc_blk_mq_post_req(mq, req);
+	mq->mqrq[index].req = NULL;
 	atomic_set(&mq->mqrq[index].index, 0);
 	atomic_dec(&host->areq_cnt);
 

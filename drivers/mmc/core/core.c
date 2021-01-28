@@ -823,10 +823,9 @@ void mmc_wait_cmdq_done(struct mmc_request *mrq)
 						host->task_id_index);
 					pr_info("%s: cnt:%d,wait:%d,rdy:%d\n",
 						mmc_hostname(host),
-					mmc_hostname(host),
-					atomic_read(&host->areq_cnt),
-					atomic_read(&host->cq_wait_rdy),
-					atomic_read(&host->cq_rdy_cnt));
+						atomic_read(&host->areq_cnt),
+						atomic_read(&host->cq_wait_rdy),
+						atomic_read(&host->cq_rdy_cnt));
 					/* reset eMMC flow */
 					cmd->error = (unsigned int)-ETIMEDOUT;
 					cmd->retries = 0;
