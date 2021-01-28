@@ -1391,9 +1391,11 @@ void MTKFWDump(void)
 {
 	PVRSRV_DEVICE_NODE *psDevNode = MTKGetRGXDevNode();
 
-	MTK_PVRSRVDebugRequestSetSilence(IMG_TRUE);
-	PVRSRVDebugRequest(psDevNode, DEBUG_REQUEST_VERBOSITY_MAX, NULL, NULL);
-	MTK_PVRSRVDebugRequestSetSilence(IMG_FALSE);
+	if (psDevNode) {
+		MTK_PVRSRVDebugRequestSetSilence(IMG_TRUE);
+		PVRSRVDebugRequest(psDevNode, DEBUG_REQUEST_VERBOSITY_MAX, NULL, NULL);
+		MTK_PVRSRVDebugRequestSetSilence(IMG_FALSE);
+	}
 }
 EXPORT_SYMBOL(MTKFWDump);
 
