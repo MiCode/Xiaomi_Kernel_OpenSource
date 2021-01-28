@@ -69,13 +69,20 @@
 /************************************************
  * Debug print
  ************************************************/
-#define ADCC_TAG	 "[ADCC]"
+/*#define ADCC_DEBUG_ON */
+
+#define ADCC_TAG	"[ADCC]"
 
 #define adcc_info(fmt, args...)	\
 	pr_info(ADCC_TAG"[INFO][%s():%d]" fmt, __func__, __LINE__, ##args)
 
+#ifdef ADCC_DEBUG_ON
 #define adcc_debug(fmt, args...) \
 	pr_debug(ADCC_TAG"[DEBUG][%s():%d]" fmt, __func__, __LINE__, ##args)
+#else
+#define adcc_debug(fmt, args...)
+#endif
+
 
 /************************************************
  * static marco
@@ -96,7 +103,7 @@ static unsigned int adcc_smc_handle(unsigned int key,
 {
 	unsigned int ret;
 
-	adcc_info("[%s]:key(%d) core(%d) val(%d)\n",
+	adcc_debug("[%s]:key(%d) core(%d) val(%d)\n",
 		__func__, key, core, val);
 
 	/* update atf via smc */
@@ -135,23 +142,23 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 		adcc_info("unable to get free page!\n");
 		return -1;
 	}
-	adcc_info("buf: 0x%llx, aee_log_buf: 0x%llx\n",
+	adcc_debug("buf: 0x%llx, aee_log_buf: 0x%llx\n",
 		(unsigned long long)buf, (unsigned long long)aee_log_buf);
 
 	/* show trigger stage */
 	switch (adcc_tri_stage) {
 	case ADCC_TRIGGER_STAGE_PROBE:
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			ptp3_mem_size - str_len,
 			"\n[Kernel Probe]\n");
 		break;
 	case ADCC_TRIGGER_STAGE_SUSPEND:
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			ptp3_mem_size - str_len,
 			"\n[Kernel Suspend]\n");
 		break;
 	case ADCC_TRIGGER_STAGE_RESUME:
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			ptp3_mem_size - str_len,
 			"\n[Kernel Resume]\n");
 		break;
@@ -166,85 +173,91 @@ int adcc_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 		dump_FLL = adcc_smc_handle(ADCC_DUMP_INFO, core, 10);
 		dump_efuse = adcc_smc_handle(ADCC_DUMP_INFO, core, 3);
 
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			ADCC_TAG"[CPU%d]", core);
 
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" Shaper:0x%x,", GET_BITS_VAL(20:17, dump_set));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" SW_nFlag:0x%x,", GET_BITS_VAL(16:16, dump_set));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" DcdSlect:0x%x,", GET_BITS_VAL(15:8, dump_set));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" DcTarget:0x%x,", GET_BITS_VAL(7:0, dump_set));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FllCalDone:0x%x,", GET_BITS_VAL(5:5, dump_FLL));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FllCalin:0x%x,", GET_BITS_VAL(4:0, dump_FLL));
 
 		if (GET_BITS_VAL(16:16, dump_FLL) == 1) {
 			temp = GET_BITS_VAL(15:6, dump_FLL);
+			str_len += scnprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" FLL_integrator:%d,", temp);
 			if (temp >= 512)
-				str_len += snprintf(aee_log_buf + str_len,
+				str_len += scnprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
 				" FllDuty:%d%%%%,", ((512-(temp-512))*5000)/512);
 			else
-				str_len += snprintf(aee_log_buf + str_len,
+				str_len += scnprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
 				" FllDuty:%d%%%%,", ((512+(512-temp))*5000)/512);
 		}
 
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" PLLCalDone:0x%x,",
 			GET_BITS_VAL(5:5, dump_PLL));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" PLLCalin:0x%x,",
 			GET_BITS_VAL(4:0, dump_PLL));
 
 		if (GET_BITS_VAL(16:16, dump_PLL) == 1) {
 			temp = GET_BITS_VAL(15:6, dump_PLL);
+			str_len += scnprintf(aee_log_buf + str_len,
+			(unsigned long long)adcc_mem_size - str_len,
+			" PLL_integrator:%d,", temp);
 			if (temp >= 512)
-				str_len += snprintf(aee_log_buf + str_len,
+				str_len += scnprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
 				" PLLDuty:%d%%%%", ((512-(temp-512))*5000)/512);
 			else
-				str_len += snprintf(aee_log_buf + str_len,
+				str_len += scnprintf(aee_log_buf + str_len,
 				(unsigned long long)adcc_mem_size - str_len,
 				" PLLDuty:%d%%%%", ((512+(512-temp))*5000)/512);
 		}
 
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" PLL_efuse:0x%x,", GET_BITS_VAL(3:0, dump_efuse));
-		str_len += snprintf(aee_log_buf + str_len,
+		str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FLL_efuse:0x%x,", GET_BITS_VAL(7:4, dump_efuse));
 		if (core == 4)
-			str_len += snprintf(aee_log_buf + str_len,
+			str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FLL_efuse_calout:0x%x\n",
 				GET_BITS_VAL(12:8, dump_efuse));
 		else if (core == 5)
-			str_len += snprintf(aee_log_buf + str_len,
+			str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FLL_efuse_calout:0x%x\n",
 				GET_BITS_VAL(17:13, dump_efuse));
 		else if (core == 6)
-			str_len += snprintf(aee_log_buf + str_len,
+			str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FLL_efuse_calout:0x%x\n",
 				GET_BITS_VAL(22:18, dump_efuse));
 		else if (core == 7)
-			str_len += snprintf(aee_log_buf + str_len,
+			str_len += scnprintf(aee_log_buf + str_len,
 			(unsigned long long)adcc_mem_size - str_len,
 			" FLL_efuse_calout:0x%x\n",
 				GET_BITS_VAL(27:23, dump_efuse));
@@ -290,7 +303,7 @@ static ssize_t adcc_cfg_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	if (kstrtouint(buf, 16, &value)) {
-		adcc_debug("bad argument!! Should be XXXXXXXX\n");
+		adcc_info("bad argument!! Should be XXXXXXXX\n");
 		goto out;
 	}
 
@@ -335,17 +348,17 @@ static ssize_t adcc_set_Calin_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%u %u %u", &core, &shaper, &value) != 3) {
-		adcc_debug("bad argument!! Should input 3 arguments.\n");
+		adcc_info("bad argument!! Should input 3 arguments.\n");
 		goto out;
 	}
 
 	if ((core < ADCC_CPU_START_ID) || (core > ADCC_CPU_END_ID)) {
-		adcc_debug("core(%d) is illegal\n", core);
+		adcc_info("core(%d) is illegal\n", core);
 		goto out;
 	}
 
 	if (shaper > 3) {
-		adcc_debug("shaper(%d) is illegal\n", core);
+		adcc_info("shaper(%d) is illegal\n", core);
 		goto out;
 	}
 
@@ -380,12 +393,12 @@ static ssize_t adcc_set_DcdSelect_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%u %u %u", &core, &shaper, &value) != 3) {
-		adcc_debug("bad argument!! Should input 3 arguments.\n");
+		adcc_info("bad argument!! Should input 3 arguments.\n");
 		goto out;
 	}
 
 	if ((core < ADCC_CPU_START_ID) || (core > ADCC_CPU_END_ID)) {
-		adcc_debug("core(%d) is illegal\n", core);
+		adcc_info("core(%d) is illegal\n", core);
 		goto out;
 	}
 
@@ -420,12 +433,12 @@ static ssize_t adcc_set_DcTarget_proc_write(struct file *file,
 	buf[count] = '\0';
 
 	if (sscanf(buf, "%u %u %u", &core, &shaper, &value) != 3) {
-		adcc_debug("bad argument!! Should input 3 arguments.\n");
+		adcc_info("bad argument!! Should input 3 arguments.\n");
 		goto out;
 	}
 
 	if ((core < ADCC_CPU_START_ID) || (core > ADCC_CPU_END_ID)) {
-		adcc_debug("core(%d) is illegal\n", core);
+		adcc_info("core(%d) is illegal\n", core);
 		goto out;
 	}
 
@@ -593,6 +606,7 @@ int adcc_probe(struct platform_device *pdev)
 
 int adcc_suspend(struct platform_device *pdev, pm_message_t state)
 {
+#ifdef ADCC_DEBUG_ON
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
@@ -602,11 +616,13 @@ int adcc_suspend(struct platform_device *pdev, pm_message_t state)
 	}
 #endif
 #endif
+#endif
 	return 0;
 }
 
 int adcc_resume(struct platform_device *pdev)
 {
+#ifdef ADCC_DEBUG_ON
 #ifndef CONFIG_FPGA_EARLY_PORTING
 #ifdef CONFIG_OF_RESERVED_MEM
 	/* dump reg status into PICACHU dram for DB */
@@ -614,6 +630,7 @@ int adcc_resume(struct platform_device *pdev)
 		adcc_reserve_memory_dump(adcc_buf+0x2000, adcc_mem_size,
 			ADCC_TRIGGER_STAGE_RESUME);
 	}
+#endif
 #endif
 #endif
 	return 0;
