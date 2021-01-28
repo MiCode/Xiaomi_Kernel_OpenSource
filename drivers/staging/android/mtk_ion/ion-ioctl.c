@@ -109,6 +109,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return PTR_ERR(handle);
 		}
 
+		pass_to_user(handle);
 		data.allocation.handle = handle->id;
 
 		cleanup_handle = handle;
@@ -127,7 +128,7 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				  data.handle.handle, ret);
 			return PTR_ERR(handle);
 		}
-		ion_free_nolock(client, handle);
+		user_ion_free_nolock(client, handle);
 		ion_handle_put_nolock(handle);
 		mutex_unlock(&client->lock);
 		break;
@@ -166,8 +167,13 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			IONMSG("ion_import fail: fd=%d, ret=%d\n",
 			       data.fd.fd, ret);
 			return ret;
+		} else {
+			handle = pass_to_user(handle);
+			if (IS_ERR(handle))
+				ret = PTR_ERR(handle);
+			else
+				data.handle.handle = handle->id;
 		}
-		data.handle.handle = handle->id;
 		break;
 	}
 	case ION_IOC_SYNC:
@@ -194,8 +200,12 @@ long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	if (dir & _IOC_READ) {
 		if (copy_to_user((void __user *)arg, &data, _IOC_SIZE(cmd))) {
-			if (cleanup_handle)
-				ion_free(client, cleanup_handle);
+			if (cleanup_handle) {
+				mutex_lock(&client->lock);
+				user_ion_free_nolock(client, cleanup_handle);
+				ion_handle_put_nolock(cleanup_handle);
+				mutex_unlock(&client->lock);
+			}
 			IONMSG("%s %d fail! cmd = %d, n = %d.\n",
 			       __func__, __LINE__,
 			       cmd, _IOC_SIZE(cmd));
