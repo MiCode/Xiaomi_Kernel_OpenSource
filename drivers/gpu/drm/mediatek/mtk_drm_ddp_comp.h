@@ -120,6 +120,9 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
 	EXPR(DDP_COMPONENT_DSC0)                                            \
 	EXPR(DDP_COMPONENT_MERGE0)                                          \
+	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
+	EXPR(DDP_COMPONENT_CM0)                                          \
+	EXPR(DDP_COMPONENT_SPR0)                                          \
 	EXPR(DDP_COMPONENT_ID_MAX)
 
 #define DECLARE_NUM(ENUM) ENUM,
@@ -198,6 +201,7 @@ enum mtk_ddp_io_cmd {
 	DSI_VFP_IDLE_MODE,
 	DSI_VFP_DEFAULT_MODE,
 	DSI_GET_TIMING,
+	DSI_GET_MODE_BY_MAX_VREFRESH,
 	PMQOS_SET_BW,
 	PMQOS_SET_HRT_BW,
 	PMQOS_UPDATE_BW,
@@ -224,6 +228,8 @@ enum mtk_ddp_io_cmd {
 	GET_FRAME_HRT_BW_BY_DATARATE,
 	DSI_SEND_DDIC_CMD,
 	DSI_READ_DDIC_CMD,
+	DSI_GET_VIRTUAL_HEIGH,
+	DSI_GET_VIRTUAL_WIDTH,
 	FRAME_DIRTY,
 };
 
@@ -511,6 +517,10 @@ void mt6885_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
 void mt6873_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
 			    struct cmdq_pkt *handle, void *data);
+void mt6853_mtk_sodi_config(struct drm_device *drm, enum mtk_ddp_comp_id id,
+			    struct cmdq_pkt *handle, void *data);
+
+
 int mtk_ddp_comp_helper_get_opt(struct mtk_ddp_comp *comp,
 				enum MTK_DRM_HELPER_OPT option);
 #endif /* MTK_DRM_DDP_COMP_H */

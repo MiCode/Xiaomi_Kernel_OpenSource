@@ -777,6 +777,45 @@ static void mtk_dsi_set_vm_cmd(struct mtk_dsi *dsi)
 	mtk_dsi_mask(dsi, DSI_VM_CMD_CON, TS_VFP_EN, TS_VFP_EN);
 }
 
+static int mtk_dsi_get_virtual_heigh(struct mtk_dsi *dsi,
+	struct drm_crtc *crtc)
+{
+	struct mtk_panel_ext *panel_ext = NULL;
+	struct mtk_crtc_state *state =
+	    to_mtk_crtc_state(crtc->state);
+	struct drm_display_mode adjusted_mode = state->base.adjusted_mode;
+	unsigned int virtual_heigh = adjusted_mode.vdisplay;
+
+	panel_ext = dsi->ext;
+	if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->get_virtual_heigh)
+		virtual_heigh = panel_ext->funcs->get_virtual_heigh();
+
+	if (!virtual_heigh)
+		virtual_heigh = crtc->mode.vdisplay;
+	DDPINFO("%s,virtual_heigh %d\n", __func__, virtual_heigh);
+	return virtual_heigh;
+}
+
+static int mtk_dsi_get_virtual_width(struct mtk_dsi *dsi,
+	struct drm_crtc *crtc)
+{
+	struct mtk_panel_ext *panel_ext = NULL;
+	struct mtk_crtc_state *state =
+	    to_mtk_crtc_state(crtc->state);
+	struct drm_display_mode adjusted_mode = state->base.adjusted_mode;
+	unsigned int virtual_width = adjusted_mode.hdisplay;
+
+	panel_ext = dsi->ext;
+	if (panel_ext && panel_ext->funcs
+			&& panel_ext->funcs->get_virtual_width)
+		virtual_width = panel_ext->funcs->get_virtual_width();
+	if (!virtual_width)
+		virtual_width = crtc->mode.hdisplay;
+	DDPINFO("%s,virtual_width %d\n", __func__, virtual_width);
+	return virtual_width;
+}
+
 static void mtk_dsi_ps_control_vact(struct mtk_dsi *dsi)
 {
 	struct videomode *vm = &dsi->vm;
@@ -4480,7 +4519,20 @@ static int mtk_dsi_io_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		return mtk_mipi_dsi_read_gce(dsi, handle, crtc, cmd_msg);
 	}
 		break;
+	case DSI_GET_VIRTUAL_HEIGH:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
 
+		return mtk_dsi_get_virtual_heigh(dsi, &crtc->base);
+	}
+		break;
+	case DSI_GET_VIRTUAL_WIDTH:
+	{
+		struct mtk_drm_crtc *crtc = comp->mtk_crtc;
+
+		return mtk_dsi_get_virtual_width(dsi, &crtc->base);
+	}
+		break;
 	default:
 		break;
 	}
