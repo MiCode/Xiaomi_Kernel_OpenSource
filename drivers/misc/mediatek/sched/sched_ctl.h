@@ -25,12 +25,6 @@ enum {
 #define SCHED_PREFER_LITTLE 2
 #define SCHED_PREFER_END    3
 
-/*
- * For the sched_{set,get}attr_enhanced() calls
- */
-#define SCHED_FLAG_PREFER_BIG_   0x10
-#define SCHED_FLAG_PREFER_LITTLE 0x20
-
 extern void set_user_space_global_cpuset
 		(struct cpumask *global_cpus, int cgroup_id);
 extern void unset_user_space_global_cpuset(int cgroup_id);
