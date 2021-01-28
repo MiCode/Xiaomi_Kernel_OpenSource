@@ -128,7 +128,7 @@ void register_low_battery_notify(
 {
 	PMICLOG("[%s] start\n", __func__);
 
-	lbcb_tb[prio_val].lbcb = low_battery_callback;
+	lbcb_tb[(unsigned int)prio_val].lbcb = low_battery_callback;
 
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 }
@@ -291,7 +291,7 @@ void register_battery_oc_notify(
 {
 	PMICLOG("[%s] start\n", __func__);
 
-	occb_tb[prio_val].occb = battery_oc_callback;
+	occb_tb[(unsigned int)prio_val].occb = battery_oc_callback;
 
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 }
@@ -458,7 +458,7 @@ void register_battery_percent_notify(
 {
 	PMICLOG("[%s] start\n", __func__);
 
-	bpcb_tb[prio_val].bpcb = battery_percent_callback;
+	bpcb_tb[(unsigned int)prio_val].bpcb = battery_percent_callback;
 
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 
@@ -793,7 +793,7 @@ void register_dlpt_notify(
 {
 	PMICLOG("[%s] start\n", __func__);
 
-	dlpt_cb_tb[prio_val].dlpt_cb = dlpt_callback;
+	dlpt_cb_tb[(unsigned int)prio_val].dlpt_cb = dlpt_callback;
 
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 
