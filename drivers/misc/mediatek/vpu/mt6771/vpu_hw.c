@@ -214,7 +214,7 @@ static struct pm_qos_request vpu_qos_vcore_request[MTK_VPU_CORE];
 #endif
 
 /* jtag */
-static bool is_jtag_enabled;
+/* static bool is_jtag_enabled; */
 
 /* direct link */
 static bool is_locked;
@@ -645,7 +645,7 @@ static int vpu_get_hw_vcore_opp(int core)
 
 /* expected range, vcore_index: 0~1 */
 /* expected range, freq_index: 0~7 */
-static void vpu_opp_check(int core, uint8_t vcore_index,
+static int vpu_opp_check(int core, uint8_t vcore_index,
 	uint8_t freq_index)
 {
 	int i = 0;
@@ -688,6 +688,8 @@ static void vpu_opp_check(int core, uint8_t vcore_index,
 		if (vcore_index >= opps.count) {
 			LOG_ERR("wrong vcore opp(%d), max(%d)", vcore_index,
 				opps.count - 1);
+			mutex_unlock(&opp_mutex);
+			return -1;
 		} else if ((vcore_index < opps.vcore.index) ||
 				((vcore_index > opps.vcore.index) &&
 				(!opp_keep_flag))) {
@@ -782,6 +784,7 @@ out:
 		max_dsp_freq, freq_check,
 		force_change_vcore_opp[core], force_change_dsp_freq[core],
 		change_freq_first[core], opp_keep_flag);
+	return 0;
 }
 
 static bool vpu_change_opp(int core, int type)
@@ -2007,7 +2010,7 @@ static int vpu_service_routine(void *arg)
 	int *d = (int *)arg;
 	int service_core = (*d);
 	bool get = false;
-	int i = 0, j = 0, cnt = 0;
+	int i = 0, j = 0, cnt = 0, opp_checkret = 0;
 
 	DEFINE_WAIT_FUNC(wait, woken_wake_function);
 
@@ -2035,6 +2038,7 @@ static int vpu_service_routine(void *arg)
 		head = NULL;
 		get = false;
 		cnt = 0;
+		opp_checkret = 0;
 
 		mutex_lock(&vpu_dev->servicepool_mutex[service_core]);
 		if (!(list_empty(&vpu_dev->pool_list[service_core]))) {
@@ -2141,7 +2145,7 @@ static int vpu_service_routine(void *arg)
 			LOG_DBG("[vpu_%d] run, opp(%d/%d/%d)\n",
 				service_core, req->power_param.opp_step,
 				vcore_opp_index, dsp_freq_index);
-			vpu_opp_check(
+			opp_checkret = vpu_opp_check(
 				service_core, vcore_opp_index, dsp_freq_index);
 			LOG_INF(
 				"[vpu_%d<-0x%x]0x%lx,ID(0x%lx_%d,%d->%d),o(%d,%d/%d-%d,%d-%d),f(0x%x),%d/%d/%d/0x%x\n",
@@ -2160,6 +2164,10 @@ static int vpu_service_routine(void *arg)
 				vpu_dev->servicepool_list_size[service_core],
 				vpu_dev->commonpool_list_size,
 				is_locked, efuse_data);
+			if (opp_checkret) {
+				LOG_ERR("opp check fail");
+				goto out;
+			}
 			#if 0
 			/*  prevent the worker shutdown vpu first, */
 			/* and current enque use the same algo_id */
@@ -3142,7 +3150,8 @@ static int vpu_check_postcond(int core)
 
 int vpu_hw_enable_jtag(bool enabled)
 {
-	int ret;
+	int ret = 0;
+#if 0
 	int TEMP_CORE = 0;
 
 	vpu_get_power(TEMP_CORE);
@@ -3177,6 +3186,7 @@ int vpu_hw_enable_jtag(bool enabled)
 
 out:
 	vpu_put_power(TEMP_CORE, VPT_ENQUE_ON);
+#endif
 	return ret;
 }
 
@@ -5278,8 +5288,9 @@ int vpu_set_power_parameter(uint8_t param, int argc, int *args)
 			goto out;
 		}
 
-		is_jtag_enabled = args[0];
-		ret = vpu_hw_enable_jtag(is_jtag_enabled);
+		/* is_jtag_enabled = args[0]; */
+		/* ret = vpu_hw_enable_jtag(is_jtag_enabled); */
+		LOG_ERR("DO not support jtag control");
 
 		break;
 	case VPU_POWER_PARAM_LOCK:
