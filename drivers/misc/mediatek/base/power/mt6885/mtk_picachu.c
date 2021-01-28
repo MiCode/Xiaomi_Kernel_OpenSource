@@ -149,7 +149,7 @@ phys_addr_t picachu_mem_base_phys;
 phys_addr_t picachu_mem_size;
 phys_addr_t picachu_mem_base_virt;
 
-#define EEM_TEMPSPARE0		0x1100B8F0
+#define EEM_TEMPSPARE0		0x112788F0
 static void get_picachu_mem_addr(void)
 {
 	void __iomem *virt_addr;
@@ -186,7 +186,7 @@ static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 			cnt = picachu_read(addr_ptr) & 0xff;
 			seq_printf(m, "0x%X\n", cnt);
 			addr_ptr += 4;
-			for (i = 1; i < cnt; i++, addr_ptr += 4) {
+			for (i = 0; i < cnt; i++, addr_ptr += 4) {
 				val = picachu_read(addr_ptr);
 				seq_printf(m, "0x%X\n", val);
 			}
