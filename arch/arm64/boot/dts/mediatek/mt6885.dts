@@ -1096,6 +1096,7 @@ page_owner=on";
 			     <GIC_SPI 148 IRQ_TYPE_LEVEL_LOW>,
 			     <GIC_SPI 149 IRQ_TYPE_LEVEL_LOW>;
 		#dma-cells = <1>;
+		dma_bits = <34>;
 	};
 
 	apuart0: serial@11002000 {
