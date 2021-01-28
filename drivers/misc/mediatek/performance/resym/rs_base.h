@@ -48,7 +48,4 @@ void rs_sysfs_create_file(struct kobject *parent,
 void rs_sysfs_remove_file(struct kobject *parent,
 		struct kobj_attribute *kobj_attr);
 
-/* trace */
-extern unsigned long __read_mostly mark_addr;
-
 #endif
