@@ -185,11 +185,9 @@ struct clb_env {
 static void collect_cluster_stats(struct clb_stats *clbs,
 		struct cpumask *cluster_cpus, int target)
 {
-#define HMP_RESOLUTION_SCALING (4)
-#define hmp_scale_down(w) ((w) >> HMP_RESOLUTION_SCALING)
-
 	/* Update cluster informatics */
 	int cpu;
+	int loadwop;
 
 	for_each_cpu(cpu, cluster_cpus) {
 		if (cpu_online(cpu)) {
@@ -218,19 +216,19 @@ static void collect_cluster_stats(struct clb_stats *clbs,
 	 * Thus, multiplying the number of tasks can adjust load ratio to a more
 	 * reasonable value.
 	 */
+	loadwop = cpu_rq(target)->cfs.avg.loadwop_avg;
 	clbs->load_avg /= clbs->ncpu;
-	clbs->acap = clbs->cpu_capacity - cpu_rq(target)->cfs.avg.loadwop_avg;
-	clbs->scaled_acap = hmp_scale_down(clbs->acap);
-	clbs->scaled_atask = cpu_rq(target)->cfs.avg.loadwop_avg;
-	clbs->scaled_atask = clbs->cpu_capacity - clbs->scaled_atask;
-	clbs->scaled_atask = hmp_scale_down(clbs->scaled_atask);
+	clbs->acap = (clbs->cpu_capacity > loadwop) ?
+		(clbs->cpu_capacity - loadwop) : 0;
+	clbs->scaled_atask = (clbs->cpu_capacity > loadwop) ?
+		(clbs->cpu_capacity - loadwop) : 0;
 
 	trace_sched_cluster_stats(target,
 			cpu_rq(target)->cfs.avg.loadwop_avg,
 			cpu_rq(target)->cfs.h_nr_running,
 			*cpumask_bits(cluster_cpus),
 			clbs->ntask, clbs->load_avg,
-			clbs->cpu_capacity, clbs->acap, clbs->scaled_acap,
+			clbs->cpu_capacity, clbs->acap,
 			clbs->scaled_atask, clbs->threshold);
 }
 
@@ -256,24 +254,31 @@ static void collect_cluster_stats(struct clb_stats *clbs,
  */
 static void adj_threshold(struct clb_env *clbenv)
 {
-#define POSITIVE(x) ((int)(x) < 0 ? 0 : (x))
+#define HMP_RESOLUTION_SCALING (4)
+#define hmp_scale_down(w) ((w) >> HMP_RESOLUTION_SCALING)
 
 	unsigned long b_cap = 0, l_cap = 0;
 	int b_nacap, l_nacap, b_natask, l_natask;
+	const int hmp_max_weight = scale_load_down(HMP_MAX_LOAD);
 
 	b_cap = clbenv->bstats.cpu_power;
 	l_cap = clbenv->lstats.cpu_power;
-	b_nacap = POSITIVE(clbenv->bstats.scaled_acap *
-			b_cap / (l_cap+1));
-	b_natask = POSITIVE(clbenv->bstats.scaled_atask *
-			b_cap / (l_cap+1));
-	l_nacap = POSITIVE(clbenv->lstats.scaled_acap);
-	l_natask = POSITIVE(clbenv->lstats.scaled_atask);
+	b_nacap = clbenv->bstats.scaled_acap * b_cap / (l_cap+1);
+	b_natask = clbenv->bstats.scaled_atask *
+		b_cap / (l_cap+1);
+	l_nacap = clbenv->lstats.scaled_acap;
+	l_natask = clbenv->lstats.scaled_atask;
 
-	clbenv->bstats.threshold = HMP_MAX_LOAD -
-		(HMP_MAX_LOAD * b_nacap * b_natask) /
+
+	b_nacap = hmp_scale_down(b_nacap);
+	l_nacap = hmp_scale_down(l_nacap);
+	b_natask = hmp_scale_down(b_natask);
+	l_natask = hmp_scale_down(l_natask);
+
+	clbenv->bstats.threshold = hmp_max_weight -
+		(hmp_max_weight * b_nacap * b_natask) /
 		((b_nacap + l_nacap) * (b_natask + l_natask) + 1);
-	clbenv->lstats.threshold = HMP_MAX_LOAD * l_nacap * l_natask /
+	clbenv->lstats.threshold = hmp_max_weight * l_nacap * l_natask /
 		((b_nacap + l_nacap) * (b_natask + l_natask) + 1);
 
 	trace_sched_adj_threshold(clbenv->bstats.threshold,
