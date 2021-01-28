@@ -1097,7 +1097,7 @@ unsigned int disp_lp_set_idle_check_interval(unsigned int new_interval)
 static int _primary_path_idlemgr_monitor_thread(void *data)
 {
 	int ret = 0;
-	long long t_to_check = 0;
+	unsigned long long t_to_check = 0;
 	unsigned long long t_idle;
 
 	msleep(16000);
@@ -1107,14 +1107,14 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 
 		t_idle = local_clock() - idlemgr_pgc->idlemgr_last_kick_time;
 		t_to_check = idle_check_interval * 1000 * 1000 - t_idle;
-		t_to_check /= 1000000;
+		do_div(t_to_check, 1000000);
 
 		mmprofile_log_ex(ddp_mmp_get_events()->idle_monitor,
 				 MMPROFILE_FLAG_PULSE, idle_check_interval,
 				 t_to_check);
 
 		/* error handling */
-		t_to_check = min(t_to_check, 1000LL);
+		t_to_check = min(t_to_check, 1000ULL);
 		/* when starting up before the first time kick */
 		if (idlemgr_pgc->idlemgr_last_kick_time == 0)
 			msleep_interruptible(idle_check_interval);
