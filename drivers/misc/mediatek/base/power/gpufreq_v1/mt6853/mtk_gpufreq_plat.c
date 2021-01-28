@@ -263,42 +263,11 @@ unsigned int mt_gpufreq_get_shader_present(void)
 	switch (segment_id) {
 	case MT6853_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_3;
-	case MT6853_SEGMENT:
+		break;
+	case MT6853T_SEGMENT:
 		shader_present = MT_GPU_SHADER_PRESENT_3;
 		break;
-/* Reserved */
-/*
- *      case MT6853T_SEGMENT:
- *              shader_present = ;
- *              break;
- */
-	default:
-		shader_present = MT_GPU_SHADER_PRESENT_3;
-		gpufreq_pr_info("invalid segment id: %d\n", segment_id);
-	}
-	gpufreq_pr_info("@%s: segment_id: %d, shader_present: %d\n",
-				__func__, segment_id, shader_present);
 
-	return shader_present;
-}
-
-void mt_gpufreq_wdt_reset(void)
-{
-	unsigned int val;
-
-	gpufreq_pr_info("%s\n", __func__);
-
-	if (g_toprgu_base) {
-		writel(0x88000004, g_toprgu_base + 0x18);
-		val = readl(g_toprgu_base + 0x18);
-
-		break;
-/* Reserved */
-/*
- *	case MT6853T_SEGMENT:
- *		shader_present = ;
- *		break;
- */
 	default:
 		shader_present = MT_GPU_SHADER_PRESENT_3;
 		gpufreq_pr_info("invalid segment id: %d\n", segment_id);
@@ -340,9 +309,9 @@ void mt_gpufreq_dump_infra_status(void)
 	gpufreq_pr_info(
 		"clk: %d, freq: %d, vgpu: %d, vsram_gpu: %d\n",
 		mt_get_abist_freq(FM_MGPLL_CK),
-		__mt_gpufreq_get_cur_freq(),
-		__mt_gpufreq_get_cur_vgpu(),
-		__mt_gpufreq_get_cur_vsram_gpu());
+		g_cur_opp_freq,
+		g_cur_opp_vgpu,
+		g_cur_opp_vsram_gpu);
 
 	// 0x1020E000
 	if (g_infracfg_base) {
@@ -1782,12 +1751,16 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 	case 0x1:
 		segment_id = MT6853_SEGMENT;
 		break;
-/* Reserved */
-/*
- *	case 0x10:
- *		segment_id = MT6853T_SEGMENT;
- *		break;
- */
+	case 0x2:
+		segment_id = MT6853_SEGMENT;
+		break;
+	case 0x10:
+		segment_id = MT6853T_SEGMENT;
+		break;
+	case 0x20:
+		segment_id = MT6853T_SEGMENT;
+		break;
+
 	default:
 		segment_id = MT6853_SEGMENT;
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
@@ -1800,18 +1773,18 @@ static unsigned int __mt_gpufreq_get_segment_id(void)
 }
 static struct opp_table_info *__mt_gpufreq_get_segment_table(void)
 {
-#if 1
+#if 0
 	return g_opp_table_segment_1;
 #else
 
 	unsigned int efuse_id;
 
-	efuse_id = ((get_devinfo_with_index(72) >> 18) & 0x3);
+	efuse_id = ((get_devinfo_with_index(134) >> 2) & 0x3);
 	switch (efuse_id) {
-	case 0x0:
-		return g_opp_table_segment_1;
-	case 0x1:
+	case 0x1: //EFUSE 0x11C107B0[3:2] = 2'b01
 		return g_opp_table_segment_2;
+	case 0x2: //EFUSE 0x11C107B0[3:2] = 2'b10
+		return g_opp_table_segment_3;
 	default:
 		gpufreq_pr_info("invalid efuse id: 0x%x\n", efuse_id);
 		return g_opp_table_segment_1;
@@ -2433,9 +2406,17 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
+		if (g_cur_opp_freq < freq_new)
+			gpufreq_pr_info("Clock switch failing: %d -> %d (target: %d)\n",
+				freq_old, g_cur_opp_freq, freq_new);
+
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+
+		if (g_cur_opp_freq > freq_new)
+			gpufreq_pr_info("Clock switch failing: %d -> %d (target: %d)\n",
+				freq_old, g_cur_opp_freq, freq_new);
 
 		while (g_cur_opp_vgpu != vgpu_new) {
 			sb_idx = g_opp_sb_idx_down[g_cur_opp_idx] > idx_new ?
@@ -2454,6 +2435,9 @@ static void __mt_gpufreq_set(
 
 	/* update "g_cur_opp_idx" when "Vgpu old" and "Vgpu new" is the same */
 	g_cur_opp_idx = idx_new;
+	g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+	g_cur_opp_vgpu = __mt_gpufreq_get_cur_vgpu();
+	g_cur_opp_vsram_gpu = __mt_gpufreq_get_cur_vsram_gpu();
 
 	gpu_dvfs_oppidx_footprint(idx_new);
 
@@ -2555,6 +2539,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	enum g_posdiv_power_enum real_posdiv_power;
 	unsigned int dds, pll;
 	bool parking = false;
+	int hopping = -1;
 
 	real_posdiv_power = __mt_gpufreq_get_curr_posdiv_power();
 	posdiv_power = __mt_gpufreq_get_posdiv_power(freq_new);
@@ -2587,7 +2572,9 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 		__mt_gpufreq_switch_to_clksrc(CLOCK_MAIN);
 	} else {
 #ifdef CONFIG_MTK_FREQ_HOPPING
-		mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
+		hopping = mt_dfs_general_pll(MFGPLL_FH_PLL, dds);
+		if (hopping != 0)
+			gpufreq_pr_info("hopping failing: %d\n", hopping);
 #endif
 	}
 
@@ -2694,19 +2681,21 @@ static void __mt_gpufreq_vgpu_set_mode(unsigned int mode)
  */
 static void __mt_gpufreq_set_fixed_freq(int fixed_freq)
 {
+	int get_cur_freq = 0;
+
 	gpufreq_pr_debug("before, g_fixed_freq = %d, g_fixed_vgpu = %d\n",
 			g_fixed_freq, g_fixed_vgpu);
 
 	g_fixed_freq = fixed_freq;
 	g_fixed_vgpu = g_cur_opp_vgpu;
 
-	gpufreq_pr_debug("@%s: now, g_fixed_freq = %d, g_fixed_vgpu = %d\n",
-			__func__,
-			g_fixed_freq, g_fixed_vgpu);
-
 	__mt_gpufreq_clock_switch(g_fixed_freq);
 
-	g_cur_opp_freq = g_fixed_freq;
+	get_cur_freq = __mt_gpufreq_get_cur_freq();
+	gpufreq_pr_logbuf("before: %d, after: %d, target: %d, vgpu = %d\n",
+	g_cur_opp_freq, get_cur_freq, g_fixed_freq, g_fixed_vgpu);
+
+	g_cur_opp_freq = get_cur_freq;
 }
 
 /*
@@ -3002,19 +2991,22 @@ static void __mt_gpufreq_init_table(void)
 	/* determine max_opp/num/segment_table... by segment  */
 	if (segment_id == MT6853_SEGMENT)
 		g_segment_max_opp_idx = 18;
-/* Reserved */
-/*
- *	else if (segment_id == MT6853T_SEGMENT)
- *		g_segment_max_opp_idx = 0;
- */
+	else if (segment_id == MT6853T_SEGMENT)
+		g_segment_max_opp_idx = 0;
 	else
 		g_segment_max_opp_idx = 18;
 
-/* Turbo Testing */
+/* Special SW setting */
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
 						"turbo") != NULL) {
 		gpufreq_pr_info("@%s: turbo flavor name: %s\n",
+			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
+		g_segment_max_opp_idx = 0;
+	}
+	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
+						"k6853tv1") != NULL) {
+		gpufreq_pr_info("@%s: k6853tv1 flavor name: %s\n",
 			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
 		g_segment_max_opp_idx = 0;
 	}
@@ -3292,6 +3284,7 @@ static int __mt_gpufreq_init_clk(struct platform_device *pdev)
 			__func__);
 		return -ENOENT;
 	}
+
 	// 0x10006000
 	g_sleep = __mt_gpufreq_of_ioremap("mediatek,sleep", 0);
 	if (!g_sleep) {
@@ -3525,15 +3518,6 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 #if MT_GPUFREQ_DFD_DEBUG
 	// for debug only. simulate gpu dfd trigger state
 	//__mt_gpufreq_gpu_dfd_trigger_simulate();
-#endif
-
-#if MT_GPUFREQ_DFD_ENABLE
-	/* if dfd is triggered, power off BUCK to cleare it */
-	if (__mt_gpufreq_is_dfd_triggered()) {
-		//__mt_gpufreq_dfd_debug_exception();
-		gpufreq_pr_info("[GPU_DFD] gpu dfd is triggered, clear it.\n");
-		__mt_gpufreq_gpu_dfd_clear();
-	}
 #endif
 
 	g_probe_done = true;
