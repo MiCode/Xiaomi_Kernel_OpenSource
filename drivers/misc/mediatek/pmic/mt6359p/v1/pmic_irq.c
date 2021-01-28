@@ -82,11 +82,11 @@ irqreturn_t legacy_pmic_int_handler(int irq, void *data)
  */
 void pmic_enable_interrupt(enum PMIC_IRQ_ENUM intNo, unsigned int en, char *str)
 {
-	int ret;
-	unsigned int irq;
-	const char *name;
+	int ret = 0;
+	unsigned int irq = 0;
+	const char *name = NULL;
 	struct legacy_pmic_callback *pmic_cb = &pmic_cbs[intNo];
-	struct irq_desc *desc;
+	struct irq_desc *desc = NULL;
 
 	if (intNo == INT_ENUM_MAX) {
 		pr_notice(PMICTAG "[%s] disable intNo=%d\n", __func__, intNo);

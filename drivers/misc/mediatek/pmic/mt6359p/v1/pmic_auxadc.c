@@ -552,7 +552,7 @@ out:
 int pmic_auxadc_chip_init(struct device *dev)
 {
 	int ret = 0;
-	struct iio_channel *chan_vbif;
+	struct iio_channel *chan_vbif = NULL;
 
 	HKLOG("%s\n", __func__);
 	pmic_auxadc_dev = dev;

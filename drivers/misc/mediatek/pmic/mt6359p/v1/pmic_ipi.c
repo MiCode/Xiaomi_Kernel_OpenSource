@@ -17,7 +17,7 @@
 #include <mach/mtk_pmic_ipi.h>
 #include <sspm_define.h>
 #include <sspm_ipi_id.h>
-#include <mach/upmu_hw.h>
+
 #define PMIC_IPI_TIMEOUT 2000
 
 static bool is_ipi_register;
@@ -69,9 +69,3 @@ unsigned int pmic_ipi_config_interface(unsigned int RegNum, unsigned int val,
 	return abs(ret);
 }
 
-unsigned int pmic_ipi_test_code(void)
-{
-	unsigned int error = 0;
-
-	return error;
-}

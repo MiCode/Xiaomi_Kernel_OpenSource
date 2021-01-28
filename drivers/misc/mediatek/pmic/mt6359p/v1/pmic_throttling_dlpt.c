@@ -701,10 +701,10 @@ static void ptim_unlock(void)
 int do_ptim_internal(bool isSuspend, unsigned int *bat,
 		     signed int *cur, bool *is_charging)
 {
-	unsigned int vbat_reg;
+	unsigned int vbat_reg = 0;
 	unsigned int count_adc_imp = 0;
 	int ret = 0;
-	unsigned char *r_ratio;
+	unsigned char *r_ratio = NULL;
 
 	/* selection setting, move to LK pmic_dlpt_init */
 
@@ -793,8 +793,8 @@ int get_imix(void)
 
 int do_ptim(bool isSuspend)
 {
-	int ret;
-	bool is_charging;
+	int ret = 0;
+	bool is_charging = false;
 
 	if (isSuspend == false)
 		ptim_lock();

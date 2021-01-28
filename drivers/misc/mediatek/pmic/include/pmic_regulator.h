@@ -30,7 +30,7 @@
 
 #define REGULATOR_READY
 
-#define REGULATOR_TEST 0
+/*#define REGULATOR_TEST 0*/
 
 extern struct mtk_regulator mtk_ldos[];
 extern struct of_regulator_match pmic_regulator_matches[];

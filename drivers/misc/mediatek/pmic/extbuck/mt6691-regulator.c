@@ -294,7 +294,7 @@ static struct regulator_ops mt6691_regulator_ops = {
 	.is_enabled = mt6691_is_enabled,
 };
 
-#define REG_CHIP(_id)	\
+#define REG_CHIP(_id, _vsel)	\
 {						\
 	.desc = {				\
 		.id = _id,			\
@@ -304,17 +304,18 @@ static struct regulator_ops mt6691_regulator_ops = {
 		.type = REGULATOR_VOLTAGE,	\
 		.owner = THIS_MODULE,		\
 	},					\
-	.vol_reg = MT6691_VSEL_##_id,		\
-	.mode_reg = MT6691_CTRL_##_id,		\
-	.mode_bit = MT6691_CTRL_BIT_##_id,	\
-	.enable_reg = MT6691_EN_##_id,		\
-	.enable_bit = MT6691_EN_BIT_##_id,	\
+	.vol_reg = MT6691_REG_VSEL##_vsel,	\
+	.mode_reg = MT6691_CTRL_1,		\
+	.mode_bit = (1 << _id),			\
+	.enable_reg = MT6691_REG_MONITOR,	\
+	.enable_bit = (1 << _id),		\
 }
 
 static struct regulator_chip mt6691_datas[] = {
-	REG_CHIP(0), /* VDD2 1.125V */
-	REG_CHIP(1), /* VDDQ 0.6V */
-	REG_CHIP(2), /* VMDDR 0.75V */
+	REG_CHIP(0, 0), /* VDD2 1.125V */
+	REG_CHIP(1, 1), /* VDDQ 0.6V */
+	REG_CHIP(2, 0), /* VMDDR 0.75V */
+	REG_CHIP(3, 0), /* VUFS12 1.225V */
 };
 
 struct regulator_dev *mt6691_regulator_register(
@@ -342,6 +343,7 @@ static int mt6691_i2c_probe(struct i2c_client *i2c,
 	case 0x50: /* MT6691ZXP */
 	case 0x57: /* MT6691OOP */
 	case 0x51: /* MT6691SVP */
+	case 0x56: /* MT6691OTP */
 		break;
 	default:
 		dev_info(&i2c->dev, "%s invalid Slave Addr\n", __func__);
@@ -380,9 +382,11 @@ static int mt6691_i2c_probe(struct i2c_client *i2c,
 	}
 
 #if 1
-	g_is_mt6691_exist = 0;
+	g_is_mt6691_exist = 1;
 	if (mt6691_read_byte(info->i2c, MT6691_REG_MONITOR, &ret) >= 0)
-		g_is_mt6691_exist = 1;
+		g_is_mt6691_exist &= 1;
+	else
+		g_is_mt6691_exist &= 0;
 	dev_info(&i2c->dev, "i2c_slv=0x%x ret=0x%x g_is_mt6691_exist=%d\n",
 		 i2c->addr, ret, g_is_mt6691_exist);
 	return 0;
@@ -433,6 +437,9 @@ static const struct of_device_id rt_match_table[] = {
 	}, {	/* VMDDR=0.75V (0x51) */
 		.compatible = MT6691_CMPT_STR_2,
 		.data = &mt6691_datas[2],
+	}, {	/* VUFS12=1.225V (0x56) */
+		.compatible = "mediatek,ext_buck_vufs12",
+		.data = &mt6691_datas[3],
 	}, {
 		/* Sentinel */
 	},

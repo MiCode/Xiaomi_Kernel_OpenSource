@@ -337,7 +337,12 @@ static long pmic_ftm_ioctl(struct file *file,
 				, __func__, adc_out_data[0]);
 		break;
 	case Get_IS_EXT_BUCK3_EXIST:
+#ifdef CONFIG_MTK_EXTBUCK
+		/* just for UI showing CONNECTED */
+		adc_out_data[0] = is_ext_buck2_exist();
+#else
 		adc_out_data[0] = 0;
+#endif
 		PMICLOG("[%s] Get_IS_EXT_BUCK3_EXIST:%d\n"
 				, __func__, adc_out_data[0]);
 		break;
