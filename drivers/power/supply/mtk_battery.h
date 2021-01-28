@@ -888,8 +888,13 @@ struct mtk_battery {
 	int algo_ocv_to_soc;
 	int algo_vtemp;
 
+	/* aging */
 	bool is_reset_aging_factor;
 	int aging_factor;
+
+	/* bootmode */
+	u32 bootmode;
+	u32 boottype;
 
 	/*custom related*/
 	int battery_id;

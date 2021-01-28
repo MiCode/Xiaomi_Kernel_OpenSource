@@ -29,6 +29,14 @@
 #include "mtk_battery.h"
 #include "mtk_battery_table.h"
 
+
+struct tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
 int __attribute__ ((weak))
 	mtk_battery_daemon_init(struct platform_device *pdev)
 {
@@ -171,7 +179,15 @@ int wakeup_fg_algo(struct mtk_battery *gm, unsigned int flow_state)
 
 bool is_kernel_power_off_charging(void)
 {
-/*todo: get boot mode from DTSI*/
+	struct mtk_battery *gm;
+
+	gm = get_mtk_battery();
+	bm_debug("%s, bootmdoe = %d\n", gm->bootmode);
+
+	/* KERNEL_POWER_OFF_CHARGING_BOOT */
+	if (gm->bootmode == 8)
+		return true;
+
 	return false;
 }
 
@@ -2141,14 +2157,18 @@ void fg_drv_update_hw_status(struct mtk_battery *gm)
 {
 	ktime_t ktime;
 
-	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d\n",
+	bm_err("car[%d,%ld,%ld,%ld,%ld] tmp:%d soc:%d uisoc:%d vbat:%d ibat:%d algo:%d gm3:%d %d %d %d,boot:%d\n",
 		gauge_get_int_property(GAUGE_PROP_COULOMB),
 		gm->coulomb_plus.end, gm->coulomb_minus.end,
 		gm->uisoc_plus.end, gm->uisoc_minus.end,
 		force_get_tbat_internal(gm, true),
 		gm->soc, gm->ui_soc,
 		gauge_get_int_property(GAUGE_PROP_BATTERY_VOLTAGE),
-		gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT));
+		gauge_get_int_property(GAUGE_PROP_BATTERY_CURRENT),
+		gm->algo.active,
+		gm->disableGM30, gm->fg_cust_data.disable_nafg,
+		gm->ntc_disable_nafg, gm->cmd_disable_nafg,
+		gm->bootmode);
 
 	fg_drv_update_daemon(gm);
 
@@ -2197,7 +2217,6 @@ void fg_drv_thread_hrtimer_init(struct mtk_battery *gm)
 	ktime_t ktime;
 
 	ktime = ktime_set(10, 0);
-	init_waitqueue_head(&gm->wait_que);
 	hrtimer_init(&gm->fg_hrtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	gm->fg_hrtimer.function = fg_drv_thread_hrtimer_func;
 	hrtimer_start(&gm->fg_hrtimer, ktime, HRTIMER_MODE_REL);
@@ -2806,6 +2825,31 @@ int battery_psy_init(struct platform_device *pdev)
 	bm_err("[BAT_probe] power_supply_register Battery Success !!\n");
 	return 0;
 }
+
+void fg_check_bootmode(struct device *dev,
+	struct mtk_battery *gm)
+{
+	struct device_node *boot_node = NULL;
+	struct tag_bootmode *tag = NULL;
+
+	boot_node = of_parse_phandle(dev->of_node, "bootmode", 0);
+	if (!boot_node)
+		bm_err("%s: failed to get boot mode phandle\n", __func__);
+	else {
+		tag = (struct tag_bootmode *)of_get_property(boot_node,
+							"atag,boot", NULL);
+		if (!tag)
+			bm_err("%s: failed to get atag,boot\n", __func__);
+		else {
+			bm_err("%s: size:0x%x tag:0x%x bootmode:0x%x boottype:0x%x\n",
+				__func__, tag->size, tag->tag,
+				tag->bootmode, tag->boottype);
+			gm->bootmode = tag->bootmode;
+			gm->boottype = tag->boottype;
+		}
+	}
+}
+
 int battery_init(struct platform_device *pdev)
 {
 	struct mtk_battery *gm;
@@ -2818,6 +2862,9 @@ int battery_init(struct platform_device *pdev)
 	gm->log_level = BMLOG_TRACE_LEVEL;
 	gm->sw_iavg_gap = 3000;
 
+	init_waitqueue_head(&gm->wait_que);
+
+	fg_check_bootmode(&pdev->dev, gm);
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 
@@ -2832,6 +2879,8 @@ int battery_init(struct platform_device *pdev)
 	gauge_coulomb_consumer_init(&gm->uisoc_minus, &pdev->dev, "uisoc-1%");
 	gm->uisoc_minus.callback = fg_bat_int2_l_handler;
 
+
+
 	alarm_init(&gm->tracking_timer, ALARM_BOOTTIME,
 		tracking_timer_callback);
 	INIT_WORK(&gm->tracking_timer_work, tracking_timer_work_handler);
@@ -2842,6 +2891,7 @@ int battery_init(struct platform_device *pdev)
 	alarm_init(&gm->sw_uisoc_timer, ALARM_BOOTTIME,
 		sw_uisoc_timer_callback);
 	INIT_WORK(&gm->sw_uisoc_timer_work, sw_uisoc_timer_work_handler);
+
 
 	kthread_run(battery_update_routine, gm, "battery_thread");
 	fg_drv_thread_hrtimer_init(gm);
