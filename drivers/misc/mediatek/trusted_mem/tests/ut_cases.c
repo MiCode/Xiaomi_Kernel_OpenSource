@@ -452,10 +452,8 @@ static enum UT_RET_STATE multiple_ssmr_region_request(struct ut_params *params,
 		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_SVP),
 			  "svp ssmr allocate check");
 	if (tmem_core_is_device_registered(TRUSTED_MEM_2D_FR)) {
-		ASSERT_EQ(0, tmem_core_ssmr_allocate(TRUSTED_MEM_2D_FR),
+		ASSERT_NE(0, tmem_core_ssmr_allocate(TRUSTED_MEM_2D_FR),
 			  "FR ssmr allocate check");
-		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_2D_FR),
-			  "FR ssmr release check");
 	}
 	if (tmem_core_is_device_registered(TRUSTED_MEM_SVP))
 		ASSERT_EQ(0, tmem_core_ssmr_release(TRUSTED_MEM_SVP),
