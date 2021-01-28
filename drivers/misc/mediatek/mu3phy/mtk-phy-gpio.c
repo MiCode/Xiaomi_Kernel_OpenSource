@@ -321,27 +321,32 @@ PHY_INT32 I2cReadReg(PHY_UINT8 dev_id, PHY_UINT8 Addr, PHY_UINT8 *Data)
 #define REG_I2C_HTIMING      (PHY_I2C_BASE + 0x20)
 #define REG_I2C_LTIMING      (PHY_I2C_BASE + 0x2C)
 
-#define IS_PRINT 0
+#define ADDR_I2C_DATA_PORT   (PHY_I2C_BASE + 0x00)
+#define ADDR_I2C_SLAVE_ADDR  (PHY_I2C_BASE + 0x04)
+#define ADDR_I2C_TRANSFER_LEN (PHY_I2C_BASE + 0x14)
+#define ADDR_I2C_START        (PHY_I2C_BASE + 0x24)
+
+#define IS_PRINT 1
 
 PHY_INT32 I2cWriteReg(PHY_UINT8 dev_id, PHY_UINT8 addr, PHY_UINT8 val)
 {
 	if (IS_PRINT)
 		pr_info("I2C Write@%x [%x]=%x\n", dev_id, addr, val);
 
-	REG_I2C_SLAVE_ADDR = dev_id << 1;
-	REG_I2C_TRANSFER_LEN = 2;
+	writew((dev_id << 1), ADDR_I2C_SLAVE_ADDR);
+	writew(2, ADDR_I2C_TRANSFER_LEN);
 
 	/* ADDITIONAL CONTROL */
 	writew(0x1, REG_I2C_TRANSAC_LEN);
 	writew(0x1303, REG_I2C_HTIMING);
 	writew(0x13C3, REG_I2C_LTIMING);
 
-	REG_I2C_DATA_PORT = addr;
-	REG_I2C_DATA_PORT = val;
+	writew(addr, ADDR_I2C_DATA_PORT);
+	writew(val, ADDR_I2C_DATA_PORT);
 
-	REG_I2C_START = REG_I2C_START_BIT;
+	writew(REG_I2C_START_BIT, ADDR_I2C_START);
 
-	while ((REG_I2C_START & REG_I2C_START_BIT))
+	while ((readw(ADDR_I2C_START) & REG_I2C_START_BIT))
 		;
 
 	return PHY_TRUE;
@@ -352,34 +357,34 @@ PHY_INT32 I2cReadReg(PHY_UINT8 dev_id, PHY_UINT8 addr, PHY_UINT8 *data)
 	if (IS_PRINT)
 		pr_info("I2C Read@%x [%x]\n", dev_id, addr);
 
-	REG_I2C_SLAVE_ADDR = dev_id << 1;
-	REG_I2C_TRANSFER_LEN = 0x01;
+	writew((dev_id << 1), ADDR_I2C_SLAVE_ADDR);
+	writew(1, ADDR_I2C_TRANSFER_LEN);
 
 	/* ADDITIONAL CONTROL */
 	writew(0x1, REG_I2C_TRANSAC_LEN);
 	writew(0x1303, REG_I2C_HTIMING);
 	writew(0x13C3, REG_I2C_LTIMING);
 
-	REG_I2C_DATA_PORT = addr;
-	REG_I2C_START = REG_I2C_START_BIT;
+	writew(addr, ADDR_I2C_DATA_PORT);
+	writew(REG_I2C_START_BIT, ADDR_I2C_START);
 
-	while ((REG_I2C_START & REG_I2C_START_BIT))
+	while ((readw(ADDR_I2C_START) & REG_I2C_START_BIT))
 		;
 
-	REG_I2C_SLAVE_ADDR = (dev_id << 1) | I2C_READ_BIT;
-	REG_I2C_TRANSFER_LEN = 0x01;
+	writew((dev_id << 1) | I2C_READ_BIT, ADDR_I2C_SLAVE_ADDR);
+	writew(1, ADDR_I2C_TRANSFER_LEN);
 
 	/* ADDITIONAL CONTROL */
 	writew(0x1, REG_I2C_TRANSAC_LEN);
 	writew(0x1303, REG_I2C_HTIMING);
 	writew(0x13C3, REG_I2C_LTIMING);
 
-	REG_I2C_START = REG_I2C_START_BIT;
+	writew(REG_I2C_START_BIT, ADDR_I2C_START);
 
-	while ((REG_I2C_START & REG_I2C_START_BIT))
+	while ((readw(ADDR_I2C_START) & REG_I2C_START_BIT))
 		;
 
-	*data = REG_I2C_DATA_PORT;
+	*data = readw(ADDR_I2C_DATA_PORT);
 
 	if (IS_PRINT)
 		pr_info("I2C Read [%x]=%x\n", addr, *data);

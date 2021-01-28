@@ -231,7 +231,9 @@ void connection_work(struct work_struct *data)
 	}
 #endif
 
+#ifndef CONFIG_FPGA_EARLY_PORTING
 exit:
+#endif
 	/* free mt_usb_work */
 	kfree(work);
 }
