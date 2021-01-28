@@ -205,7 +205,7 @@ static void devapc_test_cb(void)
 }
 
 static struct devapc_vio_callbacks devapc_test_handle = {
-	.id = SUBSYS_TEST,
+	.id = DEVAPC_SUBSYS_TEST,
 	.debug_dump = devapc_test_cb,
 };
 
@@ -266,7 +266,7 @@ static void devapc_violation_triggered(uint32_t vio_idx,
 {
 	char subsys_str[48] = {0};
 	struct devapc_vio_callbacks *viocb;
-	enum subsys_id id = SUBSYS_RESERVED;
+	enum infra_subsys_id id = DEVAPC_SUBSYS_RESERVED;
 	const struct mtk_device_info *device_info;
 	struct mtk_devapc_dbg_status *dbg_stat;
 
@@ -297,27 +297,28 @@ static void devapc_violation_triggered(uint32_t vio_idx,
 
 	/* Callback func for vio master */
 	if (!strncasecmp(vio_master, "MD", 2))
-		id = SUBSYS_MD;
+		id = INFRA_SUBSYS_MD;
 	else if (!strncasecmp(vio_master, "CONNSYS", 7))
-		id = SUBSYS_CONN;
+		id = INFRA_SUBSYS_CONN;
 	else if (!strncasecmp(vio_master, "HIFI3", 5))
-		id = SUBSYS_ADSP;
+		id = INFRA_SUBSYS_ADSP;
 	else if (!strncasecmp(vio_master, "GCE", 3))
-		id = SUBSYS_GCE;
+		id = INFRA_SUBSYS_GCE;
 	else if (!strncasecmp(vio_master, "APMCU", 5))
-		id = SUBSYS_APMCU;
+		id = INFRA_SUBSYS_APMCU;
 
 	/* enable_ut to test callback */
 	if (dbg_stat->enable_ut)
-		id = SUBSYS_TEST;
+		id = DEVAPC_SUBSYS_TEST;
 
-	if (id != SUBSYS_RESERVED) {
+	if (id != DEVAPC_SUBSYS_RESERVED) {
 		list_for_each_entry(viocb, &viocb_list, list) {
 			if (viocb->id == id && viocb->debug_dump)
 				viocb->debug_dump();
 
 			/* always call clkmgr cb if it's registered */
-			if (viocb->id == SUBSYS_CLKMGR && viocb->debug_dump)
+			if (viocb->id == DEVAPC_SUBSYS_CLKMGR &&
+					viocb->debug_dump)
 				viocb->debug_dump();
 		}
 	}
@@ -328,7 +329,7 @@ static void devapc_violation_triggered(uint32_t vio_idx,
 		DEVAPC_MSG("Device APC Violation Issue/%s", subsys_str);
 
 		/* Connsys will trigger EE instead of AP KE */
-		if (id != SUBSYS_CONN)
+		if (id != INFRA_SUBSYS_CONN)
 			BUG();
 	} else if (dbg_stat->enable_AEE) {
 
@@ -665,18 +666,18 @@ static irqreturn_t devapc_violation_irq(int irq_number, void *dev_id)
 
 static const char *mtk_sid_to_str(int sid)
 {
-	if (sid == SUBSYS_MD)
-		return "SUBSYS_MD";
-	else if (sid == SUBSYS_CONN)
-		return "SUBSYS_CONN";
-	else if (sid == SUBSYS_ADSP)
-		return "SUBSYS_ADSP";
-	else if (sid == SUBSYS_GCE)
-		return "SUBSYS_GCE";
-	else if (sid == SUBSYS_CLKMGR)
-		return "SUBSYS_CLKMGR";
-	else if (sid == SUBSYS_TEST)
-		return "SUBSYS_TEST";
+	if (sid == INFRA_SUBSYS_MD)
+		return "INFRA_SUBSYS_MD";
+	else if (sid == INFRA_SUBSYS_CONN)
+		return "INFRA_SUBSYS_CONN";
+	else if (sid == INFRA_SUBSYS_ADSP)
+		return "INFRA_SUBSYS_ADSP";
+	else if (sid == INFRA_SUBSYS_GCE)
+		return "INFRA_SUBSYS_GCE";
+	else if (sid == DEVAPC_SUBSYS_CLKMGR)
+		return "DEVAPC_SUBSYS_CLKMGR";
+	else if (sid == DEVAPC_SUBSYS_TEST)
+		return "DEVAPC_SUBSYS_TEST";
 
 	return "UNKNOWN_SUBSYS";
 }
@@ -721,7 +722,8 @@ static void devapc_ut(uint32_t cmd)
 	} else if (cmd == DEVAPC_UT_DUMP_SUBSYS_CB) {
 		DEVAPC_MSG("DEVAPC dump subsys cb:\n");
 		list_for_each_entry(viocb, &viocb_list, list) {
-			if (viocb->id != SUBSYS_RESERVED && viocb->debug_dump) {
+			if (viocb->id != DEVAPC_SUBSYS_RESERVED &&
+					viocb->debug_dump) {
 				DEVAPC_MSG("\t%s is registered\n",
 						mtk_sid_to_str(viocb->id));
 			}
