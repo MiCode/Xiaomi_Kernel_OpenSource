@@ -287,7 +287,8 @@ if [ $RETVAL != 0 ]; then
 fi
 
 if [ ${CHECK_SERVICE} == 1 ]; then
-	rm -rf ../prebuilts
+	rm -rf /tmp/prebuilts
+	echo Remove toolchain in check service
 fi
 
 exit $RETVAL
