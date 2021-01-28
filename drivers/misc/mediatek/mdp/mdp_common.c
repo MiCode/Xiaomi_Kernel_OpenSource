@@ -1451,8 +1451,6 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 	if (handle->secData.is_secure) {
-		/* insert backup cookie cmd */
-		cmdq_sec_insert_backup_cookie(handle->pkt);
 		handle->thread = CMDQ_INVALID_THREAD;
 
 		/* Passing readback required data */
