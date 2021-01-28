@@ -19,6 +19,9 @@
 #
 #
 
+# *** MTK ***
+include $(src)/Kbuild-mtk-custom-env
+include $(src)/platform/mtk_platform_common/Kbuild
 
 # Driver version string which is returned to userspace via an ioctl
 MALI_RELEASE_NAME ?= "r28p0-01eac0"
@@ -38,7 +41,9 @@ MALI_UNIT_TEST ?= 0
 MALI_KERNEL_TEST_API ?= 0
 MALI_COVERAGE ?= 0
 MALI_JIT_PRESSURE_LIMIT_BASE ?= 1
-CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+#CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+# *** MTK ***
+CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
 # Experimental features (corresponding -D definition should be appended to
 # DEFINES below, e.g. for MALI_EXPERIMENTAL_FEATURE,
 # -DMALI_EXPERIMENTAL_FEATURE=$(MALI_EXPERIMENTAL_FEATURE) should be appended)
@@ -108,6 +113,7 @@ SRC := \
 	mmu/mali_kbase_mmu_mode_lpae.c \
 	mmu/mali_kbase_mmu_mode_aarch64.c \
 	mali_kbase_disjoint_events.c \
+	mali_kbase_gator_api.c \
 	mali_kbase_debug_mem_view.c \
 	mali_kbase_smc.c \
 	mali_kbase_mem_pool.c \
@@ -229,3 +235,24 @@ subdir-ccflags-y += -I$(src)/backend/gpu
 
 # For kutf and mali_kutf_irq_latency_test
 obj-$(CONFIG_MALI_KUTF) += tests/
+
+# *** MTK ***
+DEFINES +=-DCONFIG_GPU_TRACEPOINTS=y
+# arm Ticket: CAS-173191-P7F4D1
+DEFINES += -DCONFIG_MALI_DMA_BUF_LEGACY_COMPAT=1
+
+SRC += mali_gputrace.c
+
+ccflags-y += -I$(src)/include
+subdir-ccflags-y += -I$(src)/include
+
+ifeq ($(CONFIG_MTK_IOMMU_V2),y)
+	ccflags-y += -I$(srctree)/drivers/staging/android/ion
+	ccflags-y += -I$(srctree)/drivers/iommu
+# SW ReadyGo, need to include mt6833/ prior to mt6853/ if mt6833/ exists
+ifeq ($(CONFIG_MACH_MT6833),y)
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include
+endif
+	ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+endif
+

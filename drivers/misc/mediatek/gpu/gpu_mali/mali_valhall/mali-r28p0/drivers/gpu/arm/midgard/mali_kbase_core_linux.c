@@ -126,6 +126,8 @@
 
 #include <mali_kbase_caps.h>
 
+#include <mtk_gpufreq.h>
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
@@ -215,6 +217,88 @@ bool mali_kbase_supports_cap(unsigned long api_version, mali_kbase_cap cap)
 
 	return supported;
 }
+
+#include "platform/mtk_platform_common.h"
+
+#if defined(MTK_GPU_BM_2)
+#include <gpu_bm.h>
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+#include <sspm_reservedmem_define.h>
+
+static phys_addr_t rec_phys_addr, rec_virt_addr;
+static unsigned long long rec_size;
+struct v1_data *gpu_info_ref;
+#endif
+#endif
+
+#if defined(ENABLE_COMMON_DVFS)
+/* MTK GPU DVFS */
+#include <mali_kbase_pm_internal.h>
+static struct kbase_device *g_malidev;
+
+struct kbase_device *mtk_get_mali_dev(void)
+{
+	return g_malidev;
+}
+
+void mtk_gpu_dvfs_commit(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
+{
+	int ret;
+
+	ret = mtk_set_mt_gpufreq_target(ui32NewFreqID);
+
+	if (pbCommited) {
+		if (ret == 0)
+			*pbCommited = true;
+		else
+			*pbCommited = false;
+	}
+
+}
+#endif
+
+#if defined(MTK_GPU_BM_2)
+static void get_rec_addr(void)
+{
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+       int i;
+       unsigned char *ptr;
+
+       /* get sspm reserved mem */
+       rec_phys_addr = sspm_reserve_mem_get_phys(GPU_MEM_ID);
+       rec_virt_addr = sspm_reserve_mem_get_virt(GPU_MEM_ID);
+       rec_size = sspm_reserve_mem_get_size(GPU_MEM_ID);
+
+       /* clear */
+       ptr = (unsigned char *)(uintptr_t)rec_virt_addr;
+       for (i = 0; i < rec_size; i++)
+               ptr[i] = 0x0;
+
+       gpu_info_ref = (struct v1_data *)(uintptr_t)rec_virt_addr;
+#endif
+}
+
+static int mtk_bandwith_resource_init(struct kbase_device *kbdev)
+{
+        int err = 0;
+
+        get_rec_addr();
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+        if(gpu_info_ref == NULL) {
+                err = -1;
+                pr_debug("%s: get sspm reserved memory fail\n", __func__);
+                return err;
+        }
+
+        kbdev->v1 = gpu_info_ref;
+        kbdev->v1->version = 1;
+        kbdev->job_status_addr.phyaddr = rec_phys_addr;
+
+        MTKGPUQoS_setup(kbdev->v1, kbdev->job_status_addr.phyaddr, rec_size);
+#endif
+        return err;
+}
+#endif
 
 /**
  * kbase_file_new - Create an object representing a device file
@@ -5049,6 +5133,10 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 
 	kbase_device_term(kbdev);
 	dev_set_drvdata(kbdev->dev, NULL);
+#if defined(CONFIG_MTK_IOMMU_V2)
+	if (kbdev->client != NULL)
+		ion_client_destroy(kbdev->client);
+#endif
 	kbase_device_free(kbdev);
 
 	return 0;
@@ -5079,6 +5167,13 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	struct kbase_device *kbdev;
 	int err = 0;
 
+	// *** MTK *** : make sure gpufreq driver is ready
+	pr_info("%s start\n", __func__);
+	if (mt_gpufreq_not_ready()) {
+		pr_info("gpufreq driver is not ready: %d\n", -EPROBE_DEFER);
+		return -EPROBE_DEFER;
+	}
+
 	mali_kbase_print_cs_experimental();
 
 	kbdev = kbase_device_alloc();
@@ -5102,6 +5197,36 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		kbase_device_free(kbdev);
 	} else {
 #ifdef MALI_KBASE_BUILD
+#if defined(ENABLE_MTK_MEMINFO)
+		mtk_kbase_gpu_memory_debug_init();
+#endif
+
+#if defined(CONFIG_PROC_FS)
+		proc_mali_register();
+#endif
+
+#if defined(ENABLE_COMMON_DVFS)
+		g_malidev = kbdev;
+#if defined(GED_ENABLE_DVFS_LOADING_MODE)
+		ged_dvfs_cal_gpu_utilization_ex_fp = MTKCalGpuUtilization_ex;
+#else
+		ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
+#endif
+		ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
+#endif
+
+#if defined(MTK_GPU_BM_2)
+		mtk_bandwith_resource_init(kbdev);
+#endif
+
+#if defined(CONFIG_MTK_IOMMU_V2)
+		if (g_ion_device)
+			kbdev->client = ion_client_create(g_ion_device, "mali_kbase");
+
+		if (kbdev->client == NULL) {
+			dev_warn(&pdev->dev, "create ion client failed!\n");
+		}
+#endif
 		dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
 #endif /* MALI_KBASE_BUILD */
@@ -5294,9 +5419,7 @@ static const struct dev_pm_ops kbase_pm_ops = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id kbase_dt_ids[] = {
-	{ .compatible = "arm,malit6xx" },
-	{ .compatible = "arm,mali-midgard" },
-	{ .compatible = "arm,mali-bifrost" },
+	{ .compatible = "arm,mali-valhall" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, kbase_dt_ids);

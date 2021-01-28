@@ -183,6 +183,9 @@ struct kbasep_pm_metrics {
 #if !MALI_USE_CSF
 	u32 busy_cl[2];
 	u32 busy_gl;
+#if defined(GED_ENABLE_DVFS_LOADING_MODE)
+	u32 busy_gl_plus[3];
+#endif
 #endif
 };
 
