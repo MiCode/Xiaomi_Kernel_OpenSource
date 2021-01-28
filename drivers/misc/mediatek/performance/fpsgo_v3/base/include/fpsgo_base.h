@@ -56,6 +56,7 @@ struct fbt_frame_info {
 struct fbt_thread_loading {
 	int pid;
 	atomic_t loading;
+	atomic_t *loading_cl;
 	atomic_t last_cb_ts;
 	struct list_head entry;
 };
@@ -70,6 +71,12 @@ struct fbt_thread_blc {
 struct fbt_boost_info {
 	unsigned long long target_time;
 	unsigned int last_blc;
+
+	/* adjust loading */
+	int loading_weight;
+	int weight_cnt;
+	int hit_cnt;
+	int deb_cnt;
 
 	/* rescue*/
 	struct fbt_proc proc;
