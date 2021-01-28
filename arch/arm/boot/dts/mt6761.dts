@@ -3157,6 +3157,21 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		compatible = "mediatek,dynamic_options";
 	};
 
+	cm_mgr: cm_mgr@10200000 {
+		compatible = "mediatek,mt6761-cm_mgr";
+		reg = <0 0x10200000 0 0x4000>;
+		reg-names = "cm_mgr_base";
+		required-opps = <&dvfsrc_freq_opp0>,
+				<&dvfsrc_freq_opp1>,
+				<&dvfsrc_freq_opp2>;
+		cm_mgr,cp_down = <100 100>;
+		cm_mgr,cp_up = <100 100>;
+		cm_mgr,dt_down = <0 3>;
+		cm_mgr,dt_up = <0 3>;
+		cm_mgr,vp_down = <100 100>;
+		cm_mgr,vp_up = <100 100>;
+	};
+
 };
 
 #include "cust_mt6761_msdc.dtsi"
