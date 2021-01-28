@@ -32,14 +32,18 @@ static unsigned long uclamp_policy_mask[NR_CGROUP];
 #endif
 static int uclamp_min[NR_CGROUP][EAS_MAX_KIR];
 static int debug_uclamp_min[NR_CGROUP];
+static unsigned long prefer_idle[NR_CGROUP];
+static int debug_prefer_idle[NR_CGROUP];
 
 /* log */
 static int log_enable;
 
 
-#define MAX_UCLAMP_VALUE		(1024)
+#define MAX_UCLAMP_VALUE		(100)
 #define MIN_UCLAMP_VALUE		(0)
 #define MIN_DEBUG_UCLAMP_VALUE	(-1)
+
+#define percent_to_idx(n)	(n*1024/100)
 
 /************************/
 
@@ -115,9 +119,11 @@ int update_eas_uclamp_min(int kicker, int cgroup_idx, int value)
 		mutex_unlock(&boost_eas);
 		return -EIO;
 	}
+
+	/* range: 0 ~ 100 */
 	if (debug_uclamp_min[cgroup_idx] == -1)
 		uclamp_min_for_perf_idx(cgroup_idx,
-				cur_uclamp_min[cgroup_idx]);
+		 percent_to_idx(cur_uclamp_min[cgroup_idx]));
 
 	strncat(msg, msg1, LOG_BUF_SIZE);
 	if (log_enable)
@@ -138,6 +144,40 @@ int update_eas_uclamp_min(int kicker, int cgroup_idx, int value)
 #endif
 EXPORT_SYMBOL(update_eas_uclamp_min);
 
+#if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_MTK_FPSGO_V3)
+int update_prefer_idle_value(int kicker, int cgroup_idx, int value)
+{
+	mutex_lock(&boost_eas);
+
+	if (cgroup_idx >= NR_CGROUP || kicker >= EAS_PREFER_IDLE_MAX_KIR) {
+		mutex_unlock(&boost_eas);
+		pr_debug(" cgroup_idx >= NR_CGROUP, error\n");
+		return -EINVAL;
+	}
+
+	if (value != 0)
+		set_bit(kicker, &prefer_idle[cgroup_idx]);
+	else
+		clear_bit(kicker, &prefer_idle[cgroup_idx]);
+
+	if (debug_prefer_idle[cgroup_idx] == -1) {
+		if (prefer_idle[cgroup_idx] > 0)
+			prefer_idle_for_perf_idx(cgroup_idx, 1);
+		else
+			prefer_idle_for_perf_idx(cgroup_idx, 0);
+	}
+
+	mutex_unlock(&boost_eas);
+
+	return prefer_idle[cgroup_idx];
+}
+#else
+int update_prefer_idle_value(int kicker, int cgroup_idx, int value)
+{
+	return -1;
+}
+#endif
+EXPORT_SYMBOL(update_prefer_idle_value);
 
 /************************************************/
 static ssize_t perfmgr_boot_boost_proc_write(
@@ -146,7 +186,7 @@ static ssize_t perfmgr_boot_boost_proc_write(
 {
 	int cgroup = 0, data = 0;
 
-	int rv = check_boot_boost_proc_write(&cgroup, &data, ubuf, cnt);
+	int rv = check_group_proc_write(&cgroup, &data, ubuf, cnt);
 
 	if (rv != 0)
 		return rv;
@@ -225,10 +265,10 @@ static ssize_t perfmgr_debug_uclamp_min_proc_write(
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_ROOT] >= 0)
 		uclamp_min_for_perf_idx(CGROUP_ROOT,
-			debug_uclamp_min[CGROUP_ROOT]);
+		 percent_to_idx(debug_uclamp_min[CGROUP_ROOT]));
 	else
 		uclamp_min_for_perf_idx(CGROUP_ROOT,
-			cur_uclamp_min[CGROUP_ROOT]);
+		 percent_to_idx(cur_uclamp_min[CGROUP_ROOT]));
 #endif
 	return cnt;
 }
@@ -293,10 +333,10 @@ static ssize_t perfmgr_debug_fg_uclamp_min_proc_write(
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_FG] >= 0)
 		uclamp_min_for_perf_idx(CGROUP_FG,
-			debug_uclamp_min[CGROUP_FG]);
+		 percent_to_idx(debug_uclamp_min[CGROUP_FG]));
 	else
 		uclamp_min_for_perf_idx(CGROUP_FG,
-			cur_uclamp_min[CGROUP_FG]);
+		 percent_to_idx(cur_uclamp_min[CGROUP_FG]));
 #endif
 	return cnt;
 }
@@ -361,10 +401,10 @@ static ssize_t perfmgr_debug_bg_uclamp_min_proc_write(
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_BG] >= 0)
 		uclamp_min_for_perf_idx(CGROUP_BG,
-			debug_uclamp_min[CGROUP_BG]);
+		 percent_to_idx(debug_uclamp_min[CGROUP_BG]));
 	else
 		uclamp_min_for_perf_idx(CGROUP_BG,
-			cur_uclamp_min[CGROUP_BG]);
+		 percent_to_idx(cur_uclamp_min[CGROUP_BG]));
 #endif
 	return cnt;
 }
@@ -429,10 +469,10 @@ static ssize_t perfmgr_debug_ta_uclamp_min_proc_write(
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	if (debug_uclamp_min[CGROUP_TA] >= 0)
 		uclamp_min_for_perf_idx(CGROUP_TA,
-			debug_uclamp_min[CGROUP_TA]);
+		 percent_to_idx(debug_uclamp_min[CGROUP_TA]));
 	else
 		uclamp_min_for_perf_idx(CGROUP_TA,
-			cur_uclamp_min[CGROUP_TA]);
+		 percent_to_idx(cur_uclamp_min[CGROUP_TA]));
 #endif
 	return cnt;
 }
@@ -440,6 +480,96 @@ static ssize_t perfmgr_debug_ta_uclamp_min_proc_write(
 static int perfmgr_debug_ta_uclamp_min_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "%d\n", debug_uclamp_min[CGROUP_TA]);
+
+	return 0;
+}
+
+static ssize_t perfmgr_perf_prefer_idle_proc_write(
+		struct file *filp, const char *ubuf,
+		size_t cnt, loff_t *pos)
+{
+	int cgroup = 0, data = 0;
+
+	int rv = check_group_proc_write(&cgroup, &data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	if (data < 0 || data > 1)
+		return -EINVAL;
+
+	if (cgroup >= 0 && cgroup < NR_CGROUP) {
+		if (data != 0)
+			update_prefer_idle_value(EAS_PREFER_IDLE_KIR_PERF,
+			cgroup, 1);
+		else
+			update_prefer_idle_value(EAS_PREFER_IDLE_KIR_PERF,
+			cgroup, 0);
+	}
+
+	return cnt;
+}
+
+static int perfmgr_perf_prefer_idle_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < NR_CGROUP; i++)
+		seq_printf(m, "%d\n",
+		test_bit(EAS_PREFER_IDLE_KIR_PERF, &prefer_idle[i]));
+
+	return 0;
+}
+
+static ssize_t perfmgr_debug_prefer_idle_proc_write(
+		struct file *filp, const char *ubuf,
+		size_t cnt, loff_t *pos)
+{
+	int cgroup = 0, data = 0;
+
+	int rv = check_group_proc_write(&cgroup, &data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	if (data < -1 || data > 1)
+		return -EINVAL;
+
+	if (cgroup >= 0 && cgroup < NR_CGROUP) {
+		debug_prefer_idle[cgroup] = data;
+#if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_MTK_FPSGO_V3)
+		if (data == 1)
+			prefer_idle_for_perf_idx(cgroup, 1);
+		else if (data == 0)
+			prefer_idle_for_perf_idx(cgroup, 0);
+		else {
+			if (prefer_idle[cgroup] > 0)
+				prefer_idle_for_perf_idx(cgroup, 1);
+			else
+				prefer_idle_for_perf_idx(cgroup, 0);
+		}
+#endif
+	}
+
+	return cnt;
+}
+
+static int perfmgr_debug_prefer_idle_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < NR_CGROUP; i++)
+		seq_printf(m, "%d\n", debug_prefer_idle[i]);
+
+	return 0;
+}
+
+static int perfmgr_cur_prefer_idle_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	for (i = 0; i < NR_CGROUP; i++)
+		seq_printf(m, "%lx\n", prefer_idle[i]);
 
 	return 0;
 }
@@ -481,6 +611,9 @@ PROC_FOPS_RO(cur_bg_uclamp_min);
 PROC_FOPS_RW(perf_ta_uclamp_min);
 PROC_FOPS_RW(debug_ta_uclamp_min);
 PROC_FOPS_RO(cur_ta_uclamp_min);
+PROC_FOPS_RW(perf_prefer_idle);
+PROC_FOPS_RW(debug_prefer_idle);
+PROC_FOPS_RO(cur_prefer_idle);
 
 /* others */
 PROC_FOPS_RW(perfmgr_log);
@@ -512,6 +645,9 @@ int uclamp_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(perf_ta_uclamp_min),
 		PROC_ENTRY(debug_ta_uclamp_min),
 		PROC_ENTRY(cur_ta_uclamp_min),
+		PROC_ENTRY(perf_prefer_idle),
+		PROC_ENTRY(debug_prefer_idle),
+		PROC_ENTRY(cur_prefer_idle),
 
 		/* log */
 		PROC_ENTRY(perfmgr_log),
@@ -529,6 +665,14 @@ int uclamp_ctrl_init(struct proc_dir_entry *parent)
 		}
 	}
 
+#if defined(CONFIG_SCHED_TUNE) && defined(CONFIG_MTK_FPSGO_V3)
+	/* boost value */
+	for (i = 0; i < NR_CGROUP; i++) {
+		prefer_idle[i] = 0;
+		debug_prefer_idle[i] = -1;
+	}
+#endif
+
 #if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
 	/* uclamp */
 	for (i = 0; i < NR_CGROUP; i++) {
@@ -542,3 +686,4 @@ int uclamp_ctrl_init(struct proc_dir_entry *parent)
 out:
 	return ret;
 }
+

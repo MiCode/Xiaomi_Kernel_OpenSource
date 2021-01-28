@@ -55,7 +55,7 @@ extern char *perfmgr_copy_from_user_for_proc(const char __user *buffer,
 
 extern int check_proc_write(int *data, const char *ubuf, size_t cnt);
 
-extern int check_boot_boost_proc_write(int *cgroup, int *data,
+extern int check_group_proc_write(int *cgroup, int *data,
 				 const char *ubuf, size_t cnt);
 
 extern void perfmgr_trace_count(int val, const char *fmt, ...);

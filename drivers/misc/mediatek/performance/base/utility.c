@@ -51,7 +51,7 @@ int check_proc_write(int *data, const char *ubuf, size_t cnt)
 	return 0;
 }
 
-int check_boot_boost_proc_write(int *cgroup, int *data,
+int check_group_proc_write(int *cgroup, int *data,
 		const char *ubuf, size_t cnt)
 {
 	char buf[128];
