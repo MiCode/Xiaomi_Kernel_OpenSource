@@ -2929,6 +2929,7 @@ static void DPE_EnableClock(bool En)
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		switch (g_u4EnableClockCount) {
 		case 0:
+			g_u4EnableClockCount++;
 			spin_unlock(&(DPEInfo.SpinLockDPE));
 #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
@@ -2954,12 +2955,10 @@ static void DPE_EnableClock(bool En)
 #endif	/* #if !defined(CONFIG_MTK_LEGACY) && defined(CONFIG_COMMON_CLK)  */
 			break;
 		default:
+			g_u4EnableClockCount++;
 			spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		}
-		spin_lock(&(DPEInfo.SpinLockDPE));
-		g_u4EnableClockCount++;
-		spin_unlock(&(DPEInfo.SpinLockDPE));
 
 #ifdef CONFIG_MTK_IOMMU_V2
 		spin_lock(&(DPEInfo.SpinLockDPE));
