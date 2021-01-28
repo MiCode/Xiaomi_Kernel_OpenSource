@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--dct_version="2.5" buid_sn="161102" dws_modification_time="11.09.2018.10:09:38"-->
+<!--dct_version="2.5" buid_sn="161102" dws_modification_time="05.29.2020.16:48:05"-->
 <dct_cfg>
     <general chip="MT6779">
         <proj>k79v1_64</proj>
@@ -2270,26 +2270,6 @@
                 <channel>I2C_CHANNEL_4</channel>
                 <address>0x50</address>
             </device12>
-            <device13>
-                <varName>SUBPMIC</varName>
-                <channel>I2C_CHANNEL_5</channel>
-                <address>0x34</address>
-            </device13>
-            <device14>
-                <varName>USB_TYPE_C</varName>
-                <channel>I2C_CHANNEL_5</channel>
-                <address>0x4E</address>
-            </device14>
-            <device15>
-                <varName>SUBPMIC_PMIC</varName>
-                <channel>I2C_CHANNEL_5</channel>
-                <address>0x1A</address>
-            </device15>
-            <device16>
-                <varName>SUBPMIC_LDO</varName>
-                <channel>I2C_CHANNEL_5</channel>
-                <address>0x64</address>
-            </device16>
             <device17>
                 <varName>SPEAKER_AMP</varName>
                 <channel>I2C_CHANNEL_6</channel>
