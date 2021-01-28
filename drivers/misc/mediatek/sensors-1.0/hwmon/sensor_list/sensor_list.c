@@ -12,6 +12,7 @@
 #include <linux/atomic.h>
 #include <linux/spinlock.h>
 #include <linux/uaccess.h>
+#include <linux/fs.h>
 
 #include "SCP_sensorHub.h"
 #include "sensor_list.h"

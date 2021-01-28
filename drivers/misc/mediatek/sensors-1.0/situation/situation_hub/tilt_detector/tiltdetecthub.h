@@ -7,6 +7,7 @@
 #define TILTDETECTHUB_H
 
 #include <linux/ioctl.h>
+#include <linux/init.h>
 
 int __init tiltdetecthub_init(void);
 void __exit tiltdetecthub_exit(void);

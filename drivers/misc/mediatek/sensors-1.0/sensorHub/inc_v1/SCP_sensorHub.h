@@ -8,6 +8,7 @@
 
 #include <linux/ioctl.h>
 #include <linux/atomic.h>
+#include <linux/init.h>
 
 #if defined(CONFIG_MTK_SCP_SENSORHUB_V1)
 #error CONFIG_MTK_SCP_SENSORHUB_V1 should not configed
