@@ -30,9 +30,9 @@
 /********************************************************************
  * dpidle/sodi3/sodi default feature enable/disable
  *******************************************************************/
-#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (0)
-#define MTK_IDLE_FEATURE_ENABLE_SODI    (0)
-#define MTK_IDLE_FEATURE_ENABLE_SODI3   (0)
+#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (1)
+#define MTK_IDLE_FEATURE_ENABLE_SODI    (1)
+#define MTK_IDLE_FEATURE_ENABLE_SODI3   (1)
 
 
 /**************************************
