@@ -391,7 +391,11 @@ smi_debug_print(const bool gce, const u32 num, const u32 *pos, const u32 *val)
 				continue;
 
 			if (ret < 0 || len + ret >= LINK_MAX) {
-				snprintf(buf + len, LINK_MAX - len, "%c", '\0');
+				ret = snprintf(buf + len, LINK_MAX - len,
+					"%c", '\0');
+				if (ret < 0)
+					SMIDBG("snprintf return error:%d\n",
+						ret);
 				break;
 			}
 			len += ret;
