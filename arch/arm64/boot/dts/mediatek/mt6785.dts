@@ -5245,7 +5245,7 @@ page_owner=on loop.max_part=7";
 
 		/* PD */
 		pd_vbus_low_bound = <5000000>;
-		pd_vbus_upper_bound = <12000000>;
+		pd_vbus_upper_bound = <5000000>;
 		pd_ichg_level_threshold = <1000000>; /* uA */
 		pd_stop_battery_soc = <80>;
 
