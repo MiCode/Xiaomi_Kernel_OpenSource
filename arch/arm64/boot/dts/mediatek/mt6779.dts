@@ -12,7 +12,6 @@
 
 #include <dt-bindings/clock/mt6779-clk.h>
 #include <dt-bindings/power/mt6779-power.h>
-#include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/memory/mt6779-larb-port.h>
@@ -2637,141 +2636,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				<0 0x10246000 0 0x1000>; /* DDRPHY NAO CHB */
 		};
 
-		opp_table_mm: opp-table-mm {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <315000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <450000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <606000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_cam: opp-table-cam {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <315000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <416000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <560000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_img: opp-table-img {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <315000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <416000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <606000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_venc: opp-table-venc {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <364000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <450000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <630000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_vdec: opp-table-vdec {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <312000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <416000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <624000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_ccu: opp-table-ccu {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <315000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <416000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <560000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_ipe: opp-table-ipe {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <315000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <416000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <546000000>;
-				opp-microvolt = <825000>;
-			};
-		};
-
-		opp_table_dpe: opp-table-dpe {
-			compatible = "operating-points-v2";
-
-			opp-0 {
-				opp-hz = /bits/ 64 <364000000>;
-				opp-microvolt = <650000>;
-			};
-			opp-1 {
-				opp-hz = /bits/ 64 <450000000>;
-				opp-microvolt = <725000>;
-			};
-			opp-2 {
-				opp-hz = /bits/ 64 <546000000>;
-				opp-microvolt = <825000>;
-			};
-		};
 
 		mmdvfs_pmqos {
 			compatible = "mediatek,mmdvfs_pmqos";
@@ -2789,6 +2653,9 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			larb10 = <8 8 7 7 8 7 7 7 8 8 7 7 8 7 7 7
 						8 8 8 8 8 8 8 8 8 8 8 8 8 8 8>;
 			cam_larb = <9 10 14>; /* include SMI common CCU */
+			max_ostd_larb = <0 1>;
+			max_ostd = <40>;
+			comm_freq = "disp_freq";
 			mm_step0 = <606 1 0 10>;
 			mm_step1 = <450 1 0 14>;
 			mm_step2 = <315 1 0 17>;
@@ -3060,27 +2927,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			mediatek,smi-id = <1>;
 		};
 
-
-
-		mmqos: interconnect {
-			compatible = "mediatek,mt6779-mmqos";
-			#interconnect-cells = <1>;
-			mediatek,larbs = <&smi_larb0 &smi_larb1
-					  &smi_larb2 &smi_larb3
-					  &smi_larb5 &smi_larb7
-					  &smi_larb8 &smi_larb9
-					  &smi_larb10 &smi_larb11>;
-			clocks = <&topckgen CLK_TOP_MM>;
-			clock-names = "mm";
-			interconnects = <&ddr_emi MT6779_MASTER_MMSYS
-					 &ddr_emi MT6779_SLAVE_DDR_EMI>;
-			interconnect-names = "mmsys_path";
-		};
-
-		mmqos_wrapper {
-			compatible = "mediatek,mt6779-mmqos-wrapper";
-		};
-
 		disp_rsz0@1401a000 {
 			compatible = "mediatek,mt6779-disp_rsz0";
 			reg = <0 0x1401a000 0 0x1000>;
@@ -3235,60 +3081,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 <&iommu0 M4U_PORT_HW_VDEC_PRED_WR_EXT>,
 				 <&iommu0 M4U_PORT_HW_VDEC_PPWRAP_EXT>;
 			mediatek,larb = <&smi_larb2>;
-			/*
-			operating-points-v2 = <&opp_table_vdec>;
-			interconnects =
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_MC_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_UFO_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PP_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PRED_RD_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PRED_WR_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_PPWRAP_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_TILE_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_VLD_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_VLD2_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_AVC_MV_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(M4U_PORT_HW_VDEC_UFO_ENC_EXT)
-				&mmqos SLAVE_COMMON(0)>,
-			<&mmqos
-				MASTER_LARB_PORT(
-				M4U_PORT_HW_VDEC_RG_CTRL_DMA_EXT)
-				&mmqos SLAVE_COMMON(0)>;
-			interconnect-names =
-				 "MT_MM_M4U_VDEC_MC",
-				 "MT_MM_M4U_VDEC_UFO",
-				 "MT_MM_M4U_VDEC_PP",
-				 "MT_MM_M4U_VDEC_PRED_RD",
-				 "MT_MM_M4U_VDEC_PRED_WR",
-				 "MT_MM_M4U_VDEC_PPWRAP",
-				 "MT_MM_M4U_VDEC_TILE",
-				 "MT_MM_M4U_VDEC_VLD",
-				 "MT_MM_M4U_VDEC_VLD2",
-				 "MT_MM_M4U_VDEC_AVC_MV",
-				 "MT_MM_M4U_VDEC_UFO_ENC",
-				 "MT_MM_M4U_VDEC_RG_CTRL_DMA";
-			*/
 			clocks =
 				<&vdecsys CLK_VDEC_VDEC>;
 			clock-names =
