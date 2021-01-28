@@ -39,6 +39,7 @@
 #include "eara_job.h"
 #include "fpsgo_usedext.h"
 #include "tchbst.h"
+#include "syslimiter.h"
 
 #include <mt-plat/mtk_perfobserver.h>
 
@@ -200,6 +201,7 @@ int fpsgo_ctrl2fstb_switch_fstb(int enable)
 
 	mtk_fstb_dprintk_always("%s %d\n", __func__, fstb_enable);
 	if (!fstb_enable) {
+		syslimiter_update_dfrc_fps(-1);
 		hlist_for_each_entry_safe(iter, t,
 				&fstb_frame_infos, hlist) {
 			hlist_del(&iter->hlist);
@@ -286,7 +288,7 @@ int switch_margin_mode_dbnc_b(int val)
 
 int switch_jump_check_num(int val)
 {
-	if (val < 1)
+	if (val < 1 || val > JUMP_VOTE_MAX_I)
 		return -EINVAL;
 
 	mutex_lock(&fstb_lock);
@@ -956,6 +958,30 @@ static int fstb_get_queue_fps2(struct FSTB_FRAME_INFO *iter)
 
 static int calculate_fps_limit(struct FSTB_FRAME_INFO *iter, int target_fps);
 
+static int mode(int a[], int n)
+{
+	int maxValue = 0, maxCount = 0, i, j;
+
+	for (i = 0; i < n; ++i) {
+		int count = 0;
+
+		for (j = 0; j < n; ++j) {
+			if (a[j] == a[i])
+				++count;
+		}
+
+		if (count > maxCount) {
+			maxCount = count;
+			maxValue = a[i];
+		}
+	}
+
+	if (maxCount)
+		return maxValue;
+	else
+		return a[n-1];
+}
+
 void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 	int frame_type, unsigned long long ts,
 	int api)
@@ -1017,6 +1043,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 		new_frame_info->gblock_b = 0ULL;
 		new_frame_info->gblock_time = 0ULL;
 		new_frame_info->fps_raise_flag = 0;
+		new_frame_info->vote_i = 0;
 
 		rcu_read_lock();
 		tsk = find_task_by_vpid(pid);
@@ -1089,7 +1116,8 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 
 	if (iter->queue_time_end - iter->queue_time_begin >= JUMP_CHECK_NUM) {
 		int tmp_q_fps = fstb_get_queue_fps2(iter);
-		int tmp_target_fps;
+		int tmp_target_fps = iter->target_fps;
+		int tmp_vote_fps = iter->target_fps;
 
 		fpsgo_systrace_c_fstb_man(iter->pid, iter->bufid, tmp_q_fps,
 			"tmp_q_fps");
@@ -1098,10 +1126,32 @@ void fpsgo_comp2fstb_queue_time_update(int pid, unsigned long long bufID,
 			iter->target_fps_margin2) {
 			tmp_target_fps =
 				calculate_fps_limit(iter, tmp_q_fps);
-			if (tmp_target_fps > iter->target_fps)
-				iter->fps_raise_flag = 1;
+		}
 
-			iter->target_fps = tmp_target_fps;
+		if (iter->vote_i < JUMP_VOTE_MAX_I) {
+			iter->vote_fps[iter->vote_i] = tmp_target_fps;
+			iter->vote_i++;
+		} else {
+			memmove(iter->vote_fps,
+			&(iter->vote_fps[JUMP_VOTE_MAX_I - JUMP_CHECK_NUM + 1]),
+			sizeof(int) * (JUMP_CHECK_NUM - 1));
+			iter->vote_i = JUMP_CHECK_NUM - 1;
+			iter->vote_fps[iter->vote_i] = tmp_target_fps;
+			iter->vote_i++;
+		}
+
+		if (iter->vote_i >= JUMP_CHECK_NUM) {
+			tmp_vote_fps =
+			mode(
+			&(iter->vote_fps[iter->vote_i - JUMP_CHECK_NUM]),
+			JUMP_CHECK_NUM);
+			fpsgo_main_trace("fstb_vote_target_fps %d",
+			tmp_vote_fps);
+		}
+
+		if (tmp_vote_fps > iter->target_fps) {
+			iter->fps_raise_flag = 1;
+			iter->target_fps = tmp_vote_fps;
 		}
 	}
 
@@ -1411,6 +1461,7 @@ static void fstb_fps_stats(struct work_struct *work)
 	int target_fps = max_fps_limit;
 	int idle = 1;
 	int fstb_active2xgf;
+	int max_target_fps = min_fps_limit;
 
 	if (work != &fps_stats_work)
 		kfree(work);
@@ -1432,8 +1483,11 @@ static void fstb_fps_stats(struct work_struct *work)
 
 			iter->target_fps =
 				calculate_fps_limit(iter, target_fps);
+			iter->vote_i = 0;
 			fpsgo_systrace_c_fstb_man(iter->pid, 0,
 					dfps_ceiling, "dfrc");
+			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
+				iter->target_fps, "fstb_target_fps1");
 			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
 				iter->target_fps_margin, "target_fps_margin");
 			fpsgo_systrace_c_fstb(iter->pid, iter->bufid,
@@ -1452,6 +1506,9 @@ static void fstb_fps_stats(struct work_struct *work)
 			"%s pid:%d target_fps:%d\n",
 			__func__, iter->pid,
 			iter->target_fps);
+
+			if (max_target_fps < iter->target_fps)
+				max_target_fps = iter->target_fps;
 			/* if queue fps == 0, we delete that frame_info */
 		} else {
 			hlist_del(&iter->hlist);
@@ -1466,6 +1523,8 @@ static void fstb_fps_stats(struct work_struct *work)
 			vfree(iter);
 		}
 	}
+
+	syslimiter_update_dfrc_fps(max_target_fps);
 
 	/* check idle twice to avoid fstb_active ping-pong */
 	if (idle)
