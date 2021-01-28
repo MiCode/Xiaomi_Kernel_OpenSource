@@ -64,10 +64,6 @@
 #define TASK_STATE_TO_CHAR_STR "RSDTtXZxKWPNn"
 #endif
 
-static DEFINE_SPINLOCK(pwk_hang_lock);
-static int wdt_kick_status;
-static int hwt_kick_times;
-static int pwk_start_monitor;
 //#define HANG_LOW_MEM
 #ifdef HANG_LOW_MEM
 #define MAX_HANG_INFO_SIZE (512*1024) /* 512 K info for low mem*/
@@ -240,11 +236,6 @@ static ssize_t monitor_hang_write(struct file *filp, const char __user *buf,
 }
 
 
-/* QHQ RT Monitor */
-/* QHQ RT Monitor    end */
-
-
-
 
 /*
  * aed process daemon and other command line may access me
@@ -256,22 +247,6 @@ static long monitor_hang_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0;
 	static long long monitor_status;
 
-	if (cmd == AEEIOCTL_WDT_KICK_POWERKEY) {
-		if ((int)arg == WDT_SETBY_WMS_DISABLE_PWK_MONITOR) {
-			/* pwk_start_monitor=0; */
-			/* wdt_kick_status=0; */
-			/* hwt_kick_times=0; */
-		} else if ((int)arg == WDT_SETBY_WMS_ENABLE_PWK_MONITOR) {
-			/* pwk_start_monitor=1; */
-			/* wdt_kick_status=0; */
-			/* hwt_kick_times=0; */
-		} else if ((int)arg < 0xf) {
-			aee_kernel_wdt_kick_Powkey_api("Powerkey ioctl",
-					(int)arg);
-		}
-		return ret;
-
-	}
 	/* QHQ RT Monitor */
 	if (cmd == AEEIOCTL_RT_MON_Kick) {
 		pr_info("AEEIOCTL_RT_MON_Kick ( %d)\n", (int)arg);
@@ -1731,9 +1706,6 @@ static int hang_detect_thread(void *arg)
 		.sched_priority = 99
 	};
 	struct task_struct *hd_thread;
-#ifdef HANG_LOW_MEM
-	char *buf = NULL;
-#endif
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 	reset_hang_info();
@@ -1762,15 +1734,6 @@ static int hang_detect_thread(void *arg)
 			aee_rr_rec_hang_detect_timeout_count(hd_timeout);
 #endif
 
-#ifdef HANG_LOW_MEM
-			if (MaxHangInfoSize == MAX_HANG_INFO_SIZE) {
-				buf = kmalloc(4*1024*1024, GFP_KERNEL);
-				if (buf != NULL) {
-					Hang_Info = buf;
-					MaxHangInfoSize = 4*1024*1024;
-				}
-			}
-#endif
 			if (hang_detect_counter == 1 && hang_aee_warn == 2
 				&& hd_timeout != 11 && reboot_flag == false) {
 				hang_detect_counter = hd_timeout / 2;
@@ -1912,42 +1875,6 @@ int hang_detect_init(void)
 	return 0;
 }
 
-/* added by QHQ  for hang detect */
-/* end */
-
-
-int aee_kernel_Powerkey_is_press(void)
-{
-	int ret = 0;
-
-	ret = pwk_start_monitor;
-	return ret;
-}
-EXPORT_SYMBOL(aee_kernel_Powerkey_is_press);
-
-void aee_kernel_wdt_kick_Powkey_api(const char *module, int msg)
-{
-	spin_lock(&pwk_hang_lock);
-	wdt_kick_status |= msg;
-	spin_unlock(&pwk_hang_lock);
-}
-EXPORT_SYMBOL(aee_kernel_wdt_kick_Powkey_api);
-
-
-void aee_powerkey_notify_press(unsigned long pressed)
-{
-	if (pressed) {	/* pwk down or up ???? need to check */
-		spin_lock(&pwk_hang_lock);
-		wdt_kick_status = 0;
-		spin_unlock(&pwk_hang_lock);
-		hwt_kick_times = 0;
-		pwk_start_monitor = 1;
-		pr_debug("(%s) HW keycode powerkey\n",
-			 pressed ? "pressed" : "released");
-	}
-}
-EXPORT_SYMBOL(aee_powerkey_notify_press);
-
 void get_hang_detect_buffer(unsigned long *addr, unsigned long *size,
 			    unsigned long *start)
 {
@@ -1955,41 +1882,6 @@ void get_hang_detect_buffer(unsigned long *addr, unsigned long *size,
 	*start = 0;
 	*size = MaxHangInfoSize;
 }
-
-#ifdef CONFIG_MTK_BOOT
-int aee_kernel_wdt_kick_api(int kinterval)
-{
-	int ret = 0;
-
-	if (pwk_start_monitor && (get_boot_mode() == NORMAL_BOOT)
-	    && (FindTaskByName("system_server") != -1)) {
-		/* Only in normal_boot! */
-		pr_debug(
-		     "Press powerkey!!  g_boot_mode=%d,wdt_kick_status=0x%x,tickTimes=0x%x,g_kinterval=%d,RT[%lld]\n",
-		    get_boot_mode(), wdt_kick_status, hwt_kick_times, kinterval,
-		    sched_clock());
-		hwt_kick_times++;
-		if ((kinterval * hwt_kick_times > 180)) {
-			/* only monitor 3 min */
-			pwk_start_monitor = 0;
-		}
-		if ((wdt_kick_status & (WDT_SETBY_Display | WDT_SETBY_SF)) ==
-		    (WDT_SETBY_Display | WDT_SETBY_SF)) {
-			pwk_start_monitor = 0;
-			pr_debug(
-			     "[WDK] Powerkey Tick ok,kick_status 0x%08x,RT[%lld]\n ",
-			     wdt_kick_status, sched_clock());
-		}
-	}
-	return ret;
-}
-#else				/*CONFIG_MTK_BOOT */
-int aee_kernel_wdt_kick_api(int kinterval)
-{
-	return 0;
-}
-#endif
-EXPORT_SYMBOL(aee_kernel_wdt_kick_api);
 
 
 module_init(monitor_hang_init);

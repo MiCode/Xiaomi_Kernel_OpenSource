@@ -288,10 +288,22 @@ void aed_common_exception_api(const char *assert_type, const int *log, int
 			log_size, const int *phy, int phy_size, const char
 			*detail, const int db_opt);
 
-void aee_kernel_wdt_kick_Powkey_api(const char *module, int msg);
-int aee_kernel_wdt_kick_api(int kinterval);
-void aee_powerkey_notify_press(unsigned long pressed);
-int aee_kernel_Powerkey_is_press(void);
+static inline void  aee_kernel_wdt_kick_Powkey_api(const char *module, int msg)
+{
+
+}
+static inline int aee_kernel_wdt_kick_api(int kinterval)
+{
+	return 0;
+}
+static inline void aee_powerkey_notify_press(unsigned long pressed)
+{
+
+}
+static inline int aee_kernel_Powerkey_is_press(void)
+{
+	return 0;
+}
 
 void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 			int cpu);

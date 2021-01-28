@@ -29,11 +29,12 @@ config MTK_AEE_IPANIC
 	  combined with aee. It will do some hook function and get some
 	  kernel panic information for debug.
 
-config MTK_AEE_POWERKEY_HANG_DETECT
-	bool "powerkey monitor"
-	default n
+config MTK_AEE_HANG_DETECT
+	bool "hang detect monitor"
+	depends on MTK_AEE_FEATURE
+	default y
 	help
-	  MTK_AEE_POWERKEY_HANG_DETECT is the kernel config of hang feature
+	  MTK_AEE_HANG_DETECT is the kernel config of hang feature
 	  designed by MTK, which is a debug feature for detecting device hang.
 	  When the device hang is detected by this mechanism, it will notice
 	  user space aee and get some debug information.
