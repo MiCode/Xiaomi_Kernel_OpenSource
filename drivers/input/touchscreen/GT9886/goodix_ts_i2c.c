@@ -722,7 +722,7 @@ static int goodix_read_version(struct goodix_ts_device *dev,
 		struct goodix_ts_version *version)
 {
 	u8 buffer[12];
-	u8 temp_buf[256], checksum;
+	u8 temp_buf[256] = {0}, checksum;
 	int r;
 	u8 pid_read_len = dev->reg.pid_len;
 	u8 vid_read_len = dev->reg.vid_len;
