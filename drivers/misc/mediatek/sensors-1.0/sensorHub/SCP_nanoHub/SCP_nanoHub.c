@@ -1060,8 +1060,8 @@ static int SCP_sensorHub_report_raw_data(struct data_unit_t *data_t)
 static int SCP_sensorHub_report_alt_data(struct data_unit_t *data_t)
 {
 	struct SCP_sensorHub_data *obj = obj_data;
-	int err = 0, sensor_type = 0, sensor_id = 0, alt_id;
-	uint8_t alt = 0;
+	int err = 0;
+	uint8_t alt = 0, alt_id, sensor_type = 0, sensor_id = 0;
 	atomic_t *p_flush_count = NULL;
 	bool alt_enable = 0;
 	int64_t alt_enable_time = 0;
