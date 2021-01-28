@@ -368,6 +368,7 @@ static int ged_log_buf_seq_show_print(struct seq_file *psSeqFile,
 				nanosec_rem / 1000);
 		}
 
+#if defined(CONFIG_RTC_LIB)
 		if (line->tattrs & GED_LOG_ATTR_TIME_TPT) {
 			unsigned long local_time;
 			struct rtc_time tm;
@@ -381,6 +382,7 @@ static int ged_log_buf_seq_show_print(struct seq_file *psSeqFile,
 				tm.tm_hour, tm.tm_min, tm.tm_sec,
 				line->time_usec, line->pid, line->tid);
 		}
+#endif
 
 		seq_printf(psSeqFile, "%s\n",
 			psGEDLogBuf->pcBuffer + line->offset);
@@ -1025,6 +1027,7 @@ static int ged_log_buf_dump(struct GED_LOG_BUF *psGEDLogBuf, int i)
 			pr_debug("[%5llu.%06lu] ", t, nanosec_rem / 1000);
 		}
 
+#if defined(CONFIG_RTC_LIB)
 		if (line->tattrs & GED_LOG_ATTR_TIME_TPT) {
 			unsigned long local_time;
 			struct rtc_time tm;
@@ -1037,6 +1040,7 @@ static int ged_log_buf_dump(struct GED_LOG_BUF *psGEDLogBuf, int i)
 					tm.tm_hour, tm.tm_min, tm.tm_sec,
 					line->time_usec, line->pid, line->tid);
 		}
+#endif
 
 		pr_debug("%s\n", psGEDLogBuf->pcBuffer + line->offset);
 	}
