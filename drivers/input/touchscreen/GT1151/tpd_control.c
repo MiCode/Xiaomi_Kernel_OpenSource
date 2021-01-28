@@ -36,37 +36,13 @@ const struct of_device_id touch_of_match[] = {
 	{},
 };
 
-struct tag_videolfb {
-	u64 fb_base;
-	u32 islcmfound;
-	u32 fps;
-	u32 vram;
-	char lcmname[1];
-};
-
 void tpd_get_dts_info(void)
 {
 	struct device_node *node1 = NULL;
 	int key_dim_local[16], i;
-	struct device_node *lcm_name_node;
-	struct tag_videolfb *videolfb_tag = NULL;
 	int convert_err = -EINVAL;
-	unsigned long size = 0;
 
 	node1 = of_find_matching_node(node1, touch_of_match);
-
-	TPD_DEBUG("start to parse lcm name");
-	lcm_name_node = of_find_node_by_path("/chosen");
-	if (lcm_name_node) {
-		videolfb_tag = (struct tag_videolfb *)
-			of_get_property(lcm_name_node,
-			"atag,videolfb",
-			(int *)&size);
-		if (!videolfb_tag)
-			TPD_ERR("Invalid lcm name");
-	}
-
-	TPD_DEBUG("read lcm name : %s", videolfb_tag->lcmname);
 
 	if (!node1) {
 		TPD_ERR("can't find touch compatible custom node\n");
@@ -74,22 +50,12 @@ void tpd_get_dts_info(void)
 		of_property_read_u32(node1,
 			"tpd-max-touch-num", &tpd_dts_data.touch_max_num);
 
-
-		if (strcmp("nt35695B_fhd_dsi_vdo_auo_rt5081_drv",
-					videolfb_tag->lcmname) == 0) {
-			of_property_read_u32_array(node1, "tpd-resolution",
-				tpd_dts_data.tpd_resolution,
-				ARRAY_SIZE(tpd_dts_data.tpd_resolution));
-			tpd_dts_data.flag_use_fhdp = false;
-		} else {
-			of_property_read_u32_array(node1, "tpd-resolution-fhdp",
-				tpd_dts_data.tpd_resolution,
-				ARRAY_SIZE(tpd_dts_data.tpd_resolution));
-			tpd_dts_data.flag_use_fhdp = true;
-		}
-		TPD_DEBUG("[tpd] resulution is %d %d",
-					tpd_dts_data.tpd_resolution[0],
-					tpd_dts_data.tpd_resolution[1]);
+	of_property_read_u32_array(node1, "tpd-resolution",
+		tpd_dts_data.tpd_resolution,
+		ARRAY_SIZE(tpd_dts_data.tpd_resolution));
+	TPD_DEBUG("[tpd] resulution is %d %d",
+				tpd_dts_data.tpd_resolution[0],
+				tpd_dts_data.tpd_resolution[1]);
 
 #if defined(CONFIG_LCM_WIDTH) && defined(CONFIG_LCM_HEIGHT)
 		convert_err = kstrtou32(CONFIG_LCM_WIDTH, 10,

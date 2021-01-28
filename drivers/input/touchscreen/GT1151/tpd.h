@@ -122,7 +122,6 @@ struct tpd_dts_info {
 	int y2y;
 	const char *cfg_version;
 	int lcm_resolution[2];
-	int flag_use_fhdp;
 	struct tpd_key_dim_local tpd_key_dim_local[4];
 	struct tpd_filter_t touch_filter;
 };

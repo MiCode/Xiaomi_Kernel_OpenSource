@@ -645,14 +645,6 @@ s32 gt1x_init_panel(void)
 	} else if (!strcmp(tpd_dts_data.cfg_version, "config19")) {
 		cfgs[0] = gt1151_cfg19;
 		cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg19);
-	} else if (!strcmp(tpd_dts_data.cfg_version, "config16&config18")) {
-		if (tpd_dts_data.flag_use_fhdp == false) {
-			cfgs[0] = gt1151_cfg16;
-			cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg16);
-		} else {
-			cfgs[0] = gt1151_cfg18;
-			cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg18);
-		}
 	} else if (!strcmp(tpd_dts_data.cfg_version, "FHDP_AMOLED")) {
 		cfgs[0] = gt1151_cfg_fhdp_amoled;
 		cfg_lens[0] = CFG_GROUP_LEN(gt1151_cfg_fhdp_amoled);
