@@ -491,15 +491,16 @@ static int mtk_capture_alsa_start(struct snd_pcm_substream *substream)
 {
 	pr_debug("%s\n", __func__);
 
+	/* set memory */
+	SetSampleRate(cap_mem_blk, substream->runtime->rate);
+	SetChannels(cap_mem_blk, substream->runtime->channels);
+	SetMemoryPathEnable(cap_mem_blk, true);
+	udelay(300);
 	/* here to set interrupt */
 	irq_add_substream_user(substream, irq_request_number(cap_mem_blk),
 			       substream->runtime->rate,
 			       substream->runtime->period_size);
 	irq_user_id = substream;
-	/* set memory */
-	SetSampleRate(cap_mem_blk, substream->runtime->rate);
-	SetChannels(cap_mem_blk, substream->runtime->channels);
-	SetMemoryPathEnable(cap_mem_blk, true);
 
 	EnableAfe(true);
 	return 0;
