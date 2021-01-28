@@ -65,7 +65,6 @@ struct mtk_ipi_chan_table {
 	struct mtk_rpmsg_channel_info *rpchan;
 	struct mtk_mbox_pin_send *pin_send;
 	struct mtk_mbox_pin_recv *pin_recv;
-	// TODO: ipi_monitor[]
 	atomic_t holder;
 	unsigned int ipi_stage: 4,
 		 ipi_seqno : 28;
@@ -90,8 +89,9 @@ struct mtk_ipi_chan_table {
  * @ipi_last_done: the last processed ipi transmission
  * @ipi_inited: set when mtk_ipi_device_register() done
  *
- * The value of mrpdev, table, mutex_ipi_reg, ipi_inited would be initialized by
- * mtk_ipi_device_register(), others should be declared by tinysys platform.
+ * Tinysys platform has necessary to define the vcalue of 'name', 'id', 'mbdev';
+ * and optional to define the 'pre_cb', 'post_cb', 'prdata', 'timeout_handler'.
+ * Othes would be initialized by mtk_ipi_device_register().
  */
 struct mtk_ipi_device  {
 	const char *name;
@@ -127,8 +127,9 @@ int mtk_ipi_device_register(struct mtk_ipi_device *ipidev,
 int mtk_ipi_device_reset(struct mtk_ipi_device *ipidev);
 
 int mtk_ipi_register(struct mtk_ipi_device *ipidev, int ipi_id,
-		void *cb, void *prdata, void *msg);
+		mbox_pin_cb_t cb, void *prdata, void *msg);
 int mtk_ipi_unregister(struct mtk_ipi_device *ipidev, int ipi_id);
+
 int mtk_ipi_send(struct mtk_ipi_device *ipidev, int ipi_id,
 		int opt, void *data, int len, int retry_timeout);
 int mtk_ipi_send_compl(struct mtk_ipi_device *ipidev, int ipi_id,
