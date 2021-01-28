@@ -18,6 +18,8 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/memory/mt6885-larb-port.h>
 #include <dt-bindings/gce/mt6885-gce.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
+#include <dt-bindings/mfd/mt6359-irq.h>
 #include <dt-bindings/pinctrl/mt6885-pinfunc.h>
 #include <dt-bindings/clock/mt6885-clk.h>
 #include <dt-bindings/mmc/mt6885-msdc.h>
@@ -290,6 +292,13 @@
 	pwrap: pwrap@1000d000 {
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
+
+		main_pmic: mt6359-pmic {
+			compatible = "mediatek,mt6359-pmic";
+			interrupt-parent = <&pio>;
+			interrupts = <222 IRQ_TYPE_LEVEL_HIGH 222 0>;
+			status = "okay";
+		};
 	};
 
 	devapc_ao_infra_peri@1000e000 {
@@ -3385,4 +3394,6 @@
 		pwm_data_invert = <0>;
 	};
 };
+
+#include "mt6359p.dtsi"
 #include "cust_mt6885_msdc.dtsi"
