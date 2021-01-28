@@ -74,6 +74,12 @@ MODULE_AUTHOR("SS5");
 MODULE_DESCRIPTION("MDLA driver");
 MODULE_VERSION("2.0");
 
+static struct lock_class_key sched_lock_key[MTK_MDLA_MAX_NUM];
+static struct lock_class_key hw_lock_key[MTK_MDLA_MAX_NUM];
+
+const char *hwlock_name[MTK_MDLA_MAX_NUM] = MDLA_HWLOCK_NAME;
+const char *schedlock_name[MTK_MDLA_MAX_NUM] = MDLA_SCHEDLOCK_NAME;
+
 /* internal function prototypes */
 static int mdla_open(struct inode *, struct file *);
 static int mdla_release(struct inode *, struct file *);
@@ -296,6 +302,10 @@ static int mdla_scheduler_init(struct device *dev)
 			return -ENOMEM;
 
 		spin_lock_init(&sched->lock);
+		lockdep_set_class_and_name(
+			&sched->lock,
+			&sched_lock_key[i],
+			schedlock_name[i]);
 		//INIT_LIST_HEAD(&sched->active_ce_queue);
 
 		sched->pro_ce = NULL;
@@ -328,6 +338,10 @@ static int mdla_sw_multi_devices_init(void)
 		mdla_devices[i].last_reset_id = 0;
 		init_completion(&mdla_devices[i].command_done);
 		spin_lock_init(&mdla_devices[i].hw_lock);
+		lockdep_set_class_and_name(
+			&mdla_devices[i].hw_lock,
+			&hw_lock_key[i],
+			hwlock_name[i]);
 		mdla_devices[i].power_timer.data = i;
 		mdla_devices[i].power_timer.function =
 				mdla_power_timeup;

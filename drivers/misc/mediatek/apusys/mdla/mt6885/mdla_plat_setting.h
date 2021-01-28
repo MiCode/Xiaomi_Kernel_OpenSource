@@ -16,6 +16,14 @@
 
 #define MTK_MDLA_MAX_NUM 2 // shift to dts later
 
+#define MDLA_HWLOCK_NAME \
+	{"HWLOCK0",\
+	"HWLOCK1"}
+
+#define MDLA_SCHEDLOCK_NAME \
+	{"SCHEDLOCK0",\
+	"SCHEDLOCK1"}
+
 #ifndef CONFIG_MTK_MDLA_DEBUG
 #define CONFIG_MTK_MDLA_DEBUG
 #endif
