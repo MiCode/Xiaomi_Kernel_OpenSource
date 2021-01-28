@@ -1721,8 +1721,9 @@ char *apu_dvfs_dump_reg(char *ptr)
 	char buf[1024];
 
 	get_pm_qos_info(buf);
+	// Fix Coverity defect, don't call sprintf
 	if (ptr)
-		ptr += sprintf(ptr, "%s\n", buf);
+		ptr += snprintf(ptr, 1024, "%s\n", buf);
 	else
 		pr_info("%s\n", buf);
 
