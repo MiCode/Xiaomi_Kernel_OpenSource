@@ -228,7 +228,7 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 				policy->cpuinfo.max_freq : policy->cur;
 
 	freq = freq * util / max;
-	freq = freq * capacity_margin / SCHED_CAPACITY_SCALE;
+	freq = freq / SCHED_CAPACITY_SCALE * capacity_margin;
 
 	sg_policy->cached_raw_freq = freq;
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
