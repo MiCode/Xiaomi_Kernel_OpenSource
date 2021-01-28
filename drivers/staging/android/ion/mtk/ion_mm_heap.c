@@ -35,13 +35,18 @@
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
 
-#ifdef CONFIG_MTK_PSEUDO_M4U
-#include <mach/pseudo_m4u.h>
-#ifdef CONFIG_MTK_IOMMU_V2
-#include "mtk_iommu_ext.h"
+//tablet
+#ifdef CONFIG_MTK_IOMMU
+#include "pseudo_m4u.h"
 #endif
-#elif defined(CONFIG_MTK_M4U)
+//smart phone m4u
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
+#endif
+//smart phone iommu
+#ifdef CONFIG_MTK_IOMMU_V2
+#include <mach/pseudo_m4u.h>
+#include "mtk_iommu_ext.h"
 #endif
 
 struct ion_mm_buffer_info {
@@ -1092,7 +1097,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	do_div(current_ts, 1000000);
 	IONMSG("current time %lld ms, total: %lu!!\n",
 	       current_ts, atomic64_read(&page_sz_cnt) * 4096);
-#ifdef CONFIG_MTK_PSEUDO_M4U
+#ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_log_dump(s);
 #endif
 	up_read(&dev->lock);
