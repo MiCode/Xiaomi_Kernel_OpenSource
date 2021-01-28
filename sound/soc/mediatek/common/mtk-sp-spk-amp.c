@@ -30,6 +30,10 @@
 #include "../../codecs/tfa98xx/inc/tfa98xx_ext.h"
 #endif
 
+#ifdef CONFIG_SND_SOC_AW87339
+#include "aw87339.h"
+#endif
+
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
 static unsigned int mtk_spk_type;
@@ -126,6 +130,24 @@ int mtk_spk_get_i2s_in_type(void)
 }
 EXPORT_SYMBOL(mtk_spk_get_i2s_in_type);
 
+int mtk_ext_spk_get_status(void)
+{
+#ifdef CONFIG_SND_SOC_AW87339
+	return aw87339_spk_status_get();
+#else
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(mtk_ext_spk_get_status);
+
+void mtk_ext_spk_enable(int enable)
+{
+#ifdef CONFIG_SND_SOC_AW87339
+	aw87339_spk_enable_set(enable);
+#endif
+}
+EXPORT_SYMBOL(mtk_ext_spk_enable);
+
 int mtk_spk_update_dai_link(struct snd_soc_card *card,
 			    struct platform_device *pdev,
 			    const struct snd_soc_ops *i2s_ops)
@@ -168,11 +190,21 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 			 __func__);
 	}
 
+	dev_info(&pdev->dev,
+		 "%s(), mtk_spk_type %d, i2s in %d, i2s out %d\n",
+		 __func__, mtk_spk_type, mtk_spk_i2s_in, mtk_spk_i2s_out);
+
 	if (mtk_spk_i2s_out > MTK_SPK_I2S_TYPE_NUM ||
 	    mtk_spk_i2s_in > MTK_SPK_I2S_TYPE_NUM) {
 		dev_err(&pdev->dev, "%s(), get mtk spk i2s fail\n",
 			__func__);
 		return -ENODEV;
+	}
+
+	if (mtk_spk_type == MTK_SPK_NOT_SMARTPA) {
+		dev_info(&pdev->dev, "%s(), no need to update dailink\n",
+			 __func__);
+		return 0;
 	}
 
 	/* find dai link of i2s in and i2s out */
@@ -195,11 +227,13 @@ int mtk_spk_update_dai_link(struct snd_soc_card *card,
 
 		if (spk_ref_dai_link_idx < 0 &&
 		    strcmp(dai_link->cpu_dai_name, "I2S0") == 0 &&
-		    mtk_spk_i2s_in == MTK_SPK_I2S_0) {
+		    (mtk_spk_i2s_in == MTK_SPK_I2S_0 ||
+		     mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_0)) {
 			spk_ref_dai_link_idx = i;
 		} else if (spk_ref_dai_link_idx < 0 &&
 			   strcmp(dai_link->cpu_dai_name, "I2S2") == 0 &&
-			   mtk_spk_i2s_in == MTK_SPK_I2S_2) {
+			   (mtk_spk_i2s_in == MTK_SPK_I2S_2 ||
+			    mtk_spk_i2s_in == MTK_SPK_TINYCONN_I2S_2)) {
 			spk_ref_dai_link_idx = i;
 		}
 
