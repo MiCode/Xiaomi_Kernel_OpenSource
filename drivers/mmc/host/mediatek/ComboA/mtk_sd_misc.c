@@ -113,7 +113,7 @@ static int simple_sd_ioctl_get_cid(struct msdc_ioctl *msdc_ctl)
 {
 	struct msdc_host *host_ctl;
 
-	if (!msdc_ctl)
+	if ((!msdc_ctl) || (msdc_ctl->host_num < 0))
 		return -EINVAL;
 
 	host_ctl = mtk_msdc_host[msdc_ctl->host_num];
