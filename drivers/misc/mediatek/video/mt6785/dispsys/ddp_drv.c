@@ -303,7 +303,10 @@ static inline unsigned int virq_to_hwirq(unsigned int virq)
 
 	desc = irq_to_desc(virq);
 
-	WARN_ON(!desc);
+	if (!desc) {
+		WARN_ON(!desc);
+		return 0;
+	}
 
 	hwirq = gic_irq(&desc->irq_data);
 
