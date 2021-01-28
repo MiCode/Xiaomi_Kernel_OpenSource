@@ -1032,7 +1032,7 @@ static int mt6360_init_alert(struct tcpc_device *tcpc)
 	kthread_init_work(&chip->irq_work, mt6360_irq_work_handler);
 
 	ret = request_irq(chip->irq, mt6360_intr_handler, IRQF_TRIGGER_FALLING |
-			  IRQF_NO_THREAD | IRQF_NO_SUSPEND, name, chip);
+			  IRQF_NO_THREAD, name, chip);
 	if (ret < 0) {
 		dev_err(chip->dev, "%s fail to request irq%d, gpio%d (%d)\n",
 			__func__, chip->irq, chip->irq_gpio, ret);
