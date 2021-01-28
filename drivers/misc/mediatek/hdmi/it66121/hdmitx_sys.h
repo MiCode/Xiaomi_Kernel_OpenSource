@@ -45,7 +45,7 @@ void InitHDMITX_Variable(void);
 void HDMITX_SetOutput(void);
 void HDMITX_DevLoopProc(void);
 
-/*extern struct switch_dev hdmi_switch_data;*/
+/* extern struct switch_dev hdmi_switch_data; */
 extern void switch_host_interface_timing(int out);
 extern void init_hdmi_disp_path(int out);
 /* extern int start_output; */
@@ -294,6 +294,8 @@ void HDMITX_ChangeAudioOption(unsigned char Option, unsigned char channelNum,
 			      unsigned char AudioFs);
 void HDMITX_SetAudioOutput(void);
 void HDMITX_ChangeColorDepth(unsigned char colorDepth);
+void HDMITX_ChangeDisplayOption(HDMI_Video_Type VideoMode,
+				HDMI_OutputColorMode OutputColorMode);
 
 enum _HDMI_PLUG_STATE { HDMI_PLUG_NO_DEVICE, HDMI_PLUG_ACTIVE };
 #define HDMI_PLUG_STATE enum _HDMI_PLUG_STATE
