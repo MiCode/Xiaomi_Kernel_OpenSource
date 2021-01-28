@@ -28,13 +28,15 @@
 #include <helio-dvfsrc-opp-mt6885.h>
 #elif defined(CONFIG_MACH_MT6873)
 #include <helio-dvfsrc-opp-mt6873.h>
+#elif defined(CONFIG_MACH_MT6853)
+#include <helio-dvfsrc-opp-mt6853.h>
 #else
 #include <helio-dvfsrc-opp-mt67xx.h>
 #endif
 
 #if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785) \
 	|| defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6765) \
-	|| defined(CONFIG_MACH_MT6873)
+	|| defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)
 struct opp_profile {
 	int vcore_uv;
 	int ddr_khz;

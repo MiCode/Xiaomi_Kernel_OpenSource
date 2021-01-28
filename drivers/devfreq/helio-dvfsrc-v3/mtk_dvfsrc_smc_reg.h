@@ -30,6 +30,7 @@
 #define SPM_DVFS_CMD1                  (0x0714)
 #define SPM_DVFS_CMD2                  (0x0718)
 #define SPM_DVFS_CMD3                  (0x071C)
+#define SPM_DVFS_CMD4                  (0x0720)
 
 
 #endif /* __MTK_DVFSRC_REG_V2_H */
