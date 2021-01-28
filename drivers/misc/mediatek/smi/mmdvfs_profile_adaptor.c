@@ -763,6 +763,11 @@ static void mmdvfs_single_hw_configuration_dump(struct mmdvfs_adaptor *self,
 
 		struct mmdvfs_clk_hw_map *map_item = clk_hw_map + i;
 
+		if (map_item == NULL) {
+			MMDVFSMSG(
+			"mmdvfs_map_item can't be NULL, i:%d\n", i);
+			return;
+		}
 		clk_step = hw_configuration->clk_steps[i];
 
 		if (map_item != NULL && map_item->clk_mux.ccf_name != NULL) {
