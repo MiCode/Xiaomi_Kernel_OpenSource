@@ -50,3 +50,4 @@ obj-$(CONFIG_MTK_CHIP) += chip/
 obj-$(CONFIG_MTK_RAM_CONSOLE) += ram_console/
 obj-$(CONFIG_MU3_PHY)   += mu3phy/
 obj-$(CONFIG_USB_MU3D_DRV)  += mu3d/
+obj-$(CONFIG_MTK_RTC)	+= rtc/
