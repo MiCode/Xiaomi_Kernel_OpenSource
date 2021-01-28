@@ -45,7 +45,14 @@
 /* Thread that are high-priority (display threads) */
 #define CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT (8)
 #define CMDQ_MIN_SECURE_THREAD_ID	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
+
+#if IS_ENABLED(CONFIG_MACH_MT6779)
+/* primary disp / secondary disp / mdp / isp fd */
+#define CMDQ_MAX_SECURE_THREAD_COUNT	(4)
+#else
+/* primary disp / secondary disp / mdp */
 #define CMDQ_MAX_SECURE_THREAD_COUNT	(3)
+#endif
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
 #define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_MIN_SECURE_THREAD_ID + \
@@ -53,6 +60,8 @@
 #else
 #define CMDQ_DYNAMIC_THREAD_ID_START	(CMDQ_MAX_HIGH_PRIORITY_THREAD_COUNT)
 #endif
+
+#define CMDQ_SEC_IRQ_THREAD		15
 
 #define CMDQ_MAX_ERROR_COUNT            (2)
 #define CMDQ_MAX_RETRY_COUNT            (1)
@@ -65,11 +74,10 @@
 
 #define CMDQ_INITIAL_CMD_BLOCK_SIZE     (PAGE_SIZE)
 /* instruction is 64-bit */
-#define CMDQ_DMA_POOL_COUNT		32
+#define CMDQ_DMA_POOL_COUNT		128
 
 #define CMDQ_MAX_LOOP_COUNT             (1000000)
 #define CMDQ_MAX_INST_CYCLE             (27)
-#define CMDQ_MIN_AGE_VALUE              (5)
 #define CMDQ_MAX_ERROR_SIZE             (8 * 1024)
 
 #define CMDQ_MAX_TASK_IN_SECURE_THREAD	(10)
@@ -137,7 +145,6 @@ typedef u64 CMDQ_VARIABLE;
 #define CMDQ_DELAY_THD_SIZE		(64 * 64) /* delay inst in bytes */
 
 /* #define CMDQ_DUMP_GIC (0) */
-/* #define CMDQ_PROFILE_MMP (0) */
 
 #define CMDQ_DUMP_FIRSTERROR
 /* #define CMDQ_INSTRUCTION_COUNT */
@@ -235,6 +242,11 @@ enum CMDQ_SCENARIO_ENUM {
 
 	/* debug scenario use mdp flush */
 	CMDQ_SCENARIO_DEBUG_MDP = 42,
+
+	/* for ISP kernel driver */
+	CMDQ_SCENARIO_ISP_RSC = 43,
+	CMDQ_SCENARIO_ISP_FDVT = 44,
+	CMDQ_SCENARIO_ISP_DPE = 45,
 
 	CMDQ_MAX_SCENARIO_COUNT	/* ALWAYS keep at the end */
 };
