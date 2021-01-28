@@ -32,6 +32,15 @@
 				firmware_class.path=/vendor/firmware";
 	};
 
+	regulator_vibrator {
+		compatible = "regulator-vibrator";
+		min-volt = <2300000>;
+		max-volt = <3200000>;
+		min-limit = <15>;
+		max-limit = <15000>;
+		vib-supply = <&mt_pmic_vibr_ldo_reg>;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
