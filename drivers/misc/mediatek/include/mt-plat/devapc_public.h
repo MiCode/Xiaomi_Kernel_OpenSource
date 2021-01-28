@@ -28,10 +28,16 @@ enum infra_subsys_id {
 	DEVAPC_SUBSYS_RESERVED,
 };
 
+enum devapc_cb_status {
+	DEVAPC_OK = 0,
+	DEVAPC_NOT_KE,
+};
+
 struct devapc_vio_callbacks {
 	struct list_head list;
 	enum infra_subsys_id id;
 	void (*debug_dump)(void);
+	enum devapc_cb_status (*debug_dump_adv)(uint32_t vio_addr);
 };
 
 uint32_t devapc_vio_check(void);
