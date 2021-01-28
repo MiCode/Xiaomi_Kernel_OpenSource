@@ -702,8 +702,10 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 
 	mtk->sys_clk = devm_clk_get(dev, "sys_ck");
 	if (IS_ERR(mtk->sys_clk)) {
-		dev_err(dev, "fail to get sys_ck\n");
-		return PTR_ERR(mtk->sys_clk);
+		if (PTR_ERR(mtk->sys_clk) == -EPROBE_DEFER)
+			return -EPROBE_DEFER;
+
+		mtk->sys_clk = NULL;
 	}
 
 	/*
