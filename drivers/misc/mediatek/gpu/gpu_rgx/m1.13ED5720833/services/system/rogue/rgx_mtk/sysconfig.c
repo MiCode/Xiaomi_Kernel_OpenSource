@@ -287,7 +287,7 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 	gsDevices[0].sAltRegsGpuPBase.uiAddr = 0x7F000000;
 #endif
 
-#if defined(SUPPORT_DEVICE_PA0_AS_VALID)
+#if defined(CONFIG_MACH_MT6761)
 	gsDevices[0].bDevicePA0IsValid = IMG_TRUE;
 #endif
 
