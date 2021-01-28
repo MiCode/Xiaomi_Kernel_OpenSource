@@ -52,4 +52,4 @@ endif
 
 obj-y += seninf/
 
-subdir-ccflags-y +=  -DNO_CLK_METER -DNO_OC
+subdir-ccflags-y +=  -DNO_CLK_METER -DNO_OC -DDFS_CTRL_BY_OPP -DSENINF_USE_RPM

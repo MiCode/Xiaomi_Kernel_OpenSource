@@ -8,8 +8,10 @@
 #include "seninf_clk.h"
 
 static struct SENINF_CLK_CTRL gseninf_mclk_name[SENINF_CLK_IDX_MAX_NUM] = {
+#ifndef SENINF_USE_RPM
 	{"SCP_SYS_DIS"},
 	{"SCP_SYS_CAM"},
+#endif
 	{"CAMSYS_SENINF_CGPDN"},
 	{"TOP_MUX_SENINF"},
 	{"TOP_MUX_SENINF1"},
@@ -38,124 +40,6 @@ gseninf_clk_freq[SENINF_CLK_IDX_FREQ_IDX_NUM] = {
 	SENINF_CLK_MCLK_FREQ_48MHZ,
 	SENINF_CLK_MCLK_FREQ_52MHZ,
 };
-
-#ifdef DFS_CTRL_BY_OPP
-int seninf_dfs_init(struct seninf_dfs_ctx *ctx, struct device *dev)
-{
-	int ret, i;
-	struct dev_pm_opp *opp;
-	unsigned long freq;
-
-	ctx->dev = dev;
-
-	ret = dev_pm_opp_of_add_table(dev);
-	if (ret < 0) {
-		dev_info(dev, "fail to init opp table: %d\n", ret);
-		return ret;
-	}
-
-	ctx->reg = devm_regulator_get_optional(dev, "dvfsrc-vcore");
-	if (IS_ERR(ctx->reg)) {
-		dev_info(dev, "can't get dvfsrc-vcore\n");
-		return PTR_ERR(ctx->reg);
-	}
-
-	ctx->cnt = dev_pm_opp_get_opp_count(dev);
-
-	ctx->freqs = devm_kzalloc(dev,
-			sizeof(unsigned long) * ctx->cnt, GFP_KERNEL);
-	ctx->volts = devm_kzalloc(dev,
-			sizeof(unsigned long) * ctx->cnt, GFP_KERNEL);
-	if (!ctx->freqs || !ctx->volts)
-		return -ENOMEM;
-
-	i = 0;
-	freq = 0;
-	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
-		ctx->freqs[i] = freq;
-		ctx->volts[i] = dev_pm_opp_get_voltage(opp);
-		freq++;
-		i++;
-		dev_pm_opp_put(opp);
-	}
-
-	return 0;
-}
-
-void seninf_dfs_exit(struct seninf_dfs_ctx *ctx)
-{
-	dev_pm_opp_of_remove_table(ctx->dev);
-}
-
-int seninf_dfs_ctrl(struct seninf_dfs_ctx *ctx,
-		enum DFS_OPTION option, void *pbuff)
-{
-	int i4RetValue = 0;
-
-	/*pr_info("%s\n", __func__);*/
-
-	switch (option) {
-	case DFS_CTRL_ENABLE:
-		break;
-	case DFS_CTRL_DISABLE:
-		break;
-	case DFS_UPDATE:
-	{
-		unsigned long freq, volt;
-		struct dev_pm_opp *opp;
-
-		freq = *(unsigned int *)pbuff;
-		opp = dev_pm_opp_find_freq_ceil(ctx->dev, &freq);
-		volt = dev_pm_opp_get_voltage(opp);
-		dev_pm_opp_put(opp);
-		pr_debug("%s: freq=%ld volt=%ld\n", __func__, freq, volt);
-		regulator_set_voltage(ctx->reg, volt, ctx->volts[ctx->cnt-1]);
-	}
-		break;
-	case DFS_RELEASE:
-		break;
-	case DFS_SUPPORTED_ISP_CLOCKS:
-	{
-		struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK *pIspclks;
-		int i;
-
-		pIspclks = (struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK *) pbuff;
-
-		pIspclks->clklevelcnt = ctx->cnt;
-
-		if (pIspclks->clklevelcnt > ISP_CLK_LEVEL_CNT) {
-			pr_info("ERR: clklevelcnt is exceeded\n");
-			i4RetValue = -EFAULT;
-			break;
-		}
-
-		for (i = 0; i < pIspclks->clklevelcnt; i++)
-			pIspclks->clklevel[i] = ctx->freqs[i];
-	}
-		break;
-	case DFS_CUR_ISP_CLOCK:
-	{
-		unsigned int *pGetIspclk;
-		int i, cur_volt;
-
-		pGetIspclk = (unsigned int *) pbuff;
-		cur_volt = regulator_get_voltage(ctx->reg);
-
-		for (i = 0; i < ctx->cnt; i++) {
-			if (ctx->volts[i] == cur_volt) {
-				*pGetIspclk = (u32)ctx->freqs[i];
-				break;
-			}
-		}
-	}
-		break;
-	default:
-		pr_info("None\n");
-		break;
-	}
-	return i4RetValue;
-}
-#endif
 
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 struct pm_qos_request imgsensor_qos;

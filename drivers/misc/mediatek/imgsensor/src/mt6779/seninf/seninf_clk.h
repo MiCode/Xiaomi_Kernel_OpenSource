@@ -35,28 +35,13 @@ enum DFS_OPTION {
 	DFS_CUR_ISP_CLOCK,
 };
 
-#ifdef DFS_CTRL_BY_OPP
-#include <linux/pm_opp.h>
-#include <linux/regulator/consumer.h>
-struct seninf_dfs_ctx {
-	struct device *dev;
-	struct regulator *reg;
-	unsigned long *freqs;
-	unsigned long *volts;
-	int cnt;
-};
-int seninf_dfs_init(struct seninf_dfs_ctx *ctx, struct device *dev);
-void seninf_dfs_exit(struct seninf_dfs_ctx *ctx);
-int seninf_dfs_ctrl(
-	struct seninf_dfs_ctx *ctx, enum DFS_OPTION option, void *pbuff);
-#endif
-
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 #include <linux/pm_qos.h>
 #include <mmdvfs_pmqos.h>
 extern int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff);
 #endif
 
+#ifndef SENINF_USE_RPM
 enum SENINF_CLK_IDX_SYS {
 	SENINF_CLK_IDX_SYS_MIN_NUM = 0,
 	SENINF_CLK_IDX_SYS_SCP_SYS_DIS = SENINF_CLK_IDX_SYS_MIN_NUM,
@@ -67,6 +52,16 @@ enum SENINF_CLK_IDX_SYS {
 	SENINF_CLK_IDX_SYS_TOP_MUX_SENINF2,
 	SENINF_CLK_IDX_SYS_MAX_NUM
 };
+#else
+enum SENINF_CLK_IDX_SYS {
+	SENINF_CLK_IDX_SYS_MIN_NUM = 0,
+	SENINF_CLK_IDX_SYS_CAMSYS_SENINF_CGPDN = SENINF_CLK_IDX_SYS_MIN_NUM,
+	SENINF_CLK_IDX_SYS_TOP_MUX_SENINF,
+	SENINF_CLK_IDX_SYS_TOP_MUX_SENINF1,
+	SENINF_CLK_IDX_SYS_TOP_MUX_SENINF2,
+	SENINF_CLK_IDX_SYS_MAX_NUM
+};
+#endif
 
 enum SENINF_CLK_IDX_TG {
 	SENINF_CLK_IDX_TG_MIN_NUM = SENINF_CLK_IDX_SYS_MAX_NUM,

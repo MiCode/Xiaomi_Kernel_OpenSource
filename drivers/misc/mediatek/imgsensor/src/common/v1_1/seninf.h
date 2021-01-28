@@ -14,10 +14,23 @@
 
 #define SENINF_DEV_NAME "seninf"
 
+#ifdef DFS_CTRL_BY_OPP
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
+struct seninf_dfs_ctx {
+	struct device *dev;
+	struct regulator *reg;
+	unsigned long *freqs;
+	unsigned long *volts;
+	int cnt;
+};
+#endif
+
 struct SENINF {
 	dev_t dev_no;
 	struct cdev *pchar_dev;
 	struct class *pclass;
+	struct device *dev;
 
 	struct SENINF_CLK clk;
 
@@ -25,6 +38,10 @@ struct SENINF {
 
 	struct mutex seninf_mutex;
 	atomic_t seninf_open_cnt;
+
+#ifdef DFS_CTRL_BY_OPP
+	struct seninf_dfs_ctx dfs_ctx;
+#endif
 };
 extern MINT32 seninf_dump_reg(void);
 

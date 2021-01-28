@@ -16,6 +16,7 @@
 #include <linux/mm.h>
 #include <linux/vmalloc.h>
 #include <linux/clk.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/of_platform.h>
 #include <linux/of_irq.h>
@@ -36,6 +37,124 @@
 #define SENINF_RD32(addr)          ioread32((void *)addr)
 
 static struct SENINF gseninf;
+
+#ifdef DFS_CTRL_BY_OPP
+static int seninf_dfs_init(struct seninf_dfs_ctx *ctx, struct device *dev)
+{
+	int ret, i;
+	struct dev_pm_opp *opp;
+	unsigned long freq;
+
+	ctx->dev = dev;
+
+	ret = dev_pm_opp_of_add_table(dev);
+	if (ret < 0) {
+		dev_info(dev, "fail to init opp table: %d\n", ret);
+		return ret;
+	}
+
+	ctx->reg = devm_regulator_get_optional(dev, "dvfsrc-vcore");
+	if (IS_ERR(ctx->reg)) {
+		dev_info(dev, "can't get dvfsrc-vcore\n");
+		return PTR_ERR(ctx->reg);
+	}
+
+	ctx->cnt = dev_pm_opp_get_opp_count(dev);
+
+	ctx->freqs = devm_kzalloc(dev,
+			sizeof(unsigned long) * ctx->cnt, GFP_KERNEL);
+	ctx->volts = devm_kzalloc(dev,
+			sizeof(unsigned long) * ctx->cnt, GFP_KERNEL);
+	if (!ctx->freqs || !ctx->volts)
+		return -ENOMEM;
+
+	i = 0;
+	freq = 0;
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
+		ctx->freqs[i] = freq;
+		ctx->volts[i] = dev_pm_opp_get_voltage(opp);
+		freq++;
+		i++;
+		dev_pm_opp_put(opp);
+	}
+
+	return 0;
+}
+
+static void seninf_dfs_exit(struct seninf_dfs_ctx *ctx)
+{
+	dev_pm_opp_of_remove_table(ctx->dev);
+}
+
+static int seninf_dfs_ctrl(struct seninf_dfs_ctx *ctx,
+		enum DFS_OPTION option, void *pbuff)
+{
+	int i4RetValue = 0;
+
+	/*pr_info("%s\n", __func__);*/
+
+	switch (option) {
+	case DFS_CTRL_ENABLE:
+		break;
+	case DFS_CTRL_DISABLE:
+		break;
+	case DFS_UPDATE:
+	{
+		unsigned long freq, volt;
+		struct dev_pm_opp *opp;
+
+		freq = *(unsigned int *)pbuff;
+		opp = dev_pm_opp_find_freq_ceil(ctx->dev, &freq);
+		volt = dev_pm_opp_get_voltage(opp);
+		dev_pm_opp_put(opp);
+		pr_debug("%s: freq=%ld volt=%ld\n", __func__, freq, volt);
+		regulator_set_voltage(ctx->reg, volt, ctx->volts[ctx->cnt-1]);
+	}
+		break;
+	case DFS_RELEASE:
+		break;
+	case DFS_SUPPORTED_ISP_CLOCKS:
+	{
+		struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK *pIspclks;
+		int i;
+
+		pIspclks = (struct IMAGESENSOR_GET_SUPPORTED_ISP_CLK *) pbuff;
+
+		pIspclks->clklevelcnt = ctx->cnt;
+
+		if (pIspclks->clklevelcnt > ISP_CLK_LEVEL_CNT) {
+			pr_info("ERR: clklevelcnt is exceeded\n");
+			i4RetValue = -EFAULT;
+			break;
+		}
+
+		for (i = 0; i < pIspclks->clklevelcnt; i++)
+			pIspclks->clklevel[i] = ctx->freqs[i];
+	}
+		break;
+	case DFS_CUR_ISP_CLOCK:
+	{
+		unsigned int *pGetIspclk;
+		int i, cur_volt;
+
+		pGetIspclk = (unsigned int *) pbuff;
+		cur_volt = regulator_get_voltage(ctx->reg);
+
+		for (i = 0; i < ctx->cnt; i++) {
+			if (ctx->volts[i] == cur_volt) {
+				*pGetIspclk = (u32)ctx->freqs[i];
+				break;
+			}
+		}
+	}
+		break;
+	default:
+		pr_info("None\n");
+		break;
+	}
+	return i4RetValue;
+}
+#endif
 
 #ifdef DUMP_SENINF_REG
 MINT32 seninf_dump_reg(void)
@@ -126,6 +245,10 @@ static MINT32 seninf_open(struct inode *pInode, struct file *pFile)
 #if SENINF_CLK_CONTROL
 	struct SENINF *pseninf = &gseninf;
 
+#ifdef SENINF_USE_RPM
+	pm_runtime_get_sync(pseninf->dev);
+#endif
+
 	mutex_lock(&pseninf->seninf_mutex);
 	if (atomic_inc_return(&pseninf->seninf_open_cnt) == 1)
 		seninf_clk_open(&pseninf->clk);
@@ -156,6 +279,10 @@ static MINT32 seninf_release(struct inode *pInode, struct file *pFile)
 	pr_info("%s %d\n", __func__,
 	       atomic_read(&pseninf->seninf_open_cnt));
 	mutex_unlock(&pseninf->seninf_mutex);
+
+#ifdef SENINF_USE_RPM
+	pm_runtime_put_sync(pseninf->dev);
+#endif
 
 	return 0;
 }
@@ -282,6 +409,19 @@ static long seninf_ioctl(struct file *pfile,
 			*(unsigned int *)pbuff);
 #endif
 		break;
+#ifdef DFS_CTRL_BY_OPP
+	case KDSENINFIOC_DFS_UPDATE:
+		ret = seninf_dfs_ctrl(&gseninf.dfs_ctx, DFS_UPDATE, pbuff);
+		break;
+	case KDSENINFIOC_GET_SUPPORTED_ISP_CLOCKS:
+		ret = seninf_dfs_ctrl(&gseninf.dfs_ctx,
+				DFS_SUPPORTED_ISP_CLOCKS, pbuff);
+		break;
+	case KDSENINFIOC_GET_CUR_ISP_CLOCK:
+		ret = seninf_dfs_ctrl(&gseninf.dfs_ctx,
+				DFS_CUR_ISP_CLOCK, pbuff);
+		break;
+#endif
 #ifdef IMGSENSOR_DFS_CTRL_ENABLE
 	/*mmdvfs start*/
 	case KDSENINFIOC_DFS_UPDATE:
@@ -430,11 +570,22 @@ static MINT32 seninf_probe(struct platform_device *pDev)
 
 	mutex_init(&pseninf->seninf_mutex);
 	atomic_set(&pseninf->seninf_open_cnt, 0);
+	pseninf->dev = &pDev->dev;
+
+#ifdef SENINF_USE_RPM
+	pm_runtime_enable(pseninf->dev);
+#endif
 
 #if SENINF_CLK_CONTROL
 	pseninf->clk.pplatform_device = pDev;
 	seninf_clk_init(&pseninf->clk);
 #endif
+
+#ifdef DFS_CTRL_BY_OPP
+	if (seninf_dfs_init(&pseninf->dfs_ctx, &pDev->dev))
+		return -ENODEV;
+#endif
+
 	/* get IRQ ID and request IRQ */
 	irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
 
@@ -472,6 +623,15 @@ static MINT32 seninf_remove(struct platform_device *pDev)
 	struct SENINF *pseninf = &gseninf;
 
 	PK_DBG("- E.");
+
+#ifdef DFS_CTRL_BY_OPP
+	seninf_dfs_exit(&pseninf->dfs_ctx);
+#endif
+
+#if SENINF_CLK_CONTROL
+	seninf_clk_exit(&pseninf->clk);
+#endif
+
 	/* unregister char driver. */
 	seninf_unreg_char_dev(pseninf);
 
