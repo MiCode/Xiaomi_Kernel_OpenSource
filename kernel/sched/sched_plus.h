@@ -35,3 +35,14 @@ int task_prefer_fit(struct task_struct *p, int cpu);
 int task_prefer_match(struct task_struct *p, int cpu);
 int
 task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
+
+#define LB_POLICY_SHIFT 16
+#define LB_CPU_MASK ((1 << LB_POLICY_SHIFT) - 1)
+
+#define LB_PREV          (0x0  << LB_POLICY_SHIFT)
+#define LB_FORK          (0x1  << LB_POLICY_SHIFT)
+#define LB_SMP           (0x2  << LB_POLICY_SHIFT)
+#define LB_HMP           (0x4  << LB_POLICY_SHIFT)
+#define LB_EAS           (0x8  << LB_POLICY_SHIFT)
+#define LB_EAS_AFFINE   (0x18  << LB_POLICY_SHIFT)
+#define LB_EAS_LB       (0x28  << LB_POLICY_SHIFT)
