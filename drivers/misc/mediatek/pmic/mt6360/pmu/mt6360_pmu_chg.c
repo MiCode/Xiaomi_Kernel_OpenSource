@@ -23,7 +23,6 @@
 #include "../inc/mt6360_pmu_chg.h"
 #include <charger_class.h>
 
-
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
 #include <linux/phy/phy.h>
@@ -31,6 +30,19 @@
 #ifdef CONFIG_TCPC_CLASS
 #include <tcpm.h>
 #endif
+
+/*
+ * replace the get charger_type & enum chg_dev_notifier_events
+ * by include mtk_charger.h
+ */
+#ifdef FIXME
+#include <mtk_charger.h>
+#endif
+
+enum chg_dev_notifier_events {
+	EVENT_FULL,
+	EVENT_RECHARGE,
+};
 
 #define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
 
@@ -1828,21 +1840,24 @@ static int mt6360_dump_registers(struct charger_device *chg_dev)
 static int mt6360_do_event(struct charger_device *chg_dev, u32 event,
 				   u32 args)
 {
-#ifdef FIXME /* TODO: wait mtk_charger_intf.h */
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
 
 	mt_dbg(mpci->dev, "%s\n", __func__);
+
+	if (!mpci->psy_self) {
+		dev_notice(mpci->dev, "%s: cannot get psy\n", __func__);
+		return -ENODEV;
+	}
+
 	switch (event) {
-	case EVENT_EOC:
-		charger_dev_notify(chg_dev, CHARGER_DEV_NOTIFY_EOC);
-		break;
+	case EVENT_FULL:
 	case EVENT_RECHARGE:
-		charger_dev_notify(chg_dev, CHARGER_DEV_NOTIFY_RECHG);
+		power_supply_changed(mpci->psy_self);
 		break;
 	default:
 		break;
 	}
-#endif
+
 	return 0;
 }
 
@@ -2896,17 +2911,41 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
 {
-	struct mt6360_pmu_chg_info *chg_data =
+	struct mt6360_pmu_chg_info *mpci =
 						  power_supply_get_drvdata(psy);
+	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_MAX;
 	int ret = 0;
 
-	dev_dbg(chg_data->dev, "%s: prop = %d\n", __func__, psp);
+	dev_dbg(mpci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		ret = mt6360_charger_get_online(chg_data, val);
+		ret = mt6360_charger_get_online(mpci, val);
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
-		val->intval = chg_data->psy_usb_type;
+		val->intval = mpci->psy_usb_type;
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		ret = mt6360_get_charging_status(mpci, &chg_stat);
+		if (ret < 0)
+			dev_info(mpci->dev,
+				"%s: get mt6360 chg_status failed\n", __func__);
+		switch (chg_stat) {
+		case MT6360_CHG_STATUS_READY:
+			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
+			break;
+		case MT6360_CHG_STATUS_PROGRESS:
+			val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			break;
+		case MT6360_CHG_STATUS_DONE:
+			val->intval = POWER_SUPPLY_STATUS_FULL;
+			break;
+		case MT6360_CHG_STATUS_FAULT:
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+			break;
+		default:
+			ret = -ENODATA;
+			break;
+		}
 		break;
 	default:
 		ret = -ENODATA;
@@ -2944,6 +2983,7 @@ static int mt6360_charger_property_is_writeable(struct power_supply *psy,
 }
 
 static enum power_supply_property mt6360_charger_properties[] = {
+	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
