@@ -49,6 +49,10 @@ int ca75_register[] = {
 	// [L2_PF_LD] = 0x12b,
 	// [L2_PF_REFILL] = 0x10a,
 };
+int ca76_register[] = {
+	[L2_PF_ST] = 0x12c,
+	[L2_PF_UNUSED] = 0x150,
+};
 
 DEFINE_PER_CPU(struct ca_pmu_stats, ca_pmu_stats);
 
@@ -409,6 +413,7 @@ module_param_cb(force_stop, &force_stop_cb, &force_stop, 0664);
 __MODULE_PARM_TYPE(force_stop, "bool");
 
 static const struct cpu_config_node config_table[] = {
+	{ "arm,cortex-a76", ca76_register},
 	{ "arm,cortex-a75", ca75_register},
 	{ "arm,cortex-a55", ca55_register},
 	{ NULL, },
@@ -456,7 +461,7 @@ static int __init ca_init(void)
 
 	if (!proc_create("ca_debug", 0444, NULL, &ca_debug_procfs)) {
 		pr_info("[Error] create /proc/ca_debug failed\n");
-		return -1;
+		return -ENOMEM;
 	}
 
 	init_cache_priority();
