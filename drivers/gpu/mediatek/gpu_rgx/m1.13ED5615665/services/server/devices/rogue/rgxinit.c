@@ -1450,7 +1450,7 @@ const void * RGXLoadAndGetFWData(PVRSRV_DEVICE_NODE *psDeviceNode,
 			if (*ppsRGXFW == NULL)
 			{
 				PVR_DPF((PVR_DBG_FATAL, "All RGX Firmware image loads failed for '%s'",
-						aszFWFilenameStr));
+						pszLoadedFwStr));
 				return NULL;
 			}
 		}

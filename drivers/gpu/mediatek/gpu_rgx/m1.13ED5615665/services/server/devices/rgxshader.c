@@ -142,28 +142,34 @@ PVRSRVTQLoadShaders(CONNECTION_DATA     * psConnection,
 		IMG_UINT32          ui32NumPages;
 		IMG_CHAR            aszShaderFilenameStr[RGX_SHADER_FILENAME_MAX_SIZE];
 		IMG_CHAR            aszShaderpFilenameStr[RGX_SHADER_FILENAME_MAX_SIZE];
+		IMG_CHAR            *pszLoadedShaderStr;
 		size_t              uiNumBytes;
 
 		_GetShaderFileName(psDeviceNode, aszShaderFilenameStr, aszShaderpFilenameStr);
 
+		pszLoadedShaderStr = aszShaderFilenameStr;
 		psShaderFW = OSLoadFirmware(psDeviceNode, aszShaderFilenameStr, NULL);
 
 		if (psShaderFW == NULL)
 		{
+			pszLoadedShaderStr = aszShaderpFilenameStr;
 			psShaderFW = OSLoadFirmware(psDeviceNode, aszShaderpFilenameStr, NULL);
 			if (psShaderFW == NULL)
 			{
+				pszLoadedShaderStr = RGX_SH_FILENAME;
 				psShaderFW = OSLoadFirmware(psDeviceNode, RGX_SH_FILENAME, NULL);
 				if (psShaderFW == NULL)
 				{
 					PVR_DPF((PVR_DBG_ERROR, "%s: Failed to load shader binary file %s",
 							__func__,
-							RGX_SH_FILENAME));
+							pszLoadedShaderStr));
 					eError = PVRSRV_ERROR_UNABLE_TO_FIND_RESOURCE ;
 					goto failed_lock;
 				}
 			}
 		}
+
+		PVR_LOG(("RGX shader binary '%s' loaded", pszLoadedShaderStr));
 
 		RGXShaderReadHeader(psShaderFW, &sHeader);
 
