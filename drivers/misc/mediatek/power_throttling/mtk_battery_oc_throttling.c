@@ -380,12 +380,14 @@ static int battery_oc_throttling_probe(struct platform_device *pdev)
 		 priv->oc_thd_h, to_fg_code(priv, priv->oc_thd_h),
 		 priv->oc_thd_l, to_fg_code(priv, priv->oc_thd_l));
 
-	device_create_file(&(pdev->dev),
+	ret = device_create_file(&(pdev->dev),
 		&dev_attr_battery_oc_protect_ut);
-	device_create_file(&(pdev->dev),
+	ret |= device_create_file(&(pdev->dev),
 		&dev_attr_battery_oc_protect_stop);
-	device_create_file(&(pdev->dev),
+	ret |= device_create_file(&(pdev->dev),
 		&dev_attr_battery_oc_protect_level);
+	if (ret)
+		dev_notice(&pdev->dev, "create file error ret=%d\n", ret);
 
 	return ret;
 }

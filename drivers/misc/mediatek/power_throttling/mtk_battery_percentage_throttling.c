@@ -172,6 +172,8 @@ static ssize_t mtk_battery_percent_protect_ut_proc_write
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
+	len = (len < 0) ? 0 : len;
 	desc[len] = '\0';
 
 	if (kstrtoint(desc, 10, &val) == 0) {
@@ -202,6 +204,8 @@ static ssize_t mtk_battery_percent_protect_stop_proc_write
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
+	len = (len < 0) ? 0 : len;
 	desc[len] = '\0';
 
 	if (kstrtoint(desc, 10, &val) == 0) {

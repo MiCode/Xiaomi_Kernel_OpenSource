@@ -198,12 +198,14 @@ static int low_battery_throttling_probe(struct platform_device *pdev)
 	dev_notice(&pdev->dev, "%d mV, %d mV, %d mV Done\n",
 		   POWER_INT0_VOLT, POWER_INT1_VOLT, POWER_INT2_VOLT);
 
-	device_create_file(&(pdev->dev),
+	ret = device_create_file(&(pdev->dev),
 		&dev_attr_low_battery_protect_ut);
-	device_create_file(&(pdev->dev),
+	ret |= device_create_file(&(pdev->dev),
 		&dev_attr_low_battery_protect_stop);
-	device_create_file(&(pdev->dev),
+	ret |= device_create_file(&(pdev->dev),
 		&dev_attr_low_battery_protect_level);
+	if (ret)
+		dev_notice(&pdev->dev, "create file error ret=%d\n", ret);
 
 	return ret;
 }
