@@ -65,7 +65,7 @@ ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
   ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public/GP
 endif
 
-ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
+ifeq ($(CONFIG_TEE),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
   ccflags-y += -I$(srctree)/drivers/tee/gud/$(CONFIG_TRUSTONIC_TEE_VERSION)/MobiCoreDriver/public

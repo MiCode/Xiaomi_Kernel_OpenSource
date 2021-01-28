@@ -47,7 +47,7 @@
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
 /* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#if IS_ENABLED(CONFIG_TEE)
 #include "tee_client_api.h"
 #endif
 
@@ -821,7 +821,7 @@ TZ_RESULT _Gz_KreeServiceCall_body(KREE_SESSION_HANDLE handle, uint32_t command,
 		param[1].value.a = ret;
 		break;
 
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#if IS_ENABLED(CONFIG_TEE)
 	case REE_SERVICE_CMD_TEE_INIT_CTX:
 		ret = TEEC_InitializeContext(
 			(char *)param[0].mem.buffer,

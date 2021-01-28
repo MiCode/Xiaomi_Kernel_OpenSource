@@ -161,7 +161,7 @@ static int disp_flush(struct file *file, fl_owner_t a_id)
 #if defined(CONFIG_MT_ENG_BUILD)
 static int disp_mmap(struct file *file, struct vm_area_struct *a_pstVMArea)
 {
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	a_pstVMArea->vm_page_prot = pgprot_noncached(a_pstVMArea->vm_page_prot);
@@ -187,7 +187,7 @@ struct device *disp_get_device(void)
 	return &(mydev.dev);
 }
 
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 static struct miscdevice disp_misc_dev;
@@ -317,7 +317,7 @@ static int disp_probe_1(void)
 
 	pr_info("disp driver(1) %s begin\n", __func__);
 
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	disp_misc_dev.minor = MISC_DYNAMIC_MINOR;
@@ -525,7 +525,7 @@ static int disp_probe(struct platform_device *pdev)
 
 static int disp_remove(struct platform_device *pdev)
 {
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	misc_deregister(&disp_misc_dev);

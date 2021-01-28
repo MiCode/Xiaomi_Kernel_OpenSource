@@ -2180,7 +2180,7 @@ static int _DC_switch_to_DL_fast(int block)
 		sizeof(data_config_dc->rsz_src_roi));
 	memcpy(&data_config_dl->rsz_dst_roi, &data_config_dc->rsz_dst_roi,
 		sizeof(data_config_dc->rsz_dst_roi));
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	/*[SVP]switch ddp mosule to nonsec when deinit the extension path*/
@@ -3479,7 +3479,7 @@ static int decouple_mirror_update_rdma_config_thread(void *data)
 static void decouple_mirror_irq_callback(enum DISP_MODULE_ENUM module,
 					 unsigned int reg_value)
 {
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	/*

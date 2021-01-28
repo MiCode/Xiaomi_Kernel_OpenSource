@@ -713,7 +713,7 @@ static int m4u_debug_set(void *data, u64 val)
 		int ret = 0;
 
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&   \
-		defined(CONFIG_MTK_TEE_GP_SUPPORT)
+		defined(CONFIG_TEE)
 
 #ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
 		ret = trusted_mem_api_alloc(TRUSTED_MEM_REQ_SVP, 0, 0x1000,

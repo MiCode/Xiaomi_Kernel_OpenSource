@@ -3383,7 +3383,7 @@ static int decouple_mirror_update_rdma_config_thread(void *data)
 static void decouple_mirror_irq_callback(enum DISP_MODULE_ENUM module,
 	unsigned int reg_value)
 {
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	/*

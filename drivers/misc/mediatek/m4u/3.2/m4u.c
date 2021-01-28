@@ -51,7 +51,7 @@
 #include "mobicore_driver_api.h"
 #endif
 
-#if defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_TEE)
 #include "tee_client_api.h"
 #endif
 
@@ -1801,7 +1801,7 @@ static int dr_map(unsigned long pa, size_t size)
 	m4u_dci_msg->cmd = CMD_M4U_SYSTRACE_MAP;
 	m4u_dci_msg->systrace_param.pa = pa;
 	m4u_dci_msg->systrace_param.size = size;
-#if defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_TEE)
 		ret = m4u_exec_tci(&m4u_tci_session, m4u_tci_msg);
 #else
 	ret = m4u_exec_cmd(&m4u_dci_session, m4u_dci_msg);
@@ -1834,7 +1834,7 @@ static int dr_unmap(unsigned long pa, size_t size)
 	m4u_dci_msg->cmd = CMD_M4U_SYSTRACE_UNMAP;
 	m4u_dci_msg->systrace_param.pa = pa;
 	m4u_dci_msg->systrace_param.size = size;
-#if defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_TEE)
 		ret = m4u_exec_tci(&m4u_tci_session, m4u_tci_msg);
 #else
 	ret = m4u_exec_cmd(&m4u_dci_session, m4u_dci_msg);
@@ -1867,7 +1867,7 @@ static int dr_transact(void)
 	m4u_dci_msg->cmd = CMD_M4U_SYSTRACE_TRANSACT;
 	m4u_dci_msg->systrace_param.pa = 0;
 	m4u_dci_msg->systrace_param.size = 0;
-#if defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_TEE)
 		ret = m4u_exec_tci(&m4u_tci_session, m4u_tci_msg);
 #else
 	ret = m4u_exec_cmd(&m4u_dci_session, m4u_dci_msg);
@@ -1887,7 +1887,7 @@ out:
 #endif
 /* ------------------------------------------------------------- */
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-	!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	!defined(CONFIG_TEE)
 #include "mobicore_driver_api.h"
 
 static const struct mc_uuid_t m4u_drv_uuid = M4U_DRV_UUID;
@@ -1899,7 +1899,7 @@ int m4u_sec_init(void)
 {
 	int ret;
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-	!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	!defined(CONFIG_TEE)
 	enum mc_result mcRet;
 #endif
 	M4UINFO("call %s in normal m4u driver\n", __func__);
@@ -1909,7 +1909,7 @@ int m4u_sec_init(void)
 		goto m4u_sec_reinit;
 	}
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-		!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+		!defined(CONFIG_TEE)
 	/* Allocating WSM for DCI */
 	mcRet = mc_malloc_wsm(MC_DEVICE_ID_DEFAULT, 0,
 		sizeof(struct m4u_msg), (uint8_t **) &m4u_dci_msg, 0);

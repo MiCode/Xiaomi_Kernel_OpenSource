@@ -56,7 +56,7 @@
 #include "drrpmb_Api.h"
 #include "drrpmb_gp_Api.h"
 
-#ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#ifndef CONFIG_TEE
 static struct mc_uuid_t rpmb_uuid = RPMB_UUID;
 static struct mc_session_handle rpmb_session = {0};
 static u32 rpmb_devid = MC_DEVICE_ID_DEFAULT;
@@ -2064,7 +2064,7 @@ EXPORT_SYMBOL(ut_rpmb_req_write_data);
 #ifdef CONFIG_TRUSTONIC_TEE_SUPPORT
 
 #ifdef CONFIG_MTK_UFS_SUPPORT
-#ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#ifndef CONFIG_TEE
 static int rpmb_execute_ufs(u32 cmdId)
 {
 	int ret;
@@ -2171,7 +2171,7 @@ static int rpmb_gp_execute_ufs(u32 cmdId)
 }
 #endif
 
-#ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#ifndef CONFIG_TEE
 static int rpmb_execute_emmc(u32 cmdId)
 {
 	int ret;
@@ -2338,7 +2338,7 @@ static int rpmb_gp_execute_emmc(u32 cmdId)
 	return 0;
 }
 
-#ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#ifndef CONFIG_TEE
 int rpmb_listenDci(void *data)
 {
 	enum mc_result mc_ret;
@@ -2387,7 +2387,7 @@ int rpmb_listenDci(void *data)
 }
 #endif
 
-#ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#ifndef CONFIG_TEE
 static int rpmb_open_session(void)
 {
 	int cnt = 0;
@@ -2612,7 +2612,7 @@ static int rpmb_thread(void *context)
 
 	MSG(INFO, "%s start\n", __func__);
 
-#ifndef CONFIG_MTK_TEE_GP_SUPPORT
+#ifndef CONFIG_TEE
 	ret = rpmb_open_session();
 	MSG(INFO, "%s rpmb_open_session, ret = %x\n", __func__, ret);
 #endif

@@ -67,7 +67,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/
 include $(srctree)/drivers/tee/gud/Makefile.include
 endif
 
-ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
+ifeq ($(CONFIG_TEE),y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/tplay/Tltplay/public/
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
   include $(srctree)/drivers/tee/gud/Makefile.include

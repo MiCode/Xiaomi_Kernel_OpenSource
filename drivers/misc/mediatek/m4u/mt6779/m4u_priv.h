@@ -23,7 +23,7 @@
 
 #if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
 	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
-	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	defined(CONFIG_TEE)
 #define M4U_TEE_SERVICE_ENABLE
 #endif
 

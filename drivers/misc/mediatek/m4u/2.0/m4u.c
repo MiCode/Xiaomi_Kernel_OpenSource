@@ -45,7 +45,7 @@
 
 #ifdef M4U_TEE_SERVICE_ENABLE
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-	!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	!defined(CONFIG_TEE)
 #include "mobicore_driver_api.h"
 #endif
 #include "tz_m4u.h"
@@ -1359,7 +1359,7 @@ out:
 #endif
 /* ------------------------------------------------------------- */
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-	!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+	!defined(CONFIG_TEE)
 static const struct mc_uuid_t m4u_drv_uuid = M4U_DRV_UUID;
 static struct mc_session_handle m4u_dci_session;
 static struct m4u_msg *m4u_dci_msg;
@@ -1369,13 +1369,13 @@ int m4u_sec_init(void)
 {
 	int ret;
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-			!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+			!defined(CONFIG_TEE)
 	enum mc_result mcRet;
 #endif
 	m4u_err("call %s in nornal m4u driver\n", __func__);
 
 #if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
-			!defined(CONFIG_MTK_TEE_GP_SUPPORT)
+			!defined(CONFIG_TEE)
 	/* Allocating WSM for DCI */
 	mcRet = mc_malloc_wsm(MC_DEVICE_ID_DEFAULT, 0, sizeof(struct m4u_msg),
 	(uint8_t **) &m4u_dci_msg, 0);

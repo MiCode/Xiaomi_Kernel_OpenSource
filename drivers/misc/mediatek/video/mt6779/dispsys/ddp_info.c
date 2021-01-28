@@ -386,7 +386,7 @@ unsigned int ddp_get_module_max_irq_bit(enum DISP_MODULE_ENUM module)
 
 unsigned int ddp_is_irq_enable(enum DISP_MODULE_ENUM module)
 {
-#if (defined(CONFIG_MTK_TEE_GP_SUPPORT) || \
+#if (defined(CONFIG_TEE) || \
 	defined(CONFIG_TRUSTONIC_TEE_SUPPORT)) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (module == DISP_MODULE_WDMA0)
