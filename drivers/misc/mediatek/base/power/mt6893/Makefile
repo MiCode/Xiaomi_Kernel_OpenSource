@@ -36,7 +36,7 @@ ccflags-y += -Wno-unused-function
 
 ccflags-$(CONFIG_MTK_GPU_SPM_DVFS_SUPPORT) += -DMTK_GPU_SPM
 
-obj-$(CONFIG_MACH_MT6885) += mtk_picachu.o
+obj-$(CONFIG_MACH_MT6893) += mtk_picachu.o
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)

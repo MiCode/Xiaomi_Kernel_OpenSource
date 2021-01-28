@@ -42,7 +42,7 @@ struct CmdqDeviceStruct {
 	u32 irqSecId;
 	s32 dma_mask_result;
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	struct device *pdev2;
 	unsigned long va2;
 	phys_addr_t pa2;
@@ -78,7 +78,7 @@ phys_addr_t cmdq_dev_get_module_base_PA_GCE(void)
 	return gCmdqDev.regBasePA;
 }
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 unsigned long cmdq_dev_get_va2(void)
 {
 	return gCmdqDev.va2;
@@ -410,7 +410,7 @@ void cmdq_dev_init_event_table(struct device_node *node)
 			events[i].dts_name);
 	}
 
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	cmdq_core_set_event_table(CMDQ_EVENT_DISP_RDMA0_SOF, 2);
 	cmdq_core_set_event_table(CMDQ_EVENT_DISP_WDMA0_EOF, 60);
 	cmdq_core_set_event_table(CMDQ_EVENT_DISP_RDMA0_EOF, 68);
@@ -494,7 +494,7 @@ void cmdq_dev_init(struct platform_device *pDevice)
 	struct device_node *node = pDevice->dev.of_node;
 	u32 dma_mask_bit = 0;
 	s32 ret;
-#if IS_ENABLED(CONFIG_MACH_MT6885)
+#if IS_ENABLED(CONFIG_MACH_MT6885) || IS_ENABLED(CONFIG_MACH_MT6893)
 	struct device_node *node2;
 	struct platform_device	*pdevice2;
 	struct resource res;
@@ -505,7 +505,7 @@ void cmdq_dev_init(struct platform_device *pDevice)
 		memset(&gCmdqDev, 0x0, sizeof(struct CmdqDeviceStruct));
 
 		gCmdqDev.pDev = &pDevice->dev;
-#if !IS_ENABLED(CONFIG_MACH_MT6885)
+#if !IS_ENABLED(CONFIG_MACH_MT6885) && !IS_ENABLED(CONFIG_MACH_MT6893)
 		gCmdqDev.regBaseVA = (unsigned long)of_iomap(node, 0);
 		gCmdqDev.regBasePA = cmdq_dev_get_gce_node_PA(node, 0);
 		gCmdqDev.irqId = irq_of_parse_and_map(node, 0);

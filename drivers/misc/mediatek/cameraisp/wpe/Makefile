@@ -47,5 +47,10 @@ ifeq ($(CONFIG_MACH_MT6853),y)
   subdir-ccflags-y += -DFORCE_IMG1_ON
 endif
 
+ifeq ($(CONFIG_MACH_MT6893),y)
+  obj-y += $(subst ",,isp_6s)/
+  MTK_WPE_COUNT := 2
+endif
+
 subdir-ccflags-y += -DMTK_WPE_COUNT=$(MTK_WPE_COUNT)
 

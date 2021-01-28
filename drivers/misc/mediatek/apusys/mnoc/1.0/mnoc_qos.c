@@ -81,7 +81,7 @@ enum DVFS_VOLTAGE vcore_opp_map[NR_APU_VCORE_OPP] = {
 	DVFS_VOLT_00_575000_V   // VCORE_OPP_3
 };
 #endif /* CONFIG_MACH_MT6873 */
-#ifdef CONFIG_MACH_MT6885
+#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 #define NR_APU_VCORE_OPP (4)
 static unsigned int apu_vcore_bw_opp_tab[NR_APU_VCORE_OPP] = {
 	20400, /* 3733 Mhz -> 0.725v */

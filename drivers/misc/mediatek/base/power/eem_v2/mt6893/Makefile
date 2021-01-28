@@ -94,6 +94,10 @@ ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES), "mediatek/mt6885_3gear")
 ccflags-y += -DTRIGEAR_UPOWER
 endif
 
+ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES), "mediatek/mt6893")
+ccflags-y += -DTRIGEAR_UPOWER
+endif
+
 obj-y += mtk_eem.o
 obj-y += mtk_eem_platform.o
 obj-y += mtk_eem_internal.o

@@ -565,7 +565,7 @@ void _mt_irq_set_polarity(unsigned int hwirq, unsigned int polarity)
 #endif
 
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873) || \
-	defined(CONFIG_MACH_MT6853)
+	defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
 #define GIC_INT_MASK (MCUSYS_BASE_SWMODE + 0xaa88)
 #define GIC500_ACTIVE_CPU_SHIFT 0
 #define GIC500_ACTIVE_CPU_MASK (0xff << GIC500_ACTIVE_CPU_SHIFT)

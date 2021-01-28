@@ -24,3 +24,4 @@ obj-$(CONFIG_MACH_MT6768) += mtk_dcm.o
 obj-$(CONFIG_MACH_MT6873) += mtk_dcm.o
 obj-$(CONFIG_MACH_MT6853) += mtk_dcm.o
 obj-$(CONFIG_MACH_MT6765) += mtk_dcm.o
+obj-$(CONFIG_MACH_MT6893) += mtk_dcm.o

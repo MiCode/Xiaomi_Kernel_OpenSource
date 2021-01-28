@@ -110,6 +110,7 @@ config MTK_QOS_V2
 	default y if MACH_MT6885
 	default y if MACH_MT6873
 	default y if MACH_MT6853
+	default y if MACH_MT6893
 	select MTK_QOS_FRAMEWORK
 	---help---
 	  This version support QOS version 2.0 feature sets.
