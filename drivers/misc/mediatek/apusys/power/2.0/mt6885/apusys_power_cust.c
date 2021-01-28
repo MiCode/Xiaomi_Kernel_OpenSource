@@ -1,0 +1,521 @@
+/*
+ * Copyright (C) 2019 MediaTek Inc.
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+
+#include "apusys_power_cust.h"
+#include "hal_config_power.h"
+#include <helio-dvfsrc-opp.h>
+
+
+//	| VPU0 |		| VPU1 |		| MDLA0 |  --> DVFS_USER
+//	(VPU0_VPU)    (VPU1_VPU)     (VMDLA0_MDLA)
+//	   |              |               |
+//	   v	          v               v
+//   |APU_CONN|     |APU_CONN|     |APU_CONN |
+//   (VPU0_APU_CONN)(VPU1_APU_CONN)(VMDLA0_APU_CONN)
+
+char *user_str[APUSYS_DVFS_USER_NUM] = {
+	"VPU0",
+	"VPU1",
+	"VPU2",
+	"MDLA0",
+	"MDLA1",
+};
+
+
+char *buck_domain_str[APUSYS_BUCK_DOMAIN_NUM] = {
+	"V_VPU0",
+	"V_VPU1",
+	"V_VPU2",
+	"V_MDLA0",
+	"V_MDLA1",
+	"V_APU_CONN",
+	"V_TOP_IOMMU",
+	"V_VCORE",
+};
+
+
+enum DVFS_VOLTAGE_DOMAIN apusys_user_to_buck_domain[APUSYS_DVFS_USER_NUM] = {
+	V_VPU0, V_VPU1, V_VPU2, V_MDLA0, V_MDLA1
+};
+
+
+enum DVFS_BUCK apusys_user_to_buck[APUSYS_DVFS_USER_NUM] = {
+	VPU_BUCK, VPU_BUCK, VPU_BUCK, MDLA_BUCK, MDLA_BUCK
+};
+
+
+enum DVFS_VOLTAGE_DOMAIN apusys_buck_to_buck_domain[APUSYS_BUCK_NUM] = {
+	V_VPU0, V_MDLA0, V_VCORE // pointer to any one of shard buck domain
+};
+
+
+enum DVFS_USER apusys_buck_domain_to_user[APUSYS_BUCK_DOMAIN_NUM] = {
+	VPU0, VPU1, VPU2, MDLA0, MDLA1,
+	APUSYS_DVFS_USER_NUM,
+	APUSYS_DVFS_USER_NUM,
+	APUSYS_DVFS_USER_NUM  // APUSYS_DVFS_USER_NUM means invalid
+};
+
+
+enum DVFS_BUCK apusys_buck_up_sequence[APUSYS_BUCK_NUM] = {
+	VCORE_BUCK, VPU_BUCK, MDLA_BUCK
+};
+
+
+enum DVFS_BUCK apusys_buck_down_sequence[APUSYS_BUCK_NUM] = {
+	MDLA_BUCK, VPU_BUCK, VCORE_BUCK
+};
+
+
+// voltage for clk path
+uint8_t dvfs_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM] = {
+	{VPU0_VPU, VPU0_APU_CONN, VPU0_TOP_IOMMU},
+	{VPU1_VPU, VPU1_APU_CONN, VPU1_TOP_IOMMU},
+	{VPU2_VPU, VPU2_APU_CONN, VPU2_TOP_IOMMU},
+	{VMDLA0_MDLA, VMDLA0_APU_CONN, VMDLA0_TOP_IOMMU},
+	{VMDLA1_MDLA, VMDLA1_APU_CONN, VMDLA1_TOP_IOMMU},
+};
+
+#if 0
+// buck for clk path
+uint8_t dvfs_buck_for_clk_path[APUSYS_DVFS_USER_NUM][APUSYS_BUCK_NUM] = {
+	{VPU_BUCK, MDLA_BUCK, VCORE_BUCK},
+	{VPU_BUCK, MDLA_BUCK, VCORE_BUCK},
+	{MDLA_BUCK, MDLA_BUCK, VCORE_BUCK},
+};
+#endif
+
+// relation for dvfs_clk_path,
+bool buck_shared[APUSYS_BUCK_DOMAIN_NUM]
+			[APUSYS_DVFS_USER_NUM][APUSYS_PATH_USER_NUM] = {
+	// VPU0
+	{{true, true, true, false},
+	{true, true, true, false},
+	{true, true, true, false},
+	{false, true, true, false},
+	{false, true, true, false},
+	},
+
+	// VPU1
+	{{true, true, true, false},
+	{true, true, true, false},
+	{true, true, true, false},
+	{false, true, true, false},
+	{false, true, true, false},
+	},
+
+	// VPU2
+	{{true, true, true, false},
+	{true, true, true, false},
+	{true, true, true, false},
+	{false, true, true, false},
+	{false, true, true, false},
+	},
+
+	// MDLA0
+	{{false, false, false, false},
+	{false, false, false, false},
+	{false, false, false, false},
+	{true, false, false, false},
+	{true, false, false, false},
+	},
+
+	// MDLA0
+	{{false, false, false, false},
+	{false, false, false, false},
+	{false, false, false, false},
+	{true, false, false, false},
+	{true, false, false, false},
+	},
+
+	// APU_CONN
+	{{true, true, true, false},
+	{true, true, true, false},
+	{true, true, true, false},
+	{false, true, true, false},
+	{false, true, true, false},
+	},
+
+	// APU_TOP_IOMMU
+	{{true, true, true, false},
+	{true, true, true, false},
+	{true, true, true, false},
+	{false, true, true, false},
+	{false, true, true, false},
+	},
+
+	// VCORE
+	{{false, false, false, true},
+	 {false, false, false, true},
+	 {false, false, false, true},
+	 {false, false, false, true},
+	 {false, false, false, true},
+	},
+};
+
+
+struct apusys_dvfs_constraint
+	dvfs_constraint_table[APUSYS_DVFS_CONSTRAINT_NUM] = {
+	{V_VPU0, DVFS_VOLT_00_575000_V, V_MDLA0, DVFS_VOLT_00_825000_V},
+	{V_VPU0, DVFS_VOLT_00_575000_V, V_MDLA1, DVFS_VOLT_00_825000_V},
+	{V_VPU1, DVFS_VOLT_00_575000_V, V_MDLA0, DVFS_VOLT_00_825000_V},
+	{V_VPU1, DVFS_VOLT_00_575000_V, V_MDLA1, DVFS_VOLT_00_825000_V},
+	{V_VPU2, DVFS_VOLT_00_575000_V, V_MDLA0, DVFS_VOLT_00_825000_V},
+	{V_VPU2, DVFS_VOLT_00_575000_V, V_MDLA1, DVFS_VOLT_00_825000_V},
+
+	{V_VCORE, DVFS_VOLT_00_575000_V, V_VPU0, DVFS_VOLT_00_800000_V},
+	{V_VCORE, DVFS_VOLT_00_575000_V, V_VPU1, DVFS_VOLT_00_800000_V},
+	{V_VCORE, DVFS_VOLT_00_575000_V, V_VPU2, DVFS_VOLT_00_800000_V},
+
+	{V_MDLA0, DVFS_VOLT_00_575000_V, V_VPU0, DVFS_VOLT_00_800000_V},
+	{V_MDLA0, DVFS_VOLT_00_575000_V, V_VPU1, DVFS_VOLT_00_800000_V},
+	{V_MDLA0, DVFS_VOLT_00_575000_V, V_VPU2, DVFS_VOLT_00_800000_V},
+	{V_MDLA1, DVFS_VOLT_00_575000_V, V_VPU0, DVFS_VOLT_00_800000_V},
+	{V_MDLA1, DVFS_VOLT_00_575000_V, V_VPU1, DVFS_VOLT_00_800000_V},
+	{V_MDLA1, DVFS_VOLT_00_575000_V, V_VPU2, DVFS_VOLT_00_800000_V},
+};
+
+
+int vcore_opp_mapping[APUSYS_MAX_NUM_OPPS] = {
+	VCORE_OPP_0, // opp 0
+	VCORE_OPP_0, // opp 1
+	VCORE_OPP_0, // opp 2
+	VCORE_OPP_0, // opp 3
+	VCORE_OPP_0, // opp 4
+	VCORE_OPP_0, // opp 5
+	VCORE_OPP_0, // opp 6
+	VCORE_OPP_1, // opp 7
+	VCORE_OPP_1, // opp 8
+	VCORE_OPP_1, // opp 9
+	VCORE_OPP_1, // opp 10
+	VCORE_OPP_2, // opp 11
+	VCORE_OPP_2, // opp 12
+	VCORE_OPP_2, // opp 13
+	VCORE_OPP_2, // opp 14
+	VCORE_OPP_2, // opp 15
+	VCORE_OPP_2, // opp 16
+};
+
+struct apusys_dvfs_steps
+	dvfs_table[APUSYS_MAX_NUM_OPPS][APUSYS_BUCK_DOMAIN_NUM] = {
+	// opp 0
+	{{DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_850000_F, DVFS_VOLT_00_825000_V},
+	 {DVFS_FREQ_00_850000_F, DVFS_VOLT_00_825000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	{DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 1
+	{{DVFS_FREQ_00_832000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_00_832000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_00_832000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_00_832000_F, DVFS_VOLT_00_825000_V},
+	 {DVFS_FREQ_00_832000_F, DVFS_VOLT_00_825000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 2
+	{{DVFS_FREQ_00_728000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_728000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_728000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_728000_F, DVFS_VOLT_00_825000_V},
+	{DVFS_FREQ_00_728000_F, DVFS_VOLT_00_825000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 3
+	{{DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_00_700000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_700000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 4
+	{{DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_00_687500_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_687500_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_687500_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 5
+	{{DVFS_FREQ_00_624000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_624000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_624000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_624000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_624000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_624000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_00_624000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 6
+	{{DVFS_FREQ_00_594000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_594000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_594000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_594000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_594000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_594000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_00_594000_F, DVFS_VOLT_00_800000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 7
+	{{DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_572000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_572000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 8
+	{{DVFS_FREQ_00_550000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_550000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_550000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_FREQ_NOT_SUPPORT},
+	 {DVFS_FREQ_00_550000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_550000_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_550000_F, DVFS_VOLT_00_725000_V} },
+
+	// opp 9
+	{{DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_546000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_546000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 10
+	{{DVFS_FREQ_00_499200_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_750000_V},
+	 {DVFS_FREQ_00_499200_F, DVFS_VOLT_00_725000_V} },
+
+	// opp 11
+	{{DVFS_FREQ_00_458333_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_458333_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_458333_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_458333_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_458333_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_458333_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_458333_F, DVFS_VOLT_00_700000_V},
+	{DVFS_FREQ_00_458333_F, DVFS_VOLT_00_725000_V} },
+
+	// opp 12
+	{{DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_457000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_457000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	{DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 13
+	{{DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_416000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_416000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_416000_F, DVFS_VOLT_00_700000_V},
+	{DVFS_FREQ_00_416000_F, DVFS_VOLT_00_650000_V} },
+
+	// opp 14
+	{{DVFS_FREQ_00_392857_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_392857_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_392857_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_392857_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_392857_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_392857_F, DVFS_VOLT_00_650000_V} },
+
+	// opp 15
+	{{DVFS_FREQ_00_364000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_700000_V},
+	 {DVFS_FREQ_00_364000_F, DVFS_VOLT_00_650000_V} },
+
+	// opp 16
+	{{DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_312000_F, DVFS_VOLT_00_600000_V} },
+
+	// opp 17
+	{{DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_280000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_280000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT} },
+
+	// opp 18
+	{{DVFS_FREQ_00_273000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_650000_V},
+	 {DVFS_FREQ_00_273000_F, DVFS_VOLT_00_575000_V} },
+
+	// opp 19
+	{{DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_208000_F, DVFS_VOLT_00_575000_V} },
+
+	// opp 20
+	{{DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_136500_F, DVFS_VOLT_00_575000_V} },
+
+	// opp 21
+	{{DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_VOLT_NOT_SUPPORT, DVFS_VOLT_NOT_SUPPORT},
+	 {DVFS_FREQ_00_104000_F, DVFS_VOLT_00_575000_V} },
+
+	// opp 22
+	{{DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V},
+	 {DVFS_FREQ_00_026000_F, DVFS_VOLT_00_575000_V} },
+};
+
+void apusys_boot_up(enum DVFS_USER user)
+{
+	struct hal_param_clk  clk_data; // config mtcmos, cg and clk
+	struct hal_param_volt vpu_volt_data;
+	struct hal_param_volt mdla_volt_data;
+	struct hal_param_volt vcore_volt_data;
+
+	if (apusys_opps.bit_mask == 0) {
+		vcore_volt_data.target_volt_domain = V_VCORE;
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&vcore_volt_data);
+
+		vpu_volt_data.target_volt_domain = V_VPU0;
+		vpu_volt_data.target_buck = VPU_BUCK;
+		vpu_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+	hal_config_power(PWR_CMD_SET_VOLT, VPU0, (void *)&vpu_volt_data);
+
+		mdla_volt_data.target_volt_domain = V_MDLA0;
+		mdla_volt_data.target_buck = MDLA_BUCK;
+		mdla_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+	hal_config_power(PWR_CMD_SET_VOLT, MDLA0, (void *)&mdla_volt_data);
+	}
+
+#if 0	// fixed me
+	struct hal_param_regulator_mode mode_data;
+
+	// Set regulator mode
+	vcore_mode_data.target_buck = apusys_user_to_buck[user];
+	vcore_mode_data.target_mode = 1;
+	hal_config_power(PWR_CMD_SET_REGULATOR_MODE, user, (void *)&mode_data);
+	udelay(POWER_ON_DELAY);
+#endif
+
+	// Set mtcmos enable
+
+	// set cg for clock
+	clk_data.enable = 1;
+	hal_config_power(PWR_CMD_SET_CLK, user, (void *)&clk_data);
+}
+
+void apusys_shut_down(enum DVFS_USER user, int bit_mask)
+{
+	struct hal_param_clk  clk_data; // config mtcmos, cg and clk
+	struct hal_param_volt vpu_volt_data;
+	struct hal_param_volt mdla_volt_data;
+	struct hal_param_volt vcore_volt_data;
+
+#if 0	// fixed me
+	struct hal_param_regulator_mode mode_data;
+
+	// Set regulator voltage
+	vcore_mode_data.target_buck = apusys_user_to_buck[user];
+	vcore_mode_data.target_mode = 0;
+	hal_config_power(PWR_CMD_SET_REGULATOR_MODE, user, (void *)&mode_data);
+	udelay(POWER_ON_DELAY);
+#endif
+	// Set mtcmos enable
+
+	// set cg for clock
+	clk_data.enable = 0;
+	hal_config_power(PWR_CMD_SET_CLK, user, (void *)&clk_data);
+
+	if (apusys_opps.bit_mask == 0) {
+		mdla_volt_data.target_volt_domain = V_MDLA0;
+		mdla_volt_data.target_buck = MDLA_BUCK;
+		mdla_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+	hal_config_power(PWR_CMD_SET_VOLT, MDLA0, (void *)&mdla_volt_data);
+
+		vpu_volt_data.target_volt_domain = V_VPU0;
+		vpu_volt_data.target_buck = VPU_BUCK;
+		vpu_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+	hal_config_power(PWR_CMD_SET_VOLT, VPU0, (void *)&vpu_volt_data);
+
+		vcore_volt_data.target_volt_domain = V_VCORE;
+		vcore_volt_data.target_buck = VCORE_BUCK;
+		vcore_volt_data.target_opp = APUSYS_DEFAULT_OPP;
+	hal_config_power(PWR_CMD_SET_VOLT, user, (void *)&vcore_volt_data);
+	}
+}

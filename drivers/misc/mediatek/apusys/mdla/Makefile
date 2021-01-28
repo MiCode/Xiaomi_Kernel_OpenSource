@@ -33,6 +33,7 @@ ccflags-y += -I$(obj)/$(PMU_DIR)/$(PMU_VDIR)
 ccflags-y += -I$(obj)/$(APUSYS_QOS_DIR)/$(APUSYS_QOS_PDIR)
 ccflags-y += -I$(obj)/$(MEM_DIR)/$(MEM_VDIR)
 ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)
+ccflags-y += -I$(obj)/$(POWER_DIR)/$(POWER_VDIR)/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/staging/android/ion
 
