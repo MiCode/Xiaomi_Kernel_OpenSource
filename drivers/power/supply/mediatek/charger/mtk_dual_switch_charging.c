@@ -513,37 +513,19 @@ done:
 	mutex_unlock(&swchgalg->ichg_aicr_access_mutex);
 }
 
-static int swchg_select_cv(struct charger_manager *info)
+static void swchg_select_cv(struct charger_manager *info)
 {
 	u32 constant_voltage;
 	bool chg2_chip_enabled = false;
-	bool chg2_enabled = false;
-	u32 sw_jeita_cv = 0;
 
 	charger_dev_is_chip_enabled(info->chg2_dev, &chg2_chip_enabled);
-	charger_dev_is_enabled(info->chg2_dev, &chg2_enabled);
 
-	if (info->enable_sw_jeita) {
-		if (info->sw_jeita.cv != info->sw_jeita.pre_cv) {
-			sw_jeita_cv = info->sw_jeita.cv / 1000;
-			if (sw_jeita_cv == 0)
-				sw_jeita_cv = info->data.battery_cv / 1000;
-
-			if (battery_get_bat_voltage() > sw_jeita_cv
-				&& chg2_enabled) {
-				chr_err("%s: vbat:%d > cv:%d, leave dual charging!\n",
-					__func__, battery_get_bat_voltage(),
-					sw_jeita_cv);
-				return -1;
-			}
-		}
-
+	if (info->enable_sw_jeita)
 		if (info->sw_jeita.cv != 0) {
 			charger_dev_set_constant_voltage(info->chg1_dev,
 							info->sw_jeita.cv);
-			return 0;
+			return;
 		}
-	}
 
 	/* dynamic cv*/
 	constant_voltage = info->data.battery_cv;
@@ -554,7 +536,6 @@ static int swchg_select_cv(struct charger_manager *info)
 	if (chg2_chip_enabled)
 		charger_dev_set_constant_voltage(info->chg2_dev,
 			constant_voltage + 200000);
-	return 0;
 }
 
 static void dual_swchg_turn_on_charging(struct charger_manager *info)
@@ -563,8 +544,6 @@ static void dual_swchg_turn_on_charging(struct charger_manager *info)
 	bool chg1_enable = true;
 	bool chg2_enable = true;
 	bool chg2_chip_enabled = false;
-	bool leave_dual = false;
-	int ret = 0;
 
 	charger_dev_is_chip_enabled(info->chg2_dev, &chg2_chip_enabled);
 
@@ -606,24 +585,20 @@ static void dual_swchg_turn_on_charging(struct charger_manager *info)
 				pr_notice("chg2's aicr is 0mA, turn off\n");
 			}
 		}
-		if (chg1_enable) {
-			ret = swchg_select_cv(info);
-			if (ret < 0)
-				leave_dual = true;
-		}
+		if (chg1_enable)
+			swchg_select_cv(info);
 	}
 
 	charger_dev_enable(info->chg1_dev, chg1_enable);
 
 	if (chg2_enable == true) {
-		if (!leave_dual &&
-		    ((mtk_pe20_get_is_enable(info) &&
+		if ((mtk_pe20_get_is_enable(info) &&
 		    mtk_pe20_get_is_connect(info))
 		    || (mtk_pe_get_is_enable(info) &&
 		    mtk_pe_get_is_connect(info))
 		    || mtk_pe40_get_is_connect(info)
 		    || (mtk_pdc_check_charger(info) &&
-		    !dual_swchg_check_pd_leave(info)))) {
+		    !dual_swchg_check_pd_leave(info))) {
 			if (!chg2_chip_enabled)
 				charger_dev_enable_chip(info->chg2_dev, true);
 			if (swchgalg->state != CHR_POSTCC &&
