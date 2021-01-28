@@ -1660,6 +1660,7 @@ static inline void sched_update_tick_dependency(struct rq *rq) { }
 #ifdef CONFIG_MTK_SCHED_RQAVG_KS
 extern void sched_update_nr_prod(int cpu, unsigned long nr_running, int inc);
 extern void sched_max_util_task(int *cpu, int *pid, int *util, int *boost);
+extern void sched_max_util_task_tracking(void);
 #endif
 
 #ifdef CONFIG_MTK_SCHED_RQAVG_US
