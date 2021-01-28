@@ -550,8 +550,8 @@ static int mtktscharger_get_hw_temp(void)
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 	ret = iio_read_channel_processed(thermistor_ch2, &val);
 	if (ret < 0) {
-		mtktscharger_dprintk_always("Busy/Timeout,
-			IIO ch read failed %d\n", ret);
+		mtktscharger_dprintk_always(
+			"Busy/Timeout, IIO ch read failed %d\n", ret);
 		return ret;
 	}
 
