@@ -12,6 +12,7 @@
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/gce/mt6765-gce.h>
 #include <generated/autoconf.h>
+#include <dt-bindings/soc/mediatek,boot-mode.h>
 
 /dts-v1/;
 
@@ -446,12 +447,26 @@
 	};
 
 	toprgu: toprgu@10007000 {
-		compatible = "mediatek,mt6761-wdt",
+		compatible = "mediatek,mt6765-wdt",
 			      "mediatek,mt6589-wdt",
-			      "mediatek,toprgu";
+			      "mediatek,toprgu",
+			      "syscon", "simple-mfd";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 139 IRQ_TYPE_NONE>;
 		#reset-cells = <1>;
+		reboot-mode {
+			compatible = "syscon-reboot-mode";
+			offset = <0x24>;
+			mask = <0xf>;
+			mode-charger = <BOOT_CHARGER>;
+			mode-recovery = <BOOT_RECOVERY>;
+			mode-bootloader = <BOOT_BOOTLOADER>;
+			mode-dm-verity-dev-corrupt = <BOOT_DM_VERITY>;
+			mode-kpoc = <BOOT_KPOC>;
+			mode-ddr-reserve = <BOOT_DDR_RSVD>;
+			mode-meta = <BOOT_META>;
+			mode-rpmbpk = <BOOT_RPMBPK>;
+		};
 	};
 
 	chipid@08000000 {
