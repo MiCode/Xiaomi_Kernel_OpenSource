@@ -6070,6 +6070,7 @@ static int mt6853_afe_pcm_dev_probe(struct platform_device *pdev)
 		return ret;
 
 	/* init memif */
+	afe->memif_32bit_supported = 1;
 	afe->memif_size = MT6853_MEMIF_NUM;
 	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
 				  GFP_KERNEL);
