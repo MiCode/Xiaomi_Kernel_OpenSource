@@ -85,6 +85,7 @@ struct VPU_OPP_INFO vpu_power_table[VPU_OPP_NUM] = {
 #define OPP_WAIT_TIME_MS    (300)
 #define PWR_KEEP_TIME_MS    (500)
 #define OPP_KEEP_TIME_MS    (500)
+#define SDSP_KEEP_TIME_MS   (5000)
 #define IOMMU_VA_START      (0x7DA00000)
 #define IOMMU_VA_END        (0x82600000)
 #define POWER_ON_MAGIC		(2)
@@ -186,7 +187,9 @@ static struct my_struct_t power_counter_work[MTK_VPU_CORE];
 
 /* static struct workqueue_struct *opp_wq; */
 static void vpu_opp_keep_routine(struct work_struct *);
+static void vpu_sdsp_routine(struct work_struct *work);
 static DECLARE_DELAYED_WORK(opp_keep_work, vpu_opp_keep_routine);
+static DECLARE_DELAYED_WORK(sdsp_work, vpu_sdsp_routine);
 
 
 /* power */
@@ -200,6 +203,7 @@ static bool force_change_vcore_opp[MTK_VPU_CORE];
 static bool force_change_dsp_freq[MTK_VPU_CORE];
 static bool change_freq_first[MTK_VPU_CORE];
 static bool opp_keep_flag;
+static bool sdsp_power_counter;
 static wait_queue_head_t waitq_change_vcore;
 static wait_queue_head_t waitq_do_core_executing;
 static uint8_t max_vcore_opp;
@@ -212,6 +216,10 @@ static struct vpu_dvfs_opps opps;
 static struct pm_qos_request vpu_qos_bw_request[MTK_VPU_CORE];
 static struct pm_qos_request vpu_qos_vcore_request[MTK_VPU_CORE];
 #endif
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+static struct pm_qos_request vpu_qos_emi_request[MTK_VPU_CORE];
+#endif
+
 
 /* jtag */
 /* static bool is_jtag_enabled; */
@@ -2501,14 +2509,14 @@ out:
 }
 #endif
 
-static int vpu_get_power(int core)
+static int vpu_get_power(int core, bool secure)
 {
 	int ret = 0;
 
 	LOG_DBG("[vpu_%d/%d] gp +\n", core, power_counter[core]);
 	mutex_lock(&power_counter_mutex[core]);
 	power_counter[core]++;
-	ret = vpu_boot_up(core);
+	ret = vpu_boot_up(core, secure);
 	mutex_unlock(&power_counter_mutex[core]);
 	LOG_DBG("[vpu_%d/%d] gp + 2\n", core, power_counter[core]);
 	if (ret == POWER_ON_MAGIC) {
@@ -2644,7 +2652,7 @@ int vpu_set_power(struct vpu_user *user, struct vpu_power *power)
 	vpu_opp_check(core, vcore_opp_index, dsp_freq_index);
 	user->power_opp = power->opp_step;
 
-	ret = vpu_get_power(core);
+	ret = vpu_get_power(core, false);
 	mutex_lock(&(vpu_service_cores[core].state_mutex));
 	vpu_service_cores[core].state = VCT_IDLE;
 	mutex_unlock(&(vpu_service_cores[core].state_mutex));
@@ -2652,6 +2660,70 @@ int vpu_set_power(struct vpu_user *user, struct vpu_power *power)
 	/* to avoid power leakage, power on/off need be paired */
 	vpu_put_power(core, VPT_PRE_ON);
 	LOG_INF("[vpu_%d] %s -\n", core, __func__);
+	return ret;
+}
+
+int vpu_sdsp_get_power(struct vpu_user *user)
+{
+	int ret = 0;
+	uint8_t vcore_opp_index = 0; /*0~15, 0 is max*/
+	uint8_t dsp_freq_index = 0;  /*0~15, 0 is max*/
+	int core = 0;
+
+	if (sdsp_power_counter == 0) {
+		for (core = 0 ; core < MTK_VPU_CORE ; core++) {
+			vpu_opp_check(core, vcore_opp_index, dsp_freq_index);
+
+			ret = ret | vpu_get_power(core, true);
+			mutex_lock(&(vpu_service_cores[core].state_mutex));
+			vpu_service_cores[core].state = VCT_IDLE;
+			mutex_unlock(&(vpu_service_cores[core].state_mutex));
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+			if (!ret)
+				pm_qos_update_request(
+					&vpu_qos_emi_request[core], 0);
+#endif
+		}
+	}
+	sdsp_power_counter++;
+	mod_delayed_work(wq, &sdsp_work,
+		msecs_to_jiffies(SDSP_KEEP_TIME_MS));
+
+	LOG_INF("[vpu] %s -\n", __func__);
+	return ret;
+}
+
+int vpu_sdsp_put_power(struct vpu_user *user)
+{
+	int ret = 0;
+	int core = 0;
+
+	sdsp_power_counter--;
+
+	if (sdsp_power_counter == 0) {
+		for (core = 0 ; core < MTK_VPU_CORE ; core++) {
+			while (power_counter[core] != 0)
+				vpu_put_power(core, VPT_IMT_OFF);
+
+			while (is_power_on[core] == true)
+				usleep_range(100, 500);
+
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+			pm_qos_update_request(
+				&vpu_qos_emi_request[core],
+				PM_QOS_EMI_OPP_DEFAULT_VALUE);
+#endif
+
+			LOG_INF("[vpu] power_counter[%d] = %d/%d -\n",
+				core, power_counter[core], is_power_on[core]);
+		}
+	}
+	mod_delayed_work(wq,
+		&sdsp_work,
+		msecs_to_jiffies(0));
+
+	LOG_INF("[vpu] %s, sdsp_power_counter = %d -\n",
+		__func__, sdsp_power_counter);
 	return ret;
 }
 
@@ -2672,6 +2744,24 @@ static void vpu_power_counter_routine(struct work_struct *work)
 	mutex_unlock(&power_counter_mutex[core]);
 
 	LOG_INF("vpu_%d counterR -", core);
+}
+
+bool vpu_is_idle(int core)
+{
+	bool idle = false;
+
+	mutex_lock(&(vpu_service_cores[core].state_mutex));
+
+	if (vpu_service_cores[core].state == VCT_SHUTDOWN ||
+		vpu_service_cores[core].state == VCT_IDLE)
+		idle = true;
+
+	mutex_unlock(&(vpu_service_cores[core].state_mutex));
+
+	LOG_INF("%s vpu_%d, idle = %d, state = %d  !!\r\n", __func__,
+		core, idle, vpu_service_cores[core].state);
+
+	return idle;
 }
 
 int vpu_quick_suspend(int core)
@@ -2718,6 +2808,17 @@ static void vpu_opp_keep_routine(struct work_struct *work)
 	LOG_INF("%s flag (%d) -\n", __func__, opp_keep_flag);
 }
 
+static void vpu_sdsp_routine(struct work_struct *work)
+{
+
+	if (sdsp_power_counter != 0) {
+		LOG_INF("%s long time not unlock!!! -\n", __func__);
+		LOG_ERR("%s long time not unlock error!!! -\n", __func__);
+	} else {
+		LOG_INF("%s sdsp_power_counter is correct!!! -\n", __func__);
+	}
+}
+
 int vpu_init_hw(int core, struct vpu_device *device)
 {
 	int ret, i;
@@ -2755,6 +2856,7 @@ int vpu_init_hw(int core, struct vpu_device *device)
 	}
 #endif
 
+	sdsp_power_counter = 0;
 
 	if (core == 0) {
 		init_waitqueue_head(&cmd_wait);
@@ -3032,6 +3134,12 @@ int vpu_init_hw(int core, struct vpu_device *device)
 				&vpu_qos_vcore_request[i],
 				PM_QOS_VCORE_OPP,
 				PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+			pm_qos_add_request(
+			    &vpu_qos_emi_request[i],
+				PM_QOS_EMI_OPP,
+				PM_QOS_EMI_OPP_DEFAULT_VALUE);
+#endif
 		}
 		#endif
 
@@ -3077,6 +3185,9 @@ int vpu_uninit_hw(void)
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 		pm_qos_remove_request(&vpu_qos_bw_request[i]);
 		pm_qos_remove_request(&vpu_qos_vcore_request[i]);
+#ifdef CONFIG_MTK_GZ_SUPPORT_SDSP
+		pm_qos_remove_request(&vpu_qos_emi_request[i]);
+#endif
 	}
 	#endif
 
@@ -3155,7 +3266,7 @@ int vpu_hw_enable_jtag(bool enabled)
 #if 0
 	int TEMP_CORE = 0;
 
-	vpu_get_power(TEMP_CORE);
+	vpu_get_power(TEMP_CORE, false);
 #if 0
 	ret = mt_set_gpio_mode(
 		GPIO14 | 0x80000000,
@@ -3593,7 +3704,7 @@ int vpu_debug_func_core_state(int core, enum VpuCoreState state)
 	return 0;
 }
 
-int vpu_boot_up(int core)
+int vpu_boot_up(int core, bool secure)
 {
 	int ret = 0;
 
@@ -3601,12 +3712,22 @@ int vpu_boot_up(int core)
 	mutex_lock(&power_mutex[core]);
 	LOG_DBG("[vpu_%d] is_power_on(%d)\n", core, is_power_on[core]);
 	if (is_power_on[core]) {
-		mutex_unlock(&power_mutex[core]);
-		mutex_lock(&(vpu_service_cores[core].state_mutex));
-		vpu_service_cores[core].state = VCT_BOOTUP;
-		mutex_unlock(&(vpu_service_cores[core].state_mutex));
-		wake_up_interruptible(&waitq_change_vcore);
-		return POWER_ON_MAGIC;
+		if (secure) {
+			if (power_counter[core] != 1)
+				LOG_ERR("vpu_%d power counter %d > 1 .\n",
+				core, power_counter[core]);
+			LOG_WRN("force shut down for sdsp..\n");
+			mutex_unlock(&power_mutex[core]);
+			vpu_shut_down(core);
+			mutex_lock(&power_mutex[core]);
+		} else {
+			mutex_unlock(&power_mutex[core]);
+			mutex_lock(&(vpu_service_cores[core].state_mutex));
+			vpu_service_cores[core].state = VCT_BOOTUP;
+			mutex_unlock(&(vpu_service_cores[core].state_mutex));
+			wake_up_interruptible(&waitq_change_vcore);
+			return POWER_ON_MAGIC;
+		}
 	}
 	LOG_DBG("[vpu_%d] boot_up flag2\n", core);
 
@@ -3621,18 +3742,21 @@ int vpu_boot_up(int core)
 		LOG_ERR("[vpu_%d]fail to enable regulator or clock\n", core);
 		goto out;
 	}
-	ret = vpu_hw_boot_sequence(core);
-	if (ret) {
-		LOG_ERR("[vpu_%d]fail to do boot sequence\n", core);
-		goto out;
-	}
-	LOG_DBG("[vpu_%d] vpu_hw_boot_sequence done\n", core);
+	if (!secure) {
+		ret = vpu_hw_boot_sequence(core);
+		if (ret) {
+			LOG_ERR("[vpu_%d]fail to do boot sequence\n", core);
+			goto out;
+		}
+		LOG_DBG("[vpu_%d] vpu_hw_boot_sequence done\n", core);
 
-	ret = vpu_hw_set_debug(core);
-	if (ret) {
-		LOG_ERR("[vpu_%d]fail to set debug\n", core);
-		goto out;
+		ret = vpu_hw_set_debug(core);
+		if (ret) {
+			LOG_ERR("[vpu_%d]fail to set debug\n", core);
+			goto out;
+		}
 	}
+
 	LOG_DBG("[vpu_%d] vpu_hw_set_debug done\n", core);
 
 #ifdef MET_POLLING_MODE
@@ -3748,7 +3872,7 @@ int vpu_hw_load_algo(int core, struct vpu_algo *algo)
 		return 0;
 
 	vpu_trace_begin("%s(%d)", __func__, algo->id[core]);
-	ret = vpu_get_power(core);
+	ret = vpu_get_power(core, false);
 	if (ret) {
 		LOG_ERR("[vpu_%d]fail to get power!\n", core);
 		goto out;
@@ -3857,7 +3981,7 @@ int vpu_hw_enque_request(int core, struct vpu_request *request)
 	LOG_DBG("[vpu_%d/%d] eq + ", core, request->algo_id[core]);
 
 	vpu_trace_begin("%s (%d)", __func__, request->algo_id[core]);
-	ret = vpu_get_power(core);
+	ret = vpu_get_power(core, false);
 	if (ret) {
 		LOG_ERR(
 		"[vpu_%d]fail to get power!\n", core);
@@ -3994,11 +4118,16 @@ int vpu_hw_processing_request(int core, struct vpu_request *request)
 	struct vpu_algo *algo = NULL;
 	bool need_reload = false;
 
+	LOG_INF("%s, lock sdsp(%d) in + ", __func__, core);
+
+	mutex_lock(&vpu_dev->sdsp_control_mutex[core]);
+
+	LOG_INF("%s, lock sdsp(%d) in - ", __func__, core);
 	if (g_vpu_log_level > Log_ALGO_OPP_INFO)
 		LOG_INF("[vpu_%d/%d] pr + ", core, request->algo_id[core]);
 
 	/* step1, enable clocks and boot-up if needed */
-	ret = vpu_get_power(core);
+	ret = vpu_get_power(core, false);
 	if (ret) {
 		LOG_ERR("[vpu_%d] fail to get power!\n", core);
 		goto out2;
@@ -4276,6 +4405,8 @@ out2:
 		vpu_put_power(core, VPT_ENQUE_ON);
 	}
 	LOG_DBG("[vpu] %s - (%d)", __func_, request->status);
+	mutex_unlock(&vpu_dev->sdsp_control_mutex[core]);
+	LOG_INF("%s, unlock sdsp(%d) in - ", __func__, core);
 	return ret;
 
 }
@@ -4291,7 +4422,7 @@ int vpu_hw_get_algo_info(int core, struct vpu_algo *algo)
 	int i;
 
 	vpu_trace_begin("%s(%d)", __func__, algo->id[core]);
-	ret = vpu_get_power(core);
+	ret = vpu_get_power(core, false);
 	if (ret) {
 		LOG_ERR(
 		"[vpu_%d]fail to get power!\n", core);
@@ -4426,7 +4557,7 @@ void vpu_hw_lock(struct vpu_user *user)
 		mutex_lock(&lock_mutex);
 		is_locked = true;
 		user->locked = true;
-		vpu_get_power(TEMP_CORE);
+		vpu_get_power(TEMP_CORE, false);
 	}
 }
 
