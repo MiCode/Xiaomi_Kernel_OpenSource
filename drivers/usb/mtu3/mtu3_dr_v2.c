@@ -56,24 +56,31 @@ static enum charger_type mtu3_hal_get_charger_type(void)
 {
 	enum charger_type chg_type;
 
+#ifdef CONFIG_MTK_CHARGER
 	chg_type = mt_get_charger_type();
+#else
+	chg_type = STANDARD_HOST;
+#endif
 
 	return chg_type;
 }
 
-static bool mtu3_hal_is_vbus_exist(void)
+bool mtu3_hal_is_vbus_exist(void)
 {
 	bool vbus_exist;
 
+#ifdef CONFIG_MTK_CHARGER
 #ifdef CONFIG_POWER_EXT
 	vbus_exist = upmu_get_rgs_chrdet();
 #else
 	vbus_exist = upmu_is_chr_det();
 #endif
+#else
+	vbus_exist = true;
+#endif
 
 	return vbus_exist;
 }
-
 
 bool usb_cable_connected(void)
 {
@@ -194,8 +201,11 @@ static void switch_port_to_none(struct ssusb_mtk *ssusb)
 {
 	dev_info(ssusb->dev, "%s\n", __func__);
 
-	if (ssusb->is_host)
+	if (ssusb->is_host) {
+		/* workaround for host handle disconnect follow */
+		mdelay(50);
 		xhci_mtk_unregister_plat();
+	}
 
 	ssusb_ip_sleep(ssusb);
 	ssusb_dual_phy_power_off(ssusb, ssusb->is_host);
@@ -280,8 +290,9 @@ void ssusb_gadget_disconnect(struct mtu3 *mtu)
 
 static void ssusb_set_mode(struct work_struct *work)
 {
-	struct otg_switch_mtk *otg_sx = container_of(to_delayed_work(work),
+	struct otg_switch_mtk *__otg_sx = container_of(to_delayed_work(work),
 				struct otg_switch_mtk, dr_work);
+	struct otg_switch_mtk *otg_sx = g_otg_sx;
 	struct ssusb_mtk *ssusb =
 		container_of(otg_sx, struct ssusb_mtk, otg_switch);
 	struct mtu3 *mtu = ssusb->u3d;
@@ -289,7 +300,7 @@ static void ssusb_set_mode(struct work_struct *work)
 	unsigned int usb_mode;
 
 	spin_lock_irqsave(&otg_sx->dr_lock, flags);
-	usb_mode = otg_sx->desire_usb_mode;
+	usb_mode = __otg_sx->desire_usb_mode;
 	spin_unlock_irqrestore(&otg_sx->dr_lock, flags);
 
 	if (otg_sx->usb_mode != usb_mode) {
@@ -309,6 +320,10 @@ static void ssusb_set_mode(struct work_struct *work)
 		case DUAL_PROP_NONE:
 			if (!ssusb->is_host) {
 				mtu3_stop(mtu);
+				/* killing any outstanding requests */
+				spin_lock_irqsave(&mtu->lock, flags);
+				mtu3_nuke_all_ep(mtu);
+				spin_unlock_irqrestore(&mtu->lock, flags);
 				/* notify gadget driver */
 				ssusb_gadget_disconnect(mtu);
 			}
@@ -319,6 +334,8 @@ static void ssusb_set_mode(struct work_struct *work)
 			dev_info(ssusb->dev, "invalid state\n");
 		}
 	}
+
+	kfree(__otg_sx);
 }
 
 
@@ -331,6 +348,7 @@ void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 {
 	struct ssusb_mtk *ssusb =
 		container_of(otg_sx, struct ssusb_mtk, otg_switch);
+	struct otg_switch_mtk *__otg_sx;
 	unsigned long flags;
 	int i;
 
@@ -341,32 +359,38 @@ void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 		return;
 	}
 
+	__otg_sx = kzalloc(sizeof(struct otg_switch_mtk), GFP_KERNEL);
+
+	if (!__otg_sx)
+		return;
+
+	INIT_DELAYED_WORK(&__otg_sx->dr_work, ssusb_set_mode);
+
 	spin_lock_irqsave(&otg_sx->dr_lock, flags);
 	switch (status) {
 	case MTU3_ID_GROUND:
-		otg_sx->desire_usb_mode = DUAL_PROP_HOST;
+		__otg_sx->desire_usb_mode = DUAL_PROP_HOST;
 		break;
 	case MTU3_VBUS_VALID:
 	case MTU3_CMODE_VBUS_VALID:
-		otg_sx->desire_usb_mode = DUAL_PROP_DEVICE;
+		__otg_sx->desire_usb_mode = DUAL_PROP_DEVICE;
 		break;
 	case MTU3_ID_FLOAT:
 	case MTU3_VBUS_OFF:
-		otg_sx->desire_usb_mode = DUAL_PROP_NONE;
+		__otg_sx->desire_usb_mode = DUAL_PROP_NONE;
 		break;
 	default:
 		dev_info(ssusb->dev, "invalid state\n");
 	}
 	spin_unlock_irqrestore(&otg_sx->dr_lock, flags);
 
-	for (i = 0; i < 50; i++) {
+	for (i = 0; i < 20; i++) {
 		if (!otg_sx->dr_workq) {
 			mtu3_printk(K_CRIT, "dr_wq not ready\n");
-			mdelay(200);
+			msleep(500);
 		} else {
-			mtu3_printk(K_CRIT, "dr_wq is ready\n");
 			queue_delayed_work(otg_sx->dr_workq,
-				&otg_sx->dr_work, 0);
+				&__otg_sx->dr_work, 0);
 			break;
 		}
 	}
@@ -484,4 +508,3 @@ void ssusb_otg_switch_exit(struct ssusb_mtk *ssusb)
 	ssusb_debugfs_exit(ssusb);
 	g_otg_sx = NULL;
 }
-

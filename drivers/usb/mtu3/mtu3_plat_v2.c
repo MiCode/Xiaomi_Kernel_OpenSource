@@ -266,7 +266,7 @@ ssize_t musb_sib_enable_show(struct device *dev,
 ssize_t musb_sib_enable_store(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t count)
 {
-	unsigned int mode;
+	unsigned int mode = 0;
 	struct ssusb_mtk *ssusb;
 
 	if (!dev) {
@@ -451,6 +451,19 @@ static void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb)
 }
 #endif
 
+/* ignore the error if the clock does not exist */
+static struct clk *get_optional_clk(struct device *dev, const char *id)
+{
+	struct clk *opt_clk;
+
+	opt_clk = devm_clk_get(dev, id);
+	/* ignore error number except EPROBE_DEFER */
+	if (IS_ERR(opt_clk) && (PTR_ERR(opt_clk) != -EPROBE_DEFER))
+		opt_clk = NULL;
+
+	return opt_clk;
+}
+
 static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -465,16 +478,34 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 		return PTR_ERR(ssusb->vusb33);
 	}
 
-	ssusb->sys_clk = devm_clk_get(dev, "sys_ck");
+	ssusb->sys_clk = get_optional_clk(dev, "sys_ck");
 	if (IS_ERR(ssusb->sys_clk)) {
 		dev_info(dev, "failed to get sys clock\n");
 		return PTR_ERR(ssusb->sys_clk);
 	}
 
-	ssusb->ref_clk = devm_clk_get(dev, "rel_clk");
+	ssusb->ref_clk = get_optional_clk(dev, "rel_clk");
 	if (IS_ERR(ssusb->ref_clk)) {
 		dev_info(dev, "failed to get ref clock\n");
 		return PTR_ERR(ssusb->ref_clk);
+	}
+
+	ssusb->mcu_clk = get_optional_clk(dev, "mcu_ck");
+	if (IS_ERR(ssusb->mcu_clk)) {
+		dev_info(dev, "failed to get mcu clock\n");
+		return PTR_ERR(ssusb->mcu_clk);
+	}
+
+	ssusb->dma_clk = get_optional_clk(dev, "dma_ck");
+	if (IS_ERR(ssusb->dma_clk)) {
+		dev_info(dev, "failed to get dma clock\n");
+		return PTR_ERR(ssusb->dma_clk);
+	}
+
+	ssusb->host_clk = get_optional_clk(dev, "host_ck");
+	if (IS_ERR(ssusb->host_clk)) {
+		dev_info(dev, "failed to get host clock\n");
+		return PTR_ERR(ssusb->host_clk);
 	}
 
 	ssusb->num_phys = of_count_phandle_with_args(node,
@@ -637,7 +668,7 @@ static int mtu3_probe(struct platform_device *pdev)
 #ifdef CONFIG_MTK_BOOT
 	if (get_boot_mode() == META_BOOT) {
 		dev_info(dev, "in special mode %d\n", get_boot_mode());
-		mtu3_cable_mode = CABLE_MODE_FORCEON;
+		/*mtu3_cable_mode = CABLE_MODE_FORCEON;*/
 	}
 #endif
 
@@ -732,6 +763,9 @@ static const struct dev_pm_ops mtu3_pm_ops = {
 #ifdef CONFIG_OF
 
 static const struct of_device_id mtu3_of_match[] = {
+	{.compatible = "mediatek,mt6885-mtu3",},
+	{.compatible = "mediatek,mt6853-mtu3",},
+	{.compatible = "mediatek,mt6873-mtu3",},
 	{.compatible = "mediatek,mt6785-mtu3",},
 	{.compatible = "mediatek,mt6771-mtu3",},
 	{},
