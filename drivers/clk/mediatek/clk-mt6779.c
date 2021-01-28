@@ -2354,7 +2354,7 @@ static int clk_mt6779_top_probe(struct platform_device *pdev)
 		clk_writel(cksys_base + CK_CFG_7_SET, 0x80800080);
 
 		clk_writel(cksys_base + CK_CFG_8_CLR, 0x00808080);/*spm*/
-		clk_writel(cksys_base + CK_CFG_8_SET, 0x00808080);
+		clk_writel(cksys_base + CK_CFG_8_SET, 0x00808000);
 
 		clk_writel(cksys_base + CK_CFG_9_CLR, 0x80808080);
 		clk_writel(cksys_base + CK_CFG_9_SET, 0x80808080);
