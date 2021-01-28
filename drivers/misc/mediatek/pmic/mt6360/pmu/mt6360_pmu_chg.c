@@ -13,7 +13,6 @@
 #include <linux/iio/consumer.h>
 #include <linux/slab.h>
 #include <linux/version.h>
-#include <linux/completion.h>
 #include <linux/atomic.h>
 #include <linux/wait.h>
 #include <linux/kthread.h>
@@ -108,7 +107,8 @@ struct mt6360_pmu_chg_info {
 	struct tcpc_device *tcpc_dev;
 	struct notifier_block pd_nb;
 	/*chg_det*/
-	struct completion chrdet_start;
+	wait_queue_head_t attach_wq;
+	atomic_t chrdet_start;
 	struct task_struct *attach_task;
 	struct mutex attach_lock;
 	bool typec_attach;
@@ -126,7 +126,7 @@ struct mt6360_pmu_chg_info {
 	atomic_t pe_complete;
 	/* mivr */
 	atomic_t mivr_cnt;
-	wait_queue_head_t waitq;
+	wait_queue_head_t mivr_wq;
 	struct task_struct *mivr_task;
 	/* unfinish pe pattern */
 	struct workqueue_struct *pe_wq;
@@ -2091,7 +2091,7 @@ static irqreturn_t mt6360_pmu_chg_mivr_evt_handler(int irq, void *data)
 	mt_dbg(mpci->dev, "%s\n", __func__);
 	mt6360_pmu_chg_irq_enable("chg_mivr_evt", 0);
 	atomic_inc(&mpci->mivr_cnt);
-	wake_up(&mpci->waitq);
+	wake_up(&mpci->mivr_wq);
 	return IRQ_HANDLED;
 }
 
@@ -2536,8 +2536,11 @@ static int mt6360_chg_mivr_task_threadfn(void *data)
 
 	dev_info(mpci->dev, "%s ++\n", __func__);
 	while (!kthread_should_stop()) {
-		wait_event(mpci->waitq, atomic_read(&mpci->mivr_cnt) > 0);
+		wait_event(mpci->mivr_wq, atomic_read(&mpci->mivr_cnt) > 0 ||
+							 kthread_should_stop());
 		mt_dbg(mpci->dev, "%s: enter mivr thread\n", __func__);
+		if (kthread_should_stop())
+			break;
 		pm_stay_awake(mpci->dev);
 		/* check real mivr stat or not */
 		ret = mt6360_pmu_reg_read(mpci->mpi, MT6360_PMU_CHG_STAT1);
@@ -2565,8 +2568,6 @@ loop_cont:
 		pm_relax(mpci->dev);
 		atomic_set(&mpci->mivr_cnt, 0);
 		mt6360_pmu_chg_irq_enable("chg_mivr_evt", 1);
-		if (kthread_should_stop())
-			break;
 		msleep(200);
 	}
 	dev_info(mpci->dev, "%s --\n", __func__);
@@ -3222,7 +3223,11 @@ static int typec_attach_thread(void *data)
 
 	pr_info("%s: ++\n", __func__);
 	while (!kthread_should_stop()) {
-		wait_for_completion(&mpci->chrdet_start);
+		wait_event(mpci->attach_wq,
+			   atomic_read(&mpci->chrdet_start) > 0 ||
+							 kthread_should_stop());
+		if (kthread_should_stop())
+			break;
 		mutex_lock(&mpci->attach_lock);
 		attach = mpci->typec_attach;
 		mutex_unlock(&mpci->attach_lock);
@@ -3237,8 +3242,7 @@ static int typec_attach_thread(void *data)
 					__func__, ret);
 		} else
 			mt6360_get_charger_type(mpci, attach);
-		if (kthread_should_stop())
-			break;
+		atomic_set(&mpci->chrdet_start, 0);
 	}
 	return ret;
 }
@@ -3248,7 +3252,8 @@ static void handle_typec_attach(struct mt6360_pmu_chg_info *mpci,
 {
 	mutex_lock(&mpci->attach_lock);
 	mpci->typec_attach = en;
-	complete(&mpci->chrdet_start);
+	atomic_inc(&mpci->chrdet_start);
+	wake_up(&mpci->attach_wq);
 	mutex_unlock(&mpci->attach_lock);
 }
 
@@ -3351,9 +3356,10 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	init_completion(&mpci->pumpx_done);
 	atomic_set(&mpci->pe_complete, 0);
 	atomic_set(&mpci->mivr_cnt, 0);
-	init_waitqueue_head(&mpci->waitq);
+	init_waitqueue_head(&mpci->mivr_wq);
 #ifdef CONFIG_TCPC_CLASS
-	init_completion(&mpci->chrdet_start);
+	init_waitqueue_head(&mpci->attach_wq);
+	atomic_set(&mpci->chrdet_start, 0);
 	mutex_init(&mpci->attach_lock);
 #endif
 	platform_set_drvdata(pdev, mpci);
@@ -3477,6 +3483,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_get_tcpcdev;
 	}
+
 	mpci->pd_nb.notifier_call = pd_tcp_notifier_call;
 	ret = register_tcp_dev_notifier(mpci->tcpc_dev, &mpci->pd_nb,
 					TCP_NOTIFY_TYPE_ALL);
@@ -3497,10 +3504,8 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 #ifdef CONFIG_TCPC_CLASS
 err_register_tcp_notifier:
 err_get_tcpcdev:
-	if (mpci->attach_task) {
-		complete(&mpci->chrdet_start);
+	if (mpci->attach_task)
 		kthread_stop(mpci->attach_task);
-	}
 err_attach_task:
 err_psy_get_phandle:
 #endif
@@ -3510,11 +3515,8 @@ err_register_otg:
 err_shipping_mode_attr:
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);
 err_create_mivr_thread_run:
-	if (mpci->mivr_task) {
-		atomic_inc(&mpci->mivr_cnt);
-		wake_up(&mpci->waitq);
+	if (mpci->mivr_task)
 		kthread_stop(mpci->mivr_task);
-	}
 err_register_chg_dev:
 	charger_device_unregister(mpci->chg_dev);
 err_mutex_init:
@@ -3536,13 +3538,11 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 	destroy_workqueue(mpci->pe_wq);
 	if (mpci->mivr_task) {
 		atomic_inc(&mpci->mivr_cnt);
-		wake_up(&mpci->waitq);
+		wake_up(&mpci->mivr_wq);
 		kthread_stop(mpci->mivr_task);
 	}
-	if (mpci->attach_task) {
-		complete(&mpci->chrdet_start);
+	if (mpci->attach_task)
 		kthread_stop(mpci->attach_task);
-	}
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);
 	charger_device_unregister(mpci->chg_dev);
 	mutex_destroy(&mpci->tchg_lock);
