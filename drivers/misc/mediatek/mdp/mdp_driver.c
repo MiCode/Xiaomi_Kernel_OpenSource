@@ -276,6 +276,8 @@ void cmdq_driver_dump_readback(u32 *addrs, u32 count, u32 *values)
 	i = 0;
 	while (i < count) {
 		len = snprintf(buf, sizeof(buf), "%#x:", addrs[i]);
+		if (len >= sizeof(buf))
+			pr_debug("len:%d over buf size:%d\n", len, sizeof(buf));
 		cur = addrs[i] & 0xFFFFFFF0;
 
 		/* limit max num 4 in line */

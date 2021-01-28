@@ -750,6 +750,10 @@ static void cmdq_access_sub_impl(struct cmdq_test *test,
 	u32 pat_init = 0xdeaddead, pat_src = 0xbeefbeef;
 
 	va = cmdq_mbox_buf_alloc(clt->client.dev, &pa);
+	if (!va) {
+		cmdq_err("cmdq_mbox_buf_alloc failed");
+		return;
+	}
 	count = cmdq_test_get_subsys_list(&regs);
 
 	for (i = 0; i < count; i++) {
@@ -943,7 +947,8 @@ cmdq_test_write(struct file *filp, const char *buf, size_t count, loff_t *offp)
 {
 	struct cmdq_test *test = (struct cmdq_test *)filp->f_inode->i_private;
 	char		str[MAX_SCAN] = {0};
-	s32		len, sec, id = 0;
+	s32		sec, id = 0;
+	u32		len;
 
 	len = (count < MAX_SCAN - 1) ? count : (MAX_SCAN - 1);
 	if (copy_from_user(str, buf, len)) {

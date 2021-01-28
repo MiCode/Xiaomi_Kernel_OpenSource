@@ -109,7 +109,7 @@ do {			\
 	char dispatchedTag[50]; \
 	int len = snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
 	if (len >= 50) \
-		pr_debug("%s:%d len over 50\n", __func__, __LINE__, len); \
+		pr_debug("%s:%d len:%d over 50\n", __func__, __LINE__, len); \
 	pr_notice("[CMDQ][AEE]"string, ##args); \
 	cmdq_core_save_first_dump("[CMDQ][AEE]"string, ##args); \
 	cmdq_core_turnoff_first_dump(); \
@@ -133,7 +133,7 @@ do {			\
 	char dispatchedTag[50]; \
 	int len = snprintf(dispatchedTag, 50, "CRDISPATCH_KEY:%s", tag); \
 	if (len >= 50) \
-		pr_debug("%s:%d len over 50\n", __func__, __LINE__, len); \
+		pr_debug("%s:%d len:%d over 50\n", __func__, __LINE__, len); \
 	pr_debug("[CMDQ][AEE] AEE not READY!!!"); \
 	pr_debug("[CMDQ][AEE]"string, ##args); \
 	cmdq_core_save_first_dump("[CMDQ][AEE]"string, ##args); \

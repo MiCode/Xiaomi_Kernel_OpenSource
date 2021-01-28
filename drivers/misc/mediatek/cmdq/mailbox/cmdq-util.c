@@ -152,6 +152,9 @@ s32 cmdq_util_error_save_lst(const char *format, va_list args)
 	spin_lock_irqsave(&util.err.lock, flags);
 	size = vsnprintf(util.err.buffer + util.err.length,
 		CMDQ_FIRST_ERR_SIZE - util.err.length, format, args);
+	if (size >= CMDQ_FIRST_ERR_SIZE - util.err.length)
+		cmdq_log("size:%d over buf size:%d",
+			size, CMDQ_FIRST_ERR_SIZE - util.err.length);
 	util.err.length += size;
 	spin_unlock_irqrestore(&util.err.lock, flags);
 
