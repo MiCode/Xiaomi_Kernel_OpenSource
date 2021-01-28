@@ -43,7 +43,7 @@
 #define CLKDBG_HACK_CLK		0
 #define CLKDBG_HACK_CLK_CORE	1
 
-#define MAX_CLK_NUM	550
+#define MAX_CLK_NUM	1024
 #define MAX_PD_NUM	32
 
 #if !CLKDBG_CCF_API_4_4
