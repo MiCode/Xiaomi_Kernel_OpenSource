@@ -437,7 +437,7 @@ static ssize_t scp_A_get_last_log_show(struct device *kobj,
 		struct device_attribute *attr, char *buf)
 {
 	scp_A_get_last_log(last_log_info.scp_log_buf_maxlen);
-	return sprintf(buf, "scp_log_buf_maxlen=%u, log=%s\n",
+	return scnprintf(buf, PAGE_SIZE, "scp_log_buf_maxlen=%u, log=%s\n",
 			last_log_info.scp_log_buf_maxlen,
 			scp_A_last_log ? scp_A_last_log : "");
 }
