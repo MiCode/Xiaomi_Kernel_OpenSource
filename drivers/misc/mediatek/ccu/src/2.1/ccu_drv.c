@@ -821,19 +821,6 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 
 		break;
 	}
-	case CCU_IOCTL_SEND_CMD:
-	{	/*--todo: not used for now, remove it*/
-		struct ccu_cmd_s cmd;
-
-		ret = copy_from_user(&cmd, (void *)arg,
-				     sizeof(struct ccu_cmd_s));
-
-		CCU_ASSERT(ret == 0,
-			   "[CCU_IOCTL_SEND_CMD] copy_from_user failed, ret=%d\n",
-			   ret);
-		ccu_send_command(&cmd);
-		break;
-	}
 	case CCU_IOCTL_FLUSH_LOG: {
 		ccu_flushLog(0, NULL);
 		break;
