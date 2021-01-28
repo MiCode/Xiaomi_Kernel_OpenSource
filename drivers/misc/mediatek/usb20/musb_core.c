@@ -2716,11 +2716,15 @@ static int musb_probe(struct platform_device *pdev)
 	struct resource *iomem;
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!iomem)
+		return -ENODEV;
 	base = devm_ioremap(dev, iomem->start, resource_size(iomem));
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
 	iomem = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!iomem)
+		return -ENODEV;
 	pbase = devm_ioremap(dev, iomem->start, resource_size(iomem));
 	if (IS_ERR(pbase))
 		return PTR_ERR(pbase);
