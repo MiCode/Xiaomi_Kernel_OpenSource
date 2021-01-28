@@ -295,16 +295,15 @@ static int lcm_unprepare(struct drm_panel *panel)
 	if (!ctx->prepared)
 		return 0;
 
-	lcm_dcs_write_seq_static(ctx, 0x28);
-	usleep_range(10 * 1000, 15 * 1000);
-	lcm_dcs_write_seq_static(ctx, 0x10);
-	msleep(150);
-
 	ctx->error = 0;
 	ctx->prepared = false;
-#if defined(CONFIG_RT5081_PMU_DSV) || defined(CONFIG_MT6370_PMU_DSV)
-	lcm_panel_bias_disable();
-#endif
+	ctx->reset_gpio =
+		devm_gpiod_get(ctx->dev, "reset", GPIOD_OUT_HIGH);
+	gpiod_set_value(ctx->reset_gpio, 0);
+	usleep_range(10 * 1000, 15 * 1000);
+	devm_gpiod_put(ctx->dev, ctx->reset_gpio);
+	usleep_range(10 * 1000, 15 * 1000);
+
 	ctx->bias_gpio =
 	devm_gpiod_get(ctx->dev, "bias", GPIOD_OUT_HIGH);
 	gpiod_set_value(ctx->bias_gpio, 0);
