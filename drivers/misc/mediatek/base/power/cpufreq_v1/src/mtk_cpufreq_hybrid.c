@@ -810,6 +810,7 @@ int cpuhvfs_set_dvfs(int cluster_id, unsigned int freq)
 
 	/* [3:0] freq_idx */
 	freq_idx = _search_available_freq_idx(p, freq, 0);
+
 	csram_write((OFFS_WFI_S + (cluster_id * 4)), freq_idx);
 
 	return 0;
@@ -1156,41 +1157,41 @@ void cpuhvfs_pvt_tbl_create(void)
 				i + NR_FREQ, recordRef[i + NR_FREQ]);
 
 		if (NR_MT_CPU_DVFS > 2) {
-			/* L [31:16] = Vproc, [15:0] = Freq */
+		/* L [31:16] = Vproc, [15:0] = Freq */
 			recordRef[i + 36] =
-				((*(recordTbl +
-				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 1) &
-				0xFFF) << 16) |
-				(*(recordTbl +
-				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE) & 0xFFFF);
-			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+			((*(recordTbl +
+			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 1) &
+			0xFFF) << 16) |
+			(*(recordTbl +
+			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE) & 0xFFFF);
+		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 36, recordRef[i + 36]);
-			/* L [31:16] = clk_div, [15:0] = post_div */
-			recordRef[i + 36 + NR_FREQ] =
+		/* L [31:16] = clk_div, [15:0] = post_div */
+		recordRef[i + 36 + NR_FREQ] =
 			((*(recordTbl +
 			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 3) &
 			0xFF) << 16) |
 			(*(recordTbl +
 			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 2) & 0xFF);
-			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 36 + NR_FREQ, recordRef[i + 36 + NR_FREQ]);
-			/* B/CCI [31:16] = Vproc, [15:0] = Freq */
-			recordRef[i + 72] =
-				((*(recordTbl +
-				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 1) &
-				0xFFF) << 16) |
-				(*(recordTbl +
-				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE) &	0xFFFF);
-			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+		/* B/CCI [31:16] = Vproc, [15:0] = Freq */
+		recordRef[i + 72] =
+			((*(recordTbl +
+			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 1) &
+			0xFFF) << 16) |
+			(*(recordTbl +
+			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE) &	0xFFFF);
+		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 72, recordRef[i + 72]);
-			/* B/CCI [31:16] = clk_div, [15:0] = post_div */
-			recordRef[i + 72 + NR_FREQ] =
+		/* B/CCI [31:16] = clk_div, [15:0] = post_div */
+		recordRef[i + 72 + NR_FREQ] =
 			((*(recordTbl +
 			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 3) &
 			0xFFF) << 16) |
 			(*(recordTbl +
 			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 2) & 0xFF);
-			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
+		cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 72 + NR_FREQ, recordRef[i + 72 + NR_FREQ]);
 		}
 
@@ -1257,7 +1258,6 @@ void cpuhvfs_pvt_tbl_create(void)
 	record_IMAX_Tbl = xrecord_IMAX_Tbl[lv];
 	for (i = 0; i < (NR_FREQ + 1) * IMAX_EN_RATIO_TBL_NUM; i++)
 		record_IMAX_Ref[i] = *(record_IMAX_Tbl + i);
-
 	csram_write(OFFS_IMAX_EN, imax_state);
 	csram_write(OFFS_IMAX_THERMAL_EN, 1);
 	mb(); /* SRAM writing */
@@ -1368,6 +1368,7 @@ static int dvfsp_module_init(void)
 {
 	int r;
 
+	tag_pr_notice("@@!start %s\n", __func__);
 	r = platform_driver_register(&_mt_dvfsp_pdrv);
 	if (r)
 		tag_pr_notice("fail to register sspm driver @ %s()\n",
@@ -1379,7 +1380,7 @@ static int dvfsp_module_init(void)
 	}
 
 	log_repo = csram_base;
-
+	tag_pr_notice("@@!end %s\n", __func__);
 	return 0;
 }
 
