@@ -80,7 +80,9 @@ int mtk_lp_sysfs_entry_node_add_plat(const char *name,
 int mtk_lp_sysfs_entry_node_remove_plat(
 		struct mtk_lp_sysfs_handle *node)
 {
-	kernfs_remove((struct kernfs_node *)node->_current);
+	int ret = 0;
+
+	ret = mtk_lp_kernfs_remove_file((struct kernfs_node *)node->_current);
 	node->_current = NULL;
-	return 0;
+	return ret;
 }

@@ -152,7 +152,7 @@ static ssize_t mtk_lp_kernfs_idio_write(struct kernfs_open_file *of,
 {
 	const struct mtk_lp_sysfs_op *ops =
 			(const struct mtk_lp_sysfs_op *)of->kn->priv;
-	if (!ops && !ops->fs_write)
+	if (!ops || !ops->fs_write)
 		return 0;
 	return ops->fs_write(buf, count, ops->priv);
 }
@@ -199,12 +199,9 @@ int mtk_lp_kernfs_create_file(struct kernfs_node *parent,
 }
 EXPORT_SYMBOL(mtk_lp_kernfs_create_file);
 
-int mtk_lp_kernfs_remove_file(struct kernfs_node *parent,
-				  struct kernfs_node **node,
-				  unsigned int flag,
-				  const char *name, umode_t mode,
-				  void *attr)
+int mtk_lp_kernfs_remove_file(struct kernfs_node *node)
 {
+	kernfs_remove(node);
 	return 0;
 }
 EXPORT_SYMBOL(mtk_lp_kernfs_remove_file);

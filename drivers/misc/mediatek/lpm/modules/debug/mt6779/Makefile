@@ -8,14 +8,11 @@ BUILD_MTK_LPM_DBG_MODUDLE_NAME=mtk-lpm-dbg-$(strip $(subst ",, $(CONFIG_MTK_LPM_
 
 obj-$(CONFIG_MTK_LPM_MT6779) += ${BUILD_MTK_LPM_DBG_MODUDLE_NAME}.o
 
-ifeq ($(CONFIG_MTK_LPM_MT6779)$(CONFIG_MTK_LPM_DBG_COMMON), mm)
+
+ifeq ($(CONFIG_MTK_LPM_DBG_COMMON),$(filter $(CONFIG_MTK_LPM_DBG_COMMON),m y))
 ccflags-y += -DMTK_LPM_DBG_COMMON
 ${BUILD_MTK_LPM_DBG_MODUDLE_NAME}-y += ../common/mtk_dbg_fs_common.o
 ${BUILD_MTK_LPM_DBG_MODUDLE_NAME}-y += ../common/mtk_lpm_timer.o
-endif
-
-ifeq ($(CONFIG_MTK_LPM_DBG_COMMON), y)
-ccflags-y += -DMTK_LPM_DBG_COMMON
 endif
 
 ${BUILD_MTK_LPM_DBG_MODUDLE_NAME}-y += mt6779_dbg.o
