@@ -2582,6 +2582,8 @@ static void __mt_gpufreq_setup_opp_table(struct g_opp_table_info *freqs, int num
 		g_segment_max_opp_idx = 15;
 	else if (g_segment_id == MT6769T_SEGMENT)
 		g_segment_max_opp_idx = 2;
+	else if (g_segment_id == MT6769Z_SEGMENT)
+		g_segment_max_opp_idx = 0;
 	else
 		g_segment_max_opp_idx = 7;
 
@@ -2832,17 +2834,23 @@ static void __mt_gpufreq_init_efuse(void)
 	} else if (g_efuse_id == 0x80
 	 || g_efuse_id == 0x01
 	 || g_efuse_id == 0x40
-	 || g_efuse_id == 0x02
-	 || g_efuse_id == 0xE0
+	 || g_efuse_id == 0x02) {
+		g_segment_id = MT6768_SEGMENT;
+	} else if (g_efuse_id == 0xE0
 	 || g_efuse_id == 0x07
 	 || g_efuse_id == 0x10
 	 || g_efuse_id == 0x08) {
-		g_segment_id = MT6768_SEGMENT;
+		g_segment_id = MT6769_SEGMENT;
 	} else if (g_efuse_id == 0x90
 	 || g_efuse_id == 0x09
 	 || g_efuse_id == 0x50
 	 || g_efuse_id == 0x0A) {
 		g_segment_id = MT6769T_SEGMENT;
+	} else if (g_efuse_id == 0xA0
+	 || g_efuse_id == 0x05
+	 || g_efuse_id == 0x60
+	 || g_efuse_id == 0x06) {
+		g_segment_id = MT6769Z_SEGMENT;
 	} else
 		g_segment_id = MT6768_SEGMENT;
 
