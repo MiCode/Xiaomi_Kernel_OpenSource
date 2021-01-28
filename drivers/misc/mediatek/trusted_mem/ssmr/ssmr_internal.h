@@ -7,7 +7,7 @@
 #define __SSMR_INTERNAL_H__
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)                                 \
-	|| defined(CONFIG_TRUSTONIC_TEE_SUPPORT)                               \
+	|| IS_ENABLED(CONFIG_TRUSTONIC_TEE_SUPPORT)                            \
 	|| defined(CONFIG_MICROTRUST_TEE_SUPPORT)                              \
 	|| defined(CONFIG_MTK_IRIS_SUPPORT)                                    \
 	|| defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
