@@ -933,12 +933,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		toprgu: toprgu@10007000 {
 			compatible = "mediatek,mt6779-wdt",
 				     "mediatek,mt6589-wdt",
-				     "mediatek,toprgu";
+				     "mediatek,toprgu",
+				     "syscon", "simple-mfd";
 			reg = <0 0x10007000 0 0x1000>;
 			interrupts = <GIC_SPI 139 IRQ_TYPE_LEVEL_LOW>;
 			mediatek,rg_dfd_timeout = <0xa0>;
 			reboot-mode {
-				compatible = "toprgu-reboot-mode";
+				compatible = "syscon-reboot-mode";
 				regmap = <&toprgu>;
 				offset = <0x24>;
 				mask = <0xF>;
