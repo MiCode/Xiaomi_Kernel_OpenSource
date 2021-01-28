@@ -476,7 +476,7 @@ static inline int wait_to_do_change_vcore_opp(int core)
 				ret = -ETIMEDOUT;
 				LOG_ERR(
 				    "[vpu_%d] %s timeout, ret=%d\n",
-				    __func__, core, ret);
+				    core, __func__, ret);
 			}
 			break;
 		}
@@ -575,7 +575,7 @@ static inline int wait_to_do_vpu_running(int core)
 				ret = -ETIMEDOUT;
 				LOG_ERR(
 				    "[vpu_%d] %s timeout, ret=%d\n",
-				    __func__, core, ret);
+				    core, __func__, ret);
 			}
 			break;
 		}
@@ -796,7 +796,7 @@ static bool vpu_change_opp(int core, int type)
 		if (ret) {
 			LOG_ERR(
 			"[vpu_%d] ..timeout to wait_to_do_change_vcore_opp, ret=%d\n",
-			core);
+			core, ret);
 			goto out;
 		}
 		LOG_DBG("[vpu_%d] to do vcore opp change", core);
@@ -843,7 +843,7 @@ static bool vpu_change_opp(int core, int type)
 	case OPPTYPE_DSPFREQ:
 		mutex_lock(&opp_mutex);
 		LOG_INF("[vpu_%d] %s setclksrc(%d/%d/%d/%d)\n",
-			__func__, core, opps.dsp.index,
+			core, __func__, opps.dsp.index,
 			opps.dspcore[0].index, opps.dspcore[1].index,
 			opps.ipu_if.index);
 
@@ -2642,7 +2642,7 @@ int vpu_set_power(struct vpu_user *user, struct vpu_power *power)
 
 	/* to avoid power leakage, power on/off need be paired */
 	vpu_put_power(core, VPT_PRE_ON);
-	LOG_INF("[vpu_%d] %s -\n", __func__, core);
+	LOG_INF("[vpu_%d] %s -\n", core, __func__);
 	return ret;
 }
 
@@ -4304,7 +4304,7 @@ int vpu_hw_get_algo_info(int core, struct vpu_algo *algo)
 			sizeof(((struct vpu_algo *)0)->info_descs);
 	LOG_INF(
 	    "[vpu_%d] %s check precond done\n",
-	    __func__, core);
+	    core, __func__);
 
 	/* 1. write register */
 	vpu_write_field(core, FLD_XTENSA_INFO01,
