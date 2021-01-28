@@ -391,26 +391,26 @@ static void dump_register(void)
 #if PMIC_ACCDET_KERNEL
 static void cat_register(char *buf)
 {
-	int i = 0;
+	int i = 0, ret = 0;
 
 #ifdef CONFIG_ACCDET_EINT_IRQ
 #ifdef CONFIG_ACCDET_SUPPORT_EINT0
-	sprintf(accdet_log_buf, "[Accdet EINT0 support][MODE_%d]regs:\n",
+	ret = sprintf(accdet_log_buf, "[Accdet EINT0 support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #elif defined CONFIG_ACCDET_SUPPORT_EINT1
-	sprintf(accdet_log_buf, "[ccdet EINT1 support][MODE_%d]regs:\n",
+	ret = sprintf(accdet_log_buf, "[Accdet EINT1 support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #elif defined CONFIG_ACCDET_SUPPORT_BI_EINT
-	sprintf(accdet_log_buf, "[Accdet BIEINT support][MODE_%d] regs:\n",
+	ret = sprintf(accdet_log_buf, "[Accdet EINT support][MODE_%d] regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #else
 	strncat(buf, "ACCDET_EINT_IRQ:NO EINT configed.Error!!\n", 64);
 #endif
 #elif defined CONFIG_ACCDET_EINT
-	sprintf(accdet_log_buf, "[Accdet AP EINT][MODE_%d] regs:\n",
+	ret = sprintf(accdet_log_buf, "[Accdet AP EINT][MODE_%d] regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 #else
@@ -418,25 +418,26 @@ static void cat_register(char *buf)
 #endif
 
 	for (i = ACCDET_RSV; i <= ACCDET_EINT1_CUR_DEB; i += 2) {
-		sprintf(accdet_log_buf, "ADDR[0x%x]=0x%x\n", i, pmic_read(i));
+		ret = sprintf(accdet_log_buf, "ADDR[0x%x]=0x%x\n",
+				i, pmic_read(i));
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		TOP_CKPDN_CON0, pmic_read(TOP_CKPDN_CON0));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		AUD_TOP_RST_CON0, pmic_read(AUD_TOP_RST_CON0));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
 		AUD_TOP_INT_CON0, pmic_read(AUD_TOP_INT_CON0),
 		AUD_TOP_INT_MASK_CON0, pmic_read(AUD_TOP_INT_MASK_CON0),
 		AUD_TOP_INT_STATUS0, pmic_read(AUD_TOP_INT_STATUS0));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf,
+	ret = sprintf(accdet_log_buf,
 		"[0x%x]=0x%x,[0x%x]=0x%x,[0x%x]=0x%x,[0x%x]=0x%x\n",
 		AUDENC_ANA_CON6, pmic_read(AUDENC_ANA_CON6),
 		AUDENC_ANA_CON9, pmic_read(AUDENC_ANA_CON9),
@@ -444,16 +445,18 @@ static void cat_register(char *buf)
 		AUDENC_ANA_CON11, pmic_read(AUDENC_ANA_CON11));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
 		AUXADC_RQST0, pmic_read(AUXADC_RQST0),
 		AUXADC_ACCDET, pmic_read(AUXADC_ACCDET));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf,
+	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 }
 
 static int dbug_thread(void *unused)
@@ -603,12 +606,15 @@ static ssize_t set_headset_mode_store(struct device_driver *ddri,
 static ssize_t state_show(struct device_driver *ddri, char *buf)
 {
 	char temp_type = (char)cable_type;
+	int ret = 0;
 
 	if (buf == NULL) {
 		pr_notice("[%s] *buf is NULL!\n",  __func__);
 		return -EINVAL;
 	}
-	snprintf(buf, 3, "%d\n", temp_type);
+	ret = snprintf(buf, 3, "%d\n", temp_type);
+	if (ret < 0)
+		pr_notice("snprintf failed\n");
 
 	return strlen(buf);
 }
