@@ -18,6 +18,7 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/cpufreq.h>
+#include <linux/cpumask.h>
 
 #define TAG "[LT]"
 
@@ -92,8 +93,10 @@ static int lt_update_loading(struct LT_USER_DATA *lt_data)
 	lt_lockprove(__func__);
 	for_each_possible_cpu(cpu) {
 		cur_idle_time_i = get_cpu_idle_time(cpu, &cur_wall_time_i, 1);
-		cpu_idle_time += cur_idle_time_i - lt_data->prev_idle_time[cpu];
-		cpu_wall_time += cur_wall_time_i - lt_data->prev_wall_time[cpu];
+		if (!cpu_isolated(cpu)) {
+			cpu_idle_time += cur_idle_time_i - lt_data->prev_idle_time[cpu];
+			cpu_wall_time += cur_wall_time_i - lt_data->prev_wall_time[cpu];
+		}
 		lt_data->prev_idle_time[cpu] = cur_idle_time_i;
 		lt_data->prev_wall_time[cpu] = cur_wall_time_i;
 	}
