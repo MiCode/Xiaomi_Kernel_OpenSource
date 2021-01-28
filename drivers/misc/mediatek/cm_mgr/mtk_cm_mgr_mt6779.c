@@ -40,6 +40,7 @@
 #include "mtk_cm_mgr_mt6779.h"
 #include "mtk_cm_mgr_common.h"
 
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #ifdef CONFIG_MTK_DRAMC_LEGACY
 #include <mtk_dramc.h>
 #endif /* CONFIG_MTK_DRAMC_LEGACY */
@@ -80,7 +81,7 @@ static int cm_mgr_get_idx(void)
 };
 
 static int cm_mgr_get_dram_opp(void);
-/* static struct pm_qos_request ddr_opp_req; */
+static struct mtk_pm_qos_request ddr_opp_req;
 static ktime_t perf_now;
 void cm_mgr_perf_platform_set_status(int enable)
 {
@@ -139,8 +140,6 @@ EXPORT_SYMBOL_GPL(cm_mgr_perf_platform_set_status);
 
 void cm_mgr_perf_platform_set_force_status(int enable)
 {
-	struct device *dev = &cm_mgr_pdev->dev;
-
 	if (enable) {
 		if (!cm_mgr_perf_enable)
 			return;
@@ -153,13 +152,13 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 		if (cm_mgr_dram_opp_base == -1) {
 			cm_mgr_dram_opp = cm_mgr_dram_opp_base =
 				cm_mgr_get_dram_opp();
-			dev_pm_genpd_set_performance_state(dev,
-					cm_mgr_perfs[cm_mgr_dram_opp]);
+			mtk_pm_qos_update_request(&ddr_opp_req,
+					cm_mgr_dram_opp);
 		} else {
 			if (cm_mgr_dram_opp > 0) {
 				cm_mgr_dram_opp--;
-				dev_pm_genpd_set_performance_state(dev,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
+				mtk_pm_qos_update_request(&ddr_opp_req,
+						cm_mgr_dram_opp);
 			}
 		}
 
@@ -177,11 +176,12 @@ void cm_mgr_perf_platform_set_force_status(int enable)
 
 			if (cm_mgr_dram_opp < cm_mgr_dram_opp_base) {
 				cm_mgr_dram_opp++;
-				dev_pm_genpd_set_performance_state(dev,
-						cm_mgr_perfs[cm_mgr_dram_opp]);
+				mtk_pm_qos_update_request(&ddr_opp_req,
+						cm_mgr_dram_opp);
 			} else {
 				cm_mgr_dram_opp = cm_mgr_dram_opp_base = -1;
-				dev_pm_genpd_set_performance_state(dev, 0);
+				mtk_pm_qos_update_request(&ddr_opp_req,
+					MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
 				pm_qos_update_request_status = enable;
 				debounce_times_perf_down_force_local = -1;
@@ -304,6 +304,9 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	cm_mgr_pdev = pdev;
 
 	pr_info("[CM_MGR] platform-cm_mgr_probe Done.\n");
+
+	mtk_pm_qos_add_request(&ddr_opp_req, MTK_PM_QOS_DDR_OPP,
+			MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
 
 	return 0;
 
