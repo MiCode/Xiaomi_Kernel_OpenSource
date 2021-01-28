@@ -94,8 +94,12 @@ static inline int mt6370_pmu_init_of_subdevs(struct mt6370_pmu_chip *chip)
 		for (j = 0; j < irq_cnt; j++) {
 			const char *name = NULL;
 
-			of_property_read_string_index(np, "interrupt-names",
-						      j, &name);
+			ret = of_property_read_string_index(np,
+							"interrupt-names",
+							j, &name);
+			if (ret < 0)
+				continue;
+
 			res[j].name = name;
 			ret = mt6370_pmu_get_virq_number(chip, name);
 			res[j].start = res[j].end = ret;

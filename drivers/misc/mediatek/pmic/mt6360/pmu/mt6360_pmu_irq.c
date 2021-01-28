@@ -114,7 +114,8 @@ static void mt6360_pmu_irq_bus_lock(struct irq_data *data)
 static void mt6360_pmu_irq_bus_sync_unlock(struct irq_data *data)
 {
 	struct mt6360_pmu_info *mpi = data->chip_data;
-	int offset = data->hwirq, ret;
+	int ret;
+	unsigned long offset = data->hwirq;
 
 	/* force clear current irq event */
 	ret = mt6360_pmu_reg_write(mpi, MT6360_PMU_CHG_IRQ1 + offset / 8,
