@@ -62,9 +62,15 @@ unsigned int normalized_sysctl_sched_latency		= 6000000ULL;
  * Enable/disable honoring sync flag in energy-aware wakeups.
  */
 unsigned int sysctl_sched_sync_hint_enable = 1;
+
+#ifdef CONFIG_MTK_SCHED_BOOST
+unsigned int sysctl_sched_isolation_hint_enable;
+#endif
+
 /*
  * Enable/disable using cstate knowledge in idle sibling selection
  */
+
 unsigned int sysctl_sched_cstate_aware = 1;
 
 /*
