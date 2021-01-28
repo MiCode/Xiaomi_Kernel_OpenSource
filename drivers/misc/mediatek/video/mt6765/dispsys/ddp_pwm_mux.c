@@ -94,7 +94,13 @@ enum DDP_CLK_ID disp_pwm_get_clkid(unsigned int clk_req)
  * get disp pwm source mux node
  *
  */
-#define DTSI_TOPCKGEN "mediatek,topckgen"
+
+#if defined(CONFIG_MACH_MT6765)
+#define DTSI_TOPCKGEN "mediatek,mt6765-topckgen"
+#elif defined(CONFIG_MACH_MT6761)
+#define DTSI_TOPCKGEN "mediatek,mt6761-topckgen"
+#endif
+
 static int disp_pwm_get_muxbase(void)
 {
 	int ret = 0;
