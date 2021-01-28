@@ -134,6 +134,7 @@ obj-$(CONFIG_MACH_MT6873) += dcm_v1/
 obj-$(CONFIG_MACH_MT6853) += dcm_v1/
 obj-$(CONFIG_MACH_MT6765) += dcm_v1/
 obj-$(CONFIG_MACH_MT8168) += dcm_v1/
+obj-$(CONFIG_MACH_MT6833) += dcm_v1/
 obj-$(CONFIG_MACH_MT6771) += mcdi/
 obj-$(CONFIG_MACH_MT6739) += mcdi/
 obj-$(CONFIG_MACH_MT6785) += cpuidle_v3/
