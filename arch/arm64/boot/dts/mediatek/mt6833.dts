@@ -304,6 +304,9 @@ page_owner=on";
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	clkitg: clkitg {
+		compatible = "simple-bus";
+	};
 
 	clocks {
 		clk_null: clk_null {
@@ -4432,6 +4435,7 @@ page_owner=on";
 
 #include "mediatek/mt6359p.dtsi"
 #include "mediatek/cust_mt6833_msdc.dtsi"
+#include "mediatek/mt6833-clkitg.dtsi"
 
 &spmi_bus {
 	grpid = <11>;
