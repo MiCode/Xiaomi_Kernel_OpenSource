@@ -30,9 +30,12 @@ config MTK_ENG_BUILD
 	  If you are not sure about this, set n
 
 config MTK_LDVT
-	bool "LDVT"
+	bool "MTK LDVT"
 	help
-	  Support LDVT or not
+	  This option is used for the MTK Linux Design Verification Test
+	  Platform support.
+	  Say Y here if you are doing LDVT
+	  If unsure, say N
 
 endif
 
