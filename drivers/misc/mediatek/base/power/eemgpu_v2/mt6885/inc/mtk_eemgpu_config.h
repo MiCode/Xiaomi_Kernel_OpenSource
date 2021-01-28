@@ -10,28 +10,27 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef _MTK_EEM_CONFIG_H_
-#define _MTK_EEM_CONFIG_H_
+#ifndef _MTK_EEMG_CONFIG_H_
+#define _MTK_EEMG_CONFIG_H_
 
 /* CONFIG (SW related) */
-#define EEM_NOT_READY		(1)
-#define CONFIG_EEM_SHOWLOG	(1)
+#define EEMG_NOT_READY		(1)
+#define CONFIG_EEMG_SHOWLOG	(1)
 #define EN_ISR_LOG		(1)
-#define EEM_BANK_SOC		(1) /* use voltage bin, so disable it */
-#define EARLY_PORTING		(1) /* for detecting real vboot in eem_init01 */
+#define EEMG_BANK_SOC		(1) /* use voltage bin, so disable it */
+#define EARLY_PORTING		(1)
 #define DUMP_DATA_TO_DE		(1)
-#define EEM_ENABLE		(1) /* enable; after pass HPT mini-SQC */
-#define EEM_FAKE_EFUSE		(1)
+#define EEMG_ENABLE		(1) /* enable; after pass HPT mini-SQC */
+#define EEMG_FAKE_EFUSE		(1)
 
 /* FIX ME */
-#define UPDATE_TO_UPOWER	(1)
-#define EEM_LOCKTIME_LIMIT	(3000)
+#define UPDATE_TO_UPOWER	(0)
+#define EEMG_LOCKTIME_LIMIT	(3000)
 #define ENABLE_LOO		(1)
-#define ENABLE_LOO_B		(1)
-#define ENABLE_LOO_G		(0)
-#define ENABLE_CPU		(1)
-#define ENABLE_GPU              (0)
-
+#define ENABLE_LOO_B		(0)
+#define ENABLE_LOO_G		(1)
+#define ENABLE_CPU              (0)
+#define ENABLE_GPU		(1)
 
 #ifdef CORN_LOAD
 #define ENABLE_VPU              (1)
@@ -41,9 +40,9 @@
 #define ENABLE_MDLA             (0)
 #endif
 
-#define ENABLE_INIT1_STRESS	(0)
 
-#define EEM_OFFSET
+
+#define EEMG_OFFSET
 #define SET_PMIC_VOLT		(1)
 #define SET_PMIC_VOLT_TO_DVFS	(1)
 #define LOG_INTERVAL		(2LL * NSEC_PER_SEC)
@@ -86,11 +85,9 @@ enum mt_cpu_dvfs_id {
 #define DEVINFO_IDX_23 73
 #define DEVINFO_IDX_24 74
 
-#define DEVINFO_TIME_IDX 132
 
 
-
-#if EEM_FAKE_EFUSE		/* select secure mode based on efuse config */
+#if EEMG_FAKE_EFUSE		/* select secure mode based on efuse config */
 #define SEC_MOD_SEL			0x00		/* non secure  mode */
 #else
 #define SEC_MOD_SEL			0x00		/* Secure Mode 0 */
@@ -271,21 +268,22 @@ enum mt_cpu_dvfs_id {
  ******************************************
  */
 #define NR_HW_RES_FOR_BANK	(14) /* real eem banks for efuse */
-#if ENABLE_GPU
-#define EEM_INIT01_FLAG (0x0f) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
+#if ENABLE_CPU
+#define EEMG_INIT01_FLAG (0x0f) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
 #else
-#define EEM_INIT01_FLAG (0x07) /* 0x0f=> [3]:GPU, [2]:CCI, [1]:B, [0]:L */
+#define EEMG_INIT01_FLAG (0x01) /* 0x01=> [0]:GPU */
+
 #endif
-#define EEM_CORNER_FLAG (0x30) /* 0x30=> [5]:VPU, [4]:MDLA */
+#define EEMG_CORNER_FLAG (0x30) /* 0x30=> [5]:VPU, [4]:MDLA */
 #if 0
 #if ENABLE_LOO
 #if DVT
-#define EEM_GPU_INIT02_FLAG (0x48) /* should be 0x048=>[6]:GPU_HI,[3]:GPU_LO */
+#define EEMG_GPU_INIT02_FLAG (0x48) /* should be 0x048=>[6]:GPU_HI,[3]:GPU_LO */
 #else
-#define EEM_GPU_INIT02_FLAG (0x18) /* should be 0x018=>[4]:GPU_HI,[3]:GPU_LO */
+#define EEMG_GPU_INIT02_FLAG (0x18) /* should be 0x018=>[4]:GPU_HI,[3]:GPU_LO */
 #endif
 #else
-#define EEM_GPU_INIT02_FLAG (0x8) /* should be 0x08=>[3]:GPU */
+#define EEMG_GPU_INIT02_FLAG (0x8) /* should be 0x08=>[3]:GPU */
 #endif
 #endif
 
@@ -308,7 +306,7 @@ enum mt_cpu_dvfs_id {
 #if ENABLE_LOO_B
 #define BANK_B_TURN_PT		6
 #if 0
-#define EEM_B_INIT02_FLAG (0x22) /* should be 0x022=> [5]:B_HI, [1]:B */
+#define EEMG_B_INIT02_FLAG (0x22) /* should be 0x022=> [5]:B_HI, [1]:B */
 #endif
 #endif
 
@@ -326,8 +324,8 @@ enum mt_cpu_dvfs_id {
 
 /* 1mV=>10uV */
 /* EEM */
-#define EEM_V_BASE		(40000)
-#define EEM_STEP		(625)
+#define EEMG_V_BASE		(40000)
+#define EEMG_STEP		(625)
 
 /* CPU */
 #define CPU_PMIC_BASE_6359	(40000)
@@ -453,11 +451,11 @@ enum mt_cpu_dvfs_id {
 
 
 /* for EEMCTL0's setting */
-#define EEM_CTL0_L			(0x06540007)
-#define EEM_CTL0_B			(0x00980003)
-#define EEM_CTL0_CCI		(0x06540007)
-#define EEM_CTL0_GPU		(0x00100003)
-#define EEM_CTL0_VPU		(0x00010001)
+#define EEMG_CTL0_L			(0x06540007)
+#define EEMG_CTL0_B			(0x00980003)
+#define EEMG_CTL0_CCI		(0x06540007)
+#define EEMG_CTL0_GPU		(0x00100003)
+#define EEMG_CTL0_VPU		(0x00010001)
 
 
 #define AGING_VAL_CPU_L		(0x5) /* CPU aging margin : 31mv*/

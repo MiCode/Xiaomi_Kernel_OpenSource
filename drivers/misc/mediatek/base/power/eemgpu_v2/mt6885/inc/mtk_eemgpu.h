@@ -11,73 +11,69 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MTK_EEM_
-#define _MTK_EEM_
+#ifndef _MTK_EEMG_
+#define _MTK_EEMG_
 
 #include <linux/kernel.h>
 #include <mt-plat/sync_write.h>
-#include "mtk_eem_config.h"
+#include "mtk_eemgpu_config.h"
 
-#define EN_EEM (1) /* enable/disable EEM (SW) */
+#define EN_EEMGPU (1) /* enable/disable EEM (SW) */
 
 /* have 5 banks */
-enum eem_ctrl_id {
-	EEM_CTRL_L,
-	EEM_CTRL_B,
-	EEM_CTRL_CCI,
-#if ENABLE_GPU
-	EEM_CTRL_GPU,
+enum eemg_ctrl_id {
+#if ENABLE_CPU
+	EEMG_CTRL_L,
+	EEMG_CTRL_B,
+	EEMG_CTRL_CCI,
 #endif
+	EEMG_CTRL_GPU,
 #if ENABLE_MDLA
-	EEM_CTRL_MDLA,
+	EEMG_CTRL_MDLA,
 #endif
 #if ENABLE_VPU
-	EEM_CTRL_VPU,
+	EEMG_CTRL_VPU,
 #endif
-#if ENABLE_GPU
 #if ENABLE_LOO_G
-	EEM_CTRL_GPU_HI,
-#endif
+	EEMG_CTRL_GPU_HI,
 #endif
 #if ENABLE_LOO_B
-	EEM_CTRL_B_HI,
+	EEMG_CTRL_B_HI,
 #endif
-	NR_EEM_CTRL,
+	NR_EEMG_CTRL,
 };
 
-enum eem_det_id {
-	EEM_DET_L	=	EEM_CTRL_L,
-	EEM_DET_B	=	EEM_CTRL_B,
-	EEM_DET_CCI	=	EEM_CTRL_CCI,
-#if ENABLE_GPU
-	EEM_DET_GPU     =       EEM_CTRL_GPU,
+enum eemg_det_id {
+#if ENABLE_CPU
+	EEMG_DET_L	=	EEMG_CTRL_L,
+	EEMG_DET_B	=	EEMG_CTRL_B,
+	EEMG_DET_CCI	=	EEMG_CTRL_CCI,
 #endif
+	EEMG_DET_GPU     =       EEMG_CTRL_GPU,
 #if ENABLE_MDLA
-	EEM_DET_MDLA	=	EEM_CTRL_MDLA,
+	EEMG_DET_MDLA	=	EEMG_CTRL_MDLA,
 #endif
 #if ENABLE_VPU
-	EEM_DET_VPU	=	EEM_CTRL_VPU,
+	EEMG_DET_VPU	=	EEMG_CTRL_VPU,
 #endif
-#if ENABLE_GPU
 #if ENABLE_LOO_G
-	EEM_DET_GPU_HI  =       EEM_CTRL_GPU_HI,
-#endif
+	EEMG_DET_GPU_HI  =       EEMG_CTRL_GPU_HI,
 #endif
 #if ENABLE_LOO_B
-	EEM_DET_B_HI	=	EEM_CTRL_B_HI,
+	EEMG_DET_B_HI	=	EEMG_CTRL_B_HI,
 #endif
-	NR_EEM_DET,
+	NR_EEMG_DET,
 };
 
-enum mt_eem_cpu_id {
-	MT_EEM_CPU_LL,
-	MT_EEM_CPU_L,
-	MT_EEM_CPU_CCI,
+enum mt_eemg_cpu_id {
+	MT_EEMG_CPU_LL,
+	MT_EEMG_CPU_L,
+	MT_EEMG_CPU_CCI,
 
-	NR_MT_EEM_CPU,
+	NR_MT_EEMG_CPU,
 };
 
-enum mt_eem_add_extra_mode {
+enum mt_eemg_add_extra_mode {
 	NO_EXTRA,
 	ADD_EXTRA,
 	UNDEF_EXTRA,
@@ -91,59 +87,59 @@ enum {
 	BY_MON_ERROR	= BIT(2),
 };
 
-enum eem_phase {
-	EEM_PHASE_INIT01,
-	EEM_PHASE_INIT02,
-	EEM_PHASE_MON,
-	EEM_PHASE_CORN,
+enum eemg_phase {
+	EEMG_PHASE_INIT01,
+	EEMG_PHASE_INIT02,
+	EEMG_PHASE_MON,
+	EEMG_PHASE_CORN,
 
-	NR_EEM_PHASE,
+	NR_EEMG_PHASE,
 };
 
-enum eem_features {
-	FEA_INIT01	= BIT(EEM_PHASE_INIT01),
-	FEA_INIT02	= BIT(EEM_PHASE_INIT02),
-	FEA_MON		= BIT(EEM_PHASE_MON),
-	FEA_CORN	= BIT(EEM_PHASE_CORN),
+enum eemg_features {
+	FEA_INIT01	= BIT(EEMG_PHASE_INIT01),
+	FEA_INIT02	= BIT(EEMG_PHASE_INIT02),
+	FEA_MON		= BIT(EEMG_PHASE_MON),
+	FEA_CORN	= BIT(EEMG_PHASE_CORN),
 };
 
 enum {
-	EEM_VOLT_NONE	= 0,
-	EEM_VOLT_UPDATE  = BIT(0),
-	EEM_VOLT_RESTORE = BIT(1),
+	EEMG_VOLT_NONE	= 0,
+	EEMG_VOLT_UPDATE  = BIT(0),
+	EEMG_VOLT_RESTORE = BIT(1),
 };
 
 #if ENABLE_LOO
-enum eem_loo_role {
+enum eemg_loo_role {
 	NO_LOO_BANK	=	0,
 	LOW_BANK	=	1,
 	HIGH_BANK	=	2,
 
-	NR_EEM_LOO_BANK,
+	NR_EEMG_LOO_BANK,
 };
 #endif
 
 extern u32 get_devinfo_with_index(u32 index);
-extern unsigned int eem_corn_flag;
-extern const unsigned int reg_dump_addr_off[DUMP_LEN];
+extern unsigned int eemg_corn_flag;
+extern const unsigned int reg_gpu_addr_off[DUMP_LEN];
 
 #ifdef CONFIG_MTK_RAM_CONSOLE
-#define CONFIG_EEM_AEE_RR_REC 1
+#define CONFIG_EEMG_AEE_RR_REC 1
 #endif
 
-#ifdef CONFIG_EEM_AEE_RR_REC
-enum eem_state {
-	EEM_CPU_2_LITTLE_IS_SET_VOLT = 0,	/* 2L */
-	EEM_CPU_LITTLE_IS_SET_VOLT = 1,		/* L */
-	EEM_CPU_CCI_IS_SET_VOLT = 2,		/* CCI */
-#if ENABLE_GPU
-	EEM_GPU_IS_SET_VOLT = 3,		/* G */
-#if ENABLE_LOO
-	EEM_GPU_HI_IS_SET_VOLT = 4,
+#ifdef CONFIG_EEMG_AEE_RR_REC
+enum eemg_state {
+#if ENABLE_CPU
+	EEMG_CPU_2_LITTLE_IS_SET_VOLT = 0,	/* 2L */
+	EEMG_CPU_LITTLE_IS_SET_VOLT = 1,		/* L */
+	EEMG_CPU_CCI_IS_SET_VOLT = 2,		/* CCI */
 #endif
+	EEMG_GPU_IS_SET_VOLT = 3,		/* G */
+#if ENABLE_LOO
+	EEMG_GPU_HI_IS_SET_VOLT = 4,
 #endif
 #if ENABLE_LOO
-	EEM_CPU_BIG_HI_IS_SET_VOLT = 4,
+	EEMG_CPU_BIG_HI_IS_SET_VOLT = 4,
 #endif
 };
 
@@ -190,7 +186,7 @@ extern void aee_rr_rec_ptp_cpu_cci_volt_2(u64 val);
 extern void aee_rr_rec_ptp_cpu_cci_volt_3(u64 val);
 extern void aee_rr_rec_ptp_temp(u64 val);
 extern void aee_rr_rec_ptp_status(u8 val);
-extern void aee_rr_rec_eem_pi_offset(u8 val);
+extern void aee_rr_rec_eemg_pi_offset(u8 val);
 
 extern u32 aee_rr_curr_ptp_devinfo_0(void);
 extern u32 aee_rr_curr_ptp_devinfo_1(void);
@@ -238,14 +234,14 @@ extern u8 aee_rr_curr_ptp_status(void);
 #endif
 
 /* EEM Extern Function */
-extern int mt_eem_status(enum eem_det_id id);
+extern int mt_eemg_status(enum eemg_det_id id);
 extern unsigned int get_efuse_status(void);
-extern unsigned int mt_eem_is_enabled(void);
+extern unsigned int mt_eemg_is_enabled(void);
 
-extern void eem_set_pi_efuse(enum eem_det_id id,
+extern void eemg_set_pi_efuse(enum eemg_det_id id,
 		unsigned int pi_efuse,
 		unsigned int loo_enabled);
-extern void eem_set_pi_dvtfixed(enum eem_det_id id,
+extern void eemg_set_pi_dvtfixed(enum eemg_det_id id,
 		unsigned int pi_dvtfixed);
 
 /* DRCC */

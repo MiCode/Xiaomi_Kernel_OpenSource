@@ -12,8 +12,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MTK_EEM_INTERNAL_H_
-#define _MTK_EEM_INTERNAL_H_
+#ifndef _MTK_EEMG_INTERNAL_H_
+#define _MTK_EEMG_INTERNAL_H_
 
 /*
  * bit operation
@@ -44,25 +44,25 @@
 /*
  * LOG
  */
-#define EEM_TAG	 "[xxxxEEM] "
+#define EEMG_TAG	 "[xxxxEEMG] "
 #if 1
-	#define eem_error(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
-	#define eem_warning(fmt, args...)
-	#define eem_notice(fmt, args...)
-	#define eem_info(fmt, args...)
-	#define eem_debug(fmt, args...)
+	#define eemg_error(fmt, args...)	pr_notice(EEMG_TAG fmt, ##args)
+	#define eemg_warning(fmt, args...)
+	#define eemg_notice(fmt, args...)
+	#define eemg_info(fmt, args...)
+	#define eemg_debug(fmt, args...)
 #else
-	#define eem_error(fmt, args...)	 pr_debug(EEM_TAG fmt, ##args)
-	#define eem_warning(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
-	#define eem_notice(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
-	#define eem_info(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
-	#define eem_debug(fmt, args...)   pr_debug(EEM_TAG fmt, ##args)
+	#define eemg_error(fmt, args...)	 pr_debug(EEMG_TAG fmt, ##args)
+	#define eemg_warning(fmt, args...)   pr_debug(EEMG_TAG fmt, ##args)
+	#define eemg_notice(fmt, args...)   pr_debug(EEMG_TAG fmt, ##args)
+	#define eemg_info(fmt, args...)   pr_debug(EEMG_TAG fmt, ##args)
+	#define eemg_debug(fmt, args...)   pr_debug(EEMG_TAG fmt, ##args)
 #endif
 
 #if EN_ISR_LOG /* For Interrupt use */
-	#define eem_isr_info(fmt, args...)  eem_debug(fmt, ##args)
+	#define eemg_isr_info(fmt, args...)  eemg_debug(fmt, ##args)
 #else
-	#define eem_isr_info(fmt, args...)
+	#define eemg_isr_info(fmt, args...)
 #endif
 
 /* module, platform driver interface */
@@ -77,7 +77,7 @@
 #define FUNC_LV_HELP			BIT(4)
 
 
-#if CONFIG_EEM_SHOWLOG
+#if CONFIG_EEMG_SHOWLOG
 	static unsigned int func_lv_mask = (
 		FUNC_LV_MODULE |
 		FUNC_LV_CPUFREQ |
@@ -87,11 +87,11 @@
 		);
 	#define FUNC_ENTER(lv)	\
 		do { if ((lv) & func_lv_mask) \
-			eem_debug(">> %s()\n", \
+			eemg_debug(">> %s()\n", \
 				__func__); } while (0)
 	#define FUNC_EXIT(lv)	\
 		do { if ((lv) & func_lv_mask) \
-			eem_debug("<< %s():%d\n", \
+			eemg_debug("<< %s():%d\n", \
 				__func__, __LINE__); } while (0)
 #else
 	#define FUNC_ENTER(lv)
@@ -99,25 +99,25 @@
 #endif /* CONFIG_CPU_DVFS_SHOWLOG */
 
 #define TIME_TH_US 3000
-#define EEM_IS_TOO_LONG()   \
-	do {	\
-		eem_diff_us = eem_cTime_us - eem_pTime_us;	\
-		if (eem_diff_us > TIME_TH_US) {				\
-			eem_debug(EEM_TAG "caller_addr %p: %llu us\n", \
-				__builtin_return_address(0), eem_diff_us); \
-		} else if (eem_diff_us < 0) {	\
-			eem_debug(EEM_TAG "E: misuse caller_addr %p\n", \
-				__builtin_return_address(0)); \
-		}	\
-	} while (0)
+#define EEMG_IS_TOO_LONG()   \
+do {	\
+	eemg_diff_us = eemg_cTime_us - eemg_pTime_us;	\
+	if (eemg_diff_us > TIME_TH_US) {				\
+		eemg_debug(EEMG_TAG "caller_addr %p: %llu us\n", \
+			__builtin_return_address(0), eemg_diff_us); \
+	} else if (eemg_diff_us < 0) {	\
+		eemg_debug(EEMG_TAG "E: misuse caller_addr %p\n", \
+			__builtin_return_address(0)); \
+	}	\
+} while (0)
 
 /*
  * REG ACCESS
  */
-#define eem_read(addr)	__raw_readl((void __iomem *)(addr))/*DRV_Reg32(addr)*/
-#define eem_read_field(addr, range)	\
-	((eem_read(addr) & BITMASK(range)) >> LSB(range))
-#define eem_write(addr, val)	mt_reg_sync_writel(val, addr)
+#define eemg_read(addr)	__raw_readl((void __iomem *)(addr))/*DRV_Reg32(addr)*/
+#define eemg_read_field(addr, range)	\
+	((eemg_read(addr) & BITMASK(range)) >> LSB(range))
+#define eemg_write(addr, val)	mt_reg_sync_writel(val, addr)
 
 /**
  * Write a field of a register.
@@ -125,8 +125,8 @@
  * @range:	The field bit range in the form of MSB:LSB
  * @val:	The value to be written to the field
  */
-#define eem_write_field(addr, range, val)	\
-	eem_write(addr, (eem_read(addr) & ~BITMASK(range)) | BITS(range, val))
+#define eemg_write_field(addr, range, val)	\
+	eemg_write(addr, (eemg_read(addr) & ~BITMASK(range)) | BITS(range, val))
 
 /**
  * Helper macros
@@ -136,56 +136,56 @@
  * @det:	the detector * to use as a loop cursor.
  */
 #define for_each_det(det) \
-		for (det = eem_detectors; \
-		det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
+		for (det = eemg_detectors; \
+		det < (eemg_detectors + ARRAY_SIZE(eemg_detectors)); \
 		det++)
 
 /**
  * iterate over list of detectors and its controller
  * @det:	the detector * to use as a loop cursor.
- * @ctrl:	the eem_ctrl * to use as ctrl pointer of current det.
+ * @ctrl:	the eemg_ctrl * to use as ctrl pointer of current det.
  */
 #define for_each_det_ctrl(det, ctrl)				\
-		for (det = eem_detectors,				\
-		ctrl = id_to_eem_ctrl(det->ctrl_id);		\
-		det < (eem_detectors + ARRAY_SIZE(eem_detectors)); \
+		for (det = eemg_detectors,				\
+		ctrl = id_to_eemg_ctrl(det->ctrl_id);		\
+		det < (eemg_detectors + ARRAY_SIZE(eemg_detectors)); \
 		det++,						\
-		ctrl = id_to_eem_ctrl(det->ctrl_id))
+		ctrl = id_to_eemg_ctrl(det->ctrl_id))
 
 /**
  * iterate over list of controllers
- * @pos:	the eem_ctrl * to use as a loop cursor.
+ * @pos:	the eemg_ctrl * to use as a loop cursor.
  */
 #define for_each_ctrl(ctrl) \
-		for (ctrl = eem_ctrls; \
-		ctrl < (eem_ctrls + ARRAY_SIZE(eem_ctrls)); \
+		for (ctrl = eemg_ctrls; \
+		ctrl < (eemg_ctrls + ARRAY_SIZE(eemg_ctrls)); \
 		ctrl++)
 
 /**
- * Given a eem_det * in eem_detectors. Return the id.
- * @det:	pointer to a eem_det in eem_detectors
+ * Given a eemg_det * in eemg_detectors. Return the id.
+ * @det:	pointer to a eemg_det in eemg_detectors
  */
-#define det_to_id(det)	((det) - &eem_detectors[0])
+#define det_to_id(det)	((det) - &eemg_detectors[0])
 
 /**
- * Given a eem_ctrl * in eem_ctrls. Return the id.
- * @det:	pointer to a eem_ctrl in eem_ctrls
+ * Given a eemg_ctrl * in eemg_ctrls. Return the id.
+ * @det:	pointer to a eemg_ctrl in eemg_ctrls
  */
-#define ctrl_to_id(ctrl)	((ctrl) - &eem_ctrls[0])
+#define ctrl_to_id(ctrl)	((ctrl) - &eemg_ctrls[0])
 
 /**
  * Check if a detector has a feature
- * @det:	pointer to a eem_det to be check
- * @feature:	enum eem_features to be checked
+ * @det:	pointer to a eemg_det to be check
+ * @feature:	enum eemg_features to be checked
  */
 #define HAS_FEATURE(det, feature)	((det)->features & feature)
 
 #define PERCENT(numerator, denominator)	\
 	(unsigned char)(((numerator) * 100 + (denominator) - 1) / (denominator))
 
-struct eem_ctrl {
+struct eemg_ctrl {
 	const char *name;
-	enum eem_det_id det_id;
+	enum eemg_det_id det_id;
 	/* struct completion init_done; */
 	/* atomic_t in_init; */
 
@@ -196,17 +196,14 @@ struct eem_ctrl {
 	struct task_struct *thread;
 };
 
-/* define main structures in mtk_eem_internal.c */
-extern struct eem_ctrl eem_ctrls[NR_EEM_CTRL];
-extern struct eem_det eem_detectors[NR_EEM_DET];
-#if ENABLE_LOO
-extern struct eem_det eem_detector_cci;
-#endif
-extern struct eem_det_ops eem_det_base_ops;
+/* define main structures in mtk_eemg_internal.c */
+extern struct eemg_ctrl eemg_ctrls[NR_EEMG_CTRL];
+extern struct eemg_det eemg_detectors[NR_EEMG_DET];
+extern struct eemg_det_ops eemg_det_base_ops;
 
-/* define common operations in mtk_eem_internal.c */
-extern int base_ops_volt_2_pmic(struct eem_det *det, int volt);
-extern int base_ops_volt_2_eem(struct eem_det *det, int volt);
-extern int base_ops_pmic_2_volt(struct eem_det *det, int pmic_val);
-extern int base_ops_eem_2_pmic(struct eem_det *det, int eev_val);
+/* define common operations in mtk_eemg_internal.c */
+extern int base_ops_volt_2_pmic_gpu(struct eemg_det *det, int volt);
+extern int base_ops_volt_2_eemg(struct eemg_det *det, int volt);
+extern int base_ops_pmic_2_volt_gpu(struct eemg_det *det, int pmic_val);
+extern int base_ops_eemg_2_pmic(struct eemg_det *det, int eev_val);
 #endif

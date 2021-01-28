@@ -12,51 +12,51 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _MTK_EEM_INTERNAL_AP_H_
-#define _MTK_EEM_INTERNAL_AP_H_
+#ifndef _MTK_EEMG_INTERNAL_AP_H_
+#define _MTK_EEMG_INTERNAL_AP_H_
 
-struct eem_det;
-struct eem_ctrl;
+struct eemg_det;
+struct eemg_ctrl;
 
-struct eem_det_ops {
+struct eemg_det_ops {
 	/* interface to EEM */
-	void (*enable)(struct eem_det *det, int reason);
-	void (*disable)(struct eem_det *det, int reason);
-	void (*disable_locked)(struct eem_det *det, int reason);
-	void (*switch_bank)(struct eem_det *det, enum eem_phase phase);
+	void (*enable_gpu)(struct eemg_det *det, int reason);
+	void (*disable_gpu)(struct eemg_det *det, int reason);
+	void (*disable_locked_gpu)(struct eemg_det *det, int reason);
+	void (*switch_bank_gpu)(struct eemg_det *det, enum eemg_phase phase);
 
-	int (*init01)(struct eem_det *det);
-	int (*init02)(struct eem_det *det);
-	int (*mon_mode)(struct eem_det *det);
+	int (*init01_gpu)(struct eemg_det *det);
+	int (*init02_gpu)(struct eemg_det *det);
+	int (*mon_mode_gpu)(struct eemg_det *det);
 
-	int (*get_status)(struct eem_det *det);
-	void (*dump_status)(struct eem_det *det);
+	int (*get_status_gpu)(struct eemg_det *det);
+	void (*dump_status_gpu)(struct eemg_det *det);
 
-	void (*set_phase)(struct eem_det *det, enum eem_phase phase);
+	void (*set_phase_gpu)(struct eemg_det *det, enum eemg_phase phase);
 
 	/* interface to thermal */
-	int (*get_temp)(struct eem_det *det);
+	int (*get_temp_gpu)(struct eemg_det *det);
 
 	/* interface to DVFS */
-	int (*get_volt)(struct eem_det *det);
-	int (*set_volt)(struct eem_det *det);
-	void (*restore_default_volt)(struct eem_det *det);
-	void (*get_freq_table)(struct eem_det *det);
-	void (*get_orig_volt_table)(struct eem_det *det);
+	int (*get_volt_gpu)(struct eemg_det *det);
+	int (*set_volt_gpu)(struct eemg_det *det);
+	void (*restore_default_volt_gpu)(struct eemg_det *det);
+	void (*get_freq_table_gpu)(struct eemg_det *det);
+	void (*get_orig_volt_table_gpu)(struct eemg_det *det);
 
 	/* interface to PMIC */
-	int (*volt_2_pmic)(struct eem_det *det, int volt);
-	int (*volt_2_eem)(struct eem_det *det, int volt);
-	int (*pmic_2_volt)(struct eem_det *det, int pmic_val);
-	int (*eem_2_pmic)(struct eem_det *det, int eev_val);
+	int (*volt_2_pmic_gpu)(struct eemg_det *det, int volt);
+	int (*volt_2_eemg)(struct eemg_det *det, int volt);
+	int (*pmic_2_volt_gpu)(struct eemg_det *det, int pmic_val);
+	int (*eemg_2_pmic)(struct eemg_det *det, int eev_val);
 };
 
-struct eem_det {
+struct eemg_det {
 	const char *name;
-	struct eem_det_ops *ops;
+	struct eemg_det_ops *ops;
 	int status;			/* TODO: enable/disable */
-	int features;		/* enum eem_features */
-	enum eem_ctrl_id ctrl_id;
+	int features;		/* enum eemg_features */
+	enum eemg_ctrl_id ctrl_id;
 
 	/* devinfo */
 	unsigned int EEMINITEN;
@@ -89,23 +89,23 @@ struct eem_det {
 	unsigned int EEMCTL0;
 
 	/* for PMIC */
-	unsigned int eem_v_base;
-	unsigned int eem_step;
+	unsigned int eemg_v_base;
+	unsigned int eemg_step;
 	unsigned int pmic_base;
 	unsigned int pmic_step;
 
 	/* for debug */
-	unsigned int dcvalues[NR_EEM_PHASE];
+	unsigned int dcvalues[NR_EEMG_PHASE];
 
-	unsigned int freqpct30[NR_EEM_PHASE];
-	unsigned int eem_26c[NR_EEM_PHASE];
-	unsigned int vop30[NR_EEM_PHASE];
-	unsigned int eem_eemEn[NR_EEM_PHASE];
+	unsigned int freqpct30[NR_EEMG_PHASE];
+	unsigned int eemg_26c[NR_EEMG_PHASE];
+	unsigned int vop30[NR_EEMG_PHASE];
+	unsigned int eemg_eemEn[NR_EEMG_PHASE];
 	int temp; /* temperature */
 	unsigned int real_vboot;
 
 #if DUMP_DATA_TO_DE
-	unsigned int reg_dump_data[ARRAY_SIZE(reg_dump_addr_off)][NR_EEM_PHASE];
+	unsigned int reg_dump_data[ARRAY_SIZE(reg_gpu_addr_off)][NR_EEMG_PHASE];
 #endif
 	/* slope */
 	unsigned int MTS;
@@ -156,7 +156,7 @@ struct eem_det {
 
 };
 
-struct eem_devinfo {
+struct eemg_devinfo {
 	/* M_HW_RES0 0x11f1_0580 */
 	unsigned int PI_DVTFIX_B:4;
 	unsigned int FT_PGM:4;
@@ -321,13 +321,13 @@ struct eem_devinfo {
  */
 extern unsigned int freq[NR_FREQ];
 
-extern struct mutex record_mutex;
+extern struct mutex gpu_record_mutex;
 #if ENABLE_LOO_B
-extern struct mutex bcpu_mutex;
+extern struct mutex bcpu_mutex_g;
 #endif
 #if ENABLE_LOO_G
 /* extern struct mutex lcpu_mutex; */
-extern struct mutex gpu_mutex;
+extern struct mutex gpu_mutex_g;
 #endif
 
 extern void mt_record_lock(unsigned long *flags);
@@ -337,29 +337,29 @@ extern void mt_record_unlock(unsigned long *flags);
 extern unsigned int record_tbl_locked[NR_FREQ];
 
 /**************************************************
- *extern variables and operations defined at mtk_eem_platform.c
+ *extern variables and operations defined at mtk_eemg_platform.c
  ***************************************************
  */
-extern struct eem_det_ops gpu_det_ops;
+extern struct eemg_det_ops gpu_det_ops;
 #if ENABLE_VPU
-extern struct eem_det_ops vpu_det_ops;
+extern struct eemg_det_ops vpu_det_ops;
 #endif
 #if ENABLE_MDLA
-extern struct eem_det_ops mdla_det_ops;
+extern struct eemg_det_ops mdla_det_ops;
 #endif
-extern struct eem_det_ops cpu_det_ops;
-extern struct eem_det_ops cci_det_ops;
+extern struct eemg_det_ops cpu_det_ops;
+extern struct eemg_det_ops cci_det_ops;
 
-extern int get_volt_cpu(struct eem_det *det);
-extern int set_volt_cpu(struct eem_det *det);
-extern void restore_default_volt_cpu(struct eem_det *det);
-extern void get_freq_table_cpu(struct eem_det *det);
-extern void get_orig_volt_table_cpu(struct eem_det *det);
-extern int get_volt_gpu(struct eem_det *det);
-extern int set_volt_gpu(struct eem_det *det);
-extern void restore_default_volt_gpu(struct eem_det *det);
-extern void get_freq_table_gpu(struct eem_det *det);
-extern void get_orig_volt_table_gpu(struct eem_det *det);
+extern int get_volt_cpu1(struct eemg_det *det);
+extern int set_volt_cpu1(struct eemg_det *det);
+extern void restore_default_volt_cpu1(struct eemg_det *det);
+extern void get_freq_table_cpu1(struct eemg_det *det);
+extern void get_orig_volt_table_cpu1(struct eemg_det *det);
+extern int get_volt_gpu(struct eemg_det *det);
+extern int set_volt_gpu(struct eemg_det *det);
+extern void restore_default_volt_gpu(struct eemg_det *det);
+extern void get_freq_table_gpu(struct eemg_det *det);
+extern void get_orig_volt_table_gpu(struct eemg_det *det);
 #if ENABLE_VPU
 extern int get_volt_vpu(struct eemg_det *det);
 extern int set_volt_vpu(struct eemg_det *det);
@@ -370,30 +370,28 @@ extern void get_orig_volt_table_vpu(struct eemg_det *det);
 #if ENABLE_MDLA
 extern int get_volt_mdla(struct eemg_det *det);
 #endif
-
-
 /*********************************************
  *extern operations defined at mtk_eem.c
  *********************************************
  */
-extern void base_ops_enable(struct eem_det *det, int reason);
-extern void base_ops_disable(struct eem_det *det, int reason);
-extern void base_ops_disable_locked(struct eem_det *det, int reason);
-extern void base_ops_switch_bank(struct eem_det *det, enum eem_phase phase);
+extern void base_ops_enable_gpu(struct eemg_det *det, int reason);
+extern void base_ops_disable_gpu(struct eemg_det *det, int reason);
+extern void base_ops_disable_locked_gpu(struct eemg_det *det, int reason);
+extern void base_ops_switch_bank_gpu(struct eemg_det *det,
+	enum eemg_phase phase);
+extern int base_ops_init01_gpu(struct eemg_det *det);
+extern int base_ops_init02_gpu(struct eemg_det *det);
+extern int base_ops_mon_mode_gpu(struct eemg_det *det);
 
-extern int base_ops_init01(struct eem_det *det);
-extern int base_ops_init02(struct eem_det *det);
-extern int base_ops_mon_mode(struct eem_det *det);
+extern int base_ops_get_status_gpu(struct eemg_det *det);
+extern void base_ops_dump_status_gpu(struct eemg_det *det);
 
-extern int base_ops_get_status(struct eem_det *det);
-extern void base_ops_dump_status(struct eem_det *det);
-
-extern void base_ops_set_phase(struct eem_det *det, enum eem_phase phase);
-extern int base_ops_get_temp(struct eem_det *det);
-extern int base_ops_get_volt(struct eem_det *det);
-extern int base_ops_set_volt(struct eem_det *det);
-extern void base_ops_restore_default_volt(struct eem_det *det);
-extern void base_ops_get_freq_table(struct eem_det *det);
-extern void base_ops_get_orig_volt_table(struct eem_det *det);
+extern void base_ops_set_phase_gpu(struct eemg_det *det, enum eemg_phase phase);
+extern int base_ops_get_temp_gpu(struct eemg_det *det);
+extern int base_ops_get_volt_gpu(struct eemg_det *det);
+extern int base_ops_set_volt_gpu(struct eemg_det *det);
+extern void base_ops_restore_default_volt_gpu(struct eemg_det *det);
+extern void base_ops_get_freq_table_gpu(struct eemg_det *det);
+extern void base_ops_get_orig_volt_table_gpu(struct eemg_det *det);
 #endif
 
