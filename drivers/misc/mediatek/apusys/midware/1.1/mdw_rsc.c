@@ -685,11 +685,29 @@ static int mdw_rsc_delete_dev(struct mdw_dev_info *d)
 	return 0;
 }
 
+static int mdw_rsc_check_dev_state(struct mdw_dev_info *in)
+{
+	struct mdw_rsc_tab *tab = NULL;
+	int type = 0;
+
+	if (in->type < APUSYS_DEVICE_RT)
+		type = in->type + APUSYS_DEVICE_RT;
+	else
+		type = in->type % APUSYS_DEVICE_RT;
+
+	tab = mdw_rsc_get_tab(type);
+	if (!tab)
+		return 0;
+
+	return tab->array[in->idx]->state == MDW_DEV_INFO_STATE_IDLE
+		? 0 : -EBUSY;
+}
+
 static struct mdw_dev_info *mdw_rsc_get_dev_sq(int type)
 {
 	int i = 0;
 	struct mdw_rsc_tab *tab = NULL;
-	struct mdw_dev_info *d = NULL;
+	struct mdw_dev_info *d = NULL, *first_d = NULL;
 
 	tab = mdw_rsc_get_tab(type);
 	if (!tab)
@@ -698,10 +716,21 @@ static struct mdw_dev_info *mdw_rsc_get_dev_sq(int type)
 	for (i = 0; i < tab->dev_num; i++) {
 		if (tab->array[i]->state == MDW_DEV_INFO_STATE_IDLE) {
 			d = tab->array[i];
-			break;
+			/* record first idle device */
+			if (!first_d)
+				first_d = d;
+
+			/* check rt device state */
+			if (!mdw_rsc_check_dev_state(d))
+				break;
 		}
 		d = NULL;
 	}
+
+	/* if all device busy, assign first idle device */
+	if (!d && first_d)
+		d = first_d;
+	/* remove device */
 	if (d) {
 		tab->avl_num--;
 		list_del(&d->t_item);
@@ -710,21 +739,6 @@ static struct mdw_dev_info *mdw_rsc_get_dev_sq(int type)
 	}
 
 	return d;
-}
-
-static int mdw_rsc_check_norm_dev_state(struct mdw_dev_info *in)
-{
-	struct mdw_rsc_tab *tab = NULL;
-
-	if (in->type < APUSYS_DEVICE_RT)
-		return 0;
-
-	tab = mdw_rsc_get_tab(in->type % APUSYS_DEVICE_RT);
-	if (!tab)
-		return 0;
-
-	return tab->array[in->idx]->state == MDW_DEV_INFO_STATE_IDLE
-		? 0 : -EBUSY;
 }
 
 static struct mdw_dev_info *mdw_rsc_get_dev_rr(int type)
@@ -740,7 +754,7 @@ static struct mdw_dev_info *mdw_rsc_get_dev_rr(int type)
 	/* check normal device state to make preempt prefer idle device */
 	list_for_each_safe(list_ptr, tmp, &tab->list) {
 		d = list_entry(list_ptr, struct mdw_dev_info, t_item);
-		if (!mdw_rsc_check_norm_dev_state(d))
+		if (!mdw_rsc_check_dev_state(d))
 			break;
 		d = NULL;
 	}
