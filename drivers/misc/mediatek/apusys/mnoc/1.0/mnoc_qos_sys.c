@@ -184,7 +184,7 @@ int mnoc_qos_create_sys(struct device *dev)
 	/* create /sys/kernel/apusys/mnoc_apu_qos_boost */
 	ret = sysfs_create_file(p_mnoc->root_dir, &apu_qos_boost_attr.attr);
 	if (!ret)
-		LOG_ERR("%s create boost attribute fail, ret %d\n", __func__, ret);
+		goto out;
 
 	ret = kobject_uevent(p_mnoc->root_dir, KOBJ_ADD);
 	if (!ret)
@@ -193,11 +193,9 @@ int mnoc_qos_create_sys(struct device *dev)
 	/* create /sys/devices/platform/xxxx/qos */
 	ret = sysfs_create_group(&dev->kobj, &mnoc_qos_attr_group);
 	if (!ret)
-		LOG_ERR("%s create qos attribute fail, ret %d\n", __func__, ret);
+		goto out;
 
 	ret = kobject_uevent(&dev->kobj, KOBJ_CHANGE);
-	if (!ret)
-		goto out;
 out:
 	return ret;
 }
