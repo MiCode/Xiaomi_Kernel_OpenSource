@@ -43,9 +43,6 @@ struct ion_fb_heap {
 	size_t size;
 };
 
-static int ion_fb_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
-				  void *unused);
-
 struct sg_table *ion_fb_heap_map_dma(struct ion_heap *heap,
 				     struct ion_buffer *buffer)
 {

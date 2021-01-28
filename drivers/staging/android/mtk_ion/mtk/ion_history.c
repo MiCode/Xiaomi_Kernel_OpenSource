@@ -17,7 +17,12 @@
 #include <linux/mutex.h>
 //#include <mmprofile.h>
 //#include <mmprofile_function.h>
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 #include <linux/kthread.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/clock.h>
@@ -33,6 +38,7 @@
 /* history record */
 /* ============================================== */
 
+#if IS_ENABLED(CONFIG_DEBUG_FS) || IS_ENABLED(CONFIG_PROC_FS)
 struct history_record {
 	void *record;
 	unsigned int record_num;
@@ -41,7 +47,12 @@ struct history_record {
 	unsigned int wrapped;
 	spinlock_t lock;	/*protect ion record info */
 	const char *name;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *debug_file;
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	struct proc_dir_entry *proc_file;
+#endif
 	int (*show)(struct seq_file *seq, void *record, void *priv);
 	int (*destroy_record)(void *record, void *priv);
 	void *private;
@@ -217,9 +228,9 @@ static const struct seq_operations seq_op = {
 	.show = history_rec_show,
 };
 
-static int history_rec_open(struct inode *inode, struct file *file)
+static int history_rec_open(void *data, struct file *file)
 {
-	struct history_record *history_record = inode->i_private;
+	struct history_record *history_record = (struct history_record *)data;
 	struct history_seq_priv *seq_priv;
 	int res = -ENOMEM;
 
@@ -251,12 +262,47 @@ static int history_rec_release(struct inode *inode, struct file *file)
 	return seq_release(inode, file);
 }
 
-static const struct file_operations history_rec_fops = {
-	.open = history_rec_open,
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+static int debug_history_rec_open(struct inode *inode, struct file *file)
+{
+	history_rec_open(inode->i_private, file);
+
+	return 0;
+}
+
+static int debug_history_rec_release(struct inode *inode, struct file *file)
+{
+	return history_rec_release(inode, file);
+}
+
+static const struct file_operations debug_history_rec_fops = {
+	.open = debug_history_rec_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.release = history_rec_release,
+	.release = debug_history_rec_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int proc_history_rec_open(struct inode *inode, struct file *file)
+{
+	history_rec_open(PDE_DATA(inode), file);
+
+	return 0;
+}
+
+static int proc_history_rec_release(struct inode *inode, struct file *file)
+{
+	return history_rec_release(inode, file);
+}
+
+static const struct file_operations proc_history_rec_fops = {
+	.open = proc_history_rec_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = proc_history_rec_release,
+};
+#endif
 
 struct history_record *history_rec_create(unsigned int record_num,
 					  unsigned int record_size,
@@ -266,7 +312,7 @@ struct history_record *history_rec_create(unsigned int record_num,
 					  int (*destroy_record)(void *record,
 								void *priv),
 					  void *priv, const char *name,
-					  struct dentry *debugfs_parent)
+					  struct ion_device *dev)
 {
 	struct history_record *history_record;
 	int num_align;
@@ -305,10 +351,19 @@ struct history_record *history_rec_create(unsigned int record_num,
 	history_record->name = name;
 	spin_lock_init(&history_record->lock);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	history_record->debug_file =
-	    debugfs_create_file(name, 0644, debugfs_parent, history_record,
-				&history_rec_fops);
+	    debugfs_create_file(name, 0644, dev->debug_root, history_record,
+				&debug_history_rec_fops);
+#endif
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+	history_record->proc_file = proc_create_data(name,
+						     S_IFREG | 0664,
+						     dev->proc_root,
+						     &proc_history_rec_fops,
+						     history_record);
+#endif
 	return history_record;
 }
 
@@ -319,7 +374,13 @@ void history_rec_destroy(struct history_record *history_record)
 	    BITS_TO_LONGS(history_record->record_num);
 	unsigned int end;
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove(history_record->debug_file);
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_remove(history_record->proc_file);
+#endif
 
 	spin_lock(&history_record->lock);
 	/* wait until no busy */
@@ -456,6 +517,7 @@ int string_hash_debug_show(struct seq_file *seq, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static int string_hash_debug_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, string_hash_debug_show, inode->i_private);
@@ -467,6 +529,21 @@ static const struct file_operations string_hash_debug_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int string_hash_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, string_hash_debug_show, PDE_DATA(inode));
+}
+
+static const struct file_operations string_hash_proc_fops = {
+	.open = string_hash_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 
 /* ===== ion client history  ======= */
 
@@ -719,15 +796,22 @@ int ion_history_init(void)
 					      ion_client_record_show,
 					      ion_client_destroy_record,
 					      NULL, "client_history",
-					      g_ion_device->debug_root);
+					      g_ion_device);
 
 	if (IS_ERR_OR_NULL(g_client_history)) {
 		IONMSG("create client history fail\n");
 		return (long)g_client_history;
 	}
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_create_file("string_hash", 0644, g_ion_device->debug_root, NULL,
 			    &string_hash_debug_fops);
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_create("string_hash", S_IFREG | 0644, g_ion_device->proc_root,
+		    &string_hash_proc_fops);
+#endif
 
 	init_waitqueue_head(&ion_history_wq);
 	ion_history_kthread = kthread_run(ion_history_record, NULL, "%s",
@@ -749,3 +833,14 @@ void ion_history_count_kick(bool allc, size_t len)
 		wake_up_interruptible(&ion_history_wq);
 	}
 }
+#else
+int ion_history_init(void)
+{
+	return 0;
+}
+
+void ion_history_count_kick(bool allc, size_t len)
+{
+	/*do nothing */
+}
+#endif

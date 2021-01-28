@@ -19,7 +19,13 @@
 
 #include <linux/vmalloc.h>
 #include "ion_profile.h"
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
+#include <linux/seq_file.h>
 #include "ion_priv.h"
 #include "ion_drv_priv.h"
 #include "mtk/mtk_ion.h"
@@ -720,6 +726,7 @@ int ion_device_destroy_heaps(struct ion_device *dev)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS) || IS_ENABLED(CONFIG_PROC_FS)
 /*for clients ion mm heap summary size*/
 static int ion_clients_summary_show(struct seq_file *s, void *unused)
 {
@@ -769,6 +776,7 @@ static int ion_clients_summary_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static int ion_debug_client_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, ion_clients_summary_show, inode->i_private);
@@ -780,6 +788,22 @@ static const struct file_operations debug_client_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int ion_proc_client_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_clients_summary_show, PDE_DATA(inode));
+}
+
+static const struct file_operations proc_client_fops = {
+	.open = ion_proc_client_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
+#endif
 
 #ifdef CONFIG_MTK_IOMMU_V2
 struct device *g_iommu_device;
@@ -838,13 +862,22 @@ static int ion_drv_probe(struct platform_device *pdev)
 	g_ion_device->dev.this_device->archdata.dev_dma_ops = NULL;
 	#endif
 	arch_setup_dma_ops(g_ion_device->dev.this_device, 0, 0, NULL, false);
-	/* debugfs_create_file("ion_profile", 0644, g_ion_device->debug_root,*/
-	/*  NULL, &debug_profile_fops); */
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_create_file("clients_summary", 0644,
 			    g_ion_device->clients_debug_root, NULL,
 			    &debug_client_fops);
 	debugfs_create_symlink("ion_mm_heap", g_ion_device->debug_root,
 			       "./heaps/ion_mm_heap");
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_create("clients_summary", S_IFREG | 0664,
+		    g_ion_device->clients_proc_root,
+		    &proc_client_fops);
+	proc_symlink("ion_mm_heap", g_ion_device->proc_root,
+		     "./heaps/ion_mm_heap");
+#endif
 
 	ion_history_init();
 	ion_profile_init();

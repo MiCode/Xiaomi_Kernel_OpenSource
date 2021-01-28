@@ -23,7 +23,12 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/vmalloc.h>
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
 #include <linux/sched/task.h>
@@ -726,6 +731,7 @@ static int ion_client_validate(struct ion_device *dev,
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS) || IS_ENABLED(CONFIG_PROC_FS)
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
 	struct ion_client *client = s->private;
@@ -802,6 +808,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static int ion_debug_client_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, ion_debug_client_show, inode->i_private);
@@ -813,6 +820,22 @@ static const struct file_operations debug_client_fops = {
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int ion_proc_client_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_client_show, PDE_DATA(inode));
+}
+
+static const struct file_operations proc_client_fops = {
+	.open = ion_proc_client_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
+#endif
 
 static int ion_get_client_serial(const struct rb_root *root,
 				 const unsigned char *name)
@@ -896,6 +919,7 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 	rb_link_node(&client->node, parent, p);
 	rb_insert_color(&client->node, &dev->clients);
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	client->debug_root = debugfs_create_file(client->display_name, 0664,
 						 dev->clients_debug_root,
 						 client, &debug_client_fops);
@@ -906,6 +930,18 @@ struct ion_client *ion_client_create(struct ion_device *dev,
 		IONMSG("Failed to create client debugfs at %s/%s\n",
 		       path, client->display_name);
 	}
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	client->proc_root = proc_create_data(client->display_name,
+					     S_IFREG | 0664,
+					     dev->clients_proc_root,
+					     &proc_client_fops,
+					     client);
+	if (!client->proc_root)
+		ion_err("Failed to create client procfs at /proc/ion/clients/%s\n",
+			client->display_name);
+#endif
 
 	up_write(&dev->lock);
 
@@ -952,7 +988,12 @@ void ion_client_destroy(struct ion_client *client)
 	if (client->task)
 		put_task_struct(client->task);
 	rb_erase(&client->node, &dev->clients);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove_recursive(client->debug_root);
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_remove(client->proc_root);
+#endif
 	up_write(&dev->lock);
 
 	kfree(client->display_name);
@@ -1846,6 +1887,7 @@ static const struct file_operations ion_fops = {
 	.compat_ioctl   = compat_ion_ioctl,
 };
 
+#if IS_ENABLED(CONFIG_DEBUG_FS) || IS_ENABLED(CONFIG_PROC_FS)
 static size_t ion_debug_heap_total(struct ion_client *client,
 				   unsigned int id)
 {
@@ -1984,18 +2026,6 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	return 0;
 }
 
-static int ion_debug_heap_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, ion_debug_heap_show, inode->i_private);
-}
-
-static const struct file_operations debug_heap_fops = {
-	.open = ion_debug_heap_open,
-	.read = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 static int debug_shrink_set(void *data, u64 val)
 {
 	struct ion_heap *heap = data;
@@ -2028,12 +2058,65 @@ static int debug_shrink_get(void *data, u64 *val)
 	return 0;
 }
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+static int ion_debug_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_heap_show, inode->i_private);
+}
+
+static const struct file_operations debug_heap_fops = {
+	.open = ion_debug_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 DEFINE_SIMPLE_ATTRIBUTE(debug_shrink_fops, debug_shrink_get,
 			debug_shrink_set, "%llu\n");
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static int ion_proc_heap_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ion_debug_heap_show, PDE_DATA(inode));
+}
+
+static const struct file_operations proc_heap_fops = {
+	.open = ion_proc_heap_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int proc_shrink_fops_open(struct inode *inode, struct file *file)
+{
+	struct inode local_inode = *inode;
+
+	local_inode.i_private = PDE_DATA(inode);
+
+	return simple_attr_open(&local_inode, file, debug_shrink_get,
+				debug_shrink_set, "%llu\n");
+}
+
+static const struct file_operations proc_shrink_fops = {
+	.owner	 = THIS_MODULE,
+	.open	 = proc_shrink_fops_open,
+	.release = simple_attr_release,
+	.read	 = simple_attr_read,
+	.write	 = simple_attr_write,
+	.llseek	 = generic_file_llseek,
+};
+#endif
+#endif
 
 void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *debug_file;
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	struct proc_dir_entry *proc_file;
+#endif
 
 	if (!heap->ops->allocate || !heap->ops->free)
 		IONMSG("%s: can not add heap with invalid ops struct.\n",
@@ -2056,6 +2139,8 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 	 */
 	plist_node_init(&heap->node, -heap->id);
 	plist_add(&heap->node, &dev->heaps);
+
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debug_file = debugfs_create_file(heap->name, 0664,
 					 dev->heaps_debug_root, heap,
 					 &debug_heap_fops);
@@ -2087,6 +2172,37 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 				 path, debug_name);
 		}
 	}
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_file = proc_create_data(heap->name,
+				     S_IFREG | 0644,
+				     dev->heaps_proc_root,
+				     &proc_heap_fops,
+				     heap);
+
+	if (!proc_file)
+		IONMSG("Failed to create heap procfs at /proc/ion/heaps/%s\n",
+		       heap->name);
+
+	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
+		char debug_name[64];
+		int name_length = 0;
+
+		name_length = snprintf(debug_name, 64, "%s_shrink", heap->name);
+		if (name_length <= 0)
+			IONMSG("%s set debug name error, heap %s\n",
+			       __func__, heap->name);
+		proc_file = proc_create_data(debug_name,
+					     S_IFREG | 0644,
+					     dev->heaps_proc_root,
+					     &proc_shrink_fops,
+					     heap);
+		if (!proc_file)
+			ion_info("Failed to create heap shrinker procfs at /proc/ion/heaps/%s\n",
+				 debug_name);
+	}
+#endif
 
 	dev->heap_cnt++;
 	up_write(&dev->lock);
@@ -2172,6 +2288,7 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 		goto err_sysfs;
 	}
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	idev->debug_root = debugfs_create_dir("ion", NULL);
 	if (!idev->debug_root) {
 		IONMSG("ion: failed to create debugfs root directory.\n");
@@ -2188,7 +2305,25 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 		IONMSG("ion: failed to create debugfs clients directory.\n");
 
 debugfs_done:
+#endif
 
+#if IS_ENABLED(CONFIG_PROC_FS)
+	idev->proc_root = proc_mkdir("ion", NULL);
+	if (!idev->proc_root) {
+		IONMSG("ion: failed to create procfs root directory.\n");
+		goto procfs_done;
+	}
+	idev->heaps_proc_root = proc_mkdir("heaps", idev->proc_root);
+	if (!idev->heaps_proc_root) {
+		IONMSG("ion: failed to create procfs heaps directory.\n");
+		goto procfs_done;
+	}
+	idev->clients_proc_root = proc_mkdir("clients", idev->proc_root);
+	if (!idev->clients_proc_root)
+		IONMSG("ion: failed to create procfs clients directory.\n");
+
+procfs_done:
+#endif
 	idev->custom_ioctl = custom_ioctl;
 	idev->buffers = RB_ROOT;
 	mutex_init(&idev->buffer_lock);
@@ -2208,7 +2343,12 @@ EXPORT_SYMBOL(ion_device_create);
 void ion_device_destroy(struct ion_device *dev)
 {
 	misc_deregister(&dev->dev);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove_recursive(dev->debug_root);
+#endif
+#if IS_ENABLED(CONFIG_PROC_FS)
+	proc_remove(dev->proc_root);
+#endif
 	/* XXX need to free the heaps and clients ? */
 	kfree(dev);
 }
