@@ -10,3 +10,4 @@ obj-$(CONFIG_MTK_LIS3DH_NEW) += lis3dh/
 obj-$(CONFIG_MTK_MC3410_I2C) += mc3410-i2c/
 obj-$(CONFIG_MTK_MC3433) += mc3433/
 obj-$(CONFIG_MTK_MPU6050G) += mpu6050g/
+obj-$(CONFIG_MTK_BMA2XX)   += bma2xx/
