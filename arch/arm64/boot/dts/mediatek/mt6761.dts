@@ -626,6 +626,8 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,kp";
 		reg = <0 0x10010000 0 0x1000>;
 		interrupts = <GIC_SPI 124 IRQ_TYPE_EDGE_FALLING>;
+		clocks = <&clk26m>;
+		clock-names = "kpd";
 	};
 
 	mrdump_ext_rst: mrdump_ext_rst {
