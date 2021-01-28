@@ -626,6 +626,11 @@ static int mtu3_gadget_stop(struct usb_gadget *g)
 
 	spin_unlock_irqrestore(&mtu->lock, flags);
 
+	/*
+	 * avoid kernel panic because mtu3_gadget_stop() assigned NULL
+	 * to mtu->gadget_driver.
+	 */
+	synchronize_irq(mtu->irq);
 	return 0;
 }
 
