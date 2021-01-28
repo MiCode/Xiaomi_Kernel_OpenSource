@@ -838,46 +838,6 @@ int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type)
 
 #endif
 
-/*
- * sched_ktime_clock()
- *  - to get wall time but not to update in suspended.
- */
-#include <linux/syscore_ops.h>
-
-static ktime_t ktime_last;
-static bool sched_ktime_suspended;
-
-u64 sched_ktime_clock(void)
-{
-	if (unlikely(sched_ktime_suspended))
-		return ktime_to_ns(ktime_last);
-	return ktime_get_ns();
-}
-
-static void sched_resume(void)
-{
-	sched_ktime_suspended = false;
-}
-
-static int sched_suspend(void)
-{
-	ktime_last = ktime_get();
-	sched_ktime_suspended = true;
-	return 0;
-}
-
-static struct syscore_ops sched_syscore_ops = {
-	.resume = sched_resume,
-	.suspend = sched_suspend
-};
-
-static int __init sched_init_ops(void)
-{
-	register_syscore_ops(&sched_syscore_ops);
-	return 0;
-}
-late_initcall(sched_init_ops);
-
 /* schedule loading trackign change
  * 0: default
  * 1: walt
