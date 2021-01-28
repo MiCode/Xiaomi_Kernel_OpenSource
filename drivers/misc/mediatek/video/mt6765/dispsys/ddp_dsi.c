@@ -2847,6 +2847,7 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 	unsigned int ui = 0;
 	unsigned int hs_trail_m, hs_trail_n;
 	unsigned char timcon_temp;
+	unsigned int temp_data_rate = 0;
 
 #ifdef CONFIG_FPGA_EARLY_PORTING
 	/* sync from cmm */
@@ -2895,10 +2896,15 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 
 #define NS_TO_CYCLE(n, c)	((n) / (c))
 
+	if (dsi_params->data_rate != 0)
+		temp_data_rate = dsi_params->data_rate;
+	else
+		temp_data_rate = dsi_params->PLL_CLOCK * 2;
+
 	hs_trail_m = 1;
 	hs_trail_n = (dsi_params->HS_TRAIL == 0) ?
 				(NS_TO_CYCLE(((hs_trail_m * 0x4 * ui) + 0x50)
-				* dsi_params->PLL_CLOCK * 2, 0x1F40) + 0x1) :
+				* temp_data_rate, 0x1F40) + 0x1) :
 				dsi_params->HS_TRAIL;
 	/* +3 is recommended from designer becauase of HW latency */
 	timcon0.HS_TRAIL = (hs_trail_m > hs_trail_n) ? hs_trail_m : hs_trail_n;
@@ -2918,7 +2924,7 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 		timcon0.HS_ZERO -= timcon0.HS_PRPR;
 
 	timcon0.LPX = (dsi_params->LPX == 0) ?
-		(NS_TO_CYCLE(dsi_params->PLL_CLOCK * 2 * 0x4B, 0x1F40)  + 0x1) :
+		(NS_TO_CYCLE(temp_data_rate * 0x4B, 0x1F40)  + 0x1) :
 								dsi_params->LPX;
 	if (timcon0.LPX < 1)
 		timcon0.LPX = 1;
@@ -2939,7 +2945,7 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 				(0x2 * timcon0.LPX) : dsi_params->DA_HS_EXIT;
 
 	timcon2.CLK_TRAIL = ((dsi_params->CLK_TRAIL == 0) ?
-				NS_TO_CYCLE(0x64 * dsi_params->PLL_CLOCK * 2,
+				NS_TO_CYCLE(0x64 * temp_data_rate,
 				0x1F40) : dsi_params->CLK_TRAIL) + 0x01;
 	/* CLK_TRAIL can't be 1. */
 	if (timcon2.CLK_TRAIL < 2)
@@ -2951,7 +2957,7 @@ void DSI_DPHY_TIMCONFIG(enum DISP_MODULE_ENUM module,
 						dsi_params->CLK_ZERO;
 
 	timcon3.CLK_HS_PRPR = (dsi_params->CLK_HS_PRPR == 0) ?
-				NS_TO_CYCLE(0x50 * dsi_params->PLL_CLOCK * 2,
+				NS_TO_CYCLE(0x50 * temp_data_rate,
 				0x1F40) : dsi_params->CLK_HS_PRPR;
 
 	if (timcon3.CLK_HS_PRPR < 1)
