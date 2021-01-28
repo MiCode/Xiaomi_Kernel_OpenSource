@@ -512,7 +512,7 @@ static int vpu_init_dev_algo_normal(struct platform_device *pdev,
 			struct __vpu_algo *alg;
 
 			algo_info = bin_algo_info(header, j);
-			mva = algo_info->offset - VPU_OFFSET_ALGO_AREA +
+			mva = algo_info->offset - vpu_drv->iova_algo.bin +
 				vpu_drv->mva_algo;
 
 			/* skips, if the core mask mismatch */

@@ -240,6 +240,62 @@ int vpu_send_cmd(int op, void *hnd, struct apusys_device *adev)
 	return -EINVAL;
 }
 
+/**
+ * vpu_kbuf_alloc() - Allocate VPU kernel (execution) buffer
+ * @vd: vpu device
+ *
+ *  vd->lock and vpu_cmd_lock() must be locked before calling this function
+ */
+int vpu_kbuf_alloc(struct vpu_device *vd)
+{
+	struct platform_device *pdev
+		= container_of(vd->dev, struct platform_device, dev);
+	dma_addr_t iova = 0;
+	struct timespec start, end;
+	uint64_t period;
+
+	if (vd->iova_kernel.m.va)
+		return 0;
+
+	ktime_get_ts(&start);
+	iova = vpu_iova_alloc(pdev, &vd->iova_kernel);
+	ktime_get_ts(&end);
+
+	if (!iova) {
+		pr_info("%s: vpu%d failed\n", __func__, vd->id);
+		return -ENOMEM;
+	}
+
+	period = ((uint64_t)(timespec_to_ns(&end)
+		- timespec_to_ns(&start)));
+
+	vpu_iova_sync_for_cpu(vd->dev, &vd->iova_kernel);
+
+	vpu_pwr_debug("%s: vpu%d, iova: 0x%llx, period: %llu ns, page num: %d\n",
+	__func__, vd->id, (u64)iova, period, vd->iova_kernel.sgt.nents);
+
+	return 0;
+}
+
+/**
+ * vpu_kbuf_free() - Free VPU kernel (execution) buffer
+ * @vd: vpu device
+ *
+ *  vd->lock and vpu_cmd_lock() must be locked before calling this function
+ */
+int vpu_kbuf_free(struct vpu_device *vd)
+{
+	struct platform_device *pdev
+		= container_of(vd->dev, struct platform_device, dev);
+
+	if (!vd->iova_kernel.m.va)
+		return 0;
+
+	vpu_iova_free(&pdev->dev, &vd->iova_kernel);
+	vd->iova_kernel.m.va = 0;
+	return 0;
+}
+
 #if VPU_REMOTE_PROC
 #define VPU_FIRMWARE_NAME "mtk_vpu"
 
@@ -498,7 +554,6 @@ static int vpu_exit_dev_mem(struct platform_device *pdev,
 {
 	vpu_iova_free(&pdev->dev, &vd->iova_reset);
 	vpu_iova_free(&pdev->dev, &vd->iova_main);
-	vpu_iova_free(&pdev->dev, &vd->iova_kernel);
 	vpu_iova_free(&pdev->dev, &vd->iova_work);
 	vpu_iova_free(&pdev->dev, &vd->iova_iram);
 	vpu_shared_put(pdev, vd);
@@ -575,9 +630,7 @@ static int vpu_init_dev_mem(struct platform_device *pdev,
 	iova = vpu_iova_alloc(pdev, &vd->iova_main);
 	if (!iova)
 		goto error;
-	iova = vpu_iova_alloc(pdev, &vd->iova_kernel);
-	if (!iova)
-		goto error;
+
 	iova = vpu_iova_alloc(pdev, &vd->iova_work);
 	if (!iova)
 		goto error;

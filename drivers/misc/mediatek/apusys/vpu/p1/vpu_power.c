@@ -111,6 +111,10 @@ int vpu_pwr_get_locked(struct vpu_device *vd, uint8_t boost)
 		vd->state = VS_UP;
 	}
 
+	ret = vpu_kbuf_alloc(vd);
+	if (ret)
+		goto err;
+
 	kref_init(&vd->pw_ref);
 	atomic_set(&vd->pw_boost, VPU_PWR_NO_BOOST);
 	vpu_pwr_wake_lock(vd);
@@ -250,6 +254,7 @@ static void vpu_pwr_off_locked(struct vpu_device *vd, int suspend)
 	int adu_id = adu(vd->id);
 
 	vpu_cmd_clear(vd);
+	vpu_kbuf_free(vd);
 	vpu_met_pm_put(vd);
 
 	if (vd->state <= VS_DOWN) {
