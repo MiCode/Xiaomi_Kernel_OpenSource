@@ -728,6 +728,12 @@ swiotlb_alloc_coherent(struct device *hwdev, size_t size,
 			 */
 			free_pages((unsigned long) ret, order);
 			ret = NULL;
+#ifdef CONFIG_MTK_BOUNCING_CHECK
+			aee_kernel_warning("Bounce Buffering",
+					"Incorrect dma_mask(%llx), addr+size-1(%llx)",
+					dma_mask, dev_addr + size - 1);
+
+#endif
 		}
 	}
 	if (!ret) {
