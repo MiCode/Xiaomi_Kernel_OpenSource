@@ -79,7 +79,7 @@ int cm_mgr_timer_enable = 1;
 #endif /* USE_TIMER_CHECK */
 int cm_mgr_ratio_timer_enable;
 int cm_mgr_disable_fb = 1;
-int cm_mgr_blank_status;
+int cm_mgr_blank_status = 1;
 int cm_mgr_perf_enable = 1;
 int cm_mgr_perf_timer_enable;
 int cm_mgr_perf_force_enable;
