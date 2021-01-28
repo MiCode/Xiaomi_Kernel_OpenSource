@@ -17,7 +17,7 @@
 /*
  * /dev/teei_config
  */
-#define MAX_DRV_UUIDS 20
+#define MAX_DRV_UUIDS 30
 #define UUID_LEN 32
 
 struct init_param {

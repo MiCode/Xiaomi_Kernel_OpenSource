@@ -116,7 +116,10 @@ int ut_pf_gp_transfer_user_data(struct TEEC_Context *context,
 		goto release_2;
 	}
 
-	copy_from_user((void *)sharedmem.buffer, buffer, size);
+	if (copy_from_user((void *)sharedmem.buffer, buffer, size)) {
+		IMSG_ERROR("Failed to copy_from_user!\n");
+		goto release_3;
+	};
 
 	memset(&operation, 0x00, sizeof(operation));
 	operation.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_PARTIAL_INOUT,
@@ -131,7 +134,8 @@ int ut_pf_gp_transfer_user_data(struct TEEC_Context *context,
 		goto release_3;
 	}
 
-	copy_to_user(buffer, (void *)sharedmem.buffer, size);
+	if (copy_to_user(buffer, (void *)sharedmem.buffer, size))
+		IMSG_ERROR("Failed to copy_to_user!\n");
 
 release_3:
 	TEEC_ReleaseSharedMemory(&sharedmem);
