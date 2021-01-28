@@ -14,6 +14,8 @@
 
 /* RT1711H Private RegMap */
 
+#define RT1711H_REG_CONFIG_GPIO0			(0x71)
+
 #define RT1711H_REG_PHY_CTRL1				(0x80)
 
 #define RT1711H_REG_CLK_CTRL2				(0x87)
