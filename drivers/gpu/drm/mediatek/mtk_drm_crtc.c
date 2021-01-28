@@ -6677,6 +6677,7 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			struct mtk_ddp_comp *comp_ovl0_2l;
 			struct cmdq_pkt *cmdq_handle;
 			struct mtk_crtc_state *crtc_state = to_mtk_crtc_state(crtc->state);
+			int keep_first_layer = false;
 
 			cmdq_handle =
 				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
@@ -6690,6 +6691,8 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			/* Stop ovl 2l */
 			comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
 			mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
+			mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
+				OVL_ALL_LAYER_OFF, &keep_first_layer);
 			/* Change ovl0 bg mode frmoe DL mode to const mode */
 			comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
 			cmdq_pkt_write(cmdq_handle, comp_ovl0->cmdq_base,
@@ -6708,19 +6711,23 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			CRTC_MMP_MARK(index, path_switch, 0xFFFF, 1);
 			DDPMSG("Switch vds: Switch ovl0_2l to vds\n");
 
-			/* Update ddp ctx ddp_comp_nr */
-			mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
-				= mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH] - 1;
-			/* Update ddp ctx ddp_comp */
-			comp_nr = mtk_crtc->path_data->path_len[
-				DDP_MAJOR][DDP_FIRST_PATH];
-			for (i = 0; i < comp_nr - 1; i++)
-				mtk_crtc->ddp_ctx[
+			if (mtk_crtc->ddp_ctx[
+					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][0]->id !=
+					DDP_COMPONENT_OVL0) {
+				/* Update ddp ctx ddp_comp_nr */
+				mtk_crtc->ddp_ctx[DDP_MAJOR].ddp_comp_nr[DDP_FIRST_PATH]
+					= mtk_crtc->path_data->path_len[
+					DDP_MAJOR][DDP_FIRST_PATH] - 1;
+				/* Update ddp ctx ddp_comp */
+				comp_nr = mtk_crtc->path_data->path_len[
+					DDP_MAJOR][DDP_FIRST_PATH];
+				for (i = 0; i < comp_nr - 1; i++)
+					mtk_crtc->ddp_ctx[
 					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i] =
 					mtk_crtc->ddp_ctx[
 					DDP_MAJOR].ddp_comp[DDP_FIRST_PATH][i+1];
-			mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+				mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
+			}
 			/* Update Switch done flag */
 			priv->vds_path_switch_done = 1;
 		/* Switch main display path, take back ovl0_2l to main display */
