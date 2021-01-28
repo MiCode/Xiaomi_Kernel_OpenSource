@@ -3800,6 +3800,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		vmodem-supply = <&mt6359_vmodem_buck_reg>;
 		vsram-supply = <&mt6359_vsram_md_ldo_reg>;
 		power-domains = <&scpsys MT6779_POWER_DOMAIN_MD>;
+		ccci-infracfg = <&infracfg_ao>;
 	};
 
 	md_auxadc:md_auxadc {
