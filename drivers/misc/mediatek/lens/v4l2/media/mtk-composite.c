@@ -173,7 +173,7 @@ static void mtk_composite_unregister_entities(
 		struct mtk_composite_v4l2_device *isp)
 {
 	v4l2_device_unregister(&isp->v4l2_dev);
-	media_device_unregister(&isp->media_dev);
+	media_device_unregister(isp->v4l2_dev.mdev);
 }
 
 static int mtk_composite_probe(struct platform_device *dev)
