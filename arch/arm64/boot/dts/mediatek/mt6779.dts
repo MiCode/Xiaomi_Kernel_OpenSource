@@ -1141,6 +1141,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			reg_base = <&toprgu>;
 		};
 
+		dfd_cache: dfd_cache {
+			compatible = "mediatek,dfd_cache";
+			mediatek,enabled = <0>;
+			mediatek,rg_dfd_timeout = <0x3e80>;
+		};
+
 		devapc: devapc@10207000 {
 			compatible = "mediatek,mt6779-devapc";
 			reg = <0 0x10207000 0 0x1000>,
