@@ -16,12 +16,29 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 {
 	uint8_t rx_cap = PD_RX_CAP_PE_STARTUP;
 	bool pr_swap = pd_port->state_machine == PE_STATE_MACHINE_PR_SWAP;
+	enum typec_pwr_opmode opmode;
 
 #ifdef CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP
 	uint8_t msg_id_last = pd_port->pe_data.msg_id_rx[TCPC_TX_SOP];
 #endif	/* CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP */
 
 	pd_reset_protocol_layer(pd_port, false);
+
+	switch (pd_port->tcpc_dev->typec_remote_rp_level) {
+	case TYPEC_CC_VOLT_SNK_DFT:
+		opmode = TYPEC_PWR_MODE_USB;
+		break;
+	case TYPEC_CC_VOLT_SNK_1_5:
+		opmode = TYPEC_PWR_MODE_1_5A;
+		break;
+	case TYPEC_CC_VOLT_SNK_3_0:
+		opmode = TYPEC_PWR_MODE_3_0A;
+		break;
+	default:
+		opmode = TYPEC_PWR_MODE_USB;
+		break;
+	}
+	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, opmode);
 
 	if (pr_swap) {
 		/*
@@ -144,6 +161,8 @@ void pe_snk_ready_entry(struct pd_port *pd_port)
 
 	pd_notify_pe_snk_explicit_contract(pd_port);
 	pe_power_ready_entry(pd_port);
+	pd_port->tcpc_dev->typec_caps.data = TYPEC_PORT_DRD;
+	typec_set_pwr_opmode(pd_port->tcpc_dev->typec_port, TYPEC_PWR_MODE_PD);
 }
 
 void pe_snk_hard_reset_entry(struct pd_port *pd_port)

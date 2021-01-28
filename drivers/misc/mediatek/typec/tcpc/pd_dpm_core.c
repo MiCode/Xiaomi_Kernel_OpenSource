@@ -585,6 +585,7 @@ void pd_dpm_snk_evaluate_caps(struct pd_port *pd_port)
 	} else
 		DPM_INFO("Select SrcCap%d\r\n", req_info.pos);
 
+	pd_port->tcpc_dev->pd_capable = true;
 	dpm_update_request(pd_port, &req_info);
 
 	if (req_info.pos > 0)
@@ -788,6 +789,7 @@ void pd_dpm_src_evaluate_request(struct pd_port *pd_port)
 	DPM_INFO("RequestCap%d\r\n", rdo_pos);
 
 	pe_data = &pd_port->pe_data;
+	pd_port->tcpc_dev->pd_capable = true;
 
 	if (dpm_evaluate_request(pd_port, rdo, rdo_pos))  {
 		pe_data->local_selected_cap = rdo_pos;
@@ -1148,6 +1150,15 @@ void pd_dpm_dfp_inform_id(struct pd_port *pd_port, bool ack)
 				payload[0], payload[1], payload[2], payload[3]);
 
 		dpm_dfp_update_partner_id(pd_port, payload);
+
+		pd_port->tcpc_dev->partner_ident.id_header =
+					pd_port->pe_data.partner_vdos[0];
+		pd_port->tcpc_dev->partner_ident.cert_stat =
+					pd_port->pe_data.partner_vdos[1];
+		pd_port->tcpc_dev->partner_ident.product =
+					pd_port->pe_data.partner_vdos[2];
+		if (pd_port->tcpc_dev->partner)
+			typec_partner_set_identity(pd_port->tcpc_dev->partner);
 	}
 
 	if (!pd_port->pe_data.vdm_discard_retry_flag) {

@@ -141,6 +141,54 @@ enum {
 	TCP_NOTIFY_MISC_END = TCP_NOTIFY_PLUG_OUT,
 };
 
+enum dual_role_supported_modes {
+	DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP = 0,
+	DUAL_ROLE_SUPPORTED_MODES_DFP,
+	DUAL_ROLE_SUPPORTED_MODES_UFP,
+/*The following should be the last element*/
+	DUAL_ROLE_PROP_SUPPORTED_MODES_TOTAL,
+};
+
+enum {
+	DUAL_ROLE_PROP_MODE_UFP = 0,
+	DUAL_ROLE_PROP_MODE_DFP,
+	DUAL_ROLE_PROP_MODE_NONE,
+/*The following should be the last element*/
+	DUAL_ROLE_PROP_MODE_TOTAL,
+};
+
+enum {
+	DUAL_ROLE_PROP_PR_SRC = 0,
+	DUAL_ROLE_PROP_PR_SNK,
+	DUAL_ROLE_PROP_PR_NONE,
+/*The following should be the last element*/
+	DUAL_ROLE_PROP_PR_TOTAL,
+
+};
+
+enum {
+	DUAL_ROLE_PROP_DR_HOST = 0,
+	DUAL_ROLE_PROP_DR_DEVICE,
+	DUAL_ROLE_PROP_DR_NONE,
+/*The following should be the last element*/
+	DUAL_ROLE_PROP_DR_TOTAL,
+};
+
+enum {
+	DUAL_ROLE_PROP_VCONN_SUPPLY_NO = 0,
+	DUAL_ROLE_PROP_VCONN_SUPPLY_YES,
+/*The following should be the last element*/
+	DUAL_ROLE_PROP_VCONN_SUPPLY_TOTAL,
+};
+
+enum dual_role_property {
+	DUAL_ROLE_PROP_SUPPORTED_MODES = 0,
+	DUAL_ROLE_PROP_MODE,
+	DUAL_ROLE_PROP_PR,
+	DUAL_ROLE_PROP_DR,
+	DUAL_ROLE_PROP_VCONN_SUPPLY,
+};
+
 struct tcp_ny_pd_state {
 	uint8_t connected;
 };

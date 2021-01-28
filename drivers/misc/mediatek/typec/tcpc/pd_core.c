@@ -11,9 +11,6 @@
 #include "inc/tcpci_typec.h"
 #include "inc/tcpci_event.h"
 #include "inc/pd_policy_engine.h"
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
-#include <linux/usb/class-dual-role.h>
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
 
 /* From DTS */
 
@@ -809,15 +806,19 @@ int pd_set_data_role(struct pd_port *pd_port, uint8_t dr)
 {
 	pd_port->data_role = dr;
 
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
 	/* dual role usb--> 0:ufp, 1:dfp */
 	pd_port->tcpc_dev->dual_role_mode = pd_port->data_role;
 	/* dual role usb --> 0: Device, 1: Host */
 	pd_port->tcpc_dev->dual_role_dr = !(pd_port->data_role);
-	dual_role_instance_changed(pd_port->tcpc_dev->dr_usb);
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
+	if (pd_port->tcpc_dev->dual_role_dr == PD_ROLE_UFP)
+		pd_port->tcpc_dev->typec_caps.data = TYPEC_PORT_UFP;
+	else
+		pd_port->tcpc_dev->typec_caps.data = TYPEC_PORT_DFP;
 
 	tcpci_notify_role_swap(pd_port->tcpc_dev, TCP_NOTIFY_DR_SWAP, dr);
+	typec_set_data_role(pd_port->tcpc_dev->typec_port,
+			    pd_port->tcpc_dev->dual_role_dr ==
+			    DUAL_ROLE_PROP_DR_HOST ? TYPEC_HOST : TYPEC_DEVICE);
 	return pd_update_msg_header(pd_port);
 }
 
@@ -831,12 +832,13 @@ int pd_set_power_role(struct pd_port *pd_port, uint8_t pr)
 		return ret;
 
 	pd_notify_pe_pr_changed(pd_port);
+	if (pd_port->tcpc_dev->dual_role_pr == DUAL_ROLE_PROP_PR_SRC)
+		pd_port->tcpc_dev->typec_caps.type = TYPEC_PORT_SRC;
+	else
+		pd_port->tcpc_dev->typec_caps.type = TYPEC_PORT_SNK;
 
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
 	/* 0:sink, 1: source */
 	pd_port->tcpc_dev->dual_role_pr = !(pd_port->power_role);
-	dual_role_instance_changed(pd_port->tcpc_dev->dr_usb);
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
 
 	tcpci_notify_role_swap(pd_port->tcpc_dev, TCP_NOTIFY_PR_SWAP, pr);
 	return ret;
@@ -878,11 +880,7 @@ int pd_set_vconn(struct pd_port *pd_port, uint8_t role)
 
 	PE_DBG("%s:%d\r\n", __func__, role);
 
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
 	pd_port->tcpc_dev->dual_role_vconn = en_role;
-	dual_role_instance_changed(pd_port->tcpc_dev->dr_usb);
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
-
 	pd_port->vconn_role = role;
 	tcpci_notify_role_swap(pd_port->tcpc_dev,
 		TCP_NOTIFY_VCONN_SWAP, en_role);
@@ -1355,6 +1353,33 @@ int pd_update_connect_state(struct pd_port *pd_port, uint8_t state)
 
 	pd_port->pd_connect_state = state;
 	PE_INFO("pd_state=%d\r\n", state);
+
+	if (!pd_port->tcpc_dev->partner) {
+		/* Make sure we don't report stale identity information */
+		memset(&pd_port->tcpc_dev->partner_ident, 0,
+			sizeof(pd_port->tcpc_dev->partner_ident));
+		pd_port->tcpc_dev->partner_desc.identity =
+					      &pd_port->tcpc_dev->partner_ident;
+		pd_port->tcpc_dev->partner_desc.usb_pd =
+						  pd_port->tcpc_dev->pd_capable;
+		pd_port->tcpc_dev->partner =
+			typec_register_partner(pd_port->tcpc_dev->typec_port,
+					      &pd_port->tcpc_dev->partner_desc);
+		if (!pd_port->tcpc_dev->partner)
+			PE_INFO("register partner fail\r\n");
+	}
+
+	typec_set_data_role(pd_port->tcpc_dev->typec_port,
+			    pd_port->tcpc_dev->dual_role_dr ==
+			    DUAL_ROLE_PROP_DR_HOST ? TYPEC_HOST : TYPEC_DEVICE);
+	typec_set_pwr_role(pd_port->tcpc_dev->typec_port,
+			   pd_port->tcpc_dev->dual_role_pr ==
+			   DUAL_ROLE_PROP_PR_SRC ? TYPEC_SOURCE : TYPEC_SINK);
+	typec_set_vconn_role(pd_port->tcpc_dev->typec_port,
+				pd_port->tcpc_dev->dual_role_pr ==
+				DUAL_ROLE_PROP_VCONN_SUPPLY_YES ?
+				TYPEC_SOURCE : TYPEC_SINK);
+
 	return tcpci_notify_pd_state(pd_port->tcpc_dev, state);
 }
 

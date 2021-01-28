@@ -394,9 +394,6 @@ static uint8_t dpm_reaction_update_pe_ready(struct pd_port *pd_port)
 	if (!pd_port->pe_data.pe_ready) {
 		DPM_INFO("PE_READY\r\n");
 		pd_port->pe_data.pe_ready = true;
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
-		dual_role_instance_changed(pd_port->tcpc_dev->dr_usb);
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
 	}
 
 	state = dpm_get_pd_connect_state(pd_port);

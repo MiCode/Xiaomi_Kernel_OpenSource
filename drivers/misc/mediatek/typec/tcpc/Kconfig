@@ -5,6 +5,7 @@
 config TCPC_CLASS
 	bool "TypeC Port Controller Device Class"
 	select MTK_USB_TYPEC
+	select TYPEC
 	help
 	  Say Y to enable
 	  Typec Port

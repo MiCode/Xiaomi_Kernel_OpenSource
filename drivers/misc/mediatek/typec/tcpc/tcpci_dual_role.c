@@ -10,82 +10,23 @@
 #include <linux/of.h>
 #include "inc/tcpci.h"
 #include "inc/tcpci_typec.h"
+#include <linux/usb/typec.h>
 
-#ifdef CONFIG_DUAL_ROLE_USB_INTF
-static enum dual_role_property tcpc_dual_role_props[] = {
-	DUAL_ROLE_PROP_SUPPORTED_MODES,
-	DUAL_ROLE_PROP_MODE,
-	DUAL_ROLE_PROP_PR,
-	DUAL_ROLE_PROP_DR,
-	DUAL_ROLE_PROP_VCONN_SUPPLY,
-};
-
-static int tcpc_dual_role_get_prop(struct dual_role_phy_instance *dual_role,
-			enum dual_role_property prop, unsigned int *val)
-{
-	struct tcpc_device *tcpc = dev_get_drvdata(dual_role->dev.parent);
-	int ret = 0;
-
-	switch (prop) {
-	case DUAL_ROLE_PROP_SUPPORTED_MODES:
-		*val = tcpc->dual_role_supported_modes;
-		break;
-	case DUAL_ROLE_PROP_MODE:
-		*val = tcpc->dual_role_mode;
-		break;
-	case DUAL_ROLE_PROP_PR:
-		*val = tcpc->dual_role_pr;
-		break;
-	case DUAL_ROLE_PROP_DR:
-		*val = tcpc->dual_role_dr;
-		break;
-	case DUAL_ROLE_PROP_VCONN_SUPPLY:
-		*val = tcpc->dual_role_vconn;
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-	return ret;
-}
-
-static	int tcpc_dual_role_prop_is_writeable(
-	struct dual_role_phy_instance *dual_role, enum dual_role_property prop)
-{
-	int retval = -EINVAL;
-	struct tcpc_device *tcpc = dev_get_drvdata(dual_role->dev.parent);
-
-	switch (prop) {
-#ifdef CONFIG_USB_POWER_DELIVERY
-	case DUAL_ROLE_PROP_PR:
-	case DUAL_ROLE_PROP_DR:
-	case DUAL_ROLE_PROP_VCONN_SUPPLY:
-#else
-	case DUAL_ROLE_PROP_MODE:
-#endif	/* CONFIG_USB_POWER_DELIVERY */
-		if (tcpc->dual_role_supported_modes ==
-			DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP)
-			retval = 1;
-		break;
-	default:
-		break;
-	}
-	return retval;
-}
-
-#ifdef CONFIG_USB_POWER_DELIVERY
-
-static int tcpc_dual_role_set_prop_pr(
-	struct tcpc_device *tcpc, unsigned int val)
+static int tcpc_dual_role_set_prop_pr(const struct typec_capability *cap,
+				      enum typec_role trole)
 {
 	int ret;
-	uint8_t role;
+	uint8_t val, role;
+	struct tcpc_device *tcpc = container_of(cap,
+						struct tcpc_device, typec_caps);
 
-	switch (val) {
-	case DUAL_ROLE_PROP_PR_SRC:
+	switch (trole) {
+	case TYPEC_SOURCE:
+		val = DUAL_ROLE_PROP_PR_SRC;
 		role = PD_ROLE_SOURCE;
 		break;
-	case DUAL_ROLE_PROP_PR_SNK:
+	case TYPEC_SINK:
+		val = DUAL_ROLE_PROP_PR_SNK;
 		role = PD_ROLE_SINK;
 		break;
 	default:
@@ -108,20 +49,25 @@ static int tcpc_dual_role_set_prop_pr(
 			__func__, tcpc->dual_role_pr, val, ret);
 	}
 
+	typec_set_pwr_role(tcpc->typec_port, trole);
 	return ret;
 }
 
-static int tcpc_dual_role_set_prop_dr(
-	struct tcpc_device *tcpc, unsigned int val)
+static int tcpc_dual_role_set_prop_dr(const struct typec_capability *cap,
+				      enum typec_data_role data)
 {
 	int ret;
-	uint8_t role;
+	uint8_t val, role;
+	struct tcpc_device *tcpc = container_of(cap,
+						struct tcpc_device, typec_caps);
 
-	switch (val) {
-	case DUAL_ROLE_PROP_DR_HOST:
+	switch (data) {
+	case TYPEC_HOST:
+		val = DUAL_ROLE_PROP_DR_HOST;
 		role = PD_ROLE_DFP;
 		break;
-	case DUAL_ROLE_PROP_DR_DEVICE:
+	case TYPEC_DEVICE:
+		val = DUAL_ROLE_PROP_DR_DEVICE;
 		role = PD_ROLE_UFP;
 		break;
 	default:
@@ -138,20 +84,26 @@ static int tcpc_dual_role_set_prop_dr(
 	pr_info("%s data role swap (%d->%d): %d\n",
 		__func__, tcpc->dual_role_dr, val, ret);
 
+	typec_set_data_role(tcpc->typec_port, data);
+
 	return ret;
 }
 
-static int tcpc_dual_role_set_prop_vconn(
-	struct tcpc_device *tcpc, unsigned int val)
+static int tcpc_dual_role_set_prop_vconn(const struct typec_capability *cap,
+					 enum typec_role trole)
 {
 	int ret;
-	uint8_t role;
+	uint8_t val, role;
+	struct tcpc_device *tcpc = container_of(cap,
+						struct tcpc_device, typec_caps);
 
-	switch (val) {
-	case DUAL_ROLE_PROP_VCONN_SUPPLY_NO:
+	switch (trole) {
+	case TYPEC_SINK:
+		val = DUAL_ROLE_PROP_VCONN_SUPPLY_NO;
 		role = PD_ROLE_VCONN_OFF;
 		break;
-	case DUAL_ROLE_PROP_VCONN_SUPPLY_YES:
+	case TYPEC_SOURCE:
+		val = DUAL_ROLE_PROP_VCONN_SUPPLY_YES;
 		role = PD_ROLE_VCONN_ON;
 		break;
 	default:
@@ -168,114 +120,66 @@ static int tcpc_dual_role_set_prop_vconn(
 	pr_info("%s vconn swap (%d->%d): %d\n",
 		__func__, tcpc->dual_role_vconn, val, ret);
 
+	typec_set_vconn_role(tcpc->typec_port, trole);
+
 	return ret;
 }
 
-#else	/* TypeC Only */
-
-static int tcpc_dual_role_set_prop_mode(
-	struct tcpc_device *tcpc, unsigned int val)
+static int tcpm_port_type_set(const struct typec_capability *cap,
+			      enum typec_port_type type)
 {
-	int ret;
+	uint8_t role;
+	struct tcpc_device *tcpc = container_of(cap,
+						struct tcpc_device, typec_caps);
 
-	if (val == tcpc->dual_role_mode) {
-		pr_info("%s wrong role (%d->%d)\n",
-			__func__, tcpc->dual_role_mode, val);
+	switch (type) {
+	case TYPEC_PORT_SNK:
+		role = TYPEC_ROLE_SNK;
+		break;
+	case TYPEC_PORT_SRC:
+		role = TYPEC_ROLE_SRC;
+		break;
+	case TYPEC_PORT_DRP:
+		role = TYPEC_ROLE_DRP;
+		break;
+	default:
 		return 0;
 	}
 
-	ret = tcpm_typec_role_swap(tcpc);
-	pr_info("%s typec role swap (%d->%d): %d\n",
-		__func__, tcpc->dual_role_mode, val, ret);
-
-	return ret;
+	return tcpm_typec_change_role(tcpc, role);
 }
 
-#endif	/* CONFIG_USB_POWER_DELIVERY */
-
-static int tcpc_dual_role_set_prop(struct dual_role_phy_instance *dual_role,
-			enum dual_role_property prop, const unsigned int *val)
+static int tcpm_try_role(const struct typec_capability *cap, int role)
 {
-	struct tcpc_device *tcpc = dev_get_drvdata(dual_role->dev.parent);
+	struct tcpc_device *tcpc = container_of(cap,
+						struct tcpc_device, typec_caps);
 
-	switch (prop) {
-#ifdef CONFIG_USB_POWER_DELIVERY
-	case DUAL_ROLE_PROP_PR:
-		tcpc_dual_role_set_prop_pr(tcpc, *val);
-		break;
-	case DUAL_ROLE_PROP_DR:
-		tcpc_dual_role_set_prop_dr(tcpc, *val);
-		break;
-	case DUAL_ROLE_PROP_VCONN_SUPPLY:
-		tcpc_dual_role_set_prop_vconn(tcpc, *val);
-		break;
-#else /* TypeC Only */
-	case DUAL_ROLE_PROP_MODE:
-		tcpc_dual_role_set_prop_mode(tcpc, *val);
-		break;
-#endif /* CONFIG_USB_POWER_DELIVERY */
+	if (role != TYPEC_ROLE_TRY_SRC && role != TYPEC_ROLE_TRY_SNK)
+		return 0;
 
-	default:
-		break;
-	}
-
-	return 0;
+	return tcpm_typec_change_role(tcpc, role);
 }
 
-static void tcpc_get_dual_desc(struct tcpc_device *tcpc)
+int tcpc_dual_role_phy_init(struct tcpc_device *tcpc)
 {
-	struct device_node *np = of_find_node_by_name(NULL, tcpc->desc.name);
-	u32 val;
+	int err;
 
-	if (!np)
-		return;
+	tcpc->typec_caps.revision = 0x0120;	/* Type-C spec release 1.2 */
+	tcpc->typec_caps.pd_revision = 0x0300;	/* USB-PD spec release 3.0 */
+	tcpc->typec_caps.dr_set = tcpc_dual_role_set_prop_dr;
+	tcpc->typec_caps.pr_set = tcpc_dual_role_set_prop_pr;
+	tcpc->typec_caps.vconn_set = tcpc_dual_role_set_prop_vconn;
+	tcpc->typec_caps.try_role = tcpm_try_role;
+	tcpc->typec_caps.port_type_set = tcpm_port_type_set;
+	tcpc->typec_caps.type = TYPEC_PORT_DRP;
+	tcpc->typec_caps.data = TYPEC_PORT_DRD;
+	tcpc->typec_caps.prefer_role = TYPEC_SINK;
 
-	if (of_property_read_u32(np, "tcpc-dual,supported_modes", &val) >= 0) {
-		if (val > DUAL_ROLE_PROP_SUPPORTED_MODES_TOTAL)
-			tcpc->dual_role_supported_modes =
-					DUAL_ROLE_SUPPORTED_MODES_DFP_AND_UFP;
-		else
-			tcpc->dual_role_supported_modes = val;
-	}
-}
-
-int tcpc_dual_role_phy_init(
-			struct tcpc_device *tcpc)
-{
-	struct dual_role_phy_desc *dual_desc;
-	int len;
-	char *str_name;
-
-	tcpc->dr_usb = devm_kzalloc(&tcpc->dev,
-				sizeof(*tcpc->dr_usb), GFP_KERNEL);
-
-	dual_desc = devm_kzalloc(&tcpc->dev, sizeof(*dual_desc), GFP_KERNEL);
-	if (!dual_desc)
-		return -ENOMEM;
-
-	tcpc_get_dual_desc(tcpc);
-
-	len = strlen(tcpc->desc.name);
-	str_name = devm_kzalloc(&tcpc->dev, len+11, GFP_KERNEL);
-	snprintf(str_name, PAGE_SIZE, "dual-role-%s", tcpc->desc.name);
-	dual_desc->name = str_name;
-
-	dual_desc->properties = tcpc_dual_role_props;
-	dual_desc->num_properties = ARRAY_SIZE(tcpc_dual_role_props);
-	dual_desc->get_property = tcpc_dual_role_get_prop;
-	dual_desc->set_property = tcpc_dual_role_set_prop;
-	dual_desc->property_is_writeable = tcpc_dual_role_prop_is_writeable;
-
-	tcpc->dr_usb = devm_dual_role_instance_register(&tcpc->dev, dual_desc);
-	if (IS_ERR(tcpc->dr_usb)) {
-		dev_err(&tcpc->dev, "tcpc fail to register dual role usb\n");
+	tcpc->typec_port = typec_register_port(&tcpc->dev, &tcpc->typec_caps);
+	if (IS_ERR(tcpc->typec_port)) {
+		err = PTR_ERR(tcpc->typec_port);
 		return -EINVAL;
 	}
-	/* init dual role phy instance property */
-	tcpc->dual_role_pr = DUAL_ROLE_PROP_PR_NONE;
-	tcpc->dual_role_dr = DUAL_ROLE_PROP_DR_NONE;
-	tcpc->dual_role_mode = DUAL_ROLE_PROP_MODE_NONE;
-	tcpc->dual_role_vconn = DUAL_ROLE_PROP_VCONN_SUPPLY_NO;
+
 	return 0;
 }
-#endif /* CONFIG_DUAL_ROLE_USB_INTF */
