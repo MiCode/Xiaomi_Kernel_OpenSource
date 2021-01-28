@@ -133,6 +133,10 @@
 #define PMIC_AUXADC_NAG_VBAT1_SEL_MASK			0x1
 #define PMIC_AUXADC_NAG_VBAT1_SEL_SHIFT			2
 
+#define PMIC_FG_ZCV_DET_TIME_ADDR                       0xd2e
+#define PMIC_FG_ZCV_DET_TIME_MASK                       0x3F
+#define PMIC_FG_ZCV_DET_TIME_SHIFT                      8
+
 #define PMIC_FG_ZCV_CAR_TH_15_00_ADDR			0xd38
 #define PMIC_FG_ZCV_CAR_TH_15_00_MASK			0xFFFF
 #define PMIC_FG_ZCV_CAR_TH_15_00_SHIFT			0
@@ -215,7 +219,7 @@
 /* 3600 * 1000 * 1000 / 157166 , for coulomb interrupt */
 #define DEFAULT_R_FG			(100)
 /* 5mm ohm */
-#define UNIT_FGCAR_ZCV			(85)
+#define UNIT_FGCAR_ZCV			(19646)
 /* CHARGE_LSB = 0.085 uAh */
 
 #define VOLTAGE_FULL_RANGES		1800
@@ -796,9 +800,12 @@ static void fgauge_set_zcv_intr_internal(
 	int fg_zcv_car_th)
 {
 	int fg_zcv_car_thr_h_reg, fg_zcv_car_thr_l_reg;
-	long long fg_zcv_car_th_reg = fg_zcv_car_th;
+	int slepp_cur_avg = gauge_dev->gm->fg_cust_data.sleep_current_avg;
+	long long fg_zcv_car_th_reg = 0;
 
-	fg_zcv_car_th_reg = (fg_zcv_car_th_reg * 100 * 1000);
+	fg_zcv_car_th = (fg_zcv_det_time + 1) * slepp_cur_avg / 60;
+	fg_zcv_car_th_reg = (long long)fg_zcv_car_th;
+	fg_zcv_car_th_reg = (fg_zcv_car_th_reg * 100 * 3600 * 1000);
 
 #if defined(__LP64__) || defined(_LP64)
 	do_div(fg_zcv_car_th_reg, UNIT_FGCAR_ZCV);
@@ -828,6 +835,12 @@ static void fgauge_set_zcv_intr_internal(
 	fg_zcv_car_thr_h_reg = (fg_zcv_car_th_reg & 0xffff0000) >> 16;
 	fg_zcv_car_thr_l_reg = fg_zcv_car_th_reg & 0x0000ffff;
 
+	regmap_update_bits(gauge_dev->regmap,
+		PMIC_FG_ZCV_DET_TIME_ADDR,
+		PMIC_FG_ZCV_DET_TIME_MASK <<
+		PMIC_FG_ZCV_DET_TIME_SHIFT,
+		fg_zcv_det_time <<
+		PMIC_FG_ZCV_DET_TIME_SHIFT);
 
 	regmap_update_bits(gauge_dev->regmap,
 		PMIC_FG_ZCV_CAR_TH_15_00_ADDR,
@@ -851,14 +864,11 @@ static void fgauge_set_zcv_intr_internal(
 int zcv_intr_threshold_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int zcv_avg_current)
 {
-	int fg_zcv_det_time;
-	int fg_zcv_car_th = 0;
+	int fg_zcv_det_time = gauge->gm->fg_cust_data.zcv_suspend_time;
+	int fg_zcv_car_th = zcv_avg_current;
 
-	fg_zcv_det_time = gauge->gm->fg_cust_data.zcv_suspend_time;
-	fg_zcv_car_th = (fg_zcv_det_time + 1) * 4 * zcv_avg_current / 60;
-
-	bm_debug("[%s] current:%d, fg_zcv_det_time:%d, fg_zcv_car_th:%d\n",
-		__func__, zcv_avg_current, fg_zcv_det_time, fg_zcv_car_th);
+	bm_debug("[%s] fg_zcv_det_time:%d, fg_zcv_car_th:%d\n",
+		__func__, fg_zcv_det_time, fg_zcv_car_th);
 
 	fgauge_set_zcv_intr_internal(
 		gauge, fg_zcv_det_time, fg_zcv_car_th);
