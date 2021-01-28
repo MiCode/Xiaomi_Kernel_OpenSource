@@ -66,7 +66,7 @@ int primary_display_get_max_refresh_rate(void)
 
 	lcm_params = disp_lcm_get_params(primary_get_lcm());
 	/* _primary_path_lock(__func__); */
-	if (lcm_params->max_refresh_rate)
+	if (lcm_params->max_refresh_rate != 0)
 		fps = lcm_params->max_refresh_rate;
 	/* _primary_path_unlock(__func__); */
 
@@ -80,7 +80,7 @@ int primary_display_get_min_refresh_rate(void)
 
 	lcm_params = disp_lcm_get_params(primary_get_lcm());
 	/* _primary_path_lock(__func__); */
-	if (lcm_params->min_refresh_rate)
+	if (lcm_params->min_refresh_rate != 0)
 		ret = lcm_params->min_refresh_rate;
 	/* _primary_path_unlock(__func__); */
 
