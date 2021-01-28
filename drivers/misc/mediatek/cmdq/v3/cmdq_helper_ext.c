@@ -12,6 +12,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/memblock.h>
 #include <linux/memory.h>
 #include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
@@ -87,6 +88,141 @@ static struct SubsysStruct cmdq_adds_subsys = {
 };
 
 /* CMDQ core feature functions */
+
+static bool cmdq_core_check_gpr_valid(const u32 gpr, const bool val)
+{
+	if (val)
+		switch (gpr) {
+		case CMDQ_DATA_REG_JPEG:
+		case CMDQ_DATA_REG_PQ_COLOR:
+		case CMDQ_DATA_REG_2D_SHARPNESS_0:
+		case CMDQ_DATA_REG_2D_SHARPNESS_1:
+		case CMDQ_DATA_REG_DEBUG:
+			return true;
+		default:
+			return false;
+		}
+	else
+		switch (gpr >> 16) {
+		case CMDQ_DATA_REG_JPEG_DST:
+		case CMDQ_DATA_REG_PQ_COLOR_DST:
+		case CMDQ_DATA_REG_2D_SHARPNESS_0:
+		case CMDQ_DATA_REG_2D_SHARPNESS_0_DST:
+		case CMDQ_DATA_REG_2D_SHARPNESS_1_DST:
+		case CMDQ_DATA_REG_DEBUG_DST:
+			return true;
+		default:
+			return false;
+		}
+	return false;
+}
+
+static bool cmdq_core_check_dma_addr_valid(const unsigned long pa)
+{
+	struct WriteAddrStruct *waddr = NULL;
+	unsigned long flags = 0L;
+	phys_addr_t start = memblock_start_of_DRAM();
+	bool ret = false;
+
+	spin_lock_irqsave(&cmdq_write_addr_lock, flags);
+	list_for_each_entry(waddr, &cmdq_ctx.writeAddrList, list_node)
+		if (pa < start || pa - (unsigned long)waddr->pa <
+			waddr->count << 2) {
+			ret = true;
+			break;
+		}
+	spin_unlock_irqrestore(&cmdq_write_addr_lock, flags);
+	return ret;
+}
+
+static bool cmdq_core_check_instr_valid(const u64 instr)
+{
+	u32 op = instr >> 56, option = (instr >> 53) & 0x7;
+	u32 argA = (instr >> 32) & 0x1FFFFF, argB = instr & 0xFFFFFFFF;
+#ifdef CMDQ_MDP_ENABLE_SPR
+	u32 sOP = argA >> 16, argA_i = argA & 0xFFFF;
+	u32 argB_i = argB >> 16, argC_i = argB & 0xFFFF;
+#endif
+
+	switch (op) {
+	case CMDQ_CODE_WRITE:
+		if (!option)
+			return true;
+		if (option == 0x4 && cmdq_core_check_gpr_valid(argA, false))
+			return true;
+	case CMDQ_CODE_READ:
+		if (option == 0x2 && cmdq_core_check_gpr_valid(argB, true))
+			return true;
+		if (option == 0x6 && cmdq_core_check_gpr_valid(argA, false) &&
+			cmdq_core_check_gpr_valid(argB, true))
+			return true;
+		break;
+	case CMDQ_CODE_MOVE:
+		if (!option && !argA)
+			return true;
+		if (option == 0x4 && cmdq_core_check_gpr_valid(argA, false) &&
+			cmdq_core_check_dma_addr_valid(argB))
+			return true;
+		break;
+	case CMDQ_CODE_JUMP:
+		if (!argA && argB == 0x8)
+			return true;
+		break;
+#ifdef CMDQ_MDP_ENABLE_SPR
+	case CMDQ_CODE_READ_S:
+		if (option == 0x4 && argA_i == 1 && !argC_i)
+			return true;
+		break;
+	case CMDQ_CODE_WRITE_S:
+	case CMDQ_CODE_WRITE_S_W_MASK:
+		if (!option)
+			return true;
+		if (option == 0x2 && (!argB_i || argB_i == 1) && !argC_i)
+			return true;
+		break;
+	case CMDQ_CODE_LOGIC:
+		if (option == 0x4 && !sOP && !argA_i && !argB_i)
+			return true;
+		break;
+#else
+	case CMDQ_CODE_READ_S:
+	case CMDQ_CODE_WRITE_S:
+	case CMDQ_CODE_WRITE_S_W_MASK:
+	case CMDQ_CODE_LOGIC:
+		break;
+#endif
+	case CMDQ_CODE_JUMP_C_ABSOLUTE:
+	case CMDQ_CODE_JUMP_C_RELATIVE:
+		break;
+	default:
+		return true;
+	}
+	CMDQ_ERR("instr:%#llx\n", instr);
+	return false;
+}
+
+bool cmdq_core_check_pkt_valid(struct cmdq_pkt *pkt)
+{
+	struct cmdq_pkt_buffer *buf = NULL;
+	s32 size = CMDQ_CMD_BUFFER_SIZE;
+	u64 *va;
+	bool ret = true;
+
+	list_for_each_entry(buf, &pkt->buf, list_entry) {
+		if (list_is_last(&buf->list_entry, &pkt->buf))
+			size -= pkt->avail_buf_size;
+
+		for (va = (u64 *)buf->va_base; ret &&
+			(va + 1) < (u64 *)(buf->va_base + size); va++)
+			ret &= cmdq_core_check_instr_valid(*va);
+
+		if (ret && (*va >> 56) != CMDQ_CODE_JUMP)
+			ret &= cmdq_core_check_instr_valid(*va);
+		if (!ret)
+			break;
+	}
+	return ret;
+}
 
 static void cmdq_core_config_prefetch_gsize(void)
 {
