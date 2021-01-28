@@ -750,7 +750,9 @@ int ree_dummy_thread(void *data)
 		param_type = new_param.type;
 		param_value = new_param.value;
 
-		/* usleep_range(100, 200); */
+		/* REE_SERVICE_CMD_KICK_SEM */
+		if (param_type == 2)
+			usleep_range(100, 200);
 
 		/* get into GZ through NOP SMC call */
 		ret = tz_system_nop_std32(param_type, param_value);
