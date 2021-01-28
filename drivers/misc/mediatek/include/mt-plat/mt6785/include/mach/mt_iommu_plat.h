@@ -45,8 +45,14 @@ const char *smi_larb_id = "mediatek,smi-id";
 unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
 	0
 };
+char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
+	"mediatek,sec_m4u0"
+};
 #else
 unsigned int iommu_power_id[MTK_IOMMU_M4U_COUNT] = {
+};
+char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
+	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
 };
 #endif
 
@@ -313,7 +319,7 @@ static inline unsigned int iommu_get_field_by_mask(
 #define REG_MMU_INT_ID(MMU)	  (0x150+((MMU)<<2))
 #define F_MMU_INT_L2_SRC	  F_MSK(30, 28)
 #define F_MMU_INT_L1_SRC	  F_MSK(26, 24)
-#define F_MMU_INT_TF_MSK	  F_MSK(11, 0)
+#define F_MMU_INT_TF_VAL(regval)	  (regval & F_MSK(11, 2))
 
 #define REG_MMU_PERF_MON_PTLB	(0x180)
 #define F_MMU_PERF_MON_PTLB_ID	F_MSK(15, 0)
@@ -382,6 +388,7 @@ static inline unsigned int iommu_get_field_by_mask(
 #define REG_MMU_MAU_ASRT_ID(MMU, MAU)	(0x918 + MMU * 0x100 + MAU * 0)
 #define F_MMU_MAU_ASRT_ID_LARB(regval)    F_MSK_SHIFT(regval, 9, 5)
 #define F_MMU_MAU_ASRT_ID_PORT(regval)    F_MSK_SHIFT(regval, 4, 0)
+#define F_MMU_MAU_ASRT_ID_VAL    F_MSK(9, 0)
 
 #define REG_MMU_MAU_ADDR(MMU, MAU)	(0x91C + MMU * 0x100 + MAU * 0)
 #define REG_MMU_MAU_ADDR_BIT32(MMU, MAU)	(0x920 + MMU * 0x100 + MAU * 0)
