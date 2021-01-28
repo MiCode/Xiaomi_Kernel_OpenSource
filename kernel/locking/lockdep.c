@@ -61,9 +61,6 @@
 #endif
 #ifdef MTK_LOCK_MONITOR
 #include <asm/stacktrace.h>
-#ifndef CONFIG_ARM64
-#include <asm/unwind.h>
-#endif
 #include <linux/sched/task_stack.h>
 #endif
 
@@ -5934,6 +5931,7 @@ __remove_held_lock(struct lockdep_map *lock, int nested, unsigned long ip)
 	curr->lockdep_depth = i;
 }
 
+#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
 static void dump_task_stack(struct task_struct *tsk, int output)
 {
 	struct stackframe frame;
@@ -5946,7 +5944,7 @@ static void dump_task_stack(struct task_struct *tsk, int output)
 #ifdef CONFIG_ARM64
 	if (tsk == current) {
 		frame.fp = (unsigned long)__builtin_frame_address(0);
-		frame.pc = (unsigned long)dump_backtrace;
+		frame.pc = (unsigned long)dump_task_stack;
 	} else {
 		frame.fp = thread_saved_fp(tsk);
 		frame.pc = thread_saved_pc(tsk);
@@ -5956,7 +5954,7 @@ static void dump_task_stack(struct task_struct *tsk, int output)
 		frame.fp = (unsigned long)__builtin_frame_address(0);
 		frame.sp = current_stack_pointer;
 		frame.lr = (unsigned long)__builtin_return_address(0);
-		frame.pc = (unsigned long)unwind_backtrace;
+		frame.pc = (unsigned long)dump_task_stack;
 
 	} else {
 		frame.fp = thread_saved_fp(tsk);
@@ -5987,6 +5985,9 @@ static void dump_task_stack(struct task_struct *tsk, int output)
 
 	put_task_stack(tsk);
 }
+#else
+static void dump_task_stack(struct task_struct *tsk, int output) {}
+#endif
 
 static void lock_monitor_aee(void);
 static bool lock_mon_aee = 1;
