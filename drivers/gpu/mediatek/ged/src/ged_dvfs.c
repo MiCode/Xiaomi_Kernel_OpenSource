@@ -388,7 +388,7 @@ void ged_dvfs_get_bw_record(unsigned int *pui32MaxBW,
 	 * If Frame-based is applicable, use previous records
 	 * (up to MAX_BW_PROFILE-1) as base line BW
 	 */
-	if (bFB) {
+	if (bFB && g_bw_tail >= 0) {
 		gsBWprofile[g_bw_tail].ui32MaxBW = ui32MaxBW;
 		gsBWprofile[g_bw_tail].ui32AvgBW = ui32AvgBW;
 
