@@ -28,8 +28,8 @@ extern struct mutex apu_qos_boost_mtx;
 void apu_qos_on(void);
 void apu_qos_off(void);
 
-void apu_qos_counter_init(void);
-void apu_qos_counter_destroy(void);
+void apu_qos_counter_init(struct device *dev);
+void apu_qos_counter_destroy(struct device *dev);
 
 void print_cmd_qos_list(struct seq_file *m);
 

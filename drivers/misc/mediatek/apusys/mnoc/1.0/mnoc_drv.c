@@ -26,6 +26,7 @@
 #include <linux/module.h>
 #include <linux/workqueue.h>
 #include <linux/mutex.h>
+#include <linux/proc_fs.h>
 
 
 #ifdef CONFIG_OF
@@ -44,6 +45,7 @@
 #include "mnoc_drv.h"
 #include "mnoc_hw.h"
 #include "mnoc_qos.h"
+#include "mnoc_qos_sys.h"
 #include "mnoc_dbg.h"
 #include "mnoc_pmu.h"
 #include "mnoc_option.h"
@@ -184,12 +186,19 @@ static int mnoc_probe(struct platform_device *pdev)
 #endif
 	struct device_node *node, *sub_node;
 	struct platform_device *sub_pdev;
+	struct apu_mnoc *p_mnoc = NULL;
 
 	mnoc_reg_valid = false;
 	mnoc_log_level = 0;
 
 	LOG_DEBUG("+\n");
 
+	p_mnoc = kmalloc(sizeof(*p_mnoc), GFP_KERNEL);
+	if (!p_mnoc)
+		return -ENOMEM;
+
+	p_mnoc->dev = &pdev->dev;
+	dev_set_drvdata(&pdev->dev, p_mnoc);
 #if MNOC_APU_PWR_CHK
 	if (!apusys_power_check())
 		return 0;
@@ -214,10 +223,10 @@ static int mnoc_probe(struct platform_device *pdev)
 
 	mutex_init(&mnoc_pwr_mtx);
 	mnoc_pwr_is_on = false;
-
 	create_debugfs();
+	mnoc_qos_create_sys(&pdev->dev);
 	spin_lock_init(&mnoc_spinlock);
-	apu_qos_counter_init();
+	apu_qos_counter_init(&pdev->dev);
 	mnoc_pmu_init();
 	mnoc_hw_init();
 
@@ -282,6 +291,7 @@ static int mnoc_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 #endif
 	struct device_node *node = NULL;
+	struct apu_mnoc *p_mnoc = NULL;
 
 	LOG_DEBUG("+\n");
 
@@ -293,7 +303,8 @@ static int mnoc_remove(struct platform_device *pdev)
 	apu_power_callback_device_unregister(MNOC);
 
 	remove_debugfs();
-	apu_qos_counter_destroy();
+	mnoc_qos_remove_sys(&pdev->dev);
+	apu_qos_counter_destroy(&pdev->dev);
 	mnoc_pmu_exit();
 	mnoc_hw_exit();
 
@@ -312,6 +323,9 @@ static int mnoc_remove(struct platform_device *pdev)
 	iounmap(mnoc_apu_conn_base);
 	iounmap(mnoc_slp_prot_base1);
 	iounmap(mnoc_slp_prot_base2);
+
+	p_mnoc = dev_get_drvdata(&pdev->dev);
+	kfree(p_mnoc);
 
 	LOG_DEBUG("-\n");
 

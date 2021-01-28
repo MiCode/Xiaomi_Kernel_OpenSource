@@ -34,5 +34,5 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/mnoc/$(PDIR)
 obj-y += apusys_mnoc.o
 
 apusys_mnoc-y += $(MNOC_VER)/mnoc_drv.o $(MNOC_VER)/mnoc_dbg.o
-apusys_mnoc-y += $(MNOC_VER)/mnoc_qos.o $(MNOC_VER)/mnoc_pmu.o
+apusys_mnoc-y += $(MNOC_VER)/mnoc_qos.o $(MNOC_VER)/mnoc_pmu.o $(MNOC_VER)/mnoc_qos_sys.o
 apusys_mnoc-y += $(PDIR)/mnoc_hw.o

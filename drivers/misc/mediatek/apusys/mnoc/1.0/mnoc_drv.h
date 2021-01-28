@@ -13,6 +13,21 @@
 #ifndef __APUSYS_MNOC_DRV_H__
 #define __APUSYS_MNOC_DRV_H__
 
+/* struct for put mnoc relate information,
+ * such as qos, pmu, register, etc.
+ *
+ * Set and get with dev_set_drvdata/dev_get_drvdata.
+ */
+struct apu_mnoc {
+	struct device *dev;
+
+	/* below is kboject for /sys/kernel/apumnoc */
+	struct kobject *root_dir;
+
+	/* Qos related datas */
+	struct proc_dir_entry	*qos_dir;
+};
+
 #define APUSYS_MNOC_DEV_NAME "apusys_mnoc"
 
 #define APUSYS_MNOC_LOG_PREFIX "[apusys][mnoc]"
