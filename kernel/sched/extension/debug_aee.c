@@ -184,8 +184,14 @@ int read_trylock_n_irqsave(rwlock_t *lock,
 				lock, lock->magic,
 				owner ? owner->comm : "<<none>>",
 				owner ? task_pid_nr(owner) : -1);
+#ifdef CONFIG_ARM64
 		SEQ_printf_at_AEE(m, ".owner_cpu: %d, value: %d\n",
-			   lock->owner_cpu, lock->raw_lock.wait_lock.locked);
+			lock->owner_cpu, lock->raw_lock.wait_lock.locked);
+#else
+		SEQ_printf_at_AEE(m, ".owner_cpu: %d, value: %d\n",
+			   lock->owner_cpu, lock->lock);
+#endif
+
 #else
 		SEQ_printf_at_AEE(m, " lock: %p, .magic: %08x, .owner: %s/%d",
 			   lock, lock->magic,
