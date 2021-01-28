@@ -1,5 +1,5 @@
 config MTK_CONN_MD
-	bool "Support mtk connsys modem config"
+	tristate "Support mtk connsys modem config"
 	default y if MTK_CONN_LTE_IDC_SUPPORT
 	help
 	  It is used to config whether IDC feature
