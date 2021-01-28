@@ -198,6 +198,7 @@ void gpio_dump_regs_range(int start, int end)
 
 	spin_unlock_irqrestore(&gpio_lock, flags);
 }
+EXPORT_SYMBOL(gpio_dump_regs_range);
 
 void gpio_dump_regs(void)
 {

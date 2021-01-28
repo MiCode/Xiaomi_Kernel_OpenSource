@@ -1844,9 +1844,6 @@ static int mt_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
-MODULE_DEVICE_TABLE(of, mt_i2c_match);
-
 #ifdef CONFIG_PM_SLEEP
 static int mt_i2c_suspend_noirq(struct device *dev)
 {
