@@ -2228,7 +2228,7 @@ get_pages_done:
 error_out:
 	vfree(pages);
 	M4U_DBG(
-		"mva_map_kernel:mva=0x%x,size=0x%lx,map_va=0x%lx,map_size=0x%lx\n",
+		"mva_map_kernel:mva=0x%x,size=0x%lx,map_va=0x%lx,map_size=0x%x\n",
 		mva, size, *map_va, *map_size);
 
 	return ret;
