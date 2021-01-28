@@ -7,6 +7,7 @@
 
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
+#include <linux/timer.h>
 #include <linux/of_address.h>
 #include <linux/sched/clock.h>
 
@@ -688,11 +689,13 @@ static int wait_for_bt_irq(struct mtk_btcvsd_snd *bt,
 	unsigned long long timeout_limit = 22500000;
 	int max_timeout_trial = 2;
 	int ret;
+	struct timespec64 ts64;
 
 	bt_stream->wait_flag = 0;
 
 	while (max_timeout_trial && !bt_stream->wait_flag) {
-		t1 = sched_clock();
+		ktime_get_ts64(&ts64);
+		t1 = timespec64_to_ns(&ts64);
 		if (bt_stream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			ret = wait_event_interruptible_timeout(bt->tx_wait,
 				bt_stream->wait_flag,
@@ -703,7 +706,8 @@ static int wait_for_bt_irq(struct mtk_btcvsd_snd *bt,
 				nsecs_to_jiffies(timeout_limit));
 		}
 
-		t2 = sched_clock();
+		ktime_get_ts64(&ts64);
+		t2 = timespec64_to_ns(&ts64);
 		t2 = t2 - t1; /* in ns (10^9) */
 
 		if (t2 > timeout_limit) {
@@ -750,6 +754,7 @@ ssize_t mtk_btcvsd_snd_read(struct mtk_btcvsd_snd *bt,
 	unsigned long avail;
 	unsigned long flags;
 	unsigned int packet_size = bt->rx->packet_size;
+	struct timespec64 ts64;
 
 	while (count) {
 		spin_lock_irqsave(&bt->rx_lock, flags);
@@ -810,7 +815,8 @@ ssize_t mtk_btcvsd_snd_read(struct mtk_btcvsd_snd *bt,
 	 * save current timestamp & buffer time in times_tamp and
 	 * buf_data_equivalent_time
 	 */
-	bt->rx->time_stamp = sched_clock();
+	ktime_get_ts64(&ts64);
+	bt->rx->time_stamp = timespec64_to_ns(&ts64);
 	bt->rx->buf_data_equivalent_time =
 		(unsigned long long)(bt->rx->packet_w - bt->rx->packet_r) *
 		SCO_RX_PLC_SIZE * 16 * 1000 / 2 / 64;
@@ -830,12 +836,14 @@ ssize_t mtk_btcvsd_snd_write(struct mtk_btcvsd_snd *bt,
 	unsigned int cur_buf_ofs = 0;
 	unsigned long flags;
 	unsigned int packet_size = bt->tx->packet_size;
+	struct timespec64 ts64;
 
 	/*
 	 * save current timestamp & buffer time in time_stamp and
 	 * buf_data_equivalent_time
 	 */
-	bt->tx->time_stamp = sched_clock();
+	ktime_get_ts64(&ts64);
+	bt->tx->time_stamp = timespec64_to_ns(&ts64);
 	bt->tx->buf_data_equivalent_time =
 		(unsigned long long)(bt->tx->packet_w - bt->tx->packet_r) *
 		packet_size * 16 * 1000 / 2 / 64;
