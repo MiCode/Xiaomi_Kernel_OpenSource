@@ -27,6 +27,8 @@
 #define RENDER_THREAD_NAME	"RenderThread"
 #define TURBO_ENABLE		1
 #define TURBO_DISABLE		0
+#define SCHED_PREFER_BCPU	TURBO_ENABLE
+#define SCHED_PREFER_NONE	TURBO_DISABLE
 
 static uint32_t latency_turbo = SUB_FEAT_LOCK | SUB_FEAT_BINDER |
 				SUB_FEAT_SCHED;
@@ -46,12 +48,15 @@ inline bool launch_turbo_enable(void)
 	return task_turbo_feats == launch_turbo;
 }
 
-void init_turbo_attr(struct task_struct *p)
+void init_turbo_attr(struct task_struct *p,
+		     struct task_struct *parent)
 {
 	p->turbo = TURBO_DISABLE;
 	p->render = 0;
 	atomic_set(&(p->inherit_types), 0);
 	p->inherit_cnt = 0;
+	if (is_turbo_task(parent))
+		p->cpu_prefer = SCHED_PREFER_NONE;
 }
 
 bool is_turbo_task(struct task_struct *p)
@@ -68,6 +73,38 @@ int get_turbo_feats(void)
 inline bool sub_feat_enable(int type)
 {
 	return get_turbo_feats() & type;
+}
+
+static inline void set_scheduler_tuning(struct task_struct *task)
+{
+	int cur_nice = task_nice(task);
+
+	if (!fair_policy(task->policy))
+		return;
+
+	if (!sub_feat_enable(SUB_FEAT_SCHED))
+		return;
+
+	if (sub_feat_enable(SUB_FEAT_FLAVOR_BIGCORE))
+		sched_set_cpuprefer(task->pid, SCHED_PREFER_BCPU);
+
+	/* trigger renice for turbo task */
+	set_user_nice(task, 0xbeef);
+
+	trace_sched_turbo_nice_set(task, NICE_TO_PRIO(cur_nice), task->prio);
+}
+
+static inline void unset_scheduler_tuning(struct task_struct *task)
+{
+	int cur_prio = task->prio;
+
+	if (!fair_policy(task->policy))
+		return;
+
+	sched_set_cpuprefer(task->pid, SCHED_PREFER_NONE);
+	set_user_nice(task, 0xbeee);
+
+	trace_sched_turbo_nice_set(task, cur_prio, task->prio);
 }
 
 /*
@@ -90,7 +127,10 @@ static int set_turbo_task(int pid, int val)
 	if (p != NULL) {
 		get_task_struct(p);
 		p->turbo = val;
-		/*TODO: scheduler tuning */
+		if (p->turbo == TURBO_ENABLE)
+			set_scheduler_tuning(p);
+		else
+			unset_scheduler_tuning(p);
 		trace_turbo_set(p);
 		put_task_struct(p);
 	} else
@@ -306,7 +346,7 @@ static void add_turbo_list(struct task_struct *p)
 	mutex_lock(&TURBO_MUTEX_LOCK);
 	if (add_turbo_list_locked(p->pid)) {
 		p->turbo = TURBO_ENABLE;
-		/* TODO: scheduler tuninng */
+		set_scheduler_tuning(p);
 		trace_turbo_set(p);
 	}
 	mutex_unlock(&TURBO_MUTEX_LOCK);
@@ -332,7 +372,7 @@ static void remove_turbo_list(struct task_struct *p)
 	mutex_lock(&TURBO_MUTEX_LOCK);
 	remove_turbo_list_locked(p->pid);
 	p->turbo = TURBO_DISABLE;
-	/* TODO scheduler tuning */
+	unset_scheduler_tuning(p);
 	trace_turbo_set(p);
 	mutex_unlock(&TURBO_MUTEX_LOCK);
 }
@@ -425,7 +465,8 @@ bool start_turbo_inherit(struct task_struct *task,
 	if (task->inherit_cnt < cnt + 1)
 		task->inherit_cnt = cnt + 1;
 
-	/* TODO scheduler tuning start */
+	/* scheduler tuning start */
+	set_scheduler_tuning(task);
 	return true;
 }
 
@@ -447,7 +488,8 @@ bool stop_turbo_inherit(struct task_struct *task,
 	if (inherit_types > 0)
 		goto done;
 
-	/* TODO scheduler tuning stop */
+	/* scheduler tuning stop */
+	unset_scheduler_tuning(task);
 	task->inherit_cnt = 0;
 	ret = true;
 done:
