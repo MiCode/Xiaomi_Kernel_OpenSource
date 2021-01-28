@@ -2570,8 +2570,9 @@ page_owner=on";
 	mdp_smi_common@1f002000 {
 		compatible = "mediatek,mdp_smi_common", "mediatek,smi_common";
 		reg = <0 0x1f002000 0 0x1000>;
-		clocks = <&scpsys SCP_SYS_MDP>;
-		clock-names = "scp-mdp";
+		clocks = <&scpsys SCP_SYS_MDP>,
+			 <&mdpsys_config MDP_SMI1>, <&mdpsys_config MDP_SMI2>;
+		clock-names = "scp-mdp", "mdp-smi1", "mdp-smi2";
 		mediatek,smi-id = <22>;
 	};
 
@@ -2599,8 +2600,8 @@ page_owner=on";
 		compatible = "mediatek,sysram_smi_common",
 			     "mediatek,smi_common";
 		reg = <0 0x1f022000 0 0x1000>;
-		clocks = <&scpsys SCP_SYS_MDP>;
-		clock-names = "scp-mdp";
+		clocks = <&scpsys SCP_SYS_MDP>, <&mdpsys_config MDP_SMI0>;
+		clock-names = "scp-mdp", "mdp-smi0";
 		mediatek,smi-id = <23>;
 	};
 
