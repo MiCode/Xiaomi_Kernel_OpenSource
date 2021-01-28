@@ -74,7 +74,6 @@
 #endif
 #include "disp_helper.h"
 
-
 #define DISP_DEVNAME "DISPSYS"
 /* device and driver */
 static dev_t disp_devno;
@@ -97,15 +96,15 @@ static unsigned int ddp_ms2jiffies(unsigned long ms)
 }
 #endif
 
-
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&                                   \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 
 #include "mobicore_driver_api.h"
 #include "tlcApitplay.h"
 
-/* ------------------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------- */
 /* handle address for t-play */
-/* ------------------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------- */
 static unsigned int *tplay_handle_virt_addr;
 static dma_addr_t handle_pa;
 
@@ -114,7 +113,8 @@ void init_tplay_handle(struct device *dev)
 {
 	void *va;
 
-	va = dma_alloc_coherent(dev, sizeof(unsigned int), &handle_pa, GFP_KERNEL);
+	va = dma_alloc_coherent(dev, sizeof(unsigned int), &handle_pa,
+				GFP_KERNEL);
 	if (va != NULL)
 		DDPDBG("[SVP] allocate handle_pa[%pa]\n", &va);
 	else
@@ -126,7 +126,7 @@ void init_tplay_handle(struct device *dev)
 static int write_tplay_handle(unsigned int handle_value)
 {
 	if (tplay_handle_virt_addr != NULL) {
-		DDPDBG("[SVP] write_tplay_handle 0x%x\n", handle_value);
+		DDPDBG("[SVP] %s 0x%x\n", __func__, handle_value);
 		*tplay_handle_virt_addr = handle_value;
 		return 0;
 	}
@@ -136,8 +136,8 @@ static int write_tplay_handle(unsigned int handle_value)
 static const uint32_t mc_deviceId = MC_DEVICE_ID_DEFAULT;
 
 static const struct mc_uuid_t MC_UUID_TPLAY = {
-	{0x05, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-	};
+	{0x05, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	 0x00, 0x00, 0x00, 0x00} };
 
 static struct mc_session_handle tplaySessionHandle;
 static tplay_tciMessage_t *pTplayTci;
@@ -152,11 +152,11 @@ static enum mc_result late_open_mobicore_device(void)
 		/* Open MobiCore device */
 		mcRet = mc_open_device(mc_deviceId);
 		if (mcRet == MC_DRV_ERR_INVALID_OPERATION) {
-			/* skip false alarm when the mc_open_device(mc_deviceId) is called more than once */
+			/* skip false alarm when called more than once */
 			DDPDBG("mc_open_device already done\n");
 		} else if (mcRet != MC_DRV_OK) {
-			DDPERR("mc_open_device failed: %d @%s line %d\n", mcRet, __func__,
-			       __LINE__);
+			DDPERR("mc_open_device failed: %d @%s line %d\n",
+			       mcRet, __func__, __LINE__);
 			return mcRet;
 		}
 		opened_device = 1;
@@ -173,31 +173,32 @@ static int open_tplay_driver_connection(void)
 		return 0;
 	}
 
-	DDPDBG("=============== late init tplay TDriver session ===============\n");
+	DDPDBG("============= late init tplay TDriver session ===========\n");
 	do {
 		late_open_mobicore_device();
 
 		/* Allocating WSM for DCI */
-		mcRet =
-		    mc_malloc_wsm(mc_deviceId, 0, sizeof(tplay_tciMessage_t),
-				  (uint8_t **) &pTplayTci, 0);
+		mcRet = mc_malloc_wsm(mc_deviceId, 0,
+				      sizeof(tplay_tciMessage_t),
+				      (uint8_t **)&pTplayTci, 0);
 		if (mcRet != MC_DRV_OK) {
-			DDPERR("mc_malloc_wsm failed: %d @%s line %d\n", mcRet, __func__, __LINE__);
+			DDPERR("mc_malloc_wsm failed: %d @%s line %d\n",
+			       mcRet, __func__, __LINE__);
 			return -1;
 		}
 
 		/* Open session the TDriver */
 		memset(&tplaySessionHandle, 0, sizeof(tplaySessionHandle));
 		tplaySessionHandle.device_id = mc_deviceId;
-		mcRet = mc_open_session(&tplaySessionHandle,
-					&MC_UUID_TPLAY,
-					(uint8_t *) pTplayTci,
-					(uint32_t) sizeof(tplay_tciMessage_t));
+		mcRet = mc_open_session(&tplaySessionHandle, &MC_UUID_TPLAY,
+					(uint8_t *)pTplayTci,
+					(uint32_t)sizeof(tplay_tciMessage_t));
 		if (mcRet != MC_DRV_OK) {
-			DDPERR("mc_open_session failed: %d @%s line %d\n", mcRet, __func__,
-			       __LINE__);
+			DDPERR("mc_open_session failed: %d @%s line %d\n",
+			       mcRet, __func__, __LINE__);
 			/* if failed clear session handle */
-			memset(&tplaySessionHandle, 0, sizeof(tplaySessionHandle));
+			memset(&tplaySessionHandle, 0,
+			       sizeof(tplaySessionHandle));
 			return -1;
 		}
 	} while (0);
@@ -211,21 +212,23 @@ static int close_tplay_driver_connection(void)
 
 	DDPDBG("=============== close tplay TDriver session ===============\n");
 	/* Close session */
-	if (tplaySessionHandle.session_id != 0)	{
+	if (tplaySessionHandle.session_id != 0) {
 		/* we have an valid session */
 		mcRet = mc_close_session(&tplaySessionHandle);
 		if (mcRet != MC_DRV_OK) {
-			DDPERR("mc_close_session failed: %d @%s line %d\n", mcRet, __func__,
-			       __LINE__);
-			memset(&tplaySessionHandle, 0, sizeof(tplaySessionHandle));	/* clear handle value anyway */
+			DDPERR("mc_close_session failed: %d @%s line %d\n",
+			       mcRet, __func__, __LINE__);
+			memset(&tplaySessionHandle, 0,
+				sizeof(tplaySessionHandle));
 			return -1;
 		}
 	}
 	memset(&tplaySessionHandle, 0, sizeof(tplaySessionHandle));
 
-	mcRet = mc_free_wsm(mc_deviceId, (uint8_t *) pTplayTci);
+	mcRet = mc_free_wsm(mc_deviceId, (uint8_t *)pTplayTci);
 	if (mcRet != MC_DRV_OK) {
-		DDPERR("mc_free_wsm failed: %d @%s line %d\n", mcRet, __func__, __LINE__);
+		DDPERR("mc_free_wsm failed: %d @%s line %d\n",
+		       mcRet, __func__, __LINE__);
 		return -1;
 	}
 
@@ -238,7 +241,7 @@ static int set_tplay_handle_addr_request(void)
 	int ret = 0;
 	enum mc_result mcRet = MC_DRV_OK;
 
-	DDPDBG("[SVP] set_tplay_handle_addr_request\n");
+	DDPDBG("[SVP] %s\n", __func__);
 
 	open_tplay_driver_connection();
 	if (tplaySessionHandle.session_id == 0) {
@@ -248,8 +251,8 @@ static int set_tplay_handle_addr_request(void)
 
 	DDPDBG("[SVP] handle_pa=0x%pa\n", &handle_pa);
 	/* set other TCI parameter */
-	pTplayTci->tplay_handle_low_addr = (uint32_t) handle_pa;
-	pTplayTci->tplay_handle_high_addr = (uint32_t) (handle_pa >> 32);
+	pTplayTci->tplay_handle_low_addr = (uint32_t)handle_pa;
+	pTplayTci->tplay_handle_high_addr = (uint32_t)(handle_pa >> 32);
 	/* set TCI command */
 	pTplayTci->cmd.header.commandId = CMD_TPLAY_REQUEST;
 
@@ -257,7 +260,8 @@ static int set_tplay_handle_addr_request(void)
 	DDPDBG("[SVP] notify Tlsec trustlet CMD_TPLAY_REQUEST\n");
 	mcRet = mc_notify(&tplaySessionHandle);
 	if (mcRet != MC_DRV_OK) {
-		DDPERR("[SVP] mc_notify failed: %d @%s line %d\n", mcRet, __func__, __LINE__);
+		DDPERR("[SVP] mc_notify failed: %d @%s line %d\n", mcRet,
+		       __func__, __LINE__);
 		ret = -1;
 		goto _notify_to_trustlet_fail;
 	}
@@ -265,14 +269,14 @@ static int set_tplay_handle_addr_request(void)
 	/* wait for response from the trustlet */
 	mcRet = mc_wait_notification(&tplaySessionHandle, MC_INFINITE_TIMEOUT);
 	if (mcRet != MC_DRV_OK) {
-		DDPERR("[SVP] mc_wait_notification failed: %d @%s line %d\n", mcRet, __func__,
-		       __LINE__);
+		DDPERR("[SVP] mc_wait_notification failed: %d @%s line %d\n",
+		       mcRet, __func__, __LINE__);
 		ret = -1;
 		goto _notify_from_trustlet_fail;
 	}
 
-	DDPDBG("[SVP] CMD_TPLAY_REQUEST result=%d, return code=%d\n", pTplayTci->result,
-	       pTplayTci->rsp.header.returnCode);
+	DDPDBG("[SVP] CMD_TPLAY_REQUEST result=%d, return code=%d\n",
+	       pTplayTci->result, pTplayTci->rsp.header.returnCode);
 
 _notify_from_trustlet_fail:
 _notify_to_trustlet_fail:
@@ -284,7 +288,7 @@ _notify_to_trustlet_fail:
 #ifdef TPLAY_DUMP_PA_DEBUG
 static int dump_tplay_physcial_addr(void)
 {
-	DDPDBG("[SVP] dump_tplay_physcial_addr\n");
+	DDPDBG("[SVP] %s\n", __func__);
 	int ret = 0;
 	enum mc_result mcRet = MC_DRV_OK;
 
@@ -301,7 +305,8 @@ static int dump_tplay_physcial_addr(void)
 	DDPMSG("[SVP] notify Tlsec trustlet CMD_TPLAY_DUMP_PHY\n");
 	mcRet = mc_notify(&tplaySessionHandle);
 	if (mcRet != MC_DRV_OK) {
-		DDPERR("[SVP] mc_notify failed: %d @%s line %d\n", mcRet, __func__, __LINE__);
+		DDPERR("[SVP] mc_notify failed: %d @%s line %d\n",
+		       mcRet, __func__, __LINE__);
 		ret = -1;
 		goto _notify_to_trustlet_fail;
 	}
@@ -309,14 +314,14 @@ static int dump_tplay_physcial_addr(void)
 	/* wait for response from the trustlet */
 	mcRet = mc_wait_notification(&tplaySessionHandle, MC_INFINITE_TIMEOUT);
 	if (mcRet != MC_DRV_OK) {
-		DDPERR("[SVP] mc_wait_notification failed: %d @%s line %d\n", mcRet, __func__,
-		       __LINE__);
+		DDPERR("[SVP] mc_wait_notification failed: %d @%s line %d\n",
+		       mcRet, __func__, __LINE__);
 		ret = -1;
 		goto _notify_from_trustlet_fail;
 	}
 
-	DDPDBG("[SVP] CMD_TPLAY_DUMP_PHY result=%d, return code=%d\n", pTplayTci->result,
-	       pTplayTci->rsp.header.returnCode);
+	DDPDBG("[SVP] CMD_TPLAY_DUMP_PHY result=%d, return code=%d\n",
+	       pTplayTci->result, pTplayTci->rsp.header.returnCode);
 
 _notify_from_trustlet_fail:
 _notify_to_trustlet_fail:
@@ -324,12 +329,12 @@ _notify_to_trustlet_fail:
 
 	return ret;
 }
-#endif				/* TPLAY_DUMP_PA_DEBUG */
+#endif /* TPLAY_DUMP_PA_DEBUG */
 
 static int disp_path_notify_tplay_handle(unsigned int handle_value)
 {
 	int ret;
-	static int executed;	/* this function can execute only once */
+	static int executed; /* this function can execute only once */
 
 	if (executed == 0) {
 		if (set_tplay_handle_addr_request())
@@ -341,17 +346,19 @@ static int disp_path_notify_tplay_handle(unsigned int handle_value)
 
 #ifdef TPLAY_DUMP_PA_DEBUG
 	dump_tplay_physcial_addr();
-#endif				/* TPLAY_DUMP_PA_DEBUG */
+#endif /* TPLAY_DUMP_PA_DEBUG */
 
 	return ret;
 }
-#endif /* defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) */
+#endif /* CONFIG_TRUSTONIC_TEE_SUPPORT && CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT */
 
-static long disp_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long disp_unlocked_ioctl(struct file *file, unsigned int cmd,
+				unsigned long arg)
 {
-	/* disp_node_struct *pNode = (disp_node_struct *) file->private_data; */
+/* disp_node_struct *pNode = (disp_node_struct *) file->private_data; */
 
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&                                   \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (cmd == DISP_IOCTL_SET_TPLAY_HANDLE) {
 		unsigned int value;
 
@@ -360,8 +367,7 @@ static long disp_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lo
 			return -EFAULT;
 		}
 		if (disp_path_notify_tplay_handle(value)) {
-			DDPERR
-			    ("DISP_IOCTL_SET_TPLAY_HANDLE, disp_path_notify_tplay_handle failed\n");
+			DDPERR("DISP_IOCTL_SET_TPLAY_HANDLE, disp_path_notify_tplay_handle failed\n");
 			return -EFAULT;
 		}
 	}
@@ -370,9 +376,11 @@ static long disp_unlocked_ioctl(struct file *file, unsigned int cmd, unsigned lo
 	return 0;
 }
 
-static long disp_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+static long disp_compat_ioctl(struct file *file, unsigned int cmd,
+			      unsigned long arg)
 {
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&                                   \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	if (cmd == DISP_IOCTL_SET_TPLAY_HANDLE)
 		return disp_unlocked_ioctl(file, cmd, arg);
 #endif
@@ -384,26 +392,27 @@ static int disp_open(struct inode *inode, struct file *file)
 {
 	struct disp_node_struct *pNode = NULL;
 
-	DDPDBG("enter disp_open() process:%s\n", current->comm);
+	DDPDBG("enter %s() process:%s\n", __func__, current->comm);
 
 	/* Allocate and initialize private data */
-	file->private_data = kmalloc(sizeof(struct disp_node_struct), GFP_ATOMIC);
+	file->private_data =
+		kmalloc(sizeof(struct disp_node_struct), GFP_ATOMIC);
 	if (file->private_data == NULL) {
 		DDPMSG("Not enough entry for DDP open operation\n");
 		return -ENOMEM;
 	}
 
-	pNode = (struct disp_node_struct *) file->private_data;
+	pNode = (struct disp_node_struct *)file->private_data;
 	pNode->open_pid = current->pid;
 	pNode->open_tgid = current->tgid;
 	INIT_LIST_HEAD(&(pNode->testList));
 	spin_lock_init(&pNode->node_lock);
 
 	return 0;
-
 }
 
-static ssize_t disp_read(struct file *file, char __user *data, size_t len, loff_t *ppos)
+static ssize_t disp_read(struct file *file, char __user *data, size_t len,
+			 loff_t *ppos)
 {
 	return 0;
 }
@@ -412,9 +421,9 @@ static int disp_release(struct inode *inode, struct file *file)
 {
 	struct disp_node_struct *pNode = NULL;
 	/* unsigned int index = 0; */
-	DDPDBG("enter disp_release() process:%s\n", current->comm);
+	DDPDBG("enter %s() process:%s\n", __func__, current->comm);
 
-	pNode = (struct disp_node_struct *) file->private_data;
+	pNode = (struct disp_node_struct *)file->private_data;
 
 	spin_lock(&pNode->node_lock);
 
@@ -437,7 +446,8 @@ static int disp_flush(struct file *file, fl_owner_t a_id)
 #if defined(CONFIG_MT_ENG_BUILD)
 static int disp_mmap(struct file *file, struct vm_area_struct *a_pstVMArea)
 {
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	a_pstVMArea->vm_page_prot = pgprot_noncached(a_pstVMArea->vm_page_prot);
 	if (remap_pfn_range(a_pstVMArea,
 			    a_pstVMArea->vm_start,
@@ -462,7 +472,8 @@ struct device *disp_get_device(void)
 	return &(mydev.dev);
 }
 
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 static struct miscdevice disp_misc_dev;
 #endif
 /* Kernel interface */
@@ -482,7 +493,6 @@ static const struct file_operations disp_fops = {
 /* disp_clk_init
  * 1. parsing dtsi
  * 2. clk force on
- *
  */
 static void disp_clk_init(struct platform_device *pdev)
 {
@@ -496,7 +506,7 @@ static void disp_clk_init(struct platform_device *pdev)
 		pclk = devm_clk_get(&pdev->dev, ddp_get_clk_name(i));
 		if (IS_ERR(pclk)) {
 			DDPERR("%s:%d, DISPSYS get %d,%s clock error!!!\n",
-				   __FILE__, __LINE__, i, ddp_get_clk_name(i));
+			       __FILE__, __LINE__, i, ddp_get_clk_name(i));
 			continue;
 		}
 		ddp_set_clk_handle(pclk, i);
@@ -512,12 +522,13 @@ static int disp_probe(struct platform_device *pdev)
 {
 
 	static unsigned int disp_probe_cnt;
-	pr_debug("disp driver(1) disp_probe early\n");
+
+	pr_info("disp driver(1) %s early\n", __func__);
 
 	if (disp_probe_cnt != 0)
 		return 0;
 
-	pr_debug("disp driver(1) disp_probe begin\n");
+	pr_info("disp driver(1) %s begin\n", __func__);
 
 	/* save pdev for disp_probe_1 */
 	memcpy(&mydev, pdev, sizeof(mydev));
@@ -529,7 +540,7 @@ static int disp_probe(struct platform_device *pdev)
 
 	disp_probe_cnt++;
 
-	pr_debug("disp driver(1) disp_probe end\n");
+	pr_info("disp driver(1) %s end\n", __func__);
 
 	return 0;
 }
@@ -562,9 +573,10 @@ static int __init disp_probe_1(void)
 	unsigned long va;
 	unsigned int irq;
 
-	pr_debug("disp driver(1) disp_probe_1 begin\n");
+	pr_info("disp driver(1) %s begin\n", __func__);
 
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	disp_misc_dev.minor = MISC_DYNAMIC_MINOR;
 	disp_misc_dev.name = "mtk_disp";
 	disp_misc_dev.fops = &disp_fops;
@@ -574,8 +586,11 @@ static int __init disp_probe_1(void)
 		DISPERR("disp: fail to create mtk_disp node\n");
 		return (unsigned long)(ERR_PTR(ret));
 	}
-	/* secure video path implementation: a physical address is allocated to place a handle for decryption buffer. */
-	init_tplay_handle(disp_get_device());	/* non-zero value for valid VA */
+	/* secure video path implementation: a physical address is allocated to
+	 * place a handle for decryption buffer.
+	 * Non-zero value for valid VA
+	 */
+	init_tplay_handle(disp_get_device());
 #endif
 
 	/* do disp_init_irq before register irq */
@@ -590,7 +605,8 @@ static int __init disp_probe_1(void)
 		if (!is_ddp_module_has_reg_info(i))
 			continue;
 
-		node = of_find_compatible_node(NULL, NULL, ddp_get_module_dtname(i));
+		node = of_find_compatible_node(NULL, NULL,
+					       ddp_get_module_dtname(i));
 		if (node == NULL) {
 			DDPERR("[ERR]DT, i=%d, module=%s, unable to find node, dt_name=%s\n",
 					i,
@@ -619,8 +635,10 @@ static int __init disp_probe_1(void)
 
 		if (ddp_get_module_pa(i) != res.start)
 			DDPERR("[ERR]DT, i=%d, module=%s, map_addr=%p, reg_pa=0x%lx!=0x%pa\n",
-			       i, ddp_get_module_name(i), (void *)ddp_get_module_va(i),
-			       ddp_get_module_pa(i), (void *)(uintptr_t)res.start);
+			       i, ddp_get_module_name(i),
+			       (void *)ddp_get_module_va(i),
+			       ddp_get_module_pa(i),
+			       (void *)(uintptr_t)res.start);
 
 		/* get IRQ ID and request IRQ */
 		irq = irq_of_parse_and_map(node, 0);
@@ -636,26 +654,31 @@ static int __init disp_probe_1(void)
 		if (ddp_is_irq_enable(i) == 1) {
 			if (ddp_get_module_irq(i) == 0) {
 				DDPERR("[ERR]DT, i=%d, module=%s, map_irq=%d\n",
-					   i, ddp_get_module_name(i), ddp_get_module_irq(i));
+				       i, ddp_get_module_name(i),
+				       ddp_get_module_irq(i));
 				ddp_module_irq_disable(i);
 				continue;
 			}
 			DDPMSG("DT, i=%d, module=%s, map_irq=%d, hw_irq = %d\n",
-				i, ddp_get_module_name(i),
-				ddp_get_module_irq(i), virq_to_hwirq(ddp_get_module_irq(i)));
+			       i, ddp_get_module_name(i), ddp_get_module_irq(i),
+			       virq_to_hwirq(ddp_get_module_irq(i)));
 
-			/* IRQF_TRIGGER_NONE dose not take effect here, real trigger mode set in dts file */
-			ret = request_irq(ddp_get_module_irq(i), (irq_handler_t)disp_irq_handler,
-					  IRQF_TRIGGER_NONE, ddp_get_module_name(i), NULL);
+			/* IRQF_TRIGGER_NONE dose not take effect here, real
+			 * trigger mode set in dts file
+			 */
+			ret = request_irq(ddp_get_module_irq(i),
+					  (irq_handler_t)disp_irq_handler,
+					  IRQF_TRIGGER_NONE,
+					  ddp_get_module_name(i), NULL);
 			if (ret) {
 				DDPERR("[ERR]DT, i=%d, module=%s, request_irq(%d) fail\n",
-					   i, ddp_get_module_name(i), ddp_get_module_irq(i));
+				       i, ddp_get_module_name(i),
+				       ddp_get_module_irq(i));
 				continue;
 			}
 			DDPMSG("irq enabled, module=%s, irq=%d\n",
-				   ddp_get_module_name(i), ddp_get_module_irq(i));
+			       ddp_get_module_name(i), ddp_get_module_irq(i));
 		}
-
 	}
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL) {
@@ -669,23 +692,22 @@ static int __init disp_probe_1(void)
 #else
 		/* workaround if cg not on */
 		DDPMSG("before power on MMSYS:0x%x,0x%x\n",
-			DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
-			DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
+		       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
+		       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
 
 		DISP_REG_SET(NULL, DISP_REG_CONFIG_MMSYS_CG_CLR0, 0xFFFFFFFF);
 		DISP_REG_SET(NULL, DISP_REG_CONFIG_MMSYS_CG_CLR1, 0xFFFFFFFF);
 
 		DDPMSG("after power on MMSYS:0x%x,0x%x\n",
-			DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
-			DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
+		       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON0),
+		       DISP_REG_GET(DISP_REG_CONFIG_MMSYS_CG_CON1));
 #endif
 	}
 
 	ddp_path_init();
 	disp_m4u_init();
 
-
-	pr_debug("disp driver(1) disp_probe_1 end\n");
+	pr_info("disp driver(1) %s end\n", __func__);
 	/* NOT_REFERENCED(class_dev); */
 	return ret;
 }
@@ -693,7 +715,8 @@ static int __init disp_probe_1(void)
 static int disp_remove(struct platform_device *pdev)
 {
 
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) && \
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 	misc_deregister(&disp_misc_dev);
 #endif
 	return 0;
@@ -703,7 +726,6 @@ static void disp_shutdown(struct platform_device *pdev)
 {
 	/* Nothing yet */
 }
-
 
 /* PM suspend */
 static int disp_suspend(struct platform_device *pdev, pm_message_t mesg)
@@ -724,10 +746,10 @@ static const struct of_device_id dispsys_of_ids[] = {
 
 static struct platform_driver dispsys_of_driver = {
 	.driver = {
-		   .name = DISP_DEVNAME,
-		   .owner = THIS_MODULE,
-		   .of_match_table = dispsys_of_ids,
-		   },
+			.name = DISP_DEVNAME,
+			.owner = THIS_MODULE,
+			.of_match_table = dispsys_of_ids,
+		},
 	.probe = disp_probe,
 	.remove = disp_remove,
 	.shutdown = disp_shutdown,
@@ -753,7 +775,6 @@ static int __init disp_init(void)
 
 static void __exit disp_exit(void)
 {
-
 	ASSERT(0);
 	/* disp-clk force on disable ??? */
 
@@ -764,22 +785,20 @@ static void __exit disp_exit(void)
 
 	device_destroy(disp_class, disp_devno);
 	class_destroy(disp_class);
-
 }
 
 static int __init disp_late(void)
 {
 	int ret = 0;
 
-	DDPMSG("disp driver(1) disp_late begin\n");
+	DDPMSG("disp driver(1) %s begin\n", __func__);
 	/* for rt5081 */
 	/*ret = display_bias_regulator_init();*/
 	if (ret < 0)
 		DISPERR("get dsv_pos fail, ret = %d\n", ret);
 
 	/*display_bias_enable();*/
-
-	DDPMSG("disp driver(1) disp_late end\n");
+	DDPMSG("disp driver(1) %s end\n", __func__);
 	return 0;
 }
 #ifndef MTK_FB_DO_NOTHING

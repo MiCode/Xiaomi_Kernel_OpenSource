@@ -15,7 +15,7 @@
 #define _DDP_RDMA_EX_H_
 #include "ddp_info.h"
 
-#define RDMA_INSTANCES  2
+#define RDMA_INSTANCES	2
 #define RDMA_MAX_WIDTH	4095
 #define RDMA_MAX_HEIGHT	4095
 
@@ -62,7 +62,8 @@ void rdma_enable_color_transform(enum DISP_MODULE_ENUM module);
 void rdma_disable_color_transform(enum DISP_MODULE_ENUM module);
 void rdma_set_color_matrix(enum DISP_MODULE_ENUM module,
 			   struct rdma_color_matrix *matrix,
-			   struct rdma_color_pre *pre, struct rdma_color_post *post);
+			   struct rdma_color_pre *pre,
+			   struct rdma_color_post *post);
 int rdma_reset_by_cmdq(enum DISP_MODULE_ENUM module, void *handle);
 
-#endif
+#endif /* _DDP_RDMA_EX_H_ */
