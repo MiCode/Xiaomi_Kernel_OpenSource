@@ -803,6 +803,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			#clock-cells = <1>;
 		};
 
+		lastbus@10001000 {
+			compatible = "mediatek,lastbus-v1";
+			reg = <0 0x10001000 0 0x1000>,
+				<0 0x10003000 0 0x1000>;
+		};
+
 		scp_infra: scp_infra@10001000 {
 			compatible = "mediatek,scpinfra";
 			reg = <0 0x10001000 0 0x1000>;
