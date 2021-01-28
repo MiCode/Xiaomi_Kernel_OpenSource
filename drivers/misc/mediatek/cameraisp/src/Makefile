@@ -17,6 +17,10 @@ ifeq ($(CONFIG_MACH_MT6775),y)
   obj-y += isp_50/
 endif
 
+ifeq ($(CONFIG_MACH_MT6739),y)
+  obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+endif
+
 ifeq ($(CONFIG_MACH_MT6771),y)
   obj-y += isp_50/
 endif
