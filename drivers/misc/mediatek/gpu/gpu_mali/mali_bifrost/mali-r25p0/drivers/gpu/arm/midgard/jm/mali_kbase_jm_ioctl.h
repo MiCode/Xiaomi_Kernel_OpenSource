@@ -104,9 +104,13 @@
  * 11.24:
  * - Added a sysfs file 'serialize_jobs' inside a new sub-directory
  *   'scheduling'.
+ * 11.25:
+ * - Enabled JIT pressure limit in base/kbase by default
+ * 11.26
+ * - Added kinstr_jm API
  */
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 24
+#define BASE_UK_VERSION_MINOR 26
 
 /**
  * struct kbase_ioctl_job_submit - Submit jobs/atoms to the kernel
@@ -142,5 +146,47 @@ struct kbase_ioctl_soft_event_update {
 #define KBASE_IOCTL_SOFT_EVENT_UPDATE \
 	_IOW(KBASE_IOCTL_TYPE, 28, struct kbase_ioctl_soft_event_update)
 
+/**
+ * struct kbase_kinstr_jm_fd_out - Explains the compatibility information for
+ * the `struct kbase_kinstr_jm_atom_state_change` structure returned from the
+ * kernel
+ *
+ * @size:    The size of the `struct kbase_kinstr_jm_atom_state_change`
+ * @version: Represents a breaking change in the
+ *           `struct kbase_kinstr_jm_atom_state_change`
+ * @padding: Explicit padding to get the structure up to 64bits. See
+ * https://www.kernel.org/doc/Documentation/ioctl/botching-up-ioctls.rst
+ *
+ * The `struct kbase_kinstr_jm_atom_state_change` may have extra members at the
+ * end of the structure that older user space might not understand. If the
+ * `version` is the same, the structure is still compatible with newer kernels.
+ * The `size` can be used to cast the opaque memory returned from the kernel.
+ */
+struct kbase_kinstr_jm_fd_out {
+	__u16 size;
+	__u8 version;
+	__u8 padding[5];
+};
+
+/**
+ * struct kbase_kinstr_jm_fd_in - Options when creating the file descriptor
+ *
+ * @count: Number of atom states that can be stored in the kernel circular
+ *         buffer. Must be a power of two
+ * @padding: Explicit padding to get the structure up to 64bits. See
+ * https://www.kernel.org/doc/Documentation/ioctl/botching-up-ioctls.rst
+ */
+struct kbase_kinstr_jm_fd_in {
+	__u16 count;
+	__u8 padding[6];
+};
+
+union kbase_kinstr_jm_fd {
+	struct kbase_kinstr_jm_fd_in in;
+	struct kbase_kinstr_jm_fd_out out;
+};
+
+#define KBASE_IOCTL_KINSTR_JM_FD \
+	_IOWR(KBASE_IOCTL_TYPE, 51, union kbase_kinstr_jm_fd)
 
 #endif /* _KBASE_JM_IOCTL_H_ */

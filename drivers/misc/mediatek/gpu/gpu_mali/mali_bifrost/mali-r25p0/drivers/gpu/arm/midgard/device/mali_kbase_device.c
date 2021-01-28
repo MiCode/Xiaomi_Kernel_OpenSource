@@ -271,14 +271,14 @@ void kbase_increment_device_id(void)
 	kbase_dev_nr++;
 }
 
-int kbase_device_hwcnt_backend_gpu_init(struct kbase_device *kbdev)
+int kbase_device_hwcnt_backend_jm_init(struct kbase_device *kbdev)
 {
-	return kbase_hwcnt_backend_gpu_create(kbdev, &kbdev->hwcnt_gpu_iface);
+	return kbase_hwcnt_backend_jm_create(kbdev, &kbdev->hwcnt_gpu_iface);
 }
 
-void kbase_device_hwcnt_backend_gpu_term(struct kbase_device *kbdev)
+void kbase_device_hwcnt_backend_jm_term(struct kbase_device *kbdev)
 {
-	kbase_hwcnt_backend_gpu_destroy(&kbdev->hwcnt_gpu_iface);
+	kbase_hwcnt_backend_jm_destroy(&kbdev->hwcnt_gpu_iface);
 }
 
 int kbase_device_hwcnt_context_init(struct kbase_device *kbdev)

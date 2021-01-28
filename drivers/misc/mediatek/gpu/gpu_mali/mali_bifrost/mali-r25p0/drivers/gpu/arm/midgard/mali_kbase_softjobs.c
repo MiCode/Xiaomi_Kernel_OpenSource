@@ -32,6 +32,7 @@
 #include <linux/dma-mapping.h>
 #include <mali_base_kernel.h>
 #include <mali_kbase_hwaccess_time.h>
+#include <mali_kbase_kinstr_jm.h>
 #include <mali_kbase_mem_linux.h>
 #include <tl/mali_kbase_tracepoints.h>
 #include <mali_linux_trace.h>
@@ -899,7 +900,7 @@ int kbasep_jit_alloc_validate(struct kbase_context *kctx,
 	if (info->flags & ~(BASE_JIT_ALLOC_VALID_FLAGS))
 		return -EINVAL;
 
-#if !MALI_JIT_PRESSURE_LIMIT
+#if !MALI_JIT_PRESSURE_LIMIT_BASE
 	/* If just-in-time memory allocation pressure limit feature is disabled,
 	 * heap_info_gpu_addr must be zeroed-out
 	 */
@@ -1091,7 +1092,7 @@ static int kbase_jit_allocate_process(struct kbase_jd_atom *katom)
 		}
 	}
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	/**
 	 * If this is the only JIT_ALLOC atom in-flight or if JIT pressure limit
 	 * is disabled at the context scope, then bypass JIT pressure limit
@@ -1103,7 +1104,7 @@ static int kbase_jit_allocate_process(struct kbase_jd_atom *katom)
 	}
 #else
 	ignore_pressure_limit = true;
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	for (i = 0, info = katom->softjob_data; i < count; i++, info++) {
 		if (kctx->jit_alloc[info->id]) {
@@ -1364,6 +1365,7 @@ void kbase_jit_retry_pending_alloc(struct kbase_context *kctx)
 		struct kbase_jd_atom *pending_atom = list_entry(i,
 				struct kbase_jd_atom, queue);
 		KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_START(kctx->kbdev, pending_atom);
+		kbase_kinstr_jm_atom_sw_start(pending_atom);
 		if (kbase_jit_allocate_process(pending_atom) == 0) {
 			/* Atom has completed */
 			INIT_WORK(&pending_atom->work,
@@ -1371,6 +1373,7 @@ void kbase_jit_retry_pending_alloc(struct kbase_context *kctx)
 			queue_work(kctx->jctx.job_done_wq, &pending_atom->work);
 		}
 		KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_END(kctx->kbdev, pending_atom);
+		kbase_kinstr_jm_atom_sw_stop(pending_atom);
 	}
 }
 
@@ -1545,6 +1548,7 @@ int kbase_process_soft_job(struct kbase_jd_atom *katom)
 	struct kbase_device *kbdev = kctx->kbdev;
 
 	KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_START(kbdev, katom);
+	kbase_kinstr_jm_atom_sw_start(katom);
 
 	trace_sysgraph(SGR_SUBMIT, kctx->id,
 			kbase_jd_atom_id(kctx, katom));
@@ -1607,6 +1611,7 @@ int kbase_process_soft_job(struct kbase_jd_atom *katom)
 
 	/* Atom is complete */
 	KBASE_TLSTREAM_TL_EVENT_ATOM_SOFTJOB_END(kbdev, katom);
+	kbase_kinstr_jm_atom_sw_stop(katom);
 	return ret;
 }
 

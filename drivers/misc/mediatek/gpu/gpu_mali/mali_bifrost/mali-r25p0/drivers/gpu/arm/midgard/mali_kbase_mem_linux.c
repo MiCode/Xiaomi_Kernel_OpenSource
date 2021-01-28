@@ -49,6 +49,8 @@
 #include <tl/mali_kbase_tracepoints.h>
 #include <mali_kbase_ioctl.h>
 #include <mmu/mali_kbase_mmu.h>
+#include <mali_kbase_caps.h>
+#include <mali_kbase_trace_gpu_mem.h>
 
 #if ((KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE) || \
 	(KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE))
@@ -438,7 +440,7 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 		*gpu_va = reg->start_pfn << PAGE_SHIFT;
 	}
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (*flags & BASEP_MEM_PERFORM_JIT_TRIM) {
 		kbase_jit_done_phys_increase(kctx, commit_pages);
 
@@ -447,7 +449,7 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 		list_add(&reg->jit_node, &kctx->jit_active_head);
 		mutex_unlock(&kctx->jit_evict_lock);
 	}
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	kbase_gpu_vm_unlock(kctx);
 	return reg;
@@ -456,13 +458,13 @@ no_mmap:
 no_cookie:
 no_kern_mapping:
 no_mem:
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (*flags & BASEP_MEM_PERFORM_JIT_TRIM) {
 		kbase_gpu_vm_lock(kctx);
 		kbase_jit_done_phys_increase(kctx, commit_pages);
 		kbase_gpu_vm_unlock(kctx);
 	}
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 	kbase_mem_phy_alloc_put(reg->cpu_alloc);
 	kbase_mem_phy_alloc_put(reg->gpu_alloc);
 invalid_flags:
@@ -531,14 +533,23 @@ int kbase_mem_query(struct kbase_context *kctx,
 			*out |= BASE_MEM_COHERENT_SYSTEM;
 		if (KBASE_REG_SHARE_IN & reg->flags)
 			*out |= BASE_MEM_COHERENT_LOCAL;
-		if (kctx->api_version >= KBASE_API_VERSION(11, 2)) {
-			/* Prior to 11.2, these were known about by user-side
-			 * but we did not return them. Returning some of these
-			 * caused certain clients that were not expecting them
-			 * to fail, so we omit all of them as a special-case
-			 * for compatibility reasons */
+		if (mali_kbase_supports_mem_grow_on_gpf(kctx->api_version)) {
+			/* Prior to this version, this was known about by
+			 * user-side but we did not return them. Returning
+			 * it caused certain clients that were not expecting
+			 * it to fail, so we omit it as a special-case for
+			 * compatibility reasons
+			 */
 			if (KBASE_REG_PF_GROW & reg->flags)
 				*out |= BASE_MEM_GROW_ON_GPF;
+		}
+		if (mali_kbase_supports_mem_protected(kctx->api_version)) {
+			/* Prior to this version, this was known about by
+			 * user-side but we did not return them. Returning
+			 * it caused certain clients that were not expecting
+			 * it to fail, so we omit it as a special-case for
+			 * compatibility reasons
+			 */
 			if (KBASE_REG_PROTECTED & reg->flags)
 				*out |= BASE_MEM_PROTECTED;
 		}
@@ -725,6 +736,7 @@ void kbase_mem_evictable_mark_reclaim(struct kbase_mem_phy_alloc *alloc)
 			kbdev,
 			kctx->id,
 			(u64)new_page_count);
+	kbase_trace_gpu_mem_usage_dec(kbdev, kctx, alloc->nents);
 }
 
 /**
@@ -751,6 +763,7 @@ void kbase_mem_evictable_unmark_reclaim(struct kbase_mem_phy_alloc *alloc)
 			kbdev,
 			kctx->id,
 			(u64)new_page_count);
+	kbase_trace_gpu_mem_usage_inc(kbdev, kctx, alloc->nents);
 }
 
 int kbase_mem_evictable_make(struct kbase_mem_phy_alloc *gpu_alloc)
@@ -1076,6 +1089,8 @@ static void kbase_mem_umm_unmap_attachment(struct kbase_context *kctx,
 				 alloc->imported.umm.sgt, DMA_BIDIRECTIONAL);
 	alloc->imported.umm.sgt = NULL;
 
+	kbase_remove_dma_buf_usage(kctx, alloc);
+
 	memset(pa, 0xff, sizeof(*pa) * alloc->nents);
 	alloc->nents = 0;
 }
@@ -1143,6 +1158,7 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx,
 
 	/* Update nents as we now have pages to map */
 	alloc->nents = count;
+	kbase_add_dma_buf_usage(kctx, alloc);
 
 	return 0;
 
@@ -1403,6 +1419,7 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx,
 	reg->gpu_alloc->imported.umm.dma_attachment = dma_attachment;
 	reg->gpu_alloc->imported.umm.current_mapping_usage_count = 0;
 	reg->gpu_alloc->imported.umm.need_sync = need_sync;
+	reg->gpu_alloc->imported.umm.kctx = kctx;
 	reg->extent = 0;
 
 	if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND)) {

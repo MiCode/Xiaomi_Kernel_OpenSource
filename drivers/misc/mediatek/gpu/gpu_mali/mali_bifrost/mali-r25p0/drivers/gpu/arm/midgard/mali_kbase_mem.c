@@ -43,6 +43,7 @@
 #include <mali_kbase_mem_pool_group.h>
 #include <mmu/mali_kbase_mmu.h>
 #include <mali_kbase_config_defaults.h>
+#include <mali_kbase_trace_gpu_mem.h>
 
 /*
  * Alignment of objects allocated by the GPU inside a just-in-time memory
@@ -850,10 +851,10 @@ int kbase_region_tracker_init_jit(struct kbase_context *kctx, u64 jit_va_pages,
 	if (phys_pages_limit > jit_va_pages)
 		return -EINVAL;
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (phys_pages_limit != jit_va_pages)
 		kbase_ctx_flag_set(kctx, KCTX_JPL_ENABLED);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	kbase_gpu_vm_lock(kctx);
 
@@ -871,11 +872,11 @@ int kbase_region_tracker_init_jit(struct kbase_context *kctx, u64 jit_va_pages,
 		kctx->trim_level = trim_level;
 		kctx->jit_va = true;
 		kctx->jit_group_id = group_id;
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 		kctx->jit_phys_pages_limit = phys_pages_limit;
 		dev_dbg(kctx->kbdev->dev, "phys_pages_limit set to %llu\n",
 				phys_pages_limit);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 	}
 
 	kbase_gpu_vm_unlock(kctx);
@@ -977,6 +978,12 @@ int kbase_mem_init(struct kbase_device *kbdev)
 	/* Initialize memory usage */
 	atomic_set(&memdev->used_pages, 0);
 
+	spin_lock_init(&kbdev->gpu_mem_usage_lock);
+	kbdev->total_gpu_pages = 0;
+	kbdev->process_root = RB_ROOT;
+	kbdev->dma_buf_root = RB_ROOT;
+	mutex_init(&kbdev->dma_buf_lock);
+
 #ifdef IR_THRESHOLD
 	atomic_set(&memdev->ir_threshold, IR_THRESHOLD);
 #else
@@ -1053,6 +1060,11 @@ void kbase_mem_term(struct kbase_device *kbdev)
 		dev_warn(kbdev->dev, "%s: %d pages in use!\n", __func__, pages);
 
 	kbase_mem_pool_group_term(&kbdev->mem_pools);
+
+	WARN_ON(kbdev->total_gpu_pages);
+	WARN_ON(!RB_EMPTY_ROOT(&kbdev->process_root));
+	WARN_ON(!RB_EMPTY_ROOT(&kbdev->dma_buf_root));
+	mutex_destroy(&kbdev->dma_buf_lock);
 
 	if (kbdev->mgm_dev)
 		module_put(kbdev->mgm_dev->owner);
@@ -2034,6 +2046,9 @@ no_new_partial:
 			(u64)new_page_count);
 
 	alloc->nents += nr_pages_requested;
+
+	kbase_trace_gpu_mem_usage_inc(kctx->kbdev, kctx, nr_pages_requested);
+
 done:
 	return 0;
 
@@ -2210,6 +2225,9 @@ struct tagged_addr *kbase_alloc_phy_pages_helper_locked(
 			(u64)new_page_count);
 
 	alloc->nents += nr_pages_requested;
+
+	kbase_trace_gpu_mem_usage_inc(kctx->kbdev, kctx, nr_pages_requested);
+
 done:
 	return new_pages;
 
@@ -2375,6 +2393,8 @@ int kbase_free_phy_pages_helper(
 			kbdev,
 			kctx->id,
 			(u64)new_page_count);
+
+		kbase_trace_gpu_mem_usage_dec(kctx->kbdev, kctx, freed);
 	}
 
 	return 0;
@@ -2497,6 +2517,8 @@ void kbase_free_phy_pages_helper_locked(struct kbase_mem_phy_alloc *alloc,
 				kbdev,
 				kctx->id,
 				(u64)new_page_count);
+
+		kbase_trace_gpu_mem_usage_dec(kctx->kbdev, kctx, freed);
 	}
 }
 
@@ -2559,6 +2581,8 @@ void kbase_mem_kref_free(struct kref *kref)
 					alloc->imported.umm.dma_attachment,
 					alloc->imported.umm.sgt,
 					DMA_BIDIRECTIONAL);
+			kbase_remove_dma_buf_usage(alloc->imported.umm.kctx,
+						   alloc);
 		}
 		dma_buf_detach(alloc->imported.umm.dma_buf,
 			       alloc->imported.umm.dma_attachment);
@@ -2998,7 +3022,7 @@ static int kbase_jit_debugfs_phys_get(struct kbase_jit_debugfs_data *data)
 KBASE_JIT_DEBUGFS_DECLARE(kbase_jit_debugfs_phys_fops,
 		kbase_jit_debugfs_phys_get);
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 static int kbase_jit_debugfs_used_get(struct kbase_jit_debugfs_data *data)
 {
 	struct kbase_context *kctx = data->kctx;
@@ -3053,7 +3077,7 @@ static int kbase_jit_debugfs_trim_get(struct kbase_jit_debugfs_data *data)
 
 KBASE_JIT_DEBUGFS_DECLARE(kbase_jit_debugfs_trim_fops,
 		kbase_jit_debugfs_trim_get);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 void kbase_jit_debugfs_init(struct kbase_context *kctx)
 {
@@ -3093,7 +3117,7 @@ void kbase_jit_debugfs_init(struct kbase_context *kctx)
 	 */
 	debugfs_create_file("mem_jit_phys", mode, kctx->kctx_dentry,
 			kctx, &kbase_jit_debugfs_phys_fops);
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	/*
 	 * Debugfs entry for getting the number of pages used
 	 * by JIT allocations for estimating the physical pressure
@@ -3108,7 +3132,7 @@ void kbase_jit_debugfs_init(struct kbase_context *kctx)
 	 */
 	debugfs_create_file("mem_jit_trim", mode, kctx->kctx_dentry,
 			kctx, &kbase_jit_debugfs_trim_fops);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 }
 #endif /* CONFIG_DEBUG_FS */
 
@@ -3188,7 +3212,7 @@ static bool meet_size_and_tiler_align_top_requirements(
 	return meet_reqs;
 }
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /* Function will guarantee *@freed will not exceed @pages_needed
  */
 static int kbase_mem_jit_trim_pages_from_region(struct kbase_context *kctx,
@@ -3352,7 +3376,7 @@ static size_t kbase_mem_jit_trim_pages(struct kbase_context *kctx,
 
 	return total_freed;
 }
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 static int kbase_jit_grow(struct kbase_context *kctx,
 			  const struct base_jit_alloc_info *info,
@@ -3498,7 +3522,7 @@ static void trace_jit_stats(struct kbase_context *kctx,
 		max_allocations, alloc_count, va_pages, ph_pages);
 }
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 /**
  * get_jit_phys_backing() - calculate the physical backing of all JIT
  * allocations
@@ -3560,7 +3584,7 @@ void kbase_jit_trim_necessary_pages(struct kbase_context *kctx,
 		WARN_ON(trimmed_pages < pages_to_trim);
 	}
 }
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 /**
  * jit_allow_allocate() - check whether basic conditions are satisfied to allow
@@ -3579,7 +3603,7 @@ static bool jit_allow_allocate(struct kbase_context *kctx,
 {
 	lockdep_assert_held(&kctx->jctx.lock);
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (!ignore_pressure_limit &&
 			((kctx->jit_phys_pages_limit <= kctx->jit_current_phys_pressure) ||
 			(info->va_pages > (kctx->jit_phys_pages_limit - kctx->jit_current_phys_pressure)))) {
@@ -3589,7 +3613,7 @@ static bool jit_allow_allocate(struct kbase_context *kctx,
 			kctx->jit_phys_pages_limit);
 		return false;
 	}
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	if (kctx->jit_current_allocations >= kctx->jit_max_allocations) {
 		/* Too many current allocations */
@@ -3695,9 +3719,9 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 		reg = find_reasonable_region(info, &kctx->jit_pool_head, true);
 
 	if (reg) {
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 		size_t needed_pages = 0;
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 		int ret;
 
 		/*
@@ -3715,7 +3739,7 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 		 */
 		list_del_init(&reg->gpu_alloc->evict_node);
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 		if (!ignore_pressure_limit) {
 			if (info->commit_pages > reg->gpu_alloc->nents)
 				needed_pages = info->commit_pages -
@@ -3753,10 +3777,10 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 		 */
 		ret = kbase_jit_grow(kctx, info, reg, prealloc_sas);
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 		if (!ignore_pressure_limit)
 			kbase_jit_done_phys_increase(kctx, needed_pages);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 		kbase_gpu_vm_unlock(kctx);
 
@@ -3770,7 +3794,7 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 			dev_dbg(kctx->kbdev->dev,
 				"JIT allocation resize failed: va_pages 0x%llx, commit_pages 0x%llx\n",
 				info->va_pages, info->commit_pages);
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 			/* Undo the early change made to the recycled JIT
 			 * region's estimate of used_pages.
 			 */
@@ -3779,7 +3803,7 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 					kctx, reg, 0,
 					KBASE_JIT_REPORT_ON_ALLOC_OR_FREE);
 			}
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 			mutex_lock(&kctx->jit_evict_lock);
 			list_move(&reg->jit_node, &kctx->jit_pool_head);
 			mutex_unlock(&kctx->jit_evict_lock);
@@ -3798,7 +3822,7 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 			flags |= BASE_MEM_TILER_ALIGN_TOP;
 
 		flags |= base_mem_group_id_set(kctx->jit_group_id);
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 		if (!ignore_pressure_limit) {
 			flags |= BASEP_MEM_PERFORM_JIT_TRIM;
 			/* The corresponding call to 'done_phys_increase' would
@@ -3807,7 +3831,7 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 			kbase_jit_request_phys_increase_locked(
 				kctx, info->commit_pages);
 		}
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 		mutex_unlock(&kctx->jit_evict_lock);
 		kbase_gpu_vm_unlock(kctx);
@@ -3849,13 +3873,13 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 	reg->jit_usage_id = info->usage_id;
 	reg->jit_bin_id = info->bin_id;
 	reg->flags |= KBASE_REG_ACTIVE_JIT_ALLOC;
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (info->flags & BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE)
 		reg->flags = reg->flags | KBASE_REG_HEAP_INFO_IS_SIZE;
 	reg->heap_info_gpu_addr = info->heap_info_gpu_addr;
 	kbase_jit_report_update_pressure(kctx, reg, info->va_pages,
 			KBASE_JIT_REPORT_ON_ALLOC_OR_FREE);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 end:
 	for (i = 0; i != ARRAY_SIZE(prealloc_sas); ++i)
@@ -3885,11 +3909,11 @@ void kbase_jit_free(struct kbase_context *kctx, struct kbase_va_region *reg)
 			kbase_mem_shrink(kctx, reg, old_pages - delta);
 	}
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	reg->heap_info_gpu_addr = 0;
 	kbase_jit_report_update_pressure(kctx, reg, 0,
 			KBASE_JIT_REPORT_ON_ALLOC_OR_FREE);
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	kctx->jit_current_allocations--;
 	kctx->jit_current_allocations_per_bin[reg->jit_bin_id]--;
@@ -4000,7 +4024,7 @@ void kbase_jit_term(struct kbase_context *kctx)
 		kbase_mem_free_region(kctx, walker);
 		mutex_lock(&kctx->jit_evict_lock);
 	}
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 	WARN_ON(kctx->jit_phys_pages_to_be_allocated);
 #endif
 	mutex_unlock(&kctx->jit_evict_lock);
@@ -4013,7 +4037,7 @@ void kbase_jit_term(struct kbase_context *kctx)
 	cancel_work_sync(&kctx->jit_work);
 }
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 void kbase_trace_jit_report_gpu_mem_trace_enabled(struct kbase_context *kctx,
 		struct kbase_va_region *reg, unsigned int flags)
 {
@@ -4056,9 +4080,9 @@ void kbase_trace_jit_report_gpu_mem_trace_enabled(struct kbase_context *kctx,
 out:
 	return;
 }
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
-#if MALI_JIT_PRESSURE_LIMIT
+#if MALI_JIT_PRESSURE_LIMIT_BASE
 void kbase_jit_report_update_pressure(struct kbase_context *kctx,
 		struct kbase_va_region *reg, u64 new_used_pages,
 		unsigned int flags)
@@ -4094,7 +4118,7 @@ void kbase_jit_report_update_pressure(struct kbase_context *kctx,
 	}
 
 }
-#endif /* MALI_JIT_PRESSURE_LIMIT */
+#endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 bool kbase_has_exec_va_zone(struct kbase_context *kctx)
 {
