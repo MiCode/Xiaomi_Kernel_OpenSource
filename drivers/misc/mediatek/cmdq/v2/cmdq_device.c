@@ -437,51 +437,53 @@ void cmdq_dev_get_event_value_by_name(struct device_node *node,
 	} while (0);
 }
 
-void cmdq_dev_test_event_correctness_impl(enum CMDQ_EVENT_ENUM event,
-	const char *event_name)
+void cmdq_dev_test_event_correctness_impl(enum cmdq_event event,
+	const char *dts_name, const char *event_name)
 {
-	int32_t eventValue = cmdq_core_get_event_value(event);
+	s32 eventValue = cmdq_core_get_event_value(event);
 
-	if (eventValue >= 0 && eventValue < CMDQ_SYNC_TOKEN_MAX) {
+	if (eventValue >= 0 && eventValue < (u32)CMDQ_SYNC_TOKEN_MAX) {
 		/* print event name from device tree */
-		CMDQ_LOG("%s = %d\n", event_name, eventValue);
+		if (event < (u32)CMDQ_MAX_HW_EVENT_COUNT)
+			CMDQ_LOG("%s = %d\n", dts_name, eventValue);
+		else
+			CMDQ_LOG("%s = %d\n", event_name, eventValue);
 	}
 }
+
 #endif
 
 void cmdq_dev_init_event_table(struct device_node *node)
 {
 #ifdef CMDQ_OF_SUPPORT
-#undef DECLARE_CMDQ_EVENT
-#define DECLARE_CMDQ_EVENT(name, val, dts_name) \
-{	\
-	cmdq_dev_get_event_value_by_name(node, val, #dts_name);	\
-}
-#include "cmdq_event_common.h"
-#undef DECLARE_CMDQ_EVENT
+	struct cmdq_event_table *events = cmdq_event_get_table();
+	u32 table_size = cmdq_event_get_table_size();
+	u32 i = 0;
+
+	for (i = 0; i < table_size; i++) {
+		if (events[i].event == (u32)CMDQ_MAX_HW_EVENT_COUNT)
+			break;
+		cmdq_dev_get_event_value_by_name(node, events[i].event,
+			events[i].dts_name);
+	}
 #endif
+
 }
 
 void cmdq_dev_test_dts_correctness(void)
 {
 #ifdef CMDQ_OF_SUPPORT
-#undef DECLARE_CMDQ_EVENT
-#define DECLARE_CMDQ_EVENT(name, val, dts_name) \
-{	\
-		cmdq_dev_test_event_correctness_impl(val, #name);	\
-}
-#include "cmdq_event_common.h"
-#undef DECLARE_CMDQ_EVENT
 
-#undef DECLARE_CMDQ_SUBSYS
-#define DECLARE_CMDQ_SUBSYS(name, val, grp, dts_name) \
-{	\
-		cmdq_dev_test_subsys_correctness_impl(val);	\
-}
-#include "cmdq_subsys_common.h"
-#undef DECLARE_CMDQ_SUBSYS
+	struct cmdq_event_table *events = cmdq_event_get_table();
+	struct cmdq_subsys_dts_name *subsys = cmdq_subsys_get_dts();
+	u32 i;
 
-	CMDQ_LOG("APXGPT2_Count = 0x%08lx\n", gAPXGPT2Count);
+	for (i = 0; i < cmdq_event_get_table_size(); i++)
+		cmdq_dev_test_event_correctness_impl(events[i].event,
+			events[i].dts_name, events[i].event_name);
+	for (i = 0; i < cmdq_subsys_get_size(); i++)
+		if (subsys[i].name)
+			cmdq_dev_test_subsys_correctness_impl(i);
 #endif
 }
 
