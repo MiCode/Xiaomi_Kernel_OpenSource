@@ -6,6 +6,17 @@ config MTPROF
 	  other misc tools. If you are not sure about whether to enable it or
 	  not, please set n.
 
+config BOOTPROF_THRESHOLD_MS
+        int "the print threshold of kernel driver init duration"
+        depends on MTK_ENG_BUILD
+        default 30
+        help
+          BOOTPROF_THRESHOLD_MS(unit: millisec)is the threshold for
+          bootprof log print out or not. If driver init duration is
+          greater than threshold, bootprof log is print. Opposite is not.
+          If you are not sure about whether to enable it or not,
+          please do not set
+
 if MTPROF
 
 config MTK_SCHED_MONITOR
