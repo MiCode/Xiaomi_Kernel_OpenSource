@@ -11,12 +11,6 @@
 # GNU General Public License for more details.
 #
 
-ifeq ($(CONFIG_MACH_MT6893), y)
-MTK_ADSP_PLATFORM := mt6885
-else
-MTK_ADSP_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
-
 ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
 GCOV_PROFILE := y
 endif
@@ -39,7 +33,7 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framewor
 endif
 
 ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_ADSP_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
 endif
 
 ifeq ($(CONFIG_SND_SOC_AW87339),y)

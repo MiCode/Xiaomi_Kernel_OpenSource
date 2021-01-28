@@ -11,20 +11,15 @@
 # See http://www.gnu.org/licenses/gpl-2.0.html for more details.
 #
 
-ifeq ($(CONFIG_MACH_MT6893), y)
-MTK_ADSP_PLATFORM := mt6885
-else
-MTK_ADSP_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
-endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework/
 
 ifeq ($(CONFIG_MTK_TINYSYS_SCP_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/$(CONFIG_MTK_PLATFORM)
 endif
 
 ifeq ($(CONFIG_MTK_AUDIODSP_SUPPORT),y)
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_ADSP_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(CONFIG_MTK_PLATFORM)
 endif
 
 obj-y += audio_ipi_platform.o

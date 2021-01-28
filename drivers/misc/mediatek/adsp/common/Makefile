@@ -4,7 +4,7 @@ obj-y += adsp.o
 adsp-y := adsp_core.o adsp_fs.o adsp_semaphore.o adsp_logger.o adsp_feature_table.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(CONFIG_MTK_PLATFORM)
 
 ifeq ($(CONFIG_MTK_ENG_BUILD),y)
 CFLAGS_adsp_core.o += -DDEBUG

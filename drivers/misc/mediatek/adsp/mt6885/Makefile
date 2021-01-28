@@ -16,10 +16,10 @@ obj-y += adsp_excep.o
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/common
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framework
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
 
-ccflags-y += -I$(srctree)/sound/soc/mediatek/$(MTK_PLATFORM)
+ccflags-y += -I$(srctree)/sound/soc/mediatek/$(CONFIG_MTK_PLATFORM)
 ifeq ($(CONFIG_MTK_ENG_BUILD),y)
 CFLAGS_adsp_excep.o += -DDEBUG
 endif
