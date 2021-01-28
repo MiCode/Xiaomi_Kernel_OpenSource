@@ -1330,10 +1330,8 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 
 		larb = m4u_port_2_larb_id(port);
 		if (unlikely(larb >= SMI_LARB_NR)) {
-			M4UMSG("%s %d err port[%d]\n",
-				__func__, __LINE__, port);
-			spin_unlock(&gM4u_reg_lock);
-			return -1;
+			ret = -1;
+			goto out;
 		}
 		larb_port = m4u_port_2_larb_port(port);
 		larb_base = gLarbBaseAddr[larb];
@@ -1346,12 +1344,8 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 			larb_base,
 			SMI_LARB_NON_SEC_CONx(larb_port), 0x1);
 		if (!!(mmu_en) != virt) {
-			M4ULOG_HIGH(
-				"m4u_config_port error, port=%s, Virtuality=%d, mmu_en=%x (%x, %x)\n",
-				m4u_get_port_name(port), virt, mmu_en,
-				M4U_ReadReg32(larb_base,
-				SMI_LARB_NON_SEC_CONx(larb_port)),
-				F_SMI_MMU_EN);
+			ret = -1;
+			goto out;
 		}
 	} else {
 		larb_port = m4u_port_2_larb_port(port);
@@ -1361,7 +1355,7 @@ static int _m4u_config_port(int port, int virt, int sec, int dis, int dir)
 			F_PERI_MMU_EN(larb_port,
 			!!(virt)));
 	}
-
+out:
 	spin_unlock(&gM4u_reg_lock);
 
 	mmprofile_log_ex(M4U_MMP_Events[M4U_MMP_CONFIG_PORT],
@@ -1403,7 +1397,7 @@ int m4u_config_port(
 	int m4u_index = m4u_port_2_m4u_id(PortID);
 	unsigned int larb = m4u_port_2_larb_id(PortID);
 
-	int ret;
+	int ret = 0;
 #ifdef M4U_TEE_SERVICE_ENABLE
 	unsigned int larb_port, mmu_en = 0, sec_en = 0;
 #endif
@@ -1444,6 +1438,12 @@ int m4u_config_port(
 	}
 	_m4u_port_clock_toggle(m4u_index, larb, 0);
 
+	if (ret) {
+		m4u_info("%s error : port:%d(%s), virt:%u sec:%d, dis:%d dir:%d\n",
+			 __func__, PortID, m4u_get_port_name(PortID),
+			 pM4uPort->Virtuality, pM4uPort->Security,
+			 pM4uPort->Distance, pM4uPort->Direction);
+	}
 
 	return 0;
 }
@@ -1954,7 +1954,7 @@ void m4u_print_port_status(struct seq_file *seq, int tf_port)
 	}
 
 	M4U_PRINT_LOG_OR_SEQ(seq,
-			"%s larb:%d, port:%s, mmu_en:%d mmu_en_sec:%d, sec:%d\n",
+			"%s larb:%d, port:%s, mmu_en:%d\n",
 			__func__, larb, m4u_get_port_name(tf_port),
 			!!mmu_en);
 }
