@@ -17,7 +17,6 @@
 #include <linux/bitops.h>
 #include <linux/device.h>
 
-#if !IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #ifdef CONFIG_MTK_SMI
 
 #define MTK_LARB_NR_MAX		16
@@ -35,7 +34,7 @@ struct mtk_smi_iommu {
 };
 
 #endif
-#else /* IS_ENABLED(CONFIG_MTK_SMI_EXT) */
+#if IS_ENABLED(CONFIG_MTK_SMI_EXT)
 #include <linux/platform_device.h>
 
 struct mtk_smi_pair {

@@ -25,7 +25,7 @@ s32 smi_bus_prepare_enable(const u32 id, const char *user);
 s32 smi_bus_disable_unprepare(const u32 id, const char *user);
 s32 smi_debug_bus_hang_detect(const bool gce, const char *user);
 #else
-#define smi_mm_first_get(void) ((void)0)
+#define smi_mm_first_get() (true)
 #define smi_bus_prepare_enable(id, user) ((void)0)
 #define smi_bus_disable_unprepare(id, user) ((void)0)
 #define smi_debug_bus_hang_detect(gce, user) ((void)0)

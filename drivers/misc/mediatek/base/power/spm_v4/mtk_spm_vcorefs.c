@@ -44,7 +44,7 @@
 /* #include <ext_wd_drv.h> */
 #include "mtk_devinfo.h"
 
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef CONFIG_MTK_MMDVFS
 #include <mmdvfs_mgr.h>
 #endif
 
@@ -68,7 +68,7 @@ u32 plat_channel_num;
 u32 plat_chip_ver;
 u32 dram_issue;
 
-#ifdef CONFIG_MTK_SMI_EXT
+#ifdef CONFIG_MTK_MMDVFS
 enum mmdvfs_lcd_size_enum plat_lcd_resolution;
 #else
 int plat_lcd_resolution;
@@ -892,7 +892,7 @@ static void plat_info_init(void)
 	plat_chip_ver = mt_get_chip_sw_ver();
 
 	/* lcd resolution */
-	#ifdef CONFIG_MTK_SMI_EXT
+	#ifdef CONFIG_MTK_MMDVFS
 	plat_lcd_resolution = mmdvfs_get_lcd_resolution();
 	#else
 	plat_lcd_resolution = 46;
