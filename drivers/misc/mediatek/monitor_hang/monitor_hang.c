@@ -42,7 +42,7 @@
 #ifdef CONFIG_MTK_ION
 #include <mtk/ion_drv.h>
 #endif
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 //#include <mt-plat/mtk_gpu_utility.h>
 #endif
 #ifdef CONFIG_MTK_AEE_IPANIC
@@ -1721,7 +1721,7 @@ static void ShowStatus(int flag)
 #ifdef CONFIG_MTK_ION
 		ion_mm_heap_memory_detail();
 #endif
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 		mtk_dump_gpu_memory_usage();
 #endif
 #ifdef CONFIG_MTK_WQ_DEBUG
