@@ -372,9 +372,11 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 	} else
 		reg->threshold_pages = 0;
 
-	if (*flags & (BASE_MEM_GROW_ON_GPF|BASE_MEM_TILER_ALIGN_TOP)) {
+	if (*flags & BASE_MEM_GROW_ON_GPF) {
 		/* kbase_check_alloc_sizes() already checks extent is valid for
 		 * assigning to reg->extent */
+		reg->extent = extent;
+	} else if (*flags & BASE_MEM_TILER_ALIGN_TOP) {
 		reg->extent = extent;
 	} else {
 		reg->extent = 0;
@@ -436,6 +438,17 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx,
 		*gpu_va = reg->start_pfn << PAGE_SHIFT;
 	}
 
+#if MALI_JIT_PRESSURE_LIMIT
+	if (*flags & BASEP_MEM_PERFORM_JIT_TRIM) {
+		kbase_jit_done_phys_increase(kctx, commit_pages);
+
+		mutex_lock(&kctx->jit_evict_lock);
+		WARN_ON(!list_empty(&reg->jit_node));
+		list_add(&reg->jit_node, &kctx->jit_active_head);
+		mutex_unlock(&kctx->jit_evict_lock);
+	}
+#endif /* MALI_JIT_PRESSURE_LIMIT */
+
 	kbase_gpu_vm_unlock(kctx);
 	return reg;
 
@@ -443,6 +456,13 @@ no_mmap:
 no_cookie:
 no_kern_mapping:
 no_mem:
+#if MALI_JIT_PRESSURE_LIMIT
+	if (*flags & BASEP_MEM_PERFORM_JIT_TRIM) {
+		kbase_gpu_vm_lock(kctx);
+		kbase_jit_done_phys_increase(kctx, commit_pages);
+		kbase_gpu_vm_unlock(kctx);
+	}
+#endif /* MALI_JIT_PRESSURE_LIMIT */
 	kbase_mem_phy_alloc_put(reg->cpu_alloc);
 	kbase_mem_phy_alloc_put(reg->gpu_alloc);
 invalid_flags:
@@ -2024,7 +2044,7 @@ static int kbase_mem_shrink_gpu_mapping(struct kbase_context *const kctx,
 int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 {
 	u64 old_pages;
-	u64 delta;
+	u64 delta = 0;
 	int res = -EINVAL;
 	struct kbase_va_region *reg;
 	bool read_locked = false;
@@ -2088,6 +2108,11 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 		downgrade_write(&current->mm->mmap_sem);
 		read_locked = true;
 
+#if MALI_JIT_PRESSURE_LIMIT
+		if (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC)
+			kbase_jit_request_phys_increase(kctx, delta);
+#endif /* MALI_JIT_PRESSURE_LIMIT */
+
 		/* Allocate some more pages */
 		if (kbase_alloc_phy_pages_helper(reg->cpu_alloc, delta) != 0) {
 			res = -ENOMEM;
@@ -2125,6 +2150,10 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	}
 
 out_unlock:
+#if MALI_JIT_PRESSURE_LIMIT
+	if ((reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC) && delta)
+		kbase_jit_done_phys_increase(kctx, delta);
+#endif /* MALI_JIT_PRESSURE_LIMIT */
 	kbase_gpu_vm_unlock(kctx);
 	if (read_locked)
 		up_read(&current->mm->mmap_sem);
