@@ -58,11 +58,15 @@ static const struct of_device_id of_match_clk_mt6761_mipi0a[] = {
 };
 
 static struct platform_driver clk_mt6761_mipi0a_drv = {
-	.probe = clk_mt6761_mipi0a_probe,
 	.driver = {
 		.name = "clk-mt6761-mipi0a",
 		.of_match_table = of_match_clk_mt6761_mipi0a,
 	},
 };
 
-builtin_platform_driver(clk_mt6761_mipi0a_drv);
+static int __init clk_mt6761_mipi0a_init(void)
+{
+	return platform_driver_probe(&clk_mt6761_mipi0a_drv,
+			clk_mt6761_mipi0a_probe);
+}
+subsys_initcall(clk_mt6761_mipi0a_init);
