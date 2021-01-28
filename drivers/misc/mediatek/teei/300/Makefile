@@ -19,6 +19,8 @@ $(info "CONFIG_MICROTRUST_DEBUG=$(CONFIG_MICROTRUST_DEBUG)")
 $(info "CONFIG_MICROTRUST_TEST_DRIVERS=$(CONFIG_MICROTRUST_TEST_DRIVERS)")
 
 subdir-ccflags-y  += -I$(src)/common/include
+subdir-ccflags-$(CONFIG_MTK_TEE_SANITY) += \
+	-I$(srctree)/drivers/misc/mediatek/tee_sanity/
 
 subdir-ccflags-y  += \
 	-I$(src)/tz_dcih \
