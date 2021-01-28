@@ -1078,60 +1078,89 @@
 		reg = <0 0x13fbf000 0 0x1000>;
 	};
 
-	mmsys_config@14000000 {
-		compatible = "mediatek,mmsys_config";
-		reg = <0 0x14000000 0 0x1000>;
-		interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
-	};
-
-	disp_mutex0@14001000 {
-		compatible = "mediatek,disp_mutex0";
-		reg = <0 0x14001000 0 0x1000>;
-	};
-
 	smi_common@14002000 {
 		compatible = "mediatek,smi_common";
 		reg = <0 0x14002000 0 0x1000>;
 	};
 
-	smi_larb0@14003000 {
+	smi_larb0: smi_larb0@14003000 {
 		compatible = "mediatek,smi_larb0";
 		reg = <0 0x14003000 0 0x1000>;
 		interrupts = <GIC_SPI 277 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	smi_larb1@14004000 {
+	smi_larb1: smi_larb1@14004000 {
 		compatible = "mediatek,smi_larb1";
 		reg = <0 0x14004000 0 0x1000>;
+		interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_ovl0@14005000 {
+	mtkfb: mtkfb@0 {
+		compatible = "mediatek,mtkfb";
+	};
+
+	mmsys_config: mmsys_config@14000000 {
+		compatible = "mediatek,mmsys_config";
+		reg = <0 0x14000000 0 0x1000>;
+		interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	dispsys {
+		compatible = "mediatek,dispsys";
+		mediatek,larb = <&smi_larb0>;
+	};
+
+	dispsys_config: dispsys_config@14000000 {
+		compatible = "mediatek,dispsys_config",
+					"syscon",
+					"mediatek,mt6833-mmsys";
+		reg = <0 0x14000000 0 0x1000>;
+		#clock-cells = <1>;
+		mediatek,larb = <&smi_larb1>;
+
+	};
+
+	disp_mutex0: disp_mutex@14001000 {
+		compatible = "mediatek,disp_mutex0";
+		reg = <0 0x14001000 0 0x1000>;
+		interrupts = <GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	disp_ovl0: disp_ovl0@14005000 {
 		compatible = "mediatek,disp_ovl0";
 		reg = <0 0x14005000 0 0x1000>;
-		interrupts = <GIC_SPI 262 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 255 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_ovl0_2l@14006000 {
+	disp_ovl0_2l: disp_ovl0_2l@14006000 {
 		compatible = "mediatek,disp_ovl0_2l";
 		reg = <0 0x14006000 0 0x1000>;
-		interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 256 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_rdma0@14007000 {
+	disp_pwm: disp_pwm0@1100e000 {
+		compatible = "mediatek,disp_pwm0",
+				"mediatek,mt6833-disp-pwm";
+		reg = <0 0x1100e000 0 0x1000>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	disp_rdma0: disp_rdma0@14007000 {
 		compatible = "mediatek,disp_rdma0";
 		reg = <0 0x14007000 0 0x1000>;
-		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 257 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_rsz0@14008000 {
+	disp_rsz0: disp_rsz0@14008000 {
 		compatible = "mediatek,disp_rsz0";
 		reg = <0 0x14008000 0 0x1000>;
+		interrupts = <GIC_SPI 258 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_color0@14009000 {
+	disp_color0: disp_color0@14009000 {
 		compatible = "mediatek,disp_color0";
 		reg = <0 0x14009000 0 0x1000>;
-		interrupts = <GIC_SPI 268 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	reserved@1400a000 {
@@ -1139,33 +1168,34 @@
 		reg = <0 0x1400a000 0 0x1000>;
 	};
 
-	disp_ccorr0@1400b000 {
+	disp_ccorr0: disp_ccorr0@1400b000 {
 		compatible = "mediatek,disp_ccorr0";
 		reg = <0 0x1400b000 0 0x1000>;
-		interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 260 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_aal0@1400c000 {
+	disp_aal0: disp_aal0@1400c000 {
 		compatible = "mediatek,disp_aal0";
 		reg = <0 0x1400c000 0 0x1000>;
-		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 262 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_gamma0@1400d000 {
+	disp_gamma0: disp_gamma0@1400d000 {
 		compatible = "mediatek,disp_gamma0";
 		reg = <0 0x1400d000 0 0x1000>;
-		interrupts = <GIC_SPI 271 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 263 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_postmask0@1400e000 {
+	disp_postmask0: disp_postmask0@1400e000 {
 		compatible = "mediatek,disp_postmask0";
 		reg = <0 0x1400e000 0 0x1000>;
+		interrupts = <GIC_SPI 264 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_dither0@1400f000 {
+	disp_dither0: disp_dither0@1400f000 {
 		compatible = "mediatek,disp_dither0";
 		reg = <0 0x1400f000 0 0x1000>;
-		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	reserved@14010000 {
@@ -1183,16 +1213,26 @@
 		reg = <0 0x14012000 0 0x1000>;
 	};
 
-	dsi0@14013000 {
+	mipi_tx_config0: mipi_tx_config@11e50000 {
+		compatible = "mediatek,mipi_tx_config0",
+					"mediatek,mt6833-mipi-tx";
+		reg = <0 0x11e50000 0 0x1000>;
+	};
+	dsi0: dsi@14013000 {
 		compatible = "mediatek,dsi0";
 		reg = <0 0x14013000 0 0x1000>;
-		interrupts = <GIC_SPI 273 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	disp_wdma0@14014000 {
+	dsi_te: dsi_te {
+		compatible = "mediatek, dsi_te-eint";
+		status = "disabled";
+	};
+
+	disp_wdma0: disp_wdma0@14014000 {
 		compatible = "mediatek,disp_wdma0";
 		reg = <0 0x14014000 0 0x1000>;
-		interrupts = <GIC_SPI 267 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
 	reserved@14015000 {
@@ -1408,10 +1448,6 @@
 	dip_b11@1582c000 {
 		compatible = "mediatek,dip_b11";
 		reg = <0 0x1582c000 0 0x1000>;
-	};
-
-	mtkfb: mtkfb {
-		compatible = "mediatek,mtkfb";
 	};
 
 	smi_larb11@1582e000 {
