@@ -25,6 +25,7 @@
 #include <dt-bindings/usb/pd.h>
 
 / {
+	model = "mt6779";
 	compatible = "mediatek,mt6779";
 	interrupt-parent = <&sysirq>;
 	#address-cells = <2>;
