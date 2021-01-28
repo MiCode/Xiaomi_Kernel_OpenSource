@@ -47,7 +47,6 @@ config MTK_EMMC_CACHE
 
 config MTK_EMMC_SUPPORT_OTP
 	tristate "MediaTek eMMC Card OTP support"
-	depends on MTK_EMMC_SUPPORT
 	help
 	  This enables MTK One-Time-Programming (OTP) partition support on eMMC
 	  device. Say Y if you turns on MTK_EMMC and want to use MTK OTP
