@@ -23,7 +23,10 @@ enum {
  * @infra_regs:	infra register offset table.
  * @topckgen_base:	topckgen base address.
  * @topckgen_regs:	topckgen register offset table.
+ * @toprgu_base:	toprgu base address.
+ * @toprgu_regs:	toprgu register offset table.
  * @dbgregs:	pmif debug register offset table.
+ * @dbgver:	pmif debug version.
  * @swinf_ch_start:	indicate sw channel start number, lower is hw channel.
  * @ap_swinf_no:	indicate ap sw channel number.
  * @write:	indicate write cmd.
@@ -32,6 +35,8 @@ enum {
  * @irq:	indicate irq number.
  * @grpid:	indicates which group id we used.
  * @lock:	indicate lock key.
+ * @pmifThread_lock:	indicate pmif interrupt thread pm protection.
+ * @pmif_mutex:	indicate pmif interrupt thread mutex protection.
  * @spmic:	indicate spmi controller.
  * @pmif_sys_ck:	indicate pmif infracfg_ao sys_ck cg.
  * @pmif_tmr_ck:	indicate pmif infracfg_ao tmr_ck cg.
@@ -50,6 +55,9 @@ enum {
  * @pmif_enable_cmdIssue:	enable cmd enable to access.
  * @pmif_enable:	set pmif all done.
  * @is_pmif_init_done:	check if pmif init done.
+ * @pmif_enable_reset:	SW reset pmif.
+ * @pmif_cali_clock:	calibrate spmi master clock.
+ * @spmi_config_master:	config spmi master.
  */
 struct pmif {
 	void __iomem		*base;
@@ -60,7 +68,10 @@ struct pmif {
 	const u32               *infra_regs;
 	void __iomem		*topckgen_base;
 	const u32               *topckgen_regs;
+	void __iomem		*toprgu_base;
+	const u32               *toprgu_regs;
 	const u32		*dbgregs;
+	u32			dbgver;
 	u32                     swinf_ch_start;
 	u32                     ap_swinf_no;
 	int                     write;
@@ -69,6 +80,8 @@ struct pmif {
 	int			irq;
 	int			grpid;
 	raw_spinlock_t          lock;
+	struct wakeup_source *pmifThread_lock;
+	struct mutex pmif_mutex;
 	struct spmi_controller  *spmic;
 	struct clk *pmif_sys_ck;
 	struct clk *pmif_tmr_ck;
@@ -90,5 +103,9 @@ struct pmif {
 	void (*pmif_enable_cmdIssue)(struct pmif *arb, bool en);
 	void (*pmif_enable)(struct pmif *arb);
 	int (*is_pmif_init_done)(struct pmif *arb);
+	void (*pmif_enable_reset)(struct pmif *arb);
+	int (*pmif_cali_clock)(struct pmif *arb);
+	int (*spmi_config_master)(struct pmif *arb, unsigned int mstid,
+			bool en);
 };
 #endif /*__PMIF_H__*/

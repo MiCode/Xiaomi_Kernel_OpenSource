@@ -9,8 +9,6 @@
 #include <linux/pmif.h>
 #include <linux/spmi.h>
 
-#define SPMI_RCS_SUPPORT		0
-
 #define DEFAULT_VALUE_READ_TEST		(0x5a)
 #define DEFAULT_VALUE_WRITE_TEST	(0xa5)
 
@@ -36,6 +34,7 @@ enum spmi_regs {
 	SPMI_SLV_F_C_EINT,
 	SPMI_TIA,
 	SPMI_DEC_DBG,
+	SPMI_REC_CMD_DEC,
 };
 
 /* pmif debug API declaration */
