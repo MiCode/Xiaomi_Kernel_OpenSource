@@ -33,6 +33,13 @@ ssize_t vmm_fast_add_show(struct device *dev, struct device_attribute *attr,
 			 ret, (a + b + c) == ret ? "PASS" : "FAIL");
 }
 
+static ssize_t vmm_fast_add_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,
+	size_t n)
+{
+	return n;
+}
+
 DEVICE_ATTR_RW(vmm_fast_add);
 
 
@@ -50,6 +57,13 @@ ssize_t vmm_fast_multiply_show(struct device *dev,
 	ret = trusty_fast_call32(dev, SMC_FC_VM_TEST_MULTIPLY, a, b, c);
 	return scnprintf(buf, PAGE_SIZE, "%d * %d * %d = %d, %s\n", a, b, c,
 			 ret, (a * b * c) == ret ? "PASS" : "FAIL");
+}
+
+static ssize_t vmm_fast_multiply_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,
+	size_t n)
+{
+	return n;
 }
 
 DEVICE_ATTR_RW(vmm_fast_multiply);
@@ -70,6 +84,13 @@ ssize_t vmm_std_add_show(struct device *dev, struct device_attribute *attr,
 			 ret, (a + b + c) == ret ? "PASS" : "FAIL");
 }
 
+static ssize_t vmm_std_add_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,
+	size_t n)
+{
+	return n;
+}
+
 DEVICE_ATTR_RW(vmm_std_add);
 
 ssize_t vmm_std_multiply_show(struct device *dev, struct device_attribute *attr,
@@ -86,6 +107,13 @@ ssize_t vmm_std_multiply_show(struct device *dev, struct device_attribute *attr,
 	ret = trusty_std_call32(dev, SMC_SC_VM_TEST_MULTIPLY, a, b, c);
 	return scnprintf(buf, PAGE_SIZE, "%d * %d * %d = %d, %s\n", a, b, c,
 			 ret, (a * b * c) == ret ? "PASS" : "FAIL");
+}
+
+static ssize_t vmm_std_multiply_store(struct device *dev,
+	struct device_attribute *attr, const char *buf,
+	size_t n)
+{
+	return n;
 }
 
 DEVICE_ATTR_RW(vmm_std_multiply);
