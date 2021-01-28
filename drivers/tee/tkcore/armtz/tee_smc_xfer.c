@@ -59,8 +59,8 @@ static inline void trace_tee_smc(struct tee_smc_xfer_ctl *ctl, int rv,
 }
 
 static inline void trace_tee_smc_done(struct tee_smc_xfer_ctl *ctl,
-				      s64 time_start,
-				      s64 time_end)
+				s64 time_start,
+				s64 time_end)
 {
 	s64 duration = time_end - time_start;
 

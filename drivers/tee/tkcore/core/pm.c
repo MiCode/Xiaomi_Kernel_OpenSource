@@ -53,7 +53,8 @@ static void tee_prepare_suspend(void)
 	pr_warn("tee_wakeup_cnt unexpected value: %d\n", r);
 }
 
-#ifdef CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT
+#if defined(CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT) && \
+	defined(IN_KERNEL_RPMB_SUPPORT)
 #include "linux/tee_rpmb.h"
 #endif
 
@@ -73,7 +74,8 @@ static int tee_pm_suspend_notifier(struct notifier_block *nb,
 	case PM_SUSPEND_PREPARE:
 		tee_prepare_suspend();
 
-#ifdef CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT
+#if defined(CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT) && \
+	defined(IN_KERNEL_RPMB_SUPPORT)
 		{
 			struct tkcore_rpmb_request rq = {
 				.type = TEE_RPMB_SWITCH_NORMAL

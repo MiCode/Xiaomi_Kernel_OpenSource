@@ -14,10 +14,6 @@ ccflags-y += -I$(M)/include/linux
 ccflags-y += -I$(M)/include
 ccflags-y += -I$(M)/core
 
-ifeq ($(CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT),y)
-ccflags-y += -DRPMB_SUPPORT
-endif
-
 tkcore_drv-objs:= \
 		tee_tz_drv.o \
 		tee_smc_xfer.o \

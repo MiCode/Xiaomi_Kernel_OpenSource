@@ -825,20 +825,22 @@ static void _update_client_tee_cmd(struct tee_session *sess,
 		case TEEC_MEMREF_TEMP_INOUT:
 			/* Returned updated size */
 			size_new = cmd->param.params[idx].shm->size_req;
-			if (size_new !=
-				tmp_op.params[idx].tmpref.size) {
+			if (size_new > tmp_op.params[idx].tmpref.size) {
+				pr_warn(
+					"  *** Wrong returned size from %d:%zd > %zd\n",
+					idx, size_new,
+					tmp_op.params[idx].tmpref.size);
+				size_new = tmp_op.params[idx].tmpref.size;
+			}
+
+			if (size_new != tmp_op.params[idx].tmpref.size) {
 				tee_put_user(ctx, size_new,
 					&cmd_io->op->params[idx].tmpref.size);
 			}
 
 			/* ensure we do not exceed the shared buffer length */
-			if (size_new > tmp_op.params[idx].tmpref.size) {
-				pr_err(
-					"  *** Wrong returned size from %d:%zd > %zd\n",
-					idx, size_new,
-					tmp_op.params[idx].tmpref.size);
-			} else if (tee_copy_to_user
-				   (ctx,
+			if (tee_copy_to_user(
+					ctx,
 					tmp_op.params[idx].tmpref.buffer,
 					cmd->param.params[idx].shm->resv.kaddr,
 					size_new)) {

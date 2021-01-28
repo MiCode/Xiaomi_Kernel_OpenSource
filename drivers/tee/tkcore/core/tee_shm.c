@@ -313,8 +313,6 @@ static void __tee_shm_dma_buf_release(struct dma_buf *dmabuf)
 	struct tee *tee;
 
 	tee = shm->ctx->tee;
-
-
 	ctx = shm->ctx;
 
 	tee_shm_free_io(shm);
@@ -506,6 +504,25 @@ out:
 	return shm;
 }
 
+void tee_shm_realloc_from_rpc(struct tee *tee, struct tee_shm *shm)
+{
+	if (tee == NULL || shm == NULL)
+		return;
+
+	mutex_lock(&tee->lock);
+
+	if (shm->ctx == NULL)
+		goto out;
+
+	tee_inc_stats(&tee->stats[TEE_STATS_SHM_IDX]);
+	list_add_tail(&shm->entry, &tee->list_rpc_shm);
+
+	shm->ctx = NULL;
+
+out:
+	mutex_unlock(&tee->lock);
+}
+
 void tee_shm_free_from_rpc(struct tee_shm *shm)
 {
 	struct tee *tee;
@@ -525,43 +542,63 @@ void tee_shm_free_from_rpc(struct tee_shm *shm)
 	mutex_unlock(&tee->lock);
 }
 
+static struct tee_shm *shm_from_paddr(struct tee *tee, void *paddr, bool ns)
+{
+	struct list_head *pshm;
+
+	if (list_empty(&tee->list_rpc_shm))
+		return NULL;
+
+	list_for_each(pshm, &tee->list_rpc_shm) {
+		void *this_addr;
+		struct tee_shm *shm;
+
+		shm = list_entry(pshm, struct tee_shm, entry);
+		this_addr = ns ? (void *) (unsigned long) shm->ns.token :
+			(void *) (unsigned long) shm->resv.paddr;
+
+		if (this_addr == paddr)
+			return shm;
+	}
+
+	return NULL;
+}
+
+struct tee_shm *tee_shm_from_paddr(struct tee *tee, void *paddr, bool ns)
+{
+	struct tee_shm *shm;
+
+	mutex_lock(&tee->lock);
+	shm = shm_from_paddr(tee, paddr, ns);
+	mutex_unlock(&tee->lock);
+	return shm;
+}
+
 /* Buffer allocated by rpc from fw and to be accessed by the user
  * Not need to be registered as it is not allocated by the user
  */
 int tee_shm_fd_for_rpc(struct tee_context *ctx, struct tee_shm_io *shm_io)
 {
-	struct tee_shm *shm = NULL;
-	struct tee *tee = ctx->tee;
 	int ret;
-	struct list_head *pshm;
+	bool ns;
 
+	struct tee_shm *shm;
+	struct tee *tee = ctx->tee;
 
 	shm_io->fd_shm = 0;
+	ns = !!shm_test_nonsecure(shm_io->flags);
 
 	mutex_lock(&tee->lock);
 
-	if (!list_empty(&tee->list_rpc_shm)) {
-		list_for_each(pshm, &tee->list_rpc_shm) {
-			shm = list_entry(pshm, struct tee_shm, entry);
-			if (shm_test_nonsecure(shm_io->flags)) {
-				if ((void *)(unsigned long) shm->ns.token
-						== shm_io->buffer)
-					goto found;
-			} else {
-				if ((void *)(unsigned long) shm->resv.paddr
-						== shm_io->buffer)
-					goto found;
-			}
-		}
+	shm = shm_from_paddr(tee, shm_io->buffer, ns);
+
+	if (shm == NULL) {
+		pr_err("Can't find shm for %p\n", shm_io->buffer);
+		ret = -ENOMEM;
+		goto out;
 	}
 
-	pr_err("Can't find shm for %p\n", shm_io->buffer);
-	ret = -ENOMEM;
-	goto out;
-
-found:
-
-	if (shm_test_nonsecure(shm_io->flags))
+	if (ns)
 		ret = tee_ns_shm_export(tee, shm, &shm_io->fd_shm);
 	else
 		ret = tee_static_shm_export(tee, shm, &shm_io->fd_shm);
@@ -692,7 +729,7 @@ void tee_shm_free_io(struct tee_shm *shm)
 	struct tee *tee = ctx->tee;
 	struct device *dev = shm->dev;
 
-	mutex_lock(&ctx->tee->lock);
+	mutex_lock(&tee->lock);
 	tee_dec_stats(&tee->stats[TEE_STATS_SHM_IDX]);
 	list_del(&shm->entry);
 

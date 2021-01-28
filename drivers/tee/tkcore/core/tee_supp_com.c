@@ -160,11 +160,14 @@ out:
 ssize_t tee_supp_write(struct file *filp, const char __user *buffer,
 		size_t length, loff_t *offset)
 {
+	int ret = 0;
+	uint32_t i;
+	unsigned long r;
+
 	struct tee_context *ctx = (struct tee_context *) (filp->private_data);
 	struct tee *tee;
 	struct tee_rpc *rpc;
 	struct task_struct *task = current;
-	int ret = 0;
 
 	(void) task;
 
@@ -172,6 +175,9 @@ ssize_t tee_supp_write(struct file *filp, const char __user *buffer,
 		pr_err("Invalid ctx\n");
 		return -EINVAL;
 	}
+
+	if (length == 0)
+		return 0;
 
 	tee = ctx->tee;
 	rpc = tee->rpc;
@@ -181,68 +187,77 @@ ssize_t tee_supp_write(struct file *filp, const char __user *buffer,
 		goto out;
 	}
 
-	if (length > 0 && length < sizeof(rpc->commFromUser)) {
-		uint32_t i;
-		unsigned long r;
+	if (length > sizeof(rpc->commFromUser)) {
+		ret = -EINVAL;
+		goto out;
+	}
 
-		mutex_lock(&rpc->insync);
+	mutex_lock(&rpc->insync);
 
-		r = copy_from_user(&rpc->commFromUser, buffer, length);
-		if (r) {
-			pr_err("copy_from_user(comm) failed: %lu\n", r);
-			rpc->res = -EINVAL;
-			mutex_unlock(&rpc->insync);
-			up(&rpc->datafromuser);
-
-			ret = -EINVAL;
-			goto out;
-		}
-
-		/* Translate virtual address of caller into physical address */
-		for (i = 0; i < rpc->commFromUser.nbr_bf; i++) {
-			uint32_t type = rpc->commFromUser.cmds[i].type;
-			void *buffer = rpc->commFromUser.cmds[i].buffer;
-
-			if (type != TEE_RPC_BUFFER || buffer == NULL)
-				continue;
-
-			if (type & TEE_RPC_BUFFER_NONSECURE) {
-			} else {
-				struct tee_shm *shm;
-				struct vm_area_struct *vma = find_vma(
-					current->mm, (unsigned long) buffer);
-
-				if (vma == NULL)
-					continue;
-
-				shm = vma->vm_private_data;
-
-				if (shm == NULL) {
-					pr_err(
-							"Invalid vma->vm_private_data [%s:%d:%d]\n",
-							current->comm,
-							current->tgid,
-							current->pid);
-
-					rpc->res = -EINVAL;
-					mutex_unlock(&rpc->insync);
-					up(&rpc->datafromuser);
-
-					ret = -EINVAL;
-					goto out;
-				}
-
-				rpc->commFromUser.cmds[i].buffer =
-					(void *) (unsigned long)
-					shm->resv.paddr;
-			}
-		}
-
-		rpc->res = 0;
+	r = copy_from_user(&rpc->commFromUser, buffer, length);
+	if (r) {
+		pr_err("copy_from_user(comm) failed: %lu\n", r);
+		rpc->res = -EINVAL;
 		mutex_unlock(&rpc->insync);
 		up(&rpc->datafromuser);
-		ret = length;
+
+		ret = -EINVAL;
+		goto out;
 	}
+
+	if (rpc->commFromUser.nbr_bf > TEE_RPC_BUFFER_NUMBER) {
+		rpc->res = -EINVAL;
+		mutex_unlock(&rpc->insync);
+		up(&rpc->datafromuser);
+
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/* Translate virtual address of caller into physical address */
+	for (i = 0; i < rpc->commFromUser.nbr_bf; i++) {
+		uint32_t type = rpc->commFromUser.cmds[i].type;
+		void *buffer = rpc->commFromUser.cmds[i].buffer;
+
+		if (type != TEE_RPC_BUFFER || buffer == NULL)
+			continue;
+
+		if (type & TEE_RPC_BUFFER_NONSECURE) {
+		} else {
+			struct tee_shm *shm;
+			struct vm_area_struct *vma = find_vma(
+					current->mm, (unsigned long) buffer);
+
+			if (vma == NULL)
+				continue;
+
+			shm = vma->vm_private_data;
+
+			if (shm == NULL) {
+				pr_err(
+						"Invalid vma->vm_private_data [%s:%d:%d]\n",
+						current->comm,
+						current->tgid,
+						current->pid);
+
+				rpc->res = -EINVAL;
+				mutex_unlock(&rpc->insync);
+				up(&rpc->datafromuser);
+
+				ret = -EINVAL;
+				goto out;
+			}
+
+			rpc->commFromUser.cmds[i].buffer =
+				(void *) (unsigned long)
+				shm->resv.paddr;
+		}
+	}
+
+	rpc->res = 0;
+	mutex_unlock(&rpc->insync);
+	up(&rpc->datafromuser);
+	ret = length;
 
 out:
 	return ret;

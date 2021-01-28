@@ -51,7 +51,7 @@ int handle_get(struct handle_db *db, void *ptr)
 		return -1;
 	db->ptrs = p;
 	memset(db->ptrs + db->max_ptrs, 0,
-	       (new_max_ptrs - db->max_ptrs) * sizeof(void *));
+		(new_max_ptrs - db->max_ptrs) * sizeof(void *));
 	db->max_ptrs = new_max_ptrs;
 
 	/* Since n stopped at db->max_ptrs there is an empty location there */

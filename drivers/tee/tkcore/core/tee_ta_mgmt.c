@@ -215,6 +215,13 @@ int tee_install_sys_ta(struct tee *tee, void __user *u_arg)
 	if (copy_from_user(&uuid, ta_inst_desc.uuid, sizeof(struct TEEC_UUID)))
 		return -EFAULT;
 
+	/* check for integer overflow */
+	if (sizeof(struct TEEC_UUID) + sizeof(uint32_t) >=
+			sizeof(struct TEEC_UUID) + sizeof(uint32_t) +
+			ta_inst_desc.ta_buf_size) {
+		return -ENOMEM;
+	}
+
 	shm = tee_shm_alloc_from_rpc(tee, sizeof(struct TEEC_UUID) +
 		sizeof(uint32_t) + ta_inst_desc.ta_buf_size,
 		TEEC_MEM_NONSECURE);

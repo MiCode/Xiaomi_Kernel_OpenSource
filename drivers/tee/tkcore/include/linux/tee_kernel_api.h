@@ -14,25 +14,25 @@ TEEC_Result TEEC_InitializeContext(const char *name,
 void TEEC_FinalizeContext(struct TEEC_Context *context);
 
 TEEC_Result TEEC_OpenSession(struct TEEC_Context *context,
-			     struct TEEC_Session *session,
-			     const struct TEEC_UUID *destination,
-			     uint32_t connectionMethod,
-			     const void *connectionData,
-			     struct TEEC_Operation *operation,
-			     uint32_t *returnOrigin);
+			struct TEEC_Session *session,
+			const struct TEEC_UUID *destination,
+			uint32_t connectionMethod,
+			const void *connectionData,
+			struct TEEC_Operation *operation,
+			uint32_t *returnOrigin);
 
 void TEEC_CloseSession(struct TEEC_Session *session);
 
 TEEC_Result TEEC_InvokeCommand(struct TEEC_Session *session,
-			       uint32_t commandID,
-			       struct TEEC_Operation *operation,
-			       uint32_t *returnOrigin);
+			uint32_t commandID,
+			struct TEEC_Operation *operation,
+			uint32_t *returnOrigin);
 
 TEEC_Result TEEC_RegisterSharedMemory(struct TEEC_Context *context,
-				      struct TEEC_SharedMemory *sharedMem);
+			struct TEEC_SharedMemory *sharedMem);
 
 TEEC_Result TEEC_AllocateSharedMemory(struct TEEC_Context *context,
-				      struct TEEC_SharedMemory *sharedMem);
+			struct TEEC_SharedMemory *sharedMem);
 
 void TEEC_ReleaseSharedMemory(struct TEEC_SharedMemory *sharedMemory);
 

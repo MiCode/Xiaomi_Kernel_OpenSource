@@ -519,6 +519,8 @@ static long tee_internal_ioctl(struct tee_context *ctx,
 			if (copy_to_user(u_arg, &nsdrv_feature_flags,
 					sizeof(nsdrv_feature_flags))) {
 				ret = -EFAULT;
+			} else {
+				ret = 0;
 			}
 		} else
 			ret = -EINVAL;

@@ -21,6 +21,7 @@ static inline int shm_test_nonsecure(uint32_t flags)
 int tee_shm_alloc_io(struct tee_context *ctx, struct tee_shm_io *shm_io);
 void tee_shm_free_io(struct tee_shm *shm);
 
+struct tee_shm *tee_shm_from_paddr(struct tee *tee, void *paddr, bool ns);
 int tee_shm_fd_for_rpc(struct tee_context *ctx, struct tee_shm_io *shm_io);
 
 int tee_shm_alloc_io_perm(struct tee_context *ctx, struct tee_shm_io *shm_io);

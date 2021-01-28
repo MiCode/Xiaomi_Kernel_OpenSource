@@ -12,7 +12,7 @@
 #define TKCORE_PREPARE_CPU_OFF	(0xBF000104U)
 #define TKCORE_ERRATA_802022	(0xBF000105U)
 
-#define TKCORE_SET_WDT_KADDR    (0xBF000300U)
+#define TKCORE_SET_WDT_KADDR	(0xBF000300U)
 
 static void tee_pm_sec_call(u32 cmd, u32 p0, u32 p1, u32 p2)
 {

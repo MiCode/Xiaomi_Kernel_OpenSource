@@ -93,8 +93,6 @@ bad:
 	arg32->ret = TEEC_ERROR_BAD_PARAMETERS;
 }
 
-
-
 static void handle_rpc_func_cmd_wait(struct teesmc32_arg *arg32)
 {
 	struct teesmc32_param *params;
@@ -193,14 +191,38 @@ static void handle_rpc_func_cmd_to_supplicant(struct tee_tz *ptee,
 	}
 }
 
-#ifdef RPMB_SUPPORT
+#ifdef CONFIG_TRUSTKERNEL_TEE_RPMB_SUPPORT
 
 #include "linux/tee_rpmb.h"
+
+static int check_rpmb_request(struct teesmc32_arg *arg32)
+{
+	struct teesmc32_param *params;
+
+	if (arg32->num_params != TEE_RPMB_BUFFER_NUMBER) {
+		arg32->ret = TEEC_ERROR_BAD_PARAMETERS;
+		return -1;
+	}
+
+	params = TEESMC32_GET_PARAMS(arg32);
+
+	if (((params[0].attr & TEESMC_ATTR_TYPE_MASK)
+				!= TEESMC_ATTR_TYPE_MEMREF_INPUT) ||
+			((params[1].attr & TEESMC_ATTR_TYPE_MASK)
+				!= TEESMC_ATTR_TYPE_MEMREF_OUTPUT)) {
+		arg32->ret = TEEC_ERROR_BAD_PARAMETERS;
+		return -1;
+	}
+
+	return 0;
+}
+
+#ifdef IN_KERNEL_RPMB_SUPPORT
 
 /*
  * Need to be in consistency with
  * struct rpmb_req {...} defined in
- * tee/core/arch/arm/tee/tee_rpmb.c
+ * TEE implementation
  */
 struct tee_rpmb_cmd {
 	uint16_t cmd;
@@ -209,17 +231,14 @@ struct tee_rpmb_cmd {
 	uint32_t resp_nr;
 };
 
-int rpmb_exec(void *req)
+static int rpmb_exec(void *req)
 {
 	return tkcore_emmc_rpmb_execute((struct tkcore_rpmb_request *) req);
 }
 
-#endif
-
 static void handle_rpmb_cmd(struct tee_tz *ptee,
 				struct teesmc32_arg *arg32)
 {
-#ifdef RPMB_SUPPORT
 	uint32_t req_size, resp_size;
 	struct teesmc32_param *params;
 
@@ -228,21 +247,10 @@ static void handle_rpmb_cmd(struct tee_tz *ptee,
 	struct tkcore_rpmb_request teec_rpmb_req;
 	void *resp;
 
-	if (arg32->num_params != TEE_RPMB_BUFFER_NUMBER) {
-		arg32->ret = TEEC_ERROR_BAD_PARAMETERS;
+	if (check_rpmb_request(arg32) < 0)
 		return;
-	}
 
 	params = TEESMC32_GET_PARAMS(arg32);
-
-	if (((params[0].attr & TEESMC_ATTR_TYPE_MASK)
-			!= TEESMC_ATTR_TYPE_MEMREF_INPUT) ||
-		((params[1].attr & TEESMC_ATTR_TYPE_MASK)
-			!= TEESMC_ATTR_TYPE_MEMREF_OUTPUT)) {
-		arg32->ret = TEEC_ERROR_GENERIC;
-		return;
-	}
-
 
 	rpmb_req = (struct tee_rpmb_cmd *) tee_shm_pool_p2v(
 			   ptee->tee->dev,
@@ -326,12 +334,85 @@ static void handle_rpmb_cmd(struct tee_tz *ptee,
 
 		arg32->ret = TEEC_SUCCESS;
 	}
-
-#else
-	arg32->ret = TEEC_ERROR_NOT_IMPLEMENTED;
-#endif
 }
 
+#else
+
+static void handle_rpmb_cmd(struct tee_tz *ptee,
+				struct teesmc32_arg *arg32)
+{
+	uint32_t ret;
+	struct tee_rpc_invoke inv;
+	struct tee_shm *shm;
+
+	struct teesmc32_param *params;
+
+	if (check_rpmb_request(arg32) < 0)
+		return;
+
+	params = TEESMC32_GET_PARAMS(arg32);
+
+	memset(&inv, 0, sizeof(inv));
+	inv.cmd = arg32->cmd;
+
+	inv.res = TEEC_ERROR_NOT_IMPLEMENTED;
+
+	/*
+	 * in current TEE's implementation,
+	 * all rpmb parameters are consequently
+	 * placed in ONE piece of shared memory,
+	 * in the following way,
+	 *
+	 * [ rpmb request buffer ] [ rpmb response buffer ]
+	 */
+	inv.nbr_bf = 1;
+	inv.cmds[0].buffer =
+		(void *) (uintptr_t) params[0].u.memref.buf_ptr;
+	inv.cmds[0].type = TEE_RPC_BUFFER;
+	inv.cmds[0].size = params[0].u.memref.size
+		+ params[1].u.memref.size;
+
+	shm = tee_shm_from_paddr(ptee->tee,
+		inv.cmds[0].buffer, false);
+	if (shm == NULL) {
+		// cannot find shm from list_rpc_shm
+		arg32->ret = TEEC_ERROR_BAD_PARAMETERS;
+		return;
+	}
+
+	ret = tee_supp_cmd(ptee->tee, TEE_RPC_ICMD_INVOKE,
+			&inv, sizeof(inv));
+
+	if (ret != TEEC_RPC_OK)
+		arg32->ret = ret;
+	else
+		arg32->ret = inv.res;
+
+	/*
+	 * It's not likely new pieces of buffer
+	 * are allocated in the processing of
+	 * rpmb requests,
+	 */
+
+	/*
+	 * we need to move this piece of shm back
+	 * to original list_rpc_shm list so that
+	 * rpc shm can be reused
+	 */
+	tee_shm_realloc_from_rpc(ptee->tee, shm);
+}
+
+#endif
+
+#else
+
+static void handle_rpmb_cmd(struct tee_tz *ptee __always_unused,
+				struct teesmc32_arg *arg32)
+{
+	arg32->ret = TEEC_ERROR_NOT_IMPLEMENTED;
+}
+
+#endif
 
 static void handle_rpc_func_cmd(struct tee_tz *ptee, u32 parg32)
 {
@@ -1070,7 +1151,6 @@ static int tz_start(struct tee *tee)
 	if (ret)
 		goto exit;
 
-#ifdef CONFIG_MEDIATEK_SOLUTION
 	{
 #define TKCORE_GET_ROOT_OF_TRUST_INFO 0xBF000202
 		struct smc_param param = { 0 };
@@ -1086,7 +1166,6 @@ static int tz_start(struct tee *tee)
 		param.a0 = TKCORE_GET_ROOT_OF_TRUST_INFO;
 		smc_xfer(&param);
 	}
-#endif
 
 #ifdef CONFIG_OUTER_CACHE
 	ret = register_outercache_mutex(ptee, true);

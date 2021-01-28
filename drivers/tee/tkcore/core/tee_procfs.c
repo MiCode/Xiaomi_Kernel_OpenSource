@@ -929,6 +929,8 @@ static int init_klog(struct klog *klog, struct tee *tee)
 	BUILD_BUG_ON(sizeof(union tee_log_ctrl)
 			!= TEE_LOG_CTL_BUF_SIZE);
 
+	klog->notify_irq = -1;
+
 	if (init_klog_shm_args(tee, &shm_pa,
 						&shm_len) < 0) {
 		return -1;

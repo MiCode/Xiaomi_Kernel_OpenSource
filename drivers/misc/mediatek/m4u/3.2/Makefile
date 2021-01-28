@@ -31,6 +31,6 @@ include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include
 endif
 
 obj-$(CONFIG_MTK_M4U) += m4u.o m4u_mva.o m4u_pgtable.o m4u_debug.o
-ifeq ($(CONFIG_TEE),y)
+ifeq ($(or $(strip $(CONFIG_TRUSTONIC_TEE_SUPPORT)), $(strip $(CONFIG_MICROTRUST_TEE_SUPPORT))),y)
 obj-$(CONFIG_MTK_M4U) += m4u_sec_gp.o
 endif
