@@ -239,7 +239,7 @@
 	};
 
 	infracfg_ao: infracfg_ao@10001000 {
-		compatible = "mediatek,infracfg_ao", "syscon";
+		compatible = "mediatek,mt6765-infracfg", "syscon";
 		reg = <0 0x10001000 0 0x1000>;
 		interrupts = <GIC_SPI 147 IRQ_TYPE_EDGE_RISING>;
 		#clock-cells = <1>;
@@ -251,7 +251,7 @@
 	};
 
 	scpsys: scpsys@10001000 {
-		compatible = "mediatek,scpsys", "syscon";
+		compatible = "mediatek,mt6765-scpsys", "syscon";
 		reg =	<0 0x10001000 0 0x1000>, /* infra_ao */
 				<0 0x10006000 0 0x1000>, /* spm */
 				<0 0x14002000 0 0x1000>, /* spi_common */
@@ -262,7 +262,7 @@
 	};
 
 	topckgen: topckgen@10000000 {
-		compatible = "mediatek,topckgen", "syscon";
+		compatible = "mediatek,mt6765-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -428,7 +428,7 @@
 	};
 
 	apmixed: apmixed@1000c000 {
-		compatible = "mediatek,apmixed", "syscon";
+		compatible = "mediatek,mt6765-apmixedsys", "syscon";
 		reg = <0 0x1000c000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -888,7 +888,6 @@
 	gce: gce@10238000 {
 		compatible = "mediatek,gce", "syscon";
 		reg = <0 0x10238000 0 0x4000>;
-		#clock-cells = <1>;
 		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>,
 			<GIC_SPI 155 IRQ_TYPE_LEVEL_LOW>;
 		g3d_config_base = <0x13000000 0 0xffff0000>;
@@ -1010,7 +1009,7 @@
 		max_prefetch_cnt = <1>;
 		prefetch_size = <96>;
 		sram_size_cpr_64 = <64>;
-		mmsys_config = <&mmsys_config>;
+		mmsys_config = <&dispsys_config>;
 		mdp_rdma0 = <&mdp_rdma0>;
 		mdp_rsz0 = <&mdp_rsz0>;
 		mdp_rsz1 = <&mdp_rsz1>;
@@ -1809,11 +1808,16 @@
 		reg = <0 0x11210000 0 0x10000>;
 	};
 
+	audclk: audclk@11220000 {
+		compatible = "mediatek,mt6765-audsys", "syscon";
+		reg = <0 0x11220000 0 0x1000>;
+		#clock-cells = <1>;
+	};
+
 	audio: audio@11220000 {
 		compatible = "mediatek,audio", "syscon";
 		reg = <0 0x11220000 0 0x1000>;
 		/* interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_LOW>; */
-		#clock-cells = <1>;
 		mediatek,btcvsd_snd = <&btcvsd_snd>;
 	};
 
@@ -1821,13 +1825,13 @@
 		compatible = "mediatek,mt_soc_pcm_dl1";
 		reg = <0 0x11220000 0 0x1000>;
 		interrupts = <GIC_SPI 153 IRQ_TYPE_LEVEL_LOW>;
-		clocks = <&audio CLK_AUDIO_AFE>,
-			<&audio CLK_AUDIO_DAC>,
-			<&audio CLK_AUDIO_DAC_PREDIS>,
-			<&audio CLK_AUDIO_ADC>,
-			<&audio CLK_AUDIO_22M>,
-			<&audio CLK_AUDIO_APLL_TUNER>,
-			<&audio CLK_AUDIO_TML>,
+		clocks = <&audclk CLK_AUDIO_AFE>,
+			<&audclk CLK_AUDIO_DAC>,
+			<&audclk CLK_AUDIO_DAC_PREDIS>,
+			<&audclk CLK_AUDIO_ADC>,
+			<&audclk CLK_AUDIO_22M>,
+			<&audclk CLK_AUDIO_APLL_TUNER>,
+			<&audclk CLK_AUDIO_TML>,
 			<&infracfg_ao CLK_IFR_AUDIO>,
 			<&infracfg_ao CLK_IFR_AUDIO_26M_BCLK>,
 			<&topckgen CLK_TOP_AUDIO_SEL>,
@@ -1876,37 +1880,37 @@
 	};
 
 	mipi_rx_ana_csi0a: mipi_rx_ana_csi0a@11c10000 {
-		compatible = "mediatek,mipi_rx_ana_csi0a", "syscon";
+		compatible = "mediatek,mt6765-mipi0a", "syscon";
 		reg = <0 0x11c10000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
-		compatible = "mediatek,mipi_rx_ana_csi0b", "syscon";
+		compatible = "mediatek,mt6765-mipi0b", "syscon";
 		reg = <0 0x11c11000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi1a: mipi_rx_ana_csi1a@11c12000 {
-		compatible = "mediatek,mipi_rx_ana_csi1a", "syscon";
+		compatible = "mediatek,mt6765-mipi1a", "syscon";
 		reg = <0 0x11c12000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi1b: mipi_rx_ana_csi1b@11c13000 {
-		compatible = "mediatek,mipi_rx_ana_csi1b", "syscon";
+		compatible = "mediatek,mt6765-mipi1b", "syscon";
 		reg = <0 0x11c13000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi2a: mipi_rx_ana_csi2a@11c14000 {
-		compatible = "mediatek,mipi_rx_ana_csi2a", "syscon";
+		compatible = "mediatek,mt6765-mipi2a", "syscon";
 		reg = <0 0x11c14000 0 0x1000>;
 		#clock-cells = <1>;
 	};
 
 	mipi_rx_ana_csi2b: mipi_rx_ana_csi2b@11c15000 {
-		compatible = "mediatek,mipi_rx_ana_csi2b", "syscon";
+		compatible = "mediatek,mt6765-mipi2b", "syscon";
 		reg = <0 0x11c15000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -1970,10 +1974,16 @@
 	};
 
 	mmsys_config: mmsys_config@14000000 {
-		compatible = "mediatek,mmsys_config", "syscon";
+		compatible = "mediatek,mt6765-mmsys_config", "syscon";
 		reg = <0 0x14000000 0 0x1000>;
 		interrupts = <GIC_SPI 227 IRQ_TYPE_LEVEL_LOW>;
 		#clock-cells = <1>;
+	};
+
+	dispsys_config: dispsys_config@14000000 {
+		compatible = "mediatek,mmsys_config", "syscon";
+		reg = <0 0x14000000 0 0x1000>;
+		interrupts = <GIC_SPI 171 IRQ_TYPE_LEVEL_LOW>;
 		clocks = <&mmsys_config CLK_MM_CAM_MDP>,
 				<&mmsys_config CLK_MM_IMG_DL_RELAY>,
 				<&mmsys_config CLK_MM_IMG_DL_ASYNC_TOP>;
@@ -2003,7 +2013,7 @@
 		reg = <0 0x14002000 0 0x1000>;
 		nr_larbs = <4>;
 		larbs = <&smi_larb0>, <&smi_larb1>, <&smi_larb2>, <&smi_larb3>;
-		mmsys_config = <&mmsys_config>;
+		mmsys_config = <&dispsys_config>;
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&mmsys_config CLK_MM_SMI_COMM0>,
 			<&mmsys_config CLK_MM_SMI_COMM1>,
@@ -2041,11 +2051,15 @@
 			"mmdvfs_clk_mmpll_d2_ck";			/* 3 */
 	};
 
-
-	imgsys: imgsys@15020000 {
-		compatible = "mediatek,imgsys", "syscon";
+	imgsys: imgsys_clk@15020000 {
+		compatible = "mediatek,mt6765-imgsys", "syscon";
 		reg = <0 0x15020000 0 0x1000>;
 		#clock-cells = <1>;
+	};
+
+	imgsys@15020000 {
+		compatible = "mediatek,imgsys", "syscon";
+		reg = <0 0x15020000 0 0x1000>;
 		/* Camera CCF */
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&scpsys SCP_SYS_ISP>,
@@ -2297,6 +2311,12 @@
 		clock-names = "FD_CLK_IMG_FDVT";
 	};
 
+	vcodecsys: vcodecsys@17000000 {
+		compatible =  "mediatek,mt6765-vcodecsys", "syscon";
+		reg = <0 0x17000000 0 0x10000>;
+		#clock-cells = <1>;
+	};
+
 	venc_gcon: venc_gcon@17000000 {
 		compatible = "mediatek,venc_gcon", "syscon";
 		reg = <0 0x17000000 0 0x10000>;
@@ -2305,8 +2325,8 @@
 			<&mmsys_config CLK_MM_SMI_COMM0>,
 			<&mmsys_config CLK_MM_SMI_COMM1>,
 			<&mmsys_config CLK_MM_SMI_COMMON>,
-			<&venc_gcon CLK_VENC_SET3_VDEC>,
-			<&venc_gcon CLK_VENC_SET1_VENC>;
+			<&vcodecsys CLK_VENC_SET3_VDEC>,
+			<&vcodecsys CLK_VENC_SET1_VENC>;
 		clock-names = "MT_SCP_SYS_DIS",
 			"MT_SCP_SYS_VCODEC",
 			"MT_CG_MM_SMI_COMM0",
@@ -2314,7 +2334,6 @@
 			"MT_CG_MM_SMI_COMMON",
 			"MT_CG_VDEC",
 			"MT_CG_VENC";
-		#clock-cells = <1>;
 	};
 
 	smi_larb1: smi_larb1@17010000 {
@@ -2354,7 +2373,7 @@
 	};
 
 	camsys: camsys@1a000000  {
-		compatible = "mediatek,camsys", "syscon";
+		compatible = "mediatek,mt6765-camsys", "syscon";
 		reg = <0 0x1a000000  0 0x1000>;
 		#clock-cells = <1>;
 	};
