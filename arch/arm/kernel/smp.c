@@ -607,7 +607,7 @@ static void ipi_cpu_stop(unsigned int cpu)
 	if (system_state <= SYSTEM_RUNNING) {
 		raw_spin_lock(&stop_lock);
 		pr_crit("CPU%u: stopping\n", cpu);
-		/* dump_stack(); workaroud for kernel crash in panic() flow */
+		dump_stack();
 		raw_spin_unlock(&stop_lock);
 	}
 
