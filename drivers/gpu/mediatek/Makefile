@@ -16,7 +16,7 @@ export MTK_GPU_VERSION
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
 export MTK_PLATFORM
 
-ifeq ($(CONFIG_MTK_GPU_SUPPORT),y)
+ifneq ($(CONFIG_MTK_GPU_SUPPORT),)
 	obj-y += ged/
 	obj-y += hal/
 	obj-y += gpufreq/

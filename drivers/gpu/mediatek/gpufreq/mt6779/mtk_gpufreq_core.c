@@ -24,8 +24,6 @@
  * SECTION : Include files
  * ===============================================
  */
-
-
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -493,6 +491,7 @@ unsigned int mt_gpufreq_target(unsigned int idx)
 
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_target);
 
 /*
  * enable MTCMOS
@@ -523,6 +522,7 @@ void mt_gpufreq_enable_MTCMOS(bool bEnableHWAPM)
 
 #endif
 }
+EXPORT_SYMBOL(mt_gpufreq_enable_MTCMOS);
 
 /*
  * disable MTCMOS
@@ -553,6 +553,7 @@ void mt_gpufreq_disable_MTCMOS(bool bEnableHWAPM)
 	gpufreq_pr_debug("@%s: disable MTCMOS done\n", __func__);
 #endif
 }
+EXPORT_SYMBOL(mt_gpufreq_disable_MTCMOS);
 
 /*
  * API : GPU voltage on/off setting
@@ -611,6 +612,7 @@ unsigned int mt_gpufreq_voltage_enable_set(unsigned int enable)
 #endif /* ENABLE_BUCK_CONTROL */
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_voltage_enable_set);
 
 /*
  * API : enable DVFS for PTPOD initializing
@@ -781,6 +783,7 @@ unsigned int mt_gpufreq_get_dvfs_table_num(void)
 {
 	return g_opp_idx_num;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_dvfs_table_num);
 
 /* API : get frequency via OPP table index */
 unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx)
@@ -794,6 +797,7 @@ unsigned int mt_gpufreq_get_freq_by_idx(unsigned int idx)
 	gpufreq_pr_debug("@%s: not found, idx = %d\n", __func__, idx);
 	return 0;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_freq_by_idx);
 
 /* API : get voltage via OPP table index */
 unsigned int mt_gpufreq_get_volt_by_idx(unsigned int idx)
@@ -868,6 +872,7 @@ unsigned int mt_gpufreq_get_thermal_limit_index(void)
 			__func__, g_max_limited_idx);
 	return g_max_limited_idx;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_thermal_limit_index);
 
 /*
  * API : get current Thermal/Power/PBM limited OPP table frequency
@@ -893,6 +898,7 @@ unsigned int mt_gpufreq_get_cur_freq_index(void)
 
 	return g_cur_opp_cond_idx;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_cur_freq_index);
 
 /*
  * API : get current OPP table frequency
@@ -936,6 +942,7 @@ int mt_gpufreq_get_cur_ceiling_idx(void)
 			__func__, g_max_limited_idx);
 	return (int)g_max_limited_idx;
 }
+EXPORT_SYMBOL(mt_gpufreq_get_cur_ceiling_idx);
 
 #ifdef MT_GPUFREQ_BATT_OC_PROTECT
 /*

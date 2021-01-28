@@ -15,6 +15,7 @@
 #endif
 
 unsigned int (*mtk_get_gpu_memory_usage_fp)(void) = NULL;
+EXPORT_SYMBOL(mtk_get_gpu_memory_usage_fp);
 
 bool mtk_get_gpu_memory_usage(unsigned int *pMemUsage)
 {

@@ -149,7 +149,6 @@ pvrsrvkm-y += \
 	services/server/env/linux/pvr_gputrace.o \
 	services/server/env/linux/event.o \
 	services/server/env/linux/osmmap_stub.o \
-	services/server/env/linux/trace_events.o \
 	services/server/env/linux/handle_idr.o \
 	services/server/env/linux/pvr_debug.o \
 	services/server/env/linux/physmem_osmem_linux.o \
@@ -256,4 +255,5 @@ ccflags-y += \
 # GPU mt-plat: drivers/gpu/mediatek/mt-plat
 # Legacy mt-plat: drivers/misc/mediatek/include/mt-plat
 
-obj-y += pvrsrvkm.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += pvrsrvkm.o
+
