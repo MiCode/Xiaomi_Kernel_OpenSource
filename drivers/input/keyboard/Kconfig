@@ -757,4 +757,12 @@ config KEYBOARD_BCM
 	  module will be called bcm-keypad.
 
 source "drivers/input/keyboard/mediatek/Kconfig"
+
+config KEYBOARD_MTK_PMIC
+	tristate "MediaTek PMIC key Support"
+	help
+	  Say Y here if you want to use the pmic keys. If unuse, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called pmic-keys.
 endif
