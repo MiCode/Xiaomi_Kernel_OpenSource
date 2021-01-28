@@ -472,8 +472,12 @@ static struct snd_soc_codec_driver soc_mtk_codec = {
 
 static int mtk_dummy_codec_dev_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_CODEC_DUMMY_NAME);
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_codec(&pdev->dev, &soc_mtk_codec,

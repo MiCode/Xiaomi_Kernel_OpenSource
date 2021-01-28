@@ -959,8 +959,12 @@ static struct snd_soc_platform_driver mtk_soc_voice_usb_platform = {
 
 static int mtk_voice_usb_probe(struct platform_device *pdev)
 {
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_VOICE_USB);
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	usb_memif_lpbk.dev = &pdev->dev;
 

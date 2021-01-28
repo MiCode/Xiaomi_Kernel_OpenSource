@@ -314,8 +314,12 @@ static int mtk_dl1_awb_probe(struct platform_device *pdev)
 			__func__, deep_buffer_mem_blk_io);
 	}
 
-	if (pdev->dev.of_node)
+	if (pdev->dev.of_node) {
 		dev_set_name(&pdev->dev, "%s", MT_SOC_DL1_AWB_PCM);
+		pdev->name = pdev->dev.kobj.name;
+	} else {
+		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
+	}
 
 	pr_debug("%s(): dev name %s\n", __func__, dev_name(&pdev->dev));
 	return snd_soc_register_platform(&pdev->dev, &mtk_soc_platform);
