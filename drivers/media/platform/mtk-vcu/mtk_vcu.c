@@ -401,6 +401,9 @@ int vcu_ipi_send(struct platform_device *pdev,
 		return -EPERM;
 	}
 
+	i = ipi_id_to_inst_id(id);
+
+	mutex_lock(&vcu->vcu_mutex[i]);
 	if (vcu_ptr->abort) {
 		if (vcu_ptr->open_cnt > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
@@ -408,12 +411,9 @@ int vcu_ipi_send(struct platform_device *pdev,
 			ret = down_interruptible(&vcu_ptr->vpud_killed);
 		}
 		dev_info(&pdev->dev, "[VCU] vpud killed\n");
+		mutex_unlock(&vcu->vcu_mutex[i]);
 		return -EIO;
 	}
-
-	i = ipi_id_to_inst_id(id);
-
-	mutex_lock(&vcu->vcu_mutex[i]);
 	vcu->ipi_id_ack[id] = false;
 
 	if (id >= IPI_VCU_INIT && id < IPI_MAX) {
@@ -433,7 +433,6 @@ int vcu_ipi_send(struct platform_device *pdev,
 	timeout = msecs_to_jiffies(IPI_TIMEOUT_MS);
 	ret = wait_event_timeout(vcu->ack_wq[i], vcu->ipi_id_ack[id], timeout);
 	vcu->ipi_id_ack[id] = false;
-	mutex_unlock(&vcu->vcu_mutex[i]);
 
 	if (vcu_ptr->abort || ret == 0) {
 		dev_info(&pdev->dev, "vcu ipi %d ack time out !%d", id, ret);
@@ -449,14 +448,18 @@ int vcu_ipi_send(struct platform_device *pdev,
 		}
 		dev_info(&pdev->dev, "[VCU] vpud killed\n");
 		ret = -EIO;
+		mutex_unlock(&vcu->vcu_mutex[i]);
 		goto end;
 	} else if (-ERESTARTSYS == ret) {
 		dev_err(&pdev->dev, "vcu ipi %d ack wait interrupted by a signal",
 			id);
 		ret = -ERESTARTSYS;
+		mutex_unlock(&vcu->vcu_mutex[i]);
 		goto end;
-	} else
+	} else {
 		ret = 0;
+		mutex_unlock(&vcu->vcu_mutex[i]);
+	}
 
 	/* Waiting ipi_done, success means the daemon receiver thread
 	 * dispatchs ipi msg done and returns to kernel for get next
