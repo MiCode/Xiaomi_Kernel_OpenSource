@@ -465,6 +465,14 @@ page_owner=on";
 		reg = <0 0x10011000 0 0x1000>;
 	};
 
+	dvfsrc: dvfsrc@10012000 {
+		compatible = "mediatek,dvfsrc";
+		status = "disabled";
+		reg = <0 0x10012000 0 0x1000>,
+			<0 0x10006000 0	0x1000>;
+		interrupts = <GIC_SPI 249 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	mbist_ao@10013000 {
 		compatible = "mediatek,mbist_ao";
 		reg = <0 0x10013000 0 0x1000>;

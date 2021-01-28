@@ -98,7 +98,7 @@ static struct reg_config dvfsrc_init_configs[][128] = {
 		{ DVFSRC_95MD_SCEN_BW0_T,    0x50555550 },
 		{ DVFSRC_95MD_SCEN_BW1_T,    0x33355555 },
 		{ DVFSRC_95MD_SCEN_BW2_T,    0x00500555 },
-		{ DVFSRC_95MD_SCEN_BW3_T,    0x60000000 },
+		{ DVFSRC_95MD_SCEN_BW3_T,    0x70000000 },
 		{ DVFSRC_95MD_SCEN_BW0,      0x30333330 },
 		{ DVFSRC_95MD_SCEN_BW1,      0x00033333},
 		{ DVFSRC_95MD_SCEN_BW2,      0x00300333 },
@@ -535,7 +535,8 @@ void get_spm_reg(char *p)
 
 void get_opp_info(char *p)
 {
-#if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_PMIC_COMMON)
+#if defined(CONFIG_FPGA_EARLY_PORTING) || !defined(CONFIG_MTK_PMIC_COMMON) \
+					|| !defined(CONFIG_MTK_PMIC_NEW_ARCH)
 	int pmic_val = 0;
 #else
 	int pmic_val = pmic_get_register_value(PMIC_VCORE_ADDR);
