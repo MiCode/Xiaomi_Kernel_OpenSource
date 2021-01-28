@@ -690,9 +690,6 @@ static struct syscore_ops clkchk_syscore_ops = {
 
 static int __init clkchk_init(void)
 {
-	if (!of_machine_is_compatible("mediatek,MT6873"))
-		return -ENODEV;
-
 	register_syscore_ops(&clkchk_syscore_ops);
 
 	return 0;

@@ -637,9 +637,6 @@ static void __init init_custom_cmds(void)
 
 static int __init clkdbg_mt6853_init(void)
 {
-	if (!of_machine_is_compatible("mediatek,MT6853"))
-		return -ENODEV;
-
 	init_regbase();
 
 	init_custom_cmds();

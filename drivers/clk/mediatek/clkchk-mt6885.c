@@ -1204,9 +1204,6 @@ static int __init clkchk_init(void)
 	/* fill the 'struct clk *' ptr of every CGs*/
 	int i;
 
-	if (!of_machine_is_compatible("mediatek,MT6885"))
-		return -ENODEV;
-
 	register_syscore_ops(&clkchk_syscore_ops);
 
 	for (i = 0; i < ARRAY_SIZE(mtk_subsys_check); i++)
