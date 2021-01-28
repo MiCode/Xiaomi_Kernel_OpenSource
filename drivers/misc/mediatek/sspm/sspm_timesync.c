@@ -32,6 +32,11 @@
 #define TIMESYNC_FLAG_FREEZE   (1 << 2)
 #define TIMESYNC_FLAG_UNFREEZE (1 << 3)
 
+/* sched_clock wrap time is 4398 seconds for arm arch timer
+ * applying a period less than it for tinysys timesync
+ */
+#define TIMESYNC_WRAP_TIME (4000*NSEC_PER_SEC)
+
 struct timesync_context_t {
 	spinlock_t lock;
 	struct work_struct work;
@@ -149,23 +154,8 @@ static void timesync_ws(struct work_struct *ws)
 	timesync_sync_base(TIMESYNC_FLAG_SYNC);
 }
 
-static u64 get_ts_max_nsecs(u32 mult, u32 shift, u64 mask)
-{
-	u64 max_nsecs, max_cycles;
-
-	max_cycles = ULLONG_MAX;
-	do_div(max_cycles, mult);
-	max_cycles = min(max_cycles, mask);
-	max_nsecs = clocksource_cyc2ns(max_cycles, mult, shift);
-	/* Return 50% of the actual maximum, so we can detect bad values */
-	max_nsecs >>= 1;
-	return max_nsecs;
-}
-
 unsigned int __init sspm_timesync_init(void)
 {
-	u64 wrap;
-
 	timesync_workqueue = create_workqueue("sspm_ts_wq");
 	if (!timesync_workqueue) {
 		pr_info("%s workqueue create failed\n", __func__);
@@ -181,9 +171,7 @@ unsigned int __init sspm_timesync_init(void)
 	clocks_calc_mult_shift(&timesync_cc.mult, &timesync_cc.shift,
 				arch_timer_get_cntfrq(), NSEC_PER_SEC, 3600);
 
-	wrap = get_ts_max_nsecs(timesync_cc.mult, timesync_cc.shift,
-				timesync_cc.mask);
-	timesync_ctx.wrap_kt = ns_to_ktime(wrap);
+	timesync_ctx.wrap_kt = ns_to_ktime(TIMESYNC_WRAP_TIME);
 
 	/* Init time counter:
 	 * start_time: current sched_clock
@@ -194,11 +182,12 @@ unsigned int __init sspm_timesync_init(void)
 	hrtimer_init(&timesync_refresh_timer,
 				CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	timesync_refresh_timer.function = timesync_refresh;
-	hrtimer_start(&timesync_refresh_timer, wrap, HRTIMER_MODE_REL);
+	hrtimer_start(&timesync_refresh_timer,
+		timesync_ctx.wrap_kt, HRTIMER_MODE_REL);
 
 	pr_info("%s ts: cycle_last %lld, time_base:%lld, wrap:%lld\n",
 		TIMESYNC_TAG, timesync_counter.cycle_last,
-		timesync_counter.nsec, wrap);
+		timesync_counter.nsec, timesync_ctx.wrap_kt);
 
 	timesync_ctx.enabled = 1;
 
