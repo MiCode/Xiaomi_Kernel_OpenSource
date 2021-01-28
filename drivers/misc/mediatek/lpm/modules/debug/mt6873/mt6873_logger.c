@@ -91,9 +91,9 @@ struct spm_wakesrc_irq_list mt6873_spm_wakesrc_irqs[] = {
 	/* wf_hif_int */
 	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,wifi", 0, 0},
 	/* conn2ap_btif_wakeup_out */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-consys", 0, 0},
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-consys", 0, 0},
 	/* conn2ap_sw_irq */
-	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6853-consys", 2, 0},
+	{ WAKE_SRC_STA1_CONN2AP_SPM_WAKEUP_B, "mediatek,mt6873-consys", 2, 0},
 	/* mt6358-irq */
 	{ WAKE_SRC_STA1_EINT_EVENT_B, "mediatek,apirq", 0, 0},
 	/* CCIF_AP_DATA */
