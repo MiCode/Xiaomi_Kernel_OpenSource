@@ -203,12 +203,6 @@ struct GED_KPI_GPU_TS {
 	struct dma_fence *psSyncFence;
 };
 
-
-
-
-
-
-
 #define GED_KPI_TOTAL_ITEMS 64
 #define GED_KPI_UID(pid, wnd) (pid | ((unsigned long)wnd))
 #define SCREEN_IDLE_PERIOD 500000000
@@ -217,7 +211,7 @@ struct GED_KPI_GPU_TS {
 static int is_game_control_frame_rate;
 static int target_fps_4_main_head = 60;
 static long long vsync_period = GED_KPI_SEC_DIVIDER / GED_KPI_MAX_FPS;
-static GED_LOG_BUF_HANDLE ghLogBuf;
+static GED_LOG_BUF_HANDLE ghLogBuf_KPI;
 static struct workqueue_struct *g_psWorkQueue;
 static GED_HASHTABLE_HANDLE gs_hashtable;
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
@@ -784,7 +778,7 @@ static void ged_kpi_statistics_and_remove(struct GED_KPI_HEAD *psHead,
 	psKPI->cpu_gpu_info.gpu.dvfs_loading_mode = dvfs_loading_mode;
 #endif /* GED_ENABLE_DVFS_LOADING_MODE */
 	/* statistics */
-	ged_log_buf_print(ghLogBuf,
+	ged_log_buf_print(ghLogBuf_KPI,
 		"%d,%llu,%lu,%lu,%lu,%llu,%llu,%llu,%llu,%llu,%llu,%lu,%d,%d,%lld,%d,%lld,%lld,%llu,%lu,%lu,%lu,%lu,%lu,%lu,%u,%u,%u",
 		psHead->pid,
 		psHead->ullWnd,
@@ -2295,11 +2289,13 @@ unsigned int ged_kpi_get_cur_avg_gpu_freq(void)
 GED_ERROR ged_kpi_system_init(void)
 {
 #ifdef MTK_GED_KPI
-
-	ghLogBuf = ged_log_buf_alloc(GED_KPI_MAX_FPS * 10,
+#ifndef GED_BUFFER_LOG_DISABLE
+	ghLogBuf_KPI = ged_log_buf_alloc(GED_KPI_MAX_FPS * 10,
 		220 * GED_KPI_MAX_FPS * 10,
 		GED_LOG_BUF_TYPE_RINGBUFFER, NULL, "KPI");
-
+#else
+	ghLogBuf_KPI = 0;
+#endif /* GED_BUFFER_LOG_DISABLE */
 	g_psWorkQueue =
 		alloc_ordered_workqueue("ged_kpi",
 			WQ_FREEZABLE | WQ_MEM_RECLAIM);
@@ -2336,8 +2332,10 @@ void ged_kpi_system_exit(void)
 #endif /* GED_ENABLE_TIMER_BASED_DVFS_MARGIN */
 	destroy_workqueue(g_psWorkQueue);
 	ged_thread_destroy(ghThread);
-	ged_log_buf_free(ghLogBuf);
-	ghLogBuf = 0;
+#ifndef GED_BUFFER_LOG_DISABLE
+	ged_log_buf_free(ghLogBuf_KPI);
+	ghLogBuf_KPI = 0;
+#endif /* GED_BUFFER_LOG_DISABLE */
 #endif /* MTK_GED_KPI */
 }
 /* ------------------------------------------------------------------- */
