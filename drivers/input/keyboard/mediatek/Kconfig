@@ -1,0 +1,94 @@
+config KEYBOARD_MTK
+	tristate "MediaTek Keypad Support"
+	---help---
+	  Say Y here if you want to use the keypad.
+	  If unuse, say N.
+	  To compile this driver as a module, choose M here: the
+	  module will be called mtk-kpd.
+
+config ONEKEY_REBOOT_NORMAL_MODE
+	bool "Long press reboot by Powerkey only on normal mode"
+	default n
+	---help---
+	  Say Y here if you want to use one key reboot normal mode.
+
+	  If unuse, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called long_press_reboot_function_setting.
+
+config TWOKEY_REBOOT_NORMAL_MODE
+	bool "Long press reboot by Powerkey + other key on normal mode"
+	default n
+	---help---
+	  Say Y here if you want to use two key reboot noraml mode.
+
+	  If unuse, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called long_press_reboot_function_setting.
+
+config ONEKEY_REBOOT_OTHER_MODE
+	bool "Long press reboot by Powerkey only on other mode"
+	default n
+	---help---
+	  Say Y here if you want to use one key reboot other mode.
+
+	  If unuse, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called long_press_reboot_function_setting.
+
+config TWOKEY_REBOOT_OTHER_MODE
+	bool "Long press reboot by Powerkey + other key on other mode"
+	default n
+	---help---
+	  Say Y here if you want to use two key reboot other mode.
+
+	  If unuse, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called long_press_reboot_function_setting.
+
+config KPD_PMIC_LPRST_TD
+	int "Long press reboot timeout period"
+	range 0 3
+	default "0"
+	---help---
+	  0->8s, 1->11s, 2->14s, 3->5s
+
+config KPD_PWRKEY_USE_PMIC
+	bool "power key use pmic key"
+	default n
+	---help---
+	  Say Y here if you want to use pmic key as power key.
+
+	  If unuse, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called kpd_pmic_pwrkey_hal.
+
+
+config MTK_MRDUMP_KEY
+	bool "MediaTek mrdump reset key support"
+	default n
+	help
+	  Say Y if you want to enable mrdump key SMT item support.
+
+	  If you don't know what to do here, say N.
+
+	  The memory dump key is implemented via eint-rst-key,
+	  and used for debug purpose. The circuit layout must
+	  have phyiscal eint-rst-key key on the main board.
+
+
+config LONG_PRESS_MODE_EN
+	bool "MediaTek dump reset key support"
+	default n
+	help
+	  Say Y if you want to enable mrdump key SMT item support.
+
+	  If you don't know what to do here, say N.
+
+	  The memory dump key includes power key,homerst key and
+	  volume down key,and used for debug purpose.
