@@ -10,10 +10,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
+       .text
 
 #include <linux/linkage.h>
 
-       .text
 .equ C1_IBIT ,  0x00001000
 .equ C1_CBIT ,  0x00000004
 .equ PSR_F_BIT, 0x00000040
@@ -1151,6 +1151,8 @@ ENDPROC(d_i_dis_flush_all)
 
 ENTRY(dis_D_inner_flush_all)
 	/* disable data cache*/
+	ARM(	stmfd	sp!, {r4-r5, r7, r9-r11, lr}	)
+	THUMB(	stmfd	sp!, {r4-r7, r9-r11, lr}	)
 
 	MRC p15,0,r0,c1,c0,0
 	BIC r0,r0,#C1_CBIT
@@ -1159,7 +1161,11 @@ ENTRY(dis_D_inner_flush_all)
 	dsb
 	isb
 
-	b	v7_flush_dcache_all
+	bl	v7_flush_dcache_all
+
+	ARM(	ldmfd	sp!, {r4-r5, r7, r9-r11, lr}	)
+	THUMB(	ldmfd	sp!, {r4-r7, r9-r11, lr}	)
+	bx	lr
 ENDPROC(dis_D_inner_flush_all)
 
         .end
