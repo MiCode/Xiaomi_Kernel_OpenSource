@@ -62,5 +62,9 @@ void mtee_mchunks_exit(void);
 int tee_smem_devs_init(void);
 void tee_smem_devs_exit(void);
 #endif
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+int tmem_mpu_vio_init(void);
+void tmem_mpu_vio_exit(void);
+#endif
 
 #endif /* end of TMEM_PRIV_H */

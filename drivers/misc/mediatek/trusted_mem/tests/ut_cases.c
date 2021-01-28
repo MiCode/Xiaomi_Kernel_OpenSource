@@ -770,6 +770,8 @@ int tmem_ut_cases_init(void)
 	int idx;
 
 	pr_info("%s:%d\n", __func__, __LINE__);
+	UNUSED(tmem_region_on_off_stress_test);
+	UNUSED(tmem_regmgr_run_all);
 
 	for (idx = 0; idx < TEST_CASE_COUNT; idx++) {
 		register_ut_test_case(

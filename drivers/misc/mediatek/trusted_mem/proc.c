@@ -292,6 +292,10 @@ static int trusted_mem_init(struct platform_device *pdev)
 	mtee_mchunks_init();
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+	tmem_mpu_vio_init();
+#endif
+
 	trusted_mem_create_proc_entry();
 
 	pr_info("%s:%d (end)\n", __func__, __LINE__);
@@ -300,6 +304,10 @@ static int trusted_mem_init(struct platform_device *pdev)
 
 static int trusted_mem_exit(struct platform_device *pdev)
 {
+#if IS_ENABLED(CONFIG_MTK_GZ_KREE)
+	tmem_mpu_vio_exit();
+#endif
+
 #ifdef MTEE_DEVICES_SUPPORT
 	mtee_mchunks_exit();
 #endif

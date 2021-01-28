@@ -124,7 +124,7 @@ config MTK_MTEE_MULTI_CHUNK_SUPPORT
 config HAVE_MTK_TRUSTED_MEMORY_SUBSYSTEM
 	bool "HAVE MTK Trusted Memory Subsystem Support"
 	depends on MTK_PROT_MEM_SUPPORT || MTK_SECURE_MEM_SUPPORT || \
-		   MTK_MTEE_MULTI_CHUNK_SUPPORT
+		   MTK_MTEE_MULTI_CHUNK_SUPPORT || MTK_GZ_KREE
 	help
 	  Enable the support of MediaTek trusted memory subsystem driver.
 	  This option is been used to be auto selected by other option.
