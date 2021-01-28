@@ -81,7 +81,7 @@ enum mtk_iommu_callback_ret_t {
 };
 
 typedef enum mtk_iommu_callback_ret_t (*mtk_iommu_fault_callback_t)(int port,
-				unsigned int mva, void *cb_data);
+				unsigned long mva, void *cb_data);
 
 int mtk_iommu_register_fault_callback(int port,
 				      mtk_iommu_fault_callback_t fn,
@@ -99,8 +99,8 @@ bool enable_custom_tf_report(void);
 bool report_custom_iommu_fault(
 	void __iomem	*base,
 	unsigned int	int_state,
-	unsigned int	fault_iova,
-	unsigned int	fault_pa,
+	unsigned long	fault_iova,
+	unsigned long	fault_pa,
 	unsigned int	fault_id, bool is_vpu);
 
 void mtk_iommu_debug_init(void);

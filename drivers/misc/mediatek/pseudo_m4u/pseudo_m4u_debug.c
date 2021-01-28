@@ -201,6 +201,7 @@ int m4u_test_fake_engine(void)
 	pDst =  vmalloc(allocated_size);
 	if (!pDst) {
 		M4U_MSG("vmalloc failed!\n");
+		vfree(pSrc);
 		return -1;
 	}
 	memset(pDst, 0xFF, allocated_size);
@@ -236,6 +237,8 @@ int m4u_test_fake_engine(void)
 			M4U_MSG("0x%p: 0x%x\n",
 				pDst+i*sizeof(unsigned char),
 				*(pDst+i));
+			vfree(pSrc);
+			vfree(pDst);
 			return -2;
 		}
 	}
@@ -260,9 +263,15 @@ int m4u_test_ddp(void)
 	struct m4u_client_t *client = pseudo_get_m4u_client();
 
 	pSrc = vmalloc(size);
-	pDst = vmalloc(size);
-	if (!pSrc || !pDst) {
+	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
+		return -1;
+	}
+
+	pDst = vmalloc(size);
+	if (!pDst) {
+		M4U_MSG("vmalloc failed!\n");
+		vfree(pSrc);
 		return -1;
 	}
 
@@ -297,13 +306,13 @@ int m4u_test_ddp(void)
 }
 
 enum mtk_iommu_callback_ret_t test_fault_callback(int port,
-		unsigned int mva, void *data)
+		unsigned long mva, void *data)
 {
 	if (data != NULL)
-		M4U_MSG("fault call port=%d, mva=0x%x, data=0x%x\n",
+		M4U_MSG("fault call port=%d, mva=0x%lx, data=0x%x\n",
 			port, mva, *(int *)data);
 	else
-		M4U_MSG("fault call port=%d, mva=0x%x\n", port, mva);
+		M4U_MSG("fault call port=%d, mva=0x%lx\n", port, mva);
 
 	/* DO NOT print too much logs here !!!! */
 	/* Do NOT use any lock hear !!!! */
@@ -329,9 +338,15 @@ int m4u_test_tf(void)
 		test_fault_callback, &data);
 
 	pSrc = vmalloc(size);
-	pDst = vmalloc(size);
-	if (!pSrc || !pDst) {
+	if (!pSrc) {
 		M4U_MSG("vmalloc failed!\n");
+		return -1;
+	}
+
+	pDst = vmalloc(size);
+	if (!pDst) {
+		M4U_MSG("vmalloc failed!\n");
+		vfree(pSrc);
 		return -1;
 	}
 
@@ -393,10 +408,14 @@ void m4u_test_ion(void)
 		size, 0, ION_HEAP_MULTIMEDIA_MASK, 0);
 
 	pSrc = ion_map_kernel(ion_client, src_handle);
-	pDst = ion_map_kernel(ion_client, dst_handle);
-	if (!pSrc || !pDst) {
+	if (!pSrc) {
 		M4U_MSG("ion map kernel failed!\n");
-		return;
+		goto out;
+	}
+	pDst = ion_map_kernel(ion_client, dst_handle);
+	if (!pDst) {
+		M4U_MSG("vmalloc failed!\n");
+		goto out;
 	}
 
 	mm_data.config_buffer_param.kernel_handle = src_handle;
@@ -434,6 +453,7 @@ void m4u_test_ion(void)
 	__ddp_mem_test(pSrc, src_pa, pDst, dst_pa, 0);
 	iommu_perf_monitor_stop(0);
 
+out:
 	ion_free(ion_client, src_handle);
 	ion_free(ion_client, dst_handle);
 
