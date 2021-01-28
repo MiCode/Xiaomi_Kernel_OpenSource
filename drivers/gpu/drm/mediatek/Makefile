@@ -13,6 +13,8 @@ mediatek-drm-y := mtk_disp_color.o \
 		  mtk_mipi_tx.o \
 		  mtk_dpi.o
 
+mediatek-drm-$(CONFIG_DRM_FBDEV_EMULATION) += mtk_drm_fbdev.o
+
 obj-$(CONFIG_DRM_MEDIATEK) += mediatek-drm.o
 
 mediatek-drm-hdmi-objs := mtk_cec.o \
