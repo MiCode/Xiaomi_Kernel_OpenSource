@@ -33,16 +33,6 @@
 /* For mt6739/mt6775/mt6771 or later project, use cpuidle_v3/mtk_cpuidle.h */
 #include <cpuidle_v3/mtk_cpuidle.h> /* atf/dormant header file */
 
-
-
-/********************************************************************
- * dpidle/sodi3/sodi default feature enable/disable
- *******************************************************************/
-#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (1)
-#define MTK_IDLE_FEATURE_ENABLE_SODI    (1)
-#define MTK_IDLE_FEATURE_ENABLE_SODI3   (1)
-
-
 /**************************************
  * Config and Parameter
  **************************************/
@@ -76,10 +66,9 @@ extern void __iomem *sleep_reg_md_base;
 #define SLEEP_REG_MD_BASE sleep_reg_md_base
 
 
-extern struct pwr_ctrl pwrctrl_sleep;
-extern struct pwr_ctrl pwrctrl_dp;
-extern struct pwr_ctrl pwrctrl_so3;
-extern struct pwr_ctrl pwrctrl_so;
+extern struct pwr_ctrl pwrctrl_bus26m;
+extern struct pwr_ctrl pwrctrl_syspll;
+extern struct pwr_ctrl pwrctrl_dram;
 
 /* SMC secure magic number */
 #define SPM_LP_SMC_MAGIC	0xDAF10000
@@ -197,7 +186,6 @@ void mtk_spm_irq_restore(void);
  ***********************************************************/
 
 long int spm_get_current_time_ms(void);
-void rekick_vcorefs_scenario(void); /* FIXME: To be removed */
 int __spm_get_pcm_timer_val(const struct pwr_ctrl *pwrctrl);
 void __spm_set_pwrctrl_pcm_flags(struct pwr_ctrl *pwrctrl, u32 flags);
 void __spm_set_pwrctrl_pcm_flags1(struct pwr_ctrl *pwrctrl, u32 flags);
@@ -262,7 +250,6 @@ struct ddrphy_golden_cfg {
 
 enum {
 	SPMFW_LP4_2CH_3200 = 0,
-	SPMFW_LP4X_2CH_3200,
 	SPMFW_LP4X_2CH_3600,
 	SPMFW_LP3_1CH_1866,
 };

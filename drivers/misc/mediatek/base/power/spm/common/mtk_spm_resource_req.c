@@ -18,7 +18,7 @@
 
 #include <mtk_spm_resource_req.h>
 #include <mtk_spm_resource_req_internal.h>
-#include <mtk_idle_sysfs.h>
+#include <mtk_idle_fs/mtk_idle_sysfs.h>
 #include <mtk_lp_dts.h>
 
 #define NF_SPM_USER_USAGE_STRUCT	2
@@ -45,33 +45,6 @@ static const char * const spm_resource_name[] = {
 static struct mtk_idle_sysfs_handle spm_resource_req_file;
 static unsigned int spm_console_req_status;
 
-/* Compulsory method for spm resource requirement.
- * This function's implementation depend on platform
- */
-int __attribute__((weak))
-	spm_resource_req_console(unsigned int req, unsigned int res_bitmask)
-{
-	return -1;
-}
-
-int __attribute__((weak)) spm_resource_req_console_by_id(
-			int id, unsigned int req, unsigned int res_bitmask)
-{
-	return -1;
-}
-
-/* Method for spm resource requirement status.
- * This function's implementation depend on platform
- */
-int __attribute__((weak))
-	spm_get_resource_req_console_status(unsigned int *res_bitmask)
-{
-	if (!res_bitmask)
-		return -1;
-
-	*res_bitmask = 0;
-	return 0;
-}
 static int spm_resource_in_use(int resource)
 {
 	int i;
@@ -187,32 +160,9 @@ static ssize_t resource_req_read(char *ToUserBuf, size_t sz, void *priv)
 
 	p[0] = '\0';
 
-	if (spm_get_resource_req_console_status(&len) == 0) {
-		char line_spe = ' ';
+	p += scnprintf(p, sz - strlen(ToUserBuf),
+		"resource conole require = 0x%x\n", spm_console_req_status);
 
-		const char *spm_resource_console[MTK_SPM_RES_EX_MAX] = {
-			"DRAM s0",
-			"DRAM s1",
-			"Main Pll",
-			"Axi Bus",
-			"26M",
-		};
-
-		p += scnprintf(p, sz - strlen(ToUserBuf)
-					, "spm_resource_req_console_status:\n");
-
-		for (i = 0; i < MTK_SPM_RES_EX_MAX; ++i) {
-
-			if (i == (MTK_SPM_RES_EX_MAX-1))
-				line_spe = '\n';
-
-			p += scnprintf(p, sz - strlen(ToUserBuf)
-					, "[%s]:%d%c"
-					, spm_resource_console[i]
-					, !!(_RES_MASK(i) & len)
-					, line_spe);
-		}
-	}
 	for (i = 0; i < NF_SPM_RESOURCE; i++) {
 		p += scnprintf(p, sz - strlen(ToUserBuf),
 					"resource_req_bypass_stat[%s] = %x %x, usage %x %x\n",
@@ -290,8 +240,6 @@ void spm_resource_req_debugfs_init(void)
 bool spm_resource_req_init(void)
 {
 	int i, k;
-	u32 spm_res_bitmask = 0;
-	struct device_node *spm_node = NULL;
 
 	for (i = 0; i < NF_SPM_RESOURCE; i++) {
 		resc_desc[i].id = i;
@@ -300,18 +248,6 @@ bool spm_resource_req_init(void)
 			resc_desc[i].user_usage[k] = 0;
 			resc_desc[i].user_usage_mask[k] = 0xFFFFFFFF;
 		}
-	}
-	spm_node = GET_MTK_SPM_DTS_NODE();
-
-	if (spm_node) {
-		i = of_property_read_u32(spm_node,
-			"resource-disabled", &spm_res_bitmask);
-
-		if (i == 0)
-			spm_resource_req_console(
-				SPM_RESOURCE_CONSOLE_REQ, spm_res_bitmask);
-
-		of_node_put(spm_node);
 	}
 
 	return true;
@@ -323,12 +259,12 @@ void spm_resource_req_dump(void)
 	int i;
 	unsigned long flags;
 
-	pr_info("resource_req:\n");
+	printk_deferred("[name:spm&]resource_req:\n");
 
 	spin_lock_irqsave(&spm_resource_desc_update_lock, flags);
 
 	for (i = 0; i < NF_SPM_RESOURCE; i++)
-		pr_info("[%s]: 0x%x, 0x%x, mask = 0x%x, 0x%x\n",
+		printk_deferred("[name:spm&][%s]: 0x%x, 0x%x, mask = 0x%x, 0x%x\n",
 				spm_resource_name[i],
 				resc_desc[i].user_usage[0],
 				resc_desc[i].user_usage[1],
@@ -345,7 +281,7 @@ void spm_resource_req_block_dump(void)
 	spin_lock_irqsave(&spm_resource_desc_update_lock, flags);
 
 	if (curr_res_usage == SPM_RESOURCE_ALL) {
-		pr_info("[resource_req_block] user: 0x%x, 0x%x\n",
+		printk_deferred("[name:spm&][resource_req_block] user: 0x%x, 0x%x\n",
 				resc_desc[0].user_usage[0],
 				resc_desc[0].user_usage[1]);
 	}

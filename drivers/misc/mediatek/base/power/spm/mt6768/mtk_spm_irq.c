@@ -27,10 +27,6 @@
 #include <mtk_spm_irq.h>
 #include <mtk_spm_internal.h>
 
-#if 0 //FIXME
-#include <mtk_spm_vcore_dvfs.h>
-#endif
-
 #if defined(CONFIG_MTK_SYS_CIRQ)
 #include <mt-plat/mtk_cirq.h>
 #endif /* CONFIG_MTK_SYS_CIRQ */
@@ -45,27 +41,27 @@ char __attribute__((weak)) *spm_vcorefs_dump_dvfs_regs(char *p)
 
 void __attribute__((weak)) mt_cirq_clone_gic(void)
 {
-	pr_info("[SPM] NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&][SPM] NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_enable(void)
 {
-	pr_info("[SPM] NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&][SPM] NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_flush(void)
 {
-	pr_info("[SPM] NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&][SPM] NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) mt_cirq_disable(void)
 {
-	pr_info("[SPM] NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&][SPM] NO %s !!!\n", __func__);
 }
 
 void __attribute__((weak)) set_wakeup_sources(u32 *list, u32 num_events)
 {
-	pr_info("NO %s !!!\n", __func__);
+	printk_deferred("[name:spm&]NO %s !!!\n", __func__);
 }
 
 /***************************************************

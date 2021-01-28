@@ -26,6 +26,7 @@
 
 #include "mtk_spm_internal.h"
 
+#include <mtk_idle_module_plat.h>
 /***********************************************************
  * Local definitions
  ***********************************************************/
@@ -154,68 +155,65 @@ struct idle_cond_info {
 /* NOTE: null address will be updated in mtk_idle_cond_check_init() */
 static struct idle_cond_info idle_cg_info[] = {
 	{ 0xffffffff, "MTCMOS", NULL, false, 0 },
-	{ 0x00000040, "INFRA0", NULL, true,  0 },
-	{ 0x00000040, "INFRA1", NULL, true,  0 },
-	{ 0x00000040, "INFRA2", NULL, true,  0 },
-	{ 0x00000008, "MMSYS0", NULL, true,  (CK_MM | CLK_CHECK) },
-	{ 0x00000008, "MMSYS1", NULL, true,  (CK_MM | CLK_CHECK) },
+	{ 0x00000008, "INFRA0", NULL, true,  0 },
+	{ 0x00000008, "INFRA1", NULL, true,  0 },
+	{ 0x00000008, "INFRA2", NULL, true,  0 },
+	{ 0x00000020, "MMSYS0", NULL, true,  (CK_MM | CLK_CHECK) },
+	{ 0x00000020, "MMSYS1", NULL, true,  (CK_MM | CLK_CHECK) },
 };
 
 #define NR_CG_GRPS \
 	(sizeof(idle_cg_info)/sizeof(struct idle_cond_info))
 
-static unsigned int idle_cond_mask[NR_IDLE_TYPES][NR_CG_GRPS] = {
-	[IDLE_TYPE_DP] = {
-		0x04000038, /* MTCMOS, 26:VCODEC,5:ISP,4:MFG,3:DIS */
-		0x08040802,	/* INFRA0, 27:dxcc_sec_core_cg_sta */
-		0x00BFB800,	/* INFRA1, 8:icusb_cg_sta (removed) */
-		0x000000C5,	/* INFRA2 */
-		0x3FFFFFFF,	/* MMSYS0 */
-		0x00000000,	/* MMSYS1 */
+static unsigned int idle_cond_mask[IDLE_MODEL_NUM][NR_CG_GRPS] = {
+	[IDLE_MODEL_BUS26M] = {
+		0x00000B40, /* MTCMOS, 11:MFG, 9:VENC, 8:VDEC, 6:ISP, 5:DIS */
+		0x0A040802, /* INFRA0, 27:dxcc_sec_core_cg_sta */
+		0x00BFF800, /* INFRA1, 8:icusb_cg_sta (removed), 14:i2c3 */
+		0x060406D1, /* INFRA2, 9:spi2 10:spi3 18:i2c5 25:spi4 26:spi5 */
+		0x7FFFFFFF, /* MMSYS0 */
+		0x00000000, /* MMSYS1 */
 	},
-	[IDLE_TYPE_SO3] = {
-		0x04000030, /* MTCMOS, 26:VCODEC,5:ISP,4:MFG */
-		0x0A040802,	/* INFRA0, 27:dxcc_sec_core_cg_sta */
-		0x00BFB800,	/* INFRA1, 8:icusb_cg_sta (removed) */
-		0x000000D1,	/* INFRA2 */
-		0x3FFFFFFF,	/* MMSYS0 */
-		0x00000000,	/* MMSYS1 */
+	[IDLE_MODEL_SYSPLL] = {
+		0x00000B40, /* MTCMOS, 11:MFG, 9:VENC, 8:VDEC, 6:ISP */
+		0x08040802, /* INFRA0, 27:dxcc_sec_core_cg_sta */
+		0x00BFF800, /* INFRA1, 8:icusb_cg_sta (removed), 14:i2c3 */
+		0x060406C1, /* INFRA2, 9:spi2 10:spi3 18:i2c5 25:spi4 26:spi5 */
+		0x7FFFFFFF, /* MMSYS0 */
+		0x00000000, /* MMSYS1 */
 	},
-	[IDLE_TYPE_SO] = {
-		0x04000030, /* MTCMOS, 26:VCODEC,5:ISP,4:MFG */
-		0x08040802,	/* INFRA0, 27:dxcc_sec_core_cg_sta */
-		0x00BFB800,	/* INFRA1, 8:icusb_cg_sta (removed) */
-		0x000000C1,	/* INFRA2 */
-		0x0F84005F,	/* MMSYS0 */
-		0x00000000,	/* MMSYS1 */
+	[IDLE_MODEL_DRAM] = {
+		0x00000B40, /* MTCMOS, 11:MFG, 9:VENC, 8:VDEC, 6:ISP */
+		0x08040802, /* INFRA0, 27:dxcc_sec_core_cg_sta */
+		0x00BFF800, /* INFRA1, 8:icusb_cg_sta (removed), 14:i2c3 */
+		0x060406C1, /* INFRA2, 9:spi2 10:spi3 18:i2c5 25:spi4 26:spi5 */
+		0x0F040001, /* MMSYS0 */
+		0x00000000, /* MMSYS1 */
 	},
-	[IDLE_TYPE_RG] = {
-		0, 0, 0, 0, 0, 0},
 };
-
-static unsigned int idle_block_mask[NR_IDLE_TYPES][NR_CG_GRPS+1];
+static unsigned int idle_block_mask[IDLE_MODEL_NUM][NR_CG_GRPS+1];
 static unsigned int idle_value[NR_CG_GRPS];
 
 /***********************************************************
  * Check pll idle condition
  ***********************************************************/
 
-#define PLL_MFGPLL  APMIXEDSYS(0x24C)
-#define PLL_MMPLL   APMIXEDSYS(0x25C)
-#define PLL_UNIVPLL APMIXEDSYS(0x26C)
-#define PLL_MSDCPLL APMIXEDSYS(0x27C)
+#define PLL_MFGPLL  APMIXEDSYS(0x248)
+#define PLL_MMPLL   APMIXEDSYS(0x31C)
+#define PLL_UNIVPLL APMIXEDSYS(0x238)
+#define PLL_MSDCPLL APMIXEDSYS(0x33C)
 
 #define PLL_BIT_MFGPLL  (1 << 0)
 #define PLL_BIT_MMPLL   (1 << 1)
 #define PLL_BIT_UNIVPLL (1 << 2)
 #define PLL_BIT_MSDCPLL (1 << 3)
 
-static unsigned int idle_pll_cond_mask[NR_IDLE_TYPES] = {
-	[IDLE_TYPE_DP] = 0,
-	[IDLE_TYPE_SO3] = PLL_BIT_UNIVPLL | PLL_BIT_MSDCPLL,
-	[IDLE_TYPE_SO] = 0,
-	};
-static unsigned int idle_pll_block_mask[NR_IDLE_TYPES];
+static unsigned int idle_pll_cond_mask[IDLE_MODEL_NUM] = {
+	[IDLE_MODEL_BUS26M] = PLL_BIT_UNIVPLL | PLL_BIT_MSDCPLL,
+	[IDLE_MODEL_SYSPLL] = 0,
+	[IDLE_MODEL_DRAM] = 0,
+};
+static unsigned int idle_pll_block_mask[IDLE_MODEL_NUM];
 static unsigned int idle_pll_value;
 
 static void update_pll_state(void)
@@ -230,12 +228,12 @@ static void update_pll_state(void)
 	if (idle_readl(PLL_MSDCPLL) & 0x1)
 		idle_pll_value |= PLL_BIT_MSDCPLL;
 
-	idle_pll_block_mask[IDLE_TYPE_DP] =
-		idle_pll_value & idle_pll_cond_mask[IDLE_TYPE_DP];
-	idle_pll_block_mask[IDLE_TYPE_SO3] =
-		idle_pll_value & idle_pll_cond_mask[IDLE_TYPE_SO3];
-	idle_pll_block_mask[IDLE_TYPE_SO] =
-		idle_pll_value & idle_pll_cond_mask[IDLE_TYPE_SO];
+	idle_pll_block_mask[IDLE_MODEL_BUS26M] =
+		idle_pll_value & idle_pll_cond_mask[IDLE_MODEL_BUS26M];
+	idle_pll_block_mask[IDLE_MODEL_SYSPLL] =
+		idle_pll_value & idle_pll_cond_mask[IDLE_MODEL_SYSPLL];
+	idle_pll_block_mask[IDLE_MODEL_DRAM] =
+		idle_pll_value & idle_pll_cond_mask[IDLE_MODEL_DRAM];
 }
 
 /* dp/so3/so print blocking cond mask in debugfs */
@@ -312,9 +310,10 @@ static void mtk_idle_cgmon_trace_log(void)
 	#if MTK_IDLE_TRACE_TAG_ENABLE
 	unsigned int diff, block, g, n;
 
-	if (cgmon_sel == IDLE_TYPE_DP ||
-		cgmon_sel == IDLE_TYPE_SO3 ||
-		cgmon_sel == IDLE_TYPE_SO) {
+	if (cgmon_sel == IDLE_MODEL_BUS26M
+		|| cgmon_sel == IDLE_MODEL_SYSPLL
+		|| cgmon_sel == IDLE_MODEL_DRAM
+	) {
 
 		for (g = 0; g < NR_CG_GRPS + 1; g++) {
 			block = (g < NR_CG_GRPS) ?
@@ -372,9 +371,7 @@ void mtk_idle_cond_update_state(void)
 	update_pll_state();
 
 	/* update block mask for dp/so/so3 */
-	for (i = 0; i < NR_IDLE_TYPES; i++) {
-		if (i == IDLE_TYPE_RG)
-			continue;
+	for (i = IDLE_MODEL_START; i < IDLE_MODEL_NUM; i++) {
 		idle_block_mask[i][NR_CG_GRPS] = 0;
 		for (j = 0; j < NR_CG_GRPS; j++) {
 			idle_block_mask[i][j] = idle_cond_mask[i][j] & clk[j];
