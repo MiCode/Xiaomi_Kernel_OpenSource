@@ -45,6 +45,10 @@ void init_md_section_level(enum pbm_kicker kicker)
 #if defined(CONFIG_MTK_ECCCI_DRIVER)
 	share_mem =
 		(u32 *)get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_DBM, NULL);
+	if (share_mem == NULL) {
+		pr_notice("ERROR: can't get SMEM_USER_RAW_DBM address");
+		return;
+	}
 #else
 	return;
 #endif
@@ -125,6 +129,8 @@ static ssize_t mt_mdpm_debug_proc_write
 	int debug = 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	len = (len < 0) ? 0 : len;
+
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 	desc[len] = '\0';
