@@ -9,6 +9,14 @@
 #include "thermal_budget_platform.h"
 #include "thermal_budget.h"
 
+#if defined(CONFIG_MTK_VPU_SUPPORT)
+#include "vpu_dvfs.h"
+#endif
+
+#if defined(CONFIG_MTK_MDLA_SUPPORT)
+#include "mdla_dvfs.h"
+#endif
+
 void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 			struct mt_gpufreq_power_table_info **gpu_tbl,
 			struct thrm_pb_ratio **opp_ratio)
@@ -56,7 +64,7 @@ void eara_thrm_update_gpu_info(int *input_opp_num, int *in_max_opp_idx,
 
 int eara_thrm_get_vpu_core_num(void)
 {
-#ifdef CONFIG_MTK_VPU_SUPPORT
+#if defined(CONFIG_MTK_VPU_SUPPORT)
 	return 2;
 #else
 	return 0;
@@ -72,119 +80,36 @@ int eara_thrm_get_mdla_core_num(void)
 #endif
 }
 
-int eara_thrm_get_nr_clusters(void)
+int eara_thrm_vpu_opp_to_freq(int opp)
 {
-	return 2;
+#if defined(CONFIG_MTK_VPU_SUPPORT)
+	return get_vpu_opp_to_freq(opp);
+#else
+	return 100;
+#endif
 }
 
-unsigned int eara_thrm_get_freq_by_idx(int cluster, int opp)
+int eara_thrm_mdla_opp_to_freq(int opp)
 {
-	unsigned int freq = 0;
+#ifdef CONFIG_MTK_MDLA_SUPPORT
+	return get_mdla_opp_to_freq(opp);
+#else
+	return 100;
+#endif
+}
 
-	if (cluster == 0) {
-		switch (opp) {
-		case 0:
-			freq = 2000000;
-			break;
-		case 1:
-			freq = 1933000;
-			break;
-		case 2:
-			freq = 1866000;
-			break;
-		case 3:
-			freq = 1800000;
-			break;
-		case 4:
-			freq = 1733000;
-			break;
-		case 5:
-			freq = 1666000;
-			break;
-		case 6:
-			freq = 1548000;
-			break;
-		case 7:
-			freq = 1475000;
-			break;
-		case 8:
-			freq = 1375000;
-			break;
-		case 9:
-			freq = 1275000;
-			break;
-		case 10:
-			freq = 1175000;
-			break;
-		case 11:
-			freq = 1075000;
-			break;
-		case 12:
-			freq = 999000;
-			break;
-		case 13:
-			freq = 925000;
-			break;
-		case 14:
-			freq = 850000;
-			break;
-		case 15:
-			freq = 774000;
-			break;
-		}
-	} else if (cluster == 1) {
-		switch (opp) {
-		case 0:
-			freq = 2200000;
-			break;
-		case 1:
-			freq = 2133000;
-			break;
-		case 2:
-			freq = 2066000;
-			break;
-		case 3:
-			freq = 2000000;
-			break;
-		case 4:
-			freq = 1933000;
-			break;
-		case 5:
-			freq = 1866000;
-			break;
-		case 6:
-			freq = 1800000;
-			break;
-		case 7:
-			freq = 1651000;
-			break;
-		case 8:
-			freq = 1503000;
-			break;
-		case 9:
-			freq = 1414000;
-			break;
-		case 10:
-			freq = 1295000;
-			break;
-		case 11:
-			freq = 1176000;
-			break;
-		case 12:
-			freq = 1087000;
-			break;
-		case 13:
-			freq = 998000;
-			break;
-		case 14:
-			freq = 909000;
-			break;
-		case 15:
-			freq = 850000;
-			break;
-		}
-	}
+int eara_thrm_apu_ready(void)
+{
+	return 1;
+}
 
-	return freq;
+int eara_thrm_vpu_onoff(void)
+{
+	return 0;
+}
+
+int eara_thrm_mdla_onoff(void)
+{
+	return 0;
 }
 

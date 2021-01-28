@@ -27,6 +27,7 @@ void (*fpsgo_get_nn_ttime_fp)(unsigned int pid, unsigned long long mid,
 	int num_step, __u64 *ttime);
 
 void (*rsu_getusage_fp)(__s32 *devusage, __u32 *bwusage, __u32 pid);
+void (*rsu_getstate_fp)(int *throttled);
 
 static unsigned long perfctl_copy_from_user(void *pvTo,
 		const void __user *pvFrom, unsigned long ulBytes)
@@ -176,6 +177,15 @@ static long eara_ioctl_impl(struct file *filp,
 				sizeof(struct _EARA_NN_PACKAGE));
 
 		break;
+	case EARA_GETSTATE:
+		if (rsu_getstate_fp)
+			rsu_getstate_fp(&msgKM->thrm_throttled);
+		else
+			msgKM->thrm_throttled = -1;
+
+		perfctl_copy_to_user(msgUM, msgKM,
+				sizeof(struct _EARA_NN_PACKAGE));
+		break;
 	default:
 		pr_debug(TAG "%s %d: unknown cmd %x\n",
 			__FILE__, __LINE__, cmd);
@@ -207,6 +217,7 @@ static long eara_compat_ioctl(struct file *filp,
 
 		__s32 dev_usage;
 		__u32 bw_usage;
+		__s32 thrm_throttled;
 
 		union {
 			__u32 device;

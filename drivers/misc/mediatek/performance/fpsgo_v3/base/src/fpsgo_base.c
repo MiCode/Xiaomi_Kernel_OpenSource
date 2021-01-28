@@ -28,7 +28,7 @@
 #include <trace/events/fpsgo.h>
 
 #define TIME_1S  1000000000ULL
-#define TIME_90S  90000000000ULL
+#define TRAVERSE_PERIOD  300000000000ULL
 
 static struct kobject *base_kobj;
 static struct rb_root render_pid_tree;
@@ -235,10 +235,10 @@ void fpsgo_traverse_linger(unsigned long long cur_ts)
 
 	fpsgo_lockprove(__func__);
 
-	if (cur_ts < TIME_90S)
+	if (cur_ts < TRAVERSE_PERIOD)
 		return;
 
-	expire_ts = cur_ts - TIME_90S;
+	expire_ts = cur_ts - TRAVERSE_PERIOD;
 
 	n = rb_first(&linger_tree);
 	while (n) {
@@ -740,7 +740,7 @@ static ssize_t systrace_mask_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	uint32_t val;
+	uint32_t val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	uint32_t arg;
 
@@ -770,7 +770,7 @@ static ssize_t fpsgo_enable_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -886,7 +886,7 @@ static ssize_t force_onoff_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 
@@ -954,7 +954,7 @@ static ssize_t gpu_block_boost_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = -1;
 	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 

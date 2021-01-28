@@ -106,7 +106,7 @@ struct render_info {
 	struct fbt_boost_info boost_info;
 	struct fbt_thread_loading *pLoading;
 	struct fbt_thread_blc *p_blc;
-	int is_black;
+	int is_listed;
 	struct fpsgo_loading *dep_arr;
 	int dep_valid_size;
 	unsigned long long dep_loading_ts;

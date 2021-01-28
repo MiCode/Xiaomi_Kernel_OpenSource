@@ -52,6 +52,7 @@ struct _EARA_NN_PACKAGE {
 
 	__s32 dev_usage;
 	__u32 bw_usage;
+	__s32 thrm_throttled;
 
 	union {
 		__s32 *device;
@@ -97,6 +98,7 @@ struct _PERFMGR_PACKAGE {
 #define EARA_NN_BEGIN               _IOW('g', 1, struct _EARA_NN_PACKAGE)
 #define EARA_NN_END                 _IOW('g', 2, struct _EARA_NN_PACKAGE)
 #define EARA_GETUSAGE               _IOW('g', 3, struct _EARA_NN_PACKAGE)
+#define EARA_GETSTATE               _IOW('g', 4, struct _EARA_NN_PACKAGE)
 
 #define PERFMGR_CPU_PREFER          _IOW('g', 1, struct _PERFMGR_PACKAGE)
 
