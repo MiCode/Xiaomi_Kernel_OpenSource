@@ -571,7 +571,9 @@ static int audio_ipi_init_dsp_cm4(void)
 static long audio_ipi_driver_ioctl(
 	struct file *file, unsigned int cmd, unsigned long arg)
 {
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
 	uint32_t dsp_id = 0;
+#endif
 
 	struct audio_ipi_reg_dma_t dma_reg;
 	int retval = 0;
