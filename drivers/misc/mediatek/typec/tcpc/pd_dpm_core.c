@@ -1290,8 +1290,9 @@ void pd_dpm_dfp_inform_modes(struct pd_port *pd_port, bool ack)
 		} else {
 			count = pd_get_msg_vdm_data_count(pd_port);
 			payload = pd_get_msg_vdm_data_payload(pd_port);
-			dpm_dfp_update_svid_data_modes(
-				pd_port, svid, payload, count);
+			if (payload)
+				dpm_dfp_update_svid_data_modes(
+					pd_port, svid, payload, count);
 		}
 	}
 
