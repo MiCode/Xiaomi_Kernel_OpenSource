@@ -2341,6 +2341,11 @@ RGXBackingZSBuffer(RGX_ZSBUFFER_DATA *psZSBuffer)
 			/* Get Heap */
 			eError = DevmemServerGetHeapHandle(psZSBuffer->psReservation, &hDevmemHeap);
 			PVR_ASSERT(psZSBuffer->psMapping == NULL);
+			if (unlikely(hDevmemHeap == (IMG_HANDLE)NULL))
+			{
+				OSLockRelease(hLockZSBuffer);
+				return PVRSRV_ERROR_INVALID_HEAP;
+			}
 
 			eError = DevmemIntMapPMR(hDevmemHeap,
 					psZSBuffer->psReservation,
@@ -3108,10 +3113,10 @@ PVRSRV_ERROR PVRSRVRGXDestroyRenderContextKM(RGX_SERVER_RENDER_CONTEXT *psRender
 	if (ui32WorkEstCCBSubmitted != psRenderContext->sWorkEstData.ui32WorkEstCCBReceived)
 	{
 
-        PVR_DPF((PVR_DBG_WARNING,
-                "%s: WorkEst # cmds submitted (%u) and received (%u) mismatch",
-                __func__, ui32WorkEstCCBSubmitted,
-                psRenderContext->sWorkEstData.ui32WorkEstCCBReceived));
+		PVR_DPF((PVR_DBG_WARNING,
+		        "%s: WorkEst # cmds submitted (%u) and received (%u) mismatch",
+		        __func__, ui32WorkEstCCBSubmitted,
+		        psRenderContext->sWorkEstData.ui32WorkEstCCBReceived));
 
 		eError = PVRSRV_ERROR_RETRY;
 		goto e0;
@@ -4927,7 +4932,7 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 
 	if (ui323DCmdCount)
 	{
-		RGXFWIF_KCCB_CMD s3DKCCBCmd;
+		RGXFWIF_KCCB_CMD s3DKCCBCmd = { 0 };
 		IMG_UINT32 ui32FWCtx = FWCommonContextGetFWAddress(psRenderContext->s3DData.psServerCommonContext).ui32Addr;
 		RGX_CLIENT_CCB *psClientCCB = FWCommonContextGetClientCCB(psRenderContext->s3DData.psServerCommonContext);
 

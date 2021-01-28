@@ -1285,28 +1285,28 @@ void RGXProcessRequestFreelistsReconstruction(PVRSRV_RGXDEV_INFO *psDevInfo,
 /* Create HWRTDataSet */
 PVRSRV_ERROR RGXCreateHWRTDataSet(CONNECTION_DATA          *psConnection,
                                   PVRSRV_DEVICE_NODE       *psDeviceNode,
-								  IMG_DEV_VIRTADDR          psVHeapTableDevVAddr,
-								  IMG_DEV_VIRTADDR          sPMDataDevVAddr,
-								  IMG_DEV_VIRTADDR          sPMSecureDataDevVAddr,
-							      RGX_FREELIST	           *apsFreeLists[RGXFW_MAX_FREELISTS],
-							      IMG_UINT32                ui32ScreenPixelMax,
-							      IMG_UINT64                ui64PPPMultiSampleCtl,
-							      IMG_UINT32                ui32TEStride,
-							      IMG_DEV_VIRTADDR          sTailPtrsDevVAddr,
-							      IMG_UINT32                ui32TPCSize,
-							      IMG_UINT32                ui32TEScreen,
-							      IMG_UINT32                ui32TEAA,
-							      IMG_UINT32                ui32TEMTILE1,
-							      IMG_UINT32                ui32TEMTILE2,
-							      IMG_UINT32                ui32RgnStride,
-							      IMG_UINT32                ui32ISPMergeLowerX,
-							      IMG_UINT32                ui32ISPMergeLowerY,
-							      IMG_UINT32                ui32ISPMergeUpperX,
-							      IMG_UINT32                ui32ISPMergeUpperY,
-							      IMG_UINT32                ui32ISPMergeScaleX,
-							      IMG_UINT32                ui32ISPMergeScaleY,
-							      IMG_UINT16                ui16MaxRTs,
-							      RGX_KM_HW_RT_DATASET    **ppsKMHWRTDataSet)
+                                  IMG_DEV_VIRTADDR          psVHeapTableDevVAddr,
+                                  IMG_DEV_VIRTADDR          sPMDataDevVAddr,
+                                  IMG_DEV_VIRTADDR          sPMSecureDataDevVAddr,
+                                  RGX_FREELIST	           *apsFreeLists[RGXFW_MAX_FREELISTS],
+                                  IMG_UINT32                ui32ScreenPixelMax,
+                                  IMG_UINT64                ui64PPPMultiSampleCtl,
+                                  IMG_UINT32                ui32TEStride,
+                                  IMG_DEV_VIRTADDR          sTailPtrsDevVAddr,
+                                  IMG_UINT32                ui32TPCSize,
+                                  IMG_UINT32                ui32TEScreen,
+                                  IMG_UINT32                ui32TEAA,
+                                  IMG_UINT32                ui32TEMTILE1,
+                                  IMG_UINT32                ui32TEMTILE2,
+                                  IMG_UINT32                ui32RgnStride,
+                                  IMG_UINT32                ui32ISPMergeLowerX,
+                                  IMG_UINT32                ui32ISPMergeLowerY,
+                                  IMG_UINT32                ui32ISPMergeUpperX,
+                                  IMG_UINT32                ui32ISPMergeUpperY,
+                                  IMG_UINT32                ui32ISPMergeScaleX,
+                                  IMG_UINT32                ui32ISPMergeScaleY,
+                                  IMG_UINT16                ui16MaxRTs,
+                                  RGX_KM_HW_RT_DATASET    **ppsKMHWRTDataSet)
 {
 	PVRSRV_ERROR eError;
 	PVRSRV_RGXDEV_INFO *psDevInfo;
@@ -1590,20 +1590,20 @@ PVRSRV_ERROR RGXDestroyHWRTDataSet(RGX_KM_HW_RT_DATASET *psKMHWRTDataSet)
 
 PVRSRV_ERROR RGXCreateFreeList(CONNECTION_DATA      *psConnection,
                                PVRSRV_DEVICE_NODE	*psDeviceNode,
-							   IMG_HANDLE			hMemCtxPrivData,
-							   IMG_UINT32			ui32MaxFLPages,
-							   IMG_UINT32			ui32InitFLPages,
-							   IMG_UINT32			ui32GrowFLPages,
+                               IMG_HANDLE			hMemCtxPrivData,
+                               IMG_UINT32			ui32MaxFLPages,
+                               IMG_UINT32			ui32InitFLPages,
+                               IMG_UINT32			ui32GrowFLPages,
                                IMG_UINT32           ui32GrowParamThreshold,
-							   RGX_FREELIST			*psGlobalFreeList,
-							   IMG_BOOL				bCheckFreelist,
-							   IMG_DEV_VIRTADDR		sFreeListBaseDevVAddr,
-							   IMG_DEV_VIRTADDR		sFreeListStateDevVAddr,
-							   PMR					*psFreeListPMR,
-							   IMG_DEVMEM_OFFSET_T	uiFreeListPMROffset,
-							   PMR					*psFreeListStatePMR,
-							   IMG_DEVMEM_OFFSET_T	uiFreeListStatePMROffset,
-							   RGX_FREELIST			**ppsFreeList)
+                               RGX_FREELIST			*psGlobalFreeList,
+                               IMG_BOOL				bCheckFreelist,
+                               IMG_DEV_VIRTADDR		sFreeListBaseDevVAddr,
+                               IMG_DEV_VIRTADDR		sFreeListStateDevVAddr,
+                               PMR					*psFreeListPMR,
+                               IMG_DEVMEM_OFFSET_T	uiFreeListPMROffset,
+                               PMR					*psFreeListStatePMR,
+                               IMG_DEVMEM_OFFSET_T	uiFreeListStatePMROffset,
+                               RGX_FREELIST			**ppsFreeList)
 {
 	PVRSRV_ERROR				eError;
 	RGXFWIF_FREELIST			*psFWFreeList;
@@ -2135,13 +2135,18 @@ RGXBackingZSBuffer(RGX_ZSBUFFER_DATA *psZSBuffer)
 	{
 		if (psZSBuffer->bOnDemand)
 		{
-			IMG_HANDLE hDevmemHeap;
+			IMG_HANDLE hDevmemHeap = (IMG_HANDLE)NULL;
 
 			PVR_ASSERT(psZSBuffer->psMapping == NULL);
 
 			/* Get Heap */
 			eError = DevmemServerGetHeapHandle(psZSBuffer->psReservation, &hDevmemHeap);
 			PVR_ASSERT(psZSBuffer->psMapping == NULL);
+			if (unlikely(hDevmemHeap == (IMG_HANDLE)NULL))
+			{
+				OSLockRelease(hLockZSBuffer);
+				return PVRSRV_ERROR_INVALID_HEAP;
+			}
 
 			eError = DevmemIntMapPMR(hDevmemHeap,
 									psZSBuffer->psReservation,
@@ -2890,10 +2895,10 @@ PVRSRV_ERROR PVRSRVRGXDestroyRenderContextKM(RGX_SERVER_RENDER_CONTEXT *psRender
 	if (ui32WorkEstCCBSubmitted != psRenderContext->sWorkEstData.ui32WorkEstCCBReceived)
 	{
 
-        PVR_DPF((PVR_DBG_WARNING,
-                "%s: WorkEst # cmds submitted (%u) and received (%u) mismatch",
-                __func__, ui32WorkEstCCBSubmitted,
-                psRenderContext->sWorkEstData.ui32WorkEstCCBReceived));
+		PVR_DPF((PVR_DBG_WARNING,
+		        "%s: WorkEst # cmds submitted (%u) and received (%u) mismatch",
+		        __func__, ui32WorkEstCCBSubmitted,
+		        psRenderContext->sWorkEstData.ui32WorkEstCCBReceived));
 
 		eError = PVRSRV_ERROR_RETRY;
 		goto e0;
@@ -4664,7 +4669,7 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 
 	if (ui323DCmdCount)
 	{
-		RGXFWIF_KCCB_CMD s3DKCCBCmd;
+		RGXFWIF_KCCB_CMD s3DKCCBCmd = { 0 };
 		RGX_CLIENT_CCB *psClientCCB = FWCommonContextGetClientCCB(psRenderContext->s3DData.psServerCommonContext);
 
 		s3DCmdKickData.psContext = FWCommonContextGetFWAddress(psRenderContext->s3DData.psServerCommonContext);
@@ -4938,8 +4943,8 @@ fail_resolve_input_fence:
 
 PVRSRV_ERROR PVRSRVRGXSetRenderContextPriorityKM(CONNECTION_DATA *psConnection,
                                                  PVRSRV_DEVICE_NODE * psDeviceNode,
-												 RGX_SERVER_RENDER_CONTEXT *psRenderContext,
-												 IMG_UINT32 ui32Priority)
+                                                 RGX_SERVER_RENDER_CONTEXT *psRenderContext,
+                                                 IMG_UINT32 ui32Priority)
 {
 	PVRSRV_ERROR eError;
 
