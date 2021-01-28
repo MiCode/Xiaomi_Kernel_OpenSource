@@ -217,12 +217,9 @@ static ssize_t vcore_dvfs_ctrl_show(struct kobject *kobj,
  **************************************/
 /* code gen by spm_pwr_ctrl_atf.pl, need struct pwr_ctrl */
 #define SET_SPM_PWR_CASE(idx, ctrl_reg, val) \
-do { \
-	/* fallthrough */\
+	{/* fallthrough */\
 	case idx:\
-	pwrctrl->ctrl_reg = val;\
-break;\
-} while (0)
+	pwrctrl->ctrl_reg = val; }
 static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 	const char *buf, size_t count)
 {
@@ -303,138 +300,240 @@ static ssize_t store_pwr_ctrl(int id, struct pwr_ctrl *pwrctrl,
 	switch (i) {
 		/* for SPM */
 		SET_SPM_PWR_CASE(0, pcm_flags, val);
+		break;
 		SET_SPM_PWR_CASE(1, pcm_flags_cust, val);
+		break;
 		SET_SPM_PWR_CASE(2, pcm_flags_cust_set, val);
+		break;
 		SET_SPM_PWR_CASE(3, pcm_flags_cust_clr, val);
+		break;
 		SET_SPM_PWR_CASE(4, pcm_flags1, val);
+		break;
 		SET_SPM_PWR_CASE(5, pcm_flags1_cust, val);
+		break;
 		SET_SPM_PWR_CASE(6, pcm_flags1_cust_set, val);
+		break;
 		SET_SPM_PWR_CASE(7, pcm_flags1_cust_clr, val);
+		break;
 		SET_SPM_PWR_CASE(8, timer_val, val);
+		break;
 		SET_SPM_PWR_CASE(9, timer_val_cust, val);
+		break;
 		SET_SPM_PWR_CASE(10, timer_val_ramp_en, val);
+		break;
 		SET_SPM_PWR_CASE(11, timer_val_ramp_en_sec, val);
+		break;
 		SET_SPM_PWR_CASE(12, wake_src, val);
+		break;
 		SET_SPM_PWR_CASE(13, wake_src_cust, val);
+		break;
 		SET_SPM_PWR_CASE(14, wakelock_timer_val, val);
+		break;
 		SET_SPM_PWR_CASE(15, wdt_disable, val);
-
+		break;
 		/* SPM_AP_STANDBY_CON */
 		SET_SPM_PWR_CASE(16, wfi_op, val);
+		break;
 		SET_SPM_PWR_CASE(17, mp0_cputop_idle_mask, val);
+		break;
 		SET_SPM_PWR_CASE(18, mp1_cputop_idle_mask, val);
+		break;
 		SET_SPM_PWR_CASE(19, mcusys_idle_mask, val);
+		break;
 		SET_SPM_PWR_CASE(20, mm_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(21, md_ddr_en_0_dbc_en, val);
+		break;
 		SET_SPM_PWR_CASE(22, md_ddr_en_1_dbc_en, val);
+		break;
 		SET_SPM_PWR_CASE(23, md_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(24, sspm_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(25, scp_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(26, srcclkeni_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(27, md_apsrc_1_sel, val);
+		break;
 		SET_SPM_PWR_CASE(28, md_apsrc_0_sel, val);
+		break;
 		SET_SPM_PWR_CASE(29, conn_ddr_en_dbc_en, val);
+		break;
 		SET_SPM_PWR_CASE(30, conn_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(31, conn_apsrc_sel, val);
+		break;
 		SET_SPM_PWR_CASE(32, conn_srcclkena_sel_mask, val);
+		break;
 
 		/* SPM_SRC_REQ */
 		SET_SPM_PWR_CASE(33, spm_apsrc_req, val);
+		break;
 		SET_SPM_PWR_CASE(34, spm_f26m_req, val);
+		break;
 		SET_SPM_PWR_CASE(35, spm_infra_req, val);
+		break;
 		SET_SPM_PWR_CASE(36, spm_vrf18_req, val);
+		break;
 		SET_SPM_PWR_CASE(37, spm_ddren_req, val);
+		break;
 		SET_SPM_PWR_CASE(38, spm_rsv_src_req, val);
+		break;
 		SET_SPM_PWR_CASE(39, spm_ddren_2_req, val);
+		break;
 		SET_SPM_PWR_CASE(40, cpu_md_dvfs_sop_force_on, val);
+		break;
 
 		/* SPM_SRC_MASK */
 		SET_SPM_PWR_CASE(41, csyspwreq_mask, val);
+		break;
 		SET_SPM_PWR_CASE(42, ccif0_md_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(43, ccif0_ap_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(44, ccif1_md_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(45, ccif1_ap_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(46, ccif2_md_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(47, ccif2_ap_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(48, ccif3_md_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(49, ccif3_ap_event_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(50, md_srcclkena_0_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(51, md_srcclkena_1_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(52, conn_srcclkena_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(53, ufs_infra_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(54, srcclkeni_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(55, md_apsrc_req_0_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(56, md_apsrc_req_1_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(57, conn_apsrcreq_infra_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(58, ufs_srcclkena_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(59, md_vrf18_req_0_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(60, md_vrf18_req_1_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(61, ufs_vrf18_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(62, gce_vrf18_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(63, conn_infra_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(64, gce_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(65, disp0_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(66, disp1_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(67, mfg_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(68, vdec_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(69, mcu_apsrcreq_infra_mask_b, val);
+		break;
 
 		/* SPM_SRC2_MASK */
 		SET_SPM_PWR_CASE(70, md_ddr_en_0_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(71, md_ddr_en_1_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(72, conn_ddr_en_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(73, ddren_sspm_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(74, ddren_scp_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(75, disp0_ddren_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(76, disp1_ddren_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(77, gce_ddren_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(78, ddren_emi_self_refresh_ch0_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(79, ddren_emi_self_refresh_ch1_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(80, mcu_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(81, mcu_ddren_mask_b, val);
+		break;
 
 		/* SPM_WAKEUP_EVENT_MASK */
 		SET_SPM_PWR_CASE(82, spm_wakeup_event_mask, val);
+		break;
 
 		/* SPM_WAKEUP_EVENT_EXT_MASK */
 		SET_SPM_PWR_CASE(83, spm_wakeup_event_ext_mask, val);
+		break;
 
 		/* SPM_SRC3_MASK */
 		SET_SPM_PWR_CASE(84, md_ddr_en_2_0_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(85, md_ddr_en_2_1_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(86, conn_ddr_en_2_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(87, ddren2_sspm_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(88, ddren2_scp_apsrc_req_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(89, disp0_ddren2_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(90, disp1_ddren2_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(91, gce_ddren2_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(92, ddren2_emi_self_refresh_ch0_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(93, ddren2_emi_self_refresh_ch1_mask_b, val);
+		break;
 		SET_SPM_PWR_CASE(94, mcu_ddren_2_mask_b, val);
+		break;
 
 		/* MP0_CPU0_WFI_EN */
 		SET_SPM_PWR_CASE(95, mp0_cpu0_wfi_en, val);
+		break;
 
 		/* MP0_CPU1_WFI_EN */
 		SET_SPM_PWR_CASE(96, mp0_cpu1_wfi_en, val);
+		break;
 
 		/* MP0_CPU2_WFI_EN */
 		SET_SPM_PWR_CASE(97, mp0_cpu2_wfi_en, val);
+		break;
 
 		/* MP0_CPU3_WFI_EN */
 		SET_SPM_PWR_CASE(98, mp0_cpu3_wfi_en, val);
+		break;
 
 		/* MP1_CPU0_WFI_EN */
 		SET_SPM_PWR_CASE(99, mp1_cpu0_wfi_en, val);
+		break;
 
 		/* MP1_CPU1_WFI_EN */
 		SET_SPM_PWR_CASE(100, mp1_cpu1_wfi_en, val);
+		break;
 
 		/* MP1_CPU2_WFI_EN */
 		SET_SPM_PWR_CASE(101, mp1_cpu2_wfi_en, val);
+		break;
 
 		/* MP1_CPU3_WFI_EN */
 		SET_SPM_PWR_CASE(102, mp1_cpu3_wfi_en, val);
+		break;
 	/* fallthrough */
 	default:
 		break;
