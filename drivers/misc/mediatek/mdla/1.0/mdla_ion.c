@@ -118,10 +118,17 @@ int mdla_ion_kunmap(unsigned long arg)
 	mdla_mem_debug("%s: mva=%llxh, kva=%llxh, kernel_handle=%llxh\n",
 		__func__, ion_data.mva, ion_data.kva, ion_data.khandle);
 
-	hndl = (struct ion_handle *)ion_data.khandle;
+	hndl = ion_drv_get_handle(ion_client, ion_data.fd, NULL, false);
 
-	if (!virt_addr_valid(hndl))
+	if (IS_ERR_OR_NULL(hndl))
 		return -EINVAL;
+
+	if (hndl != (struct ion_handle *)ion_data.khandle) {
+		mdla_mem_debug("%s: user_handle=%d, get khandle=%llxh\n",
+				__func__, ion_data.fd, hndl);
+		LOG_ERR("%s: invalid ion kernel handle\n", __func__);
+		return -EINVAL;
+	}
 
 	ion_unmap_kernel(ion_client, hndl);
 	ion_free(ion_client, hndl);
