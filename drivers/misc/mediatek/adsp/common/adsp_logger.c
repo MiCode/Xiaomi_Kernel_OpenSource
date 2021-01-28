@@ -210,8 +210,8 @@ static ssize_t adsp_A_mobile_log_show(struct device *kobj,
 
 	stat = (adsp_A_logger_inited && ADSP_A_log_ctl->enable) ? 1 : 0;
 
-	return sprintf(buf, "[ADSP A] mobile log is %s\n",
-		       (stat == 0x1) ? "enabled" : "disabled");
+	return scnprintf(buf, PAGE_SIZE, "[ADSP A] mobile log is %s\n",
+			 (stat == 0x1) ? "enabled" : "disabled");
 }
 
 static ssize_t adsp_A_mobile_log_store(struct device *kobj,
