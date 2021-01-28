@@ -22,7 +22,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
   KERNEL_DIR := $(KERNEL_ENV_PATH)
 
   ifeq ($(KERNEL_TARGET_ARCH),arm64)
-    TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/aarch64/aarch64-linux-android-4.9/bin/aarch64-linux-android-
+    TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/aarch64/aarch64-linux-android-4.9.1/bin/aarch64-linux-android-
     TARGET_KERNEL_CLANG_COMPILE :=
     CC := $(TARGET_KERNEL_CROSS_COMPILE)gcc
     ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
@@ -31,7 +31,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
       CC := $(CLANG_PATH)/bin/clang
     endif
   else
-    TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/arm/arm-linux-androideabi-4.9/bin/arm-linux-androidkernel-
+    TARGET_KERNEL_CROSS_COMPILE ?= $(KERNEL_ROOT_DIR)/prebuilts/gcc/$(HOST_PREBUILT_TAG)/arm/arm-linux-androideabi-4.9.1/bin/arm-linux-androidkernel-
     TARGET_KERNEL_CLANG_COMPILE :=
     CC := $(TARGET_KERNEL_CROSS_COMPILE)gcc
     ifeq ($(strip $(TARGET_KERNEL_USE_CLANG)),true)
