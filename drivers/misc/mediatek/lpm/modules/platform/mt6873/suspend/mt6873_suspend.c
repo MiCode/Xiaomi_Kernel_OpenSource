@@ -197,6 +197,7 @@ void mt6873_suspend_s2idle_reflect(int cpu,
 					 cpu, issuer);
 #ifdef CONFIG_PM_SLEEP
 		syscore_resume();
+		pm_system_wakeup();
 #endif
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
