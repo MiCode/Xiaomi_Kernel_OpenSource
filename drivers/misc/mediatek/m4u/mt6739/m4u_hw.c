@@ -1712,9 +1712,6 @@ static void larb_backup(unsigned int larb_idx)
 			__M4U_BACKUP(larb_base, SMI_LARB_NON_SEC_CONx(i),
 				     larb_reg_backup_buf[larb_idx][i]);
 
-		for (i = 0; i < 32; i++)
-			__M4U_BACKUP(larb_base, SMI_LARB_SEC_CONx(i),
-				     larb_reg_backup_buf[larb_idx][i + 32]);
 	}
 }
 
@@ -1739,9 +1736,6 @@ static void larb_restore(unsigned int larb_idx)
 			__M4U_RESTORE(larb_base, SMI_LARB_NON_SEC_CONx(i),
 				      larb_reg_backup_buf[larb_idx][i]);
 
-		for (i = 0; i < 32; i++)
-			__M4U_RESTORE(larb_base, SMI_LARB_SEC_CONx(i),
-				      larb_reg_backup_buf[larb_idx][i + 32]);
 	}
 }
 
@@ -2208,7 +2202,6 @@ int m4u_reg_init(struct m4u_domain *m4u_domain, unsigned long ProtectPA,
 {
 	unsigned int regval;
 	int i;
-	int j;
 
 	M4UMSG("m4u_reg_init, ProtectPA = 0x%lx\n", ProtectPA);
 
@@ -2239,18 +2232,6 @@ int m4u_reg_init(struct m4u_domain *m4u_domain, unsigned long ProtectPA,
 
 			gLarbBaseAddr[i] = (unsigned long)of_iomap(node, 0);
 			/* set mm engine domain to 0x4 (default value) */
-			larb_clock_on(i, 1);
-#ifndef M4U_FPGAPORTING
-			M4UMSG("m4u write all port domain to 4\n");
-			for (j = 0; j < 32; j++)
-				m4uHw_set_field_by_mask(
-					gLarbBaseAddr[i], SMI_LARB_SEC_CONx(j),
-					F_SMI_DOMN(0x7), F_SMI_DOMN(0x4));
-#else
-			j = 0;
-#endif
-			larb_clock_off(i, 1);
-
 			M4UINFO("init larb %d, 0x%lx\n", i, gLarbBaseAddr[i]);
 		}
 	}
