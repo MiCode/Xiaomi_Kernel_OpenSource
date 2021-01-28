@@ -289,6 +289,8 @@ int pe4_hal_get_adapter_cap(struct chg_alg_device *alg,
 	pe4 = dev_get_drvdata(&alg->dev);
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 
+	memset(&acap, 0, sizeof(struct adapter_power_cap));
+
 	ret = adapter_dev_get_cap(hal->adapter, MTK_PD_APDO, &acap);
 	cap->selected_cap_idx = acap.selected_cap_idx;
 	cap->nr = acap.nr;
@@ -427,7 +429,7 @@ int pe4_hal_get_charger_cnt(struct chg_alg_device *alg)
 bool pe4_hal_is_chip_enable(struct chg_alg_device *alg, enum chg_idx chgidx)
 {
 	struct pe40_hal *hal;
-	bool is_chip_enable;
+	bool is_chip_enable = false;
 
 	if (alg == NULL)
 		return -EINVAL;
@@ -447,7 +449,7 @@ int pe4_hal_enable_charger(struct chg_alg_device *alg,
 	enum chg_idx chgidx, bool en)
 {
 	struct pe40_hal *hal;
-	int ret;
+	int ret = 0;
 
 	if (alg == NULL)
 		return -EINVAL;
@@ -497,6 +499,11 @@ int pe40_hal_get_adapter_status(struct chg_alg_device *alg,
 
 	if (alg == NULL)
 		return -EINVAL;
+
+	sta.temperature = 25;
+	sta.ocp = false;
+	sta.otp = false;
+	sta.ovp = false;
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	ret = adapter_dev_get_status(hal->adapter, &sta);
@@ -637,9 +644,9 @@ int pe4_hal_get_ibat(struct chg_alg_device *alg)
 
 int pe4_hal_get_charger_type(struct chg_alg_device *alg)
 {
-	struct mtk_charger *info;
+	struct mtk_charger *info = NULL;
 	struct power_supply *chg_psy = NULL;
-	int ret;
+	int ret = 0;
 
 	if (alg == NULL)
 		return -EINVAL;
@@ -647,6 +654,7 @@ int pe4_hal_get_charger_type(struct chg_alg_device *alg)
 	chg_psy = power_supply_get_by_name("mtk-master-charger");
 	if (chg_psy == NULL || IS_ERR(chg_psy)) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		return 0;
 	} else {
 		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
 		ret = info->chr_type;
