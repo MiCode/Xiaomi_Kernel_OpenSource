@@ -49,7 +49,7 @@ static atomic_t ne_warning_count;
 
 static const char *aee_filter_list[AEE_FILTER_NUM] = {
 //	"u:r:bootanim:s0",
-	"u:r:bluetooth:s0",
+//	"u:r:bluetooth:s0",
 //	"u:r:binderservicedomain:s0",
 //	"u:r:dex2oat:s0",
 //	"u:r:dhcp:s0",
@@ -88,7 +88,7 @@ static const char *aee_filter_list[AEE_FILTER_NUM] = {
 
 #define AEE_AV_FILTER_NUM 5
 static const char *aee_av_filter_list[AEE_AV_FILTER_NUM] = {
-	"map",
+//	"map",
 };
 
 static int mtk_check_filter(char *scontext);
@@ -114,6 +114,7 @@ static void mtk_check_av(char *data)
 	char *end = NULL;
 	char av_buf[AV_LEN] = { '\0' };
 	char scontext[AEE_FILTER_LEN] = { '\0' };
+	char printbuf[PRINT_BUF_LEN] = { '\0' };
 	char *pname = scontext;
 	char *iter;
 	int i;
@@ -144,7 +145,7 @@ static void mtk_check_av(char *data)
 				if (strcmp(av_buf,
 					aee_av_filter_list[i]) == 0) {
 
-					char printbuf[PRINT_BUF_LEN] = { '\0' };
+					memset(printbuf, '\0', PRINT_BUF_LEN);
 
 					snprintf(printbuf, PRINT_BUF_LEN-1,
 						"[%s][WARNING]\nCR_DISPATCH_PROCESSNAME:%s\n",
@@ -184,6 +185,9 @@ static int mtk_get_scontext(char *data, char *buf)
 		return 0;
 
 	diff = t2 - t1;
+	if (diff >= AEE_FILTER_LEN)
+		return 0;
+
 	strncpy(buf, t1, diff);
 	return 1;
 }
