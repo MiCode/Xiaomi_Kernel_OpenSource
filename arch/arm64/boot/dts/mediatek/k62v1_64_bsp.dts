@@ -399,6 +399,48 @@
 	bc12_sel = <1>;
 };
 
+&i2c3 {
+	rt9465@4b {
+		compatible = "richtek,rt9465";
+		reg = <0x4b>;
+		status = "okay";
+		rt,en_gpio_num = <176>;
+		rt,en_gpio = <&pio 176 0x0>;
+		rt,intr_gpio_num = <23>; /* direct defined GPIO num */
+		rt,intr_gpio = <&pio 23 0x0>;
+		interrupt-names = "wdtmri";
+		charger_name = "secondary_chg";
+		ichg = <1500000>; /* uA */
+		mivr = <4500000>; /* uV */
+		cv = <4550000>; /* uV */
+		ieoc = <700000>; /* uA */
+		safety_timer = <12>; /* hour */
+		en_st; /* safety timer */
+		/* en_te; */
+		en_wdt;
+	};
+};
+
+&charger {
+	charger_configuration= <1>;
+};
+
+&pe2 {
+	dcs_chg1_charger_current = <2000000>;
+	dcs_chg2_charger_current = <2000000>;
+};
+
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+	dcs_chg1_charger_current = <2000000>;
+	dcs_chg2_charger_current = <2000000>;
+};
+
+&pe4 {
+	dcs_chg1_charger_current = <2000000>;
+	dcs_chg2_charger_current = <2000000>;
+};
+
 #include "k62v1_64_bsp/cust.dtsi"
 #include "mediatek/cust_mt6765_camera.dtsi"
 #include "mediatek/cust_mt6765_touch_1080x1920.dtsi"
