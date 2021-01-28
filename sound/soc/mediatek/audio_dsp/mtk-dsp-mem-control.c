@@ -570,8 +570,8 @@ int get_taskid_by_afe_daiid(int task_dai_id)
 		if ((task_attr->afe_memif_dl == task_dai_id ||
 		     task_attr->afe_memif_ul == task_dai_id ||
 		     task_attr->afe_memif_ref == task_dai_id) &&
-		     (task_attr->default_enable == true &&
-		     task_attr->runtime_enable == true))
+		     ((task_attr->default_enable & 0x1) &&
+		      task_attr->runtime_enable))
 			return i;
 	}
 
