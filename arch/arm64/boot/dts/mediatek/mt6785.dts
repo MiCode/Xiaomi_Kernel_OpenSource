@@ -5291,7 +5291,7 @@ page_owner=on loop.max_part=7";
 	};
 
 	touch: touch {
-		compatible = "mediatek,touch";
+		compatible = "goodix,touch";
 	};
 
 	tcpc_pd: tcpc_pd {
