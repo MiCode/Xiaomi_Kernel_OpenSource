@@ -1037,8 +1037,7 @@ dcd_timeout:
 		if (ret < 0)
 			dev_notice(chg_data->dev, "%s: disable chgdet fail\n",
 				   __func__);
-	} else if (chg_data->chg_type == STANDARD_HOST ||
-		   chg_data->chg_type == CHARGING_HOST)
+	} else if (chg_data->chg_type != STANDARD_CHARGER)
 		mt6370_set_usbsw_state(chg_data, MT6370_USBSW_USB);
 
 	if (inform_psy)
