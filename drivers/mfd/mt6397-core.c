@@ -99,6 +99,13 @@ static const struct resource mt6397_keys_resources[] = {
 	DEFINE_RES_IRQ(MT6397_IRQ_HOMEKEY),
 };
 
+static const struct resource mt6357_keys_resources[] = {
+	DEFINE_RES_IRQ(MT6357_IRQ_PWRKEY),
+	DEFINE_RES_IRQ(MT6357_IRQ_HOMEKEY),
+	DEFINE_RES_IRQ(MT6357_IRQ_PWRKEY_R),
+	DEFINE_RES_IRQ(MT6357_IRQ_HOMEKEY_R),
+};
+
 static const struct resource mt6357_accdet_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_ACCDET, "ACCDET_IRQ"),
 	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_ACCDET_EINT0, "ACCDET_EINT0"),
@@ -258,6 +265,11 @@ static const struct mfd_cell mt6357_devs[] = {
 	}, {
 		.name = "mtk_ts_pmic",
 		.of_compatible = "mediatek,mtk_ts_pmic"
+	}, {
+		.name = "mtk-pmic-keys",
+		.num_resources = ARRAY_SIZE(mt6357_keys_resources),
+		.resources = mt6357_keys_resources,
+		.of_compatible = "mediatek,mt6357-keys"
 	}
 };
 
