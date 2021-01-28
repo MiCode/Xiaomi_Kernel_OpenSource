@@ -149,12 +149,12 @@ phys_addr_t picachu_mem_base_phys;
 phys_addr_t picachu_mem_size;
 phys_addr_t picachu_mem_base_virt;
 
-#define EEM_TEMPSPARE0		0x112788F0
+#define EEM_PTPSPARE0		0x11278F20
 static void get_picachu_mem_addr(void)
 {
 	void __iomem *virt_addr;
 
-	virt_addr = ioremap(EEM_TEMPSPARE0, 0);
+	virt_addr = ioremap(EEM_PTPSPARE0, 0);
 	picachu_mem_base_virt = 0;
 	picachu_mem_size = 0x80000;
 	picachu_mem_base_phys = picachu_read(virt_addr);

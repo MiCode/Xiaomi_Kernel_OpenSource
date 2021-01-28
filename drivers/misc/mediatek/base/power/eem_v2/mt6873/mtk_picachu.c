@@ -148,12 +148,12 @@ phys_addr_t picachu_mem_base_phys;
 phys_addr_t picachu_mem_size;
 phys_addr_t picachu_mem_base_virt;
 
-#define EEM_TEMPSPARE0		0x112788F0
+#define EEM_PTPSPARE0		0x11278F20
 static void get_picachu_mem_addr(void)
 {
 	void __iomem *virt_addr;
 
-	virt_addr = ioremap(EEM_TEMPSPARE0, 0);
+	virt_addr = ioremap(EEM_PTPSPARE0, 0);
 	picachu_mem_base_virt = 0;
 	picachu_mem_size = 0x80000;
 	picachu_mem_base_phys = picachu_read(virt_addr);
@@ -170,7 +170,7 @@ static void get_picachu_mem_addr(void)
 }
 
 #define MCUCFG_SPARE_REG	0x0C53FFEC
-#define EEM_TEMPSPARE1		0x112788F4
+#define EEM_PTPSPARE1		0x11278F24
 #define VOLT_BASE		40000
 #define PMIC_STEP		625
 #define EXTBUCK_VAL_TO_VOLT(val, base, step) (((val) * step) + base)
@@ -203,7 +203,7 @@ static void dump_picachu_info(struct seq_file *m, struct picachu_info *info)
 	val = picachu_read(addr_ptr);
 	seq_printf(m, "\nAging counter value: 0x%08x\n", val);
 
-	addr_ptr = ioremap(EEM_TEMPSPARE1, 0);
+	addr_ptr = ioremap(EEM_PTPSPARE1, 0);
 	val = picachu_read(addr_ptr);
 	if (val != 0) {
 		if ((val & 0x80000000) > 0)
