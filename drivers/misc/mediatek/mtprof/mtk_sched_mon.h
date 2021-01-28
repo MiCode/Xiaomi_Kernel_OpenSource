@@ -111,9 +111,9 @@ extern void mt_trace_lock_spinning_end(raw_spinlock_t *lock);
 #ifdef CONFIG_PREEMPT_MONITOR
 extern void MT_trace_irq_on(void);
 extern void MT_trace_irq_off(void);
-extern void MT_trace_preempt_on(void);
-extern void MT_trace_preempt_off(void);
-extern void MT_trace_check_preempt_dur(void);
+#define MT_trace_preempt_on() do {} while (0)
+#define MT_trace_preempt_off() do {} while (0)
+#define MT_trace_check_preempt_dur() do {} while (0)
 extern void MT_trace_hardirqs_on(void);
 extern void MT_trace_hardirqs_off(void);
 #else
