@@ -2012,8 +2012,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	pinctrl_select_state(host->pinctrl, host->pins_dat1);
 
 #ifdef CONFIG_PM_DEVFREQ
+#ifndef CONFIG_MACH_MT6771
 	pm_qos_add_request(&host->pm_qos, PM_QOS_VCORE_OPP,
 			PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+#endif
 #endif
 	pm_runtime_set_active(host->dev);
 	pm_runtime_set_autosuspend_delay(host->dev, MTK_MMC_AUTOSUSPEND_DELAY);
@@ -2072,7 +2074,9 @@ static int msdc_drv_remove(struct platform_device *pdev)
 			host->dma.bd, host->dma.bd_addr);
 
 #ifdef CONFIG_PM_DEVFREQ
+#ifndef CONFIG_MACH_MT6771
 	pm_qos_remove_request(&host->pm_qos);
+#endif
 #endif
 	mmc_free_host(host->mmc);
 
@@ -2150,7 +2154,9 @@ static int msdc_runtime_suspend(struct device *dev)
 	spin_unlock_irqrestore(&host->lock, flags);
 	msdc_gate_clock(host);
 #ifdef CONFIG_PM_DEVFREQ
+#ifndef CONFIG_MACH_MT6771
 	pm_qos_update_request(&host->pm_qos, VCORE_OPP_UNREQ);
+#endif
 #endif
 	return 0;
 }
@@ -2162,7 +2168,9 @@ static int msdc_runtime_resume(struct device *dev)
 	struct msdc_host *host = mmc_priv(mmc);
 
 #ifdef CONFIG_PM_DEVFREQ
+#ifndef CONFIG_MACH_MT6771
 	pm_qos_update_request(&host->pm_qos, VCORE_OPP_0);
+#endif
 #endif
 	msdc_ungate_clock(host);
 	msdc_restore_reg(host);
