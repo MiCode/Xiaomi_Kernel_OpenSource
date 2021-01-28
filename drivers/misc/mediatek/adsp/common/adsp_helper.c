@@ -758,10 +758,6 @@ static int adsp_device_probe(struct platform_device *pdev)
 	adspreg.clkctrl = adspreg.cfg + ADSP_CLK_CTRL_OFFSET;
 	adsp_clk_device_probe(&pdev->dev);
 
-#if ENABLE_ADSP_EMI_PROTECTION
-	set_adsp_mpu(adspreg.sharedram, adspreg.shared_size);
-#endif
-
 	adsp_enable = 1;
 	return 0;
 ERROR:
@@ -915,7 +911,16 @@ static void __exit adsp_exit(void)
 	destroy_workqueue(adsp_reset_workqueue);
 #endif
 }
+
+static int __init adsp_late_init(void)
+{
+	adsp_set_emimpu_region();
+	pr_info("[ADSP] late_init done\n");
+	return 0;
+}
+
 subsys_initcall(adsp_init);
 module_init(adsp_module_init);
 module_exit(adsp_exit);
+late_initcall(adsp_late_init);
 

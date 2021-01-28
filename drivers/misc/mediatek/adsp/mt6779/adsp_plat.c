@@ -41,15 +41,11 @@
 #include "adsp_excep.h"
 #include "adsp_dvfs.h"
 
-#ifdef CONFIG_MTK_DEVINFO
-#include <linux/nvmem-consumer.h>
-#include <linux/of_platform.h>
-#endif
-
-#if ENABLE_ADSP_EMI_PROTECTION
-#include <mt_emi_api.h>
-#endif
-#include "mtk_devinfo.h"
+#include <memory/mediatek/emi.h>
+/* emi mpu define */
+#define MPU_PROCT_D0_AP           0
+#define MPU_PROCT_D10_ADSP        10
+#define MPU_PROCT_REGION_ADSP     30
 
 #ifdef CONFIG_ARM64
 #define IOMEM(a)                     ((void __force __iomem *)((a)))
@@ -67,22 +63,29 @@
 #define adsp_reg_read(addr)             __raw_readl(IOMEM(addr))
 #define adsp_reg_sync_write(addr, val)  mt_reg_sync_writel(val, addr)
 
-#if ENABLE_ADSP_EMI_PROTECTION
-void set_adsp_mpu(phys_addr_t phys_addr, size_t size)
+/* adsp has only 1 emimpu region in mt6779 */
+void adsp_set_emimpu_region(void)
 {
-	struct emi_region_info_t region_info;
+#if ENABLE_ADSP_EMI_PROTECTION
+	struct emimpu_region_t adsp_region;
+	int ret = 0;
 
-	region_info.start = phys_addr;
-	region_info.end = phys_addr + size - 0x1;
-	region_info.region = MPU_REGION_ID_ADSP_SMEM;
-	SET_ACCESS_PERMISSION(region_info.apc, UNLOCK,
-			      FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			      FORBIDDEN, NO_PROTECTION, FORBIDDEN, FORBIDDEN,
-			      FORBIDDEN, FORBIDDEN, FORBIDDEN, FORBIDDEN,
-			      FORBIDDEN, FORBIDDEN, FORBIDDEN, NO_PROTECTION);
-	emi_mpu_set_protection(&region_info);
-}
+	ret = mtk_emimpu_init_region(&adsp_region,
+				     MPU_PROCT_REGION_ADSP);
+	if (ret < 0)
+		pr_info("%s fail to init emimpu region\n", __func__);
+	mtk_emimpu_set_addr(&adsp_region, adspreg.sharedram,
+		    (adspreg.sharedram + adspreg.shared_size - 0x1));
+	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D0_AP,
+		   MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&adsp_region, MPU_PROCT_D10_ADSP,
+		   MTK_EMIMPU_NO_PROTECTION);
+	ret = mtk_emimpu_set_protection(&adsp_region);
+	if (ret < 0)
+		pr_info("%s fail to set emimpu protection\n", __func__);
+	mtk_emimpu_free_region(&adsp_region);
 #endif
+}
 
 static bool is_adsp_bus_protect_ready(void)
 {

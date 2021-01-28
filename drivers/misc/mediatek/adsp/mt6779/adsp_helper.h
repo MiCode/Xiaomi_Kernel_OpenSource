@@ -168,7 +168,7 @@ extern void adsp_A_unregister_notify(struct notifier_block *nb);
 extern struct workqueue_struct *adsp_workqueue;
 
 extern void adsp_enable_dsp_clk(bool enable);
-void set_adsp_mpu(phys_addr_t phys_addr, size_t size);
+void adsp_set_emimpu_region(void);
 void adsp_bus_sleep_protect(uint32_t enable);
 void adsp_way_en_ctrl(uint32_t enable);
 

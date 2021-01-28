@@ -29,7 +29,6 @@
 #else
 #define ENABLE_ADSP_EMI_PROTECTION       (0)
 #endif
-#define MPU_REGION_ID_ADSP_SMEM          (30)
 
 /* adsp feature PRI list */
 /* The higher number, higher priority */
