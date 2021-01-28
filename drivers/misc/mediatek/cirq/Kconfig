@@ -1,0 +1,16 @@
+config MTK_SYS_CIRQ
+	bool
+	help
+	  System interrupt controller(SYS_CIRQ) is a low-power interrupt controller
+	  which is designed to work outside MCUSYS as second level interrupt controller.
+	  With SYS_CIRQ, the MCUSYS can be completely turned off
+	  to improve system power consumption without losing interrupts.
+
+config FAST_CIRQ_CLONE_FLUSH
+	def_bool n
+	depends on MTK_SYS_CIRQ
+	help
+	  Legacy CIRQ driver clone and flush IRQ pol/sen/pending very slow, since
+	  it checks every IRQ to decide if it should clone or not. This config speed up the process
+	  by only clone once when the sysetm first enter low power mode and only setup
+	  cirq IDs for wakeup source.
