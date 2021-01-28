@@ -1560,7 +1560,7 @@
 		#gce-subsys-cells = <2>;
 		clocks = <&infracfg_ao INFRACFG_AO_GCE_CG>,
 			<&infracfg_ao INFRACFG_AO_GCE_26M_CG>;
-		clock-names = "gce", "GCE_TIMER";
+		clock-names = "gce", "gce-timer";
 	};
 
 	gic@1023a000 {
