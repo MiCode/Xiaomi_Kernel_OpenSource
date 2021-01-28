@@ -114,7 +114,7 @@ void mdla_trace_end(struct command_entry *ce)
 void mdla_dump_prof(struct seq_file *s)
 {
 	int i;
-	u32 c[MDLA_PMU_COUNTERS];
+	u32 c[MDLA_PMU_COUNTERS] = {0};
 
 #define _SHOW_VAL(t) \
 	mdla_print_seq(s, "%s=%lu\n", #t, (unsigned long)cfg_##t)
@@ -135,7 +135,7 @@ void mdla_dump_prof(struct seq_file *s)
  */
 static void mdla_profile_pmu_counter(int core)
 {
-	u32 c[MDLA_PMU_COUNTERS];
+	u32 c[MDLA_PMU_COUNTERS] = {0};
 
 	pmu_counter_read_all(c);
 	mdla_perf_debug("_id=c%d, c1=%u, c2=%u, c3=%u, c4=%u, c5=%u, c6=%u, c7=%u, c8=%u, c9=%u, c10=%u, c11=%u, c12=%u, c13=%u, c14=%u, c15=%u\n",
