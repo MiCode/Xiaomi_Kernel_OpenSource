@@ -178,8 +178,6 @@ struct ufs_crypt_info {
 	struct scsi_cmnd *cmd;
 };
 
-
-extern u32 ufs_mtk_auto_hibern8_timer_ms;
 extern bool ufs_mtk_auto_hibern8_enabled;
 extern enum ufs_dbg_lvl_t ufs_mtk_dbg_lvl;
 extern struct ufs_hba *ufs_mtk_hba;
