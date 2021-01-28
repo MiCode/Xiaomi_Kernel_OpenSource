@@ -3598,7 +3598,11 @@ start_tune:
 	case MMC_TIMING_UHS_SDR50:
 		pr_notice("msdc%d: SD UHS_SDR104/UHS_SDR50 re-autok %d times\n",
 			host->id, ++host->reautok_times);
+#ifndef SD_RUNTIME_AUTOK_MERGE
 		ret = autok_execute_tuning(host, NULL);
+#else
+		ret = sd_runtime_autok_merge(host);
+#endif
 		/* ret = sd_execute_dvfs_autok(host, MMC_SEND_TUNING_BLOCK); */
 		break;
 	case MMC_TIMING_MMC_HS200:
@@ -3609,11 +3613,20 @@ start_tune:
 #if defined(CONFIG_MTK_EMMC_CQ_SUPPORT)
 			/* CQ DAT tune in MMC layer, here tune CMD13 CRC */
 			if (mmc->card && mmc_card_cmdq(mmc->card))
+#ifndef EMMC_RUNTIME_AUTOK_MERGE
 				emmc_execute_dvfs_autok(host, MMC_SEND_STATUS);
+#else
+				emmc_runtime_autok_merge(MMC_SEND_STATUS);
+#endif
 			else
 #endif
+#ifndef EMMC_RUNTIME_AUTOK_MERGE
 				emmc_execute_dvfs_autok(host,
 					MMC_SEND_TUNING_BLOCK_HS200);
+#else
+				emmc_runtime_autok_merge(
+					MMC_SEND_TUNING_BLOCK_HS200);
+#endif
 			break;
 		}
 		/* fall through */

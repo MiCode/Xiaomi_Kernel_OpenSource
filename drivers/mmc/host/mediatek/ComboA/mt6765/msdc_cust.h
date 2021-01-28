@@ -265,6 +265,17 @@
 #define SDCARD_ESD_RECOVERY
 /* #define MSDC_HQA */
 
+/* sd read/write crc error happen in mt6885 when vcore changes,
+ * sd can't support autok merge by fix vcore(like emmc),
+ * so add runtime autok merge function
+ */
+#define SD_RUNTIME_AUTOK_MERGE
+
+/* fix vcore in kernel will affect other module,
+ * use emmc runtime autok merge intead of the original emmc autok
+ */
+#define EMMC_RUNTIME_AUTOK_MERGE
+
 /**************************************************************/
 /* Section 6: BBChip-depenent Tunnig Parameter                */
 /**************************************************************/
