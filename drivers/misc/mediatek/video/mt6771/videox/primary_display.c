@@ -9191,17 +9191,16 @@ static int _screen_cap_by_cpu(unsigned int mva, enum UNIFIED_COLOR_FMT ufmt,
 
 #if 1
 int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
+					    unsigned int buf_sz,
 					    enum UNIFIED_COLOR_FMT ufmt)
 {
 	int ret = 0;
 	struct ion_client *ion_display_client = NULL;
 	struct ion_handle *ion_display_handle = NULL;
 	unsigned int mva = 0;
-	unsigned int w_xres = primary_display_get_width();
-	unsigned int h_yres = primary_display_get_height();
-	unsigned int pixel_byte = primary_display_get_bpp() / 8;
-	int buffer_size = h_yres * w_xres * pixel_byte;
+	int buffer_size = buf_sz;
 	enum DISP_MODULE_ENUM after_eng = DISP_MODULE_OVL0;
+	void *frame_va = NULL;
 	int tmp;
 
 	DISPMSG("primary capture: begin\n");
@@ -9222,8 +9221,8 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 	}
 
 	ion_display_handle = disp_ion_alloc(ion_display_client,
-					    ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-					    pbuf, buffer_size);
+					    ION_HEAP_MULTIMEDIA_MASK,
+					    0, buffer_size);
 	if (!ion_display_handle) {
 		DISPMSG("primary capture:Fail to allocate buffer\n");
 		ret = -1;
@@ -9246,7 +9245,14 @@ int primary_display_capture_framebuffer_ovl(unsigned long pbuf,
 
 	disp_ion_cache_flush(ion_display_client, ion_display_handle,
 			     ION_CACHE_FLUSH_BY_RANGE);
-
+	frame_va = ion_map_kernel(ion_display_client, ion_display_handle);
+	if (IS_ERR(frame_va)) {
+		_DISP_PRINT_FENCE_OR_ERR(1, "%s #%d map err:%lx\n",
+					 (unsigned long)frame_va);
+	} else {
+		memcpy((void *)pbuf, frame_va, buffer_size);
+		ion_unmap_kernel(ion_display_client, ion_display_handle);
+	}
 out:
 	if (ion_display_client)
 		disp_ion_free_handle(ion_display_client, ion_display_handle);
