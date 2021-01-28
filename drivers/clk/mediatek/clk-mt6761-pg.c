@@ -2807,7 +2807,7 @@ static struct clk *mt_clk_register_power_gate(const char *name,
 {
 	struct mt_power_gate *pg;
 	struct clk *pg_clk;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 
 	pg = kzalloc(sizeof(*pg), GFP_KERNEL);
 	if (!pg)
