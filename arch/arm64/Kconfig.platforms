@@ -621,6 +621,7 @@ config MACH_MT6833
 	select MTK_CACHE_PARITY_CHECK
 	select HW_RANDOM
 	select HW_RANDOM_MT67XX
+	select MTK_PID_MAP
 	help
 	  This enables support for MediaTek MT6833
 	  Support for aarch64 Architecture
@@ -691,6 +692,7 @@ config MACH_MT6853
 	select MTK_UNIFIED_DEBUG_INTERFACE
 	select MTK_CPU_KORO
 	select MTK_DRAMC_WA
+	select MTK_PID_MAP
 	help
 	  This enables support for MediaTek MT6853
 	  Support for aarch64 Architecture
