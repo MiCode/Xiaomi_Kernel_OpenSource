@@ -686,7 +686,7 @@ out:
 		if (ret < 0)
 			dev_notice(mpci->dev, "%s: disable chgdet fail\n",
 				   __func__);
-	} else if (mpci->psy_usb_type != POWER_SUPPLY_USB_TYPE_SDP)
+	} else if (mpci->psy_usb_type != POWER_SUPPLY_USB_TYPE_DCP)
 		mt6360_set_usbsw_state(mpci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
