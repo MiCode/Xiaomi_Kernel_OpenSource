@@ -1681,7 +1681,7 @@ void ufs_mtk_device_resume(struct ufs_hba *hba)
  * Expected/Submitted buffer structure is struct ufs_ioctl_ffu_data.
  * It will read the buffer information of new firmware.
  */
-int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user)
+int ufs_mtk_ioctl_ffu(struct scsi_device *dev, const void __user *buf_user)
 {
 	struct ufs_hba *hba = shost_priv(dev->host);
 	struct ufs_ioctl_ffu_data *idata = NULL;
@@ -2003,7 +2003,7 @@ out:
  * Expected/Submitted buffer structure is struct rpmb_cmd.
  * It will read/write data to rpmb
  */
-int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, void __user *buf_user)
+int ufs_mtk_ioctl_rpmb(struct ufs_hba *hba, const void __user *buf_user)
 {
 	struct rpmb_cmd cmd[3];
 	struct rpmb_frame *frame_buf = NULL;
