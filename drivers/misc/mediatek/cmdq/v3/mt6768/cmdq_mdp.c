@@ -1210,6 +1210,7 @@ u64 cmdq_mdp_get_secure_engine(u64 engine_flags)
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG2O);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, ISP_IMG3O);
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, DPE);
+	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, FDVT);
 #if 0
 	CMDQ_ENGINE_TRANS(engine_flags, sec_eng_flag, OWE);
 #endif
