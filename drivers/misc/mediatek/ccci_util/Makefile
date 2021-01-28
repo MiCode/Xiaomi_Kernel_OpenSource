@@ -21,6 +21,14 @@ ifeq ($(CONFIG_MTK_ECCCI_DRIVER), y)
 ENABLE_CCCI_UTIL=y
 endif
 
+# mt6893&mt6885 co-platform config
+ifeq (y, $(filter y, $(CONFIG_MACH_MT6893)))
+MTK_PLATFORM := mt6885
+CONFIG_MTK_PLATFORM := "mt6885"
+else
+MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
+endif
+
 ifeq ($(ENABLE_CCCI_UTIL), y)
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccci_util
