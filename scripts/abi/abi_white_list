@@ -5,6 +5,7 @@ bypass_arr=(\
 "function unsigned int nf_nat_masquerade_ipv6" \
 "function int nf_nat_masquerade_ipv6_register_notifier" \
 "function void nf_nat_masquerade_ipv6_unregister_notifier" \
+"function int ufshcd_" \
 "function int v4l2_" \
 "struct cgroup " \
 "struct cgroup_root " \
@@ -22,4 +23,10 @@ bypass_arr=(\
 "struct task_struct " \
 "struct vm_area_struct " \
 "struct vm_event_state " \
+"struct ufs_dev_info " \
+"struct ufs_hba " \
+"struct ufs_stats " \
+"struct ufs_vreg " \
+"struct ufshcd_lrb " \
+"struct utp_task_req_desc " \
 "struct vm_fault ")
