@@ -380,6 +380,7 @@ config MACH_MT8167
 	select ARM64_CRYPTO
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
+	select OVERLAY_FS
 	help
 	  This enables support for MediaTek MT8167
 	  If you need support for MediaTek MT8167, say Y here.
