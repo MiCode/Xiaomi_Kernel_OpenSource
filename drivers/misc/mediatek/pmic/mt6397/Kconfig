@@ -1,0 +1,1 @@
+source "drivers/misc/mediatek/pmic/mt6397/pmic/Kconfig"

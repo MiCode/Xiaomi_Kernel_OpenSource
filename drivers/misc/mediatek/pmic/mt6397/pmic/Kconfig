@@ -1,0 +1,8 @@
+config MT6397_PMIC
+	bool "Support for MT6397 PMIC part"
+	help
+	  This selects for MediaTek(R) PMIC MT6397 driver.
+	  It's main chip type and providing power features like auxadc,
+	  buck/ldo, interrupt-controller..etc
+	  Set y to support this driver.
+	  Set n and choose other chip.

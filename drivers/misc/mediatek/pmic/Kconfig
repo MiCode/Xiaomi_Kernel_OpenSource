@@ -14,4 +14,5 @@ config MTK_EXTERNAL_CHARGER_TYPE_DETECT
 
 source "drivers/misc/mediatek/pmic/mt6370/Kconfig"
 source "drivers/misc/mediatek/pmic/mt6360/Kconfig"
+source "drivers/misc/mediatek/pmic/mt6397/Kconfig"
 
