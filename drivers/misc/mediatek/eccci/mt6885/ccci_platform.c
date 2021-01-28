@@ -35,7 +35,7 @@
 #endif
 
 #ifdef FEATURE_LOW_BATTERY_SUPPORT
-#define TMC_CTRL_CMD_TX_POWER 9
+#define TMC_CTRL_CMD_TX_POWER 10
 #endif
 
 #define TAG "plat"
