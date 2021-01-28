@@ -287,9 +287,9 @@ static void dump_register(void)
 
 static void cat_register(char *buf)
 {
-	int addr = 0, st_addr = 0, end_addr = 0, idx = 0;
+	int addr = 0, st_addr = 0, end_addr = 0, idx = 0, ret = 0;
 
-	sprintf(accdet_log_buf, "[Accdet EINTx support][MODE_%d]regs:\n",
+	ret = sprintf(accdet_log_buf, "[Accdet EINTx support][MODE_%d]regs:\n",
 		accdet_dts.mic_mode);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
@@ -297,7 +297,7 @@ static void cat_register(char *buf)
 	end_addr = ACCDET_EINT1_CUR_DEB_ADDR;
 	for (addr = st_addr; addr <= end_addr; addr += 8) {
 		idx = addr;
-		sprintf(accdet_log_buf,
+		ret = sprintf(accdet_log_buf,
 		"(0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x (0x%x)=0x%x\n",
 		idx, accdet_read(idx),
 		idx+2, accdet_read(idx+2),
@@ -306,17 +306,17 @@ static void cat_register(char *buf)
 		strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 	}
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_RTC32K_CK_PDN_ADDR,
 		accdet_read(RG_RTC32K_CK_PDN_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x\n",
 		RG_ACCDET_RST_ADDR,
 		accdet_read(RG_ACCDET_RST_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x, [0x%x]=0x%x\n",
 		RG_INT_EN_ACCDET_ADDR,
 		accdet_read(RG_INT_EN_ACCDET_ADDR),
 		RG_INT_MASK_ACCDET_ADDR,
@@ -325,18 +325,20 @@ static void cat_register(char *buf)
 		accdet_read(RG_INT_STATUS_ACCDET_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
+	ret = sprintf(accdet_log_buf, "[0x%x]=0x%x, [0x%x]=0x%x\n",
 		AUXADC_RQST_CH5_ADDR,
 		accdet_read(AUXADC_RQST_CH5_ADDR),
 		AUXADC_ACCDET_AUTO_SPL_ADDR,
 		accdet_read(AUXADC_ACCDET_AUTO_SPL_ADDR));
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
 
-	sprintf(accdet_log_buf,
+	ret = sprintf(accdet_log_buf,
 		"dtsInfo:deb0=0x%x,deb1=0x%x,deb3=0x%x,deb4=0x%x\n",
 		 cust_pwm_deb->debounce0, cust_pwm_deb->debounce1,
 		 cust_pwm_deb->debounce3, cust_pwm_deb->debounce4);
 	strncat(buf, accdet_log_buf, strlen(accdet_log_buf));
+	if (ret < 0)
+		pr_notice("sprintf failed\n");
 }
 
 static int dbug_thread(void *unused)
@@ -486,12 +488,15 @@ static ssize_t set_headset_mode_store(struct device_driver *ddri,
 static ssize_t state_show(struct device_driver *ddri, char *buf)
 {
 	char temp_type = (char)accdet->cable_type;
+	int ret = 0;
 
 	if (buf == NULL) {
 		pr_notice("[%s] *buf is NULL!\n",  __func__);
 		return -EINVAL;
 	}
-	snprintf(buf, 3, "%d\n", temp_type);
+	ret = snprintf(buf, 3, "%d\n", temp_type);
+	if (ret < 0)
+		pr_notice("snprintf failed\n");
 
 	return strlen(buf);
 }
@@ -2041,7 +2046,11 @@ static int accdet_probe(struct platform_device *pdev)
 	}
 	/* init lock */
 	accdet->wake_lock = wakeup_source_register("accdet_wake_lock");
+	if (!accdet->wake_lock)
+		return -ENOMEM;
 	accdet->timer_lock = wakeup_source_register("accdet_timer_lock");
+	if (!accdet->timer_lock)
+		return -ENOMEM;
 	mutex_init(&accdet->res_lock);
 
 	platform_set_drvdata(pdev, accdet);
