@@ -298,6 +298,15 @@ endmenu # CONN
 
 menu "Security"
 
+config MTK_TEE_GP_SUPPORT
+	bool "Enable MTK GlobalPlatform support in TEE related modules"
+	depends on (TRUSTONIC_TEE_SUPPORT) || (MICROTRUST_TEE_SUPPORT)
+	help
+	  GlobalPlatform defines common/consistent APIs and this option
+	  enables TEE related modules to use GPAPIs. (depending on
+	  Trustonic TEE Support or Microtrust TEE Support or Google Trusty
+	  TEE or other 3rd-party TEE)
+
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
 source "drivers/misc/mediatek/tee_sanity/Kconfig"
