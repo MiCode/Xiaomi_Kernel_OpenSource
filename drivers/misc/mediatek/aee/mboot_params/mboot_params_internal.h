@@ -9,9 +9,7 @@
 #define MBOOT_PARAMS_EXP_TYPE_DEC(exp_type) \
 	((exp_type ^ MBOOT_PARAMS_EXP_TYPE_MAGIC) < 16 ? \
 	 exp_type ^ MBOOT_PARAMS_EXP_TYPE_MAGIC : exp_type)
-#ifdef CONFIG_MTPROF
-extern int boot_finish;
-#endif
+
 #ifdef CONFIG_PSTORE
 extern void pstore_bconsole_write(struct console *con, const char *s,
 					unsigned int c);
