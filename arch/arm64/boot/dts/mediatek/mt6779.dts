@@ -3584,6 +3584,75 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "apb", "smi";
 		};
 
+		kd_camera_hw1:kd_camera_hw1@1a004000 {
+			compatible = "mediatek,imgsensor";
+		};
+
+		seninf_top@1a004000 {
+			compatible = "mediatek,seninf_top";
+			reg = <0 0x1a004000 0 0x1000>;
+			power-domains = <&scpsys MT6779_POWER_DOMAIN_CAM>;
+			clocks = <&camsys CLK_CAM_SENINF>,
+				<&topckgen CLK_TOP_SENINF>,
+				<&topckgen CLK_TOP_SENINF1>,
+				<&topckgen CLK_TOP_SENINF2>,
+				<&topckgen CLK_TOP_CAMTG>,
+				<&topckgen CLK_TOP_CAMTG2>,
+				<&topckgen CLK_TOP_CAMTG3>,
+				<&topckgen CLK_TOP_CAMTG4>,
+				<&topckgen CLK_TOP_CAMTG5>,
+				<&clk26m>,
+				<&topckgen CLK_TOP_UNIVP_192M_D8>,
+				<&topckgen CLK_TOP_UNIVPLL_D3_D8>,
+				<&topckgen CLK_TOP_UNIVP_192M_D4>,
+				<&topckgen CLK_TOP_F26M_CK_D2>,
+				<&topckgen CLK_TOP_UNIVP_192M_D16>,
+				<&topckgen CLK_TOP_UNIVP_192M_D32>;
+			clock-names = "CAMSYS_SENINF_CGPDN",
+				"TOP_MUX_SENINF",
+				"TOP_MUX_SENINF1",
+				"TOP_MUX_SENINF2",
+				"TOP_MUX_CAMTG",
+				"TOP_MUX_CAMTG2",
+				"TOP_MUX_CAMTG3",
+				"TOP_MUX_CAMTG4",
+				"TOP_MUX_CAMTG5",
+				"TOP_CLK26M",
+				"TOP_UNIVP_192M_D8",
+				"TOP_UNIVPLL_D3_D8",
+				"TOP_UNIVP_192M_D4",
+				"TOP_F26M_CK_D2",
+				"TOP_UNIVP_192M_D16",
+				"TOP_UNIVP_192M_D32";
+			operating-points-v2 = <&opp_table_cam>;
+			dvfsrc-vcore-supply = <&dvfsrc_vcore>;
+		};
+
+		seninf1@1a004000 {
+			compatible = "mediatek,seninf1";
+			reg = <0 0x1a004000 0 0x1000>;
+		};
+
+		seninf2@1a005000 {
+			compatible = "mediatek,seninf2";
+			reg = <0 0x1a005000 0 0x1000>;
+		};
+
+		seninf3@1a006000 {
+			compatible = "mediatek,seninf3";
+			reg = <0 0x1a006000 0 0x1000>;
+		};
+
+		seninf4@1a007000 {
+			compatible = "mediatek,seninf4";
+			reg = <0 0x1a007000 0 0x1000>;
+		};
+
+		seninf5@1a008000 {
+			compatible = "mediatek,seninf5";
+			reg = <0 0x1a008000 0 0x1000>;
+		};
+
 		ipesys: clock-controller@1b000000 {
 			compatible = "mediatek,mt6779-ipesys", "syscon";
 			reg = <0 0x1b000000 0 0x1000>;
@@ -4287,9 +4356,6 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,goodix-fp";
 	};
 
-	kd_camera_hw1: kd_camera_hw1@1a004000 {
-		compatible = "mediatek,imgsensor";
-	};
 };
 
 &i2c5 {
@@ -4333,9 +4399,19 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 };
 
+&kd_camera_hw1 {
+	vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	vcamio_sub-supply = <&mt_pmic_vcamio_ldo_reg>;
+	vcamio_main2-supply = <&mt_pmic_vcamio_ldo_reg>;
+	vcamaf-supply = <&mt_pmic_vcamio_ldo_reg>;
+	vcamaf_main2-supply = <&mt_pmic_vcamio_ldo_reg>;
+	status = "okay";
+};
+
 #include "mt6360_pd.dtsi"
 #include "mt6360.dtsi"
 #include "mt6359.dtsi"
 #include "bat_setting/mt6779_battery_prop.dtsi"
 #include "cust_mt6779_msdc.dtsi"
+#include "cust_mt6779_camera.dtsi"
 #include "trusty.dtsi"
