@@ -16,6 +16,8 @@
 #endif
 #include <mt-plat/mtk_gpu_utility.h>
 
+#define	MTKGPUQoS_UNREFERENCED(param) ((void)(param))
+
 uint32_t __iomem *gpu_info_buf;
 
 static void _mgq_proc_show_v1(struct seq_file *m)
@@ -117,8 +119,11 @@ void MTKGPUQoS_setup(uint32_t *cpuaddr, phys_addr_t phyaddr, size_t size)
 
 	_MTKGPUQoS_initDebugFS();
 	_MTKGPUQoS_setupFW(phyaddr, size);
-
+#if defined(CONFIG_MTK_GPU_SUPPORT)
 	mtk_register_gpu_power_change("qpu_qos", bw_v1_gpu_power_change_notify);
+#else
+	MTKGPUQoS_UNREFERENCED(bw_v1_gpu_power_change_notify);
+#endif
 }
 EXPORT_SYMBOL(MTKGPUQoS_setup);
 

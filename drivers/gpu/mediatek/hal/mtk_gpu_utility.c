@@ -856,3 +856,23 @@ bool mtk_get_loading_base_dvfs_step(int *pi32StepValue)
 	return false;
 }
 EXPORT_SYMBOL(mtk_get_loading_base_dvfs_step);
+
+static int mtk_gpu_hal_init(void)
+{
+	/*Do Nothing*/
+	return 0;
+}
+
+static void mtk_gpu_hal_exit(void)
+{
+	/*Do Nothing*/
+	;
+}
+
+module_init(mtk_gpu_hal_init);
+module_exit(mtk_gpu_hal_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MediaTek GPU HAL");
+MODULE_AUTHOR("MediaTek Inc.");
+

@@ -127,7 +127,7 @@ endif
 ccflags-y += \
 	-include $(GED_TOP)/include/config_kernel_$(VER).h
 
-obj-y += ged.o
+obj-$(CONFIG_MTK_GPU_SUPPORT) += ged.o
 
 ged-y += \
 	src/ged.o \
