@@ -152,6 +152,11 @@ static struct schedtune *allocated_group[BOOSTGROUPS_COUNT] = {
 	NULL,
 };
 
+static inline bool is_group_idx_valid(int idx)
+{
+	return idx >= 0 && idx < BOOSTGROUPS_COUNT;
+}
+
 /* SchedTune boost groups
  * Keep track of all the boost groups which impact on CPU, for example when a
  * CPU has two RUNNABLE tasks belonging to two different boost groups and thus
@@ -945,7 +950,12 @@ schedtune_init_cgroups(void)
 #ifdef CONFIG_MTK_FPSGO_V3
 int prefer_idle_for_perf_idx(int idx, int prefer_idle)
 {
-	struct schedtune *ct = allocated_group[idx];
+	struct schedtune *ct = NULL;
+
+	if (!is_group_idx_valid(idx))
+		return -ERANGE;
+
+	ct = allocated_group[idx];
 
 	if (!ct)
 		return -EINVAL;
@@ -967,6 +977,9 @@ int uclamp_min_for_perf_idx(int idx, int min_value)
 	s64 percent = min_value * UCLAMP_PERCENT_SCALE;
 
 	if (min_value > SCHED_CAPACITY_SCALE)
+		return -ERANGE;
+
+	if (!is_group_idx_valid(idx))
 		return -ERANGE;
 
 	st = allocated_group[idx];
