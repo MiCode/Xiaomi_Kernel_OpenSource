@@ -1066,7 +1066,7 @@ static int mtk_dsp_pcm_copy_ul(struct snd_pcm_substream *substream,
 
 	availsize = RingBuf_getFreeSpace(ringbuf);
 
-	if (availsize <= copy_size) {
+	if (availsize < copy_size) {
 		pr_info("%s fail copy_size = %d availsize = %d\n", __func__,
 			copy_size, RingBuf_getFreeSpace(ringbuf));
 		return -1;
