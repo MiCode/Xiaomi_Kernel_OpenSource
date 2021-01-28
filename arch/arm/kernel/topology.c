@@ -33,6 +33,7 @@
 
 #include "topology_dts.c"
 
+#ifndef CONFIG_MTK_UNIFY_POWER
 inline
 const struct sched_group_energy * const cpu_core_energy(int cpu)
 {
@@ -44,6 +45,7 @@ const struct sched_group_energy * const cpu_cluster_energy(int cpu)
 {
 	return sge_array[cpu][SD_LEVEL1];
 }
+#endif
 
 /*
  * cpu capacity scale management
