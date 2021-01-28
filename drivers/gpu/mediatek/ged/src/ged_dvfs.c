@@ -181,7 +181,7 @@ static int ged_get_dvfs_loading_mode(void);
 static int gx_tb_dvfs_margin = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
-#define MAX_TB_DVFS_MARGIN               50
+#define MAX_TB_DVFS_MARGIN               99
 #define MIN_TB_DVFS_MARGIN               10
 #define MIN_TB_MARGIN_INC_STEP           1
 #define CONFIGURE_TIMER_BASED_MODE       0x00000000
@@ -191,6 +191,7 @@ static int gx_tb_dvfs_margin_cur = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
 #define DYNAMIC_TB_FIX_TARGET_MASK       0x00000800
 #define TIMER_BASED_MARGIN_MASK          0x000000ff
 static int g_tb_dvfs_margin_value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
+static int g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
 static unsigned int g_tb_dvfs_margin_mode = CONFIGURE_TIMER_BASED_MODE;
 #else
 module_param(gx_tb_dvfs_margin, int, 0644);
@@ -1327,8 +1328,10 @@ static bool ged_dvfs_policy(
 					* (t_gpu_target - t_gpu)
 					/ t_gpu_target;
 
-				if (gx_tb_dvfs_margin < MIN_TB_DVFS_MARGIN)
-					gx_tb_dvfs_margin = MIN_TB_DVFS_MARGIN;
+				if (gx_tb_dvfs_margin <
+					g_tb_dvfs_margin_value_min)
+					gx_tb_dvfs_margin =
+						g_tb_dvfs_margin_value_min;
 			}
 		}
 	} else {
@@ -1353,9 +1356,10 @@ static bool ged_dvfs_policy(
 
 #ifdef GED_ENABLE_TIMER_BASED_DVFS_MARGIN
 		ged_log_buf_print(ghLogBuf_DVFS,
-			"[GED_K][LB_DVFS] mode: 0x%x, ceiling: %d, margin: %d, gpu_real: %d, gpu_pipe: %d, t_gpu: %d, target: %d, BQ: %llu",
+			"[GED_K][LB_DVFS] mode:0x%x, u_b:%d, l_b:%d, margin:%d, gpu_real:%d, gpu_pipe:%d, t_gpu:%d, target:%d, BQ:%llu",
 			g_tb_dvfs_margin_mode,
 			g_tb_dvfs_margin_value,
+			g_tb_dvfs_margin_value_min,
 			gx_tb_dvfs_margin_cur,
 			t_gpu_real,
 			t_gpu_pipe,
@@ -1743,15 +1747,17 @@ static int ged_get_loading_base_dvfs_step(void)
 static void ged_timer_base_dvfs_margin(int i32MarginValue)
 {
 	/*
-	 *     < 0: default, GED_DVFS_TIMER_BASED_DVFS_MARGIN
-	 * bit 7~0: margin value
-	 * bit   8: dynamic timer based dvfs margin
-	 * bit   9: use gpu pipe time for dynamic timer based dvfs margin
-	 * bit  10: use performance mode for dynamic timer based dvfs margin
-	 * bit  11: fix target FPS to 30 for dynamic timer based dvfs margin
+	 * value < 0: default, GED_DVFS_TIMER_BASED_DVFS_MARGIN
+	 * bit   7~0: margin value
+	 * bit     8: dynamic timer based dvfs margin
+	 * bit     9: use gpu pipe time for dynamic timer based dvfs margin
+	 * bit    10: use performance mode for dynamic timer based dvfs margin
+	 * bit    11: fix target FPS to 30 for dynamic timer based dvfs margin
+	 * bit 23~16: min margin value
 	 */
 	unsigned int mode = CONFIGURE_TIMER_BASED_MODE;
 	int value = i32MarginValue & TIMER_BASED_MARGIN_MASK;
+	int value_min = (i32MarginValue >> 16) & TIMER_BASED_MARGIN_MASK;
 
 	if (i32MarginValue < 0)
 		value = GED_DVFS_TIMER_BASED_DVFS_MARGIN;
@@ -1776,6 +1782,13 @@ static void ged_timer_base_dvfs_margin(int i32MarginValue)
 		g_tb_dvfs_margin_value = MIN_TB_DVFS_MARGIN;
 	else
 		g_tb_dvfs_margin_value = value;
+
+	if (value_min > MAX_TB_DVFS_MARGIN)
+		g_tb_dvfs_margin_value_min = MAX_TB_DVFS_MARGIN;
+	else if (value_min < MIN_TB_DVFS_MARGIN)
+		g_tb_dvfs_margin_value_min = MIN_TB_DVFS_MARGIN;
+	else
+		g_tb_dvfs_margin_value_min = value_min;
 
 	mutex_unlock(&gsDVFSLock);
 }
