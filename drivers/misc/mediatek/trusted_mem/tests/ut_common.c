@@ -363,7 +363,8 @@ mem_regmgr_region_defer_off_test(enum TRUSTED_MEM_TYPE mem_type, u8 *mem_owner,
 				 int region_final_state)
 {
 	int ret;
-	u32 handle, ref_count;
+	u32 handle;
+	u32 ref_count = 0;
 	int defer_ms = (REGMGR_REGION_DEFER_OFF_DELAY_MS - 100);
 	int defer_end_ms = (REGMGR_REGION_DEFER_OFF_OPERATION_LATENCY_MS + 100);
 	u32 min_chunk_sz = tmem_core_get_min_chunk_size(mem_type);
