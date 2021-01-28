@@ -196,8 +196,9 @@ static int mag_i2c_write_block(struct i2c_client *client,
 					u8 addr, u8 *data, u8 len)
 {
 /*address also occupies one byte, the maximum length for write is 7 bytes */
-	int err = 0, idx = 0, num = 0;
+	int err = 0, num = 0;
 	char buf[C_I2C_FIFO_SIZE];
+	unsigned int idx = 0;
 
 	err = 0;
 	mutex_lock(&akm09918_i2c_mutex);
