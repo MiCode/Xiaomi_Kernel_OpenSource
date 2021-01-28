@@ -470,7 +470,8 @@ struct ISP_CLK_STRUCT {
 	struct clk *ISP_IMG_DIP;
 	struct clk *ISP_CAM_CAMSYS;
 	struct clk *ISP_CAM_CAMTG;
-	struct clk *ISP_CAM_SENINF;
+	/*No need to control this any more , seninf will handle this CLK*/
+	//struct clk *ISP_CAM_SENINF;
 	struct clk *ISP_CAM_CAMSV0;
 	struct clk *ISP_CAM_CAMSV1;
 	struct clk *ISP_CAM_CAMSV2;
@@ -3863,9 +3864,7 @@ static inline void Prepare_Enable_ccf_clock(void)
 	if (ret)
 		pr_err("cannot pre-en ISP_CAM_CAMTG clock\n");
 
-	ret = clk_prepare_enable(isp_clk.ISP_CAM_SENINF);
-	if (ret)
-		pr_err("cannot pre-en ISP_CAM_SENINF clock\n");
+	/*No need to control this any more , seninf will handle this CLK*/
 
 	ret = clk_prepare_enable(isp_clk.ISP_CAM_CAMSV0);
 	if (ret)
@@ -3888,7 +3887,8 @@ static inline void Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV2);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV1);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSV0);
-	clk_disable_unprepare(isp_clk.ISP_CAM_SENINF);
+	/*No need to control this any more , seninf will handle this CLK*/
+	//clk_disable_unprepare(isp_clk.ISP_CAM_SENINF);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMTG);
 	clk_disable_unprepare(isp_clk.ISP_CAM_CAMSYS);
 	clk_disable_unprepare(isp_clk.ISP_IMG_DIP);
@@ -10146,8 +10146,7 @@ pr_info("CONFIG_MTK_CLKMGR get clock pointer \n");
 			devm_clk_get(&pDev->dev, "ISP_CLK_CAM");
 		isp_clk.ISP_CAM_CAMTG =
 			devm_clk_get(&pDev->dev, "ISP_CLK_CAMTG");
-		isp_clk.ISP_CAM_SENINF =
-			devm_clk_get(&pDev->dev, "ISP_CLK_CAM_SENINF");
+		/*No need to control this any more , seninf will handle this CLK*/
 		isp_clk.ISP_CAM_CAMSV0 =
 			devm_clk_get(&pDev->dev, "ISP_CLK_CAMSV0");
 		isp_clk.ISP_CAM_CAMSV1 =
@@ -10179,10 +10178,7 @@ pr_info("CONFIG_MTK_CLKMGR get clock pointer \n");
 			pr_err("cannot get ISP_CLK_CAMTG clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_CAMTG);
 		}
-		if (IS_ERR(isp_clk.ISP_CAM_SENINF)) {
-			pr_err("cannot get ISP_CLK_CAM_SENINF clock\n");
-			return PTR_ERR(isp_clk.ISP_CAM_SENINF);
-		}
+		/*No need to control this any more , seninf will handle this CLK*/
 		if (IS_ERR(isp_clk.ISP_CAM_CAMSV0)) {
 			pr_err("cannot get ISP_CLK_CAMSV0 clock\n");
 			return PTR_ERR(isp_clk.ISP_CAM_CAMSV0);
