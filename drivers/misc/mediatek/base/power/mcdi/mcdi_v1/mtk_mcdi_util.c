@@ -128,8 +128,19 @@ unsigned int mcdi_get_cluster_off_cnt(unsigned int cluster)
 {
 	unsigned int cnt = mcdi_read(CPC_DORMANT_COUNTER);
 
-	cnt = ((cnt >> 16) & 0xFFFF) + (cnt & 0xFFFF);
+	/* Get off count if dormant count is 0 (cluster is off mode) */
+	if ((cnt & 0x7FFF) == 0)
+		cnt = ((cnt >> 16) & 0x7FFF);
+	else
+		cnt = cnt & 0x7FFF;
+
 	cnt += mcdi_read(SYSRAM_CPC_CLUSTER_CNT);
+
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_CPC_CONFIG,
+			MCDI_CPC_CFG_CNT_CLR,
+			0, 0);
+	mcdi_write(SYSRAM_CPC_CLUSTER_CNT, cnt);
 
 	return cnt;
 }
@@ -164,7 +175,7 @@ void mcdi_set_cpu_iso_smc(unsigned int iso_mask)
 		return;
 
 	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
-			MCDI_SMC_EVENT_ASYNC_WAKEUP_EN,
+			MCDI_SMC_EVENT_GIC_DPG_SET,
 			iso_mask,
 			0, 0);
 }

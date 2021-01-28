@@ -19,6 +19,12 @@
 #define CPU_PWR_STAT_MASK       0x000000FF
 #define CLUSTER_PWR_STAT_MASK   0x00030000
 
+/* mcdi governor policy parameters */
+#define DEFAULT_CHK_RES_EACH_CORE (false)
+#define DEFAULT_TMR_EN            (false)
+#define DEFAULT_PRE_LOCK          (true)
+#define DEFAULT_MTK_IDLE_SEL_ONLY (1)
+
 #define cpu_is_invalid(id)      (!(id >= 0 && id < NF_CPU))
 #define cluster_is_invalid(id)  (!(id >= 0 && id < NF_CLUSTER))
 

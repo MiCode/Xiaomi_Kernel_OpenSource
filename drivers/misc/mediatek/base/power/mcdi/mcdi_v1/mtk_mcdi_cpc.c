@@ -16,6 +16,9 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 
+#include <mt-plat/mtk_secure_api.h>
+
+#include <mtk_mcdi.h>
 #include <mtk_mcdi_governor.h>
 #include <mtk_mcdi_util.h>
 #include <mtk_mcdi_cpc.h>
@@ -58,6 +61,11 @@ static void __mcdi_cpc_prof_enable(void)
 {
 	mcdi_mbox_write(MCDI_MBOX_PROF_CMD, 0x1);
 
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_CPC_CONFIG,
+			MCDI_CPC_CFG_PROF,
+			1, 0);
+
 	mcdi_cpc_clr_lat();
 
 	cpc.sta.prof_en = true;
@@ -70,6 +78,11 @@ static void __mcdi_cpc_prof_disable(void)
 	mcdi_cpc_cal_lat();
 
 	mcdi_mbox_write(MCDI_MBOX_PROF_CMD, 0x0);
+
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_CPC_CONFIG,
+			MCDI_CPC_CFG_PROF,
+			0, 0);
 }
 
 void mcdi_cpc_prof_en(bool enable)
@@ -91,6 +104,60 @@ void mcdi_cpc_prof_en(bool enable)
 
 out:
 	spin_unlock_irqrestore(&mcdi_cpc_prof_spin_lock, flags);
+}
+
+static void mcdi_cpc_auto_off_en(bool enable)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&mcdi_cpc_prof_spin_lock, flags);
+
+	cpc.sta.auto_off = enable;
+
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_CPC_CONFIG,
+			MCDI_CPC_CFG_AUTO_OFF,
+			enable ? 1 : 0,
+			0);
+
+	spin_unlock_irqrestore(&mcdi_cpc_prof_spin_lock, flags);
+}
+
+static inline void mcdi_cpc_smc_auto_off_thres(unsigned int us)
+{
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_CPC_CONFIG,
+			MCDI_CPC_CFG_AUTO_OFF_THRES,
+			cpc_us_to_tick(us),
+			0);
+}
+
+static void mcdi_cpc_set_auto_off_thres(unsigned int us)
+{
+	unsigned long flags;
+
+	if (us > MAX_AUTO_OFF_THRES_US)
+		us = MAX_AUTO_OFF_THRES_US;
+
+	spin_lock_irqsave(&mcdi_cpc_prof_spin_lock, flags);
+
+	cpc.auto_off_thres_us = us;
+
+	mcdi_cpc_smc_auto_off_thres(us);
+
+	spin_unlock_irqrestore(&mcdi_cpc_prof_spin_lock, flags);
+}
+
+void mcdi_cpc_auto_off_counter_suspend(void)
+{
+	if (cpc.sta.auto_off)
+		mcdi_cpc_smc_auto_off_thres(1);
+}
+
+void mcdi_cpc_auto_off_counter_resume(void)
+{
+	if (cpc.sta.auto_off)
+		mcdi_cpc_smc_auto_off_thres(cpc.auto_off_thres_us);
 }
 
 static void mcdi_cpc_get_cpu_lat(int cpu, unsigned int *on, unsigned int *off)
@@ -226,7 +293,7 @@ static void mcdi_cpc_save_cluster_off(int cpu, int core_off, int cpu_type)
 	}
 }
 
-void mcdi_cpc_save_latency(int cpu, int last_core_taken)
+static void mcdi_cpc_save_latency(int cpu, int last_core_taken)
 {
 	struct mcdi_cpc_prof *prof;
 	unsigned int cpu_type;
@@ -252,9 +319,9 @@ void mcdi_cpc_save_latency(int cpu, int last_core_taken)
 	mcdi_cpc_record_lat(prof, core_on, core_off);
 	mcdi_cpc_lat_dist(&cpc.dist_cnt[cpu_type], core_on, core_off);
 
-	/* Record cluster on latency */
 	mcusys_resume = (cpu == last_core_taken);
 
+	/* Record cluster on latency */
 	if (mcdi_cpc_cluster_resume(cluster_idx_get(cpu))
 			|| mcusys_resume) {
 
@@ -289,6 +356,12 @@ void mcdi_cpc_save_latency(int cpu, int last_core_taken)
 	cpc.sta.prof_saving = false;
 }
 
+void mcdi_cpc_reflect(int cpu, int last_core_taken)
+{
+	mcdi_cpc_save_latency(cpu, last_core_taken);
+	mcdi_write(CPC_CPU_ON_SW_HINT_CLR, 1 << cpu);
+}
+
 /* procfs */
 static char dbg_buf[4096] = { 0 };
 static char cmd_buf[512] = { 0 };
@@ -302,6 +375,14 @@ static ssize_t mcdi_cpc_read(struct file *filp,
 	struct mcdi_cpc_distribute *dist;
 
 	cpc.sta.prof_pause = true;
+
+	mcdi_log("cpc cluster mode: %s ",
+			cpc.sta.auto_off ? "auto off" : "off");
+
+	if (cpc.sta.auto_off)
+		mcdi_log("(thres: %d us)", cpc.auto_off_thres_us);
+
+	mcdi_log("\n");
 
 	while (cpc.sta.prof_saving)
 		udelay(1);
@@ -360,6 +441,16 @@ static ssize_t mcdi_cpc_read(struct file *filp,
 
 	mcdi_log("\n");
 
+	mcdi_log("Usage: echo [command line] > /proc/mcdi/cpc\n");
+	mcdi_log("command line:\n");
+	mcdi_log("  %-40s : profile CPC latency\n",
+				"profile [0|1]");
+	mcdi_log("  %-40s : enable cluster auto-off mode\n",
+				"auto_off [0|1]");
+	mcdi_log("  %-40s : set cluster auto-off counter\n",
+				"auto_off_thres [time_us(dec)]");
+	mcdi_log("\n");
+
 	len = p - dbg_buf;
 
 	return simple_read_from_buffer(userbuf, count, f_pos, dbg_buf, len);
@@ -391,13 +482,17 @@ static ssize_t mcdi_cpc_write(struct file *filp,
 	if (param_str == NULL)
 		return -EINVAL;
 
-	ret = kstrtoul(param_str, 16, &param);
+	ret = kstrtoul(param_str, 10, &param);
 
 	if (ret < 0)
 		return -EINVAL;
 
 	if (!strncmp(cmd_str, "profile", sizeof("profile")))
 		mcdi_cpc_prof_en(!!param);
+	else if (!strncmp(cmd_str, "auto_off", sizeof("auto_off")))
+		mcdi_cpc_auto_off_en(!!param);
+	else if (!strncmp(cmd_str, "auto_off_thres", sizeof("auto_off_thres")))
+		mcdi_cpc_set_auto_off_thres(param);
 	else
 		return -EINVAL;
 
@@ -408,9 +503,7 @@ PROC_FOPS_MCDI(cpc);
 
 void mcdi_procfs_cpc_init(struct proc_dir_entry *mcdi_dir)
 {
-	if (!proc_create("cpc", 0644, mcdi_dir, &mcdi_cpc_fops))
-		pr_notice("%s(), create /proc/mcdi/%s failed\n",
-			__func__, "cpc");
+	PROC_CREATE_MCDI(mcdi_dir, cpc);
 }
 
 void mcdi_cpc_init(void)
@@ -424,12 +517,16 @@ void mcdi_cpc_init(void)
 				"cluster off(%s)", get_cpu_type_str(i));
 	}
 	snprintf(cpc.mcusys.name, CPC_LAT_NAME_SIZE, "mcusys");
+
+	mcdi_cpc_set_auto_off_thres(DEFAULT_AUTO_OFF_THRES_US);
+	mcdi_cpc_auto_off_en(false);
 }
 
 #else
 
 void mcdi_cpc_prof_en(bool enable) {}
-void mcdi_cpc_save_latency(int cpu, int last_core_taken) {}
+void mcdi_cpc_auto_off_en(bool enable) {}
+void mcdi_cpc_reflect(int cpu, int last_core_taken) {}
 void mcdi_procfs_cpc_init(struct proc_dir_entry *mcdi_dir) {}
 void mcdi_cpc_init(void) {}
 
