@@ -37,20 +37,20 @@ ifeq ($(CONFIG_MTK_TEE_GP_SUPPORT),y)
   ccflags-y += -I$(src)/$(MTK_PLATFORM)
   ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
   ccflags-y += -I$(srctree)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
-  ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
-    include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
-  else ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
-    include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
-  else ifeq ($(CONFIG_BLOWFISH_TEE_SUPPORT),y)
-    ccflags-y += -I$(srctree)/drivers/misc/tzdev
-  else
-  endif
+  #ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+  #  include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+  #else ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
+  #  include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+  #else ifeq ($(CONFIG_BLOWFISH_TEE_SUPPORT),y)
+  # ccflags-y += -I$(srctree)/drivers/misc/tzdev
+  #else
+  #endif
 else # Legacy
   ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
     ccflags-y += -I$(srctree)/arch/arm/mach-$(MTK_PLATFORM)/include/trustzone/utils/tlutils
     ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/utils/tlutils
     ccflags-y += -I$(src)/$(MTK_PLATFORM)
-    include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+    #include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
   endif
 endif # !CONFIG_MTK_TEE_GP_SUPPORT
 
