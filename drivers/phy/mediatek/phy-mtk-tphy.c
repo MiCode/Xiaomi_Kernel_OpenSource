@@ -579,7 +579,7 @@ static ssize_t vrt_sel_show(struct device *dev,
 	cover_val_to_str(tmp, 3, str);
 
 	dev_info(dev, "%s, vrt_sel=%s\n", __func__, str);
-	return sprintf(buf, "vrt_sel = %s\n", str);
+	return scnprintf(buf, PAGE_SIZE, "vrt_sel = %s\n", str);
 }
 static DEVICE_ATTR_RW(vrt_sel);
 
@@ -620,7 +620,7 @@ static ssize_t term_sel_show(struct device *dev,
 	cover_val_to_str(tmp, 3, str);
 
 	dev_info(dev, "%s, term_sel=%s\n", __func__, str);
-	return sprintf(buf, "term_sel = %s\n", str);
+	return scnprintf(buf, PAGE_SIZE, "term_sel = %s\n", str);
 }
 static DEVICE_ATTR_RW(term_sel);
 
@@ -661,7 +661,7 @@ static ssize_t phy_rev6_show(struct device *dev,
 	cover_val_to_str(tmp, 2, str);
 
 	dev_info(dev, "%s, phy_rev6=%s\n", __func__, str);
-	return sprintf(buf, "phy_rev6 = %s\n", str);
+	return scnprintf(buf, PAGE_SIZE, "phy_rev6 = %s\n", str);
 }
 static DEVICE_ATTR_RW(phy_rev6);
 
@@ -703,7 +703,7 @@ static ssize_t discth_show(struct device *dev,
 	cover_val_to_str(tmp, 4, str);
 
 	dev_info(dev, "%s, discth=%s\n", __func__, str);
-	return sprintf(buf, "discth = %s\n", str);
+	return scnprintf(buf, PAGE_SIZE, "discth = %s\n", str);
 }
 static DEVICE_ATTR_RW(discth);
 
