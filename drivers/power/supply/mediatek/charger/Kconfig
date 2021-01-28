@@ -99,6 +99,16 @@ config CHARGER_RT9458
 	  It depends on
 	  the config MTK_SWCHR_SUPPORT.
 
+config CHARGER_RT9471
+	bool "Charger Driver for Richtek RT9471 Charger IC"
+	default n
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable Richtek RT9471 driver.
+	  It supports both of RT9471/RT9471D,
+	  which RT9471D supports BC1.2
+	  It depends on config MTK_CHARGER.
+
 config MTK_CHARGER_UNLIMITED
 	bool "MediaTek Charger Unlimited"
 	default n
