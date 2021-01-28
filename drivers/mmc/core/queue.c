@@ -520,7 +520,6 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 					ret = PTR_ERR(mq->thread);
 				}
 				/* inline crypto */
-				cqhci_host_init_crypto(host->cmdq_private);
 				mmc_crypto_setup_queue(host, mq->queue);
 
 				return ret;

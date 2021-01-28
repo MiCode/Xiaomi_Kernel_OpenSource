@@ -5241,12 +5241,13 @@ static int msdc_drv_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_MMC_CRYPTO
-	if (host->hw->host_function == MSDC_EMMC)
+	if (host->hw->host_function == MSDC_EMMC) {
 		mmc->caps2 |= MMC_CAP2_CRYPTO;
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
-	/* inline crypto */
-	msdc_crypto_init_vops(mmc);
-#endif
+		#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
+		/* inline crypto */
+		msdc_crypto_init_vops(mmc);
+		#endif
+	}
 #endif
 
 	/* If 0  < mmc->max_busy_timeout < cmd.busy_timeout,
@@ -5274,6 +5275,18 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host->dma_mask          = DMA_BIT_MASK(36);
 	mmc_dev(mmc)->dma_mask  = &host->dma_mask;
 
+#ifndef FPGA_PLATFORM
+	/* FIX ME, consider to move it into msdc_io.c */
+	if (msdc_get_ccf_clk_pointer(pdev, host))
+#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
+		return 1;
+#else
+		pr_notice("[MSDC]msdc_get_ccf_clk_pointer fail.\n");
+#endif
+#endif
+
+	msdc_set_host_power_control(host);
+
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	if ((host->hw->host_function == MSDC_EMMC)
 		&& (host->mmc->caps2 & MMC_CAP2_CQE)) {
@@ -5292,17 +5305,6 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	}
 #endif
 
-#ifndef FPGA_PLATFORM
-	/* FIX ME, consider to move it into msdc_io.c */
-	if (msdc_get_ccf_clk_pointer(pdev, host))
-#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-		return 1;
-#else
-		pr_notice("[MSDC]msdc_get_ccf_clk_pointer fail.\n");
-#endif
-#endif
-
-	msdc_set_host_power_control(host);
 
 	host->card_inserted =
 		host->mmc->caps & MMC_CAP_NONREMOVABLE ? 1 : 0;
