@@ -86,7 +86,7 @@ static void devalarm_cancel(struct devalarm *alrm)
 		hrtimer_cancel(&alrm->u.hrt);
 }
 
-void alarm_set_power_on(struct timespec64 new_pwron_time, bool logo)
+void alarm_set_power_on(struct timespec new_pwron_time, bool logo)
 {
 	unsigned long pwron_time;
 	struct rtc_wkalrm alm;
@@ -115,7 +115,7 @@ void alarm_set_power_on(struct timespec64 new_pwron_time, bool logo)
 }
 
 static void alarm_clear(enum android_alarm_type alarm_type,
-			struct timespec64 *ts)
+			struct timespec *ts)
 {
 	u32 alarm_type_mask = 1U << alarm_type;
 	unsigned long flags;
@@ -138,7 +138,7 @@ static void alarm_clear(enum android_alarm_type alarm_type,
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
-static void alarm_set(enum android_alarm_type alarm_type, struct timespec64 *ts)
+static void alarm_set(enum android_alarm_type alarm_type, struct timespec *ts)
 {
 	u32 alarm_type_mask = 1U << alarm_type;
 	unsigned long flags;
@@ -156,7 +156,7 @@ static void alarm_set(enum android_alarm_type alarm_type, struct timespec64 *ts)
 
 	spin_lock_irqsave(&alarm_slock, flags);
 	alarm_enabled |= alarm_type_mask;
-	devalarm_start(&alarms[alarm_type], timespec64_to_ktime(*ts));
+	devalarm_start(&alarms[alarm_type], timespec_to_ktime(*ts));
 	spin_unlock_irqrestore(&alarm_slock, flags);
 }
 
@@ -186,7 +186,7 @@ static int alarm_wait(void)
 	return rv;
 }
 
-static int alarm_set_rtc(struct timespec64 *ts)
+static int alarm_set_rtc(struct timespec *ts)
 {
 	struct rtc_time new_rtc_tm;
 	struct rtc_device *rtc_dev;
@@ -200,7 +200,7 @@ static int alarm_set_rtc(struct timespec64 *ts)
 		  new_rtc_tm.tm_sec, new_rtc_tm.tm_mon + 1,
 		  new_rtc_tm.tm_mday, new_rtc_tm.tm_year + 1900);
 	rtc_dev = alarmtimer_get_rtcdev();
-	rv = do_settimeofday64(ts);
+	rv = do_settimeofday(ts);
 	if (rv < 0)
 		return rv;
 	if (rtc_dev)
@@ -215,21 +215,21 @@ static int alarm_set_rtc(struct timespec64 *ts)
 }
 
 static int alarm_get_time(enum android_alarm_type alarm_type,
-			  struct timespec64 *ts)
+			  struct timespec *ts)
 {
 	int rv = 0;
 
 	switch (alarm_type) {
 	case ANDROID_ALARM_RTC_WAKEUP:
 	case ANDROID_ALARM_RTC:
-		getnstimeofday64(ts);
+		getnstimeofday(ts);
 		break;
 	case ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP:
 	case ANDROID_ALARM_ELAPSED_REALTIME:
-		get_monotonic_boottime64(ts);
+		get_monotonic_boottime(ts);
 		break;
 	case ANDROID_ALARM_SYSTEMTIME:
-		ktime_get_ts64(ts);
+		ktime_get_ts(ts);
 		break;
 	case ANDROID_ALARM_POWER_ON:
 	case ANDROID_ALARM_POWER_ON_LOGO:
@@ -241,7 +241,7 @@ static int alarm_get_time(enum android_alarm_type alarm_type,
 }
 
 static long alarm_do_ioctl(struct file *file, unsigned int cmd,
-			   struct timespec64 *ts, struct rtc_wkalrm *alm)
+			   struct timespec *ts, struct rtc_wkalrm *alm)
 {
 	int rv = 0;
 	unsigned long flags;
@@ -312,7 +312,7 @@ static long alarm_do_ioctl(struct file *file, unsigned int cmd,
 
 static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct timespec64 ts = {0};
+	struct timespec ts = {0};
 	struct rtc_wkalrm pwron_alm = {0};
 	int rv;
 
@@ -355,7 +355,7 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 static long alarm_compat_ioctl(struct file *file,
 			       unsigned int cmd, unsigned long arg)
 {
-	struct timespec64 ts = {0};
+	struct timespec ts = {0};
 	struct rtc_wkalrm pwron_alm = {0};
 	int rv;
 
@@ -364,13 +364,13 @@ static long alarm_compat_ioctl(struct file *file,
 	case ANDROID_ALARM_SET_COMPAT(0):
 	case ANDROID_ALARM_SET_RTC_COMPAT:
 	case ANDROID_ALARM_SET_IPO_COMPAT(0):
-		if (compat_get_timespec64(&ts, (void __user *)arg))
+		if (compat_get_timespec(&ts, (void __user *)arg))
 			return -EFAULT;
 		/* fall through */
 	case ANDROID_ALARM_GET_TIME_COMPAT(0):
 		cmd = ALARM_IOW(ANDROID_ALARM_IOCTL_NR(cmd),
 				ANDROID_ALARM_IOCTL_TO_TYPE(cmd),
-				struct timespec64);
+				struct timespec);
 		break;
 	}
 
@@ -380,7 +380,7 @@ static long alarm_compat_ioctl(struct file *file,
 
 	switch (ANDROID_ALARM_BASE_CMD(cmd)) {
 	case ANDROID_ALARM_GET_TIME(0):	/* NOTE: we modified cmd above */
-		if (compat_put_timespec64(&ts, (void __user *)arg))
+		if (compat_put_timespec(&ts, (void __user *)arg))
 			return -EFAULT;
 		break;
 
