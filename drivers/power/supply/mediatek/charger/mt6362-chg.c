@@ -370,8 +370,9 @@ enum mt6362_ic_stat {
 };
 
 static const char * const mt6362_ic_stat_list[] = {
-	"hz", "ready", "trickle_chg", "pre_chg", "fast_chg",
-	"ieoc_chg", "backgnd_chg", "chg_done", "chg_fault", "otg",
+	"hz", "ready", "trickle_chg", "pre_chg", "fast_chg", "ieoc_chg",
+	"backgnd_chg", "chg_done", "chg_fault", "unknown", "unknown", "unknown",
+	"unknown", "unknown", "unknown", "otg",
 };
 
 enum mt6362_chg_adc_channel {
