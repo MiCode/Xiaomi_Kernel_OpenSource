@@ -3337,9 +3337,15 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 		IMG_UINT32			ui32NumberOfMRTs,
 		IMG_UINT64			ui64DeadlineInus)
 {
+#if !defined(CONFIG_KASAN)
 	/* per-context helper structures */
 	RGX_CCB_CMD_HELPER_DATA *pasTACmdHelperData = psRenderContext->asTACmdHelperData;
 	RGX_CCB_CMD_HELPER_DATA *pas3DCmdHelperData = psRenderContext->as3DCmdHelperData;
+#else
+	/* create helper structures on the stack */
+	RGX_CCB_CMD_HELPER_DATA pasTACmdHelperData[CCB_CMD_HELPER_NUM_TA_COMMANDS];
+	RGX_CCB_CMD_HELPER_DATA pas3DCmdHelperData[CCB_CMD_HELPER_NUM_3D_COMMANDS];
+#endif
 
 	IMG_UINT32				ui32TACmdCount=0;
 	IMG_UINT32				ui323DCmdCount=0;

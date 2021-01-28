@@ -33,8 +33,6 @@
 #include "ged_log.h"
 #include "ged_base.h"
 
-#include "ged_fdvfs.h"
-
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 
@@ -458,61 +456,6 @@ static IMG_BOOL MTKDoGpuDVFS(IMG_UINT32 ui32NewFreqID, IMG_BOOL bIdleDevice)
 	}
 
 	return IMG_FALSE;
-}
-
-static void MTKFDVFSCommitFreqIdx(unsigned long ui32NewFreqID, GED_FDVFS_COMMIT_TYPE eCommitType, int *pbCommited)
-{
-	PVRSRV_DEV_POWER_STATE ePowerState;
-	PVRSRV_DEVICE_NODE *psDevNode = MTKGetRGXDevNode();
-	PVRSRV_ERROR eResult;
-
-	if (psDevNode) {
-		eResult = PVRSRVDevicePreClockSpeedChange(psDevNode, IMG_FALSE, (void *)NULL);
-		if ((eResult == PVRSRV_OK) || (eResult == PVRSRV_ERROR_RETRY)) {
-			unsigned int ui32GPUFreq;
-			unsigned int ui32CurFreqID;
-			PVRSRV_DEV_POWER_STATE ePowerState;
-
-			PVRSRVGetDevicePowerState(psDevNode, &ePowerState);
-
-			if (ePowerState == PVRSRV_DEV_POWER_STATE_ON) {
-				mt_gpufreq_target(ui32NewFreqID);
-				g_bUnsync = IMG_FALSE;
-			} else {
-				g_ui32_unsync_freq_id = ui32NewFreqID;
-				g_bUnsync = IMG_TRUE;
-			}
-
-			ui32CurFreqID = mt_gpufreq_get_cur_freq_index();
-			ui32GPUFreq = mt_gpufreq_get_frequency_by_level(ui32CurFreqID);
-			gpu_freq = ui32GPUFreq;
-#if defined(CONFIG_TRACING) && defined(CONFIG_MTK_SCHED_TRACERS)
-
-
-			if (PVRGpuTraceIsEnabled())
-				trace_gpu_freq(ui32GPUFreq);
-#endif
-			MTKWriteBackFreqToRGX(psDevNode, ui32GPUFreq);
-
-#ifdef MTK_DEBUG
-		if (gpu_debug_enable)
-			pr_debug("PVR_K: 3DFreq=%d, Volt=%d\n", ui32GPUFreq, mt_gpufreq_get_cur_volt());
-#endif
-
-			if (eResult == PVRSRV_OK)
-				PVRSRVDevicePostClockSpeedChange(psDevNode, IMG_FALSE, (void *)NULL);
-
-
-		/* Always return true because the APM would almost letting GPU  */
-		/* power down with high possibility while DVFS committing  */
-		if (pbCommited)
-			*pbCommited = IMG_TRUE;
-			return;
-		}
-	}
-
-	if (pbCommited)
-		*pbCommited = IMG_FALSE;
 }
 
 /* For ged_dvfs idx commit */
