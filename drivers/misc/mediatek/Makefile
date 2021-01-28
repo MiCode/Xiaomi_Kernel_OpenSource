@@ -79,3 +79,4 @@ obj-$(CONFIG_MTK_FLASHLIGHT) += flashlight/
 obj-$(CONFIG_RT_FLASHLIGHT)     += flashlight/richtek/
 obj-$(CONFIG_USB_MTK_HDRC) += usb20/
 obj-$(CONFIG_MTK_USB_TYPEC) += typec/
+obj-$(CONFIG_MTK_CCU)	+= ccu/src/

@@ -1,0 +1,8 @@
+config MTK_CCU
+	tristate "MediaTek CCU Driver"
+	---help---
+	  Support 3A using CCU hardware
+	  Offers speed up of 3A, including
+	  Faster control flow and
+	  Stabler frame rate.
+
