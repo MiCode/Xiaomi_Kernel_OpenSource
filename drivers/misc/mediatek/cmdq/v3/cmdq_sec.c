@@ -1982,6 +1982,7 @@ static s32 cmdq_sec_exec_task_async_work(struct cmdqRecStruct *handle,
 		CMDQ_ERR("unable to allocate task\n");
 		return -ENOMEM;
 	}
+	handle->pkt->task_alloc = true;
 
 	/* update task's thread info */
 	handle->thread = thread->idx;
