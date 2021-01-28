@@ -19,8 +19,14 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(CONFIG_MTK_PLATFORM)/		\
 
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
+
+endif
+ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
-# ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-$(CONFIG_MACH_MT6768) += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-$(CONFIG_MACH_MT6771) += -I$(srctree)/drivers/misc/mediatek/sspm/v1
+ccflags-$(CONFIG_MACH_MT6885) += -I$(srctree)/drivers/misc/mediatek/sspm/v2
+ccflags-$(CONFIG_MACH_MT6873) += -I$(srctree)/drivers/misc/mediatek/sspm/v2
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
 ifeq ($(CONFIG_MTK_GPU_SWPM_SUPPORT), y)
