@@ -551,6 +551,13 @@ static ssize_t credit_didt_en_proc_write(struct file *file,
 	if (copy_from_user(buf, buffer, count))
 		goto out;
 
+	/* coverity check */
+	if (!buf)
+		return -ENOMEM;
+
+	if (sizeof(buf) >= PAGE_SIZE)
+		goto out;
+
 	buf[count] = '\0';
 
 	if (kstrtou32((const char *)buf, 0, &value)) {
@@ -635,6 +642,13 @@ static ssize_t credit_didt_const_mode_proc_write(struct file *file,
 		goto out;
 
 	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	/* coverity check */
+	if (!buf)
+		return -ENOMEM;
+
+	if (sizeof(buf) >= PAGE_SIZE)
 		goto out;
 
 	buf[count] = '\0';
@@ -725,6 +739,13 @@ static ssize_t credit_didt_reg_r_proc_write(struct file *file,
 		goto out;
 
 	if (copy_from_user(buf, buffer, count))
+		goto out;
+
+	/* coverity check */
+	if (!buf)
+		return -ENOMEM;
+
+	if (sizeof(buf) >= PAGE_SIZE)
 		goto out;
 
 	buf[count] = '\0';
