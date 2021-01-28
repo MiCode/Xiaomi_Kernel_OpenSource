@@ -5,6 +5,7 @@
 
 #include <linux/slab.h>
 #include <linux/interrupt.h>
+#include <linux/iopoll.h>
 
 #include "m4u_priv.h"
 #include "m4u_platform.h"
@@ -95,8 +96,35 @@ int m4u_invalid_tlb(int m4u_id, int L2_en,
 	}
 
 	if (!isInvAll) {
-		while (!M4U_ReadReg32(m4u_base, REG_MMU_CPE_DONE))
-			;
+		u32 tmp;
+		int ret;
+
+		/* tlb sync */
+		ret = readl_poll_timeout_atomic(
+				(void __iomem *)(m4u_base + REG_MMU_CPE_DONE),
+				tmp, tmp != 0, 10, 1000);
+		if (ret) {
+			int i;
+
+			M4UMSG(
+				"m4u%d, Partial TLB flush timeout, do full flush, 0x20:0x%x\n",
+				m4u_id, M4U_ReadReg32(m4u_base, REG_MMU_INVLD));
+			m4u_call_atf_debug(M4U_ATF_SECURITY_DEBUG_EN);
+			for (i = 0; i < 16; i++)
+				M4UMSG("m4u dump reg 0x%x = 0x%x\n",
+					(0x200 + i * 4),
+					M4U_ReadReg32(m4u_base,
+						(0x200 + i * 4)));
+
+			/* Use aee to notify M4U owner to check this issue */
+			m4u_aee_print("M4U TLB timeout\n");
+
+			//clear
+			M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
+			/* falling back flush all */
+			M4U_WriteReg32(m4u_base, REG_INVLID_SEL, reg);
+			M4U_WriteReg32(m4u_base, REG_MMU_INVLD, F_MMU_INV_ALL);
+		}
 		M4U_WriteReg32(m4u_base, REG_MMU_CPE_DONE, 0);
 	}
 
