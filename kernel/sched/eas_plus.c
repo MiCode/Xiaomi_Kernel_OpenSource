@@ -14,7 +14,7 @@
 static inline unsigned long task_util(struct task_struct *p);
 static int select_max_spare_capacity(struct task_struct *p, int target);
 int cpu_eff_tp = 1024;
-unsigned long long big_cpu_eff_tp;
+unsigned long long big_cpu_eff_tp = 1024;
 
 #ifndef cpu_isolated
 #define cpu_isolated(cpu) 0
@@ -280,9 +280,10 @@ static int init_cpu_info(void)
 }
 late_initcall_sync(init_cpu_info)
 
+#ifdef CONFIG_MTK_UNIFY_POWER
 void set_sched_turn_point_cap(void)
 {
-	//int turn_point_idx;
+	int turn_point_idx;
 	struct hmp_domain *domain;
 	int cpu;
 	const struct sched_group_energy *sge_core;
@@ -291,9 +292,15 @@ void set_sched_turn_point_cap(void)
 	cpu = cpumask_first(&domain->possible_cpus);
 	sge_core = cpu_core_energy(cpu);
 
-	// turn_point_idx = max(upower_get_turn_point() - 1, 0);
-	// cpu_eff_tp = sge_core->cap_states[turn_point_idx].cap;
+	turn_point_idx = max(upower_get_turn_point() - 1, 0);
+	cpu_eff_tp = sge_core->cap_states[turn_point_idx].cap;
 }
+#else
+void set_sched_turn_point_cap(void)
+{
+	return;
+}
+#endif
 
 #if defined(CONFIG_SCHED_HMP) || defined(CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT)
 
