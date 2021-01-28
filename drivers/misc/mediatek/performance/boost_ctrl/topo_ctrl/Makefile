@@ -11,14 +11,4 @@
 # GNU General Public License for more details.
 #
 
-#ifneq ($(wildcard $(srctree)/drivers/misc/mediatek/performance/boost_ctrl/topo_ctrl/$(CONFIG_MTK_PLATFORM)/),)
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761" "mt6779"))
-	ccflags-y += \
-		-I$(srctree)/drivers/misc/mediatek/performance/boost_ctrl/topo_ctrl/$(CONFIG_MTK_PLATFORM)
-else
-	ccflags-y += \
-		-I$(srctree)/drivers/misc/mediatek/performance/boost_ctrl/topo_ctrl/common
-endif
-
 obj-y += topo_ctrl.o
-
