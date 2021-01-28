@@ -24,6 +24,9 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/of_gpio.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/jiffies.h>
 #include <linux/list.h>
 #include <linux/atomic.h>
@@ -105,6 +108,7 @@ static int otg_iddig_probe(struct platform_device *pdev)
 	struct usb_iddig_info *info;
 	struct pinctrl *pinctrl;
 	u32 ints[2] = {0, 0};
+	int id;
 
 	info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
 	if (!info)
@@ -151,6 +155,22 @@ static int otg_iddig_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, info);
+
+	info->id_gpiod = devm_gpiod_get_optional(&pdev->dev, "id", GPIOD_IN);
+	if (info->id_gpiod && !IS_ERR(info->id_gpiod)) {
+		gpiod_set_debounce(info->id_gpiod, info->id_swdebounce);
+
+		id = gpiod_get_value_cansleep(info->id_gpiod);
+		if (id == 0) {
+			disable_irq_nosync(info->id_irq);
+
+			/* Perform initial detection */
+			iddig_mode_switch(&info->id_delaywork.work);
+		}
+		dev_info(dev, "usb id-gpio value: %i success!!!\n", id);
+	} else {
+		dev_info(dev, "cannot get id-gpio node from dts\n");
+	}
 
 	return 0;
 }
