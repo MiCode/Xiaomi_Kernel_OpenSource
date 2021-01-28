@@ -3336,6 +3336,12 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		ac_charger_current = <2050000>;
 		ac_charger_input_current = <3200000>;
 		charging_host_charger_current = <1500000>;
+
+		/* dynamic mivr */
+		enable_dynamic_mivr;
+		min_charger_voltage_1 = <4400000>;
+		min_charger_voltage_2 = <4200000>;
+		max_dmivr_charger_current = <1800000>;
 	};
 
 	pd_adapter: pd_adapter {
