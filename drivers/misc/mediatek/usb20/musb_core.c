@@ -156,9 +156,8 @@ module_param_named(dbg_uart, musb_uart_debug, uint, 0644);
 
 #define MUSB_DRIVER_NAME "musb-hdrc"
 const char musb_driver_name[] = MUSB_DRIVER_NAME;
-#if defined(CONFIG_R_PORTING)
 static DEFINE_IDA(musb_ida);
-#endif
+
 MODULE_DESCRIPTION(DRIVER_INFO);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
@@ -265,36 +264,26 @@ static inline struct musb *dev_to_musb(struct device *dev)
 }
 
 /*-------------------------------------------------------------------------*/
-#if defined(CONFIG_R_PORTING)
 int musb_get_id(struct device *dev, gfp_t gfp_mask)
 {
 	int ret;
-	int id;
 
-	ret = ida_pre_get(&musb_ida, gfp_mask);
-	if (!ret) {
-		dev_notice(dev, "failed to reserve resource for id\n");
-		return -ENOMEM;
-	}
-
-	ret = ida_get_new(&musb_ida, &id);
+	ret = ida_alloc(&musb_ida, gfp_mask);
 	if (ret < 0) {
 		dev_notice(dev, "failed to allocate a new id\n");
 		return ret;
 	}
 
-	return id;
+	return ret;
 }
 EXPORT_SYMBOL_GPL(musb_get_id);
 
 void musb_put_id(struct device *dev, int id)
 {
-
 	dev_dbg(dev, "removing id %d\n", id);
-	ida_remove(&musb_ida, id);
+	ida_free(&musb_ida, id);
 }
 EXPORT_SYMBOL_GPL(musb_put_id);
-#endif
 
 #ifdef NEVER				/* #ifndef CONFIG_BLACKFIN */
 static int musb_ulpi_read(struct usb_phy *phy, u32 offset)
