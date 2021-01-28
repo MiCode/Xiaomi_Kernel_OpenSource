@@ -1163,11 +1163,11 @@ static int _rdma_partial_update(enum DISP_MODULE_ENUM module, void *arg,
 }
 
 int rdma_ioctl(enum DISP_MODULE_ENUM module, void *cmdq_handle,
-	       unsigned int ioctl_cmd, unsigned long *params)
+	       enum DDP_IOCTL_NAME ioctl_cmd, void *params)
 {
 	int ret = 0;
 	unsigned int input_bpp = 3;
-	enum DDP_IOCTL_NAME ioctl = (enum DDP_IOCTL_NAME)ioctl_cmd;
+	enum DDP_IOCTL_NAME ioctl = ioctl_cmd;
 	unsigned int idx = rdma_index(module);
 
 	switch (ioctl) {
