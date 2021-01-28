@@ -146,10 +146,12 @@ static ssize_t dvfsrc_met_dump_show(struct device *dev,
 	value = vcorefs_get_src_req();
 	p += snprintf(p, buff_end - p,
 		"NUM SRC_REQ: %d\n", res_num);
-	for (i = 0; i < res_num; i++) {
-		p += snprintf(p, buff_end - p,
-			"%s : %d\n",
-			name[i], value[i]);
+	if (name && value) {
+		for (i = 0; i < res_num; i++) {
+			p += snprintf(p, buff_end - p,
+				"%s : %d\n",
+				name[i], value[i]);
+		}
 	}
 
 	return p - buf;
