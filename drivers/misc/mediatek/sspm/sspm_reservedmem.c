@@ -42,7 +42,31 @@ static phys_addr_t sspm_mem_base_phys;
 static phys_addr_t sspm_mem_base_virt;
 static phys_addr_t sspm_mem_size;
 
-#ifdef CONFIG_OF_RESERVED_MEM
+
+#if defined(MODULE)
+static void sspm_reserve_memory_ioremap(struct platform_device *pdev)
+{
+	struct device_node *rmem_node;
+	struct reserved_mem *rmem;
+
+	/* Get reserved memory */
+	rmem_node = of_find_compatible_node(NULL, NULL, SSPM_MEM_RESERVED_KEY);
+	if (!rmem_node) {
+		pr_err("[SSPM] no node for reserved memory\n");
+		return;
+	}
+
+	rmem = of_reserved_mem_lookup(rmem_node);
+	if (!rmem) {
+		pr_err("[SSPM] cannot lookup reserved memory\n");
+		return;
+	}
+
+	sspm_mem_base_phys = (phys_addr_t) rmem->base;
+	sspm_mem_size = (phys_addr_t) rmem->size;
+}
+
+#elif defined(CONFIG_OF_RESERVED_MEM)
 static int __init sspm_reserve_mem_of_init(struct reserved_mem *rmem)
 {
 	sspm_mem_base_phys = rmem->base;
@@ -57,7 +81,6 @@ static int __init sspm_reserve_mem_of_init(struct reserved_mem *rmem)
 
 	return 0;
 }
-
 RESERVEDMEM_OF_DECLARE(sspm_reservedmem, SSPM_MEM_RESERVED_KEY,
 	sspm_reserve_mem_of_init);
 #endif
@@ -100,7 +123,11 @@ int sspm_reserve_memory_init(void)
 	if (NUMS_MEM_ID == 0)
 		return 0;
 
-	if (sspm_mem_base_phys == 0)
+#if defined(MODULE)
+	sspm_reserve_memory_ioremap(sspm_pdev);
+#endif
+
+	if (!sspm_mem_base_phys)
 		return -1;
 
     /* Phy memory */
@@ -118,7 +145,7 @@ int sspm_reserve_memory_init(void)
 			ioremap_wc(sspm_mem_base_phys, sspm_mem_size);
 
 #ifdef DEBUG
-	pr_info("[SSPM]reserve mem: virt:0x%p - 0x%p (0x%p)\n",
+	pr_info("[SSPM]reserve mem: virt:0x%llx - 0x%p (0x%llx)\n",
 			sspm_mem_base_virt,
 			sspm_mem_base_virt + sspm_mem_size,
 			sspm_mem_size);
@@ -138,7 +165,7 @@ int sspm_reserve_memory_init(void)
 #ifdef DEBUG
 	for (id = 0; id < NUMS_MEM_ID; id++) {
 		pr_info("[SSPM][mem_reserve-%d] ", id);
-		pr_info("phys:0x%p, virt:0x%p,size:0x%p\n",
+		pr_info("phys:0x%llx, virt:0x%llx,size:0x%llx\n",
 			(unsigned long long)sspm_reserve_mem_get_phys(id),
 			(unsigned long long)sspm_reserve_mem_get_virt(id),
 			(unsigned long long)sspm_reserve_mem_get_size(id));

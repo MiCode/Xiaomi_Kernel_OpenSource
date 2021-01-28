@@ -1332,7 +1332,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	sspm@10440000 {
-		compatible = "mediatek,sspm";
+		compatible = "mediatek,mt6761-sspm";
 		reg = <0 0x10440000 0 0x10000>,
 			<0 0x10450000 0 0x100>,
 			<0 0x10451000 0 0x8>,
