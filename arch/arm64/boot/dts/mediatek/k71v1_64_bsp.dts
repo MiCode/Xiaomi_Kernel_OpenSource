@@ -18,19 +18,6 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/pinctrl/mt6771-pinfunc.h>
 
-&reserved_memory {
-	#address-cells = <2>;
-	#size-cells = <2>;
-	ranges;
-
-	zmc-default {
-		compatible = "mediatek,zone_movable_cma";
-		size = <0 0xffc00000>;
-		alignment = <0 0x10000000>;
-		alloc-ranges = <0 0xc0000000 1 0x00000000>;
-	};
-};
-
 /* chosen */
 &chosen {
 	/* fpga may has no lk, we need to specify display info here */
@@ -93,15 +80,6 @@
 		vib_timer = <25>;
 		vib_limit = <9>;
 		vib_vol= <9>;
-	};
-	memory_ssmr_features: memory-ssmr-features {
-		compatible = "mediatek,memory-ssmr-features";
-		svp-size = <0 0>;
-		iris-recognition-size = <0 0>;
-		2d_fr-size = <0 0>;
-		tui-size = <0 0>;
-		wfd-size = <0 0>;
-		prot-sharedmem-size = <0 0>;
 	};
 	usb_c_pinctrl:usb_c_pinctrl {
 		compatible = "mediatek,usb_c_pinctrl";
