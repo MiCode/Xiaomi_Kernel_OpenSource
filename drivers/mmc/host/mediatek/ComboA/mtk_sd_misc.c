@@ -147,6 +147,9 @@ static int simple_sd_ioctl_set_bootpart(struct msdc_ioctl *msdc_ctl)
 	int ret = 0;
 	int bootpart = 0;
 
+	if (msdc_ctl->host_num < 0)
+		return -EINVAL;
+
 	host_ctl = mtk_msdc_host[msdc_ctl->host_num];
 
 	if (!host_ctl || !host_ctl->mmc || !host_ctl->mmc->card) {
@@ -236,7 +239,7 @@ int simple_sd_ioctl_rw(struct msdc_ioctl *msdc_ctl)
 	struct msdc_host *host_ctl;
 	struct mmc_host *mmc;
 
-	if (!msdc_ctl)
+	if ((!msdc_ctl) || (msdc_ctl->host_num < 0))
 		return -EINVAL;
 
 	host_ctl = mtk_msdc_host[msdc_ctl->host_num];
