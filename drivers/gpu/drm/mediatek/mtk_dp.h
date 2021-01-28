@@ -279,10 +279,12 @@ void mtk_dp_fec_enable(unsigned int status);
 void mtk_dp_power_save(unsigned int status);
 void mtk_dp_hdcp_enable(bool enable);
 void mtk_dp_force_hdcp1x(bool enable);
-void mtk_dp_set_adjust_phy(uint8_t c0, uint8_t cp1);
+void mtk_dp_set_adjust_phy(uint8_t index, uint8_t c0, uint8_t cp1);
 int mtk_dp_hdcp_getInfo(char *buffer, int size);
+int mtk_dp_phy_getInfo(char *buffer, int size);
 void mdrv_DPTx_reAuthentication(struct mtk_dp *mtk_dp);
 void mdrv_DPTx_PatternSet(bool enable, int resolution);
+void mdrv_DPTx_set_maxlinkrate(bool enable, int maxlinkrate);
 extern void mhal_DPTx_VideoClock(bool enable, int resolution);
 
 #endif //__MTK_DP__H__

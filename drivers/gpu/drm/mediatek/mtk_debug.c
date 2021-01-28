@@ -1958,12 +1958,14 @@ void disp_dbg_probe(void)
 			__func__, __LINE__);
 		goto out;
 	}
-out:
-	return;
 #endif
+
 #if IS_ENABLED(CONFIG_MTK_HDMI_SUPPORT)
 	mtk_dp_debugfs_init();
 #endif
+
+out:
+	return;
 }
 
 void disp_dbg_init(struct drm_device *dev)

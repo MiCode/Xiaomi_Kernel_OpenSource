@@ -1582,7 +1582,6 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	BYTE i;
 	WORD WaitReplyCount = AuxWaitReplyLpCntNum;
 	BYTE bRegIndex;
-	unsigned long long cStart;
 
 	msWriteByteMask(mtk_dp, REG_3704_AUX_TX_P0,
 		1 << AUX_TX_FIFO_NEW_MODE_EN_AUX_TX_P0_FLDMASK_POS,
@@ -1610,7 +1609,6 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 	} else
 		msWriteByte(mtk_dp, REG_362C_AUX_TX_P0, 0x01);
 
-	cStart = sched_clock();
 	msWriteByteMask(mtk_dp, REG_3704_AUX_TX_P0,
 		AUX_TX_FIFO_WRITE_DATA_NEW_MODE_TOGGLE_AUX_TX_P0_FLDMASK,
 		AUX_TX_FIFO_WRITE_DATA_NEW_MODE_TOGGLE_AUX_TX_P0_FLDMASK);
@@ -1627,8 +1625,7 @@ bool mhal_DPTx_AuxWrite_Bytes(struct mtk_dp *mtk_dp,
 		}
 
 		if (uAuxIrqStatus & AUX_400US_TIMEOUT_IRQ_AUX_TX_P0_FLDMASK) {
-			DPTXMSG("HW TO irq (Write) %lld ns\n",
-				sched_clock() - cStart);
+			DPTXMSG("(AUX write)HW Timeout 400us irq");
 			break;
 		}
 	}
@@ -1987,6 +1984,9 @@ void mhal_DPTx_HPDDetectSetting(struct mtk_dp *mtk_dp)
 
 void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 {
+	uint32_t value = 0;
+	uint8_t mask = 0x3F;
+
 	msWrite4ByteMask(mtk_dp,
 		DP_TX_TOP_PWR_STATE,
 		0x3 << DP_PWR_STATE_FLDMASK_POS, DP_PWR_STATE_FLDMASK);
@@ -1995,46 +1995,53 @@ void mhal_DPTx_PHYSetting(struct mtk_dp *mtk_dp)
 	msWrite4Byte(mtk_dp, 0x103C, 0x00000000);
 	msWrite4Byte(mtk_dp, 0x2000, 0x00000003);
 
-	msWrite4Byte(mtk_dp, 0x1138, 0x20181410);
-	msWrite4Byte(mtk_dp, 0x1238, 0x20181410);
-	msWrite4Byte(mtk_dp, 0x113C, 0x20241e18);
-	msWrite4Byte(mtk_dp, 0x123C, 0x20241e18);
-	msWrite4Byte(mtk_dp, 0x1140, 0x00003028);
-	msWrite4Byte(mtk_dp, 0x1240, 0x00003028);
-	msWrite4Byte(mtk_dp, 0x1144, 0x10080400);
+
+	value = (mtk_dp->phy_params[0].C0 & mask)
+		| ((mtk_dp->phy_params[1].C0 & mask) << 8)
+		| ((mtk_dp->phy_params[2].C0 & mask) << 16)
+		| ((mtk_dp->phy_params[3].C0 & mask) << 24);
+	msWrite4Byte(mtk_dp, 0x1138, value);//0x20181410
+	msWrite4Byte(mtk_dp, 0x1238, value);
+	DPTXDBG("0x38:%#010x, 0x38:%#010x", value, msRead4Byte(mtk_dp, 0x1138));
+
+	value = (mtk_dp->phy_params[4].C0 & mask)
+		| ((mtk_dp->phy_params[5].C0 & mask) << 8)
+		| ((mtk_dp->phy_params[6].C0 & mask) << 16)
+		| ((mtk_dp->phy_params[7].C0 & mask) << 24);
+	msWrite4Byte(mtk_dp, 0x113C, value);//0x20241e18
+	msWrite4Byte(mtk_dp, 0x123C, value);
+	DPTXDBG("0x3C:%#010x, 0x3C:%#010x", value, msRead4Byte(mtk_dp, 0x113C));
+
+	value = (mtk_dp->phy_params[8].C0 & mask)
+		| ((mtk_dp->phy_params[9].C0 & mask) << 8);
+	msWrite4Byte(mtk_dp, 0x1140, value);//0x00003028
+	msWrite4Byte(mtk_dp, 0x1240, value);
+	DPTXDBG("0x40:%#010x, 0x40:%#010x", value, msRead4Byte(mtk_dp, 0x1140));
+
+
+	value = (mtk_dp->phy_params[0].CP1 & mask)
+		| ((mtk_dp->phy_params[1].CP1 & mask) << 8)
+		| ((mtk_dp->phy_params[2].CP1 & mask) << 16)
+		| ((mtk_dp->phy_params[3].CP1 & mask) << 24);
+	msWrite4Byte(mtk_dp, 0x1144, 0x10080400);//0x10080400
 	msWrite4Byte(mtk_dp, 0x1244, 0x10080400);
-	msWrite4Byte(mtk_dp, 0x1148, 0x000c0600);
-	msWrite4Byte(mtk_dp, 0x1248, 0x000c0600);
-	msWrite4Byte(mtk_dp, 0x114C, 0x00000008);
-	msWrite4Byte(mtk_dp, 0x124C, 0x00000008);
+	DPTXDBG("0x44:%#010x, 0x44:%#010x", value, msRead4Byte(mtk_dp, 0x1144));
+
+	value = (mtk_dp->phy_params[4].CP1 & mask)
+		| ((mtk_dp->phy_params[5].CP1 & mask) << 8)
+		| ((mtk_dp->phy_params[6].CP1 & mask) << 16)
+		| ((mtk_dp->phy_params[7].CP1 & mask) << 24);
+	msWrite4Byte(mtk_dp, 0x1148, value);//0x000c0600
+	msWrite4Byte(mtk_dp, 0x1248, value);
+	DPTXDBG("0x48:%#010x, 0x48:%#010x", value, msRead4Byte(mtk_dp, 0x1148));
+
+	value = (mtk_dp->phy_params[8].CP1 & mask)
+		| ((mtk_dp->phy_params[9].CP1 & mask) << 8);
+	msWrite4Byte(mtk_dp, 0x114C, value);//0x00000008
+	msWrite4Byte(mtk_dp, 0x124C, value);
+	DPTXDBG("0x4C:%#010x, 0x4C:%#010x", value, msRead4Byte(mtk_dp, 0x114C));
 
 	msWrite4ByteMask(mtk_dp, 0x3690, BIT8, BIT8);
-}
-
-void mhal_DPTx_AdjustPHYSetting(struct mtk_dp *mtk_dp, BYTE c0, BYTE cp1)
-{
-	uint32_t reg = 0;
-	BYTE temp = 0;
-
-	temp = c0 & 0x3F;
-	reg = temp | (temp << 8) | (temp << 16) | (temp << 24);
-	msWrite4Byte(mtk_dp, 0x1138, reg);
-	msWrite4Byte(mtk_dp, 0x1238, reg);
-	msWrite4Byte(mtk_dp, 0x113C, reg);
-	msWrite4Byte(mtk_dp, 0x123C, reg);
-	reg = temp | (temp << 8);
-	msWrite4Byte(mtk_dp, 0x1140, reg);
-	msWrite4Byte(mtk_dp, 0x1240, reg);
-
-	temp = cp1 & 0x3F;
-	reg = temp | (temp << 8) | (temp << 16) | (temp << 24);
-	msWrite4Byte(mtk_dp, 0x1144, reg);
-	msWrite4Byte(mtk_dp, 0x1244, reg);
-	msWrite4Byte(mtk_dp, 0x1148, reg);
-	msWrite4Byte(mtk_dp, 0x1248, reg);
-	reg = temp | (temp << 8);
-	msWrite4Byte(mtk_dp, 0x114C, reg);
-	msWrite4Byte(mtk_dp, 0x124C, reg);
 }
 
 void mhal_DPTx_SSCOnOffSetting(struct mtk_dp *mtk_dp, bool bENABLE)
