@@ -428,16 +428,16 @@ static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 
 	/*traversing array must less than DFPS_LEVELS*/
 	/*DPFS_LEVEL0*/
-	dfps_params[0].level = DFPS_LEVEL0;
-	dfps_params[0].fps = 6000;/*real fps * 100, to support float*/
-	dfps_params[0].vact_timing_fps = 9000;/*real vact timing fps * 100*/
+	dfps_params[1].level = DFPS_LEVEL0;
+	dfps_params[1].fps = 6000;/*real fps * 100, to support float*/
+	dfps_params[1].vact_timing_fps = 9000;/*real vact timing fps * 100*/
 	/*if mipi clock solution*/
 	/*dfps_params[0].PLL_CLOCK = xx;*/
 	/*dfps_params[0].data_rate = xx; */
 	/*if HFP solution*/
 	/*dfps_params[0].horizontal_frontporch = xx;*/
-	dfps_params[0].vertical_frontporch = 36;
-	dfps_params[0].vertical_frontporch_for_low_power = 540;
+	dfps_params[1].vertical_frontporch = 36;
+	dfps_params[1].vertical_frontporch_for_low_power = 540;
 
 	/*if need mipi hopping params add here*/
 	/*dfps_params[0].PLL_CLOCK_dyn =xx;
@@ -446,16 +446,16 @@ static void lcm_dfps_int(struct LCM_DSI_PARAMS *dsi)
 	 */
 
 	/*DPFS_LEVEL1*/
-	dfps_params[1].level = DFPS_LEVEL1;
-	dfps_params[1].fps = 9000;/*real fps * 100, to support float*/
-	dfps_params[1].vact_timing_fps = 9000;/*real vact timing fps * 100*/
+	dfps_params[0].level = DFPS_LEVEL1;
+	dfps_params[0].fps = 9000;/*real fps * 100, to support float*/
+	dfps_params[0].vact_timing_fps = 9000;/*real vact timing fps * 100*/
 	/*if mipi clock solution*/
 	/*dfps_params[1].PLL_CLOCK = xx;*/
 	/*dfps_params[1].data_rate = xx; */
 	/*if HFP solution*/
 	/*dfps_params[1].horizontal_frontporch = xx;*/
-	dfps_params[1].vertical_frontporch = 320;
-	dfps_params[1].vertical_frontporch_for_low_power = 540;
+	dfps_params[0].vertical_frontporch = 320;
+	dfps_params[0].vertical_frontporch_for_low_power = 540;
 
 	/*if need mipi hopping params add here*/
 	/*dfps_params[1].PLL_CLOCK_dyn =xx;
