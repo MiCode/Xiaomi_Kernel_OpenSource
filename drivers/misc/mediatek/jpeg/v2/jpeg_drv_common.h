@@ -75,10 +75,10 @@ struct JpegDrvEncCtrlCfg {
 #define JPEG_DRV_ENC_NV12                     (0x02 << 3)
 #define JPEG_DRV_ENC_NV21                     (0x03 << 3)
 
-#define JPEG_MSG pr_debug
-#define JPEG_WRN pr_debug
-#define JPEG_ERR pr_debug
-#define JPEG_VEB pr_debug
+#define JPEG_MSG pr_info
+#define JPEG_WRN pr_info
+#define JPEG_ERR pr_info
+#define JPEG_VEB pr_info
 
 /* /////// JPEG Driver Decoder /////// */
 /*  */

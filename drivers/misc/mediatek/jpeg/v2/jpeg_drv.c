@@ -426,8 +426,9 @@ void jpeg_drv_enc_power_on(void)
 	#else
 		#ifdef CONFIG_MTK_SMI_EXT
 		#if defined(PLATFORM_MT6779)
-		smi_bus_prepare_enable(SMI_LARB3_REG_INDX,
-			"JPEG", true);
+
+		smi_bus_prepare_enable(SMI_LARB3, "JPEG");
+
 		#elif defined(PLATFORM_MT6785)
 
 		smi_bus_prepare_enable(SMI_LARB3, "JPEG");
@@ -498,8 +499,7 @@ void jpeg_drv_enc_power_off(void)
 		clk_disable_unprepare(gJpegClk.clk_venc_jpgEnc);
 		#if defined(PLATFORM_MT6779)
 
-		smi_bus_disable_unprepare(SMI_LARB3_REG_INDX,
-		"JPEG", true);
+		smi_bus_disable_unprepare(SMI_LARB3, "JPEG");
 
 		#elif defined(PLATFORM_MT6785)
 
