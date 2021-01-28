@@ -1374,7 +1374,7 @@ static void print_vma_name(unsigned char *Userthread_maps,
 		int write_len;
 		const char *kaddr;
 		long pages_pinned;
-		struct page *page;
+		struct page *page = NULL;
 
 		pages_pinned = get_user_pages_remote(current, mm,
 				page_start_vaddr, 1, 0, &page, NULL, NULL);
