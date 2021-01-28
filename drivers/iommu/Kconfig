@@ -412,7 +412,7 @@ config MTK_IOMMU_V2
 	select IOMMU_DMA
 	select IOMMU_IO_PGTABLE_ARMV7S
 	select MEMORY
-	select MTK_SMI
+	select HAVE_MTK_SMI
 	help
 	  Support for the M4U on certain Mediatek SOCs. M4U is MultiMedia
 	  Memory Management Unit. This option enables remapping of DMA
