@@ -2253,12 +2253,14 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 		ui = 1000 / (dsi_params->PLL_CLOCK * 2) + 0x01;
 		cycle_time = 8000 / (dsi_params->PLL_CLOCK * 2) + 0x01;
 		n = snprintf(msg, len,
-			     "[DISP] - kernel - %s, Cycle Time = %d(ns), ",
-			     __func__, cycle_time);
-		n += snprintf(msg + n, len - n,
-			      "Unit Interval = %d(ns)., lane# = %d\n",
-			      ui, lane_no);
-		DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
+			     "[DISP] - kernel - %s, Cycle Time = %d(ns), Unit Interval = %d(ns)., lane# = %d\n",
+			     __func__, cycle_time, ui, lane_no);
+		if (n < 0) {
+			DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+				     __func__, __LINE__, n);
+		} else
+			DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
+
 	} else {
 		DISP_PR_ERR("[dsi_dsi.c] PLL clock should not be 0!\n");
 		ASSERT(0);
@@ -2334,18 +2336,18 @@ void DSI_PHY_TIMCONFIG(enum DISP_MODULE_ENUM module, struct cmdqRecStruct *cmdq,
 				dsi_params->CLK_HS_POST;
 
 	n = snprintf(msg, len,
-		     "[DISP] - kernel - %s, HS_TRAIL = %d, HS_ZERO = %d, ",
-		     __func__, timcon0.HS_TRAIL, timcon0.HS_ZERO);
-	n += snprintf(msg + n, len - n,
-		      "HS_PRPR = %d, LPX = %d, TA_GET = %d, TA_SURE = %d, ",
-		      timcon0.HS_PRPR, timcon0.LPX,
-		      timcon1.TA_GET, timcon1.TA_SURE);
-	n += snprintf(msg + n, len - n,
-		      "TA_GO = %d, CLK_TRAIL = %d, CLK_ZERO = %d, ",
-		      timcon1.TA_GO, timcon2.CLK_TRAIL, timcon2.CLK_ZERO);
-	n += snprintf(msg + n, len - n, "CLK_HS_PRPR = %d\n",
-		      timcon3.CLK_HS_PRPR);
-	DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
+		     "[DISP] - %s %d, HS[TRAIL=%d, ZERO=%d, PRPR=%d], LPX=%d, TA[GET=%d, SURE=%d, GO=%d], CLK[TRAIL=%d, ZERO=%d, HS_PRPR=%d]\n",
+		     __func__, __LINE__,
+		     timcon0.HS_TRAIL, timcon0.HS_ZERO,
+		     timcon0.HS_PRPR, timcon0.LPX,
+		     timcon1.TA_GET, timcon1.TA_SURE, timcon1.TA_GO,
+		     timcon2.CLK_TRAIL, timcon2.CLK_ZERO,
+		     timcon3.CLK_HS_PRPR);
+	if (n < 0) {
+		DISP_PR_INFO("[%s %d]snprintf err:%d\n",
+			     __func__, __LINE__, n);
+	} else
+		DISP_LOG_PRINT(ANDROID_LOG_INFO, "DSI", "%s", msg);
 
 	for (i = DSI_MODULE_BEGIN(module); i <= DSI_MODULE_END(module); i++) {
 		unsigned int value = 0;
