@@ -45,7 +45,7 @@ struct pinctrl_state *pins_default;
 struct pinctrl_state *eint_as_int, *eint_output0,
 		*eint_output1, *rst_output0, *rst_output1;
 const struct of_device_id touch_of_match[] = {
-	{ .compatible = "mediatek,touch", },
+	{ .compatible = "goodix,touch", },
 	{},
 };
 
@@ -143,7 +143,7 @@ static DEFINE_MUTEX(tpd_set_gpio_mutex);
 void tpd_gpio_as_int(int pin)
 {
 	mutex_lock(&tpd_set_gpio_mutex);
-	TPD_DEBUG("[tpd]tpd_gpio_as_int\n");
+	TPD_DEBUG("[tpd]tpd gpio as int\n");
 	if (pin == 1)
 		pinctrl_select_state(pinctrl1, eint_as_int);
 	mutex_unlock(&tpd_set_gpio_mutex);
@@ -152,7 +152,7 @@ void tpd_gpio_as_int(int pin)
 void tpd_gpio_output(int pin, int level)
 {
 	mutex_lock(&tpd_set_gpio_mutex);
-	TPD_DEBUG("tpd_gpio_output pin = %d, level = %d\n", pin, level);
+	TPD_DEBUG("gpio_output pin = %d, level = %d\n", pin, level);
 	if (pin == 1) {
 		if (level)
 			pinctrl_select_state(pinctrl1, eint_output1);
@@ -408,7 +408,7 @@ static struct notifier_block tpd_fb_notifier;
 /* use fb_notifier */
 static void touch_resume_workqueue_callback(struct work_struct *work)
 {
-	TPD_DEBUG("GTP touch_resume_workqueue_callback\n");
+	TPD_DEBUG("GTP touch_resume_callback\n");
 	g_tpd_drv->resume(NULL);
 	tpd_suspend_flag = 0;
 }
@@ -420,7 +420,7 @@ static int tpd_fb_notifier_callback(
 	int blank;
 	int err = 0;
 
-	TPD_DEBUG("tpd_fb_notifier_callback\n");
+	TPD_DEBUG("fb_notifier_callback\n");
 
 	evdata = data;
 	/* If we aren't interested in this event, skip it immediately ... */
@@ -636,7 +636,7 @@ static int tpd_probe(struct platform_device *pdev)
 			tpd_driver_list[i].tpd_local_init();
 			/* msleep(1); */
 			if (tpd_load_status == 1) {
-				TPD_DMESG("tpd_probe, tpd_driver_name=%s\n",
+				TPD_DMESG("probe, tpd_driver_name=%s\n",
 					  tpd_driver_list[i].tpd_device_name);
 				g_tpd_drv = &tpd_driver_list[i];
 				break;
