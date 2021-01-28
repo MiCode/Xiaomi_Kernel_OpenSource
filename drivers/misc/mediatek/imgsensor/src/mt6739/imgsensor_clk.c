@@ -141,7 +141,7 @@ int imgsensor_clk_set(struct IMGSENSOR_CLK *pclk,
 
 void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk)
 {
-	int i;
+	unsigned int i = 0;
 
 	pr_debug("imgsensor_clk_enable_all_cg\n");
 	for (i = IMGSENSOR_CCF_CG_MIN_NUM; i < IMGSENSOR_CCF_CG_MAX_NUM; i++) {
@@ -162,7 +162,7 @@ void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk)
 
 void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 {
-	int i;
+	unsigned int i = 0;
 
 	pr_debug("%s\n", __func__);
 	for (i = 0; i < IMGSENSOR_CCF_MAX_NUM; i++) {
