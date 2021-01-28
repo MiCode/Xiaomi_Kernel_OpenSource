@@ -40,7 +40,11 @@
 #endif
 #include "upmu_sw.h"
 #include "upmu_hw.h"
+
+#ifdef MT_GPUFREQ_PBM_SUPPORT
 #include "mtk_pbm.h"
+#endif /* ifdef MT_GPUFREQ_PBM_SUPPORT */
+
 #include "mt6761_clkmgr.h"
 /*#include "mtk_dramc.h"*/
 #include "mtk_gpufreq.h"
