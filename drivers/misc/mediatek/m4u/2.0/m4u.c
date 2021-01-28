@@ -87,7 +87,7 @@ static int m4u_buf_show(void *priv, unsigned int mva_start,
 {
 	struct m4u_buf_info *pMvaInfo = priv;
 
-	M4U_PRINT_LOG_OR_SEQ(
+	M4U_PRINT_SEQ(
 		data,
 		"0x%-8x, 0x%-8x, 0x%lx, 0x%-8x, 0x%x, %s, 0x%x, 0x%x, 0x%x\n",
 		pMvaInfo->mva, pMvaInfo->mva + pMvaInfo->size - 1, pMvaInfo->va,
@@ -101,14 +101,14 @@ static int m4u_buf_show(void *priv, unsigned int mva_start,
 int m4u_dump_buf_info(struct seq_file *seq)
 {
 
-	M4U_PRINT_LOG_OR_SEQ(seq, "\ndump mva allocated info ========>\n");
-	M4U_PRINT_LOG_OR_SEQ(
+	M4U_PRINT_SEQ(seq, "\ndump mva allocated info ========>\n");
+	M4U_PRINT_SEQ(
 		seq,
 		"mva_start   mva_end          va       size     prot   module   flags   debug1  debug2\n");
 
 	mva_foreach_priv((void *)m4u_buf_show, seq);
 
-	M4U_PRINT_LOG_OR_SEQ(seq, " dump mva allocated info done ========>\n");
+	M4U_PRINT_SEQ(seq, " dump mva allocated info done ========>\n");
 	return 0;
 }
 
