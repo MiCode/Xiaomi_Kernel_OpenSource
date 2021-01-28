@@ -2,32 +2,18 @@
 bypass_arr=(\
 "function long int __probe_kernel_read" \
 "function void ion_device_add_heap" \
-"function unsigned int nf_nat_masquerade_ipv6" \
-"function int nf_nat_masquerade_ipv6_register_notifier" \
-"function void nf_nat_masquerade_ipv6_unregister_notifier" \
 "function int ufshcd_" \
 "function int v4l2_" \
-"struct cgroup " \
-"struct cgroup_root " \
-"struct mem_cgroup " \
-"struct mem_cgroup_stat_cpu " \
-"struct mm_struct " \
+"net init_net" \
 "struct musb " \
 "struct musb_io " \
 "struct musb_platform_ops " \
 "struct net " \
 "struct net_device " \
-"struct psi_group " \
-"struct psi_group " \
-"struct rfkill " \
-"struct task_struct " \
-"struct vm_area_struct " \
-"struct vm_event_state " \
 "struct ufs_dev_info " \
 "struct ufs_hba " \
 "struct ufs_stats " \
 "struct ufs_vreg " \
 "struct ufshcd_lrb " \
 "struct utp_task_req_desc " \
-"struct vm_fault " \
-"struct vm_operations_struct ")
+"struct vm_fault ")

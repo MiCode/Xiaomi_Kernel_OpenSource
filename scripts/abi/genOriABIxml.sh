@@ -11,7 +11,7 @@ ABIGAIL_DIR=$BASE_DIR/../kernel/build/abi
 ABIGAIL_BUILD_SCRIPT=$ABIGAIL_DIR/bootstrap_src_build
 ABI_XML_DIR=$BASE_DIR/scripts/abi/abi_xml
 #target_kernel must create outside current kernel's repo
-TARGET_KERNEL_DIR=$BASE_DIR/../../target_kernel
+TARGET_KERNEL_DIR=$BASE_DIR/../../target_kernel_r0_trunk
 TARGET_DEFCONFIG=mtk_gki_defconfig
 TARGET_DEFCONFIG_PATCH=$ABI_DIR/mtk_gki_defconfig_patch
 TARGET_ABI_XML=abi_$src_defconfig.xml
