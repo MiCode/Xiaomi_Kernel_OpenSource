@@ -11,19 +11,5 @@
 # GNU General Public License for more details.
 #
 
-
-ifeq ($(CONFIG_MTK_PPM),y)
-obj-y += cpu_ctrl.o
-else
-
-# no CONFIG_MTK_PPM but specific lagacy platform
-ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6768"))
-obj-y += cpu_ctrl.o
-else
-obj-y += cpu_ctrl_dummy.o
-
-endif
-endif # CONFIG_MTK_PPM
-
-obj-$(CONFIG_MTK_CPU_CTRL_CFP) += cpu_ctrl_cfp.o
+obj-y += syslimiter.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
