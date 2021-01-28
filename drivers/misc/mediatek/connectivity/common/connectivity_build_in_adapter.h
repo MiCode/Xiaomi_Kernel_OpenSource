@@ -205,9 +205,6 @@ void connectivity_export_mt_ppm_sysboost_set_freq_limit(
 bool connectivity_export_spm_resource_req(unsigned int user,
 				unsigned int req_mask);
 #endif
-void connectivity_flush_dcache_area(void *addr, size_t len);
-void connectivity_arch_setup_dma_ops(struct device *dev, u64 dma_base, u64 size,
-				     struct iommu_ops *iommu, bool coherent);
 
 /*********************************************
  * copy from

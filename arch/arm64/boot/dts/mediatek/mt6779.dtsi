@@ -517,13 +517,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			alloc-ranges = <0 0x40000000 0 0x50000000>;
 		};
 
-		wifi-reserve-memory {
-			compatible = "mediatek,wifi-reserve-memory";
+		wifi_mem: wifi-reserve-memory {
+			compatible = "shared-dma-pool";
 			no-map;
 			size = <0 0x600000>;
 			alignment = <0 0x1000000>;
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
+
 		ssmr_cma_mem: ssmr-reserved-cma_memory {
 			compatible = "shared-dma-pool";
 			reusable;
@@ -3200,6 +3201,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			compatible = "mediatek,wifi";
 			reg = <0 0x18000000 0 0x100000>;
 			interrupts = <GIC_SPI 317 IRQ_TYPE_LEVEL_LOW>;
+			memory-region = <&wifi_mem>;
 		};
 
 		consys: consys@18002000 {
