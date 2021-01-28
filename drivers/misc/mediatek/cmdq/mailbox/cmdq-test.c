@@ -275,7 +275,7 @@ static void cmdq_test_mbox_polling(
 		}
 
 		cmdq_pkt_cl_create(&pkt[i], clt);
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 		if (secure)
 			cmdq_sec_pkt_set_data(
 				pkt[i], 0, 0, CMDQ_SCENARIO_DEBUG);
@@ -426,7 +426,7 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 	writel(pttn[2], (void *)va);
 
 	cmdq_pkt_cl_create(&pkt, clt);
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (secure)
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SCENARIO_DEBUG);
 #endif
@@ -450,7 +450,7 @@ static void cmdq_test_mbox_dma_access(struct cmdq_test *test, const bool secure)
 			dma_va[2], val, pttn[2]);
 
 	cmdq_pkt_cl_create(&pkt, clt);
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (secure)
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SCENARIO_DEBUG);
 #endif
@@ -508,7 +508,7 @@ static void cmdq_test_mbox_flush(
 
 	for (i = 0; i < CMDQ_TEST_CNT; i++) {
 		cmdq_pkt_cl_create(&pkt[i], clt);
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 		if (secure)
 			cmdq_sec_pkt_set_data(
 				pkt[i], 0, 0, CMDQ_SCENARIO_DEBUG);
@@ -573,7 +573,7 @@ static void cmdq_test_mbox_write(
 	writel(0, (void *)va);
 
 	cmdq_pkt_cl_create(&pkt, clt);
-#if IS_ENABLED(CONFIG_MTK_TEE_GP_SUPPORT)
+#ifdef CMDQ_SECURE_SUPPORT
 	if (secure)
 		cmdq_sec_pkt_set_data(pkt, 0, 0, CMDQ_SCENARIO_DEBUG);
 #endif
