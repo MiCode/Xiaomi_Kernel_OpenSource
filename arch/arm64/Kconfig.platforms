@@ -142,6 +142,7 @@ config MACH_MT6761
 	select MTK_SYSTRACKER_V2
 	select MTK_L2C_PARITY_CHECK
 	select MTK_PMQOS
+	select ARM_MTK_ARCH_CPUIDLE
 	help
 	  This enables support for MediaTek MT6761. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,

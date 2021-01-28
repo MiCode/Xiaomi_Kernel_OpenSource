@@ -96,16 +96,6 @@ static struct all_cpu_idle all_cpu_idle_data = {
 
 static DEFINE_SPINLOCK(all_cpu_idle_spin_lock);
 
-unsigned int get_menu_next_timer_us(void)
-{
-	return 0;
-}
-
-unsigned int get_menu_predict_us(void)
-{
-	return 0;
-}
-
 int __attribute__((weak)) mtk_idle_select(int cpu)
 {
 	return -1;

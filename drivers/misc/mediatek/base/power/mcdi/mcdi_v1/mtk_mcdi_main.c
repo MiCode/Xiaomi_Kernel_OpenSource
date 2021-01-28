@@ -859,10 +859,6 @@ static int __init mcdi_init(void)
 	/* Activate MCDI after SMP */
 	pr_info("%s\n", __func__);
 
-#ifndef MCDI_READY
-	return 0;
-#endif
-
 	/* Register CPU up/down callbacks */
 	mcdi_hotplug_cb_init();
 

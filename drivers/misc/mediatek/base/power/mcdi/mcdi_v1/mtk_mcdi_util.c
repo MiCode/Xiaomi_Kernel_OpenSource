@@ -155,10 +155,10 @@ void mcdi_set_cpu_iso_smc(unsigned int iso_mask)
 	if (iso_mask == 0xff)
 		return;
 
-	/* mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS, */
-			/* MCDI_SMC_EVENT_GIC_DPG_SET, */
-			/* iso_mask, */
-			/* 0, 0); */
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_GIC_DPG_SET,
+			iso_mask,
+			0, 0);
 }
 
 void mcdi_set_cpu_iso_mbox(unsigned int iso_mask)

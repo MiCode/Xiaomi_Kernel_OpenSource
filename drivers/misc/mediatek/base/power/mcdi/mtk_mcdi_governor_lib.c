@@ -28,9 +28,9 @@
 
 static void __release_last_core_prot(unsigned int clr)
 {
-	/* mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS, */
-			/* MCDI_SMC_EVENT_LAST_CORE_CLR, */
-			/* clr, 0, 0); */
+	mt_secure_call(MTK_SIP_KERNEL_MCDI_ARGS,
+			MCDI_SMC_EVENT_LAST_CORE_CLR,
+			clr, 0, 0);
 }
 
 void release_last_core_prot(void)
@@ -47,7 +47,7 @@ void release_cluster_last_core_prot(void)
 	if (mcdi_read(CPC_PWR_ON_MASK))
 		__release_last_core_prot(1U << 8);
 }
-#define NON_SECURE_REQ
+
 #ifdef NON_SECURE_REQ
 #define last_core_req(req)	mcdi_write(CPC_LAST_CORE_REQ, req)
 #else
