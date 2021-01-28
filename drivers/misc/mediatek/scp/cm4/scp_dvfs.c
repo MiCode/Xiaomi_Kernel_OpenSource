@@ -157,7 +157,7 @@ static unsigned int *scp_get_sub_register_cfg(enum subsys_enum sys_e,
 	struct regmap *regmap = sd[sys_e].regmap;
 	struct sub_feature_data *fd;
 	unsigned int *ret;
-	unsigned int val;
+	unsigned int val = 0;
 	int i;
 
 	fd = scp_get_sub_feature(sys_e, comp_e);
@@ -490,11 +490,25 @@ void wait_scp_dvfs_init_done(void)
 int scp_pll_ctrl_set(unsigned int pll_ctrl_flag, unsigned int pll_sel)
 {
 	int max_freq = dvfs->opp[dvfs->scp_opp_num - 1].freq;
-	int idx = scp_get_freq_idx(pll_sel);
-	int mux_idx = dvfs->opp[idx].clk_mux;
+	int idx;
+	int mux_idx;
 	int ret = 0;
 
 	pr_debug("%s(%d, %d)\n", __func__, pll_ctrl_flag, pll_sel);
+
+	idx = scp_get_freq_idx(pll_sel);
+	if (idx < 0) {
+		pr_notice("invalid idx %d\n", idx);
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	mux_idx = dvfs->opp[idx].clk_mux;
+	if (mux_idx < 0) {
+		pr_notice("invalid mux_idx %d\n", mux_idx);
+		WARN_ON(1);
+		return -EINVAL;
+	}
 
 	if (pll_ctrl_flag == PLL_ENABLE) {
 		if (pre_pll_sel != max_freq) {
@@ -683,6 +697,8 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 	int n;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
+	if (len < 0)
+		return 0;
 	if (copy_from_user(desc, buffer, len))
 		return 0;
 	desc[len] = '\0';
