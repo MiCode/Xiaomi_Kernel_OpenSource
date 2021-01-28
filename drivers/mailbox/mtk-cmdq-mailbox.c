@@ -125,7 +125,7 @@ struct cmdq_buf_dump {
 	u32			pa_offset; /* pa_curr - pa_base */
 };
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 #include "../misc/mediatek/mmp/mmprofile.h"
 
 #define MMP_THD(t, c)	((t)->idx | ((c)->hwid << 5))
@@ -203,7 +203,7 @@ static void cmdq_init(struct cmdq *cmdq)
 
 static inline void cmdq_mmp_init(void)
 {
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_enable(1);
 	if (cmdq_mmp.cmdq) {
 		mmprofile_start(1);
@@ -367,7 +367,7 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
 	u32 status;
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_SUSPEND);
 #endif
@@ -389,13 +389,13 @@ static int cmdq_thread_suspend(struct cmdq *cmdq, struct cmdq_thread *thread)
 
 static void cmdq_thread_resume(struct cmdq_thread *thread)
 {
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	struct cmdq *cmdq = container_of(
 		thread->chan->mbox, typeof(*cmdq), mbox);
 #endif
 
 	writel(CMDQ_THR_RESUME, thread->base + CMDQ_THR_SUSPEND_TASK);
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.thread_suspend, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_RESUME);
 #endif
@@ -441,7 +441,7 @@ static void cmdq_thread_err_reset(struct cmdq *cmdq, struct cmdq_thread *thread,
 	writel(thd_pri, thread->base + CMDQ_THR_CFG);
 	writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 	writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
 #endif
@@ -449,7 +449,7 @@ static void cmdq_thread_err_reset(struct cmdq *cmdq, struct cmdq_thread *thread,
 
 static void cmdq_thread_disable(struct cmdq *cmdq, struct cmdq_thread *thread)
 {
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), CMDQ_THR_DISABLED);
 #endif
@@ -646,7 +646,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 	}
 	pkt->task_alloc = true;
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.submit, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), (unsigned long)pkt);
 #endif
@@ -686,7 +686,7 @@ static void cmdq_task_exec(struct cmdq_pkt *pkt, struct cmdq_thread *thread)
 		cmdq_thread_set_pc(thread, task->pa_base);
 		writel(CMDQ_THR_IRQ_EN, thread->base + CMDQ_THR_IRQ_ENABLE);
 		writel(CMDQ_THR_ENABLED, thread->base + CMDQ_THR_ENABLE_TASK);
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 		mmprofile_log_ex(cmdq_mmp.thread_en, MMPROFILE_FLAG_PULSE,
 			MMP_THD(thread, cmdq), CMDQ_THR_ENABLED);
 #endif
@@ -853,7 +853,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		task->pkt->rec_irq = sched_clock();
 #endif
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 		mmprofile_log_ex(cmdq_mmp.loop_irq, MMPROFILE_FLAG_PULSE,
 			MMP_THD(thread, cmdq), (unsigned long)task->pkt);
 #endif
@@ -867,7 +867,7 @@ static void cmdq_thread_irq_handler(struct cmdq *cmdq,
 		return;
 	}
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.cmdq_irq, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq), task ? (unsigned long)task->pkt : 0);
 #endif
@@ -1058,7 +1058,7 @@ static void cmdq_thread_handle_timeout_work(struct work_struct *work_item)
 		kfree(task);
 	}
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 	mmprofile_log_ex(cmdq_mmp.warning, MMPROFILE_FLAG_PULSE,
 		MMP_THD(thread, cmdq),
 		timeout_task ? (unsigned long)timeout_task : 0);
@@ -2243,7 +2243,7 @@ unsigned long cmdq_get_tracing_mark(void)
 	return tracing_mark_write_addr;
 }
 
-#if IS_ENABLED(CMDQ_MMPROFILE_SUPPORT)
+#if IS_ENABLED(CONFIG_MMPROFILE)
 void cmdq_mmp_wait(struct mbox_chan *chan, void *pkt)
 {
 	struct cmdq_thread *thread = chan->con_priv;
