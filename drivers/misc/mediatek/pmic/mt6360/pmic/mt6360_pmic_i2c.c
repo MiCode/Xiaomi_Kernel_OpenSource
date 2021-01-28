@@ -12,13 +12,13 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/delay.h>
-#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
+#ifdef FIXME
+//#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 #include <mach/mtk_pmic_wrap.h>
 #include <mt-plat/upmu_common.h>
 #endif
 #include "../inc/mt6360_pmic.h"
 #include <charger_class.h>
-#include <linux/platform_device.h>
 
 static bool dbg_log_en; /* module param to enable/disable debug log */
 module_param(dbg_log_en, bool, 0644);
@@ -492,7 +492,8 @@ static int mt6360_pmic_set_voltage_sel(struct regulator_dev *rdev,
 	/* for LDO6/7 vocal add */
 	if (id > MT6360_PMIC_BUCK2)
 		sel = (sel >= 160) ? 0xfa : (((sel / 10) << 4) + sel % 10);
-#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
+#ifdef FIXME
+//#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 	if (id == MT6360_PMIC_BUCK1)
 		pwrap_write(MT6359_RG_SPI_CON12, sel);
 #endif
@@ -776,41 +777,6 @@ out:
 	return ret;
 }
 
-/*temp patch*/
-//function
-static int mt6360_pmu_buckldo_probe(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static int mt6360_pmu_buckldo_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-static const struct of_device_id __maybe_unused
-			mt6360_pmu_pmic_buckldo_of_id[] = {
-	{ .compatible = "mediatek,mt6360_pmu_pmic_buckldo", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, mt6360_pmu_pmic_buckldo_of_id);
-
-static const struct platform_device_id mt6360_pmu_buckldo_id[] = {
-	{ "mt6360_pmic_buckldo", 0 },
-	{},
-};
-
-static struct platform_driver mt6360_pmu_pmic_buckldo_driver = {
-	.driver = {
-		.name = "mt6360_pmu_pmic_buckldo",
-		.owner = THIS_MODULE,
-		.of_match_table = of_match_ptr(mt6360_pmu_pmic_buckldo_of_id),
-	},
-	.probe = mt6360_pmu_buckldo_probe,
-	.remove = mt6360_pmu_buckldo_remove,
-	.id_table = mt6360_pmu_buckldo_id,
-};
-
 static int mt6360_pmic_i2c_probe(struct i2c_client *client,
 				 const struct i2c_device_id *id)
 {
@@ -906,13 +872,9 @@ static int mt6360_pmic_i2c_probe(struct i2c_client *client,
 						REGULATOR_MODE_STANDBY;
 	}
 	mt6360_pmic_irq_register(mpi);
-	ret = platform_driver_register(&mt6360_pmu_pmic_buckldo_driver);
-	if (ret < 0)
-		dev_info(&client->dev,
-			"%s: mt6360 buckldo_driver add failed\n", __func__);
 	dev_info(&client->dev, "%s: successfully probed\n", __func__);
-
-#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
+#ifdef FIXME
+//#if defined(CONFIG_MACH_MT6779) || defined(CONFIG_MACH_MT6785)
 	/* MT6359 record VMDLA vosel */
 	ret = mt6360_pmic_reg_read(mpi,
 		mt6360_pmic_descs[MT6360_PMIC_BUCK1].desc.vsel_reg);
