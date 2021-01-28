@@ -28,8 +28,6 @@
 #include <linux/vmalloc.h>
 #ifdef CONFIG_MTK_LCM
 #include <disp_assert_layer.h>
-#elif defined(CONFIG_DRM_MEDIATEK)
-#include <mtk_drm_assert_ext.h>
 #endif
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -1592,7 +1590,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 			/* Try to prevent overrun */
 			dal_show->msg[sizeof(dal_show->msg) - 1] = 0;
-#if defined(CONFIG_MTK_LCM) || defined(CONFIG_DRM_MEDIATEK)
+#ifdef CONFIG_MTK_LCM
 			pr_debug("AEE CALL DAL_Printf now\n");
 			DAL_Printf("%s", dal_show->msg);
 #endif
@@ -1613,7 +1611,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			dal_setcolor.foreground = 0x00ff00;	/*green */
 			dal_setcolor.background = 0xff0000;	/*red */
 
-#if defined(CONFIG_MTK_LCM) || defined(CONFIG_DRM_MEDIATEK)
+#ifdef CONFIG_MTK_LCM
 			pr_debug("AEE CALL DAL_SetColor now\n");
 			DAL_SetColor(dal_setcolor.foreground,
 					dal_setcolor.background);
@@ -1639,7 +1637,7 @@ static long aed_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				ret = -EFAULT;
 				goto EXIT;
 			}
-#if defined(CONFIG_MTK_LCM) || defined(CONFIG_DRM_MEDIATEK)
+#ifdef CONFIG_MTK_LCM
 			pr_debug("AEE CALL DAL_SetColor now\n");
 			DAL_SetColor(dal_setcolor.foreground,
 					dal_setcolor.background);
