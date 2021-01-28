@@ -1835,7 +1835,7 @@ static int akm09918_i2c_probe(struct i2c_client *client,
 	ctl.flush = akm09918_flush;
 	ctl.is_report_input_direct = false;
 	ctl.is_support_batch = data->hw->is_batch_supported;
-	strlcpy(ctl.libinfo.libname, "akl", sizeof(ctl.libinfo.libname));
+	strlcpy(ctl.libinfo.libname, "akm", sizeof(ctl.libinfo.libname));
 	ctl.libinfo.layout = AKECS_SetCert();
 	ctl.libinfo.deviceid = akm_device;
 
