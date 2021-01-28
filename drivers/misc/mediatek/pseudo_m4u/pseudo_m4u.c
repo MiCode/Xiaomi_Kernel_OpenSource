@@ -390,7 +390,7 @@ int m4u_dump_secpgd(unsigned int larbid, unsigned int portid,
 int m4u_dma_cache_flush_all(void)
 {
 	/* L1 cache clean before hw read */
-	/* smp_inner_dcache_flush_all();*/
+	smp_inner_dcache_flush_all();
 
 	/* L2 cache maintenance by physical pages */
 	outer_flush_all();
@@ -2159,68 +2159,10 @@ MTK_M4U_COMPAT_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 #endif
 
-/*
- * Display show fastlogo in lk. it is contiougous buffer. when entering kernel,
- * the iommu HW will be enabled. Avoid the display show fastlogo smoothly,
- * defautly map the fastlogo physicall address as the iova address.
- * directly mapping (iova == pa).
- *
- * This pa for a project is fix. thus don't use dtsi to get it.
- */
-#define FASTLOGO_PA_START		0x54700000
-#define FASTLOGO_LEN			  0x900000
 
 #ifdef CONFIG_ARM64
-/*
- * reserve the iova for direct mapping.
- * without this, the direct mapping iova maybe allocated to other users,
- * and the armv7s iopgtable may assert warning and return error.
- * We reserve those iova to avoid this iova been allocated by other users.
- */
-static int pseudo_reserve_dm(void)
-{
-	struct device *dev = m4u_get_larbdev(0);
-	struct iommu_domain *domain;
-	struct iova_domain *iovad;
-	struct iova *iova;
-	unsigned long pg_size = SZ_4K, limit, shift;
-	phys_addr_t fastgogo_start = FASTLOGO_PA_START;
-	unsigned long fastlogo_len = FASTLOGO_LEN;
-	dma_addr_t start;
+/* A64 Direct mapping is helped via iommu framework. */
 
-	start = ALIGN(fastgogo_start, pg_size);
-retry:
-	domain = iommu_get_domain_for_dev(dev);
-	if (!domain) {
-		m4u_pr_err("%s, %d, get iommu_domain failed\n",
-			__func__, __LINE__);
-		domain = iommu_get_domain_for_dev(dev);
-		cond_resched();
-		goto retry;
-	}
-
-	iovad = domain->iova_cookie;
-	shift = iova_shift(iovad);
-	limit = (start + fastlogo_len) >> shift;
-	/*
-	 * add plus one page for the size of allocation or there maybe
-	 * overlap
-	 */
-	iova = alloc_iova(iovad, (fastlogo_len >> shift) + 1, limit,
-			  false);
-	if (!iova) {
-		dev_err(dev, "pseudo alloc_iova failed %s, %d, dm->start 0x%lx, dm->length 0x%lx\n",
-			__func__, __LINE__,
-			(unsigned long)fastgogo_start, fastlogo_len);
-		return -1;
-	}
-
-	m4u_pr_err("reserve iova for dm success, dm->start 0x%lx, dm->length 0x%lx, start 0x%lx, end 0x%lx\n",
-		(unsigned long)fastgogo_start, fastlogo_len,
-		iova->pfn_lo << shift, iova->pfn_hi << shift);
-
-	return 0;
-}
 #else
 static struct dma_iommu_mapping *dmapping;
 static dma_addr_t __alloc_iova(struct dma_iommu_mapping *mapping,
@@ -2718,75 +2660,65 @@ static inline int __reserve_iova(struct dma_iommu_mapping *mapping,
 	return 0;
 }
 
+#ifdef CONFIG_MTK_FB
+/*
+ * Display show fastlogo in lk. it is contiougous buffer. when entering kernel,
+ * the iommu HW will be enabled. Avoid the display show fastlogo smoothly,
+ * defautly map the fastlogo physicall address as the iova address.
+ * directly mapping (iova == pa).
+ *
+ * This pa for a project can be get by mtkfv_get_fb_xxx().
+ */
 static int pseudo_reserve_dm(void)
 {
 	struct iommu_domain *domain = dmapping->domain;
-	phys_addr_t fastgogo_start = FASTLOGO_PA_START;
-	unsigned int fastlogo_len = FASTLOGO_LEN;
+	phys_addr_t fastlogo_start = mtkfb_get_fb_base();
+	unsigned int fastlogo_len = mtkfb_get_fb_size();
 	int ret = 0;
+
+	pr_info("[mhf]pseudo fastlogo_start=0x%lx, fastlogo_len=0x%x\n",
+		(unsigned long)fastlogo_start, fastlogo_len);
 
 	WARN_ON(!domain->ops->pgsize_bitmap);
 
-	ret = iommu_map(domain, fastgogo_start, fastgogo_start, fastlogo_len,
+	ret = iommu_map(domain, fastlogo_start, fastlogo_start, fastlogo_len,
 			IOMMU_WRITE | IOMMU_READ);
 	if (ret)
 		return ret;
 
-	ret = __reserve_iova(dmapping, fastgogo_start, fastlogo_len);
+	ret = __reserve_iova(dmapping, fastlogo_start, fastlogo_len);
 	return ret;
 }
 #endif
+#endif
 
 #ifdef M4U_TEE_SERVICE_ENABLE
-#ifdef CONFIG_ARM64
-/* reserve iova address range for security world for 1GB memory */
-static int __reserve_iova_sec(struct device *device,
-				dma_addr_t dma_addr, size_t size)
+unsigned int mtk_init_tz_m4u(void)
 {
-	struct device *dev = m4u_get_larbdev(0);
-	struct iommu_domain *domain;
-	struct iova_domain *iovad;
-	struct iova *iova;
-	unsigned long sec_mem_size = size >> PAGE_SHIFT;
+	/* init the sec_mem_size to 400M to avoid build error. */
+	static unsigned int sec_mem_size = 400 * 0x100000;
+	static unsigned int tz_m4u_inited;
+	unsigned long iommu_pgt_base = mtk_get_pgt_base();
+	/*reserve mva range for sec */
+	int gM4U_L2_enable = 1;
 
-retry:
-	/* in case pseudo larb has not finished probe. */
-	if (!dev && !device) {
-		m4u_pr_err("device is NULL and the larb have not been probed\n");
-		return -EINVAL;
-	} else if (!dev && device) {
-		dev = device;
-	}
+	if (tz_m4u_inited)
+		return sec_mem_size;
 
-	domain = iommu_get_domain_for_dev(dev);
-	if (!domain) {
-		m4u_pr_err("%s, %d, get domain failed\n", __func__, __LINE__);
-		domain = iommu_get_domain_for_dev(dev);
-		cond_resched();
-		goto retry;
-	}
+	pseudo_m4u_session_init();
 
-	iovad = domain->iova_cookie;
+	/* bit[0:11] is reserved */
+	iommu_pgt_base &= 0xfffff000;
+	pseudo_m4u_sec_init(0, gM4U_L2_enable, &sec_mem_size);
 
-	/*
-	 * iovad->start_pfn is 0x1, so limit_pfn need to add 1,
-	 * do not align the size
-	 */
-	iova = alloc_iova(iovad, sec_mem_size,
-		sec_mem_size + 1, false);
+	tz_m4u_inited = 1;
 
-	if (!iova) {
-		dev_err(dev, "pseudo alloc_iova failed %s, %d\n",
-			__func__, __LINE__);
-		return -1;
-	}
-
-	dev_err(dev,
-		"reserve iova for sec world suc, iova start 0x%lx, end 0x%lx\n",
-		iova->pfn_lo << PAGE_SHIFT, iova->pfn_hi << PAGE_SHIFT);
-
-	return 0;
+	return sec_mem_size;
 }
+
+#ifdef CONFIG_ARM64
+/* reserve iova range for sec world is helped via iommu framework */
+
 #else
 static int __reserve_iova_sec(struct device *device,
 			      dma_addr_t dma_addr, size_t size)
@@ -2825,7 +2757,6 @@ static const struct file_operations g_stMTK_M4U_fops = {
  */
 static int pseudo_probe(struct platform_device *pdev)
 {
-	int ret;
 	struct device *dev = &pdev->dev;
 #ifndef CONFIG_ARM64
 	struct device_node *node = dev->of_node;
@@ -2862,23 +2793,30 @@ static int pseudo_probe(struct platform_device *pdev)
 	}
 
 
+/*
+ * Init tz m4u and reserve iova regions in arm32 evb in here. In arm64
+ * evb, they are helped via mtk_iommu and iommu framework.
+ */
+#ifndef CONFIG_ARM64
 #ifdef M4U_TEE_SERVICE_ENABLE
-{
-	/* init the sec_mem_size to 400M to avoid build error. */
-	unsigned int sec_mem_size = 400 * 0x100000;
-	/*reserve mva range for sec */
-	struct device *dev = &pdev->dev;
-	int gM4U_L2_enable = 1;
+/* init tz_m4u and reserve sec iova region for arm32 evb */
+	{
+		unsigned int sec_mem_size = mtk_init_tz_m4u();
 
-	pseudo_m4u_session_init();
-	pseudo_m4u_sec_init(0, gM4U_L2_enable, &sec_mem_size);
 		/* reserve mva range for security world */
-	__reserve_iova_sec(dev, 0, sec_mem_size);
-}
+		__reserve_iova_sec(dev, 0, sec_mem_size);
+	}
 #endif
-	ret = pseudo_reserve_dm();
-	if (ret)
-		m4u_pr_err("reserve memory fail(%d)\n", ret);
+#ifdef CONFIG_MTK_FB
+/* reserve fastlogo iova region for arm32 evb */
+	{
+		int ret = pseudo_reserve_dm();
+
+		if (ret)
+			m4u_pr_err("reserve memory fail(%d)\n", ret);
+	}
+#endif
+#endif
 
 	gM4uDev = kzalloc(sizeof(struct m4u_device), GFP_KERNEL);
 	if (!gM4uDev)
@@ -2920,8 +2858,8 @@ static int pseudo_resume(struct platform_device *pdev)
 }
 
 
-#if IS_ENABLED(CONFIG_COMPAT)
-struct struct MTK_SMI_COMPAT_BWC_CONFIG {
+#ifdef CONFIG_COMPAT
+struct MTK_SMI_COMPAT_BWC_CONFIG {
 	compat_int_t scenario;
 	compat_int_t b_on_off;
 };

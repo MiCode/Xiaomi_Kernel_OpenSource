@@ -16,6 +16,7 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -26,6 +27,7 @@
 
 /* mt8173 */
 #define SMI_LARB_MMU_EN		0xf00
+#define SMI_LARB_MMU_EN_MT8167		0xfc0
 
 /* mt2701 */
 #define REG_SMI_SECUR_CON_BASE		0x5c0
@@ -48,6 +50,9 @@
 /* mt2712 */
 #define SMI_LARB_NONSEC_CON(id)	(0x380 + ((id) * 4))
 #define F_MMU_EN		BIT(0)
+#define SMI_LARB_SLP_CON		0x00c
+#define SLP_PROT_EN			BIT(0)
+#define SLP_PROT_RDY			BIT(16)
 
 /* SMI COMMON */
 #define SMI_BUS_SEL			0x220
@@ -72,6 +77,7 @@ struct mtk_smi_larb_gen {
 	bool need_larbid;
 	int port_in_larb[MTK_LARB_NR_MAX + 1];
 	void (*config_port)(struct device *);
+	void (*larb_sleep_ctrl)(struct device *dev, bool toslp);
 };
 
 struct mtk_smi {
@@ -192,6 +198,12 @@ static void mtk_smi_larb_config_port_mt8173(struct device *dev)
 	writel(*larb->mmu, larb->base + SMI_LARB_MMU_EN);
 }
 
+static void mtk_smi_larb_config_port_mt8167(struct device *dev)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+
+	writel(*larb->mmu, larb->base + SMI_LARB_MMU_EN_MT8167);
+}
 static void mtk_smi_larb_config_port_gen1(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
@@ -223,6 +235,24 @@ static void mtk_smi_larb_config_port_gen1(struct device *dev)
 	}
 }
 
+static void mtk_smi_larb_sleep_ctrl_mt8168(struct device *dev, bool toslp)
+{
+	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+	void __iomem *base = larb->base;
+	u32 tmp;
+
+	/* larb4 should be use a general way. */
+	if (larb->larbid == 4)
+		return;
+
+	if (toslp) {
+		writel_relaxed(SLP_PROT_EN, base + SMI_LARB_SLP_CON);
+		if (readl_poll_timeout_atomic(base + SMI_LARB_SLP_CON,
+				tmp, !!(tmp & SLP_PROT_RDY), 10, 10000))
+			dev_warn(dev, "larb sleep con not ready(%d)\n", tmp);
+	} else
+		writel_relaxed(0, base + SMI_LARB_SLP_CON);
+}
 static void
 mtk_smi_larb_unbind(struct device *dev, struct device *master, void *data)
 {
@@ -237,6 +267,10 @@ static const struct component_ops mtk_smi_larb_component_ops = {
 static const struct mtk_smi_larb_gen mtk_smi_larb_mt8173 = {
 	/* mt8173 do not need the port in larb */
 	.config_port = mtk_smi_larb_config_port_mt8173,
+};
+
+static const struct mtk_smi_larb_gen mtk_smi_larb_mt8167 = {
+	.config_port = mtk_smi_larb_config_port_mt8167,
 };
 
 static const struct mtk_smi_larb_gen mtk_smi_larb_mt2701 = {
@@ -257,10 +291,18 @@ static const struct mtk_smi_larb_gen mtk_smi_larb_mt8183 = {
 	.config_port = mtk_smi_larb_config_port_gen2_general,
 };
 
+static const struct mtk_smi_larb_gen mtk_smi_larb_mt8168 = {
+	.config_port = mtk_smi_larb_config_port_gen2_general,
+	.larb_sleep_ctrl = mtk_smi_larb_sleep_ctrl_mt8168,
+};
 static const struct of_device_id mtk_smi_larb_of_ids[] = {
 	{
 		.compatible = "mediatek,mt8173-smi-larb",
 		.data = &mtk_smi_larb_mt8173
+	},
+	{
+		.compatible = "mediatek,mt8167-smi-larb",
+		.data = &mtk_smi_larb_mt8167
 	},
 	{
 		.compatible = "mediatek,mt2701-smi-larb",
@@ -273,6 +315,10 @@ static const struct of_device_id mtk_smi_larb_of_ids[] = {
 	{
 		.compatible = "mediatek,mt8183-smi-larb",
 		.data = &mtk_smi_larb_mt8183
+	},
+	{
+		.compatible = "mediatek,mt8168-smi-larb",
+		.data = &mtk_smi_larb_mt8168
 	},
 	{}
 };
@@ -367,6 +413,8 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 		return ret;
 	}
 
+	if (larb_gen->larb_sleep_ctrl)
+		larb_gen->larb_sleep_ctrl(dev, false);
 	/* Configure the basic setting for this larb */
 	larb_gen->config_port(dev);
 
@@ -376,6 +424,10 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 static int __maybe_unused mtk_smi_larb_suspend(struct device *dev)
 {
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
+
+	if (larb_gen->larb_sleep_ctrl)
+		larb_gen->larb_sleep_ctrl(dev, true);
 
 	mtk_smi_clk_disable(&larb->smi);
 	pm_runtime_put_sync(larb->smi_common_dev);
@@ -413,6 +465,10 @@ static const struct mtk_smi_common_plat mtk_smi_common_mt8183 = {
 static const struct of_device_id mtk_smi_common_of_ids[] = {
 	{
 		.compatible = "mediatek,mt8173-smi-common",
+		.data = &mtk_smi_common_gen2,
+	},
+	{
+		.compatible = "mediatek,mt8167-smi-common",
 		.data = &mtk_smi_common_gen2,
 	},
 	{
