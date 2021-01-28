@@ -699,6 +699,15 @@ unsigned int drv_dpmaif_ul_get_ridx(unsigned char q_num)
 	return ridx;
 }
 
+unsigned int drv_dpmaif_ul_get_rwidx(unsigned char q_num)
+{
+	unsigned int ridx;
+
+	ridx = DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(q_num));
+
+	return ridx;
+}
+
 int drv_dpmaif_ul_add_wcnt(unsigned char q_num, unsigned short drb_wcnt)
 {
 	unsigned int ul_update;

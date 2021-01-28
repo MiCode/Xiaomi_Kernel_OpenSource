@@ -102,6 +102,21 @@ TRACE_EVENT(ccci_skb_rx,
 );
 #endif
 
+
+#define DPMA_DRB_LOG(fmt, args...) \
+do { \
+	ccci_dump_write(0, CCCI_DUMP_DPMA_DRB, 0, fmt, ##args); \
+	pr_info("[ccci]" fmt, ##args); \
+} while (0)
+
+#define DPMA_DRB_LOG_TIME(fmt, args...) \
+do { \
+	ccci_dump_write(0, CCCI_DUMP_DPMA_DRB|CCCI_DUMP_TIME_FLAG, \
+			0, fmt, ##args); \
+	pr_info("[ccci]" fmt, ##args); \
+} while (0)
+
+
 static void dpmaif_dump_register(struct hif_dpmaif_ctrl *hif_ctrl, int buf_type)
 {
 	if (hif_ctrl->dpmaif_state == HIFDPMAIF_STATE_PWROFF
@@ -494,19 +509,24 @@ static void dpmaif_traffic_monitor_func(unsigned long data)
 
 	if (3 < DPMAIF_TXQ_NUM)
 		CCCI_REPEAT_LOG(hif_ctrl->md_id, TAG,
-			"net Txq0-3(status=0x%x):%d-%d-%d, %d-%d-%d, %d-%d-%d, %d-%d-%d\n",
-			q_state, atomic_read(&hif_ctrl->txq[0].tx_budget),
+			"net Txq0-3(status=0x%x)[%d]:%d-%d-%d(0x%x), %d-%d-%d(0x%x), %d-%d-%d(0x%x), %d-%d-%d(0x%x)\n",
+			q_state, hif_ctrl->txq[0].drb_size_cnt,
+			atomic_read(&hif_ctrl->txq[0].tx_budget),
 			hif_ctrl->tx_pre_traffic_monitor[0],
 			hif_ctrl->tx_traffic_monitor[0],
+			DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(0)),
 			atomic_read(&hif_ctrl->txq[1].tx_budget),
 			hif_ctrl->tx_pre_traffic_monitor[1],
 			hif_ctrl->tx_traffic_monitor[1],
+			DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(1)),
 			atomic_read(&hif_ctrl->txq[2].tx_budget),
 			hif_ctrl->tx_pre_traffic_monitor[2],
 			hif_ctrl->tx_traffic_monitor[2],
+			DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(2)),
 			atomic_read(&hif_ctrl->txq[3].tx_budget),
 			hif_ctrl->tx_pre_traffic_monitor[3],
-			hif_ctrl->tx_traffic_monitor[3]);
+			hif_ctrl->tx_traffic_monitor[3],
+			DPMA_READ_AO_UL(DPMAIF_ULQ_STA0_n(3)));
 
 	isr_rem_nsec = (tinfo->latest_isr_time == 0 ?
 		0 : do_div(tinfo->latest_isr_time, NSEC_PER_SEC));
@@ -534,6 +554,161 @@ static void dpmaif_traffic_monitor_func(unsigned long data)
 			jiffies + DPMAIF_TRAFFIC_MONITOR_INTERVAL * HZ);
 }
 #endif
+
+/* Debug helper function for UL Busy */
+struct ul_update_rec {
+	s64 tick;
+	int ret;
+	unsigned int add_cnt;
+	unsigned int w_id;
+	unsigned int r_id;
+	unsigned int rel_id;
+	unsigned int budget;
+	unsigned int hw_reg;
+	unsigned int add_rel;
+};
+#define MAX_ADD_DRB_REC_NUM	5
+static
+struct ul_update_rec s_add_drb_history[DPMAIF_TXQ_NUM][MAX_ADD_DRB_REC_NUM];
+static unsigned int s_add_drb_rec_num[DPMAIF_TXQ_NUM];
+static unsigned int s_add_drb_rec_curr[DPMAIF_TXQ_NUM];
+
+#define MAX_REL_DRB_REC_NUM	5
+static
+struct ul_update_rec s_rel_drb_history[DPMAIF_TXQ_NUM][MAX_REL_DRB_REC_NUM];
+static unsigned int s_rel_drb_rec_num[DPMAIF_TXQ_NUM];
+static unsigned int s_rel_drb_rec_curr[DPMAIF_TXQ_NUM];
+
+static void ul_add_wcnt_record(int qid, unsigned int cnt, int ret,
+				unsigned int w, unsigned int r,
+				unsigned int rel, unsigned int b)
+{
+	struct ul_update_rec *ptr;
+
+	if (qid >= DPMAIF_TXQ_NUM)
+		return;
+	ptr = &s_add_drb_history[qid][s_add_drb_rec_curr[qid]];
+	ptr->tick = sched_clock();
+	ptr->ret = ret?1:0;
+	ptr->add_cnt = cnt;
+	ptr->w_id = w;
+	ptr->r_id = r;
+	ptr->rel_id = rel;
+	ptr->budget = b;
+	ptr->hw_reg = drv_dpmaif_ul_get_rwidx(qid);
+	ptr->add_rel = 0;
+
+	if (s_add_drb_rec_num[qid] < MAX_ADD_DRB_REC_NUM)
+		s_add_drb_rec_num[qid]++;
+	s_add_drb_rec_curr[qid]++;
+	if (s_add_drb_rec_curr[qid] >= MAX_ADD_DRB_REC_NUM)
+		s_add_drb_rec_curr[qid] = 0;
+}
+
+static void ul_rel_drb_record(int qid, unsigned int w, unsigned int r,
+				unsigned int rel, unsigned int b)
+{
+	struct ul_update_rec *ptr;
+
+	if (qid >= DPMAIF_TXQ_NUM)
+		return;
+	ptr = &s_rel_drb_history[qid][s_rel_drb_rec_curr[qid]];
+	ptr->tick = sched_clock();
+	ptr->ret = 0;
+	ptr->add_cnt = 0;
+	ptr->w_id = w;
+	ptr->r_id = r;
+	ptr->rel_id = rel;
+	ptr->budget = b;
+	ptr->hw_reg = drv_dpmaif_ul_get_rwidx(qid);
+	ptr->add_rel = 1;
+
+	if (s_rel_drb_rec_num[qid] < MAX_REL_DRB_REC_NUM)
+		s_rel_drb_rec_num[qid]++;
+	s_rel_drb_rec_curr[qid]++;
+	if (s_rel_drb_rec_curr[qid] >= MAX_REL_DRB_REC_NUM)
+		s_rel_drb_rec_curr[qid] = 0;
+}
+
+static void dump_drb_record_by_que(unsigned int qno)
+{
+	unsigned int j, k, a, r, n, m;
+	struct ul_update_rec *add_ptr, *rel_ptr, *ptr;
+
+	if (qno >= DPMAIF_TXQ_NUM) {
+		DPMA_DRB_LOG_TIME(
+			"DPMAIF %s get invalid qno(%u), exit dump -----\n",
+			__func__, qno);
+		return;
+	}
+
+	k = s_add_drb_rec_num[qno] + s_rel_drb_rec_num[qno];
+	DPMA_DRB_LOG_TIME("DPMAIF %s for q:%d with %d records +++++\n",
+				__func__, qno, k);
+	if (k > 0) {
+		n = s_add_drb_rec_num[qno];
+		if (n >= MAX_ADD_DRB_REC_NUM)
+			a = s_add_drb_rec_curr[qno];
+		else
+			a = 0;
+		m = s_rel_drb_rec_num[qno];
+		if (m >= MAX_REL_DRB_REC_NUM)
+			r = s_rel_drb_rec_curr[qno];
+		else
+			r = 0;
+		for (j = 0; j < k; j++) {
+			if (n && m) {
+				add_ptr = &s_add_drb_history[qno][a];
+				rel_ptr = &s_rel_drb_history[qno][r];
+				if (add_ptr->tick >= rel_ptr->tick) {
+					ptr = rel_ptr;
+					m--;
+					r++;
+					if (r >= MAX_REL_DRB_REC_NUM)
+						r = 0;
+				} else {
+					ptr = add_ptr;
+					n--;
+					a++;
+					if (a >= MAX_ADD_DRB_REC_NUM)
+						a = 0;
+				}
+				DPMA_DRB_LOG(
+					"[%lld] ret:%d ac:%u w:%u r:%u(0x%x) rel:%u b:%u reg:0x%x f:%d\n",
+					ptr->tick, ptr->ret, ptr->add_cnt,
+					ptr->w_id, ptr->r_id, ptr->r_id << 1,
+					ptr->rel_id, ptr->budget, ptr->hw_reg,
+					ptr->add_rel);
+			} else if (n) {
+				ptr = &s_add_drb_history[qno][a];
+				DPMA_DRB_LOG(
+					"[%lld] ret:%d ac:%u w:%u r:%u(0x%x) rel:%u b:%u reg:0x%x f:%d\n",
+					ptr->tick, ptr->ret, ptr->add_cnt,
+					ptr->w_id, ptr->r_id, ptr->r_id << 1,
+					ptr->rel_id, ptr->budget, ptr->hw_reg,
+					ptr->add_rel);
+			} else {
+				ptr = &s_rel_drb_history[qno][r];
+				DPMA_DRB_LOG(
+					"[%lld] ret:%d ac:%u w:%u r:%u(0x%x) rel:%u b:%u reg:0x%x f:%d\n",
+					ptr->tick, ptr->ret, ptr->add_cnt,
+					ptr->w_id, ptr->r_id, ptr->r_id << 1,
+					ptr->rel_id, ptr->budget, ptr->hw_reg,
+					ptr->add_rel);
+			}
+		}
+	}
+	DPMA_DRB_LOG("DPMAIF %s -----\n", __func__);
+}
+
+static void dump_drb_record(void)
+{
+	unsigned int i;
+
+	for (i = 0; i < DPMAIF_TXQ_NUM; i++)
+		dump_drb_record_by_que(i);
+}
+
 
 /* =======================================================
  *
@@ -2163,6 +2338,10 @@ int hif_empty_query(int qno)
 				txq->drb_size_cnt / 8;
 }
 
+static atomic_t s_tx_busy_num[DPMAIF_TXQ_NUM];
+static s64 s_last_busy_tick[DPMAIF_TXQ_NUM];
+static atomic_t s_tx_busy_assert_on;
+
 static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 {
 	unsigned int rel_cnt, hw_rd_cnt, real_rel_cnt;
@@ -2170,6 +2349,8 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 
 	/* update rd idx: from HW */
 	hw_rd_cnt = dpmaifq_poll_tx_drb(q_num);
+	ul_rel_drb_record(q_num, txq->drb_wr_idx, txq->drb_rd_idx,
+			txq->drb_rel_rd_idx, atomic_read(&txq->tx_budget));
 	rel_cnt = ringbuf_releasable(txq->drb_size_cnt,
 				txq->drb_rel_rd_idx, txq->drb_rd_idx);
 
@@ -2193,8 +2374,10 @@ static int dpmaif_tx_release(unsigned char q_num, unsigned short budget)
 
 	if (real_rel_cnt < 0 || txq->que_started == false)
 		return ERROR_STOP;
-	else
+	else {
+		atomic_set(&s_tx_busy_num[q_num], 0);
 		return ((real_rel_cnt < rel_cnt)?ONCE_MORE : ALL_CLEAR);
+	}
 }
 
 /*=== tx done =====*/
@@ -2338,6 +2521,33 @@ static void record_drb_skb(unsigned char q_num, unsigned short cur_idx,
 #endif
 }
 
+static int tx_fifo_ptr_check(int r, int w, int rel)
+{
+	if ((r == w) && (w == rel))
+		return 1;
+	if (r <= w) {
+		if ((rel <= r) || (w < rel))
+			return 1;
+	} else {
+		if ((rel <= r) && (w < rel))
+			return 1;
+	}
+	return 0;
+}
+
+static void tx_force_md_assert(char buf[])
+{
+	if (atomic_inc_return(&s_tx_busy_assert_on) <= 1) {
+		CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+				"%s force assert\n", buf);
+
+		dump_drb_record();
+		ccci_md_force_assert(dpmaif_ctrl->md_id,
+				MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED, "TX", 3);
+	}
+}
+
+
 static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	struct sk_buff *skb, int skb_from_pool, int blocking)
 {
@@ -2354,6 +2564,7 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	dma_addr_t phy_addr;
 	unsigned long flags;
 	unsigned short prio_count = 0;
+	s64 curr_tick;
 
 	/* 1. parameters check*/
 	if (!skb)
@@ -2409,6 +2620,59 @@ retry:
 			txq->drb_rel_rd_idx, txq->drb_wr_idx);
 
 	if (remain_cnt < send_cnt) {
+		curr_tick = sched_clock();
+		if (curr_tick - s_last_busy_tick[qno] > 5000000000L) {
+			atomic_inc(&s_tx_busy_num[qno]);
+			s_last_busy_tick[qno] = curr_tick;
+			CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+				"send_skb(%d): continue busy %u: %d, w(%d), r(%d), rel(%d) b(%d) rw_reg(0x%x) mask(0x%x)\n",
+				qno, atomic_read(&s_tx_busy_num[qno]),
+				txq->drb_size_cnt, txq->drb_wr_idx,
+				txq->drb_rd_idx, txq->drb_rel_rd_idx,
+				atomic_read(&txq->tx_budget),
+				drv_dpmaif_ul_get_rwidx(qno),
+				drv_dpmaif_ul_get_ul_interrupt_mask());
+		}
+		if (atomic_read(&s_tx_busy_num[qno]) > 6) {
+			atomic_set(&s_tx_busy_num[qno], 0);
+			/* tx_force_md_assert("TX busy 20s"); */
+			dump_drb_record_by_que(qno);
+			ret = -EBUSY;
+			goto __EXIT_FUN;
+		}
+		if (tx_fifo_ptr_check(txq->drb_rd_idx, txq->drb_wr_idx,
+			txq->drb_rel_rd_idx) == 0) {
+			if (atomic_read(&s_tx_busy_assert_on) == 0)
+				CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+					"send_skb(%d): fifo check: %d, w(%d), r(%d), rel(%d) b(%d) rw_reg(0x%x) mask(0x%x)\n",
+					qno, txq->drb_size_cnt,
+					txq->drb_wr_idx,
+					txq->drb_rd_idx, txq->drb_rel_rd_idx,
+					atomic_read(&txq->tx_budget),
+					drv_dpmaif_ul_get_rwidx(qno),
+					drv_dpmaif_ul_get_ul_interrupt_mask());
+
+			tx_force_md_assert("FIFO ptr abnormal");
+			ret = -EBUSY;
+			goto __EXIT_FUN;
+		}
+		if ((drv_dpmaif_ul_get_rwidx(qno) & 0xFFFF) >
+				(txq->drb_size_cnt << 1)) {
+			if (atomic_read(&s_tx_busy_assert_on) == 0)
+				CCCI_NORMAL_LOG(dpmaif_ctrl->md_id, TAG,
+					"send_skb(%d): hw cnt abnormal: %d, w(%d), r(%d), rel(%d) b(%d) rw_reg(0x%x) mask(0x%x)\n",
+					qno, txq->drb_size_cnt,
+					txq->drb_wr_idx,
+					txq->drb_rd_idx, txq->drb_rel_rd_idx,
+					atomic_read(&txq->tx_budget),
+					drv_dpmaif_ul_get_rwidx(qno),
+					drv_dpmaif_ul_get_ul_interrupt_mask());
+
+			tx_force_md_assert("HW cnt abnromal");
+			ret = -EBUSY;
+			goto __EXIT_FUN;
+		}
+
 		/* buffer check: full */
 		if (likely(ccci_md_get_cap_by_id(hif_ctrl->md_id)
 				&MODEM_CAP_TXBUSY_STOP))
@@ -2519,6 +2783,10 @@ retry:
 	wmb();
 	ret = drv_dpmaif_ul_add_wcnt(txq->index,
 		send_cnt * DPMAIF_UL_DRB_ENTRY_WORD);
+	ul_add_wcnt_record(txq->index, send_cnt * DPMAIF_UL_DRB_ENTRY_WORD,
+				ret, txq->drb_wr_idx, txq->drb_rd_idx,
+				txq->drb_rel_rd_idx,
+				atomic_read(&txq->tx_budget));
 	spin_unlock_irqrestore(&txq->tx_lock, flags);
 __EXIT_FUN:
 #ifdef DPMAIF_DEBUG_LOG
@@ -2529,9 +2797,8 @@ __EXIT_FUN:
 #endif
 	atomic_set(&txq->tx_processing, 0);
 	if (ret == HW_REG_CHK_FAIL)
-		ccci_md_force_assert(dpmaif_ctrl->md_id,
-			MD_FORCE_ASSERT_BY_AP_Q0_BLOCKED,
-			"TX", 3);
+		tx_force_md_assert("HW_REG_CHK_FAIL");
+
 	return ret;
 }
 
@@ -3391,6 +3658,7 @@ int dpmaif_start(unsigned char hif_id)
 	/* tx tx */
 	for (i = 0; i < DPMAIF_TXQ_NUM; i++) {
 		txq = &dpmaif_ctrl->txq[i];
+		atomic_set(&s_tx_busy_num[i], 0);
 		txq->que_started = true;
 		dpmaif_tx_hw_init(txq);
 	}
@@ -3405,6 +3673,8 @@ int dpmaif_start(unsigned char hif_id)
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_TAG_LOG(-1, TAG, "dpmaif:start end: %d\n", ret);
 #endif
+
+	atomic_set(&s_tx_busy_assert_on, 0);
 	return 0;
 }
 
@@ -3528,6 +3798,8 @@ static int dpmaif_stop_txq(struct dpmaif_tx_queue *txq)
 	/* flush work */
 	cancel_delayed_work(&txq->dpmaif_tx_work);
 	flush_delayed_work(&txq->dpmaif_tx_work);
+
+	atomic_set(&s_tx_busy_num[txq->index], 0);
 	/* reset sw */
 #ifdef DPMAIF_DEBUG_LOG
 	CCCI_HISTORY_LOG(-1, TAG, "stop_txq%d: 0x%x, 0x%x, 0x%x\n",
