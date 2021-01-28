@@ -6,8 +6,6 @@
 #include "regulator.h"
 /*#include "upmu_common.h"*/
 
-#define NO_OC
-
 #ifndef NO_OC
 #include <mt-plat/aee.h>
 #endif
