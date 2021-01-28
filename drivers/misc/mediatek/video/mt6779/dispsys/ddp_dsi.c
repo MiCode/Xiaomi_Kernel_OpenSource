@@ -1587,12 +1587,14 @@ static void _DSI_PHY_clk_setting(enum DISP_MODULE_ENUM module,
 					 FLD_RG_DSI_PLL_SDM_SSC_DELTA1,
 					 pdelta1);
 			n = snprintf(msg, len,
-				     "PLL config:data_rate=%d,pcw_ratio=%d, ",
-				     data_Rate, pcw_ratio);
-			n += snprintf(msg + n, len - n,
-				      "delta1=%d,pdelta1=0x%x\n",
-				      delta1, pdelta1);
-			DDPMSG("%s", msg);
+				     "PLL config:data_rate=%d,pcw_ratio=%d, delta1=%d,pdelta1=0x%x\n",
+				     data_Rate, pcw_ratio,
+				     delta1, pdelta1);
+			if (n < 0)
+				DISP_LOG_E("[%s %d]snprintf err:%d\n",
+					   __func__, __LINE__, n);
+			else
+				DDPMSG("%s", msg);
 		}
 	}
 
