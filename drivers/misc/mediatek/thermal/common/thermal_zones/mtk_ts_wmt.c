@@ -1358,7 +1358,7 @@ struct file *filp, const char __user *buf, size_t len, loff_t *data)
 		min_wifi_tput, tt_wifi_high,
 		tt_wifi_low, tp_wifi_rise, tp_wifi_fall);
 
-	if (sensor_select < 0 || sensor_select >= NR_TS_SENSORS) {
+	if (ret != 14 || sensor_select < 0 || sensor_select >= NR_TS_SENSORS) {
 		#ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 					"%s ",	__func__);
