@@ -1122,7 +1122,7 @@ static void msdc_set_power_mode(struct msdc_host *host, u8 mode)
 int msdc_switch_part(struct msdc_host *host, char part_id)
 {
 	int ret = 0;
-	u8 *l_buf;
+	u8 *l_buf = NULL;
 
 	if (!host || !host->mmc || !host->mmc->card)
 		return -ENOMEDIUM;
