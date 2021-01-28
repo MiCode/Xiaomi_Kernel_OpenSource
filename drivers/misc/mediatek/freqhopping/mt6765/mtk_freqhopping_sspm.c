@@ -24,10 +24,10 @@
 #include <linux/sched_clock.h>
 #include <linux/vmalloc.h>
 #include <linux/dma-mapping.h>
-#include "mt_freqhopping.h"
-#include "mt_fhreg.h"
+#include "mtk_freqhopping.h"
+#include "mtk_fhreg.h"
 #include "sync_write.h"
-#include "mt_freqhopping_drv.h"
+#include "mtk_freqhopping_drv.h"
 #ifdef HP_EN_REG_SEMAPHORE_PROTECT
 #include "mtk_cpufreq_hybrid.h"
 #endif
@@ -505,9 +505,8 @@ static void mt_fh_hal_default_conf(void)
 
 #if defined(CONFIG_MACH_MT6765)
 	//mt6765: default enable MPLL SSC 0~-1% at LP3 DDR devices
-	if (get_ddr_type() == TYPE_LPDDR3) {
+	if (get_ddr_type() == TYPE_LPDDR3)
 		g_pll_ssc_init_tbl[FH_PLL5] = FH_SSC_DEF_ENABLE_SSC;
-	}
 #endif
 
 	/* According to setting to enable PLL SSC during init FHCTL. */
@@ -807,7 +806,7 @@ static int mt_fh_hal_init(void)
 
 	g_initialize = 1;
 
-	FH_MSG("mt_fh_hal_init done");
+	FH_MSG("%s done", __func__);
 	return 0;
 }
 
