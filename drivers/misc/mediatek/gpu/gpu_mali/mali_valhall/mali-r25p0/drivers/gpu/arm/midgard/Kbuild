@@ -19,6 +19,8 @@
 #
 #
 
+include $(src)/Kbuild-mtk-custom-env
+include $(src)/platform/mtk_platform_common/Kbuild
 
 # Driver version string which is returned to userspace via an ioctl
 MALI_RELEASE_NAME ?= "r25p0-00cet2"
@@ -34,7 +36,9 @@ MALI_USE_CSF ?= 0
 MALI_UNIT_TEST ?= 0
 MALI_KERNEL_TEST_API ?= 0
 MALI_COVERAGE ?= 0
-CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+#CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MALI_PLATFORM_THIRDPARTY_NAME)
+
 # Experimental features (corresponding -D definition should be appended to
 # DEFINES below, e.g. for MALI_EXPERIMENTAL_FEATURE,
 # -DMALI_EXPERIMENTAL_FEATURE=$(MALI_EXPERIMENTAL_FEATURE) should be appended)
@@ -68,8 +72,9 @@ DEFINES += -I$(srctree)/drivers/staging/android
 DEFINES += -DMALI_KBASE_BUILD
 
 # Use our defines when compiling
-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux
-subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux
+# MTK Add -I$(src)/include to include ddk linux headers
+ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
+subdir-ccflags-y += $(DEFINES) -I$(KBASE_PATH)   -I$(KBASE_PLATFORM_PATH) -I$(UMP_PATH) -I$(srctree)/include/linux -I$(src)/include
 
 SRC := \
 	context/mali_kbase_context.c \
@@ -103,6 +108,7 @@ SRC := \
 	mmu/mali_kbase_mmu_mode_lpae.c \
 	mmu/mali_kbase_mmu_mode_aarch64.c \
 	mali_kbase_disjoint_events.c \
+	mali_kbase_gator_api.c \
 	mali_kbase_debug_mem_view.c \
 	mali_kbase_smc.c \
 	mali_kbase_mem_pool.c \
@@ -155,6 +161,7 @@ ifeq ($(MALI_CUSTOMER_RELEASE),0)
 	SRC += mali_kbase_regs_dump_debugfs.c
 endif
 
+SRC += mali_gputrace.c
 
 ccflags-y += -I$(KBASE_PATH) -I$(KBASE_PATH)/debug \
 	-I$(KBASE_PATH)/debug/backend

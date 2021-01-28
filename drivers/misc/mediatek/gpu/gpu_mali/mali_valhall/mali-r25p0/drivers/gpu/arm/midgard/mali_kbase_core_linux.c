@@ -110,12 +110,42 @@
 #include <device/mali_kbase_device.h>
 #include <context/mali_kbase_context.h>
 
+#include <mtk_gpufreq.h>
+
 /* GPU IRQ Tags */
 #define	JOB_IRQ_TAG	0
 #define MMU_IRQ_TAG	1
 #define GPU_IRQ_TAG	2
 
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
+
+#include "platform/mtk_platform_common.h"
+
+#ifdef ENABLE_COMMON_DVFS
+/* MTK GPU DVFS */
+#include <mali_kbase_pm_internal.h>
+static struct kbase_device *g_malidev;
+
+struct kbase_device *mtk_get_mali_dev(void)
+{
+	return g_malidev;
+}
+
+void mtk_gpu_dvfs_commit(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
+{
+	int ret;
+
+	ret = mtk_set_mt_gpufreq_target(ui32NewFreqID);
+
+	if (pbCommited) {
+		if (ret == 0)
+			*pbCommited = true;
+		else
+			*pbCommited = false;
+	}
+
+}
+#endif /* ENABLE_COMMON_DVFS */
 
 /**
  * kbase_file_new - Create an object representing a device file
@@ -4005,6 +4035,25 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		kbase_device_free(kbdev);
 	} else {
 #ifdef MALI_KBASE_BUILD
+#ifdef ENABLE_MTK_MEMINFO
+		mtk_kbase_gpu_memory_debug_init();
+#endif /* ENABLE_MTK_MEMINFO */
+
+#ifdef CONFIG_PROC_FS
+		proc_mali_register();
+#endif /* CONFIG_PROC_FS */
+
+#ifdef ENABLE_COMMON_DVFS
+	g_malidev = kbdev;
+
+#ifdef GED_ENABLE_DVFS_LOADING_MODE
+	ged_dvfs_cal_gpu_utilization_ex_fp = MTKCalGpuUtilization_ex;
+#else
+	ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
+#endif
+	ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
+#endif /* ENABLE_COMMON_DVFS */
+
 		dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
 #endif /* MALI_KBASE_BUILD */
