@@ -743,7 +743,9 @@ migrate_runnable_task(struct task_struct *p, int dst_cpu,
 	int moved = 0;
 	int src_cpu = cpu_of(rq);
 
-	raw_spin_lock(&p->pi_lock);
+	if (!raw_spin_trylock(&p->pi_lock))
+		return moved;
+
 	rq_lock(rq, &rf);
 
 	/* Are both target and busiest cpu online */
