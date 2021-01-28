@@ -169,14 +169,14 @@
 	};
 	ctp_ts_reset_suspend: reset_suspend {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO2_FUNC_GPIO2>;
+			pinmux = <PINMUX_GPIO2__FUNC_GPIO2>;
 			slew-rate = <1>;
 			output-low;
 		};
 	};
 	ctp_ts_i2c_mode: i2cmode_default {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO51_FUNC_SCL0>,
+			pinmux = <PINMUX_GPIO51__FUNC_SCL0>,
 				<PINMUX_GPIO52__FUNC_SDA0>;
 		};
 	};
