@@ -123,15 +123,17 @@ static int cpu_pm_callback_wakeup_src_restore(
 	int i;
 	u32 val;
 
-	val = spm_read(SPM_SW_RSV_0);
 	/* Note: cmd will be CPU_PM_ENTER/CPU_PM_EXIT/CPU_PM_ENTER_FAILED.
 	 * Set edge trigger interrupt pending only in case CPU_PM_EXIT
 	 */
 	if (cmd == CPU_PM_EXIT && spm_in_idle) {
 		for (i = 0; i < IRQ_NUMBER; i++) {
-			if ((val & WAKE_NO_STATUS) != WAKE_NO_STATUS)
+			val = spm_read(SPM_SW_RSV_0);
+			if ((val & WAKE_NO_STATUS) != WAKE_NO_STATUS) {
+				val = spm_read(SPM_SW_RSV_0);
 				if (val & list[i].wakesrc)
 					mt_irq_set_pending(edge_trig_irqs[i]);
+			}
 		}
 	}
 
