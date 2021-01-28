@@ -4251,7 +4251,31 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	pmu: mt6360_pmu@34 {
+	subpmic@34 {
+		compatible = "mediatek,subpmic";
+		reg = <0x34>;
+		status = "okay";
+	};
+
+	usb_type_c@4e {
+		compatible = "mediatek,usb_type_c";
+		reg = <0x4e>;
+		status = "okay";
+	};
+
+	subpmic_pmic@1a {
+		compatible = "mediatek,subpmic_pmic";
+		reg = <0x1a>;
+		status = "okay";
+	};
+
+	subpmic_ldo@64 {
+		compatible = "mediatek,subpmic_ldo";
+		reg = <0x64>;
+		status = "okay";
+	};
+
+	pmu: mt6360_pmu1@34 {
 		status = "ok";
 		compatible = "mediatek,mt6360_pmu";
 		reg = <0x34>;
@@ -4260,30 +4284,30 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		interrupt-parent = <&pio>;
 		interrupts = <3 IRQ_TYPE_EDGE_FALLING>;
 		interrupt-names = "IRQB";
-		mt6360_chg: chg {
+		mt6360_chg1: chg1 {
 			compatible = "mediatek,mt6360_chg";
 			vinovp = <14500000>;
-			otg_vbus: usb-otg-vbus {
+			otg_vbus1: usb-otg-vbus1 {
 				regulator-compatible = "usb-otg-vbus";
 				regulator-name = "usb-otg-vbus";
 				regulator-min-microvolt = <4425000>;
 				regulator-max-microvolt = <5825000>;
 			};
 		};
-		mt6360_adc: adc {
+		mt6360_adc1: adc1 {
 			compatible = "mediatek,mt6360_adc";
 			#io-channel-cells = <1>;
 		};
-		pmic {
+		pmic1 {
 			compatible = "mediatek,mt6360_pmic";
-			buck1 {
+			buck11 {
 				regulator-compatible = "BUCK1";
 				regulator-name = "mt6360,buck1";
 				regulator-min-microvolt = <300000>;
 				regulator-max-microvolt = <1300000>;
 				regulator-allowed-modes = <0 2 3>;
 			};
-			buck2 {
+			buck21 {
 				regulator-compatible = "BUCK2";
 				regulator-name = "mt6360,buck2";
 				regulator-min-microvolt = <300000>;
@@ -4291,7 +4315,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				regulator-allowed-modes = <0 2 3>;
 				regulator-always-on;
 			};
-			ldo6 {
+			ldo61 {
 				regulator-compatible = "LDO6";
 				regulator-name = "mt6360,ldo6";
 				regulator-min-microvolt = <500000>;
@@ -4299,7 +4323,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				regulator-allowed-modes = <0 2>;
 				regulator-always-on;
 			};
-			ldo7 {
+			ldo71 {
 				regulator-compatible = "LDO7";
 				regulator-name = "mt6360,ldo7";
 				regulator-min-microvolt = <500000>;
@@ -4308,30 +4332,30 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				regulator-always-on;
 			};
 		};
-		ldo {
+		ldo1 {
 			compatible = "mediatek,mt6360_ldo";
-			ldo1 {
+			ldo11 {
 				regulator-compatible = "LDO1";
 				regulator-name = "mt6360,ldo1";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
 			};
-			ldo2 {
+			ldo21 {
 				regulator-compatible = "LDO2";
 				regulator-name = "vtp";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
 			};
-			mt_pmic_vmc_ldo_reg: ldo3 {
+			mt_pmic_vmc_ldo_reg1: ldo31 {
 				regulator-compatible = "LDO3";
 				regulator-name = "mt6360,ldo3";
 				regulator-min-microvolt = <1200000>;
 				regulator-max-microvolt = <3600000>;
 				regulator-allowed-modes = <0 2>;
 			};
-			mt_pmic_vmch_ldo_reg: ldo5 {
+			mt_pmic_vmch_ldo_reg1: ldo51 {
 				regulator-compatible = "LDO5";
 				regulator-name = "mt6360,ldo5";
 				regulator-min-microvolt = <2700000>;
@@ -4365,6 +4389,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 	};
 };
 
+#include "mt6360.dtsi"
 #include "mt6359.dtsi"
 #include "bat_setting/mt6779_battery_prop.dtsi"
 #include "cust_mt6779_msdc.dtsi"

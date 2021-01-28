@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2019 MediaTek Inc.
- *
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 / {
@@ -11,7 +10,7 @@
 		mt6360,intr_gpio = <&pio 3 0x0>; /* GPIO */
 		interrupt-controller;
 		#interrupt-cells = <2>;
-		adc: adc {
+		mt6360_adc: adc {
 			compatible = "mediatek,mt6360_pmu_adc";
 			interrupt-parent = <&mt6360_pmu>;
 			interrupts = <41 0>, <43 0>, <44 0>;
@@ -20,7 +19,7 @@
 					  "adc_donei";
 			#io-channel-cells = <1>;
 		};
-		chg {
+		mt6360_chg: chg {
 			compatible = "mediatek,mt6360_pmu_chg";
 			interrupt-parent = <&mt6360_pmu>;
 			interrupts = <4 0>, <6 0>, <7 0>, <9 0>,
@@ -35,8 +34,10 @@
 					  "chg_rvpi",  "chg_aiccmeasl",
 					  "wdtmri", "pumpx_donei",
 					  "attachi", "chrdet_ext_evt";
-			io-channels = <&adc 0>, <&adc 1>, <&adc 3>, <&adc 4>,
-				      <&adc 5>, <&adc 6>, <&adc 8>, <&adc 10>;
+			io-channels = <&mt6360_adc 0>, <&mt6360_adc 1>,
+				      <&mt6360_adc 3>, <&mt6360_adc 4>,
+				      <&mt6360_adc 5>, <&mt6360_adc 6>,
+				      <&mt6360_adc 8>, <&mt6360_adc 10>;
 			io-channel-names = "USBID", "VBUSDIV5", "VSYS", "VBAT",
 					   "IBUS", "IBAT", "TEMP_JC", "TS";
 			chg_name = "primary_chg";
@@ -51,6 +52,14 @@
 			en_te = <1>;
 			en_wdt = <1>;
 			aicc_once = <1>;
+			post_aicc = <1>;
+			batoc_notify = <0>;
+			otg_vbus: usb-otg-vbus {
+				regulator-compatible = "usb-otg-vbus";
+				regulator-name = "usb-otg-vbus";
+				regulator-min-microvolt = <4425000>;
+				regulator-max-microvolt = <5825000>;
+			};
 		};
 		fled {
 			compatible = "mediatek,mt6360_pmu_fled";
@@ -108,7 +117,7 @@
 		};
 	};
 
-	mt6360_pmic_dts {
+	mt6360_pmic: mt6360_pmic_dts {
 		status = "ok";
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <96 0>, <100 0>, <101 0>, <102 0>,
@@ -120,17 +129,13 @@
 				  "buck2_ov_evt", "buck2_uv_evt",
 				  "ldo6_oc_evt", "ldo7_oc_evt",
 				  "ldo6_pgb_evt", "ldo7_pgb_evt";
-		sys_ctrls = [25 00 10];
-		buck1_ctrls = [a9 80 82 6a 00 80 02 70];
-		buck2_ctrls = [a9 80 81 6a 00 80 02 70];
-		ldo6_ctrls = [30 80 02 ec 44];
-		ldo7_ctrls = [30 80 02 ec 44];
+		pwr_off_seq = [06 04 00 02];
 		buck1 {
 			regulator-compatible = "BUCK1";
 			regulator-name = "VMDLA";
 			regulator-min-microvolt = <300000>;
 			regulator-max-microvolt = <1300000>;
-			regulator-boot-on;
+			regulator-always-on;
 		};
 		buck2 {
 			regulator-compatible = "BUCK2";
@@ -155,7 +160,7 @@
 		};
 	};
 
-	mt6360_ldo_dts {
+	mt6360_ldo: mt6360_ldo_dts {
 		status = "ok";
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <113 0>, <114 0>, <115 0>, <117 0>,
@@ -164,11 +169,7 @@
 				  "ldo3_oc_evt", "ldo5_oc_evt",
 				  "ldo1_pgb_evt", "ldo2_pgb_evt",
 				  "ldo3_pgb_evt", "ldo5_pgb_evt";
-		ldo1_ctrls = [00 80 01 2d 44];
-		ldo2_ctrls = [00 80 01 2d 44];
-		ldo3_ctrls = [00 80 01 2d a4];
-		ldo5_ctrls = [00 80 81 2d a4];
-		ldo1 {
+		mt_pmic_vfp_ldo_reg: ldo1 {
 			regulator-compatible = "LDO1";
 			regulator-name = "VFP";
 			regulator-min-microvolt = <1200000>;
