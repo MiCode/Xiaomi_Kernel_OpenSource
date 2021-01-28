@@ -35,6 +35,10 @@ int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
 	int ret = -1;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(monitor_ctl->md_id);
 
+	if (ctl == NULL) {
+		CCCI_ERROR_LOG(-1, FSM, "fsm_get_entity_by_md_id fail\n");
+		return -1;
+	}
 	needforcestop = 1;
 	ret = fsm_append_command(ctl, CCCI_COMMAND_STOP, 0);
 	CCCI_NORMAL_LOG(monitor_ctl->md_id, FSM,

@@ -98,6 +98,8 @@ struct ccci_util_bc_user_ctlb {
 static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 	int md_id, struct timeval *ev_rtime, int event_type, char reason[])
 {
+	int ret = 0;
+
 	if (user_ctlb->pending_event_cnt == user_ctlb->buff_cnt) {
 		/* Free one space */
 		user_ctlb->curr_r++;
@@ -110,11 +112,16 @@ static void inject_event_helper(struct ccci_util_bc_user_ctlb *user_ctlb,
 	user_ctlb->event_buf[user_ctlb->curr_w].md_id = md_id;
 	user_ctlb->event_buf[user_ctlb->curr_w].event_type = event_type;
 	if (reason != NULL)
-		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
+		ret = snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
 			"%s", reason);
 	else
-		snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
+		ret = snprintf(user_ctlb->event_buf[user_ctlb->curr_w].reason, 32,
 			"%s", "----");
+	if (ret < 0 || ret >= 32) {
+		CCCI_UTIL_ERR_MSG(
+			"%s-%d:snprintf fail,ret=%d\n", __func__, __LINE__, ret);
+		return;
+	}
 	user_ctlb->curr_w++;
 	if (user_ctlb->curr_w >= user_ctlb->buff_cnt)
 		user_ctlb->curr_w = 0;
@@ -127,7 +134,7 @@ static void save_last_md_status(int md_id,
 	/* MD_STA_EV_HS1 = 9
 	 * ignore events before MD_STA_EV_HS1
 	 */
-	if (event_type < 9)
+	if (event_type < 9 || md_id < 0 || md_id >= MAX_MD_NUM)
 		return;
 
 	CCCI_UTIL_DBG_MSG("[%s] md_id = %d; event_type = %d\n",
@@ -261,6 +268,10 @@ static int ccci_util_bc_open(struct inode *inode, struct file *filp)
 	unsigned long flag;
 
 	minor = iminor(inode);
+	if (minor < 0 || minor >= MD_BC_MAX_NUM) {
+		CCCI_UTIL_ERR_MSG("invalid minor = %d\n", minor);
+		return -ENOMEM;
+	}
 	bc_dev = s_bc_ctl_tbl[minor];
 
 	user_ctlb = kzalloc(sizeof(struct ccci_util_bc_user_ctlb),

@@ -827,7 +827,8 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	char YY_K[IMG_POSTFIX_LEN];
 	unsigned int feature_val = 0;
 
-	if ((md_id < 0) || (md_id > MAX_MD_NUM)) {
+	if ((md_id < 0) || (md_id > MAX_MD_NUM) ||
+		curr_ubin_id < 0 || curr_ubin_id >= MAX_IMG_NUM) {
 		CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
 			"wrong MD ID to get postfix\n");
 		return;

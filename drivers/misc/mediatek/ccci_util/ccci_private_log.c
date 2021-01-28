@@ -73,6 +73,12 @@ int ccci_log_write(const char *fmt, ...)
 						this_cpu,
 						current->pid,
 						current->comm);
+	if (write_len < 0) {
+		pr_notice("%s-%d:snprintf fail,write_len = %d\n",
+			__func__, __LINE__, write_len);
+		write_len = 0;
+	} else if (write_len >= CCCI_LOG_MAX_WRITE)
+		write_len = CCCI_LOG_MAX_WRITE - 1;
 
 	va_start(args, fmt);
 	write_len +=
@@ -137,6 +143,12 @@ int ccci_log_write_raw(unsigned int set_flags, const char *fmt, ...)
 					(unsigned long)ts_nsec,
 					rem_nsec / 1000, state,
 					this_cpu);
+		if (write_len < 0) {
+			pr_notice("%s-%d:snprintf fail,write_len = %d\n",
+				__func__, __LINE__, write_len);
+			write_len = 0;
+		} else if (write_len >= CCCI_LOG_MAX_WRITE)
+			write_len = CCCI_LOG_MAX_WRITE - 1;
 	} else
 		write_len = 0;
 
@@ -396,7 +408,7 @@ int ccci_dump_write(int md_id, int buf_type,
 	if (unlikely(buf_type >= CCCI_DUMP_MAX))
 		return -2;
 	buf_id = buff_bind_md_id[md_id];
-	if (buf_id == -1)
+	if (buf_id < 0)
 		return -3;
 	if (unlikely(node_array[buf_id][buf_type].index != buf_type))
 		return -4;
@@ -437,6 +449,12 @@ int ccci_dump_write(int md_id, int buf_type,
 						this_cpu,
 						current->pid,
 						current->comm);
+		if (write_len < 0) {
+			pr_notice("%s-%d:snprintf fail,write_len = %d\n",
+				__func__, __LINE__, write_len);
+			write_len = 0;
+		} else if (write_len >= CCCI_LOG_MAX_WRITE)
+			write_len = CCCI_LOG_MAX_WRITE - 1;
 	}
 
 	va_start(args, fmt);
@@ -1054,6 +1072,12 @@ int ccci_event_log(const char *fmt, ...)
 			this_cpu,
 			current->pid,
 			current->comm);
+	if (write_len < 0) {
+		pr_notice("%s-%d:snprintf fail,write_len = %d\n",
+			__func__, __LINE__, write_len);
+		write_len = 0;
+	} else if (write_len >= CCCI_LOG_MAX_WRITE)
+		write_len = CCCI_LOG_MAX_WRITE - 1;
 
 	va_start(args, fmt);
 	write_len += vsnprintf(temp_log
