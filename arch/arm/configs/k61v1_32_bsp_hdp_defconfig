@@ -95,7 +95,7 @@ CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW=y
 CONFIG_CUSTOM_KERNEL_IMGSENSOR="imx499_mipi_raw s5k2t7sp_mipi_raw s5k3l8_mipi_raw s5k5e8yx_mipi_raw ov8856_mipi_raw imx318_mipi_raw imx386_mipi_raw"
 # CONFIG_MTK_MMPROFILE_SUPPORT is not set
 CONFIG_MTK_LCM=y
-CONFIG_CUSTOM_KERNEL_LCM="nt35521_hd_dsi_vdo_truly_rt5081"
+CONFIG_CUSTOM_KERNEL_LCM="nt35695_fhd_dsi_vdo_truly_rt5081_hdp nt35695B_fhd_dsi_vdo_auo_rt5081_hdp"
 CONFIG_MTK_SYNC=y
 CONFIG_MTK_FB=y
 CONFIG_MTK_LCM_PHYSICAL_ROTATION="0"
