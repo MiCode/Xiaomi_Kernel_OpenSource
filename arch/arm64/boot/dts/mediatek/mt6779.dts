@@ -3703,6 +3703,19 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"mtcmos_vpu_core2_shutdown";
 		};
 
+		ccu@1a081000 {
+		compatible = "mediatek,ccu";
+		reg = <0 0x1a081000 0 0x1000>;
+		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_LOW>;
+
+		clocks = <&camsys CAMSYS_CCU_CGPDN>,
+			 <&mmsys MMSYS_GALS_CCU2MM>,
+			 <&topckgen TOP_MUX_CCU>;
+		clock-names = "CCU_CLK_CAM_CCU",
+			      "CCU_CLK_MMSYS_CCU",
+			      "CCU_CLK_TOP_MUX";
+		};
+
 		camsys: clock-controller@1a000000 {
 			compatible = "mediatek,mt6779-camsys", "syscon";
 			reg = <0 0x1a000000 0 0x10000>;
