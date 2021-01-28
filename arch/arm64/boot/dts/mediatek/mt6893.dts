@@ -7460,7 +7460,7 @@ page_owner=on loop.max_part=7";
 		cttTmaxDelta_3 = <10>;
 
 		/* drcc */
-		state = <0>;
+		drcc_state = <0>;
 		drcc0_Vref = <255>;
 		drcc1_Vref = <255>;
 		drcc2_Vref = <255>;
@@ -7469,14 +7469,6 @@ page_owner=on loop.max_part=7";
 		drcc5_Vref = <255>;
 		drcc6_Vref = <255>;
 		drcc7_Vref = <255>;
-		drcc0_Hwgatepct = <255>;
-		drcc1_Hwgatepct = <255>;
-		drcc2_Hwgatepct = <255>;
-		drcc3_Hwgatepct = <255>;
-		drcc4_Hwgatepct = <255>;
-		drcc5_Hwgatepct = <255>;
-		drcc6_Hwgatepct = <255>;
-		drcc7_Hwgatepct = <255>;
 		drcc0_Code = <255>;
 		drcc1_Code = <255>;
 		drcc2_Code = <255>;
@@ -7493,6 +7485,21 @@ page_owner=on loop.max_part=7";
 		/* dt */
 		dt_state = <241>;
 		dt_state_pinctl = <0>;
+
+		/* CINST */
+		cinst_doe_init = <0>;
+		cinst_doe_ls_enable = <0>;
+		cinst_doe_ls_period = <255>;
+		cinst_doe_ls_credit = <255>;
+		cinst_doe_vx_enable = <0>;
+		cinst_doe_vx_period = <255>;
+		cinst_doe_vx_credit = <255>;
+		cinst_doe_ls_low_en = <0>;
+		cinst_doe_ls_low_period = <255>;
+		cinst_doe_vx_low_en = <0>;
+		cinst_doe_vx_low_period = <255>;
+		cinst_doe_ls_const_en = <0>;
+		cinst_doe_vx_const_en = <0>;
 	};
 
 #ifdef CONFIG_MTK_SCHED_MONITOR
