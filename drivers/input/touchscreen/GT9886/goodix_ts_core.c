@@ -615,9 +615,12 @@ static ssize_t goodix_ts_read_cfg_show(struct device *dev,
 				dev_get_drvdata(dev);
 	struct goodix_ts_device *ts_dev = core_data->ts_dev;
 	int ret, i, offset;
-	char *cfg_buf;
+	char *cfg_buf = NULL;
 
 	cfg_buf = kzalloc(4096, GFP_KERNEL);
+	if (cfg_buf == NULL)
+		return -ENOMEM;
+
 	disable_irq(core_data->irq);
 	if (ts_dev->hw_ops->read_config)
 		ret = ts_dev->hw_ops->read_config(ts_dev, cfg_buf, 0);
