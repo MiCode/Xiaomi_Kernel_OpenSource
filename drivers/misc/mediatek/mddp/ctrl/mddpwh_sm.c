@@ -730,7 +730,6 @@ ssize_t mddpwh_sysfs_callback(
 	uint32_t                        smem_size;
 	uint32_t                        show_cnt = 0;
 #ifdef MDDP_EM_SUPPORT
-	char                           *strsep_buf_p;
 	struct mddp_md_msg_t           *md_msg;
 #endif
 
@@ -749,7 +748,8 @@ ssize_t mddpwh_sysfs_callback(
 			buf_len = 0;
 		return buf_len;
 	} else if (cmd == MDDP_SYSFS_CMD_ENABLE_READ)
-		return sprintf(buf, "wh_enable(%d)\n", mddpwh_state);
+		return scnprintf(buf, PAGE_SIZE,
+					"wh_enable(%d)\n", mddpwh_state);
 	else if (cmd == MDDP_SYSFS_CMD_STATISTIC_READ) {
 		if (mddp_ipc_get_md_smem_by_id(
 				MDDP_MD_SMEM_USER_WIFI_STATISTICS,
@@ -759,15 +759,16 @@ ssize_t mddpwh_sysfs_callback(
 			return -EINVAL;
 		}
 
-		show_cnt += sprintf(buf, "\n[MDDP-WH State]\n%d\n",
-				mddpwh_state);
-		show_cnt += sprintf(buf + show_cnt, "[MDDP-WH Statistics]\n");
-		show_cnt += sprintf(buf + show_cnt,
+		show_cnt += scnprintf(buf, PAGE_SIZE, "\n[MDDP-WH State]\n%d\n",
+					mddpwh_state);
+		show_cnt += scnprintf(buf + show_cnt, PAGE_SIZE - show_cnt,
+					"[MDDP-WH Statistics]\n");
+		show_cnt += scnprintf(buf + show_cnt, PAGE_SIZE - show_cnt,
 			"%s\t\t%s\t\t%s\t%s\t%s\t%s\n",
 			"tx_pkts", "rx_pkts",
 			"tx_bytes", "rx_bytes",
 			"tx_error", "rx_error");
-		show_cnt += sprintf(buf + show_cnt,
+		show_cnt += scnprintf(buf + show_cnt, PAGE_SIZE - show_cnt,
 			"%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\t\t%lld\n",
 			md_stats->tx_packets, md_stats->rx_packets,
 			md_stats->tx_bytes, md_stats->rx_bytes,
@@ -775,8 +776,6 @@ ssize_t mddpwh_sysfs_callback(
 		return show_cnt;
 #ifdef MDDP_EM_SUPPORT
 	} else if (cmd == MDDP_SYSFS_EM_CMD_TEST_WRITE) {
-		strsep_buf_p = buf;
-
 		md_msg = kzalloc(sizeof(struct mddp_md_msg_t) +
 					buf_len + 4, GFP_ATOMIC);
 		if (md_msg) {

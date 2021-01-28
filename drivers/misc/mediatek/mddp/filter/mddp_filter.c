@@ -554,7 +554,7 @@ static int mddp_f_e_tag_packet(
 	struct dst_entry *dst = skb_dst(skb);
 	struct rtable *rt = (struct rtable *)dst;
 	u32 nexthop_v4;
-	struct in6_addr *nexthop_v6;
+	const struct in6_addr *nexthop_v6;
 	struct neighbour *neigh;
 
 	/* extension tag for MAC address */

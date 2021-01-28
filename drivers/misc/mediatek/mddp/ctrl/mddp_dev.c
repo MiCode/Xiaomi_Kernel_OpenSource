@@ -117,7 +117,8 @@ struct class *mddp_dev_class_s;
 static ssize_t
 version_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "MDDP version(%d)\n", __MDDP_VERSION__);
+	return scnprintf(buf, PAGE_SIZE, "MDDP version(%d)\n",
+				 __MDDP_VERSION__);
 }
 static DEVICE_ATTR_RO(version);
 
@@ -132,12 +133,13 @@ state_show(struct device *dev, struct device_attribute *attr, char *buf)
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
-		ret_num += sprintf(buf + ret_num, "type(%d), state(%d)\n",
-				   app->type, app->state);
+		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
+					"type(%d), state(%d)\n",
+					app->type, app->state);
 
 		// NG. Failed to fill-in data!
 		if (ret_num <= 0)
-			return sprintf(buf,
+			return scnprintf(buf, PAGE_SIZE,
 				"%s: Failed to fill-in data!\n", __func__);
 	}
 
@@ -157,8 +159,9 @@ wh_statistic_show(struct device *dev, struct device_attribute *attr, char *buf)
 		return app->sysfs_callback(app,
 				MDDP_SYSFS_CMD_STATISTIC_READ, buf, 0);
 
-	return sprintf(buf, "Cannot change WH mode, mddp-wh config(%d)\n",
-					app->is_config);
+	return scnprintf(buf, PAGE_SIZE,
+				"Cannot change WH mode, mddp-wh config(%d)\n",
+				app->is_config);
 }
 static DEVICE_ATTR_RO(wh_statistic);
 
@@ -173,8 +176,9 @@ wh_enable_show(struct device *dev, struct device_attribute *attr, char *buf)
 		return app->sysfs_callback(app,
 				MDDP_SYSFS_CMD_ENABLE_READ, buf, 0);
 
-	return sprintf(buf, "Cannot change WH mode, mddp-wh config(%d)\n",
-		       app->is_config);
+	return scnprintf(buf, PAGE_SIZE,
+				"Cannot change WH mode, mddp-wh config(%d)\n",
+				app->is_config);
 }
 
 static ssize_t
@@ -221,7 +225,7 @@ em_test_show(struct device *dev, struct device_attribute *attr, char *buf)
 	}
 	return cnt;
 #endif
-	return sprintf(buf, "staus:%d, cmd_buf:%s\n",
+	return scnprintf(buf, PAGE_SIZE, "staus:%d, cmd_buf:%s\n",
 			em_cmd_status, em_cmd_buf);
 }
 
@@ -239,7 +243,8 @@ em_test_store(struct device *dev,
 
 	str_len = strlen(buf);
 
-	memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+			(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 	strsep_buf_p = em_cmd_buf;
 	MDDP_SET_BUF_TERMIN(em_cmd_buf, str_len);
 
@@ -260,7 +265,8 @@ em_test_store(struct device *dev,
 	app = mddp_get_app_inst(em_cmd_app);
 	if (app->sysfs_callback) {
 		// OK.
-		memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+		snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+				(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 		MDDP_SET_BUF_TERMIN(em_cmd_buf, str_len);
 		em_cmd_status = app->sysfs_callback(app,
 						MDDP_SYSFS_EM_CMD_TEST_WRITE,
@@ -270,13 +276,15 @@ em_test_store(struct device *dev,
 
 	// NG. Failed to configure!
 	em_cmd_status = -ERANGE;
-	memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+			(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 	return count;
 
 input_param_error:
 not_support_error:
 	EM_CMD_RESET();
-	memcpy(em_cmd_buf, buf, EM_CMD_BUF_SZ);
+	snprintf(em_cmd_buf, EM_CMD_BUF_SZ, "%.%s",
+			(int)min(count, sizeof(em_cmd_buf) - 1), buf);
 	return count;
 }
 static DEVICE_ATTR_RW(em_test);

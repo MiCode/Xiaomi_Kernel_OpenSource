@@ -151,8 +151,10 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 	/*
 	 * MDDP ACTIVATE command.
 	 */
-	memcpy(&app->ap_cfg.ul_dev_name, ul_dev_name, strlen(ul_dev_name));
-	memcpy(&app->ap_cfg.dl_dev_name, dl_dev_name, strlen(dl_dev_name));
+	strlcpy(app->ap_cfg.ul_dev_name, ul_dev_name,
+			sizeof(app->ap_cfg.ul_dev_name));
+	strlcpy(app->ap_cfg.dl_dev_name, dl_dev_name,
+			sizeof(app->ap_cfg.dl_dev_name));
 	pr_info("%s: type(%d), app(%p), ul(%s), dl(%s).\n",
 			__func__, type, app,
 			app->ap_cfg.ul_dev_name, app->ap_cfg.dl_dev_name);
