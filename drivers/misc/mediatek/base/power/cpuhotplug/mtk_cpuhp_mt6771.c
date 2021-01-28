@@ -169,6 +169,7 @@ int cpuhp_platform_init(void)
 	}
 
 	mp_enter_suspend(0, 1);/*Switch LL cluster to HW mode*/
+	mp_enter_suspend(1, 1);/*Switch L cluster to HW mode*/
 	return 0;
 
 enable_fail:
