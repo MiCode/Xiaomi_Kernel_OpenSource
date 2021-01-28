@@ -469,7 +469,11 @@ static int battery_get_property(struct power_supply *psy,
 			gauge_get_current(&fgcurrent);
 
 			if (fgcurrent != 0)
-				time_to_full = remain_mah * 360 / fgcurrent;
+				time_to_full = remain_mah * 3600 / fgcurrent;
+
+			bm_debug("time_to_full:%d, remain:ui:%d mah:%d, fgcurrent:%d, qmax:%d\n",
+				time_to_full, remain_ui, remain_mah,
+				fgcurrent, q_max_now);
 
 			val->intval = abs(time_to_full);
 		}
