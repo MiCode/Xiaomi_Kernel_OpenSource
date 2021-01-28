@@ -92,6 +92,9 @@ int cm_mgr_perf_force_enable;
 int cm_mgr_loading_level = 1000;
 int cm_mgr_loading_enable;
 int cm_mgr_emi_demand_check = 1;
+#ifdef USE_CPU_TO_DRAM_MAP
+int cm_mgr_cpu_map_dram_enable = 1;
+#endif /* USE_CPU_TO_DRAM_MAP */
 
 static int vcore_power_gain_0[][VCORE_ARRAY_SIZE] = {
 	{138, 87, 124, 296, 518},

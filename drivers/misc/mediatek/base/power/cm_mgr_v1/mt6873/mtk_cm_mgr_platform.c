@@ -886,8 +886,13 @@ int cm_mgr_register_init(void)
 #ifdef USE_CPU_TO_DRAM_MAP
 static void cm_mgr_add_cpu_opp_to_ddr_req(void)
 {
+	char owner[20] = "cm_mgr_cpu_to_dram";
+
 	pm_qos_add_request(&ddr_opp_req_by_cpu_opp, PM_QOS_DDR_OPP,
 			PM_QOS_DDR_OPP_DEFAULT_VALUE);
+
+	strncpy(ddr_opp_req_by_cpu_opp.owner,
+			owner, sizeof(ddr_opp_req_by_cpu_opp.owner) - 1);
 }
 #endif /* USE_CPU_TO_DRAM_MAP */
 
@@ -1043,6 +1048,14 @@ void cm_mgr_update_dram_by_cpu_opp(int cpu_opp)
 
 	if (!is_dvfsrc_enabled())
 		return;
+
+	if (!cm_mgr_cpu_map_dram_enable) {
+		if (cm_mgr_cpu_to_dram_opp != PM_QOS_DDR_OPP_DEFAULT_VALUE) {
+			cm_mgr_cpu_to_dram_opp = PM_QOS_DDR_OPP_DEFAULT_VALUE;
+			ret = schedule_delayed_work(&cm_mgr_work, 1);
+		}
+		return;
+	}
 
 	if ((cpu_opp >= 0) && (cpu_opp < CM_MGR_CPU_OPP_SIZE))
 		dram_opp = cm_mgr_cpu_opp_to_dram[cpu_opp];
