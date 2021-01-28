@@ -2,8 +2,8 @@
 subdir-ccflags-y += -Werror
 
 # dsp related code
-#obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += audio_dsp/
-#obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
+obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += audio_dsp/
+obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
 #obj-$(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) += scp_vow/
 # btcvsd
 subdir-ccflags-y += -DASOC_TEMP_BYPASS
