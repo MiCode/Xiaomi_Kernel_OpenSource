@@ -17,13 +17,27 @@
 #include <linux/of_device.h>
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
-#if defined(CONFIG_MTK_PMIC_CHIP_MT6358)
+#if defined(CONFIG_MTK_PMIC_CHIP_MT6357)
+#include <linux/mfd/mt6357/irq.h>
+#include <linux/mfd/mt6357/registers.h>
+#elif defined(CONFIG_MTK_PMIC_CHIP_MT6358)
 #include <linux/mfd/mt6358/irq.h>
 #include <linux/mfd/mt6358/registers.h>
 #endif
 #include <linux/mfd/mt6358/core.h>
 
+#define MT6357_CID_CODE		0x5700
 #define MT6358_CID_CODE		0x5800
+
+static const struct mfd_cell mt6357_devs[] = {
+	{
+		.name = "mt-pmic",
+		.of_compatible = "mediatek,mt-pmic",
+	}, {
+		.name = "mt635x-auxadc",
+		.of_compatible = "mediatek,mt6357-auxadc",
+	},
+};
 
 static const struct mfd_cell mt6358_devs[] = {
 	{
@@ -332,6 +346,15 @@ static int mt6358_probe(struct platform_device *pdev)
 		 chip->irq, id, ret);
 
 	switch (id & 0xFF00) {
+	case MT6357_CID_CODE:
+		chip->top_int_status_reg = PMIC_INT_STATUS_TOP_RSV_ADDR;
+		ret = mt6358_irq_init(chip);
+		if (ret)
+			return ret;
+		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6357_devs,
+					   ARRAY_SIZE(mt6357_devs), NULL,
+					   0, chip->irq_domain);
+		break;
 	case MT6358_CID_CODE:
 		chip->top_int_status_reg = PMIC_INT_STATUS_TOP_RSV_ADDR;
 		ret = mt6358_irq_init(chip);
@@ -358,6 +381,8 @@ static int mt6358_probe(struct platform_device *pdev)
 
 static const struct of_device_id mt6358_of_match[] = {
 	{
+		.compatible = "mediatek,mt6357-pmic",
+	}, {
 		.compatible = "mediatek,mt6358-pmic",
 	}, {
 		/* sentinel */

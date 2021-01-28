@@ -56,4 +56,6 @@ struct pmic_sp_interrupt {
 	unsigned int top_int_bit;
 };
 
+#define ENABLE_ALL_OC_IRQ 0
+
 #endif /*--PMIC_IRQ_H--*/
