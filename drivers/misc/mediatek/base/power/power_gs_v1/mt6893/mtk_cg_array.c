@@ -161,14 +161,14 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_data[] = {
 	//0x1F000100, 0xFFFFFFFF, 0xFFFFFFFF,/* MDPSYS_CG_CON0 */
 	//0x1F000110, 0x0000FFFF, 0x0000FFFF,/* MDPSYS_CG_CON1 */
 	//0x1F000120, 0x00000303, 0x00000303,/* MDPSYS_CG_CON2 */
-	0xB00C00E4, 0x00000001, 0x00000000,/* LVTSCLKEN_0 */
-	0xB00C0F00, 0x803F0000, 0x00000000 /* PTPCORESEL */
+	//0xB00C00E4, 0x00000001, 0x00000000,/* LVTSCLKEN_0 */
+	//0xB00C0F00, 0x803F0000, 0x00000000 /* PTPCORESEL */
 };
 
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_dpidle =
 		AP_CG_Golden_Setting_tcl_gs_dpidle_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len = 306;
+unsigned int AP_CG_Golden_Setting_tcl_gs_dpidle_len = 300;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 /*	Address		Mask		Golden Setting Value */
@@ -320,14 +320,14 @@ const unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_data[] = {
 	//0x1F000100, 0xFFFFFFFF, 0xFFFFFFFF,/* MDPSYS_CG_CON0 */
 	//0x1F000110, 0x0000FFFF, 0x0000FFFF,/* MDPSYS_CG_CON1 */
 	//0x1F000120, 0x00000303, 0x00000303,/* MDPSYS_CG_CON2 */
-	0xB00C00E4, 0x00000001, 0x00000000,/* LVTSCLKEN_0 */
-	0xB00C0F00, 0x803F0000, 0x00000000 /* PTPCORESEL */
+	//0xB00C00E4, 0x00000001, 0x00000000,/* LVTSCLKEN_0 */
+	//0xB00C0F00, 0x803F0000, 0x00000000 /* PTPCORESEL */
 };
 
 const unsigned int *AP_CG_Golden_Setting_tcl_gs_suspend =
 		AP_CG_Golden_Setting_tcl_gs_suspend_data;
 
-unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 306;
+unsigned int AP_CG_Golden_Setting_tcl_gs_suspend_len = 300;
 
 const unsigned int AP_CG_Golden_Setting_tcl_gs_sodi_data[] = {
 /*	Address		Mask		Golden Setting Value */
