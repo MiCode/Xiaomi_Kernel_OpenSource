@@ -1261,11 +1261,12 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		vcu_put_file_lock();
 		up(&vcu_ptr->vpud_killed);  /* vdec worker */
 		up(&vcu_ptr->vpud_killed);  /* venc worker */
-	}
 
-	spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
-	vcu_ptr->vpud_is_going_down = 0;
-	spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+		/* reset vpud_is_going_down only on abnormal situations */
+		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
+		vcu_ptr->vpud_is_going_down = 0;
+		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+	}
 
 	return 0;
 }
