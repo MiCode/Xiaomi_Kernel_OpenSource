@@ -16,6 +16,10 @@
 
 #include "mtk-base-dsp.h"
 
+/* page size */
+#define MIN_DSP_SHIFT (8)
+#define MIN_DSP_POOL_SIZE (1 << MIN_DSP_SHIFT)
+
 struct audio_dsp_dram;
 struct gen_pool;
 struct mtk_base_dsp;
@@ -30,9 +34,10 @@ enum {
 };
 
 /* first time to inint scp dram segment */
-void init_mtk_adsp_dram_segment(void);
+int init_mtk_adsp_dram_segment(void);
 
-int get_mtk_adsp_dram(struct audio_dsp_dram *dsp_dram, int id);
+/* set audio share dram mpu write-through */
+int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment);
 
 /* dump dsp reserved dram stats */
 void dump_mtk_adsp_dram(struct audio_dsp_dram buffer);
@@ -48,7 +53,6 @@ void mtk_dump_sndbuffer(struct snd_dma_buffer *dma_audio_buffer);
 int wrap_dspdram_sndbuffer(struct snd_dma_buffer *dma_audio_buffer,
 			   struct audio_dsp_dram *dsp_dram_buffer);
 
-int scp_reservedid_to_dsp_daiid(int id);
 int dsp_daiid_to_scp_reservedid(int task_dai_id);
 int get_taskid_by_afe_daiid(int task_dai_id);
 int get_afememdl_by_afe_taskid(int task_dai_id);
@@ -80,8 +84,13 @@ unsigned int mtk_get_adsp_sharemem_size(int audio_task_id,
 /* init dsp share memory */
 int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp);
 int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp);
-int mtk_reinit_adsp_audio_share_mem(void);
+/* here to init ap/adsp share memory */
+int adsp_core_mem_init(struct mtk_base_dsp *dsp);
 
+
+/* init task with certain task id */
+int adsp_task_init(int task_id, struct mtk_base_dsp *dsp);
+int mtk_reinit_adsp(void);
 
 int dsp_dram_request(struct device *dev);
 int dsp_dram_release(struct device *dev);

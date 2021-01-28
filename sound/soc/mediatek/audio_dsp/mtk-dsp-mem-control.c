@@ -22,6 +22,7 @@
 #include "mtk-dsp-mem-control.h"
 #include "mtk-base-dsp.h"
 #include "mtk-dsp-common.h"
+#include "audio_ipi_platform.h"
 
 #include <mtk_spm_resource_req.h>
 
@@ -29,8 +30,6 @@
 #include "mtk_mcdi_governor_hint.h"
 #endif
 
-/* page size */
-#define MIN_DSP_SHIFT (8)
 
 static DEFINE_MUTEX(adsp_control_mutex);
 static DEFINE_MUTEX(adsp_mutex_request_dram);
@@ -38,6 +37,7 @@ static bool binitadsp_share_mem;
 static struct audio_dsp_dram dsp_dram_buffer[AUDIO_DSP_SHARE_MEM_NUM];
 static struct gen_pool *dsp_dram_pool[AUDIO_DSP_SHARE_MEM_NUM];
 static struct snd_dma_buffer dma_audio_buffer[AUDIO_DSP_SHARE_MEM_NUM];
+
 
 /* function */
 static int get_dsp_dram_sement_by_id(struct audio_dsp_dram *buffer, int id);
@@ -350,59 +350,24 @@ int aud_genppol_allocate_sharemem_msg(struct mtk_base_dsp_mem *dsp_mem,
 	return 0;
 }
 
-int scp_reservedid_to_dsp_daiid(int id)
-{
-	switch (id) {
-	case ADSP_PRIMARY_MEM_ID:
-		return AUDIO_TASK_PRIMARY_ID;
-	case ADSP_VOIP_MEM_ID:
-		return AUDIO_TASK_VOIP_ID;
-	case ADSP_DEEPBUF_MEM_ID:
-		return AUDIO_TASK_DEEPBUFFER_ID;
-	case ADSP_PLAYBACK_MEM_ID:
-		return AUDIO_TASK_PLAYBACK_ID;
-	case ADSP_CAPTURE_UL1_MEM_ID:
-		return AUDIO_TASK_CAPTURE_UL1_ID;
-	case ADSP_A2DP_PLAYBACK_MEM_ID:
-		return AUDIO_TASK_A2DP_ID;
-	case ADSP_DATAPROVIDER_MEM_ID:
-		return AUDIO_TASK_DATAPROVIDER_ID;
-	case ADSP_CALL_FINAL_MEM_ID:
-		return AUDIO_TASK_CALL_FINAL_ID;
-	case ADSP_KTV_MEM_ID:
-		return AUDIO_TASK_KTV_ID;
-	default:
-		pr_warn("%s id = %d\n", __func__, id);
-		return -1;
-	}
-	return -1;
-}
-
 int dsp_daiid_to_scp_reservedid(int task_dai_id)
 {
 	switch (task_dai_id) {
-	case AUDIO_TASK_VOIP_ID:
-		return ADSP_VOIP_MEM_ID;
-	case AUDIO_TASK_PRIMARY_ID:
-		return ADSP_PRIMARY_MEM_ID;
+#ifndef FPGA_EARLY_DEVELOPMENT
 	case AUDIO_TASK_OFFLOAD_ID:
-		return ADSP_OFFLOAD_MEM_ID;
+	case AUDIO_TASK_VOIP_ID:
+	case AUDIO_TASK_PRIMARY_ID:
 	case AUDIO_TASK_DEEPBUFFER_ID:
-		return ADSP_DEEPBUF_MEM_ID;
 	case AUDIO_TASK_PLAYBACK_ID:
-		return ADSP_PLAYBACK_MEM_ID;
-	case AUDIO_DSP_AFE_SHARE_MEM_ID:
-		return ADSP_AFE_MEM_ID;
+	case AUDIO_TASK_MUSIC_ID:
 	case AUDIO_TASK_CAPTURE_UL1_ID:
-		return ADSP_CAPTURE_UL1_MEM_ID;
 	case AUDIO_TASK_A2DP_ID:
-		return ADSP_A2DP_PLAYBACK_MEM_ID;
 	case AUDIO_TASK_DATAPROVIDER_ID:
-		return ADSP_DATAPROVIDER_MEM_ID;
 	case AUDIO_TASK_CALL_FINAL_ID:
-		return ADSP_CALL_FINAL_MEM_ID;
+	case AUDIO_TASK_FAST_ID:
 	case AUDIO_TASK_KTV_ID:
-		return ADSP_KTV_MEM_ID;
+		return ADSP_AUDIO_COMMON_MEM_ID;
+#endif
 	default:
 		pr_warn("%s id = %d\n", __func__, task_dai_id);
 		return -1;
@@ -592,17 +557,6 @@ static int checkdspbuffer(struct audio_dsp_dram *buffer)
 	return 0;
 }
 
-int get_mtk_adsp_dram(struct audio_dsp_dram *dsp_dram, int id)
-{
-	if (id >= AUDIO_DSP_SHARE_MEM_NUM) {
-		pr_warn("%s: id = %d\n", __func__, id);
-		return -1;
-	}
-	memcpy((void *)dsp_dram, (void *)&dsp_dram_buffer[id],
-	       sizeof(struct audio_dsp_dram));
-	return 0;
-}
-
 int dump_mtk_adsp_gen_pool(void)
 {
 	int i = 0;
@@ -673,7 +627,7 @@ void dump_all_task_attr(void)
  */
 int mtk_adsp_gen_pool_create(int min_alloc_order, int nid)
 {
-	int i;
+	int i, ret = 0;
 	unsigned long va_start;
 	size_t va_chunk;
 
@@ -686,8 +640,11 @@ int mtk_adsp_gen_pool_create(int min_alloc_order, int nid)
 			return -ENOMEM;
 
 		va_start = dsp_dram_buffer[i].va_addr;
-
 		va_chunk = dsp_dram_buffer[i].size;
+		if ((!va_start) || (!va_chunk)) {
+			ret = -1;
+			break;
+		}
 		if (gen_pool_add_virt(dsp_dram_pool[i], (unsigned long)va_start,
 				      dsp_dram_buffer[i].phy_addr, va_chunk,
 				      -1)) {
@@ -697,11 +654,11 @@ int mtk_adsp_gen_pool_create(int min_alloc_order, int nid)
 		}
 
 		pr_info(
-			"%s success to add chunk va_start= 0x%lx va_chunk = %zu dsp_dram_pool[i] = %p\n",
-			__func__, va_start, va_chunk, dsp_dram_pool[i]);
+			"%s success to add chunk va_start= 0x%lx va_chunk = %zu dsp_dram_pool[%d] = %p\n",
+			__func__, va_start, va_chunk, i, dsp_dram_pool[i]);
 	}
 	dump_mtk_adsp_gen_pool();
-	return 0;
+	return ret;
 }
 
 void mtk_dump_sndbuffer(struct snd_dma_buffer *dma_audio_buffer)
@@ -721,7 +678,7 @@ int wrap_dspdram_sndbuffer(struct snd_dma_buffer *dma_audio_buffer,
 	return 0;
 }
 
-void init_mtk_adsp_dram_segment(void)
+int init_mtk_adsp_dram_segment(void)
 {
 	int i;
 
@@ -731,12 +688,42 @@ void init_mtk_adsp_dram_segment(void)
 				       &dsp_dram_buffer[i]);
 	}
 
-	mtk_adsp_gen_pool_create(MIN_DSP_SHIFT, -1);
-	dump_all_adsp_dram();
+	return mtk_adsp_gen_pool_create(MIN_DSP_SHIFT, -1);
 }
 
-int mtk_reinit_adsp_audio_share_mem(void)
+/* set audio share dram mpu write-through */
+int set_mtk_adsp_mpu_sharedram(unsigned int dram_segment)
 {
+	unsigned int phy_addr, size;
+	struct ipi_msg_t ipi_msg;
+	int ret;
+
+	if (dram_segment >= AUDIO_DSP_SHARE_MEM_NUM) {
+		pr_info("%s dram_segment= %u\n", __func__, dram_segment);
+		return -1;
+	}
+
+	adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
+
+	phy_addr = (unsigned int)dsp_dram_buffer[dram_segment].phy_addr;
+	size = (unsigned int)dsp_dram_buffer[dram_segment].size;
+
+	pr_info("%s phy_addr[0x%x] size[0x%x]\n", __func__, phy_addr, size);
+
+	ret = audio_send_ipi_msg(
+		&ipi_msg, TASK_SCENE_AUD_DAEMON_A,
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_MSG_ONLY,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_EINGBUFASHAREMEM,
+		phy_addr, size, 0);
+
+	adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
+
+	return ret;
+}
+
+int mtk_reinit_adsp(void)
+{
+	int ret = 0;
 	struct mtk_base_dsp *dsp = NULL;
 
 	dsp = get_dsp_base();
@@ -748,8 +735,17 @@ int mtk_reinit_adsp_audio_share_mem(void)
 
 	mutex_lock(&adsp_control_mutex);
 	binitadsp_share_mem = false;
+
+	ret =  mtk_init_adsp_audio_share_mem(dsp);
+	if (ret) {
+		pr_info("mtk_init_adsp_audio_share_mem fail\n");
+		mutex_unlock(&adsp_control_mutex);
+		return -1;
+	}
+	binitadsp_share_mem = true;
 	mutex_unlock(&adsp_control_mutex);
-	return mtk_init_adsp_audio_share_mem(dsp);
+
+	return 0;
 }
 
 int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
@@ -760,7 +756,8 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 	for (task_id = 0; task_id < AUDIO_TASK_DAI_NUM; task_id++) {
 		struct audio_dsp_dram *adsp_share_mem;
 
-		adsp_share_mem = mtk_get_adsp_sharemem_block(task_id);
+		adsp_share_mem =
+			mtk_get_adsp_sharemem_block(AUDIO_DSP_AFE_SHARE_MEM_ID);
 
 		pr_info("%s task_id = %d\n", __func__, task_id);
 
@@ -771,7 +768,7 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 			continue;
 		}
 		dsp->dsp_mem[task_id].gen_pool_buffer =
-			mtk_get_adsp_dram_gen_pool(task_id);
+			mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
 
 		/* allocate msg buffer with share memory */
 		if (dsp->dsp_mem[task_id].gen_pool_buffer == NULL) {
@@ -801,64 +798,197 @@ int mtk_adsp_init_gen_pool(struct mtk_base_dsp *dsp)
 	return 0;
 }
 
-/* init dsp share memory */
-int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp)
+static int adsp_core_mem_initall(struct mtk_base_dsp *dsp,
+				 unsigned int task_scene)
 {
-	int task_id, ret;
+	int ret = 0, core_id = 0, dsp_type;
+	unsigned long vaddr;
+	unsigned long long size;
+	dma_addr_t paddr;
+	struct audio_dsp_dram *pshare_dram;
+	struct gen_pool *gen_pool_buffer;
+	struct ipi_msg_t ipi_msg;
+	unsigned char ipi_payload_buf[MAX_PAYLOAD_SIZE];
+
+	dsp_type = audio_get_dsp_id(task_scene);
+
+	if (dsp_type == AUDIO_OPENDSP_ID_INVALID) {
+		pr_info("%s AUDIO_OPENDSP_ID_INVALID\n", __func__);
+		return -1;
+	}
 
 	if (dsp == NULL) {
 		pr_info("%s dsp == NULL\n", __func__);
 		return -1;
 	}
 
-	mutex_lock(&adsp_control_mutex);
-	if (binitadsp_share_mem == true) {
-		mutex_unlock(&adsp_control_mutex);
-		return 0;
+	/* get gen pool*/
+	dsp->core_share_mem.gen_pool_buffer =
+		mtk_get_adsp_dram_gen_pool(AUDIO_DSP_AFE_SHARE_MEM_ID);
+	if (!dsp->core_share_mem.gen_pool_buffer) {
+		pr_info("%s get gen_pool_buffer NULL\n", __func__);
+		return -1;
 	}
 
-	binitadsp_share_mem = true;
-	adsp_register_feature(AUDIO_PLAYBACK_FEATURE_ID);
+	/* allocate for adsp core share mem */
+	core_id = mtk_get_core_id(dsp_type);
+	if (core_id < 0) {
+		pr_info("%s core_id[%d] error\n", __func__, core_id);
+		return -1;
+	}
+
+	pshare_dram =
+		&dsp->core_share_mem.ap_adsp_share_buf[core_id];
+
+	gen_pool_buffer = dsp->core_share_mem.gen_pool_buffer;
+
+	/* allocate VA with gen pool*/
+	size = sizeof(struct audio_core_flag);
+	if (size <= MIN_DSP_POOL_SIZE)
+		size = MIN_DSP_POOL_SIZE;
+
+	if (pshare_dram->size == 0) {
+		vaddr = gen_pool_alloc(gen_pool_buffer,
+			sizeof(struct audio_core_flag));
+		paddr = gen_pool_virt_to_phys(gen_pool_buffer, vaddr);
+		if (vaddr) {
+			pshare_dram->phy_addr = paddr;
+			pshare_dram->va_addr = vaddr;
+			pshare_dram->vir_addr = (char *)vaddr;
+			pshare_dram->size = size;
+			memset(pshare_dram->vir_addr, 0,
+			       pshare_dram->size);
+		}
+	} else {
+		pr_info("%s get gen_pool_alloc size used\n", __func__);
+	}
+
+	dsp->core_share_mem.ap_adsp_core_mem[core_id] =
+		(struct audio_core_flag *)pshare_dram->vir_addr;
+
+	dump_mtk_adsp_dram(dsp->core_share_mem.ap_adsp_share_buf[core_id]);
+
+	/* send share message information to adsp side */
+	ret = copy_ipi_payload(
+		(void *)ipi_payload_buf,
+		(void *)pshare_dram,
+		sizeof(struct audio_dsp_dram));
+	pr_info("%s task_scene[%u] core_id[%d] dsp_type[%d]\n",
+		__func__, task_scene, core_id, dsp_type);
+	ret = audio_send_ipi_msg(
+		&ipi_msg, task_scene,
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_COREMEM_SET,
+		sizeof(struct audio_dsp_dram), 0,
+		(char *)ipi_payload_buf);
+
+	return ret;
+}
+
+/* init for adsp/ap share mem ex:irq */
+int adsp_core_mem_init(struct mtk_base_dsp *dsp)
+{
+	int ret;
+
+	memset(&dsp->core_share_mem, 0, sizeof(struct mtk_ap_adsp_mem));
+	ret = adsp_core_mem_initall(dsp, TASK_SCENE_AUD_DAEMON_A);
+	if (ret)
+		pr_info("%s fail AUD_DAEMON_A\n", __func__);
+	ret = adsp_core_mem_initall(dsp, TASK_SCENE_AUD_DAEMON_B);
+	if (ret)
+		pr_info("%s fail AUD_DAEMON_B\n", __func__);
+	return 0;
+}
+
+int adsp_task_init(int task_id, struct mtk_base_dsp *dsp)
+{
+	int ret = 0;
+	struct ipi_msg_t ipi_msg;
+
+	if (dsp == NULL) {
+		pr_info("%s dsp == NULL\n", __func__);
+		return -1;
+	}
+
+	if (task_id >= AUDIO_TASK_DAI_NUM) {
+		pr_info("%s task_id = %d\n", __func__, task_id);
+		return -1;
+	}
+
+	ret = audio_send_ipi_msg(&ipi_msg,
+		get_dspscene_by_dspdaiid(task_id),
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_MSG_ONLY,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_INIT,
+		sizeof(struct audio_dsp_dram), 0,
+		(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
+	if (ret) {
+		pr_info("%s(), task [%d]send ipi fail\n",
+			__func__, task_id);
+	}
+
+	/* send share message to adsp side */
+	ret = copy_ipi_payload(
+		(void *)dsp->dsp_mem[task_id].ipi_payload_buf,
+		(void *)&dsp->dsp_mem[task_id].msg_atod_share_buf,
+		sizeof(struct audio_dsp_dram));
+
+	if (ret < 0)
+		pr_info("copy_ipi_payload err\n");
+
+	ret = audio_send_ipi_msg(
+		&ipi_msg, get_dspscene_by_dspdaiid(task_id),
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_MSGA2DSHAREMEM,
+		sizeof(struct audio_dsp_dram), 0,
+		(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
+	if (ret) {
+		pr_info("%s(), task [%d]send ipi fail\n",
+			__func__, task_id);
+	}
+
+	/* send share message to SCP side */
+	ret = copy_ipi_payload(
+		(void *)dsp->dsp_mem[task_id].ipi_payload_buf,
+		(void *)&dsp->dsp_mem[task_id].msg_dtoa_share_buf,
+		sizeof(struct audio_dsp_dram));
+	if (ret < 0)
+		pr_info("copy_ipi_payload err\n");
+
+	ret = audio_send_ipi_msg(
+		&ipi_msg, get_dspscene_by_dspdaiid(task_id),
+		AUDIO_IPI_LAYER_TO_DSP, AUDIO_IPI_PAYLOAD,
+		AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_MSGD2ASHAREMEM,
+		sizeof(struct audio_dsp_dram), 0,
+		(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
+	if (ret) {
+		pr_info("%s(), task [%d]send ipi fail\n",
+			__func__, task_id);
+	}
+	return 0;
+}
+
+/* init adsp */
+int mtk_init_adsp_audio_share_mem(struct mtk_base_dsp *dsp)
+{
+	int task_id;
+
+	if (dsp == NULL) {
+		pr_info("%s dsp == NULL\n", __func__);
+		return -1;
+	}
+
+	adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 
 	/* init for dsp-audio task share memory address */
-	for (task_id = 0; task_id < AUDIO_TASK_DAI_NUM; task_id++) {
+	for (task_id = 0; task_id < AUDIO_TASK_DAI_NUM; task_id++)
+		adsp_task_init(task_id, dsp);
 
-		/* send share message to SCP side */
-		ret = copy_ipi_payload(
-			(void *)dsp->dsp_mem[task_id].ipi_payload_buf,
-			(void *)&dsp->dsp_mem[task_id].msg_atod_share_buf,
-			sizeof(struct audio_dsp_dram));
+	/* here to init ap/adsp share memory */
+	adsp_core_mem_init(dsp);
 
-		if (ret < 0) {
-			pr_warn("copy_ipi_payload err\n");
-			continue;
-		}
+	adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 
-		ret = mtk_scp_ipi_send(
-			get_dspscene_by_dspdaiid(task_id), AUDIO_IPI_PAYLOAD,
-			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_MSGA2DSHAREMEM,
-			sizeof(struct audio_dsp_dram), 0,
-			(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
-
-		/* send share message to SCP side */
-		ret = copy_ipi_payload(
-			(void *)dsp->dsp_mem[task_id].ipi_payload_buf,
-			(void *)&dsp->dsp_mem[task_id].msg_dtoa_share_buf,
-			sizeof(struct audio_dsp_dram));
-
-		if (ret < 0) {
-			pr_warn("copy_ipi_payload err\n");
-			continue;
-		}
-		ret = mtk_scp_ipi_send(
-			get_dspscene_by_dspdaiid(task_id), AUDIO_IPI_PAYLOAD,
-			AUDIO_IPI_MSG_BYPASS_ACK, AUDIO_DSP_TASK_MSGD2ASHAREMEM,
-			sizeof(struct audio_dsp_dram), 0,
-			(char *)dsp->dsp_mem[task_id].ipi_payload_buf);
-	}
-
-	adsp_deregister_feature(AUDIO_PLAYBACK_FEATURE_ID);
-	mutex_unlock(&adsp_control_mutex);
 	pr_debug("-%s task_id = %d\n", __func__, task_id);
 	return 0;
 }
+

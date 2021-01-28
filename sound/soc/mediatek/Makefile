@@ -20,18 +20,19 @@ obj-$(CONFIG_SND_SOC_MTK_SCP_SMARTPA) += utility/
 obj-$(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) += scp_vow/
 
 # dsp related code
-obj-$(CONFIG_MTK_AUDIODSP_SUPPORT) += audio_dsp/
 obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
+obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += common_int/
 
 # btcvsd
 obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += common/
-obj-$(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT) += common_int/
 obj-$(CONFIG_SND_SOC_MEDIATEK) += common/
 obj-$(CONFIG_SND_SOC_MT2701) += mt2701/
 obj-$(CONFIG_SND_SOC_MT6768) += mt6768/
 obj-$(CONFIG_SND_SOC_MT8168) += mt8168/
 obj-$(CONFIG_SND_SOC_MT6785) += mt6785/
 obj-$(CONFIG_SND_SOC_MT8173) += mt8173/
+obj-$(CONFIG_SND_SOC_MT6853) += mt6853/
+obj-$(CONFIG_SND_SOC_MT6873) += mt6873/
 obj-$(CONFIG_SND_SOC_MT6885) += mt6885/
 obj-$(CONFIG_SND_SOC_MT8167) += mt8167/
 # adsp
@@ -40,6 +41,10 @@ subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/framewor
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/adsp/$(MTK_PLATFORM)/
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/call/
 subdir-ccflags-y += -I$(srctree)/sound/soc/mediatek/audio_dsp
+endif
+
+ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/audio_ipi/common/tasks/audplayback/
 endif
 
 ifeq ($(CONFIG_SND_SOC_MTK_SMART_PHONE),y)
