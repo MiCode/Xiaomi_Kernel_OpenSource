@@ -333,6 +333,46 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	dcm: dcm@10001000 {
+		compatible = "mediatek,mt6765-dcm";
+		reg = <0 0x10001000 0 0x1000>,
+			<0 0x10200000 0 0x1000>,
+			<0 0x10200000 0 0x1000>,
+			<0 0x10200200 0 0x1000>,
+			<0 0x10200400 0 0x1000>,
+			<0 0x1022d000 0 0x1000>,
+			<0 0x10235000 0 0x1000>,
+			<0 0x10238000 0 0x1000>,
+			<0 0x11220000 0 0x1000>,
+			<0 0x11c50000 0 0x1000>,
+			<0 0x13000000 0 0x1000>,
+			<0 0x14000000 0 0x1000>,
+			<0 0x14002000 0 0x1000>,
+			<0 0x14003000 0 0x1000>,
+			<0 0x15021000 0 0x1000>,
+			<0 0x17010000 0 0x1000>,
+			<0 0x17020000 0 0x1000>,
+			<0 0x17030000 0 0x1000>;
+		reg-names = "infracfg_ao",
+			"mcucfg",
+			"mp0_cpucfg",
+			"mp1_cpucfg",
+			"mcu_misccfg",
+			"chn0_emi",
+			"chn1_emi",
+			"gce",
+			"audio",
+			"efusec",
+			"mfgcfg",
+			"mmsys_config",
+			"smi_common",
+			"smi_larb0",
+			"smi_larb2",
+			"smi_larb1",
+			"venc",
+			"jpgenc";
+	};
+
 	sysirq: intpol-controller@10200a80 {
 		compatible = "mediatek,mt6577-sysirq";
 		interrupt-controller;
