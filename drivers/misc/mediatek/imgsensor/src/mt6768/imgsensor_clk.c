@@ -72,9 +72,13 @@ struct pm_qos_request imgsensor_qos;
 int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff)
 {
 	int i4RetValue = 0;
-	if (pbuff == NULL) {
-		pr_info("pbuff == null");
-		return IMGSENSOR_RETURN_ERROR;
+	if ((option == DFS_UPDATE ||
+		option == DFS_SUPPORTED_ISP_CLOCKS ||
+		option == DFS_CUR_ISP_CLOCK)) {
+		if (pbuff == NULL) {
+			pr_info("pbuff == null");
+			return IMGSENSOR_RETURN_ERROR;
+		}
 	}
 	/*pr_info("%s\n", __func__);*/
 
@@ -296,7 +300,7 @@ void imgsensor_clk_enable_all(struct IMGSENSOR_CLK *pclk)
 
 void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 {
-	int i;
+	int i = 0;
 
 	pr_info("%s\n", __func__);
 	for (i = IMGSENSOR_CCF_MCLK_TG_MIN_NUM;
@@ -312,11 +316,10 @@ void imgsensor_clk_disable_all(struct IMGSENSOR_CLK *pclk)
 
 int imgsensor_clk_ioctrl_handler(void *pbuff)
 {
-	if (pbuff == NULL) {
-		pr_info("pbuff == null");
-		return IMGSENSOR_RETURN_ERROR;
-	}
-	*(unsigned int *)pbuff = mt_get_ckgen_freq(*(unsigned int *)pbuff);
+	if (pbuff == NULL)
+		pr_info(" %s pbuff == null", __func__);
+	else
+		*(unsigned int *)pbuff = mt_get_ckgen_freq(*(unsigned int *)pbuff);
 	pr_info("hf_fcamtg_ck = %d, hf_fmm_ck = %d, f_fseninf_ck = %d\n",
 		mt_get_ckgen_freq(7),
 		mt_get_ckgen_freq(3),
