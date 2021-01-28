@@ -825,6 +825,7 @@ struct mtk_battery {
 	int ui_soc;
 	struct timespec uisoc_oldtime;
 	int d_saved_car;
+	int tbat_precise;
 
 	/*battery interrupt*/
 	/* coulomb interrupt */
