@@ -9,6 +9,8 @@
 #include <asm/errno.h>
 #include <asm/unwind.h>
 
+#include "proc-macros.S"
+
 /*
  *      __xxxx_dcache_user_area(start,size)
  *
@@ -108,8 +110,6 @@ ENDPROC(__inval_dcache_area)
 	.global dis_D_inner_flush_all
 .equ C1_IBIT ,  0x00001000
 .equ C1_CBIT ,  0x00000004
-.equ PSR_F_BIT, 0x00000040
-.equ PSR_I_BIT, 0x00000080
 
 __enable_icache:
 	MRC p15,0,r0,c1,c0,0
@@ -185,7 +185,7 @@ __inner_flush_dcache_all:
 all_loop1:
 	add     r2, r10, r10, lsr #1
 	mov     r1, r0, lsr r2
-	and     r1, r1, #7                      y
+	and     r1, r1, #7                      @
 	cmp     r1, #2
 	blt     all_skip
 #ifdef CONFIG_ARM_ERRATA_814220
