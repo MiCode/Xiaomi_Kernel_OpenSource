@@ -10,7 +10,7 @@
 #include <asm/arch_timer.h>
 
 #include <sspm_ipi.h>
-#include <trace/events/mtk_events.h>
+//#include <trace/events/mtk_events.h>
 
 #include <mtk_sspm.h>
 #include <mtk_spm_internal.h>
@@ -202,7 +202,8 @@ void sspm_ipi_lock_spm_scenario(int start, int id, int opt, const char *name)
 		atomic_dec(&ipi_lock_cnt);
 
 	/* FTRACE tag */
-	trace_sspm_ipi(start, id, opt);
+	/* FIXME */
+	//trace_sspm_ipi(start, id, opt);
 }
 
 static void sspm_timesync_timestamp(unsigned long long src, unsigned int *ts_h,
