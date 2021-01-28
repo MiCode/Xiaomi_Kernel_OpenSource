@@ -42,7 +42,7 @@
 
 #if enable_code
 /*devapc related function is not supported in Kernel-4.19*/
-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#if IS_ENABLED(CONFIG_MTK_DEVAPC) && !IS_ENABLED(CONFIG_DEVAPC_LEGACY)
 #include <mt-plat/devapc_public.h>
 #endif
 
@@ -1445,7 +1445,7 @@ static int find_big_core(int *big_core_first, int *big_core_last)
 
 #if enable_code
 
-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#if IS_ENABLED(CONFIG_MTK_DEVAPC) && !IS_ENABLED(CONFIG_DEVAPC_LEGACY)
 static void gz_devapc_vio_dump(void)
 {
 	pr_debug("%s:%d GZ devapc is triggered!\n", __func__, __LINE__);
@@ -1532,7 +1532,7 @@ static int __init gz_init(void)
 
 #if enable_code
 
-#if IS_ENABLED(CONFIG_MTK_DEVAPC)
+#if IS_ENABLED(CONFIG_MTK_DEVAPC) && !IS_ENABLED(CONFIG_DEVAPC_LEGACY)
 	register_devapc_vio_callback(&gz_devapc_vio_handle);
 #endif
 
