@@ -12,15 +12,16 @@
 
 #include "ufs.h"
 #include <linux/bitfield.h>
+#include <linux/blk_types.h>
+#include <linux/blkdev.h>
 #include <linux/hie.h>
 #include <linux/nls.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
-#include <linux/rpmb.h>
-#include <linux/blkdev.h>
-#include <linux/blk_types.h>
+#include <linux/pm_qos.h>
 #include <linux/reboot.h>
+#include <linux/rpmb.h>
 
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
@@ -699,6 +700,170 @@ static bool ufs_mtk_is_valid_pm_lvl(int lvl)
 		return false;
 }
 
+static int ufs_mtk_host_clk_get(struct device *dev, const char *name,
+				struct clk **clk_out)
+{
+	struct clk *clk;
+	int err = 0;
+
+	clk = devm_clk_get(dev, name);
+	if (IS_ERR(clk))
+		err = PTR_ERR(clk);
+	else
+		*clk_out = clk;
+
+	return err;
+}
+
+bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host)
+{
+	if (!host->crypto_clk_mux ||
+	    !host->crypto_parent_clk_normal ||
+	    !host->crypto_parent_clk_perf ||
+	    !host->req_vcore ||
+	    host->crypto_vcore_opp < 0)
+		return false;
+	else
+		return true;
+}
+
+int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf)
+{
+	int err = 0;
+	bool rpm_resumed = false;
+	bool clk_prepared = false;
+
+	if (!ufs_mtk_perf_is_supported(host)) {
+		dev_info(host->hba->dev, "%s: perf mode is unsupported\n",
+			 __func__);
+		err = -ENOTSUPP;
+		goto out;
+	}
+
+	/* runtime resume shall be prior to blocking requests */
+	pm_runtime_get_sync(host->hba->dev);
+	rpm_resumed = true;
+
+	/*
+	 * reuse clk scaling preparation function to wait until all
+	 * on-going commands are done, and then block future commands
+	 */
+	err = ufshcd_clock_scaling_prepare(host->hba);
+	if (err) {
+		dev_info(host->hba->dev,
+			 "%s: ufshcd_clock_scaling_prepare(): %d\n",
+			 __func__, err);
+		goto out;
+	}
+
+	clk_prepared = true;
+
+	err = clk_prepare_enable(host->crypto_clk_mux);
+	if (err) {
+		dev_info(host->hba->dev, "%s: clk_prepare_enable(): %d\n",
+			 __func__, err);
+		goto out;
+	}
+
+	if (perf) {
+		pm_qos_update_request(host->req_vcore,
+				      host->crypto_vcore_opp);
+		err = clk_set_parent(host->crypto_clk_mux,
+				     host->crypto_parent_clk_perf);
+	} else {
+		err = clk_set_parent(host->crypto_clk_mux,
+				     host->crypto_parent_clk_normal);
+		pm_qos_update_request(host->req_vcore,
+				      PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+	}
+
+	if (err)
+		dev_info(host->hba->dev, "%s: clk_set_parent(): %d\n",
+			 __func__, err);
+
+	clk_disable_unprepare(host->crypto_clk_mux);
+
+out:
+	/*
+	 * add event before any possible incoming commands
+	 * by unblocking requests in ufshcd_clock_scaling_unprepare()
+	 */
+	dev_info(host->hba->dev, "perf mode: request %s %s\n",
+		 perf ? "on" : "off",
+		 err ? "failed" : "ok");
+	ufs_mtk_dbg_add_trace(host->hba, UFS_TRACE_PERF_MODE,
+		perf, 0, (u32)err,
+		0, 0, 0, 0, 0, 0);
+
+	if (clk_prepared)
+		ufshcd_clock_scaling_unprepare(host->hba);
+
+	if (rpm_resumed)
+		pm_runtime_put_sync(host->hba->dev);
+
+	return err;
+}
+
+static int ufs_mtk_perf_init_crypto(struct ufs_hba *hba)
+{
+	int err = 0;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	struct device_node *np = hba->dev->of_node;
+
+	err = ufs_mtk_host_clk_get(hba->dev,
+				   "ufs-vendor-crypto-clk-mux",
+				   &host->crypto_clk_mux);
+	if (err) {
+		dev_info(hba->dev,
+			"%s: failed to get ufs-vendor-crypto-clk-mux, err: %d",
+			__func__, err);
+		goto out;
+	}
+
+	err = ufs_mtk_host_clk_get(hba->dev,
+				   "ufs-vendor-crypto-normal-parent-clk",
+				   &host->crypto_parent_clk_normal);
+	if (err) {
+		dev_info(hba->dev,
+			"%s: failed to get ufs-vendor-crypto-normal-parent-clk, err: %d",
+			__func__, err);
+		goto out;
+	}
+
+	err = ufs_mtk_host_clk_get(hba->dev,
+				   "ufs-vendor-crypto-perf-parent-clk",
+				   &host->crypto_parent_clk_perf);
+	if (err) {
+		dev_info(hba->dev,
+			"%s: failed to get ufs-vendor-crypto-perf-parent-clk, err: %d",
+			__func__, err);
+		goto out;
+	}
+
+	err = of_property_read_s32(np, "mediatek,perf-crypto-vcore",
+				   &host->crypto_vcore_opp);
+	if (err) {
+		dev_info(hba->dev,
+			"%s: failed to get mediatek,perf-crypto-vcore",
+			__func__);
+		host->crypto_vcore_opp = -1;
+		goto out;
+	}
+
+	/* init VCORE QOS */
+	host->req_vcore = devm_kzalloc(hba->dev, sizeof(*host->req_vcore),
+				       GFP_KERNEL);
+	if (!host->req_vcore) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	pm_qos_add_request(host->req_vcore, PM_QOS_VCORE_OPP,
+			   PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+out:
+	return err;
+}
+
 /**
  * ufs_mtk_init - find other essential mmio bases
  * @hba: host controller instance
@@ -760,6 +925,8 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	/* Get auto-hibern8 timeout from device tree */
 	ufs_mtk_parse_auto_hibern8_timer(hba);
+
+	ufs_mtk_perf_init_crypto(hba);
 
 	return 0;
 }
