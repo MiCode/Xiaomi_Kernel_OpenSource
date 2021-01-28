@@ -353,8 +353,6 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 	if (unlikely(err))
 		return err;
 
-	arm_pm_restart = NULL;
-
 	/* register reset controller for reset source setting */
 	mtk_wdt->rcdev.owner = THIS_MODULE;
 	mtk_wdt->rcdev.nr_resets =  MTK_WDT_REQ_MODE_LEN;
