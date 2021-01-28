@@ -351,7 +351,11 @@ static void mt6315_S6_lp_initial_setting(void)
 static void mt6315_S7_lp_initial_setting(void)
 {
 #if LP_INIT_SETTING_VERIFIED
-#if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893)
+	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_7, 1);
+	/* vsram_core */
+	mt6315_lp_set(MT6315_SLAVE_ID_7, 4, MT6315_SRCLKEN0, 1, 1, HW_LP);
+#elif defined(CONFIG_MACH_MT6885)
 	mt6315_vdig18_hw_op_set(MT6315_SLAVE_ID_7, 1);
 	/* vsram_core */
 	mt6315_lp_set(MT6315_SLAVE_ID_7, 3, MT6315_SRCLKEN0, 1, 1, HW_LP);
