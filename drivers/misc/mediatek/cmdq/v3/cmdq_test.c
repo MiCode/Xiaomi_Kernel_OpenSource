@@ -1744,7 +1744,11 @@ static void testcase_write_with_mask(void)
 	/* use CMDQ to set to PATTERN */
 	cmdq_task_create(CMDQ_SCENARIO_DEBUG, &handle);
 	cmdq_task_reset(handle);
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	cmdq_task_set_secure(handle, gCmdqTestSecure);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(handle, true);
+#endif
 	cmdq_op_write_reg(handle, dummy_pa, PATTERN, MASK);
 	cmdq_task_flush(handle);
 	cmdq_pkt_dump_command(handle);
@@ -1827,7 +1831,11 @@ static void testcase_write(void)
 	/* use CMDQ to set to PATTERN */
 	cmdq_task_create(CMDQ_SCENARIO_DEBUG, &handle);
 	cmdq_task_reset(handle);
+#ifdef CMDQ_SECURE_PATH_SUPPORT
 	cmdq_task_set_secure(handle, gCmdqTestSecure);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(handle, true);
+#endif
 	cmdq_op_write_reg(handle, dummy_pa, PATTERN, ~0);
 	cmdq_task_flush(handle);
 	cmdq_task_destroy(handle);
@@ -7814,9 +7822,7 @@ static void testcase_general_handling(s32 testID)
 		testcase_write_stress_test();
 		break;
 	case 100:
-		CMDQ_ERR("Aaron Start\n");
 		testcase_secure_basic();
-		CMDQ_ERR("Aaron End\n");
 		break;
 	case 99:
 		testcase_write();
