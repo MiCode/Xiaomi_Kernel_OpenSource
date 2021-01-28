@@ -25,21 +25,15 @@
 #define UNIT_TRANS_10		(10)
 #define CURRENT_CONVERT_RATIO	95
 #define OCCB_MAX_NUM 16
-//TODO
-/* Get r_fg_value/car_tune_value from gauge dts */
-#define MT6357_R_FG_VALUE		(10)	/*mOhm*/
+
+/* Get R_FG_VALUE/CAR_TUNE_VALUE from gauge dts node */
 #define	MT6357_DEFAULT_RFG		(100)
-#define	MT6357_CAR_TUNE_VALUE		(100)
 #define	MT6357_UNIT_FGCURRENT		(314331)
 
-#define MT6358_R_FG_VALUE		(5)	/*mOhm*/
 #define	MT6358_DEFAULT_RFG		(100)
-#define	MT6358_CAR_TUNE_VALUE		(100)
 #define	MT6358_UNIT_FGCURRENT		(381470)
 
-#define MT6359_R_FG_VALUE		(5)	/*mOhm*/
 #define	MT6359_DEFAULT_RFG		(50)
-#define	MT6359_CAR_TUNE_VALUE		(100)
 #define	MT6359_UNIT_FGCURRENT		(610352)
 
 struct reg_t {
@@ -154,9 +148,7 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	struct device_node *np;
 	int ret = 0;
 
-#if IS_ENABLED(GAUGE_DTS)
-	//TODO
-	/* Get r_fg_value/car_tune_value */
+	/* Get R_FG_VALUE/CAR_TUNE_VALUE from gauge dts node */
 	np = of_find_node_by_name(pdev->dev.parent->of_node, "mtk_gauge");
 	if (!np) {
 		dev_notice(&pdev->dev, "get mtk_gauge node fail\n");
@@ -176,9 +168,8 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 		return -EINVAL;
 	}
 	priv->car_tune_value *= UNIT_TRANS_10;
-#endif
 
-	/* Get oc_thd_h/oc_thd_l value */
+	/* Get oc_thd_h/oc_thd_l value from dts node */
 	np = of_find_node_by_name(pdev->dev.parent->of_node,
 				  "mtk_battery_oc_throttling");
 	if (!np) {
@@ -193,21 +184,14 @@ static int battery_oc_parse_dt(struct platform_device *pdev)
 	if (ret)
 		priv->oc_thd_l = DEF_BAT_OC_THD_L;
 
-	/* TODO: get from gauge dts or header file? */
-	/* Get DEFAULT_RFG/UNIT_FGCURRENT */
+	/* Get DEFAULT_RFG/UNIT_FGCURRENT from pre-defined MACRO */
 	switch (pmic->chip_id) {
 	case MT6357_CHIP_ID:
-		priv->oc_thd_h = 4670;
-		priv->oc_thd_l = 5500;
-		priv->r_fg_value = (MT6357_R_FG_VALUE * UNIT_TRANS_10);
-		priv->car_tune_value = (MT6357_CAR_TUNE_VALUE * UNIT_TRANS_10);
 		priv->default_rfg = MT6357_DEFAULT_RFG;
 		priv->unit_fg_cur = MT6357_UNIT_FGCURRENT;
 		break;
 
 	case MT6359_CHIP_ID:
-		priv->r_fg_value = (MT6359_R_FG_VALUE * UNIT_TRANS_10);
-		priv->car_tune_value = (MT6359_CAR_TUNE_VALUE * UNIT_TRANS_10);
 		priv->default_rfg = MT6359_DEFAULT_RFG;
 		priv->unit_fg_cur = MT6359_UNIT_FGCURRENT;
 		break;
