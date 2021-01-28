@@ -1861,7 +1861,7 @@ static int get_nvmem_cell_efuse(struct device *dev)
 	uint32_t *buf;
 
 	cell = nvmem_cell_get(dev, "efuse_segment");
-	if (IS_ERR(cell)) {
+	if ((cell == NULL) || IS_ERR(cell)) {
 		LOG_ERR("[%s] nvmem_cell_get fail\n", __func__);
 		if (PTR_ERR(cell) == -EPROBE_DEFER)
 			return PTR_ERR(cell);
