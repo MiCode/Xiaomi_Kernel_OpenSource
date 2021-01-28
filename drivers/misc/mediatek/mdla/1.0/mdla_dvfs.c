@@ -22,13 +22,22 @@
 #include "apu_dvfs.h"
 #include <linux/regulator/consumer.h>
 #include "vpu_dvfs.h"
-#include <mtk_devinfo.h>
+#ifdef CONFIG_MTK_DEVINFO
+#include <linux/nvmem-consumer.h>
+#include <linux/slab.h>
+#endif
 #include "mtk_qos_bound.h"
 #include <linux/pm_qos.h>
 
 #ifdef MTK_PERF_OBSERVER
 #include <mt-plat/mtk_perfobserver.h>
 #endif
+
+static uint32_t g_efuse_segment;
+static inline uint32_t get_devinfo_with_index(int idx)
+{
+	return g_efuse_segment;
+}
 
 /* opp, mW */
 struct MDLA_OPP_INFO mdla_power_table[MDLA_OPP_NUM] = {
@@ -1840,6 +1849,36 @@ static void mdla_opp_keep_routine(struct work_struct *work)
 	mutex_unlock(&opp_mutex);
 	mdla_dvfs_debug("%s flag (%d) -\n", __func__, opp_keep_flag);
 }
+
+#ifdef CONFIG_MTK_DEVINFO
+static int get_nvmem_cell_efuse(struct device *dev)
+{
+	struct nvmem_cell *cell;
+	uint32_t *buf;
+
+	cell = nvmem_cell_get(dev, "efuse_segment");
+	if (IS_ERR(cell)) {
+		LOG_ERR("[%s] nvmem_cell_get fail\n", __func__);
+		if (PTR_ERR(cell) == -EPROBE_DEFER)
+			return PTR_ERR(cell);
+		return -1;
+	}
+
+	buf = (uint32_t *)nvmem_cell_read(cell, NULL);
+	nvmem_cell_put(cell);
+
+	if (IS_ERR(buf)) {
+		LOG_ERR("[%s] nvmem_cell_read fail\n", __func__);
+		return PTR_ERR(buf);
+	}
+
+	g_efuse_segment = *buf;
+	kfree(buf);
+
+	return 0;
+}
+#endif // CONFIG_MTK_DEVINFO
+
 int mdla_init_hw(int core, struct platform_device *pdev)
 {
 	int ret, i, j;
@@ -2038,6 +2077,9 @@ int mdla_init_hw(int core, struct platform_device *pdev)
 		minboost[j] = 0;
 		maxboost[j] = 100;
 	}
+#ifdef CONFIG_MTK_DEVINFO
+	get_nvmem_cell_efuse(&pdev->dev);
+#endif
 	get_segment_from_efuse();
 	mdla_init_done = 1;
 	return 0;

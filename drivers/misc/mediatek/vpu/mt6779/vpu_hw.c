@@ -28,7 +28,10 @@
 #include <smi_debug.h>
 #endif
 #include <m4u.h>
-#include "mtk_devinfo.h"
+#ifdef CONFIG_MTK_DEVINFO
+#include <linux/nvmem-consumer.h>
+#include <linux/slab.h>
+#endif
 
 #ifdef MTK_PERF_OBSERVER
 #include <mt-plat/mtk_perfobserver.h>
@@ -61,6 +64,21 @@ struct wake_lock vpu_wake_lock[MTK_VPU_CORE];
 #include "mdla_dvfs.h"
 #include "mtk_qos_bound.h"
 #include <linux/pm_qos.h>
+
+static uint32_t g_efuse_data;
+static uint32_t g_efuse_segment;
+static inline uint32_t get_devinfo_with_index(int idx)
+{
+	uint32_t data = 0x0;
+
+	if (idx == 3)
+		data = g_efuse_data;
+
+	if (idx == 7)
+		data = g_efuse_segment;
+
+	return data;
+}
 
 /* opp, mW */
 struct VPU_OPP_INFO vpu_power_table[VPU_OPP_NUM] = {
@@ -3603,6 +3621,48 @@ static void vpu_sdsp_routine(struct work_struct *work)
 	}
 }
 
+#ifdef CONFIG_MTK_DEVINFO
+#define EFUSE_FIELD_CNT		(2)
+static const char *efuse_field[EFUSE_FIELD_CNT] = {
+	"efuse_data",
+	"efuse_segment",
+};
+
+static int get_nvmem_cell_efuse(struct device *dev)
+{
+	struct nvmem_cell *cell[EFUSE_FIELD_CNT];
+	uint32_t *buf[EFUSE_FIELD_CNT];
+	int i;
+
+	for (i = 0 ; i < EFUSE_FIELD_CNT ; ++i) {
+		cell[i] = nvmem_cell_get(dev, efuse_field[i]);
+		if (IS_ERR(cell[i])) {
+			LOG_ERR("[%s] nvmem_cell_get fail\n", __func__);
+			if (PTR_ERR(cell[i]) == -EPROBE_DEFER)
+				return PTR_ERR(cell[i]);
+			return -1;
+		}
+
+		buf[i] = (uint32_t *)nvmem_cell_read(cell[i], NULL);
+		nvmem_cell_put(cell[i]);
+
+		if (IS_ERR(buf[i])) {
+			LOG_ERR("[%s] nvmem_cell_read fail\n", __func__);
+			return PTR_ERR(buf[i]);
+		}
+
+		if (i == 0)
+			g_efuse_data = *buf[0];
+		if (i == 1)
+			g_efuse_segment = *buf[1];
+
+		kfree(buf[i]);
+	}
+
+	return 0;
+}
+#endif // CONFIG_MTK_DEVINFO
+
 int vpu_init_hw(int core, struct vpu_device *device)
 {
 	int ret, i, j;
@@ -3666,6 +3726,8 @@ int vpu_init_hw(int core, struct vpu_device *device)
 		vpu_dev->vpu_hw_support[0] = true;
 		vpu_dev->vpu_hw_support[1] = true;
 #else
+#ifdef CONFIG_MTK_DEVINFO
+		get_nvmem_cell_efuse(device->dev[0]);
 		efuse_data = (get_devinfo_with_index(3) & 0xC00) >> 10;
 		LOG_INF("efuse_data: efuse_data(0x%x)\n", efuse_data);
 		switch (efuse_data) {
@@ -3683,6 +3745,7 @@ int vpu_init_hw(int core, struct vpu_device *device)
 			vpu_dev->vpu_hw_support[1] = false;
 			break;
 		}
+#endif
 		get_segment_from_efuse();
 #endif
 

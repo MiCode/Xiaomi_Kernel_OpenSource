@@ -19,6 +19,10 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_reserved_mem.h>
+#ifdef CONFIG_MTK_DEVINFO
+#include <linux/nvmem-consumer.h>
+#include <linux/slab.h>
+#endif
 #include <mtk_qos_sram.h>
 #include <linux/delay.h>
 #include "vpu_reg.h"
@@ -33,9 +37,14 @@
 #include "vpu_cmn.h"
 
 #include <linux/regulator/consumer.h>
-#include <mtk_devinfo.h>
 
 #define CCF_GET_CKGEN_READY	(1)
+
+static uint32_t g_efuse_ptpod;
+static inline uint32_t get_devinfo_with_index(int idx)
+{
+	return g_efuse_ptpod;
+}
 
 /*regulator id*/
 static struct regulator *vvpu_reg_id;
@@ -1754,6 +1763,35 @@ static void pm_qos_notifier_register(void)
 			&dvfs->pm_qos_vmdla_opp_nb);
 }
 
+#ifdef CONFIG_MTK_DEVINFO
+static int get_nvmem_cell_efuse(struct device *dev)
+{
+	struct nvmem_cell *cell;
+	uint32_t *buf;
+
+	cell = nvmem_cell_get(dev, "efuse_ptpod");
+	if (IS_ERR(cell)) {
+		LOG_ERR("[%s] nvmem_cell_get fail\n", __func__);
+		if (PTR_ERR(cell) == -EPROBE_DEFER)
+			return PTR_ERR(cell);
+		return -1;
+	}
+
+	buf = (uint32_t *)nvmem_cell_read(cell, NULL);
+	nvmem_cell_put(cell);
+
+	if (IS_ERR(buf)) {
+		LOG_ERR("[%s] nvmem_cell_read fail\n", __func__);
+		return PTR_ERR(buf);
+	}
+
+	g_efuse_ptpod = *buf;
+	kfree(buf);
+
+	return 0;
+}
+#endif // CONFIG_MTK_DEVINFO
+
 static int apu_dvfs_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1762,6 +1800,9 @@ static int apu_dvfs_probe(struct platform_device *pdev)
 	struct device_node *ct_node = NULL;
 	u32 ct_flag = 0;
 
+#ifdef CONFIG_MTK_DEVINFO
+	get_nvmem_cell_efuse(&pdev->dev);
+#endif
 	dvfs = devm_kzalloc(&pdev->dev, sizeof(*dvfs), GFP_KERNEL);
 	if (!dvfs)
 		return -ENOMEM;
