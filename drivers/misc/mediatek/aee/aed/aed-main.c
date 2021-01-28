@@ -1023,6 +1023,8 @@ static void ee_worker(struct work_struct *work)
  *****************************************************************************/
 static int aed_ee_open(struct inode *inode, struct file *filp)
 {
+	if (strncmp(current->comm, "aee_aed", 7))
+		return -1;
 	LOGD("%s:%d:%d\n", __func__, MAJOR(inode->i_rdev),
 						MINOR(inode->i_rdev));
 	return 0;
@@ -1062,9 +1064,6 @@ static ssize_t aed_ee_write(struct file *filp, const char __user *buf,
 	struct AE_Msg msg;
 	int rsize;
 	struct aed_eerec *eerec = aed_dev.eerec;
-
-	if (strncmp(current->comm, "aee_aed", 7))
-		return -1;
 
 	/* recevied a new request means the previous response is unavilable */
 	/* 1. set position to be zero */
@@ -1141,10 +1140,16 @@ static ssize_t aed_ee_write(struct file *filp, const char __user *buf,
  *****************************************************************************/
 static int aed_ke_open(struct inode *inode, struct file *filp)
 {
-	int major = MAJOR(inode->i_rdev);
-	int minor = MINOR(inode->i_rdev);
-	unsigned char *devname = filp->f_path.dentry->d_iname;
+	int major = 0;
+	int minor = 0;
+	unsigned char *devname = NULL;
 
+	if (strncmp(current->comm, "aee_aed", 7))
+		return -1;
+
+	major = MAJOR(inode->i_rdev);
+	minor = MINOR(inode->i_rdev);
+	devname = filp->f_path.dentry->d_iname;
 	LOGD("%s:(%s)%d:%d\n", __func__, devname, major, minor);
 	return 0;
 }
@@ -1273,9 +1278,6 @@ static ssize_t aed_ke_write(struct file *filp, const char __user *buf,
 {
 	struct AE_Msg msg;
 	int rsize;
-
-	if (strncmp(current->comm, "aee_aed", 7))
-		return -1;
 
 	/* recevied a new request means the previous response is unavilable */
 	/* 1. set position to be zero */
