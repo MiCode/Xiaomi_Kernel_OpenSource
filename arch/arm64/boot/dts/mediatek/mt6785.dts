@@ -4165,9 +4165,11 @@ page_owner=on loop.max_part=7";
 		interrupts = <GIC_SPI 285 IRQ_TYPE_LEVEL_LOW>;
 
 		clocks = <&camsys CAMSYS_CCU_CGPDN>,
-			 <&mmsys_config MMSYS_GALS_CCU2MM>;
+			<&mmsys_config MMSYS_GALS_CCU2MM>,
+			<&scpsys SCP_SYS_CAM>;
 		clock-names = "CCU_CLK_CAM_CCU",
-			      "CCU_CLK_MMSYS_CCU";
+			    "CCU_CLK_MMSYS_CCU",
+			    "CAM_PWR";
 #ifdef CONFIG_MTK_IOMMU_V2
 		iommus = <&iommu0 M4U_PORT_CCUG>;
 #endif
