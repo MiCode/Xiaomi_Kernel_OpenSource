@@ -2003,7 +2003,14 @@ static int mtk_charger_remove(struct platform_device *dev)
 
 static void mtk_charger_shutdown(struct platform_device *dev)
 {
+	struct mtk_charger *info = platform_get_drvdata(dev);
+	int i;
 
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		if (info->alg[i] == NULL)
+			continue;
+		chg_alg_stop_algo(info->alg[i]);
+	}
 }
 
 static const struct of_device_id mtk_charger_of_match[] = {
