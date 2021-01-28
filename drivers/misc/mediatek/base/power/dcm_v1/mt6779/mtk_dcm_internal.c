@@ -626,7 +626,7 @@ void dcm_set_hotplug_nb(void)
 	ret = cpuhp_setup_state(CPUHP_AP_ONLINE_DYN, "dcm_cb",
 				dcm_cpuhp_notify_enter,
 				dcm_cpuhp_notify_leave);
-	if (ret)
+	if (ret < 0)
 		dcm_pr_info("[%s]: fail to register_cpu_notifier\n",
 				__func__);
 #endif /* #ifdef CONFIG_HOTPLUG_CPU */
