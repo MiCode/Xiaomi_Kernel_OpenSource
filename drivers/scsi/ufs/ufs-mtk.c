@@ -1732,7 +1732,8 @@ out:
  * response in the buffer field while updating the used size in buf_length.
  */
 #if defined(CONFIG_UFSFEATURE)
-int ufsf_query_ioctl(struct ufsf_feature *ufsf, int lun, void __user *buffer,
+int ufsf_query_ioctl(struct ufsf_feature *ufsf, unsigned int lun,
+		     void __user *buffer,
 		     struct ufs_ioctl_query_data_hpb *ioctl_data, u8 selector);
 #endif
 int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)

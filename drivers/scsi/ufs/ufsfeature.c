@@ -256,7 +256,8 @@ static int ufsf_read_geo_desc(struct ufsf_feature *ufsf, u8 selector)
 	return 0;
 }
 
-static int ufsf_read_unit_desc(struct ufsf_feature *ufsf, int lun, u8 selector)
+static int ufsf_read_unit_desc(struct ufsf_feature *ufsf,
+			       unsigned int lun, u8 selector)
 {
 	u8 unit_buf[UFSF_QUERY_DESC_UNIT_MAX_SIZE];
 	int lu_enable, ret = 0;
@@ -294,7 +295,8 @@ out:
 void ufsf_device_check(struct ufs_hba *hba)
 {
 	struct ufsf_feature *ufsf = &hba->ufsf;
-	int ret, lun;
+	int ret;
+	unsigned int lun;
 	u8 selector = 0;
 
 	ufsf->slave_conf_cnt = 0;
@@ -341,7 +343,7 @@ out_free_mem:
 static void ufsf_print_query_buf(unsigned char *field, int size)
 {
 	unsigned char buf[255];
-	int count = 0;
+	unsigned int count = 0;
 	int i;
 
 	count += snprintf(buf, 8, "(0x00):");
@@ -368,7 +370,8 @@ inline int ufsf_check_query(__u32 opcode)
 	return (opcode & 0xffff0000) >> 16 == UFSFEATURE_QUERY_OPCODE;
 }
 
-int ufsf_query_ioctl(struct ufsf_feature *ufsf, int lun, void __user *buffer,
+int ufsf_query_ioctl(struct ufsf_feature *ufsf, unsigned int lun,
+		     void __user *buffer,
 		     struct ufs_ioctl_query_data_hpb *ioctl_data, u8 selector)
 {
 	unsigned char *kernel_buf;

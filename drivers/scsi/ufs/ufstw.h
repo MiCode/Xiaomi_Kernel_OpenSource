@@ -163,7 +163,7 @@ struct ufshcd_lrb;
 
 void ufstw_get_dev_info(struct ufstw_dev_info *tw_dev_info, u8 *desc_buf);
 void ufstw_get_geo_info(struct ufstw_dev_info *tw_dev_info, u8 *geo_buf);
-int ufstw_get_lu_info(struct ufsf_feature *ufsf, int lun, u8 *lu_buf);
+int ufstw_get_lu_info(struct ufsf_feature *ufsf, unsigned int lun, u8 *lu_buf);
 void ufstw_init(struct ufsf_feature *ufsf);
 void ufstw_prep_fn(struct ufsf_feature *ufsf, struct ufshcd_lrb *lrbp);
 void ufstw_init_work_fn(struct work_struct *work);

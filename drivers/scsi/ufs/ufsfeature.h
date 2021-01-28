@@ -169,7 +169,8 @@ struct ufshcd_lrb;
 
 void ufsf_device_check(struct ufs_hba *hba);
 int ufsf_check_query(__u32 opcode);
-int ufsf_query_ioctl(struct ufsf_feature *ufsf, int lun, void __user *buffer,
+int ufsf_query_ioctl(struct ufsf_feature *ufsf, unsigned int lun,
+		     void __user *buffer,
 		     struct ufs_ioctl_query_data_hpb *ioctl_data,
 		     u8 selector);
 int ufsf_query_flag_retry(struct ufs_hba *hba, enum query_opcode opcode,
