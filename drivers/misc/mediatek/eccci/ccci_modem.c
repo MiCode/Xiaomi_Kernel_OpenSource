@@ -34,10 +34,7 @@
 
 #include <memory-amms.h>
 #include "mt-plat/mtk_ccci_common.h"
-
-#ifndef DISABLE_MTK_BOOT_MODE
 #include <mt-plat/mtk_boot_common.h>
-#endif
 
 #if defined(ENABLE_32K_CLK_LESS)
 //#include <mt-plat/mtk_rtc.h>
@@ -1177,41 +1174,68 @@ static void append_runtime_feature(char **p_rt_data,
 	}
 }
 
+
+struct ccci_tag_bootmode {
+	u32 size;
+	u32 tag;
+	u32 bootmode;
+	u32 boottype;
+};
+
+static unsigned int get_boot_mode_from_dts(void)
+{
+	struct device_node *np_chosen = NULL;
+	struct ccci_tag_bootmode *tag = NULL;
+	u32 bootmode = NORMAL_BOOT_ID;
+
+	np_chosen = of_find_node_by_path("/chosen");
+	if (!np_chosen) {
+		CCCI_ERROR_LOG(-1, TAG, "warning: not find node: '/chosen'\n");
+
+		np_chosen = of_find_node_by_path("/chosen@0");
+		if (!np_chosen) {
+			CCCI_ERROR_LOG(-1, TAG,
+				"[%s] error: not find node: '/chosen@0'\n",
+				__func__);
+			return NORMAL_BOOT_ID;
+		}
+	}
+
+	tag = (struct ccci_tag_bootmode *)
+			of_get_property(np_chosen, "atag,boot", NULL);
+	if (!tag) {
+		CCCI_ERROR_LOG(-1, TAG,
+			"[%s] error: not find tag: 'atag,boot';\n", __func__);
+		return NORMAL_BOOT_ID;
+	}
+
+	if (tag->bootmode == META_BOOT || tag->bootmode == ADVMETA_BOOT)
+		bootmode = META_BOOT_ID;
+
+	else if (tag->bootmode == FACTORY_BOOT ||
+			tag->bootmode == ATE_FACTORY_BOOT)
+		bootmode = FACTORY_BOOT_ID;
+
+	CCCI_NORMAL_LOG(-1, TAG,
+		"[%s] bootmode: 0x%x boottype: 0x%x; return: 0x%x\n",
+		__func__, tag->bootmode, tag->boottype, bootmode);
+
+	return bootmode;
+}
+
 static unsigned int get_booting_start_id(struct ccci_modem *md)
 {
 	enum LOGGING_MODE mdlog_flag = MODE_IDLE;
-	u32 booting_start_id;
+	u32 booting_start_id = 0;
 
 	mdlog_flag = md->mdlg_mode;
-#ifndef DISABLE_MTK_BOOT_MODE
-	if (md->per_md_data.md_boot_mode != MD_BOOT_MODE_INVALID) {
-		if (md->per_md_data.md_boot_mode == MD_BOOT_MODE_META)
-			booting_start_id = ((char)mdlog_flag << 8
-								| META_BOOT_ID);
-		else if ((get_boot_mode() == FACTORY_BOOT ||
-				get_boot_mode() == ATE_FACTORY_BOOT))
-			booting_start_id = ((char)mdlog_flag << 8
-							| FACTORY_BOOT_ID);
-		else
-			booting_start_id = ((char)mdlog_flag << 8
-							| NORMAL_BOOT_ID);
-	} else {
-		if (is_meta_mode() || is_advanced_meta_mode())
-			booting_start_id = ((char)mdlog_flag << 8
-							| META_BOOT_ID);
-		else if ((get_boot_mode() == FACTORY_BOOT ||
-				get_boot_mode() == ATE_FACTORY_BOOT))
-			booting_start_id = ((char)mdlog_flag << 8
-							| FACTORY_BOOT_ID);
-		else
-#endif
-			booting_start_id = ((char)mdlog_flag << 8
-							| NORMAL_BOOT_ID);
-#ifndef DISABLE_MTK_BOOT_MODE
-	}
-#endif
+
+	booting_start_id = (((char)mdlog_flag << 8)
+				| get_boot_mode_from_dts());
+
 	CCCI_BOOTUP_LOG(md->index, TAG,
 		"%s 0x%x\n", __func__, booting_start_id);
+
 	return booting_start_id;
 }
 
