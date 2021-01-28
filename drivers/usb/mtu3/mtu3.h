@@ -28,6 +28,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/usb.h>
 #include <linux/usb/ch9.h>
+#include <linux/usb/class-dual-role.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/otg.h>
 
@@ -122,6 +123,19 @@ extern u32 debug_level;
  * the SET_SEL request uses 6 so far, and GET_STATUS is 2
  */
 #define EP0_RESPONSE_BUF  6
+
+/**
+ * MTU3_DR_FORCE_NONE: automatically switch host and periperal mode
+ *		by IDPIN signal.
+ * MTU3_DR_FORCE_HOST: force to enter host mode and override OTG
+ *		IDPIN signal.
+ * MTU3_DR_FORCE_DEVICE: force to enter peripheral mode.
+ */
+enum mtu3_dr_force_mode {
+	MTU3_DR_FORCE_NONE = 0,
+	MTU3_DR_FORCE_HOST,
+	MTU3_DR_FORCE_DEVICE,
+};
 
 /* device operated link and speed got from DEVICE_CONF register */
 enum mtu3_speed {
@@ -268,6 +282,7 @@ struct ssusb_mtk {
 	struct mtu3 *u3d;
 	void __iomem *mac_base;
 	void __iomem *ippc_base;
+	void __iomem *xhci_base;
 	struct phy **phys;
 	int num_phys;
 	/* common power & clock */
@@ -277,8 +292,11 @@ struct ssusb_mtk {
 	struct clk *mcu_clk;
 	struct clk *dma_clk;
 	struct clk *host_clk;
+	struct clk *xhci_clk;
 	/* otg */
 	struct otg_switch_mtk otg_switch;
+	struct delayed_work clk_ctl_dwork;
+	struct delayed_work otg_detect_dwork;
 	enum usb_dr_mode dr_mode;
 	bool is_host;
 	bool u3ports_disable;
@@ -287,12 +305,19 @@ struct ssusb_mtk {
 	struct dentry *dbgfs_root;
 	/* usb wakeup for host mode */
 	bool wakeup_en;
+	/* keep clock and phy always on*/
+	bool keep_ao;
+	/* keep infra power on*/
+	bool infra_on;
 	bool force_vbus;
 	bool u1u2_disable;
 	bool u3_loopb_support;
 	struct clk *wk_deb_p0;
 	struct clk *wk_deb_p1;
 	struct regmap *pericfg;
+	struct dual_role_phy_instance *drp_inst;
+	enum mtu3_dr_force_mode drp_state;
+	struct charger_device *chg_dev;
 	void *priv_data;
 };
 
@@ -469,6 +494,14 @@ void mtu3_gadget_disconnect(struct mtu3 *mtu);
 
 irqreturn_t mtu3_ep0_isr(struct mtu3 *mtu);
 extern const struct usb_ep_ops mtu3_ep0_ops;
+
+#if !IS_ENABLED(CONFIG_USB_MTU3_PLAT_PHONE)
+int ssusb_clks_enable(struct ssusb_mtk *ssusb);
+void ssusb_clks_disable(struct ssusb_mtk *ssusb);
+int ssusb_phy_power_on(struct ssusb_mtk *ssusb);
+void ssusb_phy_power_off(struct ssusb_mtk *ssusb);
+void ssusb_ip_sw_reset(struct ssusb_mtk *ssusb);
+#else
 extern void mtu3_check_ltssm_work(struct work_struct *data);
 extern bool mtu3_hal_is_vbus_exist(void);
 extern void disconnect_check(struct mtu3 *mtu);
@@ -482,5 +515,6 @@ enum cable_mode {
 	CABLE_MODE_FORCEON,
 	CABLE_MODE_MAX
 };
+#endif
 
 #endif

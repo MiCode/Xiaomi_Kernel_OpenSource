@@ -25,8 +25,10 @@
 #include <linux/dma-mapping.h>
 
 #include "mtu3.h"
-
+#include "mtu3_dr.h"
+#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 static u32 sts_ltssm;
+#endif
 
 static int ep_fifo_alloc(struct mtu3_ep *mep, u32 seg_size)
 {
@@ -616,10 +618,17 @@ static irqreturn_t mtu3_link_isr(struct mtu3 *mtu)
 	mtu->g.ep0->maxpacket = maxpkt;
 	mtu->ep0_state = MU3D_EP0_STATE_SETUP;
 
-	if (udev_speed == USB_SPEED_UNKNOWN)
+	if (udev_speed == USB_SPEED_UNKNOWN) {
 		mtu3_gadget_disconnect(mtu);
-	else
+		#if !IS_ENABLED(CONFIG_USB_MTU3_PLAT_PHONE)
+		mtu3_drp_to_none(mtu);
+		#endif
+	} else {
 		mtu3_ep0_setup(mtu);
+		#if !IS_ENABLED(CONFIG_USB_MTU3_PLAT_PHONE)
+		mtu3_drp_to_device(mtu);
+		#endif
+	}
 
 	if (udev_speed == USB_SPEED_SUPER) {
 		mep = mtu->ep0;
@@ -642,6 +651,7 @@ static irqreturn_t mtu3_u3_ltssm_isr(struct mtu3 *mtu)
 	mtu3_writel(mbase, U3D_LTSSM_INTR, ltssm); /* W1C */
 	dev_dbg(mtu->dev, "=== LTSSM[%x] ===\n", ltssm);
 
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	if (ltssm & SS_DISABLE_INTR) {
 		/* enable U2 link. after host reset,
 		 *HS/FS EP0 configuration is applied in musb_g_reset
@@ -653,6 +663,7 @@ static irqreturn_t mtu3_u3_ltssm_isr(struct mtu3 *mtu)
 		cancel_delayed_work(&mtu->check_ltssm_work);
 		sts_ltssm = ENTER_U0_INTR;
 	}
+	#endif
 
 	if (ltssm & (HOT_RST_INTR | WARM_RST_INTR))
 		mtu3_gadget_reset(mtu);
@@ -669,6 +680,7 @@ static irqreturn_t mtu3_u3_ltssm_isr(struct mtu3 *mtu)
 	if (ltssm & ENTER_U3_INTR)
 		mtu3_gadget_suspend(mtu);
 
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	if (ltssm & HOT_RST_INTR) {
 		u32 link_err_cnt;
 		u32 timeout_val;
@@ -730,6 +742,7 @@ static irqreturn_t mtu3_u3_ltssm_isr(struct mtu3 *mtu)
 		schedule_delayed_work(&mtu->check_ltssm_work,
 			msecs_to_jiffies(1000));
 	}
+	#endif
 
 	return IRQ_HANDLED;
 }
@@ -746,7 +759,9 @@ static irqreturn_t mtu3_u2_common_isr(struct mtu3 *mtu)
 
 	if (u2comm & SUSPEND_INTR) {
 		mtu3_gadget_suspend(mtu);
+		#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 		disconnect_check(mtu);
+		#endif
 	}
 
 	if (u2comm & RESUME_INTR)
@@ -770,6 +785,7 @@ static irqreturn_t mtu3_irq(int irq, void *data)
 	level1 = mtu3_readl(mtu->mac_base, U3D_LV1ISR);
 	level1 &= mtu3_readl(mtu->mac_base, U3D_LV1IER);
 
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	if (unlikely(!mtu->softconnect) && (level1 & MAC2_INTR)) {
 		u32 u2comm;
 
@@ -813,6 +829,7 @@ static irqreturn_t mtu3_irq(int irq, void *data)
 		spin_unlock_irqrestore(&mtu->lock, flags);
 		return IRQ_HANDLED;
 	}
+	#endif
 
 	if (level1 & EP_CTRL_INTR)
 		mtu3_link_isr(mtu);
@@ -855,6 +872,7 @@ static int mtu3_hw_init(struct mtu3 *mtu)
 		return ret;
 	}
 
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	cap_dev = mtu3_readl(mtu->mac_base, U3D_MISC_CTRL);
 	mtu->is_36bit = !!CAP_36BIT_SUPPORT(cap_dev);
 
@@ -862,6 +880,7 @@ static int mtu3_hw_init(struct mtu3 *mtu)
 
 	if (mtu->is_36bit)
 		dma_set_mask_and_coherent(mtu->dev, DMA_BIT_MASK(36));
+	#endif
 
 	ret = mtu3_mem_alloc(mtu);
 	if (ret)
@@ -915,7 +934,10 @@ void mtu3_stop(struct mtu3 *mtu)
 
 	mtu->is_active = 0;
 	mtu3_setbits(mtu->ippc_base, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	cancel_delayed_work_sync(&mtu->check_ltssm_work);
+	#endif
+
 }
 
 /*-------------------------------------------------------------------------*/
@@ -953,9 +975,11 @@ int ssusb_gadget_init(struct ssusb_mtk *ssusb)
 	ssusb->u3d = mtu;
 	mtu->ssusb = ssusb;
 	mtu->max_speed = usb_get_maximum_speed(dev);
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	mtu3_cable_mode = CABLE_MODE_NORMAL;
 
 	INIT_DELAYED_WORK(&mtu->check_ltssm_work, mtu3_check_ltssm_work);
+	#endif
 
 	/* check the max_speed parameter */
 	switch (mtu->max_speed) {
@@ -1024,6 +1048,7 @@ void ssusb_gadget_exit(struct ssusb_mtk *ssusb)
 	mtu3_hw_exit(mtu);
 }
 
+#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 void mtu3_check_ltssm_work(struct work_struct *data)
 {
 	struct mtu3 *mtu;
@@ -1067,3 +1092,4 @@ void disconnect_check(struct mtu3 *mtu)
 	}
 	pr_info("speed <%d>\n", mtu->g.speed);
 }
+#endif

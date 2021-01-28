@@ -195,6 +195,7 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 	/* slot mainly affects bulk/isoc transfer, so ignore int */
 	mep->slot = usb_endpoint_xfer_int(desc) ? 0 : mtu->slot;
 
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	if (is_saving_mode()) {
 		if (is_db_ok(mep)) {
 			dev_info(mtu->dev, "Saving mode, but EP%d supports DBBUF\n",
@@ -205,6 +206,7 @@ static int mtu3_ep_enable(struct mtu3_ep *mep)
 			mep->slot = 0;
 		}
 	}
+	#endif
 
 	ret = mtu3_config_ep(mtu, mep, interval, burst, mult);
 	if (ret < 0)
@@ -605,13 +607,14 @@ static int mtu3_gadget_pullup(struct usb_gadget *gadget, int is_on)
 		set_usb_rdy();
 
 	spin_unlock_irqrestore(&mtu->lock, flags);
-
+	#ifdef CONFIG_USB_MTU3_PLAT_PHONE
 	/* Trigger connection when force on*/
 	if (mtu3_cable_mode == CABLE_MODE_FORCEON) {
 		dev_info(mtu->dev, "%s CABLE_MODE_FORCEON\n", __func__);
 		ssusb_set_mailbox(&mtu->ssusb->otg_switch,
 			MTU3_VBUS_VALID);
 	}
+	#endif
 
 	return 0;
 }

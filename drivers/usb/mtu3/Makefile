@@ -32,6 +32,13 @@ endif
 
 else
 
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat
+
+ifneq ($(filter y,$(CONFIG_MACH_MT8168)),)
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt8168/
+endif
+
+
 obj-$(CONFIG_USB_MTU3) += mtu3.o
 
 mtu3-y := mtu3_plat.o
