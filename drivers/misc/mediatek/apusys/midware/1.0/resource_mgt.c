@@ -20,7 +20,7 @@
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/device.h>
 #include <linux/pm_wakeup.h>
 #endif
@@ -45,7 +45,7 @@ static char dev_type_string[APUSYS_DEVICE_RT][APUSYS_DEV_NAME_SIZE] = {
 	"wait",
 };
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 static struct wakeup_source *apusys_secure_ws;
 static uint32_t ws_count;
 static struct mutex ws_mutex;
@@ -54,7 +54,7 @@ static struct mutex ws_mutex;
 //----------------------------------------------
 static void secure_ws_init(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	ws_count = 0;
 	mutex_init(&ws_mutex);
 	apusys_secure_ws = wakeup_source_register(NULL, "apusys_secure");
@@ -67,7 +67,7 @@ static void secure_ws_init(void)
 
 void secure_ws_lock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	mutex_lock(&ws_mutex);
 	//mdw_drv_debug("wakelock count(%d)\n", ws_count);
 	if (apusys_secure_ws && !ws_count) {
@@ -83,7 +83,7 @@ void secure_ws_lock(void)
 
 void secure_ws_unlock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	mutex_lock(&ws_mutex);
 	ws_count--;
 	if (apusys_secure_ws && !ws_count) {

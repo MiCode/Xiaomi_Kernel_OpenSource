@@ -101,7 +101,7 @@ static void d_work_power_init_func(struct work_struct *work);
 static DECLARE_WORK(d_work_power_info, d_work_power_info_func);
 static DECLARE_WORK(d_work_power_init, d_work_power_init_func);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source pwr_wake_lock;
 #else
 struct wake_lock pwr_wake_lock;
@@ -109,7 +109,7 @@ struct wake_lock pwr_wake_lock;
 
 static void apu_pwr_wake_lock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_stay_awake(&pwr_wake_lock);
 #else
 	wake_lock(&pwr_wake_lock);
@@ -118,7 +118,7 @@ static void apu_pwr_wake_lock(void)
 
 static void apu_pwr_wake_unlock(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	__pm_relax(&pwr_wake_lock);
 #else
 	wake_unlock(&pwr_wake_lock);
@@ -127,7 +127,7 @@ static void apu_pwr_wake_unlock(void)
 
 static void apu_pwr_wake_init(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	wakeup_source_init(&pwr_wake_lock, "apupwr_wakelock");
 #else
 	wake_lock_init(&pwr_wake_lock, WAKE_LOCK_SUSPEND, "apupwr_wakelock");

@@ -68,14 +68,14 @@
 #include "apusys_device.h"
 
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 static struct wakeup_source *mdla_ws;
 static uint32_t ws_count;
 #endif
 
 void mdla_wakeup_source_init(void)
 {
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	ws_count = 0;
 	mdla_ws = wakeup_source_register(NULL, "mdla");
 	if (!mdla_ws)
@@ -204,7 +204,7 @@ int mdla_run_command_sync(
 	if (!sched)
 		return -REASON_MDLA_NULLPOINT;
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	mutex_lock(&wake_lock_mutex);
 	if (mdla_ws && !ws_count)
 		__pm_stay_awake(mdla_ws);
@@ -397,7 +397,7 @@ error_handle:
 	/* Start power off timer */
 	mdla_command_done(core_id);
 mdla_cmd_done:
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	mutex_lock(&wake_lock_mutex);
 	ws_count--;
 	if (mdla_ws && !ws_count)
@@ -434,7 +434,7 @@ int mdla_run_command_sync(
 	/* The critical region of command enqueue */
 	mutex_lock(&mdla_info->cmd_lock);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	if (mdla_ws && !ws_count)
 		__pm_stay_awake(mdla_ws);
 	ws_count++;
@@ -572,7 +572,7 @@ int mdla_run_command_sync(
 #endif
 
 mdla_cmd_done:
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 	ws_count--;
 	if (mdla_ws && !ws_count)
 		__pm_relax(mdla_ws);
