@@ -65,7 +65,7 @@
 //for mmdvfs
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <mmdvfs_pmqos.h>
-
+#define CONFIG_MTK_QOS_SUPPORT_ENABLE
 /***************************************************************************
  *
  **************************************************************************/
@@ -116,10 +116,11 @@ static irqreturn_t ccu_isr_callback_xxx(int irq, void *device_id)
 	return IRQ_HANDLED;
 }
 
-static struct pm_qos_request _ccu_qos_request;
+static struct mtk_pm_qos_request _ccu_qos_request;
 static u64 _g_freq_steps[MAX_FREQ_STEP];
-// static u32 _step_size;
-
+#ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
+static u32 _step_size;
+#endif
 static int ccu_probe(struct platform_device *dev);
 
 static int ccu_remove(struct platform_device *dev);
@@ -812,15 +813,15 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		LOG_DBG_MUST("request freq level: %d\n", freq_level);
 
 		if (freq_level == CCU_REQ_CAM_FREQ_NONE)
-			pm_qos_update_request(&_ccu_qos_request, 0);
+			mtk_pm_qos_update_request(&_ccu_qos_request, 0);
 		else
-			pm_qos_update_request(&_ccu_qos_request,
+			mtk_pm_qos_update_request(&_ccu_qos_request,
 					      _g_freq_steps[freq_level]);
 
 		//use pm_qos_request to get
 		//current freq setting
 		LOG_DBG_MUST("current freq: %d\n",
-			     pm_qos_request(PM_QOS_CAM_FREQ));
+			     mtk_pm_qos_request(PM_QOS_CAM_FREQ));
 
 		break;
 	}
@@ -1371,7 +1372,6 @@ static int ccu_resume(struct platform_device *pdev)
 static int __init CCU_INIT(void)
 {
 	int ret = 0;
-	//int result = 0;
 
 	/*struct device_node *node = NULL;*/
 
@@ -1394,16 +1394,18 @@ static int __init CCU_INIT(void)
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 	//Call pm_qos_add_request when
 	//initialize module or driver prob
-	pm_qos_add_request(&_ccu_qos_request,
+	LOG_INF_MUST("mtk_pm_qos_add_request start %x\n", &_ccu_qos_request);
+
+	mtk_pm_qos_add_request(&_ccu_qos_request,
 			   PM_QOS_CAM_FREQ, PM_QOS_MM_FREQ_DEFAULT_VALUE);
 
 	//Call mmdvfs_qos_get_freq_steps
 	//to get supported frequency
-	result = mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ,
+	ret = mmdvfs_qos_get_freq_steps(PM_QOS_CAM_FREQ,
 					   _g_freq_steps, &_step_size);
 
-	if (result < 0)
-		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", result);
+	if (ret < 0)
+		LOG_ERR("get MMDVFS freq steps failed, result: %d\n", ret);
 #endif
 	return ret;
 }
@@ -1414,7 +1416,7 @@ static void __exit CCU_EXIT(void)
 	//Call pm_qos_remove_request when
 	//de-initialize module or driver remove
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
-	pm_qos_remove_request(&_ccu_qos_request);
+	mtk_pm_qos_remove_request(&_ccu_qos_request);
 #endif
 	platform_driver_unregister(&ccu_driver);
 	kfree(g_ccu_device);

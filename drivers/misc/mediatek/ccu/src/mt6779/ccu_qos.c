@@ -7,6 +7,7 @@
 #include "ccu_qos.h"
 #include "ccu_cmn.h"
 #include "ccu_hw.h"
+#define CONFIG_MTK_QOS_SUPPORT_ENABLE
 #ifdef CONFIG_MTK_QOS_SUPPORT_ENABLE
 static struct plist_head ccu_request_list;
 static struct mm_qos_request pccu_i_request;
