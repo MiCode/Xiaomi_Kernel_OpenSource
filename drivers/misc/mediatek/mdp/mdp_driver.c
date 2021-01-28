@@ -1252,7 +1252,7 @@ static int cmdq_probe(struct platform_device *pDevice)
 	cmdq_core_initialize();
 
 	/* init cmdq context */
-	cmdq_mdp_init();
+	cmdq_mdp_init(pDevice);
 #if 0
 	cmdqCoreInitialize();
 #endif

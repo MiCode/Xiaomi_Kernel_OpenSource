@@ -213,7 +213,7 @@ s32 cmdq_mdp_flush(struct cmdqCommandStruct *desc, bool user_space);
 void cmdq_mdp_suspend(void);
 void cmdq_mdp_resume(void);
 void cmdq_mdp_release_task_by_file_node(void *file_node);
-void cmdq_mdp_init(void);
+void cmdq_mdp_init(struct platform_device *pdev);
 void cmdq_mdp_deinit_pmqos(void);
 s32 cmdq_mdp_handle_create(struct cmdqRecStruct **handle_out);
 s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle);
