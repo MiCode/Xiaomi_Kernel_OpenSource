@@ -399,6 +399,10 @@
 	bc12_sel = <1>;
 };
 
+&pdc {
+	pd_vbus_upper_bound = <12000000>;
+};
+
 #include <k62v1_32_bsp_2g_ago/cust.dtsi>
 #include "cust_mt6765_camera.dtsi"
 #include "cust_mt6765_touch_1080x1920.dtsi"
