@@ -23,7 +23,7 @@
 #include <mt-plat/mtk_rtc.h>
 
 #ifdef CONFIG_ARM64
-#include <linux/irqchip/mtk-gic.h>
+#include <linux/irqchip/mtk-gic-extend.h>
 #endif
 #if defined(CONFIG_MTK_SYS_CIRQ)
 #include <mt-plat/mtk_cirq.h>
