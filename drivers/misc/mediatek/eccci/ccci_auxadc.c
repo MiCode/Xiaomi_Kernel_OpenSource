@@ -18,7 +18,6 @@
 #define TAG "ccci_adc"
 
 static struct platform_device *md_adc_pdev;
-static struct iio_channel *md_channel;
 static int adc_num;
 static int adc_val;
 
@@ -37,12 +36,8 @@ unsigned int ccci_debug_enable = CCCI_LOG_LEVEL;
 static int ccci_get_adc_info(struct device *dev)
 {
 	int ret, val;
+	struct iio_channel *md_channel;
 
-	md_channel = devm_kzalloc(dev, sizeof(struct iio_channel), GFP_KERNEL);
-	if (!md_channel) {
-		CCCI_ERROR_LOG(-1, TAG, "allocate md channel fail");
-		return -1;
-	}
 	md_channel = iio_channel_get(dev, "md-channel");
 
 	ret = IS_ERR(md_channel);
@@ -57,6 +52,7 @@ static int ccci_get_adc_info(struct device *dev)
 	}
 	adc_num = md_channel->channel->channel;
 	ret = iio_read_channel_raw(md_channel, &val);
+	iio_channel_release(md_channel);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_raw fail");
 		goto Fail;
@@ -98,6 +94,7 @@ signed int battery_get_bat_voltage(void)
 	}
 	number = channel->channel->channel;
 	ret = iio_read_channel_processed(channel, &val);
+	iio_channel_release(channel);
 	if (ret < 0) {
 		CCCI_ERROR_LOG(-1, TAG, "iio_read_channel_processed fail");
 		goto BAT_Fail;
