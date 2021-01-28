@@ -198,6 +198,8 @@ static int _pe4_is_algo_ready(struct chg_alg_device *alg)
 				pe4->low_temp_to_enter_pe40);
 			if (pe4->input_current_limit1 != -1 ||
 				pe4->charging_current_limit1 != -1 ||
+				pe4->input_current_limit2 != -1 ||
+				pe4->charging_current_limit2 != -1 ||
 				uisoc > pe4->pe40_stop_battery_soc ||
 				uisoc == -1 ||
 				tmp > pe4->high_temp_to_enter_pe40 ||
@@ -1504,6 +1506,8 @@ static int _pe4_start_algo(struct chg_alg_device *alg)
 				tmp = pe4_hal_get_battery_temperature(alg);
 				if (pe4->input_current_limit1 != -1 ||
 					pe4->charging_current_limit1 != -1 ||
+					pe4->input_current_limit2 != -1 ||
+					pe4->charging_current_limit2 != -1 ||
 					uisoc > pe4->pe40_stop_battery_soc ||
 					uisoc == -1 ||
 					tmp > pe4->high_temp_to_enter_pe40 ||

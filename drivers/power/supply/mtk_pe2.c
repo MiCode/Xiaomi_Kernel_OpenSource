@@ -611,7 +611,9 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 			POWER_SUPPLY_USB_TYPE_DCP) {
 			ret_value = ALG_TA_NOT_SUPPORT;
 		} else if (uisoc < pe2->ta_start_battery_soc ||
-			uisoc >= pe2->ta_stop_battery_soc) {
+			uisoc >= pe2->ta_stop_battery_soc ||
+			pe2->charging_current_limit1 != -1 ||
+			pe2->charging_current_limit2 != -1) {
 			ret_value = ALG_NOT_READY;
 		} else {
 			ret_value = ALG_READY;
@@ -914,11 +916,13 @@ static int __pe2_run(struct chg_alg_device *alg)
 
 	if (alg->config == DUAL_CHARGERS_IN_SERIES) {
 		if (pe2_dcs_set_charger(alg) != 0) {
+			ret = pe2_leave(alg);
 			ret_value = ALG_DONE;
 			goto out;
 		}
 	} else {
 		if (pe2_sc_set_charger(alg) != 0) {
+			ret = pe2_leave(alg);
 			ret_value = ALG_DONE;
 			goto out;
 		}
@@ -975,6 +979,9 @@ static int _pe2_start_algo(struct chg_alg_device *alg)
 				again = true;
 			} else if (ret == ALG_TA_CHECKING)
 				ret_value = ALG_TA_CHECKING;
+			else if (pe2->charging_current_limit1 != -1 ||
+				pe2->charging_current_limit2 != -1)
+				ret_value = ALG_NOT_READY;
 			else {
 				pe2->state = PE2_TA_NOT_SUPPORT;
 				ret_value = ALG_TA_NOT_SUPPORT;

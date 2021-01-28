@@ -144,6 +144,11 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			info->data.ac_charger_input_current;
 		pdata->charging_current_limit =
 			info->data.ac_charger_current;
+		if (info->config == DUAL_CHARGERS_IN_SERIES) {
+			pdata2->input_current_limit =
+				pdata->input_current_limit;
+			pdata2->charging_current_limit = 2000000;
+		}
 	}
 
 	if (info->enable_sw_jeita) {
