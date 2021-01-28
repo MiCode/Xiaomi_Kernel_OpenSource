@@ -264,21 +264,47 @@ void aee_print_modules(void)
 	p_print_modules();
 }
 
-static int (*p_save_modules)(char *mbuf, int mbufsize);
+static struct list_head *p_modules;
+/* MUST ensure called when preempt disabled already */
 int aee_save_modules(char *mbuf, int mbufsize)
 {
-	if (p_save_modules)
-		return p_save_modules(mbuf, mbufsize);
+	struct module *mod;
+	int sz = 0;
 
-	p_save_modules = (void *)aee_addr_find("save_modules");
-	if (!p_save_modules) {
-		pr_info("%s failed", __func__);
-		return -EINVAL;
+	if (!mbuf || mbufsize <= 0) {
+		pr_info("mrdump: module info buffer wrong(sz:%d)\n", mbufsize);
+		return sz;
 	}
 
-	return p_save_modules(mbuf, mbufsize);
-}
+	if (!p_modules)
+		p_modules = (void *)aee_addr_find("modules");
 
+	if (!p_modules) {
+		pr_info("%s failed", __func__);
+		return sz;
+	}
+
+	memset(mbuf, '\0', mbufsize);
+	sz += snprintf(mbuf + sz, mbufsize - sz, "Modules linked in:");
+	list_for_each_entry_rcu(mod, p_modules, list) {
+		if (mod->state == MODULE_STATE_UNFORMED)
+			continue;
+		if (sz >= mbufsize) {
+			pr_info("mrdump: module info buffer full(sz:%d)\n",
+					mbufsize);
+			break;
+		}
+		sz += snprintf(mbuf + sz, mbufsize - sz, " %s %px %px %d %d",
+				mod->name,
+				mod->core_layout.base,
+				mod->init_layout.base,
+				mod->core_layout.size,
+				mod->init_layout.size);
+	}
+	if (sz < mbufsize)
+		sz += snprintf(mbuf + sz, mbufsize - sz, "\n");
+	return sz;
+}
 
 static u64 *p__cpu_logical_map;
 static u64 *aee_cpu_logical_map(void)
@@ -556,22 +582,47 @@ void aee_print_modules(void)
 	print_modules();
 }
 
-static int (*p_save_modules)(char *mbuf, int mbufsize);
+static struct list_head *p_modules;
+/* MUST ensure called when preempt disabled already */
 int aee_save_modules(char *mbuf, int mbufsize)
 {
-	if (p_save_modules)
-		return p_save_modules(mbuf, mbufsize);
+	struct module *mod;
+	int sz = 0;
 
-	p_save_modules = (void *)kallsyms_lookup_name("save_modules");
-
-	if (!p_save_modules) {
-		pr_info("%s failed", __func__);
-		return -EINVAL;
+	if (!mbuf || mbufsize <= 0) {
+		pr_info("mrdump: module info buffer wrong(sz:%d)\n", mbufsize);
+		return sz;
 	}
 
-	return p_save_modules(mbuf, mbufsize);
-}
+	if (!p_modules)
+		p_modules = (void *)kallsyms_lookup_name("modules");
 
+	if (!p_modules) {
+		pr_info("%s failed", __func__);
+		return sz;
+	}
+
+	memset(mbuf, '\0', mbufsize);
+	sz += snprintf(mbuf + sz, mbufsize - sz, "Modules linked in:");
+	list_for_each_entry_rcu(mod, p_modules, list) {
+		if (mod->state == MODULE_STATE_UNFORMED)
+			continue;
+		if (sz >= mbufsize) {
+			pr_info("mrdump: module info buffer full(sz:%d)\n",
+					mbufsize);
+			break;
+		}
+		sz += snprintf(mbuf + sz, mbufsize - sz, " %s %px %px %d %d",
+				mod->name,
+				mod->core_layout.base,
+				mod->init_layout.base,
+				mod->core_layout.size,
+				mod->init_layout.size);
+	}
+	if (sz < mbufsize)
+		sz += snprintf(mbuf + sz, mbufsize - sz, "\n");
+	return sz;
+}
 
 int get_HW_cpuid(void)
 {

@@ -26,29 +26,6 @@
 
 static struct proc_dir_entry *aee_rr_file;
 
-#define WDT_NORMAL_BOOT 0
-#define WDT_HW_REBOOT 1
-#define WDT_SW_REBOOT 2
-
-enum boot_reason_t {
-	BR_POWER_KEY = 0,
-	BR_USB,
-	BR_RTC,
-	BR_WDT,
-	BR_WDT_BY_PASS_PWK,
-	BR_TOOL_BY_PASS_PWK,
-	BR_2SEC_REBOOT,
-	BR_UNKNOWN,
-	BR_KERNEL_PANIC,
-	BR_WDT_SW,
-	BR_WDT_HW
-};
-
-#define REBOOT_REASON_LEN	16
-char boot_reason[][REBOOT_REASON_LEN] = { "keypad", "usb_chg", "rtc", "wdt",
-	"reboot", "tool reboot", "smpl", "others", "kpanic", "wdt_sw",
-	"wdt_hw" };
-
 static int aee_rr_reboot_reason_proc_open(struct inode *inode,
 		struct file *file)
 {
