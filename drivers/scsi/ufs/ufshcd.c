@@ -7452,9 +7452,27 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 {
 	int err;
 	u8 model_index;
+	size_t buff_len;
 	u8 prl_index;
-	u8 str_desc_buf[QUERY_DESC_MAX_SIZE + 1] = {0};
-	u8 desc_buf[hba->desc_size.dev_desc];
+	u8 *desc_buf;
+	u8 *str_desc_buf = NULL;
+
+	buff_len = max_t(size_t, hba->desc_size.dev_desc,
+			 QUERY_DESC_MAX_SIZE + 1);
+	if (hba->desc_size.dev_desc > (QUERY_DESC_MAX_SIZE + 1))
+		dev_info(hba->dev, "%s: unexpected dev_desc size: %d\n",
+			__func__, hba->desc_size.dev_desc);
+	desc_buf = kmalloc(buff_len, GFP_KERNEL);
+	if (!desc_buf) {
+		err = -ENOMEM;
+		goto out;
+	}
+
+	str_desc_buf = kzalloc(QUERY_DESC_MAX_SIZE + 1, GFP_KERNEL);
+	if (!str_desc_buf) {
+		err = -ENOMEM;
+		goto out;
+	}
 
 	err = ufshcd_read_device_desc(hba, desc_buf, hba->desc_size.dev_desc);
 	if (err) {
@@ -7509,6 +7527,8 @@ static int ufs_get_device_desc(struct ufs_hba *hba,
 	dev_desc->prl[MAX_PRL_LEN] = '\0';
 
 out:
+	kfree(str_desc_buf);
+	kfree(desc_buf);
 	return err;
 }
 
