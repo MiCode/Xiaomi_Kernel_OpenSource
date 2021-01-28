@@ -56,17 +56,17 @@ clean-kernel:
 
 ### DTB build template
 ifeq ($(KERNEL_TARGET_ARCH),arm64)
-MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_PLATFORM_DIR)$(if $(filter $(MTK_PLATFORM),MT8167),_dtbo).dts
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_PLATFORM_DIR).dts
 else
-MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_PLATFORM_DIR)$(if $(filter $(MTK_PLATFORM),MT8167),_dtbo).dts
+MTK_DTBIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_PLATFORM_DIR).dts
 endif
 include device/mediatek/build/core/build_dtbimage.mk
 ifeq ($(KERNEL_TARGET_ARCH),arm64)
-MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_TARGET_PROJECT).dts
+MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/mediatek/$(MTK_BASE_PROJECT).dts
 else
-MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_TARGET_PROJECT).dts
+MTK_DTBOIMAGE_DTS := $(KERNEL_DIR)/arch/$(KERNEL_TARGET_ARCH)/boot/dts/$(MTK_BASE_PROJECT).dts
 endif
-MTK_DTBOIMAGE_DWS := $(KERNEL_DIR)/drivers/misc/mediatek/dws/$(MTK_PLATFORM_DIR)/$(MTK_TARGET_PROJECT).dws
+MTK_DTBOIMAGE_DWS := $(KERNEL_DIR)/drivers/misc/mediatek/dws/$(MTK_PLATFORM_DIR)/$(MTK_BASE_PROJECT).dws
 include device/mediatek/build/core/build_dtboimage.mk
 
 endif #TARGET_NO_KERNEL
