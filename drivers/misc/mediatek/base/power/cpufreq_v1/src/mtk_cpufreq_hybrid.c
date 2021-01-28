@@ -1053,6 +1053,7 @@ int cpuhvfs_set_init_sta(void)
 	/* seg code */
 	cdvfs_d.u.set_fv.arg[0] = 0;
 #ifdef CONFIG_MTK_TINYSYS_MCUPM_SUPPORT
+	cdvfs_d.u.set_fv.arg[0] = _mt_cpufreq_get_cpu_level();
 	dvfs_to_mcupm_command(IPI_DVFS_INIT, &cdvfs_d);
 #else
 	dvfs_to_spm2_command(IPI_DVFS_INIT, &cdvfs_d);
