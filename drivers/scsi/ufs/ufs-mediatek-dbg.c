@@ -575,6 +575,13 @@ static void ufsdbg_print_cmd_hist(char **buff, unsigned long *size,
 
 }
 
+void ufs_mediatek_dbg_dump(void)
+{
+	ufsdbg_print_info(NULL, NULL, NULL);
+
+	ufsdbg_print_cmd_hist(NULL, NULL, MAX_CMD_HIST_ENTRY_CNT, NULL);
+}
+
 void get_ufs_aee_buffer(unsigned long *vaddr, unsigned long *size)
 {
 	unsigned long free_size = UFS_AEE_BUFFER_SIZE;

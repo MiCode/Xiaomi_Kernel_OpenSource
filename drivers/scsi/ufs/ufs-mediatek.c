@@ -1193,6 +1193,7 @@ static void ufs_mtk_abort_handler(struct ufs_hba *hba, int tag,
 		cmd = hba->lrb[tag].cmd->cmnd[0];
 
 	cmd_hist_disable();
+	ufs_mediatek_dbg_dump();
 	aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
 		"[UFS] Command Timeout", "Command 0x%x timeout, %s:%d", cmd,
 		file, line);
