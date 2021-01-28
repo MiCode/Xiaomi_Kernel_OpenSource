@@ -2125,7 +2125,6 @@ int msdc_pio_read(struct msdc_host *host, struct mmc_data *data)
 	if (host->xfer_size < 512)
 		tmo = jiffies + 1 + host->timeout_ns / (1000000000UL/HZ) * 2;
 
-	WARN_ON(!kaddr);
 	/* MSDC_CLR_BIT32(MSDC_INTEN, wints); */
 	while (1) {
 		if (!get_xfer_done) {
@@ -2321,7 +2320,6 @@ int msdc_pio_write(struct msdc_host *host, struct mmc_data *data)
 	int flag, subpage = 0;
 	ulong *kaddr = host->pio_kaddr;
 
-	WARN_ON(!kaddr);
 	/* MSDC_CLR_BIT32(MSDC_INTEN, wints); */
 	while (1) {
 		if (!get_xfer_done) {
@@ -5102,7 +5100,10 @@ static int msdc_drv_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	host->pio_kaddr = kmalloc_array(DIV_ROUND_UP(MAX_SGMT_SZ, PAGE_SIZE),
 		sizeof(ulong), GFP_KERNEL);
-	WARN_ON(!host->pio_kaddr);
+	if (!host->pio_kaddr) {
+		pr_notice("[MSDC%d]alloc memory fail!\n", host->id);
+		return -ENOMEM;
+	}
 	msdc_init_gpd_bd(host, &host->dma);
 	mtk_msdc_host[host->id] = host;
 
