@@ -1519,12 +1519,11 @@ static int mtk_vcu_mmap(struct file *file, struct vm_area_struct *vma)
 		}
 		ret = mtk_vcu_set_buffer(vcu_queue, &mem_buff_data,
 			src_vb, dst_vb);
-		if (IS_ERR_OR_NULL(ret))
-			return -EINVAL;
-
-		vma->vm_ops = &mtk_vcu_buf_vm_ops;
-		vma->vm_private_data = ret;
-		vma->vm_file = file;
+		if (!IS_ERR_OR_NULL(ret)) {
+			vma->vm_ops = &mtk_vcu_buf_vm_ops;
+			vma->vm_private_data = ret;
+			vma->vm_file = file;
+		}
 #ifdef CONFIG_MTK_IOMMU_V2
 		while (length > 0) {
 			vma->vm_pgoff = iommu_iova_to_phys(vcu_dev->io_domain,
