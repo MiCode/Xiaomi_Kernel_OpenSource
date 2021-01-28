@@ -429,7 +429,7 @@ void mt_irq_mask_for_sleep(unsigned int irq)
 
 char *mt_irq_dump_status_buf(int irq, char *buf)
 {
-	int rc;
+	int rc, is_gic600 = 0;
 	unsigned int result;
 	char *ptr = buf;
 
@@ -437,6 +437,10 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 
 	if (!ptr)
 		return NULL;
+
+	result = readl(GIC_DIST_BASE + GIC_IIDR);
+	is_gic600 =
+		((result >> GICD_V3_IIDR_PROD_ID_SHIFT) == GICD_V3_IIDR_GIC600) ? 1 : 0;
 
 	ptr += sprintf(ptr, "[mt gic dump] irq = %d\n", irq);
 	rc = mt_secure_call(MTK_SIP_KERNEL_GIC_DUMP, irq, 0, 0, 0);
@@ -481,7 +485,10 @@ char *mt_irq_dump_status_buf(int irq, char *buf)
 #endif
 
 	/* get target cpu mask */
-	result = (rc >> 14) & 0xffff;
+	if (is_gic600)
+		result = (rc >> 15) & 0xffff;
+	else
+		result = (rc >> 14) & 0xffff;
 	ptr += sprintf(ptr, "[mt gic dump] tartget cpu mask = 0x%x\n", result);
 
 	return ptr;
