@@ -210,7 +210,7 @@ static int md_cd_get_modem_hw_info(struct platform_device *dev_ptr,
 		of_property_read_u32(dev_ptr->dev.of_node,
 			"mediatek,md_generation", &md_cd_plat_val_ptr.md_gen);
 		node_infrao = of_find_compatible_node(NULL, NULL,
-			"mediatek,mt6779-infracfg");
+			"mediatek,mt6779-infracfg_ao");
 		md_cd_plat_val_ptr.infra_ao_base = of_iomap(node_infrao, 0);
 
 		hw_info->plat_ptr = &md_cd_plat_ptr;
