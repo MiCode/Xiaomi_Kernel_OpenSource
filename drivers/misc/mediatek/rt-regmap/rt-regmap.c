@@ -1377,6 +1377,7 @@ static int general_read(struct seq_file *seq_file, void *_data)
 			up(&rd->semaphore);
 			if (rc < 0) {
 				seq_puts(seq_file, "invalid read\n");
+				kfree(reg_data);
 				break;
 			}
 			goto hiden_read;
@@ -1389,6 +1390,7 @@ static int general_read(struct seq_file *seq_file, void *_data)
 		up(&rd->semaphore);
 		if (rc < 0) {
 			seq_puts(seq_file, "invalid read\n");
+			kfree(reg_data);
 			break;
 		}
 hiden_read:
@@ -1398,6 +1400,7 @@ hiden_read:
 				seq_printf(seq_file, "%02x,", reg_data[i]);
 			seq_puts(seq_file, "\n");
 		}
+		kfree(reg_data);
 		break;
 	case RT_DBG_ERROR:
 		seq_puts(seq_file, "======== Error Message ========\n");
@@ -1534,6 +1537,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 						"Error, wrong input length\n");
 					rd->error_occurred = 1;
 				}
+				kfree(reg_data);
 				return -EINVAL;
 			}
 
@@ -1549,6 +1553,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 						"Error, get datas fail\n");
 					rd->error_occurred = 1;
 				}
+				kfree(reg_data);
 				return -EINVAL;
 			}
 			down(&rd->semaphore);
@@ -1568,6 +1573,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 					rd->dbg_data.reg_addr);
 					rd->error_occurred = 1;
 				}
+				kfree(reg_data);
 				return -EIO;
 			}
 			break;
@@ -1586,6 +1592,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 					"Error, wrong input length\n");
 				rd->error_occurred = 1;
 			}
+			kfree(reg_data);
 			return -EINVAL;
 		}
 
@@ -1600,6 +1607,7 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 				"Error, get datas fail\n");
 				rd->error_occurred = 1;
 			}
+			kfree(reg_data);
 			return -EINVAL;
 		}
 
@@ -1620,9 +1628,10 @@ static ssize_t general_write(struct file *file, const char __user *ubuf,
 				rd->dbg_data.reg_addr);
 				rd->error_occurred = 1;
 			}
+			kfree(reg_data);
 			return -EIO;
 		}
-
+		kfree(reg_data);
 		break;
 	case RT_DBG_SYNC:
 		rc = get_parameters(lbuf, param, 1);
