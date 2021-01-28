@@ -25,7 +25,7 @@
 
 static void __iomem *infrasys_base;    /* INFRA_REG, INFRA_SW_CG_x_STA */
 static void __iomem *mmsys_base;       /* MM_REG, DISP_CG_CON_x */
-//static void __iomem *imgsys_base;      /* IMGSYS_REG, IMG_CG_CON */
+static void __iomem *imgsys_base;      /* IMGSYS_REG, IMG_CG_CON */
 static void __iomem *mfgsys_base;      /* MFGSYS_REG, MFG_CG_CON */
 static void __iomem *vencsys_base;     /* VENCSYS_REG, VENCSYS_CG_CON */
 static void __iomem *sleepsys_base;    /* SPM_REG */
@@ -36,7 +36,7 @@ static void __iomem *apmixedsys_base;  /* APMIXEDSYS */
 
 #define INFRA_REG(ofs)      (infrasys_base + ofs)
 #define MM_REG(ofs)         (mmsys_base + ofs)
-//#define IMGSYS_REG(ofs)     (imgsys_base + ofs)
+#define IMGSYS_REG(ofs)     (imgsys_base + ofs)
 #define MFGSYS_REG(ofs)     (mfgsys_base + ofs)
 #define VENCSYS_REG(ofs)    (vencsys_base + ofs)
 #define SPM_REG(ofs)        (sleepsys_base + ofs)
@@ -1538,7 +1538,7 @@ int __init mtk_idle_cond_check_init(void)
 {
 	get_base_from_node("mediatek,mt6779-infracfg_ao", &infrasys_base, 0);
 	get_base_from_node("mediatek,mt6779-mmsys", &mmsys_base, 0);
-	//get_base_from_node("mediatek,imgsys", &imgsys_base, 0);
+	get_base_from_node("mediatek,mt6779-imgsys", &imgsys_base, 0);
 	get_base_from_node("mediatek,mt6779-mfgcfg", &mfgsys_base, 0);
 	get_base_from_node("mediatek,mt6779-vencsys", &vencsys_base, 0);
 	get_base_from_node("mediatek,mt6779-apmixed", &apmixedsys_base, 0);
