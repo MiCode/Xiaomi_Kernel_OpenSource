@@ -134,5 +134,22 @@ static inline void kbase_clk_rate_trace_manager_unsubscribe(
 	spin_unlock_irqrestore(&clk_rtm->lock, flags);
 }
 
+/**
+ * kbase_clk_rate_trace_manager_notify_all() - Notify all clock \
+ *                                             rate listeners.
+ *
+ * @clk_rtm:     Clock rate manager instance.
+ * @clk_index:   Clock index.
+ * @new_rate:    New clock frequency(Hz)
+ *
+ * kbase_clk_rate_trace_manager:lock must be locked.
+ * This function is exported to be used by clock rate trace test
+ * portal.
+ */
+void kbase_clk_rate_trace_manager_notify_all(
+	struct kbase_clk_rate_trace_manager *clk_rtm,
+	u32 clock_index,
+	unsigned long new_rate);
+
 #endif /* _KBASE_CLK_RATE_TRACE_MGR_ */
 

@@ -27,6 +27,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_config_defaults.h>
 #include <linux/clk.h>
+#include <asm/div64.h>
 #include "mali_kbase_clk_rate_trace_mgr.h"
 
 #ifdef CONFIG_TRACE_POWER_GPU_FREQUENCY
@@ -38,42 +39,6 @@
 #ifndef CLK_RATE_TRACE_OPS
 #define CLK_RATE_TRACE_OPS (NULL)
 #endif
-
-/**
- * gpu_clk_rate_notify_all() - Notify all clock rate listeners.
- *
- * @clk_rtm:     Clock rate manager instance.
- * @clk_data:    Clock data being modified.
- * @new_rate:    New clock frequency(Hz)
- *
- * kbase_clk_rate_trace_manager:lock must be locked.
- */
-static void gpu_clk_rate_notify_all(
-	struct kbase_clk_rate_trace_manager *clk_rtm,
-	struct kbase_clk_data *clk_data,
-	unsigned long new_rate)
-{
-	u32 clk_index;
-	struct kbase_clk_rate_listener *pos;
-	struct kbase_device *kbdev;
-
-	lockdep_assert_held(&clk_rtm->lock);
-
-	kbdev = container_of(clk_rtm, struct kbase_device, pm.clk_rtm);
-	clk_index = clk_data->index;
-
-
-	dev_dbg(kbdev->dev, "GPU clock %u rate changed to %lu",
-		clk_index, new_rate);
-
-	/* Raise standard `power/gpu_frequency` ftrace event */
-	trace_gpu_frequency(new_rate, clk_index);
-
-	/* Notify the listeners. */
-	list_for_each_entry(pos, &clk_rtm->listeners, node) {
-		pos->notify(pos, clk_index, new_rate);
-	}
-}
 
 static int gpu_clk_rate_change_notifier(struct notifier_block *nb,
 			unsigned long event, void *data)
@@ -91,8 +56,8 @@ static int gpu_clk_rate_change_notifier(struct notifier_block *nb,
 	if (event == POST_RATE_CHANGE) {
 		if (!clk_rtm->gpu_idle &&
 		    (clk_data->clock_val != ndata->new_rate)) {
-			gpu_clk_rate_notify_all(
-				clk_rtm, clk_data, ndata->new_rate);
+			kbase_clk_rate_trace_manager_notify_all(
+				clk_rtm, clk_data->index, ndata->new_rate);
 		}
 
 		clk_data->clock_val = ndata->new_rate;
@@ -133,7 +98,8 @@ static int gpu_clk_data_init(struct kbase_device *kbdev,
 		unsigned long flags;
 
 		spin_lock_irqsave(&clk_rtm->lock, flags);
-		gpu_clk_rate_notify_all(clk_rtm, clk_data, 0);
+		kbase_clk_rate_trace_manager_notify_all(
+			clk_rtm, clk_data->index, 0);
 		spin_unlock_irqrestore(&clk_rtm->lock, flags);
 	}
 
@@ -246,7 +212,8 @@ void kbase_clk_rate_trace_manager_gpu_active(struct kbase_device *kbdev)
 		if (unlikely(!clk_data->clock_val))
 			continue;
 
-		gpu_clk_rate_notify_all(clk_rtm, clk_data, clk_data->clock_val);
+		kbase_clk_rate_trace_manager_notify_all(
+			clk_rtm, clk_data->index, clk_data->clock_val);
 	}
 
 	clk_rtm->gpu_idle = false;
@@ -273,10 +240,41 @@ void kbase_clk_rate_trace_manager_gpu_idle(struct kbase_device *kbdev)
 		if (unlikely(!clk_data->clock_val))
 			continue;
 
-		gpu_clk_rate_notify_all(clk_rtm, clk_data, 0);
+		kbase_clk_rate_trace_manager_notify_all(
+			clk_rtm, clk_data->index, 0);
 	}
 
 	clk_rtm->gpu_idle = true;
 	spin_unlock_irqrestore(&clk_rtm->lock, flags);
 }
+
+void kbase_clk_rate_trace_manager_notify_all(
+	struct kbase_clk_rate_trace_manager *clk_rtm,
+	u32 clk_index,
+	unsigned long new_rate)
+{
+	struct kbase_clk_rate_listener *pos;
+	struct kbase_device *kbdev;
+
+	lockdep_assert_held(&clk_rtm->lock);
+
+	kbdev = container_of(clk_rtm, struct kbase_device, pm.clk_rtm);
+
+	dev_dbg(kbdev->dev, "GPU clock %u rate changed to %lu",
+		clk_index, new_rate);
+
+ 	/* Raise standard `power/gpu_frequency` ftrace event */
+ 	{
+		unsigned long new_rate_khz = new_rate;
+
+		do_div(new_rate_khz, 1000);
+		trace_gpu_frequency(new_rate_khz, clk_index);
+	}
+
+	/* Notify the listeners. */
+	list_for_each_entry(pos, &clk_rtm->listeners, node) {
+		pos->notify(pos, clk_index, new_rate);
+	}
+}
+KBASE_EXPORT_TEST_API(kbase_clk_rate_trace_manager_notify_all);
 
