@@ -123,7 +123,7 @@ unsigned int bc11_get_register_value(struct regmap *map,
 	unsigned int mask,
 	unsigned int shift)
 {
-	unsigned int value;
+	unsigned int value = 0;
 
 	regmap_read(map, addr, &value);
 	value =
@@ -580,7 +580,7 @@ static int psy_chr_type_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
 	struct mtk_charger_type *info;
-	int vbus;
+	int vbus = 0;
 
 	pr_notice("%s: prop:%d\n", __func__, psp);
 	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);

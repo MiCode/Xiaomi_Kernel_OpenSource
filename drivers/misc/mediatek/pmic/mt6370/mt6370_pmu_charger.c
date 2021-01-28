@@ -4130,8 +4130,6 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6370_charger_get_online(chg_data, val);
 		break;
-	case POWER_SUPPLY_PROP_TYPE:
-		val->intval = psy->desc->type;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = chg_data->psy_usb_type;
 		break;
@@ -4366,7 +4364,7 @@ static int get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 static int typec_attach_thread(void *data)
 {
 	struct mt6370_pmu_charger_data *chg_data = data;
-	int ret;
+	int ret = 0;
 	bool attach;
 	union power_supply_propval val;
 
