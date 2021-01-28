@@ -24,6 +24,7 @@
 #include "boost_ctrl.h"
 #include "eas_ctrl_plat.h"
 #include "eas_ctrl.h"
+#include "topo_ctrl.h"
 #include "mtk_perfmgr_internal.h"
 #include <mt-plat/mtk_sched.h>
 #include <linux/sched.h>
@@ -31,6 +32,11 @@
 #ifdef CONFIG_TRACING
 #include <linux/kallsyms.h>
 #include <linux/trace_events.h>
+#endif
+
+#if defined(CONFIG_MTK_PLAT_MT6885_EMULATION) || defined(CONFIG_MACH_MT6893) \
+	|| defined(CONFIG_MACH_MT6833)
+#define CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY
 #endif
 
 /* boost value */
@@ -76,6 +82,11 @@ static int log_enable;
 
 static bool perf_sched_big_task_rotation;
 static int  perf_sched_stune_task_thresh;
+
+#if defined(CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY)
+static int cluster_num;
+static int *cpu_id;
+#endif
 
 #define MAX_BOOST_VALUE	(100)
 #define MIN_BOOST_VALUE	(-100)
@@ -149,6 +160,13 @@ int update_schedplus_down_throttle_ns(int kicker, int nsec)
 		return -1;
 	}
 
+#if defined(CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY)
+	if (cpu_id == NULL) {
+		pr_debug(" cpu_id is NULL\n");
+		return -1;
+	}
+#endif
+
 	mutex_lock(&boost_eas);
 
 	schedplus_down_throttle_ns[kicker] = nsec;
@@ -173,12 +191,23 @@ int update_schedplus_down_throttle_ns(int kicker, int nsec)
 
 #ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
 	if (debug_schedplus_down_throttle_nsec == -1) {
+#if defined(CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY)
+		if (cur_schedplus_down_throttle_ns >= 0)
+			for (i = 0; i < cluster_num; i++)
+				schedutil_set_down_rate_limit_us(cpu_id[i],
+					cur_schedplus_down_throttle_ns / 1000);
+		else
+			for (i = 0; i < cluster_num; i++)
+				schedutil_set_down_rate_limit_us(cpu_id[i],
+					default_schedplus_down_throttle_ns / 1000);
+#else
 		if (cur_schedplus_down_throttle_ns >= 0)
 			schedutil_set_down_rate_limit_us(0,
 				cur_schedplus_down_throttle_ns / 1000);
 		else
 			schedutil_set_down_rate_limit_us(0,
 				default_schedplus_down_throttle_ns / 1000);
+#endif
 	}
 #endif
 
@@ -200,6 +229,13 @@ int update_schedplus_up_throttle_ns(int kicker, int nsec)
 		pr_debug(" kicker:%d error\n", kicker);
 		return -1;
 	}
+
+#if defined(CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY)
+	if (cpu_id == NULL) {
+		pr_debug(" cpu_id is NULL\n");
+		return -1;
+	}
+#endif
 
 	mutex_lock(&boost_eas);
 
@@ -225,12 +261,23 @@ int update_schedplus_up_throttle_ns(int kicker, int nsec)
 
 #ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
 	if (debug_schedplus_up_throttle_nsec == -1) {
+#if defined(CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY)
+		if (cur_schedplus_up_throttle_ns >= 0)
+			for (i = 0; i < cluster_num; i++)
+				schedutil_set_up_rate_limit_us(cpu_id[i],
+					cur_schedplus_up_throttle_ns / 1000);
+		else
+			for (i = 0; i < cluster_num; i++)
+				schedutil_set_up_rate_limit_us(cpu_id[i],
+					default_schedplus_up_throttle_ns / 1000);
+#else
 		if (cur_schedplus_up_throttle_ns >= 0)
 			schedutil_set_up_rate_limit_us(0,
 				cur_schedplus_up_throttle_ns / 1000);
 		else
 			schedutil_set_up_rate_limit_us(0,
 				default_schedplus_up_throttle_ns / 1000);
+#endif
 	}
 #endif
 
@@ -1567,6 +1614,16 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 		schedplus_sync_flag[i] = -1;
 
 	debug_fix_boost = 0;
+
+#if defined(CONFIG_CPUFREQ_HAVE_GOVERNOR_PER_POLICY)
+	cluster_num = topo_ctrl_get_nr_clusters();
+	if (cluster_num > 0)
+		cpu_id = kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
+
+	if (cpu_id)
+		for (i = 0; i < cluster_num; i++)
+			cpu_id[i] = topo_ctrl_get_cluster_cpu_id(i);
+#endif
 
 out:
 	return ret;
