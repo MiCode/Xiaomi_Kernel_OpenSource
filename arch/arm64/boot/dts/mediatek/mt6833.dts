@@ -1397,7 +1397,7 @@ page_owner=on";
 		mmsys_config = <&mmsys_config>;
 		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
 		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			/* <&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>, */
 			<&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
 		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
 		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
@@ -3850,8 +3850,10 @@ page_owner=on";
 	mdp_rdma0: mdp_rdma0@1f003000 {
 		compatible = "mediatek,mdp_rdma0", "mediatek,mdp";
 		reg = <0 0x1f003000 0 0x1000>;
-		clocks = <&mdpsys_clk CLK_MDP_RDMA0>;
-		clock-names = "MDP_RDMA0";
+		clocks = <&mdpsys_clk CLK_MDP_RDMA0>,
+			 <&infracfg_ao CLK_IFRAO_GCE2>,
+			 <&infracfg_ao CLK_IFRAO_GCE_26M>;
+		clock-names = "MDP_RDMA0", "GCE", "GCE_TIMER";
 		mmsys_config = <&mdpsys_config>;
 		mm_mutex   = <&mdp_mutex>;
 		mboxes = <&gce_mbox_sec 10 0 CMDQ_THR_PRIO_1>,
@@ -3940,9 +3942,9 @@ page_owner=on";
 		dip2_cq_thread21_frame_done =
 			<CMDQ_EVENT_GCE_IMG2_EVENT21>;
 		dip2_cq_thread23_frame_done =
-			<CMDQ_EVENT_GCE_IMG2_EVENT22>;
-		wpe_b_frame_done =
 			<CMDQ_EVENT_GCE_IMG2_EVENT23>;
+		wpe_b_frame_done =
+			<CMDQ_EVENT_GCE_IMG2_EVENT22>;
 		mdp_rdma0_sof = <256>;
 		mdp_aal_sof = <258>;
 		mdp_hdr0_sof = <260>;
