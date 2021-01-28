@@ -521,12 +521,12 @@ static void ufs_mtk_device_reset(struct ufs_hba *hba)
 	 *
 	 * To be on safe side, keep the reset low for at least 10us.
 	 */
-	usleep_range(10, 5);
+	usleep_range(10, 15);
 
 	ufs_mtk_device_reset_ctrl(1, res);
 
 	/* Some devices may need time to respond to rst_n */
-	usleep_range(10000, 5000);
+	usleep_range(10000, 15000);
 
 	dev_info(hba->dev, "device reset done\n");
 }
