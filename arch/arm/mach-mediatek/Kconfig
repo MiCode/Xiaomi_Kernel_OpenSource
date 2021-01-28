@@ -81,6 +81,7 @@ config MACH_MT6761
 	select ARM_CRYPTO
 	select CRYPTO_SHA2_ARM_CE
 	select CRYPTO_AES_ARM_CE
+	select MTK_PMQOS
 	help
 	  This enables support for MediaTek MT6761
 	  Highly power-efficient, performance-oriented 4G LTE processor
