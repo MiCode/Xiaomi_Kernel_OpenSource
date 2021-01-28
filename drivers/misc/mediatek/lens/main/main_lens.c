@@ -253,46 +253,35 @@ void AF_PowerDown(void)
 	if (g_pstAF_I2Cclient != NULL) {
 #if defined(CONFIG_MACH_MT6739) || defined(CONFIG_MACH_MT6771) ||              \
 	defined(CONFIG_MACH_MT6775)
-		LC898217AF_SetI2Cclient(g_pstAF_I2Cclient, &g_AF_SpinLock,
-					&g_s4AF_Opened);
-		LC898217AF_PowerDown();
+		LC898217AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 #endif
 
 #ifdef CONFIG_MTK_LENS_AK7371AF_SUPPORT
-		AK7371AF_SetI2Cclient(g_pstAF_I2Cclient, &g_AF_SpinLock,
-				      &g_s4AF_Opened);
-		AK7371AF_PowerDown();
+		AK7371AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 #endif
 
 #ifdef CONFIG_MACH_MT6758
-		AK7371AF_SetI2Cclient(g_pstAF_I2Cclient, &g_AF_SpinLock,
-				      &g_s4AF_Opened);
-		AK7371AF_PowerDown();
+		AK7371AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 
-		BU63169AF_SetI2Cclient(g_pstAF_I2Cclient, &g_AF_SpinLock,
-				       &g_s4AF_Opened);
-		BU63169AF_PowerDown();
+		BU63169AF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 #endif
 
 #ifdef CONFIG_MACH_MT6765
 		int Ret1 = 0, Ret2 = 0, Ret3 = 0;
 
 		if (DrvPwrDn1) {
-			LC898217AF_SetI2Cclient(g_pstAF_I2Cclient,
-					&g_AF_SpinLock, &g_s4AF_Opened);
-			Ret1 = LC898217AF_PowerDown();
+			Ret1 = LC898217AF_PowerDown(g_pstAF_I2Cclient,
+						&g_s4AF_Opened);
 		}
 
 		if (DrvPwrDn2) {
-			DW9718SAF_SetI2Cclient(g_pstAF_I2Cclient,
-				      &g_AF_SpinLock, &g_s4AF_Opened);
-			Ret2 = DW9718SAF_PowerDown();
+			Ret2 = DW9718SAF_PowerDown(g_pstAF_I2Cclient,
+						&g_s4AF_Opened);
 		}
 
 		if (DrvPwrDn3) {
-			bu64748af_SetI2Cclient_Main(g_pstAF_I2Cclient,
-				       &g_AF_SpinLock, &g_s4AF_Opened);
-			Ret3 = bu64748af_PowerDown_Main();
+			Ret3 = bu64748af_PowerDown_Main(g_pstAF_I2Cclient,
+						&g_s4AF_Opened);
 		}
 
 		if (DrvPwrDn1 && DrvPwrDn2 && DrvPwrDn3) {
@@ -306,6 +295,10 @@ void AF_PowerDown(void)
 		}
 			LOG_INF("%d/%d , %d/%d, %d/%d\n", Ret1, DrvPwrDn1,
 				Ret2, DrvPwrDn2, Ret3, DrvPwrDn3);
+#endif
+
+#ifdef CONFIG_MACH_MT6761
+		DW9718SAF_PowerDown(g_pstAF_I2Cclient, &g_s4AF_Opened);
 #endif
 	}
 	MAIN2AF_PowerDown();

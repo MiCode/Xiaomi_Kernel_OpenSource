@@ -222,8 +222,12 @@ int bu64748af_Release_Main(struct inode *a_pstInode, struct file *a_pstFile)
 
 static int PowerDown = 1;
 
-int bu64748af_PowerDown_Main(void)
+int bu64748af_PowerDown_Main(struct i2c_client *pstAF_I2Cclient,
+			int *pAF_Opened)
 {
+	g_pstAF_I2Cclient = pstAF_I2Cclient;
+	g_pAF_Opened = pAF_Opened;
+
 	LOG_INF("+\n");
 
 	if (PowerDown == 0)

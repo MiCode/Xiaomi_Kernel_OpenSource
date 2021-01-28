@@ -244,8 +244,12 @@ int AK7371AF_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	return 0;
 }
 
-int AK7371AF_PowerDown(void)
+int AK7371AF_PowerDown(struct i2c_client *pstAF_I2Cclient,
+			int *pAF_Opened)
 {
+	g_pstAF_I2Cclient = pstAF_I2Cclient;
+	g_pAF_Opened = pAF_Opened;
+
 	LOG_INF("+\n");
 	if (*g_pAF_Opened == 0) {
 		unsigned short data = 0;
