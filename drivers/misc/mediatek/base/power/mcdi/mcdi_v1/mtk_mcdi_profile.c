@@ -236,7 +236,7 @@ static inline bool mcdi_usage_may_never_wakeup(int cpu)
 static unsigned long long mcdi_usage_get_time(int cpu, int state_idx)
 {
 	struct mcdi_prof_dev *dev = &mcdi_usage.dev[cpu];
-	unsigned long long dur;
+	unsigned long long dur = 0;
 
 	if ((state_idx >= 0) && (state_idx < NF_MCDI_STATE))
 		dur = dev->state[state_idx].dur;
