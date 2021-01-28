@@ -225,7 +225,7 @@ void HDMI_reset(void)
 	IT66121_LOG("<<Pull Up Reset Pin\n");
 #else
 
-	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt8183-hdmitx");
+	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt8168-hdmitx");
 	if (dn == NULL)
 		IT66121_LOG("dn == NULL");
 	bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
@@ -562,7 +562,7 @@ static int it66121_video_config(enum HDMI_VIDEO_RESOLUTION vformat,
 
 	HDMITX_ChangeDisplayOption(it66121_video_type, HDMI_RGB444);
 	/*mutex_lock(&mt66121_mutex_lock);*/
-	HDMITX_SetOutput();
+	/*HDMITX_SetOutput();*/
 	/*mutex_unlock(&mt66121_mutex_lock);*/
 
 	IT66121_LOG("<<< %s,\n", __func__);
@@ -981,7 +981,7 @@ int ite66121_pmic_power_off(void)
 	if (ret != 0)
 		IT66121_LOG("hdmi regolator error\n");
 
-	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt8183-hdmitx");
+	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt8168-hdmitx");
 	if (dn == NULL)
 		IT66121_LOG("dn == NULL");
 	bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
@@ -1025,7 +1025,7 @@ static void process_dbg_opt(const char *opt)
 	}
 	if (strncmp(opt, "on", 2) == 0) {
 		dn = of_find_compatible_node(NULL, NULL,
-					     "mediatek,mt8183-hdmitx");
+					     "mediatek,mt8168-hdmitx");
 		if (dn == NULL)
 			IT66121_LOG("dn == NULL");
 		bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
@@ -1035,7 +1035,7 @@ static void process_dbg_opt(const char *opt)
 
 	if (strncmp(opt, "off", 3) == 0) {
 		dn = of_find_compatible_node(NULL, NULL,
-				"mediatek,mt8183-hdmitx");
+				"mediatek,mt8168-hdmitx");
 		if (dn == NULL)
 			IT66121_LOG("dn == NULL");
 		bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
@@ -1236,6 +1236,8 @@ int hdmi_internal_probe(struct platform_device *pdev)
 	 *		__func__);
 	 */
 	vGet_Pinctrl_Mode(pdev);
+	pinctrl_select_state(hdmi_pinctrl, pins_hdmi_gpio);
+
 	hdmi_vcn33 = devm_regulator_get(&pdev->dev, "vcn33");
 	hdmi_vcn18 = devm_regulator_get(&pdev->dev, "vcn18");
 	hdmi_vrf12 = devm_regulator_get(&pdev->dev, "vrf12");
@@ -1272,7 +1274,7 @@ static int hdmi_internal_remove(struct platform_device *dev)
 
 static const struct of_device_id hdmi_of_ids[] = {
 	{
-		.compatible = "mediatek,mt8183-hdmitx",
+		.compatible = "mediatek,mt8168-hdmitx",
 	},
 	{} };
 
@@ -1308,7 +1310,7 @@ static int __init ite66121_i2c_board_init(void)
 	struct device_node *dn;
 
 	IT66121_LOG("hdmi %s\n", __func__);
-	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt8183-hdmitx");
+	dn = of_find_compatible_node(NULL, NULL, "mediatek,mt8168-hdmitx");
 	if (!dn) {
 		IT66121_LOG("Failed to find HDMI node\n");
 		return -EINVAL;
@@ -1316,7 +1318,7 @@ static int __init ite66121_i2c_board_init(void)
 	ret = of_property_read_u32(dn, "mediatek,hdmi_bridgeic_port",
 				   &i2c_port);
 	if (ret < 0)
-		i2c_port = 6;
+		i2c_port = 1;
 	IT66121_LOG("i2c_port %d\n", i2c_port);
 	ret = i2c_register_board_info(i2c_port, &it66121_i2c_hdmi, 1);
 	if (ret)
