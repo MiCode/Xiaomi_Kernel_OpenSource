@@ -2025,7 +2025,6 @@ struct rt_regmap_device *rt_regmap_device_register_ex
 {
 	struct rt_regmap_device *rd;
 	int ret = 0, i;
-	char device_name[32];
 	unsigned char data;
 
 	if (!props) {
@@ -2051,10 +2050,7 @@ struct rt_regmap_device *rt_regmap_device_register_ex
 	rd->client = client;
 	rd->dev.release = rt_regmap_device_release;
 	dev_set_drvdata(&rd->dev, drvdata);
-	ret = snprintf(device_name, 32, "rt_regmap_%s", props->name);
-	if (!ret)
-		return NULL;
-	dev_set_name(&rd->dev, device_name);
+	dev_set_name(&rd->dev, "rt_regmap_%s", props->name);
 	memcpy(&rd->props, props, sizeof(struct rt_regmap_properties));
 	rd->props.cache_mode_ori = rd->props.rt_regmap_mode&RT_CACHE_MODE_MASK;
 
