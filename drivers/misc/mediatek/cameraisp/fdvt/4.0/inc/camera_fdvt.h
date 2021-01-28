@@ -43,6 +43,7 @@ struct compat_FDVTRegIO {
 
 #endif
 
+#if (MTK_SECURE_FD_SUPPORT == 1)
 struct FDVTSecureMeta {
 	unsigned int Learning_Type;
 	unsigned int fd_mode;
@@ -92,6 +93,7 @@ struct compat_FDVTMetaData {
 };
 #define compat_FDVTMetaData struct compat_FDVTMetaData
 #endif
+#endif
 
 /*below is control message*/
 #define FDVT_IOC_INIT_SETPARA_CMD \
@@ -106,7 +108,7 @@ struct compat_FDVTMetaData {
 	_IOWR(FDVT_IOC_MAGIC, 0x04, FDVTRegIO)
 #define FDVT_IOC_T_SET_SDCONF_CMD \
 	_IOW(FDVT_IOC_MAGIC, 0x05, FDVTRegIO)
-#if (MTK_FD_LARB == 2)
+#if (MTK_SECURE_FD_SUPPORT == 1)
 #define FDVT_IOC_INIT_SETNORMAL_CMD \
 	_IO(FDVT_IOC_MAGIC, 0x06)
 #define FDVT_IOC_INIT_SETSECURE_CMD \
@@ -130,7 +132,7 @@ struct compat_FDVTMetaData {
 	_IOWR(FDVT_IOC_MAGIC, 0x04, compat_FDVTRegIO)
 #define COMPAT_FDVT_IOC_T_SET_SDCONF_CMD \
 	_IOW(FDVT_IOC_MAGIC, 0x05, compat_FDVTRegIO)
-#if (MTK_FD_LARB == 2)
+#if (MTK_SECURE_FD_SUPPORT == 1)
 #define COMPAT_FDVT_IOC_INIT_SETNORMAL_CMD \
 	_IO(FDVT_IOC_MAGIC, 0x06)
 #define COMPAT_FDVT_IOC_INIT_SETSECURE_CMD \
