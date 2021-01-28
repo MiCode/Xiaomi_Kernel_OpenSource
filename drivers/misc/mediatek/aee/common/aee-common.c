@@ -330,7 +330,7 @@ void aed_common_exception_api(const char *assert_type, const int *log,
 #ifdef CONFIG_MTK_AEE_AED
 	pr_debug("%s\n", __func__);
 	if (g_aee_api) {
-		if (g_aee_api->md_exception) {
+		if (g_aee_api->common_exception) {
 			g_aee_api->common_exception(assert_type, log, log_size,
 					phy, phy_size, detail, db_opt);
 		} else {
