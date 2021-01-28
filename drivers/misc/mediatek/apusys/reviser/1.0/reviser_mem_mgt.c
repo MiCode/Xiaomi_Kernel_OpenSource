@@ -902,6 +902,7 @@ void reviser_table_print_vlm(void *drvinfo, uint32_t ctxid, void *s_file)
 	uint32_t i;
 	struct seq_file *s = (struct seq_file *)s_file;
 	char strtype[8];
+	int count = 0;
 
 	DEBUG_TAG;
 	if (drvinfo == NULL) {
@@ -924,16 +925,17 @@ void reviser_table_print_vlm(void *drvinfo, uint32_t ctxid, void *s_file)
 	for (i = 0; i < VLM_REMAP_TABLE_MAX; i++) {
 		switch (g_vlm_pgtable[ctxid].page[i].type) {
 		case REVISER_MEM_TYPE_TCM:
-			snprintf(strtype, sizeof(strtype), "TCM");
+			count = snprintf(strtype, sizeof(strtype), "TCM");
 			break;
 		case REVISER_MEM_TYPE_DRAM:
-			snprintf(strtype, sizeof(strtype), "DRAM");
+			count = snprintf(strtype, sizeof(strtype), "DRAM");
 			break;
 		default:
-			snprintf(strtype, sizeof(strtype), "NONE");
+			count = snprintf(strtype, sizeof(strtype), "NONE");
 			break;
 		}
 
+	if (count > 0)
 		LOG_CON(s, "v[%d] src[%02d] dst[%02d] vlm[%02d] type[%s]\n",
 				g_vlm_pgtable[ctxid].page[i].valid, i,
 				g_vlm_pgtable[ctxid].page[i].dst,
