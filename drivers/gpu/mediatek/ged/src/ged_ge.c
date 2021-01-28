@@ -16,10 +16,6 @@
 #include <linux/seq_file.h>
 #include <linux/anon_inodes.h>
 
-#ifdef GED_DEBUG_FS
-#include <ged_debugFS.h>
-#endif
-
 struct GEEntry {
 	uint64_t unique_id;
 
@@ -38,10 +34,6 @@ struct GEEntry {
 	pr_debug("[GRALLOC_EXTRA,%s:%d]" fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 
 static struct kmem_cache *gPoolCache;
-#ifdef GED_DEBUG_FS
-static struct dentry *gDFSEntry;
-static int num_entry;
-#endif
 static LIST_HEAD(ge_entry_list_head);
 static DEFINE_SPINLOCK(ge_entry_list_lock);
 
@@ -64,73 +56,6 @@ static uint64_t gen_unique_id(void)
 
 	return ret;
 }
-
-//-----------------------------------------------------------------------------
-#ifdef GED_DEBUG_FS
-static void *_ge_debugfs_seq_start(struct seq_file *m, loff_t *pos)
-{
-	if (*pos == 0) {
-		seq_puts(m,
-			"================================================\n");
-		num_entry = (int)*pos;
-		return list_first_entry(&ge_entry_list_head,
-			struct GEEntry, ge_entry_list);
-	}
-	return NULL;
-}
-
-void _ge_debugfs_seq_stop(struct seq_file *m, void *v)
-{
-	seq_puts(m, "================================================\n");
-	seq_printf(m, "Total entries: %d\n", num_entry);
-	/* do nothing */
-}
-
-void *_ge_debugfs_seq_next(struct seq_file *m, void *v, loff_t *pos)
-{
-	struct list_head *next = ((struct GEEntry *)v)->ge_entry_list.next;
-
-	num_entry = (int)++*pos;
-	return (next != &ge_entry_list_head) ?
-		list_entry(next, struct GEEntry, ge_entry_list) : NULL;
-}
-
-int _ge_debugfs_seq_show(struct seq_file *m, void *v)
-{
-	const struct GEEntry *entry = v;
-	int memory_size = 0;
-	int memory_ksize = 0;
-	int i;
-
-	memory_size +=
-		(sizeof(uint32_t) + sizeof(uint32_t *)) * entry->region_num;
-	memory_ksize += ksize(entry->data);
-	for (i = 0; i < entry->region_num; ++i) {
-		if (entry->region_data[i]) {
-			memory_size += entry->region_sizes[i];
-			memory_ksize += ksize(entry->region_data[i]);
-		}
-	}
-	seq_printf(m,
-		"GEEntry id:0x%llx memory size: %d bytes, ksize: %3d bytes\n",
-			entry->unique_id, memory_size, memory_ksize);
-	return 0;
-}
-
-static const struct seq_operations gDEFEntryOps = {
-	.start = _ge_debugfs_seq_start,
-	.stop = _ge_debugfs_seq_stop,
-	.next = _ge_debugfs_seq_next,
-	.show = _ge_debugfs_seq_show,
-};
-
-static ssize_t _ge_debugfs_write_entry(const char __user *pszBuffer,
-	size_t uiCount, loff_t uiPosition, void *pvData)
-{
-	return uiCount;
-}
-#endif /* GED_DEBUG_FS */
-//-----------------------------------------------------------------------------
 
 static int ge_entry_release(struct inode *inode, struct file *file)
 {
@@ -162,29 +87,11 @@ GED_ERROR ged_ge_init(void)
 	gPoolCache = kmem_cache_create("gralloc_extra",
 		sizeof(struct GEEntry), 0, flags, NULL);
 
-#ifdef GED_DEBUG_FS
-	err = ged_debugFS_create_entry(
-			"ge",
-			NULL,
-			&gDEFEntryOps,
-			_ge_debugfs_write_entry,
-			NULL,
-			&gDFSEntry);
-	if (unlikely(err != GED_OK)) {
-		GED_PDEBUG("failed to create ge entry!\n");
-		return err;
-	}
-#endif
-
 	return err;
 }
 
 int ged_ge_exit(void)
 {
-#ifdef GED_DEBUG_FS
-	ged_debugFS_remove_entry(gDFSEntry);
-#endif
-
 	/* TODO : free all memory */
 	kmem_cache_destroy(gPoolCache);
 
