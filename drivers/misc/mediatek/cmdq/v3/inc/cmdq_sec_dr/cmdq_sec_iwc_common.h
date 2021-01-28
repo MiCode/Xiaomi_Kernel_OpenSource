@@ -17,9 +17,7 @@
 #define CMDQ_SEC_SHARED_RESET_CNT		0x308
 
 /* commanad buffer & metadata */
-#define CMDQ_TZ_CMD_BLOCK_SIZE	 (79 * 1024)
-
-#define CMDQ_IWC_MAX_CMD_LENGTH (CMDQ_TZ_CMD_BLOCK_SIZE / 4)
+#define CMDQ_IWC_MAX_CMD_LENGTH (5 << 12)
 
 #define CMDQ_IWC_MAX_ADDR_LIST_LENGTH (30)
 
