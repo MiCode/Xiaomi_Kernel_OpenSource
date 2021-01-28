@@ -85,8 +85,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 	struct msdc_host *host);
 void msdc_clk_enable_and_stable(struct msdc_host *host);
 
-//#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
-#if 1
+#ifndef CONFIG_MTK_MSDC_BRING_UP_BYPASS
 #define msdc_clk_enable(host) \
 	do { \
 		(void)clk_enable(host->clk_ctl); \
