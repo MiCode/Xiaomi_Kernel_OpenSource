@@ -1670,7 +1670,8 @@ static int mtk_drm_fence_release_thread(void *data)
 		DDPINFO("%s:%d wait vblank-\n", __func__, __LINE__);
 
 		mutex_lock(&private->commit.lock);
-		mtk_release_present_fence(private->session_id[0],
+		if (private->session_id[0] > 0)
+			mtk_release_present_fence(private->session_id[0],
 					  atomic_read(&_mtk_fence_idx[0]));
 		mutex_unlock(&private->commit.lock);
 	}
