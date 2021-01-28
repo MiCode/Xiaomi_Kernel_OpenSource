@@ -963,7 +963,7 @@ static int __mt6370_chgdet_handler(struct mt6370_pmu_charger_data *chg_data)
 		break;
 	case MT6370_CHG_TYPE_SDPNSTD:
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
+		chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
 	case MT6370_CHG_TYPE_CDP:
 		chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
@@ -4163,8 +4163,19 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 			break;
 		}
 		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = chg_data->psy_desc.type;
+		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = chg_data->psy_usb_type;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (chg_data->psy_desc.type == POWER_SUPPLY_USB_TYPE_SDP)
+			val->intval = 500000;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (chg_data->psy_usb_type == POWER_SUPPLY_USB_TYPE_SDP)
+			val->intval = 5000000;
 		break;
 	default:
 		ret = -ENODATA;
@@ -4188,6 +4199,7 @@ static int mt6370_charger_set_property(struct power_supply *psy,
 	default:
 		ret = -EINVAL;
 	}
+
 	return ret;
 }
 
@@ -4207,6 +4219,8 @@ static enum power_supply_property mt6370_charger_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 static const struct power_supply_desc mt6370_charger_desc = {
@@ -4347,7 +4361,7 @@ static const struct regulator_desc mt6370_otg_rdesc = {
 static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 	bool attach)
 {
-	union power_supply_propval prop, prop2;
+	union power_supply_propval prop, prop2, prop3;
 	static struct power_supply *chg_psy;
 	int ret = 0;
 
@@ -4366,30 +4380,20 @@ static int mt6370_get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 			ret = power_supply_set_property(chg_psy,
 					POWER_SUPPLY_PROP_ONLINE, &prop);
 			ret = power_supply_get_property(chg_psy,
-					POWER_SUPPLY_PROP_USB_TYPE, &prop2);
-		} else
-			prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-
-		pr_notice("%s type:%d\n", __func__, prop2.intval);
-
-		switch (prop2.intval) {
-		case POWER_SUPPLY_USB_TYPE_UNKNOWN:
-			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
-			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
-			break;
-		case POWER_SUPPLY_USB_TYPE_SDP:
-			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB;
-			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_SDP;
-			break;
-		case POWER_SUPPLY_USB_TYPE_CDP:
-			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
-			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_CDP;
-			break;
-		case POWER_SUPPLY_USB_TYPE_DCP:
-			chg_data->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
-			chg_data->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
-			break;
+					POWER_SUPPLY_PROP_TYPE, &prop2);
+			ret = power_supply_get_property(chg_psy,
+					POWER_SUPPLY_PROP_USB_TYPE, &prop3);
+		} else {
+			prop2.intval = POWER_SUPPLY_TYPE_UNKNOWN;
+			prop3.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
 		}
+
+		pr_notice("%s type:%d usb_type:%d\n", __func__,
+					prop2.intval, prop3.intval);
+
+		chg_data->psy_desc.type = prop2.intval;
+		chg_data->psy_usb_type = prop3.intval;
+
 		power_supply_changed(chg_data->psy);
 	}
 	return prop2.intval;

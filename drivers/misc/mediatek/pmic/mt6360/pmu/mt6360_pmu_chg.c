@@ -689,7 +689,7 @@ static int mt6360_chgdet_post_process(struct mt6360_pmu_chg_info *mpci)
 	case MT6360_CHG_TYPE_SDPNSTD:
 		dev_info(mpci->dev,
 			  "%s: Charger Type: NONSTANDARD_CHARGER\n", __func__);
-		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		mpci->psy_desc.type = POWER_SUPPLY_TYPE_USB;
 		mpci->psy_usb_type = POWER_SUPPLY_USB_TYPE_DCP;
 		break;
 	case MT6360_CHG_TYPE_CDP:
@@ -711,7 +711,7 @@ out:
 		if (ret < 0)
 			dev_notice(mpci->dev, "%s: disable chgdet fail\n",
 				   __func__);
-	} else if (mpci->psy_usb_type != POWER_SUPPLY_USB_TYPE_DCP)
+	} else if (mpci->psy_desc.type != POWER_SUPPLY_TYPE_USB_DCP)
 		mt6360_set_usbsw_state(mpci, MT6360_USBSW_USB);
 	if (!inform_psy)
 		return ret;
@@ -2956,8 +2956,7 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 				       enum power_supply_property psp,
 				       union power_supply_propval *val)
 {
-	struct mt6360_pmu_chg_info *mpci =
-						  power_supply_get_drvdata(psy);
+	struct mt6360_pmu_chg_info *mpci = power_supply_get_drvdata(psy);
 	enum mt6360_charging_status chg_stat = MT6360_CHG_STATUS_MAX;
 	int ret = 0;
 
@@ -2965,6 +2964,9 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		ret = mt6360_charger_get_online(mpci, val);
+		break;
+	case POWER_SUPPLY_PROP_TYPE:
+		val->intval = mpci->psy_desc.type;
 		break;
 	case POWER_SUPPLY_PROP_USB_TYPE:
 		val->intval = mpci->psy_usb_type;
@@ -2991,6 +2993,14 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 			ret = -ENODATA;
 			break;
 		}
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		if (mpci->psy_desc.type == POWER_SUPPLY_USB_TYPE_SDP)
+			val->intval = 500000;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (mpci->psy_usb_type == POWER_SUPPLY_USB_TYPE_SDP)
+			val->intval = 5000000;
 		break;
 	default:
 		ret = -ENODATA;
@@ -3032,6 +3042,8 @@ static enum power_supply_property mt6360_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_USB_TYPE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 static const struct power_supply_desc mt6360_charger_desc = {
@@ -3049,6 +3061,7 @@ static char *mt6360_charger_supplied_to[] = {
 	"battery",
 	"mtk-master-charger"
 };
+
 /*otg_vbus*/
 static int mt6360_boost_enable(struct regulator_dev *rdev)
 {
