@@ -180,3 +180,15 @@ static inline int rq_cpu(const struct rq *rq) { return rq->cpu; }
 static inline int rq_cpu(const struct rq *rq) { return 0; }
 #endif
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
+extern unsigned int capacity_margin;
+static inline unsigned long map_util_freq_with_margin(
+					unsigned long util,
+					unsigned long freq,
+					unsigned long cap)
+{
+	freq = freq * util / cap;
+	freq = freq / SCHED_CAPACITY_SCALE * capacity_margin;
+	return freq;
+}
+#endif

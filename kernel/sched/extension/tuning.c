@@ -267,3 +267,16 @@ int get_isolated_prio(void)
 }
 EXPORT_SYMBOL(get_isolated_prio);
 #endif
+
+void set_capacity_margin(unsigned int margin)
+{
+	if (margin > SCHED_CAPACITY_SCALE)
+		capacity_margin = margin;
+}
+EXPORT_SYMBOL(set_capacity_margin);
+
+unsigned int get_capacity_margin(void)
+{
+	return capacity_margin;
+}
+EXPORT_SYMBOL(get_capacity_margin);
