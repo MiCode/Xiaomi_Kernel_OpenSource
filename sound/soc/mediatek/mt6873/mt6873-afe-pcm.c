@@ -186,8 +186,8 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 				   << irq_data->irq_fs_shift,
 				   fs << irq_data->irq_fs_shift);
 		/* enable interrupt */
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
+#if (IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
+	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)))
 		if (runtime->stop_threshold != ~(0U))
 			mtk_dsp_irq_set_enable(afe, irq_data);
 #else
@@ -230,8 +230,8 @@ int mt6873_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		}
 
 		/* disable interrupt */
-#if (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
-	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT))
+#if (IS_ENABLED(CONFIG_MTK_AUDIODSP_SUPPORT) && (IS_ENABLED(CONFIG_SND_SOC_MTK_AUDIO_DSP) ||\
+	IS_ENABLED(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)))
 		if (runtime->stop_threshold != ~(0U))
 			mtk_dsp_irq_set_disable(afe, irq_data);
 #else
