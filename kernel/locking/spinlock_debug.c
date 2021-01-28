@@ -330,6 +330,10 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 			if (!is_critical_spinlock(lock)
 				&& !is_critical_lock_held()) {
 				csd->info = kmalloc(MAX_LOCK_NAME, GFP_ATOMIC);
+				if (csd->info == NULL) {
+					print_once = 1;
+					continue;
+				}
 				strncpy(csd->info, lock_name, MAX_LOCK_NAME);
 			}
 			smp_call_function_single_async(
