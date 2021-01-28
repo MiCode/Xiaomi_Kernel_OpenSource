@@ -3719,7 +3719,7 @@ static int ISP_WaitIrq(struct ISP_WAIT_IRQ_STRUCT *WaitIrq)
 			      WaitIrq->EventInfo.UserKey,
 			      WaitIrq->EventInfo.Status))) {
 
-		LOG_DBG(
+		LOG_INF(
 			"interrupted by system signal,return value(%d),irq Type/User/Sts(0x%x/%d/0x%x)\n",
 			Timeout, WaitIrq->Type,
 			WaitIrq->EventInfo.UserKey,
