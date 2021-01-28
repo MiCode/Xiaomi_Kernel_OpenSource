@@ -387,6 +387,9 @@ int cm_mgr_check_stall_ratio(int mp0, int mp1)
 		pstall_all->ratio[i] = 0;
 		clustor = i / CM_MGR_CPU_LIMIT;
 
+		if (pstall_all->clustor[clustor] == 0)
+			continue;
+
 		stall_val_new = cm_mgr_read_stall(i);
 
 		if (stall_val_new == 0 || stall_val_new == 0xdeadbeef) {
@@ -885,7 +888,10 @@ void cm_mgr_set_dram_level(int level)
 {
 	int dram_level;
 
-	dram_level = virt_to_phy_dram_level[level];
+	if (cm_mgr_disable_fb == 1 && cm_mgr_blank_status == 1 && level != 0)
+		dram_level = virt_to_phy_dram_level[0];
+	else
+		dram_level = virt_to_phy_dram_level[level];
 	dvfsrc_set_power_model_ddr_request(dram_level);
 }
 
