@@ -2926,6 +2926,10 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 			"CLK_SCP_SYS_CAM";
 	};
 
+	camera_af_hw_node: camera_af_hw_node {
+		compatible = "mediatek,camera_af_lens";
+		camaf_m1_pmic-supply = <&mt_pmic_vldo28_ldo_reg>;
+	};
 
 	flashlight_core: flashlight_core {
 		compatible = "mediatek,flashlight_core";
