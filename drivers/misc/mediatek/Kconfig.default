@@ -16,6 +16,8 @@ config ANDROID_DEFAULT_SETTING
 	select BLK_DEV_LOOP
 	select BLK_DEV_RAM
 	select BLOCK
+	select BPF_JIT
+	select BPF_JIT_ALWAYS_ON
 	select BPF_SYSCALL
 	select CGROUP_BPF
 	select CGROUP_CPUACCT
@@ -38,6 +40,7 @@ config ANDROID_DEFAULT_SETTING
 	select CRYPTO_SHA256
 	select CRYPTO_SHA512
 	select DEFAULT_SECURITY_SELINUX
+	select DM_SNAPSHOT
 	select DM_VERITY
 	select EMBEDDED
 	select EPOLL
