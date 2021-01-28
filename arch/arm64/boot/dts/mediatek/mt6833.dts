@@ -1920,4 +1920,8 @@
 		mediatek,fifo_only;
 	};
 
+	/* ATF logger */
+	atf_logger {
+		compatible = "mediatek,atf_logger";
+	};
 };
