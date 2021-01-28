@@ -11,4 +11,4 @@
 # GNU General Public License for more details.
 #
 
-obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += mt6779/
+obj-$(CONFIG_MTK_CAMERA_ISP_WPE_SUPPORT) += v1/
