@@ -49,6 +49,8 @@ extern bool musb_host_db_workaround1;
 extern bool musb_host_db_workaround2;
 extern long musb_host_db_delay_ns;
 extern long musb_host_db_workaround_cnt;
+extern int mtk_host_audio_free_ep_udelay;
+
 extern struct musb *mtk_musb;
 extern bool mtk_usb_power;
 extern ktime_t ktime_ready;

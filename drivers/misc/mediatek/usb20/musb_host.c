@@ -293,6 +293,9 @@ void musb_host_free_ep_fifo(struct musb *musb, struct musb_qh *qh, u8 is_in)
 	for (i = 0; i < fifo_unit_nr; i++)
 		musb_host_dynamic_fifo_usage_msk &= ~(1 << (idx_start + i));
 
+	if (mtk_host_audio_free_ep_udelay && qh->type == USB_ENDPOINT_XFER_ISOC)
+		udelay(mtk_host_audio_free_ep_udelay);
+
 	if (is_in) {
 		musb_write_rxfifosz(mbase, 0);
 		musb_write_rxfifoadd(mbase, 0);

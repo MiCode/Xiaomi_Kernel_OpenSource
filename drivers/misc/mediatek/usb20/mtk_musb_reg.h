@@ -62,6 +62,10 @@
 #define MUSB_TEST_J		0x02
 #define MUSB_TEST_SE0_NAK	0x01
 
+/* TXTYPE */
+#define MUSB_TXTYPE_TXSPEED		0xC0
+#define MUSB_TXTYPE_TXSPEED_FULL	0x80
+
 /* Allocate for double-packet buffering (effectively doubles assigned _SIZE) */
 #define MUSB_FIFOSZ_DPB	0x10
 /* Allocation size (8, 16, 32, ... 4096) */
@@ -205,6 +209,7 @@
 #define MUSB_FRAME		0x0C
 #define MUSB_INDEX		0x0E	/* 8 bit */
 #define MUSB_TESTMODE		0x0F	/* 8 bit */
+#define MUSB_TXTYPE_EP0		0x1A    /* 8 bit */
 
 #define MUSB_FIFO_OFFSET(epnum)	(0x20 + ((epnum) * 4))
 
@@ -487,7 +492,28 @@ static inline void musb_write_rxhubport(void __iomem *mbase,
 static inline void musb_write_txfunaddr(void __iomem *mbase,
 						u8 epnum, u8 qh_addr_reg)
 {
-	musb_writew(mbase, MUSB_TXFUNCADDR + 8 * epnum, qh_addr_reg);
+	u16 new_qh_addr_reg;
+	unsigned char power, txtype;
+
+	power = musb_readb(mbase, MUSB_POWER);
+	txtype = musb_readb(mbase, MUSB_TXTYPE_EP0);
+
+	DBG(4, "%s - ep%d,  power: 0x%X, txtype: 0x%X\n", __func__, epnum,
+								power, txtype);
+	if ((power & MUSB_POWER_HSMODE) &&
+		((txtype & MUSB_TXTYPE_TXSPEED) == MUSB_TXTYPE_TXSPEED_FULL)) {
+
+		new_qh_addr_reg = (qh_addr_reg | 0x100);
+
+		DBG(4, "%s SPLIT TRANS ep%d 0x%X 0x%X\n", __func__, epnum,
+							qh_addr_reg,
+							new_qh_addr_reg);
+
+		musb_writew(mbase, MUSB_TXFUNCADDR + 8 * epnum,
+							new_qh_addr_reg);
+	} else {
+		musb_writew(mbase, MUSB_TXFUNCADDR + 8 * epnum, qh_addr_reg);
+	}
 }
 
 static inline void musb_write_txhubaddr(void __iomem *mbase,
