@@ -17440,5 +17440,14 @@
 	MT6359_DUMMYLOAD_ELR_0
 #define MT6359_RG_ISINK_TRIM_BIAS_MASK                        0x7
 #define MT6359_RG_ISINK_TRIM_BIAS_SHIFT                       0
+#define MT6359_RGS_CHRDET_ADDR                                \
+	MT6359_CHR_CON0
+#define MT6359_RGS_CHRDET_MASK                                0x1
+#define MT6359_RGS_CHRDET_SHIFT                               0
+#define MT6359_RG_UVLO_VTHL_ADDR                              \
+	MT6359_PCHR_VREF_ANA_CON1
+#define MT6359_RG_UVLO_VTHL_MASK                              0x1F
+#define MT6359_RG_UVLO_VTHL_SHIFT                             2
+
 
 #endif /* __MFD_MT6359_REGISTERS_H__ */

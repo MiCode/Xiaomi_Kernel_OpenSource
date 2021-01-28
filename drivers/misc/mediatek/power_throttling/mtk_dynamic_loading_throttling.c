@@ -9,6 +9,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/mfd/mt6357/registers.h>
+#include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -35,6 +36,19 @@ struct reg_t {
 struct dlpt_regs_t {
 	struct reg_t rgs_chrdet;
 	struct reg_t uvlo_reg;
+};
+
+struct dlpt_regs_t mt6359_dlpt_regs = {
+	.rgs_chrdet = {
+		MT6359_RGS_CHRDET_ADDR,
+		MT6359_RGS_CHRDET_MASK << MT6359_RGS_CHRDET_SHIFT,
+		MT6359_RGS_CHRDET_SHIFT
+	},
+	.uvlo_reg = {
+		MT6359_RG_UVLO_VTHL_ADDR,
+		MT6359_RG_UVLO_VTHL_MASK << MT6359_RG_UVLO_VTHL_SHIFT,
+		MT6359_RG_UVLO_VTHL_SHIFT
+	},
 };
 
 struct dlpt_regs_t mt6357_dlpt_regs = {
@@ -526,6 +540,9 @@ static const struct of_device_id dynamic_loading_throttling_of_match[] = {
 	{
 		.compatible = "mediatek,mt6357-dynamic_loading_throttling",
 		.data = &mt6357_dlpt_regs,
+	}, {
+		.compatible = "mediatek,mt6359-dynamic_loading_throttling",
+		.data = &mt6359_dlpt_regs,
 	}, {
 		/* sentinel */
 	}
