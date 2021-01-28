@@ -4388,6 +4388,31 @@ static vm_fault_t __handle_mm_fault(struct vm_area_struct *vma,
 }
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+
+#ifndef spf_pxd_flunked
+static inline bool spf_pgd_flunked(pgd_t *pgd)
+{
+	pgd_t pgdval;
+
+	pgdval = READ_ONCE(*pgd);
+	if (pgd_none(pgdval) || unlikely(pgd_bad(pgdval)))
+		return true;
+
+	return false;
+}
+
+static inline bool spf_p4d_flunked(p4d_t *p4d)
+{
+	p4d_t p4dval;
+
+	p4dval = READ_ONCE(*p4d);
+	if (p4d_none(p4dval) || unlikely(p4d_bad(p4dval)))
+		return true;
+
+	return false;
+}
+#endif
+
 /*
  * Tries to handle the page fault in a speculative way, without grabbing the
  * mmap_sem.
@@ -4398,8 +4423,8 @@ vm_fault_t __handle_speculative_fault(struct mm_struct *mm,
 	struct vm_fault vmf = {
 		.address = address,
 	};
-	pgd_t *pgd, pgdval;
-	p4d_t *p4d, p4dval;
+	pgd_t *pgd;
+	p4d_t *p4d;
 	pud_t pudval;
 	int seq, ret = VM_FAULT_RETRY;
 	struct vm_area_struct *vma;
@@ -4491,13 +4516,11 @@ vm_fault_t __handle_speculative_fault(struct mm_struct *mm,
 	 */
 	local_irq_disable();
 	pgd = pgd_offset(mm, address);
-	pgdval = READ_ONCE(*pgd);
-	if (pgd_none(pgdval) || unlikely(pgd_bad(pgdval)))
+	if (spf_pgd_flunked(pgd))
 		goto out_walk;
 
 	p4d = p4d_offset(pgd, address);
-	p4dval = READ_ONCE(*p4d);
-	if (p4d_none(p4dval) || unlikely(p4d_bad(p4dval)))
+	if (spf_p4d_flunked(p4d))
 		goto out_walk;
 
 	vmf.pud = pud_offset(p4d, address);
