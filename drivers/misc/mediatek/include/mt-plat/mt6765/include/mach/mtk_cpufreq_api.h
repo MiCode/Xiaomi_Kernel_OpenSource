@@ -11,6 +11,7 @@
 #define VOLT_UP 0
 #define VOLT_DOWN 1
 
+
 enum cpu_dvfs_sched_type {
 	SCHE_INVALID,
 	SCHE_VALID,

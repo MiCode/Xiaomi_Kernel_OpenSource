@@ -74,10 +74,6 @@ ifneq ($(CONFIG_MTK_BASE_POWER), y)
 obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
 obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
 endif
-ifneq (y, $(filter y, $(CONFIG_MACH_MT6761) $(CONFIG_MACH_MT6779)))
-obj-$(CONFIG_MTK_STATIC_POWER) += leakage_table_v2/
-obj-$(CONFIG_MTK_UNIFY_POWER) += upower_v2/
-endif
 
 obj-$(CONFIG_PRINTK_MTK) += mtprintk/
 obj-$(CONFIG_MTK_LEDS) += leds/

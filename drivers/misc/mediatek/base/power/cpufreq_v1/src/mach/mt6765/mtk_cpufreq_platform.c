@@ -6,6 +6,7 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/regulator/consumer.h>
+#include <linux/nvmem-consumer.h>
 
 #include <mt-plat/mtk_devinfo.h>
 #ifdef CONFIG_MTK_FREQ_HOPPING
@@ -18,6 +19,7 @@
 
 #include "mtk_cpufreq_platform.h"
 #include "../../mtk_cpufreq_hybrid.h"
+#include <linux/of_platform.h>
 
 static struct regulator *regulator_proc1;
 static struct regulator *regulator_sram1;
@@ -25,7 +27,7 @@ static struct regulator *regulator_sram1;
 static unsigned long apmixed_base	= 0x1000c000;
 static unsigned long mcucfg_base	= 0x10200000;
 
-#define APMIXED_NODE		"mediatek,apmixed"
+#define APMIXED_NODE		"mediatek,mt6765-apmixedsys"
 #define MCUCFG_NODE		"mediatek,mcucfg"
 
 #define ARMPLL_LL_CON1    (apmixed_base + 0x210) /* ARMPLL */
@@ -386,6 +388,7 @@ unsigned int get_cur_phy_freq(struct pll_ctrl_t *pll_p)
 	unsigned int ckdiv1;
 	unsigned int cur_khz;
 
+
 	con1 = cpufreq_read(pll_p->armpll_addr);
 	ckdiv1 = cpufreq_read(pll_p->armpll_div_addr);
 	ckdiv1 = _GET_BITS_VAL_(21:17, ckdiv1);
@@ -467,7 +470,7 @@ struct pll_ctrl_t pll_ctrl[NR_MT_PLL] = {
 };
 
 /* Always put action cpu at last */
-struct hp_action_tbl cpu_dvfs_hp_action[] = {
+struct hp_action_tbl cpu_dvfs_hp_action[4] = {
 	{
 		.action		= CPUFREQ_CPU_DOWN_PREPARE,
 		.cluster	= MT_CPU_DVFS_L,
@@ -483,14 +486,14 @@ struct hp_action_tbl cpu_dvfs_hp_action[] = {
 	},
 
 	{
-		.action		= CPUFREQ_CPU_DOWN_PREPARE | CPU_TASKS_FROZEN,
+		.action		= CPUFREQ_CPU_DOWN_PREPARE,
 		.cluster	= MT_CPU_DVFS_L,
 		.trigged_core	= 1,
 		.hp_action_cfg[MT_CPU_DVFS_L].action_id = FREQ_LOW,
 	},
 
 	{
-		.action		= CPUFREQ_CPU_DOWN_PREPARE | CPU_TASKS_FROZEN,
+		.action		= CPUFREQ_CPU_DOWN_PREPARE,
 		.cluster	= MT_CPU_DVFS_LL,
 		.trigged_core	= 1,
 		.hp_action_cfg[MT_CPU_DVFS_LL].action_id = FREQ_LOW,
@@ -552,8 +555,47 @@ int mt_cpufreq_dts_map(void)
 unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_3;
-	int val = get_devinfo_with_index(30);
-	int val_ly = (get_devinfo_with_index(132) >> 1) & 0x1;
+	unsigned int efuse_seg;
+	struct platform_device *pdev;
+	struct device_node *node;
+	struct nvmem_cell *efuse_cell;
+	size_t efuse_len;
+	unsigned int *efuse_buf;
+	int val = 0;
+	int val_ly = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-dvfsp");
+
+	if (!node) {
+		tag_pr_info("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
+	if (IS_ERR(efuse_cell)) {
+		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	efuse_seg = *efuse_buf;
+	val = efuse_seg;
+
+	/* get efuse ly */
+	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_ly_cell");
+	if (IS_ERR(efuse_cell)) {
+		tag_pr_info("@%s: cannot get efuse_ly_cell, errno %ld\n",
+			__func__, PTR_ERR(efuse_cell));
+		return 0;
+	}
+
+	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	nvmem_cell_put(efuse_cell);
+	efuse_seg = *efuse_buf;
+	val_ly = (efuse_seg >> 1) & 0x1;
+	kfree(efuse_buf);
 
 	if ((val == 0x2) || (val == 0x5))
 		lv = CPU_LEVEL_2;
@@ -579,4 +621,41 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		UP_VSRAM_ST, DOWN_VSRAM_ST);
 
 	return lv;
+}
+
+unsigned int cpufreq_get_nr_clusters(void)
+{
+	return (NR_MT_CPU_DVFS - 1);
+}
+
+void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
+{
+	if (cid == 0) {
+		cpumask_setall(cpu_mask);
+		cpumask_clear_cpu(4, cpu_mask);
+		cpumask_clear_cpu(5, cpu_mask);
+		cpumask_clear_cpu(6, cpu_mask);
+		cpumask_clear_cpu(7, cpu_mask);
+	} else if (cid == 1) {
+		cpumask_clear(cpu_mask);
+		cpumask_set_cpu(4, cpu_mask);
+		cpumask_set_cpu(5, cpu_mask);
+		cpumask_set_cpu(6, cpu_mask);
+		cpumask_set_cpu(7, cpu_mask);
+	}
+
+}
+
+unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
+{
+	struct cpumask cpu_mask;
+	unsigned int i;
+
+	for (i = 0; i < NR_MT_CPU_DVFS - 1; i++) {
+		cpufreq_get_cluster_cpus(&cpu_mask, i);
+		if (cpumask_test_cpu(cpu_id, &cpu_mask))
+			return i;
+	}
+
+	return 0;
 }

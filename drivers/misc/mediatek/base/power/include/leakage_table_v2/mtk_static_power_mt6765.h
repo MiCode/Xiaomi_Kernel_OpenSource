@@ -19,13 +19,13 @@
 #define T_OF_FUSE 30
 
 /* devinfo offset for each bank */
-#define DEVINFO_IDX_L 136 /* 07B8 */
-#define DEVINFO_IDX_LL 136 /* 07B8 */
-#define DEVINFO_IDX_CCI 136 /* 07B8 */
-#define DEVINFO_IDX_GPU 137 /* 07BC */
-#define DEVINFO_IDX_VCORE 137 /* 07BC */
-#define DEVINFO_IDX_VMD 137 /* 07BC */
-#define DEVINFO_IDX_MODEM 137 /* 07BC */
+#define DEVINFO_IDX_L 0x220 /* 07B8 */
+#define DEVINFO_IDX_LL 0x220 /* 07B8 */
+#define DEVINFO_IDX_CCI 0x220 /* 07B8 */
+#define DEVINFO_IDX_GPU 0x224 /* 07BC */
+#define DEVINFO_IDX_VCORE 0x224 /* 07BC */
+#define DEVINFO_IDX_VMD 0x224 /* 07BC */
+#define DEVINFO_IDX_MODEM 0x224 /* 07BC */
 
 #define DEVINFO_OFF_L 8
 #define DEVINFO_OFF_LL 16

@@ -20,6 +20,15 @@
  * operation of EEM detectors
  */
 /* legacy ptp need to define other hook functions */
+
+enum mt_cpu_dvfs_id {
+	MT_CPU_DVFS_L,
+	MT_CPU_DVFS_LL,
+	MT_CPU_DVFS_CCI,
+
+	NR_MT_CPU_DVFS,
+};
+
 struct eem_det_ops cpu_det_ops = {
 	.get_volt		= get_volt_cpu,
 	.set_volt		= set_volt_cpu,

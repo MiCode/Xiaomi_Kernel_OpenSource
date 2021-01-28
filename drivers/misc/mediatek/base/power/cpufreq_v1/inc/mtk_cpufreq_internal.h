@@ -95,6 +95,7 @@ do {						\
 		tag_pr_info(fmt, ##args);	\
 } while (0)
 
+
 #define GEN_DB_ON(condition, fmt, args...)			\
 ({								\
 	int _r = !!(condition);					\

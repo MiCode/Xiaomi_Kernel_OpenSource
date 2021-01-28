@@ -65,9 +65,11 @@
 #include "mtk_eem_internal.h"
 #include <mt-plat/mtk_devinfo.h>
 #include <regulator/consumer.h>
-#include "pmic_regulator.h"
-#include "mtk_pmic_regulator.h"
-#include "pmic_api_buck.h"
+
+#include <linux/suspend.h>
+
+#include <linux/of_platform.h>
+#include <linux/nvmem-consumer.h>
 
 
 #if UPDATE_TO_UPOWER
@@ -210,7 +212,21 @@ static int get_devinfo(void)
 	struct nvmem_device *nvmem_dev;
 	struct device_node *node;
 
+
 	val = (int *)&eem_devinfo;
+	node = of_find_node_by_name(NULL, "eem_fsm");
+	if (node == NULL) {
+		eem_error("%s fail to get device node\n", __func__);
+		return 0;
+	}
+	pdev = of_device_alloc(node, NULL, NULL);
+	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
+
+	if (IS_ERR(nvmem_dev)) {
+		eem_error("%s ptpod failed to get mtk_efuse device\n",
+				__func__);
+		return 0;
+	}
 
 	/* FTPGM */
 
@@ -226,6 +242,8 @@ static int get_devinfo(void)
 	nvmem_device_read(nvmem_dev, DEVINFO_OFF_9, sizeof(__u32), &val[9]);
 	nvmem_device_read(nvmem_dev, DEVINFO_OFF_10, sizeof(__u32), &val[10]);
 	nvmem_device_read(nvmem_dev, DEVINFO_OFF_11, sizeof(__u32), &val[11]);
+
+
 
 	for (i = 1; i < NR_HW_RES_FOR_BANK; i++) {
 		if (val[i] == 0) {
@@ -3410,6 +3428,7 @@ static int __init eem_init(void)
 #ifdef EEM_NOT_READY
 	return 0;
 #endif
+
 
 	eem_debug("[EEM] ctrl_EEM_Enable=%d\n", ctrl_EEM_Enable);
 
