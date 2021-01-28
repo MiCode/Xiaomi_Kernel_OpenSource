@@ -5326,6 +5326,7 @@ page_owner=on loop.max_part=7";
 		mdp_color_frame_done = <313>;
 		mdp_aal1_frame_done = <316>;
 		mdp_aal_frame_done = <316>;
+		dre30_hist_sram_start = <1536>;
 	};
 
 	mdp_rdma1: mdp_rdma1@1f004000 {
