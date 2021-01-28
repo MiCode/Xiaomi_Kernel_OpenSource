@@ -538,10 +538,12 @@ static int vcu_log_get(struct mtk_vcu *vcu, unsigned long arg)
 static int vcu_gce_set_inst_id(void *ctx, u64 gce_handle)
 {
 	int i;
+	char data;
 
 	mutex_lock(&vcu_ptr->vcu_share);
 	for (i = 0; i < VCODEC_INST_MAX; i++) {
-		if (vcu_ptr->gce_info[i].v4l2_ctx == NULL) {
+		if (vcu_ptr->gce_info[i].v4l2_ctx == NULL &&
+			!probe_kernel_address(ctx, data)) {
 			vcu_ptr->gce_info[i].v4l2_ctx = ctx;
 			vcu_ptr->gce_info[i].user_hdl = gce_handle;
 			mutex_unlock(&vcu_ptr->vcu_share);
@@ -734,6 +736,13 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 	unsigned int core_id;
 
 	vcu_dbg_log("[VCU] %s +\n", __func__);
+
+	if (strcmp(current->comm, "vdec_srv") != 0 &&
+		strcmp(current->comm, "venc_srv") != 0) {
+		pr_info("[VCU] %s invalid user: %s\n",
+			__func__, current->comm);
+		return -EINVAL;
+	}
 
 	time_check_start();
 	user_data_addr = (unsigned char *)arg;
