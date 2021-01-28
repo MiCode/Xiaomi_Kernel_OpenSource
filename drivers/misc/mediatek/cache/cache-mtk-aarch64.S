@@ -271,7 +271,6 @@ ENTRY(dis_D_inner_flush_all)
 	__dis_D
 	__inner_dcache_all #DCCISW
 ENDPROC(dis_D_inner_flush_all)
-EXPORT_SYMBOL(dis_D_inner_flush_all)
 
 
 /*
