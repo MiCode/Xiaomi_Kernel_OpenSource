@@ -1141,6 +1141,37 @@ static void mtk_battery_notify_check(struct mtk_charger *info)
 	}
 }
 
+static void mtk_chg_get_tchg(struct mtk_charger *info)
+{
+	int ret;
+	int tchg_min = -127, tchg_max = -127;
+	struct charger_data *pdata;
+
+	pdata = &info->chg_data[CHG1_SETTING];
+	ret = charger_dev_get_temperature(info->chg1_dev, &tchg_min, &tchg_max);
+	if (ret < 0) {
+		pdata->junction_temp_min = -127;
+		pdata->junction_temp_max = -127;
+	} else {
+		pdata->junction_temp_min = tchg_min;
+		pdata->junction_temp_max = tchg_max;
+	}
+
+	if (info->chg2_dev) {
+		pdata = &info->chg_data[CHG2_SETTING];
+		ret = charger_dev_get_temperature(info->chg2_dev,
+			&tchg_min, &tchg_max);
+
+		if (ret < 0) {
+			pdata->junction_temp_min = -127;
+			pdata->junction_temp_max = -127;
+		} else {
+			pdata->junction_temp_min = tchg_min;
+			pdata->junction_temp_max = tchg_max;
+		}
+	}
+}
+
 static void charger_check_status(struct mtk_charger *info)
 {
 	bool charging = true;
@@ -1204,8 +1235,7 @@ static void charger_check_status(struct mtk_charger *info)
 		}
 	}
 
-//todo
-//	mtk_chg_get_tchg(info);
+	mtk_chg_get_tchg(info);
 
 	if (!mtk_chg_check_vbus(info)) {
 		charging = false;
@@ -1729,7 +1759,14 @@ static int psy_charger_get_property(struct power_supply *psy,
 		val->intval = get_vbus(info);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		val->intval = get_charger_temperature(info, chg);
+		if (chg == info->chg1_dev)
+			val->intval =
+				info->chg_data[CHG1_SETTING].junction_temp_max;
+		else if (chg == info->chg2_dev)
+			val->intval =
+				info->chg_data[CHG2_SETTING].junction_temp_max;
+		else
+			val->intval = -127;
 		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
 		val->intval = get_charger_charging_current(info, chg);
