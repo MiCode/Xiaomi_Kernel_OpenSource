@@ -33,7 +33,9 @@
 #define CREATE_TRACE_POINTS
 #include <mtk_swpm_tracker_trace.h>
 #endif
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_reservedmem.h>
+#endif
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
 #include <mtk_swpm_interface.h>
@@ -70,6 +72,7 @@ static unsigned int idx_output_size;
 static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
+
 __weak int mt_spower_get_leakage_uW(int dev, int voltage, int deg)
 {
 	return 0;
@@ -422,11 +425,6 @@ static struct swpm_mem_ref_tbl mem_ref_tbl[NR_POWER_METER] = {
 	[ME_POWER_METER] = {0, NULL},
 };
 
-static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
-/****************************************************************************
- *  Global Variables
- ****************************************************************************/
-
 /****************************************************************************
  *  Static Function
  ****************************************************************************/
@@ -545,55 +543,11 @@ static void swpm_pmu_set_enable_all(unsigned int enable)
 	}
 }
 
-#ifdef CONFIG_THERMAL
-static unsigned int swpm_get_cpu_temp(enum cpu_lkg_type type)
-{
-	unsigned int temp = 0;
-
-	switch (type) {
-	case CPU_L_LKG:
-		temp = get_immediate_cpuL_wrap() / 1000;
-		break;
-	case CPU_B_LKG:
-		temp = get_immediate_cpuB_wrap() / 1000;
-		break;
-	case DSU_LKG:
-	default:
-		temp = get_immediate_cpuL_wrap() / 1000;
-		break;
-	}
-
-	return temp;
-}
-#endif
-
-#ifdef CONFIG_MTK_STATIC_POWER
-static int swpm_get_spower_devid(enum cpu_lkg_type type)
-{
-	int devid;
-
-	switch (type) {
-	case CPU_L_LKG:
-		devid = MTK_SPOWER_CPULL;
-		break;
-	case CPU_B_LKG:
-		devid = MTK_SPOWER_CPUL;
-		break;
-	case DSU_LKG:
-	default:
-		devid = MTK_SPOWER_CCI;
-		break;
-	}
-
-	return devid;
-}
-#endif
-
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 static void swpm_send_init_ipi(unsigned int addr, unsigned int size,
 			      unsigned int ch_num)
 {
-#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && \
-	defined(CONFIG_MTK_QOS_FRAMEWORK)
+#if defined(CONFIG_MTK_QOS_FRAMEWORK)
 	struct qos_ipi_data qos_d;
 	struct share_wrap *wrap_d;
 	unsigned int offset;
@@ -657,14 +611,12 @@ error:
 
 static inline void swpm_pass_to_sspm(void)
 {
-#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #ifdef CONFIG_MTK_DRAMC
 	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
 		(unsigned int)(rec_size & 0xFFFFFFFF), get_emi_ch_num());
 #else
 	swpm_send_init_ipi((unsigned int)(rec_phys_addr & 0xFFFFFFFF),
 		(unsigned int)(rec_size & 0xFFFFFFFF), 2);
-#endif
 #endif
 }
 
@@ -691,6 +643,50 @@ static void swpm_core_thermal_cb(void)
 #endif /* CFG_THERM_LVTS */
 #endif
 }
+
+#ifdef CONFIG_THERMAL
+static unsigned int swpm_get_cpu_temp(enum cpu_lkg_type type)
+{
+	unsigned int temp = 0;
+
+	switch (type) {
+	case CPU_L_LKG:
+		temp = get_immediate_cpuL_wrap() / 1000;
+		break;
+	case CPU_B_LKG:
+		temp = get_immediate_cpuB_wrap() / 1000;
+		break;
+	case DSU_LKG:
+	default:
+		temp = get_immediate_cpuL_wrap() / 1000;
+		break;
+	}
+
+	return temp;
+}
+#endif
+
+#ifdef CONFIG_MTK_STATIC_POWER
+static int swpm_get_spower_devid(enum cpu_lkg_type type)
+{
+	int devid;
+
+	switch (type) {
+	case CPU_L_LKG:
+		devid = MTK_SPOWER_CPULL;
+		break;
+	case CPU_B_LKG:
+		devid = MTK_SPOWER_CPUL;
+		break;
+	case DSU_LKG:
+	default:
+		devid = MTK_SPOWER_CCI;
+		break;
+	}
+
+	return devid;
+}
+#endif
 
 static void swpm_update_lkg_table(void)
 {
@@ -747,6 +743,8 @@ static void swpm_idx_snap(void)
 		swpm_unlock(&swpm_snap_lock);
 	}
 }
+
+static char idx_buf[POWER_INDEX_CHAR_SIZE] = { 0 };
 
 static void swpm_log_loop(unsigned long data)
 {
@@ -825,6 +823,7 @@ static void swpm_log_loop(unsigned long data)
 
 	swpm_update_periodic_timer();
 }
+#endif /* #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT : 545 */
 
 static void swpm_core_static_data_init(void)
 {
@@ -1270,11 +1269,13 @@ static int __init swpm_platform_init(void)
 
 	swpm_platform_procfs();
 
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	swpm_get_rec_addr(&rec_phys_addr,
 			  &rec_virt_addr,
 			  &rec_size);
 
 	swpm_info_ref = (struct swpm_rec_data *)(uintptr_t)rec_virt_addr;
+#endif
 
 	if (!swpm_info_ref) {
 		swpm_err("get sspm dram addr failed\n");
@@ -1282,7 +1283,9 @@ static int __init swpm_platform_init(void)
 		goto end;
 	}
 
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	ret |= swpm_reserve_mem_init(&rec_virt_addr, &rec_size);
+#endif
 
 	swpm_subsys_data_ref_init();
 
@@ -1294,10 +1297,12 @@ static int __init swpm_platform_init(void)
 	swpm_interface_unit_test();
 #endif
 
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 	swpm_pass_to_sspm();
 
 	/* set preiodic timer task */
 	swpm_set_periodic_timer(swpm_log_loop);
+#endif
 
 #if SWPM_TEST
 	/* enable all pwr meter and set swpm timer to start */
@@ -1307,10 +1312,11 @@ static int __init swpm_platform_init(void)
 end:
 	return ret;
 }
+late_initcall_sync(swpm_platform_init)
 
 static void __exit swpm_platform_exit(void)
 {
 	swpm_set_enable(ALL_METER_TYPE, 0);
 
 }
-late_initcall_sync(swpm_platform_init);
+module_exit(swpm_platform_exit)
