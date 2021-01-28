@@ -25,7 +25,6 @@ config GZ_TRUSTY_INTERRUPT_MAP
 
 config GZ_TRUSTY_INTERRUPT_FIQ_ONLY
 	tristate "GZ Trusty interrupt fiq support"
-	depends on MTK_GIC_V3_EXT
 	help
 	  This is used for Trusty to support handling new flow in GICv3
 	  If this is selected, NWd will not route IRQ to Secure OS
