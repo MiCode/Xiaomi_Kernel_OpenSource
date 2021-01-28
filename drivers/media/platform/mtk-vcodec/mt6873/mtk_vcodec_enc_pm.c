@@ -258,12 +258,7 @@ void mtk_vcodec_enc_clock_on(struct mtk_vcodec_ctx *ctx, int core_id)
 	if (core_id == MTK_VENC_CORE_0) {
 		larb_port_num = SMI_LARB7_PORT_NUM;
 		larb_id = 7;
-	} else {
-		larb_port_num = 0;
-		larb_id = 0;
-		mtk_v4l2_err("invalid core_id %d", core_id);
 	}
-
 
 	//enable 34bits port configs
 	for (i = 0; i < larb_port_num; i++) {
