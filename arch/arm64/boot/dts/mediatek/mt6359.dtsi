@@ -491,7 +491,7 @@
 		clock_buffer_ctrl: clock_buffer_ctrl {
 			compatible = "mediatek,clock_buffer";
 			n-clkbuf-pmic-dependent = <7>;
-			clkbuf-pmic-dependent = "pmic-bblpm-hw",
+			clkbuf-pmic-dependent = "pmic-bblplm-hw",
 						"pmic-bblpm-sel",
 						"pmic-ldo-vrfck",
 						"pmic-ldo-vbbck",
@@ -507,8 +507,8 @@
 			pmic-bblpm-sw = <0x788 12>;
 			pmic-srclkeni3 = <0x458 0>;
 
-			n-pmic-bblpm-hw = <7>;
-			pmic-bblpm-hw = <0x7a8 1 0x7a8 2 0x7a8 3 0x7a8 4
+			n-pmic-bblplm-hw = <7>;
+			pmic-bblplm-hw = <0x7a8 1 0x7a8 2 0x7a8 3 0x7a8 4
 				0xffff 0xffff 0x7a8 5 0x7a8 6>;
 			n-pmic-bblpm-sel = <1>;
 			pmic-bblpm-sel = <0x7a8 0>;
