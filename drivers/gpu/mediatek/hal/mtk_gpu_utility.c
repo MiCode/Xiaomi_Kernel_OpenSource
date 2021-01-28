@@ -409,7 +409,7 @@ bool mtk_gpu_dvfs_set_mode(int eMode)
 EXPORT_SYMBOL(mtk_gpu_dvfs_set_mode);
 
 //-----------------------------------------------------------------------------
-void (*mtk_dump_gpu_memory_usage_fp)(void) = NULL;
+bool (*mtk_dump_gpu_memory_usage_fp)(void) = NULL;
 EXPORT_SYMBOL(mtk_dump_gpu_memory_usage_fp);
 
 bool mtk_dump_gpu_memory_usage(void)
