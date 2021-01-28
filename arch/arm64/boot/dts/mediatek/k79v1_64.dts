@@ -876,4 +876,4 @@
 	status = "okay";
 };
 
-
+#include <k79v1_64/cust.dtsi>
