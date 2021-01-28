@@ -20,6 +20,7 @@
 #include <tee_sanity.h>
 #include <linux/sched/clock.h>
 #include <archcounter_timesync.h>
+#include <asm/arch_timer.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace_tee.h>
@@ -57,11 +58,11 @@ static void convert_kernel_time(char *tee_timestamp, char *output,
 		return;
 	}
 
-	boot_to_kernel_us = boot_to_kernel_ns / NSEC_PER_USEC;
+	boot_to_kernel_us = div_u64(boot_to_kernel_ns, NSEC_PER_USEC);
 	kernel_time_us = tee_time_us - boot_to_kernel_us;
 
-	tee_time_us = kernel_time_us % USEC_PER_SEC;
-	tee_time_s = kernel_time_us / USEC_PER_SEC;
+	div_u64_rem(kernel_time_us, USEC_PER_SEC, (u32 *)&tee_time_us);
+	tee_time_s = div_u64(kernel_time_us, USEC_PER_SEC);
 
 	snprintf(output, output_sz, "%llu.%06u", tee_time_s, (u32)tee_time_us);
 }
