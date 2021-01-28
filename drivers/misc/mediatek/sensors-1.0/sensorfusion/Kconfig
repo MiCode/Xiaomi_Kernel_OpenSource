@@ -55,6 +55,14 @@ config CUSTOM_KERNEL_ORIENTATION
 	  configuration should be configured, and the orient
 	  driver configuration should be configured as well.
 
+config CUSTOM_KERNEL_UNCALI_ACC_SENSOR
+	bool "CUSTOM KERNEL UNCALI ACC SENSOR config"
+	help
+	  ungyro sensor is a sensor fusion type.
+	  If the platform is supported for unacc, this
+	  configuration should be configured, and the unacc
+	  driver configuration should be configured as well.
+
 config CUSTOM_KERNEL_UNCALI_GYRO_SENSOR
 	bool "CUSTOM KERNEL UNCALI GYRO SENSOR config"
 	help
@@ -79,3 +87,4 @@ source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gmagrotvechub/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/sensorfusion/gravityhub/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/sensorfusion/linearacchub/Kconfig"
 source "drivers/misc/mediatek/sensors-1.0/sensorfusion/orienthub/Kconfig"
+source "drivers/misc/mediatek/sensors-1.0/sensorfusion/uncali_acchub/Kconfig"

@@ -22,5 +22,6 @@ obj-$(CONFIG_MTK_GMAGROTVECHUB)		+=	gmagrotvechub/
 obj-$(CONFIG_MTK_GRAVITYHUB)		+=	gravityhub/
 obj-$(CONFIG_MTK_LINEARACCHUB)		+=	linearacchub/
 obj-$(CONFIG_MTK_ORIENTHUB)			+=	orienthub/
+obj-$(CONFIG_MTK_UNCALI_ACCHUB)		+=	uncali_acchub/
 obj-$(CONFIG_MTK_UNCALI_GYROHUB)	+=	uncali_gyrohub/
 obj-$(CONFIG_MTK_UNCALI_MAGHUB)		+=	uncali_maghub/
