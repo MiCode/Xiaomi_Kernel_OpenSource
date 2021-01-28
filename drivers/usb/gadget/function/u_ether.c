@@ -587,6 +587,9 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	usb_boost();
 	if (in)
 		retval = usb_ep_queue(in, req, GFP_ATOMIC);
+	else
+		retval = -EBADRQC;
+
 	switch (retval) {
 	default:
 		DBG(dev, "tx queue err %d\n", retval);
