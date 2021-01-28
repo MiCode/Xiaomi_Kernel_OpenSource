@@ -84,13 +84,13 @@ static inline int mtk_pm_qos_request(int mtk_pm_qos_class)
 {
 	return 0;
 }
-int mtk_pm_qos_add_notifier(int mtk_pm_qos_class,
+static inline int mtk_pm_qos_add_notifier(int mtk_pm_qos_class,
 	struct notifier_block *notifier)
 {
 	return 0;
 }
 
-int mtk_pm_qos_remove_notifier(int mtk_pm_qos_class,
+static inline int mtk_pm_qos_remove_notifier(int mtk_pm_qos_class,
 	struct notifier_block *notifier)
 {
 	return 0;
