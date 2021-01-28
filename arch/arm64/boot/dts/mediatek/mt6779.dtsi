@@ -1441,6 +1441,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			clock-names = "devapc-infra-clock";
 		};
 
+		devmpu@1021a000 {
+			compatible = "mediatek,device_mpu_low";
+			reg = <0 0x1021a000 0 0x1000>;
+			prot-base = <0x0 0x40000000>;
+			prot-size = <0x4 0x00000000>;
+			page-size = <0x200000>;
+			interrupts = <GIC_SPI 169 IRQ_TYPE_LEVEL_HIGH>;
+		};
+
 		bus_dbg@10208000 {
 			compatible = "mediatek,bus_dbg-v2";
 			reg = <0 0x10208000 0 0x1000>,
