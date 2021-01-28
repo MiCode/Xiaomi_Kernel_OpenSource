@@ -24,20 +24,14 @@ void mt_power_gs_suspend_compare(unsigned int dump_flag)
 		/* 32k-less */
 		pr_debug("Power_gs: %s in 32k-less\n", __func__);
 		dump_pmic(0, "Suspend",
-			AP_PMIC_REG_6359P_gs_suspend_32kless,
-			AP_PMIC_REG_6359P_gs_suspend_32kless_len);
+			AP_PMIC_REG_6365_gs_suspend_32kless,
+			AP_PMIC_REG_6365_gs_suspend_32kless_len);
 	}
 	if (dump_flag & GS_PMIC_6315) {
 		pr_debug("Power_gs : %s\n", __func__);
-#ifdef CONFIG_MT6360_PMIC
 		dump_pmic(1, "Suspend",
 			AP_PMIC_REG_MT6315_gs_suspend_32kless,
 			AP_PMIC_REG_MT6315_gs_suspend_32kless_len);
-#else
-		dump_pmic(1, "Suspend",
-			AP_PMIC_REG_MT6362_gs_suspend_32kless,
-			AP_PMIC_REG_MT6362_gs_suspend_32kless_len);
-#endif
 	}
 
 	mt_power_gs_sp_dump();
@@ -49,21 +43,15 @@ void mt_power_gs_dpidle_compare(unsigned int dump_flag)
 		/* 32k-less */
 		pr_debug("Power_gs: %s in 32k-less\n", __func__);
 		dump_pmic(0, "DPIdle  ",
-			AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless,
-			AP_PMIC_REG_6359P_gs_deepidle___lp_mp3_32kless_len);
+			AP_PMIC_REG_6365_gs_deepidle___lp_mp3_32kless,
+			AP_PMIC_REG_6365_gs_deepidle___lp_mp3_32kless_len);
 	}
 
 	if (dump_flag & GS_PMIC_6315) {
 		pr_debug("Power_gs : %s\n", __func__);
-#ifdef CONFIG_MT6360_PMIC
 		dump_pmic(1, "DPIdle  ",
 			AP_PMIC_REG_MT6315_gs_deepidle___lp_mp3_32kless,
 			AP_PMIC_REG_MT6315_gs_deepidle___lp_mp3_32kless_len);
-#else
-		dump_pmic(1, "DPIdle  ",
-			AP_PMIC_REG_MT6362_gs_deepidle___lp_mp3_32kless,
-			AP_PMIC_REG_MT6362_gs_deepidle___lp_mp3_32kless_len);
-#endif
 	}
 
 	mt_power_gs_sp_dump();
@@ -75,21 +63,15 @@ void mt_power_gs_sodi_compare(unsigned int dump_flag)
 		/* 32k-less */
 		pr_debug("Power_gs: %s in 32k-less\n", __func__);
 		dump_pmic(0, "SODI    ",
-			AP_PMIC_REG_6359P_gs_sodi3p0_32kless,
-			AP_PMIC_REG_6359P_gs_sodi3p0_32kless_len);
+			AP_PMIC_REG_6365_gs_sodi3p0_32kless,
+			AP_PMIC_REG_6365_gs_sodi3p0_32kless_len);
 	}
 
 	if (dump_flag & GS_PMIC_6315) {
 		pr_debug("Power_gs : %s\n", __func__);
-#ifdef CONFIG_MT6360_PMIC
 		dump_pmic(1, "SODI	  ",
 			AP_PMIC_REG_MT6315_gs_sodi3p0_32kless,
 			AP_PMIC_REG_MT6315_gs_sodi3p0_32kless_len);
-#else
-		dump_pmic(1, "SODI    ",
-			AP_PMIC_REG_MT6362_gs_sodi3p0_32kless,
-			AP_PMIC_REG_MT6362_gs_sodi3p0_32kless_len);
-#endif
 	}
 
 	mt_power_gs_sp_dump();

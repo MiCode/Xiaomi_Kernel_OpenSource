@@ -19,19 +19,12 @@
 #define DEBUG_BUF_SIZE 2000
 
 static char buf[DEBUG_BUF_SIZE] = { 0 };
-#ifdef CONFIG_MT6360_PMIC
 static const char * const pmic_reg_name[]
-  /* 6359p    6315 */
+/* 6365    6315 */
+/* FIXME: check pmic names after SB */
 = { "vcore", "3_vbuck1"};
 static const char * const pmic_name[]
-= { "6359p", "6315"};
-#else
-static const char * const pmic_reg_name[]
-  /* 6359p    6362  */
-= { "vcore", "mt6362-buck1"};
-static const char * const pmic_name[]
-= { "6359p", "6362"};
-#endif
+= { "6365", "6315"};
 
 int write_pmic(int pmic_num, unsigned int addr,
 		unsigned int mask, unsigned int reg_val)
