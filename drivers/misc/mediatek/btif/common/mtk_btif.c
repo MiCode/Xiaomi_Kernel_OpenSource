@@ -12,6 +12,7 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
 #include <linux/poll.h>
+#include <uapi/linux/sched/types.h>
 
 /*#include <mach/eint.h>*/
 /*-----------driver own header files----------------*/
