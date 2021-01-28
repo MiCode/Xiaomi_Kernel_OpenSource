@@ -4463,7 +4463,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	if (ureq.m_pDpeConfig == NULL)
 		goto EXIT;
-	ret = copy_from_user(cfgs, (void __user *)ureq.m_pDpeConfig,
+	ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
 				ureq.m_ReqNum * sizeof(struct DPE_Config));
 	if (ret != 0)
 		goto EXIT;
