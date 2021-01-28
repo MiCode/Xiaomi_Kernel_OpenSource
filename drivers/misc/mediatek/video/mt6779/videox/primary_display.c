@@ -6429,6 +6429,9 @@ static void disp_rsz_in_out_roi(struct disp_frame_cfg_t *cfg,
 	struct disp_rect src_total_roi = { 0 };
 	struct disp_input_config *c = NULL;
 
+	if (cfg->setter == SESSION_USER_AEE)
+		return;
+
 	pconfig->rsz_enable = false;
 	for (i = 0; i < cfg->input_layer_num; i++) {
 		c = &cfg->input_cfg[i];
