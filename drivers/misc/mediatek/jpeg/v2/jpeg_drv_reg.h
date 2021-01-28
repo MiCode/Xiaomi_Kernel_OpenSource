@@ -23,6 +23,8 @@
 
 #define JPEG_ENC_BASE   jpeg_dev_get_encoder_base_VA()
 #define JPEG_DEC_BASE   jpeg_dev_get_decoder_base_VA()
+#define JPEG_HYBRID_DEC_BASE(i)   jpeg_dev_get_hybrid_decoder_base_VA(i)
+
 
 #define IMG_REG_WRITE(v, a) writel(v, (void __iomem *)a)
 
@@ -210,5 +212,7 @@
 #define REG_ADDR_JPGDEC_IRQ_EN                       (JPEG_DEC_BASE + 0x031C)
 
 #define REG_ADDR_JPGDEC_DEBUG_MODE                   (JPEG_DEC_BASE + 0x00C8)
+
+#define REG_JPGDEC_HYBRID_INT_STATUS(X)    (JPEG_HYBRID_DEC_BASE(X) + 0x0274)
 
 #endif				/* / __MT6589_JPEG_REG_H__ */
