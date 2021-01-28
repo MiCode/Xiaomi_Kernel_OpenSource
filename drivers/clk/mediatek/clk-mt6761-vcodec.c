@@ -31,7 +31,7 @@ static const struct mtk_gate_regs venc_cg_regs = {
 		.pwr_stat = &pwr_stat,			\
 	}
 
-static const struct mtk_gate venc_clks[] __initconst = {
+static const struct mtk_gate venc_clks[] = {
 	GATE_VENC(CLK_VENC_SET0_LARB, "venc_set0_larb", "mm_ck", 0),
 	GATE_VENC(CLK_VENC_SET1_VENC, "venc_set1_venc", "mm_ck", 4),
 	GATE_VENC(CLK_VENC_SET2_JPGENC, "jpgenc", "mm_ck", 8),

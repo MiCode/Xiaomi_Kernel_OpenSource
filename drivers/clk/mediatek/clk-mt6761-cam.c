@@ -31,7 +31,7 @@ static const struct mtk_gate_regs cam_cg_regs = {
 		.pwr_stat = &pwr_stat,			\
 	}
 
-static const struct mtk_gate cam_clks[] __initconst = {
+static const struct mtk_gate cam_clks[] = {
 	GATE_CAM(CLK_CAM_LARB2, "cam_larb2", "mm_ck", 0),
 	GATE_CAM(CLK_CAM, "cam", "mm_ck", 6),
 	GATE_CAM(CLK_CAMTG, "camtg", "mm_ck", 7),

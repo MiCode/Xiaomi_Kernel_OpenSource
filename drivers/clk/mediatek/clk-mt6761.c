@@ -467,13 +467,13 @@ unsigned int mt_get_abist_freq(unsigned int ID)
 		return output * 4;
 }
 
-static const struct mtk_fixed_clk fixed_clks[] __initconst = {
+static const struct mtk_fixed_clk fixed_clks[] = {
 	FIXED_CLK(CLK_TOP_CLK32K, "f_frtc_ck", "clk32k", 32768),
 	FIXED_CLK(CLK_TOP_CLK26M, "f_f26m_ck", "clk26m", 26000000),
 	FIXED_CLK(CLK_TOP_DMPLL, "dmpll_ck", NULL, 466000000),
 };
 
-static const struct mtk_fixed_factor top_divs[] __initconst = {
+static const struct mtk_fixed_factor top_divs[] = {
 	FACTOR(CLK_TOP_SYSPLL, "syspll_ck", "mainpll", 1, 1),
 	FACTOR(CLK_TOP_SYSPLL_D2, "syspll_d2", "mainpll", 1, 2),
 	FACTOR(CLK_TOP_SYSPLL1_D2, "syspll1_d2", "syspll_d2", 1, 2),
@@ -560,20 +560,20 @@ static const struct mtk_fixed_factor top_divs[] __initconst = {
 	FACTOR(CLK_TOP_CLK13M, "clk13m", "f_f26m_ck", 1, 2),
 };
 
-static const char * const axi_parents[] __initconst = {
+static const char * const axi_parents[] = {
 	"clk26m",
 	"syspll_d7",
 	"syspll1_d4",
 	"syspll3_d2"
 };
 
-static const char * const mem_parents[] __initconst = {
+static const char * const mem_parents[] = {
 	"clk26m",
 	"dmpll_ck",
 	"apll1_ck"
 };
 
-static const char * const mm_parents[] __initconst = {
+static const char * const mm_parents[] = {
 	"clk26m",
 	"mmpll_ck",
 	"syspll1_d2",
@@ -584,7 +584,7 @@ static const char * const mm_parents[] __initconst = {
 	"mmpll_d2"
 };
 
-static const char * const scp_parents[] __initconst = {
+static const char * const scp_parents[] = {
 	"clk26m",
 	"syspll4_d2",
 	"univpll2_d2",
@@ -594,20 +594,20 @@ static const char * const scp_parents[] __initconst = {
 	"univpll_d3"
 };
 
-static const char * const mfg_parents[] __initconst = {
+static const char * const mfg_parents[] = {
 	"clk26m",
 	"mfgpll_ck",
 	"syspll_d3",
 	"univpll_d3"
 };
 
-static const char * const atb_parents[] __initconst = {
+static const char * const atb_parents[] = {
 	"clk26m",
 	"syspll1_d4",
 	"syspll1_d2"
 };
 
-static const char * const camtg_parents[] __initconst = {
+static const char * const camtg_parents[] = {
 	"clk26m",
 	"usb20_192m_d8",
 	"univpll2_d8",
@@ -617,26 +617,26 @@ static const char * const camtg_parents[] __initconst = {
 	"usb20_192m_d32"
 };
 
-static const char * const uart_parents[] __initconst = {
+static const char * const uart_parents[] = {
 	"clk26m",
 	"univpll2_d8"
 };
 
-static const char * const spi_parents[] __initconst = {
+static const char * const spi_parents[] = {
 	"clk26m",
 	"syspll3_d2",
 	"syspll4_d2",
 	"syspll2_d4"
 };
 
-static const char * const msdc5hclk_parents[] __initconst = {
+static const char * const msdc5hclk_parents[] = {
 	"clk26m",
 	"syspll1_d2",
 	"univpll1_d4",
 	"syspll2_d2"
 };
 
-static const char * const msdc50_0_parents[] __initconst = {
+static const char * const msdc50_0_parents[] = {
 	"clk26m",
 	"msdcpll_ck",
 	"syspll2_d2",
@@ -647,7 +647,7 @@ static const char * const msdc50_0_parents[] __initconst = {
 	"univpll1_d4"
 };
 
-static const char * const msdc30_1_parents[] __initconst = {
+static const char * const msdc30_1_parents[] = {
 	"clk26m",
 	"msdcpll_d2",
 	"univpll2_d2",
@@ -658,62 +658,62 @@ static const char * const msdc30_1_parents[] __initconst = {
 	"syspll2_d4"
 };
 
-static const char * const audio_parents[] __initconst = {
+static const char * const audio_parents[] = {
 	"clk26m",
 	"syspll3_d4",
 	"syspll4_d4",
 	"syspll1_d16"
 };
 
-static const char * const aud_intbus_parents[] __initconst = {
+static const char * const aud_intbus_parents[] = {
 	"clk26m",
 	"syspll1_d4",
 	"syspll4_d2"
 };
 
-static const char * const aud_1_parents[] __initconst = {
+static const char * const aud_1_parents[] = {
 	"clk26m",
 	"apll1_ck"
 };
 
-static const char * const aud_engen1_parents[] __initconst = {
+static const char * const aud_engen1_parents[] = {
 	"clk26m",
 	"apll1_d2",
 	"apll1_d4",
 	"apll1_d8"
 };
 
-static const char * const disp_pwm_parents[] __initconst = {
+static const char * const disp_pwm_parents[] = {
 	"clk26m",
 	"univpll2_d4",
 	"ulposc1_d2",
 	"ulposc1_d8"
 };
 
-static const char * const sspm_parents[] __initconst = {
+static const char * const sspm_parents[] = {
 	"clk26m",
 	"syspll1_d2",
 	"syspll_d3"
 };
 
-static const char * const dxcc_parents[] __initconst = {
+static const char * const dxcc_parents[] = {
 	"clk26m",
 	"syspll1_d2",
 	"syspll1_d4",
 	"syspll1_d8"
 };
 
-static const char * const usb_top_parents[] __initconst = {
+static const char * const usb_top_parents[] = {
 	"clk26m",
 	"univpll3_d4"
 };
 
-static const char * const spm_parents[] __initconst = {
+static const char * const spm_parents[] = {
 	"clk26m",
 	"syspll1_d8"
 };
 
-static const char * const i2c_parents[] __initconst = {
+static const char * const i2c_parents[] = {
 	"clk26m",
 	"univpll3_d4",
 	"univpll3_d2",
@@ -721,20 +721,20 @@ static const char * const i2c_parents[] __initconst = {
 	"syspll2_d8"
 };
 
-static const char * const pwm_parents[] __initconst = {
+static const char * const pwm_parents[] = {
 	"clk26m",
 	"univpll3_d4",
 	"syspll1_d8"
 };
 
-static const char * const seninf_parents[] __initconst = {
+static const char * const seninf_parents[] = {
 	"clk26m",
 	"univpll1_d4",
 	"univpll1_d2",
 	"univpll2_d2"
 };
 
-static const char * const aes_fde_parents[] __initconst = {
+static const char * const aes_fde_parents[] = {
 	"clk26m",
 	"msdcpll_ck",
 	"univpll_d3",
@@ -743,7 +743,7 @@ static const char * const aes_fde_parents[] __initconst = {
 	"syspll1_d2"
 };
 
-static const char * const ulposc_parents[] __initconst = {
+static const char * const ulposc_parents[] = {
 	"clk26m",
 	"ulposc1_d4",
 	"ulposc1_d8",
@@ -751,7 +751,7 @@ static const char * const ulposc_parents[] __initconst = {
 	"ulposc1_d32"
 };
 
-static const char * const camtm_parents[] __initconst = {
+static const char * const camtm_parents[] = {
 	"clk26m",
 	"univpll1_d4",
 	"univpll1_d2",
@@ -762,7 +762,7 @@ static const char * const camtm_parents[] __initconst = {
 #define INVALID_UPDATE_SHIFT -1
 #define INVALID_MUX_GATE -1
 
-static const struct mtk_mux top_muxes[] __initconst = {
+static const struct mtk_mux top_muxes[] = {
 	/* CLK_CFG_0 */
 	MUX_GATE_CLR_SET_UPD_FLAGS(CLK_TOP_AXI_SEL, "axi_sel", axi_parents,
 		CLK_CFG_0, CLK_CFG_0_SET, CLK_CFG_0_CLR, 0, 2, 7,
@@ -901,7 +901,7 @@ static const struct mtk_gate_regs top2_cg_regs = {
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
-static const struct mtk_gate top_clks[] __initconst = {
+static const struct mtk_gate top_clks[] = {
 	/* TOP0 */
 	/*
 	 * GATE_TOP0(CLK_TOP_MD_32K, "md_32k", "f_frtc_ck", 8),
@@ -1027,7 +1027,7 @@ static const struct mtk_gate_regs ifr5_cg_regs = {
 		.ops = &mtk_clk_gate_ops_setclr,	\
 	}
 
-static const struct mtk_gate ifr_clks[] __initconst = {
+static const struct mtk_gate ifr_clks[] = {
 	/* INFRA_TOPAXI */
 	/* INFRA PERI */
 	/* INFRA mode 0 */
@@ -1120,7 +1120,7 @@ static const struct mtk_gate_regs apmixed_cg_regs = {
 		.ops = &mtk_clk_gate_ops_no_setclr_inv,	\
 	}
 
-static const struct mtk_gate apmixed_clks[] __initconst = {
+static const struct mtk_gate apmixed_clks[] = {
 	/* AUDIO0 */
 	/*
 	 * GATE_APMIXED(CLK_APMIXED_SSUSB26M, "apmixed_ssusb26m", "f_f26m_ck",

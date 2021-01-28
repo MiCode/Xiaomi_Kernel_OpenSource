@@ -42,7 +42,7 @@ static const struct mtk_gate_regs audio1_cg_regs = {
 		.ops = &mtk_clk_gate_ops_no_setclr,	\
 	}
 
-static const struct mtk_gate audio_clks[] __initconst = {
+static const struct mtk_gate audio_clks[] = {
 	/* AUDIO0 */
 	GATE_AUDIO0(CLK_AUDIO_AFE, "aud_afe", "audio_ck",
 		2),
