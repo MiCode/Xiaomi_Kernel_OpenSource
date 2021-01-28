@@ -294,6 +294,17 @@ config DM_CRYPT
 
 	  If unsure, say N.
 
+config MTK_HW_FDE
+	tristate "Mediatek HW FDE support"
+	depends on DM_CRYPT
+	help
+	  This selects the MediaTek(R) crypto engine for Full Disk Encryption.
+	  This device-mapper target allows you to create a device that
+	  transparently encrypts the data on it.
+
+	  If you have a machine with a MTK crypto engine for FDE, say Y here.
+	  If unsure, say N.
+
 config DM_SNAPSHOT
        tristate "Snapshot target"
        depends on BLK_DEV_DM

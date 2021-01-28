@@ -1677,6 +1677,15 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 		brq->mrq_que.areq = &mqrq->areq;
 	}
 #endif
+
+#ifdef CONFIG_MTK_HW_FDE
+	if (req->bio)
+		brq->mrq.req = req;
+
+	/* request is from mmc layer */
+	brq->mrq.is_mmc_req = true;
+#endif
+
 }
 
 #define MMC_MAX_RETRIES		5

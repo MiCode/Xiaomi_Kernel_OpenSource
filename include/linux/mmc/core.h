@@ -158,7 +158,7 @@ struct mmc_request {
 	struct list_head	link;
 	struct list_head	hlist;
 #endif
-#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
+#ifdef CONFIG_MTK_HW_FDE
 	struct request		*req;
 	bool		is_mmc_req; /* request is from mmc layer */
 #endif

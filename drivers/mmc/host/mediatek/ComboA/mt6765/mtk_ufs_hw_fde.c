@@ -3,9 +3,9 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/hie.h>
-#include "mtk_secure_api.h"
-
+//#include <linux/hie.h>
+#include <linux/arm-smccc.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
 /* map from AES Spec */
 enum {
 	MSDC_CRYPTO_XTS_AES         = 4,
@@ -23,6 +23,14 @@ enum {
 	BIT_256 = 2,
 	BIT_0 = 4,
 };
+
+#ifndef CONFIG_HIE
+u64 hie_get_iv(struct request *req)
+{
+	return 0;
+}
+#endif
+
 
 static void msdc_crypto_switch_config(struct msdc_host *host,
 	struct request *req,
@@ -137,6 +145,7 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 	u32 is_fde = 0, is_fbe = 0;
 #if defined(CONFIG_MTK_HW_FDE)
 	unsigned int key_idx;
+	struct arm_smccc_res res;
 #endif
 #ifdef CONFIG_HIE
 	int err;
@@ -199,8 +208,8 @@ check_hw_crypto:
 			(!host->is_crypto_init ||
 			(host->key_idx != key_idx))) {
 			/* fde init */
-			mt_secure_call(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-				(1 << 3), 4, 1, 0);
+			arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+				(1 << 3), 4, 1, 0, 0, 0, 0, &res);
 			host->is_crypto_init = true;
 			host->key_idx = key_idx;
 		}
@@ -209,8 +218,8 @@ check_hw_crypto:
 		if (is_fbe) {
 			if (!host->is_crypto_init) {
 				/* fbe init */
-				mt_secure_call(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
-					(1 << 0), 4, 1, 0);
+				arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+					(1 << 0), 4, 1, 0, 0, 0, 0, &res);
 				host->is_crypto_init = true;
 			}
 			if (dir == DMA_TO_DEVICE)

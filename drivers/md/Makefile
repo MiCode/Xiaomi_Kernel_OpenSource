@@ -2,7 +2,9 @@
 #
 # Makefile for the kernel software RAID and LVM drivers.
 #
-
+ifeq ($(CONFIG_MTK_HW_FDE),y)
+ccflags-y 	+= -I$(srctree)/drivers/misc/mediatek/include
+endif
 dm-mod-y	+= dm.o dm-table.o dm-target.o dm-linear.o dm-stripe.o \
 		   dm-ioctl.o dm-io.o dm-kcopyd.o dm-sysfs.o dm-stats.o \
 		   dm-rq.o

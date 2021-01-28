@@ -79,6 +79,12 @@
 #define MTK_SIP_KERNEL_DAPC_DUMP \
 	MTK_SIP_SMC_CMD(0x26D)
 
+/* eMMC related SMC call */
+#define MTK_SIP_KERNEL_HW_FDE_KEY \
+	MTK_SIP_SMC_CMD(0x272)
+#define MTK_SIP_KERNEL_HW_FDE_MSDC_CTL \
+	MTK_SIP_SMC_CMD(0x273)
+
 /* UFS related SMC call */
 #define MTK_SIP_UFS_CONTROL \
 	MTK_SIP_SMC_CMD(0x276)
@@ -107,4 +113,6 @@
 /* AUDIO related SMC call */
 #define MTK_SIP_AUDIO_CONTROL \
 	MTK_SIP_SMC_CMD(0x517)
+
+
 #endif
