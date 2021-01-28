@@ -61,6 +61,9 @@
 #endif
 #ifdef MTK_LOCK_MONITOR
 #include <asm/stacktrace.h>
+#ifndef CONFIG_ARM64
+#include <asm/unwind.h>
+#endif
 #include <linux/sched/task_stack.h>
 #endif
 
@@ -5940,6 +5943,7 @@ static void dump_task_stack(struct task_struct *tsk, int output)
 	if (!tsk || !try_get_task_stack(tsk))
 		return;
 
+#ifdef CONFIG_ARM64
 	if (tsk == current) {
 		frame.fp = (unsigned long)__builtin_frame_address(0);
 		frame.pc = (unsigned long)dump_backtrace;
@@ -5947,6 +5951,20 @@ static void dump_task_stack(struct task_struct *tsk, int output)
 		frame.fp = thread_saved_fp(tsk);
 		frame.pc = thread_saved_pc(tsk);
 	}
+#else
+	if (tsk == current) {
+		frame.fp = (unsigned long)__builtin_frame_address(0);
+		frame.sp = current_stack_pointer;
+		frame.lr = (unsigned long)__builtin_return_address(0);
+		frame.pc = (unsigned long)unwind_backtrace;
+
+	} else {
+		frame.fp = thread_saved_fp(tsk);
+		frame.sp = thread_saved_sp(tsk);
+		frame.lr = 0;
+		frame.pc = thread_saved_pc(tsk);
+	}
+#endif
 
 	snprintf(buf, sizeof(buf), "  stack of %s/%d:%s",
 		 tsk->comm, tsk->pid, add_suffix(output));
