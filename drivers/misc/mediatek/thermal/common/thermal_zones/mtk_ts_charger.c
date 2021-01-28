@@ -19,13 +19,9 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
-#define CONFIG_MTK_GAUGE_VERSION 30
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-#include <mt-plat/mtk_charger.h>
-#else
-#include <charging.h>
-#endif
+
+#define CONFIG_MTK_GAUGE_VERSION 30
 
 #define mtktscharger_TEMP_CRIT (150000) /* 150.000 degree Celsius */
 
@@ -116,8 +112,10 @@ mtk_chr_get_tchr(int *min_tchr, int *max_tchr)
 	return -ENODEV;
 }
 #endif
+#define MAIN_CHARGER 0
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
+
 /**
  * Use new GM30 API to get charger temperatures.
  * When nothing is defined, main charger temperature is read.

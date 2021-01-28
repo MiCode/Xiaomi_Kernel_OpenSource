@@ -20,16 +20,8 @@
 #include <linux/fb.h>
 #include "mach/mtk_thermal.h"
 
-#define CONFIG_MTK_GAUGE_VERSION 30
 
-#if (CONFIG_MTK_GAUGE_VERSION == 30)
-#include <mt-plat/charger_type.h>
-#include <mt-plat/mtk_charger.h>
-//#include <mt-plat/mtk_battery.h>
-#else
-#include <tmp_battery.h>
-#include <charging.h>
-#endif
+#define CONFIG_MTK_GAUGE_VERSION 30
 /* ************************************ */
 /* Weak functions */
 /* ************************************ */
@@ -39,12 +31,11 @@ get_bat_charging_current_level(void)
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
 	return 500;
 }
-
-	enum charger_type __attribute__ ((weak))
+	int __attribute__ ((weak))
 mt_get_charger_type(void)
 {
 	pr_notice("E_WF: %s doesn't exist\n", __func__);
-	return STANDARD_HOST;
+	return 0;
 }
 
 #if (CONFIG_MTK_GAUGE_VERSION == 30)

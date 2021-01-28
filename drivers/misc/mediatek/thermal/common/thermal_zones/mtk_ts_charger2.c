@@ -19,8 +19,6 @@
 #include "mach/mtk_thermal.h"
 #include <linux/uidgid.h>
 #include <linux/slab.h>
-#include <mt-plat/mtk_charger.h>
-
 
 #define mtktscharger2_TEMP_CRIT (150000) /* 150.000 degree Celsius */
 
@@ -101,7 +99,7 @@ charger_manager_get_charger_temperature(struct charger_consumer *consumer,
 	return -ENODEV;
 }
 
-
+#define MAIN_CHARGER 0
 /**
  * Use new GM30 API to get charger temperatures.
  * When nothing is defined, main charger temperature is read.
