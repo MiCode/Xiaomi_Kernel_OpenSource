@@ -160,10 +160,15 @@ static __init int boot_ftrace(void)
 	int ret;
 
 	if (boot_trace) {
+		tr = top_trace_array();
+		if (!tr) {
+			pr_info("[ftrace]Error: Tracer list is empty.\n");
+			return 0;
+		}
+
 #ifdef CONFIG_MTK_PERF_TRACKER
 		perf_tracker_enable(1);
 #endif
-		tr = top_trace_array();
 		ret = tracing_update_buffers();
 		if (ret != 0)
 			pr_debug("unable to expand buffer, ret=%d\n", ret);
