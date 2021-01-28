@@ -149,6 +149,10 @@ static unsigned int ppm_get_cpu_temp(enum ppm_cluster cluster)
 	case PPM_CLUSTER_B:
 		temp = get_immediate_cpuB_wrap() / 1000;
 		break;
+	case PPM_CLUSTER_BB:
+		temp = get_immediate_cpuB_wrap() / 1000;
+		break;
+
 	default:
 		ppm_err("@%s: invalid cluster id = %d\n", __func__, cluster);
 		break;
@@ -228,7 +232,8 @@ int ppm_find_pwr_idx(struct ppm_cluster_status *cluster_status)
 		if (core > 0 && opp >= 0 && opp < DVFS_OPP_NUM) {
 #if 1
 			pwr_idx += cobra_tbl->basic_pwr_tbl
-				[CORE_NUM_L*i+core-1][opp].power_idx;
+			[get_cl_first_core_id(i)+core-1][opp].power_idx;
+			/*TODO: change to get_cl_max_core_id()*/
 #else
 			pwr_idx +=
 				((upower_get_power(i, opp, UPOWER_DYN) +

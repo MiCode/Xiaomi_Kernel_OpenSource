@@ -45,9 +45,10 @@ extern "C" {
 #define PPM_COBRA_MAX_FREQ_IDX	(COBRA_OPP_NUM-1)
 #endif
 #define COBRA_OPP_NUM	(DVFS_OPP_NUM)
-#define TOTAL_CORE_NUM	(CORE_NUM_L+CORE_NUM_B)
+#define TOTAL_CORE_NUM	(CORE_NUM_L+CORE_NUM_B+CORE_NUM_BB)
 #define CORE_NUM_L	(4)
-#define CORE_NUM_B	(4)
+#define CORE_NUM_B	(3)
+#define CORE_NUM_BB	(1)
 
 #define PPM_COBRA_TBL_SRAM_ADDR	(0x0011B800)
 #define PPM_COBRA_TBL_SRAM_SIZE \
@@ -68,8 +69,6 @@ extern "C" {
 
 #define DVFS_OPP_NUM		(16)
 #define get_cluster_ptpod_fix_freq_idx(id)	(mt_cpufreq_find_Vboot_idx(id))
-#define get_cluster_cpu_core(id)	\
-		(id ? CORE_NUM_B : CORE_NUM_L)
 
 /*==============================================================*/
 /* Enum								*/
@@ -77,7 +76,7 @@ extern "C" {
 enum ppm_cluster {
 	PPM_CLUSTER_L = 0,
 	PPM_CLUSTER_B,
-
+	PPM_CLUSTER_BB,
 	NR_PPM_CLUSTERS,
 };
 
@@ -163,9 +162,60 @@ static inline void ppm_get_cl_cpus(struct cpumask *cpu_mask, unsigned int cid)
 		cpumask_set_cpu(4, cpu_mask);
 		cpumask_set_cpu(5, cpu_mask);
 		cpumask_set_cpu(6, cpu_mask);
+	} else if (cid == 2) {
+		cpumask_clear(cpu_mask);
 		cpumask_set_cpu(7, cpu_mask);
 	}
 }
+
+static inline unsigned int get_cluster_cpu_core(unsigned int id)
+{
+	if (id == 0)
+		return CORE_NUM_L;
+	else if (id == 1)
+		return CORE_NUM_B;
+	else if (id == 2)
+		return CORE_NUM_BB;
+
+	return 0;
+}
+
+static inline unsigned int get_cl_by_core(unsigned int core)
+{
+	if (core < CORE_NUM_L)
+		return 0;
+	else if (core < (CORE_NUM_L + CORE_NUM_B))
+		return 1;
+	else if (core == (CORE_NUM_L + CORE_NUM_B))
+		return 2;
+
+	return 0;
+}
+
+static inline unsigned int get_cl_cid(unsigned int core)
+{
+	if (core < CORE_NUM_L)
+		return core;
+	else if (core < (CORE_NUM_L + CORE_NUM_B))
+		return core - 4;
+	else
+		return 0;
+
+}
+
+static inline unsigned int get_cl_first_core_id(unsigned int cl)
+{
+	if (cl == 0)
+		return 0;
+	else if (cl == 1)
+		return CORE_NUM_L;
+	else if (cl == 2)
+		return CORE_NUM_B + CORE_NUM_L;
+
+	return 0;
+}
+
+
 #ifdef __cplusplus
 }
 #endif
