@@ -26,6 +26,7 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/sched/clock.h>	/* local_clock */
+#include <tee_sanity.h>
 
 #include "platform.h"			/* CPU-related information */
 
@@ -868,6 +869,9 @@ static s32 tee_schedule(uintptr_t arg, unsigned int *timeout_ms)
 		 * No need to save it, we are running in our own kthread
 		 */
 		tee_set_affinity();
+
+		/* Set basic utils to boost TEE performance. */
+		mtk_set_task_basic_util(current);
 
 		/* Refresh MCI REE time */
 		nq_update_time();
