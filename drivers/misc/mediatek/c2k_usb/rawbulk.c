@@ -30,6 +30,7 @@
 #define C2K_TTY_USB_SKIP
 #ifdef C2K_USB_UT
 #include <linux/random.h>
+#include <linux/sched/signal.h>
 #define UT_CMD 3
 #define UT_CLR_ERR 4
 #define SZ 4096
