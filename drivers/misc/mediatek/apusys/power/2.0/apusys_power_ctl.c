@@ -27,6 +27,7 @@
 #define POWER_ON_DELAY	(100)
 
 struct apusys_dvfs_opps apusys_opps;
+bool is_power_debug_lock;
 
 #if 0
 int32_t vpu_thermal_en_throttle_cb(uint8_t vcore_opp, uint8_t vpu_opp)
@@ -95,15 +96,8 @@ uint8_t apusys_boost_value_to_opp(enum DVFS_USER user, uint8_t boost_value)
 		if (boost_value >= 100) {
 			opp	= 0;
 		} else {
-			for (i = 0; i < APUSYS_MAX_NUM_OPPS; i++) {
-				if (apusys_opps.opps[i][buck_domain].freq !=
-					DVFS_FREQ_NOT_SUPPORT){
-					max_freq =
-					apusys_opps.opps[i][buck_domain].freq;
-					break;
-				}
-			}
-
+			max_freq =
+					apusys_opps.opps[0][buck_domain].freq;
 		    freq = boost_value * max_freq / 100;
 
 		for (i = 1; i < APUSYS_MAX_NUM_OPPS; i++) {
@@ -260,10 +254,8 @@ void apusys_pwr_efficiency_check(void)
 		if (buck_domain_index == V_VCORE)
 			continue;
 	for (opp_index = 0;	opp_index < APUSYS_MAX_NUM_OPPS; opp_index++) {
-		if ((apusys_opps.opps[opp_index][buck_domain_index].voltage !=
-			DVFS_VOLT_NOT_SUPPORT) &&
-		(apusys_opps.opps[opp_index][buck_domain_index].voltage <=
-			apusys_opps.final_buck_volt[buck_domain_index])){
+		if (apusys_opps.opps[opp_index][buck_domain_index].voltage <=
+			apusys_opps.final_buck_volt[buck_domain_index]){
 			user = apusys_buck_domain_to_user[buck_domain_index];
 			if (user < APUSYS_DVFS_USER_NUM) {
 				apusys_opps.cur_opp_index[buck_domain_index] =
@@ -447,27 +439,24 @@ void apusys_dvfs_policy(uint64_t round_id)
 
 	apusys_opps.id = round_id;
 
-	for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
-		apusys_opps.driver_opp_index[user] =
-			apusys_opps.user_opp_index[user];
-		opp = apusys_opps.driver_opp_index[user];
-		buck_domain = apusys_user_to_buck_domain[user];
-		use_opp = apusys_pwr_max_min_check(user, opp);
+	if (is_power_debug_lock == false) {
+		for (user = 0; user < APUSYS_DVFS_USER_NUM; user++) {
+			apusys_opps.driver_opp_index[user] =
+				apusys_opps.user_opp_index[user];
+			opp = apusys_opps.driver_opp_index[user];
+			buck_domain = apusys_user_to_buck_domain[user];
+			use_opp = apusys_pwr_max_min_check(user, opp);
 
-		for (; use_opp < APUSYS_MAX_NUM_OPPS; use_opp++) {
-			if (apusys_opps.opps[use_opp][buck_domain].freq !=
-				DVFS_FREQ_NOT_SUPPORT)
-				break;
-		}
 		voltage = apusys_opps.opps[use_opp][buck_domain].voltage;
 		apusys_clk_path_update_pwr(user, voltage);
+		}
+
+		apusys_final_volt_check();
+
+		apusys_pwr_constraint_check();
+
+		apusys_pwr_efficiency_check();
 	}
-
-	apusys_final_volt_check();
-
-	apusys_pwr_constraint_check();
-
-	apusys_pwr_efficiency_check();
 
 	apusys_dvfs_state_machine();
 
