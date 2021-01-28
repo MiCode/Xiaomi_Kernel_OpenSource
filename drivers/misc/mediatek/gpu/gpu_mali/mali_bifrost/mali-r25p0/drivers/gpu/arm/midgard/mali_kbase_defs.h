@@ -187,6 +187,7 @@ struct kbase_io_history {
 	struct kbase_io_access *buf;
 };
 
+
 /**
  * struct kbase_debug_copy_buffer - information about the buffer to be copied.
  *
@@ -515,6 +516,21 @@ struct kbase_mmu_mode const *kbase_mmu_mode_get_lpae(void);
 struct kbase_mmu_mode const *kbase_mmu_mode_get_aarch64(void);
 
 #define DEVNAME_SIZE	16
+
+#if defined(MTK_GPU_BM_2)
+struct job_status_qos {
+        phys_addr_t phyaddr;
+        size_t size;
+};
+
+struct v1_data {
+        unsigned int version;
+        unsigned int ctx;
+        unsigned int frame;
+        unsigned int job;
+        unsigned int freq;
+};
+#endif
 
 /**
  * enum kbase_devfreq_work_type - The type of work to perform in the devfreq
@@ -1037,6 +1053,10 @@ struct kbase_device {
 		u64 flags;
 	} dummy_job_wa;
 
+#if defined(MTK_GPU_BM_2)
+        struct job_status_qos job_status_addr;
+        struct v1_data* v1;
+#endif
 };
 
 #define KBASE_API_VERSION(major, minor) ((((major) & 0xFFF) << 20)  | \

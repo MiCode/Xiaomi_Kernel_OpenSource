@@ -213,8 +213,13 @@ static const struct kbase_device_init dev_init[] = {
 	{kbase_gpuprops_populate_user_buffer, kbase_gpuprops_free_user_buffer,
 			"GPU property population failed"},
 #endif
+/// MTK: r25p0 remove this temporarily, or bifrost gpu will loading fail and crash when kernel init
+// this will fix with ARM's next DDK version @{
+/*
 	{kbase_dummy_job_wa_load, kbase_dummy_job_wa_cleanup,
 			"Dummy job workaround load failed"},
+			*/
+/// @}
 };
 
 static void kbase_device_term_partial(struct kbase_device *kbdev,
@@ -242,7 +247,6 @@ int kbase_device_init(struct kbase_device *kbdev)
 
 	kbase_device_id_init(kbdev);
 	kbase_disjoint_init(kbdev);
-
 	for (i = 0; i < ARRAY_SIZE(dev_init); i++) {
 		err = dev_init[i].init(kbdev);
 		if (err) {
@@ -252,6 +256,5 @@ int kbase_device_init(struct kbase_device *kbdev)
 			break;
 		}
 	}
-
 	return err;
 }

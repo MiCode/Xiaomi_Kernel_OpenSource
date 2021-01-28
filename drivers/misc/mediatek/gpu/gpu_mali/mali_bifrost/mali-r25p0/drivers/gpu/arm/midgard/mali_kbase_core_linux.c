@@ -117,6 +117,89 @@
 
 #define KERNEL_SIDE_DDK_VERSION_STRING "K:" MALI_RELEASE_NAME "(GPL)"
 
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include "platform/mtk_platform_common.h"
+
+#if defined(MTK_GPU_BM_2)
+#include <gpu_bm.h>
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+#include <sspm_reservedmem_define.h>
+
+static phys_addr_t rec_phys_addr, rec_virt_addr;
+static unsigned long long rec_size;
+struct v1_data *gpu_info_ref;
+#endif
+#endif
+
+#ifdef ENABLE_COMMON_DVFS
+/* MTK GPU DVFS */
+#include <mali_kbase_pm_internal.h>
+static struct kbase_device *g_malidev;
+
+struct kbase_device *mtk_get_mali_dev(void)
+{
+	return g_malidev;
+}
+
+void mtk_gpu_dvfs_commit(unsigned long ui32NewFreqID, GED_DVFS_COMMIT_TYPE eCommitType, int *pbCommited)
+{
+	int ret;
+
+	ret = mtk_set_mt_gpufreq_target(ui32NewFreqID);
+
+	if (pbCommited) {
+		if (ret == 0)
+			*pbCommited = true;
+		else
+			*pbCommited = false;
+	}
+
+}
+#endif /* ENABLE_COMMON_DVFS */
+
+#if defined(MTK_GPU_BM_2)
+static void get_rec_addr(void)
+{
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+       int i;
+       unsigned char *ptr;
+
+       /* get sspm reserved mem */
+       rec_phys_addr = sspm_reserve_mem_get_phys(GPU_MEM_ID);
+       rec_virt_addr = sspm_reserve_mem_get_virt(GPU_MEM_ID);
+       rec_size = sspm_reserve_mem_get_size(GPU_MEM_ID);
+
+       /* clear */
+       ptr = (unsigned char *)(uintptr_t)rec_virt_addr;
+       for (i = 0; i < rec_size; i++)
+               ptr[i] = 0x0;
+
+       gpu_info_ref = (struct v1_data *)(uintptr_t)rec_virt_addr;
+#endif
+}
+
+static int mtk_bandwith_resource_init(struct kbase_device *kbdev)
+{
+        int err = 0;
+
+        get_rec_addr();
+
+        if(gpu_info_ref == NULL) {
+                err = -1;
+                pr_debug("%s: get sspm reserved memory fail\n", __func__);
+                return err;
+        }
+
+        kbdev->v1 = gpu_info_ref;
+        kbdev->v1->version = 1;
+        kbdev->job_status_addr.phyaddr = rec_phys_addr;
+
+        MTKGPUQoS_setup(kbdev->v1, kbdev->job_status_addr.phyaddr, rec_size);
+        return err;
+}
+#endif
+
 /**
  * kbase_file_new - Create an object representing a device file
  *
@@ -3950,6 +4033,10 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 	if (!kbdev)
 		return -ENODEV;
 
+	if (mtk_common_deinit(pdev, kbdev))
+		pr_info("[MALI] fail to mtk_common_deinit\n");
+
+
 	kbase_device_term(kbdev);
 	dev_set_drvdata(kbdev->dev, NULL);
 	kbase_device_free(kbdev);
@@ -3993,6 +4080,15 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 	kbdev->dev = &pdev->dev;
 	dev_set_drvdata(kbdev->dev, kbdev);
 
+	/* MTK */
+	err |= mtk_common_init(pdev, kbdev);
+	err |= mtk_platform_init(pdev, kbdev);
+	if (err) {
+		pr_err("[MALI] GPU: mtk_platform_init fail!\n");
+		return err;
+	}
+	/********/
+
 	err = kbase_device_init(kbdev);
 
 	if (err) {
@@ -4005,6 +4101,26 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		kbase_device_free(kbdev);
 	} else {
 #ifdef MALI_KBASE_BUILD
+
+#ifdef ENABLE_MTK_MEMINFO
+	mtk_kbase_gpu_memory_debug_init();
+#endif /* ENABLE_MTK_MEMINFO */
+
+#ifdef CONFIG_PROC_FS
+	proc_mali_register();
+#endif /* CONFIG_PROC_FS */
+
+
+#ifdef ENABLE_COMMON_DVFS
+	g_malidev = kbdev;
+	ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
+	ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
+#endif /* ENABLE_COMMON_DVFS */
+
+#if defined(MTK_GPU_BM_2)
+        mtk_bandwith_resource_init(kbdev);
+#endif
+
 		dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
 #endif /* MALI_KBASE_BUILD */
