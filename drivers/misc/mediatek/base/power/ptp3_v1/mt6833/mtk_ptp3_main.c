@@ -200,6 +200,7 @@ static int create_procfs(void)
 
 static int ptp3_probe(struct platform_device *pdev)
 {
+#ifndef CONFIG_FPGA_EARLY_PORTING
 	/* GAT log use */
 	unsigned long long ptp3_mem_size = PTP3_MEM_SIZE;
 	unsigned long long ptp3_mem_base_virt;
@@ -225,6 +226,7 @@ static int ptp3_probe(struct platform_device *pdev)
 	} else
 		ptp3_err("ptp3_mem_base_virt is null !\n");
 
+#endif /* CONFIG_FPGA_EARLY_PORTING */
 	/* probe trigger for ptp3 features */
 	fll_probe(pdev);
 	cinst_probe(pdev);
