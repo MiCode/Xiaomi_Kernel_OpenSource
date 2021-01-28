@@ -21,7 +21,6 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 	uint8_t msg_id_last = pd_port->pe_data.msg_id_rx[TCPC_TX_SOP];
 #endif	/* CONFIG_USB_PD_IGNORE_PS_RDY_AFTER_PR_SWAP */
 
-	pd_port->wait_bc12_cnt = 0;
 	pd_reset_protocol_layer(pd_port, false);
 
 	if (pr_swap) {
@@ -50,7 +49,7 @@ void pe_snk_startup_entry(struct pd_port *pd_port)
 
 void pe_snk_discovery_entry(struct pd_port *pd_port)
 {
-	pd_enable_pe_state_timer(pd_port, PD_TIMER_SINK_WAIT_BC12);
+	pd_enable_vbus_valid_detection(pd_port, true);
 }
 
 void pe_snk_wait_for_capabilities_entry(

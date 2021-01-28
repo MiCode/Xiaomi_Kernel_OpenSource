@@ -12,6 +12,9 @@
 
 /* MTK only */
 #include <mt-plat/mtk_boot.h>
+#ifdef CONFIG_MTK_WAIT_BC12
+#include <linux/power_supply.h>
+#endif /* CONFIG_MTK_WAIT_BC12 */
 
 #ifdef CONFIG_TYPEC_CAP_TRY_SOURCE
 #define CONFIG_TYPEC_CAP_TRY_STATE
@@ -1423,7 +1426,11 @@ static inline bool typec_attached_snk_cc_change(struct tcpc_device *tcpc_dev)
 		tcpci_sink_vbus(tcpc_dev,
 				TCP_VBUS_CTRL_TYPEC, TCPC_VBUS_SINK_5V, -1);
 	}
-
+#ifdef CONFIG_USB_POWER_DELIVERY
+#ifdef CONFIG_MTK_WAIT_BC12
+	tcpc_dev->wait_bc12_cnt = 0;
+#endif /* CONFIG_MTK_WAIT_BC12 */
+#endif	/* CONFIG_USB_POWER_DELIVERY */
 	return true;
 }
 
@@ -2134,6 +2141,42 @@ static inline int typec_handle_pe_idle(struct tcpc_device *tcpc_dev)
 
 	return 0;
 }
+
+inline int typec_pd_start_entry(struct tcpc_device *tcpc_dev)
+{
+	return pd_put_cc_attached_event(tcpc_dev, tcpc_dev->typec_attach_new);
+}
+
+#ifdef CONFIG_MTK_WAIT_BC12
+static void tcpc_handle_sink_wait_bc12_timeout(struct tcpc_device *tcpc_dev)
+{
+	union power_supply_propval prop;
+	int ret;
+
+	tcpc_dev->chg_psy = devm_power_supply_get_by_phandle(
+					tcpc_dev->dev.parent, "charger");
+	if (IS_ERR(tcpc_dev->chg_psy)) {
+		PE_INFO("wait bc12, fail to get chg_psy\r\n");
+		goto out;
+	}
+
+	ret = power_supply_get_property(tcpc_dev->chg_psy,
+					POWER_SUPPLY_PROP_USB_TYPE, &prop);
+	if (ret < 0)
+		goto out;
+
+	PE_INFO("chg_type is %d\r\n", prop.intval);
+	if (prop.intval != POWER_SUPPLY_USB_TYPE_UNKNOWN ||
+		tcpc_dev->wait_bc12_cnt >= 20) {
+		typec_pd_start_entry(tcpc_dev);
+		return;
+	} else if (tcpc_dev->typec_attach_new == TYPEC_ATTACHED_SNK)
+		tcpc_dev->wait_bc12_cnt++;
+
+out:
+	tcpc_enable_timer(tcpc_dev, TYPEC_RT_TIMER_SINK_WAIT_BC12);
+}
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 static inline int typec_handle_src_reach_vsafe0v(struct tcpc_device *tcpc_dev)
@@ -2259,6 +2302,11 @@ int tcpc_typec_handle_timeout(struct tcpc_device *tcpc_dev, uint32_t timer_id)
 	case TYPEC_RT_TIMER_PE_IDLE:
 		ret = typec_handle_pe_idle(tcpc_dev);
 		break;
+#ifdef CONFIG_MTK_WAIT_BC12
+	case TYPEC_RT_TIMER_SINK_WAIT_BC12:
+		tcpc_handle_sink_wait_bc12_timeout(tcpc_dev);
+		break;
+#endif /* CONFIG_MTK_WAIT_BC12 */
 #endif /* CONFIG_USB_POWER_DELIVERY */
 
 #ifdef CONFIG_TYPEC_ATTACHED_SRC_SAFE0V_DELAY

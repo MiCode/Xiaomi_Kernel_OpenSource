@@ -1028,8 +1028,6 @@ struct pd_port {
 #endif /* CONFIG_RECV_BAT_ABSENT_NOTIFY */
 
 	uint8_t cap_miss_match; /* For src_cap miss match */
-	struct power_supply *chg_psy;
-	uint8_t wait_bc12_cnt;
 };
 
 static inline struct dp_data *pd_get_dp_data(struct pd_port *pd_port)
