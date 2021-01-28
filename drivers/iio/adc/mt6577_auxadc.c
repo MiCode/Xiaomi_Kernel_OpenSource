@@ -26,6 +26,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/nvmem-consumer.h>
+#include "../../misc/mediatek/include/mt-plat/mtk_devinfo.h"
 
 /* Register definitions */
 #define MT6577_AUXADC_CON0                    0x00
@@ -122,7 +123,9 @@ static struct adc_cali_info adc_cali;
 static void mt_auxadc_update_cali(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
+#if IS_ENABLED(CONFIG_MTK_EFUSE)
 	struct nvmem_device *nvmem_dev;
+#endif
 	u32 reg;
 	int ret = 0;
 
@@ -142,11 +145,11 @@ static void mt_auxadc_update_cali(struct device *dev)
 		if (ret)
 			goto err;
 
+#if IS_ENABLED(CONFIG_MTK_EFUSE)
 		ret = of_property_read_u32(np, "mediatek,cali-efuse-reg-offset",
 			&adc_cali.efuse_reg_offset);
 		if (ret)
 			goto err;
-
 		nvmem_dev = nvmem_device_get(dev, "mtk_efuse");
 		if (IS_ERR(nvmem_dev)) {
 			dev_err(dev, "failed to get mtk_efuse device\n");
@@ -160,6 +163,14 @@ static void mt_auxadc_update_cali(struct device *dev)
 			goto err;
 		}
 		nvmem_device_put(nvmem_dev);
+#else
+		ret = of_property_read_u32(np, "mediatek,cali-efuse-index",
+			&adc_cali.efuse_reg_offset);
+		if (ret)
+			goto err;
+
+		reg = get_devinfo_with_index(adc_cali.efuse_reg_offset);
+#endif
 
 		adc_cali.efuse_reg_value = reg;
 
