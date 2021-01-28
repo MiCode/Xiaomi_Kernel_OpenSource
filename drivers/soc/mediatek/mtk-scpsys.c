@@ -1788,9 +1788,6 @@ static const struct of_device_id of_scpsys_match_tbl[] = {
 		.compatible = "mediatek,mt6797-scpsys",
 		.data = &mt6797_data,
 	}, {
-		.compatible = "mediatek,mt6779-scpsys",
-		.data = &mt6779_data,
-	}, {
 		.compatible = "mediatek,mt7622-scpsys",
 		.data = &mt7622_data,
 	}, {
