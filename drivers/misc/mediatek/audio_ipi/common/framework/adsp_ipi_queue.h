@@ -20,13 +20,13 @@
 
 
 
-int scp_ipi_queue_init(uint32_t opendsp_id); /* enum opendsp_id */
-bool is_scp_ipi_queue_init(const uint32_t opendsp_id);
+int scp_ipi_queue_init(uint32_t dsp_id); /* enum dsp_id */
+bool is_scp_ipi_queue_init(const uint32_t dsp_id);
 
-int scp_flush_msg_queue(uint32_t opendsp_id);
+int scp_flush_msg_queue(uint32_t dsp_id);
 
 int scp_send_msg_to_queue(
-	uint32_t opendsp_id, /* enum opendsp_id */
+	uint32_t dsp_id, /* enum dsp_id */
 	uint32_t ipi_id, /* enum adsp_ipi_id */
 	void *buf,
 	uint32_t len,
@@ -34,7 +34,7 @@ int scp_send_msg_to_queue(
 
 
 int scp_dispatch_ipi_hanlder_to_queue(
-	uint32_t opendsp_id, /* enum opendsp_id */
+	uint32_t dsp_id, /* enum dsp_id */
 	uint32_t ipi_id, /* enum adsp_ipi_id */
 	void *buf,
 	uint32_t len,

@@ -161,55 +161,55 @@ static uint8_t g_cache_alilgn_mask[NUM_OPENDSP_TYPE];
  */
 
 inline phys_addr_t offset_to_phy_addr(const uint32_t offset,
-	const uint32_t opendsp_id)
+				      const uint32_t dsp_id)
 {
-	if (!g_dma[opendsp_id])
+	if (!g_dma[dsp_id])
 		return 0;
-	return g_dma[opendsp_id]->base_phy.addr_val + offset;
+	return g_dma[dsp_id]->base_phy.addr_val + offset;
 }
 
 inline uint8_t *offset_to_vir_addr(const uint32_t offset,
-	const uint32_t opendsp_id)
+				   const uint32_t dsp_id)
 {
-	if (!g_dma[opendsp_id])
+	if (!g_dma[dsp_id])
 		return 0;
-	return g_dma[opendsp_id]->base_vir.addr + offset;
+	return g_dma[dsp_id]->base_vir.addr + offset;
 }
 
 inline uint32_t phy_addr_to_offset(const phys_addr_t phy_addr,
-	const uint32_t opendsp_id)
+				   const uint32_t dsp_id)
 {
-	if (!g_dma[opendsp_id])
+	if (!g_dma[dsp_id])
 		return 0;
-	return phy_addr - g_dma[opendsp_id]->base_phy.addr_val;
+	return phy_addr - g_dma[dsp_id]->base_phy.addr_val;
 }
 
 inline uint32_t vir_addr_to_offset(const uint8_t *vir_addr,
-	const uint32_t opendsp_id)
+				   const uint32_t dsp_id)
 {
-	if (!g_dma[opendsp_id])
+	if (!g_dma[dsp_id])
 		return 0;
-	return vir_addr - g_dma[opendsp_id]->base_vir.addr;
+	return vir_addr - g_dma[dsp_id]->base_vir.addr;
 }
 
 inline uint64_t phy_addr_to_vir_addr_val(const phys_addr_t phy_addr,
-					 const uint32_t opendsp_id)
+		const uint32_t dsp_id)
 {
-	if (!g_dma[opendsp_id])
+	if (!g_dma[dsp_id])
 		return 0;
-	return g_dma[opendsp_id]->base_vir.addr_val +
-		phy_addr_to_offset(phy_addr, opendsp_id);
+	return g_dma[dsp_id]->base_vir.addr_val +
+	       phy_addr_to_offset(phy_addr, dsp_id);
 }
 
 
-inline uint8_t *dma_vir_base(const uint32_t opendsp_id)
+inline uint8_t *dma_vir_base(const uint32_t dsp_id)
 {
-	if (!g_dma[opendsp_id]) {
+	if (!g_dma[dsp_id]) {
 		pr_notice("g_dma is NULL!!!, return.");
 		return NULL;
 	}
-	ipi_dbg("g_dma->base_vir.addr=%p", g_dma[opendsp_id]->base_vir.addr);
-	return g_dma[opendsp_id]->base_vir.addr;
+	ipi_dbg("g_dma->base_vir.addr=%p", g_dma[dsp_id]->base_vir.addr);
+	return g_dma[dsp_id]->base_vir.addr;
 }
 
 
@@ -217,18 +217,18 @@ inline uint8_t *dma_vir_base(const uint32_t opendsp_id)
 	do { \
 		if (p_region && description) { \
 			LOG_F( \
-				"%s, offset: 0x%x, size: 0x%x" \
-				", read_idx: 0x%x, write_idx: 0x%x" \
-				", count: %u", \
-				description, \
-				(p_region)->offset, \
-				(p_region)->size, \
-				(p_region)->read_idx, \
-				(p_region)->write_idx, \
-				count); \
+			       "%s, offset: 0x%x, size: 0x%x, " \
+			       "read_idx: 0x%x, write_idx: 0x%x, " \
+			       "count: %u", \
+			       description, \
+			       (p_region)->offset, \
+			       (p_region)->size, \
+			       (p_region)->read_idx, \
+			       (p_region)->write_idx, \
+			       count); \
 		} else { \
 			pr_notice("%uL, %p %p", \
-				__LINE__, p_region, description); \
+				  __LINE__, p_region, description); \
 		} \
 	} while (0)
 
@@ -240,40 +240,48 @@ inline uint8_t *dma_vir_base(const uint32_t opendsp_id)
  */
 
 static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
-	const uint32_t size);
+				  const uint32_t size);
 static int hal_dma_deinit_msg_queue(struct hal_dma_queue_t *msg_queue);
 
-int init_audio_ipi_dma(const uint8_t task)
+int init_audio_ipi_dma(const uint32_t dsp_id)
 {
 	int ret = 0;
 	uint32_t size = 0;
 	uint32_t mem_id = 0;
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
 	struct audio_ipi_dma_t *dma = NULL;
 
-	if (g_dma[opendsp_id] != NULL) {
-		pr_info("opendsp_id(%d) already init. return", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE ||
+	    is_audio_dsp_support(dsp_id) == false) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+
+	if (g_dma[dsp_id] != NULL) {
+		pr_info("dsp_id(%u) already init. return", dsp_id);
 		ret = -ENOMEM;
 		goto IPI_DMA_INIT_EXIT;
 	}
+
 #if !defined(CONFIG_MTK_AUDIO_CM4_DMA_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_CM4_A ||
-		opendsp_id == AUDIO_OPENDSP_USE_CM4_B) {
-		pr_info("opendsp_id: %d", opendsp_id);
+	if (dsp_id == AUDIO_OPENDSP_USE_CM4_A ||
+	    dsp_id == AUDIO_OPENDSP_USE_CM4_B) {
+		pr_info("dsp_id: %u", dsp_id);
 		ret = -ENODEV;
 		goto IPI_DMA_INIT_EXIT;
 	}
 #endif
 	/* scp_reserve_mblock, AUDIO_IPI_MEM_ID */
-	get_reserve_mem_size(opendsp_id, &mem_id, &size);
+	ret = get_reserve_mem_size(dsp_id, &mem_id, &size);
+	if (ret != 0 || mem_id == 0xFFFFFFFF || size == 0) {
+		pr_info("dsp_id(%u), mem_id(%u), size(%u) ret %d error!!",
+			dsp_id, mem_id, size, ret);
+		goto IPI_DMA_INIT_EXIT;
+	}
 
-	pr_info("opendsp_id(%u), mem_id(%u), size(%u)",
-		opendsp_id, mem_id, size);
+	pr_info("dsp_id(%u), mem_id(%u), size(%u)", dsp_id, mem_id, size);
 
 	/* share mem for IPI DMA */
-	dma = (struct audio_ipi_dma_t *)
-		get_reserve_mem_virt(opendsp_id, mem_id);
-
+	dma = (struct audio_ipi_dma_t *)get_reserve_mem_virt(dsp_id, mem_id);
 	if (dma == NULL) {
 		pr_notice("scp_get_reserve_mem_virt(%d) fail!!", mem_id);
 		ret = -ENOMEM;
@@ -281,32 +289,39 @@ int init_audio_ipi_dma(const uint8_t task)
 	}
 	memset_io(dma, 0, size);
 
-	dma->base_phy.addr_val = get_reserve_mem_phys(opendsp_id, mem_id);
-	dma->base_vir.addr = get_reserve_mem_virt(opendsp_id, mem_id);
+	dma->base_phy.addr_val = get_reserve_mem_phys(dsp_id, mem_id);
+	dma->base_vir.addr = get_reserve_mem_virt(dsp_id, mem_id);
 	dma->size = size;
+	if (dma->base_phy.addr_val == 0) {
+		pr_notice("get_reserve_mem_phys(%d) fail!!", mem_id);
+		ret = -ENOMEM;
+		goto IPI_DMA_INIT_EXIT;
+	}
 
 	dma->checksum = (uint8_t *)(&dma->checksum) - (uint8_t *)dma;
 
 	/* byte align: audio dsp(128), cm4 scp(32) */
-	g_cache_alilgn_order[opendsp_id] = get_cache_aligned_order(opendsp_id);
-	g_cache_alilgn_mask[opendsp_id] = get_cache_aligned_mask(opendsp_id);
+	g_cache_alilgn_order[dsp_id] = get_cache_aligned_order(dsp_id);
+	g_cache_alilgn_mask[dsp_id] = get_cache_aligned_mask(dsp_id);
+	if (!g_cache_alilgn_order[dsp_id] || !g_cache_alilgn_mask[dsp_id]) {
+		ret = -EFAULT;
+		goto IPI_DMA_INIT_EXIT;
+	}
 
-	dma->pool_offset =
-		(uint8_t *)&dma->pool_offset - (uint8_t *)dma;
-	dma->pool_offset =
-		DO_BYTE_ALIGN(dma->pool_offset,
-			g_cache_alilgn_mask[opendsp_id]);
+	dma->pool_offset = (uint8_t *)&dma->pool_offset - (uint8_t *)dma;
+	dma->pool_offset = DO_BYTE_ALIGN(dma->pool_offset,
+					 g_cache_alilgn_mask[dsp_id]);
 
 	if (dma->size < dma->pool_offset) {
 		pr_notice("size %u < pool_offset %u",
-			dma->size, dma->pool_offset);
+			  dma->size, dma->pool_offset);
 		ret = -ENOMEM;
 		dma = NULL;
 		goto IPI_DMA_INIT_EXIT;
 	}
 	pr_info(
-		"opendsp_id %u, dma %p, phy %p/0x%llx, vir %p/0x%llx, sz 0x%x, checksum %u, offset %u, cache align mask %u"
-		, opendsp_id,
+		"dsp_id %u, dma %p, phy %p/0x%llx, vir %p/0x%llx, sz 0x%x, checksum %u, offset %u, cache align mask %u"
+		, dsp_id,
 		dma,
 		dma->base_phy.addr,
 		dma->base_phy.addr_val,
@@ -315,63 +330,66 @@ int init_audio_ipi_dma(const uint8_t task)
 		dma->size,
 		dma->checksum,
 		dma->pool_offset,
-		g_cache_alilgn_mask[opendsp_id]);
+		g_cache_alilgn_mask[dsp_id]);
 
 	/* pool */
 	pr_info("+gen_pool_create, g_cache_alilgn_order[%d] = %d",
-		opendsp_id, g_cache_alilgn_order[opendsp_id]);
-	g_dma_pool[opendsp_id] =
-		gen_pool_create(g_cache_alilgn_order[opendsp_id], -1);
-	if (g_dma_pool[opendsp_id] == NULL) {
+		dsp_id, g_cache_alilgn_order[dsp_id]);
+	g_dma_pool[dsp_id] =
+		gen_pool_create(g_cache_alilgn_order[dsp_id], -1);
+	if (g_dma_pool[dsp_id] == NULL) {
 		pr_notice("gen_pool_create fail");
 		ret = -ENOMEM;
 		goto IPI_DMA_INIT_EXIT;
 	}
-	pr_info("-gen_pool_create, g_dma_pool[%d] = %p",
-		opendsp_id, g_dma_pool[opendsp_id]);
+	pr_info("-gen_pool_create, g_dma_pool[%u] = %p",
+		dsp_id, g_dma_pool[dsp_id]);
 
 	/* add DRAM to pool */
 	if (gen_pool_add_virt(
-		    g_dma_pool[opendsp_id],
+		    g_dma_pool[dsp_id],
 		    dma->base_vir.addr_val + dma->pool_offset,
 		    dma->base_phy.addr_val + dma->pool_offset,
 		    (size_t)(dma->size - dma->pool_offset),
 		    -1) != 0) {
-		pr_notice("opendsp_id(%d) gen_pool_add fail", opendsp_id);
+		pr_notice("dsp_id(%u) gen_pool_add fail", dsp_id);
 		ret = -ENOMEM;
-		gen_pool_destroy(g_dma_pool[opendsp_id]);
-		g_dma_pool[opendsp_id] = NULL;
+		gen_pool_destroy(g_dma_pool[dsp_id]);
+		g_dma_pool[dsp_id] = NULL;
 		goto IPI_DMA_INIT_EXIT;
 	}
 
 	hal_dma_init_msg_queue(&g_hal_dma_queue, dma->size);
-	g_dma[opendsp_id] = dma;
+	g_dma[dsp_id] = dma;
 
 
 IPI_DMA_INIT_EXIT:
-	if (ret != 0 || g_dma_pool[opendsp_id] == NULL)
-		g_dma[opendsp_id] = NULL;
+	if (ret != 0 || g_dma_pool[dsp_id] == NULL)
+		g_dma[dsp_id] = NULL;
 
 	return ret;
 }
 
 
-int deinit_audio_ipi_dma(const uint8_t task)
+int deinit_audio_ipi_dma(const uint32_t dsp_id)
 {
 	int i = 0;
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
 
-	if (g_dma[opendsp_id] == NULL)
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (g_dma[dsp_id] == NULL)
 		return 0;
 
 	for (i = 0 ; i < TASK_SCENE_SIZE; i++)
 		audio_ipi_dma_free_region(i);
 
-	if (g_dma_pool[opendsp_id] != NULL) {
-		gen_pool_destroy(g_dma_pool[opendsp_id]);
-		g_dma_pool[opendsp_id] = NULL;
+	if (g_dma_pool[dsp_id] != NULL) {
+		gen_pool_destroy(g_dma_pool[dsp_id]);
+		g_dma_pool[dsp_id] = NULL;
 	}
-	g_dma[opendsp_id] = NULL;
+	g_dma[dsp_id] = NULL;
 
 	hal_dma_deinit_msg_queue(&g_hal_dma_queue);
 
@@ -379,19 +397,30 @@ int deinit_audio_ipi_dma(const uint8_t task)
 }
 
 
-int audio_ipi_dma_init_dsp(const uint8_t task)
+int audio_ipi_dma_init_dsp(const uint32_t dsp_id)
 {
 	struct ipi_msg_t ipi_msg;
 	int ret = 0;
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint8_t task = TASK_SCENE_INVALID;
 
-	if (!g_dma[opendsp_id]) {
-		pr_info("g_dma[%d] is NULL!!! return -EFAULT", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (!g_dma[dsp_id]) {
+		pr_info("g_dma[%u] is NULL!!! return -EFAULT", dsp_id);
 		return -EFAULT;
 	}
 
+	task = get_audio_controller_task(dsp_id);
+	if (task == TASK_SCENE_INVALID) {
+		pr_info("task(%d) invalid!!!", task);
+		return -ENODEV;
+	}
+
+
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (is_audio_use_adsp(dsp_id))
 		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 
@@ -402,34 +431,34 @@ int audio_ipi_dma_init_dsp(const uint8_t task)
 		      AUDIO_IPI_MSG_ONLY,
 		      AUDIO_IPI_MSG_DIRECT_SEND,
 		      AUD_CTL_MSG_A2D_DMA_INIT,
-		      g_dma[opendsp_id]->base_phy.addr_val,
-		      g_dma[opendsp_id]->size,
+		      g_dma[dsp_id]->base_phy.addr_val,
+		      g_dma[dsp_id]->size,
 		      NULL);
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (is_audio_use_adsp(dsp_id))
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
-	pr_info("opendsp_id: %d, task: %d, ret: %d", opendsp_id, task, ret);
+	pr_info("dsp_id: %u, task: %d, ret: %d", dsp_id, task, ret);
 	return ret;
 }
 
 
-void *get_audio_ipi_dma_vir_addr(uint32_t opendsp_id,
-	phys_addr_t phy_addr_val)
+void *get_audio_ipi_dma_vir_addr(uint32_t dsp_id,
+				 phys_addr_t phy_addr_val)
 {
 	uint32_t offset = 0;
 
-	if (g_dma[opendsp_id] == NULL) {
-		pr_notice("g_dma[%d] is NULL!!!", opendsp_id);
+	if (g_dma[dsp_id] == NULL) {
+		pr_notice("g_dma[%u] is NULL!!!", dsp_id);
 		return NULL;
 	}
 	if (phy_addr_val == 0)
 		return NULL;
 
 
-	offset = phy_addr_val - g_dma[opendsp_id]->base_phy.addr_val;
-	return g_dma[opendsp_id]->base_vir.addr + offset;
+	offset = phy_addr_val - g_dma[dsp_id]->base_phy.addr_val;
+	return g_dma[dsp_id]->base_vir.addr + offset;
 }
 
 
@@ -446,55 +475,63 @@ int audio_ipi_dma_alloc(
 	void **virt_addr,
 	const uint32_t size)
 {
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
-	if (g_dma[opendsp_id] == NULL) {
-		pr_info("g_dma[%d] is NULL!!!", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
 		return -ENODEV;
 	}
-	if (g_dma_pool[opendsp_id] == NULL) {
-		pr_info("dma_pool[%d] is NULL!!!", opendsp_id);
+	if (g_dma[dsp_id] == NULL) {
+		pr_info("g_dma[%u] is NULL!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (g_dma_pool[dsp_id] == NULL) {
+		pr_info("dma_pool[%u] is NULL!!!", dsp_id);
 		return -ENOMEM;
 	}
 	if (phy_addr == NULL || virt_addr == NULL || size == 0) {
 		pr_info("arg err, %p, %p, %u", phy_addr, virt_addr, size);
 		return -EINVAL;
 	}
-	if (g_dsp_init_flag[opendsp_id] == false) {
-		g_dsp_init_flag[opendsp_id] = true;
-		audio_ipi_dma_init_dsp(task);
+	if (g_dsp_init_flag[dsp_id] == false) {
+		g_dsp_init_flag[dsp_id] = true;
+		audio_ipi_dma_init_dsp(dsp_id);
 	}
 
 	*phy_addr = gen_pool_virt_to_phys(
-		g_dma_pool[opendsp_id],
-		gen_pool_alloc(g_dma_pool[opendsp_id], size));
+			    g_dma_pool[dsp_id],
+			    gen_pool_alloc(g_dma_pool[dsp_id], size));
 	if (*phy_addr == 0) {
 		pr_notice("gen_pool_alloc(%u) fail, (%zu/%zu)",
 			  size,
-			  gen_pool_avail(g_dma_pool[opendsp_id]),
-			  gen_pool_size(g_dma_pool[opendsp_id]));
+			  gen_pool_avail(g_dma_pool[dsp_id]),
+			  gen_pool_size(g_dma_pool[dsp_id]));
 		return -ENOMEM;
 	}
 
 	*virt_addr = get_audio_ipi_dma_vir_addr(
-				 opendsp_id,
-				 *phy_addr);
+			     dsp_id,
+			     *phy_addr);
 
 	return 0;
 }
 
 
 int audio_ipi_dma_free(const uint8_t task,
-	phys_addr_t phy_addr, const uint32_t size)
+		       phys_addr_t phy_addr, const uint32_t size)
 {
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
-	if (g_dma[opendsp_id] == NULL) {
-		pr_info("g_dma[%d] is NULL!!!", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
 		return -ENODEV;
 	}
-	if (g_dma_pool[opendsp_id] == NULL) {
-		pr_info("dma_pool[%d] is NULL!!!", opendsp_id);
+	if (g_dma[dsp_id] == NULL) {
+		pr_info("g_dma[%u] is NULL!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (g_dma_pool[dsp_id] == NULL) {
+		pr_info("dma_pool[%u] is NULL!!!", dsp_id);
 		return -ENOMEM;
 	}
 	if (phy_addr == 0 || size == 0) {
@@ -503,8 +540,8 @@ int audio_ipi_dma_free(const uint8_t task,
 	}
 
 
-	gen_pool_free(g_dma_pool[opendsp_id],
-		      phy_addr_to_vir_addr_val(phy_addr, opendsp_id),
+	gen_pool_free(g_dma_pool[dsp_id],
+		      phy_addr_to_vir_addr_val(phy_addr, dsp_id),
 		      size);
 
 	return 0;
@@ -532,35 +569,42 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 	int ret = 0;
 
 	int i = 0;
-	uint8_t task_audio_controller = TASK_SCENE_INVALID;
+	uint8_t task_ctrl = TASK_SCENE_INVALID;
 
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
-	if (opendsp_id >= NUM_OPENDSP_TYPE) {
-		pr_info("opendsp_id(%d) invalid. return", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid. return", dsp_id);
 		return -ENODEV;
 	}
-	if (opendsp_id == AUDIO_OPENDSP_USE_CM4_B) {
-		pr_info("ipi dma is not supported in opendsp_id(%d), task = %d",
-			opendsp_id, task);
+	if (dsp_id == AUDIO_OPENDSP_USE_CM4_B) {
+		pr_info("ipi dma is not supported in dsp_id(%u), task = %d",
+			dsp_id, task);
 		return -ENODEV;
 	}
 
-	if (g_dma[opendsp_id] == NULL) {
-		pr_info("g_dma[%d] is NULL!!!task = %d", opendsp_id, task);
+	if (g_dma[dsp_id] == NULL) {
+		pr_info("g_dma[%u] is NULL!!!task = %d", dsp_id, task);
 		return -ENODEV;
 	}
-	if (g_dma_pool[opendsp_id] == NULL) {
-		pr_info("dma_pool[%d] is NULL!!!task = %d", opendsp_id, task);
+	if (g_dma_pool[dsp_id] == NULL) {
+		pr_info("dma_pool[%u] is NULL!!!task = %d", dsp_id, task);
 		return -ENOMEM;
 	}
 	if (task >= TASK_SCENE_SIZE) {
 		pr_info("task: %d", task);
 		return -EOVERFLOW;
 	}
-	if (g_dsp_init_flag[opendsp_id] == false) {
-		g_dsp_init_flag[opendsp_id] = true;
-		audio_ipi_dma_init_dsp(task);
+	task_ctrl = get_audio_controller_task(dsp_id);
+	if (task_ctrl == TASK_SCENE_INVALID) {
+		pr_info("ipi dma is not supported in dsp_id(%u), ctrl = %d",
+			dsp_id, task_ctrl);
+		return -ENODEV;
+	}
+
+	if (g_dsp_init_flag[dsp_id] == false) {
+		g_dsp_init_flag[dsp_id] = true;
+		audio_ipi_dma_init_dsp(dsp_id);
 	}
 
 	if (g_region_reg_flag[task] == true) {
@@ -576,21 +620,22 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 			continue;
 		}
 
-		region = &g_dma[opendsp_id]->region[task][i];
+		region = &g_dma[dsp_id]->region[task][i];
 
 		phy_value = gen_pool_virt_to_phys(
-			g_dma_pool[opendsp_id],
-			gen_pool_alloc(g_dma_pool[opendsp_id], size[i]));
+				    g_dma_pool[dsp_id],
+				    gen_pool_alloc(g_dma_pool[dsp_id],
+						   size[i]));
 		if (phy_value == 0) {
 			pr_notice("gen_pool_alloc(%u) fail, (%zu/%zu)",
 				  size[i],
-				  gen_pool_avail(g_dma_pool[opendsp_id]),
-				  gen_pool_size(g_dma_pool[opendsp_id]));
+				  gen_pool_avail(g_dma_pool[dsp_id]),
+				  gen_pool_size(g_dma_pool[dsp_id]));
 			ret = -ENOMEM;
 			break;
 		}
 
-		region->offset = phy_addr_to_offset(phy_value, opendsp_id);
+		region->offset = phy_addr_to_offset(phy_value, dsp_id);
 		region->size = size[i];
 		region->read_idx = 0;
 		region->write_idx = 0;
@@ -599,24 +644,19 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 	if (ret == 0) {
 		pr_info("task %d, a2d sz 0x%x, offset 0x%x, d2a sz 0x%x, offset 0x%x",
 			task,
-			g_dma[opendsp_id]->region[task][0].size,
-			g_dma[opendsp_id]->region[task][0].offset,
-			g_dma[opendsp_id]->region[task][1].size,
-			g_dma[opendsp_id]->region[task][1].offset);
+			g_dma[dsp_id]->region[task][0].size,
+			g_dma[dsp_id]->region[task][0].offset,
+			g_dma[dsp_id]->region[task][1].size,
+			g_dma[dsp_id]->region[task][1].offset);
 
-		if (opendsp_id == AUDIO_OPENDSP_USE_CM4_A)
-			task_audio_controller = TASK_SCENE_AUDIO_CONTROLLER_CM4;
-		else if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
-			task_audio_controller =
-				TASK_SCENE_AUDIO_CONTROLLER_HIFI3;
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
-		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
+		if (is_audio_use_adsp(dsp_id))
+			adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 		audio_send_ipi_msg(
 			&ipi_msg,
-			task_audio_controller,
+			task_ctrl,
 			AUDIO_IPI_LAYER_TO_DSP,
 			AUDIO_IPI_MSG_ONLY,
 			AUDIO_IPI_MSG_DIRECT_SEND,
@@ -626,7 +666,7 @@ int audio_ipi_dma_alloc_region(const uint8_t task,
 			NULL);
 	}
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (is_audio_use_adsp(dsp_id))
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 
@@ -647,14 +687,18 @@ int audio_ipi_dma_free_region(const uint8_t task)
 	int i = 0;
 
 
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
-	if (g_dma[opendsp_id] == NULL) {
-		pr_info("g_dma[%d] is NULL!!!", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
 		return -ENODEV;
 	}
-	if (g_dma_pool[opendsp_id] == NULL) {
-		pr_info("dma_pool[%d] is NULL!!!", opendsp_id);
+	if (g_dma[dsp_id] == NULL) {
+		pr_info("g_dma[%u] is NULL!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (g_dma_pool[dsp_id] == NULL) {
+		pr_info("dma_pool[%u] is NULL!!!", dsp_id);
 		return -ENOMEM;
 	}
 	if (task >= TASK_SCENE_SIZE) {
@@ -669,7 +713,7 @@ int audio_ipi_dma_free_region(const uint8_t task)
 	g_region_reg_flag[task] = false;
 
 	for (i = 0; i < NUM_AUDIO_IPI_DMA_PATH; i++) {
-		region = &g_dma[opendsp_id]->region[task][i];
+		region = &g_dma[dsp_id]->region[task][i];
 
 		if (region->read_idx != region->write_idx) {
 			pr_notice("region[%d][%d]: %u != %u",
@@ -679,12 +723,12 @@ int audio_ipi_dma_free_region(const uint8_t task)
 			AUD_ASSERT(region->offset == 0);
 			continue;
 		}
-		phy_value = offset_to_phy_addr(region->offset, opendsp_id);
+		phy_value = offset_to_phy_addr(region->offset, dsp_id);
 		ipi_dbg("task %d, region[%d] sz 0x%x, offset 0x%x, phy_value 0x%x",
 			task, i, region->size, region->offset, phy_value);
 
-		gen_pool_free(g_dma_pool[opendsp_id],
-			      phy_addr_to_vir_addr_val(phy_value, opendsp_id),
+		gen_pool_free(g_dma_pool[dsp_id],
+			      phy_addr_to_vir_addr_val(phy_value, dsp_id),
 			      region->size);
 
 		region->offset = 0;
@@ -696,14 +740,14 @@ int audio_ipi_dma_free_region(const uint8_t task)
 	if (ret == 0) {
 		pr_info("task %d, a2d sz 0x%x, offset 0x%x, d2a sz 0x%x, offset 0x%x",
 			task,
-			g_dma[opendsp_id]->region[task][0].size,
-			g_dma[opendsp_id]->region[task][0].offset,
-			g_dma[opendsp_id]->region[task][1].size,
-			g_dma[opendsp_id]->region[task][1].offset);
+			g_dma[dsp_id]->region[task][0].size,
+			g_dma[dsp_id]->region[task][0].offset,
+			g_dma[dsp_id]->region[task][1].size,
+			g_dma[dsp_id]->region[task][1].offset);
 
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
-		adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
+		if (is_audio_use_adsp(dsp_id))
+			adsp_register_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 		audio_send_ipi_msg(
 			&ipi_msg,
@@ -717,21 +761,21 @@ int audio_ipi_dma_free_region(const uint8_t task)
 			NULL);
 	}
 #if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
-	if (opendsp_id == AUDIO_OPENDSP_USE_HIFI3)
+	if (is_audio_use_adsp(dsp_id))
 		adsp_deregister_feature(AUDIO_CONTROLLER_FEATURE_ID);
 #endif
 	return 0;
 }
 
 
-int audio_ipi_dma_free_region_all_task(uint32_t opendsp_id)
+int audio_ipi_dma_free_region_all_task(uint32_t dsp_id)
 {
 	uint8_t task = 0;
 	int ret_itor = 0;
 	int ret = 0;
 
 	for (task = 0 ; task < TASK_SCENE_SIZE; task++) {
-		if (audio_get_opendsp_id(task) == opendsp_id) {
+		if (audio_get_dsp_id(task) == dsp_id) {
 			if (g_region_reg_flag[task]) {
 				ret_itor = audio_ipi_dma_free_region(task);
 				if (ret_itor != 0)
@@ -798,13 +842,13 @@ static uint32_t audio_region_free_space(struct audio_region_t *region)
 }
 
 
-static int audio_region_write_from_linear(uint32_t opendsp_id,
-	struct audio_region_t *region,
-	const void *linear_buf,
-	uint32_t count)
+static int audio_region_write_from_linear(uint32_t dsp_id,
+		struct audio_region_t *region,
+		const void *linear_buf,
+		uint32_t count)
 {
 	uint32_t count_align = DO_BYTE_ALIGN(count,
-		g_cache_alilgn_mask[opendsp_id]);
+					     g_cache_alilgn_mask[dsp_id]);
 
 	uint32_t free_space = 0;
 	uint8_t *base = NULL;
@@ -824,9 +868,9 @@ static int audio_region_write_from_linear(uint32_t opendsp_id,
 		pr_info("linear_buf is NULL!!! return -EFAULT");
 		return -EFAULT;
 	}
-	if (!dma_vir_base(opendsp_id)) {
+	if (!dma_vir_base(dsp_id)) {
 		pr_info("dma_vir_base(%d) is NULL!!! return -EFAULT",
-			opendsp_id);
+			dsp_id);
 		return -EFAULT;
 	}
 
@@ -852,7 +896,7 @@ static int audio_region_write_from_linear(uint32_t opendsp_id,
 		return -EOVERFLOW;
 	}
 
-	base = dma_vir_base(opendsp_id) + region->offset;
+	base = dma_vir_base(dsp_id) + region->offset;
 #if defined(DUMP_DMA_DEBUG)
 	dump_start_idx = base + region->write_idx;
 #endif
@@ -900,13 +944,13 @@ static int audio_region_write_from_linear(uint32_t opendsp_id,
 }
 
 
-static int audio_region_read_to_linear(uint32_t opendsp_id,
-	void *linear_buf,
-	struct audio_region_t *region,
-	uint32_t count)
+static int audio_region_read_to_linear(uint32_t dsp_id,
+				       void *linear_buf,
+				       struct audio_region_t *region,
+				       uint32_t count)
 {
 	uint32_t count_align = DO_BYTE_ALIGN(count,
-		g_cache_alilgn_mask[opendsp_id]);
+					     g_cache_alilgn_mask[dsp_id]);
 
 	uint32_t available_count = 0;
 	uint8_t *base = NULL;
@@ -920,9 +964,9 @@ static int audio_region_read_to_linear(uint32_t opendsp_id,
 		pr_info("linear_buf is NULL!!! return -EFAULT");
 		return -EFAULT;
 	}
-	if (!dma_vir_base(opendsp_id)) {
+	if (!dma_vir_base(dsp_id)) {
 		pr_info("dma_vir_base(%d) is NULL!!! return -EFAULT",
-			opendsp_id);
+			dsp_id);
 		return -EFAULT;
 	}
 
@@ -950,7 +994,7 @@ static int audio_region_read_to_linear(uint32_t opendsp_id,
 		return -ENOMEM;
 	}
 
-	base = dma_vir_base(opendsp_id) + region->offset;
+	base = dma_vir_base(dsp_id) + region->offset;
 
 	if (region->read_idx <= region->write_idx) {
 		memcpy(linear_buf, base + region->read_idx, count);
@@ -975,12 +1019,12 @@ static int audio_region_read_to_linear(uint32_t opendsp_id,
 }
 
 
-static int audio_region_drop(uint32_t opendsp_id,
-	struct audio_region_t *region,
-	uint32_t count)
+static int audio_region_drop(uint32_t dsp_id,
+			     struct audio_region_t *region,
+			     uint32_t count)
 {
 	uint32_t count_align = DO_BYTE_ALIGN(count,
-		g_cache_alilgn_mask[opendsp_id]);
+					     g_cache_alilgn_mask[dsp_id]);
 	uint32_t available_count = 0;
 	uint8_t *base = NULL;
 	uint32_t r2e = 0;
@@ -989,9 +1033,9 @@ static int audio_region_drop(uint32_t opendsp_id,
 		pr_info("region is NULL!!! return -EFAULT");
 		return -EFAULT;
 	}
-	if (!dma_vir_base(opendsp_id)) {
+	if (!dma_vir_base(dsp_id)) {
 		pr_info("dma_vir_base(%d) is NULL!!! return -EFAULT",
-			opendsp_id);
+			dsp_id);
 		return -EFAULT;
 	}
 
@@ -1019,7 +1063,7 @@ static int audio_region_drop(uint32_t opendsp_id,
 		return -ENOMEM;
 	}
 
-	base = dma_vir_base(opendsp_id) + region->offset;
+	base = dma_vir_base(dsp_id) + region->offset;
 
 	if (region->read_idx <= region->write_idx)
 		region->read_idx += count_align;
@@ -1047,15 +1091,19 @@ int audio_ipi_dma_write_region(const uint8_t task,
 	struct audio_region_t *region = NULL;
 
 	int ret = 0;
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
 	if (task >= TASK_SCENE_SIZE) {
 		pr_info("task: %d", task);
 		return -EOVERFLOW;
 	}
 
-	if (!g_dma[opendsp_id]) {
-		pr_info("g_dma[%d] is NULL!!! return -EFAULT", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (!g_dma[dsp_id]) {
+		pr_info("g_dma[%u] is NULL!!! return -EFAULT", dsp_id);
 		return -EFAULT;
 	}
 	if (!data_buf || !write_idx) {
@@ -1067,15 +1115,15 @@ int audio_ipi_dma_write_region(const uint8_t task,
 		return -ENODATA;
 	}
 
-	region = &g_dma[opendsp_id]->region[task][AUDIO_IPI_DMA_AP_TO_SCP];
+	region = &g_dma[dsp_id]->region[task][AUDIO_IPI_DMA_AP_TO_SCP];
 	DUMP_REGION(ipi_dbg, "region", region, data_size);
 
 	/* keep the data index before write */
 	*write_idx = region->write_idx;
 
 	/* write data */
-	ret = audio_region_write_from_linear(opendsp_id,
-		region, data_buf, data_size);
+	ret = audio_region_write_from_linear(dsp_id,
+					     region, data_buf, data_size);
 
 	return ret;
 }
@@ -1089,14 +1137,18 @@ int audio_ipi_dma_read_region(const uint8_t task,
 	struct audio_region_t *region = NULL;
 
 	int ret = 0;
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
 	if (task >= TASK_SCENE_SIZE) {
 		pr_info("task: %d", task);
 		return -EOVERFLOW;
 	}
-	if (!g_dma[opendsp_id]) {
-		pr_info("g_dma[%d] is NULL!!! return -EFAULT", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (!g_dma[dsp_id]) {
+		pr_info("g_dma[%u] is NULL!!! return -EFAULT", dsp_id);
 		return -EFAULT;
 	}
 	if (!data_buf) {
@@ -1108,7 +1160,7 @@ int audio_ipi_dma_read_region(const uint8_t task,
 		return -ENODATA;
 	}
 
-	region = &g_dma[opendsp_id]->region[task][AUDIO_IPI_DMA_SCP_TO_AP];
+	region = &g_dma[dsp_id]->region[task][AUDIO_IPI_DMA_SCP_TO_AP];
 	DUMP_REGION(ipi_dbg, "region", region, data_size);
 
 	/* check read index */
@@ -1119,8 +1171,8 @@ int audio_ipi_dma_read_region(const uint8_t task,
 	}
 
 	/* read data */
-	ret = audio_region_read_to_linear(opendsp_id,
-		data_buf, region, data_size);
+	ret = audio_region_read_to_linear(dsp_id,
+					  data_buf, region, data_size);
 
 	return ret;
 }
@@ -1134,14 +1186,18 @@ int audio_ipi_dma_drop_region(const uint8_t task,
 	struct audio_region_t *region = NULL;
 
 	int ret = 0;
-	uint32_t opendsp_id = audio_get_opendsp_id(task);
+	uint32_t dsp_id = audio_get_dsp_id(task);
 
 	if (task >= TASK_SCENE_SIZE) {
 		pr_info("task: %d", task);
 		return -EOVERFLOW;
 	}
-	if (!g_dma[opendsp_id]) {
-		pr_info("g_dma[%d] is NULL!!! return -EFAULT", opendsp_id);
+	if (dsp_id >= NUM_OPENDSP_TYPE) {
+		pr_info("dsp_id(%u) invalid!!!", dsp_id);
+		return -ENODEV;
+	}
+	if (!g_dma[dsp_id]) {
+		pr_info("g_dma[%u] is NULL!!! return -EFAULT", dsp_id);
 		return -EFAULT;
 	}
 	if (drop_size == 0) {
@@ -1149,7 +1205,7 @@ int audio_ipi_dma_drop_region(const uint8_t task,
 		return -ENODATA;
 	}
 
-	region = &g_dma[opendsp_id]->region[task][AUDIO_IPI_DMA_SCP_TO_AP];
+	region = &g_dma[dsp_id]->region[task][AUDIO_IPI_DMA_SCP_TO_AP];
 	DUMP_REGION(ipi_dbg, "region", region, drop_size);
 
 	/* check read index */
@@ -1160,7 +1216,7 @@ int audio_ipi_dma_drop_region(const uint8_t task,
 	}
 
 	/* drop data */
-	ret = audio_region_drop(opendsp_id, region, drop_size);
+	ret = audio_region_drop(dsp_id, region, drop_size);
 
 	return ret;
 }
@@ -1427,7 +1483,7 @@ static int hal_dma_front(
 
 
 static int hal_dma_init_msg_queue(struct hal_dma_queue_t *msg_queue,
-	const uint32_t size)
+				  const uint32_t size)
 {
 	int i = 0;
 

@@ -1114,7 +1114,7 @@ static int mtk_dsp_pcm_copy(struct snd_pcm_substream *substream,
 		return -1;
 	}
 
-	if (audio_opendsp_ready(get_dspscene_by_dspdaiid(id)) == false) {
+	if (is_audio_task_dsp_ready(get_dspscene_by_dspdaiid(id)) == false) {
 		pr_info("%s(), dsp not ready", __func__);
 		return -1;
 	}
