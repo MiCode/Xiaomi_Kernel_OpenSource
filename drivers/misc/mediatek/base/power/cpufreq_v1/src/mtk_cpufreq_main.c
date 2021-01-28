@@ -1669,7 +1669,7 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 
 	ret = mt_cpufreq_regulator_map(pdev);
 	if (ret)
-		tag_pr_notice("%s regulator map fail\n");
+		tag_pr_notice("regulator map fail\n");
 
 	/* Prepare OPP table for PPM in probe to avoid nested lock */
 	for_each_cpu_dvfs(j, p) {
