@@ -7,6 +7,7 @@
 #define _MTK_BLOCKTAG_H
 
 #include <linux/blk_types.h>
+#include <linux/proc_fs.h>
 #include <linux/sched.h>
 
 #if defined(CONFIG_MTK_BLOCK_TAG)
@@ -189,11 +190,9 @@ struct mtk_blocktag {
 	} ctx;
 
 	struct dentry_t {
-		struct dentry *droot;
-		struct dentry *dklog;
-		struct dentry *dlog;
-		struct dentry *dlog_mictx;
-		struct dentry *dmem;
+		struct proc_dir_entry *droot;
+		struct proc_dir_entry *dlog;
+		struct proc_dir_entry *dlog_mictx;
 	} dentry;
 
 	mtk_btag_seq_f seq_show;

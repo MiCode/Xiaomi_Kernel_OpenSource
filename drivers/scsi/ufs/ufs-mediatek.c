@@ -26,6 +26,7 @@
 #include "unipro.h"
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
+#include "ufs-mtk-block.h"
 
 #ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
@@ -1386,6 +1387,8 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	int err;
 	struct device *dev = &pdev->dev;
 
+	ufs_mtk_biolog_init();
+
 	/* perform generic probe */
 	err = ufshcd_pltfrm_init(pdev, &ufs_hba_mtk_vops);
 	if (err)
@@ -1412,6 +1415,7 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
+	ufs_mtk_biolog_exit();
 	return 0;
 }
 

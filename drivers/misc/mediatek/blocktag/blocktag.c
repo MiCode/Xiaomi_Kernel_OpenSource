@@ -15,6 +15,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/sched.h>
 #include <linux/mutex.h>
+#include <linux/proc_fs.h>
 #include <linux/spinlock.h>
 #include <linux/spinlock_types.h>
 #include <linux/vmalloc.h>
@@ -69,17 +70,16 @@ do { \
 #define BLOCKIO_AEE_BUFFER_SIZE (300 * 1024)
 char blockio_aee_buffer[BLOCKIO_AEE_BUFFER_SIZE];
 
-/* debugfs dentries */
-struct dentry *mtk_btag_droot;
-struct dentry *mtk_btag_dlog;
+/* procfs dentries */
+struct proc_dir_entry *btag_proc_root;
+
+static int mtk_btag_init_procfs(void);
 
 /* mini context for major embedded storage only */
 #define MICTX_PROC_CMD_BUF_SIZE (1)
 static struct mtk_btag_mictx_struct *mtk_btag_mictx;
 static bool mtk_btag_mictx_ready;
 static bool mtk_btag_mictx_debug;
-
-static void mtk_btag_init_debugfs(void);
 
 /* blocktag */
 static DEFINE_MUTEX(mtk_btag_list_lock);
@@ -1012,34 +1012,22 @@ struct mtk_blocktag *mtk_btag_alloc(const char *name,
 	}
 	memset(btag->ctx.priv, 0, ctx_size * ctx_count);
 
-	/* debugfs dentries */
-	mtk_btag_init_debugfs();
-	btag->dentry.droot = debugfs_create_dir(name, mtk_btag_droot);
+	/* procfs dentries */
+	mtk_btag_init_procfs();
+	btag->dentry.droot = proc_mkdir(name, btag_proc_root);
 
 	if (IS_ERR(btag->dentry.droot))
 		goto out;
 
-	btag->dentry.dmem = debugfs_create_u32("used_mem", 0440,
-		btag->dentry.droot, &btag->used_mem);
-
-	if (IS_ERR(btag->dentry.dmem))
-		goto out;
-
-	btag->dentry.dklog = debugfs_create_u32("klog_enable", 0660,
-		btag->dentry.droot, &btag->klog_enable);
-
-	if (IS_ERR(btag->dentry.dklog))
-		goto out;
-
-	btag->dentry.dlog = debugfs_create_file("blockio", S_IFREG | 0444,
-		btag->dentry.droot, (void *)0, &mtk_btag_sub_fops);
+	btag->dentry.dlog = proc_create("blockio", S_IFREG | 0444,
+		btag->dentry.droot, &mtk_btag_sub_fops);
 
 	if (IS_ERR(btag->dentry.dlog))
 		goto out;
 
-	btag->dentry.dlog_mictx = debugfs_create_file("blockio_mictx",
+	btag->dentry.dlog_mictx = proc_create("blockio_mictx",
 		S_IFREG | 0444,
-		btag->dentry.droot, (void *)0, &mtk_btag_mictx_sub_fops);
+		btag->dentry.droot, &mtk_btag_mictx_sub_fops);
 
 	if (IS_ERR(btag->dentry.dlog_mictx))
 		goto out;
@@ -1058,7 +1046,6 @@ void mtk_btag_free(struct mtk_blocktag *btag)
 		return;
 
 	list_del(&btag->list);
-	debugfs_remove_recursive(btag->dentry.droot);
 	kfree(btag->ctx.priv);
 	kfree(btag->rt.trace);
 	kfree(btag);
@@ -1172,20 +1159,31 @@ static const struct file_operations mtk_btag_main_fops = {
 	.write		= mtk_btag_main_write,
 };
 
-static void mtk_btag_init_debugfs(void)
+static int mtk_btag_init_procfs(void)
 {
-	if (mtk_btag_droot)
-		return;
+	struct proc_dir_entry *proc_entry;
+	kuid_t uid;
+	kgid_t gid;
 
-	mtk_btag_droot = debugfs_create_dir("blocktag", NULL);
-	if (IS_ERR(mtk_btag_droot)) {
-		mtk_btag_droot = NULL;
-		return;
-	}
+	if (btag_proc_root)
+		return 0;
 
-	mtk_btag_dlog = debugfs_create_file("blockio", S_IFREG | 0444, NULL,
-		(void *)0, &mtk_btag_main_fops);
+	uid = make_kuid(&init_user_ns, 0);
+	gid = make_kgid(&init_user_ns, 1001);
+
+	btag_proc_root = proc_mkdir("blocktag", NULL);
+
+	proc_entry = proc_create("blockio", S_IFREG | 0444, btag_proc_root,
+			      &mtk_btag_main_fops);
+
+	if (proc_entry)
+		proc_set_user(proc_entry, uid, gid);
+	else
+		pr_info("[BLOCK_TAG} %s: failed to initialize procfs", __func__);
+
+	return 0;
 }
+
 
 static inline
 struct mtk_btag_mictx_struct *mtk_btag_mictx_get_ctx(void)
@@ -1374,13 +1372,13 @@ void mtk_btag_mictx_enable(int enable)
 static int __init mtk_btag_init(void)
 {
 	mtk_btag_pidlogger_init();
-	mtk_btag_init_debugfs();
+	mtk_btag_init_procfs();
 	return 0;
 }
 
 static void __exit mtk_btag_exit(void)
 {
-	debugfs_remove(mtk_btag_dlog);
+	proc_remove(btag_proc_root);
 }
 
 module_init(mtk_btag_init);

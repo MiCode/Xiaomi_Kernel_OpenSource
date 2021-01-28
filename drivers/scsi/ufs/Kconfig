@@ -153,3 +153,14 @@ config SCSI_UFS_CRYPTO
 	  Enabling this makes it possible for the kernel to use the crypto
 	  capabilities of the UFS device (if present) to perform crypto
 	  operations on data being transferred to/from the device.
+
+config MTK_UFS_BLOCK_IO_LOG
+	bool "UFS Block IO log"
+	depends on MTK_BLOCK_TAG && SCSI_UFS_MEDIATEK
+	default y
+	help
+	  Enable IO trace for performance analysis and application access
+	  pattern study.
+	  Say Y if you want to have IO trace.
+
+	  If unsure, say N

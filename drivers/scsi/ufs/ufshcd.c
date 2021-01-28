@@ -54,6 +54,7 @@
 
 #include <scsi/ufs/ufs-mtk-ioctl.h>
 #include "ufs-mediatek.h"
+#include "ufs-mtk-block.h"
 
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
@@ -1986,6 +1987,7 @@ void ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	hba->lrb[task_tag].compl_time_stamp = ktime_set(0, 0);
 	ufshcd_clk_scaling_start_busy(hba);
 	__set_bit(task_tag, &hba->outstanding_reqs);
+	ufs_mtk_biolog_check(hba->outstanding_reqs);
 	ufshcd_writel(hba, 1 << task_tag, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	/* Make sure that doorbell is committed immediately */
 	wmb();
@@ -2610,12 +2612,16 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 	/* Make sure descriptors are ready before ringing the doorbell */
 	wmb();
 
+	ufs_mtk_biolog_queue_command(tag, lrbp->cmd);
+
 	/* issue command to the controller */
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	ufshcd_vops_setup_xfer_req(hba, tag, (lrbp->cmd ? true : false));
 	ufshcd_send_command(hba, tag);
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
+	if (!err)
+		ufs_mtk_biolog_send_command(tag);
 out:
 	up_read(&hba->clk_scaling_lock);
 	return err;
@@ -4995,6 +5001,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			(cmd) ? true : false);
 		if (cmd) {
 			ufshcd_add_command_trace(hba, index, "complete");
+			ufs_mtk_biolog_transfer_req_compl(index);
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
@@ -5003,8 +5010,10 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			lrbp->cmd = NULL;
 			lrbp->compl_time_stamp = ktime_get();
 			clear_bit_unlock(index, &hba->lrb_in_use);
+			ufs_mtk_biolog_scsi_done_start(index);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
+			ufs_mtk_biolog_scsi_done_end(index);
 			__ufshcd_release(hba);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE ||
 			lrbp->command_type == UTP_CMD_TYPE_UFS_STORAGE) {
@@ -5021,7 +5030,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 
 	/* clear corresponding bits of completed commands */
 	hba->outstanding_reqs ^= completed_reqs;
-
+	ufs_mtk_biolog_check(hba->outstanding_reqs);
 	ufshcd_clk_scaling_update_busy(hba);
 
 	/* we might have free'd some tags above */
