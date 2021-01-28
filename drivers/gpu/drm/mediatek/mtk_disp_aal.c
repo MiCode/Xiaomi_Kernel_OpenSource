@@ -21,6 +21,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/soc/mediatek/mtk-cmdq.h>
 #include <linux/module.h>
+#include <linux/workqueue.h>
 
 //For 120Hz rotation issue
 #include <linux/time.h>
@@ -84,6 +85,9 @@ static atomic_t g_aal_allowPartial = ATOMIC_INIT(0);
 static atomic_t g_aal_force_enable_irq = ATOMIC_INIT(0);
 static atomic_t g_led_mode = ATOMIC_INIT(MT65XX_LED_MODE_NONE);
 static atomic_t g_aal_force_relay = ATOMIC_INIT(0);
+static atomic_t g_aal_eof_irq = ATOMIC_INIT(0);
+static atomic_t g_aal_first_frame = ATOMIC_INIT(0);
+static struct workqueue_struct *aal_flip_wq;
 
 enum AAL_UPDATE_HIST {
 	UPDATE_NONE = 0,
@@ -134,7 +138,8 @@ static int g_aal_ess_en_cmd_id;
 enum AAL_IOCTL_CMD {
 	INIT_REG = 0,
 	SET_PARAM,
-	EVENTCTL
+	EVENTCTL,
+	FLIP_SRAM
 };
 
 struct dre3_node {
@@ -160,6 +165,7 @@ struct mtk_disp_aal {
 	atomic_t dirty_frame_retrieved;
 	atomic_t is_clock_on;
 	const struct mtk_disp_aal_data *data;
+	struct work_struct aal_flip_task;
 };
 static struct mtk_disp_aal *g_aal_data;
 
@@ -541,6 +547,12 @@ int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	return ret;
 }
 
+static void mtk_crtc_user_cmd_work(struct work_struct *work_item)
+{
+
+	mtk_crtc_user_cmd(g_aal_data->crtc, default_comp, FLIP_SRAM, NULL);
+}
+
 void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	const char *caller)
 {
@@ -557,6 +569,33 @@ void disp_aal_flip_sram(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	}
 
 	atomic_set(&g_aal_dre_config, 1);
+
+	if (atomic_cmpxchg(&g_aal_force_hist_apb, 0, 1) == 0) {
+		hist_apb = 0;
+		hist_int = 1;
+	} else if (atomic_cmpxchg(&g_aal_force_hist_apb, 1, 0) == 1) {
+		hist_apb = 1;
+		hist_int = 0;
+	} else {
+		AALERR("[SRAM] Error when get hist_apb in %s", caller);
+	}
+	sram_cfg = (hist_int << 6)|(hist_apb << 5)|(1 << 4);
+	AALFLOW_LOG("[SRAM] hist_apb(%d) hist_int(%d) 0x%08x in %s",
+		hist_apb, hist_int, sram_cfg, caller);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+		dre3_pa + DISP_AAL_SRAM_CFG, sram_cfg, (0x7 << 4));
+#endif
+}
+
+void disp_aal_first_flip_sram(struct mtk_ddp_comp *comp,
+	struct cmdq_pkt *handle, const char *caller)
+{
+#ifdef CONFIG_MTK_DRE30_SUPPORT
+	u32 hist_apb, hist_int, sram_cfg;
+	phys_addr_t dre3_pa = mtk_aal_dre3_pa(comp);
+
+	if (aal_sram_method != AAL_SRAM_SOF)
+		return;
 
 	if (atomic_cmpxchg(&g_aal_force_hist_apb, 0, 1) == 0) {
 		hist_apb = 0;
@@ -599,6 +638,7 @@ static void mtk_aal_init(struct mtk_ddp_comp *comp,
 		disp_aal_get_cust_led();
 
 	atomic_set(&g_aal_hist_available, 0);
+	atomic_set(&g_aal_eof_irq, 0);
 	atomic_set(&aal_data->dirty_frame_retrieved, 1);
 	AALFLOW_LOG("led mode: %d-\n", atomic_read(&g_led_mode));
 }
@@ -653,7 +693,8 @@ static void disp_aal_wait_hist(void)
 	if (atomic_read(&g_aal_hist_available) == 0) {
 		AALFLOW_LOG("wait_event_interruptible\n");
 		ret = wait_event_interruptible(g_aal_hist_wq,
-			atomic_read(&g_aal_hist_available) == 1);
+			(atomic_read(&g_aal_hist_available) == 1 &&
+			atomic_read(&g_aal_eof_irq) == 1));
 		AALFLOW_LOG("hist_available = 1, waken up, ret = %d", ret);
 	} else
 		AALFLOW_LOG("hist_available = 0");
@@ -663,6 +704,9 @@ static bool disp_aal_read_single_hist(struct mtk_ddp_comp *comp)
 {
 	bool read_success = true;
 	int i;
+
+	if (atomic_read(&g_aal_eof_irq) == 0)
+		return false;
 
 	for (i = 0; i < AAL_HIST_BIN; i++) {
 		g_aal_hist.maxHist[i] = readl(comp->regs +
@@ -704,6 +748,7 @@ static int disp_aal_copy_hist_to_user(struct DISP_AAL_HIST *hist)
 
 	g_aal_hist.serviceFlags = 0;
 	atomic_set(&g_aal_hist_available, 0);
+	atomic_set(&g_aal_eof_irq, 0);
 	spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 
 #if defined(CONFIG_MTK_DRE30_SUPPORT)
@@ -963,6 +1008,7 @@ int mtk_drm_ioctl_aal_init_reg(struct drm_device *dev, void *data,
 	struct mtk_drm_private *private = dev->dev_private;
 	struct mtk_ddp_comp *comp = private->ddp_comp[DDP_COMPONENT_AAL0];
 	struct drm_crtc *crtc = private->crtc[0];
+	g_aal_data->crtc = crtc;
 
 	return mtk_crtc_user_cmd(crtc, comp, INIT_REG, data);
 }
@@ -1287,6 +1333,9 @@ static int mtk_aal_user_cmd(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 	case EVENTCTL:
 		disp_aal_flip_sram(comp, handle, __func__);
 		break;
+	case FLIP_SRAM:
+		disp_aal_first_flip_sram(comp, handle, __func__);
+		break;
 	default:
 		AALERR("error cmd: %d\n", cmd);
 		return -EINVAL;
@@ -1510,6 +1559,10 @@ static void disp_aal_update_dre3_sram(struct mtk_ddp_comp *comp,
 		spin_unlock_irqrestore(&g_aal_hist_lock, flags);
 		if (result)
 			wake_up_interruptible(&g_aal_hist_wq);
+		else if (atomic_read(&g_aal_first_frame) == 0) {
+			atomic_set(&g_aal_first_frame, 1);
+			queue_work(aal_flip_wq, &g_aal_data->aal_flip_task);
+		}
 	}
 	if (spin_trylock_irqsave(&g_aal_dre3_gain_lock, flags)) {
 		/* Write DRE 3.0 gain */
@@ -2072,6 +2125,7 @@ static void mtk_aal_unprepare(struct mtk_ddp_comp *comp)
 	AALFLOW_LOG("\n");
 	spin_lock_irqsave(&g_aal_clock_lock, flags);
 	atomic_set(&aal_data->is_clock_on, 0);
+	atomic_set(&g_aal_first_frame, 0);
 	spin_unlock_irqrestore(&g_aal_clock_lock, flags);
 	if (first_backup || debug_skip_first_br)
 		ddp_aal_backup(comp);
@@ -2166,6 +2220,7 @@ void disp_aal_on_end_of_frame(struct mtk_ddp_comp *comp)
 	//For 120Hz rotation issue
 	do_gettimeofday(&start);
 
+	atomic_set(&g_aal_eof_irq, 1);
 	if (atomic_read(&g_aal_force_relay) == 1) {
 		disp_aal_clear_irq(comp, true);
 		return;
@@ -2323,6 +2378,9 @@ static int mtk_disp_aal_probe(struct platform_device *pdev)
 #ifdef CONFIG_LEDS_BRIGHTNESS_CHANGED
 	mtk_leds_register_notifier(&leds_init_notifier);
 #endif
+
+	aal_flip_wq = create_singlethread_workqueue("aal_flip_sram");
+	INIT_WORK(&g_aal_data->aal_flip_task, mtk_crtc_user_cmd_work);
 
 	AALFLOW_LOG("-\n");
 	return ret;
