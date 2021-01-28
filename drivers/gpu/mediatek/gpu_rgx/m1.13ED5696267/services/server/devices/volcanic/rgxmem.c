@@ -192,10 +192,6 @@ PVRSRV_ERROR RGXExtractFBSCEntryMaskFromMMUContext(PVRSRV_DEVICE_NODE *psDeviceN
 		return PVRSRV_ERROR_MMU_CONTEXT_NOT_FOUND;
 	}
 
-	/*
-	 * FIXME: Use 64-bit ATOMIC XCHG.
-	 * sFBSCInvalCmd.uCmdData.sFBSCInvalData.ui64FBSCEntryMask = OSAtomicExchange(&psServerMMUContext->ui64FBSCEntryMask, 0);
-	 */
 	*pui64FBSCEntryMask = psServerMMUContext->ui64FBSCEntryMask;
 	psServerMMUContext->ui64FBSCEntryMask = 0;
 
@@ -477,7 +473,7 @@ void RGXUnregisterMemoryContext(IMG_HANDLE hPrivData)
 	/*
 	 * Release the page catalogue address acquired in RGXRegisterMemoryContext().
 	 */
-	MMU_ReleaseBaseAddr(NULL /* FIXME */);
+	MMU_ReleaseBaseAddr(NULL);
 
 	/*
 	 * Free the firmware memory context.
@@ -544,7 +540,6 @@ PVRSRV_ERROR RGXRegisterMemoryContext(PVRSRV_DEVICE_NODE	*psDeviceNode,
 			application.
 		*/
 		PDUMPCOMMENT("Allocate RGX firmware memory context");
-		/* FIXME: why cache-consistent? */
 		eError = DevmemFwAllocate(psDevInfo,
 								sizeof(*psFWMemContext),
 								uiFWMemContextMemAllocFlags | PVRSRV_MEMALLOCFLAG_ZERO_ON_ALLOC,

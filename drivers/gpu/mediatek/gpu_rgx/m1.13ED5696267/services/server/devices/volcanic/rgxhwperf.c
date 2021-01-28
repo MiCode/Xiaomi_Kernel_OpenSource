@@ -2331,7 +2331,7 @@ cleanup:
 
 #define UNKNOWN_SYNC_NAME "UnknownSync"
 
-static_assert(PVRSRV_SYNC_NAME_LENGTH==SYNC_MAX_CLASS_NAME_LEN, "Sync class name max does not match Fence Sync name max");
+static_assert(PVRSRV_SYNC_NAME_LENGTH==PVRSRV_SYNC_NAME_LENGTH, "Sync class name max does not match Fence Sync name max");
 
 static inline IMG_UINT32 _FixNameAndCalculateHostAllocPacketSize(
 		RGX_HWPERF_HOST_RESOURCE_TYPE eAllocType,
@@ -2344,8 +2344,8 @@ static inline IMG_UINT32 _FixNameAndCalculateHostAllocPacketSize(
 	if (*ppsName != NULL && *ui32NameSize > 0)
 	{
 		/* if string longer than maximum cut it (leave space for '\0') */
-				if (*ui32NameSize >= SYNC_MAX_CLASS_NAME_LEN)
-					*ui32NameSize = SYNC_MAX_CLASS_NAME_LEN;
+				if (*ui32NameSize >= PVRSRV_SYNC_NAME_LENGTH)
+					*ui32NameSize = PVRSRV_SYNC_NAME_LENGTH;
 	}
 	else
 	{
@@ -2358,7 +2358,7 @@ static inline IMG_UINT32 _FixNameAndCalculateHostAllocPacketSize(
 	switch (eAllocType)
 	{
 		case RGX_HWPERF_HOST_RESOURCE_TYPE_SYNC:
-			ui32Size += sizeof(psData->uAllocDetail.sSyncAlloc) - SYNC_MAX_CLASS_NAME_LEN +
+			ui32Size += sizeof(psData->uAllocDetail.sSyncAlloc) - PVRSRV_SYNC_NAME_LENGTH +
 			*ui32NameSize;
 			break;
 		case RGX_HWPERF_HOST_RESOURCE_TYPE_FENCE_PVR:

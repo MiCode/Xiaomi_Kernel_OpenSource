@@ -47,7 +47,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "img_types.h"
 #include "img_defs.h"
 #include "pvrsrv_error.h"
-#include <powervr/sync_external.h>
+#include "sync_prim_internal.h"
 #include "pdumpdefs.h"
 #include "dllist.h"
 #include "pvr_debug.h"
@@ -185,20 +185,6 @@ SyncPrimSet(PVRSRV_CLIENT_SYNC_PRIM *psSync, IMG_UINT32 ui32Value);
 PVRSRV_ERROR
 SyncPrimNoHwUpdate(PVRSRV_CLIENT_SYNC_PRIM *psSync, IMG_UINT32 ui32Value);
 #endif
-
-PVRSRV_ERROR
-SyncPrimServerAlloc(SYNC_BRIDGE_HANDLE hBridge,
-					PVRSRV_CLIENT_SYNC_PRIM **ppsSync,
-					const IMG_CHAR		*pszClassName
-					PVR_DBG_FILELINE_PARAM);
-
-PVRSRV_ERROR
-SyncPrimServerGetStatus(IMG_UINT32 ui32SyncCount,
-						PVRSRV_CLIENT_SYNC_PRIM **papsSync,
-						IMG_UINT32 *pui32UID,
-						IMG_UINT32 *pui32FWAddr,
-						IMG_UINT32 *pui32CurrentOp,
-						IMG_UINT32 *pui32NextOp);
 
 #if defined(PDUMP)
 /*************************************************************************/ /*!

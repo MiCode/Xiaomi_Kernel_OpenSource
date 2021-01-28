@@ -132,8 +132,8 @@ typedef struct _SYNC_CHECKPOINT_SIGNAL_
 } _SYNC_CHECKPOINT_DEFERRED_SIGNAL;
 
 #define GET_CP_CB_NEXT_IDX(_curridx) (((_curridx) + 1) % SYNC_CHECKPOINT_MAX_DEFERRED_SIGNAL)
-#define GET_CP_CB_BASE(_idx)   (psDevNode->pui8DeferredSyncCPSignal + \
-		                (_idx) * sizeof(_SYNC_CHECKPOINT_DEFERRED_SIGNAL))
+#define GET_CP_CB_BASE(_idx)   (IMG_OFFSET_ADDR(psDevNode->pui8DeferredSyncCPSignal, \
+                                                ((_idx) * sizeof(_SYNC_CHECKPOINT_DEFERRED_SIGNAL))))
 
 
 /*************************************************************************/ /*!

@@ -51,7 +51,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "pvrsrv_error.h"
 
 #include "rgx_bridge.h"
-#include <powervr/sync_external.h>
 #include "rgx_fwif_shared.h"
 #include "devicemem_typedefs.h"
 #include "pvrsrv_sync_km.h"

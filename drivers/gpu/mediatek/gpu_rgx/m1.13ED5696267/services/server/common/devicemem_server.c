@@ -496,16 +496,12 @@ DevmemIntHeapCreate(DEVMEMINT_CTX *psDevmemCtx,
 	return PVRSRV_OK;
 }
 
-#define PVR_DUMMY_PAGE_INIT_VALUE	(0x0)
-#define PVR_ZERO_PAGE_INIT_VALUE	(0x0)
-
-static PVRSRV_ERROR DevmemIntAllocDefBackingPage(DEVMEMINT_CTX *psDevMemCtx,
+PVRSRV_ERROR DevmemIntAllocDefBackingPage(PVRSRV_DEVICE_NODE *psDevNode,
                                             PVRSRV_DEF_PAGE *psDefPage,
                                             IMG_INT	uiInitValue,
                                             IMG_CHAR *pcDefPageName,
                                             IMG_BOOL bInitPage)
 {
-	PVRSRV_DEVICE_NODE *psDevNode = psDevMemCtx->psDevNode;
 	IMG_UINT32 ui32RefCnt;
 	PVRSRV_ERROR eError = PVRSRV_OK;
 
@@ -529,7 +525,7 @@ static PVRSRV_ERROR DevmemIntAllocDefBackingPage(DEVMEMINT_CTX *psDevMemCtx,
 		                         uiInitValue,
 		                         bInitPage,
 #if defined(PDUMP)
-		                         MMU_GetPxPDumpMemSpaceName(psDevMemCtx->psMMUContext),
+		                         psDevNode->psMMUDevAttrs->pszMMUPxPDumpMemSpaceName,
 		                         pcDefPageName,
 		                         &psDefPage->hPdumpPg,
 #endif
@@ -550,7 +546,7 @@ static PVRSRV_ERROR DevmemIntAllocDefBackingPage(DEVMEMINT_CTX *psDevMemCtx,
 	return eError;
 }
 
-static void DevmemIntFreeDefBackingPage(PVRSRV_DEVICE_NODE *psDevNode,
+void DevmemIntFreeDefBackingPage(PVRSRV_DEVICE_NODE *psDevNode,
                                    PVRSRV_DEF_PAGE *psDefPage,
                                    IMG_CHAR *pcDefPageName)
 {
@@ -722,7 +718,7 @@ DevmemIntMapPMR(DEVMEMINT_HEAP *psDevmemHeap,
 			 * allocated after physically locking down pages, is considered.
 			 * If the dummy/zero page allocation fails, we do unlock the physical address and the impact
 			 * is a bit more in on demand mode of operation */
-			eError = DevmemIntAllocDefBackingPage(psDevmemHeap->psDevmemCtx,
+			eError = DevmemIntAllocDefBackingPage(psDevNode,
 			                                      psDefPage,
 			                                      uiInitValue,
 			                                      pszPageName,

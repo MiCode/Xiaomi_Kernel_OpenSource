@@ -47,12 +47,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "img_types.h"
 #include "img_defs.h"
-#include <powervr/sync_external.h>
 #include "ra.h"
 #include "dllist.h"
 #include "lock.h"
 #include "devicemem.h"
-
+#include "sync_prim_internal.h"
 
 #define LOCAL_SYNC_PRIM_RESET_VALUE 0
 #define LOCAL_SYNC_PRIM_POISON_VALUE 0xa5a5a5a5u

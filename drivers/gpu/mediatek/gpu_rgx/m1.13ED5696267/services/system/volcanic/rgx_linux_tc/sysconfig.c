@@ -248,7 +248,6 @@ PVRSRV_ERROR IonInit(void *pvPrivateData)
 	if (IS_ERR(psSysData->ion_client))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to create ION client (%ld)", __func__, PTR_ERR(psSysData->ion_client)));
-		/* FIXME: Find a better matching error code */
 		eError = PVRSRV_ERROR_ION_NO_CLIENT;
 		goto err_out;
 	}
@@ -257,7 +256,6 @@ PVRSRV_ERROR IonInit(void *pvPrivateData)
 	if (IS_ERR(psSysData->ion_rogue_allocation))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to allocate ION rogue buffer (%ld)", __func__, PTR_ERR(psSysData->ion_rogue_allocation)));
-		/* FIXME: Find a better matching error code */
 		eError = PVRSRV_ERROR_ION_FAILED_TO_ALLOC;
 		goto err_destroy_client;
 
@@ -723,7 +721,8 @@ static PVRSRV_ERROR DeviceConfigCreate(SYS_DATA *psSysData,
 	}
 
 	/* Setup RGX specific timing data */
-	psRGXTimingInfo->ui32CoreClockSpeed = tc_core_clock_speed(&psSysData->pdev->dev) * 6;
+	/* Volcanic FPGA 94MHz with divisor 16 = ~6MHz real clock */
+	psRGXTimingInfo->ui32CoreClockSpeed = (94 * 1000 * 1000) / 16;
 	psRGXTimingInfo->bEnableActivePM = IMG_FALSE;
 	psRGXTimingInfo->bEnableRDPowIsland = IMG_FALSE;
 	psRGXTimingInfo->ui32ActivePMLatencyms = SYS_RGX_ACTIVE_POWER_LATENCY_MS;

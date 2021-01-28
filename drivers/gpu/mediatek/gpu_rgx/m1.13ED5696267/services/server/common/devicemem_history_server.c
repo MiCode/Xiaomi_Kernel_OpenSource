@@ -426,7 +426,6 @@ static void MapRangePack(COMMAND_MAP_RANGE *psMapRange,
 	 *   18 bits for the start page index
 	 *   12 bits for the range
 	*/
-
 	PVR_ASSERT(ui32StartPage <= MAP_RANGE_MAX_START);
 	PVR_ASSERT(ui32Count <= MAP_RANGE_MAX_RANGE);
 
@@ -603,11 +602,6 @@ static void TouchBusyAllocation(IMG_UINT32 ui32Alloc)
 {
 	RemoveAllocationFromBusyList(ui32Alloc);
 	InsertAllocationToBusyList(ui32Alloc);
-}
-
-static INLINE IMG_BOOL IsAllocationListEmpty(IMG_UINT32 ui32ListHead)
-{
-	return ui32ListHead == END_OF_LIST;
 }
 
 /* GetOldestBusyAllocation:

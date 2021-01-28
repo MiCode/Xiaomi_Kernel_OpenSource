@@ -231,9 +231,10 @@ typedef struct
 /* All threads can access and writable */
 #define RGXFW_SEGMMU_ALLTHRS_WRITEABLE	(RGXFW_SEGMMU_ALLTHRS | RGXFW_SEGMMU_WRITEABLE)
 
-/* Direct map region 10 used for mapping GPU memory */
+/* Direct map region 10 used for mapping GPU memory - max 8MB */
 #define RGXFW_SEGMMU_DMAP_GPU_ID			(10U)
 #define RGXFW_SEGMMU_DMAP_GPU_ADDR_START	(0x07000000U)
+#define RGXFW_SEGMMU_DMAP_GPU_MAX_SIZE		(0x00800000U)
 
 /* Segment IDs */
 #define RGXFW_SEGMMU_DATA_ID			(1U)

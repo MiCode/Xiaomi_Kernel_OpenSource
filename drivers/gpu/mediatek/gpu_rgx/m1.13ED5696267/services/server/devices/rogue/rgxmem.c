@@ -58,11 +58,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "rgx_memallocflags.h"
 #include "rgx_bvnc_defs_km.h"
 #include "info_page.h"
-/*
-	FIXME:
-	For now just get global state, but what we really want is to do
-	this per memory context
-*/
+
 /*
  * TestAndReset of gui32CacheOps is protected by the device power-lock,
  * in the following way:
@@ -77,7 +73,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   UNLOCK(Power-lock);
  */
 static IMG_UINT32 gui32CacheOpps;
-/* FIXME: End */
+
 
 typedef struct _SERVER_MMU_CONTEXT_ {
 	DEVMEM_MEMDESC *psFWMemContextMemDesc;
@@ -316,7 +312,7 @@ void RGXUnregisterMemoryContext(IMG_HANDLE hPrivData)
 	/*
 	 * Release the page catalogue address acquired in RGXRegisterMemoryContext().
 	 */
-	MMU_ReleaseBaseAddr(NULL /* FIXME */);
+	MMU_ReleaseBaseAddr(NULL);
 
 	/*
 	 * Free the firmware memory context.
@@ -381,7 +377,6 @@ PVRSRV_ERROR RGXRegisterMemoryContext(PVRSRV_DEVICE_NODE	*psDeviceNode,
 			application.
 		*/
 		PDUMPCOMMENT("Allocate RGX firmware memory context");
-		/* FIXME: why cache-consistent? */
 		eError = DevmemFwAllocate(psDevInfo,
 								sizeof(*psFWMemContext),
 								uiFWMemContextMemAllocFlags,

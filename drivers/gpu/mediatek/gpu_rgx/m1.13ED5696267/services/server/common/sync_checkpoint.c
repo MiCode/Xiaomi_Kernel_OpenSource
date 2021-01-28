@@ -457,15 +457,14 @@ _SyncCheckpointBlockImport(RA_PERARENA_HANDLE hArena,
 	PVRSRV_ERROR eError;
 	PVR_UNREFERENCED_PARAMETER(uFlags);
 
-	PVR_LOG_IF_FALSE((hArena != NULL), "hArena is NULL");
+	PVR_LOG_RETURN_IF_INVALID_PARAM((hArena != NULL), "hArena");
 
 	/* Check we've not be called with an unexpected size */
-	PVR_LOG_IF_FALSE((uSize == sizeof(SYNC_CHECKPOINT_FW_OBJ)),
-	                 "uiSize is not the size of SYNC_CHECKPOINT_FW_OBJ");
+	PVR_LOG_RETURN_IF_INVALID_PARAM((uSize == sizeof(SYNC_CHECKPOINT_FW_OBJ)), "uSize");
 
 	/*
-		Ensure the sync checkpoint context doesn't go away while we have sync blocks
-		attached to it
+		Ensure the sync checkpoint context doesn't go away while we have
+		sync blocks attached to it.
 	 */
 	SyncCheckpointContextRef((PSYNC_CHECKPOINT_CONTEXT)psContext);
 
@@ -513,9 +512,9 @@ _SyncCheckpointBlockUnimport(RA_PERARENA_HANDLE hArena,
 	_SYNC_CHECKPOINT_CONTEXT *psContext = hArena;
 	SYNC_CHECKPOINT_BLOCK   *psSyncBlock = hImport;
 
-	PVR_LOG_IF_FALSE((psContext != NULL), "hArena invalid");
-	PVR_LOG_IF_FALSE((psSyncBlock != NULL), "hImport invalid");
-	PVR_LOG_IF_FALSE((uiBase == psSyncBlock->uiSpanBase), "uiBase invalid");
+	PVR_LOG_RETURN_VOID_IF_FALSE((psContext != NULL), "hArena invalid");
+	PVR_LOG_RETURN_VOID_IF_FALSE((psSyncBlock != NULL), "hImport invalid");
+	PVR_LOG_RETURN_VOID_IF_FALSE((uiBase == psSyncBlock->uiSpanBase), "uiBase invalid");
 
 	/* Free the span this import is using */
 	RA_Free(psContext->psSpanRA, uiBase);
@@ -1418,7 +1417,7 @@ void SyncCheckpointFree(PSYNC_CHECKPOINT psSyncCheckpoint)
 {
 	_SYNC_CHECKPOINT *psSyncCheckpointInt = (_SYNC_CHECKPOINT*)psSyncCheckpoint;
 
-	PVR_LOG_IF_FALSE((psSyncCheckpoint != NULL), "psSyncCheckpoint invalid");
+	PVR_LOG_RETURN_VOID_IF_FALSE((psSyncCheckpoint != NULL), "psSyncCheckpoint invalid");
 
 #if (ENABLE_SYNC_CHECKPOINT_ALLOC_AND_FREE_DEBUG == 1)
 	PVR_DPF((PVR_DBG_WARNING,
@@ -2562,7 +2561,7 @@ _SyncCheckpointUpdatePDump(PPVRSRV_DEVICE_NODE psDevNode, _SYNC_CHECKPOINT *psSy
 		}
 		else
 		{
-			psSyncData = (_SYNC_CHECKPOINT_DEFERRED_SIGNAL*) GET_CP_CB_BASE(psDevNode->ui16SyncCPWriteIdx);
+			psSyncData = GET_CP_CB_BASE(psDevNode->ui16SyncCPWriteIdx);
 			psSyncData->asSyncCheckpoint = *psSyncCheckpoint;
 			psSyncData->ui32Status = ui32Status;
 			psDevNode->ui16SyncCPWriteIdx = ui16NewWriteIdx;
@@ -2604,7 +2603,7 @@ MISRHandler_PdumpDeferredSyncSignalPoster(void *pvData)
 	do
 	{
 		/* Read item in the CB and flush it to pdump */
-		psSyncData = (_SYNC_CHECKPOINT_DEFERRED_SIGNAL*) GET_CP_CB_BASE(ui16ReadIdx);
+		psSyncData = GET_CP_CB_BASE(ui16ReadIdx);
 		_SyncCheckpointUpdatePDump(psDevNode, &psSyncData->asSyncCheckpoint, psSyncData->ui32Status, PVRSRV_FENCE_FLAG_NONE);
 		ui16ReadIdx = GET_CP_CB_NEXT_IDX(psDevNode->ui16SyncCPReadIdx);
 		/* Increment read offset in CB as one item is flushed to pdump */

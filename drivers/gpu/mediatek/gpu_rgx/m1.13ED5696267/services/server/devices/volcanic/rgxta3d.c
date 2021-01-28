@@ -2932,10 +2932,6 @@ e0:
 }
 
 
-/* TODO !!! this was local on the stack, and we managed to blow the stack for the kernel.
- * THIS - 46 argument function needs to be sorted out.
- */
-
 #if (ENABLE_TA3D_UFO_DUMP == 1)
 static void DumpUfoList(IMG_UINT32 ui32ClientTAFenceCount,
                         IMG_UINT32 ui32ClientTAUpdateCount,
@@ -3400,9 +3396,18 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 		}
 
 #if !defined(SUPPORT_STRIP_RENDERING)
-		ui32TAFenceCount += ui32BufferFenceSyncCheckpointCount;
+		if (bKickTA)
+		{
+			ui32TAFenceCount += ui32BufferFenceSyncCheckpointCount;
+		}
+		else
+		{
+			ui323DFenceCount += ui32BufferFenceSyncCheckpointCount;
+		}
 #else /* !defined(SUPPORT_STRIP_RENDERING) */
 		ui323DFenceCount += ui32BufferFenceSyncCheckpointCount;
+
+		PVR_UNREFERENCED_PARAMETER(bTAFenceOnSyncCheckpointsOnly);
 #endif /* !defined(SUPPORT_STRIP_RENDERING) */
 
 		if (psBufferUpdateSyncCheckpoint != NULL)
@@ -3802,7 +3807,7 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 #if defined(SUPPORT_BUFFER_SYNC)
 #if !defined(SUPPORT_STRIP_RENDERING)
 		/* Append buffer sync fences to TA fences */
-		if (ui32BufferFenceSyncCheckpointCount > 0)
+		if (ui32BufferFenceSyncCheckpointCount > 0 && bKickTA)
 		{
 			CHKPT_DBG((PVR_DBG_ERROR,
 					   "%s:   Append %d buffer sync checkpoints to TA Fence "
@@ -3825,7 +3830,8 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 			}
 			ui32ClientTAFenceCount += ui32BufferFenceSyncCheckpointCount;
 		}
-#else /* !defined(SUPPORT_STRIP_RENDERING) */
+		else
+#endif /* !defined(SUPPORT_STRIP_RENDERING) */
 		/* Append buffer sync fences to 3D fences */
 		if (ui32BufferFenceSyncCheckpointCount > 0)
 		{
@@ -3844,10 +3850,12 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 			{
 				pauiClient3DFenceUFOAddress = psRenderContext->sSyncAddrList3DFence.pasFWAddrs;
 			}
+			if (ui32Client3DFenceCount == 0)
+			{
+				b3DFenceOnSyncCheckpointsOnly = IMG_TRUE;
+			}
 			ui32Client3DFenceCount += ui32BufferFenceSyncCheckpointCount;
 		}
-		PVR_UNREFERENCED_PARAMETER(bTAFenceOnSyncCheckpointsOnly);
-#endif /* !defined(SUPPORT_STRIP_RENDERING) */
 
 		if (psBufferUpdateSyncCheckpoint)
 		{
@@ -4040,7 +4048,6 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 					goto fail_alloc_update_values_mem_3D;
 				}
 
-				/* FIXME: can this be optimised? */
 				paui32Client3DUpdateValue = s3DSyncData.paui32ClientUpdateValue;
 				ui32Client3DUpdateValueCount = s3DSyncData.ui32ClientUpdateValueCount;
 				pauiClient3DUpdateUFOAddress = s3DSyncData.pauiClientUpdateUFOAddress;
@@ -4172,6 +4179,7 @@ PVRSRV_ERROR PVRSRVRGXKickTA3DKM(RGX_SERVER_RENDER_CONTEXT	*psRenderContext,
 				 * This avoids a sync lockup when dependent renders are
 				 * submitted out-of-order and a PR must be scheduled.
 				 */
+				if (bKickTA)
 				{
 					/* Search for external timeline dependencies */
 					CHKPT_DBG((PVR_DBG_ERROR,
@@ -4862,7 +4870,6 @@ fail_taacquirecmd:
 	}
 
 fail_alloc_update_values_mem_3D:
-	/* FIXME: sTASyncData.paui32ClientPRUpdateValue points to the same buffer, needs a review */
 fail_alloc_update_values_mem_TA:
 	if (iUpdateTAFence != PVRSRV_NO_FENCE)
 	{

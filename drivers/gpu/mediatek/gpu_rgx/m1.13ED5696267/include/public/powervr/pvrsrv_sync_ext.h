@@ -34,6 +34,21 @@ THE SOFTWARE.
 extern "C" {
 #endif
 
+/*!
+ * Number of sync prims still used internally in operations
+ */
+#define PVRSRV_MAX_SYNC_PRIMS 4
+
+/*!
+ * Maximum number of dev var updates passed in a kick call
+ */
+#define PVRSRV_MAX_DEV_VARS 8
+
+/*!
+ * Number of UFOs in operations
+ */
+#define	PVRSRV_MAX_SYNCS (PVRSRV_MAX_SYNC_PRIMS + PVRSRV_MAX_DEV_VARS)
+
 /*! Implementation independent types for passing fence/timeline to Services.
  */
 typedef int32_t PVRSRV_FENCE;

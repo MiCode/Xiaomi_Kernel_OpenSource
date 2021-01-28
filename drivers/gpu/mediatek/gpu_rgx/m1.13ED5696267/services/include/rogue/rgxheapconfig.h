@@ -65,6 +65,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		available 4K page-size heap (GENERAL) space. The actual heap page-size
 		defaults to 16K; AppHint PVRSRV_APPHINT_GENERALNON4KHEAPPAGESIZE
 		can be used to forced it to these values: 4K,64K,256K,1M,2M.
+
+		Heaps must not start at 0x0000000000, as this is reserved for internal
+		use within device memory layer.
 */
 
 	/* Start at 4 MiB Size of 512 GiB less 4 MiB (managed by OS/Services) */
@@ -137,9 +140,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 		RGX_FIRMWARE_CONFIG_HEAP_SIZE
 		RGX_FIRMWARE_RAW_HEAP_SIZE */
 
-	/* HWBRN65273 workaround requires TQ memory to start at 0GB and use a unique single 1GB PCE entry. */
-	#define RGX_TQ3DPARAMETERS_BRN_65273_HEAP_BASE		IMG_UINT64_C(0x0000000000)
-	#define RGX_TQ3DPARAMETERS_BRN_65273_HEAP_SIZE		IMG_UINT64_C(0x0040000000)
+	/* HWBRN65273 workaround requires TQ memory to start at 64kB and use a unique single 0.99GB PCE entry. */
+	#define RGX_TQ3DPARAMETERS_BRN_65273_HEAP_BASE		IMG_UINT64_C(0x0000010000)
+	#define RGX_TQ3DPARAMETERS_BRN_65273_HEAP_SIZE		IMG_UINT64_C(0x003FFF0000)
 
 	/* Start at 912GiB. Size of 16 GiB. 16GB aligned to match RGX_CR_ISP_PIXEL_BASE */
 	#define RGX_TQ3DPARAMETERS_HEAP_BASE		IMG_UINT64_C(0xE400000000)

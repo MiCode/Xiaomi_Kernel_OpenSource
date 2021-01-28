@@ -598,7 +598,7 @@ static int adf_sunxi_validate(struct adf_device *dev, struct adf_post *cfg,
 			}
 		}
 		if (ebuf->transform != ADF_BUFFER_TRANSFORM_NONE_EXT) {
-			/* TODO: Sunxi transform support */
+			/* Note: No sunxi transform support */
 			val_log(post_id, "Transformed layers not supported at the minute\n");
 			err = -EINVAL;
 			goto err_free_assignments;
@@ -1216,8 +1216,8 @@ static void sunxi_debugfs_print_config(struct seq_file *s, u32 post_id,
 
 static int sunxi_debugfs_show(struct seq_file *s, void *unused)
 {
-	/* FIXME: Should properly lock to reduce the risk of modification
-	 * while printing?
+	/* Note: No locking, so theoretical risk of modification
+	 * while printing
 	 */
 	int post;
 

@@ -679,8 +679,7 @@ PVRSRVBridgeRGXKickCDM2(IMG_UINT32 ui32DispatchTableEntry,
 	    (PVRSRV_SYNC_NAME_LENGTH * sizeof(IMG_CHAR)) +
 	    (psRGXKickCDM2IN->ui32CmdSize * sizeof(IMG_BYTE)) + 0;
 
-	if (unlikely
-	    (psRGXKickCDM2IN->ui32ClientUpdateCount > PVRSRV_MAX_SYNC_PRIMS))
+	if (unlikely(psRGXKickCDM2IN->ui32ClientUpdateCount > PVRSRV_MAX_SYNCS))
 	{
 		psRGXKickCDM2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;

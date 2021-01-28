@@ -68,7 +68,6 @@ typedef struct _SERVER_MMU_CONTEXT_ SERVER_MMU_CONTEXT;
 
 IMG_DEV_PHYADDR GetPC(MMU_CONTEXT * psContext);
 
-/* FIXME: SyncPrim should be stored on the memory context */
 void RGXMMUSyncPrimAlloc(PVRSRV_DEVICE_NODE *psDeviceNode);
 void RGXMMUSyncPrimFree(void);
 

@@ -373,7 +373,6 @@ static INLINE void GetApphints(PVRSRV_RGXDEV_INFO *psDevInfo, RGX_SRVINIT_APPHIN
 	SrvInitParamGetUINT32(pvParamState, HWRDebugDumpLimit, ui32ParamTemp);
 	psHints->ui32HWRDebugDumpLimit = MIN(ui32ParamTemp, RGXFWIF_HWR_DEBUG_DUMP_ALL);
 	SrvInitParamGetUINT32(pvParamState, JonesDisableMask, ui32ParamTemp);
-	/*                                        FIXME: RGX_CR_JONES_FIX_DISABLE_CLRMSK */
 	psHints->ui32JonesDisableMask = ui32ParamTemp & ~0XFFFF0000U;
 
 	SrvInitParamGetBOOL(pvParamState, NewFilteringMode, psHints->bFilteringMode);

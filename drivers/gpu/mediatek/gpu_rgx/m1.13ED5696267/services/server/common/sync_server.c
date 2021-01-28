@@ -65,6 +65,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* Include this to obtain MAX_SYNC_CHECKPOINTS_PER_FENCE */
 #include "sync_checkpoint_external.h"
 
+/* Include this to obtain PVRSRV_MAX_DEV_VARS */
+#include "pvrsrv_devvar.h"
+
 #if defined(SUPPORT_SECURE_EXPORT)
 #include "ossecure_export.h"
 #endif
@@ -77,14 +80,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define SYNC_ADDR_LIST_DEBUG 0
 
 /* Set maximum number of FWAddrs that can be accommodated in a SYNC_ADDR_LIST.
- * This should allow for PVRSRV_MAX_SYNC_PRIMS sync prims plus
+ * This should allow for PVRSRV_MAX_DEV_VARS dev vars plus
  * MAX_SYNC_CHECKPOINTS_PER_FENCE sync checkpoints for check fences.
  * The same SYNC_ADDR_LIST is also used to hold UFOs for updates. While this
  * may need to accommodate the additional sync prim update returned by Native
  * sync implementation (used for timeline debug), the size calculated from
- * PVRSRV_MAX_SYNC_PRIMS+MAX_SYNC_CHECKPOINTS_PER_FENCE should be ample.
+ * PVRSRV_MAX_DEV_VARS+MAX_SYNC_CHECKPOINTS_PER_FENCE should be ample.
  */
-#define PVRSRV_MAX_SYNC_ADDR_LIST_SIZE (PVRSRV_MAX_SYNC_PRIMS+MAX_SYNC_CHECKPOINTS_PER_FENCE)
+#define PVRSRV_MAX_SYNC_ADDR_LIST_SIZE (PVRSRV_MAX_DEV_VARS+MAX_SYNC_CHECKPOINTS_PER_FENCE)
 /* Check that helper functions will not be preparing longer lists of
  * UFOs than the FW can handle.
  */
@@ -137,7 +140,7 @@ struct SYNC_RECORD
 	IMG_UINT64				ui64OSTime;
 	enum SYNC_RECORD_TYPE	eRecordType;
 	DLLIST_NODE				sNode;
-	IMG_CHAR				szClassName[SYNC_MAX_CLASS_NAME_LEN];
+	IMG_CHAR				szClassName[PVRSRV_SYNC_NAME_LENGTH];
 };
 
 #if defined(SYNC_DEBUG) || defined(REFCOUNT_DEBUG)
@@ -569,8 +572,8 @@ PVRSRVSyncRecordAddKM(CONNECTION_DATA *psConnection,
 
 	if (pszClassName)
 	{
-		if (ui32ClassNameSize >= SYNC_MAX_CLASS_NAME_LEN)
-			ui32ClassNameSize = SYNC_MAX_CLASS_NAME_LEN;
+		if (ui32ClassNameSize >= PVRSRV_SYNC_NAME_LENGTH)
+			ui32ClassNameSize = PVRSRV_SYNC_NAME_LENGTH;
 		/* Copy over the class name annotation */
 		OSStringLCopy(psSyncRec->szClassName, pszClassName, ui32ClassNameSize);
 	}

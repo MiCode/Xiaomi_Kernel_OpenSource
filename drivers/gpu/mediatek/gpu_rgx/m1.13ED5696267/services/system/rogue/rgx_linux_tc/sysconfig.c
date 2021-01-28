@@ -237,7 +237,6 @@ PVRSRV_ERROR IonInit(void *pvPrivateData)
 	if (IS_ERR(psSysData->ion_client))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to create ION client (%ld)", __func__, PTR_ERR(psSysData->ion_client)));
-		/* FIXME: Find a better matching error code */
 		eError = PVRSRV_ERROR_PCI_CALL_FAILED;
 		goto err_out;
 	}
@@ -246,7 +245,6 @@ PVRSRV_ERROR IonInit(void *pvPrivateData)
 	if (IS_ERR(psSysData->ion_rogue_allocation))
 	{
 		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to allocate ION rogue buffer (%ld)", __func__, PTR_ERR(psSysData->ion_rogue_allocation)));
-		/* FIXME: Find a better matching error code */
 		eError = PVRSRV_ERROR_PCI_CALL_FAILED;
 		goto err_destroy_client;
 

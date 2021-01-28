@@ -519,7 +519,7 @@ PVRSRVBridgeSyncAllocEvent(IMG_UINT32 ui32DispatchTableEntry,
 	    (psSyncAllocEventIN->ui32ClassNameSize * sizeof(IMG_CHAR)) + 0;
 
 	if (unlikely
-	    (psSyncAllocEventIN->ui32ClassNameSize > SYNC_MAX_CLASS_NAME_LEN))
+	    (psSyncAllocEventIN->ui32ClassNameSize > PVRSRV_SYNC_NAME_LENGTH))
 	{
 		psSyncAllocEventOUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;

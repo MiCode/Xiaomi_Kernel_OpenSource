@@ -1447,7 +1447,6 @@ PVRSRV_ERROR RGXInitCreateFWKernelMemoryContext(PVRSRV_DEVICE_NODE *psDeviceNode
 	PVRSRV_RGXDEV_INFO   *psDevInfo = psDeviceNode->pvDevice;
 	PVRSRV_DEVICE_CONFIG *psDevConfig = psDeviceNode->psDevConfig;
 	PVRSRV_ERROR eError;
-	IMG_UINT32         ui32OSID;
 
 #if defined(SUPPORT_AUTOVZ)
 	MMU_PX_SETUP sDefaultPxSetup = psDeviceNode->sDevMMUPxSetup;
@@ -1515,8 +1514,10 @@ PVRSRV_ERROR RGXInitCreateFWKernelMemoryContext(PVRSRV_DEVICE_NODE *psDeviceNode
 		goto failed_to_find_heap;
 	}
 
+#if defined(RGX_NUM_OS_SUPPORTED) && (RGX_NUM_OS_SUPPORTED > 1)
 	if (PVRSRV_VZ_MODE_IS(HOST))
 	{
+		IMG_UINT32 ui32OSID;
 		for (ui32OSID = RGX_FIRST_RAW_HEAP_OSID; ui32OSID < RGX_NUM_OS_SUPPORTED; ui32OSID++)
 		{
 			IMG_CHAR szHeapName[PVRSRV_MAX_RA_NAME_LENGTH];
@@ -1527,11 +1528,13 @@ PVRSRV_ERROR RGXInitCreateFWKernelMemoryContext(PVRSRV_DEVICE_NODE *psDeviceNode
 			PVR_LOG_GOTO_IF_ERROR(eError, "DevmemFindHeapByName", failed_to_find_heap);
 		}
 	}
+#endif
 
 #if defined(RGX_VZ_STATIC_CARVEOUT_FW_HEAPS)
 	if (PVRSRV_VZ_MODE_IS(HOST))
 	{
 		IMG_DEV_PHYADDR sPhysHeapBase;
+		IMG_UINT32 ui32OSID;
 
 		eError = PhysHeapRegionGetDevPAddr(psDeviceNode->apsPhysHeap[PVRSRV_DEVICE_PHYS_HEAP_FW_LOCAL], 0, &sPhysHeapBase);
 		PVR_LOG_GOTO_IF_ERROR(eError, "PhysHeapRegionGetDevPAddr", failed_to_find_heap);
@@ -1632,7 +1635,6 @@ void RGXDeInitDestroyFWKernelMemoryContext(PVRSRV_DEVICE_NODE *psDeviceNode)
 	if (psDevInfo->psKernelDevmemCtx)
 	{
 		eError = DevmemDestroyContext(psDevInfo->psKernelDevmemCtx);
-		/* FIXME - this should return void */
 		PVR_ASSERT(eError == PVRSRV_OK);
 	}
 
@@ -3171,6 +3173,14 @@ PVRSRV_ERROR DevDeInitRGX(PVRSRV_DEVICE_NODE *psDeviceNode)
 
 	eError = DeviceDepBridgeDeInit(psDevInfo->sDevFeatureCfg.ui64Features);
 	PVR_LOG_IF_ERROR(eError, "DeviceDepBridgeDeInit");
+#if	defined(PDUMP)
+	DevmemIntFreeDefBackingPage(psDeviceNode,
+								&psDeviceNode->sDummyPage,
+								DUMMY_PAGE);
+	DevmemIntFreeDefBackingPage(psDeviceNode,
+								&psDeviceNode->sDevZeroPage,
+								DEV_ZERO_PAGE);
+#endif
 
 #if defined(PVRSRV_FORCE_UNLOAD_IF_BAD_STATE)
 	if (PVRSRVGetPVRSRVData()->eServicesState != PVRSRV_SERVICES_STATE_OK)
@@ -3559,7 +3569,6 @@ static PVRSRV_ERROR RGXInitHeaps(PVRSRV_RGXDEV_INFO *psDevInfo,
 	IMG_UINT32 ui32AppHintDefault = PVRSRV_APPHINT_GENERALNON4KHEAPPAGESIZE;
 	IMG_UINT32 ui32GeneralNon4KHeapPageSize;
 
-	/* FIXME - consider whether this ought not to be on the device node itself */
 	psNewMemoryInfo->psDeviceMemoryHeap = OSAllocMem(sizeof(DEVMEM_HEAP_BLUEPRINT) * RGX_MAX_HEAP_ID);
 	if (psNewMemoryInfo->psDeviceMemoryHeap == NULL)
 	{
@@ -3871,16 +3880,6 @@ PVRSRV_ERROR RGXRegisterDevice (PVRSRV_DEVICE_NODE *psDeviceNode)
 	/* Setup static data and callbacks on the device agnostic device node */
 #if defined(PDUMP)
 	psDeviceNode->sDevId.pszPDumpRegName	= RGX_PDUMPREG_NAME;
-	/*
-		FIXME: This should not be required as PMR's should give the memspace
-		name. However, due to limitations within PDump we need a memspace name
-		when pdumping with MMU context with virtual address in which case we
-		don't have a PMR to get the name from.
-
-		There is also the issue obtaining a namespace name for the catbase which
-		is required when we PDump the write of the physical catbase into the FW
-		structure
-	*/
 	psDeviceNode->sDevId.pszPDumpDevName	= PhysHeapPDumpMemspaceName(psDeviceNode->apsPhysHeap[PVRSRV_DEVICE_PHYS_HEAP_GPU_LOCAL]);
 	psDeviceNode->pfnPDumpInitDevice = &RGXResetPDump;
 	psDeviceNode->ui64FBCClearColour = RGX_FBC_CC_DEFAULT;
@@ -4224,6 +4223,28 @@ PVRSRV_ERROR RGXRegisterDevice (PVRSRV_DEVICE_NODE *psDeviceNode)
 	eError = RGXDebugInit(psDevInfo);
 	PVR_LOG_GOTO_IF_ERROR(eError, "RGXDebugInit", e16);
 
+#if defined(PDUMP)
+	eError = DevmemIntAllocDefBackingPage(psDeviceNode,
+										  &psDeviceNode->sDummyPage,
+										  PVR_DUMMY_PAGE_INIT_VALUE,
+										  DUMMY_PAGE,
+	                                      IMG_TRUE);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to allocate dummy page.", __func__));
+		goto e17;
+	}
+	eError = DevmemIntAllocDefBackingPage(psDeviceNode,
+										  &psDeviceNode->sDevZeroPage,
+										  PVR_ZERO_PAGE_INIT_VALUE,
+										  DEV_ZERO_PAGE,
+	                                      IMG_TRUE);
+	if (eError != PVRSRV_OK)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Failed to allocate Zero page.", __func__));
+		goto e18;
+	}
+#endif
 
 
 	/* Initialise the device dependent bridges */
@@ -4232,6 +4253,14 @@ PVRSRV_ERROR RGXRegisterDevice (PVRSRV_DEVICE_NODE *psDeviceNode)
 
 	return PVRSRV_OK;
 
+#if defined(PDUMP)
+e18:
+	DevmemIntFreeDefBackingPage(psDeviceNode,
+								&psDeviceNode->sDummyPage,
+								DUMMY_PAGE);
+e17:
+	RGXDebugDeinit(psDevInfo);
+#endif
 e16:
 #if defined(SUPPORT_VALIDATION)
 	RGXPowerDomainDeInitState(&psDevInfo->sPowerDomainState);

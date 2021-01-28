@@ -480,7 +480,7 @@ PVRSRVBridgeRGXSubmitTransfer2(IMG_UINT32 ui32DispatchTableEntry,
 	}
 
 	if (unlikely
-	    (psRGXSubmitTransfer2IN->ui32SyncPMRCount > PVRSRV_MAX_SYNC_PRIMS))
+	    (psRGXSubmitTransfer2IN->ui32SyncPMRCount > PVRSRV_MAX_SYNCS))
 	{
 		psRGXSubmitTransfer2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
@@ -767,7 +767,7 @@ PVRSRVBridgeRGXSubmitTransfer2(IMG_UINT32 ui32DispatchTableEntry,
 		IMG_UINT32 i;
 		for (i = 0; i < psRGXSubmitTransfer2IN->ui32PrepareCount; i++)
 		{
-			if (ui32ClientUpdateCountInt[i] > PVRSRV_MAX_SYNC_PRIMS)
+			if (ui32ClientUpdateCountInt[i] > PVRSRV_MAX_SYNCS)
 			{
 				psRGXSubmitTransfer2OUT->eError =
 				    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;

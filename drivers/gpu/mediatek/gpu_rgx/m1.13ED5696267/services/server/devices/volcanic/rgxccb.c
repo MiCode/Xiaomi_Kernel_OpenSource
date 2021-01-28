@@ -2611,7 +2611,7 @@ void DumpStalledContextInfo(PVRSRV_RGXDEV_INFO *psDevInfo)
 			RGXFWIF_UFO *psUFOPtr = IMG_OFFSET_ADDR(pvPtr, sizeof(*psCommandHeader));
 			IMG_UINT32 jj;
 			IMG_UINT32 ui32NumUnsignalledUFOs = 0;
-			IMG_UINT32 ui32UnsignalledUFOVaddrs[PVRSRV_MAX_SYNC_PRIMS];
+			IMG_UINT32 ui32UnsignalledUFOVaddrs[PVRSRV_MAX_SYNCS];
 
 #if defined(PVRSRV_STALLED_CCB_ACTION)
 			if (!psDevInfo->psRGXFWIfFwOsData->sSLRLogFirst.aszCCBName[0])

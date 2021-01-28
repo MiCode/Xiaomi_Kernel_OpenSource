@@ -349,7 +349,6 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 
 	PVRSRV_DEVICE_FEATURE_CONFIG	sDevFeatureCfg;
 
-	/* FIXME: This is a workaround due to having 2 inits but only 1 deinit */
 	IMG_BOOL				bDevInit2Done;
 
 	IMG_BOOL				bFirmwareInitialised;
@@ -360,7 +359,6 @@ typedef struct _PVRSRV_RGXDEV_INFO_
 	/* Kernel mode linear address of device registers */
 	void __iomem			*pvRegsBaseKM;
 
-	/* FIXME: The alloc for this should go through OSAllocMem in future */
 	IMG_HANDLE				hRegMapping;
 
 	/* System physical address of device registers */

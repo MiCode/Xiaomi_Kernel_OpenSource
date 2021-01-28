@@ -2629,6 +2629,7 @@ PVRSRV_ERROR PDumpInternalVarToMemLabel(PMR *psPMR,
 
 	if (eErr != PVRSRV_OK)
 	{
+		PDUMP_RELEASE_SCRIPT_STRING()
 		return eErr;
 	}
 
@@ -2639,6 +2640,7 @@ PVRSRV_ERROR PDumpInternalVarToMemLabel(PMR *psPMR,
 
 	if (eErr != PVRSRV_OK)
 	{
+		PDUMP_RELEASE_SCRIPT_STRING()
 		PDUMP_UNLOCK(ui32Flags);
 		return eErr;
 	}
@@ -2670,6 +2672,7 @@ PVRSRV_ERROR PDumpInternalVarToMemLabel(PMR *psPMR,
 #endif
 	PDUMP_UNLOCK(ui32Flags);
 
+	PDUMP_RELEASE_SCRIPT_STRING();
 	return PVRSRV_OK;
 }
 

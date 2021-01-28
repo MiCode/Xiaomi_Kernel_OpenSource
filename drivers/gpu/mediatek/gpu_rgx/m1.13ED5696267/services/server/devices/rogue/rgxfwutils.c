@@ -1732,7 +1732,6 @@ static void RGXPDumpLoadFWInitData(PVRSRV_RGXDEV_INFO *psDevInfo,
 
 	/* Dump the config options so they can be edited.
 	 *
-	 * FIXME: Need new DevmemPDumpWRW API which writes a WRW to load ui32ConfigFlags & ui32FwOsConfigFlags
 	 */
 	PDUMPCOMMENT("(Set the FW system config options here)");
 	PDUMPCOMMENT("( Ctx Switch Rand mode:                      0x%08x)", RGXFWIF_INICFG_CTXSWITCH_MODE_RAND);

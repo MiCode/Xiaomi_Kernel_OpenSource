@@ -225,7 +225,7 @@ PVRSRVBridgeRGXKickSync2(IMG_UINT32 ui32DispatchTableEntry,
 	    (PVRSRV_SYNC_NAME_LENGTH * sizeof(IMG_CHAR)) + 0;
 
 	if (unlikely
-	    (psRGXKickSync2IN->ui32ClientUpdateCount > PVRSRV_MAX_SYNC_PRIMS))
+	    (psRGXKickSync2IN->ui32ClientUpdateCount > PVRSRV_MAX_DEV_VARS))
 	{
 		psRGXKickSync2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;

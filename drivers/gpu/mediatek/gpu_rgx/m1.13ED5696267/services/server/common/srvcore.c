@@ -882,10 +882,10 @@ PVRSRV_ERROR PVRSRVGetMultiCoreInfoKM(CONNECTION_DATA *psConnection,
 	PVR_UNREFERENCED_PARAMETER(psConnection);
 
 	if (psDeviceNode->pfnGetMultiCoreInfo != NULL)
-    {
-        eError = psDeviceNode->pfnGetMultiCoreInfo(psDeviceNode, ui32CapsSize, pui32NumCores, pui64Caps);
-    }
-    return eError;
+	{
+		eError = psDeviceNode->pfnGetMultiCoreInfo(psDeviceNode, ui32CapsSize, pui32NumCores, pui64Caps);
+	}
+	return eError;
 }
 
 

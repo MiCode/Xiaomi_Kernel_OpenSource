@@ -1536,8 +1536,7 @@ static PVRSRV_ERROR CacheOpPMRExec (PMR *psPMR,
 				(void *)(uintptr_t)((uintptr_t)pvAddress + (uintptr_t)(uiPgAlignedOffset-uiPgAlignedStartOffset));
 		}
 		/* Skip CpuVA acquire if CacheOp can be maintained entirely using CpuPA */
-		else if (gsCwq.uiCacheOpAddrType != OS_CACHE_OP_ADDR_TYPE_PHYSICAL ||
-				PMR_GetType(psPMR) == PMR_TYPE_DMABUF)
+		else if (gsCwq.uiCacheOpAddrType != OS_CACHE_OP_ADDR_TYPE_PHYSICAL)
 		{
 			if (bPMRIsSparse)
 			{
@@ -1559,7 +1558,7 @@ static PVRSRV_ERROR CacheOpPMRExec (PMR *psPMR,
 												(void **)&pbCpuVirtAddr,
 												&uiOutSize,
 												&hPrivOut);
-				PVR_GOTO_IF_ERROR(eError, e0);
+				PVR_LOG_GOTO_IF_ERROR(eError, "PMRAcquireKernelMappingData", e0);
 			}
 		}
 

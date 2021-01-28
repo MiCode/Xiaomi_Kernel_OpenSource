@@ -4212,11 +4212,6 @@ IMG_BOOL MMU_IsVDevAddrValid(MMU_CONTEXT *psMMUContext,
 }
 
 #if defined(PDUMP)
-IMG_CHAR *MMU_GetPxPDumpMemSpaceName(MMU_CONTEXT *psMMUContext)
-{
-	return psMMUContext->psDevAttrs->pszMMUPxPDumpMemSpaceName;
-}
-
 /*
 	MMU_ContextDerivePCPDumpSymAddr
  */

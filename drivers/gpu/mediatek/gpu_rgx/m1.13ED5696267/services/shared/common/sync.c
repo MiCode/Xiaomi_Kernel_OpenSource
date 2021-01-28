@@ -502,16 +502,16 @@ static PVRSRV_ERROR _SyncPrimAlloc(PSYNC_PRIM_CONTEXT hSyncPrimContext,
 
 	if (GetInfoPageDebugFlags(psSyncBlock->psContext->hDevConnection) & DEBUG_FEATURE_FULL_SYNC_TRACKING_ENABLED)
 	{
-		IMG_CHAR szClassName[SYNC_MAX_CLASS_NAME_LEN];
+		IMG_CHAR szClassName[PVRSRV_SYNC_NAME_LENGTH];
 		size_t uiSize;
 
 		if (pszClassName)
 		{
-			uiSize = OSStringNLength(pszClassName, SYNC_MAX_CLASS_NAME_LEN);
+			uiSize = OSStringNLength(pszClassName, PVRSRV_SYNC_NAME_LENGTH);
 			/* Copy the class name annotation into a fixed-size array */
 			OSCachedMemCopy(szClassName, pszClassName, uiSize);
-			if (uiSize == SYNC_MAX_CLASS_NAME_LEN)
-				szClassName[SYNC_MAX_CLASS_NAME_LEN-1] = '\0';
+			if (uiSize == PVRSRV_SYNC_NAME_LENGTH)
+				szClassName[PVRSRV_SYNC_NAME_LENGTH-1] = '\0';
 			else
 				szClassName[uiSize++] = '\0';
 		}
@@ -545,9 +545,9 @@ static PVRSRV_ERROR _SyncPrimAlloc(PSYNC_PRIM_CONTEXT hSyncPrimContext,
 	{
 		size_t	uiSize;
 
-		uiSize = OSStringNLength(pszClassName, SYNC_MAX_CLASS_NAME_LEN);
+		uiSize = OSStringNLength(pszClassName, PVRSRV_SYNC_NAME_LENGTH);
 
-		if (uiSize < SYNC_MAX_CLASS_NAME_LEN)
+		if (uiSize < PVRSRV_SYNC_NAME_LENGTH)
 			uiSize++;
 		/* uiSize now reflects size used for pszClassName + NUL byte */
 

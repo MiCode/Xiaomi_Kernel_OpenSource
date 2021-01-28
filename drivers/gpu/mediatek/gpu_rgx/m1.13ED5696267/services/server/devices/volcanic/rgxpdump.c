@@ -233,7 +233,6 @@ PVRSRV_ERROR PVRSRVPDumpCRCSignatureCheckKM(CONNECTION_DATA * psConnection,
 #if defined(SUPPORT_FBCDC_SIGNATURE_CHECK)
 
 #if !defined(RGX_CR_FBCDC_STATUS)
-	/* FIXME: defs update needed to add these to KM */
 	#define RGX_CR_FBCDC_STATUS					(0xF600U)
 #endif
 #if !defined(RGX_CR_FBCDC_SIGNATURE_STATUS)

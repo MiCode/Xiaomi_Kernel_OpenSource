@@ -127,7 +127,7 @@ PVRSRVBridgeSyncRecordAdd(IMG_UINT32 ui32DispatchTableEntry,
 	    (psSyncRecordAddIN->ui32ClassNameSize * sizeof(IMG_CHAR)) + 0;
 
 	if (unlikely
-	    (psSyncRecordAddIN->ui32ClassNameSize > SYNC_MAX_CLASS_NAME_LEN))
+	    (psSyncRecordAddIN->ui32ClassNameSize > PVRSRV_SYNC_NAME_LENGTH))
 	{
 		psSyncRecordAddOUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;

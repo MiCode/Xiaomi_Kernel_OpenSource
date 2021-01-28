@@ -1322,7 +1322,7 @@ PVRSRVBridgeRGXKickTA3D2(IMG_UINT32 ui32DispatchTableEntry,
 	    (psRGXKickTA3D2IN->ui32SyncPMRCount * sizeof(IMG_HANDLE)) + 0;
 
 	if (unlikely
-	    (psRGXKickTA3D2IN->ui32ClientTAFenceCount > PVRSRV_MAX_SYNC_PRIMS))
+	    (psRGXKickTA3D2IN->ui32ClientTAFenceCount > PVRSRV_MAX_SYNCS))
 	{
 		psRGXKickTA3D2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
@@ -1330,7 +1330,7 @@ PVRSRVBridgeRGXKickTA3D2(IMG_UINT32 ui32DispatchTableEntry,
 	}
 
 	if (unlikely
-	    (psRGXKickTA3D2IN->ui32ClientTAUpdateCount > PVRSRV_MAX_SYNC_PRIMS))
+	    (psRGXKickTA3D2IN->ui32ClientTAUpdateCount > PVRSRV_MAX_SYNCS))
 	{
 		psRGXKickTA3D2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
@@ -1338,7 +1338,7 @@ PVRSRVBridgeRGXKickTA3D2(IMG_UINT32 ui32DispatchTableEntry,
 	}
 
 	if (unlikely
-	    (psRGXKickTA3D2IN->ui32Client3DUpdateCount > PVRSRV_MAX_SYNC_PRIMS))
+	    (psRGXKickTA3D2IN->ui32Client3DUpdateCount > PVRSRV_MAX_SYNCS))
 	{
 		psRGXKickTA3D2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;
@@ -1372,8 +1372,7 @@ PVRSRVBridgeRGXKickTA3D2(IMG_UINT32 ui32DispatchTableEntry,
 		goto RGXKickTA3D2_exit;
 	}
 
-	if (unlikely
-	    (psRGXKickTA3D2IN->ui32SyncPMRCount > PVRSRV_MAX_SYNC_PRIMS))
+	if (unlikely(psRGXKickTA3D2IN->ui32SyncPMRCount > PVRSRV_MAX_SYNCS))
 	{
 		psRGXKickTA3D2OUT->eError =
 		    PVRSRV_ERROR_BRIDGE_ARRAY_SIZE_TOO_BIG;

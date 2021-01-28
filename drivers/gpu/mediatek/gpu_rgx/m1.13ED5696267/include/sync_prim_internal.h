@@ -1,8 +1,9 @@
 /*************************************************************************/ /*!
-@File           rgxsyncutils.h
-@Title          RGX Sync Utilities
+@File
+@Title          Services internal synchronisation typedef header
+@Description    Defines synchronisation types that are used internally
+                only
 @Copyright      Copyright (c) Imagination Technologies Ltd. All Rights Reserved
-@Description    RGX Sync helper functions
 @License        Dual MIT/GPLv2
 
 The contents of this file are subject to the MIT license as set out below.
@@ -41,46 +42,43 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */ /**************************************************************************/
 
-#ifndef RGXSYNCUTILS_H
-#define RGXSYNCUTILS_H
+#ifndef SYNC_INTERNAL_H
+#define SYNC_INTERNAL_H
 
-#include "rgxdevice.h"
-#include "sync_server.h"
-#include "rgxdebug.h"
-#include "rgx_fwif_km.h"
-
-typedef struct _RGX_SYNC_DATA_
-{
-	PRGXFWIF_UFO_ADDR *pauiClientUpdateUFOAddress;
-	IMG_UINT32 *paui32ClientUpdateValue;
-	IMG_UINT32 ui32ClientUpdateValueCount;
-	IMG_UINT32 ui32ClientUpdateCount;
-
-	PRGXFWIF_UFO_ADDR *pauiClientPRUpdateUFOAddress;
-	IMG_UINT32 *paui32ClientPRUpdateValue;
-	IMG_UINT32 ui32ClientPRUpdateValueCount;
-	IMG_UINT32 ui32ClientPRUpdateCount;
-} RGX_SYNC_DATA;
-
-//#define TA3D_CHECKPOINT_DEBUG
-
-#if 0 //defined(TA3D_CHECKPOINT_DEBUG)
-void _DebugSyncValues(IMG_UINT32 *pui32UpdateValues,
-					  IMG_UINT32 ui32Count);
-
-void _DebugSyncCheckpoints(PSYNC_CHECKPOINT *apsSyncCheckpoints,
-						   IMG_UINT32 ui32Count);
+#if defined(__cplusplus)
+extern "C" {
 #endif
 
-PVRSRV_ERROR RGXSyncAppendTimelineUpdate(IMG_UINT32 ui32FenceTimelineUpdateValue,
-										 SYNC_ADDR_LIST	*psSyncList,
-										 SYNC_ADDR_LIST	*psPRSyncList,
-										 PVRSRV_CLIENT_SYNC_PRIM *psFenceTimelineUpdateSync,
-										 RGX_SYNC_DATA *psSyncData,
-										 IMG_BOOL bKick3D);
+#include <powervr/mem_types.h>
 
-#endif /* RGXSYNCUTILS_H */
+/* These are included here as the typedefs are required
+ * internally.
+ */
 
-/******************************************************************************
- End of file (rgxsyncutils.h)
-******************************************************************************/
+typedef struct SYNC_PRIM_CONTEXT *PSYNC_PRIM_CONTEXT;
+typedef struct PVRSRV_CLIENT_SYNC_PRIM
+{
+	volatile uint32_t __iomem *pui32LinAddr;	/*!< User pointer to the primitive */
+} PVRSRV_CLIENT_SYNC_PRIM;
+
+/*!
+ * Bundled information for a sync prim operation
+ *
+ *   Structure: #PVRSRV_CLIENT_SYNC_PRIM_OP
+ *   Typedef: ::PVRSRV_CLIENT_SYNC_PRIM_OP
+ */
+typedef struct PVRSRV_CLIENT_SYNC_PRIM_OP
+{
+	#define PVRSRV_CLIENT_SYNC_PRIM_OP_CHECK	(1U << 0)
+	#define PVRSRV_CLIENT_SYNC_PRIM_OP_UPDATE	(1U << 1)
+	#define PVRSRV_CLIENT_SYNC_PRIM_OP_UNFENCED_UPDATE (PVRSRV_CLIENT_SYNC_PRIM_OP_UPDATE | (1U<<2))
+	uint32_t                    ui32Flags;       /*!< Operation flags: PVRSRV_CLIENT_SYNC_PRIM_OP_XXX */
+	PVRSRV_CLIENT_SYNC_PRIM    *psSync;          /*!< Pointer to the client sync primitive */
+	uint32_t                    ui32FenceValue;  /*!< The Fence value (only used if PVRSRV_CLIENT_SYNC_PRIM_OP_CHECK is set) */
+	uint32_t                    ui32UpdateValue; /*!< The Update value (only used if PVRSRV_CLIENT_SYNC_PRIM_OP_UPDATE is set) */
+} PVRSRV_CLIENT_SYNC_PRIM_OP;
+
+#if defined(__cplusplus)
+}
+#endif
+#endif /* SYNC_INTERNAL_H */
