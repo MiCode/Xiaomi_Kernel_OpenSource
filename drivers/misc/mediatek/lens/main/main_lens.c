@@ -282,6 +282,9 @@ void AFRegulatorCtrl(int Stage)
 				#elif defined(CONFIG_MACH_MT6768)
 				regVCAMAF =
 					regulator_get(lens_device, "vldo28");
+				#elif defined(CONFIG_MACH_MT6771)
+				regVCAMAF =
+					regulator_get(lens_device, "vldo28");
 				#elif defined(CONFIG_MACH_MT6853)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
 					"k6853v1_64_6360_alpha", 20) == 0) {
