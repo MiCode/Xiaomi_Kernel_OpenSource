@@ -377,7 +377,7 @@ static ssize_t scp_mobile_log_show(struct device *kobj,
 
 	stat = (scp_A_logger_inited && SCP_A_log_ctl->enable) ? 1 : 0;
 
-	return sprintf(buf, "[SCP A] mobile log is %s\n",
+	return scnprintf(buf, PAGE_SIZE, "[SCP A] mobile log is %s\n",
 			(stat == 0x1) ? "enabled" : "disabled");
 }
 
