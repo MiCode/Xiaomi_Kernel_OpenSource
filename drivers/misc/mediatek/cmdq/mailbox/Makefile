@@ -3,9 +3,6 @@
 # Copyright (c) 2019 MediaTek Inc.
 #
 
-obj-y += cmdq-test.o
-obj-y += cmdq-util.o
-
 ifeq ($(or $(strip $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)), $(strip $(CONFIG_MTK_CAM_SECURITY_SUPPORT))),y)
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
@@ -23,3 +20,7 @@ obj-y += cmdq-sec-helper.o
 obj-y += cmdq-sec-mailbox.o
 
 endif # $(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) or $(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+
+obj-y += cmdq-test.o
+obj-y += cmdq-util.o
+obj-y += $(subst ",,$(MTK_PLATFORM))/cmdq-platform.o
