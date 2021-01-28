@@ -1,0 +1,7 @@
+config MTK_PID_MAP
+	tristate "Map of PID and Task Name"
+	help
+	  Enable task name recorder to
+	  provide more pid and task name mappings.
+	  More memory will be required for this feature,
+	  so please consider the trade-off.
