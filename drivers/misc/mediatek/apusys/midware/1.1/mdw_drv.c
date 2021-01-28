@@ -23,6 +23,8 @@
 #include <linux/init.h>
 #include <linux/dma-mapping.h>
 
+#include "apusys_power.h"
+
 #include "apusys_drv.h"
 #include "mdw_dbg.h"
 #include "mdw_cmn.h"
@@ -84,6 +86,11 @@ static int mdw_probe(struct platform_device *pdev)
 	struct device *dev = NULL;
 
 	mdw_drv_info("+\n");
+
+	if (!apusys_power_check()) {
+		mdw_drv_err("apusys disable\n");
+		return -ENODEV;
+	}
 
 	g_mdw_device = &pdev->dev;
 
@@ -543,6 +550,11 @@ static struct platform_device mdw_dev = {
 
 static int __init mdw_init(void)
 {
+	if (!apusys_power_check()) {
+		mdw_drv_err("apusys disable\n");
+		return -ENODEV;
+	}
+
 	if (platform_driver_register(&mdw_drv)) {
 		mdw_drv_err("failed to register apusys midware driver");
 		return -ENODEV;
