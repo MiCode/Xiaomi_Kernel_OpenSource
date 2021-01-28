@@ -996,6 +996,14 @@ static struct snd_soc_dai_link mt6779_mt6359_dai_links[] = {
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
+	{
+		.name = "DSP_Capture_Raw",
+		.stream_name = "DSP_Capture_Raw",
+		.cpu_dai_name = "audio_task_capture_raw_dai",
+		.platform_name = "snd_audio_dsp",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
 #endif
 #ifdef CONFIG_MTK_VOW_SUPPORT
 	{

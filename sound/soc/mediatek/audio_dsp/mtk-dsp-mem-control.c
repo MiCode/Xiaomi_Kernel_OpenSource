@@ -363,6 +363,8 @@ int scp_reservedid_to_dsp_daiid(int id)
 		return AUDIO_TASK_CALL_FINAL_ID;
 	case ADSP_KTV_MEM_ID:
 		return AUDIO_TASK_KTV_ID;
+	case AUDIO_TASK_CAPTURE_RAW_ID:
+		return AUDIO_TASK_CAPTURE_RAW_ID;
 	default:
 		pr_warn("%s id = %d\n", __func__, id);
 		return -1;
@@ -395,6 +397,8 @@ int dsp_daiid_to_scp_reservedid(int task_dai_id)
 		return ADSP_CALL_FINAL_MEM_ID;
 	case AUDIO_TASK_KTV_ID:
 		return ADSP_KTV_MEM_ID;
+	case AUDIO_TASK_CAPTURE_RAW_ID:
+		return ADSP_CAPTURE_RAW_MEM_ID;
 	default:
 		pr_warn("%s id = %d\n", __func__, task_dai_id);
 		return -1;

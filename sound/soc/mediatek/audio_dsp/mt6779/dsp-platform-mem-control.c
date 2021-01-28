@@ -60,6 +60,8 @@ static struct mtk_adsp_task_attr adsp_task_attr[AUDIO_TASK_DAI_NUM] = {
 				      MT6779_MEMIF_VUL6,
 				      -1,
 				      KTV_FEATURE_ID, false},
+	[AUDIO_TASK_CAPTURE_RAW_ID] = {false, -1, -1, -1,
+				       CAPTURE_RAW_FEATURE_ID, false},
 };
 
 /* task share mem block */
@@ -180,6 +182,18 @@ static struct audio_dsp_dram
 		},
 };
 
+static struct audio_dsp_dram
+	adsp_sharemem_capture_raw_mblock[ADSP_TASK_SHAREMEM_NUM] = {
+		{
+			.size = 0x400, /* 1024 bytes */
+			.phy_addr = 0,
+		},
+		{
+			.size = 0x400, /* 1024 bytes */
+			.phy_addr = 0,
+		},
+};
+
 struct audio_dsp_dram *mtk_get_adsp_sharemem_block(int audio_task_id)
 {
 	switch (audio_task_id) {
@@ -205,6 +219,8 @@ struct audio_dsp_dram *mtk_get_adsp_sharemem_block(int audio_task_id)
 		return adsp_sharemem_call_final_mblock;
 	case AUDIO_TASK_KTV_ID:
 		return adsp_sharemem_ktv_mblock;
+	case AUDIO_TASK_CAPTURE_RAW_ID:
+		return adsp_sharemem_capture_raw_mblock;
 	default:
 		pr_err("%s err audio_task_id = %d\n", __func__, audio_task_id);
 	}
@@ -238,6 +254,8 @@ struct mtk_adsp_task_attr *mtk_get_adsp_task_attr(int adsp_id)
 		return &adsp_task_attr[AUDIO_TASK_CALL_FINAL_ID];
 	case AUDIO_TASK_KTV_ID:
 		return &adsp_task_attr[AUDIO_TASK_KTV_ID];
+	case AUDIO_TASK_CAPTURE_RAW_ID:
+		return &adsp_task_attr[AUDIO_TASK_CAPTURE_RAW_ID];
 	default:
 		break;
 	}
