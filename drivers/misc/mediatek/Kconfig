@@ -249,6 +249,7 @@ source "drivers/misc/mediatek/teei/Kconfig"
 source "drivers/misc/mediatek/tkcore/Kconfig"
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
+source "drivers/misc/mediatek/tee_sanity/Kconfig"
 
 source "drivers/misc/mediatek/masp/Kconfig"
 source "drivers/misc/mediatek/mtee/Kconfig"
