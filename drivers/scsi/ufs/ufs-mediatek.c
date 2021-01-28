@@ -35,6 +35,9 @@
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
 		      cmd, val, 0, 0, 0, 0, 0, &(res))
 
+#define ufs_mtk_va09_pwr_ctrl(res, on) \
+	ufs_mtk_smc(UFS_MTK_SIP_VA09_PWR_CTRL, on, res)
+
 #define ufs_mtk_crypto_ctrl(res, enable) \
 	ufs_mtk_smc(UFS_MTK_SIP_CRYPTO_CTRL, enable, res)
 
@@ -491,6 +494,14 @@ static void ufs_mtk_parse_dt(struct ufs_mtk_host *host)
 			__func__, ret);
 		host->refclk_ctrl = REF_CLK_SW_MODE;
 	}
+
+	/* get and enable va09 regulator */
+	host->reg_va09 = regulator_get(hba->dev, "va09");
+	if (!host->reg_va09) {
+		dev_info(hba->dev, "%s: failed to get va09!\n",
+			 __func__);
+		return;
+	}
 }
 
 void ufs_mtk_cfg_unipro_cg(struct ufs_hba *hba, bool enable)
@@ -752,14 +763,33 @@ static void ufs_mtk_mphy_power_on(struct ufs_hba *hba, bool on)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
 	struct phy *mphy = host->mphy;
+	struct arm_smccc_res res;
+	int ret;
 
 	if (!mphy)
 		return;
 
-	if (on && !host->mphy_powered_on)
+	if (on && !host->mphy_powered_on) {
+		ret = regulator_enable(host->reg_va09);
+		if (ret < 0) {
+			dev_info(hba->dev,
+				"%s: failed to enable va09: %d\n",
+				__func__, ret);
+		}
+		/* wait 200 us to stablize VA09 */
+		udelay(200);
+		ufs_mtk_va09_pwr_ctrl(res, 1);
 		phy_power_on(mphy);
-	else if (!on && host->mphy_powered_on)
+	} else if (!on && host->mphy_powered_on) {
 		phy_power_off(mphy);
+		ufs_mtk_va09_pwr_ctrl(res, 0);
+		ret = regulator_disable(host->reg_va09);
+		if (ret < 0) {
+			dev_info(hba->dev,
+				 "%s: failed to disable va09: %d\n",
+				 __func__, ret);
+		}
+	}
 	else
 		return;
 	host->mphy_powered_on = on;
