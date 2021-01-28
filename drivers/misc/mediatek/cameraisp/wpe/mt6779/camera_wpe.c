@@ -2698,110 +2698,6 @@ EXIT:
 /***********************************************************************
  *
  ***********************************************************************/
-/* Can write sensor's test model only, */
-/*if need write to other modules, need modify current code flow */
-static signed int WPE_WriteRegToHw
-	(struct WPE_REG_STRUCT *pReg, unsigned int Count)
-{
-	signed int Ret = 0;
-	unsigned int i;
-	bool dbgWriteReg;
-
-	/* Use local variable to store WPEInfo.*/
-	/*DebugMask & WPE_DBG_WRITE_REG for saving lock time */
-	spin_lock(&(WPEInfo.SpinLockWPE));
-	dbgWriteReg = WPEInfo.DebugMask & WPE_DBG_WRITE_REG;
-	spin_unlock(&(WPEInfo.SpinLockWPE));
-
-	/*  */
-	if (dbgWriteReg)
-		LOG_DBG("- E.\n");
-
-	/*  */
-	for (i = 0; i < Count; i++) {
-		if (dbgWriteReg) {
-			LOG_DBG("Addr(0x%lx), Val(0x%x)\n",
-				(unsigned long)(ISP_WPE_BASE + pReg[i].Addr),
-				(unsigned int) (pReg[i].Val));
-		}
-
-		if (((ISP_WPE_BASE + pReg[i].Addr) <
-			(ISP_WPE_BASE + WPE_REG_RANGE))
-			&& ((pReg[i].Addr & 0x3) == 0)) {
-			WPE_WR32(ISP_WPE_BASE + pReg[i].Addr, pReg[i].Val);
-		} else {
-			LOG_ERR("wrong address(0x%lx)\n",
-				(unsigned long)(ISP_WPE_BASE + pReg[i].Addr));
-		}
-	}
-
-	/*  */
-	return Ret;
-}
-
-
-
-/**********************************************************************
- *
- **********************************************************************/
-static signed int WPE_WriteReg(struct WPE_REG_IO_STRUCT *pRegIo)
-{
-	signed int Ret = 0;
-	/*
-	 * signed int TimeVd = 0;
-	 * signed int TimeExpdone = 0;
-	 * signed int TimeTasklet = 0;
-	 */
-	/* unsigned char pData = NULL; */
-	struct WPE_REG_STRUCT *pData = NULL;
-
-	/*  */
-	if ((pRegIo->pData == NULL) || (pRegIo->Count == 0) ||
-		(pRegIo->Count > (WPE_REG_RANGE>>2))) {
-		LOG_ERR(
-			"ERROR: pRegIo->pData is NULL or Count error:%d\n",
-			pRegIo->Count);
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-	/*  */
-	if (WPEInfo.DebugMask & WPE_DBG_WRITE_REG)
-		LOG_DBG("Data(0x%p), Count(%d)\n",
-		(pRegIo->pData), (pRegIo->Count));
-
-	/* pData = (MUINT8*)kmalloc((pRegIo->Count) */
-	/*	*sizeof(WPE_REG_STRUCT), GFP_ATOMIC); */
-	pData = kmalloc((pRegIo->Count) *
-		sizeof(struct WPE_REG_STRUCT), GFP_ATOMIC);
-	if (pData == NULL) {
-		LOG_DBG(
-			"ERROR: kmalloc failed, (process, pid, tgid)=(%s, %d, %d)\n",
-			current->comm, current->pid, current->tgid);
-		Ret = -ENOMEM;
-		goto EXIT;
-	}
-	if (copy_from_user
-	    (pData, (void __user *)(pRegIo->pData),
-	    pRegIo->Count * sizeof(struct WPE_REG_STRUCT)) != 0) {
-		LOG_ERR("copy_from_user failed\n");
-		Ret = -EFAULT;
-		goto EXIT;
-	}
-	/*  */
-	Ret = WPE_WriteRegToHw(pData, pRegIo->Count);
-	/*  */
-EXIT:
-	if (pData != NULL) {
-		kfree(pData);
-		pData = NULL;
-	}
-	return Ret;
-}
-
-
-/***********************************************************************
- *
- ***********************************************************************/
 static signed int WPE_WaitIrq(struct WPE_WAIT_IRQ_STRUCT *WaitIrq)
 {
 
@@ -3179,7 +3075,10 @@ static long WPE_ioctl(struct file *pFile,
 				sizeof(struct WPE_REG_IO_STRUCT)) == 0) {
 				/* 2nd layer behavoir of copy from*/
 				/*user is implemented in WPE_WriteReg(...) */
-				Ret = WPE_WriteReg(&RegIo);
+				/*Ret = WPE_WriteReg(&RegIo);*/
+				LOG_ERR(
+					"Not Support WPE_WRITE_REGISTER");
+				Ret = -EFAULT;
 			} else {
 				LOG_ERR(
 					"WPE_WRITE_REGISTER copy_from_user failed"
@@ -4475,6 +4374,7 @@ EXIT:
 /***********************************************************************
  *
  ***********************************************************************/
+/*
 static signed int WPE_mmap(
 	struct file *pFile, struct vm_area_struct *pVma)
 {
@@ -4482,7 +4382,7 @@ static signed int WPE_mmap(
 	unsigned int pfn = 0x0;
 
 	length = pVma->vm_end - pVma->vm_start;
-	/*  */
+
 	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
 	pfn = pVma->vm_pgoff << PAGE_SHIFT;
 
@@ -4510,9 +4410,9 @@ static signed int WPE_mmap(
 		pVma->vm_end - pVma->vm_start, pVma->vm_page_prot)) {
 		return -EAGAIN;
 	}
-	/*  */
 	return 0;
 }
+*/
 
 /***********************************************************************
  *
@@ -4527,7 +4427,7 @@ static const struct file_operations WPEFileOper = {
 	.open = WPE_open,
 	.release = WPE_release,
 	/* .flush   = mt_WPE_flush, */
-	.mmap = WPE_mmap,
+	/* .mmap = WPE_mmap, */
 	.unlocked_ioctl = WPE_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = WPE_ioctl_compat,
