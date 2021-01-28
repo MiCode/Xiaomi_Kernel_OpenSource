@@ -28,4 +28,10 @@
 		regulator-max-microvolt = <1193750>;
 		regulator-enable-ramp-delay = <256>;
 	};
+	mt6315_7_vbuck4: 7_vbuck4 {
+		regulator-name = "7_vbuck4";
+		regulator-min-microvolt = <300000>;
+		regulator-max-microvolt = <1193750>;
+		regulator-enable-ramp-delay = <256>;
+	};
 };
