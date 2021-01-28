@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/cpufreq.h>
+#include <linux/topology.h>
 
 #include "mt-plat/fpsgo_common.h"
 #include "fpsgo_base.h"
@@ -640,10 +641,7 @@ static int freq_notifier_call(struct notifier_block *self,
 	if (event != CPUFREQ_PRECHANGE)
 		return 0;
 
-	if (p->cpu <= 5)
-		cl = 0;
-	else
-		cl = 1;
+	cl = arch_cpu_cluster_id(p->cpu);
 
 	fpsgo_notify_cpufreq(cl, p->new);
 
