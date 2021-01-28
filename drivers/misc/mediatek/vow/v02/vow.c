@@ -105,7 +105,8 @@ static bool file_recog_data_open;
 static void vow_service_getVoiceData(void);
 static void vow_ipi_reg_ok(short uuid,
 			   int confidence_lv,
-			   unsigned int extradata_len);
+			   unsigned int extradata_len,
+			   unsigned int payloaddump_len);
 static bool VowDrv_SetFlag(int type, unsigned int set);
 static int VowDrv_GetHWStatus(void);
 static void vow_service_OpenDumpFile(void);
@@ -124,6 +125,9 @@ static void recog_dump_routine(struct work_struct *ws);
 //static int vow_service_SearchSpeakerModelWithUuid(int uuid);
 static int vow_service_SearchSpeakerModelWithKeyword(int keyword);
 static int vow_service_SearchSpeakerModelWithId(int id);
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+static void vow_service_ReadPayloadDumpData(unsigned int buf_length);
+#endif
 
 /*****************************************************************************
  * VOW SERVICES
@@ -136,12 +140,21 @@ static struct
 	unsigned long        voicedata_user_addr;
 	unsigned long        voicedata_user_size;
 	short                *voicedata_kernel_ptr;
-	char                 *voicddata_scp_ptr;
+	char                 *voicedata_scp_ptr;
 	dma_addr_t           voicedata_scp_addr;
 	char                 *extradata_ptr;
 	dma_addr_t           extradata_addr;
 	char                 *extradata_mem_ptr;
 	unsigned int         extradata_bytelen;
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+	char                 *payloaddump_scp_ptr;
+	dma_addr_t           payloaddump_scp_addr;
+	unsigned long        payloaddump_user_addr;
+	unsigned long        payloaddump_user_max_size;
+	unsigned long        payloaddump_user_return_size_addr;
+	short                *payloaddump_kernel_ptr;
+	unsigned int         payloaddump_length;
+#endif
 	unsigned int         voicedata_idx;
 	bool                 scp_command_flag;
 	bool                 recording_flag;
@@ -220,7 +233,7 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 
 		ipi_ptr = (struct vow_ipi_combined_info_t *)msg_data;
 		/* IPIMSG_VOW_RECOGNIZE_OK */
-		/*VOWDRV_DEBUG("[vow] IPIMSG_VOW_COMBINED_INFO\n");*/
+		VOWDRV_DEBUG("[vow] IPIMSG_VOW_COMBINED_INFO, flag=0x%x\n", ipi_ptr->ipi_type_flag);
 		bypass_flag = false;
 		if (ipi_ptr->ipi_type_flag & RECOG_OK_IDX_MASK) {
 			if ((vowserv.recording_flag == true) &&
@@ -239,10 +252,12 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 					vow_ipi_reg_ok(
 					    (short)ipi_ptr->recog_ok_keywordid,
 					    ipi_ptr->confidence_lv,
-					    ipi_ptr->extra_data_len);
+					    ipi_ptr->extra_data_len,
+					    ipi_ptr->payloaddump_len);
 				}
 			}
 		}
+
 		/* IPIMSG_VOW_DATAREADY */
 		if ((ipi_ptr->ipi_type_flag & DEBUG_DUMP_IDX_MASK) &&
 		    (vowserv.recording_flag)) {
@@ -401,7 +416,8 @@ bool vow_ipi_rceive_ack(unsigned int msg_id,
 
 static void vow_ipi_reg_ok(short keyword,
 			   int confidence_lv,
-			   unsigned int extradata_len)
+			   unsigned int extradata_len,
+			   unsigned int payloaddump_len)
 {
 	int slot;
 
@@ -417,6 +433,10 @@ static void vow_ipi_reg_ok(short keyword,
 		vowserv.extradata_bytelen = extradata_len;
 	else
 		vowserv.extradata_bytelen = 0;
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+	vowserv.payloaddump_length = payloaddump_len;
+	//VOWDRV_DEBUG("[vow PDR] payloaddump_length = 0x%x\n", ipi_ptr->payloaddump_length);
+#endif
 
 	/* VOWDRV_DEBUG("%s(), extradata_bytelen = %d\r", */
 	/*	     __func__, vowserv.extradata_bytelen); */
@@ -507,7 +527,7 @@ static void vow_service_Init(void)
 			vowserv.vow_speaker_model[I].flag = 0;
 			vowserv.vow_speaker_model[I].enabled = 0;
 		}
-		vowserv.voicddata_scp_ptr =
+		vowserv.voicedata_scp_ptr =
 		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
 		    + VOW_VOICEDATA_OFFSET;
 		vowserv.voicedata_scp_addr =
@@ -522,7 +542,20 @@ static void vow_service_Init(void)
 		    + VOW_EXTRA_DATA_OFFSET;
 		vowserv.extradata_mem_ptr = 0;
 		vowserv.extradata_bytelen = 0;
-
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+		/* use voice data R space to exchange payload data */
+		vowserv.payloaddump_user_addr = 0;
+		vowserv.payloaddump_user_max_size = 0;
+		vowserv.payloaddump_user_return_size_addr = 0;
+		vowserv.payloaddump_scp_ptr =
+		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
+		    + VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE;
+		vowserv.payloaddump_scp_addr =
+		    scp_get_reserve_mem_phys(VOW_MEM_ID)
+		    + VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE;
+		vowserv.payloaddump_kernel_ptr = NULL;
+		vowserv.payloaddump_length = 0;
+#endif
 		vowserv.voicedata_kernel_ptr = NULL;
 		vowserv.voicedata_idx = 0;
 		wakeup_source_init(&VOW_suspend_lock, "VOW wakelock");
@@ -537,8 +570,10 @@ static void vow_service_Init(void)
 		vowserv.scp_dual_mic_switch = VOW_ENABLE_DUAL_MIC;
 		vowserv.mtkif_type = 0;
 	} else {
+		int ipi_size;
+
 		/*Initialization*/
-		vowserv.voicddata_scp_ptr =
+		vowserv.voicedata_scp_ptr =
 		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
 		    + VOW_VOICEDATA_OFFSET;
 		vowserv.voicedata_scp_addr =
@@ -551,7 +586,15 @@ static void vow_service_Init(void)
 		vowserv.extradata_addr =
 		    scp_get_reserve_mem_phys(VOW_MEM_ID)
 		    + VOW_EXTRA_DATA_OFFSET;
-
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+		/* use voice data R space to exchange payload data */
+		vowserv.payloaddump_scp_ptr =
+		    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
+		    + VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE;
+		vowserv.payloaddump_scp_addr =
+		    scp_get_reserve_mem_phys(VOW_MEM_ID)
+		    + VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE;
+#endif
 		for (I = 0; I < MAX_VOW_SPEAKER_MODEL; I++) {
 			if ((vowserv.vow_speaker_model[I].flag > 1) ||
 			    (vowserv.vow_speaker_model[I].enabled > 1)) {
@@ -567,9 +610,13 @@ static void vow_service_Init(void)
 		vow_ipi_buf[0] = vowserv.voicedata_scp_addr;
 		vow_ipi_buf[1] = vowserv.extradata_addr;
 		vow_ipi_buf[2] = VOW_EXTRA_DATA_SIZE;
-
+		ipi_size = 3;
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+		vow_ipi_buf[3] = vowserv.payloaddump_scp_addr;
+		ipi_size = 4;
+#endif
 		ret = vow_ipi_send(IPIMSG_VOW_APREGDATA_ADDR,
-				   3,
+				   ipi_size,
 				   &vow_ipi_buf[0],
 				   VOW_IPI_BYPASS_ACK);
 		if (ret == 0) {
@@ -1031,6 +1078,37 @@ static void vow_check_boundary(unsigned int copy_len, unsigned int bound_len)
 	}
 }
 
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+static void vow_service_ReadPayloadDumpData(unsigned int buf_length)
+{
+	unsigned int tx_len;
+	unsigned int ret;
+
+	VOW_ASSERT(vowserv.payloaddump_kernel_ptr != NULL);
+
+	// copy from DRAM to get payload data
+	memcpy(&vowserv.payloaddump_kernel_ptr[0],
+	       vowserv.payloaddump_scp_ptr, buf_length);
+
+	//copy to user space
+	tx_len = buf_length;
+	VOWDRV_DEBUG("[VOW PDR] buf_len=0x%x, MAX len=0x%x\n",
+		     buf_length, vowserv.payloaddump_user_max_size);
+
+	if (buf_length > vowserv.payloaddump_user_max_size)
+		tx_len = vowserv.payloaddump_user_max_size;
+
+	ret = copy_to_user(
+		      (void __user *)(vowserv.payloaddump_user_return_size_addr),
+		      &tx_len,
+		      sizeof(unsigned int));
+	ret = copy_to_user(
+		      (void __user *)vowserv.payloaddump_user_addr,
+		      vowserv.payloaddump_kernel_ptr,
+		      tx_len);
+}
+#endif
+
 #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT
 static void vow_interleaving(short *out_buf,
 			     short *l_sample,
@@ -1072,14 +1150,14 @@ static int vow_service_ReadVoiceData_Internal(unsigned int buf_offset,
 		/* start interleaving L+R */
 		vow_interleaving(
 			&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
-			(short *)(vowserv.voicddata_scp_ptr + buf_offset),
-			(short *)(vowserv.voicddata_scp_ptr + buf_offset +
+			(short *)(vowserv.voicedata_scp_ptr + buf_offset),
+			(short *)(vowserv.voicedata_scp_ptr + buf_offset +
 			    VOW_VOICEDATA_SIZE),
 			buf_length);
 		/* end interleaving*/
 #else
 		memcpy(&vowserv.voicedata_kernel_ptr[vowserv.voicedata_idx],
-		       vowserv.voicddata_scp_ptr + buf_offset, buf_length);
+		       vowserv.voicedata_scp_ptr + buf_offset, buf_length);
 #endif
 
 		if (buf_length > VOW_VOICE_RECORD_BIG_THRESHOLD) {
@@ -2719,6 +2797,35 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 				 sizeof(unsigned int));
 	}
 		break;
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+	case VOW_SET_PAYLOADDUMP_INFO: {
+		struct vow_payloaddump_info_t payloaddump_temp;
+
+		copy_from_user((void *)&payloaddump_temp,
+				 (const void __user *)arg,
+				 sizeof(struct vow_payloaddump_info_t));
+		vowserv.payloaddump_user_addr =
+		    payloaddump_temp.return_payloaddump_addr;
+		vowserv.payloaddump_user_max_size =
+		    payloaddump_temp.max_payloaddump_size;
+		vowserv.payloaddump_user_return_size_addr =
+		    payloaddump_temp.return_payloaddump_size_addr;
+		pr_debug("-VOW_SET_PAYLOADDUMP_INFO(addr=%lu, sz=%lu)",
+			 vowserv.payloaddump_user_addr,
+			 vowserv.payloaddump_user_max_size);
+		if (vowserv.payloaddump_kernel_ptr != NULL) {
+			vfree(vowserv.payloaddump_kernel_ptr);
+			vowserv.payloaddump_kernel_ptr = NULL;
+		}
+		if (vowserv.payloaddump_user_max_size > 0) {
+			vowserv.payloaddump_kernel_ptr =
+			    vmalloc(vowserv.payloaddump_user_max_size);
+		} else {
+			ret = -EFAULT;
+		}
+	}
+		break;
+#endif
 	default:
 		VOWDRV_DEBUG("vow WrongParameter(%lu)", arg);
 		break;
@@ -2815,6 +2922,25 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		err |= put_user(l, &data->return_size_addr);
 		err |= get_user(l, &data32->data_addr);
 		err |= put_user(l, &data->data_addr);
+
+		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
+	}
+		break;
+	case VOW_SET_PAYLOADDUMP_INFO: {
+		struct vow_payloaddump_info_kernel_t __user *data32;
+		struct vow_payloaddump_info_t __user *data;
+		int err;
+		compat_size_t l;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+
+		err  = get_user(l, &data32->return_payloaddump_addr);
+		err |= put_user(l, &data->return_payloaddump_addr);
+		err |= get_user(l, &data32->return_payloaddump_size_addr);
+		err |= put_user(l, &data->return_payloaddump_size_addr);
+		err |= get_user(l, &data32->max_payloaddump_size);
+		err |= put_user(l, &data->max_payloaddump_size);
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
 	}
@@ -2930,6 +3056,9 @@ static ssize_t VowDrv_read(struct file *fp,
 			VOWDRV_DEBUG("data[%d] = %x\n",
 				i, *(vowserv.extradata_ptr + i));
 		}
+#endif
+#ifdef CONFIG_MTK_VOW_1STSTAGE_PCMCALLBACK
+		vow_service_ReadPayloadDumpData(vowserv.payloaddump_length);
 #endif
 		/* copy extra data from DRAM */
 		memcpy(vowserv.extradata_mem_ptr,
