@@ -171,8 +171,8 @@ PVRSRVTQLoadShaders(PVRSRV_DEVICE_NODE * psDeviceNode)
 
 	eError = PhysmemNewRamBackedPMR(NULL,
 									psDeviceNode,
-									ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
-									ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
+									(IMG_DEVMEM_SIZE_T)ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
+									(IMG_DEVMEM_SIZE_T)ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
 									1,
 									1,
 									&ui32MappingTable,
@@ -219,8 +219,8 @@ PVRSRVTQLoadShaders(PVRSRV_DEVICE_NODE * psDeviceNode)
 
 	eError = PhysmemNewRamBackedPMR(NULL,
 									psDeviceNode,
-									ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
-									ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
+									(IMG_DEVMEM_SIZE_T)ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
+									(IMG_DEVMEM_SIZE_T)ui32NumPages * RGX_BIF_PM_PHYSICAL_PAGE_SIZE,
 									1,
 									1,
 									&ui32MappingTable,
