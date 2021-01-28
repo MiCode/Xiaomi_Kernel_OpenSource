@@ -2389,10 +2389,13 @@ static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 	) {
 		unsigned long ulAddr, ulSize;
 
-		for (u4I = 0; u4I < VCODEC_MULTIPLE_INSTANCE_NUM_x_10; u4I++) {
-			if ((grNonCacheMemoryList[u4I].ulKVA != -1L) && (grNonCacheMemoryList[u4I].ulKPA != -1L)) {
-				ulAddr = grNonCacheMemoryList[u4I].ulKPA;
-				ulSize = (grNonCacheMemoryList[u4I].ulSize + 0x1000 - 1) & ~(0x1000 - 1);
+		for (u4I = 0; u4I < MULTI_INST_NUM_x_10; u4I++) {
+			if ((grNCMemoryList[u4I].ulKVA != -1L) &&
+				(grNCMemoryList[u4I].ulKPA != -1L)) {
+				ulAddr = grNCMemoryList[u4I].ulKPA;
+				ulSize =
+				(grNCMemoryList[u4I].ulSize + 0x1000 - 1) &
+				~(0x1000 - 1);
 				if ((length == ulSize) && (pfn == ulAddr)) {
 					pr_debug("[VCODEC] cache idx %d\n",
 						u4I);
@@ -2401,7 +2404,7 @@ static int vcodec_mmap(struct file *file, struct vm_area_struct *vma)
 			}
 		}
 
-		if (u4I == VCODEC_MULTIPLE_INSTANCE_NUM_x_10) {
+		if (u4I == MULTI_INST_NUM_x_10) {
 			pr_err("[VCODEC][ERROR] mmap region error: Length(0x%lx), pfn(0x%lx)\n",
 				 (unsigned long)length, pfn);
 			return -EAGAIN;
