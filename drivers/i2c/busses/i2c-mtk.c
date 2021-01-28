@@ -1879,6 +1879,7 @@ MODULE_DEVICE_TABLE(of, mt_i2c_match);
 void mt_i2c_pll_resume(void)
 {
 
+#if !defined(CONFIG_MT_I2C_FPGA_ENABLE)
 	if (i2c_pll_info.clk_mux && i2c_pll_info.clk_p_univ) {
 		pr_info("i2c main pll switch to univ pll\n");
 		clk_prepare_enable(i2c_pll_info.clk_mux);
@@ -1887,16 +1888,22 @@ void mt_i2c_pll_resume(void)
 	} else {
 		pr_info("i2c no need switch top pll\n");
 	}
+#endif
 }
 
 int mt_i2c_pll_suspend(void)
 {
+#if !defined(CONFIG_MT_I2C_FPGA_ENABLE)
 	int ret = 0;
 	const char *parent;
 
 	if (i2c_pll_info.clk_mux && i2c_pll_info.clk_p_main) {
 		pr_info("i2c univ pll switch to main pll\n");
-		clk_prepare_enable(i2c_pll_info.clk_mux);
+		ret = clk_prepare_enable(i2c_pll_info.clk_mux);
+		if (ret) {
+			pr_info("enable i2c clk_mux fail(%d)\n", ret);
+			return ret;
+		}
 		parent =
 			__clk_get_name(clk_get_parent(i2c_pll_info.clk_mux));
 		pr_info("i2c before parent: %s\n", parent);
@@ -1904,7 +1911,7 @@ int mt_i2c_pll_suspend(void)
 			i2c_pll_info.clk_p_main);
 		if (ret) {
 			pr_info("set i2c clk_p_main fail(%d)\n", ret);
-			return ret;
+			goto err_clk_set_main;
 		}
 		parent =
 			__clk_get_name(clk_get_parent(i2c_pll_info.clk_mux));
@@ -1915,6 +1922,13 @@ int mt_i2c_pll_suspend(void)
 	}
 
 	return ret;
+
+err_clk_set_main:
+	clk_disable_unprepare(i2c_pll_info.clk_mux);
+	return ret;
+#else
+	return 0;
+#endif
 }
 
 
