@@ -30,15 +30,20 @@ void dump_backtrace_entry_ramconsole_print (unsigned long where,
 	unsigned long from, unsigned long frame)
 {
 	char str_buf[256];
+	int ret;
 
 #ifdef CONFIG_KALLSYMS
-	snprintf(str_buf, sizeof(str_buf),
+	ret = snprintf(str_buf, sizeof(str_buf),
 		"[<%08lx>] (%pS) from [<%08lx>] (%pS)\n",
 			where, (void *)where, from, (void *)from);
+	if (ret < 0)
+		pr_info("Fail snprintf: %d\n", ret);
 #else
-	snprintf(str_buf, sizeof(str_buf),
+	ret = snprintf(str_buf, sizeof(str_buf),
 			"Function entered at [<%08lx>] from [<%08lx>]\n",
 				where, from);
+	if (ret < 0)
+		pr_info("Fail snprintf: %d\n", ret);
 #endif
 	aee_sram_fiq_log(str_buf);
 }
