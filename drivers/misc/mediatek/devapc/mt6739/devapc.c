@@ -32,6 +32,8 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #include <linux/types.h>
+#include <linux/sched/clock.h>
+#include <linux/sched/debug.h>
 
 #ifdef CONFIG_MTK_HIBERNATION
 #include <mtk_hibernate_dpm.h>
