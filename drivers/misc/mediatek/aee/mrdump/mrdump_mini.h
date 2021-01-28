@@ -10,7 +10,6 @@ struct mrdump_mini_extra_misc {
 	unsigned long max_size;
 };
 int mrdump_mini_init(void);
-extern raw_spinlock_t logbuf_lock;
 #ifdef CONFIG_STACKTRACE
 extern unsigned long *stack_trace;
 #endif

@@ -104,15 +104,62 @@ static inline void show_kaslr(void)
 }
 #endif
 
+static char nested_panic_buf[1024];
+int aee_nested_printf(const char *fmt, ...)
+{
+	va_list args;
+	static int total_len;
+
+	va_start(args, fmt);
+	total_len += vsnprintf(nested_panic_buf, sizeof(nested_panic_buf),
+			fmt, args);
+	va_end(args);
+
+	aee_sram_fiq_log(nested_panic_buf);
+
+	return total_len;
+}
+
+static int num_die;
+static void nested_die_check(int fiq_step)
+{
+	static int last_step;
+
+	if (num_die <= 1) {
+		last_step = fiq_step;
+		aee_rr_rec_fiq_step(fiq_step);
+	}
+
+	if ((num_die > 1 && fiq_step == last_step) ||
+			fiq_step == AEE_FIQ_STEP_COMMON_DIE_DONE){
+		aee_nested_printf("nd-%d, fs-%d, ls-%d\n",
+				  num_die, fiq_step, last_step);
+		aee_exception_reboot();
+	}
+}
+
 int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs)
 {
+	/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
+#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
+	/* disable cache ASAP so that RAM can store info in time */
+	dis_D_inner_flush_all();
+#else
+	pr_info("dis_D_inner_flush_all invalid");
+#endif
+	++num_die;
+	nested_die_check(fiq_step);
 	show_kaslr();
 	aee_print_modules();
-	aee_rr_rec_fiq_step(fiq_step);
+
+	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_SCP);
 	aee_rr_rec_scp();
+
+	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_MRDUMP);
 	__mrdump_create_oops_dump(reboot_reason, regs, msg);
 
+	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_TRACE);
 	switch (reboot_reason) {
 	case AEE_REBOOT_MODE_KERNEL_OOPS:
 		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
@@ -132,15 +179,14 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		/* Don't print anything */
 		break;
 	}
+
+	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_REGS);
 	mrdump_mini_ke_cpu_regs(regs);
+
+	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_CS);
 	console_unlock();
-	/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
-	dis_D_inner_flush_all();
-#else
-	pr_info("dis_D_inner_flush_all invalid");
-#endif
-	aee_exception_reboot();
+
+	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_DONE);
 	return NOTIFY_DONE;
 }
 EXPORT_SYMBOL(mrdump_common_die);
@@ -152,6 +198,7 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
 	crash_setup_regs(&saved_regs, NULL);
+	aee_zap_locks();
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_PANIC,
 				 "Kernel Panic", &saved_regs);
@@ -163,6 +210,7 @@ static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 	int fiq_step;
 
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
+	aee_zap_locks();
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_OOPS,
 				 "Kernel Oops", dargs->regs);

@@ -62,7 +62,6 @@ static char str_buf[AEE_MTK_CPU_NUMS][LOG_BUFFER_SIZE];
 static void *atf_aee_debug_virt_addr;
 
 static atomic_t aee_wdt_zap_lock;
-int no_zap_locks;
 
 struct atf_aee_regs {
 	__u64 regs[31];
@@ -241,12 +240,6 @@ static void aee_save_reg_stack_sram(unsigned int cpu)
 	mrdump_save_per_cpu_reg(cpu, &regs_buffer_bin[cpu].regs);
 }
 
-/* avoid build fail for LKM and GKI */
-__weak void aee_wdt_zap_locks(void)
-{
-	pr_notice("%s:weak function\n", __func__);
-}
-
 void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 {
 	unsigned long long t;
@@ -288,17 +281,6 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 
 	/* Wait for other cpu dump */
 	mdelay(1000);
-
-	/* kernel print lock: exec aee_wdt_zap_lock() only one time */
-	if (atomic_xchg(&aee_wdt_zap_lock, 0)) {
-		if (!no_zap_locks) {
-			aee_wdt_zap_locks();
-			snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
-				"\nCPU%d: zap kernel print locks\n", cpu);
-			aee_sram_fiq_log(str_buf[cpu]);
-			memset(str_buf[cpu], 0, sizeof(str_buf[cpu]));
-		}
-	}
 
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_KICK);
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG)
@@ -374,7 +356,16 @@ void notrace aee_wdt_atf_entry(void)
 #endif
 	void *regs;
 	struct pt_regs pregs;
+	char zaplog[64] = {0};
 	int cpu = get_HW_cpuid();
+
+	/* kernel print lock: exec aee_wdt_zap_lock() only one time */
+	if (atomic_xchg(&aee_wdt_zap_lock, 0)) {
+		aee_zap_locks();
+		if (snprintf(zaplog, sizeof(zaplog),
+				"\nCPU%d: zap kernel print locks\n", cpu) > 0)
+			aee_sram_fiq_log(zaplog);
+	}
 #if IS_ENABLED(CONFIG_MTK_WATCHDOG)
 	if (mtk_rgu_status_is_sysrst() || mtk_rgu_status_is_eintrst()) {
 #if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)

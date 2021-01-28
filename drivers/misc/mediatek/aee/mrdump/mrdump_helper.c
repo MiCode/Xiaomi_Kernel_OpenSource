@@ -18,6 +18,8 @@
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
 
+#include <mt-plat/aee.h>
+
 #ifdef MODULE
 struct aee_sym {
 	char name[KSYM_NAME_LEN];
@@ -63,7 +65,6 @@ static void find_koes(void)
 		aee_koes = (void *)addr_tmp;
 		return;
 	}
-	pr_info("mismatch item: %s", namebuf);
 }
 
 static int need_init = 1;
@@ -79,10 +80,8 @@ unsigned long aee_addr_find(const char *name)
 		return 0;
 
 	memset(&sym, 0x0, sizeof(sym));
-	if (snprintf(sym.name, sizeof(sym.name), "%s", name) < 0) {
-		pr_info("mrdump: fail to find %s", name);
+	if (snprintf(sym.name, sizeof(sym.name), "%s", name) < 0)
 		return 0;
-	}
 
 	if (aee_koes(addr_ok, (void *)(&sym)))
 		return sym.addr;
@@ -316,7 +315,6 @@ static u64 *aee_cpu_logical_map(void)
 	if (p__cpu_logical_map)
 		return p__cpu_logical_map;
 
-	pr_info("%s failed", __func__);
 	return NULL;
 }
 
@@ -325,10 +323,8 @@ int get_HW_cpuid(void)
 	u64 mpidr;
 	int cpu;
 
-	if (!aee_cpu_logical_map()) {
-		pr_info("%s failed", __func__);
-		return 0;
-	}
+	if (!aee_cpu_logical_map())
+		return -EINVAL;
 
 	mpidr = read_cpuid_mpidr();
 	/*
@@ -491,6 +487,33 @@ void aee__flush_dcache_area(void *addr, size_t len)
 	}
 
 	p__flush_dcache_area(addr, len);
+}
+
+raw_spinlock_t *p_logbuf_lock;
+struct semaphore *p_console_sem;
+void aee_zap_locks(void)
+{
+	if (!p_logbuf_lock) {
+		p_logbuf_lock = (void *)aee_addr_find("logbuf_lock");
+		if (!p_logbuf_lock) {
+			aee_sram_printk("%s failed to get logbuf lock",
+					__func__);
+			return;
+		}
+	}
+	if (!p_console_sem) {
+		p_console_sem = (void *)aee_addr_find("console_sem");
+		if (!p_console_sem) {
+			aee_sram_printk("%s failed to get logbuf lock",
+					__func__);
+			return;
+		}
+	}
+	debug_locks_off();
+	/* If a crash is occurring, make sure we can't deadlock */
+	raw_spin_lock_init(p_logbuf_lock);
+	/* And make sure that we print immediately */
+	sema_init(p_console_sem, 1);
 }
 
 /* for aee_aed.ko */
@@ -685,6 +708,34 @@ extern void __flush_dcache_area(void *addr, size_t len);
 void aee__flush_dcache_area(void *addr, size_t len)
 {
 	__flush_dcache_area(addr, len);
+}
+
+raw_spinlock_t *p_logbuf_lock;
+struct semaphore *p_console_sem;
+void aee_zap_locks(void)
+{
+	if (!p_logbuf_lock) {
+		p_logbuf_lock = (void *)kallsyms_lookup_name("logbuf_lock");
+		if (!p_logbuf_lock) {
+			aee_sram_printk("%s failed to get logbuf lock",
+					__func__);
+			return;
+		}
+	}
+	if (!p_console_sem) {
+		p_console_sem = (void *)kallsyms_lookup_name("console_sem");
+		if (!p_console_sem) {
+			aee_sram_printk("%s failed to get logbuf lock",
+					__func__);
+			return;
+		}
+	}
+
+	debug_locks_off();
+	/* If a crash is occurring, make sure we can't deadlock */
+	raw_spin_lock_init(p_logbuf_lock);
+	/* And make sure that we print immediately */
+	sema_init(p_console_sem, 1);
 }
 
 /* for aee_aed.ko */
