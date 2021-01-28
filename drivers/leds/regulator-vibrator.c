@@ -77,7 +77,7 @@ static int mt_vibra_parse_dt(struct device *dev,
 		ret = PTR_ERR(vibr_conf->reg);
 		pr_notice("Error load dts: get regulator return %d\n", ret);
 		vibr_conf->reg = NULL;
-		return ret;
+		//return ret;
 	}
 
 	ret = of_property_read_u32(dev->of_node, "max-volt",
@@ -112,7 +112,10 @@ static int mt_vibra_parse_dt(struct device *dev,
 
 static int vibr_power_set(struct reg_vibr *vibr)
 {
-	int ret;
+	int ret = 0;
+
+	if (vibr->vibr_conf.reg == NULL)
+		return ret;
 
 	pr_info("set voltage = %u-%u\n",
 		vibr->vibr_conf.min_volt, vibr->vibr_conf.max_volt);
@@ -126,6 +129,9 @@ static int vibr_power_set(struct reg_vibr *vibr)
 
 static void vibr_enable(struct reg_vibr *vibr)
 {
+	if (vibr->vibr_conf.reg == NULL)
+		return;
+
 	if (!vibr->reg_status) {
 		if (regulator_enable(vibr->vibr_conf.reg))
 			pr_notice("set vibr_reg enable failed!\n");
@@ -138,6 +144,9 @@ static void vibr_enable(struct reg_vibr *vibr)
 
 static void vibr_disable(struct reg_vibr *vibr)
 {
+	if (vibr->vibr_conf.reg == NULL)
+		return;
+
 	if (vibr->reg_status) {
 		if (regulator_disable(vibr->vibr_conf.reg))
 			pr_notice("set vibr_reg disable failed!\n");
@@ -150,6 +159,7 @@ static void vibr_disable(struct reg_vibr *vibr)
 
 static void update_vibrator(struct work_struct *work)
 {
+
 	struct reg_vibr *vibr = container_of(work, struct reg_vibr, vibr_work);
 
 	pr_info("vibr_state = %d\n", vibr->vibr_state);
@@ -356,7 +366,9 @@ static int vib_probe(struct platform_device *pdev)
 	INIT_WORK(&m_vibr->vibr_work, update_vibrator);
 	spin_lock_init(&m_vibr->vibr_lock);
 	m_vibr->vibr_shutdown = 0;
-	if (regulator_is_enabled(m_vibr->vibr_conf.reg))
+	if (m_vibr->vibr_conf.reg == NULL)
+		m_vibr->reg_status = 0;
+	else if (regulator_is_enabled(m_vibr->vibr_conf.reg))
 		m_vibr->reg_status = 1;
 	else
 		m_vibr->reg_status = 0;
