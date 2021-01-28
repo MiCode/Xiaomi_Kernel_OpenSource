@@ -310,6 +310,7 @@ config MTK_TEE_GP_SUPPORT
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
 source "drivers/misc/mediatek/tee_sanity/Kconfig"
+source "drivers/misc/mediatek/masp/Kconfig"
 endmenu # Security
 
 menu "Other Peripherals"

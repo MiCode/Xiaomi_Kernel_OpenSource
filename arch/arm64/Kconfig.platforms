@@ -145,6 +145,7 @@ config MACH_MT6761
 	select MTK_PMQOS
 	select ARM_MTK_ARCH_CPUIDLE
 	select DEVAPC_LEGACY
+        select MTK_AVB20_SUPPORT
 	help
 	  This enables support for MediaTek MT6761. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
@@ -194,6 +195,8 @@ config MACH_MT6765
 	select MTK_PMQOS
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select DEVAPC_LEGACY
+        select MTK_SECURITY_SW_SUPPORT
+        select MTK_AVB20_SUPPORT
 	help
 	  This enables support for MediaTek MT6765
 	  Highly power-efficient, performance-oriented 4G LTE processor
@@ -218,6 +221,8 @@ config MACH_MT6779
 	select MTK_SYS_CIRQ
 	select FAST_CIRQ_CLONE_FLUSH
 	select MTK_DRAMC_LEGACY
+        select MTK_SECURITY_SW_SUPPORT
+        select MTK_AVB20_SUPPORT
 	help
 	  This enables support for MediaTek MT6779. Highly power-efficient,
 	  performance-oriented 4G LTE processor for premium,
