@@ -613,7 +613,9 @@ struct JPEG_ENC_DRV_OUT {
 	unsigned int *fileSize;
 	unsigned int *result;
 	unsigned int *cycleCount;
+#ifdef CONFIG_MTK_SEC_JPEG_SUPPORT
 	unsigned int bSecure;
+#endif
 };
 
 
