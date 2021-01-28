@@ -166,7 +166,8 @@ int vpu_dmp_create_locked(struct vpu_device *vd, struct vpu_request *req,
 	d->time = sched_clock();
 
 	va_start(args, fmt);
-	vsnprintf(d->info, VPU_DMP_INFO_SZ, fmt, args);
+	if (vsnprintf(d->info, VPU_DMP_INFO_SZ, fmt, args) < 0)
+		d->info[0] = '\0';
 	va_end(args);
 
 	vpu_dmp_reg_file(vd);

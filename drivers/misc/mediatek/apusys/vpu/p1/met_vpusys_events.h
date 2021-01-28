@@ -39,7 +39,9 @@ TRACE_EVENT(__MET_PACKET__,
 		__entry->action = action;
 		__entry->core = core;
 		__entry->sessid = sessid;
-		snprintf(__entry->str_desc, MX_LEN_STR_DESC, "%s", str_desc);
+		if (snprintf(__entry->str_desc,
+			MX_LEN_STR_DESC, "%s", str_desc) < 0)
+			__entry->str_desc[0] = '\0';
 		__entry->val = val;
 	),
 	TP_printk(
