@@ -28,6 +28,8 @@
 #include <linux/version.h>
 #include <linux/pm_wakeup.h>
 #include <linux/of_irq.h>
+#include <linux/sched/clock.h>
+#include <uapi/linux/sched/types.h>
 
 #include "inc/pd_dbg_info.h"
 #include "inc/tcpci.h"
@@ -93,6 +95,9 @@ struct mt6360_chip {
 #endif /* CONFIG_WATER_DETECTION */
 
 #ifdef CONFIG_WD_SBU_POLLING
+#ifdef CONFIG_WD_POLLING_ONLY
+	struct delayed_work usbid_poll_work;
+#endif /* CONFIG_WD_POLLING_ONLY */
 	struct work_struct wd_work;
 	struct mutex usbid_irq_lock;
 	bool usbid_irqen;
@@ -1308,14 +1313,23 @@ static int mt6360_set_cc(struct tcpc_device *tcpc, int pull)
 		mt6360_enable_auto_rpconnect(tcpc, true);
 		mt6360_enable_oneshot_rpconnect(tcpc, true);
 
-#ifdef CONFIG_WD_SBU_POLLING
-		mt6360_enable_usbid_polling(chip, true);
-#endif /* CONFIG_WD_SBU_POLLING */
 #ifdef CONFIG_TCPC_LOW_POWER_MODE
 		tcpci_set_low_power_mode(tcpc, true, pull);
 #endif /* CONFIG_TCPC_LOW_POWER_MODE */
 		ret = mt6360_command(tcpc, TCPM_CMD_LOOK_CONNECTION);
+#ifdef CONFIG_WD_SBU_POLLING
+#ifdef CONFIG_WD_POLLING_ONLY
+		schedule_delayed_work(&chip->usbid_poll_work,
+					msecs_to_jiffies(500));
+#else
+		mt6360_enable_usbid_polling(chip, true);
+#endif /* CONFIG_WD_POLLING_ONLY */
+#endif /* CONFIG_WD_SBU_POLLING */
 	} else {
+#ifdef CONFIG_WD_POLLING_ONLY
+		cancel_delayed_work(&chip->usbid_poll_work);
+		mt6360_enable_usbid_polling(chip, false);
+#endif /* CONFIG_WD_POLLING_ONLY */
 		data = TCPC_V10_REG_ROLE_CTRL_RES_SET(0, rp_lvl, pull, pull);
 		ret = mt6360_i2c_write8(tcpc, TCPC_V10_REG_ROLE_CTRL, data);
 		mt6360_enable_auto_rpconnect(tcpc, false);
@@ -1509,6 +1523,28 @@ retry:
 	tcpci_set_water_protection(tcpc, true);
 	return 0;
 }
+
+#ifdef CONFIG_WD_POLLING_ONLY
+static void mt6360_usbid_poll_work(struct work_struct *work)
+{
+	int ret, cc1, cc2;
+	struct mt6360_chip *chip = container_of(work, struct mt6360_chip,
+						usbid_poll_work.work);
+
+	tcpci_lock_typec(chip->tcpc);
+
+	ret = mt6360_get_cc(chip->tcpc, &cc1, &cc2);
+	if (ret < 0)
+		goto out;
+
+	if (cc1 != TYPEC_CC_DRP_TOGGLING || cc2 != TYPEC_CC_DRP_TOGGLING)
+		goto out;
+
+	mt6360_enable_usbid_polling(chip, true);
+out:
+	tcpci_unlock_typec(chip->tcpc);
+}
+#endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
 
 #ifdef CONFIG_CABLE_TYPE_DETECTION
@@ -1886,6 +1922,23 @@ static int mt6360_set_water_protection(struct tcpc_device *tcpc, bool en)
 	return ret;
 }
 
+static int mt6360_set_usbid_polling(struct tcpc_device *tcpc, bool en)
+{
+	int ret;
+	struct mt6360_chip *chip = tcpc_get_dev_data(tcpc);
+
+	if (!en)
+		cancel_delayed_work(&chip->usbid_poll_work);
+
+	ret = mt6360_enable_usbid_polling(chip, en);
+	if (ret < 0) {
+		dev_notice(chip->dev, "%s fail\n", __func__);
+		return ret;
+	}
+
+	return ret;
+}
+
 static int mt6360_water_calibration(struct tcpc_device *tcpc)
 {
 	/* TODO: Calibration flow */
@@ -2129,6 +2182,7 @@ static struct tcpc_ops mt6360_tcpc_ops = {
 #ifdef CONFIG_WATER_DETECTION
 	.is_water_detected = mt6360_is_water_detected,
 	.set_water_protection = mt6360_set_water_protection,
+	.set_usbid_polling = mt6360_set_usbid_polling,
 #endif /* CONFIG_WATER_DETECTION */
 
 };
@@ -2469,6 +2523,9 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 #ifdef CONFIG_WATER_DETECTION
 	wakeup_source_init(&chip->wd_wakeup_src, "mt6360_wd_wakeup_src");
 	atomic_set(&chip->wd_protect_rty, CONFIG_WD_PROTECT_RETRY_COUNT);
+#ifdef CONFIG_WD_POLLING_ONLY
+	INIT_DELAYED_WORK(&chip->usbid_poll_work, mt6360_usbid_poll_work);
+#endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WATER_DETECTION */
 #ifdef CONFIG_WD_SBU_POLLING
 	mutex_init(&chip->usbid_irq_lock);
@@ -2546,6 +2603,9 @@ static int mt6360_i2c_remove(struct i2c_client *client)
 		cancel_delayed_work_sync(&chip->poll_work);
 #ifdef CONFIG_WD_SBU_POLLING
 		cancel_work_sync(&chip->wd_work);
+#ifdef CONFIG_WD_POLLING_ONLY
+		cancel_delayed_work_sync(&chip->usbid_poll_work);
+#endif /* CONFIG_WD_POLLING_ONLY */
 #endif /* CONFIG_WD_SBU_POLLING */
 		tcpc_device_unregister(chip->dev, chip->tcpc);
 #ifdef CONFIG_RT_REGMAP

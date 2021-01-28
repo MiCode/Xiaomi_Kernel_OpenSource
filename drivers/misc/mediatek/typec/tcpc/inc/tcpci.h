@@ -101,6 +101,7 @@ int tcpci_is_vsafe0v(struct tcpc_device *tcpc);
 #ifdef CONFIG_WATER_DETECTION
 int tcpci_is_water_detected(struct tcpc_device *tcpc);
 int tcpci_set_water_protection(struct tcpc_device *tcpc, bool en);
+int tcpci_set_usbid_polling(struct tcpc_device *tcpc, bool en);
 int tcpci_notify_wd_status(struct tcpc_device *tcpc, bool water_detected);
 #endif /* CONFIG_WATER_DETECTION */
 
