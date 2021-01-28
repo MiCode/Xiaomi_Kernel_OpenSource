@@ -1397,9 +1397,7 @@ u32 mmdvfs_qos_get_cur_thres(struct mmdvfs_pm_qos_request *req,
 #ifdef MMDVFS_QOS_SUPPORT
 static int get_qos_step(s32 opp)
 {
-	if (opp == MMDVFS_FINE_STEP_UNREQUEST)
-		return opp;
-	if (opp >= ARRAY_SIZE(legacy_to_qos_step))
+	if (opp < 0 || opp >= ARRAY_SIZE(legacy_to_qos_step))
 		return MMDVFS_FINE_STEP_UNREQUEST;
 
 	return legacy_to_qos_step[opp].qos_step;
