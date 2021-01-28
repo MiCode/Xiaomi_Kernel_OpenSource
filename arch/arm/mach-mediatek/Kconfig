@@ -107,6 +107,7 @@ config MACH_MT6765
 	select NEON
 	select AEABI
 	select KERNEL_MODE_NEON
+	select MTK_BASE_POWER
 	select MTK_GIC_V3_EXT
 	select MTK_SYSIRQ
 	select MTK_TIMER
@@ -116,7 +117,6 @@ config MACH_MT6765
 	select MTK_EMI_LEGACY
 	select MTK_DRAMC_LEGACY
 	select PM_DEVFREQ
-	select MTK_SYS_CIRQ
 	select ARM_ERRATA_855873
 	select MTK_GIC_TARGET_ALL
 	select FAST_CIRQ_CLONE_FLUSH
