@@ -68,6 +68,9 @@
 #define SCP_A_TIMER 0
 #define CLK_BANK_LEN		(0x00A8)
 
+/* scp ipi message buffer */
+void *msg_scp_ready0, *msg_scp_ready1, *msg_scp_err_info;
+
 /* scp ready status for notify*/
 unsigned int scp_ready[SCP_CORE_TOTAL];
 
@@ -342,7 +345,6 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		container_of(ws, struct scp_work_struct, work);
 	unsigned int scp_notify_flag = sws->flags;
 
-	scp_ready[SCP_A_ID] = scp_notify_flag;
 
 	if (scp_notify_flag) {
 #if SCP_DVFS_INIT_ENABLE
@@ -467,8 +469,10 @@ static void scp_A_ready_ipi_handler(int id, void *prdata, void *data,
 {
 	unsigned int scp_image_size = *(unsigned int *)data;
 
-	if (!scp_ready[SCP_A_ID])
+	if (!scp_ready[SCP_A_ID]) {
+		scp_ready[SCP_A_ID] = 1;
 		scp_A_set_ready();
+	}
 
 	/*verify scp image size*/
 	if (scp_image_size != SCP_A_TCM_SIZE) {
@@ -1867,11 +1871,14 @@ static int __init scp_init(void)
 
 	scp_A_irq_init();
 
-	scp_ipi_registration(IPI_SCP_A_READY,
-			 scp_A_ready_ipi_handler, "scp_A_ready");
+	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_0,
+			(void *)scp_A_ready_ipi_handler, NULL, &msg_scp_ready0);
 
-	scp_ipi_registration(IPI_SCP_ERROR_INFO,
-			 scp_err_info_handler, "scp_err_info_handler");
+	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_READY_1,
+			(void *)scp_A_ready_ipi_handler, NULL, &msg_scp_ready1);
+
+	mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_ERROR_INFO_0,
+			(void *)scp_err_info_handler, NULL, &msg_scp_err_info);
 
 	ret = register_pm_notifier(&scp_pm_notifier_block);
 	if (ret)
