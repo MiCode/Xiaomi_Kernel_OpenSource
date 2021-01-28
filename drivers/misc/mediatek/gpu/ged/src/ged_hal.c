@@ -252,10 +252,11 @@ static ssize_t opp_logs_show(struct kobject *kobj,
 			len += sprintf(buf + len, "%10u\n",
 				(unsigned int)(report[i].ui64Active >> 10));
 		}
-		return len;
 	} else
-		return sprintf(buf, "Not Supported.\n");
+		len = sprintf(buf, "Not Supported.\n");
 
+	vfree(report);
+	return len;
 }
 
 static KOBJ_ATTR_RO(opp_logs);
