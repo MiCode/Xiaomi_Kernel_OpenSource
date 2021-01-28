@@ -106,6 +106,49 @@ config ARCH_MEDIATEK
 	  This enables support for MediaTek MT27xx, MT65xx, MT76xx
 	  & MT81xx ARMv8 SoCs
 
+config MACH_MT6761
+	bool "MediaTek MT6761"
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_HAS_CPUFREQ
+	select ARM_AMBA
+	select CPU_V7
+	select HAVE_SMP
+	select NEED_MACH_MEMORY_H
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_DEBUG
+	select GENERIC_SCHED_CLOCK
+	select ARMV7_COMPAT
+	select ARMV7_COMPAT_CPUINFO
+	select CPU_IDLE
+	select PINCTRL
+	select PINCTRL_MT6761
+	select MFD_SYSCON
+	select MTK_BASE_POWER
+	select MTK_GIC_V3_EXT
+	select FAST_CIRQ_CLONE_FLUSH
+	select MTK_FIQ_CACHE
+	select MTK_GIC_TARGET_ALL
+	select MTK_SYSIRQ
+	select MTK_EMI
+	select MTK_TIMER
+	select MTK_DRAMC
+	select PM_DEVFREQ
+	select MTK_SYS_CIRQ
+	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
+	select MTK_SECURITY_SW_SUPPORT
+	select MTK_BOUNCING_CHECK if MTK_AEE_FEATURE
+	select MTK_DEBUG_LATCH
+	select MTK_DFD_INTERNAL_DUMP
+	select MTK_PLAT_SRAM_FLAG
+	select MTK_SYSTRACKER_V2
+	select MTK_L2C_PARITY_CHECK
+	help
+	  This enables support for MediaTek MT6761. Highly power-efficient,
+	  performance-oriented 4G LTE processor for premium,
+	  thin-design smartphones. MT6761 also offers significant
+	  multitasking and multimedia improvements.
+
 config ARCH_MESON
 	bool "Amlogic Platforms"
 	select PINCTRL
