@@ -475,8 +475,9 @@ void thermal_zone_device_update(struct thermal_zone_device *tz,
 {
 	int count;
 
+#if !defined(CONFIG_COMMON_CLK_MT6779)
 	pr_notice("%s: tz = %s\n", __func__, tz->type);
-
+#endif
 	if (atomic_read(&in_suspend))
 		return;
 
