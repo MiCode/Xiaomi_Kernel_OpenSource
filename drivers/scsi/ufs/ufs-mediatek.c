@@ -39,6 +39,24 @@
 int ufsdbg_perf_dump = 0;
 static struct ufs_hba *ufs_mtk_hba;
 
+static void ufs_mtk_auto_hibern8_enable(struct ufs_hba *hba, bool enable)
+{
+	unsigned long flags;
+	u32 timer;
+
+	if (!ufshcd_is_auto_hibern8_supported(hba) || !hba->ahit)
+		return;
+
+	if (enable)
+		timer = hba->ahit;
+	else
+		timer = 0;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+	ufshcd_writel(hba, timer, REG_AUTO_HIBERNATE_IDLE_TIMER);
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+}
+
 bool ufs_mtk_get_unipro_lpm(struct ufs_hba *hba)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
@@ -410,6 +428,23 @@ static int ufs_mtk_pre_pwr_change(struct ufs_hba *hba,
 	struct ufs_dev_params host_cap;
 	int ret;
 
+	/*
+	 * Disable Auto-Hibern8 before power mode change.
+	 *
+	 * If coming from ufshcd_probe_hba(), Auto-Hibern8 will be enabled
+	 * by ufshcd_probe_hba() after power mode is changed.
+	 *
+	 * TODO:
+	 * If coming from ufshcd_scale_clks(), we need to re-enable
+	 * Auto-Hibern8 in post_pwr_change(). In this case, we may need to
+	 * export and use hba->ufshcd_state for the decision: Re-enable
+	 * Auto-Hibern8 only when hba->ufshcd_state is in
+	 * UFSHCD_STATE_OPERATIONAL to skip re-enabling Auto-Hibern8 in the
+	 * middle of initialization or error handling flow in
+	 * post_pwr_change().
+	 */
+	ufs_mtk_auto_hibern8_enable(hba, false);
+
 	host_cap.tx_lanes = UFS_MTK_LIMIT_NUM_LANES_TX;
 	host_cap.rx_lanes = UFS_MTK_LIMIT_NUM_LANES_RX;
 	host_cap.hs_rx_gear = UFS_MTK_LIMIT_HSGEAR_RX;
@@ -714,6 +749,36 @@ static int ufs_mtk_apply_dev_quirks(struct ufs_hba *hba)
 	return 0;
 }
 
+static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
+				   enum ufs_notify_change_status status)
+{
+	int ret;
+
+	if (cmd == UIC_CMD_DME_HIBER_ENTER && status == PRE_CHANGE) {
+		/*
+		 * Disable Auto-Hibern8 before "manual" Hibern8 operations.
+		 */
+		ufs_mtk_auto_hibern8_enable(hba, false);
+
+		ret = ufs_mtk_wait_link_state(hba, VS_LINK_UP, 100);
+		if (ret) {
+			dev_info(hba->dev, "%s: Wait Auto Hibern8 exit timeout\n");
+			ufshcd_link_recovery(hba);
+		}
+	} else if (cmd == UIC_CMD_DME_HIBER_EXIT && status == POST_CHANGE &&
+		  !hba->pm_op_in_progress) {
+		/*
+		 * Enable Auto-Hibern8 specifically for clk-ungating with
+		 * hibern8_during_clkgating enabled.
+		 *
+		 * For runtime and system resume, core driver will enable
+		 * Auto-Hibern8 in ufshcd_resume() so we do not need to
+		 * enable it here.
+		 */
+		ufs_mtk_auto_hibern8_enable(hba, true);
+	}
+}
+
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -727,6 +792,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.hce_enable_notify   = ufs_mtk_hce_enable_notify,
 	.link_startup_notify = ufs_mtk_link_startup_notify,
 	.pwr_change_notify   = ufs_mtk_pwr_change_notify,
+	.hibern8_notify      = ufs_mtk_hibern8_notify,
 	.apply_dev_quirks    = ufs_mtk_apply_dev_quirks,
 	.suspend             = ufs_mtk_suspend,
 	.resume              = ufs_mtk_resume,
