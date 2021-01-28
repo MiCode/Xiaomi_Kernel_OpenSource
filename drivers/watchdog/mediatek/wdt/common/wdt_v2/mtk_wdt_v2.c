@@ -27,6 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/debug.h>
+#include <linux/threads.h>
 #include <linux/uaccess.h>
 #include <linux/types.h>
 #include <mtk_wdt.h>
@@ -47,6 +48,7 @@
 #ifndef __USING_DUMMY_WDT_DRV__
 #include <mt-plat/upmu_common.h>
 #endif
+extern unsigned long long notrace sched_clock(void);
 
 void __iomem *toprgu_base;
 int	wdt_irq_id;
@@ -72,6 +74,7 @@ static const struct of_device_id rgu_of_match[] = {
  */
 #define AP_RGU_WDT_IRQ_ID       wdt_irq_id
 #define AP_RGU_SSPM_WDT_IRQ_ID  wdt_sspm_irq_id
+#define MTK_WDT_KEEP_LAST_INFO  (NR_CPUS+2)
 
 #ifdef CONFIG_KICK_SPM_WDT
 #include <mach/mt_spm.h>
@@ -85,6 +88,14 @@ static int wdt_last_timeout_val;
 static int wdt_enable = 1;
 static bool wdt_intr_has_trigger; /* For test use */
 
+struct wdt_kick_info_t {
+	int cpu;
+	long long restart_time;
+	void *restart_caller;
+};
+static int wdt_kick_info_idx;
+static struct wdt_kick_info_t wdt_kick_info[MTK_WDT_KEEP_LAST_INFO];
+
 #ifndef CONFIG_KICK_SPM_WDT
 static unsigned int timeout;
 #endif
@@ -97,6 +108,14 @@ static void mtk_wdt_mark_stage(unsigned int stage)
 		| (stage << MTK_WDT_NONRST2_STAGE_OFS);
 
 	mt_reg_sync_writel(reg, MTK_WDT_NONRST_REG2);
+}
+
+static void mtk_wdt_update_last_restart(void *last)
+{
+	wdt_kick_info[wdt_kick_info_idx].restart_time = sched_clock();
+	wdt_kick_info[wdt_kick_info_idx].restart_caller = last;
+	wdt_kick_info[wdt_kick_info_idx].cpu = smp_processor_id();
+	wdt_kick_info_idx = (wdt_kick_info_idx + 1) % MTK_WDT_KEEP_LAST_INFO;
 }
 
 /*
@@ -253,6 +272,7 @@ int  mtk_wdt_confirm_hwreboot(void)
 
 void mtk_wdt_restart(enum wd_restart_type type)
 {
+	void *here = __builtin_return_address(0);
 	struct device_node *np_rgu;
 
 	if (!toprgu_base) {
@@ -274,12 +294,14 @@ void mtk_wdt_restart(enum wd_restart_type type)
 		mt_reg_sync_writel(MTK_WDT_RESTART_KEY, MTK_WDT_RESTART);
 	#endif
 		spin_unlock(&rgu_reg_operation_spinlock);
+		mtk_wdt_update_last_restart(here);
 	} else if (type == WD_TYPE_NOLOCK) {
 	#ifdef CONFIG_KICK_SPM_WDT
 		spm_wdt_restart_timer_nolock();
 	#else
 		mt_reg_sync_writel(MTK_WDT_RESTART_KEY, MTK_WDT_RESTART);
 	#endif
+		mtk_wdt_update_last_restart(here);
 	} else
 		pr_debug("WDT:[%s] type=%d error pid =%d\n",
 			  __func__, type, current->pid);
@@ -312,6 +334,7 @@ void mtk_wd_resume(void)
 
 void wdt_dump_reg(void)
 {
+	int i;
 	pr_info("****************dump wdt reg start*************\n");
 	pr_info("MTK_WDT_MODE:0x%x\n", __raw_readl(MTK_WDT_MODE));
 	pr_info("MTK_WDT_LENGTH:0x%x\n", __raw_readl(MTK_WDT_LENGTH));
@@ -330,6 +353,13 @@ void wdt_dump_reg(void)
 	pr_info("MTK_WDT_LATCH_CTL:0x%x\n", __raw_readl(MTK_WDT_LATCH_CTL));
 	pr_info("MTK_WDT_DEBUG_CTL2:0x%x\n", __raw_readl(MTK_WDT_DEBUG_CTL2));
 	pr_info("MTK_WDT_COUNTER:0x%x\n", __raw_readl(MTK_WDT_COUNTER));
+	pr_info("MTK_WDT_LAST_KICKED\n");
+	for (i = 0; i < MTK_WDT_KEEP_LAST_INFO; i++) {
+		if (wdt_kick_info[i].restart_caller)
+			pr_info("<%d>[%lld] %pF\n", wdt_kick_info[i].cpu,
+				wdt_kick_info[i].restart_time,
+				wdt_kick_info[i].restart_caller);
+	}
 	pr_info("****************dump wdt reg end*************\n");
 
 }
