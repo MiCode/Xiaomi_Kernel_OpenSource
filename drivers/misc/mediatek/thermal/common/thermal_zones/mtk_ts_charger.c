@@ -84,25 +84,42 @@ static int polling_trip_temp1 = 40000;
 static int polling_trip_temp2 = 20000;
 static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
+static int charger_type;
 
-static struct power_supply *get_charger_handle(void)
+/*return 0:single charger*/
+/*return 1,2:dual charger*/
+static int get_charger_type(void)
 {
-	static struct power_supply *chg_psy_slave;
-	static struct power_supply *chg_psy_master;
+	struct device_node *node = NULL;
+	u32 val = 0;
 
+	node = of_find_compatible_node(NULL, NULL, "mediatek,charger");
+	WARN_ON_ONCE(node == 0);
+
+	if (of_property_read_u32(node, "charger_configuration", &val))
+		return 0;
+
+	return val;
+}
+
+static struct power_supply *get_charger_psy(void)
+{
+	static struct power_supply *s_psy;
+	static struct power_supply *m_psy;
+
+	if (charger_type != 0) {
 	/*check if support slave charger*/
-	if (chg_psy_slave == NULL)
-		chg_psy_slave = power_supply_get_by_name("mtk-slave-charger");
-	if (chg_psy_slave)
-		return chg_psy_slave;
-	pr_notice("%s no slave charger,check master charger\n",
-				__func__);
+		if (s_psy == NULL)
+			s_psy = power_supply_get_by_name("mtk-slave-charger");
+		if (s_psy)
+			return s_psy;
+	} else {
 	/*check if support master charger*/
-	if (chg_psy_master == NULL)
-		chg_psy_master = power_supply_get_by_name("mtk-master-charger");
-	if (chg_psy_master)
-		return chg_psy_master;
-
+		if (m_psy == NULL)
+			m_psy = power_supply_get_by_name("mtk-master-charger");
+		if (m_psy)
+			return m_psy;
+	}
 	return NULL;
 }
 
@@ -114,7 +131,7 @@ static int mtktscharger_get_hw_temp(void)
 	union power_supply_propval prop;
 	struct power_supply *chg_psy;
 
-	chg_psy = get_charger_handle();
+	chg_psy = get_charger_psy();
 
 	if (chg_psy == NULL)
 		return t;
@@ -278,7 +295,6 @@ static struct thermal_zone_device_ops mtktscharger_dev_ops = {
 static int mtktscharger_register_thermal(void)
 {
 	mtktscharger_dprintk("%s\n", __func__);
-
 	/* trips : trip 0~2 */
 	thz_dev = mtk_thermal_zone_device_register("mtktscharger", num_trip,
 					NULL, /* name: mtktscharger ??? */
@@ -542,6 +558,7 @@ static int mtktscharger_pdrv_probe(struct platform_device *pdev)
 	struct proc_dir_entry *mtktscharger_dir = NULL;
 
 	mtktscharger_dprintk_always("%s\n", __func__);
+	charger_type = get_charger_type();
 	err = mtktscharger_register_thermal();
 	if (err)
 		goto err_unreg;

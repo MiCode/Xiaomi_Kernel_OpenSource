@@ -82,6 +82,7 @@ static int polling_trip_temp1 = 40000;
 static int polling_trip_temp2 = 20000;
 static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
+static int charger_type;
 
 /*return 0:single charger*/
 /*return 1,2:dual charger*/
@@ -95,22 +96,20 @@ static int get_charger_type(void)
 
 	if (of_property_read_u32(node, "charger_configuration", &val))
 		return 0;
-	else
-		return val;
+
+	return val;
 }
 static struct power_supply *get_charger2_handle(void)
 {
-	static struct power_supply *chg_psy_slave;
-	static struct power_supply *chg_psy_master;
+	static struct power_supply *m_psy;
 
-	/*check if support slave charger*/
-	if (chg_psy_slave == NULL)
-		chg_psy_slave = power_supply_get_by_name("mtk-slave-charger");
-	if (chg_psy_master == NULL)
-		chg_psy_master = power_supply_get_by_name("mtk-master-charger");
-	if (chg_psy_slave && chg_psy_master)
-		return chg_psy_master;
-
+/*check if support slave charger*/
+	if (charger_type != 0) {
+		if (m_psy == NULL)
+			m_psy = power_supply_get_by_name("mtk-master-charger");
+		if (m_psy)
+			return m_psy;
+	}
 	pr_notice("%s is not dual charger project\n",
 				__func__);
 	return NULL;
@@ -575,8 +574,9 @@ static int mtktscharger2_pdrv_probe(struct platform_device *pdev)
 	struct proc_dir_entry *mtktscharger2_dir = NULL;
 
 	mtktscharger2_dprintk_always("%s\n", __func__);
+	charger_type = get_charger_type();
 /*check if support dual charger*/
-	if (get_charger_type() == 0)
+	if (charger_type == 0)
 		return 0;
 	err = mtktscharger2_register_thermal();
 	if (err)
