@@ -26,15 +26,9 @@
 #include "clkdbg-mt6885.h"
 #include <mt-plat/aee.h>
 
-#if !defined(CONFIG_MTK_PLAT_MT6885_EMULATION) && defined(CONFIG_MACH_MT6893)
-#define MT_CCF_DEBUG	0
-#define MT_CCF_BRINGUP  1
-#define CONTROL_LIMIT	1
-#else
 #define MT_CCF_DEBUG	0
 #define MT_CCF_BRINGUP  0
-#define CONTROL_LIMIT	0
-#endif
+#define CONTROL_LIMIT	1
 
 #define	CHECK_PWR_ST	1
 
@@ -264,8 +258,10 @@ void __iomem *spm_base_debug;
 #define INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA0	INFRACFG_REG(0x0BC0)
 #define INFRA_TOPAXI_PROTECTEN_SUB_INFRA_VDNR_STA1	INFRACFG_REG(0x0BC4)
 
+
 /* Autogen Begin, 0724 version  */
 #define  SPM_PROJECT_CODE    0xB16
+//#define VDEC_ACTIVE	((0x1 << 4))
 
 /* Define MTCMOS power control */
 #define PWR_RST_B                        (0x1 << 0)
@@ -4567,22 +4563,22 @@ int allow[NR_SYSS] = {
 1,	/* SYS_MFG4 = 6 */
 1,	/* SYS_MFG5 = 7 */
 1,	/* SYS_MFG6 = 8 */
-0,	/* SYS_ISP = 9 */
-0,	/* SYS_ISP2 = 10 */
-0,	/* SYS_IPE = 11 */
-0,	/* SYS_VDE = 12 */
-0,	/* SYS_VDE2 = 13 */
-0,	/* SYS_VEN = 14 */
-0,	/* SYS_VEN_CORE1 = 15 */
-0,	/* SYS_MDP = 16 */
-0,	/* SYS_DIS = 17 */
-0,	/* SYS_AUDIO = 18 */
-0,	/* SYS_ADSP = 19 */
-0,	/* SYS_CAM = 20 */
-0,	/* SYS_CAM_RAWA = 21 */
-0,	/* SYS_CAM_RAWB = 22 */
-0,	/* SYS_CAM_RAWC = 23 */
-0,	/* SYS_DP_TX = 24 */
+1,	/* SYS_ISP = 9 */
+1,	/* SYS_ISP2 = 10 */
+1,	/* SYS_IPE = 11 */
+1,	/* SYS_VDE = 12 */
+1,	/* SYS_VDE2 = 13 */
+1,	/* SYS_VEN = 14 */
+1,	/* SYS_VEN_CORE1 = 15 */
+1,	/* SYS_MDP = 16 */
+1,	/* SYS_DIS = 17 */
+1,	/* SYS_AUDIO = 18 */
+1,	/* SYS_ADSP = 19 */
+1,	/* SYS_CAM = 20 */
+1,	/* SYS_CAM_RAWA = 21 */
+1,	/* SYS_CAM_RAWB = 22 */
+1,	/* SYS_CAM_RAWC = 23 */
+1,	/* SYS_DP_TX = 24 */
 1,	/* SYS_VPU = 25 */
 };
 #endif
@@ -4622,7 +4618,7 @@ static int enable_subsys(enum subsys_id id)
 		return -EINVAL;
 	}
 
-#if 0
+#if MT_CCF_BRINGUP
 	pr_debug("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
 	if (sys->ops->get_state(sys) == SUBSYS_PWR_DOWN) {
 		switch (id) {
@@ -4692,7 +4688,7 @@ static int disable_subsys(enum subsys_id id)
 		return -EINVAL;
 	}
 
-#if 0
+#if MT_CCF_BRINGUP
 	pr_debug("[CCF] %s: sys=%s, id=%d\n", __func__, sys->name, id);
 	if (sys->ops->get_state(sys) == SUBSYS_PWR_ON) {
 		switch (id) {
@@ -5211,7 +5207,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	pr_notice("MTCMOS MM AO begin\n");
 	spm_mtcmos_ctrl_mdp(STA_POWER_ON);
 	spm_mtcmos_ctrl_dis(STA_POWER_ON);
-#if 0
+
 	pr_notice("MTCMOS GPU begin\n");
 	spm_mtcmos_ctrl_mfg0(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg1(STA_POWER_ON);
@@ -5220,7 +5216,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 	spm_mtcmos_ctrl_mfg4(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg5(STA_POWER_ON);
 	spm_mtcmos_ctrl_mfg6(STA_POWER_ON);
-#endif
+
 	pr_notice("MTCMOS ISP begin\n");
 	spm_mtcmos_ctrl_isp(STA_POWER_ON);
 	spm_mtcmos_ctrl_isp2(STA_POWER_ON);
@@ -5236,6 +5232,7 @@ static void __init mt_scpsys_init(struct device_node *node)
 
 	pr_notice("MTCMOS AUDIO begin\n");
 	spm_mtcmos_ctrl_audio(STA_POWER_ON);
+	spm_mtcmos_ctrl_adsp_shut_down(STA_POWER_ON);
 	spm_mtcmos_ctrl_adsp_dormant(STA_POWER_ON);
 
 	pr_notice("MTCMOS CAM begin\n");
@@ -5253,6 +5250,108 @@ static void __init mt_scpsys_init(struct device_node *node)
 #endif /* !MT_CCF_BRINGUP */
 }
 CLK_OF_DECLARE_DRIVER(mtk_pg_regs, "mediatek,scpsys", mt_scpsys_init);
+
+#if 0 /* MT6885 todo: add print CG status for suspend checking */
+static const char * const *get_all_clk_names(size_t *num)
+{
+	static const char * const clks[] = {
+
+		/* CAM */
+		"camsys_larb6",
+		"camsys_dfp_vad",
+		"camsys_larb3",
+		"camsys_cam",
+		"camsys_camtg",
+		"camsys_seninf",
+		"camsys_camsv0",
+		"camsys_camsv1",
+		"camsys_camsv2",
+		"camsys_ccu",
+		/* IMG */
+		"imgsys_larb5",
+		"imgsys_larb2",
+		"imgsys_dip",
+		"imgsys_fdvt",
+		"imgsys_dpe",
+		"imgsys_rsc",
+		"imgsys_mfb",
+		"imgsys_wpe_a",
+		"imgsys_wpe_b",
+		"imgsys_owe",
+		/* MM */
+		"mm_smi_common",
+		"mm_smi_larb0",
+		"mm_smi_larb1",
+		"mm_gals_comm0",
+		"mm_gals_comm1",
+		"mm_gals_ccu2mm",
+		"mm_gals_ipu12mm",
+		"mm_gals_img2mm",
+		"mm_gals_cam2mm",
+		"mm_gals_ipu2mm",
+		"mm_mdp_dl_txck",
+		"mm_ipu_dl_txck",
+		"mm_mdp_rdma0",
+		"mm_mdp_rdma1",
+		"mm_mdp_rsz0",
+		"mm_mdp_rsz1",
+		"mm_mdp_tdshp",
+		"mm_mdp_wrot0",
+		"mm_mdp_wdma0",
+		"mm_fake_eng",
+		"mm_disp_ovl0",
+		"mm_disp_ovl0_2l",
+		"mm_disp_ovl1_2l",
+		"mm_disp_rdma0",
+		"mm_disp_rdma1",
+		"mm_disp_wdma0",
+		"mm_disp_color0",
+		"mm_disp_ccorr0",
+		"mm_disp_aal0",
+		"mm_disp_gamma0",
+		"mm_disp_dither0",
+		"mm_disp_split",
+		"mm_dsi0_mmck",
+		"mm_dsi0_ifck",
+		"mm_dpi_mmck",
+		"mm_dpi_ifck",
+		"mm_fake_eng2",
+		"mm_mdp_dl_rxck",
+		"mm_ipu_dl_rxck",
+		"mm_26m",
+		"mm_mmsys_r2y",
+		"mm_disp_rsz",
+		"mm_mdp_aal",
+		"mm_mdp_hdr",
+		"mm_dbi_mmck",
+		"mm_dbi_ifck",
+		/* VENC */
+		"venc_larb",
+		"venc_venc",
+		"venc_jpgenc",
+		/* VDE */
+		"vdec_cken",
+		"vdec_larb1_cken",
+	};
+	*num = ARRAY_SIZE(clks);
+	return clks;
+}
+
+static void dump_cg_state(const char *clkname)
+{
+	struct clk *c = __clk_lookup(clkname);
+
+	if (IS_ERR_OR_NULL(c)) {
+		pr_notice("[%17s: NULL]\n", clkname);
+		return;
+	}
+
+	pr_notice("[%-17s: %3d]\n",
+		__clk_get_name(c),
+		__clk_get_enable_count(c));
+}
+
+#endif
 
 #if 1 /*only use for suspend test*/
 void mtcmos_force_off(void)

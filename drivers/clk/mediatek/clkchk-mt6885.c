@@ -20,16 +20,7 @@
 #include "clkdbg-mt6885.h"
 
 #define TAG	"[clkchk] "
-#if !defined(CONFIG_MTK_PLAT_MT6885_EMULATION) && defined(CONFIG_MACH_MT6893)
-#define MT_CCF_BRINGUP		1
-#else
-#define MT_CCF_BRINGUP		0
-#endif
-#if MT_CCF_BRINGUP
-#define	BUG_ON_CHK_ENABLE	0
-#else
 #define	BUG_ON_CHK_ENABLE	1
-#endif
 
 const char * const *get_mt6885_all_clk_names(void)
 {
@@ -735,9 +726,13 @@ static void check_pll_off(void)
 #if BUG_ON_CHK_ENABLE
 		BUG_ON(1);
 #else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
 		WARN_ON(1);
 #endif
 #else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, PLLs are not off\n", __func__, __LINE__);
 		WARN_ON(1);
 #endif
 	}
@@ -814,9 +809,13 @@ static void check_mtcmos_off(void)
 #if BUG_ON_CHK_ENABLE
 		BUG_ON(1);
 #else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, MTCMOSs are not off\n", __func__, __LINE__);
 		WARN_ON(1);
 #endif
 #else
+		aee_kernel_warning("CCF MT6885",
+			"@%s():%d, MTCMOSs are not off\n", __func__, __LINE__);
 		WARN_ON(1);
 #endif
 	}
