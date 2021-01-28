@@ -562,7 +562,7 @@ static int kwdt_thread(void *arg)
 		 * pr_debug("[wdk] loc_wk_wdt(%x),loc_wk_wdt->ready(%d)\n",
 		 * loc_wk_wdt ,loc_wk_wdt->ready);
 		 */
-
+		curInterval = g_kinterval*1000*1000;
 		if (loc_wk_wdt && loc_wk_wdt->ready && g_enable) {
 			if (loc_need_config) {
 				/* daul  mode */
