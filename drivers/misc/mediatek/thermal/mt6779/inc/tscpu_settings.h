@@ -131,7 +131,7 @@
 #define CPU_COOLER_NUM 34
 #define MTK_TS_CPU_RT                       (0)
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 #define CONFIG_THERMAL_AEE_RR_REC (1)
 #else
 #define CONFIG_THERMAL_AEE_RR_REC (0)

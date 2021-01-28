@@ -304,7 +304,7 @@ extern void ppm_profile_update_ipi_exec_time(int id, unsigned long long time);
 #endif
 
 /* SRAM debugging */
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_ppm_cluster_limit(int id, u32 val);
 extern void aee_rr_rec_ppm_step(u8 val);
 extern void aee_rr_rec_ppm_min_pwr_bgt(u32 val);

@@ -632,7 +632,7 @@ int mt_ppm_main(void)
 	}
 #endif /* TODO will remove later */
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_ppm_step(1);
 #endif
 
@@ -660,14 +660,14 @@ int mt_ppm_main(void)
 		}
 	}
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_ppm_step(2);
 #endif
 
 	/* calculate final limit and fill-in client request structure */
 	ppm_main_calc_new_limit();
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_ppm_step(3);
 #endif
 
@@ -706,7 +706,7 @@ int mt_ppm_main(void)
 				c_req->root_cluster, buf);
 #endif
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 		for (i = 0; i < c_req->cluster_num; i++) {
 			aee_rr_rec_ppm_cluster_limit(i,
 				(c_req->cpu_limit[i].min_cpufreq_idx << 24) |
@@ -720,12 +720,12 @@ int mt_ppm_main(void)
 #endif
 
 #ifdef PPM_SSPM_SUPPORT
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 		aee_rr_rec_ppm_step(4);
 #endif
 		/* update limit to SSPM first */
 		ppm_ipi_update_limit(*c_req);
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 		aee_rr_rec_ppm_step(5);
 #endif
 #endif
@@ -830,7 +830,7 @@ nofity_end:
 	}
 
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_ppm_step(0);
 #endif
 
@@ -965,7 +965,7 @@ static int ppm_main_data_init(void)
 			ppm_main_info.cluster_num;
 	}
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	/* init SRAM debug info */
 	for_each_ppm_clusters(i)
 		aee_rr_rec_ppm_cluster_limit(i, 0);
