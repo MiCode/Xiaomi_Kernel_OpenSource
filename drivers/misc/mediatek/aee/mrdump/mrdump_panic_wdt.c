@@ -112,7 +112,7 @@ void aee_wdt_printf(const char *fmt, ...)
 
 
 /* save registers in bin buffer, may comes from various cpu */
-static void aee_dump_cpu_reg_bin(int cpu, struct pt_regs *regs)
+static void aee_dump_cpu_reg_bin(unsigned int cpu, struct pt_regs *regs)
 {
 	memcpy(&(regs_buffer_bin[cpu].regs), regs, sizeof(struct pt_regs));
 	regs_buffer_bin[cpu].real_len = sizeof(struct pt_regs);
