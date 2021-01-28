@@ -692,7 +692,7 @@ static int panel_ata_check(struct drm_panel *panel)
 	struct lcm *ctx = panel_to_lcm(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	unsigned char data[3] = {0x00, 0x00, 0x00};
-	unsigned char id[3] = {0x00, 0x00, 0x00};
+	unsigned char id[3] = {0x40, 0x00, 0x00};
 	ssize_t ret;
 
 	ret = mipi_dsi_dcs_read(dsi, 0x4, data, 3);
@@ -729,12 +729,12 @@ static int lcm_setbacklight_cmdq(void *dsi, dcs_write_gce cb, void *handle,
 static struct mtk_panel_params ext_params = {
 	.pll_clk = 542,
 	.vfp_low_power = 810,
-	.cust_esd_check = 0,
-	.esd_check_enable = 0,
+	.cust_esd_check = 1,
+	.esd_check_enable = 1,
 	.lcm_esd_check_table[0] = {
 		.cmd = 0x0a,
 		.count = 1,
-		.para_list[0] = 0x1c,
+		.para_list[0] = 0x9c,
 	},
 
 };
