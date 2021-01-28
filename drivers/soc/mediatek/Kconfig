@@ -28,3 +28,18 @@ config MTK_SCPSYS
 	help
 	  Say yes here to add support for the MediaTek SCPSYS power domain
 	  driver.
+
+config MTK_SCPSYS_MT8167
+	bool "SCPSYS Support MediaTek MT8167"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	select SOC_MEDIATEK
+	select REGMAP
+	select MTK_INFRACFG
+	select PM_GENERIC_DOMAINS
+	default y if MACH_MT8167 && !FPGA_EARLY_PORTING
+	help
+	  Say yes here to add support for the MediaTek SCPSYS power domain
+	  driver.
+	  The System Control Processor System (SCPSYS) has several power
+	  management related tasks in the system.
+
