@@ -18,10 +18,12 @@
 #include <linux/regmap.h>
 #include <linux/mfd/core.h>
 #include <linux/mfd/mt6323/core.h>
+#include <linux/mfd/mt6357/core.h>
 #include <linux/mfd/mt6358/core.h>
 #include <linux/mfd/mt6359/core.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/mfd/mt6323/registers.h>
+#include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6358/registers.h>
 #include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/registers.h>
@@ -119,6 +121,41 @@ static const struct resource mt6359_lbat_service_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_BAT_L, "bat_l"),
 };
 
+static const struct resource mt6357_regulators_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VPROC_OC, "VPROC"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCORE_OC, "VCORE"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VMODEM_OC, "VMODEM"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VS1_OC, "VS1"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VPA_OC, "VPA"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCORE_PREOC, "VCORE_PR"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VFE28_OC, "VFE28"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VXO22_OC, "VXO22"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VRF18_OC, "VRF18"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VRF12_OC, "VRF12"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VEFUSE_OC, "VEFUSE"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCN33_OC, "VCN33"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCN28_OC, "VCN28"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCN18_OC, "VCN18"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCAMA_OC, "VCAMA"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCAMD_OC, "VCAMD"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VCAMIO_OC, "VCAMIO"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VLDO28_OC, "VLDO28"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VUSB33_OC, "VUSB33"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VAUX18_OC, "VAUX18"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VAUD28_OC, "VAUD28"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VIO28_OC, "VIO28"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VIO18_OC, "VIO18"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VSRAM_PROC_OC, "VSRAM_PROC"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VSRAM_OTHERS_OC, "VSRAM_OTHERS"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VIBR_OC, "VIBR"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VDRAM_OC, "VDRAM"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VMC_OC, "VMC"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VMCH_OC, "VMCH"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VEMC_OC, "VEMC"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VSIM1_OC, "VSIM1"),
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_VSIM2_OC, "VSIM2"),
+};
+
 static const struct resource mt6359_regulators_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VPU_OC, "VPU"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_VCORE_OC, "VCORE"),
@@ -187,6 +224,27 @@ static const struct mfd_cell mt6323_devs[] = {
 		.resources = mt6323_keys_resources,
 		.of_compatible = "mediatek,mt6323-keys"
 	},
+};
+
+static const struct mfd_cell mt6357_devs[] = {
+	{
+		.name = "mt635x-auxadc",
+		.of_compatible = "mediatek,mt6357-auxadc",
+	}, {
+		.name = "mt6357-efuse",
+		.of_compatible = "mediatek,mt6357-efuse",
+	}, {
+		.name = "mt6357-lbat_service",
+		.of_compatible = "mediatek,mt6357-lbat_service",
+	}, {
+		.name = "mt6357-regulator",
+		.of_compatible = "mediatek,mt6357-regulator",
+		.num_resources = ARRAY_SIZE(mt6357_regulators_resources),
+		.resources = mt6357_regulators_resources,
+	}, {
+		.name = "mtk-battery-oc-throttling",
+		.of_compatible = "mediatek,mt6357-battery_oc_throttling",
+	}
 };
 
 static const struct mfd_cell mt6358_devs[] = {
@@ -293,6 +351,11 @@ static const struct chip_data mt6323_core = {
 	.cid_shift = 0,
 };
 
+static const struct chip_data mt6357_core = {
+	.cid_addr = MT6357_SWCID,
+	.cid_shift = 8,
+};
+
 static const struct chip_data mt6358_core = {
 	.cid_addr = MT6358_SWCID,
 	.cid_shift = 8,
@@ -351,6 +414,7 @@ static int mt6397_probe(struct platform_device *pdev)
 	}
 
 	switch (pmic->chip_id) {
+	case MT6357_CHIP_ID:
 	case MT6358_CHIP_ID:
 	case MT6359_CHIP_ID:
 		ret = mt6358_irq_init(pmic);
@@ -374,6 +438,12 @@ static int mt6397_probe(struct platform_device *pdev)
 	case MT6323_CHIP_ID:
 		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6323_devs,
 					   ARRAY_SIZE(mt6323_devs), NULL,
+					   0, pmic->irq_domain);
+		break;
+
+	case MT6357_CHIP_ID:
+		ret = devm_mfd_add_devices(&pdev->dev, -1, mt6357_devs,
+					   ARRAY_SIZE(mt6357_devs), NULL,
 					   0, pmic->irq_domain);
 		break;
 
@@ -413,6 +483,9 @@ static const struct of_device_id mt6397_of_match[] = {
 	{
 		.compatible = "mediatek,mt6323",
 		.data = &mt6323_core,
+	}, {
+		.compatible = "mediatek,mt6357",
+		.data = &mt6357_core,
 	}, {
 		.compatible = "mediatek,mt6358",
 		.data = &mt6358_core,
