@@ -374,7 +374,7 @@ static void set_bulk_out_req_length(struct fsg_common *common,
 	bh->outreq->length = length;
 
 	/* some USB 2.0 hardware requires this setting */
-	if (IS_ENABLED(USB_CONFIGFS_BICR))
+	if (common->bicr)
 		bh->outreq->short_not_ok = 1;
 }
 
@@ -2912,7 +2912,7 @@ static void fsg_common_release(struct fsg_common *common)
 		kfree(common);
 }
 
-#ifdef USB_CONFIGFS_BICR
+#ifdef CONFIG_USB_CONFIGFS_BICR
 ssize_t fsg_bicr_show(struct fsg_common *common, char *buf)
 {
 	return sprintf(buf, "%d\n", common->bicr);
