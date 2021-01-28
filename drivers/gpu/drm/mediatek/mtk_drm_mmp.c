@@ -56,6 +56,10 @@ void init_drm_mmp_event(void)
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA0");
 	g_DRM_MMP_Events.rdma1 =
 		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA1");
+	g_DRM_MMP_Events.rdma4 =
+		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA4");
+	g_DRM_MMP_Events.rdma5 =
+		mmprofile_register_event(g_DRM_MMP_Events.rdma, "RDMA5");
 	g_DRM_MMP_Events.wdma =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "WDMA");
 	g_DRM_MMP_Events.wdma0 =
@@ -106,6 +110,8 @@ void init_drm_mmp_event(void)
 		g_DRM_MMP_Events.postmask, "POSTMASK0");
 	g_DRM_MMP_Events.abnormal_irq =
 		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "ABNORMAL_IRQ");
+	g_DRM_MMP_Events.dp_intf0 =
+		mmprofile_register_event(g_DRM_MMP_Events.IRQ, "dp_intf0");
 }
 
 /* need to update if add new mmp_event in CRTC_MMP_Events */

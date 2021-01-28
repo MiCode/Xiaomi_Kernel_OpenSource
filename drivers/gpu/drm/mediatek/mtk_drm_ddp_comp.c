@@ -256,6 +256,7 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DISP_DITHER] = "dither",
 	[MTK_DISP_UFOE] = "ufoe",
 	[MTK_DSI] = "dsi",
+	[MTK_DP_INTF] = "dp_intf",
 	[MTK_DPI] = "dpi",
 	[MTK_DISP_PWM] = "pwm",
 	[MTK_DISP_MUTEX] = "mutex",
@@ -270,6 +271,7 @@ static const char *const mtk_ddp_comp_stem[MTK_DDP_COMP_TYPE_MAX] = {
 	[MTK_DMDP_TDSHP] = "mtdshp",
 	[MTK_DISP_DSC] = "dsc",
 	[MTK_DISP_MERGE] = "merge",
+	[MTK_DISP_DPTX] = "dptx",
 	[MTK_DISP_VIRTUAL] = "virtual",
 };
 
@@ -341,6 +343,11 @@ static const struct mtk_ddp_comp_match mtk_ddp_matches[DDP_COMPONENT_ID_MAX] = {
 	{DDP_COMPONENT_DMDP_TDSHP0, MTK_DMDP_TDSHP, 0, NULL, 0},
 	{DDP_COMPONENT_DSC0, MTK_DISP_DSC, 0, NULL, 0},
 	{DDP_COMPONENT_MERGE0, MTK_DISP_MERGE, 0, NULL, 0},
+	{DDP_COMPONENT_DPTX, MTK_DISP_DPTX, 0, NULL, 1},
+	{DDP_COMPONENT_DP_INTF0, MTK_DP_INTF, 0, NULL, 1},
+	{DDP_COMPONENT_RDMA4_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_RDMA5_VIRTUAL0, MTK_DISP_VIRTUAL, -1, NULL, 0},
+	{DDP_COMPONENT_MERGE1, MTK_DISP_MERGE, 1, NULL, 0},
 	{DDP_COMPONENT_SPR0_VIRTUAL, MTK_DISP_VIRTUAL, -1, NULL, 0},
 };
 

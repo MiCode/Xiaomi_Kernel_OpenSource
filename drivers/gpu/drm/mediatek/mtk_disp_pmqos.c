@@ -109,6 +109,8 @@ int __mtk_disp_pmqos_port_look_up(int comp_id)
 		return M4U_PORT_L0_OVL_2L_RDMA1;
 	case DDP_COMPONENT_OVL2_2L:
 		return M4U_PORT_L1_OVL_2L_RDMA2;
+	case DDP_COMPONENT_OVL3_2L:
+		return M4U_PORT_L0_OVL_2L_RDMA3;
 	case DDP_COMPONENT_RDMA0:
 		return M4U_PORT_L0_DISP_RDMA0;
 	case DDP_COMPONENT_RDMA1:

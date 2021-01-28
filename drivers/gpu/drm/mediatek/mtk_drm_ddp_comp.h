@@ -55,7 +55,9 @@ enum mtk_ddp_comp_type {
 	MTK_DMDP_RSZ,
 	MTK_DMDP_TDSHP,
 	MTK_DISP_DSC,
+	MTK_DP_INTF,
 	MTK_DISP_MERGE,
+	MTK_DISP_DPTX,
 	MTK_DISP_VIRTUAL,
 	MTK_DDP_COMP_TYPE_MAX,
 };
@@ -120,6 +122,11 @@ enum mtk_ddp_comp_type {
 	EXPR(DDP_COMPONENT_DMDP_TDSHP0)                                     \
 	EXPR(DDP_COMPONENT_DSC0)                                            \
 	EXPR(DDP_COMPONENT_MERGE0)                                          \
+	EXPR(DDP_COMPONENT_DPTX)                                            \
+	EXPR(DDP_COMPONENT_DP_INTF0)                                        \
+	EXPR(DDP_COMPONENT_RDMA4_VIRTUAL0)                                  \
+	EXPR(DDP_COMPONENT_RDMA5_VIRTUAL0)                                  \
+	EXPR(DDP_COMPONENT_MERGE1)                                          \
 	EXPR(DDP_COMPONENT_SPR0_VIRTUAL)                                    \
 	EXPR(DDP_COMPONENT_CM0)                                          \
 	EXPR(DDP_COMPONENT_SPR0)                                          \

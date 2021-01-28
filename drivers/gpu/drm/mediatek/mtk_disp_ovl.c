@@ -112,6 +112,7 @@
 #define L_CON_FLD_LSRC REG_FLD_MSB_LSB(29, 28)
 #define L_CON_FLD_SKEN REG_FLD_MSB_LSB(30, 30)
 #define L_CON_FLD_DKEN REG_FLD_MSB_LSB(31, 31)
+#define CON_LSRC_RES BIT(28)
 #define CON_VERTICAL_FLIP BIT(9)
 #define CON_HORI_FLIP BIT(10)
 
@@ -727,13 +728,16 @@ static void mtk_ovl_stop(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle)
 	ret = pm_runtime_put(comp->dev);
 	if (ret < 0)
 		DRM_ERROR("Failed to disable power domain: %d\n", ret);
-
 	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_INTEN, 0, ~0);
 	cmdq_pkt_write(handle, comp->cmdq_base, comp->regs_pa + DISP_REG_OVL_EN,
 		       0x0, 0x1);
 	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_RST, 1, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
 			comp->regs_pa + DISP_REG_OVL_INTSTA, 0, ~0);
+	cmdq_pkt_write(handle, comp->cmdq_base,
+			comp->regs_pa + DISP_REG_OVL_RST, 0, ~0);
 
 	comp->qos_bw = 0;
 	comp->fbdc_bw = 0;
@@ -763,11 +767,19 @@ static int mtk_ovl_golden_setting(struct mtk_ddp_comp *comp,
 static void mtk_ovl_config(struct mtk_ddp_comp *comp,
 			   struct mtk_ddp_config *cfg, struct cmdq_pkt *handle)
 {
+	unsigned int width;
+
+	if (comp->mtk_crtc->is_dual_pipe) {
+		width = cfg->w / 2;
+		DDPMSG("\n");
+	} else
+		width = cfg->w;
+
 	if (cfg->w != 0 && cfg->h != 0) {
 		cmdq_pkt_write(handle, comp->cmdq_base,
 			       comp->regs_pa + DISP_REG_OVL_ROI_SIZE,
-			       cfg->h << 16 | cfg->w, ~0);
-		_store_bg_roi(comp, cfg->h, cfg->w);
+			       cfg->h << 16 | width, ~0);
+		_store_bg_roi(comp, cfg->h, width);
 	}
 	cmdq_pkt_write(handle, comp->cmdq_base,
 		       comp->regs_pa + DISP_REG_OVL_ROI_BGCLR, OVL_ROI_BGCLR,
@@ -1449,11 +1461,21 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 
 		con |= mtk_ovl_yuv_matrix_convert((enum mtk_drm_dataspace)prop);
 	}
+
+	if (!pending->addr)
+		con |= BIT(28);
+
+	DDPINFO("%s+ id %d, idx:%d, enable:%d, fmt:0x%x, ",
+		__func__, comp->id, idx, pending->enable, pending->format);
+	DDPINFO("addr 0x%lx, compr %d, con 0x%x\n",
+		pending->addr, pending->prop_val[PLANE_PROP_COMPRESS], con);
+
 	/* add for color dim */
 	if (fmt == DRM_FORMAT_C8)
 		dim_color = pending->prop_val[PLANE_PROP_DIM_COLOR];
 	else
 		dim_color = 0xff000000;
+
 	if (rotate) {
 		unsigned int bg_w = 0, bg_h = 0;
 
@@ -1538,6 +1560,10 @@ static void mtk_ovl_layer_config(struct mtk_ddp_comp *comp, unsigned int idx,
 			__func__, vtotal, vact);
 
 		mtk_ovl_layer_on(comp, lye_idx, ext_lye_idx, handle);
+		/*constant color :non RDMA source*/
+		if (!pending->addr)
+			cmdq_pkt_write(handle, comp->cmdq_base,
+		       comp->regs_pa + DISP_REG_OVL_RDMA_CTRL(idx), 0x0, ~0);
 		/* TODO: consider FBDC */
 		/* SRT BW (one layer) =
 		 * layer_w * layer_h * bpp * vrefresh * max fps blanking_ratio

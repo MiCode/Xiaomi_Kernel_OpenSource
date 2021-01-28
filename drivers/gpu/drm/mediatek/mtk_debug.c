@@ -39,6 +39,9 @@
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
 #include "mtk_disp_aal.h"
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+#include "mtk_dp_debug.h"
+#endif
 
 #define DISP_REG_CONFIG_MMSYS_CG_SET(idx) (0x104 + 0x10 * (idx))
 #define DISP_REG_CONFIG_MMSYS_CG_CLR(idx) (0x108 + 0x10 * (idx))
@@ -1542,6 +1545,30 @@ static void process_dbg_opt(const char *opt)
 			gCapturePriLayerDownX = downSampleX;
 		if (!downSampleY)
 			gCapturePriLayerDownY = downSampleY;
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	} else if (strncmp(opt, "dptx:", 5) == 0) {
+		mtk_dp_debug(opt + 5);
+	} else if (strncmp(opt, "dpintf_dump:", 12) == 0) {
+		struct mtk_ddp_comp *comp;
+		struct drm_crtc *crtc;
+		struct mtk_drm_crtc *mtk_crtc;
+
+		drm_for_each_crtc(crtc, drm_dev) {
+			if (!crtc) {
+				DDPPR_ERR("find crtc fail\n");
+				continue;
+			}
+			DDPINFO("------find crtc------");
+			mtk_crtc = to_mtk_crtc(crtc);
+			if (!crtc->enabled
+				|| mtk_crtc->ddp_mode == DDP_NO_USE)
+				continue;
+
+			mtk_crtc = to_mtk_crtc(crtc);
+			comp = mtk_ddp_comp_request_output(mtk_crtc);
+			mtk_dp_intf_dump(comp);
+		}
+#endif
 	}
 }
 
@@ -1772,6 +1799,9 @@ void disp_dbg_probe(void)
 out:
 	return;
 #endif
+#if IS_ENABLED(CONFIG_MTK_HDMI_SUPPORT)
+	mtk_dp_debugfs_init();
+#endif
 }
 
 void disp_dbg_init(struct drm_device *dev)
@@ -1796,6 +1826,9 @@ void disp_dbg_deinit(void)
 		proc_remove(disp_lowpower_proc);
 		disp_lowpower_proc = NULL;
 	}
+#endif
+#if IS_ENABLED(CONFIG_MTK_HDMI_SUPPORT)
+	mtk_dp_debugfs_deinit();
 #endif
 }
 

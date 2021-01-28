@@ -26,6 +26,9 @@
 #include "mtk_drm_mmp.h"
 #include "mtk_drm_gem.h"
 #include "mtk_drm_fb.h"
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+#include "mtk_dp_api.h"
+#endif
 
 #define DISP_REG_DSC_CON			0x0000
 	#define DSC_EN BIT(0)
@@ -181,12 +184,81 @@ static void mtk_dsc_unprepare(struct mtk_ddp_comp *comp)
 	mtk_ddp_comp_clk_unprepare(comp);
 }
 
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+struct mtk_panel_dsc_params *mtk_dsc_default_setting(void)
+{
+	u8 dsc_cap[16];
+	static struct mtk_panel_dsc_params dsc_params = {
+		.enable = 1,
+		.ver = 2,
+		.slice_mode = 1,
+		.rgb_swap = 0,
+		.dsc_cfg = 0x12,//flatness_det_thr, 8bit
+		.rct_on = 1,//default
+		.bit_per_channel = 8,
+		.dsc_line_buf_depth = 13, //9,//11 for 10bit
+		.bp_enable = 1,//align vend
+		.bit_per_pixel = 128,//16*bpp
+		.pic_height = 2160,
+		.pic_width = 3840, /*for dp port 4k scenario*/
+		.slice_height = 8,
+		.slice_width = 1920,// frame_width/slice mode
+		.chunk_size = 1920,
+		.xmit_delay = 512, //410,
+		.dec_delay = 1216, //526,
+		.scale_value = 32,
+		.increment_interval = 286, //488,
+		.decrement_interval = 26, //7,
+		.line_bpg_offset = 12, //12,
+		.nfl_bpg_offset = 3511, //1294,
+		.slice_bpg_offset = 916, //1302,
+		.initial_offset = 6144,
+		.final_offset = 4336,
+		.flatness_minqp = 3,
+		.flatness_maxqp = 12,
+		.rc_model_size = 8192,
+		.rc_edge_factor = 6,
+		.rc_quant_incr_limit0 = 11,
+		.rc_quant_incr_limit1 = 11,
+		.rc_tgt_offset_hi = 3,
+		.rc_tgt_offset_lo = 3,
+	};
+
+	mtk_dp_get_dsc_capability(dsc_cap);
+	dsc_params.bp_enable = dsc_cap[6];
+	dsc_params.ver = dsc_cap[1];
+
+	return &dsc_params;
+}
+EXPORT_SYMBOL(mtk_dsc_default_setting);
+#endif
+
+//extern void mtk_dp_dsc_pps_send(u8 *PPS);
+u8 PPS[128] = {
+	0x12, 0x00, 0x00, 0x8d, 0x30, 0x80, 0x08, 0x70,
+	0x0f, 0x00, 0x00, 0x08, 0x07, 0x80, 0x07, 0x80,
+	0x02, 0x00, 0x04, 0xc0, 0x00, 0x20, 0x01, 0x1e,
+	0x00, 0x1a, 0x00, 0x0c, 0x0d, 0xb7, 0x03, 0x94,
+	0x18, 0x00, 0x10, 0xf0, 0x03, 0x0c, 0x20, 0x00,
+	0x06, 0x0b, 0x0b, 0x33, 0x0e, 0x1c, 0x2a, 0x38,
+	0x46, 0x54, 0x62, 0x69, 0x70, 0x77, 0x79, 0x7b,
+	0x7d, 0x7e, 0x01, 0x02, 0x01, 0x00, 0x09, 0x40,
+	0x09, 0xbe, 0x19, 0xfc, 0x19, 0xfa, 0x19, 0xf8,
+	0x1a, 0x38, 0x1a, 0x78, 0x22, 0xb6, 0x2a, 0xb6,
+	0x2a, 0xf6, 0x2a, 0xf4, 0x43, 0x34, 0x63, 0x74,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
 static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 				 struct mtk_ddp_config *cfg,
 				 struct cmdq_pkt *handle)
 {
 	u32 reg_val;
 	struct mtk_disp_dsc *dsc = comp_to_dsc(comp);
+	unsigned int dsc_con = 0;
 	unsigned int pic_group_width, slice_width, slice_height;
 	unsigned int pic_height_ext_num, slice_group_width;
 	unsigned int bit_per_pixel, chrunk_size, pad_num;
@@ -194,12 +266,18 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 	unsigned int init_delay_height;
 	struct mtk_panel_dsc_params *dsc_params;
 
-	if (!comp->mtk_crtc || !comp->mtk_crtc->panel_ext)
+	DDPFUNC();
+	if (!comp->mtk_crtc || (!comp->mtk_crtc->panel_ext
+				&& !comp->mtk_crtc->is_dual_pipe))
 		return;
-
-	dsc_params = &comp->mtk_crtc->panel_ext->params->dsc_params;
+	dsc_params =
+#ifndef CONFIG_MTK_HDMI_SUPPORT
+	 &comp->mtk_crtc->panel_ext->params->dsc_params;
+#else
+	mtk_dsc_default_setting();
+#endif
 	if (dsc_params->enable == 1) {
-		DDPINFO("%s, w:0x%x, h:0x%x, 0x%x, 0x%x, 0x%x, 0x%x\n",
+		DDPMSG("%s, w:%d, h:%d, slice_mode:%d,slice(%d,%d),bpp:%d\n",
 			mtk_dump_comp_str(comp), cfg->w, cfg->h,
 			dsc_params->slice_mode,	dsc_params->slice_width,
 			dsc_params->slice_height, dsc_params->bit_per_pixel);
@@ -214,18 +292,12 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		chrunk_size = (slice_width*bit_per_pixel/8/16);
 		pad_num = (chrunk_size + 2)/3*3 - chrunk_size;
 
-		mtk_ddp_write_mask(comp, 0, DISP_REG_DSC_CON,
-				DSC_DUAL_INOUT, handle);
-		/* TODO: for dual pipe */
-		/* mtk_ddp_write_mask(comp, pConfig->is_dual ?
-		 * DSC_IN_SRC_SEL : 0,
-		 * DISP_REG_DSC_CON, DSC_IN_SRC_SEL, handle);
-		 */
+		dsc_con |= DSC_UFOE_SEL;
+		if (comp->mtk_crtc->is_dual_pipe)
+			dsc_con |= DSC_IN_SRC_SEL;
 
-		mtk_ddp_write_mask(comp, DSC_UFOE_SEL,
-				DISP_REG_DSC_CON, DSC_UFOE_SEL, handle);
-		mtk_ddp_write_mask(comp, 0, DISP_REG_DSC_CON,
-				DSC_BYPASS, handle);
+		mtk_ddp_write_relaxed(comp,
+			dsc_con, DISP_REG_DSC_CON, handle);
 
 		mtk_ddp_write_relaxed(comp,
 			(pic_group_width - 1) << 16 | cfg->w,
@@ -272,12 +344,8 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write_mask(comp, reg_val,
 					DISP_REG_DSC_MODE, 0xFFFF, handle);
 
-		DDPINFO("%s, init delay:0x%x\n",
+		DDPMSG("%s, init delay:%d\n",
 			mtk_dump_comp_str(comp), reg_val);
-
-		mtk_ddp_write_relaxed(comp,
-			(dsc_params->dsc_cfg == 0) ? 0x22 : dsc_params->dsc_cfg,
-			DISP_REG_DSC_CFG, handle);
 
 		mtk_ddp_write_relaxed(comp,
 			(dsc_params->dsc_cfg == 0) ? 0x22 : dsc_params->dsc_cfg,
@@ -289,7 +357,7 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 
 		mtk_ddp_write_mask(comp,
 			(((dsc_params->ver & 0xf) == 2) ? 0x40 : 0x20),
-			0x200, 0x60, handle);
+			DISP_REG_DSC_SHADOW, 0x60, handle);
 
 		if (dsc_params->dsc_line_buf_depth == 0)
 			reg_val = 0x9;
@@ -367,12 +435,36 @@ static void mtk_dsc_config(struct mtk_ddp_comp *comp,
 		mtk_ddp_write(comp, 0x00007e7d, DISP_REG_DSC_PPS11, handle);
 		mtk_ddp_write(comp, 0x00800880, DISP_REG_DSC_PPS12, handle);
 		mtk_ddp_write(comp, 0xf8c100a1, DISP_REG_DSC_PPS13, handle);
-		mtk_ddp_write(comp, 0xe8e3f0e3, DISP_REG_DSC_PPS14, handle);
-		mtk_ddp_write(comp, 0xe103e0e3, DISP_REG_DSC_PPS15, handle);
-		mtk_ddp_write(comp, 0xd943e123, DISP_REG_DSC_PPS16, handle);
-		mtk_ddp_write(comp, 0xd185d965, DISP_REG_DSC_PPS17, handle);
-		mtk_ddp_write(comp, 0xd1a7d1a5, DISP_REG_DSC_PPS18, handle);
-		mtk_ddp_write(comp, 0x0000d1ed, DISP_REG_DSC_PPS19, handle);
+		if (comp->mtk_crtc->is_dual_pipe) {
+			mtk_ddp_write(comp, 0xe8e3f0e3,
+				DISP_REG_DSC_PPS14, handle);
+			mtk_ddp_write(comp, 0xe103e0e3,
+				DISP_REG_DSC_PPS15, handle);
+			mtk_ddp_write(comp, 0xd944e123,
+				DISP_REG_DSC_PPS16, handle);
+			mtk_ddp_write(comp, 0xd965d945,
+				DISP_REG_DSC_PPS17, handle);
+			mtk_ddp_write(comp, 0xd188d165,
+				DISP_REG_DSC_PPS18, handle);
+			mtk_ddp_write(comp, 0x0000d1ac,
+				DISP_REG_DSC_PPS19, handle);
+
+			///mtk_dp_dsc_pps_send(PPS);
+		} else {
+			mtk_ddp_write(comp, 0xe8e3f0e3,
+				DISP_REG_DSC_PPS14, handle);
+			mtk_ddp_write(comp, 0xe103e0e3,
+				DISP_REG_DSC_PPS15, handle);
+			mtk_ddp_write(comp, 0xd943e123,
+				DISP_REG_DSC_PPS16, handle);
+			mtk_ddp_write(comp, 0xd185d965,
+				DISP_REG_DSC_PPS17, handle);
+			mtk_ddp_write(comp, 0xd1a7d1a5,
+				DISP_REG_DSC_PPS18, handle);
+			mtk_ddp_write(comp, 0x0000d1ed,
+				DISP_REG_DSC_PPS19, handle);
+		}
+
 
 		dsc->enable = true;
 	} else {
@@ -391,13 +483,13 @@ void mtk_dsc_dump(struct mtk_ddp_comp *comp)
 	DDPDUMP("== %s REGS ==\n", mtk_dump_comp_str(comp));
 
 	DDPDUMP("(0x000)DSC_START=0x%x\n", readl(baddr + DISP_REG_DSC_CON));
-	DDPDUMP("(0x000)DSC_SLICE_WIDTH=0x%x\n",
+	DDPDUMP("(0x020)DSC_SLICE_WIDTH=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SLICE_W));
-	DDPDUMP("(0x000)DSC_SLICE_HIGHT=0x%x\n",
+	DDPDUMP("(0x024)DSC_SLICE_HIGHT=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SLICE_H));
-	DDPDUMP("(0x000)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
-	DDPDUMP("(0x000)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
-	DDPDUMP("(0x000)DSC_SHADOW=0x%x\n",
+	DDPDUMP("(0x018)DSC_WIDTH=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_W));
+	DDPDUMP("(0x01C)DSC_HEIGHT=0x%x\n", readl(baddr + DISP_REG_DSC_PIC_H));
+	DDPDUMP("(0x200)DSC_SHADOW=0x%x\n",
 		readl(baddr + DISP_REG_DSC_SHADOW));
 	DDPDUMP("-- Start dump dsc registers --\n");
 	for (i = 0; i < 204; i += 16) {

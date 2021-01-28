@@ -55,6 +55,9 @@
 #include "mtk_drm_mmp.h"
 /* *******Panel Master******** */
 #include "mtk_fbconfig_kdebug.h"
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+#include "mtk_dp_api.h"
+#endif
 
 #define DRIVER_NAME "mediatek"
 #define DRIVER_DESC "Mediatek SoC DRM"
@@ -62,10 +65,10 @@
 #define DRIVER_MAJOR 1
 #define DRIVER_MINOR 0
 
-atomic_t _mtk_fence_idx = ATOMIC_INIT(-1);
+atomic_t _mtk_fence_idx[2] = {ATOMIC_INIT(-1), ATOMIC_INIT(-1)};
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
-atomic_t _mtk_fence_update_event = ATOMIC_INIT(0);
-wait_queue_head_t _mtk_fence_wq;
+atomic_t _mtk_fence_update_event[2] = {ATOMIC_INIT(0), ATOMIC_INIT(0)};
+wait_queue_head_t _mtk_fence_wq[2];
 #endif
 
 static atomic_t top_isr_ref; /* irq power status protection */
@@ -962,10 +965,17 @@ static const enum mtk_ddp_comp_id mt6885_mtk_ddp_main_minor_sub[] = {
 };
 
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_ext[] = {
-	/* TODO: DP interface */
-	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_RDMA4,
+	DDP_COMPONENT_OVL2_2L,
+	DDP_COMPONENT_RDMA4,
+	DDP_COMPONENT_DP_INTF0,
 };
 
+static const enum mtk_ddp_comp_id mt6885_dual_data_ext[] = {
+	DDP_COMPONENT_OVL3_2L,
+	DDP_COMPONENT_RDMA5,
+	/*DDP_COMPONENT_MERGE1,*/
+	DDP_COMPONENT_DSC0,
+};
 static const enum mtk_ddp_comp_id mt6885_mtk_ddp_third[] = {
 	DDP_COMPONENT_OVL2_2L, DDP_COMPONENT_WDMA0,
 };
@@ -1222,6 +1232,8 @@ static const struct mtk_crtc_path_data mt6885_mtk_ext_path_data = {
 	.path_len[DDP_MAJOR][0] = ARRAY_SIZE(mt6885_mtk_ddp_ext),
 	.path_req_hrt[DDP_MAJOR][0] = true,
 	.addon_data = mt6885_addon_ext,
+	.dual_path[0] = mt6885_dual_data_ext,
+	.dual_path_len[0] = ARRAY_SIZE(mt6885_dual_data_ext),
 };
 
 static const struct mtk_crtc_path_data mt6885_mtk_third_path_data = {
@@ -1517,9 +1529,9 @@ static int mtk_drm_fence_release_thread(void *data)
 	sched_setscheduler(current, SCHED_RR, &param);
 
 	while (!kthread_should_stop()) {
-		wait_event_interruptible(_mtk_fence_wq,
-					 atomic_read(&_mtk_fence_update_event));
-		atomic_set(&_mtk_fence_update_event, 0);
+		wait_event_interruptible(_mtk_fence_wq[0],
+				 atomic_read(&_mtk_fence_update_event[0]));
+		atomic_set(&_mtk_fence_update_event[0], 0);
 
 		DDPINFO("%s:%d wait vblank+\n", __func__, __LINE__);
 		drm_wait_one_vblank(private->drm, 0);
@@ -1527,7 +1539,32 @@ static int mtk_drm_fence_release_thread(void *data)
 
 		mutex_lock(&private->commit.lock);
 		mtk_release_present_fence(private->session_id[0],
-					  atomic_read(&_mtk_fence_idx));
+					  atomic_read(&_mtk_fence_idx[0]));
+		mutex_unlock(&private->commit.lock);
+	}
+
+	return 0;
+}
+
+static int mtk_drm_fence_release_thread1(void *data)
+{
+	struct sched_param param = {.sched_priority = 87};
+	struct mtk_drm_private *private = (struct mtk_drm_private *)data;
+
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	while (!kthread_should_stop()) {
+		wait_event_interruptible(_mtk_fence_wq[1],
+			 atomic_read(&_mtk_fence_update_event[1]));
+		atomic_set(&_mtk_fence_update_event[1], 0);
+
+		DDPINFO("%s:%d wait vblank+\n", __func__, __LINE__);
+		drm_wait_one_vblank(private->drm, 1);
+		DDPINFO("%s:%d wait vblank-\n", __func__, __LINE__);
+
+		mutex_lock(&private->commit.lock);
+		mtk_release_present_fence(private->session_id[1],
+					  atomic_read(&_mtk_fence_idx[1]));
 		mutex_unlock(&private->commit.lock);
 	}
 
@@ -1535,17 +1572,20 @@ static int mtk_drm_fence_release_thread(void *data)
 }
 #endif
 
-void mtk_drm_fence_update(unsigned int fence_idx)
-{
-	int pf = atomic_read(&_mtk_fence_idx);
 
+void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index)
+{
+
+	int pf = atomic_read(&_mtk_fence_idx[index]);
+
+	DDPDBG("crtc%d,fence_idx:%d,pf:%d", index, fence_idx, pf);
 	if (pf != -1 && fence_idx < (unsigned int)pf)
 		return;
 
-	atomic_set(&_mtk_fence_idx, fence_idx);
+	atomic_set(&_mtk_fence_idx[index], fence_idx);
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
-	atomic_set(&_mtk_fence_update_event, 1);
-	wake_up_interruptible(&_mtk_fence_wq);
+	atomic_set(&_mtk_fence_update_event[index], 1);
+	wake_up_interruptible(&_mtk_fence_wq[index]);
 #endif
 
 	CRTC_MMP_MARK(0, update_present_fence, 0, fence_idx);
@@ -1562,7 +1602,7 @@ int mtk_drm_suspend_release_fence(struct device *dev)
 	}
 	/* release present fence */
 	mtk_release_present_fence(private->session_id[0],
-				  atomic_read(&_mtk_fence_idx));
+				  atomic_read(&_mtk_fence_idx[0]));
 	return 0;
 }
 
@@ -1571,7 +1611,7 @@ void mtk_drm_suspend_release_present_fence(struct device *dev)
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
 
 	mtk_release_present_fence(private->session_id[0],
-				  atomic_read(&_mtk_fence_idx));
+				  atomic_read(&_mtk_fence_idx[0]));
 }
 #endif
 
@@ -2124,13 +2164,9 @@ int mtk_drm_get_info_ioctl(struct drm_device *dev, void *data,
 
 	if (s_type == MTK_SESSION_PRIMARY) {
 		ret = mtk_drm_primary_get_info(dev, info);
-#if ((defined CONFIG_MTK_HDMI_SUPPORT) ||                            \
-	(defined(CONFIG_MTK_DUAL_DISPLAY_SUPPORT) &&                     \
-	(CONFIG_MTK_DUAL_DISPLAY_SUPPORT == 2)))
+#if (defined CONFIG_MTK_HDMI_SUPPORT)
 	} else if (s_type == MTK_SESSION_EXTERNAL) {
-		/* TODO: external_display_get_info(info, info->session_id); */
-		DDPPR_ERR("%s not implement type:EXTERNAL\n", __func__);
-		return -EINVAL;
+		ret = mtk_drm_dp_get_info(dev, info);
 #endif
 	} else if (s_type == MTK_SESSION_MEMORY) {
 		return ret;
@@ -2272,11 +2308,16 @@ static int mtk_drm_kms_init(struct drm_device *drm)
 #ifdef MTK_DRM_FENCE_SUPPORT
 #ifndef MTK_DRM_DELAY_PRESENT_FENCE
 	/* fence release kthread */
-	init_waitqueue_head(&_mtk_fence_wq);
-	private->fence_release_thread =
+	init_waitqueue_head(&_mtk_fence_wq[0]);
+	init_waitqueue_head(&_mtk_fence_wq[1]);
+	private->fence_release_thread[0] =
 			kthread_run(mtk_drm_fence_release_thread,
 			private, "fence_release_thread");
-	if (IS_ERR(private->fence_release_thread)) {
+	private->fence_release_thread[1] =
+			kthread_run(mtk_drm_fence_release_thread1,
+			private, "fence_release_thread1");
+	if (IS_ERR(private->fence_release_thread[0]) ||
+			IS_ERR(private->fence_release_thread[1])) {
 		DDPPR_ERR("Failed to create fence release thread\n");
 		goto err_kms_helper_poll_fini;
 	}
@@ -2393,6 +2434,16 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 			  DRM_UNLOCKED),
 	DRM_IOCTL_DEF_DRV(MTK_SEC_HND_TO_GEM_HND, mtk_drm_sec_hnd_to_gem_hnd,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_DEV_INFO, mtk_drm_dp_get_dev_info,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_HDMI_AUDIO_ENABLE, mtk_drm_dp_audio_enable,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_HDMI_AUDIO_CONFIG, mtk_drm_dp_audio_config,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_HDMI_GET_CAPABILITY, mtk_drm_dp_get_cap,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+#endif
 };
 
 static const struct file_operations mtk_drm_fops = {
@@ -2593,6 +2644,8 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt6885-dsi",
 	 .data = (void *)MTK_DSI},
+	{.compatible = "mediatek,mt6885-dp-intf",
+	 .data = (void *)MTK_DP_INTF},
 	{.compatible = "mediatek,mt6873-dsi",
 	 .data = (void *)MTK_DSI},
 	{.compatible = "mediatek,mt6853-dsi",
@@ -2653,6 +2706,10 @@ static const struct of_device_id mtk_ddp_comp_dt_ids[] = {
 	 .data = (void *)MTK_DISP_DSC},
 	{.compatible = "mediatek,mt6853-disp-dsc",
 	 .data = (void *)MTK_DISP_DSC},
+	{.compatible = "mediatek,mt6885-disp-merge",
+	 .data = (void *)MTK_DISP_MERGE},
+	 {.compatible = "mediatek,mt6885-dp_tx",
+	 .data = (void *)MTK_DISP_DPTX},
 	{.compatible = "mediatek,mt6885-dmdp-aal",
 	 .data = (void *)MTK_DMDP_AAL},
 	{.compatible = "mediatek,mt6873-dmdp-aal",
@@ -2809,16 +2866,20 @@ static int mtk_drm_probe(struct platform_device *pdev)
 		 * DDP component structure. The others are initialized here.
 		 */
 		if (comp_type == MTK_DISP_OVL ||
+		    comp_type == MTK_DISP_MERGE ||
 		    comp_type == MTK_DISP_RDMA || comp_type == MTK_DISP_WDMA ||
 		    comp_type == MTK_DISP_RSZ ||
 		    comp_type == MTK_DISP_POSTMASK || comp_type == MTK_DSI
+		    || comp_type == MTK_DISP_DSC || comp_type == MTK_DPI
 #ifndef DRM_BYPASS_PQ
 		    || comp_type == MTK_DISP_COLOR ||
 		    comp_type == MTK_DISP_CCORR ||
 		    comp_type == MTK_DISP_GAMMA || comp_type == MTK_DISP_AAL ||
 		    comp_type == MTK_DISP_DITHER ||
-		    comp_type == MTK_DPI || comp_type == MTK_DISP_DSC ||
 		    comp_type == MTK_DMDP_AAL
+#endif
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+		    || comp_type == MTK_DP_INTF || comp_type == MTK_DISP_DPTX
 #endif
 		    ) {
 			dev_info(dev, "Adding component match for %s\n",
@@ -2995,6 +3056,9 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_disp_wdma_driver,
 	&mtk_disp_rsz_driver,
 	&mtk_dsi_driver,
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	&mtk_dp_intf_driver,
+#endif
 	&mtk_mipi_tx_driver,
 #ifdef CONFIG_DRM_MEDIATEK_HDMI
 	&mtk_dpi_driver,
@@ -3002,6 +3066,10 @@ static struct platform_driver *const mtk_drm_drivers[] = {
 	&mtk_lvds_tx_driver,
 #endif
 	&mtk_disp_dsc_driver,
+#ifdef CONFIG_MTK_HDMI_SUPPORT
+	&mtk_dp_tx_driver,
+#endif
+	&mtk_disp_merge_driver
 };
 
 static int __init mtk_drm_init(void)

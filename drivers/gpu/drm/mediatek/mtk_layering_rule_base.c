@@ -1204,6 +1204,8 @@ static int get_layer_weight(int disp_idx,
 		bpp = HRT_UINT_BOUND_BPP;
 #ifdef CONFIG_MTK_HDMI_SUPPORT
 	if (disp_idx == HRT_SECONDARY) {
+		/* To Be Impl */
+#if 0
 		struct disp_session_info dispif_info;
 
 		/* For seconary display, set the weight 4K@30 as 2K@60.	*/
@@ -1220,6 +1222,7 @@ static int get_layer_weight(int disp_idx,
 			weight /= 2;
 
 		return weight * bpp;
+#endif
 	}
 #endif
 

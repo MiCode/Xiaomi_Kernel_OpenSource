@@ -39,6 +39,9 @@ int mtk_dprec_logger_pr(unsigned int type, char *fmt, ...);
 			pr_info(pr_fmt(fmt), ##arg);     \
 	} while (0)
 
+#define DDPFUNC(fmt, arg...)		\
+	pr_info("[%s line:%d]"pr_fmt(fmt), __func__, __LINE__, ##arg)
+
 #define DDPDBG(fmt, arg...)                                                    \
 	do {                                                                   \
 		if (!g_detail_log)                                             \
