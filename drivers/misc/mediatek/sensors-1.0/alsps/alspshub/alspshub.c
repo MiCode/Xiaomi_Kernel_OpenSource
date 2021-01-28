@@ -117,7 +117,7 @@ long alspshub_read_als(u16 *als)
 	return 0;
 }
 
-static ssize_t alspshub_show_trace(struct device_driver *ddri, char *buf)
+static ssize_t trace_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t res = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
@@ -131,7 +131,7 @@ static ssize_t alspshub_show_trace(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t alspshub_store_trace(struct device_driver *ddri,
+static ssize_t trace_store(struct device_driver *ddri,
 				const char *buf, size_t count)
 {
 	int trace = 0;
@@ -159,7 +159,7 @@ static ssize_t alspshub_store_trace(struct device_driver *ddri,
 	return count;
 }
 
-static ssize_t alspshub_show_als(struct device_driver *ddri, char *buf)
+static ssize_t als_show(struct device_driver *ddri, char *buf)
 {
 	int res = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
@@ -175,7 +175,7 @@ static ssize_t alspshub_show_als(struct device_driver *ddri, char *buf)
 		return snprintf(buf, PAGE_SIZE, "0x%04X\n", obj->als);
 }
 
-static ssize_t alspshub_show_ps(struct device_driver *ddri, char *buf)
+static ssize_t ps_show(struct device_driver *ddri, char *buf)
 {
 	ssize_t res = 0;
 	struct alspshub_ipi_data *obj = obj_ipi_data;
@@ -191,7 +191,7 @@ static ssize_t alspshub_show_ps(struct device_driver *ddri, char *buf)
 		return snprintf(buf, PAGE_SIZE, "0x%04X\n", obj->ps);
 }
 
-static ssize_t alspshub_show_reg(struct device_driver *ddri, char *buf)
+static ssize_t reg_show(struct device_driver *ddri, char *buf)
 {
 	int res = 0;
 
@@ -205,7 +205,7 @@ static ssize_t alspshub_show_reg(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t alspshub_show_alslv(struct device_driver *ddri, char *buf)
+static ssize_t alslv_show(struct device_driver *ddri, char *buf)
 {
 	int res = 0;
 
@@ -219,7 +219,7 @@ static ssize_t alspshub_show_alslv(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static ssize_t alspshub_show_alsval(struct device_driver *ddri, char *buf)
+static ssize_t alsval_show(struct device_driver *ddri, char *buf)
 {
 	int res = 0;
 
@@ -233,13 +233,12 @@ static ssize_t alspshub_show_alsval(struct device_driver *ddri, char *buf)
 	return res;
 }
 
-static DRIVER_ATTR(als, 0644, alspshub_show_als, NULL);
-static DRIVER_ATTR(ps, 0644, alspshub_show_ps, NULL);
-static DRIVER_ATTR(alslv, 0644, alspshub_show_alslv, NULL);
-static DRIVER_ATTR(alsval, 0644, alspshub_show_alsval, NULL);
-static DRIVER_ATTR(trace, 0644, alspshub_show_trace,
-					alspshub_store_trace);
-static DRIVER_ATTR(reg, 0644, alspshub_show_reg, NULL);
+static DRIVER_ATTR_RO(als);
+static DRIVER_ATTR_RO(ps);
+static DRIVER_ATTR_RO(alslv);
+static DRIVER_ATTR_RO(alsval);
+static DRIVER_ATTR_RW(trace);
+static DRIVER_ATTR_RO(reg);
 static struct driver_attribute *alspshub_attr_list[] = {
 	&driver_attr_als,
 	&driver_attr_ps,
