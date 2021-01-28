@@ -2786,6 +2786,7 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	struct iio_channel *channel;
 	bool use_dt = pdev->dev.of_node;
 	int i, ret = 0;
+	char *p;
 
 	dev_info(&pdev->dev, "%s\n", __func__);
 	if (use_dt) {
@@ -2870,9 +2871,14 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	mt6360_pmu_chg_irq_register(pdev);
 	device_init_wakeup(&pdev->dev, true);
 	/* mivr task */
-	mpci->mivr_task = kthread_run(mt6360_chg_mivr_task_threadfn, mpci,
-				      devm_kasprintf(mpci->dev, GFP_KERNEL,
-				      "mivr_thread.%s", dev_name(mpci->dev)));
+	p = devm_kasprintf(mpci->dev, GFP_KERNEL,
+				"mivr_thread.%s", dev_name(mpci->dev));
+	ret = PTR_ERR_OR_ZERO(p);
+	if (ret < 0) {
+		dev_notice(mpci->dev, "devm kasprintf fail\n");
+		goto err_register_chg_dev;
+	}
+	mpci->mivr_task = kthread_run(mt6360_chg_mivr_task_threadfn, mpci, p);
 	ret = PTR_ERR_OR_ZERO(mpci->mivr_task);
 	if (ret < 0) {
 		dev_err(mpci->dev, "create mivr handling thread fail\n");
