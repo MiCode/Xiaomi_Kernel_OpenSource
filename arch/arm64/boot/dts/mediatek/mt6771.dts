@@ -3917,6 +3917,16 @@ firmware_class.path=/vendor/firmware";
 	firmware {
 		android {
 			compatible = "android,firmware";
+#ifdef CONFIG_MTK_AVB20_SUPPORT
+			vbmeta {
+				compatible = "android,vbmeta";
+#ifndef CONFIG_MTK_AB_OTA_UPDATER
+				parts = "vbmeta,boot,system,vendor,recovery";
+#else
+				parts = "vbmeta,boot,system,vendor";
+#endif
+			};
+#endif
 			fstab {
 				compatible = "android,fstab";
 #if !defined(CONFIG_SYSTEM_AS_ROOT) && !defined(CONFIG_MTK_AB_OTA_UPDATER)
@@ -3925,11 +3935,15 @@ firmware_class.path=/vendor/firmware";
 					dev = "/dev/block/platform/bootdevice/by-name/system";
 					type = "ext4";
 					mnt_flags = "ro";
-					#ifndef CONFIG_MTK_DM_VERITY_OFF
+#ifndef CONFIG_MTK_DM_VERITY_OFF
+#ifdef CONFIG_MTK_AVB20_SUPPORT
+					fsmgr_flags = "wait,avb";
+#else
 					fsmgr_flags = "wait,verify";
-					#else
+#endif
+#else
 					fsmgr_flags = "wait";
-					#endif
+#endif
 				};
 #endif
 #ifndef CONFIG_MTK_LATE_MOUNT
@@ -3939,17 +3953,25 @@ firmware_class.path=/vendor/firmware";
 					type = "ext4";
 					mnt_flags = "ro";
 #ifndef CONFIG_MTK_AB_OTA_UPDATER
-					#ifndef CONFIG_MTK_DM_VERITY_OFF
-					fsmgr_flags = "wait,verify";
-					#else
-					fsmgr_flags = "wait";
-					#endif
+#ifndef CONFIG_MTK_DM_VERITY_OFF
+#ifdef CONFIG_MTK_AVB20_SUPPORT
+					fsmgr_flags = "wait,avb";
 #else
-					#ifndef CONFIG_MTK_DM_VERITY_OFF
+					fsmgr_flags = "wait,verify";
+#endif
+#else
+					fsmgr_flags = "wait";
+#endif
+#else
+#ifndef CONFIG_MTK_DM_VERITY_OFF
+#ifdef CONFIG_MTK_AVB20_SUPPORT
+					fsmgr_flags = "wait,slotselect,avb";
+#else
 					fsmgr_flags = "wait,slotselect,verify";
-					#else
+#endif
+#else
 					fsmgr_flags = "wait,slotselect";
-					#endif
+#endif
 #endif
 				};
 #endif
@@ -3960,13 +3982,25 @@ firmware_class.path=/vendor/firmware";
 					type = "ext4";
 					mnt_flags = "ro";
 #ifndef CONFIG_MTK_AB_OTA_UPDATER
-					fsmgr_flags = "wait";
+#ifndef CONFIG_MTK_DM_VERITY_OFF
+#ifdef CONFIG_MTK_AVB20_SUPPORT
+					fsmgr_flags = "wait,avb";
 #else
-					#ifndef CONFIG_MTK_DM_VERITY_OFF
+					fsmgr_flags = "wait,verify";
+#endif
+#else
+					fsmgr_flags = "wait";
+#endif
+#else
+#ifndef CONFIG_MTK_DM_VERITY_OFF
+#ifdef CONFIG_MTK_AVB20_SUPPORT
+					fsmgr_flags = "wait,slotselect,avb";
+#else
 					fsmgr_flags = "wait,slotselect,verify";
-					#else
+#endif
+#else
 					fsmgr_flags = "wait,slotselect";
-					#endif
+#endif
 #endif
 				};
 #endif
