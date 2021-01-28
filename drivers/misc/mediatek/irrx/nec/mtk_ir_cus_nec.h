@@ -13,7 +13,7 @@
 #ifndef __MTK_IR_CUS_NEC_DEFINE_H__
 #define __MTK_IR_CUS_NEC_DEFINE_H__
 
-#include "../inc/mtk_ir_core.h"
+#include "mtk_ir_core.h"
 
 #ifdef MTK_LK_IRRX_SUPPORT
 #include <platform/mtk_ir_lk_core.h>
