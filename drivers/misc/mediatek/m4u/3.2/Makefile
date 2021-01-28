@@ -25,7 +25,6 @@ endif
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
 include $(srctree)/drivers/tee/teei/Makefile.include
 endif
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/trustzone/m4u
 
 ifeq ($(CONFIG_MTK_SECURE_MEM_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.include

@@ -19,6 +19,10 @@
 #include "trustzone/kree/mem.h"
 #endif
 
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+#include "trusted_mem_api.h"
+#endif
+
 int m4u_test_domain;
 int test_mva;
 
@@ -704,18 +708,30 @@ static int m4u_debug_set(void *data, u64 val)
 #ifdef M4U_TEE_SERVICE_ENABLE
 	case 50:
 	{
-#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&   \
-		defined(CONFIG_MTK_TEE_GP_SUPPORT)
 		u32 sec_handle = 0;
 		u32 refcount;
-
-		secmem_api_alloc(0, 0x1000, &refcount,
-			&sec_handle, "m4u_ut", 0);
-#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
-		u32 sec_handle = 0;
-		u32 refcount = 0;
 		int ret = 0;
 
+#if defined(CONFIG_TRUSTONIC_TEE_SUPPORT) &&   \
+		defined(CONFIG_MTK_TEE_GP_SUPPORT)
+
+#ifdef CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM
+		ret = trusted_mem_api_alloc(TRUSTED_MEM_REQ_SVP, 0, 0x1000,
+					    &refcount, &sec_handle,
+					    "m4u_ut", 0);
+#endif
+		if (ret == -ENOMEM) {
+			M4UMSG("%s[%d] UT FAIL: out of memory\n",
+			       __func__, __LINE__);
+			return ret;
+		}
+		if (sec_handle <= 0) {
+			M4UMSG("%s[%d] sec memory alloc error: handle %u\n",
+			       __func__, __LINE__, sec_handle);
+			return sec_handle;
+		}
+
+#elif defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)
 		ret = KREE_AllocSecurechunkmemWithTag(0,
 			&sec_handle, 0, 0x1000, "m4u_ut");
 		if (ret != TZ_RESULT_SUCCESS) {
@@ -726,8 +742,8 @@ static int m4u_debug_set(void *data, u64 val)
 		}
 #endif
 		m4u_sec_init();
-	break;
 	}
+	break;
 	case 51:
 	{
 		struct M4U_PORT_STRUCT port;
