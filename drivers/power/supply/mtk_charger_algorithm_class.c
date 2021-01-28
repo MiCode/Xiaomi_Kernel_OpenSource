@@ -176,17 +176,17 @@ struct chg_alg_device *chg_alg_device_register(const char *name,
 	chg_dev = kzalloc(sizeof(*chg_dev), GFP_KERNEL);
 	if (!chg_dev)
 		return ERR_PTR(-ENOMEM);
+
+	head = &chg_dev->evt_nh;
+	srcu_init_notifier_head(head);
+	/* Rename srcu's lock to avoid LockProve warning */
+	lockdep_init_map(&(&head->srcu)->dep_map, name, &key, 0);
 	mutex_init(&chg_dev->ops_lock);
 	chg_dev->dev.class = charger_algorithm_class;
 	chg_dev->dev.parent = parent;
 	chg_dev->dev.release = chg_alg_device_release;
 	dev_set_name(&chg_dev->dev, name);
 	dev_set_drvdata(&chg_dev->dev, devdata);
-
-	head = &chg_dev->evt_nh;
-	srcu_init_notifier_head(head);
-	/* Rename srcu's lock to avoid LockProve warning */
-	lockdep_init_map(&(&head->srcu)->dep_map, name, &key, 0);
 
 	/* Copy properties */
 	if (props) {

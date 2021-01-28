@@ -253,7 +253,7 @@ static int do_algorithm(struct mtk_charger *info)
 	bool chg_done = false;
 	int i;
 	int ret;
-	int val;
+	int val = 0;
 
 	pdata = &info->chg_data[CHG1_SETTING];
 	charger_dev_is_charging_done(info->chg1_dev, &chg_done);

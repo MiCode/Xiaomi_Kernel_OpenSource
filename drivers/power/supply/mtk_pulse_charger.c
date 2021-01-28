@@ -274,13 +274,13 @@ static int mtk_linear_chr_cc(struct mtk_charger *info)
 	u32 vbat;
 	struct pcharger_data *algo_data;
 
+	algo_data = info->algo.algo_data;
 	pr_notice("%s time:%d %d %d %d\n", __func__,
 		algo_data->total_charging_time,
 		algo_data->cc_charging_time,
 		algo_data->topoff_charging_time,
 		algo_data->full_charging_time);
 
-	algo_data = info->algo.algo_data;
 	get_monotonic_boottime(&time_now);
 	charging_time = timespec_sub(time_now, algo_data->charging_begin_time);
 
@@ -445,11 +445,10 @@ static int pchr_do_algorithm(struct mtk_charger *info)
 	struct charger_data *pdata;
 	bool is_basic = true;
 	int ret;
-
-	struct pcharger_data *algo_data;
+	struct pcharger_data *algo_data = info->algo.algo_data;
 
 	charger_dev_kick_wdt(info->chg1_dev);
-
+	pdata = &info->chg_data[CHG1_SETTING];
 	chr_err("%s: %d\n", __func__, algo_data->state);
 
 	switch (algo_data->state) {

@@ -290,7 +290,7 @@ int pd_hal_get_charger_cnt(struct chg_alg_device *alg)
 bool pd_hal_is_chip_enable(struct chg_alg_device *alg, enum chg_idx chgidx)
 {
 	struct pd_hal *hal;
-	bool is_chip_enable;
+	bool is_chip_enable = false;
 
 	if (alg == NULL)
 		return -EINVAL;

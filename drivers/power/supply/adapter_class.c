@@ -155,16 +155,16 @@ struct adapter_device *adapter_device_register(const char *name,
 	if (!adapter_dev)
 		return ERR_PTR(-ENOMEM);
 
+	head = &adapter_dev->evt_nh;
+	srcu_init_notifier_head(head);
+	/* Rename srcu's lock to avoid LockProve warning */
+	lockdep_init_map(&(&head->srcu)->dep_map, name, &key, 0);
 	mutex_init(&adapter_dev->ops_lock);
 	adapter_dev->dev.class = adapter_class;
 	adapter_dev->dev.parent = parent;
 	adapter_dev->dev.release = adapter_device_release;
 	dev_set_name(&adapter_dev->dev, name);
 	dev_set_drvdata(&adapter_dev->dev, devdata);
-	head = &adapter_dev->evt_nh;
-	srcu_init_notifier_head(head);
-	/* Rename srcu's lock to avoid LockProve warning */
-	lockdep_init_map(&(&head->srcu)->dep_map, name, &key, 0);
 
 	/* Copy properties */
 	if (props) {

@@ -195,7 +195,7 @@ int get_vbus(struct mtk_charger *info)
 int get_ibus(struct mtk_charger *info)
 {
 	int ret = 0;
-	int ibus;
+	int ibus = 0;
 
 	if (info == NULL)
 		return -EINVAL;
@@ -356,7 +356,7 @@ unsigned int pmic_get_register_value(struct regmap *map,
 	unsigned int mask,
 	unsigned int shift)
 {
-	unsigned int value;
+	unsigned int value = 0;
 
 	regmap_read(map, addr, &value);
 	value =

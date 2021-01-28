@@ -64,7 +64,7 @@ static int pd_tcp_notifier_call(struct notifier_block *pnb,
 	struct tcp_notify *noti = data;
 	struct mtk_pd_adapter_info *pinfo;
 	struct adapter_device *adapter;
-	int ret;
+	int ret = 0;
 
 	pinfo = container_of(pnb, struct mtk_pd_adapter_info, pd_nb);
 	adapter = pinfo->adapter_dev;
@@ -362,7 +362,9 @@ static int pd_get_cap(struct adapter_device *dev,
 			j = 0;
 			pr_notice("adapter cap: nr:%d\n", pd_cap.nr);
 			for (i = 0; i < pd_cap.nr; i++) {
-				if (pd_cap.type[i] == 0) {
+				if (pd_cap.type[i] == 0 &&
+					j >= 0 &&
+					j < ADAPTER_CAP_MAX_NR) {
 					tacap->type[j] = MTK_PD;
 					tacap->ma[j] = pd_cap.ma[i];
 					tacap->max_mv[j] = pd_cap.max_mv[i];

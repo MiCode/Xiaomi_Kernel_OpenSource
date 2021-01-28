@@ -864,7 +864,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 {
 	int ret_value = 0;
 	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
-	bool again;
+	bool again = false;
 	int uisoc;
 
 	mutex_lock(&pd->access_lock);
@@ -1289,7 +1289,6 @@ static int mtk_pd_probe(struct platform_device *pdev)
 
 	pd->alg = chg_alg_device_register("pd", &pdev->dev,
 					pd, &pd_alg_ops, NULL);
-
 	return 0;
 }
 
