@@ -2573,6 +2573,12 @@ static int dpmaif_tx_send_skb(unsigned char hif_id, int qno,
 	if (skb->mark & UIDMASK)
 		prio_count = 0x1000;
 
+	if (qno < 0) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"txq(%d) < 0\n", qno);
+		ret = -CCCI_ERR_INVALID_QUEUE_INDEX;
+		return ret;
+	}
 	if (qno >= DPMAIF_TXQ_NUM) {
 		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
 			"txq(%d) > %d\n", qno, DPMAIF_TXQ_NUM);

@@ -418,11 +418,17 @@ static void get_md_dtsi_debug(void)
 {
 	struct ccci_rpc_md_dtsi_input input;
 	struct ccci_rpc_md_dtsi_output output;
+	int ret = 0;
 
 	input.req = RPC_REQ_PROP_VALUE;
 	output.retValue = 0;
-	snprintf(input.strName, sizeof(input.strName), "%s",
+	ret = snprintf(input.strName, sizeof(input.strName), "%s",
 		"mediatek,md_drdi_rf_set_idx");
+	if (ret < 0 || ret >= sizeof(input.strName)) {
+		CCCI_ERROR_LOG(-1, RPC,
+			"%s-%d:snprintf fail,ret = %d\n", __func__, __LINE__, ret);
+		return;
+	}
 	get_md_dtsi_val(&input, &output);
 }
 

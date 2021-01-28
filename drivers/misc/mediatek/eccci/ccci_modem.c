@@ -1197,6 +1197,10 @@ void ccci_md_clear_smem(int md_id, int first_boot)
 	struct ccci_smem_region *region;
 	unsigned int size;
 
+	if (md_id < 0 || md_id >= MAX_MD_NUM) {
+		CCCI_ERROR_LOG(md_id, TAG, "invalid md_id %d!!\n", md_id);
+		return;
+	}
 	/* MD will clear share memory itself after the first boot */
 	clear_smem_region(modem_sys[md_id]->mem_layout.md_bank4_noncacheable,
 		first_boot);

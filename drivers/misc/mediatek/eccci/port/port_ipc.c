@@ -529,6 +529,11 @@ int ccci_get_emi_info(int md_id, struct ccci_emi_info *emi_info)
 	if (md_id < 0 || md_id > MAX_MD_NUM || !emi_info)
 		return -EINVAL;
 	mem_layout = ccci_md_get_mem(md_id);
+	if (mem_layout == NULL) {
+		CCCI_ERROR_LOG(md_id, IPC,
+			"ccci_md_get_mem fail\n");
+		return -EINVAL;
+	}
 
 	emi_info->ap_domain_id = 0;
 	emi_info->md_domain_id = 1;
