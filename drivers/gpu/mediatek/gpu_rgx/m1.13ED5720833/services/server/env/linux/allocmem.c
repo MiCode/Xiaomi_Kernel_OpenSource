@@ -44,6 +44,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/string.h>
+#include <linux/kmemleak.h>
 
 #include "img_defs.h"
 #include "allocmem.h"
@@ -352,6 +353,8 @@ void *OSAllocZMemNoStats(IMG_UINT32 ui32Size)
 		pvRet = vzalloc(ui32Size);
 	}
 
+	/* Ignore kmemleak false positive */
+	kmemleak_ignore(pvRet);
 	return pvRet;
 }
 
