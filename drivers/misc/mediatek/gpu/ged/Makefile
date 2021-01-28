@@ -140,7 +140,7 @@ ccflags-y += \
 
 obj-y += ged.o
 
-ifeq ($(CONFIG_DEBUG_FSz),y)
+ifeq ($(CONFIG_DEBUG_FS),y)
 ccflags-y += -DGED_DEBUG_FS
 ged-y += \
 	src/ged_debugFS.o
