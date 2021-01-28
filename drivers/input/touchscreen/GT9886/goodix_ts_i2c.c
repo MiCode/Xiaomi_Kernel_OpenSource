@@ -1534,7 +1534,7 @@ int goodix_hw_reset(struct goodix_ts_device *dev)
 static int goodix_request_handler(struct goodix_ts_device *dev,
 		struct goodix_request_data *request_data)
 {
-	unsigned char buffer[1];
+	unsigned char buffer[1] = {0};
 	int r;
 
 	r = goodix_i2c_read_trans(dev, dev->reg.fw_request, buffer, 1);
