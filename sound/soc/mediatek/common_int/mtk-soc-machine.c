@@ -551,7 +551,7 @@ static struct snd_soc_dai_link mt_soc_dai_common[] = {
 		.codec_name = MT_SOC_CODEC_DUMMY_NAME,
 	},
 #endif
-#ifdef CONFIG_MTK_AUDIO_TUNNELING_SUPPORT
+#ifdef CONFIG_SND_SOC_MTK_AUDIO_DSP
 	{
 		.name = "OFFLOAD",
 		.stream_name = MT_SOC_OFFLOAD_STREAM_NAME,
