@@ -30,9 +30,6 @@
 #ifdef CONFIG_MTK_GPU_SPM_DVFS_SUPPORT
 #include <mtk_kbase_spm.h>
 #endif
-#ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-#include <scp.h>
-#endif
 #include "i2c-mtk.h"
 
 static struct i2c_dma_info g_dma_regs[I2C_MAX_CHANNEL];
