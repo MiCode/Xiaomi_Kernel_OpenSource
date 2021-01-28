@@ -216,6 +216,9 @@ static int mtk_wdt_ping(struct watchdog_device *wdt_dev)
 
 	iowrite32(WDT_RST_RELOAD, wdt_base + WDT_RST);
 
+	pr_info("watchdog%d, mtk wdt ping, wdd->status=%ld\n",
+		wdt_dev->id, wdt_dev->status);
+
 	return 0;
 }
 
@@ -253,6 +256,9 @@ static int mtk_wdt_stop(struct watchdog_device *wdt_dev)
 
 	clear_bit(WDOG_HW_RUNNING, &mtk_wdt->wdt_dev.status);
 
+	pr_info("watchdog%d, mtk wdt stop, wdd->status=%ld\n",
+		 wdt_dev->id, wdt_dev->status);
+
 	return 0;
 }
 
@@ -272,6 +278,9 @@ static int mtk_wdt_start(struct watchdog_device *wdt_dev)
 	iowrite32(reg, wdt_base + WDT_MODE);
 
 	set_bit(WDOG_HW_RUNNING, &mtk_wdt->wdt_dev.status);
+
+	pr_info("watchdog%d, mtk wdt start, wdd->status=%ld\n",
+		 wdt_dev->id, wdt_dev->status);
 
 	return 0;
 }

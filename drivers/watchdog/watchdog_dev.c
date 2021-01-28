@@ -268,6 +268,9 @@ static int watchdog_start(struct watchdog_device *wdd)
 		watchdog_update_worker(wdd);
 	}
 
+	pr_info("watchdog%d: userspace call %s, wdd->status=%lx, wd_data->status=%lx, err=%d.\n",
+		wdd->id, __func__, wdd->status, wd_data->status, err);
+
 	return err;
 }
 
@@ -307,6 +310,9 @@ static int watchdog_stop(struct watchdog_device *wdd)
 		clear_bit(WDOG_ACTIVE, &wdd->status);
 		watchdog_update_worker(wdd);
 	}
+
+	pr_info("watchdog%d: userspace call %s, wdd->status=%lx, wd_data->status=%lx, err=%d.\n",
+		wdd->id, __func__, wdd->status, wdd->wd_data->status, err);
 
 	return err;
 }
