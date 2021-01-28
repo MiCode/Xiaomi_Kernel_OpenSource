@@ -18,7 +18,8 @@
  */
 enum DDP_CLK_ID {
 	/* top clk */
-	CLK_SMI_COMMON = 0,
+	CLK_MM_MTCMOS = 0,
+	CLK_SMI_COMMON,
 	CLK_SMI_LARB0,
 	CLK_SMI_LARB1,
 	CLK_GALS_COMM0,

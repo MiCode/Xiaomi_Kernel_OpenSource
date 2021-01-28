@@ -36,6 +36,8 @@
  */
 static struct ddp_clk ddp_clks[MAX_DISP_CLK_CNT] = {
 	/* top clk */
+	[CLK_MM_MTCMOS] = {
+		NULL, "CLK_MM_MTCMOS", 0, (0), DISP_MODULE_UNKNOWN},
 	[CLK_SMI_COMMON] = {
 		NULL, "CLK_SMI_COMMON", 0, (0), DISP_MODULE_UNKNOWN},
 	[CLK_SMI_LARB0] = {
@@ -325,6 +327,7 @@ static unsigned int _is_ovl2mem_module(struct ddp_clk *pclk)
 void ddp_clk_top_clk_switch(bool on)
 {
 	if (on) {
+		ddp_clk_prepare_enable(CLK_MM_MTCMOS);
 #ifdef CONFIG_MTK_SMI_EXT
 		smi_bus_prepare_enable(SMI_LARB0, "DISP");
 		smi_bus_prepare_enable(SMI_LARB1, "DISP");
@@ -348,6 +351,7 @@ void ddp_clk_top_clk_switch(bool on)
 		ddp_clk_disable_unprepare(CLK_GALS_COMM1);
 		ddp_clk_disable_unprepare(CLK_GALS_COMM0);
 #endif
+		ddp_clk_disable_unprepare(CLK_MM_MTCMOS);
 	}
 }
 
