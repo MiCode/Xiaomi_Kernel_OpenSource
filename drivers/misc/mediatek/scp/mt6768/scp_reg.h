@@ -97,12 +97,6 @@
 #define SCP_CLK_CTRL_L1_SRAM_PD		(scpreg.clkctrl + 0x0080)
 #define SCP_CLK_CTRL_TCM_TAIL_SRAM_PD	(scpreg.clkctrl + 0x0094)
 
-/* SCP System Reset */
-#define MODULE_RESET_SET         (scpreg.scpsys + 0x0140)
-#define MODULE_RESET_CLR         (scpreg.scpsys + 0x0144)
-#define MODULE_RESET_STATUS      (scpreg.scpsys + 0x0148)
-    #define SCP_RESET_BIT           (1 << 3)
-    #define SCP_SEC_RESET_BIT       (1 << 10)
 /* SCP INTC register*/
 #define SCP_INTC_IRQ_STATUS		(scpreg.cfg + 0x2000)
 #define SCP_INTC_IRQ_ENABLE		(scpreg.cfg + 0x2004)
@@ -111,8 +105,20 @@
 #define SCP_INTC_IRQ_ENABLE_MSB		(scpreg.cfg + 0x2084)
 #define SCP_INTC_IRQ_SLEEP_MSB		(scpreg.cfg + 0x208C)
 
+/* SCP System Reset */
+#define MODULE_RESET_SET		(scpreg.scpsys + 0x0140)
+#define MODULE_RESET_CLR		(scpreg.scpsys + 0x0144)
+#define MODULE_RESET_STATUS		(scpreg.scpsys + 0x0148)
+	#define SCP_RESET_BIT			(1 << 3)
+	#define SCP_SEC_RESET_BIT		(1 << 10)
 
-/* INFRA_IRQ (always on register) */
+/* INFRA Sleep Protect */
+#define INFRA_SLP_PROT_SET		(scpreg.scpsys + 0x220)
+#define INFRA_SLP_PROT_STAT		(scpreg.scpsys + 0x224)
+	#define SCP_TO_INFRA_BIT		(1 << 30)
+	#define SCP_TO_AUDIO_BIT		(1 << 31)
+
+/* INFRA_IRQ */
 #define INFRA_IRQ_SET			(scpreg.scpsys + 0x0B14)
 	#define AP_AWAKE_LOCK		(0)
 	#define AP_AWAKE_UNLOCK		(1)

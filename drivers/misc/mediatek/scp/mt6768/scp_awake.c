@@ -89,6 +89,11 @@ int scp_awake_lock(enum scp_core_id scp_id)
 
 	count = 0;
 	while (++count != SCP_AWAKE_TIMEOUT) {
+		if (atomic_read(&scp_reset_status) == RESET_STATUS_START) {
+			pr_notice("%s: resetting scp, break\n", __func__);
+			break;
+		}
+
 		tmp = readl(INFRA_IRQ_SET);
 		if ((tmp & 0xf0) != 0xA0) {
 			pr_notice("%s: INFRA_IRQ_SET %x\n", __func__, tmp);
@@ -225,16 +230,46 @@ void scp_enable_sram(void)
 int scp_sys_full_reset(void)
 {
 #if SCP_SYSTEM_RESET_SUPPORT
-	unsigned int reset_timeout = SCP_SYS_RESET_TIMEOUT;
+	#define INFRA_SLP_PROT_BITS (SCP_TO_INFRA_BIT | SCP_TO_AUDIO_BIT)
+	#define SUBSYS_RESET_BITS (SCP_RESET_BIT | SCP_SEC_RESET_BIT)
 
-	/*sys full scp*/
+	unsigned int reset_timeout;
+	u32 tmp;
+
 	pr_notice("[SCP]full reset start\n");
 
-	writel(SCP_RESET_BIT, MODULE_RESET_SET);
-	if ((readl(MODULE_RESET_STATUS) & SCP_RESET_BIT) == 0x0) {
+	pr_notice("[SCP]enable sleep protection\n");
+	/*enable sleep protection*/
+	reset_timeout = SCP_SYS_RESET_TIMEOUT;
+	tmp = readl(INFRA_SLP_PROT_SET);
+	writel(INFRA_SLP_PROT_BITS | tmp, INFRA_SLP_PROT_SET);
+	dsb(SY);
+	if ((readl(INFRA_SLP_PROT_STAT) & INFRA_SLP_PROT_BITS)
+			!= INFRA_SLP_PROT_BITS) {
+		pr_notice("[SCP]waiting sleep protection\n");
+		reset_timeout = SCP_SYS_RESET_TIMEOUT;
+		while ((reset_timeout > 0) &&
+			((readl(INFRA_SLP_PROT_STAT) & INFRA_SLP_PROT_BITS)
+					!= INFRA_SLP_PROT_BITS)) {
+			mdelay(1);
+			reset_timeout--;
+		}
+
+		if (reset_timeout == 0)
+			pr_notice("[SCP]sleep protection timeout\n");
+	}
+
+	pr_notice("[SCP]set subsys reset\n");
+	/*shut down scp subsys*/
+	reset_timeout = SCP_SYS_RESET_TIMEOUT;
+	tmp = readl(MODULE_RESET_STATUS);
+	writel(SUBSYS_RESET_BITS | tmp, MODULE_RESET_SET);
+	if ((readl(MODULE_RESET_STATUS) & SUBSYS_RESET_BITS)
+			!= SUBSYS_RESET_BITS) {
 		pr_notice("[SCP] sys reset waiting status...\n");
 		while ((reset_timeout > 0) &&
-			((readl(MODULE_RESET_STATUS) & SCP_RESET_BIT) == 0x0)) {
+			((readl(MODULE_RESET_STATUS) & SUBSYS_RESET_BITS)
+			!= SUBSYS_RESET_BITS)) {
 			mdelay(1);
 			reset_timeout--;
 		}
@@ -243,23 +278,31 @@ int scp_sys_full_reset(void)
 			pr_notice("[SCP]full reset timeout\n");
 	}
 
-	/*reset clear*/
-	pr_notice("[SCP]reset clear\n");
-	writel(SCP_RESET_BIT, MODULE_RESET_CLR);
+	/*finish the shutdown process by clearing reset bit*/
+	pr_notice("[SCP]clear subsys reset\n");
+	tmp = readl(MODULE_RESET_CLR);
+	writel(SUBSYS_RESET_BITS | tmp, MODULE_RESET_CLR);
 
 	/*enable scp sram*/
 	pr_notice("[SCP]enable sram\n");
 	scp_enable_sram();
 #endif
 
+	pr_notice("[SCP]copy scp to sram\n");
 	/*copy loader to scp sram*/
 	memcpy_to_scp(SCP_TCM, (const void *)(size_t)scp_loader_base_virt,
 		scp_region_info_copy.ap_loader_size);
-
 	/*set info to sram*/
 	memcpy_to_scp(scp_region_info, (const void *)&scp_region_info_copy,
 		sizeof(scp_region_info_copy));
 
+#if SCP_SYSTEM_RESET_SUPPORT
+	pr_notice("[SCP]disable sleep protection\n");
+	/*disable sleep protection*/
+	tmp = readl(INFRA_SLP_PROT_SET);
+	writel(~INFRA_SLP_PROT_BITS & tmp,
+		INFRA_SLP_PROT_SET);
+#endif
 	pr_notice("[SCP]full reset done\n");
 	return 0;
 }
