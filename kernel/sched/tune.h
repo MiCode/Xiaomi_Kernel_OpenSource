@@ -23,17 +23,15 @@ void schedtune_dequeue_task(struct task_struct *p, int cpu);
 unsigned long stune_util(int cpu, unsigned long other_util);
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
-extern struct mutex uclamp_mutex;
-extern void uclamp_group_get(struct task_struct *p,
-			     struct cgroup_subsys_state *css,
-			     struct uclamp_se *uc_se,
-			     unsigned int clamp_id, unsigned int clamp_value);
-extern void uclamp_group_put(unsigned int clamp_id, unsigned int group_id);
+extern struct schedtune root_schedtune;
+struct uclamp_se
+uclamp_st_restrict(struct task_struct *p, enum uclamp_id clamp_id);
 
-extern void
-uclamp_task_update_active(struct task_struct *p, unsigned int clamp_id);
+void init_root_st_uclamp(int clamp_id);
+void uclamp_update_root_st(void);
+
 #endif
-#else /* CONFIG_SCHED_TUNE */
+#else
 
 #define schedtune_cpu_boost(cpu)  0
 #define schedtune_task_boost(tsk) 0

@@ -5,7 +5,6 @@
 
 #include <linux/cpufreq.h>
 #include "sched.h"
-#include "tune.h"
 
 struct eas_data {
 	struct attribute_group *attr_group;

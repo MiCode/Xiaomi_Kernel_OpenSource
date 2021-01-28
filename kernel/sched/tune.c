@@ -94,7 +94,12 @@ struct schedtune {
 	int prefer_idle;
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
-	struct uclamp_se uclamp[UCLAMP_CNT];
+	/* The two decimal precision [%] value requested from user-space */
+	unsigned int		uclamp_pct[UCLAMP_CNT];
+	/* Clamp values requested for a task group */
+	struct uclamp_se	uclamp_req[UCLAMP_CNT];
+	/* Effective clamp values used for a task group */
+	struct uclamp_se	uclamp[UCLAMP_CNT];
 #endif
 };
 
@@ -514,128 +519,53 @@ int schedtune_prefer_idle(struct task_struct *p)
 }
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
-int schedtune_css_uclamp(int idx, unsigned int clamp_id,
-		struct cgroup_subsys_state **css, struct uclamp_se **uc_se)
+void init_root_st_uclamp(int clamp_id)
 {
-	struct schedtune *st;
+	struct uclamp_se uc_max = {};
 
-	st = allocated_group[idx];
-	if (!st) {
-		*css = NULL;
-		*uc_se = NULL;
-		return -EINVAL;
-	}
+	uc_max.value = uclamp_none(UCLAMP_MAX);
+	uc_max.bucket_id = uclamp_bucket_id(uc_max.value);
+	uc_max.user_defined = false;
 
-	*css = &st->css;
-	*uc_se = &st->uclamp[clamp_id];
-	return 0;
+	root_schedtune.uclamp_req[clamp_id] = uc_max;
+	root_schedtune.uclamp[clamp_id] = uc_max;
 }
 
-struct uclamp_se *schedtune_uclamp(struct task_struct *p, unsigned int clamp_id)
+struct uclamp_se
+uclamp_st_restrict(struct task_struct *p, enum uclamp_id clamp_id)
 {
-	struct schedtune *st;
-
-	rcu_read_lock();
-	st = task_schedtune(p);
-	rcu_read_unlock();
-
-	return &st->uclamp[clamp_id];
-}
-
-void cpu_util_update(struct cgroup_subsys_state *css,
-				 unsigned int clamp_id, unsigned int group_id,
-				 unsigned int value)
-{
-	struct uclamp_se *uc_se;
-	struct css_task_iter it;
-	struct task_struct *p;
-
-	uc_se = &css_st(css)->uclamp[clamp_id];
-	uc_se->effective.value = value;
-	uc_se->effective.group_id = group_id;
+	struct uclamp_se uc_req = p->uclamp_req[clamp_id];
+	struct uclamp_se uc_max;
 
 	/*
-	 * In lazy update mode, tasks will be accounted into the right clamp
-	 * group the next time they will be requeued.
+	 * Tasks in autogroups or root task group will be
+	 * restricted by system defaults.
 	 */
-	if (unlikely(sched_feat(UCLAMP_LAZY_UPDATE)))
-		return;
+	if (task_schedtune(p) == &root_schedtune)
+		return uc_req;
 
-	/* Update clamp groups for RUNNABLE tasks in this TG */
-	css_task_iter_start(css, 0, &it);
-	while ((p = css_task_iter_next(&it)))
-		uclamp_task_update_active(p, clamp_id);
-	css_task_iter_end(&it);
+	uc_max = task_schedtune(p)->uclamp[clamp_id];
+
+	if (UCLAMP_MIN == clamp_id && 0 == uc_max.value)
+		return uc_req;
+	if (uc_req.value > uc_max.value || !uc_req.user_defined)
+		return uc_max;
+
+	return uc_req;
 }
 
-void schedtune_init_uclamp(void)
+static inline void alloc_uclamp_sched_group(struct schedtune *st,
+					    struct schedtune *parent)
 {
-	struct uclamp_se *uc_se;
-	unsigned int clamp_id;
+	enum uclamp_id clamp_id;
 
-	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
-		/* Init root ST's clamp group */
-		uc_se = &root_schedtune.uclamp[clamp_id];
-		uclamp_group_get(NULL, NULL, uc_se, clamp_id,
-				 uclamp_none(clamp_id));
-		uc_se->effective.group_id = uc_se->group_id;
-		uc_se->effective.value = uc_se->value;
+	for_each_clamp_id(clamp_id) {
+		uclamp_se_set(&st->uclamp_req[clamp_id],
+			      uclamp_none(clamp_id), false);
+		st->uclamp[clamp_id] = parent->uclamp[clamp_id];
 	}
-
 }
-
-/*
- * free_uclamp_sched_group: release utilization clamp references of a ST
- * @st: the schedtune group being removed
- *
- * An empty schedtune group can be removed only when it has no more tasks
- * or child groups. This means that we can also safely release all the
- * reference counting to clamp groups.
- */
-static inline void free_uclamp_sched_group(struct schedtune *st)
-{
-	int clamp_id;
-
-	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id)
-		uclamp_group_put(clamp_id, st->uclamp[clamp_id].group_id);
-}
-
-/**
- * alloc_uclamp_sched_group: initialize a new TG's for utilization clamping
- * @tg: the newly created task group
- * @parent: its parent task group
- *
- * A newly created task group inherits its utilization clamp values, for all
- * clamp indexes, from its parent task group.
- * This ensures that its values are properly initialized and that the task
- * group is accounted in the same parent's group index.
- *
- * Return: 0 on error
- */
-static inline int alloc_uclamp_sched_group(struct schedtune *st,
-					   struct schedtune *parent)
-{
-	int clamp_id;
-
-	for (clamp_id = 0; clamp_id < UCLAMP_CNT; ++clamp_id) {
-		uclamp_group_get(NULL, NULL, &st->uclamp[clamp_id],
-				 clamp_id, parent->uclamp[clamp_id].value);
-		st->uclamp[clamp_id].effective.value =
-			parent->uclamp[clamp_id].effective.value;
-		st->uclamp[clamp_id].effective.group_id =
-			parent->uclamp[clamp_id].effective.group_id;
-	}
-
-	return 1;
-}
-#else
-static inline void free_uclamp_sched_group(struct schedtune *st) { }
-static inline int alloc_uclamp_sched_group(struct schedtune *st,
-					   struct schedtune *parent)
-{
-	return 1;
-}
-#endif /* CONFIG_UCLAMP_TASK_GROUP */
+#endif
 
 static u64
 prefer_idle_read(struct cgroup_subsys_state *css, struct cftype *cft)
@@ -681,112 +611,181 @@ boost_write(struct cgroup_subsys_state *css, struct cftype *cft,
 }
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
-static inline u64
-uclamp_read(struct cgroup_subsys_state *css, enum uclamp_id clamp_id,
-		bool effective)
+static void cpu_util_update_eff(struct cgroup_subsys_state *css)
+{
+	struct cgroup_subsys_state *top_css = css;
+	struct uclamp_se *uc_se = NULL;
+	unsigned int eff[UCLAMP_CNT];
+	enum uclamp_id clamp_id;
+	unsigned int clamps;
+
+	css_for_each_descendant_pre(css, top_css) {
+
+		for_each_clamp_id(clamp_id) {
+			/* Assume effective clamps matches requested clamps */
+			eff[clamp_id] = css_st(css)->uclamp_req[clamp_id].value;
+		}
+		/* Ensure protection is always capped by limit */
+		eff[UCLAMP_MIN] = min(eff[UCLAMP_MIN], eff[UCLAMP_MAX]);
+
+		/* Propagate most restrictive effective clamps */
+		clamps = 0x0;
+		uc_se = css_st(css)->uclamp;
+		for_each_clamp_id(clamp_id) {
+			if (eff[clamp_id] == uc_se[clamp_id].value)
+				continue;
+			uc_se[clamp_id].value = eff[clamp_id];
+			uc_se[clamp_id].bucket_id =
+				uclamp_bucket_id(eff[clamp_id]);
+			clamps |= (0x1 << clamp_id);
+		}
+		if (!clamps) {
+			css = css_rightmost_descendant(css);
+			continue;
+		}
+
+		/* Immediately update descendants RUNNABLE tasks */
+		uclamp_update_active_tasks(css, clamps);
+	}
+}
+
+void uclamp_update_root_st(void)
+{
+	struct schedtune *st = &root_schedtune;
+
+	uclamp_se_set(&st->uclamp_req[UCLAMP_MIN],
+		      sysctl_sched_uclamp_util_min, false);
+	uclamp_se_set(&st->uclamp_req[UCLAMP_MAX],
+		      sysctl_sched_uclamp_util_max, false);
+
+	rcu_read_lock();
+	cpu_util_update_eff(&root_schedtune.css);
+	rcu_read_unlock();
+}
+/*
+ * Integer 10^N with a given N exponent by casting to integer the literal "1eN"
+ * C expression. Since there is no way to convert a macro argument (N) into a
+ * character constant, use two levels of macros.
+ */
+#define _POW10(exp) ((unsigned int)1e##exp)
+#define POW10(exp) _POW10(exp)
+
+struct uclamp_request {
+#define UCLAMP_PERCENT_SHIFT	2
+#define UCLAMP_PERCENT_SCALE	(100 * POW10(UCLAMP_PERCENT_SHIFT))
+	s64 percent;
+	u64 util;
+	int ret;
+};
+
+static inline struct uclamp_request
+capacity_from_percent(char *buf)
+{
+	struct uclamp_request req = {
+		.percent = UCLAMP_PERCENT_SCALE,
+		.util = SCHED_CAPACITY_SCALE,
+		.ret = 0,
+	};
+
+	buf = strim(buf);
+	if (strcmp(buf, "max")) {
+		req.ret = cgroup_parse_float(buf, UCLAMP_PERCENT_SHIFT,
+					     &req.percent);
+		if (req.ret)
+			return req;
+		if (req.percent > UCLAMP_PERCENT_SCALE) {
+			req.ret = -ERANGE;
+			return req;
+		}
+
+		req.util = req.percent << SCHED_CAPACITY_SHIFT;
+		req.util =
+			DIV_ROUND_CLOSEST_ULL(req.util, UCLAMP_PERCENT_SCALE);
+	}
+
+	return req;
+}
+
+static ssize_t cpu_uclamp_write(struct kernfs_open_file *of, char *buf,
+				size_t nbytes, loff_t off,
+				enum uclamp_id clamp_id)
+{
+	struct uclamp_request req;
+	struct schedtune *st;
+
+	req = capacity_from_percent(buf);
+	if (req.ret)
+		return req.ret;
+
+	mutex_lock(&uclamp_mutex);
+	rcu_read_lock();
+
+	st = css_st(of_css(of));
+	if (st->uclamp_req[clamp_id].value != req.util)
+		uclamp_se_set(&st->uclamp_req[clamp_id], req.util, false);
+
+	/*
+	 * Because of not recoverable conversion rounding we keep track of the
+	 * exact requested value
+	 */
+	st->uclamp_pct[clamp_id] = req.percent;
+
+	/* Update effective clamps to track the most restrictive value */
+	cpu_util_update_eff(of_css(of));
+
+	rcu_read_unlock();
+	mutex_unlock(&uclamp_mutex);
+
+	return nbytes;
+}
+
+static ssize_t cpu_uclamp_min_write(struct kernfs_open_file *of,
+				    char *buf, size_t nbytes,
+				    loff_t off)
+{
+	return cpu_uclamp_write(of, buf, nbytes, off, UCLAMP_MIN);
+}
+
+static ssize_t cpu_uclamp_max_write(struct kernfs_open_file *of,
+				    char *buf, size_t nbytes,
+				    loff_t off)
+{
+	return cpu_uclamp_write(of, buf, nbytes, off, UCLAMP_MAX);
+}
+
+static inline void cpu_uclamp_print(struct seq_file *sf,
+				    enum uclamp_id clamp_id)
 {
 	struct schedtune *st;
 	u64 util_clamp;
+	u64 percent;
+	u32 rem;
 
 	rcu_read_lock();
-	st = css_st(css);
-	util_clamp = effective
-		? st->uclamp[clamp_id].effective.value
-		: st->uclamp[clamp_id].value;
+	st = css_st(seq_css(sf));
+	util_clamp = st->uclamp_req[clamp_id].value;
 	rcu_read_unlock();
 
-	return util_clamp;
-}
-
-static u64
-util_min_read(struct cgroup_subsys_state *css, struct cftype *cft)
-{
-	return uclamp_read(css, UCLAMP_MIN, false);
-}
-
-static u64
-util_max_read(struct cgroup_subsys_state *css, struct cftype *cft)
-{
-	return uclamp_read(css, UCLAMP_MAX, false);
-}
-
-static u64
-util_min_effective_read(struct cgroup_subsys_state *css, struct cftype *cft)
-{
-	return uclamp_read(css, UCLAMP_MIN, true);
-}
-
-static u64
-util_max_effective_read(struct cgroup_subsys_state *css, struct cftype *cft)
-{
-	return uclamp_read(css, UCLAMP_MAX, true);
-}
-static int util_min_write(struct cgroup_subsys_state *css,
-		struct cftype *cftype, u64 min_value)
-{
-	struct schedtune *st;
-	int ret = 0;
-
-	if (min_value > SCHED_CAPACITY_SCALE)
-		return -ERANGE;
-
-	mutex_lock(&uclamp_mutex);
-	rcu_read_lock();
-
-	st = css_st(css);
-	if (st->uclamp[UCLAMP_MIN].value == min_value)
-		goto out;
-	if (st->uclamp[UCLAMP_MAX].value < min_value) {
-		ret = -EINVAL;
-		goto out;
+	if (util_clamp == SCHED_CAPACITY_SCALE) {
+		seq_puts(sf, "max\n");
+		return;
 	}
 
-	/* Update ST's reference count */
-	uclamp_group_get(NULL, css, &st->uclamp[UCLAMP_MIN],
-			 UCLAMP_MIN, min_value);
-
-	/* Update effective clamps to track the most restrictive value */
-	cpu_util_update(css, UCLAMP_MIN, st->uclamp[UCLAMP_MIN].group_id,
-			min_value);
-out:
-	rcu_read_unlock();
-	mutex_unlock(&uclamp_mutex);
-
-	return ret;
+	percent = st->uclamp_pct[clamp_id];
+	percent = div_u64_rem(percent, POW10(UCLAMP_PERCENT_SHIFT), &rem);
+	seq_printf(sf, "%llu.%0*u\n", percent, UCLAMP_PERCENT_SHIFT, rem);
 }
 
-static int util_max_write(struct cgroup_subsys_state *css,
-		struct cftype *cftype, u64 max_value)
+static int cpu_uclamp_min_show(struct seq_file *sf, void *v)
 {
-	struct schedtune *st;
-	int ret = 0;
+	cpu_uclamp_print(sf, UCLAMP_MIN);
+	return 0;
+}
 
-	if (max_value > SCHED_CAPACITY_SCALE)
-		return -ERANGE;
-
-	mutex_lock(&uclamp_mutex);
-	rcu_read_lock();
-
-	st = css_st(css);
-	if (st->uclamp[UCLAMP_MAX].value == max_value)
-		goto out;
-	if (st->uclamp[UCLAMP_MIN].value < max_value) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	/* Update ST's reference count */
-	uclamp_group_get(NULL, css, &st->uclamp[UCLAMP_MAX],
-			 UCLAMP_MAX, max_value);
-
-	/* Update effective clamps to track the most restrictive value */
-	cpu_util_update(css, UCLAMP_MAX, st->uclamp[UCLAMP_MAX].group_id,
-			max_value);
-out:
-	rcu_read_unlock();
-	mutex_unlock(&uclamp_mutex);
-
-	return ret;
+static int cpu_uclamp_max_show(struct seq_file *sf, void *v)
+{
+	cpu_uclamp_print(sf, UCLAMP_MAX);
+	return 0;
 }
 #endif
 
@@ -803,22 +802,16 @@ static struct cftype files[] = {
 	},
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 	{
-		.name = "util.min",
-		.read_u64 = util_min_read,
-		.write_u64 = util_min_write,
+		.name = "uclamp.min",
+		.flags = CFTYPE_NOT_ON_ROOT,
+		.seq_show = cpu_uclamp_min_show,
+		.write = cpu_uclamp_min_write,
 	},
 	{
-		.name = "util.min.effective",
-		.read_u64 = util_min_effective_read,
-	},
-	{
-		.name = "util.max",
-		.read_u64 = util_max_read,
-		.write_u64 = util_max_write,
-	},
-	{
-		.name = "util.max.effective",
-		.read_u64 = util_max_effective_read,
+		.name = "uclamp.max",
+		.flags = CFTYPE_NOT_ON_ROOT,
+		.seq_show = cpu_uclamp_max_show,
+		.write = cpu_uclamp_max_write,
 	},
 #endif
 	{ }	/* terminate */
@@ -847,7 +840,9 @@ schedtune_boostgroup_init(struct schedtune *st, int idx)
 static struct cgroup_subsys_state *
 schedtune_css_alloc(struct cgroup_subsys_state *parent_css)
 {
+#ifdef CONFIG_UCLAMP_TASK_GROUP
 	struct schedtune *parent = parent_css ? css_st(parent_css) : NULL;
+#endif
 	struct schedtune *st;
 	int idx;
 
@@ -874,8 +869,9 @@ schedtune_css_alloc(struct cgroup_subsys_state *parent_css)
 	if (!st)
 		goto out;
 
-	if (!alloc_uclamp_sched_group(st, parent))
-		goto out;
+#ifdef CONFIG_UCLAMP_TASK_GROUP
+	alloc_uclamp_sched_group(st, parent);
+#endif
 
 	/* Initialize per CPUs boost group support */
 	schedtune_boostgroup_init(st, idx);
@@ -910,7 +906,6 @@ schedtune_css_free(struct cgroup_subsys_state *css)
 
 	/* Release per CPUs boost group support */
 	schedtune_boostgroup_release(st);
-	free_uclamp_sched_group(css_st(css));
 	kfree(st);
 }
 
@@ -957,6 +952,41 @@ int prefer_idle_for_perf_idx(int idx, int prefer_idle)
 	return 0;
 }
 EXPORT_SYMBOL(prefer_idle_for_perf_idx);
+#endif
+
+#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
+int uclamp_min_for_perf_idx(int idx, int min_value)
+{
+	struct schedtune *st;
+	struct cgroup_subsys_state *css;
+
+	s64 percent = min_value * UCLAMP_PERCENT_SCALE;
+
+	if (min_value > SCHED_CAPACITY_SCALE)
+		return -ERANGE;
+
+	st = allocated_group[idx];
+	if (!st)
+		return -EINVAL;
+
+	css = &st->css;
+
+	mutex_lock(&uclamp_mutex);
+	rcu_read_lock();
+
+	if (st->uclamp_req[UCLAMP_MIN].value != min_value)
+		uclamp_se_set(&st->uclamp_req[UCLAMP_MIN], min_value, false);
+
+	st->uclamp_pct[UCLAMP_MIN] = percent >> SCHED_CAPACITY_SHIFT;
+	cpu_util_update_eff(css);
+
+	rcu_read_unlock();
+	mutex_unlock(&uclamp_mutex);
+
+	return 0;
+
+}
+EXPORT_SYMBOL(uclamp_min_for_perf_idx);
 #endif
 
 /*
