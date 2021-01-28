@@ -2686,10 +2686,11 @@ int pg_prepare(struct clk_hw *hw)
 		i++;
 	} while (i < CLK_NUM);
 
-	if (!skip_pg)
+	if (!skip_pg) {
 		ret = enable_subsys(pg->pd_id, MTCMOS_PWR);
 		if (ret)
 			goto fail;
+	}
 
 	i = 0;
 

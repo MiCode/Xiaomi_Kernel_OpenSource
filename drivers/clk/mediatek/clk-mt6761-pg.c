@@ -2636,10 +2636,11 @@ static int pg_prepare(struct clk_hw *hw)
 #endif				/* MT_CCF_DEBUG */
 	}
 
-	if (!skip_pg)
+	if (!skip_pg) {
 		ret = enable_subsys(pg->pd_id, MTCMOS_PWR);
 		if (ret)
 			goto fail;
+	}
 
 	for (i = 0; i < pg->sub_clk_num; i++) {
 		if (pg->subsys_clks[i] == NULL)
