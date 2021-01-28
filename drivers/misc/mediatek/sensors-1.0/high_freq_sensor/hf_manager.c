@@ -25,6 +25,8 @@
 static LIST_HEAD(hf_manager_list);
 static DEFINE_SPINLOCK(hf_fifo_lock);
 static DEFINE_MUTEX(hf_manager_list_mtx);
+static struct task_struct *hf_manager_kthread_task;
+static struct kthread_worker hf_manager_kthread_worker;
 
 static struct coordinate coordinates[] = {
 	{ { 1, 1, 1}, {0, 1, 2} },
@@ -65,8 +67,8 @@ static int hf_manager_report(struct hf_manager_fifo *hf_fifo,
 
 	spin_lock_irqsave(&hf_fifo->buffer_lock, flags);
 	if (unlikely(hf_fifo->buffull == true)) {
-		pr_err_ratelimited("hf_manager buffull, head:%d, tail:%d\n",
-			hf_fifo->head, hf_fifo->tail);
+		pr_err_ratelimited("%s buffull, head:%d, tail:%d\n",
+			__func__, hf_fifo->head, hf_fifo->tail);
 		spin_unlock(&hf_fifo->buffer_lock);
 		wake_up_interruptible(&hf_fifo->wait);
 		return -1;
@@ -84,6 +86,17 @@ static int hf_manager_report(struct hf_manager_fifo *hf_fifo,
 	return 0;
 }
 
+static void hf_manager_io_schedule(struct hf_manager *manager)
+{
+	if (!READ_ONCE(manager->io_enabled))
+		return;
+	if (manager->hf_dev->device_bus == HF_DEVICE_IO_ASYNC)
+		tasklet_schedule(&manager->io_work_tasklet);
+	else if (manager->hf_dev->device_bus == HF_DEVICE_IO_SYNC)
+		kthread_queue_work(&hf_manager_kthread_worker,
+			&manager->io_kthread_work);
+}
+
 static void hf_manager_io_complete(struct hf_manager *manager,
 		struct hf_manager_event *event)
 {
@@ -98,13 +111,12 @@ static void hf_manager_io_complete(struct hf_manager *manager,
 		hf_manager_report(hf_fifo, event);
 	spin_unlock_irqrestore(&hf_fifo_lock, flags);
 	if (test_and_clear_bit(HF_MANAGER_IO_READY, &manager->flags))
-		tasklet_schedule(&manager->io_work_tasklet);
+		hf_manager_io_schedule(manager);
 }
 
-static void hf_manager_io_sample(unsigned long data)
+static void hf_manager_io_sample(struct hf_manager *manager)
 {
 	int retval;
-	struct hf_manager *manager = (struct hf_manager *)data;
 
 	if (!manager->hf_dev || !manager->hf_dev->sample)
 		return;
@@ -114,15 +126,30 @@ static void hf_manager_io_sample(unsigned long data)
 		if (retval) {
 			clear_bit(HF_MANAGER_IO_IN_PROGRESS,
 				  &manager->flags);
-			tasklet_schedule(&manager->io_work_tasklet);
+			hf_manager_io_schedule(manager);
 		}
 	}
 }
 
-static void hf_manager_sched_tasklet(struct hf_manager *manager)
+static void hf_manager_io_tasklet(unsigned long data)
+{
+	struct hf_manager *manager = (struct hf_manager *)data;
+
+	hf_manager_io_sample(manager);
+}
+
+static void hf_manager_io_kthread_work(struct kthread_work *work)
+{
+	struct hf_manager *manager =
+		container_of(work, struct hf_manager, io_kthread_work);
+
+	hf_manager_io_sample(manager);
+}
+
+static void hf_manager_sched_sample(struct hf_manager *manager)
 {
 	if (!test_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags))
-		tasklet_schedule(&manager->io_work_tasklet);
+		hf_manager_io_schedule(manager);
 	else
 		set_bit(HF_MANAGER_IO_READY, &manager->flags);
 }
@@ -133,7 +160,7 @@ static enum hrtimer_restart hf_manager_io_poll(struct hrtimer *timer)
 		(struct hf_manager *)container_of(timer,
 			struct hf_manager, io_poll_timer);
 
-	hf_manager_sched_tasklet(manager);
+	hf_manager_sched_sample(manager);
 	hrtimer_forward_now(&manager->io_poll_timer,
 		READ_ONCE(manager->io_poll_interval));
 	return HRTIMER_RESTART;
@@ -141,7 +168,7 @@ static enum hrtimer_restart hf_manager_io_poll(struct hrtimer *timer)
 
 static void hf_manager_io_interrupt(struct hf_manager *manager)
 {
-	hf_manager_sched_tasklet(manager);
+	hf_manager_sched_sample(manager);
 }
 
 int hf_manager_create(struct hf_device *device)
@@ -170,15 +197,18 @@ int hf_manager_create(struct hf_device *device)
 
 	if (device->device_bus == HF_DEVICE_IO_ASYNC)
 		tasklet_init(&manager->io_work_tasklet,
-			hf_manager_io_sample, (unsigned long)manager);
+			hf_manager_io_tasklet, (unsigned long)manager);
+	else if (device->device_bus == HF_DEVICE_IO_SYNC)
+		kthread_init_work(&manager->io_kthread_work,
+			hf_manager_io_kthread_work);
 
 	INIT_LIST_HEAD(&manager->list);
 	mutex_lock(&hf_manager_list_mtx);
 	list_for_each_entry(c, &hf_manager_list, list) {
 		if (c->hf_dev->sensor_id == device->sensor_id) {
 			mutex_unlock(&hf_manager_list_mtx);
-			pr_err("hf_manager(%s) sensor_id repeat\n",
-				device->dev_name);
+			pr_err("%s (%s) sensor_id repeat\n",
+				__func__, device->dev_name);
 			err = -EBUSY;
 			goto out_err;
 		}
@@ -312,13 +342,59 @@ static ssize_t hf_manager_read(struct file *filp,
 	return read;
 }
 
+static int hf_manager_config_device(struct hf_manager_cmd *cmd)
+{
+	int err = 0;
+	struct hf_manager *manager = NULL;
+	struct hf_device *device = NULL;
+
+	pr_notice("%s: %d,%d,%lld,%lld\n", __func__,
+		cmd->sensor_id, cmd->action, cmd->delay, cmd->latency);
+
+	mutex_lock(&hf_manager_list_mtx);
+	list_for_each_entry(manager, &hf_manager_list, list) {
+		if (manager->hf_dev->sensor_id == cmd->sensor_id) {
+			device = manager->hf_dev;
+			break;
+		}
+	}
+	if (!device || !device->batch || !device->enable) {
+		mutex_unlock(&hf_manager_list_mtx);
+		return -EINVAL;
+	}
+
+	clear_bit(HF_MANAGER_IO_IN_PROGRESS, &manager->flags);
+	clear_bit(HF_MANAGER_IO_READY, &manager->flags);
+
+	if (cmd->action == HF_MANAGER_SENSOR_ENABLE) {
+		err = device->batch(device, cmd->delay, cmd->latency);
+		err = device->enable(device, cmd->action);
+		WRITE_ONCE(manager->io_enabled, true);
+		WRITE_ONCE(manager->io_poll_interval, cmd->delay);
+		if (device->device_poll == HF_DEVICE_IO_POLLING &&
+			!hrtimer_active(&manager->io_poll_timer))
+			hrtimer_start(&manager->io_poll_timer,
+				READ_ONCE(manager->io_poll_interval),
+					HRTIMER_MODE_REL);
+	} else if (cmd->action == HF_MANAGER_SENSOR_DISABLE) {
+		err = device->enable(device, cmd->action);
+		WRITE_ONCE(manager->io_enabled, false);
+		if (device->device_poll == HF_DEVICE_IO_POLLING &&
+			hrtimer_active(&manager->io_poll_timer)) {
+			hrtimer_cancel(&manager->io_poll_timer);
+			if (device->device_bus == HF_DEVICE_IO_ASYNC)
+				tasklet_kill(&manager->io_work_tasklet);
+		}
+	}
+	mutex_unlock(&hf_manager_list_mtx);
+	return err;
+}
+
 static ssize_t hf_manager_write(struct file *filp,
 		const char __user *buf, size_t count, loff_t *f_pos)
 {
 	int err = 0;
 	struct hf_manager_cmd cmd;
-	struct hf_manager *manager = NULL;
-	struct hf_device *device = NULL;
 
 	memset(&cmd, 0, sizeof(struct hf_manager_cmd));
 
@@ -328,35 +404,7 @@ static ssize_t hf_manager_write(struct file *filp,
 	if (copy_from_user(&cmd, buf, count))
 		return -EFAULT;
 
-	mutex_lock(&hf_manager_list_mtx);
-	list_for_each_entry(manager, &hf_manager_list, list) {
-		if (manager->hf_dev->sensor_id == cmd.sensor_id) {
-			device = manager->hf_dev;
-			break;
-		}
-	}
-	if (!device || !device->batch || !device->enable) {
-		mutex_unlock(&hf_manager_list_mtx);
-		return -EINVAL;
-	}
-	if (cmd.action == HF_MANAGER_SENSOR_ENABLE) {
-		err = device->batch(device, cmd.delay, cmd.latency);
-		err = device->enable(device, cmd.action);
-		WRITE_ONCE(manager->io_poll_interval, cmd.delay);
-		if (device->device_poll == HF_DEVICE_IO_POLLING &&
-			!hrtimer_active(&manager->io_poll_timer))
-			hrtimer_start(&manager->io_poll_timer,
-				READ_ONCE(manager->io_poll_interval),
-					HRTIMER_MODE_REL);
-	} else if (cmd.action == HF_MANAGER_SENSOR_DISABLE) {
-		err = device->enable(device, cmd.action);
-		if (device->device_poll == HF_DEVICE_IO_POLLING &&
-			hrtimer_active(&manager->io_poll_timer)) {
-			hrtimer_cancel(&manager->io_poll_timer);
-			tasklet_kill(&manager->io_work_tasklet);
-		}
-	}
-	mutex_unlock(&hf_manager_list_mtx);
+	err = hf_manager_config_device(&cmd);
 	return err;
 }
 
@@ -395,8 +443,6 @@ static ssize_t test_store(struct device *dev, struct device_attribute *attr,
 {
 	int err = 0;
 	struct hf_manager_cmd cmd;
-	struct hf_manager *manager = NULL;
-	struct hf_device *device = NULL;
 
 	memset(&cmd, 0, sizeof(struct hf_manager_cmd));
 
@@ -407,41 +453,7 @@ static ssize_t test_store(struct device *dev, struct device_attribute *attr,
 	cmd.delay = 5000000;
 	cmd.latency = 0;
 
-	pr_debug("%s: %d,%d,%lld,%lld\n", __func__,
-		cmd.sensor_id, cmd.action, cmd.delay, cmd.latency);
-
-	mutex_lock(&hf_manager_list_mtx);
-	list_for_each_entry(manager, &hf_manager_list, list) {
-		if (manager->hf_dev->sensor_id == cmd.sensor_id) {
-			device = manager->hf_dev;
-			break;
-		}
-	}
-	if (!device || !device->batch || !device->enable) {
-		mutex_unlock(&hf_manager_list_mtx);
-		return -EINVAL;
-	}
-	if (cmd.action == HF_MANAGER_SENSOR_ENABLE) {
-		err = device->batch(device, cmd.delay, cmd.latency);
-		err = device->enable(device, cmd.action);
-		WRITE_ONCE(manager->io_poll_interval, cmd.delay);
-		if (device->device_poll == HF_DEVICE_IO_POLLING &&
-			!hrtimer_active(&manager->io_poll_timer)) {
-			pr_debug("%s: hrtimer_active\n", __func__);
-			hrtimer_start(&manager->io_poll_timer,
-				READ_ONCE(manager->io_poll_interval),
-					HRTIMER_MODE_REL);
-		}
-	} else if (cmd.action == HF_MANAGER_SENSOR_DISABLE) {
-		err = device->enable(device, cmd.action);
-		if (device->device_poll == HF_DEVICE_IO_POLLING &&
-			hrtimer_active(&manager->io_poll_timer)) {
-			pr_debug("%s: hrtimer_deactive\n", __func__);
-			hrtimer_cancel(&manager->io_poll_timer);
-			tasklet_kill(&manager->io_work_tasklet);
-		}
-	}
-	mutex_unlock(&hf_manager_list_mtx);
+	err = hf_manager_config_device(&cmd);
 	return (err < 0) ? err : count;
 }
 
@@ -472,10 +484,11 @@ static int __init hf_manager_init(void)
 	int major = -1;
 	struct class *hf_manager_class;
 	struct device *dev;
+	struct sched_param param = { .sched_priority = MAX_RT_PRIO / 2 };
 
 	major = register_chrdev(0, "hf_manager", &hf_manager_fops);
 	if (major < 0) {
-		pr_err("unable to get major %d for hf_manager\n", major);
+		pr_err("%s unable to get major %d\n", __func__, major);
 		return -1;
 	}
 	hf_manager_class = class_create(THIS_MODULE, "hf_manager");
@@ -488,6 +501,15 @@ static int __init hf_manager_init(void)
 
 	if (sysfs_create_group(&dev->kobj, &hf_manager_group) < 0)
 		return -1;
+
+	kthread_init_worker(&hf_manager_kthread_worker);
+	hf_manager_kthread_task = kthread_run(kthread_worker_fn,
+			&hf_manager_kthread_worker, "hf_manager");
+	if (IS_ERR(hf_manager_kthread_task)) {
+		pr_err("%s failed to create kthread\n", __func__);
+		return -1;
+	}
+	sched_setscheduler(hf_manager_kthread_task, SCHED_FIFO, &param);
 	return 0;
 }
 subsys_initcall(hf_manager_init);
