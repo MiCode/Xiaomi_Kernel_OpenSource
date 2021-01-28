@@ -22,11 +22,12 @@
 /* scp config reg. definition*/
 #define SCP_TCM_SIZE		(scpreg.total_tcmsize)
 #define SCP_A_TCM_SIZE		(scpreg.scp_tcmsize)
-#define SCP_TCM			(scpreg.sram)
+#define SCP_TCM			(scpreg.sram) /* virtual address */
 #define SCP_REGION_INFO_OFFSET	0x400
 #define SCP_RTOS_START		0x800
 #define SCP_A_SHARE_BUFFER	(scpreg.sram + \
 				SCP_RTOS_START - SHARE_BUF_SIZE * 2)
+#define SCP_TCM_PHY_ADDR        (0x10500000) /* AP view: physical address */
 
 /* scp dvfs return status flag */
 #define SET_PLL_FAIL		(1)
