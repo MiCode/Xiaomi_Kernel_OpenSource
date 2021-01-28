@@ -223,9 +223,10 @@ DEFINE_EVENT(ufshcd_template, ufshcd_init,
 TRACE_EVENT(ufshcd_command,
 	TP_PROTO(const char *dev_name, const char *str, unsigned int tag,
 			u32 doorbell, int transfer_len, u32 intr, u64 lba,
-			u8 opcode),
+			u8 opcode, u8 crypt_en, u8 crypt_keyslot),
 
-	TP_ARGS(dev_name, str, tag, doorbell, transfer_len, intr, lba, opcode),
+	TP_ARGS(dev_name, str, tag, doorbell, transfer_len, intr, lba, opcode,
+		crypt_en, crypt_keyslot),
 
 	TP_STRUCT__entry(
 		__string(dev_name, dev_name)
@@ -236,6 +237,8 @@ TRACE_EVENT(ufshcd_command,
 		__field(u32, intr)
 		__field(u64, lba)
 		__field(u8, opcode)
+		__field(u8, crypt_en)
+		__field(u8, crypt_keyslot)
 	),
 
 	TP_fast_assign(
@@ -247,13 +250,16 @@ TRACE_EVENT(ufshcd_command,
 		__entry->intr = intr;
 		__entry->lba = lba;
 		__entry->opcode = opcode;
+		__entry->crypt_en = crypt_en;
+		__entry->crypt_keyslot = crypt_keyslot;
 	),
 
 	TP_printk(
-		"%s: %s: tag: %u, DB: 0x%x, size: %d, IS: %u, LBA: %llu, opcode: 0x%x",
+		"%s: %s: tag: %u, DB: 0x%x, size: %d, IS: %u, crypt: %d, %d, LBA: %llu, opcode: 0x%x",
 		__get_str(str), __get_str(dev_name), __entry->tag,
 		__entry->doorbell, __entry->transfer_len,
-		__entry->intr, __entry->lba, (u32)__entry->opcode
+		__entry->intr, __entry->crypt_en, __entry->crypt_keyslot,
+		__entry->lba, (u32)__entry->opcode
 	)
 );
 

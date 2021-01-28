@@ -6,15 +6,29 @@
 #ifndef _UFS_MEDIATEK_H
 #define _UFS_MEDIATEK_H
 
+#include <linux/bitops.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h>
+
 /*
  * Vendor specific UFSHCI Registers
  */
-#define REG_UFS_ADDR_XOUFS_ST       0x144
+#define REG_UFS_REFCLK_CTRL         0x144
+#define REG_UFS_EXTREG              0x2100
+#define REG_UFS_MPHYCTRL            0x2200
+#define REG_UFS_REJECT_MON          0x22AC
+#define REG_UFS_DEBUG_SEL           0x22C0
+#define REG_UFS_PROBE               0x22C8
 
-/* UFS_ADDR_XOUFS_ST 0x144 */
-#define XOUFS_RELEASE               0x0
-#define XOUFS_REQUEST               0x1
-#define XOUFS_ACK                   0x2
+/*
+ * Ref-clk control
+ *
+ * Values for register REG_UFS_REFCLK_CTRL
+ */
+#define REFCLK_RELEASE              0x0
+#define REFCLK_REQUEST              BIT(0)
+#define REFCLK_ACK                  BIT(1)
+
+#define REFCLK_REQ_TIMEOUT_MS       3
 
 /*
  * Vendor specific pre-defined parameters
@@ -38,6 +52,26 @@
 #define VS_DEBUGCLOCKENABLE         0xD0A1
 #define VS_SAVEPOWERCONTROL         0xD0A6
 #define VS_UNIPROPOWERDOWNCONTROL   0xD0A8
+
+/*
+ * Vendor specific link state
+ */
+enum {
+	VS_LINK_DISABLED            = 0,
+	VS_LINK_DOWN                = 1,
+	VS_LINK_UP                  = 2,
+	VS_LINK_HIBERN8             = 3,
+	VS_LINK_LOST                = 4,
+	VS_LINK_CFG                 = 5,
+};
+
+/*
+ * SiP commands
+ */
+#define MTK_SIP_UFS_CONTROL               MTK_SIP_SMC_CMD(0x276)
+#define UFS_MTK_SIP_DEVICE_RESET          BIT(1)
+#define UFS_MTK_SIP_CRYPTO_CTRL           BIT(2)
+#define UFS_MTK_SIP_REF_CLK_NOTIFICATION  BIT(3)
 
 /*
  * VS_DEBUGCLOCKENABLE
@@ -64,14 +98,14 @@ enum {
 	REF_CLK_HW_MODE         = 2
 };
 
-/* HW ref-clk control timeout value */
-#define REF_CLK_CTRL_TOUT_MS    3
-
 struct ufs_mtk_host {
 	struct ufs_hba *hba;
 	struct phy *mphy;
+	bool unipro_lpm;
+	bool ref_clk_enabled;
+	u16 ref_clk_ungating_wait_us;
+	u16 ref_clk_gating_wait_us;
 	u32 refclk_ctrl;
 };
 
 #endif /* !_UFS_MEDIATEK_H */
-

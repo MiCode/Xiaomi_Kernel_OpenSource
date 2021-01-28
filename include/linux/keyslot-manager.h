@@ -39,7 +39,9 @@ struct keyslot_mgmt_ll_ops {
 				 u8 *secret, unsigned int secret_size);
 };
 
-struct keyslot_manager *keyslot_manager_create(unsigned int num_slots,
+struct keyslot_manager *keyslot_manager_create(
+	struct device *dev,
+	unsigned int num_slots,
 	const struct keyslot_mgmt_ll_ops *ksm_ops,
 	const unsigned int crypto_mode_supported[BLK_ENCRYPTION_MODE_MAX],
 	void *ll_priv_data);
