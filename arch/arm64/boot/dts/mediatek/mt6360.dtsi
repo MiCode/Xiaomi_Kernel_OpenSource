@@ -5,6 +5,7 @@
 
 / {
 	mt6360_pmu: mt6360_pmu_dts {
+		compatible = "mediatek,mt6360_pmu_dts";
 		status = "ok";
 		mt6360,intr_gpio_num = <3>; /* direct defined GPIO num */
 		mt6360,intr_gpio = <&pio 3 0x0>; /* GPIO */
@@ -118,6 +119,7 @@
 	};
 
 	mt6360_pmic: mt6360_pmic_dts {
+		compatible = "mediatek,mt6360_pmu_pmic_buckldo";
 		status = "ok";
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <96 0>, <100 0>, <101 0>, <102 0>,
@@ -161,6 +163,7 @@
 	};
 
 	mt6360_ldo: mt6360_ldo_dts {
+		compatible = "mediatek,mt6360_pmu_ldo_buckldo";
 		status = "ok";
 		interrupt-parent = <&mt6360_pmu>;
 		interrupts = <113 0>, <114 0>, <115 0>, <117 0>,
