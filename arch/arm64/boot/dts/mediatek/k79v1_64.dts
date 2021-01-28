@@ -484,7 +484,6 @@
 	mediatek,force-vbus = <1>;
 	mediatek,clk-mgr = <1>;
 	maximum-speed = "high-speed";
-	vbus-supply = <&otg_vbus>;
 	usb-role-switch;
 	status = "okay";
 };
