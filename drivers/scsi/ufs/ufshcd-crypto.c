@@ -398,7 +398,12 @@ int ufshcd_prepare_lrbp_crypto_spec(struct ufs_hba *hba,
 
 	lrbp->crypto_enable = true;
 	lrbp->crypto_key_slot = bc->bc_keyslot;
-	lrbp->data_unit_num = bc->bc_dun[0];
+
+	if (bc->bc_dun[0] == 0xFFFFFFFFFFFFFFFFULL &&
+	    bc->bc_dun[1] == 0xFFFFFFFFFFFFFFFFULL)
+		lrbp->data_unit_num = blk_rq_pos(cmd->request) >> 3;
+	else
+		lrbp->data_unit_num = bc->bc_dun[0];
 
 	return 0;
 }

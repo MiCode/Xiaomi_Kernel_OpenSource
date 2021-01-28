@@ -18,6 +18,8 @@
 #include <linux/keyslot-manager.h>
 #include <linux/uio.h>
 
+#include <uapi/linux/magic.h>
+
 #include "fscrypt_private.h"
 
 struct fscrypt_blk_crypto_key {
@@ -264,13 +266,61 @@ bool fscrypt_inode_uses_fs_layer_crypto(const struct inode *inode)
 }
 EXPORT_SYMBOL_GPL(fscrypt_inode_uses_fs_layer_crypto);
 
+/*
+ * Specially for backward compatible to MTK HWFBE projects upgraded from
+ *   Android Q or before. These projects use different iv from Goolge inline
+ *   encryption v2.
+ *   1. F2FS: iv is mixure of file logical block number (based on block device
+ *      sector size) and inode number as iv.
+ *   2. EXT4: iv is logical block address (based on block device sector size).
+ *      We set dun as 128bit 1's as indication for MMC and UFS layer to set iv
+ *      as logical block address.
+ */
+static void fscrypt_generate_iv_spec(union fscrypt_iv *iv, u64 lblk_num,
+			 const struct fscrypt_info *ci)
+{
+	u8 flags = fscrypt_policy_flags(&ci->ci_policy);
+	unsigned int bz_bits;
+
+	memset(iv, 0, ci->ci_mode->ivsize);
+
+	if (WARN_ON_ONCE(flags & FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64))
+		pr_notice("Ignore FSCRYPT_POLICY_FLAG_IV_INO_LBLK_64 flag\n");
+	else if (WARN_ON_ONCE(flags & FSCRYPT_POLICY_FLAG_DIRECT_KEY))
+		pr_notice("Ignore FSCRYPT_POLICY_FLAG_DIRECT_KEY flag\n");
+
+	if (ci->ci_inode->i_sb->s_magic == F2FS_SUPER_MAGIC) {
+		bz_bits = blksize_bits(queue_physical_block_size(
+				ci->ci_inode->i_sb->s_bdev->bd_queue));
+
+		if (bz_bits < PAGE_SHIFT)
+			lblk_num = lblk_num << (PAGE_SHIFT - bz_bits);
+		else
+			lblk_num = lblk_num >> (bz_bits - PAGE_SHIFT);
+
+		lblk_num = (((u64)ci->ci_inode->i_ino) << 32)
+				| (lblk_num & 0xFFFFFFFF);
+
+		if (!lblk_num)
+			lblk_num = ~lblk_num;
+
+		iv->lblk_num = cpu_to_le64(lblk_num);
+	} else if (ci->ci_inode->i_sb->s_magic == EXT4_SUPER_MAGIC) {
+		iv->dun[0] = 0xFFFFFFFFFFFFFFFFULL;
+		iv->dun[1] = 0xFFFFFFFFFFFFFFFFULL;
+	}
+}
+
 static void fscrypt_generate_dun(const struct fscrypt_info *ci, u64 lblk_num,
 				 u64 dun[BLK_CRYPTO_DUN_ARRAY_SIZE])
 {
 	union fscrypt_iv iv;
 	int i;
 
-	fscrypt_generate_iv(&iv, lblk_num, ci);
+	if (ci->ci_policy.version == FSCRYPT_POLICY_V1)
+		fscrypt_generate_iv_spec(&iv, lblk_num, ci);
+	else
+		fscrypt_generate_iv(&iv, lblk_num, ci);
 
 	BUILD_BUG_ON(FSCRYPT_MAX_IV_SIZE > BLK_CRYPTO_MAX_IV_SIZE);
 	memset(dun, 0, BLK_CRYPTO_MAX_IV_SIZE);
