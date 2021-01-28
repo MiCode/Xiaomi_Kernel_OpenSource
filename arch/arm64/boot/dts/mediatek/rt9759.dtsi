@@ -1,0 +1,189 @@
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&i2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	rt9759_slave@66 {
+		compatible = "richtek,rt9759";
+		status = "okay";
+		reg = <0x66>;
+		rm_name = "rt9759";
+		rm_slave_addr = /bits/ 8 <0x66>;
+		rt9759,intr-gpios = <&pio 22 0x0>;
+		standalone {
+			chg_name = "primary_divider_chg";
+			vbatovp = <4500000>;
+			vbatovp_alm = <4400000>;
+			ibatocp = <6100000>;
+			ibatocp_alm = <6000000>;
+			ibatucp_alm = <1000000>;
+			vbusovp = <10000000>;
+			vbusovp_alm = <9000000>;
+			ibusocp = <4250000>;
+			ibusocp_alm = <4000000>;
+			vacovp = <11000000>;
+			wdt = <30000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
+			/* vbatovp_dis; */
+			/* vbatovp_alm_dis; */
+			/* ibatocp_dis; */
+			ibatocp_alm_dis;
+			ibatucp_alm_dis;
+			/* vbusovp_alm_dis; */
+			/* ibusocp_dis; */
+			ibusocp_alm_dis;
+			/* wdt_dis; */
+			/* tsbusotp_dis; */
+			/* tsbatotp_dis; */
+			/* tdieotp_dis; */
+			/* reg_en; */
+			/* voutovp_dis; */
+			/* ibusadc_dis; */
+			/* vbusadc_dis; */
+			/* vacadc_dis; */
+			/* voutadc_dis; */
+			/* vbatadc_dis; */
+			/* ibatadc_dis; */
+			/* tsbusadc_dis; */
+			/* tsbatadc_dis; */
+			/* tdieadc_dis; */
+		};
+		slave {
+			chg_name = "secondary_divider_chg";
+			vbatovp = <4500000>;
+			vbatovp_alm = <4400000>;
+			ibatocp = <6100000>;
+			ibatocp_alm = <6000000>;
+			ibatucp_alm = <1000000>;
+			vbusovp = <10000000>;
+			vbusovp_alm = <9000000>;
+			ibusocp = <4250000>;
+			ibusocp_alm = <4000000>;
+			vacovp = <11000000>;
+			wdt = <1000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
+			vbatovp_dis;
+			vbatovp_alm_dis;
+			ibatocp_dis;
+			ibatocp_alm_dis;
+			ibatucp_alm_dis;
+			vbusovp_alm_dis;
+			/* ibusocp_dis; */
+			ibusocp_alm_dis;
+			wdt_dis;
+			/* tsbusotp_dis; */
+			/* tsbatotp_dis; */
+			/* tdieotp_dis; */
+			/* reg_en; */
+			/* voutovp_dis; */
+			/* ibusadc_dis; */
+			/* vbusadc_dis; */
+			/* vacadc_dis; */
+			/* voutadc_dis; */
+			vbatadc_dis;
+			ibatadc_dis;
+			/* tsbusadc_dis; */
+			/* tsbatadc_dis; */
+			/* tdieadc_dis; */
+		};
+	};
+	rt9759_master@65 {
+		compatible = "richtek,rt9759";
+		status = "okay";
+		reg = <0x65>;
+		rm_name = "rt9759";
+		rm_slave_addr = /bits/ 8 <0x65>;
+		rt9759,intr-gpios = <&pio 22 0x0>;
+		standalone {
+			chg_name = "primary_divider_chg";
+			vbatovp = <4500000>;
+			vbatovp_alm = <4400000>;
+			ibatocp = <6100000>;
+			ibatocp_alm = <6000000>;
+			ibatucp_alm = <1000000>;
+			vbusovp = <10000000>;
+			vbusovp_alm = <9000000>;
+			ibusocp = <4250000>;
+			ibusocp_alm = <4000000>;
+			vacovp = <11000000>;
+			wdt = <30000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
+			/* vbatovp_dis; */
+			/* vbatovp_alm_dis; */
+			/* ibatocp_dis; */
+			ibatocp_alm_dis;
+			ibatucp_alm_dis;
+			/* vbusovp_alm_dis; */
+			/* ibusocp_dis; */
+			ibusocp_alm_dis;
+			/* wdt_dis; */
+			/* tsbusotp_dis; */
+			tsbatotp_dis;
+			/* tdieotp_dis; */
+			/* reg_en; */
+			/* voutovp_dis; */
+			/* ibusadc_dis; */
+			/* vbusadc_dis; */
+			/* vacadc_dis; */
+			/* voutadc_dis; */
+			/* vbatadc_dis; */
+			/* ibatadc_dis; */
+			/* tsbusadc_dis; */
+			/* tsbatadc_dis; */
+			/* tdieadc_dis; */
+		};
+		master {
+			chg_name = "primary_divider_chg";
+			vbatovp = <4500000>;
+			vbatovp_alm = <4400000>;
+			ibatocp = <6100000>;
+			ibatocp_alm = <6000000>;
+			ibatucp_alm = <1000000>;
+			vbusovp = <10000000>;
+			vbusovp_alm = <9000000>;
+			ibusocp = <4250000>;
+			ibusocp_alm = <4000000>;
+			vacovp = <11000000>;
+			wdt = <30000000>;
+			ibat_rsense = <1>; /* 0: 2mohm, 1: 5mohm */
+			ibusucpf_deglitch = <1>; /* 0: 10us, 1: 5ms */
+			/* vbatovp_dis; */
+			/* vbatovp_alm_dis; */
+			/* ibatocp_dis; */
+			ibatocp_alm_dis;
+			/* ibatucp_alm_dis; */
+			/* vbusovp_alm_dis; */
+			/* ibusocp_dis; */
+			ibusocp_alm_dis;
+			/* wdt_dis; */
+			tsbusotp_dis;
+			tsbatotp_dis;
+			/* tdieotp_dis; */
+			/* reg_en; */
+			/* voutovp_dis; */
+			/* ibusadc_dis; */
+			/* vbusadc_dis; */
+			/* vacadc_dis; */
+			/* voutadc_dis; */
+			/* vbatadc_dis; */
+			/* ibatadc_dis; */
+			tsbusadc_dis;
+			tsbatadc_dis;
+			/* tdieadc_dis; */
+		};
+	};
+};
