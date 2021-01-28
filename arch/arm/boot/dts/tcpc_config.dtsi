@@ -1,35 +1,30 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2019 MediaTek Inc.
- * Author: Owen Chen <owen.chen@mediatek.com>
+ * Copyright (c) 2020 MediaTek Inc.
  */
 
 / {
-	mt6370_typec: type_c_port0 {
-		/* 0: dfp/ufp, 1: dfp, 2: ufp */
-		tcpc-dual,supported_modes = <0>;
-		mt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
-		/* 0: SNK Only, 1: SRC Only, 2: DRP, 3: Try.SRC, 4: Try.SNK */
-		mt-tcpc,role_def = <4>;
-		mt-tcpc,rp_level = <1>; /* 0: Default, 1: 1.5, 2: 3.0 */
-		/* 0: Never, 1: Always, 2: EMarkOnly, 3: StartOnly */
-		mt-tcpc,vconn_supply  = <1>;
-		/* the number of notifier supply */
+	rt1711_typec: rt1711_type_c_port0 {
+		tcpc-dual,supported_modes = <0>; /* 0: dfp/ufp, */
+						 /* 1: dfp, 2: ufp */
+		rt-tcpc,name = "type_c_port0"; /* tcpc_device's name */
+		rt-tcpc,role_def = <4>; /* 0: SNK Only, 1: SRC Only, 2: DRP, */
+					/* 3: Try.SRC, 4: Try.SNK */
+		rt-tcpc,rp_level = <0>; /* 0: Default, 1: 1.5, 2: 3.0 */
+		rt-tcpc,vconn_supply  = <1>;  /* 0: Never, 1: Always, */
+					      /* 2: EMarkOnly, 3: StartOnly */
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
-		mt-tcpc,notifier_supply_num = <3>;
+		rt-tcpc,notifier_supply_num = <3>;
 #else
-		mt-tcpc,notifier_supply_num = <2>;
+		rt-tcpc,notifier_supply_num = <2>;
 #endif
-		mt6370pd,intr_gpio = <&pio 24 0x0>;
-		mt6370pd,intr_gpio_num = <24>;
-
-		charger = <&mt6370_chg>;
-
+		rt1711pd,intr_gpio = <&pio 41 0x0>;
+		rt1711pd,intr_gpio_num = <41>;
 		pd-data {
 			pd,vid = <0x29cf>;
-			pd,pid = <0x5081>;
-			pd,source-cap-ext = <0x508129cf 0x00000000 0x00000000
-					     0x00000000 0x00000000 0x07000000>;
+			pd,pid = <0x1711>;
+			pd,source-cap-ext = <0x171129cf 0x00000000 0x00000000
+					     0x00000000 0x00000000 0x02000000>;
 			pd,mfrs = "RichtekTCPC";
 
 			/*
@@ -54,28 +49,28 @@
 			 * PPS 3V~5.9V, 3A <0xC0761E3C>
 			 */
 			pd,source-pdo-size = <1>;
-			pd,source-pdo-data = <0x00019096>; /* 5V, 1500 mA */
+			pd,source-pdo-data = <0x00019032>;
 			pd,sink-pdo-size = <1>;
 			pd,sink-pdo-data = <0x000190c8>;
 
 			/*
 			 * No DP, host + device
 			 *	pd,id-vdo-size = <3>;
-			 *	pd,id-vdo-data = <0xd10029cf 0x0 0x50810000>;
+			 *	pd,id-vdo-data = <0xd10029cf 0x0 0x17110000>;
 			 * With DP
 			 *	pd,id-vdo-size = <3>;
-			 *	pd,id-vdo-data = <0xd60029cf 0x0 0x50810000>;
+			 *	pd,id-vdo-data = <0xd60029cf 0x0 0x17110000
 			 */
 
 			pd,id-vdo-size = <3>;
-			pd,id-vdo-data = <0xd10029cf 0x0 0x50810000>;
+			pd,id-vdo-data = <0xd10029cf 0x0 0x17110000>;
 
 			bat,nr = <1>;
 			pd,country_nr = <0>;
 
 			bat-info0 {
 				bat,vid = <0x29cf>;
-				bat,pid = <0x5081>;
+				bat,pid = <0x1711>;
 				bat,mfrs = "bat1";
 				bat,design_cap = <3000>;
 			};
@@ -154,4 +149,3 @@
 		};
 	};
 };
-
