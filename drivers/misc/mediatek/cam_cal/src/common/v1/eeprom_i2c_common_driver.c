@@ -92,12 +92,6 @@ int iReadData_CAM_CAL(unsigned int ui4_offset,
 	u32 u4CurrentOffset;
 	u8 *pBuff;
 
-	if (ui4_offset + ui4_length >= 0x2000) {
-		pr_debug
-		    ("Read Error!! not supprt address >= 0x2000!!\n");
-		return -1;
-	}
-
 	i4ResidueDataLength = (int)ui4_length;
 	u4CurrentOffset = ui4_offset;
 	pBuff = pinputdata;

@@ -28,6 +28,7 @@
 #include "cam_cal_define.h"
 #include "cam_cal_list.h"
 #include "eeprom_i2c_dev.h"
+#include "eeprom_i2c_common_driver.h"
 #include <linux/dma-mapping.h>
 #ifdef CONFIG_COMPAT
 /* 64 bit */
@@ -82,6 +83,7 @@ struct stCAM_CAL_CMD_INFO_STRUCT {
 	struct i2c_client *client;
 	cam_cal_cmd_func readCMDFunc;
 	cam_cal_cmd_func writeCMDFunc;
+	unsigned int maxEepromSize;
 };
 
 static struct stCAM_CAL_CMD_INFO_STRUCT g_camCalDrvInfo[CAM_CAL_SENSOR_IDX_MAX];
@@ -156,6 +158,18 @@ static int EEPROM_get_cmd_info(unsigned int sensorID,
 				cmdInfo->i2cAddr = pCamCalList[i].slaveID >> 1;
 				cmdInfo->readCMDFunc =
 					pCamCalList[i].readCamCalData;
+				cmdInfo->maxEepromSize =
+					pCamCalList[i].maxEepromSize;
+
+				/*
+				 * Default 8K for Common_read_region driver
+				 * 0 for others
+				 */
+				if (cmdInfo->readCMDFunc == Common_read_region
+				    && cmdInfo->maxEepromSize == 0) {
+					cmdInfo->maxEepromSize =
+						DEFAULT_MAX_EEPROM_SIZE_8K;
+				}
 
 				return 1;
 			}
@@ -616,6 +630,18 @@ static long EEPROM_drv_ioctl(struct file *file,
 		pcmdInf = EEPROM_get_cmd_info_ex(ptempbuf->sensorID,
 			ptempbuf->deviceID);
 
+		/* Check the max size if specified */
+		if (pcmdInf != NULL &&
+		    (pcmdInf->maxEepromSize != 0) &&
+		    (pcmdInf->maxEepromSize <
+		     (ptempbuf->u4Offset + ptempbuf->u4Length))) {
+			pr_debug("Error!! not support address >= 0x%x!!\n",
+				 pcmdInf->maxEepromSize);
+			kfree(pBuff);
+			kfree(pu1Params);
+			return -EFAULT;
+		}
+
 		if (pcmdInf != NULL && g_lastDevID != ptempbuf->deviceID) {
 			if (EEPROM_set_i2c_bus(ptempbuf->deviceID,
 					       pcmdInf) != 0) {
@@ -664,6 +690,18 @@ static long EEPROM_drv_ioctl(struct file *file,
 		pcmdInf = EEPROM_get_cmd_info_ex(
 			ptempbuf->sensorID,
 			ptempbuf->deviceID);
+
+		/* Check the max size if specified */
+		if (pcmdInf != NULL &&
+		    (pcmdInf->maxEepromSize != 0) &&
+		    (pcmdInf->maxEepromSize <
+		     (ptempbuf->u4Offset + ptempbuf->u4Length))) {
+			pr_debug("Error!! not support address >= 0x%x!!\n",
+				 pcmdInf->maxEepromSize);
+			kfree(pBuff);
+			kfree(pu1Params);
+			return -EFAULT;
+		}
 
 		if (pcmdInf != NULL && g_lastDevID != ptempbuf->deviceID) {
 			if (EEPROM_set_i2c_bus(ptempbuf->deviceID,
