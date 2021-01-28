@@ -988,6 +988,7 @@ struct mdw_usr *mdw_usr_create(void)
 	u->pid = current->pid;
 	u->tgid = current->tgid;
 	u->id = (uint64_t)u;
+	kref_init(&u->kref);
 
 	mutex_lock(&u_mgr.mtx);
 	list_add_tail(&u->m_item, &u_mgr.list);
@@ -996,8 +997,33 @@ struct mdw_usr *mdw_usr_create(void)
 	return u;
 }
 
-void mdw_usr_destroy(struct mdw_usr *u)
+bool mdw_user_check(struct mdw_usr *u)
 {
+	struct mdw_usr *c;
+	struct list_head *tmp = NULL, *list_ptr = NULL;
+	/* Check user */
+	list_for_each_safe(list_ptr, tmp, &u_mgr.list) {
+		c = list_entry(list_ptr, struct mdw_usr, m_item);
+		if (c == u)
+			break;
+		c = NULL;
+	}
+	return c == NULL ? false:true;
+}
+
+void mdw_usr_get(struct mdw_usr *u)
+{
+	kref_get(&u->kref);
+}
+int mdw_usr_put(struct mdw_usr *u)
+{
+	return kref_put(&u->kref, mdw_usr_destroy);
+}
+
+void mdw_usr_destroy(struct kref *kref)
+{
+	struct mdw_usr *u =
+			container_of(kref, struct mdw_usr, kref);
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct mdw_mem *mm = NULL;
 	struct mdw_apu_cmd *c = NULL;

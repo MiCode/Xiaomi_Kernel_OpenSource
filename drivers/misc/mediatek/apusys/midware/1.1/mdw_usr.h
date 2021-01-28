@@ -17,6 +17,7 @@
 #include "apusys_drv.h"
 #include "apusys_device.h"
 #include "mdw_cmd.h"
+#include <linux/kref.h>
 
 struct mdw_usr_mgr {
 	struct list_head list;
@@ -34,6 +35,7 @@ struct mdw_usr {
 	struct list_head m_item; // to usr mgr
 
 	struct mutex mtx;
+	struct kref	kref;
 
 	struct list_head cmd_list; // for cmd
 	struct list_head mem_list; // for mem
@@ -52,7 +54,10 @@ int mdw_usr_ucmd(struct apusys_ioctl_ucmd *uc);
 int mdw_usr_set_pwr(struct apusys_ioctl_power *pwr);
 
 struct mdw_usr *mdw_usr_create(void);
-void mdw_usr_destroy(struct mdw_usr *u);
+int mdw_usr_put(struct mdw_usr *u);
+void mdw_usr_get(struct mdw_usr *u);
+bool mdw_user_check(struct mdw_usr *u);
+void mdw_usr_destroy(struct kref *kref);
 
 int mdw_usr_run_cmd_async(struct mdw_usr *u, struct apusys_ioctl_cmd *in);
 int mdw_usr_wait_cmd(struct mdw_usr *u, struct apusys_ioctl_cmd *in);
