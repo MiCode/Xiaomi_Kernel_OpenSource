@@ -88,6 +88,7 @@
 #define EMI_MPU_ALIGN_ORDER (0)
 /*timeout warning set to 80ms*/
 #define TIMEOUT_WARNING (80000000)
+#define AMMS_STRESS 0
 
 static struct task_struct *amms_task;
 bool amms_static_free;
@@ -102,14 +103,18 @@ static unsigned int amms_alloc_count;
 static unsigned int amms_dealloc_count;
 static unsigned int amms_irq_count;
 #ifdef CONFIG_MTK_CPU_FREQ
+#if AMMS_STRESS
 static unsigned int amms_pos_stress_operation;
+#endif
 #endif
 
 //static int amms_bind_cpu = -1;
 static struct device *amms_dev;
 static int amms_irq_num;
 #ifdef CONFIG_MTK_CPU_FREQ
+#if AMMS_STRESS
 static struct timer_list amms_pos_stress_timer;
+#endif
 #endif
 
 static struct cma *ccci_share_cma;
@@ -331,7 +336,7 @@ module_param(amms_irq_count, uint, 0644);
 
 
 #if CONFIG_SYSFS
-
+#if AMMS_STRESS
 void amms_pos_stress_timer_call_back(unsigned long data)
 {
 	pr_info("%s:%d\n", __func__, __LINE__);
@@ -357,13 +362,14 @@ void amms_pos_stress_timer_control(int operation)
 		del_timer_sync(&amms_pos_stress_timer);
 	}
 }
-
+#endif
 static ssize_t amms_version_show(struct module_attribute *attr,
 		struct module_kobject *kobj, char *buf)
 {
 	return snprintf(buf, 5, "%s\n", "1.0");
 }
 
+#if AMMS_STRESS
 static ssize_t amms_pos_stress_show(struct module_attribute *attr,
 		struct module_kobject *kobj, char *buf)
 {
@@ -404,16 +410,20 @@ static ssize_t amms_pos_stress_store(struct module_attribute *attr,
 	amms_pos_stress_operation = operation;
 	return count;
 }
-
+#endif
 static struct module_attribute amms_version_attribute =
 	__ATTR(amms_version, 0400, amms_version_show, NULL);
 
+#if AMMS_STRESS
 static struct module_attribute amms_pos_stress_attribute =
 	__ATTR(amms_pos_stress, 0600,
 	amms_pos_stress_show, amms_pos_stress_store);
+#endif
 static struct attribute *attrs[] = {
 	&amms_version_attribute.attr,
+#if AMMS_STRESS
 	&amms_pos_stress_attribute.attr,
+#endif
 	NULL,
 };
 
