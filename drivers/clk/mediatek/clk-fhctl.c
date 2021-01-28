@@ -546,6 +546,21 @@ static const u16 mt6761_pll_con0_regs[] = {
 			0x030C, 0x0228, 0x0350, 0x0218,
 			0xdead, 0x0340, 0x0330};
 
+static const char * const mt6765_pll_names[] = {
+			"armpll", "mainpll", "msdcpll", "mfgpll",
+			"mempll", "mpll", "mmpll", "armpll_l",
+			"ccipll"};
+
+static const u16 mt6765_pll_regs[] = {
+			0x003C, 0x0050, 0x0064, 0x0078,
+			0x008C, 0x00A0, 0x00B4, 0x00C8,
+			0x00DC};
+
+static const u16 mt6765_pll_con0_regs[] = {
+			0x020C, 0x023C, 0x027C, 0x024C,
+			0xdead, 0x02A0, 0x025C, 0x021C,
+			0x022C};
+
 static const struct mtk_fhctl_compatible mt6779_fhctl_compat = {
 	.common_regs = mt_fhctl_regs_v1,
 	.pll_num = 12,
@@ -568,9 +583,21 @@ static const struct mtk_fhctl_compatible mt6761_fhctl_compat = {
 	.pll_slope1_reg_setting = 0x6003c97,
 };
 
+static const struct mtk_fhctl_compatible mt6765_fhctl_compat = {
+	.common_regs = mt_fhctl_regs_v2,
+	.pll_num = 9,
+	.pll_names = mt6765_pll_names,
+	.pll_dds_reg_field_size = 22,
+	.pll_regs = mt6765_pll_regs,
+	.pll_con0_regs = mt6765_pll_con0_regs,
+	.pll_slope0_reg_setting = 0x6003c97,
+	.pll_slope1_reg_setting = 0x6003c97,
+};
+
 static const struct of_device_id mtk_fhctl_of_match[] = {
 	{ .compatible = "mediatek,mt6779-fhctl", .data = &mt6779_fhctl_compat },
 	{ .compatible = "mediatek,mt6761-fhctl", .data = &mt6761_fhctl_compat },
+	{ .compatible = "mediatek,mt6765-fhctl", .data = &mt6765_fhctl_compat },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_fhctl_of_match);
