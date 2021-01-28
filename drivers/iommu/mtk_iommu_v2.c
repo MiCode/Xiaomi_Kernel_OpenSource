@@ -4275,7 +4275,7 @@ static s32 mtk_iommu_clks_get(struct mtk_iommu_data *data)
 			dev_info(dev, "clks of %s init failed\n",
 				name);
 			ret = PTR_ERR(clk);
-			kfree(clk);
+			//kfree(clk);
 			break;
 		}
 		if (strcmp(name, "power")) {
