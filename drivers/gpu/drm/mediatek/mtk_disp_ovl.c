@@ -882,27 +882,27 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 		       OVL_CON_BYTE_SWAP;
 	case DRM_FORMAT_RGBX8888:
 	case DRM_FORMAT_RGBA8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN;
 		else
 			return OVL_CON_CLRFMT_ARGB8888;
 	case DRM_FORMAT_BGRX8888:
 	case DRM_FORMAT_BGRA8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_BYTE_SWAP |
 			       OVL_CON_CLRFMT_MAN;
 		else
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_BYTE_SWAP;
 	case DRM_FORMAT_XRGB8888:
 	case DRM_FORMAT_ARGB8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_BYTE_SWAP |
 			       OVL_CON_CLRFMT_MAN | OVL_CON_RGB_SWAP;
 		else
 			return OVL_CON_CLRFMT_RGBA8888;
 	case DRM_FORMAT_XBGR8888:
 	case DRM_FORMAT_ABGR8888:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		else
@@ -912,12 +912,12 @@ static unsigned int ovl_fmt_convert(struct mtk_disp_ovl *ovl, unsigned int fmt,
 	case DRM_FORMAT_YUYV:
 		return OVL_CON_CLRFMT_YUYV(ovl);
 	case DRM_FORMAT_ABGR2101010:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		return OVL_CON_CLRFMT_RGBA8888 | OVL_CON_BYTE_SWAP;
 	case DRM_FORMAT_ABGR16161616F:
-		if (modifier & MTK_FMT_PREMULTIPLIER)
+		if (modifier & MTK_FMT_PREMULTIPLIED)
 			return OVL_CON_CLRFMT_ARGB8888 | OVL_CON_CLRFMT_MAN |
 			       OVL_CON_RGB_SWAP;
 		return OVL_CON_CLRFMT_RGBA8888 | OVL_CON_BYTE_SWAP;
