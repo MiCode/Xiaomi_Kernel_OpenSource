@@ -455,11 +455,9 @@
 
 /* IMP_IIC_WRAP_S */
 
-#define CLK_IMPS_AP_CLOCK_RO_I2C5	0
-#define CLK_IMPS_AP_CLOCK_RO_I2C7	1
-#define CLK_IMPS_AP_CLOCK_RO_I2C8	2
-#define CLK_IMPS_AP_CLOCK_RO_I2C9	3
-#define CLK_IMPS_NR_CLK			4
+#define CLK_IMPS_AP_CLOCK_RO_I2C8	0
+#define CLK_IMPS_AP_CLOCK_RO_I2C9	1
+#define CLK_IMPS_NR_CLK			2
 
 /* IMP_IIC_WRAP_WS */
 
@@ -471,7 +469,9 @@
 /* IMP_IIC_WRAP_W */
 
 #define CLK_IMPW_AP_CLOCK_RO_I2C0	0
-#define CLK_IMPW_NR_CLK			1
+#define CLK_IMPW_AP_CLOCK_RO_I2C5	1
+#define CLK_IMPW_AP_CLOCK_RO_I2C7	2
+#define CLK_IMPW_NR_CLK			3
 
 /* IMP_IIC_WRAP_N */
 
@@ -668,20 +668,17 @@
 #define SCP_SYS_MFG1	3
 #define SCP_SYS_MFG2	4
 #define SCP_SYS_MFG3	5
-#define SCP_SYS_MFG5	6
-#define SCP_SYS_ISP	7
-#define SCP_SYS_ISP2	8
-#define SCP_SYS_IPE	9
-#define SCP_SYS_VDEC	10
-#define SCP_SYS_VENC	11
-#define SCP_SYS_DIS	12
-#define SCP_SYS_AUDIO	13
-#define SCP_SYS_ADSP	14
-#define SCP_SYS_CAM	15
-#define SCP_SYS_CAM_RAWA	16
-#define SCP_SYS_CAM_RAWB	17
-#define SCP_SYS_VPU	18
-#define SCP_NR_SYSS	19
+#define SCP_SYS_ISP	6
+#define SCP_SYS_ISP2	7
+#define SCP_SYS_IPE	8
+#define SCP_SYS_VDEC	9
+#define SCP_SYS_VENC	10
+#define SCP_SYS_DIS	11
+#define SCP_SYS_AUDIO	12
+#define SCP_SYS_CAM	13
+#define SCP_SYS_CAM_RAWA	14
+#define SCP_SYS_CAM_RAWB	15
+#define SCP_NR_SYSS	16
 
 #endif /* _DT_BINDINGS_CLK_MT6833_H */
 
