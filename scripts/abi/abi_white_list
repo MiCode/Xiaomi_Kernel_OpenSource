@@ -2,6 +2,9 @@
 bypass_arr=(\
 "function long int __probe_kernel_read" \
 "function void ion_device_add_heap" \
+"function unsigned int nf_nat_masquerade_ipv6" \
+"function int nf_nat_masquerade_ipv6_register_notifier" \
+"function void nf_nat_masquerade_ipv6_unregister_notifier" \
 "function int v4l2_" \
 "struct net " \
 "struct net_device " \
