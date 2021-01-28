@@ -86,6 +86,7 @@ source "drivers/misc/mediatek/partition/Kconfig"
 source "drivers/misc/mediatek/blocktag/Kconfig"
 source "drivers/misc/mediatek/io_boost/Kconfig"
 source "drivers/misc/mediatek/pidmap/Kconfig"
+source "drivers/misc/mediatek/keyhint/Kconfig"
 
 endmenu  # Storage
 
