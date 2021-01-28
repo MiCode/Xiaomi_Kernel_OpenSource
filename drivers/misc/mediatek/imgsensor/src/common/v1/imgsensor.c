@@ -2703,7 +2703,7 @@ static int imgsensor_resume(struct platform_device *pdev)
 
 #ifdef CONFIG_OF
 static const struct of_device_id gimgsensor_of_device_id[] = {
-	{ .compatible = "mediatek,camera_hw", },
+	/* { .compatible = "mediatek,camera_hw", }, */
 	{}
 };
 #endif
