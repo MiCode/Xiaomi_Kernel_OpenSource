@@ -527,6 +527,7 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 
 		/* Calculate growth since last update */
 		growth = window_update(&t->win, now, total[t->state]);
+
 		if (growth < t->threshold)
 			continue;
 
@@ -535,8 +536,11 @@ static u64 update_triggers(struct psi_group *group, u64 now)
 			continue;
 
 		/* Generate an event */
-		if (cmpxchg(&t->event, 0, 1) == 0)
+		if (cmpxchg(&t->event, 0, 1) == 0) {
+			pr_info("%s: group:%p t:%p triggered!\n",
+				__func__, group, t);
 			wake_up_interruptible(&t->event_wait);
+		}
 		t->last_event_time = now;
 	}
 
@@ -1138,6 +1142,8 @@ static void psi_trigger_destroy(struct kref *ref)
 		kthread_cancel_delayed_work_sync(&group->poll_work);
 		kthread_destroy_worker(kworker_to_destroy);
 	}
+
+	pr_info("update_trigger:%s, old:%p\n", __func__, t);
 	kfree(t);
 }
 
@@ -1175,8 +1181,11 @@ unsigned int psi_trigger_poll(void **trigger_ptr, struct file *file,
 
 	poll_wait(file, &t->event_wait, wait);
 
-	if (cmpxchg(&t->event, 1, 0) == 1)
+	if (cmpxchg(&t->event, 1, 0) == 1) {
+		pr_info("%s: t:%p triggered!\n",
+			__func__, t);
 		ret |= POLLPRI;
+	}
 
 	kref_put(&t->refcount, psi_trigger_destroy);
 
@@ -1209,6 +1218,8 @@ static ssize_t psi_write(struct file *file, const char __user *user_buf,
 	mutex_lock(&seq->lock);
 	psi_trigger_replace(&seq->private, new);
 	mutex_unlock(&seq->lock);
+
+	pr_info("%s: new:%p\n", __func__, new);
 
 	return nbytes;
 }
