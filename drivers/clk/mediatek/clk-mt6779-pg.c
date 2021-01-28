@@ -5137,7 +5137,7 @@ static int pg_prepare(struct clk_hw *hw)
 		ret = enable_subsys(pg->pd_id);
 		if (ret) {
 			pr_notice("[CCF] enable_subsys %s failed!\n",
-					sys->name);
+					sys->name == NULL ? "" : sys->name);
 			goto fail;
 		}
 	}
