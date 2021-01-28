@@ -17,8 +17,8 @@
 #include "musb_core.h"
 #include "musb_dma.h"
 
-#define USB_L1INTS	0x00a0
-#define USB_L1INTM	0x00a4
+#define USB_L1INTS		0x00a0
+#define USB_L1INTM		0x00a4
 #define MTK_MUSB_TXFUNCADDR	0x0480
 
 /* MediaTek controller toggle enable and status reg */
@@ -30,10 +30,10 @@
 
 #define TX_INT_STATUS		BIT(0)
 #define RX_INT_STATUS		BIT(1)
-#define USBCOM_INT_STATUS		BIT(2)
+#define USBCOM_INT_STATUS	BIT(2)
 #define DMA_INT_STATUS		BIT(3)
 
-#define DMA_INTR_STATUS_MSK		GENMASK(7, 0)
+#define DMA_INTR_STATUS_MSK	GENMASK(7, 0)
 #define DMA_INTR_UNMASK_SET_MSK	GENMASK(31, 24)
 
 struct mtk_glue {
