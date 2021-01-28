@@ -274,7 +274,7 @@ EXPORT_SYMBOL(Afe_Set_Reg);
 
 unsigned int Afe_Get_Reg(unsigned int offset)
 {
-	unsigned int value;
+	unsigned int value = 0;
 	int ret;
 
 	ret = regmap_read(pregmap, offset, &value);
