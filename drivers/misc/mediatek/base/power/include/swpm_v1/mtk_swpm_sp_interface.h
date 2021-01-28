@@ -14,6 +14,8 @@
 #ifndef __MTK_SWPM_SP_INTERFACE_H__
 #define __MTK_SWPM_SP_INTERFACE_H__
 
+#define MAX_IP_NAME_LENGTH (16)
+
 struct ip_vol_times {
 	int32_t vol;
 	int64_t active_time;
@@ -21,7 +23,7 @@ struct ip_vol_times {
 	int64_t off_time;
 };
 struct ip_stats {
-	char ip_name[16];
+	char ip_name[MAX_IP_NAME_LENGTH];
 	struct ip_vol_times *vol_times;
 };
 struct vol_duration {
@@ -41,7 +43,7 @@ struct ddr_bc_stats {
 	uint64_t value;
 };
 struct ddr_ip_bc_stats {
-	char ip_name[16];
+	char ip_name[MAX_IP_NAME_LENGTH];
 	struct ddr_bc_stats *bc_stats;
 };
 
