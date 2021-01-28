@@ -475,9 +475,6 @@ void thermal_zone_device_update(struct thermal_zone_device *tz,
 {
 	int count;
 
-#if !defined(CONFIG_COMMON_CLK_MT6779)
-	pr_notice("%s: tz = %s\n", __func__, tz->type);
-#endif
 	if (atomic_read(&in_suspend))
 		return;
 
@@ -1278,6 +1275,7 @@ thermal_zone_device_register(const char *type, int trips, int mask,
 		if (result)
 			goto unregister;
 	}
+	INIT_DELAYED_WORK(&tz->poll_queue, thermal_zone_device_check);
 
 	mutex_lock(&thermal_list_lock);
 	list_add_tail(&tz->node, &thermal_tz_list);
@@ -1286,7 +1284,6 @@ thermal_zone_device_register(const char *type, int trips, int mask,
 	/* Bind cooling devices for this zone */
 	bind_tz(tz);
 
-	INIT_DELAYED_WORK(&tz->poll_queue, thermal_zone_device_check);
 
 	thermal_zone_device_reset(tz);
 	/* Update the new thermal zone and mark it as already updated. */
@@ -1514,13 +1511,14 @@ static int thermal_pm_notify(struct notifier_block *nb,
 	case PM_POST_HIBERNATION:
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
-		pr_notice("%s: PM_POST_SUSPEND\n", __func__);
+		mutex_lock(&thermal_list_lock);
 		atomic_set(&in_suspend, 0);
 		list_for_each_entry(tz, &thermal_tz_list, node) {
 			thermal_zone_device_init(tz);
 			thermal_zone_device_update(tz,
 						   THERMAL_EVENT_UNSPECIFIED);
 		}
+		mutex_unlock(&thermal_list_lock);
 		break;
 	default:
 		break;
