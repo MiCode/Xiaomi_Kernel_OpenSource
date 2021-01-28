@@ -24,7 +24,7 @@
 #define CREATE_TRACE_POINTS
 #include <trace_tee.h>
 
-#define TEE_TASK_MIN_UTIL	5
+#define TEE_TASK_MIN_UTIL	30
 
 static u64 boot_to_kernel_ns;
 
