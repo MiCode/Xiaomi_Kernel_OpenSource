@@ -15,7 +15,7 @@
 #include <mtk_musb.h>
 #include <musb_core.h>
 #include "usb20.h"
-#include "mtk_devinfo.h"
+#include <linux/nvmem-consumer.h>
 
 #ifdef CONFIG_OF
 #include <linux/of_address.h>
@@ -52,7 +52,7 @@ void usb_phy_savecurrent(void)
 {
 }
 
-void usb_phy_recover(void)
+void usb_phy_recover(struct device *dev)
 {
 }
 
@@ -665,9 +665,12 @@ void usb_phy_savecurrent(void)
 }
 
 /* M17_USB_PWR Sequence 20160603.xls */
-void usb_phy_recover(void)
+void usb_phy_recover(struct device *dev)
 {
 	unsigned int efuse_val = 0;
+	struct nvmem_cell *cell;
+	u32 *buf;
+	size_t len;
 
 #ifdef CONFIG_MTK_UART_USB_SWITCH
 	if (in_uart_mode) {
@@ -752,7 +755,21 @@ void usb_phy_recover(void)
 	hs_slew_rate_cal();
 
 	/* M_ANALOG8[4:0] => RG_USB20_INTR_CAL[4:0] */
-	efuse_val = (get_devinfo_with_index(107) & (0x1f<<0)) >> 0;
+	cell = nvmem_cell_get(dev, "efuse_idx107");
+	if (IS_ERR(cell)) {
+		DBG(0, "can not get efuse_cell");
+		return;
+	}
+
+	buf = (u32 *)nvmem_cell_read(cell, &len);
+	nvmem_cell_put(cell);
+	if (IS_ERR(buf)) {
+		DBG(0, "can not get efuse_buf");
+		return;
+	}
+	efuse_val = (*buf & (0x1f<<0)) >> 0;
+	kfree(buf);
+
 	if (efuse_val) {
 		DBG(0, "apply efuse setting, RG_USB20_INTR_CAL=0x%x\n",
 			efuse_val);
@@ -763,7 +780,6 @@ void usb_phy_recover(void)
 
 	/* disc threshold to max, RG_USB20_DISCTH[7:4], dft:1000, MAX:1111 */
 	USBPHY_SET32(0x18, (0xf0<<0));
-
 	usb_phy_tuning();
 
 	DBG(0, "usb recovery success\n");
