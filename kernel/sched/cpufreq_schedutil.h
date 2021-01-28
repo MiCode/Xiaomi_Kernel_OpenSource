@@ -27,6 +27,35 @@ enum throttle_type {
 
 #ifdef CONFIG_MTK_CPU_FREQ
 #include "../../drivers/misc/mediatek/include/mt-plat/mtk_cpufreq_common_api.h"
+int __attribute__ ((weak)) mt_cpufreq_set_by_schedule_load_cluster(
+			unsigned int cid, unsigned int freq)
+{
+	return 0;
+}
+int __attribute__ ((weak)) mt_cpufreq_set_by_wfi_load_cluster(
+			unsigned int cid, unsigned int freq)
+{
+	return 0;
+}
+unsigned int __attribute__ ((weak)) mt_cpufreq_find_close_freq(
+			unsigned int cluster_id, unsigned int freq)
+{
+	return 0;
+}
+unsigned int __attribute__ ((weak))  mt_cpufreq_get_freq_by_idx(
+			unsigned int cid, int idx)
+{
+	return 0;
+}
+int __attribute__ ((weak))  mt_cpufreq_get_sched_enable(void)
+{
+	return 0;
+}
+unsigned int __attribute__ ((weak))  mt_cpufreq_get_cur_freq(
+			enum mt_cpu_dvfs_id id)
+{
+	return 0;
+}
 #else
 static inline int  mt_cpufreq_set_by_schedule_load_cluster(
 			int cid, unsigned int freq) { return 0; }

@@ -72,6 +72,7 @@ unsigned int mt_cpufreq_find_close_freq(unsigned int cluster_id,
 
 	return mt_cpufreq_get_freq_by_idx(id, idx);
 }
+EXPORT_SYMBOL(mt_cpufreq_find_close_freq);
 
 unsigned int mt_cpufreq_find_Vboot_idx(unsigned int cluster_id)
 {
@@ -349,6 +350,7 @@ int mt_cpufreq_get_sched_enable(void)
 {
 	return sched_dvfs_enable;
 }
+EXPORT_SYMBOL(mt_cpufreq_get_sched_enable);
 
 unsigned int mt_cpufreq_get_cpu_level(void)
 {
