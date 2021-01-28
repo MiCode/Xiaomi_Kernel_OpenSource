@@ -2927,6 +2927,11 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 		goto done;
 	}
 
+	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
+		mtk_dsi_phy_timconfig(dsi, NULL);
+		mtk_dsi_calc_vdo_timing(dsi);
+	}
+
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO)
 		mtk_crtc_pkt_create(&cmdq_handle, &mtk_crtc->base,
 				mtk_crtc->gce_obj.client[CLIENT_DSI_CFG]);
@@ -2935,12 +2940,12 @@ static void mtk_dsi_clk_change(struct mtk_dsi *dsi, int en)
 			mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
 	if (dsi->mode_flags & MIPI_DSI_MODE_VIDEO) {
-		mtk_dsi_calc_vdo_timing(dsi);
+		/*mtk_dsi_calc_vdo_timing(dsi);*/
 
 		cmdq_pkt_wait_no_clear(cmdq_handle,
 			mtk_crtc->gce_obj.event[EVENT_VDO_EOF]);
 
-		mtk_dsi_phy_timconfig(dsi, cmdq_handle);
+		/*mtk_dsi_phy_timconfig(dsi, cmdq_handle);*/
 
 		if (mod_hfp)
 			mtk_dsi_porch_setting(comp, cmdq_handle, DSI_HFP,
