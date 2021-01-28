@@ -25,7 +25,7 @@
 	#size-cells = <2>;
 
 	/* chosen */
-	chosen {
+	chosen: chosen {
 		bootargs = "console=tty0 console=ttyS0,921600n1 root=/dev/ram \
 			vmalloc=400M slub_debug=OFZPU swiotlb=noforce \
 			firmware_class.path=/vendor/firmware \
