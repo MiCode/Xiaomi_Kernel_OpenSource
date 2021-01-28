@@ -139,13 +139,13 @@ int free_reserved_memory(phys_addr_t start_phys,
 
 	if (end_phys <= start_phys) {
 
-		pr_notice("%s end_phys is smaller than start_phys start_phys:0x%pa end_phys:0x%pa\n"
+		pr_notice("%s end_phys is smaller than start_phys start_phys:%pa end_phys:%pa\n"
 			, __func__, &start_phys, &end_phys);
 		return -1;
 	}
 
 	if (!memblock_is_region_reserved(start_phys, end_phys - start_phys)) {
-		pr_notice("%s:not reserved memory phys_start:0x%pa phys_end:0x%pa\n"
+		pr_notice("%s:not reserved memory phys_start:%pa phys_end:%pa\n"
 			, __func__, &start_phys, &end_phys);
 		return -1;
 	}
@@ -176,7 +176,33 @@ void amms_handle_event(void)
 	arm_smccc_smc(MTK_SIP_KERNEL_AMMS_GET_PENDING,
 			0, 0, 0, 0, 0, 0, 0, &res);
 	pending = res.a0;
-	pr_debug("%s:pending = 0x%llx\n", __func__, pending);
+	pr_info("%s:pending = 0x%llx\n", __func__, pending);
+	pr_info("%s:pending = %lld\n", __func__, (long long)pending);
+
+	// Not support clear pending for legacy chip
+	if (((long long)pending) != AMMS_PENDING_DRDI_FREE_BIT) {
+		if (!amms_static_free) {
+			arm_smccc_smc(MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR,
+			0, 0, 0, 0, 0, 0, 0, &res);
+			addr = res.a0;
+			arm_smccc_smc(
+			MTK_SIP_KERNEL_AMMS_GET_FREE_LENGTH,
+			0, 0, 0, 0, 0, 0, 0, &res);
+			length = res.a0;
+			if (pfn_valid(__phys_to_pfn(addr))
+				&& pfn_valid(__phys_to_pfn(
+				addr + length - 1))) {
+				pr_info("%s:addr=%pa length=%pa\n", __func__,
+				&addr, &length);
+				free_reserved_memory(addr, addr+length);
+				amms_static_free = true;
+			} else {
+				pr_info("AMMS: error addr and length is not set properly\n");
+				pr_info("can not free_reserved_memory\n");
+			}
+		}
+		return;
+	}
 	if (pending & AMMS_PENDING_DRDI_FREE_BIT) {
 		/*below part is for staic memory free */
 		if (!amms_static_free) {
@@ -190,8 +216,8 @@ void amms_handle_event(void)
 			if (pfn_valid(__phys_to_pfn(addr))
 				&& pfn_valid(__phys_to_pfn(
 				addr + length - 1))) {
-				pr_debug("%s:addr=0x%p length=0x%p\n", __func__,
-				(void *)addr, (void *)length);
+				pr_info("%s:addr=%pa length=%pa\n", __func__,
+				&addr, &length);
 				free_reserved_memory(addr, addr+length);
 				amms_static_free = true;
 				arm_smccc_smc(MTK_SIP_KERNEL_AMMS_ACK_PENDING,
