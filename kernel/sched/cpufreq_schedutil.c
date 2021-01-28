@@ -218,6 +218,10 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	freq = map_util_freq(util, freq, max);
 #endif
 
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	freq = clamp_val(freq, policy->min, policy->max);
+#endif
+
 	if (freq == sg_policy->cached_raw_freq && !sg_policy->need_freq_update)
 		return sg_policy->next_freq;
 
@@ -597,7 +601,6 @@ static unsigned int sugov_next_freq_shared(struct sugov_cpu *sg_cpu, u64 time)
 	next_f = get_next_freq(sg_policy, util, max);
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	next_f = clamp_val(next_f, policy->min, policy->max);
 	cid = arch_cpu_cluster_id(policy->cpu);
 	next_f = mt_cpufreq_find_close_freq(cid, next_f);
 #endif
