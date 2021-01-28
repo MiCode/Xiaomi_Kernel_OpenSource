@@ -14,7 +14,7 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "mtk_gpufreq.h"
 #endif
 
@@ -77,7 +77,7 @@ struct TS_PTPOD {
 	unsigned int ts_BTS;
 };
 
-#ifndef CONFIG_MTK_GPU_SUPPORT
+#if !IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 struct mt_gpufreq_power_table_info {
 	unsigned int gpufreq_khz;
 	unsigned int gpufreq_volt;
