@@ -341,9 +341,64 @@ void register_all_oc_interrupts(void)
 }
 #endif
 
+static void vio18_oc_int_handler(void)
+{
+	static unsigned int times;
+#if defined(CONFIG_MTK_AEE_FEATURE)
+	char oc_str[30] = "";
+#endif
+	pr_info("[%s]\n", __func__);
+
+	pr_notice("VIO18_PG_DEB=%d,RGS_VIO18_PG_STATUS=%d\n",
+		pmic_get_register_value(PMIC_VIO18_PG_DEB),
+		pmic_get_register_value(PMIC_RGS_VIO18_PG_STATUS));
+	pr_notice("RG_INT_EN_VIO18_OC=0x%x\n",
+		pmic_get_register_value(PMIC_RG_INT_EN_VIO18_OC));
+	pr_notice("RG_INT_MASK_VIO18_OC=0x%x\n",
+		pmic_get_register_value(PMIC_RG_INT_MASK_VIO18_OC));
+	pr_notice("RG_INT_STATUS_VIO18_OC=0x%x\n",
+		pmic_get_register_value(PMIC_RG_INT_STATUS_VIO18_OC));
+	pr_notice("RG_INT_RAW_STATUS_VIO18_OC=0x%x\n",
+		pmic_get_register_value(
+			PMIC_RG_INT_RAW_STATUS_VIO18_OC));
+	pr_notice("LDO_VIO18_CON0=0x%x,LDO_VIO18_MON=0x%x\n",
+		upmu_get_reg_value(MT6359_LDO_VIO18_CON0),
+		upmu_get_reg_value(MT6359_LDO_VIO18_MON));
+	pr_notice("LDO_VIO18_OP_EN=0x%x,LDO_VIO18_OP_CFG=0x%x\n",
+		upmu_get_reg_value(MT6359_LDO_VIO18_OP_EN),
+		upmu_get_reg_value(MT6359_LDO_VIO18_OP_CFG));
+	pr_notice("VIO18_ANA_CON0=0x%x,VIO18_ANA_CON1=0x%x\n",
+		upmu_get_reg_value(MT6359_VIO18_ANA_CON0),
+		upmu_get_reg_value(MT6359_VIO18_ANA_CON1));
+	pr_notice("XO_FPM_ISEL_M=0x%x\n",
+		pmic_get_register_value(PMIC_XO_FPM_ISEL_M));
+#if defined(CONFIG_MTK_AEE_FEATURE)
+	snprintf(oc_str, 30, "PMIC OC:%s", "INT_VIO18_OC");
+	aee_kernel_warning(oc_str,
+			   "\nCRDISPATCH_KEY:PMIC OC\nOC Interrupt: %s",
+			   "INT_VIO18_OC");
+#endif
+	if (times >= 3)
+		pmic_enable_interrupt(INT_VIO18_OC, 0, "PMIC");
+	times++;
+	pr_notice("disable OC interrupt: INT_VIO18_OC\n");
+}
+
+
+static void register_vio18_oc_interrupts(void)
+{
+	pmic_register_interrupt_callback(INT_VIO18_OC, vio18_oc_int_handler);
+	pmic_enable_interrupt(INT_VIO18_OC, 1, "PMIC");
+}
+
 void PMIC_EINT_SETTING(struct platform_device *pdev)
 {
 	int ret = 0;
+
+	/* MT6359 disable VIO18_PG/OC to debug VIO18 OC, must check!! */
+	pmic_set_register_value(PMIC_RG_LDO_VIO18_OCFB_EN, 0x0);
+	pmic_set_register_value(PMIC_RG_STRUP_VIO18_PG_ENB, 0x1);
+	pmic_set_register_value(PMIC_RG_STRUP_VIO18_OC_ENB, 0x1);
 
 	pmic_dev = &pdev->dev;
 	ret = devm_request_threaded_irq(&pdev->dev,
@@ -370,6 +425,8 @@ void PMIC_EINT_SETTING(struct platform_device *pdev)
 		"homekey_r", NULL);
 	if (ret < 0)
 		dev_notice(&pdev->dev, "request HOMEKEY_R irq fail\n");
+
+	register_vio18_oc_interrupts();
 }
 
 MODULE_AUTHOR("Jeter Chen");
