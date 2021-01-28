@@ -291,7 +291,7 @@ extern unsigned int get_slp_dp_last_wr(void);
 
 /* append idle block info to input logbuf */
 extern int mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize);
+	bool short_log, unsigned int idle_type, char *logptr, unsigned int logsize);
 
 /* enable idle cg monitor and print log to SYS_FTRACE */
 extern void mtk_idle_cg_monitor(int sel);
@@ -300,14 +300,14 @@ extern void mtk_idle_cg_monitor(int sel);
 extern void mtk_idle_cond_update_state(void);
 
 /* check idle condition for specific idle type */
-extern bool mtk_idle_cond_check(int idle_type);
+extern bool mtk_idle_cond_check(unsigned int idle_type);
 
 /* check clkmux for vcore lp mode */
 extern bool mtk_idle_cond_vcore_lp_mode(int idle_type);
 
 /* mask/unmask block mask */
 void mtk_idle_cond_update_mask(
-	int idle_type, unsigned int reg, unsigned int mask);
+	unsigned int idle_type, unsigned int reg, unsigned int mask);
 
 /***********************************************************
  * mtk_spm_vcorefs.c

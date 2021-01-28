@@ -909,7 +909,7 @@ void mtk_suspend_cond_info(void)
 
 /* dp/so3/so print blocking cond mask in debugfs */
 int mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize)
+	bool short_log, unsigned int idle_type, char *logptr, unsigned int logsize)
 {
 	int i;
 	char *p = logptr;
@@ -947,7 +947,7 @@ int mtk_idle_cond_append_info(
 
 /* dp/so3/so may update idle_cond_mask by debugfs */
 void mtk_idle_cond_update_mask(
-	int idle_type, unsigned int reg, unsigned int mask)
+	unsigned int idle_type, unsigned int reg, unsigned int mask)
 {
 	if (reg < NR_CG_GRPS)
 		idle_cond_mask[idle_type][reg] = mask;
@@ -1074,7 +1074,7 @@ void mtk_idle_cond_update_state(void)
 }
 
 /* return final idle condition check result for each idle type */
-bool mtk_idle_cond_check(int idle_type)
+bool mtk_idle_cond_check(unsigned int idle_type)
 {
 	bool ret = false;
 

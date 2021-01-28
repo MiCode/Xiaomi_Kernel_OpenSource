@@ -493,7 +493,7 @@ extern void mtk_suspend_cond_info(void);
 
 /* append idle block info to input logbuf */
 extern int mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize);
+	bool short_log, unsigned int idle_type, char *logptr, unsigned int logsize);
 
 /* enable idle cg monitor and print log to SYS_FTRACE */
 extern void mtk_idle_cg_monitor(int sel);
@@ -502,7 +502,7 @@ extern void mtk_idle_cg_monitor(int sel);
 extern void mtk_idle_cond_update_state(void);
 
 /* check idle condition for specific idle type */
-extern bool mtk_idle_cond_check(int idle_type);
+extern bool mtk_idle_cond_check(unsigned int idle_type);
 
 bool mtk_idle_check_vcore_cond(void);
 
@@ -512,7 +512,7 @@ extern unsigned int mtk_idle_cond_vcore_ulposc_state(void);
 
 /* mask/unmask block mask */
 void mtk_idle_cond_update_mask(
-	int idle_type, unsigned int reg, unsigned int mask);
+	unsigned int idle_type, unsigned int reg, unsigned int mask);
 
 bool mtk_idle_check_clkmux(int idle_type,
 	unsigned int block_mask[NR_TYPES][NF_CLK_CFG]);

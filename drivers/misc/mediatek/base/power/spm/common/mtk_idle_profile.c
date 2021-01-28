@@ -35,7 +35,7 @@
 
 /* [ByChip] Internal weak function: implemented in mtk_idle_cond_check.c */
 int __attribute__((weak)) mtk_idle_cond_append_info(
-	bool short_log, int idle_type, char *logptr, unsigned int logsize);
+	bool short_log, unsigned int idle_type, char *logptr, unsigned int logsize);
 
 /* idle ratio */
 static bool idle_ratio_en;
