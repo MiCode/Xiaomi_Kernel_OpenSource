@@ -52,6 +52,7 @@ config DEVAPC_MT6779
 	depends on MACH_MT6779 || COMPILE_TEST
 	select DEVAPC_ARCH_V1
 	select MTK_DEVAPC
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
 	help
 	  Say yes here to enable support Mediatek MT6779
 	  Device APC driver.
@@ -64,6 +65,7 @@ config DEVAPC_MT6768
 	select DEVAPC_ARCH_V1
 	select MTK_DEVAPC
 	select DEVAPC_MMAP_DEBUG
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
 	help
 	  Say yes here to enable support Mediatek MT6768
 	  Device APC driver.
@@ -75,6 +77,7 @@ config DEVAPC_MT6785
 	depends on MACH_MT6785 || COMPILE_TEST
 	select DEVAPC_ARCH_V1
 	select MTK_DEVAPC
+	select DEVAPC_SWP_SUPPORT if MTK_ENG_BUILD
 	help
 	  Say yes here to enable support Mediatek MT6785
 	  Device APC driver.

@@ -734,6 +734,119 @@ static void devapc_ut(uint32_t cmd)
 	}
 }
 
+#ifdef CONFIG_DEVAPC_SWP_SUPPORT
+static struct devapc_swp_context {
+	void __iomem *devapc_swp_base;
+	bool swp_enable;
+	bool swp_clr;
+	bool swp_rw;
+	uint32_t swp_phy_addr;
+	uint32_t swp_rg;
+	uint32_t swp_wr_val;
+	uint32_t swp_wr_mask;
+} devapc_swp_ctx[1];
+
+static ssize_t set_swp_addr_show(struct device_driver *driver, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE,
+		"%s:%s\n\t%s:%s\n\t%s:0x%x\n\t%s:0x%x\n\t%s:0x%x\n\t%s:0x%x\n",
+			"devapc_swp",
+			devapc_swp_ctx->swp_enable ? "enable" : "disable",
+			"swp_rw",
+			devapc_swp_ctx->swp_rw ? "write" : "read",
+			"swp_physical_addr", devapc_swp_ctx->swp_phy_addr,
+			"swp_rg", devapc_swp_ctx->swp_rg,
+			"swp_wr_val", devapc_swp_ctx->swp_wr_val,
+			"swp_wr_mask", devapc_swp_ctx->swp_wr_mask
+		       );
+}
+
+static ssize_t set_swp_addr_store(struct device_driver *driver,
+		const char *buf, size_t count)
+{
+	char *cmd_str, *param_str;
+	unsigned int param;
+	int err;
+
+	pr_info(PFX "buf: %s", buf);
+
+	cmd_str = strsep((char **)&buf, " ");
+	if (!cmd_str)
+		return -EINVAL;
+
+	param_str = strsep((char **)&buf, " ");
+	if (!param_str)
+		return -EINVAL;
+
+	err = kstrtou32(param_str, 16, &param);
+	if (err)
+		return err;
+
+	if (!strncmp(cmd_str, "enable_swp", sizeof("enable_swp"))) {
+		devapc_swp_ctx->swp_enable = (param != 0);
+		pr_info(PFX "devapc_swp_enable = %s\n",
+			devapc_swp_ctx->swp_enable ? "enable" : "disable");
+
+		writel(param, devapc_swp_ctx->devapc_swp_base);
+		if (!devapc_swp_ctx->swp_enable)
+			devapc_swp_ctx->swp_phy_addr = 0x0;
+
+	} else if (!strncmp(cmd_str, "set_swp_clr", sizeof("set_swp_clr"))) {
+		pr_info(PFX "set swp clear: 0x%x\n", param);
+		devapc_swp_ctx->swp_clr = (param != 0);
+
+		if (devapc_swp_ctx->swp_clr)
+			writel(0x1 << DEVAPC_SWP_CON_CLEAR,
+			       devapc_swp_ctx->devapc_swp_base);
+
+	} else if (!strncmp(cmd_str, "set_swp_rw", sizeof("set_swp_rw"))) {
+		pr_info(PFX "set swp r/w: %s\n", param ? "write" : "read");
+		devapc_swp_ctx->swp_rw = (param != 0);
+
+		if (devapc_swp_ctx->swp_rw)
+			writel(0x1 << DEVAPC_SWP_CON_RW,
+			       devapc_swp_ctx->devapc_swp_base);
+
+	} else if (!strncmp(cmd_str, "set_swp_addr", sizeof("set_swp_addr"))) {
+		pr_info(PFX "set swp physical addr: 0x%x\n", param);
+		devapc_swp_ctx->swp_phy_addr = param;
+
+		writel(devapc_swp_ctx->swp_phy_addr,
+		       devapc_swp_ctx->devapc_swp_base + DEVAPC_SWP_SA_OFFSET);
+
+	} else if (!strncmp(cmd_str, "set_swp_rg", sizeof("set_swp_rg"))) {
+		pr_info(PFX "set swp range: 0x%x\n", param);
+		devapc_swp_ctx->swp_rg = param;
+
+		writel(devapc_swp_ctx->swp_rg,
+		       devapc_swp_ctx->devapc_swp_base + DEVAPC_SWP_RG_OFFSET);
+
+	} else if (!strncmp(cmd_str, "set_swp_wr_val",
+				sizeof("set_swp_wr_val"))) {
+		pr_info(PFX "set swp write value: 0x%x\n", param);
+		devapc_swp_ctx->swp_wr_val = param;
+
+		writel(devapc_swp_ctx->swp_wr_val,
+		       devapc_swp_ctx->devapc_swp_base +
+		       DEVAPC_SWP_WR_VAL_OFFSET);
+
+	} else if (!strncmp(cmd_str, "set_swp_wr_mask",
+				sizeof("set_swp_wr_mask"))) {
+		pr_info(PFX "set swp write mask: 0x%x\n", param);
+		devapc_swp_ctx->swp_wr_mask = param;
+
+		writel(devapc_swp_ctx->swp_wr_mask,
+		       devapc_swp_ctx->devapc_swp_base +
+		       DEVAPC_SWP_WR_MASK_OFFSET);
+
+	} else
+		return -EINVAL;
+
+	return count;
+}
+static DRIVER_ATTR_RW(set_swp_addr);
+#endif /* CONFIG_DEVAPC_SWP_SUPPORT */
+
 int mtk_devapc_probe(struct platform_device *pdev,
 		struct mtk_devapc_soc *soc)
 {
@@ -782,6 +895,14 @@ int mtk_devapc_probe(struct platform_device *pdev,
 		pr_err(PFX "Failed to request devapc irq, ret(%d)\n", ret);
 		return ret;
 	}
+
+#ifdef CONFIG_DEVAPC_SWP_SUPPORT
+	devapc_swp_ctx->devapc_swp_base = of_iomap(node, 2);
+	ret = driver_create_file(pdev->dev.driver,
+			&driver_attr_set_swp_addr);
+	if (ret)
+		pr_info(PFX "create SWP sysfs file failed, ret:%d\n", ret);
+#endif
 
 	return 0;
 }
