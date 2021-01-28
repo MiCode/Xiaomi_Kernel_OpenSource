@@ -821,6 +821,10 @@ static kal_uint16 gain2reg(const kal_uint16 gain)
 		if (gain <= IMX258MIPI_sensorGainMapping[i][0])
 			break;
 	}
+	if (i >= IMX258MIPI_MaxGainIndex) {
+		pr_debug("warning! use max sensor gain");
+		return IMX258MIPI_sensorGainMapping[IMX258MIPI_MaxGainIndex - 1][1];
+	}
 	if (gain != IMX258MIPI_sensorGainMapping[i][0])
 		LOG_INF("Gain mapping don't correctly:%d %d\n", gain,
 			IMX258MIPI_sensorGainMapping[i][0]);
