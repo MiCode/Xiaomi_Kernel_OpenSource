@@ -2076,6 +2076,19 @@ enum {
 #define G_SRC_ASM_ON_MASK                              0x1
 #define G_SRC_ASM_ON_MASK_SFT                          (0x1 << 0)
 
+/* AFE_ASRC_2CH_CON0 */
+#define CON0_CHSET_STR_CLR_SFT                         4
+#define CON0_CHSET_STR_CLR_MASK                        1
+#define CON0_CHSET_STR_CLR_MASK_SFT                    (0x1 << 4)
+#define CON0_ASM_ON_SFT                                0
+#define CON0_ASM_ON_MASK                               1
+#define CON0_ASM_ON_MASK_SFT                           (0x1 << 0)
+
+/* AFE_ASRC_2CH_CON5 */
+#define CALI_EN_SFT                                    0
+#define CALI_EN_MASK                                   1
+#define CALI_EN_MASK_SFT                               (0x1 << 0)
+
 #define AUDIO_TOP_CON0                     0x0000
 #define AUDIO_TOP_CON1                     0x0004
 #define AUDIO_TOP_CON3                     0x000c
