@@ -14,6 +14,8 @@
 # common driver code for CMDQ
 ifeq ($(CONFIG_MTK_CMDQ_V3),y)
 	obj-y += v3/
+else ifeq ($(CONFIG_MTK_CMDQ_TAB), y)
+	obj-y += v2/
 endif
 # mdp_sw_sync
 obj-y += mdp_sync/

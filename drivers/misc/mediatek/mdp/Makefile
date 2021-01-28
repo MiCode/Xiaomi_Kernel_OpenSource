@@ -17,6 +17,8 @@ MTK_PLATFORM := $(CONFIG_MTK_PLATFORM)
 
 ifeq ($(CONFIG_MTK_CMDQ_V3),y)
 	CMDQ_VER := v3
+else
+	CMDQ_VER := v2
 endif
 
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/cmdq/$(CMDQ_VER) \
