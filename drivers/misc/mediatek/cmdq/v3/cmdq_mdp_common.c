@@ -138,7 +138,7 @@ struct mdp_context {
 	atomic_t mdp_smi_usage;
 
 	/* wake lock for prevent suspend */
-	struct wakeup_source wake_lock;
+	struct wakeup_source *wake_lock;
 	bool wake_locked;
 };
 static struct mdp_context mdp_ctx;
@@ -293,14 +293,17 @@ s32 cmdq_mdp_get_smi_usage(void)
 
 static void cmdq_mdp_lock_wake_lock(bool lock)
 {
+	if (!mdp_ctx.wake_lock)
+		return;
+
 	if (lock) {
 		if (!mdp_ctx.wake_locked) {
-			__pm_stay_awake(&mdp_ctx.wake_lock);
+			__pm_stay_awake(mdp_ctx.wake_lock);
 			mdp_ctx.wake_locked = true;
 		}
 	} else {
 		if (mdp_ctx.wake_locked) {
-			__pm_relax(&mdp_ctx.wake_lock);
+			__pm_relax(mdp_ctx.wake_lock);
 			mdp_ctx.wake_locked = false;
 		}
 	}
@@ -1901,6 +1904,10 @@ void cmdq_mdp_init(void)
 	mdp_ctx.handle_consume_queue =
 		create_singlethread_workqueue("cmdq_mdp_task");
 
+	mdp_ctx.wake_lock = wakeup_source_register(cmdq_dev_get(), "mdp_lock");
+	if (!mdp_ctx.wake_lock)
+		CMDQ_ERR("initialize mtk_mdp_lock wakeup source fail\n");
+
 	mdp_status_dump_notify.notifier_call = cmdq_mdp_status_dump;
 	cmdq_core_register_status_dump(&mdp_status_dump_notify);
 
@@ -1936,6 +1943,8 @@ void cmdq_mdp_deinit(void)
 	}
 
 	cmdq_mdp_pool_clear();
+	wakeup_source_unregister(mdp_ctx.wake_lock);
+	mdp_ctx.wake_lock = NULL;
 }
 
 /* Platform dependent function */
