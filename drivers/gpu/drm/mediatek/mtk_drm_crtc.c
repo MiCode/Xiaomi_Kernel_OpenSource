@@ -1566,7 +1566,6 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 #ifdef MTK_FB_MMDVFS_SUPPORT
 		mtk_disp_set_hrt_bw(mtk_crtc, bw);
 #endif
-		mtk_crtc->qos_ctx->last_hrt_req = bw;
 		cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
 			       NO_PENDING_HRT, ~0);
@@ -1575,7 +1574,7 @@ static void mtk_crtc_update_hrt_state(struct drm_crtc *crtc,
 			       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_LEVEL,
 			       bw, ~0);
 	}
-
+	mtk_crtc->qos_ctx->last_hrt_req = bw;
 	cmdq_pkt_write(cmdq_handle, mtk_crtc->gce_obj.base,
 		       cmdq_buf->pa_base + DISP_SLOT_CUR_HRT_IDX,
 		       crtc_state->prop_val[CRTC_PROP_LYE_IDX], ~0);
