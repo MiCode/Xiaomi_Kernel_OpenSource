@@ -979,7 +979,8 @@ static int ged_dvfs_fb_gpu_dvfs(int t_gpu, int t_gpu_target,
 #endif
 
 	}
-	if (force_fallback) {
+	/* (t_gpu == -1) means t_gpu is not accurate (i.e., non-main BQ) */
+	if (force_fallback || t_gpu == -1) {
 		gpu_freq_pre = ret_freq = mt_gpufreq_get_cur_freq();
 		goto FB_RET;
 	}
