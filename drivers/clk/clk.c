@@ -50,10 +50,12 @@ static struct hlist_head *all_lists[] = {
 	NULL,
 };
 
+#ifdef CONFIG_DEBUG_FS
 static struct hlist_head *orphan_list[] = {
 	&clk_orphan_list,
 	NULL,
 };
+#endif
 
 /*
  * clk_rate_change_list is used during clk_core_set_rate_nolock() calls to
