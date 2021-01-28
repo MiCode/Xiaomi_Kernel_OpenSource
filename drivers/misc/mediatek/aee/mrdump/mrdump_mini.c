@@ -42,12 +42,11 @@ static char modules_info_buf[MODULES_INFO_BUF_SIZE];
 
 static bool dump_all_cpus;
 
-#if defined(CONFIG_HAVE_MTK_GZ_LOG)
-__weak void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
-		unsigned long *start)
+__weak void get_gz_log_buffer(unsigned long *addr, unsigned long *paddr,
+			unsigned long *size, unsigned long *start)
 {
+	*addr = *paddr = *size = *start = 0;
 }
-#endif
 
 __weak void get_disp_err_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start)
@@ -789,6 +788,8 @@ void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
 static void mrdump_mini_build_elf_misc(void)
 {
 	struct mrdump_mini_elf_misc misc;
+	unsigned long gz_log_pa = 0;
+
 	unsigned long task_info_va =
 	    (unsigned long)((void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
 	unsigned long task_info_pa = 0;
@@ -816,11 +817,14 @@ static void mrdump_mini_build_elf_misc(void)
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	aee_rr_get_desc_info(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_RR_DESC_");
-#if defined(CONFIG_HAVE_MTK_GZ_LOG)
+
+
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
-	get_gz_log_buffer(&misc.vaddr, &misc.size, &misc.start);
-	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_GZ_LOG_");
-#endif
+	get_gz_log_buffer(&misc.vaddr, &gz_log_pa, &misc.size, &misc.start);
+	if (gz_log_pa != 0)
+		mrdump_mini_add_misc_pa(misc.vaddr, gz_log_pa, misc.size,
+					misc.start, "_GZ_LOG_");
+
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	get_disp_err_buffer(&misc.vaddr, &misc.size, &misc.start);
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_DISP_ERR_");
