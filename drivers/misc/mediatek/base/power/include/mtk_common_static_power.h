@@ -16,7 +16,8 @@
 
 #if defined(CONFIG_MACH_MT6759) || defined(CONFIG_MACH_MT6763) \
 	|| defined(CONFIG_MACH_MT6758) || defined(CONFIG_MACH_MT6739) \
-	|| defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775)
+	|| defined(CONFIG_MACH_MT6771) || defined(CONFIG_MACH_MT6775) \
+	|| defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
 #include "leakage_table_v2/mtk_static_power.h"
 #endif
 

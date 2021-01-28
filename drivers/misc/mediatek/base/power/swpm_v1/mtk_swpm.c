@@ -19,11 +19,17 @@
 #include <linux/uaccess.h>
 #include <linux/types.h>
 #include <linux/string.h>
+#include <linux/timer.h>
+#include <linux/ktime.h>
+#include <trace/events/mtk_events.h>
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
 #include <sspm_reservedmem_define.h>
 #endif
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>
+#endif
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+#include <mtk_gpu_power_sspm_ipi.h>
 #endif
 #include <mtk_swpm_common.h>
 #include <mtk_swpm_platform.h>
@@ -33,7 +39,8 @@
  *  Macro Definitions
  ****************************************************************************/
 #define DEFAULT_AVG_WINDOW		(50)
-/* #define BRINGUP_DISABLE */
+/* #define LOG_LOOP_TIME_PROFILE */
+#define IDD_TBL_DBG
 
 #define MAX(a, b)			((a) >= (b) ? (a) : (b))
 #define MIN(a, b)			((a) >= (b) ? (b) : (a))
@@ -82,6 +89,9 @@ static phys_addr_t rec_phys_addr, rec_virt_addr;
 static unsigned long long rec_size;
 #endif
 static unsigned char avg_window = DEFAULT_AVG_WINDOW;
+static struct timer_list log_timer;
+static unsigned int log_interval_ms = DEFAULT_LOG_INTERVAL_MS;
+static unsigned int log_mask = DEFAULT_LOG_MASK;
 
 /****************************************************************************
  *  Global Variables
@@ -89,7 +99,10 @@ static unsigned char avg_window = DEFAULT_AVG_WINDOW;
 struct swpm_rec_data *swpm_info_ref;
 unsigned int swpm_status;
 bool swpm_debug;
-DEFINE_SPINLOCK(swpm_spinlock);
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+bool swpm_gpu_debug;
+#endif
+DEFINE_SPINLOCK(swpm_mutex);
 
 /****************************************************************************
  *  Static Function
@@ -138,6 +151,76 @@ static int dump_power_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int dump_lkg_power_proc_show(struct seq_file *m, void *v)
+{
+	int i, j;
+
+	if (!swpm_info_ref)
+		return 0;
+
+	for (i = 0; i < NR_CPU_LKG_TYPE; i++) {
+		for (j = 0; j < 16; j++) {
+			seq_printf(m, "type %d opp%d lkg = %d\n", i, j,
+				swpm_info_ref->cpu_lkg_pwr[i][j]);
+		}
+	}
+
+	return 0;
+}
+
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+static int gpu_debug_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "\nSWPM gpu_debug is %s\n",
+		(swpm_gpu_debug == true) ? "enabled" : "disabled");
+
+	if (swpm_gpu_debug == true) {
+		seq_printf(m, "gpu freq urate : %u\n",
+			swpm_info_ref->gpu_counter[gfreq]);
+		seq_printf(m, "gpu volt : %u\n",
+			swpm_info_ref->gpu_counter[gvolt]);
+		seq_printf(m, "gpu loading : %u\n",
+			swpm_info_ref->gpu_counter[gloading]);
+		seq_printf(m, "alu urate : %u\n",
+			swpm_info_ref->gpu_counter[galu_urate]);
+		seq_printf(m, "tex urate : %u\n",
+			swpm_info_ref->gpu_counter[gtex_urate]);
+		seq_printf(m, "lsc urate : %u\n",
+			swpm_info_ref->gpu_counter[glsc_urate]);
+		seq_printf(m, "l2c urate : %u\n",
+			swpm_info_ref->gpu_counter[gl2c_urate]);
+		seq_printf(m, "vary urate : %u\n",
+			swpm_info_ref->gpu_counter[gvary_urate]);
+		seq_printf(m, "tiler urate : %u\n",
+			swpm_info_ref->gpu_counter[gtiler_urate]);
+	}
+
+	return 0;
+}
+
+static ssize_t gpu_debug_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *pos)
+{
+	int enable;
+
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &enable)) {
+		swpm_gpu_debug = (enable) ? true : false;
+		if (swpm_gpu_debug)
+			MTKGPUPower_model_start(1000000);
+		else
+			MTKGPUPower_model_stop();
+	} else {
+		swpm_err("echo 1/0 > /proc/swpm/debug\n");
+	}
+	return count;
+}
+#endif
+
 static int debug_proc_show(struct seq_file *m, void *v)
 {
 	seq_printf(m, "\nSWPM debug is %s\n",
@@ -178,15 +261,57 @@ static ssize_t enable_proc_write(struct file *file,
 	int type, enable;
 #endif
 	char *buf = _copy_from_user_for_proc(buffer, count);
+	unsigned long flags;
 
 	if (!buf)
 		return -EINVAL;
 
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
-	if (sscanf(buf, "%d %d", &type, &enable) == 2)
+	if (sscanf(buf, "%d %d", &type, &enable) == 2) {
+		swpm_lock(&swpm_mutex, flags);
 		swpm_set_enable(type, enable);
-	else
+		if (swpm_status) {
+			unsigned long expires;
+
+			if (log_timer.function != NULL) {
+				expires = jiffies +
+					msecs_to_jiffies(log_interval_ms);
+				mod_timer(&log_timer, expires);
+			}
+		} else {
+			if (log_timer.function != NULL)
+				del_timer(&log_timer);
+		}
+		swpm_unlock(&swpm_mutex, flags);
+	} else {
 		swpm_err("echo <type or 65535> <0 or 1> > /proc/swpm/enable\n");
+	}
+#endif
+
+	return count;
+}
+
+static int update_cnt_proc_show(struct seq_file *m, void *v)
+{
+	return 0;
+}
+
+static ssize_t update_cnt_proc_write(struct file *file,
+		const char __user *buffer, size_t count, loff_t *pos)
+{
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	int type, cnt;
+#endif
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+#ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
+	if (sscanf(buf, "%d %d", &type, &cnt) == 2)
+		swpm_set_update_cnt(type, cnt);
+	else
+		swpm_err("echo <type or 65535> <cnt> > /proc/swpm/update_cnt\n");
 #endif
 
 	return count;
@@ -194,6 +319,9 @@ static ssize_t enable_proc_write(struct file *file,
 
 static int profile_proc_show(struct seq_file *m, void *v)
 {
+	if (!swpm_info_ref)
+		return 0;
+
 	seq_printf(m, "monitor time avg/max = %llu/%llu ns, cnt = %llu\n",
 		swpm_info_ref->avg_latency[MON_TIME],
 		swpm_info_ref->max_latency[MON_TIME],
@@ -227,11 +355,15 @@ static ssize_t profile_proc_write(struct file *file,
 	if (!buf)
 		return -EINVAL;
 
+	if (!swpm_info_ref)
+		goto end;
+
 	if (!kstrtouint(buf, 10, &enable))
 		swpm_info_ref->profile_enable = enable;
 	else
 		swpm_err("echo <1/0> > /proc/swpm/profile\n");
 
+end:
 	return count;
 }
 
@@ -261,11 +393,130 @@ static ssize_t avg_window_proc_write(struct file *file,
 	return count;
 }
 
+static int log_interval_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "Current log interval is %d ms\n", log_interval_ms);
+
+	return 0;
+}
+
+static ssize_t log_interval_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int interval;
+
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &interval))
+		log_interval_ms = interval;
+	else
+		swpm_err("echo <interval_ms> > /proc/swpm/log_interval\n");
+
+	return count;
+}
+
+static int log_mask_proc_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "Current log mask is 0x%x\n", log_mask);
+
+	return 0;
+}
+
+static ssize_t log_mask_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int mask;
+
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!kstrtouint(buf, 10, &mask))
+		log_mask = mask;
+	else
+		swpm_err("echo <mask> > /proc/swpm/log_mask\n");
+
+	return count;
+}
+
+#ifdef IDD_TBL_DBG
+static int idd_tbl_proc_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	if (!swpm_info_ref)
+		return 0;
+
+	for (i = 0; i < NR_DRAM_PWR_TYPE; i++) {
+		seq_puts(m, "==========================\n");
+		seq_printf(m, "idx %d i_dd0 = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd0);
+		seq_printf(m, "idx %d i_dd2p = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd2p);
+		seq_printf(m, "idx %d i_dd2n = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd2n);
+		seq_printf(m, "idx %d i_dd4r = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd4r);
+		seq_printf(m, "idx %d i_dd4w = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd4w);
+		seq_printf(m, "idx %d i_dd5 = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd5);
+		seq_printf(m, "idx %d i_dd6 = %d\n", i,
+			swpm_info_ref->dram_conf[i].i_dd6);
+	}
+
+	seq_puts(m, "==========================\n");
+
+	return 0;
+}
+
+static ssize_t idd_tbl_proc_write(struct file *file,
+	const char __user *buffer, size_t count, loff_t *pos)
+{
+	unsigned int type, idd_idx, val;
+	unsigned long flags;
+	char *buf = _copy_from_user_for_proc(buffer, count);
+
+	if (!buf)
+		return -EINVAL;
+
+	if (!swpm_info_ref)
+		goto end;
+
+	if (sscanf(buf, "%d %d %d", &type, &idd_idx, &val) == 3) {
+		if (type >= NR_DRAM_PWR_TYPE || idd_idx > 6)
+			goto end;
+		swpm_lock(&swpm_mutex, flags);
+		*(&swpm_info_ref->dram_conf[type].i_dd0 + idd_idx) = val;
+		swpm_unlock(&swpm_mutex, flags);
+	} else {
+		swpm_err("echo <type> <idx> <val> > /proc/swpm/idd_tbl\n");
+	}
+
+end:
+	return count;
+}
+#endif
+
 PROC_FOPS_RO(dump_power);
+PROC_FOPS_RO(dump_lkg_power);
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+PROC_FOPS_RW(gpu_debug);
+#endif
 PROC_FOPS_RW(debug);
 PROC_FOPS_RW(enable);
+PROC_FOPS_RW(update_cnt);
 PROC_FOPS_RW(profile);
 PROC_FOPS_RW(avg_window);
+PROC_FOPS_RW(log_interval);
+PROC_FOPS_RW(log_mask);
+#ifdef IDD_TBL_DBG
+PROC_FOPS_RW(idd_tbl);
+#endif
 
 static int create_procfs(void)
 {
@@ -279,10 +530,20 @@ static int create_procfs(void)
 
 	struct pentry swpm_entries[] = {
 		PROC_ENTRY(dump_power),
+		PROC_ENTRY(dump_lkg_power),
 		PROC_ENTRY(debug),
 		PROC_ENTRY(enable),
+		PROC_ENTRY(update_cnt),
 		PROC_ENTRY(profile),
 		PROC_ENTRY(avg_window),
+		PROC_ENTRY(log_interval),
+		PROC_ENTRY(log_mask),
+#ifdef CONFIG_MTK_GPU_SWPM_SUPPORT
+		PROC_ENTRY(gpu_debug),
+#endif
+#ifdef IDD_TBL_DBG
+		PROC_ENTRY(idd_tbl),
+#endif
 	};
 
 	swpm_dir = proc_mkdir("swpm", NULL);
@@ -329,6 +590,56 @@ static void get_rec_addr(void)
 #endif
 }
 
+static int log_loop(void)
+{
+	unsigned long expires;
+	char buf[256] = {0};
+	char *ptr = buf;
+	int i;
+#ifdef LOG_LOOP_TIME_PROFILE
+	ktime_t t1, t2;
+	unsigned long long diff, diff2;
+
+	t1 = ktime_get();
+#endif
+
+	for (i = 0; i < NR_POWER_RAIL; i++) {
+		if ((1 << i) & log_mask) {
+			ptr += snprintf(ptr, 256, "%s/",
+				swpm_power_rail_to_string((enum power_rail)i));
+		}
+	}
+	ptr--;
+	ptr += sprintf(ptr, " = ");
+
+	for (i = 0; i < NR_POWER_RAIL; i++) {
+		if ((1 << i) & log_mask) {
+			ptr += snprintf(ptr, 256, "%d/",
+				swpm_get_avg_power((enum power_rail)i, 50));
+		}
+	}
+	ptr--;
+	ptr += sprintf(ptr, " uA");
+
+	//trace_swpm_power(buf);
+#ifdef LOG_LOOP_TIME_PROFILE
+	t2 = ktime_get();
+#endif
+
+	swpm_update_lkg_table();
+
+#ifdef LOG_LOOP_TIME_PROFILE
+	diff = ktime_to_us(ktime_sub(t2, t1));
+	diff2 = ktime_to_us(ktime_sub(ktime_get(), t2));
+	swpm_err("exe time = %llu/%lluus\n", diff, diff2);
+#endif
+
+	expires = jiffies + msecs_to_jiffies(log_interval_ms);
+	mod_timer(&log_timer, expires);
+
+	return 0;
+}
+
 static int __init swpm_init(void)
 {
 #ifdef BRINGUP_DISABLE
@@ -354,6 +665,11 @@ static int __init swpm_init(void)
 #endif
 #endif
 
+	/* init log timer */
+	init_timer_deferrable(&log_timer);
+	log_timer.function = (void *)&log_loop;
+	log_timer.data = (unsigned long)&log_timer;
+
 	swpm_info("SWPM init done!\n");
 
 end:
@@ -364,18 +680,15 @@ late_initcall(swpm_init);
 /***************************************************************************
  *  API
  ***************************************************************************/
-unsigned int swpm_get_avg_power(unsigned int type, unsigned int avg_window)
+unsigned int swpm_get_avg_power(enum power_rail type, unsigned int avg_window)
 {
 	unsigned int *ptr;
 	unsigned int cnt, idx, sum = 0, pwr = 0;
-	unsigned long flags;
 
-	if ((enum power_rail)type >= NR_POWER_RAIL) {
+	if (type >= NR_POWER_RAIL) {
 		swpm_err("Invalid SWPM type = %d\n", type);
 		return 0;
 	}
-
-	swpm_lock(&swpm_spinlock, flags);
 
 	/* window should be 1 to MAX_RECORD_CNT */
 	avg_window = MAX(avg_window, 1);
@@ -396,10 +709,9 @@ unsigned int swpm_get_avg_power(unsigned int type, unsigned int avg_window)
 
 	pwr = sum / avg_window;
 
-	swpm_unlock(&swpm_spinlock, flags);
-
-	swpm_dbg("avg pwr of meter %d = %d mA\n", type, pwr);
+	swpm_dbg("avg pwr of meter %d = %d uA\n", type, pwr);
 
 	return pwr;
 }
+EXPORT_SYMBOL(swpm_get_avg_power);
 

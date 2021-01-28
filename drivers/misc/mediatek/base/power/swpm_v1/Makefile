@@ -22,7 +22,9 @@ ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)
 endif
-
+ifeq ($(CONFIG_MTK_GPU_SWPM_SUPPORT), y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/gpu_mali/mali_bifrost/mali-r16p0/drivers/gpu/arm/midgard/platform/mtk_platform_common/
+endif
 ifneq ($(CONFIG_FPGA_EARLY_PORTING),y)
 obj-y += mtk_swpm.o
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/

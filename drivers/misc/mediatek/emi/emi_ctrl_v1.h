@@ -35,7 +35,10 @@ extern unsigned int get_rank_size(unsigned int rank_index);
 extern void __iomem *mt_cen_emi_base_get(void);
 extern void __iomem *mt_emi_base_get(void);
 extern void __iomem *mt_chn_emi_base_get(unsigned int channel_index);
+
+extern void __iomem *mt_emi_dbg_base_get(unsigned int index);
 extern void __iomem *mt_emi_mpu_base_get(void);
 extern void resume_decs(void __iomem *CEN_EMI_BASE);
 
+extern unsigned int mt_emi_dcm_config(void);
 #endif /* __EMI_CTRL_H__ */

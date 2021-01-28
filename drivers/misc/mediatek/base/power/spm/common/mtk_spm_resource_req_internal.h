@@ -37,6 +37,13 @@ unsigned int spm_get_resource_usage_by_user(unsigned int user);
 bool spm_resource_req_init(void);
 void spm_resource_req_debugfs_init(void);
 
+struct spm_resource_console_req {
+	const char *name;
+	unsigned int bit_number;
+};
+
+unsigned int spm_resource_console_dts_required(
+	struct spm_resource_console_req *plat_req, int count);
 
 /* Compulsory method for spm resource requirement.
  * This function's implementation depend on platform

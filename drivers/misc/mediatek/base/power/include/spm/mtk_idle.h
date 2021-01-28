@@ -49,6 +49,14 @@ enum mtk_idle_notify_id {
 	NOTIFY_SOIDLE3_LEAVE,
 };
 
+enum mtk_idle_module_notify {
+	/* Compatible for legacy notity */
+	IDLE_NOTIFY_MAINPLL_OFF = NOTIFY_DPIDLE_ENTER,
+	IDLE_NOTIFY_MAINPLL_ON = NOTIFY_DPIDLE_LEAVE,
+	IDLE_NOTIFY_26M_OFF,
+	IDLE_NOTIFY_26M_ON,
+};
+
 extern int mtk_idle_notifier_register(struct notifier_block *n);
 extern void mtk_idle_notifier_unregister(struct notifier_block *n);
 
@@ -56,7 +64,22 @@ extern void mtk_idle_notifier_unregister(struct notifier_block *n);
 /* --------------------------------------------------------
  * For MCDI module
  **********************************************************/
+struct mtk_idle_info {
+	int cpu;
+	unsigned int predit_us;
+};
 
+/* The function that select the idle model then go to idle
+ * If the IsSelectOnly set 1 and select the suitable idle only
+ */
+extern int mtk_idle_entrance(struct mtk_idle_info *info
+				, int *IdleModelType, int IsSelectOnly);
+
+extern int mtk_idle_model_enter(int cpu, int IdleModelType);
+
+/* Stub function, Please using mtk_idle_entrance to get idle model
+ * and mtk_idle_model_enter to enter the idle model
+ */
 extern int mtk_idle_select(int cpu);    /* return idle_type */
 extern int dpidle_enter(int cpu);       /* dpidle */
 extern int soidle_enter(int cpu);       /* sodi */

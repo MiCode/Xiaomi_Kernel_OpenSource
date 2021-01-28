@@ -39,6 +39,14 @@
  *******************************************************************/
 #define MTK_FEATURE_EANABLE_KICK_SPMFW	(1)
 
+
+/********************************************************************
+ * dpidle/sodi3/sodi default feature enable/disable
+ *******************************************************************/
+#define MTK_IDLE_FEATURE_ENABLE_DPIDLE  (1)
+#define MTK_IDLE_FEATURE_ENABLE_SODI    (1)
+#define MTK_IDLE_FEATURE_ENABLE_SODI3   (1)
+
 /**************************************
  * Config and Parameter
  **************************************/
@@ -59,6 +67,9 @@
  **************************************/
 #define DEEPIDLE_OPT_VCORE_LOW_VOLT      (1 << 4)
 
+#define WORLD_CLK_CNTCV_L        (0x10017008)
+#define WORLD_CLK_CNTCV_H        (0x1001700C)
+
 /* PCM_WDT_VAL */
 #define PCM_WDT_TIMEOUT		(30 * 32768)	/* 30s */
 /* PCM_TIMER_VAL */
@@ -67,6 +78,10 @@
 #define PCM_32K_TICKS_PER_SEC		(32768)
 #define PCM_TICK_TO_SEC(TICK)	(TICK / PCM_32K_TICKS_PER_SEC)
 #define PCM_32K_TICKS_FIVE_SEC	(5 * PCM_32K_TICKS_PER_SEC)
+
+/* 13M ticks per sec */
+#define WORLD_CLK_13M_TICKS_PER_SEC		(13000000)
+#define WORLD_CLK_TICK_TO_SEC(TICK)	(TICK / WORLD_CLK_13M_TICKS_PER_SEC)
 
 /* SMC call's marco */
 #define SMC_CALL(_name, _arg0, _arg1, _arg2) \

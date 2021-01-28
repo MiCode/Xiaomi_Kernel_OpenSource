@@ -56,6 +56,8 @@
 #include "mtk_static_power_mt6785.h"
 #endif
 
+extern int mtk_gpufreq_register
+(struct mt_gpufreq_power_table_info *freqs, int num);
 /**
  * ===============================================
  * SECTION : Local functions declaration

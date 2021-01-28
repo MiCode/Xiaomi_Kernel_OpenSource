@@ -32,6 +32,15 @@
 #include "autok.h"
 #include "autok_dvfs.h"
 
+#if defined(CONFIG_MTK_HW_FDE) && defined(CONFIG_MTK_HW_FDE_AES)
+#include <fde_aes.h>
+#include <fde_aes_dbg.h>
+#endif
+
+#if defined(CONFIG_MTK_EMMC_CQ_SUPPORT) && defined(CONFIG_MTK_EMMC_HW_CQ)
+#error "MTK_EMMC_CQ_SUPPORT & MTK_EMMC_HW_CQ cannot define at the same time."
+#endif
+
 
 #ifdef CONFIG_PWR_LOSS_MTK_TEST
 #include <mach/power_loss_test.h>
@@ -66,7 +75,8 @@
 /* #define MTK_MMC_SDIO_DEBUG */
 
 #define MTK_MSDC_USE_CMD23
-#if !defined(CONFIG_PWR_LOSS_MTK_TEST) && defined(MTK_MSDC_USE_CMD23)
+#if !defined(CONFIG_PWR_LOSS_MTK_TEST) && defined(MTK_MSDC_USE_CMD23) \
+	|| defined(CONFIG_MTK_EMMC_HW_CQ)
 #define MTK_MSDC_USE_CACHE
 #endif
 
@@ -323,7 +333,9 @@ struct msdc_host {
 	 * race condition with hot-plug enable
 	 */
 	spinlock_t              remove_bad_card;
-
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+	spinlock_t              cmd_dump_lock;
+#endif
 	 /* avoid race condition at DAT1 interrupt case*/
 	spinlock_t              sdio_irq_lock;
 	int                     clk_gate_count;
@@ -420,7 +432,8 @@ struct msdc_host {
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	atomic_t                cq_error_need_stop;
 #endif
-#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE))
+#if (defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)) \
+	&& !defined(CONFIG_MTK_HW_FDE_AES)
 	bool                    is_crypto_init;
 	u32                     key_idx;
 #endif
@@ -429,6 +442,9 @@ struct msdc_host {
 	u64                     stop_dma_time;
 	/* flag to record if eMMC will enter hs400 mode */
 	bool                    hs400_mode;
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+	struct cmdq_host *cq_host;
+#endif
 };
 
 enum {

@@ -115,6 +115,19 @@ struct mtk_idle_init_data {
 		_d.dts_state &= ~(1<<_f);\
 		_d.dts_value &= ~(1<<_f); } }
 
+/* Check the dts status result and set it to mtk_idle_init_data*/
+#define MTK_IDLE_FEATURE_DTS_STATE_CHECK_P(_f, _s, _d) {\
+	if (_s & MTK_OF_PROPERTY_STATUS_FOUND) {\
+		_d->dts_state |= (1<<_f);\
+		if (_s & MTK_OF_PROPERTY_VALUE_ENABLE)\
+			_d->dts_value |= (1<<_f);\
+		else\
+			_d->dts_value &= ~(1<<_f);\
+	} else {\
+		_d->dts_state &= ~(1<<_f);\
+		_d->dts_value &= ~(1<<_f); } }
+
+
 const char*
 	mtk_idle_block_reason_name(int reason);
 

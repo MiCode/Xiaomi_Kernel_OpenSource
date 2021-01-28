@@ -32,7 +32,7 @@
 #include <mtk_spm_internal.h>
 #include <mtk_sspm.h>
 
-#include <mtk_idle_fs/mtk_idle_sysfs.h>
+#include <mtk_idle_sysfs.h>
 #ifdef CONFIG_MTK_DRAMC
 #include <mtk_dramc.h>
 #else
