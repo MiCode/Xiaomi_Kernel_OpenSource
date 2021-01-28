@@ -694,7 +694,7 @@ static void set_shutter(kal_uint32 shutter)
 		 */
 
 		write_cmos_sensor(0x3028,
-		    read_cmos_sensor(0x3028) | (l_shift & 0x7));
+		    (read_cmos_sensor(0x3028) & 0xf8) | (l_shift & 0x7));
 
 		/* pr_debug("0x3028 0x%x\n", read_cmos_sensor(0x3028)); */
 
