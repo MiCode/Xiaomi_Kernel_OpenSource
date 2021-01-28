@@ -2091,8 +2091,17 @@ void lye_add_blob_ids(struct drm_mtk_layering_info *l_info,
 	struct drm_property_blob *blob;
 	struct mtk_lye_ddp_state lye_state;
 	struct mtk_drm_private *mtk_drm = drm_dev->dev_private;
+	unsigned int i;
 
 	memcpy(lye_state.scn, l_rule_info->addon_scn, sizeof(lye_state.scn));
+	for (i = 0 ; i < HRT_TYPE_NUM ; i++) {
+		if (lye_state.scn[i] < NONE ||
+				lye_state.scn[i] >= ADDON_SCN_NR) {
+			DDPPR_ERR("[%s]abnormal scn[%u]:%d,set scn to 0\n",
+				__func__, i, lye_state.scn[i]);
+			lye_state.scn[i] = NONE;
+		}
+	}
 	lye_state.lc_tgt_layer = 0;
 
 	blob = drm_property_create_blob(
