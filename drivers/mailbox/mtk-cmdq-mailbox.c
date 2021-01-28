@@ -1205,7 +1205,7 @@ void cmdq_thread_dump_all(void *mbox_cmdq)
 	if (usage <= 0)
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+	for (i = 0; i < cmdq->thread_nr; i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
 
 		if (!thread->occupied || list_empty(&thread->task_busy_list))
@@ -1237,7 +1237,7 @@ void cmdq_thread_dump_all_seq(void *mbox_cmdq, struct seq_file *seq)
 	if (usage <= 0)
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+	for (i = 0; i < cmdq->thread_nr; i++) {
 		struct cmdq_thread *thread = &cmdq->thread[i];
 
 		if (!thread->occupied || list_empty(&thread->task_busy_list))
@@ -1420,7 +1420,7 @@ static int cmdq_suspend(struct device *dev)
 
 	cmdq->suspended = true;
 
-	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+	for (i = 0; i < cmdq->thread_nr; i++) {
 		thread = &cmdq->thread[i];
 		if (!list_empty(&thread->task_busy_list)) {
 			cmdq_mbox_thread_stop(thread);
@@ -1670,7 +1670,7 @@ static int cmdq_probe(struct platform_device *pdev)
 
 	cmdq->mbox.dev = dev;
 	cmdq->mbox.chans = devm_kcalloc(dev, plat_data->thread_nr,
-					sizeof(*cmdq->mbox.chans), GFP_KERNEL);
+			sizeof(*cmdq->mbox.chans), GFP_KERNEL);
 	if (!cmdq->mbox.chans)
 		return -ENOMEM;
 
@@ -1682,7 +1682,7 @@ static int cmdq_probe(struct platform_device *pdev)
 	cmdq->mbox.txdone_irq = false;
 	cmdq->mbox.txdone_poll = false;
 
-	for (i = 0; i < ARRAY_SIZE(cmdq->thread); i++) {
+	for (i = 0; i < cmdq->thread_nr; i++) {
 		cmdq->thread[i].base = cmdq->base + CMDQ_THR_BASE +
 				CMDQ_THR_SIZE * i;
 		cmdq->thread[i].gce_pa = cmdq->base_pa;
