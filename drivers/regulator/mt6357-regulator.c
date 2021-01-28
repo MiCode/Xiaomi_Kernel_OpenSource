@@ -2,6 +2,7 @@
 //
 // Copyright (c) 2019 MediaTek Inc.
 
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6397/core.h>
@@ -18,6 +19,8 @@
 #define MT6357_BUCK_MODE_NORMAL		0
 #define MT6357_BUCK_MODE_LP		2
 
+#define DEF_OC_IRQ_ENABLE_DELAY_MS	10
+
 /*
  * MT6357 regulators' information
  *
@@ -29,6 +32,9 @@
  * @modeset_shift: SHIFT for operating modeset register.
  */
 struct mt6357_regulator_info {
+	int irq;
+	int oc_irq_enable_delay_ms;
+	struct delayed_work oc_work;
 	struct regulator_desc desc;
 	u32 status_reg;
 	u32 qi;
@@ -625,7 +631,6 @@ static struct mt6357_regulator_info mt6357_regulators[] = {
 		   MT6357_RG_VUSB33_VOSEL_SHIFT),
 };
 
-/*TODO: move to suitable place */
 static unsigned int is_mt6357_pmic_mrv(struct regmap *regmap)
 {
 	unsigned int is_mrv = 0;
@@ -636,12 +641,54 @@ static unsigned int is_mt6357_pmic_mrv(struct regmap *regmap)
 	return is_mrv;
 }
 
+static void mt6357_oc_irq_enable_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct mt6357_regulator_info *info
+		= container_of(dwork, struct mt6357_regulator_info, oc_work);
+
+	enable_irq(info->irq);
+}
+
+static irqreturn_t mt6357_oc_irq(int irq, void *data)
+{
+	struct regulator_dev *rdev = (struct regulator_dev *)data;
+	struct mt6357_regulator_info *info = rdev_get_drvdata(rdev);
+
+	disable_irq_nosync(info->irq);
+	if (!regulator_is_enabled_regmap(rdev))
+		goto delayed_enable;
+	mutex_lock(&rdev->mutex);
+	regulator_notifier_call_chain(rdev, REGULATOR_EVENT_OVER_CURRENT,
+				      NULL);
+	mutex_unlock(&rdev->mutex);
+delayed_enable:
+	schedule_delayed_work(&info->oc_work,
+			      msecs_to_jiffies(info->oc_irq_enable_delay_ms));
+	return IRQ_HANDLED;
+}
+
+static int mt6357_of_parse_cb(struct device_node *np,
+			      const struct regulator_desc *desc,
+			      struct regulator_config *config)
+{
+	int ret;
+	struct mt6357_regulator_info *info = config->driver_data;
+
+	ret = of_property_read_u32(np, "mediatek,oc-irq-enable-delay-ms",
+				   &info->oc_irq_enable_delay_ms);
+	if (ret || !info->oc_irq_enable_delay_ms)
+		info->oc_irq_enable_delay_ms = DEF_OC_IRQ_ENABLE_DELAY_MS;
+
+	return 0;
+}
+
 static int mt6357_regulator_probe(struct platform_device *pdev)
 {
 	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
 	struct regulator_config config = {};
 	struct regulator_dev *rdev;
-	int i;
+	int i, ret;
 
 	for (i = 0; i < MT6357_MAX_REGULATOR; i++) {
 		/* Workaround setting for MT6357 MRV */
@@ -682,6 +729,7 @@ static int mt6357_regulator_probe(struct platform_device *pdev)
 					MT6357_RG_LDO_VSRAM_OTHERS_VOSEL_SHIFT;
 			}
 		}
+		mt6357_regulators[i].desc.of_parse_cb = mt6357_of_parse_cb;
 		config.dev = &pdev->dev;
 		config.driver_data = &mt6357_regulators[i];
 		config.regmap = mt6397->regmap;
@@ -694,6 +742,24 @@ static int mt6357_regulator_probe(struct platform_device *pdev)
 				mt6357_regulators[i].desc.name);
 			return PTR_ERR(rdev);
 		}
+		mt6357_regulators[i].irq =
+			platform_get_irq_byname(pdev,
+						mt6357_regulators[i].desc.name);
+		if (mt6357_regulators[i].irq < 0)
+			continue;
+		ret = devm_request_threaded_irq(&pdev->dev,
+						mt6357_regulators[i].irq, NULL,
+						mt6357_oc_irq,
+						IRQF_TRIGGER_HIGH,
+						mt6357_regulators[i].desc.name,
+						rdev);
+		if (ret) {
+			dev_notice(&pdev->dev, "Failed to request IRQ:%s,%d",
+				   mt6357_regulators[i].desc.name, ret);
+			continue;
+		}
+		INIT_DELAYED_WORK(&mt6357_regulators[i].oc_work,
+				  mt6357_oc_irq_enable_work);
 	}
 
 	return 0;
