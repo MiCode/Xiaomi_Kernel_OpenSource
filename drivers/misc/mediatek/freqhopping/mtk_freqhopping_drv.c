@@ -211,6 +211,11 @@ static ssize_t freqhopping_debug_proc_write(struct file *file,
 
 	n = sscanf(kbuf, "%x %x %x %x %x %x %x %x",
 				&cmd, &p1, &p2, &p3, &p4, &p5, &p6, &p7);
+	if (n < 0) {
+		FH_MSG("%s: sscanf fail\n", __func__);
+		return -1;
+	}
+
 	fh_ctl.pll_id = p2;
 	fh_ctl.ssc_setting.dds = p3;
 	fh_ctl.ssc_setting.df = p4;
@@ -321,6 +326,10 @@ static ssize_t freqhopping_status_proc_write(struct file *file,
 	kbuf[count] = '\0';
 
 	n = sscanf(kbuf, "%x %x", &p1, &p2);
+	if (n < 0) {
+		FH_MSG("%s: sscanf fail\n", __func__);
+		return -1;
+	}
 
 	fh_ctl.pll_id = p2;
 	fh_ctl.ssc_setting.df = 0;
