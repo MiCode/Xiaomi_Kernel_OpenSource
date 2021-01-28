@@ -132,6 +132,7 @@ int32_t mddp_on_activate(enum mddp_app_type_e type,
 			__func__, type, app,
 			app->ap_cfg.ul_dev_name, app->ap_cfg.dl_dev_name);
 	mddp_sm_on_event(app, MDDP_EVT_FUNC_ACT);
+	mddp_u_set_wan_iface(ul_dev_name);
 
 	return 0;
 }

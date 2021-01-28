@@ -30,6 +30,7 @@
 // Private variables.
 //------------------------------------------------------------------------------
 static uint32_t mddp_u_iq_trans_id_s;
+static int8_t wan_id;
 
 //------------------------------------------------------------------------------
 // Private helper macro.
@@ -65,6 +66,7 @@ void mddp_u_get_data_stats(void *buf, uint32_t *buf_len)
 	uint32_t                                sm_len = 0;
 
 	md_stats = get_smem_start_addr(MD_SYS1, SMEM_USER_RAW_NETD, &sm_len);
+	md_stats += wan_id;
 
 	if (sm_len >= sizeof(struct mddp_u_data_stats_t)) {
 		usage = (struct mddp_u_data_stats_t *)buf;
@@ -176,4 +178,9 @@ int32_t mddp_u_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	}
 
 	return ret;
+}
+
+void mddp_u_set_wan_iface(uint8_t *devname)
+{
+	wan_id = mddp_f_data_usage_wan_dev_name_to_id(devname);
 }
