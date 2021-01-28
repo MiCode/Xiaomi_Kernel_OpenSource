@@ -102,6 +102,9 @@ struct spm_lp_scen __spm_suspend = {
 
 static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 {
+	if (is_infra_pdn(pwrctrl->pcm_flags))
+		mtk8250_backup_dev();
+
 	if (is_cpu_pdn(pwrctrl->pcm_flags))
 		spm_dormant_sta = mtk_enter_idle_state(MTK_SUSPEND_MODE);
 	else {
