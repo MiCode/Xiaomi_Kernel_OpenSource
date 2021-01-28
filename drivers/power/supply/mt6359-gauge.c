@@ -3052,7 +3052,7 @@ static int en_l_vbat_set(struct mtk_gauge *gauge,
 {
 	static int cnt;
 
-	bm_debug("en_l_vbat_set %d %d\n",
+	bm_debug("%s %d %d\n", __func__,
 		cnt, val);
 	if (val != 0)
 		cnt++;

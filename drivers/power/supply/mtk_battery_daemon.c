@@ -393,7 +393,6 @@ static void mtk_battery_daemon_handler(void *nl_data,
 			ret = 1;
 		else
 			ret = 0;
-		ret = true; //for test
 		ret_msg->fgd_data_len += sizeof(ret);
 		memcpy(ret_msg->fgd_data, &ret, sizeof(ret));
 		bm_debug(

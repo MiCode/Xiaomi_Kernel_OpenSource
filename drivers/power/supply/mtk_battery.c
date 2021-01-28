@@ -83,6 +83,9 @@ void disable_gauge_irq(struct mtk_gauge *gauge,
 	if (irq >= GAUGE_IRQ_MAX)
 		return;
 
+	if (gauge->irq_no[irq] == 0)
+		return;
+
 	desc = irq_to_desc(gauge->irq_no[irq]);
 	bm_err("%s irq_no:%d:%d depth:%d\n",
 		__func__, irq, gauge->irq_no[irq],
@@ -247,27 +250,8 @@ static int battery_psy_get_property(struct power_supply *psy,
 		break;
 		}
 
-	return ret;
-}
-
-static int battery_psy_set_property(struct power_supply *psy,
-	enum power_supply_property psp,
-	const union power_supply_propval *val)
-{
-	int ret = 0;
-	struct mtk_battery *gm;
-	struct battery_data *bs_data;
-
-	gm = (struct mtk_battery *)power_supply_get_drvdata(psy);
-	bs_data = &gm->bs_data;
-	switch (psp) {
-	case POWER_SUPPLY_PROP_TEMP:
-		gm->fixed_bat_tmp = val->intval / 10;
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-		}
+	bm_debug("%s psp:%d ret:%d val:%d",
+		__func__, psp, ret, val->intval);
 
 	return ret;
 }
@@ -311,7 +295,6 @@ void battery_service_data_init(struct mtk_battery *gm)
 	bs_data->psd.properties = battery_props;
 	bs_data->psd.num_properties = ARRAY_SIZE(battery_props);
 	bs_data->psd.get_property = battery_psy_get_property;
-	bs_data->psd.set_property = battery_psy_set_property;
 	bs_data->psd.external_power_changed =
 		mtk_battery_external_power_changed;
 	bs_data->psy_cfg.drv_data = gm;
@@ -1630,6 +1613,18 @@ void disable_fg(struct mtk_battery *gm)
 	gm->disableGM30 = true;
 	gm->ui_soc = 50;
 	gm->bs_data.bat_capacity = 50;
+	disable_gauge_irq(gm->gauge, COULOMB_H_IRQ);
+	disable_gauge_irq(gm->gauge, COULOMB_L_IRQ);
+	disable_gauge_irq(gm->gauge, VBAT_H_IRQ);
+	disable_gauge_irq(gm->gauge, VBAT_L_IRQ);
+	disable_gauge_irq(gm->gauge, NAFG_IRQ);
+	disable_gauge_irq(gm->gauge, BAT_PLUGOUT_IRQ);
+	disable_gauge_irq(gm->gauge, ZCV_IRQ);
+	disable_gauge_irq(gm->gauge, FG_N_CHARGE_L_IRQ);
+	disable_gauge_irq(gm->gauge, FG_IAVG_H_IRQ);
+	disable_gauge_irq(gm->gauge, FG_IAVG_L_IRQ);
+	disable_gauge_irq(gm->gauge, BAT_TMP_H_IRQ);
+	disable_gauge_irq(gm->gauge, BAT_TMP_L_IRQ);
 }
 
 bool fg_interrupt_check(struct mtk_battery *gm)
@@ -1971,7 +1966,7 @@ static ssize_t bat_sysfs_store(struct device *dev,
 	if (battery_attr->set != NULL)
 		battery_attr->set(gm, battery_attr, val);
 
-	return 1;
+	return count;
 }
 
 static ssize_t bat_sysfs_show(struct device *dev,
@@ -2007,7 +2002,7 @@ static struct mtk_battery_sysfs_field_info battery_sysfs_field_tbl[] = {
 	BAT_SYSFS_FIELD_RW(disable, BAT_PROP_DISABLE),
 	BAT_SYSFS_FIELD_RW(init_done, BAT_PROP_INIT_DONE),
 	BAT_SYSFS_FIELD_WO(reset, BAT_PROP_FG_RESET),
-	BAT_SYSFS_FIELD_RW(log_level, BAT_PROP_INIT_DONE),
+	BAT_SYSFS_FIELD_RW(log_level, BAT_PROP_LOG_LEVEL),
 };
 
 int battery_get_property(enum battery_property bp,
@@ -2764,7 +2759,7 @@ int battery_init(struct platform_device *pdev)
 	gm = gauge->gm;
 	gm->fixed_bat_tmp = 0xffff;
 	gm->tmp_table = Fg_Temperature_Table;
-	gm->log_level = BMLOG_DEBUG_LEVEL;
+	gm->log_level = BMLOG_ERROR_LEVEL;
 	fg_custom_init_from_header(gm);
 	fg_custom_init_from_dts(pdev, gm);
 
