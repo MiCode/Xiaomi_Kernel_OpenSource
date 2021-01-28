@@ -16,13 +16,13 @@
 #include <linux/soc/mediatek/infracfg.h>
 #include <linux/soc/mediatek/scpsys-ext.h>
 
-#include <dt-bindings/power/mt2701-power.h>
-#include <dt-bindings/power/mt2712-power.h>
-#include <dt-bindings/power/mt6797-power.h>
-#include <dt-bindings/power/mt6779-power.h>
-#include <dt-bindings/power/mt7622-power.h>
-#include <dt-bindings/power/mt7623a-power.h>
-#include <dt-bindings/power/mt8173-power.h>
+#include <dt-bindings/power/v2701-power.h>
+#include <dt-bindings/power/v2712-power.h>
+#include <dt-bindings/power/v6797-power.h>
+#include <dt-bindings/power/v6779-power.h>
+#include <dt-bindings/power/v7622-power.h>
+#include <dt-bindings/power/v7623a-power.h>
+#include <dt-bindings/power/v8173-power.h>
 #include "mtk-scpsys.h"
 
 #define MTK_POLL_DELAY_US   10
