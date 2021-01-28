@@ -1878,7 +1878,7 @@ static void skhpb_init_lu_constant(struct skhpb_lu *hpb,
 
 static int skhpb_lu_hpb_init(struct ufs_hba *hba, struct skhpb_lu *hpb,
 		struct skhpb_func_desc *func_desc,
-		struct skhpb_lu_desc *lu_desc, int lun,
+		struct skhpb_lu_desc *lu_desc, u8 lun,
 		bool *do_work_lun)
 {
 	struct skhpb_region *cb;
@@ -2206,7 +2206,8 @@ int skhpb_control_validation(struct ufs_hba *hba,
 static int skhpb_init(struct ufs_hba *hba)
 {
 	struct skhpb_func_desc func_desc;
-	int lun, ret;
+	int ret;
+	u8 lun;
 	int hpb_dev = 0;
 	bool do_work;
 
