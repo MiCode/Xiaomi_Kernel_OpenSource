@@ -35,7 +35,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
     CC := $(TARGET_KERNEL_CROSS_COMPILE)gcc
   endif
 
-  ifeq ($(USE_CCACHE), true)
+  ifneq ($(filter-out false,$(USE_CCACHE)),)
     CCACHE_EXEC ?= /usr/bin/ccache
     CCACHE_EXEC := $(abspath $(wildcard $(CCACHE_EXEC)))
   else
