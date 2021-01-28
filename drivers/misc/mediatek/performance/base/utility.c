@@ -82,10 +82,8 @@ void perfmgr_trace_count(int val, const char *fmt, ...)
 	char log[32];
 	va_list args;
 
-#ifdef CONFIG_MTK_PPM
 	if (powerhal_tid <= 0)
 		return;
-#endif
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
@@ -95,13 +93,8 @@ void perfmgr_trace_count(int val, const char *fmt, ...)
 	__mt_update_tracing_mark_write_addr();
 	preempt_disable();
 
-#ifdef CONFIG_MTK_PPM
 	event_trace_printk(tracing_mark_write_addr, "C|%d|%s|%d\n",
 		powerhal_tid, log, val);
-#else
-	event_trace_printk(tracing_mark_write_addr, "C|%s|%d\n",
-		log, val);
-#endif
 
 	preempt_enable();
 }

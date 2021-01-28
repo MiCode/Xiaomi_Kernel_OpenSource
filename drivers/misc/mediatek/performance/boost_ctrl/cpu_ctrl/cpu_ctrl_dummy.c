@@ -7,6 +7,8 @@
 #include <mt-plat/cpu_ctrl.h>
 #include <linux/proc_fs.h>
 
+int powerhal_tid;
+
 /*******************************************/
 int update_userlimit_cpu_freq(int kicker, int num_cluster
 		, struct cpu_ctrl_data *freq_limit)
