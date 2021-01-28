@@ -178,7 +178,12 @@ static int mtee_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
 					     sec_handle, alignment, size);
 	}
 
-	if (ret != 0) {
+	if (*sec_handle == 0) {
+		pr_err("%s:%d out of memory, ret=%d!\n", __func__, __LINE__,
+		       ret);
+		MTEE_SESSION_UNLOCK();
+		return -ENOMEM;
+	} else if (ret != 0) {
 		pr_err("[%d] MTEE alloc chunk memory failed:%d\n",
 		       mtee_dev_desc->kern_tmem_type, ret);
 		MTEE_SESSION_UNLOCK();
