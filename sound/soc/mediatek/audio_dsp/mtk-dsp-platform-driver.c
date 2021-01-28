@@ -780,6 +780,11 @@ static void mtk_dsp_ul_handler(struct mtk_base_dsp *dsp,
 	void *ipi_audio_buf;
 	unsigned long flags;
 
+	if (dsp->dsp_mem[id].substream == NULL) {
+		pr_info("%s = substream == NULL\n", __func__);
+		goto DSP_IRQ_HANDLER_ERR;
+	}
+
 	if (dsp->dsp_mem[id].substream->runtime->status->state
 	    != SNDRV_PCM_STATE_RUNNING) {
 		pr_info("%s = state[%d]\n", __func__,
