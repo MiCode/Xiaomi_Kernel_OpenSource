@@ -27,6 +27,7 @@
 DEFINE_PER_CPU(unsigned long, freq_scale) = SCHED_CAPACITY_SCALE;
 DEFINE_PER_CPU(unsigned long, max_cpu_freq);
 DEFINE_PER_CPU(unsigned long, max_freq_scale) = SCHED_CAPACITY_SCALE;
+DEFINE_PER_CPU(unsigned long, min_freq_scale) = 0;
 
 void arch_set_freq_scale(struct cpumask *cpus, unsigned long cur_freq,
 			 unsigned long max_freq)
@@ -59,6 +60,25 @@ void arch_set_max_freq_scale(struct cpumask *cpus,
 
 	for_each_cpu(cpu, cpus)
 		per_cpu(max_freq_scale, cpu) = scale;
+}
+
+void arch_set_min_freq_scale(struct cpumask *cpus,
+			     unsigned long policy_min_freq)
+{
+	unsigned long scale, max_freq;
+	int cpu = cpumask_first(cpus);
+
+	if (cpu > nr_cpu_ids)
+		return;
+
+	max_freq = per_cpu(max_cpu_freq, cpu);
+	if (!max_freq)
+		return;
+
+	scale = (policy_min_freq << SCHED_CAPACITY_SHIFT) / max_freq;
+
+	for_each_cpu(cpu, cpus)
+		per_cpu(min_freq_scale, cpu) = scale;
 }
 
 static DEFINE_MUTEX(cpu_scale_mutex);
