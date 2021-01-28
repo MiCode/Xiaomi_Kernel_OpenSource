@@ -44,6 +44,7 @@ apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_rsc.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_cmn.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_cmd.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_sched.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_queue.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_queue_norm.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_queue_deadline.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_pack.o

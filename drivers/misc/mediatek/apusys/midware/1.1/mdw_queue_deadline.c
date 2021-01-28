@@ -29,8 +29,6 @@
 #define CREATE_TRACE_POINTS
 #include "apu_sched_events.h"
 
-#define MAX_BOOST (100)
-
 struct dentry *apusys_dbg_deadline;
 static u64 exp_decay_interval = 100;/* ms */
 
@@ -101,19 +99,6 @@ static int mdw_queue_deadline_task_start(struct mdw_apu_sc *sc, void *q)
 
 	tab = mdw_rsc_get_tab(sc->type);
 	root = &tab->q.deadline;
-
-	if (sc->period == 0 || tab == NULL) {/* Not a deadline task*/
-		struct deadline_root *rt_root;
-		struct mdw_rsc_tab *rt_tab;
-
-		if (sc->type < APUSYS_DEVICE_RT) {
-			rt_tab = mdw_rsc_get_tab(sc->type + APUSYS_DEVICE_RT);
-			rt_root = &rt_tab->q.deadline;
-			if (rt_tab != NULL && rt_root->need_timer)
-				sc->cluster_size = INT_MAX;
-		}
-		return 0;
-	}
 
 	mutex_lock(&root->lock);
 	root->total_period += sc->period;
@@ -200,7 +185,8 @@ static struct mdw_apu_sc *mdw_queue_deadline_pop(void *q)
 	return entry;
 }
 
-static int mdw_queue_deadline_insert(struct mdw_apu_sc *sc, void *q, int type)
+static int mdw_queue_deadline_insert(struct mdw_apu_sc *sc,
+	void *q, int is_front)
 {
 	struct deadline_root *root = (struct deadline_root *)q;
 	struct rb_node **link = &root->root.rb_root.rb_node;
@@ -245,38 +231,6 @@ static int mdw_queue_deadline_delete(struct mdw_apu_sc *sc, void *q)
 	mdw_rsc_update_avl_bmp(sc->type);
 
 	return -EINVAL;
-}
-
-int mdw_queue_deadline_boost(struct mdw_apu_sc *sc)
-{
-	struct mdw_rsc_tab *tab = NULL;
-	struct deadline_root *root;
-	unsigned int suggest_time;
-
-	if (sc == NULL)
-		return 0;
-
-	suggest_time = sc->hdr->suggest_time * 1000;
-
-	tab = mdw_rsc_get_tab(sc->type);
-	root = &tab->q.deadline;
-
-	if (sc->hdr->suggest_time != 0) {
-		if (sc->hdr->driver_time < suggest_time)
-			sc->boost -= 10;
-		else if (sc->hdr->driver_time > suggest_time)
-			sc->boost += 10;
-
-		if (sc->boost > 100)
-			sc->boost = 100;
-		if (sc->boost < 0)
-			sc->boost = 0;
-	}
-
-	if (root->load_boost || root->trace_boost)
-		return MAX_BOOST;
-	else
-		return sc->boost;
 }
 
 void mdw_queue_deadline_destroy(void *q)
