@@ -1885,7 +1885,7 @@ static int wmt_tm_proc_register(void)
 		if (entry)
 			proc_set_user(entry, uid, gid);
 
-		entry = proc_create("clwmt_pid", 0660, wmt_tm_proc_dir,
+		entry = proc_create("clwmtx_pid", 0660, wmt_tm_proc_dir,
 								&_tm_pid_fops);
 
 		if (entry)
