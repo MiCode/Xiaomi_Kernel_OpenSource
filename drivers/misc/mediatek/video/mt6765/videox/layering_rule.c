@@ -30,7 +30,6 @@
 
 static struct layering_rule_ops l_rule_ops;
 static struct layering_rule_info_t l_rule_info;
-static DEFINE_SPINLOCK(hrt_table_lock);
 
 int emi_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
 	/* HRT_BOUND_TYPE_LP4 */
@@ -475,7 +474,6 @@ static bool filter_by_hw_limitation(struct disp_layer_info *disp_info)
 	unsigned int i = 0;
 	struct layer_config *p_layer_info;
 	unsigned int disp_idx = 0;
-	unsigned int layer_cnt = 0;
 	bool is_yuv_occupied = false, has_ovl_only_layer = false;
 
 	for (disp_idx = 0 ; disp_idx < 2 ; disp_idx++) {
@@ -599,42 +597,6 @@ done:
 
 }
 #endif
-
-void copy_hrt_bound_table(int is_larb, int *hrt_table,
-	int active_config_id)
-{
-	unsigned long flags = 0;
-	int valid_num, ovl_bound;
-	int i;
-
-	/* Not used in 6779 */
-	if (is_larb)
-		return;
-
-	/* update table if hrt bw is enabled */
-	spin_lock_irqsave(&hrt_table_lock, flags);
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	valid_num = layering_get_valid_hrt(active_config_id);
-#else
-	valid_num = 200;
-#endif
-	ovl_bound = get_phy_layer_limit(
-		get_mapping_table(
-		DISP_HW_LAYER_TB,
-		MAX_PHY_OVL_CNT - 1), 0);
-	valid_num = min(valid_num, ovl_bound * 100);
-	DISPINFO("%s:valid_num:%d,ovl_bound:%d\n",
-		__func__, valid_num, ovl_bound);
-
-	for (i = 0; i < HRT_LEVEL_NUM; i++) {
-		emi_bound_table[l_rule_info.bound_tb_idx][i] =
-			valid_num;
-	}
-	spin_unlock_irqrestore(&hrt_table_lock, flags);
-
-	for (i = 0; i < HRT_LEVEL_NUM; i++)
-		hrt_table[i] = emi_bound_table[l_rule_info.bound_tb_idx][i];
-}
 
 unsigned long long layering_get_frame_bw(int active_cfg_id)
 {

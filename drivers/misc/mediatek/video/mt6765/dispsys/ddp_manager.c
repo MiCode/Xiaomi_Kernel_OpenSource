@@ -1225,7 +1225,7 @@ struct disp_ddp_path_config *dpmgr_path_get_last_config(
 
 	if (!dp_handle) {
 		ASSERT(0);
-		return -1;
+		return NULL;
 	}
 
 	handle->last_config.ovl_dirty = 0;

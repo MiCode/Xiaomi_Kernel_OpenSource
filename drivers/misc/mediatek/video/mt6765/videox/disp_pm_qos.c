@@ -24,26 +24,29 @@
 #define OCCUPIED_BW_RATIO 1330
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-static struct plist_head bw_request_list;  /* all module list */
-static struct mm_qos_request ovl0_request;
-static struct mm_qos_request ovl0_fbdc_request;
-static struct mm_qos_request ovl0_2l_request;
-static struct mm_qos_request ovl0_2l_fbdc_request;
-static struct mm_qos_request rdma0_request;
-static struct mm_qos_request wdma0_request;
+static struct plist_head bw_request_list __attribute__((unused));  /* all module list */
+static struct mm_qos_request ovl0_request __attribute__((unused));
+static struct mm_qos_request ovl0_fbdc_request __attribute__((unused));
+static struct mm_qos_request ovl0_2l_request __attribute__((unused));
+static struct mm_qos_request ovl0_2l_fbdc_request __attribute__((unused));
+static struct mm_qos_request rdma0_request __attribute__((unused));
+static struct mm_qos_request wdma0_request __attribute__((unused));
 
-static struct pm_qos_request ddr_opp_request;
-static struct pm_qos_request mm_freq_request;
+static struct pm_qos_request ddr_opp_request __attribute__((unused));
+static struct pm_qos_request mm_freq_request __attribute__((unused));
 
-static struct plist_head hrt_request_list;
-static struct mm_qos_request ovl0_hrt_request;
-static struct mm_qos_request ovl0_2l_hrt_request;
-static struct mm_qos_request rdma0_hrt_request;
-static struct mm_qos_request wdma0_hrt_request;
-static struct mm_qos_request hrt_bw_request;
+static struct plist_head hrt_request_list __attribute__((unused));
+static struct mm_qos_request ovl0_hrt_request __attribute__((unused));
+static struct mm_qos_request ovl0_2l_hrt_request __attribute__((unused));
+static struct mm_qos_request rdma0_hrt_request __attribute__((unused));
+static struct mm_qos_request wdma0_hrt_request __attribute__((unused));
+static struct mm_qos_request hrt_bw_request __attribute__((unused));
 #endif
 
+#if defined(CONFIG_MTK_HIGH_FRAME_RATE) || defined(THROT)
 static unsigned int has_hrt_bw;
+#endif
+
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 #ifdef MTK_FB_MMDVFS_SUPPORT
 static enum ddr_opp __remap_to_opp(enum HRT_LEVEL hrt)
@@ -295,7 +298,11 @@ int disp_pm_qos_update_hrt(unsigned long long bandwidth)
 
 unsigned int get_has_hrt_bw(void)
 {
+#ifdef THROT
 	return has_hrt_bw;
+#else
+	return 0;
+#endif
 }
 
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE

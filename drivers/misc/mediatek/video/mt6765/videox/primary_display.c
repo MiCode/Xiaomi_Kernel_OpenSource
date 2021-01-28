@@ -1838,7 +1838,9 @@ static void directlink_path_add_memory(struct WDMA_CONFIG_STRUCT *p_wdma,
 	struct disp_ddp_path_config *pconfig = NULL;
 	int virtual_height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
 	int virtual_width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	int active_cfg = 0;
+#endif
 
 	/* create config thread */
 	ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &cmdq_handle);
@@ -2039,7 +2041,9 @@ static int _DL_switch_to_DC_fast(int block)
 	struct disp_ddp_path_config *data_config_dc = NULL;
 	unsigned int mva;
 	struct ddp_io_golden_setting_arg gset_arg;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	int active_cfg = 0;
+#endif
 
 	if ((primary_is_sec() == 1)) {
 		init_sec_buf();
@@ -2268,7 +2272,9 @@ static int _DC_switch_to_DL_fast(int block)
 	struct disp_ddp_path_config *data_config_dc = NULL;
 	enum DDP_SCENARIO_ENUM old_scenario, new_scenario;
 	struct ddp_io_golden_setting_arg gset_arg;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	int active_cfg = 0;
+#endif
 
 	/* 3.destroy ovl->mem path. */
 	data_config_dc = dpmgr_path_get_last_config(pgc->ovl2mem_path_handle);
@@ -2607,8 +2613,6 @@ static struct disp_internal_buffer_info *allocat_decouple_buffer(int size)
 	struct disp_internal_buffer_info *buf_info = NULL;
 #ifdef MTK_FB_ION_SUPPORT
 	void *buffer_va = NULL;
-	size_t mva_size = 0;
-	ion_phys_addr_t buffer_mva = 0;
 	struct ion_mm_data mm_data;
 	struct ion_client *client = NULL;
 	struct ion_handle *handle = NULL;
@@ -4659,9 +4663,12 @@ int suspend_to_full_roi(void)
 int primary_display_suspend(void)
 {
 	enum DISP_STATUS ret = DISP_STATUS_OK;
-	int active_cfg = 0;
+
 #ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	int active_cfg = 0;
 	unsigned long long bandwidth;
+#endif
 #endif
 
 	DISPCHECK("primary_display_suspend begin\n");
@@ -6345,9 +6352,9 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	struct disp_rect total_dirty_roi = {0, 0, 0, 0};
 	static long long total_ori;
 	static long long total_partial;
-	unsigned int overlap_num;
 	int j, l_num;
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
+	unsigned int overlap_num;
 	unsigned int _timing_fps = 6000;/*real vact timing fps * 100*/
 #endif
 #ifdef DEBUG_OVL_CONFIG_TIME

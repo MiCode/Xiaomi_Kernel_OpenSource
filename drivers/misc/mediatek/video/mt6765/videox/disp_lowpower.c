@@ -308,8 +308,10 @@ int primary_display_dsi_vfp_change(int state)
 	struct cmdqRecStruct *handle = NULL;
 	struct LCM_PARAMS *params;
 	unsigned int apply_vfp = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	unsigned int last_req_dfps;
 	unsigned int min_dfps;
+#endif
 
 	cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &handle);
 	cmdqRecReset(handle);
@@ -775,7 +777,9 @@ void _vdo_mode_enter_idle(void)
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 	unsigned int out_fps = 60;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	unsigned int in_fps = 0;
+#endif
 #endif
 #ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	uint cur_disp_fps = 60;
@@ -945,9 +949,13 @@ void _vdo_mode_leave_idle(void)
 
 void _cmd_mode_enter_idle(void)
 {
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	unsigned int cfg_id;
+#endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	unsigned long long bandwidth;
+#endif
 #endif
 
 	DISPINFO("[disp_lowpower]%s\n", __func__);
@@ -987,18 +995,23 @@ void _cmd_mode_enter_idle(void)
 
 void _cmd_mode_leave_idle(void)
 {
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	unsigned int cfg_id;
+#endif
 #ifdef MTK_FB_MMDVFS_SUPPORT
 	unsigned long long bandwidth;
 	unsigned int in_fps = 60;
 	unsigned int out_fps = 60;
 	int stable = 0;
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	enum DDP_SCENARIO_ENUM scen =
 	    (primary_display_is_decouple_mode()) ?
 	    DDP_SCENARIO_PRIMARY_RDMA0_COLOR0_DISP :
 	    DDP_SCENARIO_PRIMARY_DISP;
+
 	int overlap_num = (primary_display_is_decouple_mode()) ? 2 :
 	    primary_display_get_dvfs_last_req();
+#endif
 #endif
 
 	DISPMSG("[disp_lowpower]%s\n", __func__);
@@ -1344,9 +1357,14 @@ bool pri_disp_leave_privilege(bool need_lock)
 static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 		unsigned long value, void *v)
 {
+#ifdef THROT
 	int ret, i;
 	unsigned int hrt_idx;
+#endif
+
+#ifdef CONFIG_MTK_HIGH_FRAME_RATE
 	int active_cfg_id = 0;
+#endif
 
 	primary_display_manual_lock();
 
@@ -1410,10 +1428,6 @@ static int hrt_bw_cond_change_cb(struct notifier_block *nb,
 	return 0;
 }
 
-static struct notifier_block pmqos_hrt_notifier = {
-	.notifier_call = hrt_bw_cond_change_cb,
-};
-
 void hrt_bw_debug(unsigned int v)
 {
 	hrt_bw_cond_change_cb(NULL, v, NULL);
@@ -1441,11 +1455,7 @@ int primary_display_lowpower_init(void)
 	/* cmd mode always enable share sram */
 	if (disp_helper_get_option(DISP_OPT_SHARE_SRAM))
 		enter_share_sram(CMDQ_SYNC_RESOURCE_WROT0);
-#ifdef MTK_FB_MMDVFS_SUPPORT
-	primary_display_manual_unlock();
-	//mm_hrt_add_bw_throttle_notifier(&pmqos_hrt_notifier);
-	primary_display_manual_lock();
-#endif
+
 	return 0;
 }
 
