@@ -1807,7 +1807,7 @@ void m4u_print_port_status_ext(struct seq_file *seq, int tf_port)
 int m4u_register_reclaim_callback(int port,
 	m4u_reclaim_mva_callback_t *fn, void *data)
 {
-	if (port >= M4U_PORT_UNKNOWN) {
+	if (port >= M4U_PORT_UNKNOWN || port < M4U_PORT_DISP_OVL0) {
 		m4u_err("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -1818,7 +1818,7 @@ int m4u_register_reclaim_callback(int port,
 
 int m4u_unregister_reclaim_callback(int port)
 {
-	if (port >= M4U_PORT_UNKNOWN) {
+	if (port >= M4U_PORT_UNKNOWN || port < M4U_PORT_DISP_OVL0) {
 		m4u_err("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -1842,7 +1842,7 @@ int m4u_reclaim_notify(int port, unsigned int mva, unsigned int size)
 int m4u_register_fault_callback(int port,
 	m4u_fault_callback_t *fn, void *data)
 {
-	if (port >= M4U_PORT_UNKNOWN) {
+	if (port >= M4U_PORT_UNKNOWN || port < M4U_PORT_DISP_OVL0) {
 		m4u_err("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -1853,7 +1853,7 @@ int m4u_register_fault_callback(int port,
 
 int m4u_unregister_fault_callback(int port)
 {
-	if (port >= M4U_PORT_UNKNOWN) {
+	if (port >= M4U_PORT_UNKNOWN || port < M4U_PORT_DISP_OVL0) {
 		m4u_err("%s fail, port=%d\n", __func__, port);
 		return -1;
 	}
@@ -2075,7 +2075,9 @@ irqreturn_t MTK_M4U_isr(int irq, void *dev_id)
 				}
 			}
 
-			if (gM4uPort[m4u_port].enable_tf == 1 &&
+			if ((m4u_port < gM4u_port_num) &&
+				(m4u_port >= M4U_PORT_DISP_OVL0) &&
+				gM4uPort[m4u_port].enable_tf == 1 &&
 			    bypass_DISP_TF == 0) {
 				m4u_dump_pte_nolock(
 					m4u_get_domain_by_port(m4u_port),

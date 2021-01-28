@@ -485,8 +485,9 @@ m4u_do_mva_alloc_start_from(unsigned long va, unsigned int mva,
 	}
 
 	mvaInfoGraph[startIdx] = priv;
-	mvaInfoGraph[endIdx] = priv;
-		s = startIdx;
+	if (endIdx > 0)
+		mvaInfoGraph[endIdx] = priv;
+	s = startIdx;
 	} else {
 		/* alloc a mva region */
 		end = s + mvaGraph[s] - 1;
