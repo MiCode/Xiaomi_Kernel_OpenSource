@@ -435,55 +435,66 @@ void _dump_dsi_params(struct LCM_DSI_PARAMS *dsi_config)
 		}
 
 		n = snprintf(msg, len,
-			     "[DDPDSI] vact: %d, vbp: %d, vfp: %d, ",
+			     "[DDPDSI] vact: %d, vbp: %d, vfp: %d, vact_line: %d,hact: %d, hbp: %d, hfp: %d, hblank: %d\n",
 			     dsi_config->vertical_sync_active,
 			     dsi_config->vertical_backporch,
-			     dsi_config->vertical_frontporch);
-		n += snprintf(msg + n, len - n,
-			      "vact_line: %d,hact: %d, hbp: %d, ",
-			      dsi_config->vertical_active_line,
-			      dsi_config->horizontal_sync_active,
-			      dsi_config->horizontal_backporch);
-		n += snprintf(msg + n, len - n,
-			      "hfp: %d, hblank: %d\n",
-			      dsi_config->horizontal_frontporch,
-			      dsi_config->horizontal_blanking_pixel);
-		DISPDBG("%s", msg);
+			     dsi_config->vertical_frontporch,
+			     dsi_config->vertical_active_line,
+			     dsi_config->horizontal_sync_active,
+			     dsi_config->horizontal_backporch,
+			     dsi_config->horizontal_frontporch,
+			     dsi_config->horizontal_blanking_pixel);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
 		n = snprintf(msg, len,
-			     "[DDPDSI] pll_select: %d, pll_div1: %d, ",
-			     dsi_config->pll_select, dsi_config->pll_div1);
-		n += snprintf(msg + n, len - n,
-			      "pll_div2: %d, fbk_div: %d, ",
-			      dsi_config->pll_div2, dsi_config->fbk_div);
-		n += snprintf(msg + n, len - n,
-			      "fbk_sel: %d, rg_bir: %d\n",
-			      dsi_config->fbk_sel, dsi_config->rg_bir);
-		DISPDBG("%s", msg);
+			     "[DDPDSI] pll_select: %d, pll_div1: %d, pll_div2: %d, fbk_div: %d, fbk_sel: %d, rg_bir: %d\n",
+			     dsi_config->pll_select, dsi_config->pll_div1,
+			     dsi_config->pll_div2, dsi_config->fbk_div,
+			     dsi_config->fbk_sel, dsi_config->rg_bir);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "[DDPDSI] rg_bic: %d, rg_bp: %d, ",
-			     dsi_config->rg_bic, dsi_config->rg_bp);
-		n += snprintf(msg + n, len - n,
-			      "PLL_CLOCK: %d, dsi_clock: %d, ssc_range: %d\n",
-			      dsi_config->PLL_CLOCK, dsi_config->dsi_clock,
-			      dsi_config->ssc_range);
-		DISPDBG("%s", msg);
 
-		n = snprintf(msg, len, "[DDPDSI] ssc_disable: %d, ",
-			     dsi_config->ssc_disable);
-		n += snprintf(msg + n, len - n,
-			      "compatibility_for_nvk: %d, cont_clock: %d\n",
-			      dsi_config->compatibility_for_nvk,
-			      dsi_config->cont_clock);
-		DISPDBG("%s", msg);
+		n = snprintf(msg, len,
+			     "[DDPDSI] rg_bic: %d, rg_bp: %d, PLL_CLOCK: %d, dsi_clock: %d, ssc_range: %d\n",
+			     dsi_config->rg_bic, dsi_config->rg_bp,
+			     dsi_config->PLL_CLOCK, dsi_config->dsi_clock,
+			     dsi_config->ssc_range);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
 
-		n = snprintf(msg, len, "[DDPDSI] lcm_ext_te_enable: %d, ",
-			     dsi_config->lcm_ext_te_enable);
-		n += snprintf(msg + n, len - n,
-			      "noncont_clock: %d, noncont_clock_period: %d\n",
-			      dsi_config->noncont_clock,
-			      dsi_config->noncont_clock_period);
-		DISPDBG("%s", msg);
+		n = snprintf(msg, len,
+			     "[DDPDSI] ssc_disable: %d, compatibility_for_nvk: %d, cont_clock: %d\n",
+			     dsi_config->ssc_disable,
+			     dsi_config->compatibility_for_nvk,
+			     dsi_config->cont_clock);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
+
+		n = snprintf(msg, len,
+			     "[DDPDSI] lcm_ext_te_enable: %d, noncont_clock: %d, noncont_clock_period: %d\n",
+			     dsi_config->lcm_ext_te_enable,
+			     dsi_config->noncont_clock,
+			     dsi_config->noncont_clock_period);
+		if (n < 0) {
+			DISP_LOG_E("[%s %d]snprintf err:%d\n",
+				   __func__, __LINE__, n);
+		} else
+			DDPDUMP("%s", msg);
+
 	}
 }
 
