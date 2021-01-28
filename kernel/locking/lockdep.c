@@ -6335,6 +6335,7 @@ static ssize_t lock_mon_##name##_read(struct file *file, \
 	int len; \
 	\
 	len = snprintf(buf, sizeof(buf), "%d\n", param); \
+	len = len > sizeof(buf) ? sizeof(buf) : len; \
 	return simple_read_from_buffer(user_buf, count, ppos, buf, len); \
 } \
 \
