@@ -256,7 +256,7 @@ page_owner=on loop.max_part=7";
 		irq-remain-list {
 			edge_keypad: edge_keypad {
 				target = <&keypad>;
-				value = <1 0 0 0x40>;
+				value = <1 0 0 0x04>;
 			};
 			edge_mdwdt: edge_mdwdt {
 				target = <&mddriver>;
