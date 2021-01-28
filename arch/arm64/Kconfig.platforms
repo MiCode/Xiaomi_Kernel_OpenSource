@@ -130,9 +130,9 @@ config MACH_MT6761
 	select MTK_FIQ_CACHE
 	select MTK_GIC_TARGET_ALL
 	select MTK_SYSIRQ
-	select MTK_EMI
+	select MTK_EMI_LEGACY
 	select MTK_TIMER
-	select MTK_DRAMC
+	select MTK_DRAMC_LEGACY
 	select PM_DEVFREQ
 	select MTK_SYS_CIRQ
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
