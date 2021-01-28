@@ -58,9 +58,7 @@ page_owner=on";
 			reg = <0x0000>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
-#endif
 		};
 
 		cpu1: cpu@001 {
@@ -69,9 +67,7 @@ page_owner=on";
 			reg = <0x0100>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
-#endif
 		};
 
 		cpu2: cpu@002 {
@@ -80,9 +76,7 @@ page_owner=on";
 			reg = <0x0200>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
-#endif
 		};
 
 		cpu3: cpu@003 {
@@ -91,9 +85,7 @@ page_owner=on";
 			reg = <0x0300>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
-#endif
 		};
 
 		cpu4: cpu@004 {
@@ -102,9 +94,7 @@ page_owner=on";
 			reg = <0x0400>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
-#endif
 		};
 
 		cpu5: cpu@005 {
@@ -113,9 +103,7 @@ page_owner=on";
 			reg = <0x0500>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
-#endif
 		};
 
 		cpu6: cpu@100 {
@@ -124,9 +112,7 @@ page_owner=on";
 			reg = <0x0600>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
-#endif
 		};
 
 		cpu7: cpu@101 {
@@ -135,9 +121,7 @@ page_owner=on";
 			reg = <0x0700>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
-#ifndef CONFIG_MFD_MT6360_PMU
 			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
-#endif
 		};
 
 		cpu-map {
