@@ -116,7 +116,7 @@ static int btif_tx_thr_set(struct _MTK_BTIF_INFO_STR_ *p_btif,
 			   unsigned int thr_count);
 #endif
 
-static int btif_dump_array(char *string, char *p_buf, int len)
+static int btif_dump_array(const char *string, const char *p_buf, int len)
 {
 	unsigned int idx = 0;
 	unsigned char str[30];
