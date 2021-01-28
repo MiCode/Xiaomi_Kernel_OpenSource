@@ -26,6 +26,9 @@ extern int m4u_sec_init(void);
 extern int m4u_config_port_tee(struct M4U_PORT_STRUCT *pM4uPort);
 #endif
 
+#ifdef M4U_GZ_SERVICE_ENABLE
+int m4u_gz_sec_init(int mtk_iommu_sec_id);
+#endif
 struct m4u_client_t *pseudo_get_m4u_client(void);
 void pseudo_put_m4u_client(void);
 int __pseudo_alloc_mva(struct m4u_client_t *client,
