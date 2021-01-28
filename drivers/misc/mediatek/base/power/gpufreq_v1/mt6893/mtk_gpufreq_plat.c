@@ -1191,6 +1191,42 @@ void mt_gpufreq_update_volt_interpolation(void)
 	}
 }
 
+/* post process ptpod voltage
+ * the voltage of 886MHz (OPP0)
+ * EFUSE 0x11C105D8[23:21]
+ *    b'011 = 0x3 = 0.8V
+ *    b'100 = 0x4 = 0.7625V
+ *    b'101 = 0x5 = 0.725V
+ *    b'110 = 0x6 = 0.7V
+ *    others = 0.8V
+ */
+void mt_gpufreq_update_ptpod_by_efuse(void)
+{
+	unsigned int efuse_id;
+
+	/* [PTPOD22 (0x11C105D8) 72] [23:21]*/
+	efuse_id = ((get_devinfo_with_index(72) >> 21) & 0x7);
+
+	switch (efuse_id) {
+	case 0x3:
+		g_opp_table[0].gpufreq_vgpu = 80000;
+		break;
+	case 0x4:
+		g_opp_table[0].gpufreq_vgpu = 76250;
+		break;
+	case 0x5:
+		g_opp_table[0].gpufreq_vgpu = 72500;
+		break;
+	case 0x6:
+		g_opp_table[0].gpufreq_vgpu = 70000;
+		break;
+	default:
+		g_opp_table[0].gpufreq_vgpu = 80000;
+		break;
+	}
+
+}
+
 void mt_gpufreq_apply_aging(bool apply)
 {
 	int i;
@@ -1238,6 +1274,10 @@ unsigned int mt_gpufreq_update_volt(
 		g_opp_table[target_idx].gpufreq_vsram =
 			__mt_gpufreq_get_vsram_gpu_by_vgpu(pmic_volt[i]);
 	}
+
+	// post process ptpod voltage
+	mt_gpufreq_update_ptpod_by_efuse();
+
 	// update none PTP
 	mt_gpufreq_update_volt_interpolation();
 
@@ -2355,7 +2395,7 @@ static int __mt_gpufreq_create_procfs(void)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
-		if (!proc_create(entries[i].name, 0664, dir, entries[i].fops))
+		if (!proc_create(entries[i].name, 0660, dir, entries[i].fops))
 			gpufreq_pr_info("create /proc/gpufreq/%s failed\n",
 					entries[i].name);
 	}
@@ -2461,9 +2501,18 @@ static void __mt_gpufreq_set(
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
 
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"Clock switch failing: %d -> %d (target: %d)\n",
+			freq_old, g_cur_opp_freq, freq_new);
 	} else {
 		__mt_gpufreq_clock_switch(freq_new);
 		g_cur_opp_freq = __mt_gpufreq_get_cur_freq();
+
+		gpu_assert(g_cur_opp_freq == freq_new,
+			GPU_FREQ_EXCEPTION,
+			"Clock switch failing: %d -> %d (target: %d)\n",
+			freq_old, g_cur_opp_freq, freq_new);
 
 		while (g_cur_opp_vgpu != vgpu_new) {
 			sb_idx = g_opp_sb_idx_down[g_cur_opp_idx] > idx_new ?
@@ -2600,7 +2649,7 @@ static void __mt_gpufreq_clock_switch(unsigned int freq_new)
 	dds = __mt_gpufreq_calculate_dds(freq_new, posdiv_power);
 	pll = (0x80000000) | (posdiv_power << POSDIV_SHIFT) | dds;
 
-#ifndef CONFIG_MTK_FREQ_HOPPING
+#if (!defined(CONFIG_MTK_FREQ_HOPPING)) || !MT_GPUFREQ_DVFS_HOPPING_ENABLE
 	/* force parking if FHCTL not ready */
 	parking = true;
 #else
