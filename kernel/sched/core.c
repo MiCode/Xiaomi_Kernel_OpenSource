@@ -47,7 +47,9 @@
 #include <trace/events/sched.h>
 #include "walt.h"
 #include "mtk_mcdi_api.h"
-
+#if defined(CONFIG_MTK_GIC_V3_EXT)
+#include <linux/irqchip/mtk-gic-extend.h>
+#endif
 #ifdef CONFIG_MTK_SCHED_MONITOR
 #include "mtk_sched_mon.h"
 enum ipi_msg_type {
@@ -7167,6 +7169,10 @@ int sched_isolate_cpu(int cpu)
 	if (cpu >= nr_cpu_ids)
 		return err;
 
+
+	#if defined(CONFIG_MTK_GIC_V3_EXT)
+	remove_cpu_from_prefer_schedule_domain(cpu);
+	#endif
 	cpumask_clear_cpu(cpu, &available_cpus);
 	err = set_cpu_isolation(ISO_CUSTOMIZE, &available_cpus);
 
@@ -7188,6 +7194,9 @@ int sched_deisolate_cpu(int cpu)
 	cpumask_set_cpu(cpu, &available_cpus);
 	err = set_cpu_isolation(ISO_CUSTOMIZE, &available_cpus);
 
+	#if defined(CONFIG_MTK_GIC_V3_EXT)
+	add_cpu_to_prefer_schedule_domain(cpu);
+	#endif
 	return err;
 }
 EXPORT_SYMBOL(sched_deisolate_cpu);
