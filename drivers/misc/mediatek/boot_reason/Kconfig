@@ -1,0 +1,10 @@
+config MTK_BOOT_REASON
+	bool "Enable MTK Boot Reason Driver"
+	default y
+	help
+	  MTK Boot Reason Driver is in charge of returning boot reason passing
+	  from early booting stage. The information is passed from boot-loader.
+	  Generally, drivers will execute different flows under different boot
+	  reason. For example, in normal boot, users needs to press power key.
+	  If users trigger reboot in kernel, device should boot up evenif power
+	  key is not pressed.
