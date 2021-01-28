@@ -188,7 +188,6 @@ static void mt6358_irq_sp_handler(struct mt6397_chip *chip,
 				sta_reg, irq_status,
 				irqd->irq_name[hwirq], hwirq,
 				irq_get_trigger_type(virq));
-			log_irq_wakeup_reason(chip->irq);
 			log_threaded_irq_wakeup_reason(virq, chip->irq);
 #endif
 			if (virq)
