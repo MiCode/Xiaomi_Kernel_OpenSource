@@ -83,9 +83,9 @@ extern int sched_rt_handler(struct ctl_table *table, int write,
 		loff_t *ppos);
 
 #ifdef CONFIG_UCLAMP_TASK
-extern int sched_uclamp_handler(struct ctl_table *table, int write,
-				void __user *buffer, size_t *lenp,
-				loff_t *ppos);
+extern int sysctl_sched_uclamp_handler(struct ctl_table *table, int write,
+				       void __user *buffer, size_t *lenp,
+				       loff_t *ppos);
 #endif
 
 extern int sysctl_numa_balancing(struct ctl_table *table, int write,

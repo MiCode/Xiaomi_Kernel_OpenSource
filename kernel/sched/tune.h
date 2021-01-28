@@ -20,7 +20,7 @@ int schedtune_prefer_idle(struct task_struct *tsk);
 void schedtune_enqueue_task(struct task_struct *p, int cpu);
 void schedtune_dequeue_task(struct task_struct *p, int cpu);
 
-unsigned long boosted_cpu_util(int cpu, unsigned long other_util);
+unsigned long stune_util(int cpu, unsigned long other_util);
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
 extern struct mutex uclamp_mutex;
@@ -42,7 +42,5 @@ uclamp_task_update_active(struct task_struct *p, unsigned int clamp_id);
 
 #define schedtune_enqueue_task(task, cpu) do { } while (0)
 #define schedtune_dequeue_task(task, cpu) do { } while (0)
-
-#define boosted_cpu_util(cpu, other_util) cpu_util_cfs(cpu_rq(cpu))
 
 #endif /* CONFIG_SCHED_TUNE */

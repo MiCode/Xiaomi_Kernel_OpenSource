@@ -130,9 +130,6 @@ static unsigned long zero_ul;
 static unsigned long one_ul = 1;
 static unsigned long long_max = LONG_MAX;
 static int one_hundred = 100;
-#ifdef CONFIG_MTK_GMO_RAM_OPTIMIZE
-static int two_hundred = 200;
-#endif
 static int one_thousand = 1000;
 #ifdef CONFIG_PRINTK
 static int ten_thousand = 10000;
@@ -467,18 +464,18 @@ static struct ctl_table kern_table[] = {
 	},
 #ifdef CONFIG_UCLAMP_TASK
 	{
-		.procname	= "sched_uclamp_util_min",
+		.procname	= "sched_util_clamp_min",
 		.data		= &sysctl_sched_uclamp_util_min,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= sched_uclamp_handler,
+		.proc_handler	= sysctl_sched_uclamp_handler,
 	},
 	{
-		.procname	= "sched_uclamp_util_max",
+		.procname	= "sched_util_clamp_max",
 		.data		= &sysctl_sched_uclamp_util_max,
 		.maxlen		= sizeof(unsigned int),
 		.mode		= 0644,
-		.proc_handler	= sched_uclamp_handler,
+		.proc_handler	= sysctl_sched_uclamp_handler,
 	},
 #endif
 #ifdef CONFIG_SCHED_AUTOGROUP
@@ -1205,11 +1202,7 @@ static struct ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= perf_cpu_time_max_percent_handler,
 		.extra1		= &zero,
-#ifndef CONFIG_MTK_GMO_RAM_OPTIMIZE
 		.extra2		= &one_hundred,
-#else
-		.extra2		= &two_hundred,
-#endif
 	},
 	{
 		.procname	= "perf_event_max_stack",

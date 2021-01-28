@@ -49,6 +49,7 @@ struct bio_crypt_ctx *bio_crypt_alloc_ctx(gfp_t gfp_mask)
 {
 	return mempool_alloc(bio_crypt_ctx_pool, gfp_mask);
 }
+EXPORT_SYMBOL_GPL(bio_crypt_alloc_ctx);
 
 void bio_crypt_free_ctx(struct bio *bio)
 {
@@ -59,6 +60,8 @@ void bio_crypt_free_ctx(struct bio *bio)
 void bio_crypt_clone(struct bio *dst, struct bio *src, gfp_t gfp_mask)
 {
 	const struct bio_crypt_ctx *src_bc = src->bi_crypt_context;
+
+	bio_clone_skip_dm_default_key(dst, src);
 
 	/*
 	 * If a bio is fallback_crypted, then it will be decrypted when
@@ -96,10 +99,9 @@ bool bio_crypt_ctx_compatible(struct bio *b_1, struct bio *b_2)
 	struct bio_crypt_ctx *bc1 = b_1->bi_crypt_context;
 	struct bio_crypt_ctx *bc2 = b_2->bi_crypt_context;
 
-	if (bc1 != bc2)
-		return false;
-
-	return !bc1 || bc1->bc_key == bc2->bc_key;
+	if (!bc1)
+		return !bc2;
+	return bc2 && bc1->bc_key == bc2->bc_key;
 }
 
 /*

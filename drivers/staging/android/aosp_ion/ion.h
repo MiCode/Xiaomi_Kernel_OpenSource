@@ -341,4 +341,10 @@ int ion_query_heaps(struct ion_heap_query *query);
 
 struct ion_buffer *ion_drv_file_to_buffer(struct file *file);
 
+#ifdef CONFIG_ION_MODULE
+int ion_add_cma_heaps(void);
+int ion_system_heap_create(void);
+int ion_system_contig_heap_create(void);
+#endif
+
 #endif /* _ION_H */

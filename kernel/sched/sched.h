@@ -397,7 +397,14 @@ struct task_group {
 	struct cfs_bandwidth	cfs_bandwidth;
 
 #ifdef CONFIG_UCLAMP_TASK_GROUP
-	struct			uclamp_se uclamp[UCLAMP_CNT];
+	/* The two decimal precision [%] value requested from user-space */
+	unsigned int		uclamp_pct[UCLAMP_CNT];
+	/* Clamp values requested for a task group */
+	struct uclamp_se	uclamp_req[UCLAMP_CNT];
+	/* Effective clamp values used for a task group */
+	struct uclamp_se	uclamp[UCLAMP_CNT];
+	/* Latency-sensitive flag used for a task group */
+	unsigned int		latency_sensitive;
 #endif
 
 };
@@ -805,30 +812,30 @@ extern void rto_push_irq_work_func(struct irq_work *work);
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_UCLAMP_TASK
-/**
- * struct uclamp_group - Utilization clamp Group
- * @value: utilization clamp value for tasks on this clamp group
- * @tasks: number of RUNNABLE tasks on this clamp group
+/*
+ * struct uclamp_bucket - Utilization clamp bucket
+ * @value: utilization clamp value for tasks on this clamp bucket
+ * @tasks: number of RUNNABLE tasks on this clamp bucket
  *
  * Keep track of how many tasks are RUNNABLE for a given utilization
  * clamp value.
  */
-struct uclamp_group {
-	unsigned long value : SCHED_CAPACITY_SHIFT + 1;
-	unsigned long tasks : BITS_PER_LONG - SCHED_CAPACITY_SHIFT - 1;
+struct uclamp_bucket {
+	unsigned long value : bits_per(SCHED_CAPACITY_SCALE);
+	unsigned long tasks : BITS_PER_LONG - bits_per(SCHED_CAPACITY_SCALE);
 };
 
-/**
- * struct uclamp_cpu - CPU's utilization clamp
- * @value: currently active clamp values for a CPU
- * @group: utilization clamp groups affecting a CPU
+/*
+ * struct uclamp_rq - rq's utilization clamp
+ * @value: currently active clamp values for a rq
+ * @bucket: utilization clamp buckets affecting a rq
  *
- * Keep track of RUNNABLE tasks on a CPUs to aggregate their clamp values.
- * A clamp value is affecting a CPU where there is at least one task RUNNABLE
+ * Keep track of RUNNABLE tasks on a rq to aggregate their clamp values.
+ * A clamp value is affecting a rq when there is at least one task RUNNABLE
  * (or actually running) with that value.
  *
- * We have up to UCLAMP_CNT possible different clamp value, which are
- * currently only two: minmum utilization and maximum utilization.
+ * There are up to UCLAMP_CNT possible different clamp values, currently there
+ * are only two: minimum utilization and maximum utilization.
  *
  * All utilization clamping values are MAX aggregated, since:
  * - for util_min: we want to run the CPU at least at the max of the minimum
@@ -837,25 +844,12 @@ struct uclamp_group {
  *   maximum utilization allowed by its currently RUNNABLE tasks.
  *
  * Since on each system we expect only a limited number of different
- * utilization clamp values (CONFIG_UCLAMP_GROUPS_COUNT), we use a simple
- * array to track the metrics required to compute all the per-CPU utilization
- * clamp values. The additional slot is used to track the default clamp
- * values, i.e. no min/max clamping at all.
+ * utilization clamp values (UCLAMP_BUCKETS), use a simple array to track
+ * the metrics required to compute all the per-rq utilization clamp values.
  */
-struct uclamp_cpu {
-	struct uclamp_group group[UCLAMP_CNT][UCLAMP_GROUPS];
-	int value[UCLAMP_CNT];
-/*
- * Idle clamp holding
- * Whenever a CPU is idle, we enforce the util_max clamp value of the last
- * task running on that CPU. This bit is used to flag a clamp holding
- * currently active for a CPU. This flag is:
- * - set when we update the clamp value of a CPU at the time of dequeuing the
- *   last before entering idle
- * - reset when we enqueue the first task after a CPU wakeup from IDLE
- */
-#define UCLAMP_FLAG_IDLE 0x01
-	int flags;
+struct uclamp_rq {
+	unsigned int value;
+	struct uclamp_bucket bucket[UCLAMP_BUCKETS];
 };
 #endif /* CONFIG_UCLAMP_TASK */
 
@@ -899,7 +893,9 @@ struct rq {
 
 #ifdef CONFIG_UCLAMP_TASK
 	/* Utilization clamp values based on CPU's RUNNABLE tasks */
-	struct uclamp_cpu	uclamp ____cacheline_aligned;
+	struct uclamp_rq	uclamp[UCLAMP_CNT] ____cacheline_aligned;
+	unsigned int		uclamp_flags;
+#define UCLAMP_FLAG_IDLE 0x01
 #endif
 
 	struct cfs_rq		cfs;
@@ -2331,49 +2327,44 @@ static inline void cpufreq_update_util(struct rq *rq, unsigned int flags)
 static inline void cpufreq_update_util(struct rq *rq, unsigned int flags) {}
 #endif /* CONFIG_CPU_FREQ */
 
-/**
- * uclamp_none: default value for a clamp
- *
- * This returns the default value for each clamp
- * - 0 for a min utilization clamp
- * - SCHED_CAPACITY_SCALE for a max utilization clamp
- *
- * Return: the default value for a given utilization clamp
- */
-static inline unsigned int uclamp_none(int clamp_id)
-{
-	if (clamp_id == UCLAMP_MIN)
-		return 0;
-	return SCHED_CAPACITY_SCALE;
-}
-
 #ifdef CONFIG_UCLAMP_TASK
-/**
- * clamp_util: clamp a utilization value for a specified CPU
- * @rq: the CPU's RQ to get the clamp values from
- * @util: the utilization signal to clamp
- *
- * Each CPU tracks util_{min,max} clamp values depending on the set of its
- * currently RUNNABLE tasks. Given a utilization signal, i.e a signal in
- * the [0..SCHED_CAPACITY_SCALE] range, this function returns a clamped
- * utilization signal considering the current clamp values for the
- * specified CPU.
- *
- * Return: a clamped utilization signal for a given CPU.
- */
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
+unsigned long uclamp_eff_value(struct task_struct *p, enum uclamp_id clamp_id);
+
+static __always_inline
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p)
 {
-	unsigned int min_util = rq->uclamp.value[UCLAMP_MIN];
-	unsigned int max_util = rq->uclamp.value[UCLAMP_MAX];
+	unsigned long min_util = READ_ONCE(rq->uclamp[UCLAMP_MIN].value);
+	unsigned long max_util = READ_ONCE(rq->uclamp[UCLAMP_MAX].value);
+
+	if (p) {
+		min_util = max(min_util, uclamp_eff_value(p, UCLAMP_MIN));
+		max_util = max(max_util, uclamp_eff_value(p, UCLAMP_MAX));
+	}
+
+	/*
+	 * Since CPU's {min,max}_util clamps are MAX aggregated considering
+	 * RUNNABLE tasks with _different_ clamps, we can end up with an
+	 * inversion. Fix it now when the clamps are applied.
+	 */
+	if (unlikely(min_util >= max_util))
+		return min_util;
 
 	return clamp(util, min_util, max_util);
 }
 #else /* CONFIG_UCLAMP_TASK */
-static inline unsigned int uclamp_util(struct rq *rq, unsigned int util)
+static inline
+unsigned long uclamp_rq_util_with(struct rq *rq, unsigned long util,
+				  struct task_struct *p)
 {
 	return util;
 }
 #endif /* CONFIG_UCLAMP_TASK */
+
+unsigned long task_util_est(struct task_struct *p);
+unsigned int uclamp_task(struct task_struct *p);
+bool uclamp_latency_sensitive(struct task_struct *p);
+bool uclamp_boosted(struct task_struct *p);
 
 #ifdef arch_scale_freq_capacity
 # ifndef arch_scale_freq_invariant
@@ -2390,7 +2381,6 @@ static inline unsigned long capacity_orig_of(int cpu)
 }
 #endif
 
-#ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
 /**
  * enum schedutil_type - CPU utilization type
  * @FREQUENCY_UTIL:	Utilization used to select frequency
@@ -2406,33 +2396,7 @@ enum schedutil_type {
 	ENERGY_UTIL,
 };
 
-unsigned long schedutil_freq_util(int cpu, unsigned long util,
-			          unsigned long max, enum schedutil_type type);
-
-static inline unsigned long schedutil_energy_util(int cpu, unsigned long util)
-{
-	unsigned long max = arch_scale_cpu_capacity(NULL, cpu);
-
-	return schedutil_freq_util(cpu, util, max, ENERGY_UTIL);
-}
-#else /* CONFIG_CPU_FREQ_GOV_SCHEDUTIL */
-static inline unsigned long schedutil_energy_util(int cpu, unsigned long util)
-{
-	return util;
-}
-#endif
-
 #ifdef CONFIG_SMP
-static inline unsigned long cpu_bw_dl(struct rq *rq)
-{
-	return (rq->dl.running_bw * SCHED_CAPACITY_SCALE) >> BW_SHIFT;
-}
-
-static inline unsigned long cpu_util_dl(struct rq *rq)
-{
-	return READ_ONCE(rq->avg_dl.util_avg);
-}
-
 static inline unsigned long cpu_util_cfs(struct rq *rq)
 {
 	unsigned long util = READ_ONCE(rq->cfs.avg.util_avg);
@@ -2444,12 +2408,44 @@ static inline unsigned long cpu_util_cfs(struct rq *rq)
 
 	return util;
 }
+#endif
+
+#ifdef CONFIG_CPU_FREQ_GOV_SCHEDUTIL
+
+unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
+				 unsigned long max, enum schedutil_type type,
+				 struct task_struct *p);
+
+static inline unsigned long cpu_bw_dl(struct rq *rq)
+{
+	return (rq->dl.running_bw * SCHED_CAPACITY_SCALE) >> BW_SHIFT;
+}
+
+static inline unsigned long cpu_util_dl(struct rq *rq)
+{
+	return READ_ONCE(rq->avg_dl.util_avg);
+}
 
 static inline unsigned long cpu_util_rt(struct rq *rq)
 {
 	return READ_ONCE(rq->avg_rt.util_avg);
 }
-#endif
+
+static inline unsigned long cpu_util_freq(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return min(cpu_util_cfs(rq) + cpu_util_rt(rq), capacity_orig_of(cpu));
+}
+
+#else /* CONFIG_CPU_FREQ_GOV_SCHEDUTIL */
+static inline unsigned long schedutil_cpu_util(int cpu, unsigned long util_cfs,
+				 unsigned long max, enum schedutil_type type,
+				 struct task_struct *p)
+{
+	return 0;
+}
+#endif /* CONFIG_CPU_FREQ_GOV_SCHEDUTIL */
 
 #ifdef CONFIG_HAVE_SCHED_AVG_IRQ
 static inline unsigned long cpu_util_irq(struct rq *rq)
@@ -2487,12 +2483,6 @@ unsigned long scale_irq_capacity(unsigned long util, unsigned long irq, unsigned
 
 #ifdef CONFIG_SMP
 extern struct static_key_false sched_energy_present;
-#endif
-
-#if defined(CONFIG_UCLAMP_TASK_GROUP) && defined(CONFIG_SCHED_TUNE)
-extern void schedtune_init_uclamp(void);
-extern struct uclamp_se *schedtune_uclamp(struct task_struct *p,
-		unsigned int clamp_id);
 #endif
 
 #include "extension/eas_plus.h"

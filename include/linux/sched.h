@@ -279,11 +279,15 @@ struct vtime {
 	u64			gtime;
 };
 
+/*
+ * Utilization clamp constraints.
+ * @UCLAMP_MIN:	Minimum utilization
+ * @UCLAMP_MAX:	Maximum utilization
+ * @UCLAMP_CNT:	Utilization clamp constraints count
+ */
 enum uclamp_id {
-	UCLAMP_MIN = 0, /* Minimum utilization */
-	UCLAMP_MAX,     /* Maximum utilization */
-
-	/* Utilization clamping constraints count */
+	UCLAMP_MIN = 0,
+	UCLAMP_MAX,
 	UCLAMP_CNT
 };
 
@@ -318,11 +322,9 @@ struct sched_info {
 # define SCHED_FIXEDPOINT_SHIFT		10
 # define SCHED_FIXEDPOINT_SCALE		(1L << SCHED_FIXEDPOINT_SHIFT)
 
-/*
- * Increase resolution of cpu_capacity calculations
- */
-#define SCHED_CAPACITY_SHIFT	SCHED_FIXEDPOINT_SHIFT
-#define SCHED_CAPACITY_SCALE	(1L << SCHED_CAPACITY_SHIFT)
+/* Increase resolution of cpu_capacity calculations */
+# define SCHED_CAPACITY_SHIFT		SCHED_FIXEDPOINT_SHIFT
+# define SCHED_CAPACITY_SCALE		(1L << SCHED_CAPACITY_SHIFT)
 
 struct load_weight {
 	unsigned long			weight;
@@ -573,61 +575,37 @@ struct sched_dl_entity {
 };
 
 #ifdef CONFIG_UCLAMP_TASK
-/*
- * Number of utiliation clamp groups
- *
- * The first clamp group (group_id=0) is used to track non clamped tasks, i.e.
- * util_{min,max} (0,SCHED_CAPACITY_SCALE). Thus we allocate one more group in
- * addition to the configured number.
- */
-#define UCLAMP_GROUPS (CONFIG_UCLAMP_GROUPS_COUNT + 1)
+/* Number of utilization clamp buckets (shorter alias) */
+#define UCLAMP_BUCKETS CONFIG_UCLAMP_BUCKETS_COUNT
 
-/**
- * Utilization clamp group
+/*
+ * Utilization clamp for a scheduling entity
+ * @value:		clamp value "assigned" to a se
+ * @bucket_id:		bucket index corresponding to the "assigned" value
+ * @active:		the se is currently refcounted in a rq's bucket
+ * @user_defined:	the requested clamp value comes from user-space
  *
- * A utilization clamp group maps a:
- *   clamp value (value), i.e.
- *   util_{min,max} value requested from userspace
- * to a:
- *   clamp group index (group_id), i.e.
- *   index of the per-cpu RUNNABLE tasks refcounting array
+ * The bucket_id is the index of the clamp bucket matching the clamp value
+ * which is pre-computed and stored to avoid expensive integer divisions from
+ * the fast path.
  *
- * The mapped bit is set whenever a scheduling entity has been mapped on a
- * clamp group for the first time. When this bit is set, any clamp group get
- * (for a new clamp value) will be matches by a clamp group put (for the old
- * clamp value).
- *
- * The active bit is set whenever a task has got an effective clamp group
- * and value assigned, which can be different from the user requested ones.
- * This allows to know a task is actually refcounting a CPU's clamp group.
+ * The active bit is set whenever a task has got an "effective" value assigned,
+ * which can be different from the clamp value "requested" from user-space.
+ * This allows to know a task is refcounted in the rq's bucket corresponding
+ * to the "effective" bucket_id.
  *
  * The user_defined bit is set whenever a task has got a task-specific clamp
- * value requested from userspace, i.e. the system defaults applies to this
- * task just as a restriction. This allows to relax TG's clamps when a less
- * restrictive task specific value has been defined, thus allowing to
- * implement a "nice" semantic when both task group and task specific values
- * are used. For example, a task running on a 20% boosted TG can still drop
- * its own boosting to 0%.
+ * value requested from userspace, i.e. the system defaults apply to this task
+ * just as a restriction. This allows to relax default clamps when a less
+ * restrictive task-specific value has been requested, thus allowing to
+ * implement a "nice" semantic. For example, a task running with a 20%
+ * default boost can still drop its own boosting to 0%.
  */
 struct uclamp_se {
-	unsigned int value;
-	unsigned int group_id;
-	unsigned int mapped;
-	unsigned int active;
-	unsigned int user_defined;
-	/*
-	 * Clamp group and value actually used by a scheduling entity,
-	 * i.e. a (RUNNABLE) task or a task group.
-	 * For task groups, this is the value (eventually) enforced by a
-	 * parent task group.
-	 * For a task, this is the value (eventually) enforced by the
-	 * task group the task is currently part of or by the system
-	 * default clamp values, whichever is the most restrictive.
-	 */
-	struct {
-		unsigned int value	: SCHED_CAPACITY_SHIFT + 1;
-		unsigned int group_id	: order_base_2(UCLAMP_GROUPS);
-	} effective;
+	unsigned int value		: bits_per(SCHED_CAPACITY_SCALE);
+	unsigned int bucket_id		: bits_per(UCLAMP_BUCKETS);
+	unsigned int active		: 1;
+	unsigned int user_defined	: 1;
 };
 #endif /* CONFIG_UCLAMP_TASK */
 
@@ -718,7 +696,9 @@ struct task_struct {
 	struct sched_dl_entity		dl;
 
 #ifdef CONFIG_UCLAMP_TASK
-	/* Utlization clamp values for this task */
+	/* Clamp values requested for a scheduling entity */
+	struct uclamp_se		uclamp_req[UCLAMP_CNT];
+	/* Effective clamp values used for a scheduling entity */
 	struct uclamp_se		uclamp[UCLAMP_CNT];
 #endif
 
@@ -1937,11 +1917,11 @@ static inline void rseq_migrate(struct task_struct *t)
 
 /*
  * If parent process has a registered restartable sequences area, the
- * child inherits. Only applies when forking a process, not a thread.
+ * child inherits. Unregister rseq for a clone with CLONE_VM set.
  */
 static inline void rseq_fork(struct task_struct *t, unsigned long clone_flags)
 {
-	if (clone_flags & CLONE_THREAD) {
+	if (clone_flags & CLONE_VM) {
 		t->rseq = NULL;
 		t->rseq_len = 0;
 		t->rseq_sig = 0;
