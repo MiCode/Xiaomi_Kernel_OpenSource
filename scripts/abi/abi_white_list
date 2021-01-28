@@ -6,6 +6,7 @@ bypass_arr=(\
 "function int v4l2_" \
 "function int phy_set_mode" \
 "net init_net" \
+"struct ci_hdrc_platform_data " \
 "struct musb " \
 "struct musb_io " \
 "struct musb_platform_ops " \
