@@ -146,11 +146,78 @@ static int perfmgr_cpu_prefer_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+static int perfmgr_set_sched_isolation_proc_show(struct seq_file *m, void *v)
+{
+	seq_puts(m, "");
+	return 0;
+}
+static ssize_t perfmgr_set_sched_isolation_proc_write(struct file *filp,
+		const char *ubuf, size_t cnt, loff_t *pos)
+{
+	unsigned int cpu_id = -1;
+	char buf[64];
+	int err = 0;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EFAULT;
+	buf[cnt] = '\0';
+
+	err = sscanf(buf, "%iu", &cpu_id);
+	if (cpu_id >= nr_cpu_ids)
+		return cnt;
+
+	sched_isolate_cpu(cpu_id);
+
+	return cnt;
+}
+static int perfmgr_set_sched_deisolation_proc_show(struct seq_file *m, void *v)
+{
+	seq_puts(m, "");
+	return 0;
+}
+static ssize_t perfmgr_set_sched_deisolation_proc_write(struct file *filp,
+		const char *ubuf, size_t cnt, loff_t *pos)
+{
+	unsigned int cpu_id = -1;
+	char buf[64];
+	int err = 0;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EFAULT;
+	buf[cnt] = '\0';
+
+	err = sscanf(buf, "%iu", &cpu_id);
+	if (cpu_id >= nr_cpu_ids)
+		return cnt;
+
+	sched_unisolate_cpu(cpu_id);
+
+	return cnt;
+}
+
+static int perfmgr_sched_isolated_proc_show(struct seq_file *m, void *v)
+{
+
+	seq_printf(m, "cpu_isolated_mask=0x%lx\n",
+		__cpu_isolated_mask.bits[0]);
+
+	return 0;
+}
+
 /* others */
 PROC_FOPS_RW(sched_big_task_rotation);
 PROC_FOPS_RW(sched_boost);
 PROC_FOPS_RW(cpu_prefer);
 
+PROC_FOPS_RW(set_sched_isolation);
+PROC_FOPS_RW(set_sched_deisolation);
+PROC_FOPS_RO(sched_isolated);
 /*******************************************/
 int eas_ctrl_init(struct proc_dir_entry *parent)
 {
@@ -166,6 +233,9 @@ int eas_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(sched_big_task_rotation),
 		PROC_ENTRY(sched_boost),
 		PROC_ENTRY(cpu_prefer),
+		PROC_ENTRY(set_sched_isolation),
+		PROC_ENTRY(set_sched_deisolation),
+		PROC_ENTRY(sched_isolated),
 	};
 	mutex_init(&boost_eas);
 

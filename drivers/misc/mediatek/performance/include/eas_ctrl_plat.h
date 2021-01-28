@@ -15,4 +15,8 @@ extern int set_sched_boost_type(int type);
 extern int get_sched_boost_type(void);
 extern int sched_set_cpuprefer(pid_t pid, unsigned int prefer_type);
 
+/* Isolation */
+extern struct cpumask __cpu_isolated_mask;
+extern int sched_isolate_cpu(int cpu);
+extern int sched_unisolate_cpu(int cpu);
 #endif /* _EAS_CTRL_PLAT_H_ */
