@@ -3036,6 +3036,24 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		pe2_slave_mivr_diff = <100000>;
 	};
 
+	pdc: pdc {
+		compatible = "mediatek,charger,pd";
+		gauge = <&mtk_gauge>;
+
+		pd_vbus_low_bound = <5000000>;
+		pd_vbus_upper_bound = <10000000>;
+		ibus_err = <14>;
+		vsys_watt = <5000000>;
+		min_charger_voltage = <4600000>;
+		pd_input_current = <3200000>;
+		pd_charger_current = <3000000>;
+
+		/* dual charger */
+		chg1_ta_ac_charger_current = <1500000>;
+		chg2_ta_ac_charger_current = <1500000>;
+		pe2_slave_mivr_diff = <100000>;
+	};
+
 	charger: charger {
 		compatible = "mediatek,charger";
 		algorithm_name = "Basic";
