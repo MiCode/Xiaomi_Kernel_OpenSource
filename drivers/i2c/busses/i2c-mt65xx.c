@@ -279,6 +279,9 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 {
 	u16 control_reg;
 
+	writel(I2C_DMA_HARD_RST, i2c->pdmabase + OFFSET_RST);
+	writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
+
 	writew(I2C_SOFT_RST, i2c->base + OFFSET_SOFTRESET);
 
 	/* Set ioconfig */
@@ -306,10 +309,6 @@ static void mtk_i2c_init_hw(struct mtk_i2c *i2c)
 
 	writew(control_reg, i2c->base + OFFSET_CONTROL);
 	writew(I2C_DELAY_LEN, i2c->base + OFFSET_DELAY_LEN);
-
-	writel(I2C_DMA_HARD_RST, i2c->pdmabase + OFFSET_RST);
-
-	writel(I2C_DMA_CLR_FLAG, i2c->pdmabase + OFFSET_RST);
 }
 
 /*
