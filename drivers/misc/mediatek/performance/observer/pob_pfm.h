@@ -17,11 +17,8 @@
 #ifndef POB_PFM_H
 #define POB_PFM_H
 
-#include <linux/debugfs.h>
-
-void pob_qos_tracelog(unsigned long val, void *data);
-
-int pob_qos_pfm_init(struct dentry *pob_debugfs_dir);
+int pob_qos_pfm_init(void);
+void pob_qos_pfm_exit(void);
 int pob_qos_pfm_enable(void);
 int pob_qos_pfm_disable(void);
 

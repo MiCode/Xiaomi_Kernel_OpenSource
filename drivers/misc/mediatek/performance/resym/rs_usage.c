@@ -18,9 +18,7 @@
 #include <linux/slab.h>
 #include <linux/rbtree.h>
 #include <linux/preempt.h>
-#include <linux/proc_fs.h>
 #include <linux/trace_events.h>
-#include <linux/debugfs.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 #include <linux/module.h>
@@ -45,21 +43,6 @@
 #define TAG "RSUsage"
 
 //#define __BW_USE_EMIALL__ 1
-
-#define RSU_DEBUGFS_ENTRY(name) \
-static int rsu_##name##_open(struct inode *i, struct file *file) \
-{ \
-	return single_open(file, rsu_##name##_show, i->i_private); \
-} \
-\
-static const struct file_operations rsu_##name##_fops = { \
-	.owner = THIS_MODULE, \
-	.open = rsu_##name##_open, \
-	.read = seq_read, \
-	.write = rsu_##name##_write, \
-	.llseek = seq_lseek, \
-	.release = single_release, \
-}
 
 #define RSU_SYSTRACE_LIST(macro) \
 	macro(MANDATORY, 0), \
@@ -114,7 +97,6 @@ static const char * const mask_string[] = {
 #ifdef NR_FREQ_CPU
 struct rsu_cpu_cluster_info {
 	unsigned int power[NR_FREQ_CPU];
-	unsigned long long capacity[NR_FREQ_CPU];
 	unsigned int capacity_ratio[NR_FREQ_CPU];
 
 	unsigned int lastfreq;
@@ -149,6 +131,8 @@ static int nr_cpus;
 static struct rsu_cpu_info *cpu_info;
 static struct rsu_cpu_cluster_info *cpucluster_info;
 
+static struct kobject *rsu_kobj;
+
 static DEFINE_SPINLOCK(freq_slock);
 
 #ifdef __BW_USE_EMIALL__
@@ -173,76 +157,41 @@ static int *mdla_opp;
 
 static uint32_t rsu_systrace_mask;
 
-static int rsu_systrace_mask_show(struct seq_file *m, void *unused)
-{
-	int i;
-
-	seq_puts(m, " Current enabled systrace:\n");
-	for (i = 0; (1U << i) < RSU_DEBUG_MAX; i++)
-		seq_printf(m, "  %-*s ... %s\n", 12, mask_string[i],
-			   rsu_systrace_mask & (1U << i) ?
-			     "On" : "Off");
-
-	return 0;
-}
-
-static ssize_t rsu_systrace_mask_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
-{
-	uint32_t val;
-	int ret;
-
-	ret = kstrtou32_from_user(ubuf, cnt, 16, &val);
-	if (ret)
-		return ret;
-
-	val = val & (RSU_DEBUG_MAX - 1U);
-
-	rsu_systrace_mask = val;
-
-	return cnt;
-}
-
-RSU_DEBUGFS_ENTRY(systrace_mask);
-
 static void rsu_cpu_update_pwd_tbl(void)
 {
 	int cluster, opp;
 	struct cpumask cluster_cpus;
 	int cpu;
-	const struct sched_group_energy *core_energy;
-	unsigned long long temp = 0ULL;
-	unsigned int temp2;
+	const struct sched_group_energy *core_energy = NULL;
+	unsigned long long cap = 0ULL;
+	unsigned int temp;
 
 	for (cluster = 0; cluster < nr_cpuclusters; cluster++) {
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
 			cpucluster_info[cluster].power[opp] =
 				mt_cpufreq_get_freq_by_idx(cluster, opp);
 
-			if (rs_cpumips_isdiff()) {
-				arch_get_cluster_cpus(&cluster_cpus, cluster);
-
-				for_each_cpu(cpu, &cluster_cpus) {
-					core_energy = cpu_core_energy(cpu);
-					cpucluster_info[cluster].capacity[opp] =
-					core_energy->cap_states[opp].cap;
-					cpu_info[cpu].cluster =
-						&cpucluster_info[cluster];
-				}
-
-				temp = cpucluster_info[cluster].capacity[opp] *
-					100;
-				do_div(temp, 1024);
-				temp2 = (unsigned int)temp;
-				temp2 = clamp(temp2, 1U, 100U);
-				cpucluster_info[cluster].capacity_ratio[
-					NR_FREQ_CPU - 1 - opp] = temp2;
+			arch_get_cluster_cpus(&cluster_cpus, cluster);
+			for_each_cpu(cpu, &cluster_cpus) {
+				core_energy = cpu_core_energy(cpu);
+				cpu_info[cpu].cluster =
+					&cpucluster_info[cluster];
 			}
+
+			if (!core_energy)
+				break;
+
+			cap = core_energy->cap_states[
+				NR_FREQ_CPU - opp - 1].cap;
+			cap = (cap * 100) >> 10;
+			temp = (unsigned int)cap;
+			temp = clamp(temp, 1U, 100U);
+			cpucluster_info[cluster].capacity_ratio[opp] = temp;
 		}
 	}
 }
 
-static void rsu_notify_cpufreq(int cid, unsigned long freq)
+void rsu_notify_cpufreq(int cid, unsigned long freq)
 {
 	unsigned long flags;
 	int cpu;
@@ -283,12 +232,10 @@ static int rsu_get_cpu_usage(__u32 pid)
 
 	for (i = 0; i < nr_cpuclusters; i++) {
 		clus_max_idx = mt_ppm_userlimit_freq_limit_by_others(i);
+		clus_max_idx = clamp(clus_max_idx, 0, NR_FREQ_CPU - 1);
 
-		if (rs_cpumips_isdiff())
-			ceiling_idx[i] =
-				cpucluster_info[i].capacity_ratio[clus_max_idx];
-		else
-			ceiling_idx[i] = cpucluster_info[i].power[clus_max_idx];
+		ceiling_idx[i] =
+			cpucluster_info[i].capacity_ratio[clus_max_idx];
 
 		rsu_systrace_c(RSU_DEBUG_CPU, pid, ceiling_idx[i],
 				"RSU_CEILING_IDX[%d]", i);
@@ -301,17 +248,13 @@ static int rsu_get_cpu_usage(__u32 pid)
 		rsu_systrace_c_log(pid, cpucluster_info[i].lastfreq,
 					"LASTFREQ[%d]", i);
 
-		if (rs_cpumips_isdiff()) {
-			for (opp = (NR_FREQ_CPU - 1); opp > 0; opp--) {
-				if (cpucluster_info[i].power[opp] >=
-					cpucluster_info[i].lastfreq)
-					break;
-			}
-			curr_obv =
-			((u64) cpucluster_info[i].capacity_ratio[opp]) * 100;
-		} else {
-			curr_obv = ((u64) cpucluster_info[i].lastfreq) * 100;
+		for (opp = (NR_FREQ_CPU - 1); opp > 0; opp--) {
+			if (cpucluster_info[i].power[opp] >=
+				cpucluster_info[i].lastfreq)
+				break;
 		}
+		curr_obv =
+			((u64) cpucluster_info[i].capacity_ratio[opp]) * 100;
 
 		rsu_systrace_c(RSU_DEBUG_CPU, pid, (unsigned int) curr_obv,
 				"CURR_OBV[%d]", i);
@@ -884,62 +827,84 @@ static struct notifier_block rsu_pob_xpufreq_notifier = {
 	.notifier_call = rsu_pob_xpufreq_cb,
 };
 
-static int rsu_xUsage_show(struct seq_file *m, void *unused)
+static ssize_t rs_usage_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
 {
-	seq_printf(m, "CPU Usage: %d\n", rsu_get_cpu_usage(0));
-	seq_printf(m, "GPU Usage: %d\n", rsu_get_gpu_usage(0));
-	seq_printf(m, "BW Usage: %d\n", rsu_get_bw_usage(0));
-	seq_printf(m, "APU Usage: %d\n", rsu_get_apu_usage(0));
-	seq_printf(m, "VPU Usage: %d\n", rsu_get_vpu_usage(0));
-	seq_printf(m, "MDLA Usage: %d\n", rsu_get_mdla_usage(0));
+	char temp[RS_SYSFS_MAX_BUFF_SIZE] = "";
+	int posi = 0;
+	int length;
 
-#ifdef __BW_USE_EMIALL__
-	seq_printf(m, "FPSGO Active: %d\n", fpsgo_active);
-	seq_printf(m, "NN Active: %d\n", nn_active);
-#endif
+	length = scnprintf(temp + posi,
+		RS_SYSFS_MAX_BUFF_SIZE - posi,
+		"cpu\tgpu\tbw\tapu\tvpu\tmdla\n");
+	posi += length;
 
-	return 0;
+	length = scnprintf(temp + posi,
+		RS_SYSFS_MAX_BUFF_SIZE - posi,
+		"%d\t%d\t%d\t%d\t%d\t%d\n",
+		rsu_get_cpu_usage(0), rsu_get_gpu_usage(0),
+		rsu_get_bw_usage(0), rsu_get_apu_usage(0),
+		rsu_get_vpu_usage(0), rsu_get_mdla_usage(0));
+	posi += length;
+
+	return scnprintf(buf, PAGE_SIZE, "%s\n", temp);
 }
 
-static ssize_t rsu_xUsage_write(struct file *flip,
-			const char *ubuf, size_t cnt, loff_t *data)
+KOBJ_ATTR_RO(rs_usage);
+
+static ssize_t rs_mask_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
 {
-	uint32_t val;
-	int ret;
+	int i;
+	char temp[RS_SYSFS_MAX_BUFF_SIZE];
+	int pos = 0;
+	int length;
 
-	ret = kstrtou32_from_user(ubuf, cnt, 16, &val);
-	if (ret)
-		return ret;
+	length = scnprintf(temp + pos, RS_SYSFS_MAX_BUFF_SIZE - pos,
+			" Current enabled systrace:\n");
+	pos += length;
 
-	return cnt;
+	for (i = 0; (1U << i) < RSU_DEBUG_MAX; i++) {
+		length = scnprintf(temp + pos, RS_SYSFS_MAX_BUFF_SIZE - pos,
+			"  %-*s ... %s\n", 12, mask_string[i],
+		   rsu_systrace_mask & (1U << i) ?
+		   "On" : "Off");
+		pos += length;
+
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%s", temp);
 }
 
-RSU_DEBUGFS_ENTRY(xUsage);
-
-static int __init rsu_debugfs_init(struct dentry *pob_debugfs_dir)
+static ssize_t rs_mask_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
 {
-	if (!pob_debugfs_dir)
-		return -ENODEV;
+	int val = -1;
+	char acBuffer[RS_SYSFS_MAX_BUFF_SIZE];
+	int arg;
 
-	debugfs_create_file("systrace_mask",
-			    0644,
-			    pob_debugfs_dir,
-			    NULL,
-			    &rsu_systrace_mask_fops);
+	if ((count > 0) && (count < RS_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, RS_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
 
-	debugfs_create_file("xUsage",
-			    0644,
-			    pob_debugfs_dir,
-			    NULL,
-			    &rsu_xUsage_fops);
+	val = val & (RSU_DEBUG_MAX - 1U);
 
-	return 0;
+	rsu_systrace_mask = val;
+
+	return count;
 }
 
-int __init rs_usage_init(struct dentry *rs_debugfs_dir,
-			struct proc_dir_entry *hps_dir)
+KOBJ_ATTR_RW(rs_mask);
+
+int __init rs_usage_init(void)
 {
-	struct dentry *rs_usage_debugfs_dir = NULL;
 	int i;
 
 #ifdef __BW_USE_EMIALL__
@@ -947,13 +912,6 @@ int __init rs_usage_init(struct dentry *rs_debugfs_dir,
 	if (_gpRSUNotifyWorkQueue == NULL)
 		return -EFAULT;
 #endif
-
-	rs_usage_debugfs_dir = debugfs_create_dir("usage", rs_debugfs_dir);
-
-	if (!rs_usage_debugfs_dir)
-		return -ENODEV;
-
-	rsu_debugfs_init(rs_usage_debugfs_dir);
 
 	nr_cpuclusters = arch_get_nr_clusters();
 	nr_cpus = num_possible_cpus();
@@ -985,7 +943,9 @@ int __init rs_usage_init(struct dentry *rs_debugfs_dir,
 
 	rsu_systrace_mask = RSU_DEBUG_MANDATORY;
 
+#ifdef CONFIG_MTK_FPSGO_V3
 	rsu_cpufreq_notifier_fp = rsu_notify_cpufreq;
+#endif
 	rsu_getusage_fp = rsu_getusage;
 
 #ifdef __BW_USE_EMIALL__
@@ -994,11 +954,19 @@ int __init rs_usage_init(struct dentry *rs_debugfs_dir,
 #endif
 	pob_xpufreq_register_client(&rsu_pob_xpufreq_notifier);
 
+	if (rs_sysfs_create_dir(NULL, "usage", &rsu_kobj))
+		return -ENODEV;
+
+	rs_sysfs_create_file(rsu_kobj, &kobj_attr_rs_usage);
+	rs_sysfs_create_file(rsu_kobj, &kobj_attr_rs_mask);
+
 	return 0;
 }
 
-void rs_usage_exit(void)
+void __exit rs_usage_exit(void)
 {
-
+	rs_sysfs_remove_file(rsu_kobj, &kobj_attr_rs_usage);
+	rs_sysfs_remove_file(rsu_kobj, &kobj_attr_rs_mask);
+	rs_sysfs_remove_dir(&rsu_kobj);
 }
 

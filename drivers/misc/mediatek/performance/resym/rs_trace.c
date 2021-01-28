@@ -17,8 +17,6 @@
 
 #include <linux/preempt.h>
 #include <linux/trace_events.h>
-#include <linux/fs.h>
-#include <linux/debugfs.h>
 
 #include "rs_trace.h"
 
@@ -87,7 +85,7 @@ void __rs_systrace_e(void)
 	preempt_enable();
 }
 
-int rs_init_trace(struct dentry *rs_debugfs_dir)
+int rs_trace_init(void)
 {
 	mark_addr = kallsyms_lookup_name("tracing_mark_write");
 

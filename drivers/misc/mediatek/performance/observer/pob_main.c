@@ -18,13 +18,10 @@
 #include <linux/slab.h>
 #include <linux/rbtree.h>
 #include <linux/preempt.h>
-#include <linux/proc_fs.h>
 #include <linux/trace_events.h>
-#include <linux/debugfs.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 #include <linux/module.h>
-
 #include <asm/page.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
@@ -36,6 +33,7 @@
 #include "pob_int.h"
 
 #define TRACELOG_SIZE 512
+struct kobject *pob_kobj;
 
 void *pob_alloc_atomic(int i32Size)
 {
@@ -58,9 +56,10 @@ void pob_trace(const char *fmt, ...)
 {
 	char log[TRACELOG_SIZE];
 	va_list args;
+	int len;
 
 	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
+	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
 
 	preempt_disable();
@@ -68,23 +67,47 @@ void pob_trace(const char *fmt, ...)
 	preempt_enable();
 }
 
+void pob_sysfs_create_file(struct kobject *parent,
+			struct kobj_attribute *kobj_attr)
+{
+	if (kobj_attr == NULL || pob_kobj == NULL)
+		return;
+
+	sysfs_create_file(pob_kobj, &(kobj_attr->attr));
+}
+
+void pob_sysfs_remove_file(struct kobject *parent,
+			struct kobj_attribute *kobj_attr)
+{
+	if (kobj_attr == NULL || pob_kobj == NULL)
+		return;
+
+	sysfs_remove_file(pob_kobj, &(kobj_attr->attr));
+}
+
 static int __init pob_init(void)
 {
-	struct dentry *pob_debugfs_dir = NULL;
+	if (kernel_kobj == NULL)
+		return -1;
 
-	pob_debugfs_dir = debugfs_create_dir("pob", NULL);
+	pob_kobj = kobject_create_and_add("pob", kernel_kobj);
+	if (pob_kobj == NULL)
+		return -1;
 
-	if (!pob_debugfs_dir)
-		return -ENODEV;
-
-	pob_qos_init(pob_debugfs_dir);
+	pob_qos_init(pob_kobj);
 
 	return 0;
 }
 
 static void __exit pob_exit(void)
 {
+	pob_qos_exit(pob_kobj);
 
+	if (pob_kobj == NULL)
+		return;
+
+	kobject_put(pob_kobj);
+	pob_kobj = NULL;
 }
 
 module_init(pob_init);

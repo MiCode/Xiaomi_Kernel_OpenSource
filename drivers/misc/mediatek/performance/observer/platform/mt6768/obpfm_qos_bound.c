@@ -24,7 +24,6 @@
 #include <linux/preempt.h>
 #include <linux/proc_fs.h>
 #include <linux/trace_events.h>
-#include <linux/debugfs.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 #include <linux/module.h>
@@ -91,6 +90,8 @@ void pob_wall_tracelog(u64 wallclock, s64 diff)
 				"wallclock",
 				(unsigned long long) wallclock,
 				(unsigned long long) diff);
+	if (tmplen < 0 || tmplen >= sizeof(log))
+		return;
 
 	_trace_pob_log(log);
 }
@@ -102,6 +103,8 @@ void pob_src_tracelog(char *file, int line, void *ptr)
 
 	tmplen = snprintf(log, TRACELOG_SIZE, "%s %d %p",
 				file, line, ptr);
+	if (tmplen < 0 || tmplen >= sizeof(log))
+		return;
 
 	_trace_pob_log(log);
 }

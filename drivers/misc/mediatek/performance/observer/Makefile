@@ -13,17 +13,10 @@
 
 obj-y += pob_main.o
 
-obj-y += bqd_notify.o
 obj-y += fpsgo_notify.o
-obj-y += rs_notify.o
 obj-y += qos_notify.o
 obj-y += nn_notify.o
 obj-y += xpu_notify.o
+obj-y += eara_thrm_notify.o
 
-
-obj-$(CONFIG_MACH_MT6768) += platform/mt6768/
-obj-$(CONFIG_MACH_MT6785) += platform/mt6785/
-obj-$(CONFIG_MACH_MT6885) += platform/mt6885/
-obj-$(CONFIG_MACH_MT6873) += platform/mt6873/
-obj-$(CONFIG_MACH_MT6885) += eara_thrm_notify.o
-obj-$(CONFIG_MACH_MT6873) += eara_thrm_notify.o
+obj-y += platform/$(MTK_PLATFORM)/

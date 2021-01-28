@@ -23,7 +23,6 @@
 #include <linux/preempt.h>
 #include <linux/proc_fs.h>
 #include <linux/trace_events.h>
-#include <linux/debugfs.h>
 #include <linux/spinlock.h>
 #include <linux/vmalloc.h>
 #include <linux/module.h>
@@ -273,7 +272,7 @@ static int pob_pfm_qos_cb(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-int __init pob_qos_pfm_init(struct dentry *pob_debugfs_dir)
+int __init pob_qos_pfm_init(void)
 {
 	_gpPOBQoSNtfWQ = create_singlethread_workqueue("pobqos_ntf_wq");
 	if (_gpPOBQoSNtfWQ == NULL)
@@ -285,6 +284,11 @@ int __init pob_qos_pfm_init(struct dentry *pob_debugfs_dir)
 	register_qos_notifier(&pob_pfm_qos_notifier);
 
 	return 0;
+}
+
+void __exit pob_qos_pfm_exit(void)
+{
+	unregister_qos_notifier(&pob_pfm_qos_notifier);
 }
 
 int pob_qos_pfm_enable(void)
@@ -742,9 +746,13 @@ int pob_qoslat_get_stat(void *pstats,
 	return -1;
 }
 
-int __init pob_qos_pfm_init(struct dentry *pob_debugfs_dir)
+int __init pob_qos_pfm_init(void)
 {
 	return 0;
+}
+
+void __exit pob_qos_pfm_exit(void)
+{
 }
 #endif
 
