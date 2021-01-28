@@ -275,7 +275,7 @@ int mdw_sched_dev_routine(void *arg)
 
 		/* construct cmd hnd */
 		mdw_queue_deadline_boost(sc);
-		cmd_parser->set_hnd(sc, &h);
+		cmd_parser->set_hnd(sc, d->idx, &h);
 
 		/*
 		 * Execute reviser to switch VLM:
@@ -373,9 +373,11 @@ static int mdw_sched_dispatch_norm(struct mdw_apu_sc *sc)
 		list_for_each_safe(list_ptr, tmp, &r.d_list) {
 			d = list_entry(list_ptr, struct mdw_dev_info, r_item);
 			d->pwr_on(d, sc->boost, MDW_RSC_SET_PWR_TIMEOUT);
-			sc->multi_idx = d->idx;
+			sc->multi_bmp |= (1ULL << d->idx);
+			mdw_flw_debug("pwron dev(%s%d)\n", d->name, d->idx);
 		}
 	}
+
 	mutex_unlock(&sc->mtx);
 	mdw_flw_debug("sc(0x%llx-#%d) #dev(%u/%u) ref(%d)\n",
 		sc->parent->kid, sc->idx, r.get_num[sc->type],

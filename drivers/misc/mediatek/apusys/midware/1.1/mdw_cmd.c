@@ -92,6 +92,26 @@ static void mdw_cmd_show_sc_perf(struct mdw_apu_sc *sc)
 	mdw_pef_debug("-------------------------\n");
 }
 
+static void mdw_cmd_show_hnd(struct apusys_cmd_hnd *h)
+{
+	mdw_cmd_debug("-------------------------\n");
+	mdw_cmd_debug(" kva             = 0x%llx\n", h->kva);
+	mdw_cmd_debug(" iova            = 0x%x\n", h->iova);
+	mdw_cmd_debug(" size            = %u\n", h->size);
+	mdw_cmd_debug(" cmd_id          = 0x%llx\n", h->cmd_id);
+	mdw_cmd_debug(" subcmd_idx      = %u\n", h->subcmd_idx);
+	mdw_cmd_debug(" priority        = %u\n", h->priority);
+	mdw_cmd_debug(" ip_time         = %u\n", h->ip_time);
+	mdw_cmd_debug(" boost_val       = %d\n", h->boost_val);
+	mdw_cmd_debug(" cluster_size    = %d\n", h->cluster_size);
+	mdw_cmd_debug(" multicore_total = %u\n", h->multicore_total);
+	mdw_cmd_debug(" multicore_idx   = %u\n", h->multicore_idx);
+	mdw_cmd_debug(" pmu_kva         = 0x%llx\n", h->pmu_kva);
+	mdw_cmd_debug(" cmd_entry       = 0x%llx\n", h->cmd_entry);
+	mdw_cmd_debug(" ctx_id          = %d\n", h->ctx_id);
+	mdw_cmd_debug("-------------------------\n");
+}
+
 static uint32_t mdw_cmd_get_pdr_num(struct mdw_apu_sc *sc)
 {
 	struct mdw_apu_cmd *cmd = sc->parent;
@@ -204,7 +224,7 @@ static void mdw_cmd_set_sc_hdr(struct mdw_apu_sc *sc)
 
 static void *mdw_cmd_get_dev_hdr(struct mdw_apu_sc *sc)
 {
-	return (void *)((uint64_t)sc->u_hdr + sizeof(struct mdw_apu_sc));
+	return (void *)((uint64_t)sc->u_hdr + sizeof(struct apu_sc_hdr_cmn));
 }
 
 static inline int mdw_cmd_valid(struct mdw_apu_cmd *c)
@@ -747,7 +767,7 @@ static int mdw_cmd_sc_exec_num(struct mdw_apu_sc *sc)
 	return exec_num;
 }
 
-static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, void *hnd)
+static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, int d_idx, void *hnd)
 {
 	struct apusys_cmd_hnd *h = (struct apusys_cmd_hnd *)hnd;
 	struct apu_mdla_hdr *m_hdr = NULL;
@@ -764,14 +784,15 @@ static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, void *hnd)
 	h->ip_time = 0;
 	h->boost_val = sc->boost;
 	h->multicore_total = sc->multi_total;
-	h->multicore_idx = sc->multi_idx;
+	h->multicore_idx = 0;
 	h->cmd_entry = c->cmdbuf->kva;
 	h->ctx_id = sc->ctx;
 	h->context_callback = reviser_set_context;
 	h->kva = sc->kva;
 	h->cluster_size = sc->cluster_size;
 
-	if (sc->type != APUSYS_DEVICE_MDLA)
+	if (sc->type != APUSYS_DEVICE_MDLA &&
+		sc->type != APUSYS_DEVICE_MDLA_RT)
 		goto out;
 
 	/* for mdla pmu */
@@ -787,12 +808,19 @@ static void mdw_cmd_sc_set_hnd(struct mdw_apu_sc *sc, void *hnd)
 		goto out;
 
 	m_hdr = mdw_cmd_get_dev_hdr(sc);
-	if (sc->multi_idx == 0)
+	if (d_idx == 0)
 		h->kva = c->cmdbuf->kva + m_hdr->ofs_codebuf_info_dual0;
 	else
 		h->kva = c->cmdbuf->kva + m_hdr->ofs_codebuf_info_dual1;
 
+	h->multicore_idx = d_idx;
+	mdw_flw_debug("multi(%d/%d) kva(0x%llx), offset(%u/%u)\n",
+		d_idx, sc->multi_total, h->kva,
+		m_hdr->ofs_codebuf_info_dual0,
+		m_hdr->ofs_codebuf_info_dual1);
+
 out:
+	mdw_cmd_show_hnd(h);
 	mutex_unlock(&sc->mtx);
 }
 
