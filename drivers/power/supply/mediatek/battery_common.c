@@ -692,7 +692,7 @@ static int battery_get_property(struct power_supply *psy,
 		val->intval = 0;
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
-		val->intval = battery_meter_get_QMAX25();
+		val->intval = battery_meter_get_QMAX25() * 1000;
 		break;
 	default:
 		ret = -EINVAL;
