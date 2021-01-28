@@ -447,6 +447,7 @@ static void scp_prepare_aed(char *aed_str, struct scp_aed_cfg *aed)
 	char *detail, *log;
 	u8 *phy;
 	u32 log_size, phy_size;
+	int ret = 0;
 
 	pr_debug("[SCP] %s begins\n", __func__);
 
@@ -456,7 +457,10 @@ static void scp_prepare_aed(char *aed_str, struct scp_aed_cfg *aed)
 		return;
 
 	memset(detail, 0, SCP_AED_STR_LEN);
-	snprintf(detail, SCP_AED_STR_LEN, "%s\n", aed_str);
+	ret = snprintf(detail, SCP_AED_STR_LEN, "%s\n", aed_str);
+	if (ret < 0)
+		pr_err("[SCP] detail msg is truncated\n");
+
 	detail[SCP_AED_STR_LEN - 1] = '\0';
 
 	log_size = 0;
@@ -486,6 +490,7 @@ static void scp_prepare_aed_dump(char *aed_str,
 {
 	u8 *scp_detail;
 	u8 *scp_dump_ptr;
+	int ret = 0;
 
 	u32 memory_dump_size;
 	struct MemoryDump *pMemoryDump = NULL;
@@ -507,7 +512,7 @@ static void scp_prepare_aed_dump(char *aed_str,
 		/* prepare scp aee detail information*/
 		memset(scp_detail, 0, SCP_AED_STR_LEN);
 
-		snprintf(scp_detail, SCP_AED_STR_LEN,
+		ret = snprintf(scp_detail, SCP_AED_STR_LEN,
 		"%s\nscp_A pc=0x%08x, lr=0x%08x, psp=0x%08x, sp=0x%08x\n"
 		"last log:\n%s",
 		aed_str, scp_A_aee_status.pc,
@@ -515,6 +520,9 @@ static void scp_prepare_aed_dump(char *aed_str,
 		scp_A_aee_status.psp,
 		scp_A_aee_status.sp,
 		scp_A_log);
+
+		if (ret < 0)
+			pr_err("[SCP AEE] detail buf msg is truncated\n");
 
 		scp_detail[SCP_AED_STR_LEN - 1] = '\0';
 	}
