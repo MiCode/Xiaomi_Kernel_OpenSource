@@ -182,7 +182,7 @@ unsigned int ged_dvfs_get_tb_dvfs_margin_mode(void);
 #define LOADING_MAX_3DTA_COM 1
 #define LOADING_MAX_3DTA 2
 
-extern void (*mtk_dvfs_loading_mode_fp)(int ui32LoadingMode);
+extern void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode);
 extern int (*mtk_get_dvfs_loading_mode_fp)(void);
 extern void ged_get_gpu_utli_ex(struct GpuUtilization_Ex *util_ex);
 #define MAX(x, y)	((x) < (y) ? (y) : (x))

@@ -1645,7 +1645,7 @@ static ssize_t ged_dvfs_loading_mode_write_entry
 		if (ged_copy_from_user(acBuffer, pszBuffer, uiCount) == 0) {
 			acBuffer[uiCount] = '\0';
 			if (kstrtoint(acBuffer, 0, &i32Value) == 0)
-				mtk_dvfs_loading_mode((unsigned int) i32Value);
+				mtk_dvfs_loading_mode(i32Value);
 		}
 	}
 

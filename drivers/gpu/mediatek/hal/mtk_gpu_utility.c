@@ -893,13 +893,13 @@ bool mtk_get_timer_base_dvfs_margin(int *pi32MarginValue)
 }
 EXPORT_SYMBOL(mtk_get_timer_base_dvfs_margin);
 /* ------------------------------------------------------------------------ */
-void (*mtk_dvfs_loading_mode_fp)(unsigned int ui32LoadingMode) = NULL;
+void (*mtk_dvfs_loading_mode_fp)(int i32LoadingMode) = NULL;
 EXPORT_SYMBOL(mtk_dvfs_loading_mode_fp);
 
-bool mtk_dvfs_loading_mode(unsigned int ui32LoadingMode)
+bool mtk_dvfs_loading_mode(int i32LoadingMode)
 {
 	if (mtk_dvfs_loading_mode_fp != NULL) {
-		mtk_dvfs_loading_mode_fp(ui32LoadingMode);
+		mtk_dvfs_loading_mode_fp(i32LoadingMode);
 		return true;
 	}
 	return false;
