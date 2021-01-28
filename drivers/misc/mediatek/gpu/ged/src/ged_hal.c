@@ -200,6 +200,45 @@ const struct seq_operations gsDvfsOppCostsReadOps = {
 };
 #endif
 //-----------------------------------------------------------------------------
+static ssize_t opp_logs_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int len;
+	int i, j;
+	int cur_idx;
+	unsigned int ui32FqCount;
+	struct GED_DVFS_OPP_STAT *report;
+
+	report = ged_dvfs_query_opp_cost(0x55, 0x66);
+	if (report) {
+		mtk_custom_get_gpu_freq_level_count(&ui32FqCount);
+		cur_idx = mt_gpufreq_get_cur_freq_index();
+
+		len = sprintf(buf, "   time(ms)\n");
+
+
+		for (i = 0; i < ui32FqCount; i++) {
+			if (i == cur_idx)
+				len += sprintf(buf + len, "*");
+			else
+				len += sprintf(buf + len, " ");
+			len += sprintf(buf + len, "%10lu",
+				1000 * mt_gpufreq_get_freq_by_idx(i));
+
+			/* truncate to ms */
+			len += sprintf(buf + len, "%10u\n",
+				(unsigned int)(report[i].ui64Active >> 10));
+		}
+		return len;
+	} else
+		return sprintf(buf, "Not Supported.\n");
+
+}
+
+static KOBJ_ATTR_RO(opp_logs);
+
+//-----------------------------------------------------------------------------
 static ssize_t total_gpu_freq_level_count_show(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		char *buf)
@@ -763,6 +802,12 @@ GED_ERROR ged_hal_init(void)
 		goto ERROR;
 	}
 
+	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_opp_logs);
+	if (unlikely(err != GED_OK)) {
+		GED_LOGE("ged: failed to create opp_logs entry!\n");
+		goto ERROR;
+	}
+
 #ifdef MTK_GED_KPI
 	err = ged_sysfs_create_file(hal_kobj, &kobj_attr_ged_kpi);
 	if (unlikely(err != GED_OK)) {
@@ -837,6 +882,7 @@ void ged_hal_exit(void)
 #ifdef MTK_GED_KPI
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_ged_kpi);
 #endif
+	ged_sysfs_remove_file(hal_kobj, &kobj_attr_opp_logs);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_gpu_boost_level);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_gpu_utilization);
 	ged_sysfs_remove_file(hal_kobj, &kobj_attr_previous_freqency);
