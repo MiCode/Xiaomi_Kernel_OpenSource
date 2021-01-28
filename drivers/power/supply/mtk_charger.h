@@ -85,6 +85,7 @@ enum bat_temp_state_enum {
 enum chg_dev_notifier_events {
 	EVENT_FULL,
 	EVENT_RECHARGE,
+	EVENT_DISCHARGE,
 };
 
 struct battery_thermal_protection_data {

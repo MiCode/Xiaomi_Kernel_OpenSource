@@ -356,6 +356,10 @@ static int enable_charging(struct mtk_charger *info,
 			chg_alg_stop_algo(alg);
 		}
 		charger_dev_enable(info->chg1_dev, false);
+		charger_dev_do_event(info->chg1_dev, EVENT_DISCHARGE, 0);
+	} else {
+		charger_dev_enable(info->chg1_dev, true);
+		charger_dev_do_event(info->chg1_dev, EVENT_RECHARGE, 0);
 	}
 
 	return 0;

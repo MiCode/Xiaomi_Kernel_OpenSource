@@ -826,17 +826,13 @@ static ssize_t mtk_chg_current_cmd_write(struct file *file,
 		if (cmd_discharging == 1) {
 			info->cmd_discharging = true;
 			charger_dev_enable(info->chg1_dev, false);
-#ifdef FIXME
-			charger_manager_notifier(info,
-						CHARGER_NOTIFY_STOP_CHARGING);
-#endif
+			charger_dev_do_event(info->chg1_dev,
+					EVENT_DISCHARGE, 0);
 		} else if (cmd_discharging == 0) {
 			info->cmd_discharging = false;
 			charger_dev_enable(info->chg1_dev, true);
-#ifdef FIXME
-			charger_manager_notifier(info,
-						CHARGER_NOTIFY_START_CHARGING);
-#endif
+			charger_dev_do_event(info->chg1_dev,
+					EVENT_RECHARGE, 0);
 		}
 
 		chr_info("%s: current_unlimited=%d, cmd_discharging=%d\n",

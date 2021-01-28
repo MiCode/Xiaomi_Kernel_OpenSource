@@ -2862,6 +2862,7 @@ static int mt6370_do_event(struct charger_device *chg_dev, u32 event, u32 args)
 	switch (event) {
 	case EVENT_FULL:
 	case EVENT_RECHARGE:
+	case EVENT_DISCHARGE:
 		power_supply_changed(chg_data->psy);
 		break;
 	default:
@@ -4154,6 +4155,7 @@ static int mt6370_charger_get_property(struct power_supply *psy,
 			break;
 		case MT6370_CHG_STATUS_FAULT:
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+			break;
 		default:
 			ret = -ENODATA;
 			break;

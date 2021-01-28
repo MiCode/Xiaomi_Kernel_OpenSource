@@ -1865,6 +1865,7 @@ static int mt6360_do_event(struct charger_device *chg_dev, u32 event,
 	switch (event) {
 	case EVENT_FULL:
 	case EVENT_RECHARGE:
+	case EVENT_DISCHARGE:
 		power_supply_changed(mpci->psy_self);
 		break;
 	default:
