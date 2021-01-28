@@ -125,13 +125,11 @@ boot		:= arch/arm64/boot
 KBUILD_IMAGE	:= $(boot)/Image.gz
 KBUILD_DTBS	:= dtbs
 
-# FIXME, remove tmp_dsti related when DTS flow ready
-tmp_dtsi:
-	$(srctree)/tools/dct/DrvGen.py $(srctree)/drivers/misc/mediatek/dws/mt6761/k61v1_64_basic.dws
-	mkdir -p $(objtree)/arch/arm64/boot/dts/k61v1_64_basic
-	cp $(srctree)/drivers/misc/mediatek/dws/mt6761/cust.dtsi $(objtree)/arch/arm64/boot/dts/k61v1_64_basic
-
 all:	Image.gz $(KBUILD_DTBS)
+MTK_PLATFORM := $(CONFIG_MTK_PLATFORM:"%"=%)
+MTK_PROJECT := $(CONFIG_ARCH_MTK_PROJECT:"%"=%)
+export MTK_PLATFORM MTK_PROJECT MTK_TARGET_PROJECT
+-include $(srctree)/scripts/drvgen/drvgen.mk
 
 Image: vmlinux
 	$(Q)$(MAKE) $(build)=$(boot) $(boot)/$@
@@ -142,12 +140,12 @@ Image.%: Image
 zinstall install:
 	$(Q)$(MAKE) $(build)=$(boot) $@
 
-%.dtb: scripts
+%.dtb: scripts $(DRVGEN_FILE_LIST)
 	$(Q)$(MAKE) $(build)=$(boot)/dts $(boot)/dts/$@
 
 PHONY += dtbs dtbs_install
 
-dtbs: prepare scripts tmp_dtsi
+dtbs: prepare scripts $(DRVGEN_FILE_LIST)
 	$(Q)$(MAKE) $(build)=$(boot)/dts
 
 dtbs_install:

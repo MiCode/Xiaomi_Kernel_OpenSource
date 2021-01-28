@@ -7,15 +7,11 @@ ifdef MTK_PLATFORM
 DRVGEN_PATH := drivers/misc/mediatek/dws/$(MTK_PLATFORM)
 
 ifeq ($(strip $(CONFIG_ARM64)), y)
-MAIN_DT_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES))
+MAIN_DT_NAMES := mediatek/$(subst $\",,$(CONFIG_MTK_PLATFORM))
+PROJ_DT_NAMES := mediatek/$(subst $\",,$(CONFIG_ARCH_MTK_PROJECT))
 else
-MAIN_DT_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
-endif
-
-ifeq ($(strip $(CONFIG_ARM64)), y)
-PROJ_DT_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES))
-else
-PROJ_DT_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES))
+MAIN_DT_NAMES := $(subst $\",,$(CONFIG_MTK_PLATFORM))
+PROJ_DT_NAMES := $(subst $\",,$(CONFIG_ARCH_MTK_PROJECT))
 endif
 
 MAIN_DTB_NAMES := $(addsuffix .dtb,$(MAIN_DT_NAMES))
