@@ -171,7 +171,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 		__free_pages(page, order);
 		if (atomic64_sub_return((1 << order), &page_sz_cnt) < 0) {
 			IONMSG("underflow!, total_now[%lu]free[%lu]\n",
-			       atomic64_read(&page_sz_cnt),
+			       (unsigned long)atomic64_read(&page_sz_cnt),
 			       (unsigned long)(1 << order));
 			atomic64_set(&page_sz_cnt, 0);
 		}
@@ -895,6 +895,8 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 	struct ion_buffer *buffer;
 	struct ion_mm_buffer_info *bug_info;
 	unsigned int block_nr[DOMAIN_NUM] = {0};
+	unsigned int mva[DOMAIN_NUM] = {0};
+	unsigned int mva_fix[DOMAIN_NUM] = {0};
 	unsigned int i;
 	int pid;
 	#define MVA_SIZE_ORDER     20	/* 1M */
@@ -907,18 +909,24 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 
 	bug_info = (struct ion_mm_buffer_info *)buffer->priv_virt;
 	if (bug_info) {
+		pid = bug_info->pid;
 		for (i = 0; i < DOMAIN_NUM; i++) {
+			mva[i] = bug_info->MVA[i];
+			mva_fix[i] = bug_info->FIXED_MVA[i];
 			if (bug_info->MVA[i] ||
 			    bug_info->FIXED_MVA[i])
 				block_nr[i] = (buffer->size +
 					MVA_ALIGN_MASK) >> MVA_SIZE_ORDER;
 		}
+	} else {
+		pid = -1;
+		for (i = 0; i < DOMAIN_NUM; i++) {
+			mva[i] = 0;
+			mva_fix[i] = 0;
+			block_nr[i] = 0;
+		}
 	}
 	if (!buffer->handle_count) {
-		if (bug_info)
-			pid = bug_info->pid;
-		else
-			pid = -1;
 #if (DOMAIN_NUM == 1)
 		ION_DUMP(s,
 			 "0x%p %9d %16s %5d %5d %16s %4d %8x(%8x) %8d\n",
@@ -926,8 +934,8 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 bug_info->MVA[0],
-			 bug_info->FIXED_MVA[0],
+			 mva[0],
+			 mva_fix[0],
 			 block_nr[0]);
 #elif (DOMAIN_NUM == 2)
 		ION_DUMP(s,
@@ -936,11 +944,11 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 bug_info->MVA[0],
-			 bug_info->FIXED_MVA[0],
+			 mva[0],
+			 mva_fix[0],
 			 block_nr[0],
-			 bug_info->MVA[1],
-			 bug_info->FIXED_MVA[1],
+			 mva[1],
+			 mva_fix[1],
 			 block_nr[1]);
 #elif (DOMAIN_NUM == 4)
 		ION_DUMP(s,
@@ -949,13 +957,13 @@ static int __do_dump_share_fd(const void *data, struct file *file,
 			 buffer->alloc_dbg,
 			 p->pid, p->tgid,
 			 p->comm, fd,
-			 bug_info->MVA[0],
+			 mva[0],
 			 block_nr[0],
-			 bug_info->MVA[1],
+			 mva[1],
 			 block_nr[1],
-			 bug_info->MVA[2],
+			 mva[2],
 			 block_nr[2],
-			 bug_info->MVA[3],
+			 mva[3],
 			 block_nr[3]);
 #endif
 	}
@@ -1006,7 +1014,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	seq_printf(s, "time 3 %lld ms\n", current_ts);
+	ION_DUMP(s, "time 3 %lld ms\n", current_ts);
 
 	for (i = 0; i < num_orders; i++) {
 		struct ion_page_pool *pool = sys_heap->pools[i];
@@ -1071,7 +1079,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	seq_printf(s, "time 4 %lld ms\n", current_ts);
+	ION_DUMP(s, "time 4 %lld ms\n", current_ts);
 
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer
@@ -1094,7 +1102,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	seq_printf(s, "time 5 %lld ms\n", current_ts);
+	ION_DUMP(s, "time 5 %lld ms\n", current_ts);
 
 	if (has_orphaned) {
 		ION_DUMP(s,
@@ -1104,7 +1112,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 
 	current_ts = sched_clock();
 	do_div(current_ts, 1000000);
-	seq_printf(s, "time 6 %lld ms\n", current_ts);
+	ION_DUMP(s, "time 6 %lld ms\n", current_ts);
 
 	mutex_unlock(&dev->buffer_lock);
 
@@ -1149,7 +1157,7 @@ static int ion_mm_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 				continue;
 
 			ION_DUMP(s,
-				 "\thandle=0x%p, buffer=0x%p, heap=%d, fd=%4d, ts: %lldms\n",
+				 "\thandle=0x%p, buffer=0x%p, heap=%u, fd=%4d, ts: %lldms\n",
 				 handle, handle->buffer,
 				 handle->buffer->heap->id,
 				 handle->dbg.fd,
