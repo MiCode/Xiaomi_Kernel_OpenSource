@@ -47,6 +47,7 @@ struct ddr_ip_bc_stats {
 	struct ddr_bc_stats *bc_stats;
 };
 
+extern int32_t sync_latest_data(void);
 extern int32_t get_ddr_act_times(int32_t freq_num,
 				 struct ddr_act_times *ddr_times);
 extern int32_t get_ddr_sr_pd_times(struct ddr_sr_pd_times *ddr_times);

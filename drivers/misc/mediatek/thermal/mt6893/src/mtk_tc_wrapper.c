@@ -215,9 +215,6 @@ int get_immediate_cpuB_wrap(void)
 	return curr_temp;
 }
 
-
-
-
 int get_immediate_ts0_wrap(void)
 {
 	int curr_temp;
@@ -586,9 +583,10 @@ int tscpu_get_curr_temp(void)
 /*
  * module			LVTS Plan
  *=====================================================
- * MCU_BIG(T1,T2)		LVTS1-0, LVTS1-1
+ * MCU_BIG(T1)			LVTS1-0
+ * MCU_BIGBIG(T2)		LVTS1-1
  * MCU_BIG(T3,T4)		LVTS2-0, LVTS2-1
- * MCU_LITTLE(T5,T6,T7,T8)	LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
+ * MCU_LITTLE(T5,T6,T7,T8)		LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
  * VPU_MLDA(T9,T10)		LVTS4-0, LVTS4-1
  * GPU(T11,T12)			LVTS5-0, LVTS5-1
  * INFA(T13)			LVTS6-0

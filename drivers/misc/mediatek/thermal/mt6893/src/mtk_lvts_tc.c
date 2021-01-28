@@ -101,9 +101,10 @@ const struct of_device_id mt_thermal_of_match[2] = {
 /*
  * module			LVTS Plan
  *=====================================================
- * MCU_BIG(T1,T2)		LVTS1-0, LVTS1-1
+ * MCU_BIG(T1)			LVTS1-0
+ * MCU_BIGBIG(T2)		LVTS1-1
  * MCU_BIG(T3,T4)		LVTS2-0, LVTS2-1
- * MCU_LITTLE(T5,T6,T7,T8)	LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
+ * MCU_LITTLE(T5,T6,T7,T8)		LVTS3-0, LVTS3-1, LVTS3-2, LVTS3-3
  * VPU_MLDA(T9,T10)		LVTS4-0, LVTS4-1
  * GPU(T11,T12)			LVTS5-0, LVTS5-1
  * INFA(T13)			LVTS6-0
@@ -127,7 +128,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[1] = {/*(MCU)*/
 		.ts = {L_TS_LVTS2_0, L_TS_LVTS2_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 1,
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x26D100,
 		.tc_speed = {
 			0x001,
@@ -163,7 +164,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[4] = {/*(AP)*/
 		.ts = {L_TS_LVTS5_0, L_TS_LVTS5_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 0,
+		.dominator_ts_idx = 1,
 		.tc_offset = 0x100,
 		.tc_speed = {
 			0x001,
@@ -175,7 +176,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[5] = {/*(AP)*/
 		.ts = {L_TS_LVTS6_0, L_TS_LVTS6_1},
 		.ts_number = 2,
-		.dominator_ts_idx = 1,
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x200,
 		.tc_speed = {
 			0x001,
@@ -187,7 +188,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 	[6] = {/*(AP)*/
 		.ts = {L_TS_LVTS7_0, L_TS_LVTS7_1, L_TS_LVTS7_2},
 		.ts_number = 3,
-		.dominator_ts_idx = 1,
+		.dominator_ts_idx = 0,
 		.tc_offset = 0x300,
 		.tc_speed = {
 			0x001,
@@ -345,21 +346,25 @@ unsigned int data, int tc_num)
 {
 	int offset;
 
-	dev_reg_idx &= 0xFF;
-	data &= 0xFF;
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		dev_reg_idx &= 0xFF;
+		data &= 0xFF;
 
-	config = config | (dev_reg_idx << 8) | data;
+		config = config | (dev_reg_idx << 8) | data;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	mt_reg_sync_writel_print(config, LVTS_CONFIG_0 + offset);
+		mt_reg_sync_writel_print(config, LVTS_CONFIG_0 + offset);
 
-	/*
-	 * LVTS Device Register Setting take 1us(by 26MHz clock source)
-	 * interface latency to access.
-	 * So we set 2~3us delay could guarantee access complete.
-	 */
-	udelay(3);
+		/*
+		 * LVTS Device Register Setting take 1us(by 26MHz clock source)
+		 * interface latency to access.
+		 * So we set 2~3us delay could guarantee access complete.
+		 */
+		udelay(3);
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
 
 	return 1;
 }
@@ -368,33 +373,37 @@ static unsigned int lvts_read_device(unsigned int config,
 unsigned int dev_reg_idx, int tc_num)
 {
 	int offset, cnt;
-	unsigned int data;
+	unsigned int data = 0;
 
-	dev_reg_idx &= 0xFF;
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		dev_reg_idx &= 0xFF;
 
-	config = config | (dev_reg_idx << 8) | 0x00;
+		config = config | (dev_reg_idx << 8) | 0x00;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	mt_reg_sync_writel_print(config, LVTS_CONFIG_0 + offset);
+		mt_reg_sync_writel_print(config, LVTS_CONFIG_0 + offset);
 
-	/* wait 2us + 3us buffer*/
-	udelay(5);
-	/* Check ASIF bus status for transaction finished
-	 * Wait until DEVICE_ACCESS_START = 0
-	 */
-	cnt = 0;
-	while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
-		cnt++;
+		/* wait 2us + 3us buffer*/
+		udelay(5);
+		/* Check ASIF bus status for transaction finished
+		 * Wait until DEVICE_ACCESS_START = 0
+		 */
+		cnt = 0;
+		while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
+			cnt++;
 
-		if (cnt == 100) {
-			lvts_printk("Error: DEVICE_ACCESS_START didn't ready\n");
-			break;
+			if (cnt == 100) {
+				lvts_printk("Error: DEVICE_ACCESS_START didn't ready\n");
+				break;
+			}
+			udelay(2);
 		}
-		udelay(2);
-	}
 
-	data = (readl(LVTSRDATA0_0 + offset));
+		data = (readl(LVTSRDATA0_0 + offset));
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
 
 	return data;
 }
@@ -402,8 +411,8 @@ int lvts_raw_to_temp(unsigned int msr_raw, enum lvts_sensor_enum ts_name)
 {
 	/* This function returns degree mC
 	 * temp[i] = a * MSR_RAW/16384 + GOLDEN_TEMP/2 + b
-	 * a = -204.65
-	 * b =  204.65
+	 * a = -252.5
+	 * b =  252.5
 	 */
 	int temp_mC = 0;
 	int temp1 = 0;
@@ -520,22 +529,38 @@ static void dump_lvts_register_value(void)
 		lvts_printk("[LVTS_ERROR][BEFROE][CONTROLLER_%d][DUMP]\n", i);
 		tc_offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
 
-		offset = sprintf(buffer, "[LVTS_ERROR][BEFORE][TC][DUMP] ");
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
+		offset = snprintf(buffer, sizeof(buffer),
+				"[LVTS_ERROR][BEFORE][TC][DUMP] ");
+
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
+
+			if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+				lvts_printk("%s %d error\n", __func__, __LINE__);
+				break;
+			}
+			offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "0x%x:%x ",
 					tc_offset + g_lvts_controller_addrs[j],
 					g_lvts_controller_value_b[i][j]);
+		}
 
-		buffer[offset] = '\0';
 		lvts_printk("%s\n", buffer);
 
-		offset = sprintf(buffer, "[LVTS_ERROR][BEFORE][DEVICE][DUMP] ");
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
+		offset = snprintf(buffer, sizeof(buffer),
+				"[LVTS_ERROR][BEFORE][DEVICE][DUMP] ");
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
+
+			if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+				lvts_printk("%s %d error\n", __func__, __LINE__);
+				break;
+			}
+
+			offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "0x%x:%x ",
 					g_lvts_device_addrs[j],
 					g_lvts_device_value_b[i][j]);
+		}
 
-		buffer[offset] = '\0';
 		lvts_printk("%s\n", buffer);
 	}
 
@@ -543,22 +568,39 @@ static void dump_lvts_register_value(void)
 		lvts_printk("[LVTS_ERROR][AFTER][CONTROLLER_%d][DUMP]\n", i);
 		tc_offset = lvts_tscpu_g_tc[i].tc_offset; //tc offset
 
-		offset = sprintf(buffer, "[LVTS_ERROR][AFTER][TC][DUMP] ");
-		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
+		offset = snprintf(buffer, sizeof(buffer),
+				"[LVTS_ERROR][AFTER][TC][DUMP] ");
+
+		for (j = 0; j < NUM_LVTS_CONTROLLER_REG; j++) {
+
+			if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+				lvts_printk("%s %d error\n", __func__, __LINE__);
+				break;
+			}
+
+			offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "0x%x:%x ",
 					tc_offset + g_lvts_controller_addrs[j],
 					g_lvts_controller_value_e[i][j]);
+		}
 
-		buffer[offset] = '\0';
 		lvts_printk("%s\n", buffer);
 
-		offset = sprintf(buffer, "[LVTS_ERROR][AFTER][DEVICE][DUMP] ");
-		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++)
-			offset += sprintf(buffer + offset, "0x%x:%x ",
+		offset = snprintf(buffer, sizeof(buffer),
+				"[LVTS_ERROR][AFTER][DEVICE][DUMP] ");
+		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
+
+			if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+				lvts_printk("%s %d error\n", __func__, __LINE__);
+				break;
+			}
+
+			offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "0x%x:%x ",
 					g_lvts_device_addrs[j],
 					g_lvts_device_value_e[i][j]);
+		}
 
-		buffer[offset] = '\0';
 		lvts_printk("%s\n", buffer);
 	}
 }
@@ -584,17 +626,20 @@ static void lvts_device_check_counting_status(int tc_num)
 
 	int offset, cnt;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset; //tc offset
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset; //tc offset
 
-	cnt = 0;
-	while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(25))) {
-		cnt++;
+		cnt = 0;
+		while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(25))) {
+			cnt++;
 
-		if (cnt == 100) {
-			lvts_printk("Error: DEVICE_SENSING_STATUS didn't ready\n");
-			break;
+			if (cnt == 100) {
+				lvts_printk(
+				"Error: DEVICE_SENSING_STATUS didn't ready\n");
+				break;
+			}
+			udelay(2);
 		}
-		udelay(2);
 	}
 }
 
@@ -606,18 +651,24 @@ static void lvts_device_check_read_write_status(int tc_num)
 
 	int offset, cnt;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	cnt = 0;
-	while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
-		cnt++;
+		cnt = 0;
+		while ((readl(LVTS_CONFIG_0 + offset) & _BIT_(24))) {
+			cnt++;
 
-		if (cnt == 100) {
-			lvts_printk("Error: DEVICE_ACCESS_START didn't ready\n");
-			break;
+			if (cnt == 100) {
+				lvts_printk(
+				"Error: DEVICE_ACCESS_START didn't ready\n");
+				break;
+			}
+			udelay(2);
 		}
-		udelay(2);
-	}
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
+
 }
 
 #if defined(CFG_THERM_USE_BOOTUP_COUNT_RC)
@@ -685,12 +736,21 @@ void lvts_device_read_count_RC_N_resume(void)
 		lvts_write_device(0x81030000, 0x0D, 0x10, i);
 	}
 
-	offset = sprintf(buffer, "[COUNT_RC_NOW] ");
-	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		offset += sprintf(buffer + offset, "%d:%d ",
-				i, g_count_rc_now[i]);
+	offset = snprintf(buffer, sizeof(buffer), "[COUNT_RC_NOW] ");
 
-	buffer[offset] = '\0';
+	for (i = 0; i < L_TS_LVTS_NUM; i++) {
+
+		if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+			lvts_printk("%s %d error\n", __func__, __LINE__);
+			break;
+		}
+
+
+		offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "%d:%d ",
+				i, g_count_rc_now[i]);
+	}
+
 	lvts_printk("%s\n", buffer);
 
 #if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
@@ -840,12 +900,19 @@ void lvts_device_read_count_RC_N(void)
 		lvts_write_device(0x81030000, 0x0D, 0x10, i);
 	}
 
-	offset = sprintf(buffer, "[COUNT_RC_NOW] ");
-	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		offset += sprintf(buffer + offset, "%d:%d ",
-				i, g_count_rc_now[i]);
+	offset = snprintf(buffer, sizeof(buffer), "[COUNT_RC_NOW] ");
+	for (i = 0; i < L_TS_LVTS_NUM; i++) {
 
-	buffer[offset] = '\0';
+		if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+			lvts_printk("%s %d error\n", __func__, __LINE__);
+			break;
+		}
+
+		offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "%d:%d ",
+				i, g_count_rc_now[i]);
+	}
+
 	lvts_printk("%s\n", buffer);
 
 #if DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE
@@ -1096,54 +1163,47 @@ void lvts_thermal_cal_prepare(void)
 	lvts_printk("[lvts_call] 20: 0x%x,  21: 0x%x\n", temp[20], temp[21]);
 
 
-	g_golden_temp = ((temp[0] & _BITMASK_(31:24)) >> 24);//0x11C1_01B4
-	g_count_r[0] = (temp[1] & _BITMASK_(23:0)); //0x11C1_01C4,LVTS1_0
-	g_count_r[1] = (temp[2] & _BITMASK_(23:0)); //0x11C1_01C8,LVTS1_1
-	g_count_r[2] = (temp[3] & _BITMASK_(23:0)); //0x11C1_01CC,LVTS2_0
-	g_count_r[3] = (temp[4] & _BITMASK_(23:0)); //0x11C1_01D0,LVTS2_1
-	g_count_r[4] = (temp[5] & _BITMASK_(23:0)); //0x11C1_01D4,LVTS3_0
-	g_count_r[5] = (temp[6] & _BITMASK_(23:0)); //0x11C1_01D8,LVTS3_1
-	g_count_r[6] = (temp[7] & _BITMASK_(23:0)); //0x11C1_01DC,LVTS3_2
-	g_count_r[7] = (temp[8] & _BITMASK_(23:0)); //0x11C1_01E0,LVTS3_3
-	g_count_r[8] = (temp[9] & _BITMASK_(23:0)); //0x11C1_01E4,LVTS4_0
-	g_count_r[9] = (temp[10] & _BITMASK_(23:0)); //0x11C1_01E8,LVTS4_1
-	g_count_r[10] = (temp[11] & _BITMASK_(23:0));//0x11C1_01EC,LVTS5_0
-	g_count_r[11] = (temp[12] & _BITMASK_(23:0));//0x11C1_01F0,LVTS5_1
-	g_count_r[12] = (temp[13] & _BITMASK_(23:0));//0x11C1_01F4,LVTS6_0
-	g_count_r[13] = (temp[14] & _BITMASK_(23:0));//0x11C1_01F8,LVTS6_1
-	g_count_r[14] = (temp[15] & _BITMASK_(23:0));//0x11C1_01FC,LVTS7_0
-	g_count_r[15] = (temp[16] & _BITMASK_(23:0));//0x11C1_0200,LVTS7_1
-	g_count_r[16] = (temp[17] & _BITMASK_(23:0));//0x11C1_0204,LVTS7_2
+	g_golden_temp = ((temp[0] & _BITMASK_(31:24)) >> 24);
+	g_count_r[0] = (temp[1] & _BITMASK_(23:0));
+	g_count_r[1] = (temp[2] & _BITMASK_(23:0));
+	g_count_r[2] = (temp[3] & _BITMASK_(23:0));
+	g_count_r[3] = (temp[4] & _BITMASK_(23:0));
+	g_count_r[4] = (temp[5] & _BITMASK_(23:0));
+	g_count_r[5] = (temp[6] & _BITMASK_(23:0));
+	g_count_r[6] = (temp[7] & _BITMASK_(23:0));
+	g_count_r[7] = (temp[8] & _BITMASK_(23:0));
+	g_count_r[8] = (temp[9] & _BITMASK_(23:0));
+	g_count_r[9] = (temp[10] & _BITMASK_(23:0));
+	g_count_r[10] = (temp[11] & _BITMASK_(23:0));
+	g_count_r[11] = (temp[12] & _BITMASK_(23:0));
+	g_count_r[12] = (temp[13] & _BITMASK_(23:0));
+	g_count_r[13] = (temp[14] & _BITMASK_(23:0));
+	g_count_r[14] = (temp[15] & _BITMASK_(23:0));
+	g_count_r[15] = (temp[16] & _BITMASK_(23:0));
+	g_count_r[16] = (temp[17] & _BITMASK_(23:0));
 
-	/*0214, LVTS1_0_COUNT_RC*/
 	g_count_rc[0] = (temp[21] & _BITMASK_(23:0));
 
-	/*01C4, 01C8, 01CC, LVTS2_0_COUNT_RC*/
 	g_count_rc[1] = ((temp[1] & _BITMASK_(31:24)) >> 8) +
 		((temp[2] & _BITMASK_(31:24)) >> 16)+
 		((temp[3] & _BITMASK_(31:24)) >> 24);
 
-	/*01D0, 01D4, 01D8, LVTS3_0_COUNT_RC*/
 	g_count_rc[2] = ((temp[4] & _BITMASK_(31:24)) >> 8) +
 		((temp[5] & _BITMASK_(31:24)) >> 16) +
 		((temp[6] & _BITMASK_(31:24)) >> 24);
 
-	/*01DC, 01E0, 01E4, LVTS4_0_COUNT_RC*/
 	g_count_rc[3] = ((temp[7] & _BITMASK_(31:24)) >> 8) +
 		((temp[8] & _BITMASK_(31:24)) >> 16) +
 		((temp[9] & _BITMASK_(31:24)) >> 24);
 
-	/*01E8, 01EC, 01F0, LVTS5_0_COUNT_RC*/
 	g_count_rc[4] = ((temp[10] & _BITMASK_(31:24)) >> 8) +
 		((temp[11] & _BITMASK_(31:24)) >> 16) +
 		((temp[12] & _BITMASK_(31:24)) >> 24);
 
-	/*01F4, 01F8, 01FC, LVTS6_0_COUNT_RC*/
 	g_count_rc[5] = ((temp[13] & _BITMASK_(31:24)) >> 8) +
 		((temp[14] & _BITMASK_(31:24)) >> 16) +
 		((temp[15] & _BITMASK_(31:24)) >> 24);
 
-	/*0200, 0204, 0208, LVTS7_0_COUNT_RC*/
 	g_count_rc[6] = ((temp[16] & _BITMASK_(31:24)) >> 8) +
 		((temp[17] & _BITMASK_(31:24)) >> 16) +
 		((temp[18] & _BITMASK_(31:24)) >> 24);
@@ -1175,12 +1235,20 @@ void lvts_thermal_cal_prepare(void)
 
 	lvts_printk("[lvts_cal] g_golden_temp = %d\n", g_golden_temp);
 
-	offset = sprintf(buffer, "[lvts_cal] num:g_count_r:g_count_rc ");
-	for (i = 0; i < L_TS_LVTS_NUM; i++)
-		offset += sprintf(buffer + offset, "%d:%d:%d ",
-				i, g_count_r[i], g_count_rc[i]);
+	offset = snprintf(buffer, sizeof(buffer),
+		"[lvts_cal] num:g_count_r:g_count_rc ");
+	for (i = 0; i < L_TS_LVTS_NUM; i++) {
 
-	buffer[offset] = '\0';
+		if (((sizeof(buffer) - offset) <= 0) || (offset < 0)) {
+			lvts_printk("%s %d error\n", __func__, __LINE__);
+			break;
+		}
+
+		offset += snprintf(buffer + offset,
+				(sizeof(buffer) - offset), "%d:%d:%d ",
+				i, g_count_r[i], g_count_rc[i]);
+	}
+
 	lvts_printk("%s\n", buffer);
 }
 
@@ -1237,8 +1305,8 @@ void lvts_ipi_send_sspm_thermal_suspend_resume(int is_suspend)
 static unsigned int lvts_temp_to_raw(int temp, enum lvts_sensor_enum ts_name)
 {
 	/* MSR_RAW = ((temp[i] - GOLDEN_TEMP/2 - b) * 16384) / a
-	 * a = -204.65
-	 * b =  204.65
+	 * a = -252.5
+	 * b =  252.5
 	 */
 	unsigned int msr_raw = 0;
 
@@ -1255,133 +1323,144 @@ static void lvts_interrupt_handler(int tc_num)
 	unsigned int  ret = 0;
 	int offset;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	ret = readl(offset + LVTSMONINTSTS_0);
-	/* Write back to clear interrupt status */
-	mt_reg_sync_writel(ret, offset + LVTSMONINTSTS_0);
+		ret = readl(offset + LVTSMONINTSTS_0);
+		/* Write back to clear interrupt status */
+		mt_reg_sync_writel(ret, offset + LVTSMONINTSTS_0);
 
-	lvts_printk("[Thermal IRQ] LVTS thermal controller %d, LVTSMONINTSTS=0x%08x\n",
-		tc_num, ret);
+		lvts_printk("[Thermal IRQ] LVTS thermal controller %d, LVTSMONINTSTS=0x%08x\n",
+			tc_num, ret);
 
-	if (ret & THERMAL_COLD_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_COLD_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_HOT_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_HOT_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_LOW_OFFSET_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_LOW_OFFSET_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: High offset interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: High offset interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_HOT2NORMAL_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_HOT2NORMAL_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_COLD_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_COLD_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_HOT_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_HOT_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_LOW_OFFSET_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_LOW_OFFSET_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: High offset interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: High offset interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_HOT2NORMAL_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_HOT2NORMAL_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_COLD_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_COLD_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_HOT_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_HOT_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_LOW_OFFSET_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_LOW_OFFSET_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: High offset interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: High offset interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_HOT2NORMAL_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_HOT2NORMAL_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_DEVICE_TIMEOUT_INTERRUPT)
-		lvts_dbg_printk("[Thermal IRQ]: Device access timeout triggered\n");
+		if (ret & THERMAL_DEVICE_TIMEOUT_INTERRUPT)
+			lvts_dbg_printk("[Thermal IRQ]: Device access timeout triggered\n");
 
-	if (ret & THERMAL_IMMEDIATE_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_IMMEDIATE_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_IMMEDIATE_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_IMMEDIATE_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_IMMEDIATE_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_IMMEDIATE_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_FILTER_INTERRUPT_0)
-		lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 0\n");
+		if (ret & THERMAL_FILTER_INTERRUPT_0)
+			lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 0\n");
 
-	if (ret & THERMAL_FILTER_INTERRUPT_1)
-		lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 1\n");
+		if (ret & THERMAL_FILTER_INTERRUPT_1)
+			lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 1\n");
 
-	if (ret & THERMAL_FILTER_INTERRUPT_2)
-		lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 2\n");
+		if (ret & THERMAL_FILTER_INTERRUPT_2)
+			lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 2\n");
 
-	if (ret & THERMAL_COLD_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 3\n");
+		if (ret & THERMAL_COLD_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: Cold interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_HOT_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 3\n");
+		if (ret & THERMAL_HOT_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: Hot interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_LOW_OFFSET_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 3\n");
+		if (ret & THERMAL_LOW_OFFSET_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: Low offset interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: High offset triggered, sensor point 3\n");
+		if (ret & THERMAL_HIGH_OFFSET_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: High offset triggered, sensor point 3\n");
 
-	if (ret & THERMAL_HOT2NORMAL_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 3\n");
+		if (ret & THERMAL_HOT2NORMAL_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: Hot to normal interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_IMMEDIATE_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 3\n");
+		if (ret & THERMAL_IMMEDIATE_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: Immediate sense interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_FILTER_INTERRUPT_3)
-		lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 3\n");
+		if (ret & THERMAL_FILTER_INTERRUPT_3)
+			lvts_dbg_printk("[Thermal IRQ]: Filter sense interrupt triggered, sensor point 3\n");
 
-	if (ret & THERMAL_PROTECTION_STAGE_1)
-		lvts_dbg_printk("[Thermal IRQ]: Thermal protection stage 1 interrupt triggered\n");
+		if (ret & THERMAL_PROTECTION_STAGE_1)
+			lvts_dbg_printk("[Thermal IRQ]: Thermal protection stage 1 interrupt triggered\n");
 
-	if (ret & THERMAL_PROTECTION_STAGE_2) {
-		lvts_dbg_printk("[Thermal IRQ]: Thermal protection stage 2 interrupt triggered\n");
+		if (ret & THERMAL_PROTECTION_STAGE_2) {
+			lvts_dbg_printk("[Thermal IRQ]: Thermal protection stage 2 interrupt triggered\n");
 #if MTK_TS_CPU_RT
-		wake_up_process(ktp_thread_handle);
+			wake_up_process(ktp_thread_handle);
 #endif
-	}
+		}
 
-	if (ret & THERMAL_PROTECTION_STAGE_3)
-		lvts_printk("[Thermal IRQ]: Thermal protection stage 3 interrupt triggered, Thermal HW reboot\n");
+		if (ret & THERMAL_PROTECTION_STAGE_3)
+			lvts_printk("[Thermal IRQ]: Thermal protection stage 3 interrupt triggered, Thermal HW reboot\n");
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
 }
 
 irqreturn_t lvts_tscpu_thermal_all_tc_interrupt_handler(int irq, void *dev_id)
 {
-	unsigned int ret = 0, i, mask = 1;
+	unsigned int ret = 0, ret_mcu = 0, i, mask = 1;
 
-	ret = readl(THERMINTST);
-	ret = ret & 0x7F;
+	ret = readl(THERMINTST +
+		lvts_tscpu_g_tc[LVTS_AP_CONTROLLER0].tc_offset);
+	ret = ret & 0x1E;
+	ret_mcu = readl(THERMINTST +
+		lvts_tscpu_g_tc[LVTS_MCU_CONTROLLER0].tc_offset);
+	ret_mcu = ret_mcu & 0x1E;
+
 	/* MSB LSB NAME
-	 * 6   6   LVTSINT3
-	 * 5   5   LVTSINT2
-	 * 4   4   LVTSINT1
-	 * 3   3   LVTSINT0
-	 * 2   2   THERMINT2
-	 * 1   1   THERMINT1
+	 * 4   4   LVTSINT3
+	 * 3   3   LVTSINT2
+	 * 2   2   LVTSINT1
+	 * 1   1   LVTSINT0
 	 * 0   0   THERMINT0
 	 */
+	lvts_printk("%s : THERMINTST = 0x%x THERMINTST_MCU = 0x%x\n",
+		__func__, ret, ret_mcu);
 
-	lvts_printk("%s : THERMINTST = 0x%x\n", __func__, ret);
+	ret = ((ret_mcu >> 1) << LVTS_MCU_CONTROLLER0) |
+		((ret >> 1) << LVTS_AP_CONTROLLER0);
+
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		mask = 1 << i;
 
@@ -1398,42 +1477,49 @@ static void lvts_configure_polling_speed_and_filter(int tc_num)
 
 	lvts_dbg_printk("%s\n", __func__);
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	lvtsMonCtl1 = (((lvts_tscpu_g_tc[tc_num].tc_speed.group_interval_delay
+		lvtsMonCtl1 =
+		(((lvts_tscpu_g_tc[tc_num].tc_speed.group_interval_delay
 			<< 20) & _BITMASK_(29:20)) |
 			(lvts_tscpu_g_tc[tc_num].tc_speed.period_unit &
 			_BITMASK_(9:0)));
-	lvtsMonCtl2 = (((lvts_tscpu_g_tc[tc_num].tc_speed.filter_interval_delay
+		lvtsMonCtl2 =
+		(((lvts_tscpu_g_tc[tc_num].tc_speed.filter_interval_delay
 			<< 16) & _BITMASK_(25:16)) |
 			(lvts_tscpu_g_tc[tc_num].tc_speed.sensor_interval_delay
 			& _BITMASK_(9:0)));
-	/*
-	 * Calculating period unit in Module clock x 256, and the Module clock
-	 * will be changed to 26M when Infrasys enters Sleep mode.
-	 */
+		/*
+		 * Calculating period unit in Module clock x 256, and the
+		 * Module clock will be changed to 26M when Infrasys
+		 * enters Sleep mode.
+		 */
 
-	/*
-	 * bus clock 66M counting unit is
-	 *			12 * 1/66M * 256 = 12 * 3.879us = 46.545 us
-	 */
-	mt_reg_sync_writel_print(lvtsMonCtl1, offset + LVTSMONCTL1_0);
-	/*
-	 *filt interval is 1 * 46.545us = 46.545us,
-	 *sen interval is 429 * 46.545us = 19.968ms
-	 */
-	mt_reg_sync_writel_print(lvtsMonCtl2, offset + LVTSMONCTL2_0);
+		/*
+		 * bus clock 66M counting unit is
+		 *			12 * 1/66M * 256 = 12 * 3.879us = 46.545 us
+		 */
+		mt_reg_sync_writel_print(lvtsMonCtl1, offset + LVTSMONCTL1_0);
+		/*
+		 *filt interval is 1 * 46.545us = 46.545us,
+		 *sen interval is 429 * 46.545us = 19.968ms
+		 */
+		mt_reg_sync_writel_print(lvtsMonCtl2, offset + LVTSMONCTL2_0);
 
-	/* temperature sampling control, 2 out of 4 samples */
-	mt_reg_sync_writel_print(0x00000492, offset + LVTSMSRCTL0_0);
+		/* temperature sampling control, 2 out of 4 samples */
+		mt_reg_sync_writel_print(0x00000492, offset + LVTSMSRCTL0_0);
 
-	udelay(1);
-	lvts_dbg_printk(
-		"%s %d, LVTSMONCTL1_0= 0x%x,LVTSMONCTL2_0= 0x%x,LVTSMSRCTL0_0= 0x%x\n",
-		__func__, tc_num,
-		readl(LVTSMONCTL1_0 + offset),
-		readl(LVTSMONCTL2_0 + offset),
-		readl(LVTSMSRCTL0_0 + offset));
+		udelay(1);
+		lvts_dbg_printk(
+			"%s %d, LVTSMONCTL1_0= 0x%x,LVTSMONCTL2_0= 0x%x,LVTSMSRCTL0_0= 0x%x\n",
+			__func__, tc_num,
+			readl(LVTSMONCTL1_0 + offset),
+			readl(LVTSMONCTL2_0 + offset),
+			readl(LVTSMSRCTL0_0 + offset));
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
 }
 
 /*
@@ -1445,64 +1531,73 @@ int temperature, int temperature2, int tc_num)
 {
 	int temp = 0, raw_high, config, offset;
 #if LVTS_USE_DOMINATOR_SENSING_POINT
-	int d_index;
+	unsigned int d_index;
 	enum lvts_sensor_enum ts_name;
 #endif
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
-
-	lvts_dbg_printk("%s t1=%d t2=%d\n",
-				__func__, temperature, temperature2);
+		lvts_dbg_printk("%s t1=%d t2=%d\n",
+					__func__, temperature, temperature2);
 
 #if LVTS_USE_DOMINATOR_SENSING_POINT
-	if (lvts_tscpu_g_tc[tc_num].dominator_ts_idx <
-		lvts_tscpu_g_tc[tc_num].ts_number){
-		d_index = lvts_tscpu_g_tc[tc_num].dominator_ts_idx;
-	} else {
-		lvts_printk("Error: LVTS TC%d, dominator_ts_idx = %d should smaller than ts_number = %d\n",
+		if (lvts_tscpu_g_tc[tc_num].dominator_ts_idx <
+			lvts_tscpu_g_tc[tc_num].ts_number){
+			d_index = lvts_tscpu_g_tc[tc_num].dominator_ts_idx;
+		} else {
+			lvts_printk(
+			"Error: LVTS TC%d, dominator_ts_idx = %d should smaller than ts_number = %d\n",
 			tc_num,
 			lvts_tscpu_g_tc[tc_num].dominator_ts_idx,
 			lvts_tscpu_g_tc[tc_num].ts_number);
 
-		lvts_printk("Use the sensor point 0 as the dominated sensor\n");
-		d_index = 0;
-	}
+				lvts_printk(
+			"Use the sensor point 0 as the dominated sensor\n");
+				d_index = 0;
+		}
 
-	ts_name = lvts_tscpu_g_tc[tc_num].ts[d_index];
+		ts_name = lvts_tscpu_g_tc[tc_num].ts[d_index];
 
-	lvts_dbg_printk("%s # in tc%d , the dominator ts_name is %d\n",
+		lvts_dbg_printk("%s # in tc%d , the dominator ts_name is %d\n",
 						__func__, tc_num, ts_name);
 
-	/* temperature to trigger SPM state2 */
-	raw_high = lvts_temp_to_raw(temperature, ts_name);
+		/* temperature to trigger SPM state2 */
+		raw_high = lvts_temp_to_raw(temperature, ts_name);
 #else
-	raw_high = lvts_temp_to_raw(temperature, 0);
+		raw_high = lvts_temp_to_raw(temperature, 0);
 #endif
 
 #ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
-	temp = readl(offset + LVTSMONINT_0);
-	/* disable trigger SPM interrupt */
-	mt_reg_sync_writel_print(temp & 0x00000000, offset + LVTSMONINT_0);
+		temp = readl(offset + LVTSMONINT_0);
+		/* disable trigger SPM interrupt */
+			mt_reg_sync_writel_print(temp & 0x00000000,
+				offset + LVTSMONINT_0);
 #endif
 
-	temp = readl(offset + LVTSPROTCTL_0) & ~(0xF << 16);
+		temp = readl(offset + LVTSPROTCTL_0) & ~(0xF << 16);
 #if LVTS_USE_DOMINATOR_SENSING_POINT
-	/* Select protection sensor */
-	config = ((d_index << 2) + 0x2) << 16;
-	mt_reg_sync_writel_print(temp | config, offset + LVTSPROTCTL_0);
+		/* Select protection sensor */
+		config = ((d_index << 2) + 0x2) << 16;
+			mt_reg_sync_writel_print(temp | config,
+				offset + LVTSPROTCTL_0);
 #else
-	/* Maximum of 4 sensing points */
-	config = (0x1 << 16);
-	mt_reg_sync_writel_print(temp | config, offset + LVTSPROTCTL_0);
+		/* Maximum of 4 sensing points */
+		config = (0x1 << 16);
+			mt_reg_sync_writel_print(temp | config,
+				offset + LVTSPROTCTL_0);
 #endif
 
-	/* set hot to HOT wakeup event */
-	mt_reg_sync_writel_print(raw_high, offset + LVTSPROTTC_0);
+		/* set hot to HOT wakeup event */
+		mt_reg_sync_writel_print(raw_high, offset + LVTSPROTTC_0);
 
 #ifndef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
-	/* enable trigger Hot SPM interrupt */
-	mt_reg_sync_writel_print(temp | 0x80000000, offset + LVTSMONINT_0);
+		/* enable trigger Hot SPM interrupt */
+			mt_reg_sync_writel_print(temp | 0x80000000,
+				offset + LVTSMONINT_0);
 #endif
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
 }
 
 static void dump_lvts_device(int tc_num, __u32 offset)
@@ -1656,48 +1751,58 @@ static void lvts_tscpu_thermal_read_tc_temp(
 {
 	__u32 offset;
 
-	offset = lvts_tscpu_g_tc[tc_num].tc_offset;
+	if (tc_num < ARRAY_SIZE(lvts_tscpu_g_tc) && (tc_num >= 0)) {
+		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
-	if (lvts_rawdata_debug_log)
-		dump_lvts_device(tc_num, offset);
+		if (lvts_rawdata_debug_log)
+			dump_lvts_device(tc_num, offset);
 
-	switch (order) {
-	case 0:
-		tscpu_ts_lvts_temp[type] =
+		switch (order) {
+		case 0:
+			tscpu_ts_lvts_temp[type] =
 			lvts_read_tc_raw_and_temp((offset + LVTSMSR0_0), type);
-		lvts_dbg_printk("%s order %d tc_num %d type %d temp %d\n",
+			lvts_dbg_printk(
+				"%s order %d tc_num %d type %d temp %d\n",
 				__func__, order, tc_num, type,
 				tscpu_ts_lvts_temp[type]);
-		break;
-	case 1:
-		tscpu_ts_lvts_temp[type] =
+			break;
+		case 1:
+			tscpu_ts_lvts_temp[type] =
 			lvts_read_tc_raw_and_temp((offset + LVTSMSR1_0), type);
-		lvts_dbg_printk("%s order %d tc_num %d type %d temp %d\n",
+			lvts_dbg_printk(
+				"%s order %d tc_num %d type %d temp %d\n",
 				__func__, order, tc_num, type,
 				tscpu_ts_lvts_temp[type]);
-		break;
-	case 2:
-		tscpu_ts_lvts_temp[type] =
+			break;
+		case 2:
+			tscpu_ts_lvts_temp[type] =
 			lvts_read_tc_raw_and_temp((offset + LVTSMSR2_0), type);
-		lvts_dbg_printk("%s order %d tc_num %d type %d temp %d\n",
+			lvts_dbg_printk(
+				"%s order %d tc_num %d type %d temp %d\n",
 				__func__, order, tc_num, type,
 				tscpu_ts_lvts_temp[type]);
-		break;
-	case 3:
-		tscpu_ts_lvts_temp[type] =
+			break;
+		case 3:
+			tscpu_ts_lvts_temp[type] =
 			lvts_read_tc_raw_and_temp((offset + LVTSMSR3_0), type);
-		lvts_dbg_printk("%s order %d tc_num %d type %d temp %d\n",
+			lvts_dbg_printk(
+				"%s order %d tc_num %d type %d temp %d\n",
 				__func__, order, tc_num, type,
 				tscpu_ts_lvts_temp[type]);
-		break;
-	default:
-		tscpu_ts_lvts_temp[type] =
+			break;
+		default:
+			tscpu_ts_lvts_temp[type] =
 			lvts_read_tc_raw_and_temp((offset + LVTSMSR0_0), type);
-		lvts_dbg_printk("%s order %d tc_num %d type %d temp %d\n",
+			lvts_dbg_printk(
+				"%s order %d tc_num %d type %d temp %d\n",
 				__func__, order, tc_num, type,
 				tscpu_ts_lvts_temp[type]);
-		break;
-	}
+			break;
+		}
+	} else
+		pr_notice("Error: %d wrong tc_num value: %d\n",
+			__LINE__, tc_num);
+
 }
 
 void read_all_tc_lvts_temperature(void)

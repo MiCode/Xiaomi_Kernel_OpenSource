@@ -84,6 +84,9 @@
 #define swpm_clr_status(type)  (swpm_status &= ~(1 << type))
 #define for_each_pwr_mtr(i)    for (i = 0; i < NR_POWER_METER; i++)
 
+/* SWPM command dispatcher with user bits */
+#define SWPM_CODE_USER_BIT (16)
+
 struct swpm_entry {
 	const char *name;
 	const struct file_operations *fops;
@@ -104,6 +107,12 @@ enum swpm_num_type {
 enum swpm_cmd_type {
 	SYNC_DATA,
 	SET_INTERVAL,
+	SET_PMU,
+};
+
+struct swpm_core_internal_ops {
+	void (*const cmd)(unsigned int type,
+			  unsigned int val);
 };
 
 /* swpm extension internal ops structure */
@@ -136,6 +145,7 @@ extern struct mutex swpm_mutex;
 extern unsigned int swpm_log_mask;
 extern struct timer_list swpm_timer;
 
+extern int swpm_core_ops_register(struct swpm_core_internal_ops *ops);
 extern int swpm_append_procfs(struct swpm_entry *p);
 extern int swpm_create_procfs(void);
 extern void swpm_update_periodic_timer(void);

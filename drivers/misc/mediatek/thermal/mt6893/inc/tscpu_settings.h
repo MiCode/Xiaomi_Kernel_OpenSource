@@ -132,7 +132,7 @@
 #endif
 
 /* EARA_Thermal power budget allocation support */
-//#define EARA_THERMAL_SUPPORT
+#define EARA_THERMAL_SUPPORT
 
 #define TS_FILL(n) {#n, n}
 /*#define TS_LEN_ARRAY(name) (sizeof(name)/sizeof(name[0]))*/
@@ -149,7 +149,7 @@
 
 #if CFG_THERM_LVTS
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
-#define CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT (1)
+//#define CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT (0)
 #define DYNAMIC_REBOOT_TRIP_TEMP (35000)
 #define DYNAMIC_REBOOT_EXIT_TEMP (30000)
 #else

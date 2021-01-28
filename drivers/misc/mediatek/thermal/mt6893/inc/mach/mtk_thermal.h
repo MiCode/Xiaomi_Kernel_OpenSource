@@ -10,8 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
-#ifndef __MT6885_THERMAL_H__
-#define __MT6885_THERMAL_H__
+#ifndef __MT6893_THERMAL_H__
+#define __MT6893_THERMAL_H__
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -45,11 +45,11 @@ struct mt_gpufreq_power_table_info {
 #define CFG_THERM_LVTS				(1)
 #define CFG_THERM_NO_AUXADC			(1)
 
-
 #if CFG_THERM_LVTS
 #define	CFG_LVTS_DOMINATOR			(1)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(1) /* 1, 2, 4, 8, 16 */
 #define	LVTS_DEVICE_AUTO_RCK			(0)
+#define	CFG_LVTS_MCU_INTERRUPT_HANDLER		(1)
 /*Use bootup "count RC", no need to get "count RC" again after resume*/
 #define CFG_THERM_USE_BOOTUP_COUNT_RC
 #else
@@ -158,30 +158,25 @@ extern void lvts_ipi_send_sspm_thermal_suspend_resume(int is_suspend);
 
 /* Five thermal sensors. */
 enum mtk_thermal_sensor_cpu_id_met {
-	MTK_THERMAL_SENSOR_TS0 = 0,
-	MTK_THERMAL_SENSOR_TS1,
-	MTK_THERMAL_SENSOR_TS2,
-	/* No TSMCU3 */
-	MTK_THERMAL_SENSOR_TS4,
-	MTK_THERMAL_SENSOR_TS5,
-	MTK_THERMAL_SENSOR_TS6,
-	MTK_THERMAL_SENSOR_TS7,
-	MTK_THERMAL_SENSOR_TS8,
-	MTK_THERMAL_SENSOR_TS9,
 #if CFG_THERM_LVTS
 	MTK_THERMAL_SENSOR_LVTS1_0,
 	MTK_THERMAL_SENSOR_LVTS1_1,
 	MTK_THERMAL_SENSOR_LVTS2_0,
 	MTK_THERMAL_SENSOR_LVTS2_1,
-	MTK_THERMAL_SENSOR_LVTS2_2,
 	MTK_THERMAL_SENSOR_LVTS3_0,
 	MTK_THERMAL_SENSOR_LVTS3_1,
+	MTK_THERMAL_SENSOR_LVTS3_2,
+	MTK_THERMAL_SENSOR_LVTS3_3,
 	MTK_THERMAL_SENSOR_LVTS4_0,
-	/* No LVTS4_1 */
-	MTK_THERMAL_SENSOR_LVTS9_0,
+	MTK_THERMAL_SENSOR_LVTS4_1,
+	MTK_THERMAL_SENSOR_LVTS5_0,
+	MTK_THERMAL_SENSOR_LVTS5_1,
+	MTK_THERMAL_SENSOR_LVTS6_0,
+	MTK_THERMAL_SENSOR_LVTS6_1,
+	MTK_THERMAL_SENSOR_LVTS7_0,
+	MTK_THERMAL_SENSOR_LVTS7_1,
+	MTK_THERMAL_SENSOR_LVTS7_2,
 #endif
-	MTK_THERMAL_SENSOR_TSABB,
-
 	ATM_CPU_LIMIT,
 	ATM_GPU_LIMIT,
 
@@ -216,12 +211,19 @@ extern int get_immediate_tslvts1_0_wrap(void);
 extern int get_immediate_tslvts1_1_wrap(void);
 extern int get_immediate_tslvts2_0_wrap(void);
 extern int get_immediate_tslvts2_1_wrap(void);
-extern int get_immediate_tslvts2_2_wrap(void);
 extern int get_immediate_tslvts3_0_wrap(void);
 extern int get_immediate_tslvts3_1_wrap(void);
+extern int get_immediate_tslvts3_2_wrap(void);
+extern int get_immediate_tslvts3_3_wrap(void);
 extern int get_immediate_tslvts4_0_wrap(void);
-/* No LVTS4_1 */
-extern int get_immediate_tslvts9_0_wrap(void);
+extern int get_immediate_tslvts4_1_wrap(void);
+extern int get_immediate_tslvts5_0_wrap(void);
+extern int get_immediate_tslvts5_1_wrap(void);
+extern int get_immediate_tslvts6_0_wrap(void);
+extern int get_immediate_tslvts6_1_wrap(void);
+extern int get_immediate_tslvts7_0_wrap(void);
+extern int get_immediate_tslvts7_1_wrap(void);
+extern int get_immediate_tslvts7_2_wrap(void);
 #endif
 
 extern int get_immediate_tsabb_wrap(void);
@@ -254,4 +256,4 @@ unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
 extern int mtk_cooler_is_abcct_unlimit(void);
 
 extern int tscpu_kernel_status(void);
-#endif /* __MT6785_THERMAL_H__ */
+#endif /* __MT6893_THERMAL_H__ */

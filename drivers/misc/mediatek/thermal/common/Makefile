@@ -13,6 +13,8 @@
 
 ifeq ($(CONFIG_MACH_MT6833),y)
 	PDIR = mt6833
+else ifeq ($(CONFIG_MACH_MT6893),y)
+	PDIR = mt6893
 else
 	PDIR = $(MTK_PLATFORM)
 endif
@@ -27,7 +29,8 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/fakeHeader/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v1/inc/
 ifeq ($(CONFIG_MTK_APUSYS_SUPPORT),y)
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
+ccflags-${CONFIG_MACH_MT6893} += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/mt6893/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(MTK_PLATFORM)
 else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/$(PDIR)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
