@@ -11,17 +11,4 @@
 # GNU General Public License for more details.
 #
 
-MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
-$(info *MTK_GPU_VERSION 2 = $(word 2,$(MTK_GPU_VERSION)))
-
-ifeq ($(word 2,$(MTK_GPU_VERSION)),doma)
-	MTK_PLATFORM = mt6765
-else ifeq ($(word 2,$(MTK_GPU_VERSION)),lorne)
-	MTK_PLATFORM = mt6779
-else ifeq ($(word 2,$(MTK_GPU_VERSION)),clark)
-	MTK_PLATFORM = mt6761
-else ifeq ($(word 2,$(MTK_GPU_VERSION)),auckland)
-	MTK_PLATFORM = mt6739
-endif
-
 obj-y += $(MTK_PLATFORM)/

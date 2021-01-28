@@ -11,7 +11,10 @@
 # GNU General Public License for more details.
 #
 
-MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
+MTK_GPU_VERSION := $(subst ",,$(CONFIG_MTK_GPU_VERSION))
+export MTK_GPU_VERSION
+MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+export MTK_PLATFORM
 
 ifeq ($(CONFIG_MTK_GPU_SUPPORT),y)
 	obj-y += ged/

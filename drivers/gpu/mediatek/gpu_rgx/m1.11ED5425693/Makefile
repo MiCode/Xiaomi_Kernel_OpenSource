@@ -1,18 +1,14 @@
 OPTIM = -Os
 
-MTK_GPU_VERSION = $(subst ",,$(CONFIG_MTK_GPU_VERSION))
+$(info [GPU_DEBUG] MTK_PLATFORM = $(MTK_PLATFORM))
 
-ifeq ($(word 2,$(MTK_GPU_VERSION)),doma)
-	MTK_PLATFORM = mt6765
+ifeq ($(MTK_PLATFORM),mt6765)
 	ccflags-y += -DCONFIG_MACH_MT6765
-else ifeq ($(word 2,$(MTK_GPU_VERSION)),lorne)
-	MTK_PLATFORM = mt6779
+else ifeq ($(MTK_PLATFORM),mt6779)
 	ccflags-y += -DCONFIG_MACH_MT6779
-else ifeq ($(word 2,$(MTK_GPU_VERSION)),clark)
-	MTK_PLATFORM = mt6761
+else ifeq ($(MTK_PLATFORM),mt6761)
 	ccflags-y += -DCONFIG_MACH_MT6761
-else ifeq ($(word 2,$(MTK_GPU_VERSION)),auckland)
-	MTK_PLATFORM = mt6739
+else ifeq ($(MTK_PLATFORM),mt6739)
 	ccflags-y += -DCONFIG_MACH_MT6739
 endif
 
@@ -255,7 +251,9 @@ ccflags-y += \
 	-I$(srctree)/drivers/gpu/mediatek/mt-plat \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include \
 	-I$(srctree)/drivers/gpu/mediatek/gpu_bm \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 
-
+# GPU mt-plat: drivers/gpu/mediatek/mt-plat
+# Legacy mt-plat: drivers/misc/mediatek/include/mt-plat
 
 obj-y += pvrsrvkm.o
