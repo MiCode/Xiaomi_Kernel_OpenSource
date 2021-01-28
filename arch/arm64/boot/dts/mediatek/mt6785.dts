@@ -19,6 +19,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/mmc/mt6785-msdc.h>
 #include <dt-bindings/pinctrl/mt6785-pinfunc.h>
+#include <dt-bindings/memory/mt6785-larb-port.h>
 #include <dt-bindings/gce/mt6785-gce.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/mfd/mt6359-irq.h>
@@ -856,6 +857,208 @@
 		reg = <0 0x1021c000 0 0x1000>;
 	};
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	iommu0: m4u@10220000 {
+		cell-index = <0>;
+		compatible = "mediatek,iommu_v0";
+		reg = <0 0x10220000 0 0x1000>;
+		mediatek,larbs = <&smi_larb0 &smi_larb1 &smi_larb2>,
+				<&smi_larb3 &smi_larb4 &smi_larb5>,
+				<&smi_larb6>;
+		interrupts = <GIC_SPI 187 IRQ_TYPE_LEVEL_LOW>;
+		#iommu-cells = <1>;
+	};
+
+	iommu1: m4u@1024f000 {
+		cell-index = <1>;
+		compatible = "mediatek,iommu_v0";
+		reg = <0 0x1024f000 0 0x1000>;
+		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
+		#iommu-cells = <1>;
+	};
+	ion: iommu {
+		compatible = "mediatek,ion";
+		iommus = <&iommu0 M4U_PORT_DISP_RDMA0>;
+	};
+
+	pseudo_m4u {
+		compatible = "mediatek,mt-pseudo_m4u";
+		iommus = <&iommu0 M4U_PORT_DISP_RDMA0>;
+	};
+
+	pseudo_m4u-larb0 {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <0>;
+		iommus = <&iommu0 M4U_PORT_DISP_POSTMASK0>,
+			<&iommu0 M4U_PORT_DISP_OVL0_HDR>,
+			<&iommu0 M4U_PORT_DISP_OVL1_HDR>,
+			<&iommu0 M4U_PORT_DISP_OVL0>,
+			<&iommu0 M4U_PORT_DISP_OVL1>,
+			<&iommu0 M4U_PORT_DISP_PVRIC0>,
+			<&iommu0 M4U_PORT_DISP_RDMA0>,
+			<&iommu0 M4U_PORT_DISP_WDMA0>,
+			<&iommu0 M4U_PORT_DISP_FAKE0>;
+		/* larb0 -MMSYS-9 */
+	};
+
+	pseudo_m4u-larb1 {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <1>;
+		iommus = <&iommu0 M4U_PORT_DISP_OVL0_2L_HDR>,
+			<&iommu0 M4U_PORT_DISP_OVL1_2L_HDR>,
+			<&iommu0 M4U_PORT_DISP_OVL0_2L>,
+			<&iommu0 M4U_PORT_DISP_OVL1_2L>,
+			<&iommu0 M4U_PORT_DISP_RDMA1>,
+			<&iommu0 M4U_PORT_MDP_PVRIC0>,
+			<&iommu0 M4U_PORT_MDP_PVRIC1>,
+			<&iommu0 M4U_PORT_MDP_RDMA0>,
+			<&iommu0 M4U_PORT_MDP_RDMA1>,
+			<&iommu0 M4U_PORT_MDP_WROT0_R>,
+			<&iommu0 M4U_PORT_MDP_WROT0_W>,
+			<&iommu0 M4U_PORT_MDP_WROT1_R>,
+			<&iommu0 M4U_PORT_MDP_WROT1_W>,
+			<&iommu0 M4U_PORT_DISP_FAKE1>;
+		/* larb1-MMSYS-14 */
+	};
+
+	pseudo_m4u-larb2 {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <2>;
+		iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_UFO_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_PP_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_PRED_RD_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_PRED_WR_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_PPWRAP_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_TILE_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_VLD_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_VLD2_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_AVC_MV_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_UFO_ENC_EXT>,
+			<&iommu0 M4U_PORT_HW_VDEC_RG_CTRL_DMA_EXT>;
+		/* larb2-VDEC-12 */
+	};
+
+	pseudo_m4u-larb3 {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <3>;
+		iommus = <&iommu0 M4U_PORT_VENC_RCPU>,
+			<&iommu0 M4U_PORT_VENC_REC>,
+			<&iommu0 M4U_PORT_VENC_BSDMA>,
+			<&iommu0 M4U_PORT_VENC_SV_COMV>,
+			<&iommu0 M4U_PORT_VENC_RD_COMV>,
+			<&iommu0 M4U_PORT_VENC_NBM_RDMA>,
+			<&iommu0 M4U_PORT_VENC_NBM_RDMA_LITE>,
+			<&iommu0 M4U_PORT_JPGENC_Y_RDMA>,
+			<&iommu0 M4U_PORT_JPGENC_C_RDMA>,
+			<&iommu0 M4U_PORT_JPGENC_Q_TABLE>,
+			<&iommu0 M4U_PORT_JPGENC_BSDMA>,
+			<&iommu0 M4U_PORT_JPGDEC_WDMA>,
+			<&iommu0 M4U_PORT_JPGDEC_BSDMA>,
+			<&iommu0 M4U_PORT_VENC_NBM_WDMA>,
+			<&iommu0 M4U_PORT_VENC_NBM_WDMA_LITE>,
+			<&iommu0 M4U_PORT_VENC_CUR_LUMA>,
+			<&iommu0 M4U_PORT_VENC_CUR_CHROMA>,
+			<&iommu0 M4U_PORT_VENC_REF_LUMA>,
+			<&iommu0 M4U_PORT_VENC_REF_CHROMA>;
+		/* larb3-VENC-19 */
+	};
+
+	pseudo_m4u-larb5 {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <5>;
+		iommus = <&iommu0 M4U_PORT_IMGI>,
+			<&iommu0 M4U_PORT_IMG2O>,
+			<&iommu0 M4U_PORT_IMG3O>,
+			<&iommu0 M4U_PORT_VIPI>,
+			<&iommu0 M4U_PORT_LCEI>,
+			<&iommu0 M4U_PORT_SMXI>,
+			<&iommu0 M4U_PORT_SMXO>,
+			<&iommu0 M4U_PORT_WPE0_RDMA1>,
+			<&iommu0 M4U_PORT_WPE0_RDMA0>,
+			<&iommu0 M4U_PORT_WPE0_WDMA>,
+			<&iommu0 M4U_PORT_FDVT_RDB>,
+			<&iommu0 M4U_PORT_FDVT_WRA>,
+			<&iommu0 M4U_PORT_FDVT_RDA>,
+			<&iommu0 M4U_PORT_WPE1_RDMA0>,
+			<&iommu0 M4U_PORT_WPE1_RDMA1>,
+			<&iommu0 M4U_PORT_WPE1_WDMA>,
+			<&iommu0 M4U_PORT_DPE_RDMA>,
+			<&iommu0 M4U_PORT_DPE_WDMA>,
+			<&iommu0 M4U_PORT_MFB_RDMA0>,
+			<&iommu0 M4U_PORT_MFB_RDMA1>,
+			<&iommu0 M4U_PORT_MFB_WDMA>,
+			<&iommu0 M4U_PORT_RSC_RDMA0>,
+			<&iommu0 M4U_PORT_RSC_WDMA>,
+			<&iommu0 M4U_PORT_OWE_RDMA>,
+			<&iommu0 M4U_PORT_OWE_WDMA>,
+			<&iommu0 M4U_PORT_FDVT_WRB>;
+		/* larb5-IMG-26 */
+	};
+
+	pseudo_m4u-larb6 {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <6>;
+		iommus = <&iommu0 M4U_PORT_IMGO>,
+			<&iommu0 M4U_PORT_RRZO>,
+			<&iommu0 M4U_PORT_AAO>,
+			<&iommu0 M4U_PORT_AFO>,
+			<&iommu0 M4U_PORT_LSCI_0>,
+			<&iommu0 M4U_PORT_LSCI_1>,
+			<&iommu0 M4U_PORT_PDO>,
+			<&iommu0 M4U_PORT_BPCI>,
+			<&iommu0 M4U_PORT_LSCO>,
+			<&iommu0 M4U_PORT_AFO_1>,
+			<&iommu0 M4U_PORT_PSO>,
+			<&iommu0 M4U_PORT_LSCI_2>,
+			<&iommu0 M4U_PORT_SOCO>,
+			<&iommu0 M4U_PORT_SOC1>,
+			<&iommu0 M4U_PORT_SOC2>,
+			<&iommu0 M4U_PORT_CCUI>,
+			<&iommu0 M4U_PORT_CCUO>,
+			<&iommu0 M4U_PORT_UFEO>,
+			<&iommu0 M4U_PORT_RAWI_A>,
+			<&iommu0 M4U_PORT_RSSO_A>,
+			<&iommu0 M4U_PORT_CCUG>,
+			<&iommu0 M4U_PORT_PDI>,
+			<&iommu0 M4U_PORT_FLKO>,
+			<&iommu0 M4U_PORT_LMVO>,
+			<&iommu0 M4U_PORT_UFGO>,
+			<&iommu0 M4U_PORT_SPARE>,
+			<&iommu0 M4U_PORT_SPARE_2>,
+			<&iommu0 M4U_PORT_SPARE_3>,
+			<&iommu0 M4U_PORT_SPARE_4>,
+			<&iommu0 M4U_PORT_SPARE_5>,
+			<&iommu0 FAKE_ENGINE>;
+		/* larb6-IMG-31 */
+	};
+
+	pseudo_m4u-ccu {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <M4U_LARB_CCU>;
+		iommus = <&iommu0 M4U_PORT_CCU0>,
+			<&iommu0 M4U_PORT_CCU1>;
+	};
+
+	pseudo_m4u-apu {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <M4U_LARB_APU>;
+		iommus = <&iommu1 M4U_PORT_VPU>;
+	};
+
+	pseudo_m4u-apu-data {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <APU_PSEUDO_LARBID_DATA>;
+		iommus = <&iommu1 M4U_PORT_VPU_DATA>;
+	};
+
+	pseudo_m4u-misc {
+		compatible = "mediatek,mt-pseudo_m4u-port";
+		mediatek,larbid = <MISC_PSEUDO_LARBID_DISP>;
+		iommus = <&iommu0 M4U_PORT_DISP_FAKE0>;
+	};
+
+#elif CONFIG_MTK_M4U
 	m4u@10220000 {
 		cell-index = <0>;
 		compatible = "mediatek,mm_m4u";
@@ -877,7 +1080,7 @@
 		reg = <0 0x1024f000 0 0x1000>;
 		interrupts = <GIC_SPI 192 IRQ_TYPE_LEVEL_LOW>;
 	};
-
+#endif
 	scp_cfgreg@105c0000 {
 		compatible = "mediatek,scp_cfgreg";
 		reg = <0 0x105c0000 0 0x1000>;
@@ -1158,6 +1361,7 @@
 		clock-names = "cqdma";
 	};
 
+#if 0
 	mm_iommu@10220000 {
 		compatible = "mediatek,mm_iommu";
 		reg = <0 0x10220000 0 0x1000>;
@@ -1217,7 +1421,7 @@
 		reg = <0 0x10253000 0 0x1000>;
 		interrupts = <GIC_SPI 196 IRQ_TYPE_LEVEL_LOW>;
 	};
-
+#endif
 	mm_vpu_m0_smi_common@10254000 {
 		compatible = "mediatek,mm_vpu_m0_smi_common";
 		reg = <0 0x10254000 0 0x1000>;
@@ -3102,6 +3306,9 @@
 		compatible = "mediatek,vdec_gcon", "syscon";
 		reg = <0 0x16000000 0 0x1000>,		/* VDEC_SYS */
 			 <0 0x16025000 0 0x1000>;		/* VDEC_MISC */
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>;
+#endif
 		mediatek,larb = <&smi_larb1>;
 		interrupts = <GIC_SPI 329 IRQ_TYPE_LEVEL_LOW>;
 		mediatek,vcu = <&vcu>;
@@ -3208,7 +3415,7 @@
 		reg = <0 0x1602c000 0 0x1000>;
 	};
 
-	smi_larb2@16010000 {
+	smi_larb2: smi_larb2@16010000 {
 		compatible = "mediatek,smi_larb2", "mediatek,smi_larb";
 		reg = <0 0x16010000 0 0x1000>;
 		interrupts = <GIC_SPI 330 IRQ_TYPE_LEVEL_LOW>;
@@ -3221,6 +3428,9 @@
 		compatible = "mediatek,venc_gcon", "syscon";
 		reg = <0 0x17000000 0 0x1000>,
 			<0 0x17020000 0 0x1000>;
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>;
+#endif
 		mediatek,larb = <&smi_larb4>;
 		interrupts = <GIC_SPI 270 IRQ_TYPE_LEVEL_LOW>;
 		mediatek,vcu = <&vcu>;
@@ -3246,7 +3456,7 @@
 		#clock-cells = <1>;
 	};
 
-	smi_larb3@17010000 {
+	smi_larb3: smi_larb3@17010000 {
 		compatible = "mediatek,smi_larb3", "mediatek,smi_larb";
 		reg = <0 0x17010000 0 0x1000>;
 		interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_LOW>;
@@ -3319,7 +3529,7 @@
 		mediatek,smi-id = <4>;
 	};
 
-	smi_larb5@15021000 {
+	smi_larb5: smi_larb5@15021000 {
 		compatible = "mediatek,smi_larb5", "mediatek,smi_larb";
 		reg = <0 0x15021000 0 0x1000>;
 		interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_LOW>;
@@ -3451,22 +3661,22 @@
 		reg = <0 0x1502e000 0 0x1000>;
 	};
 
-	smi_larb8@15030000 {
+	smi_larb8: smi_larb8@15030000 {
 		compatible = "mediatek,smi_larb8";
 		reg = <0 0x15030000 0 0x1000>;
 	};
 
-	smi_larb9@15031000 {
+	smi_larb9: smi_larb9@15031000 {
 		compatible = "mediatek,smi_larb9";
 		reg = <0 0x15031000 0 0x1000>;
 	};
 
-	smi_larb10@15032000 {
+	smi_larb10: smi_larb10@15032000 {
 		compatible = "mediatek,smi_larb10";
 		reg = <0 0x15032000 0 0x1000>;
 	};
 
-	smi_larb11@15033000 {
+	smi_larb11: smi_larb11@15033000 {
 		compatible = "mediatek,smi_larb11";
 		reg = <0 0x15033000 0 0x1000>;
 	};
@@ -3663,7 +3873,7 @@
 				"CAMSYS_CAMSV1_CGPDN";
 	};
 
-	smi_larb6@1a001000 {
+	smi_larb6: smi_larb6@1a001000 {
 		compatible = "mediatek,smi_larb6", "mediatek,smi_larb";
 		reg = <0 0x1a001000 0 0x1000>;
 		interrupts = <GIC_SPI 272 IRQ_TYPE_LEVEL_LOW>;
@@ -3672,7 +3882,7 @@
 		mediatek,smi-id = <6>;
 	};
 
-	smi_larb7@1a002000 {
+	smi_larb7: smi_larb7@1a002000 {
 		compatible = "mediatek,smi_larb7", "mediatek,smi_larb";
 		reg = <0 0x1a002000 0 0x1000>;
 		interrupts = <GIC_SPI 287 IRQ_TYPE_LEVEL_LOW>;
@@ -3871,6 +4081,9 @@
 			 <&mmsys_config MMSYS_GALS_CCU2MM>;
 		clock-names = "CCU_CLK_CAM_CCU",
 			      "CCU_CLK_MMSYS_CCU";
+#ifdef CONFIG_MTK_IOMMU_V2
+		iommus = <&iommu0 M4U_PORT_CCUG>;
+#endif
 	};
 
 	/* ATF logger SW IRQ number 120  = 32 + 88 */
@@ -4194,6 +4407,7 @@
 
 	dispsys {
 		compatible = "mediatek,dispsys";
+		mediatek,larb = <&smi_larb0 &smi_larb1>;
 
 		clocks = <&scpsys SCP_SYS_DIS>,
 			<&mmsys_config MMSYS_SMI_COMMON>,
