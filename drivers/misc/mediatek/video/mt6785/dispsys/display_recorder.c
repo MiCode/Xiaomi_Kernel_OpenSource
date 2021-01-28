@@ -1358,7 +1358,7 @@ char *get_dprec_status_ptr(int buffer_idx)
 
 static char *_logger_pr_type_spy(enum DPREC_LOGGER_PR_TYPE type)
 {
-	if (type >= DPREC_LOGGER_PR_NUM)
+	if ((unsigned int)type >= DPREC_LOGGER_PR_NUM)
 		return "unknown";
 	else
 		return dprec_logger_buffer[type].name;
