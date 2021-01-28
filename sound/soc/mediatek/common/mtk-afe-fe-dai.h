@@ -12,6 +12,7 @@
 struct snd_soc_dai_ops;
 struct mtk_base_afe;
 struct mtk_base_afe_memif;
+struct mtk_base_irq_data;
 
 int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai);
@@ -55,5 +56,8 @@ int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 /* using 3 way samephore to ensure ap/dsp sync */
 int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id);
 int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id);
+int mtk_dsp_irq_set_enable(struct mtk_base_afe *afe, const struct mtk_base_irq_data *irq_data);
+int mtk_dsp_irq_set_disable(struct mtk_base_afe *afe, const struct mtk_base_irq_data *irq_data);
 #endif
+
 #endif

@@ -185,9 +185,7 @@ int mt6779_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* enable interrupt */
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U))
-			regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-					   1 << irq_data->irq_en_shift,
-					   1 << irq_data->irq_en_shift);
+			mtk_dsp_irq_set_enable(afe, irq_data);
 #else
 		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 				   1 << irq_data->irq_en_shift,
@@ -230,9 +228,7 @@ int mt6779_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		/* disable interrupt */
 #if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
 		if (runtime->stop_threshold != ~(0U))
-			regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
-					   1 << irq_data->irq_en_shift,
-					   0 << irq_data->irq_en_shift);
+			mtk_dsp_irq_set_disable(afe, irq_data);
 #else
 		regmap_update_bits(afe->regmap, irq_data->irq_en_reg,
 				   1 << irq_data->irq_en_shift,
