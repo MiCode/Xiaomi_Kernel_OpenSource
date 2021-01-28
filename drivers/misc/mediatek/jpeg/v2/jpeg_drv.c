@@ -1173,7 +1173,7 @@ static int jpeg_enc_ioctl(unsigned int cmd, unsigned long arg,
 				JPEG_MSG("[JPGDRV]Enc Wait done\n");
 			else if (ret == 0)
 				JPEG_MSG("[JPGDRV]Enc Wait timeout\n");
-			} while (ret < 0);
+			} while (0);
 		} else
 			JPEG_MSG("[JPGDRV]Enc already done !!\n");
 
