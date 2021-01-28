@@ -391,6 +391,8 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 {
 	struct ccci_fsm_event *event, *next;
 	struct ccci_fsm_command *ee_cmd = NULL;
+	struct port_t *port = NULL;
+	struct sk_buff *skb = NULL;
 	unsigned long flags;
 
 	/* 1. state sanity check */
@@ -442,6 +444,14 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	/* 6. always end in stopped state */
 success:
 	needforcestop = 0;
+	/* when MD is stopped, the skb list of ccci_fs should be clean */
+	port = port_get_by_channel(ctl->md_id, CCCI_FS_RX);
+	if (port->flags & PORT_F_CLEAN) {
+		spin_lock_irqsave(&port->rx_skb_list.lock, flags);
+		while ((skb = __skb_dequeue(&port->rx_skb_list)) != NULL)
+			ccci_free_skb(skb);
+		spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
+	}
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_GATED;
 	fsm_broadcast_state(ctl, GATED);

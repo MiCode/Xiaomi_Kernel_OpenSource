@@ -35,6 +35,7 @@
 #include "ccci_modem.h"
 #include "ccci_hif.h"
 #include "ccci_port.h"
+#include "port_t.h"
 
 /************ enumerations ************/
 
