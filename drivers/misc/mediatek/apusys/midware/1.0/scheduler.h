@@ -30,6 +30,7 @@ int apusys_sched_wait_cmd(struct apusys_cmd *cmd);
 int apusys_sched_del_cmd(struct apusys_cmd *cmd);
 int apusys_sched_pause(void);
 int apusys_sched_restart(void);
+void apusys_sched_set_group(void);
 int apusys_sched_init(void);
 int apusys_sched_destroy(void);
 

@@ -17,6 +17,8 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/device.h>
+#include <linux/uaccess.h>
+#include <linux/atomic.h>
 #ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
 #endif
@@ -67,6 +69,7 @@ struct pack_cmd_mgr {
 //----------------------------------------------
 static struct pack_cmd_mgr g_pack_mgr;
 static struct task_struct *sched_task;
+static atomic_t sthd_group = ATOMIC_INIT(0);
 
 //----------------------------------------------
 #ifdef CONFIG_PM_SLEEP
@@ -1330,6 +1333,40 @@ int apusys_sched_restart(void)
 	return 0;
 }
 
+void apusys_sched_set_group(void)
+{
+	struct file *fd;
+	char buf[8];
+	mm_segment_t oldfs;
+
+	if (atomic_read(&sthd_group))
+		return;
+
+	/* setup worker thread group */
+	thread_pool_set_group();
+
+	oldfs = get_fs();
+	set_fs(get_ds());
+
+	fd = filp_open(APUSYS_THD_TASK_FILE_PATH, O_WRONLY, 0);
+	if (IS_ERR(fd)) {
+		mdw_drv_debug("don't support low latency group\n");
+		goto out;
+	}
+
+	memset(buf, 0, sizeof(buf));
+	snprintf(buf, sizeof(buf)-1, "%d", sched_task->pid);
+	vfs_write(fd, (__force const char __user *)buf,
+		sizeof(buf), &fd->f_pos);
+	mdw_drv_debug("setup sched thd(%d/%s) to group\n",
+		sched_task->pid, buf);
+
+	filp_close(fd, NULL);
+
+out:
+	set_fs(oldfs);
+	atomic_set(&sthd_group, 1);
+}
 
 //----------------------------------------------
 /* init function */

@@ -39,7 +39,7 @@
 
 #include "apusys_device.h"
 #include "secure_perf.h"
-
+#include "thread_pool.h"
 
 #include <linux/dma-mapping.h>
 
@@ -341,6 +341,8 @@ static int apusys_open(struct inode *inode, struct file *filp)
 		mdw_drv_err("apusys disable\n");
 		return -ENODEV;
 	}
+
+	apusys_sched_set_group();
 
 	ret = apusys_create_user(&u);
 	if (ret) {
