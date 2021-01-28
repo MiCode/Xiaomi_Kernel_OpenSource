@@ -98,9 +98,8 @@ static int mtk_fhctl_parse_dt(struct mtk_fhctl *fhctl)
 		if (tbl_size > 0) {
 			pll_data->hp_tbl_size = tbl_size;
 			pll_data->hp_tbl = devm_kzalloc(dev,
-					sizeof(unsigned int *)*tbl_size,
+					sizeof(u32)*tbl_size,
 					GFP_KERNEL);
-
 			if (!pll_data->hp_tbl)
 				return -ENOMEM;
 
