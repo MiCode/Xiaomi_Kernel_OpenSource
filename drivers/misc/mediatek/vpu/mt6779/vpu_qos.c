@@ -320,19 +320,19 @@ static void qos_work_func(struct work_struct *work)
 	LOG_DBG("[vpu][qos] %s, peakbw=%d -\n", __func__, peak_bw);
 }
 
-static void qos_timer_func(unsigned long arg)
+static void qos_timer_func(struct timer_list *t)
 {
 	struct qos_counter *counter = NULL;
 
-	LOG_DBG("[vpu][qos] %s(%d) +\n", __func__, (int)arg);
-	counter = get_qos_counter(arg);
+	counter = container_of(t, struct qos_counter, qos_timer);
+	LOG_DBG("[vpu][qos] %s(%d) +\n", __func__, counter->core);
 	if (counter == NULL) {
 		LOG_ERR("[vpu][qos] %s get counter fail\n", __func__);
 		return;
 	}
 
 	/* queue work because mutex sleep must be happened */
-	enque_qos_wq(&qos_work[arg]);
+	enque_qos_wq(&qos_work[counter->core]);
 	mod_timer(&counter->qos_timer,
 		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
 
