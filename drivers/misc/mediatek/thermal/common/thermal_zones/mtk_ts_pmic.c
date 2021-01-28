@@ -673,6 +673,8 @@ static int mtk_ts_pmic_probe(struct platform_device *pdev)
 	struct proc_dir_entry *mtktspmic_dir = NULL;
 	struct mt6397_chip *chip;
 
+	mtktspmic_debug_log = 1;
+
 	chip = (struct mt6397_chip *)dev_get_drvdata(pdev->dev.parent);
 	mtktspmic_info("[%s]\n", __func__);
 
@@ -693,7 +695,7 @@ static int mtk_ts_pmic_probe(struct platform_device *pdev)
 
 	mtktspmic_cali_prepare2();
 #if defined(THERMAL_USE_IIO_CHANNEL)
-	mtktspmic_get_from_dts();
+	mtktspmic_get_from_dts(pdev);
 #endif
 
 	err = mtktspmic_register_cooler();
@@ -751,6 +753,7 @@ static struct platform_driver mtk_ts_pmic_driver = {
 
 static int __init mtktspmic_init(void)
 {
+	mtktspmic_info("[%s]\n", __func__);
 	return platform_driver_register(&mtk_ts_pmic_driver);
 }
 

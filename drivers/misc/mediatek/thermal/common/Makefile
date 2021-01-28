@@ -11,13 +11,13 @@
 # GNU General Public License for more details.
 #
 
-THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/platform
+THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(CONFIG_MTK_PLATFORM)
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/thermal/common/inc/
-ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/platform
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/vpu/$(CONFIG_MTK_PLATFORM)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mdla/1.0
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 

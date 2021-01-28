@@ -945,6 +945,11 @@ static void set_tc_trigger_hw_protect
 
 	offset = tscpu_g_tc[tc_num].tc_offset;
 
+	/* set temp offset to 0x3FF to avoid interrupt false triggered */
+	mt_reg_sync_writel(
+			readl(offset + TEMPPROTCTL) | 0x3FF,
+				offset + TEMPPROTCTL);
+
 	/* temperature2=80000;  test only */
 	tscpu_dprintk("%s t1=%d t2=%d\n", __func__,
 					temperature, temperature2);
@@ -966,11 +971,19 @@ static void set_tc_trigger_hw_protect
 
 	/* enable trigger Hot SPM interrupt */
 	mt_reg_sync_writel(temp | 0x80000000, offset + TEMPMONINT);
+
+	/* clear temp offset */
+	mt_reg_sync_writel(
+			readl(offset + TEMPPROTCTL) & ~0xFFF,
+				offset + TEMPPROTCTL);
 }
 
 static int read_tc_raw_and_temp(u32 *tempmsr_name, enum thermal_sensor ts_name)
 {
 	int temp = 0, raw = 0;
+
+	if (thermal_base == 0)
+		return 0;
 
 	if (tempmsr_name == 0)
 		return 0;
@@ -1508,7 +1521,7 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,auxadc");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6765-auxadc");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
@@ -1522,7 +1535,7 @@ int get_io_reg_base(void)
 		return 0;
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,infracfg_ao");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6761-infracfg");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */
@@ -1532,7 +1545,8 @@ int get_io_reg_base(void)
 		 */
 	}
 
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	node = of_find_compatible_node(NULL, NULL,
+					"mediatek,mt6761-apmixedsys");
 	WARN_ON_ONCE(node == 0);
 	if (node) {
 		/* Setup IO addresses */

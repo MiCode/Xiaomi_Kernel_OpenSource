@@ -183,6 +183,7 @@ static char g_bind9[20] = "";
 struct mt_gpufreq_power_table_info *mtk_gpu_power;
 /* max GPU opp idx from GPU DVFS driver, default is 0 */
 int gpu_max_opp;
+EXPORT_SYMBOL_GPL(gpu_max_opp);
 #if 0
 int Num_of_GPU_OPP = 1;		/* Set this value =1 for non-DVS GPU */
 #else				/* DVFS GPU */
@@ -409,7 +410,7 @@ int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 	gpu_max_opp = mt_gpufreq_get_seg_max_opp_index();
 	Num_of_GPU_OPP = gpu_max_opp + mt_gpufreq_get_dvfs_table_num();
 	/* error check */
-	if (gpu_max_opp >= num || Num_of_GPU_OPP > num) {
+	if (gpu_max_opp >= num || Num_of_GPU_OPP > num || !Num_of_GPU_OPP) {
 		gpu_max_opp = 0;
 		Num_of_GPU_OPP = num;
 	}
@@ -2451,7 +2452,16 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 		tscpu_warn("regulator_get vcore_reg_id failed\n");
 #endif
 #endif
-	return err;
+	err = tscpu_register_thermal();
+	if (err) {
+		tscpu_warn("tscpu_register_thermal fail\n");
+		return err;
+	}
+
+	tscpu_create_fs();
+
+	return 0;
+
 }
 
 static int __init tscpu_init(void)
@@ -2469,18 +2479,7 @@ static int __init tscpu_init(void)
 		return err;
 	}
 
-	err = tscpu_register_thermal();
-	if (err) {
-		tscpu_warn("tscpu_register_thermal fail\n");
-		goto err_unreg;
-	}
-
-	tscpu_create_fs();
-
 	return 0;
-
-err_unreg:
-	return err;
 }
 
 

@@ -33,7 +33,7 @@
  *Local variable definition
  *=============================================================
  */
-int mtktspmic_debug_log;
+int mtktspmic_debug_log = 1;
 /* Cali */
 static __s32 g_o_vts;
 static __s32 g_o_vts_2;
@@ -61,9 +61,6 @@ static int pre_tsbuck2_temp1 = 0, tsbuck2_cnt;
 struct iio_channel *chan_chip_temp;
 struct iio_channel *chan_vcore_temp;
 struct iio_channel *chan_vproc_temp;
-struct iio_channel *chan_vgpu_temp;
-struct iio_channel *chan_tsx_temp;
-struct iio_channel *chan_dcxo_temp;
 #endif
 
 /*=============================================================*/
@@ -278,44 +275,26 @@ void mtktspmic_cali_prepare2(void)
 	g_tsbuck2_slope1, g_tsbuck2_slope2, g_tsbuck2_intercept, vbe_t);
 }
 #if defined(THERMAL_USE_IIO_CHANNEL)
-void mtktspmic_get_from_dts(void)
+void mtktspmic_get_from_dts(struct platform_device *pdev)
 {
 	int ret;
 
-	chan_chip_temp = iio_channel_get(NULL, "AUXADC_CHIP_TEMP");
+	chan_chip_temp = devm_iio_channel_get(&pdev->dev, "pmic_chip_temp");
 	if (IS_ERR(chan_chip_temp)) {
 		ret = PTR_ERR(chan_chip_temp);
 		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_vcore_temp = iio_channel_get(NULL, "AUXADC_VCORE_TEMP");
+	chan_vcore_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck1_temp");
 	if (IS_ERR(chan_vcore_temp)) {
 		ret = PTR_ERR(chan_vcore_temp);
 		pr_notice("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_vproc_temp = iio_channel_get(NULL, "AUXADC_VPROC_TEMP");
+	chan_vproc_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck2_temp");
 	if (IS_ERR(chan_vproc_temp)) {
 		ret = PTR_ERR(chan_vproc_temp);
 		pr_notice("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
-	}
-
-	chan_vgpu_temp = iio_channel_get(NULL, "AUXADC_VGPU_TEMP");
-	if (IS_ERR(chan_vgpu_temp)) {
-		ret = PTR_ERR(chan_vgpu_temp);
-		pr_notice("AUXADC_VGPU_TEMP get fail, ret=%d\n", ret);
-	}
-
-	chan_tsx_temp = iio_channel_get(NULL, "AUXADC_TSX_TEMP");
-	if (IS_ERR(chan_tsx_temp)) {
-		ret = PTR_ERR(chan_tsx_temp);
-		pr_notice("AUXADC_TSX_TEMP get fail, ret=%d\n", ret);
-	}
-
-	chan_dcxo_temp = iio_channel_get(NULL, "AUXADC_DCXO_TEMP");
-	if (IS_ERR(chan_dcxo_temp)) {
-		ret = PTR_ERR(chan_dcxo_temp);
-		pr_notice("AUXADC_DCXO_TEMP get fail, ret=%d\n", ret);
 	}
 }
 #endif

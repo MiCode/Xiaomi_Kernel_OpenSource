@@ -35,7 +35,6 @@ obj-y += mtk_ts_cpu_noBank.o
 #obj-y += mtk_ts_charger.o
 #obj-y += mtk_ts_charger2.o
 
-obj-y += mtk_monitor_tz.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
 #    obj-y += mtk_ts_wmt.o
@@ -67,7 +66,6 @@ else
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 endif
 obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
-obj-y += mtk_monitor_tz.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
     obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o

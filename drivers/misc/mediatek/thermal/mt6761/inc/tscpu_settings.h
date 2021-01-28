@@ -220,7 +220,7 @@
 #define MTKTSCPU_TEMP_CRIT 120000 /* 120.000 degree Celsius */
 
 #define y_curr_repeat_times 1
-#define THERMAL_NAME    "mtk-thermal"
+#define THERMAL_NAME    "mtk-thermal-legacy"
 
 #define TS_MS_TO_NS(x) (x * 1000 * 1000)
 
@@ -332,6 +332,7 @@ extern void tscpu_workqueue_start_timer(void);
 
 extern void __iomem  *therm_clk_infracfg_ao_base;
 extern int Num_of_GPU_OPP;
+extern int gpu_max_opp;
 extern struct mt_gpufreq_power_table_info *mtk_gpu_power;
 extern int tscpu_read_curr_temp;
 #if MTKTSCPU_FAST_POLLING

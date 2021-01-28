@@ -1004,7 +1004,7 @@ static ssize_t _mtm_scen_call_write
 			|| (mtm_phone_call_ongoing == 1)) {
 
 			g_mtm_phone_call_ongoing = mtm_phone_call_ongoing;
-#if 0 /* TO-DO */
+
 			if (mtm_phone_call_ongoing  == 1)
 				mtk_thermal_set_user_scenarios(
 						MTK_THERMAL_SCEN_CALL);
@@ -1012,7 +1012,6 @@ static ssize_t _mtm_scen_call_write
 			else if (mtm_phone_call_ongoing == 0)
 				mtk_thermal_clear_user_scenarios(
 						MTK_THERMAL_SCEN_CALL);
-#endif
 		}
 		return count;
 	}
