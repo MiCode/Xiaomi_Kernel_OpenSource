@@ -2792,7 +2792,6 @@ int m4u_reg_init(struct m4u_domain *m4u_domain,
 {
 	unsigned int regval = 0;
 	int i = 0;
-	int j = 0;
 
 	if (unlikely(m4u_id >= TOTAL_M4U_NUM)) {
 		M4ULOG_HIGH("%s, %d, invalid id=%d\n",
@@ -2837,22 +2836,6 @@ int m4u_reg_init(struct m4u_domain *m4u_domain,
 				M4UINFO("init larb %d error\n", i);
 
 			gLarbBaseAddr[i] = (unsigned long)of_iomap(node, 0);
-			/* set mm engine domain to 0x4 (default value) */
-			larb_clock_on(i, 1);
-#ifndef CONFIG_FPGA_EARLY_PORTING
-			M4UMSG("m4u write all port domain to 4\n");
-			for (j = 0; j < 32; j++) {
-				if (gLarbBaseAddr[i] == 0)
-					continue;
-
-				m4uHw_set_field_by_mask(gLarbBaseAddr[i],
-					SMI_LARB_SEC_CONx(j),
-					F_SMI_DOMN(0x7), F_SMI_DOMN(0x4));
-			}
-#else
-			j = 0;
-#endif
-			larb_clock_off(i, 1);
 
 			M4UINFO("init larb %d, 0x%lx\n", i, gLarbBaseAddr[i]);
 		}
