@@ -324,11 +324,20 @@ static inline int arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 		cpu++;
 	}
 #else
-	for_each_possible_cpu(cpu) {
-		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
+	if (cluster_id == 0) {
+		cpu = 0;
 
-		if (cpu_topo->package_id == cluster_id)
+		while (cpu < CORE_NUM_L) {
 			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
+	} else {
+		cpu = CORE_NUM_L;
+
+		while (cpu < TOTAL_CORE_NUM) {
+			cpumask_set_cpu(cpu, cpus);
+			cpu++;
+		}
 	}
 #endif
 
@@ -340,7 +349,7 @@ static inline int arch_get_nr_clusters(void)
 #ifdef CONFIG_MACH_MT6761
 	return 1;
 #else
-	return arch_nr_clusters();
+	return NR_PPM_CLUSTERS;
 #endif
 }
 

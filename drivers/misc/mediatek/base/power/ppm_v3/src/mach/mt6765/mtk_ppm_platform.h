@@ -35,6 +35,10 @@ extern "C" {
 #define CORE_LL	(4)
 #define CORE_L	(4)
 
+#define TOTAL_CORE_NUM	(CORE_LL+CORE_L)
+#define CORE_NUM_L	CORE_LL
+#define CORE_NUM_B	COREL_L
+
 #ifdef PPM_SSPM_SUPPORT
 #define PPM_COBRA_TBL_SRAM_ADDR	(0x0011B800)
 #define PPM_COBRA_TBL_SRAM_SIZE \
