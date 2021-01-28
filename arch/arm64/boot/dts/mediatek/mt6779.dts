@@ -2340,7 +2340,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			larb_groups = <0 1 2 3 5 8 9 10>;
 			larb0 = <7 7 7 7 7 7 7 8 7>;
 			larb1 = <7 7 7 7 7 7 7 7 7 8 7 8 7 7>;
-			larb2 = <7 7 8 7 7 7 7 7 7 7 8 7>;
+			larb2 = <3 7 4 7 7 7 7 7 7 7 4 7>;
 			larb3 = <7 8 8 8 7 7 7 7 7 7 8 8 8 8 8 7
 						7 7 7>;
 			larb5 = <7 7 7 7 7 7 8 8 8 8 7 7 7 8 8 7
