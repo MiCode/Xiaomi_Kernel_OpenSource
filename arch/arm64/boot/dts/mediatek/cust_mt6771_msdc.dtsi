@@ -53,7 +53,6 @@
 	sd-uhs-sdr104;
 	sd-uhs-ddr50;
 	no-mmc;
-	no-sdio;
 	pinctl = <&msdc1_pins_default>;
 	pinctl_sdr104 = <&msdc1_pins_sdr104>;
 	pinctl_sdr50 = <&msdc1_pins_sdr50>;
