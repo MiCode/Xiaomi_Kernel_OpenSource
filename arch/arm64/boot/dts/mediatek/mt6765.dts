@@ -1708,7 +1708,12 @@ firmware_class.path=/vendor/firmware";
 			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 13 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 14 0 CMDQ_THR_PRIO_1>,
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+			<&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+#else
 			<&gce_mbox 15 0 CMDQ_THR_PRIO_1>;
+#endif
 	};
 
 	gce_mbox: gce_mbox@10238000 {
