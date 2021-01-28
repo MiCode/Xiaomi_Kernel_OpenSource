@@ -1927,6 +1927,10 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		cmdq_dev_get_event(dev, "venc_128B_cnt_done");
 	vcu->gce_codec_eid[VENC_EOF_C1] =
 		cmdq_dev_get_event(dev, "venc_eof_c1");
+	vcu->gce_codec_eid[VENC_WP_2ND_DONE] =
+		cmdq_dev_get_event(dev, "venc_wp_2nd_done");
+	vcu->gce_codec_eid[VENC_WP_3ND_DONE] =
+		cmdq_dev_get_event(dev, "venc_wp_3nd_done");
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++)
 		vcu->curr_ctx[i] = NULL;
