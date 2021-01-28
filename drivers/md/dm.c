@@ -2239,6 +2239,10 @@ static int dm_keyslot_evict_callback(struct dm_target *ti, struct dm_dev *dev,
 	struct dm_keyslot_evict_args *args = data;
 	int err;
 
+	/* set lock subclass to avoid lockdep wrong detect */
+	if (dev->bdev->bd_queue->ksm)
+		blk_crypto_flock(dev->bdev->bd_queue->ksm, SINGLE_DEPTH_NESTING);
+
 	err = blk_crypto_evict_key(dev->bdev->bd_queue, args->key);
 	if (!args->err)
 		args->err = err;
@@ -2295,6 +2299,10 @@ static int dm_derive_raw_secret_callback(struct dm_target *ti,
 		args->err = -EOPNOTSUPP;
 		return 0;
 	}
+
+	/* set lock subclass to avoid lockdep wrong detect */
+	if (dev->bdev->bd_queue->ksm)
+		blk_crypto_flock(dev->bdev->bd_queue->ksm, SINGLE_DEPTH_NESTING);
 
 	args->err = keyslot_manager_derive_raw_secret(q->ksm, args->wrapped_key,
 						args->wrapped_key_size,

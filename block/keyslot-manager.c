@@ -55,6 +55,11 @@ struct keyslot_manager {
 
 	/* Protects programming and evicting keys from the device */
 	struct rw_semaphore lock;
+	/*
+	 * Above rw_semaphore maybe nested when used a dm stack layer
+	 * which is with inline encryption
+	 */
+	unsigned int lock_flags;
 
 	/* List of idle slots, with least recently used slot at front */
 	wait_queue_head_t idle_slots_wait_queue;
@@ -121,7 +126,10 @@ static inline void keyslot_manager_hw_enter(struct keyslot_manager *ksm)
 	 * and release ksm->lock via keyslot_manager_reprogram_all_keys().
 	 */
 	keyslot_manager_pm_get(ksm);
-	down_write(&ksm->lock);
+	if (!ksm->lock_flags)
+		down_write(&ksm->lock);
+	else
+		down_write_nested(&ksm->lock, ksm->lock_flags);
 }
 
 static inline void keyslot_manager_hw_exit(struct keyslot_manager *ksm)
@@ -661,3 +669,19 @@ int keyslot_manager_derive_raw_secret(struct keyslot_manager *ksm,
 	return err;
 }
 EXPORT_SYMBOL_GPL(keyslot_manager_derive_raw_secret);
+
+/**
+ * ksm_lock() - set one-depth nesting of lock class
+ * @flags: now, it's only support one depth
+ *
+ * Some scenarios ksm->lock will be nest such as DM stack layer,
+ * although DM's is different with lower device driver's ksm->lock,
+ * lockdep recognizes them as a same one, then will trigger deadlock
+ * detection, set another lock sub-class could avoid it.
+ *
+ */
+inline void ksm_flock(struct keyslot_manager *ksm, unsigned int flags)
+{
+	ksm->lock_flags = flags;
+}
+EXPORT_SYMBOL_GPL(ksm_flock);
