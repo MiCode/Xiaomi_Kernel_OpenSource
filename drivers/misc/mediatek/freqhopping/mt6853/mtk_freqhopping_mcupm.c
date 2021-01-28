@@ -52,6 +52,7 @@ static DEFINE_SPINLOCK(g_fh_lock);
 
 static void __iomem *g_fhctl_base;
 static void __iomem *g_apmixed_base;
+static void __iomem *g_reg_tr;
 
 /*********************************/
 /* Utility Macro */
@@ -297,6 +298,7 @@ struct fh_log_entry *fh_log_list_table_fail[FH_PLL_NUM] = {
 unsigned long long fh_log_list_serial[FH_PLL_NUM] = {0};
 
 unsigned int fh_ipi_hopping_serial;
+static DEFINE_MUTEX(fh_ipi_lock);
 
 /*****************************************************************************/
 /* Function */
@@ -309,6 +311,34 @@ unsigned int fh_ipi_hopping_serial;
 
 #define FHCTL_D_LEN (9)
 
+static void ipi_get_data(unsigned int cmd)
+{
+	struct fhctl_ipi_data ipi_data;
+	int ret;
+
+	FH_MSG("[FH] cmd<%x>\n", cmd);
+	memset(&ipi_data, 0, sizeof(struct fhctl_ipi_data));
+	ipi_data.cmd = cmd;
+
+	/* 3 sec for debug */
+	ret = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
+			IPI_SEND_POLLING, &ipi_data,
+			FHCTL_D_LEN, 3000);
+	FH_MSG("[FH] ret<%d>, ack_data<%x>\n", ret, ack_data);
+}
+
+static void fhctl_get_mcupm_log(void)
+{
+	if (g_reg_tr)
+		FH_MSG("[FH] reg_tr<%x>\n", readl(g_reg_tr));
+
+	ipi_get_data(FH_DBG_CMD_TR_BEGIN_LOW);
+	ipi_get_data(FH_DBG_CMD_TR_BEGIN_HIGH);
+	ipi_get_data(FH_DBG_CMD_TR_END_LOW);
+	ipi_get_data(FH_DBG_CMD_TR_END_HIGH);
+	ipi_get_data(FH_DBG_CMD_TR_ID);
+	ipi_get_data(FH_DBG_CMD_TR_VAL);
+}
 
 static int fhctl_to_mcupm_ack_data(unsigned int cmd,
 		struct fhctl_ipi_data *ipi_data, int *retVal)
@@ -374,20 +404,11 @@ static int fhctl_to_mcupm_command(unsigned int cmd,
 		retVal = mtk_ipi_send_compl(&mcupm_ipidev, CH_S_FHCTL,
 				IPI_SEND_POLLING, ipi_data, FHCTL_D_LEN, 10);
 
-		if (retVal != 0) {
+		if (retVal != 0)
 			FH_MSG(F2M_CMD_ERR_MSG, cmd, retVal, ack_data);
-			FH_MSG("[FH] check uart status: %d",
-				mt_get_uartlog_status());
 
-			/*timeout when uart enable may be false alarm*/
-			if (!mt_get_uartlog_status())
-				aee_kernel_warning_api(__FILE__, __LINE__,
-					DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-					"[FH] IPI to CPUEB\n",
-					"IPI timeout");
-		} else if (ack_data < 0)
-			FH_MSG(F2M_ACK_ERR_MSG,
-					cmd, ack_data);
+		if (ack_data < 0)
+			FH_MSG(F2M_ACK_ERR_MSG, cmd, ack_data);
 		break;
 	default:
 		FH_MSG("[Error]Undefined IPI command");
@@ -572,6 +593,7 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 	int retVal = 0;
 	unsigned int log_idx, log_idx_f;
 	unsigned int cur_dds;
+	u64 time_ns;
 
 	if (g_initialize == 0) {
 		FH_MSG("(Warning) %s FHCTL isn't ready. ", __func__);
@@ -610,6 +632,8 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 			(fh_read32(g_reg_pll_con1[pll_id]) & FH_DDS_MASK),
 			target_dds);
 
+	mutex_lock(&fh_ipi_lock);
+
 	//FHCTL IN MEM LOG
 	if (fh_log_list_table[pll_id] != NULL) {
 		//get log idx
@@ -630,18 +654,26 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 	ipi_data.u.args[0] = pll_id;
 	ipi_data.u.args[1] = target_dds;
 	ipi_data.u.args[7] = ++fh_ipi_hopping_serial;
+	time_ns = ktime_to_ns(ktime_get());
 	retVal = fhctl_to_mcupm_command(FH_DCTL_CMD_GENERAL_DFS, &ipi_data);
 
 	//read back CON1 after hopping IPI complete
 	cur_dds = fh_read32(g_reg_pll_con1[pll_id]) & (0x3FFFFF);
 
-	if (cur_dds != target_dds) {
+	if ((cur_dds != target_dds) || (retVal != 0)) {
+		FH_MSG("[FH] time_ns %lx", time_ns);
 		FH_MSG("[FH] hopping fail, cur %x, tgt %x, s %d\n",
-			cur_dds,
-			target_dds,
-			fh_ipi_hopping_serial);
+			cur_dds, target_dds, fh_ipi_hopping_serial);
 		FH_MSG("[FH] serial %d, ack %d\n", fh_ipi_hopping_serial, ack_data);
+		fhctl_get_mcupm_log();
 		mt_fh_dump_register();
+		FH_MSG("[FH] check uart status: %d", mt_get_uartlog_status());
+		/*timeout when uart enable may be false alarm*/
+		if (!mt_get_uartlog_status())
+			aee_kernel_warning_api(__FILE__, __LINE__,
+				DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
+				"[FH] IPI to CPUEB\n",
+				"IPI timeout");
 		//BUG();
 	}
 
@@ -676,6 +708,8 @@ static int mt_fh_hal_general_pll_dfs(enum FH_PLL_ID pll_id,
 
 		fh_log_list_idx_table[pll_id] = log_idx;
 	}
+
+	mutex_unlock(&fh_ipi_lock);
 
 	return retVal;
 
@@ -853,6 +887,7 @@ static int __reg_base_addr_init(void)
 {
 	struct device_node *fhctl_node;
 	struct device_node *apmixed_node;
+	void __iomem *reg_tr = (void __iomem *)(0xC8 + 0x4);
 
 	FH_MSG("(b) g_fhctl_base:0x%lx", (unsigned long)g_fhctl_base);
 	FH_MSG("(b) g_apmixed_base:0x%lx", (unsigned long)g_apmixed_base);
@@ -880,8 +915,11 @@ static int __reg_base_addr_init(void)
 		return -ENODEV;
 	}
 
+	g_reg_tr = g_fhctl_base + (unsigned int)reg_tr;
+
 	FH_MSG("g_fhctl_base:0x%lx", (unsigned long)g_fhctl_base);
 	FH_MSG("g_apmixed_base:0x%lx", (unsigned long)g_apmixed_base);
+	FH_MSG("g_reg_tr:0x%lx", (unsigned long)g_reg_tr);
 	__reg_tbl_init();
 
 	return 0;
