@@ -504,7 +504,7 @@ static int trusty_set_tee_name(struct trusty_ctx *tctx,
 	}
 
 	of_property_read_string(node, "tee-name", (const char **)&str);
-	strncpy(cfg->dev_name.tee_name, str, MAX_MINOR_NAME_LEN);
+	strncpy(cfg->dev_name.tee_name, str, MAX_MINOR_NAME_LEN - 1);
 	pr_info("[%s] set tee_name: %s\n", __func__, cfg->dev_name.tee_name);
 
 	return 0;
@@ -885,8 +885,11 @@ static int trusty_virtio_remove(struct platform_device *pdev)
 	/* free shared area */
 	free_pages_exact(tctx->shared_va, tctx->shared_sz);
 
-	/* free workqueue attrs */
-	free_workqueue_attrs(tctx->attrs);
+	/* free kick workqueue attrs */
+	free_workqueue_attrs(tctx->kick_wq_attrs);
+
+	/* free check workqueue attrs */
+	free_workqueue_attrs(tctx->check_wq_attrs);
 
 	/* free context */
 	kfree(tctx);
