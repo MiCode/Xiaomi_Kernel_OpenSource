@@ -3568,7 +3568,7 @@ static ssize_t mt6885_debugfs_read(struct file *file, char __user *buf,
 {
 	struct mtk_base_afe *afe = file->private_data;
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
-	const int size = 16384;
+	const int size = 32768;
 	char *buffer = NULL; /* for reduce kernel stack */
 	int n = 0;
 	int ret = 0;
