@@ -723,7 +723,8 @@ static void musb_advance_schedule
 		break;
 	}
 
-	qh->is_ready = 0;
+	if (ready)
+		qh->is_ready = 0;
 	musb_giveback(musb, urb, status);
 
 	/* QH might be freed after giveback, check again */
@@ -733,7 +734,8 @@ static void musb_advance_schedule
 		DBG(0, "QH already freed\n");
 		return;
 	}
-	qh->is_ready = ready;
+	if (ready)
+		qh->is_ready = ready;
 
 check_recycle_qh:
 	/* reclaim resources (and bandwidth) ASAP; deschedule it, and
@@ -3133,7 +3135,8 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 		int ready = qh->is_ready;
 		struct musb_hw_ep *hw_ep = qh->hw_ep;
 
-		qh->is_ready = 0;
+		if (ready)
+			qh->is_ready = 0;
 		musb_giveback(musb, urb, 0);
 
 		/* QH might be freed after giveback, check again */
@@ -3144,7 +3147,8 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 			goto done;
 		}
 
-		qh->is_ready = ready;
+		if (ready)
+			qh->is_ready = ready;
 
 		/* If nothing else (usually musb_giveback) is using it
 		 * and its URB list has emptied, recycle this qh.
