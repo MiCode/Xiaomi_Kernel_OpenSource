@@ -53,19 +53,6 @@ static DEFINE_SPINLOCK(mipi_lock);
 void __iomem *cksys_base;
 void __iomem *infracfg_base;
 void __iomem *apmixed_base;
-void __iomem *audio_base;
-void __iomem *cam_base;
-void __iomem *img_base;
-void __iomem *ipe_base;
-void __iomem *mfgcfg_base;
-void __iomem *mmsys_config_base;
-void __iomem *venc_gcon_base;
-void __iomem *vdec_gcon_base;
-void __iomem *apu_vcore_base;
-void __iomem *apu_conn_base;
-void __iomem *apu0_base;
-void __iomem *apu1_base;
-void __iomem *apu_mdla_base;
 
 /* CKSYS */
 #define CLK_CFG_UPDATE		(cksys_base + 0x004)
@@ -136,49 +123,6 @@ void __iomem *apu_mdla_base;
 #define APLL2_CON1		(apmixed_base + 0x02D8)
 #define APLL2_CON2		(apmixed_base + 0x02DC)
 #define APLL2_PWR_CON0		(apmixed_base + 0x02E4)
-#define AUDIO_TOP_CON0		(audio_base + 0x0000)
-#define AUDIO_TOP_CON1		(audio_base + 0x0004)
-#define CAMSYS_CG_CON		(cam_base + 0x0000)
-#define CAMSYS_CG_SET		(cam_base + 0x0004)
-#define CAMSYS_CG_CLR		(cam_base + 0x0008)
-#define CAMSYS_SW_RST		(cam_base + 0x000C)
-#define IMG_CG_CON		(img_base + 0x0000)
-#define IMG_CG_SET		(img_base + 0x0004)
-#define IMG_CG_CLR		(img_base + 0x0008)
-#define IPE_CG_CON		(ipe_base + 0x0000)
-#define IPE_CG_SET		(ipe_base + 0x0004)
-#define IPE_CG_CLR		(ipe_base + 0x0008)
-#define MFG_CG_CON              (mfgcfg_base + 0x0000)
-#define MFG_CG_SET              (mfgcfg_base + 0x0004)
-#define MFG_CG_CLR              (mfgcfg_base + 0x0008)
-#define MM_CG_CON0            (mmsys_config_base + 0x100)
-#define MM_CG_SET0            (mmsys_config_base + 0x104)
-#define MM_CG_CLR0            (mmsys_config_base + 0x108)
-#define MM_CG_CON1            (mmsys_config_base + 0x110)
-#define MM_CG_SET1            (mmsys_config_base + 0x114)
-#define MM_CG_CLR1            (mmsys_config_base + 0x118)
-#define VENC_CG_CON		(venc_gcon_base + 0x0000)
-#define VENC_CG_SET		(venc_gcon_base + 0x0004)
-#define VENC_CG_CLR		(venc_gcon_base + 0x0008)
-#define VDEC_CKEN_SET           (vdec_gcon_base + 0x0000)
-#define VDEC_CKEN_CLR           (vdec_gcon_base + 0x0004)
-#define LARB1_CKEN_SET          (vdec_gcon_base + 0x0008)
-#define LARB1_CKEN_CLR          (vdec_gcon_base + 0x000C)
-#define APU_VCORE_CG_CON              (apu_vcore_base + 0x0000)
-#define APU_VCORE_CG_SET              (apu_vcore_base + 0x0004)
-#define APU_VCORE_CG_CLR              (apu_vcore_base + 0x0008)
-#define APU_CONN_CG_CON              (apu_conn_base + 0x0000)
-#define APU_CONN_CG_SET              (apu_conn_base + 0x0004)
-#define APU_CONN_CG_CLR              (apu_conn_base + 0x0008)
-#define APU_CORE0_CG_CON              (apu0_base + 0x0000)
-#define APU_CORE0_CG_SET              (apu0_base + 0x0004)
-#define APU_CORE0_CG_CLR              (apu0_base + 0x0008)
-#define APU_CORE1_CG_CON              (apu1_base + 0x0000)
-#define APU_CORE1_CG_SET              (apu1_base + 0x0004)
-#define APU_CORE1_CG_CLR              (apu1_base + 0x0008)
-#define APU_MDLA_CG_CON              (apu_mdla_base + 0x0000)
-#define APU_MDLA_CG_SET              (apu_mdla_base + 0x0004)
-#define APU_MDLA_CG_CLR              (apu_mdla_base + 0x0008)
 
 #define INFRA_CG0 0x03afb900/*[25:23][21][19:15][13:11][8]*/
 #define INFRA_CG1 0x0a040806/*[27][25][18][11][2][1]*/
@@ -2031,12 +1975,6 @@ void pll_if_on(void)
 
 void clock_force_off(void)
 {
-	clk_writel(MM_CG_SET0, MM_CG0);
-	clk_writel(MM_CG_SET1, MM_CG1);
-	clk_writel(MFG_CG_SET, MFG_CG);
-	clk_writel(IMG_CG_SET, IMG_CG);
-	clk_writel(VENC_CG_CLR, VENC_CG);
-	clk_writel(CAMSYS_CG_SET, CAMSYS_CG);
 }
 
 void pll_force_off(void)
@@ -2137,8 +2075,6 @@ void armpll_control(int id, int on)
 
 void check_mm0_clk_sts(void)
 {
-	pr_notice("MM_CG = 0x%08x, 0x%08x\n", clk_readl(MM_CG_CON0),
-		clk_readl(MM_CG_CON1));
 	pr_notice("CLK_CFG_0 = 0x%08x\r\n", clk_readl(CLK_CFG_0));
 	pr_notice("MMPLL_CON0 = 0x%08x, 0x%08x\r\n", clk_readl(MMPLL_CON0),
 		clk_readl(MMPLL_CON1));
@@ -2177,17 +2113,14 @@ void check_vpu_clk_sts(void)
 
 void check_img_clk_sts(void)
 {
-	pr_notice("IMG_CG_CON = 0x%08x\n", clk_readl(IMG_CG_CON));
 }
 
 void check_ipe_clk_sts(void)
 {
-	pr_notice("IPE_CG_CON = 0x%08x\n", clk_readl(IPE_CG_CON));
 }
 
 void check_ven_clk_sts(void)
 {
-	pr_notice("VENC_CG_CON = 0x%08x\n", clk_readl(VENC_CG_CON));
 }
 
 void check_cam_clk_sts(void)
@@ -2204,9 +2137,6 @@ void check_cam_clk_sts(void)
 	pr_notice("cam freq = %d\n", mt_get_ckgen_freq(8));
 	mt_get_ckgen_freq(1);
 	pr_notice("ccu freq = %d\n", mt_get_ckgen_freq(9));
-	pr_notice("MM_CG_CON0 = 0x%08x\n", clk_readl(MM_CG_CON0));
-	pr_notice("CAMSYS_CG_CON = 0x%08x\n", clk_readl(CAMSYS_CG_CON));
-	pr_notice("CAMSYS_SW_RST = 0x%08x\n", clk_readl(CAMSYS_SW_RST));
 }
 
 void aud_intbus_mux_sel(unsigned int aud_idx)
