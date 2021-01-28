@@ -180,7 +180,7 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			pdata->charging_current_limit =
 					pdata->thermal_charging_current_limit;
 			info->setting.charging_current_limit =
-			pdata->thermal_charging_current_limit;
+					pdata->thermal_charging_current_limit;
 	} else
 		info->setting.charging_current_limit = -1;
 
@@ -189,6 +189,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 			pdata->input_current_limit)
 			pdata->input_current_limit =
 					pdata->thermal_input_current_limit;
+			info->setting.input_current_limit =
+					pdata->input_current_limit;
 	} else
 		info->setting.input_current_limit = -1;
 
@@ -265,6 +267,7 @@ static int do_algorithm(struct mtk_charger *info)
 				chr_err("%s notify:%d\n", __func__, notify.evt);
 			}
 
+			chg_alg_set_setting(alg, &info->setting);
 			ret = chg_alg_is_algo_ready(alg);
 
 			chr_err("%s %s ret:%s\n", __func__,
@@ -274,13 +277,14 @@ static int do_algorithm(struct mtk_charger *info)
 			if (ret == ALG_INIT_FAIL || ret == ALG_TA_NOT_SUPPORT) {
 				/* try next algorithm */
 				continue;
-			} else if (ret == ALG_TA_CHECKING || ret == ALG_DONE) {
+			} else if (ret == ALG_TA_CHECKING || ret == ALG_DONE ||
+						ret == ALG_NOT_READY) {
 				/* wait checking , use basic first */
 				is_basic = true;
 				break;
 			} else if (ret == ALG_READY || ret == ALG_RUNNING) {
 				is_basic = false;
-				chg_alg_set_setting(alg, &info->setting);
+				//chg_alg_set_setting(alg, &info->setting);
 				chg_alg_start_algo(alg);
 				break;
 			} else {

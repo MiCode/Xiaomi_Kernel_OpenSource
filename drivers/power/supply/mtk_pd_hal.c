@@ -160,6 +160,7 @@ int pd_hal_get_adapter_cap(struct chg_alg_device *alg, struct pd_power_cap *cap)
 	for (i = 0; i < 10; i++) {
 		cap->pwr_limit[i] = acap.pwr_limit[i];
 		cap->min_mv[i] = acap.min_mv[i];
+		cap->max_mv[i] = acap.max_mv[i];
 		cap->ma[i] = acap.ma[i];
 		cap->maxwatt[i] = acap.maxwatt[i];
 		cap->minwatt[i] = acap.minwatt[i];
@@ -310,6 +311,8 @@ int pd_hal_set_mivr(struct chg_alg_device *alg, enum chg_idx chgidx, int uV)
 	pd = dev_get_drvdata(&alg->dev);
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 
+	pr_notice("%s: %d %d\n", __func__, chgidx, uV);
+
 	ret = charger_dev_set_mivr(hal->chg1_dev, uV);
 	if (ret < 0)
 		pr_notice("%s: failed, ret = %d\n", __func__, ret);
@@ -393,6 +396,7 @@ int pd_hal_set_adapter_cap(struct chg_alg_device *alg,
 	if (alg == NULL)
 		return -EINVAL;
 
+	pr_notice("%s %d %d\n", __func__, mV, mA);
 	hal = chg_alg_dev_get_drv_hal_data(alg);
 	adapter_dev_set_cap(hal->adapter, MTK_PD, mV, mA);
 	return 0;

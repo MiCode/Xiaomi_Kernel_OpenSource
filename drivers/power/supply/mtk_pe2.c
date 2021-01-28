@@ -577,6 +577,7 @@ static int _pe2_is_algo_ready(struct chg_alg_device *alg)
 
 		if (pe2_hal_get_charger_type(alg) !=
 			POWER_SUPPLY_USB_TYPE_DCP) {
+			pe2->state = PE2_TA_NOT_SUPPORT;
 			ret_value = ALG_TA_NOT_SUPPORT;
 		} else if (uisoc < pe2->ta_start_battery_soc ||
 			uisoc >= pe2->ta_stop_battery_soc) {

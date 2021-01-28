@@ -84,8 +84,6 @@ static char *pd_state_to_str(int state)
 		return "PD_STOP";
 	case PD_RUN:
 		return "PD_RUN";
-	case PD_DONE:
-		return "PD_DONE";
 	default:
 		break;
 	}
@@ -123,7 +121,42 @@ static int _pd_init_algo(struct chg_alg_device *alg)
 
 static int _pd_is_algo_ready(struct chg_alg_device *alg)
 {
-	return pd_hal_is_pd_adapter_ready(alg);
+	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
+	int ret_value;
+
+	switch (pd->state) {
+	case PD_HW_UNINIT:
+	case PD_HW_FAIL:
+		ret_value = ALG_INIT_FAIL;
+		break;
+	case PD_HW_READY:
+		ret_value = pd_hal_is_pd_adapter_ready(alg);
+		if (ret_value == ALG_READY)
+			pd->state = PD_STOP;
+		else if (ret_value == ALG_TA_NOT_SUPPORT)
+			pd->state = PD_TA_NOT_SUPPORT;
+		else if (ret_value == ALG_TA_CHECKING)
+			pd->state = PD_HW_READY;
+		else
+			pd->state = PD_TA_NOT_SUPPORT;
+
+		break;
+	case PD_TA_NOT_SUPPORT:
+		ret_value = ALG_TA_NOT_SUPPORT;
+		break;
+	case PD_STOP:
+		ret_value = ALG_READY;
+		break;
+	case PD_RUN:
+		ret_value = ALG_RUNNING;
+		break;
+	default:
+		pd_err("PD unknown state:%d\n", pd->state);
+		ret_value = ALG_INIT_FAIL;
+		break;
+	}
+
+	return ret_value;
 }
 
 void __mtk_pdc_init_table(struct chg_alg_device *alg)
@@ -509,15 +542,42 @@ int __mtk_pdc_get_setting(struct chg_alg_device *alg, int *newvbus, int *newcur,
 	selected_idx = cap->selected_cap_idx;
 	idx = selected_idx;
 
+	pd_err("idx:%d %d %d %d %d %d\n", idx,
+		cap->max_mv[idx],
+		cap->ma[idx],
+		cap->maxwatt[idx],
+		pd->ibus_err,
+		ibus);
+
 	if (idx < 0 || idx >= PD_CAP_MAX_NR)
 		idx = selected_idx = 0;
 
 	pd_max_watt = cap->max_mv[idx] * (cap->ma[idx]
 			/ 100 * (100 - pd->ibus_err) - 100);
+
+	pd_dbg("pd_max_watt:%d %d %d %d %d\n", idx,
+		cap->max_mv[idx],
+		cap->ma[idx],
+		pd->ibus_err,
+		pd_max_watt);
+
+
 	now_max_watt = cap->max_mv[idx] * ibus + chg2_watt;
+	pd_dbg("now_max_watt:%d %d %d %d %d\n", idx,
+		cap->max_mv[idx],
+		ibus,
+		chg2_watt,
+		now_max_watt);
+
 	pd_min_watt = cap->max_mv[pd->pd_buck_idx] * cap->ma[pd->pd_buck_idx]
 			/ 100 * (100 - pd->ibus_err)
 			- pd->vsys_watt;
+
+	pd_dbg("pd_min_watt:%d %d %d %d %d\n", pd->pd_buck_idx,
+		cap->max_mv[pd->pd_buck_idx],
+		cap->ma[pd->pd_buck_idx],
+		pd->ibus_err,
+		pd->vsys_watt);
 
 	if (pd_min_watt <= 5000000)
 		pd_min_watt = 5000000;
@@ -565,10 +625,11 @@ static int __pd_run(struct chg_alg_device *alg)
 	int vbus, cur, idx, ret;
 
 	ret = __mtk_pdc_get_setting(alg, &vbus, &cur, &idx);
+
 	if (ret != -1 && idx != -1) {
-		pd->input_current_limit = cur * 1000;
-		pd->charging_current_limit =
-			pd->charging_current;
+		if ((pd->input_current_limit != -1 &&
+			pd->input_current_limit < cur * 1000) == false)
+			pd->input_current_limit = cur * 1000;
 		__mtk_pdc_setup(alg, idx);
 	} else {
 		pd->input_current_limit =
@@ -576,9 +637,9 @@ static int __pd_run(struct chg_alg_device *alg)
 		pd->charging_current_limit =
 			PD_FAIL_CURRENT;
 	}
-	pd_err("[%s]vbus:%d input_cur:%d idx:%d current:%d\n",
-		__func__, vbus, cur, idx,
-		pd->charging_current);
+
+	pd_err("[%s]vbus:%d input_cur:%d idx:%d\n",
+		__func__, vbus, cur, idx);
 
 	if (pd->charging_current_limit != -1 &&
 		pd->charging_current_limit <
@@ -594,10 +655,19 @@ static int __pd_run(struct chg_alg_device *alg)
 	else
 		pd->input_current = pd->pd_input_current;
 
+	pd_err("[%s]input_cur:%d %d %d charger_current:%d %d %d\n",
+		__func__,
+		pd->input_current_limit,
+		pd->pd_input_current,
+		pd->input_current,
+		pd->charging_current_limit,
+		pd->pd_charging_current,
+		pd->charging_current);
+
 	pd_hal_set_charging_current(alg,
-		CHG1, pd->input_current);
-	pd_hal_set_input_current(alg,
 		CHG1, pd->charging_current);
+	pd_hal_set_input_current(alg,
+		CHG1, pd->input_current);
 	pd_hal_set_cv(alg,
 		CHG1, pd->cv);
 	return ALG_RUNNING;
@@ -637,6 +707,7 @@ static int _pd_start_algo(struct chg_alg_device *alg)
 		case PD_RUN:
 		case PD_STOP:
 			ret_value = __pd_run(alg);
+			pd->state = PD_RUN;
 			break;
 		default:
 			pd_err("PD unknown state:%d\n", pd->state);
@@ -666,9 +737,44 @@ static bool _pd_is_algo_running(struct chg_alg_device *alg)
 
 static int _pd_stop_algo(struct chg_alg_device *alg)
 {
-	pd_dbg("%s\n", __func__);
+	int ret_value = 0;
+	struct mtk_pd *pd = dev_get_drvdata(&alg->dev);
 
-	return 0;
+	mutex_lock(&pd->access_lock);
+
+
+	pd_info("%s state:%d %s\n", __func__,
+		pd->state,
+		pd_state_to_str(pd->state));
+
+	switch (pd->state) {
+	case PD_HW_UNINIT:
+	case PD_HW_FAIL:
+	case PD_HW_READY:
+	case PD_STOP:
+	case PD_TA_NOT_SUPPORT:
+		break;
+	case PD_RUN:
+		mtk_pdc_reset(alg);
+		pd_hal_set_charging_current(alg,
+			CHG1, PD_FAIL_CURRENT);
+		pd_hal_set_input_current(alg,
+			CHG1, PD_FAIL_CURRENT);
+		pd_hal_set_cv(alg,
+			CHG1, pd->cv);
+
+		pd->state = PD_STOP;
+		break;
+	default:
+		pd_err("PD unknown state:%d\n", pd->state);
+		ret_value = ALG_INIT_FAIL;
+		break;
+	}
+
+
+	mutex_unlock(&pd->access_lock);
+
+	return ret_value;
 }
 
 static int _pd_notifier_call(struct chg_alg_device *alg,
@@ -682,6 +788,24 @@ static int _pd_notifier_call(struct chg_alg_device *alg,
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:
+
+		switch (pd->state) {
+		case PD_HW_UNINIT:
+		case PD_HW_FAIL:
+		case PD_HW_READY:
+		case PD_STOP:
+		case PD_TA_NOT_SUPPORT:
+			break;
+		case PD_RUN:
+			pd->state = PD_HW_READY;
+			break;
+		default:
+			pd_err("PD unknown state:%d\n", pd->state);
+			break;
+		}
+
+
+
 		break;
 	default:
 		ret = -EINVAL;
@@ -734,6 +858,22 @@ static void mtk_pd_parse_dt(struct mtk_pd *pd,
 		pd_err("use default ibus_err:%d\n",
 			IBUS_ERR);
 		pd->ibus_err = IBUS_ERR;
+	}
+
+	if (of_property_read_u32(np, "pd_charger_current", &val) >= 0) {
+		pd->pd_charging_current = val;
+	} else {
+		pd_err("use default pd_charger_current:%d\n",
+			PD_CHARGER_CURRENT);
+		pd->pd_charging_current = PD_CHARGER_CURRENT;
+	}
+
+	if (of_property_read_u32(np, "pd_input_current", &val) >= 0) {
+		pd->pd_input_current = val;
+	} else {
+		pd_err("use default pd_charger_current:%d\n",
+			PD_INPUT_CURRENT);
+		pd->pd_input_current = PD_INPUT_CURRENT;
 	}
 
 	/* dual charger */

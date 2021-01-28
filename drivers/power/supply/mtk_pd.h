@@ -15,6 +15,8 @@
 #define PD_VBUS_UPPER_BOUND 10000000	/* uv */
 #define PD_VBUS_LOW_BOUND 5000000	/* uv */
 #define PD_FAIL_CURRENT			500000	/* 500mA */
+#define PD_INPUT_CURRENT			3000000	/* 3000mA */
+#define PD_CHARGER_CURRENT			3000000	/* 3000mA */
 
 /* dual charger */
 #define SLAVE_MIVR_DIFF 100000
@@ -55,7 +57,6 @@ enum pd_state_enum {
 	PD_TA_NOT_SUPPORT,
 	PD_STOP,
 	PD_RUN,
-	PD_DONE
 };
 
 #define PD_CAP_MAX_NR 10
