@@ -203,6 +203,7 @@ source "drivers/misc/mediatek/sync/Kconfig"
 source "drivers/misc/mediatek/video/Kconfig"
 source "drivers/misc/mediatek/iommu/Kconfig"
 source "drivers/misc/mediatek/m4u/Kconfig"
+source "drivers/misc/mediatek/flashlight/Kconfig"
 source "drivers/misc/mediatek/flashlight/richtek/Kconfig"
 endmenu # MultiMedia
 
