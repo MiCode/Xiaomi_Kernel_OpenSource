@@ -535,7 +535,7 @@ int rawbulk_push_upstream_buffer(int transfer_id, const void *buffer,
 		total_drop[transfer_id] += length;
 
 		if (time_after(jiffies, drop_check_timeout)) {
-			C2K_NOTE("cahce full, t<%d>, drop<%d>, tota_drop<%d>\n"
+			C2K_NOTE("cache full, t<%d>, drop<%d>, tota_drop<%d>\n"
 			     , transfer_id, length, total_drop[transfer_id]);
 
 			C2K_NOTE("trans<%d>, alloc_fail<%d>, upstream<%d,%d>\n"
