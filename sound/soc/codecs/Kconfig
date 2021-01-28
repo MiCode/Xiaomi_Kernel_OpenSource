@@ -941,6 +941,9 @@ config SND_SOC_TLV320AIC3X
 config SND_SOC_TLV320DAC33
 	tristate
 
+config SND_SOC_TLV320WN
+	tristate
+
 config SND_SOC_TS3A227E
 	tristate "TI Headset/Mic detect and keypress chip"
 	depends on I2C
