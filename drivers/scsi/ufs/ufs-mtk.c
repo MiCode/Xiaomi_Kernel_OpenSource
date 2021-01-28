@@ -1669,7 +1669,7 @@ int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user)
 	if (copy_from_user(idata->buf_ptr,
 		(void __user *)idata_user->buf_ptr, idata->buf_byte)) {
 		err = -EFAULT;
-		goto out_release_mem;
+		goto out_release_idata_buf_ptr;
 	}
 
 	ufs_mtk_device_quiesce(hba);
@@ -1697,15 +1697,16 @@ int ufs_mtk_ioctl_ffu(struct scsi_device *dev, void __user *buf_user)
 	if (err) {
 		dev_err(hba->dev, "%s: query bDeviceFFUStatus failed, err %d\n",
 			__func__, err);
-		goto out_release_mem;
+		goto out_release_idata_buf_ptr;
 	}
 
 	if (attr > UFS_FFU_STATUS_OK)
 		dev_err(hba->dev, "%s: bDeviceFFUStatus shows fail %d (ref only)\n",
 			__func__, attr);
 
-out_release_mem:
+out_release_idata_buf_ptr:
 	kfree(idata->buf_ptr);
+out_release_mem:
 	kfree(idata);
 	kfree(idata_user);
 out:
