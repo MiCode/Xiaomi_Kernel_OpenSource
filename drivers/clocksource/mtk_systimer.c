@@ -152,7 +152,7 @@ static struct irqaction mtk_stmr_irq = {
 
 void mtk_timer_clkevt_aee_dump(void)
 {
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	/*
 	 * Notice: print function cannot be used during AEE
 	 * flow to avoid lock issues.
@@ -209,7 +209,7 @@ static irqreturn_t mtk_stmr_handler(int irq, void *dev_id)
 	unsigned int id = STMR_CLKEVT_ID;
 	struct mtk_stmr_device *dev;
 
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_hdl_in = sched_clock();
 #endif
 
@@ -226,7 +226,7 @@ static irqreturn_t mtk_stmr_handler(int irq, void *dev_id)
 	} else
 		pr_info("timer_mtk: invalid interrupt %d\n", irq);
 
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_hdl_out = sched_clock();
 #endif
 
@@ -284,7 +284,7 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 {
 	struct mtk_stmr_device *dev = mtk_stmr_id_to_dev(STMR_CLKEVT_ID);
 
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_setevt_in = sched_clock();
 #endif
 
@@ -306,7 +306,7 @@ static int mtk_stmr_clkevt_next_event(unsigned long ticks,
 	mt_reg_sync_writel(STMR_CON_EN | STMR_CON_IRQ_EN,
 		dev->base_addr + STMR_CON);
 
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_setevt_out = sched_clock();
 	dbg_setevt_cpu = smp_processor_id();
 #endif
@@ -337,13 +337,13 @@ static void mtk_stmr_clkevt_handler(unsigned long data)
 {
 	struct clock_event_device *evt = (struct clock_event_device *)data;
 
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_clkevt_in = sched_clock();
 #endif
 
 	evt->event_handler(evt);
 
-#ifdef MTK_TIMER_DBG_AEE_DUMP
+#if (defined MTK_TIMER_DBG_AEE_DUMP && defined CONFIG_MTK_RAM_CONSOLE)
 	t_clkevt_out = sched_clock();
 #endif
 }
