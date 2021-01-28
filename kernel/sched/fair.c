@@ -7466,6 +7466,9 @@ static inline int find_best_target(struct task_struct *p, int *backup_cpu,
 			if (!cpu_online(i))
 				continue;
 
+			if (is_reserved(i))
+				continue;
+
 			if (walt_cpu_high_irqload(i))
 				continue;
 
@@ -11688,6 +11691,27 @@ static void rq_offline_fair(struct rq *rq)
 
 	/* Ensure any throttled groups are reachable by pick_next_task */
 	unthrottle_offline_cfs_rqs(rq);
+}
+
+static DEFINE_RAW_SPINLOCK(migration_lock);
+void check_for_rotation(struct rq *rq, struct task_struct *p)
+{
+	int new_cpu;
+	int cpu = task_cpu(p);
+
+	if (rq->misfit_task_load) {
+		if (rq->curr->state != TASK_RUNNING ||
+			rq->curr->nr_cpus_allowed == 1)
+			return;
+
+		raw_spin_lock(&migration_lock);
+		rcu_read_lock();
+		new_cpu = select_task_rq_fair(p, cpu, SD_BALANCE_WAKE, 0, 1);
+		rcu_read_unlock();
+		if (capacity_orig_of(new_cpu) <= capacity_orig_of(cpu))
+			task_check_for_rotation(rq);
+		raw_spin_unlock(&migration_lock);
+	}
 }
 
 #endif /* CONFIG_SMP */

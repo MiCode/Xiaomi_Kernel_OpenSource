@@ -46,3 +46,38 @@ task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
 #define LB_EAS           (0x8  << LB_POLICY_SHIFT)
 #define LB_EAS_AFFINE   (0x18  << LB_POLICY_SHIFT)
 #define LB_EAS_LB       (0x28  << LB_POLICY_SHIFT)
+
+#define CPU_RESERVED 1
+#define TASK_ROTATION_THRESHOLD_NS      6000000
+#define HEAVY_TASK_NUM  4
+
+extern void task_rotate_work_init(void);
+extern void check_for_rotation(struct rq *rq, struct task_struct *p);
+extern void task_check_for_rotation(struct rq *rq);
+extern void set_sched_rotation_enable(bool enable);
+
+static inline int is_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_bit(CPU_RESERVED, &rq->rotate_flags);
+}
+
+static inline int mark_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return test_and_set_bit(CPU_RESERVED, &rq->rotate_flags);
+}
+
+static inline void clear_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	clear_bit(CPU_RESERVED, &rq->rotate_flags);
+}
+
+static inline bool is_max_capacity_cpu(int cpu)
+{
+	return capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE;
+}

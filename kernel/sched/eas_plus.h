@@ -141,4 +141,3 @@ inline int hinted_cpu_prefer(int task_prefer);
 int cpu_prefer(struct task_struct *p);
 void check_for_hint_migration(struct rq *rq, struct task_struct *p);
 extern unsigned int hmp_cpu_is_fastest(int cpu);
-
