@@ -53,7 +53,7 @@ do { \
 		if (seq_file)\
 			seq_printf(seq_file, fmt, ##args);\
 		else\
-			pr_info(fmt, ##args);\
+			pr_notice(fmt, ##args);\
 	} while (0)
 
 #endif
