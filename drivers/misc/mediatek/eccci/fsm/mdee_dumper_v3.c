@@ -50,6 +50,11 @@ static void ccci_aed_v3(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 #endif
 	int ret = 0;
 
+	if (!mem_layout) {
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s:ccci_md_get_mem fail\n", __func__);
+		return;
+	}
 	buff = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (buff == NULL) {
 		CCCI_ERROR_LOG(md_id, FSM, "Fail alloc Mem for buff!\n");
@@ -296,6 +301,7 @@ static void mdee_info_dump_v3(struct ccci_fsm_ee *mdee)
 	case MD_EE_CASE_WDT:
 		strncpy(ex_info, mdee_more_inf_str[dumper->more_info],
 			EE_BUF_LEN_UMOLY);
+		ex_info[EE_BUF_LEN_UMOLY - 1] = '\0';
 		break;
 	default:
 		mdee_output_debug_info_to_buf(mdee, debug_info, ex_info);

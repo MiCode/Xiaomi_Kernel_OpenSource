@@ -100,7 +100,7 @@ static void ccci_scp_md_state_sync_work(struct work_struct *work)
 
 static void ccci_scp_ipi_rx_work(struct work_struct *work)
 {
-	struct ccci_ipi_msg *ipi_msg_ptr;
+	struct ccci_ipi_msg *ipi_msg_ptr = NULL;
 	struct sk_buff *skb = NULL;
 	int data;
 

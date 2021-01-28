@@ -1130,6 +1130,7 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 	ccmni_ctl_blk[md_id] = ctlb;
 
 	memcpy(ctlb->ccci_ops, ccci_info, sizeof(struct ccmni_ccci_ops));
+	ctlb->ccci_ops->name[15] = '\0';
 
 	for (i = 0; i < ctlb->ccci_ops->ccmni_num; i++) {
 		/* allocate netdev */
@@ -1154,7 +1155,13 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 		/* used to support auto add ipv6 mroute */
 		dev->type = ARPHRD_PUREIP;
 
-		sprintf(dev->name, "%s%d", ctlb->ccci_ops->name, i);
+		ret = scnprintf(dev->name, sizeof(dev->name),
+			"%s%d", ctlb->ccci_ops->name, i);
+		if (ret < 0) {
+			CCMNI_INF_MSG(md_id, "%s-%d:scnprintf fail\n",
+				__func__, __LINE__);
+				goto alloc_netdev_fail;
+		}
 
 		/* init private structure of netdev */
 		ccmni = netdev_priv(dev);
@@ -1247,7 +1254,12 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 #endif
 		/*ccmni-lan need handle ARP packet */
 		dev->flags = IFF_BROADCAST | IFF_MULTICAST;
-		sprintf(dev->name, "ccmni-lan");
+		ret = scnprintf(dev->name, sizeof(dev->name), "ccmni-lan");
+		if (ret < 0) {
+			CCMNI_INF_MSG(md_id, "%s-%d:scnprintf fail\n",
+				__func__, __LINE__);
+				goto alloc_netdev_fail;
+		}
 
 		/*init private structure of netdev */
 		ccmni = netdev_priv(dev);

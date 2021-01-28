@@ -237,7 +237,7 @@ int port_smem_rx_poll(struct port_t *port, unsigned int user_data)
 		"before wait event, bitmask=%x\n", user_data);
 #ifdef DEBUG_FOR_CCB
 	idx = smem_port->poll_save_idx;
-	if ((idx + 2) >= CCB_POLL_PTR_MAX) {
+	if (idx >= CCB_POLL_PTR_MAX - 2) {
 		CCCI_ERROR_LOG(md_id, TAG,
 			"invalid idx = %d\n", idx);
 		return -EFAULT;

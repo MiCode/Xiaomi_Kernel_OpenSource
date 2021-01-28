@@ -43,6 +43,11 @@ static void ccci_aed_v1(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	int md_dbg_dump_flag = per_md_data->md_dbg_dump_flag;
 	int ret = 0;
 
+	if (!mem_layout) {
+		CCCI_ERROR_LOG(md_id, FSM,
+			"%s:ccci_md_get_mem fail\n", __func__);
+		return;
+	}
 	buff = kmalloc(AED_STR_LEN, GFP_ATOMIC);
 	if (buff == NULL) {
 		CCCI_ERROR_LOG(md_id, FSM, "Fail alloc Mem for buff, %d!\n",
