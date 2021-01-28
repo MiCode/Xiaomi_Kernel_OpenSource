@@ -2113,6 +2113,9 @@ firmware_class.path=/vendor/firmware";
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
 		charger = <&mt6370_chg>;
+		/*-effuse access-*/
+		nvmem-cells = <&efuse_analog7>;
+		nvmem-cell-names = "efuse_idx107";
 	};
 
 	usb_sif@11210000 {
@@ -2291,6 +2294,9 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		};
 		thermal_efuse: segment@190 {
 			reg = <0x190 0xc>;
+		};
+		efuse_analog7: efuse_analog7@1ac {
+			reg = <0x1ac 0x4>;
 		};
 	};
 

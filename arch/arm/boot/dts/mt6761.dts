@@ -2077,6 +2077,9 @@
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
 		charger = <&mt6370_chg>;
+		/*-effuse access-*/
+		nvmem-cells = <&efuse_analog7>;
+		nvmem-cell-names = "efuse_idx107";
 	};
 
 	usb_sif@11210000 {
@@ -2249,6 +2252,9 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 
 		efuse_segment: segment@78 {
 			reg = <0x78 0x4>;
+		};
+		efuse_analog7: efuse_analog7@1ac {
+			reg = <0x1ac 0x4>;
 		};
 	};
 
