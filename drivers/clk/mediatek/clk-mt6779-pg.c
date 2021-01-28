@@ -5325,35 +5325,39 @@ void iomap_mm(void)
 	struct device_node *node;
 
 /*mmsys_config*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,mmsys_config");
+	node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6779-mmsys_config");
 	if (!node)
 		pr_debug("[CLK_MMSYS] find node failed\n");
 	clk_mmsys_config_base = of_iomap(node, 0);
 	if (!clk_mmsys_config_base)
 		pr_debug("[CLK_MMSYS] base failed\n");
 /*imgsys*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,imgsys");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-imgsys");
 	if (!node)
 		pr_debug("[CLK_IMGSYS_CONFIG] find node failed\n");
 	clk_imgsys_base = of_iomap(node, 0);
 	if (!clk_imgsys_base)
 		pr_debug("[CLK_IMGSYS_CONFIG] base failed\n");
 /*ipesys*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,ipesys_config");
+	node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6779-ipesys_config");
 	if (!node)
 		pr_debug("[CLK_IPESYS_CONFIG] find node failed\n");
 	clk_ipesys_base = of_iomap(node, 0);
 	if (!clk_ipesys_base)
 		pr_debug("[CLK_IPESYS_CONFIG] base failed\n");
 /*vdec_gcon*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,vdec_gcon");
+	node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6779-vdec_gcon");
 	if (!node)
 		pr_debug("[CLK_VDEC_GCON] find node failed\n");
 	clk_vdec_gcon_base = of_iomap(node, 0);
 	if (!clk_vdec_gcon_base)
 		pr_debug("[CLK_VDEC_GCON] base failed\n");
 /*venc_gcon*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,venc_gcon");
+	node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6779-venc_gcon");
 	if (!node)
 		pr_debug("[CLK_VENC_GCON] find node failed\n");
 	clk_venc_gcon_base = of_iomap(node, 0);
@@ -5361,21 +5365,22 @@ void iomap_mm(void)
 		pr_debug("[CLK_VENC_GCON] base failed\n");
 
 /*cam*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camsys");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-camsys");
 	if (!node)
 		pr_debug("[CLK_CAM] find node failed\n");
 	clk_camsys_base = of_iomap(node, 0);
 	if (!clk_camsys_base)
 		pr_debug("[CLK_CAM] base failed\n");
 /*apu vcore*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apu_vcore");
+	node = of_find_compatible_node(NULL, NULL,
+				"mediatek,mt6779-apu_vcore");
 	if (!node)
 		pr_debug("[CLK_APU_VCORE] find node failed\n");
 	clk_apu_vcore_base = of_iomap(node, 0);
 	if (!clk_apu_vcore_base)
 		pr_debug("[CLK_APU_VCORE] base failed\n");
 /*apu conn*/
-	node = of_find_compatible_node(NULL, NULL, "mediatek,apu_conn");
+	node = of_find_compatible_node(NULL, NULL, "mediatek,mt6779-apu_conn");
 	if (!node)
 		pr_debug("[CLK_APU_CONN] find node failed\n");
 	clk_apu_conn_base = of_iomap(node, 0);
