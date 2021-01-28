@@ -181,6 +181,8 @@ static ssize_t rawbulk_attr_show(struct device *dev,
 
 	for (n = 0; n < _MAX_TID; n++) {
 		fn = rawbulk_lookup_function(n);
+		if (IS_ERR_OR_NULL(fn))
+			break;
 		if (fn->dev == dev) {
 			idx = which_attr(fn, attr);
 			break;
@@ -281,6 +283,8 @@ static ssize_t rawbulk_attr_store(struct device *dev,
 
 	for (n = 0; n < _MAX_TID; n++) {
 		fn = rawbulk_lookup_function(n);
+		if (IS_ERR_OR_NULL(fn))
+			break;
 		if (fn->dev == dev) {
 			idx = which_attr(fn, attr);
 			break;
@@ -595,7 +599,7 @@ static __init struct rawbulk_function *rawbulk_alloc_function(int transfer_id)
 		return NULL;
 
 	fn = kzalloc(sizeof(*fn), GFP_KERNEL);
-	if (IS_ERR(fn))
+	if (IS_ERR_OR_NULL(fn))
 		return NULL;
 
 	/* init default features of rawbulk functions */
