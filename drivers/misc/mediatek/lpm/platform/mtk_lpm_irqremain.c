@@ -259,16 +259,31 @@ int __init mtk_lpm_irqremain_parsing(struct device_node *parent)
 	}
 
 	mtk_lpm_smc_cpu_pm(IRQ_REMAIN_LIST_ALLOC, remain_count, 0, 0);
-
+	mtk_lpm_smc_cpu_pm_lp(IRQS_REMAIN_ALLOC, MT_LPM_SMC_ACT_SET,
+			      remain_count, 0);
 	remain_count = 0;
 	FOR_EACH_IRQ_REMAIN(irqnode) {
 		mtk_lpm_smc_cpu_pm(IRQ_REMAIN_IRQ_ADD,
 				   PLAT_COVERT_IRQ_NUM(irqnode->irq),
 				   irqnode->wakeup_src_cat,
 				   irqnode->wakeup_src);
+
+		mtk_lpm_smc_cpu_pm_lp(IRQS_REMAIN_IRQ,
+				   MT_LPM_SMC_ACT_SET,
+				   PLAT_COVERT_IRQ_NUM(irqnode->irq), 0);
+		mtk_lpm_smc_cpu_pm_lp(IRQS_REMAIN_WAKEUP_CAT,
+				   MT_LPM_SMC_ACT_SET,
+				   irqnode->wakeup_src_cat, 0);
+		mtk_lpm_smc_cpu_pm_lp(IRQS_REMAIN_WAKEUP_SRC,
+				   MT_LPM_SMC_ACT_SET,
+				   irqnode->wakeup_src, 0);
+		mtk_lpm_smc_cpu_pm_lp(IRQS_REMAIN_CTRL,
+				   MT_LPM_SMC_ACT_PUSH, 0, 0);
 		remain_count++;
 	}
 	mtk_lpm_smc_cpu_pm(IRQ_REMAIN_IRQ_SUBMIT, 0, 0, 0);
+	mtk_lpm_smc_cpu_pm_lp(IRQS_REMAIN_CTRL,
+			      MT_LPM_SMC_ACT_SUBMIT, 0, 0);
 	return ret;
 }
 

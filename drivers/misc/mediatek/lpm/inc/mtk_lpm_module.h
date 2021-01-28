@@ -23,11 +23,15 @@
 
 
 /* behavior */
-#define MT_LPM_SMC_ACT_SET		(1<<0)
-#define MT_LPM_SMC_ACT_CLR		(1<<1)
+#define MT_LPM_SMC_ACT_SET		(1<<0UL)
+#define MT_LPM_SMC_ACT_CLR		(1<<1UL)
 #define MT_LPM_SMC_ACT_GET		(1<<2UL)
+#define MT_LPM_SMC_ACT_PUSH		(1<<3UL)
+#define MT_LPM_SMC_ACT_POP		(1<<4UL)
+#define MT_LPM_SMC_ACT_SUBMIT		(1<<5UL)
+
 /* compatible action for legacy smc from lk */
-#define MT_LPM_SMC_ACT_COMPAT		(1<<7UL)
+#define MT_LPM_SMC_ACT_COMPAT		(1<<31UL)
 
 
 #define MT_LPM_SMC_MAGIC		0xDA000000
@@ -39,6 +43,7 @@ enum mt_lpm_smc_user_id {
 	mt_lpm_smc_user_cpu_pm = 0,
 	mt_lpm_smc_user_spm_dbg,
 	mt_lpm_smc_user_spm,
+	mt_lpm_smc_user_cpu_pm_lp,
 	mt_lpm_smc_user_max,
 };
 
@@ -61,6 +66,9 @@ enum mt_lpm_smc_user_id {
 /* sink spm's smc id */
 #define MT_LPM_SMC_USER_ID_SPM(uid) \
 	MT_LPM_SMC_USER_SINK(mt_lpm_smc_user_spm, uid)
+/* sink cpu pm's low power extension smc id */
+#define MT_LPM_SMC_USER_ID_CPU_PM_LP(uid) \
+	MT_LPM_SMC_USER_SINK(mt_lpm_smc_user_cpu_pm_lp, uid)
 
 
 
@@ -73,6 +81,9 @@ enum mt_lpm_smc_user_id {
 /* sink spm's user id */
 #define MT_LPM_SMC_USER_SPM(uid)\
 			MT_LPM_SMC_USER_ID_SPM(uid)
+	/* sink spm's user id */
+#define MT_LPM_SMC_USER_CPU_PM_LP(uid)\
+			MT_LPM_SMC_USER_ID_CPU_PM_LP(uid)
 
 
 
@@ -150,5 +161,17 @@ enum MT_SPM_SMC_UID {
 				MT_LPM_SMC_USER_SPM(_lp_id),\
 				_act, _val1, _val2); })
 
+enum MT_CPU_PM_LP_SMC_UID {
+	LP_CPC_COMMAND,
+	IRQS_REMAIN_ALLOC,
+	IRQS_REMAIN_CTRL,
+	IRQS_REMAIN_IRQ,
+	IRQS_REMAIN_WAKEUP_CAT,
+	IRQS_REMAIN_WAKEUP_SRC,
+};
+#define mtk_lpm_smc_cpu_pm_lp(_lp_id, _act, _val1, _val2) ({\
+		mtk_lpm_smc(MTK_SIP_MTK_LPM_CONTROL,\
+				MT_LPM_SMC_USER_CPU_PM_LP(_lp_id),\
+				_act, _val1, _val2); })
 
 #endif
