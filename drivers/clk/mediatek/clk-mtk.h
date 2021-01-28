@@ -212,7 +212,9 @@ struct mtk_pll_data {
 	const struct clk_ops *ops;
 	u32 rst_bar_mask;
 	unsigned long fmax;
+	unsigned long fmin;
 	int pcwbits;
+	int pcwibits;
 	uint32_t pcw_reg;
 	int pcw_shift;
 	const struct mtk_pll_div_table *div_table;
