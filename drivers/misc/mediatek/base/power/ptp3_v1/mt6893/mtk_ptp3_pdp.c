@@ -238,12 +238,9 @@ static int pdp_dump_proc_show(struct seq_file *m, void *v)
 			status = ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_READ, 0, cpu_n);
 			seq_printf(m, "PDP_EN : %d, ", status);
 			pdp_debug("PDP_EN : %d, ", status);
-			status = ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_PINCTL_READ, 0, pdp_n);
-			seq_printf(m, "PDP_PINCTL_EN : %d, ", status);
-			pdp_debug("PDP_PINCTL_EN : %d, ", status);
-			status = ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_TOG_READ, 0, pdp_n);
-			seq_printf(m, "PDP_TOG_EN : %d\n", status);
-			pdp_debug("PDP_TOG_EN : %d\n", status);
+			status = ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_PINCTL_READ, 0, cpu_n);
+			seq_printf(m, "PDP_PINCTL_EN : %d\n", status);
+			pdp_debug("PDP_PINCTL_EN : %d\n", status);
 			break;
 		default:
 			break;
@@ -360,11 +357,8 @@ static int pdp_pinctl_proc_show(struct seq_file *m, void *v)
 		seq_printf(m, "[PDP][CPU%d] PDP_ARM_PINCTL_EN : %d, ", pdp_n, status);
 		pdp_debug("[PDP][CPU%d] PDP_ARM_PINCTL_EN : %d, ", pdp_n, status);
 		status = ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_PINCTL_READ, 0, pdp_n);
-		seq_printf(m, "PDP_PINCTL_EN : %d, ", status);
-		pdp_debug("PDP_PINCTL_EN : %d, ", status);
-		status = ptp3_smc_handle(PTP3_FEATURE_PDP, PDP_RW_TOG_READ, 0, pdp_n);
-		seq_printf(m, "PDP_TOG_EN : %d\n", status);
-		pdp_debug("PDP_TOG_EN : %d\n", status);
+		seq_printf(m, "PDP_PINCTL_EN : %d\n", status);
+		pdp_debug("PDP_PINCTL_EN : %d\n", status);
 		}
 
 	return 0;

@@ -225,7 +225,6 @@ static ssize_t dt_dump_proc_write(struct file *file,
 	}
 		for (dt_n = 0; dt_n < DT_NUM; dt_n++) {
 			value = (input >> dt_n) & 0x1;
-			/* dt_smc_handle(DT_RW_WRITE, value, dt_n); */
 			ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_WRITE, value, dt_n);
 		}
 
@@ -291,43 +290,40 @@ static int dt_dump_proc_show(struct seq_file *m, void *v)
 			status = ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_READ, 0, cpu_n);
 		switch (status) {
 		case p0_disp_red:
-	seq_printf(m, "PINCTL_THR : %d (0%% dispatch reduction(inactive)), ", status);
-			dt_debug("PINCTL_THR : %d (0%% dispatch reduction(inactive)), ", status);
+	seq_printf(m, "PINCTL_THR : %d (0%% dispatch reduction(inactive))\n", status);
+			dt_debug("PINCTL_THR : %d (0%% dispatch reduction(inactive))\n", status);
 			break;
 		case p12_disp_red:
-			seq_printf(m, "PINCTL_THR : %d (12%% dispatch reduction), ", status);
-			dt_debug("PINCTL_THR : %d (12%% dispatch reduction), ", status);
+			seq_printf(m, "PINCTL_THR : %d (12%% dispatch reduction)\n", status);
+			dt_debug("PINCTL_THR : %d (12%% dispatch reduction)\n", status);
 			break;
 		case p25_disp_red:
-			seq_printf(m, "PINCTL_THR : %d (25%% dispatch reduction), ", status);
-			dt_debug("PINCTL_THR : %d (25%% dispatch reduction), ", status);
+			seq_printf(m, "PINCTL_THR : %d (25%% dispatch reduction)\n", status);
+			dt_debug("PINCTL_THR : %d (25%% dispatch reduction)\n", status);
 			break;
 		case p30_disp_red:
-			seq_printf(m, "PINCTL_THR : %d (30%% dispatch reduction), ", status);
-			dt_debug("PINCTL_THR : %d (30%% dispatch reduction), ", status);
+			seq_printf(m, "PINCTL_THR : %d (30%% dispatch reduction)\n", status);
+			dt_debug("PINCTL_THR : %d (30%% dispatch reduction)\n", status);
 			break;
 		case p35_disp_red:
-			seq_printf(m, "PINCTL_THR : %d (35%% dispatch reduction), ", status);
-			dt_debug("PINCTL_THR : %d (35%% dispatch reduction), ", status);
+			seq_printf(m, "PINCTL_THR : %d (35%% dispatch reduction)\n", status);
+			dt_debug("PINCTL_THR : %d (35%% dispatch reduction)\n", status);
 			break;
 		case p40_disp_red:
-			seq_printf(m, "PINCTL_THR : %d (40%% dispatch reduction), ", status);
-			dt_debug("PINCTL_THR : %d (40%% dispatch reduction), ", status);
+			seq_printf(m, "PINCTL_THR : %d (40%% dispatch reduction)\n", status);
+			dt_debug("PINCTL_THR : %d (40%% dispatch reduction)\n", status);
 			break;
 		case p75_disp_red:
-			seq_printf(m, "PINCTL_THR : %d (75%% dispatch reduction), ", status);
-			dt_debug("PINCTL_THR : %d (75%% dispatch reduction), ", status);
+			seq_printf(m, "PINCTL_THR : %d (75%% dispatch reduction)\n", status);
+			dt_debug("PINCTL_THR : %d (75%% dispatch reduction)\n", status);
 			break;
 		case p75_disp_red_pinctl_is_p100:
-			seq_printf(m, "PINCTL_THR : %d (100%% drive DT), ", status);
-			dt_debug("PINCTL_THR : %d (100%% drive DT), ", status);
+			seq_printf(m, "PINCTL_THR : %d (100%% drive DT)\n", status);
+			dt_debug("PINCTL_THR : %d (100%% drive DT)\n", status);
 			break;
 	}
-		status = ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_TOG_READ, 0, cpu_n);
-		seq_printf(m, "DT_TOG_EN : %d\n", status);
-		dt_debug("DT_TOG_EN : %d\n", status);
 		}
-#if 1
+#if 0
 	for (dt_n = DT_NUM ; dt_n < DT_DEBUG_BIT ; dt_n++) {
 		status = ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_READ, 0, dt_n);
 		seq_printf(m, "DT Debug Bits%d: %d\n", dt_n, status);
@@ -395,15 +391,9 @@ static ssize_t dt_pinctl_proc_write(struct file *file,
 		dt_debug("bad argument!! Should be \"0\" ~ \"255\"\n");
 		goto out;
 	}
-#if 0
-		for (dt_n = DT_THR_START_BIT ; dt_n <= DT_THR_END_BIT ; dt_n++) {
-			value = (input >> dt_n) & 0x1;
-			//dt_smc_handle(DT_RW_PINCTL_WRITE, value, dt_n);
-			ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_WRITE, value, dt_n);
-			}
-#endif
-		for (dt_n = DT_B_START_ID ; dt_n < DT_NUM ; dt_n++)
-			ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_WRITE, input, dt_n);
+
+	for (dt_n = DT_B_START_ID ; dt_n < DT_NUM ; dt_n++)
+		ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_WRITE, input, dt_n);
 
 
 out:
@@ -423,43 +413,40 @@ static int dt_pinctl_proc_show(struct seq_file *m, void *v)
 		status = ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_PINCTL_READ, 0, dt_n);
 	switch (status) {
 	case p0_disp_red:
-		seq_printf(m, "THR : %d (0%% dispatch reduction(inactive)), ", status);
-		dt_debug("THR : %d (0%% dispatch reduction(inactive)), ", status);
+		seq_printf(m, "THR : %d (0%% dispatch reduction(inactive))\n", status);
+		dt_debug("THR : %d (0%% dispatch reduction(inactive))\n", status);
 		break;
 	case p12_disp_red:
-		seq_printf(m, "THR : %d (12%% dispatch reduction), ", status);
-		dt_debug("THR : %d (12%% dispatch reduction), ", status);
+		seq_printf(m, "THR : %d (12%% dispatch reduction)\n", status);
+		dt_debug("THR : %d (12%% dispatch reduction)\n", status);
 		break;
 	case p25_disp_red:
-		seq_printf(m, "THR : %d (25%% dispatch reduction), ", status);
-		dt_debug("THR : %d (25%% dispatch reduction), ", status);
+		seq_printf(m, "THR : %d (25%% dispatch reduction)\n", status);
+		dt_debug("THR : %d (25%% dispatch reduction)\n", status);
 		break;
 	case p30_disp_red:
-		seq_printf(m, "THR : %d (30%% dispatch reduction), ", status);
-		dt_debug("THR : %d (30%% dispatch reduction), ", status);
+		seq_printf(m, "THR : %d (30%% dispatch reduction)\n", status);
+		dt_debug("THR : %d (30%% dispatch reduction)\n", status);
 		break;
 	case p35_disp_red:
-		seq_printf(m, "THR : %d (35%% dispatch reduction), ", status);
-		dt_debug("THR : %d (35%% dispatch reduction), ", status);
+		seq_printf(m, "THR : %d (35%% dispatch reduction)\n", status);
+		dt_debug("THR : %d (35%% dispatch reduction)\n", status);
 		break;
 	case p40_disp_red:
-		seq_printf(m, "THR : %d (40%% dispatch reduction), ", status);
-		dt_debug("THR : %d (40%% dispatch reduction), ", status);
+		seq_printf(m, "THR : %d (40%% dispatch reduction)\n", status);
+		dt_debug("THR : %d (40%% dispatch reduction)\n", status);
 		break;
 	case p75_disp_red:
-		seq_printf(m, "THR : %d (75%% dispatch reduction), ", status);
-		dt_debug("THR : %d (75%% dispatch reduction), ", status);
+		seq_printf(m, "THR : %d (75%% dispatch reduction)\n", status);
+		dt_debug("THR : %d (75%% dispatch reduction)\n", status);
 		break;
 	case p75_disp_red_pinctl_is_p100:
-		seq_printf(m, "THR : %d (100%% drive DT), ", status);
-		dt_debug("THR : %d (100%% drive DT), ", status);
+		seq_printf(m, "THR : %d (100%% drive DT)\n", status);
+		dt_debug("THR : %d (100%% drive DT)\n", status);
 		break;
 	default:
 		break;
 	}
-		status = ptp3_smc_handle(PTP3_FEATURE_DT, DT_RW_TOG_READ, 0, dt_n);
-		seq_printf(m, "DT_TOG_EN : %d\n", status);
-		dt_debug("DT_TOG_EN : %d\n", status);
 		}
 
 	return 0;
