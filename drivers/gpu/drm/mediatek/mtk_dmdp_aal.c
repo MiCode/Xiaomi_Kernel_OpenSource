@@ -64,6 +64,7 @@ static void mtk_aal_write_mask(void __iomem *address, u32 data, u32 mask)
 	if (mask != ~0) {
 		value = readl(address);
 		value &= ~mask;
+		data &= mask;
 		value |= data;
 	}
 	writel(value, address);

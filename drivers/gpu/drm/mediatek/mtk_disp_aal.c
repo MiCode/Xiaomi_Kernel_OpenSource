@@ -190,6 +190,7 @@ static void mtk_aal_write_mask(void __iomem *address, u32 data, u32 mask)
 	if (mask != ~0) {
 		value = readl(address);
 		value &= ~mask;
+		data &= mask;
 		value |= data;
 	}
 	writel(value, address);
@@ -1160,7 +1161,7 @@ int disp_aal_set_param(struct mtk_ddp_comp *comp, struct cmdq_pkt *handle,
 		//before config loop.The DSI EOF has 100 us later then
 		//RDMA EOF,and the worst DISP config time is 153us,
 		//so if intervel less than 260 should delay
-		usleep_range(260-time_use, 270-time_use);
+		udelay(260-time_use);
 	}
 
 	ret = disp_aal_write_param_to_reg(comp, handle, &g_aal_param);
