@@ -33,7 +33,8 @@ static int set_crypto(struct msdc_host *host,
 	case MSDC_CRYPTO_ALG_AES_XTS:
 	{
 		ctr[0] = data_unit_num & 0xffffffff;
-		ctr[1] = (data_unit_num >> 32) & 0xffffffff;
+		if ((data_unit_num >> 32) & 0xffffffff)
+			ctr[1] = (data_unit_num >> 32) & 0xffffffff;
 		break;
 	}
 	default:
@@ -140,10 +141,12 @@ static int msdc_prepare_mqr_crypto(struct mmc_host *host,
 		host->crypto_cap_array[slot].key_size << 8 |
 		host->crypto_cap_array[slot].algorithm_id << 0;
 
-	memcpy(aes_key, &(host->crypto_cfgs[slot].crypto_key[0]), 32/2);
+	memcpy(aes_key,
+	&(host->crypto_cfgs[slot].crypto_key[0]),
+	MMC_CRYPTO_KEY_MAX_SIZE/2);
 	memcpy(aes_tkey,
 	&(host->crypto_cfgs[slot].crypto_key[MMC_CRYPTO_KEY_MAX_SIZE/2]),
-	32/2);
+	MMC_CRYPTO_KEY_MAX_SIZE/2);
 	/* low layer set key: key had been set in upper layer */
 	msdc_crypto_program_key(host, aes_key, aes_tkey, aes_config);
 

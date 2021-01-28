@@ -131,9 +131,9 @@ static void program_key(struct mmc_host *host,
 	key_size_bytes = get_keysize_bytes(size);
 
 	/* split key into key & tkey */
-	memcpy(aes_key, &cfg->crypto_key[0], key_size_bytes/2);
+	memcpy(aes_key, &cfg->crypto_key[0], key_size_bytes);
 	memcpy(aes_tkey,
-		&cfg->crypto_key[MMC_CRYPTO_KEY_MAX_SIZE/2], key_size_bytes/2);
+		&cfg->crypto_key[MMC_CRYPTO_KEY_MAX_SIZE/2], key_size_bytes);
 }
 
 static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
@@ -167,7 +167,11 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 		return -EINVAL;
 
 	memset(&cfg, 0, sizeof(cfg));
+#ifdef CONFIG_BLK_INLINE_ENCRYPTION_FALLBACK
 	cfg.data_unit_size = data_unit_mask;
+#else
+	cfg.data_unit_size = 1;
+#endif
 	cfg.crypto_cap_idx = cap_idx;
 	cfg.config_enable |= MMC_CRYPTO_CONFIGURATION_ENABLE;
 
@@ -306,7 +310,17 @@ static int mmc_prepare_mqr_crypto_spec(struct mmc_host *host,
 		return -EINVAL;
 
 	mqr->brq.mrq.crypto_key_slot = bc->bc_keyslot;
-	mqr->brq.mrq.data_unit_num = bc->bc_dun[0];
+	/*
+	 * OTA with ext4 (dun is 512 bytes) used LBA,
+	 * with F2FS (dun is 512 bytes), the dun[0] had
+	 * multiplied by 8.
+	 */
+	if (bc->bc_dun[0] == 0xFFFFFFFFFFFFFFFFULL &&
+		bc->bc_dun[1] == 0xFFFFFFFFFFFFFFFFULL)
+		mqr->brq.mrq.data_unit_num =
+			(blk_rq_pos(request) & 0xFFFFFFFF);
+	else
+		mqr->brq.mrq.data_unit_num = bc->bc_dun[0];
 	mqr->brq.mrq.crypto_key = bc->bc_key;
 	return 0;
 }
