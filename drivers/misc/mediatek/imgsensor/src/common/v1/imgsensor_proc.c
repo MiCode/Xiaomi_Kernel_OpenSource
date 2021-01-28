@@ -85,6 +85,7 @@ static ssize_t CAMERA_HW_Reg_Debug(
 	loff_t *data)
 {
 	char regBuf[64] = { '\0' };
+	int ret = 0;
 	u32 u4CopyBufSize =
 	    (count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
 
@@ -120,12 +121,17 @@ static ssize_t CAMERA_HW_Reg_Debug(
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
 
-		snprintf(
+		ret = snprintf(
 		    mtk_i2c_dump,
 		    sizeof(mtk_i2c_dump),
 		    "addr = 0x%08x, data = 0x%08x\n",
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
+		if (ret == 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 
 	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
 		imgsensor_sensor_feature_control(
@@ -157,6 +163,7 @@ static ssize_t CAMERA_HW_Reg_Debug2(
 	loff_t *data)
 {
 	char regBuf[64] = { '\0' };
+	int ret = 0;
 	u32 u4CopyBufSize =
 	    (count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
 
@@ -190,12 +197,17 @@ static ssize_t CAMERA_HW_Reg_Debug2(
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
 
-		snprintf(
+		ret = snprintf(
 		    mtk_i2c_dump,
 		    sizeof(mtk_i2c_dump),
 		    "addr = 0x%08x, data = 0x%08x\n",
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
+		if (ret == 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 
 	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
 		imgsensor_sensor_feature_control(
@@ -226,6 +238,7 @@ static ssize_t CAMERA_HW_Reg_Debug3(
 	loff_t *data)
 {
 	char regBuf[64] = { '\0' };
+	int ret = 0;
 	u32 u4CopyBufSize =
 	    (count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
 
@@ -261,12 +274,17 @@ static ssize_t CAMERA_HW_Reg_Debug3(
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
 
-		snprintf(
+		ret = snprintf(
 		    mtk_i2c_dump,
 		    sizeof(mtk_i2c_dump),
 		    "addr = 0x%08x, data = 0x%08x\n",
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
+		if (ret == 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 
 	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
 		imgsensor_sensor_feature_control(
@@ -298,6 +316,7 @@ static ssize_t CAMERA_HW_Reg_Debug4(
 	loff_t *data)
 {
 	char regBuf[64] = { '\0' };
+	int ret = 0;
 	u32 u4CopyBufSize =
 	    (count < (sizeof(regBuf) - 1)) ? (count) : (sizeof(regBuf) - 1);
 
@@ -335,12 +354,17 @@ static ssize_t CAMERA_HW_Reg_Debug4(
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
 
-		snprintf(
+		ret = snprintf(
 		    mtk_i2c_dump,
 		    sizeof(mtk_i2c_dump),
 		    "addr = 0x%08x, data = 0x%08x\n",
 		    sensorReg.RegAddr,
 		    sensorReg.RegData);
+		if (ret == 0) {
+			pr_info("Error! snprintf allocate 0");
+			ret = IMGSENSOR_RETURN_ERROR;
+			return ret;
+		}
 
 	} else if (kstrtouint(regBuf, 16, &sensorReg.RegAddr) == 0) {
 		imgsensor_sensor_feature_control(
@@ -392,10 +416,16 @@ static int proc_camsensor_open(struct inode *inode, struct file *file)
 static int imgsensor_proc_status_read(struct seq_file *m, void *v)
 {
 	char status_info[IMGSENSOR_STATUS_INFO_LENGTH];
+	int ret = 0;
 
-	snprintf(status_info, sizeof(status_info),
+	ret = snprintf(status_info, sizeof(status_info),
 			"ERR_L0, %x\n",
 			*((uint32_t *)(&pgimgsensor->status)));
+	if (ret == 0) {
+		pr_info("Error! snprintf allocate 0");
+		ret = IMGSENSOR_RETURN_ERROR;
+		return ret;
+	}
 	seq_printf(m, "%s\n", status_info);
 	return 0;
 };

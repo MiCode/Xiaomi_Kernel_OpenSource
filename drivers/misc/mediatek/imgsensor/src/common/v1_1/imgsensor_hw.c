@@ -191,12 +191,13 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 	enum IMGSENSOR_SENSOR_IDX sensor_idx = psensor->inst.sensor_idx;
 	char *curr_sensor_name = psensor->inst.psensor_list->name;
 	char str_index[LENGTH_FOR_SNPRINTF];
+	int ret = 0;
 
 	PK_DBG("sensor_idx %d, power %d curr_sensor_name %s, enable list %s\n",
 		sensor_idx,
 		pwr_status,
 		curr_sensor_name,
-		phw->enable_sensor_by_index[sensor_idx] == NULL
+		phw->enable_sensor_by_index[(uint32_t)sensor_idx] == NULL
 		? "NULL"
 		: phw->enable_sensor_by_index[sensor_idx]);
 
@@ -205,7 +206,12 @@ enum IMGSENSOR_RETURN imgsensor_hw_power(
 		return IMGSENSOR_RETURN_ERROR;
 
 
-	snprintf(str_index, sizeof(str_index), "%d", sensor_idx);
+	ret = snprintf(str_index, sizeof(str_index), "%d", sensor_idx);
+	if (ret == 0) {
+		pr_info("Error! snprintf allocate 0");
+		ret = IMGSENSOR_RETURN_ERROR;
+		return ret;
+	}
 	imgsensor_hw_power_sequence(
 			phw,
 			sensor_idx,
