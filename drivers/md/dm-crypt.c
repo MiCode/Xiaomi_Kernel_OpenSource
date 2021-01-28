@@ -2041,9 +2041,6 @@ static int crypt_setkey(struct crypt_config *cc)
 	unsigned subkey_size;
 	int err = 0, i, r;
 
-	/* Ignore extra keys (which are used for IV etc) */
-	subkey_size = crypt_subkey_size(cc);
-
 /* MTK PATCH */
 #if defined(CONFIG_MTK_HW_FDE)
 	if (cc->hw_fde == 1) {
@@ -2058,6 +2055,9 @@ static int crypt_setkey(struct crypt_config *cc)
 	} else
 #endif
 	{
+
+	/* Ignore extra keys (which are used for IV etc) */
+	subkey_size = crypt_subkey_size(cc);
 
 	if (crypt_integrity_hmac(cc)) {
 		if (subkey_size < cc->key_mac_size)
