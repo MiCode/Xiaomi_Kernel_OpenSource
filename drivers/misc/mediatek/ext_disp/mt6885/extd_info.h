@@ -68,7 +68,6 @@ struct EXTD_DRIVER {
 	int (*post_init)(void);
 	int (*deinit)(void);
 	int (*enable)(int enable);
-	/* @enable: 1 for power on, 0 for power off */
 	int (*power_enable)(int enable);
 	int (*set_audio_enable)(int enable);
 	int (*set_audio_format)(int format);
@@ -81,8 +80,8 @@ struct EXTD_DRIVER {
 	int (*factory_mode_test)(enum HDMI_FACTORY_TEST test_step, void *info);
 	int (*audio_setting)(void *audio_param);
 	int (*install_hdcpkey)(void *hdcpkey);
-	int (*ioctl)(unsigned int ioctl_cmd, int param1, int param2,
-		     unsigned long *params);
+	int (*ioctl)(unsigned int ioctl_cmd, int param1,
+				int param2, unsigned long *params);
 };
 
 /*get driver handle*/
@@ -94,4 +93,4 @@ const struct EXTD_DRIVER *EXTD_LCM_Driver(void);
 const struct EXTD_DRIVER *EXTD_Factory_HDMI_Driver(void);
 const struct EXTD_DRIVER *EXTD_Factory_EPD_Driver(void);
 
-#endif /* __EXTD_INFO_H__ */
+#endif

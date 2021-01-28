@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2015 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -20,46 +20,35 @@
 #include "extd_utils.h"
 #include "extd_log.h"
 
-static DEFINE_SEMAPHORE(extd_mutex);
-
 int extd_mutex_init(struct mutex *m)
 {
-	EXT_DISP_LOG("mutex init:\n");
-	return 0;
 	mutex_init(m);
 	return 0;
 }
 
 int extd_sw_mutex_lock(struct mutex *m)
 {
-	if (down_interruptible(&extd_mutex)) {
-		pr_debug("DISP/ Can't get semaphore in %s()\n", __func__);
-		return -1;
-	}
-
+	mutex_lock(m);
 	return 0;
 }
 
 int extd_mutex_trylock(struct mutex *m)
 {
 	int ret = 0;
-	/* ret = mutex_trylock(m); */
-	EXT_DISP_LOG("mutex: trylock\n");
+
+	ret = mutex_trylock(m);
 	return ret;
 }
 
-
 int extd_sw_mutex_unlock(struct mutex *m)
 {
-	/* mutex_unlock(m); */
-	up(&extd_mutex);
-	/* EXT_DISP_LOG("mutex: unlock\n"); */
+	mutex_unlock(m);
 	return 0;
 }
 
 int extd_msleep(unsigned int ms)
 {
-	EXT_DISP_LOG("sleep %dms\n", ms);
+	EXTDINFO("sleep %dms\n", ms);
 	msleep(ms);
 	return 0;
 }
@@ -128,6 +117,9 @@ char *_extd_ioctl_spy(unsigned int cmd)
 
 	case MTK_HDMI_FACTORY_MODE_ENABLE:
 		return "MTK_HDMI_FACTORY_MODE_ENABLE";
+
+	case MTK_HDMI_USBOTG_STATUS:
+		return "MTK_HDMI_USBOTG_STATUS";
 
 	case MTK_HDMI_WRITE_DEV:
 		return "MTK_HDMI_WRITE_DEV";
