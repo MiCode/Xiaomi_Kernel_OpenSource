@@ -43,6 +43,7 @@ struct reg_vibr {
 	unsigned int vibr_dur;
 	bool vibr_active;
 	bool vibr_state;
+	bool vibr_oc_state;
 	bool reg_status;
 	bool vibr_shutdown;
 	struct reg_vibr_config vibr_conf;
@@ -164,6 +165,12 @@ static void update_vibrator(struct work_struct *work)
 	struct reg_vibr *vibr = container_of(work, struct reg_vibr, vibr_work);
 
 	pr_info("vibr_state = %d\n", vibr->vibr_state);
+
+	if (vibr->vibr_oc_state) {
+		vibr->vibr_oc_state = false;
+		vibr_disable(vibr);
+		return;
+	}
 
 	if (!vibr->vibr_state)
 		vibr_disable(vibr);
@@ -349,7 +356,8 @@ static int regulator_oc_event(struct notifier_block *nb,
 	case REGULATOR_EVENT_OVER_CURRENT:
 	case REGULATOR_EVENT_FAIL:
 		pr_info("get regulator oc event: %lu", event);
-		vibr_disable(vibr);
+		vibr->vibr_oc_state = true;
+		schedule_work(&vibr->vibr_work);
 		break;
 	default:
 		break;
