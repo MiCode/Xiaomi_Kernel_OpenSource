@@ -135,6 +135,10 @@ static ssize_t gz_test_store(struct device *dev,
 		KREE_DEBUG("test chunk memory\n");
 		th = kthread_run(chunk_memory_ut, NULL, "MCM UT");
 		break;
+	case '6':
+		KREE_DEBUG("test VReg\n");
+		th = kthread_run(vreg_test, NULL, "GZ VReg test");
+		break;
 	case 'C':
 		KREE_DEBUG("test GZ Secure Storage\n");
 		th = kthread_run(test_SecureStorageBasic, NULL,
