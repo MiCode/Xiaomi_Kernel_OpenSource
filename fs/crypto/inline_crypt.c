@@ -19,6 +19,8 @@
 #include <linux/overflow.h>
 #include <linux/uio.h>
 
+#include <uapi/linux/magic.h>
+
 #include "fscrypt_private.h"
 
 struct fscrypt_blk_crypto_key {
