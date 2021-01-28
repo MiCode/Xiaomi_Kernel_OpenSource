@@ -5,6 +5,29 @@
 #include <dt-bindings/iio/mt635x-auxadc.h>
 
 &main_pmic {
+	pmic_accdet: pmic_accdet {
+		compatible = "mediatek,mt6357-accdet";
+		accdet-name = "mt63xx-accdet";
+		accdet-mic-vol = <6>;
+		accdet-plugout-debounce = <1>;
+		accdet-mic-mode = <1>;
+		headset-mode-setting = <0x500 0x500 1 0x1f0
+					0x800 0x800 0x20 0x44>;
+		headset-eint-level-pol = <8>;
+		headset-use-ap-eint = <0>;
+		headset-eint-num = <0>;
+		headset-eint-trig-mode = <0>;
+		headset-key-mode = <0>;
+		headset-three-key-threshold = <0 80 220 400>;
+		headset-three-key-threshold-CDD = <0 121 192 600>;
+		headset-four-key-threshold = <0 58 121 192 400>;
+		io-channels = <&pmic_auxadc AUXADC_ACCDET>;
+		io-channel-names = "pmic_accdet";
+		nvmem = <&pmic_efuse>;
+		nvmem-names = "mt63xx-accdet-efuse";
+		status = "okay";
+	};
+
 	pmic_auxadc: pmic_auxadc {
 		compatible = "mediatek,mt6357-auxadc";
 		#io-channel-cells = <1>;
