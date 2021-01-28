@@ -1783,11 +1783,17 @@ static int ion_open(struct inode *inode, struct file *file)
 	struct miscdevice *miscdev = file->private_data;
 	struct ion_device *dev = container_of(miscdev, struct ion_device, dev);
 	struct ion_client *client;
+	int name_length = 0;
 	char debug_name[64];
 	unsigned long long start, end;
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
-	snprintf(debug_name, 64, "%u", task_pid_nr(current->group_leader));
+	name_length = snprintf(debug_name, 64, "%u",
+			       task_pid_nr(current->group_leader));
+	if (name_length <= 0)
+		IONMSG("%s ion have not set debug name 0x%p.\n",
+		       __func__, client);
+
 	start = sched_clock();
 	client = ion_client_create(dev, debug_name);
 	if (IS_ERR(client)) {

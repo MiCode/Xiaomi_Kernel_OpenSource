@@ -1276,7 +1276,7 @@ void m4u_port_array_init(struct m4u_port_array *port_array)
 int m4u_port_array_add(struct m4u_port_array *port_array,
 	int port, int m4u_en, int secure)
 {
-	if (port >= M4U_PORT_NR) {
+	if (port >= M4U_PORT_NR || port < 0) {
 		m4u_err("error: port_array_add, port=%d, v(%d), s(%d)\n",
 			port, m4u_en, secure);
 		return -1;

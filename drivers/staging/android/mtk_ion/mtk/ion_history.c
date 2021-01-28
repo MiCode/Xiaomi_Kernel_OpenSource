@@ -581,9 +581,9 @@ static int write_mm_page_pool(int high, int order, int cache, size_t size)
 {
 	char name[50];
 
-	snprintf(name, sizeof(name), "%smem order_%d pool",
+	int name_length = snprintf(name, sizeof(name), "%smem order_%d pool",
 		 high ? "high" : "low", order);
-	if (size)
+	if (name_length > 0 && size)
 		ion_client_write_record(g_client_history, name,
 					cache ? "cache" : "nocache", size,
 					CLIENT_ADDRESS_FLAG_MAX + 1);
