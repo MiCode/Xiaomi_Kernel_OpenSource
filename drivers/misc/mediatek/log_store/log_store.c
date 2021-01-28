@@ -32,7 +32,7 @@ static bool early_log_disable;
 struct proc_dir_entry *entry;
 
 
-#define EXPDB_PATH "/dev/block/platform/bootdevice/by-name/expdb"
+#define EXPDB_PATH "/dev/block/by-name/expdb"
 
 #define LOG_BLOCK_SIZE (512)
 
