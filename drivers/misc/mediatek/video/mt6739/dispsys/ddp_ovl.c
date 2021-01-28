@@ -609,7 +609,7 @@ void ovl_get_info(enum DISP_MODULE_ENUM module, void *data)
 			DDPDBG("%s:layer%d,en %d,w %d,h %d,bpp %d,addr %lu\n",
 			       __func__, i, p->layer_en, p->src_w, p->src_h,
 			       p->bpp, p->addr);
-			return;
+			continue;
 		}
 
 		val = DISP_REG_GET(DISP_REG_OVL_L0_CON + layer_off);
