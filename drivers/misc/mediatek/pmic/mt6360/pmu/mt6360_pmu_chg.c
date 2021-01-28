@@ -3351,12 +3351,6 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_psy_get_phandle;
 	}
 
-	mpci->attach_task = kthread_run(typec_attach_thread, mpci,
-					"attach_thread");
-	if (IS_ERR(mpci->attach_task)) {
-		ret = PTR_ERR(mpci->attach_task);
-		goto err_attach_task;
-	}
 	mpci->tcpc_dev = tcpc_dev_get_by_name("type_c_port0");
 	if (!mpci->tcpc_dev) {
 		pr_notice("%s get tcpc device type_c_port0 fail\n", __func__);
@@ -3371,6 +3365,13 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_register_tcp_notifier;
 	}
+
+	mpci->attach_task = kthread_run(typec_attach_thread, mpci,
+					"attach_thread");
+	if (IS_ERR(mpci->attach_task)) {
+		ret = PTR_ERR(mpci->attach_task);
+		goto err_attach_task;
+	}
 #endif
 
 	/* Schedule work for microB's BC1.2 */
@@ -3381,10 +3382,9 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s: successfully probed\n", __func__);
 	return 0;
 #ifdef CONFIG_TCPC_CLASS
+err_attach_task:
 err_register_tcp_notifier:
 err_get_tcpcdev:
-	kthread_stop(mpci->attach_task);
-err_attach_task:
 err_psy_get_phandle:
 #endif
 err_register_psy:
