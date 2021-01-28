@@ -4203,8 +4203,10 @@ page_owner=on loop.max_part=7";
 			<&gce_mbox 5 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
-			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>,
-			<&gce_mbox_sec 8 0 CMDQ_THR_PRIO_3>;
+			<&gce_mbox 6 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox_sec 8 0 CMDQ_THR_PRIO_3>,
+			<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_3>,
+			<&gce_mbox_sec 9 0 CMDQ_THR_PRIO_3>;
 #else
 			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
 			<&gce_mbox 6 0 CMDQ_THR_PRIO_3>;
@@ -4218,7 +4220,9 @@ page_owner=on loop.max_part=7";
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0",
-			"CLIENT_SEC_CFG0";
+			"CLIENT_SEC_CFG0",
+			"CLIENT_SEC_CFG1",
+			"CLIENT_SEC_CFG2";
 #else
 			"CLIENT_SUB_CFG0",
 			"CLIENT_DSI_CFG0";
