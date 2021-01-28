@@ -20,7 +20,6 @@
 #include "mdla.h"
 #include "mdla_hw_reg.h"
 #include "mdla_trace.h"
-#include "mdla_decoder.h"
 #include "met_mdlasys_events.h"
 #include "apusys_trace.h"
 #include <linux/kallsyms.h>

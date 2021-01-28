@@ -233,7 +233,7 @@ int mdla_run_command_sync(
 	/* trace stop */
 	mdla_trace_end(core_id, 0, ce);
 	if (unlikely(mdla_timeout_dbg))
-		mdla_cmd_debug("STE dst addr:%.8x\n",
+		mdla_cmd_debug("dst addr:%.8x\n",
 			mdla_reg_read_with_mdlaid(core_id, 0xE3C));
 
 	if (unlikely(ce->fin_cid < ce->count))

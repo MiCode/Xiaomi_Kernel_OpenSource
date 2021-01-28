@@ -60,7 +60,7 @@ obj-y += mdla.o
 mdla-y += $(VDIR)/mdla_main.o $(VDIR)/mdla_debug.o $(VDIR)/mdla_util.o $(VDIR)/mdla_power_ctrl.o $(VDIR)/mdla_cmd_proc.o
 mdla-y += $(VDIR)/mdla_debug.o
 mdla-y += $(PDIR)/mdla_plat.o
-mdla-y += $(PMU_DIR)/$(PMU_VDIR)/mdla_trace.o $(PMU_DIR)/$(PMU_VDIR)/mdla_decoder.o
+mdla-y += $(PMU_DIR)/$(PMU_VDIR)/mdla_trace.o
 mdla-y += $(PMU_DIR)/$(PMU_PDIR)/mdla_pmu.o
 mdla-y += $(MEM_DIR)/$(MEM_VDIR)/gsm.o $(MEM_DIR)/$(MEM_VDIR)/mdla_ion.o
 
