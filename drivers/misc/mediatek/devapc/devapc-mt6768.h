@@ -124,4 +124,6 @@ struct TOPAXI_ID_INFO {
 #define PD_SHIFT_SEL_OFFSET			0xF14
 #define PD_SHIFT_CON_OFFSET			0xF20
 
+#define SRAM_START_ADDR                         (0x100000)
+
 #endif /* __DEVAPC_MT6768_H__ */
