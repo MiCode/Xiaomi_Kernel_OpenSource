@@ -85,7 +85,7 @@ int pe_hal_init_hardware(struct chg_alg_device *alg)
 		hal = devm_kzalloc(&pe->pdev->dev, sizeof(*hal), GFP_KERNEL);
 		if (!hal)
 			return -ENOMEM;
-			chg_alg_dev_set_drv_hal_data(alg, hal);
+		chg_alg_dev_set_drv_hal_data(alg, hal);
 	}
 
 	hal->chg1_dev = get_charger_by_name("primary_chg");
