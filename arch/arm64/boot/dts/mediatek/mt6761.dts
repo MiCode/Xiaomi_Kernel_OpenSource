@@ -12,6 +12,7 @@
 #include <dt-bindings/clock/mt6761-clk.h>
 #include <dt-bindings/iio/mt635x-auxadc.h>
 #include <dt-bindings/gce/mt6765-gce.h>
+#include <dt-bindings/reset/mt6761-resets.h>
 #include <generated/autoconf.h>
 / {
 	model = "MT6761";
@@ -451,12 +452,13 @@ firmware_class.path=/vendor/firmware";
 		interrupt-parent = <&gic>;
 	};
 
-	toprgu@10007000 {
+	toprgu: toprgu@10007000 {
 		compatible = "mediatek,mt6761-wdt",
 			      "mediatek,mt6589-wdt",
 			      "mediatek,toprgu";
 		reg = <0 0x10007000 0 0x1000>;
 		interrupts = <GIC_SPI 83 IRQ_TYPE_NONE>;
+		#reset-cells = <1>;
 	};
 
 	chipid@08000000 {

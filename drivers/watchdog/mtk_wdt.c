@@ -17,6 +17,7 @@
 #include <linux/moduleparam.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/reset-controller.h>
 #include <linux/types.h>
 #include <linux/watchdog.h>
 #include <linux/delay.h>
@@ -55,6 +56,10 @@
 #define RGU_STAGE_KERNEL	0x3
 #define WDT_BYPASS_PWR_KEY	(1 << 13)
 
+#define MTK_WDT_REQ_MODE        (0x30)
+#define MTK_WDT_REQ_MODE_KEY    (0x33000000)
+#define MTK_WDT_REQ_MODE_LEN	(32)
+
 #define WDT_LATCH_CTL2	0x48
 #define WDT_DFD_EN              (1 << 17)
 #define WDT_DFD_THERMAL1_DIS    (1 << 18)
@@ -70,8 +75,69 @@ static unsigned int timeout;
 
 struct mtk_wdt_dev {
 	struct watchdog_device wdt_dev;
+	struct reset_controller_dev rcdev;
 	void __iomem *wdt_base;
 	u32 dfd_timeout;
+};
+
+/* Reset controller driver support.
+ * This is used to enable and disable rgu reset source control
+ */
+static inline struct mtk_wdt_dev *to_mtk_wdt_dev(
+						struct reset_controller_dev *rc)
+{
+	return container_of(rc, struct mtk_wdt_dev, rcdev);
+}
+
+static int mtk_reset_update(struct reset_controller_dev *rcdev,
+				unsigned long id, bool assert)
+{
+	struct mtk_wdt_dev *mtk_wdt = to_mtk_wdt_dev(rcdev);
+	void __iomem *wdt_base = mtk_wdt->wdt_base;
+	int reg_width = sizeof(u32);
+	int offset = id % (reg_width * BITS_PER_BYTE);
+	unsigned int mask, value, reg;
+
+	mask = BIT(offset);
+	value = assert ? mask : 0;
+	reg = readl(wdt_base + MTK_WDT_REQ_MODE);
+	if (assert)
+		reg |= BIT(offset);
+	else
+		reg &= ~BIT(offset);
+	writel(MTK_WDT_REQ_MODE_KEY | reg, wdt_base + MTK_WDT_REQ_MODE);
+	return 0;
+}
+
+static int mtk_reset_assert(struct reset_controller_dev *rcdev,
+				unsigned long id)
+{
+	return mtk_reset_update(rcdev, id, true);
+}
+
+static int mtk_reset_deassert(struct reset_controller_dev *rcdev,
+		unsigned long id)
+{
+	return mtk_reset_update(rcdev, id, false);
+}
+
+static int mtk_reset_status(struct reset_controller_dev *rcdev,
+		unsigned long id)
+{
+	struct mtk_wdt_dev *mtk_wdt = to_mtk_wdt_dev(rcdev);
+	void __iomem *wdt_base = mtk_wdt->wdt_base;
+	int reg_width = sizeof(u32);
+	int offset = id % (reg_width * BITS_PER_BYTE);
+	unsigned int reg = 0;
+
+	reg = readl(wdt_base + MTK_WDT_REQ_MODE);
+	return (reg & BIT(offset));
+}
+
+static const struct reset_control_ops mtk_reset_ops = {
+	.assert     = mtk_reset_assert,
+	.deassert   = mtk_reset_deassert,
+	.status     = mtk_reset_status,
 };
 
 static void mtk_wdt_mark_stage(struct watchdog_device *wdt_dev)
@@ -279,6 +345,16 @@ static int mtk_wdt_probe(struct platform_device *pdev)
 		mtk_wdt_stop(&mtk_wdt->wdt_dev);
 
 	err = watchdog_register_device(&mtk_wdt->wdt_dev);
+	if (unlikely(err))
+		return err;
+
+	/* register reset controller for reset source setting */
+	mtk_wdt->rcdev.owner = THIS_MODULE;
+	mtk_wdt->rcdev.nr_resets =  MTK_WDT_REQ_MODE_LEN;
+	mtk_wdt->rcdev.ops = &mtk_reset_ops;
+	mtk_wdt->rcdev.of_node = pdev->dev.of_node;
+
+	err = devm_reset_controller_register(&pdev->dev, &mtk_wdt->rcdev);
 	if (unlikely(err))
 		return err;
 
