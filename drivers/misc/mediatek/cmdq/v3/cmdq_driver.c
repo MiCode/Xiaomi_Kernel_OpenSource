@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include "cmdq_driver.h"
@@ -63,18 +55,47 @@ static dev_t gCmdqDevNo;
 static struct cdev *gCmdqCDev;
 static struct class *gCMDQClass;
 
-static ssize_t cmdq_driver_dummy_write(struct device *dev,
+static ssize_t error_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return cmdq_core_print_error(dev, attr, buf);
+}
+
+static ssize_t error_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t size)
 {
 	return -EACCES;
 }
 
-static DEVICE_ATTR(error, 0600, cmdq_core_print_error,
-	cmdq_driver_dummy_write);
-static DEVICE_ATTR(log_level, 0600, cmdq_core_print_log_level,
-	cmdq_core_write_log_level);
-static DEVICE_ATTR(profile_enable, 0600,
-	cmdq_core_print_profile_enable, cmdq_core_write_profile_enable);
+static DEVICE_ATTR_RW(error);
+
+static ssize_t log_level_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	return cmdq_core_write_log_level(dev, attr, buf, size);
+}
+
+static ssize_t log_level_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return cmdq_core_print_log_level(dev, attr, buf);
+}
+
+static DEVICE_ATTR_RW(log_level);
+
+static ssize_t profile_enable_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return cmdq_core_print_profile_enable(dev, attr, buf);
+}
+
+static ssize_t profile_enable_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	return cmdq_core_write_profile_enable(dev, attr, buf, size);
+}
+
+static DEVICE_ATTR_RW(profile_enable);
 
 
 static int cmdq_proc_status_open(struct inode *inode, struct file *file)
@@ -104,9 +125,19 @@ static const struct file_operations cmdqDebugRecordOp = {
 };
 
 #ifdef CMDQ_INSTRUCTION_COUNT
-static DEVICE_ATTR(instruction_count_level, 0600,
-	cmdqCorePrintInstructionCountLevel,
-	cmdqCoreWriteInstructionCountLevel);
+static ssize_t instruction_count_level_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return cmdqCorePrintInstructionCountLevel(dev, attr, buf);
+}
+
+static ssize_t instruction_count_level_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	return cmdqCoreWriteInstructionCountLevel(dev, attr, buf, size);
+}
+
+static DEVICE_ATTR_RW(instruction_count_level);
 
 static int cmdq_proc_instruction_count_open(struct inode *inode,
 	struct file *file)
@@ -470,9 +501,6 @@ static long cmdq_driver_create_secure_medadata(
 		}
 	}
 
-#if 0
-	cmdq_core_dump_secure_metadata(&(pCommand->secData));
-#endif
 #endif
 	return 0;
 }
@@ -1171,9 +1199,6 @@ static int cmdq_probe(struct platform_device *pDevice)
 
 	/* init cmdq context */
 	cmdq_mdp_init();
-#if 0
-	cmdqCoreInitialize();
-#endif
 
 	status = alloc_chrdev_region(&gCmdqDevNo, 0, 1,
 		CMDQ_DRIVER_DEVICE_NAME);
@@ -1199,34 +1224,6 @@ static int cmdq_probe(struct platform_device *pDevice)
 		CMDQ_DRIVER_DEVICE_NAME);
 
 	/* mtk-cmdq-mailbox will register the irq */
-#if 0
-	status = request_irq(cmdq_dev_get_irq_id(), cmdq_irq_handler,
-		IRQF_TRIGGER_LOW | IRQF_SHARED,
-		CMDQ_DRIVER_DEVICE_NAME, gCmdqCDev);
-	if (status != 0) {
-		CMDQ_ERR("Register cmdq driver irq handler(%d) failed(%d)\n",
-			gCmdqDevNo, status);
-		return -EFAULT;
-	}
-
-	/* although secusre CMDQ driver is responsible for handle secure IRQ,
-	 * MUST registet secure IRQ to GIC in normal world to ensure it
-	 * will be initialize correctly
-	 * (that's because t-base does not support GIC init IRQ
-	 * in secure world...)
-	 */
-#ifdef CMDQ_SECURE_PATH_SUPPORT
-	status = request_irq(cmdq_dev_get_irq_secure_id(), cmdq_irq_handler,
-		IRQF_TRIGGER_LOW, CMDQ_DRIVER_DEVICE_NAME, gCmdqCDev);
-	CMDQ_MSG("register sec IRQ:%d\n", cmdq_dev_get_irq_secure_id());
-	if (status != 0) {
-		CMDQ_ERR(
-			"Register cmdq driver secure irq handler(%d) failed(%d)\n",
-			gCmdqDevNo, status);
-		return -EFAULT;
-	}
-#endif
-#endif
 
 	/* proc debug access point */
 	cmdq_create_debug_entries();

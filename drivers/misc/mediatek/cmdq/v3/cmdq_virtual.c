@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include "cmdq_helper_ext.h"
@@ -384,7 +376,7 @@ int cmdq_virtual_get_thread_index(enum CMDQ_SCENARIO_ENUM scenario,
 	case CMDQ_SCENARIO_ISP_FDVT_OFF:
 		return CMDQ_THREAD_SEC_ISP;
 	default:
-		CMDQ_ERR("no dedicated secure thread for senario:%d\n",
+		CMDQ_ERR("no dedicated secure thread for scenario:%d\n",
 			scenario);
 		return CMDQ_INVALID_THREAD;
 	}

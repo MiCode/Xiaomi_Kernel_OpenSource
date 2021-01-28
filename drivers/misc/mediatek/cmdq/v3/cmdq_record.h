@@ -1,14 +1,6 @@
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #ifndef __CMDQ_RECORD_H__
@@ -44,10 +36,6 @@ struct cmdq_stack_node {
 };
 
 struct cmdq_user_req {
-#if 0
-	u32 *buffer;
-	u32 buffer_size;
-#endif
 	u32 reg_count;
 	u32 user_token;
 };

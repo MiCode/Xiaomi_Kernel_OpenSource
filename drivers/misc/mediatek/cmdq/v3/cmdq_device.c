@@ -1,14 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015 MediaTek Inc.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (c) 2015 MediaTek Inc.
  */
 
 #include "cmdq_device.h"
@@ -25,7 +17,6 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
-#include <mt-plat/mtk_lpae.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
 #include <linux/clk-provider.h>
@@ -160,10 +151,11 @@ void cmdq_dev_get_module_clock_by_name(const char *ref_name,
 	*clk_module = of_clk_get_by_name(node, clkName);
 	if (IS_ERR(*clk_module)) {
 		/* error status print */
-		CMDQ_ERR("DEV: byName: cannot get module clock:%s\n", clkName);
+		CMDQ_ERR("%s (%s): clock:%s err:%d\n", __func__, ref_name,
+			clkName, (int)PTR_ERR(*clk_module));
 	} else {
 		/* message print */
-		CMDQ_MSG("DEV: byName: get module clock:%s\n", clkName);
+		CMDQ_MSG("%s (%s): clock:%s\n", __func__, ref_name, clkName);
 	}
 }
 
