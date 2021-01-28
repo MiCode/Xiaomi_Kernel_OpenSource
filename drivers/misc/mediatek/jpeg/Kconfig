@@ -1,0 +1,7 @@
+config MTK_JPEG_SUPPORT
+	bool "MediaTek JPEG Encode driver"
+	help
+	  Control the jpeg encode driver, which is used to enable jpeg encode
+          Its default value is no, would
+           be set to yes by RD when needed. It's scenario
+           is image capture
