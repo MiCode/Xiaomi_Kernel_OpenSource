@@ -23,6 +23,10 @@
 #include "ufs-mediatek.h"
 #include "ufs-mediatek-dbg.h"
 
+#ifdef CONFIG_MTK_AEE_FEATURE
+#include <mt-plat/aee.h>
+#endif
+
 #define ufs_mtk_smc(cmd, val, res) \
 	arm_smccc_smc(MTK_SIP_UFS_CONTROL, \
 		      cmd, val, 0, 0, 0, 0, 0, &(res))
@@ -779,6 +783,21 @@ static void ufs_mtk_hibern8_notify(struct ufs_hba *hba, enum uic_cmd_dme cmd,
 	}
 }
 
+static void ufs_mtk_abort_handler(struct ufs_hba *hba, int tag,
+				  char *file, int line)
+{
+#ifdef CONFIG_MTK_AEE_FEATURE
+	u8 cmd = 0;
+
+	if (hba->lrb[tag].cmd)
+		cmd = hba->lrb[tag].cmd->cmnd[0];
+
+	aee_kernel_warning_api(file, line, DB_OPT_FS_IO_LOG,
+		"[UFS] Command Timeout", "Command 0x%x timeout, %s:%d", cmd,
+		file, line);
+#endif
+}
+
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -798,6 +817,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	.resume              = ufs_mtk_resume,
 	.dbg_register_dump   = ufs_mtk_dbg_register_dump,
 	.device_reset        = ufs_mtk_device_reset,
+	.abort_handler       = ufs_mtk_abort_handler,
 };
 
 /**

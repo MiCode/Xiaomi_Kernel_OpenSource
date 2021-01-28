@@ -354,7 +354,8 @@ struct ufs_hba_variant_ops {
 	void	(*config_scaling_param)(struct ufs_hba *hba,
 					struct devfreq_dev_profile *profile,
 					void *data);
-
+	void	(*abort_handler)(struct ufs_hba *hba, int tag, char *file,
+				 int line);
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
@@ -1214,6 +1215,13 @@ static inline void ufshcd_vops_config_scaling_param(struct ufs_hba *hba,
 {
 	if (hba->vops && hba->vops->config_scaling_param)
 		hba->vops->config_scaling_param(hba, profile, data);
+}
+
+static inline void ufshcd_vops_abort_handler(struct ufs_hba *hba,
+					     int tag, char *file, int line)
+{
+	if (hba->vops && hba->vops->abort_handler)
+		hba->vops->abort_handler(hba, tag, file, line);
 }
 
 extern struct ufs_pm_lvl_states ufs_pm_lvl_states[];
