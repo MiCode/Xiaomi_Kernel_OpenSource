@@ -627,5 +627,5 @@ extern bool fscrypt_supported_policy(const union fscrypt_policy *policy_u,
 extern int fscrypt_policy_from_context(union fscrypt_policy *policy_u,
 				       const union fscrypt_context *ctx_u,
 				       int ctx_size);
-extern bool is_emmc_type(void);
+extern int is_emmc_type(void);
 #endif /* _FSCRYPT_PRIVATE_H */

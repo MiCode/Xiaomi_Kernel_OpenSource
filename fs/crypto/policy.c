@@ -650,7 +650,7 @@ int fscrypt_inherit_context(struct inode *parent, struct inode *child,
 	if (S_ISREG(child->i_mode) &&
 		ctx.version == FSCRYPT_CONTEXT_V1 &&
 		ctx.v1.contents_encryption_mode == 1 &&
-		is_emmc_type())
+		is_emmc_type() == 1)
 		ctx.v1.flags |= FSCRYPT_POLICY_FLAG_IV_INO_LBLK_32;
 
 	BUILD_BUG_ON(sizeof(ctx) != FSCRYPT_SET_CONTEXT_MAX_SIZE);

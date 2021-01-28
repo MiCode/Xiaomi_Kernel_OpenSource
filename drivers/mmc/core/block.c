@@ -3071,16 +3071,15 @@ static void mmc_blk_remove_debugfs(struct mmc_card *card,
 
 #endif /* CONFIG_DEBUG_FS */
 
-/* only used for eMMC + F2FS security OTA fix */
-static bool mmc_boot_type;
+/*
+ * only used for eMMC + F2FS security OTA fix
+ * 1: HWcmdq; 2: SWcdmq; 0: non-eMMC
+ */
+static int mmc_boot_type;
 
-bool is_emmc_type(void)
+int is_emmc_type(void)
 {
-#ifdef CONFIG_MMC_CQHCI
 	return mmc_boot_type;
-#else
-	return false;
-#endif
 }
 EXPORT_SYMBOL_GPL(is_emmc_type);
 
@@ -3141,7 +3140,12 @@ static int mmc_blk_probe(struct mmc_card *card)
 		pm_runtime_set_active(&card->dev);
 		pm_runtime_enable(&card->dev);
 	}
-	mmc_boot_type = true;
+
+	if (card->host->caps2 & MMC_CAP2_CQE)
+		mmc_boot_type = 1;
+	else
+		mmc_boot_type = 2;
+
 	return 0;
 
  out:
@@ -3232,6 +3236,8 @@ static struct mmc_driver mmc_driver = {
 static int __init mmc_blk_init(void)
 {
 	int res;
+
+	mmc_boot_type = 0;
 
 	res  = bus_register(&mmc_rpmb_bus_type);
 	if (res < 0) {
