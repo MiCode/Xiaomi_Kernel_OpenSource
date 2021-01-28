@@ -1579,7 +1579,7 @@ static void init_virtual_larbs(void)
 	larb_req[SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_CCU_COMMON)].ratio[0] = 1;
 	larb_req[SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_CCU_COMMON)].channel =
 		SMI_COMM_BUS_SEL[mmdvfs_get_ccu_smi_common_port(
-		PORT_VIRTUAL_CCU_COMMON)];
+		PORT_VIRTUAL_CCU_COMMON) & 0xffff];
 	larb_req[SMI_PMQOS_LARB_DEC(
 		PORT_VIRTUAL_CCU_COMMON)].comm_port =
 		mmdvfs_get_ccu_smi_common_port(PORT_VIRTUAL_CCU_COMMON);
@@ -1589,7 +1589,7 @@ static void init_virtual_larbs(void)
 	larb_req[SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_CCU_COMMON2)].ratio[0] = 1;
 	larb_req[SMI_PMQOS_LARB_DEC(PORT_VIRTUAL_CCU_COMMON2)].channel =
 		SMI_COMM_BUS_SEL[mmdvfs_get_ccu_smi_common_port(
-		PORT_VIRTUAL_CCU_COMMON2)];
+		PORT_VIRTUAL_CCU_COMMON2) & 0xffff];
 	larb_req[SMI_PMQOS_LARB_DEC(
 		PORT_VIRTUAL_CCU_COMMON2)].comm_port =
 		mmdvfs_get_ccu_smi_common_port(PORT_VIRTUAL_CCU_COMMON2);
