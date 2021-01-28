@@ -30,6 +30,7 @@ int adsp_bus_monitor_init(void)
 
 	/* initialize bus monitor */
 	writel(0xacce55, ADSP_BUS_DBG_EN_LOCK);
+	writel(0x00011080, ADSP_BUS_DBG_CON); /* reset bus tracker */
 	writel(BUS_MON_STAGE1_TIMEOUT_VALUE, ADSP_BUS_DBG_TIMER_CON0);
 	writel(BUS_MON_STAGE2_TIMEOUT_VALUE, ADSP_BUS_DBG_TIMER_CON1);
 	writel(0x0, ADSP_BUS_DBG_WP);
