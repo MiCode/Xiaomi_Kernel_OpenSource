@@ -428,7 +428,7 @@ void disp_helper_option_init(void)
 	disp_helper_set_option(DISP_OPT_ROUND_CORNER_MODE, DISP_HELPER_HW_RC);
 	disp_helper_set_option(DISP_OPT_FRAME_QUEUE, 0);
 	disp_helper_set_option(DISP_OPT_DC_BY_HRT, 0);
-	disp_helper_set_option(DISP_OPT_OVL_WCG, 0);
+	disp_helper_set_option(DISP_OPT_OVL_WCG, 1);
 	/* OVL SBCH */
 	disp_helper_set_option(DISP_OPT_OVL_SBCH, 1);
 	disp_helper_set_option(DISP_OPT_MMPATH, 0);
