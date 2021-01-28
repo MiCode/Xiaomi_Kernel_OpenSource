@@ -77,9 +77,9 @@ enum slbc_flag {
 
 struct slbc_data {
 	unsigned int uid;
-	int type;
+	unsigned int type;
 	ssize_t size;
-	int flag;
+	unsigned int flag;
 	/* below used by slbc driver */
 	void __iomem *paddr;
 	void __iomem *vaddr;
