@@ -36,8 +36,8 @@
 #define MSDC0_HCLK_NAME         "msdc0-hclock"
 #define MSDC1_CLK_NAME          "msdc1-clock"
 #define MSDC1_HCLK_NAME         "msdc1-hclock"
-#define MSDC0_IOCFG_NAME        "mediatek,pctl-7-syscfg"
-#define MSDC1_IOCFG_NAME        "mediatek,pctl-1-syscfg"
+#define MSDC0_IOCFG_NAME        "mediatek,iocfg_7"
+#define MSDC1_IOCFG_NAME        "mediatek,iocfg_1"
 
 
 /**************************************************************/
