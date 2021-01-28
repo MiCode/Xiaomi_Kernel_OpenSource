@@ -27,9 +27,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#ifdef COFNIG_MTK_IOMMU
-#include <mtk_iommu.h>
-#elif defined(CONFIG_MTK_M4U)
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*enum mtk_iommu_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,*/
+/*unsigned int mva, void *data)*/
+/*#else*/
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
 #endif
 
@@ -4517,6 +4519,115 @@ static const struct file_operations WPEFileOper = {
 #endif
 };
 
+/**************************************************************
+ *
+ **************************************************************/
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*enum mtk_iommu_callback_ret_t WPE_M4U_TranslationFault_callback(int port,*/
+/*	unsigned int mva, void *data)*/
+/*#else*/
+#ifdef CONFIG_MTK_M4U
+enum m4u_callback_ret_t WPE_M4U_TranslationFault_callback(int port,
+	unsigned int mva, void *data)
+{
+	LOG_INF("[WPE_M4U]fault call port=%d, mva=0x%x", port, mva);
+
+	switch (port) {
+	case M4U_PORT_WPE_RDMA1:
+	case M4U_PORT_WPE_RDMA0:
+	case M4U_PORT_WPE_WDMA:
+	default:
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+			(unsigned int)(WPE_ADDR_GEN_SOFT_RSTSTAT_0_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_SOFT_RSTSTAT_0_REG),
+			(unsigned int)(WPE_ADDR_GEN_BASE_ADDR_0_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_BASE_ADDR_0_REG),
+			(unsigned int)(WPE_ADDR_GEN_OFFSET_ADDR_0_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_OFFSET_ADDR_0_REG),
+			(unsigned int)(WPE_ADDR_GEN_STRIDE_0_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_STRIDE_0_REG));
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+			(unsigned int)(WPE_ADDR_GEN_SOFT_RSTSTAT_1_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_SOFT_RSTSTAT_1_REG),
+			(unsigned int)(WPE_ADDR_GEN_BASE_ADDR_1_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_BASE_ADDR_1_REG),
+			(unsigned int)(WPE_ADDR_GEN_OFFSET_ADDR_1_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_OFFSET_ADDR_1_REG),
+			(unsigned int)(WPE_ADDR_GEN_STRIDE_1_HW),
+			(unsigned int)WPE_RD32(WPE_ADDR_GEN_STRIDE_1_REG));
+
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+			(unsigned int)(WPE_DMA_SOFT_RSTSTAT_HW),
+			(unsigned int)WPE_RD32(WPE_DMA_SOFT_RSTSTAT_REG),
+			(unsigned int)(WPE_TDRI_BASE_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_TDRI_BASE_ADDR_REG),
+			(unsigned int)(WPE_TDRI_OFST_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_TDRI_OFST_ADDR_REG),
+			(unsigned int)(WPE_TDRI_XSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_TDRI_XSIZE_REG));
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+			(unsigned int)(WPE_WPEO_BASE_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_WPEO_BASE_ADDR_REG),
+			(unsigned int)(WPE_WPEO_OFST_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_WPEO_OFST_ADDR_REG),
+			(unsigned int)(WPE_WPEO_XSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_WPEO_XSIZE_REG),
+			(unsigned int)(WPE_WPEO_YSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_WPEO_YSIZE_REG),
+			(unsigned int)(WPE_WPEO_STRIDE_HW),
+			(unsigned int)WPE_RD32(WPE_WPEO_STRIDE_REG));
+
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X][ 0x%08X %08X]\n",
+			(unsigned int)(WPE_VECI_BASE_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_VECI_BASE_ADDR_REG),
+			(unsigned int)(WPE_VECI_OFST_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_VECI_OFST_ADDR_REG),
+			(unsigned int)(WPE_VECI_XSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_VECI_XSIZE_REG),
+			(unsigned int)(WPE_VECI_YSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_VECI_YSIZE_REG),
+			(unsigned int)(WPE_VECI_STRIDE_HW),
+			(unsigned int)WPE_RD32(WPE_VECI_STRIDE_REG));
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+			(unsigned int)(WPE_VEC2I_BASE_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_VEC2I_BASE_ADDR_REG),
+			(unsigned int)(WPE_VEC2I_OFST_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_VEC2I_OFST_ADDR_REG),
+			(unsigned int)(WPE_VEC2I_XSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_VEC2I_XSIZE_REG),
+			(unsigned int)(WPE_VEC2I_YSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_VEC2I_YSIZE_REG),
+			(unsigned int)(WPE_VEC2I_STRIDE_HW),
+			(unsigned int)WPE_RD32(WPE_VEC2I_STRIDE_REG));
+		LOG_INF(
+			"[0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X] [0x%08X %08X]\n",
+			(unsigned int)(WPE_VEC3I_BASE_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_VEC3I_BASE_ADDR_REG),
+			(unsigned int)(WPE_VEC3I_OFST_ADDR_HW),
+			(unsigned int)WPE_RD32(WPE_VEC3I_OFST_ADDR_REG),
+			(unsigned int)(WPE_VEC3I_XSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_VEC3I_XSIZE_REG),
+			(unsigned int)(WPE_VEC3I_YSIZE_HW),
+			(unsigned int)WPE_RD32(WPE_VEC3I_YSIZE_REG),
+			(unsigned int)(WPE_VEC3I_STRIDE_HW),
+			(unsigned int)WPE_RD32(WPE_VEC3I_STRIDE_REG));
+
+		break;
+	}
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*	return MTK_IOMMU_CALLBACK_HANDLED;*/
+/*#else*/
+	return M4U_CALLBACK_HANDLED;
+/*#endif*/
+}
+#endif
+
 /***********************************************************************
  *
  ***********************************************************************/
@@ -4896,7 +5007,6 @@ int WPE_pm_restore_noirq(struct device *device)
  */
 static const struct of_device_id WPE_of_ids[] = {
 	{.compatible = "mediatek,wpe_a",},
-	{.compatible = "mediatek,wpe_b",},
 	{}
 };
 #endif
@@ -5291,6 +5401,22 @@ static signed int __init WPE_Init(void)
 			   WPE_ResetCallback,
 			   WPE_ClockOffCallback);
 
+/*#ifdef CONFIG_MTK_IOMMU_V2*/
+/*			mtk_iommu_register_fault_callback(M4U_PORT_WPE_RDMA1,*/
+/*			WPE_M4U_TranslationFault_callback, NULL);*/
+/*			mtk_iommu_register_fault_callback(M4U_PORT_WPE_RDMA0,*/
+/*			WPE_M4U_TranslationFault_callback, NULL);*/
+/*			mtk_iommu_register_fault_callback(M4U_PORT_WPE_WDMA,*/
+/*			WPE_M4U_TranslationFault_callback, NULL);*/
+/*#else*/
+#ifdef CONFIG_MTK_M4U
+			m4u_register_fault_callback(M4U_PORT_WPE_RDMA1,
+				WPE_M4U_TranslationFault_callback, NULL);
+			m4u_register_fault_callback(M4U_PORT_WPE_RDMA0,
+				WPE_M4U_TranslationFault_callback, NULL);
+			m4u_register_fault_callback(M4U_PORT_WPE_WDMA,
+				WPE_M4U_TranslationFault_callback, NULL);
+#endif
 
 	LOG_DBG("- X. Ret: %d.", Ret);
 	return Ret;
