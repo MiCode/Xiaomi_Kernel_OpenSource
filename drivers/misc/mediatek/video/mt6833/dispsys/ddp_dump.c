@@ -37,96 +37,97 @@ static char *ddp_signal_0(int bit)
 			"DISP_AAL0_TO_DISP_GAMMA0_VALID";
 	case 1:
 		return
-			"DISP_BYPASS_SPR0_SEL_TO_DISP_SPR0_MOUT_VALID";
+			"DISP_CCORR0_TO_DISP_AAL0_VALID";
 	case 2:
 		return
-			"DISP_CCORR0_TO_DISP_CCORR1_VALID";
+			"DISP_COLOR0_TO_DISP_CCORR0_VALID";
 	case 3:
 		return
-			"DISP_CCORR1_TO_DISP_AAL0_VALID";
+			"DISP_DITHER0_TO_DISP_DITHER0_MOUT_VALID";
 	case 4:
 		return
-			"DISP_CM0_TO_DISP_SPR0_VALID";
+			"DISP_DITHER0_MOUT_OUT0_TO_DSI0_SEL_IN1_VALID";
 	case 5:
 		return
-			"DISP_COLOR0_TO_DISP_CCORR0_VALID";
+			"DISP_DITHER0_MOUT_OUT1_TO_DISP_WDMA0_SEL_IN0_VALID";
 	case 6:
 		return
-			"DISP_DITHER0_TO_DISP_DITHER0_MOUT_VALID";
+			"DISP_GAMMA0_TO_DISP_POSTMASK0_VALID";
 	case 7:
 		return
-			"DISP_DITHER0_MOUT_OUT0_TO_BYPA_SPR0_SEL_IN0_VALID";
+			"DISP_OVL0_2L_OUT0_TO_DISP_TOVL0_OUT0_MOUT_VALID";
 	case 8:
 		return
-			"DISP_DITHER0_MOUT_OUT1_TO_DISP_CM0_VALID";
+			"DISP_OVL0_2L_OUT1_TO_DISP_OVL0_IN0_VALID";
 	case 9:
 		return
-			"DISP_DITHER0_MOUT_OUT2_TO_DISP_WDMA0_SEL_IN4_VALID";
+			"DISP_OVL0_OUT0_TO_DISP_TOVL0_OUT1_MOUT_VALID";
 	case 10:
 		return
-			"DISP_DSC_WRAP0_TO_DSI0_SEL_IN2_VALID";
+			"DISP_OVL0_OUT1_TO_DISP_OVL0_2L_IN0_VALID";
 	case 11:
 		return
-			"DISP_GAMMA0_TO_DISP_POSTMASK0_VALID";
+			"DISP_POSTMASK0_TO_DISP_DITHER0_VALID";
 	case 12:
 		return
-			"DISP_OVL0_2L_OUT0_TO_DISP_TOVL0_OUT0_MOUT_VALID";
+		"DISP_RDMA0_TO_DISP_RDMA0_RSZ0_SOUT_VALID";
 	case 13:
 		return
-			"DISP_OVL0_2L_OUT1_TO_DISP_OVL0_IN0_VALID";
+		"DISP_RDMA0_RSZ0_SOUT_OUT0_TO_DSI0_SEL_IN0_VALID";
 	case 14:
 		return
-			"DISP_OVL0_OUT0_TO_DISP_TOVL0_OUT1_MOUT_VALID";
+		"DISP_RDMA0_RSZ0_SOUT_OUT1_TO_DISP_COLOR0_VALID";
 	case 15:
 		return
-			"DISP_OVL0_OUT1_TO_DISP_OVL0_2L_IN0_VALID";
+			"DISP_RDMA0_SEL_TO_DISP_RDMA0_VALID";
 	case 16:
 		return
-			"DISP_POSTMASK0_TO_DISP_DITHER0_VALID";
+			"DISP_RDMA2_RSZ0_RSZ1_SOUT_OUT0_TO_OVL0_2L_IN2_VALID";
 	case 17:
 		return
-		"DISP_RDMA0_TO_DISP_RDMA0_RSZ0_SOUT_VALID";
+			"DISP_RDMA2_RSZ0_RSZ1_SOUT_OUT1_TO_OVL0_IN2_VALID";
 	case 18:
 		return
-		"DISP_RDMA0_RSZ0_SOUT_OUT0_TO_DSI0_SEL_IN0_VALID";
+			"DISP_RSZ0_TO_DISP_RSZ0_MOUT_VALID";
 	case 19:
 		return
-		"DISP_RDMA0_RSZ0_SOUT_OUT1_TO_DISP_COLOR0_VALID";
+			"DISP_RSZ0_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN1_VALID";
 	case 20:
 		return
-			"DISP_RDMA0_SEL_TO_DISP_RDMA0_VALID";
+			"DISP_RSZ0_MOUT_OUT1_TO_DISP_WDMA0_SEL_IN1_VALID";
 	case 21:
 		return
-			"DISP_RDMA2_RSZ0_RSZ1_SOUT_OUT0_TO_OVL0_2L_IN2_VALID";
+			"DISP_RSZ0_MOUT_OUT2_TO_RDMA2_RSZ0_RSZ1_SOUT_VALID";
 	case 22:
 		return
-			"DISP_RDMA2_RSZ0_RSZ1_SOUT_OUT1_TO_OVL0_IN2_VALID";
+			"DISP_RSZ0_SEL_TO_DISP_RSZ0_VALID";
 	case 23:
 		return
-			"DISP_RSZ0_TO_DISP_RSZ0_MOUT_VALID";
+			"DISP_TOVL0_OUT0_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN2_VALID";
 	case 24:
 		return
-			"DISP_RSZ0_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN1_VALID";
+			"DISP_TOVL0_OUT0_MOUT_OUT1_TO_DISP_RSZ0_SEL_IN0_VALID";
 	case 25:
 		return
-			"DISP_RSZ0_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN1_VALID";
+			"DISP_TOVL0_OUT0_MOUT_OUT2_TO_DISP_WDMA0_SEL_IN2_VALID";
 	case 26:
 		return
-			"DISP_RSZ0_MOUT_OUT2_TO_RDMA2_RSZ0_RSZ1_SOUT_VALID";
+			"DISP_TOVL0_OUT1_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN0_VALID";
 	case 27:
-		return "DISP_RSZ0_SEL_TO_DISP_RSZ0_VALID";
+		return
+			"DISP_TOVL0_OUT1_MOUT_OUT1_TO_DISP_RSZ0_SEL_IN1_VALID";
 	case 28:
 		return
-			"DISP_SPR0_TO_DISP_BYPASS_SPR0_SEL_IN1_VALID";
+			"DISP_TOVL0_OUT1_MOUT_OUT2_TO_DISP_WDMA0_SEL_IN3_VALID";
 	case 29:
 		return
-			"DISP_SPR0_MOUT_OUT0_TO_DSI0_SEL_IN1_VALID";
+			"DISP_WDMA0_SEL_TO_DISP_WDMA0_VALID";
 	case 30:
 		return
-			"DISP_SPR0_MOUT_OUT1_TO_DISP_WDMA0_SEL_IN0_VALID";
+			"DSI0_SEL_TO_THP_LMT_DSI0_VALID";
 	case 31:
 		return
-			"DISP_SPR0_MOUT_OUT2_TO_DISP_DSC_WRAP0_VALID";
+			"THP_LMT_DSI0_TO_DSI0_VALID";
 	default:
 		return NULL;
 	}
@@ -136,29 +137,7 @@ static char *ddp_signal_1(int bit)
 {
 	switch (bit) {
 	case 0:
-		return
-			"DISP_TOVL0_OUT0_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN2_VALID";
-	case 1:
-		return
-			"DISP_TOVL0_OUT0_MOUT_OUT1_TO_DISP_RSZ0_SEL_IN0_VALID";
-	case 2:
-		return
-			"TOVL0_OUT0_MOUT_OUT2_TO_DISP_WDMA0_SEL_IN2_VALID";
-	case 3:
-		return
-			"DISP_TOVL0_OUT1_MOUT_OUT0_TO_DISP_RDMA0_SEL_IN0_VALID";
-	case 4:
-		return
-			"DISP_TOVL0_OUT1_MOUT_OUT1_TO_DISP_RSZ0_SEL_IN1_VALID";
-	case 5:
-		return
-			"DISP_TOVL0_OUT1_MOUT_OUT2_TO_DISP_WDMA0_SEL_IN3_VALID";
-	case 6:
-		return
-		"DISP_WDMA0_SEL_TO_DISP_WDMA0_VALID";
-	case 7:
-		return
-		"THP_LMT_DSI0_TO_DSI0_VALID";
+		return "Reserve";
 	default:
 		return NULL;
 	}
@@ -168,8 +147,7 @@ static char *ddp_signal_2(int bit)
 {
 	switch (bit) {
 	case 0:
-		return
-			"Reserve";
+		return "Reserve";
 	default:
 		return NULL;
 	}
@@ -225,7 +203,7 @@ static char *ddp_get_mutex_module0_name(unsigned int bit)
 	case 5:
 		return "disp_ccorr0";
 	case 6:
-		return "disp_ccorr1";
+		return "reserve";
 	case 7:
 		return "disp_aal0";
 	case 8:
@@ -235,11 +213,11 @@ static char *ddp_get_mutex_module0_name(unsigned int bit)
 	case 10:
 		return "disp_dither0";
 	case 11:
-		return "disp_cm0";
+		return "reserve";
 	case 12:
-		return "disp_spr0";
+		return "reserve";
 	case 13:
-		return "disp_dsc_wrap0_core0";
+		return "reserve";
 	case 14:
 		return "dsi0";
 	case 15:
@@ -329,7 +307,7 @@ static char *ddp_clock_0(int bit)
 	case 0:
 		return "disp_mutex0, ";
 	case 1:
-		return "dispsys_config, ";
+		return "apb_bus, ";
 	case 2:
 		return "disp_ovl0, ";
 	case 3:
@@ -339,7 +317,7 @@ static char *ddp_clock_0(int bit)
 	case 5:
 		return "disp_wdma0, ";
 	case 6:
-		return "disp_ccorr1, ";
+		return "reserve, ";
 	case 7:
 		return "disp_rsz0, ";
 	case 8:
@@ -351,19 +329,19 @@ static char *ddp_clock_0(int bit)
 	case 11:
 		return "smi_infra, ";
 	case 12:
-		return "disp_dsc_wrap0, ";
+		return "reserve, ";
 	case 13:
 		return "disp_gama0, ";
 	case 14:
 		return "disp_postmask0, ";
 	case 15:
-		return "disp_spr0, ";
+		return "reserve, ";
 	case 16:
 		return "disp_dither0, ";
 	case 17:
 		return "smi_common, ";
 	case 18:
-		return "disp_cm0, ";
+		return "reserve, ";
 	case 19:
 		return "dsi0, ";
 	case 20:

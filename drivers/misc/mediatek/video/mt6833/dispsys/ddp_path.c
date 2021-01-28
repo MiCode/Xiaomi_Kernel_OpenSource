@@ -154,8 +154,7 @@ static struct mout_s mout_map[] = {
 	/* DISP_DITHER0_MOUT_EN */
 	{DISP_MODULE_DITHER0,
 		{{DISP_MODULE_DSI0, 1 << 0},
-		 {DISP_MODULE_DSC_WRAP0_CORE0, 1 << 1},
-		 {DISP_MODULE_WDMA0, 1 << 2},
+		 {DISP_MODULE_WDMA0, 1 << 1},
 		 {-1, 0} },
 		0, 0},
 
@@ -192,11 +191,6 @@ static const int DDP_SEL_IN_NUM = sizeof(sel_in_map)/sizeof(struct sel_s);
 
 int ddp_path_init(void)
 {
-		/* mout */
-	//mout_map[0].reg =
-	//	(unsigned long *)DISP_SPR0_MOUT_EN;
-	//mout_map[0].reg =
-		(unsigned long *)DISP_TOVL0_OUT0_MOUT_EN;
 	mout_map[0].reg =
 		(unsigned long *)DISP_TOVL0_OUT1_MOUT_EN;
 	mout_map[1].reg =

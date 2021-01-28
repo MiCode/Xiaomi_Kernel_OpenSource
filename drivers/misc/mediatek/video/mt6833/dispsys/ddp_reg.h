@@ -114,8 +114,6 @@ extern cmdqBackupSlotHandle dispsys_slot;
 #define DISPSYS_POSTMASK_BASE ddp_get_module_va(DISP_MODULE_POSTMASK0)
 #define DISPSYS_DITHER0_BASE ddp_get_module_va(DISP_MODULE_DITHER0)
 
-#define DISPSYS_DSC_WRAP0_CORE0_BASE \
-	ddp_get_module_va(DISP_MODULE_DSC_WRAP0_CORE0)
 #define DISPSYS_DSI0_BASE ddp_get_module_va(DISP_MODULE_DSI0)
 #define DISPSYS_WDMA0_BASE ddp_get_module_va(DISP_MODULE_WDMA0)
 #define DISPSYS_DPI_BASE ddp_get_module_va(DISP_MODULE_DPI)
