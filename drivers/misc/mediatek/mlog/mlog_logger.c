@@ -1066,7 +1066,7 @@ exit_dump:
 	return size;
 }
 
-static ssize_t mlog_show(struct kobject *kobj,
+static ssize_t dump_show(struct kobject *kobj,
 			 struct kobj_attribute *attr, char *buf)
 {
 	int size, ret;
@@ -1093,7 +1093,7 @@ static ssize_t mlog_show(struct kobject *kobj,
 	return size;
 }
 
-static struct kobj_attribute mlog_attr = __ATTR_RO(mlog);
+static struct kobj_attribute mlog_attr = __ATTR_RO(dump);
 static struct attribute *mlog_attrs[] = {
 	&mlog_attr.attr,
 	NULL,
