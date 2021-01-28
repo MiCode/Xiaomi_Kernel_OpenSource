@@ -2480,9 +2480,11 @@ static void eem_set_eem_volt(struct eem_det *det)
 	struct eem_ctrl *ctrl = id_to_eem_ctrl(det->ctrl_id);
 
 	FUNC_ENTER(FUNC_LV_HELP);
+
+	if (ctrl == NULL)
+		return;
 	ctrl->volt_update |= EEM_VOLT_UPDATE;
 	dsb(sy);
-	eem_debug("@@!In %s\n", __func__);
 	wake_up_interruptible(&ctrl->wq);
 #endif
 
@@ -2691,6 +2693,8 @@ static void read_volt_from_VOP(struct eem_det *det)
 	/* Check both high/low bank's voltage are ready */
 	if (det->loo_role != 0) {
 		couple_det = id_to_eem_det(det->loo_couple);
+		if (couple_det == NULL)
+			return;
 		if ((couple_det->init2_done == 0) ||
 			(couple_det->mon_vop30 == 0) ||
 			(couple_det->mon_vop74 == 0))
