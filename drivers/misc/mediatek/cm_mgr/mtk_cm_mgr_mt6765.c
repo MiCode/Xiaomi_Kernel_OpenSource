@@ -42,7 +42,7 @@
 
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <dvfsrc-exp.h>
-
+#include <mtk_qos_sram.h>
 #ifdef CONFIG_MTK_CPU_FREQ
 #include <mtk_cpufreq_internal.h>
 #include <mtk_cpufreq_api.h>
@@ -582,9 +582,11 @@ static int cm_mgr_get_dram_opp(void)
 
 static int cm_mgr_get_bw(void)
 {
-	/* FIXME: */
-	/* return dvfsrc_get_emi_bw(QOS_EMI_BW_TOTAL); */
+#ifdef CONFIG_MTK_QOS_FRAMEWORK
+	return qos_sram_read(QOS_TOTAL_BW);
+#else
 	return 0;
+#endif
 }
 
 static int cm_mgr_check_bw_status(void)

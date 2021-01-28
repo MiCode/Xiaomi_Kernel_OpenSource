@@ -16,6 +16,7 @@ ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/dramc/$(MTK_PLATFORM) \
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/misc/mediatek/sspm \
+	-I$(srctree)/drivers/misc/mediatek/qos \
 	-I$(srctree)/include \
 
 ifeq ($(CONFIG_MACH_MT6761),y)
