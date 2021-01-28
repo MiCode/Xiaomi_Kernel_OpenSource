@@ -3868,6 +3868,10 @@ page_owner=on";
 		reg = <0 0x1f00e000 0 0x1000>;
 	};
 
+	gps: gps@18c00000 {
+		compatible = "mediatek,gps";
+	};
+
 	odm: odm {
 		compatible = "simple-bus";
 		/* reserved for overlay by odm */
