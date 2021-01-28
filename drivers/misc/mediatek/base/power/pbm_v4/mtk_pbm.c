@@ -36,7 +36,9 @@
 #include <mt-plat/mtk_auxadc_intf.h>
 #include <mtk_cpufreq_api.h>
 #include <mtk_gpufreq.h>
+#ifdef CONFIG_THERMAL
 #include <mach/mtk_thermal.h>
+#endif
 #include <mtk_ppm_api.h>
 #endif
 
