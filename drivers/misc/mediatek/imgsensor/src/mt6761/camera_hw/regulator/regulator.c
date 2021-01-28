@@ -80,6 +80,9 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 	char str_regulator_name[LENGTH_FOR_SNPRINTF];
 	int i = 0, ret = 0;
 
+	pdevice->of_node =
+	of_find_compatible_node(NULL, NULL, "mediatek,camera_hw");
+
 	gimgsensor.status.oc = 0;
 
 	if (enable) {
@@ -108,7 +111,7 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 			}
 
 			pr_debug(
-				"[regulator] %s idx=%d %s enable=%d\n",
+				"[regulator] %s idx=%d %s oc int enable=%d\n",
 				__func__,
 				sensor_idx,
 				regulator_control[i].pregulator_type,
