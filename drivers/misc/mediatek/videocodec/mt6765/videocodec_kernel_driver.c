@@ -33,8 +33,8 @@
 #include <linux/pm_wakeup.h>
 /* #include <mt-plat/dma.h> */
 #include "mt-plat/sync_write.h"
-#include <linux/pm_qos.h>
-/* #include <mmdvfs_pmqos.h> */
+#include <linux/soc/mediatek/mtk-pm-qos.h>
+#include <mmdvfs_pmqos.h>
 
 #ifndef CONFIG_MTK_CLKMGR
 #include <linux/clk.h>
@@ -50,7 +50,6 @@
 #include "videocodec_kernel_driver.h"
 #include "../videocodec_kernel.h"
 #include "smi_public.h"
-
 #include <asm/cacheflush.h>
 #include <linux/io.h>
 #include <asm/sizes.h>
@@ -87,10 +86,10 @@ static dev_t vcodec_devno2 = MKDEV(VCODEC_DEV_MAJOR_NUMBER, 1);
 static struct cdev *vcodec_cdev;
 static struct class *vcodec_class;
 static struct device *vcodec_device;
-struct pm_qos_request vcodec_qos_request;
-struct pm_qos_request vcodec_qos_request2;
-struct pm_qos_request vcodec_qos_request_f;
-struct pm_qos_request vcodec_qos_request_f2;
+struct mtk_pm_qos_request vcodec_qos_request;
+struct mtk_pm_qos_request vcodec_qos_request2;
+struct mtk_pm_qos_request vcodec_qos_request_f;
+struct mtk_pm_qos_request vcodec_qos_request_f2;
 
 #ifdef CONFIG_PM
 static struct cdev *vcodec_cdev2;
@@ -194,11 +193,11 @@ static unsigned int is_entering_suspend;
  *#define VENC_ZERO_COEF_COUNT_addr   (VENC_BASE + 0x688)
  *#define VENC_BYTE_COUNT_addr        (VENC_BASE + 0x680)
  *#define VENC_MP4_IRQ_ENABLE_addr    (VENC_BASE + 0x668)
+
+
+ *#define VENC_MP4_STATUS_addr        (VENC_BASE + 0x664)
+ *#define VENC_MP4_MVQP_STATUS_addr   (VENC_BASE + 0x6E4)
  */
-
-#define VENC_MP4_STATUS_addr        (VENC_BASE + 0x664)
-#define VENC_MP4_MVQP_STATUS_addr   (VENC_BASE + 0x6E4)
-
 
 
 #define VENC_IRQ_STATUS_SPS         0x1
@@ -246,8 +245,8 @@ static unsigned int gVDECFrmTRMP2_4[5] = {16, 20, 32, 50, 16};
 static unsigned int gVENCFrmTRAVC[3] = {6, 12, 6};
 static u32 dec_step_size;
 static u32 enc_step_size;
-/* static u64 g_dec_freq_steps[MAX_FREQ_STEP]; */
-/* static u64 g_enc_freq_steps[MAX_FREQ_STEP]; */
+static u64 g_dec_freq_steps[MAX_FREQ_STEP];
+static u64 g_enc_freq_steps[MAX_FREQ_STEP];
 #ifdef VCODEC_DVFS_V2
 static struct codec_history *codec_hists;
 static struct codec_job *codec_jobs;
@@ -464,11 +463,11 @@ void vdec_power_off(void)
 	mutex_lock(&DecPMQoSLock);
 
 	/* pr_debug("[PMQoS] vdec_power_off reset to 0"); */
-	/* pm_qos_update_request(&vcodec_qos_request, 0); */
+	mtk_pm_qos_update_request(&vcodec_qos_request, 0);
 	gVDECBWRequested = 0;
 
 #ifdef VCODEC_DVFS_V2
-	/* pm_qos_update_request(&vcodec_qos_request_f, 0); */
+	mtk_pm_qos_update_request(&vcodec_qos_request_f, 0);
 #endif
 	mutex_unlock(&DecPMQoSLock);
 }
@@ -559,11 +558,11 @@ void venc_power_off(void)
 	mutex_lock(&EncPMQoSLock);
 
 	/* pr_debug("[PMQoS] venc_power_off reset to 0"); */
-	/* pm_qos_update_request(&vcodec_qos_request2, 0); */
+	mtk_pm_qos_update_request(&vcodec_qos_request2, 0);
 	gVENCBWRequested = 0;
 
 #ifdef VCODEC_DVFS_V2
-	/* pm_qos_update_request(&vcodec_qos_request_f2, 0); */
+	mtk_pm_qos_update_request(&vcodec_qos_request_f2, 0);
 #endif
 	mutex_unlock(&EncPMQoSLock);
 }
@@ -1070,21 +1069,17 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 			mutex_lock(&VcodecDVFSLock);
 			if (cur_job == 0) {
 				target_freq = 1;
-				/*
-				 *target_freq_64 = match_freq(99999,
-				 *	&g_dec_freq_steps[0], dec_step_size);
-				 *pm_qos_update_request(&vcodec_qos_request_f,
-				 *	target_freq_64);
-				 */
+				target_freq_64 = match_freq(99999,
+					&g_dec_freq_steps[0], dec_step_size);
+				mtk_pm_qos_update_request(&vcodec_qos_request_f,
+					target_freq_64);
 			} else {
 				cur_job->start = get_time_us();
 				target_freq = est_freq(cur_job->handle,
 						&codec_jobs, codec_hists);
-				/*
-				 *target_freq_64 = match_freq(target_freq,
-				 *		&g_dec_freq_steps[0],
-				 *		dec_step_size);
-				 */
+				target_freq_64 = match_freq(target_freq,
+						&g_dec_freq_steps[0],
+						dec_step_size);
 				if (target_freq > 0) {
 					g_dec_freq = target_freq;
 					if (g_dec_freq > target_freq_64) {
@@ -1092,11 +1087,9 @@ static long vcodec_lockhw_vdec(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 							(int)target_freq_64;
 					}
 					cur_job->mhz = (int)target_freq_64;
-					/*
-					 *pm_qos_update_request(
-					 *	&vcodec_qos_request_f,
-					 *	target_freq_64);
-					 */
+					mtk_pm_qos_update_request(
+						&vcodec_qos_request_f,
+						target_freq_64);
 				}
 			}
 
@@ -1166,8 +1159,8 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 
 #ifdef VCODEC_DVFS_V2
 	struct codec_job *cur_job = 0;
-	/* int target_freq; */
-	/* u64 target_freq_64; */
+	int target_freq;
+	u64 target_freq_64;
 #endif
 
 #ifdef VCODEC_DVFS_V2
@@ -1293,7 +1286,7 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 			 *	CodecHWLock.rLockedTime.u4uSec);
 			 */
 
-#ifdef LOW_POWER_PORTING_DONE
+#ifdef VCODEC_DVFS_V2
 			if (CodecHWLock.eDriverType !=
 				VAL_DRIVER_TYPE_JPEG_ENC) {
 				mutex_lock(&VcodecDVFSLock);
@@ -1301,7 +1294,7 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 				target_freq = 1;
 				target_freq_64 = match_freq(99999,
 					&g_enc_freq_steps[0], enc_step_size);
-				pm_qos_update_request(&vcodec_qos_request_f2,
+				mtk_pm_qos_update_request(&vcodec_qos_request_f2,
 					target_freq_64);
 			} else {
 				cur_job->start = get_time_us();
@@ -1317,7 +1310,7 @@ static long vcodec_lockhw_venc(struct VAL_HW_LOCK_T *pHWLock, char *bLockedHW)
 							(int)target_freq_64;
 					}
 					cur_job->mhz = (int)target_freq_64;
-					pm_qos_update_request(
+					mtk_pm_qos_update_request(
 						&vcodec_qos_request_f2,
 						target_freq_64);
 				}
@@ -1860,9 +1853,7 @@ static long vcodec_set_frame_info(unsigned long arg)
 			emi_bw = emi_bw / (1024*1024) / 8;
 
 			/* pr_info("VDEC mbytes/s emi_bw %ld", emi_bw); */
-			/* pm_qos_update_request(&vcodec_qos_request,
-			 *	(int)emi_bw);
-			 */
+			mtk_pm_qos_update_request(&vcodec_qos_request, (int)emi_bw);
 			gVDECBWRequested = 1;
 		}
 		mutex_unlock(&DecPMQoSLock);
@@ -1899,9 +1890,8 @@ static long vcodec_set_frame_info(unsigned long arg)
 			emi_bw = emi_bw / (1024*1024) / 8;
 
 			/* pr_info("VENC mbytes/s emi_bw %ld", emi_bw); */
-			/* pm_qos_update_request(&vcodec_qos_request2,
-			 *			(int)emi_bw);
-			 */
+			mtk_pm_qos_update_request(&vcodec_qos_request2,
+						(int)emi_bw);
 			gVENCBWRequested = 1;
 		}
 		mutex_unlock(&EncPMQoSLock);
@@ -2833,12 +2823,8 @@ static int vcodec_release(struct inode *inode, struct file *file)
 #else
 				vdec_power_off();
 #endif
-				/* pm_qos_update_request(
-				 *	&vcodec_qos_request, 0);
-				 */
-				/* pm_qos_update_request(
-				 *	&vcodec_qos_request_f, 0);
-				 */
+				mtk_pm_qos_update_request(&vcodec_qos_request, 0);
+				mtk_pm_qos_update_request(&vcodec_qos_request_f, 0);
 				gVDECBWRequested = 0;
 			} else if (CodecHWLock.eDriverType ==
 					VAL_DRIVER_TYPE_H264_ENC) {
@@ -2849,11 +2835,9 @@ static int vcodec_release(struct inode *inode, struct file *file)
 #else
 				venc_power_off();
 #endif
-				/* pm_qos_update_request
-				 *	(&vcodec_qos_request2, 0);
-				 *pm_qos_update_request(&vcodec_qos_request_f2,
-				 *			0);
-				 */
+				mtk_pm_qos_update_request(&vcodec_qos_request2, 0);
+				mtk_pm_qos_update_request(&vcodec_qos_request_f2,
+							0);
 			} else if (CodecHWLock.eDriverType ==
 					VAL_DRIVER_TYPE_JPEG_ENC) {
 				disable_irq(VENC_IRQ_ID);
@@ -3236,37 +3220,34 @@ static int vcodec_probe(struct platform_device *dev)
 	venc_power_on();
 #endif
 
-	/* pm_qos_add_request(&vcodec_qos_request, PM_QOS_MM_MEMORY_BANDWIDTH,
-	 *					PM_QOS_DEFAULT_VALUE);
-	 *pm_qos_add_request(&vcodec_qos_request2, PM_QOS_MM_MEMORY_BANDWIDTH,
-	 *					PM_QOS_DEFAULT_VALUE);
-	 *pm_qos_add_request(&vcodec_qos_request_f, PM_QOS_VDEC_FREQ,
-	 *					PM_QOS_DEFAULT_VALUE);
-	 *pm_qos_add_request(&vcodec_qos_request_f2, PM_QOS_VENC_FREQ,
-	 *					PM_QOS_DEFAULT_VALUE);
-	 */
+	mtk_pm_qos_add_request(&vcodec_qos_request,
+		MTK_PM_QOS_MEMORY_BANDWIDTH,
+		MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&vcodec_qos_request2,
+		MTK_PM_QOS_MEMORY_BANDWIDTH,
+		MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&vcodec_qos_request_f, PM_QOS_VDEC_FREQ,
+		PM_QOS_MM_FREQ_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&vcodec_qos_request_f2, PM_QOS_VENC_FREQ,
+		PM_QOS_MM_FREQ_DEFAULT_VALUE);
 
 	dec_step_size = 1;
 	enc_step_size = 1;
-	/* ret = mmdvfs_qos_get_freq_steps(PM_QOS_VDEC_FREQ,
-	 *				&g_dec_freq_steps[0], &dec_step_size);
-	 */
+	ret = mmdvfs_qos_get_freq_steps(PM_QOS_VDEC_FREQ,
+					&g_dec_freq_steps[0], &dec_step_size);
 	if (ret < 0)
 		pr_debug("Vdec get DVFS freq steps failed: %d\n", ret);
-	/* else if (dec_step_size > 0 && dec_step_size <= MAX_FREQ_STEP)
-	 *	g_dec_freq = g_dec_freq_steps[dec_step_size - 1];
-	 */
+	else if (dec_step_size > 0 && dec_step_size <= MAX_FREQ_STEP)
+		g_dec_freq = g_dec_freq_steps[dec_step_size - 1];
 	else
 		g_dec_freq = MIN_VDEC_FREQ;
 
-	/* ret = mmdvfs_qos_get_freq_steps(PM_QOS_VENC_FREQ,
-	 *				&g_enc_freq_steps[0], &enc_step_size);
-	 */
+	ret = mmdvfs_qos_get_freq_steps(PM_QOS_VENC_FREQ,
+					&g_enc_freq_steps[0], &enc_step_size);
 	if (ret < 0)
 		pr_debug("Venc get DVFS freq steps failed: %d\n", ret);
-	/*else if (enc_step_size > 0 && enc_step_size <= MAX_FREQ_STEP)
-	 *	g_enc_freq = g_enc_freq_steps[enc_step_size - 1];
-	 */
+	else if (enc_step_size > 0 && enc_step_size <= MAX_FREQ_STEP)
+		g_enc_freq = g_enc_freq_steps[enc_step_size - 1];
 	else
 		g_enc_freq = MIN_VENC_FREQ;
 

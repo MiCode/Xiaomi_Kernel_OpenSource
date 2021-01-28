@@ -318,7 +318,7 @@ int est_next_job(long long now_us, long long *t_us, int *kcy, int *min_mhz,
 	hist = find_hist(job->handle, head);
 
 #if SHOW_ALGO_INFO
-	pr_info("%s find_hist %p handle %p\n", __func__, hist,
+	pr_info("%s find_hist %p handle %p\n", __func__, hist,
 		(hist == 0) ? 0 : hist->handle);
 #endif
 
