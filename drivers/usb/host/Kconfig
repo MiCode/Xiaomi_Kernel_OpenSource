@@ -47,7 +47,7 @@ config USB_XHCI_PLATFORM
 config USB_XHCI_MTK
 	tristate "xHCI support for Mediatek MT65xx/MT7621"
 	select MFD_SYSCON
-	depends on (MIPS && SOC_MT7621) || ARCH_MEDIATEK || COMPILE_TEST
+	depends on (MIPS && SOC_MT7621) || ARCH_MEDIATEK || COMPILE_TEST || MEDIATEK_SOLUTION
 	---help---
 	  Say 'Y' to enable the support for the xHCI host controller
 	  found in Mediatek MT65xx SoCs.
@@ -813,3 +813,14 @@ config USB_HCD_TEST_MODE
 	  This option is of interest only to developers who need to validate
 	  their USB hardware designs.  It is not needed for normal use.  If
 	  unsure, say N.
+
+config USB_XHCI_MTK_SUSPEND
+	tristate "MediaTek XHCI SUSPEND SUPPORT"
+	default n
+	depends on USB_XHCI_MTK
+	---help---
+	  Enable Mediatek OTG function Switch mechanism.
+	  The default OTG DUALROLE function is disabled.
+	  User can switch to enable or disable by command.
+
+	  If unsure, say N.
