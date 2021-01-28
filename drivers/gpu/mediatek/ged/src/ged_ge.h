@@ -12,7 +12,7 @@
 /* Must be the same as region_num in gralloc_extra/ge_config.h */
 #define GE_ALLOC_STRUCT_NUM 12
 
-int ged_ge_init(void);
+GED_ERROR ged_ge_init(void);
 int ged_ge_exit(void);
 int ged_ge_alloc(int region_num, uint32_t *region_sizes);
 int ged_ge_get(int ge_fd, int region_id, int u32_offset,

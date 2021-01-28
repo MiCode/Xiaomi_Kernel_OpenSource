@@ -154,7 +154,7 @@ static const struct file_operations GEEntry_fops = {
 	.release = ge_entry_release,
 };
 
-int ged_ge_init(void)
+GED_ERROR ged_ge_init(void)
 {
 	int flags = 0;
 	GED_ERROR err = GED_OK;
@@ -172,11 +172,11 @@ int ged_ge_init(void)
 			&gDFSEntry);
 	if (unlikely(err != GED_OK)) {
 		GED_PDEBUG("failed to create ge entry!\n");
-		return 1;
+		return err;
 	}
 #endif
 
-	return 0;
+	return err;
 }
 
 int ged_ge_exit(void)
