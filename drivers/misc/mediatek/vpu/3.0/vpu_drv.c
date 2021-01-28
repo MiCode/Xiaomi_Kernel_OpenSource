@@ -1661,7 +1661,7 @@ static int vpu_mmap(struct file *flip, struct vm_area_struct *vma)
 static dev_t vpu_devt;
 static struct cdev *vpu_chardev;
 static struct class *vpu_class;
-static int vpu_num_devs;
+static unsigned int vpu_num_devs;
 
 static inline void vpu_unreg_chardev(void)
 {
@@ -1716,7 +1716,7 @@ out:
 static int vpu_probe(struct platform_device *pdev)
 {
 	int ret = 0;
-	int core = 0;
+	unsigned int core = 0;
 	struct device *dev;
 	struct device_node *node;
 	unsigned int irq_info[3] = {0};
