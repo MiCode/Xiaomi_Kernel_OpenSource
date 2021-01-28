@@ -350,14 +350,14 @@ static ssize_t dbg_cm_mgr_store(struct  kobject *kobj,
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_UP,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "cpu_power_ratio_down")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			cpu_power_ratio_down[val_1] = val_2;
 #if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT) && defined(USE_CM_MGR_AT_SSPM)
 		cm_mgr_to_sspm_command(IPI_CM_MGR_CPU_POWER_RATIO_DOWN,
 				val_1 << 16 | val_2);
-#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT */
+#endif /* CONFIG_MTK_TINYSYS_SSPM_SUPPORT && defined(USE_CM_MGR_AT_SSPM) */
 	} else if (!strcmp(cmd, "vcore_power_ratio_up")) {
 		if (ret == 3 && val_1 < cm_mgr_num_array)
 			vcore_power_ratio_up[val_1] = val_2;

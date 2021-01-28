@@ -32,7 +32,10 @@
 
 #include <linux/of.h>
 #include <linux/of_address.h>
+#ifdef CONFIG_MTK_DVFSRC
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include <dvfsrc-exp.h>
+#endif /* CONFIG_MTK_DVFSRC */
 #include "mtk_cm_mgr_mt6765.h"
 #include "mtk_cm_mgr_common.h"
 #include "mtk_cm_mgr_data_mt6765.h"
@@ -41,7 +44,6 @@
 #include <linux/notifier.h>
 
 #include <linux/soc/mediatek/mtk-pm-qos.h>
-#include <dvfsrc-exp.h>
 #include <mtk_qos_sram.h>
 #ifdef CONFIG_MTK_CPU_FREQ
 #include <mtk_cpufreq_internal.h>
@@ -566,14 +568,20 @@ static void cm_mgr_set_dram_level(int level)
 		dram_level = 0;
 	else
 		dram_level = level;
+#ifdef CONFIG_MTK_DVFSRC
 	dvfsrc_set_power_model_ddr_request(dram_level);
+#endif /* CONFIG_MTK_DVFSRC */
 }
 
 static int cm_mgr_get_dram_opp(void)
 {
 	int dram_opp_cur;
 
+#ifdef CONFIG_MTK_DVFSRC
 	dram_opp_cur = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP);
+#else
+	dram_opp_cur = 0;
+#endif /* CONFIG_MTK_DVFSRC */
 	if (dram_opp_cur < 0 || dram_opp_cur > CM_MGR_EMI_OPP)
 		dram_opp_cur = 0;
 
@@ -586,7 +594,7 @@ static int cm_mgr_get_bw(void)
 	return qos_sram_read(QOS_TOTAL_BW);
 #else
 	return 0;
-#endif
+#endif /* CONFIG_MTK_QOS_FRAMEWORK */
 }
 
 static int cm_mgr_check_bw_status(void)
@@ -1218,7 +1226,9 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
 	const char *buf;
+#ifdef CONFIG_MTK_DVFSRC
 	int i;
+#endif /* CONFIG_MTK_DVFSRC */
 
 	ret = cm_mgr_common_init();
 	if (ret) {
@@ -1252,10 +1262,12 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 			goto ERROR;
 		}
 
+#ifdef CONFIG_MTK_DVFSRC
 		for (i = 0; i < cm_mgr_num_perf; i++) {
 			cm_mgr_perfs[i] =
 			dvfsrc_get_required_opp_performance_state(node, i);
 		}
+#endif /* CONFIG_MTK_DVFSRC */
 		cm_mgr_num_array = cm_mgr_num_perf - 1;
 	} else
 		cm_mgr_num_perf = 0;

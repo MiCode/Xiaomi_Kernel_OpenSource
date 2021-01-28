@@ -33,10 +33,12 @@
 #include <linux/of_address.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_opp.h>
+#ifdef CONFIG_MTK_DVFSRC
 #include <linux/soc/mediatek/mtk_dvfsrc.h>
+#include "dvfsrc-exp.h"
+#endif /* CONFIG_MTK_DVFSRC */
 #include "mtk_cm_mgr_mt6779.h"
 #include "mtk_cm_mgr_common.h"
-#include "dvfsrc-exp.h"
 
 #ifdef CONFIG_MTK_DRAMC_LEGACY
 #include <mtk_dramc.h>
@@ -198,7 +200,11 @@ static int cm_mgr_get_dram_opp(void)
 {
 	int dram_opp_cur;
 
+#ifdef CONFIG_MTK_DVFSRC
 	dram_opp_cur = mtk_dvfsrc_query_opp_info(MTK_DVFSRC_CURR_DRAM_OPP);
+#else
+	dram_opp_cur = 0;
+#endif /* CONFIG_MTK_DVFSRC */
 	if (dram_opp_cur < 0 || dram_opp_cur > cm_mgr_num_perf)
 		dram_opp_cur = 0;
 
@@ -212,7 +218,9 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *node = pdev->dev.of_node;
 	const char *buf;
+#ifdef CONFIG_MTK_DVFSRC
 	int i;
+#endif /* CONFIG_MTK_DVFSRC */
 
 	ret = cm_mgr_common_init();
 	if (ret) {
@@ -246,10 +254,12 @@ static int platform_cm_mgr_probe(struct platform_device *pdev)
 			goto ERROR;
 		}
 
+#ifdef CONFIG_MTK_DVFSRC
 		for (i = 0; i < cm_mgr_num_perf; i++) {
 			cm_mgr_perfs[i] =
 			dvfsrc_get_required_opp_performance_state(node, i);
 		}
+#endif /* CONFIG_MTK_DVFSRC */
 		cm_mgr_num_array = cm_mgr_num_perf - 2;
 	} else
 		cm_mgr_num_perf = 0;
