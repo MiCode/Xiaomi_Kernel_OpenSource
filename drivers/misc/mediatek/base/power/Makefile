@@ -57,6 +57,7 @@ obj-$(CONFIG_MACH_MT6873) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6885) += clkbuf_v1/
 obj-$(CONFIG_MACH_MT6739) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT8167) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
+obj-$(CONFIG_MACH_MT8168) += $(subst ",,$(CONFIG_MTK_PLATFORM))/
 obj-$(CONFIG_MACH_MT6739) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6771) += power_gs_v1/
 obj-$(CONFIG_MACH_MT6885) += power_gs_v1/
