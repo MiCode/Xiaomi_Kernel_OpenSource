@@ -692,12 +692,40 @@ void kbase_backend_jm_kill_running_jobs_from_kctx(struct kbase_context *kctx)
 		kbase_job_slot_hardstop(kctx, i, NULL);
 }
 
+/**
+ * kbase_is_existing_atom_submitted_later_than_ready
+ * @ready: sequence number of the ready atom
+ * @existing: sequence number of the existing atom
+ *
+ * Returns true if the existing atom has been submitted later than the
+ * ready atom. It is used to understand if an atom that is ready has been
+ * submitted earlier than the currently running atom, so that the currently
+ * running atom should be preempted to allow the ready atom to run.
+ */
+static inline bool kbase_is_existing_atom_submitted_later_than_ready(u64 ready, u64 existing)
+{
+	/* No seq_nr set? */
+	if (!ready || !existing)
+		return false;
+
+	/* Efficiently handle the unlikely case of wrapping.
+	 * The following code assumes that the delta between the sequence number
+	 * of the two atoms is less than INT64_MAX.
+	 * In the extremely unlikely case where the delta is higher, the comparison
+	 * defaults for no preemption.
+	 * The code also assumes that the conversion from unsigned to signed types
+	 * works because the signed integers are 2's complement.
+	 */
+	return (s64)(ready - existing) < 0;
+}
+
 void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 				struct kbase_jd_atom *target_katom)
 {
 	struct kbase_device *kbdev;
 	int js = target_katom->slot_nr;
 	int priority = target_katom->sched_priority;
+	int seq_nr = target_katom->seq_nr;
 	int i;
 	bool stop_sent = false;
 
@@ -719,7 +747,8 @@ void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 				(katom->kctx != kctx))
 			continue;
 
-		if (katom->sched_priority > priority) {
+		if ((katom->sched_priority > priority) ||
+		    (katom->kctx == kctx && kbase_is_existing_atom_submitted_later_than_ready(seq_nr, katom->seq_nr))) {
 			if (!stop_sent)
 				KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITIZED(
 						kbdev,
