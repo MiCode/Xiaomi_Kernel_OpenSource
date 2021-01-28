@@ -65,7 +65,7 @@ static int scp_sleep_flag = -1;
 
 static int pre_pll_sel = -1;
 static struct mt_scp_pll_t *mt_scp_pll;
-static struct wakeup_source scp_suspend_lock;
+static struct wakeup_source *scp_suspend_lock;
 static int g_scp_dvfs_init_flag = -1;
 
 static struct regulator *dvfsrc_vscp_power;
@@ -390,7 +390,7 @@ int scp_request_freq(void)
 	/* because we are waiting for scp to update register:scp_current_freq
 	 * use wake lock to prevent AP from entering suspend state
 	 */
-	__pm_stay_awake(&scp_suspend_lock);
+	__pm_stay_awake(scp_suspend_lock);
 
 	if (scp_current_freq != scp_expected_freq) {
 
@@ -424,7 +424,7 @@ int scp_request_freq(void)
 			if (timeout <= 0) {
 				pr_err("set freq fail, current(%d) != expect(%d)\n",
 					scp_current_freq, scp_expected_freq);
-				__pm_relax(&scp_suspend_lock);
+				__pm_relax(scp_suspend_lock);
 				WARN_ON(1);
 				return -1;
 			}
@@ -452,7 +452,7 @@ int scp_request_freq(void)
 			scp_to_spm_resource_req(SCP_DVFS_SMC_RESOURCE_REL, 0);
 	}
 
-	__pm_relax(&scp_suspend_lock);
+	__pm_relax(scp_suspend_lock);
 	pr_debug("[SCP] succeed to set freq, expect=%d, cur=%d\n",
 			scp_expected_freq, scp_current_freq);
 	return 0;
@@ -1398,7 +1398,7 @@ int __init scp_dvfs_init(void)
 		goto fail;
 	}
 
-	wakeup_source_init(&scp_suspend_lock, "scp wakelock");
+	scp_suspend_lock = wakeup_source_register("scp wakelock");
 
 	mt_scp_dvfs_ipi_init();
 
