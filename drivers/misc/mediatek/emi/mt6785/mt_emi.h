@@ -20,6 +20,7 @@
 #define ENABLE_ELM	1
 #define ENABLE_MBW	0
 #define DECS_ON_SSPM
+#define MPU_BYPASS
 /* #define ENABLE_BWL_CONFIG */
 /* #define ENABLE_MPU_SLVERR */
 /* #define ENABLE_LATENCY_REGULATOR */
