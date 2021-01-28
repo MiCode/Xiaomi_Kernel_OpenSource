@@ -1012,6 +1012,15 @@ int apu_cmd_qos_end(uint64_t cmd_id, uint64_t sub_cmd_id,
 			update_qos_request(&(engine_pm_qos_counter[i].qos_req),
 				PM_QOS_APU_MEMORY_BANDWIDTH_DEFAULT_VALUE);
 		}
+#if MNOC_QOS_BOOST_ENABLE
+		mutex_lock(&apu_qos_boost_mtx);
+		if (apu_qos_boost_flag == false) {
+			apu_bw_vcore_opp = NR_APU_VCORE_OPP - 1;
+			apu_qos_set_vcore(vcore_opp_map[apu_bw_vcore_opp]);
+		}
+		mutex_unlock(&apu_qos_boost_mtx);
+#endif
+
 	}
 #endif
 
