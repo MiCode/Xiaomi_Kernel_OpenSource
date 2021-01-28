@@ -199,6 +199,7 @@
 //
 
 #define PMIC_RG_SYSTEM_INFO_CON0_ADDR 0xd9a
+#define PMIC_RG_SYSTEM_INFO_CON1_ADDR 0xd9c
 
 #define UNIT_FGCURRENT			(314331)
 /* mt6357 314.331 uA */
@@ -492,6 +493,9 @@ void set_rtc_spare_fg_value(struct mtk_gauge *gauge, u8 val)
 static int fgauge_set_info(struct mtk_gauge *gauge,
 	enum gauge_property ginfo, unsigned int value)
 {
+	int value_mask = 0;
+	int sign_bit = 0;
+	int reg_val = 0;
 
 	bm_debug("[%s]info:%d v:%d\n", __func__, ginfo, value);
 
@@ -531,6 +535,40 @@ static int fgauge_set_info(struct mtk_gauge *gauge,
 		PMIC_RG_SYSTEM_INFO_CON0_ADDR,
 		0x007f << 0x9,
 		value << 0x9);
+	} else if (ginfo == GAUGE_PROP_SHUTDOWN_CAR) {
+		if (value == -99999) {
+			/* write invalid */
+			regmap_update_bits(gauge->regmap,
+			PMIC_RG_SYSTEM_INFO_CON1_ADDR,
+			0x01FF << 0x7,
+			0x1FF << 0x7);
+
+			bm_err("[%s]: write invalid value to GAUGE_PROP_SHUTDOWN_CAR\n",
+			__func__);
+			return 0;
+		}
+		if (value < 0)
+			sign_bit = 1;
+
+		value_mask = abs(value);
+		value_mask = value_mask & 0x00ff;
+
+		regmap_update_bits(gauge->regmap,
+			PMIC_RG_SYSTEM_INFO_CON1_ADDR,
+			0x00FF << 0x7,
+			value_mask << 0x7);
+
+		regmap_update_bits(gauge->regmap,
+			PMIC_RG_SYSTEM_INFO_CON1_ADDR,
+			0x0001 << 0xf,
+			sign_bit << 0xf);
+
+		regmap_read(gauge->regmap,
+			PMIC_RG_SYSTEM_INFO_CON1_ADDR, &reg_val);
+
+		bm_err(
+		"[%s]: GAUGE_PROP_SHUTDOWN_CAR:%d,0x%x,sign:%d, 0x%x,0x%x\n",
+		__func__, value, value, sign_bit, value_mask, reg_val);
 	}
 	return 0;
 }
@@ -539,6 +577,8 @@ static int fgauge_get_info(struct mtk_gauge *gauge,
 	enum gauge_property ginfo, int *value)
 {
 	int reg_val = 0;
+	int sign_bit = 0;
+	int tmp_val = 0;
 
 	regmap_read(gauge->regmap, PMIC_RG_SYSTEM_INFO_CON0_ADDR, &reg_val);
 
@@ -562,6 +602,24 @@ static int fgauge_get_info(struct mtk_gauge *gauge,
 	else if (ginfo == GAUGE_PROP_CON0_SOC)
 		*value =
 		(reg_val & (0x007F << 0x9))	>> 0x9;
+	else if (ginfo == GAUGE_PROP_SHUTDOWN_CAR) {
+		regmap_read(gauge->regmap,
+			PMIC_RG_SYSTEM_INFO_CON1_ADDR, &reg_val);
+
+		sign_bit = (reg_val & (0x1 << 0xf))	>> 0xf;
+		tmp_val = (reg_val & (0xff << 0x7))	>> 0x7;
+
+		if (sign_bit == 1 && tmp_val == 0xff) {
+			bm_err("[%s]: GAUGE_PROP_SHUTDOWN_CAR: invalid, sign:%d value:%d,0x%x\n",
+			__func__, sign_bit, tmp_val, reg_val);
+			sign_bit = 0;
+			*value = 0;
+		} else if (sign_bit == 1) {
+			*value = 0 - tmp_val;
+			bm_err("[%s]:GAUGE_PROP_SHUTDOWN_CAR: sign:%d, tmp_val:%d\n",
+			__func__, sign_bit, tmp_val);
+		}
+	}
 
 	bm_debug("[%s]info:%d v:%d\n", __func__, ginfo, *value);
 
@@ -1410,7 +1468,12 @@ int info_get(struct mtk_gauge *gauge,
 		*val = gauge->hw_status.vbat2_det_time;
 	else if (attr->prop == GAUGE_PROP_VBAT2_DETECT_COUNTER)
 		*val = gauge->hw_status.vbat2_det_counter;
-	else
+	else if (attr->prop == GAUGE_PROP_SHUTDOWN_CAR) {
+		fgauge_get_info(gauge, attr->prop, val);
+		ret = *val;
+		bm_err("[%s]GAUGE_PROP_SHUTDOWN_CAR ret:%d v:%d\n",
+			__func__, ret, *val);
+	} else
 		ret = fgauge_get_info(gauge, attr->prop, val);
 
 	return ret;

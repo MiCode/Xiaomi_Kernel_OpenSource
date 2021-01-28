@@ -3341,15 +3341,22 @@ static void mtk_battery_daemon_handler(struct mtk_battery *gm, void *nl_data,
 	case FG_DAEMON_CMD_GET_SHUTDOWN_CAR:
 	{
 		int shutdown_car_diff = 0;
+		int tmp_cardiff = 0;
 
 		shutdown_car_diff = gauge_get_int_property(
 			GAUGE_PROP_SHUTDOWN_CAR);
+
+		if (abs(shutdown_car_diff) > 1000) {
+			tmp_cardiff = shutdown_car_diff;
+			shutdown_car_diff = 0;
+		}
+
 		ret_msg->fgd_data_len += sizeof(shutdown_car_diff);
 		memcpy(ret_msg->fgd_data, &shutdown_car_diff,
 			sizeof(shutdown_car_diff));
 		bm_debug(
-			"[K]FG_DAEMON_CMD_GET_SHUTDOWN_CAR = %d\n",
-			shutdown_car_diff);
+			"[K]FG_DAEMON_CMD_GET_SHUTDOWN_CAR = %d, tmp=%d\n",
+			shutdown_car_diff, tmp_cardiff);
 	}
 	break;
 	case FG_DAEMON_CMD_GET_NCAR:
