@@ -291,6 +291,17 @@ struct display_primary_path_context {
 	unsigned int fps_chg_last_notify;
 };
 
+#define LCM_FPS_ARRAY_SIZE	32
+struct lcm_fps_ctx_t {
+	int is_inited;
+	struct mutex lock;
+	unsigned int dsi_mode;
+	unsigned int head_idx;
+	unsigned int num;
+	unsigned long long last_ns;
+	unsigned long long array[LCM_FPS_ARRAY_SIZE];
+};
+
 static inline char *lcm_power_state_to_string(enum lcm_power_state ps)
 {
 	switch (ps) {
@@ -523,6 +534,11 @@ bool disp_idle_check_rsz(void);
 int primary_display_is_directlink_mode(void);
 bool disp_input_has_yuv(void);
 
+extern struct lcm_fps_ctx_t lcm_fps_ctx;
+int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx);
+int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx);
+int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx,
+		unsigned long long cur_ns);
 
 /**************function for ARR end************************/
 #endif

@@ -880,7 +880,7 @@ static void _vdo_mode_enter_idle(void)
 	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
-
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 static void _vdo_mode_leave_idle(void)
@@ -940,7 +940,7 @@ static void _vdo_mode_leave_idle(void)
 	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
-
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 static void _cmd_mode_enter_idle(void)
@@ -966,7 +966,7 @@ static void _cmd_mode_enter_idle(void)
 	prim_disp_request_hrt_bw(HRT_BW_UNREQ,
 			DDP_SCENARIO_PRIMARY_DISP, __func__);
 #endif
-
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 static void _cmd_mode_leave_idle(void)
@@ -1002,6 +1002,7 @@ static void _cmd_mode_leave_idle(void)
 	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
+	lcm_fps_ctx_reset(&lcm_fps_ctx);
 }
 
 void primary_display_idlemgr_enter_idle_nolock(void)
