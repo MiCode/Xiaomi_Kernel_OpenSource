@@ -487,6 +487,7 @@ static void rtc_mark_kpoc(struct mt6397_rtc *rtc)
 
 	mutex_lock(&rtc->lock);
 	regmap_field_write(rtc->spare[SPARE_KPOC], 1);
+	mtk_rtc_write_trigger(rtc);
 	mutex_unlock(&rtc->lock);
 }
 
