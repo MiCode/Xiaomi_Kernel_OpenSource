@@ -1408,7 +1408,7 @@ int cmdq_core_print_status_seq(struct seq_file *m, void *v)
 			seq_printf(m, "USE SRAM BUFFER sram base address:%u\n",
 			handle->sram_base);
 
-		client = cmdq_clients[handle->thread];
+		client = cmdq_clients[(u32)handle->thread];
 		cmdq_task_get_thread_irq(client->chan, &irq);
 
 		seq_printf(m,
@@ -1473,7 +1473,7 @@ static void cmdq_core_dump_thread(const struct cmdqRecStruct *handle,
 
 	CMDQ_LOG(
 		"[%s]===== Error Thread Status index:%d enabled:%d scenario:%d =====\n",
-		tag, thread, value[8], cmdq_ctx.thread[thread].scenario);
+		tag, thread, value[8], cmdq_ctx.thread[(u32)thread].scenario);
 
 	CMDQ_LOG(
 		"[%s]PC:0x%08x End:0x%08x Wait Token:0x%08x IRQ:0x%x IRQ_EN:0x%x cookie:%u\n",
@@ -2854,7 +2854,7 @@ static void cmdq_core_parse_handle_error(const struct cmdqRecStruct *handle,
 		return;
 	}
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 
 	do {
 		/* confirm if SMI is hang */
@@ -3023,7 +3023,7 @@ static void cmdq_core_dump_handle_summary(const struct cmdqRecStruct *handle,
 		return;
 	}
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 
 	/* Do summary ! */
 	cmdq_core_parse_handle_error(handle, thread, &module, &irqFlag,
@@ -3166,7 +3166,7 @@ u32 *cmdq_core_dump_pc(const struct cmdqRecStruct *handle,
 	if (!handle)
 		return NULL;
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 	cmdq_task_get_thread_pc(client->chan, &curr_pc);
 
 	pcVA = cmdq_core_get_pc_va(curr_pc, handle);
@@ -3616,7 +3616,8 @@ static void cmdq_core_handle_devapc_vio(void)
 
 s32 cmdq_core_acquire_thread(enum CMDQ_SCENARIO_ENUM scenario, bool exclusive)
 {
-	s32 idx, thread_id = CMDQ_INVALID_THREAD;
+	s32 thread_id = CMDQ_INVALID_THREAD;
+	u32 idx;
 
 	mutex_lock(&cmdq_thread_mutex);
 	for (idx = CMDQ_DYNAMIC_THREAD_ID_START;
@@ -3654,7 +3655,7 @@ EXPORT_SYMBOL(cmdq_core_acquire_thread);
 
 void cmdq_core_release_thread(s32 scenario, s32 thread)
 {
-	if (thread == CMDQ_INVALID_THREAD) {
+	if (thread == CMDQ_INVALID_THREAD || thread < 0) {
 		CMDQ_ERR("release invalid thread by scenario:%d\n",
 			scenario);
 		return;
@@ -3831,7 +3832,7 @@ s32 cmdq_core_suspend_hw_thread(s32 thread)
 		return -EINVAL;
 	}
 
-	client = cmdq_clients[thread];
+	client = cmdq_clients[(u32)thread];
 	if (!client) {
 		CMDQ_ERR("mbox client not ready for thread:%d suspend\n",
 			thread);
@@ -4151,7 +4152,7 @@ void cmdq_core_release_handle_by_file_node(void *file_node)
 		 * The ideal solution is to stop / cancel HW operation
 		 * immediately, but we cannot do so due to SMI hang risk.
 		 */
-		client = cmdq_clients[handle->thread];
+		client = cmdq_clients[(u32)handle->thread];
 		cmdq_mbox_thread_remove_task(client->chan, handle->pkt);
 		cmdq_pkt_auto_release_task(handle);
 	}
@@ -4496,7 +4497,7 @@ static s32 cmdq_pkt_lock_handle(struct cmdqRecStruct *handle,
 		return -EINVAL;
 	}
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 	if (!client) {
 		CMDQ_ERR("mbox client not ready for thread:%d\n",
 			handle->thread);
@@ -4581,7 +4582,7 @@ static s32 cmdq_core_get_pmqos_handle_list(struct cmdqRecStruct *handle,
 	if (!pkt_list)
 		return -ENOMEM;
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 
 	cmdq_task_get_pkt_from_thread(client->chan, pkt_list,
 		handle_list_size, &pkt_count);
@@ -4628,7 +4629,7 @@ void cmdq_pkt_release_handle(struct cmdqRecStruct *handle)
 		mutex_lock(&cmdq_thread_mutex);
 		ctx = cmdq_core_get_context();
 		handle_count =
-			--ctx->thread[handle->thread].handle_count;
+			--ctx->thread[(u32)handle->thread].handle_count;
 
 		if (handle_count) {
 			pmqos_handle_list = kcalloc(handle_count + 1,
@@ -4758,7 +4759,7 @@ static void cmdq_pkt_flush_handler(struct cmdq_cb_data data)
 		return;
 	}
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 
 	if (data.err == -ETIMEDOUT) {
 		/* error dump may processed on error handler */
@@ -4788,7 +4789,7 @@ static void cmdq_pkt_flush_handler(struct cmdq_cb_data data)
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->CMDQ_IRQ, MMPROFILE_FLAG_PULSE,
 		(unsigned long)handle, handle->thread);
 
-	wake_up(&cmdq_wait_queue[handle->thread]);
+	wake_up(&cmdq_wait_queue[(u32)handle->thread]);
 }
 
 s32 cmdq_pkt_dump_command(struct cmdqRecStruct *handle)
@@ -4851,7 +4852,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	CMDQ_PROF_MMP(cmdq_mmp_get_event()->wait_task,
 		MMPROFILE_FLAG_PULSE, ((unsigned long)handle), handle->thread);
 
-	if (!cmdq_clients[handle->thread]) {
+	if (!cmdq_clients[(u32)handle->thread]) {
 		CMDQ_ERR("thread:%d cannot use since client is not used\n",
 			handle->thread);
 		return -EINVAL;
@@ -4861,7 +4862,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 	CMDQ_SYSTRACE_BEGIN("%s_wait_done\n", __func__);
 	handle->beginWait = sched_clock();
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 	if (!client->chan->mbox || !client->chan->mbox->dev)
 		CMDQ_AEE("CMDQ",
 			"chan:%u mbox:%p or mbox->dev:%p invalid!!",
@@ -4872,13 +4873,13 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 		if (!handle->pkt->loop) {
 			/* wait event and pre-dump */
 			waitq = wait_event_timeout(
-				cmdq_wait_queue[handle->thread],
+				cmdq_wait_queue[(u32)handle->thread],
 				(handle->state != TASK_STATE_BUSY &&
 				handle->state != TASK_STATE_WAITING),
 				msecs_to_jiffies(CMDQ_PREDUMP_TIMEOUT_MS));
 		} else {
 			/* wait infinite without pre-dump, for loop case */
-			wait_event(cmdq_wait_queue[handle->thread],
+			wait_event(cmdq_wait_queue[(u32)handle->thread],
 				handle->state != TASK_STATE_BUSY &&
 				handle->state != TASK_STATE_WAITING);
 			CMDQ_LOG("loop task finish:0x%p pkt:0x%p\n",
@@ -4887,7 +4888,7 @@ s32 cmdq_pkt_wait_flush_ex_result(struct cmdqRecStruct *handle)
 		}
 
 		/* tick mailbox see to make pending task run */
-		mbox_client_txdone(cmdq_clients[handle->thread]->chan, 0);
+		mbox_client_txdone(cmdq_clients[(u32)handle->thread]->chan, 0);
 
 		if (waitq)
 			break;
@@ -4995,7 +4996,7 @@ s32 cmdq_pkt_auto_release_task(struct cmdqRecStruct *handle)
 	 * but we need to initialized it
 	 */
 	INIT_WORK(&handle->auto_release_work, cmdq_pkt_auto_release_work);
-	queue_work(cmdq_ctx.taskThreadAutoReleaseWQ[handle->thread],
+	queue_work(cmdq_ctx.taskThreadAutoReleaseWQ[(u32)handle->thread],
 		&handle->auto_release_work);
 	return 0;
 }
@@ -5090,7 +5091,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 		CMDQ_SYSTRACE_BEGIN("%s_pmqos\n", __func__);
 		mutex_lock(&cmdq_thread_mutex);
 		ctx = cmdq_core_get_context();
-		handle_count = ctx->thread[handle->thread].handle_count;
+		handle_count = ctx->thread[(u32)handle->thread].handle_count;
 
 		pmqos_handle_list = kcalloc(handle_count + 1,
 			sizeof(*pmqos_handle_list), GFP_KERNEL);
@@ -5107,7 +5108,7 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 			handle_count + 1);
 
 		kfree(pmqos_handle_list);
-		ctx->thread[handle->thread].handle_count++;
+		ctx->thread[(u32)handle->thread].handle_count++;
 		mutex_unlock(&cmdq_thread_mutex);
 		CMDQ_SYSTRACE_END();
 	}
@@ -5167,7 +5168,7 @@ s32 cmdq_pkt_flush_async_ex(struct cmdqRecStruct *handle,
 			return err;
 		/* client may already wait for flush done, trigger as error */
 		handle->state = TASK_STATE_ERROR;
-		wake_up(&cmdq_wait_queue[handle->thread]);
+		wake_up(&cmdq_wait_queue[(u32)handle->thread]);
 		return err;
 	}
 
@@ -5198,7 +5199,7 @@ s32 cmdq_pkt_stop(struct cmdqRecStruct *handle)
 		return -EINVAL;
 	}
 
-	client = cmdq_clients[handle->thread];
+	client = cmdq_clients[(u32)handle->thread];
 
 	/* TODO: need way to prevent user destroy handle in callback,
 	 * but before we handle all things, since after callback we still
