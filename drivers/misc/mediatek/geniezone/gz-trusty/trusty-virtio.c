@@ -149,6 +149,10 @@ static void trusty_task_adjust_pri_cpu(struct trusty_ctx *tctx,
 
 		cpumask_clear(&task_cmask);
 		for_each_possible_cpu(cpu) {
+			if (cpu > 31) {
+				dev_info(tctx->dev, "%s not support cpu# > 32\n", __func__);
+				continue;
+			}
 			if (mask[task_id] & (1<<cpu))
 				cpumask_set_cpu(cpu, &task_cmask);
 		}
