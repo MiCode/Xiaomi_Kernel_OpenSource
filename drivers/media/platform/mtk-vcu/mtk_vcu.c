@@ -31,6 +31,7 @@
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/sched/task.h>
+#include <linux/semaphore.h>
 #include <linux/suspend.h>
 #include <linux/uaccess.h>
 #include <linux/compat.h>
@@ -290,6 +291,7 @@ struct mtk_vcu {
 	unsigned long flags[VCU_CODEC_MAX];
 	int open_cnt;
 	bool abort;
+	struct semaphore vpud_killed;
 	bool is_entering_suspend;
 };
 
@@ -429,6 +431,9 @@ int vcu_ipi_send(struct platform_device *pdev,
 			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
 			task_unlock(vcud_task);
+			dev_info(vcu->dev, "wait for vpud killed %d\n",
+				vcu_ptr->vpud_killed.count);
+			ret = down_interruptible(&vcu_ptr->vpud_killed);
 		}
 		ret = -EIO;
 		goto end;
@@ -1135,6 +1140,7 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
 	file->private_data = vcu_queue;
 
+	vcu_ptr->vpud_killed.count = 0;
 	vcu_ptr->open_cnt++;
 	vcu_ptr->abort = false;
 	pr_info("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
@@ -1158,6 +1164,7 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		vcu_get_file_lock();
 		vcu_get_task(&task, &f, 1);
 		vcu_put_file_lock();
+		up(&vcu_ptr->vpud_killed);
 	}
 	return 0;
 }
@@ -1999,6 +2006,8 @@ static int mtk_vcu_probe(struct platform_device *pdev)
 		cmdq_dev_get_event(dev, "venc_wp_2nd_done");
 	vcu->gce_codec_eid[VENC_WP_3ND_DONE] =
 		cmdq_dev_get_event(dev, "venc_wp_3nd_done");
+
+	sema_init(&vcu->vpud_killed, 1);
 
 	for (i = 0; i < (int)VCU_CODEC_MAX; i++)
 		vcu->curr_ctx[i] = NULL;
