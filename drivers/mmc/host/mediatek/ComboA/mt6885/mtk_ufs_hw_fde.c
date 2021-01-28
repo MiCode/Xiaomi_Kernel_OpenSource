@@ -152,8 +152,8 @@ static void msdc_pre_crypto(struct mmc_host *mmc, struct mmc_request *mrq)
 #endif
 	struct request *req = NULL;
 	struct mmc_blk_request *brq;
-#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	struct mmc_queue_req *mq_rq = NULL;
+#ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
 	struct mmc_async_req *areq;
 #endif
 
