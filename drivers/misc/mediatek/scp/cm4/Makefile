@@ -20,6 +20,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/
 # include emi_mpu.h
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule
+ccflags-$(CONFIG_MTK_EMI_LEGACY) += -I$(srctree)/drivers/misc/mediatek/emi/$(CONFIG_MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/
 ccflags-y += -I$(srctree)/drivers/devfreq/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/

@@ -10,7 +10,7 @@
 
 /* scp platform configs*/
 #define SCP_BOOT_TIME_OUT_MONITOR	(1)
-#define SCP_LOGGER_ENABLE		(0)
+#define SCP_LOGGER_ENABLE		(1)
 #define SCP_DVFS_INIT_ENABLE		(1)
 #define SCP_RESERVED_MEM		(1)
 /* scp rescovery feature option*/
@@ -28,8 +28,12 @@
 /* scp sub feature register API marco*/
 #define SCP_REGISTER_SUB_SENSOR		(1)
 
-/* emi mpu define*/
+/* emi mpu define, depends on legacy emi config option */
+#ifdef CONFIG_MTK_EMI_LEGACY
+#define ENABLE_SCP_EMI_PROTECTION	(1)
+#else
 #define ENABLE_SCP_EMI_PROTECTION	(0)
+#endif
 #define MPU_REGION_ID_SCP_SMEM		(6)
 
 
