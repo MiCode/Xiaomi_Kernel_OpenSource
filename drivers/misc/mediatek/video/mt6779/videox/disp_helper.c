@@ -145,6 +145,7 @@ static struct {
 	{DISP_OPT_OVL_WCG, 0, "DISP_OPT_OVL_WCG"},
 	{DISP_OPT_OVL_SBCH, 0, "DISP_OPT_OVL_SBCH"},
 	{DISP_OPT_MMPATH, 0, "DISP_OPT_MMPATH"},
+	{DISP_OPT_LCM_HBM, 0, "DISP_OPT_LCM_HBM"},
 };
 
 const char *disp_helper_option_spy(enum DISP_HELPER_OPT option)
@@ -431,6 +432,7 @@ void disp_helper_option_init(void)
 	/* OVL SBCH */
 	disp_helper_set_option(DISP_OPT_OVL_SBCH, 1);
 	disp_helper_set_option(DISP_OPT_MMPATH, 0);
+	disp_helper_set_option(DISP_OPT_LCM_HBM, 0);
 }
 
 int disp_helper_get_option_list(char *stringbuf, int buf_len)

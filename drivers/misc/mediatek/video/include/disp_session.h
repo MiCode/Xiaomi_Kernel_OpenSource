@@ -333,6 +333,9 @@ struct disp_frame_cfg_t {
 	int res_idx;
 	unsigned int hrt_weight;
 	unsigned int hrt_idx;
+
+	/* for panel HBM (High Backlight Mode) control */
+	bool hbm_en;
 };
 
 struct disp_session_info {

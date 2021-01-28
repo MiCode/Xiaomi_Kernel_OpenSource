@@ -48,6 +48,13 @@ int disp_lcm_is_support_adjust_fps(struct disp_lcm_handle *plcm);
 int disp_lcm_adjust_fps(void *cmdq, struct disp_lcm_handle *plcm, int fps);
 int disp_lcm_set_backlight(struct disp_lcm_handle *plcm, void *handle,
 			   int level);
+
+int disp_lcm_set_hbm(bool en, struct disp_lcm_handle *plcm, void *qhandle);
+int disp_lcm_get_hbm_state(struct disp_lcm_handle *plcm);
+int disp_lcm_get_hbm_wait(struct disp_lcm_handle *plcm);
+int disp_lcm_set_hbm_wait(bool wait, struct disp_lcm_handle *plcm);
+unsigned int disp_lcm_get_hbm_time(bool en, struct disp_lcm_handle *plcm);
+
 int disp_lcm_read_fb(struct disp_lcm_handle *plcm);
 int disp_lcm_ioctl(struct disp_lcm_handle *plcm, enum LCM_IOCTL ioctl,
 		   unsigned int arg);

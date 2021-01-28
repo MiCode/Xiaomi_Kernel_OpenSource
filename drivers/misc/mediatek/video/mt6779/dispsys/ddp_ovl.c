@@ -660,7 +660,7 @@ ovl_layer_config(enum DISP_MODULE_ENUM module, unsigned int phy_layer,
 	DISP_REG_SET_FIELD(handle, fld, baddr + DISP_REG_OVL_CLRFMT_EXT, value);
 
 	dim_color = gOVL_dim_color == 0xff000000 ?
-		    gOVL_dim_color : cfg->dim_color;
+		    cfg->dim_color : gOVL_dim_color;
 	DISP_REG_SET(handle, DISP_REG_OVL_L0_CLR + Lx_clr_base,
 		     0xff000000 | dim_color);
 

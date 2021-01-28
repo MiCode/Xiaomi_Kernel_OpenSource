@@ -1056,11 +1056,12 @@ int primary_display_get_debug_state(char *stringbuf, int buf_len)
 
 	if (lcm_param && lcm_drv)
 		len += scnprintf(stringbuf + len, buf_len - len,
-			"|LCM Driver=[%s], Resolution=%dx%d, Interface:%s, LCM Connected:%s, color_mode=%s\n",
+			"|LCM Driver=[%s], Resolution=%dx%d, Interface:%s, LCM Connected:%s, color_mode=%s, HBM=%d\n",
 			lcm_drv->name, lcm_param->width, lcm_param->height,
 			(lcm_param->type == LCM_TYPE_DSI) ? "DSI" : "Other",
 			islcmconnected ? "Y" : "N",
-			lcm_color_mode_str(lcm_param->lcm_color_mode));
+			lcm_color_mode_str(lcm_param->lcm_color_mode),
+			disp_lcm_get_hbm_state(pgc->plcm));
 	len += scnprintf(stringbuf + len, buf_len - len,
 		"|State=%s\tlcm_fps=%d\tmax_layer=%d\tmode:%s\tvsync_drop=%d\n",
 		pgc->state == DISP_ALIVE ? "Alive" : "Sleep", pgc->lcm_fps,
@@ -6965,6 +6966,11 @@ int primary_display_frame_cfg(struct disp_frame_cfg_t *cfg)
 		dprec_start(trigger_event, cfg->present_fence_idx, proc_name);
 	}
 
+	if (disp_helper_get_option(DISP_OPT_LCM_HBM)) {
+		primary_display_set_lcm_hbm(cfg->hbm_en);
+		primary_display_hbm_wait(cfg->hbm_en);
+	}
+
 	primary_display_trigger_nolock(0, NULL, 0);
 
 	if (cfg->present_fence_idx != (unsigned int)-1)
@@ -7944,6 +7950,102 @@ int _set_backlight_by_cpu(unsigned int level)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_set_bl,
 			 MMPROFILE_FLAG_PULSE, 0, 7);
 	return ret;
+}
+
+static int _primary_display_set_lcm_hbm(bool en)
+{
+	int ret = 0;
+	struct cmdqRecStruct *qhandle_hbm = NULL;
+
+	if (!disp_helper_get_option(DISP_OPT_LCM_HBM))
+		return -1;
+
+	ret = cmdqRecCreate(CMDQ_SCENARIO_PRIMARY_DISP, &qhandle_hbm);
+	if (ret) {
+		DISPMSG("%s:failed to create cmdq handle\n", __func__);
+		return -1;
+	}
+
+	if (!primary_display_is_video_mode()) {
+		cmdqRecReset(qhandle_hbm);
+		cmdqRecWait(qhandle_hbm, CMDQ_SYNC_TOKEN_CABC_EOF);
+		_cmdq_handle_clear_dirty(qhandle_hbm);
+
+		_cmdq_insert_wait_frame_done_token_mira(qhandle_hbm);
+		disp_lcm_set_hbm(en, pgc->plcm, qhandle_hbm);
+
+		cmdqRecSetEventToken(qhandle_hbm, CMDQ_SYNC_TOKEN_CABC_EOF);
+		_cmdq_flush_config_handle_mira(qhandle_hbm, 1);
+	}
+
+	cmdqRecDestroy(qhandle_hbm);
+	qhandle_hbm = NULL;
+
+	return ret;
+}
+
+int primary_display_set_lcm_hbm(bool en)
+{
+	int state = 0;
+
+	if (!disp_helper_get_option(DISP_OPT_LCM_HBM))
+		return -1;
+
+	state = disp_lcm_get_hbm_state(pgc->plcm);
+	if (state == -1)
+		return -EINVAL;
+	else if (state == en)
+		return 0;
+
+	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL) {
+		DISPMSG("%s: skip, stage:%s\n", __func__,
+			disp_helper_stage_spy());
+		return 0;
+	}
+	if (pgc->state == DISP_SLEPT) {
+		DISPMSG("%s: skip, slept\n", __func__);
+		return 0;
+	}
+
+	primary_display_idlemgr_kick(__func__, 0);
+	if (primary_display_cmdq_enabled()) {
+		DISPMSG("set LCM hbm en:%d\n", en);
+		_primary_display_set_lcm_hbm(en);
+	}
+
+	return 0;
+}
+
+int primary_display_hbm_wait(bool en)
+{
+	int wait = 0;
+	unsigned int wait_count = 0;
+
+	if (!disp_helper_get_option(DISP_OPT_LCM_HBM))
+		return -1;
+
+	wait = disp_lcm_get_hbm_wait(pgc->plcm);
+	if (wait == -1)
+		return -EINVAL;
+	else if (wait != 1)
+		return 0;
+
+	wait_count = disp_lcm_get_hbm_time(en, pgc->plcm);
+	if (wait_count == -1)
+		return -EINVAL;
+
+	DISPMSG("LCM hbm %s wait %u-TE\n", en ? "enable" : "disable",
+		wait_count);
+
+	while (wait_count) {
+		primary_display_idlemgr_kick(__func__, 0);
+		wait_count--;
+		dpmgr_wait_event_timeout(pgc->dpmgr_handle,
+					 DISP_PATH_EVENT_IF_VSYNC, HZ);
+	}
+
+	disp_lcm_set_hbm_wait(false, pgc->plcm);
+	return 0;
 }
 
 int primary_display_setbacklight_nolock(unsigned int level)

@@ -767,6 +767,9 @@ struct LCM_PARAMS {
 	unsigned int min_luminance;
 	unsigned int average_luminance;
 	unsigned int max_luminance;
+
+	unsigned int hbm_en_time;
+	unsigned int hbm_dis_time;
 };
 
 
@@ -968,6 +971,10 @@ struct LCM_DRIVER {
 	/* /////////////////////////CABC backlight related function */
 	void (*set_backlight)(unsigned int level);
 	void (*set_backlight_cmdq)(void *handle, unsigned int level);
+	bool (*get_hbm_state)(void);
+	bool (*get_hbm_wait)(void);
+	bool (*set_hbm_wait)(bool wait);
+	bool (*set_hbm_cmdq)(bool en, void *qhandle);
 	void (*set_pwm)(unsigned int divider);
 	unsigned int (*get_pwm)(unsigned int divider);
 	void (*set_backlight_mode)(unsigned int mode);
