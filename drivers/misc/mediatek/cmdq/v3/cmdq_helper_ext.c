@@ -1775,7 +1775,7 @@ void *cmdq_core_alloc_hw_buffer(struct device *dev, size_t size,
 
 	*dma_handle = PA;
 
-	CMDQ_LOG("%s va:0x%p pa:%pa paout:%pa dev:0x%p\n",
+	CMDQ_MSG("%s va:0x%p pa:%pa paout:%pa dev:0x%p\n",
 		__func__, pVA, &PA, &(*dma_handle), dev);
 
 	return pVA;
