@@ -1,0 +1,4 @@
+config MTK_FLAT_HUB
+	bool "flat for MediaTek package"
+	help
+	  Put the device lie on the table.

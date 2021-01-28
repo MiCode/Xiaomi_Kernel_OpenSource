@@ -217,6 +217,24 @@ endmenu # MultiMedia
 
 menu "Sensors"
 
+config MTK_SENSOR_SUPPORT
+	tristate "MTK SENSOR SUPPORT"
+	help
+	  Sensor config for sensor feature in project.
+	  Please say Y/M here if you want to support and sensors
+	  with mediatek sensor architecture.
+	  If unsure, say N.
+
+config MTK_SENSOR_ARCHITECTURE
+	string "MTK SENSOR ARCHITECTURE"
+	default "dummy"
+	help
+	  Sensor config for sensor architecture in project.
+	  Please set 1.0/2.0/3.0 etc if you want to support sensor
+	  with mediatek sensor architecture.
+	  If unsure, set dummy.
+
+source "drivers/misc/mediatek/sensors-1.0/Kconfig"
 endmenu # Sensors
 
 menu "Modem & Connectivity"

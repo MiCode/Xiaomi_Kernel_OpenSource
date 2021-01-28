@@ -1,0 +1,8 @@
+
+config MTK_PICKUPHUB
+	bool "pickuphub for MediaTek package"
+	help
+	  A pick up is a device,
+	  usually portable
+	  and electronic or electromechanical,
+	  that detect device is picked up.

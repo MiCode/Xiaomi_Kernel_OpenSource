@@ -1,0 +1,19 @@
+config NANOHUB
+	bool "Android Nanohub Support"
+	default N
+	help
+	  Enable support for the nanohub sensorhub driver.
+	  This driver supports the android nanohub sensorhub.
+	  Set Y to enable this feature.
+	  If in doubt, say N here.
+
+config NANOHUB_MTK_IPI
+	bool "Nanohub MTK IPI"
+	depends on NANOHUB
+	default Y
+	help
+	  Enable nanohub MTK IPI support.
+	  Either this or NANOHUB_SPI/NANOHUB_I2C should be selected.
+	  MTK platform only protocol.
+	  If in doubt, say Y here.
+
