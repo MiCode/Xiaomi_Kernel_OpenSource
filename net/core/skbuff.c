@@ -3819,14 +3819,14 @@ err:
 }
 EXPORT_SYMBOL_GPL(skb_segment);
 
-int skb_gro_receive(struct sk_buff **head, struct sk_buff *skb)
+int skb_gro_receive(struct sk_buff *p, struct sk_buff *skb)
 {
 	struct skb_shared_info *pinfo, *skbinfo = skb_shinfo(skb);
 	unsigned int offset = skb_gro_offset(skb);
 	unsigned int headlen = skb_headlen(skb);
 	unsigned int len = skb_gro_len(skb);
-	struct sk_buff *lp, *p = *head;
 	unsigned int delta_truesize;
+	struct sk_buff *lp;
 
 	if (unlikely(p->len + len >= 65536 || NAPI_GRO_CB(skb)->flush))
 		return -E2BIG;
@@ -4944,6 +4944,8 @@ unsigned int skb_gso_transport_seglen(const struct sk_buff *skb)
 		thlen = tcp_hdrlen(skb);
 	} else if (unlikely(shinfo->gso_type & SKB_GSO_SCTP)) {
 		thlen = sizeof(struct sctphdr);
+	} else if (shinfo->gso_type & SKB_GSO_UDP_L4) {
+		thlen = sizeof(struct udphdr);
 	}
 	/* UFO sets gso_size to the size of the fragmentation
 	 * payload, i.e. the size of the L4 (UDP) header is already
