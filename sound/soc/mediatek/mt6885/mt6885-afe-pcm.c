@@ -1519,13 +1519,19 @@ static const struct snd_kcontrol_new mt6885_pcm_kcontrols[] = {
 static const struct snd_kcontrol_new memif_ul1_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN21,
 				    I_ADDA_UL_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN21,
+				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN21,
 				    I_ADDA_UL_CH3, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul1_ch2_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN22,
+				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN22,
 				    I_ADDA_UL_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN22,
+				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH4", AFE_CONN22,
 				    I_ADDA_UL_CH4, 1, 0),
 };
@@ -1533,13 +1539,19 @@ static const struct snd_kcontrol_new memif_ul1_ch2_mix[] = {
 static const struct snd_kcontrol_new memif_ul1_ch3_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN9,
 				    I_ADDA_UL_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN9,
+				    I_ADDA_UL_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN9,
 				    I_ADDA_UL_CH3, 1, 0),
 };
 
 static const struct snd_kcontrol_new memif_ul1_ch4_mix[] = {
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH1", AFE_CONN10,
+				    I_ADDA_UL_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH2", AFE_CONN10,
 				    I_ADDA_UL_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN10,
+				    I_ADDA_UL_CH3, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH4", AFE_CONN10,
 				    I_ADDA_UL_CH4, 1, 0),
 };
@@ -1828,12 +1840,18 @@ static const struct snd_soc_dapm_route mt6885_memif_routes[] = {
 	{"UL1", NULL, "UL1_CH3"},
 	{"UL1", NULL, "UL1_CH4"},
 	{"UL1_CH1", "ADDA_UL_CH1", "ADDA_UL_Mux"},
-	{"UL1_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
-	{"UL1_CH3", "ADDA_UL_CH1", "ADDA_UL_Mux"},
-	{"UL1_CH4", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+	{"UL1_CH1", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 	{"UL1_CH1", "ADDA_UL_CH3", "ADDA_CH34_UL_Mux"},
+	{"UL1_CH2", "ADDA_UL_CH1", "ADDA_UL_Mux"},
+	{"UL1_CH2", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+	{"UL1_CH2", "ADDA_UL_CH3", "ADDA_CH34_UL_Mux"},
 	{"UL1_CH2", "ADDA_UL_CH4", "ADDA_CH34_UL_Mux"},
+	{"UL1_CH3", "ADDA_UL_CH1", "ADDA_UL_Mux"},
+	{"UL1_CH3", "ADDA_UL_CH2", "ADDA_UL_Mux"},
 	{"UL1_CH3", "ADDA_UL_CH3", "ADDA_CH34_UL_Mux"},
+	{"UL1_CH4", "ADDA_UL_CH1", "ADDA_UL_Mux"},
+	{"UL1_CH4", "ADDA_UL_CH2", "ADDA_UL_Mux"},
+	{"UL1_CH4", "ADDA_UL_CH3", "ADDA_CH34_UL_Mux"},
 	{"UL1_CH4", "ADDA_UL_CH4", "ADDA_CH34_UL_Mux"},
 
 	{"UL2", NULL, "UL2_CH1"},

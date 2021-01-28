@@ -357,9 +357,11 @@ static int mtk_adda_ch34_ul_event(struct snd_soc_dapm_widget *w,
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
 	struct mt6885_afe_private *afe_priv = afe->platform_priv;
 	int mtkaif_dmic = afe_priv->mtkaif_dmic_ch34;
+	int mtkaif_adda6_only = afe_priv->mtkaif_adda6_only;
 
-	dev_info(afe->dev, "%s(), name %s, event 0x%x, mtkaif_dmic %d\n",
-		 __func__, w->name, event, mtkaif_dmic);
+	dev_info(afe->dev,
+		 "%s(), name %s, event 0x%x, mtkaif_dmic %d, mtkaif_adda6_only %d\n",
+		 __func__, w->name, event, mtkaif_dmic, mtkaif_adda6_only);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -379,6 +381,17 @@ static int mtk_adda_ch34_ul_event(struct snd_soc_dapm_widget *w,
 					   0x0);
 			mtk_adda_ul_src_dmic(afe, MT6885_DAI_ADDA_CH34);
 		}
+
+		/* when using adda6 without adda enabled,
+		 * RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT need to be set or
+		 * data cannot be received.
+		 */
+		if (mtkaif_adda6_only) {
+			regmap_update_bits(afe->regmap,
+			AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+			RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT,
+			0x1 << RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT);
+		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/* should delayed 1/fs(smallest is 8k) = 125us before afe off */
@@ -387,6 +400,13 @@ static int mtk_adda_ch34_ul_event(struct snd_soc_dapm_widget *w,
 
 		/* reset dmic */
 		afe_priv->mtkaif_dmic_ch34 = 0;
+
+		if (mtkaif_adda6_only) {
+			regmap_update_bits(afe->regmap,
+			AFE_ADDA_MTKAIF_SYNCWORD_CFG,
+			RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_MASK_SFT,
+			0x0 << RG_ADDA6_MTKAIF_RX_SYNC_WORD2_DISABLE_SFT);
+		}
 		break;
 	default:
 		break;
@@ -644,6 +664,38 @@ static int mt6885_adda_dmic_set(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int mt6885_adda6_only_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6885_afe_private *afe_priv = afe->platform_priv;
+
+	ucontrol->value.integer.value[0] = afe_priv->mtkaif_adda6_only;
+	return 0;
+}
+
+static int mt6885_adda6_only_set(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6885_afe_private *afe_priv = afe->platform_priv;
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	int mtkaif_adda6_only;
+
+	if (ucontrol->value.enumerated.item[0] >= e->items)
+		return -EINVAL;
+
+	mtkaif_adda6_only = ucontrol->value.integer.value[0];
+
+	dev_info(afe->dev, "%s(), kcontrol name %s, mtkaif_adda6_only %d\n",
+		 __func__, kcontrol->id.name, mtkaif_adda6_only);
+
+	afe_priv->mtkaif_adda6_only = mtkaif_adda6_only;
+	return 0;
+}
+
 static const struct snd_kcontrol_new mtk_adda_controls[] = {
 	SOC_SINGLE("Sidetone_Gain", AFE_SIDETONE_GAIN,
 		   SIDE_TONE_GAIN_SFT, SIDE_TONE_GAIN_MASK, 0),
@@ -653,6 +705,8 @@ static const struct snd_kcontrol_new mtk_adda_controls[] = {
 		   DL_2_GAIN_CTL_PRE_SFT, DL_2_GAIN_CTL_PRE_MASK, 0),
 	SOC_ENUM_EXT("MTKAIF_DMIC", mt6885_adda_enum[0],
 		     mt6885_adda_dmic_get, mt6885_adda_dmic_set),
+	SOC_ENUM_EXT("MTKAIF_ADDA6_ONLY", mt6885_adda_enum[0],
+		     mt6885_adda6_only_get, mt6885_adda6_only_set),
 };
 
 static const struct snd_kcontrol_new stf_ctl =
