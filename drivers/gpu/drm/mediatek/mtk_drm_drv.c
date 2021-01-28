@@ -1610,12 +1610,13 @@ int mtk_drm_suspend_release_fence(struct device *dev)
 	return 0;
 }
 
-void mtk_drm_suspend_release_present_fence(struct device *dev)
+void mtk_drm_suspend_release_present_fence(struct device *dev,
+					   unsigned int index)
 {
 	struct mtk_drm_private *private = dev_get_drvdata(dev);
 
-	mtk_release_present_fence(private->session_id[0],
-				  atomic_read(&_mtk_fence_idx[0]));
+	mtk_release_present_fence(private->session_id[index],
+				  atomic_read(&_mtk_fence_idx[index]));
 }
 #endif
 

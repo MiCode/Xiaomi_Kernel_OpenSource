@@ -239,7 +239,8 @@ void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
 void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,
 			 struct drm_device *drm_dev);
 int mtk_drm_suspend_release_fence(struct device *dev);
-void mtk_drm_suspend_release_present_fence(struct device *dev);
+void mtk_drm_suspend_release_present_fence(struct device *dev,
+					   unsigned int index);
 void mtk_drm_top_clk_prepare_enable(struct drm_device *drm);
 void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm);
 struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc);
