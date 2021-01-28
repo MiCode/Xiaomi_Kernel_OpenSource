@@ -2278,7 +2278,6 @@ static kal_uint16 imx519_custom3_setting[] = {
 	0x3E20, 0x01,
 	0x3E37, 0x00,
 };
-#endif
 
 #if IMX519_CAP_2TRIO
 static void sensor_init(void)

@@ -58,8 +58,8 @@ static kal_uint8 qsc_flag;
 static kal_uint8 otp_flag;
 
 #if USE_BURST_MODE
-static kal_uint16 imx586_table_write_cmos_sensor(
-		kal_uint16 *para, kal_uint32 len);
+static kal_uint16
+	imx586_table_write_cmos_sensor(kal_uint16 * para, kal_uint32 len);
 #endif
 static DEFINE_SPINLOCK(imgsensor_drv_lock);
 
