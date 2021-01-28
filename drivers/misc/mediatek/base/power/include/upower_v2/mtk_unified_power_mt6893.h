@@ -85,6 +85,15 @@ enum upower_dtype {
 	NR_UPOWER_DTYPE,
 };
 
+#define SUPPORT_UPOWER_DCONFIG (1)
+#define UPOWER_DT_NODE "mediatek,mt6893-upower"
+struct upower_doe {
+	u32 dts_opp_tbl[NR_UPOWER_BANK][UPOWER_OPP_NUM * (NR_UPOWER_DEGREE + 3)
+		+ NR_UPOWER_DEGREE * NR_UPOWER_CSTATES];
+	unsigned int state;
+	char *dtsn[NR_UPOWER_BANK];
+};
+
 #ifdef __cplusplus
 }
 #endif

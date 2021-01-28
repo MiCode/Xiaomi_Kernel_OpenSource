@@ -21,6 +21,7 @@
 #include <linux/module.h>
 #include <linux/ktime.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/sched.h>
@@ -257,5 +258,72 @@ void get_original_table(void)
 	/* Not support L+ now, scale L and cluster L cap to 1024 */
 	upower_scale_l_cap();
 }
+
+#ifdef SUPPORT_UPOWER_DCONFIG
+struct upower_doe upower_bank_name = {
+	.dtsn = {
+		"UPOWER_BANK_LL",
+		"UPOWER_BANK_L",
+		"UPOWER_BANK_B",
+		"UPOWER_BANK_CLS_LL",
+		"UPOWER_BANK_CLS_L",
+		"UPOWER_BANK_CLS_B",
+		"UPOWER_BANK_CCI"
+	},
+};
+
+void upower_by_doe(void)
+{
+	struct upower_doe *d = &upower_bank_name;
+	struct device_node *node = NULL;
+	struct upower_tbl *tbl;
+	int ret, i, j, k;
+
+	node = of_find_compatible_node(NULL, NULL, UPOWER_DT_NODE);
+	if (!node) {
+		upower_debug(" %s Cant find state node\n", __func__);
+		return;
+	}
+	for (i = 0; i < NR_UPOWER_BANK; i++) {
+		ret = of_property_read_u32_array(node, d->dtsn[i],
+		d->dts_opp_tbl[i], ARRAY_SIZE(d->dts_opp_tbl[i]));
+		if (ret) {
+			upower_debug("Cant find %s node\n", d->dtsn[i]);
+		} else {
+			tbl = upower_tbl_infos[i].p_upower_tbl;
+			for (j = 0; j < UPOWER_OPP_NUM; j++) {
+				tbl->row[j].cap = d->dts_opp_tbl[i][
+					j*(NR_UPOWER_DEGREE + 3) + 0];
+				tbl->row[j].volt = d->dts_opp_tbl[i][
+					j*(NR_UPOWER_DEGREE + 3) + 1];
+				tbl->row[j].dyn_pwr = d->dts_opp_tbl[i][
+					j*(NR_UPOWER_DEGREE + 3) + 2];
+				for (k = 0; k < NR_UPOWER_DEGREE; k++)
+					tbl->row[j].lkg_pwr[k] = d->dts_opp_tbl[
+						i][j * (NR_UPOWER_DEGREE + 3)
+						+ k + 3];
+				upower_debug("@@@ %d .cap[%d] = %u\n", i, j,
+					tbl->row[j].cap);
+			}
+			for (j = 0; j < NR_UPOWER_DEGREE; j++) {
+				for (k = 0; k < NR_UPOWER_CSTATES; k++) {
+					tbl->idle_states[j][k].power =
+						d->dts_opp_tbl[i][
+							UPOWER_OPP_NUM *
+							(NR_UPOWER_DEGREE + 3)
+							+ j*NR_UPOWER_CSTATES
+							+ k];
+					upower_debug("@@@ %d .idle_states[%d][%d] = %u\n",
+							i, j, k,
+							tbl->idle_states[j][
+							k].power
+					);
+				}
+			}
+		}
+	}
+}
+#endif
+
 MODULE_DESCRIPTION("MediaTek Unified Power Driver v0.0");
 MODULE_LICENSE("GPL");

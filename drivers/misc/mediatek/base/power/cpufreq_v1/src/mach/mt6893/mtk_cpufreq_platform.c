@@ -71,7 +71,7 @@ static unsigned int imax_reg_addr[REG_LEN] = {
 
 struct cpudvfs_doe dvfs_doe = {
 		.doe_flag = 0,
-		.dtsn = {"L-table", "B-table", "CCI-table"},
+		.dtsn = {"LL-table", "L-table", "B-table", "CCI-table"},
 		.state = 1,
 		.change_flag = 0,
 		.lt_rs_t = UP_SRATE,
