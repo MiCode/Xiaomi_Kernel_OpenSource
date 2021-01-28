@@ -15,8 +15,8 @@
 #include <mtk_dcm.h>
 
 DEFINE_MUTEX(dcm_lock);
-short dcm_debug;
-short dcm_initiated;
+static short dcm_debug;
+static short dcm_initiated;
 struct DCM *common_dcm_array;
 struct DCM_OPS *common_dcm_ops;
 unsigned int common_init_dcm_type;
@@ -36,7 +36,7 @@ unsigned int __attribute__((weak)) dcm_get_chip_sw_ver(void)
  * 3. dcm_disable(type) to disable all dcm.
  * 4. dcm_set_state(type) to set dcm state.
  * 5. dcm_dump_state(type) to show CURRENT_STATE.
- * 6. /sys/power/dcm_state interface:
+ * 6. /sys/dcm/dcm_state interface:
  *			'restore', 'disable', 'dump', 'set'. 4 commands.
  *
  * spsecified APIs for workaround:
@@ -238,15 +238,15 @@ static ssize_t dcm_state_show(struct kobject *kobj, struct kobj_attribute *attr,
 	len += snprintf(buf+len, PAGE_SIZE-len,
 			"\n********** dcm_state help *********\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
-			"set:       echo set [mask] [mode] > /sys/power/dcm_state\n");
+			"set:       echo set [mask] [mode] > /sys/dcm/dcm_state\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
-			"disable:   echo disable [mask] > /sys/power/dcm_state\n");
+			"disable:   echo disable [mask] > /sys/dcm/dcm_state\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
-			"restore:   echo restore [mask] > /sys/power/dcm_state\n");
+			"restore:   echo restore [mask] > /sys/dcm/dcm_state\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
-			"dump:      echo dump [mask] > /sys/power/dcm_state\n");
+			"dump:      echo dump [mask] > /sys/dcm/dcm_state\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
-			"debug:     echo debug [0/1] > /sys/power/dcm_state\n");
+			"debug:     echo debug [0/1] > /sys/dcm/dcm_state\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
 			"***** [mask] is hexl bit mask of dcm;\n");
 	len += snprintf(buf+len, PAGE_SIZE-len,
@@ -321,6 +321,7 @@ static struct kobj_attribute dcm_state_attr = {
 	.show = dcm_state_show,
 	.store = dcm_state_store,
 };
+static struct kobject *kobj;
 #endif /* #ifdef CONFIG_PM */
 
 int mt_dcm_common_init(void)
@@ -328,6 +329,7 @@ int mt_dcm_common_init(void)
 
 	unsigned int default_type;
 	int default_state;
+	int err = 0;
 	/*dcm_pr_info("[%s]: dcm common init\n", __func__);*/
 	if (common_dcm_ops == NULL) {
 		dcm_pr_notice("[%s] dcm common ops null\n",
@@ -347,17 +349,17 @@ int mt_dcm_common_init(void)
 
 #ifdef CONFIG_PM
 	{
-		int err = 0;
+		kobj = kobject_create_and_add("dcm", NULL);
+		if (!kobj)
+			return -ENOMEM;
 
-		err = sysfs_create_file(power_kobj, &dcm_state_attr.attr);
+		err = sysfs_create_file(kobj, &dcm_state_attr.attr);
 		if (err)
 			dcm_pr_notice("[%s]: fail to create sysfs\n", __func__);
 	}
 
 #ifdef DCM_DEBUG_MON
 	{
-		int err = 0;
-
 		err = sysfs_create_file(power_kobj, &dcm_debug_mon_attr.attr);
 		if (err)
 			dcm_pr_notice("[%s]: fail to create sysfs\n", __func__);
@@ -368,14 +370,16 @@ int mt_dcm_common_init(void)
 
 	dcm_initiated = 1;
 
-	return 0;
+	return err;
 }
+EXPORT_SYMBOL(mt_dcm_common_init);
 
 void mt_dcm_array_register(struct DCM *array, struct DCM_OPS *ops)
 {
 	common_dcm_array = array;
 	common_dcm_ops = ops;
 }
+EXPORT_SYMBOL(mt_dcm_array_register);
 
 /**** public APIs *****/
 bool is_dcm_initialized(void)
@@ -386,6 +390,7 @@ bool is_dcm_initialized(void)
 		ret = false;
 	return ret;
 }
+EXPORT_SYMBOL(is_dcm_initialized);
 
 void mt_dcm_disable(void)
 {
@@ -402,3 +407,20 @@ void mt_dcm_restore(void)
 
 	dcm_restore(common_all_dcm_type);
 }
+
+static int __init mtk_dcm_init(void)
+{
+	dcm_debug = 0;
+	dcm_initiated = 0;
+	return 0;
+}
+//arch_initcall(mt6779_dcm_init);
+
+static void __init mtk_dcm_exit(void)
+{
+}
+module_init(mtk_dcm_init);
+module_exit(mtk_dcm_exit);
+
+MODULE_LICENSE("GPL v2");
+MODULE_DESCRIPTION("MediaTek DCM driver");

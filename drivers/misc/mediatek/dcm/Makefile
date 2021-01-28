@@ -9,5 +9,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/dcm/include/
 obj-$(CONFIG_MTK_DCM_COMMON)	+= mtk_dcm.o
 
 # SoC Drivers
-obj-$(CONFIG_MTK_DCM_MT6779) += mt6779_dcm_internal.o mt6779_dcm_autogen.o
+obj-$(CONFIG_MTK_DCM_MT6779) += mt6779_dcm.o
+mt6779_dcm-objs := mt6779_dcm_internal.o mt6779_dcm_autogen.o
 obj-$(CONFIG_MTK_DCM_MT6761) += mt6761_dcm_internal.o mt6761_dcm_autogen.o
