@@ -611,20 +611,8 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	if (turbocode == 1)
 		lv = CPU_LEVEL_6;	/* V5_T */
 
-#if defined(CONFIG_ARM64)
-	if ((strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k71v1_bsp_2g") != NULL) ||
-		(strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-			"k71v1_bsp_2g_ducam") != NULL)) {
-		lv = buf;
-	}
-#else
-	if ((strstr(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES,
-			"k71v1_bsp_2g") != NULL) ||
-		(strstr(CONFIG_BUILD_ARM_DTB_OVERLAY_IMAGE_NAMES,
-			"k71v1_bsp_2g_ducam") != NULL)) {
-		lv = buf;
-	}
+#if defined(LV)
+	lv = buf;
 #endif
 
 	turbo_flag = 0;

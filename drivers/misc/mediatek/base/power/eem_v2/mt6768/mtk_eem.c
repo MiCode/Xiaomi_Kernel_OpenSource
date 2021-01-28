@@ -4727,13 +4727,9 @@ static int __init eem_init(void)
 	g_fake_efuse = 1;
 #endif
 
-#if defined(CONFIG_ARM64) && \
-	defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if ((strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-		"k68v1_64_aging") != NULL)) {
-		/* Aging load: Apply real efuse */
-		g_fake_efuse = 0;
-	}
+#if defined(AGING_LOAD)
+	/* Aging load: Apply real efuse */
+	g_fake_efuse = 0;
 #endif
 	FT_VAL = get_devinfo_with_index(DEVINFO_IDX_0);
 	FT_VAL = (FT_VAL >> 4) & 0xF;

@@ -2984,14 +2984,11 @@ struct eemsn_det *det;
 				(unsigned char)det->features;
 	}
 
-#if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
-	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,
-						"aging") != NULL) {
-		eem_error("@%s: AGING flavor name: %s\n",
-			__func__, CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES);
-		ctrl_agingload_enable = 1;
-		eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
-	}
+#if defined(AGING_LOAD)
+	eem_error("@%s: AGING flavor name: %s\n",
+		__func__, PROJECT_DTB_NAMES);
+	ctrl_agingload_enable = 1;
+	eemsn_log->ctrl_aging_Enable = ctrl_agingload_enable;
 #endif
 
 	eem_to_cpueb(IPI_EEMSN_SHARERAM_INIT, &eem_data);

@@ -11,7 +11,7 @@
 # GNU General Public License for more details.
 #
 export EEM_ROOT_DIR ?= $(srctree)/drivers/misc/mediatek/base/power/eem_v2
-ifeq ($(CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES),"mediatek/mt6885_3gear")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/mt6885_3gear")
 obj-y += mt6893/
 else
 obj-y += $(subst ",,$(CONFIG_MTK_PLATFORM))/

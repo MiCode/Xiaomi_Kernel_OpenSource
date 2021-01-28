@@ -35,27 +35,31 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)/
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6873v1_64_mcl")
+ifeq ($(findstring _aging,$(PROJECT_DTB_NAMES)),_aging)
+subdir-ccflags-y += -DAGING_LOAD
+endif
+
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6873v1_64_mcl")
 subdir-ccflags-y += -DMT6873
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6873v1_64_plpha_mcl")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6873v1_64_plpha_mcl")
 subdir-ccflags-y += -DMT6873
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6873v1_64_90hz_cphy_mcl")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6873v1_64_90hz_cphy_mcl")
 subdir-ccflags-y += -DMT6873
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6873v1_64_turbo_mcl")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6873v1_64_turbo_mcl")
 subdir-ccflags-y += -DMT6875
 subdir-ccflags-y += -DMC50_LOAD
 endif
 
-ifeq ($(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES),"mediatek/k6875v1_64_mcl")
+ifeq ($(PROJECT_DTB_NAMES),"mediatek/k6875v1_64_mcl")
 subdir-ccflags-y += -DMT6875T
 subdir-ccflags-y += -DMC50_LOAD
 endif
