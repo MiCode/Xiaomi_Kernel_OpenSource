@@ -179,7 +179,7 @@ static int led_level_disp_set(struct mtk_led_data *s_led,
  * add API for temperature control
  ***************************************************************************/
 
-int setMaxbrightness(char *name, int percent, bool enable)
+int setMaxBrightness(char *name, int percent, bool enable)
 {
 	struct mtk_led_data *led_dat;
 		int max_l = 0, index = -1, limit_l = 0, cur_l = 0;
@@ -214,7 +214,7 @@ int setMaxbrightness(char *name, int percent, bool enable)
 	return 0;
 
 }
-EXPORT_SYMBOL(setMaxbrightness);
+EXPORT_SYMBOL(setMaxBrightness);
 
 
 int mt_leds_brightness_set(char *name, int level)
