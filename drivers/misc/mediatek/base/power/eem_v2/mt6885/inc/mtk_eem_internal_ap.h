@@ -145,9 +145,8 @@ struct eem_det {
 
 	unsigned int disabled:8; /* Disabled by error or sysfs */
 	unsigned int low_temp_off:8;
-	unsigned int isAddExtra:2;
-	unsigned int isTempInv:1;
-	unsigned int isHighTemp:1;
+	unsigned int high_temp_off:8;
+	unsigned int isTempInv:2;
 	unsigned int volt_policy:1;
 	/* only when init2, eem need to set volt to upower */
 	unsigned int set_volt_to_upower:1;
@@ -157,162 +156,138 @@ struct eem_det {
 };
 
 struct eem_devinfo {
-	/* M_HW_RES0 0x11f1_0580 */
-	unsigned int PI_DVTFIX_B:4;
-	unsigned int FT_PGM:4;
-	unsigned int TURBO:1;
-	unsigned int RSV1:1;
-	unsigned int REV:2;
-	unsigned int PACKAGE:2;
-	unsigned int FABCODE:2;
-	unsigned int PI_DVTFIX_L:4;
+	/* M_HW_RES0 0x11c1_0580 */
+	unsigned int FT_PGM:8;
 	unsigned int FT_BIN:4;
-	unsigned int RSV2:8;
+	unsigned int RSV0_1:20;
 
-#if 0
 	/* M_HW_RES1 */
-	unsigned int CPU_L_LO_BDES:8;
-	unsigned int CPU_L_LO_MDES:8;
-	unsigned int CPU_L_LO_DCBDET:8;
-	unsigned int CPU_L_LO_DCMDET:8;
-#endif
-
-	/* M_HW_RES2 */
-	unsigned int CPU_B_LO_MTDES:8;
-	unsigned int CPU_B_LO_INITEN:1;
-	unsigned int CPU_B_LO_MONEN:1;
-	unsigned int CPU_B_LO_DVFS_LOW:3;
-	unsigned int CPU_B_LO_SPEC:3;
-	unsigned int CPU_L_LO_MTDES:8;
-	unsigned int CPU_L_LO_INITEN:1;
-	unsigned int CPU_L_LO_MONEN:1;
-	unsigned int CPU_L_LO_DVFS_LOW:3;
-	unsigned int CPU_L_LO_SPEC:3;
-
-	/* M_HW_RES3 */
-	unsigned int CPU_B_LO_BDES:8;
-	unsigned int CPU_B_LO_MDES:8;
-	unsigned int CPU_B_LO_DCBDET:8;
-	unsigned int CPU_B_LO_DCMDET:8;
-	/* M_HW_RES4 */
-	unsigned int CCI_BDES:8;
-	unsigned int CCI_MDES:8;
-	unsigned int CCI_DCBDET:8;
-	unsigned int CCI_DCMDET:8;
-
-	/* M_HW_RES5 */
-	unsigned int GPU_LO_MTDES:8;
-	unsigned int GPU_LO_INITEN:1;
-	unsigned int GPU_LO_MONEN:1;
-	unsigned int GPU_LO_DVFS_LOW:3;
-	unsigned int GPU_LO_SPEC:3;
-	unsigned int CCI_MTDES:8;
-	unsigned int CCI_INITEN:1;
-	unsigned int CCI_MONEN:1;
-	unsigned int CCI_DVFS_LOW:3;
-	unsigned int CCI_SPEC:3;
-
-	/* M_HW_RES6 */
-	unsigned int GPU_LO_BDES:8;
-	unsigned int GPU_LO_MDES:8;
-	unsigned int GPU_LO_DCBDET:8;
-	unsigned int GPU_LO_DCMDET:8;
-#if 0
-	/* M_HW_RES7 */
-	unsigned int VPU_BDES:8;
-	unsigned int VPU_MDES:8;
-	unsigned int VPU_DCBDET:8;
-	unsigned int VPU_DCMDET:8;
-	/* M_HW_RES8 */
-	unsigned int CPU_L_HI_MTDES:8;
-	unsigned int CPU_L_HI_INITEN:1;
-	unsigned int CPU_L_HI__MONEN:1;
-	unsigned int CPU_L_HI_DVFS_LOW:3;
-	unsigned int CPU_L_HI_SPEC:3;
-	unsigned int VPU_MTDES:8;
-	unsigned int VPU_INITEN:1;
-	unsigned int VPU_MONEN:1;
-	unsigned int VPU_DVFS_LOW:3;
-	unsigned int VPU_SPEC:3;
-
-	/* M_HW_RES9 */
-	unsigned int CPU_L_HI_BDES:8;
-	unsigned int CPU_L_HI_MDES:8;
-	unsigned int CPU_L_HI_DCBDET:8;
-	unsigned int CPU_L_HI_DCMDET:8;
-#endif
-
-	/* M_HW_RES10 */
-	unsigned int CPU_B_HI_BDES:8;
-	unsigned int CPU_B_HI_MDES:8;
-	unsigned int CPU_B_HI_DCBDET:8;
-	unsigned int CPU_B_HI_DCMDET:8;
-
-	/* M_HW_RES11 */
-	unsigned int MODEM_MTDES:8;
-	unsigned int MODEM_INITEN:1;
-	unsigned int MODEM_MONEN:1;
-	unsigned int MODEM_DVFS_LOW:3;
-	unsigned int MODEM_SPEC:3;
-	unsigned int CPU_B_HI_MTDES:8;
-	unsigned int CPU_B_HI_INITEN:1;
-	unsigned int CPU_B_HI_MONEN:1;
-	unsigned int CPU_B_HI_DVFS_LOW:3;
-	unsigned int CPU_B_HI_SPEC:3;
-#if 0
-	/* M_HW_RES12 */
-	unsigned int MODEM_BDES:8;
-	unsigned int MODEM_MDES:8;
-	unsigned int MODEM_DCBDET:8;
-	unsigned int MODEM_DCMDET:8;
-#endif
-	/* M_HW_RES16 */
-	unsigned int CPU_L_BDES:8;
-	unsigned int CPU_L_MDES:8;
-	unsigned int CPU_L_DCBDET:8;
-	unsigned int CPU_L_DCMDET:8;
-
-	/* M_HW_RES17 */
 	unsigned int CPU_B_MTDES:8;
 	unsigned int CPU_B_INITEN:1;
 	unsigned int CPU_B_MONEN:1;
 	unsigned int CPU_B_DVFS_LOW:3;
 	unsigned int CPU_B_SPEC:3;
+	unsigned int CPU_B_BDES:8;
+	unsigned int CPU_B_MDES:8;
+
+	/* M_HW_RES2 */
+	unsigned int CPU_B_HI_MTDES:8;
+	unsigned int CPU_B_HI_INITEN:1;
+	unsigned int CPU_B_HI_MONEN:1;
+	unsigned int CPU_B_HI_DVFS_LOW:3;
+	unsigned int CPU_B_HI_SPEC:3;
+	unsigned int CPU_B_HI_BDES:8;
+	unsigned int CPU_B_HI_MDES:8;
+
+	/* M_HW_RES3 */
+	unsigned int CPU_B_LO_MTDES:8;
+	unsigned int CPU_B_LO_INITEN:1;
+	unsigned int CPU_B_LO_MONEN:1;
+	unsigned int CPU_B_LO_DVFS_LOW:3;
+	unsigned int CPU_B_LO_SPEC:3;
+	unsigned int CPU_B_LO_BDES:8;
+	unsigned int CPU_B_LO_MDES:8;
+
+	/* M_HW_RES4 */
 	unsigned int CPU_L_MTDES:8;
 	unsigned int CPU_L_INITEN:1;
 	unsigned int CPU_L_MONEN:1;
 	unsigned int CPU_L_DVFS_LOW:3;
 	unsigned int CPU_L_SPEC:3;
+	unsigned int CPU_L_BDES:8;
+	unsigned int CPU_L_MDES:8;
 
-	/* M_HW_RES18 */
-	unsigned int CPU_B_BDES:8;
-	unsigned int CPU_B_MDES:8;
-	unsigned int CPU_B_DCBDET:8;
-	unsigned int CPU_B_DCMDET:8;
+	/* M_HW_RES5 */
+	unsigned int CPU_L_HI_MTDES:8;
+	unsigned int CPU_L_HI_INITEN:1;
+	unsigned int CPU_L_HI_MONEN:1;
+	unsigned int CPU_L_HI_DVFS_LOW:3;
+	unsigned int CPU_L_HI_SPEC:3;
+	unsigned int CPU_L_HI_BDES:8;
+	unsigned int CPU_L_HI_MDES:8;
 
-	/* M_HW_RES19 */
-	unsigned int GPU_BDES:8;
-	unsigned int GPU_MDES:8;
-	unsigned int GPU_DCBDET:8;
-	unsigned int GPU_DCMDET:8;
+	/* M_HW_RES6 */
+	unsigned int CPU_L_LO_MTDES:8;
+	unsigned int CPU_L_LO_INITEN:1;
+	unsigned int CPU_L_LO_MONEN:1;
+	unsigned int CPU_L_LO_DVFS_LOW:3;
+	unsigned int CPU_L_LO_SPEC:3;
+	unsigned int CPU_L_LO_BDES:8;
+	unsigned int CPU_L_LO_MDES:8;
 
-	/* M_HW_RES23 */
-	unsigned int GPU_HI_MTDES:8;
-	unsigned int GPU_HI_INITEN:1;
-	unsigned int GPU_HI_MONEN:1;
-	unsigned int GPU_HI_DVFS_LOW:3;
-	unsigned int GPU_HI_SPEC:3;
+	/* M_HW_RES7 */
+	unsigned int CCI_MTDES:8;
+	unsigned int CCI_INITEN:1;
+	unsigned int CCI_MONEN:1;
+	unsigned int CCI_DVFS_LOW:3;
+	unsigned int CCI_SPEC:3;
+	unsigned int CCI_BDES:8;
+	unsigned int CCI_MDES:8;
+
+	/* M_HW_RES8 */
 	unsigned int GPU_MTDES:8;
 	unsigned int GPU_INITEN:1;
 	unsigned int GPU_MONEN:1;
 	unsigned int GPU_DVFS_LOW:3;
 	unsigned int GPU_SPEC:3;
+	unsigned int GPU_BDES:8;
+	unsigned int GPU_MDES:8;
 
-	/* M_HW_RES24 */
+	/* M_HW_RES9 */
+	unsigned int GPU_HI_MTDES:8;
+	unsigned int GPU_HI_INITEN:1;
+	unsigned int GPU_HI_MONEN:1;
+	unsigned int GPU_HI_DVFS_LOW:3;
+	unsigned int GPU_HI_SPEC:3;
 	unsigned int GPU_HI_BDES:8;
 	unsigned int GPU_HI_MDES:8;
+
+	/* M_HW_RES10 */
+	unsigned int GPU_LO_MTDES:8;
+	unsigned int GPU_LO_INITEN:1;
+	unsigned int GPU_LO_MONEN:1;
+	unsigned int GPU_LO_DVFS_LOW:3;
+	unsigned int GPU_LO_SPEC:3;
+	unsigned int GPU_LO_BDES:8;
+	unsigned int GPU_LO_MDES:8;
+
+	/* M_HW_RES11 */
+	unsigned int MD_VMODEM:32;
+
+	/* M_HW_RES12 */
+	unsigned int MD_VNR:32;
+
+	/* M_HW_RES13 */
+	unsigned int CPU_B_HI_DCBDET:8;
+	unsigned int CPU_B_HI_DCMDET:8;
+	unsigned int CPU_B_DCBDET:8;
+	unsigned int CPU_B_DCMDET:8;
+
+	/* M_HW_RES14 */
+	unsigned int CPU_L_DCBDET:8;
+	unsigned int CPU_L_DCMDET:8;
+	unsigned int CPU_B_LO_DCBDET:8;
+	unsigned int CPU_B_LO_DCMDET:8;
+
+	/* M_HW_RES15 */
+	unsigned int CPU_L_LO_DCBDET:8;
+	unsigned int CPU_L_LO_DCMDET:8;
+	unsigned int CPU_L_HI_DCBDET:8;
+	unsigned int CPU_L_HI_DCMDET:8;
+
+	/* M_HW_RES16 */
+	unsigned int GPU_DCBDET:8;
+	unsigned int GPU_DCMDET:8;
+	unsigned int CCI_DCBDET:8;
+	unsigned int CCI_DCMDET:8;
+
+
+	/* M_HW_RES17 */
+	unsigned int GPU_LO_DCBDET:8;
+	unsigned int GPU_LO_DCMDET:8;
 	unsigned int GPU_HI_DCBDET:8;
 	unsigned int GPU_HI_DCMDET:8;
+
 };
 
 /*********************************************

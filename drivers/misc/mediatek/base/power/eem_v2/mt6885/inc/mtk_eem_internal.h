@@ -44,7 +44,7 @@
 /*
  * LOG
  */
-#define EEM_TAG	 "[xxxxEEM] "
+#define EEM_TAG	 "[CPU][EEM]"
 #if 1
 	#define eem_error(fmt, args...)		pr_notice(EEM_TAG fmt, ##args)
 	#define eem_warning(fmt, args...)
@@ -199,9 +199,6 @@ struct eem_ctrl {
 /* define main structures in mtk_eem_internal.c */
 extern struct eem_ctrl eem_ctrls[NR_EEM_CTRL];
 extern struct eem_det eem_detectors[NR_EEM_DET];
-#if ENABLE_LOO
-extern struct eem_det eem_detector_cci;
-#endif
 extern struct eem_det_ops eem_det_base_ops;
 
 /* define common operations in mtk_eem_internal.c */
@@ -209,4 +206,6 @@ extern int base_ops_volt_2_pmic(struct eem_det *det, int volt);
 extern int base_ops_volt_2_eem(struct eem_det *det, int volt);
 extern int base_ops_pmic_2_volt(struct eem_det *det, int pmic_val);
 extern int base_ops_eem_2_pmic(struct eem_det *det, int eev_val);
+extern unsigned int detid_to_dvfsid(struct eem_det *det);
+
 #endif

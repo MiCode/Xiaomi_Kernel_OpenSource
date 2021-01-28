@@ -2118,10 +2118,11 @@ static int eem_aging_dump_proc_show(struct seq_file *m, void *v)
 	for (i = 0; i < NR_EEMSN_DET; i++) {
 		seq_printf(m, "id:%d, vf_tbl_det pi_vf_num:%d\n",
 		i, eemsn_log->vf_tbl_det[i].pi_vf_num);
-		for (j = 0; j < eemsn_log->vf_tbl_det[i].pi_vf_num; j++)
-			seq_printf(m, "idx:%d, f:%d, v:0x%x\n",
-			j, eemsn_log->vf_tbl_det[i].pi_freq_tbl[j],
-			eemsn_log->vf_tbl_det[i].pi_volt_tbl[j]);
+		if (eemsn_log->vf_tbl_det[i].pi_vf_num <= NR_PI_VF)
+			for (j = 0; j < eemsn_log->vf_tbl_det[i].pi_vf_num; j++)
+				seq_printf(m, "idx:%d, f:%d, v:0x%x\n",
+				j, eemsn_log->vf_tbl_det[i].pi_freq_tbl[j],
+				eemsn_log->vf_tbl_det[i].pi_volt_tbl[j]);
 	}
 
 	seq_printf(m, "T_SVT_HV_LCPU:%d %d %d %d\n",
@@ -2950,7 +2951,6 @@ struct eemsn_det *det;
 		memcpy(eemsn_log->det_log[det->det_id].volt_tbl_orig,
 			det->volt_tbl_orig, sizeof(det->volt_tbl_orig));
 	}
-	/* eemsn_log->det_log[1].freq_tbl[0] = 2600; */
 
 #if defined(CONFIG_ARM64) && defined(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES)
 	if (strstr(CONFIG_BUILD_ARM64_DTB_OVERLAY_IMAGE_NAMES,

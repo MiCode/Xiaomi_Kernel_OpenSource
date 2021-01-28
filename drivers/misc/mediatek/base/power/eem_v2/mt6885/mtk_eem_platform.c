@@ -80,7 +80,7 @@ struct eem_det_ops mdla_det_ops = {
 };
 #endif
 
-static unsigned int detid_to_dvfsid(struct eem_det *det)
+unsigned int detid_to_dvfsid(struct eem_det *det)
 {
 	unsigned int cpudvfsindex;
 	enum eem_det_id detid = det_to_id(det);
@@ -113,8 +113,9 @@ int get_volt_cpu(struct eem_det *det)
 	FUNC_ENTER(FUNC_LV_HELP);
 	/* unit mv * 100 = 10uv */
 	cpudvfsindex = detid_to_dvfsid(det);
+#if SET_PMIC_VOLT_TO_DVFS
 	value = mt_cpufreq_get_cur_volt(cpudvfsindex);
-
+#endif
 	FUNC_EXIT(FUNC_LV_HELP);
 	eem_debug("proc voltage = %d~~~\n", value);
 	return value;
@@ -141,8 +142,10 @@ int set_volt_cpu(struct eem_det *det)
 
 	if (errcheck == 0) {
 		cpudvfsindex = detid_to_dvfsid(det);
+#if SET_PMIC_VOLT_TO_DVFS
 		value = mt_cpufreq_update_volt(cpudvfsindex,
 				record_tbl_locked, det->num_freq_tbl);
+#endif
 	} else
 		WARN_ON(errcheck);
 #if 0
@@ -211,9 +214,11 @@ void restore_default_volt_cpu(struct eem_det *det)
 
 void get_freq_table_cpu(struct eem_det *det)
 {
-	int i = 0, curfreq = 0;
+	int i = 0;
 	enum mt_cpu_dvfs_id cpudvfsindex;
-
+#if !DVT
+	int curfreq = 0;
+#endif
 
 	FUNC_ENTER(FUNC_LV_HELP);
 
@@ -240,6 +245,7 @@ void get_freq_table_cpu(struct eem_det *det)
 	det->num_freq_tbl = i;
 
 #if ENABLE_LOO_B
+#if SET_PMIC_VOLT_TO_DVFS
 	/* Find 2line turn point */
 	if (cpudvfsindex == MT_CPU_DVFS_L) {
 		for (i = 0; i < det->num_freq_tbl; i++) {
@@ -251,6 +257,7 @@ void get_freq_table_cpu(struct eem_det *det)
 			}
 		}
 	}
+#endif
 #endif
 	eem_debug("[%s] freq_num:%d, max_freq=%d, turn_pt:%d\n",
 			det->name+8, det->num_freq_tbl, det->max_freq_khz,
