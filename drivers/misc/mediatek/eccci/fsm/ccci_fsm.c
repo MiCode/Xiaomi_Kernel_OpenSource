@@ -449,7 +449,7 @@ static void fsm_routine_wdt(struct ccci_fsm_ctl *ctl,
 	int reset_md = 0;
 	int is_epon_set = 0;
 	struct device_node *node;
-	unsigned int offset_apon_md1;
+	unsigned int offset_apon_md1 = 0;
 	struct ccci_smem_region *mdss_dbg
 		= ccci_md_get_smem_by_user_id(ctl->md_id,
 			SMEM_USER_RAW_MDSS_DBG);
