@@ -158,6 +158,7 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 
 		if (!typec_switch->ptn) {
 			dev_err(dev, "ptn alloc fail\n");
+			kfree(typec_switch);
 			return -ENOMEM;
 		}
 
@@ -177,6 +178,7 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 
 		if (!typec_switch->fusb) {
 			dev_err(dev, "fusb alloc fail\n");
+			kfree(typec_switch);
 			return -ENOMEM;
 		}
 
