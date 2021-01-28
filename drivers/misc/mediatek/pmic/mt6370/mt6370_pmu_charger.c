@@ -4309,6 +4309,7 @@ static const struct regulator_desc mt6370_otg_rdesc = {
 };
 
 
+#ifdef CONFIG_TCPC_CLASS
 static int get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 	bool attach)
 {
@@ -4360,7 +4361,6 @@ static int get_charger_type(struct mt6370_pmu_charger_data *chg_data,
 	return prop2.intval;
 }
 
-#ifdef CONFIG_TCPC_CLASS
 static int typec_attach_thread(void *data)
 {
 	struct mt6370_pmu_charger_data *chg_data = data;
@@ -4479,9 +4479,9 @@ static int mt6370_pmu_charger_probe(struct platform_device *pdev)
 	atomic_set(&chg_data->bc12_wkard, 0);
 #ifdef CONFIG_TCPC_CLASS
 	atomic_set(&chg_data->tcpc_usb_connected, 0);
-#endif
 	init_completion(&chg_data->chrdet_start);
 	mutex_init(&chg_data->attach_lock);
+#endif
 
 	if (use_dt) {
 		ret = mt_parse_dt(&pdev->dev, chg_data);
