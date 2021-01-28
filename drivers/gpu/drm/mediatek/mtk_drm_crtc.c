@@ -3899,6 +3899,7 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
 	int index = drm_crtc_index(crtc);
 	struct mtk_drm_private *priv = crtc->dev->dev_private;
+	struct mtk_drm_crtc *mtk_crtc0 = to_mtk_crtc(priv->crtc[0]);
 
 	/* When open VDS path switch feature, After VDS created,
 	 * VDS will call setcrtc, So atomic commit will be called,
@@ -3906,9 +3907,16 @@ void mtk_drm_crtc_atomic_resume(struct drm_crtc *crtc,
 	 * this action.
 	 */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
-		MTK_DRM_OPT_VDS_PATH_SWITCH) && (index == 2))
-		if (!priv->vds_path_switch_done)
+		MTK_DRM_OPT_VDS_PATH_SWITCH) && (index == 2)) {
+		if (atomic_read(&mtk_crtc0->already_config) &&
+			(!priv->vds_path_switch_done)) {
+			DDPMSG("VDS need skip first crtc enable\n");
 			return;
+		} else {
+			DDPMSG("VDS no need skip as crtc0 disable\n");
+			priv->vds_path_enable = 1;
+		}
+	}
 
 	CRTC_MMP_EVENT_START(index, resume,
 			mtk_crtc->enabled, index);
@@ -5124,6 +5132,7 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	struct cmdq_pkt *cmdq_handle = state->cmdq_handle;
 	struct mtk_cmdq_cb_data *cb_data;
 	struct mtk_ddp_comp *comp;
+	struct mtk_drm_crtc *mtk_crtc0 = to_mtk_crtc(priv->crtc[0]);
 
 	CRTC_MMP_EVENT_START(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
@@ -5248,8 +5257,19 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_VDS_PATH_SWITCH) &&
 		priv->vds_path_switch_dirty &&
-		!priv->vds_path_switch_done && (index == 0))
-		mtk_need_vds_path_switch(crtc);
+		!priv->vds_path_switch_done) {
+		if ((index == 0) && atomic_read(&mtk_crtc0->already_config)) {
+			DDPMSG("%s:%d mtk_crtc0 enable:%d\n", __func__, __LINE__,
+				atomic_read(&mtk_crtc0->already_config));
+			mtk_need_vds_path_switch(crtc);
+		}
+
+		if ((index == 2) && (!atomic_read(&mtk_crtc0->already_config))) {
+			DDPMSG("%s:%d mtk_crtc0 enable:%d\n", __func__, __LINE__,
+				atomic_read(&mtk_crtc0->already_config));
+			mtk_need_vds_path_switch(priv->crtc[0]);
+		}
+	}
 
 end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
