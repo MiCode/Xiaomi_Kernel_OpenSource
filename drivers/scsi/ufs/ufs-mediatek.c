@@ -814,7 +814,7 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 				enum ufs_notify_change_status status)
 {
 	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	struct phy *mphy = host->mphy;
+	struct phy *mphy;
 	int ret = 0;
 
 	/*
@@ -824,6 +824,8 @@ static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
 	 */
 	if (!host)
 		return 0;
+
+	mphy = host->mphy;
 
 	if (!on && status == PRE_CHANGE) {
 		/*
