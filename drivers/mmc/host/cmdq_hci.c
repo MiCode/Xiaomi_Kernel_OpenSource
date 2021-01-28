@@ -30,6 +30,7 @@
 #include "mtk_sd.h"
 #include "dbg.h"
 #include "card.h"
+#include "mmc_crypto.h"
 
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32
@@ -44,11 +45,6 @@ static inline struct mmc_request *get_req_by_tag(struct cmdq_host *cq_host,
 					  unsigned int tag)
 {
 	return cq_host->mrq_slot[tag];
-}
-
-static inline u8 *get_desc(struct cmdq_host *cq_host, u8 tag)
-{
-	return cq_host->desc_base + (tag * cq_host->slot_sz);
 }
 
 static inline u8 *get_link_desc(struct cmdq_host *cq_host, u8 tag)
@@ -655,7 +651,23 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 			    (mrq->cmdq_req->cmdq_req_flags & QBR));
 	*task_desc = cpu_to_le64(data);
 
-	cmdq_prep_crypto_desc(cq_host, task_desc, hci_ce_ctx);
+	/* inline crypto */
+	if (mmc->caps2 & MMC_CAP2_CRYPTO)
+		cqhci_crypto_start(mmc, mrq);
+	else
+		cmdq_prep_crypto_desc(cq_host, task_desc, hci_ce_ctx);
+
+#ifdef CONFIG_MMC_CRYPTO
+	/*
+	 * It's workaround, I don't know why 4.19 (standard CQHCI)
+	 * no need do this which will clear the upper 64-bit of crypto desc,
+	 * I will remove this when find the root-cause.
+	 */
+	if (!mrq->crypto_enable)
+		memset((__le64 __force *)((u8 *)task_desc +
+						CQ_TASK_DESC_TASK_PARAMS_SIZE),
+			0, CQ_TASK_DESC_CE_PARAMS_SIZE);
+#endif
 
 	err = cmdq_prep_tran_desc(mrq, cq_host, tag);
 	if (err) {
@@ -728,6 +740,8 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 			MAGIC_CQHCI_DBG_NUM_RI + tag,
 			cmdq_readl(cq_host, CQCRA));
 	}
+	/* inline crypto */
+	mmc_complete_mqr_crypto(mmc);
 	mrq->done(mrq);
 }
 

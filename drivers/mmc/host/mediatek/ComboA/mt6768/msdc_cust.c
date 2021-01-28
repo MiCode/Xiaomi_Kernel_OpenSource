@@ -488,7 +488,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		return 1;
 	}
 
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 	if (pdev->id == 0) {
 		host->aes_clk_ctl = devm_clk_get(&pdev->dev,
 			MSDC0_AES_CLK_NAME);
@@ -539,7 +539,7 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 			topckgen_base + 0x70,
 			MSDC_READ32(topckgen_base + 0x70));
 
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 		buf_ptr += sprintf(buf_ptr,
 		" topckgen [0x%p]=0x%x(AES:should bit[26:24]=001b, bit[31]=0)\n",
 			topckgen_base + 0xa0,
@@ -552,7 +552,7 @@ static void msdc_dump_clock_sts_core(char **buff, unsigned long *size,
 			infracfg_ao_base + 0x94,
 			MSDC_READ32(infracfg_ao_base + 0x94));
 
-#ifdef CONFIG_MTK_HW_FDE
+#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 		buf_ptr += sprintf(buf_ptr,
 		" infracfg_ao [0x%p]=0x%x(should bit[29]=0b)\n",
 			infracfg_ao_base + 0xac,

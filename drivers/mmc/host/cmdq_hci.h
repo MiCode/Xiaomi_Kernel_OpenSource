@@ -264,4 +264,17 @@ extern int cmdq_init(struct cmdq_host *cq_host, struct mmc_host *mmc,
 		     bool dma64);
 extern struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev);
 extern void cmdq_dumpregs(struct cmdq_host *cq_host);
+
+#ifdef CONFIG_MTK_EMMC_HW_CQ
+static inline u8 *get_desc(struct cmdq_host *cq_host, u8 tag)
+{
+	return cq_host->desc_base + (tag * cq_host->slot_sz);
+}
+#else
+static inline u8 *get_desc(struct cmdq_host *cq_host, u8 tag)
+{
+	return NULL;
+}
+#endif
+
 #endif

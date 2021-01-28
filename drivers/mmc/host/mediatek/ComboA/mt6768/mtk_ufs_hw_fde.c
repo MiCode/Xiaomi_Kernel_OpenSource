@@ -74,16 +74,6 @@ static void msdc_disable_crypto(struct msdc_host *host)
 #define CRYPTO_CONFIG_INDEX(x)	(((u64)(x) & 0xFF) << 32)
 #define CRYPTO_ENABLE(x)	(((u64)(x) & 0x1) << 47)
 
-union cqhci_cpt_cap {
-	u32 cap_raw;
-	struct {
-		u8 cap_cnt;
-		u8 cfg_cnt;
-		u8 resv;
-		u8 cfg_ptr;
-	} cap;
-};
-
 union cqhci_cpt_capx {
 	u32 capx_raw;
 	struct {

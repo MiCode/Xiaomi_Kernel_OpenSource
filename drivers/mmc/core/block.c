@@ -67,6 +67,8 @@
 #include "mmc_ops.h"
 #include "quirks.h"
 #include "sd_ops.h"
+#include "mmc_crypto.h"
+
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 #include "dbg.h"
 #endif
@@ -2500,10 +2502,10 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	}
 #endif
 
-#if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
+
 	if (req->bio)
 		brq->mrq.req = req;
-
+#if defined(CONFIG_MTK_HW_FDE)
 	/* request is from mmc layer */
 	brq->mrq.is_mmc_req = true;
 #endif
@@ -2708,6 +2710,10 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	active_mqrq->req = req;
 
 	mc_rq = mmc_blk_cmdq_rw_prep(active_mqrq, mq);
+
+	ret = mmc_prepare_mqr_crypto(mq->card->host, active_mqrq);
+	if (ret == -EINVAL)
+		return ret;
 
 	if (card->quirks & MMC_QUIRK_CMDQ_EMPTY_BEFORE_DCMD) {
 		unsigned int sectors = blk_rq_sectors(req);
