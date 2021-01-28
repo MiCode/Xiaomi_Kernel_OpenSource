@@ -700,7 +700,8 @@ enum{
 #define CAM_REG_AAHO_XSIZE(module)              (isp_devs[module].regs + 0x443C)
 #define CAM_REG_AAHO_YSIZE(module)              (isp_devs[module].regs + 0x4440)
 
-
+#define CAM_REG_FLKO_FH_FH_SPARE_9(module)      (isp_devs[module].regs + 0x45CC)
+#define CAM_REG_FLKO_FH_FH_SPARE_10(module)     (isp_devs[module].regs + 0x45D0)
 /* MRAW */
 /* MRAW WDMA */
 #define CAM_REG_IMGO_M1_DRS(module)             LOG_NOTICE("MRAW TBD\n")
