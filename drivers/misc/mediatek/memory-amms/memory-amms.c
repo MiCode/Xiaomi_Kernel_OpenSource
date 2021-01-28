@@ -56,6 +56,11 @@
 #include <linux/cpu.h>
 #include <linux/pm_qos.h>
 #include <linux/spinlock.h>
+
+#include <linux/memblock.h>		/* for memblock_free */
+#include <linux/arm-smccc.h> /* for smc call*/
+#include <linux/soc/mediatek/mtk_sip_svc.h> /* for smc call cases*/
+
 #include <helio-dvfsrc-opp.h>
 #ifdef CONFIG_MTK_CPU_FREQ
 #include "cpu_ctrl.h"
@@ -241,12 +246,12 @@ int amms_cma_free(phys_addr_t addr, unsigned int size)
 		pr_info("ccci_share_cma_init failed\n");
 		return -1;
 	}
-	pr_info("%s: addr=0x%p size=0x%x\n", __func__,
-		(void *)addr, size);
+	pr_info("%s: addr=0x%pa size=0x%x\n", __func__,
+		&addr, size);
 	rs = cma_release(ccci_share_cma, pages, count);
 	if (rs == false) {
-		pr_info("cma_release failed addr=%p size=%x\n",
-		(void *)addr, size);
+		pr_info("cma_release failed addr=%pa size=%x\n",
+		&addr, size);
 		return -1;
 	}
 	return 0;
@@ -452,8 +457,8 @@ static int __init memory_ccci_share_init(struct reserved_mem *rmem)
 		MTK_SIP_KERNEL_AMMS_GET_MD_POS_ADDR, 0, 0, 0, 0);
 	pos_length = mt_secure_call(
 		MTK_SIP_KERNEL_AMMS_GET_MD_POS_LENGTH, 0, 0, 0, 0);
-	pr_info("pos_addr=%p pos_length=%p\n",
-		(void *)pos_addr, (void *)pos_length);
+	pr_info("pos_addr=%pa pos_length=%pa\n",
+		&pos_addr, &pos_length);
 	if (pos_addr != 0)
 	/* init cma area */
 		ret = cma_init_reserved_mem(rmem->base,
@@ -471,6 +476,8 @@ static int __init memory_ccci_share_init(struct reserved_mem *rmem)
 	return 0;
 }
 
+RESERVEDMEM_OF_DECLARE(legacy_memory_ccci_share, "mediatek,md_smem_ncache",
+			memory_ccci_share_init);
 RESERVEDMEM_OF_DECLARE(memory_ccci_share, "mediatek,ap_md_nc_smem",
 			memory_ccci_share_init);
 static irqreturn_t amms_irq_handler(int irq, void *dev_id)
@@ -534,6 +541,33 @@ void amms_handle_event(void)
 			, 0, 0, 0, 0);
 	pending = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_PENDING, 0, 0, 0, 0);
 	pr_info("%s:pending = 0x%llx\n", __func__, pending);
+	pr_info("%s:pending = %lld\n", __func__, (long long)pending);
+
+	// Not support clear pending for legacy chip
+	if (((long long)pending) == -1) {
+		if (!amms_static_free) {
+			addr = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_FREE_ADDR,
+			0, 0, 0, 0);
+			length = mt_secure_call(
+			MTK_SIP_KERNEL_AMMS_GET_FREE_LENGTH,
+			0, 0, 0, 0);
+			if (pfn_valid(__phys_to_pfn(addr))
+				&& pfn_valid(__phys_to_pfn(
+				addr + length - 1))) {
+				pr_info("%s:addr=%pa length=%pa\n", __func__,
+				&addr, &length);
+				free_reserved_memory(addr, addr+length);
+				amms_static_free = true;
+			} else {
+				pr_info("AMMS: error addr and length is not set properly\n");
+				pr_info("can not free_reserved_memory\n");
+			}
+		} else {
+			pr_info("amms: static memory already free, should not happened\n");
+		}
+		return;
+	}
+
 	if (pending & AMMS_PENDING_DRDI_FREE_BIT) {
 		/*below part is for staic memory free */
 		if (!amms_static_free) {
@@ -545,8 +579,8 @@ void amms_handle_event(void)
 			if (pfn_valid(__phys_to_pfn(addr))
 				&& pfn_valid(__phys_to_pfn(
 				addr + length - 1))) {
-				pr_info("%s:addr=0x%p length=0x%p\n", __func__,
-				(void *)addr, (void *)length);
+				pr_info("%s:addr=%pa length=%pa\n", __func__,
+				&addr, &length);
 				free_reserved_memory(addr, addr+length);
 				amms_static_free = true;
 				mt_secure_call(MTK_SIP_KERNEL_AMMS_ACK_PENDING,
@@ -570,8 +604,8 @@ void amms_handle_event(void)
 			0, 0, 0);
 		amms_cma_free(pos_addr, pos_length);
 		amms_dealloc_count++;
-		pr_info("amms: finish deallocate pending interrupt addr=0x%p length=0x%p\n",
-		(void *)pos_addr, (void *)pos_length);
+		pr_info("amms: finish deallocate pending interrupt addr=0x%pa length=0x%pa\n",
+		&pos_addr, &pos_length);
 	} else if (pending & AMMS_PENDING_POS_ALLOC_BIT)  {
 
 		pr_info("amms: receive allocate pending interrupt\n");
@@ -613,9 +647,9 @@ void amms_handle_event(void)
 
 		} else if (pos_alloc_addr && pos_addr != pos_alloc_addr) {
 			pr_notice("amms: allocate different address");
-			pr_notice("pos_addr=%p pos_length=%p pos_alloc_addr=%p\n",
-				(void *)pos_addr, (void *)pos_length
-				, (void *)pos_alloc_addr);
+			pr_notice("pos_addr=%pa pos_length=%pa pos_alloc_addr=%pa\n",
+				&pos_addr, &pos_length
+				, &pos_alloc_addr);
 			pos_addr = pos_alloc_addr;
 			mt_secure_call(MTK_SIP_KERNEL_AMMS_MD_POS_ADDR,
 				pos_addr, 0, 0, 0);
