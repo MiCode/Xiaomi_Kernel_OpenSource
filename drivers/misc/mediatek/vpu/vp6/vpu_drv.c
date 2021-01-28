@@ -1134,6 +1134,7 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 	{
 		struct vpu_request *req;
 		struct vpu_request *u_req;
+		int plane_count;
 
 		u_req = (struct vpu_request *) arg;
 
@@ -1232,13 +1233,34 @@ static long vpu_ioctl(struct file *flip, unsigned int cmd, unsigned long arg)
 		else if (req->buffer_count > VPU_MAX_NUM_PORTS) {
 			LOG_ERR("[ENQUE] %s, count=%d\n",
 				"wrong buffer count", req->buffer_count);
+			vpu_free_request(req);
+			ret = -EINVAL;
+			goto out;
 		} else if (copy_from_user(req->buffers, u_req->buffers,
 			    req->buffer_count * sizeof(struct vpu_buffer))) {
 			LOG_ERR("[ENQUE] %s, ret=%d\n",
 				"copy 'struct buffer' failed", ret);
-		} else if (copy_from_user(req->buf_ion_infos,
-				u_req->buf_ion_infos,
-				req->buffer_count * 3 * sizeof(uint64_t))) {
+			vpu_free_request(req);
+			ret = -EINVAL;
+			goto out;
+		}
+
+		/* Check if user plane_count is valid */
+		for (i = 0 ; i < req->buffer_count; i++) {
+			plane_count = req->buffers[i].plane_count;
+			if ((plane_count > VPU_MAX_NUM_PLANE) ||
+			    (plane_count == 0)) {
+				vpu_free_request(req);
+				ret = -EINVAL;
+				LOG_ERR("[ENQUE] Buf#%d plane_cnt:%d fail\n",
+					i, plane_count);
+				goto out;
+			}
+		}
+
+		if (copy_from_user(req->buf_ion_infos, u_req->buf_ion_infos,
+				   req->buffer_count * VPU_MAX_NUM_PLANE *
+				   sizeof(uint64_t))) {
 			LOG_ERR("[ENQUE] %s, ret=%d\n",
 				"copy 'buf_share_fds' failed", ret);
 		} else if (vpu_put_request_to_pool(user, req)) {
