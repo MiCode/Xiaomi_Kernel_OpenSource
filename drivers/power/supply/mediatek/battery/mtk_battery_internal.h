@@ -17,6 +17,7 @@
 #ifndef _DEA_MODIFY_
 #include <linux/power_supply.h>
 #include <pmic_lbat_service.h>
+#include <linux/alarmtimer.h>
 #else
 #include "module_hrtimer.h"
 #include "mtk_battery.h"
@@ -46,7 +47,7 @@
 /* ============================================================ */
 #define BAT_VOLTAGE_LOW_BOUND 3400
 #define BAT_VOLTAGE_HIGH_BOUND 3450
-#define LOW_TMP_BAT_VOLTAGE_LOW_BOUND 3200
+#define LOW_TMP_BAT_VOLTAGE_LOW_BOUND 3350
 #define SHUTDOWN_TIME 40
 #define AVGVBAT_ARRAY_SIZE 30
 #define INIT_VOLTAGE 3450
@@ -221,6 +222,10 @@ enum Fg_kernel_cmds {
 	FG_KERNEL_CMD_UISOC_UPDATE_TYPE,
 	FG_KERNEL_CMD_CHANG_LOGLEVEL,
 	FG_KERNEL_CMD_REQ_ALGO_DATA,
+	FG_KERNEL_CMD_RESET_AGING_FACTOR,
+	FG_KERNEL_CMD_BUILD_SEL_BATTEMP,
+	FG_KERNEL_CMD_UPDATE_AVG_BATTEMP,
+	FG_KERNEL_CMD_SAVE_DEBUG_PARAM,
 
 	FG_KERNEL_CMD_FROM_USER_NUMBER
 
@@ -298,6 +303,7 @@ enum daemon_cmd_int_data {
 	FG_GET_CURR_1 = 3,
 	FG_GET_CURR_2 = 4,
 	FG_GET_REFRESH = 5,
+	FG_GET_IS_AGING_RESET = 6,
 	FG_GET_MAX,
 	FG_SET_ANCHOR = 999,
 	FG_SET_SOC = FG_SET_ANCHOR + 1,
@@ -314,6 +320,7 @@ enum daemon_cmd_int_data {
 	FG_SET_OCV_mah = FG_SET_ANCHOR + 12,
 	FG_SET_OCV_Vtemp = FG_SET_ANCHOR + 13,
 	FG_SET_OCV_SOC = FG_SET_ANCHOR + 14,
+	FG_SET_CON0_SOFF_VALID = FG_SET_ANCHOR + 15,
 	FG_SET_DATA_MAX,
 };
 
@@ -360,6 +367,8 @@ struct fuel_gauge_custom_data {
 	int aging1_update_soc;
 	int aging1_load_soc;
 	int aging_temp_diff;
+	int aging_temp_low_limit;
+	int aging_temp_high_limit;
 	int aging_100_en;
 	int difference_voltage_update;
 
@@ -482,6 +491,10 @@ struct fuel_gauge_custom_data {
 	int ui_low_limit_vth4;
 	int ui_low_limit_time;
 
+	/* moving average bat_temp */
+	int moving_battemp_en;
+	int moving_battemp_thr;
+
 	int d0_sel;
 	int dod_init_sel;
 	int aging_sel;
@@ -495,6 +508,7 @@ struct fuel_gauge_custom_data {
 	int c_soc;
 	int v_soc;
 	int ui_old_soc;
+	int dlpt_ui_remap_en;
 
 	int aging_factor_min;
 	int aging_factor_diff;
@@ -624,10 +638,13 @@ struct simulator_log {
 	int ptim_is_charging;
 
 	int phone_state;
+	int ps_system_time;
+	unsigned long long ps_logtime;
+
+	int nafg_zcv;
 
 	/* initial */
 	int fg_reset;
-
 	int car_diff;
 
 
@@ -655,10 +672,18 @@ struct mtk_battery {
 /*linux driver related*/
 	wait_queue_head_t  wait_que;
 	unsigned int fg_update_flag;
+	unsigned int tracking_cb_flag;
+	unsigned int onepercent_cb_flag;
 	struct hrtimer fg_hrtimer;
 	struct mutex fg_mutex;
 	struct mutex notify_mutex;
 	struct srcu_notifier_head gm_notify;
+
+/*pmic device related */
+	struct device_node *pdev_node;
+	struct platform_device *pdevice;
+	struct device *pmic_dev;
+	struct mutex pmic_intr_mutex;
 
 /*custom related*/
 	int battery_id;
@@ -688,6 +713,7 @@ struct mtk_battery {
 	int soc;
 	int ui_soc;
 	int d_saved_car;
+	int tbat_precise;
 
 /*battery flag*/
 	bool init_flag;
@@ -700,6 +726,10 @@ struct mtk_battery {
 
 /*battery plug out*/
 	bool disable_plug_int;
+/* hwocv swocv */
+	int ext_hwocv_swocv;
+	int ext_hwocv_swocv_lt;
+	int ext_hwocv_swocv_lt_temp;
 
 
 /* adb */
@@ -752,6 +782,7 @@ struct mtk_battery {
 	int algo_ocv_to_soc;
 	int algo_vtemp;
 
+	bool is_reset_aging_factor;
 	int aging_factor;
 
 	struct timespec uisoc_oldtime;
@@ -764,8 +795,8 @@ struct mtk_battery {
 	int pl_two_sec_reboot;
 	int plug_miss_count;
 
-	struct gtimer tracking_timer;
-	struct gtimer one_percent_timer;
+	struct alarm tracking_timer;
+	struct alarm one_percent_timer;
 
 	struct gauge_consumer coulomb_plus;
 	struct gauge_consumer coulomb_minus;
@@ -796,6 +827,8 @@ struct mtk_battery {
 	bool is_nafg_broken;
 
 	/* battery temperature table */
+	int no_bat_temp_compensate;
+	int enable_tmp_intr_suspend;
 	struct battery_temperature_table rbat;
 
 	struct fgd_cmd_param_t_custom fg_data;
@@ -855,7 +888,6 @@ extern int battery_get_charger_zcv(void);
 extern bool is_fg_disabled(void);
 extern int battery_notifier(int event);
 
-
 /* pmic */
 extern int pmic_get_battery_voltage(void);
 extern int pmic_get_v_bat_temp(void);
@@ -880,6 +912,7 @@ extern int gauge_set_coulomb_interrupt1_lt(int car);
 extern int gauge_get_ptim_current(int *ptim_current, bool *is_charging);
 extern int gauge_get_hw_version(void);
 extern int gauge_set_nag_en(int nafg_zcv_en);
+extern int gauge_set_zcv_interrupt_en(int zcv_intr_en);
 extern int gauge_get_nag_vbat(void);
 
 /* mtk_battery_recovery.c */
@@ -909,15 +942,18 @@ extern void fg_bat_temp_int_sw_check(void);
 extern void fg_update_sw_low_battery_check(unsigned int thd);
 extern void fg_sw_bat_cycle_accu(void);
 extern void fg_ocv_query_soc(int ocv);
+extern void fg_int_event(struct gauge_device *gauge_dev, enum gauge_event evt);
 
 /* GM3 simulator */
 extern void gm3_log_init(void);
 extern void gm3_log_notify(unsigned int interrupt);
-extern void gm3_log_dump(void);
+extern void gm3_log_dump(bool force);
+extern void gm3_log_dump_nafg(int type);
 
 
 /* query function , review */
 extern struct BAT_EC_Struct *get_ec(void);
+extern int gauge_enable_interrupt(int intr_number, int en);
 
 /* GM25 Plug out API */
 int en_intr_VBATON_UNDET(int en);
