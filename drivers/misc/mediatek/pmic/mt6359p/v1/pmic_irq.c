@@ -41,7 +41,12 @@ irqreturn_t key_int_handler(int irq, void *data)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KPD_PWRKEY_USE_PMIC)
 	struct irq_desc *desc = irq_to_desc(irq);
-	unsigned int hwirq = irqd_to_hwirq(&desc->irq_data);
+	unsigned int hwirq;
+
+	if (desc)
+		hwirq = irqd_to_hwirq(&desc->irq_data);
+	else
+		return IRQ_HANDLED;
 
 	switch (hwirq) {
 	case INT_PWRKEY:
@@ -123,7 +128,7 @@ void pmic_enable_interrupt(enum PMIC_IRQ_ENUM intNo, unsigned int en, char *str)
 		disable_irq_nosync(irq);
 	desc = irq_to_desc(irq);
 	IRQLOG("[%s] intNo=%d, en=%d, depth=%d\n",
-		__func__, intNo, en, desc->depth);
+		__func__, intNo, en, desc ? desc->depth : -1);
 }
 
 void pmic_register_interrupt_callback(enum PMIC_IRQ_ENUM intNo,
