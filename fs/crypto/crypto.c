@@ -160,6 +160,7 @@ int fscrypt_do_page_crypto(const struct inode *inode, fscrypt_direction_t rw,
 	int res = 0;
 
 	BUG_ON(len == 0);
+	BUG_ON(fscrypt_is_hw_encrypt(inode));
 
 	fscrypt_generate_iv(&iv, lblk_num, ci);
 
