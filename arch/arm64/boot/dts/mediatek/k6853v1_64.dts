@@ -642,7 +642,7 @@
 };
 /* CONSYS end */
 
-#include "cust_mt6853_camera.dtsi"
+#include "mediatek/cust_mt6853_camera.dtsi"
 #include <k6853v1_64/cust.dtsi>
 
 /*End of this file, DO NOT ADD ANYTHING HERE*/
