@@ -526,8 +526,8 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	}
 
 	if (IS_ERR(buffer)) {
-		IONMSG("%s buffer is error 0x%p, heap_mask: 0x%x.\n",
-		       __func__, buffer, heap_id_mask);
+		IONMSG("%s error 0x%p, heap_mask: 0x%x size:%zu align:%zu.\n",
+		       __func__, buffer, heap_id_mask, len, align);
 		return ERR_CAST(buffer);
 	}
 
