@@ -145,9 +145,10 @@ static ssize_t mt_mdpm_debug_proc_write
 	int debug = 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
-	len = (len < 0) ? 0 : len;
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
+	len = (len < 0) ? 0 : len;
 	desc[len] = '\0';
 
 	/* if (sscanf(desc, "%d", &debug) == 1) { */
