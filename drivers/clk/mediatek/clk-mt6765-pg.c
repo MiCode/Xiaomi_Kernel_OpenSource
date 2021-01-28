@@ -2539,13 +2539,19 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 	if (action == MTCMOS_BUS_PROT) {
 		if (sys->ops->prepare)
 			r = sys->ops->prepare(sys);
+#if MT_CCF_DEBUG
 		else
-			pr_notice("%s: prepare function is NULL\n", __func__);
+			pr_notice("%s: %s prepare function is NULL\n",
+					__func__, sys->name);
+#endif
 	} else if (action == MTCMOS_PWR) {
 		if (sys->ops->enable)
 			r = sys->ops->enable(sys);
+#if MT_CCF_DEBUG
 		else
-			pr_notice("%s: enable function is NULL\n", __func__);
+			pr_notice("%s: %s enable function is NULL\n",
+					__func__, sys->name);
+#endif
 	}
 
 	WARN_ON(r);
@@ -2621,13 +2627,19 @@ static int disable_subsys(enum subsys_id id, enum mtcmos_op action)
 	if (action == MTCMOS_BUS_PROT) {
 		if (sys->ops->unprepare)
 			r = sys->ops->unprepare(sys);
+#if MT_CCF_DEBUG
 		else
-			pr_notice("%s: unprepare function is NULL\n", __func__);
+			pr_notice("%s: %s unprepare function is NULL\n",
+					__func__, sys->name);
+#endif
 	} else if (action == MTCMOS_PWR) {
 		if (sys->ops->disable)
 			r = sys->ops->disable(sys);
+#if MT_CCF_DEBUG
 		else
-			pr_notice("%s: disable function is NULL\n", __func__);
+			pr_notice("%s: %s disable function is NULL\n",
+					__func__, sys->name);
+#endif
 	}
 
 	WARN_ON(r);
