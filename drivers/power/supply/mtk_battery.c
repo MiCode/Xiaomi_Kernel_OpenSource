@@ -278,7 +278,7 @@ static void mtk_battery_external_power_changed(struct power_supply *psy)
 	bs_data = &gm->bs_data;
 	chg_psy = devm_power_supply_get_by_phandle(&gm->gauge->pdev->dev,
 						       "charger");
-	if (IS_ERR(chg_psy)) {
+	if (IS_ERR_OR_NULL(chg_psy)) {
 		bm_err("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,

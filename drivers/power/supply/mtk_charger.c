@@ -1584,7 +1584,7 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 	info = (struct mtk_charger *)power_supply_get_drvdata(psy);
 	chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
-	if (IS_ERR(chg_psy)) {
+	if (IS_ERR_OR_NULL(chg_psy)) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,
