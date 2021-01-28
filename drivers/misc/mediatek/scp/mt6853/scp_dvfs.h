@@ -29,7 +29,7 @@
 #define DVFS_STATUS_CMD_LIMITED	(-7)
 #define DVFS_STATUS_CMD_DISABLE	(-8)
 
-#define ULPOSC_CALI_BY_AP 1
+#define ULPOSC_CALI_BY_AP
 
 enum scp_state_enum {
 	IN_DEBUG_IDLE = 1,
@@ -108,7 +108,7 @@ struct mt_scp_pll_t {
 	struct clk *clk_pll7;
 };
 
-#if ULPOSC_CALI_BY_AP
+#ifdef ULPOSC_CALI_BY_AP
 enum {
 	ULPOSC_1 = 1,
 	ULPOSC_2
@@ -148,7 +148,7 @@ extern unsigned int scp_current_freq;
 extern spinlock_t scp_awake_spinlock;
 extern int scp_dvfs_flag;
 
-#if ULPOSC_CALI_BY_AP
+#ifdef ULPOSC_CALI_BY_AP
 extern void ulposc_cali_init(void);
 extern void sync_ulposc_cali_data_to_scp(void);
 #endif

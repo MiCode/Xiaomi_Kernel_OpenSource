@@ -386,7 +386,7 @@ static void scp_A_notify_ws(struct work_struct *ws)
 		scp_ready[SCP_A_ID] = 1;
 
 #if SCP_DVFS_INIT_ENABLE
-#if ULPOSC_CALI_BY_AP
+#ifdef ULPOSC_CALI_BY_AP
 		sync_ulposc_cali_data_to_scp();
 #endif
 		/* release pll clock after scp ulposc calibration */
@@ -1711,7 +1711,7 @@ static int scp_device_probe(struct platform_device *pdev)
 	if (ret)
 		pr_err("[SCP] ipi_dev_register fail, ret %d\n", ret);
 
-#if SCP_DVFS_INIT_ENABLE && ULPOSC_CALI_BY_AP
+#if SCP_DVFS_INIT_ENABLE && defined(ULPOSC_CALI_BY_AP)
 	ulposc_cali_init();
 #endif
 

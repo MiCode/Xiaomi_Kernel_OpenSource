@@ -75,6 +75,11 @@
 #define SCP_ATF_RESOURCE_REQUEST	1
 #define SCP_VCORE_REQ_TO_DVFSRC		1
 
+struct ipi_tx_data_t {
+	unsigned int arg1;
+	unsigned int arg2;
+};
+
 /* -1:SCP DVFS OFF, 1:SCP DVFS ON */
 int scp_dvfs_flag = 1;
 
@@ -102,7 +107,7 @@ unsigned int slp_ipi_ackdata0;
 int slp_ipi_init_done;
 unsigned int sleep_block_cnt[NR_REASONS];
 
-#if ULPOSC_CALI_BY_AP
+#ifdef ULPOSC_CALI_BY_AP
 static void __iomem *ulposc_base;
 
 #define ULPOSC2_CON0 (ulposc_base + 0x2C0)
@@ -554,13 +559,17 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 					loff_t *data)
 {
 	char desc[64], cmd[32];
-	int len = 0;
+	unsigned int len = 0;
 	int dvfs_opp;
 	int n;
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
 		return 0;
+
 	desc[len] = '\0';
 
 	n = sscanf(desc, "%31s %d", cmd, &dvfs_opp);
@@ -603,11 +612,12 @@ static ssize_t mt_scp_dvfs_ctrl_proc_write(
 static int mt_scp_sleep_ctrl0_proc_show(struct seq_file *m, void *v)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_FLAG;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
+	ipi_data.arg1 = SLP_DBG_CMD_GET_FLAG;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
@@ -636,8 +646,12 @@ static ssize_t mt_scp_sleep_ctrl0_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -650,10 +664,11 @@ static ssize_t mt_scp_sleep_ctrl0_proc_write(
 	if (kstrtouint(desc, 10, &val) == 0) {
 		if (val >= SCP_SLEEP_OFF &&
 			val <= SCP_SLEEP_NO_CONDITION) {
+			ipi_data.arg1 = val;
 			ret = mtk_ipi_send_compl(&scp_ipidev,
 						IPI_OUT_C_SLEEP_0,
 						IPI_SEND_WAIT,
-						&val,
+						&ipi_data,
 						PIN_OUT_C_SIZE_SLEEP_0,
 						500);
 			if (ret)
@@ -675,11 +690,12 @@ static ssize_t mt_scp_sleep_ctrl0_proc_write(
 static int mt_scp_sleep_cnt0_proc_show(struct seq_file *m, void *v)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
+	ipi_data.arg1 = SLP_DBG_CMD_GET_CNT;
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
 	if (ret != IPI_ACTION_DONE)
@@ -701,11 +717,15 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 {
 	char desc[64];
 	unsigned int val = 0;
-	int len = 0;
+	unsigned int len = 0;
 	int ret = 0;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
+
+	if (count <= 0)
+		return 0;
 
 	len = (count < (sizeof(desc) - 1)) ? count : (sizeof(desc) - 1);
 	if (copy_from_user(desc, buffer, len))
@@ -713,8 +733,7 @@ static ssize_t mt_scp_sleep_cnt0_proc_write(
 	desc[len] = '\0';
 
 	if (kstrtouint(desc, 10, &val) == 0) {
-		unsigned int ipi_data = SLP_DBG_CMD_RESET;
-
+		ipi_data.arg1 = SLP_DBG_CMD_RESET;
 		ret = mtk_ipi_send_compl(&scp_ipidev,
 					IPI_OUT_C_SLEEP_0,
 					IPI_SEND_WAIT,
@@ -738,14 +757,14 @@ static int mt_scp_sleep_block_proc_show(struct seq_file *m, void *v)
 {
 	int i;
 	int ret;
-	unsigned int ipi_data;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
 
 	for (i = 0; i < NR_REASONS; i++) {
 		sleep_block_cnt[i] = 0;
-		ipi_data = SLP_DBG_CMD_BLOCK_BY_TIMER_CNT + i;
+		ipi_data.arg1 = SLP_DBG_CMD_BLOCK_BY_TIMER_CNT + i;
 
 		ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 			IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
@@ -868,7 +887,7 @@ static int mt_scp_dvfs_pm_restore_early(struct device *dev)
 	return 0;
 }
 
-#if ULPOSC_CALI_BY_AP
+#ifdef ULPOSC_CALI_BY_AP
 static void turn_onoff_clk_high(int id, int is_on)
 {
 	pr_debug("%s(%d, %d)\n", __func__, id, is_on);
@@ -905,7 +924,6 @@ static void turn_onoff_clk_high(int id, int is_on)
 
 	udelay(50);
 }
-
 
 static void set_ulposc_cali_value(unsigned int cali_val)
 {
@@ -1221,10 +1239,12 @@ void mt_pmic_sshub_init(void)
 static int mt_scp_dump_sleep_count(void)
 {
 	int ret;
-	unsigned int ipi_data = SLP_DBG_CMD_GET_CNT;
+	struct ipi_tx_data_t ipi_data;
 
 	if (!slp_ipi_init_done)
 		scp_slp_ipi_init();
+
+	ipi_data.arg1 = SLP_DBG_CMD_GET_CNT;
 
 	ret = mtk_ipi_send_compl(&scp_ipidev, IPI_OUT_C_SLEEP_0,
 		IPI_SEND_WAIT, &ipi_data, PIN_OUT_C_SIZE_SLEEP_0, 500);
