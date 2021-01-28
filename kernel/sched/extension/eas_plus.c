@@ -827,7 +827,6 @@ done:
 
 #ifdef CONFIG_MTK_SCHED_BIG_TASK_MIGRATE
 DEFINE_PER_CPU(struct task_rotate_work, task_rotate_works);
-DEFINE_PER_CPU(unsigned long, rotate_flags);
 struct task_rotate_reset_uclamp_work task_rotate_reset_uclamp_works;
 bool big_task_rotation_enable;
 bool set_uclamp;
@@ -837,6 +836,13 @@ unsigned int scale_to_percent(unsigned int value)
 	WARN_ON(value > SCHED_CAPACITY_SCALE);
 
 	return (value * 100 / SCHED_CAPACITY_SCALE);
+}
+
+int is_reserved(int cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	return (rq->active_balance != 0);
 }
 
 bool is_min_capacity_cpu(int cpu)
@@ -852,12 +858,18 @@ bool is_min_capacity_cpu(int cpu)
 	return false;
 }
 
+bool is_max_capacity_cpu(int cpu)
+{
+	return capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE;
+}
+
 static void task_rotate_work_func(struct work_struct *work)
 {
 	struct task_rotate_work *wr = container_of(work,
 				struct task_rotate_work, w);
 
 	int ret = -1;
+	struct rq *src_rq, *dst_rq;
 
 	ret = migrate_swap(wr->src_task, wr->dst_task,
 			task_cpu(wr->dst_task), task_cpu(wr->src_task));
@@ -874,8 +886,16 @@ static void task_rotate_work_func(struct work_struct *work)
 
 	put_task_struct(wr->src_task);
 	put_task_struct(wr->dst_task);
-	clear_reserved(wr->src_cpu);
-	clear_reserved(wr->dst_cpu);
+
+	src_rq = cpu_rq(wr->src_cpu);
+	dst_rq = cpu_rq(wr->dst_cpu);
+
+	local_irq_disable();
+	double_rq_lock(src_rq, dst_rq);
+	src_rq->active_balance = 0;
+	dst_rq->active_balance = 0;
+	double_rq_unlock(src_rq, dst_rq);
+	local_irq_enable();
 }
 
 static void task_rotate_reset_uclamp_work_func(struct work_struct *work)

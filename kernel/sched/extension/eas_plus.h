@@ -27,6 +27,7 @@
 
 #define MIGR_IDLE_BALANCE      1
 #define MIGR_IDLE_RUNNING      2
+#define MIGR_ROTATION          3
 DECLARE_PER_CPU(struct task_struct*, migrate_task);
 
 struct rq *__migrate_task(struct rq *rq, struct rq_flags *rf,
@@ -105,33 +106,14 @@ struct task_rotate_reset_uclamp_work {
 };
 
 DECLARE_PER_CPU(struct task_rotate_work, task_rotate_works);
-DECLARE_PER_CPU(unsigned long, rotate_flags);
 extern bool big_task_rotation_enable;
 extern void task_rotate_work_init(void);
 extern void check_for_migration(struct task_struct *p);
+extern int is_reserved(int cpu);
 extern bool is_min_capacity_cpu(int cpu);
+extern bool is_max_capacity_cpu(int cpu);
 extern struct task_rotate_reset_uclamp_work task_rotate_reset_uclamp_works;
 extern bool set_uclamp;
-
-static inline int is_reserved(int cpu)
-{
-	return (per_cpu(rotate_flags, cpu) == 1);
-}
-
-static inline void mark_reserved(int cpu)
-{
-	per_cpu(rotate_flags, cpu) = 1;
-}
-
-static inline void clear_reserved(int cpu)
-{
-	per_cpu(rotate_flags, cpu) = 0;
-}
-
-static inline bool is_max_capacity_cpu(int cpu)
-{
-	return capacity_orig_of(cpu) == SCHED_CAPACITY_SCALE;
-}
 #endif
 
 /**
