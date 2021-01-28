@@ -161,6 +161,7 @@
 #define MT_GPUFREQ_BATT_PERCENT_PROTECT /* todo: disable it */
 #define MT_GPUFREQ_BATT_OC_PROTECT
 #define MT_GPUFREQ_DYNAMIC_POWER_TABLE_UPDATE
+// #define MT_GPUFREQ_PBM_SUPPORT
 
 /**************************************************
  * Battery Over Current Protect
@@ -285,7 +286,7 @@ struct g_pmic_info {
 	struct regulator *reg_vgpu;
 	struct regulator *reg_vsram_gpu;
 	struct regulator *reg_vcore;
-	struct pm_qos_request pm_vgpu;
+	struct mtk_pm_qos_request mtk_pm_vgpu;
 };
 
 /**************************************************

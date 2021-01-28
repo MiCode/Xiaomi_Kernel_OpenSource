@@ -24,8 +24,9 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/uaccess.h>
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <linux/clk-provider.h>
+#include <linux/seq_file.h>
 
 #include "mtk_devinfo.h"
 /* #define BRING_UP */
@@ -40,8 +41,6 @@
 #endif
 
 #ifdef MT_GPUFREQ_PBM_SUPPORT
-#include "upmu_sw.h"
-#include "upmu_hw.h"
 #include "mtk_pbm.h"
 #endif /* ifdef MT_GPUFREQ_PBM_SUPPORT */
 
@@ -61,7 +60,15 @@
 #include "mtk_static_power_mt6761.h"
 #endif /* ifdef MT_GPUFREQ_STATIC_PWR_READY2USE */
 
-#include "helio-dvfsrc-opp.h"
+#ifdef MT_GPUFREQ_BATT_OC_PROTECT
+#include "mtk_battery_oc_throttling.h"
+#endif
+#ifdef MT_GPUFREQ_LOW_BATT_VOLT_PROTECT
+#include "mtk_low_battery_throttling.h"
+#endif
+#ifdef MT_GPUFREQ_BATT_PERCENT_PROTECT
+#include "mtk_battery_percentage_throttling.h"
+#endif
 
 /**
  * ===============================================
@@ -682,7 +689,7 @@ int mt_gpufreq_get_cur_ceiling_idx(void)
 /*
  * API : Over Currents(OC) Callback
  */
-void mt_gpufreq_batt_oc_callback(BATTERY_OC_LEVEL battery_oc_level)
+void mt_gpufreq_batt_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 {
 	if (g_batt_oc_limited_ignore_state) {
 		gpufreq_pr_debug("@%s: ignore Over Currents(OC) protection\n",
@@ -755,7 +762,7 @@ mt_gpufreq_batt_percent_callback(BATTERY_PERCENT_LEVEL battery_percent_level)
 /*
  * API : Low Battery Volume Callback
  */
-void mt_gpufreq_low_batt_callback(LOW_BATTERY_LEVEL low_battery_level)
+void mt_gpufreq_low_batt_callback(enum LOW_BATTERY_LEVEL_TAG low_battery_level)
 {
 	if (g_low_batt_limited_ignore_state) {
 		gpufreq_pr_debug(
@@ -1356,17 +1363,17 @@ static int __mt_gpufreq_create_procfs(void)
 static void __mt_gpufreq_vcore_volt_switch(unsigned int volt_target)
 {
 	if (volt_target > 70000) {
-		pm_qos_update_request(&g_pmic->pm_vgpu, VCORE_OPP_0);
+		mtk_pm_qos_update_request(&g_pmic->mtk_pm_vgpu, VCORE_OPP_0);
 		g_cur_vcore_opp = VCORE_OPP_0;
 	} else if (volt_target > 65000) {
-		pm_qos_update_request(&g_pmic->pm_vgpu, VCORE_OPP_1);
+		mtk_pm_qos_update_request(&g_pmic->mtk_pm_vgpu, VCORE_OPP_1);
 		g_cur_vcore_opp = VCORE_OPP_1;
 	} else if (volt_target > 0) {
-		pm_qos_update_request(&g_pmic->pm_vgpu, VCORE_OPP_3);
+		mtk_pm_qos_update_request(&g_pmic->mtk_pm_vgpu, VCORE_OPP_3);
 		g_cur_vcore_opp = VCORE_OPP_3;
 	} else /* UNREQUEST */
-		pm_qos_update_request(&g_pmic->pm_vgpu, VCORE_OPP_UNREQ);
-
+		mtk_pm_qos_update_request(&g_pmic->mtk_pm_vgpu,
+			VCORE_OPP_UNREQ);
 }
 
 /*
@@ -2075,6 +2082,7 @@ static void __mt_gpufreq_low_batt_protect(unsigned int limited_index)
  */
 static void __mt_gpufreq_kick_pbm(int enable)
 {
+#ifdef MT_GPUFREQ_PBM_SUPPORT
 	unsigned int power;
 	unsigned int cur_freq;
 	unsigned int cur_volt;
@@ -2133,6 +2141,7 @@ static void __mt_gpufreq_kick_pbm(int enable)
 	} else {
 		kicker_pbm_by_gpu(false, 0, cur_volt / 100);
 	}
+#endif /* ifdef MT_GPUFREQ_PBM_SUPPORT */
 }
 
 /*
@@ -2351,8 +2360,8 @@ static int __mt_gpufreq_pdrv_probe(struct platform_device *pdev)
 		return PTR_ERR(g_pmic->reg_vgpu);
 	}
 #else
-	pm_qos_add_request(&g_pmic->pm_vgpu,
-	PM_QOS_VCORE_OPP, VCORE_OPP_0);
+	mtk_pm_qos_add_request(&g_pmic->mtk_pm_vgpu,
+	MTK_PM_QOS_VCORE_OPP, VCORE_OPP_0);
 
 	g_pmic->reg_vcore = regulator_get(&pdev->dev, "vcore");
 	if (IS_ERR(g_pmic->reg_vcore)) {
