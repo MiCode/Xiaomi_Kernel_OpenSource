@@ -2479,10 +2479,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 <&infracfg_ao CLK_INFRA_UFS_TICK>,
 				 <&infracfg_ao CLK_INFRA_UFS_AXI>,
 				 <&infracfg_ao CLK_INFRA_UNIPRO_TICK>,
-				 <&infracfg_ao CLK_INFRA_UNIPRO_MBIST>;
+				 <&infracfg_ao CLK_INFRA_UNIPRO_MBIST>,
+				 <&topckgen CLK_TOP_FAES_UFSFDE>,
+				 <&infracfg_ao CLK_INFRA_AES_UFSFDE>,
+				 <&infracfg_ao CLK_INFRA_AES_BCLK>;
 			clock-names = "ufs", "ufs_tick", "ufs_axi",
-				      "unipro_tick", "unipro_mbist";
+				      "unipro_tick", "unipro_mbist",
+				      "aes_top", "aes_infra", "aes_bclk";
 			freq-table-hz = <0 0>, <0 0>, <0 0>,
+					<0 0>, <0 0>, <0 0>,
 					<0 0>, <0 0>;
 
 			vcc-supply = <&mt6359_vemc_ldo_reg>;
