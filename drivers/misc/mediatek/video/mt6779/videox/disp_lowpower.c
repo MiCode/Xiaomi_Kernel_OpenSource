@@ -805,7 +805,6 @@ static void _vdo_mode_enter_idle(void)
 	disp_pm_qos_set_rdma_bw(out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
-
 }
 
 static void _vdo_mode_leave_idle(void)
@@ -865,7 +864,6 @@ static void _vdo_mode_leave_idle(void)
 	disp_pm_qos_set_ovl_bw(in_fps, out_fps, &bandwidth);
 	disp_pm_qos_update_bw(bandwidth);
 #endif
-
 }
 
 static void _cmd_mode_enter_idle(void)
@@ -992,6 +990,13 @@ static int _primary_path_idlemgr_monitor_thread(void *data)
 		}
 
 		if (primary_display_is_idle()) {
+			primary_display_manual_unlock();
+			continue;
+		}
+
+		/* Do not enter idle when we needs calculate FPS */
+		if (atomic_read(&lcm_fps_ctx.skip_update) == 0) {
+			DISPMSG("skip idle due to fps calculation\n");
 			primary_display_manual_unlock();
 			continue;
 		}

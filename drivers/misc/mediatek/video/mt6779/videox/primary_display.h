@@ -244,6 +244,18 @@ struct display_primary_path_context {
 	enum lcm_power_state lcm_ps;
 };
 
+#define LCM_FPS_ARRAY_SIZE	32
+struct lcm_fps_ctx_t {
+	int is_inited;
+	spinlock_t lock;
+	atomic_t skip_update;
+	unsigned int dsi_mode;
+	unsigned int head_idx;
+	unsigned int num;
+	unsigned long long last_ns;
+	unsigned long long array[LCM_FPS_ARRAY_SIZE];
+};
+
 static inline char *lcm_power_state_to_string(enum lcm_power_state ps)
 {
 	switch (ps) {
@@ -453,5 +465,11 @@ int primary_display_set_scenario(int scenario);
 enum DISP_MODULE_ENUM _get_dst_module_by_lcm(struct disp_lcm_handle *plcm);
 extern void check_mm0_clk_sts(void);
 int primary_display_get_dvfs_last_req(void);
+
+extern struct lcm_fps_ctx_t lcm_fps_ctx;
+int lcm_fps_ctx_init(struct lcm_fps_ctx_t *fps_ctx);
+int lcm_fps_ctx_reset(struct lcm_fps_ctx_t *fps_ctx);
+int lcm_fps_ctx_update(struct lcm_fps_ctx_t *fps_ctx,
+					unsigned long long cur_ns);
 
 #endif

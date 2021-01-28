@@ -215,9 +215,16 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 			module = DISP_MODULE_DSI1;
 		}
 
-		if (module == DISP_MODULE_DSI0)
+		if (module == DISP_MODULE_DSI0) {
 			reg_val = (DISP_REG_GET(DISPSYS_DSI0_BASE + 0xC) &
 				   0xffff);
+			if (reg_val & (1 << 2) &&
+				lcm_fps_ctx.dsi_mode == 0) {
+				unsigned long long ext_te_time = sched_clock();
+
+				lcm_fps_ctx_update(&lcm_fps_ctx, ext_te_time);
+			}
+		}
 		else
 			reg_val = (DISP_REG_GET(DISPSYS_DSI1_BASE + 0xC) &
 				   0xffff);
@@ -373,8 +380,12 @@ irqreturn_t disp_irq_handler(int irq, void *dev_id)
 			DDPIRQ("IRQ: RDMA%d frame done!\n", index);
 			rdma_done_irq_cnt[index]++;
 
-			if (index == 0)
+			if (index == 0) {
 				MMPathTracePrimaryOvl2Dsi();
+				if (lcm_fps_ctx.dsi_mode == 1)
+					lcm_fps_ctx_update(&lcm_fps_ctx,
+						rdma_end_time[index]);
+			}
 		}
 		if (reg_val & (1 << 1)) {
 			mmprofile_log_ex(

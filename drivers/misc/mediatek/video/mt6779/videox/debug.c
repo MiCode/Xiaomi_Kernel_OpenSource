@@ -1397,6 +1397,9 @@ static void process_dbg_opt(const char *opt)
 		hrt_bw_debug(evnt);
 	} else if (!strncmp(opt, "primary_display_ovl_recovery", 25)) {
 		primary_display_ovl_recovery();
+	} else if (!strncmp(opt, "lcm_fps_ctx_reset", 17)) {
+		primary_display_idlemgr_kick(__func__, 1);
+		lcm_fps_ctx_reset(&lcm_fps_ctx);
 	}
 }
 
