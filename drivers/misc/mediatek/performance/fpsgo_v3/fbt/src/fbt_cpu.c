@@ -54,6 +54,8 @@
 #include "xgf.h"
 #include "mini_top.h"
 #include "fps_composer.h"
+#include "fpsgo_cpu_policy.h"
+#include "fbt_cpu_ctrl.h"
 //#include "mtk_upower.h"
 
 #define GED_VSYNC_MISS_QUANTUM_NS 16666666
@@ -189,6 +191,7 @@ static int fbt_cap_margin_enable;
 static int ultra_rescue;
 static int loading_policy;
 static int llf_task_policy;
+static int enable_ceiling;
 
 static unsigned int cpu_max_freq;
 static struct fbt_cpu_dvfs_info *cpu_dvfs;
@@ -210,6 +213,8 @@ static unsigned long long vsync_time;
 
 static int vsync_period;
 static int _gdfrc_fps_limit;
+
+static int *freq_ceiling;
 
 static int nsec_to_100usec(unsigned long long nsec)
 {
@@ -513,6 +518,11 @@ static void fbt_set_cap_margin_locked(int set)
 
 static void fbt_free_bhr(void)
 {
+	int i;
+
+	for (i = 0; i < cluster_num; i++)
+		freq_ceiling[i] = -1;
+	fbt_set_cpu_freq_ceiling(cluster_num, freq_ceiling);
 
 	fbt_set_cap_margin_locked(0);
 }
@@ -921,7 +931,15 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 			else
 				max_cap_jerk = max(max_cap_jerk,
 					cpu_dvfs[cluster].capacity_ratio[min(mbhr_opp, i)]);
+
+			freq_ceiling[cluster] = cpu_dvfs[cluster].power[min(mbhr_opp, i)];
+		} else {
+			freq_ceiling[cluster] = -1;
 		}
+
+		if (enable_ceiling)
+			fpsgo_systrace_c_fbt(thr->pid, thr->buffer_id,
+				freq_ceiling[cluster],	"cpu_ceil_cluster_%d", cluster);
 	}
 
 	max_cap_jerk = max_cap_jerk == 0 ? 100 : max_cap_jerk;
@@ -976,6 +994,9 @@ static void fbt_set_min_cap_locked(struct render_info *thr, int min_cap,
 		if (strlen(dep_str) + strlen(temp) < MAIN_LOG_SIZE)
 			strncat(dep_str, temp, strlen(temp));
 	}
+
+	if (enable_ceiling && min_cap >= max_blc)
+		fbt_set_cpu_freq_ceiling(cluster_num, freq_ceiling);
 
 	fpsgo_main_trace("[%d] dep-list %s", thr->pid, dep_str);
 	kfree(dep_str);
@@ -3295,6 +3316,52 @@ static ssize_t llf_task_policy_store(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(llf_task_policy);
 
+static ssize_t enable_ceiling_show(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		char *buf)
+{
+	int val;
+
+	mutex_lock(&fbt_mlock);
+	val = enable_ceiling;
+	mutex_unlock(&fbt_mlock);
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", val);
+}
+
+static ssize_t enable_ceiling_store(struct kobject *kobj,
+		struct kobj_attribute *attr,
+		const char *buf, size_t count)
+{
+	int val = -1, i;
+	char acBuffer[FPSGO_SYSFS_MAX_BUFF_SIZE];
+	int arg;
+
+	if ((count > 0) && (count < FPSGO_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(acBuffer, FPSGO_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(acBuffer, 0, &arg) == 0)
+				val = arg;
+			else
+				return count;
+		}
+	}
+
+	mutex_lock(&fbt_mlock);
+	if (val != 0)
+		enable_ceiling = 1;
+	else {
+		enable_ceiling = 0;
+		for (i = 0; i < cluster_num; i++)
+			freq_ceiling[i] = -1;
+		fbt_set_cpu_freq_ceiling(cluster_num, freq_ceiling);
+	}
+	mutex_unlock(&fbt_mlock);
+
+	return count;
+}
+
+static KOBJ_ATTR_RW(enable_ceiling);
+
 void __exit fbt_cpu_exit(void)
 {
 #if API_READY
@@ -3324,6 +3391,8 @@ void __exit fbt_cpu_exit(void)
 			&kobj_attr_llf_task_policy);
 	fpsgo_sysfs_remove_file(fbt_kobj,
 			&kobj_attr_boost_ta);
+	fpsgo_sysfs_remove_file(fbt_kobj,
+			&kobj_attr_enable_ceiling);
 
 	fpsgo_sysfs_remove_dir(&fbt_kobj);
 
@@ -3331,6 +3400,9 @@ void __exit fbt_cpu_exit(void)
 	kfree(clus_obv);
 	kfree(cpu_dvfs);
 	kfree(clus_max_cap);
+
+	kfree(freq_ceiling);
+	fbt_cpu_ctrl_exit();
 }
 
 int __init fbt_cpu_init(void)
@@ -3375,6 +3447,7 @@ int __init fbt_cpu_init(void)
 	fbt_cap_margin_enable = 1;
 	boost_ta = fbt_get_default_boost_ta();
 	adjust_loading = fbt_get_default_adj_loading();
+	enable_ceiling = 0;
 
 	cluster_num = fpsgo_arch_nr_clusters();
 	if (cluster_num <= 0)
@@ -3420,6 +3493,8 @@ int __init fbt_cpu_init(void)
 				&kobj_attr_llf_task_policy);
 		fpsgo_sysfs_create_file(fbt_kobj,
 				&kobj_attr_boost_ta);
+		fpsgo_sysfs_create_file(fbt_kobj,
+				&kobj_attr_enable_ceiling);
 	}
 
 
@@ -3433,5 +3508,7 @@ int __init fbt_cpu_init(void)
 #endif
 	fbt_reg_dram_request(1);
 
+	freq_ceiling = kcalloc(cluster_num, sizeof(int), GFP_KERNEL);
+	fbt_cpu_ctrl_init();
 	return 0;
 }

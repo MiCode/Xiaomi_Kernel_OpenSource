@@ -18,6 +18,7 @@
 #include "fpsgo_base.h"
 #include "fpsgo_sysfs.h"
 #include "fpsgo_usedext.h"
+#include "fpsgo_cpu_policy.h"
 #include "fbt_cpu.h"
 #include "fstb.h"
 #include "fps_composer.h"
@@ -648,6 +649,9 @@ static int __init fpsgo_init(void)
 	int ret;
 
 	FPSGO_LOGI("[FPSGO_CTRL] init\n");
+
+	fpsgo_cpu_policy_init();
+
 	fpsgo_sysfs_init();
 
 	g_psNotifyWorkQueue =
