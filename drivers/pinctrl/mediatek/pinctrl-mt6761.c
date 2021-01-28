@@ -1076,6 +1076,7 @@ static struct platform_driver mt6761_pinctrl_driver = {
 	.driver = {
 		.name = "mt6761-pinctrl",
 		.of_match_table = mt6761_pinctrl_of_match,
+		.pm = &mtk_eint_pm_ops_v2,
 	},
 	.probe = mt6761_pinctrl_probe,
 };

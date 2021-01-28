@@ -770,6 +770,7 @@ static struct platform_driver mt6779_pinctrl_driver = {
 	.driver = {
 		.name = "mt6779-pinctrl",
 		.of_match_table = mt6779_pinctrl_of_match,
+		.pm = &mtk_eint_pm_ops_v2,
 	},
 	.probe = mt6779_pinctrl_probe,
 };

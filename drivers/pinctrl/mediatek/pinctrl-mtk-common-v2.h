@@ -263,6 +263,8 @@ int mtk_hw_get_value(struct mtk_pinctrl *hw, const struct mtk_pin_desc *desc,
 
 int mtk_build_eint(struct mtk_pinctrl *hw, struct platform_device *pdev);
 
+extern const struct dev_pm_ops mtk_eint_pm_ops_v2;
+
 int mtk_pinconf_bias_disable_set(struct mtk_pinctrl *hw,
 				 const struct mtk_pin_desc *desc);
 int mtk_pinconf_bias_disable_get(struct mtk_pinctrl *hw,
