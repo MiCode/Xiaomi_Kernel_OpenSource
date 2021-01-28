@@ -18,6 +18,7 @@
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/mmc/mt6771-msdc.h>
 #include <dt-bindings/pinctrl/mt6771-pinfunc.h>
+#include <dt-bindings/iio/mt635x-auxadc.h>
 #include <generated/autoconf.h>
 
 / {
@@ -809,8 +810,8 @@ firmware_class.path=/vendor/firmware";
 		compatible = "mediatek,pwrap";
 		reg = <0 0x1000d000 0 0x1000>;
 		interrupts = <GIC_SPI 185 IRQ_TYPE_LEVEL_HIGH>;
-		main_pmic: pmic_irq {
-			compatible = "mediatek,pmic-eint";
+		main_pmic: mt-pmic {
+			compatible = "mediatek,mt_pmic";
 			interrupt-controller;
 		};
 	};
