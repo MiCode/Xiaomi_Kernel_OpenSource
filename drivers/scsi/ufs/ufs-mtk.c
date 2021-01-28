@@ -66,6 +66,8 @@ static bool ufs_mtk_is_unmap_cmd(char cmd_op);
  */
 /* Self init Encryption and No Encryption array */
 static u8 di_init;
+/* Logical block count */
+static u64 logblk_cnt;
 /* For Encryption */
 static u16 *LBA_CRC16_ARRAY;
 /* For No Encryption */
@@ -78,7 +80,6 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 {
 	u8 ud_buf[UNIT_DESC_PARAM_ERASE_BLK_SIZE] = { 0 };
 	int len = UNIT_DESC_PARAM_ERASE_BLK_SIZE;
-	u64 logblk_cnt;
 
 	/* Already init */
 	if (di_init != 0)
@@ -150,6 +151,15 @@ int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 
 	lba = cmd->cmnd[5] | (cmd->cmnd[4] << 8) | (cmd->cmnd[3] << 16) |
 		(cmd->cmnd[2] << 24);
+
+	if ((u64)lba >= logblk_cnt) {
+		dev_info(hba->dev,
+			"%s: lba err! expected: logblk_cnt: 0x%llx, LBA: 0x%x\n",
+			__func__, logblk_cnt, lba);
+		WARN_ON(1);
+		return -EIO;
+	}
+
 	if (cmd->cmnd[0] == READ_16) /* HPB use READ_16, blk_cnt fix 1 */
 		blk_cnt = 1;
 	else
