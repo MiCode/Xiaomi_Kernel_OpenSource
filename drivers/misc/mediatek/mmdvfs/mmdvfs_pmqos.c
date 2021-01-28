@@ -61,6 +61,8 @@
 #include "mtk_qos_bound.h"
 #endif
 
+#include "swpm_me.h"
+
 #include <linux/regulator/consumer.h>
 static struct regulator *vcore_reg_id;
 
@@ -456,6 +458,9 @@ static void mm_apply_clk_for_all(u32 pm_qos_class, s32 src_mux_id,
 		freq[i] = set_freq_for_log(
 			freq[i], all_freqs[i]->current_step, i);
 	}
+	set_swpm_me_freq(all_freqs[3]->step_config[step].freq_step,
+			all_freqs[2]->step_config[step].freq_step,
+			all_freqs[1]->step_config[step].freq_step);
 	first_log = (pm_qos_class << 16) | step;
 
 #ifdef MMDVFS_MMP
@@ -2063,6 +2068,7 @@ static int __init mmdvfs_pmqos_late_init(void)
 	pr_notice("force flip step0 when late_init\n");
 #endif
 	total_hrt_bw = get_total_hrt_bw();
+	init_me_swpm();
 	return 0;
 }
 
