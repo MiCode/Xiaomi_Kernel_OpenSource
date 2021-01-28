@@ -24,6 +24,21 @@ static void fsm_finish_command(struct ccci_fsm_ctl *ctl,
 static void fsm_finish_event(struct ccci_fsm_ctl *ctl,
 	struct ccci_fsm_event *event);
 
+static int needforcestop;
+
+
+int force_md_stop(struct ccci_fsm_monitor *monitor_ctl)
+{
+	int ret = -1;
+	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(monitor_ctl->md_id);
+
+	needforcestop = 1;
+	ret = fsm_append_command(ctl, CCCI_COMMAND_STOP, 0);
+	CCCI_NORMAL_LOG(monitor_ctl->md_id, FSM,
+			"force md stop\n");
+	return ret;
+}
+
 unsigned long __weak BAT_Get_Battery_Voltage(int polling_mode)
 {
 	pr_debug("[ccci/dummy] %s is not supported!\n", __func__);
@@ -247,7 +262,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 	ctl->curr_state = CCCI_FSM_STARTING;
 	__pm_stay_awake(&ctl->wakelock);
 	/* 2. poll for critical users exit */
-	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
+	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
 		if (ccci_port_check_critical_user(ctl->md_id) == 0) {
 			user_exit = 1;
 			break;
@@ -281,7 +296,7 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 		goto fail;
 	ctl->boot_count++;
 	count = 0;
-	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL) {
+	while (count < BOOT_TIMEOUT/EVENT_POLL_INTEVAL && !needforcestop) {
 		spin_lock_irqsave(&ctl->event_lock, flags);
 		if (!list_empty(&ctl->event_queue)) {
 			event = list_first_entry(&ctl->event_queue,
@@ -340,6 +355,10 @@ static void fsm_routine_start(struct ccci_fsm_ctl *ctl,
 			count++;
 		msleep(EVENT_POLL_INTEVAL);
 	}
+	if (needforcestop) {
+		fsm_finish_command(ctl, cmd, -1);
+		return;
+	}
 	/* 4. check result, finish command */
 fail:
 	if (hs1_got)
@@ -377,7 +396,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	/* 1. state sanity check */
 	if (ctl->curr_state == CCCI_FSM_GATED)
 		goto success;
-	if (ctl->curr_state != CCCI_FSM_READY
+	if (ctl->curr_state != CCCI_FSM_READY && !needforcestop
 			&& ctl->curr_state != CCCI_FSM_EXCEPTION) {
 		fsm_finish_command(ctl, cmd, -1);
 		fsm_routine_zombie(ctl);
@@ -422,6 +441,7 @@ static void fsm_routine_stop(struct ccci_fsm_ctl *ctl,
 	spin_unlock_irqrestore(&ctl->event_lock, flags);
 	/* 6. always end in stopped state */
 success:
+	needforcestop = 0;
 	ctl->last_state = ctl->curr_state;
 	ctl->curr_state = CCCI_FSM_GATED;
 	fsm_broadcast_state(ctl, GATED);
