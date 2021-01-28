@@ -3164,7 +3164,7 @@ static int accdet_probe(struct platform_device *pdev)
 	timer_setup(&micbias_timer, dis_micbias_timerhandler, 0);
 	micbias_timer.expires = jiffies + MICBIAS_DISABLE_TIMER;
 	timer_setup(&accdet_init_timer, delay_init_timerhandler, 0);
-	micbias_timer.expires = jiffies + ACCDET_INIT_WAIT_TIMER;
+	accdet_init_timer.expires = jiffies + ACCDET_INIT_WAIT_TIMER;
 
 	/* Create workqueue */
 	accdet->delay_init_workqueue =
