@@ -394,7 +394,7 @@ static inline int mt_parse_dt(struct device *dev,
 	}
 
 	if (of_property_read_u32(np, "db_vbst", &val) == 0) {
-		if (val >= 4000 && val <= 6150) {
+		if (val >= 4000 && val <= 6200) {
 			mask->db_vbst.bitfield.vbst = 0x3f;
 			pdata->db_vbst.bitfield.vbst = (val - 4000) / 50;
 		}
@@ -578,4 +578,4 @@ module_platform_driver(mt6370_pmu_dsv);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("MediaTek MT6370 PMU DSV");
-MODULE_VERSION("1.0.0_G");
+MODULE_VERSION("1.0.1_G");
