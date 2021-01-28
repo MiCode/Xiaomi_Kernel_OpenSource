@@ -33,13 +33,20 @@
 #include "fstb.h"
 #include "eara_job_usedext.h"
 #include "mtk_upower.h"
+
+#if defined(CONFIG_MTK_APUSYS_SUPPORT)
+#include <linux/platform_device.h>
+#include "apusys_power.h"
+#include "apu_power_table.h"
+#else
+
 #if defined(CONFIG_MTK_VPU_SUPPORT)
 #include "vpu_dvfs.h"
 #endif
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
 #include "mdla_dvfs.h"
 #endif
-
+#endif
 
 #define MAX_DEVICE 2
 struct EARA_NN_JOB {
@@ -85,9 +92,11 @@ struct ppm_cobra_basic_pwr_data {
 
 #if !defined(CONFIG_MTK_VPU_SUPPORT)
 #define VPU_OPP_NUM 1
+#define APU_OPP_NUM 1
 #endif
 #if !defined(CONFIG_MTK_MDLA_SUPPORT)
 #define MDLA_OPP_NUM 1
+#define APU_OPP_NUM 1
 #endif
 struct eara_vpu_dvfs_info {
 	unsigned int freq[VPU_OPP_NUM];
@@ -140,7 +149,7 @@ static struct EARA_NN_JOB *eara_update_job_collect(int pid, int tid,
 		struct EARA_NN_JOB *new_nn_job;
 
 		new_nn_job = kmalloc(sizeof(struct EARA_NN_JOB), GFP_KERNEL);
-		if (!new_nn_job)
+		if (!new_nn_job || !arr_length)
 			goto out;
 
 		new_nn_job->pid = pid;
@@ -180,6 +189,41 @@ static struct EARA_NN_JOB *eara_update_job_collect(int pid, int tid,
 				arr_length * sizeof(__s32));
 			memcpy(iter->exec_time, exec_time,
 				arr_length * sizeof(__u64));
+		} else if (arr_length) {
+			kfree(iter->target_time);
+			kfree(iter->device);
+			kfree(iter->boost);
+			kfree(iter->exec_time);
+			iter->target_time =
+				kmalloc_array(
+					arr_length,
+					sizeof(__u64),
+					GFP_KERNEL);
+			iter->device =
+				kmalloc_array(
+					arr_length,
+					sizeof(__s32),
+					GFP_KERNEL);
+			iter->boost =
+				kmalloc_array(
+					arr_length,
+					sizeof(__s32),
+					GFP_KERNEL);
+			iter->exec_time =
+				kmalloc_array(
+					arr_length,
+					sizeof(__u64),
+					GFP_KERNEL);
+			memcpy(iter->device, device,
+				arr_length *sizeof(__s32));
+			memcpy(iter->boost, boost,
+				arr_length *sizeof(__s32));
+			memcpy(iter->exec_time, exec_time,
+				arr_length *sizeof(__u64));
+			memset(iter->target_time,
+				0, arr_length *sizeof(__u64));
+
+			iter->num_step = num_step;
 		}
 
 		iter->pid = pid;
@@ -474,7 +518,7 @@ void fpsgo_ctrl2eara_get_nn_ttime(unsigned int pid,
 	mutex_lock(&eara_lock);
 	nn_job = eara_find_entry(pid, mid);
 
-	if (!nn_job || ai_bench) {
+	if (!nn_job || ai_bench || nn_job->num_step != num_step) {
 		for (i = 0; i < num_step; i++)
 			for (j = 0; j < MAX_DEVICE; j++)
 				ttime[i * MAX_DEVICE + j] = 0;
@@ -959,7 +1003,9 @@ static int increase_xpu_cap(long long *t_c_time, long long *t_v_time,
 
 #if defined(CONFIG_MTK_VPU_SUPPORT)
 			if (power_diff_v != INT_MAX) {
-				new_vpu_opp++;
+				new_vpu_opp =
+					new_vpu_opp < APU_OPP_NUM - 1 ?
+					new_vpu_opp + 1 : APU_OPP_NUM - 1;
 				new_vpu_cap =
 					eara_vpu_table.capacity_ratio[
 					new_vpu_opp];
@@ -970,7 +1016,9 @@ static int increase_xpu_cap(long long *t_c_time, long long *t_v_time,
 
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
 			if (power_diff_m != INT_MAX) {
-				new_mdla_opp++;
+				new_mdla_opp =
+					new_mdla_opp < APU_OPP_NUM - 1 ?
+					new_mdla_opp + 1 : APU_OPP_NUM - 1;
 				new_mdla_cap =
 					eara_mdla_table.capacity_ratio[
 					new_mdla_opp];
@@ -1142,9 +1190,23 @@ static void get_pwr_tbl(void)
 	memcpy(&eara_cpu_table, &(cpu_dvfs[cluster_num - 1]),
 		sizeof(eara_cpu_table));
 
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	if (!apusys_power_check())
+		return;
+#endif
+
 #if defined(CONFIG_MTK_VPU_SUPPORT)
-#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
-	for (opp = 0; opp < VPU_OPP_NUM; opp++) {
+	for (opp = 0; opp < APU_OPP_NUM; opp++) {
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		eara_vpu_table.power[opp] =
+			vpu_power_table[opp].power;
+		eara_vpu_table.freq[opp] =
+			apusys_opp_to_freq(VPU0, opp);
+		if (apusys_opp_to_freq(VPU0, 0))
+			eara_vpu_table.capacity_ratio[opp] =
+				apusys_opp_to_freq(VPU0, opp) *
+				100 / apusys_opp_to_freq(VPU0, 0);
+#else
 		eara_vpu_table.power[opp] =
 			vpu_power_table[opp].power;
 		eara_vpu_table.freq[opp] =
@@ -1152,13 +1214,22 @@ static void get_pwr_tbl(void)
 		eara_vpu_table.capacity_ratio[opp] =
 			get_vpu_opp_to_freq(opp) *
 			100 / get_vpu_opp_to_freq(0);
-	}
 #endif
+	}
 #endif
 
 #if defined(CONFIG_MTK_MDLA_SUPPORT)
-#if defined(CONFIG_MACH_MT6768) || defined(CONFIG_MACH_MT6785)
-	for (opp = 0; opp < MDLA_OPP_NUM; opp++) {
+	for (opp = 0; opp < APU_OPP_NUM; opp++) {
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		eara_mdla_table.power[opp] =
+			mdla_power_table[opp].power;
+		eara_mdla_table.freq[opp] =
+			apusys_opp_to_freq(MDLA0, opp);
+		if (apusys_opp_to_freq(MDLA0, 0))
+			eara_mdla_table.capacity_ratio[opp] =
+				apusys_opp_to_freq(MDLA0, opp) *
+				100 / apusys_opp_to_freq(MDLA0, 0);
+#else
 		eara_mdla_table.power[opp] =
 			mdla_power_table[opp].power;
 		eara_mdla_table.freq[opp] =
@@ -1166,8 +1237,8 @@ static void get_pwr_tbl(void)
 		eara_mdla_table.capacity_ratio[opp] =
 			get_mdla_opp_to_freq(opp) *
 			100 / get_mdla_opp_to_freq(0);
-	}
 #endif
+	}
 #endif
 }
 

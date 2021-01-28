@@ -32,7 +32,8 @@ enum APU_OPP_INDEX {
 	APU_OPP_7 = 7,
 	APU_OPP_8 = 8,
 	APU_OPP_9 = 9,
-	APU_OPP_NUM
+	APU_OPP_NUM,
+	VPU_OPP_NUM = APU_OPP_NUM,
 };
 
 struct apu_opp_info {
