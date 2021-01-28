@@ -4684,6 +4684,7 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 			       struct mtk_plane_state *plane_state)
 {
 	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(crtc);
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 	unsigned int plane_index = to_crtc_plane_index(plane->index);
 	struct drm_crtc_state *crtc_state = crtc->state;
 	struct mtk_crtc_state *state = to_mtk_crtc_state(crtc_state);
@@ -4700,6 +4701,16 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 	if (comp)
 		DDPINFO("%s+ comp_id:%d, comp_id:%d\n", __func__, comp->id,
 		    plane_state->comp_state.comp_id);
+
+	/* When use Dynamic OVL 4+2 switch feature, need reAttach
+	 * crtc's comps, In order to fix comp attach wrong crtc issue,
+	 * The first problem solved was GreenScreen, that is play SVP
+	 * DRM, then connect WFD, disconnect WFD, then play SVP DRM again,
+	 * the video is green on phone.
+	 */
+	if (priv && mtk_drm_helper_get_opt(priv->helper_opt,
+			MTK_DRM_OPT_VDS_PATH_SWITCH))
+		mtk_crtc_attach_ddp_comp(crtc, mtk_crtc->ddp_mode, true);
 
 	if (plane_state->pending.enable) {
 		if (mtk_crtc->is_dual_pipe) {
