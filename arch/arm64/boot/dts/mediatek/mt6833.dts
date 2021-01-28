@@ -21,6 +21,7 @@
 #include <dt-bindings/mmc/mt6853-msdc.h>
 #include <dt-bindings/memory/mt6833-larb-port.h>
 #include <dt-bindings/pinctrl/mt6833-pinfunc.h>
+#include <dt-bindings/gce/mt6833-gce.h>
 
 / {
 	model = "MT6833";
@@ -839,26 +840,44 @@ page_owner=on";
 		reg = <0 0x10227000 0 0x1000>;
 	};
 
-	gce@10228000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10228000 0 0x1000>;
+	gce_mbox: gce_mbox@10228000 {
+		compatible = "mediatek,mailbox-gce";
+		reg = <0 0x10228000 0 0x4000>;
 		interrupts = <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <3>;
+		#gce-event-cells = <1>;
+		#gce-subsys-cells = <2>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
+		clocks = <&infracfg_ao CLK_IFRAO_GCE>,
+			 <&infracfg_ao CLK_IFRAO_GCE_26M>;
+		clock-names = "gce", "gce-timer";
 	};
 
-	gce@10229000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x10229000 0 0x1000>;
-		interrupts = <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
+	gce_mbox_sec: gce_mbox_sec@10228000 {
+		compatible = "mediatek,mailbox-gce-sec";
+		reg = <0 0x10228000 0 0x4000>;
+		#mbox-cells = <3>;
+		mboxes = <&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
+		clock-names = "gce";
+		clocks = <&infracfg_ao CLK_IFRAO_GCE>;
 	};
 
-	gce@1022a000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x1022a000 0 0x1000>;
-	};
-
-	gce@1022b000 {
-		compatible = "mediatek,gce";
-		reg = <0 0x1022b000 0 0x1000>;
+	cmdq-test {
+		compatible = "mediatek,cmdq-test";
+		mediatek,gce = <&gce_mbox>;
+		mmsys_config = <&mmsys_config>;
+		mediatek,gce-subsys = <99>, <SUBSYS_1400XXXX>;
+		mboxes = <&gce_mbox 23 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 22 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>,
+			<&gce_mbox_sec 11 0 CMDQ_THR_PRIO_1>;
+		token_user0 = /bits/ 16 <CMDQ_SYNC_TOKEN_USER_0>;
+		token_gpr_set4 = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>;
 	};
 
 	infra_dpmaif@1022c000 {
