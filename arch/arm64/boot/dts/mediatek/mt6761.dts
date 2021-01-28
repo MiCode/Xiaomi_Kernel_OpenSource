@@ -256,7 +256,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	infracfg_ao: infracfg_ao@10001000 {
-		compatible = "mediatek,infracfg_ao", "syscon";
+		compatible = "mediatek,mt6761-infracfg", "syscon";
 		reg = <0 0x10001000 0 0x1000>;
 		interrupts = <GIC_SPI 91 IRQ_TYPE_EDGE_RISING>;
 		#clock-cells = <1>;
@@ -283,7 +283,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	topckgen: topckgen@10000000 {
-		compatible = "mediatek,topckgen", "syscon";
+		compatible = "mediatek,mt6761-topckgen", "syscon";
 		reg = <0 0x10000000 0 0x1000>;
 		#clock-cells = <1>;
 	};
@@ -525,7 +525,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	apmixed: apmixed@1000c000 {
-		compatible = "mediatek,apmixed", "syscon";
+		compatible = "mediatek,mt6761-apmixedsys", "syscon";
 		reg = <0 0x1000c000 0 0x1000>;
 		#clock-cells = <1>;
 	};
