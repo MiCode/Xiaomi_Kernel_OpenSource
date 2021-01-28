@@ -36,6 +36,7 @@ int register_low_battery_notify(low_battery_callback lb_cb,
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 	return 0;
 }
+EXPORT_SYMBOL(register_low_battery_notify);
 
 void exec_low_battery_callback(unsigned int thd)
 {

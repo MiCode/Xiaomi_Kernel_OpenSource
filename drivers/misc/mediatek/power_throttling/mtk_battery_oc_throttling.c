@@ -82,6 +82,7 @@ void register_battery_oc_notify(battery_oc_callback oc_cb,
 	occb_tb[prio_val].occb = oc_cb;
 	pr_info("[%s] prio_val=%d\n", __func__, prio_val);
 }
+EXPORT_SYMBOL(register_battery_oc_notify);
 
 static void exec_battery_oc_callback(enum BATTERY_OC_LEVEL_TAG battery_oc_level)
 {
