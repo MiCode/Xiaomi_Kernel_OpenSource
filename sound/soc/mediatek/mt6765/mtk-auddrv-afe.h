@@ -96,6 +96,8 @@ enum audio_sdm_level {
  *****************************************************************************/
 
 #define AUDIO_CLK_CFG_4 (0x0080)
+#define AUDIO_CLK_CFG_4_CLR (0x0088)
+#define AUDIO_CLK_CFG_4_SET (0x0084)
 #define AUDIO_CLK_CFG_6 (0x00A0)
 #define AUDIO_CLK_CFG_7 (0x00B0)
 #define AUDIO_CLK_CFG_8 (0x00C0)

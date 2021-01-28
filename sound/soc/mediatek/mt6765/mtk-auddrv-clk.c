@@ -222,41 +222,11 @@ int AudDrv_Clk_probe(void *dev)
 	if (ret)
 		return ret;
 
-	for (i = 0; i < ARRAY_SIZE(aud_clks); i++) {
-#ifdef MT6739_scp
-		if (i == CLOCK_SCP_SYS_AUD) /* CLOCK_SCP_SYS_AUD is MTCMOS */
-			continue;
-#endif
-		if (aud_clks[i].clk_status) {
-			ret = clk_prepare(aud_clks[i].clock);
-			if (ret) {
-				pr_debug("%s clk_prepare %s fail %d\n",
-					 __func__,
-					 aud_clks[i].name, ret);
-			} else {
-				aud_clks[i].clk_prepare = true;
-			}
-		}
-	}
 	return ret;
 }
 
 void AudDrv_Clk_Deinit(void *dev)
 {
-	size_t i;
-
-	pr_debug("%s\n", __func__);
-	for (i = 0; i < ARRAY_SIZE(aud_clks); i++) {
-#ifdef MT6739_scp
-		if (i == CLOCK_SCP_SYS_AUD) /* CLOCK_SCP_SYS_AUD is MTCMOS */
-			continue;
-#endif
-		if (aud_clks[i].clock && !IS_ERR(aud_clks[i].clock) &&
-		    aud_clks[i].clk_prepare) {
-			clk_unprepare(aud_clks[i].clock);
-			aud_clks[i].clk_prepare = false;
-		}
-	}
 }
 #ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
@@ -328,9 +298,6 @@ void AudDrv_Bus_Init(void)
 void AudDrv_AUDINTBUS_Sel(int parentidx)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
-
-	int ret = 0;
-
 	if (!aud_clks[CLOCK_MUX_AUDIOINTBUS].clk_prepare ||
 	    !aud_clks[CLOCK_TOP_SYSPLL1_D4].clk_prepare ||
 	    !aud_clks[CLOCK_CLK26M].clk_prepare) {
@@ -338,26 +305,11 @@ void AudDrv_AUDINTBUS_Sel(int parentidx)
 		goto EXIT;
 	}
 
-	/* pr_debug("+AudDrv_AUDINTBUS_Sel, parentidx = %d\n", parentidx); */
-	if (parentidx == 1) {
-		ret = clk_set_parent(aud_clks[CLOCK_MUX_AUDIOINTBUS].clock,
-				     aud_clks[CLOCK_TOP_SYSPLL1_D4].clock);
-		if (ret) {
-			pr_debug("%s clk_set_parent %s-%s fail %d\n", __func__,
-				 aud_clks[CLOCK_MUX_AUDIOINTBUS].name,
-				 aud_clks[CLOCK_TOP_SYSPLL1_D4].name, ret);
-			goto EXIT;
-		}
-	} else if (parentidx == 0) {
-		ret = clk_set_parent(aud_clks[CLOCK_MUX_AUDIOINTBUS].clock,
-				     aud_clks[CLOCK_CLK26M].clock);
-		if (ret) {
-			pr_debug("%s clk_set_parent %s-%s fail %d\n", __func__,
-				 aud_clks[CLOCK_MUX_AUDIOINTBUS].name,
-				 aud_clks[CLOCK_CLK26M].name, ret);
-			goto EXIT;
-		}
-	}
+	clksys_set_reg(AUDIO_CLK_CFG_4_CLR, 0x3, 0x3);
+	clksys_set_reg(AUDIO_CLK_CFG_4_SET, parentidx, 0x3);
+	pr_debug("%s(), parentidx = %d, CLK_CFG_4 = 0x%08x\r\n",
+		 __func__, parentidx, clksys_get_reg(AUDIO_CLK_CFG_4));
+
 EXIT:
 	/* pr_debug("-%s()\n", __func__); */
 	return;
@@ -525,12 +477,26 @@ void AudDrv_Clk_On(void)
 {
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	int ret = 0;
+	size_t i;
 
 	pr_debug("AudDrv_Clk_On, Aud_AFE_Clk_cntr:%d\n",
 		 Aud_AFE_Clk_cntr);
 	mutex_lock(&auddrv_clk_mutex);
 	Aud_AFE_Clk_cntr++;
 	if (Aud_AFE_Clk_cntr == 1) {
+		for (i = 0; i < ARRAY_SIZE(aud_clks); i++) {
+			if (aud_clks[i].clk_status) {
+				ret = clk_prepare(aud_clks[i].clock);
+				if (ret) {
+					pr_debug("%s clk_prepare %s fail %d\n",
+						 __func__,
+						 aud_clks[i].name, ret);
+				} else {
+					aud_clks[i].clk_prepare = true;
+				}
+			}
+		}
+
 #ifdef PM_MANAGER_API
 #ifdef MT6739_scp
 		if (aud_clks[CLOCK_SCP_SYS_AUD].clk_status) {
@@ -592,6 +558,8 @@ EXPORT_SYMBOL(AudDrv_Clk_On);
 
 void AudDrv_Clk_Off(void)
 {
+	size_t i;
+
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	pr_debug("!! AudDrv_Clk_Off, Aud_AFE_Clk_cntr:%d\n",
 		 Aud_AFE_Clk_cntr);
@@ -634,6 +602,15 @@ void AudDrv_Clk_Off(void)
 		Afe_Set_Reg(AUDIO_TOP_CON0, 0x06000044, 0x06000044);
 /* bit25=1, with 133m mastesr and 66m slave bus clock cg gating */
 #endif
+
+		for (i = 0; i < ARRAY_SIZE(aud_clks); i++) {
+			if (aud_clks[i].clock && !IS_ERR(aud_clks[i].clock)
+				&& aud_clks[i].clk_prepare) {
+				clk_unprepare(aud_clks[i].clock);
+				aud_clks[i].clk_prepare = false;
+			}
+		}
+
 	} else if (Aud_AFE_Clk_cntr < 0) {
 		pr_debug("!! AudDrv_Clk_Off, Aud_AFE_Clk_cntr<0 (%d)\n",
 			 Aud_AFE_Clk_cntr);
