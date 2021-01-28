@@ -1338,6 +1338,8 @@ static const struct file_operations mtkts_btsmdpa_param_fops = {
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 static int mtkts_btsmdpa_probe(struct platform_device *pdev)
 {
+	struct proc_dir_entry *entry = NULL;
+	struct proc_dir_entry *mtkts_btsmdpa_dir = NULL;
 	int err = 0;
 	int ret = 0;
 
@@ -1363,6 +1365,27 @@ static int mtkts_btsmdpa_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* setup default table */
+	mtkts_btsmdpa_prepare_table(g_RAP_ntc_table);
+
+	mtkts_btsmdpa_dir = mtk_thermal_get_proc_drv_therm_dir_entry();
+	if (!mtkts_btsmdpa_dir) {
+		mtkts_btsmdpa_dprintk(
+			"[%s]: mkdir /proc/driver/thermal failed\n",
+			__func__);
+	} else {
+		entry = proc_create("tzbtspa", 0664, mtkts_btsmdpa_dir,
+				&mtkts_btsmdpa_fops);
+		if (entry)
+			proc_set_user(entry, uid, gid);
+
+	entry = proc_create("tzbtspa_param", 0664, mtkts_btsmdpa_dir,
+				&mtkts_btsmdpa_param_fops);
+		if (entry)
+			proc_set_user(entry, uid, gid);
+	}
+
+	mtkts_btsmdpa_register_thermal();
 	return err;
 }
 
@@ -1391,12 +1414,13 @@ static struct platform_driver mtk_thermal_btsmdpa_driver = {
 
 static int __init mtkts_btsmdpa_init(void)
 {
-	struct proc_dir_entry *entry = NULL;
-	struct proc_dir_entry *mtkts_btsmdpa_dir = NULL;
+
 #if defined(CONFIG_MEDIATEK_MT6577_AUXADC)
 	int err = 0;
+#else
+	struct proc_dir_entry *entry = NULL;
+	struct proc_dir_entry *mtkts_btsmdpa_dir = NULL;
 #endif
-
 
 	mtkts_btsmdpa_dprintk("[%s]\n", __func__);
 
@@ -1407,7 +1431,7 @@ static int __init mtkts_btsmdpa_init(void)
 		mtkts_btsmdpa_printk("thermal driver callback register failed.\n");
 		return err;
 	}
-#endif
+#else
 	/* setup default table */
 	mtkts_btsmdpa_prepare_table(g_RAP_ntc_table);
 
@@ -1428,7 +1452,7 @@ static int __init mtkts_btsmdpa_init(void)
 	}
 
 	mtkts_btsmdpa_register_thermal();
-
+#endif
 	return 0;
 }
 
