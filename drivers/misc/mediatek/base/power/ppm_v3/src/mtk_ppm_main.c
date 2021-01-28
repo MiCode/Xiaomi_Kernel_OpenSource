@@ -18,6 +18,8 @@
 #include <linux/string.h>
 #include <linux/topology.h>
 #include "mtk_ppm_internal.h"
+#define CREATE_TRACE_POINTS
+#include "mtk_ppm_trace.h"
 /* #include <trace/events/mtk_events.h> */
 #include <linux/of.h>
 
