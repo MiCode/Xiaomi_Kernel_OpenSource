@@ -367,7 +367,7 @@ void msdc_dump_info(char **buff, unsigned long *size, struct seq_file *m,
 		mdelay(10);
 
 	msdc_dump_dbg_register(buff, size, m, host);
-	//mmc_cmd_dump(NULL, NULL, NULL, host->mmc, 100);
+	mmc_cmd_dump(NULL, NULL, NULL, host->mmc, 100);
 }
 EXPORT_SYMBOL(msdc_dump_info);
 /***************************************************************
@@ -408,7 +408,7 @@ void msdc_clr_fifo(unsigned int id)
 	if (MSDC_READ32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS) {
 		pr_notice("<<<WARN>>>: msdc%d, clear FIFO when DMA active, MSDC_DMA_CFG=0x%x\n",
 			id, MSDC_READ32(MSDC_DMA_CFG));
-		//show_stack(current, NULL);
+		dump_stack();
 		MSDC_SET_FIELD(MSDC_DMA_CTRL, MSDC_DMA_CTRL_STOP, 1);
 		msdc_retry((MSDC_READ32(MSDC_DMA_CFG) & MSDC_DMA_CFG_STS),
 			retry, cnt, id);
@@ -1117,42 +1117,12 @@ int msdc_switch_part(struct msdc_host *host, char part_id)
 
 static int msdc_cache_onoff(struct mmc_data *data)
 {
-#if !defined(FPGA_PLATFORM)
-	u8 *ptr = (u8 *) sg_virt(data->sg);
-#if defined(MTK_MSDC_USE_CACHE)
-	int i;
-	enum boot_mode_t mode;
 
-	/*
-	 * Enable cache by boot mode
-	 * only enable emmc cache in normal boot up, alarm, and sw reboot,
-	 * disable cache in other modes
-	 */
-	mode = get_boot_mode();
-	if ((mode != NORMAL_BOOT) && (mode != ALARM_BOOT)
-		&& (mode != SW_REBOOT)) {
-		/* Set cache_size as 0 so that mmc layer won't enable cache */
-		*(ptr + 252) = *(ptr + 251) = *(ptr + 250) = *(ptr + 249) = 0;
-		return 0;
-	}
-	/*
-	 * Enable cache by eMMC vendor
-	 * disable emmc cache if eMMC vendor is in emmc_cache_quirk[]
+	/* In the past, cache was opened only in normal boot up,
+	 * alarm, and sw reboot, disable cache in other modes.
+	 * Now, enable cache in all mode.
 	 */
 
-	for (i = 0; g_emmc_cache_quirk[i] != 0 ; i++) {
-		if (g_emmc_cache_quirk[i] == g_emmc_id) {
-			/* Set cache_size as 0
-			 * so that mmc layer won't enable cache
-			 */
-			*(ptr + 252) = *(ptr + 251) = 0;
-			*(ptr + 250) = *(ptr + 249) = 0;
-		}
-	}
-#else
-	*(ptr + 252) = *(ptr + 251) = *(ptr + 250) = *(ptr + 249) = 0;
-#endif
-#endif
 	return 0;
 }
 
@@ -1583,7 +1553,7 @@ static unsigned int msdc_command_start(struct msdc_host   *host,
 		spin_unlock_irqrestore(&host->reg_lock, flags);
 	}
 
-	//dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
+	dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
 
 	sdc_send_cmd(rawcmd, cmd->arg);
 
@@ -1728,7 +1698,7 @@ skip_cmd_resp_polling:
 #endif
 			break;
 		}
-		//dbg_add_host_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
+		dbg_add_host_log(host->mmc, 1, cmd->opcode, cmd->resp[0]);
 	} else if (intsts & MSDC_INT_RSPCRCERR) {
 		cmd->error = (unsigned int)-EILSEQ;
 		if ((cmd->opcode != 19) && (cmd->opcode != 21)) {
@@ -1938,7 +1908,7 @@ static unsigned int msdc_cmdq_command_start(struct msdc_host *host,
 	MSDC_CLR_BIT32(MSDC_INTEN, wints_cq_cmd);
 	spin_unlock_irqrestore(&host->reg_lock, flags);
 
-	//dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
+	dbg_add_host_log(host->mmc, 0, cmd->opcode, cmd->arg);
 	sdc_send_cmdq_cmd(cmd->opcode, cmd->arg);
 
 	return 0;
@@ -2027,8 +1997,8 @@ skip_cmdq_resp_polling:
 				*rsp = MSDC_READ32(SDC_RESP0);
 				break;
 			}
-			//dbg_add_host_log(host->mmc, 1, cmd->opcode,
-			//	cmd->resp[0]);
+			dbg_add_host_log(host->mmc, 1, cmd->opcode,
+				cmd->resp[0]);
 		} else if (intsts & MSDC_INT_RSPCRCERR) {
 			cmd->error = (unsigned int)-EILSEQ;
 			pr_notice("[%s]: msdc%d XXX CMD<%d> MSDC_INT_RSPCRCERR Arg<0x%.8x>",
@@ -2944,8 +2914,8 @@ int msdc_do_request_prepare(struct msdc_host *host, struct mmc_request *mrq)
 #ifdef MTK_MSDC_USE_CACHE
 		if (check_mmc_cache_ctrl(host->mmc->card)
 		 && (mrq->cmd->opcode == MMC_WRITE_MULTIPLE_BLOCK)) {
-		//	l_force_prg = !msdc_can_apply_cache(mrq->cmd->arg,
-		//		data->blocks);
+			l_force_prg = !msdc_can_apply_cache(mrq->cmd->arg,
+				data->blocks);
 			if (l_force_prg && !(mrq->sbc->arg & (0x1 << 31)))
 				mrq->sbc->arg |= (1 << 24);
 		}
@@ -4530,7 +4500,7 @@ static void msdc_check_data_timeout(struct work_struct *work)
 
 	intsts = MSDC_READ32(MSDC_INT);
 
-	//msdc_dump_host_state(NULL, NULL, NULL, host);
+	msdc_dump_host_state(NULL, NULL, NULL, host);
 	msdc_dump_info(NULL, 0, NULL, host->id);
 
 	/* MSDC have received int, but delay by system. Just print warning */
@@ -4542,7 +4512,7 @@ static void msdc_check_data_timeout(struct work_struct *work)
 	}
 
 	if (msdc_use_async_dma(data->host_cookie)) {
-		//dbg_add_host_log(host->mmc, 3, 0, 0);
+		dbg_add_host_log(host->mmc, 3, 0, 0);
 		msdc_dma_stop(host);
 		msdc_dma_clear(host);
 		msdc_reset_hw(host->id);
@@ -4645,7 +4615,7 @@ static void msdc_irq_data_complete(struct msdc_host *host,
 		msdc_dma_stop(host);
 		mrq = host->mrq;
 		if (error) {
-			//dbg_add_host_log(host->mmc, 3, 0, 1);
+			dbg_add_host_log(host->mmc, 3, 0, 1);
 #if defined(CONFIG_MTK_HW_FDE) && defined(CONFIG_MTK_HW_FDE_AES)
 			if (MSDC_CHECK_FDE_ERR(host->mmc, mrq))
 				goto skip_non_FDE_ERROR_HANDLING;
@@ -4692,7 +4662,7 @@ skip:
 			 */
 			mrq->cmd->error = (unsigned int)-EILSEQ;
 		} else {
-			//dbg_add_host_log(host->mmc, 3, 0, 0);
+			dbg_add_host_log(host->mmc, 3, 0, 0);
 			msdc_dma_clear(host);
 
 #ifdef CONFIG_MTK_EMMC_CQ_SUPPORT
@@ -4766,7 +4736,7 @@ static irqreturn_t msdc_irq(int irq, void *dev_id)
 		/* GPD or BD checksum verification error occurs.
 		 * There shall be HW issue, so BUG_ON here
 		 */
-		//msdc_dump_gpd_bd(host->id);
+		msdc_dump_gpd_bd(host->id);
 		msdc_dump_dbg_register(NULL, 0, NULL, host);
 		if (host->hw->host_function == MSDC_SD) {
 #ifdef CONFIG_GPIOLIB
@@ -5207,8 +5177,8 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	msdc_dump_clock_sts(NULL, 0, NULL, host);
 #endif
 
-	//if (host->hw->host_function == MSDC_EMMC)
-	//	msdc_debug_proc_init_bootdevice();
+	if (host->hw->host_function == MSDC_EMMC)
+		msdc_debug_proc_init_bootdevice();
 
 	return 0;
 
@@ -5377,7 +5347,7 @@ static int __init mt_msdc_init(void)
 		return ret;
 	}
 
-	//msdc_debug_proc_init();
+	msdc_debug_proc_init();
 
 	pr_debug(DRV_NAME ": MediaTek MSDC Driver\n");
 

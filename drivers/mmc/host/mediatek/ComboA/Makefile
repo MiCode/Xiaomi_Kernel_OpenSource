@@ -52,10 +52,8 @@ ccflags-y += -Wno-error=unused-function
 obj-$(CONFIG_MMC_MTK_PRO) += msdc.o
 
 msdc-y += sd.o
-#msdc-y += dbg.o
-#msdc-y += mtk_sd_misc.o
+msdc-y += dbg.o
 msdc-y += msdc_tune.o
-#msdc-y += msdc_partition.o
 msdc-y += autok.o
 ifeq ($(CONFIG_MMC_CRYPTO),y)
 msdc-y += sw-cqhci-crypto.o
