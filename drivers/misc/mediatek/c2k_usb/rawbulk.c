@@ -319,7 +319,7 @@ static ssize_t rawbulk_attr_store(struct device *dev,
 	if (idx == ATTR_ENABLE) {
 #endif
 		int enable;
-		long tmp;
+		long tmp = 0;
 
 #ifdef SUPPORT_LEGACY_CONTROL
 		if (idx == ATTR_ENABLE) {
@@ -451,7 +451,7 @@ static ssize_t rawbulk_attr_store(struct device *dev,
 		if (fn->transfer_id == RAWBULK_TID_MODEM) {
 			if (check_enable_state(fn)) {
 				int val, ret;
-				long tmp;
+				long tmp = 0;
 
 				ret = kstrtol(buf, 0, &tmp);
 				val = (int)tmp;
@@ -460,14 +460,14 @@ static ssize_t rawbulk_attr_store(struct device *dev,
 		}
 	} else if (idx == ATTR_AUTORECONN) {
 		int val, ret;
-		long tmp;
+		long tmp = 0;
 
 		ret = kstrtol(buf, 0, &tmp);
 		val = (int)tmp;
 		fn->autoreconn = !!val;
 	} else {
 		int val, ret;
-		long tmp;
+		long tmp = 0;
 
 		ret = kstrtol(buf, 0, &tmp);
 		val = (int)tmp;
