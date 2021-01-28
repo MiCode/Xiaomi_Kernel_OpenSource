@@ -599,6 +599,16 @@ int charger_dev_is_direct_charging_vbuslowerr(
 }
 EXPORT_SYMBOL(charger_dev_is_direct_charging_vbuslowerr);
 
+int charger_dev_init_direct_charging_chip(struct charger_device *chg_dev)
+{
+	if (chg_dev != NULL && chg_dev->ops != NULL &&
+	    chg_dev->ops->init_direct_charging_chip)
+		return chg_dev->ops->init_direct_charging_chip(chg_dev);
+
+	return -ENOTSUPP;
+}
+EXPORT_SYMBOL(charger_dev_init_direct_charging_chip);
+
 int charger_dev_enable_chg_type_det(struct charger_device *chg_dev, bool en)
 {
 	if (chg_dev != NULL && chg_dev->ops != NULL &&
@@ -838,7 +848,7 @@ struct charger_device *charger_device_register(const char *name,
 	chg_dev->dev.class = charger_class;
 	chg_dev->dev.parent = parent;
 	chg_dev->dev.release = charger_device_release;
-	dev_set_name(&chg_dev->dev, name);
+	dev_set_name(&chg_dev->dev, "%s", name);
 	dev_set_drvdata(&chg_dev->dev, devdata);
 
 	/* Copy properties */

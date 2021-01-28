@@ -185,7 +185,7 @@ struct adapter_device *adapter_device_register(const char *name,
 	adapter_dev->dev.class = adapter_class;
 	adapter_dev->dev.parent = parent;
 	adapter_dev->dev.release = adapter_device_release;
-	dev_set_name(&adapter_dev->dev, name);
+	dev_set_name(&adapter_dev->dev, "%s", name);
 	dev_set_drvdata(&adapter_dev->dev, devdata);
 
 	/* Copy properties */

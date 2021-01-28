@@ -22,7 +22,7 @@
 #include <mt-plat/charger_class.h>
 #include <mt-plat/mtk_battery.h>
 
-#define PCA_MTK_CHG_VERSION	"1.0.3_MTK"
+#define PCA_MTK_CHG_VERSION	"1.0.4_MTK"
 
 enum mtk_chg_type {
 	MTK_CHGTYP_SWCHG = 0,
@@ -331,6 +331,19 @@ static int pca_mtk_chg_get_adc_accuracy(struct prop_chgalgo_device *pca,
 	return 0;
 }
 
+static int pca_mtk_chg_init_chip(struct prop_chgalgo_device *pca)
+{
+	struct pca_mtk_chg_info *info = prop_chgalgo_get_drvdata(pca);
+	int chgtyp = get_mtk_chgtyp(pca);
+
+	if (chgtyp < 0)
+		return -EINVAL;
+	if (chgtyp == MTK_CHGTYP_DVCHG || chgtyp == MTK_CHGTYP_DVCHG_SLAVE)
+		return charger_dev_init_direct_charging_chip(
+			info->chgdev[chgtyp]);
+	return 0;
+}
+
 static struct prop_chgalgo_chg_ops pca_chg_ops = {
 	.enable_power_path = pca_mtk_chg_enable_power_path,
 	.enable_charging = pca_mtk_chg_enable_charging,
@@ -350,6 +363,7 @@ static struct prop_chgalgo_chg_ops pca_chg_ops = {
 	.set_ichg = pca_mtk_chg_set_ichg,
 	.is_vbuslowerr = pca_mtk_chg_is_vbuslowerr,
 	.get_adc_accuracy = pca_mtk_chg_get_adc_accuracy,
+	.init_chip = pca_mtk_chg_init_chip,
 };
 
 static int pca_mtk_chg_register(struct pca_mtk_chg_info *info)
@@ -462,6 +476,9 @@ MODULE_LICENSE("GPL");
 
 /*
  * Revision Note
+ * 1.0.4
+ * (1) Add init_chip ops
+ *
  * 1.0.3
  * (1) Remove BIF support
  *

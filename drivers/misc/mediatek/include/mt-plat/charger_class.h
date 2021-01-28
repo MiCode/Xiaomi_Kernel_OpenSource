@@ -131,6 +131,7 @@ struct charger_ops {
 	int (*reset_direct_charging_vbusov_alarm)(struct charger_device *dev);
 	int (*is_direct_charging_vbuslowerr)(struct charger_device *dev,
 					     bool *err);
+	int (*init_direct_charging_chip)(struct charger_device *dev);
 
 	/* OTG */
 	int (*enable_otg)(struct charger_device *dev, bool en);
@@ -327,6 +328,8 @@ extern int charger_dev_reset_direct_charging_vbusov_alarm(
 	struct charger_device *charger_dev);
 extern int charger_dev_is_direct_charging_vbuslowerr(
 	struct charger_device *charger_dev, bool *err);
+extern int charger_dev_init_direct_charging_chip(
+	struct charger_device *charger_dev);
 
 /* TypeC */
 extern int charger_dev_enable_usbid(struct charger_device *dev, bool en);

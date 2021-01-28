@@ -3013,7 +3013,7 @@ void notify_adapter_event(enum adapter_type type, enum adapter_event evt,
 	switch (type) {
 	case MTK_PD_ADAPTER:
 		switch (evt) {
-		case  MTK_PD_CONNECT_NONE:
+		case MTK_PD_CONNECT_NONE:
 			mutex_lock(&pinfo->charger_pd_lock);
 			chr_err("PD Notify Detach\n");
 			pinfo->pd_type = MTK_PD_CONNECT_NONE;
