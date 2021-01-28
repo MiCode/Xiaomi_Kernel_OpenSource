@@ -19,17 +19,10 @@
 
 
 
-struct reviser_mem_mgr {
-	struct ion_client *client;
-	struct device *dev;
-	uint8_t is_init;
-};
 
 int reviser_mem_free(struct reviser_mem *mem);
-int reviser_mem_alloc(struct reviser_mem *mem);
-int reviser_mem_init(void);
-int reviser_mem_destroy(void);
-int reviser_mem_destroy(void);
+int reviser_mem_alloc(struct device *dev, struct reviser_mem *mem);
+int reviser_mem_invalidate(struct device *dev, struct reviser_mem *mem);
 
 
 #endif

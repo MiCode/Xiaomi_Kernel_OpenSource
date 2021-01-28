@@ -131,19 +131,21 @@ void reviser_print_dram(void *drvinfo, void *s_file)
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 	data = (unsigned char *)reviser_device->dram_base;
 
+	reviser_mem_invalidate(reviser_device->dev, &g_mem_sys);
+
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser dram table info\n");
 	LOG_CON(s, "-----------------------------\n");
 	LOG_CON(s, "== PAGE[NUM] == [BANK0][BANK1][BANK2][BANK3]\n");
 	LOG_CON(s, "-----------------------------\n");
 
-	for (index = 0; index < VLM_CTXT_CTX_ID_MAX; index++) {
+	for (index = 0; index < VLM_CTXT_CTX_ID_COUNT; index++) {
 		LOG_CON(s, "== PAGE[%02d] == [%02x][%02x][%02x][%02x]\n",
-					index,
-					*(data + 0x200000*index + 0x40000*0),
-					*(data + 0x200000*index + 0x40000*1),
-					*(data + 0x200000*index + 0x40000*2),
-					*(data + 0x200000*index + 0x40000*3));
+				index,
+				*(data + VLM_SIZE*index + VLM_BANK_SIZE*0),
+				*(data + VLM_SIZE*index + VLM_BANK_SIZE*1),
+				*(data + VLM_SIZE*index + VLM_BANK_SIZE*2),
+				*(data + VLM_SIZE*index + VLM_BANK_SIZE*3));
 
 
 	}
@@ -175,10 +177,10 @@ void reviser_print_tcm(void *drvinfo, void *s_file)
 
 	offset = 0;
 
-	memcpy_fromio(bank0, reviser_device->tcm_base + 0x40000*0, 32);
-	memcpy_fromio(bank1, reviser_device->tcm_base + 0x40000*1, 32);
-	memcpy_fromio(bank2, reviser_device->tcm_base + 0x40000*2, 32);
-	memcpy_fromio(bank3, reviser_device->tcm_base + 0x40000*3, 32);
+	memcpy_fromio(bank0, reviser_device->tcm_base + VLM_BANK_SIZE*0, 32);
+	memcpy_fromio(bank1, reviser_device->tcm_base + VLM_BANK_SIZE*1, 32);
+	memcpy_fromio(bank2, reviser_device->tcm_base + VLM_BANK_SIZE*2, 32);
+	memcpy_fromio(bank3, reviser_device->tcm_base + VLM_BANK_SIZE*3, 32);
 	LOG_CON(s, "=============================\n");
 	LOG_CON(s, " reviser tcm table info\n");
 	LOG_CON(s, "-----------------------------\n");
@@ -1124,10 +1126,9 @@ int reviser_dram_remap_init(void *drvinfo)
 	}
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
-	reviser_mem_init();
-
-	g_mem_sys.size = REMAP_DRAM_SIZE;
-	if (reviser_mem_alloc(&g_mem_sys)) {
+	//g_mem_sys.size = REMAP_DRAM_SIZE;
+	g_mem_sys.size = VLM_SIZE * VLM_CTXT_CTX_ID_COUNT;
+	if (reviser_mem_alloc(reviser_device->dev, &g_mem_sys)) {
 		LOG_ERR("alloc fail\n");
 		return -ENOMEM;
 	}
@@ -1151,27 +1152,10 @@ int reviser_dram_remap_destroy(void *drvinfo)
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	reviser_mem_free(&g_mem_sys);
-	reviser_mem_destroy();
 	reviser_device->dram_base = NULL;
 	return 0;
 }
-int reviser_alloc_mem(void *usr)
-{
-	return reviser_mem_alloc((struct reviser_mem *) usr);
-}
-int reviser_free_mem(void *usr)
-{
-	return reviser_mem_free((struct reviser_mem *) usr);
-}
 
-void reviser_init_mem(void)
-{
-	reviser_mem_init();
-}
-void reviser_destroy_mem(void)
-{
-	reviser_mem_destroy();
-}
 
 int reviser_boundary_init(void *drvinfo, uint8_t boundary)
 {
