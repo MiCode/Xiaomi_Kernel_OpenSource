@@ -49,7 +49,7 @@ static int spm_resource_in_use(int resource)
 	int i;
 	int in_use = 0;
 
-	if (!(resource > 0 && resource <= NF_SPM_RESOURCE))
+	if (!(resource > 0 && resource < NF_SPM_RESOURCE))
 		return false;
 
 	for (i = 0; i < NF_SPM_USER_USAGE_STRUCT; i++)
