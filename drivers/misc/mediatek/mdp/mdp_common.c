@@ -958,7 +958,7 @@ static s32 cmdq_mdp_consume_handle(void)
 			CMDQ_MSG(
 				"fail to get thread handle:0x%p engine:0x%llx\n",
 				handle, handle->engineFlag);
-			continue;
+			break;
 		}
 
 		/* lock thread for counting and clk */
