@@ -56,6 +56,7 @@ enum CMDQ_TEST_TYPE_ENUM {
 	CMDQ_TEST_TYPE_DUMP_DTS = 5,
 	CMDQ_TEST_TYPE_FEATURE_CONFIG = 6,
 	CMDQ_TEST_TYPE_MMSYS_PERFORMANCE = 7,
+	CMDQ_TEST_TYPE_SECURE_MTEE = 8,
 
 	CMDQ_TEST_TYPE_MAX	/* ALWAYS keep at the end */
 };
@@ -93,7 +94,7 @@ struct cmdqMonitorPollStruct {
 };
 
 static s64 gCmdqTestConfig[CMDQ_MONITOR_EVENT_MAX];
-static bool gCmdqTestSecure;
+static s8 gCmdqTestSecure;
 static struct cmdqMonitorEventStruct gEventMonitor;
 static struct cmdqMonitorPollStruct gPollMonitor;
 #ifdef CMDQ_TEST_PROC
@@ -2224,7 +2225,7 @@ static void testcase_module_full_dump(void)
 #include "cmdqsectl_api.h"
 s32 cmdq_sec_submit_to_secure_world_async_unlocked(u32 iwcCommand,
 	struct cmdqRecStruct *handle, s32 thread,
-	CmdqSecFillIwcCB iwcFillCB, void *data);
+	CmdqSecFillIwcCB iwcFillCB, void *data, const bool mtee);
 #endif
 
 void testcase_secure_basic(void)
@@ -2239,7 +2240,8 @@ void testcase_secure_basic(void)
 		CMDQ_MSG("=========== Hello cmdqSecTl ===========\n ");
 		status = cmdq_sec_submit_to_secure_world_async_unlocked(
 			CMD_CMDQ_TL_TEST_HELLO_TL, NULL,
-			CMDQ_INVALID_THREAD, NULL, NULL);
+			CMDQ_INVALID_THREAD, NULL, NULL,
+			gCmdqTestSecure < 0 ? true : false);
 		if (status < 0) {
 			/* entry cmdqSecTL failed */
 			CMDQ_ERR("entry cmdqSecTL failed, status:%d\n",
@@ -2249,7 +2251,8 @@ void testcase_secure_basic(void)
 		CMDQ_MSG("=========== Hello cmdqSecDr ===========\n ");
 		status = cmdq_sec_submit_to_secure_world_async_unlocked(
 			CMD_CMDQ_TL_TEST_DUMMY, NULL,
-			CMDQ_INVALID_THREAD, NULL, NULL);
+			CMDQ_INVALID_THREAD, NULL, NULL,
+			gCmdqTestSecure < 0 ? true : false);
 		if (status < 0) {
 			/* entry cmdqSecDr failed */
 			CMDQ_ERR("entry cmdqSecDr failed, status:%d\n",
@@ -2279,6 +2282,9 @@ void testcase_secure_disp_scenario(void)
 	cmdq_task_create(CMDQ_SCENARIO_PRIMARY_DISP, &hDISP);
 	cmdq_task_reset(hDISP);
 	cmdq_task_set_secure(hDISP, true);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(hDISP, true);
+
 	cmdq_op_write_reg(hDISP, CMDQ_TEST_MMSYS_DUMMY_PA, PATTERN, ~0);
 	cmdq_task_flush(hDISP);
 	cmdq_task_destroy(hDISP);
@@ -2287,6 +2293,9 @@ void testcase_secure_disp_scenario(void)
 	cmdq_task_create(CMDQ_SCENARIO_SUB_DISP, &hSubDisp);
 	cmdq_task_reset(hSubDisp);
 	cmdq_task_set_secure(hSubDisp, true);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(hSubDisp, true);
+
 	cmdq_op_write_reg(hSubDisp, CMDQ_TEST_MMSYS_DUMMY_PA, PATTERN, ~0);
 	cmdq_task_flush(hSubDisp);
 	cmdq_task_destroy(hSubDisp);
@@ -2296,6 +2305,9 @@ void testcase_secure_disp_scenario(void)
 		&hDisableDISP);
 	cmdq_task_reset(hDisableDISP);
 	cmdq_task_set_secure(hDisableDISP, true);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(hDisableDISP, true);
+
 	cmdq_op_write_reg(hDisableDISP, CMDQ_TEST_MMSYS_DUMMY_PA, PATTERN, ~0);
 	cmdq_task_flush(hDisableDISP);
 	cmdq_task_destroy(hDisableDISP);
@@ -2322,6 +2334,8 @@ void testcase_secure_meta_data(void)
 	cmdq_task_create(CMDQ_SCENARIO_DEBUG, &hReqMDP);
 	cmdq_task_reset(hReqMDP);
 	cmdq_task_set_secure(hReqMDP, true);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(hReqMDP, true);
 
 	/* specify use MDP engine */
 	hReqMDP->engineFlag = (1LL << CMDQ_ENG_MDP_RDMA0) |
@@ -2351,6 +2365,8 @@ void testcase_secure_meta_data(void)
 	cmdq_task_create(CMDQ_SCENARIO_SUB_DISP, &hReqDISP);
 	cmdq_task_reset(hReqDISP);
 	cmdq_task_set_secure(hReqDISP, true);
+	if (!~gCmdqTestSecure)
+		cmdq_task_set_mtee(hReqDISP, true);
 
 	/* enable secure test */
 	cmdq_task_secure_enable_dapc(hReqDISP, (1LL << CMDQ_ENG_DISP_WDMA1));
@@ -7798,7 +7814,9 @@ static void testcase_general_handling(s32 testID)
 		testcase_write_stress_test();
 		break;
 	case 100:
+		CMDQ_ERR("Aaron Start\n");
 		testcase_secure_basic();
+		CMDQ_ERR("Aaron End\n");
 		break;
 	case 99:
 		testcase_write();
@@ -8008,6 +8026,7 @@ ssize_t cmdq_test_proc(struct file *fp, char __user *u, size_t s, loff_t *l)
 	switch (testParameter[0]) {
 	case CMDQ_TEST_TYPE_NORMAL:
 	case CMDQ_TEST_TYPE_SECURE:
+	case CMDQ_TEST_TYPE_SECURE_MTEE:
 		testcase_general_handling((s32)testParameter[1]);
 		break;
 	case CMDQ_TEST_TYPE_MONITOR_EVENT:
@@ -8088,10 +8107,9 @@ static ssize_t cmdq_write_test_proc_config(struct file *file,
 		smp_mb();
 
 		memcpy(&gCmdqTestConfig, &testConfig, sizeof(testConfig));
-		if (testConfig[0] == CMDQ_TEST_TYPE_NORMAL)
-			gCmdqTestSecure = false;
-		else
-			gCmdqTestSecure = true;
+		gCmdqTestSecure = testConfig[0];
+		if (testConfig[0] == CMDQ_TEST_TYPE_SECURE_MTEE)
+			gCmdqTestSecure = -1;
 
 		mutex_unlock(&gCmdqTestProcLock);
 	} while (0);

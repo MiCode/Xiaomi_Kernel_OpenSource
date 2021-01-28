@@ -182,6 +182,7 @@ s32 cmdqRecWrite(struct cmdqRecStruct *handle, u32 addr, u32 value, u32 mask);
  * Note:
  *	support only when secure OS enabled
  */
+void cmdq_task_set_mtee(struct cmdqRecStruct *handle, const bool enable);
 s32 cmdq_op_write_reg_secure(struct cmdqRecStruct *handle, u32 addr,
 	enum CMDQ_SEC_ADDR_METADATA_TYPE type, u64 baseHandle,
 	u32 offset, u32 size, u32 port);

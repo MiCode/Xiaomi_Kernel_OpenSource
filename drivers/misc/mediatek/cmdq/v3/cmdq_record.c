@@ -594,6 +594,13 @@ s32 cmdq_task_duplicate(struct cmdqRecStruct *handle,
 }
 
 #ifdef CMDQ_SECURE_PATH_SUPPORT
+void cmdq_task_set_mtee(struct cmdqRecStruct *handle, const bool enable)
+{
+	handle->secData.mtee = enable;
+	CMDQ_LOG("%s handle:%p mtee:%d\n",
+		__func__, handle, handle->secData.mtee);
+}
+
 s32 cmdq_append_addr_metadata(struct cmdqRecStruct *handle,
 	const struct cmdqSecAddrMetadataStruct *pMetadata)
 {
