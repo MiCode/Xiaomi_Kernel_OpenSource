@@ -3030,7 +3030,7 @@ s32 cmdq_op_else(struct cmdqRecStruct *handle)
 {
 	s32 status = 0;
 	u32 logic_pos, if_logic_pos, else_next_pos;
-	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type;
+	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type = CMDQ_STACK_NULL;
 
 	if (!handle)
 		return -EFAULT;
@@ -3238,7 +3238,7 @@ s32 cmdq_op_end_while(struct cmdqRecStruct *handle)
 {
 	s32 status = 0, whileCount = 1;
 	u32 logic_pos, exit_while_pos;
-	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type;
+	enum CMDQ_STACK_TYPE_ENUM rewritten_stack_type = CMDQ_STACK_NULL;
 
 	if (!handle)
 		return -EFAULT;
@@ -3308,7 +3308,7 @@ s32 cmdq_op_end_do_while(struct cmdqRecStruct *handle, CMDQ_VARIABLE arg_b,
 {
 	s32 status = 0;
 	u32 stack_op_position, condition_position;
-	enum CMDQ_STACK_TYPE_ENUM stack_op_type;
+	enum CMDQ_STACK_TYPE_ENUM stack_op_type = CMDQ_STACK_NULL;
 
 	if (!handle)
 		return -EFAULT;
