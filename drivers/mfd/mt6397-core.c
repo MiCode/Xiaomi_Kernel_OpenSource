@@ -375,6 +375,9 @@ static const struct mfd_cell mt6357_devs[] = {
 	}, {
 		.name = "mtk-clock-buffer",
 		.of_compatible = "mediatek,clock_buffer",
+	}, {
+		.name = "mt6357-pulse-charger",
+		.of_compatible = "mediatek,mt6357-pulse-charger"
 	}
 };
 
