@@ -62,23 +62,6 @@ int  __attribute__ ((weak)) vcorefs_get_curr_vcore(void)
 	return -1;
 }
 
-void __attribute__ ((weak)) mtk8250_restore_dev(void)
-{
-	/* FIXME: UART API is moved to ATF */
-}
-
-int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
-{
-	/* FIXME: UART API is moved to ATF */
-	return 0;
-}
-
-int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
-{
-	/* FIXME: UART API is moved to ATF */
-	return 0;
-}
-
 static u32 suspend_pcm_flags = {
 	/* SPM_FLAG_DIS_CPU_PDN | */
 	/* SPM_FLAG_DIS_INFRA_PDN | */
@@ -116,11 +99,9 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 	else {
 		/* need to comment out all cmd in CPU_PM_ENTER case, */
 		/* at gic_cpu_pm_notifier() @ drivers/irqchip/irq-gic-v3.c */
-
 		SMC_CALL(ARGS, SPM_ARGS_SUSPEND, 0, 0);
 		SMC_CALL(LEGACY_SLEEP, 0, 0, 0);
 		SMC_CALL(ARGS, SPM_ARGS_SUSPEND_FINISH, 0, 0);
-
 	}
 
 	if (spm_dormant_sta < 0) {
@@ -129,8 +110,10 @@ static void spm_trigger_wfi_for_sleep(struct pwr_ctrl *pwrctrl)
 			, spm_dormant_sta);
 	}
 
+#if !defined(SECURE_SERIAL_8250)
 	if (is_infra_pdn(pwrctrl->pcm_flags))
 		mtk8250_restore_dev();
+#endif
 }
 
 static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
@@ -154,7 +137,6 @@ static void spm_suspend_pcm_setup_before_wfi(u32 cpu,
 
 	mt_secure_call(MTK_SIP_KERNEL_SPM_SUSPEND_ARGS, pwrctrl->pcm_flags,
 		pwrctrl->pcm_flags1, pwrctrl->timer_val, resource_usage);
-
 }
 
 static void spm_suspend_pcm_setup_after_wfi(u32 cpu, struct pwr_ctrl *pwrctrl)
@@ -275,7 +257,6 @@ u32 spm_get_sleep_wakesrc(void)
 {
 	return SMC_CALL(GET_PWR_CTRL_ARGS,
 			SPM_PWR_CTRL_SUSPEND, PW_WAKE_SRC, 0);
-
 }
 
 bool spm_is_enable_sleep(void)
@@ -373,7 +354,7 @@ unsigned int spm_go_to_sleep(void)
 
 	spm_suspend_footprint(SPM_SUSPEND_ENTER_UART_SLEEP);
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SECURE_SERIAL_8250)
 	if (mtk8250_request_to_sleep()) {
 		last_wr = WR_UART_BUSY;
 		printk_deferred("[name:spm&]Fail to request uart sleep\n");
@@ -387,7 +368,7 @@ unsigned int spm_go_to_sleep(void)
 
 	spm_suspend_footprint(SPM_SUSPEND_LEAVE_WFI);
 
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && !defined(SECURE_SERIAL_8250)
 	mtk8250_request_to_wakeup();
 RESTORE_IRQ:
 #endif

@@ -241,8 +241,10 @@ int spm_set_sleep_wakesrc(u32 wakesrc, bool enable, bool replace)
 		else
 			__spm_suspend.pwrctrl->wake_src &= ~wakesrc;
 	}
+
 	SMC_CALL(PWR_CTRL_ARGS, SPM_PWR_CTRL_SUSPEND,
 			PW_WAKE_SRC, __spm_suspend.pwrctrl->wake_src);
+
 	spin_unlock_irqrestore(&__spm_lock, flags);
 
 	return 0;

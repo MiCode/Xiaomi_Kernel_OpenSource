@@ -10,8 +10,7 @@
 #include <linux/spinlock.h>
 #include <linux/io.h>
 
-#include <linux/arm-smccc.h>
-#include <linux/soc/mediatek/mtk_sip_svc.h>
+#include <mtk_idle_smc.h>
 #include <mt-plat/sync_write.h>
 #include <mt-plat/aee.h>
 
@@ -53,21 +52,6 @@
 #define PCM_WDT_TIMEOUT		(30 * 32768)	/* 30s */
 /* PCM_TIMER_VAL */
 #define PCM_TIMER_MAX		(0xffffffff - PCM_WDT_TIMEOUT)
-
-static inline size_t mt_secure_call(size_t function_id,
-				size_t arg0, size_t arg1, size_t arg2,
-				size_t arg3)
-{
-	struct arm_smccc_res res;
-
-	arm_smccc_smc(function_id, arg0, arg1,
-	arg2, arg3, 0, 0, 0, &res);
-	return res.a0;
-}
-
-/* SMC call's marco */
-#define SMC_CALL(_name, _arg0, _arg1, _arg2) \
-	mt_secure_call(MTK_SIP_KERNEL_SPM_##_name, _arg0, _arg1, _arg2, 0)
 
 extern spinlock_t __spm_lock;
 
