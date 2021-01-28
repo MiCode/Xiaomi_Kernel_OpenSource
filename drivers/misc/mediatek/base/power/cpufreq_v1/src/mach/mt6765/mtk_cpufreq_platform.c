@@ -556,11 +556,13 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_3;
 	unsigned int efuse_seg;
+	unsigned int efuse_ly;
 	struct platform_device *pdev;
 	struct device_node *node;
 	struct nvmem_cell *efuse_cell;
 	size_t efuse_len;
 	unsigned int *efuse_buf;
+	unsigned int *efuse_ly_buf;
 	int val = 0;
 	int val_ly = 0;
 
@@ -586,6 +588,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	nvmem_cell_put(efuse_cell);
 	efuse_seg = *efuse_buf;
 	val = efuse_seg;
+	kfree(efuse_buf);
 
 	/* get efuse ly */
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_ly_cell");
@@ -595,11 +598,11 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		return 0;
 	}
 
-	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
+	efuse_ly_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
 	nvmem_cell_put(efuse_cell);
-	efuse_seg = *efuse_buf;
-	val_ly = (efuse_seg >> 1) & 0x1;
-	kfree(efuse_buf);
+	efuse_ly = *efuse_ly_buf;
+	val_ly = (efuse_ly >> 1) & 0x1;
+	kfree(efuse_ly_buf);
 
 	if ((val == 0x2) || (val == 0x5))
 		lv = CPU_LEVEL_2;
