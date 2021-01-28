@@ -10,6 +10,14 @@
 #include <linux/module.h>
 
 #ifdef CONFIG_MTK_PERF_TRACKER
+/* cpufreq section */
+extern int cluster_nr;
+#ifdef CONFIG_MTK_CPU_FREQ
+extern unsigned int mt_cpufreq_get_cur_freq(int id);
+#else
+static inline int mt_cpufreq_get_cur_freq(int id) { return 0; }
+#endif
+/* storage I/O section */
 #ifdef CONFIG_MTK_BLOCK_TAG
 #include <mt-plat/mtk_blocktag.h>
 #else

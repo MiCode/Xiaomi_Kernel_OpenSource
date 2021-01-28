@@ -8,11 +8,15 @@
 #include <mt-plat/perf_common.h>
 #include <perf_tracker.h>
 #include <linux/cpu.h>
+#include <linux/topology.h>
 
 static u64 checked_timestamp;
 static bool long_trace_check_flag;
 static DEFINE_SPINLOCK(check_lock);
 static int perf_common_init;
+#ifdef CONFIG_MTK_PERF_TRACKER
+int cluster_nr = -1;
+#endif
 
 static inline bool perf_do_check(u64 wallclock)
 {
@@ -74,6 +78,12 @@ static int init_perf_common(void)
 	struct kobject *kobj = NULL;
 
 	perf_common_init = 1;
+#ifdef CONFIG_MTK_PERF_TRACKER
+	cluster_nr = arch_nr_clusters();
+
+	if (unlikely(cluster_nr <= 0 || cluster_nr > 3))
+		cluster_nr = 3;
+#endif
 
 	kobj = kobject_create_and_add("perf", &cpu_subsys.dev_root->kobj);
 

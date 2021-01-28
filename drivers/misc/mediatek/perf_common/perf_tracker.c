@@ -72,6 +72,7 @@ void perf_tracker(u64 wallclock,
 	int i;
 	int stall[max_cpus] = {0};
 	unsigned int sched_freq[3] = {0};
+	int cid;
 
 	if (!perf_tracker_on)
 		return;
@@ -86,7 +87,10 @@ void perf_tracker(u64 wallclock,
 	bw_mm = qos_sram_read(QOS_DEBUG_3);
 	bw_total = qos_sram_read(QOS_DEBUG_0);
 #endif
-	/* TODO: cpu freq */
+	/* sched: cpu freq */
+	for (cid = 0; cid < cluster_nr; cid++)
+		sched_freq[cid] = mt_cpufreq_get_cur_freq(cid);
+
 	/* trace for short msg */
 	trace_perf_index_s(
 			sched_freq[0], sched_freq[1], sched_freq[2],
