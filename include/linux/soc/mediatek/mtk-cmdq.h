@@ -33,7 +33,7 @@
  * which is, 1 microsecond = 26 ticks
  */
 #define CMDQ_US_TO_TICK(_t)		(_t * 26)
-#define CMDQ_TICK_TO_NS(_t)		(_t * 38)
+#define CMDQ_TICK_TO_US(_t)		(do_div(_t, 26))
 
 #if IS_ENABLED(CONFIG_MACH_MT6771) || IS_ENABLED(CONFIG_MACH_MT8168) || \
 	IS_ENABLED(CONFIG_MACH_MT6768) || IS_ENABLED(CONFIG_MACH_MT6739)
