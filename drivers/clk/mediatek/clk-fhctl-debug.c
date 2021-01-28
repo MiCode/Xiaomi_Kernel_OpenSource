@@ -239,8 +239,8 @@ static int mt_fh_dumpregs_read(struct seq_file *m, void *data)
 		fh = mtk_fh_get_fh_obj_tbl(fhctl, i);
 		if (fh == NULL) {
 			pr_info(" fh:NULL pll_id:%d", i);
-			seq_printf(m, "ERROR PLL_ID:%d (%s) NULL\r\n",
-						i, fh->pll_data->pll_name);
+			seq_printf(m, "ERROR PLL_ID:%d clk_mt_fhctl is NULL\r\n",
+						i);
 			return 0;
 		}
 
