@@ -24,6 +24,8 @@
 #include <asm/tlbflush.h>
 #include <linux/highmem.h>
 #include <asm/memory.h>
+#else
+#include <asm/system_misc.h> /* for build of show_pte in a64. */
 #endif
 #include <soc/mediatek/smi.h>
 #include <linux/platform_device.h>
@@ -428,6 +430,16 @@ static void __arm_coherent_iommu_unmap_sg(struct device *dev,
 		int nents, enum dma_data_direction dir, unsigned long attrs);
 #endif
 
+
+static void m4u_show_pte(struct mm_struct *mm, unsigned long addr)
+{
+#ifndef CONFIG_ARM64
+	show_pte(mm, addr);
+#else
+	show_pte(addr);
+#endif
+}
+
 /*
  * since the device have been attached, then we get from the dma_ops->map_sg is
  * arm_iommu_map_sg
@@ -501,7 +513,11 @@ static int __m4u_alloc_mva(int port, unsigned long va, unsigned int size,
 		dma_addr = sg_dma_address(table->sgl);
 	}
 
+#ifdef CONFIG_ARM64
+	if (dma_addr == 0) {
+#else
 	if (dma_addr == ARM_MAPPING_ERROR) {
+#endif
 		m4u_pr_err("%s, %d alloc mva failed, port is %s, dma_address is 0x%lx, size is 0x%x\n",
 			__func__, __LINE__, m4u_get_port_name(port),
 			(unsigned long)dma_addr, size);
@@ -961,7 +977,7 @@ static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 					vma_temp->vm_end, vma_temp->vm_flags);
 			}
 
-			show_pte(current->mm, va_tmp);
+			m4u_show_pte(current->mm, va_tmp);
 			m4u_dump_mmaps(va);
 			m4u_dump_mmaps(va_tmp);
 			return -1;
@@ -971,7 +987,7 @@ static int m4u_fill_sgtable_user(struct vm_area_struct *vma,
 			m4u_pr_err(
 				"warning: handle_mm_fault for %d times\n",
 				fault_cnt);
-			show_pte(current->mm, va_tmp);
+			m4u_show_pte(current->mm, va_tmp);
 			m4u_dump_mmaps(va_tmp);
 		}
 		/* debug check... */
@@ -1232,7 +1248,7 @@ int __m4u_dealloc_mva(int eModuleID,
 	if (table) {
 		/* Free iova and unmap pgtable items.*/
 #ifdef CONFIG_ARM64
-		iommu_dma_unmap_sg(dev, table->sgl, table->orig_nents, 0, NULL);
+		iommu_dma_unmap_sg(dev, table->sgl, table->orig_nents, 0, 0);
 #else
 		__arm_coherent_iommu_unmap_sg(dev, table->sgl, table->nents, 0,
 					      0);
@@ -1397,7 +1413,7 @@ static struct page *m4u_cache_get_page(unsigned long va)
 			start);
 		/* dump_page(page); */
 		m4u_dump_mmaps(start);
-		show_pte(current->mm, va);
+		m4u_show_pte(current->mm, va);
 		return NULL;
 	}
 	page = phys_to_page(pa);
@@ -2810,8 +2826,8 @@ static const struct file_operations g_stMTK_M4U_fops = {
 static int pseudo_probe(struct platform_device *pdev)
 {
 	int ret;
-#ifndef CONFIG_ARM64
 	struct device *dev = &pdev->dev;
+#ifndef CONFIG_ARM64
 	struct device_node *node = dev->of_node;
 	struct platform_device *pimudev;
 
