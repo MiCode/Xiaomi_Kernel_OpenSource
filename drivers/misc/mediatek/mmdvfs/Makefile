@@ -75,6 +75,19 @@ ccflags-y += -DPMQOS_USE_IOMMU_PORT
 FORCE_STEP0 := false
 ccflags-y += -DCHECK_VOLTAGE
 ccflags-y += -DCHECK_OSTD_UPDATE
+ccflags-y += -DPLL_HOPPING_READY
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6853"))
+BUILD_MMDVFS := true
+SUPPORT_MMP := true
+ccflags-y += -DPMQOS_USE_IOMMU_PORT
+FORCE_STEP0 := false
+ccflags-y += -DCHECK_VOLTAGE
+HRT_MECHANISM := true
+BLOCKING_MECHANISM := true
+SKIP_SMI_CONFIG := false
+QOS_BOUND_DETECT := true
+ccflags-y += -DCHECK_OSTD_UPDATE
+ccflags-y += -DPLL_HOPPING_READY
 endif
 
 MMDVFS_PLATFORM_DIR=$(srctree)/drivers/misc/mediatek/mmdvfs/$(MTK_PLATFORM)
