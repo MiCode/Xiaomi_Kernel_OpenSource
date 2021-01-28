@@ -1052,6 +1052,10 @@ struct kbase_device {
 		u64 flags;
 	} dummy_job_wa;
 
+#ifdef CONFIG_MTK_IOMMU_V2
+	struct ion_client *client;
+#endif
+
 #if defined(MTK_GPU_BM_2)
 	struct job_status_qos job_status_addr;
 	struct v1_data* v1;

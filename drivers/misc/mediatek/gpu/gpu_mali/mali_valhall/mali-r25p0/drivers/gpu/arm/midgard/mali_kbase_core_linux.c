@@ -4037,6 +4037,11 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 
 	kbase_device_term(kbdev);
 	dev_set_drvdata(kbdev->dev, NULL);
+#ifdef CONFIG_MTK_IOMMU_V2
+	if (kbdev->client != NULL)
+		ion_client_destroy(kbdev->client);
+#endif
+
 	kbase_device_free(kbdev);
 
 	return 0;
@@ -4099,19 +4104,29 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #endif /* CONFIG_PROC_FS */
 
 #ifdef ENABLE_COMMON_DVFS
-	g_malidev = kbdev;
+		g_malidev = kbdev;
 
 #ifdef GED_ENABLE_DVFS_LOADING_MODE
-	ged_dvfs_cal_gpu_utilization_ex_fp = MTKCalGpuUtilization_ex;
+		ged_dvfs_cal_gpu_utilization_ex_fp = MTKCalGpuUtilization_ex;
 #else
-	ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
+		ged_dvfs_cal_gpu_utilization_fp = MTKCalGpuUtilization;
 #endif
-	ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
+		ged_dvfs_gpu_freq_commit_fp = mtk_gpu_dvfs_commit;
 #endif /* ENABLE_COMMON_DVFS */
 
 #if defined(MTK_GPU_BM_2)
-	mtk_bandwith_resource_init(kbdev);
+		mtk_bandwith_resource_init(kbdev);
 #endif
+
+#ifdef CONFIG_MTK_IOMMU_V2
+		if (g_ion_device)
+			kbdev->client = ion_client_create(g_ion_device, "mali_kbase");
+
+		if (kbdev->client == NULL) {
+			dev_warn(&pdev->dev, "create ion client failed!\n");
+		}
+#endif
+
 		dev_info(kbdev->dev,
 			"Probed as %s\n", dev_name(kbdev->mdev.this_device));
 #endif /* MALI_KBASE_BUILD */
