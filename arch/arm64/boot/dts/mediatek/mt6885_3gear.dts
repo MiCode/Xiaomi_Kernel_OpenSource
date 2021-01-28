@@ -2708,7 +2708,7 @@ page_owner=on loop.max_part=7";
 	scp: scp@10700000 {
 		compatible = "mediatek,scp";
 		status = "okay";
-		reg = <0 0x10500000 0 0x100000>, /* tcm */
+		reg = <0 0x10500000 0 0x180000>, /* tcm */
 		<0 0x10724000 0 0x1000>,	 /* cfg */
 		<0 0x10721000 0 0x1000>,	 /* clk*/
 		<0 0x10730000 0 0x1000>,	 /* cfg core0 */
@@ -2783,7 +2783,7 @@ page_owner=on loop.max_part=7";
 			"mbox4";
 
 		core_0 = "enable";
-		scp_sramSize = <0x00100000>;
+		scp_sramSize = <0x00180000>;
 	};
 
 	dramc_ch1_rsv@10900000 {
