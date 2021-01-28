@@ -2,8 +2,7 @@
 # TRUSTONIC TEE configuration
 #
 config TRUSTONIC_TEE_SUPPORT
-	bool "Enable Trustonic TEE Support"
-	default n
+	tristate "Enable Trustonic TEE Support"
 	help
 	  Enable Trustonic TEE Support.
 	  This option enables MobiCore Driver which is used to communicate with
