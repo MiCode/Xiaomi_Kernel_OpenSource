@@ -142,11 +142,11 @@ int ut_client_context_init(unsigned long dev_file_id, struct ctx_data *ctx)
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_context_init(dev_file_id, ctx);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -226,11 +226,11 @@ int ut_client_context_close(unsigned long dev_file_id, struct ctx_data *ctx)
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_context_close(dev_file_id, ctx);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -315,11 +315,11 @@ int ut_client_session_init(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_session_init(dev_file_id, ses_init);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -471,11 +471,11 @@ int ut_client_session_open(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_session_open(dev_file_id, ses_open);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -554,11 +554,11 @@ int ut_client_session_close(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_session_close(dev_file_id, ses_close);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -788,11 +788,11 @@ int ut_client_send_cmd(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_send_cmd(dev_file_id, enc);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -906,11 +906,11 @@ int ut_client_operation_release(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_operation_release(dev_file_id, enc);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -1067,11 +1067,11 @@ int ut_client_encode_uint32(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_encode_uint32(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -1216,11 +1216,11 @@ int ut_client_encode_uint32_64bit(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_encode_uint32_64bit(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -1368,11 +1368,11 @@ int ut_client_encode_array(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_encode_array(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -1516,11 +1516,11 @@ int ut_client_encode_array_64bit(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_encode_array_64bit(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -1714,11 +1714,11 @@ int ut_client_encode_mem_ref(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_encode_mem_ref(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -1910,11 +1910,11 @@ int ut_client_encode_mem_ref_64bit(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_encode_mem_ref_64bit(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -2051,11 +2051,11 @@ int ut_client_decode_uint32(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_decode_uint32(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -2107,6 +2107,7 @@ int __teei_client_decode_array_space(unsigned long dev_file_id,
 		if (dec_context->meta[dpos].len >=
 			dec_context->meta[dpos].ret_len) {
 			if (dec_context->meta[dpos].usr_addr)
+
 				dec->data = dec_context->meta[dpos].usr_addr;
 
 			if (kernel_range == 0) {
@@ -2139,15 +2140,14 @@ int __teei_client_decode_array_space(unsigned long dev_file_id,
 
 		dec->len = dec_context->meta[dpos].ret_len;
 
-		dec_context->dec_offset +=
-				dec_context->meta[dpos].len;
+		dec_context->dec_offset += dec_context->meta[dpos].len;
 
 		dec_context->dec_res_pos = ++dpos;
 	} else if ((dpos <= dec_context->enc_res_pos) &&
-			(dec_context->meta[dpos].type	== TEEI_MEM_REF)) {
+			(dec_context->meta[dpos].type == TEEI_MEM_REF)) {
 
 		if (dec_context->meta[dpos].len >=
-			dec_context->meta[dpos].ret_len) {
+				dec_context->meta[dpos].ret_len) {
 
 			dec->data = dec_context->meta[dpos].usr_addr;
 
@@ -2188,11 +2188,11 @@ int ut_client_decode_array_space(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_decode_array_space(dev_file_id, enc, 1);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -2248,11 +2248,11 @@ int ut_client_get_decode_type(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_get_decode_type(dev_file_id, enc);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
@@ -2332,11 +2332,11 @@ int ut_client_shared_mem_free(unsigned long dev_file_id,
 	int retVal = 0;
 
 	down(&api_lock);
-	ut_pm_mutex_lock(&pm_mutex);
+	lock_system_sleep();
 
 	retVal = __teei_client_shared_mem_free(dev_file_id, mem_info);
 
-	ut_pm_mutex_unlock(&pm_mutex);
+	unlock_system_sleep();
 	up(&api_lock);
 
 	return retVal;
