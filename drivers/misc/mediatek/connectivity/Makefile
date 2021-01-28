@@ -24,6 +24,8 @@ ifneq ($(KERNELRELEASE),)
     subdir-ccflags-y += -I$(srctree)/drivers/mmc/core
     subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/$(MTK_PLATFORM)
     subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
+    subdir-ccflags-y += -I$(srctree)/drivers/clk/mediatek/
+    subdir-ccflags-y += -I$(srctree)/drivers/pinctrl/mediatek/
 
     # Do Nothing, move to standalone repo
     MODULE_NAME := connadp
