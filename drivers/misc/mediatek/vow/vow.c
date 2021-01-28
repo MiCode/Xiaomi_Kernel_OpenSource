@@ -185,6 +185,9 @@ static struct
 	bool                 mcps_flag;
 	unsigned int         scp_dual_mic_switch;
 	unsigned int         mtkif_type;
+	unsigned int         google_engine_version;
+	char                 alexa_engine_version[VOW_ENGINE_INFO_LENGTH_BYTE];
+	char                 google_engine_arch[VOW_ENGINE_INFO_LENGTH_BYTE];
 } vowserv;
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
@@ -339,6 +342,28 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 		}
 		break;
 	}
+	case IPIMSG_VOW_ALEXA_ENGINE_VER: {
+		VOWDRV_DEBUG("%s(), IPIMSG_VOW_ALEXA_ENGINE_VER %s\r",
+			__func__, msg_data);
+		memcpy(vowserv.alexa_engine_version, msg_data,
+				 sizeof(vowserv.alexa_engine_version));
+		}
+		break;
+	case IPIMSG_VOW_GOOGLE_ENGINE_VER: {
+		unsigned int *temp = (unsigned int *)msg_data;
+
+		VOWDRV_DEBUG("%s(), IPIMSG_VOW_GOOGLE_ENGINE_VER 0x%x\r",
+			__func__, temp[0]);
+		vowserv.google_engine_version = temp[0];
+		}
+		break;
+	case IPIMSG_VOW_GOOGLE_ARCH: {
+		VOWDRV_DEBUG("%s(), IPIMSG_VOW_GOOGLE_ARCH %s\r",
+			__func__, msg_data);
+		memcpy(vowserv.google_engine_arch, msg_data,
+				 sizeof(vowserv.google_engine_arch));
+		}
+		break;
 	default:
 		break;
 	}
@@ -550,6 +575,14 @@ static void vow_service_Init(void)
 			VOWDRV_DEBUG(
 			"IPIMSG_VOW_APREGDATA_ADDR ipi send error\n");
 		}
+		sprintf(vowserv.google_engine_arch, "RISC-V");
+		vowserv.google_engine_version = 0x1234;
+		vow_ipi_send(IPIMSG_VOW_GET_ALEXA_ENGINE_VER, 0, NULL,
+				 VOW_IPI_BYPASS_ACK);
+		vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ENGINE_VER, 0, NULL,
+				 VOW_IPI_BYPASS_ACK);
+		vow_ipi_send(IPIMSG_VOW_GET_GOOGLE_ARCH, 0, NULL,
+				 VOW_IPI_BYPASS_ACK);
 #if VOW_PRE_LEARN_MODE
 		VowDrv_SetFlag(VOW_FLAG_PRE_LEARN, true);
 #endif
@@ -2665,6 +2698,44 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case VOW_MODEL_STOP:
 		vow_service_SetModelStatus(VOW_MODEL_STATUS_STOP, arg);
 		break;
+	case VOW_GET_GOOGLE_ENGINE_VER: {
+		copy_to_user((void __user *)arg,
+				 &vowserv.google_engine_version,
+				 sizeof(vowserv.google_engine_version));
+	}
+		break;
+	case VOW_GET_GOOGLE_ARCH:
+	case VOW_GET_ALEXA_ENGINE_VER: {
+		struct vow_engine_info_t engine_ver_temp;
+		unsigned int length = VOW_ENGINE_INFO_LENGTH_BYTE;
+
+		copy_from_user((void *)&engine_ver_temp,
+				 (const void __user *)arg,
+				 sizeof(struct vow_engine_info_t));
+		if ((unsigned int)cmd == VOW_GET_ALEXA_ENGINE_VER) {
+			pr_debug("VOW_GET_ALEXA_ENGINE_VER = %s, %lu, %lu, %d",
+					 vowserv.alexa_engine_version,
+					 engine_ver_temp.data_addr,
+					 engine_ver_temp.return_size_addr,
+					 length);
+			copy_to_user((void __user *)engine_ver_temp.data_addr,
+					 vowserv.alexa_engine_version,
+					 length);
+		} else if ((unsigned int)cmd == VOW_GET_GOOGLE_ARCH) {
+			pr_debug("VOW_GET_GOOGLE_ARCH = %s, %lu, %lu, %d",
+					 vowserv.google_engine_arch,
+					 engine_ver_temp.data_addr,
+					 engine_ver_temp.return_size_addr,
+					 length);
+			copy_to_user((void __user *)engine_ver_temp.data_addr,
+					 vowserv.google_engine_arch,
+					 length);
+		}
+		copy_to_user((void __user *)engine_ver_temp.return_size_addr,
+				 &length,
+				 sizeof(unsigned int));
+	}
+		break;
 	default:
 		VOWDRV_DEBUG("vow WrongParameter(%lu)", arg);
 		break;
@@ -2693,6 +2764,7 @@ static long VowDrv_compat_ioctl(struct file *fp,
 	case VOW_RECOG_DISABLE:
 	case VOW_BARGEIN_ON:
 	case VOW_BARGEIN_OFF:
+	case VOW_GET_GOOGLE_ENGINE_VER:
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, arg);
 		break;
 	case VOW_MODEL_START:
@@ -2742,6 +2814,24 @@ static long VowDrv_compat_ioctl(struct file *fp,
 		err |= put_user(l, &data->uuid);
 		err |= get_user(p, (compat_uptr_t *)&data32->data);
 		err |= put_user(p, (compat_uptr_t *)&data->data);
+
+		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
+	}
+		break;
+	case VOW_GET_GOOGLE_ARCH:
+	case VOW_GET_ALEXA_ENGINE_VER: {
+		struct vow_engine_info_kernel_t __user *data32;
+		struct vow_engine_info_t __user *data;
+		int err;
+		compat_size_t l;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+
+		err  = get_user(l, &data32->return_size_addr);
+		err |= put_user(l, &data->return_size_addr);
+		err |= get_user(l, &data32->data_addr);
+		err |= put_user(l, &data->data_addr);
 
 		ret = fp->f_op->unlocked_ioctl(fp, cmd, (unsigned long)data);
 	}

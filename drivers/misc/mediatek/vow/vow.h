@@ -88,6 +88,8 @@
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 
+#define VOW_ENGINE_INFO_LENGTH_BYTE    32
+
 #if (defined CONFIG_MTK_VOW_DUAL_MIC_SUPPORT && defined DUAL_CH_TRANSFER)
 #define VOW_RECOGDATA_OFFSET    (VOW_VOICEDATA_OFFSET + 2 * VOW_VOICEDATA_SIZE)
 #else
@@ -107,6 +109,9 @@
 #define VOW_RECOG_DISABLE             _IOW(VOW_IOC_MAGIC, 0x0E, unsigned int)
 #define VOW_MODEL_START               _IOW(VOW_IOC_MAGIC, 0x0F, unsigned int)
 #define VOW_MODEL_STOP                _IOW(VOW_IOC_MAGIC, 0x10, unsigned int)
+#define VOW_GET_ALEXA_ENGINE_VER      _IOW(VOW_IOC_MAGIC, 0x11, unsigned int)
+#define VOW_GET_GOOGLE_ENGINE_VER     _IOW(VOW_IOC_MAGIC, 0x12, unsigned int)
+#define VOW_GET_GOOGLE_ARCH           _IOW(VOW_IOC_MAGIC, 0x13, unsigned int)
 
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 
@@ -199,6 +204,13 @@ enum vow_ipi_msgid_t {
 	IPIMSG_VOW_MODEL_START = 18,
 	IPIMSG_VOW_MODEL_STOP = 19,
 	IPIMSG_VOW_RETURN_VALUE = 20,
+	IPIMSG_VOW_SET_SKIP_SAMPLE_COUNT = 21,
+	IPIMSG_VOW_GET_ALEXA_ENGINE_VER = 22,
+	IPIMSG_VOW_GET_GOOGLE_ENGINE_VER = 23,
+	IPIMSG_VOW_GET_GOOGLE_ARCH = 24,
+	IPIMSG_VOW_ALEXA_ENGINE_VER = 25,
+	IPIMSG_VOW_GOOGLE_ENGINE_VER = 26,
+	IPIMSG_VOW_GOOGLE_ARCH = 27
 };
 
 enum vow_eint_status_t {
@@ -350,6 +362,16 @@ struct vow_model_start_kernel_t {
 	compat_size_t dsp_inform_size_addr;
 };
 
+struct vow_engine_info_t {
+	long return_size_addr;
+	long data_addr;
+};
+
+struct vow_engine_info_kernel_t {
+	compat_size_t return_size_addr;
+	compat_size_t data_addr;
+};
+
 #else  /* #ifdef CONFIG_COMPAT */
 
 struct vow_speaker_model_t {
@@ -379,6 +401,11 @@ struct vow_model_start_t {
 	long confidence_level;
 	long dsp_inform_addr;
 	long dsp_inform_size_addr;
+};
+
+struct vow_engine_info_t {
+	long return_size_addr;
+	long data_addr;
 };
 #endif  /* #ifdef CONFIG_COMPAT */
 
