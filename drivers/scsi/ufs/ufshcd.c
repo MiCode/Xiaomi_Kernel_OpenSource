@@ -5394,8 +5394,10 @@ static int ufshcd_is_resp_upiu_valid(struct ufs_hba *hba,
 		err = true;
 	}
 
-	if (err)
+	if (err) {
+		hba->invalid_resp_upiu = true;
 		return (DID_FATAL << 16);
+	}
 
 	return 0;
 }
@@ -6181,8 +6183,10 @@ out:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 	ufshcd_scsi_unblock_requests(hba);
 
-	if (needs_reset)
+	if (needs_reset && hba->invalid_resp_upiu) {
+		hba->invalid_resp_upiu = false;
 		ufshcd_vops_abort_handler(hba, -1, __FILE__, __LINE__);
+	}
 
 	ufshcd_release(hba);
 
