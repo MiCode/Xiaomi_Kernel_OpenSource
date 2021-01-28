@@ -71,6 +71,7 @@
 			output-low;
 		};
 	};
+
 	camera_pins_cam1_rst1: cam1@1 {
 		pins_cmd_dat {
 			pinmux = <PINMUX_GPIO102__FUNC_GPIO102>;
@@ -237,14 +238,26 @@
 	pinctrl-24 = <&camera_pins_cam1_mclk_off>;
 	pinctrl-25 = <&camera_pins_cam2_mclk_on>;
 	pinctrl-26 = <&camera_pins_cam2_mclk_off>;
+
+
+	cam0_vcama-supply = <&mt_pmic_vcama_ldo_reg>;
+	cam1_vcama-supply = <&mt_pmic_vcama_ldo_reg>;
+	cam0_vcamd-supply = <&mt_pmic_vcamd_ldo_reg>;
+	cam1_vcamd-supply = <&mt_pmic_vcamd_ldo_reg>;
+	cam0_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	cam1_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	cam2_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	vcamaf-supply = <&mt_pmic_vldo28_ldo_reg>;
+	vcamaf_sub-supply = <&mt_pmic_vldo28_ldo_reg>;
+	vcamaf_main2-supply = <&mt_pmic_vldo28_ldo_reg>;
 	status = "okay";
 
 };
 
 /* CAMERA specify sensor */
+
 &kd_camera_hw1 {
 	cam0_enable_sensor = "gc5035_mipi_raw hi556_mipi_raw";
 	cam1_enable_sensor = "gc2375h_mipi_raw";
 };
-/* CAMERA specify sensor end */
 /* CAMERA GPIO end */

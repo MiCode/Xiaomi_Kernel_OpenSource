@@ -263,6 +263,14 @@
 	pinctrl-25 = <&camera_pins_cam2_mclk_on>;
 	pinctrl-26 = <&camera_pins_cam2_mclk_off>;
 
+	cam0_vcama-supply = <&mt_pmic_vcama_ldo_reg>;
+	cam1_vcama-supply = <&mt_pmic_vcama_ldo_reg>;
+	cam0_vcamd-supply = <&mt_pmic_vcamd_ldo_reg>;
+	cam1_vcamd-supply = <&mt_pmic_vcamd_ldo_reg>;
+	cam0_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	cam1_vcamio-supply = <&mt_pmic_vcamio_ldo_reg>;
+	vcamaf-supply = <&mt_pmic_vldo28_ldo_reg>;
+	vcamaf_sub-supply = <&mt_pmic_vldo28_ldo_reg>;
 	status = "okay";
 };
 
