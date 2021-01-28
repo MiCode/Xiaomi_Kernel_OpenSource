@@ -3533,7 +3533,7 @@ int __init fbt_cpu_init(void)
 
 	fbt_idleprefer_enable = 1;
 	suppress_ceiling = 1;
-	fbt_fteh_enable = 1;
+	fbt_fteh_enable = 0;
 	uclamp_boost_enable = 1;
 	down_throttle_ns = -1;
 	fbt_down_throttle_enable = 1;
