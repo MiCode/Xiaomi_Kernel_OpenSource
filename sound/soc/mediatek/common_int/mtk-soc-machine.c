@@ -767,6 +767,7 @@ static int mt_soc_snd_probe(struct platform_device *pdev)
 		DEBUG_ANA_FS_NAME, S_IFREG | 0444, NULL,
 		(void *)DEBUG_ANA_FS_NAME, &mtaudio_ana_debug_ops);
 
+	dev_info(&pdev->dev, "%s(), done\n", __func__);
 	return ret;
 }
 

@@ -39,6 +39,7 @@
  *                E X T E R N A L   R E F E R E N C E S
  *****************************************************************************/
 #include "mtk-auddrv-def.h"
+#include "mtk-soc-analog-type.h"
 
 /*****************************************************************************
  *                         D A T A   T Y P E S
@@ -262,4 +263,5 @@ void Ana_Log_Print(void);
 
 int Ana_Debug_Read(char *buffer, const int size);
 
+int mt63xx_set_local_priv(struct mt6357_priv *priv);
 #endif

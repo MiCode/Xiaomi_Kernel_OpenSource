@@ -44,17 +44,22 @@
 
 #include <linux/delay.h>
 #include <linux/spinlock.h>
+
+#ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #include <mtk_idle.h>
+#endif
 #endif
 #include <linux/err.h>
 #include <linux/platform_device.h>
 
+#ifndef ASOC_TEMP_BYPASS
 #define _MT_SPM_RESOURCE
 #if defined(_MT_SPM_RESOURCE) && !defined(CONFIG_FPGA_EARLY_PORTING)
 #include "mtk_spm_resource_req.h"
 bool spm_resource_req(unsigned int user, unsigned int req_mask)
 	__attribute__((weak));
+#endif
 #endif
 /*****************************************************************************
  *                         D A T A   T Y P E S
@@ -253,6 +258,7 @@ void AudDrv_Clk_Deinit(void *dev)
 		}
 	}
 }
+#ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
 static int audio_idle_notify_call(struct notifier_block *nfb,
 				  unsigned long id,
@@ -299,6 +305,7 @@ static struct notifier_block audio_idle_nfb = {
 	.notifier_call = audio_idle_notify_call,
 };
 #endif
+#endif
 void AudDrv_Clk_Global_Variable_Init(void)
 {
 	APLL1Counter = 0;
@@ -307,8 +314,10 @@ void AudDrv_Clk_Global_Variable_Init(void)
 	Aud_APLL_DIV_APLL2_cntr = 0;
 	MCLKFS = 128;
 	MCLKFS_HDMI = 256;
+#ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER) && !defined(CONFIG_FPGA_EARLY_PORTING)
 	mtk_idle_notifier_register(&audio_idle_nfb);
+#endif
 #endif
 }
 
@@ -1212,9 +1221,11 @@ void AudDrv_Emi_Clk_On(void)
 #if !defined(CONFIG_FPGA_EARLY_PORTING)
 	mutex_lock(&auddrv_pmic_mutex);
 	if (Aud_EMI_cntr == 0) {
+#ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER)
 		/* mutex is used in these api */
 		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_DRAM);
+#endif
 #endif
 	}
 	Aud_EMI_cntr++;
@@ -1228,10 +1239,12 @@ void AudDrv_Emi_Clk_Off(void)
 	mutex_lock(&auddrv_pmic_mutex);
 	Aud_EMI_cntr--;
 	if (Aud_EMI_cntr == 0) {
+#ifndef ASOC_TEMP_BYPASS
 #if defined(_MT_IDLE_HEADER)
 		/* mutex is used in these api */
 		spm_resource_req(SPM_RESOURCE_USER_AUDIO,
 				 SPM_RESOURCE_RELEASE);
+#endif
 #endif
 	}
 

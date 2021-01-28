@@ -53,6 +53,10 @@
 #include "mtk-auddrv-gpio.h"
 #include "mtk-soc-analog-type.h"
 #include "mtk-soc-codec-63xx.h"
+#include <linux/iio/consumer.h>
+#include <linux/mfd/mt6357/registers.h>
+#include <linux/mfd/mt6397/core.h>
+#include <linux/mfd/mt6357/core.h>
 /* Use analog setting to do dc compensation */
 #define ANALOG_HPTRIM
 //#define ANALOG_HPTRIM_FOR_CUST
@@ -71,6 +75,7 @@ static int SetDcCompenSation(bool enable);
 static void Voice_Amp_Change(bool enable);
 static void Speaker_Amp_Change(bool enable);
 static struct mt6357_codec_priv *mCodec_data;
+static struct mt6357_priv *mCodec_priv;
 static unsigned int mBlockSampleRate[AUDIO_ANALOG_DEVICE_INOUT_MAX] = {
 	48000, 48000, 48000};
 #define MAX_DL_SAMPLE_RATE (192000)
@@ -431,22 +436,28 @@ int set_codec_ops(struct mtk_codec_ops *ops)
 	set_hp_impedance_ctl = ops->set_hp_impedance_ctl;
 	return 0;
 }
+
 static int audio_get_auxadc_value(void)
 {
-#if defined(CONFIG_MTK_AUXADC_INTF) && defined(_GIT318_PMIC_READY)
-	return pmic_get_auxadc_value(AUXADC_LIST_HPOFS_CAL);
-#else
-	return 0;
-#endif
+	int value = 0, ret = 0;
+
+	if (!IS_ERR(mCodec_priv->codec_auxadc)) {
+		ret = iio_read_channel_processed(mCodec_priv->codec_auxadc,
+						 &value);
+		if (ret < 0) {
+			pr_notice("Error: %s read fail (%d)\n", __func__, ret);
+			return ret;
+		}
+	}
+	pr_info("%s() value :%d\n", __func__, value);
+	return value;
 }
+
 static int get_accdet_auxadc(void)
 {
-#if defined(CONFIG_MTK_AUXADC_INTF) && defined(_GIT318_PMIC_READY)
-	return pmic_get_auxadc_value(AUXADC_LIST_ACCDET);
-#else
 	return 0;
-#endif
 }
+
 /*extern kal_uint32 upmu_get_reg_value(kal_uint32 reg);*/
 void Auddrv_Read_Efuse_HPOffset(void)
 {
@@ -5931,8 +5942,40 @@ static const struct snd_soc_component_driver mt6357_component_driver = {
 	.read = mt6357_component_read,
 	.write = mt6357_component_write,
 };
-static int mtk_mt6357_codec_dev_probe(struct platform_device *pdev)
+static int mtk_codec_dev_probe(struct platform_device *pdev)
 {
+	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
+	int ret = 0;
+
+	pr_info("%s: ++\n", __func__);
+	InitGlobalVarDefault();
+
+	mCodec_priv = devm_kzalloc(&pdev->dev,
+			    sizeof(struct mt6357_priv),
+			    GFP_KERNEL);
+	if (!mCodec_priv)
+		return -ENOMEM;
+
+	mCodec_priv->regmap = mt6397->regmap;
+	if (IS_ERR(mCodec_priv->regmap))
+		return PTR_ERR(mCodec_priv->regmap);
+
+	dev_set_drvdata(&pdev->dev, mCodec_priv);
+	mCodec_priv->dev = &pdev->dev;
+
+	/* get pmic codec auxadc iio channel handler */
+	mCodec_priv->codec_auxadc = devm_iio_channel_get(&pdev->dev,
+			"pmic_codec");
+	ret = PTR_ERR_OR_ZERO(mCodec_priv->codec_auxadc);
+	if (ret) {
+		if (ret != -EPROBE_DEFER)
+			dev_dbg(&pdev->dev, "Error: Get iio ch failed (%d)\n",
+				ret);
+		return ret;
+	}
+
+	mt63xx_set_local_priv(mCodec_priv);
+
 	pdev->dev.coherent_dma_mask = DMA_BIT_MASK(64);
 	if (pdev->dev.dma_mask == NULL)
 		pdev->dev.dma_mask = &pdev->dev.coherent_dma_mask;
@@ -5947,61 +5990,28 @@ static int mtk_mt6357_codec_dev_probe(struct platform_device *pdev)
 	} else {
 		pr_debug("%s(), pdev->dev.of_node = NULL!!!\n", __func__);
 	}
-	pr_debug("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
-	return snd_soc_register_component(&pdev->dev,
+	pr_info("%s: dev name %s\n", __func__, dev_name(&pdev->dev));
+	return devm_snd_soc_register_component(&pdev->dev,
 				      &mt6357_component_driver,
 				      mtk_6357_dai_codecs,
 				      ARRAY_SIZE(mtk_6357_dai_codecs));
 }
-static int mtk_mt6357_codec_dev_remove(struct platform_device *pdev)
-{
-	snd_soc_unregister_component(&pdev->dev);
-	return 0;
-}
-#ifdef CONFIG_OF
-static const struct of_device_id mt_soc_codec_63xx_of_ids[] = {
-	{.compatible = "mediatek,mt_soc_codec_63xx",},
+
+static const struct of_device_id mt6357_of_match[] = {
+	{.compatible = "mediatek,mt6357-sound",},
 	{}
 };
-#endif
-static struct platform_driver mtk_codec_6357_driver = {
-	.driver = {
-		   .name = MT_SOC_CODEC_NAME,
-		   .owner = THIS_MODULE,
-#ifdef CONFIG_OF
-		   .of_match_table = mt_soc_codec_63xx_of_ids,
-#endif
-		   },
-	.probe = mtk_mt6357_codec_dev_probe,
-	.remove = mtk_mt6357_codec_dev_remove,
-};
-#ifndef CONFIG_OF
-static struct platform_device *soc_mtk_codec6357_dev;
-#endif
-static int __init mtk_mt6357_codec_init(void)
-{
-	pr_debug("%s:\n", __func__);
-#ifndef CONFIG_OF
-	int ret = 0;
+MODULE_DEVICE_TABLE(of, mt6357_of_match);
 
-	soc_mtk_codec6357_dev = platform_device_alloc(MT_SOC_CODEC_NAME, -1);
-	if (!soc_mtk_codec6357_dev)
-		return -ENOMEM;
-	ret = platform_device_add(soc_mtk_codec6357_dev);
-	if (ret != 0) {
-		platform_device_put(soc_mtk_codec6357_dev);
-		return ret;
-	}
-#endif
-	InitGlobalVarDefault();
-	return platform_driver_register(&mtk_codec_6357_driver);
-}
-module_init(mtk_mt6357_codec_init);
-static void __exit mtk_mt6357_codec_exit(void)
-{
-	platform_driver_unregister(&mtk_codec_6357_driver);
-}
-module_exit(mtk_mt6357_codec_exit);
+static struct platform_driver mt6357_platform_driver = {
+	.driver = {
+		.name = "mt6357-sound",
+		.of_match_table = mt6357_of_match,
+	},
+	.probe = mtk_codec_dev_probe,
+};
+module_platform_driver(mt6357_platform_driver)
+
 /* Module information */
 MODULE_DESCRIPTION("MTK  codec driver");
 MODULE_LICENSE("GPL v2");

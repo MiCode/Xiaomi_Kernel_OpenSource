@@ -4034,32 +4034,6 @@ int memif_lpbk_get_irq(void)
 }
 #endif
 
-int audio_get_auxadc_value(void)
-{
-#ifdef CONFIG_FPGA_EARLY_PORTING
-	return 0;
-#else
-#ifdef _GIT318_PMIC_READY
-#ifdef CONFIG_MTK_AUXADC_INTF
-	return pmic_get_auxadc_value(AUXADC_LIST_HPOFS_CAL);
-#else
-	return PMIC_IMM_GetOneChannelValue(PMIC_AUX_CH9, 20, 0);
-#endif
-#else
-	return 0;
-#endif
-#endif
-}
-
-int get_accdet_auxadc(void)
-{
-#ifdef CONFIG_MTK_AUXADC_INTF
-	return pmic_get_auxadc_value(AUXADC_LIST_ACCDET);
-#else
-	return 0;
-#endif
-}
-
 /* api for other module */
 static int irq_from_ext_module;
 

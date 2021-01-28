@@ -180,4 +180,11 @@ struct mt6357_codec_priv {
 	int mAudio_BackUpAna_DevicePower[AUDIO_ANALOG_DEVICE_MAX];
 };
 
+struct mt6357_priv {
+	struct device *dev;
+	struct regmap *regmap;
+	struct iio_channel *codec_auxadc;
+	int mtkaif_protocol;
+};
+
 #endif
