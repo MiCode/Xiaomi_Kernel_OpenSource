@@ -37,6 +37,7 @@ int task_prefer_match(struct task_struct *p, int cpu);
 int
 task_prefer_match_on_cpu(struct task_struct *p, int src_cpu, int target_cpu);
 inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p);
+inline unsigned int freq_util(unsigned long util);
 
 #define LB_POLICY_SHIFT 16
 #define LB_CPU_MASK ((1 << LB_POLICY_SHIFT) - 1)

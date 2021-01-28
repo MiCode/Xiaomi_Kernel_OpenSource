@@ -385,6 +385,12 @@ inline unsigned long task_uclamped_min_w_ceiling(struct task_struct *p)
 	return min(uclamp_task_effective_util(p, UCLAMP_MIN), max_capacity);
 }
 
+/* Calculte util with DVFS margin */
+inline unsigned int freq_util(unsigned long util)
+{
+	return util * 10 >> 3;
+}
+
 #ifdef CONFIG_MTK_IDLE_BALANCE_ENHANCEMENT
 bool idle_lb_enhance(struct task_struct *p, int cpu)
 {
