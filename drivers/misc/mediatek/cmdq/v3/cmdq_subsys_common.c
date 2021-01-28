@@ -70,6 +70,9 @@ static struct cmdq_subsys_dts_name subsys[] = {
 	[CMDQ_SUBSYS_MIPITX0] = {.group = "SPECIAL", .name = "mipitx0_base"},
 	[CMDQ_SUBSYS_MIPITX1] = {.group = "SPECIAL", .name = "mipitx1_base"},
 	[CMDQ_SUBSYS_VENC] = {.group = "SPECIAL", .name = "venc_base"},
+	[CMDQ_SUBSYS_IMGSYS2] = {.group = "SPECIAL", .name = "imgsys2_base"},
+	[CMDQ_SUBSYS_IPESYS] = {.group = "SPECIAL", .name = "ipesys_base"},
+	[CMDQ_SUBSYS_DPE] = {.group = "SPECIAL", .name = "dpe_base"},
 };
 
 struct cmdq_subsys_dts_name *cmdq_subsys_get_dts(void)
