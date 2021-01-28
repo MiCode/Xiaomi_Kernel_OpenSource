@@ -252,7 +252,7 @@ void adsp_recovery_init(void)
 	INIT_WORK(&adsp_sys_reset_work.work, adsp_sys_reset_ws);
 	/*init completion for identify adsp aed finished*/
 	init_completion(&adsp_sys_reset_cp);
-	adsp_reset_lock = wakeup_source_create("adsp reset wakelock");
+	adsp_reset_lock = wakeup_source_register(NULL, "adsp reset wakelock");
 	/* init reset by cmd flag*/
 	adsp_recovery_flag[ADSP_A_ID] = ADSP_RECOVERY_OK;
 }

@@ -596,7 +596,8 @@ int adsp_sram_gtable_check(void)
 int adsp_suspend_init(void)
 {
 	INIT_WORK(&adsp_suspend_work.work, adsp_suspend_ws);
-	adsp_suspend_lock = wakeup_source_create("adsp suspend wakelock");
+	adsp_suspend_lock = wakeup_source_register(NULL,
+						   "adsp suspend wakelock");
 	timer_setup(&adsp_suspend_timer, adsp_delay_off_handler, 0);
 	adsp_is_suspend = 0;
 	adsp_sram_gtable_init();
