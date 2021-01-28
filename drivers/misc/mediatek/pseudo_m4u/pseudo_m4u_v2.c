@@ -1572,7 +1572,6 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 	unsigned int i;
 	unsigned int err_port = 0, err_size = 0;
 	struct scatterlist *s;
-	dma_addr_t orig_addr = ARM_MAPPING_ERROR;
 	dma_addr_t offset = 0;
 	struct m4u_buf_info_t *pbuf_info;
 	unsigned long long current_ts = 0;
@@ -1695,13 +1694,11 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 					    err_size);
 		goto ERR_EXIT;
 	}
+	/* local table should copy to buffer->sg_table */
 	if (sg_table) {
-		orig_addr = sg_dma_address(sg_table->sgl);
-		if (orig_addr != dma_addr) {
-			for_each_sg(sg_table->sgl, s, sg_table->nents, i) {
-				sg_dma_address(s) = dma_addr + offset;
-				offset += s->length;
-			}
+		for_each_sg(sg_table->sgl, s, sg_table->nents, i) {
+			sg_dma_address(s) = dma_addr + offset;
+			offset += s->length;
 		}
 	}
 	*retmva = dma_addr;
@@ -1846,7 +1843,8 @@ int pseudo_alloc_mva_sg(struct port_mva_info_t *port_info,
 				  va_align, size_align,
 				  sg_table, flags, &mva_align);
 	if (ret) {
-		M4U_ERR("error: port %d, 0x%x, 0x%lx, 0x%lx, 0x%lx, ret=%d\n",
+		M4U_ERR(
+			"error alloc mva: port %d, 0x%x, 0x%lx, 0x%lx, 0x%lx, ret=%d\n",
 			port_info->emoduleid, flags, port_info->va,
 			mva_align, port_info->buf_size, ret);
 		mva = 0;
@@ -2434,6 +2432,7 @@ void pseudo_m4u_db_debug(unsigned int m4uid,
 		for (i = 0; i < MTK_IOMMU_MMU_COUNT; i++)
 			mtk_dump_main_tlb(m4uid, i, s);
 		mtk_dump_pfh_tlb(m4uid, s);
+		mtk_dump_victim_tlb(m4uid, s);
 		__mtk_dump_reg_for_hang_issue(m4uid, s);
 		M4U_PRINT_SEQ(s,
 			      "=========================iommu%d finish HW register dump============================\n",
@@ -2446,6 +2445,7 @@ void pseudo_m4u_db_debug(unsigned int m4uid,
 			for (j = 0; j < MTK_IOMMU_MMU_COUNT; j++)
 				mtk_dump_main_tlb(i, j, s);
 			mtk_dump_pfh_tlb(i, s);
+			mtk_dump_victim_tlb(i, s);
 			__mtk_dump_reg_for_hang_issue(i, s);
 			M4U_PRINT_SEQ(s,
 				      "====================================iommu%d finish HW register dump==============================\n",
@@ -2517,8 +2517,9 @@ get_pages_done:
 		/* this should not happen, because we have
 		 * checked the size before.
 		 */
-		M4U_MSG("only get %d pages: mva=0x%lx, size=0x%lx, pg_num=%u\n",
-				k, mva, size, page_num);
+		M4U_MSG(
+			"mva_map_kernel:only get %d pages: mva=0x%lx, size=0x%lx, pg_num=%u\n",
+			k, mva, size, page_num);
 		ret = -1;
 		goto error_out;
 	}

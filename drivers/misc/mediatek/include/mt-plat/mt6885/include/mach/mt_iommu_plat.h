@@ -79,6 +79,8 @@ char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
 #define F_BIT_SET(bit)		(1<<(bit))
 #define F_BIT_VAL(val, bit)	((!!(val))<<(bit))
 #define F_MSK_SHIFT(regval, msb, lsb) (((regval)&F_MSK(msb, lsb))>>lsb)
+#define F_MSK_SHIFT64(regval, msb, lsb) \
+	((((unsigned long)regval)&F_MSK(msb, lsb))>>lsb)
 
 #ifdef IOMMU_DESIGN_OF_BANK
 /* m4u atf debug parameter */
@@ -219,28 +221,26 @@ static inline unsigned int iommu_get_field_by_mask(
 #define REG_MMU_READ_ENTRY	(0x100)
 #define F_READ_ENTRY_EN		 F_BIT_SET(31)
 #define F_READ_ENTRY_VICT_TLB_SEL F_BIT_SET(13)
-#define F_READ_ENTRY_MM0_MAIN	   F_BIT_SET(27)
 #define F_READ_ENTRY_MMx_MAIN(id)       F_BIT_SET(27+id)
 #define F_READ_ENTRY_PFH		F_BIT_SET(26)
-#define F_READ_ENTRY_MMU1_IDX(idx)      F_VAL(idx, 25, 20)
-#define F_READ_ENTRY_MAIN_IDX(idx)      F_VAL(idx, 19, 14)
+#define F_READ_ENTRY_MAIN_IDX(mmu, idx)     \
+	F_VAL(idx, 19 + mmu * 6, 14 + mmu * 6)
 #define F_READ_ENTRY_PFH_IDX(idx)       F_VAL(idx, 11, 5)
 #define F_READ_ENTRY_PFH_PAGE_IDX(idx)    F_VAL(idx, 4, 2)
 #define F_READ_ENTRY_PFH_WAY(way)       F_VAL(way, 1, 0)
 
 #define REG_MMU_DES_RDATA	(0x104)
-#define REG_MMU_PFH_TAG_RDATA    0x108
+#define REG_MMU_PFH_TAG_RDATA			(0x108)
 #define F_PFH_TAG_VA_GET(mmu, tag)    \
-	((mmu == 0)?F_MMU0_PFH_TAG_VA_GET(tag) : F_MMU1_PFH_TAG_VA_GET(tag))
-#define F_MMU0_PFH_TAG_VA_GET(tag)    \
-	(F_MSK_SHIFT(tag, 13, 4)<<(MMU_SET_MSB_OFFSET(0)+1))
-#define F_MMU1_PFH_TAG_VA_GET(tag)    \
-	(F_MSK_SHIFT(tag, 13, 4)<<(MMU_SET_MSB_OFFSET(1)+1))
+	(F_MSK_SHIFT64(tag, 14, 3)<<(MMU_SET_MSB_OFFSET(mmu)+1))
+#define F_VIC_TAG_VA_GET_L0(mmu, tag)    \
+	(F_MSK_SHIFT(tag, 23, 17)<<(MMU_SET_MSB_OFFSET(mmu)+2))
+#define F_VIC_TAG_VA_GET_L1(mmu, tag)    \
+	(F_MSK_SHIFT(tag, 23, 17)<<(MMU_SET_MSB_OFFSET(mmu)-6))
 #define F_MMU_PFH_TAG_VA_LAYER0_MSK(mmu)  \
 	((mmu == 0)?F_MSK(31, 28):F_MSK(31, 28))
-#define F_PFH_TAG_LAYER_BIT	 F_BIT_SET(3)
-#define F_PFH_TAG_16X_BIT	   \
-	F_BIT_SET(2)	/* this bit is always 0 -- cost down. */
+#define F_PFH_PT_BANK_BIT	 F_MSK(15, 16)
+#define F_PFH_TAG_LAYER_BIT	 F_BIT_SET(2)
 #define F_PFH_TAG_SEC_BIT	   F_BIT_SET(1)
 #define F_PFH_TAG_AUTO_PFH	  F_BIT_SET(0)
 
@@ -379,8 +379,9 @@ static inline unsigned int iommu_get_field_by_mask(
 #define F_MMU_RS_STA_TO		BIT(8)
 #define F_MMU_RS_STA_ID		F_MSK(31, 16)
 
-#define REG_MMU_MAIN_TAG(MMU, TAG)	(0x500 + MMU * 300 + TAG * 0x4)
+#define REG_MMU_MAIN_TAG(MMU, TAG)	(0x500 + MMU * 0x300 + TAG * 0x4)
 #define F_MAIN_TLB_VA_MSK	   F_MSK(31, 12)
+#define F_MAIN_TLB_VA_BIT32		F_MSK(1, 0)
 #define F_MAIN_TLB_LOCK_BIT	 (1<<11)
 #define F_MAIN_TLB_VALID_BIT	(1<<10)
 #define F_MAIN_TLB_LAYER_BIT	F_BIT_SET(9)
@@ -799,5 +800,4 @@ struct mau_config_info *get_mau_info(int m4u_id)
 		return NULL;
 }
 
-extern bool __attribute__((weak)) apusys_power_check(void);
 #endif

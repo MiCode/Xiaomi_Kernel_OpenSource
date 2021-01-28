@@ -119,7 +119,6 @@ struct mtk_iommu_data {
 #else
 	struct mtk_iommu_domain	*m4u_dom;
 	struct iommu_group *m4u_group;
-	bool tlb_flush_active;
 #endif
 	struct mtk_smi_iommu smi_imu; /* SMI larb iommu info */
 	bool enable_4GB;   /* Dram is over 4gb */
