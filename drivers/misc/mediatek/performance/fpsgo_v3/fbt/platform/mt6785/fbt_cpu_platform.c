@@ -100,11 +100,7 @@ void fbt_set_per_task_min_cap(int pid, unsigned int base_blc)
 
 static int generate_cpu_mask(unsigned int prefer_type, struct cpumask *cpu_mask)
 {
-	if (prefer_type == FPSGO_PREFER_BIG) {
-		cpumask_clear(cpu_mask);
-		cpumask_set_cpu(6, cpu_mask);
-		cpumask_set_cpu(7, cpu_mask);
-	} else if (prefer_type == FPSGO_PREFER_LITTLE) {
+	if (prefer_type == FPSGO_PREFER_LITTLE) {
 		cpumask_setall(cpu_mask);
 		cpumask_clear_cpu(6, cpu_mask);
 		cpumask_clear_cpu(7, cpu_mask);
@@ -125,7 +121,6 @@ void fbt_set_affinity(pid_t pid, unsigned int prefer_type)
 	if (!mask_done) {
 		generate_cpu_mask(FPSGO_PREFER_LITTLE,
 					&mask[FPSGO_PREFER_LITTLE]);
-		generate_cpu_mask(FPSGO_PREFER_BIG, &mask[FPSGO_PREFER_BIG]);
 		generate_cpu_mask(FPSGO_PREFER_NONE, &mask[FPSGO_PREFER_NONE]);
 	}
 
@@ -149,11 +144,6 @@ void fbt_set_cpu_prefer(int pid, unsigned int prefer_type)
 	fpsgo_systrace_c_fbt(pid, prefer_type, "set_cpuprefer");
 }
 
-int fbt_get_L_cluster_num(void)
-{
-	return 0;
-}
-
 int fbt_get_L_min_ceiling(void)
 {
 	return 0;
@@ -165,6 +155,11 @@ int fbt_get_default_boost_ta(void)
 }
 
 int fbt_get_default_adj_loading(void)
+{
+	return 0;
+}
+
+int fbt_get_cluster_limit(int *cluster, int *freq)
 {
 	return 0;
 }
