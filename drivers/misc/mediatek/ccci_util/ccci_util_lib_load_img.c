@@ -943,7 +943,7 @@ void get_md_postfix(int md_id, char k[], char buf[], char buf_ex[])
 	}
 
 	if (buf_ex) {
-		snprintf(buf_ex, IMG_POSTFIX_LEN,
+		ret = snprintf(buf_ex, IMG_POSTFIX_LEN,
 			"%d%s_E%d", X, YY_K, Ex);
 		if (ret < 0 || ret >= IMG_POSTFIX_LEN) {
 			CCCI_UTIL_ERR_MSG_WITH_ID(md_id,
