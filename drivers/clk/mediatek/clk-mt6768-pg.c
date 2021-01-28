@@ -3100,12 +3100,8 @@ static int enable_subsys(enum subsys_id id, enum mtcmos_op action)
 	if (action == MTCMOS_BUS_PROT) {
 		spin_lock_irqsave(&pgcb_lock, spinlock_save_flags);
 		list_for_each_entry(pgcb, &pgcb_list, list) {
-			if (!pgcb) {
-				pr_notice("pgcb(%d) null\r\n", id);
-				WARN_ON(1);
-			} else if (pgcb->after_on) {
+			if (pgcb->after_on)
 				pgcb->after_on(id);
-			}
 		}
 		spin_unlock_irqrestore(&pgcb_lock, spinlock_save_flags);
 	}
