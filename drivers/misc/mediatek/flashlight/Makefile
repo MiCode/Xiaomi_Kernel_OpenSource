@@ -6,6 +6,7 @@ flashlight-y := flashlight-core.o
 flashlight-y += flashlight-device.o
 
 obj-$(CONFIG_MTK_FLASHLIGHT)             += flashlight.o
+obj-$(CONFIG_MTK_V4L2_FLASHLIGHT)        += mtk-composite.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LED191)      += flashlights-led191.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3642)      += flashlights-lm3642.o
 obj-$(CONFIG_MTK_FLASHLIGHT_LM3643)      += flashlights-lm3643.o
