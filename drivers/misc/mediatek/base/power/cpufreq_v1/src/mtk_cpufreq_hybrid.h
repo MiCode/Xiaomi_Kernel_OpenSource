@@ -46,7 +46,7 @@ enum cpu_dvfs_ipi_type {
 	IPI_DVFS_INIT_PTBL,
 	IPI_DVFS_INIT,
 	IPI_SET_CLUSTER_ON_OFF,
-#if 0
+#ifdef CONFIG_MTK_CPU_MSSV
 	IPI_SET_VOLT,
 	IPI_SET_FREQ,
 	IPI_GET_VOLT,
@@ -118,5 +118,4 @@ int cpuhvfs_set_iccs_freq(enum mt_cpu_dvfs_id id, unsigned int freq);
 int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 	char nr_volt_tbl);
 int dvfs_to_sspm_command(u32 cmd, struct cdvfs_data *cdvfs_d);
-
 #endif	/* __MTK_CPUFREQ_HYBRID__ */
