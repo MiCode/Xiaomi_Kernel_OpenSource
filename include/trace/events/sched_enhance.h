@@ -25,8 +25,6 @@ TRACE_EVENT(event,                      \
 
 sched_trace(sched_eas_energy_calc);
 sched_trace(sched_log);
-/* mtk scheduling interopertion enhancement*/
-sched_trace(sched_interop);
 
 #endif
 /*
