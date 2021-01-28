@@ -64,7 +64,7 @@ static struct mm_qos_request vdec_rg_ctrl_dma;
 void mtk_dec_init_ctx_pm(struct mtk_vcodec_ctx *ctx)
 {
 	ctx->input_driven = 0;
-	ctx->user_lock_hw = 0;
+	ctx->user_lock_hw = 1;
 }
 
 int mtk_vcodec_init_dec_pm(struct mtk_vcodec_dev *mtkdev)
@@ -371,7 +371,7 @@ static void mtk_vdec_emi_bw_end(void)
 #endif
 }
 
-void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 #ifdef DEC_DVFS
 	mutex_lock(&ctx->dev->dec_dvfs_mutex);
@@ -380,13 +380,13 @@ void mtk_vdec_pmqos_prelock(struct mtk_vcodec_ctx *ctx)
 #endif
 }
 
-void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_begin_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	mtk_vdec_dvfs_begin(ctx);
 	mtk_vdec_emi_bw_begin(ctx);
 }
 
-void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx)
+void mtk_vdec_pmqos_end_frame(struct mtk_vcodec_ctx *ctx, int hw_id)
 {
 	mtk_vdec_dvfs_end(ctx);
 	mtk_vdec_emi_bw_end();
