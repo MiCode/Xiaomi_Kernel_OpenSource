@@ -791,7 +791,7 @@ int ssmr_online(unsigned int feat)
 }
 EXPORT_SYMBOL(ssmr_online);
 
-#if CONFIG_SYSFS
+#if IS_ENABLED(CONFIG_SYSFS)
 static ssize_t ssmr_show(struct kobject *kobj, struct kobj_attribute *attr,
 			char *buf)
 {
@@ -846,7 +846,7 @@ static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
 
 		pr_info("%s[%d]: cmd> %s\n", __func__, __LINE__, buf);
 
-		if (feat == __MAX_NR_SSMR_FEATURES)
+		if (0 == __MAX_NR_SSMR_FEATURES)
 			return -EINVAL;
 
 		for (feat = 0; feat < __MAX_NR_SSMR_FEATURES; feat++) {
@@ -862,7 +862,7 @@ static ssize_t ssmr_store(struct kobject *kobj, struct kobj_attribute *attr,
 			}
 		}
 	} else {
-		pr_info("%s[%d]: get invalid cmd\n", __func__, __LINE__);
+		pr_err("%s[%d]: get invalid cmd\n", __func__, __LINE__);
 	}
 
 	return count;
@@ -889,11 +889,11 @@ static int memory_ssmr_sysfs_init(void)
 	if (ssmr_kobject) {
 		error = sysfs_create_file(ssmr_kobject, &ssmr_attribute.attr);
 		if (error) {
-			pr_info("SSMR: sysfs create failed\n");
+			pr_err("SSMR: sysfs create failed\n");
 			return -ENOMEM;
 		}
 	} else {
-		pr_notice("SSMR: Cannot find module %s object\n",
+		pr_err("SSMR: Cannot find module %s object\n",
 				KBUILD_MODNAME);
 		return -EINVAL;
 	}
@@ -928,7 +928,7 @@ static int ssmr_probe(struct platform_device *pdev)
 	}
 
 	/* ssmr sys file init */
-#if CONFIG_SYSFS
+#if IS_ENABLED(CONFIG_SYSFS)
 	memory_ssmr_sysfs_init();
 #endif
 

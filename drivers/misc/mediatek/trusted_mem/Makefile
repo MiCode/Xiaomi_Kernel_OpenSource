@@ -3,6 +3,10 @@
 # Copyright (C) 2018 MediaTek Inc.
 #
 
+ifeq ($(CONFIG_MTK_GCOV_KERNEL),y)
+GCOV_PROFILE := y
+endif
+
 # Modules Feature Options
 include $(srctree)/drivers/misc/mediatek/trusted_mem/Makefile.configs
 
