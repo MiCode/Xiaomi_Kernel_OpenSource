@@ -7,7 +7,7 @@
 
 #ifdef PPM_SSPM_SUPPORT
 #include <linux/ktime.h>
-#include "v1/sspm_ipi.h"
+#include <sspm_ipi.h>
 
 
 static int ppm_ipi_to_sspm_command(unsigned char cmd,

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (c) 2017 MediaTek Inc.
  */
 
 #include <linux/kernel.h>
@@ -28,7 +28,7 @@
 #endif
 
 #if UPOWER_ENABLE_TINYSYS_SSPM
-#include <sspm_reservedmem_define.h>
+#include <sspm_reservedmem_define_mt6779.h>
 #endif
 
 #ifndef EARLY_PORTING_SPOWER
@@ -38,8 +38,33 @@
 #ifdef UPOWER_USE_QOS_IPI
 #if UPOWER_ENABLE_TINYSYS_SSPM
 //#include <mtk_spm_vcore_dvfs_ipi.h>
-#include <mtk_vcorefs_governor.h>
-#include <helio-dvfsrc-ipi.h>
+//#include <mtk_vcorefs_governor.h>
+//#include <helio-dvfsrc-ipi.h>
+#include <sspm_ipi.h>
+
+enum {
+	QOS_IPI_UPOWER_DATA_TRANSFER,
+	QOS_IPI_UPOWER_DUMP_TABLE,
+};
+
+struct upower_ipi_data {
+	unsigned int cmd;
+	struct {
+		unsigned int arg[3];
+	} upower_data;
+};
+
+static int upower_qos_ipi_to_sspm(void *buffer, int slot)
+{
+	int ack_data = 0;
+
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
+	return sspm_ipi_send_sync(IPI_ID_QOS, IPI_OPT_POLLING,
+				buffer, slot, &ack_data, 1);
+#else
+	return ack_data;
+#endif
+}
 #endif
 #endif
 
@@ -578,20 +603,20 @@ static int upower_cal_turn_point(void)
 #if UPOWER_ENABLE_TINYSYS_SSPM
 void upower_send_data_ipi(phys_addr_t phy_addr, unsigned long long size)
 {
-	struct qos_ipi_data qos_d;
+	struct upower_ipi_data qos_d;
 
 	qos_d.cmd = QOS_IPI_UPOWER_DATA_TRANSFER;
-	qos_d.u.upower_data.arg[0] = phy_addr;
-	qos_d.u.upower_data.arg[1] = size;
-	qos_ipi_to_sspm_command(&qos_d, 3);
+	qos_d.upower_data.arg[0] = phy_addr;
+	qos_d.upower_data.arg[1] = size;
+	upower_qos_ipi_to_sspm(&qos_d, 3);
 }
 
 void upower_dump_data_ipi(void)
 {
-	struct qos_ipi_data qos_d;
+	struct upower_ipi_data qos_d;
 
 	qos_d.cmd = QOS_IPI_UPOWER_DUMP_TABLE;
-	qos_ipi_to_sspm_command(&qos_d, 1);
+	upower_qos_ipi_to_sspm(&qos_d, 1);
 }
 #endif
 #endif

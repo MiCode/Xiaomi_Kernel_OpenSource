@@ -13,17 +13,17 @@
 
 #include "mtk_cpuhp_private.h"
 
-int arch_get_nr_clusters(void)
+static int arch_get_nr_clusters(void)
 {
 	return arch_nr_clusters();
 }
 
-int arch_get_cluster_id(unsigned int cpu)
+static int arch_get_cluster_id(unsigned int cpu)
 {
 	return arch_cpu_cluster_id(cpu);
 }
 
-void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
+static void arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 {
 	unsigned int cpu;
 

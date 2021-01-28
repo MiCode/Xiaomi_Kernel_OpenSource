@@ -165,7 +165,7 @@ void ppm_notifier(void)
 		return;
 	}
 
-	hps_ws = wakeup_source_register("hps");
+	hps_ws = wakeup_source_register(NULL, "hps");
 	if (!hps_ws)
 		pr_debug("hps wakelock register fail!\n");
 }

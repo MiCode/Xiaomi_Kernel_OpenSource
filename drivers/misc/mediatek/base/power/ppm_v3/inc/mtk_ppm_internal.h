@@ -21,6 +21,7 @@ extern "C" {
 #include <linux/printk.h>
 #include <linux/sched.h>
 #include <linux/cpumask.h>
+#include <linux/topology.h>
 
 #include "mtk_ppm_api.h"
 #include "mtk_ppm_platform.h"
@@ -315,23 +316,32 @@ extern void aee_rr_rec_ppm_waiting_for_pbm(u8 val);
 #define trace_ppm_update(a, b, c, d) do { } while (0)
 static inline int arch_get_cluster_cpus(struct cpumask *cpus, int cluster_id)
 {
-#ifdef CONFIG_MACH_MT6761
 	int cpu = 0;
 
 	cpumask_clear(cpus);
+#ifdef CONFIG_MACH_MT6761
 	while (cpu < 4) {
 		cpumask_set_cpu(cpu, cpus);
 		cpu++;
 	}
+#else
+	for_each_possible_cpu(cpu) {
+		struct cpu_topology *cpu_topo = &cpu_topology[cpu];
+
+		if (cpu_topo->package_id == cluster_id)
+			cpumask_set_cpu(cpu, cpus);
+	}
+#endif
 
 	return 0;
-#endif
 }
 
 static inline int arch_get_nr_clusters(void)
 {
 #ifdef CONFIG_MACH_MT6761
 	return 1;
+#else
+	return arch_nr_clusters();
 #endif
 }
 
