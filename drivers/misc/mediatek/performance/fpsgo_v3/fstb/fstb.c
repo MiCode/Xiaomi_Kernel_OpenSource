@@ -2145,11 +2145,8 @@ int mtk_fstb_init(void)
 
 	mtk_fstb_dprintk_always("init\n");
 
-#if API_READY
-	num_cluster = arch_get_nr_clusters();
-#else
-	num_cluster = 2;
-#endif
+	num_cluster = arch_nr_clusters();
+
 	ged_kpi_output_gfx_info2_fp = gpu_time_update;
 
 	/* create debugfs file */

@@ -32,11 +32,9 @@
 #include <linux/hrtimer.h>
 #include <linux/list.h>
 #include <linux/kernel.h>
-#include <linux/sched/rt.h>
-#include <linux/sched/deadline.h>
 #include <linux/bsearch.h>
-#include <linux/sched/task.h>
-#include <linux/sched/topology.h>
+#include <sched/sched.h>
+#include <linux/cpufreq.h>
 
 #include <mt-plat/eas_ctrl.h>
 
@@ -552,7 +550,8 @@ static void fbt_set_idleprefer_locked(int enable)
 
 	xgf_trace("fpsgo %s idleprefer", enable?"enable":"disable");
 #ifdef CONFIG_SCHED_TUNE
-	prefer_idle_for_perf_idx(CGROUP_TA, enable);
+	/* use eas_ctrl to control prefer idle */
+	update_prefer_idle_value(EAS_PREFER_IDLE_KIR_FPSGO, CGROUP_TA, enable);
 #endif
 	set_idleprefer = enable;
 }
@@ -2498,163 +2497,31 @@ void fpsgo_base2fbt_cancel_jerk(struct render_info *thr)
 	}
 }
 
-#if !API_READY
-static unsigned int mt_cpufreq_get_freq_by_idx1(
-		int cluster, int opp)
-{
-	unsigned int freq = 0;
-
-	if (cluster == 0) {
-		switch (opp) {
-		case 0:
-			freq = 2000000;
-			break;
-		case 1:
-			freq = 1933000;
-			break;
-		case 2:
-			freq = 1866000;
-			break;
-		case 3:
-			freq = 1800000;
-			break;
-		case 4:
-			freq = 1733000;
-			break;
-		case 5:
-			freq = 1666000;
-			break;
-		case 6:
-			freq = 1548000;
-			break;
-		case 7:
-			freq = 1475000;
-			break;
-		case 8:
-			freq = 1375000;
-			break;
-		case 9:
-			freq = 1275000;
-			break;
-		case 10:
-			freq = 1175000;
-			break;
-		case 11:
-			freq = 1075000;
-			break;
-		case 12:
-			freq = 999000;
-			break;
-		case 13:
-			freq = 925000;
-			break;
-		case 14:
-			freq = 850000;
-			break;
-		case 15:
-			freq = 774000;
-			break;
-		}
-	} else if (cluster == 1) {
-		switch (opp) {
-		case 0:
-			freq = 2200000;
-			break;
-		case 1:
-			freq = 2133000;
-			break;
-		case 2:
-			freq = 2066000;
-			break;
-		case 3:
-			freq = 2000000;
-			break;
-		case 4:
-			freq = 1933000;
-			break;
-		case 5:
-			freq = 1866000;
-			break;
-		case 6:
-			freq = 1800000;
-			break;
-		case 7:
-			freq = 1651000;
-			break;
-		case 8:
-			freq = 1503000;
-			break;
-		case 9:
-			freq = 1414000;
-			break;
-		case 10:
-			freq = 1295000;
-			break;
-		case 11:
-			freq = 1176000;
-			break;
-		case 12:
-			freq = 1087000;
-			break;
-		case 13:
-			freq = 998000;
-			break;
-		case 14:
-			freq = 909000;
-			break;
-		case 15:
-			freq = 850000;
-			break;
-		}
-	}
-
-	return freq;
-}
-#endif
-
 static void fbt_update_pwd_tbl(void)
 {
 	int cluster, opp;
 	unsigned long long max_cap = 0ULL;
+	int cpu;
+	unsigned long long cap_orig = 0ULL;
+	unsigned long long cap = 0ULL;
 
 	for (cluster = 0; cluster < cluster_num ; cluster++) {
-#if API_READY
-		/* use capacity_orig_of(unsigned int cpu) instead */
-		struct cpumask cluster_cpus;
-		int cpu;
-		const struct sched_group_energy *core_energy = NULL;
 
-		arch_get_cluster_cpus(&cluster_cpus, cluster);
-		for_each_cpu(cpu, &cluster_cpus) {
-			core_energy = cpu_core_energy(cpu);
-			break;
+		for_each_possible_cpu(cpu) {
+			if (arch_cpu_cluster_id(cpu) == cluster)
+				cap_orig = capacity_orig_of(cpu);
 		}
 
-		if (!core_energy)
-			break;
-#endif
 
 		for (opp = 0; opp < NR_FREQ_CPU; opp++) {
-			unsigned long long cap = 0ULL;
 			unsigned int temp;
 
 			cpu_dvfs[cluster].power[opp] =
-				mt_cpufreq_get_freq_by_idx1(cluster, opp);
+				mt_cpufreq_get_freq_by_idx(cluster, opp);
 
-#ifdef CONFIG_NONLINEAR_FREQ_CTL
-			cap = core_energy->cap_states[
-					NR_FREQ_CPU - opp - 1].cap;
-#else
-#if !API_READY
-			if (cluster == 0)
-				cap = 522;
-			else if (cluster == 1)
-				cap = 1024;
-#endif
-			cap = cap * cpu_dvfs[cluster].power[opp];
+			cap = cap_orig * cpu_dvfs[cluster].power[opp];
 			if (cpu_dvfs[cluster].power[0])
 				do_div(cap, cpu_dvfs[cluster].power[0]);
-#endif
 
 			cap = (cap * 100) >> 10;
 			temp = (unsigned int)cap;
@@ -3319,11 +3186,8 @@ int __init fbt_cpu_init(void)
 	boost_ta = fbt_get_default_boost_ta();
 	adjust_loading = fbt_get_default_adj_loading();
 
-#if API_READY
-	cluster_num = arch_get_nr_clusters();
-#else
-	cluster_num = 2;
-#endif
+	cluster_num = arch_nr_clusters();
+
 	max_cap_cluster = min((cluster_num - 1), 0);
 
 	base_opp =
