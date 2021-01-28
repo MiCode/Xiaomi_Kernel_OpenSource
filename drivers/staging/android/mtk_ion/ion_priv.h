@@ -502,8 +502,6 @@ void ion_free_nolock(struct ion_client *client, struct ion_handle *handle);
 
 int ion_handle_put_nolock(struct ion_handle *handle);
 
-struct ion_handle *ion_handle_get_by_id(struct ion_client *client, int id);
-
 int ion_handle_put(struct ion_handle *handle);
 
 int ion_query_heaps(struct ion_client *client, struct ion_heap_query *query);
@@ -516,4 +514,8 @@ extern struct device *g_iommu_device;
 #endif
 
 extern atomic64_t page_sz_cnt;
+
+int ion_share_dma_buf_fd_nolock(struct ion_client *client,
+				struct ion_handle *handle);
+
 #endif /* _ION_PRIV_H */
