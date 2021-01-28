@@ -255,8 +255,9 @@ void apusys_clk_path_update_pwr(enum DVFS_USER user, enum DVFS_VOLTAGE voltage)
 			dvfs_clk_path_max_vol[user][path_volt_index] :
 			voltage);
 
-			PWR_LOG_INF("%s, user_path_volt[%s][%d]=%d\n",
+			PWR_LOG_INF("%s, volt=%d, user_path_volt[%s][%d]=%d\n",
 			__func__,
+			voltage,
 			user_str[user],
 			path_volt_index,
 			apusys_opps.user_path_volt[user][path_volt_index]);

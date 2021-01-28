@@ -414,6 +414,37 @@ static int global_test_efuse_raise;
 static struct apusys_dvfs_steps opps_backup[
 		APUSYS_MAX_NUM_OPPS][APUSYS_BUCK_DOMAIN_NUM];
 #endif
+
+// set upper bound of clk_path_max_vol for valid dvfs user
+static void update_clk_path_max_vol(enum DVFS_USER user, enum DVFS_VOLTAGE volt)
+{
+	// CAUTION: have to ensure VPU0 has already run the func before MDLA0/1
+
+	if (user == MDLA0 || user == MDLA1) {
+		dvfs_clk_path_max_vol[user][0] = volt;
+		// CONN & IOMMU & VPU share vvpu buck, so the max volt
+		// is different with vmdla
+		dvfs_clk_path_max_vol[user][1] = dvfs_clk_path_max_vol[VPU0][1];
+		dvfs_clk_path_max_vol[user][2] = dvfs_clk_path_max_vol[VPU0][2];
+
+	} else {
+
+		dvfs_clk_path_max_vol[user][0] = volt;
+
+		/*
+		 * Index[1] is APUCONN and APUCONN use vvpu as well.
+		 * That is why also modify index[1]'s upper bound here.
+		 */
+		dvfs_clk_path_max_vol[user][1] = volt;
+
+		/*
+		 * Index[2] is APU_IOMMU and APU_IOMMU use vvpu as well.
+		 * That is why also modify index[2]'s upper bound here.
+		 */
+		dvfs_clk_path_max_vol[user][2] = volt;
+	}
+}
+
 #ifndef AGING_MARGIN
 static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn) {}
 #else
@@ -430,6 +461,7 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn) {}
  */
 static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 {
+	enum DVFS_USER user = 0;
 	enum DVFS_FREQ ag_freq = 0;
 	enum DVFS_FREQ seg_freq = 0;
 	int seg_volt = 0;
@@ -441,16 +473,27 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 		LOG_ERR("%s %s opp %d not support aging volt\n",
 				__func__, buck_domain_str[bk_dmn], opp);
 
+	user = apusys_buck_domain_to_user[bk_dmn];
 	seg_freq = apusys_opps.opps[opp][bk_dmn].freq;
 	seg_volt = apusys_opps.opps[opp][bk_dmn].voltage;
 
 	/*
 	 * Brute-force searching whether seg_freq meet
 	 * any aging freq in aging_tbl array
+	 * note: bypass last opp to prevent voltage be reduced twice
 	 */
-	for (ag_opp_idx = 0; ag_opp_idx < APUSYS_MAX_NUM_OPPS; ag_opp_idx++) {
-		ag_freq = aging_tbl[ag_opp_idx][bk_dmn].freq;
-		ag_volt = aging_tbl[ag_opp_idx][bk_dmn].volt;
+	for (ag_opp_idx = 0; ag_opp_idx < APUSYS_MAX_NUM_OPPS - 1
+		; ag_opp_idx++) {
+
+		if (get_devinfo_with_index(30) == 0x10) {
+			// SEGMENT_0
+			ag_freq = aging_tbl_b0[ag_opp_idx][bk_dmn].freq;
+			ag_volt = aging_tbl_b0[ag_opp_idx][bk_dmn].volt;
+		} else {
+			// SEGMENT_1
+			ag_freq = aging_tbl_b1[ag_opp_idx][bk_dmn].freq;
+			ag_volt = aging_tbl_b1[ag_opp_idx][bk_dmn].volt;
+		}
 
 		/*
 		 * if setment freqs matchs aging freq,
@@ -462,6 +505,14 @@ static void aging_support_check(int opp, enum DVFS_VOLTAGE_DOMAIN bk_dmn)
 				__func__, buck_domain_str[bk_dmn], opp,
 				seg_freq, seg_volt, ag_freq, ag_volt,
 				apusys_opps.opps[opp][bk_dmn].voltage);
+
+			if (opp == 0 && user < APUSYS_DVFS_USER_NUM) {
+				// set upper bound of clk_path_max_vol
+				// for valid dvfs user
+				update_clk_path_max_vol(user,
+					apusys_opps.opps[opp][bk_dmn].voltage);
+			}
+
 			break;
 		}
 	}
@@ -624,21 +675,8 @@ static void change_opp_voltage(enum DVFS_VOLTAGE_DOMAIN bk_domain,
 	user = apusys_buck_domain_to_user[bk_domain];
 
 	/* set upper bound of clk_path_max_vol for valid dvfs user*/
-	if (user < APUSYS_DVFS_USER_NUM) {
-		dvfs_clk_path_max_vol[user][0] = *bin_mv;
-
-		/*
-		 * Index[1] is APUCONN and APUCONN use vvpu as well.
-		 * That is why also modify index[1]'s upper bound here.
-		 */
-		dvfs_clk_path_max_vol[user][1] = *bin_mv;
-
-		/*
-		 * Index[2] is APU_IOMMU and APU_IOMMU use vvpu as well.
-		 * That is why also modify index[2]'s upper bound here.
-		 */
-		dvfs_clk_path_max_vol[user][2] = *bin_mv;
-	}
+	if (user < APUSYS_DVFS_USER_NUM)
+		update_clk_path_max_vol(user, *bin_mv);
 
 	if (bk_domain == V_MDLA0 || bk_domain == V_MDLA1)
 		check1 = DVFS_VOLT_00_800000_V;
@@ -779,8 +817,9 @@ static int binning_support_check(void)
 	}
 #endif
 
-	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS; opp++) {
-		/* Minus VPU aging voltage if need */
+	// bypass last opp to prevent voltage be reduced twice
+	for (opp = 0; opp < APUSYS_MAX_NUM_OPPS - 1; opp++) {
+		/* Minus aging voltage if need */
 		aging_support_check(opp, V_VPU0);
 		aging_support_check(opp, V_VPU1);
 		aging_support_check(opp, V_VPU2);
