@@ -4,7 +4,6 @@
  * Copyright (c) 2019 MediaTek Inc.
  */
 
-#include <linux/devfreq.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -1730,9 +1729,6 @@ char *apu_dvfs_dump_reg(char *ptr)
 	return ptr;
 }
 
-static struct devfreq_dev_profile apu_devfreq_profile = {
-	.polling_ms	= 0,
-};
 static int pm_qos_vvpu_opp_notify(struct notifier_block *b,
 		unsigned long l, void *v)
 {
@@ -1815,10 +1811,6 @@ static int apu_dvfs_probe(struct platform_device *pdev)
 		return PTR_ERR(dvfs->regs);
 	platform_set_drvdata(pdev, dvfs);
 
-	dvfs->devfreq = devm_devfreq_add_device(&pdev->dev,
-						 &apu_devfreq_profile,
-						 "apu_dvfs",
-						 NULL);
 	dvfs->dvfs_node = of_find_compatible_node(
 		NULL, NULL, "mediatek,apu_dvfs");
 
