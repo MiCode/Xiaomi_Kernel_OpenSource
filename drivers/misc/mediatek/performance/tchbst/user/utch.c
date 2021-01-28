@@ -43,8 +43,12 @@ void switch_init_opp(int boost_opp)
 
 	touch_boost_opp = boost_opp;
 	for (i = 0; i < perfmgr_clusters; i++)
+#ifdef CONFIG_MTK_CPU_FREQ
 		target_freq[i].min =
-			perfmgr_cpufreq_get_freq_by_idx(i, touch_boost_opp);
+			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
+#else
+		target_freq[i].min = -1;
+#endif
 }
 
 void switch_init_duration(int duration)
@@ -107,10 +111,8 @@ static int notify_touch(int action)
 		update_eas_uclamp_min(EAS_KIR_TOUCH,
 				CGROUP_TA, touch_boost_value);
 #endif
-#ifdef CONFIG_MTK_PPM
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
 				perfmgr_clusters, target_freq);
-#endif
 		if (usrtch_debug)
 			pr_debug("touch down\n");
 		fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, 1, "touch");
@@ -132,9 +134,7 @@ static void notify_touch_up_timeout(struct work_struct *work)
 #ifdef CONFIG_MTK_SCHED_EXTENSION
 	update_eas_uclamp_min(EAS_KIR_TOUCH, CGROUP_TA, 0);
 #endif
-#ifdef CONFIG_MTK_PPM
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
-#endif
 	fpsgo_systrace_c_fbt((pid_t)prev_boost_pid, 0, "touch");
 	touch_event = 2;
 	if (usrtch_debug)
@@ -295,7 +295,7 @@ int init_utch(struct proc_dir_entry *parent)
 
 	for (i = 0; i < perfmgr_clusters; i++) {
 		target_freq[i].min =
-			perfmgr_cpufreq_get_freq_by_idx(i, touch_boost_opp);
+			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
 		target_freq[i].max = reset_freq[i].min = reset_freq[i].max = -1;
 	}
 	mutex_init(&notify_lock);

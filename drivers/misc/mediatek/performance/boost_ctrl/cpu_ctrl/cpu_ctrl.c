@@ -269,15 +269,23 @@ static ssize_t perfmgr_boot_freq_proc_write(struct file *filp,
 			goto out;
 		} else {
 			if (i % 2) /* max */
+#ifdef CONFIG_MTK_CPU_FREQ
 				freq_limit[i/2].max =
 				(data < 0 || data > MAX_NR_FREQ - 1)
 				? -1 :
-				perfmgr_cpufreq_get_freq_by_idx(i / 2, data);
+				mt_cpufreq_get_freq_by_idx(i / 2, data);
+#else
+				freq_limit[i/2].max = -1;
+#endif
 			else /* min */
+#ifdef CONFIG_MTK_CPU_FREQ
 				freq_limit[i/2].min =
 				(data < 0 || data > MAX_NR_FREQ - 1)
 				? -1 :
-				perfmgr_cpufreq_get_freq_by_idx(i / 2, data);
+				mt_cpufreq_get_freq_by_idx(i / 2, data);
+#else
+				freq_limit[i/2].min = -1;
+#endif
 			i++;
 		}
 	}
@@ -311,11 +319,20 @@ static int perfmgr_boot_freq_proc_show(struct seq_file *m, void *v)
 /***************************************/
 static int perfmgr_current_freq_proc_show(struct seq_file *m, void *v)
 {
-	int i;
+	int i, j;
 
 	for_each_perfmgr_clusters(i)
 		seq_printf(m, "cluster %d min:%d max:%d\n",
 				i, current_freq[i].min, current_freq[i].max);
+
+	seq_puts(m, "===== kicker =====\n");
+	for (i = 0; i < CPU_MAX_KIR; i++)
+		for_each_perfmgr_clusters(j)
+			if (freq_set[i][j].min != -1 ||
+				freq_set[i][j].max != -1)
+				seq_printf(m,
+				"KIR[%d] cluster %d min:%d max:%d\n",
+				i, j, freq_set[i][j].min, freq_set[i][j].max);
 
 	return 0;
 }
@@ -342,41 +359,10 @@ static int perfmgr_perfmgr_log_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-#define DBG_REPO_S      0x0011bc00
-#define REPO_I_REPO_E	(0x1400 / sizeof(u32)-1)
-
-static ssize_t perfmgr_cci_perf_mode_proc_write(struct file *filp,
-	const char __user *ubuf, size_t cnt, loff_t *pos)
-{
-	int data = 0;
-	int rv = check_proc_write(&data, ubuf, cnt);
-	void __iomem *recordRef;
-
-	if (rv != 0)
-		return rv;
-	recordRef = ioremap_nocache(DBG_REPO_S, REPO_I_REPO_E);
-	writel_relaxed(data > 0 ? 1 : 0, recordRef + 0x0F9C);
-
-	return cnt;
-}
-
-static int perfmgr_cci_perf_mode_proc_show(struct seq_file *m, void *v)
-{
-	void __iomem *recordRef;
-
-	if (m) {
-		recordRef = ioremap_nocache(DBG_REPO_S, REPO_I_REPO_E);
-		seq_printf(m, "%d\n", readl_relaxed(recordRef + 0x0F9C));
-	}
-
-	return 0;
-}
-
 PROC_FOPS_RW(perfserv_freq);
 PROC_FOPS_RW(boot_freq);
 PROC_FOPS_RO(current_freq);
 PROC_FOPS_RW(perfmgr_log);
-PROC_FOPS_RW(cci_perf_mode);
 
 /************************************************/
 int cpu_ctrl_init(struct proc_dir_entry *parent)
@@ -394,7 +380,6 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(boot_freq),
 		PROC_ENTRY(current_freq),
 		PROC_ENTRY(perfmgr_log),
-		PROC_ENTRY(cci_perf_mode),
 	};
 	mutex_init(&boost_freq);
 

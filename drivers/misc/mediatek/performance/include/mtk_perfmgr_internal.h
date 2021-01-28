@@ -42,13 +42,13 @@ static const struct file_operations perfmgr_ ## name ## _proc_fops = { \
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define for_each_perfmgr_clusters(i)	\
-	for (i = 0; i < clstr_num; i++)
+	for (i = 0; i < topo_cluster_num; i++)
 
-#define perfmgr_clusters clstr_num
+#define perfmgr_clusters topo_cluster_num
 
 #define LOG_BUF_SIZE (128)
 
-extern int clstr_num;
+extern int topo_cluster_num;
 extern int powerhal_tid;
 extern char *perfmgr_copy_from_user_for_proc(const char __user *buffer,
 					size_t count);
@@ -63,7 +63,5 @@ extern void perfmgr_trace_end(void);
 extern void perfmgr_trace_begin(char *name, int id, int a, int b);
 extern void perfmgr_trace_printk(char *module, char *string);
 extern void perfmgr_trace_log(char *module, const char *fmt, ...);
-
-extern unsigned int perfmgr_cpufreq_get_freq_by_idx(int cluster, int opp);
 
 #endif /* _MTK_PERFMGR_INTERNAL_H */

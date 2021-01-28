@@ -22,10 +22,11 @@ struct topo_plat_cluster_info {
 };
 
 /* global variable */
+int topo_cluster_num;
+
 static int *calc_cpu_cap, *calc_cpu_num;
 static int  s_clstr_core, b_clstr_core;
 
-static int topo_cluster_num;
 static struct topo_plat_cluster_info *topo_cluster_info;
 
 int topo_ctrl_get_nr_clusters(void)

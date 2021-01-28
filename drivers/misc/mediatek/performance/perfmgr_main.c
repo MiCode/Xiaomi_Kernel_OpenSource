@@ -17,8 +17,6 @@
 
 #define API_READY 0
 
-int clstr_num;
-
 static int perfmgr_probe(struct platform_device *dev)
 {
 	return 0;
@@ -63,12 +61,6 @@ static struct platform_driver perfmgr_driver = {
 	},
 };
 
-static int perfmgr_main_data_init(void)
-{
-		clstr_num = topo_ctrl_get_nr_clusters();
-	return 0;
-}
-
 /*--------------------INIT------------------------*/
 
 static int __init init_perfmgr(void)
@@ -83,13 +75,11 @@ static int __init init_perfmgr(void)
 	if (ret)
 		return ret;
 
-	perfmgr_main_data_init();
-
 	perfmgr_root = proc_mkdir("perfmgr", NULL);
 	pr_debug("MTK_TOUCH_BOOST function init_perfmgr_touch\n");
 
-	init_tchbst(perfmgr_root);
 	init_boostctrl(perfmgr_root);
+	init_tchbst(perfmgr_root);
 	init_perfctl(perfmgr_root);
 
 #ifdef CONFIG_MTK_LOAD_TRACKER
