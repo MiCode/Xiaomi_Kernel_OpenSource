@@ -519,7 +519,7 @@ int gz_get_cpuinfo_thread(void *data)
 	perf_boost_cnt = 0;
 	mutex_init(&perf_boost_lock);
 
-#if IS_ENABLED(CONFIG_PM_WAKELOCKS)
+#if IS_ENABLED(CONFIG_PM_SLEEP)
 	/*kernel-4.14*/
 	//wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
 
@@ -532,9 +532,6 @@ int gz_get_cpuinfo_thread(void *data)
 		return TZ_RESULT_ERROR_GENERIC;
 	}
 
-#else
-	wake_lock_init(&TeeServiceCall_wake_lock, WAKE_LOCK_SUSPEND,
-		"KREE_TeeServiceCall");
 #endif
 
 	return 0;

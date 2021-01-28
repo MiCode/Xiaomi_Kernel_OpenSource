@@ -19,7 +19,7 @@ static struct cpumask ppm_online_cpus;
 static struct task_struct *ppm_kthread;
 static DEFINE_MUTEX(ppm_mutex);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 static struct wakeup_source *hps_ws;
 #endif
 
@@ -52,7 +52,7 @@ static int ppm_thread_fn(void *data)
 
 		cpumask_copy(&ppm_cpus_req, &ppm_online_cpus);
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		if (hps_ws)
 			__pm_stay_awake(hps_ws);
 #endif
@@ -115,7 +115,7 @@ Retry_OFF:
 			}
 		}
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 		if (hps_ws)
 			__pm_relax(hps_ws);
 #endif

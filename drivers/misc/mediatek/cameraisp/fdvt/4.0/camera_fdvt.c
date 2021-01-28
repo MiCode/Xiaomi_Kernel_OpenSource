@@ -55,10 +55,8 @@
 #include <mach/mt_clkmgr.h>
 #endif
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 struct wakeup_source *fdvt_wake_lock;

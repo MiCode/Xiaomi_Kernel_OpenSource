@@ -75,10 +75,8 @@ static uint32_t ccu_hw_base;
 static wait_queue_head_t wait_queue_deque;
 static wait_queue_head_t wait_queue_enque;
 
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 struct wakeup_source ccu_wake_lock;
-#else
-struct wake_lock ccu_wake_lock;
 #endif
 /*static  int g_bWaitLock;*/
 
@@ -1200,11 +1198,8 @@ static int ccu_probe(struct platform_device *pdev)
 					CCU_DEV_NAME, ret);
 				goto EXIT;
 			}
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 			wakeup_source_init(&ccu_wake_lock, "ccu_lock_wakelock");
-#else
-			wake_lock_init(&ccu_wake_lock,
-				WAKE_LOCK_SUSPEND, "ccu_lock_wakelock");
 #endif
 
 			/* enqueue/dequeue control in ihalpipe wrapper */

@@ -83,10 +83,8 @@ static unsigned long __read_mostly tracing_mark_write_addr;
 #endif
 
 /*  #include "smi_common.h" */
-#ifdef CONFIG_PM_WAKELOCKS
+#ifdef CONFIG_PM_SLEEP
 #include <linux/pm_wakeup.h>
-#else
-#include <linux/wakelock.h>
 #endif
 
 #include "inc/camera_wpe.h"
