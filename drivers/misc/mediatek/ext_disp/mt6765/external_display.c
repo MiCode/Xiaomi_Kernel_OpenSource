@@ -11,6 +11,7 @@
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 #include <linux/vmalloc.h>
+#include <uapi/linux/sched/types.h>
 
 #include "mtkfb_info.h"
 #include "mtkfb.h"
@@ -289,7 +290,7 @@ static int _should_config_ovl_input(void)
 static int _build_path_direct_link(unsigned int session)
 {
 	int ret = 0;
-	M4U_PORT_STRUCT sPort;
+	struct m4u_port_config_struct sPort;
 
 	EXTDFUNC();
 	pgc->mode = EXTD_DIRECT_LINK_MODE;
@@ -341,7 +342,7 @@ static int _build_path_single_layer(void)
 static int _build_path_rdma_dpi(void)
 {
 	int ret = 0;
-	M4U_PORT_STRUCT sPort;
+	struct m4u_port_config_struct sPort;
 
 	EXTDFUNC();
 	pgc->mode = EXTD_RDMA_DPI_MODE;
@@ -1785,7 +1786,7 @@ int ext_disp_frame_cfg_input(struct disp_frame_cfg_t *cfg)
 	int i = 0;
 	int layer_cnt = 0;
 	int config_layer_id = 0;
-	M4U_PORT_STRUCT sPort;
+	struct m4u_port_config_struct sPort;
 	struct disp_ddp_path_config *data_config;
 	unsigned int ext_last_fence, ext_cur_fence, ext_sub, input_source;
 	struct ddp_io_golden_setting_arg gset_arg;

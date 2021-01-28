@@ -1194,8 +1194,11 @@ int primary_display_lowpower_init(void)
 		params->dsi.vertical_frontporch_for_low_power);
 
 	/* init idlemgr */
-	if (disp_helper_get_option(DISP_OPT_IDLE_MGR) &&
-		get_boot_mode() == NORMAL_BOOT)
+	if (disp_helper_get_option(DISP_OPT_IDLE_MGR)
+#ifdef CONFIG_MTK_BOOT
+		&& get_boot_mode() == NORMAL_BOOT
+#endif
+		)
 		primary_display_idlemgr_init();
 
 	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))
@@ -1594,8 +1597,11 @@ void external_display_sodi_rule_init(void)
 int external_display_lowpower_init(void)
 {
 	/* init idlemgr */
-	if (disp_helper_get_option(DISP_OPT_IDLE_MGR) &&
-		get_boot_mode() == NORMAL_BOOT)
+	if (disp_helper_get_option(DISP_OPT_IDLE_MGR)
+#ifdef CONFIG_MTK_BOOT
+		&& get_boot_mode() == NORMAL_BOOT
+#endif
+		)
 		external_display_idlemgr_init();
 
 	if (disp_helper_get_option(DISP_OPT_SODI_SUPPORT))
