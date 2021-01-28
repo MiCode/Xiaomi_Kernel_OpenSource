@@ -2020,7 +2020,7 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 #endif
 		} else {
 			IONMSG
-			    (": Error. config buffer is not from %c heap.\n",
+			    (": Error. config buffer is not from %d heap.\n",
 			     buffer->heap->type);
 			ret = 0;
 		}
@@ -2113,6 +2113,27 @@ long ion_mm_ioctl(struct ion_client *client, unsigned int cmd,
 
 			mutex_unlock(&buffer->lock);
 
+		} else if (buffer_type == ION_HEAP_TYPE_MULTIMEDIA_SEC) {
+			struct ion_heap *sec_heap;
+			ion_phys_addr_t phy_addr;
+			size_t len;
+			struct ion_heap_ops *sec_ops;
+			int ret;
+
+			len = param.get_phys_param.len;
+			sec_heap = buffer->heap;
+			if (sec_heap->ops) {
+				sec_ops = sec_heap->ops;
+			} else {
+				IONMSG("%s #%d: buffer err\n",
+				       __func__, __LINE__);
+				return -EFAULT;
+			}
+
+			mutex_lock(&buffer->lock);
+			ret = sec_ops->phys(sec_heap, buffer, &phy_addr, &len);
+			param.get_phys_param.phy_addr = phy_addr;
+			mutex_unlock(&buffer->lock);
 		} else {
 			IONMSG(": Error. get iova is not from %d heap.\n",
 			       buffer->heap->type);
