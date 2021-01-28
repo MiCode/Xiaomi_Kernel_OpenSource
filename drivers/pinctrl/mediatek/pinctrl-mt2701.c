@@ -238,50 +238,51 @@ static const struct mtk_pin_drv_grp mt2701_pin_drv[] = {
 };
 
 static const struct mtk_pin_spec_pupd_set_samereg mt2701_spec_pupd[] = {
-	MTK_PIN_PUPD_SPEC_SR(111, 0xd00, 12, 13, 14),	/* ms0 data7 */
-	MTK_PIN_PUPD_SPEC_SR(112, 0xd00, 8, 9, 10),	/* ms0 data6 */
-	MTK_PIN_PUPD_SPEC_SR(113, 0xd00, 4, 5, 6),	/* ms0 data5 */
-	MTK_PIN_PUPD_SPEC_SR(114, 0xd00, 0, 1, 2),	/* ms0 data4 */
-	MTK_PIN_PUPD_SPEC_SR(115, 0xd10, 0, 1, 2),	/* ms0 rstb */
-	MTK_PIN_PUPD_SPEC_SR(116, 0xcd0, 8, 9, 10),	/* ms0 cmd */
-	MTK_PIN_PUPD_SPEC_SR(117, 0xcc0, 8, 9, 10),	/* ms0 clk */
-	MTK_PIN_PUPD_SPEC_SR(118, 0xcf0, 12, 13, 14),	/* ms0 data3 */
-	MTK_PIN_PUPD_SPEC_SR(119, 0xcf0, 8, 9, 10),	/* ms0 data2 */
-	MTK_PIN_PUPD_SPEC_SR(120, 0xcf0, 4, 5, 6),	/* ms0 data1 */
-	MTK_PIN_PUPD_SPEC_SR(121, 0xcf0, 0, 1, 2),	/* ms0 data0 */
+	MTK_PIN_PUPD_SPEC_SR(111, 0xd00, 12, 13, 14, 0),/* ms0 data7 */
+	MTK_PIN_PUPD_SPEC_SR(112, 0xd00, 8, 9, 10, 0),	/* ms0 data6 */
+	MTK_PIN_PUPD_SPEC_SR(113, 0xd00, 4, 5, 6, 0),	/* ms0 data5 */
+	MTK_PIN_PUPD_SPEC_SR(114, 0xd00, 0, 1, 2, 0),	/* ms0 data4 */
+	MTK_PIN_PUPD_SPEC_SR(115, 0xd10, 0, 1, 2, 0),	/* ms0 rstb */
+	MTK_PIN_PUPD_SPEC_SR(116, 0xcd0, 8, 9, 10, 0),	/* ms0 cmd */
+	MTK_PIN_PUPD_SPEC_SR(117, 0xcc0, 8, 9, 10, 0),	/* ms0 clk */
+	MTK_PIN_PUPD_SPEC_SR(118, 0xcf0, 12, 13, 14, 0),/* ms0 data3 */
+	MTK_PIN_PUPD_SPEC_SR(119, 0xcf0, 8, 9, 10, 0),	/* ms0 data2 */
+	MTK_PIN_PUPD_SPEC_SR(120, 0xcf0, 4, 5, 6, 0),	/* ms0 data1 */
+	MTK_PIN_PUPD_SPEC_SR(121, 0xcf0, 0, 1, 2, 0),	/* ms0 data0 */
 
-	MTK_PIN_PUPD_SPEC_SR(105, 0xd40, 8, 9, 10),	/* ms1 cmd */
-	MTK_PIN_PUPD_SPEC_SR(106, 0xd30, 8, 9, 10),	/* ms1 clk */
-	MTK_PIN_PUPD_SPEC_SR(107, 0xd60, 0, 1, 2),	/* ms1 dat0 */
-	MTK_PIN_PUPD_SPEC_SR(108, 0xd60, 10, 9, 8),	/* ms1 dat1 */
-	MTK_PIN_PUPD_SPEC_SR(109, 0xd60, 4, 5, 6),	/* ms1 dat2 */
-	MTK_PIN_PUPD_SPEC_SR(110, 0xc60, 12, 13, 14),	/* ms1 dat3 */
+	MTK_PIN_PUPD_SPEC_SR(105, 0xd40, 8, 9, 10, 0),	/* ms1 cmd */
+	MTK_PIN_PUPD_SPEC_SR(106, 0xd30, 8, 9, 10, 0),	/* ms1 clk */
+	MTK_PIN_PUPD_SPEC_SR(107, 0xd60, 0, 1, 2, 0),	/* ms1 dat0 */
+	MTK_PIN_PUPD_SPEC_SR(108, 0xd60, 10, 9, 8, 0),	/* ms1 dat1 */
+	MTK_PIN_PUPD_SPEC_SR(109, 0xd60, 4, 5, 6, 0),	/* ms1 dat2 */
+	MTK_PIN_PUPD_SPEC_SR(110, 0xc60, 12, 13, 14, 0),/* ms1 dat3 */
 
-	MTK_PIN_PUPD_SPEC_SR(85, 0xda0, 8, 9, 10),	/* ms2 cmd */
-	MTK_PIN_PUPD_SPEC_SR(86, 0xd90, 8, 9, 10),	/* ms2 clk */
-	MTK_PIN_PUPD_SPEC_SR(87, 0xdc0, 0, 1, 2),	/* ms2 dat0 */
-	MTK_PIN_PUPD_SPEC_SR(88, 0xdc0, 10, 9, 8),	/* ms2 dat1 */
-	MTK_PIN_PUPD_SPEC_SR(89, 0xdc0, 4, 5, 6),	/* ms2 dat2 */
-	MTK_PIN_PUPD_SPEC_SR(90, 0xdc0, 12, 13, 14),	/* ms2 dat3 */
+	MTK_PIN_PUPD_SPEC_SR(85, 0xda0, 8, 9, 10, 0),	/* ms2 cmd */
+	MTK_PIN_PUPD_SPEC_SR(86, 0xd90, 8, 9, 10, 0),	/* ms2 clk */
+	MTK_PIN_PUPD_SPEC_SR(87, 0xdc0, 0, 1, 2, 0),	/* ms2 dat0 */
+	MTK_PIN_PUPD_SPEC_SR(88, 0xdc0, 10, 9, 8, 0),	/* ms2 dat1 */
+	MTK_PIN_PUPD_SPEC_SR(89, 0xdc0, 4, 5, 6, 0),	/* ms2 dat2 */
+	MTK_PIN_PUPD_SPEC_SR(90, 0xdc0, 12, 13, 14, 0),	/* ms2 dat3 */
 
-	MTK_PIN_PUPD_SPEC_SR(249, 0x140, 0, 1, 2),	/* ms0e rstb */
-	MTK_PIN_PUPD_SPEC_SR(250, 0x130, 12, 13, 14),	/* ms0e dat7 */
-	MTK_PIN_PUPD_SPEC_SR(251, 0x130, 8, 9, 10),	/* ms0e dat6 */
-	MTK_PIN_PUPD_SPEC_SR(252, 0x130, 4, 5, 6),	/* ms0e dat5 */
-	MTK_PIN_PUPD_SPEC_SR(253, 0x130, 0, 1, 2),	/* ms0e dat4 */
-	MTK_PIN_PUPD_SPEC_SR(254, 0xf40, 12, 13, 14),	/* ms0e dat3 */
-	MTK_PIN_PUPD_SPEC_SR(255, 0xf40, 8, 9, 10),	/* ms0e dat2 */
-	MTK_PIN_PUPD_SPEC_SR(256, 0xf40, 4, 5, 6),	/* ms0e dat1 */
-	MTK_PIN_PUPD_SPEC_SR(257, 0xf40, 0, 1, 2),	/* ms0e dat0 */
-	MTK_PIN_PUPD_SPEC_SR(258, 0xcb0, 8, 9, 10),	/* ms0e cmd */
-	MTK_PIN_PUPD_SPEC_SR(259, 0xc90, 8, 9, 10),	/* ms0e clk */
-	MTK_PIN_PUPD_SPEC_SR(261, 0x140, 8, 9, 10),	/* ms1 ins */
+	MTK_PIN_PUPD_SPEC_SR(249, 0x140, 0, 1, 2, 0),	/* ms0e rstb */
+	MTK_PIN_PUPD_SPEC_SR(250, 0x130, 12, 13, 14, 0),/* ms0e dat7 */
+	MTK_PIN_PUPD_SPEC_SR(251, 0x130, 8, 9, 10, 0),	/* ms0e dat6 */
+	MTK_PIN_PUPD_SPEC_SR(252, 0x130, 4, 5, 6, 0),	/* ms0e dat5 */
+	MTK_PIN_PUPD_SPEC_SR(253, 0x130, 0, 1, 2, 0),	/* ms0e dat4 */
+	MTK_PIN_PUPD_SPEC_SR(254, 0xf40, 12, 13, 14, 0),/* ms0e dat3 */
+	MTK_PIN_PUPD_SPEC_SR(255, 0xf40, 8, 9, 10, 0),	/* ms0e dat2 */
+	MTK_PIN_PUPD_SPEC_SR(256, 0xf40, 4, 5, 6, 0),	/* ms0e dat1 */
+	MTK_PIN_PUPD_SPEC_SR(257, 0xf40, 0, 1, 2, 0),	/* ms0e dat0 */
+	MTK_PIN_PUPD_SPEC_SR(258, 0xcb0, 8, 9, 10, 0),	/* ms0e cmd */
+	MTK_PIN_PUPD_SPEC_SR(259, 0xc90, 8, 9, 10, 0),	/* ms0e clk */
+	MTK_PIN_PUPD_SPEC_SR(261, 0x140, 8, 9, 10, 0),	/* ms1 ins */
 };
 
-static int mt2701_spec_pull_set(struct regmap *regmap, unsigned int pin,
+static int mt2701_spec_pull_set(struct mtk_pinctrl *pctl,
+		struct regmap *regmap, unsigned int pin,
 		unsigned char align, bool isup, unsigned int r1r0)
 {
-	return mtk_pctrl_spec_pull_set_samereg(regmap, mt2701_spec_pupd,
+	return mtk_pctrl_spec_pull_set_samereg(pctl, regmap, mt2701_spec_pupd,
 		ARRAY_SIZE(mt2701_spec_pupd), pin, align, isup, r1r0);
 }
 
@@ -444,7 +445,8 @@ static const struct mtk_pin_ies_smt_set mt2701_smt_set[] = {
 	MTK_PIN_IES_SMT_SPEC(278, 278, 0xb70, 13),
 };
 
-static int mt2701_ies_smt_set(struct regmap *regmap, unsigned int pin,
+static int mt2701_ies_smt_set(struct mtk_pinctrl *pctl,
+		struct regmap *regmap, unsigned int pin,
 		unsigned char align, int value, enum pin_config_param arg)
 {
 	if (arg == PIN_CONFIG_INPUT_ENABLE)
@@ -528,9 +530,11 @@ static const struct mtk_pinctrl_devdata mt2701_pinctrl_data = {
 	.pinmux_offset = 0x0760,
 	.type1_start = 280,
 	.type1_end = 280,
+	.regmap_num = 1,
 	.port_shf = 4,
 	.port_mask = 0x1f,
 	.port_align = 4,
+	.port_pin_shf = 4,
 	.eint_offsets = {
 		.name = "mt2701_eint",
 		.stat      = 0x000,
