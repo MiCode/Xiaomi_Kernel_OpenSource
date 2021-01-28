@@ -134,7 +134,6 @@ struct reg_dump_info range_table[SEGMENT_COUNT] = {
 	{"apu_xpu_rsi_config",  0x1901C000, 0x1000},
 	{"apu_acp_ssc_config",  0x1901F000, 0x1000},
 	{"apu_conn_config",     0x19020000, 0x1000},
-	{"apu_sctrl_reviser",   0x19021000, 0x1000},
 	{"apu_sema_stimer",     0x19022000, 0x1000},
 	{"emi_config",          0x19023000, 0x1000},
 	{"apb_dapc_wrapper",    0x19064000, 0x1000},
