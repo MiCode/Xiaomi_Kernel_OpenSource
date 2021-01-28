@@ -75,6 +75,7 @@ struct mtk_base_afe_dai;
 struct regmap;
 struct snd_pcm_substream;
 struct snd_soc_dai;
+struct snd_soc_dai_driver;
 
 struct mtk_base_afe {
 	void __iomem *base_addr;
@@ -131,6 +132,14 @@ struct mtk_base_afe_memif {
 	unsigned char *dma_area;
 	dma_addr_t dma_addr;
 	size_t dma_bytes;
+	int use_adsp_share_mem;
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+	bool vow_bargein_enable;
+#endif
+#if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+	bool scp_spk_enable;
+#endif
+
 	bool ack_enable;
 	int (*ack)(struct snd_pcm_substream *substream);
 };

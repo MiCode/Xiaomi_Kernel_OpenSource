@@ -20,3 +20,10 @@ obj-$(CONFIG_SND_SOC_MT6779) += snd-soc-mt6779-afe.o
 # machine driver
 obj-$(CONFIG_SND_SOC_MT6779_MT6359) += mt6779-mt6359.o
 
+# MENU Governor Predict(low power)
+ifeq ($(CONFIG_MTK_ACAO_SUPPORT),y)
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include/
+endif
+
+# spm
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include

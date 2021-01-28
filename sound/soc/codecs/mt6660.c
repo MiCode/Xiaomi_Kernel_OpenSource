@@ -1047,6 +1047,7 @@ probe_fail:
 	mutex_destroy(&chip->var_lock);
 	return ret;
 }
+EXPORT_SYMBOL(mt6660_i2c_probe);
 
 int mt6660_i2c_remove(struct i2c_client *client)
 {
@@ -1059,6 +1060,7 @@ int mt6660_i2c_remove(struct i2c_client *client)
 	dev_dbg(chip->dev, "%s--\n", __func__);
 	return 0;
 }
+EXPORT_SYMBOL(mt6660_i2c_remove);
 
 static const struct of_device_id __maybe_unused mt6660_of_id[] = {
 	{ .compatible = "mediatek,mt6660",},

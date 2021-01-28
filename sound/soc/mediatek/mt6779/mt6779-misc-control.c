@@ -12,6 +12,9 @@
 
 #include "../common/mtk-afe-fe-dai.h"
 #include "../common/mtk-afe-platform-driver.h"
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#include "../scp_vow/mtk-scp-vow-common.h"
+#endif
 
 #include "mt6779-afe-common.h"
 
@@ -280,6 +283,1230 @@ static const struct snd_kcontrol_new mt6779_afe_sgen_controls[] = {
 		   FREQ_DIV_CH2_SFT, FREQ_DIV_CH2_MASK, 0),
 };
 
+/* audio debug log */
+static const char * const mt6779_afe_off_on_str[] = {
+	"Off", "On"
+};
+
+static int mt6779_afe_debug_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int mt6779_afe_debug_set(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int value;
+
+	regmap_read(afe->regmap, AUDIO_TOP_CON0, &value);
+	dev_info(afe->dev, "AUDIO_TOP_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AUDIO_TOP_CON1, &value);
+	dev_info(afe->dev, "AUDIO_TOP_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AUDIO_TOP_CON3, &value);
+	dev_info(afe->dev, "AUDIO_TOP_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAC_CON0, &value);
+	dev_info(afe->dev, "AFE_DAC_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_CON, &value);
+	dev_info(afe->dev, "AFE_I2S_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAIBT_CON0, &value);
+	dev_info(afe->dev, "AFE_DAIBT_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN0, &value);
+	dev_info(afe->dev, "AFE_CONN0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN1, &value);
+	dev_info(afe->dev, "AFE_CONN1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN2, &value);
+	dev_info(afe->dev, "AFE_CONN2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN3, &value);
+	dev_info(afe->dev, "AFE_CONN3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN4, &value);
+	dev_info(afe->dev, "AFE_CONN4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_CON1, &value);
+	dev_info(afe->dev, "AFE_I2S_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_CON2, &value);
+	dev_info(afe->dev, "AFE_I2S_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MRGIF_CON, &value);
+	dev_info(afe->dev, "AFE_MRGIF_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_CON3, &value);
+	dev_info(afe->dev, "AFE_I2S_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN5, &value);
+	dev_info(afe->dev, "AFE_CONN5 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_24BIT, &value);
+	dev_info(afe->dev, "AFE_CONN_24BIT = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_CON0, &value);
+	dev_info(afe->dev, "AFE_DL1_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL1_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_BASE, &value);
+	dev_info(afe->dev, "AFE_DL1_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL1_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_CUR, &value);
+	dev_info(afe->dev, "AFE_DL1_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL1_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_END, &value);
+	dev_info(afe->dev, "AFE_DL1_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_CON0, &value);
+	dev_info(afe->dev, "AFE_DL2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL2_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_BASE, &value);
+	dev_info(afe->dev, "AFE_DL2_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL2_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_CUR, &value);
+	dev_info(afe->dev, "AFE_DL2_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL2_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_END, &value);
+	dev_info(afe->dev, "AFE_DL2_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_CON0, &value);
+	dev_info(afe->dev, "AFE_DL3_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL3_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_BASE, &value);
+	dev_info(afe->dev, "AFE_DL3_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL3_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_CUR, &value);
+	dev_info(afe->dev, "AFE_DL3_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL3_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_END, &value);
+	dev_info(afe->dev, "AFE_DL3_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN6, &value);
+	dev_info(afe->dev, "AFE_CONN6 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_CON0, &value);
+	dev_info(afe->dev, "AFE_DL4_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL4_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_BASE, &value);
+	dev_info(afe->dev, "AFE_DL4_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL4_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_CUR, &value);
+	dev_info(afe->dev, "AFE_DL4_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL4_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_END, &value);
+	dev_info(afe->dev, "AFE_DL4_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_CON0, &value);
+	dev_info(afe->dev, "AFE_DL12_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL12_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_BASE, &value);
+	dev_info(afe->dev, "AFE_DL12_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL12_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_CUR, &value);
+	dev_info(afe->dev, "AFE_DL12_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL12_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_END, &value);
+	dev_info(afe->dev, "AFE_DL12_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SRC2_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SRC2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SRC2_CON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SRC2_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_UL_SRC_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_UL_SRC_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_UL_SRC_CON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_UL_SRC_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_TOP_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_TOP_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_UL_DL_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_UL_DL_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_SRC_DEBUG, &value);
+	dev_info(afe->dev, "AFE_ADDA_SRC_DEBUG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_SRC_DEBUG_MON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_SRC_DEBUG_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_SRC_DEBUG_MON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_SRC_DEBUG_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_UL_SRC_MON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_UL_SRC_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_UL_SRC_MON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_UL_SRC_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_END, &value);
+	dev_info(afe->dev, "AFE_VUL_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC2_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC2_CON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC2_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON2, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_PREDIS_CON3, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_PREDIS_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_DCCOMP_CON, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_DCCOMP_CON = 0x%x\n",
+		 value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_TEST, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_TEST = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG0, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG1, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_DC_COMP_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_FIFO_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_FIFO_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SRC_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SRC_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_OUT_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_OUT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SIDETONE_DEBUG, &value);
+	dev_info(afe->dev, "AFE_SIDETONE_DEBUG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SIDETONE_MON, &value);
+	dev_info(afe->dev, "AFE_SIDETONE_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_3RD_DAC_DL_SDM_DITHER_CON, &value);
+	dev_info(afe->dev, "AFE_ADDA_3RD_DAC_DL_SDM_DITHER_CON = 0x%x\n",
+		 value);
+	regmap_read(afe->regmap, AFE_SINEGEN_CON2, &value);
+	dev_info(afe->dev, "AFE_SINEGEN_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SIDETONE_CON0, &value);
+	dev_info(afe->dev, "AFE_SIDETONE_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SIDETONE_COEFF, &value);
+	dev_info(afe->dev, "AFE_SIDETONE_COEFF = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SIDETONE_CON1, &value);
+	dev_info(afe->dev, "AFE_SIDETONE_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SIDETONE_GAIN, &value);
+	dev_info(afe->dev, "AFE_SIDETONE_GAIN = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SINEGEN_CON0, &value);
+	dev_info(afe->dev, "AFE_SINEGEN_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_TOP_CON0, &value);
+	dev_info(afe->dev, "AFE_TOP_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL2_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL2_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL2_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL2_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL2_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_END, &value);
+	dev_info(afe->dev, "AFE_VUL2_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL3_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL3_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL3_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL3_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL3_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL3_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_END, &value);
+	dev_info(afe->dev, "AFE_VUL3_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_BUSY, &value);
+	dev_info(afe->dev, "AFE_BUSY = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_BUS_CFG, &value);
+	dev_info(afe->dev, "AFE_BUS_CFG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_PREDIS_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_PREDIS_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_PREDIS_CON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_PREDIS_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MRGIF_MON0, &value);
+	dev_info(afe->dev, "AFE_MRGIF_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MRGIF_MON1, &value);
+	dev_info(afe->dev, "AFE_MRGIF_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MRGIF_MON2, &value);
+	dev_info(afe->dev, "AFE_MRGIF_MON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_MON, &value);
+	dev_info(afe->dev, "AFE_I2S_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_IIR_COEF_02_01, &value);
+	dev_info(afe->dev, "AFE_ADDA_IIR_COEF_02_01 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_IIR_COEF_04_03, &value);
+	dev_info(afe->dev, "AFE_ADDA_IIR_COEF_04_03 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_IIR_COEF_06_05, &value);
+	dev_info(afe->dev, "AFE_ADDA_IIR_COEF_06_05 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_IIR_COEF_08_07, &value);
+	dev_info(afe->dev, "AFE_ADDA_IIR_COEF_08_07 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_IIR_COEF_10_09, &value);
+	dev_info(afe->dev, "AFE_ADDA_IIR_COEF_10_09 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CON1, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CON2, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAC_MON, &value);
+	dev_info(afe->dev, "AFE_DAC_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CON3, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CON4, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CON4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT0, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT6, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT6 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT8, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT8 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ0_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ0_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ6_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ6_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL4_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL4_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL4_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL4_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL4_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL4_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_END, &value);
+	dev_info(afe->dev, "AFE_VUL4_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL12_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL12_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL12_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL12_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL12_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL12_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_END, &value);
+	dev_info(afe->dev, "AFE_VUL12_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_CONN0, &value);
+	dev_info(afe->dev, "AFE_HDMI_CONN0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ3_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ3_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ4_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ4_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CON0, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_STATUS, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_STATUS = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CLR, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CLR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT1, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT2, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_EN, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_EN = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_MON2, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_MON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT5, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT5 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ1_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ1_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ2_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ2_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ5_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ5_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_DSP_EN, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_DSP_EN = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_SCP_EN, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_SCP_EN = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT7, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT7 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ7_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ7_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT3, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT4, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT11, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT11 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_APLL1_TUNER_CFG, &value);
+	dev_info(afe->dev, "AFE_APLL1_TUNER_CFG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_APLL2_TUNER_CFG, &value);
+	dev_info(afe->dev, "AFE_APLL2_TUNER_CFG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_MISS_CLR, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_MISS_CLR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN33, &value);
+	dev_info(afe->dev, "AFE_CONN33 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT12, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT12 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN1_CON0, &value);
+	dev_info(afe->dev, "AFE_GAIN1_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN1_CON1, &value);
+	dev_info(afe->dev, "AFE_GAIN1_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN1_CON2, &value);
+	dev_info(afe->dev, "AFE_GAIN1_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN1_CON3, &value);
+	dev_info(afe->dev, "AFE_GAIN1_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN7, &value);
+	dev_info(afe->dev, "AFE_CONN7 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN1_CUR, &value);
+	dev_info(afe->dev, "AFE_GAIN1_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN2_CON0, &value);
+	dev_info(afe->dev, "AFE_GAIN2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN2_CON1, &value);
+	dev_info(afe->dev, "AFE_GAIN2_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN2_CON2, &value);
+	dev_info(afe->dev, "AFE_GAIN2_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN2_CON3, &value);
+	dev_info(afe->dev, "AFE_GAIN2_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN8, &value);
+	dev_info(afe->dev, "AFE_CONN8 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GAIN2_CUR, &value);
+	dev_info(afe->dev, "AFE_GAIN2_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN9, &value);
+	dev_info(afe->dev, "AFE_CONN9 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN10, &value);
+	dev_info(afe->dev, "AFE_CONN10 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN11, &value);
+	dev_info(afe->dev, "AFE_CONN11 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN12, &value);
+	dev_info(afe->dev, "AFE_CONN12 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN13, &value);
+	dev_info(afe->dev, "AFE_CONN13 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN14, &value);
+	dev_info(afe->dev, "AFE_CONN14 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN15, &value);
+	dev_info(afe->dev, "AFE_CONN15 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN16, &value);
+	dev_info(afe->dev, "AFE_CONN16 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN17, &value);
+	dev_info(afe->dev, "AFE_CONN17 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN18, &value);
+	dev_info(afe->dev, "AFE_CONN18 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN19, &value);
+	dev_info(afe->dev, "AFE_CONN19 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN20, &value);
+	dev_info(afe->dev, "AFE_CONN20 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN21, &value);
+	dev_info(afe->dev, "AFE_CONN21 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN22, &value);
+	dev_info(afe->dev, "AFE_CONN22 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN23, &value);
+	dev_info(afe->dev, "AFE_CONN23 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN24, &value);
+	dev_info(afe->dev, "AFE_CONN24 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_RS, &value);
+	dev_info(afe->dev, "AFE_CONN_RS = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_DI, &value);
+	dev_info(afe->dev, "AFE_CONN_DI = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN25, &value);
+	dev_info(afe->dev, "AFE_CONN25 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN26, &value);
+	dev_info(afe->dev, "AFE_CONN26 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN27, &value);
+	dev_info(afe->dev, "AFE_CONN27 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN28, &value);
+	dev_info(afe->dev, "AFE_CONN28 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN29, &value);
+	dev_info(afe->dev, "AFE_CONN29 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN30, &value);
+	dev_info(afe->dev, "AFE_CONN30 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN31, &value);
+	dev_info(afe->dev, "AFE_CONN31 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN32, &value);
+	dev_info(afe->dev, "AFE_CONN32 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SRAM_DELSEL_CON0, &value);
+	dev_info(afe->dev, "AFE_SRAM_DELSEL_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SRAM_DELSEL_CON2, &value);
+	dev_info(afe->dev, "AFE_SRAM_DELSEL_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_SRAM_DELSEL_CON3, &value);
+	dev_info(afe->dev, "AFE_SRAM_DELSEL_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON12, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON12 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON13, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON13 = 0x%x\n", value);
+	regmap_read(afe->regmap, PCM_INTF_CON1, &value);
+	dev_info(afe->dev, "PCM_INTF_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, PCM_INTF_CON2, &value);
+	dev_info(afe->dev, "PCM_INTF_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, PCM2_INTF_CON, &value);
+	dev_info(afe->dev, "PCM2_INTF_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_TDM_CON1, &value);
+	dev_info(afe->dev, "AFE_TDM_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_TDM_CON2, &value);
+	dev_info(afe->dev, "AFE_TDM_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN34, &value);
+	dev_info(afe->dev, "AFE_CONN34 = 0x%x\n", value);
+	regmap_read(afe->regmap, FPGA_CFG0, &value);
+	dev_info(afe->dev, "FPGA_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, FPGA_CFG1, &value);
+	dev_info(afe->dev, "FPGA_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, FPGA_CFG2, &value);
+	dev_info(afe->dev, "FPGA_CFG2 = 0x%x\n", value);
+	regmap_read(afe->regmap, FPGA_CFG3, &value);
+	dev_info(afe->dev, "FPGA_CFG3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AUDIO_TOP_DBG_CON, &value);
+	dev_info(afe->dev, "AUDIO_TOP_DBG_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AUDIO_TOP_DBG_MON0, &value);
+	dev_info(afe->dev, "AUDIO_TOP_DBG_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AUDIO_TOP_DBG_MON1, &value);
+	dev_info(afe->dev, "AUDIO_TOP_DBG_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ8_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ8_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ11_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ11_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ12_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ12_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT9, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT9 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT10, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT10 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT13, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT13 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT14, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT14 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT15, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT15 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT16, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT16 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT17, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT17 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT18, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT18 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT19, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT19 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT20, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT20 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT21, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT21 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT22, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT22 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT23, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT23 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT24, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT24 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT25, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT25 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT26, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT26 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ_MCU_CNT31, &value);
+	dev_info(afe->dev, "AFE_IRQ_MCU_CNT31 = 0x%x\n", value);
+	regmap_read(afe->regmap, FPGA_CFG4, &value);
+	dev_info(afe->dev, "FPGA_CFG4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ9_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ9_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ10_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ10_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ13_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ13_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ14_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ14_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ15_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ15_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ16_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ16_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ17_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ17_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ18_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ18_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ19_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ19_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ20_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ20_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ21_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ21_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ22_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ22_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ23_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ23_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ24_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ24_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ25_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ25_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ26_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ26_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_IRQ31_MCU_CNT_MON, &value);
+	dev_info(afe->dev, "AFE_IRQ31_MCU_CNT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG0, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG1, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG2, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG3, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG4, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG5, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG5 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG6, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG6 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG7, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG7 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG8, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG8 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG9, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG9 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG10, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG10 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG11, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG11 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG12, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG12 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG13, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG13 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG14, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG14 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL_REG15, &value);
+	dev_info(afe->dev, "AFE_GENERAL_REG15 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CBIP_CFG0, &value);
+	dev_info(afe->dev, "AFE_CBIP_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CBIP_MON0, &value);
+	dev_info(afe->dev, "AFE_CBIP_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CBIP_SLV_MUX_MON0, &value);
+	dev_info(afe->dev, "AFE_CBIP_SLV_MUX_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CBIP_SLV_DECODER_MON0, &value);
+	dev_info(afe->dev, "AFE_CBIP_SLV_DECODER_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_MON0, &value);
+	dev_info(afe->dev, "AFE_ADDA6_MTKAIF_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_MON1, &value);
+	dev_info(afe->dev, "AFE_ADDA6_MTKAIF_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_CON0, &value);
+	dev_info(afe->dev, "AFE_AWB_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_AWB_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_BASE, &value);
+	dev_info(afe->dev, "AFE_AWB_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_AWB_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_CUR, &value);
+	dev_info(afe->dev, "AFE_AWB_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_END_MSB, &value);
+	dev_info(afe->dev, "AFE_AWB_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_END, &value);
+	dev_info(afe->dev, "AFE_AWB_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_CON0, &value);
+	dev_info(afe->dev, "AFE_AWB2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_AWB2_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_BASE, &value);
+	dev_info(afe->dev, "AFE_AWB2_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_AWB2_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_CUR, &value);
+	dev_info(afe->dev, "AFE_AWB2_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_END_MSB, &value);
+	dev_info(afe->dev, "AFE_AWB2_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_END, &value);
+	dev_info(afe->dev, "AFE_AWB2_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_CON0, &value);
+	dev_info(afe->dev, "AFE_DAI_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DAI_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_BASE, &value);
+	dev_info(afe->dev, "AFE_DAI_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DAI_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_CUR, &value);
+	dev_info(afe->dev, "AFE_DAI_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DAI_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_END, &value);
+	dev_info(afe->dev, "AFE_DAI_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_CON0, &value);
+	dev_info(afe->dev, "AFE_DAI2_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DAI2_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_BASE, &value);
+	dev_info(afe->dev, "AFE_DAI2_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DAI2_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_CUR, &value);
+	dev_info(afe->dev, "AFE_DAI2_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DAI2_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_END, &value);
+	dev_info(afe->dev, "AFE_DAI2_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MEMIF_CON0, &value);
+	dev_info(afe->dev, "AFE_MEMIF_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN0_1, &value);
+	dev_info(afe->dev, "AFE_CONN0_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN1_1, &value);
+	dev_info(afe->dev, "AFE_CONN1_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN2_1, &value);
+	dev_info(afe->dev, "AFE_CONN2_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN3_1, &value);
+	dev_info(afe->dev, "AFE_CONN3_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN4_1, &value);
+	dev_info(afe->dev, "AFE_CONN4_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN5_1, &value);
+	dev_info(afe->dev, "AFE_CONN5_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN6_1, &value);
+	dev_info(afe->dev, "AFE_CONN6_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN7_1, &value);
+	dev_info(afe->dev, "AFE_CONN7_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN8_1, &value);
+	dev_info(afe->dev, "AFE_CONN8_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN9_1, &value);
+	dev_info(afe->dev, "AFE_CONN9_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN10_1, &value);
+	dev_info(afe->dev, "AFE_CONN10_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN11_1, &value);
+	dev_info(afe->dev, "AFE_CONN11_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN12_1, &value);
+	dev_info(afe->dev, "AFE_CONN12_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN13_1, &value);
+	dev_info(afe->dev, "AFE_CONN13_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN14_1, &value);
+	dev_info(afe->dev, "AFE_CONN14_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN15_1, &value);
+	dev_info(afe->dev, "AFE_CONN15_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN16_1, &value);
+	dev_info(afe->dev, "AFE_CONN16_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN17_1, &value);
+	dev_info(afe->dev, "AFE_CONN17_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN18_1, &value);
+	dev_info(afe->dev, "AFE_CONN18_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN19_1, &value);
+	dev_info(afe->dev, "AFE_CONN19_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN20_1, &value);
+	dev_info(afe->dev, "AFE_CONN20_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN21_1, &value);
+	dev_info(afe->dev, "AFE_CONN21_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN22_1, &value);
+	dev_info(afe->dev, "AFE_CONN22_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN23_1, &value);
+	dev_info(afe->dev, "AFE_CONN23_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN24_1, &value);
+	dev_info(afe->dev, "AFE_CONN24_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN25_1, &value);
+	dev_info(afe->dev, "AFE_CONN25_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN26_1, &value);
+	dev_info(afe->dev, "AFE_CONN26_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN27_1, &value);
+	dev_info(afe->dev, "AFE_CONN27_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN28_1, &value);
+	dev_info(afe->dev, "AFE_CONN28_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN29_1, &value);
+	dev_info(afe->dev, "AFE_CONN29_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN30_1, &value);
+	dev_info(afe->dev, "AFE_CONN30_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN31_1, &value);
+	dev_info(afe->dev, "AFE_CONN31_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN32_1, &value);
+	dev_info(afe->dev, "AFE_CONN32_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN33_1, &value);
+	dev_info(afe->dev, "AFE_CONN33_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN34_1, &value);
+	dev_info(afe->dev, "AFE_CONN34_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_RS_1, &value);
+	dev_info(afe->dev, "AFE_CONN_RS_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_DI_1, &value);
+	dev_info(afe->dev, "AFE_CONN_DI_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_24BIT_1, &value);
+	dev_info(afe->dev, "AFE_CONN_24BIT_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN_REG, &value);
+	dev_info(afe->dev, "AFE_CONN_REG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN35, &value);
+	dev_info(afe->dev, "AFE_CONN35 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN36, &value);
+	dev_info(afe->dev, "AFE_CONN36 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN37, &value);
+	dev_info(afe->dev, "AFE_CONN37 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN38, &value);
+	dev_info(afe->dev, "AFE_CONN38 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN35_1, &value);
+	dev_info(afe->dev, "AFE_CONN35_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN36_1, &value);
+	dev_info(afe->dev, "AFE_CONN36_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN37_1, &value);
+	dev_info(afe->dev, "AFE_CONN37_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN38_1, &value);
+	dev_info(afe->dev, "AFE_CONN38_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN39, &value);
+	dev_info(afe->dev, "AFE_CONN39 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN40, &value);
+	dev_info(afe->dev, "AFE_CONN40 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN41, &value);
+	dev_info(afe->dev, "AFE_CONN41 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN42, &value);
+	dev_info(afe->dev, "AFE_CONN42 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN39_1, &value);
+	dev_info(afe->dev, "AFE_CONN39_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN40_1, &value);
+	dev_info(afe->dev, "AFE_CONN40_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN41_1, &value);
+	dev_info(afe->dev, "AFE_CONN41_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN42_1, &value);
+	dev_info(afe->dev, "AFE_CONN42_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_I2S_CON4, &value);
+	dev_info(afe->dev, "AFE_I2S_CON4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_TOP_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA6_TOP_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_UL_SRC_CON0, &value);
+	dev_info(afe->dev, "AFE_ADDA6_UL_SRC_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_UL_SRC_CON1, &value);
+	dev_info(afe->dev, "AFE_ADDA6_UL_SRC_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_SRC_DEBUG, &value);
+	dev_info(afe->dev, "AFE_ADDA6_SRC_DEBUG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_SRC_DEBUG_MON0, &value);
+	dev_info(afe->dev, "AFE_ADDA6_SRC_DEBUG_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_02_01, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_02_01 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_04_03, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_04_03 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_06_05, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_06_05 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_08_07, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_08_07 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_10_09, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_10_09 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_12_11, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_12_11 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_14_13, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_14_13 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_16_15, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_16_15 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_18_17, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_18_17 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_20_19, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_20_19 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_22_21, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_22_21 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_24_23, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_24_23 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_26_25, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_26_25 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_28_27, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_28_27 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_ULCF_CFG_30_29, &value);
+	dev_info(afe->dev, "AFE_ADDA6_ULCF_CFG_30_29 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADD6A_UL_SRC_MON0, &value);
+	dev_info(afe->dev, "AFE_ADD6A_UL_SRC_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_UL_SRC_MON1, &value);
+	dev_info(afe->dev, "AFE_ADDA6_UL_SRC_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN43, &value);
+	dev_info(afe->dev, "AFE_CONN43 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN43_1, &value);
+	dev_info(afe->dev, "AFE_CONN43_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_CON0, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_BASE, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_CUR, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_END_MSB, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_END, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_CON0, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_BASE, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_CUR, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_END_MSB, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HDMI_OUT_END, &value);
+	dev_info(afe->dev, "AFE_HDMI_OUT_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_AWB_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_AWB_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL12_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL12_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL12_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL2_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL2_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL2_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI_DATA_MON, &value);
+	dev_info(afe->dev, "AFE_DAI_DATA_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_MOD_DAI_DATA_MON, &value);
+	dev_info(afe->dev, "AFE_MOD_DAI_DATA_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DAI2_DATA_MON, &value);
+	dev_info(afe->dev, "AFE_DAI2_DATA_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_AWB2_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AWB2_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_AWB2_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL3_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL3_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL3_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL4_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL4_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL4_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL5_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL5_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL6_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_VUL6_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL1_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL1_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL1_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL2_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL2_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL2_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_RCH1_MON, &value);
+	dev_info(afe->dev, "AFE_DL12_RCH1_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_LCH1_MON, &value);
+	dev_info(afe->dev, "AFE_DL12_LCH1_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_RCH2_MON, &value);
+	dev_info(afe->dev, "AFE_DL12_RCH2_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL12_LCH2_MON, &value);
+	dev_info(afe->dev, "AFE_DL12_LCH2_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL3_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL3_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL3_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL4_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL4_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL4_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL5_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL5_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL6_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL6_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL7_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL7_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL8_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_DL8_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL5_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL5_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL5_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL5_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL5_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL5_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL5_END, &value);
+	dev_info(afe->dev, "AFE_VUL5_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_CON0, &value);
+	dev_info(afe->dev, "AFE_VUL6_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL6_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_BASE, &value);
+	dev_info(afe->dev, "AFE_VUL6_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL6_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_CUR, &value);
+	dev_info(afe->dev, "AFE_VUL6_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_END_MSB, &value);
+	dev_info(afe->dev, "AFE_VUL6_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_VUL6_END, &value);
+	dev_info(afe->dev, "AFE_VUL6_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SDM_DCCOMP_CON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SDM_DCCOMP_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SDM_TEST, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SDM_TEST = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_DC_COMP_CFG0, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_DC_COMP_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_DC_COMP_CFG1, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_DC_COMP_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SDM_FIFO_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SDM_FIFO_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SRC_LCH_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SRC_LCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SRC_RCH_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SRC_RCH_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SDM_OUT_MON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SDM_OUT_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_DL_SDM_DITHER_CON, &value);
+	dev_info(afe->dev, "AFE_ADDA_DL_SDM_DITHER_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONNSYS_I2S_CON, &value);
+	dev_info(afe->dev, "AFE_CONNSYS_I2S_CON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONNSYS_I2S_MON, &value);
+	dev_info(afe->dev, "AFE_CONNSYS_I2S_MON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON0, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON1, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON2, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON3, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON4, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON5, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON5 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON6, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON6 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON7, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON7 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON8, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON8 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON9, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON9 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ASRC_2CH_CON10, &value);
+	dev_info(afe->dev, "AFE_ASRC_2CH_CON10 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_02_01, &value);
+	dev_info(afe->dev, "AFE_ADDA6_IIR_COEF_02_01 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_04_03, &value);
+	dev_info(afe->dev, "AFE_ADDA6_IIR_COEF_04_03 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_06_05, &value);
+	dev_info(afe->dev, "AFE_ADDA6_IIR_COEF_06_05 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_08_07, &value);
+	dev_info(afe->dev, "AFE_ADDA6_IIR_COEF_08_07 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_IIR_COEF_10_09, &value);
+	dev_info(afe->dev, "AFE_ADDA6_IIR_COEF_10_09 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_PREDIS_CON2, &value);
+	dev_info(afe->dev, "AFE_ADDA_PREDIS_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_PREDIS_CON3, &value);
+	dev_info(afe->dev, "AFE_ADDA_PREDIS_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN44, &value);
+	dev_info(afe->dev, "AFE_CONN44 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN45, &value);
+	dev_info(afe->dev, "AFE_CONN45 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN46, &value);
+	dev_info(afe->dev, "AFE_CONN46 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN47, &value);
+	dev_info(afe->dev, "AFE_CONN47 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN44_1, &value);
+	dev_info(afe->dev, "AFE_CONN44_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN45_1, &value);
+	dev_info(afe->dev, "AFE_CONN45_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN46_1, &value);
+	dev_info(afe->dev, "AFE_CONN46_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN47_1, &value);
+	dev_info(afe->dev, "AFE_CONN47_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_HD_ENGEN_ENABLE, &value);
+	dev_info(afe->dev, "AFE_HD_ENGEN_ENABLE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_CFG0, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_SYNCWORD_CFG, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_SYNCWORD_CFG = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_RX_CFG0, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_RX_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_RX_CFG1, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_RX_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_RX_CFG2, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_RX_CFG2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_MON0, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA_MTKAIF_MON1, &value);
+	dev_info(afe->dev, "AFE_ADDA_MTKAIF_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_AUD_PAD_TOP, &value);
+	dev_info(afe->dev, "AFE_AUD_PAD_TOP = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_R_CFG0, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_R_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_R_CFG1, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_R_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_L_CFG0, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_L_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_L_CFG1, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_L_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_R_MON0, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_R_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_R_MON1, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_R_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_R_MON2, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_R_MON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_L_MON0, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_L_MON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_L_MON1, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_L_MON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_L_MON2, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_L_MON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL_NLE_GAIN_CFG0, &value);
+	dev_info(afe->dev, "AFE_DL_NLE_GAIN_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_CFG0, &value);
+	dev_info(afe->dev, "AFE_ADDA6_MTKAIF_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_RX_CFG0, &value);
+	dev_info(afe->dev, "AFE_ADDA6_MTKAIF_RX_CFG0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_RX_CFG1, &value);
+	dev_info(afe->dev, "AFE_ADDA6_MTKAIF_RX_CFG1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_ADDA6_MTKAIF_RX_CFG2, &value);
+	dev_info(afe->dev, "AFE_ADDA6_MTKAIF_RX_CFG2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON0, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON1, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON2, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON3, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON4, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON5, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON5 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON6, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON6 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON7, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON7 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON8, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON8 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON9, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON9 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON10, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON10 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON12, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON12 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL1_ASRC_2CH_CON13, &value);
+	dev_info(afe->dev, "AFE_GENERAL1_ASRC_2CH_CON13 = 0x%x\n", value);
+	regmap_read(afe->regmap, GENERAL_ASRC_MODE, &value);
+	dev_info(afe->dev, "GENERAL_ASRC_MODE = 0x%x\n", value);
+	regmap_read(afe->regmap, GENERAL_ASRC_EN_ON, &value);
+	dev_info(afe->dev, "GENERAL_ASRC_EN_ON = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN48, &value);
+	dev_info(afe->dev, "AFE_CONN48 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN49, &value);
+	dev_info(afe->dev, "AFE_CONN49 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN50, &value);
+	dev_info(afe->dev, "AFE_CONN50 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN51, &value);
+	dev_info(afe->dev, "AFE_CONN51 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN52, &value);
+	dev_info(afe->dev, "AFE_CONN52 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN53, &value);
+	dev_info(afe->dev, "AFE_CONN53 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN48_1, &value);
+	dev_info(afe->dev, "AFE_CONN48_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN49_1, &value);
+	dev_info(afe->dev, "AFE_CONN49_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN50_1, &value);
+	dev_info(afe->dev, "AFE_CONN50_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN51_1, &value);
+	dev_info(afe->dev, "AFE_CONN51_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN52_1, &value);
+	dev_info(afe->dev, "AFE_CONN52_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_CONN53_1, &value);
+	dev_info(afe->dev, "AFE_CONN53_1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON0, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON1, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON1 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON2, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON2 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON3, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON3 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON4, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON4 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON5, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON5 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON6, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON6 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON7, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON7 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON8, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON8 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON9, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON9 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON10, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON10 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON12, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON12 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_GENERAL2_ASRC_2CH_CON13, &value);
+	dev_info(afe->dev, "AFE_GENERAL2_ASRC_2CH_CON13 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_CON0, &value);
+	dev_info(afe->dev, "AFE_DL5_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL5_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_BASE, &value);
+	dev_info(afe->dev, "AFE_DL5_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL5_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_CUR, &value);
+	dev_info(afe->dev, "AFE_DL5_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL5_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL5_END, &value);
+	dev_info(afe->dev, "AFE_DL5_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_CON0, &value);
+	dev_info(afe->dev, "AFE_DL6_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL6_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_BASE, &value);
+	dev_info(afe->dev, "AFE_DL6_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL6_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_CUR, &value);
+	dev_info(afe->dev, "AFE_DL6_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL6_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL6_END, &value);
+	dev_info(afe->dev, "AFE_DL6_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_CON0, &value);
+	dev_info(afe->dev, "AFE_DL7_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL7_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_BASE, &value);
+	dev_info(afe->dev, "AFE_DL7_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL7_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_CUR, &value);
+	dev_info(afe->dev, "AFE_DL7_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL7_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL7_END, &value);
+	dev_info(afe->dev, "AFE_DL7_END = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_CON0, &value);
+	dev_info(afe->dev, "AFE_DL8_CON0 = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_BASE_MSB, &value);
+	dev_info(afe->dev, "AFE_DL8_BASE_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_BASE, &value);
+	dev_info(afe->dev, "AFE_DL8_BASE = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_CUR_MSB, &value);
+	dev_info(afe->dev, "AFE_DL8_CUR_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_CUR, &value);
+	dev_info(afe->dev, "AFE_DL8_CUR = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_END_MSB, &value);
+	dev_info(afe->dev, "AFE_DL8_END_MSB = 0x%x\n", value);
+	regmap_read(afe->regmap, AFE_DL8_END, &value);
+	dev_info(afe->dev, "AFE_DL8_END = 0x%x\n", value);
+
+	return 0;
+}
+
+static const struct soc_enum mt6779_afe_misc_enum[] = {
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(mt6779_afe_off_on_str),
+			    mt6779_afe_off_on_str),
+};
+
+static const struct snd_kcontrol_new mt6779_afe_debug_controls[] = {
+	SOC_ENUM_EXT("Audio_Debug_Setting", mt6779_afe_misc_enum[0],
+		     mt6779_afe_debug_get, mt6779_afe_debug_set),
+};
+
 /* usb call control */
 static int mt6779_usb_echo_ref_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
@@ -372,8 +1599,7 @@ static int mt6779_usb_echo_ref_set(struct snd_kcontrol *kcontrol,
 		/* just to double confirm the buffer size is align */
 		if (dl_memif->dma_bytes !=
 		    word_size_align(dl_memif->dma_bytes)) {
-			dev_err(afe->dev, "%s(), buffer size not align\n",
-				__func__);
+			AUDIO_AEE("buffer size not align");
 		}
 
 		/* let ul use the same memory as dl */
@@ -425,6 +1651,174 @@ static const struct snd_kcontrol_new mt6779_afe_usb_controls[] = {
 		       mt6779_usb_echo_ref_get, mt6779_usb_echo_ref_set),
 };
 
+/* speech mixctrl instead property usage */
+static void *get_sph_property_by_name(struct mt6779_afe_private *afe_priv,
+				      const char *name)
+{
+	if (strcmp(name, "Speech_A2M_Msg_ID") == 0)
+		return &(afe_priv->speech_a2m_msg_id);
+	else if (strcmp(name, "Speech_MD_Status") == 0)
+		return &(afe_priv->speech_md_status);
+	else if (strcmp(name, "Speech_SCP_CALL_STATE") == 0)
+		return &(afe_priv->speech_adsp_status);
+	else if (strcmp(name, "Speech_Mic_Mute") == 0)
+		return &(afe_priv->speech_mic_mute);
+	else if (strcmp(name, "Speech_DL_Mute") == 0)
+		return &(afe_priv->speech_dl_mute);
+	else if (strcmp(name, "Speech_UL_Mute") == 0)
+		return &(afe_priv->speech_ul_mute);
+	else if (strcmp(name, "Speech_Phone1_MD_Idx") == 0)
+		return &(afe_priv->speech_phone1_md_idx);
+	else if (strcmp(name, "Speech_Phone2_MD_Idx") == 0)
+		return &(afe_priv->speech_phone2_md_idx);
+	else if (strcmp(name, "Speech_Phone_ID") == 0)
+		return &(afe_priv->speech_phone_id);
+	else if (strcmp(name, "Speech_MD_EPOF") == 0)
+		return &(afe_priv->speech_md_epof);
+	else if (strcmp(name, "Speech_BT_SCO_WB") == 0)
+		return &(afe_priv->speech_bt_sco_wb);
+	else if (strcmp(name, "Speech_SHM_Init") == 0)
+		return &(afe_priv->speech_shm_init);
+	else if (strcmp(name, "Speech_SHM_USIP") == 0)
+		return &(afe_priv->speech_shm_usip);
+	else if (strcmp(name, "Speech_SHM_Widx") == 0)
+		return &(afe_priv->speech_shm_widx);
+	else if (strcmp(name, "Speech_MD_HeadVersion") == 0)
+		return &(afe_priv->speech_md_headversion);
+	else if (strcmp(name, "Speech_MD_Version") == 0)
+		return &(afe_priv->speech_md_version);
+	else
+		return NULL;
+}
+
+static int speech_property_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6779_afe_private *afe_priv = afe->platform_priv;
+	int *sph_property;
+
+	sph_property = (int *)get_sph_property_by_name(afe_priv,
+						       kcontrol->id.name);
+	if (!sph_property) {
+		dev_err(afe->dev, "%s(), sph_property == NULL\n", __func__);
+		return -EINVAL;
+	}
+	ucontrol->value.integer.value[0] = *sph_property;
+
+	return 0;
+}
+
+static int speech_property_set(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	struct mt6779_afe_private *afe_priv = afe->platform_priv;
+	int *sph_property;
+
+	sph_property = (int *)get_sph_property_by_name(afe_priv,
+						       kcontrol->id.name);
+	if (!sph_property) {
+		dev_err(afe->dev, "%s(), sph_property == NULL\n", __func__);
+		return -EINVAL;
+	}
+	*sph_property = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new mt6779_afe_speech_controls[] = {
+	SOC_SINGLE_EXT("Speech_A2M_Msg_ID",
+		       SND_SOC_NOPM, 0, 0xFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_MD_Status",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_SCP_CALL_STATE",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Mic_Mute",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_DL_Mute",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_UL_Mute",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Phone1_MD_Idx",
+		       SND_SOC_NOPM, 0, 0x2, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Phone2_MD_Idx",
+		       SND_SOC_NOPM, 0, 0x2, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_Phone_ID",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_MD_EPOF",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_BT_SCO_WB",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_SHM_Init",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_SHM_USIP",
+		       SND_SOC_NOPM, 0, 0x1, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_SHM_Widx",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_MD_HeadVersion",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+	SOC_SINGLE_EXT("Speech_MD_Version",
+		       SND_SOC_NOPM, 0, 0xFFFFFFFF, 0,
+		       speech_property_get, speech_property_set),
+};
+
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+/* VOW barge in control */
+static int mt6779_afe_vow_bargein_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int id;
+
+	id = get_scp_vow_memif_id();
+	ucontrol->value.integer.value[0] = afe->memif[id].vow_bargein_enable;
+
+	return 0;
+}
+
+static int mt6779_afe_vow_bargein_set(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(cmpnt);
+	int id;
+	int val;
+
+	id = get_scp_vow_memif_id();
+	val = ucontrol->value.integer.value[0];
+	dev_info(afe->dev, "%s(), %d\n", __func__, val);
+
+	afe->memif[id].vow_bargein_enable = (val > 0) ? true : false;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new mt6779_afe_bargein_controls[] = {
+	SOC_SINGLE_EXT("Vow_bargein_echo_ref", SND_SOC_NOPM, 0, 0x1, 0,
+		       mt6779_afe_vow_bargein_get,
+		       mt6779_afe_vow_bargein_set),
+};
+#endif
+
 int mt6779_add_misc_control(struct snd_soc_component *component)
 {
 	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
@@ -435,8 +1829,22 @@ int mt6779_add_misc_control(struct snd_soc_component *component)
 				       ARRAY_SIZE(mt6779_afe_sgen_controls));
 
 	snd_soc_add_component_controls(component,
+				       mt6779_afe_debug_controls,
+				       ARRAY_SIZE(mt6779_afe_debug_controls));
+
+	snd_soc_add_component_controls(component,
 				      mt6779_afe_usb_controls,
 				      ARRAY_SIZE(mt6779_afe_usb_controls));
+
+	snd_soc_add_component_controls(component,
+				      mt6779_afe_speech_controls,
+				      ARRAY_SIZE(mt6779_afe_speech_controls));
+
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+	snd_soc_add_component_controls(component,
+				      mt6779_afe_bargein_controls,
+				      ARRAY_SIZE(mt6779_afe_bargein_controls));
+#endif
 
 	return 0;
 }

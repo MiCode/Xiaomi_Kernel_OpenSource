@@ -1,4 +1,17 @@
 # SPDX-License-Identifier: GPL-2.0
+
+ifeq ($(CONFIG_SND_SOC_MT6359),y)
+  MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+  subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+  subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/accdet/mt6359
+  subdir-ccflags-y += -Werror -I$(srctree)/include/linux/mfd/mt6359
+else ifeq ($(CONFIG_SND_SOC_MT6359),m)
+  MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+  subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include
+  subdir-ccflags-y += -Werror -I$(srctree)/drivers/misc/mediatek/accdet/mt6359
+  subdir-ccflags-y += -Werror -I$(srctree)/include/linux/mfd/mt6359
+endif
+
 snd-soc-88pm860x-objs := 88pm860x-codec.o
 snd-soc-ab8500-codec-objs := ab8500-codec.o
 snd-soc-ac97-objs := ac97.o

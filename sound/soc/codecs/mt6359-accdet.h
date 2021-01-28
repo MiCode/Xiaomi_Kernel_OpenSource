@@ -134,5 +134,6 @@ extern const struct file_operations *accdet_get_fops(void);
 extern void mt_accdet_suspend(void);
 extern void mt_accdet_resume(void);
 extern void accdet_set_debounce(int state, unsigned int debounce);
+extern void accdet_modify_vref_volt(void);
 
 #endif

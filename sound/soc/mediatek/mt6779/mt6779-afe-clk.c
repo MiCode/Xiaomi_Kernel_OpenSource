@@ -7,11 +7,16 @@
 #include <linux/clk.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
-#include <linux/arm-smccc.h> /* for Kernel Native SMC API */
-#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
 
 #include "mt6779-afe-common.h"
 #include "mt6779-afe-clk.h"
+
+#ifndef ASOC_TEMP_BYPASS
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#include <mtk_idle.h>
+#include <mtk_spm_resource_req.h>
+#endif
+#endif
 
 static DEFINE_MUTEX(mutex_request_dram);
 
@@ -305,7 +310,7 @@ int mt6779_afe_enable_clock(struct mtk_base_afe *afe)
 	}
 
 	ret = mt6779_set_audio_int_bus_parent(afe,
-					      CLK_CLK26M);
+					      CLK_TOP_MAINPLL_D2_D4);
 	if (ret)
 		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
@@ -370,11 +375,15 @@ int mt6779_afe_suspend_clock(struct mtk_base_afe *afe)
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
 	ret = mt6779_set_audio_int_bus_parent(afe, CLK_CLK26M);
+	if (ret)
+		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 
 	return 0;
 
+CLK_MUX_AUDIO_INTBUS_PARENT_ERR:
+	mt6779_set_audio_int_bus_parent(afe, CLK_TOP_MAINPLL_D2_D4);
 CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	return ret;
@@ -385,7 +394,7 @@ int mt6779_afe_resume_clock(struct mtk_base_afe *afe)
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
 	int ret;
 
-	/* set audio int bus to 26M */
+	/* set audio int bus to normal working clock */
 	ret = clk_prepare_enable(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	if (ret) {
 		dev_err(afe->dev, "%s clk_prepare_enable %s fail %d\n",
@@ -393,12 +402,16 @@ int mt6779_afe_resume_clock(struct mtk_base_afe *afe)
 		goto CLK_MUX_AUDIO_INTBUS_ERR;
 	}
 	ret = mt6779_set_audio_int_bus_parent(afe,
-					      CLK_CLK26M);
+					      CLK_TOP_MAINPLL_D2_D4);
+	if (ret)
+		goto CLK_MUX_AUDIO_INTBUS_PARENT_ERR;
 
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 
 	return 0;
 
+CLK_MUX_AUDIO_INTBUS_PARENT_ERR:
+	mt6779_set_audio_int_bus_parent(afe, CLK_CLK26M);
 CLK_MUX_AUDIO_INTBUS_ERR:
 	clk_disable_unprepare(afe_priv->clk[CLK_MUX_AUDIOINTBUS]);
 	return ret;
@@ -408,18 +421,18 @@ int mt6779_afe_dram_request(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	struct arm_smccc_res res;
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
+#ifndef ASOC_TEMP_BYPASS
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	if (afe_priv->dram_resource_counter == 0)
+		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_ALL);
+#endif
+#endif
 	afe_priv->dram_resource_counter++;
-
-	/* use arm_smccc_smc to notify SPM */
-	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_DRAM_REQUEST,
-		      0, 0, 0, 0, 0, 0, &res);
-
 	mutex_unlock(&mutex_request_dram);
 	return 0;
 }
@@ -428,17 +441,18 @@ int mt6779_afe_dram_release(struct device *dev)
 {
 	struct mtk_base_afe *afe = dev_get_drvdata(dev);
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
-	struct arm_smccc_res res;
 
 	dev_info(dev, "%s(), dram_resource_counter %d\n",
 		 __func__, afe_priv->dram_resource_counter);
 
 	mutex_lock(&mutex_request_dram);
 	afe_priv->dram_resource_counter--;
-
-	/* use arm_smccc_smc to notify SPM */
-	arm_smccc_smc(MTK_SIP_AUDIO_CONTROL, MTK_AUDIO_SMC_OP_DRAM_RELEASE,
-		      0, 0, 0, 0, 0, 0, &res);
+#ifndef ASOC_TEMP_BYPASS
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	if (afe_priv->dram_resource_counter == 0)
+		spm_resource_req(SPM_RESOURCE_USER_AUDIO, SPM_RESOURCE_RELEASE);
+#endif
+#endif
 
 	if (afe_priv->dram_resource_counter < 0) {
 		dev_warn(dev, "%s(), dram_resource_counter %d\n",
@@ -688,6 +702,42 @@ void mt6779_mck_disable(struct mtk_base_afe *afe, int mck_id)
 		clk_disable_unprepare(afe_priv->clk[m_sel_id]);
 }
 
+#ifndef ASOC_TEMP_BYPASS
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+enum {
+	aud_intbus_sel_26m = 0,
+	aud_intbus_sel_mainpll_d2_d4,
+	aud_intbus_sel_mainpll_d7_d2,
+};
+
+static int mt6779_afe_idle_notify_call(struct notifier_block *nfb,
+				       unsigned long id,
+				       void *arg)
+{
+	switch (id) {
+	case NOTIFY_DPIDLE_ENTER:
+	case NOTIFY_SOIDLE_ENTER:
+		aud_intbus_mux_sel(aud_intbus_sel_26m);
+		break;
+	case NOTIFY_DPIDLE_LEAVE:
+	case NOTIFY_SOIDLE_LEAVE:
+		aud_intbus_mux_sel(aud_intbus_sel_mainpll_d2_d4);
+		break;
+	case NOTIFY_SOIDLE3_ENTER:
+	case NOTIFY_SOIDLE3_LEAVE:
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mt6779_afe_idle_nfb = {
+	.notifier_call = mt6779_afe_idle_notify_call,
+};
+#endif
+#endif
+
 int mt6779_init_clock(struct mtk_base_afe *afe)
 {
 	struct mt6779_afe_private *afe_priv = afe->platform_priv;
@@ -716,6 +766,12 @@ int mt6779_init_clock(struct mtk_base_afe *afe)
 			PTR_ERR(afe_priv->topckgen));
 		return PTR_ERR(afe_priv->topckgen);
 	}
+#ifndef ASOC_TEMP_BYPASS
+#if !defined(CONFIG_FPGA_EARLY_PORTING)
+	//local_afe = afe;
+	mtk_idle_notifier_register(&mt6779_afe_idle_nfb);
+#endif
+#endif
 
 	return 0;
 }

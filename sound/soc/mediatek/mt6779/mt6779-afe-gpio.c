@@ -126,10 +126,11 @@ static int mt6779_afe_gpio_select(struct mtk_base_afe *afe,
 
 	ret = pinctrl_select_state(aud_pinctrl,
 				   aud_gpios[type].gpioctrl);
-	if (ret)
+	if (ret) {
 		dev_err(afe->dev, "%s(), error, can not set gpio type %d\n",
 			__func__, type);
-
+		AUDIO_AEE("can not set gpio type");
+	}
 	return ret;
 }
 
@@ -236,6 +237,7 @@ int mt6779_afe_gpio_request(struct mtk_base_afe *afe, bool enable,
 	default:
 		mutex_unlock(&gpio_request_mutex);
 		dev_warn(afe->dev, "%s(), invalid dai %d\n", __func__, dai);
+		AUDIO_AEE("invalid dai");
 		return -EINVAL;
 	}
 	mutex_unlock(&gpio_request_mutex);

@@ -16,9 +16,24 @@
 #include "mtk-afe-fe-dai.h"
 #include "mtk-base-afe.h"
 
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+#include "../scp_vow/mtk-scp-vow-common.h"
+#endif
+
 #if defined(CONFIG_SND_SOC_MTK_SRAM)
 #include "mtk-sram-manager.h"
 #endif
+
+/* dsp relate */
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#include "../audio_dsp/mtk-dsp-common_define.h"
+#include "../audio_dsp/mtk-dsp-common.h"
+#endif
+
+#if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+#include "../scp_spk/mtk-scp-spk-mem-control.h"
+#endif
+
 #define AFE_BASE_END_OFFSET 8
 
 static int mtk_regmap_update_bits(struct regmap *map, int reg,
@@ -141,6 +156,36 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 
 	substream->runtime->dma_bytes = params_buffer_bytes(params);
 
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT)
+	if (memif->vow_bargein_enable) {
+		ret = allocate_vow_bargein_mem(substream,
+					       &substream->runtime->dma_addr,
+					       &substream->runtime->dma_area,
+					       substream->runtime->dma_bytes,
+					       params_format(params),
+					       afe);
+		if (ret < 0)
+			return ret;
+
+		goto BYPASS_AFE_FE_ALLOCATE_MEM;
+	}
+#endif
+
+#if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+	if (memif->scp_spk_enable) {
+		ret = mtk_scp_spk_allocate_mem(substream,
+					       &substream->runtime->dma_addr,
+					       &substream->runtime->dma_area,
+					       substream->runtime->dma_bytes,
+					       params_format(params),
+					       afe);
+		if (ret < 0)
+			return ret;
+
+		goto BYPASS_AFE_FE_ALLOCATE_MEM;
+	}
+#endif
+
 	if (memif->use_dram_only == 0 &&
 	    mtk_audio_sram_allocate(afe->sram,
 				    &substream->runtime->dma_addr,
@@ -150,8 +195,18 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 				    params_format(params), false) == 0) {
 		memif->using_sram = 1;
 	} else {
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+		if (memif->use_adsp_share_mem == true)
+			ret = mtk_adsp_allocate_mem(substream,
+						    params_buffer_bytes(params),
+						    id);
+		else
+			ret = snd_pcm_lib_malloc_pages(substream,
+				params_buffer_bytes(params));
+#else
 		ret = snd_pcm_lib_malloc_pages(substream,
 					       params_buffer_bytes(params));
+#endif
 		if (ret < 0)
 			return ret;
 		memif->using_sram = 0;
@@ -165,14 +220,26 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		 substream->runtime->dma_bytes);
 #else
 
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (memif->use_adsp_share_mem == true)
+		ret = mtk_adsp_allocate_mem(substream,
+					    params_buffer_bytes(params),
+					    id);
+	else
+		ret = snd_pcm_lib_malloc_pages(substream,
+					       params_buffer_bytes(params));
+
+#else
 	ret = snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
+#endif
 	if (ret < 0)
 		return ret;
 	memif->using_sram = 0;
 #endif
 
-	memset_io(substream->runtime->dma_area, 0,
-		  substream->runtime->dma_bytes);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		memset_io(substream->runtime->dma_area,
+			  0, substream->runtime->dma_bytes);
 
 	if (memif->using_sram == 0 && afe->request_dram_resource)
 		afe->request_dram_resource(afe->dev);
@@ -188,6 +255,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 		return ret;
 	}
 
+#if defined(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) ||\
+	defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+BYPASS_AFE_FE_ALLOCATE_MEM:
+#endif
 	/* set channel */
 	ret = mtk_memif_set_channel(afe, id, channels);
 	if (ret) {
@@ -211,6 +282,10 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 			__func__, id, format, ret);
 		return ret;
 	}
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWPARAM,
+			   substream, params, dai, afe);
+#endif
 
 	return 0;
 }
@@ -223,19 +298,45 @@ int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
 	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
 	struct mtk_base_afe_memif *memif = &afe->memif[rtd->cpu_dai->id];
 
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_HWFREE,
+			   substream, NULL, dai, afe);
+#endif
 
 	if (memif->using_sram == 0 && afe->release_dram_resource)
 		afe->release_dram_resource(afe->dev);
 
 #if defined(CONFIG_SND_SOC_MTK_SRAM)
+#if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
+	if (memif->scp_spk_enable)
+		return mtk_scp_spk_free_mem(substream, afe);
+#endif
 	if (memif->using_sram) {
 		memif->using_sram = 0;
 		return mtk_audio_sram_free(afe->sram, substream);
 	}
 
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (memif->use_adsp_share_mem == true)
+		return mtk_adsp_free_mem(substream,
+					 substream->runtime->dma_bytes,
+					 rtd->cpu_dai->id);
+
 	return snd_pcm_lib_free_pages(substream);
 #else
 	return snd_pcm_lib_free_pages(substream);
+#endif
+#else
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	if (memif->use_adsp_share_mem == true)
+		return mtk_adsp_free_mem(substream,
+					 substream->runtime->dma_bytes,
+					 rtd->cpu_dai->id);
+
+	return snd_pcm_lib_free_pages(substream);
+#else
+	return snd_pcm_lib_free_pages(substream);
+#endif
 #endif
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_hw_free);
@@ -325,6 +426,11 @@ int mtk_afe_fe_prepare(struct snd_pcm_substream *substream,
 			mtk_memif_set_pbuf_size(afe, id, pbuf_size);
 		}
 	}
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+	afe_pcm_ipi_to_dsp(AUDIO_DSP_TASK_PCM_PREPARE,
+			   substream, NULL, dai, afe);
+#endif
+
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_afe_fe_prepare);

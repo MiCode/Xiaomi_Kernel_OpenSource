@@ -172,7 +172,8 @@ int mtk_audio_sram_init(struct device *dev,
 		sram->blocks[i].size = sram->block_size;
 		sram->blocks[i].user = NULL;
 		sram->blocks[i].phys_addr = sram->phys_addr +
-						(sram->block_size * i);
+						(sram->block_size *
+						 (dma_addr_t)i);
 		sram->blocks[i].virt_addr = (void *)((char *)sram->virt_addr +
 						     (sram->block_size * i));
 	}

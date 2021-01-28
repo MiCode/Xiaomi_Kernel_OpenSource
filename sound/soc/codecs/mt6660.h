@@ -41,6 +41,9 @@ struct mt6660_chip {
 	int pwr_cnt;
 };
 
+int mt6660_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id);
+int mt6660_i2c_remove(struct i2c_client *client);
+
 #define MT6660_REG_DEVID		(0x00)
 #define MT6660_REG_SYSTEM_CTRL		(0x03)
 #define MT6660_REG_IRQ_STATUS1		(0x05)

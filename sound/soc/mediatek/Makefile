@@ -6,6 +6,7 @@ subdir-ccflags-y += -Werror
 #obj-$(CONFIG_SND_SOC_MTK_AUDIO_DSP) += audio_dsp/
 #obj-$(CONFIG_MTK_VOW_BARGE_IN_SUPPORT) += scp_vow/
 # btcvsd
+subdir-ccflags-y += -DASOC_TEMP_BYPASS
 obj-$(CONFIG_SND_SOC_MTK_BTCVSD) += common/
 obj-$(CONFIG_MTK_AUDIO_TUNNELING_SUPPORT) += common_int/
 obj-$(CONFIG_SND_SOC_MEDIATEK) += common/

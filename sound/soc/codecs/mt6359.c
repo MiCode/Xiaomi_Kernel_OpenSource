@@ -18,6 +18,28 @@
 #include <linux/regulator/consumer.h>
 
 #include <sound/soc.h>
+
+#include "registers.h"
+
+#ifdef CONFIG_MTK_ACCDET
+#include "accdet.h"
+#endif
+
+#ifdef CONFIG_MTK_AUXADC_INTF
+#include <mach/mtk_pmic.h>
+#include <mt-plat/mtk_auxadc_intf.h>
+#endif
+
+#ifndef CONFIG_MTK_PMIC_WRAP	/* y: use regmap, else use legacy api */
+#ifdef CONFIG_MTK_PMIC_WRAP_HAL
+#include <mach/mtk_pmic_wrap.h>
+#endif
+#endif
+
+#ifdef CONFIG_MTK_PMIC_WRAP
+#include <linux/soc/mediatek/pmic_wrap.h>
+#endif
+
 #include "mt6359.h"
 
 enum {
@@ -120,6 +142,23 @@ enum {
 	NUM_CH,
 };
 
+/* Auxadc average resolution */
+enum {
+	AUXADC_AVG_1 = 0,
+	AUXADC_AVG_4,
+	AUXADC_AVG_8,
+	AUXADC_AVG_16,
+	AUXADC_AVG_32,
+	AUXADC_AVG_64,
+	AUXADC_AVG_128,
+	AUXADC_AVG_256,
+};
+
+enum {
+	DBG_DCTRIM_BYPASS_4POLE = 0x1 << 0,
+	DBG_DCTRIM_4POLE_LOG = 0x1 << 1,
+};
+
 /* dl bias */
 #define DRBIAS_MASK 0x7
 #define DRBIAS_HP_SFT (RG_AUDBIASADJ_0_VAUDP32_SFT + 0)
@@ -175,6 +214,18 @@ enum {
 	MIC_BIAS_2P7,
 };
 
+struct dc_trim_data {
+	bool calibrated;
+	int mic_vinp_mv;
+};
+
+struct hp_trim_data {
+	unsigned int hp_trim_l;
+	unsigned int hp_trim_r;
+	unsigned int hp_fine_trim_l;
+	unsigned int hp_fine_trim_r;
+};
+
 struct mt6359_vow_periodic_on_off_data {
 	unsigned long long pga_on;
 	unsigned long long precg_on;
@@ -209,12 +260,21 @@ struct mt6359_priv {
 	int hp_gain_ctl;
 	int hp_hifi_mode;
 
+	struct mt6359_codec_ops ops;
+	struct dc_trim_data dc_trim;
+	struct hp_trim_data hp_trim_3_pole;
+	struct hp_trim_data hp_trim_4_pole;
 	int hp_plugged;
+
+	/* hp impedance */
+	int hp_impedance;
+	int hp_current_calibrate_val;
 
 	int mtkaif_protocol;
 
 	struct regulator *avdd_reg;
 	struct dentry *debugfs;
+	unsigned int debug_flag;
 
 	/* vow control */
 	int vow_enable;
@@ -230,6 +290,21 @@ struct mt6359_priv {
 };
 
 /* static function declaration */
+static int dc_trim_thread(void *arg);
+
+int mt6359_set_codec_ops(struct snd_soc_component *cmpnt,
+			 struct mt6359_codec_ops *ops)
+{
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	priv->ops.enable_dc_compensation = ops->enable_dc_compensation;
+	priv->ops.set_lch_dc_compensation = ops->set_lch_dc_compensation;
+	priv->ops.set_rch_dc_compensation = ops->set_rch_dc_compensation;
+	priv->ops.adda_dl_gain_control = ops->adda_dl_gain_control;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6359_set_codec_ops);
+
 int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 			       int mtkaif_protocol)
 {
@@ -239,6 +314,24 @@ int mt6359_set_mtkaif_protocol(struct snd_soc_component *cmpnt,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6359_set_mtkaif_protocol);
+
+static void gpio_smt_set(struct mt6359_priv *priv)
+{
+	/* set gpio SMT mode */
+	regmap_update_bits(priv->regmap, MT6359_SMT_CON1,
+			   0x3ff0, 0x3ff0);
+}
+
+static void gpio_driving_set(struct mt6359_priv *priv)
+{
+	/* 8:4mA(default), a:8mA, c:12mA, e:16mA */
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON2,
+			   0xffff, 0x8888);
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON3,
+			   0xffff, 0x8888);
+	regmap_update_bits(priv->regmap, MT6359_DRV_CON4,
+			   0x00ff, 0x88);
+}
 
 static void playback_gpio_set(struct mt6359_priv *priv)
 {
@@ -509,6 +602,24 @@ int mt6359_set_mtkaif_calibration_phase(struct snd_soc_component *cmpnt,
 	return 0;
 }
 EXPORT_SYMBOL_GPL(mt6359_set_mtkaif_calibration_phase);
+
+static int get_auxadc_audio(void)
+{
+#ifdef CONFIG_MTK_AUXADC_INTF
+	return pmic_get_auxadc_value(AUXADC_LIST_HPOFS_CAL);
+#else
+	return 0;
+#endif
+}
+
+static int get_accdet_auxadc(void)
+{
+#ifdef CONFIG_MTK_AUXADC_INTF
+	return pmic_get_auxadc_value(AUXADC_LIST_ACCDET);
+#else
+	return 0;
+#endif
+}
 
 /* dl pga gain */
 enum {
@@ -1689,6 +1800,70 @@ static int mtk_hp_disable(struct mt6359_priv *priv)
 	return 0;
 }
 
+static int mtk_hp_impedance_enable(struct mt6359_priv *priv)
+{
+	/* Disable HPR/L STB enhance circuits */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPROUTPUTSTBENH_VAUDP32_MASK_SFT, 0x0);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPLOUTPUTSTBENH_VAUDP32_MASK_SFT, 0x0);
+
+	/* Disable Pull-down HPL/R to AVSS28_AUD */
+	hp_pull_down(priv, false);
+
+	/* Disable HP aux CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0200);
+
+	/* Disable HP damping circuit & HPN 4K load */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0000);
+
+	/* Enable AUD_CLK */
+	mt6359_set_decoder_clk(priv, true);
+
+	/* Enable Audio L channel DAC */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x3009);
+
+	/* Enable HPDET circuit, */
+	/* select DACLP as HPDET input and HPR as HPDET output */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x1900);
+
+	/* Enable TRIMBUF circuit, select HPR as TRIMBUF input */
+	/* Set TRIMBUF gain as 18dB */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x1972);
+
+	return 0;
+}
+
+static int mtk_hp_impedance_disable(struct mt6359_priv *priv)
+{
+	/* disable HPDET circuit */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x1900);
+
+	/* Disable HPDET circuit, select OPEN as HPDET input */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON8, 0x0000);
+
+	/* Disable Audio DAC */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   0x000f, 0x0000);
+
+	/* Disable AUD_CLK */
+	mt6359_set_decoder_clk(priv, false);
+
+	/* Enable HPR/L STB enhance circuits for off state */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPROUTPUTSTBENH_VAUDP32_MASK_SFT,
+			   0x3 << RG_HPROUTPUTSTBENH_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_HPLOUTPUTSTBENH_VAUDP32_MASK_SFT,
+			   0x3 << RG_HPLOUTPUTSTBENH_VAUDP32_SFT);
+
+	#ifdef CONFIG_MTK_ACCDET
+	/* from accdet request */
+	accdet_modify_vref_volt();
+	#endif
+	return 0;
+}
+
 static int mt_hp_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol,
 		       int event)
@@ -1718,6 +1893,8 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 
 		if (mux == HP_MUX_HP)
 			mtk_hp_enable(priv);
+		else if (mux == HP_MUX_HP_IMPEDANCE)
+			mtk_hp_impedance_enable(priv);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		priv->dev_counter[device]--;
@@ -1733,6 +1910,8 @@ static int mt_hp_event(struct snd_soc_dapm_widget *w,
 
 		if (priv->mux_select[MUX_HP_L] == HP_MUX_HP)
 			mtk_hp_disable(priv);
+		else if (priv->mux_select[MUX_HP_L] == HP_MUX_HP_IMPEDANCE)
+			mtk_hp_impedance_disable(priv);
 
 		priv->mux_select[MUX_HP_L] = mux;
 		break;
@@ -2019,6 +2198,8 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
 	unsigned int mic_type = priv->mux_select[MUX_MIC_TYPE_0];
+	bool vow_is_on = (IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
+			  IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]));
 
 	dev_info(priv->dev, "%s(), event 0x%x, mic_type %d\n",
 		 __func__, event, mic_type);
@@ -2052,7 +2233,7 @@ static int mt_mic_bias_0_event(struct snd_soc_dapm_widget *w,
 		/* vow low power select */
 		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON15,
 				   RG_AUDMICBIAS0LOWPEN_MASK_SFT,
-				   (IS_VOW_AMIC_BASE(mic_type) ? 1 : 0)
+				   (vow_is_on ? 1 : 0)
 				   << RG_AUDMICBIAS0LOWPEN_SFT);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -2160,6 +2341,9 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
 	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int mic_type_l = priv->mux_select[MUX_MIC_TYPE_0];
+	unsigned int mic_type_hs = priv->mux_select[MUX_MIC_TYPE_1];
+	unsigned int mic_type_r = priv->mux_select[MUX_MIC_TYPE_2];
 
 	dev_info(priv->dev, "%s(), event 0x%x\n", __func__, event);
 
@@ -2169,9 +2353,12 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Enable Audio ADC 1st Stage LPW */
 		/* Enable Audio ADC 2nd & 3rd LPW */
 		/* Enable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-				   0x0039, 0x0039);
-		if (priv->vow_channel == 2)
+		if (IS_VOW_AMIC_BASE(mic_type_l) ||
+		    IS_VOW_AMIC_BASE(mic_type_hs))
+			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+					   0x0039, 0x0039);
+		if (IS_VOW_BASE(mic_type_r) ||
+		   (priv->vow_channel == 2))
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
 					   0x0039, 0x0039);
 		break;
@@ -2180,9 +2367,12 @@ static int mt_vow_aud_lpw_event(struct snd_soc_dapm_widget *w,
 		/* Disable Audio ADC 1st Stage LPW */
 		/* Disable Audio ADC 2nd & 3rd LPW */
 		/* Disable Audio ADC flash Audio ADC flash */
-		regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
-				   0x0039, 0x0000);
-		if (priv->vow_channel == 2)
+		if (IS_VOW_BASE(mic_type_l) ||
+		    IS_VOW_BASE(mic_type_hs))
+			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON3,
+					   0x0039, 0x0000);
+		if (IS_VOW_BASE(mic_type_r) ||
+		   (priv->vow_channel == 2))
 			regmap_update_bits(priv->regmap, MT6359_AUDENC_ANA_CON4,
 					   0x0039, 0x0000);
 		break;
@@ -3055,6 +3245,49 @@ static int mt_hp_damp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int mt_hp_ana_trim_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	struct hp_trim_data *trim;
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* TODO: 3/4 pole */
+		trim = &priv->hp_trim_3_pole;
+
+		/* set hp l trim */
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPLTRIM_VAUDP32_MASK_SFT,
+				   trim->hp_trim_l <<
+				   RG_AUDHPLTRIM_VAUDP32_SFT);
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+				   trim->hp_fine_trim_l <<
+				   RG_AUDHPLFINETRIM_VAUDP32_SFT);
+		/* set hp r trim */
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPRTRIM_VAUDP32_MASK_SFT,
+				   trim->hp_trim_r <<
+				   RG_AUDHPRTRIM_VAUDP32_SFT);
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+				   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+				   trim->hp_fine_trim_r <<
+				   RG_AUDHPRFINETRIM_VAUDP32_SFT);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* Clear the analog trim value */
+		regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON3, 0x0);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static int mt_esd_resist_event(struct snd_soc_dapm_widget *w,
 			       struct snd_kcontrol *kcontrol,
 			       int event)
@@ -3198,6 +3431,24 @@ static int mt_ul_gpio_event(struct snd_soc_dapm_widget *w,
 	default:
 		break;
 	}
+	return 0;
+}
+
+static int mt_dc_trim_event(struct snd_soc_dapm_widget *w,
+			      struct snd_kcontrol *kcontrol,
+			      int event)
+{
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	struct dc_trim_data *dc_trim = &priv->dc_trim;
+
+	dev_dbg(priv->dev, "%s(), event = 0x%x, dc_trim->calibrated %u\n",
+		__func__, event, dc_trim->calibrated);
+
+	if (dc_trim->calibrated)
+		return 0;
+
+	kthread_run(dc_trim_thread, priv, "dc_trim_thread");
 	return 0;
 }
 
@@ -3404,6 +3655,11 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      0, 0,
 			      mt_hp_damp_event,
 			      SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("HP_ANA_TRIM", SUPPLY_SEQ_HP_ANA_TRIM,
+			      MT6359_AUDDEC_ANA_CON2,
+			      RG_AUDHPTRIM_EN_VAUDP32_SFT, 0,
+			      mt_hp_ana_trim_event,
+			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	/* Receiver */
 	SND_SOC_DAPM_MUX_E("RCV Mux", SND_SOC_NOPM, 0, 0,
@@ -3611,6 +3867,12 @@ static const struct snd_soc_dapm_widget mt6359_dapm_widgets[] = {
 			      RG_AUDDIGMIC1EN_SFT, 0,
 			      NULL, 0),
 
+	/* DC trim : trigger dc trim flow because set the reg when init_reg */
+	/* this must be at the last widget */
+	SND_SOC_DAPM_SUPPLY("DC Trim", MT6359_AUDDEC_ANA_CON8,
+			    RG_AUDTRIMBUF_EN_VAUDP32_SFT, 0,
+			    mt_dc_trim_event, SND_SOC_DAPM_POST_PMD),
+
 	/* VOW */
 	SND_SOC_DAPM_AIF_OUT_E("VOW TX", "VOW Capture", 0,
 			       SND_SOC_NOPM, 0, 0,
@@ -3634,6 +3896,22 @@ static int mt_vow_amic_connect(struct snd_soc_dapm_widget *source,
 		return 1;
 	else
 		return 0;
+}
+
+static int mt_normal_amic_connect(struct snd_soc_dapm_widget *source,
+				  struct snd_soc_dapm_widget *sink)
+{
+
+	struct snd_soc_dapm_widget *w = sink;
+	struct snd_soc_component *cmpnt = snd_soc_dapm_to_component(w->dapm);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	if (IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_0]) ||
+	    IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_1]) ||
+	    IS_VOW_AMIC_BASE(priv->mux_select[MUX_MIC_TYPE_2]))
+		return 0;
+	else
+		return 1;
 }
 
 static int mt_vow_amic_dcc_connect(struct snd_soc_dapm_widget *source,
@@ -3768,7 +4046,7 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 		 * amic fifo ch1/2 clk from ADC_L,
 		 * enable ADC_L even use ADC_R only
 		 */
-		{"ADC_R", NULL, "ADC_L_EN"},
+		{"ADC_R", NULL, "ADC_L_EN", mt_normal_amic_connect},
 	{"ADC_3", NULL, "ADC_3_Mux"},
 		{"ADC_3", NULL, "ADC_CLKGEN"},
 		{"ADC_3", NULL, "ADC_3_EN"},
@@ -3879,6 +4157,7 @@ static const struct snd_soc_dapm_route mt6359_dapm_routes[] = {
 	{"HP_Supply", NULL, "HP_PULL_DOWN"},
 	{"HP_Supply", NULL, "HP_MUTE"},
 	{"HP_Supply", NULL, "HP_DAMP"},
+	{"HP_Supply", NULL, "HP_ANA_TRIM"},
 	{"HPL Mux", NULL, "HP_Supply"},
 	{"HPR Mux", NULL, "HP_Supply"},
 
@@ -4047,6 +4326,1111 @@ static struct snd_soc_dai_driver mt6359_dai_driver[] = {
 	},
 };
 
+/* trim buffer */
+enum {
+	TRIM_BUF_MUX_OPEN = 0,
+	TRIM_BUF_MUX_HPL,
+	TRIM_BUF_MUX_HPR,
+	TRIM_BUF_MUX_HSP,
+	TRIM_BUF_MUX_HSN,
+	TRIM_BUF_MUX_LOLP,
+	TRIM_BUF_MUX_LOLN,
+	TRIM_BUF_MUX_AU_REFN,
+	TRIM_BUF_MUX_AVSS32,
+	TRIM_BUF_MUX_UNUSED,
+};
+
+enum {
+	TRIM_BUF_GAIN_0DB = 0,
+	TRIM_BUF_GAIN_6DB,
+	TRIM_BUF_GAIN_12DB,
+	TRIM_BUF_GAIN_18DB,
+};
+
+enum {
+	TRIM_STEP0 = 0,
+	TRIM_STEP1,
+	TRIM_STEP2,
+	TRIM_STEP3,
+	TRIM_STEP_NUM,
+};
+
+static void set_trim_buf_in_mux(struct mt6359_priv *priv, int mux)
+{
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON8,
+			   RG_AUDTRIMBUF_INPUTMUXSEL_VAUDP32_MASK_SFT,
+			   mux << RG_AUDTRIMBUF_INPUTMUXSEL_VAUDP32_SFT);
+}
+
+static void set_trim_buf_gain(struct mt6359_priv *priv, unsigned int gain)
+{
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON8,
+			   RG_AUDTRIMBUF_GAINSEL_VAUDP32_MASK_SFT,
+			   gain << RG_AUDTRIMBUF_GAINSEL_VAUDP32_SFT);
+}
+
+static void enable_trim_buf(struct mt6359_priv *priv, bool enable)
+{
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON8,
+			   RG_AUDTRIMBUF_EN_VAUDP32_MASK_SFT,
+			   (enable ? 1 : 0) << RG_AUDTRIMBUF_EN_VAUDP32_SFT);
+}
+
+static void enable_trim_circuit(struct mt6359_priv *priv, bool enable)
+{
+	if (enable) {
+		regmap_update_bits(priv->regmap, MT6359_LDO_VAUD18_CON0,
+				   RG_LDO_VAUD18_EN_MASK_SFT,
+				   1 << RG_LDO_VAUD18_EN_SFT);
+
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+				   RG_AUDHPTRIM_EN_VAUDP32_MASK_SFT,
+				   1 << RG_AUDHPTRIM_EN_VAUDP32_SFT);
+
+	} else {
+
+		regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+				   RG_AUDHPTRIM_EN_VAUDP32_MASK_SFT,
+				   0 << RG_AUDHPTRIM_EN_VAUDP32_SFT);
+
+		regmap_update_bits(priv->regmap, MT6359_LDO_VAUD18_CON0,
+				   RG_LDO_VAUD18_EN_MASK_SFT,
+				   0 << RG_LDO_VAUD18_EN_SFT);
+	}
+}
+
+#ifndef CONFIG_FPGA_EARLY_PORTING
+static void start_trim_hardware(struct mt6359_priv *priv)
+{
+	dev_info(priv->dev, "%s(), ++\n", __func__);
+
+	/* Set playback gpio (mosi/clk/sync) */
+	playback_gpio_set(priv);
+
+	/* Enable AUDGLB */
+	mt6359_set_aud_global_bias(priv, true);
+
+	/* Pull-down HPL/R to AVSS30_AUD */
+	hp_pull_down(priv, true);
+
+	/* XO_AUDIO_EN_M Enable */
+	mt6359_set_dcxo(priv, true);
+
+	/* Enable CLKSQ */
+	/* audio clk source from internal dcxo */
+	mt6359_set_clksq(priv, true);
+
+	/* Turn on AUDNCP_CLKDIV engine clock */
+	mt6359_set_topck(priv, true);
+	usleep_range(250, 270);
+
+	/* Audio system digital clock power down release */
+	regmap_update_bits(priv->regmap, MT6359_AUDIO_TOP_CON0,
+			   0x00ff, 0x0000);
+	usleep_range(250, 270);
+
+	/* sdm audio fifo clock power on */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x0006);
+
+	/* scrambler clock on enable */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON0, 0xCBA1);
+
+	/* sdm power on */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x0003);
+
+	/* sdm fifo enable */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x000B);
+
+	/* rg_ncp_ck1_valid_cnt = 7'b1100100 */
+	regmap_write(priv->regmap, MT6359_AFE_NCP_CFG0, 0xc800);
+
+	/* rg_ncp_on = 1'b1 */
+	regmap_write(priv->regmap, MT6359_AFE_NCP_CFG0, 0xc801);
+
+	/* afe enable, dl_lr_swap = 0, ul_lr_swap = 0 */
+	regmap_update_bits(priv->regmap, MT6359_AFE_UL_DL_CON0,
+			   0xc001, 0x0001);
+
+	/* turn on dl */
+	regmap_write(priv->regmap, MT6359_AFE_DL_SRC2_CON0_L, 0x0001);
+
+	/* set DL in normal path, not from sine gen table */
+	regmap_write(priv->regmap, MT6359_AFE_TOP_CON0, 0x0000);
+
+
+	/* Reduce ESD resistance of AU_REFN */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_AUDREFN_DERES_EN_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDREFN_DERES_EN_VAUDP32_SFT);
+
+	/* Select HPR/HPL gain from ZCD gain */
+	hp_gain_ctl_select(priv, HP_GAIN_CTL_ZCD);
+
+	/* Set HPR/HPL gain to -22dB */
+	regmap_write(priv->regmap, MT6359_ZCD_CON2, DL_GAIN_N_22DB_REG);
+	usleep_range(250, 270);
+
+	/* Enable cap-less LDOs (1.5V) */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON14, 0x0005);
+	/* Enable NV regulator (-1.2V) */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON14, 0x0015);
+	usleep_range(100, 120);
+
+	/* Disable AUD_ZCD */
+	zcd_disable(priv);
+
+	/* Disable HeadphoneL/HeadphoneR short circuit protection */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   RG_AUDHPLSCDISABLE_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDHPLSCDISABLE_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   RG_AUDHPRSCDISABLE_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDHPRSCDISABLE_VAUDP32_SFT);
+
+	/* Enable IBIST */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON12, 0x0055);
+
+	/* Set HP DR bias current optimization, 001: 5uA */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON11,
+			   DRBIAS_HP_MASK_SFT,
+			   DRBIAS_5UA << DRBIAS_HP_SFT);
+	/* Set HP & ZCD bias current optimization */
+	/* 00: ZCD: 3uA, HP/HS/LO: 4uA */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON12,
+			   IBIAS_ZCD_MASK_SFT,
+			   IBIAS_ZCD_3UA << IBIAS_ZCD_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON12,
+			   IBIAS_HP_MASK_SFT,
+			   IBIAS_4UA << IBIAS_HP_SFT);
+
+	/* HP damp circuit enable */
+	/* Enable HPRN/HPLN output 4K to VCM */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0087);
+
+	/* HP Feedback Cap select 2'b00: 15pF */
+	/* for >= 96KHz sampling rate: 2'b01: 10.5pF */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON4, 0x0000);
+
+	/* Set HPP/N STB enhance circuits */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON2, 0xf133);
+
+	/* Enable HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x000c);
+	/* Enable HP aux feedback loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x003c);
+	/* Enable HP aux CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0c00);
+	/* Enable HP driver bias circuits */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x30c0);
+	/* Enable HP driver core circuits */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON0, 0x30f0);
+	/* Short HP main output to HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x00fc);
+
+	/* Increase HP input pair current to HPM step by step */
+	hp_in_pair_current(priv, true);
+
+	/* Enable HP main CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0e00);
+	/* Disable HP aux CMFB loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON9, 0x0200);
+
+	/* Enable HP main output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x00ff);
+	/* Enable HPR/L main output stage step by step */
+	hp_main_output_ramp(priv, true);
+
+	/* Reduce HP aux feedback loop gain */
+	hp_aux_feedback_loop_gain_ramp(priv, true);
+	/* Disable HP aux feedback loop */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x77cf);
+
+	/* apply volume setting */
+	headset_volume_ramp(priv,
+			    DL_GAIN_N_22DB,
+			    priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL]);
+
+	/* Disable HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x77c3);
+	/* Unshort HP main output to HP aux output stage */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON1, 0x7703);
+	usleep_range(100, 120);
+
+	/* Disable AUD_CLK */
+	mt6359_set_decoder_clk(priv, false);
+
+	/* Disable Audio DAC */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   0x000f, 0x0000);
+
+	/* Disable Audio DAC (3rd DAC) */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON7, 0x0000);
+	usleep_range(100, 120);
+
+	/* Disable low-noise mode of DAC */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON9,
+			   0x0001, 0x0000);
+
+	/* Switch HPL/HPR MUX to open */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON0,
+			   0x0f00, 0x0000);
+
+	/* Disable Pull-down HPL/R to AVSS30_AUD */
+	hp_pull_down(priv, false);
+
+	dev_info(priv->dev, "%s(), --\n", __func__);
+}
+
+static void stop_trim_hardware(struct mt6359_priv *priv)
+{
+	dev_info(priv->dev, "%s(), ++\n", __func__);
+
+	mtk_hp_disable(priv);
+
+	/* Disable IBIST */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON12,
+			   RG_AUDIBIASPWRDN_VAUDP32_MASK_SFT,
+			   0x1 << RG_AUDIBIASPWRDN_VAUDP32_SFT);
+
+	/* Disable NV regulator (-1.2V) */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON14,
+			   RG_NVREG_EN_VAUDP32_MASK_SFT, 0x0);
+
+	/* Disable cap-less LDOs (1.5V) */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON14, 0x5, 0x0);
+
+	/* Disable NCP */
+	regmap_write(priv->regmap, MT6359_AFE_NCP_CFG0, 0xc800);
+
+	/* Set HPL/HPR gain to mute */
+	regmap_write(priv->regmap, MT6359_ZCD_CON2, DL_GAIN_N_40DB_REG);
+
+	/* Disable HP damping circuit & HPN 4K loadreset CMFB PW level */
+	regmap_write(priv->regmap, MT6359_AUDDEC_ANA_CON10, 0x0000);
+
+	/* Increase ESD resistance of AU_REFN */
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON2,
+			   RG_AUDREFN_DERES_EN_VAUDP32_MASK_SFT, 0x0);
+
+	/* turn off dl */
+	regmap_update_bits(priv->regmap, MT6359_AFE_DL_SRC2_CON0_L,
+			   DL_2_SRC_ON_TMP_CTL_PRE_MASK_SFT, 0x0);
+
+	/* afe disable */
+	regmap_update_bits(priv->regmap, MT6359_AFE_UL_DL_CON0,
+			   AFE_ON_MASK_SFT, 0);
+
+	/* sdm fifo disable */
+	regmap_update_bits(priv->regmap, MT6359_AFUNC_AUD_CON2,
+			   CCI_AUDIO_FIFO_ENABLE_MASK_SFT, 0);
+
+	/* sdm power off */
+	regmap_update_bits(priv->regmap, MT6359_AFUNC_AUD_CON2,
+			   CCI_AFIFO_CLK_PWDB_MASK_SFT, 0);
+
+	/* scrambler clock on disable */
+	regmap_update_bits(priv->regmap, MT6359_AFUNC_AUD_CON0,
+			   CCI_SCRAMBLER_EN_MASK_SFT, 0);
+
+	/* sdm audio fifo clock power off */
+	regmap_write(priv->regmap, MT6359_AFUNC_AUD_CON2, 0x0000);
+
+	/* Audio system digital clock power down */
+	regmap_update_bits(priv->regmap, MT6359_AUDIO_TOP_CON0,
+			   0x00ff, 0x00f5);
+	usleep_range(250, 270);
+
+	/* Turn off AUDNCP_CLKDIV engine clock */
+	mt6359_set_topck(priv, false);
+
+	/* Disable CLKSQ */
+	mt6359_set_clksq(priv, false);
+
+	/* XO_AUDIO_EN_M Disable */
+	mt6359_set_dcxo(priv, false);
+
+	/* Disable Pull-down HPL/R to AVSS30_AUD  */
+	hp_pull_down(priv, false);
+
+	/* Disable AUDGLB */
+	mt6359_set_aud_global_bias(priv, false);
+
+	/* Reset playback gpio (mosi/clk/sync) */
+	playback_gpio_reset(priv);
+
+	dev_info(priv->dev, "%s(), --\n", __func__);
+}
+#endif
+
+static int calculate_trim_result(int *on_value, int *off_value,
+				 int trimTime, int discard_num, int useful_num)
+{
+	int i, j, tmp, offset;
+
+	/* sort */
+	for (i = 0; i < trimTime - 1; i++) {
+		for (j = 0; j < trimTime - 1 - i; j++) {
+			if (on_value[j] > on_value[j + 1]) {
+				tmp = on_value[j + 1];
+				on_value[j + 1] = on_value[j];
+				on_value[j] = tmp;
+			}
+			if (off_value[j] > off_value[j + 1]) {
+				tmp = off_value[j + 1];
+				off_value[j + 1] = off_value[j];
+				off_value[j] = tmp;
+			}
+		}
+	}
+	/* calculate result */
+	offset = 0;
+	for (i = discard_num; i < trimTime - discard_num; i++)
+		offset += on_value[i] - off_value[i];
+
+	return DIV_ROUND_CLOSEST(offset, useful_num);
+}
+
+static void get_hp_dctrim_offset(struct mt6359_priv *priv,
+				 int *hpl_trim, int *hpr_trim)
+{
+#ifndef CONFIG_FPGA_EARLY_PORTING
+#define TRIM_TIMES 26
+#define TRIM_DISCARD_NUM 3
+#define TRIM_USEFUL_NUM (TRIM_TIMES - (TRIM_DISCARD_NUM * 2))
+
+	int on_valueL[TRIM_TIMES], on_valueR[TRIM_TIMES];
+	int off_valueL[TRIM_TIMES], off_valueR[TRIM_TIMES];
+	int i;
+
+	usleep_range(10 * 1000, 15 * 1000);
+	regmap_update_bits(priv->regmap, MT6359_AUXADC_CON10,
+			   0x7, AUXADC_AVG_256);
+
+	/* set ana_gain as 0DB */
+	priv->ana_gain[AUDIO_ANALOG_VOLUME_HPOUTL] = DL_GAIN_0DB;
+
+	/* turn on trim buffer */
+	start_trim_hardware(priv);
+
+	/* l-channel */
+	/* trimming buffer gain selection 18db*/
+	set_trim_buf_gain(priv, TRIM_BUF_GAIN_18DB);
+
+	/* enable trim buffer */
+	enable_trim_buf(priv, true);
+
+	/* trimming buffer mux selection : HPL */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPL);
+
+	/* get buffer on auxadc value  */
+	dev_info(priv->dev, "%s(), get on_valueL\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		on_valueL[i] = get_auxadc_audio();
+
+	/* trimming buffer mux selection : AU_REFN */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
+
+	/* get buffer off auxadc value	*/
+	dev_info(priv->dev, "%s(), get off_valueL\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		off_valueL[i] = get_auxadc_audio();
+
+	/* r-channel */
+	/* trimming buffer mux selection : HPR */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPR);
+
+	/* get buffer on auxadc value  */
+	dev_info(priv->dev, "%s(), get on_valueR\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		on_valueR[i] = get_auxadc_audio();
+
+	/* trimming buffer mux selection : AU_REFN */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_AU_REFN);
+
+	/* get buffer off auxadc value	*/
+	dev_info(priv->dev, "%s(), get off_valueR\n", __func__);
+	usleep_range(1 * 1000, 10 * 1000);
+	for (i = 0; i < TRIM_TIMES; i++)
+		off_valueR[i] = get_auxadc_audio();
+
+	/* disable trim buffer */
+	enable_trim_buf(priv, false);
+
+	/* reset trimming buffer mux to OPEN */
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_OPEN);
+
+	/* reset trimming buffer gain selection 0db*/
+	set_trim_buf_gain(priv, TRIM_BUF_GAIN_0DB);
+
+	/* turn off trim buffer */
+	stop_trim_hardware(priv);
+
+	*hpl_trim = calculate_trim_result(on_valueL, off_valueL,
+					  TRIM_TIMES, TRIM_DISCARD_NUM,
+					  TRIM_USEFUL_NUM);
+	*hpr_trim = calculate_trim_result(on_valueR, off_valueR,
+					  TRIM_TIMES, TRIM_DISCARD_NUM,
+					  TRIM_USEFUL_NUM);
+
+	dev_info(priv->dev, "%s(), R_offset = %d, L_offset = %d\n",
+		 __func__, *hpr_trim, *hpl_trim);
+#endif
+}
+
+static void update_finetrim_offset(struct mt6359_priv *priv,
+				   int step,
+				   const unsigned int finetrim_code_l,
+				   const unsigned int finetrim_code_r,
+				   int *finetrim_offset_l,
+				   int *finetrim_offset_r)
+{
+	int hpl_offset = 0, hpr_offset = 0;
+
+	dev_dbg(priv->dev, "%s(), step%d finetrim_code(L/R) = (0x%x/0x%x)\n",
+		__func__, step, finetrim_code_l, finetrim_code_r);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+			   finetrim_code_l << RG_AUDHPLFINETRIM_VAUDP32_SFT);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+			   finetrim_code_r << RG_AUDHPRFINETRIM_VAUDP32_SFT);
+
+	get_hp_dctrim_offset(priv, &hpl_offset, &hpr_offset);
+	*finetrim_offset_l = hpl_offset;
+	*finetrim_offset_r = hpr_offset;
+
+	dev_dbg(priv->dev, "%s(), step%d finetrim_offset(L/R) = (0x%x/0x%x)\n",
+		__func__, step, *finetrim_offset_l, *finetrim_offset_r);
+}
+
+static void update_trim_offset(struct mt6359_priv *priv,
+			       int step,
+			       const unsigned int trim_code_l,
+			       const unsigned int trim_code_r,
+			       int *trim_offset_l,
+			       int *trim_offset_r)
+{
+	int hpl_offset = 0, hpr_offset = 0;
+
+	dev_dbg(priv->dev, "%s(), step%d trim_code(L/R) = (0x%x/0x%x)\n",
+		__func__, step, trim_code_l, trim_code_r);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLTRIM_VAUDP32_MASK_SFT,
+			   trim_code_l << RG_AUDHPLTRIM_VAUDP32_SFT);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRTRIM_VAUDP32_MASK_SFT,
+			   trim_code_r << RG_AUDHPRTRIM_VAUDP32_SFT);
+
+	get_hp_dctrim_offset(priv, &hpl_offset, &hpr_offset);
+
+	*trim_offset_l = hpl_offset;
+	*trim_offset_r = hpr_offset;
+
+	dev_dbg(priv->dev, "%s(), step%d trim_offset(L/R) = (0x%x/0x%x)\n",
+		__func__, step, *trim_offset_l, *trim_offset_r);
+}
+
+static unsigned int update_finetrim_code(const unsigned int trim_offset0,
+					 const unsigned int trim_offset1,
+					 const unsigned int trim_offset2)
+{
+	unsigned int ret_finetrim_code = 0;
+
+	/* Base on finetrim[0/1/2], choose minimim finetrim_code */
+	if (trim_offset0 < trim_offset1) {
+		if (trim_offset0 < trim_offset2)
+			ret_finetrim_code = 0;
+		else /* (trim_offset0 >= trim_offset2) */
+			ret_finetrim_code = 2;
+	} else { /* (trim_offset0 >= trim_offset1) */
+		if (trim_offset1 < trim_offset2)
+			ret_finetrim_code = 1;
+		else /* (trim_offset1 >= trim_offset2) */
+			ret_finetrim_code = 2;
+	}
+
+	return ret_finetrim_code;
+}
+
+static unsigned int update_trim_code(const bool is_negative,
+				     const int trim_value,
+				     const unsigned int trim_code)
+{
+	unsigned int ret_trim_code;
+
+	if (is_negative) { /* value<0, code+1; value>=0, code-1; */
+		if (trim_code == 0x0 && trim_value >= 0)
+			ret_trim_code = 0x11;
+		else if (trim_code == 0xF && trim_value < 0)
+			ret_trim_code = 0x0F;
+		else
+			ret_trim_code = trim_code - (trim_value < 0 ? (-1) : 1);
+	} else { /* value<0, code-1; value>=0, code+1; */
+		if (trim_code == 0x10 && trim_value < 0)
+			ret_trim_code = 0x01;
+		else if (trim_code == 0x1F && trim_value >= 0)
+			ret_trim_code = 0x1F;
+		else
+			ret_trim_code = trim_code + (trim_value < 0 ? (-1) : 1);
+	}
+	return ret_trim_code;
+}
+static void calculate_lr_finetrim_code(struct mt6359_priv *priv)
+{
+	struct hp_trim_data *hp_trim = &priv->hp_trim_3_pole;
+	unsigned int reg_value;
+
+	int finetrim_l[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	int finetrim_r[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	unsigned int finetrim_l_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	unsigned int finetrim_r_code[TRIM_STEP_NUM - 1] = {0, 0, 0};
+	unsigned int hpl_finetrim_code = 0, hpr_finetrim_code = 0;
+	unsigned int step = 0;
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON3 = 0x%x\n",
+		 __func__, reg_value);
+
+	/* step0 */
+	finetrim_l_code[0] = 0x0;
+	finetrim_r_code[0] = 0x0;
+
+	update_finetrim_offset(priv, 0,
+			       finetrim_l_code[0], finetrim_r_code[0],
+			       &finetrim_l[0], &finetrim_r[0]);
+	dev_info(priv->dev, "%s(), step0 finetrim(R/L) = (%d/%d)\n",
+		 __func__, finetrim_r[0], finetrim_l[0]);
+
+	/* step1 */
+	if (finetrim_l[0] < 0)
+		finetrim_l_code[1] = 0x2;
+	else /* (finetrim_l[0] >= 0) */
+		finetrim_l_code[1] = 0x6;
+
+	if (finetrim_r[0] < 0)
+		finetrim_r_code[1] = 0x2;
+	else /* (finetrim_r[0] >= 0) */
+		finetrim_r_code[1] = 0x6;
+
+	update_finetrim_offset(priv, 1,
+			       finetrim_l_code[1], finetrim_r_code[1],
+			       &finetrim_l[1], &finetrim_r[1]);
+	dev_info(priv->dev, "%s(), step1 finetrim(R/L) = (%d/%d)\n",
+		 __func__, finetrim_r[1], finetrim_l[1]);
+
+	/* step2 */
+	if (finetrim_l[0] < 0 && finetrim_l[1] < 0)
+		finetrim_l_code[2] = 0x3;
+	else if (finetrim_l[0] < 0 && finetrim_l[1] >= 0)
+		finetrim_l_code[2] = 0x1;
+	else if (finetrim_l[0] >= 0 && finetrim_l[1] < 0)
+		finetrim_l_code[2] = 0x7;
+	else /* (finetrim_l[0] >= 0 && finetrim_l[1] >= 0) */
+		finetrim_l_code[2] = 0x5;
+
+	if (finetrim_r[0] < 0 && finetrim_r[1] < 0)
+		finetrim_r_code[2] = 0x3;
+	else if (finetrim_r[0] < 0 && finetrim_r[1] >= 0)
+		finetrim_r_code[2] = 0x1;
+	else if (finetrim_r[0] >= 0 && finetrim_r[1] < 0)
+		finetrim_r_code[2] = 0x7;
+	else /* (finetrim_r[0] >= 0 && finetrim_r[1] >= 0) */
+		finetrim_r_code[2] = 0x5;
+
+	update_finetrim_offset(priv, 2,
+			       finetrim_l_code[2], finetrim_r_code[2],
+			       &finetrim_l[2], &finetrim_r[2]);
+	dev_info(priv->dev, "%s(), step2 finetrim(R/L) = (%d/%d)\n",
+		 __func__, finetrim_r[2], finetrim_l[2]);
+
+	step = update_finetrim_code(finetrim_l[0],
+				    finetrim_l[1],
+				    finetrim_l[2]);
+	hpl_finetrim_code = finetrim_l_code[step];
+
+	step = update_finetrim_code(finetrim_r[0],
+				    finetrim_r[1],
+				    finetrim_r[2]);
+	hpr_finetrim_code = finetrim_r_code[step];
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+			   hpl_finetrim_code << RG_AUDHPLFINETRIM_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+			   hpr_finetrim_code << RG_AUDHPRFINETRIM_VAUDP32_SFT);
+
+	hp_trim->hp_fine_trim_l = hpl_finetrim_code;
+	hp_trim->hp_fine_trim_r = hpr_finetrim_code;
+
+	dev_info(priv->dev, "%s(), result finetrim_code(R/L) = (0x%x/0x%x)\n",
+		 __func__, hpr_finetrim_code, hpl_finetrim_code);
+}
+
+static void calculate_lr_trim_code(struct mt6359_priv *priv)
+{
+	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
+	struct hp_trim_data *hp_trim_4_pole = &priv->hp_trim_4_pole;
+
+	int trim_l[TRIM_STEP_NUM] = {0, 0, 0, 0};
+	int trim_r[TRIM_STEP_NUM] = {0, 0, 0, 0};
+	unsigned int trim_l_code[TRIM_STEP_NUM] = {0, 0, 0, 0};
+	unsigned int trim_r_code[TRIM_STEP_NUM] = {0, 0, 0, 0};
+
+	unsigned int hpl_trim_code, hpr_trim_code;
+	bool hpl_negative, hpr_negative;
+	unsigned int reg_value;
+
+	dev_info(priv->dev, "%s(), Start DCtrim Calibrating\n", __func__);
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON2, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON2 = 0x%x\n",
+		 __func__, reg_value);
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLFINETRIM_VAUDP32_MASK_SFT,
+			   0x0 << RG_AUDHPLFINETRIM_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRFINETRIM_VAUDP32_MASK_SFT,
+			   0x0 << RG_AUDHPRFINETRIM_VAUDP32_SFT);
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON3 = 0x%x\n",
+		 __func__, reg_value);
+
+	/* Start step0, set trim code to 0x0 */
+	trim_l_code[0] = 0x0;
+	trim_r_code[0] = 0x0;
+
+	update_trim_offset(priv, 0, trim_l_code[0], trim_r_code[0],
+			   &trim_l[0], &trim_r[0]);
+	dev_info(priv->dev, "%s(), step0 trim_value(R/L) = (%d/%d)\n",
+		 __func__, trim_r[0], trim_l[0]);
+
+	if (trim_l[0] == 0 && trim_r[0] == 0) {
+		hpl_trim_code = trim_l_code[0];
+		hpr_trim_code = trim_r_code[0];
+		goto EXIT;
+	}
+
+	/* start step1, set trim code to 0x2 or 0x12 */
+	if (trim_l[0] < 0) {
+		hpl_negative = true;
+		trim_l_code[1] = 0x2;
+	} else { /* (trim_l[0] >= 0) */
+		hpl_negative = false;
+		trim_l_code[0] = 0x10;
+		trim_l_code[1] = 0x12;
+	}
+	if (trim_r[0] < 0) {
+		hpr_negative = true;
+		trim_r_code[1] = 0x2;
+	} else { /* (trim_r[0] >= 0) */
+		hpr_negative = false;
+		trim_r_code[0] = 0x10;
+		trim_r_code[1] = 0x12;
+	}
+
+	update_trim_offset(priv, 1, trim_l_code[1], trim_r_code[1],
+			   &trim_l[1], &trim_r[1]);
+	dev_info(priv->dev, "%s(), step1 trim_value(R/L) = (%d/%d)\n",
+		 __func__, trim_r[1], trim_l[1]);
+
+	if (trim_l[1] == 0 && trim_r[1] == 0) {
+		hpl_trim_code = trim_l_code[1];
+		hpr_trim_code = trim_r_code[1];
+		goto EXIT;
+	}
+
+	/* start step2, calculate approximate solution*/
+	/* l-channel, find trim offset per trim code step */
+	trim_l_code[2] = (((abs(trim_l[0]) * 2) /
+			    abs(trim_l[0] - trim_l[1]))	+ 1) / 2;
+	trim_l_code[2] = trim_l_code[2] + (trim_l[0] > 0 ? 16 : 0);
+
+	if (trim_l_code[2] == 0x10)
+		trim_l_code[0] = 0x10;
+
+	/* r-channel, find trim offset per trim code step */
+	trim_r_code[2] = (((abs(trim_r[0]) * 2) /
+			    abs(trim_r[0] - trim_r[1])) + 1) / 2;
+	trim_r_code[2] = trim_r_code[2] + (trim_r[0] > 0 ? 16 : 0);
+
+	if (trim_r_code[2] == 0x10)
+		trim_r_code[0] = 0x10;
+
+	update_trim_offset(priv, 2,
+			   trim_l_code[2], trim_r_code[2],
+			   &trim_l[2], &trim_r[2]);
+	dev_info(priv->dev, "%s(), step2 trim_value(R/L) = (%d/%d)\n",
+		 __func__, trim_r[2], trim_l[2]);
+
+	if (trim_l[2] == 0 && trim_r[2] == 0) {
+		hpl_trim_code = trim_l_code[2];
+		hpr_trim_code = trim_r_code[2];
+		goto EXIT;
+	}
+
+	/* start step3, lr-channel fine tune (+1 or -1) */
+	trim_l_code[3] = update_trim_code(hpl_negative,
+					  trim_l[2], trim_l_code[2]);
+	trim_r_code[3] = update_trim_code(hpr_negative,
+					  trim_r[2], trim_r_code[2]);
+
+	dev_info(priv->dev, "%s(), step3 hp_trim_code(R/L) = (0x%x/0x%x)\n",
+		 __func__, trim_r_code[3], trim_l_code[3]);
+
+	if ((trim_l_code[2] != 0x00 && trim_l_code[2] != 0x02 &&
+	     trim_l_code[2] != 0x10 && trim_l_code[2] != 0x12) ||
+	    (trim_r_code[2] != 0x00 && trim_r_code[2] != 0x02 &&
+	     trim_r_code[2] != 0x10 && trim_r_code[2] != 0x12)) {
+		dev_info(priv->dev, "%s(), need to calculate step4 trim_code\n",
+			 __func__);
+
+		update_trim_offset(priv, 3,
+				   trim_l_code[3], trim_r_code[3],
+				   &trim_l[3], &trim_r[3]);
+		dev_info(priv->dev, "%s(), step3 trim_value(R/L) = (%d/%d)\n",
+			 __func__, trim_r[3], trim_l[3]);
+
+		hpl_trim_code = update_trim_code(hpl_negative,
+						 trim_l[3], trim_l_code[3]);
+
+		hpr_trim_code = update_trim_code(hpr_negative,
+						 trim_r[3], trim_r_code[3]);
+	} else {
+		hpl_trim_code = trim_l_code[3];
+		hpr_trim_code = trim_r_code[3];
+	}
+
+EXIT:
+
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPLTRIM_VAUDP32_MASK_SFT,
+			   hpl_trim_code << RG_AUDHPLTRIM_VAUDP32_SFT);
+	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON3,
+			   RG_AUDHPRTRIM_VAUDP32_MASK_SFT,
+			   hpr_trim_code << RG_AUDHPRTRIM_VAUDP32_SFT);
+
+	hp_trim_3_pole->hp_trim_l = hpl_trim_code;
+	hp_trim_3_pole->hp_trim_r = hpr_trim_code;
+	hp_trim_4_pole->hp_trim_l = hpl_trim_code;
+	hp_trim_4_pole->hp_trim_r = hpr_trim_code;
+
+	dev_info(priv->dev, "%s(), result hp_trim_code(R/L) = (0x%x/0x%x)\n",
+		 __func__, hpr_trim_code, hpl_trim_code);
+}
+
+static void get_hp_trim_offset(struct mt6359_priv *priv, bool force)
+{
+	struct dc_trim_data *dc_trim = &priv->dc_trim;
+	struct hp_trim_data *hp_trim_3_pole = &priv->hp_trim_3_pole;
+	unsigned int reg_value;
+
+	if (dc_trim->calibrated && !force)
+		return;
+
+	dev_info(priv->dev, "%s(), Start DCtrim Calibrating", __func__);
+	dc_trim->calibrated = true;
+
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &reg_value);
+	dev_info(priv->dev, "%s(), initial MT6359_AUDDEC_ANA_CON3 = 0x%x\n",
+		 __func__, reg_value);
+
+	dev_info(priv->dev, "%s(), before trim_code R:(0x%x/0x%x), L:(0x%x/0x%x)",
+		 __func__,
+		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
+		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
+
+	enable_trim_circuit(priv, true);
+	calculate_lr_trim_code(priv);
+	calculate_lr_finetrim_code(priv);
+	enable_trim_circuit(priv, false);
+
+	dev_info(priv->dev, "%s(), after trim_code R:(0x%x/0x%x), L:(0x%x/0x%x)",
+		 __func__,
+		 hp_trim_3_pole->hp_fine_trim_r, hp_trim_3_pole->hp_trim_r,
+		 hp_trim_3_pole->hp_fine_trim_l, hp_trim_3_pole->hp_trim_l);
+}
+
+static int dc_trim_thread(void *arg)
+{
+	struct mt6359_priv *priv = arg;
+
+	get_hp_trim_offset(priv, false);
+#ifdef CONFIG_MTK_ACCDET
+	accdet_late_init(0);
+#endif
+	do_exit(0);
+	return 0;
+}
+
+/* Headphone Impedance Detection */
+static int mtk_calculate_impedance_formula(int pcm_offset, int aux_diff)
+{
+	/* The formula is from DE programming guide */
+	/* should be mantain by pmic owner */
+	/* R = V /I */
+	/* V = auxDiff * (1800mv /auxResolution)  /TrimBufGain */
+	/* I =  pcmOffset * DAC_constant * Gsdm * Gibuf */
+	return DIV_ROUND_CLOSEST(3600000 / pcm_offset * aux_diff, 7832);
+}
+
+static int calculate_impedance(struct mt6359_priv *priv,
+			       int dc_init, int dc_input,
+			       short pcm_offset,
+			       const unsigned int detect_times)
+{
+	int dc_value;
+	int r_tmp = 0;
+
+	if (dc_input < dc_init) {
+		dev_warn(priv->dev, "%s(), Wrong[%d] : dc_input(%d) < dc_init(%d)\n",
+			 __func__, pcm_offset, dc_input, dc_init);
+		return 0;
+	}
+
+	dc_value = dc_input - dc_init;
+	r_tmp = mtk_calculate_impedance_formula(pcm_offset, dc_value);
+	r_tmp = DIV_ROUND_CLOSEST(r_tmp, detect_times);
+
+	/* Efuse calibration */
+	if ((priv->hp_current_calibrate_val != 0) && (r_tmp != 0)) {
+		dev_info(priv->dev, "%s(), Before Calibration from EFUSE: %d, R: %d\n",
+			 __func__, priv->hp_current_calibrate_val, r_tmp);
+		r_tmp = DIV_ROUND_CLOSEST(
+				r_tmp * 128 + priv->hp_current_calibrate_val,
+				128);
+	}
+
+	dev_dbg(priv->dev, "%s(), pcm_offset %d dcoffset %d detected resistor is %d\n",
+		__func__, pcm_offset, dc_value, r_tmp);
+
+	return r_tmp;
+}
+
+#define PARALLEL_OHM 0
+static int detect_impedance(struct mt6359_priv *priv)
+{
+	const unsigned int num_detect = 8;
+	int i;
+	int dc_sum = 0, detect_sum = 0;
+	int pick_impedance = 0, impedance = 0, phase_flag = 0;
+	int cur_dc = 0;
+	unsigned int value;
+
+	/* params by chip */
+	int auxcable_impedance = 5000;
+	/* should little lower than auxadc max resolution */
+	int auxadc_upper_bound = 32630;
+	/* Dc ramp up and ramp down step */
+	int dc_step = 96;
+	/* Phase 0 : high impedance with worst resolution */
+	int dc_phase0 = 288;
+	/* Phase 1 : median impedance with normal resolution */
+	int dc_phase1 = 1440;
+	/* Phase 2 : low impedance with better resolution */
+	int dc_phase2 = 6048;
+	/* Resistance Threshold of phase 2 and phase 1 */
+	int resistance_1st_threshold = 250;
+	/* Resistance Threshold of phase 1 and phase 0 */
+	int resistance_2nd_threshold = 1000;
+
+	if (priv->ops.adda_dl_gain_control) {
+		priv->ops.adda_dl_gain_control(true);
+	} else {
+		dev_warn(priv->dev, "%s(), adda_dl_gain_control ops not ready\n",
+			 __func__);
+		return 0;
+	}
+
+	if (priv->ops.enable_dc_compensation &&
+	    priv->ops.set_lch_dc_compensation &&
+	    priv->ops.set_rch_dc_compensation) {
+		priv->ops.set_lch_dc_compensation(0);
+		priv->ops.set_rch_dc_compensation(0);
+		priv->ops.enable_dc_compensation(true);
+	} else {
+		dev_warn(priv->dev, "%s(), dc compensation ops not ready\n",
+			 __func__);
+		return 0;
+	}
+
+	regmap_update_bits(priv->regmap, MT6359_AUXADC_CON10,
+			   0x7, AUXADC_AVG_64);
+
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_HPR);
+	set_trim_buf_gain(priv, TRIM_BUF_GAIN_18DB);
+	enable_trim_buf(priv, true);
+
+	/* set hp gain 0dB */
+	regmap_update_bits(priv->regmap, MT6359_ZCD_CON2,
+			   RG_AUDHPRGAIN_MASK_SFT,
+			   DL_GAIN_0DB << RG_AUDHPRGAIN_SFT);
+	regmap_update_bits(priv->regmap, MT6359_ZCD_CON2,
+			   RG_AUDHPLGAIN_MASK_SFT, DL_GAIN_0DB);
+
+	for (cur_dc = 0; cur_dc <= dc_phase2; cur_dc += dc_step) {
+		/* apply dc by dc compensation: 16bit MSB and negative value */
+		priv->ops.set_lch_dc_compensation(-cur_dc << 16);
+		priv->ops.set_rch_dc_compensation(-cur_dc << 16);
+
+		/* save for DC = 0 offset */
+		if (cur_dc == 0) {
+			usleep_range(1 * 1000, 1 * 1000);
+			dc_sum = 0;
+			for (i = 0; i < num_detect; i++)
+				dc_sum += get_auxadc_audio();
+
+			if ((dc_sum / num_detect) > auxadc_upper_bound) {
+				dev_info(priv->dev, "%s(), cur_dc == 0, auxadc value %d > auxadc_upper_bound %d\n",
+					 __func__,
+					 dc_sum / num_detect,
+					 auxadc_upper_bound);
+				impedance = auxcable_impedance;
+				break;
+			}
+		}
+
+		/* start checking */
+		if (cur_dc == dc_phase0) {
+			usleep_range(1 * 1000, 1 * 1000);
+			detect_sum = 0;
+			detect_sum = get_auxadc_audio();
+
+			if ((dc_sum / num_detect) == detect_sum) {
+				dev_info(priv->dev, "%s(), dc_sum / num_detect %d == detect_sum %d\n",
+					 __func__,
+					 dc_sum / num_detect, detect_sum);
+				impedance = auxcable_impedance;
+				break;
+			}
+
+			pick_impedance = calculate_impedance(
+						priv,
+						dc_sum / num_detect,
+						detect_sum, cur_dc, 1);
+
+			if (pick_impedance < resistance_1st_threshold) {
+				phase_flag = 2;
+				continue;
+			} else if (pick_impedance < resistance_2nd_threshold) {
+				phase_flag = 1;
+				continue;
+			}
+
+			/* Phase 0 : detect range 1kohm to 5kohm impedance */
+			for (i = 1; i < num_detect; i++)
+				detect_sum += get_auxadc_audio();
+
+			/* if auxadc > 32630 , the hpImpedance is over 5k ohm */
+			if ((detect_sum / num_detect) > auxadc_upper_bound)
+				impedance = auxcable_impedance;
+			else
+				impedance = calculate_impedance(priv,
+								dc_sum,
+								detect_sum,
+								cur_dc,
+								num_detect);
+			break;
+		}
+
+		/* Phase 1 : detect range 250ohm to 1000ohm impedance */
+		if (phase_flag == 1 && cur_dc == dc_phase1) {
+			usleep_range(1 * 1000, 1 * 1000);
+			detect_sum = 0;
+			for (i = 0; i < num_detect; i++)
+				detect_sum += get_auxadc_audio();
+
+			impedance = calculate_impedance(priv,
+							dc_sum, detect_sum,
+							cur_dc, num_detect);
+			break;
+		}
+
+		/* Phase 2 : detect under 250ohm impedance */
+		if (phase_flag == 2 && cur_dc == dc_phase2) {
+			usleep_range(1 * 1000, 1 * 1000);
+			detect_sum = 0;
+			for (i = 0; i < num_detect; i++)
+				detect_sum += get_auxadc_audio();
+
+			impedance = calculate_impedance(priv,
+							dc_sum, detect_sum,
+							cur_dc, num_detect);
+			break;
+		}
+		usleep_range(1 * 200, 1 * 200);
+	}
+
+	if (PARALLEL_OHM != 0) {
+		if (impedance < PARALLEL_OHM) {
+			impedance = DIV_ROUND_CLOSEST(impedance * PARALLEL_OHM,
+						      PARALLEL_OHM - impedance);
+		} else {
+			dev_warn(priv->dev, "%s(), PARALLEL_OHM %d <= impedance %d\n",
+				 __func__, PARALLEL_OHM, impedance);
+		}
+	}
+
+	regmap_read(priv->regmap, MT6359_AUXADC_CON10, &value);
+	dev_info(priv->dev, "%s(), phase %d [dc,detect]Sum %d times [%d,%d], hp_impedance %d, pick_impedance %d, AUXADC_CON10 0x%x\n",
+		 __func__, phase_flag, num_detect, dc_sum, detect_sum,
+		 impedance, pick_impedance, value);
+
+	/* Ramp-Down */
+	while (cur_dc > 0) {
+		cur_dc -= dc_step;
+		/* apply dc by dc compensation: 16bit MSB and negative value */
+		priv->ops.set_lch_dc_compensation(-cur_dc << 16);
+		priv->ops.set_rch_dc_compensation(-cur_dc << 16);
+		usleep_range(1 * 200, 1 * 200);
+	}
+
+	priv->ops.set_lch_dc_compensation(0);
+	priv->ops.set_rch_dc_compensation(0);
+	priv->ops.enable_dc_compensation(false);
+	priv->ops.adda_dl_gain_control(false);
+
+	set_trim_buf_in_mux(priv, TRIM_BUF_MUX_OPEN);
+	enable_trim_buf(priv, false);
+
+	return impedance;
+}
+
+static int hp_impedance_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+
+	if (priv->dev_counter[DEVICE_HP] <= 0 ||
+	    priv->mux_select[MUX_HP_L] != HP_MUX_HP_IMPEDANCE) {
+		dev_warn(priv->dev, "%s(), counter %d <= 0 || mux_select[MUX_HP_L] %d != HP_MUX_HP_IMPEDANCE\n",
+			 __func__,
+			 priv->dev_counter[DEVICE_HP],
+			 priv->mux_select[MUX_HP_L]);
+		ucontrol->value.integer.value[0] = priv->hp_impedance;
+		return 0;
+	}
+
+	priv->hp_impedance = detect_impedance(priv);
+
+	ucontrol->value.integer.value[0] = priv->hp_impedance;
+
+	dev_info(priv->dev, "%s(), hp_impedance = %d, efuse = %d\n",
+		 __func__, priv->hp_impedance, priv->hp_current_calibrate_val);
+
+	return 0;
+}
+
 /* vow control */
 static void *get_vow_coeff_by_name(struct mt6359_priv *priv,
 				   const char *name)
@@ -4166,7 +5550,500 @@ static int hp_plugged_in_set(struct snd_kcontrol *kcontrol,
 		return -EINVAL;
 	}
 
+	if (ucontrol->value.integer.value[0] == 1) {
+		priv->dc_trim.mic_vinp_mv = get_accdet_auxadc();
+		dev_info(priv->dev, "%s(), mic_vinp_mv = %d\n",
+			 __func__, priv->dc_trim.mic_vinp_mv);
+	}
+
 	priv->hp_plugged = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int mt6359_codec_debug_get(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+
+static int mt6359_codec_debug_set(struct snd_kcontrol *kcontrol,
+				  struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *cmpnt = snd_soc_kcontrol_component(kcontrol);
+	struct mt6359_priv *priv = snd_soc_component_get_drvdata(cmpnt);
+	unsigned int value;
+
+	regmap_read(priv->regmap, MT6359_AUD_TOP_ID, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_ID = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_REV0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_REV0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_DBI, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_DBI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_DXI, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_DXI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKPDN_TPM0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKPDN_TPM0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKPDN_TPM1, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKPDN_TPM1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKPDN_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKPDN_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKPDN_CON0_SET, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKPDN_CON0_SET = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKPDN_CON0_CLR, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKPDN_CON0_CLR = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKSEL_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKSEL_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKSEL_CON0_SET, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKSEL_CON0_SET = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKSEL_CON0_CLR, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKSEL_CON0_CLR = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CKTST_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CKTST_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CLK_HWEN_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CLK_HWEN_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CLK_HWEN_CON0_SET, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CLK_HWEN_CON0_SET = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_CLK_HWEN_CON0_CLR, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_CLK_HWEN_CON0_CLR = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_RST_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_RST_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_RST_CON0_SET, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_RST_CON0_SET = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_RST_CON0_CLR, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_RST_CON0_CLR = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_RST_BANK_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_RST_BANK_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_CON0_SET, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_CON0_SET = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_CON0_CLR, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_CON0_CLR = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_MASK_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_MASK_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_MASK_CON0_SET, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_MASK_CON0_SET = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_MASK_CON0_CLR, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_MASK_CON0_CLR = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_STATUS0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_STATUS0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_RAW_STATUS0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_RAW_STATUS0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_INT_MISC_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_INT_MISC_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUD_TOP_MON_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUD_TOP_MON_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_DSN_ID, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_DSN_ID = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_DSN_REV0, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_DSN_REV0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_DSN_DBI, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_DSN_DBI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_DSN_DXI, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_DSN_DXI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_UL_DL_CON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_UL_DL_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_DL_SRC2_CON0_L, &value);
+	dev_info(priv->dev, "MT6359_AFE_DL_SRC2_CON0_L = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_UL_SRC_CON0_H, &value);
+	dev_info(priv->dev, "MT6359_AFE_UL_SRC_CON0_H = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_UL_SRC_CON0_L, &value);
+	dev_info(priv->dev, "MT6359_AFE_UL_SRC_CON0_L = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_TOP_CON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_TOP_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_TOP_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_TOP_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_MON_DEBUG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_MON_DEBUG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON0, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON1, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON2, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON3, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON4, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON5, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_CON6, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_CON6 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFUNC_AUD_MON0, &value);
+	dev_info(priv->dev, "MT6359_AFUNC_AUD_MON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDRC_TUNE_MON0, &value);
+	dev_info(priv->dev, "MT6359_AUDRC_TUNE_MON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_FIFO_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_FIFO_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_FIFO_LOG_MON1, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_FIFO_LOG_MON1 = 0x%x\n",
+		 value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_MON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_MON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_MON1, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_MON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_MON2, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_MON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_RX_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_RX_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_RX_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_RX_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_RX_CFG2, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_RX_CFG2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADDA_MTKAIF_RX_CFG3, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADDA_MTKAIF_RX_CFG3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_SGEN_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_SGEN_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_SGEN_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_SGEN_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_ADC_ASYNC_FIFO_CFG, &value);
+	dev_info(priv->dev, "MT6359_AFE_ADC_ASYNC_FIFO_CFG = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_DCCLK_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_DCCLK_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_DCCLK_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_DCCLK_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_CFG, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_CFG = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_AUD_PAD_TOP, &value);
+	dev_info(priv->dev, "MT6359_AFE_AUD_PAD_TOP = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_AUD_PAD_TOP_MON, &value);
+	dev_info(priv->dev, "MT6359_AFE_AUD_PAD_TOP_MON = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_AUD_PAD_TOP_MON1, &value);
+	dev_info(priv->dev, "MT6359_AFE_AUD_PAD_TOP_MON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_DL_NLE_CFG, &value);
+	dev_info(priv->dev, "MT6359_AFE_DL_NLE_CFG = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_DL_NLE_MON, &value);
+	dev_info(priv->dev, "MT6359_AFE_DL_NLE_MON = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_CG_EN_MON, &value);
+	dev_info(priv->dev, "MT6359_AFE_CG_EN_MON = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_MIC_ARRAY_CFG, &value);
+	dev_info(priv->dev, "MT6359_AFE_MIC_ARRAY_CFG = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_CHOP_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_CHOP_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_MTKAIF_MUX_CFG, &value);
+	dev_info(priv->dev, "MT6359_AFE_MTKAIF_MUX_CFG = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_2ND_DSN_ID, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_2ND_DSN_ID = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_2ND_DSN_REV0, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_2ND_DSN_REV0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_2ND_DSN_DBI, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_2ND_DSN_DBI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDIO_DIG_2ND_DSN_DXI, &value);
+	dev_info(priv->dev, "MT6359_AUDIO_DIG_2ND_DSN_DXI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_PMIC_NEWIF_CFG3, &value);
+	dev_info(priv->dev, "MT6359_AFE_PMIC_NEWIF_CFG3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TOP_CON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TOP_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TOP_CON1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TOP_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TOP_CON2, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TOP_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TOP_CON3, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TOP_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TOP_CON4, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TOP_CON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TOP_MON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TOP_MON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG2, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG3, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG4, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG5, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG6, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG6 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG7, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG7 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG8, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG8 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG9, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG9 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG10, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG10 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG11, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG11 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_CFG12, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_CFG12 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON2, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON3, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON4, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON5, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON6, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON6 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON7, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON7 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON8, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON8 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON9, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON9 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON10, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON10 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_VAD_MON11, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_VAD_MON11 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TGEN_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TGEN_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_TGEN_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_TGEN_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_HPF_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_HPF_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_HPF_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_HPF_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG2, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG3, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG4, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG5, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG6, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG6 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG7, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG7 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG8, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG8 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG9, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG9 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG10, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG10 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG11, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG11 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG12, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG12 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG13, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG13 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG14, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG14 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG15, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG15 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG16, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG16 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG17, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG17 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG18, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG18 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG19, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG19 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG20, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG20 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG21, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG21 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG22, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG22 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG23, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG23 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG24, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG24 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG25, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG25 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG26, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG26 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG27, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG27 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG28, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG28 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG29, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG29 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG30, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG30 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG31, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG31 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG32, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG32 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG33, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG33 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG34, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG34 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG35, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG35 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG36, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG36 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG37, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG37 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG38, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG38 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_CFG39, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_CFG39 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_MON0, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_MON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_MON1, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_MON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_VOW_PERIODIC_MON2, &value);
+	dev_info(priv->dev, "MT6359_AFE_VOW_PERIODIC_MON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_NCP_CFG0, &value);
+	dev_info(priv->dev, "MT6359_AFE_NCP_CFG0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_NCP_CFG1, &value);
+	dev_info(priv->dev, "MT6359_AFE_NCP_CFG1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AFE_NCP_CFG2, &value);
+	dev_info(priv->dev, "MT6359_AFE_NCP_CFG2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_DSN_ID, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_DSN_ID = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_DSN_REV0, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_DSN_REV0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_DSN_DBI, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_DSN_DBI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_DSN_FPI, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_DSN_FPI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON1, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON2, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON3, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON4, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON5, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON6, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON6 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON7, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON7 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON8, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON8 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON9, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON9 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON10, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON10 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON11, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON11 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON12, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON12 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON13, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON13 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON14, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON14 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON15, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON15 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON16, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON16 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON17, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON17 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON18, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON18 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON19, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON19 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON20, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON20 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON21, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON21 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON22, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON22 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDENC_ANA_CON23, &value);
+	dev_info(priv->dev, "MT6359_AUDENC_ANA_CON23 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_DSN_ID, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_DSN_ID = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_DSN_REV0, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_DSN_REV0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_DSN_DBI, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_DSN_DBI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_DSN_FPI, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_DSN_FPI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON0, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON1, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON2, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON3, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON4, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON5, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON5 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON6, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON6 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON7, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON7 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON8, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON8 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON9, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON9 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON10, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON10 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON11, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON11 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON12, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON12 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON13, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON13 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDDEC_ANA_CON14, &value);
+	dev_info(priv->dev, "MT6359_AUDDEC_ANA_CON14 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDZCD_DSN_ID, &value);
+	dev_info(priv->dev, "MT6359_AUDZCD_DSN_ID = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDZCD_DSN_REV0, &value);
+	dev_info(priv->dev, "MT6359_AUDZCD_DSN_REV0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDZCD_DSN_DBI, &value);
+	dev_info(priv->dev, "MT6359_AUDZCD_DSN_DBI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUDZCD_DSN_FPI, &value);
+	dev_info(priv->dev, "MT6359_AUDZCD_DSN_FPI = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_ZCD_CON0, &value);
+	dev_info(priv->dev, "MT6359_ZCD_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_ZCD_CON1, &value);
+	dev_info(priv->dev, "MT6359_ZCD_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_ZCD_CON2, &value);
+	dev_info(priv->dev, "MT6359_ZCD_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_ZCD_CON3, &value);
+	dev_info(priv->dev, "MT6359_ZCD_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_ZCD_CON4, &value);
+	dev_info(priv->dev, "MT6359_ZCD_CON4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_ZCD_CON5, &value);
+	dev_info(priv->dev, "MT6359_ZCD_CON5 = 0x%x\n", value);
+
+	regmap_read(priv->regmap, MT6359_SMT_CON1, &value);
+	dev_info(priv->dev, "MT6359_SMT_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_GPIO_DIR0, &value);
+	dev_info(priv->dev, "MT6359_GPIO_DIR0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_GPIO_DIR1, &value);
+	dev_info(priv->dev, "MT6359_GPIO_DIR1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_GPIO_MODE2, &value);
+	dev_info(priv->dev, "MT6359_GPIO_MODE2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_GPIO_MODE3, &value);
+	dev_info(priv->dev, "MT6359_GPIO_MODE3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_GPIO_MODE4, &value);
+	dev_info(priv->dev, "MT6359_GPIO_MODE4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_TOP_CKPDN_CON0, &value);
+	dev_info(priv->dev, "MT6359_TOP_CKPDN_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_TOP_CKHWEN_CON0, &value);
+	dev_info(priv->dev, "MT6359_TOP_CKHWEN_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DCXO_CW11, &value);
+	dev_info(priv->dev, "MT6359_DCXO_CW11 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DCXO_CW12, &value);
+	dev_info(priv->dev, "MT6359_DCXO_CW12 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_LDO_VAUD18_CON0, &value);
+	dev_info(priv->dev, "MT6359_LDO_VAUD18_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON0, &value);
+	dev_info(priv->dev, "MT6359_DRV_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON1, &value);
+	dev_info(priv->dev, "MT6359_DRV_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON2, &value);
+	dev_info(priv->dev, "MT6359_DRV_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON3, &value);
+	dev_info(priv->dev, "MT6359_DRV_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON4, &value);
+	dev_info(priv->dev, "MT6359_DRV_CON4 = 0x%x\n", value);
 
 	return 0;
 }
@@ -4382,6 +6259,11 @@ static const struct snd_kcontrol_new mt6359_snd_vow_controls[] = {
 static const struct snd_kcontrol_new mt6359_snd_misc_controls[] = {
 	SOC_ENUM_EXT("Headphone Plugged In", misc_control_enum[0],
 		     hp_plugged_in_get, hp_plugged_in_set),
+	SOC_SINGLE_EXT("Audio HP ImpeDance Setting",
+		       SND_SOC_NOPM, 0, 0x10000, 0,
+		       hp_impedance_get, NULL),
+	SOC_ENUM_EXT("Audio_Codec_Debug_Setting", misc_control_enum[0],
+		     mt6359_codec_debug_get, mt6359_codec_debug_set),
 	SOC_ENUM_EXT("PMIC_REG_CLEAR", misc_control_enum[0],
 		     mt6359_rcv_dcc_get, mt6359_rcv_dcc_set),
 };
@@ -4419,6 +6301,8 @@ static int mt6359_codec_init_reg(struct mt6359_priv *priv)
 			   0x1 << RG_AUDLOLSCDISABLE_VAUDP32_SFT);
 
 	/* set gpio */
+	gpio_smt_set(priv);
+	gpio_driving_set(priv);
 	playback_gpio_reset(priv);
 	capture_gpio_reset(priv);
 
@@ -4437,7 +6321,67 @@ static int mt6359_codec_init_reg(struct mt6359_priv *priv)
 			   0x1 << RG_XO_AUDIO_EN_M_SFT,
 			   0x0);
 
+	/* this will trigger dctrim widgat power down event */
+	enable_trim_buf(priv, true);
 	return ret;
+}
+
+static int get_hp_current_calibrate_val(struct mt6359_priv *priv)
+{
+	int ret = 0;
+	int value, sign;
+
+	/* 1. enable efuse ctrl engine clock */
+	regmap_update_bits(priv->regmap, MT6359_TOP_CKHWEN_CON0, 0x1 << 2, 0x0);
+	regmap_update_bits(priv->regmap, MT6359_TOP_CKPDN_CON0, 0x1 << 4, 0x0);
+
+	/* 2. set RG_OTP_RD_SW */
+	regmap_update_bits(priv->regmap, MT6359_OTP_CON11, 0x0001, 0x0001);
+
+	/* 3. set EFUSE addr */
+	/* HPDET_COMP[6:0] @ efuse bit 1792 ~ 1798 */
+	/* HPDET_COMP_SIGN @ efuse bit 1799 */
+	/* 1792 / 8 = 224 --> 0xE0 */
+	regmap_update_bits(priv->regmap, MT6359_OTP_CON0, 0xff, 0xe0);
+
+	/* 4. Toggle RG_OTP_RD_TRIG */
+	regmap_read(priv->regmap, MT6359_OTP_CON8, &ret);
+	if (ret == 0)
+		regmap_update_bits(priv->regmap, MT6359_OTP_CON8,
+				   0x0001, 0x0001);
+	else
+		regmap_update_bits(priv->regmap, MT6359_OTP_CON8,
+				   0x0001, 0x0000);
+
+	/* 5. Polling RG_OTP_RD_BUSY */
+	do {
+		regmap_read(priv->regmap, MT6359_OTP_CON13, &ret);
+		ret = ret & 0x0001;
+		usleep_range(100, 200);
+		dev_dbg(priv->dev, "%s(), polling MT6359_OTP_CON13 = 0x%x\n",
+			__func__, ret);
+	} while (ret == 1);
+
+	/* Need to delay at least 1ms for 0xC1A and than can read */
+	usleep_range(500, 1000);
+
+	/* 6. Read RG_OTP_DOUT_SW */
+	regmap_read(priv->regmap, MT6359_OTP_CON12, &ret);
+	dev_dbg(priv->dev, "%s(), MT6359_OTP_CON12 = 0x%x\n", __func__, ret);
+
+	sign = (ret >> 7) & 0x1;
+	value = ret & 0x7f;
+	value = sign ? -value : value;
+
+	/* 7. Disables efuse_ctrl egine clock */
+	regmap_update_bits(priv->regmap, MT6359_OTP_CON11, 0x0001, 0x0000);
+	regmap_update_bits(priv->regmap, MT6359_TOP_CKPDN_CON0,
+			   0x1 << 4, 0x1 << 4);
+	regmap_update_bits(priv->regmap, MT6359_TOP_CKHWEN_CON0,
+			   0x1 << 2, 0x1 << 2);
+
+	dev_info(priv->dev, "%s(), efuse: %d\n", __func__, value);
+	return value;
 }
 
 static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
@@ -4448,6 +6392,9 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 	snd_soc_component_init_regmap(cmpnt, priv->regmap);
 
 	/* add codec controls */
+	snd_soc_add_component_controls(cmpnt,
+				       mt6359_snd_controls,
+				       ARRAY_SIZE(mt6359_snd_controls));
 	snd_soc_add_component_controls(cmpnt,
 				       mt6359_snd_ul_controls,
 				       ARRAY_SIZE(mt6359_snd_ul_controls));
@@ -4465,6 +6412,8 @@ static int mt6359_codec_probe(struct snd_soc_component *cmpnt)
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP1] = 3;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP2] = 3;
 	priv->ana_gain[AUDIO_ANALOG_VOLUME_MICAMP3] = 3;
+
+	priv->hp_current_calibrate_val = get_hp_current_calibrate_val(priv);
 
 	priv->avdd_reg = devm_regulator_get(priv->dev, "vaud18");
 	if (IS_ERR(priv->avdd_reg)) {
@@ -4523,6 +6472,37 @@ static void debug_write_reg(struct file *file, void *arg)
 	}
 }
 
+static void debug_re_trim_offset(struct file *file,
+				 void *arg __attribute__((unused)))
+{
+	struct mt6359_priv *priv = file->private_data;
+
+	dev_info(priv->dev, "%s(), start\n", __func__);
+	get_hp_trim_offset(priv, true);
+	dev_info(priv->dev, "%s(), end\n", __func__);
+}
+
+static void debug_set_debug_flag(struct file *file, void *arg)
+{
+	struct mt6359_priv *priv = file->private_data;
+	char *token1 = NULL;
+	char *temp = arg;
+	char delim[] = " ,";
+	int ret = 0;
+	unsigned int value;
+
+	token1 = strsep(&temp, delim);
+	dev_info(priv->dev, "%s(), token1 = %s, temp = %s\n",
+		 __func__, token1, temp);
+
+	if (token1 != NULL) {
+		ret = kstrtouint(token1, 16, &value);
+		priv->debug_flag = value;
+	} else {
+		dev_warn(priv->dev, "%s(), token1 is NULL!\n", __func__);
+	}
+}
+
 struct command_function {
 	const char *cmd;
 	void (*fn)(struct file *file, void *arg);
@@ -4535,6 +6515,8 @@ struct command_function {
 
 static const struct command_function debug_cmds[] = {
 	CMD_FN("write_reg", debug_write_reg),
+	CMD_FN("re_trim_offset", debug_re_trim_offset),
+	CMD_FN("set_debug_flag", debug_set_debug_flag),
 	{}
 };
 
@@ -4560,7 +6542,37 @@ static ssize_t mt6359_debugfs_read(struct file *file, char __user *buf,
 
 	n += scnprintf(buffer + n, size - n, "mtkaif_protocol = %d\n",
 		       priv->mtkaif_protocol);
+	n += scnprintf(buffer + n, size - n, "dc_trim_data:\n");
+	n += scnprintf(buffer + n, size - n, "\tcalibrated = %d\n",
+		       priv->dc_trim.calibrated);
+	n += scnprintf(buffer + n, size - n, "\tmic_vinp_mv = %d\n",
+		       priv->dc_trim.mic_vinp_mv);
+	n += scnprintf(buffer + n, size - n, "\ttrim_code L = 0x%x|0x%x",
+		       priv->hp_trim_3_pole.hp_fine_trim_l,
+		       priv->hp_trim_3_pole.hp_trim_l);
+	n += scnprintf(buffer + n, size - n, "\ttrim_code R = 0x%x|0x%x\n",
+		       priv->hp_trim_3_pole.hp_fine_trim_r,
+		       priv->hp_trim_3_pole.hp_trim_r);
 
+	n += scnprintf(buffer + n, size - n, "codec_ops:\n");
+	n += scnprintf(buffer + n, size - n, "\tenable_dc_compensation = %p\n",
+		       priv->ops.enable_dc_compensation);
+	n += scnprintf(buffer + n, size - n, "\tset_lch_dc_compensation = %p\n",
+		       priv->ops.set_lch_dc_compensation);
+	n += scnprintf(buffer + n, size - n, "\tset_rch_dc_compensation = %p\n",
+		       priv->ops.set_rch_dc_compensation);
+
+	n += scnprintf(buffer + n, size - n, "debug_flag = 0x%x\n",
+		       priv->debug_flag);
+
+	n += scnprintf(buffer + n, size - n, "hp_impedance = %d\n",
+		       priv->hp_impedance);
+	n += scnprintf(buffer + n, size - n, "hp_current_calibrate_val = %d\n",
+		       priv->hp_current_calibrate_val);
+
+	regmap_read(priv->regmap, MT6359_SMT_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_SMT_CON1 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_GPIO_DIR0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_GPIO_DIR0 = 0x%x\n", value);
@@ -4576,15 +6588,41 @@ static ssize_t mt6359_debugfs_read(struct file *file, char __user *buf,
 	regmap_read(priv->regmap, MT6359_GPIO_MODE4, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_GPIO_MODE4 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_TOP_CKPDN_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_TOP_CKPDN_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_TOP_CKHWEN_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_TOP_CKHWEN_CON0 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_DCXO_CW11, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_DCXO_CW11 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_DCXO_CW12, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_DCXO_CW12 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_AUXADC_CON10, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_AUXADC_CON10 = 0x%x\n", value);
 	regmap_read(priv->regmap, MT6359_LDO_VAUD18_CON0, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_LDO_VAUD18_CON0 = 0x%x\n", value);
+
+	regmap_read(priv->regmap, MT6359_DRV_CON0, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_DRV_CON0 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON1, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_DRV_CON1 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON2, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_DRV_CON2 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON3, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_DRV_CON3 = 0x%x\n", value);
+	regmap_read(priv->regmap, MT6359_DRV_CON4, &value);
+	n += scnprintf(buffer + n, size - n,
+		       "MT6359_DRV_CON4 = 0x%x\n", value);
+
 	regmap_read(priv->regmap, MT6359_AUD_TOP_ID, &value);
 	n += scnprintf(buffer + n, size - n,
 		       "MT6359_AUD_TOP_ID = 0x%x\n", value);
@@ -5367,11 +7405,132 @@ static const struct file_operations mt6359_debugfs_ops = {
 };
 #endif
 
+#ifndef CONFIG_MTK_PMIC_WRAP
+#ifdef CONFIG_MTK_PMIC_WRAP_HAL
+static DEFINE_SPINLOCK(ana_set_reg_lock);
+#endif
+static unsigned int ana_get_reg(unsigned int offset)
+{
+#ifdef CONFIG_MTK_PMIC_WRAP_HAL
+	int ret = 0;
+	unsigned int data = 0;
+
+	ret = pwrap_read(offset, &data);
+
+	return data;
+#else
+	return 0;
+#endif
+}
+
+static void ana_set_reg(unsigned int offset,
+			unsigned int value,
+			unsigned int mask)
+{
+#ifdef CONFIG_MTK_PMIC_WRAP_HAL
+	int ret = 0;
+	unsigned int reg_value;
+	unsigned long flags = 0;
+
+	spin_lock_irqsave(&ana_set_reg_lock, flags);
+	reg_value = ana_get_reg(offset);
+	reg_value &= (~mask);
+	reg_value |= (value & mask);
+	ret = pwrap_write(offset, reg_value);
+	spin_unlock_irqrestore(&ana_set_reg_lock, flags);
+
+	reg_value = ana_get_reg(offset);
+	if ((reg_value & mask) != (value & mask))
+		pr_warn("%s(), offset 0x%x, mask = 0x%x ret = %d reg_value = 0x%x\n",
+			__func__, offset, mask, ret, reg_value);
+#endif
+}
+
+static bool is_writeable_reg(struct device *dev, unsigned int reg)
+{
+	return true;
+}
+
+static bool is_volatile_reg(struct device *dev, unsigned int reg)
+{
+	return true;
+}
+
+static bool is_readable_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case MT6359_DRV_CON0:
+	case MT6359_DRV_CON1:
+	case MT6359_DRV_CON2:
+	case MT6359_DRV_CON3:
+	case MT6359_DRV_CON4:
+	case MT6359_SMT_CON1:
+	case MT6359_GPIO_DIR0:
+	case MT6359_GPIO_DIR1:
+	case MT6359_GPIO_MODE2:
+	case MT6359_GPIO_MODE3:
+	case MT6359_GPIO_MODE4:
+	case MT6359_TOP_CKPDN_CON0:
+	case MT6359_TOP_CKHWEN_CON0:
+	case MT6359_OTP_CON0:
+	case MT6359_OTP_CON8:
+	case MT6359_OTP_CON11:
+	case MT6359_OTP_CON12:
+	case MT6359_OTP_CON13:
+	case MT6359_DCXO_CW11:
+	case MT6359_DCXO_CW12:
+	case MT6359_AUXADC_CON10:
+	case MT6359_LDO_VAUD18_CON0:
+		return true;
+	default:
+		break;
+	};
+
+	if (reg >= MT6359_AUD_TOP_ID && reg <= MT6359_ZCD_CON5)
+		return true;
+
+	return false;
+}
+
+static int reg_read(void *context, unsigned int reg, unsigned int *val)
+{
+	*val = ana_get_reg(reg);
+	return 0;
+}
+
+static int reg_write(void *context, unsigned int reg, unsigned int val)
+{
+	ana_set_reg(reg, val, 0xffff);
+	return 0;
+}
+
+#define REG_STRIDE 2
+static const struct regmap_config mt6359_regmap = {
+	.reg_bits = 16,
+	.val_bits = 16,
+	.reg_stride = REG_STRIDE,
+
+	.max_register = MT6359_MAX_REGISTER,
+	.writeable_reg = is_writeable_reg,
+	.volatile_reg = is_volatile_reg,
+	.readable_reg = is_readable_reg,
+
+	.reg_read = reg_read,
+	.reg_write = reg_write,
+
+	.cache_type = REGCACHE_NONE,
+};
+#endif
+
 static int mt6359_platform_driver_probe(struct platform_device *pdev)
 {
 	struct mt6359_priv *priv;
 	int ret;
+#ifndef CONFIG_MTK_PMIC_WRAP
 	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
+#else
+	struct device_node *pwrap_node;
+#endif
 
 	priv = devm_kzalloc(&pdev->dev,
 			    sizeof(struct mt6359_priv),
@@ -5379,7 +7538,20 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 	if (!priv)
 		return -ENOMEM;
 
+#ifndef CONFIG_MTK_PMIC_WRAP
 	priv->regmap = mt6397->regmap;
+#else
+	pwrap_node = of_parse_phandle(pdev->dev.of_node,
+				      "mediatek,pwrap-regmap", 0);
+	if (pwrap_node) {
+		priv->regmap = pwrap_node_to_regmap(pwrap_node);
+		if (IS_ERR(priv->regmap))
+			return PTR_ERR(priv->regmap);
+	} else {
+		dev_err(&pdev->dev, "get pwrap node fail\n");
+		return -EINVAL;
+	}
+#endif
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 

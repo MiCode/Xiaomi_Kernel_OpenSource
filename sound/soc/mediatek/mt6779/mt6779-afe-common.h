@@ -11,6 +11,7 @@
 #include <linux/regmap.h>
 #include "mt6779-reg.h"
 #include "../common/mtk-base-afe.h"
+#include "../common/mtk-sp-common.h"
 
 enum {
 	MT6779_MEMIF_DL1,
@@ -77,6 +78,14 @@ enum {
 #define MT6779_VOIP_MEMIF MT6779_MEMIF_DL12
 #define MT6779_BARGEIN_MEMIF MT6779_MEMIF_AWB
 
+#if defined(CONFIG_SND_SOC_MTK_AUDIO_DSP)
+#define MT6779_DSP_PRIMARY_MEMIF MT6779_MEMIF_DL1
+#define MT6779_DSP_DEEPBUFFER_MEMIF MT6779_MEMIF_DL3
+#define MT6779_DSP_VOIP_MEMIF MT6779_MEMIF_DL12
+#define MT6779_DSP_PLAYBACKDL_MEMIF MT6779_MEMIF_DL4
+#define MT6779_DSP_PLAYBACKUL_MEMIF MT6779_MEMIF_VUL4
+#endif
+
 enum {
 	MT6779_IRQ_0,
 	MT6779_IRQ_1,
@@ -133,44 +142,6 @@ enum {
 	MT6779_MCK_NUM,
 };
 
-#define MTK_SPK_NOT_SMARTPA_STR "MTK_SPK_NOT_SMARTPA"
-#define MTK_SPK_RICHTEK_RT5509_STR "MTK_SPK_RICHTEK_RT5509"
-#define MTK_SPK_MEDIATEK_MT6660_STR "MTK_SPK_MEDIATEK_MT6660"
-#define MTK_SPK_I2S_0_STR "MTK_SPK_I2S_0"
-#define MTK_SPK_I2S_1_STR "MTK_SPK_I2S_1"
-#define MTK_SPK_I2S_2_STR "MTK_SPK_I2S_2"
-#define MTK_SPK_I2S_3_STR "MTK_SPK_I2S_3"
-#define MTK_SPK_I2S_5_STR "MTK_SPK_I2S_5"
-
-enum mtk_spk_type {
-	MTK_SPK_NOT_SMARTPA = 0,
-	MTK_SPK_RICHTEK_RT5509,
-	MTK_SPK_MEDIATEK_MT6660,
-	MTK_SPK_TYPE_NUM
-};
-
-enum mtk_spk_i2s_type {
-	MTK_SPK_I2S_TYPE_INVALID = -1,
-	MTK_SPK_I2S_0,
-	MTK_SPK_I2S_1,
-	MTK_SPK_I2S_2,
-	MTK_SPK_I2S_3,
-	MTK_SPK_I2S_5,
-	MTK_SPK_I2S_TYPE_NUM
-};
-
-/* SMC CALL Operations */
-enum mtk_audio_smc_call_op {
-	MTK_AUDIO_SMC_OP_INIT = 0,
-	MTK_AUDIO_SMC_OP_DRAM_REQUEST,
-	MTK_AUDIO_SMC_OP_DRAM_RELEASE,
-	MTK_AUDIO_SMC_OP_FM_REQUEST,
-	MTK_AUDIO_SMC_OP_FM_RELEASE,
-	MTK_AUDIO_SMC_OP_ADSP_REQUEST,
-	MTK_AUDIO_SMC_OP_ADSP_RELEASE,
-	MTK_AUDIO_SMC_OP_NUM
-};
-
 struct snd_pcm_substream;
 struct mtk_base_irq_data;
 struct clk;
@@ -214,6 +185,24 @@ struct mt6779_afe_private {
 
 	/* mck */
 	int mck_rate[MT6779_MCK_NUM];
+
+	/* speech mixctrl instead property usage */
+	int speech_a2m_msg_id;
+	int speech_md_status;
+	int speech_adsp_status;
+	int speech_mic_mute;
+	int speech_dl_mute;
+	int speech_ul_mute;
+	int speech_phone1_md_idx;
+	int speech_phone2_md_idx;
+	int speech_phone_id;
+	int speech_md_epof;
+	int speech_bt_sco_wb;
+	int speech_shm_init;
+	int speech_shm_usip;
+	int speech_shm_widx;
+	int speech_md_headversion;
+	int speech_md_version;
 };
 
 int mt6779_dai_adda_register(struct mtk_base_afe *afe);
@@ -227,10 +216,17 @@ int mt6779_dai_hostless_register(struct mtk_base_afe *afe);
 
 int mt6779_add_misc_control(struct snd_soc_component *component);
 
+int mt6779_set_local_afe(struct mtk_base_afe *afe);
+
 unsigned int mt6779_general_rate_transform(struct device *dev,
 					   unsigned int rate);
 unsigned int mt6779_rate_transform(struct device *dev,
 				   unsigned int rate, int aud_blk);
+int mt6779_enable_dc_compensation(bool enable);
+int mt6779_set_lch_dc_compensation(int value);
+int mt6779_set_rch_dc_compensation(int value);
+int mt6779_adda_dl_gain_control(bool mute);
+
 int mt6779_dai_set_priv(struct mtk_base_afe *afe, int id,
 			int priv_size, const void *priv_data);
 #endif

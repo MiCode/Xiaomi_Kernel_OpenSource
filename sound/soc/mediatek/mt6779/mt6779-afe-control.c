@@ -7,7 +7,13 @@
 #include "mt6779-afe-common.h"
 #include <linux/pm_runtime.h>
 
+#include "../common/mtk-sp-afe-external.h"
 #include "../common/mtk-sram-manager.h"
+
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+#include "../audio_dsp/mtk-dsp-core.h"
+#endif
+
 /* don't use this directly if not necessary */
 static struct mtk_base_afe *local_afe;
 
@@ -147,6 +153,89 @@ unsigned int mt6779_rate_transform(struct device *dev,
 	}
 }
 
+int mt6779_enable_dc_compensation(bool enable)
+{
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+
+	pm_runtime_get_sync(local_afe->dev);
+	regmap_update_bits(local_afe->regmap,
+			   AFE_ADDA_DL_SDM_DCCOMP_CON,
+			   AUD_DC_COMP_EN_MASK_SFT,
+			   (enable ? 1 : 0) << AUD_DC_COMP_EN_SFT);
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6779_enable_dc_compensation);
+
+int mt6779_set_lch_dc_compensation(int value)
+{
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+	pm_runtime_get_sync(local_afe->dev);
+	regmap_write(local_afe->regmap,
+		     AFE_ADDA_DL_DC_COMP_CFG0,
+		     value);
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6779_set_lch_dc_compensation);
+
+int mt6779_set_rch_dc_compensation(int value)
+{
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+	pm_runtime_get_sync(local_afe->dev);
+	regmap_write(local_afe->regmap,
+		     AFE_ADDA_DL_DC_COMP_CFG1,
+		     value);
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6779_set_rch_dc_compensation);
+
+int mt6779_adda_dl_gain_control(bool mute)
+{
+	unsigned int dl_2_gain_ctl;
+
+	if (!local_afe)
+		return -EPERM;
+
+	if (pm_runtime_status_suspended(local_afe->dev))
+		dev_warn(local_afe->dev, "%s(), status suspended\n", __func__);
+
+	pm_runtime_get_sync(local_afe->dev);
+
+	if (mute)
+		dl_2_gain_ctl = MTK_AFE_ADDA_DL_GAIN_MUTE;
+	else
+		dl_2_gain_ctl = MTK_AFE_ADDA_DL_GAIN_NORMAL;
+
+	regmap_update_bits(local_afe->regmap,
+			   AFE_ADDA_DL_SRC2_CON1,
+			   DL_2_GAIN_CTL_PRE_MASK_SFT,
+			   dl_2_gain_ctl << DL_2_GAIN_CTL_PRE_SFT);
+
+	dev_info(local_afe->dev, "%s(), adda_dl_gain %x\n",
+		 __func__, dl_2_gain_ctl);
+
+	pm_runtime_put(local_afe->dev);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(mt6779_adda_dl_gain_control);
+
 int mt6779_dai_set_priv(struct mtk_base_afe *afe, int id,
 			int priv_size, const void *priv_data)
 {
@@ -213,3 +302,33 @@ void mtk_audio_free_sram(void *user)
 		 __func__, request_sram_count);
 }
 EXPORT_SYMBOL(mtk_audio_free_sram);
+
+bool mtk_audio_condition_enter_suspend(void)
+{
+	struct mt6779_afe_private *afe_priv = local_afe->platform_priv;
+
+	if (afe_priv->dai_on[MT6779_DAI_CONNSYS_I2S])
+		return false;
+
+#ifdef CONFIG_MTK_AUDIODSP_SUPPORT
+	if (is_adsp_feature_registered() || is_adsp_core_ready())
+		return false;
+#endif
+
+	if (request_sram_count)
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL(mtk_audio_condition_enter_suspend);
+
+bool mtk_get_speech_status(void)
+{
+	int speech_en = 0;
+
+	regmap_read(local_afe->regmap,
+		    PCM2_INTF_CON, &speech_en);
+
+	return (speech_en & PCM2_EN_MASK_SFT) ? true : false;
+}
+EXPORT_SYMBOL(mtk_get_speech_status);
