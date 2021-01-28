@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,11 +11,16 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __APUSYS_MIDWARE_PLATFORM_H__
-#define __APUSYS_MIDWARE_PLATFORM_H__
+#ifndef __APUSYS_DEBUG_H__
+#define __APUSYS_DEBUG_H__
 
-extern struct dentry *mdw_dbg_root;
-#define APUSYS_VLM_START 0x1D800000 // tcm tmp
-#define APUSYS_VLM_SIZE 0x100000
+extern bool apusys_dump_force;
+extern bool apusys_dump_skip;
+
+void apusys_dump_init(void);
+void apusys_reg_dump(void);
+void apusys_dump_exit(void);
+int apusys_dump_show(struct seq_file *sfile, void *v);
+void apusys_dump_reg_skip(int onoff);
 
 #endif

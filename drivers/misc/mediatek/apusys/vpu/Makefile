@@ -31,7 +31,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(PDIR)/include
 # APUSYS
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/debug
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/1.0
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/midware/1.1
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/power/2.0/$(PDIR)
 

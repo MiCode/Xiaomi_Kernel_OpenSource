@@ -13,7 +13,7 @@
 
 APUSYS_VERSION_POWER = 2.0
 APUSYS_VERSION_MNOC = 1.0
-APUSYS_VERSION_MIDWARE = 1.0
+APUSYS_VERSION_MIDWARE = 1.1
 APUSYS_VERSION_REVISER = 1.0
 
 UTIL_DIR = ../util
@@ -30,11 +30,27 @@ ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/
 ccflags-y += -I$(obj)/../power/$(APUSYS_VERSION_POWER)/$(MTK_PLATFORM)/
 ccflags-y += -I$(obj)/../debug/
 ccflags-y += -I$(obj)/$(MTK_PLATFORM)/
-ccflags-y += -I$(obj)/1.0/
+ccflags-y += -I$(obj)/$(APUSYS_VERSION_MIDWARE)/
 ccflags-y += -I$(obj)/$(UTIL_DIR)/
 
 
 obj-y += apusys.o
+ifeq ($(APUSYS_VERSION_MIDWARE), 1.1)
+apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_drv.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_usr.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_dbg.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_rsc.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_cmn.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_cmd.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_sched.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_queue_norm.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_queue_deadline.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_pack.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_mem.o
+apusys-objs += $(APUSYS_VERSION_MIDWARE)/mdw_mem_ion.o
+apusys-$(CONFIG_MTK_APUSYS_DEBUG) += $(APUSYS_VERSION_MIDWARE)/mdw_tag.o
+else
 apusys-$(CONFIG_FTRACE) += $(UTIL_DIR)/apusys_trace.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/apusys_drv.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/apusys_user.o
@@ -50,6 +66,7 @@ apusys-objs += $(APUSYS_VERSION_MIDWARE)/memory_dma.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/sched_deadline.o
 apusys-objs += $(APUSYS_VERSION_MIDWARE)/sched_normal.o
 apusys-$(CONFIG_MTK_APUSYS_DEBUG) += $(APUSYS_VERSION_MIDWARE)/mdw_tag.o
+endif
 
 apusys-objs += $(MTK_PLATFORM)/dump_reg.o
 apusys-objs += $(MTK_PLATFORM)/secure_perf.o

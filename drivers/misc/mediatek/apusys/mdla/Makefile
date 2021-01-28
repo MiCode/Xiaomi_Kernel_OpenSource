@@ -23,7 +23,7 @@ UTIL_DIR = ../util
 POWER_DIR = ../power
 POWER_VDIR = 2.0
 MIDWARE_DIR = ../midware
-MIDWARE_VDIR = 1.0
+MIDWARE_VDIR = 1.1
 
 ccflags-y += -I$(obj)/$(VDIR)
 ccflags-y += -I$(obj)/$(PDIR)

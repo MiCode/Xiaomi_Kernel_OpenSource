@@ -14,7 +14,7 @@
 PDIR = $(MTK_PLATFORM)
 MNOC_VER = 1.0
 POWER_VER = 2.0
-MIDWARE_VER = 1.0
+MIDWARE_VER = 1.1
 
 # APUSYS
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/apusys/include
