@@ -17,8 +17,6 @@
 #ifdef MODULE
 #include <linux/tracepoint.h>
 #include <trace/events/initcall.h>
-#else
-#include "mtk_printk_ctrl.h"
 #endif
 
 #define BOOT_STR_SIZE 256
@@ -240,7 +238,6 @@ void bootprof_pdev_register(unsigned long long ts, struct platform_device *pdev)
 static void bootup_finish(void)
 {
 	initcall_debug = 0;
-	mt_disable_uart();
 }
 #endif /*MODULE END*/
 
