@@ -181,8 +181,10 @@ void adsp_sys_reset_ws(struct work_struct *ws)
 					msecs_to_jiffies(10000)) == 0) {
 		pr_info("%s: adsp ee time out\n", __func__);
 		/*timeout check adsp status again*/
-		if (is_adsp_ready(ADSP_A_ID) != -1)
-			goto END;
+		if (is_adsp_ready(ADSP_A_ID) != -1) {
+			pr_info("%s: adsp reset state incorrect\n", __func__);
+			return;
+		}
 	}
 
 	/* enable clock for access ADSP Reg*/
@@ -225,7 +227,6 @@ void adsp_sys_reset_ws(struct work_struct *ws)
 		queue_delayed_work(adsp_workqueue, &adsp_timeout_work,
 			jiffies + ADSP_READY_TIMEOUT);
 #endif
-END:
 	adsp_enable_dsp_clk(false);
 }
 /*
