@@ -20,13 +20,13 @@
 #include <linux/kthread.h>
 #include <linux/sched/task.h>
 #include <linux/sched/signal.h>
+#include <linux/delay.h>
 #include "mtk/mtk_ion.h"
 #include "ion_profile.h"
 #include "ion_drv_priv.h"
 #include "ion_priv.h"
 #include "mtk/ion_drv.h"
 #include "ion_sec_heap.h"
-
 #if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT) && \
 	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
 
@@ -234,12 +234,9 @@ static int ion_sec_heap_allocate(struct ion_heap *heap,
 	refcount = 0;
 #endif
 
-	if (ret == -ENOMEM) {
+	if (ret == -ENOMEM || sec_handle <= 0) {
 		IONMSG("%s security out of memory, heap:%d\n",
 		       __func__, heap->id);
-		heap->debug_show(heap, NULL, NULL);
-	}
-	if (sec_handle <= 0) {
 		IONMSG("%s alloc security memory failed, total size %zu\n",
 		       __func__, sec_heap_total_memory);
 		kfree(pbufferinfo);
@@ -669,7 +666,19 @@ static int ion_sec_heap_debug_show(struct ion_heap *heap,
 	ION_DUMP(s, "%16s %16zu\n", "2d-fr-sz:", fr_size);
 	ION_DUMP(s, "%s\n", seq_line);
 
-	down_read(&dev->lock);
+	if (!down_read_trylock(&dev->lock)) {
+		ION_DUMP(s,
+			 "[%s %d] get ion dev read lock fail, try again after 5ms\n",
+			 __func__, __LINE__);
+		mdelay(5);
+		if (!down_read_trylock(&dev->lock)) {
+			ION_DUMP(s,
+				 "[%s %d] get ion dev lock fail again, bypass client dump\n",
+				 __func__, __LINE__);
+			goto out;
+		}
+	}
+
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 		struct ion_client
 		*client = rb_entry(n, struct ion_client, node);
@@ -715,7 +724,7 @@ static int ion_sec_heap_debug_show(struct ion_heap *heap,
 		}
 	}
 	up_read(&dev->lock);
-
+out:
 	return 0;
 }
 

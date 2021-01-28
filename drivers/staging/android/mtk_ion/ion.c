@@ -523,6 +523,10 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	if (IS_ERR(buffer)) {
 		IONMSG("%s error 0x%p, heap_mask: 0x%x size:%zu align:%zu.\n",
 		       __func__, buffer, heap_id_mask, len, align);
+		if (!IS_ERR_OR_NULL(heap->debug_show))
+			heap->debug_show(heap, NULL, NULL);
+		else
+			IONMSG("no heap show function\n");
 		return ERR_CAST(buffer);
 	}
 

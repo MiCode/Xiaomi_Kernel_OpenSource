@@ -237,7 +237,7 @@ do {\
 	if (file)\
 		seq_printf(file, fmat, ##args);\
 	else\
-		pr_info(fmat, ##args);\
+		pr_info(fmt, ##args);\
 } while (0)
 
 static void ion_fb_chunk_show(struct gen_pool *pool,
@@ -250,12 +250,12 @@ static void ion_fb_chunk_show(struct gen_pool *pool,
 	nbits = (chunk->end_addr - chunk->start_addr) >> order;
 	nlongs = BITS_TO_LONGS(nbits);
 
-	seq_printf(s, "phys_addr=0x%x bits=", (unsigned int)chunk->phys_addr);
+	ION_DUMP(s, "phys_addr=0x%x bits=", (unsigned int)chunk->phys_addr);
 
 	for (i = 0; i < nlongs; i++)
-		seq_printf(s, "0x%x ", (unsigned int)chunk->bits[i]);
+		ION_DUMP(s, "0x%x ", (unsigned int)chunk->bits[i]);
 
-	seq_puts(s, "\n");
+	ION_DUMP(s, "\n");
 }
 
 static int ion_fb_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
@@ -268,11 +268,12 @@ static int ion_fb_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 	total_size = gen_pool_size(fb_heap->pool);
 	size_avail = gen_pool_avail(fb_heap->pool);
 
-	seq_puts(s,
+	ION_DUMP(s,
 		 "********************************************************\n");
-	seq_printf(s, "total_size=0x%x, free=0x%x\n", (unsigned int)total_size,
-		   (unsigned int)size_avail);
-	seq_puts(s,
+	ION_DUMP(s, "total_size=0x%x, free=0x%x\n",
+		 (unsigned int)total_size,
+		 (unsigned int)size_avail);
+	ION_DUMP(s,
 		 "********************************************************\n");
 
 	gen_pool_for_each_chunk(fb_heap->pool, ion_fb_chunk_show, s);
