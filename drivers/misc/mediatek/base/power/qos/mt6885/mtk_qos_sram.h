@@ -19,6 +19,8 @@
 #define QOS_DEBUG_2			0x8
 #define QOS_DEBUG_3			0xC
 #define QOS_DEBUG_4			0x10
+#define CM_PERF_HINT_OFFSET		0x18
+#define QOS_PREFETCH_STATUS_OFFSET	0x1C
 #define MM_SMI_VENC			0x20
 #define MM_SMI_CAM			0x24
 #define MM_SMI_IMG			0x28
