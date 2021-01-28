@@ -252,7 +252,7 @@ int ufs_mtk_di_inspect(struct ufs_hba *hba, struct scsi_cmnd *cmd);
 
 #if defined(CONFIG_MTK_GIC_EXT)
 /* Use in ufshcd_intr() to dump gic status */
-extern void mt_irq_dump_status(unsigned int irq);
+extern void mt_irq_dump_status(int irq);
 #endif
 #endif /* !_UFS_MTK_H */
 
