@@ -109,6 +109,14 @@ void ccif_debug_save_irq(u8 qno, u64 cur_time)
 	else
 		s_total_info.pre_time = cur_time;
 
+	if (s_total_info.ring_Write < 0 ||
+		s_total_info.ring_Write >= RECV_DATA_SIZE) {
+		CCCI_NORMAL_LOG(-1, TAG,
+			"invalid array index = %d\n",
+			s_total_info.ring_Write);
+		spin_unlock_irqrestore(&s_recv_data_info_lock, flags);
+		return;
+	}
 	s_total_info.times[s_total_info.ring_Write].qno = qno;
 	s_total_info.times[s_total_info.ring_Write].recv_time = cur_time;
 
