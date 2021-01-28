@@ -275,6 +275,14 @@ static int battery_psy_get_property(struct power_supply *psy,
 		val->intval = 1;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
+		/* 1 = META_BOOT, 4 = FACTORY_BOOT 5=ADVMETA_BOOT */
+		/* 6= ATE_factory_boot */
+		if (gm->bootmode == 1 || gm->bootmode == 4
+			|| gm->bootmode == 5 || gm->bootmode == 6) {
+			val->intval = 75;
+			break;
+		}
+
 		if (gm->fixed_uisoc != 0xffff)
 			val->intval = gm->fixed_uisoc;
 		else
