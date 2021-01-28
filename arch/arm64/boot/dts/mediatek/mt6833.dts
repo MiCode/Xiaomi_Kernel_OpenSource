@@ -236,6 +236,19 @@ page_owner=on";
 		#size-cells = <2>;
 		ranges;
 
+		reserve-memory-sspm_share {
+			compatible = "mediatek,reserve-memory-sspm_share";
+			no-map;
+			status = "okay";
+#if defined(CONFIG_MTK_GMO_RAM_OPTIMIZE) || defined(CONFIG_MTK_MET_MEM_ALLOC)
+			size = <0 0x110000>; /* 1M + 64K */
+#else
+			size = <0 0x510000>; /* 5M + 64K */
+#endif
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x60000000>;
+		};
+
 		reserve-memory-mcupm_share {
 			compatible = "mediatek,reserve-memory-mcupm_share";
 			no-map;
@@ -1669,6 +1682,59 @@ page_owner=on";
 	gce@1031b000 {
 		compatible = "mediatek,gce";
 		reg = <0 0x1031b000 0 0x1000>;
+	};
+
+	sspm@10400000 {
+		compatible = "mediatek,sspm";
+		reg = <0 0x10400000 0 0x28000>,
+			<0 0x10440000 0 0x10000>,
+			<0 0x10450000 0 0x100>,
+			<0 0x10451000 0 0x4>,
+			<0 0x10451004 0 0x4>,
+			<0 0x10460000 0 0x100>,
+			<0 0x10461000 0 0x4>,
+			<0 0x10461004 0 0x4>,
+			<0 0x10470000 0 0x100>,
+			<0 0x10471000 0 0x4>,
+			<0 0x10471004 0 0x4>,
+			<0 0x10480000 0 0x100>,
+			<0 0x10481000 0 0x4>,
+			<0 0x10481004 0 0x4>,
+			<0 0x10490000 0 0x100>,
+			<0 0x10491000 0 0x4>,
+			<0 0x10491004 0 0x4>;
+
+		reg-names = "sspm_base",
+			"cfgreg",
+			"mbox0_base",
+			"mbox0_set",
+			"mbox0_clr",
+			"mbox1_base",
+			"mbox1_set",
+			"mbox1_clr",
+			"mbox2_base",
+			"mbox2_set",
+			"mbox2_clr",
+			"mbox3_base",
+			"mbox3_set",
+			"mbox3_clr",
+			"mbox4_base",
+			"mbox4_set",
+			"mbox4_clr";
+
+		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 244 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 245 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 246 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 247 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 248 IRQ_TYPE_LEVEL_HIGH>;
+
+		interrupt-names = "ipc",
+			"mbox0",
+			"mbox1",
+			"mbox2",
+			"mbox3",
+			"mbox4";
 	};
 
 	dramc_ch1_rsv@10900000 {
