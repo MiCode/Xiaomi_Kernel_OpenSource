@@ -16,7 +16,7 @@
 #include <linux/platform_device.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/module.h>
 
@@ -240,10 +240,11 @@ out:
 static int mtk_pm_qos_dbg_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, mtk_pm_qos_dbg_show_requests,
-			   inode->i_private);
+			   PDE_DATA(inode));
 }
 
-static const struct file_operations mtk_pm_qos_debug_fops = {
+static const struct file_operations mtk_pm_qos_proc_fops = {
+	.owner          = THIS_MODULE,
 	.open           = mtk_pm_qos_dbg_open,
 	.read           = seq_read,
 	.llseek         = seq_lseek,
@@ -591,33 +592,28 @@ int mtk_pm_qos_remove_notifier(int pm_qos_class,
 EXPORT_SYMBOL_GPL(mtk_pm_qos_remove_notifier);
 
 /* User space interface to PM QoS classes via misc devices */
-static int register_mtk_pm_qos_debugfs(struct mtk_pm_qos_object *qos,
-	struct dentry *d)
+static int register_mtk_pm_qos_procfs(struct mtk_pm_qos_object *qos,
+	struct proc_dir_entry *d)
 {
-	if (d) {
-		(void)debugfs_create_file(qos->name, 0444, d,
-					  (void *)qos, &mtk_pm_qos_debug_fops);
-	}
+	proc_create_data(qos->name, 0444, d,
+		&mtk_pm_qos_proc_fops, (void *)qos);
 
 	return 0;
 }
 
 static int __init mtk_pm_qos_power_init(void)
 {
-	int ret = 0;
 	int i;
-	struct dentry *d;
+	struct proc_dir_entry *proc_root = NULL;
 
-	BUILD_BUG_ON(ARRAY_SIZE(mtk_pm_qos_array) != MTK_PM_QOS_NUM_CLASSES);
-
-	d = debugfs_create_dir("mtk_pm_qos", NULL);
-	if (IS_ERR_OR_NULL(d))
-		d = NULL;
+	proc_root = proc_mkdir("mtk_pm_qos", NULL);
+	if (!proc_root)
+		return -1;
 
 	for (i = MTK_PM_QOS_MEMORY_BANDWIDTH; i < MTK_PM_QOS_NUM_CLASSES; i++)
-		register_mtk_pm_qos_debugfs(mtk_pm_qos_array[i], d);
+		register_mtk_pm_qos_procfs(mtk_pm_qos_array[i], proc_root);
 
-	return ret;
+	return 0;
 }
 
 late_initcall(mtk_pm_qos_power_init);
