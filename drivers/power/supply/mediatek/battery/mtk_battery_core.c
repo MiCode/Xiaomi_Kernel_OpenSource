@@ -313,7 +313,7 @@ int gauge_enable_iavg_interrupt(bool ht_en, int ht_th,
 
 int gauge_get_nag_vbat(void)
 {
-	int nafg_vbat;
+	int nafg_vbat = 0;
 
 	gauge_dev_get_nag_vbat(gm.gdev, &nafg_vbat);
 	return nafg_vbat;
@@ -321,7 +321,7 @@ int gauge_get_nag_vbat(void)
 
 int gauge_get_nag_cnt(void)
 {
-	int nafg_cnt;
+	int nafg_cnt = 0;
 
 	gauge_dev_get_nag_cnt(gm.gdev, &nafg_cnt);
 	return nafg_cnt;
@@ -329,7 +329,7 @@ int gauge_get_nag_cnt(void)
 
 int gauge_get_nag_c_dltv(void)
 {
-	int nafg_c_dltv;
+	int nafg_c_dltv = 0;
 
 	gauge_dev_get_nag_c_dltv(gm.gdev, &nafg_c_dltv);
 	return nafg_c_dltv;
@@ -337,7 +337,7 @@ int gauge_get_nag_c_dltv(void)
 
 int gauge_get_nag_dltv(void)
 {
-	int nafg_dltv;
+	int nafg_dltv = 0;
 
 	gauge_dev_get_nag_dltv(gm.gdev, &nafg_dltv);
 	return nafg_dltv;
@@ -1567,7 +1567,7 @@ void sw_check_bat_plugout(void)
 
 void fg_nafg_monitor(void)
 {
-	int nafg_cnt;
+	int nafg_cnt = 0;
 	struct timespec now_time, dtime;
 
 	if (gm.disableGM30 || gm.cmd_disable_nafg || gm.ntc_disable_nafg)
@@ -1776,7 +1776,7 @@ void fg_zcv_int_handler(void)
 	int fg_coulomb = 0;
 	int zcv_intr_en = 0;
 	int zcv_intr_curr = 0;
-	int zcv;
+	int zcv = 0;
 
 	if (fg_interrupt_check() == false)
 		return;
@@ -2364,6 +2364,8 @@ int battery_update_routine(void *x)
 			gm.onepercent_cb_flag = 0;
 			wakeup_fg_algo_cmd(FG_INTR_FG_TIME, 0, 1);
 		}
+		if (gm.fix_coverity == 1)
+			return 0;
 	}
 }
 
@@ -2515,6 +2517,8 @@ void fg_cmd_check(struct fgd_nl_msg_t *msg)
 			FGD_NL_MSG_T_HDR_LEN,
 			msg->fgd_subcmd_para1);
 		msleep(5000);
+		if (gm.fix_coverity == 1)
+			return;
 	}
 }
 
@@ -3190,7 +3194,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 
 	case FG_DAEMON_CMD_GET_BAT_PLUG_OUT_TIME:
 	{
-		int p1, p2;
+		int p1 = 0, p2 = 0;
 		unsigned int time = 0;
 
 		gauge_dev_get_boot_battery_plug_out_status(gm.gdev, &p1, &p2);
@@ -3245,7 +3249,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 
 	case FG_DAEMON_CMD_GET_IS_FG_INITIALIZED:
 	{
-		int fg_reset;
+		int fg_reset = 0;
 
 		gauge_dev_is_gauge_initialized(gm.gdev, &fg_reset);
 		ret_msg->fgd_data_len += sizeof(fg_reset);
@@ -3914,7 +3918,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 
 	case FG_DAEMON_CMD_GET_RTC_UI_SOC:
 	{
-		int rtc_ui_soc;
+		int rtc_ui_soc = 0;
 
 		gauge_dev_get_rtc_ui_soc(gm.gdev, &rtc_ui_soc);
 
@@ -4011,7 +4015,7 @@ void bmd_ctrl_cmd_from_user(void *nl_data, struct fgd_nl_msg_t *ret_msg)
 
 	case FG_DAEMON_CMD_GET_RTC_INVALID:
 	{
-		int rtc_invalid;
+		int rtc_invalid = 0;
 
 		gauge_dev_is_rtc_invalid(gm.gdev, &rtc_invalid);
 
