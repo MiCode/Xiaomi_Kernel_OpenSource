@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, MicroTrust
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * Copyright (c) 2015, Linaro Limited
  *
  * This software is licensed under the terms of the GNU General Public

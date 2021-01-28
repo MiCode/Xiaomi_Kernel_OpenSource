@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2019, MICROTRUST Incorporated
+ * Copyright (c) 2015-2017 MICROTRUST Incorporated
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -12,13 +12,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef TEEI_KEYMASTER_H
-#define TEEI_KEYMASTER_H
+#ifndef __TZ_SOCKETFUN_H__
+#define __TZ_SOCKETFUN_H__
 
-extern unsigned long keymaster_buff_addr;
+extern char *daulOS_share_mem;
+extern unsigned int daulOS_shmem_flags;
 
-unsigned long create_keymaster_fdrv(int buff_size);
-
-int send_keymaster_command(void *buffer, unsigned long size);
-
-#endif /* end of TEEI_KEYMASTER_H */
+#endif /* __TZ_SOCKETFUN_H__ */

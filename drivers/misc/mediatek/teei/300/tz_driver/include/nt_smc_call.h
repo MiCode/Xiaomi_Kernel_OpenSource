@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2017 MICROTRUST Incorporated
+ * Copyright (c) 2015-2019, MICROTRUST Incorporated
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -16,6 +16,7 @@
 #define SMC_CALL_H_
 
 #include <teei_secure_api.h>
+#include <linux/arm-smccc.h>
 
 /*This field id is fixed by arm*/
 #define ID_FIELD_F_FAST_SMC_CALL		1
@@ -130,37 +131,12 @@
 		MAKE_SMC_CALL_ID(ID_FIELD_F_STANDARD_SMC_CALL, \
 		ID_FIELD_W_32, ID_FIELD_T_TRUSTED_OS_SERVICE3, 9)
 
-#ifdef CONFIG_ARM64
-static inline void get_t_device_id(uint64_t *rtc0)
-{
-	uint64_t temp[4];
-
-	__asm__ volatile(
-			/* ".arch_extension sec\n" */
-			"mov x0, %[fun_id]\n\t"
-			"mov x1, #0\n\t"
-			"mov x2, #0\n\t"
-			"mov x3, #0\n\t"
-			"smc 0\n\t"
-			"nop\n\t"
-			"str x1, [%[temp], #0]\n\t"
-			: :
-			[fun_id] "r" (N_GET_T_FP_DEVICE_ID), [temp] "r" (temp)
-			: "x0", "x1", "x2", "x3", "x4", "x5", "x6", "x7", "x8",
-			"x9", "x10", "x11", "x12",
-			"x13", "x14", "x15", "x16", "x17", "memory");
-
-	*rtc0 = temp[0];
-
-}
-#else
 static inline void get_t_device_id(uint64_t *p0)
 {
-	uint32_t temp, temp2;
+	struct arm_smccc_res res;
 
-	temp = (uint32_t)(*p0);
-	temp2 = teei_secure_call(N_GET_T_FP_DEVICE_ID_32, temp, 0, 0);
-	*p0 = temp2;
+	arm_smccc_smc(N_GET_T_FP_DEVICE_ID_32, 0, 0, 0,
+			0, 0, 0, 0, &res);
+	*p0 = res.a0;
 }
-#endif
 #endif /* SMC_CALL_H_ */
