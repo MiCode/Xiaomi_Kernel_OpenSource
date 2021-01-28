@@ -182,13 +182,6 @@ firmware_class.path=/vendor/firmware";
 		#size-cells = <2>;
 		ranges;
 
-		zmc-default {
-			compatible = "mediatek,zone_movable_cma";
-			size = <0 0xffc00000>;
-			alignment = <0 0x10000000>;
-			alloc-ranges = <0 0xc0000000 1 0x80000000>;
-		};
-
 		reserve-memory-sspm_share {
 			compatible = "mediatek,reserve-memory-sspm_share";
 			no-map;
