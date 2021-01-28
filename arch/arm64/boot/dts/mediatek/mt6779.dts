@@ -3247,8 +3247,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 <0 0x17020000 0 0x10000>,/* VENC_BASE */
 				 <0 0x19002000 0 0x1000>;/* VENC_LT */
 			iommus = <&iommu0 M4U_PORT_HW_VDEC_MC_EXT>;
-			mboxes = <&gce 16 CMDQ_THR_PRIO_1 0>,
-				<&gce 17 CMDQ_THR_PRIO_1 0>;
+			mediatek,mailbox-gce = <&gce_mbox>;
+			mediatek,dec_gce_th_num = <1>;
+			mediatek,enc_gce_th_num = <1>;
+			mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>,
+				<&gce_mbox 17 0 CMDQ_THR_PRIO_1>;
 
 			gce-event-names = "vdec_pic_start",
 				"vdec_decode_done",
@@ -3267,25 +3270,25 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				"venc_mb_done",
 				"venc_128B_cnt_done";
 
-			gce-events = <&gce CMDQ_EVENT_VDEC_EVENT_0>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_1>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_2>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_3>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_4>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_5>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_6>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_7>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_8>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_9>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_10>,
-				<&gce CMDQ_EVENT_VDEC_EVENT_11>,
-				<&gce CMDQ_EVENT_VENC_EOF>,
-				<&gce CMDQ_EVENT_VENC_CMDQ_PAUSE_DONE>,
-				<&gce CMDQ_EVENT_VENC_MB_DONE>,
-				<&gce CMDQ_EVENT_VENC_128BYTE_CNT_DONE>;
+			gce-events = <&gce_mbox CMDQ_EVENT_VDEC_EVENT_0>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_1>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_2>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_3>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_4>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_5>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_6>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_7>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_8>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_9>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_10>,
+				<&gce_mbox CMDQ_EVENT_VDEC_EVENT_11>,
+				<&gce_mbox CMDQ_EVENT_VENC_EOF>,
+				<&gce_mbox CMDQ_EVENT_VENC_CMDQ_PAUSE_DONE>,
+				<&gce_mbox CMDQ_EVENT_VENC_MB_DONE>,
+				<&gce_mbox CMDQ_EVENT_VENC_128BYTE_CNT_DONE>;
 		};
 
-		vcodec_dec: vcodec@16000000 {
+		vcodec_dec: vcodec_dec@16000000 {
 			compatible = "mediatek,mt6779-vcodec-dec";
 			reg = <0 0x16000000 0 0x1000>,/* VDEC_SYS */
 				 <0 0x16025000 0 0x1000>;/* VDEC_MISC */
@@ -3298,6 +3301,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 <&iommu0 M4U_PORT_HW_VDEC_PRED_RD_EXT>,
 				 <&iommu0 M4U_PORT_HW_VDEC_PRED_WR_EXT>,
 				 <&iommu0 M4U_PORT_HW_VDEC_PPWRAP_EXT>;
+			mediatek,larb = <&smi_larb2>;
+			/*
 			operating-points-v2 = <&opp_table_vdec>;
 			interconnects =
 			<&mmqos
@@ -3350,16 +3355,11 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 "MT_MM_M4U_VDEC_AVC_MV",
 				 "MT_MM_M4U_VDEC_UFO_ENC",
 				 "MT_MM_M4U_VDEC_RG_CTRL_DMA";
+			*/
 			clocks =
-				<&mmsys CLK_MM_SMI_COMMON>,
-				<&mmsys CLK_MM_GALS_COMM0>,
-				<&mmsys CLK_MM_GALS_COMM1>,
 				<&vdecsys CLK_VDEC_VDEC>;
 			clock-names =
-				"MT_MM_SMI_COMMON",
-				"MT_MM_GALS_COMM0",
-				"MT_MM_GALS_COMM1",
-				"MT_CG_VDEC_VDEC";
+				"MT_CG_VDEC";
 			#clock-cells = <1>;
 		};
 
@@ -3389,7 +3389,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			#clock-cells = <1>;
 		};
 
-		venc_gcon: venc_gcon@17000000 {
+		vcodec_enc: vcodec_enc@17000000 {
 			compatible = "mediatek,mt6779-vcodec-enc", "syscon";
 			reg = <0 0x17000000 0 0x1000>,
 			      <0 0x17020000 0 0x1000>;
@@ -3408,19 +3408,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 				 <&iommu0 M4U_PORT_VENC_CUR_CHROMA>,
 				 <&iommu0 M4U_PORT_VENC_REF_LUMA>,
 				 <&iommu0 M4U_PORT_VENC_REF_CHROMA>;
+			mediatek,larb = <&smi_larb3>;
 			clocks =
-				 <&mmsys CLK_MM_SMI_COMMON>,
-				 <&mmsys CLK_MM_GALS_COMM0>,
-				 <&mmsys CLK_MM_GALS_COMM1>,
-				 <&mmsys CLK_MM_SMI_LARB1>,
-				 <&vdecsys CLK_VDEC_VDEC>,
-				 <&vencsys CLK_VENC_GCON_VENC>;
+				<&vencsys CLK_VENC_GCON_VENC>;
 			clock-names =
-				"MT_CG_SMI_COMMON",
-				"MT_CG_GALS_COMM0",
-				"MT_CG_GALS_COMM1",
-				"CLK_MM_SMI_LARB1",
-				"MT_CG_VDEC",
 				"MT_CG_VENC";
 			#clock-cells = <1>;
 		};
