@@ -177,7 +177,33 @@
 #define TOP_APLL2_D8			161	/* add manually */
 #define TOP_MFGPLL_CK			162	/* add manually */
 #define TOP_ADSPPLL_CK			163	/* add manually */
-#define TOP_NR_CLK 164
+
+#define TOP_I2S0_M_SEL			164	/* add manually */
+#define TOP_I2S1_M_SEL			165	/* add manually */
+#define TOP_I2S2_M_SEL			166	/* add manually */
+#define TOP_I2S3_M_SEL			167	/* add manually */
+#define TOP_I2S4_M_SEL			168	/* add manually */
+#define TOP_I2S5_M_SEL			169	/* add manually */
+#define TOP_I2S6_M_SEL			170	/* add manually */
+#define TOP_I2S7_M_SEL			171	/* add manually */
+#define TOP_I2S8_M_SEL			172	/* add manually */
+#define TOP_I2S9_M_SEL			173	/* add manually */
+
+#define TOP_APLL12_DIV0			174	/* add manually */
+#define TOP_APLL12_DIV1			175	/* add manually */
+#define TOP_APLL12_DIV2			176	/* add manually */
+#define TOP_APLL12_DIV3			177	/* add manually */
+#define TOP_APLL12_DIV4			178	/* add manually */
+#define TOP_APLL12_DIVB			179	/* add manually */
+#define TOP_APLL12_DIV5			180	/* add manually */
+#define TOP_APLL12_DIV6			181	/* add manually */
+#define TOP_APLL12_DIV7			182	/* add manually */
+#define TOP_APLL12_DIV8			183	/* add manually */
+#define TOP_APLL12_DIV9			184	/* add manually */
+
+#define TOP_UNIVPLL_D6_D16		185 /* add manually */
+
+#define TOP_NR_CLK				186
 
 #define CLK_TOP_UNIVPLL2_D4 148         /* TODO: removed!! */
 #define CLK_TOP_ULPOSC1_D2 149          /* TODO: removed!! */
@@ -201,8 +227,9 @@
 #define APMIXED_APLL1 14
 #define APMIXED_APLL2 15
 #define APMIXED_APUPLL 16
-#define APMIXED_NR_CLK 17
-#define CLK_APMIXED_MIPID0_26M 18       /* TODO: removed!! */
+#define APMIXED_MIPID0_26M 17
+#define APMIXED_NR_CLK 18
+#define CLK_APMIXED_MIPID0_26M 19       /* TODO: removed!! */
 
 /* APU0 */
 #define APU0_APU_CG 1
@@ -259,7 +286,8 @@
 #define APU_MDLA0_MDLA_CG11 12
 #define APU_MDLA0_MDLA_CG12 13
 #define APU_MDLA0_APB_CG 14
-#define APU_MDLA0_NR_CLK 15
+#define APU_MDLA0_AXI_M_CG 15
+#define APU_MDLA0_NR_CLK 16
 /* APU_MDLA1 */
 #define APU_MDLA1_MDLA_CG0 1
 #define APU_MDLA1_MDLA_CG1 2
@@ -275,7 +303,8 @@
 #define APU_MDLA1_MDLA_CG11 12
 #define APU_MDLA1_MDLA_CG12 13
 #define APU_MDLA1_APB_CG 14
-#define APU_MDLA1_NR_CLK 15
+#define APU_MDLA1_AXI_M_CG 15
+#define APU_MDLA1_NR_CLK 16
 /* AP_DMA */
 #define AP_DMA_I2C0 1
 #define AP_DMA_I2C1 2
@@ -441,8 +470,8 @@
 #define IMGSYS1_MSS_CGPDN 6
 #define IMGSYS1_NR_CLK 7
 /* IMGSYS2 */
-#define IMGSYS2_LARB9_CGPDN 1
-#define IMGSYS2_LARB10_CGPDN 2
+#define IMGSYS2_LARB11_CGPDN 1
+#define IMGSYS2_LARB12_CGPDN 2
 #define IMGSYS2_DIP_CGPDN 3
 #define IMGSYS2_MFB_CGPDN 4
 #define IMGSYS2_WPE_CGPDN 5
@@ -453,7 +482,8 @@
 #define IMP_IIC_WRAP_C_AP_I2C10_CG_RO 2
 #define IMP_IIC_WRAP_C_AP_I2C11_CG_RO 3
 #define IMP_IIC_WRAP_C_AP_I2C12_CG_RO 4
-#define IMP_IIC_WRAP_C_NR_CLK 5
+#define IMP_IIC_WRAP_C_AP_I2C13_CG_RO 5
+#define IMP_IIC_WRAP_C_NR_CLK 6
 /* IMP_IIC_WRAP_E */
 #define IMP_IIC_WRAP_E_AP_I2C3_CG_RO 1
 #define IMP_IIC_WRAP_E_AP_I2C9_CG_RO 2
@@ -580,7 +610,10 @@
 #define INFRACFG_AO_SPI6_CK_CG 108
 #define INFRACFG_AO_SPI7_CK_CG 109
 #define INFRACFG_AO_PERI_DCM_RG_FORCE_CLKOFF 110
-#define INFRACFG_AO_NR_CLK 111
+#define INFRACFG_AO_AP_DMA_PSEUDO_CG		111/* add manually */
+#define INFRACFG_AO_AP_DMA_CG				112/* add manually */
+#define INFRACFG_AO_NR_CLK 113
+
 /* INFRACFG_MEM */
 #define INFRACFG_MEM_MEM_CK_MON_EN0 1
 #define INFRACFG_MEM_MEM_CK_MON_EN1 2
@@ -901,7 +934,8 @@
 #define SCP_SYS_CAM_RAWC	26
 #define SCP_SYS_DP_TX	27
 #define SCP_SYS_DPY2	28
-#define SCP_NR_SYSS	29
+#define SCP_SYS_VPU		29
+#define SCP_NR_SYSS	30
 
 
 /* TODO: removed !!  */
@@ -938,3 +972,53 @@
 #define CLK_MM_DIG_DSI                  30
 #define CLK_MM_F26M_HRTWT               31
 #define CLK_MM_NR_CLK                   32
+
+/* add MT6885 MDP Subsys */
+#define MDP_MDP_RDMA0	1
+#define MDP_MDP_FG0	2
+#define MDP_MDP_HDR0	3
+#define MDP_MDP_AAL0	4
+#define MDP_MDP_RSZ0	5
+#define MDP_MDP_TDSHP0	6
+#define MDP_MDP_TCC0	7
+#define MDP_MDP_WROT0	8
+#define MDP_MDP_RDMA2	9
+#define MDP_MDP_AAL2	10
+#define MDP_MDP_RSZ2	11
+#define MDP_MDP_COLOR0	12
+#define MDP_MDP_TDSHP2	13
+#define MDP_MDP_TCC2	14
+#define MDP_MDP_WROT2	15
+#define MDP_MDP_MUTEX0	16
+#define MDP_MDP_RDMA1	17
+#define MDP_MDP_FG1	18
+#define MDP_MDP_HDR1	19
+#define MDP_MDP_AAL1	20
+#define MDP_MDP_RSZ1	21
+#define MDP_MDP_TDSHP1	22
+#define MDP_MDP_TCC1	23
+#define MDP_MDP_WROT1	24
+#define MDP_MDP_RDMA3	25
+#define MDP_MDP_AAL3	26
+#define MDP_MDP_RSZ3	27
+#define MDP_MDP_COLOR1	28
+#define MDP_MDP_TDSHP3	29
+#define MDP_MDP_TCC3	30
+#define MDP_MDP_WROT3	31
+#define MDP_APB_BUS	32
+#define MDP_MMSYSRAM	33
+#define MDP_APMCU_GALS	34
+#define MDP_MDP_FAKE_ENG0	35
+#define MDP_MDP_FAKE_ENG1	36
+#define MDP_SMI0	37
+#define MDP_IMG_DL_ASYNC0	38
+#define MDP_IMG_DL_ASYNC1	39
+#define MDP_IMG_DL_ASYNC2	40
+#define MDP_SMI1	41
+#define MDP_IMG_DL_ASYNC3	42
+#define MDP_SMI2	43
+#define MDP_IMG0_IMG_DL_ASYNC0	44
+#define MDP_IMG0_IMG_DL_ASYNC1	45
+#define MDP_IMG1_IMG_DL_ASYNC2	46
+#define MDP_IMG1_IMG_DL_ASYNC3	47
+#define MDP_NR_CLK 48
