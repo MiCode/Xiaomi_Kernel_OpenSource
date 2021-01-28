@@ -671,7 +671,18 @@ static ssize_t Pump_Express_show(struct device *dev,
 				 struct device_attribute *attr, char *buf)
 {
 	int is_ta_detected = 0;
+	int ret, i;
+	struct mtk_charger *pinfo = dev->driver_data;
+	struct chg_alg_device *alg;
 
+	for (i = 0; i < MAX_ALG_NO; i++) {
+		alg = pinfo->alg[i];
+		if (alg == NULL)
+			continue;
+		ret = chg_alg_is_algo_ready(alg);
+		if (ret == ALG_RUNNING)
+			is_ta_detected = 1;
+	}
 	chr_err("%s: %d\n", __func__, is_ta_detected);
 	return sprintf(buf, "%u\n", is_ta_detected);
 }
