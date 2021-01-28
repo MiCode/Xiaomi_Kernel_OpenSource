@@ -14,12 +14,12 @@
 
 ccflags-y += \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/	\
-	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)\
+	-I$(srctree)/drivers/misc/mediatek/base/power/mt6833\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	\
-	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLATFORM)/include/mach	\
-	-I$(srctree)/drivers/misc/mediatek/mcupm/$(CONFIG_MTK_PLATFORM)	\
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/mt6833/include/mach	\
+	-I$(srctree)/drivers/misc/mediatek/mcupm/mt6833	\
 	-I$(srctree)/include/linux/	\
-	-I$(PTP3_ROOT_DIR)/$(CONFIG_MTK_PLATFORM)/inc	\
+	-I$(PTP3_ROOT_DIR)/mt6833/inc	\
 
 obj-y += mtk_ptp3_main.o
 obj-y += mtk_ptp3_fll.o

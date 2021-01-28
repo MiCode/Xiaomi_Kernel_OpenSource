@@ -198,7 +198,6 @@ static int create_procfs(void)
 	return 0;
 }
 
-
 static int ptp3_probe(struct platform_device *pdev)
 {
 	/* GAT log use */
