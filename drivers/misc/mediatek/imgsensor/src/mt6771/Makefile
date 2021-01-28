@@ -52,9 +52,11 @@ $(info imgsensor drv by platform $(project_drv))
 
 #secure part
 ifeq ($(CONFIG_MTK_CAM_SECURITY_SUPPORT),y)
+ifneq ($(CONFIG_MTK_CAM_GENIEZONE_SUPPORT),y)
 #i2c
 ccflags-y           += -DCONFIG_MTK_CAM_SECURE_I2C
 obj-y				+= ../common/$(COMMON_VERSION)/imgsensor_ca.o
+endif
 endif
 #end
 
@@ -71,11 +73,15 @@ subdir-ccflags-y		+= -I$(IMGSENSOR_DRIVER_PATH)/$(MTK_PLATFORM)/camera_project/$
 endif
 
 ifeq ($(CONFIG_MICROTRUST_TEE_SUPPORT),y)
+ifneq ($(CONFIG_MTK_CAM_GENIEZONE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/teei/Makefile.include
+endif
 endif
 
 ifeq ($(CONFIG_TRUSTONIC_TEE_SUPPORT),y)
+ifneq ($(CONFIG_MTK_CAM_GENIEZONE_SUPPORT),y)
 include $(srctree)/drivers/misc/mediatek/gud/Makefile.include
+endif
 endif
 
 obj-y += seninf/
