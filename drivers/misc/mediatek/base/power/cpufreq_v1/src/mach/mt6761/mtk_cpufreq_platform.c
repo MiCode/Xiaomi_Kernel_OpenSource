@@ -183,6 +183,9 @@ void prepare_pll_addr(enum mt_cpu_dvfs_pll_id pll_id)
 {
 	struct pll_ctrl_t *pll_p = id_to_pll_ctrl(pll_id);
 
+	if (pll_p == NULL)
+		return;
+
 	pll_p->armpll_addr =
 	(unsigned int *)(ARMPLL_LL_CON1);
 
@@ -545,7 +548,7 @@ void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
 unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
 {
 	struct cpumask cpu_mask;
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < NR_MT_CPU_DVFS - 1; i++) {
 		cpufreq_get_cluster_cpus(&cpu_mask, i);

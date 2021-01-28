@@ -207,7 +207,8 @@ static int cpufreq_freq_proc_show(struct seq_file *m, void *v)
 	struct mt_cpu_dvfs *p = m->private;
 	struct pll_ctrl_t *pll_p = id_to_pll_ctrl(p->Pll_id);
 
-	seq_printf(m, "%d KHz\n", pll_p->pll_ops->get_cur_freq(pll_p));
+	if (pll_p != NULL)
+		seq_printf(m, "%d KHz\n", pll_p->pll_ops->get_cur_freq(pll_p));
 
 	return 0;
 }
@@ -287,9 +288,11 @@ static int cpufreq_volt_proc_show(struct seq_file *m, void *v)
 	unsigned long flags;
 
 	cpufreq_lock(flags);
-	seq_printf(m, "Vproc: %d uV\n",
+	if (vproc_p != NULL)
+		seq_printf(m, "Vproc: %d uV\n",
 		vproc_p->buck_ops->get_cur_volt(vproc_p) * 10);
-	seq_printf(m, "Vsram: %d uV\n",
+	if (vsram_p != NULL)
+		seq_printf(m, "Vsram: %d uV\n",
 		vsram_p->buck_ops->get_cur_volt(vsram_p) * 10);
 	cpufreq_unlock(flags);
 
