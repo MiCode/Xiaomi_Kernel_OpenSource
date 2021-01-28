@@ -44,6 +44,7 @@ endif
 
 obj-$(CONFIG_THERMAL) += mtk_thermal_platform.o
 obj-$(CONFIG_THERMAL) += ap_thermal_limit.o
+#obj-$(CONFIG_THERMAL) += mtk_change_policy.o
 
 
 obj-y += thermal_zones/
