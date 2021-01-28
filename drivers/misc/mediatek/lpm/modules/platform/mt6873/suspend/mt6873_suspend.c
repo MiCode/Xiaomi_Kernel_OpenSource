@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
+#include <linux/rcupdate.h>
 #include <linux/slab.h>
 #include <linux/cpu_pm.h>
 #include <linux/cpumask.h>
@@ -181,7 +182,16 @@ int mt6873_suspend_s2idle_prompt(int cpu,
 	cpumask_set_cpu(cpu, &s2idle_cpumask);
 	if (cpumask_weight(&s2idle_cpumask) == num_online_cpus()) {
 #ifdef CONFIG_PM_SLEEP
-		syscore_suspend();
+		/* Notice
+		 * Fix the rcu_idle workaround later.
+		 * There are many rcu behaviors in syscore callback.
+		 * In s2idle framework, the rcu enter idle before cpu
+		 * enter idle state. So we need to using RCU_NONIDLE()
+		 * with syscore. But anyway in s2idle, when lastest cpu
+		 * enter idle state means there won't care r/w sync problem
+		 * and RCU_NOIDLE maybe the right solution.
+		 */
+		RCU_NONIDLE(syscore_suspend());
 #endif
 		ret = __mt6873_suspend_prompt(MTK_LPM_SUSPEND_S2IDLE,
 					      cpu, issuer);
@@ -196,8 +206,15 @@ void mt6873_suspend_s2idle_reflect(int cpu,
 		__mt6873_suspend_reflect(MTK_LPM_SUSPEND_S2IDLE,
 					 cpu, issuer);
 #ifdef CONFIG_PM_SLEEP
-		syscore_resume();
-		pm_system_wakeup();
+		/* Notice
+		 * Fix the rcu_idle/timekeeping workaround later.
+		 * There are many rcu behaviors in syscore callback.
+		 * In s2idle framework, the rcu enter idle before cpu
+		 * enter idle state. So we need to using RCU_NONIDLE()
+		 * with syscore.
+		 */
+		RCU_NONIDLE(syscore_resume());
+		RCU_NONIDLE(pm_system_wakeup());
 #endif
 	}
 	cpumask_clear_cpu(cpu, &s2idle_cpumask);
