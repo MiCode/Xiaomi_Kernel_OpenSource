@@ -26,8 +26,9 @@
 #include <mtk_dvfsrc_reg.h>
 #include <mtk_spm_internal.h>
 #include <spm/mtk_vcore_dvfs.h>
-#include <mtk_gpufreq.h>
-#include <mmdvfs_mgr.h>
+#include <mt6765/mtk_gpufreq.h>
+
+#include <mmdvfs_pmqos.h>
 
 static struct reg_config dvfsrc_init_configs[][128] = {
 	/* SPMFW_LP4_2CH_3200 */
@@ -330,12 +331,8 @@ __weak int sdio_autok(void)
 
 void begin_autok_task(void)
 {
-	struct mmdvfs_prepare_event evt_from_vcore = {
-		MMDVFS_EVENT_PREPARE_CALIBRATION_START};
-
 	/* notify MM DVFS for msdc autok start */
-	mmdvfs_notify_prepare_action(&evt_from_vcore);
-
+	mmdvfs_prepare_action(MMDVFS_PREPARE_CALIBRATION_START);
 	/* notify GPU DVFS for msdc autok start */
 	mt_gpufreq_disable_by_ptpod();
 }
@@ -345,12 +342,8 @@ void finish_autok_task(void)
 	/* check if dvfs force is released */
 	int force = pm_qos_request(PM_QOS_VCORE_DVFS_FORCE_OPP);
 
-	struct mmdvfs_prepare_event evt_from_vcore = {
-		MMDVFS_EVENT_PREPARE_CALIBRATION_END};
-
 	/* notify MM DVFS for msdc autok finish */
-	mmdvfs_notify_prepare_action(&evt_from_vcore);
-
+	mmdvfs_prepare_action(MMDVFS_PREPARE_CALIBRATION_END);
 	/* notify GPU DVFS for msdc autok finish */
 	mt_gpufreq_enable_by_ptpod();
 
