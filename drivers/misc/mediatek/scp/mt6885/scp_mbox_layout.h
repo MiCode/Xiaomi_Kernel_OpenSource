@@ -17,11 +17,11 @@
 
 /* core1 */
 /* definition of slot size for send PINs */
-#define PIN_OUT_SIZE_AUDIO_VOW_1	 7 /* the following will use mbox 0 */
+#define PIN_OUT_SIZE_AUDIO_VOW_1	 9 /* the following will use mbox 0 */
 
 /* definition of slot size for received PINs */
 #define PIN_IN_SIZE_AUDIO_VOW_ACK_1	 2 /* the following will use mbox 0 */
-#define PIN_IN_SIZE_AUDIO_VOW_1		20 /* the following will use mbox 0 */
+#define PIN_IN_SIZE_AUDIO_VOW_1		26 /* the following will use mbox 0 */
 
 /* core0 */
 /* definition of slot size for send PINs */

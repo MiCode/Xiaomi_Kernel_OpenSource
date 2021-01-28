@@ -74,6 +74,8 @@ static DEFINE_SPINLOCK(vowdrv_lock);
 static struct wakeup_source VOW_suspend_lock;
 static int init_flag = -1;
 
+static struct file *file_vffp_data;
+static uint32_t vffp_dump_data_routine_cnt_pass;
 static struct file *file_recog_data;
 static uint32_t recog_dump_data_routine_cnt_pass;
 static struct wakeup_source pcm_dump_wake_lock;
@@ -98,6 +100,7 @@ static bool file_bargein_echo_ref_open;
 static bool file_bargein_delay_info_open;
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 static bool file_recog_data_open;
+static bool file_vffp_data_open;
 
 /*****************************************************************************
  * Function  Declaration
@@ -122,6 +125,7 @@ static void bargein_dump_routine(struct work_struct *ws);
 static void input_dump_routine(struct work_struct *ws);
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 static void recog_dump_routine(struct work_struct *ws);
+static void vffp_dump_routine(struct work_struct *ws);
 //static int vow_service_SearchSpeakerModelWithUuid(int uuid);
 static int vow_service_SearchSpeakerModelWithKeyword(int keyword);
 static int vow_service_SearchSpeakerModelWithId(int id);
@@ -194,7 +198,7 @@ static struct
 	bool                 scp_recovering;
 	bool                 vow_recovering;
 	unsigned int         recog_dump_cnt1;
-	unsigned int         recog_dump_cnt2;
+	unsigned int         vffp_dump_cnt1;
 	bool                 split_dumpfile_flag;
 	bool                 mcps_flag;
 	unsigned int         scp_dual_mic_switch;
@@ -220,6 +224,13 @@ static struct
 	uint32_t      size;
 } recog_resv_dram;
 
+static struct
+{
+	dma_addr_t    phy_addr;
+	char          *vir_addr;
+	uint32_t      size;
+} vffp_resv_dram;
+
 /*****************************************************************************
  * DSP IPI HANDELER
  *****************************************************************************/
@@ -233,7 +244,8 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 
 		ipi_ptr = (struct vow_ipi_combined_info_t *)msg_data;
 		/* IPIMSG_VOW_RECOGNIZE_OK */
-		VOWDRV_DEBUG("[vow] IPIMSG_VOW_COMBINED_INFO, flag=0x%x\n", ipi_ptr->ipi_type_flag);
+		/*VOWDRV_DEBUG("[vow] IPIMSG_VOW_COMBINED_INFO, flag=0x%x\n",*/
+		/*	       ipi_ptr->ipi_type_flag);*/
 		bypass_flag = false;
 		if (ipi_ptr->ipi_type_flag & RECOG_OK_IDX_MASK) {
 			if ((vowserv.recording_flag == true) &&
@@ -333,6 +345,21 @@ void vow_ipi_rx_internal(unsigned int msg_id,
 					 &dump_work[idx].work);
 			if (ret == 0)
 				recog_dump_data_routine_cnt_pass++;
+		}
+		if ((ipi_ptr->ipi_type_flag & VFFP_DUMP_IDX_MASK) &&
+		    (vowserv.dump_pcm_flag)) {
+			int ret = 0;
+			uint8_t idx = 0; /* dump_data_t */
+
+			idx = DUMP_VFFP;
+			dump_work[idx].vffp_data_size =
+				ipi_ptr->vffp_dump_size;
+			dump_work[idx].vffp_data_offset =
+				ipi_ptr->vffp_dump_offset;
+			ret = queue_work(dump_workqueue[idx],
+					 &dump_work[idx].work);
+			if (ret == 0)
+				vffp_dump_data_routine_cnt_pass++;
 		}
 		break;
 	}
@@ -1320,7 +1347,7 @@ static bool vow_stop_dump_wait(void)
 
 static int vow_pcm_dump_notify(bool enable)
 {
-	unsigned int vow_ipi_buf[5] = {0};
+	unsigned int vow_ipi_buf[7] = {0};
 	bool ret;
 
 	/* if scp reset happened, need re-send PCM dump IPI to SCP again */
@@ -1343,15 +1370,24 @@ static int vow_pcm_dump_notify(bool enable)
 		vow_ipi_buf[3] = recog_resv_dram.size;
 		/* address for SCP using */
 		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
+		/* TOTAL dram resrved size for vffp data dump */
+		vow_ipi_buf[5] = vffp_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[6] = vffp_resv_dram.phy_addr;
 
 		VOWDRV_DEBUG(
 		"[Recog]dump on, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
 			    vow_ipi_buf[1],
 			    vow_ipi_buf[3],
 			    vow_ipi_buf[4]);
+		VOWDRV_DEBUG(
+		"[vffp]dump on, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
+			    vow_ipi_buf[1],
+			    vow_ipi_buf[5],
+			    vow_ipi_buf[6]);
 
 		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_ON,
-				   5,
+				   7,
 				   &vow_ipi_buf[0],
 				   VOW_IPI_BYPASS_ACK);
 
@@ -1376,15 +1412,23 @@ static int vow_pcm_dump_notify(bool enable)
 		vow_ipi_buf[3] = recog_resv_dram.size;
 		/* address for SCP using */
 		vow_ipi_buf[4] = recog_resv_dram.phy_addr;
+		/* TOTAL dram resrved size for vffp data dump */
+		vow_ipi_buf[5] = vffp_resv_dram.size;
+		/* address for SCP using */
+		vow_ipi_buf[6] = vffp_resv_dram.phy_addr;
 
 		VOWDRV_DEBUG(
 		"[Recog]dump off, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
 			    vow_ipi_buf[1],
 			    vow_ipi_buf[3],
 			    vow_ipi_buf[4]);
-
+		VOWDRV_DEBUG(
+		"[vffp]dump off, dump flag:%d, resv sz:0x%x, addr:0x%x\n",
+			    vow_ipi_buf[1],
+			    vow_ipi_buf[5],
+			    vow_ipi_buf[6]);
 		ret = vow_ipi_send(IPIMSG_VOW_PCM_DUMP_OFF,
-				   5,
+				   7,
 				   &vow_ipi_buf[0],
 				   VOW_IPI_BYPASS_ACK);
 		if (ret == 0)
@@ -1422,6 +1466,18 @@ static int vow_pcm_dump_set(bool enable)
 	VOWDRV_DEBUG("[Recog]vir: %p, phys: 0x%x\n",
 		     recog_resv_dram.vir_addr,
 		     (unsigned int)recog_resv_dram.phy_addr);
+
+	vffp_resv_dram.vir_addr =
+	    (char *)(scp_get_reserve_mem_virt(VOW_MEM_ID))
+	    + VOW_VFFPDATA_OFFSET;
+	vffp_resv_dram.phy_addr =
+	    scp_get_reserve_mem_phys(VOW_MEM_ID)
+	    + VOW_VFFPDATA_OFFSET;
+	vffp_resv_dram.size = VOW_VFFPDATA_SIZE;
+
+	VOWDRV_DEBUG("[vffp]vir: %p, phys: 0x%x\n",
+		     vffp_resv_dram.vir_addr,
+		     (unsigned int)vffp_resv_dram.phy_addr);
 
 	if ((vowserv.dump_pcm_flag == false) && (enable == true)) {
 		vowserv.dump_pcm_flag = true;
@@ -1468,7 +1524,8 @@ static void vow_service_OpenDumpFile(void)
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	recog_dump_data_routine_cnt_pass = 0;
 	vowserv.recog_dump_cnt1 = 0;
-	vowserv.recog_dump_cnt2 = 0;
+	vffp_dump_data_routine_cnt_pass = 0;
+	vowserv.vffp_dump_cnt1 = 0;
 	VOWDRV_DEBUG("-%s() %d\n", __func__, b_enable_dump);
 }
 
@@ -1493,9 +1550,12 @@ static void vow_service_CloseDumpFile(void)
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 	VOWDRV_DEBUG("[Recog] recog_pass: %d\n",
 		recog_dump_data_routine_cnt_pass);
-	VOWDRV_DEBUG("[Recog] recog dump cnt %d %d\n",
-		     vowserv.recog_dump_cnt1,
-		     vowserv.recog_dump_cnt2);
+	VOWDRV_DEBUG("[Recog] recog dump cnt %d\n",
+		     vowserv.recog_dump_cnt1);
+	VOWDRV_DEBUG("[vffp] vffp_pass: %d\n",
+		vffp_dump_data_routine_cnt_pass);
+	VOWDRV_DEBUG("[vffp] vffp dump cnt %d\n",
+		     vowserv.vffp_dump_cnt1);
 	if (dump_queue != NULL) {
 		kfree(dump_queue);
 		dump_queue = NULL;
@@ -1520,8 +1580,10 @@ static void vow_service_OpenDumpFile_internal(void)
 	char path_echo_ref[64];
 	char path_delay_info[64];
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
-	char string_recog[16] = "recog.pcm";
+	char string_recog[16] = "aec_out.pcm";
+	char string_vffp[16] = "vffp.pcm";
 	char path_recog[64];
+	char path_vffp[64];
 
 	VOWDRV_DEBUG("+%s()\n", __func__);
 	memset(&curr_tm, 0, sizeof(struct timespec));
@@ -1551,9 +1613,15 @@ static void vow_service_OpenDumpFile_internal(void)
 		DUMP_PCM_DATA_PATH, string_time, string_recog);
 	VOWDRV_DEBUG("[Recog] %s path_recog= %s\n", __func__,
 		     path_recog);
+	sprintf(path_vffp, "%s/%s_%s",
+		DUMP_PCM_DATA_PATH, string_time, string_vffp);
+	VOWDRV_DEBUG("[vffp] %s path_vffp= %s\n", __func__,
+		     path_vffp);
 
 	file_recog_data = NULL;
 	file_recog_data_open = false;
+	file_vffp_data = NULL;
+	file_vffp_data_open = false;
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	file_bargein_pcm_input = NULL;
 	file_bargein_pcm_input_open = false;
@@ -1601,12 +1669,25 @@ static void vow_service_OpenDumpFile_internal(void)
 				    0);
 	if (IS_ERR(file_recog_data)) {
 		VOWDRV_DEBUG(
-		"[BargeIn] file_recog_data:%d, path_recog = %s\n",
+		"[Recog] file_recog_data:%d, path_recog = %s\n",
 		(int)PTR_ERR(file_recog_data),
 		path_recog);
 		return;
 	}
 	file_recog_data_open = true;
+
+	file_vffp_data = filp_open(path_vffp,
+				   O_CREAT | O_WRONLY | O_LARGEFILE,
+				   0);
+	if (IS_ERR(file_vffp_data)) {
+		VOWDRV_DEBUG(
+		"[vffp] file_vffp_data:%d, path_vffp = %s\n",
+		(int)PTR_ERR(file_vffp_data),
+		path_vffp);
+		return;
+	}
+	file_vffp_data_open = true;
+
 	VOWDRV_DEBUG("-%s()\n", __func__);
 }
 
@@ -1641,6 +1722,13 @@ static void vow_service_CloseDumpFile_internal(void)
 		if (!IS_ERR(file_recog_data)) {
 			filp_close(file_recog_data, NULL);
 			file_recog_data = NULL;
+		}
+	}
+	if (file_vffp_data_open) {
+		file_vffp_data_open = false;
+		if (!IS_ERR(file_vffp_data)) {
+			filp_close(file_vffp_data, NULL);
+			file_vffp_data = NULL;
 		}
 	}
 	VOWDRV_DEBUG("-%s()\n", __func__);
@@ -1874,12 +1962,65 @@ static int vow_pcm_dump_kthread(void *data)
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 		}
 			break;
+		case DUMP_VFFP: {
+			/* vffp dump data */
+			size = dump_package->vffp_data_size;
+			writedata = size;
+			pcm_dump = (struct pcm_dump_t *)
+				   (vffp_resv_dram.vir_addr
+				   + dump_package->vffp_data_offset);
+			while (size > 0) {
+				if (file_vffp_data_open &&
+				    !IS_ERR(file_vffp_data)) {
+					old_fs = get_fs();
+					set_fs(KERNEL_DS);
+					ret = vfs_write(file_vffp_data,
+					    (char __user *)pcm_dump->decode_pcm,
+					    writedata,
+					    &file_vffp_data->f_pos);
+					set_fs(old_fs);
+					if (!ret) {
+						VOWDRV_DEBUG(
+						"[vffp]vfs write failed\n");
+					}
+				}
+				size -= writedata;
+				pcm_dump++;
+			}
+		}
+			break;
 		default:
 			break;
 		}
 	}
 	VOWDRV_DEBUG("%s, exit\n", __func__);
 	return 0;
+}
+
+static void vffp_dump_routine(struct work_struct *ws)
+{
+	struct dump_work_t *dump_work = NULL;
+	uint32_t offset = 0;
+	uint32_t data_size = 0;
+
+	dump_work = container_of(ws, struct dump_work_t, work);
+
+	offset = dump_work->vffp_data_offset;
+	data_size = dump_work->vffp_data_size;
+
+	spin_lock(&vowdrv_lock);
+	dump_queue->dump_package[dump_queue->idx_w].dump_data_type =
+	    DUMP_VFFP;
+	dump_queue->dump_package[dump_queue->idx_w].vffp_data_offset =
+	    offset;
+	dump_queue->dump_package[dump_queue->idx_w].vffp_data_size =
+	    data_size;
+
+	dump_queue->idx_w++;
+	spin_unlock(&vowdrv_lock);
+	vowserv.vffp_dump_cnt1++;
+
+	wake_up_interruptible(&wq_dump_pcm);
 }
 
 static void recog_dump_routine(struct work_struct *ws)
@@ -1995,14 +2136,6 @@ static void vow_pcm_dump_init(void)
 	VOWDRV_DEBUG("[Recog] %s()\n", __func__);
 	wakeup_source_init(&pcm_dump_wake_lock,
 			   "pcm_dump_wake_lock");
-
-	dump_workqueue[DUMP_RECOG] =
-	    create_workqueue("dump_recog_data");
-	if (dump_workqueue[DUMP_RECOG] == NULL) {
-		VOWDRV_DEBUG("[Recog] dump_workqueue[DUMP_RECOG] = %p\n",
-			     dump_workqueue[DUMP_RECOG]);
-	}
-	VOW_ASSERT(dump_workqueue[DUMP_RECOG] != NULL);
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	dump_workqueue[DUMP_INPUT] =
 	    create_workqueue("dump_input_data");
@@ -2026,8 +2159,28 @@ static void vow_pcm_dump_init(void)
 	INIT_WORK(&dump_work[DUMP_BARGEIN].work,
 		  bargein_dump_routine);
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
+
+	dump_workqueue[DUMP_RECOG] =
+	    create_workqueue("dump_recog_data");
+	if (dump_workqueue[DUMP_RECOG] == NULL) {
+		VOWDRV_DEBUG("[Recog] dump_workqueue[DUMP_RECOG] = %p\n",
+			     dump_workqueue[DUMP_RECOG]);
+	}
+	VOW_ASSERT(dump_workqueue[DUMP_RECOG] != NULL);
+
 	INIT_WORK(&dump_work[DUMP_RECOG].work,
 		  recog_dump_routine);
+
+	dump_workqueue[DUMP_VFFP] =
+	    create_workqueue("dump_vffp_data");
+	if (dump_workqueue[DUMP_VFFP] == NULL) {
+		VOWDRV_DEBUG("[vffp] dump_workqueue[DUMP_VFFP] = %p\n",
+			     dump_workqueue[DUMP_VFFP]);
+	}
+	VOW_ASSERT(dump_workqueue[DUMP_VFFP] != NULL);
+
+	INIT_WORK(&dump_work[DUMP_VFFP].work,
+		  vffp_dump_routine);
 
 	init_waitqueue_head(&wq_dump_pcm);
 

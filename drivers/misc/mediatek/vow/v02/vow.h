@@ -84,6 +84,7 @@
 #endif
 
 #define VOW_RECOGDATA_SIZE             0x2800
+#define VOW_VFFPDATA_SIZE              0x1400
 #define VOW_PCM_DUMP_BYTE_SIZE         0xA00 /* 320 * 8 */
 #define VOW_EXTRA_DATA_SIZE            0x100 /* 256 */
 
@@ -94,7 +95,8 @@
 #else
 #define VOW_RECOGDATA_OFFSET        (VOW_VOICEDATA_OFFSET + VOW_VOICEDATA_SIZE)
 #endif
-#define VOW_EXTRA_DATA_OFFSET       (VOW_RECOGDATA_OFFSET + VOW_RECOGDATA_SIZE)
+#define VOW_VFFPDATA_OFFSET         (VOW_RECOGDATA_OFFSET + VOW_RECOGDATA_SIZE)
+#define VOW_EXTRA_DATA_OFFSET       (VOW_VFFPDATA_OFFSET + VOW_VFFPDATA_SIZE)
 
 /* below is control message */
 #define VOW_SET_CONTROL               _IOW(VOW_IOC_MAGIC, 0x03, unsigned int)
@@ -123,7 +125,8 @@
 #define VOW_BARGEIN_DUMP_SIZE    0x3C00
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
-#define KERNEL_VOW_DRV_VER "2.0.11"
+#define KERNEL_VOW_DRV_VER "2.0.12"
+
 struct dump_package_t {
 	uint32_t dump_data_type;
 	uint32_t mic_offset;
@@ -138,6 +141,8 @@ struct dump_package_t {
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
+	uint32_t vffp_data_offset;
+	uint32_t vffp_data_size;
 };
 
 struct dump_queue_t {
@@ -160,10 +165,13 @@ struct dump_work_t {
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	uint32_t echo_offset;
 	uint32_t echo_data_size;
+	uint32_t vffp_data_offset;
+	uint32_t vffp_data_size;
 };
 
 enum { /* dump_data_t */
 	DUMP_RECOG = 0,
+	DUMP_VFFP,
 #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT
 	DUMP_BARGEIN,
 	DUMP_INPUT,
@@ -434,7 +442,8 @@ enum ipi_type_flag_t {
 	RECOG_DUMP_IDX = 2,
 	BARGEIN_DUMP_INFO_IDX = 3,
 	BARGEIN_DUMP_IDX = 4,
-	INPUT_DUMP_IDX = 5
+	INPUT_DUMP_IDX = 5,
+	VFFP_DUMP_IDX = 6
 };
 
 #define RECOG_OK_IDX_MASK           (0x01 << RECOG_OK_IDX)
@@ -443,6 +452,7 @@ enum ipi_type_flag_t {
 #define BARGEIN_DUMP_INFO_IDX_MASK  (0x01 << BARGEIN_DUMP_INFO_IDX)
 #define BARGEIN_DUMP_IDX_MASK       (0x01 << BARGEIN_DUMP_IDX)
 #define INPUT_DUMP_IDX_MASK         (0x01 << INPUT_DUMP_IDX)
+#define VFFP_DUMP_IDX_MASK          (0x01 << VFFP_DUMP_IDX)
 
 struct vow_ipi_combined_info_t {
 	unsigned short ipi_type_flag;
@@ -476,6 +486,8 @@ struct vow_ipi_combined_info_t {
 	unsigned int recog_dump_offset_R;
 #endif  /* #ifdef CONFIG_MTK_VOW_DUAL_MIC_SUPPORT */
 	unsigned int payloaddump_len;
+	unsigned int vffp_dump_size;
+	unsigned int vffp_dump_offset;
 };
 
 
