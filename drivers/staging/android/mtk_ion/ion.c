@@ -1773,12 +1773,14 @@ int ion_sync_for_device(struct ion_client *client, int fd)
 
 #ifdef CONFIG_MTK_ION
 #ifdef CONFIG_MTK_IOMMU_V2
-	if (ion_iommu_heap_type(buffer))
+	if (ion_iommu_heap_type(buffer) &&
+	    buffer->heap->type != (int)ION_HEAP_TYPE_MULTIMEDIA_SEC)
 		dma_sync_sg_for_device(g_iommu_device,
 				       buffer->sg_table->sgl,
 				       buffer->sg_table->nents,
 				       DMA_BIDIRECTIONAL);
-	else if (buffer->heap->type != (int)ION_HEAP_TYPE_FB)
+	else if (buffer->heap->type != (int)ION_HEAP_TYPE_FB &&
+		 buffer->heap->type != (int)ION_HEAP_TYPE_MULTIMEDIA_SEC)
 		dma_sync_sg_for_device(g_ion_device->dev.this_device,
 				       buffer->sg_table->sgl,
 				       buffer->sg_table->nents,
@@ -1787,14 +1789,15 @@ int ion_sync_for_device(struct ion_client *client, int fd)
 		IONMSG("%s: can not support heap type(%d) to sync\n",
 		       __func__, buffer->heap->type);
 #else
-	if (buffer->heap->type != (int)ION_HEAP_TYPE_FB)
+	if (buffer->heap->type != (int)ION_HEAP_TYPE_FB &&
+	    buffer->heap->type != (int)ION_HEAP_TYPE_MULTIMEDIA_SEC)
 		dma_sync_sg_for_device(g_ion_device->dev.this_device,
 				       buffer->sg_table->sgl,
 				       buffer->sg_table->nents,
 				       DMA_BIDIRECTIONAL);
 	else
-		IONMSG("%s: can not support heap type(%d) to sync\n",
-		       __func__, buffer->heap->type);
+		IONMSG("%s: can not support heap type(%d) id (%d) to sync\n",
+		       __func__, buffer->heap->type, buffer->heap->id);
 #endif
 #endif
 
