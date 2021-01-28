@@ -539,6 +539,7 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 {
 	struct venc_ap_ipi_msg_deinit out;
+	int ret = 0;
 
 	mtk_vcodec_debug_enter(vcu);
 
@@ -551,15 +552,12 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_DEINIT;
 	out.vcu_inst_addr = vcu->inst_addr;
-	if (vcu_enc_send_msg(vcu, &out, sizeof(out))) {
-		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_DEINIT fail");
-		return -EINVAL;
-	}
+	ret = vcu_enc_send_msg(vcu, &out, sizeof(out));
 	current->flags &= ~PF_NOFREEZE;
 	vcu_enc_clear_ctx(vcu);
 
 	mtk_vcodec_debug_leave(vcu);
 
-	return 0;
+	return ret;
 }
 

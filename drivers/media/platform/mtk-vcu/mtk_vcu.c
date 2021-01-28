@@ -612,6 +612,8 @@ static void vcu_gce_clear_inst_id(void *ctx)
 		}
 	}
 	mutex_unlock(&vcu_ptr->vcu_share);
+
+	pr_info("%s ctx %p not found!\n", __func__, ctx);
 }
 
 
@@ -896,6 +898,9 @@ int vcu_set_codec_ctx(struct platform_device *pdev,
 	pr_debug("[VCU] type %lu vcu_set_codec_ctx %p src_vb %p dst_vb %p\n",
 		type, codec_ctx, src_vb, dst_vb);
 
+	vcu_dbg_log("[VCU] %s %p type %lu src_vb %p dst_vb %p\n",
+		__func__, codec_ctx, type, src_vb, dst_vb);
+
 	vcu->curr_ctx[type] = codec_ctx;
 	vcu->curr_src_vb[type] = src_vb;
 	vcu->curr_dst_vb[type] = dst_vb;
@@ -906,6 +911,8 @@ int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type)
 {
 	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+
+	vcu_dbg_log("[VCU] %s %p type %lu\n", __func__, codec_ctx, type);
 
 	mutex_lock(&vcu->vcu_gce_mutex[type]);
 	vcu_gce_clear_inst_id(codec_ctx);
