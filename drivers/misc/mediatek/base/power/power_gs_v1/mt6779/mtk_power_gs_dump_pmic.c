@@ -10,6 +10,7 @@
 
 #define PER_LINE_TO_PRINT 8
 #define DEBUG_BUF_SIZE 2000
+#define PMIC_NUMBER (1)
 
 static char buf[DEBUG_BUF_SIZE] = { 0 };
 static const char * const pmic_reg_name[]
@@ -25,7 +26,7 @@ int write_pmic(int pmic_num, unsigned int addr,
 	struct regmap *regmap;
 	int ret, tmp_val = 0;
 
-	if (pmic_num < 0 || pmic_num >= 2)
+	if (pmic_num < 0 || pmic_num >= PMIC_NUMBER)
 		return -1;
 	regulator = regulator_get_optional(NULL, pmic_reg_name[pmic_num]);
 	if (IS_ERR(regulator)) {
@@ -63,7 +64,7 @@ void dump_pmic(int pmic_num, const char *scenario,
 	struct regulator *regulator;
 	struct regmap *regmap;
 
-	if (pmic_num < 0 || pmic_num >= 2)
+	if (pmic_num < 0 || pmic_num >= PMIC_NUMBER)
 		return;
 	regulator = regulator_get_optional(NULL, pmic_reg_name[pmic_num]);
 	if (IS_ERR(regulator)) {
