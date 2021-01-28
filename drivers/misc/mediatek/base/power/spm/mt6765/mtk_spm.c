@@ -97,7 +97,7 @@ EXPORT_SYMBOL(mt_spm_base_get);
 
 void spm_pm_stay_awake(int sec)
 {
-	__pm_wakeup_event(spm_wakelock, HZ * sec);
+	__pm_wakeup_event(spm_wakelock, jiffies_to_msecs(HZ * sec));
 }
 
 static void spm_register_init(unsigned int *spm_irq_0_ptr)
