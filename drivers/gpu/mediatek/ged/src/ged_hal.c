@@ -625,15 +625,22 @@ static const struct seq_operations gsVsync_offset_levelReadOps = {
 void ged_gpu_info_dump_cap(struct seq_file *psSeqFile, bool bHumanReadable)
 {
 	char buf[256];
+	int cx;
 
 	if (bHumanReadable) {
 		seq_puts(psSeqFile, "Name = MT5566\n");
-		snprintf(buf, sizeof(buf), "ALU_CAPABILITY = %d\n", 5566);
+		cx = snprintf(buf, sizeof(buf), "ALU_CAPABILITY = %d\n", 5566);
+		if (cx < 0 || cx >= sizeof(buf))
+			return;
 		seq_puts(psSeqFile, buf);
-		snprintf(buf, sizeof(buf), "TEX_CAPABILITY = %d\n", 7788);
+		cx = snprintf(buf, sizeof(buf), "TEX_CAPABILITY = %d\n", 7788);
+		if (cx < 0 || cx >= sizeof(buf))
+			return;
 		seq_puts(psSeqFile, buf);
 	} else {
-		snprintf(buf, sizeof(buf), "MT5566, %d, %d\n", 5566, 7788);
+		cx = snprintf(buf, sizeof(buf), "MT5566, %d, %d\n", 5566, 7788);
+		if (cx < 0 || cx >= sizeof(buf))
+			return;
 		seq_puts(psSeqFile, buf);
 	}
 }
@@ -1049,11 +1056,14 @@ static ssize_t ged_fps_ub_write(const char __user *pszBuffer, size_t uiCount,
 		loff_t uiPosition, void *pvData)
 {
 	char str_num[MAX_FPS_DIGITS + 1];
-	unsigned long ulTmp;
+	unsigned long ulTmp = 0;
 
 	if (ged_copy_from_user(str_num, pszBuffer, MAX_FPS_DIGITS) == 0) {
+		int error;
 		str_num[MAX_FPS_DIGITS] = 0;
-		kstrtoul(str_num, 10, &ulTmp);
+		error = kstrtoul(str_num, 10, &ulTmp);
+		if (error != 0)
+			return uiCount;
 		_fps_upper_bound = ulTmp;
 		ged_dvfs_probe_signal(GED_FPS_CHANGE_SIGNAL_EVENT);
 		GED_LOGI("GED: fps is set to %d", _fps_upper_bound);
