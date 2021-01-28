@@ -341,6 +341,49 @@
 		clock-frequency = <13000000>;
 	};
 
+	uart_clk: dummy26m {
+		compatible = "fixed-clock";
+		clock-frequency = <26000000>;
+	};
+
+	apdma: dma-controller@10217a80 {
+		compatible = "mediatek,mt6577-uart-dma";
+		reg = <0 0x10217a80 0 0x80>,
+		      <0 0x10217b00 0 0x80>,
+		      <0 0x10217b80 0 0x80>,
+		      <0 0x10217c00 0 0x80>;
+		interrupts = <GIC_SPI 146 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 149 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&uart_clk>;
+		clock-names = "apdma";
+		#dma-cells = <1>;
+		dma-bits = <34>;
+	};
+
+	apuart0: serial@11002000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11002000 0 0x1000>;
+		interrupts = <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&uart_clk>, <&uart_clk>;
+		clock-names = "baud", "bus";
+		dmas = <&apdma 0
+				&apdma 1>;
+		dma-names = "tx", "rx";
+	};
+
+	apuart1: serial@11003000 {
+		compatible = "mediatek,mt6577-uart";
+		reg = <0 0x11003000 0 0x1000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&uart_clk>, <&uart_clk>;
+		clock-names = "baud", "bus";
+		dmas = <&apdma 2
+				&apdma 3>;
+		dma-names = "tx", "rx";
+	};
+
 	modem_temp_share@10018000 {
 		compatible = "mediatek,modem_temp_share";
 		reg = <0 0x10018000 0 0x1000>;
