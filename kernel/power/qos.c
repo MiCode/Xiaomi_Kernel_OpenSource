@@ -42,6 +42,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/debugfs.h>
+#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
 #include <linux/uaccess.h>
@@ -759,6 +760,20 @@ static const struct file_operations pm_qos_debug_fops = {
 	.release        = single_release,
 };
 
+static int pm_qos_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, pm_qos_dbg_show_requests,
+			   PDE_DATA(inode));
+}
+
+static const struct file_operations pm_qos_proc_fops = {
+	.owner          = THIS_MODULE,
+	.open           = pm_qos_proc_open,
+	.read           = seq_read,
+	.llseek         = seq_lseek,
+	.release        = single_release,
+};
+
 void pm_qos_update_target_req_list(struct pm_qos_constraints *c,
 		struct pm_qos_request *req, enum pm_qos_req_action action)
 {
@@ -1168,6 +1183,17 @@ static int register_pm_qos_debug(struct pm_qos_object *qos, struct dentry *d)
 	return 0;
 }
 
+/* User space interface to PM QoS classes via misc devices */
+static int register_pm_qos_proc(struct pm_qos_object *qos, struct proc_dir_entry *d)
+{
+	if (d) {
+		proc_create_data(qos->name, 0444, d,
+			&pm_qos_proc_fops, (void *)qos);
+	}
+
+	return 0;
+}
+
 static int find_pm_qos_object_by_minor(int minor)
 {
 	int pm_qos_class;
@@ -1259,6 +1285,7 @@ static int __init pm_qos_power_init(void)
 	int ret = 0;
 	int i;
 	struct dentry *d;
+	struct proc_dir_entry *proc_root = NULL;
 
 	BUILD_BUG_ON(ARRAY_SIZE(pm_qos_array) != PM_QOS_NUM_CLASSES);
 
@@ -1266,10 +1293,13 @@ static int __init pm_qos_power_init(void)
 	if (IS_ERR_OR_NULL(d))
 		d = NULL;
 
+	proc_root = proc_mkdir("mtk_pm_qos", NULL);
+
 	for (i = PM_QOS_CPU_DMA_LATENCY; i < PM_QOS_NUM_CLASSES; i++) {
-		if (i > PM_QOS_MEMORY_BANDWIDTH)
+		if (i > PM_QOS_MEMORY_BANDWIDTH) {
 			ret = register_pm_qos_debug(pm_qos_array[i], d);
-		else
+			register_pm_qos_proc(pm_qos_array[i], proc_root);
+		} else
 			ret = register_pm_qos_misc(pm_qos_array[i], d);
 		if (ret < 0) {
 			printk(KERN_ERR "pm_qos_param: %s setup failed\n",
