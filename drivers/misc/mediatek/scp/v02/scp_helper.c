@@ -1698,13 +1698,16 @@ static int scp_device_probe(struct platform_device *pdev)
 	pr_debug("[SCP] scpreg.scp_tcmsize = %d\n", scpreg.scp_tcmsize);
 
 	/* scp core 0 */
-	of_property_read_string(pdev->dev.of_node, "core_0", &core_status);
+	if (of_property_read_string(pdev->dev.of_node, "core_0", &core_status))
+		return -1;
+
 	if (strcmp(core_status, "enable") != 0)
 		pr_err("[SCP] core_0 not enable\n");
 	else {
 		pr_debug("[SCP] core_0 enable\n");
 		scp_enable[SCP_A_ID] = 1;
 	}
+
 	scpreg.irq = platform_get_irq_byname(pdev, "ipc0");
 	ret = request_irq(scpreg.irq, scp_A_irq_handler,
 		IRQF_TRIGGER_NONE, "SCP IPC0", NULL);
