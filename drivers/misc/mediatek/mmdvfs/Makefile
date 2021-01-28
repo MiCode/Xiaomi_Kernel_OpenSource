@@ -81,6 +81,10 @@ MMDVFS_LIMIT := true
 SKIP_SMI_CONFIG := false
 QOS_BOUND_DETECT := true
 #ccflags-y += -DCHECK_VOLTAGE #Should be enabled when gki complete
+else ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6765"))
+SUPPORT_MMP := true
+FORCE_STEP0 := true
+BUILD_MMDVFS := true
 endif
 
 ifeq ($(CONFIG_MTK_MMDVFS),y)
