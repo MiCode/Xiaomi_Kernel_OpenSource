@@ -140,10 +140,10 @@ static int msdc_prepare_mqr_crypto(struct mmc_host *host,
 		WARN_ON(1);
 		return -EDOM;
 	}
-
+	/* There is only one cap in sw-cqhci */
 	aes_config = (data_unit_size) << 16 |
-		host->crypto_cap_array[slot].key_size << 8 |
-		host->crypto_cap_array[slot].algorithm_id << 0;
+		host->crypto_cap_array[0].key_size << 8 |
+		host->crypto_cap_array[0].algorithm_id << 0;
 
 	memcpy(aes_key,
 	&(host->crypto_cfgs[slot].crypto_key[0]),

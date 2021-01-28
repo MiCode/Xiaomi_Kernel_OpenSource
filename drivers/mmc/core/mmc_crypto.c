@@ -127,7 +127,7 @@ static void program_key(struct mmc_host *host,
 		return;
 
 	/* limit half_len as sizeof(u32)*8, avoid local buffer overflow */
-	size = host->crypto_cap_array[slot].key_size;
+	size = host->crypto_cap_array[0].key_size;
 	key_size_bytes = get_keysize_bytes(size);
 
 	/* split key into key & tkey */
