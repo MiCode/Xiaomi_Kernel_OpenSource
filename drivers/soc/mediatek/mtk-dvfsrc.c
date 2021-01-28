@@ -548,7 +548,8 @@ static int mt6761_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 	dvfsrc_rmw(dvfsrc, DVFSRC_BASIC_CONTROL, 1, 0x1, 15);
 	ret = readl_poll_timeout_atomic(
 			dvfsrc->regs + dvfsrc->dvd->regs[DVFSRC_LEVEL],
-			val, val == (1 << level), STARTUP_TIME, POLL_TIMEOUT);
+			val, DVFSRC_GET_CURRENT_LEVEL(val) == (1 << level),
+			STARTUP_TIME, POLL_TIMEOUT);
 
 	if (ret < 0) {
 		dev_info(dvfsrc->dev,
