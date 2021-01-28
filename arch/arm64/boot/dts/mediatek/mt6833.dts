@@ -148,6 +148,67 @@ page_owner=on";
 		ccorr0 = &disp_ccorr0;
 	};
 
+	mtk_lpm: mtk_lpm {
+		compatible = "mediatek,mtk-lpm";
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+		suspend-method = "disable";
+		cpupm-method = "mcu";
+
+		resource-ctrl = <&bus26m &infra &syspll>,
+				<&dram_s0 &dram_s1>;
+
+		constraints = <&rc_bus26m &rc_syspll &rc_dram>;
+
+		cpupm_sysram: cpupm-sysram@0011b000 {
+			compatible = "mediatek,cpupm-sysram";
+			reg = <0 0x0011b000 0 0x500>;
+		};
+
+		lpm_sysram: lpm_sysram@0011b500 {
+			compatible = "mediatek,lpm-sysram";
+			reg = <0 0x0011b500 0 0x300>;
+		};
+
+		resource-ctrl-list {
+			bus26m: bus26m {
+				id = <0x00000000>;
+				value = <0>;
+			};
+			infra: infra {
+				id = <0x00000001>;
+				value = <0>;
+			};
+			syspll: syspll {
+				id = <0x00000002>;
+				value = <0>;
+			};
+			dram_s0: dram_s0 {
+				id = <0x00000003>;
+				value = <0>;
+			};
+			dram_s1: dram_s1 {
+				id = <0x00000004>;
+				value = <0>;
+			};
+		};
+
+		constraint-list {
+			rc_bus26m: rc_bus26m {
+				id = <0x00000000>;
+				value = <1>;
+			};
+			rc_syspll: rc_syspll {
+				id = <0x00000001>;
+				value = <1>;
+			};
+			rc_dram: rc_dram {
+				id = <0x00000002>;
+				value = <1>;
+			};
+		};
+	};
 	memory {
 		device_type = "memory";
 		reg = <0 0x40000000 0 0x3e605000>;
