@@ -1119,6 +1119,13 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			reg = <0 0x1020e000 0 0x1000>;
 		};
 
+		mcdi:mcdi@0011b000 {
+			compatible = "mediatek,mt6779-mcdi";
+			mediatek,enabled = <1>;
+			reg = <0 0x0011b000 0 0x800>,
+				<0 0x0c53a000 0 0x1000>;
+		};
+
 		scpsys: scpsys@10006000 {
 			compatible = "mediatek,mt6779-scpsys";
 			#power-domain-cells = <1>;
