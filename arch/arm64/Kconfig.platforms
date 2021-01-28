@@ -135,6 +135,7 @@ config MACH_MT6771
 	select MTK_LM_MODE if !MTK_GMO_RAM_OPTIMIZE
 	select MTK_TIMER_APXGPT
 	select DEVAPC_LEGACY
+	select OVERLAY_FS
         help
           This enables support for MediaTek MT6771
           Support for aarch64 Architecture
@@ -185,6 +186,7 @@ config MACH_MT6739
 	select CRYPTO_SHA2_ARM64_CE
 	select CRYPTO_AES_ARM64_CE_BLK
 	select DEVAPC_LEGACY
+	select OVERLAY_FS
 	help
 	  This enables support for MediaTek MT6739.
 	  It enables all necessary feature for MP including
