@@ -736,7 +736,7 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 
 irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 {
-	u32 status = 0;
+	u32 status = 0, task_mask = 0;
 	unsigned long tag = 0, comp_status = 0, cmd_idx = 0;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 	unsigned long err_info = 0;
@@ -790,7 +790,6 @@ _err:
 		if (err_info & CQ_RMEFV) {
 			cmd_idx = GET_CMD_ERR_CMDIDX(err_info);
 			if (cmd_idx == MMC_SEND_STATUS) {
-				u32 task_mask;
 				/*
 				 * since CMD13 does not belong to
 				 * any tag, just find an active
@@ -820,6 +819,33 @@ _err:
 
 			mrq = get_req_by_tag(cq_host, tag);
 			mrq->data->error = err;
+		} else {
+			/*
+			 * It may so happen sometimes for few errors(like QSR)
+			 * Thus below is a HW WA for recovering from such
+			 * scenario.
+			 * - To halt/disable CQE and do reset_all.
+			 *   Since there is no way to know which tag would
+			 *   have caused such error, so check for any first
+			 *   bit set in doorbell and proceed with an error.
+			 */
+			task_mask = cmdq_readl(cq_host, CQTDBR);
+			if (!task_mask) {
+				pr_notice("%s: spurious/force error interrupt\n",
+						mmc_hostname(mmc));
+				cmdq_halt_poll(mmc, false);
+				mmc_host_clr_halt(mmc);
+				return IRQ_HANDLED;
+			}
+
+			tag = uffs(task_mask) - 1;
+			pr_notice("%s: error tag selected: tag = %lu\n",
+					mmc_hostname(mmc), tag);
+			mrq = get_req_by_tag(cq_host, tag);
+			if (mrq->data)
+				mrq->data->error = err;
+			else
+				mrq->cmd->error = err;
 		}
 
 		/*

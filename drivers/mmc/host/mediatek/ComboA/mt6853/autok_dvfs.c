@@ -448,13 +448,26 @@ int sd_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 		}
 	}
 
+		/* Distinguish mmc by timing */
+	if (host->mmc->ios.timing == MMC_TIMING_MMC_HS200) {
+#ifdef MSDC_HQA
+		msdc_HQA_set_voltage(host);
+#endif
+		if (opcode == MMC_SEND_STATUS) {
+			pr_notice("[AUTOK]MMC HS200 Tune CMD only\n");
+			ret = hs200_execute_tuning_cmd(host, res);
+		} else {
+			pr_notice("[AUTOK]MMC HS200 Tune\n");
+			ret = hs200_execute_tuning(host, res);
+		}
+	}
 	return ret;
 }
 
 int emmc_execute_dvfs_autok(struct msdc_host *host, u32 opcode)
 {
 	int ret = 0;
-	int vcore = 0;
+	int vcore = AUTOK_VCORE_MERGE;
 	u8 *res;
 
 #if defined(VCOREFS_READY)
@@ -956,6 +969,8 @@ int emmc_runtime_autok_merge(u32 opcode)
 			TUNING_PARA_SCAN_COUNT);
 
 	ret = emmc_execute_dvfs_autok(host, opcode);
+	if (opcode == MMC_SEND_STATUS)
+		goto skip_autok_merge;
 	if (host->use_hw_dvfs == 0)
 		memcpy(host->autok_res[AUTOK_VCORE_LEVEL1],
 			host->autok_res[AUTOK_VCORE_MERGE],
@@ -998,6 +1013,7 @@ int emmc_runtime_autok_merge(u32 opcode)
 		pr_info("[AUTOK]restore legacy window\n");
 	}
 
+skip_autok_merge:
 #ifdef CONFIG_MTK_EMMC_HW_CQ
 	if (emmc_autok_switch_cqe(host, 1))
 		pr_notice("WARN:%s:cqe enable fail", __func__);

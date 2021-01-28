@@ -33,6 +33,7 @@
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_MMC_CRYPTO)
 #define MSDC0_AES_CLK_NAME          "msdc0-aes-clock"
 #endif
+#define MSDC0_SRC_HCLK_NAME	"msdc0-src-hclock"
 #define MSDC0_HCLK_NAME         "msdc0-hclock"
 #define MSDC1_CLK_NAME          "msdc1-clock"
 #define MSDC1_HCLK_NAME         "msdc1-hclock"
@@ -565,6 +566,9 @@
  * use emmc runtime autok merge intead of the original emmc autok
  */
 #define EMMC_RUNTIME_AUTOK_MERGE
+
+/* nano memory card support flag by platform */
+#define NMCARD_SUPPORT
 
 /**************************************************************/
 /* Section 6: BBChip-depenent Tunnig Parameter                */
