@@ -23,9 +23,6 @@ extern u32 cfg_eng2;
 extern u32 cfg_eng11;
 extern u8 cfg_apusys_trace;
 extern int get_power_on_status(unsigned int core_id);
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-extern void trace_tag_customer(const char *fmt, ...);
-#endif
 extern void trace_tag_begin(const char *format, ...);
 extern void trace_tag_end(void);
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__

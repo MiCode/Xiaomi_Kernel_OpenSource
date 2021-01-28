@@ -22,19 +22,6 @@ static noinline int tracing_mark_write(const char *buf)
 	return 0;
 }
 
-void trace_tag_customer(const char *fmt, ...)
-{
-	char buf[TRACE_LEN];
-	va_list args;
-
-	va_start(args, fmt);
-	vsnprintf(buf, TRACE_LEN, fmt, args);
-	va_end(args);
-
-	tracing_mark_write(buf);
-}
-EXPORT_SYMBOL(trace_tag_customer);
-
 void trace_tag_begin(const char *format, ...)
 {
 	char buf[TRACE_LEN];

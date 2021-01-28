@@ -90,6 +90,10 @@ void mdla_trace_end(int core, int status, struct command_entry *ce)
 	len = snprintf(buf, sizeof(buf),
 		"mdla-%d|tid:%d,fin_id:%d,preempted:%d",
 		core, task_pid_nr(current), ce->fin_cid, status);
+
+	if (len >= TRACE_LEN)
+		len = TRACE_LEN - 1;
+
 #ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
 	trace_async_tag(0, buf);
 #endif
@@ -162,10 +166,6 @@ int mdla_profile_reset(int core_id, const char *str)
 {
 	if (!cfg_apusys_trace)
 		goto out;
-#ifndef __APUSYS_MDLA_SW_PORTING_WORKAROUND__
-	trace_tag_customer("C|%d|mdla-%d,reset:%s|0",
-			  task_pid_nr(current), core_id, str);
-#endif
 out:
 	return 0;
 }
