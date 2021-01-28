@@ -527,7 +527,7 @@ static inline int pseudo_config_port(struct M4U_PORT_STRUCT *pM4uPort,
 	larb = m4u_get_larbid(pM4uPort->ePortID);
 	larb_port = m4u_port_2_larb_port(pM4uPort->ePortID);
 	name = iommu_get_port_name(pM4uPort->ePortID);
-	if (is_user && strcmp(name, pM4uPort->name)) {
+	if (is_user && name && strcmp(name, pM4uPort->name)) {
 		M4U_MSG("port:%d name(%s) not matched(%s)\n",
 			pM4uPort->ePortID, pM4uPort->name, name);
 		report_custom_config_port(
