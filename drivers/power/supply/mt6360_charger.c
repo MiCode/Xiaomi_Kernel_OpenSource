@@ -17,6 +17,8 @@
 #include <linux/mfd/mt6360-private.h>
 
 /* 0x11 */
+#define MT6360_MASK_FSLP	BIT(3)
+#define MT6360_SHFT_FSLP	(3)
 #define MT6360_MASK_HIZ		BIT(2)
 #define MT6360_SHFT_HIZ		(2)
 #define MT6360_MASK_OPA_MODE	BIT(0)
@@ -106,6 +108,8 @@
 #define MT6360_IEOC_MIN		100000
 #define MT6360_IEOC_MAX		850000
 #define MT6360_IEOC_STEP	50000
+/* uV */
+#define MT6360_OCV_STEP		1250
 
 /* bc12 icl and ccl setting : uA */
 #define ICL_CHGTYPE_SDP		500000
@@ -243,6 +247,20 @@ out:
 	return ret;
 }
 
+static int mt6360_charger_get_ocv(struct mt6360_chg_info *mci,
+				  union power_supply_propval *val)
+{
+	int ret;
+	unsigned int regval[2];
+
+	ret = regmap_raw_read(mci->regmap,
+			      MT6360_PMU_ADC_BAT_DATA_H, regval, 2);
+	if (ret < 0)
+		return ret;
+	val->intval = MT6360_OCV_STEP * (regval[0] << 8 | regval[1]);
+	return 0;
+}
+
 static int mt6360_charger_get_charge_type(struct mt6360_chg_info *mci,
 					  union power_supply_propval *val)
 {
@@ -367,6 +385,16 @@ static int mt6360_charger_get_ieoc(struct mt6360_chg_info *mci,
 	return 0;
 }
 
+static int mt6360_charger_set_online(struct mt6360_chg_info *mci,
+				     const union power_supply_propval *val)
+{
+	u8 force_sleep = val->intval ? 0 : 1;
+
+	return regmap_update_bits(mci->regmap, MT6360_PMU_CHG_CTRL1,
+				  MT6360_MASK_FSLP,
+				  force_sleep << MT6360_SHFT_FSLP);
+}
+
 static int mt6360_charger_set_ichg(struct mt6360_chg_info *mci,
 				   const union power_supply_propval *val)
 {
@@ -440,6 +468,9 @@ static int mt6360_charger_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 		ret = mt6360_charger_get_status(mci, val);
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_OCV:
+		ret = mt6360_charger_get_ocv(mci, val);
+		break;
 	case POWER_SUPPLY_PROP_CHARGE_TYPE:
 		ret = mt6360_charger_get_charge_type(mci, val);
 		break;
@@ -482,6 +513,9 @@ static int mt6360_charger_set_property(struct power_supply *psy,
 
 	dev_dbg(mci->dev, "%s: prop = %d\n", __func__, psp);
 	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		ret = mt6360_charger_set_online(mci, val);
+		break;
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 		ret = mt6360_charger_set_ichg(mci, val);
 		break;
@@ -507,6 +541,7 @@ static int mt6360_charger_property_is_writeable(struct power_supply *psy,
 					       enum power_supply_property psp)
 {
 	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT:
 	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE:
 	case POWER_SUPPLY_PROP_INPUT_CURRENT_LIMIT:
@@ -522,6 +557,7 @@ static enum power_supply_property mt6360_charger_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_VOLTAGE_OCV,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_VOLTAGE,
