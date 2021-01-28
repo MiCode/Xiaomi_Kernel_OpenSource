@@ -1179,62 +1179,6 @@ int mtk_cooler_is_abcct_unlimit(void)
 EXPORT_SYMBOL(mtk_cooler_is_abcct_unlimit);
 
 
-static int mtkcooler_bcct_pdrv_probe(struct platform_device *pdev)
-{
-	mtk_cooler_bcct_dprintk_always("%s\n", __func__);
-	return 0;
-}
-
-static int mtkcooler_bcct_pdrv_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-struct platform_device mtk_cooler_bcct_device = {
-	.name = "mtk-cooler-bcct",
-	.id = -1,
-};
-
-static struct platform_driver mtk_cooler_bcct_driver = {
-	.probe = mtkcooler_bcct_pdrv_probe,
-	.remove = mtkcooler_bcct_pdrv_remove,
-	.driver = {
-		.name = "mtk-cooler-bcct",
-		.owner  = THIS_MODULE,
-	},
-};
-static int __init mtkcooler_bcct_late_init(void)
-{
-	int ret = 0;
-
-	mtk_cooler_bcct_dprintk_always("%s\n", __func__);
-
-	/* register platform device/driver */
-	ret = platform_device_register(&mtk_cooler_bcct_device);
-	if (ret) {
-		mtk_cooler_bcct_dprintk_always(
-					"fail to register device @ %s()\n",
-					__func__);
-		goto fail;
-	}
-
-	ret = platform_driver_register(&mtk_cooler_bcct_driver);
-	if (ret) {
-		mtk_cooler_bcct_dprintk_always(
-					"fail to register driver @ %s()\n",
-					__func__);
-		goto reg_platform_driver_fail;
-	}
-
-	return ret;
-
-reg_platform_driver_fail:
-	platform_device_unregister(&mtk_cooler_bcct_device);
-
-fail:
-	return ret;
-}
-
 
 static int __init mtk_cooler_bcct_init(void)
 {
@@ -1348,14 +1292,8 @@ static void __exit mtk_cooler_bcct_exit(void)
 
 	fb_unregister_client(&bcct_lcmoff_fb_notifier);
 
-
-	platform_driver_unregister(&mtk_cooler_bcct_driver);
-	platform_device_unregister(&mtk_cooler_bcct_device);
-
 }
 
 module_init(mtk_cooler_bcct_init);
 module_exit(mtk_cooler_bcct_exit);
-
-late_initcall(mtkcooler_bcct_late_init);
 

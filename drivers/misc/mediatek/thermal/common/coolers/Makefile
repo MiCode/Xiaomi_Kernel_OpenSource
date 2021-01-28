@@ -57,7 +57,7 @@ ifeq ($(CONFIG_MTK_THERMAL_PA_VIA_ATCMD),y)
 endif
 
 obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_v1.o
-#obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
+obj-$(CONFIG_THERMAL) += mtk_cooler_bcct_2nd.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_atm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_dtm.o
 obj-$(CONFIG_THERMAL) += mtk_cooler_sysrst.o

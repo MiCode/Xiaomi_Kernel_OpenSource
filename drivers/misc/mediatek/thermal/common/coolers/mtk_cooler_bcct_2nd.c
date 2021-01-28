@@ -76,6 +76,23 @@ struct x_chrlmt_handle {
 
 static struct workqueue_struct *bcct_2nd_chrlmt_queue;
 static struct work_struct      bcct_2nd_chrlmt_work;
+static int cl_bcct_2nd_klog_on;
+
+/*return 0:single charger*/
+/*return 1,2:dual charger*/
+static int get_charger_type(void)
+{
+	struct device_node *node = NULL;
+	u32 val = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,charger");
+	WARN_ON_ONCE(node == 0);
+
+	if (of_property_read_u32(node, "charger_configuration", &val))
+		return 0;
+	else
+		return val;
+}
 
 static int get_battery_current(void)
 {
@@ -216,7 +233,7 @@ int bat_char_curr_limit)
 	return 0;
 }
 
-static int cl_bcct_2nd_klog_on;
+
 static struct thermal_cooling_device
 		*cl_bcct_2nd_dev[MAX_NUM_INSTANCE_MTK_COOLER_BCCT_2ND] = { 0 };
 
@@ -413,7 +430,6 @@ struct thermal_cooling_device *cdev, unsigned long temp)
 {
 	long delta, pterm, dterm;
 	int limit;
-	union power_supply_propval prop;
 	static struct power_supply *chg_psy;
 
 	if (chg_psy == NULL)
@@ -1025,65 +1041,15 @@ int mtk_cooler_is_abcct_2nd_unlimit(void)
 }
 EXPORT_SYMBOL(mtk_cooler_is_abcct_2nd_unlimit);
 
-static int mtkcooler_bcct_2nd_pdrv_probe(struct platform_device *pdev)
-{
-	mtk_cooler_bcct_2nd_dprintk_always("%s\n", __func__);
-	return 0;
-}
-
-static int mtkcooler_bcct_2nd_pdrv_remove(struct platform_device *pdev)
-{
-	return 0;
-}
-
-struct platform_device mtk_cooler_bcct_2nd_device = {
-	.name = "mtk-cooler-bcct_2nd",
-	.id = -1,
-};
-
-static struct platform_driver mtk_cooler_bcct_2nd_driver = {
-	.probe = mtkcooler_bcct_2nd_pdrv_probe,
-	.remove = mtkcooler_bcct_2nd_pdrv_remove,
-	.driver = {
-		.name = "mtk-cooler-bcct_2nd",
-		.owner  = THIS_MODULE,
-	},
-};
-static int __init mtkcooler_bcct_2nd_late_init(void)
-{
-	int ret = 0;
-
-	mtk_cooler_bcct_2nd_dprintk_always("%s\n", __func__);
-
-	/* register platform device/driver */
-	ret = platform_device_register(&mtk_cooler_bcct_2nd_device);
-	if (ret) {
-		mtk_cooler_bcct_2nd_dprintk_always(
-				"fail to register device @ %s()\n", __func__);
-		goto fail;
-	}
-
-	ret = platform_driver_register(&mtk_cooler_bcct_2nd_driver);
-	if (ret) {
-		mtk_cooler_bcct_2nd_dprintk_always(
-				"fail to register driver @ %s()\n", __func__);
-		goto reg_platform_driver_fail;
-	}
-
-	return ret;
-
-reg_platform_driver_fail:
-	platform_device_unregister(&mtk_cooler_bcct_2nd_device);
-
-fail:
-	return ret;
-}
-
 
 static int __init mtk_cooler_bcct_2nd_init(void)
 {
 	int err = 0;
 	int i;
+
+	/*check if support dual charger*/
+	if (get_charger_type() == 0)
+		return 0;
 
 	for (i = MAX_NUM_INSTANCE_MTK_COOLER_BCCT_2ND; i-- > 0;) {
 		cl_bcct_2nd_dev[i] = NULL;
@@ -1189,11 +1155,7 @@ static void __exit mtk_cooler_bcct_2nd_exit(void)
 	mtk_cooler_abcct_2nd_lcmoff_unregister_ltf();
 
 	fb_unregister_client(&bcct_2nd_lcmoff_fb_notifier);
-
-	platform_driver_unregister(&mtk_cooler_bcct_2nd_driver);
-	platform_device_unregister(&mtk_cooler_bcct_2nd_device);
 }
 
 module_init(mtk_cooler_bcct_2nd_init);
 module_exit(mtk_cooler_bcct_2nd_exit);
-late_initcall(mtkcooler_bcct_2nd_late_init);

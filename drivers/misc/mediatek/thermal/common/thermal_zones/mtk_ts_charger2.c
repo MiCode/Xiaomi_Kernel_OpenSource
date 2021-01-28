@@ -82,20 +82,21 @@ static int polling_trip_temp1 = 40000;
 static int polling_trip_temp2 = 20000;
 static int polling_factor1 = 5000;
 static int polling_factor2 = 10000;
-struct charger_consumer __attribute__ ((weak))
-*charger_manager_get_by_name(struct device *dev,
-	const char *supply_name)
-{
-	mtktscharger2_dprintk_always("%s not found.\n", __func__);
-	return NULL;
-}
 
-int __attribute__ ((weak))
-charger_manager_get_charger_temperature(struct charger_consumer *consumer,
-	int idx, int *tchg_min, int *tchg_max)
+/*return 0:single charger*/
+/*return 1,2:dual charger*/
+static int get_charger_type(void)
 {
-	mtktscharger2_dprintk_always("%s not found.\n", __func__);
-	return -ENODEV;
+	struct device_node *node = NULL;
+	u32 val = 0;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,charger");
+	WARN_ON_ONCE(node == 0);
+
+	if (of_property_read_u32(node, "charger_configuration", &val))
+		return 0;
+	else
+		return val;
 }
 static struct power_supply *get_charger2_handle(void)
 {
@@ -574,6 +575,9 @@ static int mtktscharger2_pdrv_probe(struct platform_device *pdev)
 	struct proc_dir_entry *mtktscharger2_dir = NULL;
 
 	mtktscharger2_dprintk_always("%s\n", __func__);
+/*check if support dual charger*/
+	if (get_charger_type() == 0)
+		return 0;
 	err = mtktscharger2_register_thermal();
 	if (err)
 		goto err_unreg;

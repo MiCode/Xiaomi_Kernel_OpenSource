@@ -202,7 +202,7 @@
 #define CPU_COOLER_NUM 34
 #define MTK_TS_CPU_RT                       (0)
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 #define CONFIG_THERMAL_AEE_RR_REC (1)
 #else
 #define CONFIG_THERMAL_AEE_RR_REC (0)
@@ -445,8 +445,8 @@ extern int g_turbo_bin;
 #endif
 /*aee related*/
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
-extern void aee_rr_init_thermal_temp(int num);
-extern void aee_rr_rec_thermal_temp(int index, s8 val);
+extern int aee_rr_init_thermal_temp(int num);
+extern int aee_rr_rec_thermal_temp(int index, s8 val);
 extern void aee_rr_rec_thermal_status(u8 val);
 extern void aee_rr_rec_thermal_ATM_status(u8 val);
 extern void aee_rr_rec_thermal_ktime(u64 val);
