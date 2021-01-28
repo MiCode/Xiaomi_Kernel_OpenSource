@@ -206,7 +206,7 @@ static inline void clkbuf_clr(u32 dts, u32 id, u32 val)
 
 static inline void clkbuf_update(u32 dts, u32 id, u32 val)
 {
-	u32 mask;
+	u32 mask = 0;
 
 	val <<= cfg[dts].bit[id];
 	mask = clkbuf_dts[dts].mask << cfg[dts].bit[id];
@@ -407,7 +407,7 @@ static void _clk_buf_get_bblpm_en(u32 *stat)
 
 static int _clk_buf_get_bblpm_en_stat(void)
 {
-	u32 stat[2];
+	u32 stat[2] = {0};
 
 	_clk_buf_get_bblpm_en(stat);
 
@@ -516,7 +516,7 @@ static int _clk_buf_ctrl_internal(enum clk_buf_id id,
 		enum cmd_type cmd)
 {
 	short ret = 0, no_lock = 0;
-	int val;
+	int val = 0;
 
 	if (!_clk_buf_get_init_sta())
 		return -1;
@@ -610,7 +610,7 @@ static void _clk_buf_set_manual_drv_curr(u32 *drv_curr_vals)
 
 static void _pmic_clk_buf_ctrl(enum CLK_BUF_TYPE *status)
 {
-	u32 i;
+	u32 i = 0;
 
 	if (!_clk_buf_get_init_sta())
 		return;
@@ -715,13 +715,11 @@ static int _clk_buf_dump_misc_log(char *buf)
 			"DCXO_CW%02d=0x%x\n", i, val);
 	}
 
-	for (i = MISC_START; i < MISC_END; i++) {
-		clkbuf_read(i, 0, &val);
-		len += snprintf(buf+len, PAGE_SIZE-len, "%s(%s)=0x%x\n",
-				clkbuf_dts[i].prop,
-				((i - 1) % 2) ? "en" : "op_mode",
-				val);
-	}
+	clkbuf_read(MISC_SRCLKENI_EN, 0, &val);
+	len += snprintf(buf+len, PAGE_SIZE-len, "%s(%s)=0x%x\n",
+			clkbuf_dts[MISC_SRCLKENI_EN].prop,
+			"srclken_conn",
+			val);
 
 	if (check_pmic_clkbuf_op())
 		len = pmic_op->pmic_clk_buf_dump_misc_log(buf);
@@ -809,7 +807,7 @@ static ssize_t _clk_buf_show_status_info_internal(char *buf)
 
 static int _clk_buf_get_xo_en_sta(enum xo_id id)
 {
-	u32 stat[XO_NUMBER];
+	u32 stat[XO_NUMBER] = {0};
 
 	_clk_buf_get_xo_en(stat);
 
@@ -818,7 +816,7 @@ static int _clk_buf_get_xo_en_sta(enum xo_id id)
 
 static void _clk_buf_show_status_info(void)
 {
-	int len;
+	int len = 0;
 	char *buf, *str, *str_sep;
 
 	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
@@ -837,11 +835,11 @@ static void _clk_buf_show_status_info(void)
 static ssize_t clk_buf_ctrl_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	u32 clk_buf_en[XO_NUMBER];
+	u32 clk_buf_en[XO_NUMBER] = {0};
 	u32 pwrap_dcxo_en = 0;
-	u32 val;
-	u32 i;
-	char cmd[32];
+	u32 val = 0;
+	u32 i = 0;
+	char cmd[32] = {0};
 
 	if (sscanf(buf, "%31s %x %x %x %x %x %x %x", cmd, &clk_buf_en[XO_SOC],
 		&clk_buf_en[XO_WCN], &clk_buf_en[XO_NFC], &clk_buf_en[XO_CEL],
@@ -894,7 +892,7 @@ static ssize_t clk_buf_ctrl_store(struct kobject *kobj,
 static ssize_t clk_buf_ctrl_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	int len;
+	int len = 0;
 
 	len = _clk_buf_show_status_info_internal(buf);
 
@@ -931,7 +929,7 @@ static ssize_t clk_buf_debug_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
 	char cmd[32] =  {'\0'}, xo_user[11] = {'\0'};
-	u32 i;
+	u32 i = 0;
 
 	if ((sscanf(buf, "%31s %10s", cmd, xo_user) != 2))
 		return -EPERM;
@@ -968,7 +966,7 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
 	struct kobj_attribute *attr, const char *buf, size_t count)
 {
-	u32 onoff;
+	u32 onoff = 0;
 	int ret = 0;
 
 	if ((kstrtouint(buf, 10, &onoff))) {
@@ -992,8 +990,8 @@ static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
 static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
 	struct kobj_attribute *attr, char *buf)
 {
-	u32 xo_stat[XO_NUMBER];
-	u32 bblpm_stat[2];
+	u32 xo_stat[XO_NUMBER] = {0};
+	u32 bblpm_stat[2] = {0};
 	u32 bblpm_cond = 0;
 	int len = 0;
 
@@ -1113,9 +1111,9 @@ static int _clk_buf_dts_init_internal(struct device_node *node, u32 idx)
 {
 	u32 interval = clkbuf_dts[idx].interval;
 	u32 setclr = 0;
-	u32 base;
+	u32 base = 0;
 	int ret = 0;
-	int i, j;
+	int i = 0, j = 0;
 
 	cfg[idx].ofs = kcalloc(clkbuf_dts[idx].len, sizeof(u32), GFP_KERNEL);
 	if (!cfg[idx].ofs)
@@ -1158,7 +1156,7 @@ static int _clk_buf_dts_init_internal(struct device_node *node, u32 idx)
 			goto no_property;
 
 		for (i = 0; i < clkbuf_dts[idx].len; i++) {
-			int val;
+			int val = 0;
 
 			val = base + (i * interval) + (setclr * interval * 2);
 			cfg[idx].ofs[i] = val;
@@ -1312,8 +1310,8 @@ static void _clk_buf_set_bringup_sta(bool enable)
 
 static void _clk_buf_xo_init(void)
 {
-	int val;
-	int i;
+	int val = 0;
+	int i = 0;
 
 	/* set disable flag to unused external hw */
 	if (_get_ufs_dev_state() != DEV_ON)
