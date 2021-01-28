@@ -3809,6 +3809,12 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		compatible = "mediatek,mt6779-mt6359-sound";
 		mediatek,audio-codec = <&mt6359_snd>;
 		mediatek,platform = <&afe>;
+		mtk_spk_i2s_out = <3>;
+		mtk_spk_i2s_in = <0>;
+		/* mtk_spk_i2s_mck = <3>; */
+		mediatek,speaker-codec {
+			sound-dai = <&speaker_amp>;
+		};
 	};
 
 	audio_sram@11211000 {
@@ -4281,6 +4287,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		status = "okay";
 	};
 
+};
+
+&i2c6 {
+	speaker_amp: speaker_amp@34 {
+		compatible = "mediatek,speaker_amp";
+		#sound-dai-cells = <0>;
+		reg = <0x34>;
+		status = "okay";
+	};
 };
 
 #include "mt6360_pd.dtsi"
