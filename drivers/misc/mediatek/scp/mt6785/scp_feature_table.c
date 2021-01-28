@@ -18,7 +18,7 @@
 struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	{
 		.feature     = VOW_FEATURE_ID,
-		.freq        = 47,
+		.freq        = 5,
 		.enable      = 0,
 		.sub_feature = 0,
 	},
@@ -74,7 +74,7 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 #else
 	{
 		.feature     = VOW_BARGEIN_FEATURE_ID,
-		.freq        = 100,
+		.freq        = 120,
 		.enable      = 0,
 		.sub_feature = 0,
 	},
@@ -82,6 +82,24 @@ struct scp_feature_tb feature_table[NUM_FEATURE_ID] = {
 	{
 		.feature     = VOW_DUMP_FEATURE_ID,
 		.freq        = 10,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+		{
+		.feature     = VOW_VENDOR_M_FEATURE_ID,
+		.freq        = 43,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+	{
+		.feature     = VOW_VENDOR_A_FEATURE_ID,
+		.freq        = 43,
+		.enable      = 0,
+		.sub_feature = 0,
+	},
+	{
+		.feature     = VOW_VENDOR_G_FEATURE_ID,
+		.freq        = 22,
 		.enable      = 0,
 		.sub_feature = 0,
 	},
