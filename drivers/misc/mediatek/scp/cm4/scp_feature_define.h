@@ -29,13 +29,14 @@
 #define SCP_REGISTER_SUB_SENSOR		(1)
 
 /* emi mpu define, depends on legacy emi config option */
-#ifdef CONFIG_MTK_EMI_LEGACY
+#ifdef CONFIG_MTK_EMI
 #define ENABLE_SCP_EMI_PROTECTION	(1)
 #else
 #define ENABLE_SCP_EMI_PROTECTION	(0)
 #endif
 #define MPU_REGION_ID_SCP_SMEM		(6)
-
+#define MPU_DOMAIN_D0                    0
+#define MPU_DOMAIN_D3                    3
 
 /* scp sensor type ID list */
 enum scp_sensor_id {

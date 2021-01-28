@@ -43,7 +43,11 @@
 #endif
 
 #if ENABLE_SCP_EMI_PROTECTION
+#ifdef CONFIG_MTK_EMI_LEGACY
 #include <mt_emi_api.h>
+#else
+#include "memory/mediatek/emi.h"
+#endif
 #endif
 
 /* scp semaphore timeout count definition */
@@ -1202,6 +1206,7 @@ static int scp_reserve_memory_ioremap(struct platform_device *pdev)
 #endif
 
 #if ENABLE_SCP_EMI_PROTECTION
+#ifdef CONFIG_MTK_EMI_LEGACY
 void set_scp_mpu(void)
 {
 	struct emi_region_info_t region_info;
@@ -1224,6 +1229,23 @@ void set_scp_mpu(void)
 
 	emi_mpu_set_protection(&region_info);
 }
+#else
+void set_scp_mpu(void)
+{
+	struct emimpu_region_t md_region;
+
+	mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
+	mtk_emimpu_set_addr(&md_region, scp_mem_base_phys,
+		scp_mem_base_phys + scp_mem_size - 1);
+	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D0,
+		MTK_EMIMPU_NO_PROTECTION);
+	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D3,
+		MTK_EMIMPU_NO_PROTECTION);
+	if (mtk_emimpu_set_protection(&md_region))
+		pr_notice("[SCP]mtk_emimpu_set_protection fail\n");
+	mtk_emimpu_free_region(&md_region);
+}
+#endif
 #endif
 
 void scp_register_feature(enum feature_id id)
@@ -1998,11 +2020,11 @@ static int __init scp_init(void)
 		goto err_3;
 	}
 #endif
-
 #if ENABLE_SCP_EMI_PROTECTION
+#ifdef CONFIG_MTK_EMI_LEGACY
 	set_scp_mpu();
 #endif
-
+#endif
 	scp_recovery_init();
 
 #ifdef SCP_PARAMS_TO_SCP_SUPPORT
@@ -2081,8 +2103,24 @@ static void __exit scp_exit(void)
 	}
 }
 
+#if ENABLE_SCP_EMI_PROTECTION
+#ifndef CONFIG_MTK_EMI_LEGACY
+static int __init scp_late_init(void)
+{
+	pr_notice("[SCP] %s\n", __func__);
+	set_scp_mpu();
+	return 0;
+}
+#endif
+#endif
+
 device_initcall_sync(scp_init);
 module_exit(scp_exit);
+#if ENABLE_SCP_EMI_PROTECTION
+#ifndef CONFIG_MTK_EMI_LEGACY
+late_initcall(scp_late_init);
+#endif
+#endif
 
 MODULE_DESCRIPTION("MEDIATEK Module SCP driver");
 MODULE_AUTHOR("McInnis Yu<mcinnis.yu@mediatek.com>");
