@@ -159,6 +159,7 @@ static int adjust_loading;
 static int rescue_percent_90;
 static int rescue_percent_120;
 static int fps_level_range;
+static int check_running;
 
 module_param(bhr, int, 0644);
 module_param(bhr_opp, int, 0644);
@@ -184,6 +185,7 @@ module_param(adjust_loading, int, 0644);
 module_param(rescue_percent_90, int, 0644);
 module_param(rescue_percent_120, int, 0644);
 module_param(fps_level_range, int, 0644);
+module_param(check_running, int, 0644);
 
 static DEFINE_SPINLOCK(freq_slock);
 static DEFINE_MUTEX(fbt_mlock);
@@ -1322,7 +1324,7 @@ static int fbt_check_to_jerk(
 		unsigned long long buffer_id, int tgid)
 {
 	/*not running*/
-	if (!fbt_query_state(pid, tgid)) {
+	if (check_running && !fbt_query_state(pid, tgid)) {
 		fpsgo_systrace_c_fbt(pid, buffer_id, 1, "not_running");
 		fpsgo_systrace_c_fbt(pid, buffer_id, 0, "not_running");
 		return FPSGO_JERK_DISAPPEAR;
@@ -3875,6 +3877,7 @@ int __init fbt_cpu_init(void)
 	loading_time_diff = TIME_2MS;
 	llf_task_policy = FPSGO_TPOLICY_NONE;
 	fps_level_range = 10;
+	check_running = 1;
 
 	_gdfrc_fps_limit = TARGET_DEFAULT_FPS;
 	vsync_period = GED_VSYNC_MISS_QUANTUM_NS;
