@@ -78,9 +78,9 @@ __weak void get_pidmap_aee_buffer(unsigned long *addr, unsigned long *size)
 }
 
 #ifdef __aarch64__
-#define MIN_MARGIN KIMAGE_VADDR
+#define MIN_MARGIN VA_START
 #else
-#define MIN_MARGIN PAGE_OFFSET
+#define MIN_MARGIN MODULES_VADDR
 #endif
 
 #ifdef __aarch64__
@@ -92,10 +92,9 @@ static unsigned long virt_2_pfn(unsigned long addr)
 	pte_t *ptep, _pte_val = {0};
 	unsigned long pfn = ~0UL;
 
-#ifdef CONFIG_ARM64
 	if (addr < VA_START)
 		goto OUT;
-#endif
+
 	if (probe_kernel_address(pgd, _pgd_val) || pgd_none(_pgd_val))
 		goto OUT;
 	pud = pud_offset(pgd, addr);
@@ -407,7 +406,7 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 	unsigned long *p;
 
 	if (!mrdump_virt_addr_valid(tsk)) {
-		pr_notice("mrdump: cpu:[%d] invalid task pointer:%p\n",
+		pr_notice("mrdump: cpu:[%d] invalid task pointer:0x%lx\n",
 				cpu, tsk);
 		if (cpu < num_possible_cpus())
 			tsk = aee_cpu_curr(cpu);
@@ -416,7 +415,7 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 					cpu, num_possible_cpus());
 	}
 	if (!mrdump_virt_addr_valid(tsk))
-		pr_notice("mrdump: cpu:[%d] CAN'T get a valid task pointer:%p\n",
+		pr_notice("mrdump: cpu:[%d] CAN'T get a valid task pointer:%px\n",
 				cpu, tsk);
 	else
 		ti = (struct thread_info *)tsk->stack;
@@ -425,7 +424,7 @@ static void mrdump_mini_add_tsk_ti(int cpu, struct pt_regs *regs,
 	mrdump_mini_add_entry(regs->reg_sp, MRDUMP_MINI_SECTION_SIZE);
 	mrdump_mini_add_entry((unsigned long)ti, MRDUMP_MINI_SECTION_SIZE);
 	mrdump_mini_add_entry((unsigned long)tsk, MRDUMP_MINI_SECTION_SIZE);
-	pr_notice("mrdump: cpu[%d] tsk:%p ti:%p\n", cpu, tsk, ti);
+	pr_notice("mrdump: cpu[%d] tsk:0x%lx ti:0x%lx\n", cpu, tsk, ti);
 	if (!stack)
 		return;
 	if (ti == NULL)
@@ -802,6 +801,14 @@ static void mrdump_mini_build_elf_misc(void)
 	get_pidmap_aee_buffer(&misc.vaddr, &misc.size);
 	misc.start = 0;
 	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_PIDMAP_");
+
+#ifndef MODULE
+	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
+	misc.vaddr = (unsigned long)(void *)linux_banner;
+	misc.size = strlen(linux_banner);
+	misc.start = 0;
+	mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start, "_VERSION_BR");
+#endif
 }
 
 static void mrdump_mini_add_loads(void)

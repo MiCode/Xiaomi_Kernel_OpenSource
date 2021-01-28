@@ -163,12 +163,10 @@ int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 	nested_die_check(AEE_FIQ_STEP_COMMON_DIE_TRACE);
 	switch (reboot_reason) {
 	case AEE_REBOOT_MODE_KERNEL_OOPS:
-		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
 		aee_show_regs(regs);
 		dump_stack();
 		break;
 	case AEE_REBOOT_MODE_KERNEL_PANIC:
-		aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
 #ifndef CONFIG_DEBUG_BUGVERBOSE
 		dump_stack();
 #endif
@@ -198,6 +196,7 @@ int ipanic(struct notifier_block *this, unsigned long event, void *ptr)
 	struct pt_regs saved_regs;
 	int fiq_step;
 
+	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_START;
 	crash_setup_regs(&saved_regs, NULL);
 	return mrdump_common_die(fiq_step,
@@ -210,6 +209,7 @@ static int ipanic_die(struct notifier_block *self, unsigned long cmd, void *ptr)
 	struct die_args *dargs = (struct die_args *)ptr;
 	int fiq_step;
 
+	aee_rr_rec_exp_type(AEE_EXP_TYPE_KE);
 	fiq_step = AEE_FIQ_STEP_KE_IPANIC_DIE;
 	return mrdump_common_die(fiq_step,
 				 AEE_REBOOT_MODE_KERNEL_OOPS,
