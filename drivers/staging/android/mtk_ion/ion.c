@@ -1795,8 +1795,8 @@ static int ion_open(struct inode *inode, struct file *file)
 	name_length = snprintf(debug_name, 64, "%u",
 			       task_pid_nr(current->group_leader));
 	if (name_length <= 0)
-		IONMSG("%s ion have not set debug name 0x%p.\n",
-		       __func__, client);
+		IONMSG("%s ion set debug name error, pid %u\n",
+		       __func__, task_pid_nr(current->group_leader));
 
 	start = sched_clock();
 	client = ion_client_create(dev, debug_name);
@@ -2046,8 +2046,12 @@ void ion_device_add_heap(struct ion_device *dev, struct ion_heap *heap)
 
 	if (heap->shrinker.count_objects && heap->shrinker.scan_objects) {
 		char debug_name[64];
+		int name_length = 0;
 
-		snprintf(debug_name, 64, "%s_shrink", heap->name);
+		name_length = snprintf(debug_name, 64, "%s_shrink", heap->name);
+		if (name_length <= 0)
+			IONMSG("%s set debug name error, heap %s\n",
+			       __func__, heap->name);
 		debug_file = debugfs_create_file(debug_name, 0644,
 						 dev->heaps_debug_root,
 						 heap, &debug_shrink_fops);
