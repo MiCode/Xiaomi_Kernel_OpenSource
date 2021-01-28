@@ -121,9 +121,12 @@ extern bool mtk_vcodec_perf;
 
 static __attribute__((used)) unsigned int time_ms_s[2][2], time_ms_e[2][2];
 #define time_check_start(is_enc, id) {\
-		time_ms_s[is_enc][id] = jiffies_to_msecs(jiffies); \
+		if (is_enc >= 0 && id >= 0) \
+			time_ms_s[is_enc][id] = jiffies_to_msecs(jiffies); \
 	}
 #define time_check_end(is_enc, id, timeout_ms) do { \
+		if (is_enc < 0 || id < 0) \
+			break; \
 		time_ms_e[is_enc][id]  = jiffies_to_msecs(jiffies); \
 		if ((time_ms_e[is_enc][id] - time_ms_s[is_enc][id]) \
 			> timeout_ms || \
