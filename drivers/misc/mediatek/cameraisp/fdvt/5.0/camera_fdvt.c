@@ -49,9 +49,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 
-#ifdef CONFIG_MTK_IOMMU_V2
-#include <mach/mt_iommu.h>
-#else
+//#ifdef CONFIG_MTK_IOMMU_V2
+//6779 common kernel project don't support this mtk modify
+//#include <mach/mt_iommu.h>
+//#else
+#ifdef CONFIG_MTK_M4U
 #include <m4u.h>
 #endif
 #include <cmdq_core.h>
@@ -3214,13 +3216,13 @@ static const struct file_operations FDVTFileOper = {
 /**************************************************************
  *
  **************************************************************/
-#ifdef CONFIG_MTK_IOMMU_V2
-enum mtk_iommu_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
-	unsigned int mva, void *data)
-#else
+//#ifdef CONFIG_MTK_IOMMU_V2
+//enum mtk_iommu_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
+	//unsigned int mva, void *data)
+//#else
+#ifdef CONFIG_MTK_M4U
 enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 	unsigned int mva, void *data)
-#endif
 {
 
 	pr_info("[FDVT_M4U]fault call port=%d, mva=0x%x", port, mva);
@@ -3246,12 +3248,13 @@ enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 			FDVT_RD32(FDVT_KERNEL_BASE_ADR_1_REG));
 	break;
 	}
-#ifdef CONFIG_MTK_IOMMU_V2
-	return MTK_IOMMU_CALLBACK_HANDLED;
-#else
+//#ifdef CONFIG_MTK_IOMMU_V2
+	//return MTK_IOMMU_CALLBACK_HANDLED;
+//#else
 	return M4U_CALLBACK_HANDLED;
-#endif
 }
+#endif
+
 /*****************************************************************************
  *
  *****************************************************************************/
@@ -4077,20 +4080,21 @@ static signed int __init FDVT_Init(void)
 	}
 
 
-#ifdef CONFIG_MTK_IOMMU_V2
-	mtk_iommu_register_fault_callback(M4U_PORT_FDVT_RDA,
-					  FDVT_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_FDVT_RDB,
-					  FDVT_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_FDVT_WRA,
-					  FDVT_M4U_TranslationFault_callback,
-					  NULL);
-	mtk_iommu_register_fault_callback(M4U_PORT_FDVT_WRB,
-					  FDVT_M4U_TranslationFault_callback,
-					  NULL);
-#else
+//#ifdef CONFIG_MTK_IOMMU_V2
+//mtk_iommu_register_fault_callback(M4U_PORT_FDVT_RDA,
+//FDVT_M4U_TranslationFault_callback,
+//NULL);
+//mtk_iommu_register_fault_callback(M4U_PORT_FDVT_RDB,
+//FDVT_M4U_TranslationFault_callback,
+//NULL);
+//mtk_iommu_register_fault_callback(M4U_PORT_FDVT_WRA,
+//FDVT_M4U_TranslationFault_callback,
+//NULL);
+//mtk_iommu_register_fault_callback(M4U_PORT_FDVT_WRB,
+//FDVT_M4U_TranslationFault_callback,
+//NULL);
+//#else
+#ifdef CONFIG_MTK_M4U
 	m4u_register_fault_callback(M4U_PORT_FDVT_RDA,
 			FDVT_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_FDVT_RDB,
