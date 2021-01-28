@@ -29,9 +29,7 @@
 #if defined(CONFIG_MTK_AEE_FEATURE)
 #include <mt-plat/aee.h>
 #endif
-#ifdef MTK_CCCI_TODO_PART /* TODO */
-#include <mach/mtk_pbm.h>
-#endif
+#include <mtk_pbm.h>
 #include "ccci_config.h"
 #include "ccci_common_config.h"
 #include "ccci_core.h"
@@ -727,10 +725,8 @@ static void md_cd_smem_sub_region_init(struct ccci_modem *md)
 	addr[i++] = 0x44444444; /* Guard pattern 2 tail */
 
 	/* Notify PBM */
-#ifdef MTK_CCCI_TODO_PART /* TODO */
 #ifndef DISABLE_PBM_FEATURE
 	init_md_section_level(KR_MD1);
-#endif
 #endif
 }
 
