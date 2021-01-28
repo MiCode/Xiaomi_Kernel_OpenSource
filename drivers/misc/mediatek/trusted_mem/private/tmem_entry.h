@@ -34,6 +34,7 @@ int tmem_core_regmgr_offline(enum TRUSTED_MEM_TYPE mem_type);
 
 bool tmem_core_is_device_registered(enum TRUSTED_MEM_TYPE mem_type);
 u32 tmem_core_get_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type);
+u32 tmem_core_get_max_pool_size(enum TRUSTED_MEM_TYPE mem_type);
 bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 			       u32 *size);
 
