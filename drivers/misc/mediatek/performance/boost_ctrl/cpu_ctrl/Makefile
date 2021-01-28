@@ -11,6 +11,11 @@
 # GNU General Public License for more details.
 #
 
+ifeq ($(CONFIG_MTK_PPM),y)
 obj-y += cpu_ctrl.o
+else
+obj-y += cpu_ctrl_dummy.o
+endif
+
 obj-$(CONFIG_MTK_CPU_CTRL_CFP) += cpu_ctrl_cfp.o
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include/

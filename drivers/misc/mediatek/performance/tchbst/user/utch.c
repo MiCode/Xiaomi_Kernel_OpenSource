@@ -103,8 +103,10 @@ static int notify_touch(int action)
 		enable_touch_boost_timer();
 
 		/* boost */
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 		update_eas_uclamp_min(EAS_KIR_TOUCH,
 				CGROUP_TA, touch_boost_value);
+#endif
 #ifdef CONFIG_MTK_PPM
 		update_userlimit_cpu_freq(CPU_KIR_TOUCH,
 				perfmgr_clusters, target_freq);
@@ -127,7 +129,9 @@ static void notify_touch_up_timeout(void)
 {
 	mutex_lock(&notify_lock);
 
+#ifdef CONFIG_MTK_SCHED_EXTENSION
 	update_eas_uclamp_min(EAS_KIR_TOUCH, CGROUP_TA, 0);
+#endif
 #ifdef CONFIG_MTK_PPM
 	update_userlimit_cpu_freq(CPU_KIR_TOUCH, perfmgr_clusters, reset_freq);
 #endif
