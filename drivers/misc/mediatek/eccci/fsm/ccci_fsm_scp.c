@@ -7,7 +7,7 @@
 #include "ccci_fsm_internal.h"
 
 #ifdef FEATURE_SCP_CCCI_SUPPORT
-#include <scp_ipi.h>
+#include <scp.h>
 
 
 static atomic_t scp_state = ATOMIC_INIT(SCP_CCCI_STATE_INVALID);

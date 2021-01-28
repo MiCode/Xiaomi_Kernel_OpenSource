@@ -1,5 +1,6 @@
 
 obj-$(CONFIG_MTK_MET) += met_drv/
+obj-$(CONFIG_MTK_TINYSYS_SCP_SUPPORT) += scp/
 obj-$(CONFIG_MTK_CCCI_DEVICES)	+=  ccci_util/
 obj-$(CONFIG_MTK_NET_CCMNI) +=  ccmni/
 obj-$(CONFIG_MTK_ECCCI_DRIVER) +=  eccci/

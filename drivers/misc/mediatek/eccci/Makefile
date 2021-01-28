@@ -32,7 +32,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/ccmni/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/conn_md/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mt6779/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/include
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/mt6779/
+ccflags-y += -I$(srctree)/drivers/misc/mediatek/scp/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-amms
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/
 ifeq ($(CCCI_OBJ), m)

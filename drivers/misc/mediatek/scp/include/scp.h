@@ -1,0 +1,119 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2019 MediaTek Inc.
+ */
+
+#ifndef __SCP_H
+#define __SCP_H
+
+/* scp Core ID definition*/
+enum scp_core_id {
+	SCP_A_ID = 0,
+	SCP_CORE_TOTAL = 1,
+};
+
+/* scp ipi ID definition
+ * need to sync with SCP-side
+ */
+enum ipi_id {
+	IPI_WDT = 0,
+	IPI_TEST1,
+	IPI_LOGGER_ENABLE,
+	IPI_LOGGER_WAKEUP,
+	IPI_LOGGER_INIT_A,
+	IPI_VOW,                    /* 5 */
+	IPI_AUDIO,
+	IPI_DVT_TEST,
+	IPI_SENSOR,
+	IPI_TIME_SYNC,
+	IPI_SHF,                    /* 10 */
+	IPI_CONSYS,
+	IPI_SCP_A_READY,
+	IPI_APCCCI,
+	IPI_SCP_A_RAM_DUMP,
+	IPI_DVFS_DEBUG,             /* 15 */
+	IPI_DVFS_FIX_OPP_SET,
+	IPI_DVFS_FIX_OPP_EN,
+	IPI_DVFS_LIMIT_OPP_SET,
+	IPI_DVFS_LIMIT_OPP_EN,
+	IPI_DVFS_DISABLE,           /* 20 */
+	IPI_DVFS_SLEEP,
+	IPI_PMICW_MODE_DEBUG,
+	IPI_DVFS_SET_FREQ,
+	IPI_CHRE,
+	IPI_CHREX,                  /* 25 */
+	IPI_SCP_PLL_CTRL,
+	IPI_DO_AP_MSG,
+	IPI_DO_SCP_MSG,
+	IPI_MET_SCP,
+	IPI_SCP_TIMER,              /* 30 */
+	IPI_SCP_ERROR_INFO,
+	IPI_SCPCTL,
+	IPI_SCP_LOG_FILTER = 33,
+	SCP_NR_IPI,
+};
+
+enum scp_ipi_status {
+	SCP_IPI_ERROR = -1,
+	SCP_IPI_DONE,
+	SCP_IPI_BUSY,
+};
+
+/* scp notify event */
+enum SCP_NOTIFY_EVENT {
+	SCP_EVENT_READY = 0,
+	SCP_EVENT_STOP,
+};
+
+/* scp semaphore definition*/
+enum SEMAPHORE_FLAG {
+	SEMAPHORE_CLK_CFG_5 = 0,
+	SEMAPHORE_PTP,
+	SEMAPHORE_I2C0,
+	SEMAPHORE_I2C1,
+	SEMAPHORE_TOUCH,
+	SEMAPHORE_APDMA,
+	SEMAPHORE_SENSOR,
+	SEMAPHORE_SCP_A_AWAKE,
+	SEMAPHORE_SCP_B_AWAKE,
+	NR_FLAG = 9,
+};
+
+/* scp reserve memory ID definition*/
+enum scp_reserve_mem_id_t {
+	VOW_MEM_ID,
+	SENS_MEM_ID,
+	MP3_MEM_ID,
+	FLP_MEM_ID,
+	SCP_A_LOGGER_MEM_ID,
+	AUDIO_IPI_MEM_ID,
+	SPK_PROTECT_MEM_ID,
+	SPK_PROTECT_DUMP_MEM_ID,
+	VOW_BARGEIN_MEM_ID,
+	SCP_DRV_PARAMS_MEM_ID,
+	NUMS_MEM_ID,
+};
+
+extern enum scp_ipi_status scp_ipi_registration(enum ipi_id id,
+	void (*ipi_handler)(int id, void *data, unsigned int len),
+	const char *name);
+extern enum scp_ipi_status scp_ipi_unregistration(enum ipi_id id);
+extern enum scp_ipi_status scp_ipi_send(enum ipi_id id, void *buf,
+	unsigned int len, unsigned int wait, enum scp_core_id scp_id);
+
+extern int scp_awake_lock(enum scp_core_id scp_id);
+extern int scp_awake_unlock(enum scp_core_id scp_id);
+extern unsigned int is_scp_ready(enum scp_core_id scp_id);
+
+extern void scp_A_register_notify(struct notifier_block *nb);
+extern void scp_A_unregister_notify(struct notifier_block *nb);
+extern int get_scp_semaphore(int flag);
+extern int release_scp_semaphore(int flag);
+extern int scp_get_semaphore_3way(int flag);
+extern int scp_release_semaphore_3way(int flag);
+extern phys_addr_t scp_get_reserve_mem_phys(enum scp_reserve_mem_id_t id);
+extern phys_addr_t scp_get_reserve_mem_virt(enum scp_reserve_mem_id_t id);
+extern phys_addr_t scp_get_reserve_mem_size(enum scp_reserve_mem_id_t id);
+
+#endif
+

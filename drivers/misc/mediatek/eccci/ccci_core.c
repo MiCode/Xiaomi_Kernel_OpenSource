@@ -18,7 +18,7 @@
 #include "ccci_port.h"
 #include "ccci_hif.h"
 #ifdef FEATURE_SCP_CCCI_SUPPORT
-#include "scp_helper.h"
+#include <scp.h>
 #endif
 
 static void *dev_class;
