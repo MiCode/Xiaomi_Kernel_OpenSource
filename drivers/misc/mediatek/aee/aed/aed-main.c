@@ -763,6 +763,8 @@ static void ee_gen_process_msg(void)
 		/* for old aed_md_exception1() */
 		n = snprintf(data, sizeof(eerec->assert_type), "%s",
 				eerec->assert_type);
+		if (n <= 0)
+			return;
 		if (eerec->exp_filename[0] != 0) {
 			n += snprintf(data + n, (PROCESS_STRLEN - n),
 				", filename=%s,line=%d", eerec->exp_filename,
@@ -774,6 +776,8 @@ static void ee_gen_process_msg(void)
 		}
 	} else {
 		n = snprintf(data, PROCESS_STRLEN, "%s", eerec->exp_filename);
+		if (n <= 0)
+			return;
 	}
 
 	rep_msg->cmdType = AE_RSP;
@@ -869,6 +873,7 @@ static void ee_gen_coredump_msg(void)
 {
 	struct AE_Msg *rep_msg;
 	char *data;
+	int len;
 
 	rep_msg = msg_create(&aed_dev.eerec->msg, 256);
 	if (rep_msg == NULL)
@@ -878,7 +883,9 @@ static void ee_gen_coredump_msg(void)
 	rep_msg->cmdType = AE_RSP;
 	rep_msg->cmdId = AE_REQ_COREDUMP;
 	rep_msg->arg = 0;
-	snprintf(data, 256, "/proc/aed/%s", CURRENT_EE_COREDUMP);
+	len = snprintf(data, 256, "/proc/aed/%s", CURRENT_EE_COREDUMP);
+	if (len <= 0)
+		return;
 	rep_msg->len = strlen(data) + 1;
 }
 
@@ -1337,12 +1344,15 @@ void Maps2Buffer(unsigned char *Userthread_maps, int *Userthread_mapsLength,
 	char buf[256] = {0};
 	int len = 0;
 	va_list ap;
+	int n;
 
 	va_start(ap, fmt);
 	len = strlen(Userthread_maps);
 
 	if ((len + sizeof(buf)) < MaxMapsSize) {
-		vsnprintf(&Userthread_maps[len], sizeof(buf), fmt, ap);
+		n = vsnprintf(&Userthread_maps[len], sizeof(buf), fmt, ap);
+		if (n <= 0)
+			return;
 		*Userthread_mapsLength = len + sizeof(buf);
 	}
 	va_end(ap);
@@ -1429,6 +1439,7 @@ static void show_map_vma(unsigned char *Userthread_maps,
 	char tpath[512];
 	char *path_p = NULL;
 	char str[512];
+	int len;
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
@@ -1476,13 +1487,15 @@ static void show_map_vma(unsigned char *Userthread_maps,
 		}
 
 		if (vma_get_anon_name(vma)) {
-			snprintf(str, sizeof(str),
+			len = snprintf(str, sizeof(str),
 				"%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
 				start, end, flags & VM_READ ? 'r' : '-',
 				flags & VM_WRITE ? 'w' : '-',
 				flags & VM_EXEC ? 'x' : '-',
 				flags & VM_MAYSHARE ? 's' : 'p',
 				pgoff, MAJOR(dev), MINOR(dev), ino);
+			if (len <= 0)
+				return;
 			print_vma_name(Userthread_maps, Userthread_mapsLength,
 				vma, str);
 			return;
@@ -2106,13 +2119,16 @@ void Log2Buffer(struct aee_oops *oops, const char *fmt, ...)
 	char buf[256];
 	int len = 0;
 	va_list ap;
+	int n;
 
 	va_start(ap, fmt);
 	len = strlen(oops->userthread_maps.Userthread_maps);
 
 	if ((len + sizeof(buf)) < MaxMapsSize) {
-		vsnprintf(&oops->userthread_maps.Userthread_maps[len],
+		n = vsnprintf(&oops->userthread_maps.Userthread_maps[len],
 				sizeof(buf), fmt, ap);
+		if (n <= 0)
+			return;
 		oops->userthread_maps.Userthread_mapsLength = len + sizeof(buf);
 	}
 	va_end(ap);
@@ -2314,6 +2330,7 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 	int n = 0;
 	struct rtc_time tm;
 	struct timeval tv = { 0 };
+	int len;
 
 	if ((aee_mode >= AEE_MODE_CUSTOMER_USER || (aee_mode ==
 		AEE_MODE_CUSTOMER_ENG && attr == AE_DEFECT_WARNING))
@@ -2329,8 +2346,10 @@ static void kernel_reportAPI(const enum AE_DEFECT_ATTR attr, const int db_opt,
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec,
 			(unsigned int)tv.tv_usec);
-		snprintf(oops->backtrace + n, AEE_BACKTRACE_LENGTH - n,
+		len = snprintf(oops->backtrace + n, AEE_BACKTRACE_LENGTH - n,
 				"\nBacktrace:\n");
+		if (len <= 0)
+			return;
 		aed_get_traces(oops->backtrace);
 		oops->detail = (char *)(oops->backtrace);
 		oops->detail_len = strlen(oops->backtrace) + 1;
