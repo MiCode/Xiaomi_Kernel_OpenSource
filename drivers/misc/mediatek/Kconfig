@@ -262,6 +262,16 @@ source "drivers/misc/mediatek/devmpu/Kconfig"
 source "drivers/misc/mediatek/performance/Kconfig"
 endmenu # Other Peripheral
 
+menu "Performance, Power, and Thermal"
+config MTK_PERF_TRACKER
+	bool "MTK system performance index support"
+	help
+	  CONFIG_PERF_TRACKER define if system performance index should
+	  be built-in or not. It supports system related performance index
+	  via trace. If you are not sure about whether to enable it or not,
+	  please set n.
+endmenu # PPT
+
 menu "Memory configs"
 
 config MTK_SSMR
