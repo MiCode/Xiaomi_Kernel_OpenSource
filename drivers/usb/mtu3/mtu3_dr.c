@@ -179,7 +179,7 @@ static void ssusb_set_force_mode(struct ssusb_mtk *ssusb,
 		break;
 	case MTU3_DR_FORCE_HOST:
 		value |= SSUSB_U2_PORT_FORCE_IDDIG;
-		value &= ~(SSUSB_U2_PORT_RG_IDDIG | SSUSB_U2_PORT_OTG_SEL);
+		value &= ~SSUSB_U2_PORT_RG_IDDIG;
 		break;
 	case MTU3_DR_FORCE_NONE:
 		value &= ~(SSUSB_U2_PORT_FORCE_IDDIG | SSUSB_U2_PORT_RG_IDDIG);
