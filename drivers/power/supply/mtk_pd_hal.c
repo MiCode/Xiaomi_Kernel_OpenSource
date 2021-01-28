@@ -149,7 +149,7 @@ int pd_hal_get_adapter_cap(struct chg_alg_device *alg, struct pd_power_cap *cap)
 {
 	struct mtk_pd *pd;
 	struct pd_hal *hal;
-	struct adapter_power_cap acap;
+	struct adapter_power_cap acap = {0};
 	int i, ret;
 
 	if (alg == NULL) {

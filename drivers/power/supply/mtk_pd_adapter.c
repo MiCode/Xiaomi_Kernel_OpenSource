@@ -288,7 +288,7 @@ static int pd_get_cap(struct adapter_device *dev,
 	uint8_t cap_i = 0;
 	int ret;
 	int idx = 0;
-	int i, j;
+	unsigned int i, j;
 	struct mtk_pd_adapter_info *info;
 
 	info = (struct mtk_pd_adapter_info *)adapter_dev_get_drvdata(dev);

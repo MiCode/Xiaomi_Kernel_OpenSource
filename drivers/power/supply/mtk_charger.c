@@ -1907,6 +1907,7 @@ static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct mtk_charger *info = NULL;
 	int i;
+	char *name = NULL;
 
 	chr_err("%s: starts\n", __func__);
 
@@ -1921,8 +1922,10 @@ static int mtk_charger_probe(struct platform_device *pdev)
 	mutex_init(&info->cable_out_lock);
 	mutex_init(&info->charger_lock);
 	mutex_init(&info->pd_lock);
+	name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s",
+		"charger suspend wakelock");
 	info->charger_wakelock =
-		wakeup_source_register(NULL, "charger suspend wakelock");
+		wakeup_source_register(NULL, name);
 	spin_lock_init(&info->slock);
 
 	init_waitqueue_head(&info->wait_que);
