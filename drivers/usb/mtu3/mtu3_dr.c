@@ -140,6 +140,16 @@ int ssusb_set_vbus(struct otg_switch_mtk *otg_sx, int is_on)
 	dev_info(ssusb->dev, "%s: turn %s\n", __func__, is_on ? "on" : "off");
 
 	if (is_on) {
+		ret = regulator_set_voltage(vbus, 5000000, 5000000);
+		if (ret) {
+			dev_info(ssusb->dev, "vbus regulator set voltage failed\n");
+			return ret;
+		}
+		ret = regulator_set_current_limit(vbus, 1100000, 1100000);
+		if (ret) {
+			dev_info(ssusb->dev, "vbus regulator set current failed\n");
+			return ret;
+		}
 		ret = regulator_enable(vbus);
 		if (ret) {
 			dev_err(ssusb->dev, "vbus regulator enable failed\n");
