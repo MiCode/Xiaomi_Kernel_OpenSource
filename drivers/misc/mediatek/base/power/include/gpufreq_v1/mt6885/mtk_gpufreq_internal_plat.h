@@ -29,7 +29,7 @@
  **************************************************/
 #define MT_GPUFREQ_DVFS_ENABLE          1
 #define MT_GPUFREQ_CUST_CONFIG          0
-#define MT_GPUFREQ_CUST_INIT_OPP        SEG_GPU_DVFS_FREQ0
+#define MT_GPUFREQ_CUST_INIT_OPP        (850000)
 
 /**************************************************
  * DVFS Setting
@@ -86,7 +86,7 @@
 #define GPU_ACT_REF_POWER               (1285)                /* mW  */
 #define GPU_ACT_REF_FREQ                (900000)              /* KHz */
 #define GPU_ACT_REF_VOLT                (90000)               /* mV x 100 */
-#define PTPOD_DISABLE_VOLT              SEG_GPU_DVFS_VOLT0
+#define PTPOD_DISABLE_VOLT              (80000)
 
 /**************************************************
  * Battery Over Current Protect
