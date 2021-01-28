@@ -12,8 +12,8 @@
  */
 
 
-#ifndef _MTK_SECURE_API_H_
-#define _MTK_SECURE_API_H_
+#ifndef _MTK_SECURE_API_V1_6_H_
+#define _MTK_SECURE_API_V1_6_H_
 
 #include <linux/kernel.h>
 
@@ -231,4 +231,4 @@ mt_secure_call(MTK_SIP_KERNEL_EMIMPU_CLEAR, region, 0, 0, 0)
 #define emi_mpu_smc_protect(start, end, apc) \
 mt_secure_call(MTK_SIP_KERNEL_EMIMPU_SET, start, end, apc, 0)
 
-#endif				/* _MTK_SECURE_API_H_ */
+#endif				/* _MTK_SECURE_API_V1_6_H_ */
