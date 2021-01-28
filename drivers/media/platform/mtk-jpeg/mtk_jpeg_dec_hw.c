@@ -1,23 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016 MediaTek Inc.
- * Author: Ming Hsiu Tsai <minghsiu.tsai@mediatek.com>
- *         Rick Chang <rick.chang@mediatek.com>
+ * Copyright (c) 2019 MediaTek Inc.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
  */
 
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <media/videobuf2-core.h>
 
-#include "mtk_jpeg_hw.h"
+#include "mtk_jpeg_dec_hw.h"
 
 #define MTK_JPEG_DUNUM_MASK(val)	(((val) - 1) & 0x3)
 
@@ -34,7 +25,7 @@ enum mtk_jpeg_color {
 static inline int mtk_jpeg_verify_align(u32 val, int align, u32 reg)
 {
 	if (val & (align - 1)) {
-		pr_err("mtk-jpeg: write reg %x without %d align\n", reg, align);
+		pr_info("write reg %x without %d align\n", reg, align);
 		return -1;
 	}
 
@@ -301,6 +292,12 @@ static void mtk_jpeg_dec_set_dec_mode(void __iomem *base, u32 mode)
 	writel(mode & 0x03, base + JPGDEC_REG_OPERATION_MODE);
 }
 
+static void mtk_jpeg_dec_set_huffman_mode(void __iomem *base, u32 huffman_exist)
+{
+	if (huffman_exist == 0)
+		writel(0x01, base + JPGDEC_REG_ST_HUFFMAN_EN);
+}
+
 static void mtk_jpeg_dec_set_bs_write_ptr(void __iomem *base, u32 ptr)
 {
 	mtk_jpeg_verify_align(ptr, 16, JPGDEC_REG_FILE_BRP);
@@ -397,6 +394,7 @@ void mtk_jpeg_dec_set_config(void __iomem *base,
 				 config->comp_id[2]);
 	mtk_jpeg_dec_set_q_table(base, config->qtbl_num[0],
 				 config->qtbl_num[1], config->qtbl_num[2]);
+	mtk_jpeg_dec_set_huffman_mode(base, config->huffman_exist);
 	mtk_jpeg_dec_set_sampling_factor(base, config->comp_num,
 					 config->sampling_w[0],
 					 config->sampling_h[0],
