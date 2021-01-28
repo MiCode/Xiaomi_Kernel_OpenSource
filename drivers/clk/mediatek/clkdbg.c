@@ -926,7 +926,7 @@ static int clkdbg_set_rate(struct seq_file *s, void *v)
 	char *clk_name;
 	char *rate_str;
 	struct clk *clk;
-	unsigned long rate;
+	unsigned long rate = 0;
 	int r;
 
 	strncpy(cmd, last_cmd, sizeof(cmd));
@@ -961,7 +961,7 @@ static void *reg_from_str(const char *str)
 	static void __iomem *virt;
 
 	if (sizeof(void *) == sizeof(unsigned long)) {
-		unsigned long v;
+		unsigned long v = 0;
 
 		if (kstrtoul(str, 0, &v) == 0U) {
 			if ((0xf0000000 & v) < 0x20000000) {
@@ -1040,7 +1040,7 @@ static int parse_reg_val_from_cmd(void __iomem **preg, unsigned long *pval)
 static int clkdbg_reg_read(struct seq_file *s, void *v)
 {
 	void __iomem *reg;
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (parse_reg_val_from_cmd(&reg, NULL) != 1)
 		return 0;
@@ -1056,7 +1056,7 @@ static int clkdbg_reg_read(struct seq_file *s, void *v)
 static int clkdbg_reg_write(struct seq_file *s, void *v)
 {
 	void __iomem *reg;
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (parse_reg_val_from_cmd(&reg, &val) != 2)
 		return 0;
@@ -1073,7 +1073,7 @@ static int clkdbg_reg_write(struct seq_file *s, void *v)
 static int clkdbg_reg_set(struct seq_file *s, void *v)
 {
 	void __iomem *reg;
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (parse_reg_val_from_cmd(&reg, &val) != 2)
 		return 0;
@@ -1090,7 +1090,7 @@ static int clkdbg_reg_set(struct seq_file *s, void *v)
 static int clkdbg_reg_clr(struct seq_file *s, void *v)
 {
 	void __iomem *reg;
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (parse_reg_val_from_cmd(&reg, &val) != 2)
 		return 0;
@@ -1149,7 +1149,7 @@ static int clkdbg_show_flags(struct seq_file *s, void *v)
 
 static int clkdbg_set_flag(struct seq_file *s, void *v)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (parse_val_from_cmd(&val) != 1)
 		return 0;
@@ -1163,7 +1163,7 @@ static int clkdbg_set_flag(struct seq_file *s, void *v)
 
 static int clkdbg_clr_flag(struct seq_file *s, void *v)
 {
-	unsigned long val;
+	unsigned long val = 0;
 
 	if (parse_val_from_cmd(&val) != 1)
 		return 0;
