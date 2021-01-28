@@ -21,7 +21,7 @@
 #include <dt-bindings/clock/mt6779-clk.h>
 
 
-#define MT_CCF_PG_DEBUG		1
+#define MT_CCF_PG_DEBUG		0
 #define MT_CCF_BRINGUP		0
 #define CONTROL_LIMIT		1
 
