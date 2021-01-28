@@ -611,8 +611,6 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 	if (val_ly == 0x1)
 		lv = CPU_LEVEL_5;
 
-	lv = CPU_LEVEL_3;
-
 
 	turbo_flag = 0;
 	tag_pr_info("%d,%d,%d,%d,%d,%d,%d,%d\n",
