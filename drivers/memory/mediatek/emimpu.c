@@ -561,12 +561,13 @@ static int emimpu_probe(struct platform_device *pdev)
 	}
 
 	/* get EMI base addr */
-	emimpu_dev_ptr->emi_cen_cnt = of_property_count_elems_of_size(
+	ret = of_property_count_elems_of_size(
 			emicen_node, "reg", sizeof(unsigned int) * 4);
-	if (emimpu_dev_ptr->emi_cen_cnt <= 0) {
+	if (ret <= 0) {
 		pr_info("%s: get emi_cen_cnt fail\n", __func__);
 		return -EINVAL;
 	}
+	emimpu_dev_ptr->emi_cen_cnt = (unsigned int)ret;
 	emimpu_dev_ptr->emi_cen_base = devm_kmalloc_array(&pdev->dev,
 		emimpu_dev_ptr->emi_cen_cnt, sizeof(phys_addr_t), GFP_KERNEL);
 	if (!(emimpu_dev_ptr->emi_cen_base))
