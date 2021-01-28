@@ -46,6 +46,9 @@ static struct page *kbase_native_mgm_alloc(
 	struct memory_group_manager_device *mgm_dev, int group_id,
 	gfp_t gfp_mask, unsigned int order)
 {
+	struct page *page;
+	unsigned int i;
+
 	/*
 	 * Check that the base and the mgm defines, from separate header files,
 	 * for the max number of memory groups are compatible.
@@ -62,7 +65,12 @@ static struct page *kbase_native_mgm_alloc(
 	CSTD_UNUSED(mgm_dev);
 	CSTD_UNUSED(group_id);
 
-	return alloc_pages(gfp_mask, order);
+	page = alloc_pages(gfp_mask, order);
+	if (page) {
+		for (i = 0; i < (1 << order); i++)
+			SetPageIommu(&page[i]);
+	}
+	return page;
 }
 
 /**
