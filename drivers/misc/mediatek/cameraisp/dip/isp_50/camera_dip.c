@@ -2323,6 +2323,10 @@ static signed int DIP_P2_BufQue_Update_ListCIdx
 	if (property < 0)
 		return MFALSE;
 
+	if (P2_FrameUnit_List_Idx[property].curr < 0) {
+		LOG_ERR("curr is negative!(%d)\n", P2_FrameUnit_List_Idx[property].curr);
+		return MFALSE;
+	}
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_UNIT:
 		/* [1] check global pointer current sts */
@@ -2418,7 +2422,7 @@ static signed int DIP_P2_BufQue_Update_ListCIdx
  *
  **************************************************************/
 static signed int DIP_P2_BufQue_Erase
-	(enum DIP_P2_BUFQUE_PROPERTY property,
+	(enum DIP_P2_BUFQUE_PROPERTY enum_property,
 	enum DIP_P2_BUFQUE_LIST_TAG listTag,
 	signed int idx)
 {
@@ -2427,9 +2431,19 @@ static signed int DIP_P2_BufQue_Erase
 	int i = 0;
 	signed int cnt = 0;
 	int tmpIdx = 0;
+	unsigned int property = 0;
 
-	if (property < 0)
-		return MFALSE;
+	if (enum_property >= DIP_P2_BUFQUE_PROPERTY_NUM ||
+		enum_property < DIP_P2_BUFQUE_PROPERTY_DIP) {
+		LOG_ERR("property err(%d)\n", enum_property);
+		return -EINVAL;
+	}
+	if (idx ==  -1) {
+		LOG_ERR("idx can't be negative!!");
+		ret =  -EINVAL;
+		return ret;
+	}
+	property = (unsigned int)enum_property;
 
 	switch (listTag) {
 	case DIP_P2_BUFQUE_LIST_TAG_PACKAGE:
@@ -2760,6 +2774,10 @@ static inline unsigned int DIP_P2_BufQue_WaitEventState(
 		LOG_ERR("property err(%d)\n", param.property);
 		return ret;
 	}
+	if ((*idx) < 0) {
+		LOG_ERR("idx err(%d)\n", *idx);
+		return -EINVAL;
+	}
 	property = param.property;
 	if (property < 0)
 		return MFALSE;
@@ -2777,8 +2795,10 @@ static inline unsigned int DIP_P2_BufQue_WaitEventState(
 	case DIP_P2_BUFQUE_MATCH_TYPE_WAITFM:
 		spin_lock(&(SpinLock_P2FrameList));
 		index = *idx;
-		if (index < 0)
+		if (index < 0) {
+			spin_unlock(&(SpinLock_P2FrameList));
 			return MFALSE;
+		}
 		if (P2_FramePackage_List[property][index].dequedNum ==
 			P2_FramePackage_List[property][index].frameNum)
 			ret = MTRUE;
@@ -2962,6 +2982,18 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 				(P2_FrameUnit_List_Idx[property].end + 1) %
 				_MAX_SUPPORT_P2_FRAME_NUM_;
 		}
+		if (P2_FrameUnit_List_Idx[property].curr < 0) {
+			LOG_ERR("p2 frame curr idx is negative(%d)!!",
+			P2_FrameUnit_List_Idx[property].curr);
+			ret =  -EFAULT;
+			return ret;
+		}
+		if (P2_FrameUnit_List_Idx[property].end < 0) {
+			LOG_ERR("p2 frame idx is negative(%d)!!",
+			P2_FrameUnit_List_Idx[property].end);
+			ret =  -EFAULT;
+			return ret;
+		}
 		P2_FrameUnit_List[property][P2_FrameUnit_List_Idx[property]
 			.end].processID = param.processID;
 		P2_FrameUnit_List[property][P2_FrameUnit_List_Idx[property]
@@ -2989,6 +3021,12 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 				P2_FramePack_List_Idx[property].end =
 				(P2_FramePack_List_Idx[property].end + 1) %
 				_MAX_SUPPORT_P2_PACKAGE_NUM_;
+			}
+			if (P2_FramePack_List_Idx[property].end < 0) {
+				LOG_ERR("p2 package idx is negative(%d)!!",
+				P2_FramePack_List_Idx[property].end);
+				ret =  -EFAULT;
+				return ret;
 			}
 			P2_FramePackage_List[property]
 				[P2_FramePack_List_Idx[property].end]
@@ -3150,6 +3188,14 @@ static signed int DIP_P2_BufQue_CTRL_FUNC(
 			DIP_P2_BUFQUE_MATCH_TYPE_WAITFMEQD,
 			&idx),
 			DIP_UsToJiffies(15 * 1000000));
+		if (idx ==  -1) {
+			LOG_ERR("can't find buf idx(pty/pid/cid:%d/0x%x/0x%x)",
+			param.property,
+			param.processID,
+			param.callerID);
+			ret =  -EFAULT;
+			return ret;
+		}
 		if (restTime == 0) {
 			LOG_ERR("could not find match buffer restTime(%d)",
 				restTime);
@@ -4418,6 +4464,7 @@ static signed int DIP_probe(struct platform_device *pDev)
 
 		if (i >= DIP_IRQ_TYPE_AMOUNT)
 			LOG_INF("No corresponding ISR!!\n");
+		else
 			LOG_INF("nr_dip_devs=%d, devnode(%s), irq=%d\n",
 				nr_dip_devs,
 				pDev->dev.of_node->name,
