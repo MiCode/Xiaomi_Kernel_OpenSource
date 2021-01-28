@@ -1643,6 +1643,13 @@ static int android_setup(struct usb_gadget *gadget,
 	int value = -EOPNOTSUPP;
 	struct usb_function_instance *fi;
 
+	spin_lock_irqsave(&gi->spinlock, flags);
+	if (!cdev || gi->unbind) {
+		spin_unlock_irqrestore(&gi->spinlock, flags);
+		return 0;
+	}
+	spin_unlock_irqrestore(&gi->spinlock, flags);
+
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (!gi->connected) {
 		gi->connected = 1;
@@ -1651,10 +1658,6 @@ static int android_setup(struct usb_gadget *gadget,
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	spin_lock_irqsave(&gi->spinlock, flags);
-	if (!cdev || gi->unbind) {
-		spin_unlock_irqrestore(&gi->spinlock, flags);
-		return 0;
-	}
 	list_for_each_entry(fi, &gi->available_func, cfs_list) {
 		if (fi != NULL && fi->f != NULL && fi->f->setup != NULL) {
 			value = fi->f->setup(fi->f, c);
