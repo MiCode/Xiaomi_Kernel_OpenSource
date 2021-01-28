@@ -8,3 +8,8 @@ ifneq ($(CONFIG_MACH_MT6761),)
 obj-$(CONFIG_MTK_QOS_FRAMEWORK) += mtk_qos_legacy.o
 mtk_qos_legacy-objs := qos-v61.o
 endif
+
+ifneq ($(CONFIG_MACH_MT6765),)
+obj-$(CONFIG_MTK_QOS_FRAMEWORK) += mtk_qos_legacy.o
+mtk_qos_legacy-objs := qos-v61.o
+endif

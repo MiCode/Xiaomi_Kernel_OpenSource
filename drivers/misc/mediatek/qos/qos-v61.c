@@ -196,6 +196,9 @@ static const struct of_device_id mtk_qos_of_match[] = {
 		.compatible = "mediatek,mt6761-qos",
 		.data = &mt6761_qos_data,
 	}, {
+		.compatible = "mediatek,mt6765-qos",
+		.data = &mt6761_qos_data,
+	}, {
 		/* sentinel */
 	},
 };
