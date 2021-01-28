@@ -20,6 +20,14 @@
 	struct kobj_attribute kobj_attr_##_name =	\
 		__ATTR(_name, 0440,	\
 		_name##_show, NULL)
+#define KOBJ_ATTR_RWO(_name)     \
+	struct kobj_attribute kobj_attr_##_name =       \
+		__ATTR(_name, 0664,     \
+		_name##_show, _name##_store)
+#define KOBJ_ATTR_ROO(_name)	\
+	struct kobj_attribute kobj_attr_##_name =	\
+		__ATTR(_name, 0444,	\
+		_name##_show, NULL)
 
 int fpsgo_sysfs_create_dir(struct kobject *parent,
 		const char *name, struct kobject **ppsKobj);
