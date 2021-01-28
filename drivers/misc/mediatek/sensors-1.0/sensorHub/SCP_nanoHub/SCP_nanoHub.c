@@ -903,7 +903,7 @@ static void SCP_sensorHub_init_sensor_state(void)
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
-		int sensor_type)
+		uint8_t sensor_type)
 {
 	uint8_t alt = mSensorState[sensor_type].alt;
 	bool enable = 0;
