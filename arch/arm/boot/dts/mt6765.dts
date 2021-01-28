@@ -267,38 +267,38 @@
 		#clock-cells = <1>;
 	};
 
-	iocfg_lt: iocfg_lt@10002000 {
-		compatible = "mediatek,iocfg_lt";
+	io_cfg_lt: io_cfg_lt@10002000 {
+		compatible = "mediatek,io_cfg_lt";
 		reg = <0 0x10002000 0 0x200>;
 	};
 
-	iocfg_lm: iocfg_lm@10002200 {
-		compatible = "mediatek,iocfg_lm";
+	io_cfg_lm: io_cfg_lm@10002200 {
+		compatible = "mediatek,io_cfg_lm";
 		reg = <0 0x10002200 0 0x200>;
 	};
 
-	iocfg_lb: iocfg_lb@10002400 {
-		compatible = "mediatek,iocfg_lb";
+	io_cfg_lb: io_cfg_lb@10002400 {
+		compatible = "mediatek,io_cfg_lb";
 		reg = <0 0x10002400 0 0x200>;
 	};
 
-	iocfg_bl: iocfg_bl@10002600 {
-		compatible = "mediatek,iocfg_bl";
+	io_cfg_bl: io_cfg_bl@10002600 {
+		compatible = "mediatek,io_cfg_bl";
 		reg = <0 0x10002600 0 0x200>;
 	};
 
-	iocfg_rr: iocfg_rr@10002800 {
-		compatible = "mediatek,iocfg_rr";
+	io_cfg_rr: io_cfg_rr@10002800 {
+		compatible = "mediatek,io_cfg_rr";
 		reg = <0 0x10002800 0 0x200>;
 	};
 
-	iocfg_rb: iocfg_rb@10002a00 {
-		compatible = "mediatek,iocfg_rb";
+	io_cfg_rb: io_cfg_rb@10002a00 {
+		compatible = "mediatek,io_cfg_rb";
 		reg = <0 0x10002a00 0 0x200>;
 	};
 
-	iocfg_rt: iocfg_rt@10002c00 {
-		compatible = "mediatek,iocfg_rt";
+	io_cfg_rt: io_cfg_rt@10002c00 {
+		compatible = "mediatek,io_cfg_rt";
 		reg = <0 0x10002c00 0 0x200>;
 	};
 
@@ -330,13 +330,13 @@
 	pio: pinctrl@1000b000 {
 		compatible = "mediatek,mt6765-pinctrl";
 		reg_bases = <&gpio>,
-			<&iocfg_lt>,
-			<&iocfg_lm>,
-			<&iocfg_lb>,
-			<&iocfg_bl>,
-			<&iocfg_rr>,
-			<&iocfg_rb>,
-			<&iocfg_rt>;
+			<&io_cfg_lt>,
+			<&io_cfg_lm>,
+			<&io_cfg_lb>,
+			<&io_cfg_bl>,
+			<&io_cfg_rr>,
+			<&io_cfg_rb>,
+			<&io_cfg_rt>;
 		pins-are-numbered;
 		gpio-controller;
 		gpio-ranges = <&pio 0 0 179>;
