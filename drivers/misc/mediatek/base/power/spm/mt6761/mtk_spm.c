@@ -110,7 +110,7 @@ void spm_pm_stay_awake(int sec)
 
 static int is_pmic_mrv(void)
 {
-	int ret, tmp_val;
+	int ret, tmp_val = 0;
 	struct regmap *regmap = spm_priv->regmap;
 
 	ret = regmap_read(regmap, PMIC_RG_TOP2_RSV0_ADDR, &tmp_val);
