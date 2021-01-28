@@ -19,7 +19,7 @@
 #include <linux/delay.h>
 #include <linux/power_supply.h>
 
-#include "mtk_charger.h"
+#include "richtek/rt-flashlight.h"
 
 #include "flashlight-core.h"
 #include "flashlight-dt.h"
