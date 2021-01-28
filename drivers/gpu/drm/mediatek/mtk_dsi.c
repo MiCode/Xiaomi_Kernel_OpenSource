@@ -1918,10 +1918,13 @@ static void mtk_output_dsi_disable(struct mtk_dsi *dsi,
 	int force_lcm_update)
 {
 	bool new_doze_state = mtk_dsi_doze_state(dsi);
+	struct mtk_drm_crtc *mtk_crtc = to_mtk_crtc(dsi->encoder.crtc);
 
 	DDPINFO("%s+ doze_enabled:%d\n", __func__, new_doze_state);
 	if (!dsi->output_en)
 		return;
+
+	mtk_drm_crtc_wait_blank(mtk_crtc);
 
 	/* 1. If not doze mode, turn off backlight */
 	if (dsi->panel && (!new_doze_state || force_lcm_update)) {

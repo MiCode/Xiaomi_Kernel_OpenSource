@@ -2496,9 +2496,16 @@ static int layering_rule_start(struct drm_mtk_layering_info *disp_info_user,
 	 * All the gles layers set as same layer id.
 	 */
 	if (l_rule_ops->rollback_all_to_GPU_for_idle != NULL &&
-	    l_rule_ops->rollback_all_to_GPU_for_idle(dev)) {
+			l_rule_ops->rollback_all_to_GPU_for_idle(dev)) {
+		int i;
+
 		roll_gpu_for_idle = 1;
 		rollback_all_to_GPU(&layering_info, HRT_PRIMARY);
+		/* TODO: assume resize layer would be 2 */
+		for (i = 0 ; i < layering_info.layer_num[disp_idx] ; i++)
+			layering_info.input_config[HRT_PRIMARY][i].layer_caps &=
+				~MTK_DISP_RSZ_LAYER;
+		l_rule_info->addon_scn[HRT_PRIMARY] = NONE;
 		layering_info.hrt_num = HRT_LEVEL_LEVEL0;
 		layering_info.hrt_weight = 2;
 	}
