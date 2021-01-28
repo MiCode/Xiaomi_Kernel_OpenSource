@@ -38,3 +38,4 @@ obj-$(CONFIG_MACH_MT6885) += helio-dvfsrc-opp-mt6885.o helio-dvfsrc-mt6885.o hel
 obj-$(CONFIG_MACH_MT6873) += helio-dvfsrc-opp-mt6873.o helio-dvfsrc-mt6873.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
 obj-$(CONFIG_MACH_MT6853) += helio-dvfsrc-opp-mt6853.o helio-dvfsrc-mt6853.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
 obj-$(CONFIG_MACH_MT6893) += helio-dvfsrc-opp-mt6893.o helio-dvfsrc-mt6893.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
+obj-$(CONFIG_MACH_MT6833) += helio-dvfsrc-opp-mt6833.o helio-dvfsrc-mt6833.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o

@@ -16,12 +16,13 @@
 #include <helio-dvfsrc-qos.h>
 #include <mtk_dvfsrc_reg_v2.h>
 #if defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
-	|| defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)
+	|| defined(CONFIG_MACH_MT6853) || defined(CONFIG_MACH_MT6893)\
+	|| defined(CONFIG_MACH_MT6833)
 #include <mtk_dvfsrc_smc_reg.h>
 #endif
 
 #if defined(CONFIG_MACH_MT6873) || defined(CONFIG_MACH_MT6853)\
-	|| defined(CONFIG_MACH_MT6893)
+	|| defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6833)
 #define DVFSRC_SUSPEND_SUPPORT
 #endif
 
