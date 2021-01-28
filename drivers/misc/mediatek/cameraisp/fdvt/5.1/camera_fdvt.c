@@ -460,6 +460,7 @@ static struct SV_LOG_STR sv_log[FDVT_IRQ_TYPE_AMOUNT];
 	unsigned int str_leng;\
 	unsigned int i = 0;\
 	unsigned int index = 0;\
+	int ret; \
 	struct SV_LOG_STR *src = &sv_log[irq];\
 	if (log_t == _LOG_ERR) {\
 		str_leng = NORMAL_STR_LEN * ERR_PAGE;\
@@ -474,9 +475,12 @@ static struct SV_LOG_STR sv_log[FDVT_IRQ_TYPE_AMOUNT];
 	(char *)&(sv_log[irq]._str[ppb][log_t][sv_log[irq]._cnt[ppb][log_t]]);\
 	ava_len = str_leng - 1 - sv_log[irq]._cnt[ppb][log_t];\
 	if (ava_len > 1) {\
-		snprintf((char *)(des), ava_len, "[%d.%06d]" fmt,\
+		ret = snprintf((char *)(des), ava_len, "[%d.%06d]" fmt,\
 		sv_log[irq]._lastIrqTime.sec, sv_log[irq]._lastIrqTime.usec,\
 		##__VA_ARGS__);\
+		if (ret < 0) { \
+			log_err("snprintf fail(%d)\n", ret); \
+		} \
 		if ('\0' != sv_log[irq]._str[ppb][log_t][str_leng - 1]) {\
 			log_err("log str over flow(%d)", irq);\
 		} \
@@ -532,7 +536,10 @@ static struct SV_LOG_STR sv_log[FDVT_IRQ_TYPE_AMOUNT];
 			ptr = des = \
 			(char *)&src->_str[ppb][log_t][src->_cnt[ppb][log_t]];\
 			ptr2 = &src->_cnt[ppb][log_t];\
-			snprintf((char *)(des), ava_len, fmt, ##__VA_ARGS__);\
+		ret = snprintf((char *)(des), ava_len, fmt, ##__VA_ARGS__);\
+		if (ret < 0) { \
+			log_err("snprintf fail(%d)\n", ret); \
+		} \
 			while (*ptr++ != '\0') {\
 				(*ptr2)++;\
 			} \
