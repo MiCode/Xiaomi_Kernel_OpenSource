@@ -632,6 +632,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
+		reserve-memory-adsp_share {
+			compatible = "mediatek,reserve-memory-adsp_share";
+			no-map;
+			size = <0 0x1000000>;
+			alignment = <0 0x10000>;
+			alloc-ranges = <0 0x40000000 0 0x40000000>;
+		};
+
 		reserve-memory-scp_share {
 			compatible = "mediatek,reserve-memory-scp_share";
 			no-map;
@@ -1668,6 +1676,30 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			gpio-feature = "gpio-mode";
 			gpio-feature-cfg = <1>;
 			gpio-mode-reg = <0x410 0x7 24 1>;
+		};
+
+		adsp: adsp@10600000 {
+			compatible = "mediatek,audio_dsp";
+			reg = <0 0x10600000 0 0x10000>,   /*ctrl reg*/
+				<0 0x10630000 0 0x9000>,  /* ITCM */
+				<0 0x10610000 0 0x8000>,  /* DTCM */
+				<0 0x10001000 0 0x1000>,  /* infracfg_ao */
+				<0 0x10003000 0 0x1000>;  /* pericfg */
+			interrupts = <GIC_SPI 182 IRQ_TYPE_LEVEL_LOW>,
+				<GIC_SPI 183 IRQ_TYPE_LEVEL_LOW>;
+			clocks = <&infracfg_ao INFRACFG_AO_FADSP_CG>,
+				<&topckgen TOP_MUX_ADSP>,
+				<&clk26m>,
+				<&topckgen TOP_MMPLL_D4>,
+				<&topckgen TOP_ADSPPLL_D4>,
+				<&topckgen TOP_ADSPPLL_D6>;
+			clock-names = "clk_adsp_infra",
+				"clk_top_adsp_sel",
+				"clk_adsp_clk26m",
+				"clk_top_mmpll_d4",
+				"clk_top_adsppll_d4",
+				"clk_top_adsppll_d6";
+			sysram = /bits/ 64 <0x55c00000 0x700000>;
 		};
 
 		auxadc: auxadc@11001000 {
