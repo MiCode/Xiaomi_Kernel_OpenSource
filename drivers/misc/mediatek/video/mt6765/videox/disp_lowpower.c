@@ -795,7 +795,7 @@ void _vdo_mode_enter_idle(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), bandwidth);
-	pm_qos_update_request(&primary_display_qos_request, bandwidth);
+	mtk_pm_qos_update_request(&primary_display_qos_request, bandwidth);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
@@ -857,7 +857,7 @@ void _vdo_mode_leave_idle(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), bandwidth);
-	pm_qos_update_request(&primary_display_qos_request, bandwidth);
+	mtk_pm_qos_update_request(&primary_display_qos_request, bandwidth);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
@@ -886,7 +886,7 @@ void _cmd_mode_enter_idle(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), 0);
-	pm_qos_update_request(&primary_display_qos_request, 0);
+	mtk_pm_qos_update_request(&primary_display_qos_request, 0);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), 0);
@@ -923,7 +923,7 @@ void _cmd_mode_leave_idle(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), bandwidth);
-	pm_qos_update_request(&primary_display_qos_request, bandwidth);
+	mtk_pm_qos_update_request(&primary_display_qos_request, bandwidth);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
@@ -980,7 +980,7 @@ int primary_display_request_dvfs_perf(
 
 		emi_opp =
 			(opp_level >= HRT_OPP_LEVEL_DEFAULT) ?
-				PM_QOS_DDR_OPP_DEFAULT_VALUE : opp_level;
+				MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE : opp_level;
 		mm_freq =
 			(opp_level >= HRT_OPP_LEVEL_DEFAULT) ?
 				PM_QOS_MM_FREQ_DEFAULT_VALUE :
@@ -994,9 +994,9 @@ int primary_display_request_dvfs_perf(
 			MMPROFILE_FLAG_START,
 			scenario, (req << 16) |
 			(atomic_read(&dvfs_ovl_req_status) & 0xFFFF));
-		pm_qos_update_request(&primary_display_emi_opp_request,
+		mtk_pm_qos_update_request(&primary_display_emi_opp_request,
 					emi_opp);
-		pm_qos_update_request(&primary_display_mm_freq_request,
+		mtk_pm_qos_update_request(&primary_display_mm_freq_request,
 					mm_freq);
 		mmprofile_log_ex(ddp_mmp_get_events()->dvfs, MMPROFILE_FLAG_END,
 			scenario, (mm_freq << 16) | (emi_opp & 0xFFFF));

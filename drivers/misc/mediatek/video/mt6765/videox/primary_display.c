@@ -89,7 +89,7 @@
 #include "ddp_aal.h"
 #include "ddp_gamma.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
 
 #define MMSYS_CLK_LOW (0)
@@ -146,9 +146,9 @@ static struct task_struct *decouple_update_rdma_config_thread;
 static struct task_struct *decouple_trigger_thread;
 static struct task_struct *init_decouple_buffer_thread;
 #ifdef MTK_FB_MMDVFS_SUPPORT
-struct pm_qos_request primary_display_qos_request;
-struct pm_qos_request primary_display_emi_opp_request;
-struct pm_qos_request primary_display_mm_freq_request;
+struct mtk_pm_qos_request primary_display_qos_request;
+struct mtk_pm_qos_request primary_display_emi_opp_request;
+struct mtk_pm_qos_request primary_display_mm_freq_request;
 #endif
 
 static int decouple_mirror_update_rdma_config_thread(void *data);
@@ -3348,7 +3348,7 @@ static int _ovl_fence_release_callback(unsigned long userdata)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), bandwidth);
-	pm_qos_update_request(&primary_display_qos_request, bandwidth);
+	mtk_pm_qos_update_request(&primary_display_qos_request, bandwidth);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
@@ -3762,11 +3762,12 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 			disp_helper_get_option(DISP_OPT_FPS_EXT_INTERVAL));
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	pm_qos_add_request(&primary_display_qos_request,
-		PM_QOS_MM_MEMORY_BANDWIDTH, PM_QOS_DEFAULT_VALUE);
-	pm_qos_add_request(&primary_display_emi_opp_request,
-		PM_QOS_DDR_OPP, PM_QOS_DDR_OPP_DEFAULT_VALUE);
-	pm_qos_add_request(&primary_display_mm_freq_request,
+	mtk_pm_qos_add_request(&primary_display_qos_request,
+		MTK_PM_QOS_MEMORY_BANDWIDTH,
+		MTK_PM_QOS_MEMORY_BANDWIDTH_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&primary_display_emi_opp_request,
+		MTK_PM_QOS_DDR_OPP, MTK_PM_QOS_DDR_OPP_DEFAULT_VALUE);
+	mtk_pm_qos_add_request(&primary_display_mm_freq_request,
 		PM_QOS_DISP_FREQ, PM_QOS_MM_FREQ_DEFAULT_VALUE);
 #endif
 
@@ -4370,9 +4371,9 @@ int primary_display_deinit(void)
 	_primary_path_unlock(__func__);
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-	pm_qos_remove_request(&primary_display_qos_request);
-	pm_qos_remove_request(&primary_display_emi_opp_request);
-	pm_qos_remove_request(&primary_display_mm_freq_request);
+	mtk_pm_qos_remove_request(&primary_display_qos_request);
+	mtk_pm_qos_remove_request(&primary_display_emi_opp_request);
+	mtk_pm_qos_remove_request(&primary_display_mm_freq_request);
 #endif
 
 	return 0;
@@ -4714,7 +4715,7 @@ int primary_display_suspend(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), 0);
-	pm_qos_update_request(&primary_display_qos_request, 0);
+	mtk_pm_qos_update_request(&primary_display_qos_request, 0);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), 0);
@@ -5124,7 +5125,7 @@ int primary_display_resume(void)
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_START,
 			!primary_display_is_decouple_mode(), bandwidth);
-	pm_qos_update_request(&primary_display_qos_request, bandwidth);
+	mtk_pm_qos_update_request(&primary_display_qos_request, bandwidth);
 	mmprofile_log_ex(ddp_mmp_get_events()->primary_pm_qos,
 			MMPROFILE_FLAG_END,
 			!primary_display_is_decouple_mode(), bandwidth);
@@ -6116,7 +6117,8 @@ static void _ovl_yuv_throughput_freq_request
 				layering_rule_get_mm_freq_table
 					(mm_dvfs_level)) {
 #ifdef MTK_FB_MMDVFS_SUPPORT
-			pm_qos_update_request(&primary_display_mm_freq_request,
+			mtk_pm_qos_update_request(
+				&primary_display_mm_freq_request,
 				layering_rule_get_mm_freq_table(mm_dvfs_level));
 			DISPDBG("%s request_mm_freq=%d\n",
 				__func__,

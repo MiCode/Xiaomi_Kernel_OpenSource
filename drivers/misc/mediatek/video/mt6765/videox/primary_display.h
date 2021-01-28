@@ -13,16 +13,16 @@
 #include "disp_lcm.h"
 #include "disp_helper.h"
 #ifdef MTK_FB_MMDVFS_SUPPORT
-#include <linux/pm_qos.h>
+#include <linux/soc/mediatek/mtk-pm-qos.h>
 #endif
 #include "mt-plat/mtk_smi.h"
 #include "mtk_smi.h"
 
 
 #ifdef MTK_FB_MMDVFS_SUPPORT
-extern struct pm_qos_request primary_display_qos_request;
-extern struct pm_qos_request primary_display_emi_opp_request;
-extern struct pm_qos_request primary_display_mm_freq_request;
+extern struct mtk_pm_qos_request primary_display_qos_request;
+extern struct mtk_pm_qos_request primary_display_emi_opp_request;
+extern struct mtk_pm_qos_request primary_display_mm_freq_request;
 #endif
 
 enum DISP_PRIMARY_PATH_MODE {
