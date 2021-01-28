@@ -38,6 +38,7 @@
 #include <linux/uaccess.h>
 #include <linux/pm_runtime.h>
 #include <linux/ktime.h>
+#include "mt-plat/mtk_printk_ctrl.h"
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -1699,7 +1700,7 @@ static void serial8250_read_char(struct uart_8250_port *up, unsigned char lsr)
 		#ifdef CONFIG_MTK_ENG_BUILD
 		#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
 			if (ch == 'c')
-				printk_disable_uart = 0;
+				mt_enable_uart();
 		#endif
 		#endif
 		#endif
