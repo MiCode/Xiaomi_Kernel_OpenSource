@@ -37,7 +37,7 @@
 #include <mt-plat/mtk_wd_api.h>
 #include <linux/seq_file.h>
 #include <uapi/linux/sched/types.h>
-extern unsigned long long notrace sched_clock(void);
+#include <linux/sched/clock.h>
 
 /*************************************************************************
  * Feature configure region
