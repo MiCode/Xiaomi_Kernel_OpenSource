@@ -1218,6 +1218,8 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_mtkdev[vcuid]->vcuid = vcuid;
 
 	vcu_queue = mtk_vcu_dec_init(vcu_mtkdev[vcuid]->dev);
+	if (vcu_queue == NULL)
+		return -ENOMEM;
 	vcu_queue->vcu = vcu_mtkdev[vcuid];
 	file->private_data = vcu_queue;
 
