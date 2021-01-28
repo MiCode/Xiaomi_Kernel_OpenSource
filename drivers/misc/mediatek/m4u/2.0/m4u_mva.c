@@ -179,7 +179,6 @@ unsigned int get_first_valid_mva(void)
 	return mva;
 }
 
-
 void *mva_get_priv(unsigned int mva)
 {
 	void *priv = NULL;
@@ -516,7 +515,6 @@ m4u_do_mva_alloc_start_from(unsigned long va, unsigned int mva,
 
 	return (mvaRegionStart << MVA_BLOCK_SIZE_ORDER) + mva_pageOffset(va);
 }
-
 
 #define RightWrong(x) ((x) ? "correct" : "error")
 int m4u_do_mva_free(unsigned int mva, unsigned int size)

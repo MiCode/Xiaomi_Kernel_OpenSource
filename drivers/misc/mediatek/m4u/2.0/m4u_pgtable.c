@@ -5,6 +5,7 @@
 
 #include <asm/cacheflush.h>
 #include <linux/slab.h>
+#include <linux/kmemleak.h>
 #include <linux/dma-mapping.h>
 
 #include "m4u_priv.h"
@@ -246,8 +247,13 @@ void m4u_dump_pte_nolock(struct m4u_domain *domain, unsigned int mva)
 {
 	struct m4u_pte_info pte_info;
 
-	m4u_get_pte_info(domain, mva, &pte_info);
+	m4u_get_pte_info(domain, mva - 0x1000, &pte_info);
+	__m4u_print_pte(&pte_info, NULL);
 
+	m4u_get_pte_info(domain, mva, &pte_info);
+	__m4u_print_pte(&pte_info, NULL);
+
+	m4u_get_pte_info(domain, mva + 0x1000, &pte_info);
 	__m4u_print_pte(&pte_info, NULL);
 }
 
@@ -459,11 +465,19 @@ int m4u_alloc_pte(struct m4u_domain *domain, struct imu_pgd *pgd,
 {
 	void *pte_new_va;
 	phys_addr_t pte_new;
+	unsigned int retry_cnt = 0;
 
 	/* pte_new_va = (unsigned int)kzalloc(IMU_BYTES_PER_PTE, GFP_KERNEL); */
 	/* pte_new_va = (unsigned int)get_zeroed_page(GFP_KERNEL); */
 	write_unlock_domain(domain);
-	pte_new_va = kmem_cache_zalloc(gM4u_pte_kmem, GFP_KERNEL | GFP_DMA);
+	for (retry_cnt = 0; retry_cnt < 5; retry_cnt++) {
+		pte_new_va = kmem_cache_zalloc(gM4u_pte_kmem,
+					       GFP_KERNEL | GFP_DMA);
+		if (likely(pte_new_va)) {
+			kmemleak_ignore(pte_new_va); //ignored by kmemleak tool
+			break;
+		}
+	}
 	write_lock_domain(domain);
 	if (unlikely(!pte_new_va)) {
 		m4u_aee_err("%s: fail, nomemory\n", __func__);
@@ -471,6 +485,12 @@ int m4u_alloc_pte(struct m4u_domain *domain, struct imu_pgd *pgd,
 	}
 	pte_new = __pa(pte_new_va);
 
+	if (pte_new > 0xffffffffL) {
+		if (!!(pte_new & 0x100000000LL))
+			(pgprot) = (pgprot) | F_PGD_BIT32_BIT;
+		if (!!(pte_new & 0x200000000LL))
+			(pgprot) = (pgprot) | F_PGD_BIT33_BIT;
+	}
 	/* check again in case someone else may
 	 * have allocated for this pgd first
 	 */
@@ -660,13 +680,6 @@ int m4u_map_64K(struct m4u_domain *m4u_domain, unsigned int mva,
 		else
 			pte_new = 1;
 	} else {
-		if (unlikely((imu_pgd_val(*pgd) &
-			      (~F_PGD_PA_PAGETABLE_MSK)) != pgprot)) {
-			write_unlock_domain(m4u_domain);
-			m4u_aee_err("%s: mva=0x%x, pgd=0x%x, pgprot=0x%x\n",
-				    __func__, mva, imu_pgd_val(*pgd), pgprot);
-			return -1;
-		}
 		pte_new = 0;
 	}
 
@@ -744,14 +757,6 @@ int m4u_map_4K(struct m4u_domain *m4u_domain, unsigned int mva, phys_addr_t pa,
 		else
 			pte_new = 1;
 	} else {
-		if (unlikely((imu_pgd_val(*pgd) &
-			      (~F_PGD_PA_PAGETABLE_MSK)) != pgprot)) {
-			write_unlock_domain(m4u_domain);
-			m4u_aee_err("%s: mva=0x%x, pgd=0x%x, pgprot=0x%x\n",
-				    __func__, mva,
-				    imu_pgd_val(*pgd), pgprot);
-			return -1;
-		}
 		pte_new = 0;
 	}
 
