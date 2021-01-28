@@ -24,27 +24,6 @@
 
 #include "lockdep_internals.h"
 
-#ifdef CONFIG_MTK_BOOT
-#include <mt-plat/mtk_boot_common.h>
-#endif
-
-#ifdef MTK_ENHANCE_LOCKDEP_PROC
-static unsigned int lockdep_mode;
-
-#define __USAGE(__STATE)						\
-	[LOCK_USED_IN_##__STATE] = "IN-"__stringify(__STATE)"-W",	\
-	[LOCK_ENABLED_##__STATE] = __stringify(__STATE)"-ON-W",		\
-	[LOCK_USED_IN_##__STATE##_READ] = "IN-"__stringify(__STATE)"-R",\
-	[LOCK_ENABLED_##__STATE##_READ] = __stringify(__STATE)"-ON-R",
-
-static const char * const usage_str[] = {
-#define LOCKDEP_STATE(__STATE) __USAGE(__STATE)
-#include "lockdep_states.h"
-#undef LOCKDEP_STATE
-	[LOCK_USED] = "INITIAL USE",
-};
-#endif
-
 static void *l_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	return seq_list_next(v, &all_lock_classes, pos);
@@ -76,20 +55,6 @@ static void print_name(struct seq_file *m, struct lock_class *class)
 	}
 }
 
-#ifdef MTK_ENHANCE_LOCKDEP_PROC
-static void lock_show_trace(struct seq_file *m, struct stack_trace *trace)
-{
-	int i;
-
-	if (!trace->entries)
-		return;
-
-	for (i = 0; i < trace->nr_entries; i++)
-		seq_printf(m, "%*c%pS\n", 7, ' ',
-			   (void *)trace->entries[i]);
-}
-#endif
-
 static int l_show(struct seq_file *m, void *v)
 {
 	struct lock_class *class = list_entry(v, struct lock_class, lock_entry);
@@ -102,11 +67,6 @@ static int l_show(struct seq_file *m, void *v)
 	}
 
 	seq_printf(m, "%p", class->key);
-#ifdef MTK_ENHANCE_LOCKDEP_PROC
-	/* 0x10: print key information */
-	if (lockdep_mode & 0x10)
-		seq_printf(m, " <%ps>", class->key);
-#endif
 #ifdef CONFIG_DEBUG_LOCKDEP
 	seq_printf(m, " OPS:%8ld", class->ops);
 #endif
@@ -122,44 +82,6 @@ static int l_show(struct seq_file *m, void *v)
 	print_name(m, class);
 	seq_puts(m, "\n");
 
-#ifdef MTK_ENHANCE_LOCKDEP_PROC
-	/* 0x1: print usage traces of this lock */
-	if (lockdep_mode & 0x1) {
-		int bit;
-
-		for (bit = 0; bit < LOCK_USAGE_STATES; bit++) {
-			if (class->usage_mask & (1 << bit)) {
-				seq_printf(m, "%s:\n", usage_str[bit]);
-				lock_show_trace(m, class->usage_traces + bit);
-			}
-		}
-		seq_puts(m, "-------------------------------------------\n");
-	}
-
-	list_for_each_entry(entry, &class->locks_after, entry) {
-		/* 0x4: print locks with all distance in locks_after */
-		if (entry->distance == 1 || (lockdep_mode & 0x4)) {
-			seq_printf(m, " -> [%p] ", entry->class->key);
-			print_name(m, entry->class);
-			seq_printf(m, " [FD][%d]", entry->distance);
-			seq_puts(m, "\n");
-		/* 0x2: print entry trace of dependency locks in locks_after */
-			if (lockdep_mode & 0x2)
-				lock_show_trace(m, &entry->trace);
-		}
-	}
-
-	/* 0x8: print locks with all distance in locks_before */
-	if (lockdep_mode & 0x8) {
-		list_for_each_entry(entry, &class->locks_before, entry) {
-			seq_printf(m, " -> [%p] ", entry->class->key);
-			print_name(m, entry->class);
-			seq_printf(m, " [BD][%d]", entry->distance);
-			seq_puts(m, "\n");
-		}
-	}
-	seq_puts(m, "\n");
-#else
 	list_for_each_entry(entry, &class->locks_after, entry) {
 		if (entry->distance == 1) {
 			seq_printf(m, " -> [%p] ", entry->class->key);
@@ -168,7 +90,6 @@ static int l_show(struct seq_file *m, void *v)
 		}
 	}
 	seq_puts(m, "\n");
-#endif
 
 	return 0;
 }
@@ -179,54 +100,6 @@ static const struct seq_operations lockdep_ops = {
 	.stop	= l_stop,
 	.show	= l_show,
 };
-
-#ifdef MTK_ENHANCE_LOCKDEP_PROC
-static int lockdep_open(struct inode *inode, struct file *file)
-{
-	return seq_open(file, &lockdep_ops);
-}
-
-/*
- * 0x0: print basic dependency information
- * 0x1: print usage traces of this lock
- * 0x2: print entry trace of dependency locks in locks_after
- * 0x4: print locks with all distance in locks_after
- * 0x8: print locks with all distance in locks_before
- * 0x10: print key information
- */
-static ssize_t
-lockdep_write(struct file *filp, const char *ubuf,
-	      size_t cnt, loff_t *data)
-{
-	char buf[16];
-	int ret;
-
-	if (cnt >= sizeof(buf) || cnt <= 0)
-		return cnt;
-
-	if (copy_from_user(&buf, ubuf, cnt))
-		return -EFAULT;
-
-	buf[cnt] = 0;
-
-	ret = kstrtouint(buf, 16, &lockdep_mode);
-	if (ret)
-		return ret;
-
-	if (lockdep_mode > 0x1f)
-		lockdep_mode = 0;
-
-	return cnt;
-}
-
-static const struct file_operations proc_lockdep_ops = {
-	.open		= lockdep_open,
-	.write		= lockdep_write,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= seq_release,
-};
-#endif
 
 #ifdef CONFIG_PROVE_LOCKING
 static void *lc_start(struct seq_file *m, loff_t *pos)
@@ -775,15 +648,7 @@ static const struct file_operations proc_lock_stat_operations = {
 
 static int __init lockdep_proc_init(void)
 {
-#ifdef CONFIG_MTK_BOOT
-	if (get_boot_mode() == META_BOOT)
-		debug_locks_off();
-#endif
-#ifdef MTK_ENHANCE_LOCKDEP_PROC
-	proc_create("lockdep", 0600, NULL, &proc_lockdep_ops);
-#else
 	proc_create_seq("lockdep", S_IRUSR, NULL, &lockdep_ops);
-#endif
 #ifdef CONFIG_PROVE_LOCKING
 	proc_create_seq("lockdep_chains", S_IRUSR, NULL, &lockdep_chains_ops);
 #endif
@@ -793,10 +658,6 @@ static int __init lockdep_proc_init(void)
 		    &proc_lock_stat_operations);
 #endif
 
-#ifdef MTK_LOCK_MONITOR
-	lock_monitor_init();
-#endif
-	lockdep_test_init();
 	return 0;
 }
 

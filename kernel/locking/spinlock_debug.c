@@ -13,114 +13,8 @@
 #include <linux/delay.h>
 #include <linux/export.h>
 
-#include "lockdep_internals.h"
-static void spin_aee(const char *msg, raw_spinlock_t *lock);
-
-#if defined(MTK_DEBUG_SPINLOCK_V1) || defined(MTK_DEBUG_SPINLOCK_V2)
-#include <linux/sched/clock.h>
-#include <linux/sched/debug.h>
-#define MAX_LOCK_NAME 128
-#define WARNING_TIME 1000000000 /* 1 seconds */
-
-static long long msec_high(unsigned long long nsec)
-{
-	if ((long long)nsec < 0) {
-		nsec = -nsec;
-		do_div(nsec, 1000000);
-		return -nsec;
-	}
-	do_div(nsec, 1000000);
-
-	return nsec;
-}
-
-static long long sec_high(unsigned long long nsec)
-{
-	if ((long long)nsec < 0) {
-		nsec = -nsec;
-		do_div(nsec, 1000000000);
-		return -nsec;
-	}
-	do_div(nsec, 1000000000);
-
-	return nsec;
-}
-
-static unsigned long sec_low(unsigned long long nsec)
-{
-	if ((long long)nsec < 0)
-		nsec = -nsec;
-	/* exclude part of nsec */
-	return do_div(nsec, 1000000000) / 1000;
-}
-
-static void get_spin_lock_name(raw_spinlock_t *lock, char *name)
-{
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	snprintf(name, MAX_LOCK_NAME, "%s", lock->dep_map.name);
-#else
-	snprintf(name, MAX_LOCK_NAME, "%ps", lock);
-#endif
-}
-#endif /* MTK_DEBUG_SPINLOCK_V1 || MTK_DEBUG_SPINLOCK_V2 */
-
-#ifdef MTK_DEBUG_SPINLOCK_V2
-static void spin_lock_get_timestamp(unsigned long long *ts)
-{
-	*ts = sched_clock();
-}
-
-static void
-spin_lock_check_spinning_time(raw_spinlock_t *lock, unsigned long long ts)
-{
-	unsigned long long te;
-
-	te = sched_clock();
-	if (te - ts > WARNING_TIME) {
-		char lock_name[MAX_LOCK_NAME];
-
-		get_spin_lock_name(lock, lock_name);
-		pr_info("spinning for (%s)(%p) from [%lld.%06lu] to [%lld.%06lu], total %llu ms\n",
-			lock_name, lock,
-			sec_high(ts), sec_low(ts),
-			sec_high(te), sec_low(te),
-			msec_high(te - ts));
-	}
-}
-
-static void spin_lock_check_holding_time(raw_spinlock_t *lock)
-{
-	char name[MAX_LOCK_NAME];
-
-	/* check if holding time over 1 second */
-	if (lock->unlock_t - lock->lock_t < WARNING_TIME)
-		return;
-
-	get_spin_lock_name(lock, name);
-	pr_info("hold spinlock (%s)(%p) from [%lld.%06lu] to [%lld.%06lu], total %llu ms\n",
-		name, lock,
-		sec_high(lock->lock_t), sec_low(lock->lock_t),
-		sec_high(lock->unlock_t), sec_low(lock->unlock_t),
-		msec_high(lock->unlock_t - lock->lock_t));
-
-	pr_info("========== The call trace of lock owner on CPU%d ==========\n",
-		raw_smp_processor_id());
-	dump_stack();
-
-#ifdef CONFIG_MTK_LOCKING_AEE
-	do {
-		char msg[64];
-
-		snprintf(msg, sizeof(msg), "spinlock lockup: (%s)", name);
-		spin_aee(msg, lock);
-	} while (0);
-#endif
-}
-#else /* MTK_DEBUG_SPINLOCK_V2 */
-static inline void spin_lock_check_holding_time(raw_spinlock_t *lock)
-{
-}
-#endif /* !MTK_DEBUG_SPINLOCK_V2 */
+#define MTK_INTERNAL_SPINLOCK
+#include "lockdep_internals_mtk.h"
 
 void __raw_spin_lock_init(raw_spinlock_t *lock, const char *name,
 			  struct lock_class_key *key)
@@ -196,9 +90,9 @@ debug_spin_lock_before(raw_spinlock_t *lock)
 							lock, "cpu recursion");
 }
 
+#if !defined(MTK_DEBUG_SPINLOCK_V1) && !defined(MTK_DEBUG_SPINLOCK_V2)
 static inline void debug_spin_lock_after(raw_spinlock_t *lock)
 {
-	WRITE_ONCE(lock->lock_t, sched_clock());
 	WRITE_ONCE(lock->owner_cpu, raw_smp_processor_id());
 	WRITE_ONCE(lock->owner, current);
 }
@@ -212,10 +106,205 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
 							lock, "wrong CPU");
 	WRITE_ONCE(lock->owner, SPINLOCK_OWNER_INIT);
 	WRITE_ONCE(lock->owner_cpu, -1);
-
-	WRITE_ONCE(lock->unlock_t, sched_clock());
-	spin_lock_check_holding_time(lock);
 }
+#endif
+
+/*
+ * We are now relying on the NMI watchdog to detect lockup instead of doing
+ * the detection here with an unfair lock which can cause problem of its own.
+ */
+#if !defined(MTK_DEBUG_SPINLOCK_V1) && !defined(MTK_DEBUG_SPINLOCK_V2)
+void do_raw_spin_lock(raw_spinlock_t *lock)
+{
+	debug_spin_lock_before(lock);
+	arch_spin_lock(&lock->raw_lock);
+	debug_spin_lock_after(lock);
+}
+#endif
+
+int do_raw_spin_trylock(raw_spinlock_t *lock)
+{
+	int ret = arch_spin_trylock(&lock->raw_lock);
+
+	if (ret)
+		debug_spin_lock_after(lock);
+#ifndef CONFIG_SMP
+	/*
+	 * Must not happen on UP:
+	 */
+	SPIN_BUG_ON(!ret, lock, "trylock failure on UP");
+#endif
+	return ret;
+}
+
+void do_raw_spin_unlock(raw_spinlock_t *lock)
+{
+	debug_spin_unlock(lock);
+	arch_spin_unlock(&lock->raw_lock);
+}
+
+static void rwlock_bug(rwlock_t *lock, const char *msg)
+{
+	if (!debug_locks_off())
+		return;
+
+	printk(KERN_EMERG "BUG: rwlock %s on CPU#%d, %s/%d, %p\n",
+		msg, raw_smp_processor_id(), current->comm,
+		task_pid_nr(current), lock);
+	dump_stack();
+}
+
+#define RWLOCK_BUG_ON(cond, lock, msg) if (unlikely(cond)) rwlock_bug(lock, msg)
+
+void do_raw_read_lock(rwlock_t *lock)
+{
+	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
+	arch_read_lock(&lock->raw_lock);
+}
+
+int do_raw_read_trylock(rwlock_t *lock)
+{
+	int ret = arch_read_trylock(&lock->raw_lock);
+
+#ifndef CONFIG_SMP
+	/*
+	 * Must not happen on UP:
+	 */
+	RWLOCK_BUG_ON(!ret, lock, "trylock failure on UP");
+#endif
+	return ret;
+}
+
+void do_raw_read_unlock(rwlock_t *lock)
+{
+	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
+	arch_read_unlock(&lock->raw_lock);
+}
+
+static inline void debug_write_lock_before(rwlock_t *lock)
+{
+	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
+	RWLOCK_BUG_ON(lock->owner == current, lock, "recursion");
+	RWLOCK_BUG_ON(lock->owner_cpu == raw_smp_processor_id(),
+							lock, "cpu recursion");
+}
+
+static inline void debug_write_lock_after(rwlock_t *lock)
+{
+	lock->owner_cpu = raw_smp_processor_id();
+	lock->owner = current;
+}
+
+static inline void debug_write_unlock(rwlock_t *lock)
+{
+	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
+	RWLOCK_BUG_ON(lock->owner != current, lock, "wrong owner");
+	RWLOCK_BUG_ON(lock->owner_cpu != raw_smp_processor_id(),
+							lock, "wrong CPU");
+	lock->owner = SPINLOCK_OWNER_INIT;
+	lock->owner_cpu = -1;
+}
+
+void do_raw_write_lock(rwlock_t *lock)
+{
+	debug_write_lock_before(lock);
+	arch_write_lock(&lock->raw_lock);
+	debug_write_lock_after(lock);
+}
+
+int do_raw_write_trylock(rwlock_t *lock)
+{
+	int ret = arch_write_trylock(&lock->raw_lock);
+
+	if (ret)
+		debug_write_lock_after(lock);
+#ifndef CONFIG_SMP
+	/*
+	 * Must not happen on UP:
+	 */
+	RWLOCK_BUG_ON(!ret, lock, "trylock failure on UP");
+#endif
+	return ret;
+}
+
+void do_raw_write_unlock(rwlock_t *lock)
+{
+	debug_write_unlock(lock);
+	arch_write_unlock(&lock->raw_lock);
+}
+
+#if defined(MTK_DEBUG_SPINLOCK_V1) || defined(MTK_DEBUG_SPINLOCK_V2)
+#include <linux/sched/clock.h>
+#include <linux/sched/debug.h>
+#define MAX_LOCK_NAME 128
+#define WARNING_TIME 1000000000 /* 1 seconds */
+
+static long long msec_high(unsigned long long nsec)
+{
+	if ((long long)nsec < 0) {
+		nsec = -nsec;
+		do_div(nsec, 1000000);
+		return -nsec;
+	}
+	do_div(nsec, 1000000);
+
+	return nsec;
+}
+
+static long long sec_high(unsigned long long nsec)
+{
+	if ((long long)nsec < 0) {
+		nsec = -nsec;
+		do_div(nsec, 1000000000);
+		return -nsec;
+	}
+	do_div(nsec, 1000000000);
+
+	return nsec;
+}
+
+static unsigned long sec_low(unsigned long long nsec)
+{
+	if ((long long)nsec < 0)
+		nsec = -nsec;
+	/* exclude part of nsec */
+	return do_div(nsec, 1000000000) / 1000;
+}
+
+static void get_spin_lock_name(raw_spinlock_t *lock, char *name)
+{
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	snprintf(name, MAX_LOCK_NAME, "%s", lock->dep_map.name);
+#else
+	snprintf(name, MAX_LOCK_NAME, "%ps", lock);
+#endif
+}
+
+static inline void debug_spin_lock_after(raw_spinlock_t *lock)
+{
+	WRITE_ONCE(lock->lock_t, sched_clock());
+	WRITE_ONCE(lock->owner_cpu, raw_smp_processor_id());
+	WRITE_ONCE(lock->owner, current);
+}
+
+#ifdef MTK_DEBUG_SPINLOCK_V2
+static void spin_lock_check_holding_time(raw_spinlock_t *lock);
+#endif
+static inline void debug_spin_unlock(raw_spinlock_t *lock)
+{
+	SPIN_BUG_ON(lock->magic != SPINLOCK_MAGIC, lock, "bad magic");
+	SPIN_BUG_ON(!raw_spin_is_locked(lock), lock, "already unlocked");
+	SPIN_BUG_ON(lock->owner != current, lock, "wrong owner");
+	SPIN_BUG_ON(lock->owner_cpu != raw_smp_processor_id(),
+		    lock, "wrong CPU");
+	WRITE_ONCE(lock->owner, SPINLOCK_OWNER_INIT);
+	WRITE_ONCE(lock->owner_cpu, -1);
+	WRITE_ONCE(lock->unlock_t, sched_clock());
+#ifdef MTK_DEBUG_SPINLOCK_V2
+	spin_lock_check_holding_time(lock);
+#endif
+}
+#endif /* MTK_DEBUG_SPINLOCK_V1 || MTK_DEBUG_SPINLOCK_V2 */
 
 #ifdef MTK_DEBUG_SPINLOCK_V1
 static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd);
@@ -365,141 +454,80 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 		}
 	}
 }
-#endif /* MTK_DEBUG_SPINLOCK_V1 */
 
-/*
- * We are now relying on the NMI watchdog to detect lockup instead of doing
- * the detection here with an unfair lock which can cause problem of its own.
- */
 void do_raw_spin_lock(raw_spinlock_t *lock)
 {
-#ifdef MTK_DEBUG_SPINLOCK_V2
-	unsigned long long ts = 0;
-#endif
 	debug_spin_lock_before(lock);
-#if defined(MTK_DEBUG_SPINLOCK_V1)
 	if (unlikely(!arch_spin_trylock(&lock->raw_lock)))
 		__spin_lock_debug(lock);
-#elif defined(MTK_DEBUG_SPINLOCK_V2)
+	debug_spin_lock_after(lock);
+}
+#endif /* MTK_DEBUG_SPINLOCK_V1 */
+
+#ifdef MTK_DEBUG_SPINLOCK_V2
+static void spin_lock_get_timestamp(unsigned long long *ts)
+{
+	*ts = sched_clock();
+}
+
+static void
+spin_lock_check_spinning_time(raw_spinlock_t *lock, unsigned long long ts)
+{
+	unsigned long long te;
+
+	te = sched_clock();
+	if (te - ts > WARNING_TIME) {
+		char lock_name[MAX_LOCK_NAME];
+
+		get_spin_lock_name(lock, lock_name);
+		pr_info("spinning for (%s)(%p) from [%lld.%06lu] to [%lld.%06lu], total %llu ms\n",
+			lock_name, lock,
+			sec_high(ts), sec_low(ts),
+			sec_high(te), sec_low(te),
+			msec_high(te - ts));
+	}
+}
+
+static void spin_lock_check_holding_time(raw_spinlock_t *lock)
+{
+	char name[MAX_LOCK_NAME];
+
+	/* check if holding time over 1 second */
+	if (lock->unlock_t - lock->lock_t < WARNING_TIME)
+		return;
+
+	get_spin_lock_name(lock, name);
+	pr_info("hold spinlock (%s)(%p) from [%lld.%06lu] to [%lld.%06lu], total %llu ms\n",
+		name, lock,
+		sec_high(lock->lock_t), sec_low(lock->lock_t),
+		sec_high(lock->unlock_t), sec_low(lock->unlock_t),
+		msec_high(lock->unlock_t - lock->lock_t));
+
+	pr_info("========== The call trace of lock owner on CPU%d ==========\n",
+		raw_smp_processor_id());
+	dump_stack();
+
+#ifdef CONFIG_MTK_LOCKING_AEE
+	do {
+		char msg[64];
+
+		snprintf(msg, sizeof(msg), "spinlock lockup: (%s)", name);
+		spin_aee(msg, lock);
+	} while (0);
+#endif
+}
+
+void do_raw_spin_lock(raw_spinlock_t *lock)
+{
+	unsigned long long ts = 0;
+
+	debug_spin_lock_before(lock);
 	spin_lock_get_timestamp(&ts);
 	arch_spin_lock(&lock->raw_lock);
 	spin_lock_check_spinning_time(lock, ts);
-#else
-	arch_spin_lock(&lock->raw_lock);
-#endif
 	debug_spin_lock_after(lock);
 }
-
-int do_raw_spin_trylock(raw_spinlock_t *lock)
-{
-	int ret = arch_spin_trylock(&lock->raw_lock);
-
-	if (ret)
-		debug_spin_lock_after(lock);
-#ifndef CONFIG_SMP
-	/*
-	 * Must not happen on UP:
-	 */
-	SPIN_BUG_ON(!ret, lock, "trylock failure on UP");
-#endif
-	return ret;
-}
-
-void do_raw_spin_unlock(raw_spinlock_t *lock)
-{
-	debug_spin_unlock(lock);
-	arch_spin_unlock(&lock->raw_lock);
-}
-
-static void rwlock_bug(rwlock_t *lock, const char *msg)
-{
-	if (!debug_locks_off())
-		return;
-
-	printk(KERN_EMERG "BUG: rwlock %s on CPU#%d, %s/%d, %p\n",
-		msg, raw_smp_processor_id(), current->comm,
-		task_pid_nr(current), lock);
-	dump_stack();
-}
-
-#define RWLOCK_BUG_ON(cond, lock, msg) if (unlikely(cond)) rwlock_bug(lock, msg)
-
-void do_raw_read_lock(rwlock_t *lock)
-{
-	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
-	arch_read_lock(&lock->raw_lock);
-}
-
-int do_raw_read_trylock(rwlock_t *lock)
-{
-	int ret = arch_read_trylock(&lock->raw_lock);
-
-#ifndef CONFIG_SMP
-	/*
-	 * Must not happen on UP:
-	 */
-	RWLOCK_BUG_ON(!ret, lock, "trylock failure on UP");
-#endif
-	return ret;
-}
-
-void do_raw_read_unlock(rwlock_t *lock)
-{
-	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
-	arch_read_unlock(&lock->raw_lock);
-}
-
-static inline void debug_write_lock_before(rwlock_t *lock)
-{
-	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
-	RWLOCK_BUG_ON(lock->owner == current, lock, "recursion");
-	RWLOCK_BUG_ON(lock->owner_cpu == raw_smp_processor_id(),
-							lock, "cpu recursion");
-}
-
-static inline void debug_write_lock_after(rwlock_t *lock)
-{
-	lock->owner_cpu = raw_smp_processor_id();
-	lock->owner = current;
-}
-
-static inline void debug_write_unlock(rwlock_t *lock)
-{
-	RWLOCK_BUG_ON(lock->magic != RWLOCK_MAGIC, lock, "bad magic");
-	RWLOCK_BUG_ON(lock->owner != current, lock, "wrong owner");
-	RWLOCK_BUG_ON(lock->owner_cpu != raw_smp_processor_id(),
-							lock, "wrong CPU");
-	lock->owner = SPINLOCK_OWNER_INIT;
-	lock->owner_cpu = -1;
-}
-
-void do_raw_write_lock(rwlock_t *lock)
-{
-	debug_write_lock_before(lock);
-	arch_write_lock(&lock->raw_lock);
-	debug_write_lock_after(lock);
-}
-
-int do_raw_write_trylock(rwlock_t *lock)
-{
-	int ret = arch_write_trylock(&lock->raw_lock);
-
-	if (ret)
-		debug_write_lock_after(lock);
-#ifndef CONFIG_SMP
-	/*
-	 * Must not happen on UP:
-	 */
-	RWLOCK_BUG_ON(!ret, lock, "trylock failure on UP");
-#endif
-	return ret;
-}
-
-void do_raw_write_unlock(rwlock_t *lock)
-{
-	debug_write_unlock(lock);
-	arch_write_unlock(&lock->raw_lock);
-}
+#endif /* MTK_DEBUG_SPINLOCK_V2 */
 
 #ifdef CONFIG_MTK_LOCKING_AEE
 static const char * const spinlock_white_list[] = {

@@ -138,7 +138,13 @@ static void ftrace_events_enable(int enable)
 #endif
 #ifdef CONFIG_LOCKDEP
 			trace_set_clr_event(NULL, "lock_dbg", 1);
-			trace_set_clr_event(NULL, "lock_monitor_msg", 1);
+			trace_set_clr_event(NULL, "lock_monitor", 1);
+#endif
+#ifdef CONFIG_RCU_TRACE
+			trace_set_clr_event(NULL, "rcu_batch_start", 1);
+			trace_set_clr_event(NULL, "rcu_batch_end", 1);
+			trace_set_clr_event(NULL, "rcu_kfree_callback", 1);
+			trace_set_clr_event(NULL, "rcu_callback", 1);
 #endif
 		}
 

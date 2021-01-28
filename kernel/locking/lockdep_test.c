@@ -328,7 +328,7 @@ static const struct file_operations proc_lockdep_test_fops = {
 	.write = lockdep_test_write,
 };
 
-void lockdep_test_init(void)
+static int __init lockdep_test_init(void)
 {
 	spin_lock_init(&lockA);
 	spin_lock_init(&lockB);
@@ -337,4 +337,8 @@ void lockdep_test_init(void)
 	init_rwsem(&rw_semA);
 
 	proc_create("lockdep_test", 0220, NULL, &proc_lockdep_test_fops);
+
+	return 0;
 }
+
+late_initcall(lockdep_test_init);
