@@ -64,18 +64,18 @@ int  __attribute__ ((weak)) vcorefs_get_curr_vcore(void)
 
 void __attribute__ ((weak)) mtk8250_restore_dev(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	/* FIXME: UART API is moved to ATF */
 }
 
 int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	/* FIXME: UART API is moved to ATF */
 	return 0;
 }
 
 int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	/* FIXME: UART API is moved to ATF */
 	return 0;
 }
 
