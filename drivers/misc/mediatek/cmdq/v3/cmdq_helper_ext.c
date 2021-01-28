@@ -2515,7 +2515,6 @@ static void cmdq_core_track_handle_record(struct cmdqRecStruct *handle,
 	CMDQ_TIME done;
 	int lastID;
 	char buf[256];
-	int length;
 
 	done = sched_clock();
 
@@ -2539,9 +2538,9 @@ static void cmdq_core_track_handle_record(struct cmdqRecStruct *handle,
 	spin_unlock_irqrestore(&cmdq_record_lock, flags);
 
 	if (handle->dumpAllocTime) {
-		length = cmdq_core_print_record(pRecord, lastID, buf,
+		cmdq_core_print_record(pRecord, lastID, buf,
 			ARRAY_SIZE(buf));
-		CMDQ_LOG("Record:%s", buf);
+		CMDQ_LOG("Record:%s\n", buf);
 	}
 
 }
