@@ -90,20 +90,51 @@ config MTK_SDSP_MEM_SUPPORT
 	  If unsure, say N.
 
 #
-# SDSP/TEE Shared Memory configuration
+# VPU/MTEE/TEE Shared Memory configuration
 #
 config MTK_SDSP_SHARED_MEM_SUPPORT
-	tristate "MTK MTEE SDSP Shared Memory Support"
+	tristate "MTK SDSP Shared Memory Support"
 	depends on MTK_GZ_KREE
 	default n
 	help
-	  Enable the support of MediaTek MTEE SDSP shared memory driver.
+	  Enable the support of MediaTek SDSP shared memory driver.
 	  This driver is in charge of SDSP shared memory region require/release
 	  from SSMR and also the memory allocation/free requests from ION.
-	  It is a proxy of MediaTek proprietary EL2 hypervisor for isolated
-	  memory management.
+	  It is a proxy of MediaTek proprietary EL2 hypervisor or TEE secure
+	  memory driver for isolated memory management.
 	  Say Y if you would like to enable this feature.
 	  If unsure, say N.
+
+choice
+	prompt "MTK VPU/MTEE/MTEE Shared Memory Support"
+	depends on MTK_SDSP_SHARED_MEM_SUPPORT
+	default MTK_SDSP_SHARED_PERM_MTEE_TEE if (MACH_MT6768)
+	default MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
+
+config MTK_SDSP_SHARED_PERM_VPU_TEE
+	bool "MTK SDSP Shared Memory Permssions for VPU/TEE"
+	help
+	  Enable the support of SDSP shared memory buffer to be shared
+	  between VPU hardware and TEE.
+	  Select if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_SDSP_SHARED_PERM_MTEE_TEE
+	bool "MTK SDSP Shared Memory Permssions for MTEE/TEE"
+	help
+	  Enable the support of SDSP shared memory buffer to be shared
+	  between MTEE and TEE.
+	  Select if you would like to enable this feature.
+	  If unsure, say N.
+
+config MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
+	bool "MTK SDSP Shared Memory Permssions for VPU/MTEE/TEE"
+	help
+	  Enable the support of SDSP shared memory buffer to be shared
+	  between VPU hardware, MTEE and TEE.
+	  Select if you would like to enable this feature.
+	  If unsure, say N.
+endchoice
 
 #
 # MTEE Multiple Chunk Memory configuration
@@ -111,7 +142,8 @@ config MTK_SDSP_SHARED_MEM_SUPPORT
 config MTK_MTEE_MULTI_CHUNK_SUPPORT
 	tristate "MTK MTEE Multiple Chunk Memory Support"
 	depends on MTK_HAPP_MEM_SUPPORT || MTK_SDSP_MEM_SUPPORT || \
-		   MTK_SDSP_SHARED_MEM_SUPPORT
+		   MTK_SDSP_SHARED_PERM_MTEE_TEE || \
+		   MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE
 	default y
 	help
 	  Enable the support of MediaTek MTEE multiple chunks memory driver.

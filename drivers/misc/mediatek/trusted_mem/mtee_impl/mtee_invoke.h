@@ -11,21 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef MTEE_PRIVATE_H_
-#define MTEE_PRIVATE_H_
+#ifndef MTEE_INVOKE_H_
+#define MTEE_INVOKE_H_
 
-struct mtee_driver_params {
-	u64 param0;
-	u64 param1;
-	u64 param2;
-	u64 param3;
-};
+int mtee_directly_invoke_cmd(struct trusted_driver_cmd_params *invoke_params);
+int mtee_set_mchunks_region(u64 pa, u32 size, enum TEE_MEM_TYPE tee_mem_type);
 
-struct mtee_peer_ops_priv_data {
-	enum TRUSTED_MEM_TYPE mem_type;
-	char *service_name;
-};
-
-void get_mtee_peer_ops(struct trusted_driver_operations **ops);
-
-#endif /* MTEE_PRIVATE_H_ */
+#endif /* MTEE_INVOKE_H_ */
