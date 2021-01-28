@@ -785,7 +785,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 
 	mutex_lock(&rb_slot_list_mutex);
 	free_slot_group = ffz(alloc_slot_group);
-	if (unlikely(free_slot_group >= SLOT_GROUP_NUM)) {
+	if (unlikely(alloc_slot_group == ~0UL)) {
 		CMDQ_ERR("%s no free slot:%#llx\n", __func__, alloc_slot_group);
 		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
 		mutex_unlock(&rb_slot_list_mutex);
@@ -793,7 +793,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 	}
 	/* find slot id */
 	free_slot = ffz(alloc_slot[free_slot_group]);
-	if (unlikely(free_slot >= 64)) {
+	if (unlikely(alloc_slot[free_slot_group] == ~0UL)) {
 		CMDQ_ERR("%s not found free slot in %u: %#llx\n", __func__,
 			free_slot_group, alloc_slot[free_slot_group]);
 		cmdq_free_write_addr(paStart, CMDQ_CLT_MDP);
@@ -801,7 +801,7 @@ s32 mdp_ioctl_alloc_readback_slots(void *fp, unsigned long param)
 		return -EFAULT;
 	}
 	alloc_slot[free_slot_group] |= 1LL << free_slot;
-	if (ffz(alloc_slot[free_slot_group]) == 64)
+	if (alloc_slot[free_slot_group] == ~0UL)
 		alloc_slot_group |= 1LL << free_slot_group;
 
 	alloc_slot_index = free_slot + free_slot_group * 64;
@@ -867,7 +867,7 @@ s32 mdp_ioctl_free_readback_slots(void *fp, unsigned long param)
 		return -EINVAL;
 	}
 	alloc_slot[free_slot_group] &= ~(1LL << free_slot);
-	if (ffz(alloc_slot[free_slot_group]) != 64)
+	if (alloc_slot[free_slot_group] != ~0UL)
 		alloc_slot_group &= ~(1LL << free_slot_group);
 
 	paStart = rb_slot[free_slot_index].pa_start;
@@ -911,7 +911,7 @@ void mdp_ioctl_free_readback_slots_by_node(void *fp)
 		free_slot_group = i >> 6;
 		free_slot = i & 0x3f;
 		alloc_slot[free_slot_group] &= ~(1LL << free_slot);
-		if (ffz(alloc_slot[free_slot_group]) != 64)
+		if (alloc_slot[free_slot_group] != ~0UL)
 			alloc_slot_group &= ~(1LL << free_slot_group);
 		paStart = rb_slot[i].pa_start;
 		rb_slot[i].count = 0;
