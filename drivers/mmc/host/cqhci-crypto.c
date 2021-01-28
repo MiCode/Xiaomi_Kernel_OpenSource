@@ -160,6 +160,9 @@ int cqhci_host_init_crypto(struct cqhci_host *host)
 	int num_keyslots;
 	struct keyslot_manager *ksm;
 
+	if (host->mmc->ksm)
+		return 0;
+
 	/*
 	 * Don't use crypto if the vendor specific driver doesn't set the
 	 * standard crypto capability bit *or* the hardware doesn't advertise
@@ -207,6 +210,10 @@ int cqhci_host_init_crypto(struct cqhci_host *host)
 		err = -ENOMEM;
 		goto out_free_caps;
 	}
+
+	/* eMMC 5.2 only support 4 bytes DUN */
+	keyslot_manager_set_max_dun_bytes(ksm, 4);
+
 	host->mmc->ksm = ksm;
 
 	for (slot = 0; slot < num_keyslots; slot++)

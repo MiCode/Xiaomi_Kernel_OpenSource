@@ -197,6 +197,9 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 	u32 count;
 	unsigned int crypto_modes_supported[BLK_ENCRYPTION_MODE_MAX];
 
+	if (host->ksm)
+		return 0;
+
 	if (!(host->caps2 & MMC_CAP2_CRYPTO)) {
 		err = -ENODEV;
 		goto out;
@@ -240,7 +243,7 @@ static int mmc_init_crypto_spec(struct mmc_host *host,
 		goto out_free_cfg_mem;
 	}
 	/* Peng: temp */
-	crypto_modes_supported[1] = 4096;
+	crypto_modes_supported[1] = 0x1200;
 
 	host->ksm = keyslot_manager_create(host->parent,
 		NUM_KEYSLOTS(host), ksm_ops,
