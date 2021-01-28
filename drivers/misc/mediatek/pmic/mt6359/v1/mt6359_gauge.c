@@ -69,7 +69,7 @@ static signed int g_hw_ocv_tune_value;
 static bool g_fg_is_charger_exist;
 static bool gvbat2_low_en;
 static bool gvbat2_high_en;
-static bool g_nag_corner;
+static int g_nag_corner;
 
 struct mt6359_gauge {
 	const char *gauge_dev_name;
@@ -2003,7 +2003,7 @@ static int fgauge_get_nag_c_dltv(
 
 	bcheckbit10 = NAG_C_DLTV_value_H & 0x0400;
 
-	if (g_nag_corner) {
+	if (g_nag_corner == 1) {
 		NAG_C_DLTV_reg_value = (NAG_C_DLTV_value & 0x7fff);
 		NAG_C_DLTV_mV_value = REG_to_MV_value(NAG_C_DLTV_reg_value);
 		*nag_c_dltv = NAG_C_DLTV_mV_value;
@@ -2013,8 +2013,18 @@ static int fgauge_get_nag_c_dltv(
 			bcheckbit10, NAG_C_DLTV_value_H, NAG_C_DLTV_value,
 			g_nag_corner);
 		return 0;
-	}
+	} else if (g_nag_corner == 2) {
+		NAG_C_DLTV_reg_value = (NAG_C_DLTV_value - 32768);
+		NAG_C_DLTV_mV_value =
+			REG_to_MV_value(NAG_C_DLTV_reg_value);
+		*nag_c_dltv = NAG_C_DLTV_mV_value;
 
+		bm_err("[fg_bat_nafg][%s] mV:Reg[%d:%d] [b10:%d][26_16(0x%04x) 15_00(0x%04x)] corner:%d\n",
+			__func__, NAG_C_DLTV_mV_value, NAG_C_DLTV_reg_value,
+			bcheckbit10, NAG_C_DLTV_value_H, NAG_C_DLTV_value,
+			g_nag_corner);
+		return 0;
+	}
 
 	if (bcheckbit10 == 0)
 		NAG_C_DLTV_reg_value = (NAG_C_DLTV_value & 0xffff) +
@@ -3132,8 +3142,8 @@ int nafg_check_corner(struct gauge_device *gauge_dev)
 	signed int NAG_C_DLTV_value_H;
 	signed int NAG_C_DLTV_reg_value;
 	bool bcheckbit10;
+	int nag_zcv = nag_zcv_mv;
 
-	g_nag_corner = 0;
 	setto_cdltv_thr_mv = nag_c_dltv_mv;
 
 	/*AUXADC_NAG_7*/
@@ -3156,14 +3166,18 @@ int nafg_check_corner(struct gauge_device *gauge_dev)
 	get_c_dltv_mv = REG_to_MV_value(NAG_C_DLTV_reg_value);
 	fgauge_get_nag_vbat(gauge_dev, &nag_vbat);
 
-	if (nag_vbat < 31500) {
-		diff = abs(get_c_dltv_mv - setto_cdltv_thr_mv);
-		if (diff > 30000)
-			g_nag_corner = 1;
-	}
+	g_nag_corner = 0;
 
-	bm_err("%s:corner:%d nag_vbat:%d get_c_dltv_mv:%d setto_cdltv_thr_mv:%d, diff:%d, RG[0x%x,0x%x]\n",
-		__func__, g_nag_corner, nag_vbat, get_c_dltv_mv,
+	if (nag_vbat < 31500 && nag_zcv > 31500)
+		g_nag_corner = 1;
+	else if (nag_zcv < 31500 && nag_vbat > 31500)
+		g_nag_corner = 2;
+	else
+		g_nag_corner = 0;
+
+
+	bm_err("%s:corner:%d nag_vbat:%d nag_zcv:%d get_c_dltv_mv:%d setto_cdltv_thr_mv:%d, diff:%d, RG[0x%x,0x%x]\n",
+		__func__, g_nag_corner, nag_vbat, nag_zcv, get_c_dltv_mv,
 		setto_cdltv_thr_mv, diff,
 		NAG_C_DLTV_value_H, NAG_C_DLTV_value);
 

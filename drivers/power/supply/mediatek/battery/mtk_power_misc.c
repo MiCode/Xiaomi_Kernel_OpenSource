@@ -276,6 +276,7 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 	int polling = 0;
 	static int ui_zero_time_flag;
 	static int down_to_low_bat;
+	int now_current = 0;
 	int current_ui_soc = battery_get_uisoc();
 	int current_soc = battery_get_soc();
 	int vbat = battery_get_bat_voltage();
@@ -316,6 +317,8 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 	}
 
 	if (sdd->shutdown_status.is_uisoc_one_percent) {
+		now_current = battery_get_bat_current();
+
 		if (current_ui_soc == 0) {
 			duraction =
 				timespec_sub(
@@ -326,6 +329,12 @@ static int shutdown_event_handler(struct shutdown_controller *sdd)
 				kernel_power_off();
 				return next_waketime(polling);
 			}
+		} else if (now_current > 0 && current_soc > 0) {
+			polling = 0;
+			sdd->shutdown_status.is_uisoc_one_percent = 0;
+			bm_err("disable uisoc_one_percent shutdown cur:%d soc:%d\n",
+				now_current, current_soc);
+			return next_waketime(polling);
 		} else {
 			/* ui_soc is not zero, check it after 10s */
 			polling++;
