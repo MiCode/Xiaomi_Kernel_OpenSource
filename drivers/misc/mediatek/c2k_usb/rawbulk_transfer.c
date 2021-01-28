@@ -1302,6 +1302,7 @@ static __init int rawbulk_init(void)
 {
 	int n;
 	char name[20];
+	int ret = 0;
 
 	C2K_NOTE("%s\n", __func__);
 	drop_check_timeout = jiffies;
@@ -1319,11 +1320,21 @@ static __init int rawbulk_init(void)
 		INIT_LIST_HEAD(&t->repush2modem.transactions);
 		INIT_LIST_HEAD(&t->cache_buf_lists.transactions);
 		INIT_DELAYED_WORK(&t->delayed, downstream_delayed_work);
+
 		memset(name, 0, 20);
-		snprintf(name, sizeof(name), "%s_flow_ctrl", transfer_name[n]);
+		ret = snprintf(name, sizeof(name), "%s_flow_ctrl",
+				transfer_name[n]);
+		if (ret >= sizeof(name))
+			return -ENOMEM;
+
 		INIT_WORK(&t->write_work, start_upstream);
+
 		memset(name, 0, 20);
-		snprintf(name, sizeof(name), "%s_tx_wq", transfer_name[n]);
+		ret = snprintf(name, sizeof(name), "%s_tx_wq",
+				transfer_name[n]);
+		if (ret >= sizeof(name))
+			return -ENOMEM;
+
 		mutex_init(&t->modem_up_mutex);
 		mutex_init(&t->usb_up_mutex);
 		spin_lock_init(&t->lock);
