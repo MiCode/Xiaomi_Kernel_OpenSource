@@ -149,6 +149,8 @@
 #define CONFIG_LVTS_ERROR_AEE_WARNING (0)
 #endif
 
+#define DUMP_LVTS_REGISTER_FOR_ZERO_RAW_ISSUE  (0)
+
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 #define LVTS_FORCE_ERROR_TRIGGER (0)
 #define LVTS_NUM_SKIP_SAMPLE (500)
@@ -164,6 +166,8 @@
 #define LVTS_VALID_DATA_TIME_PROFILING (0)
 
 #define LVTS_USE_DOMINATOR_SENSING_POINT (0)
+
+#define CFG_THERMAL_KERNEL_IGNORE_HOT_SENSOR (0)
 /*=============================================================
  *REG ACCESS
  *=============================================================
@@ -206,20 +210,6 @@
  *=============================================================
  */
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
-#define THERMAL_AEE_SELECTED_TS
-
-#if defined(THERMAL_AEE_SELECTED_TS)
-/* AEE reserved 10 slots of thermal zone temperature
- * in drivers/misc/mediatek/ram_console/mtk_ram_console.c
- *    #define THERMAL_RESERVED_TZS (10)
- *
- * So, THERMAL_AEE_MAX_SELECTED_TS should not larger than
- * THERMAL_RESERVED_TZS
- */
-#define THERMAL_AEE_MAX_SELECTED_TS (9)
-extern int (*get_aee_selected_tsX[THERMAL_AEE_MAX_SELECTED_TS])(void);
-#endif
-
 enum thermal_state {
 	TSCPU_SUSPEND = 0,
 	TSCPU_RESUME  = 1,
@@ -563,20 +553,6 @@ extern bool mtk_get_gpu_loading(unsigned int *pLoading);
  * It's not our api, ask them to provide header file
  */
 extern int IMM_IsAdcInitReady(void);
-/*aee related*/
-#if (CONFIG_THERMAL_AEE_RR_REC == 1)
-extern void aee_rr_init_thermal_temp(int num);
-extern void aee_rr_rec_thermal_temp(int index, s8 val);
-extern void aee_rr_rec_thermal_lvts_config(u8 val);
-extern void aee_rr_rec_thermal_status(u8 val);
-extern void aee_rr_rec_thermal_ATM_status(u8 val);
-extern void aee_rr_rec_thermal_ktime(u64 val);
-
-extern s8 aee_rr_curr_thermal_temp(int index);
-extern u8 aee_rr_curr_thermal_status(void);
-extern u8 aee_rr_curr_thermal_ATM_status(void);
-extern u64 aee_rr_curr_thermal_ktime(void);
-#endif
 
 #if CONFIG_LVTS_ERROR_AEE_WARNING
 extern void dump_efuse_data(void);

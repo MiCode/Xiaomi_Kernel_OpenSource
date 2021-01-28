@@ -56,6 +56,11 @@
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
 #endif
+
+#if (CONFIG_THERMAL_AEE_RR_REC == 1)
+#include <mtk_ram_console.h>
+#endif
+
 #define __MT_MTK_TS_CPU_C__
 
 #if MTK_TS_CPU_RT
@@ -217,7 +222,7 @@ static void _mt_thermal_aee_init(void)
 
 	aee_rr_init_thermal_temp(TS_ENUM_MAX);
 	for (i = 0; i < TS_ENUM_MAX; i++)
-		aee_rr_rec_thermal_temp(i, 0xFF);
+		aee_rr_rec_thermal_temp(i, 0xFFFF);
 
 	aee_rr_rec_thermal_status(0xFF);
 	aee_rr_rec_thermal_ATM_status(0xFF);

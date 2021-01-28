@@ -38,7 +38,7 @@
 
 #define RAM_CONSOLE_HEADER_STR_LEN 1024
 
-#define THERMAL_RESERVED_TZS (10)
+#define THERMAL_RESERVED_TZS (25)
 static int thermal_num = THERMAL_RESERVED_TZS;
 
 static int mtk_cpu_num;
@@ -180,7 +180,7 @@ struct last_reboot_reason {
 	uint8_t etc_mode;
 
 
-	int8_t thermal_temp[THERMAL_RESERVED_TZS];
+	int16_t thermal_temp[THERMAL_RESERVED_TZS];
 	uint8_t thermal_status;
 	uint8_t thermal_ATM_status;
 	uint64_t thermal_ktime;
@@ -1863,7 +1863,7 @@ int aee_rr_init_thermal_temp(int num)
 	return 0;
 }
 
-int aee_rr_rec_thermal_temp(int index, s8 val)
+int aee_rr_rec_thermal_temp(int index, s16 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
 		return -1;
@@ -2231,7 +2231,7 @@ u8 aee_rr_curr_etc_mode(void)
 	return LAST_RR_VAL(etc_mode);
 }
 
-s8 aee_rr_curr_thermal_temp(int index)
+s16 aee_rr_curr_thermal_temp(int index)
 {
 	if (index < 0 || index >= thermal_num)
 		return -127;

@@ -42,47 +42,63 @@ struct mt_gpufreq_power_table_info {
  * LVTS SW Configs
  *=============================================================
  */
-#define CFG_THERM_LVTS				(0)
+#define CFG_THERM_LVTS				(1)
+#define CFG_THERM_NO_AUXADC			(1)
+
 
 #if CFG_THERM_LVTS
-#define	CFG_LVTS_DOMINATOR			(0)
+#define	CFG_LVTS_DOMINATOR			(1)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(1) /* 1, 2, 4, 8, 16 */
-#define	LVTS_DEVICE_AUTO_RCK			(1)
+#define	LVTS_DEVICE_AUTO_RCK			(0)
+/*Use bootup "count RC", no need to get "count RC" again after resume*/
+#define CFG_THERM_USE_BOOTUP_COUNT_RC
 #else
 #define	CFG_LVTS_DOMINATOR			(0)
 #define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(0)
 #define	LVTS_DEVICE_AUTO_RCK			(1)
 #endif
 
+/*
+ *There is no idle code in kernel since mt6885(big sw).
+ *Thus, kernel only can use "cpu pm notifier" to do idle scenario things.
+ *
+ *Release LVTS in thermal kernel driver
+ *1. SPM will pause LVTS thermal controllers before closing 26M
+ *2. After leaving SODI3, SPM will release LVTS thermal controllers
+ *    if controllers were paused properly.
+ *3. After leaving SODI3, Thermal driver will release LVTS thermal
+ *    controllers if SPM didn't release controller successfully
+ */
+#define LVTS_CPU_PM_NTFY_CALLBACK
+
+#if defined(LVTS_CPU_PM_NTFY_CALLBACK)
+#define CFG_THERM_SODI3_RELEASE
+//#define LVTS_CPU_PM_NTFY_PROFILE
+#endif
+
 /* public thermal sensor enum */
+
 enum thermal_sensor {
-	TS_MCU0 = 0,
-	TS_MCU1,
-	TS_MCU2,
-	/* There is no TSMCU3 in MT6785 compared with MT6779 */
-	TS_MCU4,
-	TS_MCU5,
-	TS_MCU6,
-	TS_MCU7,
-	TS_MCU8,
-	TS_MCU9,
 #if CFG_THERM_LVTS
-	TS_LVTS1_0,
+	TS_LVTS1_0 = 0,
 	TS_LVTS1_1,
 	TS_LVTS2_0,
 	TS_LVTS2_1,
-	TS_LVTS2_2,
 	TS_LVTS3_0,
 	TS_LVTS3_1,
+	TS_LVTS3_2,
+	TS_LVTS3_3,
 	TS_LVTS4_0,
-	/* There is no LVTS4_1 in MT6785 compared with MT6779 */
-	/* LVTS9_0 always has no temperature data because
-	 * there is no HW route to it
-	 */
-	TS_LVTS9_0,
+	TS_LVTS4_1,
+	TS_LVTS5_0,
+	TS_LVTS5_1,
+	TS_LVTS6_0,
+	TS_LVTS6_1,
+	TS_LVTS7_0,
+	TS_LVTS7_1,
+	TS_LVTS7_2,
 #endif
-	TS_ABB,
-	TS_ENUM_MAX,
+	TS_ENUM_MAX
 };
 
 enum thermal_bank_name {
@@ -91,9 +107,7 @@ enum thermal_bank_name {
 	THERMAL_BANK2,
 	THERMAL_BANK3,
 	THERMAL_BANK4,
-	/* No bank 5 */
-	THERMAL_BANK6,
-	THERMAL_BANK7,
+	THERMAL_BANK5,
 	THERMAL_BANK_NUM
 };
 
@@ -103,7 +117,7 @@ struct TS_PTPOD {
 };
 
 extern int mtktscpu_limited_dmips;
-
+extern int tscpu_get_temperature_range(void);
 /* Valid if it returns 1, invalid if it returns 0. */
 extern int tscpu_is_temp_valid(void);
 
@@ -137,6 +151,10 @@ extern int tscpu_get_min_cpu_pwr(void);
 extern int tscpu_get_min_gpu_pwr(void);
 extern int tscpu_get_min_vpu_pwr(void);
 extern int tscpu_get_min_mdla_pwr(void);
+
+extern void lvts_ipi_send_efuse_data(void);
+extern void lvts_ipi_send_sspm_thermal_thtottle(void);
+extern void lvts_ipi_send_sspm_thermal_suspend_resume(int is_suspend);
 
 /* Five thermal sensors. */
 enum mtk_thermal_sensor_cpu_id_met {
@@ -221,6 +239,7 @@ extern int get_cpu_target_offset(void);
 extern int mtk_gpufreq_register(
 	struct mt_gpufreq_power_table_info *freqs, int num);
 
+
 extern int get_target_tj(void);
 
 extern int mtk_thermal_get_tpcb_target(void);
@@ -234,4 +253,5 @@ unsigned int tempMonCtl1, unsigned int tempMonCtl2, unsigned int tempAhbPoll);
  */
 extern int mtk_cooler_is_abcct_unlimit(void);
 
+extern int tscpu_kernel_status(void);
 #endif /* __MT6785_THERMAL_H__ */
