@@ -553,10 +553,10 @@ s32 smi_register(void)
 
 	class = class_create(THIS_MODULE, DEV_NAME);
 	if (IS_ERR(class))
-		SMIERR("Create class failed: %d\n", PTR_ERR(class));
+		SMIERR("Create class failed: %ld\n", PTR_ERR(class));
 	device = device_create(class, NULL, dev_no, NULL, DEV_NAME);
 	if (IS_ERR(device))
-		SMIERR("Create device failed: %d\n", PTR_ERR(device));
+		SMIERR("Create device failed: %ld\n", PTR_ERR(device));
 
 	/* driver */
 	spin_lock_init(&(smi_drv.lock));
@@ -586,7 +586,7 @@ s32 smi_register(void)
 		SMIERR("Unable to parse or iomap mmsys_config\n");
 		return -ENOMEM;
 	}
-	SMIWRN(0, "MMSYS base: VA=%#p, PA=%pa\n", smi_mmsys_base, &res.start);
+	SMIWRN(0, "MMSYS base: VA=%p, PA=%pa\n", smi_mmsys_base, &res.start);
 	of_node_put(of_node);
 
 	smi_debug_bus_hang_detect(false, DEV_NAME);
