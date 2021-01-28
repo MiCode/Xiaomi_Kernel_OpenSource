@@ -46,6 +46,7 @@ struct reg_vibr {
 	bool reg_status;
 	bool vibr_shutdown;
 	struct reg_vibr_config vibr_conf;
+	struct notifier_block oc_handle;
 };
 
 static int mt_vibra_parse_dt(struct device *dev,
@@ -339,6 +340,23 @@ static struct led_classdev led_vibr = {
 	.groups		= vibr_group,
 };
 
+static int regulator_oc_event(struct notifier_block *nb,
+	unsigned long event, void *data)
+{
+	struct reg_vibr *vibr = container_of(nb, struct reg_vibr, oc_handle);
+
+	switch (event) {
+	case REGULATOR_EVENT_OVER_CURRENT:
+	case REGULATOR_EVENT_FAIL:
+		pr_info("get regulator oc event: %lu", event);
+		vibr_disable(vibr);
+		break;
+	default:
+		break;
+	}
+	return NOTIFY_OK;
+}
+
 static int vib_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -380,6 +398,14 @@ static int vib_probe(struct platform_device *pdev)
 		pr_info("led class register fail\n");
 		goto err;
 	}
+
+	/* register oc notification for this regulator */
+	m_vibr->oc_handle.notifier_call = regulator_oc_event;
+	ret = devm_regulator_register_notifier(m_vibr->vibr_conf.reg,
+		&m_vibr->oc_handle);
+	if (ret)
+		pr_info("regulator notifier request failed\n");
+
 	platform_set_drvdata(pdev, m_vibr);
 	ret = vibr_power_set(m_vibr);
 	if (ret < 0) {
