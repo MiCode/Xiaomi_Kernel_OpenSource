@@ -1260,12 +1260,7 @@ _GetGFPFlags(IMG_BOOL bZero,
 		{
 			/* Limit to 32 bit.
 			 * Achieved by setting __GFP_DMA32 for 64 bit systems */
-#if defined(CONFIG_MACH_MT6739)
-			/* Use HIGHMEM as DMA32 can access only 512MB DRAM */
-			gfp_flags |= __GFP_HIGHMEM;
-#else
 			gfp_flags |= __GFP_DMA32;
-#endif
 		}
 		else
 		{

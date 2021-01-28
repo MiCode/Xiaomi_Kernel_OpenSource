@@ -51,9 +51,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/sched.h>
 #endif /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)) */
 #include PVR_ANDROID_ION_HEADER
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
 #include PVR_ANDROID_ION_PRIV_HEADER
-#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(4, 12, 0)) */
+#endif /* (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)) */
 #include "pvr_ion_stats.h"
 #include "di_common.h"
 #include "di_server.h"
