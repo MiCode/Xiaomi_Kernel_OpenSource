@@ -6742,7 +6742,8 @@ static int __init ISP_Init(void)
 	node = of_find_compatible_node(NULL, NULL, "mediatek,mmsys_config");
 	if (!node) {
 		LOG_NOTICE("find mmsys_config node failed!!!\n");
-		return -ENODEV;
+		//Todo: Ignore mmsys_config device node check for EP temporary
+		//return -ENODEV;
 	}
 
 	/* FIX-ME: linux-3.10 procfs API changed */
