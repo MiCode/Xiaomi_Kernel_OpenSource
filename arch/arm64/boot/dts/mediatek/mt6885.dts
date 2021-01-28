@@ -1025,7 +1025,7 @@
 		#ifndef CONFIG_FPGA_EARLY_PORTING
 		clocks =
 			<&infracfg_ao INFRACFG_AO_UFS_CG>,
-			<&infracfg_ao INFRACFG_AO_UNIPRO_SCK_CG>,
+			<&infracfg_ao INFRACFG_AO_UNIPRO_SYSCLK_CG>,
 			<&infracfg_ao INFRACFG_AO_UFS_MP_SAP_BCLK_CG>,
 			<&infracfg_ao INFRACFG_AO_AES_UFSFDE_CG>;
 		clock-names =
@@ -1674,8 +1674,8 @@
 			<&dispsys_config CLK_MM_F26M_HRTWT>,
 			<&dispsys_config CLK_MM_DISP_RSZ0>,
 			<&apmixed CLK_APMIXED_MIPID0_26M>,
-			<&topckgen CLK_TOP_DISP_PWM_SEL>,
-			<&infracfg_ao CLK_IFR_DISP_PWM>,
+			<&topckgen TOP_MUX_DISP_PWM>,
+			<&infracfg_ao INFRACFG_AO_DISP_PWM_CG>,
 			<&clk26m>,
 			<&topckgen CLK_TOP_UNIVPLL2_D4>,
 			<&topckgen CLK_TOP_ULPOSC1_D2>,
