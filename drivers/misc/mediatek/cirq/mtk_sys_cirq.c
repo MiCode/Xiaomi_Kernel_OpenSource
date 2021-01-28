@@ -33,6 +33,7 @@
 void __iomem *SYS_CIRQ_BASE;
 static unsigned int CIRQ_IRQ_NUM;
 static unsigned int CIRQ_SPI_START;
+static unsigned int sw_reset;
 #ifdef LATENCY_CHECK
 unsigned long long clone_t1;
 unsigned long long clone_t2;
@@ -309,6 +310,23 @@ static int mt_cirq_set_pol(unsigned int cirq_num, unsigned int pol)
 	mt_reg_sync_writel(bit, base);
 	return 0;
 }
+
+/*
+ * CIRQ register, which is under infra power down domain,
+ * will be corrupted after exiting suspend/resume flow.
+ * Due to the HW change, so we need reset the cirq by SW.
+ */
+void mt_cirq_sw_reset(void)
+{
+	unsigned int st;
+
+	if (sw_reset) {
+		st = readl(IOMEM(CIRQ_CON));
+		st |= (CIRQ_SW_RESET << CIRQ_CON_SW_RST_BITS);
+		mt_reg_sync_writel(st, CIRQ_CON);
+	}
+}
+EXPORT_SYMBOL(mt_cirq_sw_reset);
 
 /*
  * mt_cirq_enable: Enable SYS_CIRQ
@@ -1137,6 +1155,10 @@ int __init mt_cirq_init(void)
 
 	sys_cirq_num = irq_of_parse_and_map(node, 0);
 	pr_debug("[CIRQ] sys_cirq_num = %d\n", sys_cirq_num);
+
+	if (of_property_read_u32(node, "sw_reset", &sw_reset))
+		sw_reset = 0;
+	pr_debug("[CIRQ] sw_reset = %d\n", sw_reset);
 #endif
 
 #ifdef CONFIG_OF
