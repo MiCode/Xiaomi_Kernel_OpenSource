@@ -29,11 +29,14 @@ ifneq ($(KERNELRELEASE),)
 
     # Do Nothing, move to standalone repo
     MODULE_NAME := connadp
-    obj-y += $(MODULE_NAME).o
+    obj-$(CONFIG_MTK_COMBO) += $(MODULE_NAME).o
+
     $(MODULE_NAME)-objs += common/connectivity_build_in_adapter.o
     $(MODULE_NAME)-objs += common/wmt_build_in_adapter.o
 
-
+    ifeq ($(CONFIG_MTK_COMBO), y)
+        ccflags-y += -D CFG_CONNADP_BUILD_IN
+    endif
     # Do build-in for Makefile checking
     # export CONFIG_WLAN_DRV_BUILD_IN=y
 

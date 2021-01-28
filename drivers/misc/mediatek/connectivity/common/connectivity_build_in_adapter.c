@@ -62,14 +62,22 @@
 
 void connectivity_export_show_stack(struct task_struct *tsk, unsigned long *sp)
 {
+#ifdef CFG_CONNADP_BUILD_IN
 	show_stack(tsk, sp);
+#else
+	pr_info("%s not support in connadp.ko\n", __func__);
+#endif
 }
 EXPORT_SYMBOL(connectivity_export_show_stack);
 
 void connectivity_export_tracing_record_cmdline(struct task_struct *tsk)
 {
 #ifdef CONFIG_TRACING
+#ifdef CFG_CONNADP_BUILD_IN
 	tracing_record_cmdline(tsk);
+#else
+	pr_info("%s not support in connadp.ko\n", __func__);
+#endif
 #endif
 }
 EXPORT_SYMBOL(connectivity_export_tracing_record_cmdline);
@@ -177,6 +185,7 @@ EXPORT_SYMBOL(connectivity_export_dump_gpio_info);
 
 void connectivity_export_dump_thread_state(const char *name)
 {
+#ifdef CFG_CONNADP_BUILD_IN
 	static const char stat_nam[] = TASK_STATE_TO_CHAR_STR;
 	struct task_struct *p;
 	int cpu;
@@ -217,6 +226,10 @@ void connectivity_export_dump_thread_state(const char *name)
 		break;
 	}
 	rcu_read_unlock();
+
+#else
+	pr_info("%s not support in connadp.ko\n", __func__);
+#endif
 }
 EXPORT_SYMBOL(connectivity_export_dump_thread_state);
 
@@ -226,9 +239,4 @@ int connectivity_export_gpio_get_tristate_input(unsigned int pin)
 }
 EXPORT_SYMBOL(connectivity_export_gpio_get_tristate_input);
 
-struct regmap *connectivity_export_regulator_get_regmap(
-					struct regulator *regulator)
-{
-	return regulator_get_regmap(regulator);
-}
-EXPORT_SYMBOL(connectivity_export_regulator_get_regmap);
+MODULE_LICENSE("GPL");
