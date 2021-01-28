@@ -2556,6 +2556,7 @@ static int msdc_runtime_resume(struct device *dev)
 {
 	struct mmc_host *mmc = dev_get_drvdata(dev);
 	struct msdc_host *host = mmc_priv(mmc);
+	struct arm_smccc_res smccc_res;
 
 	msdc_ungate_clock(mmc);
 	msdc_restore_reg(host);
@@ -2564,7 +2565,14 @@ static int msdc_runtime_resume(struct device *dev)
 	if (mmc->caps2 & MMC_CAP2_CQE)
 		cqhci_resume(mmc);
 #endif
-
+	/*
+	 * 1: MSDC_AES_CTL_INIT
+	 * 4: cap_id, no-meaning
+	 * 1: cfg_id, we choose the second cfg group
+	 */
+	if (host->mmc->caps2 & MMC_CAP2_CRYPTO)
+		arm_smccc_smc(MTK_SIP_KERNEL_HW_FDE_MSDC_CTL,
+			1, 4, 1, 0, 0, 0, 0, &smccc_res);
 	return 0;
 }
 #endif
