@@ -404,7 +404,7 @@ u8 get_rtc_spare0_fg_value(struct mtk_gauge *gauge)
 	data = *buf;
 	kfree(buf);
 
-	return *buf;
+	return data;
 }
 
 void set_rtc_spare0_fg_value(struct mtk_gauge *gauge, u8 val)
