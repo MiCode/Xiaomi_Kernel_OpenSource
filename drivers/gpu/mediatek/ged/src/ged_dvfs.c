@@ -1940,6 +1940,9 @@ void ged_dvfs_run(unsigned long t, long phase, unsigned long ul3DFenceDoneTime)
 		ged_log_buf_print(ghLogBuf_DVFS,
 			"[GED_K][FB_DVFS] fallback mode");
 		spin_unlock_irqrestore(&gsGpuUtilLock, ui32IRQFlags);
+#else
+		ged_dvfs_cal_gpu_utilization(&gpu_loading,
+			&gpu_block, &gpu_idle);
 #endif /* GED_ENABLE_FB_DVFS */
 
 		spin_lock_irqsave(&g_sSpinLock, ui32IRQFlags);
