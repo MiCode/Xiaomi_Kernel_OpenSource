@@ -945,7 +945,10 @@ pr_debug(IRQTag fmt,  ##args)
 #endif
 #define IMGSYS_REG_CG_SET               (DIP_IMGSYS_CONFIG_BASE + 0x4)
 #define IMGSYS_REG_CG_CLR               (DIP_IMGSYS_CONFIG_BASE + 0x8)
-
+#if (MTK_DIP_COUNT == 2)
+#define IMGSYS2_REG_CG_SET              (DIP_IMGSYS2_CONFIG_BASE + 0x4)
+#define IMGSYS2_REG_CG_CLR              (DIP_IMGSYS2_CONFIG_BASE + 0x8)
+#endif
 /**************************************************************
  *
  **************************************************************/
