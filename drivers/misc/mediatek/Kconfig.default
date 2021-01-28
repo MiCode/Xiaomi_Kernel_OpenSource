@@ -21,8 +21,12 @@ config ANDROID_DEFAULT_SETTING
 	select CPU_SW_DOMAIN_PAN
 	select CRYPTO_AES
 	select CRYPTO_CBC
+	select CRYPTO_XCBC
+	select CRYPTO_CMAC
 	select CRYPTO_ECB
 	select CRYPTO_GCM
+	select CRYPTO_CCM
+	select CRYPTO_BLOWFISH
 	select CRYPTO_HMAC
 	select CRYPTO_MD5
 	select CRYPTO_NULL
@@ -206,6 +210,8 @@ config ANDROID_DEFAULT_SETTING
 	select USB_GADGET
 	select USB_SUPPORT
 	select XFRM_USER
+	select XFRM_SUB_POLICY
+	select XFRM_STATISTICS
 	help
 	  Select the android base and recommended config by default
 	  to avoid missing basic or common setting
