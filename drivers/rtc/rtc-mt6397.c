@@ -808,11 +808,17 @@ static irqreturn_t mtk_rtc_irq_handler_thread(int irq, void *data)
 		now_time =
 		    mktime(nowtm.tm_year, nowtm.tm_mon, nowtm.tm_mday,
 			   nowtm.tm_hour, nowtm.tm_min, nowtm.tm_sec);
+
+		if (now_time == -1) {
+			mutex_unlock(&rtc->lock);
+			goto out;
+		}
+
 		time =
 		    mktime(tm.tm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour,
 			   tm.tm_min, tm.tm_sec);
 
-		if (now_time == -1 || time == -1) {
+		if (time == -1) {
 			mutex_unlock(&rtc->lock);
 			goto out;
 		}
