@@ -27,20 +27,14 @@ struct mt_irtx {
 	struct regulator *buck;
 };
 
-struct irtx_config {
-	unsigned int start : 1;
-	unsigned int mode : 2;
-	unsigned int sw_o : 1;
-	unsigned int b_ord : 1;
-	unsigned int r_ord : 1;
-	unsigned int ir_os : 1;
-	unsigned int ir_inv : 1;
-	unsigned int bit_num : 7;
-	unsigned int data_inv : 1;
-};
-
 #define IRTX_IOC_SET_CARRIER_FREQ   _IOW('R', 0, unsigned int)
 #define IRTX_IOC_GET_SOLUTTION_TYPE _IOR('R', 1, unsigned int)
 #define IRTX_IOC_SET_DUTY_CYCLE     _IOW('R', 2, unsigned int)
 #define IRTX_IOC_SET_IRTX_LED_EN    _IOW('R', 10, unsigned int)
+#ifdef CONFIG_COMPAT
+#define COMPAT_IRTX_IOC_SET_CARRIER_FREQ   _IOW('R', 0, compat_uint_t)
+#define COMPAT_IRTX_IOC_GET_SOLUTTION_TYPE _IOR('R', 1, compat_uint_t)
+#define COMPAT_IRTX_IOC_SET_DUTY_CYCLE     _IOW('R', 2, compat_uint_t)
+#define COMPAT_IRTX_IOC_SET_IRTX_LED_EN    _IOW('R', 10, compat_uint_t)
+#endif
 
