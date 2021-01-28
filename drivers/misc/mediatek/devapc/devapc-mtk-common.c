@@ -824,8 +824,8 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 	char *parm_str = NULL;
 	char *pinput = NULL;	/* pointer to input */
 	unsigned long param = 0;
-	uint32_t ret;
-	int err = 0, len = 0, apc_set_idx;
+	uint32_t ret, len;
+	int err = 0, apc_set_idx;
 	long slave_type = 0, domain = 0, index = 0;
 	struct arm_smccc_res res;
 	struct mtk_devapc_dbg_status *dbg_stat;
@@ -835,7 +835,6 @@ ssize_t mtk_devapc_dbg_write(struct file *file, const char __user *buffer,
 		pr_err(PFX "%s:%d NULL pointer\n", __func__, __LINE__);
 		return -EINVAL;
 	}
-
 
 	len = (count < (sizeof(input) - 1)) ? count : (sizeof(input) - 1);
 	if (copy_from_user(input, buffer, len)) {
