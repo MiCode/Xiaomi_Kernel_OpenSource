@@ -108,11 +108,28 @@ error:
 	return -1;
 }
 
+static int __init sspm_clk_en(struct device *dev, const char *id)
+{
+	struct clk *sspm_clk;
+
+	sspm_clk = devm_clk_get(dev, id);
+	if (IS_ERR(sspm_clk))
+		goto error;
+
+	if (clk_prepare_enable(sspm_clk))
+		goto error;
+
+	return 0;
+
+error:
+	pr_err("[SSPM] Enable sspm clock fail: %s.\n", id);
+	return -1;
+}
+
 static int __init mt6779_sspm_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	struct device *dev = &pdev->dev;
-	struct clk *sspm_26m, *sspm_32k, *sspm_bus_hclk;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cfgreg");
 	if (!res) {
@@ -137,27 +154,14 @@ static int __init mt6779_sspm_probe(struct platform_device *pdev)
 	pr_info("[SSPM] mt6779-sspm irq=%d, cfgreg=0x%p\n",
 			sspmreg.irq, sspmreg.cfg);
 
-	sspm_26m = devm_clk_get(dev, "sspm_26m");
-	if (IS_ERR(sspm_26m)) {
-		pr_err("[SSPM] Get sspm clock fail: 26M.\n");
+	if (sspm_clk_en(dev, "sspm_26m"))
 		return -1;
-	}
 
-	sspm_32k = devm_clk_get(dev, "sspm_32k");
-	if (IS_ERR(sspm_32k)) {
-		pr_err("[SSPM] Get sspm clock fail: 32K.\n");
+	if (sspm_clk_en(dev, "sspm_32k"))
 		return -1;
-	}
 
-	sspm_bus_hclk = devm_clk_get(dev, "sspm_bus_hclk");
-	if (IS_ERR(sspm_bus_hclk)) {
-		pr_err("[SSPM] Get sspm clock fail: Bus_hclk.\n");
+	if (sspm_clk_en(dev, "sspm_bus_hclk"))
 		return -1;
-	}
-
-	clk_prepare_enable(sspm_26m);
-	clk_prepare_enable(sspm_32k);
-	clk_prepare_enable(sspm_bus_hclk);
 
 	sspm_pdev = pdev;
 
