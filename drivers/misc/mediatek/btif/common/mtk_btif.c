@@ -3484,7 +3484,7 @@ void mtk_btif_read_cpu_sw_rst_debug(void)
 static int _btif_rx_thread_lock(struct _mtk_btif_ *p_btif, bool enable)
 {
 	if (enable) {
-		if (mutex_lock_killable(&(p_btif->rx_thread_mtx)))
+		if (!mutex_trylock(&(p_btif->rx_thread_mtx)))
 			return -1;
 	} else
 		mutex_unlock(&(p_btif->rx_thread_mtx));
@@ -3498,7 +3498,11 @@ int btif_rx_data_path_lock(struct _mtk_btif_ *p_btif)
 	 */
 	if (_btif_rx_thread_lock(p_btif, true))
 		return E_BTIF_FAIL;
-	hal_rx_dma_lock(true);
+
+	if (hal_rx_dma_lock(true)) {
+		_btif_rx_thread_lock(p_btif, false);
+		return E_BTIF_FAIL;
+	}
 	return 0;
 }
 

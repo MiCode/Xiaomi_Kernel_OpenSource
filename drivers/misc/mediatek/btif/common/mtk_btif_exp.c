@@ -804,9 +804,12 @@ int mtk_btif_exp_rx_has_pending_data(unsigned long u_id)
 	}
 
 	/* Lock the data path to ensure that the current data path is
-	 * not processing data
+	 * not processing data. If fail to get lock, it means rx data
+	 * path is busy and we assume there has pending data to avoid
+	 * thread is blocked here.
 	 */
-	btif_rx_data_path_lock(p_btif);
+	if (btif_rx_data_path_lock(p_btif))
+		return 1;
 
 	has_pending_data = btif_rx_buf_has_pending_data(p_btif);
 	if (has_pending_data == 0)
