@@ -466,7 +466,8 @@ static unsigned int mtk_sodi_output_log(
 	}
 
 	if (print_log) {
-		pr_info("Power/swap op_cond = 0x%x\n", op_cond);
+		printk_deferred("[name:spm&]Power/swap op_cond = 0x%x\n"
+			, op_cond);
 		wr = __spm_output_wake_reason(
 			wakesta, false, mtk_idle_name(idle_type));
 		if (idle_flag & MTK_IDLE_LOG_RESOURCE_USAGE)

@@ -6,7 +6,6 @@
 #ifndef __MTK_SSPM_H__
 #define __MTK_SSPM_H__
 
-
 /* op_cond enum, should be align to spm.h @ sspm */
 enum {
 	PWR_OPT_SLEEP_DPIDLE  = (1 << 0),

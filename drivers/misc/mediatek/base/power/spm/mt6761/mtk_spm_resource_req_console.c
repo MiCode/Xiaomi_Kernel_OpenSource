@@ -77,7 +77,6 @@ int spm_resource_req_console_by_id(int id
 				, PW_SPM_F26M_REQ, req_value);
 			pPwrctrl->spm_f26m_req = req_value;
 		}
-
 	}
 
 	mutex_unlock(&__spm_mutex);

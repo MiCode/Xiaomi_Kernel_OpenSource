@@ -112,7 +112,7 @@ void spm_twam_enable_monitor(bool en_monitor,
 			((twamcfg.byte[2].id & 0x1f) << 22) |
 			((twamcfg.byte[3].id & 0x1f) << 27) |
 			(twam_speed_mode ? TWAM_SPEED_MODE_ENABLE_LSB : 0) |
-				TWAM_ENABLE_LSB);
+			TWAM_ENABLE_LSB);
 
 	spm_d.u.args.args4 = (((twamcfg.byte[0].signal & 0x3) << 0) |
 			((twamcfg.byte[1].signal & 0x3) << 2) |

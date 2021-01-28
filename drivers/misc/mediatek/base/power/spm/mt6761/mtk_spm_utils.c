@@ -177,7 +177,7 @@ EXPORT_SYMBOL(get_spmfw_version);
 
 void spm_output_sleep_option(void)
 {
-	pr_info("[SPM] PWAKE_EN:%d, PCMWDT_EN:%d, BYPASS_SYSPWREQ:%d\n",
+	printk_deferred("[name:spm&][SPM] PWAKE_EN:%d, PCMWDT_EN:%d, BYPASS_SYSPWREQ:%d\n",
 		   SPM_PWAKE_EN, SPM_PCMWDT_EN, SPM_BYPASS_SYSPWREQ);
 }
 EXPORT_SYMBOL(spm_output_sleep_option);

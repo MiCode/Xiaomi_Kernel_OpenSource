@@ -38,8 +38,8 @@ int spm_to_sspm_command_async(u32 cmd, struct spm_data *spm_d)
 				__func__, __LINE__, cmd, ret);
 		break;
 	default:
-		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n"
-			, __func__, __LINE__, cmd);
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
+			__func__, __LINE__, cmd);
 		break;
 	}
 
@@ -71,7 +71,7 @@ int spm_to_sspm_command_async_wait(u32 cmd)
 		break;
 	default:
 		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
-				__func__, __LINE__, cmd);
+			__func__, __LINE__, cmd);
 		break;
 	}
 

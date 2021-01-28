@@ -33,12 +33,12 @@ int spm_to_sspm_command_async(u32 cmd, struct spm_data *spm_d)
 		ret = sspm_ipi_send_async(
 			IPI_ID_SPM_SUSPEND, IPI_OPT_DEFAUT, spm_d, SPM_D_LEN);
 		if (ret != 0)
-			pr_notice("#@# %s(%d) sspm_ipi_send_async(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_async(cmd:0x%x) ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		break;
 	default:
-		pr_notice("#@# %s(%d) cmd(%d) wrong!!!\n", __func__,
-			__LINE__, cmd);
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
+			__func__, __LINE__, cmd);
 		break;
 	}
 
@@ -60,17 +60,17 @@ int spm_to_sspm_command_async_wait(u32 cmd)
 		ret = sspm_ipi_send_async_wait(
 			IPI_ID_SPM_SUSPEND, IPI_OPT_DEFAUT, &ack_data);
 		if (ret != 0) {
-			pr_notice("#@# %s(%d) sspm_ipi_send_async_wait(cmd:0x%x) ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) sspm_ipi_send_async_wait(cmd:0x%x) ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_notice("#@# %s(%d) cmd(%d) return %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) return %d\n",
 				__func__, __LINE__, cmd, ret);
 		}
 		break;
 	default:
-		pr_notice("#@# %s(%d) cmd(%d) wrong!!!\n", __func__,
-			__LINE__, cmd);
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
+			__func__, __LINE__, cmd);
 		break;
 	}
 
@@ -97,11 +97,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 			IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING, spm_d, SPM_D_LEN,
 				&ack_data, 1);
 		if (ret != 0) {
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -111,11 +111,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 			IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING, spm_d, SPM_D_LEN,
 				&ack_data, 1);
 		if (ret != 0) {
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -126,11 +126,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 			IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING, spm_d, SPM_D_LEN,
 				&ack_data, 1);
 		if (ret != 0) {
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -141,11 +141,11 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 			IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING, spm_d, SPM_D_LEN,
 				&ack_data, 1);
 		if (ret != 0) {
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		}
 		break;
@@ -157,16 +157,16 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 			IPI_ID_SPM_SUSPEND, IPI_OPT_POLLING, spm_d, SPM_D_LEN,
 				&ack_data, 1);
 		if (ret != 0) {
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		} else if (ack_data < 0) {
 			ret = ack_data;
-			pr_notice("#@# %s(%d) cmd:0x%x ret %d\n",
+			printk_deferred("[name:spm&]#@# %s(%d) cmd:0x%x ret %d\n",
 				__func__, __LINE__, cmd, ret);
 		}
 		break;
 	default:
-		pr_notice("#@# %s(%d) cmd(%d) wrong!!!\n",
+		printk_deferred("[name:spm&]#@# %s(%d) cmd(%d) wrong!!!\n",
 			__func__, __LINE__, cmd);
 		break;
 	}
