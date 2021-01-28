@@ -38,7 +38,7 @@ static int tmem_ssmr_get(u64 *pa, u32 *size, u32 feat, void *priv)
 	UNUSED(priv);
 
 	if (ssmr_offline(&ssmr_pa, &ssmr_size, true, feat)) {
-		pr_err("ssmr offline failed!\n");
+		pr_err("ssmr offline failed (feat:%d)!\n", feat);
 		return TMEM_SSMR_OFFLINE_FAILED;
 	}
 
@@ -63,7 +63,7 @@ static int tmem_ssmr_put(u32 feat, void *priv)
 	UNUSED(priv);
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 	if (ssmr_online(feat)) {
-		pr_err("ssmr online failed!\n");
+		pr_err("ssmr online failed (feat:%d)!\n", feat);
 		return TMEM_SSMR_ONLINE_FAILED;
 	}
 

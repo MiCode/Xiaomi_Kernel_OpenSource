@@ -30,9 +30,6 @@
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
 #include <memory_ssmr.h>
 #endif
-#include <kree/system.h>
-#include <kree/mem.h>
-#include <kree/tz_mod.h>
 
 #define PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
 #include "pmem_plat.h" PLAT_HEADER_MUST_BE_INCLUDED_BEFORE_OTHER_HEADERS
@@ -41,244 +38,11 @@
 #include "private/mld_helper.h"
 #include "private/tmem_error.h"
 #include "private/tmem_priv.h"
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-#include "private/secmem_ext.h"
-#endif
+/* clang-format off */
+#include "mtee_impl/mtee_priv.h"
+/* clang-format on */
 
 #define PMEM_DEVICE_NAME "PMEM"
-
-static const char mem_srv_name[] = "com.mediatek.geniezone.srv.mem";
-
-#define LOCK_BY_CALLEE (0)
-#if LOCK_BY_CALLEE
-#define GZ_SESSION_LOCK_INIT() mutex_init(&sess_data->lock)
-#define GZ_SESSION_LOCK() mutex_lock(&sess_data->lock)
-#define GZ_SESSION_UNLOCK() mutex_unlock(&sess_data->lock)
-#else
-#define GZ_SESSION_LOCK_INIT()
-#define GZ_SESSION_LOCK()
-#define GZ_SESSION_UNLOCK()
-#endif
-
-struct GZ_SESSION_DATA {
-	KREE_SESSION_HANDLE session_handle;
-	KREE_SECUREMEM_HANDLE append_mem_handle;
-#if LOCK_BY_CALLEE
-	struct mutex lock;
-#endif
-};
-
-static struct GZ_SESSION_DATA *gz_create_session_data(void)
-{
-	struct GZ_SESSION_DATA *sess_data;
-
-	sess_data = mld_kmalloc(sizeof(struct GZ_SESSION_DATA), GFP_KERNEL);
-	if (INVALID(sess_data)) {
-		pr_err("%s:%d out of memory!\n", __func__, __LINE__);
-		return NULL;
-	}
-
-	memset(sess_data, 0x0, sizeof(struct GZ_SESSION_DATA));
-
-	GZ_SESSION_LOCK_INIT();
-	return sess_data;
-}
-
-static void gz_destroy_session_data(struct GZ_SESSION_DATA *sess_data)
-{
-	if (VALID(sess_data))
-		mld_kfree(sess_data);
-}
-
-static int gz_session_open(void **peer_data, void *priv)
-{
-	int ret = 0;
-	struct GZ_SESSION_DATA *sess_data;
-
-	UNUSED(priv);
-
-	sess_data = gz_create_session_data();
-	if (INVALID(sess_data)) {
-		pr_err("Create session data failed: out of memory!\n");
-		return TMEM_GZ_CREATE_SESSION_FAILED;
-	}
-
-	GZ_SESSION_LOCK();
-
-	ret = KREE_CreateSession(mem_srv_name, &sess_data->session_handle);
-	if (ret != 0) {
-		pr_err("GZ open session failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_GZ_CREATE_SESSION_FAILED;
-	}
-
-	*peer_data = (void *)sess_data;
-	GZ_SESSION_UNLOCK();
-	return TMEM_OK;
-}
-
-static int gz_session_close(void *peer_data, void *priv)
-{
-	int ret;
-	struct GZ_SESSION_DATA *sess_data = (struct GZ_SESSION_DATA *)peer_data;
-
-	UNUSED(priv);
-	GZ_SESSION_LOCK();
-
-	ret = KREE_CloseSession(sess_data->session_handle);
-	if (ret != 0) {
-		pr_err("GZ close session failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_GZ_CLOSE_SESSION_FAILED;
-	}
-
-	GZ_SESSION_UNLOCK();
-	gz_destroy_session_data(sess_data);
-	return TMEM_OK;
-}
-
-static int gz_alloc(u32 alignment, u32 size, u32 *refcount, u32 *sec_handle,
-		    u8 *owner, u32 id, u32 clean, void *peer_data, void *priv)
-{
-	int ret;
-	struct GZ_SESSION_DATA *sess_data = (struct GZ_SESSION_DATA *)peer_data;
-
-	UNUSED(priv);
-	GZ_SESSION_LOCK();
-
-	if (clean) {
-		ret = KREE_ION_ZallocChunkmem(sess_data->session_handle,
-					      sess_data->append_mem_handle,
-					      sec_handle, alignment, size);
-	} else {
-		ret = KREE_ION_AllocChunkmem(sess_data->session_handle,
-					     sess_data->append_mem_handle,
-					     sec_handle, alignment, size);
-	}
-
-	if (ret != 0) {
-		pr_err("GZ alloc chunk memory failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_GZ_ALLOC_CHUNK_FAILED;
-	}
-
-	*refcount = 1;
-	GZ_SESSION_UNLOCK();
-	return TMEM_OK;
-}
-
-static int gz_free(u32 sec_handle, u8 *owner, u32 id, void *peer_data,
-		   void *priv)
-{
-	int ret;
-	struct GZ_SESSION_DATA *sess_data = (struct GZ_SESSION_DATA *)peer_data;
-
-	UNUSED(priv);
-	GZ_SESSION_LOCK();
-
-	ret = KREE_ION_UnreferenceChunkmem(sess_data->session_handle,
-					   sec_handle);
-	if (ret != 0) {
-		pr_err("GZ free chunk memory failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_GZ_FREE_CHUNK_FAILED;
-	}
-
-	GZ_SESSION_UNLOCK();
-	return TMEM_OK;
-}
-
-static int gz_mem_reg_cfg_notify_tee(u64 pa, u32 size)
-{
-#if defined(CONFIG_MTK_SECURE_MEM_SUPPORT)                                     \
-	&& defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
-	return secmem_fr_set_prot_shared_region(pa, size);
-#else
-	return TMEM_OK;
-#endif
-}
-
-static int gz_mem_reg_add(u64 pa, u32 size, void *peer_data, void *priv)
-{
-	int ret;
-	struct GZ_SESSION_DATA *sess_data = (struct GZ_SESSION_DATA *)peer_data;
-	KREE_SHAREDMEM_PARAM mem_param;
-
-	UNUSED(priv);
-	mem_param.buffer = (void *)pa;
-	mem_param.size = size;
-	mem_param.mapAry = NULL;
-
-	GZ_SESSION_LOCK();
-
-	ret = KREE_AppendSecureMultichunkmem(sess_data->session_handle,
-					     &sess_data->append_mem_handle,
-					     &mem_param);
-	if (ret != 0) {
-		pr_err("GZ append reg mem failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_MOCK_APPEND_MEMORY_FAILED;
-	}
-
-	ret = gz_mem_reg_cfg_notify_tee(pa, size);
-	if (ret != 0) {
-		pr_err("GZ notify reg mem add to TEE failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_MOCK_NOTIFY_MEM_ADD_CFG_TO_TEE_FAILED;
-	}
-
-	GZ_SESSION_UNLOCK();
-	return TMEM_OK;
-}
-
-static int gz_mem_reg_remove(void *peer_data, void *priv)
-{
-	int ret;
-	struct GZ_SESSION_DATA *sess_data = (struct GZ_SESSION_DATA *)peer_data;
-
-	UNUSED(priv);
-	GZ_SESSION_LOCK();
-
-	ret = KREE_ReleaseSecureMultichunkmem(sess_data->session_handle,
-					      sess_data->append_mem_handle);
-	if (ret != 0) {
-		pr_err("GZ release reg mem failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_GZ_RELEASE_MEMORY_FAILED;
-	}
-
-	ret = gz_mem_reg_cfg_notify_tee(0x0ULL, 0x0);
-	if (ret != 0) {
-		pr_err("GZ notify reg mem remove to TEE failed:%d\n", ret);
-		GZ_SESSION_UNLOCK();
-		return TMEM_GZ_NOTIFY_MEM_REMOVE_CFG_TO_TEE_FAILED;
-	}
-
-	GZ_SESSION_UNLOCK();
-	return TMEM_OK;
-}
-
-static int gz_invoke_command(struct trusted_driver_cmd_params *invoke_params,
-			     void *peer_data, void *priv)
-{
-	UNUSED(invoke_params);
-	UNUSED(peer_data);
-	UNUSED(priv);
-
-	pr_err("%s:%d operation is not implemented yet!\n", __func__, __LINE__);
-	return TMEM_OPERATION_NOT_IMPLEMENTED;
-}
-
-static struct trusted_driver_operations pmem_driver_ops = {
-	.session_open = gz_session_open,
-	.session_close = gz_session_close,
-	.memory_alloc = gz_alloc,
-	.memory_free = gz_free,
-	.memory_grant = gz_mem_reg_add,
-	.memory_reclaim = gz_mem_reg_remove,
-	.invoke_cmd = gz_invoke_command,
-};
 
 static struct trusted_mem_configs pmem_configs = {
 #if defined(PMEM_MOCK_MTEE)
@@ -361,6 +125,10 @@ static void pmem_create_proc_entry(void)
 }
 #endif
 
+static struct mtee_peer_ops_priv_data pmem_priv_data = {
+	.mem_type = TRUSTED_MEM_PROT,
+};
+
 static int __init pmem_init(void)
 {
 	int ret = TMEM_OK;
@@ -380,7 +148,8 @@ static int __init pmem_init(void)
 	if (pmem_configs.mock_ssmr_enable)
 		get_mocked_ssmr_ops(&t_device->mock_ssmr_ops);
 #endif
-	t_device->peer_ops = &pmem_driver_ops;
+	get_mtee_peer_ops(&t_device->peer_ops);
+	t_device->peer_priv = &pmem_priv_data;
 
 	snprintf(t_device->name, MAX_DEVICE_NAME_LEN, "%s", PMEM_DEVICE_NAME);
 #if defined(CONFIG_MTK_SSMR) || (defined(CONFIG_CMA) && defined(CONFIG_MTK_SVP))
