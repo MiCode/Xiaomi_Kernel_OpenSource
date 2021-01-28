@@ -252,6 +252,7 @@ source "drivers/misc/mediatek/eccci/Kconfig"
 source "drivers/misc/mediatek/conn_md/Kconfig"
 source "drivers/misc/mediatek/btif/Kconfig"
 source "drivers/misc/mediatek/mddp/Kconfig"
+source "drivers/misc/mediatek/nfc/Kconfig"
 
 endmenu  # CONN
 
