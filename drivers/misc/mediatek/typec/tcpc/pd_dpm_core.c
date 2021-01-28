@@ -1259,7 +1259,8 @@ void pd_dpm_dfp_inform_svids(struct pd_port *pd_port, bool ack)
 	if (ack) {
 		count = pd_get_msg_vdm_data_count(pd_port);
 		svid_list = pd_get_msg_vdm_data_payload(pd_port);
-
+		if (!svid_list)
+			return;
 		if (dpm_dfp_consume_svids(pd_port, svid_list, count))
 			return;
 	}
