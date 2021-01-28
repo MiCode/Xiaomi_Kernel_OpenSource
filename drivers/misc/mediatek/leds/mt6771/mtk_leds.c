@@ -903,7 +903,7 @@ int mt_mt65xx_blink_set(struct led_classdev *led_cdev,
 
 	if ((*delay_on == led_data->delay_on)
 		&& (*delay_off == led_data->delay_off)) {
-		LEDS_DEBUG("blink para not changed,do nothing %lld %lld\n",
+		LEDS_DEBUG("blink para not changed,do nothing %ld %ld\n",
 			*delay_on, *delay_off);
 		return -1;
 	}
