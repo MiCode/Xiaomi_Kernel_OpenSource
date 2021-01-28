@@ -221,6 +221,7 @@ extern void unlockadcch3(void);
 extern unsigned int pmic_Read_Efuse_HPOffset(int i);
 extern void Charger_Detect_Init(void);
 extern void Charger_Detect_Release(void);
+extern void usb_dpdm_pulldown(bool enable);
 
 extern int get_dlpt_imix_spm(void);
 extern int get_dlpt_imix(void);
