@@ -312,6 +312,7 @@ int fpsgo_fbt2fstb_query_fteh_list(int tid)
 			goto out;
 		}
 		put_task_struct(tsk);
+		thrd_name[15] = '\0';
 		if (gtsk) {
 			get_task_struct(gtsk);
 			if (!strncpy(proc_name, gtsk->comm, 16)) {
@@ -319,6 +320,7 @@ int fpsgo_fbt2fstb_query_fteh_list(int tid)
 				goto out;
 			}
 			put_task_struct(gtsk);
+			proc_name[15] = '\0';
 		} else
 			goto out;
 	} else
@@ -363,6 +365,7 @@ int set_fteh_list(char *proc_name,
 		kfree(new_fteh_list);
 		return -ENOMEM;
 	}
+	new_fteh_list->process_name[15] = '\0';
 
 	if (!strncpy(
 				new_fteh_list->thread_name,
@@ -370,6 +373,7 @@ int set_fteh_list(char *proc_name,
 		kfree(new_fteh_list);
 		return -ENOMEM;
 	}
+	new_fteh_list->thread_name[15] = '\0';
 
 	hlist_add_head(&new_fteh_list->hlist,
 			&fstb_fteh_list);
@@ -508,7 +512,8 @@ void fpsgo_ctrl2fstb_dfrc_fps(int fps)
 {
 	mutex_lock(&fstb_lock);
 
-	if (fps <= CFG_MAX_FPS_LIMIT && fps >= CFG_MIN_FPS_LIMIT) {
+	if (fps <= CFG_MAX_FPS_LIMIT && fps >= CFG_MIN_FPS_LIMIT &&
+		nr_fps_levels >= 1) {
 		dfps_ceiling = fps;
 		max_fps_limit = min(dfps_ceiling,
 				fps_levels[0].start);
@@ -1058,6 +1063,7 @@ void fpsgo_comp2fstb_queue_time_update(int pid,
 
 		if (gtsk) {
 			strncpy(new_frame_info->proc_name, gtsk->comm, 16);
+			new_frame_info->proc_name[15] = '\0';
 			put_task_struct(gtsk);
 		} else {
 			new_frame_info->proc_name[0] = '\0';
