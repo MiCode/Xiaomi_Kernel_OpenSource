@@ -474,6 +474,14 @@ struct vm_operations_struct {
 	 */
 	struct page *(*find_special_page)(struct vm_area_struct *vma,
 					  unsigned long addr);
+
+#ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+	/*
+	 * When user indicates its own fault handler, it needs to set this
+	 * field as true if it is suitable for speculative page fault.
+	 */
+	bool suitable_for_spf;
+#endif
 };
 
 static inline void vma_init(struct vm_area_struct *vma, struct mm_struct *mm)

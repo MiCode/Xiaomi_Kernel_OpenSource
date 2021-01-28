@@ -83,6 +83,7 @@
 #include "internal.h"
 
 #ifdef CONFIG_SPECULATIVE_PAGE_FAULT
+#define SPECULATIVE_PAGE_FAULT_SUPPORT_FILEMAP 1
 int sysctl_speculative_page_fault = 1;
 #endif
 
@@ -4281,8 +4282,10 @@ static vm_fault_t handle_pte_fault(struct vm_fault *vmf)
 	if (!vmf->pte) {
 		if (vma_is_anonymous(vmf->vma))
 			return do_anonymous_page(vmf);
+#ifndef SPECULATIVE_PAGE_FAULT_SUPPORT_FILEMAP
 		else if (vmf->flags & FAULT_FLAG_SPECULATIVE)
 			return VM_FAULT_RETRY;
+#endif
 		else
 			return do_fault(vmf);
 	}
@@ -4485,28 +4488,48 @@ vm_fault_t __handle_speculative_fault(struct mm_struct *mm,
 	if (seq & 1)
 		goto out_put;
 
-	/*
-	 * Can't call vm_ops service has we don't know what they would do
-	 * with the VMA.
-	 * This include huge page from hugetlbfs.
-	 */
-	if (vma->vm_ops)
-		goto out_put;
-
-	/*
-	 * __anon_vma_prepare() requires the mmap_sem to be held
-	 * because vm_next and vm_prev must be safe. This can't be guaranteed
-	 * in the speculative path.
-	 */
-	if (unlikely(!vma->anon_vma))
-		goto out_put;
-
 	vmf.vma_flags = READ_ONCE(vma->vm_flags);
 	vmf.vma_page_prot = READ_ONCE(vma->vm_page_prot);
 
 	/* check whether it is an access_error */
 	if (spf_access_error(access_vm, vmf.vma_flags))
 		goto out_put;
+
+	if (vma_is_anonymous(vma)) {
+		/*
+		 * __anon_vma_prepare() requires the mmap_sem to be held
+		 * because vm_next and vm_prev must be safe. This can't be
+		 * guaranteed in the speculative path.
+		 */
+		if (unlikely(!vma->anon_vma))
+			goto out_put;
+	} else {
+#ifdef SPECULATIVE_PAGE_FAULT_SUPPORT_FILEMAP
+		/*
+		 * A file's MAP_PRIVATE vma may be in anon_vma. So let's check
+		 * whether it is ready to avoid __anon_vma_prepare().
+		 * (for details, please find above comments)
+		 */
+		if (((vmf.vma_flags & (VM_SHARED | VM_WRITE)) == VM_WRITE) &&
+				unlikely(!vma->anon_vma))
+			goto out_put;
+
+		/*
+		 * Is it suitable for SPF?
+		 * Now we only support filemap_fault handler or the vm_ops with
+		 * suitable_for_spf set as true
+		 */
+		if (vma->vm_ops->fault != filemap_fault &&
+				!vma->vm_ops->suitable_for_spf)
+			goto out_put;
+#else
+		/*
+		 * Can't call vm_ops service has we don't know what they would
+		 * do with the VMA. This include huge page from hugetlbfs.
+		 */
+		goto out_put;
+#endif
+	}
 
 	/* Can't call userland page fault handler in the speculative path */
 	if (unlikely(vmf.vma_flags & VM_UFFD_MISSING))
