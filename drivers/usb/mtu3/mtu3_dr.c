@@ -351,6 +351,24 @@ void ssusb_set_force_mode(struct ssusb_mtk *ssusb,
 	mtu3_writel(ssusb->ippc_base, SSUSB_U2_CTRL(0), value);
 }
 
+static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
+{
+	void __iomem *ibase = ssusb->ippc_base;
+
+	dev_info(ssusb->dev, "%s\n", __func__);
+
+	/* Set below sequence to avoid power leakage */
+	mtu3_setbits(ibase, SSUSB_U3_CTRL(0),
+		(SSUSB_U3_PORT_DIS | SSUSB_U3_PORT_PDN));
+	mtu3_setbits(ibase, SSUSB_U2_CTRL(0),
+		SSUSB_U2_PORT_DIS | SSUSB_U2_PORT_PDN);
+	mtu3_clrbits(ibase, SSUSB_U2_CTRL(0), SSUSB_U2_PORT_OTG_SEL);
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL1, SSUSB_IP_HOST_PDN);
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
+	udelay(50);
+	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
+}
+
 static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 {
 	struct ssusb_mtk *ssusb = dev_get_drvdata(dev);
@@ -380,12 +398,18 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 				ssusb_clks_enable(ssusb);
 				ssusb_phy_power_on(ssusb);
 				ssusb_ip_sw_reset(ssusb);
+				/* Need to set, otherwise SSUSB_SYSPLL_STABLE
+				 * will be unstable
+				 */
+				mtu3_clrbits(ssusb->ippc_base,
+					U3D_SSUSB_IP_PW_CTRL2, SSUSB_IP_DEV_PDN);
 				switch_port_to_device(ssusb);
 			}
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_VALID);
 		} else {
 			ssusb_set_mailbox(otg_sx, MTU3_VBUS_OFF);
 			if (ssusb->clk_mgr) {
+				ssusb_ip_sleep(ssusb);
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 			}
@@ -422,6 +446,7 @@ static int ssusb_role_sw_set(struct device *dev, enum usb_role role)
 			if (ssusb->clk_mgr) {
 				/* unregister host driver */
 				of_platform_depopulate(dev);
+				ssusb_ip_sleep(ssusb);
 				ssusb_phy_power_off(ssusb);
 				ssusb_clks_disable(ssusb);
 				pm_relax(ssusb->dev);
