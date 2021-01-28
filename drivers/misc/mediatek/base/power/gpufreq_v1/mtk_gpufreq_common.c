@@ -38,6 +38,11 @@ static void dump_except(enum g_exception_enum except_type, char *except_str)
 		pr_info("%s: NULL string\n", __func__);
 		return;
 	}
+	if (except_type < 0 ||
+		except_type >= (sizeof(g_exception_string) / sizeof(char *))) {
+		pr_info("%s: except_type %d out of range\n", __func__, except_type);
+		return;
+	}
 	if (aee_mode != AEE_MODE_NOT_INIT) {
 		aee_kernel_warning("GPU_FREQ",
 			"\n\n%s\nCRDISPATCH_KEY:%s\n",
