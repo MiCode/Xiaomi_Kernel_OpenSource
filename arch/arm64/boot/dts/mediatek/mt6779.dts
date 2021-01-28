@@ -2619,7 +2619,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		};
 
 		sleep: sleep@10006000 {
-			compatible = "mediatek,sleep";
+			compatible = "mediatek,sleep", "syscon";
 			reg = <0 0x10006000 0 0x1000>;
 			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_LOW>;
 		};
@@ -4529,13 +4529,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		mediatek,clkbuf-config = <2 1 1 2 0 0 1>;
 		mediatek,clkbuf-output-impedance = <6 4 6 4 0 0 6>;
 		mediatek,clkbuf-controls-for-desense = <0 4 0 4 0 0 0>;
+		mediatek,bblpm-support = "enable";
 
 		pwrap-dcxo-en = <0x190 0 0x190 1 0x190 0>;
 		pwrap-dcxo-cfg = <0x194 0x1A4>;
-		gpio-nfc-mode = <0x330 4>;
+		spm-pwr-status = <0x180 0 0x180 1>;
 
 		pwrap = <&pwrap>;
-		gpio = <&pio 0 0>;
+		sleep = <&sleep>;
 	};
 
 	bat_gm30: battery {

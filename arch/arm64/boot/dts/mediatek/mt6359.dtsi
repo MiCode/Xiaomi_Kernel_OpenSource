@@ -454,6 +454,12 @@
 
 		clock_buffer_ctrl: clock_buffer_ctrl {
 			compatible = "mediatek,clock_buffer";
+			n-clkbuf-pmic-dependent = <5>;
+			clkbuf-pmic-dependent = "pmic-ldo-vrfck",
+						"pmic-ldo-vbbck",
+						"pmic-auxout-sel",
+						"pmic-auxout-xo",
+						"pmic-auxout-bblpm-en";
 
 			pmic-dcxo-cw = <0x788>;
 			pmic-xo-mode = <0x788 0 0x788 3 0x788 6 0x788 9
@@ -465,13 +471,19 @@
 				0xffff 0xffff 0x7a8 5 0x7a8 6>;
 			pmic-bblpm-sel = <0x7a8 0>;
 			pmic-srclkeni3 = <0x458 0>;
+
+			n-pmic-ldo-vrfck = <2>;
 			pmic-ldo-vrfck = <0x1d1a 0 0x1d1e 14>;
+			n-pmic-ldo-vbbck = <2>;
 			pmic-ldo-vbbck = <0x1d2a 0 0x1d2e 14>;
+			n-pmic-auxout-sel = <4>;
 			pmic-auxout-sel = <0x7b0 0 0x7b0 6 0x7b0 27 0x7b0 39>;
+			n-pmic-auxout-xo = <7>;
 			pmic-auxout-xo = <0x7b2 13 0x7b2 11 0x7b2 9 0x7b2 7
 				0xffff 0xffff 0x7b2 5 0x7b2 3>;
-			auxout-bblpm-en = <0x7b2 0>;
-			auxout-bblpm-o = <0x7b2 15>;
+			n-pmic-auxout-bblpm-en = <1>;
+			pmic-auxout-bblpm-en = <0x7b2 0>;
+
 		};
 
 		mt6359_snd: mt6359_snd {
