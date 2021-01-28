@@ -157,7 +157,7 @@
 static struct dentry *usb20_phy_debugfs_root;
 static u32 ippc_value, ippc_addr;
 
-static void u3phywrite32(struct phy *phy, int offset, int mask, int value)
+void u3phywrite32(struct phy *phy, int offset, int mask, int value)
 {
 	u32 cur_value;
 	u32 new_value;

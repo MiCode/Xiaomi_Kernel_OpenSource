@@ -22,6 +22,13 @@
 #include <mtk_idle.h>
 #include "mtu3_priv.h"
 
+struct ssusb_mtk *g_ssusb;
+
+struct ssusb_mtk *get_ssusb(void)
+{
+	return g_ssusb;
+}
+
 int get_ssusb_ext_rscs(struct ssusb_mtk *ssusb)
 {
 	struct device *dev = ssusb->dev;
@@ -44,6 +51,7 @@ int get_ssusb_ext_rscs(struct ssusb_mtk *ssusb)
 	ssusb->u3_loopb_support = true;
 
 	ssusb->priv_data = priv;
+	g_ssusb = ssusb;
 	return 0;
 }
 
@@ -73,6 +81,8 @@ static int ssusb_sysclk_on(struct ssusb_mtk *ssusb)
 	if (ret)
 		dev_info(ssusb->dev, "failed to enable ref_clk\n");
 
+	ssusb_switch_usbpll_div13(ssusb, true);
+
 	ret = clk_prepare_enable(ssusb->mcu_clk);
 	if (ret)
 		dev_info(ssusb->dev, "failed to enable mcu_clk\n");
@@ -89,6 +99,9 @@ static void ssusb_sysclk_off(struct ssusb_mtk *ssusb)
 	clk_disable_unprepare(ssusb->dma_clk);
 	clk_disable_unprepare(ssusb->mcu_clk);
 	clk_disable_unprepare(ssusb->ref_clk);
+
+	ssusb_switch_usbpll_div13(ssusb, false);
+
 	clk_disable_unprepare(ssusb->host_clk);
 	clk_disable_unprepare(ssusb->sys_clk);
 }

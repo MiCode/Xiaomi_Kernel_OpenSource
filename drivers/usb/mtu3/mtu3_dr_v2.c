@@ -196,7 +196,6 @@ static void ssusb_ip_sleep(struct ssusb_mtk *ssusb)
 	mtu3_setbits(ibase, U3D_SSUSB_IP_PW_CTRL0, SSUSB_IP_SW_RST);
 }
 
-
 static void switch_port_to_none(struct ssusb_mtk *ssusb)
 {
 	dev_info(ssusb->dev, "%s\n", __func__);
