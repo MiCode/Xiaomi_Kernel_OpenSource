@@ -403,7 +403,7 @@ void mddpw_ack_md_reset(struct work_struct *mddp_work)
 	}
 }
 
-void mddpw_reset_work(unsigned long data)
+void mddpw_reset_work(struct timer_list *t)
 {
 	schedule_work(&(mddpw_reset_workq));
 }
@@ -511,7 +511,6 @@ int32_t mddpw_wfpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 			app->state_machines[app->state] =
 				mddpwh_dead_state_machine_s;
 #endif
-			mddpw_timer.function = mddpw_reset_work;
 			mod_timer(&mddpw_timer,
 					jiffies + msecs_to_jiffies(100));
 		} else
@@ -787,7 +786,7 @@ int32_t mddpwh_sm_init(struct mddp_app_t *app)
 	memcpy(&app->md_cfg, &mddpw_md_cfg_s, sizeof(struct mddp_md_cfg_t));
 	app->is_config = 1;
 
-	init_timer(&mddpw_timer);
+	timer_setup(&mddpw_timer, mddpw_reset_work, 0);
 	INIT_WORK(&(mddpw_reset_workq), mddpw_ack_md_reset);
 	return 0;
 }

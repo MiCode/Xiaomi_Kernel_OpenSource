@@ -1933,12 +1933,28 @@ out:
 //------------------------------------------------------------------------------
 // Kernel functions.
 //------------------------------------------------------------------------------
+static int __net_init mddp_nf_register(struct net *net)
+{
+	return nf_register_net_hooks(net, mddp_nf_ops,
+				     ARRAY_SIZE(mddp_nf_ops));
+}
+
+static void __net_exit mddp_nf_unregister(struct net *net)
+{
+	nf_unregister_net_hooks(net, mddp_nf_ops,
+				ARRAY_SIZE(mddp_nf_ops));
+}
+
+static struct pernet_operations mddp_net_ops = {
+	.init = mddp_nf_register,
+	.exit = mddp_nf_unregister,
+};
+
 int32_t mddp_filter_init(void)
 {
 	int ret = 0;
 
-	ret = nf_register_net_hooks(&init_net,
-			mddp_nf_ops, ARRAY_SIZE(mddp_nf_ops));
+	ret = register_pernet_subsys(&mddp_net_ops);
 	if (ret < 0) {
 		pr_notice("%s: Cannot register hooks(%d)!\n", __func__, ret);
 		return ret;
@@ -1988,12 +2004,10 @@ int32_t mddp_filter_init(void)
 
 void mddp_filter_uninit(void)
 {
-	nf_unregister_net_hooks(&init_net,
-			mddp_nf_ops, ARRAY_SIZE(mddp_nf_ops));
+	unregister_pernet_subsys(&mddp_net_ops);
 	mddp_f_notifier_dest();
 #ifdef MDDP_F_NO_KERNEL_SUPPORT
 	dest_track_table();
 #endif
 }
 
-MODULE_LICENSE("GPL");

@@ -451,7 +451,7 @@ int32_t mddpu_ufpm_msg_hdlr(uint32_t msg_id, void *buf, uint32_t buf_len)
 	struct mddp_ilm_common_rsp_t           *rsp;
 	struct ufpm_enable_md_func_rsp_t       *enable_rsp;
 
-	rsp = (mddp_ilm_common_rsp_t *) buf;
+	rsp = (struct mddp_ilm_common_rsp_t *) buf;
 	if (unlikely(rsp->rsp.mode != UFPM_FUNC_MODE_TETHER)) {
 		pr_notice("%s: Wrong mode(%d)!\n",
 				__func__, rsp->rsp.mode);
