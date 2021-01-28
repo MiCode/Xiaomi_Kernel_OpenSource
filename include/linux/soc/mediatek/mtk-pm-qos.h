@@ -67,24 +67,26 @@ enum vcore_opp {
 struct mtk_pm_qos_request {
 	struct list_head list_node;
 	struct plist_node node;
-	int pm_qos_class;
+	unsigned int pm_qos_class;
 	char owner[20];
 };
 
 #if IS_ENABLED(CONFIG_MTK_PMQOS)
 void mtk_pm_qos_add_request(struct mtk_pm_qos_request *req,
-	int mtk_pm_qos_class, s32 value);
+	unsigned int mtk_pm_qos_class, s32 value);
 void mtk_pm_qos_update_request(struct mtk_pm_qos_request *req,
 	s32 new_value);
 void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req);
-int mtk_pm_qos_request(int mtk_pm_qos_class);
-int mtk_pm_qos_add_notifier(int mtk_pm_qos_class,
+int mtk_pm_qos_request(unsigned int mtk_pm_qos_class);
+int mtk_pm_qos_add_notifier(unsigned int mtk_pm_qos_class,
 	struct notifier_block *notifier);
-int mtk_pm_qos_remove_notifier(int mtk_pm_qos_class,
+int mtk_pm_qos_remove_notifier(unsigned int mtk_pm_qos_class,
 	struct notifier_block *notifier);
+int mtk_pm_qos_request(unsigned int pm_qos_class);
+int mtk_pm_qos_request_active(struct mtk_pm_qos_request *req);
 #else
-static inline void mtk_pm_qos_add_request(
-	struct mtk_pm_qos_request *req, int mtk_pm_qos_class, s32 value)
+static inline void mtk_pm_qos_add_request(struct mtk_pm_qos_request *req,
+	unsigned int mtk_pm_qos_class, s32 value)
 {
 }
 static inline void mtk_pm_qos_update_request(
@@ -95,18 +97,23 @@ static inline void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req)
 {
 }
 
-static inline int mtk_pm_qos_request(int mtk_pm_qos_class)
+static inline int mtk_pm_qos_request(unsigned int mtk_pm_qos_class)
 {
 	return 0;
 }
-static inline int mtk_pm_qos_add_notifier(int mtk_pm_qos_class,
+static inline int mtk_pm_qos_add_notifier(unsigned int mtk_pm_qos_class,
 	struct notifier_block *notifier)
 {
 	return 0;
 }
 
-static inline int mtk_pm_qos_remove_notifier(int mtk_pm_qos_class,
+static inline int mtk_pm_qos_remove_notifier(unsigned int mtk_pm_qos_class,
 	struct notifier_block *notifier)
+{
+	return 0;
+}
+
+static inline int mtk_pm_qos_request_active(struct mtk_pm_qos_request *req)
 {
 	return 0;
 }

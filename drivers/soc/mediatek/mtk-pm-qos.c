@@ -480,10 +480,11 @@ static void mtk_pm_qos_plist_del(struct plist_node *node,
 
 }
 
-static int mtk_pm_qos_request_active(struct mtk_pm_qos_request *req)
+int mtk_pm_qos_request_active(struct mtk_pm_qos_request *req)
 {
 	return req->pm_qos_class != 0;
 }
+EXPORT_SYMBOL_GPL(mtk_pm_qos_request_active);
 
 static void mtk_pm_qos_update_target_req_list(struct mtk_pm_qos_object *c,
 		struct mtk_pm_qos_request *req, enum pm_qos_req_action action)
@@ -525,9 +526,14 @@ static inline void mtk_pm_qos_set_value(struct pm_qos_constraints *c, s32 value)
  *
  * This function returns the current target value.
  */
-int mtk_pm_qos_request(int mtk_pm_qos_class)
+int mtk_pm_qos_request(unsigned int pm_qos_class)
 {
-	return mtk_pm_qos_array[mtk_pm_qos_class]->constraints->target_value;
+	if (pm_qos_class >= MTK_PM_QOS_NUM_CLASSES) {
+		pr_err("%s: unknown class =%d\n", __func__, pm_qos_class);
+		return PM_QOS_DEFAULT_VALUE;
+	}
+
+	return mtk_pm_qos_array[pm_qos_class]->constraints->target_value;
 }
 EXPORT_SYMBOL_GPL(mtk_pm_qos_request);
 
@@ -617,14 +623,24 @@ static void mtk_pm_qos_update_target(struct mtk_pm_qos_object *obj,
  */
 
 void mtk_pm_qos_add_request(struct mtk_pm_qos_request *req,
-			int pm_qos_class, s32 value)
+	unsigned int pm_qos_class, s32 value)
 {
 	char owner[20];
+	int n;
 
 	if (!req) /*guard against callers passing in null */
 		return;
 
-	snprintf(owner, sizeof(owner) - 1, "%pS", __builtin_return_address(0));
+	if (pm_qos_class >= MTK_PM_QOS_NUM_CLASSES) {
+		pr_err("%s: unknown class =%d\n", __func__, pm_qos_class);
+		return;
+	}
+
+	n = snprintf(owner, sizeof(owner) - 1, "%pS",
+		__builtin_return_address(0));
+
+	if (n < 0)
+		strcpy(owner, "unknown");
 
 	if (mtk_pm_qos_request_active(req)) {
 		pr_err("%s: called for already added request\n", __func__);
@@ -657,7 +673,7 @@ EXPORT_SYMBOL_GPL(mtk_pm_qos_add_request);
  * Attempts are made to make this code callable on hot code paths.
  */
 void mtk_pm_qos_update_request(struct mtk_pm_qos_request *req,
-			   s32 new_value)
+	s32 new_value)
 {
 	if (!req) /*guard against callers passing in null */
 		return;
@@ -723,9 +739,15 @@ EXPORT_SYMBOL_GPL(mtk_pm_qos_remove_request);
  * will register the notifier into a notification chain that gets called
  * upon changes to the pm_qos_class target value.
  */
-int mtk_pm_qos_add_notifier(int pm_qos_class, struct notifier_block *notifier)
+int mtk_pm_qos_add_notifier(unsigned int pm_qos_class,
+	struct notifier_block *notifier)
 {
 	int retval;
+
+	if (pm_qos_class >= MTK_PM_QOS_NUM_CLASSES) {
+		pr_err("%s: unknown class =%d\n", __func__, pm_qos_class);
+		return -EINVAL;
+	}
 
 	retval = blocking_notifier_chain_register(
 			mtk_pm_qos_array[pm_qos_class]->constraints->notifiers,
@@ -743,10 +765,15 @@ EXPORT_SYMBOL_GPL(mtk_pm_qos_add_notifier);
  * will remove the notifier from the notification chain that gets called
  * upon changes to the pm_qos_class target value.
  */
-int mtk_pm_qos_remove_notifier(int pm_qos_class,
+int mtk_pm_qos_remove_notifier(unsigned int pm_qos_class,
 	struct notifier_block *notifier)
 {
 	int retval;
+
+	if (pm_qos_class >= MTK_PM_QOS_NUM_CLASSES) {
+		pr_err("%s: unknown class =%d\n", __func__, pm_qos_class);
+		return -EINVAL;
+	}
 
 	retval = blocking_notifier_chain_unregister(
 			mtk_pm_qos_array[pm_qos_class]->constraints->notifiers,

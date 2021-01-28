@@ -263,9 +263,6 @@ extern unsigned int devapc_check_flag;
 extern void ccci_mem_dump(int md_id, void *start_addr, int len);
 extern int ccci_modem_init_common(struct platform_device *plat_dev,
 	struct ccci_dev_cfg *dev_cfg, struct md_hw_info *md_hw);
-extern void mtk_pm_qos_add_request(struct mtk_pm_qos_request *req,
-			int pm_qos_class, s32 value);
-extern void mtk_pm_qos_remove_request(struct mtk_pm_qos_request *req);
 
 
 #endif				/* __CLDMA_PLATFORM_H__ */
