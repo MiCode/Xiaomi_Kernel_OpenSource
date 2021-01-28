@@ -449,6 +449,13 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 
 		layer_info->fence_fd = buf->fence;
 
+		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p-0x%lx\n",
+			 mtk_fence_session_mode_spy(session_id),
+			 MTK_SESSION_DEV(session_id), layer_id, fence,
+			 current_timeline_idx, layer_info->fence_idx,
+			 buf->idx, buf->hnd,
+			 (unsigned long)buf->hnd->buffer);
+
 		list_del_init(&buf->list);
 #ifdef CONFIG_MTK_IOMMU_V2
 		if (buf->hnd) {
@@ -470,13 +477,6 @@ void mtk_release_fence(unsigned int session_id, unsigned int layer_id,
 		 * buf->idx, buf->ts_create,
 		 * buf->ts_period_keep);
 		 */
-
-		DDPFENCE("R+/%s%d/L%d/id%d/last%d/new%d/idx%d/hnd0x%8p-0x%lx\n",
-			 mtk_fence_session_mode_spy(session_id),
-			 MTK_SESSION_DEV(session_id), layer_id, fence,
-			 current_timeline_idx, layer_info->fence_idx,
-			 buf->idx, buf->hnd,
-			 (unsigned long)buf->hnd->buffer);
 
 		/* print mmp log for primary display */
 		if (MTK_SESSION_TYPE(session_id) == MTK_SESSION_PRIMARY)
