@@ -264,7 +264,9 @@ static void msdc_crypto_switch_config(struct msdc_host *host,
 	{
 		if (hw_hie_iv_num) {
 			ctr[0] = hw_hie_iv_num & 0xffffffff;
+#ifndef CONFIG_MTK_EMMC_HW_CQ
 			ctr[1] = (hw_hie_iv_num >> 32) & 0xffffffff;
+#endif
 		} else {
 			ctr[0] = block_address;
 		}
