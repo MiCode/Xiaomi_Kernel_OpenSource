@@ -972,6 +972,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	switch (retval) {
 	default:
 		U_ETHER_DBG("tx queue err %d\n", retval);
+		dev->no_tx_req_used--;
 		break;
 	case 0:
 		rndis_test_tx_usb_out++;
