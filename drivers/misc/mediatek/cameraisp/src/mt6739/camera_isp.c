@@ -1077,7 +1077,9 @@ static unsigned int g_DmaErr_p1[nDMA_ERR] = { 0 };
 		ptr     = pDes = (char *)&(gSvLog[irq]._str[ppb][logT][gSvLog[irq]._cnt[ppb][logT]]);   \
 		avaLen = str_leng - 1 - gSvLog[irq]._cnt[ppb][logT];\
 		if (avaLen > 1) {\
-			snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__);  \
+			if (snprintf((char *)(pDes), avaLen, fmt, ##__VA_ARGS__) < 0) { \
+				LOG_DBG("Error: snprintf fail");\
+			} \
 			if ('\0' !=     gSvLog[irq]._str[ppb][logT][str_leng - 1]) { \
 				LOG_INF("(%d)(%d)log str over flow", irq, logT);\
 			} \
@@ -7917,6 +7919,9 @@ static signed int ISP_REGISTER_IRQ_USERKEY(char *userName)
 					memset((void *)IrqUserKey_UserInfo[i].userName, 0, USERKEY_STR_LEN);
 					strncpy((char *)IrqUserKey_UserInfo[i].userName, m_UserName,
 					USERKEY_STR_LEN - 1);
+					IrqUserKey_UserInfo[i].userName
+						[sizeof(IrqUserKey_UserInfo[i]
+						.userName)-1] = '\0';
 					IrqUserKey_UserInfo[i].userKey = FirstUnusedIrqUserKey;
 					key = FirstUnusedIrqUserKey;
 					FirstUnusedIrqUserKey++;
@@ -8008,6 +8013,12 @@ static signed int ISP_MARK_IRQ(struct ISP_WAIT_IRQ_STRUCT irqinfo)
 	usec = do_div(sec, 1000000);    /* sec and usec */
 
 	spin_lock_irqsave(&(IspInfo.SpinLockIrq[eIrq]), flags);
+	if ((irqinfo.UserInfo.UserKey < 0) || (irqinfo.UserInfo.UserKey >= IRQ_USER_NUM_MAX) ||
+		(irqinfo.UserInfo.Type < 0) || (irqinfo.UserInfo.Type >= ISP_IRQ_TYPE_AMOUNT) ||
+		(idx < 0) || (idx >= 32)) {
+		LOG_DBG("Error: Invalid Index");
+		return 0;
+	}
 	IspInfo.IrqInfo.MarkedTime_usec[irqinfo.UserInfo.UserKey][irqinfo.UserInfo.Type][idx] =
 		(unsigned int)usec;
 	IspInfo.IrqInfo.MarkedTime_sec[irqinfo.UserInfo.UserKey][irqinfo.UserInfo.Type][idx] =
