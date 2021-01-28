@@ -223,8 +223,10 @@ int mtk_spower_make_table(struct sptab_s *spt, int voltage, int degree,
 		/** occupy the free container**/
 		tspt = tab[spower_raw->table_size-3];
 #else /* #if defined(EXTER_POLATION) */
-		if (spower_raw->table_size - 1 > 0)
+		if (spower_raw->table_size - 1 >= 0)
 			tspt = tab1 = tab2 = tab[spower_raw->table_size-1];
+		else
+			tspt = tab1 = tab2 = tab[1];
 #endif /* #if defined(EXTER_POLATION) */
 
 		SPOWER_DEBUG("sptab max tab:%d/%d\n",  wat, c[i]);
@@ -493,14 +495,15 @@ int mt_spower_init(void)
 	}
 	pdev = of_platform_device_create(node, NULL, NULL);
 	if (pdev == NULL) {
-		err_flag = 1;
+		pr_notice("%s fail to create pdev\n", __func__);
+		err_flag = 2;
 		goto efuse_end;
 	}
 	nvmem_dev = nvmem_device_get(&pdev->dev, "mtk_efuse");
 	if (IS_ERR(nvmem_dev)) {
 		pr_notice("%s failed to get mtk_efuse device\n",
 			__func__);
-		err_flag = 1;
+		err_flag = 3;
 		goto efuse_end;
 	}
 
@@ -582,7 +585,7 @@ efuse_end:
 	mtSpowerInited = 1;
 
 init_end:
-	if (pdev != NULL) {
+	if (err_flag != 1 && pdev != NULL) {
 		of_platform_device_destroy(&pdev->dev, NULL);
 		of_dev_put(pdev);
 	}

@@ -265,6 +265,9 @@ void prepare_pll_addr(enum mt_cpu_dvfs_pll_id pll_id)
 {
 	struct pll_ctrl_t *pll_p = id_to_pll_ctrl(pll_id);
 
+	if (pll_p == NULL)
+		return;
+
 	pll_p->armpll_addr =
 	(unsigned int *)(pll_id == PLL_LL_CLUSTER ? ARMPLL_LL_CON1 :
 	pll_id == PLL_L_CLUSTER ? ARMPLL_L_CON1 : CCIPLL_CON1);
@@ -632,12 +635,18 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		tag_pr_info("%s fail to get device node\n", __func__);
 		return 0;
 	}
-	pdev = of_device_alloc(node, NULL, NULL);
+	pdev = of_platform_device_create(node, NULL, NULL);
+	if (pdev == NULL) {
+		lv = 0;
+		goto get_level_end;
+	}
+
 	efuse_cell = nvmem_cell_get(&pdev->dev, "efuse_segment_cell");
 	if (IS_ERR(efuse_cell)) {
 		tag_pr_info("@%s: cannot get efuse_cell, errno %ld\n",
 			__func__, PTR_ERR(efuse_cell));
-		return 0;
+		lv = 0;
+		goto get_level_end;
 	}
 
 	efuse_buf = (unsigned int *)nvmem_cell_read(efuse_cell, &efuse_len);
@@ -656,6 +665,12 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 
 	tag_pr_info("%d, %d, (%d, %d) efuse_val = 0x%x\n",
 		lv, turbo_flag, UP_SRATE, DOWN_SRATE, val);
+
+get_level_end:
+	if (pdev != NULL) {
+		of_platform_device_destroy(&pdev->dev, NULL);
+		of_dev_put(pdev);
+	}
 	return lv;
 }
 
