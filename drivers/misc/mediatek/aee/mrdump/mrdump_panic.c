@@ -367,6 +367,7 @@ inline void aee_print_bt(struct pt_regs *regs)
 		aee_nested_printf("invalid sp[%lx]\n", (unsigned long)regs);
 		return;
 	}
+	memset(&cur_frame, 0, sizeof(cur_frame));
 	high = ALIGN(bottom, THREAD_SIZE);
 	cur_frame.fp = regs->reg_fp;
 	cur_frame.pc = regs->reg_pc;
