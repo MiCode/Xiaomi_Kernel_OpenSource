@@ -3115,8 +3115,9 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 	int err_resp = 0;
 	bool is_dcmd = false;
 	bool err_rwsem = false;
+#ifdef CONFIG_MTK_MMC_DEBUG
 	int cpu = -1;
-
+#endif
 	if (down_read_trylock(&ctx_info->err_rwsem)) {
 		err_rwsem = true;
 	} else {
@@ -3138,6 +3139,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 		mmc_hostname(host), __func__, mrq->req, err, cmdq_req->tag);
 #endif
 
+#ifdef CONFIG_MTK_MMC_DEBUG
 	/* softirq dump */
 	cpu = smp_processor_id();
 	dbg_add_sirq_log(host, MAGIC_CQHCI_DBG_TYPE_SIRQ,
@@ -3145,7 +3147,7 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 			cmdq_req->tag,
 			cpu,
 			ctx_info->data_active_reqs);
-
+#endif
 	if ((err || err_resp) && !cmdq_req->skip_err_handling) {
 		pr_notice("%s: %s: txfr error(%d)/resp_err(%d)\n",
 				mmc_hostname(mrq->host), __func__, err,
