@@ -4,39 +4,39 @@
  */
 
 #include <linux/arm-smccc.h>
-#include <linux/module.h>
-#include <linux/slab.h>
-#include <linux/utsname.h>
-#include <linux/sched.h>
-#include <linux/list.h>
-#include <linux/init.h>
-#include <linux/smp.h>
-#ifdef CONFIG_MTK_SCHED_MONITOR
-#include "mtk_sched_mon.h"
-#endif
-#include <linux/io.h>
+#include <linux/compiler.h>
 #include <linux/delay.h>
 #include <linux/hardirq.h>
-#include <linux/mm.h>
-#include <linux/types.h>
-#include <mrdump.h>
-#include <linux/uaccess.h>
-#include <linux/sched/clock.h>
-#include <linux/stacktrace.h>
-#include <asm/stacktrace.h>
-#include <asm/memory.h>
-#include <asm/traps.h>
-#include <linux/compiler.h>
-#include <linux/reboot.h>
-#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
-#ifdef CONFIG_MTK_WATCHDOG
-#include <mtk_wd_api.h>
-#include <ext_wd_drv.h>
-#endif
-#ifdef CONFIG_MTK_EIC_HISTORY_DUMP
+#include <linux/init.h>
+#include <linux/io.h>
+#if IS_ENABLED(CONFIG_MTK_EIC_HISTORY_DUMP)
 #include <linux/irqchip/mtk-eic.h>
 #endif
+#include <linux/list.h>
+#include <linux/mm.h>
+#include <linux/module.h>
+#include <linux/reboot.h>
+#include <linux/sched.h>
+#include <linux/sched/clock.h>
+#include <linux/slab.h>
+#include <linux/smp.h>
+#include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
+#include <linux/stacktrace.h>
+#include <linux/types.h>
+#include <linux/uaccess.h>
+#include <linux/utsname.h>
+#include <asm/memory.h>
+#include <asm/stacktrace.h>
+
+#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
+#include <ext_wd_drv.h>
+#include <mtk_wd_api.h>
+#endif
+#include <mrdump.h>
 #include <mrdump_private.h>
+#if IS_ENABLED(CONFIG_MTK_SCHED_MONITOR)
+#include "mtk_sched_mon.h"
+#endif
 #include <mt-plat/mboot_params.h>
 
 #define THREAD_INFO(sp) ((struct thread_info *) \
@@ -155,10 +155,10 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 		if ((fp < bottom) || (fp >= (high + THREAD_SIZE)))
 			break;
 #ifdef CONFIG_ARM64
-		if (unwind_frame(current, &cur_frame) < 0)
+		if (aee_unwind_frame(current, &cur_frame) < 0)
 			break;
 #else
-		if (unwind_frame(&cur_frame) < 0)
+		if (aee_unwind_frame(&cur_frame) < 0)
 			break;
 #endif
 		if (!mrdump_virt_addr_valid(cur_frame.pc))
@@ -240,6 +240,7 @@ static void aee_save_reg_stack_sram(int cpu)
 	mrdump_save_per_cpu_reg(cpu, &regs_buffer_bin[cpu].regs);
 }
 
+/* avoid build fail for LKM and GKI */
 __weak void aee_wdt_zap_locks(void)
 {
 	pr_notice("%s:weak function\n", __func__);
@@ -249,7 +250,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 {
 	unsigned long long t;
 	unsigned long nanosec_rem;
-#ifdef CONFIG_MTK_WATCHDOG
+#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
 	int res = 0;
 	struct wd_api *wd_api = NULL;
 #endif
@@ -272,7 +273,12 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	regs_buffer_bin[cpu].tsk = current;
 	if (atomic_xchg(&wdt_enter_fiq, 1)) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_FIQ_LOOP);
+/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
+#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
 		dis_D_inner_flush_all();
+#else
+		pr_info("dis_D_inner_flush_all invalid");
+#endif
 		local_irq_disable();
 
 		while (1)
@@ -294,7 +300,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	}
 
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_KICK);
-#ifdef CONFIG_MTK_WATCHDOG
+#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
 	res = get_wd_api(&wd_api);
 	if (res) {
 		aee_wdt_printf("\naee_wdt_irq_info, get wd api error\n");
@@ -314,8 +320,8 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 			nanosec_rem / 1000);
 	aee_sram_fiq_log(wdt_log_buf);
 
-#ifdef CONFIG_MTK_WATCHDOG
-#ifdef CONFIG_MTK_WD_KICKER
+#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
+#if IS_ENABLED(CONFIG_MTK_WD_KICKER)
 	/* dump bind info */
 	dump_wdk_bind_info();
 #endif
@@ -323,7 +329,7 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 
 	if (regs) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_STACK);
-		for (cpu = 0; cpu < AEE_MTK_CPU_NUMS; cpu++)
+		for (cpu = 0; cpu < nr_cpu_ids; cpu++)
 			aee_save_reg_stack_sram(cpu);
 		aee_sram_fiq_log("\n\n");
 	} else {
@@ -335,12 +341,12 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	mrdump_mini_add_entry((unsigned long)__per_cpu_offset,
 			MRDUMP_MINI_SECTION_SIZE);
 
-#ifdef CONFIG_MTK_SCHED_MONITOR
+#if IS_ENABLED(CONFIG_MTK_SCHED_MONITOR)
 	aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_IRQ_SCHED);
 	mt_aee_dump_sched_traces();
 #endif
 
-#ifdef CONFIG_SCHED_DEBUG
+#if IS_ENABLED(CONFIG_MTK_SCHED_EXTENSION)
 	sysrq_sched_debug_show_at_AEE();
 #endif
 
@@ -368,9 +374,9 @@ void notrace aee_wdt_atf_entry(void)
 	void *regs;
 	struct pt_regs pregs;
 	int cpu = get_HW_cpuid();
-#ifdef CONFIG_MTK_WATCHDOG
+#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
 	if (mtk_rgu_status_is_sysrst() || mtk_rgu_status_is_eintrst()) {
-#ifdef CONFIG_MTK_PMIC_COMMON
+#if IS_ENABLED(CONFIG_MTK_PMIC_COMMON)
 		if (pmic_get_register_value(PMIC_JUST_SMART_RST) == 1) {
 			pr_notice("SMART RESET: TRUE\n");
 			aee_sram_fiq_log("SMART RESET: TRUE\n");

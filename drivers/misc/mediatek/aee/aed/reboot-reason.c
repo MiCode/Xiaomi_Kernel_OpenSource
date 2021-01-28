@@ -3,25 +3,24 @@
  * Copyright (C) 2015 MediaTek Inc.
  */
 
-#include <linux/kobject.h>
-#include <linux/string.h>
-#include <linux/sysfs.h>
+#include <asm/memory.h>
 #include <linux/init.h>
-#include <linux/sched.h>
+#include <linux/kobject.h>
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
-#include <linux/seq_file.h>
-#include <linux/mm.h>
 #include <linux/sched.h>
-#include <asm/memory.h>
-#ifdef CONFIG_MTK_WATCHDOG
+#include <linux/seq_file.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
+
+#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
 #include <mtk_wd_api.h>
 #endif
-#ifdef CONFIG_MTK_AEE_IPANIC
-#include <mt-plat/mboot_params.h>
-#endif
 #include <mt-plat/aee.h>
-#include "aee-common.h"
+#include <mt-plat/mboot_params.h>
+#include <mt-plat/mrdump.h>
+#include "aed.h"
 
 #define RR_PROC_NAME "reboot-reason"
 
@@ -50,12 +49,6 @@ char boot_reason[][REBOOT_REASON_LEN] = { "keypad", "usb_chg", "rtc", "wdt",
 	"reboot", "tool reboot", "smpl", "others", "kpanic", "wdt_sw",
 	"wdt_hw" };
 
-int __weak aee_rr_reboot_reason_show(struct seq_file *m, void *v)
-{
-	seq_puts(m, "mboot_params not enabled.");
-	return 0;
-}
-
 static int aee_rr_reboot_reason_proc_open(struct inode *inode,
 		struct file *file)
 {
@@ -72,7 +65,7 @@ static const struct file_operations aee_rr_reboot_reason_proc_fops = {
 
 void aee_rr_proc_init(struct proc_dir_entry *aed_proc_dir)
 {
-	aee_rr_file = proc_create(RR_PROC_NAME, 0444, aed_proc_dir,
+	aee_rr_file = proc_create(RR_PROC_NAME, 0440, aed_proc_dir,
 			&aee_rr_reboot_reason_proc_fops);
 	if (!aee_rr_file)
 		pr_notice("%s: Can't create rr proc entry\n", __func__);
@@ -94,7 +87,7 @@ static ssize_t powerup_reason_show(struct kobject *kobj,
 	char *br_ptr_e;
 
 	memset(boot_reason, 0x0, 64);
-	br_ptr = strstr(saved_command_line, "androidboot.bootreason=");
+	br_ptr = strstr(mrdump_get_cmd(), "androidboot.bootreason=");
 	if (br_ptr) {
 		br_ptr_e = strstr(br_ptr, " ");
 		/* get boot reason */
@@ -103,22 +96,22 @@ static ssize_t powerup_reason_show(struct kobject *kobj,
 					br_ptr_e - br_ptr - 23);
 			boot_reason[br_ptr_e - br_ptr - 23] = '\0';
 		}
-#ifdef CONFIG_MTK_AEE_IPANIC
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		if (aee_rr_last_fiq_step())
 			strncpy(boot_reason, "kpanic", 7);
 #endif
 		if (!strncmp(boot_reason, "2sec_reboot",
 					strlen("2sec_reboot"))) {
-			br_ptr = strstr(saved_command_line,
+			br_ptr = strstr(mrdump_get_cmd(),
 					"has_battery_removed=1");
 			if (!br_ptr)
 				return snprintf(buf, sizeof(boot_reason),
 						"%s_abnormal\n", boot_reason);
 		}
 		return snprintf(buf, sizeof(boot_reason), "%s\n", boot_reason);
-	} else
+	} else {
 		return 0;
-
+	}
 }
 
 static struct kobj_attribute powerup_reason_attr = __ATTR_RO(powerup_reason);

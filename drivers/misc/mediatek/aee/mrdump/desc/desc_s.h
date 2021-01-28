@@ -98,7 +98,7 @@ static struct last_reboot_reason dummy_var;
 #undef DF_PER_CPU
 #define DF_PER_CPU(member, fmt) \
 	[E_PER_CPU_EX(member)] = DF_C(D_PER_CPU_VALUE, member[0])
-static struct rrr_desc /*__maybe_unused*/ idesc = {
+static struct rrr_desc /*__maybe_unused*/ idesc_init = {
 	REBOOT_REASON_SIG,
 	0x100,
 	sizeof(struct mboot_params_buffer),
@@ -119,8 +119,10 @@ static struct rrr_desc /*__maybe_unused*/ idesc = {
 	}
 };
 
-#define IDESC_ADDR ((unsigned long)&idesc)
-#define IDESC_SIZE (sizeof(idesc))
+static struct rrr_desc *idesc;
+
+#define IDESC_ADDR ((unsigned long)idesc)
+#define IDESC_SIZE (sizeof(struct rrr_desc))
 static uint32_t start_pos;
 #define IDESC_START_POS ((unsigned long)&start_pos)
 
@@ -129,40 +131,47 @@ static int mboot_params_init_desc(uint32_t off_linux)
 	int i;
 	size_t len;
 
-	idesc.off_linux = off_linux;
+	idesc = kzalloc(IDESC_SIZE, GFP_KERNEL);
+	if (!idesc)
+		return -1;
+
+	memcpy(idesc, &idesc_init, IDESC_SIZE);
+	idesc->off_linux = off_linux;
+	idesc->cpu_num = nr_cpu_ids;
 	for (i = 0; i < E_EX(num_total); i++) {
-		if (buf[i] != NULL) {
+		if (buf[i]) {
 			len = strlen(buf[i]);
 			if (len < FMT_MAX_LEN) {
-				strncpy(idesc.desc[i].fmt, buf[i], FMT_MAX_LEN);
-				idesc.desc[i].fmt[FMT_MAX_LEN - 1] = '\0';
-				idesc.desc[i].fmtsize = len;
+				strncpy(idesc->desc[i].fmt,
+					buf[i], FMT_MAX_LEN);
+				idesc->desc[i].fmt[FMT_MAX_LEN - 1] = '\0';
+				idesc->desc[i].fmtsize = len;
 			} else {
-				/* idesc.desc[i].size = i; */
-				idesc.desc[i].type = 0x0;
+				/* idesc->desc[i].size = i; */
+				idesc->desc[i].type = 0x0;
 			}
 		} else {
-			/* idesc.desc[i].size = i; */
-			idesc.desc[i].type = 0x0;
+			/* idesc->desc[i].size = i; */
+			idesc->desc[i].type = 0x0;
 		}
 	}
 	for (i = 0; i < E_PER_CPU_EX(num_total); i++) {
-		if (per_cpu_buf[i] != NULL) {
+		if (per_cpu_buf[i]) {
 			len = strlen(per_cpu_buf[i]);
 			if (len < FMT_MAX_LEN) {
-				strncpy(idesc.per_cpu_desc[i].fmt,
+				strncpy(idesc->per_cpu_desc[i].fmt,
 					per_cpu_buf[i], FMT_MAX_LEN);
-				idesc.per_cpu_desc[i].fmt[FMT_MAX_LEN - 1] =
+				idesc->per_cpu_desc[i].fmt[FMT_MAX_LEN - 1] =
 					'\0';
-				idesc.per_cpu_desc[i].fmtsize =
-					strlen(idesc.per_cpu_desc[i].fmt);
+				idesc->per_cpu_desc[i].fmtsize =
+					strlen(idesc->per_cpu_desc[i].fmt);
 			} else {
-				/* idesc.per_cpu_desc[i].size = i; */
-				idesc.per_cpu_desc[i].type = 0x0;
+				/* idesc->per_cpu_desc[i].size = i; */
+				idesc->per_cpu_desc[i].type = 0x0;
 			}
 		} else {
-			/* idesc.per_cpu_desc[i].size = i; */
-			idesc.per_cpu_desc[i].type = 0x0;
+			/* idesc->per_cpu_desc[i].size = i; */
+			idesc->per_cpu_desc[i].type = 0x0;
 		}
 	}
 	return 0;
