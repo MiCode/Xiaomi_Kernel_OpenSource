@@ -161,7 +161,7 @@ static struct scp_power_monitor scp_ready_notifier = {
 	.name = "sensorlist",
 	.notifier_call = scp_ready_event,
 };
-#else
+#endif
 int sensorlist_register_deviceinfo(int sensor,
 		struct sensorInfo_NonHub_t *devinfo)
 {
@@ -177,7 +177,6 @@ int sensorlist_register_deviceinfo(int sensor,
 	spin_unlock(&sensorlist_info_lock);
 	return 0;
 }
-#endif
 
 static int sensorlist_open(struct inode *inode, struct file *file)
 {

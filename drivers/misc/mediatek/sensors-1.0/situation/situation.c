@@ -360,7 +360,9 @@ static ssize_t situation_store_batch(struct device *dev,
 	err = situation_enable_and_batch(index);
 #endif
 	pr_debug("%s done\n", __func__);
+#ifdef CONFIG_NANOHUB
 err_out:
+#endif
 	mutex_unlock(&situation_context_obj->situation_op_mutex);
 	if (err)
 		return err;

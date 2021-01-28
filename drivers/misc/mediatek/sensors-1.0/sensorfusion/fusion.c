@@ -280,7 +280,9 @@ static ssize_t fusion_store_batch(struct device *dev,
 	err = fusion_enable_and_batch(index);
 #endif
 	pr_debug("%s done\n", __func__);
+#ifdef CONFIG_NANOHUB
 err_out:
+#endif
 	mutex_unlock(&fusion_context_obj->fusion_op_mutex);
 	return err;
 }

@@ -12,6 +12,7 @@
 #define BMA2x2_H
 
 #include <linux/ioctl.h>
+#include <sensor_list.h>
 
 #define BMA_DRIVER_VERSION "V1.8"
 

@@ -79,6 +79,12 @@ static unsigned int als_value;		/* lux value in test level*/
 static unsigned int als_value_cali;	/* lux value for ALS calibration */
 static unsigned int transmittance_cali;	/* transmittance for ALS calibration */
 static unsigned int als_cal;
+/*
+ * Since baro sensor driver in AP,
+ * it should register information to sensorlist.
+ */
+static struct sensorInfo_NonHub_t alsps_devinfo;
+
 #define ALS_DEFAULT_TRANSMITTANCE 1553
 #define ALS_CALIBRATION_LUX 400
 
@@ -3435,6 +3441,12 @@ static int stk3x1x_i2c_probe(struct i2c_client *client,
 		atomic_read(&obj->psctrl_val), atomic_read(&obj->alsctrl_val));
 	APS_LOG("ledctrl_val=0x%x, wait_val=0x%x, int_val=0x%x\n",
 		obj->ledctrl_val, obj->wait_val, obj->int_val);
+	/*
+	 * Since alsps sensor driver in AP,
+	 * it should register information to sensorlist.
+	 */
+	strncpy(alsps_devinfo.name, STK3x1x_DEV_NAME, sizeof(STK3x1x_DEV_NAME));
+	sensorlist_register_deviceinfo(ID_PRESSURE, &alsps_devinfo);
 	APS_LOG("%s: OK\n", __func__);
 	return 0;
 

@@ -15,6 +15,7 @@
 #define __STK3X1X_H__
 
 #include <linux/ioctl.h>
+#include <sensor_list.h>
 
 /*ALSPS REGS*/
 #define STK_STATE_REG				0x00
@@ -134,6 +135,7 @@
 #define PS_MIN_DELAY				10
 
 #define STK_ALS_CODE_CHANGE_THD			10
+#define STK3x1x_DEV_NAME			"STK3X1X"
 
 #define ALSPS_GET_PS_MODE _IOR(ALSPS, 0x02, int)
 #define ALSPS_GET_PS_DATA _IOR(ALSPS, 0x03, int)

@@ -62,6 +62,11 @@
 #define CONFIG_I2C_BASIC_FUNCTION
 static DECLARE_WAIT_QUEUE_HEAD(uplink_event_flag_wq);
 static int CHIP_TYPE;
+/* * Since accel sensor driver in AP,
+ * it should register information to sensorlist.
+ */
+static struct sensorInfo_NonHub_t gsensor_devinfo;
+
 
 #define BMA2x2_GET_BITSLICE(regvar, bitname)\
 	((regvar & bitname##__MSK) >> bitname##__POS)
@@ -3068,6 +3073,13 @@ static int bma2x2_i2c_probe(struct i2c_client *client,
 		GSE_ERR("register acc data path err\n");
 		goto exit_kfree;
 	}
+
+	/*
+	 * Since gsensor driver in AP,
+	 * it should register information to sensorlist.
+	 */
+	strncpy(gsensor_devinfo.name, BMA2x2_DEV_NAME, sizeof(BMA2x2_DEV_NAME));
+	sensorlist_register_deviceinfo(ID_ACCELEROMETER, &gsensor_devinfo);
 
 	bma2x2_init_flag = 0;
 	GSE_LOG("%s: OK\n", __func__);
