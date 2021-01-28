@@ -3276,6 +3276,12 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		cm_mgr,vp_up = <100 100>;
 	};
 
+	dram_ctrl {
+		compatible = "mediatek,dram-qosctrl";
+		required-opps = <&dvfsrc_freq_opp0>,
+				<&dvfsrc_freq_opp1>;
+	};
+
 };
 
 #include "cust_mt6761_msdc.dtsi"
