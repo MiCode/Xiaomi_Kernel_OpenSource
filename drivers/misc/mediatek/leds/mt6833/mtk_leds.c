@@ -140,13 +140,12 @@ static void backlight_debug_log(int level, int mappingLevel)
 
 	if (ret < 0 || ret >= 4096) {
 		pr_info("print log error!");
-		count == 5;
+		count = 5;
 	}
-
 	if (level == 0 || count >= 5 || (current_t - last_time) > 1000000000) {
 		LEDS_DEBUG("%s", buffer);
 		count = 0;
-		buffer[strlen("Set Backlight directly ")] = '\0';
+		buffer[strlen("[BL] Set Backlight directly ")] = '\0';
 	}
 
 	last_time = sched_clock();

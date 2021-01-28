@@ -133,7 +133,7 @@ static void led_debug_log(struct mtk_led_data *s_led,
 
 	if (ret < 0 || ret >= 4096) {
 		pr_info("print log error!");
-		s_led->debug.count == 5;
+		s_led->debug.count = 5;
 	}
 
 	if (level == 0 || s_led->debug.count >= 5 ||
