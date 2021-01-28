@@ -7277,10 +7277,12 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 			pconfig->read_dum_reg[i] = 0;
 
 			/* full transparent layer */
-			cmdqRecBackupRegisterToSlot(cmdq_handle,
-				pgc->ovl_sbch_info, i,
-				disp_addr_convert
-				(DISP_REG_OVL_SBCH_STS + ovl_base));
+			if (!has_secure_layer(cfg)) {
+				cmdqRecBackupRegisterToSlot(cmdq_handle,
+					pgc->ovl_sbch_info, i,
+					disp_addr_convert
+					(DISP_REG_OVL_SBCH_STS + ovl_base));
+			}
 		}
 	}
 
@@ -7288,8 +7290,10 @@ static int _config_ovl_input(struct disp_frame_cfg_t *cfg,
 	    !primary_display_is_decouple_mode()) {
 		unsigned long ovl_base = ovl_base_addr(DISP_MODULE_OVL0_2L);
 
-		cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_status_info,
-			0, disp_addr_convert(DISP_REG_OVL_STA + ovl_base));
+		if (!has_secure_layer(cfg)) {
+			cmdqRecBackupRegisterToSlot(cmdq_handle, pgc->ovl_status_info,
+				0, disp_addr_convert(DISP_REG_OVL_STA + ovl_base));
+		}
 	}
 
 done:
