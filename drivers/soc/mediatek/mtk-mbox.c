@@ -63,8 +63,10 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	void __iomem *base;
 	int len;
 
-	if (!mbdev || mbox >= mbdev->count || !msg)
+	if (!mbdev || mbox >= mbdev->count || !msg) {
+		pr_notice("[MBOX]write header fail, dev or ptr null");
 		return MBOX_PARA_ERROR;
+	}
 
 	minfo = &(mbdev->info_table[mbox]);
 	base = minfo->base;
@@ -76,7 +78,7 @@ int mtk_mbox_write_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	/*ipi header and payload*/
 	if (mbdev->memcpy_to_tiny) {
 		mbdev->memcpy_to_tiny((void __iomem *)(base + slot_ofs),
-			ipimsg,	sizeof(struct mtk_ipi_msg_hd));
+			ipimsg, sizeof(struct mtk_ipi_msg_hd));
 		mbdev->memcpy_to_tiny((void __iomem *)
 			(base + slot_ofs + sizeof(struct mtk_ipi_msg_hd)),
 			ipimsg->data, len);
@@ -103,8 +105,10 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_ipi_msg_hd *ipihd;
 	void __iomem *base;
 
-	if (!mbdev || mbox >= mbdev->count || !dest)
+	if (!mbdev || mbox >= mbdev->count || !dest) {
+		pr_notice("[MBOX]read header fail, dev or ptr null");
 		return MBOX_PARA_ERROR;
+	}
 
 	minfo = &(mbdev->info_table[mbox]);
 	base = minfo->base;
@@ -113,7 +117,7 @@ int mtk_mbox_read_hd(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	ipihd = (struct mtk_ipi_msg_hd *)(base + slot_ofs);
 
 	/*ipi header and payload*/
-	if (mbdev->memcpy_to_tiny)
+	if (mbdev->memcpy_from_tiny)
 		mbdev->memcpy_from_tiny(dest, (void __iomem *)
 			(base + slot_ofs + sizeof(struct mtk_ipi_msg_hd)),
 			ipihd->len);
@@ -135,8 +139,10 @@ int mtk_mbox_write(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_mbox_info *minfo;
 	void __iomem *base;
 
-	if (!mbdev || !data)
+	if (!mbdev || !data) {
+		pr_notice("[MBOX]write fail, dev or ptr null");
 		return MBOX_PARA_ERROR;
+	}
 
 	if (mbox >= mbdev->count)
 		return MBOX_PARA_ERROR;
@@ -170,8 +176,10 @@ int mtk_mbox_read(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	struct mtk_mbox_info *minfo;
 	void __iomem *base;
 
-	if (!mbdev || !data)
+	if (!mbdev || !data) {
+		pr_notice("[MBOX]read fail,dev or ptr null");
 		return MBOX_PARA_ERROR;
+	}
 
 	if (mbox >= mbdev->count)
 		return MBOX_PARA_ERROR;
@@ -184,7 +192,7 @@ int mtk_mbox_read(struct mtk_mbox_device *mbdev, unsigned int mbox,
 	if (slot > size)
 		return MBOX_PARA_ERROR;
 
-	if (mbdev->memcpy_to_tiny)
+	if (mbdev->memcpy_from_tiny)
 		mbdev->memcpy_from_tiny(data,
 			(void __iomem *)(base + slot_ofs), len);
 	else
@@ -402,7 +410,8 @@ int mtk_mbox_polling(struct mtk_mbox_device *mbdev, unsigned int mbox,
 
 	spin_unlock_irqrestore(&mbdev->info_table[mbox].mbox_lock, flags);
 	/*copy data*/
-	mtk_copy_to_buf(mbdev, minfo->base, data, pin_recv);
+	mtk_mbox_read(mbdev, mbox, pin_recv->offset, data,
+		pin_recv->msg_size * MBOX_SLOT_SIZE);
 
 	return MBOX_DONE;
 }
@@ -466,7 +475,8 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 					mbdev->id, pin_recv->chan_id);
 				BUG_ON(1);
 			}
-			if (minfo->opt == MBOX_OPT_QUEUE) {
+			if (minfo->opt == MBOX_OPT_QUEUE_DIR ||
+			 minfo->opt == MBOX_OPT_QUEUE_SMEM) {
 				/*queue mode*/
 				ipihead = (struct mtk_ipi_msg_hd *)(minfo->base
 					+ (pin_recv->offset * MBOX_SLOT_SIZE));
@@ -476,7 +486,8 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 				if (pin_recv->recv_opt == MBOX_RECV
 					&& pin_recv->cb_ctx_opt
 						== MBOX_CB_IN_ISR
-					&& pin_recv->mbox_pin_cb) {
+					&& pin_recv->mbox_pin_cb
+					&& ret == MBOX_DONE) {
 					pin_recv->mbox_pin_cb(ipihead->id,
 					pin_recv->prdata, pin_recv->pin_buf,
 					(unsigned int)ipihead->len);
@@ -490,7 +501,8 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 				if (pin_recv->recv_opt == MBOX_RECV
 					&& pin_recv->cb_ctx_opt
 						== MBOX_CB_IN_ISR
-					&& pin_recv->mbox_pin_cb)
+					&& pin_recv->mbox_pin_cb
+					&& ret == MBOX_DONE)
 					pin_recv->mbox_pin_cb(pin_recv->chan_id,
 					pin_recv->prdata, pin_recv->pin_buf,
 					pin_recv->msg_size * MBOX_SLOT_SIZE);
@@ -502,7 +514,7 @@ static irqreturn_t mtk_mbox_isr(int irq, void *dev_id)
 	}
 
 	if (ret != MBOX_DONE)
-		pr_notice("[MBOX ISR]read err,dev=%d chan=%d",
+		pr_notice("[MBOX ISR]read fail,dev=%d chan=%d",
 			mbdev->id, pin_recv->chan_id);
 
 	if (mbdev->post_cb)
@@ -654,211 +666,31 @@ mtk_mbox_probe_fail:
 	return MBOX_CONFIG_ERROR;
 }
 
-
-
 /*
- *mbox queue init
+ *mbox information dump
  */
-struct mtk_mbox_queue_t *mtk_mbox_buf_init(unsigned int item_slot,
-		unsigned int buf_count, void *user_buf)
+void mtk_mbox_info_dump(struct mtk_mbox_device *mbdev)
 {
-	struct mtk_mbox_queue_t *mb_queue;
+	struct mtk_mbox_pin_recv *pin_recv;
+	struct mtk_mbox_pin_send *pin_send;
+	int i;
 
-	mb_queue = kzalloc(sizeof(*mb_queue), GFP_KERNEL);
-	if (!mb_queue)
-		return NULL;
+	pr_notice("[MBOX]dev=%u recv count=%u send count=%u",
+		mbdev->id, mbdev->recv_count, mbdev->send_count);
 
-	mb_queue->r_ptr = 0;
-	mb_queue->w_ptr = 0;
-	mb_queue->item_slot = item_slot;
-	mb_queue->item_count = 0;
-	mb_queue->buf_count = buf_count;
-	mb_queue->user_buf = user_buf;
-
-	return mb_queue;
-}
-
-/*
- *mbox queue release
- */
-void mtk_mbox_buf_release(struct mtk_mbox_queue_t *mb_queue)
-{
-	kfree(mb_queue);
-}
-
-/*
- *mbox get message count, need protect pointer
- */
-unsigned int mtk_mbox_buf_get_msg_count(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_queue_t *mb_queue)
-{
-	return mb_queue->item_count;
-}
-
-/*
- *mbox get message pointer
- */
-void *mtk_mbox_buf_get_msg(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_pin_recv *pin_recv,
-		struct mtk_mbox_queue_t *mb_queue)
-{
-	unsigned long flags;
-	void *ret_ptr;
-
-	if (!mb_queue) {
-		pr_err("[MBOX BUG ON]mb queue null pointer, mbox id=%d",
-			mbdev->id);
-		BUG_ON(1);
+	for (i = 0; i < mbdev->recv_count; i++) {
+		pin_recv = &(mbdev->pin_recv_table[i]);
+		pr_notice("[MBOX]recv pin:%d mbox=%u offset=%u recv_opt=%u cb_ctx_opt=%u msg_size=%u pin_index=%u chan_id=%u",
+			i, pin_recv->mbox, pin_recv->offset, pin_recv->recv_opt,
+			pin_recv->cb_ctx_opt, pin_recv->msg_size,
+			pin_recv->pin_index, pin_recv->chan_id);
 	}
 
-	spin_lock_irqsave(&pin_recv->pin_lock, flags);
-	ret_ptr = mb_queue->user_buf
-		+ mb_queue->r_ptr * (mb_queue->item_slot * MBOX_SLOT_SIZE);
-	spin_unlock_irqrestore(&pin_recv->pin_lock, flags);
-
-	return ret_ptr;
-}
-
-/*
- *mbox update message read pointer, need protect pointer
- */
-void mtk_mbox_buf_update_r_ptr(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_pin_recv *pin_recv,
-		struct mtk_mbox_queue_t *mb_queue)
-{
-	unsigned long flags;
-
-	if (!mb_queue) {
-		pr_err("[MBOX BUG ON]mb queue null pointer, mbox id=%d",
-			mbdev->id);
-		BUG_ON(1);
+	for (i = 0; i < mbdev->send_count; i++) {
+		pin_send = &(mbdev->pin_send_table[i]);
+		pr_notice("[MBOX]send pin:%d mbox=%u offset=%u send_opt=%u msg_size=%u pin_index=%u chan_id=%u",
+			i, pin_send->mbox, pin_send->offset, pin_send->send_opt,
+			pin_send->msg_size, pin_send->pin_index,
+			pin_send->chan_id);
 	}
-
-	spin_lock_irqsave(&pin_recv->pin_lock, flags);
-	if (mb_queue->r_ptr == (mb_queue->buf_count - 1))
-		mb_queue->r_ptr = 0;
-	else
-		mb_queue->r_ptr++;
-
-	if (mb_queue->item_count == 0) {
-		pr_err("[MBOX BUG ON]update read pointer error, mbox id=%d",
-			mbdev->id);
-		spin_unlock_irqrestore(&pin_recv->pin_lock, flags);
-		BUG_ON(1);
-	}
-	mb_queue->item_count--;
-	spin_unlock_irqrestore(&pin_recv->pin_lock, flags);
-}
-
-/*
- *mbox get message write pointer, need protect pointer
- */
-void *mtk_mbox_get_buf(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_queue_t *mb_queue)
-{
-	void *ret_ptr;
-
-	if (!mb_queue) {
-		pr_err("[MBOX BUG ON]mb queue null pointer, mbox id=%d",
-			mbdev->id);
-		BUG_ON(1);
-	}
-	ret_ptr = mb_queue->user_buf
-		+ mb_queue->w_ptr * (mb_queue->item_slot * MBOX_SLOT_SIZE);
-
-	return ret_ptr;
-}
-
-/*
- *mbox copy message to user buffer with queue
- */
-int mtk_mbox_copy_to_buf(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_queue_t *mb_queue, void __iomem *base,
-		unsigned int slot, unsigned int slot_count,
-		unsigned int buf_full_opt, unsigned int pin_offset)
-{
-	void *user_buf;
-	unsigned long flags;
-	unsigned int slot_ofs;
-	int ret;
-
-	if (!mb_queue) {
-		pr_err("[MBOX BUG ON]mb queue null pointer, mbox id=%d",
-			mbdev->id);
-		BUG_ON(1);
-	}
-
-	spin_lock_irqsave(
-		&mbdev->pin_recv_table[pin_offset].pin_lock, flags);
-
-	ret = MBOX_DONE;
-
-	if (mb_queue->item_count == mb_queue->buf_count) {
-		ret = MBOX_BUF_FULL_RET;
-		if (buf_full_opt == MBOX_BUF_FULL_DROP) {
-			/*drop last msg*/
-			spin_unlock_irqrestore(
-				&mbdev->pin_recv_table[pin_offset].pin_lock,
-				flags);
-			return ret;
-		} else if (buf_full_opt == MBOX_BUF_FULL_OVERWRITE) {
-			/*overwrite buffer*/
-			if (mb_queue->r_ptr == mb_queue->buf_count - 1)
-				mb_queue->r_ptr = 0;
-			else
-				mb_queue->r_ptr++;
-		} else {
-			/*bug on*/
-			spin_unlock_irqrestore(
-				&mbdev->pin_recv_table[pin_offset].pin_lock,
-				flags);
-			pr_err("[BUG ON]buff full by mbox id=%d, pin=%d\n",
-				mbdev->id, pin_offset);
-			spin_unlock_irqrestore(
-				&mbdev->pin_recv_table[pin_offset].pin_lock,
-				flags);
-			BUG_ON(1);
-		}
-	} else {
-		mb_queue->item_count++;
-	}
-
-	user_buf = mtk_mbox_get_buf(mbdev, mb_queue);
-
-	if (mb_queue->w_ptr == mb_queue->buf_count - 1)
-		mb_queue->w_ptr = 0;
-	else
-		mb_queue->w_ptr++;
-
-	spin_unlock_irqrestore(
-		&mbdev->pin_recv_table[pin_offset].pin_lock, flags);
-
-	slot_ofs = slot * MBOX_SLOT_SIZE;
-
-	mtk_memcpy_from_tinysys(user_buf, (void __iomem *)(base + slot_ofs),
-		slot_count * MBOX_SLOT_SIZE);
-
-	return ret;
-}
-
-/*
- *mbox copy message to user buffer
- */
-void mtk_copy_to_buf(struct mtk_mbox_device *mbdev, void __iomem *base,
-		void *data, struct mtk_mbox_pin_recv *pin_recv)
-{
-	unsigned int slot;
-	unsigned int slot_count;
-	unsigned int slot_ofs;
-
-	if (!data) {
-		pr_err("[MBOX BUG ON]null pointer, mbox id=%d",
-			mbdev->id);
-		BUG_ON(1);
-	}
-	slot = pin_recv->offset;
-	slot_count = pin_recv->msg_size;
-	slot_ofs = slot * MBOX_SLOT_SIZE;
-	mtk_memcpy_from_tinysys(data, (void __iomem *)(base + slot_ofs),
-		slot_count * MBOX_SLOT_SIZE);
 }

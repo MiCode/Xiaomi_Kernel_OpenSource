@@ -156,7 +156,7 @@ enum MBOX_RECV_OPT {
  * mbdev  :mbox device
  * irq_num:identity of mbox irq
  * id     :mbox id
- * slot   :how many slots that mbox used, up to 1GB
+ * slot   :how many slots that mbox used
  * opt    :option for tx mode, 0:mbox, 1:share memory 2:queue
  * enable :mbox status, 0:disable, 1: enable
  * is64d  :mbox is64d status, 0:32d, 1: 64d
@@ -196,30 +196,16 @@ enum MBOX_RETURN {
 
 /*
  * mbox message options
+ * 0: mbox
+ * 1: share memory
+ * 2: mbox with queue
+ * 3: share memory with queue
  */
 enum {
 	MBOX_OPT_DIRECT = 0,
 	MBOX_OPT_SMEM   = 1,
-	MBOX_OPT_QUEUE  = 2,
-};
-
-/*
- * mbox queue struct
- *
- * r_ptr      :read pointer
- * w_ptr      :write pointer
- * item_slot  :one item how many slots
- * item_count :how many items in buffer
- * buf_count  :item buffer count(buf_count=N,total size=N *item_slot)
- * user_buf   :user buffer pointer
- */
-struct mtk_mbox_queue_t {
-	unsigned int r_ptr;
-	unsigned int w_ptr;
-	unsigned int item_slot;
-	unsigned int item_count;
-	unsigned int buf_count;
-	void *user_buf;
+	MBOX_OPT_QUEUE_DIR  = 2,
+	MBOX_OPT_QUEUE_SMEM  = 3,
 };
 
 /*
@@ -270,25 +256,7 @@ int mtk_smem_init(struct platform_device *pdev, struct mtk_mbox_device *mbdev,
 		unsigned int mbox, void __iomem *base,
 		void __iomem *set_irq_reg, void __iomem *clr_irq_reg,
 		void __iomem *send_status_reg, void __iomem *recv_status_reg);
-struct mtk_mbox_queue_t *mtk_mbox_buf_init(unsigned int item_slot,
-		unsigned int buf_count, void *user_buf);
-void mtk_mbox_buf_release(struct mtk_mbox_queue_t *mb_queue);
-unsigned int mtk_mbox_buf_get_msg_count(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_queue_t *mb_queue);
-void *mtk_mbox_buf_get_msg(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_pin_recv *pin_recv,
-		struct mtk_mbox_queue_t *mb_queue);
-void mtk_mbox_buf_update_r_ptr(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_pin_recv *pin_recv,
-		struct mtk_mbox_queue_t *mb_queue);
-void *mtk_mbox_get_buf(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_queue_t *mb_queue);
-int mtk_mbox_copy_to_buf(struct mtk_mbox_device *mbdev,
-		struct mtk_mbox_queue_t *mb_queue, void __iomem *base,
-		unsigned int slot, unsigned int slot_count,
-		unsigned int buf_full_opt, unsigned int pin_offset);
-void mtk_copy_to_buf(struct mtk_mbox_device *mbdev, void __iomem *base,
-		void *data, struct mtk_mbox_pin_recv *pin_recv);
+void mtk_mbox_info_dump(struct mtk_mbox_device *mbdev);
 
 #endif
 
