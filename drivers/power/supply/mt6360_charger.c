@@ -533,7 +533,7 @@ static enum power_supply_property mt6360_charger_properties[] = {
 };
 
 static char *mt6360_charger_supplied_to[] = {
-	"main-battery"
+	"battery"
 };
 
 static const struct power_supply_desc mt6360_charger_desc = {
