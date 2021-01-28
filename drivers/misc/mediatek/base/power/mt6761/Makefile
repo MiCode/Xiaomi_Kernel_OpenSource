@@ -24,7 +24,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/lcm/inc/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/
 ccflags-y += -I$(srctree)/drivers/clk/mediatek/
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/gpu/ged/include/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/eem_v2/$(MTK_PLATFORM)/inc
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/freqhopping/$(MTK_PLATFORM)/
 ccflags-y += -I$(srctree)/drivers/devfreq/
@@ -43,7 +43,6 @@ ccflags-$(CONFIG_MTK_GPU_SPM_DVFS_SUPPORT) += -DMTK_GPU_SPM
 obj-$(CONFIG_MACH_MT6761) += mtk_picachu.o
 
 ifneq ($(CONFIG_FPGA_EARLY_PORTING), y)
-obj-$(CONFIG_MACH_MT6761) += mtk_gpufreq_core.o
 ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/sspm/$(CONFIG_MTK_PLATFORM)

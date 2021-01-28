@@ -41,6 +41,7 @@ endif
 # Include thermal header mtk_thermal.h
 ifeq ($(CONFIG_THERMAL), y)
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)/inc/mach/
+ccflags-y += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 endif
 
 obj-y += mtk_idle.o
