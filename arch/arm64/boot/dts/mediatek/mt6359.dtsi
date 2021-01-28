@@ -480,6 +480,7 @@
 
 		mt6359_snd: mt6359_snd {
 			compatible = "mediatek,mt6359-sound";
+			mediatek,pwrap-regmap = <&pwrap>;
 		};
 	};
 };
