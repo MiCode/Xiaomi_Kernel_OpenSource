@@ -176,25 +176,34 @@ static int _ged_gpu_tuner_dump_status_seq_show(
 		struct GED_GPU_TUNER_ITEM *item;
 		char buf[BUF_LEN];
 		int cnt = 0;
+		int cx = 0;
 
 		seq_puts(psSeqFile, "========================================\n");
 		seq_puts(psSeqFile, "[Global Status]\n");
-		snprintf(buf, sizeof(buf), "feature(%08x)\n",
+
+		cx = snprintf(buf, sizeof(buf), "feature(%08x)\n",
 			gpu_tuner_status.status.feature);
-		seq_puts(psSeqFile, buf);
+		if (cx >= 0 && cx < BUF_LEN)
+			seq_puts(psSeqFile, buf);
+
 		seq_puts(psSeqFile, "========================================\n");
 		list_for_each(listentry, &gItemList) {
 			item =
 			list_entry(listentry, struct GED_GPU_TUNER_ITEM, List);
 			if (item) {
-				snprintf(buf, sizeof(buf), " [%d]\n", cnt++);
-				seq_puts(psSeqFile, buf);
-				snprintf(buf, sizeof(buf),
+				cx = snprintf(buf, sizeof(buf), " [%d]\n",
+					cnt++);
+				if (cx >= 0 && cx < BUF_LEN)
+					seq_puts(psSeqFile, buf);
+
+				cx = snprintf(buf, sizeof(buf),
 				" pkgname(%s) cmd(%s) feature(%08x)\n",
 				item->status.packagename,
 				(*item->status.cmd) ? item->status.cmd : "N/A",
 				item->status.feature);
-				seq_puts(psSeqFile, buf);
+				if (cx >= 0 && cx < BUF_LEN)
+					seq_puts(psSeqFile, buf);
+
 				seq_puts(psSeqFile, "========================================\n");
 			}
 		}
@@ -312,6 +321,7 @@ static int _ged_gpu_tuner_custom_hint_set_seq_show(
 {
 
 	char buf[BUF_LEN];
+	int cx = 0;
 
 	seq_puts(psSeqFile, "support cmd list\n");
 	seq_puts(psSeqFile, "anisotropic_disable => MTK_GPU_TUNER_ANISOTROPIC_DISABLE\n");
@@ -319,13 +329,14 @@ static int _ged_gpu_tuner_custom_hint_set_seq_show(
 	seq_puts(psSeqFile, "========================================\n");
 	if (gpu_tuner_last_custom_hint.packagename[0]) {
 
-		snprintf(buf, sizeof(buf),
+		cx = snprintf(buf, sizeof(buf),
 		" name(%s) cmd(%s) feature(%d) value(%d)\n",
 				gpu_tuner_last_custom_hint.packagename,
 				gpu_tuner_last_custom_hint.cmd,
 				gpu_tuner_last_custom_hint.feature,
 				gpu_tuner_last_custom_hint.value);
-		seq_puts(psSeqFile, buf);
+		if (cx >= 0 && cx < BUF_LEN)
+			seq_puts(psSeqFile, buf);
 	} else
 		seq_puts(psSeqFile, "no custom hint is set\n");
 
@@ -400,9 +411,11 @@ static int _ged_gpu_tuner_debug_seq_show(
 		void *pvData)
 {
 	char buf[BUF_LEN];
+	int cx = 0;
 
-	snprintf(buf, sizeof(buf), "debug(%d)\n", debug);
-	seq_puts(psSeqFile, buf);
+	cx = snprintf(buf, sizeof(buf), "debug(%d)\n", debug);
+	if (cx >= 0 && cx < BUF_LEN)
+		seq_puts(psSeqFile, buf);
 
 	return 0;
 }

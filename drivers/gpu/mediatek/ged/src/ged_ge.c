@@ -148,11 +148,13 @@ static const struct file_operations GEEntry_fops = {
 int ged_ge_init(void)
 {
 	int flags = 0;
+	GED_ERROR err = GED_OK;
 
 	gPoolCache = kmem_cache_create("gralloc_extra",
 		sizeof(struct GEEntry), 0, flags, NULL);
+
 #ifdef GED_DEBUG_FS
-	ged_debugFS_create_entry(
+	err = ged_debugFS_create_entry(
 			"ge",
 			NULL,
 			&gDEFEntryOps,
@@ -160,6 +162,11 @@ int ged_ge_init(void)
 			NULL,
 			&gDFSEntry);
 #endif
+
+	if (unlikely(err != GED_OK)) {
+		GED_PDEBUG("fail to create ge entry!");
+		return 1;
+	}
 
 	return 0;
 }
