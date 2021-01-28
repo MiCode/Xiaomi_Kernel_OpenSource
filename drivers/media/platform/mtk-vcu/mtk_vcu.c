@@ -282,6 +282,7 @@ struct mtk_vcu {
 	struct device *dev;
 	struct mutex vcu_mutex[VCU_CODEC_MAX];
 	struct mutex vcu_gce_mutex[VCU_CODEC_MAX];
+	struct mutex ctx_ipi_binding[VCU_CODEC_MAX];
 	/* for protecting vcu data structure */
 	struct mutex vcu_share;
 	struct file *file;
@@ -906,6 +907,16 @@ static int vcu_wait_gce_callback(struct mtk_vcu *vcu, unsigned long arg)
 	return ret;
 }
 
+int vcu_get_ctx_ipi_binding_lock(struct platform_device *pdev,
+	struct mutex **mutex, unsigned long type)
+{
+	struct mtk_vcu *vcu = platform_get_drvdata(pdev);
+
+	*mutex = &vcu->ctx_ipi_binding[type];
+
+	return 0;
+}
+
 int vcu_set_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, struct vb2_buffer *src_vb,
 		 struct vb2_buffer *dst_vb, unsigned long type)
@@ -920,6 +931,7 @@ int vcu_set_codec_ctx(struct platform_device *pdev,
 	vcu->curr_ctx[type] = codec_ctx;
 	vcu->curr_src_vb[type] = src_vb;
 	vcu->curr_dst_vb[type] = dst_vb;
+
 	return 0;
 }
 
@@ -1149,6 +1161,8 @@ static int vcu_ipi_init(struct mtk_vcu *vcu)
 	mutex_init(&vcu->vcu_mutex[VCU_VENC]);
 	mutex_init(&vcu->vcu_gce_mutex[VCU_VDEC]);
 	mutex_init(&vcu->vcu_gce_mutex[VCU_VENC]);
+	mutex_init(&vcu->ctx_ipi_binding[VCU_VDEC]);
+	mutex_init(&vcu->ctx_ipi_binding[VCU_VENC]);
 	mutex_init(&vcu->vcu_share);
 	mutex_init(&vpud_file_mutex);
 
@@ -2274,6 +2288,8 @@ vcu_mutex_destroy:
 	mutex_destroy(&vcu->vcu_mutex[VCU_VENC]);
 	mutex_destroy(&vcu->vcu_gce_mutex[VCU_VDEC]);
 	mutex_destroy(&vcu->vcu_gce_mutex[VCU_VENC]);
+	mutex_destroy(&vcu->ctx_ipi_binding[VCU_VDEC]);
+	mutex_destroy(&vcu->ctx_ipi_binding[VCU_VENC]);
 	mutex_destroy(&vcu->vcu_share);
 	mutex_destroy(&vpud_file_mutex);
 err_ipi_init:

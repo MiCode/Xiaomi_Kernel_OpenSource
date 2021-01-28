@@ -491,6 +491,7 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 	init_waitqueue_head(&vcu->wq);
 	vcu->signaled = 0;
 	vcu->failure = 0;
+	vcu_get_ctx_ipi_binding_lock(vcu->dev, &vcu->ctx_ipi_binding, VCU_VDEC);
 
 	err = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler, NULL, vcu);
 	if (err != 0) {
@@ -509,7 +510,6 @@ int vcu_dec_init(struct vdec_vcu_inst *vcu)
 
 	vcu_dec_set_pid(vcu);
 
-	vcu_dec_set_ctx(vcu, NULL, NULL);
 	err = vcodec_vcu_send_msg(vcu, (void *)&msg, sizeof(msg));
 
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
@@ -533,8 +533,10 @@ int vcu_dec_start(struct vdec_vcu_inst *vcu,
 	for (i = 0; i < len; i++)
 		msg.data[i] = data[i];
 
+	mutex_lock(vcu->ctx_ipi_binding);
 	vcu_dec_set_ctx(vcu, bs, fb);
 	err = vcodec_vcu_send_msg(vcu, (void *)&msg, sizeof(msg));
+	mutex_unlock(vcu->ctx_ipi_binding);
 
 	mtk_vcodec_debug(vcu, "- ret=%d", err);
 	return err;
@@ -549,8 +551,11 @@ int vcu_dec_deinit(struct vdec_vcu_inst *vcu)
 {
 	int err = 0;
 
+	mutex_lock(vcu->ctx_ipi_binding);
 	err = vcodec_send_ap_ipi(vcu, AP_IPIMSG_DEC_DEINIT);
 	vcu_dec_clear_ctx(vcu);
+	mutex_unlock(vcu->ctx_ipi_binding);
+
 	return err;
 }
 

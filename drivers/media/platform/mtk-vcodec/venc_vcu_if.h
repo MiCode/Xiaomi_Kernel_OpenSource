@@ -39,6 +39,7 @@ struct venc_vcu_inst {
 	bool abort;
 	int daemon_pid;
 	ipi_handler_t handler;
+	struct mutex *ctx_ipi_binding;
 };
 int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv);
 int vcu_enc_init(struct venc_vcu_inst *vcu);
