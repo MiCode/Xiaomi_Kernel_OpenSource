@@ -97,8 +97,7 @@ retry:
 				     NULL);
 
 	if (ret && scsi_sense_valid(&sshdr) &&
-	    sshdr.sense_key == UNIT_ATTENTION &&
-	    sshdr.asc == 0x29 && sshdr.ascq == 0x00)
+	    sshdr.sense_key == UNIT_ATTENTION)
 		/*
 		 * Device reset might occur several times,
 		 * give it one more chance
@@ -145,8 +144,7 @@ retry:
 				     NULL);
 
 	if (ret && scsi_sense_valid(&sshdr) &&
-	    sshdr.sense_key == UNIT_ATTENTION &&
-	    sshdr.asc == 0x29 && sshdr.ascq == 0x00)
+	    sshdr.sense_key == UNIT_ATTENTION)
 		/*
 		 * Device reset might occur several times,
 		 * give it one more chance
