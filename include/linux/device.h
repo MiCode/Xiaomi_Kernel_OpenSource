@@ -839,12 +839,14 @@ enum device_link_state {
  * PM_RUNTIME: If set, the runtime PM framework will use this link.
  * RPM_ACTIVE: Run pm_runtime_get_sync() on the supplier during link creation.
  * AUTOREMOVE_SUPPLIER: Remove the link automatically on supplier driver unbind.
+ * SYNC_STATE_ONLY: Link only affects sync_state() behavior.
  */
 #define DL_FLAG_STATELESS		BIT(0)
 #define DL_FLAG_AUTOREMOVE_CONSUMER	BIT(1)
 #define DL_FLAG_PM_RUNTIME		BIT(2)
 #define DL_FLAG_RPM_ACTIVE		BIT(3)
 #define DL_FLAG_AUTOREMOVE_SUPPLIER	BIT(4)
+#define DL_FLAG_SYNC_STATE_ONLY		BIT(7)
 
 /**
  * struct device_link - Device link representation.
@@ -892,6 +894,8 @@ enum dl_dev_state {
  * @consumers: List of links to consumer devices.
  * @needs_suppliers: Hook to global list of devices waiting for suppliers.
  * @defer_sync: Hook to global list of devices that have deferred sync_state.
+ * @need_for_probe: If needs_suppliers is on a list, this indicates if the
+ *		    suppliers are needed for probe or not.
  * @status: Driver status information.
  */
 struct dev_links_info {
@@ -899,6 +903,7 @@ struct dev_links_info {
 	struct list_head consumers;
 	struct list_head needs_suppliers;
 	struct list_head defer_sync;
+	bool need_for_probe;
 	enum dl_dev_state status;
 };
 
@@ -1166,6 +1171,16 @@ static inline void device_disable_async_suspend(struct device *dev)
 static inline bool device_async_suspend_enabled(struct device *dev)
 {
 	return !!dev->power.async_suspend;
+}
+
+static inline bool device_pm_not_required(struct device *dev)
+{
+	return dev->power.no_pm;
+}
+
+static inline void device_set_pm_not_required(struct device *dev)
+{
+	dev->power.no_pm = true;
 }
 
 static inline void dev_pm_syscore_device(struct device *dev, bool val)

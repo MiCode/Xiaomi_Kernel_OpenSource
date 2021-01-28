@@ -1684,7 +1684,7 @@ void scp_recovery_init(void)
 	/*init wake,
 	 *this is for prevent scp pll cpu clock disabled during reset flow
 	 */
-	scp_reset_lock = wakeup_source_register("scp reset wakelock");
+	scp_reset_lock = wakeup_source_register(NULL, "scp reset wakelock");
 	/* init reset by cmd flag */
 	scp_reset_by_cmd = 0;
 

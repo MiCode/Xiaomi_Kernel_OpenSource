@@ -1975,8 +1975,8 @@ static int accdet_probe(struct platform_device *pdev)
 		return ret;
 	}
 	/* init lock */
-	accdet->wake_lock = wakeup_source_register("accdet_wake_lock");
-	accdet->timer_lock = wakeup_source_register("accdet_timer_lock");
+	accdet->wake_lock = wakeup_source_register(NULL, "accdet_wake_lock");
+	accdet->timer_lock = wakeup_source_register(NULL, "accdet_timer_lock");
 	mutex_init(&accdet->res_lock);
 
 	platform_set_drvdata(pdev, accdet);

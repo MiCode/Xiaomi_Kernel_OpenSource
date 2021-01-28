@@ -127,7 +127,7 @@ int bp_psy_event(struct notifier_block *nb, unsigned long event, void *v)
 
 void bat_percent_notify_init(void)
 {
-	bat_percent_notify_lock = wakeup_source_register(
+	bat_percent_notify_lock = wakeup_source_register(NULL, 
 		"bat_percent_notify_lock wakelock");
 	if (!bat_percent_notify_lock)
 		pr_notice("bat_percent_notify_lock wakeup source fail\n");

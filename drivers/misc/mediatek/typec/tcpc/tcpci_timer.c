@@ -1400,7 +1400,7 @@ int tcpci_timer_init(struct tcpc_device *tcpc_dev)
 		tcpc_dev->tcpc_timer[i].function = tcpc_timer_call[i];
 	}
 	tcpc_dev->wakeup_wake_lock =
-		wakeup_source_register("wakeup_wake_lock");
+		wakeup_source_register(NULL, "wakeup_wake_lock");
 	INIT_DELAYED_WORK(&tcpc_dev->wake_up_work, wake_up_work_func);
 	alarm_init(&tcpc_dev->wake_up_timer, ALARM_REALTIME, tcpc_timer_wakeup);
 

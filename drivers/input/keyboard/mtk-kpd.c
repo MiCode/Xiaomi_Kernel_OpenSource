@@ -284,7 +284,7 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 
 	input_set_drvdata(keypad->input_dev, keypad);
 
-	keypad->suspend_lock = wakeup_source_register("kpd wakelock");
+	keypad->suspend_lock = wakeup_source_register(NULL, "kpd wakelock");
 	if (!keypad->suspend_lock) {
 		pr_notice("wakeup source init failed.\n");
 		goto err_unregister_device;

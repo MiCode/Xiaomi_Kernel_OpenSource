@@ -1538,7 +1538,7 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 
 	snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
 		"md%d_cldma_trm", md_id + 1);
-	md->trm_wake_lock = wakeup_source_register(md->trm_wakelock_name);
+	md->trm_wake_lock = wakeup_source_register(NULL, md->trm_wakelock_name);
 	if (!md->trm_wake_lock) {
 		CCCI_ERROR_LOG(md->index, TAG,
 			"%s %d: init wakeup source fail",
@@ -1550,7 +1550,7 @@ static int ccci_modem_probe(struct platform_device *plat_dev)
 		"md%d_cldma_peer", md_id + 1);
 
 	md_info->peer_wake_lock =
-		wakeup_source_register(md_info->peer_wakelock_name);
+		wakeup_source_register(NULL, md_info->peer_wakelock_name);
 	if (!md_info->peer_wake_lock) {
 		CCCI_ERROR_LOG(md->index, TAG,
 			"%s %d: init wakeup source fail",

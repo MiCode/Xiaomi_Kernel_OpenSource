@@ -4634,8 +4634,8 @@ static signed int DIP_probe(struct platform_device *pDev)
 			init_waitqueue_head(&IspInfo.WaitQueueHead[i]);
 
 #ifdef CONFIG_PM_WAKELOCKS
-		dip_wake_lock = wakeup_source_register("dip_lock_wakelock");
-		isp_mdp_wake_lock = wakeup_source_register("isp_mdp_wakelock");
+		dip_wake_lock = wakeup_source_register(NULL, "dip_lock_wakelock");
+		isp_mdp_wake_lock = wakeup_source_register(NULL, "isp_mdp_wakelock");
 #else
 		wake_lock_init(&dip_wake_lock,
 			WAKE_LOCK_SUSPEND,

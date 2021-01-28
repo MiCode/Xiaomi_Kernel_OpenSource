@@ -269,7 +269,7 @@ EXPORT_SYMBOL(mtk_dbg_common_fs_exit);
 int mtk_dbg_common_fs_init(void)
 {
 	/* wakeup source init for suspend enable and disable */
-	mtk_suspend_lock = wakeup_source_register("mtk_suspend_wakelock");
+	mtk_suspend_lock = wakeup_source_register(NULL, "mtk_suspend_wakelock");
 	if (!mtk_suspend_lock) {
 		pr_info("%s %d: init wakeup source fail!", __func__, __LINE__);
 		return -1;

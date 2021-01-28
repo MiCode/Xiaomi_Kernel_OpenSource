@@ -3630,7 +3630,7 @@ static signed int FDVT_probe(struct platform_device *pDev)
 		INIT_WORK(&FDVTInfo.ScheduleFdvtWork, FDVT_ScheduleWork);
 
 
-		FDVT_wake_lock = wakeup_source_register("fdvt_lock_wakelock");
+		FDVT_wake_lock = wakeup_source_register(NULL, "fdvt_lock_wakelock");
 
 		for (i = 0; i < FDVT_IRQ_TYPE_AMOUNT; i++)
 			tasklet_init(FDVT_tasklet[i].pFDVT_tkt,

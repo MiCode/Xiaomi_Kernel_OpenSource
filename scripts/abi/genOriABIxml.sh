@@ -93,7 +93,7 @@ fi
 
 if [ "$mode" == "p" ]
 then
-target_commit=ef55d52 #ACK4.19.79
+target_commit=b777b6 #ACK4.19.84
 echo src_commit=$src_commit
 echo target_commit=$target_commit
 fi

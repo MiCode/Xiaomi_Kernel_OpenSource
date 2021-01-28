@@ -1212,7 +1212,7 @@ static int FDVT_probe(struct platform_device *dev)
 	/* Initialize waitqueue */
 	init_waitqueue_head(&g_FDVTWQ);
 
-	fdvt_wake_lock = wakeup_source_register("fdvt_lock_wakelock");
+	fdvt_wake_lock = wakeup_source_register(NULL, "fdvt_lock_wakelock");
 
 	log_dbg("[FDVT_DEBUG] %s Done\n", __func__);
 

@@ -4248,7 +4248,7 @@ int primary_display_init(char *lcm_name, unsigned int lcm_fps,
 
 done:
 	DISPDBG("init and hold wakelock...\n");
-	pri_wk_lock = wakeup_source_register("pri_disp_wakelock");
+	pri_wk_lock = wakeup_source_register(NULL, "pri_disp_wakelock");
 	__pm_stay_awake(pri_wk_lock);
 
 	if (disp_helper_get_stage() != DISP_HELPER_STAGE_NORMAL)

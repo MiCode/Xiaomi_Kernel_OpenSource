@@ -1212,7 +1212,7 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 	}
 	snprintf(ctlb->wakelock_name, sizeof(ctlb->wakelock_name),
 			"ccmni_md%d", (md_id + 1));
-	ctlb->ccmni_wakelock = wakeup_source_register(ctlb->wakelock_name);
+	ctlb->ccmni_wakelock = wakeup_source_register(NULL, ctlb->wakelock_name);
 	if (!ctlb->ccmni_wakelock) {
 		CCMNI_PR_DBG(md_id, "%s %d: init wakeup source fail!",
 			__func__, __LINE__);

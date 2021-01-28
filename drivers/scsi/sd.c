@@ -1646,7 +1646,8 @@ static int sd_sync_cache(struct scsi_disk *sdkp, struct scsi_sense_hdr *sshdr)
 		/* we need to evaluate the error return  */
 		if (scsi_sense_valid(sshdr) &&
 			(sshdr->asc == 0x3a ||	/* medium not present */
-			 sshdr->asc == 0x20))	/* invalid command */
+			 sshdr->asc == 0x20 ||	/* invalid command */
+			 (sshdr->asc == 0x74 && sshdr->ascq == 0x71)))	/* drive is password locked */
 				/* this is no error here */
 				return 0;
 
@@ -3329,10 +3330,10 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	}
 
 	blk_pm_runtime_init(sdp->request_queue, dev);
-
-	if (sdp->autosuspend_delay >= 0)
-		pm_runtime_set_autosuspend_delay(dev, sdp->autosuspend_delay);
-
+	if (sdp->rpm_autosuspend) {
+		pm_runtime_set_autosuspend_delay(dev,
+			sdp->host->hostt->rpm_autosuspend_delay);
+	}
 	device_add_disk(dev, gd);
 	if (sdkp->capacity)
 		sd_dif_config_host(sdkp);

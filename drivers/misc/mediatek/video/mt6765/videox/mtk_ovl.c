@@ -89,7 +89,7 @@ static struct ovl2mem_path_context *_get_context_l(void)
 			sizeof(struct ovl2mem_path_context));
 		mutex_init(&(g_context.lock));
 		is_context_inited = 1;
-		memout_wk_lock = wakeup_source_register("mem_disp_wakelock");
+		memout_wk_lock = wakeup_source_register(NULL, "mem_disp_wakelock");
 	}
 
 	return &g_context;

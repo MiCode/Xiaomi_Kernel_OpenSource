@@ -5327,7 +5327,7 @@ static int msdc_drv_probe(struct platform_device *pdev)
 	host->err_cmd = -1;
 
 	if (host->hw->host_function == MSDC_SDIO) {
-		host->trans_lock = wakeup_source_register("MSDC Transfer Lock");
+		host->trans_lock = wakeup_source_register(NULL, "MSDC Transfer Lock");
 		if (!host->trans_lock) {
 			pr_info("MSDC_SDIO register wakeup_source fail!");
 			return -1;

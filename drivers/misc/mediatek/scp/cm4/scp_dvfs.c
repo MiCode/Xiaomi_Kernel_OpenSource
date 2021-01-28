@@ -1398,7 +1398,7 @@ int __init scp_dvfs_init(void)
 		goto fail;
 	}
 
-	scp_suspend_lock = wakeup_source_register("scp wakelock");
+	scp_suspend_lock = wakeup_source_register(NULL, "scp wakelock");
 
 	mt_scp_dvfs_ipi_init();
 

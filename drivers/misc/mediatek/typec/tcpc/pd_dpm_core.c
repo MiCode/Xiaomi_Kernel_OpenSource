@@ -2236,7 +2236,7 @@ int pd_dpm_core_init(struct pd_port *pd_port)
 
 #ifdef CONFIG_USB_PD_REV30
 	pd_port->pps_request_wake_lock =
-		wakeup_source_register("pd_pps_request_wakelock");
+		wakeup_source_register(NULL, "pd_pps_request_wakelock");
 
 	pd_port->pps_request_task = kthread_create(pps_request_thread_fn,
 		pd_port->tcpc_dev, "pps_request_task_%s",

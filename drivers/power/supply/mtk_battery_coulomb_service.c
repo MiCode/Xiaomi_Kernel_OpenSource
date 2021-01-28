@@ -449,7 +449,7 @@ void gauge_coulomb_service_init(struct mtk_battery *gm)
 	mutex_init(&cs->coulomb_lock);
 	mutex_init(&cs->hw_coulomb_lock);
 	spin_lock_init(&cs->slock);
-	cs->wlock = wakeup_source_register("gauge coulomb wakelock");
+	cs->wlock = wakeup_source_register(NULL, "gauge coulomb wakelock");
 	init_waitqueue_head(&cs->wait_que);
 	kthread_run(gauge_coulomb_thread, cs, "gauge_coulomb_thread");
 

@@ -540,7 +540,7 @@ static int md_ccif_probe(struct platform_device *dev)
 	CCCI_INIT_LOG(md_id, TAG, "modem ccif module probe...\n");
 	snprintf(md->trm_wakelock_name, sizeof(md->trm_wakelock_name),
 		"md%d_ccif_trm", md->index + 1);
-	md->trm_wake_lock = wakeup_source_register(md->trm_wakelock_name);
+	md->trm_wake_lock = wakeup_source_register(NULL, md->trm_wakelock_name);
 	if (!md->trm_wake_lock) {
 		CCCI_ERROR_LOG(md_id, TAG,
 			"%s %d: init wakeup source fail",

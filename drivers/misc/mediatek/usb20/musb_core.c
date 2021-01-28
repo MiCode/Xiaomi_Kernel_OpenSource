@@ -2924,7 +2924,7 @@ static int set_option(const char *val, const struct kernel_param *kp)
 		if (!usb_test_wakelock_inited) {
 			DBG(0, "%s wake_lock_init\n", __func__);
 			usb_test_wakelock =
-				wakeup_source_register("usb.test.lock");
+				wakeup_source_register(NULL, "usb.test.lock");
 			usb_test_wakelock_inited = 1;
 		}
 		__pm_stay_awake(usb_test_wakelock);

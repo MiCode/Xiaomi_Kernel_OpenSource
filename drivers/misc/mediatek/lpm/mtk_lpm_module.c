@@ -393,7 +393,7 @@ static int __init mtk_lpm_init(void)
 	spin_unlock_irqrestore(&mtk_lp_mod_locker, flags);
 
 	if (mtk_lpm_system.suspend.flag & MTK_LP_REQ_NOSUSPEND) {
-		mtk_lpm_lock = wakeup_source_register("mtk_lpm_lock");
+		mtk_lpm_lock = wakeup_source_register(NULL, "mtk_lpm_lock");
 		if (!mtk_lpm_lock) {
 			pr_info("[name:mtk_lpm][P] - initialize mtk_lpm_lock wakeup source fail\n");
 			return -1;

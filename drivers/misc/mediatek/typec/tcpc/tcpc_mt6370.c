@@ -1576,9 +1576,9 @@ static int mt6370_i2c_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, chip);
 	INIT_DELAYED_WORK(&chip->poll_work, mt6370_poll_work);
 	chip->irq_wake_lock =
-		wakeup_source_register("mt6370_irq_wakelock");
+		wakeup_source_register(NULL, "mt6370_irq_wakelock");
 	chip->i2c_wake_lock =
-		wakeup_source_register("mt6370_i2c_wakelock");
+		wakeup_source_register(NULL, "mt6370_i2c_wakelock");
 
 	chip->chip_id = chip_id;
 	pr_info("mt6370_chipID = 0x%0x\n", chip_id);

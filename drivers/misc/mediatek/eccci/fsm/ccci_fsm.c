@@ -694,7 +694,7 @@ int ccci_fsm_init(int md_id)
 	atomic_set(&ctl->fs_ongoing, 0);
 	snprintf(ctl->wakelock_name, sizeof(ctl->wakelock_name),
 		"md%d_wakelock", ctl->md_id + 1);
-	ctl->wakelock = wakeup_source_register(ctl->wakelock_name);
+	ctl->wakelock = wakeup_source_register(NULL, ctl->wakelock_name);
 	if (!ctl->wakelock) {
 		CCCI_ERROR_LOG(ctl->md_id, FSM,
 			"%s %d: init wakeup source fail",

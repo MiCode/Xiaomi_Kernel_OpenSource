@@ -741,7 +741,7 @@ void mt_usb_connect_test(int start)
 
 	if (!wake_lock_inited) {
 		DBG(0, "wake_lock_init\n");
-		dev_test_wakelock = wakeup_source_register("device.test.lock");
+		dev_test_wakelock = wakeup_source_register(NULL, "device.test.lock");
 		wake_lock_inited = 1;
 	}
 
@@ -1551,7 +1551,7 @@ static int __init mt_usb_init(struct musb *musb)
 	musb->usb_rev6_setting = usb_rev6_setting;
 #endif
 
-	musb->usb_lock = wakeup_source_register("USB suspend lock");
+	musb->usb_lock = wakeup_source_register(NULL, "USB suspend lock");
 
 #ifndef FPGA_PLATFORM
 	reg_vusb = regulator_get(musb->controller, "vusb");
