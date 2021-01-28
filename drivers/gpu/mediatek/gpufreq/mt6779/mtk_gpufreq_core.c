@@ -172,15 +172,15 @@ static unsigned int g_ptpod_opp_idx_table_segment1[] = {
 };
 static unsigned int g_ptpod_opp_idx_table_segment2[] = {
 #ifdef USE_FINE_GRAIN_OPP_TABLE
-	0, 2, 4, 6,
-	8, 11, 13, 15,
-	17, 19, 21, 23,
-	25, 27, 29, 31
+	0, 0, 2, 4,
+	6, 9, 11, 13,
+	15, 17, 19, 21,
+	23, 25, 27, 29
 #else
 	0, 1, 2, 3,
 	4, 5, 6, 7,
 	8, 9, 10, 11,
-	12, 13, 14, 15
+	12, 13, 14, 14
 #endif
 };
 static struct g_opp_table_info g_opp_table_segment1[] = {
