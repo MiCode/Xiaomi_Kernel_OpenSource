@@ -143,6 +143,11 @@ static const struct mtk_spi_compatible mt6771_compat = {
 	.dma8g_peri_ext = true,
 	.must_tx = true,
 };
+static const struct mtk_spi_compatible mt8183_compat = {
+	.need_pad_sel = true,
+	.must_tx = true,
+	.enhance_timing = true,
+};
 
 /*
  * A piece of default chip info unless the platform
@@ -176,6 +181,9 @@ static const struct of_device_id mtk_spi_of_match[] = {
 	},
 	{ .compatible = "mediatek,mt6771-spi",
 		.data = (void *)&mt6771_compat,
+	},
+	{ .compatible = "mediatek,mt8183-spi",
+		.data = (void *)&mt8183_compat,
 	},
 	{}
 };
