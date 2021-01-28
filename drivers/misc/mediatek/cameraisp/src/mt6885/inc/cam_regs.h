@@ -660,6 +660,7 @@ enum{
 #define CAM_REG_BPCI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x4034)
 #define CAM_REG_UFDI_R2_ERR_STAT(module)        (isp_devs[module].regs + 0x4038)
 #define CAM_REG_LSCI_ERR_STAT(module)           (isp_devs[module].regs + 0x403C)
+#define CAM_REG_RAWI_R3_ERR_STAT(module)        (isp_devs[module].regs + 0x5020)
 
 #define CAM_REG_TSFSO_ERR_STAT(module)          (isp_devs[module].regs + 0x4040)
 #define CAM_REG_AAHO_ERR_STAT(module)           (isp_devs[module].regs + 0x4044)
@@ -708,6 +709,13 @@ enum{
 #define CAM_REG_AAO_YSIZE(module)               (isp_devs[module].regs + 0x44B0)
 #define CAM_REG_AAHO_XSIZE(module)              (isp_devs[module].regs + 0x443C)
 #define CAM_REG_AAHO_YSIZE(module)              (isp_devs[module].regs + 0x4440)
+
+#define CAM_REG_FLKO_FH_FH_SPARE_9(module)      (isp_devs[module].regs + 0x45CC)
+#define CAM_REG_FLKO_FH_FH_SPARE_10(module)     (isp_devs[module].regs + 0x45D0)
+#define CAM_REG_DMA_SOFT_RSTSTAT1(module)       (isp_devs[module].regs + 0x4000)
+#define CAM_REG_DMA_SOFT_RESET1(module)         (isp_devs[module].regs + 0x4010)
+#define CAM_REG_DMA_ERR_CTRL1(module)           (isp_devs[module].regs + 0x401C)
+
 
 
 /* MRAW */
