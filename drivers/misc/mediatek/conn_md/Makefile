@@ -16,9 +16,9 @@
 # kernel build system and can use its language.
 ifneq ($(KERNELRELEASE),)
 
-    ccflags-$(CONFIG_MTK_ECCCI_DRIVER) += -I$(srctree)/drivers/misc/mediatek/eccci/mt6779
-    ccflags-$(CONFIG_MTK_ECCCI_DRIVER) += -I$(srctree)/drivers/misc/mediatek/eccci/
-    ccflags-$(CONFIG_MTK_CCCI_EXT) += -I$(srctree)/drivers/misc/mediatek/dual_ccci/
+    ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/mt6779
+    ccflags-y += -I$(srctree)/drivers/misc/mediatek/eccci/
+    ccflags-y += -I$(srctree)/drivers/misc/mediatek/dual_ccci/
 
     ccflags-y += -I$(src)/include/
 
