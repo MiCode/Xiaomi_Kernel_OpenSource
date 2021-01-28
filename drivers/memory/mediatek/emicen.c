@@ -89,7 +89,7 @@ static int emicen_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, emicen_dev_ptr);
 	emicen_pdev = pdev;
 
-	return ret;
+	return 0;
 }
 
 static int emicen_remove(struct platform_device *dev)
