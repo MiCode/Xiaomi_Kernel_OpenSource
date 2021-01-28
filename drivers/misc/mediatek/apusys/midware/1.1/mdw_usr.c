@@ -142,6 +142,9 @@ void mdw_usr_print_mem_usage(void)
 				goto free_mutex;
 			memcpy(u, user, sizeof(struct mdw_usr));
 
+			//Force string end
+			u->comm[TASK_COMM_LEN-1] = '\0';
+
 			list_add_tail(&u->m_item, &u_stat.list);
 
 			u_tmp.pid = user->pid;

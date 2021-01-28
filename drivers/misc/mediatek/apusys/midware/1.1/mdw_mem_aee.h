@@ -33,7 +33,12 @@
 #ifdef CONFIG_MTK_AEE_FEATURE
 #define apusys_aee_print(string, args...) do {\
 	char msg[AEE_LOG_SIZE];\
-	snprintf(msg, AEE_LOG_SIZE, string, ##args); \
+	int n = 0;\
+	n = snprintf(msg, AEE_LOG_SIZE, string, ##args); \
+	if (n < 0 || n > AEE_LOG_SIZE) { \
+		mdw_drv_err("AEE_LOG_SIZE invalid %d\n", n); \
+		break; \
+	} \
 	aee_kernel_warning(AEE_KEY, \
 			"\nCRDISPATCH_KEY: " AEE_KEY "\n"string, ##args); \
 	mdw_drv_err(string, ##args);  \
@@ -41,7 +46,12 @@
 #else
 #define apusys_aee_print(string, args...) do {\
 		char msg[AEE_LOG_SIZE];\
-		snprintf(msg, AEE_LOG_SIZE, string, ##args); \
+		int n = 0;\
+		n = snprintf(msg, AEE_LOG_SIZE, string, ##args); \
+		if (n < 0 || n > AEE_LOG_SIZE) { \
+			mdw_drv_err("AEE_LOG_SIZE invalid %d\n", n); \
+			break; \
+		} \
 		mdw_drv_err(string, ##args);  \
 	} while (0)
 #endif
