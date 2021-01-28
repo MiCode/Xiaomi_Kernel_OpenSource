@@ -122,6 +122,11 @@ static ssize_t gz_test_store(struct device *dev,
 	char c;
 	struct task_struct *th;
 
+	if (n > 50) {
+		KREE_DEBUG("err: n > 50\n");
+		return n;
+	}
+
 	strncpy(tmp, buf, 1);
 	tmp[n - 1] = '\0';
 	c = tmp[0];
