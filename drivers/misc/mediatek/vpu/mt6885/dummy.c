@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2019 MediaTek Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -11,10 +11,3 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __VPU_H__
-#define __VPU_H__
-
-
-#include "../2.0/vpu_drv.h"
-
-#endif
