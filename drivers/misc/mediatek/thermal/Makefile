@@ -15,6 +15,8 @@ ccflags-y += -I$(srctree)
 THERMAL_CHIP_DRIVER_DIR := $(srctree)/drivers/misc/mediatek/thermal/$(MTK_PLATFORM)
 ccflags-y  += -I$(THERMAL_CHIP_DRIVER_DIR)/inc
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/include/
+ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/gpu/hal/
 
 obj-y += mtk_thermal_monitor.o
 obj-y += mtk_cooler_shutdown.o
@@ -23,7 +25,7 @@ ifeq ($(CONFIG_MTK_LEDS), y)
     obj-y += mtk_cooler_backlight.o
 endif
 obj-y += mtk_cooler_kshutdown.o
-#obj-y += mtk_cooler_cam.o
+obj-y += mtk_cooler_cam.o
 
 obj-y += common/
 obj-y += $(subst ",,$(CONFIG_MTK_LEGACY_THERMAL_PLATFORM))/
