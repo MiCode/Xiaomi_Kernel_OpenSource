@@ -262,6 +262,14 @@ config SND_SOC_MT8173_RT5650_RT5676
 	  Select Y if you have such device.
 	  If unsure select "N".
 
+config SND_SOC_MT8185_EVB
+	tristate "ASoc Audio driver for MT8185 evb boards"
+	select SND_SOC_MT6785
+	help
+	  This adds ASoC driver
+	  for Mediatek MT8185 boards.
+	  Select Y if you have such device.
+	  Unsure please select "N".
 
 config SND_SOC_MT8167
 	tristate
