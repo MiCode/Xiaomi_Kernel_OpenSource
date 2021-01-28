@@ -63,6 +63,9 @@ obj-$(CONFIG_MTK_RTC)	+= rtc/
 obj-$(CONFIG_MTK_CMDQ) += cmdq/
 obj-$(CONFIG_MTK_PMIC_WRAP_HAL) += pmic_wrap/
 obj-$(CONFIG_RT_REGMAP) += rt-regmap/
+ifeq ($(CONFIG_MTK_GAUGE_VERSION),30)
+obj-y += power/
+endif
 obj-y += mmdvfs/
 obj-$(CONFIG_MTK_ECCCI_C2K) += c2k_usb/
 obj-$(CONFIG_USB) += usb_boost/
