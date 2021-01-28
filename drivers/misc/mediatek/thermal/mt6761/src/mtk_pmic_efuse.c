@@ -113,7 +113,7 @@ static __s32 tsbuck2_raw_to_temp(__u32 ret)
 
 static void mtktspmic_read_efuse(struct regmap *pmic_map)
 {
-	__s32 efuse_temp;
+	__s32 efuse_temp = 0;
 
 	mtktspmic_info("[pmic_debug]  start\n");
 	regmap_read(pmic_map, MT6357_AUXADC_DIG_3_ELR7, &efuse_temp);
