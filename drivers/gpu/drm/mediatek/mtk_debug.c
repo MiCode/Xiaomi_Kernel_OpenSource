@@ -14,7 +14,13 @@
 #include <linux/string.h>
 #include <linux/time.h>
 #include <linux/wait.h>
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 #include <linux/debugfs.h>
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+#include <linux/proc_fs.h>
+#endif
 #include <linux/sched/clock.h>
 #include <linux/of_address.h>
 #include <drm/drmP.h>
@@ -49,7 +55,15 @@
 #define SMI_LARB_NON_SEC_CON(port) (0x380 + 4 * (port))
 #define GET_M4U_PORT 0x1F
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 static struct dentry *mtkfb_dbgfs;
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+static struct proc_dir_entry *mtkfb_procfs;
+static struct proc_dir_entry *disp_lowpower_proc;
+static struct proc_dir_entry *mtkfb_debug_procfs;
+#endif
 static struct drm_device *drm_dev;
 bool g_mobile_log;
 bool g_fence_log;
@@ -62,6 +76,7 @@ unsigned int disp_met_en;
 int gCaptureOVLEn;
 int gCapturePriLayerDownX = 20;
 int gCapturePriLayerDownY = 20;
+u64 vfp_backup;
 
 struct logger_buffer {
 	char **buffer_ptr;
@@ -1652,8 +1667,35 @@ static int disp_met_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(disp_met_fops, disp_met_get, disp_met_set, "%llu\n");
 
 
+static void backup_vfp_for_lp_cust(u64 vfp)
+{
+		vfp_backup = vfp;
+}
+
+static u64 get_backup_vfp(void)
+{
+	return vfp_backup;
+}
+
+static int idlevfp_set(void *data, u64 val)
+{
+	if (val > 4095)
+		val = 4095;
+
+	backup_vfp_for_lp_cust((unsigned int)val);
+	return 0;
+}
+
+static int idlevfp_get(void *data, u64 *val)
+{
+	*val = (u64)get_backup_vfp();
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(idlevfp_fops, idlevfp_get, idlevfp_set, "%llu\n");
+
 void disp_dbg_probe(void)
 {
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *d_folder;
 	struct dentry *d_file;
 
@@ -1675,6 +1717,54 @@ void disp_dbg_probe(void)
 	init_log_buffer();
 
 	drm_mmp_init();
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	mtkfb_procfs = proc_create("mtkfb", S_IFREG | 0444,
+				   NULL,
+				   &debug_fops);
+	if (!mtkfb_procfs) {
+		pr_info("[%s %d]failed to create mtkfb in /proc/disp_ddp\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	disp_lowpower_proc = proc_mkdir("displowpower", NULL);
+	if (!disp_lowpower_proc) {
+		pr_info("[%s %d]failed to create dir: /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("idletime", S_IFREG | 0444,
+			 disp_lowpower_proc, &idletime_fops)) {
+		pr_info("[%s %d]failed to create idletime in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	if (!proc_create("idlevfp", S_IFREG | 0444,
+		disp_lowpower_proc, &idlevfp_fops)) {
+		pr_info("[%s %d]failed to create idlevfp in /proc/displowpower\n",
+			__func__, __LINE__);
+		goto out;
+	}
+
+	mtkfb_debug_procfs = proc_mkdir("mtkfb_debug", NULL);
+	if (!mtkfb_debug_procfs) {
+		pr_info("[%s %d]failed to create dir: /proc/mtkfb_debug\n",
+			__func__, __LINE__);
+		goto out;
+	}
+	if (!proc_create("disp_met", S_IFREG | 0444,
+		mtkfb_debug_procfs, &disp_met_fops)) {
+		pr_info("[%s %d]failed to create idlevfp in /proc/mtkfb_debug/disp_met\n",
+			__func__, __LINE__);
+		goto out;
+	}
+out:
+	return;
+#endif
 }
 
 void disp_dbg_init(struct drm_device *dev)
@@ -1686,7 +1776,20 @@ void disp_dbg_deinit(void)
 {
 	if (debug_buffer)
 		vfree(debug_buffer);
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	debugfs_remove(mtkfb_dbgfs);
+#endif
+
+#if IS_ENABLED(CONFIG_PROC_FS)
+	if (mtkfb_procfs) {
+		proc_remove(mtkfb_procfs);
+		mtkfb_procfs = NULL;
+	}
+	if (disp_lowpower_proc) {
+		proc_remove(disp_lowpower_proc);
+		disp_lowpower_proc = NULL;
+	}
+#endif
 }
 
 void get_disp_dbg_buffer(unsigned long *addr, unsigned long *size,
