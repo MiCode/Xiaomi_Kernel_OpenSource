@@ -708,7 +708,21 @@ static void ffs_epfile_io_complete(struct usb_ep *_ep, struct usb_request *req)
 
 static ssize_t ffs_copy_to_iter(void *data, int data_len, struct iov_iter *iter)
 {
-	ssize_t ret = copy_to_iter(data, data_len, iter);
+	ssize_t ret;
+
+#if defined(CONFIG_ARM64)
+	/*
+	 * Replace tagged address passed by user space application before
+	 * copying.
+	 */
+	if (IS_ENABLED(CONFIG_ARM64_TAGGED_ADDR_ABI) &&
+		(iter->type == ITER_IOVEC)) {
+		*(unsigned long *)&iter->iov->iov_base =
+			(unsigned long)untagged_addr(iter->iov->iov_base);
+	}
+#endif
+
+	ret = copy_to_iter(data, data_len, iter);
 	if (likely(ret == data_len))
 		return ret;
 
