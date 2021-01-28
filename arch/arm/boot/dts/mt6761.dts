@@ -2235,7 +2235,7 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 	};
 
 	efusec@11c50000 {
-		compatible = "mediatek,efusec";
+		compatible = "mediatek,devinfo";
 		reg = <0 0x11c50000 0 0x10000>;
 	};
 
