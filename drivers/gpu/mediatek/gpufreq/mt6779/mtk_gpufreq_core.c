@@ -745,15 +745,8 @@ mt_gpufreq_update_volt(unsigned int pmic_volt[], unsigned int array_size)
 			int larger = pmic_volt[i];
 			int smaller = pmic_volt[i + 1];
 			int interpolation;
-			int idx_for_2_itp_pts;
 
-			if (g_ptpod_opp_idx_table
-				== g_ptpod_opp_idx_table_segment2)
-				idx_for_2_itp_pts = 6;
-			else
-				idx_for_2_itp_pts = 6;
-
-			if (target_idx == idx_for_2_itp_pts) {
+			if (target_idx == 6) {
 				/* After opp 6, 2 opps need intepolation */
 				interpolation =	((larger << 1) + smaller) / 3;
 				g_opp_table[target_idx + 1].gpufreq_volt
