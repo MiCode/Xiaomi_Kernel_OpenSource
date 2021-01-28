@@ -858,6 +858,7 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 		CMDQ_ERR("wait task result failed:%d handle:0x%p\n",
 			status, handle);
 		cmdq_task_destroy(handle);
+		kfree(CMDQ_U32_PTR(jobResult.regValue.regValues));
 		return status;
 	}
 
@@ -881,6 +882,7 @@ static s32 cmdq_driver_ioctl_async_job_wait_and_close(unsigned long param)
 	if (copy_to_user((void *)userRegValue, (void *)(unsigned long)
 		handle->reg_values, handle->user_reg_count * sizeof(u32))) {
 		CMDQ_ERR("Copy REGVALUE to user space failed\n");
+		kfree(CMDQ_U32_PTR(jobResult.regValue.regValues));
 		return -EFAULT;
 	}
 
