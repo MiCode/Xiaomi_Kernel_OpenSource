@@ -118,7 +118,7 @@ static struct imgsensor_info_struct imgsensor_info = {
 	},
 
 	.cap = { /*reg_A 12M@30fps*/
-		.pclk = 725000000,
+		.pclk = 752000000,
 		.linelength = 7872,
 		.framelength = 3068,
 		.startx = 0,
