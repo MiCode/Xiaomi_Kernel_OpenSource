@@ -12,7 +12,11 @@
 #
 
 # MTK Platform Support
+ifeq ($(CONFIG_MACH_MT6893),y)
+MTK_PLATFORM := mt6885
+else
 MTK_PLATFORM := $(subst ",,$(CONFIG_MTK_PLATFORM))
+endif
 
 # adsp include path
 ifeq ($(CONFIG_SND_SOC_MTK_AUDIO_DSP),y)
