@@ -1670,6 +1670,11 @@ static int cmdq_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		cmdq_err("failed to get resource");
+		return -EINVAL;
+	}
+
 	cmdq->base = devm_ioremap_resource(dev, res);
 	cmdq->base_pa = res->start;
 	if (IS_ERR(cmdq->base)) {
