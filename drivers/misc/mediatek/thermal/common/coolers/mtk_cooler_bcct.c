@@ -22,6 +22,9 @@
 #include <linux/err.h>
 #include <linux/syscalls.h>
 #include "mt-plat/mtk_thermal_monitor.h"
+#ifdef CONFIG_MACH_MT8168
+#include <mtk_charger.h>
+#endif
 #include <linux/uidgid.h>
 #include <linux/notifier.h>
 #include <linux/fb.h>

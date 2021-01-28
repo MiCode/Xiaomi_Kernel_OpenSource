@@ -32,7 +32,9 @@
 #if defined(ATM_USES_PPM)
 #include "mtk_ppm_api.h"
 #else
+#ifndef CONFIG_MACH_MT8168
 #include "mt_cpufreq.h"
+#endif
 #endif
 
 #if defined(THERMAL_VPU_SUPPORT)
