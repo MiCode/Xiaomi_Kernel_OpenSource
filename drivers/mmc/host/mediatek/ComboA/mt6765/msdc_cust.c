@@ -248,8 +248,8 @@ void msdc_emmc_power(struct msdc_host *host, u32 on)
 		msdc_set_rdsel(host, MSDC_TDRDSEL_1V8, 0);
 	}
 
-	//msdc_ldo_power(on, host->mmc->supply.vmmc,
-	//	VOL_3000, &host->power_flash);
+	msdc_ldo_power(on, host->mmc->supply.vmmc,
+		VOL_3000, &host->power_flash);
 #endif
 #ifdef MTK_MSDC_BRINGUP_DEBUG
 	msdc_dump_ldo_sts(NULL, 0, NULL, host);
@@ -461,7 +461,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		pr_notice("[msdc%d] can not get clock control\n", pdev->id);
 		return 1;
 	}
-	if (clk_prepare(host->clk_ctl)) {
+	if (clk_prepare_enable(host->clk_ctl)) {
 		pr_notice("[msdc%d] can not prepare clock control\n", pdev->id);
 		return 1;
 	}
@@ -470,7 +470,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 		pr_notice("[msdc%d] can not get clock control\n", pdev->id);
 		return 1;
 	}
-	if (hclk_names[pdev->id] && clk_prepare(host->hclk_ctl)) {
+	if (hclk_names[pdev->id] && clk_prepare_enable(host->hclk_ctl)) {
 		pr_notice("[msdc%d] can not prepare hclock control\n",
 			pdev->id);
 		return 1;
@@ -486,7 +486,7 @@ int msdc_get_ccf_clk_pointer(struct platform_device *pdev,
 			WARN_ON(1);
 			return 1;
 		}
-		if (clk_prepare(host->aes_clk_ctl)) {
+		if (clk_prepare_enable(host->aes_clk_ctl)) {
 			pr_notice(
 				"[msdc%d] can not prepare aes clock control\n",
 				pdev->id);

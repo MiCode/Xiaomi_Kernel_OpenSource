@@ -5224,12 +5224,12 @@ static int msdc_drv_remove(struct platform_device *pdev)
 #ifndef FPGA_PLATFORM
 	/* clock unprepare */
 	if (host->clk_ctl)
-		clk_unprepare(host->clk_ctl);
+		clk_disable_unprepare(host->clk_ctl);
 	if (host->hclk_ctl)
-		clk_unprepare(host->hclk_ctl);
+		clk_disable_unprepare(host->hclk_ctl);
 #if defined(CONFIG_MTK_HW_FDE) || defined(CONFIG_HIE)
 	if (host->aes_clk_ctl)
-		clk_unprepare(host->aes_clk_ctl);
+		clk_disable_unprepare(host->aes_clk_ctl);
 #endif
 #endif
 	pm_qos_remove_request(&host->msdc_pm_qos_req);
@@ -5260,13 +5260,13 @@ static int msdc_runtime_suspend(struct device *dev)
 	/* mclk = 0 means core layer suspend has disabled clk. */
 	if (host->mclk)
 		msdc_clk_disable(host);
-	/*workaround for clk not stable, need recovery
-	clk_unprepare(host->clk_ctl);
+
+	clk_disable_unprepare(host->clk_ctl);
 	if (host->aes_clk_ctl)
-		clk_unprepare(host->aes_clk_ctl);
+		clk_disable_unprepare(host->aes_clk_ctl);
 	if (host->hclk_ctl)
-		clk_unprepare(host->hclk_ctl);
-	*/
+		clk_disable_unprepare(host->hclk_ctl);
+
 	pm_qos_update_request(&host->msdc_pm_qos_req,
 		PM_QOS_DEFAULT_VALUE);
 
@@ -5278,13 +5278,13 @@ static int msdc_runtime_resume(struct device *dev)
 	struct msdc_host *host = dev_get_drvdata(dev);
 
 	pm_qos_update_request(&host->msdc_pm_qos_req, 0);
-	/* As suspend, mark is a work around, need revcovery
-	(void)clk_prepare(host->clk_ctl);
+
+	(void)clk_prepare_enable(host->clk_ctl);
 	if (host->aes_clk_ctl)
-		(void)clk_prepare(host->aes_clk_ctl);
+		(void)clk_prepare_enable(host->aes_clk_ctl);
 	if (host->hclk_ctl)
-		(void)clk_prepare(host->hclk_ctl);
-	*/
+		(void)clk_prepare_enable(host->hclk_ctl);
+
 	/* mclk = 0 means core layer resume will enable clk later. */
 	if (host->mclk)
 		msdc_clk_enable_and_stable(host);
