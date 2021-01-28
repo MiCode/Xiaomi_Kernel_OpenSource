@@ -73,6 +73,10 @@ config MACH_MT8168
 	select ARM_PSCI
 	select ARM_CRYPTO
 	select SMP
+	select ARM_GIC_V3
+	select VFP
+	select NEON
+	select KERNEL_MODE_NEON
 	help
 	  This enables support for MediaTek MT8168.
 	  If you need support for MediaTek MT8168, say Y here.

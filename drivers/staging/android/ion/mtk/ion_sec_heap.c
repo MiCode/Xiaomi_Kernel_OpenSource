@@ -77,9 +77,9 @@ static KREE_SESSION_HANDLE ion_session;
 KREE_SESSION_HANDLE ion_session_handle(void)
 {
 	if (ion_session == KREE_SESSION_HANDLE_NULL) {
-		TZ_RESULT ret;
+		int ret;
 
-		ret = kree_createsession(TZ_TA_MEM_UUID, &ion_session);//hc2
+		ret = KREE_CreateSession(TZ_TA_MEM_UUID, &ion_session);//hc2
 		if (ret != TZ_RESULT_SUCCESS) {
 			IONMSG("KREE_CreateSession fail, ret=%d\n", ret);
 			return KREE_SESSION_HANDLE_NULL;
