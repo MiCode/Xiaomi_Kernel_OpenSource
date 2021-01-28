@@ -1969,6 +1969,9 @@ int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 	bool mod_hfp, mod_hbp, mod_hsa;
 	unsigned int data_rate;
 
+	DISPMSG("[%s] start: module_id = %d, en = %d\n",
+		__func__, module, en);
+
 	i = DSI_MODULE_BEGIN(module);
 	dsi_params = &_dsi_context[i].dsi_params;
 	mod_vfp = !!dsi_params->vertical_frontporch_dyn;
@@ -2044,6 +2047,9 @@ int mipi_clk_change(enum DISP_MODULE_ENUM module, int en)
 
 	cmdqRecFlush(handle);
 	cmdqRecDestroy(handle);
+
+	DISPMSG("[%s] end: module_id = %d, en = %d, data_rate:%d\n",
+		__func__, module, en, data_rate);
 
 	return 0;
 }
