@@ -1069,6 +1069,8 @@ static void cm_mgr_update_fw(void)
 
 #ifdef PER_CPU_STALL_RATIO
 		for (count = 0; count < CM_MGR_MAX; count++) {
+			unsigned int *ptr;
+
 			offset += copy_size;
 			copy_size = sizeof(cpu_power_gain_UpLow0);
 			pr_info("offset 0x%x, copy_size 0x%x\n",
@@ -1080,8 +1082,9 @@ static void cm_mgr_update_fw(void)
 						copy_size + offset);
 				goto out_fw;
 			}
-			memcpy(_cpu_power_gain_ptr(1, 1, count),
-					fw->data + offset, copy_size);
+			ptr = _cpu_power_gain_ptr(1, 1, count);
+			if (ptr)
+				memcpy(ptr, fw->data + offset, copy_size);
 
 			offset += copy_size;
 			copy_size = sizeof(cpu_power_gain_DownLow0);
@@ -1094,8 +1097,9 @@ static void cm_mgr_update_fw(void)
 						copy_size + offset);
 				goto out_fw;
 			}
-			memcpy(_cpu_power_gain_ptr(0, 1, count),
-					fw->data + offset, copy_size);
+			ptr = _cpu_power_gain_ptr(0, 1, count);
+			if (ptr)
+				memcpy(ptr, fw->data + offset, copy_size);
 
 			offset += copy_size;
 			copy_size = sizeof(cpu_power_gain_UpHigh0);
@@ -1108,8 +1112,9 @@ static void cm_mgr_update_fw(void)
 						copy_size + offset);
 				goto out_fw;
 			}
-			memcpy(_cpu_power_gain_ptr(1, 0, count),
-					fw->data + offset, copy_size);
+			ptr = _cpu_power_gain_ptr(1, 0, count);
+			if (ptr)
+				memcpy(ptr, fw->data + offset, copy_size);
 
 			offset += copy_size;
 			copy_size = sizeof(cpu_power_gain_DownHigh0);
@@ -1122,8 +1127,9 @@ static void cm_mgr_update_fw(void)
 						copy_size + offset);
 				goto out_fw;
 			}
-			memcpy(_cpu_power_gain_ptr(0, 0, count),
-					fw->data + offset, copy_size);
+			ptr = _cpu_power_gain_ptr(0, 0, count);
+			if (ptr)
+				memcpy(ptr, fw->data + offset, copy_size);
 		}
 #endif /* PER_CPU_STALL_RATIO */
 
