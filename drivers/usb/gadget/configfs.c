@@ -162,7 +162,7 @@ static int usb_string_copy(const char *s, char **s_copy)
 		if (!str)
 			return -ENOMEM;
 	}
-	strcpy(str, s);
+	strncpy(str, s, USB_MAX_STRING_LEN+1);
 	if (str[ret - 1] == '\n')
 		str[ret - 1] = '\0';
 	*s_copy = str;
