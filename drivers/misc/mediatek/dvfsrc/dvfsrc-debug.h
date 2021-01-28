@@ -7,6 +7,8 @@
 #define __DVFSRC_DEBUG_H
 
 #include <dvfsrc-exp.h>
+
+#define DUMP_BUF_SIZE 4096
 struct mtk_dvfsrc;
 struct dvfsrc_config {
 	u32 ip_verion;
@@ -40,6 +42,8 @@ struct mtk_dvfsrc {
 	u32 num_vopp;
 	u32 *vopp_uv_tlb;
 	struct notifier_block dvfsrc_vchk_notifier;
+	struct notifier_block dvfsrc_dump_notifier;
+	char dump_buf[DUMP_BUF_SIZE];
 };
 
 extern int dvfsrc_register_sysfs(struct device *dev);

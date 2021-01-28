@@ -21,6 +21,7 @@
 #include <aee.h>
 
 static struct mtk_dvfsrc *dvfsrc_drv;
+static DEFINE_MUTEX(dump_lock);
 
 static int dvfsrc_query_debug_info(u32 id)
 {
@@ -127,10 +128,49 @@ static int dvfsrc_vcore_check(struct notifier_block *b,
 	return NOTIFY_DONE;
 }
 
+
+static int dvfsrc_dump_info(struct notifier_block *b,
+				 unsigned long l, void *v)
+{
+	char *p;
+	ssize_t dump_size = DUMP_BUF_SIZE - 1;
+	const struct dvfsrc_config *config;
+	struct mtk_dvfsrc *dvfsrc;
+
+	dvfsrc = container_of(b, struct mtk_dvfsrc, dvfsrc_dump_notifier);
+	config = dvfsrc->dvd->config;
+
+	mutex_lock(&dump_lock);
+	p = dvfsrc->dump_buf;
+	config->dump_info(dvfsrc, p, dump_size);
+	pr_info("%s", dvfsrc->dump_buf);
+	p = dvfsrc->dump_buf;
+	config->dump_reg(dvfsrc, p, dump_size);
+	pr_info("%s", dvfsrc->dump_buf);
+	p = dvfsrc->dump_buf;
+	config->dump_record(dvfsrc, p, dump_size);
+	pr_info("%s", dvfsrc->dump_buf);
+
+	if (config->dump_spm_info) {
+		p = dvfsrc->dump_buf;
+		config->dump_spm_info(dvfsrc, p, dump_size);
+		pr_info("%s", dvfsrc->dump_buf);
+	}
+	mutex_unlock(&dump_lock);
+
+	return NOTIFY_DONE;
+}
+
 static void dvfsrc_vchk_notifier(struct mtk_dvfsrc *dvfsrc)
 {
 	dvfsrc->dvfsrc_vchk_notifier.notifier_call = dvfsrc_vcore_check;
 	register_dvfsrc_vchk_notifier(&dvfsrc->dvfsrc_vchk_notifier);
+}
+
+static void dvfsrc_dump_notifier(struct mtk_dvfsrc *dvfsrc)
+{
+	dvfsrc->dvfsrc_dump_notifier.notifier_call = dvfsrc_dump_info;
+	register_dvfsrc_dump_notifier(&dvfsrc->dvfsrc_dump_notifier);
 }
 
 static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
@@ -225,6 +265,7 @@ static int mtk_dvfsrc_debug_probe(struct platform_device *pdev)
 
 	dvfsrc_setup_vopp_table(dvfsrc);
 	dvfsrc_vchk_notifier(dvfsrc);
+	dvfsrc_dump_notifier(dvfsrc);
 
 	dvfsrc_drv = dvfsrc;
 

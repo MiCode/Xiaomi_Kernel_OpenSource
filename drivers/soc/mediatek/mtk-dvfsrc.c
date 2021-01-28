@@ -146,6 +146,19 @@ int unregister_dvfsrc_vchk_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(unregister_dvfsrc_vchk_notifier);
 
+static BLOCKING_NOTIFIER_HEAD(dvfsrc_dump_notifier);
+int register_dvfsrc_dump_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&dvfsrc_dump_notifier, nb);
+}
+EXPORT_SYMBOL_GPL(register_dvfsrc_dump_notifier);
+
+int unregister_dvfsrc_dump_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&dvfsrc_dump_notifier, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_dvfsrc_dump_notifier);
+
 int mtk_dvfsrc_vcore_uv_table(u32 opp)
 {
 	if ((!vopp_uv_tlb) || (opp >= num_vopp))
@@ -194,6 +207,12 @@ static void mtk_dvfsrc_setup_vopp_table(struct mtk_dvfsrc *dvfsrc)
 
 }
 
+static void mtk_dvfsrc_dump_info(struct mtk_dvfsrc *dvfsrc)
+{
+	blocking_notifier_call_chain(&dvfsrc_dump_notifier,
+		0, NULL);
+}
+
 static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 level)
 {
 	int ret;
@@ -207,7 +226,7 @@ static void mtk_dvfsrc_vcore_check(struct mtk_dvfsrc *dvfsrc, u32 level)
 			level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
-
+		mtk_dvfsrc_dump_info(dvfsrc);
 #ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "VCORE fail");
 #endif
@@ -438,6 +457,7 @@ static int mt6779_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 			__func__, level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+		mtk_dvfsrc_dump_info(dvfsrc);
 #ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "FORCE OPP fail");
 #endif
@@ -570,6 +590,7 @@ static int mt6761_set_force_opp_level(struct mtk_dvfsrc *dvfsrc, u32 level)
 			__func__, level,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+		mtk_dvfsrc_dump_info(dvfsrc);
 #ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "FORCE OPP fail");
 #endif
@@ -822,6 +843,7 @@ out:
 			__func__, cmd, data,
 			dvfsrc->dvd->get_current_level(dvfsrc),
 			dvfsrc->dvd->get_target_level(dvfsrc));
+		mtk_dvfsrc_dump_info(dvfsrc);
 #ifdef CONFIG_MTK_AEE_FEATURE
 		aee_kernel_warning("DVFSRC", "LEVEL CHANGE fail");
 #endif
