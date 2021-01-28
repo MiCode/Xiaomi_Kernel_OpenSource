@@ -495,36 +495,38 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 	struct switch_charging_alg_data *swchgalg = info->algorithm_data;
 	struct pe40_data *data;
 	int ret = 0;
-	int tmp = 0;
 
 	charger_dev_enable(info->chg1_dev, true);
 	select_pe40_charging_current_limit(info);
-	tmp = battery_get_bat_temperature();
 
 	data = pe40_get_data();
 
 	data->input_current_limit = info->chg1_data.input_current_limit;
 	data->charging_current_limit = info->chg1_data.input_current_limit;
+	data->pe40_max_vbus = pdata->pe40_max_vbus;
+	data->high_temp_to_leave_pe40 = pdata->high_temp_to_leave_pe40;
+	data->high_temp_to_enter_pe40 = pdata->high_temp_to_enter_pe40;
+	data->low_temp_to_leave_pe40 = pdata->low_temp_to_leave_pe40;
+	data->low_temp_to_enter_pe40 = pdata->low_temp_to_enter_pe40;
+	data->pe40_r_cable_1a_lower = pdata->pe40_r_cable_1a_lower;
+	data->pe40_r_cable_2a_lower = pdata->pe40_r_cable_2a_lower;
+	data->pe40_r_cable_3a_lower = pdata->pe40_r_cable_3a_lower;
 
-	data->battery_cv = pdata->battery_cv;
 	if (info->enable_sw_jeita) {
 		if (info->sw_jeita.cv != 0)
 			data->battery_cv = info->sw_jeita.cv;
-	}
+	} else
+		data->battery_cv = pdata->battery_cv;
 
 	if (info->enable_hv_charging == false)
 		goto stop;
 
-	if (tmp > pdata->high_temp_to_leave_pe40)
-		goto stop;
-
-	if (tmp < pdata->low_temp_to_leave_pe40)
-		goto stop;
-
 	ret = pe40_run();
 
-	if (ret == 1)
+	if (ret == 1) {
 		chr_err("retry pe4\n");
+		goto retry;
+	}
 
 	if (ret == 2 &&
 		info->chg1_data.thermal_charging_current_limit == -1 &&
@@ -538,6 +540,7 @@ static int mtk_switch_chr_pe40_run(struct charger_manager *info)
 
 stop:
 	pe40_stop();
+retry:
 	swchgalg->state = CHR_CC;
 
 	return 0;
@@ -713,9 +716,7 @@ static int mtk_switch_chr_cc(struct charger_manager *info)
 		!info->leave_pe4) {
 		if (info->enable_hv_charging == true &&
 			info->chg1_data.thermal_charging_current_limit == -1 &&
-			info->chg1_data.thermal_input_current_limit == -1 &&
-			tmp <= info->data.high_temp_to_enter_pe40 &&
-			tmp >= info->data.low_temp_to_enter_pe40) {
+			info->chg1_data.thermal_input_current_limit == -1) {
 			chr_err("enter PE4.0!\n");
 			swchgalg->state = CHR_PE40;
 			return 1;

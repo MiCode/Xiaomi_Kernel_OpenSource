@@ -137,7 +137,7 @@ int adapter_get_output(int *mV, int *mA)
 
 int adapter_get_pps_cap(struct pps_cap *cap)
 {
-	struct adapter_power_cap tacap;
+	struct adapter_power_cap tacap = {0};
 	int i;
 
 	adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD_APDO, &tacap);
@@ -161,7 +161,7 @@ int adapter_get_pps_cap(struct pps_cap *cap)
 
 int adapter_get_status(struct ta_status *sta)
 {
-	struct adapter_status tasta;
+	struct adapter_status tasta = {0};
 
 	adapter_dev_get_status(pinfo->pd_adapter, &tasta);
 
@@ -183,7 +183,7 @@ int adapter_is_support_pd_pps(void)
 
 int adapter_get_cap(struct pd_cap *cap)
 {
-	struct adapter_power_cap tacap;
+	struct adapter_power_cap tacap = {0};
 	int i;
 
 	adapter_dev_get_cap(pinfo->pd_adapter, MTK_PD, &tacap);
