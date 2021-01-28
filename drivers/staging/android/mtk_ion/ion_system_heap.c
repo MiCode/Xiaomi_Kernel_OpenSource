@@ -59,6 +59,9 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 	struct ion_page_pool *pool;
 	struct page *page;
 
+	if (order_to_index(order) < 0)
+		return NULL;
+
 	if (!cached)
 		pool = heap->uncached_pools[order_to_index(order)];
 	else
@@ -90,6 +93,9 @@ static void free_buffer_page(struct ion_system_heap *heap,
 		}
 		return;
 	}
+
+	if (order_to_index(order) < 0)
+		return;
 
 	if (!cached)
 		pool = heap->uncached_pools[order_to_index(order)];
