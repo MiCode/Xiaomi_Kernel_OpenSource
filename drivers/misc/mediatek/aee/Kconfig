@@ -22,6 +22,7 @@ config MTK_AEE_AED
 
 config MTK_AEE_IPANIC
 	tristate "Enable AEE Kernel Panic Dump"
+	depends on MTK_RAM_CONSOLE
 	default n
 	help
 	  MTK_AEE_IPANIC is the kernel config of ipanic feature designed by
