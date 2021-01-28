@@ -273,4 +273,10 @@
 	vcamaf_sub-supply = <&mt_pmic_vldo28_ldo_reg>;
 	status = "okay";
 };
+
+&camera_af_hw_node {
+	camaf_m1_pmic-supply = <&mt_pmic_vldo28_ldo_reg>;
+	status = "okay";
+};
+
 /* CAMERA GPIO end */
