@@ -12,8 +12,9 @@
 #
 
 ccflags-y += \
+	-I$(srctree)/drivers/misc/mediatek/udi/include/	\
+	-I$(srctree)/drivers/misc/mediatek/udi/udi_v3 \
 	-I$(srctree)/drivers/misc/mediatek/base/power/include/	\
-	-I$(srctree)/drivers/misc/mediatek/base/power/udi_v2 \
 	-I$(srctree)/drivers/misc/mediatek/base/power/$(CONFIG_MTK_PLATFORM)\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/	\
 	-I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/mach/	\
