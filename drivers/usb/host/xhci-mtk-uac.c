@@ -195,7 +195,7 @@ int xhci_mtk_deinit_sram(struct xhci_hcd *xhci)
 }
 EXPORT_SYMBOL_GPL(xhci_mtk_deinit_sram);
 
-int xhci_mtk_allocate_sram(int id, dma_addr_t *sram_phys_addr,
+int xhci_mtk_allocate_sram(unsigned int id, dma_addr_t *sram_phys_addr,
 		unsigned char **msram_virt_addr)
 {
 	if (xhci_sram[id].state == STATE_NOMEM)
@@ -224,7 +224,7 @@ int xhci_mtk_allocate_sram(int id, dma_addr_t *sram_phys_addr,
 }
 EXPORT_SYMBOL_GPL(xhci_mtk_allocate_sram);
 
-int xhci_mtk_free_sram(int id)
+int xhci_mtk_free_sram(unsigned int id)
 {
 	xhci_sram[id].state = STATE_INIT;
 	pr_info("%s, id=%d\n", __func__, id);
@@ -232,7 +232,7 @@ int xhci_mtk_free_sram(int id)
 }
 EXPORT_SYMBOL_GPL(xhci_mtk_free_sram);
 
-void *mtk_usb_alloc_sram(int id, size_t size, dma_addr_t *dma)
+void *mtk_usb_alloc_sram(unsigned int id, size_t size, dma_addr_t *dma)
 {
 	void *sram_virt_addr = NULL;
 
@@ -258,7 +258,7 @@ void *mtk_usb_alloc_sram(int id, size_t size, dma_addr_t *dma)
 }
 EXPORT_SYMBOL_GPL(mtk_usb_alloc_sram);
 
-void mtk_usb_free_sram(int id)
+void mtk_usb_free_sram(unsigned int id)
 {
 	if (usb_audio_sram[id].state == STATE_USE) {
 		mtk_audio_free_sram(&usb_audio_sram[id]);

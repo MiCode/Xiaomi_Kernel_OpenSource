@@ -203,11 +203,11 @@ extern int mtk_audio_request_sram(dma_addr_t *phys_addr,
 extern void mtk_audio_free_sram(void *user);
 int xhci_mtk_init_sram(struct xhci_hcd *xhci);
 int xhci_mtk_deinit_sram(struct xhci_hcd *xhci);
-int xhci_mtk_allocate_sram(int id, dma_addr_t *sram_phys_addr,
+int xhci_mtk_allocate_sram(unsigned int id, dma_addr_t *sram_phys_addr,
 	unsigned char **msram_virt_addr);
-int xhci_mtk_free_sram(int id);
-void *mtk_usb_alloc_sram(int id, size_t size, dma_addr_t *dma);
-void mtk_usb_free_sram(int id);
+int xhci_mtk_free_sram(unsigned int id);
+void *mtk_usb_alloc_sram(unsigned int id, size_t size, dma_addr_t *dma);
+void mtk_usb_free_sram(unsigned int id);
 void xhci_mtk_allow_sleep(unsigned int sleep_ms, int speed);
 void xhci_mtk_set_sleep(bool enable);
 #endif
