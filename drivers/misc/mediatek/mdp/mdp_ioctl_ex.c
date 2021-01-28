@@ -561,7 +561,7 @@ static int mdp_implement_read_v1(struct mdp_submit *user_job,
 
 s32 mdp_ioctl_async_exec(struct file *pf, unsigned long param)
 {
-	struct mdp_submit user_job;
+	struct mdp_submit user_job = {0};
 	struct task_private desc_private = {0};
 	struct cmdqRecStruct *handle = NULL;
 	s32 status;
