@@ -1886,7 +1886,7 @@ static inline void OWE_Prepare_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> OWE clk
 	 */
-	smi_clk_prepare(SMI_LARB_IMGSYS1, "camera-owe", 1);
+	//smi_clk_prepare(SMI_LARB_IMGSYS1, "camera-owe", 1);
 
 	ret = clk_prepare(owe_clk.CG_IMGSYS_OWE);
 	if (ret)
@@ -1900,7 +1900,7 @@ static inline void OWE_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> OWE  clk
 	 */
-	smi_clk_enable(SMI_LARB_IMGSYS1, "camera-owe", 1);
+	//smi_clk_enable(SMI_LARB_IMGSYS1, "camera-owe", 1);
 
 	ret = clk_enable(owe_clk.CG_IMGSYS_OWE);
 	if (ret)
@@ -1914,7 +1914,7 @@ static inline void OWE_Prepare_Enable_ccf_clock(void)
 	/* must keep this clk open order:
 	 * CG_SCP_SYS_DIS-> CG_MM_SMI_COMMON -> CG_SCP_SYS_ISP -> OWE clk
 	 */
-	smi_bus_enable(SMI_LARB_IMGSYS1, "camera-owe");
+	smi_bus_prepare_enable(SMI_LARB5, "camera-owe");
 
 	ret = clk_prepare_enable(owe_clk.CG_IMGSYS_OWE);
 	if (ret)
@@ -1928,8 +1928,7 @@ static inline void OWE_Unprepare_ccf_clock(void)
 	 * OWE clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
 	clk_unprepare(owe_clk.CG_IMGSYS_OWE);
-	smi_clk_unprepare(SMI_LARB_IMGSYS1, "camera-owe", 1);
-
+	//smi_clk_unprepare(SMI_LARB_IMGSYS1, "camera-owe", 1);
 }
 
 static inline void OWE_Disable_ccf_clock(void)
@@ -1938,7 +1937,7 @@ static inline void OWE_Disable_ccf_clock(void)
 	 * OWE clk -> CG_SCP_SYS_ISP -> CG_MM_SMI_COMMON -> CG_SCP_SYS_DIS
 	 */
 	clk_disable(owe_clk.CG_IMGSYS_OWE);
-	smi_clk_disable(SMI_LARB_IMGSYS1, "camera-owe", 1);
+	//smi_clk_disable(SMI_LARB_IMGSYS1, "camera-owe", 1);
 }
 
 static inline void OWE_Disable_Unprepare_ccf_clock(void)
@@ -1948,7 +1947,7 @@ static inline void OWE_Disable_Unprepare_ccf_clock(void)
 	 */
 
 	clk_disable_unprepare(owe_clk.CG_IMGSYS_OWE);
-	smi_bus_disable(SMI_LARB_IMGSYS1, "camera-owe");
+	smi_bus_disable_unprepare(SMI_LARB5, "camera-owe");
 }
 #endif
 #endif
