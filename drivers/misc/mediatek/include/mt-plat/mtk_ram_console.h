@@ -200,6 +200,7 @@ extern u8 aee_rr_curr_gpu_dvfs_vgpu(void);
 extern void aee_rr_rec_gpu_dvfs_oppidx(u8 val);
 extern void aee_rr_rec_gpu_dvfs_status(u8 val);
 extern u8 aee_rr_curr_gpu_dvfs_status(void);
+extern void aee_rr_rec_gpu_dvfs_power_count(int val);
 extern void aee_rr_rec_hang_detect_timeout_count(unsigned int val);
 extern int aee_rr_curr_fiq_step(void);
 extern void aee_rr_rec_fiq_step(u8 i);
@@ -856,6 +857,10 @@ static inline void aee_rr_rec_gpu_dvfs_status(u8 val)
 static inline u8 aee_rr_curr_gpu_dvfs_status(void)
 {
 	return 0;
+}
+
+static inline void aee_rr_rec_gpu_dvfs_power_count(int val)
+{
 }
 
 static inline void aee_rr_rec_hang_detect_timeout_count(unsigned int val)

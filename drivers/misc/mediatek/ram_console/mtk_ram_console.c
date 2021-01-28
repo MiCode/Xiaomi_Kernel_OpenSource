@@ -123,6 +123,7 @@ struct last_reboot_reason {
 	uint8_t gpu_dvfs_vgpu;
 	uint8_t gpu_dvfs_oppidx;
 	uint8_t gpu_dvfs_status;
+	int8_t gpu_dvfs_power_count;
 
 	uint32_t drcc_0;
 	uint32_t drcc_1;
@@ -1494,6 +1495,13 @@ u8 aee_rr_curr_gpu_dvfs_status(void)
 	return LAST_RR_VAL(gpu_dvfs_status);
 }
 
+void aee_rr_rec_gpu_dvfs_power_count(int val)
+{
+	if (!ram_console_init_done || !ram_console_buffer)
+		return;
+	LAST_RR_SET(gpu_dvfs_power_count, val);
+}
+
 void aee_rr_rec_drcc_0(u32 val)
 {
 	if (!ram_console_init_done || !ram_console_buffer)
@@ -2756,6 +2764,12 @@ void aee_rr_show_gpu_dvfs_status(struct seq_file *m)
 	seq_printf(m, "gpu_dvfs_status: 0x%x\n", LAST_RRR_VAL(gpu_dvfs_status));
 }
 
+void aee_rr_show_gpu_dvfs_power_count(struct seq_file *m)
+{
+	seq_printf(m, "gpu_dvfs_power_count: %d\n",
+		LAST_RRR_VAL(gpu_dvfs_power_count));
+}
+
 void aee_rr_show_drcc_0(struct seq_file *m)
 {
 	seq_printf(m, "drcc_0 = 0x%X\n", LAST_RRR_VAL(drcc_0));
@@ -3436,6 +3450,7 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_gpu_dvfs_vgpu,
 	aee_rr_show_gpu_dvfs_oppidx,
 	aee_rr_show_gpu_dvfs_status,
+	aee_rr_show_gpu_dvfs_power_count,
 	aee_rr_show_drcc_0,
 	aee_rr_show_drcc_1,
 	aee_rr_show_drcc_2,
