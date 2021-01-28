@@ -40,7 +40,6 @@
 
 #define GED_DRIVER_DEVICE_NAME "ged"
 
-#ifndef GED_BUFFER_LOG_DISABLE
 static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
 
 #ifdef GED_DEBUG
@@ -56,12 +55,12 @@ static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 #define GED_LOG_BUF_COMMON_FENCE "FENCE"
 static GED_LOG_BUF_HANDLE ghLogBuf_FENCE;
 static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
-GED_LOG_BUF_HANDLE gpufreq_ged_log;
-#endif /* GED_BUFFER_LOG_DISABLE */
 
 #ifdef GED_DVFS_DEBUG_BUF
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
 #endif /* GED_DVFS_DEBUG_BUF */
+
+GED_LOG_BUF_HANDLE gpufreq_ged_log;
 
 /******************************************************************************
  * GED File operations
@@ -500,6 +499,24 @@ static int ged_init(void)
 
 	gpufreq_ged_log = ged_log_buf_alloc(1024, 64 * 1024,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
+#else
+	ghLogBuf_GPU = 0;
+
+#ifdef GED_DEBUG
+	ghLogBuf_GLES = 0;
+	ghLogBuf_GED = 0;
+#endif
+
+	ghLogBuf_HWC_ERR = 0;
+	ghLogBuf_HWC = 0;
+	ghLogBuf_FENCE = 0;
+	ghLogBuf_ftrace = 0;
+
+#ifdef GED_DVFS_DEBUG_BUF
+	ghLogBuf_DVFS = 0;
+#endif
+
+	gpufreq_ged_log = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
 
 	return 0;
