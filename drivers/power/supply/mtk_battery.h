@@ -856,6 +856,7 @@ struct mtk_battery {
 	int bat_tmp_c_lt;
 	int bat_tmp_int_ht;
 	int bat_tmp_int_lt;
+	int cur_bat_temp;
 
 	/*nafg monitor */
 	int last_nafg_cnt;
@@ -898,6 +899,14 @@ struct mtk_battery {
 	int sw_iavg_ht;
 	int sw_iavg_lt;
 	int sw_iavg_gap;
+
+	/*sw low battery interrupt*/
+	struct lbat_user *lowbat_service;
+	int sw_low_battery_ht_en;
+	int sw_low_battery_ht_threshold;
+	int sw_low_battery_lt_en;
+	int sw_low_battery_lt_threshold;
+	struct mutex sw_low_battery_mutex;
 
 	/*simulator log*/
 	struct simulator_log log;

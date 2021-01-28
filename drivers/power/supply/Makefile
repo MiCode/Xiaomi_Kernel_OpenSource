@@ -2,6 +2,7 @@
 subdir-ccflags-$(CONFIG_POWER_SUPPLY_DEBUG) := -DDEBUG
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/power_throttling
 
 power_supply-y				:= power_supply_core.o
 power_supply-$(CONFIG_SYSFS)		+= power_supply_sysfs.o
