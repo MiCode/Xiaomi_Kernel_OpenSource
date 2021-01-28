@@ -25,7 +25,6 @@
 #include "scp_ipi.h"
 #include "scp_helper.h"
 #include "scp_excep.h"
-#include "scp_feature_define.h"
 #include "scp_l1c.h"
 
 struct scp_aed_cfg {
@@ -404,6 +403,7 @@ static unsigned int scp_crash_dump(struct MemoryDump *pMemoryDump,
 #else
 	scp_dump_size = 0;
 #endif
+
 	exception_header_init(pMemoryDump, id);
 	/* init sub header*/
 	scp_sub_header_init(&(pMemoryDump->scp_dump_header));
