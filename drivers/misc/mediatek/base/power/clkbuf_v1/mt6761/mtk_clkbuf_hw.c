@@ -855,6 +855,11 @@ static ssize_t clk_buf_show_status_info_internal(char *buf)
 u8 clk_buf_get_xo_en_sta(enum xo_id id)
 {
 	clk_buf_get_xo_en();
+	if (id < 0) {
+		pr_info("%s: wrong clkbuf id:%d\n", __func__, id);
+		return 0;
+	}
+
 	return xo_en_stat[id];
 }
 
