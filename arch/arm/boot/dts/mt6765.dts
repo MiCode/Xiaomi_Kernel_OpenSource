@@ -1931,15 +1931,14 @@
 		reg = <0 0x11cd0000 0 0x10000>;
 	};
 
-	mfg_doma@13000000 {
+	mfg_doma: mfg_doma@13000000 {
 		compatible = "mediatek,doma";
 		reg = <0 0x13000000 0 0x80000>;
 		interrupts = <GIC_SPI 259 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "RGX";
 		clock-frequency = <570000000>;
-
+		ged-supply = <&ged>;
 	};
-
 
 	mfg_cfg: mfg_cfg@13ffe000 {
 		compatible = "mediatek,mfgcfg", "syscon";
@@ -1947,7 +1946,7 @@
 		#clock-cells = <1>;
 	};
 
-	gpufreq {
+	gpufreq: gpufreq {
 		compatible = "mediatek,mt6765-gpufreq";
 		clocks =
 			<&topckgen CLK_TOP_MFG_SEL>,
@@ -1963,6 +1962,11 @@
 			"mtcmos_mfg_async",
 			"mtcmos_mfg",
 			"mtcmos_mfg_core0";
+	};
+
+	ged: ged {
+		compatible = "mediatek,ged";
+		gpufreq-supply = <&gpufreq>;
 	};
 
 	mmsys_config: mmsys_config@14000000 {
