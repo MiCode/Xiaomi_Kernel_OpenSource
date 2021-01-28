@@ -498,8 +498,9 @@ struct mtk_iova_domain_data {
 #define IOVA_ADDR_16GB			(4UL << 32)
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
-	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
-	defined(CONFIG_MTK_GZ_SUPPORT_SDSP)
+	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT) || \
+	defined(CONFIG_MTK_GZ_SUPPORT_SDSP) || \
+	defined(CONFIG_MTK_CAM_GENIEZONE_SUPPORT))
 	{ /* boundary(0~4GB) IOVA space for display(larb0,1) */
 	 .boundary = 0,
 	 .owner = -1,
