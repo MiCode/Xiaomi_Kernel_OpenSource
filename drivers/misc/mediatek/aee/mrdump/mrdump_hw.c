@@ -95,12 +95,23 @@ int __init mrdump_hw_init(void)
 
 int __init mrdump_hw_init(void)
 {
+
+#if IS_ENABLED(CONFIG_MTK_DFD_INTERNAL_DUMP)
+	int res;
+#endif
+
 #ifdef MODULE
 	mrdump_module_param_ddrsv();
 #endif
 	pr_notice("%s: DDR Reserved Mode ready or not? (%s)\n", __func__,
 			mrdump_lk_ddr_reserve_ready);
-
+#if IS_ENABLED(CONFIG_MTK_DFD_INTERNAL_DUMP)
+	res = dfd_setup();
+	if (res == -1)
+		pr_notice("%s: DFD disabled\n", __func__);
+	else
+		pr_notice("%s: DFD enabled\n", __func__);
+#endif
 	return 0;
 }
 

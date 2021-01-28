@@ -472,6 +472,8 @@ source "drivers/misc/mediatek/cameraisp/Kconfig"
 source "drivers/misc/mediatek/rt-regmap/Kconfig"
 source "drivers/misc/mediatek/selinux_warning/Kconfig"
 source "drivers/misc/mediatek/log_store/Kconfig"
+source "drivers/misc/mediatek/dfd/Kconfig"
+source "drivers/misc/mediatek/dbgtop/Kconfig"
 
 endmenu # Debug
 

@@ -112,3 +112,5 @@ ifneq ($(wildcard $(srctree)/../vendor/mediatek/internal/selinux_warning_enable)
 obj-$(CONFIG_MTK_SELINUX_AEE_WARNING)	+= selinux_warning/
 endif
 obj-y += timer/
+obj-$(CONFIG_MTK_DBGTOP) += dbgtop/
+obj-$(CONFIG_MTK_DFD_INTERNAL_DUMP) += dfd/
