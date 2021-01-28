@@ -23,7 +23,7 @@
 #include <linux/sched.h>
 
 #define DEFAULT_DFPS 60
-#define CFG_MAX_FPS_LIMIT	120
+#define CFG_MAX_FPS_LIMIT	240
 #define CFG_MIN_FPS_LIMIT	10
 #define FRAME_TIME_BUFFER_SIZE 200
 #define MAX_NR_FPS_LEVELS	1
@@ -50,6 +50,7 @@ struct FSTB_FRAME_INFO {
 	struct hlist_node hlist;
 
 	int pid;
+	char proc_name[16];
 	int target_fps;
 	int target_fps_margin;
 	int target_fps_margin2;
@@ -67,6 +68,7 @@ struct FSTB_FRAME_INFO {
 	long long m_m_time;
 	unsigned int m_m_cap;
 
+	long long cpu_time;
 	long long gpu_time;
 	int gpu_freq;
 
@@ -104,4 +106,3 @@ struct FSTB_FTEH_LIST {
 };
 
 #endif
-

@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/sched.h>
 
+
 #include "fpsgo_common.h"
 #include "fpsgo_base.h"
 #include "fpsgo_usedext.h"
@@ -26,6 +27,8 @@
 #include "fps_composer.h"
 #include "xgf.h"
 #include "eara_job.h"
+#include "syslimiter.h"
+
 #ifdef CONFIG_DRM_MEDIATEK
 #include "mtk_drm_arr.h"
 #else
@@ -35,7 +38,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/fpsgo.h>
 
-#define TARGET_UNLIMITED_FPS 120
+#define API_READY 0
+
+#define TARGET_UNLIMITED_FPS 240
 
 enum FPSGO_NOTIFIER_PUSH_TYPE {
 	FPSGO_NOTIFIER_SWITCH_FPSGO			= 0x00,
@@ -120,6 +125,7 @@ static void fpsgo_notifier_wq_cb_dfrc_fps(int dfrc_fps)
 {
 	FPSGO_LOGI("[FPSGO_CB] dfrc_fps %d\n", dfrc_fps);
 
+	syslimiter_update_dfrc_fps(dfrc_fps);
 	fpsgo_ctrl2fstb_dfrc_fps(dfrc_fps);
 	fpsgo_ctrl2fbt_dfrc_fps(dfrc_fps);
 }
@@ -264,6 +270,8 @@ static void fpsgo_notifier_wq_cb_enable(int enable)
 	FPSGO_LOGI("[FPSGO_CB] fpsgo_enable %d\n",
 			fpsgo_enable);
 	mutex_unlock(&notify_lock);
+
+	syslimiter_update_fpsgo_state(enable);
 }
 
 static void fpsgo_notifier_wq_cb(struct work_struct *psWork)
@@ -784,8 +792,12 @@ static void __exit fpsgo_exit(void)
 		destroy_workqueue(g_psNotifyWorkQueue);
 		g_psNotifyWorkQueue = NULL;
 	}
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+#ifdef CONFIG_DRM_MEDIATEK
+	drm_unregister_fps_chg_callback(dfrc_fps_limit_cb);
+#else
+#if API_READY
 	disp_unregister_fps_chg_callback(dfrc_fps_limit_cb);
+#endif
 #endif
 	fbt_cpu_exit();
 	mtk_fstb_exit();
@@ -829,8 +841,12 @@ static int __init fpsgo_init(void)
 	fpsgo_get_nn_priority_fp = fpsgo_get_nn_priority;
 	fpsgo_get_nn_ttime_fp = fpsgo_get_nn_ttime;
 
-#ifdef CONFIG_MTK_HIGH_FRAME_RATE
+#ifdef CONFIG_DRM_MEDIATEK
+	drm_register_fps_chg_callback(dfrc_fps_limit_cb);
+#else
+#if API_READY
 	disp_register_fps_chg_callback(dfrc_fps_limit_cb);
+#endif
 #endif
 
 	return 0;
