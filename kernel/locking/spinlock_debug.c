@@ -287,9 +287,9 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 			continue;
 		t2 = sched_clock();
 
-		/* lockup suspected: */
-		if (lock->owner && lock->owner != SPINLOCK_OWNER_INIT)
-			owner = lock->owner;
+		owner = lock->owner;
+		if (owner == SPINLOCK_OWNER_INIT)
+			owner = NULL;
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 		snprintf(lock_name, MAX_LOCK_NAME, "%s", lock->dep_map.name);
