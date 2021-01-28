@@ -138,7 +138,6 @@ free_import:
 			mem->khandle, mem->kva);
 	ion_free(mem_mgr->client, ion_hnd);
 	apusys_user_print_log();
-	apusys_user_record_log();
 	apusys_aee_print("mem fail");
 	return ret;
 }
@@ -193,7 +192,6 @@ free_import:
 			mem->size, mem->iova_size,
 			mem->khandle, mem->kva);
 	apusys_user_print_log();
-	apusys_user_record_log();
 	apusys_aee_print("mem fail");
 	return ret;
 }
@@ -247,7 +245,6 @@ free_import:
 			mem->khandle, mem->kva);
 	ion_free(mem_mgr->client, ion_hnd);
 	apusys_user_print_log();
-	apusys_user_record_log();
 	apusys_aee_print("mem fail");
 	return ret;
 }
@@ -303,7 +300,6 @@ free_import:
 			mem->size, mem->iova_size,
 			mem->khandle, mem->kva);
 	apusys_user_print_log();
-	apusys_user_record_log();
 	apusys_aee_print("mem fail");
 	return ret;
 }

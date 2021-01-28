@@ -13,6 +13,7 @@
 
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/list_sort.h>
 
 #include "mdw_cmn.h"
 #include "apusys_user.h"
@@ -44,8 +45,15 @@ struct apusys_user_log {
 	struct mutex mtx;
 };
 
+struct apusys_user_statistics {
+	struct list_head list;
+	struct mutex mtx;
+};
+
+
 static struct apusys_user_mgr g_user_mgr;
 static struct apusys_user_log g_user_log;
+static struct apusys_user_statistics g_user_stat;
 
 void apusys_user_dump(void *s_file)
 {
@@ -77,15 +85,19 @@ void apusys_user_dump(void *s_file)
 	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
 		user = list_entry(list_ptr, struct apusys_user, list);
 
-		mdw_con_info(s, "| user (#%-3d)%101s|\n",
-			u_count,
+		mdw_con_info(s, "| user (#%-3d)(%16s)%83s|\n",
+			u_count, user->comm,
 			"");
-		mdw_con_info(s, "| id   = 0x%-103llx|\n",
+		mdw_con_info(s, "| id            = 0x%-94llx|\n",
 			user->id);
-		mdw_con_info(s, "| pid  = %-105d|\n",
+		mdw_con_info(s, "| pid           = %-96d|\n",
 			user->open_pid);
-		mdw_con_info(s, "| tgid = %-105d|\n",
+		mdw_con_info(s, "| tgid          = %-96d|\n",
 			user->open_tgid);
+		mdw_con_info(s, "| iova_size_max = %-96u|\n",
+			user->iova_size_max);
+		mdw_con_info(s, "| iova_size     = %-96u|\n",
+			user->iova_size);
 		mdw_con_info(s, LINEBAR);
 
 		c_count = 0;
@@ -204,159 +216,46 @@ void apusys_user_show_log(void *s_file)
 	mutex_unlock(&g_user_log.mtx);
 }
 
-void apusys_user_record_log(void)
+
+
+
+static int user_mem_cmp(void *priv, struct list_head *a,
+					struct list_head *b)
 {
-	struct list_head *tmp = NULL, *list_ptr = NULL;
-	struct apusys_user *user = NULL;
-	struct apusys_cmd *cmd = NULL;
-	struct apusys_user_mem *u_mem = NULL;
-	struct list_head *d_tmp = NULL, *d_list_ptr = NULL;
-	struct list_head *c_tmp = NULL, *c_list_ptr = NULL;
-	struct list_head *m_tmp = NULL, *m_list_ptr = NULL;
-	struct apusys_user_dev *u_dev = NULL;
-	struct apusys_res_table *tab = NULL;
-	int u_count = 0;
-	int d_count = 0;
-	int m_count = 0;
-	int c_count = 0;
-	char *cur, *end;
+	struct apusys_user *ua = NULL;
+	struct apusys_user *ub = NULL;
 
+	ua = list_entry(a, struct apusys_user, list);
+	ub = list_entry(b, struct apusys_user, list);
 
-#define LINEBAR \
-	"|--------------------------------------------------------"\
-	"---------------------------------------------------------|\n"
+	/**
+	 * List_sort is a stable sort, so it is not necessary to distinguish
+	 * the @a < @b and @a == @b cases.
+	 */
+	if (ua->open_pid > ub->open_pid)
+		return 1;
+	else
+		return -1;
 
-	mutex_lock(&g_user_log.mtx);
-	cur = g_user_log.log_buf;
-	end = g_user_log.log_buf + DUMP_LOG_SIZE;
-	DUMP_LOG(cur, end, LINEBAR);
-	DUMP_LOG(cur, end, "|%-113s|\n",
-		" apusys user table");
-	DUMP_LOG(cur, end, LINEBAR);
+}
 
-	mutex_lock(&g_user_mgr.mtx);
-	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
-		user = list_entry(list_ptr, struct apusys_user, list);
+static int user_mem_size_cmp(void *priv, struct list_head *a,
+					struct list_head *b)
+{
+	struct apusys_user *ua = NULL;
+	struct apusys_user *ub = NULL;
 
-		DUMP_LOG(cur, end, "| user (#%-3d)%101s|\n",
-			u_count,
-			"");
-		DUMP_LOG(cur, end, "| id   = 0x%-103llx|\n",
-			user->id);
-		DUMP_LOG(cur, end, "| pid  = %-105d|\n",
-			user->open_pid);
-		DUMP_LOG(cur, end, "| tgid = %-105d|\n",
-			user->open_tgid);
-		DUMP_LOG(cur, end, LINEBAR);
+	ua = list_entry(a, struct apusys_user, list);
+	ub = list_entry(b, struct apusys_user, list);
 
-		c_count = 0;
-		d_count = 0;
-		m_count = 0;
-
-		/* cmd */
-		DUMP_LOG(cur, end, "|%-10s|%-13s|%-33s|%-33s|%-20s|\n",
-			" cmd",
-			" priority",
-			" uid",
-			" id",
-			" sc num");
-		DUMP_LOG(cur, end, LINEBAR);
-		list_for_each_safe(c_list_ptr, c_tmp, &user->cmd_list) {
-			cmd = list_entry(c_list_ptr,
-				struct apusys_cmd, u_list);
-			mutex_lock(&cmd->mtx);
-
-			DUMP_LOG(cur, end,
-			"| #%-8d| %-12d| 0x%-30llx| 0x%-30llx| %-19u|\n",
-				c_count,
-				cmd->hdr->priority,
-				cmd->hdr->uid,
-				cmd->cmd_id,
-				cmd->hdr->num_sc);
-			mutex_unlock(&cmd->mtx);
-			c_count++;
-		}
-		DUMP_LOG(cur, end, LINEBAR);
-
-		/* mem */
-		DUMP_LOG(cur, end,
-		"|%-10s|%-6s|%-6s|%-20s|%-12s|%-20s|%-12s|%-20s|\n",
-			" mem",
-			" type",
-			" fd",
-			" uva",
-			" size",
-			" iova",
-			" iova size",
-			" kva");
-		DUMP_LOG(cur, end, LINEBAR);
-		list_for_each_safe(m_list_ptr, m_tmp, &user->mem_list) {
-			u_mem = list_entry(m_list_ptr,
-				struct apusys_user_mem, list);
-
-			DUMP_LOG(cur, end,
-			"| #%-8d| %-5u| %-5u| 0x%-17llx| %-11d| 0x%-17x| 0x%-9x| 0x%-17llx|\n",
-				m_count,
-				u_mem->mem.mem_type,
-				u_mem->mem.fd,
-				u_mem->mem.uva,
-				u_mem->mem.size,
-				u_mem->mem.iova,
-				u_mem->mem.iova_size,
-				u_mem->mem.kva);
-			m_count++;
-		}
-		DUMP_LOG(cur, end, LINEBAR);
-
-		/* device */
-		DUMP_LOG(cur, end, "|%-10s|%-6s|%-6s|%-20s|%-67s|\n",
-			" dev",
-			" type",
-			" idx",
-			" name",
-			" devptr");
-		DUMP_LOG(cur, end, LINEBAR);
-		list_for_each_safe(d_list_ptr, d_tmp, &user->dev_list) {
-			u_dev = list_entry(d_list_ptr,
-				struct apusys_user_dev, list);
-			tab = res_get_table(u_dev->dev_info->dev->dev_type);
-			if (tab == NULL) {
-				DUMP_LOG(cur, end, "miss resource table\n");
-				break;
-			}
-			DUMP_LOG(cur, end,
-				"| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
-				d_count,
-				u_dev->dev_info->dev->dev_type,
-				u_dev->dev_info->dev->idx,
-				tab->name,
-				u_dev->dev_info->dev);
-			d_count++;
-		}
-		list_for_each_safe(d_list_ptr, d_tmp, &user->secdev_list) {
-			u_dev = list_entry(d_list_ptr,
-				struct apusys_user_dev, list);
-			tab = res_get_table(u_dev->dev_info->dev->dev_type);
-			if (tab == NULL) {
-				DUMP_LOG(cur, end, "miss resource table\n");
-				break;
-			}
-			DUMP_LOG(cur, end,
-				"| %-9d| %-5d| %-5d| %-19s| %-66p|\n",
-				d_count,
-				u_dev->dev_info->dev->dev_type,
-				u_dev->dev_info->dev->idx,
-				tab->name,
-				u_dev->dev_info->dev);
-			d_count++;
-		}
-		DUMP_LOG(cur, end, LINEBAR);
-		u_count++;
-	}
-
-	mutex_unlock(&g_user_mgr.mtx);
-	mutex_unlock(&g_user_log.mtx);
-#undef LINEBAR
+	/**
+	 * List_sort is a stable sort, so it is not necessary to distinguish
+	 * the @a < @b and @a == @b cases.
+	 */
+	if (ua->iova_size > ub->iova_size)
+		return 1;
+	else
+		return -1;
 
 }
 void apusys_user_print_log(void)
@@ -364,17 +263,108 @@ void apusys_user_print_log(void)
 
 	struct list_head *tmp = NULL, *list_ptr = NULL;
 	struct apusys_user *user = NULL;
+	struct apusys_user *u = NULL;
+	struct apusys_user u_tmp;
+	unsigned int total_size = 0;
+	unsigned int percentage = 0;
+	char *cur, *end;
+
+
+	memset(&u_tmp, 0, sizeof(struct apusys_user));
+
+	mutex_lock(&g_user_log.mtx);
+	cur = g_user_log.log_buf;
+	end = g_user_log.log_buf + DUMP_LOG_SIZE;
+
+	mdw_drv_err("name, id, pid, tgid, iova_size, iova_size_max\n");
+	DUMP_LOG(cur, end, "name, id, pid, tgid, iova_size, iova_size_max\n");
 
 	mutex_lock(&g_user_mgr.mtx);
+	mutex_lock(&g_user_stat.mtx);
+
+	/* Sort by PID*/
+	list_sort(NULL, &g_user_mgr.list, user_mem_cmp);
+	mdw_drv_err("----- APUSYS user -----\n");
+	DUMP_LOG(cur, end, "----- APUSYS user -----\n");
 	list_for_each_safe(list_ptr, tmp, &g_user_mgr.list) {
 		user = list_entry(list_ptr, struct apusys_user, list);
 
-		mdw_drv_err("user(%s), %llx, %d, %d, %u, %u\n",
+		total_size = total_size + user->iova_size;
+		mdw_drv_err("%s, %llx, %d, %d, %u, %u\n",
 				user->comm, user->id, user->open_pid,
 				user->open_tgid, user->iova_size,
 				user->iova_size_max);
+		DUMP_LOG(cur, end, "%s, %llx, %d, %d, %u, %u\n",
+				user->comm, user->id, user->open_pid,
+				user->open_tgid, user->iova_size,
+				user->iova_size_max);
+
+		if (u_tmp.open_pid != user->open_pid) {
+
+			u = kzalloc(sizeof(struct apusys_user), GFP_KERNEL);
+			if (u == NULL)
+				goto free_mutex;
+			memcpy(u, user, sizeof(struct apusys_user));
+
+			list_add_tail(&u->list, &g_user_stat.list);
+
+			u_tmp.open_pid = user->open_pid;
+		} else {
+			u->iova_size = u->iova_size + user->iova_size;
+			u->iova_size_max =
+					u->iova_size_max + user->iova_size_max;
+		}
 	}
+
+	if (!list_empty(&g_user_stat.list)) {
+		/* Sort by PID*/
+		list_sort(NULL, &g_user_stat.list, user_mem_size_cmp);
+
+		mdw_drv_err("----- APUSYS statistics -----\n");
+		DUMP_LOG(cur, end, "----- APUSYS statistics -----\n");
+
+		list_for_each_safe(list_ptr, tmp, &g_user_stat.list) {
+			u = list_entry(list_ptr, struct apusys_user, list);
+
+			percentage = (uint64_t) u->iova_size * 100
+					/ (uint64_t)total_size;
+			mdw_drv_err("%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+				u->comm, u->id, u->open_pid,
+				u->open_tgid, u->iova_size,
+				u->iova_size_max, total_size, percentage);
+			DUMP_LOG(cur, end,
+					"%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+				u->comm, u->id, u->open_pid,
+				u->open_tgid, u->iova_size,
+				u->iova_size_max, total_size, percentage);
+		}
+
+		/* The last one is the top memory user*/
+		mdw_drv_err("----- APUSYS top user -----\n");
+		DUMP_LOG(cur, end, "----- APUSYS top user -----\n");
+
+		mdw_drv_err("%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+				u->comm, u->id, u->open_pid,
+				u->open_tgid, u->iova_size,
+				u->iova_size_max, total_size, percentage);
+		DUMP_LOG(cur, end, "%s, %llx, %d, %d, %u, %u, %u, %u%%\n",
+				u->comm, u->id, u->open_pid,
+				u->open_tgid, u->iova_size,
+				u->iova_size_max, total_size, percentage);
+
+		/*delete statistics list*/
+		list_for_each_safe(list_ptr, tmp, &g_user_stat.list) {
+			u = list_entry(list_ptr, struct apusys_user, list);
+			list_del(list_ptr);
+			kfree(u);
+		}
+	}
+
+
+free_mutex:
+	mutex_unlock(&g_user_stat.mtx);
 	mutex_unlock(&g_user_mgr.mtx);
+	mutex_unlock(&g_user_log.mtx);
 
 }
 
@@ -899,11 +889,15 @@ int apusys_delete_user(struct apusys_user *u)
 int apusys_user_init(void)
 {
 	memset(&g_user_mgr, 0, sizeof(struct apusys_user_mgr));
+	memset(&g_user_log, 0, sizeof(struct apusys_user_log));
+	memset(&g_user_stat, 0, sizeof(struct apusys_user_statistics));
 
 	mutex_init(&g_user_mgr.mtx);
 	mutex_init(&g_user_log.mtx);
+	mutex_init(&g_user_stat.mtx);
 	INIT_LIST_HEAD(&g_user_mgr.list);
-
+	INIT_LIST_HEAD(&g_user_mgr.list);
+	INIT_LIST_HEAD(&g_user_stat.list);
 	return 0;
 }
 

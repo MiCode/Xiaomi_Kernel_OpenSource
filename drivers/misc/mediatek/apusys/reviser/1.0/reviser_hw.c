@@ -167,7 +167,10 @@ void reviser_print_tcm(void *drvinfo, void *s_file)
 		LOG_ERR("invalid argument\n");
 		return;
 	}
-
+	if (VLM_TCM_BANK_MAX == 0) {
+		LOG_ERR("invalid TCM\n");
+		return;
+	}
 	reviser_device = (struct reviser_dev_info *)drvinfo;
 
 	offset = 0;
@@ -664,13 +667,28 @@ static uint32_t  _reviser_get_contex_offset(enum REVISER_DEVICE_E type,
 
 	switch (type) {
 	case REVISER_DEVICE_MDLA:
-		offset = reviser_get_contex_offset_MDLA(index);
+		if (index >=  VLM_CTXT_MDLA_MAX) {
+			LOG_ERR("invalid argument MDLA index %d\n", index);
+			offset = REVISER_FAIL;
+		} else {
+			offset = reviser_get_contex_offset_MDLA(index);
+		}
 		break;
 	case REVISER_DEVICE_VPU:
-		offset = reviser_get_contex_offset_VPU(index);
+		if (index >=  VLM_CTXT_VPU_MAX) {
+			LOG_ERR("invalid argument VPU index %d\n", index);
+			offset = REVISER_FAIL;
+		} else {
+			offset = reviser_get_contex_offset_VPU(index);
+		}
 		break;
 	case REVISER_DEVICE_EDMA:
-		offset = reviser_get_contex_offset_EDMA(index);
+		if (index >=  VLM_CTXT_EDMA_MAX) {
+			LOG_ERR("invalid argument EDMA index %d\n", index);
+			offset = REVISER_FAIL;
+		} else {
+			offset = reviser_get_contex_offset_EDMA(index);
+		}
 		break;
 	default:
 		LOG_ERR("invalid argument type\n");

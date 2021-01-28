@@ -619,7 +619,7 @@ int reviser_table_get_vlm(void *drvinfo,
 	}
 	//LOG_DEBUG("ctxID: %lu\n", ctxid);
 
-	if (force) {
+	if ((force) && (VLM_TCM_BANK_MAX > 0)) {
 		if (reviser_table_get_tcm_sync(drvinfo,
 				vlm_pgtable.page_num,
 				&vlm_pgtable.tcm_pgtable)) {

@@ -317,7 +317,6 @@ static int apusys_mmap(struct file *filp, struct vm_area_struct *vma)
 #if 0
 	unsigned long offset = vma->vm_pgoff;
 	unsigned long size = vma->vm_end - vma->vm_start;
-
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	if (remap_pfn_range(vma, vma->vm_start, offset, size,
 			vma->vm_page_prot)) {

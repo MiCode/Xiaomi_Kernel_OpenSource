@@ -905,10 +905,10 @@ out:
 	}
 
 	midware_trace_end(
-		"apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
-		dev_info->dev->dev_type,
-		dev_info->dev->idx,
-		sc->par_cmd->cmd_id, ret);
+	"apusys_scheduler|dev: %d_%d, cmd_id: 0x%08llx, ret:%d",
+			dev_info->dev->dev_type,
+			dev_info->dev->idx,
+			sc->par_cmd->cmd_id, ret);
 
 	subcmd_done(sc, dev_info->dev->idx);
 
