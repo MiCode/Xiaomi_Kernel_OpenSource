@@ -1582,7 +1582,10 @@ static void kpoc_power_off_check(struct charger_manager *info)
 			vbus = battery_get_vbus();
 			if (vbus >= 0 && vbus < 2500 && !mt_charger_plugin()) {
 				chr_err("Unplug Charger/USB in KPOC mode, shutdown\n");
-				kernel_power_off();
+				chr_err("%s: system_state=%d\n", __func__,
+					system_state);
+				if (system_state != SYSTEM_POWER_OFF)
+					kernel_power_off();
 			}
 		}
 	}
@@ -1609,6 +1612,7 @@ static int charger_pm_event(struct notifier_block *notifier,
 			pinfo->endtime.tv_nsec != 0) {
 			chr_err("%s: alarm timeout, wake up charger\n",
 				__func__);
+			__pm_relax(&pinfo->charger_wakelock);
 			pinfo->endtime.tv_sec = 0;
 			pinfo->endtime.tv_nsec = 0;
 			_wake_up_charger(pinfo);
@@ -1632,12 +1636,14 @@ static enum alarmtimer_restart
 	struct charger_manager *info =
 	container_of(alarm, struct charger_manager, charger_timer);
 
-	chr_err("%s: alarm timer timeout\n", __func__);
-
 	if (info->is_suspend == false) {
 		chr_err("%s: not suspend, wake up charger\n", __func__);
 		_wake_up_charger(info);
+	} else {
+		chr_err("%s: alarm timer timeout\n", __func__);
+		__pm_stay_awake(&info->charger_wakelock);
 	}
+
 	return ALARMTIMER_NORESTART;
 }
 
@@ -1653,7 +1659,8 @@ static void mtk_charger_start_timer(struct charger_manager *info)
 
 	ktime = ktime_set(info->endtime.tv_sec, info->endtime.tv_nsec);
 
-	chr_debug("%s: alarm timer start\n", __func__);
+	chr_err("%s: alarm timer start:%ld %ld\n", __func__,
+		info->endtime.tv_sec, info->endtime.tv_nsec);
 	alarm_start(&pinfo->charger_timer, ktime);
 }
 
