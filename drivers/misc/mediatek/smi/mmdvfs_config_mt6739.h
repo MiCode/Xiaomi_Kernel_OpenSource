@@ -110,7 +110,7 @@ struct mmdvfs_clk_hw_map mt6739_mmdvfs_clk_hw_map[MMDVFS_CLK_MUX_NUM] = {
 
 /* Part II MMDVFS Scenario's Step Confuguration */
 
-#define MT6739_MMDVFS_SENSOR_MIN (8000000)
+#define MT6739_MMDVFS_SENSOR_MIN (7900000)
 /* A.1 [LP4 2-ch] Scenarios of each MM DVFS Step (force kicker) */
 /* OPP 0 scenarios */
 #define MT6739_MMDVFS_OPP0_NUM 11
