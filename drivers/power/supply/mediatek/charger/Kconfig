@@ -124,3 +124,11 @@ config MTK_CHARGER_UNLIMITED
 	  Say No to not release charging current restrictions.
 	  It is mainly used for long-term tests.
 	  It depends on config MTK_CHARGER.
+
+config CHARGER_BQ25601
+	bool "CHARGER_BQ25601"
+	help
+	  This is to enable MediaTek supports to BQ25601.
+	  It depends on config MTK_SMART_BATTERY
+	  and config MTK_SWCHR_SUPPORT
+	  Set to Yes if BQ25601 is used.

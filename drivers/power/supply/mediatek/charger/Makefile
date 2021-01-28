@@ -23,6 +23,7 @@ subdir-ccflags-$(CONFIG_MTK_PMIC_CHIP_MT6356) += -I$(srctree)/drivers/misc/media
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/pmic/include
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/misc/
+subdir-ccflags-y += -I$(srctree)/drivers/power/supply/mediatek/battery/
 
 obj-y += charger_class.o mtk_charger.o mtk_switch_charging.o mtk_pdc_intf.o\
 	 mtk_chg_type_det.o mtk_pe40_intf.o mtk_linear_charging.o\
@@ -37,3 +38,4 @@ obj-$(CONFIG_CHARGER_RT9458) += rt9458.o
 obj-$(CONFIG_CHARGER_RT9467) += rt9467.o
 obj-$(CONFIG_CHARGER_RT9466) += rt9466.o
 obj-$(CONFIG_CHARGER_RT9471) += rt9471.o
+obj-$(CONFIG_CHARGER_BQ25601) += bq25601.o
