@@ -844,7 +844,7 @@ static int vpu_open(struct inode *inode, struct file *flip)
 {
 	int ret = 0, i = 0;
 	bool not_support_vpu = true;
-	struct vpu_user *user;
+	struct vpu_user *user = NULL;
 
 	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
 		if (vpu_device->vpu_hw_support[i]) {
