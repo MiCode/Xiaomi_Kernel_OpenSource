@@ -152,6 +152,9 @@ static int read_config_data(struct goodix_ts_device *ts_dev, void __user *arg)
 	length = i2c_msg_head[4] + (i2c_msg_head[5] << 8)
 		 + (i2c_msg_head[6] << 16) + (i2c_msg_head[7] << 24);
 	ts_info("read config,reg_addr=0x%x, length=%d", reg_addr, length);
+
+	if (length > GOODIX_CFG_MAX_SIZE)
+		return -EMSGSIZE;
 	tmp_buf = kzalloc(length, GFP_KERNEL);
 	if (!tmp_buf) {
 		ts_err("failed alloc memory");
