@@ -316,6 +316,12 @@ void m4u_mvaGraph_dump(void)
 		nr = MVA_GET_NR(index);
 		size = nr << MVA_BLOCK_SIZE_ORDER;
 		end = start + size - 1;
+		/* DO NOT call aee here directly to avoid recursive dump. */
+		if (nr == 0 || end <= start) {
+			M4ULOG_HIGH("%s err: nr=%d, start=0x08x\n",
+				    __func__, nr, start);
+			break;
+		}
 		if (MVA_IS_BUSY(index)) {
 			is_busy = 1;
 			if (MVA_IS_RESERVED(index))
