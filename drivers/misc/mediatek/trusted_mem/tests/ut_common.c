@@ -29,6 +29,7 @@
 #include "private/tmem_proc.h"
 #include "private/tmem_cfg.h"
 #include "private/tmem_entry.h"
+#include "private/tmem_priv.h"
 #include "private/ut_cmd.h"
 #include "tests/ut_common.h"
 
@@ -252,27 +253,6 @@ enum UT_RET_STATE mem_handle_list_deinit(void)
 	}
 
 	return UT_STATE_PASS;
-}
-
-static bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
-{
-	switch (mem_type) {
-	case TRUSTED_MEM_PROT:
-	case TRUSTED_MEM_HAPP:
-	case TRUSTED_MEM_HAPP_EXTRA:
-	case TRUSTED_MEM_SDSP:
-		return true;
-	case TRUSTED_MEM_SDSP_SHARED:
-#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
-	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
-	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
-		return true;
-#else
-		return false;
-#endif
-	default:
-		return false;
-	}
 }
 
 static u32 get_saturation_test_min_chunk_size(enum TRUSTED_MEM_TYPE mem_type)

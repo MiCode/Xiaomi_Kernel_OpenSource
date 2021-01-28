@@ -34,6 +34,7 @@ int regmgr_online(struct region_mgr_desc *mgr_desc,
 		  enum TRUSTED_MEM_TYPE try_mem_type);
 int regmgr_offline(struct region_mgr_desc *mgr_desc);
 bool get_device_busy_status(struct trusted_mem_device *mem_device);
+bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type);
 
 #ifdef TCORE_PROFILING_SUPPORT
 struct profile_mgr_desc *create_profile_mgr_desc(void);

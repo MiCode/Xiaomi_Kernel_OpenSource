@@ -121,7 +121,8 @@ int tmem_core_ssmr_release(enum TRUSTED_MEM_TYPE mem_type)
 					    mem_device->dev_desc);
 }
 
-static int min_chunk_size_check(u32 size, struct trusted_mem_configs *cfg)
+static int min_chunk_size_check(enum TRUSTED_MEM_TYPE mem_type, u32 *size,
+				struct trusted_mem_configs *cfg)
 {
 	if (cfg->minimal_chunk_size < cfg->phys_limit_min_alloc_size) {
 		pr_err("wrong minimal phys size: 0x%x, expected sz:0x%x\n",
@@ -129,20 +130,31 @@ static int min_chunk_size_check(u32 size, struct trusted_mem_configs *cfg)
 		return TMEM_INVALID_PHYICAL_MIN_CHUNK_SIZE;
 	}
 
-	if (size < cfg->minimal_chunk_size) {
+	if (is_mtee_mchunks(mem_type)) {
+		/* adjust size to multiple of minimal_chunk_size */
+		u32 adjust_size = (((*size - 1) / cfg->minimal_chunk_size) + 1)
+				  * cfg->minimal_chunk_size;
+		pr_debug("change size from 0x%x to 0x%x\n", *size, adjust_size);
+		*size = adjust_size;
+	} else if (*size < cfg->minimal_chunk_size) {
 		pr_err("wrong minimal dev size: 0x%x, expected sz:0x%x\n", size,
 		       cfg->minimal_chunk_size);
 		return TMEM_INVALID_DEVICE_MIN_CHUNK_SIZE;
 	}
+
 	return TMEM_OK;
 }
 
-static u32 get_ordered_size(u32 size, struct trusted_mem_configs *cfg)
+static u32 get_ordered_size(enum TRUSTED_MEM_TYPE mem_type, u32 size,
+			    struct trusted_mem_configs *cfg)
 {
 	int order = 0, order_size = 0;
 	int blk_size = cfg->minimal_chunk_size;
 
 	if (size < cfg->minimal_chunk_size)
+		return cfg->minimal_chunk_size;
+
+	if (is_mtee_mchunks(mem_type))
 		return cfg->minimal_chunk_size;
 
 	while (1) {
@@ -155,25 +167,26 @@ static u32 get_ordered_size(u32 size, struct trusted_mem_configs *cfg)
 	return order_size;
 }
 
-static inline void alignment_update(u32 *alignment, u32 size,
+static inline void alignment_update(enum TRUSTED_MEM_TYPE mem_type,
+				    u32 *alignment, u32 size,
 				    struct trusted_mem_configs *cfg)
 {
-	int ordered_size = get_ordered_size(size, cfg);
+	int ordered_size = get_ordered_size(mem_type, size, cfg);
 
 	pr_debug("change alignment from 0x%x to 0x%x\n", *alignment,
 		 ordered_size);
 	*alignment = ordered_size;
 }
 
-static int alignment_adjust(u32 *alignment, u32 size,
-			    struct trusted_mem_configs *cfg)
+static int alignment_adjust(enum TRUSTED_MEM_TYPE mem_type, u32 *alignment,
+			    u32 size, struct trusted_mem_configs *cfg)
 {
 	if ((*alignment == 0) || (*alignment > size))
-		alignment_update(alignment, size, cfg);
+		alignment_update(mem_type, alignment, size, cfg);
 
 	if (*alignment < size) {
 #ifdef TMEM_SMALL_ALIGNMENT_AUTO_ADJUST
-		alignment_update(alignment, size, cfg);
+		alignment_update(mem_type, alignment, size, cfg);
 #else
 		pr_err("wrong requested alignment: 0x%x, sz:0x%x\n", *alignment,
 		       size);
@@ -185,19 +198,20 @@ static int alignment_adjust(u32 *alignment, u32 size,
 }
 
 static int
-parameter_checks_with_alignment_adjust(u32 *alignment, u32 size,
+parameter_checks_with_alignment_adjust(enum TRUSTED_MEM_TYPE mem_type,
+				       u32 *alignment, u32 *size,
 				       struct trusted_mem_configs *cfg)
 {
 	int ret;
 
 	if (cfg->min_size_check_enable) {
-		ret = min_chunk_size_check(size, cfg);
+		ret = min_chunk_size_check(mem_type, size, cfg);
 		if (ret)
 			return ret;
 	}
 
 	if (cfg->alignment_check_enable) {
-		ret = alignment_adjust(alignment, size, cfg);
+		ret = alignment_adjust(mem_type, alignment, *size, cfg);
 		if (ret)
 			return ret;
 	}
@@ -219,11 +233,17 @@ int tmem_core_alloc_chunk(enum TRUSTED_MEM_TYPE mem_type, u32 alignment,
 		return TMEM_OPERATION_NOT_REGISTERED;
 	}
 
+	if (IS_ZERO(size)) {
+		pr_err("[%d] invalid size: sz:0x%x\n", mem_type, size);
+		return TMEM_GENERAL_ERROR;
+	}
+
 	pr_debug("[%d] alloc sz req is %d (0x%x), align 0x%x, clean: %d\n",
 		 mem_type, size, size, alignment, clean);
 
 	mem_cfg = &mem_device->configs;
-	ret = parameter_checks_with_alignment_adjust(&alignment, size, mem_cfg);
+	ret = parameter_checks_with_alignment_adjust(mem_type, &alignment,
+						     &size, mem_cfg);
 	if (unlikely(ret))
 		return ret;
 
@@ -418,4 +438,25 @@ bool tmem_core_get_region_info(enum TRUSTED_MEM_TYPE mem_type, u64 *pa,
 
 	pr_debug("[%d] region pa: 0x%llx, sz: 0x%x\n", mem_type, *pa, *size);
 	return true;
+}
+
+bool is_mtee_mchunks(enum TRUSTED_MEM_TYPE mem_type)
+{
+	switch (mem_type) {
+	case TRUSTED_MEM_PROT:
+	case TRUSTED_MEM_HAPP:
+	case TRUSTED_MEM_HAPP_EXTRA:
+	case TRUSTED_MEM_SDSP:
+		return true;
+	case TRUSTED_MEM_SDSP_SHARED:
+#if IS_ENABLED(CONFIG_MTK_SDSP_SHARED_MEM_SUPPORT)                             \
+	&& (IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_MTEE_TEE)                   \
+	    || IS_ENABLED(CONFIG_MTK_SDSP_SHARED_PERM_VPU_MTEE_TEE))
+		return true;
+#else
+		return false;
+#endif
+	default:
+		return false;
+	}
 }
