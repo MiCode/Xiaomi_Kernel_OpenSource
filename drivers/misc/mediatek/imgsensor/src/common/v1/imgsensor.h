@@ -30,6 +30,10 @@ struct IMGSENSOR {
 		(void *pinstance,
 		enum IMGSENSOR_SENSOR_IDX sensor_idx,
 		enum ISP_DRIVING_CURRENT_ENUM drive_current);
+
+#ifdef DFS_CTRL_BY_OPP
+	struct imgsensor_dfs_ctx dfs_ctx;
+#endif
 };
 
 MINT32

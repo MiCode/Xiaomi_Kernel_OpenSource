@@ -133,6 +133,7 @@ enum IMGSENSOR_RETURN imgsensor_i2c_init(
 	return IMGSENSOR_RETURN_SUCCESS;
 }
 
+#ifndef NO_I2C_MTK
 enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
 {
 	struct IMGSENSOR_I2C_INST *pinst =
@@ -148,6 +149,13 @@ enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
 
 	return ret;
 }
+#else
+enum IMGSENSOR_RETURN imgsensor_i2c_buffer_mode(int enable)
+{
+	pr_info("not support i2c_buf_mode\n");
+	return IMGSENSOR_RETURN_SUCCESS;
+}
+#endif
 
 enum IMGSENSOR_RETURN imgsensor_i2c_read(
 	struct IMGSENSOR_I2C_CFG *pi2c_cfg,

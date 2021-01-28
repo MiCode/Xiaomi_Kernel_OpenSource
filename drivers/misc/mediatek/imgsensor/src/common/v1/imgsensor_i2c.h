@@ -10,7 +10,12 @@
 #include <linux/i2c.h>
 #include <linux/mutex.h>
 
+#ifndef NO_I2C_MTK
 #include "i2c-mtk.h"
+#else
+#define mtk_i2c_transfer(adap, msgs, num, ext_flag, timing) \
+	i2c_transfer(adap, msgs, num)
+#endif
 
 #include "imgsensor_cfg_table.h"
 

@@ -4,9 +4,7 @@
  */
 
 #include "regulator.h"
-/*#include "upmu_common.h"*/
-
-#define NO_OC
+//#include "upmu_common.h"
 
 #ifndef NO_OC
 #include <mt-plat/aee.h>
@@ -106,7 +104,10 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 					"cam%d_%s",
 					sensor_idx,
 					regulator_control[i].pregulator_type);
-			preg = regulator_get(pdevice, str_regulator_name);
+			preg = regulator_get_optional(
+					pdevice, str_regulator_name);
+			if (IS_ERR(preg))
+				preg = NULL;
 			if (preg && regulator_is_enabled(preg)) {
 				pmic_enable_interrupt(
 					int_oc_type[i], 1, OC_MODULE);
@@ -132,7 +133,10 @@ enum IMGSENSOR_RETURN imgsensor_oc_interrupt(
 					"cam%d_%s",
 					sensor_idx,
 					regulator_control[i].pregulator_type);
-			preg = regulator_get(pdevice, str_regulator_name);
+			preg = regulator_get_optional(
+					pdevice, str_regulator_name);
+			if (IS_ERR(preg))
+				preg = NULL;
 			if (preg) {
 				pmic_enable_interrupt(
 					int_oc_type[i], 0, OC_MODULE);
@@ -194,8 +198,10 @@ static enum IMGSENSOR_RETURN regulator_init(void *pinstance)
 					j,
 					regulator_control[i].pregulator_type);
 			preg->pregulator[j][i] =
-			    regulator_get(pdevice, str_regulator_name);
-
+			    regulator_get_optional(
+				pdevice, str_regulator_name);
+			if (IS_ERR(preg->pregulator[j][i]))
+				preg->pregulator[j][i] = NULL;
 			if (preg->pregulator[j][i] == NULL)
 				pr_info("regulator[%d][%d]  %s fail!\n",
 					j, i, str_regulator_name);

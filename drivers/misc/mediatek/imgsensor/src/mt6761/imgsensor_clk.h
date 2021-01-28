@@ -10,12 +10,6 @@
 #include <linux/atomic.h>
 #include <linux/platform_device.h>
 #include <kd_imgsensor_define.h>
-#undef IMGSENSOR_DFS_CTRL_ENABLE
-
-#ifdef IMGSENSOR_DFS_CTRL_ENABLE
-#include <linux/pm_qos.h>
-#include <mmdvfs_pmqos.h>
-#endif
 
 enum IMGSENSOR_CCF {
 	IMGSENSOR_CCF_MCLK_TG_MIN_NUM,
@@ -58,7 +52,6 @@ struct IMGSENSOR_CLK {
 	atomic_t    enable_cnt[IMGSENSOR_CCF_MAX_NUM];
 };
 
-#ifdef IMGSENSOR_DFS_CTRL_ENABLE
 enum DFS_OPTION {
 	DFS_CTRL_ENABLE,
 	DFS_CTRL_DISABLE,
@@ -67,8 +60,28 @@ enum DFS_OPTION {
 	DFS_SUPPORTED_ISP_CLOCKS,
 	DFS_CUR_ISP_CLOCK,
 };
+
+#ifdef DFS_CTRL_BY_OPP
+#include <linux/pm_opp.h>
+#include <linux/regulator/consumer.h>
+struct imgsensor_dfs_ctx {
+	struct device *dev;
+	struct regulator *reg;
+	unsigned long *freqs;
+	unsigned long *volts;
+	int cnt;
+};
+int imgsensor_dfs_ctrl(
+	struct imgsensor_dfs_ctx *ctx, enum DFS_OPTION option, void *pbuff);
+int imgsensor_dfs_init(struct imgsensor_dfs_ctx *ctx, struct device *dev);
+#endif
+
+#ifdef IMGSENSOR_DFS_CTRL_ENABLE
+#include <linux/pm_qos.h>
+#include <mmdvfs_pmqos.h>
 extern int imgsensor_dfs_ctrl(enum DFS_OPTION option, void *pbuff);
 #endif
+
 extern unsigned int mt_get_ckgen_freq(int ID);
 enum IMGSENSOR_RETURN imgsensor_clk_init(struct IMGSENSOR_CLK *pclk);
 int  imgsensor_clk_set(
