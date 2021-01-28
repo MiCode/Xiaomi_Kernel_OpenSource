@@ -154,6 +154,10 @@ int apu_power_power_stress(int type, int device, int opp)
 #endif
 		LOG_WRN("%s, BINNING_VOLTAGE_SUPPORT : %d\n",
 				__func__, BINNING_VOLTAGE_SUPPORT);
+#ifdef CCF_SET_RATE
+		LOG_WRN("%s, CCF_SET_RATE : %d\n",
+			__func__, CCF_SET_RATE);
+#endif
 		LOG_WRN("%s, g_pwr_log_level : %d\n",
 				__func__, g_pwr_log_level);
 		LOG_WRN("%s, power_on_off_stress : %d\n",
@@ -229,7 +233,6 @@ static int apusys_debug_power_open(struct inode *inode, struct file *file)
 static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 {
 	int ret = 0;
-	int i = 0;
 
 	switch (param) {
 	case POWER_PARAM_FIX_OPP:
@@ -312,33 +315,13 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 					(int)(args[2]));
 			goto out;
 		}
-#if !defined(CONFIG_MACH_MT6873) && !defined(CONFIG_MACH_MT6853)
-		if ((args[0] == VPU0 || args[0] == VPU1 || args[0] == VPU2)
-#else
-		if ((args[0] == VPU0 || args[0] == VPU1)
-#endif
-			&& APUSYS_VPU_NUM != 0) {
-			for (i = VPU0; i < VPU0 + APUSYS_VPU_NUM; i++) {
-				apusys_opps.power_lock_max_opp[i] =
-					apusys_boost_value_to_opp(i, args[1]);
-				apusys_opps.power_lock_min_opp[i] =
-					apusys_boost_value_to_opp(i, args[2]);
-			}
-		}
 
-#if !defined(CONFIG_MACH_MT6873) && !defined(CONFIG_MACH_MT6853)
-		if ((args[0] == MDLA0 || args[0] == MDLA1)
-#else
-		if ((args[0] == MDLA0)
-#endif
-			&& APUSYS_MDLA_NUM != 0) {
-			for (i = MDLA0; i < MDLA0 + APUSYS_MDLA_NUM; i++) {
-				apusys_opps.power_lock_max_opp[i] =
-					apusys_boost_value_to_opp(i, args[1]);
-				apusys_opps.power_lock_min_opp[i] =
-					apusys_boost_value_to_opp(i, args[2]);
-			}
-		}
+		/* setting max/min opp of user, args[0] */
+		apusys_opps.power_lock_max_opp[args[0]] =
+			apusys_boost_value_to_opp(args[0], args[1]);
+		apusys_opps.power_lock_min_opp[args[0]] =
+			apusys_boost_value_to_opp(args[0], args[2]);
+
 		apusys_dvfs_policy(0);
 		break;
 	}
@@ -401,8 +384,7 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			 * Make sure args[1], min of power lock
 			 * within the range
 			 */
-			ret = ((args[1] >= APUSYS_MAX_NUM_OPPS) ||
-				args[1] < 0);
+			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
 			if (ret) {
 				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
 					    (int)(args[1]),
@@ -414,11 +396,10 @@ static int apusys_set_power_parameter(uint8_t param, int argc, int *args)
 			 * Make sure args[2], max of power lock
 			 * within the range
 			 */
-			ret = ((args[2] >= APUSYS_MAX_NUM_OPPS) ||
-			       args[2] < 0);
+			ret = (args[1] >= APUSYS_MAX_NUM_OPPS);
 			if (ret) {
 				PWR_LOG_ERR("opp-%d is too big, max opp:%d\n",
-					    (int)(args[2]),
+					    (int)(args[1]),
 					    APUSYS_MAX_NUM_OPPS - 1);
 				goto out;
 			}
