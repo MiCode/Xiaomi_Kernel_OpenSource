@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/usb/typec.h>
 #include <linux/usb/typec_mux.h>
+#include <linux/sysfs.h>
 
 #include "typec_switch.h"
 
@@ -58,6 +59,76 @@ static int mtk_typec_switch_set(struct typec_switch *sw,
 
 	mutex_unlock(&typec_switch->lock);
 
+	return ret;
+}
+
+static ssize_t sw_store(struct device *dev,
+			 struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	struct mtk_typec_switch *typec_switch =
+		(struct mtk_typec_switch *)dev->driver_data;
+	u32 tmp;
+
+	if (kstrtouint(buf, 0, &tmp))
+		return -EINVAL;
+
+	if (tmp > 2) {
+		dev_info(typec_switch->dev, "%s %d, INVALID: %d\n", __func__,
+			 typec_switch->orientation, tmp);
+		return count;
+	}
+
+	mtk_typec_switch_set(typec_switch->sw, tmp);
+
+	return count;
+}
+
+static ssize_t sw_show(struct device *dev,
+			 struct device_attribute *attr, char *buf)
+{
+	struct mtk_typec_switch *typec_switch =
+		(struct mtk_typec_switch *)dev->driver_data;
+	char str[16];
+
+	switch (typec_switch->orientation) {
+	case TYPEC_ORIENTATION_NONE:
+		strncpy(str, "NONE\0", 5);
+		break;
+	case TYPEC_ORIENTATION_NORMAL:
+		strncpy(str, "NORMAL\0", 7);
+		break;
+	case TYPEC_ORIENTATION_REVERSE:
+		strncpy(str, "REVERSE\0", 8);
+		break;
+	default:
+		strncpy(str, "INVALID\0", 8);
+	}
+
+	dev_info(typec_switch->dev, "%s %d %s\n", __func__,
+		 typec_switch->orientation, str);
+
+	return sprintf(buf, "%d\n", typec_switch->orientation);
+}
+static DEVICE_ATTR_RW(sw);
+
+static struct attribute *mtk_typec_switch_attrs[] = {
+	&dev_attr_sw.attr,
+	NULL
+};
+
+static const struct attribute_group mtk_typec_switch_group = {
+	.attrs = mtk_typec_switch_attrs,
+};
+
+static int mtk_typec_switch_sysfs_init(struct mtk_typec_switch *typec_switch)
+{
+	struct device *dev = typec_switch->dev;
+	int ret;
+
+	ret = sysfs_create_group(&dev->kobj, &mtk_typec_switch_group);
+	if (ret)
+		dev_info(dev, "failed to creat sysfs attributes\n");
 	return ret;
 }
 
@@ -137,6 +208,9 @@ static int mtk_typec_switch_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, typec_switch);
+
+	/* create sysfs for half-automation switch */
+	mtk_typec_switch_sysfs_init(typec_switch);
 
 	dev_info(dev, "%s done\n", __func__);
 	return ret;
