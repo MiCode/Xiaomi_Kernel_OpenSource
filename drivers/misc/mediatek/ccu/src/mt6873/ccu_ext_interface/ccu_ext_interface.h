@@ -73,7 +73,24 @@ struct ccu_msg {
 	MUINT32 in_data_ptr;
 	MUINT32 out_data_ptr;
 	enum ccu_tg_info tg_info;
-	uint32_t sensor_idx;
+	uint32_t sensor_idx; //new
+};
+
+struct ccu_control_info {
+	enum ccu_feature_type feature_type;
+	uint32_t sensor_idx; //new
+	uint32_t msg_id;
+	void *inDataPtr;
+	uint32_t inDataSize;
+	void *outDataPtr;
+	uint32_t outDataSize;
+};
+
+struct ap2ccu_ipc_t {
+	MUINT32 write_cnt;
+	MUINT32 read_cnt;
+	struct ccu_msg msg;
+	MBOOL ack;
 };
 
 /******************************************************************************

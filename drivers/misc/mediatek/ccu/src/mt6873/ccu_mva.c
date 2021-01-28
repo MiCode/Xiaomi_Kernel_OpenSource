@@ -11,17 +11,18 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/fdtable.h>
 #include "ccu_cmn.h"
 #include "ccu_mva.h"
+#include "ccu_platform_def.h"
 
 static struct ion_client *_ccu_ion_client;
+struct CcuMemHandle ccu_buffer_handle[2];
 
-static int _ccu_config_m4u_port(void);
 static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
-		unsigned int heap_id_mask, size_t align, unsigned int size);
+	unsigned int heap_id_mask, size_t align, unsigned int size, bool cached);
 static int _ccu_ion_get_mva(struct ion_client *client,
-	struct ion_handle *handle,
-		unsigned int *mva, int port);
+	struct ion_handle *handle, unsigned int *mva, bool cached);
 static void _ccu_ion_free_handle(struct ion_client *client,
 	struct ion_handle *handle);
 
@@ -94,7 +95,7 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return -1;
 	}
 
-	ret = _ccu_config_m4u_port();
+	ret = ccu_config_m4u_port();
 	if (ret) {
 		LOG_ERR("fail to config m4u port!\n");
 		return ret;
@@ -102,7 +103,7 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 
 	*handle = _ccu_ion_alloc(_ccu_ion_client,
 			ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-			(unsigned long)va, buffer_size);
+			(unsigned long)va, buffer_size, false);
 
 	/*i2c dma buffer is PAGE_SIZE(4096B)*/
 
@@ -124,31 +125,118 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 
 
 
-static int _ccu_config_m4u_port(void)
+int ccu_config_m4u_port(void)
 {
 	int ret = 0;
-
-#if defined(CONFIG_MTK_M4U)
+	#if defined(CONFIG_MTK_M4U) || defined(CONFIG_MTK_IOMMU_V2)
 	struct M4U_PORT_STRUCT port;
 
-	port.ePortID = M4U_PORT_CCU0;
+	port.ePortID = M4U_PORT_L13_CAM_CCUI;
 	port.Virtuality = 1;
 	port.Security = 0;
-	port.domain = 3;
+	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
+	strcpy(port.name, "L13_CAM_CCUI_MDP");
+	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUI_MDP, %d\n", M4U_PORT_L13_CAM_CCUI);
 
 	ret = m4u_config_port(&port);
-#endif
+
+	port.ePortID = M4U_PORT_L13_CAM_CCUO;
+	port.Virtuality = 1;
+	port.Security = 0;
+	port.domain = 2;
+	port.Distance = 1;
+	port.Direction = 0;
+	strcpy(port.name, "L13_CAM_CCUO_MDP");
+	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUO_MDP, %d\n", M4U_PORT_L13_CAM_CCUO);
+
+	ret = m4u_config_port(&port);
+	#endif
 	return ret;
 }
 
+int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
+{
+	int ret = 0;
+
+	LOG_DBG_MUST("_ccuAllocMem+\n");
+	LOG_DBG_MUST("size(%d) cached(%d) memHandle->ionHandleKd(%d)\n",
+		size, cached, memHandle->ionHandleKd);
+	//allocate ion buffer handle
+	memHandle->ionHandleKd = _ccu_ion_alloc(_ccu_ion_client,
+		ION_HEAP_MULTIMEDIA_MASK,
+		0, (size_t)size, (cached)?3:0);
+
+	if (!memHandle->ionHandleKd) {
+		LOG_ERR("fail to get ion buffer handle (size=0x%lx)\n", size);
+		return -1;
+	}
+
+	LOG_DBG_MUST("memHandle->ionHandleKd(%p)\n", memHandle->ionHandleKd);
+	// get ion buffer share handle
+	memHandle->meminfo.shareFd = ion_share_dma_buf_fd(_ccu_ion_client,
+		memHandle->ionHandleKd);
+	if (memHandle->meminfo.shareFd < 0) {
+		LOG_ERR("fail to get ion buffer share handle");
+		ion_free(_ccu_ion_client, memHandle->ionHandleKd);
+		return -1;
+	}
+	LOG_DBG_MUST("memHandle->share_fd(%d)\n", memHandle->meminfo.shareFd);
+
+	// get buffer virtual address
+	memHandle->meminfo.size = size;
+	memHandle->meminfo.cached = cached;
+	memHandle->meminfo.va = (char *)ion_map_kernel(_ccu_ion_client,
+		memHandle->ionHandleKd);
+	if (memHandle->meminfo.va == NULL) {
+		LOG_ERR("fail to get buffer kernel virtual address");
+		return false;
+	}
+	LOG_DBG_MUST("memHandle->va(0x%lx)\n", memHandle->meminfo.va);
+
+	ret = _ccu_ion_get_mva(_ccu_ion_client, memHandle->ionHandleKd,
+		&memHandle->meminfo.mva, cached);
+	if (ret) {
+		LOG_ERR("ccu ion_get_mva failed\n");
+		return -1;
+	}
+	LOG_DBG_MUST("memHandle->mva(0x%lx)\n", memHandle->meminfo.mva);
+
+	LOG_DBG_MUST("_ccuAllocMem-\n");
+
+	ccu_buffer_handle[memHandle->meminfo.cached] = *memHandle;
+	return (memHandle->ionHandleKd != NULL) ? 0 : -1;
+
+}
+
+int ccu_deallocate_mem(struct CcuMemHandle *memHandle)
+{
+	LOG_DBG_MUST("free import ion: share_fd %d",
+		memHandle->meminfo.shareFd);
+	LOG_DBG_MUST("0x%lx\n", memHandle->meminfo.va);
+
+	ion_unmap_kernel(_ccu_ion_client,
+		ccu_buffer_handle[memHandle->meminfo.cached].ionHandleKd);
+	__close_fd(current->files,
+		ccu_buffer_handle[memHandle->meminfo.cached].meminfo.shareFd);
+	ion_free(_ccu_ion_client,
+		ccu_buffer_handle[memHandle->meminfo.cached].ionHandleKd);
+
+	memset(&(ccu_buffer_handle[memHandle->meminfo.cached]), 0,
+		sizeof(struct CcuMemHandle));
+
+	return 0;
+
+}
+
 static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
-		unsigned int heap_id_mask, size_t align, unsigned int size)
+	unsigned int heap_id_mask, size_t align, unsigned int size, bool cached)
 {
 	struct ion_handle *disp_handle = NULL;
 
-	disp_handle = ion_alloc(client, size, align, heap_id_mask, 0);
+	disp_handle = ion_alloc(client, size, align,
+		heap_id_mask, (cached)?3:0);
 	if (IS_ERR(disp_handle)) {
 		LOG_ERR("disp_ion_alloc 1error %p\n", disp_handle);
 		return NULL;
@@ -162,19 +250,33 @@ static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
 
 static int _ccu_ion_get_mva(struct ion_client *client,
 	struct ion_handle *handle,
-		unsigned int *mva, int port)
+		unsigned int *mva, bool cached)
 {
 	struct ion_mm_data mm_data;
-	size_t mva_size;
-	ion_phys_addr_t phy_addr = 0;
+	int port;
 
-	mm_data.mm_cmd = ION_MM_CONFIG_BUFFER_EXT;
+	mm_data.mm_cmd = ION_MM_GET_IOVA;
 	mm_data.config_buffer_param.kernel_handle = handle;
-	mm_data.config_buffer_param.module_id   = port;
 	mm_data.config_buffer_param.security    = 0;
 	mm_data.config_buffer_param.coherent    = 1;
-	mm_data.config_buffer_param.reserve_iova_start  = 0x10000000;
-	mm_data.config_buffer_param.reserve_iova_end    = 0xFFFFFFFF;
+	if (cached == false) {
+		port = M4U_PORT_L22_CCU0;
+		mm_data.config_buffer_param.module_id = M4U_PORT_L22_CCU0;
+		mm_data.config_buffer_param.reserve_iova_start =
+		CCU_DDR_BUF_MVA_LOWER_BOUND;
+		mm_data.config_buffer_param.reserve_iova_end =
+		CCU_DDR_BUF_MVA_UPPER_BOUND;
+	} else if (cached == true) {
+		port = M4U_PORT_L23_CCU1;
+		mm_data.config_buffer_param.module_id   = M4U_PORT_L23_CCU1;
+		mm_data.config_buffer_param.reserve_iova_start =
+		CCU_CTRL_BUFS_LOWER_BOUND;
+		mm_data.config_buffer_param.reserve_iova_end =
+		CCU_CTRL_BUFS_UPPER_BOUND;
+	} else {
+		mm_data.config_buffer_param.reserve_iova_start = 0x10000000;
+		mm_data.config_buffer_param.reserve_iova_end = 0xFFFFFFFF;
+	}
 
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,
 		(unsigned long)&mm_data) < 0) {
@@ -184,13 +286,8 @@ static int _ccu_ion_get_mva(struct ion_client *client,
 		ion_free(client, handle);
 		return -1;
 	}
-	*mva = 0;
-	*mva = (port<<24) | ION_FLAG_GET_FIXED_PHYS;
-	mva_size = ION_FLAG_GET_FIXED_PHYS;
+	*mva = mm_data.get_phys_param.phy_addr;
 
-	phy_addr = *mva;
-	ion_phys(client, handle, &phy_addr, &mva_size);
-	*mva = (unsigned int)phy_addr;
 	LOG_DBG_MUST("alloc mmu addr hnd=0x%p,mva=0x%08x\n",
 		handle, (unsigned int)*mva);
 	return 0;
@@ -247,4 +344,13 @@ struct ion_handle *ccu_ion_import_handle(int fd)
 	}
 
 	return handle;
+}
+
+struct CcuMemInfo *ccu_get_binary_memory(void)
+{
+	if (ccu_buffer_handle[0].meminfo.va != NULL)
+		return &ccu_buffer_handle[0].meminfo;
+
+	LOG_ERR("ccu ddr va not found!\n");
+	return NULL;
 }
