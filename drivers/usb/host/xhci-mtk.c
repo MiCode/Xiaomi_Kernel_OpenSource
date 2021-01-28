@@ -906,7 +906,12 @@ static int xhci_mtk_remove(struct platform_device *dev)
 static int __maybe_unused xhci_mtk_runtime_suspend(struct device *dev)
 {
 	struct xhci_hcd_mtk *mtk = dev_get_drvdata(dev);
-	struct xhci_hcd *xhci = hcd_to_xhci(mtk->hcd);
+	struct xhci_hcd *xhci;
+
+	if (!mtk->hcd)
+		return -ESHUTDOWN;
+
+	xhci = hcd_to_xhci(mtk->hcd);
 
 	xhci_info(xhci, "%s\n", __func__);
 	xhci_mtk_host_disable(mtk);
