@@ -129,6 +129,11 @@
 #define MT_GPUFREQ_GPM_ENABLE 0
 
 /**************************************************
+ * PTPOD Calibration
+ **************************************************/
+#define MT_GPUFREQ_PTPOD_CALIBRATION_ENABLE 0
+
+/**************************************************
  * Register Manipulations
  **************************************************/
 #define READ_REGISTER_UINT32(reg)	\
