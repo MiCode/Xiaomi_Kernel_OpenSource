@@ -1201,31 +1201,28 @@ static void process_dbg_opt(const char *opt)
 		set_esd_check_mode(mode);
 	} else if (strncmp(opt, "lcm0_reset", 10) == 0) {
 		DISPCHECK("lcm0_reset\n");
-#if 1
-		if (pgc->state == DISP_ALIVE) {
-			DISP_CPU_REG_SET(DISP_REG_CONFIG_MMSYS_LCM_RST_B, 1);
+		if (primary_display_is_video_mode()) {
+			if (pgc->state == DISP_ALIVE) {
+				DISP_CPU_REG_SET(
+					DISP_REG_CONFIG_MMSYS_LCM_RST_B, 1);
+				msleep(20);
+				DISP_CPU_REG_SET(
+					DISP_REG_CONFIG_MMSYS_LCM_RST_B, 0);
+				msleep(20);
+				DISP_CPU_REG_SET(
+					DISP_REG_CONFIG_MMSYS_LCM_RST_B, 1);
+			} else
+				DISPCHECK("lcm0_reset: DISP isn't alive\n");
+		} else {
+			ret = disp_dts_gpio_select_state(
+				DTS_GPIO_STATE_LCM_RST_OUT1);
 			msleep(20);
-			DISP_CPU_REG_SET(DISP_REG_CONFIG_MMSYS_LCM_RST_B, 0);
+			ret |= disp_dts_gpio_select_state(
+				DTS_GPIO_STATE_LCM_RST_OUT0);
 			msleep(20);
-			DISP_CPU_REG_SET(DISP_REG_CONFIG_MMSYS_LCM_RST_B, 1);
+			ret |= disp_dts_gpio_select_state(
+				DTS_GPIO_STATE_LCM_RST_OUT1);
 		}
-#else
-#ifdef CONFIG_MTK_LEGACY
-		mt_set_gpio_mode(GPIO106 | 0x80000000, GPIO_MODE_00);
-		mt_set_gpio_dir(GPIO106 | 0x80000000, GPIO_DIR_OUT);
-		mt_set_gpio_out(GPIO106 | 0x80000000, GPIO_OUT_ONE);
-		msleep(20);
-		mt_set_gpio_out(GPIO106 | 0x80000000, GPIO_OUT_ZERO);
-		msleep(20);
-		mt_set_gpio_out(GPIO106 | 0x80000000, GPIO_OUT_ONE);
-#else
-		ret = disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_RST_OUT1);
-		msleep(20);
-		ret |= disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_RST_OUT0);
-		msleep(20);
-		ret |= disp_dts_gpio_select_state(DTS_GPIO_STATE_LCM_RST_OUT1);
-#endif
-#endif
 	} else if (strncmp(opt, "lcm0_reset0", 11) == 0) {
 		DISP_CPU_REG_SET(DISP_REG_CONFIG_MMSYS_LCM_RST_B, 0);
 	} else if (strncmp(opt, "lcm0_reset1", 11) == 0) {
