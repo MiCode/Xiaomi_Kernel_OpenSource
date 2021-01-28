@@ -276,11 +276,11 @@ static int do_gz_log_read(struct gz_log_state *gls,
 	if (!psrc)
 		return -ENOMEM;
 
-	while (get != put && copy_chars < outbuf_size) {
+	while (get != put) {
 		read_chars = log_read_line(gls, put, get);
 		/* Force the loads from log_read_line to complete. */
 		rmb();
-		if (copy_chars + read_chars > tbuf_size)
+		if (copy_chars + read_chars > outbuf_size)
 			break;
 		memcpy(psrc + copy_chars, gls->line_buffer, read_chars);
 		get += read_chars;
