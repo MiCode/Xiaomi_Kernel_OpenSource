@@ -115,6 +115,7 @@
 #define F_MMU_L2_LOGIC_STALL_DCM    F_BIT_SET(17)
 #define F_MMU_TOP_STALL_DCM     F_BIT_SET(16)
 #define F_MMU_APB_DCM	   F_BIT_SET(9)
+#define F_MMU_MMU_DCM           F_BIT_SET(8)
 #define F_MMU_MTLB_LOGIC_DCM    F_BIT_SET(6)
 #define F_MMU_RS_ENTRY_DCM    F_BIT_SET(5)
 #define F_MMU_FIFO_ENTRY_DCM     F_BIT_SET(4)
