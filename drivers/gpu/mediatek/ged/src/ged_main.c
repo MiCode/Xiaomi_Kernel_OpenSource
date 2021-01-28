@@ -47,7 +47,7 @@ static GED_LOG_BUF_HANDLE ghLogBuf_GPU;
 #define GED_LOG_BUF_COMMON_GLES "GLES"
 static GED_LOG_BUF_HANDLE ghLogBuf_GLES;
 GED_LOG_BUF_HANDLE ghLogBuf_GED;
-#endif
+#endif /* GED_DEBUG */
 
 #define GED_LOG_BUF_COMMON_HWC_ERR "HWC_err"
 static GED_LOG_BUF_HANDLE ghLogBuf_HWC_ERR;
@@ -56,13 +56,12 @@ static GED_LOG_BUF_HANDLE ghLogBuf_HWC;
 #define GED_LOG_BUF_COMMON_FENCE "FENCE"
 static GED_LOG_BUF_HANDLE ghLogBuf_FENCE;
 static GED_LOG_BUF_HANDLE ghLogBuf_ftrace;
+GED_LOG_BUF_HANDLE gpufreq_ged_log;
+#endif /* GED_BUFFER_LOG_DISABLE */
 
 #ifdef GED_DVFS_DEBUG_BUF
 GED_LOG_BUF_HANDLE ghLogBuf_DVFS;
-#endif
-#endif /* GED_BUFFER_LOG_DISABLE */
-
-GED_LOG_BUF_HANDLE gpufreq_ged_log;
+#endif /* GED_DVFS_DEBUG_BUF */
 
 /******************************************************************************
  * GED File operations
@@ -353,10 +352,10 @@ static const struct file_operations ged_fops = {
 
 static void ged_exit(void)
 {
+#ifndef GED_BUFFER_LOG_DISABLE
 	ged_log_buf_free(gpufreq_ged_log);
 	gpufreq_ged_log = 0;
 
-#ifndef GED_BUFFER_LOG_DISABLE
 #ifdef GED_DVFS_DEBUG_BUF
 	ged_log_buf_free(ghLogBuf_DVFS);
 	ghLogBuf_DVFS = 0;
@@ -498,10 +497,10 @@ static int ged_init(void)
 		, GED_LOG_BUF_TYPE_RINGBUFFER
 		, "DVFS_Log", "ged_dvfs_debug");
 #endif
-#endif /* GED_BUFFER_LOG_DISABLE */
 
 	gpufreq_ged_log = ged_log_buf_alloc(1024, 64 * 1024,
 			GED_LOG_BUF_TYPE_RINGBUFFER, "gfreq", "gfreq");
+#endif /* GED_BUFFER_LOG_DISABLE */
 
 	return 0;
 
