@@ -976,6 +976,7 @@ static void notify_camsys_clk_change(
 	int ori_cam_clk_mode = 0;
 	int update_cam_clk_mode = 0;
 	char msg[MMDVFS_CLK_SWITCH_CLIENT_MSG_MAX] = "";
+	int result;
 
 	if (!g_mmdvfs_adaptor) {
 		MMDVFSMSG("clk_change: g_mmdvfs_adaptor is NULL\n");
@@ -1002,7 +1003,14 @@ static void notify_camsys_clk_change(
 		g_mmdvfs_adaptor, update_mmdvfs_step);
 
 	for (i = 0; i < MMDVFS_CLK_SWITCH_CB_MAX; i++) {
-		snprintf(msg, MMDVFS_CLK_SWITCH_CLIENT_MSG_MAX, "id=%d", i);
+		result = snprintf(msg,
+			MMDVFS_CLK_SWITCH_CLIENT_MSG_MAX, "id=%d", i);
+		if (result < 0) {
+			MMDVFSMSG("snprint fail for id:%d retult=%d\n",
+				i, result);
+			continue;
+		}
+
 		if (quick_mmclk_cbs[i] != NULL)
 			mmsys_clk_change_notify_checked(
 			quick_mmclk_cbs[i], ori_cam_clk_mode,

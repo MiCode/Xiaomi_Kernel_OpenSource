@@ -1752,8 +1752,13 @@ static void mmdvfs_get_limit_step_node(struct device *dev,
 	for (i = 0; i < limit_size; i++) {
 		limit_config->limit_steps[i] = kcalloc(MAX_FREQ_STEP,
 			sizeof(*limit_config->limit_steps[i]), GFP_KERNEL);
-		snprintf(ext_name, sizeof(ext_name) - 1,
+		result = snprintf(ext_name, sizeof(ext_name) - 1,
 			"%s_limit_%d", freq_name, i);
+		if (result < 0) {
+			pr_notice("snprintf error(%d) limit name:%s id:%d\n",
+				result, freq_name, i);
+			continue;
+		}
 		pr_notice("[limit]%s-%d: %s\n", freq_name, i, ext_name);
 		mmdvfs_get_step_array_node(dev, ext_name,
 			limit_config->limit_steps[i]);
