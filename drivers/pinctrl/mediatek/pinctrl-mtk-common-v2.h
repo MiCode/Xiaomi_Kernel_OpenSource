@@ -217,6 +217,11 @@ struct mtk_pin_soc {
 	int (*bias_get)(struct mtk_pinctrl *hw,
 			const struct mtk_pin_desc *desc, bool pullup, int *res);
 
+	int (*bias_set_combo)(struct mtk_pinctrl *hw,
+			const struct mtk_pin_desc *desc, u32 pullup, u32 arg);
+	int (*bias_get_combo)(struct mtk_pinctrl *hw,
+			const struct mtk_pin_desc *desc, u32 *pullup, u32 *arg);
+
 	int (*drive_set)(struct mtk_pinctrl *hw,
 			 const struct mtk_pin_desc *desc, u32 arg);
 	int (*drive_get)(struct mtk_pinctrl *hw,
@@ -232,11 +237,6 @@ struct mtk_pin_soc {
 			     const struct mtk_pin_desc *desc, u32 arg);
 	int (*adv_drive_get)(struct mtk_pinctrl *hw,
 			     const struct mtk_pin_desc *desc, u32 *val);
-
-	int (*bias_set_combo)(struct mtk_pinctrl *hw,
-			const struct mtk_pin_desc *desc, u32 pullup, u32 arg);
-	int (*bias_get_combo)(struct mtk_pinctrl *hw,
-			const struct mtk_pin_desc *desc, u32 *pullup, u32 *arg);
 
 	/* Specific driver data */
 	void				*driver_data;
@@ -294,9 +294,9 @@ int mtk_pinconf_drive_set_rev1(struct mtk_pinctrl *hw,
 int mtk_pinconf_drive_get_rev1(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, int *val);
 
-int mtk_pinconf_drive_set_direct_val(struct mtk_pinctrl *hw,
+int mtk_pinconf_drive_set_raw(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, u32 arg);
-int mtk_pinconf_drive_get_direct_val(struct mtk_pinctrl *hw,
+int mtk_pinconf_drive_get_raw(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, int *val);
 
 int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,

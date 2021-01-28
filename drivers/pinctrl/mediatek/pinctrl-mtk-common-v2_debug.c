@@ -274,7 +274,7 @@ static ssize_t mt_gpio_store(struct device *dev,
 			goto out;
 		}
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
-		mtk_pinconf_drive_set_direct_val(hw, desc, val);
+		mtk_pinconf_drive_set_raw(hw, desc, val);
 	} else if ((!strncmp(buf, "r1r0", 4))
 		&& (sscanf(buf+4, "%d %d %d", &gpio, &val, &val2) == 3)) {
 		if (gpio < 0 || gpio > hw->soc->npins) {
@@ -315,8 +315,7 @@ static ssize_t mt_gpio_store(struct device *dev,
 			mtk_pctrl_set_out(hw, gpio, !!vals[2]);
 		/* DRIVING */
 		desc = (const struct mtk_pin_desc *)&hw->soc->pins[gpio];
-		mtk_pinconf_drive_set_direct_val(hw, desc,
-			vals[4]*10 + vals[5]);
+		mtk_pinconf_drive_set_raw(hw, desc, vals[4]*10 + vals[5]);
 		/* SMT */
 		mtk_pctrl_set_smt(hw, gpio, vals[6]);
 		/* IES */

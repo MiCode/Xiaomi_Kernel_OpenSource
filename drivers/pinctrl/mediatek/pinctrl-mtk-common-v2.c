@@ -101,11 +101,8 @@ static int mtk_hw_pin_field_lookup(struct mtk_pinctrl *hw,
 			start = check + 1;
 	}
 
-	if (!found) {
-		dev_dbg(hw->dev, "Not support field %d for pin = %d (%s)\n",
-			field, desc->number, desc->name);
+	if (!found)
 		return -ENOTSUPP;
-	}
 
 	c = rc->range + check;
 
@@ -601,6 +598,7 @@ int mtk_pinconf_bias_set_pu_pd(struct mtk_pinctrl *hw,
 		pu = 0;
 		pd = 1;
 	} else {
+		err = -EINVAL;
 		goto out;
 	}
 
@@ -631,8 +629,10 @@ int mtk_pinconf_bias_set_pullsel_pullen(struct mtk_pinctrl *hw,
 		enable = 0;
 	else if (arg == MTK_ENABLE)
 		enable = 1;
-	else
+	else {
+		err = -EINVAL;
 		goto out;
+	}
 
 	mtk_hw_set_value_no_lookup(hw, desc, enable, &pf);
 
@@ -670,8 +670,10 @@ int mtk_pinconf_bias_set_pupd_r1_r0(struct mtk_pinctrl *hw,
 	} else if (arg == MTK_PUPD_SET_R1R0_11) {
 		r0 = 1;
 		r1 = 1;
-	} else
+	} else {
+		err = -EINVAL;
 		goto out;
+	}
 
 	/* MTK HW PUPD bit: 1 for pull-down, 0 for pull-up */
 	mtk_hw_set_value_no_lookup(hw, desc, !pullup, &pf);
@@ -786,7 +788,7 @@ int mtk_pinconf_bias_get_pupd_r1_r0(struct mtk_pinctrl *hw,
 	else if ((r1 == 1) && (r0 == 1))
 		*enable = MTK_PUPD_SET_R1R0_11;
 	else
-		goto out;
+		err = -EINVAL;
 
 out:
 	return err;
@@ -923,25 +925,16 @@ int mtk_pinconf_drive_get_rev1(struct mtk_pinctrl *hw,
 	return 0;
 }
 
-/* Revision direct value */
-int mtk_pinconf_drive_set_direct_val(struct mtk_pinctrl *hw,
+int mtk_pinconf_drive_set_raw(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, u32 arg)
 {
-	int err;
-
-	err = mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV, arg);
-
-	return err;
+	return mtk_hw_set_value(hw, desc, PINCTRL_PIN_REG_DRV, arg);
 }
 
-int mtk_pinconf_drive_get_direct_val(struct mtk_pinctrl *hw,
+int mtk_pinconf_drive_get_raw(struct mtk_pinctrl *hw,
 			       const struct mtk_pin_desc *desc, int *val)
 {
-	int err;
-
-	err = mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV, val);
-
-	return err;
+	return mtk_hw_get_value(hw, desc, PINCTRL_PIN_REG_DRV, val);
 }
 
 int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,
@@ -972,12 +965,7 @@ int mtk_pinconf_adv_pull_set(struct mtk_pinctrl *hw,
 	 * general bias control.
 	 */
 	if (err == -ENOTSUPP) {
-		if (hw->soc->bias_set_combo) {
-			err = hw->soc->bias_set_combo(hw,
-				desc, pullup, MTK_ENABLE);
-			if (err)
-				return err;
-		} else if (hw->soc->bias_set) {
+		if (hw->soc->bias_set) {
 			err = hw->soc->bias_set(hw, desc, pullup);
 			if (err)
 				return err;
@@ -1002,9 +990,7 @@ int mtk_pinconf_adv_pull_get(struct mtk_pinctrl *hw,
 	 * general bias control.
 	 */
 	if (err == -ENOTSUPP) {
-		if (hw->soc->bias_get_combo) {
-			/* do nothing */
-		} else if (hw->soc->bias_get) {
+		if (hw->soc->bias_get) {
 			err = hw->soc->bias_get(hw, desc, pullup, val);
 			if (err)
 				return err;

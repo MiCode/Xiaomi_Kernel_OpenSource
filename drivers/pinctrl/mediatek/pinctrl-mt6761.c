@@ -1057,8 +1057,8 @@ static const struct mtk_pin_soc mt6761_data = {
 	.gpio_m = 0,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
-	.drive_set = mtk_pinconf_drive_set_direct_val,
-	.drive_get = mtk_pinconf_drive_get_direct_val,
+	.drive_set = mtk_pinconf_drive_set_raw,
+	.drive_get = mtk_pinconf_drive_get_raw,
 };
 
 static const struct of_device_id mt6761_pinctrl_of_match[] = {
