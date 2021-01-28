@@ -3720,6 +3720,14 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		status = "okay";
 	};
 
+	swtp:swtp {
+		compatible = "mediatek, swtp-eint";
+	};
+
+	swtp_1:swtp_1 {
+		compatible = "mediatek, swtp_1-eint";
+	};
+
 	mddriver:mddriver {
 		compatible = "mediatek,mddriver", "mediatek,mddriver-mt6779";
 		mediatek,mdhif_type = <6>; /* bit0~3: CLDMA|CCIF|DPMAIF */
