@@ -1061,16 +1061,23 @@
 	};
 
 	gce_mbox: gce_mbox@10238000 {
-		compatible = "mediatek,mailbox-gce";
+		compatible = "mediatek,mt6761-gce";
 		reg = <0 0x10238000 0 0x4000>;
 		interrupts = <GIC_SPI 154 IRQ_TYPE_LEVEL_LOW>,
 			<GIC_SPI 155 IRQ_TYPE_LEVEL_LOW>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
 		#gce-subsys-cells = <2>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
-		clock-names = "gce", "GCE_TIMER";
+		clock-names = "gce", "gce-timer";
 	};
 
 	gce_mbox_svp: gce_mbox_svp@10238000 {
