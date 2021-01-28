@@ -9,6 +9,7 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/rtc.h>
 
 #include "mddp_ctrl.h"
 #include "mddp_debug.h"
@@ -25,11 +26,11 @@
 #define MDDP_DEV_NAME                   "mddp"
 
 struct mddp_dev_rb_t {
-	struct mddp_dev_rb_t           *next;
-	struct mddp_dev_rb_t           *prev;
+	struct mddp_dev_rb_t   *next;
+	struct mddp_dev_rb_t   *prev;
 
-	uint32_t                        len;
-	struct mddp_dev_rsp_common_t   *dev_rsp;
+	uint32_t                rb_len;
+	void                   *rb_data;
 };
 
 struct mddp_dev_rb_head_t {
@@ -66,6 +67,9 @@ struct mddp_dev_rb_head_t {
 			_buf[_len-1] = '\0'; \
 	} while (0)
 
+#define MDDP_DSTATE_IS_VALID_ID(_id) (_id >= 0 && _id < MDDP_DSTATE_ID_NUM)
+#define MDDP_DSTATE_IS_ACTIVATED() (mddp_dstate_activated_s)
+
 //------------------------------------------------------------------------------
 // Private prototype.
 // -----------------------------------------------------------------------------
@@ -101,7 +105,8 @@ static const struct file_operations mddp_dev_fops = {
 };
 
 static atomic_t mddp_dev_open_ref_cnt_s;
-static struct mddp_dev_rb_head_t mddp_dev_rb_head_s;
+static struct mddp_dev_rb_head_t mddp_hidl_rb_head_s;
+static struct mddp_dev_rb_head_t mddp_dstate_rb_head_s;
 
 #define MDDP_CMCMD_RSP_CNT (MDDP_CMCMD_RSP_END - MDDP_CMCMD_RSP_BEGIN)
 static enum mddp_dev_evt_type_e
@@ -121,6 +126,16 @@ static struct cdev mddp_cdev_s;
 struct class *mddp_dev_class_s;
 uint32_t mddp_debug_log_class_s;
 uint32_t mddp_debug_log_level_s;
+static bool mddp_dstate_activated_s;
+
+//------------------------------------------------------------------------------
+// Function Prototype.
+// -----------------------------------------------------------------------------
+static struct mddp_dev_rb_t *mddp_query_dstate(
+		struct mddp_dev_rb_head_t *list, uint32_t seq);
+static struct mddp_dev_rb_t *mddp_dequeue_dstate(
+		struct mddp_dev_rb_head_t *list);
+static void mddp_clear_dstate(struct mddp_dev_rb_head_t *list);
 
 //------------------------------------------------------------------------------
 // Sysfs APIs
@@ -167,10 +182,13 @@ static DEVICE_ATTR_RO(version);
 static ssize_t
 state_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	struct mddp_app_t      *app;
-	uint32_t                type;
-	uint8_t                 idx;
-	uint32_t                ret_num = 0;
+	struct mddp_app_t          *app;
+	uint32_t                    type;
+	uint8_t                     idx;
+	uint32_t                    ret_num = 0;
+	uint32_t                    seq = 0;
+	struct mddp_dev_rb_head_t  *list = &mddp_dstate_rb_head_s;
+	struct mddp_dev_rb_t       *entry;
 
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
@@ -185,10 +203,44 @@ state_show(struct device *dev, struct device_attribute *attr, char *buf)
 				"%s: Failed to fill-in data!\n", __func__);
 	}
 
+	/*
+	 * Detailed state.
+	 */
+	entry = mddp_query_dstate(list, seq);
+	while (entry) {
+		ret_num += scnprintf(buf + ret_num, PAGE_SIZE - ret_num,
+				"%s\n",
+				((struct mddp_dstate_t *)entry->rb_data)->str);
+
+		seq += 1;
+		entry = mddp_query_dstate(list, seq);
+	}
+
 	// OK.
 	return ret_num;
 }
-static DEVICE_ATTR_RO(state);
+
+static ssize_t
+state_store(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf,
+		size_t count)
+{
+	unsigned long           value;
+
+	if (!kstrtoul(buf, 0, &value)) {
+		if (value == MDDP_DETAILED_STATE_ENABLE) {
+			mddp_dstate_activated_s = true;
+			mddp_enqueue_dstate(MDDP_DSTATE_ID_START);
+		} else  if (value == MDDP_DETAILED_STATE_DISABLE) {
+			mddp_enqueue_dstate(MDDP_DSTATE_ID_STOP);
+			mddp_dstate_activated_s = false;
+		}
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(state);
 
 static ssize_t
 wh_statistic_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -368,7 +420,7 @@ static inline void __mddp_dev_rb_unlink(struct mddp_dev_rb_t *entry,
 	prev->next = next;
 }
 
-static void mddp_dev_rb_queue_tail(struct mddp_dev_rb_head_t *list,
+static void mddp_dev_rb_enqueue_tail(struct mddp_dev_rb_head_t *list,
 		struct mddp_dev_rb_t *new)
 {
 	MDDP_DEV_RB_LOCK(list->locker);
@@ -393,10 +445,37 @@ static struct mddp_dev_rb_t *mddp_dev_rb_peek(
 	return entry;
 }
 
+static struct mddp_dev_rb_t *mddp_dev_rb_query(
+		struct mddp_dev_rb_head_t *list, uint32_t seq)
+{
+	struct mddp_dev_rb_t     *entry = NULL;
+	uint32_t                  cnt = 0;
+
+	MDDP_DEV_RB_LOCK(list->locker);
+
+	entry = mddp_dev_rb_peek(list);
+	while (entry) {
+		if (seq == cnt)
+			break;
+
+		entry = entry->next;
+		if (entry == (struct mddp_dev_rb_t *)list) {
+			entry = NULL;
+			break;
+		}
+
+		cnt += 1;
+	}
+
+	MDDP_DEV_RB_UNLOCK(list->locker);
+
+	return entry;
+}
+
 static struct mddp_dev_rb_t *mddp_dev_rb_dequeue(
 		struct mddp_dev_rb_head_t *list)
 {
-	struct mddp_dev_rb_t     *entry;
+	struct mddp_dev_rb_t     *entry = NULL;
 
 	MDDP_DEV_RB_LOCK(list->locker);
 
@@ -485,28 +564,49 @@ static void _mddp_dev_release_dev_node(void)
 	unregister_chrdev_region(dev, MDDP_DEV_MINOR_CNT);
 }
 
+static struct mddp_dev_rb_t *mddp_query_dstate(
+		struct mddp_dev_rb_head_t *list, uint32_t seq)
+{
+	return mddp_dev_rb_query(list, seq);
+}
+
+static struct mddp_dev_rb_t *mddp_dequeue_dstate(
+		struct mddp_dev_rb_head_t *list)
+{
+	return mddp_dev_rb_dequeue(list);
+}
+
+static void mddp_clear_dstate(
+		struct mddp_dev_rb_head_t *list)
+{
+	struct mddp_dev_rb_t           *entry;
+
+	entry = mddp_dequeue_dstate(list);
+	while (entry) {
+		kfree(entry->rb_data);
+		kfree(entry);
+
+		entry = mddp_dequeue_dstate(list);
+	}
+}
+
 //------------------------------------------------------------------------------
 // Public functions.
 //------------------------------------------------------------------------------
-int32_t mddp_dev_init(void)
+void mddp_dev_list_init(struct mddp_dev_rb_head_t *list)
 {
-	struct mddp_dev_rb_head_t      *list;
-
-	atomic_set(&mddp_dev_open_ref_cnt_s, 0);
-
-	list = &mddp_dev_rb_head_s;
 	MDDP_DEV_RB_LOCK_INIT(list->locker);
 	list->cnt = 0;
 	list->prev = list->next = (struct mddp_dev_rb_t *)list;
 
 	init_waitqueue_head(&list->read_wq);
+}
 
+int32_t mddp_dev_init(void)
+{
 	/*
-	 * Create device node.
+	 * Debug log init.
 	 */
-	_mddp_dev_create_dev_node();
-
-
 #ifdef CONFIG_MTK_ENG_BUILD
 	mddp_debug_log_class_s = MDDP_LC_ALL;
 	mddp_debug_log_level_s = MDDP_LL_ENG_DEF;
@@ -514,6 +614,24 @@ int32_t mddp_dev_init(void)
 	mddp_debug_log_class_s = MDDP_LC_ALL;
 	mddp_debug_log_level_s = MDDP_LL_NON_ENG_DEF;
 #endif
+
+	atomic_set(&mddp_dev_open_ref_cnt_s, 0);
+
+	/*
+	 * Ring buffer init.
+	 */
+	mddp_dev_list_init(&mddp_hidl_rb_head_s);
+	mddp_dev_list_init(&mddp_dstate_rb_head_s);
+
+	/*
+	 * Create device node.
+	 */
+	_mddp_dev_create_dev_node();
+
+	/*
+	 * Detailed state init.
+	 */
+	mddp_dstate_activated_s = false;
 
 	return 0;
 }
@@ -530,7 +648,7 @@ void mddp_dev_response(enum mddp_app_type_e type,
 		enum mddp_ctrl_msg_e msg, bool is_success,
 		uint8_t *data, uint32_t data_len)
 {
-	struct mddp_dev_rb_head_t      *list = &mddp_dev_rb_head_s;
+	struct mddp_dev_rb_head_t      *list = &mddp_hidl_rb_head_s;
 	struct mddp_dev_rb_t           *entry;
 	struct mddp_dev_rsp_common_t   *dev_rsp;
 	uint16_t                        status;
@@ -573,9 +691,90 @@ void mddp_dev_response(enum mddp_app_type_e type,
 		return;
 	}
 
-	entry->len = sizeof(struct mddp_dev_rsp_common_t) + data_len;
-	entry->dev_rsp = dev_rsp;
-	mddp_dev_rb_queue_tail(list, entry);
+	entry->rb_len = sizeof(struct mddp_dev_rsp_common_t) + data_len;
+	entry->rb_data = dev_rsp;
+	mddp_dev_rb_enqueue_tail(list, entry);
+}
+
+#define MDDP_CURR_TIME_STR_SZ 32
+void mddp_enqueue_dstate(enum mddp_dstate_id_e id, ...)
+{
+	struct mddp_dev_rb_head_t  *list = &mddp_dstate_rb_head_s;
+	struct mddp_dev_rb_t       *entry;
+	struct mddp_dstate_t       *dstat;
+	struct rtc_time             rt;
+	struct timespec             ts;
+	char                        curr_time_str[MDDP_CURR_TIME_STR_SZ];
+	va_list                     ap;
+	int                         ip;
+	int                         port;
+	unsigned long long          rx;
+	unsigned long long          tx;
+
+	if (!MDDP_DSTATE_IS_VALID_ID(id) || !MDDP_DSTATE_IS_ACTIVATED())
+		return;
+
+	dstat = kzalloc(sizeof(struct mddp_dstate_t), GFP_ATOMIC);
+	if (unlikely(!dstat))
+		return;
+
+	entry = kzalloc(sizeof(struct mddp_dev_rb_t), GFP_ATOMIC);
+	if (unlikely(!entry)) {
+		kfree(dstat);
+		return;
+	}
+
+	// Generate current time string.
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &rt);
+	snprintf(curr_time_str, MDDP_CURR_TIME_STR_SZ,
+			"%d%02d%02d %02d:%02d:%02d.%09d UTC",
+			rt.tm_year + 1900, rt.tm_mon + 1, rt.tm_mday,
+			rt.tm_hour, rt.tm_min, rt.tm_sec, ts.tv_nsec);
+
+	// Generate detailed state message.
+	dstat->id = id;
+	va_start(ap, id);
+	switch (id) {
+	case MDDP_DSTATE_ID_START:
+		mddp_clear_dstate(list);
+		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
+				mddp_dstate_temp_s[id].str, curr_time_str);
+		break;
+
+	case MDDP_DSTATE_ID_STOP:
+	case MDDP_DSTATE_ID_SUSPEND_TAG:
+	case MDDP_DSTATE_ID_RESUME_TAG:
+		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
+				mddp_dstate_temp_s[id].str, curr_time_str);
+		break;
+
+	case MDDP_DSTATE_ID_NEW_TAG:
+		ip = va_arg(ap, int);
+		port = va_arg(ap, int);
+		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
+				mddp_dstate_temp_s[id].str, curr_time_str,
+				ip, port);
+		break;
+
+	case MDDP_DSTATE_ID_GET_OFFLOAD_STATS:
+		rx = va_arg(ap, unsigned long long);
+		tx = va_arg(ap, unsigned long long);
+		snprintf(dstat->str, MDDP_DSTATE_STR_SZ,
+				mddp_dstate_temp_s[id].str, curr_time_str,
+				rx, tx);
+		break;
+
+	default:
+		break;
+	}
+	va_end(ap);
+
+	entry->rb_len = sizeof(struct mddp_dstate_t);
+	entry->rb_data = dstat;
+	mddp_dev_rb_enqueue_tail(list, entry);
+
+	return;
 }
 
 //------------------------------------------------------------------------------
@@ -606,7 +805,7 @@ static ssize_t mddp_dev_read(struct file *file, char *buf, size_t count, loff_t 
 {
 	int32_t                         ret = 0;
 	uint32_t                        len = 0;
-	struct mddp_dev_rb_head_t      *list = &mddp_dev_rb_head_s;
+	struct mddp_dev_rb_head_t      *list = &mddp_hidl_rb_head_s;
 	struct mddp_dev_rb_t           *entry;
 
 	/*
@@ -638,10 +837,10 @@ static ssize_t mddp_dev_read(struct file *file, char *buf, size_t count, loff_t 
 		len = 0;
 		goto exit;
 	}
-	len = entry->len;
+	len = entry->rb_len;
 
-	if (count >= entry->len) {
-		if (copy_to_user(buf, entry->dev_rsp, entry->len)) {
+	if (count >= entry->rb_len) {
+		if (copy_to_user(buf, entry->rb_data, entry->rb_len)) {
 			MDDP_C_LOG(MDDP_LL_WARN, "%s: copy_to_user fail!\n",
 					__func__);
 			ret = -EFAULT;
@@ -655,7 +854,7 @@ static ssize_t mddp_dev_read(struct file *file, char *buf, size_t count, loff_t 
 			ret = -EFAULT;
 			goto exit;
 		}
-		kfree(entry->dev_rsp);
+		kfree(entry->rb_data);
 		kfree(entry);
 	} else {
 		ret = -ENOBUFS;
@@ -792,6 +991,12 @@ static long mddp_dev_ioctl(struct file *file, unsigned int cmd, unsigned long ar
 				buf_len))
 				? -EFAULT : 0;
 			kfree(dev_rsp);
+
+			mddp_enqueue_dstate(MDDP_DSTATE_ID_GET_OFFLOAD_STATS,
+				((struct mddp_u_data_stats_t *)buf)->
+					total_rx_bytes,
+				((struct mddp_u_data_stats_t *)buf)->
+					total_tx_bytes);
 		}
 		break;
 
