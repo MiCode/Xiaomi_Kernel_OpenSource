@@ -927,7 +927,7 @@ static void mt6360_pmic_shutdown(struct i2c_client *client)
 	struct mt6360_pmic_info *mpi = i2c_get_clientdata(client);
 	int ret = 0;
 
-	dev_dbg(mpi->dev, "%s\n", __func__);
+	dev_dbg(&client->dev, "%s\n", __func__);
 	if (mpi == NULL)
 		return;
 	ret = mt6360_pmic_enable_poweroff_sequence(mpi, true);

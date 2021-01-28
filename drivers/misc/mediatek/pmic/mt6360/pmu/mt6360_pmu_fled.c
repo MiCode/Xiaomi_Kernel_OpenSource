@@ -825,7 +825,9 @@ static int mt6360_pmu_fled_remove(struct platform_device *pdev)
 	struct mt6360_pmu_fled_info *mpfi = platform_get_drvdata(pdev);
 	int i;
 
-	dev_dbg(mpfi->dev, "%s\n", __func__);
+	dev_dbg(&pdev->dev, "%s\n", __func__);
+	if (!mpfi)
+		return 0;
 	if (mpfi) {
 		for (i = 0; i < MT6360_FLED_NUM; i++)
 			platform_device_unregister(mpfi->fled_dev[i]);
