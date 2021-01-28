@@ -23,26 +23,32 @@
 #include <linux/iio/consumer.h>
 
 #include <mt-plat/upmu_common.h>
-#include <mt-plat/mtk_auxadc_intf.h>
 #include <mt-plat/aee.h>
 #include <mach/mtk_pmic.h>
 #include "include/pmic.h"
 #include "include/pmic_throttling_dlpt.h"
 #include "include/pmic_auxadc.h"
 #include <pmic_lbat_service.h>
-#include <mtk_idle.h>
 #include <mt-plat/mtk_charger.h>
 
+#if defined(CONFIG_MTK_BASE_POWER)
+#include <mtk_idle.h>
+#endif
 
+#ifndef CONFIG_MTK_GAUGE_VERSION
+#define CONFIG_MTK_GAUGE_VERSION 0
+#endif
 #if (CONFIG_MTK_GAUGE_VERSION == 30)
 #include <mt-plat/mtk_battery.h>
 #include <mach/mtk_battery_property.h>
 #include <linux/reboot.h>
 #include <mtk_battery_internal.h>
 #else
+#if 0 /* TBD */
 #include <mt-plat/battery_meter.h>
 #include <mt-plat/battery_common.h>
 #include <mach/mtk_battery_meter.h>
+#endif
 #endif
 
 /*****************************************************************************

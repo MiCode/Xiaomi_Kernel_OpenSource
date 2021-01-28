@@ -39,7 +39,9 @@
 #include <mt-plat/mtk_boot_common.h>
 #endif
 
+#ifdef CONFIG_MTK_CCCI_DEVICES
 #include <mt-plat/mtk_ccci_common.h>
+#endif
 
 /* Global variable */
 int g_pmic_irq;
@@ -323,7 +325,7 @@ void homekey_int_handler(void)
 {
 	IRQLOG("[%s] Press homekey %d\n", __func__,
 		pmic_get_register_value(PMIC_HOMEKEY_DEB));
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KPD_PWRKEY_USE_PMIC)
 	kpd_pmic_rstkey_handler(0x1);
 #endif
 }
@@ -332,7 +334,7 @@ void homekey_int_handler_r(void)
 {
 	IRQLOG("[%s] Release homekey %d\n", __func__,
 		pmic_get_register_value(PMIC_HOMEKEY_DEB));
-#if !defined(CONFIG_FPGA_EARLY_PORTING)
+#if !defined(CONFIG_FPGA_EARLY_PORTING) && defined(CONFIG_KPD_PWRKEY_USE_PMIC)
 	kpd_pmic_rstkey_handler(0x0);
 #endif
 }

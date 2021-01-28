@@ -539,7 +539,7 @@ static int pmic_mt_probe(struct platform_device *pdev)
 	mtk_regulator_init(pdev);
 	PMICLOG("[PMIC] mtk_regulator_init : done.\n");
 
-	pmic_throttling_dlpt_init();
+	/*pmic_throttling_dlpt_init(); TBD */
 
 	PMICLOG("[PMIC] pmic_throttling_dlpt_init : done.\n");
 
@@ -573,7 +573,7 @@ static int pmic_mt_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	PMICLOG("******** MT pmic driver suspend!! ********\n");
 
-	pmic_throttling_dlpt_suspend();
+	/*pmic_throttling_dlpt_suspend(); TBD*/
 	pmic_auxadc_suspend();
 	return 0;
 }
@@ -582,7 +582,7 @@ static int pmic_mt_resume(struct platform_device *pdev)
 {
 	PMICLOG("******** MT pmic driver resume!! ********\n");
 
-	pmic_throttling_dlpt_resume();
+	/*pmic_throttling_dlpt_resume(); TBD*/
 	pmic_auxadc_resume();
 	return 0;
 }
