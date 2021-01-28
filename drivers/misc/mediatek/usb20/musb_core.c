@@ -517,10 +517,9 @@ void musb_load_testpacket(struct musb *musb)
 /*
  * Handles OTG hnp timeouts, such as b_ase0_brst
  */
-#if defined(CONFIG_R_PORTING)
-static void musb_otg_timer_func(unsigned long data)
+static void musb_otg_timer_func(struct timer_list *t)
 {
-	struct musb *musb = (struct musb *)data;
+	struct musb	*musb = from_timer(musb, t, otg_timer);
 	unsigned long flags;
 	bool vbus_off = false;
 
@@ -559,7 +558,6 @@ static void musb_otg_timer_func(unsigned long data)
 	if (vbus_off)
 		musb_platform_set_vbus(musb, 0);
 }
-#endif
 
 #if defined(CONFIG_USBIF_COMPLIANCE)
 void musb_set_host_request_flag(struct musb *musb,
@@ -2481,9 +2479,7 @@ static int musb_init_controller
 			? MUSB_CONTROLLER_MHDRC : MUSB_CONTROLLER_HDRC, musb);
 	if (status < 0)
 		goto fail3;
-#if defined(CONFIG_R_PORTING)
-	setup_timer(&musb->otg_timer, musb_otg_timer_func, (unsigned long)musb);
-#endif
+	timer_setup(&musb->otg_timer, musb_otg_timer_func, 0);
 #if defined(CONFIG_USBIF_COMPLIANCE)
 	vbus_polling_tsk =
 		kthread_create(polling_vbus_value, NULL, "polling_vbus_thread");
