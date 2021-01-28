@@ -1689,7 +1689,7 @@ void clk_buf_post_init(void)
 
 	if (bblpm_switch == 2) {
 		clk_buf_ctrl_bblpm_mask(CLK_BUF_BB_MD, true);
-		clk_buf_ctrl_bblpm_mask(CLK_BUF_UFS, true);
+		clk_buf_ctrl_bblpm_mask(CLK_BUF_UFS, false);
 		clk_buf_ctrl_bblpm_hw(false);
 	}
 #endif
