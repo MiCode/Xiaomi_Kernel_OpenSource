@@ -2172,9 +2172,12 @@ static bool tcp_small_queue_check(struct sock *sk, const struct sk_buff *skb,
 {
 	unsigned int limit;
 
-	limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
-	limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
-	limit <<= factor;
+	/* rollback to kernel 3.18 */
+	//limit = max(2 * skb->truesize, sk->sk_pacing_rate >> 10);
+	//limit = min_t(u32, limit, sysctl_tcp_limit_output_bytes);
+	//limit <<= factor;
+	limit = max_t(u32, sysctl_tcp_limit_output_bytes,
+		      sk->sk_pacing_rate >> 10);
 
 	if (refcount_read(&sk->sk_wmem_alloc) > limit) {
 		/* Always send the 1st or 2nd skb in write queue.
