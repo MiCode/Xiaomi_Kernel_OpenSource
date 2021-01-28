@@ -19,16 +19,11 @@
 /* If SPM function not ready, comment this define */
 /* #define SPM_READY */ /* need platform porting */
 
-/* If CLKBUF function not ready, comment this define */
-/* #define CLKBUF_READY */
-
 /* If UPMU function not ready, comment this define */
 /* #define UPMU_READY */
-
-/* If srclkenRC function not ready, comment this define */
-/* #define SR_CLKEN_RC_READY */
 #endif
 
+#define UFS_REF_CLK_CTRL_BY_UFSHCI
 #define HIE_CHANGE_KEY_IN_NORMAL_WORLD
 
 /*

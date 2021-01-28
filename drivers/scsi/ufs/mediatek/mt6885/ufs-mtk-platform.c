@@ -21,9 +21,6 @@
 #include "mtk_idle.h"
 #include "mtk_spm_resource_req.h"
 #include "mtk_secure_api.h"
-#ifdef SR_CLKEN_RC_READY
-#include "mtk_srclken_rc.h"
-#endif
 
 #ifdef MTK_UFS_HQA
 #include <mtk_reboot.h>
@@ -31,10 +28,6 @@
 
 #ifdef UPMU_READY
 #include <mt-plat/upmu_common.h>
-#endif
-
-#ifdef CLKBUF_READY
-#include "mtk_clkbuf_ctl.h"
 #endif
 
 static void __iomem *ufs_mtk_mmio_base_gpio;
@@ -246,46 +239,39 @@ void ufs_mtk_pltfrm_gpio_trigger(int value)
 
 int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 {
-#ifdef SR_CLKEN_RC_READY
 	u32 value;
 	int retry;
 
-	if (srclken_get_stage() == SRCLKEN_FULL_SET) {
-		/*
-		 * REG_UFS_ADDR_XOUFS_ST[0] is xoufs_req_s
-		 * REG_UFS_ADDR_XOUFS_ST[1] is xoufs_ack_s
-		 * xoufs_req_s is used for XOUFS Clock request to SPI
-		 * SW set xoufs_ack_s to trigger Clock Request for XOUFS, and
-		 * check xoufs_ack_s set for clock avialable.
-		 * SW clear xoufs_ack_s to trigger Clock Release for XOUFS, and
-		 * check xoufs_ack_s clear for clock off.
-		 */
+	/*
+	 * REG_UFS_ADDR_XOUFS_ST[0] is xoufs_req_s
+	 * REG_UFS_ADDR_XOUFS_ST[1] is xoufs_ack_s
+	 * xoufs_req_s is used for XOUFS Clock request to SPI
+	 * SW set xoufs_ack_s to trigger Clock Request for XOUFS, and
+	 * check xoufs_ack_s set for clock avialable.
+	 * SW clear xoufs_ack_s to trigger Clock Release for XOUFS, and
+	 * check xoufs_ack_s clear for clock off.
+	 */
 
-		if (on)
-			ufshcd_writel(hba, 1, REG_UFS_ADDR_XOUFS_ST);
-		else
-			ufshcd_writel(hba, 0, REG_UFS_ADDR_XOUFS_ST);
-
-		retry = 3; /* 2.4ms wosrt case */
-		do {
-			value = ufshcd_readl(hba, REG_UFS_ADDR_XOUFS_ST);
-
-			if ((value == 0x3) || (value == 0))
-				break;
-
-			mdelay(1);
-			if (retry) {
-				retry--;
-			} else {
-				dev_err(hba->dev, "XO_UFS ack failed\n");
-				return -EIO;
-			}
-		} while (1);
-	} else
+	if (on)
+		ufshcd_writel(hba, 1, REG_UFS_ADDR_XOUFS_ST);
+	else
 		ufshcd_writel(hba, 0, REG_UFS_ADDR_XOUFS_ST);
-#else
-	ufshcd_writel(hba, 0, REG_UFS_ADDR_XOUFS_ST);
-#endif
+
+	retry = 3; /* 2.4ms wosrt case */
+	do {
+		value = ufshcd_readl(hba, REG_UFS_ADDR_XOUFS_ST);
+
+		if ((value == 0x3) || (value == 0))
+			break;
+
+		mdelay(1);
+		if (retry) {
+			retry--;
+		} else {
+			dev_err(hba->dev, "XO_UFS ack failed\n");
+			return -EIO;
+		}
+	} while (1);
 
 	return 0;
 }
@@ -393,17 +379,10 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
 		default:
 			break;
 		}
-		/*
-		 * Disable MPHY 26MHz ref clock in H8 mode
-		 * SSPM project will disable MPHY 26MHz ref clock
-		 * in SSPM deepidle/SODI IPI handler
-		 */
-	#if !defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
-	#ifdef CLKBUF_READY
-		clk_buf_ctrl(CLK_BUF_UFS, false);
+
+		/* Host need turn off clock by self */
 		ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
-	#endif
-	#endif
+
 		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
 		return UFS_H8;
 	}
@@ -420,13 +399,8 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
  */
 void ufs_mtk_pltfrm_deepidle_leave(void)
 {
-#ifdef CLKBUF_READY
 	/* Enable MPHY 26MHz ref clock after leaving deepidle */
-	/* SSPM project will enable MPHY 26MHz ref clock in SSPM
-	 * deepidle/SODI IPI handler
-	 */
 
-#if !defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 	/* If current device is not active, it means it is after
 	 * ufshcd_suspend() through a. runtime or system pm b. ufshcd_shutdown
 	 * And deepidle/SODI can not enter in ufs suspend/resume
@@ -438,10 +412,9 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
 	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
 		return;
 
-	clk_buf_ctrl(CLK_BUF_UFS, true);
+	/* Host need turn on clock by self */
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
-#endif
-#endif
+
 	/* Delay after enable XO_UFS: enable XO_UFS -> delay B -> leave H8
 	 *		delayB
 	 * Hynix	30us
@@ -635,11 +608,8 @@ int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)
 	int ret = 0;
 	u32 reg;
 
-#ifdef CLKBUF_READY
-	/* Enable MPHY 26MHz ref clock */
-	clk_buf_ctrl(CLK_BUF_UFS, true);
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
-#endif
+
 	/* Set regulator to turn on VA09 LDO */
 	ret = regulator_enable(reg_va09);
 	if (ret < 0) {
@@ -761,11 +731,9 @@ int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 	/* delay awhile to satisfy T_HIBERNATE */
 	mdelay(15);
 
-#ifdef CLKBUF_READY
 	/* Disable MPHY 26MHz ref clock in H8 mode */
-	clk_buf_ctrl(CLK_BUF_UFS, false);
 	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
-#endif
+
 #ifdef SPM_READY
 	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
 		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
