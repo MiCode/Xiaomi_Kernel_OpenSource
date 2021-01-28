@@ -35,7 +35,6 @@ int disp_mutex_trylock(struct mutex *m)
 	return ret;
 }
 
-
 int disp_sw_mutex_unlock(struct mutex *m)
 {
 	mutex_unlock(m);
@@ -55,4 +54,3 @@ long int disp_get_time_us(void)
 	do_gettimeofday(&t);
 	return (t.tv_sec & 0xFFF) * 1000000 + t.tv_usec;
 }
-

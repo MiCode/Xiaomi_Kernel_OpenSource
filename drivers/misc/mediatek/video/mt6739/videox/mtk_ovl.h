@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef __MTK_OVL_H__
 #define __MTK_OVL_H__
 #include "primary_display.h"
@@ -26,6 +25,5 @@ int ovl2mem_trigger(int blocking, void *callback, unsigned int userdata);
 void ovl2mem_wait_done(void);
 int ovl2mem_deinit(void);
 int ovl2mem_get_max_layer(void);
-
 
 #endif
