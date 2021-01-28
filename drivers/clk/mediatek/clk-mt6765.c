@@ -1277,9 +1277,11 @@ static int clk_mt6765_apmixed_probe(struct platform_device *pdev)
 		ARRAY_SIZE(apmixed_clks), clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
+		kfree(clk_data);
 		pr_err("%s(): could not register clock provider: %d\n",
 				__func__, r);
+	}
 
 	apmixed_base = base;
 
@@ -1323,9 +1325,11 @@ static int clk_mt6765_top_probe(struct platform_device *pdev)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
+		kfree(clk_data);
 		pr_err("%s(): could not register clock provider: %d\n",
 				__func__, r);
+	}
 
 	cksys_base = base;
 	/* [4]:no need */
@@ -1350,9 +1354,11 @@ static int clk_mt6765_ifr_probe(struct platform_device *pdev)
 		ARRAY_SIZE(ifr_clks), clk_data);
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
+		kfree(clk_data);
 		pr_err("%s(): could not register clock provider: %d\n",
 				__func__, r);
+	}
 
 	return r;
 }

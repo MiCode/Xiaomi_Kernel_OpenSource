@@ -3060,8 +3060,9 @@ static int clk_mt6765_scpsys_probe(struct platform_device *pdev)
 
 	ret = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 	if (ret) {
+		kfree(clk_data);
 		pr_err("[CCF] %s:could not register clock provide\n",
-			__func__);
+				__func__);
 
 		return ret;
 	}

@@ -7,6 +7,7 @@
 #include <linux/clk-provider.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/slab.h>
 
 #include "clk-mtk.h"
 #include "clk-gate.h"
@@ -48,9 +49,11 @@ static int clk_mt6765_mipi0a_probe(struct platform_device *pdev)
 
 	r = of_clk_add_provider(node, of_clk_src_onecell_get, clk_data);
 
-	if (r)
+	if (r) {
+		kfree(clk_data);
 		pr_err("%s(): could not register clock provider: %d\n",
-		       __func__, r);
+				__func__, r);
+	}
 
 	return r;
 }
