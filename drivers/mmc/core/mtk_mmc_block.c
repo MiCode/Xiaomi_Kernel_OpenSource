@@ -675,7 +675,7 @@ void mt_biolog_cqhci_queue_task(struct mmc_host *host,
 	u32 req_flags;
 	unsigned long flags;
 
-	if (!req)
+	if (!req || !req->data)
 		return;
 
 	req_flags = req->data->flags;
