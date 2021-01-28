@@ -30,6 +30,8 @@ int m4u_alloc_mva(struct m4u_client_t *client, M4U_PORT_ID port,
 int m4u_dealloc_mva(struct m4u_client_t *client,
 	M4U_PORT_ID port, unsigned int mva);
 
+int m4u_gz_sec_init(int mtk_iommu_sec_id);
+
 int m4u_config_port(struct m4u_port_config_struct *pM4uPort);
 int m4u_config_port_array(struct m4u_port_array *port_array);
 int m4u_monitor_start(int m4u_id);
