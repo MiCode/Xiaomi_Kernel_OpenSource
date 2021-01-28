@@ -37,6 +37,7 @@
 
 static struct SENINF gseninf;
 
+#ifdef DUMP_SENINF_REG
 MINT32 seninf_dump_reg(void)
 {
 	int i = 0;
@@ -110,11 +111,11 @@ MINT32 seninf_dump_reg(void)
 
 	return 0;
 }
+#endif
 
-#undef DUMP_SENINF_REG
 static irqreturn_t seninf_irq(MINT32 Irq, void *DeviceId)
 {
-#if DUMP_SENINF_REG
+#ifdef DUMP_SENINF_REG
 	seninf_dump_reg();
 #endif
 	return IRQ_HANDLED;

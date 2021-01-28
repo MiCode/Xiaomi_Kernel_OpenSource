@@ -373,7 +373,6 @@ static void write_cmos_sensor_8(kal_uint16 addr, kal_uint8 para)
 	iWriteRegI2C(pusendcmd, 3, imgsensor.i2c_write_id);
 }
 
-#if MULTI_WRITE
 static kal_uint16 imx519_table_write_cmos_sensor(kal_uint16 *para,
 						 kal_uint32 len)
 {
@@ -3414,7 +3413,7 @@ static kal_uint32 feature_control(MSDK_SENSOR_FEATURE_ENUM feature_id,
 
 	/*LOG_INF("feature_id = %d\n", feature_id);*/
 	switch (feature_id) {
-	case SENOSR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
+	case SENSOR_FEATURE_GET_OFFSET_TO_START_OF_EXPOSURE:
 		*(MUINT32 *)(uintptr_t)(*(feature_data + 1)) = 3000000;
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
