@@ -19,7 +19,6 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/geniezone/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/memory-ssmr
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/public
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/trusted_mem/ssmr
-ccflags-y += -I$(srctree)/drivers/misc/mediatek/base/power/mcdi/include
 
 
 $(info ************  drivers/trusty/mtee-kree mk ************)

@@ -51,10 +51,7 @@
 	_IO(MTEE_IOC_MAGIC, 16)
 #define MTEE_CMD_FOD_TEE_SHM_OFF                                               \
 	_IO(MTEE_IOC_MAGIC, 17)
-#define MTEE_CMD_DEEP_IDLE_MASK                                                \
-	_IO(MTEE_IOC_MAGIC, 19)
-#define MTEE_CMD_DEEP_IDLE_UNMASK                                              \
-	_IO(MTEE_IOC_MAGIC, 20)
+
 
 
 

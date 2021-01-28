@@ -36,7 +36,6 @@
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
 #include "unittest.h"
-#include <mtk_mcdi_api.h>
 
 #define enable_code 0 /*replace #if 0*/
 
@@ -686,74 +685,13 @@ int gz_do_m4u_umap(KREE_SHAREDMEM_HANDLE handle)
 }
 #endif
 
-static LIST_HEAD(fp_deepidle_list);
-
-struct deepidle_counter_state {
-	uint64_t fp;
-	uint32_t fp_mcdi_counter;
-	struct list_head node;
-};
-
-uint32_t gz_mcdi_pause_state;
-struct mutex fp_mcdi_state_mux;
-
-static int _init_deepidle_counter(struct file *fp)
-{
-	struct deepidle_counter_state *ddc_state;
-
-	ddc_state = kzalloc(sizeof(struct deepidle_counter_state), GFP_KERNEL);
-	if (!ddc_state) {
-		KREE_ERR("kzalloc deepidle_counter_state failed!\n");
-		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
-	}
-
-	mutex_lock(&fp_mcdi_state_mux);
-	ddc_state->fp = (uint64_t)fp;
-	ddc_state->fp_mcdi_counter = 0;
-	list_add_tail(&ddc_state->node, &fp_deepidle_list);
-	mutex_unlock(&fp_mcdi_state_mux);
-
-	return TZ_RESULT_SUCCESS;
-}
-
-static void _free_deepidle_counter(struct file *fp)
-{
-	struct deepidle_counter_state *ddc_state;
-
-	mutex_lock(&fp_mcdi_state_mux);
-
-	list_for_each_entry(ddc_state, &fp_deepidle_list, node) {
-		if (ddc_state->fp == (uint64_t)fp) {
-			list_del(&ddc_state->node);
-			kfree(ddc_state);
-			break;
-		}
-	}
-
-	if (list_empty_careful(&fp_deepidle_list) && gz_mcdi_pause_state != 0) {
-		mcdi_pause(MCDI_PAUSE_BY_GZ, false);
-		gz_mcdi_pause_state = 0;
-	}
-
-	mutex_unlock(&fp_mcdi_state_mux);
-}
-
-
 static int gz_dev_open(struct inode *inode, struct file *filp)
 {
-	int rc = 0;
-
-	rc = _init_deepidle_counter(filp);
-	if (rc) {
-		KREE_ERR("_init_deepidle_counter failed, rc (%d)\n", rc);
-		return rc;
-	}
 	return _init_session_info(filp);
 }
 
 static int gz_dev_release(struct inode *inode, struct file *filp)
 {
-	_free_deepidle_counter(filp);
 	return _free_session_info(filp);
 }
 
@@ -1252,62 +1190,6 @@ static long _sc_test_upt_chmdata(struct file *filep, unsigned long arg)
 	return ret;
 }
 
-TZ_RESULT gz_deep_idle_mask(struct file *fp)
-{
-	struct deepidle_counter_state *ddc_state;
-
-	mutex_lock(&fp_mcdi_state_mux);
-
-	if (gz_mcdi_pause_state == 0)
-		mcdi_pause(MCDI_PAUSE_BY_GZ, true);
-	else
-		KREE_INFO("mcdi already disable!!!!!!!\n");
-
-	list_for_each_entry(ddc_state, &fp_deepidle_list, node) {
-		if (ddc_state->fp == (uint64_t)fp) {
-			ddc_state->fp_mcdi_counter++;
-			gz_mcdi_pause_state++;
-			break;
-		}
-	}
-	mutex_unlock(&fp_mcdi_state_mux);
-
-	return TZ_RESULT_SUCCESS;
-}
-
-TZ_RESULT gz_deep_idle_unmask(struct file *fp)
-{
-	TZ_RESULT rc = TZ_RESULT_SUCCESS;
-	struct deepidle_counter_state *ddc_state;
-	uint32_t tmp_counter = 0;
-
-	mutex_lock(&fp_mcdi_state_mux);
-
-	if (gz_mcdi_pause_state == 0) {
-		KREE_INFO("mcdi already enable!!!!!!!\n");
-		rc = TZ_RESULT_ERROR_BAD_STATE;
-		goto _err_mcdi_state;
-	}
-
-	list_for_each_entry(ddc_state, &fp_deepidle_list, node) {
-		if (ddc_state->fp == (uint64_t)fp) {
-			ddc_state->fp_mcdi_counter--;
-			gz_mcdi_pause_state--;
-		}
-		tmp_counter += ddc_state->fp_mcdi_counter;
-	}
-
-	if (tmp_counter == 0) {
-		mcdi_pause(MCDI_PAUSE_BY_GZ, false);
-		gz_mcdi_pause_state = 0;
-	}
-
-_err_mcdi_state:
-	mutex_unlock(&fp_mcdi_state_mux);
-
-	return rc;
-}
-
 static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	unsigned int compat)
 {
@@ -1495,14 +1377,6 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 		break;
 #endif
 
-	case MTEE_CMD_DEEP_IDLE_MASK:
-		ret = gz_deep_idle_mask(filep);
-		break;
-
-	case MTEE_CMD_DEEP_IDLE_UNMASK:
-		ret = gz_deep_idle_unmask(filep);
-		break;
-
 	default:
 		KREE_ERR("[%s] undefined ioctl cmd 0x%x\n", __func__, cmd);
 		ret = -EINVAL;
@@ -1660,8 +1534,6 @@ static int __init gz_init(void)
 			wake_up_process(ree_dummy_task);
 		}
 	}
-
-	mutex_init(&fp_mcdi_state_mux);
 
 #if enable_code
 
