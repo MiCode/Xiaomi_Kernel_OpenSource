@@ -186,7 +186,7 @@ EXPORT_SYMBOL(devmpu_print_violation);
 /* sysfs */
 static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
 {
-	size_t ret;
+	struct arm_smccc_res res;
 
 	if (unlikely(
 			pa < devmpu_ctx->prot_base
@@ -202,13 +202,16 @@ static int devmpu_rw_perm_get(uint64_t pa, size_t *rd_perm, size_t *wr_perm)
 		return -1;
 	}
 
-	ret = mt_secure_call_ret3(MTK_SIP_KERNEL_DEVMPU_PERM_GET,
-			pa, 0, 0, 0, rd_perm, wr_perm);
-	if (ret == (size_t)(-1)) {
-		pr_err("%s:%d failed to get permission, SMC ret=%zd\n",
-				__func__, __LINE__, ret);
+	arm_smccc_smc(MTK_SIP_KERNEL_DEVMPU_PERM_GET,
+			pa, 0, 0, 0, 0, 0, 0, &res);
+	if (res.a0) {
+		pr_err("%s:%d failed to get permission, ret=0x%lx\n",
+				__func__, __LINE__, res.a0);
 		return -1;
 	}
+
+	*rd_perm = (size_t)res.a1;
+	*wr_perm = (size_t)res.a2;
 
 	return 0;
 }
