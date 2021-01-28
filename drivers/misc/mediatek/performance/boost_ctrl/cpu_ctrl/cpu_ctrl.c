@@ -43,6 +43,7 @@ static int log_enable;
 static unsigned long *policy_mask;
 static int num_cpu;
 static int *cpu_isolation[CPU_ISO_MAX_KIR];
+static int perfserv_isolation_cpu;
 
 #ifdef CONFIG_MTK_CPU_CTRL_CFP
 static int cfp_init_ret;
@@ -468,11 +469,42 @@ static int perfmgr_perfmgr_log_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+/*******************************************/
+static ssize_t perfmgr_perfserv_iso_cpu_proc_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *pos)
+{
+	int i, data = 0;
+
+	int rv = check_proc_write(&data, ubuf, cnt);
+
+	if (rv != 0)
+		return rv;
+
+	perfserv_isolation_cpu = data;
+
+	for (i = 0; i < num_cpu; i++) {
+		if ((perfserv_isolation_cpu & (1 << i)) > 0)
+			update_isolation_cpu(CPU_ISO_KIR_PERF, 1, i);
+		else
+			update_isolation_cpu(CPU_ISO_KIR_PERF, 0, i);
+	}
+
+	return cnt;
+}
+
+static int perfmgr_perfserv_iso_cpu_proc_show(struct seq_file *m, void *v)
+{
+	if (m)
+		seq_printf(m, "0x%x\n", perfserv_isolation_cpu);
+	return 0;
+}
+
 
 PROC_FOPS_RW(perfserv_freq);
 PROC_FOPS_RW(boot_freq);
 PROC_FOPS_RO(current_freq);
 PROC_FOPS_RW(perfmgr_log);
+PROC_FOPS_RW(perfserv_iso_cpu);
 
 /************************************************/
 int cpu_ctrl_init(struct proc_dir_entry *parent)
@@ -490,6 +522,7 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 		PROC_ENTRY(boot_freq),
 		PROC_ENTRY(current_freq),
 		PROC_ENTRY(perfmgr_log),
+		PROC_ENTRY(perfserv_iso_cpu),
 	};
 	mutex_init(&boost_freq);
 
@@ -545,6 +578,9 @@ int cpu_ctrl_init(struct proc_dir_entry *parent)
 		for (j = 0; j < num_cpu; j++)
 			cpu_isolation[i][j] = -1;
 	}
+
+	perfserv_isolation_cpu = 0;
+
 out:
 	return ret;
 
