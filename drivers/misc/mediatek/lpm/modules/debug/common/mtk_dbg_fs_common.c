@@ -71,7 +71,7 @@ static void mtk_dbg_idle_fs_init(void)
 }
 
 
-static struct wakeup_source mtk_suspend_lock;
+static struct wakeup_source *mtk_suspend_lock;
 
 /* debugfs for blocking syscore callback */
 static int spm_syscore_block_suspend(void) { return -EINVAL; }
@@ -123,10 +123,10 @@ static ssize_t mtk_dbg_suspend_state_write(char *FromUser,
 		if (!strcmp(cmd, "kernel_suspend")) {
 			/* 0:require wakelock */
 			if (!param)
-				__pm_stay_awake(&mtk_suspend_lock);
+				__pm_stay_awake(mtk_suspend_lock);
 			/* 1:release wakelock */
 			else
-				__pm_relax(&mtk_suspend_lock);
+				__pm_relax(mtk_suspend_lock);
 		} else if (!strcmp(cmd, "mtk_suspend")) {
 			/* 0:block in syscore */
 			if (!param)
@@ -260,8 +260,7 @@ static void __exit mtk_dbg_common_fs_exit(void)
 	console_suspend_enabled = mtk_system_console_suspend;
 
 	/* wakeup source deinit */
-	wakeup_source_trash(&mtk_suspend_lock);
-
+	wakeup_source_unregister(mtk_suspend_lock);
 	/* remove syscore callback */
 	unregister_syscore_ops(&spm_block_syscore_ops);
 	unregister_syscore_ops(&spm_dbg_syscore_ops);
@@ -270,8 +269,11 @@ static void __exit mtk_dbg_common_fs_exit(void)
 static int __init mtk_dbg_common_fs_init(void)
 {
 	/* wakeup source init for suspend enable and disable */
-	wakeup_source_init(&mtk_suspend_lock, "mtk_suspend_wakelock");
-
+	mtk_suspend_lock = wakeup_source_register("mtk_suspend_wakelock");
+	if (!mtk_suspend_lock) {
+		pr_info("%s %d: init wakeup source fail!", __func__, __LINE__);
+		return -1;
+	}
 	/* backup and disable suspend console (enable log print) */
 	mtk_system_console_suspend = console_suspend_enabled;
 	console_suspend_enabled = false;
