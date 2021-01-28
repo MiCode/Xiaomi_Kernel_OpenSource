@@ -4079,6 +4079,18 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		sleep = <&sleep>;
 	};
 
+	nfc:nfc {
+		compatible = "mediatek,nfc-gpio-v2";
+		gpio-rst = <36>;
+		gpio-rst-std = <&pio 36 0x0>;
+		gpio-irq = <35>;
+		gpio-irq-std = <&pio 35 0x0>;
+	};
+
+	irq_nfc: irq_nfc {
+		compatible = "mediatek,irq_nfc-eint";
+	};
+
 	bat_gm30: battery {
 		compatible = "mediatek,bat_gm30";
 	};
