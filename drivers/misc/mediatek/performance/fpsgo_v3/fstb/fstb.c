@@ -30,7 +30,7 @@
 
 
 #define API_READY 0
-#ifdef CONFIG_MTK_GPU_SUPPORT
+#if IS_ENABLED(CONFIG_MTK_GPU_SUPPORT)
 #include "ged_kpi.h"
 #endif
 
