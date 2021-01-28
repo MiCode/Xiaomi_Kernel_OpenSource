@@ -3098,10 +3098,12 @@ enum m4u_callback_ret_t FDVT_M4U_TranslationFault_callback(int port,
 	pr_info("[FDVT_M4U]fault call port=%d, mva=0x%x", port, mva);
 
 	switch (port) {
+#if 0
 	case M4U_PORT_FDVT_RDA:
 	case M4U_PORT_FDVT_RDB:
 	case M4U_PORT_FDVT_WRA:
 	case M4U_PORT_FDVT_WRB:
+#endif
 	default: //ISP_FDVT_BASE = 0x1b001000
 		pr_info("FDVT_IN_BASE_ADR_0:0x%08x, FDVT_IN_BASE_ADR_1:0x%08x, FDVT_IN_BASE_ADR_2:0x%08x, FDVT_IN_BASE_ADR_3:0x%08x\n",
 			FDVT_RD32(FDVT_IN_BASE_ADR_0_REG),
@@ -3987,6 +3989,7 @@ static signed int __init FDVT_Init(void)
 			   FDVT_ClockOffCallback);
 #endif
 
+#if 0
 #ifdef CONFIG_MTK_IOMMU_V2
 	mtk_iommu_register_fault_callback(M4U_PORT_FDVT_RDA,
 					  FDVT_M4U_TranslationFault_callback,
@@ -4009,6 +4012,7 @@ static signed int __init FDVT_Init(void)
 				    FDVT_M4U_TranslationFault_callback, NULL);
 	m4u_register_fault_callback(M4U_PORT_FDVT_WRB,
 				    FDVT_M4U_TranslationFault_callback, NULL);
+#endif
 #endif
 
 	log_dbg("- X. ret: %d.", ret);
