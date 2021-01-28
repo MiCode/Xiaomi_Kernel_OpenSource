@@ -13,16 +13,16 @@
 #ifdef CONFIG_MTK_AEE_FEATURE
 #define vcu_aee_print(string, args...) do {\
 	char vcu_name[100];\
-	snprintf(vcu_name, 100, "[VCU] "string, ##args); \
-	aee_kernel_warning_api(__FILE__, __LINE__, \
-		DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
-		vcu_name, "[VCU] error:"string, ##args); \
+	int ret;\
+	ret = snprintf(vcu_name, 100, "[VCU] "string, ##args); \
+	if (ret > 0)\
+		aee_kernel_warning_api(__FILE__, __LINE__, \
+			DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
+			vcu_name, "[VCU] error:"string, ##args); \
 	pr_info("[VCU] error:"string, ##args);  \
 	} while (0)
 #else
 #define vcu_aee_print(string, args...) do {\
-		char vcu_name[100];\
-		snprintf(vcu_name, 100, "[VCU] "string, ##args); \
 		pr_info("[VCU] error:"string, ##args);  \
 	} while (0)
 
@@ -283,12 +283,12 @@ int vcu_set_codec_ctx(struct platform_device *pdev,
 int vcu_clear_codec_ctx(struct platform_device *pdev,
 		 void *codec_ctx, unsigned long type);
 extern void venc_encode_prepare(void *ctx_prepare,
-		int core_id, unsigned long *flags);
+		unsigned int core_id, unsigned long *flags);
 extern void venc_encode_unprepare(void *ctx_prepare,
-		int core_id, unsigned long *flags);
+		unsigned int core_id, unsigned long *flags);
 extern void venc_encode_pmqos_gce_begin(void *ctx_begin,
-		int core_id, int job_cnt);
+		unsigned int core_id, int job_cnt);
 extern void venc_encode_pmqos_gce_end(void *ctx_end,
-		int core_id, int job_cnt);
+		unsigned int core_id, int job_cnt);
 extern void mtk_vcodec_gce_timeout_dump(void *ctx);
 #endif /* _MTK_VCU_H */

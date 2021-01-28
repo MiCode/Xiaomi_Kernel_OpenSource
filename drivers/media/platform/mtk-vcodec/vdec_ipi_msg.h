@@ -309,10 +309,10 @@ struct vdec_ipi_fb {
  */
 struct ring_bs_list {
 	__u64 vdec_bs_va_list[DEC_MAX_BS_NUM];
-	__s32 read_idx;
-	__s32 write_idx;
-	__s32 count;
-	__s32 reserved;
+	__u32 read_idx;
+	__u32 write_idx;
+	__u32 count;
+	__u32 reserved;
 };
 
 /**
@@ -324,10 +324,10 @@ struct ring_bs_list {
  */
 struct ring_fb_list {
 	struct vdec_ipi_fb fb_list[DEC_MAX_FB_NUM];
-	__s32 read_idx;
-	__s32 write_idx;
-	__s32 count;
-	__s32 reserved;
+	__u32 read_idx;
+	__u32 write_idx;
+	__u32 count;
+	__u32 reserved;
 };
 
 /**

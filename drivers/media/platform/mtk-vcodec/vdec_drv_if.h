@@ -98,8 +98,8 @@ int vdec_if_set_param(struct mtk_vcodec_ctx *ctx,
 
 
 void vdec_decode_prepare(void *ctx_prepare,
-	int hw_id);
+	unsigned int hw_id);
 void vdec_decode_unprepare(void *ctx_unprepare,
-	int hw_id);
+	unsigned int hw_id);
 
 #endif

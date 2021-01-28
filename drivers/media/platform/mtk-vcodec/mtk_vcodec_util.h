@@ -104,16 +104,16 @@ extern bool mtk_vcodec_perf;
 #ifdef CONFIG_MTK_AEE_FEATURE
 #define v4l2_aee_print(string, args...) do {\
 	char vcu_name[100];\
-	snprintf(vcu_name, 100, "[MTK_V4L2] "string, ##args); \
-	aee_kernel_warning_api(__FILE__, __LINE__, \
-		DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
-		vcu_name, "[MTK_V4L2] error:"string, ##args); \
+	int ret;\
+	ret = snprintf(vcu_name, 100, "[MTK_V4L2] "string, ##args); \
+	if (ret > 0)\
+		aee_kernel_warning_api(__FILE__, __LINE__, \
+			DB_OPT_MMPROFILE_BUFFER | DB_OPT_NE_JBT_TRACES, \
+			vcu_name, "[MTK_V4L2] error:"string, ##args); \
 	pr_info("[MTK_V4L2] error:"string, ##args);  \
 	} while (0)
 #else
 #define v4l2_aee_print(string, args...) do {\
-		char vcu_name[100];\
-		snprintf(vcu_name, 100, "[MTK_V4L2] "string, ##args); \
 		pr_info("[MTK_V4L2] error:"string, ##args);  \
 	} while (0)
 
@@ -143,9 +143,9 @@ int mtk_vcodec_mem_alloc(struct mtk_vcodec_ctx *data,
 void mtk_vcodec_mem_free(struct mtk_vcodec_ctx *data,
 	struct mtk_vcodec_mem *mem);
 void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
-	struct mtk_vcodec_ctx *ctx, int hw_id);
+	struct mtk_vcodec_ctx *ctx, unsigned int hw_id);
 struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
-	int hw_id);
+	unsigned int hw_id);
 struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx);
 int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type);
 void mtk_enc_put_buf(struct mtk_vcodec_ctx *ctx);

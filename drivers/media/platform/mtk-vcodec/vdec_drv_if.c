@@ -181,12 +181,12 @@ void vdec_if_deinit(struct mtk_vcodec_ctx *ctx)
 }
 
 void vdec_decode_prepare(void *ctx_prepare,
-	int hw_id)
+	unsigned int hw_id)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
 	int ret;
 
-	if (ctx == NULL)
+	if (ctx == NULL || hw_id >= MTK_VDEC_HW_NUM)
 		return;
 
 	mtk_vdec_pmqos_prelock(ctx, hw_id);
@@ -202,11 +202,11 @@ void vdec_decode_prepare(void *ctx_prepare,
 EXPORT_SYMBOL_GPL(vdec_decode_prepare);
 
 void vdec_decode_unprepare(void *ctx_unprepare,
-	int hw_id)
+	unsigned int hw_id)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
-	if (ctx == NULL)
+	if (ctx == NULL || hw_id >= MTK_VDEC_HW_NUM)
 		return;
 
 	if (ctx->dev->dec_sem[hw_id].count != 0) {

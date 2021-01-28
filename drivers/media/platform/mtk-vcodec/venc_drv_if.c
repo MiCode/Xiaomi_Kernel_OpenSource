@@ -102,11 +102,12 @@ int venc_if_set_param(struct mtk_vcodec_ctx *ctx,
 	return ret;
 }
 
-void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
+void venc_encode_prepare(void *ctx_prepare,
+	unsigned int core_id, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
 
-	if (ctx == NULL)
+	if (ctx == NULL || core_id >= MTK_VENC_HW_NUM)
 		return;
 
 	mtk_venc_pmqos_prelock(ctx, core_id);
@@ -120,11 +121,11 @@ void venc_encode_prepare(void *ctx_prepare, int core_id, unsigned long *flags)
 EXPORT_SYMBOL_GPL(venc_encode_prepare);
 
 void venc_encode_unprepare(void *ctx_unprepare,
-	int core_id, unsigned long *flags)
+	unsigned int core_id, unsigned long *flags)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_unprepare;
 
-	if (ctx == NULL)
+	if (ctx == NULL || core_id >= MTK_VENC_HW_NUM)
 		return;
 
 	if (ctx->dev->enc_sem[core_id].count != 0) {
@@ -142,13 +143,15 @@ void venc_encode_unprepare(void *ctx_unprepare,
 }
 EXPORT_SYMBOL_GPL(venc_encode_unprepare);
 
-void venc_encode_pmqos_gce_begin(void *ctx_begin, int core_id, int job_cnt)
+void venc_encode_pmqos_gce_begin(void *ctx_begin,
+	unsigned int core_id, int job_cnt)
 {
 	mtk_venc_pmqos_gce_flush(ctx_begin, core_id, job_cnt);
 }
 EXPORT_SYMBOL_GPL(venc_encode_pmqos_gce_begin);
 
-void venc_encode_pmqos_gce_end(void *ctx_end, int core_id, int job_cnt)
+void venc_encode_pmqos_gce_end(void *ctx_end,
+	unsigned int core_id, int job_cnt)
 {
 	mtk_venc_pmqos_gce_done(ctx_end, core_id, job_cnt);
 }

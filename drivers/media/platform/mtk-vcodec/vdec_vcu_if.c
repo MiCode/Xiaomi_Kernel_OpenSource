@@ -522,6 +522,11 @@ int vcu_dec_query_cap(struct vdec_vcu_inst *vcu, unsigned int id, void *out)
 
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_DEC_QUERY_CAP);
 	vcu->dev = vcu_get_plat_device(vcu->ctx->dev->plat_dev);
+	if (vcu->dev  == NULL) {
+		mtk_vcodec_err(vcu, "vcu device in not ready");
+		return -EPROBE_DEFER;
+	}
+
 	vcu->id = (vcu->id == IPI_VCU_INIT) ? IPI_VDEC_COMMON : vcu->id;
 	vcu->handler = vcu_dec_ipi_handler;
 

@@ -88,7 +88,6 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	if (!inst)
 		return -ENOMEM;
 	if (!ctx) {
-		mtk_vcodec_err(inst, "ctx is NULL");
 		err = -ENOMEM;
 		goto error_free_inst;
 	}
@@ -160,6 +159,11 @@ static int vdec_init(struct mtk_vcodec_ctx *ctx, unsigned long *h_vdec)
 	}
 
 	inst->vcu.dev = vcu_get_plat_device(ctx->dev->plat_dev);
+	if (inst->vcu.dev  == NULL) {
+		mtk_vcodec_err(inst, "vcu device in not ready");
+		goto error_free_inst;
+	}
+
 	inst->vcu.ctx = ctx;
 	inst->vcu.handler = vcu_dec_ipi_handler;
 

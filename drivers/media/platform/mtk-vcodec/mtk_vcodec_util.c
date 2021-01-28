@@ -106,7 +106,7 @@ void mtk_vcodec_mem_free(struct mtk_vcodec_ctx *data,
 EXPORT_SYMBOL(mtk_vcodec_mem_free);
 
 void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
-	struct mtk_vcodec_ctx *ctx, int hw_id)
+	struct mtk_vcodec_ctx *ctx, unsigned int hw_id)
 {
 	unsigned long flags;
 
@@ -117,7 +117,7 @@ void mtk_vcodec_set_curr_ctx(struct mtk_vcodec_dev *dev,
 EXPORT_SYMBOL(mtk_vcodec_set_curr_ctx);
 
 struct mtk_vcodec_ctx *mtk_vcodec_get_curr_ctx(struct mtk_vcodec_dev *dev,
-	int hw_id)
+	unsigned int hw_id)
 {
 	unsigned long flags;
 	struct mtk_vcodec_ctx *ctx;
@@ -182,10 +182,10 @@ struct vdec_fb *mtk_vcodec_get_fb(struct mtk_vcodec_ctx *ctx)
 		dst_buf_info->used = true;
 		mutex_unlock(&ctx->buf_lock);
 		dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
-		mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n", ctx->id,
-			dst_buf->index,
-			v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx));
-
+		if (dst_buf != NULL)
+			mtk_v4l2_debug(8, "[%d] index=%d, num_rdy_bufs=%d\n",
+				ctx->id, dst_buf->index,
+				v4l2_m2m_num_dst_bufs_ready(ctx->m2m_ctx));
 	} else {
 		mtk_v4l2_err("[%d] No free framebuffer in v4l2!!\n", ctx->id);
 		pfb = NULL;
