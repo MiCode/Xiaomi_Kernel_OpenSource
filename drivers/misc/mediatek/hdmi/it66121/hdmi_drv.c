@@ -51,7 +51,7 @@
 #include <linux/kthread.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
-#include <linux/sched.h>
+/*#include <linux/sched.h>*/
 #include <linux/time.h>
 /* #include <linux/rtpm_prio.h> */
 #include <linux/completion.h>
@@ -85,6 +85,7 @@
 /* #include <mach/mt_typedefs.h> */
 /* #include <mach/mt_gpio.h> */
 /* #include <mach/mt_pm_ldo.h> */
+#include <uapi/linux/sched/types.h>
 
 #define FALLING_EDGE_TRIGGER
 
@@ -132,21 +133,48 @@ unsigned char hdmi_powerenable = 0xff;
 static struct pinctrl *hdmi_pinctrl;
 static struct pinctrl_state *pins_hdmi_func;
 static struct pinctrl_state *pins_hdmi_gpio;
+/*
+ *static const struct i2c_device_id hdmi_ite_id[] = {{DEVICE_NAME, 0}, {} };
+ *
+ *static struct i2c_driver hdmi_ite_i2c_driver = {
+ *	.probe = hdmi_ite_probe,
+ *	.remove = NULL,
+ *	.driver = {
+ *
+ *			.name = DEVICE_NAME,
+ *		},
+ *	.id_table = hdmi_ite_id,
+ *};
+ */
+	static const struct i2c_device_id hdmi_ite_id[] = {
+		{DEVICE_NAME, 0},
+		{},
+	};
+	MODULE_DEVICE_TABLE(i2c, hdmi_ite_id);
 
-static const struct i2c_device_id hdmi_ite_id[] = {{DEVICE_NAME, 0}, {} };
+	static const struct of_device_id hdmi_ite_of_match[] = {
+		{.compatible = "ite,it66121-i2c"},
+		{.compatible = "ite,it6620-basic-i2c"},
+		{.compatible = "ite,it6620-cec-i2c"},
+		{.compatible = "ite,it6620-cap-i2c"},
+		{},
+	};
+	MODULE_DEVICE_TABLE(of, hdmi_ite_of_match);
 
-static struct i2c_driver hdmi_ite_i2c_driver = {
-	.probe = hdmi_ite_probe,
-	.remove = NULL,
-	.driver = {
-
-			.name = DEVICE_NAME,
+	static struct i2c_driver hdmi_ite_i2c_driver = {
+		.probe = hdmi_ite_probe,
+		.remove = NULL,
+		.driver = { .name = DEVICE_NAME,
+					.of_match_table = hdmi_ite_of_match,
+					.owner = THIS_MODULE,
 		},
-	.id_table = hdmi_ite_id,
-};
+		.id_table = hdmi_ite_id,
+	};
 
-static struct i2c_board_info it66121_i2c_hdmi __initdata = {I2C_BOARD_INFO(
-	DEVICE_NAME, (HDMI_TX_I2C_SLAVE_ADDR >> 1) + IT66121_plus)};
+/*
+ *static struct i2c_board_info it66121_i2c_hdmi __initdata = {I2C_BOARD_INFO(
+ *	DEVICE_NAME, (HDMI_TX_I2C_SLAVE_ADDR >> 1) + IT66121_plus)};
+ */
 
 /* static struct it66121_i2c_data *obj_i2c_data = NULL; */
 
@@ -157,20 +185,25 @@ static struct task_struct *hdmi_timer_task;
 wait_queue_head_t hdmi_timer_wq;
 atomic_t hdmi_timer_event = ATOMIC_INIT(0);
 
-static int match_id(const struct i2c_device_id *id,
-		    const struct i2c_client *client)
-{
-	if (strcmp(client->name, id->name) == 0)
-		return true;
+struct regulator *hdmi_vcn33, *hdmi_vcn18, *hdmi_vrf12, *hdmi_vsim1;
 
-	return false;
-}
 
+/*
+ *static int match_id(const struct i2c_device_id *id,
+ *		    const struct i2c_client *client)
+ *{
+ *	if (strcmp(client->name, id->name) == 0)
+ *		return true;
+ *
+ *	return false;
+ *}
+ */
 void HDMI_reset(void)
 {
 
 	struct device_node *dn;
 	int bus_switch_pin;
+	int ret;
 
 	IT66121_LOG("hdmi_ite66121 %s\n", __func__);
 
@@ -201,6 +234,10 @@ void HDMI_reset(void)
 	msleep(20);
 
 	gpio_direction_output(bus_switch_pin, 1);
+
+	ret = regulator_enable(hdmi_vsim1);
+	if (ret != 0)
+		IT66121_LOG("hdmi +5V regolator error\n");
 #endif
 	IT66121_LOG("<<HDMI_Reset\n");
 }
@@ -210,7 +247,6 @@ int it66121_i2c_read_byte(u8 addr, u8 *data)
 	u8 buf;
 	int ret = 0;
 	struct i2c_client *client = it66121_i2c_client;
-
 	if (hdmi_powerenable == 1) {
 		buf = addr;
 		ret = i2c_master_send(client, (const char *)&buf, 1);
@@ -243,7 +279,6 @@ int it66121_i2c_write_byte(u8 addr, u8 data)
 	struct i2c_client *client = it66121_i2c_client;
 	u8 buf[] = {addr, data};
 	int ret = 0;
-
 	if (hdmi_powerenable == 1) {
 		ret = i2c_master_send(client, (const char *)buf, sizeof(buf));
 		if (ret < 0) {
@@ -359,7 +394,7 @@ int it66121_power_on(void)
 	/* To Do */
 	/* Reset The it66121 IC */
 	HDMI_reset();
-	msleep(100);
+	msleep(20);
 	/* This leave for it66121 internal init function */
 	InitHDMITX_Variable();
 	InitHDMITX();
@@ -512,7 +547,7 @@ static int it66121_video_config(enum HDMI_VIDEO_RESOLUTION vformat,
 
 	HDMI_Video_Type it66121_video_type = HDMI_480i60_16x9;
 
-	IT66121_LOG(">>> %s,\n", __func__);
+	IT66121_LOG(">>> %s vformat:0x%x\n", __func__, vformat);
 
 	if (vformat == HDMI_VIDEO_720x480p_60Hz)
 		it66121_video_type = HDMI_480p60;
@@ -526,7 +561,9 @@ static int it66121_video_config(enum HDMI_VIDEO_RESOLUTION vformat,
 	}
 
 	HDMITX_ChangeDisplayOption(it66121_video_type, HDMI_RGB444);
-	HDMITX_SetOutput();
+	/*mutex_lock(&mt66121_mutex_lock);*/
+	/*HDMITX_SetOutput();*/
+	/*mutex_unlock(&mt66121_mutex_lock);*/
 
 	IT66121_LOG("<<< %s,\n", __func__);
 
@@ -634,7 +671,7 @@ static void it66121_get_params(struct HDMI_PARAMS *params)
 		break;
 	}
 
-	params->init_config.aformat = HDMI_AUDIO_PCM_16bit_48000;
+	params->init_config.aformat = HDMI_AUDIO_48K_2CH;
 	params->rgb_order = HDMI_COLOR_ORDER_RGB;
 	params->io_driving_current = IO_DRIVING_CURRENT_2MA;
 	params->intermediat_buffer_num = 4;
@@ -739,14 +776,14 @@ static int hdmi_i2c_probe(struct i2c_client *client,
 static int hdmi_ite_probe(struct i2c_client *client,
 			  const struct i2c_device_id *id)
 {
-	int ret = 0;
+	//int ret = 0;
 
 	IT66121_LOG(">>%s\n", __func__);
 	/* static struct mxc_lcd_platform_data *plat_data; */
 	if (!i2c_check_functionality(client->adapter,
 				     I2C_FUNC_SMBUS_BYTE | I2C_FUNC_I2C))
 		return -ENODEV;
-
+#if 0
 	if (match_id(&hdmi_ite_id[0], client)) {
 
 		IT66121_LOG(">>Match id Done\n");
@@ -786,10 +823,30 @@ static int hdmi_ite_probe(struct i2c_client *client,
 			"invalid i2c adapter: can not found dev_id matched\n");
 		return -EIO;
 	}
+#else
+	if (strcmp(client->name, "it66121-i2c") == 0) {
+
+		pr_debug(">>Match id Done\n");
+
+		it66121_i2c_client = client;
+
+		if (it66121_i2c_client != NULL) {
+			IT66121_LOG("======\n");
+			IT66121_LOG("IT66121 HDMI Version\n");
+			IT66121_LOG("======\n");
+
+			init_waitqueue_head(&hdmi_timer_wq);
+			hdmi_timer_task =
+			    kthread_create(hdmi_timer_kthread,
+				NULL, "hdmi_timer_kthread");
+			wake_up_process(hdmi_timer_task);
+		}
+	}
+#endif
 
 	IT66121_LOG("<<%s\n", __func__);
 
-	return ret;
+	return 0;
 }
 
 #define HDMI_MAX_INSERT_CALLBACK 10
@@ -893,7 +950,6 @@ const struct HDMI_DRIVER *HDMI_GetDriver(void)
 }
 EXPORT_SYMBOL(HDMI_GetDriver);
 
-struct regulator *hdmi_vcn33, *hdmi_vcn18, *hdmi_vrf12;
 
 int ite66121_pmic_power_on(void)
 {
@@ -931,6 +987,9 @@ int ite66121_pmic_power_off(void)
 	bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
 	gpio_direction_output(bus_switch_pin, 0);
 
+	ret = regulator_disable(hdmi_vsim1);
+	if (ret != 0)
+		IT66121_LOG("hdmi regolator error\n");
 	IT66121_LOG("%s\n", __func__);
 	return 1;
 }
@@ -941,14 +1000,13 @@ static void process_dbg_opt(const char *opt)
 {
 	unsigned int vadr_regstart, val_temp;
 	u8 val;
-	int ret;
+	int i, ret;
 	struct device_node *dn;
 	int bus_switch_pin;
 	unsigned int res;
-
-	if (strncmp(opt, "edid", 4) == 0)
+	if (strncmp(opt, "edid", 4) == 0) {
 		IT66121_LOG("resolution = 0x%x\n", sink_support_resolution);
-
+	}
 	if (strncmp(opt, "res:", 4) == 0) {
 		ret = sscanf(opt + 4, "%x", &res);
 		IT66121_LOG("hdmi %d\n", res);
@@ -957,12 +1015,14 @@ static void process_dbg_opt(const char *opt)
 				     HDMI_VOUT_FORMAT_RGB888);
 	}
 
-	if (strncmp(opt, "disable", 7) == 0)
+	if (strncmp(opt, "disable", 7) == 0) {
+		IT66121_LOG("disable vrf12\n");
 		ret = regulator_disable(hdmi_vrf12);
-
-	if (strncmp(opt, "enable", 6) == 0)
+	}
+	if (strncmp(opt, "enable", 6) == 0) {
+		IT66121_LOG("enable vrf12\n");
 		ret = regulator_enable(hdmi_vrf12);
-
+	}
 	if (strncmp(opt, "on", 2) == 0) {
 		dn = of_find_compatible_node(NULL, NULL,
 					     "mediatek,mt8183-hdmitx");
@@ -970,15 +1030,18 @@ static void process_dbg_opt(const char *opt)
 			IT66121_LOG("dn == NULL");
 		bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
 		gpio_direction_output(bus_switch_pin, 1);
+		ret = regulator_enable(hdmi_vsim1);
 	}
 
 	if (strncmp(opt, "off", 3) == 0) {
 		dn = of_find_compatible_node(NULL, NULL,
-					     "mediatek,mt8183-hdmitx");
+				"mediatek,mt8183-hdmitx");
 		if (dn == NULL)
 			IT66121_LOG("dn == NULL");
 		bus_switch_pin = of_get_named_gpio(dn, "hdmi_power_gpios", 0);
 		gpio_direction_output(bus_switch_pin, 0);
+
+		ret = regulator_disable(hdmi_vsim1);
 	}
 	if (strncmp(opt, "power_on", 8) == 0) {
 		IT66121_LOG("hdmi power_on\n");
@@ -994,11 +1057,12 @@ static void process_dbg_opt(const char *opt)
 	}
 	if (strncmp(opt, "itepower_on", 11) == 0) {
 		IT66121_LOG("hdmi it66121_power_on\n");
-		it66121_power_on();
+		ite66121_pmic_power_on();
+		HDMI_reset();
 	}
 	if (strncmp(opt, "itepower_off", 12) == 0) {
 		IT66121_LOG("hdmi it66121_power_off\n");
-		it66121_power_down();
+		ite66121_pmic_power_off();
 	}
 	if (strncmp(opt, "read:", 5) == 0) {
 		ret = sscanf(opt + 5, "%x", &vadr_regstart);
@@ -1012,6 +1076,45 @@ static void process_dbg_opt(const char *opt)
 		IT66121_LOG("w:0x%08x=0x%x\n", vadr_regstart, val);
 		it66121_i2c_write_byte(vadr_regstart, val);
 	}
+
+	if (strncmp(opt, "reg_dump", 8) == 0) {
+		IT66121_LOG("***** basic reg bank0 dump start *****\n");
+		//IT662x_eARC_RX_Bank(0);
+		Switch_HDMITX_Bank(0);
+		IT66121_LOG("|   00 01 02 03 04 05 06 07 08\n");
+		for (i = 0; i <= 248; i = i+8) {
+			IT66121_LOG("%x: %x %x %x %x %x %x %x %x\n",
+				i, HDMITX_ReadI2C_Byte(i),
+			HDMITX_ReadI2C_Byte(i+1),
+			HDMITX_ReadI2C_Byte(i+2),
+			HDMITX_ReadI2C_Byte(i+3),
+			HDMITX_ReadI2C_Byte(i+4),
+			HDMITX_ReadI2C_Byte(i+5),
+			HDMITX_ReadI2C_Byte(i+6),
+			HDMITX_ReadI2C_Byte(i+7));
+		}
+		IT66121_LOG("***** basic reg bank0 dump end *****\n");
+
+		IT66121_LOG("***** basic reg bank1 dump start *****\n");
+		//IT662x_eARC_RX_Bank(1);
+		Switch_HDMITX_Bank(1);
+		IT66121_LOG("|   00 01 02 03 04 05 06 07 08\n");
+		for (i = 0; i <= 248; i = i+8) {
+			IT66121_LOG("%x: %x %x %x %x %x %x %x %x\n",
+				i, HDMITX_ReadI2C_Byte(i),
+			HDMITX_ReadI2C_Byte(i+1),
+			HDMITX_ReadI2C_Byte(i+2),
+			HDMITX_ReadI2C_Byte(i+3),
+			HDMITX_ReadI2C_Byte(i+4),
+			HDMITX_ReadI2C_Byte(i+5),
+			HDMITX_ReadI2C_Byte(i+6),
+			HDMITX_ReadI2C_Byte(i+7));
+		}
+		//IT662x_eARC_RX_Bank(0);
+		Switch_HDMITX_Bank(0);
+		IT66121_LOG("***** basic reg bank1 dump end *****\n");
+	}
+
 }
 
 static void process_dbg_cmd(char *cmd)
@@ -1119,22 +1222,27 @@ void vGet_Pinctrl_Mode(struct platform_device *pdev)
 
 int hdmi_internal_probe(struct platform_device *pdev)
 {
-	int ret = 0;
+	//int ret = 0;
 
 	IT66121_LOG(">>> %s,\n", __func__);
 
 	/* HDMI_reset(); */
 
-	ret = i2c_add_driver(&hdmi_ite_i2c_driver);
+
 	/* This leave for MT6592 initialize it66121 */
 	/* register i2c device */
-	if (ret)
-		IT66121_LOG(KERN_ERR "%s: failed to add it66121 i2c driver\n",
-			    __func__);
+	/*if (ret)
+	 *	IT66121_LOG(KERN_ERR "%s: failed to add it66121 i2c driver\n",
+	 *		__func__);
+	 */
 	vGet_Pinctrl_Mode(pdev);
 	hdmi_vcn33 = devm_regulator_get(&pdev->dev, "vcn33");
 	hdmi_vcn18 = devm_regulator_get(&pdev->dev, "vcn18");
 	hdmi_vrf12 = devm_regulator_get(&pdev->dev, "vrf12");
+	hdmi_vsim1 = devm_regulator_get(&pdev->dev, "vsim1");
+
+	if (IS_ERR(hdmi_vsim1))
+		IT66121_LOG("hdmi hdmi_vsim1 error\n");
 	if (IS_ERR(hdmi_vcn33))
 		IT66121_LOG("hdmi hdmi_vcn33 error\n");
 	if (IS_ERR(hdmi_vcn18))
@@ -1150,12 +1258,17 @@ int hdmi_internal_probe(struct platform_device *pdev)
 	init_timer(&r_hdmi_timer);
 
 	ITE66121_DBG_Init();
+	IT66121_LOG("%s done successful\n", __func__);
 	return 0;
 }
 static int hdmi_internal_remove(struct platform_device *dev)
 {
 	return 0;
 }
+
+
+
+
 
 static const struct of_device_id hdmi_of_ids[] = {
 	{
@@ -1179,6 +1292,7 @@ static int __init mtk_hdmitx_init(void)
 		IT66121_LOG("failed to register disp driver\n");
 		ret = -1;
 	}
+
 	return 0;
 }
 static void __exit mtk_hdmitx_exit(void)
@@ -1189,6 +1303,7 @@ static void __exit mtk_hdmitx_exit(void)
 static int __init ite66121_i2c_board_init(void)
 {
 	int ret = 0;
+#if 0
 	unsigned int i2c_port = 0;
 	struct device_node *dn;
 
@@ -1202,14 +1317,19 @@ static int __init ite66121_i2c_board_init(void)
 				   &i2c_port);
 	if (ret < 0)
 		i2c_port = 6;
+	IT66121_LOG("i2c_port %d\n", i2c_port);
 	ret = i2c_register_board_info(i2c_port, &it66121_i2c_hdmi, 1);
 	if (ret)
 		pr_debug("failed register hdmi i2c,please check port %d\n",
 			 i2c_port);
 	return ret;
+#else
+	ret = i2c_add_driver(&hdmi_ite_i2c_driver);
+	return ret;
+#endif
 }
 /*----------------------------------------------------------------------------*/
-core_initcall(ite66121_i2c_board_init);
-
-module_init(mtk_hdmitx_init);
+//core_initcall(ite66121_i2c_board_init);
+module_init(ite66121_i2c_board_init);
+late_initcall(mtk_hdmitx_init);
 module_exit(mtk_hdmitx_exit);

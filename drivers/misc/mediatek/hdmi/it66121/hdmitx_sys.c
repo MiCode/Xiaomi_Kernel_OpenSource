@@ -21,7 +21,7 @@
  */
 #include "hdmitx_sys.h"
 #include "hdmitx.h"
-#include <linux/switch.h>
+/*#include <linux/switch.h>*/
 
 _CODE HDMITXDEV
 	InstanceData = {
@@ -1418,7 +1418,7 @@ unsigned char ParseEDID(void)
 	unsigned char *EDID_Buf;
 	unsigned char CheckSum;
 	unsigned char BlockCount;
-	unsigned char err;
+	unsigned char err = FALSE;
 	unsigned char bValidCEA = FALSE;
 	int i, j;
 
@@ -1478,7 +1478,8 @@ unsigned char ParseEDID(void)
 						"RxCapability.IEEEOUI = %lx\n",
 						RxCapability.IEEEOUI);
 
-					if (RxCapability.IEEEOUI == 0x0c03) {
+					if ((RxCapability.IEEEOUI == 0x0c03)
+|| (RxCapability.IEEEOUI == 0xc45dd8)) {
 						RxCapability.ValidHDMI = TRUE;
 						bValidCEA = TRUE;
 					} else {
