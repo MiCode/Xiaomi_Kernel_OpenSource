@@ -609,6 +609,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		nvmem-names = "mtk_efuse";
 		nvmem-cells = <&efuse_segment>;
 		nvmem-cell-names = "efuse_segment_cell";
+		eem-ct = <1>;
 	};
 
 	reserved_memory: reserved-memory {
