@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #include "mtk_cpufreq_debug.h"

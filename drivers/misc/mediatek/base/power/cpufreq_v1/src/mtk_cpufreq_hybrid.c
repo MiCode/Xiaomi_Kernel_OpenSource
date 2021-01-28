@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 /* system includes */
@@ -32,7 +32,7 @@
 #include <linux/topology.h>
 #include <linux/math64.h>
 #include <mt-plat/sync_write.h>
-#include <mt-plat/mtk_io.h>
+//#include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
 /* #include <trace/events/mtk_events.h> */
 
@@ -40,7 +40,9 @@
 #include "sspm_ipi.h"
 #endif
 
+#ifdef MET_DRV
 #include <mt-plat/met_drv.h>
+#endif
 
 #include "mtk_cpufreq_internal.h"
 #include "mtk_cpufreq_platform.h"
@@ -132,8 +134,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 
 	/* tag_pr_info("CPU DVFS received thread\n"); */
 	cpufreq_act.data = (void *)cpufreq_buf;
-	ret = sspm_ipi_recv_registration_ex(IPI_ID_CPU_DVFS,
-						&cpudvfs_lock, &cpufreq_act);
+	ret = sspm_ipi_recv_registration_ex(IPI_ID_CPU_DVFS, &cpudvfs_lock,
+					    &cpufreq_act);
 
 	if (ret != 0) {
 		tag_pr_notice
@@ -143,18 +145,13 @@ int Ripi_cpu_dvfs_thread(void *data)
 		} while (!kthread_should_stop());
 		return (-1);
 	}
-	/* tag_pr_info("sspm_ipi_recv_registration */
-	/*IPI_ID_CPU_DVFS pass!!(%d)\n", ret); */
+
 	/* an endless loop in which we are doing our work */
 	do {
-		/* tag_pr_info("sspm_ipi_recv_wait IPI_ID_CPU_DVFS\n"); */
 		sspm_ipi_recv_wait(IPI_ID_CPU_DVFS);
-		/* tag_pr_info("Info: CPU DVFS thread received ID=%d,*/
-		/* i=%d\n", cpufreq_act.id, i); */
 		spin_lock_irqsave(&cpudvfs_lock, flags);
 		memcpy(pwdata, cpufreq_buf, sizeof(pwdata));
 		spin_unlock_irqrestore(&cpudvfs_lock, flags);
-
 		bk_log_offs = pwdata[0];
 		num_log = 0;
 #ifdef REPORT_IDLE_FREQ
@@ -191,25 +188,29 @@ int Ripi_cpu_dvfs_thread(void *data)
 		for_each_cpu_dvfs_only(i, p) {
 			if (!p->armpll_is_available)
 				continue;
-
 			if (num_log == 1)
-				j =
-				log_box_parsed[0].cluster_opp_cfg[i].freq_idx;
+				j = log_box_parsed[0].cluster_opp_cfg[
+					i].freq_idx;
 			else {
 				tf_sum = 0;
 				for (j = num_log - 1; j >= 1; j--) {
-					buf_freq = cpu_dvfs_get_freq_by_idx(p,
-			log_box_parsed[j - 1].cluster_opp_cfg[i].freq_idx);
-					tf_sum +=
-					(log_box_parsed[j].time_stamp -
-					log_box_parsed[j-1].time_stamp) *
-					(buf_freq/1000);
+					buf_freq =
+					cpu_dvfs_get_freq_by_idx
+						(p, log_box_parsed[
+						j - 1].cluster_opp_cfg[
+						i].freq_idx);
+					tf_sum += (
+						log_box_parsed[
+						j].time_stamp -
+						log_box_parsed[
+						j-1].time_stamp)
+						* (buf_freq/1000);
 				}
 				if (!num_log)
 					t_diff = 1;
 				else {
-					t_diff =
-					log_box_parsed[num_log - 1].time_stamp -
+					t_diff = log_box_parsed[
+					num_log - 1].time_stamp -
 					log_box_parsed[0].time_stamp;
 				}
 #if defined(__LP64__) || defined(_LP64)
@@ -219,8 +220,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 #endif
 				avg_f *= 1000;
 				for (j = p->nr_opp_tbl - 1; j >= 1; j--) {
-					if (cpu_dvfs_get_freq_by_idx(p, j) >=
-									avg_f)
+					if (cpu_dvfs_get_freq_by_idx(p, j)
+					    >= avg_f)
 						break;
 				}
 			}
@@ -256,13 +257,16 @@ int Ripi_cpu_dvfs_thread(void *data)
 					p->idx_opp_ppm_limit);
 
 #ifdef SINGLE_CLUSTER
-				cid =
-	cpufreq_get_cluster_id(p->mt_policy->cpu);
+				cid = cpufreq_get_cluster_id(
+					p->mt_policy->cpu
+				);
 #else
-				cid =
-	arch_get_cluster_id(p->mt_policy->cpu);
+				cid = arch_get_cluster_id(
+					p->mt_policy->cpu
+				);
 #endif
 
+#ifdef MET_DRV
 				if (cid == 0) {
 					met_tag_oneshot(0, "sched_dvfs_max_c0",
 							p->mt_policy->max);
@@ -279,6 +283,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 					met_tag_oneshot(0, "sched_dvfs_min_c2",
 						p->mt_policy->min);
 				}
+#endif
 
 				/* Policy notification */
 				if (p->idx_opp_tbl != j ||
@@ -297,8 +302,8 @@ int Ripi_cpu_dvfs_thread(void *data)
 			}
 		}
 		cpufreq_unlock(flags);
-
 	} while (!kthread_should_stop());
+
 	return 0;
 }
 
@@ -627,7 +632,6 @@ int cpuhvfs_get_cur_volt(int cluster_id)
 int cpuhvfs_get_volt(int buck_id)
 {
 	return csram_read(OFFS_CUR_VPROC_S + (buck_id * 4));
-
 }
 
 int cpuhvfs_get_freq(int pll_id)
@@ -740,6 +744,7 @@ int cpuhvfs_set_cluster_load_freq(enum mt_cpu_dvfs_id id, unsigned int freq)
 	csram_write((OFFS_SCHED_S + (cluster * 4)), buf);
 
 	cpufreq_ver("sched: buf = 0x%x\n", buf);
+
 	return 0;
 }
 
@@ -863,38 +868,41 @@ void __init cpuhvfs_pvt_tbl_create(void)
 		if (NR_MT_CPU_DVFS > 2) {
 			/* L [31:16] = Vproc, [15:0] = Freq */
 			recordRef[i + 36] =
-			((*(recordTbl +
-			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 1) &
-			0xFFF) << 16) |
-			(*(recordTbl +
-			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE) & 0xFFFF);
+				((*(recordTbl +
+				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 1) &
+				0xFFF) << 16) |
+				(*(recordTbl +
+				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE) &
+				0xFFFF);
 			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 36, recordRef[i + 36]);
 			/* L [31:16] = clk_div, [15:0] = post_div */
 			recordRef[i + 36 + NR_FREQ] =
-			((*(recordTbl +
-			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 3) &
-			0xFF) << 16) |
-			(*(recordTbl +
-			((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 2) & 0xFF);
+				((*(recordTbl +
+				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 3) &
+				0xFF) << 16) |
+				(*(recordTbl +
+				((NR_FREQ * 1) + i) * ARRAY_COL_SIZE + 2) &
+				0xFF);
 			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 36 + NR_FREQ, recordRef[i + 36 + NR_FREQ]);
 			/* B/CCI [31:16] = Vproc, [15:0] = Freq */
 			recordRef[i + 72] =
-			((*(recordTbl +
-			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 1) &
-			0xFFF) << 16) |
-			(*(recordTbl +
-			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE) &	0xFFFF);
+				((*(recordTbl +
+				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 1) &
+				0xFFF) << 16) |
+				(*(recordTbl +
+				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE) &	0xFFFF);
 			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 72, recordRef[i + 72]);
 			/* B/CCI [31:16] = clk_div, [15:0] = post_div */
 			recordRef[i + 72 + NR_FREQ] =
-			((*(recordTbl +
-			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 3) &
-			0xFFF) << 16) |
-			(*(recordTbl +
-			((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 2) & 0xFF);
+				((*(recordTbl +
+				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 3) &
+				0xFFF) << 16) |
+				(*(recordTbl +
+				((NR_FREQ * 2) + i) * ARRAY_COL_SIZE + 2) &
+				0xFF);
 			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
 				i + 72 + NR_FREQ, recordRef[i + 72 + NR_FREQ]);
 		}
@@ -909,7 +917,7 @@ void __init cpuhvfs_pvt_tbl_create(void)
 				((NR_FREQ * 3) + i) * ARRAY_COL_SIZE) &
 				0xFFFF);
 			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
-						i + 108, recordRef[i + 108]);
+				i + 108, recordRef[i + 108]);
 			/* CCI [31:16] = clk_div, [15:0] = post_div */
 			recordRef[i + 108 + NR_FREQ] =
 				((*(recordTbl +
@@ -919,7 +927,8 @@ void __init cpuhvfs_pvt_tbl_create(void)
 				((NR_FREQ * 3) + i) * ARRAY_COL_SIZE + 2) &
 				0xFF);
 			cpufreq_ver("DVFS - recordRef[%d] = 0x%x\n",
-			 i + 108 + NR_FREQ, recordRef[i + 108 + NR_FREQ]);
+				i + 108 + NR_FREQ, recordRef[i + 108 + NR_FREQ]
+			);
 		}
 	}
 	recordRef[i*2] = 0xffffffff;

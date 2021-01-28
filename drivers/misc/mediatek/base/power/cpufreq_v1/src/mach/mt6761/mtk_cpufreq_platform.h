@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #ifndef __MTK_CPUFREQ_PLATFORM_H__
@@ -15,8 +15,10 @@
 /* #define CPU_DVFS_NOT_READY	1 */ /* for bring up, remove for MP */
 /* #define DRCC_SUPPORT 1*/
 #else
-#define CPU_DVFS_NOT_READY	1 /* for bring up, remove for MP */
+//#define CPU_DVFS_NOT_READY	1 /* for bring up, remove for MP */
 #endif
+
+#define SINGLE_CLUSTER 1
 
 /* buck ctrl configs */
 #define NORMAL_DIFF_VRSAM_VPROC		10000
@@ -64,5 +66,11 @@ extern int mt_cpufreq_turbo_config(enum mt_cpu_dvfs_id id,
 extern int mt_cpufreq_regulator_map(struct platform_device *pdev);
 extern int mt_cpufreq_dts_map(void);
 extern unsigned int _mt_cpufreq_get_cpu_level(void);
+
+/* CPU mask related */
+extern unsigned int cpufreq_get_nr_clusters(void);
+extern void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask,
+	unsigned int cid);
+extern unsigned int cpufreq_get_cluster_id(unsigned int cpu_id);
 
 #endif	/* __MTK_CPUFREQ_PLATFORM_H__ */

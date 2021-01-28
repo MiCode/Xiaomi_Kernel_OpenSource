@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #include <linux/proc_fs.h>
@@ -440,7 +440,7 @@ static ssize_t cpufreq_dvfs_time_profile_proc_write(struct file *file,
 	else {
 		if (temp == 1) {
 			for (i = 0; i < NR_SET_V_F; i++)
-				max[i].tv64 = 0;
+				max[i] = ktime_set(0, 0);
 		}
 	}
 

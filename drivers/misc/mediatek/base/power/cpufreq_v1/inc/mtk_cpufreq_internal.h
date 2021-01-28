@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #ifndef __MTK_CPUFREQ_INTERNAL_H__
@@ -31,7 +31,7 @@
 #include <linux/suspend.h>
 #include <linux/topology.h>
 #include <mt-plat/sync_write.h>
-#include <mt-plat/mtk_io.h>
+//#include <mt-plat/mtk_io.h>
 #include <mt-plat/aee.h>
 
 #ifdef CONFIG_OF
@@ -170,7 +170,8 @@ static const struct file_operations name ## _proc_fops = {		\
 /*
  * REG ACCESS
  */
-#define cpufreq_read(addr)                  __raw_readl(IOMEM(addr))
+//#define cpufreq_read(addr)                  __raw_readl(IOMEM(addr))
+#define cpufreq_read(addr) __raw_readl(((void __force __iomem *)((addr))))
 #define cpufreq_write(addr, val)            \
 mt_reg_sync_writel((val), ((void *)addr))
 #define cpufreq_write_mask(addr, mask, val) \
@@ -226,6 +227,14 @@ enum mt_cpu_dvfs_action_id {
 	MT_CPU_DVFS_EEM_UPDATE,
 
 	NR_MT_CPU_DVFS_ACTION,
+};
+
+enum hp_action {
+	CPUFREQ_CPU_ONLINE,
+	CPUFREQ_CPU_DOWN_PREPARE,
+	CPUFREQ_CPU_DOWN_FAIED,
+
+	NR_HP_ACTION,
 };
 
 enum hp_action_type {

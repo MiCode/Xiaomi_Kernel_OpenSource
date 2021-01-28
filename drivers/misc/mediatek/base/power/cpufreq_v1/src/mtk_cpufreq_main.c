@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2016 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #include <linux/random.h>
-#include <mt-plat/met_drv.h>
+//#include <mt-plat/met_drv.h>
 /* project includes */
-#include "mtk_ppm_api.h"
+#include "../../include/mtk_ppm_api.h"
 
 /* local includes */
 #include "mtk_cpufreq_internal.h"
@@ -16,6 +16,10 @@
 #include "mtk_cpufreq_opp_table.h"
 
 #define DCM_ENABLE 1
+
+#define met_tag_oneshot(a, b, c) do {} while (0)
+//#define _set_met_tag_oneshot(a, bz) do{}while(0)
+
 /*
  * Global Variables
  */
@@ -25,10 +29,6 @@ DEFINE_MUTEX(cpufreq_para_mutex);
 struct opp_idx_tbl opp_tbl_m[NR_OPP_IDX];
 int dvfs_disable_flag;
 int new_idx_bk;
-
-/* Prototype */
-static int _mt_cpufreq_cpu_CB(struct notifier_block *nfb, unsigned long action,
-	void *hcpu);
 
 struct mt_cpu_dvfs *id_to_cpu_dvfs(enum mt_cpu_dvfs_id id)
 {
@@ -951,184 +951,6 @@ void _mt_cpufreq_dvfs_request_wrapper(struct mt_cpu_dvfs *p, int new_opp_idx,
 	cpufreq_unlock(flags);
 }
 
-static void _hps_request_wrapper(struct mt_cpu_dvfs *p,
-	int new_opp_idx, unsigned long action, void *data)
-{
-	enum mt_cpu_dvfs_id *id = (enum mt_cpu_dvfs_id *)data;
-	struct mt_cpu_dvfs *act_p;
-
-	act_p = id_to_cpu_dvfs(*id);
-	/* action switch */
-	switch (action & ~CPU_TASKS_FROZEN) {
-	case CPU_ONLINE:
-		aee_record_cpu_dvfs_cb(2);
-		if (act_p->armpll_is_available == 0 && act_p == p)
-			act_p->armpll_is_available = 1;
-#ifndef CONFIG_HYBRID_CPU_DVFS
-		cpufreq_ver("DVFS - %s, CPU_ONLINE to %d\n",
-		cpu_dvfs_get_name(p), new_opp_idx);
-		_mt_cpufreq_set(p->mt_policy, p, new_opp_idx,
-		MT_CPU_DVFS_ONLINE);
-#endif
-		break;
-	case CPU_DOWN_PREPARE:
-		aee_record_cpu_dvfs_cb(3);
-#ifndef CONFIG_HYBRID_CPU_DVFS
-		cpufreq_ver("DVFS - %s, CPU_DOWN_PREPARE to %d\n",
-		cpu_dvfs_get_name(p), new_opp_idx);
-		_mt_cpufreq_set(p->mt_policy, p, new_opp_idx, MT_CPU_DVFS_DP);
-#endif
-		if (act_p->armpll_is_available == 1 && act_p == p) {
-			act_p->armpll_is_available = 0;
-#ifdef CONFIG_HYBRID_CPU_DVFS
-			aee_record_cpu_dvfs_cb(4);
-#ifdef SINGLE_CLUSTER
-			cpuhvfs_set_cluster_on_off
-			(cpufreq_get_cluster_id(p->cpu_id), 0);
-#else
-			cpuhvfs_set_cluster_on_off
-			(arch_get_cluster_id(p->cpu_id), 0);
-#endif
-			aee_record_cpu_dvfs_cb(9);
-#endif
-			act_p->mt_policy = NULL;
-			aee_record_cpu_dvfs_cb(10);
-		}
-		break;
-	default:
-		break;
-	};
-}
-
-static void _mt_cpufreq_cpu_CB_wrapper(enum mt_cpu_dvfs_id cluster_id,
-	unsigned int cpus, unsigned long action)
-{
-	int i, j;
-	struct mt_cpu_dvfs *p;
-	unsigned long flags;
-	unsigned int cur_volt;
-	struct buck_ctrl_t *vproc_p;
-	int new_opp_idx;
-
-	aee_record_cpu_dvfs_cb(1);
-
-	for (i = 0; i < nr_hp_action; i++) {
-		if (cpu_dvfs_hp_action[i].cluster == cluster_id &&
-			action == cpu_dvfs_hp_action[i].action &&
-			cpus == cpu_dvfs_hp_action[i].trigged_core) {
-			cpufreq_lock(flags);
-			for_each_cpu_dvfs(j, p) {
-				if (
-cpu_dvfs_hp_action[i].hp_action_cfg[j].action_id != FREQ_NONE) {
-					if (
-cpu_dvfs_hp_action[i].hp_action_cfg[j].action_id == FREQ_HIGH)
-						_hps_request_wrapper(p,
-						0, action,
-						(void *)&cluster_id);
-					else if (
-cpu_dvfs_hp_action[i].hp_action_cfg[j].action_id == FREQ_LOW)
-						_hps_request_wrapper(p,
-						p->nr_opp_tbl - 1, action,
-						(void *)&cluster_id);
-					else if (
-cpu_dvfs_hp_action[i].hp_action_cfg[j].action_id == FREQ_DEPEND_VOLT) {
-						vproc_p = id_to_buck_ctrl(
-						p->Vproc_buck_id);
-						cur_volt =
-						get_cur_volt_wrapper(
-						p, vproc_p);
-						new_opp_idx =
-					_search_available_freq_idx_under_v(
-						p, cur_volt);
-						cpufreq_ver
-				("DVFS - %s, search volt = %d, idx = %d\n",
-				cpu_dvfs_get_name(p), cur_volt, new_opp_idx);
-						_hps_request_wrapper(p,
-						new_opp_idx, action,
-						(void *)&cluster_id);
-					} else if (
-cpu_dvfs_hp_action[i].hp_action_cfg[j].action_id == FREQ_USR_REQ)
-						_hps_request_wrapper(p,
-			cpu_dvfs_hp_action[i].hp_action_cfg[j].freq_idx,
-						action,
-						(void *)&cluster_id);
-				}
-			}
-			cpufreq_unlock(flags);
-		}
-	}
-	aee_record_cpu_dvfs_cb(0);
-}
-
-int turbo_flag;
-static int _mt_cpufreq_cpu_CB(struct notifier_block *nfb, unsigned long action,
-					void *hcpu)
-{
-	unsigned int cpu = (unsigned long)hcpu;
-	unsigned int online_cpus = num_online_cpus();
-	struct device *dev;
-	enum mt_cpu_dvfs_id cluster_id;
-	/* CPU mask - Get on-line cpus per-cluster */
-	int i;
-	struct mt_cpu_dvfs *p;
-	struct cpumask dvfs_cpumask[NR_MT_CPU_DVFS];
-	struct cpumask cpu_online_cpumask[NR_MT_CPU_DVFS];
-	unsigned int cpus[NR_MT_CPU_DVFS];
-
-	if (dvfs_disable_flag == 1)
-		return NOTIFY_OK;
-
-#ifdef SINGLE_CLUSTER
-	cluster_id = cpufreq_get_cluster_id(cpu);
-#else
-	cluster_id = arch_get_cluster_id(cpu);
-#endif
-
-	for_each_cpu_dvfs_only(i, p) {
-#ifdef SINGLE_CLUSTER
-		cpufreq_get_cluster_cpus(&dvfs_cpumask[i], i);
-#else
-		arch_get_cluster_cpus(&dvfs_cpumask[i], i);
-#endif
-		cpumask_and(&cpu_online_cpumask[i], &dvfs_cpumask[i],
-				cpu_online_mask);
-		cpus[i] = cpumask_weight(&cpu_online_cpumask[i]);
-	}
-
-	cpufreq_ver("@%s():%d, cpu = %d, action = %lu, num_online_cpus = %d\n"
-	, __func__, __LINE__, cpu, action, online_cpus);
-
-	dev = get_cpu_device(cpu);
-
-#ifdef ENABLE_TURBO_MODE_AP
-	/* Turbo decision */
-	if (dev && turbo_flag)
-		mt_cpufreq_turbo_action(action, cpus, cluster_id);
-#endif
-
-	if (dev) {
-		switch (action & ~CPU_TASKS_FROZEN) {
-		case CPU_ONLINE:
-		case CPU_DOWN_PREPARE:
-		case CPU_DOWN_FAILED:
-			_mt_cpufreq_cpu_CB_wrapper(cluster_id,
-						cpus[cluster_id], action);
-			break;
-		default:
-			break;
-		}
-	}
-
-	cpufreq_ver("@%s():%d, cpu = %d, action = %lu, num_online_cpus = %d\n"
-	, __func__, __LINE__, cpu, action, online_cpus);
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block __refdata _mt_cpufreq_cpu_notifier = {
-	.notifier_call = _mt_cpufreq_cpu_CB,
-};
-
 static int _sync_opp_tbl_idx(struct mt_cpu_dvfs *p)
 {
 	unsigned int freq;
@@ -1554,6 +1376,194 @@ static int _mt_cpufreq_resume(struct device *dev)
 	return 0;
 }
 
+static void _hps_request_wrapper(struct mt_cpu_dvfs *p,
+	int new_opp_idx, enum hp_action action, void *data)
+{
+	enum mt_cpu_dvfs_id *id = (enum mt_cpu_dvfs_id *)data;
+	struct mt_cpu_dvfs *act_p;
+
+	act_p = id_to_cpu_dvfs(*id);
+	/* action switch */
+	/* switch (action & ~CPU_TASKS_FROZEN) { */
+	switch (action) {
+	case CPUFREQ_CPU_ONLINE:
+		aee_record_cpu_dvfs_cb(2);
+		if (act_p->armpll_is_available == 0 && act_p == p)
+			act_p->armpll_is_available = 1;
+#ifndef CONFIG_HYBRID_CPU_DVFS
+		cpufreq_ver("DVFS - %s, CPU_ONLINE to %d\n",
+			    cpu_dvfs_get_name(p), new_opp_idx);
+		_mt_cpufreq_set(p->mt_policy, p, new_opp_idx,
+				MT_CPU_DVFS_ONLINE);
+#endif
+		break;
+	case CPUFREQ_CPU_DOWN_PREPARE:
+		aee_record_cpu_dvfs_cb(3);
+#ifndef CONFIG_HYBRID_CPU_DVFS
+		cpufreq_ver("DVFS - %s, CPU_DOWN_PREPARE to %d\n",
+			    cpu_dvfs_get_name(p), new_opp_idx);
+		_mt_cpufreq_set(p->mt_policy, p, new_opp_idx, MT_CPU_DVFS_DP);
+#endif
+		if (act_p->armpll_is_available == 1 && act_p == p) {
+			act_p->armpll_is_available = 0;
+#ifdef CONFIG_HYBRID_CPU_DVFS
+			aee_record_cpu_dvfs_cb(4);
+#ifdef SINGLE_CLUSTER
+			cpuhvfs_set_cluster_on_off(cpufreq_get_cluster_id(
+				p->cpu_id), 0);
+#else
+			cpuhvfs_set_cluster_on_off(
+				arch_get_cluster_id(p->cpu_id), 0);
+#endif
+			aee_record_cpu_dvfs_cb(9);
+#endif
+			act_p->mt_policy = NULL;
+			aee_record_cpu_dvfs_cb(10);
+		}
+		break;
+	default:
+		break;
+	};
+}
+
+
+static void _mt_cpufreq_cpu_CB_wrapper(enum mt_cpu_dvfs_id cluster_id,
+	unsigned int cpus, enum hp_action action)
+{
+	int i, j;
+	struct mt_cpu_dvfs *p;
+	unsigned long flags;
+	unsigned int cur_volt;
+	struct buck_ctrl_t *vproc_p;
+	int new_opp_idx;
+
+	aee_record_cpu_dvfs_cb(1);
+
+	for (i = 0; i < nr_hp_action; i++) {
+		if (cpu_dvfs_hp_action[i].cluster == cluster_id &&
+		    action == cpu_dvfs_hp_action[i].action &&
+		    cpus == cpu_dvfs_hp_action[i].trigged_core) {
+			cpufreq_lock(flags);
+			for_each_cpu_dvfs(j, p) {
+				if (
+					cpu_dvfs_hp_action[i].hp_action_cfg[
+						j].action_id != FREQ_NONE) {
+					if (cpu_dvfs_hp_action[i].hp_action_cfg[
+						j].action_id == FREQ_HIGH)
+						_hps_request_wrapper(p,
+							0, action,
+							(void *)&cluster_id);
+					else if (cpu_dvfs_hp_action[
+						i].hp_action_cfg[j].action_id ==
+						FREQ_LOW)
+						_hps_request_wrapper(p,
+							p->nr_opp_tbl - 1,
+							action, (void *)&
+							cluster_id);
+					else if (cpu_dvfs_hp_action[
+						i].hp_action_cfg[j].action_id ==
+						FREQ_DEPEND_VOLT) {
+						vproc_p = id_to_buck_ctrl(
+							p->Vproc_buck_id);
+						cur_volt =
+							get_cur_volt_wrapper(
+							p, vproc_p);
+						new_opp_idx =
+	_search_available_freq_idx_under_v(p, cur_volt);
+						cpufreq_ver(
+	"DVFS - %s, search volt = %d, idx = %d\n",
+						cpu_dvfs_get_name(p), cur_volt,
+						new_opp_idx);
+						_hps_request_wrapper(p,
+						new_opp_idx, action,
+						(void *)&cluster_id);
+					} else if (cpu_dvfs_hp_action[
+					i].hp_action_cfg[j].action_id ==
+					FREQ_USR_REQ)
+						_hps_request_wrapper(p,
+						cpu_dvfs_hp_action[
+						i].hp_action_cfg[j].freq_idx,
+						action, (void *)&cluster_id);
+				}
+			}
+			cpufreq_unlock(flags);
+		}
+	}
+	aee_record_cpu_dvfs_cb(0);
+}
+
+int turbo_flag;
+static int _mt_cpufreq_cpu_CB(enum hp_action action,
+			      unsigned int cpu)
+{
+	struct device *dev;
+	enum mt_cpu_dvfs_id cluster_id;
+	/* CPU mask - Get on-line cpus per-cluster */
+	int i;
+	struct mt_cpu_dvfs *p;
+	struct cpumask dvfs_cpumask[NR_MT_CPU_DVFS];
+	struct cpumask cpu_online_cpumask[NR_MT_CPU_DVFS];
+	unsigned int cpus[NR_MT_CPU_DVFS];
+
+	if (dvfs_disable_flag == 1)
+		return NOTIFY_OK;
+
+#ifdef SINGLE_CLUSTER
+	cluster_id = cpufreq_get_cluster_id(cpu);
+#else
+	cluster_id = arch_get_cluster_id(cpu);
+#endif
+
+	for_each_cpu_dvfs_only(i, p) {
+#ifdef SINGLE_CLUSTER
+		cpufreq_get_cluster_cpus(&dvfs_cpumask[i], i);
+#else
+		arch_get_cluster_cpus(&dvfs_cpumask[i], i);
+#endif
+		cpumask_and(&cpu_online_cpumask[i], &dvfs_cpumask[i],
+			    cpu_online_mask);
+		cpus[i] = cpumask_weight(&cpu_online_cpumask[i]);
+	}
+
+	dev = get_cpu_device(cpu);
+
+#ifdef ENABLE_TURBO_MODE_AP
+	/* Turbo decision */
+	if (dev && turbo_flag)
+		mt_cpufreq_turbo_action(action, cpus, cluster_id);
+#endif
+
+	if (dev) {
+		/* switch (action & ~CPU_TASKS_FROZEN) { */
+		switch (action) {
+		case CPUFREQ_CPU_ONLINE:
+		case CPUFREQ_CPU_DOWN_PREPARE:
+		case CPUFREQ_CPU_DOWN_FAIED:
+			_mt_cpufreq_cpu_CB_wrapper(cluster_id,
+						   cpus[cluster_id], action);
+			break;
+		default:
+			break;
+		}
+	}
+
+	return NOTIFY_OK;
+}
+
+static int cpuhp_cpufreq_online(unsigned int cpu)
+{
+	_mt_cpufreq_cpu_CB(CPUFREQ_CPU_ONLINE, cpu);
+	return 0;
+}
+
+static int cpuhp_cpufreq_offline(unsigned int cpu)
+{
+	_mt_cpufreq_cpu_CB(CPUFREQ_CPU_DOWN_PREPARE, cpu);
+	return 0;
+}
+
+static enum cpuhp_state hp_online;
+
 static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 {
 	unsigned int lv = _mt_cpufreq_get_cpu_level();
@@ -1567,7 +1577,6 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 #endif
 
 	FUNC_ENTER(FUNC_LV_MODULE);
-
 	/* init proc */
 	cpufreq_procfs_init();
 	_mt_cpufreq_aee_init();
@@ -1610,17 +1619,20 @@ static int _mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 
 	cpufreq_register_driver(&_mt_cpufreq_driver);
 
-	register_hotcpu_notifier(&_mt_cpufreq_cpu_notifier);
+	hp_online = cpuhp_setup_state_nocalls(CPUHP_AP_ONLINE_DYN,
+						"cpu_dvfs:online",
+						cpuhp_cpufreq_online,
+						cpuhp_cpufreq_offline);
 
 	for_each_cpu_dvfs(j, p) {
 		_sync_opp_tbl_idx(p);
-
 #ifndef ONE_CLUSTER
 		/* lv should be sync with DVFS_TABLE_TYPE_SB */
 		if (j != MT_CPU_DVFS_CCI)
 #endif
 			mt_ppm_set_dvfs_table(p->cpu_id,
-			p->freq_tbl_for_cpufreq, p->nr_opp_tbl, lv);
+				p->freq_tbl_for_cpufreq,
+				p->nr_opp_tbl, lv);
 	}
 
 	mt_ppm_register_client(PPM_CLIENT_DVFS, &ppm_limit_callback);
@@ -1636,7 +1648,7 @@ static int _mt_cpufreq_pdrv_remove(struct platform_device *pdev)
 {
 	FUNC_ENTER(FUNC_LV_MODULE);
 
-	unregister_hotcpu_notifier(&_mt_cpufreq_cpu_notifier);
+	cpuhp_remove_state_nocalls(hp_online);
 	cpufreq_unregister_driver(&_mt_cpufreq_driver);
 
 	FUNC_EXIT(FUNC_LV_MODULE);

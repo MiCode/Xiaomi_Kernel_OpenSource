@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2020 MediaTek Inc.
  */
 
 #include <linux/of.h>
@@ -35,6 +35,9 @@ static unsigned long mcucfg_base	= 0x10200000;
 #define DOWN_VPROC_ST 1000
 #define UP_VSRAM_ST 1000
 #define DOWN_VSRAM_ST 1000
+
+#define CPU_DOWN_PREPARE        0x0005 /* CPU (unsigned)v going down */
+#define CPU_TASKS_FROZEN        0x0010
 
 struct mt_cpu_dvfs cpu_dvfs[NR_MT_CPU_DVFS] = {
 	[MT_CPU_DVFS_LL] = {
@@ -400,16 +403,16 @@ struct pll_ctrl_t pll_ctrl[NR_MT_PLL] = {
 };
 
 /* Always put action cpu at last */
-struct hp_action_tbl cpu_dvfs_hp_action[] = {
+struct hp_action_tbl cpu_dvfs_hp_action[2] = {
 	{
-		.action		= CPU_DOWN_PREPARE,
+		.action		= CPUFREQ_CPU_DOWN_PREPARE,
 		.cluster	= MT_CPU_DVFS_LL,
 		.trigged_core	= 1,
 		.hp_action_cfg[MT_CPU_DVFS_LL].action_id = FREQ_LOW,
 	},
 
 	{
-		.action		= CPU_DOWN_PREPARE | CPU_TASKS_FROZEN,
+		.action		= CPUFREQ_CPU_DOWN_PREPARE,
 		.cluster	= MT_CPU_DVFS_LL,
 		.trigged_core	= 1,
 		.hp_action_cfg[MT_CPU_DVFS_LL].action_id = FREQ_LOW,
@@ -472,7 +475,7 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 {
 	unsigned int lv = CPU_LEVEL_0;
 	int seg = get_devinfo_with_index(30);
-	int val = mt_get_chip_sw_ver(); /* = get_devinfo_with_index(num); */
+	int val = (get_devinfo_with_index(7) & 0xFF);
 
 	if (val == CHIP_SW_VER_01)
 		lv = CPU_LEVEL_2;
@@ -490,4 +493,44 @@ unsigned int _mt_cpufreq_get_cpu_level(void)
 		UP_VSRAM_ST, DOWN_VSRAM_ST);
 
 	return lv;
+}
+
+
+
+unsigned int cpufreq_get_nr_clusters(void)
+{
+	return (NR_MT_CPU_DVFS - 1);
+}
+
+void cpufreq_get_cluster_cpus(struct cpumask *cpu_mask, unsigned int cid)
+{
+	if (cid == 0) {
+		cpumask_setall(cpu_mask);
+		cpumask_clear_cpu(6, cpu_mask);
+		cpumask_clear_cpu(7, cpu_mask);
+	} else if (cid == 1) {
+		cpumask_clear(cpu_mask);
+		cpumask_set_cpu(6, cpu_mask);
+		cpumask_set_cpu(7, cpu_mask);
+	}
+
+	cpufreq_ver("cluster%d: cpumask = %*pbl\n",
+		    cid, cpumask_pr_args(cpu_mask));
+}
+
+unsigned int cpufreq_get_cluster_id(unsigned int cpu_id)
+{
+	struct cpumask cpu_mask;
+	int i;
+
+	for (i = 0; i < NR_MT_CPU_DVFS - 1; i++) {
+		cpufreq_get_cluster_cpus(&cpu_mask, i);
+		if (cpumask_test_cpu(cpu_id, &cpu_mask)) {
+			cpufreq_ver("cluster%d: cpumask = %*pbl\n",
+				    i, cpumask_pr_args(&cpu_mask));
+			return i;
+		}
+	}
+
+	return 0;
 }
