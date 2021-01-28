@@ -465,7 +465,7 @@ int mtk_vdec_put_fb(struct mtk_vcodec_ctx *ctx, int type)
 	src_vb2_v4l2 = container_of(src_buf, struct vb2_v4l2_buffer, vb2_buf);
 	src_buf_info = container_of(src_vb2_v4l2, struct mtk_video_dec_buf, vb);
 
-	if (src_buf_info == NULL)
+	if (src_buf_info == NULL || src_buf == NULL)
 		return 0;
 
 	if (src_buf_info->lastframe == EOS) {
@@ -987,7 +987,8 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	memset(q_data, 0, sizeof(struct mtk_q_data));
 	q_data->visible_width = DFT_CFG_WIDTH;
 	q_data->visible_height = DFT_CFG_HEIGHT;
-	q_data->fmt = &mtk_video_formats[default_out_fmt_idx];
+	if (default_out_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT)
+		q_data->fmt = &mtk_video_formats[default_out_fmt_idx];
 	q_data->field = V4L2_FIELD_NONE;
 
 	q_data->sizeimage[0] = DFT_CFG_WIDTH * DFT_CFG_HEIGHT;
@@ -999,7 +1000,8 @@ void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx)
 	q_data->visible_height = DFT_CFG_HEIGHT;
 	q_data->coded_width = DFT_CFG_WIDTH;
 	q_data->coded_height = DFT_CFG_HEIGHT;
-	q_data->fmt = &mtk_video_formats[default_cap_fmt_idx];
+	if (default_cap_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT)
+		q_data->fmt = &mtk_video_formats[default_cap_fmt_idx];
 	q_data->field = V4L2_FIELD_NONE;
 
 	v4l_bound_align_image(&q_data->coded_width,
@@ -1411,11 +1413,13 @@ static int vidioc_try_fmt_vid_cap_mplane(struct file *file, void *priv,
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 
 	fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
-	if (!fmt) {
+	if (!fmt && default_cap_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 		f->fmt.pix.pixelformat =
 			mtk_video_formats[default_cap_fmt_idx].fourcc;
 		fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
 	}
+	if (!fmt)
+		return -EINVAL;
 
 	return vidioc_try_fmt(f, fmt);
 }
@@ -1428,7 +1432,7 @@ static int vidioc_try_fmt_vid_out_mplane(struct file *file, void *priv,
 	struct mtk_vcodec_ctx *ctx = fh_to_ctx(priv);
 
 	fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_DEC);
-	if (!fmt) {
+	if (!fmt && default_out_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 		f->fmt.pix.pixelformat =
 			mtk_video_formats[default_out_fmt_idx].fourcc;
 		fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_DEC);
@@ -1438,6 +1442,8 @@ static int vidioc_try_fmt_vid_out_mplane(struct file *file, void *priv,
 		mtk_v4l2_err("sizeimage of output format must be given");
 		return -EINVAL;
 	}
+	if (!fmt)
+		return -EINVAL;
 
 	return vidioc_try_fmt(f, fmt);
 }
@@ -1550,16 +1556,20 @@ static int vidioc_vdec_s_fmt(struct file *file, void *priv,
 		(f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) ?
 		MTK_FMT_DEC : MTK_FMT_FRAME);
 	if (fmt == NULL) {
-		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
+			&& default_out_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 			f->fmt.pix.pixelformat =
 				mtk_video_formats[default_out_fmt_idx].fourcc;
 			fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_DEC);
-		} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		} else if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
+			&& default_cap_fmt_idx < MTK_MAX_DEC_CODECS_SUPPORT) {
 			f->fmt.pix.pixelformat =
 				mtk_video_formats[default_cap_fmt_idx].fourcc;
 			fmt = mtk_vdec_find_format(ctx, f, MTK_FMT_FRAME);
 		}
 	}
+	if (!fmt)
+		return -EINVAL;
 
 	q_data->fmt = fmt;
 	vidioc_try_fmt(f, q_data->fmt);
@@ -2129,6 +2139,10 @@ static void vb2ops_vdec_buf_queue(struct vb2_buffer *vb)
 		last_frame_type = buf->lastframe;
 
 		src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
+		if (!src_buf) {
+			mtk_v4l2_err("[%d]Error!!src_buf is NULL!");
+			return;
+		}
 		v4l2_m2m_buf_done(to_vb2_v4l2_buffer(src_buf),
 						  VB2_BUF_STATE_DONE);
 		mtk_v4l2_debug(ret ? 0 : 1,
