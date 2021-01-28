@@ -178,7 +178,7 @@ static void ssusb_set_mailbox(struct otg_switch_mtk *otg_sx,
 	struct mtu3 *mtu = ssusb->u3d;
 	unsigned long flags;
 
-	dev_dbg(ssusb->dev, "mailbox %s\n", mailbox_state_string(status));
+	dev_info(ssusb->dev, "mailbox %s\n", mailbox_state_string(status));
 	mtu3_dbg_trace(ssusb->dev, "mailbox %s", mailbox_state_string(status));
 
 	switch (status) {
