@@ -1,0 +1,13 @@
+
+config CUSTOM_KERNEL_STEP_COUNTER
+	bool "CUSTOM_KERNEL_STEP_COUNTER"
+	help
+	  A step counter is a device, usually portable and electronic or electromechanical,
+	  that counts each step a person takes by detecting the motion of the person's hands or hips.
+
+config CUSTOM_KERNEL_SIGNIFICANT_MOTION
+	bool "open significant motion"
+	help
+	  Kernel space sigificant motion sensor driver.
+
+source "drivers/misc/mediatek/sensors-1.0/step_counter/stepsignhub/Kconfig"

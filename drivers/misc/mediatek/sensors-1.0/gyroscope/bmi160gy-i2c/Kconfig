@@ -1,0 +1,13 @@
+
+config MTK_BMI160GY_I2C
+	bool "MTK_BMI160GY_I2C for MediaTek package"
+	default n
+	help
+	  The BMI160 is a highly integrated,
+	  low power internal measurement unit
+	  that provides precise acceleration
+	  and angular rate (gyroscopic) measurement.
+	  It support different gyroscope sensor.
+	  If this option is set, it will support
+	  BMI160 gyroscope.
+
