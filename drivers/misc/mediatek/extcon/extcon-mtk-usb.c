@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/power_supply.h>
 #include <linux/regulator/consumer.h>
@@ -265,7 +266,7 @@ static int mtk_extcon_tcpc_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
-static int mtk_extcon_tcpc_init(struct mtk_extcon_info *extcon)
+static int mtk_usb_extcon_tcpc_init(struct mtk_extcon_info *extcon)
 {
 	struct tcpc_device *tcpc_dev;
 	int ret;
@@ -296,7 +297,8 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_extcon_info *extcon;
-	const char *dev_conn;
+	struct platform_device *conn_pdev;
+	struct device_node *conn_np;
 	int ret;
 
 	extcon = devm_kzalloc(&pdev->dev, sizeof(*extcon), GFP_KERNEL);
@@ -314,19 +316,28 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 	ret = devm_extcon_dev_register(dev, extcon->edev);
 	if (ret < 0) {
-		dev_err(dev, "failed to register extcon device\n");
+		dev_info(dev, "failed to register extcon device\n");
 		return ret;
 	}
 
 	/* usb role switch */
-	ret = of_property_read_string(pdev->dev.of_node, "dev-conn",
-					   &dev_conn);
-	if (!ret) {
-		extcon->dev_conn.endpoint[0] = dev_conn;
-		extcon->dev_conn.endpoint[1] = dev_name(extcon->dev);
-		extcon->dev_conn.id = "usb-role-switch";
-		device_connection_add(&extcon->dev_conn);
+	conn_np = of_parse_phandle(dev->of_node, "dev-conn", 0);
+	if (!conn_np) {
+		dev_info(dev, "failed to get dev-conn node\n");
+		return -EINVAL;
 	}
+
+	conn_pdev = of_find_device_by_node(conn_np);
+	if (!conn_pdev) {
+		dev_info(dev, "failed to get dev-conn pdev\n");
+		return -EINVAL;
+	}
+
+	extcon->dev_conn.endpoint[0] = kasprintf(GFP_KERNEL,
+				"%s-role-switch", dev_name(&conn_pdev->dev));
+	extcon->dev_conn.endpoint[1] = dev_name(extcon->dev);
+	extcon->dev_conn.id = "usb-role-switch";
+	device_connection_add(&extcon->dev_conn);
 
 	extcon->role_sw = usb_role_switch_get(extcon->dev);
 	if (IS_ERR(extcon->role_sw)) {
@@ -356,7 +367,7 @@ static int mtk_usb_extcon_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_TCPC_CLASS
 	/* tcpc */
-	ret = mtk_extcon_tcpc_init(extcon);
+	ret = mtk_usb_extcon_tcpc_init(extcon);
 	if (ret < 0)
 		dev_err(dev, "failed to init tcpc\n");
 #endif
