@@ -2402,6 +2402,7 @@
 		clock-names = "usb0",
 			"usb0_clk_top_sel",
 			"usb0_clk_univpll3_d4";
+		charger = <&mt6370_chg>;
 	};
 
 	usb_sif@11210000 {
