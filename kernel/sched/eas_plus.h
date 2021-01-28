@@ -28,7 +28,6 @@ static int select_max_spare_capacity(struct task_struct *p, int target);
 static int init_cpu_info(void);
 static unsigned int aggressive_idle_pull(int this_cpu);
 bool idle_lb_enhance(struct task_struct *p, int cpu);
-static int is_tiny_task(struct task_struct *p);
 static int
 ___select_idle_sibling(struct task_struct *p, int prev_cpu, int new_cpu);
 extern int find_best_idle_cpu(struct task_struct *p, bool prefer_idle);
@@ -46,6 +45,7 @@ int mtk_busy_power(int cpu_idx, int cpu, void *argu, int sd_level);
 extern
 const struct sched_group_energy * const cci_energy(void);
 #endif
+static int collect_cluster_info(int cpu, int *total_nr_running, int *cpu_count);
 
 
 /*#define DEBUG_EENV_DECISIONS*/
@@ -149,3 +149,6 @@ static inline int hmp_should_migrate_task(struct task_struct *p,
 	return true;
 }
 #endif
+
+static int check_freq_turning(void);
+
