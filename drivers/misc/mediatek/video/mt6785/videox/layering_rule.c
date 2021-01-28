@@ -66,6 +66,19 @@ int larb_bound_table[HRT_BOUND_NUM][HRT_LEVEL_NUM] = {
  * primary and secondary display.Each table has 16 elements which
  * represent the layer mapping rule by the number of input layers.
  */
+#ifdef MTK_HIGH_FRAME_RATE /*todo: use lcm_height to decide table*/
+static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
+	/* HRT_TB_TYPE_GENERAL */
+	{0x00010001, 0x00030003, 0x00030007, 0x0003000F, 0x0003001F, 0x0003003F,
+	0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F, 0x0003003C},
+	/* HRT_TB_TYPE_RPO_L0 */
+	{0x00010001, 0x00030005, 0x0003000D, 0x0003001D, 0x0003003D, 0x0003003D,
+	0x0003003D, 0x0003003D, 0x0003003D, 0x0003003D, 0x0003003D, 0x0003003D},
+	/* HRT_TB_TYPE_RPO_L0L1 */
+	{0x00010001, 0x00030003, 0x00030007, 0x0003000F, 0x0003001F, 0x0003003F,
+	0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F},
+};
+#else
 static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
 	/* HRT_TB_TYPE_GENERAL */
 	{0x00010001, 0x00030003, 0x00030007, 0x0003000F, 0x0003001F, 0x0003003F,
@@ -77,6 +90,7 @@ static int layer_mapping_table[HRT_TB_NUM][TOTAL_OVL_LAYER_NUM] = {
 	{0x00010001, 0x00030003, 0x00030007, 0x0003000F, 0x0003001F, 0x0003003F,
 	0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F, 0x0003003F},
 };
+#endif
 
 /**
  * The larb mapping table represent the relation between LARB and OVL.
@@ -351,7 +365,7 @@ static void filter_by_yuv_layers(struct disp_layer_info *disp_info)
 				continue;
 			if (is_yuv(info->src_fmt)) {
 				yuv_cnt++;
-				if (yuv_cnt > 2)
+				if (yuv_cnt > 1)
 					rollback_layer_to_GPU(disp_info,
 						disp_idx, i);
 			}
