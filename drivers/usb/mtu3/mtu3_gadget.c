@@ -266,12 +266,19 @@ struct usb_request *mtu3_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 void mtu3_free_request(struct usb_ep *ep, struct usb_request *req)
 {
 	struct mtu3_request *mreq = to_mtu3_request(req);
+	struct mtu3_request *r;
 	struct mtu3_ep *mep = to_mtu3_ep(ep);
 	struct mtu3 *mtu = mep->mtu;
 	unsigned long flags;
 
 	trace_mtu3_free_request(mreq);
 	spin_lock_irqsave(&mtu->lock, flags);
+	list_for_each_entry(r, &mep->req_list, list) {
+		if (r == mreq) {
+			list_del(&mreq->list);
+			break;
+		}
+	}
 	kfree(mreq);
 	spin_unlock_irqrestore(&mtu->lock, flags);
 }
