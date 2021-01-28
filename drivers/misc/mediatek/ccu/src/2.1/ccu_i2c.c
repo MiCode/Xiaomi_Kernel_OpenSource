@@ -313,7 +313,7 @@ int ccu_get_i2c_dma_buf_addr(struct ccu_device_s *g_ccu_device,
 int ccu_i2c_free_dma_buf_mva_all(void)
 {
 
-	ccu_deallocate_mva(&i2c_buffer_handle);
+	/*ccu_deallocate_mva(&i2c_buffer_handle);*/
 
 	LOG_INF_MUST("%s done.\n", __func__);
 
