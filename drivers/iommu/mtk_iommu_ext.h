@@ -27,17 +27,13 @@
 
 #ifdef CONFIG_MTK_AEE_FEATURE
 #define mmu_aee_print(string, args...) do {\
-	char mmu_name[100];\
-	snprintf(mmu_name, 100, "[MTK_IOMMU]"string, ##args); \
 	aee_kernel_warning_api(__FILE__, __LINE__, \
 		DB_OPT_MMPROFILE_BUFFER | DB_OPT_DUMP_DISPLAY, \
-		mmu_name, "[MTK_IOMMU] error"string, ##args); \
+		"[MTK_IOMMU]", "error"string, ##args); \
 	pr_info("[MTK_IOMMU] error:"string, ##args);  \
 	} while (0)
 #else
 #define mmu_aee_print(string, args...) do {\
-		char mmu_name[100];\
-		snprintf(mmu_name, 100, "[MTK_IOMMU]"string, ##args); \
 		pr_info("[MTK_IOMMU] error:"string, ##args);  \
 	} while (0)
 

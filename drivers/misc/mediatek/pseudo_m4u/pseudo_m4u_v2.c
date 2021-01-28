@@ -222,7 +222,8 @@ int larb_clock_on(int larb, bool config_mtcmos)
 	int ret = 0;
 
 #ifdef CONFIG_MTK_SMI_EXT
-	if (larb >= SMI_LARB_NR) {
+	if (larb >= SMI_LARB_NR ||
+	    larb < 0) {
 		M4U_MSG("invalid larb:%d, total:%d\n",
 			larb, SMI_LARB_NR);
 		return -1;
@@ -251,7 +252,8 @@ void larb_clock_off(int larb, bool config_mtcmos)
 #ifdef CONFIG_MTK_SMI_EXT
 	int ret = 0;
 
-	if (larb >= SMI_LARB_NR) {
+	if (larb >= SMI_LARB_NR ||
+	    larb < 0) {
 		M4U_MSG("invalid larb:%d, total:%d\n",
 			larb, SMI_LARB_NR);
 		return;
@@ -1367,17 +1369,21 @@ int m4u_switch_acp(unsigned int port,
 		unsigned long iova, size_t size, bool is_acp)
 {
 	struct device *dev = pseudo_get_larbdev(port);
+
+#if 0
 	struct m4u_buf_info_t *pMvaInfo;
 
 	pMvaInfo = pseudo_client_find_buf(ion_m4u_client, iova, 0);
 	if (!pseudo_is_acp_port(port) ||
 	    port != pMvaInfo->port ||
 	    size > pMvaInfo->size) {
-		M4U_MSG("invalid p:%d, va:0x%lx, sz:0x%lx, ow:%d, sz:0x%lx\n",
-			port, iova, size, pMvaInfo->port, pMvaInfo->size);
+#else
+	if (!pseudo_is_acp_port(port)) {
+#endif
+		M4U_MSG("invalid p:%d, va:0x%lx, sz:0x%lx\n",
+			port, iova, size);
 		return -EINVAL;
 	}
-
 	M4U_MSG("%s %d, switch acp, iova=0x%lx, size=0x%lx, acp=%d\n",
 		__func__, __LINE__, iova, size, is_acp);
 	return mtk_iommu_switch_acp(dev, iova, size, is_acp);
@@ -1727,6 +1733,8 @@ int __pseudo_alloc_mva(struct m4u_client_t *client,
 
 	/* pbuf_info for userspace compatible */
 	pbuf_info = pseudo_alloc_buf_info();
+	if (!pbuf_info)
+		return -ENOMEM;
 	pbuf_info->va = va;
 	pbuf_info->port = port;
 	pbuf_info->size = size;
@@ -2009,6 +2017,9 @@ int pseudo_dealloc_mva(struct m4u_client_t *client, int port, unsigned long mva)
 	int offset, ret;
 
 	pMvaInfo = pseudo_client_find_buf(client, mva, 1);
+
+	if (!pMvaInfo)
+		return -ENOMEM;
 
 	offset = m4u_va_align(&pMvaInfo->va, &pMvaInfo->size);
 	pMvaInfo->mva -= offset;
