@@ -3023,8 +3023,8 @@ static int musb_cleanup_urb(struct urb *urb, struct musb_qh *qh)
 	else
 		DBG(4, "111111aaaaaaaaa\n");
 
-
-	musb_ep_select(regs, hw_end);
+	if (regs)
+		musb_ep_select(regs, hw_end);
 	DBG(2, "is_in is %d,ep num is %d\n", is_in, ep->epnum);
 
 	if (is_dma_capable()) {
@@ -3103,10 +3103,12 @@ static int musb_urb_dequeue(struct usb_hcd *hcd, struct urb *urb, int status)
 				qh);
 
 	if (pos < 256) {
-		snprintf(info + pos, 256 - pos, ",rdy<%d>,prev<%d>,cur<%d>",
+		ret = snprintf(info + pos, 256 - pos, ",rdy<%d>,prev<%d>,cur<%d>",
 				qh->is_ready,
 				urb->urb_list.prev != &qh->hep->urb_list,
 				musb_ep_get_qh(qh->hw_ep, is_in) == qh);
+		if (ret < 0)
+			DBG(0, "ret<%d>\n", ret);
 	}
 
 	if (strstr(current->comm, "usb_call"))
