@@ -31,6 +31,7 @@ static struct hrtimer hrt1;
 static int usrtch_dbg;
 static int  touch_boost_value;
 static int touch_boost_opp; /* boost freq of touch boost */
+static int *cluster_opp;
 static struct ppm_limit_data *target_freq, *reset_freq;
 static int touch_boost_duration;
 static long long active_time;
@@ -60,6 +61,21 @@ void switch_init_opp(int boost_opp)
 	for (i = 0; i < perfmgr_clusters; i++)
 		target_freq[i].min =
 			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
+}
+
+void switch_cluster_opp(int id, int boost_opp)
+{
+	if (id < 0 || id >= perfmgr_clusters || boost_opp < -2)
+		return;
+
+	cluster_opp[id] = boost_opp;
+
+	if (boost_opp == -2) /* don't boost */
+		target_freq[id].min = -1;
+	else if (boost_opp == -1) /* use touch_boost_opp */
+		target_freq[id].min = mt_cpufreq_get_freq_by_idx(id, touch_boost_opp);
+	else /* use boost_opp */
+		target_freq[id].min = mt_cpufreq_get_freq_by_idx(id, boost_opp);
 }
 
 void switch_init_duration(int duration)
@@ -183,9 +199,10 @@ static ssize_t device_write(struct file *filp, const char *ubuf,
 		size_t cnt, loff_t *data)
 {
 	char buf[32], cmd[32];
-	int arg;
+	int arg1, arg2;
 
-	arg = 0;
+	arg1 = 0;
+	arg2 = -1;
 
 	if (cnt >= sizeof(buf))
 		return -EINVAL;
@@ -194,37 +211,47 @@ static ssize_t device_write(struct file *filp, const char *ubuf,
 		return -EFAULT;
 	buf[cnt] = '\0';
 
-	if (sscanf(buf, "%31s %d", cmd, &arg) != 2)
+	if (sscanf(buf, "%31s %d %d", cmd, &arg1, &arg2) < 2)
 		return -EFAULT;
 
 	if (strncmp(cmd, "enable", 6) == 0)
-		switch_usrtch(arg);
+		switch_usrtch(arg1);
 	else if (strncmp(cmd, "eas_boost", 4) == 0)
-		switch_eas_boost(arg);
+		switch_eas_boost(arg1);
 	else if (strncmp(cmd, "touch_opp", 9) == 0) {
-		if (arg >= 0 && arg <= 15)
-			switch_init_opp(arg);
+		if (arg1 >= 0 && arg1 <= 15)
+			switch_init_opp(arg1);
+	} else if (strncmp(cmd, "cluster_opp", 11) == 0) {
+		if (arg1 >= 0 && arg1 < perfmgr_clusters && arg2 >= -2 && arg2 <= 15)
+			switch_cluster_opp(arg1, arg2);
 	} else if (strncmp(cmd, "duration", 8) == 0) {
-		switch_init_duration(arg);
+		switch_init_duration(arg1);
 	} else if (strncmp(cmd, "active_time", 11) == 0) {
-		if (arg >= 0)
-			switch_active_time(arg);
+		if (arg1 >= 0)
+			switch_active_time(arg1);
 	} else if (strncmp(cmd, "time_to_last_touch", 18) == 0) {
-		if (arg >= 0)
-			switch_time_to_last_touch(arg);
+		if (arg1 >= 0)
+			switch_time_to_last_touch(arg1);
 	} else if (strncmp(cmd, "deboost_when_render", 19) == 0) {
-		if (arg >= 0)
-			switch_deboost_when_render(arg);
+		if (arg1 >= 0)
+			switch_deboost_when_render(arg1);
 	}
 	return cnt;
 }
 
 static int device_show(struct seq_file *m, void *v)
 {
+	int i;
+
 	seq_puts(m, "-----------------------------------------------------\n");
 	seq_printf(m, "enable:\t%d\n", !usrtch_dbg);
 	seq_printf(m, "eas_boost:\t%d\n", touch_boost_value);
 	seq_printf(m, "touch_opp:\t%d\n", touch_boost_opp);
+
+	for (i = 0; i < perfmgr_clusters; i++)
+		seq_printf(m, "cluster_opp[%d]:\t%d\n",
+		i, cluster_opp[i]);
+
 	seq_printf(m, "duration(ns):\t%d\n", touch_boost_duration);
 	seq_printf(m, "active_time(us):\t%d\n", (int)active_time);
 	seq_printf(m, "time_to_last_touch(ms):\t%d\n", time_to_last_touch);
@@ -337,11 +364,14 @@ int init_utch(struct proc_dir_entry *parent)
 			sizeof(struct ppm_limit_data), GFP_KERNEL);
 	reset_freq = kcalloc(perfmgr_clusters,
 			sizeof(struct ppm_limit_data), GFP_KERNEL);
+	cluster_opp = kcalloc(perfmgr_clusters,
+			sizeof(int), GFP_KERNEL);
 
 	for (i = 0; i < perfmgr_clusters; i++) {
 		target_freq[i].min =
 			mt_cpufreq_get_freq_by_idx(i, touch_boost_opp);
 		target_freq[i].max = reset_freq[i].min = reset_freq[i].max = -1;
+		cluster_opp[i] = -1; /* depend on touch_boost_opp */
 	}
 	mutex_init(&notify_lock);
 
