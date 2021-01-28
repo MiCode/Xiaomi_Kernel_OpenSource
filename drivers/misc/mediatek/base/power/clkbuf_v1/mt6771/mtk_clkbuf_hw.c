@@ -90,6 +90,8 @@ static void __iomem *pwrap_base;
 #define SIG_CTRL_M				2
 #define CO_BUF_M					3
 
+#define CLKBUF_STATUS_INFO_SIZE 2048
+
 static unsigned int xo2_mode_set[4] = {WCN_EN_M,
 			WCN_EN_BB_G,
 			WCN_SRCLKEN_CONN,
@@ -133,6 +135,7 @@ static int PMIC_CLK_BUF1_DRIVING_CURR = CLK_BUF_DRIVING_CURR_1,
 static u8 clkbuf_drv_curr_auxout[CLKBUF_NUM];
 static u8 xo_en_stat[CLKBUF_NUM];
 static u8 xo_bb_lpm_en_stat;
+static u8 xo_bb_lpm_en_o;
 
 #ifndef CLKBUF_BRINGUP
 static enum CLK_BUF_SWCTRL_STATUS_T  pmic_clk_buf_swctrl[CLKBUF_NUM] = {
@@ -1031,6 +1034,172 @@ void clk_buf_get_aux_out(void)
 	clk_buf_get_bblpm_en();
 }
 
+int clk_buf_ctrl_bblpm_sw(bool enable)
+{
+	clk_buf_ctrl_bblpm_hw(false);
+	if (enable)
+		pmic_config_interface(PMIC_DCXO_CW00_SET,
+				0x1 << 12,
+				PMIC_REG_MASK,
+				PMIC_REG_SHIFT);
+	else
+		pmic_config_interface(PMIC_DCXO_CW00_CLR,
+				0x1 << 12,
+				PMIC_REG_MASK,
+				PMIC_REG_SHIFT);
+
+	clk_buf_get_bblpm_en();
+
+	return 0;
+}
+
+static ssize_t clk_buf_show_status_info_internal(char *buf)
+{
+	int len = 0;
+	u32 pmic_cw00 = 0, pmic_cw02 = 0, pmic_cw11 = 0, pmic_cw13 = 0,
+	    pmic_cw14 = 0, pmic_cw15 = 0, pmic_cw16 = 0, pmic_cw23 = 0;
+
+	clk_buf_get_drv_curr();
+	clk_buf_get_xo_en();
+
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"********** PMIC clock buffer state (%s) **********\n",
+			(is_pmic_clkbuf ? "on" : "off"));
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_SOC   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF1_STATUS_PMIC, pmic_clk_buf_swctrl[XO_SOC],
+			xo_en_stat[XO_SOC]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_WCN   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF2_STATUS_PMIC, pmic_clk_buf_swctrl[XO_WCN],
+			xo_en_stat[XO_WCN]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_NFC   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF3_STATUS_PMIC, pmic_clk_buf_swctrl[XO_NFC],
+			xo_en_stat[XO_NFC]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_CEL   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF4_STATUS_PMIC, pmic_clk_buf_swctrl[XO_CEL],
+			xo_en_stat[XO_CEL]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_AUD   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF5_STATUS_PMIC, pmic_clk_buf_swctrl[XO_AUD],
+			xo_en_stat[XO_AUD]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_PD    SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF6_STATUS_PMIC, pmic_clk_buf_swctrl[XO_PD],
+			xo_en_stat[XO_PD]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"XO_EXT   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
+			CLK_BUF7_STATUS_PMIC, pmic_clk_buf_swctrl[XO_EXT],
+			xo_en_stat[XO_EXT]);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"\n********** clock buffer command help **********\n");
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"PMIC switch on/off: echo pmic en1 en2 en3 en4 en5 en6 en7 > /sys/power/clk_buf/clk_buf_ctrl\n");
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"Set drv curr(0~3): echo drvcurr v1 v2 v3 v4 v5 v6 v7 > /sys/power/clk_buf/clk_buf_ctrl\n");
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"\n********** clock buffer debug info **********\n");
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"pmic_drv_curr_vals=%d %d %d %d %d %d %d\n",
+			PMIC_CLK_BUF1_DRIVING_CURR, PMIC_CLK_BUF2_DRIVING_CURR,
+			PMIC_CLK_BUF3_DRIVING_CURR, PMIC_CLK_BUF4_DRIVING_CURR,
+			PMIC_CLK_BUF5_DRIVING_CURR, PMIC_CLK_BUF6_DRIVING_CURR,
+			PMIC_CLK_BUF7_DRIVING_CURR);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"clkbuf_drv_curr_auxout=%d %d %d %d %d %d %d\n",
+			clkbuf_drv_curr_auxout[XO_SOC],
+			clkbuf_drv_curr_auxout[XO_WCN],
+		     clkbuf_drv_curr_auxout[XO_NFC],
+		     clkbuf_drv_curr_auxout[XO_CEL],
+		     clkbuf_drv_curr_auxout[XO_AUD],
+		     clkbuf_drv_curr_auxout[XO_PD],
+		     clkbuf_drv_curr_auxout[XO_EXT]);
+
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"clkbuf_ctrl_stat=0x%x, pwrap_dcxo_en_flag=0x%x\n",
+			clkbuf_ctrl_stat, pwrap_dcxo_en_flag);
+
+	pmic_read_interface_nolock(PMIC_DCXO_CW00, &pmic_cw00,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW02, &pmic_cw02,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW11, &pmic_cw11,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface(PMIC_RG_XO_RESERVED4_ADDR, &pmic_cw13,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW14, &pmic_cw14,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface(PMIC_RG_XO_EXTBUF1_HD_ADDR, &pmic_cw15,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW16, &pmic_cw16,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	pmic_read_interface_nolock(PMIC_DCXO_CW23, &pmic_cw23,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"DCXO_CW00/02/11/13/14/15/16/23=0x%x %x %x %x %x %x %x %x\n",
+			pmic_cw00, pmic_cw02, pmic_cw11, pmic_cw13, pmic_cw14,
+			pmic_cw15, pmic_cw16, pmic_cw23);
+	pmic_read_interface_nolock(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &pmic_cw00,
+			    PMIC_REG_MASK, PMIC_REG_SHIFT);
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"SRCLKEN_IN3_EN(srclken_conn)=0x%x\n", pmic_cw00);
+
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"DCXO_CONN_ADR0/WDATA0/ADR1/WDATA1=0x%x %x %x %x\n",
+			clkbuf_readl(DCXO_CONN_ADR0),
+			clkbuf_readl(DCXO_CONN_WDATA0),
+			clkbuf_readl(DCXO_CONN_ADR1),
+			clkbuf_readl(DCXO_CONN_WDATA1));
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"DCXO_NFC_ADR0/WDATA0/ADR1/WDATA1/EN=0x%x %x %x %x %x\n",
+			clkbuf_readl(DCXO_NFC_ADR0),
+			clkbuf_readl(DCXO_NFC_WDATA0),
+			clkbuf_readl(DCXO_NFC_ADR1),
+			clkbuf_readl(DCXO_NFC_WDATA1),
+			clkbuf_readl(DCXO_ENABLE));
+
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"bblpm_switch=%u, bblpm_cnt=%u, bblpm_cond=0x%x\n",
+			bblpm_switch, bblpm_cnt, clk_buf_bblpm_enter_cond());
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"MD1_PWR_CON=0x%x, PWR_STATUS=0x%x, PCM_REG13_DATA=0x%x,",
+			clkbuf_readl(MD1_PWR_CON),
+			clkbuf_readl(PWR_STATUS),
+			clkbuf_readl(PCM_REG13_DATA));
+	len += snprintf(buf+len, CLKBUF_STATUS_INFO_SIZE-len,
+			"SPARE_ACK_MASK=0x%x, flight mode = %d\n",
+			clkbuf_readl(SPARE_ACK_MASK),
+			is_clk_buf_under_flightmode());
+
+	return len;
+}
+
+u8 clk_buf_get_xo_en_sta(enum xo_id id)
+{
+	clk_buf_get_xo_en();
+
+	return xo_en_stat[id];
+}
+
+void clk_buf_show_status_info(void)
+{
+	int len;
+	char *buf, *str, *str_sep;
+
+	buf = vmalloc(CLKBUF_STATUS_INFO_SIZE);
+	if (buf) {
+		len = clk_buf_show_status_info_internal(buf);
+		str = buf;
+		while ((str_sep = strsep(&str, ".")) != NULL)
+			pr_info("%s\n", str_sep);
+
+		vfree(buf);
+	} else
+		pr_info("%s: allocate memory fail\n", __func__);
+}
+
 #ifdef CONFIG_PM
 static ssize_t clk_buf_ctrl_store(struct kobject *kobj,
 		struct kobj_attribute *attr, const char *buf, size_t count)
@@ -1113,128 +1282,9 @@ static ssize_t clk_buf_ctrl_store(struct kobject *kobj,
 static ssize_t clk_buf_ctrl_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
-	int len = 0;
-	u32 pmic_cw00 = 0, pmic_cw02 = 0, pmic_cw11 = 0, pmic_cw13 = 0,
-	    pmic_cw14 = 0, pmic_cw15 = 0, pmic_cw16 = 0, pmic_cw23 = 0;
+	int len;
 
-	clk_buf_get_drv_curr();
-	clk_buf_get_xo_en();
-
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"********** PMIC clock buffer state (%s) **********\n",
-			(is_pmic_clkbuf ? "on" : "off"));
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_SOC   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF1_STATUS_PMIC, pmic_clk_buf_swctrl[XO_SOC],
-		xo_en_stat[XO_SOC]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_WCN   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF2_STATUS_PMIC, pmic_clk_buf_swctrl[XO_WCN],
-		xo_en_stat[XO_WCN]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_NFC   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF3_STATUS_PMIC, pmic_clk_buf_swctrl[XO_NFC],
-		xo_en_stat[XO_NFC]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_CEL   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF4_STATUS_PMIC, pmic_clk_buf_swctrl[XO_CEL],
-		xo_en_stat[XO_CEL]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_AUD   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF5_STATUS_PMIC, pmic_clk_buf_swctrl[XO_AUD],
-		xo_en_stat[XO_AUD]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_PD    SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF6_STATUS_PMIC, pmic_clk_buf_swctrl[XO_PD],
-		xo_en_stat[XO_PD]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"XO_EXT   SW(1)/HW(2) CTL: %d, Dis(0)/En(1): %d, RS: %u\n",
-		CLK_BUF7_STATUS_PMIC, pmic_clk_buf_swctrl[XO_EXT],
-		xo_en_stat[XO_EXT]);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"\n********** clock buffer command help **********\n");
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"%s %s > %s\n",
-			"PMIC switch on/off: echo pmic",
-			"en1 en2 en3 en4 en5 en6 en7",
-			"/sys/power/clk_buf/clk_buf_ctrl");
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"%s > %s\n",
-			"Set drv curr(0~3): echo drvcurr v1 v2 v3 v4 v5 v6 v7",
-			"/sys/power/clk_buf/clk_buf_ctrl\n");
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"\n********** clock buffer debug info **********\n");
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"pmic_drv_curr_vals=%d %d %d %d %d %d %d\n",
-			PMIC_CLK_BUF1_DRIVING_CURR, PMIC_CLK_BUF2_DRIVING_CURR,
-			PMIC_CLK_BUF3_DRIVING_CURR, PMIC_CLK_BUF4_DRIVING_CURR,
-			PMIC_CLK_BUF5_DRIVING_CURR, PMIC_CLK_BUF6_DRIVING_CURR,
-			PMIC_CLK_BUF7_DRIVING_CURR);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"clkbuf_drv_curr_auxout=%d %d %d %d %d %d %d\n",
-			clkbuf_drv_curr_auxout[XO_SOC],
-			clkbuf_drv_curr_auxout[XO_WCN],
-			clkbuf_drv_curr_auxout[XO_NFC],
-			clkbuf_drv_curr_auxout[XO_CEL],
-			clkbuf_drv_curr_auxout[XO_AUD],
-			clkbuf_drv_curr_auxout[XO_PD],
-			clkbuf_drv_curr_auxout[XO_EXT]);
-
-	len += snprintf(buf+len, PAGE_SIZE-len,
-			"clkbuf_ctrl_stat=0x%x, pwrap_dcxo_en_flag=0x%x\n",
-			clkbuf_ctrl_stat, pwrap_dcxo_en_flag);
-
-	pmic_read_interface_nolock(PMIC_DCXO_CW00, &pmic_cw00,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW02, &pmic_cw02,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW11, &pmic_cw11,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_RESERVED4_ADDR, &pmic_cw13,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW14, &pmic_cw14,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface(PMIC_RG_XO_EXTBUF1_HD_ADDR, &pmic_cw15,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW16, &pmic_cw16,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	pmic_read_interface_nolock(PMIC_DCXO_CW23, &pmic_cw23,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"DCXO_CW00/02/11/13/14/15/16/23=0x%x %x %x %x %x %x %x %x\n",
-		pmic_cw00, pmic_cw02, pmic_cw11, pmic_cw13, pmic_cw14,
-		pmic_cw15, pmic_cw16, pmic_cw23);
-	pmic_read_interface_nolock(PMIC_RG_SRCLKEN_IN3_EN_ADDR, &pmic_cw00,
-			    PMIC_REG_MASK, PMIC_REG_SHIFT);
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"SRCLKEN_IN3_EN(srclken_conn)=0x%x\n", pmic_cw00);
-
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"DCXO_CONN_ADR0/WDATA0/ADR1/WDATA1=0x%x %x %x %x\n",
-		clkbuf_readl(DCXO_CONN_ADR0),
-		clkbuf_readl(DCXO_CONN_WDATA0),
-		clkbuf_readl(DCXO_CONN_ADR1),
-		clkbuf_readl(DCXO_CONN_WDATA1));
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"DCXO_NFC_ADR0/WDATA0/ADR1/WDATA1/EN=0x%x %x %x %x %x\n",
-		clkbuf_readl(DCXO_NFC_ADR0),
-		clkbuf_readl(DCXO_NFC_WDATA0),
-		clkbuf_readl(DCXO_NFC_ADR1),
-		clkbuf_readl(DCXO_NFC_WDATA1),
-		clkbuf_readl(DCXO_ENABLE));
-
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"bblpm_switch=%u, bblpm_cnt=%u, bblpm_cond=0x%x\n",
-		bblpm_switch, bblpm_cnt, clk_buf_bblpm_enter_cond());
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"MD1_PWR_CON=0x%x, PWR_STATUS=0x%x, PCM_REG13_DATA=0x%x,",
-		clkbuf_readl(MD1_PWR_CON),
-		clkbuf_readl(PWR_STATUS),
-		clkbuf_readl(PCM_REG13_DATA));
-	len += snprintf(buf+len, PAGE_SIZE-len,
-		"SPARE_ACK_MASK=0x%x, flight mode = %d\n",
-		clkbuf_readl(SPARE_ACK_MASK),
-		is_clk_buf_under_flightmode());
+	len = clk_buf_show_status_info_internal(buf);
 
 	return len;
 }
@@ -1342,13 +1392,60 @@ static ssize_t clk_buf_debug_show(struct kobject *kobj,
 	return len;
 }
 
+static ssize_t clk_buf_bblpm_store(struct kobject *kobj,
+	struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	u32 onoff;
+	int ret = 0;
+
+	if ((kstrtouint(buf, 10, &onoff))) {
+		pr_info("bblpm input error\n");
+		return -EPERM;
+	}
+	pr_info("bblpm input = %d\n", onoff);
+	if (onoff == 1)
+		ret = clk_buf_ctrl_bblpm_sw(true);
+	else if (onoff == 0)
+		ret = clk_buf_ctrl_bblpm_sw(false);
+
+	if (ret)
+		return ret;
+
+	return count;
+}
+
+static ssize_t clk_buf_bblpm_show(struct kobject *kobj,
+	struct kobj_attribute *attr, char *buf)
+{
+	int len = 0;
+
+	clk_buf_get_aux_out();
+	len += snprintf(buf+len, PAGE_SIZE-len,
+		"EN_STAT=%d %d %d %d %d %d\n",
+		xo_en_stat[XO_SOC],
+		xo_en_stat[XO_WCN],
+		xo_en_stat[XO_NFC],
+		xo_en_stat[XO_CEL],
+		xo_en_stat[XO_PD],
+		xo_en_stat[XO_EXT]);
+
+	len += snprintf(buf+len, PAGE_SIZE-len,
+		"bblpm %d %d\n",
+		xo_bb_lpm_en_stat,
+		xo_bb_lpm_en_o);
+
+	return len;
+}
+
 DEFINE_ATTR_RW(clk_buf_ctrl);
 DEFINE_ATTR_RW(clk_buf_debug);
+DEFINE_ATTR_RW(clk_buf_bblpm);
 
 static struct attribute *clk_buf_attrs[] = {
 	/* for clock buffer control */
 	__ATTR_OF(clk_buf_ctrl),
 	__ATTR_OF(clk_buf_debug),
+	__ATTR_OF(clk_buf_bblpm),
 
 	/* must */
 	NULL,
