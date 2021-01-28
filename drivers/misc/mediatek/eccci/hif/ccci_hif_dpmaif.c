@@ -2207,6 +2207,21 @@ static void dpmaif_tx_done(struct work_struct *work)
 	int ret;
 	unsigned int L2TISAR0;
 
+	/* This is used to avoid race condition which may cause KE */
+	if (dpmaif_ctrl->dpmaif_state != HIFDPMAIF_STATE_PWRON) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"%s meet hw power down(%d)\n",
+			__func__, txq->index);
+		return;
+	}
+
+	if (!txq->que_started) {
+		CCCI_ERROR_LOG(dpmaif_ctrl->md_id, TAG,
+			"%s meet queue stop(%d)\n",
+			__func__, txq->index);
+		return;
+	}
+
 #if DPMAIF_TRAFFIC_MONITOR_INTERVAL
 	hif_ctrl->tx_done_last_start_time[txq->index] = local_clock();
 #endif
@@ -2216,7 +2231,7 @@ static void dpmaif_tx_done(struct work_struct *work)
 	L2TISAR0 = drv_dpmaif_get_ul_isr_event();
 	L2TISAR0 &= (DPMAIF_UL_INT_QDONE_MSK & (1 << (txq->index +
 		UL_INT_DONE_OFFSET)));
-	if (unlikely(ret == ERROR_STOP)) {
+	if (ret == ERROR_STOP) {
 
 	} else if (ret == ONCE_MORE || L2TISAR0) {
 		ret = queue_delayed_work(hif_ctrl->txq[txq->index].worker,
