@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 Richtek Technology Corp.
- * Author: cy_huang <cy_huang@richtek.com>
+ * Copyright (c) 2019 MediaTek Inc.
+ * Author: CY Huang <cy_huang@richtek.com>
  */
 
 #include <linux/module.h>

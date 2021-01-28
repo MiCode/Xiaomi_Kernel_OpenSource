@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2019 Richtek Technology Corp.
- * Author: cy_huang <cy_huang@richtek.com>
+ * Copyright (c) 2019 MediaTek Inc.
+ * Author: CY Huang <cy_huang@richtek.com>
  */
 
 #include <linux/module.h>
@@ -45,16 +45,16 @@ enum {
 
 static int rt5509_calib_get_dcroffset(struct rt5509_chip *chip)
 {
-	struct snd_soc_codec *codec = chip->codec;
+	struct snd_soc_component *component = chip->component;
 	uint32_t delta_v = 0, vtemp = 0;
 	int ret = 0;
 
-	dev_info(codec->dev, "%s\n", __func__);
-	ret = snd_soc_read(codec, RT5509_REG_VTEMP_TRIM);
+	dev_info(component->dev, "%s\n", __func__);
+	ret = snd_soc_component_read32(component, RT5509_REG_VTEMP_TRIM);
 	if (ret < 0)
 		return ret;
 	vtemp = ret & 0xffff;
-	ret = snd_soc_read(codec, RT5509_REG_VTHRMDATA);
+	ret = snd_soc_component_read32(component, RT5509_REG_VTHRMDATA);
 	if (ret < 0)
 		return ret;
 	ret &= 0xffff;
@@ -64,22 +64,22 @@ static int rt5509_calib_get_dcroffset(struct rt5509_chip *chip)
 
 static int rt5509_calib_chosen_db(struct rt5509_chip *chip, int choose)
 {
-	struct snd_soc_codec *codec = chip->codec;
+	struct snd_soc_component *component = chip->component;
 	u32 data = 0;
 	uint8_t mode_store;
 	int i = 0, ret = 0;
 
 	dev_info(chip->dev, "%s\n", __func__);
-	ret = snd_soc_read(codec, RT5509_REG_BST_MODE);
+	ret = snd_soc_component_read32(component, RT5509_REG_BST_MODE);
 	if (ret < 0)
 		return ret;
 	mode_store = ret;
-	ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
+	ret = snd_soc_component_update_bits(component, RT5509_REG_BST_MODE,
 		0x03, 0x02);
 	if (ret < 0)
 		return ret;
 	data = 0x0080;
-	ret = snd_soc_write(codec, RT5509_REG_CALIB_REQ, data);
+	ret = snd_soc_component_write(component, RT5509_REG_CALIB_REQ, data);
 	if (ret < 0)
 		return ret;
 	switch (choose) {
@@ -95,20 +95,21 @@ static int rt5509_calib_chosen_db(struct rt5509_chip *chip, int choose)
 	default:
 		return -EINVAL;
 	}
-	ret = snd_soc_write(codec, RT5509_REG_CALIB_GAIN, data);
+	ret = snd_soc_component_write(component, RT5509_REG_CALIB_GAIN, data);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_read(codec, RT5509_REG_CALIB_CTRL);
+	ret = snd_soc_component_read32(component, RT5509_REG_CALIB_CTRL);
 	if (ret < 0)
 		return ret;
 	data = ret;
 	data |= 0x80;
-	ret = snd_soc_write(codec, RT5509_REG_CALIB_CTRL, data);
+	ret = snd_soc_component_write(component, RT5509_REG_CALIB_CTRL, data);
 	if (ret < 0)
 		return ret;
 	mdelay(120);
 	while (i++ < 3) {
-		ret = snd_soc_read(codec, RT5509_REG_CALIB_CTRL);
+		ret = snd_soc_component_read32(component,
+					       RT5509_REG_CALIB_CTRL);
 		if (ret < 0)
 			return ret;
 		if (ret & 0x01)
@@ -116,10 +117,10 @@ static int rt5509_calib_chosen_db(struct rt5509_chip *chip, int choose)
 		mdelay(20);
 	}
 	data &= ~(0x80);
-	ret = snd_soc_write(codec, RT5509_REG_CALIB_CTRL, data);
+	ret = snd_soc_component_write(component, RT5509_REG_CALIB_CTRL, data);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
+	ret = snd_soc_component_update_bits(component, RT5509_REG_BST_MODE,
 		0x03, mode_store);
 	if (ret < 0)
 		return ret;
@@ -127,15 +128,15 @@ static int rt5509_calib_chosen_db(struct rt5509_chip *chip, int choose)
 		dev_err(chip->dev, "over ready count\n");
 		return -EINVAL;
 	}
-	return snd_soc_read(codec, RT5509_REG_CALIB_OUT0);
+	return snd_soc_component_read32(component, RT5509_REG_CALIB_OUT0);
 }
 
 static int rt5509_calib_read_otp(struct rt5509_chip *chip)
 {
-	struct snd_soc_codec *codec = chip->codec;
+	struct snd_soc_component *component = chip->component;
 	int ret = 0;
 
-	ret = snd_soc_read(codec, RT5509_REG_ISENSEGAIN);
+	ret = snd_soc_component_read32(component, RT5509_REG_ISENSEGAIN);
 	if (ret < 0)
 		return ret;
 	ret &= 0xffffff;
@@ -144,70 +145,70 @@ static int rt5509_calib_read_otp(struct rt5509_chip *chip)
 
 static int rt5509_calib_write_otp(struct rt5509_chip *chip)
 {
-	struct snd_soc_codec *codec = chip->codec;
+	struct snd_soc_component *component = chip->component;
 	uint8_t mode_store;
 	uint32_t param = chip->calib_dev.rspk;
 	uint32_t param_store;
 	uint32_t bst_th;
 	int ret = 0;
 
-	ret = snd_soc_read(codec, RT5509_REG_BST_TH1);
+	ret = snd_soc_component_read32(component, RT5509_REG_BST_TH1);
 	if (ret < 0)
 		return ret;
 	bst_th = ret;
-	ret = snd_soc_read(codec, RT5509_REG_BST_MODE);
+	ret = snd_soc_component_read32(component, RT5509_REG_BST_MODE);
 	if (ret < 0)
 		return ret;
 	mode_store = ret;
-	ret = snd_soc_write(codec, RT5509_REG_BST_TH1, 0x029b);
+	ret = snd_soc_component_write(component, RT5509_REG_BST_TH1, 0x029b);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
+	ret = snd_soc_component_update_bits(component, RT5509_REG_BST_MODE,
 		0x03, 0x02);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_CALIB_DCR, param);
+	ret = snd_soc_component_write(component, RT5509_REG_CALIB_DCR, param);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_read(codec, RT5509_REG_OTPDIN);
+	ret = snd_soc_component_read32(component, RT5509_REG_OTPDIN);
 	ret &= 0x00ffff;
 	ret |= 0xc50000;
-	ret = snd_soc_write(codec, RT5509_REG_OTPDIN, ret);
+	ret = snd_soc_component_write(component, RT5509_REG_OTPDIN, ret);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_OTPCONF, 0x81);
+	ret = snd_soc_component_write(component, RT5509_REG_OTPCONF, 0x81);
 	if (ret < 0)
 		return ret;
 	msleep(100);
-	ret = snd_soc_write(codec, RT5509_REG_OTPCONF, 0x00);
+	ret = snd_soc_component_write(component, RT5509_REG_OTPCONF, 0x00);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_update_bits(codec, RT5509_REG_BST_MODE,
+	ret = snd_soc_component_update_bits(component, RT5509_REG_BST_MODE,
 		0x03, mode_store);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_BST_TH1, bst_th);
+	ret = snd_soc_component_write(component, RT5509_REG_BST_TH1, bst_th);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_CALIB_DCR, 0x00);
+	ret = snd_soc_component_write(component, RT5509_REG_CALIB_DCR, 0x00);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_OTPDIN, 0x00);
+	ret = snd_soc_component_write(component, RT5509_REG_OTPDIN, 0x00);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_OTPCONF, 0x82);
+	ret = snd_soc_component_write(component, RT5509_REG_OTPCONF, 0x82);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_write(codec, RT5509_REG_OTPCONF, 0x00);
+	ret = snd_soc_component_write(component, RT5509_REG_OTPCONF, 0x00);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_read(codec, RT5509_REG_CALIB_DCR);
+	ret = snd_soc_component_read32(component, RT5509_REG_CALIB_DCR);
 	param_store = ret & 0xffffff;
 	dev_info(chip->dev, "store %08x, put %08x\n", param_store,
 		 param);
 	if (param_store != param)
 		return -EINVAL;
-	ret = snd_soc_read(codec, RT5509_REG_OTPDIN);
+	ret = snd_soc_component_read32(component, RT5509_REG_OTPDIN);
 	dev_info(chip->dev, "otp_din = 0x%08x\n", ret);
 	if ((ret & 0xff0000) != 0xc50000)
 		return -EINVAL;
@@ -235,10 +236,10 @@ static int rt5509_calib_rwotp(struct rt5509_chip *chip, int choose)
 
 static int rt5509_calib_read_rapp(struct rt5509_chip *chip)
 {
-	struct snd_soc_codec *codec = chip->codec;
+	struct snd_soc_component *component = chip->component;
 	int ret = 0;
 
-	ret = snd_soc_read(codec, RT5509_REG_RAPP);
+	ret = snd_soc_component_read32(component, RT5509_REG_RAPP);
 	if (ret < 0)
 		return ret;
 	ret &= 0xffffff;
@@ -255,21 +256,22 @@ static int rt5509_calib_start_process(struct rt5509_chip *chip)
 	int ret = 0;
 
 	dev_info(chip->dev, "%s\n", __func__);
-	ret = snd_soc_read(chip->codec, RT5509_REG_CHIPEN);
+	ret = snd_soc_component_read32(chip->component, RT5509_REG_CHIPEN);
 	if (ret < 0)
 		return ret;
 	if (!(ret & RT5509_SPKAMP_ENMASK)) {
 		dev_err(chip->dev, "class D not turn on\n");
 		return -EINVAL;
 	}
-	ret = snd_soc_read(chip->codec, RT5509_REG_I2CBCKLRCKCONF);
+	ret = snd_soc_component_read32(chip->component,
+				       RT5509_REG_I2CBCKLRCKCONF);
 	if (ret < 0)
 		return ret;
 	if (ret & 0x08) {
 		dev_err(chip->dev, "BCK loss\n");
 		return -EINVAL;
 	}
-	ret = snd_soc_read(chip->codec, RT5509_REG_CALIB_REQ);
+	ret = snd_soc_component_read32(chip->component, RT5509_REG_CALIB_REQ);
 	if (ret < 0)
 		return ret;
 	chip->pilot_freq = ret & 0xffff;
@@ -279,7 +281,7 @@ static int rt5509_calib_start_process(struct rt5509_chip *chip)
 static int rt5509_calib_end_process(struct rt5509_chip *chip)
 {
 	dev_info(chip->dev, "%s\n", __func__);
-	return snd_soc_write(chip->codec, RT5509_REG_CALIB_REQ,
+	return snd_soc_component_write(chip->component, RT5509_REG_CALIB_REQ,
 			chip->pilot_freq);
 }
 
@@ -435,11 +437,11 @@ int rt5509_calib_create(struct rt5509_chip *chip)
 	int ret = 0;
 
 	dev_dbg(chip->dev, "%s\n", __func__);
-	ret = snd_soc_read(chip->codec, RT5509_REG_OTPDIN);
+	ret = snd_soc_component_read32(chip->component, RT5509_REG_OTPDIN);
 	ret &= 0xff0000;
 	if (ret == 0xc50000)
 		chip->calibrated = 1;
-	ret = snd_soc_read(chip->codec, RT5509_REG_CALIB_DCR);
+	ret = snd_soc_component_read32(chip->component, RT5509_REG_CALIB_DCR);
 	ret &= 0xffffff;
 	pcalib_dev->rspk = ret;
 	/* default rspk min,max,alphspk */
@@ -540,10 +542,10 @@ static int calib_data_file_read(struct rt5509_chip *chip, char *buf)
 
 static int rt_dev_event_read(struct rt5509_chip *chip, char *buf)
 {
-	struct snd_soc_codec *codec = chip->codec;
+	struct snd_soc_component *component = chip->component;
 	int i, index = 0, ret = 0;
 
-	ret = snd_soc_read(codec, RT5509_REG_CHIPEN);
+	ret = snd_soc_component_read32(component, RT5509_REG_CHIPEN);
 	if (ret < 0)
 		return ret;
 	if (!(ret & RT5509_SPKAMP_ENMASK)) {
@@ -554,38 +556,38 @@ static int rt_dev_event_read(struct rt5509_chip *chip, char *buf)
 			   "important reg dump ++\n");
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x03) -> 0x%02x\n", ret);
-	ret = snd_soc_read(codec, RT5509_REG_CHIPREV);
+	ret = snd_soc_component_read32(component, RT5509_REG_CHIPREV);
 	if (ret < 0)
 		return ret;
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x00) -> 0x%02x\n", ret);
-	ret = snd_soc_read(codec, RT5509_REG_EVENTINFO);
+	ret = snd_soc_component_read32(component, RT5509_REG_EVENTINFO);
 	if (ret < 0)
 		return ret;
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x01) -> 0x%02x\n", ret);
-	ret = snd_soc_read(codec, RT5509_REG_DMGFLAG);
+	ret = snd_soc_component_read32(component, RT5509_REG_DMGFLAG);
 	if (ret < 0)
 		return ret;
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x02) -> 0x%02x\n", ret);
-	ret = snd_soc_read(codec, RT5509_REG_BST_MODE);
+	ret = snd_soc_component_read32(component, RT5509_REG_BST_MODE);
 	if (ret < 0)
 		return ret;
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x1e) -> 0x%02x\n", ret);
-	ret = snd_soc_read(codec, RT5509_REG_ISENSEGAIN);
+	ret = snd_soc_component_read32(component, RT5509_REG_ISENSEGAIN);
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x46) -> 0x%06x\n", ret & 0xffffff);
-	ret = snd_soc_read(codec, RT5509_REG_CALIB_DCR);
+	ret = snd_soc_component_read32(component, RT5509_REG_CALIB_DCR);
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x4e) -> 0x%06x\n", ret & 0xffffff);
-	ret = snd_soc_read(codec, RT5509_REG_VTEMP_TRIM);
+	ret = snd_soc_component_read32(component, RT5509_REG_VTEMP_TRIM);
 	if (ret < 0)
 		return ret;
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0xc4) -> 0x%04x\n", ret);
-	ret = snd_soc_read(codec, RT5509_REG_INTERRUPT);
+	ret = snd_soc_component_read32(component, RT5509_REG_INTERRUPT);
 	if (ret < 0)
 		return ret;
 	index += scnprintf(buf + index, PAGE_SIZE - index,
@@ -595,17 +597,18 @@ static int rt_dev_event_read(struct rt5509_chip *chip, char *buf)
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "impedance curve ++\n");
 	for (i = 0x10; i <= 0x1a; i++) {
-		ret = snd_soc_write(codec, RT5509_REG_SPKRPTSEL, i);
+		ret = snd_soc_component_write(component,
+					      RT5509_REG_SPKRPTSEL, i);
 		if (ret < 0)
 			return ret;
-		ret = snd_soc_read(codec, RT5509_REG_SPKRPT);
+		ret = snd_soc_component_read32(component, RT5509_REG_SPKRPT);
 		index += scnprintf(buf + index, PAGE_SIZE - index,
 				   "i(0x%02x) -> 0x%06x\n", i, ret & 0xffffff);
 	}
-	ret = snd_soc_write(codec, RT5509_REG_SPKRPTSEL, 0x0d);
+	ret = snd_soc_component_write(component, RT5509_REG_SPKRPTSEL, 0x0d);
 	if (ret < 0)
 		return ret;
-	ret = snd_soc_read(codec, RT5509_REG_SPKRPT);
+	ret = snd_soc_component_read32(component, RT5509_REG_SPKRPT);
 	index += scnprintf(buf + index, PAGE_SIZE - index,
 			   "i(0x0d) -> 0x%06x\n", ret & 0xffffff);
 	index += scnprintf(buf + index, PAGE_SIZE - index,

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * Copyright (C) 2019 Richtek Technology Corp.
- * Author: cy_huang <cy_huang@richtek.com>
+ * Copyright (c) 2019 MediaTek Inc.
+ * Author: CY Huang <cy_huang@richtek.com>
  */
 
 #ifndef __RT5509_H
@@ -63,16 +63,16 @@ struct rt5509_calib_classdev {
 	int32_t rspkmin;
 	int32_t rspkmax;
 	int32_t alphaspk;
-	int (*trigger_read)(struct rt5509_calib_classdev *dev);
-	int (*trigger_write)(struct rt5509_calib_classdev *dev);
-	int (*trigger_calculation)(struct rt5509_calib_classdev *dev);
+	int (*trigger_read)(struct rt5509_calib_classdev *calib_dev);
+	int (*trigger_write)(struct rt5509_calib_classdev *calib_dev);
+	int (*trigger_calculation)(struct rt5509_calib_classdev *calib_dev);
 };
 
 struct rt5509_chip {
 	struct i2c_client *i2c;
 	struct device *dev;
 	struct rt5509_pdata *pdata;
-	struct snd_soc_codec *codec;
+	struct snd_soc_component *component;
 	struct platform_device *pdev;
 	struct rt5509_calib_classdev calib_dev;
 	struct rt_regmap_device *rd;
