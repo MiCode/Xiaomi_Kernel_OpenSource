@@ -20,13 +20,6 @@ extern void ram_console_write(struct console *console, const char *s,
 				unsigned int count);
 #endif
 
-#ifdef CONFIG_MTK_AEE_IPANIC
-extern void aee_dumpnative(void);
-#endif
-#ifdef CONFIG_SCHED_DEBUG
-extern void sysrq_sched_debug_show(void);
-extern void sysrq_sched_debug_show_at_AEE(void);
-#endif
 extern int aee_rr_reboot_reason_show(struct seq_file *m, void *v);
 extern int aee_rr_last_fiq_step(void);
 extern void aee_rr_rec_exp_type(unsigned int type);
