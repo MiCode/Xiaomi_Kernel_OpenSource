@@ -6046,13 +6046,14 @@ enum SVP_STATE {
 };
 
 #ifndef OPT_BACKUP_NUM
-#  define OPT_BACKUP_NUM 3
+#  define OPT_BACKUP_NUM 4
 #endif
 
 static enum DISP_HELPER_OPT opt_backup_name[OPT_BACKUP_NUM] = {
 	DISP_OPT_SMART_OVL,
 	DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,
-	DISP_OPT_BYPASS_OVL
+	DISP_OPT_BYPASS_OVL,
+	DISP_OPT_OVL_SBCH
 };
 
 static int opt_backup_value[OPT_BACKUP_NUM];
