@@ -23,8 +23,8 @@ struct chg_alg_properties {
 
 /*
  * ALG_INIT_FAIL: hw init fail
- * ALG_TA_CHECKING: checking TA
  * ALG_TA_NOT_SUPPORT: TA does not support
+ * ALG_TA_CHECKING: checking TA
  * ALG_NOT_READY: TA support & not meet the conditions
  * ALG_READY: TA support & meet the conditions
  * ALG_RUNNING: alg is running
@@ -57,22 +57,22 @@ struct chg_alg_device {
 	bool is_polling_mode;
 };
 
-enum chg_alg_evt {
+enum chg_alg_notifier_events {
 	EVT_PLUG_IN,
 	EVT_PLUG_OUT,
 	EVT_FULL,
 	EVT_RECHARGE
 };
 
+struct chg_alg_notify {
+	enum chg_alg_notifier_events evt;
+	int value;
+};
+
 struct chg_alg_setting {
 	int cv;
 	int input_current_limit;
 	int charging_current_limit;
-};
-
-struct chg_alg_notify {
-	enum chg_alg_evt evt;
-	int value;
 };
 
 enum chg_alg_props {
@@ -120,16 +120,18 @@ static inline void chg_alg_dev_set_drv_hal_data(
 	chg_alg->driver_hal_data = data;
 }
 
-
+extern struct chg_alg_device *get_chg_alg_by_name(
+	const char *name);
 extern struct chg_alg_device *chg_alg_device_register(
 	const char *name, struct device *parent,
 	void *devdata, const struct chg_alg_ops *ops,
 	const struct chg_alg_properties *props);
 extern void chg_alg_device_unregister(
 	struct chg_alg_device *charger_dev);
-extern struct chg_alg_device *get_chg_alg_by_name(
-	const char *name);
-
+extern int register_chg_alg_notifier(struct chg_alg_device *alg_dev,
+				struct notifier_block *nb);
+extern int unregister_chg_alg_notifier(struct chg_alg_device *alg_dev,
+				struct notifier_block *nb);
 
 extern int chg_alg_init_algo(struct chg_alg_device *alg_dev);
 extern int chg_alg_is_algo_ready(struct chg_alg_device *alg_dev);

@@ -688,6 +688,15 @@ config CHARGER_MT6360
 	  Average Input Current Regulation, Battery Tempature Sensing,
 	  Over-Temperature Protection, DPDM Detection for BC1.2
 
+config CHARGER_TYPE_MT6357
+	bool "MT6357 Charger Type Detection Driver"
+	depends on MFD_MT6397
+	help
+	  Say yes here to enable MT6357 Charger Type
+	  Detection Driver.
+	  This driver use MT6357 to detect charger type
+	  Say no if not using MT6357 Charger Type Detection.
+
 config MTK_CHARGER
 	bool "MediaTek Charging Driver"
 	help
@@ -695,6 +704,34 @@ config MTK_CHARGER
 	  This driver contains charging control flow and
 	  maintains charging status.
 	  Say no if not using MediaTek charging driver.
+
+config MTK_KERNEL_POWER_OFF_CHARGING
+	bool "MTK kernel power off charging"
+	depends on MTK_CHARGER
+	help
+	  yes : support KPOC feature, power off charging would running by
+	  kernel and charging animation by kpoc service. no: not support KPOC
+	  feature.
+	  device won't enter charging mode if config is no.
+
+config MTK_PUMP_EXPRESS_PLUS_SUPPORT
+	bool "MediaTek PUMP EXPRESS PLUS"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability.
+	  Set Yes to enable PE+
+	  Set No to disable PE+
+
+config MTK_PUMP_EXPRESS_PLUS_20_SUPPORT
+	bool "MediaTek PUMP EXPRESS PLUS 2.0"
+	depends on MTK_CHARGER
+	help
+	  Fast charging technology using switch charger and current pattern
+	  to achive better charging ability. It has higher charging efficiency
+	  and has better thermal performance than PE+.
+	  Set Yes to enable PE+2.0
+	  Set No to disable PE+2.0
 
 config CHARGER_RT9458
 	bool "Charger Driver for Richtek RT9458 Charger IC"

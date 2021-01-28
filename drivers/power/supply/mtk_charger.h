@@ -8,8 +8,8 @@
 
 #include <linux/alarmtimer.h>
 #include "charger_class.h"
+#include "adapter_class.h"
 #include "mtk_charger_algorithm_class.h"
-
 
 #define CHARGING_INTERVAL 10
 #define CHARGING_FULL_INTERVAL 20
@@ -140,7 +140,7 @@ struct mtk_charger_algorithm {
 	int (*do_algorithm)(struct mtk_charger *info);
 	int (*enable_charging)(struct mtk_charger *info, bool en);
 	int (*do_event)(struct mtk_charger *info,
-		enum chg_alg_evt evt, int val);
+		enum chg_alg_notifier_events evt, int val);
 	int (*change_current_setting)(struct mtk_charger *info);
 
 };
@@ -230,6 +230,12 @@ struct mtk_charger {
 	struct power_supply_config psy_cfg;
 	struct power_supply *psy;
 
+	struct adapter_device *pd_adapter;
+	struct notifier_block pd_nb;
+	struct mutex pd_lock;
+	int pd_type;
+	bool pd_reset;
+
 	u32 bootmode;
 	u32 boottype;
 
@@ -268,6 +274,7 @@ struct mtk_charger {
 	bool cmd_discharging;
 	bool safety_timeout;
 	bool vbusov_stat;
+	bool is_chg_done;
 	/* ATM */
 	bool atm_enabled;
 
@@ -294,6 +301,7 @@ struct mtk_charger {
 	struct battery_thermal_protection_data thermal;
 
 	struct chg_alg_device *alg[MAX_ALG_NO];
+	struct notifier_block chg_alg_nb;
 	bool enable_hv_charging;
 
 };

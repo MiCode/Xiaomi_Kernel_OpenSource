@@ -73,8 +73,7 @@ static void select_cv(struct mtk_charger *info)
 
 	if (info->enable_sw_jeita)
 		if (info->sw_jeita.cv != 0) {
-			charger_dev_set_constant_voltage(info->chg1_dev,
-							info->sw_jeita.cv);
+			info->setting.cv = info->sw_jeita.cv;
 			return;
 		}
 
@@ -110,8 +109,8 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	}
 
 	if (info->atm_enabled == true
-		/* && (info->chr_type == STANDARD_HOST || */
-		/* info->chr_type == CHARGING_HOST) */
+		&& (info->chr_type == POWER_SUPPLY_USB_TYPE_SDP ||
+		info->chr_type == POWER_SUPPLY_USB_TYPE_CDP)
 		) {
 		pdata->input_current_limit = 100000; /* 100mA */
 		is_basic = true;
@@ -193,6 +192,11 @@ static bool select_charging_current_limit(struct mtk_charger *info,
 	} else
 		info->setting.input_current_limit = -1;
 
+	if (info->pd_type == MTK_PD_CONNECT_PE_READY_SNK ||
+		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_PD30 ||
+		info->pd_type == MTK_PD_CONNECT_PE_READY_SNK_APDO)
+		is_basic = false;
+
 done:
 
 	ret = charger_dev_get_min_charging_current(info->chg1_dev, &ichg1_min);
@@ -203,12 +207,13 @@ done:
 	if (ret != -ENOTSUPP && pdata->input_current_limit < aicr1_min)
 		pdata->input_current_limit = 0;
 
-	chr_err("thermal:%d %d setting:%d %d type:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
+	chr_err("thermal:%d %d setting:%d %d type:%d:%d usb_unlimited:%d usbif:%d usbsm:%d aicl:%d atm:%d bm:%d b:%d\n",
 		_uA_to_mA(pdata->thermal_input_current_limit),
 		_uA_to_mA(pdata->thermal_charging_current_limit),
 		_uA_to_mA(pdata->input_current_limit),
 		_uA_to_mA(pdata->charging_current_limit),
-		info->chr_type, info->usb_unlimited,
+		info->chr_type, info->pd_type,
+		info->usb_unlimited,
 		IS_ENABLED(CONFIG_USBIF_COMPLIANCE), info->usb_state,
 		pdata->input_current_limit_by_aicl, info->atm_enabled,
 		info->bootmode, is_basic);
@@ -220,15 +225,17 @@ static int do_algorithm(struct mtk_charger *info)
 {
 	struct chg_alg_device *alg;
 	struct charger_data *pdata;
+	struct chg_alg_notify notify;
 	bool is_basic = true;
+	bool chg_done = false;
 	int i;
 	int ret;
 	int val;
-	struct chg_alg_setting setting;
 
 	pdata = &info->chg_data[CHGS_SETTING];
-	is_basic = select_charging_current_limit(info, &setting);
-	is_basic = true;
+	charger_dev_is_charging_done(info->chg1_dev, &chg_done);
+	is_basic = select_charging_current_limit(info, &info->setting);
+
 	chr_err("%s is_basic:%d\n", __func__, is_basic);
 	if (is_basic != true) {
 		is_basic = true;
@@ -246,16 +253,29 @@ static int do_algorithm(struct mtk_charger *info)
 				continue;
 			}
 
+			if (chg_done != info->is_chg_done) {
+				if (chg_done) {
+					notify.evt = EVT_FULL;
+					notify.value = 0;
+				} else {
+					notify.evt = EVT_RECHARGE;
+					notify.value = 0;
+				}
+				chg_alg_notifier_call(alg, &notify);
+				chr_err("%s notify:%d\n", __func__, notify.evt);
+			}
+
 			ret = chg_alg_is_algo_ready(alg);
 
 			chr_err("%s %s ret:%s\n", __func__,
 				dev_name(&alg->dev),
 				chg_alg_state_to_str(ret));
 
-			if (ret == ALG_INIT_FAIL || ret == ALG_TA_NOT_SUPPORT
-				|| ret == ALG_NOT_READY || ret == ALG_DONE) {
+			if (ret == ALG_INIT_FAIL || ret == ALG_TA_NOT_SUPPORT) {
+				/* try next algorithm */
 				continue;
-			} else if (ret == ALG_TA_CHECKING) {
+			} else if (ret == ALG_TA_CHECKING || ret == ALG_DONE) {
+				/* wait checking , use basic first */
 				is_basic = true;
 				break;
 			} else if (ret == ALG_READY || ret == ALG_RUNNING) {
@@ -269,7 +289,7 @@ static int do_algorithm(struct mtk_charger *info)
 			}
 		}
 	}
-
+	info->is_chg_done = chg_done;
 
 	if (is_basic == true) {
 		charger_dev_set_input_current(info->chg1_dev,
@@ -287,16 +307,31 @@ static int do_algorithm(struct mtk_charger *info)
 static int enable_charging(struct mtk_charger *info,
 						bool en)
 {
+	int i;
+	struct chg_alg_device *alg;
+
+
 	chr_err("%s %d\n", __func__, en);
+
+	if (en == false) {
+		for (i = 0; i < MAX_ALG_NO; i++) {
+			alg = info->alg[i];
+			if (alg == NULL)
+				continue;
+			chg_alg_stop_algo(alg);
+		}
+		charger_dev_enable(info->chg1_dev, false);
+	}
+
 	return 0;
 }
 
 static int charger_dev_event(struct mtk_charger *info,
-	enum chg_alg_evt evt, int val)
+	enum chg_alg_notifier_events evt, int val)
 {
 	struct chg_alg_device *alg;
-	int i;
 	struct chg_alg_notify notify;
+	int i;
 
 	chr_err("%s %d %d\n", __func__, evt, val);
 
@@ -310,6 +345,7 @@ static int charger_dev_event(struct mtk_charger *info,
 
 	return 0;
 }
+
 
 
 int mtk_basic_charger_init(struct mtk_charger *info)

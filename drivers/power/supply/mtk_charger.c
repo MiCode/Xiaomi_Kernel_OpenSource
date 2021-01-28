@@ -1123,6 +1123,17 @@ static bool charger_init_algo(struct mtk_charger *info)
 	struct chg_alg_device *alg;
 	int idx = 0;
 
+	alg = get_chg_alg_by_name("pd");
+	info->alg[idx] = alg;
+	if (alg == NULL)
+		chr_err("get pd fail\n");
+	else {
+		chr_err("get pd success\n");
+		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
+	}
+	idx++;
+
 	alg = get_chg_alg_by_name("pe2");
 	info->alg[idx] = alg;
 	if (alg == NULL)
@@ -1130,6 +1141,7 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe2 success\n");
 		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
 	idx++;
 	alg = get_chg_alg_by_name("pe");
@@ -1139,8 +1151,8 @@ static bool charger_init_algo(struct mtk_charger *info)
 	else {
 		chr_err("get pe success\n");
 		chg_alg_init_algo(alg);
+		register_chg_alg_notifier(alg, &info->chg_alg_nb);
 	}
-
 
 	info->chg1_dev = get_charger_by_name("primary_chg");
 	if (info->chg1_dev)
@@ -1156,9 +1168,9 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 {
 	struct charger_data *pdata1 = &info->chg_data[CHGS_SETTING];
 	struct charger_data *pdata2 = &info->chg_data[CHG2_SETTING];
-	int i;
 	struct chg_alg_device *alg;
 	struct chg_alg_notify notify;
+	int i;
 
 	chr_err("%s\n", __func__);
 	info->chr_type = POWER_SUPPLY_USB_TYPE_UNKNOWN;
@@ -1185,9 +1197,9 @@ static int mtk_charger_plug_out(struct mtk_charger *info)
 static int mtk_charger_plug_in(struct mtk_charger *info,
 				int chr_type)
 {
-	int i;
 	struct chg_alg_device *alg;
 	struct chg_alg_notify notify;
+	int i;
 
 	chr_debug("%s\n",
 		__func__);
@@ -1250,6 +1262,22 @@ static bool mtk_is_charger_on(struct mtk_charger *info)
 	return true;
 }
 
+static char *dump_charger_type(int type)
+{
+	switch (type) {
+	case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+		return "none";
+	case POWER_SUPPLY_USB_TYPE_SDP:
+		return "usb";
+	case POWER_SUPPLY_USB_TYPE_CDP:
+		return "usb-h";
+	case POWER_SUPPLY_USB_TYPE_DCP:
+		return "std";
+	default:
+		return "unknown";
+	}
+}
+
 static int charger_routine_thread(void *arg)
 {
 	struct mtk_charger *info = arg;
@@ -1278,14 +1306,15 @@ static int charger_routine_thread(void *arg)
 		info->charger_thread_timeout = false;
 
 		info->battery_temp = get_battery_temperature(info);
-		chr_err("Vbat=%d vbus:%d I=%d T=%d uisoc:%d type:%d:%d\n",
+		chr_err("Vbat=%d vbus:%d I=%d T=%d uisoc:%d type:%s:%s:%d\n",
 			get_battery_voltage(info),
 			get_vbus(info),
 			get_battery_current(info),
 			info->battery_temp,
 			get_uisoc(info),
-			info->chr_type,
-			get_charger_type(info));
+			dump_charger_type(info->chr_type),
+			dump_charger_type(get_charger_type(info)),
+			info->pd_type);
 
 		is_charger_on = mtk_is_charger_on(info);
 
@@ -1296,11 +1325,15 @@ static int charger_routine_thread(void *arg)
 		charger_check_status(info);
 
 		if (is_disable_charger(info) == false &&
-			is_charger_on == true) {
+			is_charger_on == true &&
+			info->can_charging == true) {
 			if (info->algo.do_algorithm)
 				info->algo.do_algorithm(info);
 		} else
-			chr_debug("disable charging\n");
+			chr_debug("disable charging %d %d %d\n",
+			is_disable_charger(info),
+			is_charger_on,
+			info->can_charging);
 
 		spin_lock_irqsave(&info->slock, flags);
 		__pm_relax(info->charger_wakelock);
@@ -1568,6 +1601,81 @@ static void mtk_charger_external_power_changed(struct power_supply *psy)
 	_wake_up_charger(info);
 }
 
+int notify_adapter_event(struct notifier_block *notifier,
+			unsigned long evt, void *unused)
+{
+	struct mtk_charger *pinfo = NULL;
+
+	chr_err("%s %d\n", __func__, evt);
+
+	pinfo = container_of(notifier,
+		struct mtk_charger, pd_nb);
+
+	switch (evt) {
+	case  MTK_PD_CONNECT_NONE:
+		mutex_lock(&pinfo->pd_lock);
+		chr_err("PD Notify Detach\n");
+		pinfo->pd_type = MTK_PD_CONNECT_NONE;
+		mutex_unlock(&pinfo->pd_lock);
+		/* reset PE40 */
+		break;
+
+	case MTK_PD_CONNECT_HARD_RESET:
+		mutex_lock(&pinfo->pd_lock);
+		chr_err("PD Notify HardReset\n");
+		pinfo->pd_type = MTK_PD_CONNECT_NONE;
+		pinfo->pd_reset = true;
+		mutex_unlock(&pinfo->pd_lock);
+		_wake_up_charger(pinfo);
+		/* reset PE40 */
+		break;
+
+	case MTK_PD_CONNECT_PE_READY_SNK:
+		mutex_lock(&pinfo->pd_lock);
+		chr_err("PD Notify fixe voltage ready\n");
+		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK;
+		mutex_unlock(&pinfo->pd_lock);
+		/* PD is ready */
+		break;
+
+	case MTK_PD_CONNECT_PE_READY_SNK_PD30:
+		mutex_lock(&pinfo->pd_lock);
+		chr_err("PD Notify PD30 ready\r\n");
+		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_PD30;
+		mutex_unlock(&pinfo->pd_lock);
+		/* PD30 is ready */
+		break;
+
+	case MTK_PD_CONNECT_PE_READY_SNK_APDO:
+		mutex_lock(&pinfo->pd_lock);
+		chr_err("PD Notify APDO Ready\n");
+		pinfo->pd_type = MTK_PD_CONNECT_PE_READY_SNK_APDO;
+		mutex_unlock(&pinfo->pd_lock);
+		/* PE40 is ready */
+		_wake_up_charger(pinfo);
+		break;
+
+	case MTK_PD_CONNECT_TYPEC_ONLY_SNK:
+		mutex_lock(&pinfo->pd_lock);
+		chr_err("PD Notify Type-C Ready\n");
+		pinfo->pd_type = MTK_PD_CONNECT_TYPEC_ONLY_SNK;
+		mutex_unlock(&pinfo->pd_lock);
+		/* type C is ready */
+		_wake_up_charger(pinfo);
+		break;
+	}
+	return NOTIFY_DONE;
+}
+
+int chg_alg_event(struct notifier_block *notifier,
+			unsigned long event, void *data)
+{
+	chr_err("%s: evt:%d\n", __func__, event);
+
+	return NOTIFY_DONE;
+}
+
+
 static int mtk_charger_probe(struct platform_device *pdev)
 {
 	struct mtk_charger *info = NULL;
@@ -1620,6 +1728,12 @@ static int mtk_charger_probe(struct platform_device *pdev)
 			&info->psy_cfg);
 
 	info->log_level = CHRLOG_DEBUG_LEVEL;
+
+	info->pd_adapter = get_adapter_by_name("pd_adapter");
+	info->pd_nb.notifier_call = notify_adapter_event;
+	register_adapter_device_notifier(info->pd_adapter, &info->pd_nb);
+
+	info->chg_alg_nb.notifier_call = chg_alg_event;
 
 	kthread_run(charger_routine_thread, info, "charger_thread");
 

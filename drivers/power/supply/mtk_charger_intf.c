@@ -152,7 +152,7 @@ int get_battery_current(struct mtk_charger *info)
 	return ret;
 }
 
-int get_pmic_vbus(struct mtk_charger *info, int *vchr)
+static int get_pmic_vbus(struct mtk_charger *info, int *vchr)
 {
 	union power_supply_propval prop;
 	static struct power_supply *chg_psy;
@@ -245,7 +245,7 @@ int get_charger_type(struct mtk_charger *info)
 	if (chg_psy == NULL)
 		chg_psy = devm_power_supply_get_by_phandle(&info->pdev->dev,
 						       "charger");
-	if (IS_ERR(chg_psy)) {
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		ret = power_supply_get_property(chg_psy,
@@ -322,7 +322,7 @@ int get_charger_input_current(struct mtk_charger *info)
 #define PMIC_RG_VCDT_HV_EN_MASK		0x1
 #define PMIC_RG_VCDT_HV_EN_SHIFT	11
 
-void pmic_set_register_value(struct regmap *map,
+static void pmic_set_register_value(struct regmap *map,
 	unsigned int addr,
 	unsigned int mask,
 	unsigned int shift,
@@ -356,7 +356,7 @@ int disable_hw_ovp(struct mtk_charger *info, int en)
 	struct mt6397_chip *chip;
 	struct regmap *regmap;
 
-	pmic_node = of_parse_phandle(info->pdev->dev.of_node, "main_pmic", 0);
+	pmic_node = of_parse_phandle(info->pdev->dev.of_node, "pmic", 0);
 	if (!pmic_node) {
 		chr_err("get pmic_node fail\n");
 		return -1;

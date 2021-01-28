@@ -63,7 +63,6 @@ enum pe2_state_enum {
 	PE2_HW_FAIL,
 	PE2_HW_READY,
 	PE2_TA_NOT_SUPPORT,
-	PE2_STOP,
 	PE2_RUN,
 	PE2_DONE
 };
@@ -76,10 +75,9 @@ struct pe20_profile {
 struct mtk_pe20 {
 	struct platform_device *pdev;
 	struct chg_alg_device *alg;
-	int magic;
 
 	struct mutex access_lock;
-	struct wakeup_source suspend_lock;
+	struct wakeup_source *suspend_lock;
 	struct mutex cable_out_lock;
 	bool is_cable_out_occur; /* Plug out happened while detect PE+20 */
 

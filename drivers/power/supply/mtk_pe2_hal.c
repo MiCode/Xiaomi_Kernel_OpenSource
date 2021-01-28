@@ -68,6 +68,38 @@ struct pe20_hal {
 	struct charger_device *chg2_dev;
 };
 
+int pe2_hal_init_hardware(struct chg_alg_device *alg)
+{
+	struct mtk_pe20 *pe2;
+	struct pe20_hal *hal;
+
+	pr_notice("%s\n", __func__);
+	if (alg == NULL) {
+		pr_notice("%s: alg is null\n", __func__);
+		return -EINVAL;
+	}
+
+	pe2 = dev_get_drvdata(&alg->dev);
+	hal = chg_alg_dev_get_drv_hal_data(alg);
+	if (hal == NULL) {
+		hal = devm_kzalloc(&pe2->pdev->dev, sizeof(*hal), GFP_KERNEL);
+		if (!hal)
+			return -ENOMEM;
+		chg_alg_dev_set_drv_hal_data(alg, hal);
+	}
+
+	hal->chg1_dev = get_charger_by_name("primary_chg");
+	if (hal->chg1_dev)
+		pr_notice("%s: Found primary charger\n", __func__);
+	else {
+		pr_notice("%s: Error : can't find primary charger\n",
+			__func__);
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
 int pe2_hal_set_efficiency_table(struct chg_alg_device *alg)
 {
 	struct pe20_hal *hal;
@@ -116,8 +148,8 @@ int pe2_hal_get_charger_type(struct chg_alg_device *alg)
 	if (alg == NULL)
 		return -EINVAL;
 
-	chg_psy = power_supply_get_by_name("mtk-charger");
-	if (IS_ERR(chg_psy)) {
+	chg_psy = power_supply_get_by_name("mtk-master-charger");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
 		pr_notice("%s Couldn't get chg_psy\n", __func__);
 	} else {
 		info = (struct mtk_charger *)power_supply_get_drvdata(chg_psy);
@@ -125,39 +157,7 @@ int pe2_hal_get_charger_type(struct chg_alg_device *alg)
 	}
 
 	pr_notice("%s type:%d\n", __func__, ret);
-	return 4;
-}
-
-int pe2_hal_init_hardware(struct chg_alg_device *alg)
-{
-	struct mtk_pe20 *pe2;
-	struct pe20_hal *hal;
-
-	pr_notice("%s\n", __func__);
-	if (alg == NULL) {
-		pr_notice("%s: alg is null\n", __func__);
-		return -EINVAL;
-	}
-
-	pe2 = dev_get_drvdata(&alg->dev);
-	hal = chg_alg_dev_get_drv_hal_data(alg);
-	if (hal == NULL) {
-		hal = devm_kzalloc(&pe2->pdev->dev, sizeof(*hal), GFP_KERNEL);
-		if (!hal)
-			return -ENOMEM;
-		chg_alg_dev_set_drv_hal_data(alg, hal);
-	}
-
-	hal->chg1_dev = get_charger_by_name("primary_chg");
-	if (hal->chg1_dev)
-		pr_notice("%s: Found primary charger\n", __func__);
-	else {
-		pr_notice("%s: Error : can't find primary charger\n",
-			__func__);
-		return -ENODEV;
-	}
-
-	return 0;
+	return info->chr_type;
 }
 
 int pe2_hal_set_mivr(struct chg_alg_device *alg, enum chg_idx chgidx, int uV)
@@ -263,6 +263,28 @@ int pe2_hal_reset_ta(struct chg_alg_device *alg, enum chg_idx chgidx)
 	return 0;
 }
 
+static int get_pmic_vbus(int *vchr)
+{
+	union power_supply_propval prop;
+	static struct power_supply *chg_psy;
+	int ret;
+
+	if (chg_psy == NULL)
+		chg_psy = power_supply_get_by_name("mtk_charger_type");
+	if (chg_psy == NULL || IS_ERR(chg_psy)) {
+		pr_notice("%s Couldn't get chg_psy\n", __func__);
+		ret = -1;
+	} else {
+		ret = power_supply_get_property(chg_psy,
+			POWER_SUPPLY_PROP_VOLTAGE_NOW, &prop);
+	}
+	*vchr = prop.intval * 1000;
+
+	pr_notice("%s vbus:%d\n", __func__,
+		prop.intval);
+	return ret;
+}
+
 int pe2_hal_get_vbus(struct chg_alg_device *alg)
 {
 	int ret = 0;
@@ -275,8 +297,9 @@ int pe2_hal_get_vbus(struct chg_alg_device *alg)
 
 	ret = charger_dev_get_vbus(hal->chg1_dev, &vchr);
 	if (ret < 0) {
-		pr_notice("%s: get vbus failed: %d\n", __func__, ret);
-		return ret;
+		ret = get_pmic_vbus(&vchr);
+		if (ret < 0)
+			pr_notice("%s: get vbus failed: %d\n", __func__, ret);
 	}
 
 	return vchr;
@@ -422,6 +445,4 @@ int pe2_hal_enable_vbus_ovp(struct chg_alg_device *alg, bool enable)
 
 	return 0;
 }
-
-
 

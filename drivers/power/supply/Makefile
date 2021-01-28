@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 subdir-ccflags-$(CONFIG_POWER_SUPPLY_DEBUG) := -DDEBUG
 subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/usb20
+subdir-ccflags-y += -I$(srctree)/drivers/misc/mediatek/typec/tcpc/inc
 
 power_supply-y				:= power_supply_core.o
 power_supply-$(CONFIG_SYSFS)		+= power_supply_sysfs.o
@@ -96,4 +97,7 @@ obj-$(CONFIG_BATTERY_MT6357) += mt6357_battery.o
 mt6357_battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o  mt6357-gauge.o
 obj-$(CONFIG_BATTERY_MT6359) += mt6359_battery.o
 mt6359_battery-objs := mtk_battery_coulomb_service.o mtk_battery.o mtk_battery_algo.o mtk_battery_daemon.o mt6359-gauge.o
-obj-$(CONFIG_MTK_CHARGER) += charger_class.o mtk_basic_charger.o mtk_charger.o mtk_charger_algorithm_class.o mtk_charger_intf.o mt6357-charger-type.o
+obj-$(CONFIG_CHARGER_TYPE_MT6357) += mt6357-charger-type.o
+obj-$(CONFIG_MTK_CHARGER) += charger_class.o mtk_basic_charger.o mtk_charger.o mtk_charger_algorithm_class.o mtk_charger_intf.o adapter_class.o mtk_pd_adapter.o mtk_pd.o mtk_pd_hal.o
+obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_20_SUPPORT) += mtk_pe2.o mtk_pe2_hal.o
+obj-$(CONFIG_MTK_PUMP_EXPRESS_PLUS_SUPPORT) += mtk_pe.o mtk_pe_hal.o

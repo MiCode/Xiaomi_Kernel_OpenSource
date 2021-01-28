@@ -123,6 +123,22 @@ char *chg_alg_state_to_str(int state)
 }
 EXPORT_SYMBOL(chg_alg_state_to_str);
 
+int register_chg_alg_notifier(struct chg_alg_device *alg_dev,
+				struct notifier_block *nb)
+{
+	int ret;
+
+	ret = srcu_notifier_chain_register(&alg_dev->evt_nh, nb);
+	return ret;
+}
+EXPORT_SYMBOL(register_chg_alg_notifier);
+
+int unregister_chg_alg_notifier(struct chg_alg_device *alg_dev,
+				struct notifier_block *nb)
+{
+	return srcu_notifier_chain_unregister(&alg_dev->evt_nh, nb);
+}
+EXPORT_SYMBOL(unregister_chg_alg_notifier);
 
 /**
  * chg_alg_device_register - create and register a new object of
@@ -150,13 +166,13 @@ struct chg_alg_device *chg_alg_device_register(const char *name,
 	chg_dev = kzalloc(sizeof(*chg_dev), GFP_KERNEL);
 	if (!chg_dev)
 		return ERR_PTR(-ENOMEM);
-
 	mutex_init(&chg_dev->ops_lock);
 	chg_dev->dev.class = charger_algorithm_class;
 	chg_dev->dev.parent = parent;
 	chg_dev->dev.release = chg_alg_device_release;
 	dev_set_name(&chg_dev->dev, name);
 	dev_set_drvdata(&chg_dev->dev, devdata);
+
 	head = &chg_dev->evt_nh;
 	srcu_init_notifier_head(head);
 	/* Rename srcu's lock to avoid LockProve warning */
