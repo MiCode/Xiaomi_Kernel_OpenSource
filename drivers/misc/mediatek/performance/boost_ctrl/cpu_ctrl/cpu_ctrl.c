@@ -486,7 +486,7 @@ static ssize_t perfmgr_perfserv_iso_cpu_proc_write(struct file *filp,
 		if ((perfserv_isolation_cpu & (1 << i)) > 0)
 			update_isolation_cpu(CPU_ISO_KIR_PERF, 1, i);
 		else
-			update_isolation_cpu(CPU_ISO_KIR_PERF, 0, i);
+			update_isolation_cpu(CPU_ISO_KIR_PERF, -1, i);
 	}
 
 	return cnt;
