@@ -27,6 +27,14 @@
 
 static struct dma_fence_ops mtk_sync_timeline_fence_ops;
 
+static inline struct sync_timeline *dma_fence_parent(struct dma_fence *fence)
+{
+	return container_of(fence->lock, struct sync_timeline, lock);
+}
+
+static LIST_HEAD(sync_timeline_list_head);
+static DEFINE_SPINLOCK(sync_timeline_list_lock);
+
 static inline struct sync_pt *fence_to_sync_pt(struct dma_fence *fence)
 {
 	if (fence->ops != &mtk_sync_timeline_fence_ops)
@@ -34,12 +42,30 @@ static inline struct sync_pt *fence_to_sync_pt(struct dma_fence *fence)
 	return container_of(fence, struct sync_pt, base);
 }
 
+static void mt_sync_timeline_debug_add(struct sync_timeline *obj)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sync_timeline_list_lock, flags);
+	list_add_tail(&obj->sync_timeline_list, &sync_timeline_list_head);
+	spin_unlock_irqrestore(&sync_timeline_list_lock, flags);
+}
+
+static void mt_sync_timeline_debug_remove(struct sync_timeline *obj)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&sync_timeline_list_lock, flags);
+	list_del(&obj->sync_timeline_list);
+	spin_unlock_irqrestore(&sync_timeline_list_lock, flags);
+}
+
 static void mtk_sync_timeline_free(struct kref *kref)
 {
 	struct sync_timeline *obj =
 		container_of(kref, struct sync_timeline, kref);
 
-	sync_timeline_debug_remove(obj);
+	mt_sync_timeline_debug_remove(obj);
 
 	kfree(obj);
 }
@@ -230,6 +256,34 @@ static void mtk_sync_timeline_signal(struct sync_timeline *obj,
 	}
 
 	spin_unlock_irq(&obj->lock);
+}
+
+/**
+ * sync_timeline_create() - creates a sync object
+ * @name:       sync_timeline name
+ *
+ * Creates a new sync_timeline. Returns the sync_timeline object or NULL in
+ * case of error.
+ */
+static struct sync_timeline *sync_timeline_create(const char *name)
+{
+	struct sync_timeline *obj;
+
+	obj = kzalloc(sizeof(*obj), GFP_KERNEL);
+	if (!obj)
+		return NULL;
+
+	kref_init(&obj->kref);
+	obj->context = dma_fence_context_alloc(1);
+	strlcpy(obj->name, name, sizeof(obj->name));
+
+	obj->pt_tree = RB_ROOT;
+	INIT_LIST_HEAD(&obj->pt_list);
+	spin_lock_init(&obj->lock);
+
+	mt_sync_timeline_debug_add(obj);
+
+	return obj;
 }
 
 struct sync_timeline *mtk_sync_timeline_create(const char *name)
