@@ -40,11 +40,7 @@
 
 #define GET_FP_VENDOR_CMD _IOWR(TEEI_CONFIG_IOC_MAGIC, 0x80, int)
 
-#ifdef CONFIG_MICROTRUST_TUI_DRIVER
-int enter_tui_flag;
-#else
 int enter_tui_flag = 1;
-#endif
 
 static int vfs_major = VFS_MAJOR;
 static struct class *driver_class;
@@ -114,38 +110,6 @@ static long tz_vfs_ioctl(struct file *filp,
 	int fp_vendor;
 
 	switch (cmd) {
-#ifdef CONFIG_MICROTRUST_TUI_DRIVER
-	case SOTER_TUI_ENTER:
-		IMSG_DEBUG("***************SOTER_TUI_ENTER\n");
-		enter_tui_flag = 1;
-		ret = tui_i2c_enable_clock();
-		if (ret)
-			IMSG_ERROR("tui_i2c_enable_clock failed!!\n");
-
-		mt_deint_leave();
-
-		ret = display_enter_tui();
-		if (ret)
-			IMSG_ERROR("display_enter_tui failed!!\n");
-
-		break;
-
-	case SOTER_TUI_LEAVE:
-		IMSG_DEBUG("***************SOTER_TUI_LEAVE\n");
-
-		ret = tui_i2c_disable_clock();
-		if (ret)
-			IMSG_ERROR("tui_i2c_disable_clock failed!!\n");
-
-		mt_deint_restore();
-
-		ret = display_exit_tui();
-		if (ret)
-			IMSG_ERROR("display_exit_tui failed!!\n");
-		/* primary_display_trigger(0, NULL, 0); */
-		enter_tui_flag = 0;
-		break;
-#endif
 	case GET_FP_VENDOR_CMD:
 		fp_vendor = get_fp_vendor();
 		ret = copy_to_user((void *)arg, &fp_vendor, sizeof(int));

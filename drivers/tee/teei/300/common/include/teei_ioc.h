@@ -46,13 +46,6 @@ struct init_param {
 #define CMD_FP_CMD		_IO(TEEI_IOC_MAGIC, 0x2)
 #define CMD_FP_LOAD_TEE		_IO(TEEI_IOC_MAGIC, 0x4)
 
-/*
- * /dev/utr_tui
- */
-#ifdef CONFIG_MICROTRUST_TUI_DRIVER
-#define SOTER_TUI_ENTER		_IOWR(TEEI_IOC_MAGIC, 0x70, int)
-#define SOTER_TUI_LEAVE		_IOWR(TEEI_IOC_MAGIC, 0x71, int)
-#endif
 #define TEEI_VFS_NOTIFY_DRM	_IOWR(TEEI_CONFIG_IOC_MAGIC, 0x75, int)
 #define TEEI_VFS_GET_FP_UUID 0x50
 

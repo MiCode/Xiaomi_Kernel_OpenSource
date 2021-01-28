@@ -160,12 +160,6 @@ static int nt_switch_irq_handler(void)
 		teei_handle_schedule_call(entry);
 		retVal = TEEI_BACK_SW;
 		break;
-#ifdef TUI_SUPPORT
-	case TUI_NOTICE_SYS_NO:
-		up(&(tui_notify_sema));
-		retVal = TEEI_BACK_SW;
-		break;
-#endif
 	default:
 		IMSG_ERROR("[%s][%d] Unknown command ID!\n",
 					__func__, __LINE__);

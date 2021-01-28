@@ -10,9 +10,6 @@
 
 #include <linux/suspend.h>
 
-#ifdef TUI_SUPPORT
-#define POWER_DOWN			"power-detect"
-#endif
 #include <teei_ioc.h>
 #include "teei_smc_struct.h"
 #include "teei_client.h"

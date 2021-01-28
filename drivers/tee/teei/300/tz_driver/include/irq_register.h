@@ -10,10 +10,6 @@
 
 #define SCHED_ENT_CNT  10
 
-#ifdef TUI_SUPPORT
-extern struct semaphore tui_notify_sema;
-#endif
-
 struct load_soter_entry {
 	unsigned long vfs_addr;
 	struct work_struct work;

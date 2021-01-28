@@ -109,17 +109,6 @@ config MICROTRUST_KEYMASTER_DRIVER
 	  Say Y if you would like to enable the helper driver.
 	  If unsure, say Y.
 
-config MICROTRUST_TUI_DRIVER
-	bool "Enable Microtrust TUI Support"
-	depends on MICROTRUST_TEE_SUPPORT
-	default n
-	help
-	  Enables support of Microtrust TUI helper driver.
-	  This driver provides IOCTL interface for TUI manager to
-	  communicate with TUI server in secure world.
-	  Say Y if you would like to enable the helper driver.
-	  If unsure, say N.
-
 config MICROTRUST_DEBUG
 	bool "Enable Microtrust Debug Message"
 	depends on MICROTRUST_TEE_SUPPORT

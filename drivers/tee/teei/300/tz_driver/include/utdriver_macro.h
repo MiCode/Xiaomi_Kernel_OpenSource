@@ -8,12 +8,6 @@
 #ifndef UTDRIVER_MACRO_H
 #define UTDRIVER_MACRO_H
 
-#ifdef CONFIG_MICROTRUST_TUI_DRIVER
-#ifndef TUI_SUPPORT
-#define TUI_SUPPORT
-#endif
-#endif
-
 /* define TEEI_MUTIL_TA_DEBUG */
 
 #define START_STATUS			(0)
@@ -54,25 +48,8 @@
 #define NQ_BLOCK_SIZE			(64)
 #define BLOCK_MAX_COUNT			(NQ_BUFF_SIZE / NQ_BLOCK_SIZE - 1)
 
-#ifdef TUI_SUPPORT
-
-#define TUI_DISPLAY_SYS_NO		(160)
-#define TUI_NOTICE_SYS_NO		(161)
-
-#define TUI_NOTICE_BUFFER		(0x1000)
-#define TUI_DISPLAY_BUFFER		(0x200000)
-#endif
-
 #define CTL_BUFF_SIZE			(0x1000)
 
 #define MESSAGE_LENGTH			(0x1000)
 #define MESSAGE_SIZE			(0x1000)
-
-#ifdef TUI_SUPPORT
-#define POWER_DOWN_CALL			0x0B
-#define I2C_REE_CALL			0x1E
-#define I2C_TEE_CALL			0x1F
-#endif
-
-
 #endif /* end of UTDRIVER_MACRO_H */

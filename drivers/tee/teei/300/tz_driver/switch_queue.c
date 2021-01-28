@@ -31,9 +31,6 @@
 #include "teei_cancel_cmd.h"
 
 #include "teei_task_link.h"
-#ifdef TUI_SUPPORT
-#include "utr_tui_cmd.h"
-#endif
 
 #include <notify_queue.h>
 #include <teei_secure_api.h>
@@ -89,17 +86,6 @@ int add_work_entry(unsigned long long work_type, unsigned long long x0,
 
 	return retVal;
 }
-
-#ifdef TUI_SUPPORT
-int handler_power_down_call(void *buff)
-{
-	int retVal = 0;
-
-	retVal = teei_smc(NT_CANCEL_T_TUI, 0, 0, 0);
-
-	return retVal;
-}
-#endif
 
 #ifdef CONFIG_MICROTRUST_DYNAMIC_CORE
 static int teei_bind_current_cpu(void)
