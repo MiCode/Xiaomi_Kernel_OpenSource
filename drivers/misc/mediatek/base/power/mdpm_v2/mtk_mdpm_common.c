@@ -10,7 +10,7 @@
 #include <linux/sysfs.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <mach/mtk_pbm.h>
+#include <mtk_pbm.h>
 #include <mtk_mdpm_common.h>
 #include <mtk_mdpm_platform.h>
 

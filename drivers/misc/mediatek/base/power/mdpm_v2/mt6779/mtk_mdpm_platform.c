@@ -6,7 +6,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-#include <mach/mtk_pbm.h>
+#include <mtk_pbm.h>
 #include <mtk_mdpm_platform.h>
 #include <mtk_mdpm_common.h>
 #if MD_POWER_METER_ENABLE
