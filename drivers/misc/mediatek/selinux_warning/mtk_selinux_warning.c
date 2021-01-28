@@ -92,6 +92,11 @@ static const char *aee_av_filter_list[AEE_AV_FILTER_NUM] = {
 	"ioctl"
 };
 
+#define SKIP_PATTERN_NUM 5
+static const char *skip_pattern[SKIP_PATTERN_NUM] = {
+		"ioctlcmd=0x8927"
+};
+
 static int mtk_check_filter(char *scontext);
 static int mtk_get_scontext(char *data, char *buf);
 static char *mtk_get_process(char *in);
@@ -106,6 +111,19 @@ static int mtk_check_filter(char *scontext)
 	}
 
 	return -1;
+}
+
+static bool mtk_check_skip_pattern(char *data)
+{
+	int i = 0;
+
+	/* check whether the log contains specific pattern*/
+	for (i = 0; i < SKIP_PATTERN_NUM && skip_pattern[i] != NULL; i++) {
+		if (strstr(data, skip_pattern[i]) != NULL)
+			return true;
+	}
+
+	return false;
 }
 
 #define AV_LEN 30
@@ -145,6 +163,9 @@ static void mtk_check_av(char *data)
 
 				if (strcmp(av_buf,
 					aee_av_filter_list[i]) == 0) {
+
+					if (mtk_check_skip_pattern(data))
+						return;
 
 					memset(printbuf, '\0', PRINT_BUF_LEN);
 
