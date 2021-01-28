@@ -63,6 +63,8 @@
 				regulator-name = "usb-otg-vbus";
 				regulator-min-microvolt = <4425000>;
 				regulator-max-microvolt = <5825000>;
+				regulator-min-microamp = <500000>;
+				regulator-max-microamp = <3000000>;
 			};
 		};
 		fled {
