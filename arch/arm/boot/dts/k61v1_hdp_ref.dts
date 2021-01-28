@@ -549,6 +549,10 @@
 	cd-gpios = <&pio 0 0>;
 };
 
+&usb {
+	charger = <&mtk_charger_type>;
+};
+
 #include <k61v1_hdp_ref/cust.dtsi>
 #include "cust_mt6761_project_camera.dtsi"
 /*End of this file, DO NOT ADD ANYTHING HERE*/
