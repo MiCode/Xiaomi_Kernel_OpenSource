@@ -11,9 +11,7 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#ifndef __MTK_DVFSRC_REG_MT67XX_H
+#define __MTK_DVFSRC_REG_MT67XX_H
 
-#if defined(CONFIG_MACH_MT6768)
-#include <helio-dvfsrc_v2.h>
-#else
-#include <helio-dvfsrc_v1.h>
-#endif
+#endif /* __MTK_DVFSRC_REG_MT67XX_H */
