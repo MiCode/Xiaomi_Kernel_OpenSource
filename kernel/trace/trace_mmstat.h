@@ -10,6 +10,10 @@
 extern bool mtk_get_gpu_memory_usage(unsigned int *pMemUsage);
 #endif
 
+#if IS_ENABLED(CONFIG_MTK_ION)
+extern size_t ion_mm_heap_total_memory(void);
+#endif
+
 #if !defined(__TRACE_MMSTAT_H) || defined(TRACE_HEADER_MULTI_READ)
 #define __TRACE_MMSTAT_H
 
