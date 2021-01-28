@@ -44,6 +44,8 @@
 #include "cmdq_struct.h"
 #include "mdp_m4u.h"
 
+#define MDP_TASK_PAENDING_TIME_MAX	10000000
+
 /* compatible with cmdq legacy driver */
 #ifndef CMDQ_TRACE_FORCE_BEGIN
 #define CMDQ_TRACE_FORCE_BEGIN(...)
@@ -753,6 +755,32 @@ done:
 	return status;
 }
 
+#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
+void mdp_check_pending_task(struct mdp_job_mapping *mapping_job)
+{
+	struct cmdqRecStruct *handle = mapping_job->job;
+	u64 cost = div_u64(sched_clock() - handle->submit, 1000);
+	u32 i;
+
+	if (cost <= MDP_TASK_PAENDING_TIME_MAX)
+		return;
+
+	CMDQ_ERR(
+		"%s waiting task cost time:%lluus submit:%llu enging:%#llx caller:%llu-%s\n",
+		__func__,
+		cost, handle->submit, handle->engineFlag,
+		(u64)handle->caller_pid, handle->caller_name);
+
+	/* call core to wait and release task in work queue */
+	cmdq_pkt_auto_release_task(handle, true);
+
+	list_del(&mapping_job->list_entry);
+	for (i = 0; i < mapping_job->handle_count; i++)
+		mdp_ion_free_handle(mapping_job->handles[i]);
+	kfree(mapping_job);
+}
+#endif
+
 s32 mdp_ioctl_async_wait(unsigned long param)
 {
 	struct mdp_wait job_result;
@@ -781,6 +809,10 @@ s32 mdp_ioctl_async_wait(unsigned long param)
 			list_del(&mapping_job->list_entry);
 			break;
 		}
+
+#ifdef CONFIG_MTK_CMDQ_MBOX_EXT
+		mdp_check_pending_task(mapping_job);
+#endif
 	}
 	mutex_unlock(&mdp_job_mapping_list_mutex);
 
