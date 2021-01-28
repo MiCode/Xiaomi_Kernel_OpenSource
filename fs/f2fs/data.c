@@ -1752,11 +1752,11 @@ static int encrypt_one_page(struct f2fs_io_info *fio)
 	if (!f2fs_encrypted_file(inode))
 		return 0;
 
-	if (fscrypt_is_hw_encrypt(inode))
-		return 0;
-
 	/* wait for GCed page writeback via META_MAPPING */
 	f2fs_wait_on_block_writeback(inode, fio->old_blkaddr);
+
+	if (fscrypt_is_hw_encrypt(inode))
+		return 0;
 
 retry_encrypt:
 	fio->encrypted_page = fscrypt_encrypt_page(inode, fio->page,
