@@ -42,3 +42,9 @@ obj-$(CONFIG_TEGRA_HSP_MBOX)	+= tegra-hsp.o
 obj-$(CONFIG_MTK_CMDQ_MBOX)    += mtk-cmdq-mailbox.o
 
 obj-$(CONFIG_MTK_RPMSG_MBOX)    += mtk-rpmsg-mailbox.o
+
+ifeq ($(CONFIG_MMPROFILE), y)
+ifeq ($(CONFIG_MACH_MT6885), y)
+ccflags-y += -DCMDQ_MMPROFILE_SUPPORT
+endif
+endif

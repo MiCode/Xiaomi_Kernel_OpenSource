@@ -85,7 +85,7 @@ obj-y += cmdq_mmp.o
 endif
 
 ifeq ($(platformdir_exists), y)
-obj-y += $(subst ",,$(MTK_PLATFORM))
+obj-y += $(subst ",,$(MTK_PLATFORM))/
 endif
 
 # mdp_sw_sync
