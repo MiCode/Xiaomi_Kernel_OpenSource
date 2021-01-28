@@ -743,6 +743,7 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 		(struct cmdq_sec_data *)task->pkt->sec_data;
 	struct cmdq_pkt_buffer *buf, *last;
 	u32 size = CMDQ_CMD_BUFFER_SIZE, offset = 0, *instr;
+	u32 i;
 
 	if (!data->mtee) {
 		iwc_msg = (struct iwcCmdqMessage_t *)context->iwc_msg;
@@ -832,6 +833,15 @@ static s32 cmdq_sec_fill_iwc_msg(struct cmdq_sec_context *context,
 		memcpy((void *)&iwc_msg_ex2->data[0],
 			data->client_meta[CMDQ_IWC_MSG2],
 			data->client_meta_size[CMDQ_IWC_MSG2]);
+	}
+
+	/* SVP HDR */
+	iwc_msg->command.mdp_extension = data->mdp_extension;
+	iwc_msg->command.readback_cnt = data->readback_cnt;
+	for (i = 0; i < data->readback_cnt; i++) {
+		memcpy(&iwc_msg->command.readback_engs[i],
+			&data->readback_engs[i],
+			sizeof(struct readback_engine));
 	}
 
 	return 0;

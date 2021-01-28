@@ -96,6 +96,11 @@ struct cmdq_sec_data {
 	s32 response;
 	struct iwcCmdqSecStatus_t sec_status;
 
+	/* SVP HDR */
+	uint32_t mdp_extension;
+	struct readback_engine readback_engs[CMDQ_MAX_READBACK_ENG];
+	uint32_t readback_cnt;
+
 	/* MTEE */
 	bool mtee;
 };

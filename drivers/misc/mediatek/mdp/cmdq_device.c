@@ -129,6 +129,24 @@ unsigned long cmdq_dev_alloc_reference_VA_by_name(const char *ref_name)
 	return VA;
 }
 
+unsigned long cmdq_dev_alloc_reference_by_name(const char *ref_name,
+	uint32_t *pa)
+{
+	unsigned long VA = 0L;
+	struct device_node *node = NULL;
+	struct resource res;
+
+	node = of_parse_phandle(gCmdqDev.pDev->of_node, ref_name, 0);
+	if (node) {
+		if (!of_address_to_resource(node, 0, &res))
+			*pa = (uint32_t)res.start;
+
+		VA = (unsigned long)of_iomap(node, 0);
+		of_node_put(node);
+	}
+	CMDQ_LOG("DEV: VA ref(%s):0x%lx pa:%#x\n", ref_name, VA, *pa);
+	return VA;
+}
 
 void cmdq_dev_free_module_base_VA(const long VA)
 {

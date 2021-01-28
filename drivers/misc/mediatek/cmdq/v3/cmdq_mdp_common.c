@@ -1273,6 +1273,12 @@ s32 cmdq_mdp_handle_flush(struct cmdqRecStruct *handle)
 	return status;
 }
 
+void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
+	dma_addr_t addr, u32 param)
+{
+	mdp_funcs.mdpComposeReadback(handle, engine, addr, param);
+}
+
 s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	struct cmdqRecStruct **handle_out)
 {
@@ -2828,6 +2834,21 @@ u64 cmdq_mdp_get_secure_engine_virtual(u64 engine_flag)
 	return 0;
 }
 
+void cmdq_mdp_compose_readback_virtual(struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t dma, u32 param)
+{
+}
+
+static void mdp_readback_aal_virtual(struct cmdqRecStruct *handle,
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param)
+{
+
+}
+static void mdp_readback_hdr_virtual(struct cmdqRecStruct *handle,
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param)
+{
+}
+
 void cmdq_mdp_virtual_function_setting(void)
 {
 	struct cmdqMDPFuncStruct *pFunc;
@@ -2889,6 +2910,9 @@ void cmdq_mdp_virtual_function_setting(void)
 	pFunc->endISPTask = cmdq_mdp_isp_end_task_virtual;
 	pFunc->CheckHwStatus = cmdq_mdp_check_hw_status_virtual;
 	pFunc->mdpGetSecEngine = cmdq_mdp_get_secure_engine_virtual;
+	pFunc->mdpComposeReadback = cmdq_mdp_compose_readback_virtual;
+	pFunc->mdpReadbackAal = mdp_readback_aal_virtual;
+	pFunc->mdpReadbackHdr = mdp_readback_hdr_virtual;
 }
 
 struct cmdqMDPFuncStruct *cmdq_mdp_get_func(void)

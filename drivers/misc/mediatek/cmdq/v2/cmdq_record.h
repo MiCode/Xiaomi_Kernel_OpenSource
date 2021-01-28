@@ -720,6 +720,8 @@ extern "C" {
 	u32 cmdq_mdp_handle_get_instr_count(struct cmdqRecStruct *handle);
 	void cmdq_mdp_meta_replace_sec_addr(struct op_meta *metas,
 		struct mdp_submit *user_job, struct cmdqRecStruct *handle);
+	void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
+		dma_addr_t addr, u32 param);
 
 #define CMDQ_CLT_MDP 0
 #define CMDQ_MAX_USER_PROP_SIZE		(1024)

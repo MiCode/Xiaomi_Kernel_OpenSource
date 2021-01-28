@@ -563,7 +563,7 @@ dma_addr_t cmdq_pkt_get_pa_by_offset(struct cmdq_pkt *pkt, u32 offset)
 }
 EXPORT_SYMBOL(cmdq_pkt_get_pa_by_offset);
 
-static dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
+dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
 {
 	struct cmdq_pkt_buffer *buf;
 
@@ -571,6 +571,17 @@ static dma_addr_t cmdq_pkt_get_curr_buf_pa(struct cmdq_pkt *pkt)
 
 	return buf->pa_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
 }
+EXPORT_SYMBOL(cmdq_pkt_get_curr_buf_pa);
+
+void *cmdq_pkt_get_curr_buf_va(struct cmdq_pkt *pkt)
+{
+	struct cmdq_pkt_buffer *buf;
+
+	buf = list_last_entry(&pkt->buf, typeof(*buf), list_entry);
+
+	return buf->va_base + CMDQ_CMD_BUFFER_SIZE - pkt->avail_buf_size;
+}
+EXPORT_SYMBOL(cmdq_pkt_get_curr_buf_va);
 
 static bool cmdq_pkt_is_finalized(struct cmdq_pkt *pkt)
 {
@@ -628,6 +639,14 @@ s32 cmdq_pkt_append_command(struct cmdq_pkt *pkt, u16 arg_c, u16 arg_b,
 
 	return 0;
 }
+
+s32 cmdq_pkt_move(struct cmdq_pkt *pkt, u16 reg_idx, u64 value)
+{
+	return cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(value),
+		CMDQ_GET_ARG_B(value), (u16)(value >> 32), reg_idx,
+		0, 0, 0, CMDQ_CODE_MASK);
+}
+EXPORT_SYMBOL(cmdq_pkt_move);
 
 s32 cmdq_pkt_read(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t src_addr, u16 dst_reg_idx)
@@ -797,6 +816,15 @@ s32 cmdq_pkt_store_value_reg(struct cmdq_pkt *pkt, u16 indirect_dst_reg_idx,
 }
 EXPORT_SYMBOL(cmdq_pkt_store_value_reg);
 
+s32 cmdq_pkt_store64_value_reg(struct cmdq_pkt *pkt,
+	u16 indirect_dst_reg_idx, u16 indirect_src_reg_idx)
+{
+	return cmdq_pkt_append_command(pkt, indirect_src_reg_idx, 0,
+		0, indirect_dst_reg_idx, CMDQ_IMMEDIATE_VALUE, CMDQ_REG_TYPE,
+		CMDQ_REG_TYPE, CMDQ_CODE_WRITE);
+}
+EXPORT_SYMBOL(cmdq_pkt_store64_value_reg);
+
 s32 cmdq_pkt_write_indriect(struct cmdq_pkt *pkt, struct cmdq_base *clt_base,
 	dma_addr_t addr, u16 src_reg_idx, u32 mask)
 {
@@ -883,7 +911,7 @@ s32 cmdq_pkt_jump(struct cmdq_pkt *pkt, s32 offset)
 }
 EXPORT_SYMBOL(cmdq_pkt_jump);
 
-s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, u32 addr)
+s32 cmdq_pkt_jump_addr(struct cmdq_pkt *pkt, dma_addr_t addr)
 {
 	dma_addr_t to_addr = CMDQ_REG_SHIFT_ADDR(addr);
 
@@ -942,14 +970,14 @@ s32 cmdq_pkt_poll_addr(struct cmdq_pkt *pkt, u32 value, u32 addr, u32 mask,
 	u8 reg_gpr)
 {
 	s32 err;
+	u8 use_mask = 0;
 
 	if (mask != 0xffffffff) {
 		err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(~mask),
 			CMDQ_GET_ARG_B(~mask), 0, 0, 0, 0, 0, CMDQ_CODE_MASK);
 		if (err != 0)
 			return err;
-
-		addr = addr | 0x1;
+		use_mask = 1;
 	}
 
 	/* Move extra handle APB address to GPR */
@@ -961,7 +989,7 @@ s32 cmdq_pkt_poll_addr(struct cmdq_pkt *pkt, u32 value, u32 addr, u32 mask,
 			__func__, err);
 
 	err = cmdq_pkt_append_command(pkt, CMDQ_GET_ARG_C(value),
-		CMDQ_GET_ARG_B(value), 0, reg_gpr,
+		CMDQ_GET_ARG_B(value), use_mask, reg_gpr,
 		0, 0, 1, CMDQ_CODE_POLL);
 	if (err != 0)
 		cmdq_err("%s fail append command poll err:%d",
@@ -2069,15 +2097,15 @@ static void cmdq_buf_print_move(char *text, u32 txt_sz,
 	u64 val = (u64)cmdq_inst->arg_a |
 		CMDQ_GET_32B_VALUE(cmdq_inst->arg_b, cmdq_inst->arg_c);
 
-	if (cmdq_inst->arg_a)
+	if (cmdq_inst->s_op)
 		snprintf(text, txt_sz,
 			"%#06x %#018llx [Move ] move %#llx to %s%hhu",
 			offset, *((u64 *)cmdq_inst), val,
 			"Reg Index GPR R", cmdq_inst->s_op);
 	else
 		snprintf(text, txt_sz,
-			"%#06x %#018llx [Move ] mask %#014llx",
-			offset, *((u64 *)cmdq_inst), ~val);
+			"%#06x %#018llx [Move ] mask %#010x",
+			offset, *((u32 *)cmdq_inst), ~val);
 }
 
 static void cmdq_buf_print_logic(char *text, u32 txt_sz,

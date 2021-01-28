@@ -51,6 +51,8 @@ bool cmdq_dev_mmsys_clock_is_enable(void);
 /* virtual address */
 long cmdq_dev_get_module_base_VA_GCE(void);
 unsigned long cmdq_dev_alloc_reference_VA_by_name(const char *ref_name);
+unsigned long cmdq_dev_alloc_reference_by_name(const char *ref_name,
+	uint32_t *pa);
 /* Other modules information */
 void cmdq_dev_free_module_base_VA(const long VA);
 u32 cmdq_dev_get_mmsys_dummy_reg_offset(void);

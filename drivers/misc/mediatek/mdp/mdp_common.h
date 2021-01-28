@@ -105,6 +105,12 @@ typedef u64(*CmdqMdpGetSecEngine) (u64 engine_flag);
 typedef void (*CmdqMdpResolveToken) (u64 engine_flag,
 	const struct cmdqRecStruct *task);
 
+typedef void (*CmdqMdpComposeReadback) (struct cmdqRecStruct *handle,
+	u16 engine, dma_addr_t dma, u32 param);
+
+typedef void (*CmdqMdpReadbackEngine) (struct cmdqRecStruct *handle,
+	u16 engine, phys_addr_t base, dma_addr_t pa, u32 param);
+
 struct cmdqMDPFuncStruct {
 #ifdef CONFIG_MTK_SMI_EXT
 	CmdqTranslatePort translatePort;
@@ -143,6 +149,9 @@ struct cmdqMDPFuncStruct {
 	CmdqCheckHwStatus CheckHwStatus;
 	CmdqMdpGetSecEngine mdpGetSecEngine;
 	CmdqMdpResolveToken resolve_token;
+	CmdqMdpComposeReadback mdpComposeReadback;
+	CmdqMdpReadbackEngine mdpReadbackAal;
+	CmdqMdpReadbackEngine mdpReadbackHdr;
 };
 
 struct mdp_pmqos_record {
@@ -192,6 +201,8 @@ void cmdq_mdp_set_resource_callback(enum cmdq_event res_event,
 	CmdqResourceAvailableCB res_available,
 	CmdqResourceReleaseCB res_release);
 void cmdq_mdp_unlock_thread(struct cmdqRecStruct *handle);
+void cmdq_mdp_op_readback(struct cmdqRecStruct *handle, u16 engine,
+	dma_addr_t dma, u32 param);
 s32 cmdq_mdp_flush_async(struct cmdqCommandStruct *desc, bool user_space,
 	struct cmdqRecStruct **handle_out);
 s32 cmdq_mdp_flush_async_impl(struct cmdqRecStruct *handle);
