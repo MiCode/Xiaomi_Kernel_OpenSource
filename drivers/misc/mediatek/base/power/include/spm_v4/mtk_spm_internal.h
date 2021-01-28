@@ -20,7 +20,7 @@
 #include <linux/io.h>
 #include <mt-plat/aee.h>
 
-#include <mtk_spm_early_porting.h>
+#include "mtk_spm_early_porting.h"
 
 #include "mtk_spm.h"
 #include <mtk_lpae.h>
