@@ -108,9 +108,11 @@
  * - Enabled JIT pressure limit in base/kbase by default
  * 11.26
  * - Added kinstr_jm API
+ * 11.27
+ * - Backwards compatible extension to HWC ioctl.
  */
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 26
+#define BASE_UK_VERSION_MINOR 27
 
 /**
  * struct kbase_ioctl_job_submit - Submit jobs/atoms to the kernel
