@@ -978,8 +978,8 @@ static int pd_full_evt(struct chg_alg_device *alg)
 {
 	struct mtk_pd *pd;
 	int ret = 0;
-	bool chg_en, chg2_enabled = false;
-	int ichg2, ichg2_min;
+	bool chg_en = true, chg2_enabled = false;
+	int ichg2 = 0, ichg2_min = 100000;
 	int ret_value = 0;
 
 	pd = dev_get_drvdata(&alg->dev);
