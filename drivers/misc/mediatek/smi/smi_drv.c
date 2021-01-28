@@ -497,7 +497,7 @@ static s32 smi_release(struct inode *inode, struct file *file)
 
 static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	s32 ret;
+	s32 ret = 0;
 
 	if (!file->f_op || !file->f_op->unlocked_ioctl)
 		return -ENOTTY;
@@ -517,12 +517,12 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 #ifdef MMDVFS_HOOK
 	case MTK_IOC_SMI_BWC_INFO_SET:
 	{
-		set_mm_info_ioctl_wrapper(file, cmd, arg);
+		ret = set_mm_info_ioctl_wrapper(file, cmd, arg);
 		break;
 	}
 	case MTK_IOC_SMI_BWC_INFO_GET:
 	{
-		get_mm_info_ioctl_wrapper(file, cmd, arg);
+		ret = get_mm_info_ioctl_wrapper(file, cmd, arg);
 		break;
 	}
 	case MTK_IOC_MMDVFS_CMD:
@@ -537,11 +537,10 @@ static long smi_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		mmdvfs_handle_cmd(&mmdvfs_cmd);
 
 		if (copy_to_user((void *)arg,
-			(void *)&mmdvfs_cmd, sizeof(struct MTK_MMDVFS_CMD))) {
+			(void *)&mmdvfs_cmd, sizeof(struct MTK_MMDVFS_CMD)))
 			return -EFAULT;
-		}
+		break;
 	}
-	break;
 #endif
 	default:
 		ret = -ENOIOCTLCMD;
