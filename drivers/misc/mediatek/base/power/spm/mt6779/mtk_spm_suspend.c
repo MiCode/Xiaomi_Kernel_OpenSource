@@ -45,41 +45,41 @@ unsigned int spm_sleep_count;
 
 int __attribute__ ((weak)) mtk_enter_idle_state(int idx)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 	return -1;
 }
 
 int __attribute__ ((weak)) vcorefs_get_curr_ddr(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 	return -1;
 }
 
 int  __attribute__ ((weak)) vcorefs_get_curr_vcore(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 	return -1;
 }
 
 void __attribute__ ((weak)) mtk8250_backup_dev(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 }
 
 void __attribute__ ((weak)) mtk8250_restore_dev(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 }
 
 int __attribute__ ((weak)) mtk8250_request_to_wakeup(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 	return 0;
 }
 
 int __attribute__ ((weak)) mtk8250_request_to_sleep(void)
 {
-	pr_info("NO %s !!!\n", __func__);
+	pr_debug("NO %s !!!\n", __func__);
 	return 0;
 }
 
