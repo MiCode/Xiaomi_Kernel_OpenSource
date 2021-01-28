@@ -28,12 +28,12 @@
 		rt9471 {
 			/*
 			 * Charger name
-			 * Main charger: primary_chg
-			 * Slave charger: secondary_chg
+			 * Primary charger: primary_chg
+			 * Secondary charger: secondary_chg
 			 */
 			chg_name = "primary_chg";
 			chg_alias_name = "rt9471_chg";
-			rm-slave-addr = /bits/ 8 <0x53>;
+			rm-dev-addr = /bits/ 8 <0x53>;
 			rm-name = "rt9471";
 			interrupt-names = "wdt", "chg_mivr", "vbus_gd",
 					  "bc12_done", "detach", "vac_ov",
