@@ -1400,7 +1400,7 @@ static int create_cm_mgr_debug_fs(void)
 
 	for (i = 0; i < ARRAY_SIZE(entries); i++) {
 		if (!proc_create_data
-		    (entries[i].name, 0664,
+		    (entries[i].name, 0660,
 		     dir, entries[i].fops, entries[i].data))
 			pr_info("%s(), create /proc/cm_mgr/%s failed\n",
 					__func__,
