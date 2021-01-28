@@ -94,10 +94,10 @@ static int mdw_queue_deadline_task_start(struct mdw_apu_sc *sc, void *q)
 	struct mdw_rsc_tab *tab;
 	struct deadline_root *root;
 
-	if (sc == NULL)
+	tab = mdw_rsc_get_tab(sc->type);
+	if (!tab)
 		return 0;
 
-	tab = mdw_rsc_get_tab(sc->type);
 	root = &tab->q.deadline;
 
 	mutex_lock(&root->lock);
@@ -133,9 +133,6 @@ static int mdw_queue_deadline_task_end(struct mdw_apu_sc *sc, void *q)
 	uint64_t load = 0;
 	struct mdw_rsc_tab *tab;
 	struct deadline_root *root;
-
-	if (sc == NULL)
-		return 0;
 
 	tab = mdw_rsc_get_tab(sc->type);
 	root = &tab->q.deadline;
@@ -210,6 +207,7 @@ static int mdw_queue_deadline_insert(struct mdw_apu_sc *sc,
 	atomic_inc(&root->cnt);
 	mutex_unlock(&root->lock);
 	mdw_rsc_update_avl_bmp(sc->type);
+
 	return 0;
 }
 
