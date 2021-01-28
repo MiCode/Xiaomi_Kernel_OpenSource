@@ -2596,7 +2596,8 @@ static int mtkfb_probe(struct platform_device *pdev)
 
 	pr_notice("%s: fb_pa = %pa\n", __func__, &fb_base);
 
-#ifdef CONFIG_MTK_IOMMU_V3
+#if 0/*#ifdef CONFIG_MTK_IOMMU_V3*/
+/* TODO : this section lack of ion allocate API */
 	temp_va = (size_t)ioremap_nocache(fb_base,
 		(fb_base + vramsize - fb_base));
 	fbdev->fb_va_base = (void *)temp_va;
@@ -2607,9 +2608,10 @@ static int mtkfb_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	ion_display_handle = disp_ion_alloc(ion_display_client,
-		ION_HEAP_MULTIMEDIA_PA2MVA_MASK, fb_base,
-		(fb_base + vramsize - fb_base));
+	/*
+	 * TODO: legacy ion_handle allocate API phase out,
+	 *	need develop another method allocate MVA
+	 */
 	if (r != 0) {
 		DISPERR("%s: fail to allocate buffer\n", __func__);
 		r = -1;
