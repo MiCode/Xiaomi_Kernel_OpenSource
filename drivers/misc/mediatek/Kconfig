@@ -299,6 +299,7 @@ menu "Security"
 
 source "drivers/misc/mediatek/trusted_mem/Kconfig"
 source "drivers/misc/mediatek/geniezone/Kconfig"
+source "drivers/misc/mediatek/tee_sanity/Kconfig"
 endmenu # Security
 
 menu "Other Peripherals"

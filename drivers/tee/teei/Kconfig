@@ -14,6 +14,7 @@ config MICROTRUST_TEE_SUPPORT
 	bool "Enable Microtrust TEEI Support"
 	select DMA_SHARED_BUFFER
 	select GENERIC_ALLOCATOR
+	select MTK_TEE_SANITY
 	default n
 	help
 	  Enables the support of Microtrust TEE drivers.
