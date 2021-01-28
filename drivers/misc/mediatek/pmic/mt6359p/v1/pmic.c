@@ -14,6 +14,9 @@
 #include <generated/autoconf.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#if defined(CONFIG_REGULATOR_MT6315)
+#include <linux/regulator/mt6315-misc.h>
+#endif
 
 #include <mt-plat/mtk_devinfo.h>
 #include <mt-plat/upmu_common.h>
@@ -26,21 +29,21 @@ static unsigned int g_vrfdig_vosel;
 
 void record_md_vosel(void)
 {
-	g_vmodem_vosel = pmic_get_register_value(PMIC_RG_BUCK_VMODEM_VOSEL);
 	g_vrfdig_vosel = pmic_get_register_value(PMIC_RG_BUCK_VPU_VOSEL);
-	pr_info("[%s] vmodem=0x%x, vrfdig=0x%x\n", __func__,
-		g_vmodem_vosel, g_vrfdig_vosel);
+	pr_info("[%s] vrfdig=0x%x\n", __func__,	g_vrfdig_vosel);
 }
 
 /* [Export API] */
 void vmd1_pmic_setting_on(void)
 {
+#if defined(CONFIG_REGULATOR_MT6315)
+	mt6315_vmd1_pmic_setting_on();
+#endif
 	/* 1.Call PMIC driver API configure VMODEM voltage */
-	if (g_vmodem_vosel != 0) {
-		pmic_set_register_value(PMIC_RG_BUCK_VMODEM_VOSEL,
-			g_vmodem_vosel);
+	if (g_vrfdig_vosel != 0) {
 		pmic_set_register_value(PMIC_RG_BUCK_VPU_VOSEL,
-			g_vrfdig_vosel);
+					g_vrfdig_vosel);
+		pr_info("[%s] set vrfdig=0x%x\n", __func__, g_vrfdig_vosel);
 	} else {
 		pr_notice("[%s] vmodem vosel has not recorded!\n", __func__);
 		record_md_vosel();
@@ -60,8 +63,10 @@ void pmic_enable_smart_reset(unsigned char smart_en,
 		, pmic_get_register_value(PMIC_PWRKEY_DEB)?"released":"pressed"
 		, pmic_get_register_value(PMIC_PWRKEY_LONG_PRESS_COUNT) << 5
 		, pmic_get_register_value(PMIC_JUST_SMART_RST));
+	pmic_set_register_value(PMIC_RG_CPS_W_KEY, 0x4729);
 	pmic_set_register_value(PMIC_RG_SMART_RST_MODE, smart_en);
 	pmic_set_register_value(PMIC_RG_SMART_RST_SDN_EN, smart_sdn_en);
+	pmic_set_register_value(PMIC_RG_CPS_W_KEY, 0);
 	pr_info("[%s] smart_en:%d, smart_sdn_en:%d\n",
 		__func__, smart_en, smart_sdn_en);
 }
