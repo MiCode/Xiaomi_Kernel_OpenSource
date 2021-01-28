@@ -46,8 +46,9 @@ static void conn_md_log_add_msg(struct conn_md_time_struct *cur_time)
 	if (g_log_msg_info.msg_total == 0)
 		g_log_msg_info.msg_begin_time = *cur_time;
 
-	snprintf(buf, CONN_MD_MSG_TIME_LENGTH, " %llu.%03lu",
-		 cur_time->sec, cur_time->msec);
+	if (snprintf(buf, CONN_MD_MSG_TIME_LENGTH, " %llu.%03lu", cur_time->sec,
+		cur_time->msec) < 0)
+		return;
 
 	msg_buf_size = strlen(buf);
 	remain_size = CONN_MD_BUF_SIZE - strlen(g_log_msg_info.msg_buf) - 1;
