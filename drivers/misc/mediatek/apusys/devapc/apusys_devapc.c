@@ -114,10 +114,13 @@ static ssize_t apusys_devapc_read(struct file *file, char __user *buf,
 	if (!buf)
 		return -EINVAL;
 
-	snprintf(output, sizeof(output),
+	ret = snprintf(output, sizeof(output),
 		"%s enable_KE: %d, enable_AEE: %d, enable_IRQ: %d\n",
 		"[APUSYS_DEVAPC]", dctx->enable_ke, dctx->enable_aee,
 		dctx->enable_irq);
+
+	if (ret <= 0)
+		return 0;
 
 	len = min((int)size, (int)(strlen(output) - *offset));
 	if (len <= 0)
@@ -143,12 +146,13 @@ static ssize_t apusys_devapc_write(struct file *file, const char __user *buf,
 	char input[32] = {0};
 	char *cmd_str, *param_str, *tmp_str;
 	unsigned int param = 0;
-	int ret, len;
+	size_t len;
+	int ret;
 
 	if (!buf)
 		return -EINVAL;
 
-	len = min((int)size, (int)(sizeof(input) - 1));
+	len = min(size, 31UL);
 
 	if (copy_from_user(input, buf, len)) {
 		pr_info("Fail to copy from user\n");
