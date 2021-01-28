@@ -778,6 +778,7 @@ static const struct mtk_pin_soc mt6885_data = {
 	.eint_hw = &mt6885_eint_hw,
 	.nfuncs = 8,
 	.gpio_m = 0,
+	.race_free_access = true,
 	.eh_pin_pinmux = mt6885_eh_pin_pinmux_list,
 	.bias_set_combo = mtk_pinconf_bias_set_combo,
 	.bias_get_combo = mtk_pinconf_bias_get_combo,
