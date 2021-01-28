@@ -1873,8 +1873,8 @@ out:
 }
 #endif
 
-void m4u_get_perf_counter(unsigned int m4u_index,
-	struct M4U_PERF_COUNT *pM4U_perf_count)
+void m4u_get_perf_counter(int m4u_index,
+		int m4u_slave_id, struct M4U_PERF_COUNT *pM4U_perf_count)
 {
 	unsigned long m4u_base;
 	int i = 0;
@@ -1953,7 +1953,7 @@ int m4u_monitor_stop(int m4u_index)
 	return 0;
 }
 
-void m4u_print_perf_counter(unsigned int m4u_index, const char *msg)
+void m4u_print_perf_counter(int m4u_index, int m4u_slave_id, const char *msg)
 {
 	struct M4U_PERF_COUNT cnt = {{0, 0}, {0, 0}, 0, 0, {0, 0} };
 	unsigned int total_transaction_cnt = 0, total_cycle = 0;
@@ -1967,10 +1967,9 @@ void m4u_print_perf_counter(unsigned int m4u_index, const char *msg)
 	}
 
 	M4UINFO(
-		"====m4u%d performance count dump for %s ======\n",
-		m4u_index, msg);
-
-	m4u_get_perf_counter(m4u_index, &cnt);
+		"====m4u performance count for %s m4u%d_%d======\n",
+		msg, m4u_index, m4u_slave_id);
+	m4u_get_perf_counter(m4u_index, m4u_slave_id, &cnt);
 	/* read register get the count */
 	for (i = 0; i < M4U_SLAVE_NUM(m4u_index); i++) {
 		total_transaction_cnt += cnt.transaction_cnt[i];
@@ -2325,7 +2324,8 @@ void m4u_print_port_status(struct seq_file *seq, int only_print_active,
 					larb_port, 1));
 #endif
 		} else {
-			M4U_PRINT_SEQ(seq, "invalid port=%d, m4u=%d\n",
+			M4U_PRINT_SEQ(seq,
+					"\ninvalid port=%d, m4u_slave_id=%d\n",
 					port, m4u_index);
 			return;
 		}

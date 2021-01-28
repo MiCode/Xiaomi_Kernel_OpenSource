@@ -238,6 +238,7 @@ static void spm_idle_pcm_setup_after_wfi(
  * dp/so3/so main flow by chip
  *******************************************************************/
 
+static unsigned int slp_dp_last_wr = WR_NONE;
 static unsigned long flags;
 
 void mtk_idle_pre_process_by_chip(
@@ -326,6 +327,10 @@ void mtk_idle_post_process_by_chip(
 
 }
 
+unsigned int get_slp_dp_last_wr(void)
+{
+	return slp_dp_last_wr;
+}
 /********************************************************************
  * mtk idle output log
  *******************************************************************/

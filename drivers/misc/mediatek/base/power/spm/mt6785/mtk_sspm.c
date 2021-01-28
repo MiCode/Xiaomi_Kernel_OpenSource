@@ -179,3 +179,35 @@ int spm_to_sspm_command(u32 cmd, struct spm_data *spm_d)
 
 	return ret;
 }
+
+static atomic_t ipi_lock_cnt;
+
+bool is_sspm_ipi_lock_spm(void)
+{
+	int lock_cnt = -1;
+	bool ret = false;
+
+	lock_cnt = atomic_read(&ipi_lock_cnt);
+
+	ret = (lock_cnt == 0) ? false : true;
+
+	return ret;
+}
+
+void sspm_ipi_lock_spm_scenario(int start, int id, int opt, const char *name)
+{
+	if (id == IPI_ID_SPM_SUSPEND)
+		return;
+
+	if (id < 0 || id >= IPI_ID_TOTAL)
+		return;
+
+	if (start)
+		atomic_inc(&ipi_lock_cnt);
+	else
+		atomic_dec(&ipi_lock_cnt);
+
+	/* FTRACE tag */
+	trace_sspm_ipi(start, id, opt);
+}
+
