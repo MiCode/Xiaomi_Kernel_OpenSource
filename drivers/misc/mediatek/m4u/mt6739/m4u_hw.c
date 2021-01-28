@@ -1265,7 +1265,7 @@ static inline void _m4u_port_clock_toggle(int m4u_index, int larb, int on)
 			 0, 0);
 }
 
-int m4u_config_port(M4U_PORT_STRUCT *pM4uPort) /* native */
+int m4u_config_port(struct M4U_PORT_STRUCT *pM4uPort) /* native */
 {
 	M4U_PORT_ID PortID = (pM4uPort->ePortID);
 	int m4u_index = m4u_port_2_m4u_id(PortID);
@@ -1313,7 +1313,7 @@ int m4u_config_port(M4U_PORT_STRUCT *pM4uPort) /* native */
 	return 0;
 }
 
-int m4u_config_port_ext(M4U_PORT_STRUCT *pM4uPort)
+int m4u_config_port_ext(struct M4U_PORT_STRUCT *pM4uPort)
 {
 	int ret = m4u_config_port(pM4uPort);
 
@@ -2404,7 +2404,7 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 
 	/* config MDP related port default use M4U */
 	if (m4u_id == 0) {
-		M4U_PORT_STRUCT port;
+		struct M4U_PORT_STRUCT port;
 
 		port.Direction = 0;
 		port.Distance = 1;

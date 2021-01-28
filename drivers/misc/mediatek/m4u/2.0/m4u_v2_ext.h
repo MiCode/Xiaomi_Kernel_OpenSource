@@ -48,14 +48,14 @@ enum M4U_RANGE_PRIORITY_ENUM {
 };
 
 /* port related: virtuality, security, distance */
-typedef struct _M4U_PORT {
+struct M4U_PORT_STRUCT {
 	M4U_PORT_ID ePortID; /* hardware port ID, defined in M4U_PORT_ID */
 	unsigned int Virtuality;
 	unsigned int Security;
 	unsigned int domain; /* domain : 0 1 2 3 */
 	unsigned int Distance;
 	unsigned int Direction; /* 0:- 1:+ */
-} M4U_PORT_STRUCT;
+};
 
 enum M4U_CACHE_SYNC_ENUM {
 	M4U_CACHE_CLEAN_BY_RANGE,
@@ -107,18 +107,18 @@ int m4u_alloc_mva_sg(struct port_mva_info_t *port_info,
 
 int m4u_dealloc_mva_sg(int eModuleID, struct sg_table *sg_table,
 		       const unsigned int BufSize, const unsigned int MVA);
-int m4u_config_port_ext(M4U_PORT_STRUCT *pM4uPort);
+int m4u_config_port_ext(struct M4U_PORT_STRUCT *pM4uPort);
 int m4u_mva_map_kernel(unsigned int mva, unsigned int size,
 		       unsigned long *map_va, unsigned int *map_size);
 int m4u_mva_unmap_kernel(unsigned int mva, unsigned int size, unsigned long va);
 
-typedef enum m4u_callback_ret {
+enum m4u_callback_ret_t {
 	M4U_CALLBACK_HANDLED,
 	M4U_CALLBACK_NOT_HANDLED,
-} m4u_callback_ret_t;
+};
 
-typedef m4u_callback_ret_t(m4u_fault_callback_t)(int port, unsigned int mva,
-						 void *data);
+typedef enum m4u_callback_ret_t(m4u_fault_callback_t)(
+			int port, unsigned int mva, void *data);
 int m4u_register_fault_callback(int port, m4u_fault_callback_t *fn, void *data);
 int m4u_unregister_fault_callback(int port);
 int m4u_enable_tf(unsigned int port, bool fgenable);

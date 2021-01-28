@@ -315,7 +315,7 @@ int get_ovl2mem_ticket(void)
 int ovl2mem_init(unsigned int session)
 {
 	int ret = -1;
-	M4U_PORT_STRUCT sPort;
+	struct M4U_PORT_STRUCT sPort;
 
 	DISPMSG("ovl2mem_init\n");
 

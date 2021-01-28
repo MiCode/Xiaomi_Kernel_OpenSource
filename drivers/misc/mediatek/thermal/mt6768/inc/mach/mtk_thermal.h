@@ -104,6 +104,9 @@ extern int get_immediate_md_wrap(void);
 extern int tscpu_get_min_cpu_pwr(void);
 
 extern int tscpu_get_min_gpu_pwr(void);
+extern int tscpu_get_min_vpu_pwr(void);
+extern int tscpu_get_min_mdla_pwr(void);
+
 
 /* Five thermal sensors. */
 enum mtk_thermal_sensor_cpu_id_met {
