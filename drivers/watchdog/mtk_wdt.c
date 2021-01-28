@@ -185,18 +185,19 @@ static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 {
 	struct mtk_wdt_dev *mtk_wdt = watchdog_get_drvdata(wdt_dev);
 	void __iomem *wdt_base;
-	u32 mode, nonrst2;
+	u32 mode = 0, nonrst2 = 0, latch_ctrl = 0;
 
 	wdt_base = mtk_wdt->wdt_base;
 	mode = readl(wdt_base + WDT_MODE) & ~WDT_MODE_DDR_RSVD;
 	nonrst2 = readl(wdt_base + WDT_MODE) & ~RGU_REBOOT_MASK;
+	latch_ctrl = readl(wdt_base + WDT_LATCH_CTL2) & ~WDT_DFD_EN;
 
 	if (cmd && !strcmp(cmd, "charger"))
 		nonrst2 |= BOOT_CHARGER;
 	else if (cmd && !strcmp(cmd, "recovery"))
 		nonrst2 |= BOOT_RECOVERY;
 	else if (cmd && !strcmp(cmd, "bootloader"))
-		nonrst2 |= (1 << (BOOT_BOOTLOADER - 1));
+		nonrst2 |= BOOT_BOOTLOADER;
 	else if (cmd && !strcmp(cmd, "dm-verity device corrupted"))
 		nonrst2 |= BOOT_DM_VERITY | WDT_BYPASS_PWR_KEY;
 	else if (cmd && !strcmp(cmd, "kpoc"))
@@ -206,13 +207,16 @@ static int mtk_wdt_restart(struct watchdog_device *wdt_dev,
 	else
 		nonrst2 |= WDT_BYPASS_PWR_KEY;
 
-	if ((nonrst2 & RGU_REBOOT_MASK) == BOOT_DDR_RSVD)
+	if ((nonrst2 & RGU_REBOOT_MASK) == BOOT_DDR_RSVD) {
+		latch_ctrl |= WDT_DFD_EN;
 		mode |= WDT_MODE_DDR_RSVD;
+	}
 
 	mode &= ~(WDT_MODE_DUAL_EN | WDT_MODE_IRQ_EN);
 
 	writel(WDT_MODE_KEY | mode, wdt_base + WDT_MODE);
 	writel(nonrst2, wdt_base + WDT_NONRST2);
+	writel(WDT_LATCH_CTL2_KEY | latch_ctrl, wdt_base + WDT_LATCH_CTL2);
 
 	while (1) {
 		writel(WDT_SWRST_KEY, wdt_base + WDT_SWRST);
