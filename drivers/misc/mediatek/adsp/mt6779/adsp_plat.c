@@ -124,18 +124,19 @@ void adsp_way_en_ctrl(uint32_t enable)
 /*
  * acquire a hardware semaphore
  * @param flag: semaphore id
- * return  1 :get sema success
- *        -1 :get sema timeout
+ * return  ADSP_OK: get sema success
+ *         ADSP_ERROR: adsp is disabled
+ *         ADSP_SEMAPHORE_BUSY: release sema fail
  */
-int get_adsp_semaphore(int flag)
+int get_adsp_semaphore(unsigned int flag)
 {
 	int read_back;
 	int count = 0;
-	int ret = -1;
+	int ret = ADSP_SEMAPHORE_BUSY;
 
 	/* return 1 to prevent from access when driver not ready */
 	if (is_adsp_ready(ADSP_A_ID) != 1)
-		return -1;
+		return ADSP_ERROR;
 
 	flag = (flag * 2) + 1;
 	read_back = (readl(ADSP_SEMAPHORE) >> flag) & 0x1;
@@ -148,14 +149,14 @@ int get_adsp_semaphore(int flag)
 			read_back = (readl(ADSP_SEMAPHORE) >> flag) & 0x1;
 
 			if (read_back == 1) {
-				ret = 1;
+				ret = ADSP_OK;
 				break;
 			}
 			writel((1 << flag), ADSP_SEMAPHORE);
 			count++;
 		}
 
-		if (ret < 0)
+		if (ret)
 			pr_debug("[ADSP] get adsp sema. %d TIMEOUT..!\n", flag);
 	} else
 		pr_debug("[ADSP] already hold adsp sema. %d\n", flag);
@@ -166,17 +167,19 @@ int get_adsp_semaphore(int flag)
 /*
  * release a hardware semaphore
  * @param flag: semaphore id
- * return  1 :release sema success
- *        -1 :release sema fail
+ * return  ADSP_OK: release sema success
+ *         ADSP_ERROR: adsp is disabled
+ *         ADSP_SEMAPHORE_BUSY: release sema fail
+
  */
-int release_adsp_semaphore(int flag)
+int release_adsp_semaphore(unsigned int flag)
 {
 	int read_back;
-	int ret = -1;
+	int ret = ADSP_SEMAPHORE_BUSY;
 
 	/* return 1 to prevent from access when driver not ready */
 	if (is_adsp_ready(ADSP_A_ID) != 1)
-		return -1;
+		return ADSP_ERROR;
 
 	flag = (flag * 2) + 1;
 	read_back = (readl(ADSP_SEMAPHORE) >> flag) & 0x1;
@@ -186,7 +189,7 @@ int release_adsp_semaphore(int flag)
 		writel((1 << flag), ADSP_SEMAPHORE);
 		read_back = (readl(ADSP_SEMAPHORE) >> flag) & 0x1;
 		if (read_back == 0)
-			ret = 1;
+			ret = ADSP_OK;
 		else
 			pr_debug("[ADSP] %s %d failed\n", __func__, flag);
 	} else

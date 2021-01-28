@@ -87,17 +87,17 @@ enum ADSP_RESET_TYPE {
 };
 
 /* adsp semaphore definition*/
-enum ADSP_SEMAPHORE_FLAG {
-	ADSP_SEMAPHORE_CLK_CFG_5 = 0,
-	ADSP_SEMAPHORE_PTP,
-	ADSP_SEMAPHORE_I2C0,
-	ADSP_SEMAPHORE_I2C1,
-	ADSP_SEMAPHORE_TOUCH,
-	ADSP_SEMAPHORE_APDMA,
-	ADSP_SEMAPHORE_SENSOR,
-	ADSP_SEMAPHORE_ADSP_A_AWAKE,
-	ADSP_SEMAPHORE_ADSP_B_AWAKE,
-	ADSP_NR_FLAG = 9,
+enum semaphore_2way_flag {
+	SEMA_2WAY_AUDIOREG = 0,
+	SEMA_2WAY_NUM      = 4,
+};
+
+#define SEMA_AUDIOREG          SEMA_2WAY_AUDIOREG
+
+enum adsp_status {
+	ADSP_ERROR = -1,
+	ADSP_OK,
+	ADSP_SEMAPHORE_BUSY,
 };
 
 /* adsp Core ID definition*/
@@ -180,6 +180,9 @@ extern unsigned int adsp_set_reset_status(void);
 extern int is_adsp_ready(uint32_t adsp_id);
 void adsp_reset_ready(uint32_t id);
 void adsp_A_ready_ipi_handler(int id, void *data, unsigned int len);
+
+extern int get_adsp_semaphore(unsigned int flag);
+extern int release_adsp_semaphore(unsigned int flag);
 
 uint32_t adsp_power_on(uint32_t enable);
 #endif

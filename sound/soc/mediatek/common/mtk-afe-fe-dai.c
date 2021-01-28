@@ -30,6 +30,10 @@
 #include "../audio_dsp/mtk-dsp-common.h"
 #endif
 
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+#include "adsp_helper.h"
+#endif
+
 #if defined(CONFIG_SND_SOC_MTK_SCP_SMARTPA)
 #include "../scp_spk/mtk-scp-spk-mem-control.h"
 #endif
@@ -556,6 +560,46 @@ int mtk_memif_set_disable(struct mtk_base_afe *afe, int id)
 				      0);
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_disable);
+
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id)
+{
+	int ret = 0, adsp_sem_ret = 0;
+
+	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
+	/* get sem ok*/
+	if (!adsp_sem_ret) {
+		ret = mtk_memif_set_enable(afe, id);
+		release_adsp_semaphore(SEMA_AUDIOREG);
+	} else {
+		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
+			pr_info("%s adsp_sem_ret[%d]\n",
+				__func__, adsp_sem_ret);
+		ret = mtk_memif_set_enable(afe, id);
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_dsp_memif_set_enable);
+
+int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id)
+{
+	int ret = 0, adsp_sem_ret = 0;
+
+	adsp_sem_ret = get_adsp_semaphore(SEMA_AUDIOREG);
+	/* get sem ok*/
+	if (!adsp_sem_ret) {
+		ret = mtk_memif_set_disable(afe, id);
+		release_adsp_semaphore(SEMA_AUDIOREG);
+	} else {
+		if (adsp_sem_ret == ADSP_SEMAPHORE_BUSY)
+			pr_info("%s adsp_sem_ret[%d]\n",
+				__func__, adsp_sem_ret);
+		ret = mtk_memif_set_disable(afe, id);
+	}
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mtk_dsp_memif_set_disable);
+#endif
 
 int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
 		       unsigned char *dma_area,

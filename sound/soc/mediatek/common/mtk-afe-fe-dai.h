@@ -50,4 +50,10 @@ int mtk_memif_set_format(struct mtk_base_afe *afe,
 			 int id, snd_pcm_format_t format);
 int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
 			    int id, int pbuf_size);
+
+#if defined(CONFIG_MTK_AUDIODSP_SUPPORT)
+/* using 3 way samephore to ensure ap/dsp sync */
+int mtk_dsp_memif_set_enable(struct mtk_base_afe *afe, int id);
+int mtk_dsp_memif_set_disable(struct mtk_base_afe *afe, int id);
+#endif
 #endif
