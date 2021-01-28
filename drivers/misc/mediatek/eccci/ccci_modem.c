@@ -1842,9 +1842,10 @@ static void receive_wakeup_src_notify(int md_id, char *buf, unsigned int len)
 
 	if (len == 0) {
 		/* before spm add MD_WAKEUP_SOURCE parameter. */
-		if (md_id == MD_SYS1)
+		if (md_id == MD_SYS1) {
 			ccci_hif_set_wakeup_src(MD1_NET_HIF, 1);
 			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
+		}
 		if (md_id == MD_SYS3)
 			ccci_hif_set_wakeup_src(CCIF_HIF_ID, 1);
 		return;
