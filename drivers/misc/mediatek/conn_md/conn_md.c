@@ -537,7 +537,7 @@ int conn_md_dmp_msg_logged(uint32 src_id, uint32 dst_id)
 
 static int __init conn_md_init(void)
 {
-	int i_ret = -1;
+	int i_ret = 0;
 	struct conn_md_queue *p_queue = NULL;
 	struct conn_md_user_list *p_user_list = NULL;
 
