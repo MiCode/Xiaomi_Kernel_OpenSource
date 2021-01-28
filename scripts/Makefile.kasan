@@ -35,13 +35,14 @@ endif # CONFIG_KASAN_GENERIC
 ifdef CONFIG_KASAN_SW_TAGS
 
 ifdef CONFIG_KASAN_INLINE
-    instrumentation_flags := -mllvm -hwasan-mapping-offset=$(KASAN_SHADOW_OFFSET)
+    instrumentation_flags := -mllvm -hwasan-mapping-offset=$(KASAN_SHADOW_OFFSET) \
+    -mllvm -hwasan-instrument-stack=0
 else
-    instrumentation_flags := -mllvm -hwasan-instrument-with-calls=1
+    instrumentation_flags := -mllvm -hwasan-instrument-with-calls=1 \
+    -mllvm -hwasan-instrument-stack=$(CONFIG_KASAN_STACK)
 endif
 
 CFLAGS_KASAN := -fsanitize=kernel-hwaddress \
-		-mllvm -hwasan-instrument-stack=0 \
 		$(instrumentation_flags)
 
 endif # CONFIG_KASAN_SW_TAGS

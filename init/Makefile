@@ -5,6 +5,10 @@
 
 ccflags-y := -fno-function-sections -fno-data-sections
 
+ifdef CONFIG_KASAN_SW_TAGS
+KASAN_SANITIZE_main.o := n
+endif
+
 obj-y                          := main.o version.o mounts.o
 ifneq ($(CONFIG_BLK_DEV_INITRD),y)
 obj-y                          += noinitramfs.o
