@@ -21,7 +21,6 @@
 #endif
 #ifdef CONFIG_MTK_SMI_EXT
 #include "smi_public.h"
-#include "smi_debug.h"
 #endif
 
 static struct cmdqCoreFuncStruct gFunctionPointer;
@@ -819,13 +818,13 @@ void cmdq_virtual_enable_common_clock_locked(bool enable)
 		CMDQ_VERBOSE("[CLOCK] Enable SMI & LARB0 Clock\n");
 		/* Use SMI clock API */
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_prepare_enable(SMI_LARB0_REG_INDX, "CMDQ", true);
+		smi_bus_prepare_enable(SMI_LARB0, "CMDQ");
 #endif
 	} else {
 		CMDQ_VERBOSE("[CLOCK] Disable SMI & LARB0 Clock\n");
 		/* disable, reverse the sequence */
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_bus_disable_unprepare(SMI_LARB0_REG_INDX, "CMDQ", true);
+		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
 #endif
 	}
 #endif				/* CMDQ_PWR_AWARE */
@@ -883,8 +882,7 @@ int cmdq_virtual_dump_smi(const int showSmiDump)
 
 #if defined(CONFIG_MTK_SMI_EXT) && !defined(CONFIG_FPGA_EARLY_PORTING) && \
 	!defined(CONFIG_MTK_SMI_VARIANT)
-	isSMIHang = smi_debug_bus_hang_detect(SMI_PARAM_BUS_OPTIMIZATION,
-		showSmiDump, showSmiDump, showSmiDump);
+	isSMIHang = smi_debug_bus_hang_detect(showSmiDump, "CMDQ");
 	CMDQ_ERR("SMI Hang? = %d\n", isSMIHang);
 #else
 	CMDQ_LOG("[WARNING]not enable SMI dump now\n");

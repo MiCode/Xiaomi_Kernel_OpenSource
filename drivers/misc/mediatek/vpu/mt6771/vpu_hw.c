@@ -32,7 +32,7 @@
 /* #define AEE_USE */
 
 #ifdef SMI_DEBUG
-#include <smi_debug.h>
+#include <smi_public.h>
 #endif
 #include "mtk_devinfo.h"
 
@@ -1341,7 +1341,7 @@ static int vpu_disable_regulator_and_clock(int core)
 		LOG_INF("[vpu_%d] dis_rc again (0x%x)\n", core,
 			smi_bus_vpu_value);
 		if ((int)smi_bus_vpu_value != 0) {
-			smi_debug_bus_hanging_detect_ext2(0x1ff, 1, 0, 1);
+			smi_debug_bus_hang_detect(false, "VPU");
 			vpu_aee_warn("VPU SMI CHECK",
 				"core_%d fail to check smi, value=%d\n",
 				core,

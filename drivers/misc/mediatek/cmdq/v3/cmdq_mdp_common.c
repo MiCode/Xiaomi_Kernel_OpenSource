@@ -32,9 +32,7 @@
 #include <linux/pm_qos.h>
 #include <linux/math64.h>
 #include "cmdq_mdp_pmqos.h"
-#ifdef CONFIG_MTK_SMI_EXT
 #include <mmdvfs_pmqos.h>
-#endif
 
 #include "cmdq_helper_ext.h"
 
@@ -1761,10 +1759,10 @@ static void cmdq_mdp_enable_common_clock_virtual(bool enable)
 #ifdef CONFIG_MTK_SMI_EXT
 	if (enable) {
 		/* Use SMI clock API */
-		smi_bus_prepare_enable(SMI_LARB0_REG_INDX, "CMDQ", true);
+		smi_bus_prepare_enable(SMI_LARB0, "CMDQ");
 	} else {
 		/* disable, reverse the sequence */
-		smi_bus_disable_unprepare(SMI_LARB0_REG_INDX, "CMDQ", true);
+		smi_bus_disable_unprepare(SMI_LARB0, "CMDQ");
 	}
 #endif
 #endif	/* CMDQ_PWR_AWARE */
@@ -2039,10 +2037,6 @@ static void cmdq_mdp_begin_task_virtual(struct cmdqRecStruct *handle,
 	if (mdp_curr_pmqos->mdp_total_pixel)
 		pm_qos_update_request(&mdp_clk_qos_request[thread_id],
 			max_throughput);
-
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
-	smi_larb_mon_act_cnt();
-#endif
 #endif
 }
 
@@ -2101,9 +2095,6 @@ static void cmdq_mdp_end_task_virtual(struct cmdqRecStruct *handle,
 	bool update_isp_throughput = false;
 	bool update_isp_bandwidth = false;
 
-#if IS_ENABLED(CONFIG_MTK_SMI_EXT) && IS_ENABLED(CONFIG_MACH_MT6771)
-	smi_larb_mon_act_cnt();
-#endif
 	do_gettimeofday(&curr_time);
 	CMDQ_MSG("enter %s with handle:0x%p engine:0x%llx\n", __func__,
 		handle, handle->engineFlag);

@@ -45,6 +45,9 @@
 #include "ddp_clkmgr.h"
 #include "primary_display.h"
 
+#if defined(CONFIG_MTK_SMI_EXT)
+#include <smi_public.h>
+#endif
 /*****************************************************************************/
 enum {
 	PAD_D2P_V = 0,
@@ -440,9 +443,7 @@ static void _DSI_INTERNAL_IRQ_Handler(enum DISP_MODULE_ENUM module,
 					ddp_get_module_name(module));
 			primary_display_diagnose();
 #if defined(CONFIG_MTK_SMI_EXT)
-			smi_debug_bus_hanging_detect_ext2(SMI_DBG_DISPSYS |
-				SMI_DBG_VDEC | SMI_DBG_IMGSYS | SMI_DBG_VENC |
-				SMI_DBG_MJC, 1, 0, 1);
+			smi_debug_bus_hang_detect(false, LOG_TAG);
 #endif
 			dsi_underflow = 1;
 			disp_aee_print("DSI buffer underrun\n");

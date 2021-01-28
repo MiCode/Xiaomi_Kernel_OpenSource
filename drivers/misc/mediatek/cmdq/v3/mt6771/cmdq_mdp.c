@@ -544,13 +544,13 @@ void cmdq_mdp_enable_clock(bool enable, enum CMDQ_ENG_ENUM engine)
 	case CMDQ_ENG_MDP_WROT0:
 		if (enable) {
 #ifdef CONFIG_MTK_SMI_EXT
-			smi_bus_prepare_enable(SMI_LARB_MMSYS0, "MDPSRAM");
+			smi_bus_prepare_enable(SMI_LARB0, "MDPSRAM");
 #endif
 			cmdq_mdp_enable_clock_MDP_WROT0(enable);
 		} else {
 			cmdq_mdp_enable_clock_MDP_WROT0(enable);
 #ifdef CONFIG_MTK_SMI_EXT
-			smi_bus_disable_unprepare(SMI_LARB_MMSYS0, "MDPSRAM");
+			smi_bus_disable_unprepare(SMI_LARB0, "MDPSRAM");
 #endif
 		}
 		break;
@@ -992,7 +992,7 @@ void checkSMILarb0(uint32_t addr)
 		CMDQ_REG_GET32(gCmdqMdpModuleBaseVA.SMI_LARB0 + addr);
 	if (regValue) {
 #ifdef CONFIG_MTK_SMI_EXT
-		smi_debug_bus_hanging_detect_ext2(0x1ff, 1, 0, 1);
+		smi_debug_bus_hang_detect(false, "MDP");
 #endif
 		CMDQ_AEE("MDP",
 			"[MDP][Abnormal] Job Unfinish, larb 0:(0x%x, 7, 0x%x)\n",
@@ -1268,11 +1268,11 @@ static void cmdq_mdp_enable_common_clock(bool enable)
 #ifdef CONFIG_MTK_SMI_EXT
 	if (enable) {
 		/* Use SMI clock API */
-		smi_bus_prepare_enable(SMI_LARB0_REG_INDX, "MDP", true);
+		smi_bus_prepare_enable(SMI_LARB0, "MDP");
 
 	} else {
 		/* disable, reverse the sequence */
-		smi_bus_disable_unprepare(SMI_LARB0_REG_INDX, "MDP", true);
+		smi_bus_disable_unprepare(SMI_LARB0, "MDP");
 	}
 #endif
 #endif	/* CMDQ_PWR_AWARE */
