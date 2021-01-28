@@ -589,7 +589,7 @@ firmware_class.path=/vendor/firmware";
 
 
 	pwrap: pwrap@1000d000 {
-		compatible = "mediatek,mt6761-pwrap";
+		compatible = "mediatek,mt6761-pwrap", "syscon";
 		reg = <0 0x1000d000 0 0x1000>;
 		reg-names = "pwrap";
 		interrupts = <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
@@ -3269,6 +3269,11 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		mediatek,clkbuf-quantity = <7>;
 		mediatek,clkbuf-config = <2 1 1 2 0 0 0>;
 		mediatek,clkbuf-driving-current = <1 1 1 1 1 1 1>;
+
+		pwrap-dcxo-en = <0x188 0 0x188 1 0x188 0>;
+		pwrap-dcxo-cfg = <0x18c 0x19c>;
+
+		pwrap = <&pwrap>;
 	};
 
 	pbm: pbm {
