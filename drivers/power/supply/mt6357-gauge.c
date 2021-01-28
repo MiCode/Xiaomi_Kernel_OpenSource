@@ -1921,7 +1921,7 @@ static int hw_version_get(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int *val)
 {
 
-	*val = GAUGE_HW_V2000;
+	*val = GAUGE_HW_V1000;
 
 	return 0;
 }
