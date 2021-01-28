@@ -91,7 +91,7 @@ void aee_disable_api(void)
 }
 EXPORT_SYMBOL(aee_disable_api);
 
-void aee_kernel_exception_api(const char *file, const int line,
+void aee_kernel_exception_api_func(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...)
 {
 	char msgbuf[KERNEL_REPORT_LENGTH];
@@ -110,10 +110,10 @@ void aee_kernel_exception_api(const char *file, const int line,
 		pr_notice("AEE kernel exception: %s", msgbuf);
 	va_end(args);
 }
-EXPORT_SYMBOL(aee_kernel_exception_api);
+EXPORT_SYMBOL(aee_kernel_exception_api_func);
 
-void aee_kernel_warning_api(const char *file, const int line, const int db_opt,
-		const char *module, const char *msg, ...)
+void aee_kernel_warning_api_func(const char *file, const int line,
+		const int db_opt, const char *module, const char *msg, ...)
 {
 	char msgbuf[KERNEL_REPORT_LENGTH];
 	int offset = 0;
@@ -138,7 +138,7 @@ void aee_kernel_warning_api(const char *file, const int line, const int db_opt,
 	}
 	va_end(args);
 }
-EXPORT_SYMBOL(aee_kernel_warning_api);
+EXPORT_SYMBOL(aee_kernel_warning_api_func);
 
 void aee_kernel_reminding_api(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...)
@@ -267,6 +267,17 @@ void aed_common_exception_api(const char *assert_type, const int *log,
 #endif
 }
 EXPORT_SYMBOL(aed_common_exception_api);
+
+int aee_is_printk_too_much(const char *module)
+{
+#ifdef CONFIG_MTK_AEE_AED
+	pr_debug("%s\n", __func__);
+	if (strstr(module, "intk too much"))
+		return 1;
+	return 0;
+#endif
+}
+EXPORT_SYMBOL(aee_is_printk_too_much);
 
 char sram_printk_buf[256];
 

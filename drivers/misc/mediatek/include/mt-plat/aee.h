@@ -16,6 +16,8 @@
 
 #include <linux/kernel.h>
 #include <linux/sched.h>
+#include <linux/param.h>
+#include <linux/ratelimit.h>
 
 #define AEE_MODULE_NAME_LENGTH 64
 #define AEE_PROCESS_NAME_LENGTH 256
@@ -259,12 +261,53 @@ void aee_oops_free(struct aee_oops *oops);
 #define DB_OPT_NATIVE_BACKTRACE		(1<<30)
 #define DB_OPT_AARCH64			(1<<31)
 
-#define aee_kernel_exception(module, msg...)	\
-	aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
-			module, msg)
-#define aee_kernel_warning(module, msg...)	\
-	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
-			module, msg)
+#define AEE_API_CALL_INTERVAL   (120 * HZ)
+#define AEE_API_CALL_BURST      2
+
+#define aee_kernel_exception(module, msg...)		\
+({							\
+	static DEFINE_RATELIMIT_STATE(__func__##_rs,	\
+			AEE_API_CALL_INTERVAL,		\
+			AEE_API_CALL_BURST);		\
+							\
+	if (__ratelimit(&(__func__##_rs)))		\
+		aee_kernel_exception_api_func(__FILE__, __LINE__,	\
+			DB_OPT_DEFAULT, module, msg);	\
+})
+#define aee_kernel_warning(module, msg...)		\
+({							\
+	static DEFINE_RATELIMIT_STATE(__func__##_rs,	\
+			AEE_API_CALL_INTERVAL,		\
+			AEE_API_CALL_BURST);		\
+							\
+	if (__ratelimit(&(__func__##_rs)))		\
+		aee_kernel_warning_api_func(__FILE__, __LINE__,	\
+			DB_OPT_DEFAULT, module, msg);		\
+})
+
+#define aee_kernel_exception_api(file, line, db_opt, module, msg...)	\
+({									\
+	static DEFINE_RATELIMIT_STATE(__func__##_rs,			\
+			AEE_API_CALL_INTERVAL,				\
+			AEE_API_CALL_BURST);				\
+	if (__ratelimit(&(__func__##_rs)))				\
+		aee_kernel_exception_api_func(__FILE__, __LINE__,	\
+			db_opt, module, msg);				\
+})
+
+#define aee_kernel_warning_api(file, line, db_opt, module, msg...)	\
+({									\
+	static DEFINE_RATELIMIT_STATE(__func__##_rs,			\
+			AEE_API_CALL_INTERVAL,				\
+			AEE_API_CALL_BURST);				\
+	if (aee_is_printk_too_much(module))				\
+		aee_kernel_warning_api_func(__FILE__, __LINE__, db_opt,	\
+				module, msg);				\
+	else if (__ratelimit(&(__func__##_rs)))				\
+		aee_kernel_warning_api_func(__FILE__, __LINE__, db_opt,	\
+				module, msg);				\
+})
+
 #define aee_kernel_reminding(module, msg...)	\
 	aee_kernel_reminding_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
 			module, msg)
@@ -288,10 +331,10 @@ void aee_oops_free(struct aee_oops *oops);
 	aed_common_exception_api(assert_type, log, log_size, phy,	\
 			phy_size, detail, DB_OPT_DEFAULT)
 
-void aee_kernel_exception_api(const char *file, const int line,
+void aee_kernel_exception_api_func(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...);
-void aee_kernel_warning_api(const char *file, const int line, const int db_opt,
-		const char *module, const char *msg, ...);
+void aee_kernel_warning_api_func(const char *file, const int line,
+		const int db_opt, const char *module, const char *msg, ...);
 void aee_kernel_reminding_api(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...);
 void aee_kernel_dal_api(const char *file, const int line, const char *msg);
@@ -327,6 +370,8 @@ static inline int aee_kernel_Powerkey_is_press(void)
 
 void ipanic_recursive_ke(struct pt_regs *regs, struct pt_regs *excp_regs,
 			int cpu);
+
+int aee_is_printk_too_much(const char *module);
 
 /* QHQ RT Monitor */
 void aee_kernel_RT_Monitor_api(int lParam);
