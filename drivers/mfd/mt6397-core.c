@@ -259,6 +259,10 @@ static const struct resource mt6359_battery_oc_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_FG_CUR_L, "fg_cur_l"),
 };
 
+static const struct resource mt6357_chrdet_resources[] = {
+	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_CHRDET_EDGE, "chrdet"),
+};
+
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-regulator",
@@ -305,6 +309,8 @@ static const struct mfd_cell mt6357_devs[] = {
 		.resources = mt6357_battery_oc_resources,
 	}, {
 		.name = "mt6357-charger-type-detection",
+		.num_resources = ARRAY_SIZE(mt6357_chrdet_resources),
+		.resources = mt6357_chrdet_resources,
 		.of_compatible = "mediatek,mt6357-charger-type"
 	}, {
 		.name = "mtk_ts_pmic",

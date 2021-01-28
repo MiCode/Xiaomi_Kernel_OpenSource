@@ -778,4 +778,13 @@ config CHARGER_RT9471
 	  which RT9470D and RT9471D support BC1.2
 	  It depends on config MTK_CHARGER.
 
+config CHARGER_BQ25601
+	bool "CHARGER_BQ25601"
+	depends on MTK_CHARGER
+	help
+	  Say Yes to enable
+	  TI BQ25601 driver.
+	  It depends on
+	  the config MTK_CHARGER.
+
 endif # POWER_SUPPLY

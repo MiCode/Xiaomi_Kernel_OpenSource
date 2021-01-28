@@ -58,6 +58,10 @@
 #define PMIC_RGS_BC11_CMP_OUT_MASK                         0x1
 #define PMIC_RGS_BC11_CMP_OUT_SHIFT                        14
 
+#define PMIC_RGS_CHRDET_ADDR                               0xa88
+#define PMIC_RGS_CHRDET_MASK                               0x1
+#define PMIC_RGS_CHRDET_SHIFT                              4
+
 #define R_CHARGER_1	330
 #define R_CHARGER_2	39
 
@@ -70,18 +74,36 @@ struct mtk_charger_type {
 	struct power_supply_desc psy_desc;
 	struct power_supply_config psy_cfg;
 	struct power_supply *psy;
+	struct power_supply_desc ac_desc;
+	struct power_supply_config ac_cfg;
+	struct power_supply *ac_psy;
+	struct power_supply_desc usb_desc;
+	struct power_supply_config usb_cfg;
+	struct power_supply *usb_psy;
 
 	struct iio_channel *chan_vbus;
+	struct work_struct chr_work;
 
 	enum power_supply_usb_type type;
 
 	int first_connect;
+	int bc12_active;
 };
 
 static enum power_supply_property chr_type_properties[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_USB_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+};
+
+static enum power_supply_property mt_ac_properties[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+};
+
+static enum power_supply_property mt_usb_properties[] = {
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 };
 
 void bc11_set_register_value(struct regmap *map,
@@ -485,6 +507,75 @@ static int get_vbus_voltage(struct mtk_charger_type *info,
 	return ret;
 }
 
+
+void do_charger_detect(struct mtk_charger_type *info, bool en)
+{
+	union power_supply_propval prop, prop2;
+	int ret = 0;
+
+	prop.intval = en;
+	if (en) {
+		ret = power_supply_set_property(info->psy,
+				POWER_SUPPLY_PROP_ONLINE, &prop);
+		ret = power_supply_get_property(info->psy,
+				POWER_SUPPLY_PROP_USB_TYPE, &prop2);
+	} else
+		prop2.intval = POWER_SUPPLY_USB_TYPE_UNKNOWN;
+
+	info->type = prop2.intval;
+	pr_notice("%s type:%d\n", __func__, prop2.intval);
+
+	switch (prop2.intval) {
+	case POWER_SUPPLY_USB_TYPE_UNKNOWN:
+		info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
+		break;
+	case POWER_SUPPLY_USB_TYPE_SDP:
+		info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+		break;
+	case POWER_SUPPLY_USB_TYPE_CDP:
+		info->psy_desc.type = POWER_SUPPLY_TYPE_USB_CDP;
+		break;
+	case POWER_SUPPLY_USB_TYPE_DCP:
+		info->psy_desc.type = POWER_SUPPLY_TYPE_USB_DCP;
+		break;
+	}
+	power_supply_changed(info->psy);
+}
+
+static void do_charger_detection_work(struct work_struct *data)
+{
+	struct mtk_charger_type *info = (struct mtk_charger_type *)container_of(
+				     data, struct mtk_charger_type, chr_work);
+	unsigned int chrdet = 0;
+
+	chrdet = bc11_get_register_value(info->regmap,
+		PMIC_RGS_CHRDET_ADDR,
+		PMIC_RGS_CHRDET_MASK,
+		PMIC_RGS_CHRDET_SHIFT);
+
+	pr_notice("%s: chrdet:%d\n", __func__, chrdet);
+	if (chrdet)
+		do_charger_detect(info, chrdet);
+}
+
+
+irqreturn_t chrdet_int_handler(int irq, void *data)
+{
+	struct mtk_charger_type *info = data;
+	unsigned int chrdet = 0;
+
+	chrdet = bc11_get_register_value(info->regmap,
+		PMIC_RGS_CHRDET_ADDR,
+		PMIC_RGS_CHRDET_MASK,
+		PMIC_RGS_CHRDET_SHIFT);
+
+	pr_notice("%s: chrdet:%d\n", __func__, chrdet);
+	do_charger_detect(info, chrdet);
+
+	return IRQ_HANDLED;
+}
+
+
 static int psy_chr_type_get_property(struct power_supply *psy,
 	enum power_supply_property psp, union power_supply_propval *val)
 {
@@ -532,6 +623,58 @@ int psy_chr_type_set_property(struct power_supply *psy,
 	return 0;
 }
 
+static int mt_ac_get_property(struct power_supply *psy,
+	enum power_supply_property psp, union power_supply_propval *val)
+{
+	struct mtk_charger_type *info;
+
+	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		val->intval = 0;
+		/* Force to 1 in all charger type */
+		if (info->type != POWER_SUPPLY_USB_TYPE_UNKNOWN)
+			val->intval = 1;
+		/* Reset to 0 if charger type is USB */
+		if ((info->type == POWER_SUPPLY_USB_TYPE_SDP) ||
+			(info->type == POWER_SUPPLY_USB_TYPE_CDP))
+			val->intval = 0;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mt_usb_get_property(struct power_supply *psy,
+	enum power_supply_property psp, union power_supply_propval *val)
+{
+	struct mtk_charger_type *info;
+
+	info = (struct mtk_charger_type *)power_supply_get_drvdata(psy);
+
+	switch (psp) {
+	case POWER_SUPPLY_PROP_ONLINE:
+		if ((info->type == POWER_SUPPLY_USB_TYPE_SDP) ||
+			(info->type == POWER_SUPPLY_USB_TYPE_CDP))
+			val->intval = 1;
+		else
+			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_MAX:
+		val->intval = 500000;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = 5000000;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int psy_charger_type_property_is_writeable(struct power_supply *psy,
 					       enum power_supply_property psp)
 {
@@ -550,10 +693,18 @@ static enum power_supply_usb_type mt6357_charger_usb_types[] = {
 	POWER_SUPPLY_USB_TYPE_CDP,
 };
 
+static char *mt6357_charger_supplied_to[] = {
+	"battery",
+	"mtk-master-charger"
+};
+
 static int mt6357_charger_type_probe(struct platform_device *pdev)
 {
 	struct mtk_charger_type *info;
 	struct iio_channel *chan_vbus;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	int ret = 0;
 
 	pr_notice("%s: starts\n", __func__);
 
@@ -579,7 +730,7 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 	mutex_init(&info->ops_lock);
 
 	info->psy_desc.name = "mtk_charger_type";
-	info->psy_desc.type = POWER_SUPPLY_TYPE_USB;
+	info->psy_desc.type = POWER_SUPPLY_TYPE_UNKNOWN;
 	info->psy_desc.properties = chr_type_properties;
 	info->psy_desc.num_properties = ARRAY_SIZE(chr_type_properties);
 	info->psy_desc.get_property = psy_chr_type_get_property;
@@ -589,6 +740,24 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 	info->psy_desc.usb_types = mt6357_charger_usb_types,
 	info->psy_desc.num_usb_types = ARRAY_SIZE(mt6357_charger_usb_types),
 	info->psy_cfg.drv_data = info;
+
+	info->psy_cfg.of_node = np;
+	info->psy_cfg.supplied_to = mt6357_charger_supplied_to;
+	info->psy_cfg.num_supplicants = ARRAY_SIZE(mt6357_charger_supplied_to);
+
+	info->ac_desc.name = "ac";
+	info->ac_desc.type = POWER_SUPPLY_TYPE_MAINS;
+	info->ac_desc.properties = mt_ac_properties;
+	info->ac_desc.num_properties = ARRAY_SIZE(mt_ac_properties);
+	info->ac_desc.get_property = mt_ac_get_property;
+	info->ac_cfg.drv_data = info;
+
+	info->usb_desc.name = "usb";
+	info->usb_desc.type = POWER_SUPPLY_TYPE_USB;
+	info->usb_desc.properties = mt_usb_properties;
+	info->usb_desc.num_properties = ARRAY_SIZE(mt_usb_properties);
+	info->usb_desc.get_property = mt_usb_get_property;
+	info->usb_cfg.drv_data = info;
 
 	info->psy = power_supply_register(&pdev->dev, &info->psy_desc,
 			&info->psy_cfg);
@@ -605,6 +774,40 @@ static int mt6357_charger_type_probe(struct platform_device *pdev)
 	if (IS_ERR(info->chan_vbus)) {
 		pr_notice("chan_vbus auxadc get fail, ret=%d\n",
 			PTR_ERR(info->chan_vbus));
+	}
+
+	if (of_property_read_u32(np, "bc12_active", &info->bc12_active) < 0)
+		pr_notice("%s: no bc12_active\n", __func__);
+
+	pr_notice("%s: bc12_active:%d\n", __func__, info->bc12_active);
+
+	if (info->bc12_active) {
+		info->ac_psy = power_supply_register(&pdev->dev,
+				&info->ac_desc, &info->ac_cfg);
+
+		if (IS_ERR(info->ac_psy)) {
+			pr_notice("%s Failed to register power supply: %ld\n",
+				__func__, PTR_ERR(info->ac_psy));
+			return PTR_ERR(info->ac_psy);
+		}
+
+		info->usb_psy = power_supply_register(&pdev->dev,
+				&info->usb_desc, &info->usb_cfg);
+
+		if (IS_ERR(info->usb_psy)) {
+			pr_notice("%s Failed to register power supply: %ld\n",
+				__func__, PTR_ERR(info->usb_psy));
+			return PTR_ERR(info->usb_psy);
+		}
+
+		INIT_WORK(&info->chr_work, do_charger_detection_work);
+		schedule_work(&info->chr_work);
+
+		ret = devm_request_threaded_irq(&pdev->dev,
+			platform_get_irq_byname(pdev, "chrdet"), NULL,
+			chrdet_int_handler, IRQF_TRIGGER_HIGH, "chrdet", info);
+		if (ret < 0)
+			pr_notice("%s request chrdet irq fail\n", __func__);
 	}
 
 	info->first_connect = true;
