@@ -79,6 +79,7 @@ enum mt_cpu_dvfs_id {
 
 
 #define GPU_BIN_CODE_IDX 64		/* 05B8 for GPU bin */
+#define GPU_VB_IDX 58			/* 05B8 for GPU bin */
 
 #if 0
 /* Fake EFUSE */
@@ -167,6 +168,7 @@ enum mt_cpu_dvfs_id {
 
 #define BANK_L_TURN_FREQ	1800000
 #define BANK_B_TURN_FREQ	1800000
+#define BANK_GPU_TURN_FREQ      850000
 #define BANK_L_TURN_PT		0
 #define BANK_GPU_TURN_PT	0
 #if ENABLE_LOO_B
