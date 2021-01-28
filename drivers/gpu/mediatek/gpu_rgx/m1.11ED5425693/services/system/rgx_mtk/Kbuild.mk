@@ -13,6 +13,9 @@
 
 PVRSRVKM_NAME = $(PVRSRV_MODNAME)
 
+ccflags-y += \
+	-Wno-error \
+
 $(PVRSRVKM_NAME)-y += \
 	services/system/common/env/linux/interrupt_support.o \
 	services/system/common/env/linux/dma_support.o \
@@ -40,10 +43,12 @@ ccflags-y += \
 	-I$(TOP)/services/system/common/env/linux \
 	-I$(TOP)/services/linux/include \
 	-I$(TOP)/kernel/drivers/staging/imgtec \
+	-I$(srctree)/drivers/misc/mediatek/include/mt-plat \
 	-I$(srctree)/drivers/staging/android/ion \
 	-I$(srctree)/drivers/staging/android/ion/mtk \
 	-I$(srctree)/drivers/gpu/mediatek \
 	-I$(srctree)/drivers/gpu/mediatek/ged/include \
 	-I$(srctree)/drivers/gpu/mediatek/mt-plat \
 	-I$(srctree)/drivers/gpu/mediatek/gpu_bm \
+	-I$(srctree)/drivers/gpu/mediatek/gpufreq/include \
 	-I$(srctree)/drivers/gpu/mediatek/gpufreq/$(MTK_PLATFORM) \
