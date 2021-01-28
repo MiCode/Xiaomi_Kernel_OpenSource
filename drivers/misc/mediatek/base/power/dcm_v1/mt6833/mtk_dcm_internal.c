@@ -155,6 +155,7 @@ int dcm_infra(int on)
 {
 	dcm_infracfg_ao_aximem_bus_dcm(on);
 	dcm_infracfg_ao_infra_bus_dcm(on);
+	dcm_infracfg_ao_infra_conn_bus_dcm(on);
 	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
 	dcm_infracfg_ao_peri_bus_dcm(on);
 	dcm_infracfg_ao_peri_module_dcm(on);
@@ -173,11 +174,14 @@ bool dcm_armcore_is_on(void)
 {
 	bool ret = true;
 
+	ret &= dcm_mp_cpusys_top_bus_pll_div_dcm_is_on();
+
 	return ret;
 }
 
 int dcm_armcore(int on)
 {
+	dcm_mp_cpusys_top_bus_pll_div_dcm(on);
 
 	return 0;
 }
@@ -310,7 +314,14 @@ int dcm_mcsi(int on)
 
 int dcm_busdvt(int on)
 {
-	/* bus dvt */
+	dcm_infracfg_ao_aximem_bus_dcm(on);
+	dcm_infracfg_ao_infra_bus_dcm(on);
+	dcm_infracfg_ao_infra_conn_bus_dcm(on);
+	dcm_infracfg_ao_infra_rx_p2p_dcm(on);
+	dcm_infracfg_ao_peri_bus_dcm(on);
+	dcm_infracfg_ao_peri_module_dcm(on);
+	dcm_infra_ao_bcrm_infra_bus_dcm(on);
+	dcm_infra_ao_bcrm_peri_bus_dcm(on);
 
 	return 0;
 }
@@ -481,6 +492,9 @@ void dcm_dump_regs(void)
 	REG_DUMP(INFRA_BUS_DCM_CTRL);
 	REG_DUMP(PERI_BUS_DCM_CTRL);
 	REG_DUMP(P2P_RX_CLK_ON);
+	REG_DUMP(MODULE_SW_CG_2_SET);
+	REG_DUMP(MODULE_SW_CG_2_CLR);
+	REG_DUMP(MODULE_SW_CG_2_STA);
 	REG_DUMP(INFRA_AXIMEM_IDLE_BIT_EN_0);
 	REG_DUMP(INFRA_EMI_DCM_CFG0);
 	REG_DUMP(INFRA_EMI_DCM_CFG1);
