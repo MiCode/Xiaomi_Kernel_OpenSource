@@ -424,6 +424,16 @@ static int xhci_mtk_probe(struct platform_device *pdev)
 	if (usb_disabled())
 		return -ENODEV;
 
+	ret = device_rename(dev, node->name);
+	if (ret)
+		dev_info(&pdev->dev, "failed to rename\n");
+	else {
+		/* fix uaf(use after free) issue: backup pdev->name,
+		 * device_rename will free pdev->name
+		 */
+		pdev->name = pdev->dev.kobj.name;
+	}
+
 	driver = &xhci_mtk_hc_driver;
 	mtk = devm_kzalloc(dev, sizeof(*mtk), GFP_KERNEL);
 	if (!mtk)
