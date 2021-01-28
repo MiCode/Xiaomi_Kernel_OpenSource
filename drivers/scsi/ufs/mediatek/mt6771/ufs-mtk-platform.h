@@ -60,10 +60,12 @@ enum {
 void ufs_mtk_pltfrm_pwr_change_final_gear(struct ufs_hba *hba,
 	struct ufs_pa_layer_attr *final);
 int  ufs_mtk_pltfrm_ufs_device_reset(struct ufs_hba *hba);
+int  ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target);
 int  ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_deepidle_check_h8(void);
 void ufs_mtk_pltfrm_deepidle_leave(void);
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock);
+int  ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on);
 int  ufs_mtk_pltfrm_init(void);
 int  ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_resume(struct ufs_hba *hba);

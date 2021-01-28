@@ -31,7 +31,9 @@
 #endif
 
 static void __iomem *ufs_mtk_mmio_base_gpio;
+static void __iomem *ufs_mtk_mmio_base_topckgen;
 static void __iomem *ufs_mtk_mmio_base_infracfg_ao;
+static void __iomem *ufs_mtk_mmio_base_apmixed;
 static void __iomem *ufs_mtk_mmio_base_ufs_mphy;
 
 /**
@@ -58,19 +60,20 @@ void random_delay(struct ufs_hba *hba)
 }
 void wdt_pmic_full_reset(struct ufs_hba *hba)
 {
-	/*
-	 * Cmd issue to PMIC on MT6771 will take around 20us ~ 30us, in order
-	 * to speed up VEMC disable time, we disable VEMC first coz PMIC cold
-	 * reset may take longer to disable VEMC in it's reset flow. Can not
-	 * use regulator_disable() here because it can not use in  preemption
-	 * disabled context. Use pmic raw API without nlock instead.
-	 */
+	/* power off device VCC */
 	pmic_set_register_value_nolock(PMIC_RG_LDO_VEMC_EN, 0);
 
-	/* Need reset external LDO for VUFS18, UFS needs VEMC&VUFS18 reset at
-	 * the same time
+	/* power off device VCCQ2 1.8V */
+	pmic_set_register_value_nolock(PMIC_RG_LDO_VUFS_EN, 0);
+
+	/* Disable VIO18 is to power off device VCCQ 1.2V, but
+	 * since this is an important power source. This will
+	 * cause PMIC shutdown. At this cause all of the power
+	 * will be shutdown instantly.
+	 *
+	 * Press power key or plug in USB to power up again.
 	 */
-	pmic_set_register_value_nolock(PMIC_RG_STRUP_EXT_PMIC_SEL, 0x1);
+	pmic_set_register_value_nolock(PMIC_RG_LDO_VIO18_EN, 0);
 
 	/* PMIC cold reset */
 	pmic_set_register_value_nolock(PMIC_RG_CRST, 1);
@@ -82,17 +85,47 @@ void wdt_pmic_full_reset(struct ufs_hba *hba)
 void ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(struct ufs_hba *hba)
 {
 #ifdef UPMU_READY
-	int vcc_enabled, vcc_value, vccq2_enabled;
+	int vcc_enabled, vcc_0_value, vcc_1_value;
+	int vccq2_enabled, va12_enabled;
+	u32 val_0, val_1;
 
+	/* check ufs debug register */
+	ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
+	val_0 = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
+	dev_info(hba->dev, "REG_UFS_MTK_PROBE: 0x%x\n", val_0);
+
+	/* check power status */
 	vcc_enabled = pmic_get_register_value(PMIC_RG_LDO_VEMC_EN);
-	vcc_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL);
+	vcc_0_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_0);
+	vcc_1_value = pmic_get_register_value(PMIC_RG_VEMC_VOSEL_1);
 	vccq2_enabled = pmic_get_register_value(PMIC_DA_EXT_PMIC_EN1);
+	va12_enabled = pmic_get_register_value(PMIC_RG_LDO_VA12_EN);
 	/* dump vcc, vccq2 info */
 	dev_info(hba->dev,
-		"vcc_enabled:%d, vcc_value:%d, vccq2_enabled:%d!!!\n",
-		vcc_enabled, vcc_value, vccq2_enabled);
-	/* dump clock buffer */
-	clk_buf_dump_clkbuf_log();
+		"vcc_en:%d, vcc_0:%d, vcc_1:%d, vccq2_en:%d, va12_en:%d\n",
+		vcc_enabled, vcc_0_value, vcc_1_value,
+		vccq2_enabled, va12_enabled);
+
+	if (ufs_mtk_mmio_base_infracfg_ao) {
+		val_0 = readl(ufs_mtk_mmio_base_infracfg_ao + CLK_CG_2_STA);
+		val_1 = readl(ufs_mtk_mmio_base_infracfg_ao + CLK_CG_3_STA);
+		dev_info(hba->dev,
+			"infracfg_ao: CLK_CG_2_STA = 0x%x, CLK_CG_3_STA = 0x%x\n",
+			val_0, val_1);
+	}
+
+	if (ufs_mtk_mmio_base_apmixed) {
+		val_0 = readl(ufs_mtk_mmio_base_apmixed + PLL_MAINPLL);
+		val_1 = readl(ufs_mtk_mmio_base_apmixed + PLL_MSDCPLL);
+		dev_info(hba->dev, "apmixed: PLL_MAINPLL = 0x%x, PLL_MSDCPLL = 0x%x\n",
+			val_0, val_1);
+	}
+
+	if (ufs_mtk_mmio_base_topckgen) {
+		val_0 = readl(ufs_mtk_mmio_base_topckgen + CLK_CFG_12);
+		dev_info(hba->dev, "topckgen: CLK_CFG_12 = 0x%x\n",
+			val_0);
+	}
 #endif
 }
 
@@ -236,6 +269,22 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	u32 value;
 	int retry;
 
+	if (!hba->card) {
+		/*
+		 * In case card is not init, just ignore it.
+		 * Because clock is default on.
+		 * After card init done the clk control
+		 * will be normal.
+		 */
+		dev_info(hba->dev, "%s: card not init skip\n",
+			__func__);
+		return 0;
+	}
+
+	/* inform ATF clock is on */
+	if (on)
+		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 1, 0, 0);
+
 	/*
 	 * Delay before disable ref-clk: H8 -> delay A -> disable ref-clk
 	 *		delayA
@@ -244,7 +293,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	 * Toshiba	100us
 	 */
 	if (!on) {
-		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		switch (hba->card->wmanufacturerid) {
 		case UFS_VENDOR_TOSHIBA:
 			udelay(100);
 			break;
@@ -298,7 +347,7 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 	 * Toshiba	32us
 	 */
 	if (on) {
-		switch (ufs_mtk_hba->card->wmanufacturerid) {
+		switch (hba->card->wmanufacturerid) {
 		case UFS_VENDOR_TOSHIBA:
 			udelay(32);
 			break;
@@ -312,6 +361,10 @@ int ufs_mtk_pltfrm_xo_ufs_req(struct ufs_hba *hba, bool on)
 			break;
 		}
 	}
+
+	/* inform ATF clock is off */
+	if (!on)
+		mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 4, 0, 0, 0);
 
 	return 0;
 }
@@ -330,8 +383,8 @@ int ufs_mtk_pltfrm_ufs_device_reset(struct ufs_hba *hba)
 
 	mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 2, 1, 0, 0);
 
-	/* same as assert, wait for at least 10us after deassert */
-	usleep_range(10, 15);
+	/* some device may need time to respond to rst_n */
+	usleep_range(10000, 15000);
 
 	dev_info(hba->dev, "%s: UFS device reset done\n", __func__);
 
@@ -357,6 +410,52 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
 	return 0;
 }
 
+int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
+{
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	int ret = 0;
+	u32 val = 0;
+
+	if (on) {
+		/* Host need turn on clock by itself */
+		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, true);
+		if (ret)
+			goto out;
+		if (host) {
+			ret = ufs_mtk_perf_setup(host, true);
+			if (ret)
+				goto out;
+		}
+	} else {
+		if (host) {
+			ret = ufs_mtk_perf_setup(host, false);
+			if (ret)
+				goto out;
+		}
+
+		val = VENDOR_POWERSTATE_HIBERNATE;
+		ufs_mtk_wait_link_state(hba, &val, 0);
+
+		if (val == VENDOR_POWERSTATE_HIBERNATE) {
+			/* Host need turn off clock by itself */
+			ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+		} else if (val == VENDOR_POWERSTATE_DISABLED) {
+			/* hba stop after shoutdown, do nothing */
+		} else {
+			dev_info(hba->dev, "%s: power state (%d) clk not off\n",
+				__func__, val);
+			dev_info(hba->dev, "%s: ah8_en(%d), ah_reg = 0x%x\n",
+				__func__,
+				ufs_mtk_auto_hibern8_enabled,
+				ufshcd_readl(hba,
+					REG_AUTO_HIBERNATE_IDLE_TIMER));
+		}
+	}
+
+out:
+	return ret;
+}
+
 /**
  * ufs_mtk_deepidle_hibern8_check - callback function for Deepidle & SODI.
  * Release all resources: DRAM/26M clk/Main PLL and dsiable 26M ref clk if
@@ -366,50 +465,8 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
  */
 int ufs_mtk_pltfrm_deepidle_check_h8(void)
 {
-#ifdef SPM_READY
-	int ret = 0;
-	u32 tmp = 0;
-
-	/**
-	 * If current device is not active or link is h8, it means it is after
-	 * ufshcd_suspend() through
-	 * a. runtime or system pm b. ufshcd_shutdown
-	 * Both a. and b. will disable 26MHz ref clk(XO_UFS),
-	 * so that deepidle/SODI do not need to disable 26MHz ref clk here.
-	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE ||
-		ufshcd_is_link_hibern8(ufs_mtk_hba)) {
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-		return UFS_H8_SUSPEND;
-	}
-
-	/* Release all resources if entering H8 mode */
-	ret = ufs_mtk_generic_read_dme(UIC_CMD_DME_GET,
-		VENDOR_POWERSTATE, 0, &tmp, 100);
-
-	if (ret) {
-		/* ret == -1 means there is outstanding
-		 * req/task/uic/pm ongoing, not an error
-		 */
-		if (ret != -1)
-			dev_err(ufs_mtk_hba->dev,
-				"ufshcd_dme_get 0x%x fail, ret = %d!\n",
-				VENDOR_POWERSTATE, ret);
-		return ret;
-	}
-
-	if (tmp == VENDOR_POWERSTATE_HIBERNATE) {
-		/* Host need turn off clock by self */
-		ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
-
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-		return UFS_H8;
-	}
-
-	return -1;
-#else
-	return -1;
-#endif
+	/* No Need for MT6885 */
+	return 0;
 }
 
 
@@ -418,21 +475,7 @@ int ufs_mtk_pltfrm_deepidle_check_h8(void)
  */
 void ufs_mtk_pltfrm_deepidle_leave(void)
 {
-	/* Enable MPHY 26MHz ref clock after leaving deepidle */
-
-	/* If current device is not active, it means it is after
-	 * ufshcd_suspend() through a. runtime or system pm b. ufshcd_shutdown
-	 * And deepidle/SODI can not enter in ufs suspend/resume
-	 * callback by idle_lock_by_ufs()
-	 * Therefore, it's guranteed that UFS is in H8 now
-	 * and 26MHz ref clk is disabled by suspend callback
-	 * deepidle/SODI do not need to enable 26MHz ref clk here
-	 */
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
-		return;
-
-	/* Host need turn on clock by self */
-	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
+	/* No Need for MT6885 */
 }
 
 /**
@@ -442,12 +485,7 @@ void ufs_mtk_pltfrm_deepidle_leave(void)
  */
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock)
 {
-#ifdef SPM_READY
-	if (lock)
-		idle_lock_by_ufs(1);
-	else
-		idle_lock_by_ufs(0);
-#endif
+	/* No Need for MT6885 */
 }
 
 int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
@@ -543,6 +581,8 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 int ufs_mtk_pltfrm_init(void)
 {
+	ufs_mtk_hba->caps |= UFSHCD_CAP_CLK_GATING;
+
 	return 0;
 }
 
@@ -551,6 +591,9 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 	struct device_node *node_gpio;
 	struct device_node *node_ufs_mphy;
 	struct device_node *node_infracfg_ao;
+	struct device_node *node_apmixed;
+	struct device_node *node_topckgen;
+
 	int err = 0;
 
 	/* get ufs_mtk_gpio */
@@ -598,32 +641,81 @@ int ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba)
 	} else
 		dev_err(hba->dev, "error: ufs_mtk_mmio_base_infracfg_ao init fail\n");
 
+	/* get ufs_mtk_mmio_base_apmixed */
+	node_apmixed =
+		of_find_compatible_node(NULL, NULL, "mediatek,apmixed");
+	if (node_apmixed) {
+		ufs_mtk_mmio_base_apmixed = of_iomap(node_apmixed, 0);
+
+		if (IS_ERR(*(void **)&ufs_mtk_mmio_base_apmixed)) {
+			err = PTR_ERR(*(void **)&ufs_mtk_mmio_base_apmixed);
+			dev_info(hba->dev, "error: ufs_mtk_mmio_base_apmixed init fail\n");
+			ufs_mtk_mmio_base_apmixed = NULL;
+		}
+	} else
+		dev_info(hba->dev, "error: ufs_mtk_mmio_base_apmixed init fail\n");
+
+	/* get ufs_mtk_mmio_base_topckgen */
+	node_topckgen =
+		of_find_compatible_node(NULL, NULL, "mediatek,topckgen");
+	if (node_topckgen) {
+		ufs_mtk_mmio_base_topckgen = of_iomap(node_topckgen, 0);
+
+		if (IS_ERR(*(void **)&ufs_mtk_mmio_base_topckgen)) {
+			err = PTR_ERR(*(void **)&ufs_mtk_mmio_base_topckgen);
+			dev_info(hba->dev, "error: ufs_mtk_mmio_base_topckgen init fail\n");
+			ufs_mtk_mmio_base_topckgen = NULL;
+		}
+	} else
+		dev_info(hba->dev, "error: ufs_mtk_mmio_base_topckgen init fail\n");
+
 	return err;
 }
 
 int ufs_mtk_pltfrm_resume(struct ufs_hba *hba)
 {
-	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, true);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	int ret = 0;
 
-	return 0;
+	/*
+	 * If the UFSHCD_CAP_CLK_GATING is not set,
+	 * platform pm needs to handle the ref_clk itself.
+	 */
+	if (!ufshcd_is_clkgating_allowed(hba)) {
+		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, true);
+		if (ret)
+			goto out;
+		ret = ufs_mtk_perf_setup(host, true);
+		if (ret)
+			goto out;
+	}
+out:
+	return ret;
 }
 
 int ufs_mtk_pltfrm_suspend(struct ufs_hba *hba)
 {
-	/* Disable MPHY 26MHz ref clock in H8 mode */
-	ufs_mtk_pltfrm_xo_ufs_req(ufs_mtk_hba, false);
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+	int ret = 0;
 
-#ifdef SPM_READY
-	if (ufs_mtk_hba->curr_dev_pwr_mode != UFS_ACTIVE_PWR_MODE)
-		spm_resource_req(SPM_RESOURCE_USER_UFS, SPM_RESOURCE_RELEASE);
-#endif
-
+	/*
+	 * If the UFSHCD_CAP_CLK_GATING is not set,
+	 * platform pm needs to handle the ref_clk itself.
+	 */
+	if (!ufshcd_is_clkgating_allowed(hba)) {
+		ret = ufs_mtk_perf_setup(host, false);
+		if (ret)
+			goto out;
+		ret = ufs_mtk_pltfrm_xo_ufs_req(hba, false);
+		if (ret)
+			goto out;
+	}
 #if 0
 	/* TEST ONLY: emulate UFSHCI power off by HCI SW reset */
 	ufs_mtk_pltfrm_host_sw_rst(hba, SW_RST_TARGET_UFSHCI);
 #endif
-
-	return 0;
+out:
+	return ret;
 }
 
 

@@ -25,6 +25,7 @@
 #include "ufshcd.h"
 #include "ufshcd-pltfrm.h"
 #include "unipro.h"
+#include "ufs_quirks.h"
 #include "ufs-mtk.h"
 #include "ufs-mtk-block.h"
 #include "ufs-mtk-platform.h"
@@ -63,13 +64,26 @@ static bool ufs_mtk_is_unmap_cmd(char cmd_op);
 /* Self init Encryption and No Encryption array */
 static u8 di_init;
 /* Logical block count */
-static u64 logblk_cnt;
-/* For Encryption */
-static u16 *LBA_CRC16_ARRAY;
-/* For No Encryption */
-static u16 *LBA_CRC16_ARRAY_NE;
-/* only do crc to first 32 byte of a 4K block to reduce cpu overhead */
-#define CRC16_CAL_SIZE (32)
+static u64 di_blkcnt;
+/* CRC value of each 4KB block */
+static u16 *di_crc;
+/* private data */
+static u8 *di_priv;
+/* only do crc to first 32 byte of a 4KB block to reduce cpu overhead */
+#define DI_CRC_DATA_SIZE (32)
+
+static u8 ufs_mtk_di_get_priv(struct scsi_cmnd *cmd)
+{
+	u8 priv;
+	const unsigned char *key = NULL;
+
+	hie_key_payload(&cmd->request->bio->bi_crypt_ctx, &key);
+	priv = key[0];
+	if (!priv)
+		priv++;
+
+	return priv;
+}
 
 /* Init Encryption and No Encryption array and others */
 void ufs_mtk_di_init(struct ufs_hba *hba)
@@ -85,7 +99,7 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 	ufshcd_query_descriptor_retry(hba, UPIU_QUERY_OPCODE_READ_DESC,
 		QUERY_DESC_IDN_UNIT, 0x2, 0, ud_buf, &len);
 
-	logblk_cnt = (
+	di_blkcnt = (
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT] << 56) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+1] << 48) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+2] << 40) |
@@ -95,22 +109,39 @@ void ufs_mtk_di_init(struct ufs_hba *hba)
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+6] << 8) |
 		((u64)ud_buf[UNIT_DESC_PARAM_LOGICAL_BLK_COUNT+7]));
 
-	pr_info("%s: mtk ufs di need %lluMB memory for total lba %llu(0x%llx)\n",
-		__func__, logblk_cnt * sizeof(u16) * 2 / 1024 / 1024
-		, logblk_cnt, logblk_cnt);
+	di_crc = vzalloc(di_blkcnt * sizeof(u16));
+	if (!di_crc)
+		return;
 
-	LBA_CRC16_ARRAY = vzalloc(logblk_cnt * sizeof(u16) * 2);
-	if (LBA_CRC16_ARRAY)
-		LBA_CRC16_ARRAY_NE = LBA_CRC16_ARRAY + logblk_cnt;
-	else
-		pr_err("%s allocate CRC16 memory of size 0x%llx error\n"
-			, __func__, logblk_cnt * sizeof(u16) * 2);
+	di_priv = vzalloc(di_blkcnt * sizeof(u8));
+	if (!di_priv) {
+		vfree(di_crc);
+		di_crc = NULL;
+		return;
+	}
+
+	dev_info(hba->dev, "%s: need %llu MB memory for total lba %llu(0x%llx)\n",
+		__func__, di_blkcnt * (sizeof(u16) + sizeof(u8)) / 1024 / 1024
+		, di_blkcnt, di_blkcnt);
 
 	di_init = 1;
 }
 
+static void ufs_mtk_di_reset(struct ufs_hba *hba)
+{
+	if (di_crc)
+		memset(di_crc, 0, di_blkcnt * sizeof(u16));
+
+	if (di_priv)
+		memset(di_priv, 0, di_blkcnt * sizeof(u8));
+
+	dev_info(hba->dev, "%s: Reset di %llu MB memory done!",
+		__func__,
+		di_blkcnt * (sizeof(u16) + sizeof(u8)) / 1024 / 1024);
+}
+
 /* Clear record for UNMAP command */
-int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
+static int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
 {
 	u32 lba, lba_cnt, i;
 
@@ -128,154 +159,164 @@ int ufs_mtk_di_clr(struct scsi_cmnd *cmd)
 
 	/* clear both encrypted and non-encrypted records */
 	for (i = 0; i < lba_cnt; i++) {
-		LBA_CRC16_ARRAY[lba + i] =
-		LBA_CRC16_ARRAY_NE[lba + i] = 0;
+		di_crc[lba + i] =
+		di_priv[lba + i] = 0;
 	}
 
 	return 0;
 }
 
-int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
+static int ufs_mtk_di_cmp_read(struct ufs_hba *hba,
+			       u32 lba, int mode,
+			       u16 crc, u8 priv)
+{
+	/*
+	 * For read, update CRC16 value
+	 * if corresponding CRC16[lba] is 0 (not set before),
+	 * Otherwise, compare current calculated crc16
+	 * value to CRC16[lba].
+	 */
+	if (mode == UFS_CRYPTO_HW_FDE) {
+		if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+			di_crc[lba] = crc;
+			di_priv[lba] = priv;
+		} else {
+			if (di_crc[lba] != crc) {
+				dev_info(hba->dev,
+				"%s: crc err! existed: 0x%x, read: 0x%x, lba: %u\n",
+				__func__, di_crc[lba],
+				crc, lba);
+				WARN_ON(1);
+				return -EIO;
+			}
+		}
+	} else if (mode == UFS_CRYPTO_HW_FBE) {
+		if (di_crc[lba] == 0 || di_priv[lba] == 0) {
+			di_crc[lba] = crc;
+			di_priv[lba] = priv;
+		} else {
+			if (priv != di_priv[lba]) {
+				dev_info(hba->dev,
+				"%s: key err (fde)! existed: 0x%x, read: 0x%x, lba: %u\n",
+				__func__,
+				di_priv[lba],
+				priv, lba);
+				return 0;
+			} else if (crc != di_crc[lba]) {
+				dev_info(hba->dev,
+				 "%s: crc err (fbe)! existed: 0x%x, read: 0x%x, lba: %u\n",
+				 __func__,
+				 di_crc[lba],
+				 crc, lba);
+				return 0;
+			}
+		}
+	} else {
+		if (di_crc[lba] == 0 || di_priv[lba] != 0) {
+			di_crc[lba] = crc;
+			di_priv[lba] = priv;
+		} else {
+			if (di_crc[lba] != crc) {
+				dev_info(hba->dev,
+				"%s: crc err (ne)! existed: 0x%x, read: 0x%x, lba: %u\n",
+				__func__,
+				di_crc[lba],
+				crc, lba);
+				WARN_ON(1);
+				return -EIO;
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int ufs_mtk_di_cmp(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 {
 	char *buffer;
-	int i, len;
+	int i, len, err = 0;
 	struct scatterlist *sg;
 	u32 lba, blk_cnt, end_lba;
-	u16 crc_temp = 0;
+	u16 crc = 0;
+	int mode = 0;
+	u8 priv = 0;
 
 	sg = scsi_sglist(cmd);
 
 	lba = cmd->cmnd[5] | (cmd->cmnd[4] << 8) | (cmd->cmnd[3] << 16) |
 		(cmd->cmnd[2] << 24);
 
-	if ((u64)lba >= logblk_cnt) {
+	if ((u64)lba >= di_blkcnt) {
 		dev_info(hba->dev,
-			"%s: lba err! expected: logblk_cnt: 0x%llx, LBA: 0x%x\n",
-			__func__, logblk_cnt, lba);
+			"%s: lba err! expected: di_blkcnt: 0x%llx, LBA: 0x%x\n",
+			__func__, di_blkcnt, lba);
 		WARN_ON(1);
 		return -EIO;
 	}
 
-	if (cmd->cmnd[0] == READ_16) /* HPB use READ_16, blk_cnt fix 1 */
-		blk_cnt = 1;
-	else
+	/* HPB use READ_16, Transfer_len in cmd[15]*/
+	if (cmd->cmnd[0] == READ_16) {
+		if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG)
+			blk_cnt = cmd->cmnd[15];
+		else
+			blk_cnt = cmd->cmnd[14];  /* JEDEC version */
+#if defined(CONFIG_SCSI_SKHPB)
+	} else if (cmd->cmnd[0] == SKHPB_READ) {  /* JEDEC version */
+		blk_cnt = cmd->cmnd[14];
+#endif
+	} else {
 		blk_cnt = cmd->cmnd[8] | (cmd->cmnd[7] << 8);
+	}
 	end_lba = lba + blk_cnt;
 
-	/* Only Read10, Write10 of LU2 need to cal crc16 */
-	if ((cmd->cmnd[0] == READ_10 || cmd->cmnd[0] == READ_16
-		|| cmd->cmnd[0] == WRITE_10 || cmd->cmnd[0] == WRITE_16)
-		&& (ufshcd_scsi_to_upiu_lun(cmd->device->lun) == 0x2)) {
-		if (scsi_sg_count(cmd)) {
-			for (i = 0; i < scsi_sg_count(cmd); i++) {
-				buffer = (char *)sg_virt(sg);
+	/* Only data commands in LU2 need to check crc */
+	if (ufshcd_scsi_to_upiu_lun(cmd->device->lun) != 0x2)
+		return 0;
 
-for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
-	/*
-	 * Use 0 as lba crc slot default,
-	 * if crc result = 0, need +1 to avoid conflict
-	 */
-	if (cmd->cmnd[0] == WRITE_10 || cmd->cmnd[0] == WRITE_16) {
+	if (!scsi_sg_count(cmd))
+		return 0;
 
-		/* For write, update CRC16[lba] */
-
-		crc_temp = crc16(0x0, &buffer[len], CRC16_CAL_SIZE);
-		if (crc_temp == 0)
-			crc_temp++;
-
-		#ifdef CONFIG_MTK_HW_FDE
-		if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
-			LBA_CRC16_ARRAY[lba] = crc_temp;
-			LBA_CRC16_ARRAY_NE[lba] = 0;
-		} else
-		#endif
-		{
-			/* TODO: Use inline-crypt method here */
-			if (0) {
-				LBA_CRC16_ARRAY[lba] = crc_temp;
-				LBA_CRC16_ARRAY_NE[lba] = 0;
-			} else {
-				LBA_CRC16_ARRAY[lba] = 0;
-				LBA_CRC16_ARRAY_NE[lba] = crc_temp;
-			}
-		}
-	} else if (cmd->cmnd[0] == READ_10 || cmd->cmnd[0] == READ_16) {
-
-		/*
-		 * For read, update CRC16 value
-		 * if corresponding CRC16[lba] is 0 (not set before),
-		 * Otherwise, compare current calculated crc16
-		 * value to CRC16[lba].
-		 */
-
-		#ifdef CONFIG_MTK_HW_FDE
-		if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
-			crc_temp = crc16(0x0, &buffer[len], CRC16_CAL_SIZE);
-			if (crc_temp == 0)
-				crc_temp++;
-			if (LBA_CRC16_ARRAY[lba] == 0) {
-				LBA_CRC16_ARRAY[lba] = crc_temp;
-			} else {
-				if (LBA_CRC16_ARRAY[lba] != crc_temp) {
-					dev_info(hba->dev,
-				"FDE EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
-					lba, crc_temp, LBA_CRC16_ARRAY[lba]);
-					return -EIO;
-				}
-			}
-
-		} else
-		#endif
-		{
-			/* TODO: Use inline-crypt method here */
-			if (0) {
-				crc_temp = crc16(0x0, &buffer[len],
-					 CRC16_CAL_SIZE);
-				if (crc_temp == 0)
-					crc_temp++;
-				if (LBA_CRC16_ARRAY[lba] == 0) {
-					LBA_CRC16_ARRAY[lba] = crc_temp;
-				} else {
-					if (LBA_CRC16_ARRAY[lba] != crc_temp) {
-						dev_info(hba->dev,
-			"FBE EN expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
-					lba, crc_temp, LBA_CRC16_ARRAY[lba]);
-						return 0;
-					}
-				}
-			} else {
-				crc_temp =
-			crc16(0x0, &buffer[len], CRC16_CAL_SIZE);
-				if (crc_temp == 0)
-					crc_temp++;
-				if (LBA_CRC16_ARRAY_NE[lba] == 0) {
-					LBA_CRC16_ARRAY_NE[lba] = crc_temp;
-				} else {
-					if (LBA_CRC16_ARRAY_NE[lba]
-						!= crc_temp) {
-						dev_info(hba->dev,
-			"NE expect crc16 of lba 0x%x is 0x%x, but ori is 0x%x\n",
-					lba, crc_temp, LBA_CRC16_ARRAY_NE[lba]);
-						return -EIO;
-					}
-				}
-			}
-		}
+#ifdef CONFIG_MTK_HW_FDE
+	if (cmd->request->bio && cmd->request->bio->bi_hw_fde) {
+		mode = UFS_CRYPTO_HW_FDE;
+		priv = 1;
 	}
+#endif
 
-}
-				sg = sg_next(sg);
-			}
+	for (i = 0; i < scsi_sg_count(cmd); i++) {
+		buffer = (char *)sg_virt(sg);
+		for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 			/*
-			 * Check lba # traverse from
-			 * scatter is the same as end_lba
+			 * Use value 0 as empty slot in crc array
+			 *
+			 * if calculated crc value is 0, use crc + 1
+			 * instead to avoid conflict
 			 */
-			if (end_lba != lba) {
-				dev_info(hba->dev,
-				"expect end_lba is 0x%x, but 0x%x\n",
-				 end_lba, lba);
+			crc = crc16(0x0, &buffer[len], DI_CRC_DATA_SIZE);
+			if (crc == 0)
+				crc++;
+
+			if (ufs_mtk_is_data_write_cmd(cmd->cmnd[0])) {
+				/* For write, update crc value */
+				di_crc[lba] = crc;
+				di_priv[lba] = priv;
+			} else {
+				err = ufs_mtk_di_cmp_read(hba,
+					lba, mode, crc, priv);
+				if (err)
+					return err;
 			}
 		}
+		sg = sg_next(sg);
+	}
+	/*
+	 * Check lba # traverse from
+	 * scatter is the same as end_lba
+	 */
+	if (end_lba != lba) {
+		dev_info(hba->dev,
+		"expect end_lba is 0x%x, but 0x%x, cmd=0x%x, blk_cnt=0x%x\n",
+		 end_lba, lba, cmd->cmnd[0], blk_cnt);
 	}
 
 	return 0;
@@ -283,7 +324,7 @@ for (len = 0; len < sg->length; len = len + 0x1000, lba++) {
 
 int ufs_mtk_di_inspect(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 {
-	if (!LBA_CRC16_ARRAY || !LBA_CRC16_ARRAY_NE)
+	if (!di_crc)
 		return 0;
 
 	/* do inspection in LU2 (user LU) only */
@@ -536,6 +577,43 @@ bool ufs_mtk_perf_is_supported(struct ufs_mtk_host *host)
 		return true;
 }
 
+int ufs_mtk_perf_setup_req(struct ufs_mtk_host *host, bool perf)
+{
+	int err = 0;
+
+	err = clk_prepare_enable(host->crypto_clk_mux);
+	if (err) {
+		dev_info(host->hba->dev, "%s: clk_prepare_enable(): %d\n",
+			 __func__, err);
+		goto out;
+	}
+
+	if (perf) {
+		pm_qos_update_request(host->req_vcore,
+				      host->crypto_vcore_opp);
+		err = clk_set_parent(host->crypto_clk_mux,
+				     host->crypto_parent_clk_perf);
+	} else {
+		err = clk_set_parent(host->crypto_clk_mux,
+				     host->crypto_parent_clk_normal);
+		pm_qos_update_request(host->req_vcore,
+				      PM_QOS_VCORE_OPP_DEFAULT_VALUE);
+	}
+
+	if (err)
+		dev_info(host->hba->dev, "%s: clk_set_parent(): %d\n",
+			 __func__, err);
+
+	clk_disable_unprepare(host->crypto_clk_mux);
+
+out:
+	ufs_mtk_dbg_add_trace(host->hba, UFS_TRACE_PERF_MODE,
+		perf, 0, (u32)err,
+		0, 0, 0, 0, 0, 0);
+
+	return err;
+}
+
 int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf)
 {
 	int err = 0;
@@ -567,31 +645,7 @@ int ufs_mtk_perf_setup_crypto_clk(struct ufs_mtk_host *host, bool perf)
 
 	clk_prepared = true;
 
-	err = clk_prepare_enable(host->crypto_clk_mux);
-	if (err) {
-		dev_info(host->hba->dev, "%s: clk_prepare_enable(): %d\n",
-			 __func__, err);
-		goto out;
-	}
-
-	if (perf) {
-		pm_qos_update_request(host->req_vcore,
-				      host->crypto_vcore_opp);
-		err = clk_set_parent(host->crypto_clk_mux,
-				     host->crypto_parent_clk_perf);
-	} else {
-		err = clk_set_parent(host->crypto_clk_mux,
-				     host->crypto_parent_clk_normal);
-		pm_qos_update_request(host->req_vcore,
-				      PM_QOS_VCORE_OPP_DEFAULT_VALUE);
-	}
-
-	if (err)
-		dev_info(host->hba->dev, "%s: clk_set_parent(): %d\n",
-			 __func__, err);
-
-	clk_disable_unprepare(host->crypto_clk_mux);
-
+	err = ufs_mtk_perf_setup_req(host, perf);
 out:
 	/*
 	 * add event before any possible incoming commands
@@ -600,15 +654,42 @@ out:
 	dev_info(host->hba->dev, "perf mode: request %s %s\n",
 		 perf ? "on" : "off",
 		 err ? "failed" : "ok");
-	ufs_mtk_dbg_add_trace(host->hba, UFS_TRACE_PERF_MODE,
-		perf, 0, (u32)err,
-		0, 0, 0, 0, 0, 0);
 
 	if (clk_prepared)
 		ufshcd_clock_scaling_unprepare(host->hba);
 
 	if (rpm_resumed)
 		pm_runtime_put_sync(host->hba->dev);
+
+	if (!err)
+		host->perf_en = perf;
+
+	return err;
+}
+
+int ufs_mtk_perf_setup(struct ufs_mtk_host *host,
+	 bool perf)
+{
+	int err = 0;
+
+	if (!ufs_mtk_perf_is_supported(host) ||
+		(host->perf_mode != PERF_AUTO)) {
+		/* return without error */
+		return 0;
+	}
+
+#ifdef CONFIG_UFSTW
+	/* Turbo write may disable or not support */
+	if (!host->hba->ufsf.tw_lup[2] || !host->hba->ufsf.tw_lup[2]->tw_enable)
+		return 0;
+#endif
+
+	err = ufs_mtk_perf_setup_req(host, perf);
+	if (!err)
+		host->perf_en = perf;
+	else
+		dev_info(host->hba->dev, "%s: %s fail %d\n",
+		 __func__, perf ? "en":"dis", err);
 
 	return err;
 }
@@ -670,7 +751,52 @@ static int ufs_mtk_perf_init_crypto(struct ufs_hba *hba)
 	pm_qos_add_request(host->req_vcore, PM_QOS_VCORE_OPP,
 			   PM_QOS_VCORE_OPP_DEFAULT_VALUE);
 out:
+#ifdef CONFIG_UFSTW
+	if (!err)
+		host->perf_mode = PERF_AUTO;
+	else
+#endif
+		host->perf_mode = PERF_FORCE_DISABLE;
+
 	return err;
+}
+
+static int ufs_mtk_setup_clocks(struct ufs_hba *hba, bool on,
+	enum ufs_notify_change_status stage)
+{
+	int ret = 0;
+	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
+
+	switch (stage) {
+	case PRE_CHANGE:
+		if (!on) {
+			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, false);
+			if (host) {
+				pm_qos_update_request(
+					&host->req_cpu_dma_latency,
+					PM_QOS_DEFAULT_VALUE);
+			}
+		}
+		break;
+	case POST_CHANGE:
+		if (on) {
+			ret = ufs_mtk_pltfrm_ref_clk_ctrl(hba, true);
+			if (host) {
+				pm_qos_update_request(
+					&host->req_cpu_dma_latency, 0);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static void ufs_mtk_set_caps(struct ufs_hba *hba)
+{
+	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
 }
 
 /**
@@ -726,6 +852,7 @@ static int ufs_mtk_init(struct ufs_hba *hba)
 
 	ufs_mtk_pltfrm_parse_dt(hba);
 
+	ufs_mtk_set_caps(hba);
 	ufs_mtk_advertise_hci_quirks(hba);
 
 	ufs_mtk_parse_dt(hba);
@@ -841,10 +968,6 @@ static int ufs_mtk_init_mphy(struct ufs_hba *hba)
 
 static int ufs_mtk_enable_crypto(struct ufs_hba *hba)
 {
-	/* avoid resetting host during resume flow or when link is not off */
-	if (hba->pm_op_in_progress || !ufshcd_is_link_off(hba))
-		return 0;
-
 	/* restore vendor crypto setting by re-using resume operation */
 	mt_secure_call(MTK_SIP_KERNEL_HW_FDE_UFS_CTL, (1 << 2), 0, 0, 0);
 
@@ -878,6 +1001,24 @@ int ufs_mtk_linkup_fail_handler(struct ufs_hba *hba, int left_retry)
 		ufs_mtk_reset_device(hba);
 
 	return 0;
+}
+
+int ufs_mtk_check_powerctl(struct ufs_hba *hba)
+{
+	int err = 0;
+	u32 val = 0;
+
+	/* check if host in power saving */
+	err = ufshcd_dme_get(hba,
+		UIC_ARG_MIB(VENDOR_UNIPROPOWERDOWNCONTROL), &val);
+	if (!err && val == 0x1) {
+		err = ufshcd_dme_set(hba,
+			UIC_ARG_MIB(VENDOR_UNIPROPOWERDOWNCONTROL), 0);
+		dev_info(hba->dev, "get dme 0x%x = %d, set 0 (%d)\n",
+			VENDOR_UNIPROPOWERDOWNCONTROL, val, err);
+	}
+
+	return err;
 }
 
 static int ufs_mtk_hce_enable_notify(struct ufs_hba *hba,
@@ -922,6 +1063,11 @@ static int ufs_mtk_pre_link(struct ufs_hba *hba)
 	/* ensure auto-hibern8 is disabled during hba probing */
 	ufshcd_vops_auto_hibern8(hba, false);
 
+	/* powerup unipro if unipro powerdown */
+	ret = ufs_mtk_check_powerctl(hba);
+	if (ret)
+		return ret;
+
 	/* configure deep stall */
 	ret = ufshcd_dme_get(hba, UIC_ARG_MIB(VENDOR_SAVEPOWERCONTROL), &tmp);
 	if (ret)
@@ -949,6 +1095,7 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 {
 	int ret = 0;
 	u32 arg = 0;
+	u32 ah_ms;
 
 	/* disable device LCC */
 	ret = ufs_mtk_send_uic_command(hba, UIC_CMD_DME_SET,
@@ -961,6 +1108,16 @@ static int ufs_mtk_post_link(struct ufs_hba *hba)
 
 	/* enable unipro clock gating feature */
 	ufs_mtk_cfg_unipro_cg(hba, true);
+
+	/* configure clk gating delay */
+	if (ufshcd_is_clkgating_allowed(hba)) {
+		if (ufshcd_is_auto_hibern8_supported(hba) && hba->ahit)
+			ah_ms = FIELD_GET(UFSHCI_AHIBERN8_TIMER_MASK,
+					  hba->ahit);
+		else
+			ah_ms = 10;
+		hba->clk_gating.delay_ms = ah_ms + 5;
+	}
 
 	return ret;
 
@@ -996,8 +1153,21 @@ static int ufs_mtk_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 		 */
 		ret = ufshcd_dme_set(hba,
 			UIC_ARG_MIB_SEL(VENDOR_UNIPROPOWERDOWNCONTROL, 0), 1);
-		if (ret)
+		if (ret) {
+			/* dump ufs debug Info like XO_UFS/VEMC/VUFS18 */
+			ufs_mtk_pltfrm_gpio_trigger_and_debugInfo_dump(hba);
+
+			/*
+			 * Power down fail leave vendor-specific power down mode
+			 * to resume UniPro state
+			 */
+			(void)ufshcd_dme_set(hba,
+				UIC_ARG_MIB_SEL(VENDOR_UNIPROPOWERDOWNCONTROL,
+				0), 0);
+			ret = -EAGAIN;
+
 			return ret;
+		}
 
 		ufs_mtk_pltfrm_suspend(hba);
 
@@ -1477,9 +1647,9 @@ out:
  * It will read the opcode, idn and buf_length parameters, and, put the
  * response in the buffer field while updating the used size in buf_length.
  */
-#if defined(CONFIG_UFSHPB)
-int ufshcd_query_desc_for_ufshpb(struct ufs_hba *hba, int lun,
-		struct ufs_ioctl_query_data *ioctl_data, void __user *buffer);
+#if defined(CONFIG_UFSFEATURE)
+int ufsf_query_ioctl(struct ufsf_feature *ufsf, int lun, void __user *buffer,
+		     struct ufs_ioctl_query_data_hpb *ioctl_data, u8 selector);
 #endif
 int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 {
@@ -1492,7 +1662,9 @@ int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 	u32 att = 0;
 	u8 *desc = NULL;
 	u8 read_desc, read_attr, write_attr, read_flag;
-
+#if defined(CONFIG_UFSFEATURE)
+	u8 selector;
+#endif
 	idata = kzalloc(sizeof(struct ufs_ioctl_query_data), GFP_KERNEL);
 	if (!idata) {
 		err = -ENOMEM;
@@ -1509,17 +1681,18 @@ int ufs_mtk_ioctl_query(struct ufs_hba *hba, u8 lun, void __user *buf_user)
 		goto out_release_mem;
 	}
 
-#if defined(CONFIG_UFSHPB)
-	dev_info(hba->dev, "UFS-IOCTL: op %u idn %u size %u\n",
-		idata->opcode,	idata->idn, idata->buf_byte);
-	dev_info(hba->dev, "%s:%d ufshpb code 0x%x opcode 0x%x\n",
-		__func__, __LINE__, ((idata->opcode & 0xffff0000) >> 16),
-		idata->opcode & 0xffff);
+#if defined(CONFIG_UFSFEATURE)
+	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG ||
+		hba->card->wmanufacturerid == UFS_VENDOR_MICRON)
+		selector = UFSFEATURE_SELECTOR;
+	else
+		selector = 0;
 
-	if ((idata->opcode & 0xffff0000) >> 16 == HPB_QUERY_OPCODE) {
-		err = ufshcd_query_desc_for_ufshpb(hba, lun, idata, buf_user);
-		kfree(idata);
-		goto out;
+	if (ufsf_check_query(idata->opcode)) {
+		err = ufsf_query_ioctl(&hba->ufsf, lun, buf_user,
+				(struct ufs_ioctl_query_data_hpb *)idata,
+				selector);
+		goto out_release_mem;
 	}
 #endif
 
@@ -1842,6 +2015,16 @@ void ufs_mtk_runtime_pm_init(struct scsi_device *sdev)
 	}
 }
 
+static void ufs_mtk_device_reset(struct ufs_hba *hba)
+{
+	(void)ufs_mtk_pltfrm_ufs_device_reset(hba);
+
+#ifdef CONFIG_MTK_UFS_LBA_CRC16_CHECK
+	/* Clear di memory to avoid false alarm */
+	ufs_mtk_di_reset(hba);
+#endif
+}
+
 static void ufs_mtk_auto_hibern8(struct ufs_hba *hba, bool enable)
 {
 	/* if auto-hibern8 is not enabled by device tree, return */
@@ -1887,16 +2070,113 @@ int ufs_mtk_auto_hiber8_quirk_handler(struct ufs_hba *hba, bool enable)
 	return 0;
 }
 
+int ufs_mtk_wait_link_state(struct ufs_hba *hba, u32 *state,
+			    unsigned long retry_ms)
+{
+	unsigned long timeout;
+	u32 val;
+
+	timeout = jiffies + msecs_to_jiffies(retry_ms);
+	do {
+		ufshcd_writel(hba, 0x20, REG_UFS_MTK_DEBUG_SEL);
+		val = ufshcd_readl(hba, REG_UFS_MTK_PROBE);
+		val = val >> 28;
+
+		if (val == *state)
+			break;
+
+		/* sleep for max. 200us */
+		usleep_range(100, 200);
+	} while (time_before(jiffies, timeout));
+
+	if (val == *state)
+		return 0;
+
+	*state = val;
+	return -ETIMEDOUT;
+}
+
+int ufs_mtk_generic_read_dme_no_check(u32 uic_cmd, u16 mib_attribute,
+	u16 gen_select_index, u32 *value, unsigned long retry_ms)
+{
+	struct ufs_hba *hba = ufs_mtk_hba;
+	struct uic_command ucmd = {0};
+	u32 val;
+	int ret = 0;
+	unsigned long elapsed_us = 0;
+	bool reenable_intr = false;
+
+	val = ufshcd_readl(hba, REG_CONTROLLER_STATUS);
+	if (!(val & UIC_COMMAND_READY) ||
+		hba->active_uic_cmd) {
+		dev_info(hba->dev,
+			"uic not rdy, host sta(0x%x), uic cmd(%d)\n",
+			val,
+			hba->active_uic_cmd ?
+			hba->active_uic_cmd->command : -1);
+		return -EIO;
+	}
+
+	if (ufshcd_readl(hba, REG_INTERRUPT_ENABLE)
+			& UIC_COMMAND_COMPL) {
+		ufshcd_disable_intr(hba, UIC_COMMAND_COMPL);
+		/*
+		 * Make sure UIC command completion interrupt is disabled before
+		 * issuing UIC command.
+		 */
+		wmb();
+		reenable_intr = true;
+	}
+
+	ucmd.command = uic_cmd;
+	ucmd.argument1 = UIC_ARG_MIB_SEL(
+		(u32)mib_attribute, (u32)gen_select_index);
+	ucmd.argument2 = 0;
+	ucmd.argument3 = 0;
+
+	ufshcd_writel(hba, ucmd.argument1, REG_UIC_COMMAND_ARG_1);
+	ufshcd_writel(hba, ucmd.argument2, REG_UIC_COMMAND_ARG_2);
+	ufshcd_writel(hba, ucmd.argument3, REG_UIC_COMMAND_ARG_3);
+	ufs_mtk_dme_cmd_log(hba, &ucmd, UFS_TRACE_UIC_SEND);
+
+	ufshcd_writel(hba,
+		ucmd.command & COMMAND_OPCODE_MASK, REG_UIC_COMMAND);
+
+	while ((ufshcd_readl(hba,
+		REG_INTERRUPT_STATUS) & UIC_COMMAND_COMPL)
+		!= UIC_COMMAND_COMPL) {
+		/* busy waiting 1us */
+		udelay(1);
+		elapsed_us += 1;
+		if (elapsed_us > (retry_ms * 1000)) {
+			ret = -ETIMEDOUT;
+			goto out;
+		}
+	}
+	ufshcd_writel(hba, UIC_COMMAND_COMPL, REG_INTERRUPT_STATUS);
+
+	ufs_mtk_dme_cmd_log(hba, &ucmd, UFS_TRACE_UIC_CMPL_GENERAL);
+
+	val = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_2);
+	if (val & MASK_UIC_COMMAND_RESULT) {
+		ret = val;
+		goto out;
+	}
+
+	*value = ufshcd_readl(hba, REG_UIC_COMMAND_ARG_3);
+out:
+	if (reenable_intr)
+		ufshcd_enable_intr(hba, UIC_COMMAND_COMPL);
+
+	return ret;
+}
+
 /* Notice: this function must be called in automic context */
 /* Because it is not protected by ufs spin_lock or mutex */
 /* it access ufs host directly. */
 int ufs_mtk_generic_read_dme(u32 uic_cmd, u16 mib_attribute,
 	u16 gen_select_index, u32 *value, unsigned long retry_ms)
 {
-	u32 arg1;
-	u32 ret;
-	unsigned long elapsed_us = 0;
-
 	if (ufs_mtk_hba->outstanding_reqs || ufs_mtk_hba->outstanding_tasks
 		|| ufs_mtk_hba->active_uic_cmd ||
 		ufs_mtk_hba->pm_op_in_progress) {
@@ -1909,30 +2189,8 @@ int ufs_mtk_generic_read_dme(u32 uic_cmd, u16 mib_attribute,
 		return -1;
 	}
 
-	arg1 = ((u32)mib_attribute << 16) | (u32)gen_select_index;
-	ufshcd_writel(ufs_mtk_hba, arg1, REG_UIC_COMMAND_ARG_1);
-	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_2);
-	ufshcd_writel(ufs_mtk_hba, 0, REG_UIC_COMMAND_ARG_3);
-	ufshcd_writel(ufs_mtk_hba, uic_cmd, REG_UIC_COMMAND);
-
-	while ((ufshcd_readl(ufs_mtk_hba,
-		REG_INTERRUPT_STATUS) & UIC_COMMAND_COMPL)
-		!= UIC_COMMAND_COMPL) {
-		/* busy waiting 1us */
-		udelay(1);
-		elapsed_us += 1;
-		if (elapsed_us > (retry_ms * 1000))
-			return -ETIMEDOUT;
-	}
-	ufshcd_writel(ufs_mtk_hba, UIC_COMMAND_COMPL, REG_INTERRUPT_STATUS);
-
-	ret = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_2);
-	if (ret & MASK_UIC_COMMAND_RESULT)
-		return ret;
-
-	*value = ufshcd_readl(ufs_mtk_hba, REG_UIC_COMMAND_ARG_3);
-
-	return 0;
+	return ufs_mtk_generic_read_dme_no_check(uic_cmd, mib_attribute,
+		gen_select_index, value, retry_ms);
 }
 
 /**
@@ -2130,122 +2388,6 @@ void ufs_mtk_res_ctrl(struct ufs_hba *hba, unsigned int op)
 #define ufs_mtk_res_ctrl	NULL
 #endif
 
-void ufs_mtk_pm_qos_get(struct work_struct *work)
-{
-	struct ufs_mtk_host *host =
-		container_of(work, struct ufs_mtk_host, pm_qos_get.work);
-	struct ufs_hba *hba = host->hba;
-	unsigned long flags;
-
-	/* check again if really need get pm qos */
-	if (!hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_REQING:
-		atomic_set(&host->pm_qos_state, PMQOS_REQ);
-		host->pm_qos_value = 0;
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		pm_qos_update_request(&host->pm_qos_req, host->pm_qos_value);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
-void ufs_mtk_pm_qos_rel(struct work_struct *work)
-{
-	struct ufs_mtk_host *host =
-		container_of(work, struct ufs_mtk_host, pm_qos_rel.work);
-	struct ufs_hba *hba = host->hba;
-	unsigned long flags;
-
-	/* check again if really need release pm qos */
-	if (hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_UNREQING:
-		atomic_set(&host->pm_qos_state, PMQOS_UNREQ);
-		host->pm_qos_value = PM_QOS_DEFAULT_VALUE;
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		pm_qos_update_request(&host->pm_qos_req, host->pm_qos_value);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
-void ufs_mtk_setup_xfer_req(struct ufs_hba *hba, int tag, bool is_scsi_cmd)
-{
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	unsigned long flags;
-
-	/* Request pm qos if no request ongoing */
-	if (hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_UNREQ:
-		atomic_set(&host->pm_qos_state, PMQOS_REQING);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		schedule_delayed_work(&host->pm_qos_get, 0);
-		break;
-
-	case PMQOS_UNREQING:
-		atomic_set(&host->pm_qos_state, PMQOS_REQ);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		cancel_delayed_work(&host->pm_qos_rel);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
-void ufs_mtk_complete_xfer_req(struct ufs_hba *hba)
-{
-	struct ufs_mtk_host *host = ufshcd_get_variant(hba);
-	unsigned long flags;
-
-	/* Release pm qos if no request ongoing */
-	if (hba->outstanding_reqs)
-		return;
-
-	spin_lock_irqsave(&host->qos_lock, flags);
-	switch (atomic_read(&host->pm_qos_state)) {
-	case PMQOS_REQ:
-		atomic_set(&host->pm_qos_state, PMQOS_UNREQING);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		schedule_delayed_work(&host->pm_qos_rel, 10);
-		break;
-
-	case PMQOS_REQING:
-		atomic_set(&host->pm_qos_state, PMQOS_UNREQ);
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-
-		cancel_delayed_work(&host->pm_qos_get);
-		break;
-
-	default:
-		spin_unlock_irqrestore(&host->qos_lock, flags);
-		break;
-	}
-}
-
 /**
  * struct ufs_hba_mtk_vops - UFS MTK specific variant operations
  *
@@ -2258,13 +2400,12 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	NULL,            /* exit */
 	NULL,            /* get_ufs_hci_version */
 	NULL,            /* clk_scale_notify */
-	NULL,            /* setup_clocks */
+	ufs_mtk_setup_clocks,            /* setup_clocks */
 	NULL,            /* setup_regulators */
 	ufs_mtk_hce_enable_notify,    /* hce_enable_notify */
 	ufs_mtk_link_startup_notify,  /* link_startup_notify */
 	ufs_mtk_pwr_change_notify,    /* pwr_change_notify */
-	ufs_mtk_setup_xfer_req,       /* setup_xfer_req */
-	ufs_mtk_complete_xfer_req,    /* complete_xfer_req */
+	NULL,		 /* setup_xfer_req */
 	NULL,		 /* setup_task_mgmt */
 	NULL,		 /* hibern8_notify */
 	NULL,            /* apply_dev_quirks */
@@ -2272,6 +2413,7 @@ static struct ufs_hba_variant_ops ufs_hba_mtk_vops = {
 	ufs_mtk_resume,               /* resume */
 	ufs_mtk_dbg_register_dump,    /* dbg_register_dump */
 	NULL,			 /* phy_initialization */
+	ufs_mtk_device_reset,         /* device_reset */
 	ufs_mtk_auto_hibern8,         /* auto_hibern8 */
 	ufs_mtk_res_ctrl,             /* res_ctrl */
 	ufs_mtk_pltfrm_deepidle_lock, /* deepidle_lock */
@@ -2331,15 +2473,9 @@ static int ufs_mtk_probe(struct platform_device *pdev)
 	hba = platform_get_drvdata(pdev);
 
 	host = ufshcd_get_variant(hba);
-	host->pm_qos_value = PM_QOS_DEFAULT_VALUE;
-	pm_qos_add_request(&host->pm_qos_req, PM_QOS_CPU_DMA_LATENCY,
-			   host->pm_qos_value);
-	atomic_set(&host->pm_qos_state, PMQOS_UNREQ);
 
-	INIT_DELAYED_WORK(&host->pm_qos_get, ufs_mtk_pm_qos_get);
-	INIT_DELAYED_WORK(&host->pm_qos_rel, ufs_mtk_pm_qos_rel);
-
-	spin_lock_init(&host->qos_lock);
+	pm_qos_add_request(&host->req_cpu_dma_latency, PM_QOS_CPU_DMA_LATENCY,
+			   PM_QOS_DEFAULT_VALUE);
 
 	err = ufs_mtk_probe_crypto(hba);
 	if (err)
@@ -2363,7 +2499,8 @@ static int ufs_mtk_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(&(pdev)->dev);
 	ufshcd_remove(hba);
 	ufs_mtk_biolog_exit();
-	pm_qos_remove_request(&host->pm_qos_req);
+	if (host)
+		pm_qos_remove_request(&host->req_cpu_dma_latency);
 
 	return 0;
 }

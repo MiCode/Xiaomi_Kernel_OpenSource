@@ -16,11 +16,8 @@
 #include "ufshcd.h"
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-/* If SPM function not ready, comment this define */
-/* #define SPM_READY */ /* need platform porting */
-
 /* If UPMU function not ready, comment this define */
-/* #define UPMU_READY */
+#define UPMU_READY
 #endif
 
 #define UFS_REF_CLK_CTRL_BY_UFSHCI
@@ -72,6 +69,22 @@ enum {
 #define SW_RST_TARGET_ALL (SW_RST_TARGET_UFSHCI | \
 	SW_RST_TARGET_UNIPRO | SW_RST_TARGET_UFSCPT)
 
+/* infracfg_ao */
+enum {
+	CLK_CG_2_STA                = 0xAC,
+	CLK_CG_3_STA                = 0xC8,
+};
+
+/* apmixed */
+enum {
+	PLL_MAINPLL                 = 0x0340,
+	PLL_MSDCPLL                 = 0x0350,
+};
+
+/* topckgen */
+enum {
+	CLK_CFG_12                  = 0xD0,
+};
 
 /*
  * Platform-dependent APIs
@@ -84,6 +97,7 @@ int  ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_deepidle_check_h8(void);
 void ufs_mtk_pltfrm_deepidle_leave(void);
 void ufs_mtk_pltfrm_deepidle_lock(struct ufs_hba *hba, bool lock);
+int  ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on);
 int  ufs_mtk_pltfrm_init(void);
 int  ufs_mtk_pltfrm_parse_dt(struct ufs_hba *hba);
 int  ufs_mtk_pltfrm_resume(struct ufs_hba *hba);

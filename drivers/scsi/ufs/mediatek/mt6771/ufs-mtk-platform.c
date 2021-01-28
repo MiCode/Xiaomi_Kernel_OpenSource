@@ -137,8 +137,8 @@ int ufs_mtk_pltfrm_ufs_device_reset(struct ufs_hba *hba)
 
 	mt_secure_call(MTK_SIP_KERNEL_UFS_CTL, 2, 1, 0, 0);
 
-	/* same as assert, wait for at least 10us after deassert */
-	usleep_range(10, 15);
+	/* some device may need time to respond to rst_n */
+	usleep_range(10000, 15000);
 
 	dev_info(hba->dev, "%s: UFS device reset done\n", __func__);
 
@@ -164,6 +164,10 @@ int ufs_mtk_pltfrm_bootrom_deputy(struct ufs_hba *hba)
 	return 0;
 }
 
+int ufs_mtk_pltfrm_ref_clk_ctrl(struct ufs_hba *hba, bool on)
+{
+	return 0;
+}
 /**
  * ufs_mtk_deepidle_hibern8_check - callback function for Deepidle & SODI.
  * Release all resources: DRAM/26M clk/Main PLL and dsiable 26M ref clk if
@@ -386,6 +390,7 @@ int ufs_mtk_pltfrm_host_sw_rst(struct ufs_hba *hba, u32 target)
 
 int ufs_mtk_pltfrm_init(void)
 {
+	/* No Need for MT6771 */
 	return 0;
 }
 
