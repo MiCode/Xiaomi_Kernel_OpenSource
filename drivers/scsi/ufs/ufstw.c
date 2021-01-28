@@ -639,17 +639,6 @@ static inline void ufstw_cancel_lu_jobs(struct ufstw_lu *tw)
 	ret = cancel_work_sync(&tw->tw_lifetime_work);
 }
 
-static inline int ufstw_version_check(struct ufstw_dev_info *tw_dev_info)
-{
-	INFO_MSG("tw_dev [55] wTurboWriteVersion Driver = %.4x, Device = %.4x",
-		 UFSTW_VER, tw_dev_info->tw_ver);
-	if (tw_dev_info->tw_ver != UFSTW_VER) {
-		ERR_MSG("ERROR: TW version mismatch. So TW disabled.");
-		return -ENODEV;
-	}
-	return 0;
-}
-
 void ufstw_get_dev_info(struct ufstw_dev_info *tw_dev_info, u8 *desc_buf)
 {
 	struct ufsf_feature *ufsf;
@@ -671,17 +660,8 @@ void ufstw_get_dev_info(struct ufstw_dev_info *tw_dev_info, u8 *desc_buf)
 		desc_buf[DEVICE_DESC_PARAM_TW_RETURN_TO_USER];
 	tw_dev_info->tw_buf_type = desc_buf[DEVICE_DESC_PARAM_TW_BUF_TYPE];
 
-	if (hba->card->wmanufacturerid == UFS_VENDOR_SAMSUNG) {
-		/* Only check TW if samsung version */
-		tw_dev_info->tw_ver =
-			LI_EN_16(&desc_buf[DEVICE_DESC_PARAM_TW_VER]);
-
-		if (!ufstw_version_check(tw_dev_info))
-			tw_dev_info->tw_device = true;
-	} else {
-		/* Set TW device if JEDEC version */
-		tw_dev_info->tw_device = true;
-	}
+	/* Set TW device if TW support */
+	tw_dev_info->tw_device = true;
 
 	INFO_MSG("tw_dev [53] bTurboWriteBufferNoUserSpaceReductionEn %u",
 		 tw_dev_info->tw_buf_no_reduct);
@@ -894,14 +874,14 @@ void ufstw_init(struct ufsf_feature *ufsf)
 
 	if (tw_enabled_lun > ufsf->tw_dev_info.tw_number_lu) {
 		ERR_MSG("ERROR: dev_info(bDeviceMaxTurboWriteLUs) mismatch. So TW disabled.");
-		goto out_free_mem;
+		goto out;
 	}
 
 #ifdef UFS_MTK_TW_AWAYS_ON
 	/* MTK: Disable TW if run out lifetime */
 	tw = ufsf->tw_lup[tw_lun];
 	if (atomic_read(&tw->tw_mode) == TW_MODE_DISABLED)
-		goto out_free_mem;
+		goto out;
 #endif
 	/*
 	 * Initialize Device Level...
@@ -916,10 +896,10 @@ void ufstw_init(struct ufsf_feature *ufsf)
 	/* MTK: Enable TW and H8 flush in Manual mode */
 	if ((atomic_read(&tw->tw_mode) == TW_MODE_MANUAL) && (tw_lun != 0)) {
 		if (ufstw_set_lu_flag(tw, QUERY_FLAG_IDN_TW_EN, &tw->tw_enable))
-			goto out_free_mem;
+			goto out;
 		if (ufstw_set_lu_flag(tw, QUERY_FLAG_IDN_TW_FLUSH_DURING_HIBERN,
 			&tw->tw_flush_during_hibern_enter))
-			goto out_free_mem;
+			goto out;
 	}
 #endif
 	return;
@@ -928,7 +908,8 @@ out_free_mem:
 		kfree(ufsf->tw_lup[lun]);
 		ufsf->tw_lup[lun] = NULL;
 	}
-
+out:
+	/* MTK: not free because we still need querry */
 	ufsf->tw_dev_info.tw_device = false;
 	atomic_set(&ufsf->tw_state, TW_NOT_SUPPORTED);
 }
