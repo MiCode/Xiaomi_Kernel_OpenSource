@@ -170,6 +170,11 @@ struct aee_siginfo {
 	uintptr_t fault_addr;
 };
 
+struct name_list {
+	char name[TASK_COMM_LEN + 1];
+	struct name_list *next;
+};
+
 /* Show string on DAL layer  */
 #define AEEIOCTL_DAL_SHOW       _IOW('p', 0x01, struct aee_dal_show)
 #define AEEIOCTL_DAL_CLEAN      _IO('p', 0x02)	/* Clear DAL layer */
@@ -192,6 +197,8 @@ struct aee_siginfo {
 #define AEEIOCTL_GET_AEE_SIGINFO _IOW('p', 0x10, struct aee_siginfo)
 #define AEEIOCTL_SET_HANG_FLAG _IOW('p', 0x11, int)
 #define AEEIOCTL_SET_HANG_REBOOT _IO('p', 0x12)
+#define HANG_ADD_WHITE_LIST _IOR('p', 0x13, char [TASK_COMM_LEN])
+#define HANG_DEL_WHITE_LIST _IOR('p', 0x14, char [TASK_COMM_LEN])
 #define AEEIOCTL_GET_THREAD_RMS  _IOW('p', 0x13, struct unwind_info_rms)
 #define AEEIOCTL_GET_THREAD_STACK_RAW  _IOW('p', 0x14, struct unwind_info_stack)
 
