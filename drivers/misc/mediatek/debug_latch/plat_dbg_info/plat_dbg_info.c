@@ -58,7 +58,8 @@ static int __init plat_dbg_info_init(void)
 			plat_dbg_info_size, plat_dbg_info_max);
 		if (ret != 0) {
 			pr_debug("[PLAT DBG INFO] cannot find property\n");
-			return -ENODEV;
+			ret = -ENODEV;
+			goto alloc_fail;
 		}
 
 		for (i = 0; i < plat_dbg_info_max; i++) {
