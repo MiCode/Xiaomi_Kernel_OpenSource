@@ -4452,6 +4452,7 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		charger = <&mt6360_chg>;
 		vbus-supply = <&otg_vbus>;
 		vbus-voltage = <5000000>;
+		vbus-current = <1800000>;
 		dev-conn = <&ssusb>;
 		mediatek,bypss-typec-sink = <1>;
 	};
