@@ -41,7 +41,8 @@
 		};
 
 		pmic_auxadc: pmic_auxadc {
-			compatible = "mediatek,mt6359-auxadc";
+			compatible = "mediatek,pmic-auxadc",
+				     "mediatek,mt6359-auxadc";
 			#io-channel-cells = <1>;
 
 			batadc {

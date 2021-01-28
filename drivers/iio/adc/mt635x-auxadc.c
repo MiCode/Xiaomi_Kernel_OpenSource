@@ -493,14 +493,15 @@ static const struct iio_info mt635x_auxadc_info = {
 	.of_xlate = &mt635x_auxadc_of_xlate,
 };
 
-static int auxadc_init_imix_r(struct mt635x_auxadc_device *adc_dev)
+static int auxadc_init_imix_r(struct mt635x_auxadc_device *adc_dev,
+			      struct device_node *imix_r_node)
 {
-	unsigned char val = 0;
+	unsigned int val = 0;
 	int ret;
 
 	if (adc_dev->imix_r)
 		return 0;
-	ret = of_property_read_u8(of_chosen, "atag,imix_r", &val);
+	ret = of_property_read_u32(imix_r_node, "val", &val);
 	if (ret)
 		dev_notice(adc_dev->dev, "no imix_r, ret=%d\n", ret);
 	adc_dev->imix_r = (int)val;
@@ -528,7 +529,7 @@ static int auxadc_get_data_from_dt(struct mt635x_auxadc_device *adc_dev,
 		return ret;
 	}
 	if (*channel == AUXADC_IMIX_R)
-		return auxadc_init_imix_r(adc_dev);
+		return auxadc_init_imix_r(adc_dev, node);
 	auxadc_chan = &auxadc_chans[*channel];
 
 	ret = of_property_read_u32_array(node, "resistance-ratio", val_arr, 2);
