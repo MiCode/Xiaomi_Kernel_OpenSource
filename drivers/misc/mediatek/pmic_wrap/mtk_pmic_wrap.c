@@ -42,7 +42,10 @@
 #define PMIC_WRAP_DEVICE "pmic_wrap"
 #define VERSION     "Revision"
 
-#if !defined CONFIG_MTK_PMIC_WRAP
+
+
+
+#if !defined CONFIG_MTK_PMIC_WRAP || defined(CONFIG_MACH_MT6739)
 static struct mt_pmic_wrap_driver mt_wrp = {
 	.driver = {
 		   .name = "pmic_wrap",
@@ -55,6 +58,8 @@ struct mt_pmic_wrap_driver *get_mt_pmic_wrap_drv(void)
 {
 	return &mt_wrp;
 }
+#endif
+#if !defined CONFIG_MTK_PMIC_WRAP
 /*this function only used for ROME plus*/
 int check_pmic_wrap_init(void)
 {

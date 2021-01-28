@@ -98,6 +98,7 @@ int dpp_disp_is_decouple(void)
  */
 static void ddp_disp_refresh_tag_start(unsigned int index)
 {
+#if defined(CONFIG_MTK_MET)
 	static unsigned long sBufAddr[RDMA_NUM];
 
 	static struct RDMA_BASIC_STRUCT rdmaInfo;
@@ -153,14 +154,17 @@ static void ddp_disp_refresh_tag_start(unsigned int index)
 		}
 
 	}
+#endif
 }
 
 static void ddp_disp_refresh_tag_end(unsigned int index)
 {
+#if defined(CONFIG_MTK_MET)
 	char tag_name[30] = { '\0' };
 
 	sprintf(tag_name, index ? "ExtDispRefresh" : "PrimDispRefresh");
 	met_tag_oneshot(DDP_IRQ_FPS_ID, tag_name, 0);
+#endif
 }
 
 /**
@@ -273,8 +277,10 @@ static void ddp_inout_info_tag(unsigned int index)
 
 static void ddp_err_irq_met_tag(const char *name)
 {
+#if defined(CONFIG_MTK_MET)
 	met_tag_oneshot(DDP_IRQ_EER_ID, name, 1);
 	met_tag_oneshot(DDP_IRQ_EER_ID, name, 0);
+#endif
 }
 
 static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
@@ -308,8 +314,10 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 		index = module - DISP_MODULE_OVL0;
 		if (reg_val & (1 << 1)) {/*EOF*/
 			ddp_inout_info_tag(index);
+#if defined(CONFIG_MTK_MET)
 			if (!IS_ERR_OR_NULL(met_mmsys_event_disp_ovl_eof))
 				met_mmsys_event_disp_ovl_eof(index);
+#endif
 		}
 
 		break;
@@ -317,6 +325,7 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 	case DISP_MODULE_MUTEX:
 		/*reg_val is  DISP_REG_GET(DISP_REG_CONFIG_MUTEX_INTSTA) & 0x7C1F; */
 		for (mutexID = DISP_MUTEX_DDP_FIRST; mutexID <= DISP_MUTEX_DDP_LAST; mutexID++) {
+#if defined(CONFIG_MTK_MET)
 			if (reg_val & (0x1<<mutexID))
 				if (!IS_ERR_OR_NULL(met_mmsys_event_disp_sof))
 					met_mmsys_event_disp_sof(mutexID);
@@ -325,6 +334,7 @@ static void met_irq_handler(enum DISP_MODULE_ENUM module, unsigned int reg_val)
 				if (!IS_ERR_OR_NULL(
 					met_mmsys_event_disp_mutex_eof))
 					met_mmsys_event_disp_mutex_eof(mutexID);
+#endif
 		}
 		break;
 

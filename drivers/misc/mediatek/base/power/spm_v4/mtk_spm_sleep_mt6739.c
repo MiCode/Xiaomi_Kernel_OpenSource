@@ -41,7 +41,7 @@
 
 #include <mtk_spm_internal.h>
 #include <mtk_spm_pmic_wrap.h>
-#include <mtk_pmic_api_buck.h>
+#include "pmic_api_buck.h"
 #include <mtk_spm_vcore_dvfs.h>
 
 #include <mt-plat/mtk_ccci_common.h>
@@ -295,7 +295,8 @@ void spm_ap_mdsrc_req(u8 set)
 		} else {
 			spm_ap_mdsrc_req_cnt++;
 
-			mt_secure_call(MTK_SIP_KERNEL_SPM_AP_MDSRC_REQ, 1, 0, 0);
+			mt_secure_call(MTK_SIP_KERNEL_SPM_AP_MDSRC_REQ,
+				1, 0, 0, 0);
 
 			spin_unlock_irqrestore(&__spm_lock, flags);
 
@@ -327,7 +328,8 @@ void spm_ap_mdsrc_req(u8 set)
 				  spm_ap_mdsrc_req_cnt);
 		} else {
 			if (spm_ap_mdsrc_req_cnt == 0)
-				mt_secure_call(MTK_SIP_KERNEL_SPM_AP_MDSRC_REQ, 0, 0, 0);
+				mt_secure_call(MTK_SIP_KERNEL_SPM_AP_MDSRC_REQ,
+					0, 0, 0, 0);
 		}
 
 		spin_unlock_irqrestore(&__spm_lock, flags);

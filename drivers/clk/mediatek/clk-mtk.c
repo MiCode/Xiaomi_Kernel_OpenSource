@@ -101,7 +101,33 @@ void mtk_clk_register_factors(const struct mtk_fixed_factor *clks,
 			clk_data->clks[ff->id] = clk;
 	}
 }
+#if defined(CONFIG_MACH_MT6739)
+void __init mtk_clk_register_factors_pdn(
+	const struct mtk_fixed_factor_pdn *clks,
+	int num, struct clk_onecell_data *clk_data, void __iomem *base)
+{
+	int i;
+	struct clk *clk;
 
+	for (i = 0; i < num; i++) {
+		const struct mtk_fixed_factor_pdn *ff = &clks[i];
+
+		clk = mtk_clk_register_fixed_factor_pdn(NULL, ff->name,
+			ff->parent_name,
+			CLK_SET_RATE_PARENT, ff->mult, ff->div,
+			ff->shift, ff->pd_reg, base);
+
+		if (IS_ERR(clk)) {
+			pr_debug("Failed to register clk %s: %ld\n",
+					ff->name, PTR_ERR(clk));
+			continue;
+		}
+
+		if (clk_data)
+			clk_data->clks[ff->id] = clk;
+	}
+}
+#endif
 int mtk_clk_register_gates(struct device_node *node,
 		const struct mtk_gate *clks,
 		int num, struct clk_onecell_data *clk_data)

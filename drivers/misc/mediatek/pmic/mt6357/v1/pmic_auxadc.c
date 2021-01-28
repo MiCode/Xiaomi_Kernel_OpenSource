@@ -359,7 +359,7 @@ void mt6357_auxadc_monitor_mts_regs(void)
 		mts_count = 0;
 
 	if (mts_count >= 7 && mts_count < 9) {
-		pwrap_dump_all_register();
+		pwrap_dump_all_registers();
 		mt6357_mts_reg_dump();
 		/*--AUXADC CH7--*/
 		pmic_get_auxadc_value(AUXADC_LIST_TSX);
@@ -387,7 +387,7 @@ void mt6357_auxadc_monitor_mts_regs(void)
 			  upmu_get_reg_value(MT6357_AUXADC_ADC18));
 	}
 	if (mts_count > 15) {
-		pwrap_dump_all_register();
+		pwrap_dump_all_registers();
 		pr_notice("DEW_READ_TEST = 0x%x\n",
 			  pmic_get_register_value(PMIC_DEW_READ_TEST));
 		/*--AUXADC--*/

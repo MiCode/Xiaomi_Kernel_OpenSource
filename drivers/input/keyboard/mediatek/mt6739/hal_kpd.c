@@ -365,7 +365,7 @@ void kpd_pmic_pwrkey_hal(unsigned long pressed)
 			kpd_print(KPD_SAY "(%s) HW keycode =%d using PMIC\n",
 			       pressed ? "pressed" : "released", kpd_dts_data.kpd_sw_pwrkey);
 		}
-		aee_powerkey_notify_press(pressed);
+/*		aee_powerkey_notify_press(pressed);*/
 	}
 #endif
 }

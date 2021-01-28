@@ -33,8 +33,9 @@
 #include <linux/input.h>
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
+#include <linux/sched/task.h>
 #include <linux/kthread.h>
-
+#include <uapi/linux/sched/types.h>
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -48,7 +49,7 @@
 */
 #include "mt-plat/upmu_common.h"
 #include "mt-plat/sync_write.h"
-#include "mt-plat/mtk_pmic_wrap.h"
+#include "mach/mtk_pmic_wrap.h"
 
 #include "mach/mtk_fhreg.h"
 #include "mach/mtk_freqhopping.h"

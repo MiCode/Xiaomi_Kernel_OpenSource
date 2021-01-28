@@ -1227,7 +1227,7 @@ static inline void pwrap_dump_ap_register(void)
 	}
 }
 
-void pwrap_dump_all_register(void)
+void pwrap_dump_all_registers(void)
 {
 	unsigned int tsx_0 = 0, tsx_1 = 0, dcxo_0 = 0, dcxo_1 = 0;
 
@@ -1255,7 +1255,7 @@ static int is_pwrap_init_done(void)
 	ret = pwrap_init();
 	if (ret != 0) {
 		PWRAP_PR_ERR("init error (%d)\n", ret);
-		pwrap_dump_all_register();
+		pwrap_dump_all_registers();
 		return ret;
 	}
 	PWRAPLOG("init successfully done (%d)\n\n", ret);
@@ -1380,7 +1380,7 @@ static irqreturn_t mt_pmic_wrap_irq(int irqno, void *dev_id)
 		PWRAPREG("INT1_FLG status Wrong,value=0x%x\n", WRAP_RD32(PMIC_WRAP_INT1_FLG));
 	}
 	spin_lock_irqsave(&wrp_lock, flags);
-	/* pwrap_dump_all_register(); */
+	/* pwrap_dump_all_registers(); */
 
 	/* clear interrupt flag */
 #ifdef CONFIG_MTK_TINYSYS_SSPM_SUPPORT
@@ -1433,7 +1433,7 @@ static signed int mt_pwrap_store_hal(const char *buf, size_t count)
 	("PWRAP debug: [-dump_reg][-trace_wacs2][-init][-rdap][-wrap][-rdpmic][-wrpmic][-readtest][-writetest]\n");
 		PWRAPREG("PWRAP UT: [1][2]\n");
 	} else if (!strncmp(buf, "-dump_reg", 9)) {
-		pwrap_dump_all_register();
+		pwrap_dump_all_registers();
 	} else if (!strncmp(buf, "-trace_wacs2", 12)) {
 		/* pwrap_trace_wacs2(); */
 	} else if (!strncmp(buf, "-init", 5)) {

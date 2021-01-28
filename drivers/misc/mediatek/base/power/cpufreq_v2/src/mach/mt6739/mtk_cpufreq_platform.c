@@ -413,7 +413,7 @@ struct pll_ctrl_t pll_ctrl[NR_MT_PLL] = {
 /* Always put action cpu at last */
 struct hp_action_tbl cpu_dvfs_hp_action[] = {
 	{
-		.action		= CPU_DOWN_PREPARE,
+		.action		= CPUFREQ_CPU_DOWN_PREPARE,
 		.cluster	= MT_CPU_DVFS_LL,
 		.trigged_core	= 1,
 		.hp_action_cfg[MT_CPU_DVFS_LL].action_id = FREQ_LOW,
