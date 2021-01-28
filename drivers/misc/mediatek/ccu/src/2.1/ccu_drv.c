@@ -976,7 +976,7 @@ static int ccu_release(struct inode *inode, struct file *flip)
 
 	ccu_delete_user(user);
 
-	/*ccu_ion_uninit();*/
+	ccu_ion_uninit();
 
 	LOG_INF_MUST("%s -", __func__);
 
