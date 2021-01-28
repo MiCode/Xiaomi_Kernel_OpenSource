@@ -36,7 +36,6 @@
 
 #include <mt-plat/aee.h>
 #include <mt-plat/mtk_chip.h>
-#include <mt-plat/mtk_devinfo.h>
 
 struct mem_desc {
 	u64 start;
@@ -1585,6 +1584,7 @@ static int dram_probe(struct platform_device *pdev)
 	struct resource *res;
 	void __iomem *base_temp[8];
 	struct device_node *node = NULL;
+	struct device_node *dramc_node = pdev->dev.of_node;
 
 	pr_debug("[DRAMC] module probe.\n");
 
@@ -1746,7 +1746,13 @@ static int dram_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	enable_lp3_1333 = get_devinfo_with_index(133) & 0x1;
+	ret = of_property_read_s32(dramc_node, "enable_lp3_1333",
+		&enable_lp3_1333);
+	if (ret) {
+		pr_info("fail to read enable_lp3_1333\n");
+		enable_lp3_1333 = 0;
+	}
+	dramc_info("lp3_1333 %s\n", (enable_lp3_1333) ? "enable" : "disable");
 
 	if (dram_can_support_fh())
 		dramc_info("dram can support DFS\n");
