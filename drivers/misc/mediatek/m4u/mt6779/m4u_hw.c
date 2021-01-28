@@ -11,6 +11,7 @@
 #include "m4u_platform.h"
 #include "m4u_hw.h"
 
+#include <linux/kmemleak.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
@@ -2566,7 +2567,8 @@ int m4u_hw_init(struct m4u_device *m4u_dev, int m4u_id)
 	if ((void *)pProtectVA == NULL) {
 		M4UMSG("Physical memory not available.\n");
 		return -1;
-	}
+	} else
+		kmemleak_ignore((void *)pProtectVA); //ignored by kmemleak tool
 	pProtectVA = (pProtectVA + (TF_PROTECT_BUFFER_SIZE - 1)) &
 		(~(TF_PROTECT_BUFFER_SIZE - 1));
 
