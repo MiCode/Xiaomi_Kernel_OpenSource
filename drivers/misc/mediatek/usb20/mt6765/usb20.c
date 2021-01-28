@@ -1611,10 +1611,14 @@ static int mt_usb_exit(struct musb *musb)
 {
 	del_timer_sync(&musb->idle_timer);
 #ifndef FPGA_PLATFORM
-	if (reg_vusb)
+	if (reg_vusb) {
+		regulator_disable(reg_vusb);
 		regulator_put(reg_vusb);
-	if (reg_va12)
+	}
+	if (reg_va12) {
+		regulator_disable(reg_va12);
 		regulator_put(reg_va12);
+	}
 #endif
 #ifdef CONFIG_USB_MTK_OTG
 	mt_usb_otg_exit(musb);
