@@ -2305,6 +2305,8 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 	size_t tf_en = 0;
 	size_t tf_port = 0;
 	size_t m4u_id = 0;
+	unsigned int tf_mva, tf_pa, tf_va;
+	int write, layer, tf_pa_33_32;
 	struct arm_smccc_res res;
 
 	if (irq == M4USecIrq[0]) {
@@ -2323,15 +2325,35 @@ irqreturn_t MTK_M4U_isr_sec(int irq, void *dev_id)
 			      0, 0, 0, 0, 0, 0, &res);
 	tf_en = res.a0;
 	tf_port = res.a1;
+	tf_va = res.a2;
+	tf_pa = res.a3;
 
-	M4UMSG("secure bank go back form secure world! en:%zu\n",
-	       tf_en);
+	M4UMSG("secure bank go back form secure world! en:%zu\n", tf_en);
 	if (tf_en) {
-		if (m4u_id == 0)
+		tf_mva = tf_va & F_MMU_FAULT_VA_MSK_SEC;
+		layer = !!(tf_va & F_MMU_FAULT_VA_LAYER_BIT_SEC);
+		write = !!(tf_va & F_MMU_FAULT_VA_WRITE_BIT_SEC);
+		tf_pa_33_32 = F_MMU_FAULT_PA_33_32(tf_va);
+
+		/*call user's callback to dump user registers*/
+		if (tf_port < M4U_PORT_UNKNOWN &&
+		    tf_port >= 0) {
+			if (gM4uPort[tf_port].fault_fn &&
+			    gM4uPort[tf_port].enable_tf == 1) {
+				gM4uPort[tf_port].fault_fn(tf_port, tf_mva,
+					gM4uPort[tf_port].fault_data);
+			}
+		}
+		/* 6779 only support 32bit mva, use '%x' here */
+		M4UMSG("[%s %d]tf_pa:0x%x_%x, tf_va:0x%x, write:%d, layer:%d\n",
+		       __func__, __LINE__,
+		       tf_pa_33_32, tf_pa, tf_va, write, layer);
+		if (m4u_id == 0) {
 			m4u_aee_print(
 				"CRDISPATCH_KEY:M4U_%s translation fault(mm secure): port=%s\n",
 					 m4u_get_port_name(tf_port),
 					m4u_get_port_name(tf_port));
+		}
 		else if (m4u_id == 1)
 			m4u_aee_print(
 				"CRDISPATCH_KEY:M4U_VPU_PORT translation fault(vpu secure)\n");
