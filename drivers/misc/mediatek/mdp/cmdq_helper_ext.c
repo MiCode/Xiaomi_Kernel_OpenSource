@@ -4682,8 +4682,8 @@ static s32 cmdq_pkt_flush_async_ex_impl(struct cmdqRecStruct *handle,
 	mutex_unlock(&ctx->thread[(u32)thread].thread_mutex);
 
 	if (err < 0) {
-		CMDQ_ERR("pkt flush failed err:%d pkt:0x%p thread:%d\n",
-			err, handle->pkt, thread);
+		CMDQ_ERR("pkt flush failed err:%d handle:0x%p thread:%d\n",
+			err, handle, thread);
 		return err;
 	}
 
