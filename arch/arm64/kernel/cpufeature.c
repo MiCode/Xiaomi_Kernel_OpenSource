@@ -816,6 +816,18 @@ static bool unmap_kernel_at_el0(const struct arm64_cpu_capabilities *entry,
 {
 	char const *str = "command line option";
 	u64 pfr0 = read_sanitised_ftr_reg(SYS_ID_AA64PFR0_EL1);
+	/* List of CPUs that are not vulnerable and don't need KPTI */
+	static const struct midr_range kpti_safe_list[] = {
+		_MIDR_ALL_VERSIONS(MIDR_CAVIUM_THUNDERX2),
+		_MIDR_ALL_VERSIONS(MIDR_BRCM_VULCAN),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A35),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A53),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A55),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A57),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A72),
+		_MIDR_ALL_VERSIONS(MIDR_CORTEX_A73),
+		{ /* sentinel */ }
+	};
 
 	/*
 	 * For reasons that aren't entirely clear, enabling KPTI on Cavium
@@ -839,11 +851,8 @@ static bool unmap_kernel_at_el0(const struct arm64_cpu_capabilities *entry,
 		return true;
 
 	/* Don't force KPTI for CPUs that are not vulnerable */
-	switch (read_cpuid_id() & MIDR_CPU_MODEL_MASK) {
-	case MIDR_CAVIUM_THUNDERX2:
-	case MIDR_BRCM_VULCAN:
+	if (is_midr_in_range_list(read_cpuid_id(), kpti_safe_list))
 		return false;
-	}
 
 	/* Defer to CPU feature registers */
 	return !cpuid_feature_extract_unsigned_field(pfr0,
