@@ -5,8 +5,6 @@ config MTK_ENABLE_GENIEZONE
 	select MTK_GZ_KREE
 	select VIRTIO
 	select GZ_LOG
-	select GZ_TRUSTY_INTERRUPT_MAP
-	select GZ_TRUSTY_INTERRUPT_FIQ_ONLY
 	select MT_GZ_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
 	help
 	  This is used for Trusty to support MTK Geniezone

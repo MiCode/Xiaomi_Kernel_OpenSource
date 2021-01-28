@@ -19,9 +19,7 @@
 #include <linux/device.h>
 #include <linux/pagemap.h>
 
-#ifdef CONFIG_GZ_TRUSTY_INTERRUPT_MAP
 extern void handle_trusty_ipi(int ipinr);
-#endif	/* CONFIG_GZ_TRUSTY_INTERRUPT_MAP */
 s32 trusty_std_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
 s32 trusty_fast_call32(struct device *dev, u32 smcnr, u32 a0, u32 a1, u32 a2);
 #ifdef CONFIG_64BIT
