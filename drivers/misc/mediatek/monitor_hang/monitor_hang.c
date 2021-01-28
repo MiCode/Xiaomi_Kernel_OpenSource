@@ -34,6 +34,7 @@
 #include <linux/ptrace.h>
 #include <asm/stacktrace.h>
 #include <asm/traps.h>
+#include "common/aee-common.h"
 #include <linux/pid.h>
 #ifdef CONFIG_MTK_BOOT
 #include <mt-plat/mtk_boot_common.h>
@@ -576,10 +577,10 @@ void trigger_hang_detect_db(void)
 #ifdef CONFIG_MTK_ENG_BUILD
 	if (monit_hang_flag == 1) {
 #endif
-#ifdef CONFIG_MTK_AEE_IPANIC
 		mrdump_mini_add_hang_raw((unsigned long)Hang_Info,
 			MaxHangInfoSize);
 		mrdump_mini_add_extra_misc();
+#ifdef CONFIG_MTK_AEE_IPANIC
 		mrdump_common_die(AEE_FIQ_STEP_HANG_DETECT,
 		AEE_REBOOT_MODE_HANG_DETECT,
 		"Hang Detect", NULL);

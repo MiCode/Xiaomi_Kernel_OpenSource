@@ -11,12 +11,6 @@
 # GNU General Public License for more details.
 #
 
-subdir-ccflags-y += -Idrivers/misc/mediatek/aee/mrdump/
-ifdef CONFIG_MTK_DRAM_LOG_STORE
-subdir-ccflags-y += -Idrivers/misc/mediatek/log_store/
-endif
-
-ifdef CONFIG_MTK_AEE_AED
-obj-y += aed.o
-aed-y := aed-main.o aed-debug.o
+ifdef CONFIG_MTK_AEE_IPANIC
+obj-y	+= mboot_params.o
 endif

@@ -6,10 +6,10 @@
 #if !defined(__MRDUMP_H__)
 #define __MRDUMP_H__
 
-#include <asm/ptrace.h>
+#include <stdarg.h>
 #include <linux/elf.h>
 #include <linux/elfcore.h>
-#include <stdarg.h>
+#include <asm/ptrace.h>
 #include <mt-plat/aee.h>
 
 #ifdef __aarch64__
@@ -212,13 +212,19 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 		struct pt_regs *regs, const char *msg, ...);
 void mrdump_save_ctrlreg(int cpu);
 void mrdump_save_per_cpu_reg(int cpu, struct pt_regs *regs);
-extern const char *mrdump_get_cmd(void);
 
 int mrdump_common_die(int fiq_step, int reboot_reason, const char *msg,
 		      struct pt_regs *regs);
-void mrdump_mini_add_hang_raw(unsigned long vaddr, unsigned long size);
-void mrdump_mini_add_extra_misc(void);
-extern void mlog_get_buffer(char **ptr, int *size)__attribute__((weak));
-extern void get_msdc_aee_buffer(unsigned long *buff,
-	unsigned long *size)__attribute__((weak));
+
+
+__weak void dis_D_inner_flush_all(void)
+{
+	pr_notice("%s:weak function.\n", __func__);
+}
+
+__weak void __inner_flush_dcache_all(void)
+{
+	pr_notice("%s:weak function.\n", __func__);
+}
+
 #endif

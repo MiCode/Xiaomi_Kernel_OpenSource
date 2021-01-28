@@ -6,9 +6,7 @@
 #include <linux/kconfig.h>
 #include <linux/module.h>
 #include <linux/string.h>
-
-#include <mrdump.h>
-#if IS_ENABLED(CONFIG_MTK_DFD_INTERNAL_DUMP)
+#ifdef CONFIG_MTK_DFD_INTERNAL_DUMP
 #include <mtk_platform_debug.h>
 #endif
 
@@ -21,24 +19,12 @@ static int __init mrdump_get_ddr_reserve_status(char *str)
 	return 0;
 }
 
-#ifndef MODULE
 early_param("mrdump_ddrsv", mrdump_get_ddr_reserve_status);
-#else
-static void __init mrdump_module_param_ddrsv(void)
-{
-	const char *cmdline = mrdump_get_cmd();
 
-	if (strstr(cmdline, "mrdump_ddrsv=yes"))
-		mrdump_get_ddr_reserve_status("yes");
-	else
-		mrdump_get_ddr_reserve_status("no");
-}
-#endif
-
-#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
+#ifdef CONFIG_MTK_WATCHDOG
 #include <mtk_wd_api.h>
 
-#if IS_ENABLED(CONFIG_MTK_LASTPC_V2)
+#ifdef CONFIG_MTK_LASTPC_V2
 static void mrdump_set_sram_lastpc_flag(void)
 {
 	if (!set_sram_flag_lastpc_valid())
@@ -92,7 +78,7 @@ static void mrdump_wd_dram_reserved_mode(bool enabled)
 				if (enabled) {
 					pr_notice("%s: DDR reserved mode enabled\n",
 							__func__);
-#if IS_ENABLED(CONFIG_MTK_DFD_INTERNAL_DUMP)
+#ifdef CONFIG_MTK_DFD_INTERNAL_DUMP
 					res = dfd_setup();
 					if (res == -1)
 						pr_notice("%s: DFD disabled\n",
@@ -116,7 +102,7 @@ static void mrdump_wd_dram_reserved_mode(bool enabled)
 int __init mrdump_hw_init(void)
 {
 	mrdump_wd_dram_reserved_mode(true);
-#if IS_ENABLED(CONFIG_MTK_LASTPC_V2)
+#ifdef CONFIG_MTK_LASTPC_V2
 	mrdump_wd_mcu_cache_preserve(true);
 	mrdump_set_sram_lastpc_flag();
 #endif /* CONFIG_MTK_LASTPC_V2 */
@@ -128,9 +114,6 @@ int __init mrdump_hw_init(void)
 
 int __init mrdump_hw_init(void)
 {
-#ifdef MODULE
-	mrdump_module_param_ddrsv();
-#endif
 	pr_notice("%s: DDR Reserved Mode ready or not? (%s)\n", __func__,
 			mrdump_lk_ddr_reserve_ready);
 

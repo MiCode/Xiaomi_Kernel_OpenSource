@@ -6,24 +6,17 @@
 #include <linux/bug.h>
 #include <linux/crc32.h>
 #include <linux/delay.h>
-#include <linux/io.h>
 #include <linux/memblock.h>
-#include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/io.h>
+#include <linux/mm.h>
 #include <asm/memory.h>
 #include <asm/sections.h>
-
 #include <mt-plat/mrdump.h>
 #include "mrdump_private.h"
 
 struct mrdump_control_block *mrdump_cblock;
 struct mrdump_rsvmem_block mrdump_sram_cb;
-
-#ifdef MODULE
-#define MRDUMP_CB_PT "mrdump_cb=0x%lx,0x%lx"
-#else
-#define MRDUMP_CB_PT "0x%lx,0x%lx"
-#endif
 
 /* mrdump_cb info from lk */
 static int __init mrdump_get_cb(char *p)
@@ -31,7 +24,7 @@ static int __init mrdump_get_cb(char *p)
 	unsigned long cbaddr, cbsize;
 	int ret;
 
-	ret = sscanf(p, MRDUMP_CB_PT, &cbaddr, &cbsize);
+	ret = sscanf(p, "0x%lx,0x%lx", &cbaddr, &cbsize);
 	if (ret != 2) {
 		pr_notice("%s: no mrdump_sram_cb. (ret=%d, p=%s)\n",
 			 __func__, ret, p);
@@ -47,31 +40,7 @@ static int __init mrdump_get_cb(char *p)
 
 	return 0;
 }
-
-#ifndef MODULE
 early_param("mrdump_cb", mrdump_get_cb);
-#else
-#define MRDUMP_CB_PREF "mrdump_cb="
-static int __init mrdump_module_param_cb(void)
-{
-	const char *cmdline = mrdump_get_cmd();
-	char cmd_mrdump_cb[64];
-	char *ptr_s;
-	char *ptr_e;
-
-	memset(cmd_mrdump_cb, 0x0, sizeof(cmd_mrdump_cb));
-	ptr_s = strstr(cmdline, MRDUMP_CB_PREF);
-	if (ptr_s) {
-		ptr_e = strstr(ptr_s, " ");
-		if (ptr_e) {
-			strncpy(cmd_mrdump_cb, ptr_s, ptr_e - ptr_s);
-			cmd_mrdump_cb[ptr_e - ptr_s] = '\0';
-		}
-	}
-
-	return mrdump_get_cb(cmd_mrdump_cb);
-}
-#endif
 
 #if defined(CONFIG_KALLSYMS) && !defined(CONFIG_KALLSYMS_BASE_RELATIVE)
 static void mrdump_cblock_kallsyms_init(struct mrdump_ksyms_param *kparam)
@@ -116,9 +85,6 @@ __init void mrdump_cblock_init(void)
 {
 	struct mrdump_machdesc *machdesc_p;
 
-#ifdef MODULE
-	mrdump_module_param_cb();
-#endif
 	if (!mrdump_sram_cb.start_addr || !mrdump_sram_cb.size) {
 		pr_notice("%s: no mrdump_cb\n", __func__);
 		goto end;
@@ -141,7 +107,7 @@ __init void mrdump_cblock_init(void)
 			sizeof(mrdump_cblock->sig));
 
 	machdesc_p = &mrdump_cblock->machdesc;
-	machdesc_p->nr_cpus = nr_cpu_ids;
+	machdesc_p->nr_cpus = AEE_MTK_CPU_NUMS;
 	machdesc_p->page_offset = (uint64_t)PAGE_OFFSET;
 	machdesc_p->high_memory = (uintptr_t)high_memory;
 
@@ -151,16 +117,16 @@ __init void mrdump_cblock_init(void)
 #if defined(TEXT_OFFSET)
 	machdesc_p->kimage_vaddr += TEXT_OFFSET;
 #endif
-	machdesc_p->dram_start = (uint64_t)aee_memblock_start_of_DRAM();
-	machdesc_p->dram_end = (uint64_t)aee_memblock_end_of_DRAM();
-	machdesc_p->kimage_stext = (uint64_t)aee_get_text();
-	machdesc_p->kimage_etext = (uint64_t)aee_get_etext();
-	machdesc_p->kimage_stext_real = (uint64_t)aee_get_stext();
+	machdesc_p->dram_start = (uintptr_t)memblock_start_of_DRAM();
+	machdesc_p->dram_end = (uintptr_t)memblock_end_of_DRAM();
+	machdesc_p->kimage_stext = (uintptr_t)_text;
+	machdesc_p->kimage_etext = (uintptr_t)_etext;
+	machdesc_p->kimage_stext_real = (uintptr_t)_stext;
 #if defined(CONFIG_ARM64)
-	machdesc_p->kimage_voffset = aee_get_kimage_vaddr();
+	machdesc_p->kimage_voffset = kimage_voffset;
 #endif
-	machdesc_p->kimage_sdata = (uint64_t)aee_get_sdata();
-	machdesc_p->kimage_edata = (uint64_t)aee_get_edata();
+	machdesc_p->kimage_sdata = (uintptr_t)_sdata;
+	machdesc_p->kimage_edata = (uintptr_t)_edata;
 
 	machdesc_p->vmalloc_start = (uint64_t)VMALLOC_START;
 	machdesc_p->vmalloc_end = (uint64_t)VMALLOC_END;
@@ -169,12 +135,12 @@ __init void mrdump_cblock_init(void)
 	machdesc_p->modules_end = (uint64_t)MODULES_END;
 
 	machdesc_p->phys_offset = (uint64_t)(phys_addr_t)PHYS_OFFSET;
-	if (virt_addr_valid(aee_get_swapper_pg_dir())) {
+	if (virt_addr_valid(&swapper_pg_dir)) {
 		machdesc_p->master_page_table =
-			(uintptr_t)__pa(aee_get_swapper_pg_dir());
+			(uintptr_t)__pa(&swapper_pg_dir);
 	} else {
 		machdesc_p->master_page_table =
-			(uintptr_t)__pa_symbol(aee_get_swapper_pg_dir());
+			(uintptr_t)__pa_symbol(&swapper_pg_dir);
 	}
 
 #if defined(CONFIG_SPARSEMEM_VMEMMAP)
@@ -184,10 +150,8 @@ __init void mrdump_cblock_init(void)
 	mrdump_cblock->machdesc_crc = crc32(0, machdesc_p,
 			sizeof(struct mrdump_machdesc));
 
-end:
 	pr_notice("%s: done.\n", __func__);
 
-	/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-	aee__flush_dcache_area(mrdump_cblock,
-			sizeof(struct mrdump_control_block));
+end:
+	__inner_flush_dcache_all();
 }

@@ -7,15 +7,43 @@
 #define __AEE_H__
 
 #include <linux/kernel.h>
-#include <linux/param.h>
-#include <linux/ratelimit.h>
 #include <linux/sched.h>
 
 #define AEE_MODULE_NAME_LENGTH 64
 #define AEE_PROCESS_NAME_LENGTH 256
 #define AEE_BACKTRACE_LENGTH 3072
-#define MODULES_INFO_BUF_SIZE SZ_16K
+#define MODULES_INFO_BUF_SIZE 2048
 
+enum AE_DEFECT_ATTR {
+	AE_DEFECT_FATAL,
+	AE_DEFECT_EXCEPTION,
+	AE_DEFECT_WARNING,
+	AE_DEFECT_REMINDING,
+	AE_DEFECT_ATTR_END
+};
+
+enum AE_EXP_CLASS {
+	AE_KE = 0,		/* Fatal Exception */
+	AE_HWT,
+	AE_REBOOT,
+	AE_NE,
+	AE_JE,
+	AE_SWT,
+	AE_EE,
+	AE_EXP_ERR_END,
+	AE_ANR,			/* Error or Warning or Defect */
+	AE_RESMON,
+	AE_MODEM_WARNING,
+	AE_WTF,
+	AE_WRN_ERR_END,
+	AE_MANUAL,		/* Manual Raise */
+	AE_EXP_CLASS_END,
+
+	AE_KERNEL_PROBLEM_REPORT = 1000,
+	AE_SYSTEM_JAVA_DEFECT,
+	AE_SYSTEM_NATIVE_DEFECT,
+	AE_MANUAL_MRDUMP_KEY,
+};			/* General Program Exception Class */
 
 enum AEE_REBOOT_MODE {
 	AEE_REBOOT_MODE_NORMAL = 0,
@@ -93,22 +121,96 @@ struct unwind_info_rms {
 	int Userthread_mapsLength __packed __aligned(8);
 	unsigned char *Userthread_maps __packed __aligned(8);
 };
+#ifdef CONFIG_MTK_PRINTK_UART_CONSOLE
+extern int printk_disable_uart;
+#endif
 
 #ifdef CONFIG_CONSOLE_LOCK_DURATION_DETECT
 extern char *mtk8250_uart_dump(void);
 #endif
+#ifdef CONFIG_MTK_AEE_IPANIC
+extern void aee_rr_rec_hang_detect_timeout_count(unsigned int timeout);
+#endif
 
+struct aee_oops {
+	struct list_head list;
+	enum AE_DEFECT_ATTR attr;
+	enum AE_EXP_CLASS clazz;
+
+	char module[AEE_MODULE_NAME_LENGTH];
+	/* consist with struct aee_process_info */
+	char process_path[AEE_PROCESS_NAME_LENGTH];
+	char backtrace[AEE_BACKTRACE_LENGTH];
+	struct aee_bt_frame ke_frame;
+
+	char *detail;
+	int detail_len;
+
+	char *console;
+	int console_len;
+
+	char *android_main;
+	int android_main_len;
+	char *android_radio;
+	int android_radio_len;
+	char *android_system;
+	int android_system_len;
+
+	char *userspace_info;
+	int userspace_info_len;
+
+	char *mmprofile;
+	int mmprofile_len;
+
+	char *mini_rdump;
+	int mini_rdump_len;
+
+
+	struct aee_user_thread_stack userthread_stack;
+	struct aee_thread_reg userthread_reg;
+	struct aee_user_thread_maps userthread_maps;
+
+	int dump_option;
+};
+
+struct aee_kernel_api {
+	void (*kernel_reportAPI)(const enum AE_DEFECT_ATTR attr,
+			const int db_opt, const char *module, const char *msg);
+	void (*md_exception)(const char *assert_type, const int *log,
+			int log_size, const int *phy, int phy_size,
+			const char *detail, const int db_opt);
+	void (*md32_exception)(const char *assert_type, const int *log,
+			int log_size, const int *phy, int phy_size,
+			const char *detail, const int db_opt);
+	void (*combo_exception)(const char *assert_type, const int *log,
+			int log_size, const int *phy, int phy_size,
+			const char *detail, const int db_opt);
+	void (*scp_exception)(const char *assert_type, const int *log,
+			int log_size, const int *phy, int phy_size,
+			const char *detail, const int db_opt);
+	void (*common_exception)(const char *assert_type, const int *log,
+			int log_size, const int *phy, int phy_size,
+			const char *detail, const int db_opt);
+};
+
+void aee_sram_printk(const char *fmt, ...);
+void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp);
+struct aee_oops *aee_oops_create(enum AE_DEFECT_ATTR attr,
+		enum AE_EXP_CLASS clazz, const char *module);
+void aee_oops_set_backtrace(struct aee_oops *oops, const char *backtrace);
+void aee_oops_set_process_path(struct aee_oops *oops, const char *process_path);
+void aee_oops_free(struct aee_oops *oops);
 #define AEE_MTK_CPU_NUMS	16
 /* powerkey press,modules use bits */
 #define AE_WDT_Powerkey_DEVICE_PATH		"/dev/kick_powerkey"
-#define WDT_SETBY_DEFAULT			(0)
-#define WDT_SETBY_Backlight			(1<<0)
+#define WDT_SETBY_DEFAULT		(0)
+#define WDT_SETBY_Backlight		(1<<0)
 #define WDT_SETBY_Display			(1<<1)
 #define WDT_SETBY_SF				(1<<2)
 #define WDT_SETBY_PM				(1<<3)
 #define WDT_SETBY_WMS_DISABLE_PWK_MONITOR	(0xAEEAEE00)
 #define WDT_SETBY_WMS_ENABLE_PWK_MONITOR	(0xAEEAEE01)
-#define WDT_PWK_HANG_FORCE_HWT			(0xAEE0FFFF)
+#define WDT_PWK_HANG_FORCE_HWT				(0xAEE0FFFF)
 
 /* QHQ RT Monitor */
 #define AEEIOCTL_RT_MON_Kick _IOR('p', 0x0A, int)
@@ -116,120 +218,46 @@ extern char *mtk8250_uart_dump(void);
 /* QHQ RT Monitor    end */
 
 /* DB dump option bits, set relative bit to 1 to include related file in db */
-#define DB_OPT_DEFAULT				(0)
-#define DB_OPT_FTRACE				(1<<0)
-#define DB_OPT_PRINTK_TOO_MUCH			(1<<1)
-#define DB_OPT_NE_JBT_TRACES			(1<<2)
-#define DB_OPT_SWT_JBT_TRACES			(1<<3)
-#define DB_OPT_VM_TRACES			(1<<4)
-#define DB_OPT_DUMPSYS_ACTIVITY			(1<<5)
-#define DB_OPT_DUMPSYS_WINDOW			(1<<6)
-#define DB_OPT_DUMPSYS_GFXINFO			(1<<7)
-#define DB_OPT_DUMPSYS_SURFACEFLINGER		(1<<8)
-#define DB_OPT_DISPLAY_HANG_DUMP		(1<<9)
-#define DB_OPT_LOW_MEMORY_KILLER		(1<<10)
-#define DB_OPT_PROC_MEM				(1<<11)
-#define DB_OPT_FS_IO_LOG			(1<<12)
-#define DB_OPT_PROCESS_COREDUMP			(1<<13)
-#define DB_OPT_VM_HPROF				(1<<14)
-#define DB_OPT_PROCMEM				(1<<15)
-#define DB_OPT_DUMPSYS_INPUT			(1<<16)
-#define DB_OPT_MMPROFILE_BUFFER			(1<<17)
-#define DB_OPT_BINDER_INFO			(1<<18)
-#define DB_OPT_WCN_ISSUE_INFO			(1<<19)
-#define DB_OPT_DUMMY_DUMP			(1<<20)
-#define DB_OPT_PID_MEMORY_INFO			(1<<21)
-#define DB_OPT_VM_OOME_HPROF			(1<<22)
-#define DB_OPT_PID_SMAPS			(1<<23)
-#define DB_OPT_PROC_CMDQ_INFO			(1<<24)
-#define DB_OPT_PROC_USKTRK			(1<<25)
-#define DB_OPT_SF_RTT_DUMP			(1<<26)
-#define DB_OPT_PAGETYPE_INFO			(1<<27)
-#define DB_OPT_DUMPSYS_PROCSTATS		(1<<28)
-#define DB_OPT_DUMP_DISPLAY			(1<<29)
-#define DB_OPT_NATIVE_BACKTRACE			(1<<30)
-#define DB_OPT_AARCH64				(1<<31)
+#define DB_OPT_DEFAULT                  (0)
+#define DB_OPT_FTRACE                   (1<<0)
+#define DB_OPT_PRINTK_TOO_MUCH          (1<<1)
+#define DB_OPT_NE_JBT_TRACES            (1<<2)
+#define DB_OPT_SWT_JBT_TRACES           (1<<3)
+#define DB_OPT_VM_TRACES                (1<<4)
+#define DB_OPT_DUMPSYS_ACTIVITY         (1<<5)
+#define DB_OPT_DUMPSYS_WINDOW           (1<<6)
+#define DB_OPT_DUMPSYS_GFXINFO          (1<<7)
+#define DB_OPT_DUMPSYS_SURFACEFLINGER   (1<<8)
+#define DB_OPT_DISPLAY_HANG_DUMP        (1<<9)
+#define DB_OPT_LOW_MEMORY_KILLER        (1<<10)
+#define DB_OPT_PROC_MEM                 (1<<11)
+#define DB_OPT_FS_IO_LOG                (1<<12)
+#define DB_OPT_PROCESS_COREDUMP         (1<<13)
+#define DB_OPT_VM_HPROF                 (1<<14)
+#define DB_OPT_PROCMEM                  (1<<15)
+#define DB_OPT_DUMPSYS_INPUT            (1<<16)
+#define DB_OPT_MMPROFILE_BUFFER         (1<<17)
+#define DB_OPT_BINDER_INFO              (1<<18)
+#define DB_OPT_WCN_ISSUE_INFO           (1<<19)
+#define DB_OPT_DUMMY_DUMP               (1<<20)
+#define DB_OPT_PID_MEMORY_INFO          (1<<21)
+#define DB_OPT_VM_OOME_HPROF            (1<<22)
+#define DB_OPT_PID_SMAPS                (1<<23)
+#define DB_OPT_PROC_CMDQ_INFO           (1<<24)
+#define DB_OPT_PROC_USKTRK              (1<<25)
+#define DB_OPT_SF_RTT_DUMP              (1<<26)
+#define DB_OPT_PAGETYPE_INFO            (1<<27)
+#define DB_OPT_DUMPSYS_PROCSTATS        (1<<28)
+#define DB_OPT_DUMP_DISPLAY             (1<<29)
+#define DB_OPT_NATIVE_BACKTRACE		(1<<30)
+#define DB_OPT_AARCH64			(1<<31)
 
-/*
- * AEE_FMT allow you to set the:
- *     @opt - DB dump option bits
- *     @level - exception level, only support 'W' and 'E'
- *     @module - the name of your module
- *     @msg - the debug message
- *
- * It is used as the 'format' arg of WARN functions.
- * e.g., WARN(1, AEE_FMT, DB_OPT_DUMMY_DUMP, 'W', "aee", "test")
- * You can use aee_kernel_xxx APIs directly, or use WARN like this insteadly.
- *
- * If you choose the WARN way, and use the default opt value, then you
- * do NOT have to include the aee.h in your c file, you can just copy the
- * defining of AEE_FMT to your c file insteadly.
- */
-#define AEE_FMT "AEE:opt=0x%x level=%c module=%s msg=%s"
-
-#define AEE_API_CALL_INTERVAL   (120 * HZ)
-#define AEE_API_CALL_BURST      2
-
-#if defined(MODULE) || IS_BUILTIN(CONFIG_MTK_AEE_AED)
-#define aee_kernel_exception(module, msg...)		\
-({							\
-	static DEFINE_RATELIMIT_STATE(__func__##_rs,	\
-			AEE_API_CALL_INTERVAL,		\
-			AEE_API_CALL_BURST);		\
-							\
-	if (__ratelimit(&(__func__##_rs)))		\
-		aee_kernel_exception_api_func(__FILE__, __LINE__,	\
-			DB_OPT_DEFAULT, module, msg);	\
-})
-#define aee_kernel_warning(module, msg...)		\
-({							\
-	static DEFINE_RATELIMIT_STATE(__func__##_rs,	\
-			AEE_API_CALL_INTERVAL,		\
-			AEE_API_CALL_BURST);		\
-							\
-	if (__ratelimit(&(__func__##_rs)))		\
-		aee_kernel_warning_api_func(__FILE__, __LINE__,	\
-			DB_OPT_DEFAULT, module, msg);		\
-})
-
-#define aee_kernel_exception_api(file, line, db_opt, module, msg...)	\
-({									\
-	static DEFINE_RATELIMIT_STATE(__func__##_rs,			\
-			AEE_API_CALL_INTERVAL,				\
-			AEE_API_CALL_BURST);				\
-	if (__ratelimit(&(__func__##_rs)))				\
-		aee_kernel_exception_api_func(__FILE__, __LINE__,	\
-			db_opt, module, msg);				\
-})
-
-#define aee_kernel_warning_api(file, line, db_opt, module, msg...)	\
-({									\
-	static DEFINE_RATELIMIT_STATE(__func__##_rs,			\
-			AEE_API_CALL_INTERVAL,				\
-			AEE_API_CALL_BURST);				\
-	if (aee_is_printk_too_much(module))				\
-		aee_kernel_warning_api_func(__FILE__, __LINE__, db_opt,	\
-				module, msg);				\
-	else if (__ratelimit(&(__func__##_rs)))				\
-		aee_kernel_warning_api_func(__FILE__, __LINE__, db_opt,	\
-				module, msg);				\
-})
-#else
-#undef aee_kernel_warning
-#define aee_kernel_warning(module, msg...) WARN(1, msg)
-
-#undef aee_kernel_warning_api
-#define aee_kernel_warning_api(file, line, db_opt, module, msg...) \
-	WARN(1, msg)
-
-#undef aee_kernel_exception
-#define aee_kernel_exception(module, msg...) WARN(1, msg)
-
-#undef aee_kernel_exception_api
-#define aee_kernel_exception_api(file, line, db_opt, module, msg...) \
-	WARN(1, msg)
-#endif
-
+#define aee_kernel_exception(module, msg...)	\
+	aee_kernel_exception_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
+			module, msg)
+#define aee_kernel_warning(module, msg...)	\
+	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
+			module, msg)
 #define aee_kernel_reminding(module, msg...)	\
 	aee_kernel_reminding_api(__FILE__, __LINE__, DB_OPT_DEFAULT,	\
 			module, msg)
@@ -251,10 +279,10 @@ extern char *mtk8250_uart_dump(void);
 	aed_common_exception_api(assert_type, log, log_size, phy,	\
 			phy_size, detail, DB_OPT_DEFAULT)
 
-void aee_kernel_exception_api_func(const char *file, const int line,
+void aee_kernel_exception_api(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...);
-void aee_kernel_warning_api_func(const char *file, const int line,
-		const int db_opt, const char *module, const char *msg, ...);
+void aee_kernel_warning_api(const char *file, const int line, const int db_opt,
+		const char *module, const char *msg, ...);
 void aee_kernel_reminding_api(const char *file, const int line,
 		const int db_opt, const char *module, const char *msg, ...);
 
@@ -270,6 +298,20 @@ void aed_common_exception_api(const char *assert_type, const int *log, int
 			log_size, const int *phy, int phy_size, const char
 			*detail, const int db_opt);
 
-int aee_is_printk_too_much(const char *module);
-void aee_sram_printk(const char *fmt, ...);
-#endif/* __AEE_H__ */
+/* QHQ RT Monitor */
+void aee_kernel_RT_Monitor_api(int lParam);
+/* QHQ RT Monitor    end */
+void mt_fiq_printf(const char *fmt, ...);
+void aee_register_api(struct aee_kernel_api *aee_api);
+void aee_wdt_dump_info(void);
+void aee_wdt_printf(const char *fmt, ...);
+
+void aee_fiq_ipi_cpu_stop(void *arg, void *regs, void *svc_sp);
+
+#ifdef CONFIG_MACH_MT6763
+extern void msdc_hang_detect_dump(u32 id);
+extern void mtk_wdt_mode_config(bool dual_mode_en,
+		bool irq, bool ext_en, bool ext_pol, bool wdt_en);
+#endif
+
+#endif				/* __AEE_H__ */

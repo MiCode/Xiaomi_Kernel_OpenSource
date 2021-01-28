@@ -6,32 +6,33 @@
 #include <stdarg.h>
 #include <linux/crc32.h>
 #include <linux/delay.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/mm.h>
+#include <mt-plat/aee.h>
 #include <linux/elf.h>
 #include <linux/elfcore.h>
 #include <linux/kallsyms.h>
-#include <linux/kdebug.h>
-#include <linux/kernel.h>
-#include <linux/kexec.h>
 #include <linux/miscdevice.h>
-#include <linux/mm.h>
-#include <linux/module.h>
-#include <linux/processor.h>
+#include <mt-plat/aee.h>
+#include <mt-plat/mboot_params.h>
 #include <linux/reboot.h>
 #include <linux/stacktrace.h>
 #include <linux/vmalloc.h>
-#include <asm/kexec.h>
+#include <linux/elfcore.h>
+#include <linux/kexec.h>
 #include <asm/pgtable.h>
-
-#if IS_ENABLED(CONFIG_MTK_WATCHDOG)
-#include <ext_wd_drv.h>
-#endif
-#include <mt-plat/aee.h>
-#if IS_ENABLED(CONFIG_FIQ_GLUE)
+#include <asm/kexec.h>
+#include <linux/processor.h>
+#if defined(CONFIG_FIQ_GLUE)
 #include <mt-plat/fiq_smp_call.h>
 #endif
-#include <mt-plat/mboot_params.h>
 #include <mrdump.h>
+#include <linux/kdebug.h>
 #include "mrdump_private.h"
+#ifdef CONFIG_MTK_WATCHDOG
+#include <ext_wd_drv.h>
+#endif
 
 static int crashing_cpu;
 
@@ -123,13 +124,7 @@ static void aee_kdump_cpu_stop(void *arg, void *regs, void *svc_sp)
 
 	local_irq_disable();
 
-/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
 	dis_D_inner_flush_all();
-#else
-	pr_info("dis_D_inner_flush_all invalid");
-#endif
-
 	while (1)
 		cpu_relax();
 }
@@ -172,13 +167,7 @@ static void mrdump_stop_noncore_cpu(void *unused)
 
 	local_irq_disable();
 
-/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-#if IS_ENABLED(CONFIG_MEDIATEK_CACHE_API)
 	dis_D_inner_flush_all();
-#else
-	pr_info("dis_D_inner_flush_all invalid");
-#endif
-
 	while (1)
 		cpu_relax();
 }
@@ -252,7 +241,7 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 #endif
 
 		cpu = get_HW_cpuid();
-		if (cpu >= 0 && cpu < nr_cpu_ids) {
+		if (cpu >= 0 && cpu < AEE_MTK_CPU_NUMS) {
 			crashing_cpu = cpu;
 			/* null regs, no register dump */
 			if (regs) {
@@ -279,7 +268,36 @@ void __mrdump_create_oops_dump(enum AEE_REBOOT_MODE reboot_mode,
 	}
 }
 
-#if IS_ENABLED(CONFIG_SYSFS)
+int __init mrdump_full_init(void)
+{
+	if (!mrdump_cblock) {
+		memset(mrdump_lk, 0, sizeof(mrdump_lk));
+		pr_notice("%s: MT-RAMDUMP no control block\n", __func__);
+		return -EINVAL;
+	}
+
+	/* Allocate memory for saving cpu registers. */
+	crash_notes = alloc_percpu(note_buf_t);
+	if (!crash_notes) {
+		pr_notice("MT-RAMDUMP: Memory allocation for saving cpu register failed\n");
+		return -ENOMEM;
+	}
+
+	if (strcmp(mrdump_lk, MRDUMP_GO_DUMP)) {
+		pr_notice("%s: MT-RAMDUMP init failed, lk version %s not matched.\n",
+				__func__, mrdump_lk);
+		return -EINVAL;
+	}
+
+	mrdump_cblock->enabled = MRDUMP_ENABLE_COOKIE;
+	__inner_flush_dcache_all();
+	pr_info("%s: MT-RAMDUMP enabled done\n", __func__);
+	return 0;
+}
+
+#if CONFIG_SYSFS
+#ifndef CONFIG_KEXEC_CORE
+
 static ssize_t mrdump_version_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
 {
@@ -301,14 +319,8 @@ static struct attribute_group attr_group = {
 static int __init mrdump_sysfs_init(void)
 {
 	struct kobject *kobj;
-	struct kset *p_module_kset = aee_get_module_kset();
 
-	if (!p_module_kset) {
-		pr_notice("MT-RAMDUMP: Cannot find module_kset");
-		return -EINVAL;
-	}
-
-	kobj = kset_find_obj(p_module_kset, KBUILD_MODNAME);
+	kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
 	if (kobj) {
 		if (sysfs_create_group(kobj, &attr_group)) {
 			pr_notice("MT-RAMDUMP: sysfs create sysfs failed\n");
@@ -323,72 +335,10 @@ static int __init mrdump_sysfs_init(void)
 	pr_info("%s: done.\n", __func__);
 	return 0;
 }
-#ifndef MODULE
+
 module_init(mrdump_sysfs_init);
 #endif
 #endif
-
-/* 0444: S_IRUGO */
-#ifndef MODULE
-module_param_string(lk, mrdump_lk, sizeof(mrdump_lk), 0444);
-#else
-#define MRDUMP_LK_PT "mrdump.lk="
-static void __init mrdump_module_param_lk(void)
-{
-	const char *cmdline = mrdump_get_cmd();
-	char *ptr_s;
-	char *ptr_e;
-
-	ptr_s = strstr(cmdline, MRDUMP_LK_PT);
-	if (ptr_s) {
-		ptr_s = strstr(ptr_s, "=") + 1;
-		ptr_e = strstr(ptr_s, " ");
-		if (ptr_e) {
-			strncpy(mrdump_lk, ptr_s, ptr_e - ptr_s);
-			mrdump_lk[ptr_e - ptr_s] = '\0';
-		} else {
-			strncpy(mrdump_lk, ptr_s, sizeof(mrdump_lk));
-		}
-	}
-}
-#endif
-
-int __init mrdump_full_init(void)
-{
-#ifdef MODULE
-	mrdump_module_param_lk();
-#endif
-	if (!mrdump_cblock) {
-		memset(mrdump_lk, 0, sizeof(mrdump_lk));
-		pr_notice("%s: MT-RAMDUMP no control block\n", __func__);
-		return -EINVAL;
-	}
-
-	/* Allocate memory for saving cpu registers. */
-	crash_notes = alloc_percpu(note_buf_t);
-	if (!crash_notes) {
-		pr_notice("MT-RAMDUMP: alloc mem fail for cpu registers\n");
-		return -ENOMEM;
-	}
-
-	if (strncmp(mrdump_lk, MRDUMP_GO_DUMP, strlen(MRDUMP_GO_DUMP))) {
-		pr_notice("%s[E]: MT-RAMDUMP, lk version %s not matched.\n",
-				__func__, mrdump_lk);
-		return -EINVAL;
-	}
-
-	mrdump_cblock->enabled = MRDUMP_ENABLE_COOKIE;
-	/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-	aee__flush_dcache_area(mrdump_cblock,
-			sizeof(struct mrdump_control_block));
-	pr_info("%s: MT-RAMDUMP enabled done\n", __func__);
-#if defined(MODULE)
-#if IS_ENABLED(CONFIG_SYSFS)
-	mrdump_sysfs_init();
-#endif
-#endif
-	return 0;
-}
 
 static int param_set_mrdump_lbaooo(const char *val,
 		const struct kernel_param *kp)
@@ -400,14 +350,15 @@ static int param_set_mrdump_lbaooo(const char *val,
 
 		if (!retval) {
 			mrdump_cblock->output_fs_lbaooo = mrdump_output_lbaooo;
-/* TODO: remove flush APIs after full ramdump support  HW_Reboot*/
-			aee__flush_dcache_area(mrdump_cblock,
-					sizeof(struct mrdump_control_block));
+			__inner_flush_dcache_all();
 		}
 	}
 
 	return retval;
 }
+
+/* 0444: S_IRUGO */
+module_param_string(lk, mrdump_lk, sizeof(mrdump_lk), 0444);
 
 /* sys/modules/mrdump/parameter/lbaooo */
 struct kernel_param_ops param_ops_mrdump_lbaooo = {

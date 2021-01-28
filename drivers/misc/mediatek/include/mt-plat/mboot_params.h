@@ -53,7 +53,7 @@ enum AEE_EXP_TYPE_NUM {
 	AEE_EXP_TYPE_HANG_DETECT = 5,
 };
 
-#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_clk(int id, u32 val);
 extern int aee_rr_reboot_reason_show(struct seq_file *m, void *v);
 extern int aee_rr_last_fiq_step(void);
@@ -210,8 +210,8 @@ extern void aee_rr_rec_last_init_func(unsigned long val);
 extern void aee_rr_rec_last_sync_func(unsigned long val);
 extern void aee_rr_rec_last_async_func(unsigned long val);
 extern void aee_rr_rec_set_bit_pmic_ext_buck(int bit, int loc);
-extern int aee_rr_init_thermal_temp(int num);
-extern int aee_rr_rec_thermal_temp(int index, s8 val);
+extern void aee_rr_init_thermal_temp(int num);
+extern void aee_rr_rec_thermal_temp(int index, s8 val);
 extern void aee_rr_rec_thermal_status(u8 val);
 extern void aee_rr_rec_thermal_ATM_status(u8 val);
 extern void aee_rr_rec_thermal_ktime(u64 val);
@@ -228,8 +228,9 @@ extern void aee_rr_rec_cpu_down_prepare_ktime(u64 val);
 extern void aee_rr_rec_cpu_dying_ktime(u64 val);
 extern void aee_rr_rec_cpu_dead_ktime(u64 val);
 extern void aee_rr_rec_cpu_post_dead_ktime(u64 val);
-extern void aee_rr_rec_hang_detect_timeout_count(unsigned int timeout);
 extern void aee_sram_fiq_log(const char *msg);
+extern void mboot_params_write(struct console *console, const char *s,
+				unsigned int count);
 extern void aee_sram_fiq_save_bin(const char *buffer, size_t len);
 
 extern int ipanic_kmsg_write(unsigned int part, const char *buf, size_t size);
@@ -925,11 +926,11 @@ static inline void aee_rr_rec_set_bit_pmic_ext_buck(int bit, int loc)
 {
 }
 
-static inline int aee_rr_init_thermal_temp(int num)
+static inline void aee_rr_init_thermal_temp(int num)
 {
 }
 
-static inline int aee_rr_rec_thermal_temp(int index, s8 val)
+static inline void aee_rr_rec_thermal_temp(int index, s8 val)
 {
 }
 
@@ -1001,12 +1002,12 @@ static inline void aee_rr_rec_cpu_post_dead_ktime(u64 val)
 {
 }
 
-static inline void aee_rr_rec_hang_detect_timeout_count(
-		unsigned int timeout)
+static inline void aee_sram_fiq_log(const char *msg)
 {
 }
 
-static inline void aee_sram_fiq_log(const char *msg)
+static inline void mboot_params_write(struct console *console, const char *s,
+				unsigned int count)
 {
 }
 

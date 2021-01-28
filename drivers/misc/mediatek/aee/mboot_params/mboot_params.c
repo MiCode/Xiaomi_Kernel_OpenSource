@@ -3,34 +3,30 @@
  * Copyright (C) 2015 MediaTek Inc.
  */
 
+#include <linux/slab.h>
 #include <linux/atomic.h>
 #include <linux/console.h>
 #include <linux/delay.h>
-#include <linux/file.h>
-#include <linux/fs.h>
 #include <linux/init.h>
-#include <linux/io.h>
-#include <linux/kthread.h>
-#include <linux/mm.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
+#include <linux/proc_fs.h>
+#include <linux/string.h>
+#include <linux/seq_file.h>
+#include <linux/uaccess.h>
+#include <linux/vmalloc.h>
+#include <linux/mm.h>
+#include <linux/fs.h>
+#include <linux/file.h>
+#include <linux/kthread.h>
 #include <linux/of.h>
 #include <linux/of_fdt.h>
 #include <linux/of_reserved_mem.h>
-#include <linux/platform_device.h>
-#include <linux/proc_fs.h>
 #include <linux/pstore.h>
-#include <linux/seq_file.h>
-#include <linux/sched/clock.h>
+#include <linux/io.h>
 #include <linux/sizes.h>
-#include <linux/slab.h>
-#include <linux/string.h>
-#include <linux/uaccess.h>
-#include <linux/vmalloc.h>
-
 #include <mt-plat/aee.h>
 #include "mboot_params_internal.h"
-#include "mrdump_helper.h"
-#include "mrdump_private.h"
 
 #define MBOOT_PARAMS_HEADER_STR_LEN 1024
 
@@ -43,7 +39,8 @@ static int mboot_params_init_done;
 static unsigned int old_wdt_status;
 static int mboot_params_clear;
 
-static char *mbootlog_buf;
+static char mbootlog_buffer[SZ_128K];
+static char *mbootlog_buf = mbootlog_buffer;
 static u32 mbootlog_buf_len = SZ_128K;
 static u32 mbootlog_first_idx;
 static u32 mbootlog_size;
@@ -57,7 +54,7 @@ struct last_reboot_reason {
 	/* 0xaeedeadX: X=1 (HWT), X=2 (KE), X=3 (nested panic) */
 	uint32_t exp_type;
 	uint64_t kaslr_offset;
-	uint64_t oops_in_progress_addr;
+	uint64_t mboot_params_buffer_addr;
 
 	uint32_t last_irq_enter[AEE_MTK_CPU_NUMS];
 	uint64_t jiffies_last_irq_enter[AEE_MTK_CPU_NUMS];
@@ -290,7 +287,6 @@ void get_mbootlog_buffer(unsigned long *addr,
 	if (mbootlog_size >= mbootlog_buf_len)
 		*start = (unsigned long)&mbootlog_first_idx;
 }
-EXPORT_SYMBOL(get_mbootlog_buffer);
 
 void sram_log_save(const char *msg, int count)
 {
@@ -340,7 +336,6 @@ void aee_sram_fiq_save_bin(const char *msg, size_t len)
 			sram_log_save("\n", 1);
 	}
 }
-EXPORT_SYMBOL(aee_sram_fiq_save_bin);
 
 void aee_disable_mboot_params_write(void)
 {
@@ -365,9 +360,8 @@ void aee_sram_fiq_log(const char *msg)
 	sram_log_save(msg, count);
 	FIQ_log_size += count;
 }
-EXPORT_SYMBOL(aee_sram_fiq_log);
 
-static void mboot_params_write(struct console *console, const char *s,
+void mboot_params_write(struct console *console, const char *s,
 		unsigned int count)
 {
 	unsigned long flags;
@@ -388,31 +382,6 @@ static struct console mboot_params = {
 	.flags = CON_PRINTBUFFER | CON_ENABLED | CON_ANYTIME,
 	.index = -1,
 };
-
-void aee_sram_printk(const char *fmt, ...)
-{
-	unsigned long long t;
-	unsigned long nanosec_rem;
-	va_list args;
-	int r, tlen;
-	char sram_printk_buf[256];
-
-	va_start(args, fmt);
-
-	preempt_disable();
-	t = cpu_clock(get_HW_cpuid());
-	nanosec_rem = do_div(t, 1000000000);
-	tlen = sprintf(sram_printk_buf, ">%5lu.%06lu< ", (unsigned long)t,
-			nanosec_rem / 1000);
-
-	r = vscnprintf(sram_printk_buf + tlen, sizeof(sram_printk_buf) - tlen,
-			fmt, args);
-
-	mboot_params_write(NULL, sram_printk_buf, r + tlen);
-	preempt_enable();
-	va_end(args);
-}
-EXPORT_SYMBOL(aee_sram_printk);
 
 void mboot_params_enable_console(int enabled)
 {
@@ -500,11 +469,41 @@ static int __init mboot_params_init(struct mboot_params_buffer *buffer,
 	register_console(&mboot_params);
 #endif
 	mboot_params_init_val();
-	mbootlog_buf = kzalloc(SZ_128K, GFP_KERNEL);
-	if (!mbootlog_buf)
-		pr_notice("mboot_params: mbootlog_buf(SYS_LAST_KMSG) invalid");
 	mboot_params_init_done = 1;
 	return 0;
+}
+
+static void *remap_lowmem(phys_addr_t start, phys_addr_t size)
+{
+	struct page **pages;
+	phys_addr_t page_start;
+	unsigned int page_count;
+	pgprot_t prot;
+	unsigned int i;
+	void *vaddr;
+
+	page_start = start - offset_in_page(start);
+	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
+
+	prot = pgprot_noncached(PAGE_KERNEL);
+
+	pages = kmalloc_array(page_count, sizeof(struct page *), GFP_KERNEL);
+	if (!pages)
+		return NULL;
+
+	for (i = 0; i < page_count; i++) {
+		phys_addr_t addr = page_start + i * PAGE_SIZE;
+
+		pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
+	}
+	vaddr = vmap(pages, page_count, VM_MAP, prot);
+	kfree(pages);
+	if (!vaddr) {
+		pr_notice("%s: Failed to map %u pages\n", __func__, page_count);
+		return NULL;
+	}
+
+	return vaddr + offset_in_page(start);
 }
 
 struct mem_desc_t {
@@ -515,26 +514,25 @@ struct mem_desc_t {
 };
 
 #ifdef CONFIG_OF
-static int __init dt_get_mboot_params(struct mem_desc_t *data)
+static int __init dt_get_mboot_params(unsigned long node, const char *uname,
+		int depth, void *data)
 {
 	struct mem_desc_t *sram;
-	struct device_node *np_chosen;
 
-	np_chosen = of_find_node_by_path("/chosen");
-	if (!np_chosen)
-		np_chosen = of_find_node_by_path("/chosen@0");
+	if (depth != 1 || (strcmp(uname, "chosen") != 0
+			&& strcmp(uname, "chosen@0") != 0))
+		return 0;
 
-	sram = (struct mem_desc_t *)of_get_property(np_chosen,
-						    "ram_console",
-						    NULL);
+	sram = (struct mem_desc_t *) of_get_flat_dt_prop(node,
+			"ram_console", NULL);
 	if (sram) {
 		pr_notice("mboot_params:[DT] 0x%x@0x%x, 0x%x(0x%x)\n",
 				sram->size, sram->start,
 				sram->def_type, sram->offset);
-		*data = *sram;
-		return 1;
+		*(struct mem_desc_t *) data = *sram;
 	}
-	return 0;
+
+	return 1;
 }
 #endif
 
@@ -570,15 +568,28 @@ static void mboot_params_fatal(const char *str)
 	pr_info("mboot_params: FATAL:%s\n", str);
 }
 
-extern void mrdump_mini_set_addr_size(unsigned int addr, unsigned int size);
+void __weak pstore_set_addr_size(unsigned int addr, unsigned int size,
+		unsigned int console_size, unsigned int pmsg_size)
+{
+}
+void __weak mrdump_mini_set_addr_size(unsigned int addr, unsigned int size)
+{
+}
+
+void __weak sram_log_store_set_addr_size(unsigned int addr, unsigned int size)
+{
+}
 
 static void mboot_params_parse_memory_info(struct mem_desc_t *sram,
 		struct mboot_params_memory_info *p_memory_info)
 {
 	struct mboot_params_memory_info *memory_info;
 	u32 magic1, magic2;
+	u32 log_store_addr, log_store_size;
 	u32 mrdump_addr, mrdump_size;
 	u32 dram_addr, dram_size;
+	u32 pstore_addr, pstore_size;
+	u32 pstore_console_size, pstore_pmsg_size;
 	u32 mini_addr, mini_size;
 
 	if (sram->offset > sram->size) {
@@ -592,16 +603,27 @@ static void mboot_params_parse_memory_info(struct mem_desc_t *sram,
 		}
 		magic1 = memory_info->magic1;
 		magic2 = memory_info->magic2;
+		log_store_addr = memory_info->sram_log_store_addr;
+		log_store_size = memory_info->sram_log_store_size;
 		mrdump_addr = memory_info->mrdump_addr;
 		mrdump_size = memory_info->mrdump_size;
 		dram_addr = memory_info->dram_addr;
 		dram_size = memory_info->dram_size;
+		pstore_addr = memory_info->pstore_addr;
+		pstore_size = memory_info->pstore_size;
+		pstore_console_size = memory_info->pstore_console_size;
+		pstore_pmsg_size = memory_info->pstore_pmsg_size;
 		mini_addr = memory_info->mrdump_mini_header_addr;
 		mini_size = memory_info->mrdump_mini_header_size;
 
 		if (magic1 == MEM_MAGIC1 && magic2 == MEM_MAGIC2) {
+			pstore_set_addr_size(pstore_addr, pstore_size,
+				pstore_console_size, pstore_pmsg_size);
 			mrdump_mini_set_addr_size(mini_addr, mini_size);
-			pr_notice("mboot_params: [DT] 0x%x@0x%x\n",
+			sram_log_store_set_addr_size(log_store_addr,
+					log_store_size);
+			pr_notice("mboot_params: [DT] 0x%x@0x%x-0x%x@0x%x\n",
+					pstore_size, pstore_addr,
 					mini_size, mini_addr);
 			memcpy(p_memory_info, memory_info,
 				sizeof(struct mboot_params_memory_info));
@@ -609,6 +631,9 @@ static void mboot_params_parse_memory_info(struct mem_desc_t *sram,
 			pr_info("[DT] self (0x%x@0x%x)-0x%x@0x%x\n",
 					magic1, magic2,
 					dram_size, dram_addr);
+			pr_info("[DT] pstore 0x%x@0x%x-0x%x@0x%x\n",
+					pstore_size, pstore_addr,
+					pstore_console_size, pstore_pmsg_size);
 			pr_info("[DT] mrdump 0x%x@0x%x-0x%x@0x%x\n",
 					mini_size, mini_addr,
 					mrdump_size, mrdump_addr);
@@ -630,13 +655,19 @@ static int __init mboot_params_early_init(void)
 	struct mboot_params_memory_info memory_info_data = {0};
 	unsigned int start, size;
 
-	if (dt_get_mboot_params(&sram)) {
+	if (of_scan_flat_dt(dt_get_mboot_params, &sram)) {
 		mboot_params_parse_memory_info(&sram, &memory_info_data);
 		if (sram.def_type == MBOOT_PARAMS_DEF_SRAM) {
 			pr_info("mboot_params: using sram:0x%x\n", sram.start);
 			start = sram.start;
 			size  = sram.size;
 			bufp = ioremap_wc(sram.start, sram.size);
+		} else if (sram.def_type == MBOOT_PARAMS_DEF_DRAM) {
+			pr_info("mboot_params: using dram:0x%x\n",
+					memory_info_data.dram_addr);
+			start = memory_info_data.dram_addr;
+			size = memory_info_data.dram_size;
+			bufp = remap_lowmem(start, size);
 		} else {
 			pr_info("mboot_params: unknown def type:%d\n",
 					sram.def_type);
@@ -665,7 +696,8 @@ static int __init mboot_params_early_init(void)
 			mboot_params_fatal("ioremap failed");
 		}
 	} else {
-		mboot_params_fatal("OF not found property in dts");
+		pr_info("mboot_params: of_scan_flat_dt failed\n");
+		mboot_params_fatal("of_scan_flat_dt failed");
 	}
 #else
 	pr_notice("mboot_params: CONFIG_OF not set\n")
@@ -680,14 +712,33 @@ static int __init mboot_params_early_init(void)
 		return -ENODEV;
 }
 
-#ifdef MODULE
-int __init mrdump_module_init_mboot_params(void)
-{
-	return mboot_params_early_init();
-}
-#else
 console_initcall(mboot_params_early_init);
-#endif
+
+int mboot_params_pstore_reserve_memory(struct reserved_mem *rmem)
+{
+	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n", "mediatek,pstore",
+		 (unsigned long long)rmem->base,
+		 (unsigned long long)rmem->base +
+		 (unsigned long long)rmem->size,
+		 (unsigned long long)rmem->size);
+	return 0;
+}
+
+int mboot_params_binary_reserve_memory(struct reserved_mem *rmem)
+{
+	pr_info("[memblock]%s: 0x%llx - 0x%llx (0x%llx)\n",
+		"mediatek,mboot_params",
+		 (unsigned long long)rmem->base,
+		 (unsigned long long)rmem->base +
+		 (unsigned long long)rmem->size,
+		 (unsigned long long)rmem->size);
+	return 0;
+}
+
+RESERVEDMEM_OF_DECLARE(reserve_memory_pstore, "mediatek,pstore",
+		       mboot_params_pstore_reserve_memory);
+RESERVEDMEM_OF_DECLARE(reserve_memory_mboot_params, "mediatek,mboot_params",
+		       mboot_params_binary_reserve_memory);
 
 /* aee sram flags save */
 #define RR_BASE(stage)	\
@@ -719,8 +770,8 @@ static void mboot_params_init_val(void)
 #else
 	LAST_RR_SET(kaslr_offset, 0xd15ab1e);
 #endif
-	LAST_RR_SET(oops_in_progress_addr,
-		(unsigned long)(&oops_in_progress));
+	LAST_RR_SET(mboot_params_buffer_addr,
+		(unsigned long)&mboot_params_buffer);
 }
 
 void aee_rr_rec_fiq_step(u8 step)
@@ -729,7 +780,6 @@ void aee_rr_rec_fiq_step(u8 step)
 		return;
 	LAST_RR_SET(fiq_step, step);
 }
-EXPORT_SYMBOL(aee_rr_rec_fiq_step);
 
 int aee_rr_curr_fiq_step(void)
 {
@@ -743,7 +793,6 @@ void aee_rr_rec_exp_type(unsigned int type)
 	if (!LAST_RR_VAL(exp_type) && type < 16)
 		LAST_RR_SET(exp_type, MBOOT_PARAMS_EXP_TYPE_MAGIC | type);
 }
-EXPORT_SYMBOL(aee_rr_rec_exp_type);
 
 unsigned int aee_rr_curr_exp_type(void)
 {
@@ -751,7 +800,6 @@ unsigned int aee_rr_curr_exp_type(void)
 
 	return MBOOT_PARAMS_EXP_TYPE_DEC(exp_type);
 }
-EXPORT_SYMBOL(aee_rr_curr_exp_type);
 
 void aee_rr_rec_kaslr_offset(uint64_t offset)
 {
@@ -2088,7 +2136,6 @@ void aee_rr_rec_scp(void)
 	aee_rr_rec_scp_pc(pc);
 	aee_rr_rec_scp_lr(lr);
 }
-EXPORT_SYMBOL(aee_rr_rec_scp);
 
 void aee_rr_rec_last_init_func(unsigned long val)
 {
@@ -2140,7 +2187,6 @@ void aee_rr_rec_hang_detect_timeout_count(unsigned int val)
 		return;
 	LAST_RR_SET(hang_detect_timeout_count, val);
 }
-EXPORT_SYMBOL(aee_rr_rec_hang_detect_timeout_count);
 
 unsigned long *aee_rr_rec_gz_irq_pa(void)
 {
@@ -2174,7 +2220,6 @@ int aee_rr_last_fiq_step(void)
 		return 0;
 	return LAST_RRR_VAL(fiq_step);
 }
-EXPORT_SYMBOL(aee_rr_last_fiq_step);
 
 typedef void (*last_rr_show_t) (struct seq_file *m);
 typedef void (*last_rr_show_cpu_t) (struct seq_file *m, int cpu);
@@ -2213,13 +2258,13 @@ void aee_rr_show_kaslr_offset(struct seq_file *m)
 	seq_printf(m, "Kernel Offset: 0x%llx\n", kaslr_offset);
 }
 
-void aee_rr_show_oops_in_progress_addr(struct seq_file *m)
+void aee_rr_show_mboot_params_buffer_addr(struct seq_file *m)
 {
-	uint64_t oops_in_progress_addr;
+	uint64_t mboot_params_buffer_addr;
 
-	oops_in_progress_addr = LAST_RRR_VAL(oops_in_progress_addr);
-	seq_printf(m, "&oops_in_progress: 0x%llx\n",
-		       oops_in_progress_addr);
+	mboot_params_buffer_addr = LAST_RRR_VAL(mboot_params_buffer_addr);
+	seq_printf(m, "&mboot_params_buffer: 0x%llx\n",
+		       mboot_params_buffer_addr);
 }
 
 void aee_rr_show_last_irq_enter(struct seq_file *m, int cpu)
@@ -3082,7 +3127,7 @@ void aee_rr_show_spm_firmware_version(struct seq_file *m)
 	int i;
 	uint32_t *ptr = (uint32_t *)get_spm_firmware_version(0);
 
-	if (ptr)
+	if (ptr != NULL)
 		for (i = 0; i < *ptr; i++)
 			seq_printf(m, "SPM firmware version(index %d) = %s\n",
 				i + 1,
@@ -3127,7 +3172,7 @@ last_rr_show_t aee_rr_show[] = {
 	aee_rr_show_fiq_step,
 	aee_rr_show_exp_type,
 	aee_rr_show_kaslr_offset,
-	aee_rr_show_oops_in_progress_addr,
+	aee_rr_show_mboot_params_buffer_addr,
 	aee_rr_show_last_pc,
 	aee_rr_show_last_bus,
 	aee_rr_show_mcdi,
@@ -3290,7 +3335,3 @@ int aee_rr_reboot_reason_show(struct seq_file *m, void *v)
 	}
 	return 0;
 }
-EXPORT_SYMBOL(aee_rr_reboot_reason_show);
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MediaTek AED Driver");
-MODULE_AUTHOR("MediaTek Inc.");
