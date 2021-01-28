@@ -208,6 +208,8 @@ struct mt6785_afe_private {
 	int speech_shm_init;
 	int speech_shm_usip;
 	int speech_shm_widx;
+	int speech_md_headversion;
+	int speech_md_version;
 };
 
 int mt6785_dai_adda_register(struct mtk_base_afe *afe);
