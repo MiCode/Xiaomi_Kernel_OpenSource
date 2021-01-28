@@ -39,7 +39,7 @@ void __attribute__((weak)) mt_cpuidle_framework_init(void)
  * @dev: the CPU
  */
 static int mtk_governor_select(struct cpuidle_driver *drv,
-				struct cpuidle_device *dev)
+				struct cpuidle_device *dev, bool *stop_tick)
 {
 	struct mtk_idle_device *data = this_cpu_ptr(&mtk_idle_devices);
 	int state;
@@ -84,7 +84,6 @@ static struct cpuidle_governor mtk_governor = {
 	.enable =	mtk_governor_enable_device,
 	.select =	mtk_governor_select,
 	.reflect =	mtk_governor_reflect,
-	.owner =	THIS_MODULE,
 };
 
 /*
