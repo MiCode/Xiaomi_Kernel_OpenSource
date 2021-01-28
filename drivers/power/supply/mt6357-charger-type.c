@@ -13,7 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/power_supply.h>
-#include <mt-plat/charger_type.h>
+#include <mtk_musb.h>
 
 /* ============================================================ */
 /* pmic control start*/

@@ -57,7 +57,6 @@
 #include <linux/of_address.h>
 #include <linux/reboot.h>
 
-#include <mt-plat/mtk_charger.h>
 #include "mtk_charger.h"
 
 struct tag_bootmode {
@@ -89,12 +88,6 @@ int chr_get_debug_level(void)
 		ret = info->log_level;
 
 	return ret;
-}
-
-int charger_manager_enable_high_voltage_charging(
-			struct charger_consumer *consumer, bool en)
-{
-	return 0;
 }
 
 void _wake_up_charger(struct mtk_charger *info)
