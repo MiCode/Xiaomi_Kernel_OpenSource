@@ -185,7 +185,7 @@ static const int vcama_idx[] = {
 };
 
 static const int vcamd_idx[] = {
-	4, 5, 6, 7, 9, 10,
+	4, 5, 6, 7, 9, 12,
 };
 
 static const int vldo28_idx[] = {
@@ -3895,7 +3895,7 @@ struct mtk_regulator mt_bucks[] = {
 	REGULAR_VOLTAGE_REGULATOR_BUCK_GEN(vmodem, buck,
 		500000, 1193750, 6250, 0, BUCK_VOL_EN, 1),
 	REGULAR_VOLTAGE_REGULATOR_BUCK_GEN(vcore, buck,
-		518750, 1193750, 6250, 0, BUCK_VOL_EN, 1),
+		518750, 1312500, 6250, 0, BUCK_VOL_EN, 1),
 	REGULAR_VOLTAGE_REGULATOR_BUCK_GEN(vproc, buck,
 		518750, 1312500, 6250, 0, BUCK_VOL_EN, 1),
 	REGULAR_VOLTAGE_REGULATOR_BUCK_GEN(vpa, buck,
