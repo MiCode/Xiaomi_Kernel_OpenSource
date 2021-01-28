@@ -20,6 +20,9 @@
 #include <linux/sched/idle.h>
 #include <linux/hypervisor.h>
 
+#if 1
+#include <linux/of.h>
+#endif
 #include "smpboot.h"
 
 enum {
@@ -564,7 +567,10 @@ void __init smp_init(void)
 {
 	int num_nodes, num_cpus;
 	unsigned int cpu;
-
+#if 1
+	struct device_node *dn = 0;
+	const char *smp_method = 0;
+#endif
 	idle_threads_init();
 	cpuhp_threads_init();
 
@@ -574,8 +580,20 @@ void __init smp_init(void)
 	for_each_present_cpu(cpu) {
 		if (num_online_cpus() >= setup_max_cpus)
 			break;
-		if (!cpu_online(cpu))
+		if (!cpu_online(cpu)) {
+#if 1
+			dn = of_get_cpu_node(cpu, NULL);
+			smp_method = of_get_property(dn, "smp-method", NULL);
+			if (smp_method != NULL) {
+				if (!strcmp("disabled", smp_method)) {
+					pr_info("CPU_%d SMP disabled!\n", cpu);
+					/*set_cpu_possible(cpu, false);*/
+					continue;
+				}
+			}
+#endif
 			cpu_up(cpu);
+		}
 	}
 
 	num_nodes = num_online_nodes();
