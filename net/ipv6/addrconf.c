@@ -3343,7 +3343,8 @@ static void addrconf_dev_config(struct net_device *dev)
 	    (dev->type != ARPHRD_IP6GRE) &&
 	    (dev->type != ARPHRD_IPGRE) &&
 	    (dev->type != ARPHRD_TUNNEL) &&
-	    (dev->type != ARPHRD_NONE)) {
+	    (dev->type != ARPHRD_NONE) &&
+	    (dev->type != ARPHRD_PUREIP)) {
 		/* Alas, we support only Ethernet autoconfiguration. */
 		return;
 	}

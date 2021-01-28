@@ -1066,7 +1066,9 @@ static int ccmni_init(int md_id, struct ccmni_ccci_ops *ccci_info)
 
 		/* init net device */
 		ccmni_dev_init(md_id, dev);
-		dev->type = ARPHRD_PPP;
+
+		/* used to support auto add ipv6 mroute */
+		dev->type = ARPHRD_PUREIP;
 
 		sprintf(dev->name, "%s%d", ctlb->ccci_ops->name, i);
 
