@@ -1188,7 +1188,7 @@ firmware_class.path=/vendor/firmware";
 	};
 
 	gce: gce@10238000 {
-		compatible = "mediatek,cmdq-ext", "syscon";
+		compatible = "mediatek,gce", "syscon";
 		reg = <0 0x10238000 0 0x4000>;
 		#clock-cells = <1>;
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_LOW>;
@@ -1315,7 +1315,7 @@ firmware_class.path=/vendor/firmware";
 		mdp_ccorr0 = <&mdp_ccorr>;
 		mm_mutex = <&disp_mutex0>;
 		sram_share_cnt = <1>;
-		sram_share_engine = <21>;
+		sram_share_engine = <10>;
 		sram_share_event = <710>;
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
@@ -1323,32 +1323,31 @@ firmware_class.path=/vendor/firmware";
 		mediatek,mailbox-gce = <&gce_mbox>;
 		thread_count = <16>;
 		secure_thread = <8 10>;
-		mdp-platform = <1>;
-		mboxes = <&gce_mbox 0 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox 1 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox 2 CMDQ_THR_PRIO_5 0>,
-			<&gce_mbox 3 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox 4 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox 5 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox 6 CMDQ_THR_PRIO_3 0>,
-			<&gce_mbox 7 CMDQ_THR_PRIO_2 0>,
+		mboxes = <&gce_mbox 0 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 1 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 2 0 CMDQ_THR_PRIO_5>,
+			<&gce_mbox 3 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 4 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 5 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox 6 200 CMDQ_THR_PRIO_3>,
+			<&gce_mbox 7 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_2>,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-			<&gce_mbox_svp 8 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox_svp 9 CMDQ_THR_PRIO_4 0>,
-			<&gce_mbox_svp 10 CMDQ_THR_PRIO_1 0>,
+			<&gce_mbox_svp 8 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox_svp 9 0 CMDQ_THR_PRIO_4>,
+			<&gce_mbox_svp 10 0 CMDQ_THR_PRIO_1>,
 #else
-			<&gce_mbox 8 CMDQ_THR_PRIO_1 0>,
-			<&gce_mbox 9 CMDQ_THR_PRIO_1 0>,
-			<&gce_mbox 10 CMDQ_THR_PRIO_1 0>,
+			<&gce_mbox 8 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 9 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 10 0 CMDQ_THR_PRIO_1>,
 #endif
-			<&gce_mbox 11 0 CMDQ_THR_PRIO_1 0>,
-			<&gce_mbox 12 0 CMDQ_THR_PRIO_1 0>,
-			<&gce_mbox 13 0 CMDQ_THR_PRIO_1 0>,
-			<&gce_mbox 14 0 CMDQ_THR_PRIO_1 0>,
+			<&gce_mbox 11 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 13 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 14 0 CMDQ_THR_PRIO_1>,
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-			<&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1 0>;
+			<&gce_mbox 15 CMDQ_NO_TIMEOUT CMDQ_THR_PRIO_1>;
 #else
-			<&gce_mbox 15 0 CMDQ_THR_PRIO_1 0>;
+			<&gce_mbox 15 0 CMDQ_THR_PRIO_1>;
 #endif
 	};
 
@@ -1358,10 +1357,17 @@ firmware_class.path=/vendor/firmware";
 		interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_LOW>;
 		#mbox-cells = <3>;
 		#gce-event-cells = <1>;
-		#gce-subsys-cells = <3>;
+		#gce-subsys-cells = <2>;
+		default_tokens = /bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_0>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_1>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_2>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_3>,
+			/bits/ 16 <CMDQ_SYNC_TOKEN_GPR_SET_4>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT0>,
+			/bits/ 16 <CMDQ_SYNC_RESOURCE_WROT1>;
 		clocks = <&infracfg_ao CLK_IFR_GCE>,
 			<&infracfg_ao CLK_IFR_GCE_26M>;
-		clock-names = "gce", "GCE_TIMER";
+		clock-names = "gce", "gce-timer";
 	};
 
 #if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
