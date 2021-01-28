@@ -164,6 +164,7 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 	struct cmdq_pkt *cmdq_handle, *cmdq_handle2;
 	struct mtk_drm_esd_ctx *esd_ctx;
 	int ret = 0;
+	struct mtk_drm_private *priv = crtc->dev->dev_private;
 
 	DDPINFO("[ESD]ESD read panel\n");
 
@@ -232,6 +233,19 @@ int _mtk_esd_check_read(struct drm_crtc *crtc)
 		mtk_disp_mutex_trigger(mtk_crtc->mutex[0], cmdq_handle);
 		mtk_ddp_comp_io_cmd(output_comp, cmdq_handle, COMP_REG_START,
 				    NULL);
+
+		if (mtk_drm_helper_get_opt(priv->helper_opt,
+					   MTK_DRM_OPT_SF_PF)) {
+			struct cmdq_pkt_buffer *buf = &(mtk_crtc->gce_obj.buf);
+
+			cmdq_pkt_mem_move(cmdq_handle, mtk_crtc->gce_obj.base,
+				buf->pa_base +
+				DISP_SLOT_SF_PRESENT_FENCE_CONF(
+							drm_crtc_index(crtc)),
+				buf->pa_base + DISP_SLOT_SF_PRESENT_FENCE(
+							drm_crtc_index(crtc)),
+				CMDQ_THR_SPR_IDX3);
+		}
 	}
 	esd_ctx = mtk_crtc->esd_ctx;
 	esd_ctx->chk_sta = 0;
@@ -612,7 +626,10 @@ static void mtk_disp_esd_chk_init(struct drm_crtc *crtc)
 	atomic_set(&esd_ctx->check_wakeup, 0);
 	atomic_set(&esd_ctx->ext_te_event, 0);
 	atomic_set(&esd_ctx->target_time, 0);
-	esd_ctx->chk_mode = READ_EINT;
+	if (panel_ext->params->cust_esd_check == 1)
+		esd_ctx->chk_mode = READ_LCM;
+	else
+		esd_ctx->chk_mode = READ_EINT;
 	mtk_drm_request_eint(crtc);
 
 	wake_up_process(esd_ctx->disp_esd_chk_task);

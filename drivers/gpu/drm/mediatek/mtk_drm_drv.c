@@ -1653,6 +1653,15 @@ void mtk_drm_suspend_release_present_fence(struct device *dev,
 				  atomic_read(&private->crtc_present[index]));
 }
 
+void mtk_drm_suspend_release_sf_present_fence(struct device *dev,
+					      unsigned int index)
+{
+	struct mtk_drm_private *private = dev_get_drvdata(dev);
+
+	mtk_release_sf_present_fence(private->session_id[index],
+			atomic_read(&private->crtc_sf_present[index]));
+}
+
 int mtk_drm_suspend_release_fence(struct device *dev)
 {
 	unsigned int i = 0;
@@ -1664,6 +1673,7 @@ int mtk_drm_suspend_release_fence(struct device *dev)
 	}
 	/* release present fence */
 	mtk_drm_suspend_release_present_fence(dev, 0);
+	mtk_drm_suspend_release_sf_present_fence(dev, 0);
 
 	return 0;
 }
@@ -1995,6 +2005,11 @@ int mtk_drm_get_display_caps_ioctl(struct drm_device *dev, void *data,
 #ifdef DRM_MMPATH
 	private->HWC_gpid = task_tgid_nr(current);
 #endif
+
+	if (mtk_drm_helper_get_opt(private->helper_opt, MTK_DRM_OPT_SF_PF) &&
+	    !mtk_crtc_is_frame_trigger_mode(private->crtc[0]))
+		caps_info->disp_feature_flag |=
+				DRM_DISP_FEATURE_SF_PRESENT_FENCE;
 
 	return ret;
 }
@@ -2431,6 +2446,9 @@ static const struct drm_ioctl_desc mtk_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(MTK_LAYERING_RULE, mtk_layering_rule_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_CRTC_GETFENCE, mtk_drm_crtc_getfence_ioctl,
+			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(MTK_CRTC_GETSFFENCE,
+			  mtk_drm_crtc_get_sf_fence_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),
 	DRM_IOCTL_DEF_DRV(MTK_WAIT_REPAINT, mtk_drm_wait_repaint_ioctl,
 			  DRM_UNLOCKED | DRM_AUTH | DRM_RENDER_ALLOW),

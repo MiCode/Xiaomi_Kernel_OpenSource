@@ -103,6 +103,7 @@ struct mtk_drm_private {
 	unsigned int num_sessions;
 	enum MTK_DRM_SESSION_MODE session_mode;
 	atomic_t crtc_present[MAX_CRTC];
+	atomic_t crtc_sf_present[MAX_CRTC];
 
 	struct device_node *mutex_node;
 	struct device *mutex_dev;
@@ -249,6 +250,8 @@ void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,
 int mtk_drm_suspend_release_fence(struct device *dev);
 void mtk_drm_suspend_release_present_fence(struct device *dev,
 					   unsigned int index);
+void mtk_drm_suspend_release_sf_present_fence(struct device *dev,
+					      unsigned int index);
 void mtk_drm_top_clk_prepare_enable(struct drm_device *drm);
 void mtk_drm_top_clk_disable_unprepare(struct drm_device *drm);
 struct mtk_panel_params *mtk_drm_get_lcm_ext_params(struct drm_crtc *crtc);
