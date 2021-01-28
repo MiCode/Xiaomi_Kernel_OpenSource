@@ -2701,11 +2701,6 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 		<&apmixed CLK_APMIXED_MIPIC0_26M>,
 		<&apmixed CLK_APMIXED_MIPIC1_26M>,
 		<&mipi_rx_ana_csi0a CLK_MIPI0A_CSR_CSI_EN_0A>,
-		<&mipi_rx_ana_csi0b CLK_MIPI0B_CSR_CSI_EN_0B>,
-		<&mipi_rx_ana_csi1a CLK_MIPI1A_CSR_CSI_EN_1A>,
-		<&mipi_rx_ana_csi1b CLK_MIPI1B_CSR_CSI_EN_1B>,
-		<&mipi_rx_ana_csi2a CLK_MIPI2A_CSR_CSI_EN_2A>,
-		<&mipi_rx_ana_csi2b CLK_MIPI2B_CSR_CSI_EN_2B>,
 		<&topckgen CLK_TOP_CAMTM_SEL>,
 		<&topckgen CLK_TOP_UNIVPLL2_D2>,
 		<&scpsys SCP_SYS_CAM>;
@@ -2726,11 +2721,6 @@ mipi_rx_ana_csi0b: mipi_rx_ana_csi0b@11c11000 {
 			"CLK_MIPI_C0_26M_CG",
 			"CLK_MIPI_C1_26M_CG",
 			"CLK_MIPI_ANA_0A_CG",
-			"CLK_MIPI_ANA_0B_CG",
-			"CLK_MIPI_ANA_1A_CG",
-			"CLK_MIPI_ANA_1B_CG",
-			"CLK_MIPI_ANA_2A_CG",
-			"CLK_MIPI_ANA_2B_CG",
 			"CLK_TOP_CAMTM_SEL_CG",
 			"CLK_TOP_CAMTM_208_CG",
 			"CLK_SCP_SYS_CAM";
