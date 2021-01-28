@@ -1805,13 +1805,17 @@ static void do_monitor_work(struct work_struct *work)
 	char string_container[128];
 
 	r = sprintf(string_container, "IN <");
-	for (i = 0; i < MTP_MAX_MONITOR_TYPE; i++)
-		r += sprintf(string_container + r, "%d ", monitor_in_cnt[i]);
+	if (r >= 0 && r < ARRAY_SIZE(string_container))
+		for (i = 0; i < MTP_MAX_MONITOR_TYPE; i++)
+			r += sprintf(string_container + r, "%d ",
+				monitor_in_cnt[i]);
 	MTP_DBG("%s>\n", string_container);
 
 	r = sprintf(string_container, "OUT <");
-	for (i = 0; i < MTP_MAX_MONITOR_TYPE; i++)
-		r += sprintf(string_container + r, "%d ", monitor_out_cnt[i]);
+	if (r >= 0 && r < ARRAY_SIZE(string_container))
+		for (i = 0; i < MTP_MAX_MONITOR_TYPE; i++)
+			r += sprintf(string_container + r, "%d ",
+				monitor_out_cnt[i]);
 	MTP_DBG("%s>\n", string_container);
 
 	if (likely(!monitor_time))
@@ -1819,8 +1823,10 @@ static void do_monitor_work(struct work_struct *work)
 
 	/* TIME PROFILING */
 	r = sprintf(string_container, "TIME <");
-	for (i = 0; i < MTP_MAX_MONITOR_TYPE; i++)
-		r += sprintf(string_container + r, "%lld ", ktime_ns[i]);
+	if (r >= 0 && r < ARRAY_SIZE(string_container))
+		for (i = 0; i < MTP_MAX_MONITOR_TYPE; i++)
+			r += sprintf(string_container + r, "%lld ",
+				ktime_ns[i]);
 	MTP_DBG("%s>\n", string_container);
 
 monitor_work_exit:
