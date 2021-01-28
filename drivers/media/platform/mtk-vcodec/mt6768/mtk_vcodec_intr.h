@@ -53,4 +53,6 @@ int mtk_vcodec_dec_irq_setup(struct platform_device *pdev,
 int mtk_vcodec_enc_irq_setup(struct platform_device *pdev,
 	struct mtk_vcodec_dev *dev);
 
+void mtk_vcodec_gce_timeout_dump(void *ctx);
+
 #endif /* _MTK_VCODEC_INTR_H_ */

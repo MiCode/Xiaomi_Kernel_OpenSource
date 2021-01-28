@@ -105,14 +105,14 @@ int vdec_if_decode(struct mtk_vcodec_ctx *ctx, struct mtk_vcodec_mem *bs,
 	int ret = 0;
 	unsigned int i = 0;
 
-	if (bs) {
+	if (bs && !ctx->dec_params.svp_mode) {
 		if ((bs->dma_addr & 63UL) != 0UL) {
 			mtk_v4l2_err("bs dma_addr should 64 byte align");
 			return -EINVAL;
 		}
 	}
 
-	if (fb) {
+	if (fb && !ctx->dec_params.svp_mode) {
 		for (i = 0; i < fb->num_planes; i++) {
 			if ((fb->fb_base[i].dma_addr & 511UL) != 0UL) {
 				mtk_v4l2_err("fb addr should 512 byte align");
@@ -192,17 +192,20 @@ void vdec_decode_prepare(void *ctx_prepare,
 	int hw_id)
 {
 	struct mtk_vcodec_ctx *ctx = (struct mtk_vcodec_ctx *)ctx_prepare;
+	int ret;
 
 	if (ctx == NULL)
 		return;
 
-	mtk_vdec_pmqos_prelock(ctx);
-	mtk_vdec_lock(ctx, hw_id);
-	mtk_vdec_pmqos_begin_frame(ctx);
+	mtk_vdec_pmqos_prelock(ctx, hw_id);
+	ret = mtk_vdec_lock(ctx, hw_id);
 
-	mtk_vcodec_set_curr_ctx(ctx->dev, ctx);
+	mtk_vcodec_set_curr_ctx(ctx->dev, ctx, hw_id);
 	mtk_vcodec_dec_clock_on(&ctx->dev->pm, hw_id);
-	enable_irq(ctx->dev->dec_irq[hw_id]);
+	if (ret == 0)
+		enable_irq(ctx->dev->dec_irq[hw_id]);
+
+	mtk_vdec_pmqos_begin_frame(ctx, hw_id);
 }
 EXPORT_SYMBOL_GPL(vdec_decode_prepare);
 
@@ -214,11 +217,17 @@ void vdec_decode_unprepare(void *ctx_unprepare,
 	if (ctx == NULL)
 		return;
 
+	if (ctx->dev->dec_sem[hw_id].count != 0) {
+		mtk_v4l2_err("HW not prepared, dec_sem[%d].count = %d",
+			hw_id, ctx->dev->dec_sem[hw_id].count);
+		return;
+	}
+	mtk_vdec_pmqos_end_frame(ctx, hw_id);
+
 	disable_irq(ctx->dev->dec_irq[hw_id]);
 	mtk_vcodec_dec_clock_off(&ctx->dev->pm, hw_id);
-	mtk_vcodec_set_curr_ctx(ctx->dev, NULL);
+	mtk_vcodec_set_curr_ctx(ctx->dev, NULL, hw_id);
 
-	mtk_vdec_pmqos_end_frame(ctx);
 	mtk_vdec_unlock(ctx, hw_id);
 }
 EXPORT_SYMBOL_GPL(vdec_decode_unprepare);

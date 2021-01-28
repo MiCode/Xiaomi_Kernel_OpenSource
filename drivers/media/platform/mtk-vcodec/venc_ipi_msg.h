@@ -21,9 +21,11 @@
 #include <linux/videodev2.h>
 #include "vcodec_ipi_msg.h"
 
-#define MTK_MAX_ENC_CODECS_SUPPORT       (32)
+#define MTK_MAX_ENC_CODECS_SUPPORT       (64)
 #define AP_IPIMSG_VENC_BASE 0xC000
 #define VCU_IPIMSG_VENC_BASE 0xD000
+#define VCU_IPIMSG_VENC_SEND_BASE 0xE000
+
 #define VENC_MAX_FB_NUM              VIDEO_MAX_FRAME
 #define VENC_MAX_BS_NUM              VIDEO_MAX_FRAME
 
@@ -46,10 +48,12 @@ enum venc_ipi_msg_id {
 	VCU_IPIMSG_ENC_ENCODE_DONE,
 	VCU_IPIMSG_ENC_DEINIT_DONE,
 	VCU_IPIMSG_ENC_QUERY_CAP_ACK,
-	VCU_IPIMSG_ENC_POWER_ON,
+	VCU_IPIMSG_ENC_ENCODE_ACK,
+
+	VCU_IPIMSG_ENC_POWER_ON = VCU_IPIMSG_VENC_SEND_BASE,
 	VCU_IPIMSG_ENC_POWER_OFF,
 	VCU_IPIMSG_ENC_WAIT_ISR,
-	VCU_IPIMSG_ENC_ENCODE_ACK
+	VCU_IPIMSG_ENC_PUT_BUFFER
 };
 
 /* enum venc_get_param_type - The type of set parameter used in
@@ -101,6 +105,7 @@ enum venc_set_param_type {
 	VENC_SET_PARAM_BITRATE_MODE,
 	VENC_SET_PARAM_ROI_ON,
 	VENC_SET_PARAM_HEIF_GRID_SIZE,
+	VENC_SET_PARAM_COLOR_DESC,
 };
 
 /**
@@ -386,9 +391,15 @@ struct venc_vcu_config {
 	__u32 roi_rc_qp;
 	__u32 roion;
 	__u32 heif_grid_size;
+	struct mtk_color_desc color_desc;
 	__u32 resolutionChange;
 	__u32 max_w;
 	__u32 max_h;
+	__u32 num_b_frame;
+	__u32 slbc_ready;
+	__u32 i_qp;
+	__u32 p_qp;
+	__u32 b_qp;
 };
 
 /**
@@ -465,6 +476,10 @@ struct venc_vsi {
 	__u32  sizeimage[VIDEO_MAX_PLANES];
 	struct ring_input_list list_free;
 	struct venc_info       venc;
+	__u32 sync_mode;
+	__u32 meta_size;
+	__u64 meta_addr;
+	__s16 meta_fd;
 };
 
 #endif /* _VENC_IPI_MSG_H_ */

@@ -2896,7 +2896,7 @@ defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
 		reg = <0 0x17000000 0 0x1000>,
 			<0 0x17020000 0 0x1000>;
 #ifdef CONFIG_MTK_IOMMU_V2
-		iommus = <&iommu M4U_PORT_HW_VDEC_MC_EXT>;
+		iommus = <&iommu M4U_PORT_VENC_RD_COMV>;
 #endif
 		mediatek,larb = <&smi_larb4>;
 		interrupts = <GIC_SPI 243 IRQ_TYPE_LEVEL_LOW>;

@@ -45,8 +45,6 @@ static void handle_query_cap_ack_msg(struct venc_vcu_ipi_query_cap_ack *msg)
 		(uintptr_t)msg->ap_inst_addr, msg->vcu_data_addr, msg->id);
 	/* mapping VCU address to kernel virtual address */
 	data = vcu_mapping_dm_addr(vcu->dev, msg->vcu_data_addr);
-	if (data == NULL)
-		return;
 	switch (msg->id) {
 	case GET_PARAM_CAPABILITY_SUPPORTED_FORMATS:
 		size = sizeof(struct mtk_video_fmt);
@@ -74,7 +72,7 @@ static void handle_enc_waitisr_msg(struct venc_vcu_inst *vcu,
 	msg->timeout = timeout;
 }
 
-static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
+int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 {
 	struct venc_vcu_ipi_msg_common *msg = data;
 	struct venc_vcu_inst *vcu;
@@ -95,6 +93,11 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 	}
 
 	vcu = (struct venc_vcu_inst *)(unsigned long)msg->venc_inst;
+	if ((vcu != priv) && (msg->msg_id < VCU_IPIMSG_VENC_SEND_BASE)) {
+		pr_info("%s, vcu:%p != priv:%p\n", __func__, vcu, priv);
+		return 1;
+	}
+
 	mtk_vcodec_debug(vcu, "msg_id %x inst %p status %d",
 					 msg->msg_id, vcu, msg->status);
 
@@ -116,8 +119,7 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 		/* Prevent slowmotion with GCE mode on,
 		 * user thread enter freezing while holding mutex (enc lock)
 		 */
-		if (ctx->use_gce)
-			current->flags |= PF_NOFREEZE;
+		current->flags |= PF_NOFREEZE;
 		break;
 	case VCU_IPIMSG_ENC_DEINIT_DONE:
 		break;
@@ -143,6 +145,10 @@ static int vcu_enc_ipi_handler(void *data, unsigned int len, void *priv)
 			handle_enc_waitisr_msg(vcu, data, 0);
 		ret = 1;
 		break;
+	case VCU_IPIMSG_ENC_PUT_BUFFER:
+		mtk_enc_put_buf(ctx);
+		ret = 1;
+		break;
 	case VCU_IPIMSG_ENC_ENCODE_ACK:
 		break;
 	default:
@@ -166,6 +172,8 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 							int len)
 {
 	int status;
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
 
 	mtk_vcodec_debug_enter(vcu);
 
@@ -177,7 +185,19 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 	if (vcu->abort)
 		return -EIO;
 
-	status = vcu_ipi_send(vcu->dev, vcu->id, msg, len);
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	vcu_put_file_lock();
+	if (task == NULL ||
+		vcu->daemon_pid != task->tgid) {
+		if (task)
+			mtk_vcodec_err(vcu, "send fail pid: inst %d curr %d",
+				vcu->daemon_pid, task->tgid);
+		vcu->abort = 1;
+		return -EIO;
+	}
+
+	status = vcu_ipi_send(vcu->dev, vcu->id, msg, len, vcu);
 	if (status) {
 		mtk_vcodec_err(vcu, "vcu_ipi_send msg_id %x len %d fail %d",
 					   *(uint32_t *)msg, len, status);
@@ -192,6 +212,22 @@ static int vcu_enc_send_msg(struct venc_vcu_inst *vcu, void *msg,
 
 	return 0;
 }
+
+
+void vcu_enc_set_pid(struct venc_vcu_inst *vcu)
+{
+	struct task_struct *task = NULL;
+	struct files_struct *f = NULL;
+
+	vcu_get_file_lock();
+	vcu_get_task(&task, &f, 0);
+	vcu_put_file_lock();
+	if (task != NULL)
+		vcu->daemon_pid = task->tgid;
+	else
+		vcu->daemon_pid = -1;
+}
+
 
 int vcu_enc_init(struct venc_vcu_inst *vcu)
 {
@@ -210,8 +246,8 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 	vcu->signaled = 0;
 	vcu->failure = 0;
 
-	status = vcu_ipi_register(vcu->dev, vcu->id, vcu_enc_ipi_handler,
-							  NULL, NULL);
+	status = vcu_ipi_register(vcu->dev, vcu->id, vcu->handler,
+							  NULL, vcu);
 	if (status) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail %d", status);
 		return -EINVAL;
@@ -220,11 +256,12 @@ int vcu_enc_init(struct venc_vcu_inst *vcu)
 	memset(&out, 0, sizeof(out));
 	out.msg_id = AP_IPIMSG_ENC_INIT;
 	out.venc_inst = (unsigned long)vcu;
+
+	vcu_enc_set_pid(vcu);
 	if (vcu_enc_send_msg(vcu, &out, sizeof(out))) {
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_INIT fail");
 		return -EINVAL;
 	}
-
 	mtk_vcodec_debug_leave(vcu);
 
 	return 0;
@@ -244,9 +281,10 @@ int vcu_enc_query_cap(struct venc_vcu_inst *vcu, unsigned int id, void *out)
 	mtk_vcodec_debug(vcu, "+ id=%X", AP_IPIMSG_ENC_QUERY_CAP);
 	vcu->dev = vcu_get_plat_device(vcu->ctx->dev->plat_dev);
 	vcu->id = (vcu->id == IPI_VCU_INIT) ? IPI_VENC_COMMON : vcu->id;
+	vcu->handler = vcu_enc_ipi_handler;
 
 	err = vcu_ipi_register(vcu->dev,
-		vcu->id, vcu_enc_ipi_handler, NULL, NULL);
+		vcu->id, vcu->handler, NULL, vcu);
 	if (err != 0) {
 		mtk_vcodec_err(vcu, "vcu_ipi_register fail status=%d", err);
 		return err;
@@ -258,6 +296,7 @@ int vcu_enc_query_cap(struct venc_vcu_inst *vcu, unsigned int id, void *out)
 	msg.ap_inst_addr = (uintptr_t)vcu;
 	msg.ap_data_addr = (uintptr_t)out;
 
+	vcu_enc_set_pid(vcu);
 	err = vcu_enc_send_msg(vcu, &msg, sizeof(msg));
 	mtk_vcodec_debug(vcu, "- id=%X ret=%d", msg.msg_id, err);
 
@@ -346,6 +385,9 @@ int vcu_enc_set_param(struct venc_vcu_inst *vcu,
 		out.data_item = 1;
 		out.data[0] = enc_param->heif_grid_size;
 		break;
+	case VENC_SET_PARAM_COLOR_DESC:
+		out.data_item = 0; // passed via vsi
+		break;
 	default:
 		mtk_vcodec_err(vcu, "id %d not supported", id);
 		return -EINVAL;
@@ -367,7 +409,9 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 				   struct mtk_vcodec_mem *bs_buf,
 				   unsigned int *bs_size)
 {
+
 	struct venc_ap_ipi_msg_enc out;
+	struct venc_vsi *vsi = (struct venc_vsi *)vcu->vsi;
 	unsigned int i, ret;
 
 	mtk_vcodec_debug(vcu, "bs_mode %d ->", bs_mode);
@@ -394,10 +438,22 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 			out.data_offset[i] =
 				frm_buf->fb_addr[i].data_offset;
 		}
-		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%x)",
+		if (frm_buf->has_meta) {
+			vsi->meta_fd =
+				get_mapped_fd(frm_buf->meta_dma);
+			vsi->meta_size = sizeof(struct mtk_hdr_dynamic_info);
+			vsi->meta_addr = frm_buf->meta_addr;
+		} else {
+			vsi->meta_fd = 0;
+			vsi->meta_size = 0;
+			vsi->meta_addr = 0;
+		}
+
+		mtk_vcodec_debug(vcu, " num_planes = %d input (dmabuf:%lx fd:%d), meta fd %d size %d %llx",
 			frm_buf->num_planes,
 			(unsigned long)frm_buf->fb_addr[0].dmabuf,
-			out.input_fd[0]);
+			out.input_fd[0], vsi->meta_fd, vsi->meta_size,
+			vsi->meta_addr);
 	}
 
 	if (bs_buf) {
@@ -420,6 +476,10 @@ int vcu_enc_encode(struct venc_vcu_inst *vcu, unsigned int bs_mode,
 		for (i = 0; i < frm_buf->num_planes; i++) {
 			if (frm_buf->fb_addr[i].dmabuf != NULL)
 				close_mapped_fd(out.input_fd[i]);
+		}
+		if (frm_buf->has_meta) {
+			close_mapped_fd(vsi->meta_fd);
+			dma_buf_put(frm_buf->meta_dma);
 		}
 	}
 
@@ -451,9 +511,7 @@ int vcu_enc_deinit(struct venc_vcu_inst *vcu)
 		mtk_vcodec_err(vcu, "AP_IPIMSG_ENC_DEINIT fail");
 		return -EINVAL;
 	}
-
-	if (vcu->ctx->use_gce)
-		current->flags &= ~PF_NOFREEZE;
+	current->flags &= ~PF_NOFREEZE;
 
 	mtk_vcodec_debug_leave(vcu);
 
@@ -465,7 +523,8 @@ int vcu_enc_set_ctx_for_gce(struct venc_vcu_inst *vcu)
 	int err = 0;
 
 	vcu_set_codec_ctx(vcu->dev,
-		(void *)vcu->ctx, VCU_VENC);
+		(void *)vcu->ctx, (void *)&vcu->ctx->dev->plat_dev->dev,
+		VCU_VENC);
 
 	return err;
 }

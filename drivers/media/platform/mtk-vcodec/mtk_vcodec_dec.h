@@ -24,20 +24,24 @@
 #define VCODEC_DEC_4K_CODED_HEIGHT      2304U
 #define MTK_VDEC_MAX_W  2048U
 #define MTK_VDEC_MAX_H  1088U
-#define MTK_MAX_CTRLS_HINT      20
 
 /**
  * struct vdec_fb  - decoder frame buffer
  * @fb_base     : frame buffer plane memory info
  * @status      : frame buffer status (vdec_fb_status)
  * @num_planes  : frame buffer plane number
+ * @timestamp : frame buffer timestamp
  * @index       : frame buffer index in vb2 queue
  */
 struct vdec_fb {
 	struct mtk_vcodec_mem   fb_base[VIDEO_MAX_PLANES];
 	unsigned int    status;
 	unsigned int    num_planes;
+	long long timestamp;
 	unsigned int    index;
+	int             general_buf_fd;
+	struct  dma_buf *dma_general_buf;
+	dma_addr_t dma_general_addr;
 };
 
 /**
@@ -81,6 +85,7 @@ struct mtk_video_dec_buf {
 	struct mtk_vcodec_mem bs_buffer;
 	struct vdec_fb  frame_buffer;
 	int     flags;
+	int     general_user_fd;
 };
 
 extern const struct v4l2_ioctl_ops mtk_vdec_ioctl_ops;
@@ -94,7 +99,7 @@ extern const struct v4l2_m2m_ops mtk_vdec_m2m_ops;
  * to ctx instance that get lock
  */
 void mtk_vdec_unlock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
-void mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
+int mtk_vdec_lock(struct mtk_vcodec_ctx *ctx, u32 hw_id);
 int mtk_vcodec_dec_queue_init(void *priv, struct vb2_queue *src_vq,
 	struct vb2_queue *dst_vq);
 void mtk_vcodec_dec_set_default_params(struct mtk_vcodec_ctx *ctx);

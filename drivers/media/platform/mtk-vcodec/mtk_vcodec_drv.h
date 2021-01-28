@@ -32,6 +32,8 @@
 #include "mtkbuf-dma-cache-sg.h"
 #endif
 
+#include "slbc_ops.h"
+
 #define MTK_VCODEC_DRV_NAME     "mtk_vcodec_drv"
 #define MTK_VCODEC_DEC_NAME     "mtk-vcodec-dec"
 #define MTK_VCODEC_ENC_NAME     "mtk-vcodec-enc"
@@ -42,6 +44,7 @@
 #define MTK_V4L2_BENCHMARK      0
 #define WAIT_INTR_TIMEOUT_MS    500
 #define SUSPEND_TIMEOUT_CNT     5000
+#define MTK_MAX_CTRLS_HINT      64
 
 /**
  * enum mtk_instance_type - The type of an MTK Vcodec instance.
@@ -87,6 +90,7 @@ enum mtk_encode_param {
 	MTK_ENCODE_PARAM_BITRATE_MODE = (1 << 11),
 	MTK_ENCODE_PARAM_ROI_ON = (1 << 12),
 	MTK_ENCODE_PARAM_GRID_SIZE = (1 << 13),
+	MTK_ENCODE_PARAM_COLOR_DESC = (1 << 14),
 };
 
 /*
@@ -108,8 +112,18 @@ enum venc_yuv_fmt {
 	VENC_YUV_FORMAT_32bitBGRA8888 = 14,
 	VENC_YUV_FORMAT_32bitARGB8888 = 15,
 	VENC_YUV_FORMAT_32bitABGR8888 = 16,
-	VENC_YUV_FORMAT_MT10 = 17,
-	VENC_YUV_FORMAT_P010 = 18,
+	VENC_YUV_FORMAT_32bitRGBA1010102 = 17,
+	VENC_YUV_FORMAT_32bitBGRA1010102 = 18,
+	VENC_YUV_FORMAT_32bitARGB1010102 = 19,
+	VENC_YUV_FORMAT_32bitABGR1010102 = 20,
+	VENC_YUV_FORMAT_32bitRGBA8888_AFBC = 21,
+	VENC_YUV_FORMAT_32bitBGRA8888_AFBC = 22,
+	VENC_YUV_FORMAT_32bitRGBA1010102_AFBC = 23,
+	VENC_YUV_FORMAT_32bitBGRA1010102_AFBC = 24,
+	VENC_YUV_FORMAT_MT10 = 25,
+	VENC_YUV_FORMAT_P010 = 26,
+	VENC_YUV_FORMAT_NV12_AFBC = 27,
+	VENC_YUV_FORMAT_NV12_10B_AFBC = 28,
 };
 
 /**
@@ -208,8 +222,13 @@ struct mtk_enc_params {
 	unsigned int    bitratemode;
 	unsigned int    roion;
 	unsigned int    heif_grid_size;
+	struct mtk_color_desc color_desc; // data from userspace
 	unsigned int    max_w;
 	unsigned int    max_h;
+	unsigned int    slbc_ready;
+	unsigned int    i_qp;
+	unsigned int    p_qp;
+	unsigned int    b_qp;
 };
 
 /*
@@ -249,9 +268,16 @@ struct venc_enc_param {
 	unsigned int bitratemode;
 	unsigned int roion;
 	unsigned int heif_grid_size;
+	// pointed to mtk_enc_params::color_desc
+	struct mtk_color_desc *color_desc;
 	unsigned int sizeimage[MTK_VCODEC_MAX_PLANES];
 	unsigned int max_w;
 	unsigned int max_h;
+	unsigned int num_b_frame;
+	unsigned int slbc_ready;
+	unsigned int i_qp;
+	unsigned int p_qp;
+	unsigned int b_qp;
 };
 
 /*
@@ -264,6 +290,9 @@ struct venc_frm_buf {
 	unsigned int num_planes;
 	u64 timestamp;
 	unsigned int roimap;
+	bool has_meta;
+	struct dma_buf *meta_dma;
+	dma_addr_t meta_addr;
 };
 
 /**
@@ -337,7 +366,7 @@ struct mtk_vcodec_ctx {
 	unsigned int errormap_info[VB2_MAX_FRAME];
 	u64 input_max_ts;
 
-	int int_cond;
+	int int_cond[MTK_VDEC_HW_NUM];
 	int int_type;
 	wait_queue_head_t queue[MTK_VDEC_HW_NUM];
 	unsigned int irq_status;
@@ -352,7 +381,10 @@ struct mtk_vcodec_ctx {
 	wait_queue_head_t fm_wq;
 	int input_driven;
 	int user_lock_hw;
-	int use_gce;
+	/* for user lock HW case release check */
+	int hw_locked[MTK_VDEC_HW_NUM];
+	int lock_abort;
+	int async_mode;
 	int oal_vcodec;
 
 	enum v4l2_colorspace colorspace;
@@ -363,6 +395,8 @@ struct mtk_vcodec_ctx {
 	int decoded_frame_cnt;
 	struct mutex buf_lock;
 	struct mutex worker_lock;
+	struct slbc_data sram_data;
+	int use_slbc;
 };
 
 /**
@@ -405,6 +439,7 @@ struct mtk_vcodec_dev {
 	struct v4l2_device v4l2_dev;
 	struct video_device *vfd_dec;
 	struct video_device *vfd_enc;
+	struct iommu_domain *io_domain;
 
 	struct v4l2_m2m_dev *m2m_dev_dec;
 	struct v4l2_m2m_dev *m2m_dev_enc;
@@ -412,7 +447,8 @@ struct mtk_vcodec_dev {
 	struct platform_device *vcu_plat_dev;
 	struct list_head ctx_list;
 	spinlock_t irqlock;
-	struct mtk_vcodec_ctx *curr_ctx;
+	struct mtk_vcodec_ctx *curr_dec_ctx[MTK_VDEC_HW_NUM];
+	struct mtk_vcodec_ctx *curr_enc_ctx[MTK_VENC_HW_NUM];
 	void __iomem *dec_reg_base[NUM_MAX_VDEC_REG_BASE];
 	void __iomem *enc_reg_base[NUM_MAX_VENC_REG_BASE];
 
@@ -440,6 +476,8 @@ struct mtk_vcodec_dev {
 	unsigned int enc_capability;
 
 	bool is_codec_suspending;
+
+	int dec_cnt;
 };
 
 static inline struct mtk_vcodec_ctx *fh_to_ctx(struct v4l2_fh *fh)
