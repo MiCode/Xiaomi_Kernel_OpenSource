@@ -7,6 +7,7 @@
  * lockdep subsystem internal functions and variables.
  */
 
+#ifdef CONFIG_LOCKDEP
 /*
  * Lock-class usage-state bits:
  */
@@ -185,10 +186,12 @@ DECLARE_PER_CPU(struct lockdep_stats, lockdep_stats);
 # define debug_atomic_dec(ptr)		do { } while (0)
 # define debug_atomic_read(ptr)		0
 #endif
+#endif /* CONFIG_LOCKDEP */
 
+#include <kernel/sched/sched.h>
 #ifdef CONFIG_MTK_LOCKING_AEE
 #include <mt-plat/aee.h>
-#include <kernel/sched/sched.h>
+
 #ifdef CONFIG_LOCKDEP
 extern bool is_critical_lock_held(void);
 #else
@@ -197,6 +200,18 @@ static bool is_critical_lock_held(void)
 	return false;
 }
 #endif
+
+static const char * const critical_lock_list[] = {
+	/* workqueue */
+	"&(&pool->lock)->rlock",
+	/* kmalloc */
+	"&(&n->list_lock)->rlock",
+	"&(&zone->lock)->rlock",
+	/* stacktrace */
+	"depot_lock",
+	/* console */
+	"&(&port->lock)->rlock"
+};
 #endif
 
 #ifdef CONFIG_MTK_AEE_IPANIC

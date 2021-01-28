@@ -16,8 +16,14 @@ endif
 
 ifeq ($(CONFIG_PROVE_LOCKING),y)
 ccflags-y += -DMTK_LOCK_DEBUG_NEW_DEPENDENCY
-ccflags-y += -DMTK_LOCK_MONITOR
+endif
+
+ifeq ($(CONFIG_LOCKDEP),y)
 ccflags-y += -DMTK_ENHANCE_LOCKDEP_PROC
+ccflags-y += -DMTK_LOCK_MONITOR
+endif
+
+ifeq ($(CONFIG_DEBUG_SPINLOCK),y)
 ifeq ($(CONFIG_MACH_MT6771),y)
 ccflags-y += -DMTK_DEBUG_SPINLOCK_V2
 else

@@ -75,7 +75,7 @@ module_param(lock_stat, int, 0644);
 static void lockdep_aee(void);
 
 #ifdef MTK_LOCK_DEBUG_NEW_DEPENDENCY
-#ifdef CONFIG_MTK_AEE_FEATURE
+#ifdef CONFIG_MTK_LOCKING_AEE
 //#define MTK_LOCK_DEBUG_NEW_DEPENDENCY_AEE
 #endif
 /*
@@ -126,7 +126,7 @@ static void lockdep_aee(void);
 
 #define MAX_LOCK_NAME  128
 
-/* MTK_LOCK_LOG_TO_FTRACE */
+#ifdef CONFIG_PROVE_LOCKING /* MTK_LOCK_LOG_TO_FTRACE */
 static noinline int
 trace_circular_bug(struct lock_list *this,
 		   struct lock_list *target,
@@ -156,6 +156,7 @@ static bool is_log_lock_held(struct task_struct *curr)
 	}
 	return false;
 }
+#endif
 
 #ifdef MTK_LOCK_MONITOR
 static char buf_lock[256];
@@ -4842,19 +4843,8 @@ void lockdep_rcu_suspicious(const char *file, const int line, const char *s)
 }
 EXPORT_SYMBOL_GPL(lockdep_rcu_suspicious);
 
-/* MTK_LOCK_LOG_TO_FTRACE */
-static void lock_dbg(const char *msg, ...)
-{
-	char buf[256];
-	va_list args;
-
-	va_start(args, msg);
-	vsnprintf(buf, sizeof(buf), msg, args);
-	va_end(args);
-
-	trace_lock_dbg(buf);
-}
-
+#if defined(CONFIG_PROVE_LOCKING) || defined(CONFIG_MTK_LOCKING_AEE) || \
+	defined(MTK_LOCK_MONITOR)
 static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
 {
 	char str[KSYM_NAME_LEN];
@@ -4874,6 +4864,20 @@ static void get_lock_name(struct lock_class *class, char name[MAX_LOCK_NAME])
 		snprintf(name, MAX_LOCK_NAME, "%s%s%s",
 			lock_name, name_version, subclass);
 	}
+}
+#endif
+
+#ifdef CONFIG_PROVE_LOCKING /* MTK_LOCK_LOG_TO_FTRACE */
+static void lock_dbg(const char *msg, ...)
+{
+	char buf[256];
+	va_list args;
+
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+
+	trace_lock_dbg(buf);
 }
 
 /*
@@ -5061,20 +5065,12 @@ trace_circular_bug(struct lock_list *this,
 
 	return 0;
 }
+#endif /* CONFIG_PROVE_LOCKING */
 
 #ifdef CONFIG_MTK_LOCKING_AEE
 #define MAX_LOCK_NAME 128
-static const char * const critical_lock_list[] = {
-	/* workqueue */
-	"&(&pool->lock)->rlock",
-	/* kmalloc */
-	"&(&n->list_lock)->rlock",
-	/* stacktrace */
-	"depot_lock",
-	/* console */
-	"&(&port->lock)->rlock"
-};
 
+/* check all locks held by the current task */
 bool is_critical_lock_held(void)
 {
 	int cpu;
@@ -5111,10 +5107,9 @@ bool is_critical_lock_held(void)
 		get_lock_name(class, name);
 
 		/* check if critical locks are held */
-		for (j = 0; j < ARRAY_SIZE(critical_lock_list); j++) {
+		for (j = 0; j < ARRAY_SIZE(critical_lock_list); j++)
 			if (!strcmp(name, critical_lock_list[j]))
 				return true;
-		}
 	}
 
 	return false;
@@ -5617,7 +5612,7 @@ static void show_debug_locks_state(void)
 	if (nr_list_entries >= MAX_LOCKDEP_ENTRIES)
 		snprintf(buf, sizeof(buf),
 			 "direct dependencies [%lu]", nr_list_entries);
-
+#ifdef CONFIG_PROVE_LOCKING
 	if (nr_lock_chains >= MAX_LOCKDEP_CHAINS)
 		snprintf(buf, sizeof(buf),
 			 "dependency chains [%lu]", nr_lock_chains);
@@ -5625,7 +5620,7 @@ static void show_debug_locks_state(void)
 	if (nr_chain_hlocks > MAX_LOCKDEP_CHAIN_HLOCKS)
 		snprintf(buf, sizeof(buf),
 			 "dependency chain hlocks [%d]", nr_chain_hlocks);
-
+#endif
 	if (nr_stack_trace_entries >= MAX_STACK_TRACE_ENTRIES - 1)
 		snprintf(buf, sizeof(buf),
 			 "stack-trace entries [%lu]", nr_stack_trace_entries);

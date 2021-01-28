@@ -14,7 +14,7 @@
 #include <linux/export.h>
 
 #include "lockdep_internals.h"
-static void spin_aee(const char *msg);
+static void spin_aee(const char *msg, raw_spinlock_t *lock);
 
 #if defined(MTK_DEBUG_SPINLOCK_V1) || defined(MTK_DEBUG_SPINLOCK_V2)
 #include <linux/sched/clock.h>
@@ -62,18 +62,6 @@ static void get_spin_lock_name(raw_spinlock_t *lock, char *name)
 	snprintf(name, MAX_LOCK_NAME, "%ps", lock);
 #endif
 }
-
-static bool is_critical_spinlock(raw_spinlock_t *lock)
-{
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	/* The lock is needed by kmalloc and aee_kernel_warning_api */
-	if (!strcmp(lock->dep_map.name, "&(&n->list_lock)->rlock"))
-		return true;
-	if (!strcmp(lock->dep_map.name, "depot_lock"))
-		return true;
-#endif
-	return false;
-}
 #endif /* MTK_DEBUG_SPINLOCK_V1 || MTK_DEBUG_SPINLOCK_V2 */
 
 #ifdef MTK_DEBUG_SPINLOCK_V2
@@ -82,8 +70,8 @@ static void spin_lock_get_timestamp(unsigned long long *ts)
 	*ts = sched_clock();
 }
 
-static void spin_lock_check_spinning_time(raw_spinlock_t *lock,
-					  unsigned long long ts)
+static void
+spin_lock_check_spinning_time(raw_spinlock_t *lock, unsigned long long ts)
 {
 	unsigned long long te;
 
@@ -102,34 +90,31 @@ static void spin_lock_check_spinning_time(raw_spinlock_t *lock,
 
 static void spin_lock_check_holding_time(raw_spinlock_t *lock)
 {
+	char name[MAX_LOCK_NAME];
+
 	/* check if holding time over 1 second */
-	if (lock->unlock_t - lock->lock_t > WARNING_TIME) {
-		char lock_name[MAX_LOCK_NAME];
-		char aee_str[128];
+	if (lock->unlock_t - lock->lock_t < WARNING_TIME)
+		return;
 
-		get_spin_lock_name(lock, lock_name);
-		pr_info("hold spinlock (%s)(%p) from [%lld.%06lu] to [%lld.%06lu], total %llu ms\n",
-			lock_name, lock,
-			sec_high(lock->lock_t), sec_low(lock->lock_t),
-			sec_high(lock->unlock_t), sec_low(lock->unlock_t),
-			msec_high(lock->unlock_t - lock->lock_t));
+	get_spin_lock_name(lock, name);
+	pr_info("hold spinlock (%s)(%p) from [%lld.%06lu] to [%lld.%06lu], total %llu ms\n",
+		name, lock,
+		sec_high(lock->lock_t), sec_low(lock->lock_t),
+		sec_high(lock->unlock_t), sec_low(lock->unlock_t),
+		msec_high(lock->unlock_t - lock->lock_t));
 
-		if (is_critical_spinlock(lock) || is_critical_lock_held())
-			return;
+	pr_info("========== The call trace of lock owner on CPU%d ==========\n",
+		raw_smp_processor_id());
+	dump_stack();
 
-		pr_info("========== The call trace of lock owner on CPU%d ==========\n",
-			raw_smp_processor_id());
-		dump_stack();
+#ifdef CONFIG_MTK_LOCKING_AEE
+	do {
+		char msg[64];
 
-#ifdef CONFIG_MTK_AEE_FEATURE
-		snprintf(aee_str, sizeof(aee_str),
-			 "Spinlock lockup: (%s) in %s\n",
-			 lock_name, current->comm);
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-			aee_str, "spinlock debugger\n");
+		snprintf(msg, sizeof(msg), "spinlock lockup: (%s)", name);
+		spin_aee(msg, lock);
+	} while (0);
 #endif
-	}
 }
 #else /* MTK_DEBUG_SPINLOCK_V2 */
 static inline void spin_lock_check_holding_time(raw_spinlock_t *lock)
@@ -197,7 +182,7 @@ static void spin_bug(raw_spinlock_t *lock, const char *msg)
 		return;
 
 	spin_dump(lock, msg);
-	spin_aee(msg);
+	spin_aee(msg, lock);
 }
 
 #define SPIN_BUG_ON(cond, lock, msg) if (unlikely(cond)) spin_bug(lock, msg)
@@ -233,7 +218,6 @@ static inline void debug_spin_unlock(raw_spinlock_t *lock)
 }
 
 #ifdef MTK_DEBUG_SPINLOCK_V1
-#define LOCK_CSD_IN_USE ((void *)-1L)
 static DEFINE_PER_CPU(call_single_data_t, spinlock_debug_csd);
 
 struct spinlock_debug_info {
@@ -252,19 +236,17 @@ static void show_cpu_backtrace(void *info)
 		raw_smp_processor_id());
 	dump_stack();
 
-	if (info != LOCK_CSD_IN_USE) {
-#ifdef CONFIG_MTK_AEE_FEATURE
-		char aee_str[128];
+#ifdef CONFIG_MTK_LOCKING_AEE
+	do {
+		raw_spinlock_t *lock = (raw_spinlock_t *)info;
+		char name[MAX_LOCK_NAME];
+		char msg[64];
 
-		snprintf(aee_str, sizeof(aee_str),
-			 "Spinlock lockup: (%s) in %s\n",
-			 (char *)info, current->comm);
-		aee_kernel_warning_api(__FILE__, __LINE__,
-			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
-			aee_str, "spinlock debugger\n");
+		get_spin_lock_name(lock, name);
+		snprintf(msg, sizeof(msg), "spinlock lockup: (%s)", name);
+		spin_aee(msg, lock);
+	} while (0);
 #endif
-		kfree(info);
-	}
 
 	csd = this_cpu_ptr(&spinlock_debug_csd);
 	csd->info = NULL;
@@ -372,19 +354,10 @@ static void __spin_lock_debug(raw_spinlock_t *lock)
 				continue;
 
 			/* mark csd is in use */
-			csd->info = LOCK_CSD_IN_USE;
+			csd->info = lock;
 			csd->func = show_cpu_backtrace;
 			csd->flags = 0;
 
-			if (!is_critical_spinlock(lock) &&
-			    !is_critical_lock_held()) {
-				csd->info = kmalloc(MAX_LOCK_NAME, GFP_ATOMIC);
-				if (!csd->info) {
-					print_once = 1;
-					continue;
-				}
-				strncpy(csd->info, lock_name, MAX_LOCK_NAME);
-			}
 			smp_call_function_single_async(owner_cpu, csd);
 		} else {
 			pr_info("(%s) recursive deadlock on CPU%d\n",
@@ -404,7 +377,7 @@ void do_raw_spin_lock(raw_spinlock_t *lock)
 	unsigned long long ts = 0;
 #endif
 	debug_spin_lock_before(lock);
-#ifdef MTK_DEBUG_SPINLOCK_V1
+#if defined(MTK_DEBUG_SPINLOCK_V1)
 	if (unlikely(!arch_spin_trylock(&lock->raw_lock)))
 		__spin_lock_debug(lock);
 #elif defined(MTK_DEBUG_SPINLOCK_V2)
@@ -528,20 +501,49 @@ void do_raw_write_unlock(rwlock_t *lock)
 	arch_write_unlock(&lock->raw_lock);
 }
 
-static void spin_aee(const char *msg)
-{
 #ifdef CONFIG_MTK_LOCKING_AEE
+static const char * const spinlock_white_list[] = {
+	/* debug only, showacpu() */
+	"show_lock"
+};
+
+/* check current spinlock in the lists or not */
+static bool is_critical_spinlock(raw_spinlock_t *lock)
+{
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	int i;
+
+	/* can not do aee dump */
+	for (i = 0; i < ARRAY_SIZE(critical_lock_list); i++)
+		if (!strcmp(lock->dep_map.name, critical_lock_list[i]))
+			return true;
+
+	/* needless to do aee dump */
+	for (i = 0; i < ARRAY_SIZE(spinlock_white_list); i++)
+		if (!strcmp(lock->dep_map.name, spinlock_white_list[i]))
+			return true;
+#endif
+	return false;
+}
+#endif
+
+static void spin_aee(const char *msg, raw_spinlock_t *lock)
+{
 	if (!strcmp(msg, "bad magic") ||
-		!strcmp(msg, "wrong CPU") ||
-		!strcmp(msg, "wrong owner") ||
-		!strcmp(msg, "already unlocked"))
+	    !strcmp(msg, "wrong CPU") ||
+	    !strcmp(msg, "wrong owner") ||
+	    !strcmp(msg, "recursion") ||
+	    !strcmp(msg, "cpu recursion") ||
+	    !strcmp(msg, "already unlocked"))
 		BUG_ON(1);
 
-	if (!is_critical_lock_held()) {
+#ifdef CONFIG_MTK_LOCKING_AEE
+	if (!is_critical_lock_held() &&
+	    !is_critical_spinlock(lock)) {
 		char aee_str[64];
 
 		snprintf(aee_str, sizeof(aee_str),
-			"%s: [%s]\n", current->comm, msg);
+			"%s: %s\n", current->comm, msg);
 		aee_kernel_warning_api(__FILE__, __LINE__,
 			DB_OPT_DUMMY_DUMP | DB_OPT_FTRACE,
 			aee_str, "spinlock debugger\n");
