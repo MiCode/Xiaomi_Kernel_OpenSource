@@ -37,7 +37,7 @@ static u8 mmc_crypto_cap_find(void *mmc_p,
 				  unsigned int data_unit_size)
 {
 	struct mmc_host *host = mmc_p;
-	enum mmc_crypto_alg mmc_alg;
+	enum mmc_crypto_alg mmc_alg = MMC_CRYPTO_ALG_INVALID;
 	u8 data_unit_mask, cap_idx;
 	enum mmc_crypto_key_size mmc_key_size = MMC_CRYPTO_KEY_SIZE_INVALID;
 	union mmc_crypto_cap_entry *ccap_array = host->crypto_cap_array;
