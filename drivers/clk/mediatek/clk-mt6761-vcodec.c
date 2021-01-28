@@ -13,7 +13,7 @@
 #include <dt-bindings/clock/mt6761-clk.h>
 
 /* get spm power status struct to register inside clk_data */
-struct pwr_status pwr_stat = GATE_PWR_STAT(0x180, 0x184, BIT(26));
+static struct pwr_status pwr_stat = GATE_PWR_STAT(0x180, 0x184, BIT(26));
 
 static const struct mtk_gate_regs venc_cg_regs = {
 	.set_ofs = 0x4,
