@@ -30,9 +30,9 @@
 #include <linux/signal.h>
 #include "mtk_selinux_warning.h"
 
-//#ifdef CONFIG_MTK_AEE_FEATURE
+#ifdef CONFIG_MTK_AEE_FEATURE
 #include <mt-plat/aee.h>
-//#endif
+#endif
 
 #define PRINT_BUF_LEN   100
 #define MOD		"SELINUX"
@@ -94,7 +94,7 @@ static const char *aee_av_filter_list[AEE_AV_FILTER_NUM] = {
 
 #define SKIP_PATTERN_NUM 5
 static const char *skip_pattern[SKIP_PATTERN_NUM] = {
-		"scontext=u:r:untrusted_app"
+	"scontext=u:r:untrusted_app"
 };
 
 static int mtk_check_filter(char *scontext);
@@ -173,12 +173,12 @@ static void mtk_check_av(char *data)
 						"[%s][WARNING]\nCR_DISPATCH_PROCESSNAME:%s\n",
 						MOD, pname);
 
-					if (selinux_enforcing) {
-						aee_kernel_warning_api(
-						__FILE__, __LINE__,
-						DB_OPT_DEFAULT,
-						printbuf, data);
-					}
+#ifdef CONFIG_MTK_AEE_FEATURE
+					aee_kernel_warning_api(
+							__FILE__, __LINE__,
+							DB_OPT_DEFAULT,
+							printbuf, data);
+#endif
 				}
 
 			}
@@ -253,8 +253,8 @@ void mtk_audit_hook(char *data)
 	/*check scontext is in warning list */
 	ret = mtk_check_filter(scontext);
 	if (ret >= 0) {
-		pr_debug("[%s]Enforce: %d, In AEE Warning List scontext: %s\n",
-			MOD, selinux_enforcing, scontext);
+		pr_debug("[%s], In AEE Warning List scontext: %s\n",
+			MOD, scontext);
 
 		if (!IS_ENABLED(CONFIG_MTK_AEE_FEATURE))
 			return;
@@ -297,11 +297,11 @@ void mtk_audit_hook(char *data)
 				"[%s][WARNING]\nCR_DISPATCH_PROCESSNAME:%s\n",
 				MOD, pname);
 
-			if (selinux_enforcing) {
-				aee_kernel_warning_api(__FILE__, __LINE__,
-				  DB_OPT_DEFAULT,
-				  printbuf, data);
-			}
+#ifdef CONFIG_MTK_AEE_FEATURE
+			aee_kernel_warning_api(__FILE__, __LINE__,
+					DB_OPT_DEFAULT,
+					printbuf, data);
+#endif
 
 			#ifdef ENABLE_CURRENT_NE_CORE_DUMP
 
