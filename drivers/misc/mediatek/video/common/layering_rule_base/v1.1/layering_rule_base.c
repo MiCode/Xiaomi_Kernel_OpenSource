@@ -763,6 +763,9 @@ static int ext_id_tuning(struct disp_layer_info *info, int disp)
 	int ovl_num;
 #endif
 
+	if (disp < 0)
+		return -EFAULT;
+
 	if (info->layer_num[disp] <= 0)
 		return 0;
 
