@@ -416,7 +416,8 @@ static ssize_t custom_hint_set_store(struct kobject *kobj,
 	int index[NUM_TOKEN] = {0};
 	int i;
 	char *packagename, *cmd, *val;
-	int value, feature, len;
+	int value = 0;
+	int feature, len;
 	GED_ERROR ret;
 
 	if (!((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)))
@@ -592,7 +593,7 @@ static ssize_t debug_store(struct kobject *kobj, struct kobj_attribute *attr,
 	char acBuffer[GED_SYSFS_MAX_BUFF_SIZE] = {0};
 	char *val;
 	int index[NUM_TOKEN] = {0};
-	int value;
+	int value = 0;
 	GED_ERROR ret;
 
 	if (!((count > 0) && (count < GED_SYSFS_MAX_BUFF_SIZE)))
