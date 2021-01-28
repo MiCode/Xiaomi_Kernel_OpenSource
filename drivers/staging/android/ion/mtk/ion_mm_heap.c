@@ -1603,12 +1603,11 @@ skip_client_entry:
 
 			heapid = buffer->heap->id;
 			cam_heap = ((1 << heapid) & ION_HEAP_CAMERA_MASK);
-			bug_info =
-				(struct ion_mm_buffer_info *)buffer->priv_virt;
-			pdbg = &bug_info->dbg_info;
-
 			if (((1 << heapid) & ION_HEAP_MULTIMEDIA_MASK) ||
 			    ((1 << heapid) & ION_HEAP_CAMERA_MASK)) {
+				bug_info =
+					(struct ion_mm_buffer_info *)buffer->priv_virt;
+				pdbg = &bug_info->dbg_info;
 				if ((1 << heapid) & ION_HEAP_MULTIMEDIA_MASK) {
 					mm_size += buffer->size;
 					mm_heap = buffer->heap;
