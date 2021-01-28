@@ -345,6 +345,38 @@ unlock_and_return:
  * Module related
  *****************************************************************************/
 
+/*
+ * ged driver probe
+ */
+static int ged_pdrv_probe(struct platform_device *pdev)
+{
+	int ret;
+
+	ret = ged_dvfs_init_opp_cost();
+	if (ret) {
+		GED_LOGE("@%s: failed to probe ged driver (%d)\n",
+		__func__, ret);
+	}
+
+	return ret;
+}
+
+static const struct of_device_id g_ged_of_match[] = {
+	{ .compatible = "mediatek,ged" },
+	{ /* sentinel */ }
+};
+static struct platform_driver g_ged_pdrv = {
+	.probe = ged_pdrv_probe,
+	.remove = NULL,
+	.driver = {
+		.name = "ged",
+		.owner = THIS_MODULE,
+		.of_match_table = g_ged_of_match,
+	},
+};
+
+
+
 static const struct file_operations ged_fops = {
 	.owner = THIS_MODULE,
 	.open = ged_open,
@@ -410,6 +442,8 @@ static void ged_exit(void)
 	ged_sysfs_exit();
 
 	remove_proc_entry(GED_DRIVER_DEVICE_NAME, NULL);
+
+	platform_driver_unregister(&g_ged_pdrv);
 }
 
 static int ged_init(void)
@@ -527,6 +561,14 @@ static int ged_init(void)
 
 	gpufreq_ged_log = 0;
 #endif /* GED_BUFFER_LOG_DISABLE */
+
+/* register platform driver */
+	err = platform_driver_register(&g_ged_pdrv);
+	if (err) {
+		GED_LOGE("@%s: failed to register ged driver\n",
+		__func__);
+		/* fall through as no impact */
+	}
 
 	return 0;
 
