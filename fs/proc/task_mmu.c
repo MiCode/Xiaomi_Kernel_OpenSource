@@ -1809,6 +1809,9 @@ static ssize_t reclaim_write(struct file *file, const char __user *buf,
 		for (vma = mm->mmap; vma; vma = vma->vm_next) {
 			reclaim_walk.private = vma;
 
+			if (vma->vm_flags & VM_LOCKED)
+				continue;
+
 			if (is_vm_hugetlb_page(vma))
 				continue;
 
