@@ -5,29 +5,27 @@
 
 
 #include <linux/arm-smccc.h>
-#include <linux/proc_fs.h>
-#include <linux/seq_file.h>
-#include <linux/delay.h>
-#include <linux/kthread.h>
-#include <linux/kallsyms.h>
-#include <linux/notifier.h>
-#include <linux/kprobes.h>
 #include <linux/cpumask.h>
-#include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/kallsyms.h>
 #include <linux/kdebug.h>
+#include <linux/kprobes.h>
+#include <linux/kthread.h>
+#include <linux/notifier.h>
+#include <linux/proc_fs.h>
 #include <linux/sched.h>
 #include <linux/sched/rt.h>
 #include <linux/sched/task.h>
-#include <uapi/linux/sched/types.h>
-#include <linux/uaccess.h>
+#include <linux/seq_file.h>
+#include <linux/slab.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h> /* for SMC ID table */
+#include <linux/uaccess.h>
 #include <linux/vmalloc.h>
-#include "aed.h"
+#include <uapi/linux/sched/types.h>
+
 #include <mt-plat/mrdump.h>
-#include <mrdump_private.h>
-#ifdef CONFIG_MTK_DRAM_LOG_STORE
-#include <log_store_kernel.h>
-#endif
+#include "aed.h"
+#include "mrdump_helper.h"
 
 #define BUFSIZE 128
 static int test_case;
@@ -53,8 +51,7 @@ void notrace wdt_atf_hang(void)
 	int cpu = get_HW_cpuid();
 
 	pr_notice(" CPU %d : %s\n", cpu, __func__);
-	// Fix me: arm64 removed this api already
-	// local_fiq_disable();
+
 	preempt_disable();
 	local_irq_disable();
 	while (1)
@@ -216,7 +213,7 @@ static ssize_t proc_generate_wdt_read(struct file *file,
 	int len = snprintf(buffer, BUFSIZE,
 			   "WDT test - Usage: [test case number:test cpu]\n");
 	if (len < 0)
-		pr_debug("%s: snprintf is error\n", __func__);
+		pr_notice("%s: snprintf failed\n", __func__);
 	if (*ppos)
 		return 0;
 	if (copy_to_user(buf, buffer, len)) {
@@ -372,17 +369,6 @@ static ssize_t proc_generate_oops_write(struct file *file,
 		return -EFAULT;
 	}
 
-#ifdef CONFIG_MTK_DRAM_LOG_STORE
-	if (strncmp(msg, "aee1", 4) == 0) {
-		set_emmc_config(KEDUMP_CTL, KEDUMP_ENABLE);
-		pr_info("kedump enabled\n");
-		return size;
-	} else if (strncmp(msg, "aee0", 4) == 0) {
-		set_emmc_config(KEDUMP_CTL, KEDUMP_DISABLE);
-		pr_info("kedump disabled\n");
-		return size;
-	}
-#endif
 	test_case = (unsigned int)msg[0] - '0';
 	test_subcase = (unsigned int)msg[2] - '0';
 	test_cpu = (unsigned int)msg[4] - '0';
@@ -565,16 +551,17 @@ static ssize_t proc_generate_md32_read(struct file *file, char __user *buf,
 	for (i = 0; i < TEST_MD32_PHY_SIZE; i++)
 		ptr[i] = (i % 26) + 'a';
 
-	len = sprintf(buffer, "MD32 EE log here\n");
-	if (len < 0)
-		pr_debug("%s: sprintf is error\n", __func__);
+	if (sprintf(buffer, "MD32 EE log here\n") < 0)
+		pr_info("%s: sprintf failed\n", __func__);
 	aed_md32_exception((int *)buffer, (int)sizeof(buffer), (int *)ptr,
 			TEST_MD32_PHY_SIZE, __FILE__);
 	vfree(ptr);
 
 	len = snprintf(buffer, BUFSIZE, "MD32 EE Generated\n");
-	if (len < 0)
-		pr_debug("%s: snprintf is error\n", __func__);
+	if (len < 0) {
+		pr_info("%s: snprintf failed\n", __func__);
+		return -EFAULT;
+	}
 	if (copy_to_user(buf, buffer, len)) {
 		pr_notice("%s fail to output info.\n", __func__);
 		return -EFAULT;
@@ -607,16 +594,17 @@ static ssize_t proc_generate_scp_read(struct file *file,
 	for (i = 0; i < TEST_SCP_PHY_SIZE; i++)
 		ptr[i] = (i % 26) + 'a';
 
-	len = sprintf(buffer, "SCP EE log here\n");
-	if (len < 0)
-		pr_debug("%s: sprintf is error\n", __func__);
+	if (sprintf(buffer, "SCP EE log here\n") < 0)
+		pr_info("%s: sprintf failed\n", __func__);
 	aed_scp_exception((int *)buffer, (int)sizeof(buffer), (int *)ptr,
 						TEST_SCP_PHY_SIZE, __FILE__);
 	vfree(ptr);
 
 	len = snprintf(buffer, BUFSIZE, "SCP EE Generated\n");
-	if (len < 0)
-		pr_debug("%s: snprintf is error\n", __func__);
+	if (len < 0) {
+		pr_info("%s: snprintf failed\n", __func__);
+		return -EFAULT;
+	}
 	if (copy_to_user(buf, buffer, len)) {
 		pr_notice("%s fail to output info.\n", __func__);
 		return -EFAULT;
@@ -677,7 +665,7 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 	if (msg[1] != ':')
 		return -EINVAL;
 	colon_ptr = strchr(&msg[2], ':');
-	if ((colon_ptr == NULL) || ((colon_ptr - msg) > 32)) {
+	if (!colon_ptr || ((colon_ptr - msg) > 32)) {
 		pr_notice("aed: %s cannot find valid module name\n", __func__);
 		return -EINVAL;
 	}
@@ -694,6 +682,7 @@ static ssize_t proc_generate_kernel_notify_write(struct file *file,
 
 	case 'E':
 		aee_kernel_exception(&msg[2], colon_ptr + 1);
+		WARN(1, AEE_FMT, 0, 'E', &msg[2], colon_ptr + 1);
 		break;
 
 	default:

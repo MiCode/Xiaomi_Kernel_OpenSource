@@ -6,7 +6,7 @@
 #include <linux/ptrace.h>
 #include <asm/stacktrace.h>
 #include <asm/system_misc.h>
-#include <asm/traps.h>
+
 #include <mt-plat/mrdump.h>
 #include "mrdump_private.h"
 
