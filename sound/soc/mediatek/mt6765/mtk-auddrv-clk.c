@@ -309,8 +309,6 @@ void AudDrv_AUDINTBUS_Sel(int parentidx)
 
 	clksys_set_reg(AUDIO_CLK_CFG_4_CLR, 0x3, 0x3);
 	clksys_set_reg(AUDIO_CLK_CFG_4_SET, parentidx, 0x3);
-	pr_debug("%s(), parentidx = %d, CLK_CFG_4 = 0x%08x\r\n",
-		 __func__, parentidx, clksys_get_reg(AUDIO_CLK_CFG_4));
 
 EXIT:
 	/* pr_debug("-%s()\n", __func__); */
