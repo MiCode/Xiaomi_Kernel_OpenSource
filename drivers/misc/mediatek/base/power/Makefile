@@ -45,3 +45,4 @@ obj-$(CONFIG_MACH_MT6771) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6739) += cpuhotplug/
 obj-$(CONFIG_MACH_MT6771) += ppm_v3/
 obj-$(CONFIG_MACH_MT6739) += ppm_v3/
+obj-$(CONFIG_MACH_MT6739) += dcm_v1/
