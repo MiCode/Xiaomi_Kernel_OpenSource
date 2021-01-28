@@ -427,7 +427,7 @@ static int ccmni_open(struct net_device *dev)
 		(struct ccmni_instance *)netdev_priv(dev);
 	struct ccmni_ctl_block *ccmni_ctl = ccmni_ctl_blk[ccmni->md_id];
 	struct ccmni_instance *ccmni_tmp = NULL;
-	int usage_cnt = 0, ret = 0;
+	int usage_cnt = 0;
 
 	if (unlikely(ccmni_ctl == NULL)) {
 		CCMNI_PR_DBG(ccmni->md_id,
@@ -451,11 +451,9 @@ static int ccmni_open(struct net_device *dev)
 		usage_cnt = atomic_read(&ccmni->usage);
 		atomic_set(&ccmni_tmp->usage, usage_cnt);
 	}
-	ret = mtk_ccci_handle_port_list(DEV_OPEN, dev->name);
-	if (ret)
-		CCMNI_INF_MSG(ccmni->md_id,
-			"%s is failed to handle port list\n",
-			dev->name);
+	queue_delayed_work(ccmni->worker,
+				&ccmni->pkt_queue_work,
+				msecs_to_jiffies(500));
 
 	CCMNI_INF_MSG(ccmni->md_id,
 		"%s_Open:cnt=(%d,%d), md_ab=0x%X, gro=(%llx, %ld), flt_cnt=%d\n",
@@ -479,6 +477,9 @@ static int ccmni_close(struct net_device *dev)
 			dev->name, ccmni->md_id);
 		return -1;
 	}
+
+	cancel_delayed_work(&ccmni->pkt_queue_work);
+	flush_delayed_work(&ccmni->pkt_queue_work);
 
 	atomic_dec(&ccmni->usage);
 	ccmni_tmp = ccmni_ctl->ccmni_inst[ccmni->index];
@@ -1009,6 +1010,18 @@ static void ccmni_napi_poll_timeout(unsigned long data)
 }
 
 
+static void get_queued_pkts(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct ccmni_instance *ccmni =
+		container_of(dwork, struct ccmni_instance, pkt_queue_work);
+
+	if (mtk_ccci_handle_port_list(DEV_OPEN, ccmni->dev->name))
+		CCMNI_INF_MSG(ccmni->md_id,
+			"%s is failed to handle port list\n",
+			ccmni->dev->name);
+}
+
 /********************ccmni driver register  ccci function********************/
 static inline int ccmni_inst_init(int md_id, struct ccmni_instance *ccmni,
 	struct net_device *dev)
@@ -1048,6 +1061,15 @@ static inline int ccmni_inst_init(int md_id, struct ccmni_instance *ccmni,
 
 	atomic_set(&ccmni->usage, 0);
 	spin_lock_init(ccmni->spinlock);
+
+	ccmni->worker = alloc_workqueue("ccmni%d_rx_q_worker",
+		WQ_UNBOUND | WQ_MEM_RECLAIM, 1, ccmni->index);
+	if (!ccmni->worker) {
+		CCMNI_PR_DBG(md_id, "%s alloc queue worker fail\n",
+			__func__);
+		return -1;
+	}
+	INIT_DELAYED_WORK(&ccmni->pkt_queue_work, get_queued_pkts);
 
 	return ret;
 }
