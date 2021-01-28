@@ -36,6 +36,7 @@
 #endif	/* CONFIG_MTK_SMI_EXT */
 
 #include "mdp_cmdq_helper_ext.h"
+#include "swpm_me.h"
 
 #include <linux/kernel.h>
 #include <linux/uaccess.h>
@@ -310,6 +311,7 @@ static void cmdq_mdp_common_clock_enable(void)
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock enable %d\n", smi_ref);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(true);
+	set_swpm_mdp_active(true);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
 		MMPROFILE_FLAG_PULSE, smi_ref, 1);
@@ -320,6 +322,7 @@ static void cmdq_mdp_common_clock_disable(void)
 	s32 smi_ref = atomic_dec_return(&mdp_ctx.mdp_smi_usage);
 
 	CMDQ_MSG("[CLOCK]MDP SMI clock disable %d\n", smi_ref);
+	set_swpm_mdp_active(false);
 	cmdq_mdp_get_func()->mdpEnableCommonClock(false);
 
 	CMDQ_PROF_MMP(mdp_mmp_get_event()->MDP_clock_smi,
