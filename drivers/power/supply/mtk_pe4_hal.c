@@ -493,18 +493,19 @@ int pe40_hal_get_adapter_status(struct chg_alg_device *alg,
 {
 	struct adapter_status sta;
 	struct pe40_hal *hal;
+	int ret = 0;
 
 	if (alg == NULL)
 		return -EINVAL;
 
 	hal = chg_alg_dev_get_drv_hal_data(alg);
-	adapter_dev_get_status(hal->adapter, &sta);
+	ret = adapter_dev_get_status(hal->adapter, &sta);
 	pe4_sta->temperature = sta.temperature;
 	pe4_sta->ocp = sta.ocp;
 	pe4_sta->otp = sta.otp;
 	pe4_sta->ovp = sta.ovp;
 
-	return 0;
+	return ret;
 }
 
 

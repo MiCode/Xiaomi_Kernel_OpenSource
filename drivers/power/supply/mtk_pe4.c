@@ -514,32 +514,21 @@ int mtk_pe40_pd_request(struct chg_alg_device *alg,
 		pe4_hal_set_input_current(alg, CHG1, ma * 1000);
 #endif
 
-	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, adapter_ma);
+	if (pe40->cap.pdp > 0 &&
+		adapter_mv * adapter_ma > pe40->cap.pdp * 1000000) {
+		*adapter_ibus = pe40->cap.pdp * 1000000 / adapter_mv;
+		pe4_hal_set_input_current(alg, CHG1, *adapter_ibus * 1000);
+	}
 
-	pe4_err("pe40_pd_req:vbus:%d ibus:%d input_current:%d ret:%d\n",
-		adapter_mv, adapter_ma, ma, ret);
+	ret = pe4_hal_set_adapter_cap(alg, adapter_mv, *adapter_ibus);
+
+	pe4_err("%s: vbus:%d ibus:%d ibus2:%d input_current:%d pdp:%d ret:%d\n",
+		__func__, adapter_mv, adapter_ma, *adapter_ibus, ma,
+		pe40->cap.pdp, ret);
 
 	if (ret == MTK_ADAPTER_PE4_REJECT) {
 		pe4_err("pe40_pd_req: reject\n");
-
-		if (pe40->cap.pdp > 0 &&
-			adapter_mv * adapter_ma > pe40->cap.pdp * 1000000) {
-			*adapter_ibus = pe40->cap.pdp * 1000000
-					/ adapter_mv;
-			ret = pe4_hal_set_adapter_cap(alg,
-				adapter_mv, *adapter_ibus);
-
-			pe4_err("pe40_pd_req:vbus:%d new_ibus:%d pdp:%d ret:%d\n",
-				adapter_mv, *adapter_ibus,
-				pe40->cap.pdp, ret);
-
-			if (ret == MTK_ADAPTER_PE4_OK)
-				ret = MTK_ADAPTER_PE4_ADJUST;
-
-			if (ret == MTK_ADAPTER_PE4_REJECT)
-				goto err;
-		} else
-			goto err;
+		goto err;
 	}
 
 #ifdef PE4_DUAL_CHARGER_IN_PARALLEL
@@ -661,8 +650,7 @@ int mtk_pe40_get_init_watt(struct chg_alg_device *alg)
 	ret = mtk_pe40_pd_request(alg, &voltage, &adapter_ibus,
 				input_current);
 
-	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT &&
-			ret != MTK_ADAPTER_PE4_ADJUST) {
+	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT) {
 		pe4_err("[pe40_i1] err:1 %d\n", ret);
 		return -1;
 	}
@@ -687,7 +675,7 @@ int mtk_pe40_get_init_watt(struct chg_alg_device *alg)
 		ret = mtk_pe40_pd_request(alg, &voltage, &adapter_ibus,
 			input_current);
 
-		if (ret != 0 && ret != MTK_ADAPTER_PE4_ADJUST) {
+		if (ret != 0) {
 			pe4_err("[pe40_i1] err:2 %d\n", ret);
 			return -1;
 		}
@@ -838,7 +826,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		ret = mtk_pe40_pd_request(alg, &voltage, &actual_current,
 					actual_current);
 
-		if (ret != 0 && ret != MTK_ADAPTER_PE4_ADJUST) {
+		if (ret != 0) {
 			pe4_err("[pe40_i0] err:3 %d\n", ret);
 			goto err;
 		}
@@ -872,7 +860,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 		ret = mtk_pe40_pd_request(alg, &voltage, &actual_current,
 					actual_current);
 
-		if (ret != 0 && ret != MTK_ADAPTER_PE4_ADJUST) {
+		if (ret != 0) {
 			pe4_err("[pe40_i0] err:5 %d\n", ret);
 			goto err;
 		}
@@ -935,8 +923,7 @@ int mtk_pe40_init_state(struct chg_alg_device *alg)
 	ret = mtk_pe40_pd_request(alg, &pe4->avbus, &adapter_ibus,
 				input_current);
 
-	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT &&
-			ret != MTK_ADAPTER_PE4_ADJUST) {
+	if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT) {
 		pe4_err("[pe40_i0] err:6 %d\n", ret);
 		goto err;
 	}
@@ -1014,7 +1001,6 @@ int mtk_pe40_safety_check(struct chg_alg_device *alg)
 	/* TA Thermal */
 	for (i = 0; i < 3; i++) {
 		ret = pe40_hal_get_adapter_status(alg, &TAstatus);
-		//ret = tcpm_dpm_pd_get_status(pinfo->tcpc, NULL, &TAstatus);
 		if (TAstatus.temperature >= 100 &&
 			TAstatus.temperature != 0 &&
 			ret != MTK_ADAPTER_PE4_NOT_SUPPORT &&
@@ -1215,8 +1201,7 @@ int mtk_pe40_cc_state(struct chg_alg_device *alg)
 		if (abs(pe40->avbus - oldavbus) >= 50) {
 			ret = mtk_pe40_pd_request(alg, &pe40->avbus,
 					&adapter_ibus, input_current);
-			if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT &&
-					ret != MTK_ADAPTER_PE4_ADJUST) {
+			if (ret != 0 && ret != MTK_ADAPTER_PE4_REJECT) {
 				pe4_err("pe4 end2 error1\n");
 				goto err;
 			}
@@ -1703,7 +1688,8 @@ static int _pe4_notifier_call(struct chg_alg_device *alg,
 	int ret_value;
 
 	pe4 = dev_get_drvdata(&alg->dev);
-	pe4_err("%s evt:%d\n", __func__, notify->evt);
+	pe4_err("%s evt:%d, state:%s\n", __func__, notify->evt,
+		pe4_state_to_str(pe4->state));
 
 	switch (notify->evt) {
 	case EVT_PLUG_OUT:

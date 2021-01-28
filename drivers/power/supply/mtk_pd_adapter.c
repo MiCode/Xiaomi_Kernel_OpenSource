@@ -319,6 +319,9 @@ static int pd_get_cap(struct adapter_device *dev,
 			}
 
 			tacap->pwr_limit[idx] = apdo_cap.pwr_limit;
+			/* If TA has PDP, we set pwr_limit as true */
+			if (tacap->pdp > 0 && !tacap->pwr_limit[idx])
+				tacap->pwr_limit[idx] = 1;
 			tacap->ma[idx] = apdo_cap.ma;
 			tacap->max_mv[idx] = apdo_cap.max_mv;
 			tacap->min_mv[idx] = apdo_cap.min_mv;
