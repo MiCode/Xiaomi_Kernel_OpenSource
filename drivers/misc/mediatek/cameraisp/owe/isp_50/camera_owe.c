@@ -299,17 +299,17 @@ struct OCC_REQUEST_STRUCT {
 	pid_t processID;	/* caller process ID */
 	unsigned int callerID;	/* caller thread ID */
 	unsigned int enqueReqNum;/* to judge it belongs to which frame package*/
-	signed int FrameWRIdx;	/* Frame write Index */
-	signed int FrameRDIdx;	/* Frame read Index */
+	unsigned int FrameWRIdx;	/* Frame write Index */
+	unsigned int FrameRDIdx;	/* Frame read Index */
 	enum OWE_FRAME_STATUS_ENUM
 			OccFrameStatus[_SUPPORT_MAX_OWE_FRAME_REQUEST_];
 	struct OWE_OCCConfig OccFrameConfig[_SUPPORT_MAX_OWE_FRAME_REQUEST_];
 };
 
 struct OCC_REQUEST_RING_STRUCT {
-	signed int WriteIdx;	/* enque how many request  */
-	signed int ReadIdx;		/* read which request index */
-	signed int HWProcessIdx;	/* HWWriteIdx */
+	unsigned int WriteIdx;	/* enque how many request  */
+	unsigned int ReadIdx;		/* read which request index */
+	unsigned int HWProcessIdx;	/* HWWriteIdx */
 	struct OCC_REQUEST_STRUCT
 			OCCReq_Struct[_SUPPORT_MAX_OWE_REQUEST_RING_SIZE_];
 };
@@ -329,17 +329,17 @@ struct WMFE_REQUEST_STRUCT {
 	pid_t processID;	/* caller process ID */
 	unsigned int callerID;	/* caller thread ID */
 	unsigned int enqueReqNum;/* to judge it belongs to which frame package*/
-	signed int FrameWRIdx;	/* Frame write Index */
-	signed int FrameRDIdx;	/* Frame read Index */
+	unsigned int FrameWRIdx;	/* Frame write Index */
+	unsigned int FrameRDIdx;	/* Frame read Index */
 	enum OWE_FRAME_STATUS_ENUM
 		WmfeFrameStatus[_SUPPORT_MAX_OWE_FRAME_REQUEST_];
 	struct OWE_WMFEConfig WmfeFrameConfig[_SUPPORT_MAX_OWE_FRAME_REQUEST_];
 };
 
 struct WMFE_REQUEST_RING_STRUCT {
-	signed int WriteIdx;	/* enque how many request  */
-	signed int ReadIdx;		/* read which request index */
-	signed int HWProcessIdx;	/* HWWriteIdx */
+	unsigned int WriteIdx;	/* enque how many request  */
+	unsigned int ReadIdx;		/* read which request index */
+	unsigned int HWProcessIdx;	/* HWWriteIdx */
 	struct WMFE_REQUEST_STRUCT
 		WMFEReq_Struct[_SUPPORT_MAX_OWE_REQUEST_RING_SIZE_];
 };
@@ -397,8 +397,8 @@ struct OWE_INFO_STRUCT {
 	unsigned int DebugMask;	/* Debug Mask */
 	signed int IrqNum;
 	struct OWE_IRQ_INFO_STRUCT IrqInfo;
-	signed int WriteReqIdx;
-	signed int ReadReqIdx;
+	unsigned int WriteReqIdx;
+	unsigned int ReadReqIdx;
 	pid_t ProcessID[_SUPPORT_MAX_OWE_FRAME_REQUEST_];
 };
 
@@ -546,8 +546,8 @@ static struct SV_LOG_STR gSvLog[OWE_IRQ_TYPE_AMOUNT];
 	struct SV_LOG_STR *pSrc = &gSvLog[irq];\
 	char *ptr;\
 	unsigned int i;\
-	signed int ppb = 0;\
-	signed int logT = 0;\
+	unsigned int ppb = 0;\
+	unsigned int logT = 0;\
 	if (ppb_in > 1) {\
 		ppb = 1;\
 	} else{\
@@ -3588,7 +3588,7 @@ static struct platform_driver OWEDriver = {
 	}
 };
 
-
+#ifdef OWE_PROCFS
 static int owe_dump_read(struct seq_file *m, void *v)
 {
 	int i, j;
@@ -3868,7 +3868,7 @@ static const struct file_operations owe_reg_proc_fops = {
 	.read = seq_read,
 	.write = owe_reg_write,
 };
-
+#endif
 
 /******************************************************************************
  *
@@ -3915,9 +3915,10 @@ static signed int __init OWE_Init(void)
 	void *tmp;
 	/* FIX-ME: linux-3.10 procfs API changed */
 	/* use proc_create */
+#ifdef OWE_PROCFS
 	struct proc_dir_entry *proc_entry;
 	struct proc_dir_entry *isp_owe_dir;
-
+#endif
 
 	int i;
 	/*  */
@@ -3945,6 +3946,8 @@ static signed int __init OWE_Init(void)
 	LOG_DBG("ISP_OWE_BASE: %lx\n", ISP_OWE_BASE);
 #endif
 
+
+#ifdef OWE_PROCFS
 	isp_owe_dir = proc_mkdir("owe", NULL);
 	if (!isp_owe_dir) {
 		LOG_ERR("[%s]: fail to mkdir /proc/owe\n", __func__);
@@ -3959,7 +3962,7 @@ static signed int __init OWE_Init(void)
 
 	proc_entry = proc_create("owe_reg", 0644,
 		isp_owe_dir, &owe_reg_proc_fops);
-
+#endif
 
 	/* isr log */
 	if (PAGE_SIZE < ((OWE_IRQ_TYPE_AMOUNT * NORMAL_STR_LEN * ((
