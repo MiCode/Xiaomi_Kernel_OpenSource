@@ -123,7 +123,7 @@ static ssize_t mt6853_dbg_lpm_trace_lp_show(char *ToUserBuf,
 	if (ret || !trace.read)
 		return -ENOENT;
 
-	while (((offset + sizeof(dump)) < MT6853_DGB_TRACE_LP_SZ)) {
+	while (((offset + sizeof(dump)) <= MT6853_DGB_TRACE_LP_SZ)) {
 		dump[0] = dump[1] = dump[2] = dump[3] = 0;
 		trace.read((MT6853_DGB_TRACE_LP_BASE + offset),
 			   dump, sizeof(dump));
