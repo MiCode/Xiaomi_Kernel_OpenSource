@@ -50,7 +50,7 @@ enum _ENUM_BTIF_OP_ERROR_CODE_ {
 
 /*--------------Type Definition---------------*/
 
-typedef int (*MTK_WCN_BTIF_RX_CB) (const unsigned char *p_buf,
+typedef int (*MTK_WCN_BTIF_RX_CB) (unsigned char *p_buf,
 				   unsigned int len);
 
 /*--------------End of Type Definition---------------*/

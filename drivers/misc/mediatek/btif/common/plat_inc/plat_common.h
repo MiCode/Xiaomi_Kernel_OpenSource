@@ -216,12 +216,17 @@ struct _DMA_VFIFO_ {
 	unsigned int thre;
 };
 
-typedef unsigned int (*dma_rx_buf_write) (void *p_dma_info,
-					  unsigned char *p_buf,
-					  unsigned int buf_len);
-typedef unsigned int (*btif_rx_buf_write) (void *p_btif_info,
-					   unsigned char *p_buf,
-					   unsigned int buf_len);
+struct _MTK_DMA_INFO_STR_;
+struct _MTK_BTIF_INFO_STR_;
+
+typedef unsigned int (*dma_rx_buf_write) (
+				struct _MTK_DMA_INFO_STR_ *p_dma_info,
+				unsigned char *p_buf,
+				unsigned int buf_len);
+typedef unsigned int (*btif_rx_buf_write) (
+				struct _MTK_BTIF_INFO_STR_ *p_btif_info,
+				unsigned char *p_buf,
+				unsigned int buf_len);
 
 /*DMA related information*/
 struct _MTK_DMA_INFO_STR_ {
