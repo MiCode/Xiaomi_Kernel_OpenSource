@@ -181,7 +181,6 @@ struct aee_kernel_api {
 
 void aee_sram_printk(const char *fmt, ...);
 int aee_nested_printf(const char *fmt, ...);
-void aee_wdt_irq_info(void);
 void aee_wdt_fiq_info(void *arg, void *regs, void *svc_sp);
 struct aee_oops *aee_oops_create(enum AE_DEFECT_ATTR attr,
 		enum AE_EXP_CLASS clazz, const char *module);

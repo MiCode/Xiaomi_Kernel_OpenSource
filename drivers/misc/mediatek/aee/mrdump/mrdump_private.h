@@ -55,7 +55,6 @@ int mrdump_wdt_init(void);
 
 void mrdump_save_control_register(void *creg);
 
-extern int mrdump_rsv_conflict;
 extern void dis_D_inner_flush_all(void);
 extern void __inner_flush_dcache_all(void);
 extern void mrdump_mini_add_entry(unsigned long addr, unsigned long size);
@@ -87,6 +86,26 @@ static inline void show_kaslr(void)
 #endif
 
 int in_fiq_handler(void);
+
+void aee_disable_api(void);
+
+extern void mrdump_mini_per_cpu_regs(int cpu, struct pt_regs *regs,
+		struct task_struct *tsk);
+extern void mrdump_mini_ke_cpu_regs(struct pt_regs *regs);
+extern void mrdump_mini_add_misc(unsigned long addr, unsigned long size,
+		unsigned long start, char *name);
+extern int mrdump_task_info(unsigned char *buffer, size_t sz_buf);
+extern int mrdump_modules_info(unsigned char *buffer, size_t sz_buf);
+
+/* for WDT timeout case : dump timer/schedule/irq/softirq etc...
+ * debug information
+ */
+#ifdef CONFIG_SCHED_DEBUG
+extern void sysrq_sched_debug_show_at_AEE(void);
+#endif
+#ifdef CONFIG_MTK_WQ_DEBUG
+extern void wq_debug_dump(void);
+#endif
 
 #if defined(__arm__)
 static inline void crash_setup_regs(struct pt_regs *newregs,

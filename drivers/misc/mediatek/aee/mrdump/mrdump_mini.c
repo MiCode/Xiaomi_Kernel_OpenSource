@@ -74,11 +74,6 @@ static char modules_info_buf[MODULES_INFO_BUF_SIZE];
 
 static bool dump_all_cpus;
 
-__weak void get_android_log_buffer(unsigned long *addr, unsigned long *size,
-		unsigned long *start, int type)
-{
-}
-
 #if defined(CONFIG_TRUSTY_LOG)
 __weak void get_gz_log_buffer(unsigned long *addr, unsigned long *size,
 		unsigned long *start)
@@ -119,11 +114,6 @@ __weak void aee_rr_get_desc_info(unsigned long *addr, unsigned long *size,
 
 __weak void get_pidmap_aee_buffer(unsigned long *addr, unsigned long *size)
 {
-}
-
-__weak struct vm_struct *find_vm_area(const void *addr)
-{
-	return NULL;
 }
 
 #ifdef __aarch64__
@@ -772,10 +762,7 @@ EXPORT_SYMBOL(mrdump_mini_ke_cpu_regs);
 
 static void mrdump_mini_build_elf_misc(void)
 {
-	int i;
 	struct mrdump_mini_elf_misc misc;
-	char log_type[][16] = { "_MAIN_LOG_", "_EVENTS_LOG_", "_RADIO_LOG_",
-		"_SYSTEM_LOG_" };
 	unsigned long task_info_va =
 	    (unsigned long)((void *)mrdump_mini_ehdr + MRDUMP_MINI_HEADER_SIZE);
 	unsigned long task_info_pa =
@@ -811,13 +798,6 @@ static void mrdump_mini_build_elf_misc(void)
 		(unsigned long)__pa_nodebug((unsigned long)modules_info_buf),
 		MODULES_INFO_BUF_SIZE, 0, "SYS_MODULES_INFO");
 #endif
-	for (i = 0; i < 4; i++) {
-		memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
-		get_android_log_buffer(&misc.vaddr, &misc.size, &misc.start,
-				i + 1);
-		mrdump_mini_add_misc(misc.vaddr, misc.size, misc.start,
-				log_type[i]);
-	}
 
 	memset_io(&misc, 0, sizeof(struct mrdump_mini_elf_misc));
 	get_pidmap_aee_buffer(&misc.vaddr, &misc.size);
