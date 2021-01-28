@@ -1007,7 +1007,7 @@ static int ion_vm_fault(struct vm_fault *vmf)
 	ret = vm_insert_pfn(vma, (unsigned long)vmf->address, pfn);
 	mutex_unlock(&buffer->lock);
 	if (ret) {
-		IONMSG("%s vm insert pfn fail,vma =0x%p,addr =0x%p,pfn =%lu\n",
+		IONMSG("%s vm insert pfn fail,vma =0x%p,addr =0x%lx,pfn =%lu\n",
 		       __func__, vma, vmf->address, pfn);
 		return VM_FAULT_ERROR;
 	}
