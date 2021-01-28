@@ -5,15 +5,13 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/types.h>
 #include <linux/module.h>
-#include <linux/skbuff.h>
+#include <linux/netdevice.h>
 
 #include "mddp_ctrl.h"
 #include "mddp_debug.h"
 #include "mddp_dev.h"
 #include "mddp_filter.h"
-#include "mddp_ipc.h"
 #include "mddp_sm.h"
 #include "mddp_usage.h"
 
@@ -28,7 +26,6 @@
 //------------------------------------------------------------------------------
 // Private variables.
 //------------------------------------------------------------------------------
-static uint8_t mddp_md_version_s = 0xff;
 
 //------------------------------------------------------------------------------
 // Private helper macro.
@@ -210,50 +207,6 @@ int32_t mddp_on_set_ct_value(
 	ret = mddp_f_set_ct_value(buf, buf_len);
 
 	return ret;
-}
-
-int32_t mddp_send_msg_to_md_isr(enum mddp_app_type_e type,
-		uint32_t msg_id, void *data, uint32_t data_len)
-{
-	struct mddp_app_t      *app;
-	struct mddp_md_queue_t *md_queue;
-	struct mddp_md_msg_t   *md_msg;
-	unsigned long           flags;
-
-	app = mddp_get_app_inst(type);
-	md_queue = &app->md_send_queue;
-	if (unlikely(!(app->is_config) || !md_queue)) {
-		MDDP_C_LOG(MDDP_LL_WARN,
-				"%s: Invalid state, config(%d), queue(%p)!\n",
-				__func__, app->is_config, md_queue);
-		WARN_ON(1);
-		return -EPERM;
-	}
-
-	md_msg = kzalloc(sizeof(struct mddp_md_msg_t) + data_len, GFP_ATOMIC);
-	if (unlikely(!md_msg))
-		return -ENOMEM;
-
-	md_msg->msg_id = msg_id;
-	md_msg->data_len = data_len;
-	memcpy(md_msg->data, data, data_len);
-
-	spin_lock_irqsave(&md_queue->locker, flags);
-	list_add_tail(&md_msg->list, &md_queue->list);
-	spin_unlock_irqrestore(&md_queue->locker, flags);
-	schedule_work(&md_queue->work);
-
-	return 0;
-}
-
-uint8_t mddp_get_md_version(void)
-{
-	return mddp_md_version_s;
-}
-
-void mddp_set_md_version(uint8_t version)
-{
-	mddp_md_version_s = version;
 }
 
 //------------------------------------------------------------------------------

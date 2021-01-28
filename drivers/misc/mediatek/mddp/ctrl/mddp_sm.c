@@ -5,12 +5,12 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#include <linux/types.h>
+#include <linux/slab.h>
 
+#include "mddp_ctrl.h"
 #include "mddp_debug.h"
 #include "mddp_filter.h"
 #include "mddp_sm.h"
-#include "mddp_ipc.h"
 #include "mddp_usage.h"
 
 //------------------------------------------------------------------------------
@@ -54,30 +54,6 @@ static void _mddp_set_state(struct mddp_app_t *app, enum mddp_state_e new_state)
 	MDDP_SM_UNLOCK(app->locker);
 }
 
-void _mddp_send_msg_to_md_wq(struct work_struct *in_work)
-{
-	MDDP_SM_LOCK_FLAG;
-	struct mddp_app_t              *app;
-	struct mddp_md_queue_t         *md_queue;
-	struct mddp_md_msg_t           *md_msg;
-
-	md_queue = container_of(in_work, struct mddp_md_queue_t, work);
-	app = container_of(md_queue, struct mddp_app_t, md_send_queue);
-
-	MDDP_SM_LOCK(md_queue->locker);
-	while (!list_empty(&md_queue->list)) {
-		md_msg = list_first_entry(&md_queue->list,
-				struct mddp_md_msg_t, list);
-		list_del(&md_msg->list);
-		MDDP_SM_UNLOCK(md_queue->locker);
-
-		mddp_ipc_send_md(app, md_msg, MDFPM_USER_ID_NULL);
-
-		MDDP_SM_LOCK(md_queue->locker);
-	}
-	MDDP_SM_UNLOCK(md_queue->locker);
-}
-
 static int32_t _mddp_sm_drv_notify(
 	enum mddp_app_type_e app_type,
 	enum mddp_drv_notify_type_e notify_type)
@@ -100,7 +76,7 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 	int32_t                 ret = 0;
 
 	switch (msg_id) {
-#if defined MDDP_TETHERING_SUPPORT
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	case IPC_MSG_ID_MDFPM_SUSPEND_TAG_IND:
 		MDDP_S_LOG(MDDP_LL_NOTICE,
 				"%s: MDDP suspend indication.\n", __func__);
@@ -131,7 +107,6 @@ static int32_t mddp_sm_ctrl_msg_hdlr(
 int32_t mddp_sm_init(void)
 {
 	struct mddp_app_t              *app;
-	struct mddp_md_queue_t         *md_queue;
 	uint32_t                        type;
 	uint32_t                        idx;
 
@@ -145,12 +120,6 @@ int32_t mddp_sm_init(void)
 		MDDP_SM_LOCK_INIT(app->locker);
 		_mddp_set_state(app, MDDP_STATE_UNINIT);
 
-		// Init md_send_queue.
-		md_queue = &app->md_send_queue;
-		INIT_WORK(&md_queue->work, _mddp_send_msg_to_md_wq);
-		INIT_LIST_HEAD(&md_queue->list);
-		MDDP_SM_LOCK_INIT(md_queue->locker);
-
 		mddp_sm_init_func_list_s[idx](app);
 	}
 
@@ -159,28 +128,13 @@ int32_t mddp_sm_init(void)
 
 void mddp_sm_uninit(void)
 {
-	MDDP_SM_LOCK_FLAG;
 	struct mddp_app_t              *app;
-	struct mddp_md_queue_t         *md_queue;
-	struct mddp_md_msg_t           *msg;
 	uint32_t                        type;
 	uint32_t                        idx;
 
 	for (idx = 0; idx < MDDP_MOD_CNT; idx++) {
 		type = mddp_sm_module_list_s[idx];
 		app = mddp_get_app_inst(type);
-
-		// Uninit md_send_queue.
-		md_queue = &app->md_send_queue;
-		cancel_work_sync(&md_queue->work);
-		MDDP_SM_LOCK(md_queue->locker);
-		while (!list_empty(&md_queue->list)) {
-			msg = list_first_entry(&md_queue->list,
-					struct mddp_md_msg_t, list);
-			list_del(&msg->list);
-			kfree(msg);
-		}
-		MDDP_SM_UNLOCK(md_queue->locker);
 
 		mddp_sm_on_event(app, MDDP_EVT_FUNC_DISABLE);
 	}
@@ -201,7 +155,7 @@ struct mddp_app_t *mddp_get_app_inst(enum mddp_app_type_e type)
 	return app;
 }
 
-enum mddp_state_e mddp_get_state(struct mddp_app_t *app)
+static enum mddp_state_e mddp_get_state(struct mddp_app_t *app)
 {
 	return app->state;
 }
@@ -271,7 +225,7 @@ enum mddp_state_e mddp_sm_set_state_by_md_rsp(struct mddp_app_t *app,
 	return MDDP_STATE_DUMMY;
 }
 
-#if defined __MDDP_DEBUG__
+#ifdef __MDDP_DEBUG__
 void mddp_dump_sm_table(struct mddp_app_t *app)
 {
 	uint32_t                        i, j;
@@ -364,13 +318,11 @@ int32_t mddp_sm_msg_hdlr(
 		ret = mddp_sm_ctrl_msg_hdlr(msg_id, buf, buf_len);
 		goto _done;
 
-#if defined CONFIG_MTK_MDDP_WH_SUPPORT || defined CONFIG_MTK_MCIF_WIFI_SUPPORT
+#ifdef CONFIG_MTK_MDDP_WH_SUPPORT
 	case MDFPM_USER_ID_WFPM:
 		app = mddp_get_app_inst(MDDP_APP_TYPE_WH);
 		break;
-#endif
 
-#if defined MDDP_TETHERING_SUPPORT
 	case MDFPM_USER_ID_DPFM:
 		ret = mddp_f_msg_hdlr(msg_id, buf, buf_len);
 		if (ret)

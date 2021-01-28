@@ -6,8 +6,6 @@
 #ifndef _MDDP_F_PROTO_H
 #define _MDDP_F_PROTO_H
 
-#include <linux/in.h>
-
 /* assume CPU is little endian */
 enum {
 	ETYPE_VLAN = htons(0x8100),
