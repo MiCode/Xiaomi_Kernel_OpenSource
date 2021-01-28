@@ -2814,7 +2814,7 @@ firmware_class.path=/vendor/firmware";
 			<&imgsys CLK_IMG_DIP>,
 			<&camsys CLK_CAM>,
 			<&camsys CLK_CAMTG>,
-			<&camsys CLK_CAM_SENINF>,
+			/*<&camsys CLK_CAM_SENINF>,*/
 			<&camsys CLK_CAMSV0>,
 			<&camsys CLK_CAMSV1>,
 			<&camsys CLK_CAMSV2>;
@@ -2824,7 +2824,7 @@ firmware_class.path=/vendor/firmware";
 			"ISP_CLK_IMG_DIP",
 			"ISP_CLK_CAM",
 			"ISP_CLK_CAMTG",
-			"ISP_CLK_CAM_SENINF",
+			/*"ISP_CLK_CAM_SENINF",*/
 			"ISP_CLK_CAMSV0",
 			"ISP_CLK_CAMSV1",
 			"ISP_CLK_CAMSV2";
