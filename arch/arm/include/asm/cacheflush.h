@@ -153,6 +153,12 @@ extern void __cpuc_coherent_kern_range(unsigned long, unsigned long);
 extern int  __cpuc_coherent_user_range(unsigned long, unsigned long);
 extern void __cpuc_flush_dcache_area(void *, size_t);
 
+extern void __flush_dcache_user_area(void *addr, size_t len);
+extern void __clean_dcache_user_area(void *addr, size_t len);
+extern void __inval_dcache_user_area(void *addr, size_t len);
+extern void __flush_dcache_area(void *addr, size_t len);
+extern void __clean_dcache_area_poc(void *addr, size_t len);
+extern void __inval_dcache_area(void *addr, size_t len);
 /*
  * These are private to the dma-mapping API.  Do not use directly.
  * Their sole purpose is to ensure that data held in the cache
