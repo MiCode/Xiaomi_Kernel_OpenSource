@@ -1927,7 +1927,8 @@ int tcpm_dpm_wait_bk_event(struct pd_port *pd_port, uint32_t tout_ms)
 {
 	int ret = __tcpm_dpm_wait_bk_event(pd_port, tout_ms);
 
-	if (ret < TCP_DPM_RET_NR)
+	if (ret < TCP_DPM_RET_NR && ret > 0
+		&& ret < ARRAY_SIZE(bk_event_ret_name))
 		TCPM_DBG("bk_event_cb -> %s\r\n", bk_event_ret_name[ret]);
 
 	return ret;
