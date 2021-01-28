@@ -672,7 +672,8 @@ static inline void ged_kpi_calc_kpi_info(u64 ulID, struct GED_KPI *psKPI
 		g_pre_TimeStamp2 = psKPI->ullTimeStamp2;
 		g_pre_TimeStampS = psKPI->ullTimeStampS;
 
-		if (g_elapsed_time_per_sec >= GED_KPI_SEC_DIVIDER) {
+		if (g_elapsed_time_per_sec >= GED_KPI_SEC_DIVIDER &&
+			g_frame_count > 0) {
 			unsigned long long g_fps;
 
 			g_fps = g_frame_count;
