@@ -620,7 +620,7 @@ int set_emi_bound_tb(int idx, int num, int *val)
 {
 	int i;
 
-	if (idx >= HRT_BOUND_NUM)
+	if (idx >= HRT_BOUND_NUM || idx < 0)
 		return -EINVAL;
 	if (num > HRT_LEVEL_NUM)
 		return -EINVAL;
