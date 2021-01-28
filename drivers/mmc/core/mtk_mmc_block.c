@@ -663,7 +663,12 @@ void mt_biolog_cqhci_check(void)
 	mt_biolog_cmdq_check();
 }
 
-void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req)
+/*
+ * parameter "host" needed due to req->host
+ * doesn't initial when enter here
+ */
+void mt_biolog_cqhci_queue_task(struct mmc_host *host,
+	unsigned int task_id, struct mmc_request *req)
 {
 	struct mt_bio_context *ctx;
 	struct mt_bio_context_task *tsk;
@@ -681,8 +686,8 @@ void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req)
 		return;
 
 	spin_lock_irqsave(&ctx->lock, flags);
-
-	if (req->host && (req->host->caps2 & MMC_CAP2_CQE)) {
+	/* CANNOT used req->host here, it doesn't been initial when go here */
+	if (host && (host->caps2 & MMC_CAP2_CQE)) {
 		/* convert cqhci to legacy sbc arg */
 		if (req_flags & MMC_DATA_READ)
 			tsk->arg = 1 << 30 | (req->data->blocks & 0xFFFF);

@@ -1587,7 +1587,7 @@ static int mmc_blk_cqe_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	mmc_blk_data_prep(mq, mqrq, 0, NULL, NULL);
 	mt_bio_queue_alloc(current, NULL, false);
 	mt_biolog_cqhci_check();
-	mt_biolog_cqhci_queue_task(mqrq->brq.mrq.tag,
+	mt_biolog_cqhci_queue_task(mq->card->host, mqrq->brq.mrq.tag,
 		&(mqrq->brq.mrq));
 
 	return mmc_blk_cqe_start_req(mq->card->host, &mqrq->brq.mrq);

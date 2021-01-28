@@ -33,7 +33,8 @@ void mt_biolog_cmdq_isdone_start(unsigned int task_id, struct mmc_request *req);
 void mt_biolog_cmdq_isdone_end(unsigned int task_id);
 
 void mt_biolog_cqhci_check(void);
-void mt_biolog_cqhci_queue_task(unsigned int task_id, struct mmc_request *req);
+void mt_biolog_cqhci_queue_task(struct mmc_host *host,
+	unsigned int task_id, struct mmc_request *req);
 void mt_biolog_cqhci_complete(unsigned int task_id);
 
 #define MMC_BIOLOG_RINGBUF_MAX 120
