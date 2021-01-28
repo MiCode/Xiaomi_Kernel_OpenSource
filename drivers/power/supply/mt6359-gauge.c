@@ -380,6 +380,11 @@
 #define Set_BAT_DISABLE_NAFG _IOW('k', 14, int)
 #define Set_CARTUNE_TO_KERNEL _IOW('k', 15, int)
 
+#define MT6359_AUXADC_BAT_TEMP_1	0x1228
+#define PMIC_AUXADC_BAT_TEMP_FROZE_EN_ADDR	\
+	MT6359_AUXADC_BAT_TEMP_1
+#define PMIC_AUXADC_BAT_TEMP_FROZE_EN_MASK	0x1
+#define PMIC_AUXADC_BAT_TEMP_FROZE_EN_SHIFT	0
 
 static struct class *bat_cali_class;
 static int bat_cali_major;
@@ -3013,6 +3018,19 @@ static int ptim_resist_get(struct mtk_gauge *gauge,
 	return ret;
 }
 
+static int bat_temp_froze_en_set(struct mtk_gauge *gauge,
+	struct mtk_gauge_sysfs_field_info *attr, int val)
+{
+	if (val != 0)
+		val = 1;
+	regmap_update_bits(gauge->regmap,
+		PMIC_AUXADC_BAT_TEMP_FROZE_EN_ADDR,
+		PMIC_AUXADC_BAT_TEMP_FROZE_EN_MASK
+		<< PMIC_AUXADC_BAT_TEMP_FROZE_EN_SHIFT,
+		val << PMIC_AUXADC_BAT_TEMP_FROZE_EN_SHIFT);
+	return 0;
+}
+
 static int coulomb_interrupt_ht_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int val)
 {
@@ -3628,6 +3646,8 @@ static struct mtk_gauge_sysfs_field_info mt6359_sysfs_field_tbl[] = {
 		vbat2_detect_time, GAUGE_PROP_VBAT2_DETECT_TIME),
 	GAUGE_SYSFS_INFO_FIELD_RW(
 		vbat2_detect_counter, GAUGE_PROP_VBAT2_DETECT_COUNTER),
+	GAUGE_SYSFS_FIELD_WO(
+		bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
 };
 
 static struct attribute *

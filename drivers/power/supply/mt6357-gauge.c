@@ -2017,6 +2017,13 @@ static int boot_zcv_get(struct mtk_gauge *gauge_dev,
 	return 0;
 }
 
+static int bat_temp_froze_en_set(struct mtk_gauge *gauge,
+	struct mtk_gauge_sysfs_field_info *attr, int val)
+{
+	/*NO need to do*/
+	return 0;
+}
+
 static int initial_set(struct mtk_gauge *gauge,
 	struct mtk_gauge_sysfs_field_info *attr, int val)
 {
@@ -2704,6 +2711,8 @@ static struct mtk_gauge_sysfs_field_info mt6357_sysfs_field_tbl[] = {
 		vbat2_detect_time, GAUGE_PROP_VBAT2_DETECT_TIME),
 	GAUGE_SYSFS_INFO_FIELD_RW(
 		vbat2_detect_counter, GAUGE_PROP_VBAT2_DETECT_COUNTER),
+	GAUGE_SYSFS_FIELD_WO(
+		bat_temp_froze_en_set, GAUGE_PROP_BAT_TEMP_FROZE_EN),
 };
 
 static struct attribute *
@@ -3018,7 +3027,6 @@ static int adc_cali_cdev_init(struct platform_device *pdev)
 
 	return 0;
 }
-
 
 static void mtk_gauge_netlink_handler(struct sk_buff *skb)
 {

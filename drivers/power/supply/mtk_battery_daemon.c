@@ -4385,7 +4385,7 @@ static void mtk_battery_shutdown(struct mtk_battery *gm)
 
 void enable_bat_temp_det(bool en)
 {
-	/* todo in ALSP */
+	gauge_set_property(GAUGE_PROP_BAT_TEMP_FROZE_EN, !en);
 }
 
 static int mtk_battery_suspend(struct mtk_battery *gm, pm_message_t state)
@@ -4401,8 +4401,11 @@ static int mtk_battery_suspend(struct mtk_battery *gm, pm_message_t state)
 		gm->cmd_disable_nafg,
 		gm->enable_tmp_intr_suspend);
 
-	if (gm->enable_tmp_intr_suspend == 0)
+	if (gm->enable_tmp_intr_suspend == 0) {
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_LT, 0);
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_HT, 0);
 		enable_bat_temp_det(0);
+	}
 
 	version = gauge_get_int_property(GAUGE_PROP_HW_VERSION);
 
@@ -4440,7 +4443,11 @@ static int mtk_battery_resume(struct mtk_battery *gm)
 
 	fg_update_sw_iavg(gm);
 
-	enable_bat_temp_det(1);
+	if (gm->enable_tmp_intr_suspend == 0) {
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_LT, 1);
+		gauge_set_property(GAUGE_PROP_EN_BAT_TMP_HT, 1);
+		enable_bat_temp_det(1);
+	}
 
 	return 0;
 }
