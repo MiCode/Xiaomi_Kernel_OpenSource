@@ -1368,7 +1368,7 @@ static void mtk_power_budget_manager(enum pbm_kicker kicker, struct mrp *mrpmgr)
 void kicker_pbm_by_dlpt(unsigned int i_max)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
-	struct mrp mrpmgr;
+	struct mrp mrpmgr = {0};
 
 	mrpmgr.loading_dlpt = ma_to_mw(i_max);
 
@@ -1384,7 +1384,7 @@ void kicker_pbm_by_dlpt(unsigned int i_max)
 void kicker_pbm_by_md(enum pbm_kicker kicker, bool status)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
-	struct mrp mrpmgr;
+	struct mrp mrpmgr = {0};
 
 	mrpmgr.switch_md = status;
 
@@ -1401,7 +1401,7 @@ void kicker_pbm_by_md(enum pbm_kicker kicker, bool status)
 void kicker_pbm_by_cpu(unsigned int loading, int core, int voltage)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
-	struct mrp mrpmgr;
+	struct mrp mrpmgr = {0};
 
 	mrpmgr.loading_cpu = loading;
 	mrpmgr.cpu_num = core;
@@ -1420,7 +1420,7 @@ void kicker_pbm_by_cpu(unsigned int loading, int core, int voltage)
 void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
-	struct mrp mrpmgr;
+	struct mrp mrpmgr = {0};
 
 	mrpmgr.switch_gpu = status;
 	mrpmgr.loading_gpu = loading;
@@ -1438,7 +1438,7 @@ void kicker_pbm_by_gpu(bool status, unsigned int loading, int voltage)
 void kicker_pbm_by_flash(bool status)
 {
 	struct pbm *pwrctrl = &pbm_ctrl;
-	struct mrp mrpmgr;
+	struct mrp mrpmgr = {0};
 
 	mrpmgr.switch_flash = status;
 
