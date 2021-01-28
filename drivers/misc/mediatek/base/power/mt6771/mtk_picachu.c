@@ -109,7 +109,7 @@
 
 #define PROC_ENTRY(name)	{__stringify(name), &name ## _proc_fops}
 
-#define PICACHU_PROC_ENTRY_ATTR (S_IRUGO | S_IWUSR | S_IWGRP)
+#define PICACHU_PROC_ENTRY_ATTR (0440)
 
 struct picachu_info {
 	unsigned int vmin : 16;
