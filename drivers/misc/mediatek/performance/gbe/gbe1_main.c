@@ -353,7 +353,7 @@ static ssize_t gbe_enable1_store(struct kobject *kobj,
 {
 	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
 	int arg;
-	int val;
+	int val = 0;
 
 	if ((count > 0) && (count < GBE_SYSFS_MAX_BUFF_SIZE)) {
 		if (scnprintf(acBuffer, GBE_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {

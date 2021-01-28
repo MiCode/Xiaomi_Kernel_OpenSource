@@ -80,12 +80,18 @@ void gbe_trace_count(int tid, int val, const char *fmt, ...)
 {
 	char log[32];
 	va_list args;
+	int len;
 
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
-	vsnprintf(log, sizeof(log), fmt, args);
+	len = vsnprintf(log, sizeof(log), fmt, args);
 	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 32))
+		log[31] = '\0';
 
 	__mt_update_tracing_mark_write_addr();
 	preempt_disable();
@@ -218,7 +224,7 @@ static ssize_t gbe_policy_mask_store(struct kobject *kobj,
 		struct kobj_attribute *attr,
 		const char *buf, size_t count)
 {
-	int val;
+	int val = 0;
 	char acBuffer[GBE_SYSFS_MAX_BUFF_SIZE];
 	int arg;
 

@@ -125,6 +125,7 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 	char dep_str[MAIN_LOG_SIZE] = {"\0"};
 	char temp[MAIN_LOG_SIZE] = {"\0"};
 	unsigned long long new_runtime = 0;
+	int tmplen;
 
 	for (i = 0; i < iter->dep_num; i++) {
 		rcu_read_lock();
@@ -155,11 +156,14 @@ static int check_dep_run_and_update(struct gbe_boost_unit *iter)
 			ret = 1;
 
 		if (strlen(dep_str) == 0)
-			snprintf(temp, sizeof(temp), "%d(%llu)",
+			tmplen = snprintf(temp, sizeof(temp), "%d(%llu)",
 				iter->dep[i].pid, iter->dep[i].loading);
 		else
-			snprintf(temp, sizeof(temp), ",%d(%llu)",
+			tmplen = snprintf(temp, sizeof(temp), ",%d(%llu)",
 				iter->dep[i].pid, iter->dep[i].loading);
+
+		if (tmplen < 0 || tmplen >= sizeof(temp))
+			return ret;
 
 		if (strlen(dep_str) + strlen(temp) < MAIN_LOG_SIZE)
 			strncat(dep_str, temp, strlen(temp));
@@ -344,6 +348,7 @@ void fpsgo_comp2gbe_frame_update(int pid)
 
 		iter->pid = pid;
 		iter->state = NEW_RENDER;
+		iter->boost_cnt = 0;
 		hlist_add_head(&iter->hlist,
 			&gbe_boost_units);
 	}
