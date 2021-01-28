@@ -42,7 +42,6 @@
 #define THREAD_INFO(sp) ((struct thread_info *) \
 				((unsigned long)(sp) & ~(THREAD_SIZE - 1)))
 
-#define WDT_PERCPU_LOG_SIZE	2048
 #define WDT_LOG_DEFAULT_SIZE	4096
 #define WDT_SAVE_STACK_SIZE	256
 #define MAX_EXCEPTION_FRAME	16
@@ -51,8 +50,6 @@
 /* AEE_MTK_CPU_NUMS may not eaqual to real cpu numbers,
  * alloc buffer at initialization
  */
-static char *wdt_percpu_log_buf[AEE_MTK_CPU_NUMS];
-static int wdt_percpu_log_length[AEE_MTK_CPU_NUMS];
 static char wdt_log_buf[WDT_LOG_DEFAULT_SIZE];
 static int wdt_percpu_preempt_cnt[AEE_MTK_CPU_NUMS];
 static unsigned long
@@ -103,21 +100,6 @@ void __weak sysrq_sched_debug_show_at_AEE(void)
 	pr_notice("%s weak function at %s\n", __func__, __FILE__);
 }
 
-void aee_wdt_percpu_printf(int cpu, const char *fmt, ...)
-{
-	va_list args;
-
-	if (!wdt_percpu_log_buf[cpu])
-		return;
-
-	va_start(args, fmt);
-	wdt_percpu_log_length[cpu] +=
-	    vsnprintf((wdt_percpu_log_buf[cpu] + wdt_percpu_log_length[cpu]),
-		      (WDT_PERCPU_LOG_SIZE - wdt_percpu_log_length[cpu]),
-		      fmt, args);
-	va_end(args);
-}
-
 void aee_wdt_printf(const char *fmt, ...)
 {
 	va_list args;
@@ -132,33 +114,6 @@ void aee_wdt_printf(const char *fmt, ...)
 /* save registers in bin buffer, may comes from various cpu */
 static void aee_dump_cpu_reg_bin(int cpu, struct pt_regs *regs)
 {
-#ifdef CONFIG_ARM64
-	int i;
-
-	aee_wdt_percpu_printf(cpu,
-			"pc : %016llx, lr : %016llx, pstate : %016llx\n",
-			      regs->pc, regs->regs[30], regs->pstate);
-	aee_wdt_percpu_printf(cpu, "sp : %016llx\n", regs->sp);
-	for (i = 29; i >= 0; i--) {
-		aee_wdt_percpu_printf(cpu, "x%-2d: %016llx ", i, regs->regs[i]);
-		if (i % 2 == 0)
-			aee_wdt_percpu_printf(cpu, "\n");
-	}
-	aee_wdt_percpu_printf(cpu, "\n");
-#else
-	aee_wdt_percpu_printf(cpu, "pc  : %08lx, lr : %08lx, cpsr : %08lx\n",
-			      regs->ARM_pc, regs->ARM_lr, regs->ARM_cpsr);
-	aee_wdt_percpu_printf(cpu, "sp  : %08lx, ip : %08lx, fp : %08lx\n",
-			      regs->ARM_sp, regs->ARM_ip, regs->ARM_fp);
-	aee_wdt_percpu_printf(cpu, "r10 : %08lx, r9 : %08lx, r8 : %08lx\n",
-			      regs->ARM_r10, regs->ARM_r9, regs->ARM_r8);
-	aee_wdt_percpu_printf(cpu, "r7  : %08lx, r6 : %08lx, r5 : %08lx\n",
-			      regs->ARM_r7, regs->ARM_r6, regs->ARM_r5);
-	aee_wdt_percpu_printf(cpu, "r4  : %08lx, r3 : %08lx, r2 : %08lx\n",
-			      regs->ARM_r4, regs->ARM_r3, regs->ARM_r2);
-	aee_wdt_percpu_printf(cpu, "r1  : %08lx, r0 : %08lx\n", regs->ARM_r1,
-			regs->ARM_r0);
-#endif
 	memcpy(&(regs_buffer_bin[cpu].regs), regs, sizeof(struct pt_regs));
 	regs_buffer_bin[cpu].real_len = sizeof(struct pt_regs);
 }
@@ -167,59 +122,11 @@ static void aee_dump_cpu_reg_bin(int cpu, struct pt_regs *regs)
 static void aee_wdt_dump_stack_bin(unsigned int cpu, unsigned long bottom,
 		unsigned long top)
 {
-	int i;
-	unsigned long p;
-	unsigned long first;
-	unsigned int val;
-	char str[sizeof(" 12345678") * 8 + 1];
-
 	stacks_buffer_bin[cpu].real_len =
 	    aee_dump_stack_top_binary(stacks_buffer_bin[cpu].bin_buf,
 			sizeof(stacks_buffer_bin[cpu].bin_buf), bottom, top);
 	stacks_buffer_bin[cpu].top = top;
 	stacks_buffer_bin[cpu].bottom = bottom;
-
-	/* should check stack address in kernel range */
-	if (bottom & 3) {
-		aee_wdt_percpu_printf(cpu, "%s bottom unaligned %08lx\n",
-				__func__, bottom);
-		return;
-	}
-	if (!((bottom >= (PAGE_OFFSET + THREAD_SIZE))
-			&& mrdump_virt_addr_valid(bottom))) {
-		aee_wdt_percpu_printf(cpu,
-				"%s bottom out of kernel addr space %08lx\n",
-				__func__, bottom);
-		return;
-	}
-	if (!((top >= (PAGE_OFFSET + THREAD_SIZE))
-			&& mrdump_virt_addr_valid(bottom))) {
-		aee_wdt_percpu_printf(cpu,
-				"%s top out of kernel addr space %08lx\n",
-				__func__, top);
-		return;
-	}
-#ifdef CONFIG_ARM64
-	aee_wdt_percpu_printf(cpu, "stack (0x%016lx to 0x%016lx)\n",
-				bottom, top);
-#else
-	aee_wdt_percpu_printf(cpu, "stack (0x%08lx to 0x%08lx)\n", bottom, top);
-#endif
-
-	for (first = bottom & ~31; first < top; first += 32) {
-		memset(str, ' ', sizeof(str));
-		str[sizeof(str) - 1] = '\0';
-
-		for (p = first, i = 0; i < 8 && p < top; i++, p += 4) {
-			if (p >= bottom && p < top) {
-				if (!__get_user(val, (unsigned int *)p))
-					sprintf(str + i * 9, " %08x", val);
-				else
-					sprintf(str + i * 9, " ????????");
-			}
-		}
-		aee_wdt_percpu_printf(cpu, "%04lx:%s\n", first & 0xffff, str);
-	}
 }
 
 /* dump the backtrace into per CPU buffer */
@@ -231,7 +138,9 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 
 	bottom = regs->reg_sp;
 	if (!mrdump_virt_addr_valid(bottom)) {
-		aee_wdt_percpu_printf(cpu, "invalid sp[%lx]\n", bottom);
+		snprintf(str_buf[cpu], sizeof(str_buf[cpu]),
+			"cpu(%d): invalid sp[%lx]\n", cpu, bottom);
+		aee_sram_fiq_log(str_buf[cpu]);
 		return;
 	}
 	high = ALIGN(bottom, THREAD_SIZE);
@@ -243,27 +152,17 @@ static void aee_wdt_dump_backtrace(unsigned int cpu, struct pt_regs *regs)
 	wdt_percpu_stackframe[cpu][0] = regs->reg_pc;
 	for (i = 1; i < MAX_EXCEPTION_FRAME; i++) {
 		fp = cur_frame.fp;
-		if ((fp < bottom) || (fp >= (high + THREAD_SIZE))) {
-			aee_wdt_percpu_printf(cpu, "i=%d, fp=%lx, bottom=%lx\n",
-					i, fp, bottom);
+		if ((fp < bottom) || (fp >= (high + THREAD_SIZE)))
 			break;
-		}
 #ifdef CONFIG_ARM64
-		if (unwind_frame(current, &cur_frame) < 0) {
-			aee_wdt_percpu_printf(cpu, "unwind_frame < 0\n");
+		if (unwind_frame(current, &cur_frame) < 0)
 			break;
-		}
 #else
-		if (unwind_frame(&cur_frame) < 0) {
-			aee_wdt_percpu_printf(cpu, "unwind_frame < 0\n");
+		if (unwind_frame(&cur_frame) < 0)
 			break;
-		}
 #endif
-		if (!mrdump_virt_addr_valid(cur_frame.pc)) {
-			aee_wdt_percpu_printf(cpu,
-				"i=%d, mrdump_virt_addr_valid fail\n", i);
+		if (!mrdump_virt_addr_valid(cur_frame.pc))
 			break;
-		}
 
 		/* pc -4: bug fixed for add2line */
 		wdt_percpu_stackframe[cpu][i] = cur_frame.pc - 4;
@@ -355,19 +254,13 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	struct wd_api *wd_api = NULL;
 #endif
 
-	aee_wdt_percpu_printf(cpu, "===> %s : cpu %d\n", __func__, cpu);
 	if (!cpu_possible(cpu)) {
 		aee_wdt_printf("FIQ: Watchdog time out at incorrect CPU %d ?\n",
 				cpu);
 		cpu = 0;
 	}
 
-	aee_wdt_percpu_printf(cpu, "CPU %d FIQ: Watchdog time out\n", cpu);
 	wdt_percpu_preempt_cnt[cpu] = preempt_count();
-	aee_wdt_percpu_printf(cpu, "preempt=%lx, softirq=%lx, hardirq=%lx\n",
-	  ((wdt_percpu_preempt_cnt[cpu] & PREEMPT_MASK) >> PREEMPT_SHIFT),
-	  ((wdt_percpu_preempt_cnt[cpu] & SOFTIRQ_MASK) >> SOFTIRQ_SHIFT),
-	  ((wdt_percpu_preempt_cnt[cpu] & HARDIRQ_MASK) >> HARDIRQ_SHIFT));
 
 	if (regs) {
 		aee_dump_cpu_reg_bin(cpu, regs);
@@ -379,8 +272,6 @@ void aee_wdt_atf_info(unsigned int cpu, struct pt_regs *regs)
 	regs_buffer_bin[cpu].tsk = current;
 	if (atomic_xchg(&wdt_enter_fiq, 1)) {
 		aee_rr_rec_fiq_step(AEE_FIQ_STEP_WDT_FIQ_LOOP);
-		aee_wdt_percpu_printf(cpu,
-				"Other CPU already enter WDT FIQ handler\n");
 		dis_D_inner_flush_all();
 		local_irq_disable();
 
@@ -569,21 +460,12 @@ void notrace aee_wdt_atf_entry(void)
 
 int __init mrdump_wdt_init(void)
 {
-	int i;
 	phys_addr_t atf_aee_debug_phy_addr;
 	struct arm_smccc_res res;
 
 	atomic_set(&wdt_enter_fiq, 0);
 	atomic_set(&aee_wdt_zap_lock, 1);
 
-	for (i = 0; i < AEE_MTK_CPU_NUMS; i++) {
-		wdt_percpu_log_buf[i] = kzalloc(WDT_PERCPU_LOG_SIZE,
-				GFP_KERNEL);
-		wdt_percpu_log_length[i] = 0;
-		wdt_percpu_preempt_cnt[i] = 0;
-		if (!wdt_percpu_log_buf[i])
-			pr_notice("\n aee_common_init : kmalloc fail\n");
-	}
 	memset(wdt_log_buf, 0, sizeof(wdt_log_buf));
 	memset(regs_buffer_bin, 0, sizeof(regs_buffer_bin));
 	memset(stacks_buffer_bin, 0, sizeof(stacks_buffer_bin));
