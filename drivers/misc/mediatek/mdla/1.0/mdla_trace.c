@@ -9,11 +9,6 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-/* FIXME: No such file */
-//#include <mt-plat/met_drv.h>
-/* FIXME: Remove TRACE_PUTS definition */
-#undef TRACE_PUTS
-#define TRACE_PUTS(buf) do {} while (0)
 
 #include "mdla.h"
 #include "mdla_hw_reg.h"
@@ -40,7 +35,7 @@ static int timer_started;
 
 static noinline int tracing_mark_write(const char *buf)
 {
-	TRACE_PUTS(buf);
+	trace_printk(buf);
 	return 0;
 }
 
@@ -188,12 +183,10 @@ int mdla_profile_init(void)
 	return 0;
 }
 
-/* FIXME: Remove MDLA_TRACE_C_TMP. Fix coding style warning */
-/* Consider removing the code enclosed by this #if 0 and its #endif */
-#define MDLA_TRACE_C_TMP 0
+#define MDLA_TRACE_TAG_EN 0
 void mdla_trace_tag_begin(const char *format, ...)
 {
-#if MDLA_TRACE_C_TMP
+#if MDLA_TRACE_TAG_EN
 	char buf[TRACE_LEN];
 
 	int len = snprintf(buf, sizeof(buf),
@@ -208,7 +201,7 @@ void mdla_trace_tag_begin(const char *format, ...)
 
 void mdla_trace_tag_end(void)
 {
-#if MDLA_TRACE_C_TMP
+#if MDLA_TRACE_TAG_EN
 	char buf[TRACE_LEN];
 
 	int len = snprintf(buf, sizeof(buf), "E\n");

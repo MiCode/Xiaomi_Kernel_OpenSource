@@ -28,8 +28,6 @@ extern u32 cfg_pmu_event[MDLA_PMU_COUNTERS];
 #define MDLA_MET_READY 1
 
 #include <linux/sched.h>
-/* FIXME: No such file */
-//#include <mt-plat/met_drv.h>
 
 int mdla_profile_init(void);
 int mdla_profile_exit(void);

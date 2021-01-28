@@ -23,8 +23,6 @@
 #include <linux/uaccess.h>
 #include <linux/string.h>
 #include <linux/io.h>
-/* FIXME: No such file */
-//#include <m4u.h>
 
 #define ALGO_OF_MAX_POWER  (3)
 

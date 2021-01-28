@@ -45,6 +45,7 @@
 #include <linux/jiffies.h>
 #include <linux/sched/clock.h>
 #include <linux/dma-direct.h>
+#include <linux/pm_wakeup.h>
 
 #define DRIVER_NAME "mtk_mdla"
 #define DEVICE_NAME "mdlactl"
@@ -115,6 +116,28 @@ DEFINE_MUTEX(cmd_list_lock);
 static DECLARE_WAIT_QUEUE_HEAD(mdla_cmd_queue);
 static LIST_HEAD(cmd_list);
 static LIST_HEAD(cmd_fin_list);
+
+static struct wakeup_source *mdla_ws;
+static DEFINE_MUTEX(wakeup_lock);
+static int ws_cnt;
+
+static void mdla_wakeup_lock(void)
+{
+	mutex_lock(&wakeup_lock);
+	if (!ws_cnt && mdla_ws)
+		__pm_stay_awake(mdla_ws);
+	ws_cnt++;
+	mutex_unlock(&wakeup_lock);
+}
+
+static void mdla_wakeup_unlock(void)
+{
+	mutex_lock(&wakeup_lock);
+	ws_cnt--;
+	if (!ws_cnt && mdla_ws)
+		__pm_relax(mdla_ws);
+	mutex_unlock(&wakeup_lock);
+}
 
 u32 mdla_max_cmd_id(void)
 {
@@ -675,6 +698,9 @@ static int mdlactl_init(void)
 	INIT_WORK(&mdla_power_off_work, mdla_start_power_off);
 	init_completion(&command_done);
 
+	mutex_init(&wakeup_lock);
+	mdla_ws = wakeup_source_register(NULL, "mdla");
+
 	mdla_debugfs_init();
 	mdla_profile_init();
 	pmu_init();
@@ -817,7 +843,7 @@ process_command:
 
 	mdla_timeout_debug("%s: max_cmd_id: %d id: %d\n",
 			__func__, max_cmd_id, id);
-
+	mdla_wakeup_lock();
 	mdla_power_on(&ce);
 	ce.poweron_t = sched_clock();
 	ce.req_start_t = sched_clock();
@@ -863,6 +889,7 @@ process_command:
 
 	/* Start power off timer */
 	mdla_command_done();
+	mdla_wakeup_unlock();
 	ce.wait_t = sched_clock();
 
 	/* Trace stop */
@@ -1210,6 +1237,7 @@ static void mdlactl_exit(void)
 {
 	mdla_qos_counter_destroy();
 	mdla_debugfs_exit();
+	wakeup_source_unregister(mdla_ws);
 	platform_driver_unregister(&mdla_driver);
 	device_destroy(mdlactlClass, MKDEV(majorNumber, 0));
 	class_destroy(mdlactlClass);

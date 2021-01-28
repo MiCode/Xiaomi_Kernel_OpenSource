@@ -57,23 +57,10 @@ struct MDLA_OPP_INFO mdla_power_table[MDLA_OPP_NUM] = {
 #define OPPTYPE_VVPU		(2)
 #define OPPTYPE_VMDLA		(3)
 
-
 /* clock */
 static struct clk *clk_top_dsp_sel;
-#if MDLA_DVFS_C_TMP
-static struct clk *clk_top_dsp1_sel;
-static struct clk *clk_top_dsp2_sel;
-#endif
 static struct clk *clk_top_dsp3_sel;
 static struct clk *clk_top_ipu_if_sel;
-#if MDLA_DVFS_C_TMP
-static struct clk *clk_apu_core0_jtag_cg;
-static struct clk *clk_apu_core0_axi_m_cg;
-static struct clk *clk_apu_core0_apu_cg;
-static struct clk *clk_apu_core1_jtag_cg;
-static struct clk *clk_apu_core1_axi_m_cg;
-static struct clk *clk_apu_core1_apu_cg;
-#endif
 static struct clk *clk_apu_mdla_apb_cg;
 static struct clk *clk_apu_mdla_cg_b0;
 static struct clk *clk_apu_mdla_cg_b1;
@@ -129,12 +116,6 @@ static struct clk *mtcmos_dis;
 static struct clk *mtcmos_vpu_vcore_shutdown;
 //static struct clk *mtcmos_vpu_conn_dormant;
 static struct clk *mtcmos_vpu_conn_shutdown;
-#if MDLA_DVFS_C_TMP
-static struct clk *mtcmos_vpu_core0_dormant;
-static struct clk *mtcmos_vpu_core0_shutdown;
-static struct clk *mtcmos_vpu_core1_dormant;
-static struct clk *mtcmos_vpu_core1_shutdown;
-#endif
 //static struct clk *mtcmos_vpu_core2_dormant;
 static struct clk *mtcmos_vpu_core2_shutdown;
 
@@ -144,11 +125,6 @@ static struct clk *clk_mmsys_gals_ipu12mm;
 static struct clk *clk_mmsys_gals_comm0;
 static struct clk *clk_mmsys_gals_comm1;
 static struct clk *clk_mmsys_smi_common;
-#if MDLA_DVFS_C_TMP
-/*direct link*/
-static struct clk *clk_mmsys_ipu_dl_txck;
-static struct clk *clk_mmsys_ipu_dl_rx_ck;
-#endif
 /* workqueue */
 struct my_struct_t {
 	int core;
@@ -437,30 +413,6 @@ static int mdla_if_set_clock_source(struct clk *clk, uint8_t step)
 	return clk_set_parent(clk, clk_src);
 }
 
-
-#if MDLA_DVFS_C_TMP
-static int mdla_get_hw_vcore_opp(int core)
-{
-#ifdef MTK_MDLA_FPGA_PORTING
-	LOG_DBG("[mdla_%d] FPGA always return 0\n", core);
-
-	return 0;
-#else
-	int opp_value = 0;
-	int get_vcore_value = 0;
-
-	get_vcore_value = (int)vcorefs_get_curr_vcore();
-	if (get_vcore_value >= 800000)
-		opp_value = 0;
-	else
-		opp_value = 1;
-
-	LOG_DBG("[mdla_%d] vcore(%d->%d)\n", core, get_vcore_value, opp_value);
-
-	return opp_value;
-#endif
-}
-#endif
 
 int mdla_get_bw(void)
 {
@@ -768,39 +720,7 @@ void mdla_opp_check(int core, uint8_t vmdla_index, uint8_t freq_index)
 
 	/* vmdla opp*/
 	get_vmdla_opp = mdla_get_hw_vmdla_opp(core);
-#if MDLA_DVFS_C_TMP
-	if ((vcore_index == 0xFF) || (vcore_index == get_vcore_opp)) {
 
-		LOG_DBG("no need, vcore opp(%d), hw vore opp(%d)\n",
-				vcore_index, get_vcore_opp);
-
-		force_change_vcore_opp[core] = false;
-		opps.vcore.index = vcore_index;
-	} else {
-		/* opp down, need change freq first*/
-		if (vcore_index > get_vcore_opp)
-			change_freq_first[core] = true;
-
-		if (vcore_index < max_vcore_opp) {
-			LOG_INF("mdla bound vcore opp(%d) to %d",
-					vcore_index, max_vcore_opp);
-
-			vcore_index = max_vcore_opp;
-		}
-
-		if (vcore_index >= opps.count) {
-			LOG_ERR("wrong vcore opp(%d), max(%d)",
-					vcore_index, opps.count - 1);
-
-		} else if ((vcore_index < opps.vcore.index) ||
-				((vcore_index > opps.vcore.index) &&
-					(!opp_keep_flag))) {
-			opps.vcore.index = vcore_index;
-			force_change_vcore_opp[core] = true;
-			freq_check = true;
-		}
-	}
-#else
 	if (vmdla_index < opps.vmdla.opp_map[max_opp[core]])
 		vmdla_index = opps.vmdla.opp_map[max_opp[core]];
 	if (vmdla_index > opps.vmdla.opp_map[min_opp[core]])
@@ -831,24 +751,21 @@ void mdla_opp_check(int core, uint8_t vmdla_index, uint8_t freq_index)
 					vmdla_index, max_vmdla_opp);
 
 			vmdla_index = max_vmdla_opp;
+		}
+
+		if (vmdla_index >= opps.count) {
+			LOG_ERR("wrong vmdla opp(%d), max(%d)",
+					vmdla_index, opps.count - 1);
+
+		} else if ((vmdla_index < opps.vmdla.index) ||
+				((vmdla_index > opps.vmdla.index) &&
+					(!opp_keep_flag))) {
+			opps.vmdla.index = vmdla_index;
+			force_change_vmdla_opp[core] = true;
+			freq_check = true;
+		}
 	}
 
-	if (vmdla_index >= opps.count) {
-		LOG_ERR("wrong vmdla opp(%d), max(%d)",
-				vmdla_index, opps.count - 1);
-
-	} else if ((vmdla_index < opps.vmdla.index) ||
-			((vmdla_index > opps.vmdla.index) &&
-				(!opp_keep_flag))) {
-		opps.vmdla.index = vmdla_index;
-		force_change_vmdla_opp[core] = true;
-		freq_check = true;
-	}
-}
-
-
-
-#endif
 	/* dsp freq opp */
 	if (freq_index == 0xFF) {
 		mdla_dvfs_debug("no request, freq opp(%d)", freq_index);
@@ -917,15 +834,6 @@ void mdla_opp_check(int core, uint8_t vmdla_index, uint8_t freq_index)
 						opps.dsp.index) &&
 						(opps.mdlacore.index >=
 						max_dsp_freq)) {
-#if MDLA_DVFS_C_TMP
-						opps.dsp.index =
-							opps.mdlacore.index;
-
-						opps.ipu_if.index =
-							opps.mdlacore.index;
-#endif
-
-
 						mdla_dsp_if_freq_check(core,
 							opps.mdlacore.index);
 
@@ -988,59 +896,6 @@ static bool mdla_change_opp(int core, int type)
 	/* vcore opp */
 	case OPPTYPE_VCORE:
 		mdla_dvfs_debug("[mdla_%d] wait for changing vcore opp", core);
-#if MDLA_DVFS_C_TMP
-		ret = wait_to_do_change_vcore_opp(core);
-		if (ret) {
-			LOG_ERR("[mdla_%d] timeout to %s, ret=%d\n",
-				core,
-				"wait_to_do_change_vcore_opp",
-				ret);
-			goto out;
-		}
-		LOG_DBG("[mdla_%d] to do vcore opp change", core);
-		mutex_lock(&(mdla_service_cores[core].state_mutex));
-		mdla_service_cores[core].state = VCT_VCORE_CHG;
-		mutex_unlock(&(mdla_service_cores[core].state_mutex));
-		mutex_lock(&opp_mutex);
-		mdla_trace_begin("vcore:request");
-		#ifdef ENABLE_PMQOS
-		switch (opps.vcore.index) {
-		case 0:
-			mtk_pm_qos_update_request(&mdla_qos_vcore_request[core],
-								VCORE_OPP_0);
-			break;
-		case 1:
-			mtk_pm_qos_update_request(&mdla_qos_vcore_request[core],
-								VCORE_OPP_1);
-			break;
-		case 2:
-		default:
-			mtk_pm_qos_update_request(&mdla_qos_vcore_request[core],
-								VCORE_OPP_2);
-			break;
-		}
-		#else
-		ret = mmdvfs_set_fine_step(MMDVFS_SCEN_VPU_KERNEL,
-							opps.vcore.index);
-		#endif
-		mdla_trace_end();
-		mutex_lock(&(mdla_service_cores[core].state_mutex));
-		mdla_service_cores[core].state = VCT_BOOTUP;
-		mutex_unlock(&(mdla_service_cores[core].state_mutex));
-		if (ret) {
-			LOG_ERR("[mdla_%d]fail to request vcore, step=%d\n",
-					core, opps.vcore.index);
-			goto out;
-		}
-
-		mdla_dvfs_debug("[mdla_%d] cgopp vmdla=%d\n",
-				core,
-				regulator_get_voltage(vmdla_reg_id));
-
-		force_change_vcore_opp[core] = false;
-		mutex_unlock(&opp_mutex);
-		//wake_up_interruptible(&waitq_do_core_executing);
-#endif
 		break;
 	/* dsp freq opp */
 	case OPPTYPE_DSPFREQ:
@@ -1097,22 +952,7 @@ static bool mdla_change_opp(int core, int type)
 	/* vmdla opp */
 	case OPPTYPE_VMDLA:
 		mdla_dvfs_debug("[mdla_%d] wait for changing vmdla opp", core);
-#if MDLA_DVFS_C_TMP
-		ret = wait_to_do_change_vcore_opp(core);
-		if (ret) {
-			LOG_ERR("[mdla_%d] timeout to %s, ret=%d\n",
-				core,
-				"wait_to_do_change_vcore_opp",
-				ret);
-			goto out;
-		}
-#endif
 		LOG_DBG("[mdla_%d] to do vmdla opp change", core);
-#if MDLA_DVFS_C_TMP
-		mutex_lock(&(mdla_service_cores[core].state_mutex));
-		mdla_service_cores[core].state = VCT_VCORE_CHG;
-		mutex_unlock(&(mdla_service_cores[core].state_mutex));
-#endif
 		mutex_lock(&opp_mutex);
 		mdla_trace_tag_begin("vcore:request");
 		#ifdef ENABLE_PMQOS
@@ -1148,11 +988,6 @@ static bool mdla_change_opp(int core, int type)
 							opps.vcore.index);
 		#endif
 		mdla_trace_tag_end();
-#if MDLA_DVFS_C_TMP
-		mutex_lock(&(mdla_service_cores[core].state_mutex));
-		mdla_service_cores[core].state = VCT_BOOTUP;
-		mutex_unlock(&(mdla_service_cores[core].state_mutex));
-#endif
 		if (ret) {
 			LOG_ERR("[mdla_%d]fail to request vcore, step=%d\n",
 					core, opps.vcore.index);
@@ -1188,30 +1023,7 @@ int32_t mdla_thermal_en_throttle_cb(uint8_t vcore_opp, uint8_t mdla_opp)
 
 	if (mdla_init_done != 1)
 		return ret;
-#if MDLA_DVFS_C_TMP
-	bool mdla_down = true;
 
-	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
-		mutex_lock(&power_counter_mutex[i]);
-		if (power_counter[i] > 0)
-			vpu_down = false;
-		mutex_unlock(&power_counter_mutex[i]);
-	}
-	if (vpu_down) {
-		mdla_dvfs_debug("[vpu] all vpu are off currently, do nothing\n");
-		return ret;
-	}
-#endif
-
-#if MDLA_DVFS_C_TMP
-	if ((int)vpu_opp < 4) {
-		vcore_opp_index = 0;
-		vpu_freq_index = vpu_opp;
-	} else {
-		vcore_opp_index = 1;
-		vpu_freq_index = vpu_opp;
-	}
-#else
 	if (mdla_opp < MDLA_MAX_NUM_OPPS) {
 		vmdla_opp_index = opps.vmdla.opp_map[mdla_opp];
 		mdla_freq_index = opps.dsp.opp_map[mdla_opp];
@@ -1219,7 +1031,7 @@ int32_t mdla_thermal_en_throttle_cb(uint8_t vcore_opp, uint8_t mdla_opp)
 		LOG_ERR("mdla_thermal_en wrong opp(%d)\n", mdla_opp);
 		return -1;
 	}
-#endif
+
 	mdla_dvfs_debug("%s, opp(%d)->(%d/%d)\n",
 	__func__, mdla_opp, vmdla_opp_index, mdla_freq_index);
 
@@ -1390,14 +1202,6 @@ static int mdla_prepare_regulator_and_clock(struct device *pdev)
 	PREPARE_MDLA_CLK(clk_apu_conn_img_adl_cg);
 	PREPARE_MDLA_CLK(clk_apu_conn_emi_26m_cg);
 	PREPARE_MDLA_CLK(clk_apu_conn_vpu_udi_cg);
-#if MDLA_DVFS_C_TMP
-	PREPARE_VPU_CLK(clk_apu_core0_jtag_cg);
-	PREPARE_VPU_CLK(clk_apu_core0_axi_m_cg);
-	PREPARE_VPU_CLK(clk_apu_core0_apu_cg);
-	PREPARE_VPU_CLK(clk_apu_core1_jtag_cg);
-	PREPARE_VPU_CLK(clk_apu_core1_axi_m_cg);
-	PREPARE_VPU_CLK(clk_apu_core1_apu_cg);
-#endif
 	PREPARE_MDLA_CLK(clk_apu_mdla_apb_cg);
 	PREPARE_MDLA_CLK(clk_apu_mdla_cg_b0);
 	PREPARE_MDLA_CLK(clk_apu_mdla_cg_b1);
@@ -1413,10 +1217,6 @@ static int mdla_prepare_regulator_and_clock(struct device *pdev)
 	PREPARE_MDLA_CLK(clk_apu_mdla_cg_b11);
 	PREPARE_MDLA_CLK(clk_apu_mdla_cg_b12);
 	PREPARE_MDLA_CLK(clk_top_dsp_sel);
-#if MDLA_DVFS_C_TMP
-	PREPARE_MDLA_CLK(clk_top_dsp1_sel);
-	PREPARE_MDLA_CLK(clk_top_dsp2_sel);
-#endif
 	PREPARE_MDLA_CLK(clk_top_dsp3_sel);
 	PREPARE_MDLA_CLK(clk_top_ipu_if_sel);
 	PREPARE_MDLA_CLK(clk_top_clk26m);
@@ -1466,14 +1266,6 @@ static int mdla_enable_regulator_and_clock(int core)
 
 	mdla_trace_tag_begin("%s");
 
-#if MDLA_DVFS_C_TMP
-	get_vcore_opp = mdla_get_hw_vcore_opp(core);
-	if (opps.vcore.index != get_vcore_opp)
-		adjust_vcore = true;
-#else
-
-#if !MDLA_DVFS_C_TMP
-
 	/*--enable regulator--*/
 	ret1 = vvpu_regulator_set_mode(true);
 	udelay(100);//slew rate:rising10mV/us
@@ -1482,41 +1274,13 @@ static int mdla_enable_regulator_and_clock(int core)
 	udelay(100);//slew rate:rising10mV/us
 	mdla_dvfs_debug("enable vmdla ret:%d\n", ret1);
 	vvpu_vmdla_vcore_checker();
-#else
-	/*--enable regulator--*/
-	ret = regulator_enable(vmdla_reg_id);
-	udelay(200);
-	if (ret) {
-		LOG_ERR("regulator_enable vmdla_reg_id failed\n");
-		goto out;
-	}
-
-#endif
-
-
 	get_vmdla_opp = mdla_get_hw_vmdla_opp(core);
 	adjust_vmdla = true;
-#endif
+
 	mdla_trace_tag_begin("vcore:request");
 	//if (adjust_vcore) {
 	if (adjust_vmdla) {
 		mdla_dvfs_debug("[mdla_%d] adjust_vmdla", core);
-#if MDLA_DVFS_C_TMP
-		ret = wait_to_do_change_vcore_opp(core);
-		if (ret) {
-
-			/* skip change vcore in these time */
-			LOG_WRN("[mdla_%d] timeout to %s(%d/%d), ret=%d\n",
-				core,
-				"wait_to_do_change_vcore_opp",
-				opps.vcore.index,
-				//get_vcore_opp,
-				ret);
-
-			ret = 0;
-			goto clk_on;
-		}
-#endif
 		LOG_DBG("[mdla_%d] en_rc to do vmdla opp change", core);
 #ifdef ENABLE_PMQOS
 		switch (opps.vmdla.index) {
@@ -1616,18 +1380,6 @@ mdla_dvfs_debug("[mdla_%d] adjust(%d,%d) result vmdla=%d\n",
 	ENABLE_MDLA_CLK(clk_mmsys_gals_comm0);
 	ENABLE_MDLA_CLK(clk_mmsys_gals_comm1);
 	ENABLE_MDLA_CLK(clk_mmsys_smi_common);
-#if MDLA_DVFS_C_TMP
-	/*ENABLE_VPU_CLK(clk_ipu_adl_cabgen);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_dap_rx_cg);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_apb2axi_cg);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_apb2ahb_cg);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_ipu_cab1to2);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_ipu1_cab1to2);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_ipu2_cab1to2);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_cab3to3);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_cab2to1);*/
-	/*ENABLE_VPU_CLK(clk_ipu_conn_cab3to1_slice);*/
-#endif
 
 
 	ENABLE_MDLA_CLK(clk_apu_vcore_ahb_cg);
@@ -1778,18 +1530,6 @@ static int mdla_disable_regulator_and_clock(int core)
 		DISABLE_MDLA_CLK(clk_apu_mdla_cg_b12);
 		break;
 	}
-#if MDLA_DVFS_C_TMP
-	DISABLE_VPU_CLK(clk_ipu_adl_cabgen);
-	DISABLE_VPU_CLK(clk_ipu_conn_dap_rx_cg);
-	DISABLE_VPU_CLK(clk_ipu_conn_apb2axi_cg);
-	DISABLE_VPU_CLK(clk_ipu_conn_apb2ahb_cg);
-	DISABLE_VPU_CLK(clk_ipu_conn_ipu_cab1to2);
-	DISABLE_VPU_CLK(clk_ipu_conn_ipu1_cab1to2);
-	DISABLE_VPU_CLK(clk_ipu_conn_ipu2_cab1to2);
-	DISABLE_VPU_CLK(clk_ipu_conn_cab3to3);
-	DISABLE_VPU_CLK(clk_ipu_conn_cab2to1);
-	DISABLE_VPU_CLK(clk_ipu_conn_cab3to1_slice);
-#endif
 	DISABLE_MDLA_CLK(clk_apu_conn_apu_cg);
 	DISABLE_MDLA_CLK(clk_apu_conn_ahb_cg);
 	DISABLE_MDLA_CLK(clk_apu_conn_axi_cg);
@@ -1881,14 +1621,6 @@ static void mdla_unprepare_regulator_and_clock(void)
 			clk = NULL; \
 		} \
 	}
-#if MDLA_DVFS_C_TMP
-	UNPREPARE_MDLA_CLK(clk_apu_core0_jtag_cg);
-	UNPREPARE_MDLA_CLK(clk_apu_core0_axi_m_cg);
-	UNPREPARE_MDLA_CLK(clk_apu_core0_apu_cg);
-	UNPREPARE_MDLA_CLK(clk_apu_core1_jtag_cg);
-	UNPREPARE_MDLA_CLK(clk_apu_core1_axi_m_cg);
-	UNPREPARE_MDLA_CLK(clk_apu_core1_apu_cg);
-#endif
 	UNPREPARE_MDLA_CLK(clk_apu_mdla_apb_cg);
 	UNPREPARE_MDLA_CLK(clk_apu_mdla_cg_b0);
 	UNPREPARE_MDLA_CLK(clk_apu_mdla_cg_b1);
@@ -1921,10 +1653,6 @@ static void mdla_unprepare_regulator_and_clock(void)
 	UNPREPARE_MDLA_CLK(clk_mmsys_gals_comm1);
 	UNPREPARE_MDLA_CLK(clk_mmsys_smi_common);
 	UNPREPARE_MDLA_CLK(clk_top_dsp_sel);
-#if MDLA_DVFS_C_TMP
-	UNPREPARE_MDLA_CLK(clk_top_dsp1_sel);
-	UNPREPARE_MDLA_CLK(clk_top_dsp2_sel);
-#endif
 	UNPREPARE_MDLA_CLK(clk_top_dsp3_sel);
 	UNPREPARE_MDLA_CLK(clk_top_ipu_if_sel);
 	UNPREPARE_MDLA_CLK(clk_top_clk26m);
@@ -2068,11 +1796,6 @@ static int mdla_set_power(struct mdla_power *power)
 	//user->power_opp = power->opp_step;
 
 	ret = mdla_get_power(0);
-#if MDLA_DVFS_C_TMP
-	mutex_lock(&(mdla_service_cores[core].state_mutex));
-	mdla_service_cores[core].state = VCT_IDLE;
-	mutex_unlock(&(mdla_service_cores[core].state_mutex));
-#endif
 	/* to avoid power leakage, power on/off need be paired */
 	mdla_put_power(0);
 	mdla_dvfs_debug("[mdla] %s -\n", __func__);
@@ -2130,38 +1853,6 @@ int mdla_init_hw(int core, struct platform_device *pdev)
 {
 	int ret, i, j;
 	//int param;
-#if MDLA_DVFS_C_TMP
-	struct vpu_shared_memory_param mem_param;
-
-	mdla_dvfs_debug("[vpu] core : %d\n", core);
-
-	vpu_service_cores[core].vpu_base = device->mdla_base[core];
-	mdla_service_cores[core].bin_base = device->bin_base;
-
-#ifdef MTK_VPU_EMULATOR
-	mdla_request_emulator_irq(device->irq_num[core], mdla_isr_handler);
-#else
-	if (!m4u_client)
-		m4u_client = m4u_create_client();
-	if (!ion_client)
-		ion_client = ion_client_create(g_ion_device, "mdla");
-
-	ret = mdla_map_mva_of_bin(core, device->bin_pa);
-	if (ret) {
-		LOG_ERR("[mdla_%d]fail to map binary data!\n", core);
-		goto out;
-	}
-
-	ret = request_irq(device->irq_num[core],
-		(irq_handler_t)mdla_ISR_CB_TBL[core].isr_fp,
-		device->irq_trig_level,
-		(const char *)mdla_ISR_CB_TBL[core].device_name, NULL);
-	if (ret) {
-		LOG_ERR("[mdla_%d]fail to request mdla irq!\n", core);
-		goto out;
-	}
-#endif
-#endif
 
 	if (core == 0) {
 		//init_waitqueue_head(&cmd_wait);
@@ -2195,74 +1886,6 @@ int mdla_init_hw(int core, struct platform_device *pdev)
 						mdla_power_counter_routine);
 			}
 			wq = create_workqueue("mdla_wq");
-#if MDLA_DVFS_C_TMP
-		/* define the steps and OPP */
-#define DEFINE_VPU_STEP(step, m, v0, v1, v2, v3, v4, v5, v6, v7) \
-			{ \
-				opps.step.index = m - 1; \
-				opps.step.count = m; \
-				opps.step.values[0] = v0; \
-				opps.step.values[1] = v1; \
-				opps.step.values[2] = v2; \
-				opps.step.values[3] = v3; \
-				opps.step.values[4] = v4; \
-				opps.step.values[5] = v5; \
-				opps.step.values[6] = v6; \
-				opps.step.values[7] = v7; \
-			}
-
-
-#define DEFINE_VPU_OPP(i, v0, v1, v2, v3, v4) \
-		{ \
-			opps.vcore.opp_map[i]  = v0; \
-			opps.dsp.opp_map[i]    = v1; \
-			opps.dspcore[0].opp_map[i]   = v2; \
-			opps.dspcore[1].opp_map[i]   = v3; \
-			opps.ipu_if.opp_map[i] = v4; \
-		}
-
-
-		DEFINE_VPU_STEP(vcore,  2, 800000, 725000, 0, 0, 0, 0, 0, 0);
-
-		DEFINE_VPU_STEP(dsp,    8,
-					525000, 450000, 416000, 364000,
-					312000, 273000, 208000, 182000);
-
-		DEFINE_VPU_STEP(dspcore[0],   8,
-					525000, 450000, 416000, 364000,
-					312000, 273000, 208000, 182000);
-
-		DEFINE_VPU_STEP(dspcore[1],   8,
-					525000, 450000, 416000, 364000,
-					312000, 273000, 208000, 182000);
-
-		DEFINE_VPU_STEP(ipu_if, 8,
-					525000, 450000, 416000, 364000,
-					312000, 273000, 208000, 182000);
-
-		/* default freq */
-		DEFINE_VPU_OPP(0, 0, 0, 0, 0, 0);
-		DEFINE_VPU_OPP(1, 0, 1, 1, 1, 1);
-		DEFINE_VPU_OPP(2, 0, 2, 2, 2, 2);
-		DEFINE_VPU_OPP(3, 0, 3, 3, 3, 3);
-		DEFINE_VPU_OPP(4, 1, 4, 4, 4, 4);
-		DEFINE_VPU_OPP(5, 1, 5, 5, 5, 5);
-		DEFINE_VPU_OPP(6, 1, 6, 6, 6, 6);
-		DEFINE_VPU_OPP(7, 1, 7, 7, 7, 7);
-
-		/* default low opp */
-		opps.count = 8;
-		opps.index = 4; /* user space usage*/
-		opps.vcore.index = 1;
-		opps.dsp.index = 4;
-		opps.dspcore[0].index = 4;
-		opps.dspcore[1].index = 4;
-		opps.ipu_if.index = 4;
-
-#undef DEFINE_VPU_OPP
-#undef DEFINE_VPU_STEP
-#else
-			/* define the steps and OPP */
 #define DEFINE_APU_STEP(step, m, v0, v1, v2, v3, \
 						v4, v5, v6, v7, v8, v9, \
 						v10, v11, v12, v13, v14, v15) \
@@ -2371,8 +1994,6 @@ int mdla_init_hw(int core, struct platform_device *pdev)
 			opps.mdlacore.index = 9;
 #undef DEFINE_APU_OPP
 #undef DEFINE_APU_STEP
-
-#endif
 		ret = mdla_prepare_regulator_and_clock(&pdev->dev);
 		if (ret) {
 			LOG_ERR("[mdla_%d]fail to prepare regulator or clk!\n",
@@ -2431,17 +2052,6 @@ int mdla_init_hw(int core, struct platform_device *pdev)
 	return 0;
 
 out:
-#if MDLA_DVFS_C_TMP
-	for (i = 0 ; i < MTK_VPU_CORE ; i++) {
-		if (mdla_service_cores[i].srvc_task != NULL) {
-			kfree(mdla_service_cores[i].srvc_task);
-			mdla_service_cores[i].srvc_task = NULL;
-		}
-
-		if (mdla_service_cores[i].work_buf)
-			mdla_free_shared_memory(mdla_service_cores[i].work_buf);
-	}
-#endif
 	return ret;
 }
 
@@ -2451,18 +2061,6 @@ int mdla_uninit_hw(void)
 
 	for (i = 0 ; i < MTK_MDLA_USER ; i++) {
 		cancel_delayed_work(&(power_counter_work[i].my_work));
-#if MDLA_DVFS_C_TMP
-		if (mdla_service_cores[i].srvc_task != NULL) {
-			kthread_stop(mdla_service_cores[i].srvc_task);
-			kfree(mdla_service_cores[i].srvc_task);
-			mdla_service_cores[i].srvc_task = NULL;
-		}
-
-		if (mdla_service_cores[i].work_buf) {
-			mdla_free_shared_memory(mdla_service_cores[i].work_buf);
-			mdla_service_cores[i].work_buf = NULL;
-		}
-#endif
 	}
 	cancel_delayed_work(&opp_keep_work);
 	/* pmqos  */
@@ -2476,17 +2074,6 @@ int mdla_uninit_hw(void)
 	#endif
 
 	mdla_unprepare_regulator_and_clock();
-#if MDLA_DVFS_C_TMP
-	if (m4u_client) {
-		m4u_destroy_client(m4u_client);
-		m4u_client = NULL;
-	}
-
-	if (ion_client) {
-		ion_client_destroy(ion_client);
-		ion_client = NULL;
-	}
-#endif
 	if (wq) {
 		flush_workqueue(wq);
 		destroy_workqueue(wq);
@@ -2534,16 +2121,6 @@ static int mdla_boot_up(int core)
 #endif
 
 out:
-#if MDLA_DVFS_C_TMP /* control on/off outside the via get_power/put_power */
-	if (ret) {
-		ret = mdla_disable_regulator_and_clock(core);
-		if (ret) {
-			LOG_ERR("[mdla_%d]fail to disable regulator and clk\n",
-					core);
-			goto out;
-		}
-	}
-#endif
 	mdla_trace_tag_end();
 	mutex_unlock(&power_mutex[core]);
 
@@ -2734,29 +2311,8 @@ int mdla_set_power_parameter(uint8_t param, int argc, int *args)
 		break;
 	case MDLA_POWER_PARAM_JTAG:
 		mdla_put_power(0);
-#if MDLA_DVFS_C_TMP
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			LOG_ERR("invalid argument, expected:1, received:%d\n",
-					argc);
-			goto out;
-		}
-
-		is_jtag_enabled = args[0];
-		ret = vpu_hw_enable_jtag(is_jtag_enabled);
-#endif
 		break;
 	case MDLA_POWER_PARAM_LOCK:
-#if MDLA_DVFS_C_TMP
-		ret = (argc == 1) ? 0 : -EINVAL;
-		if (ret) {
-			LOG_ERR("invalid argument, expected:1, received:%d\n",
-					argc);
-			goto out;
-		}
-
-		is_power_debug_lock = args[0];
-#endif
 		ret = (argc == 1) ? 0 : -EINVAL;
 		if (ret) {
 			LOG_ERR("invalid argument, expected:1, received:%d\n",
@@ -3124,14 +2680,6 @@ static int mdla_lock_set_power(struct mdla_lock_power *mdla_lock_power)
 		mutex_unlock(&power_lock_mutex);
 		return -1;
 		}
-#if MDLA_DVFS_C_TMP
-	if (vpu_update_max_opp(vpu_lock_power)) {
-		power.opp_step = min_opp[core];
-		power.freq_step = min_opp[core];
-		power.core = vpu_lock_power->core;
-		ret = vpu_set_power(user, &power);
-	}
-#endif
 	mutex_unlock(&power_lock_mutex);
 	return 0;
 }

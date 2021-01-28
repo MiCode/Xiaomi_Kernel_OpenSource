@@ -321,8 +321,6 @@ static void qos_timer_func(struct timer_list *t)
 {
 	struct qos_counter *counter = NULL;
 
-	/* FIXME: Remove legacy function */
-	//counter = get_qos_counter(arg);
 	counter = container_of(t, struct qos_counter, qos_timer);
 	mdla_qos_debug("[mdla][qos] %s(%d) +\n", __func__, counter->core);
 	if (counter == NULL) {
@@ -331,7 +329,6 @@ static void qos_timer_func(struct timer_list *t)
 	}
 
 	/* queue work because mutex sleep must be happened */
-	//enque_qos_wq(&qos_work[arg]);
 	enque_qos_wq(&qos_work[counter->core]);
 	mod_timer(&counter->qos_timer,
 		jiffies + msecs_to_jiffies(DEFAUTL_QOS_POLLING_TIME));
