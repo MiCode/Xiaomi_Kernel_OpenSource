@@ -111,7 +111,8 @@
 #else
 #define VOW_BARGEIN_DUMP_OFFSET 0xA00
 #endif
-#define VOW_BARGEIN_DUMP_SIZE    0x3C00
+#define VOW_BARGEIN_DUMP_SIZE   0x3C00
+#define VOW_BARGEIN_IRQ_MAX_NUM 32
 #endif  /* #ifdef CONFIG_MTK_VOW_BARGE_IN_SUPPORT */
 
 #define KERNEL_VOW_DRV_VER "1.0.4"
@@ -256,11 +257,13 @@ enum vow_mtkif_type_t {
 	VOW_MTKIF_AMIC = 1,
 	VOW_MTKIF_DMIC = 2,
 	VOW_MTKIF_DMIC_LP = 3,
+	VOW_MTKIF_MAX
 };
 
 enum vow_channel_t {
 	VOW_MONO = 0,
 	VOW_STEREO = 1,
+	VOW_CH_MAX
 };
 
 enum vow_model_status_t {

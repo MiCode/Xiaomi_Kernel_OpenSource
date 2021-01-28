@@ -2178,6 +2178,22 @@ static bool VowDrv_SetMtkifType(unsigned int type)
 	return ret;
 }
 
+static bool VowDrv_CheckMtkifType(unsigned int type)
+{
+	unsigned int mtkif_type = type & 0x0F;
+	unsigned int ch_num = type >> 4;
+
+	if (mtkif_type >= VOW_MTKIF_MAX || mtkif_type < 0) {
+		VOWDRV_DEBUG("out of VOW_MTKIF_TYPE %d\n\r", mtkif_type);
+		return false;
+	}
+	if (ch_num >= VOW_CH_MAX || ch_num < 0) {
+		VOWDRV_DEBUG("out of VOW_MIC_NUM %d\n\r", ch_num);
+		return false;
+	}
+	return true;
+}
+
 void VowDrv_SetPeriodicEnable(bool enable)
 {
 	VowDrv_SetFlag(VOW_FLAG_PERIODIC_ENABLE, enable);
@@ -2340,6 +2356,10 @@ static bool VowDrv_SetBargeIn(unsigned int set, unsigned int irq_id)
 	bool ret = false;
 	unsigned int vow_ipi_buf[1];
 
+	if (irq_id >= VOW_BARGEIN_IRQ_MAX_NUM || irq_id < 0) {
+		VOWDRV_DEBUG("out of vow bargein irq range %d", irq_id);
+		return ret;
+	}
 	vow_ipi_buf[0] = irq_id;
 
 	VOWDRV_DEBUG("VowDrv_Debug_SetBargeIn = %d, irq = %d\n", set, irq_id);
@@ -2630,6 +2650,10 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case VOW_RECOG_ENABLE:
 		pr_debug("+VOW_RECOG_ENABLE(%lu)+", arg);
 		pr_debug("KERNEL_VOW_DRV_VER %s", KERNEL_VOW_DRV_VER);
+		if (!VowDrv_CheckMtkifType((unsigned int)arg)) {
+			pr_debug("+VOW_RECOG_ENABLE fail");
+			break;
+		}
 		VowDrv_SetMtkifType((unsigned int)arg);
 		VowDrv_EnableHW(1);
 		VowDrv_ChangeStatus();
@@ -2638,6 +2662,10 @@ static long VowDrv_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		break;
 	case VOW_RECOG_DISABLE:
 		pr_debug("+VOW_RECOG_DISABLE(%lu)+", arg);
+		if (!VowDrv_CheckMtkifType((unsigned int)arg)) {
+			pr_debug("+VOW_RECOG_DISABLE fail");
+			break;
+		}
 		VowDrv_SetMtkifType((unsigned int)arg);
 		VowDrv_EnableHW(0);
 		VowDrv_ChangeStatus();
