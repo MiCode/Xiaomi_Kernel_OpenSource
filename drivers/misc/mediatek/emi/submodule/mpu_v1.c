@@ -190,7 +190,7 @@ static void check_violation(void)
 
 #ifdef CONFIG_MTK_AEE_FEATURE
 	if (wr_vio != 0) {
-		if (is_md_master(master_id)) {
+		if (is_md_master(master_id, domain_id)) {
 			char str[CCCI_STR_MAX_LEN] = "0";
 
 			snprintf(str, CCCI_STR_MAX_LEN,
