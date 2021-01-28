@@ -1638,7 +1638,7 @@ s32 cmdq_alloc_mem(cmdqBackupSlotHandle *p_h_backup_slot, u32 slotCount)
 	if (p_h_backup_slot == NULL)
 		return -EINVAL;
 
-	status = cmdqCoreAllocWriteAddress(slotCount, &paStart);
+	status = cmdqCoreAllocWriteAddress(slotCount, &paStart, CMDQ_CLT_DISP);
 	*p_h_backup_slot = paStart;
 
 	return status;
@@ -1697,7 +1697,7 @@ s32 cmdq_cpu_write_mem(cmdqBackupSlotHandle h_backup_slot, u32 slot_index,
 s32 cmdq_free_mem(cmdqBackupSlotHandle h_backup_slot)
 {
 #ifdef CMDQ_GPR_SUPPORT
-	return cmdqCoreFreeWriteAddress(h_backup_slot);
+	return cmdqCoreFreeWriteAddress(h_backup_slot, CMDQ_CLT_DISP);
 #else
 	CMDQ_ERR("func:%s failed since CMDQ doesn't support GPR\n", __func__);
 	return -EFAULT;
@@ -2288,7 +2288,7 @@ s32 cmdq_op_profile_marker(struct cmdqRecStruct *handle, const char *tag)
 			!handle->profileMarker.hSlot) {
 			status = cmdqCoreAllocWriteAddress(
 				CMDQ_MAX_PROFILE_MARKER_IN_TASK,
-				&allocatedStartPA);
+				&allocatedStartPA, CMDQ_CLT_DISP);
 			if (status < 0) {
 				CMDQ_ERR(
 					"[REC][PROF_MARKER]allocate failed, status:%d\n",
