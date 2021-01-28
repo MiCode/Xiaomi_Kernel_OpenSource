@@ -21,7 +21,9 @@
 #include <linux/uaccess.h>
 #include <linux/fcntl.h>
 #include <linux/mutex.h>
-#include <linux/trusty/trusty_ipc.h>
+#include <gz-trusty/trusty_ipc.h>
+#include <gz-trusty/smcall.h>
+#include <gz-trusty/trusty.h>
 #include <kree/system.h>
 #include <kree/mem.h>
 #include <linux/atomic.h>
@@ -32,32 +34,23 @@
 #include <linux/wakelock.h>
 #endif
 #include <linux/delay.h>
-
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_reserved_mem.h>
+#include <linux/platform_device.h>
 #include <tz_cross/trustzone.h>
 #include <tz_cross/ta_system.h>
-
-#include "trusty-nop.h"
-
 /* FIXME: MTK_PPM_SUPPORT is disabled temporarily */
-#ifdef MTK_PPM_SUPPORT
-#ifdef CONFIG_MACH_MT6758
-#include "legacy_controller.h"
-#else
-#include "mtk_ppm_platform.h"
-#endif
-#endif
-
 #ifdef CONFIG_MTK_TEE_GP_SUPPORT
 #include "tee_client_api.h"
 #endif
 
-#ifdef CONFIG_ARM64
-#define ARM_SMC_CALLING_CONVENTION
+#ifdef CONFIG_MTK_ENG_BUILD
+#define DBG_KREE_SYS
 #endif
 
-/* #define DBG_KREE_SYS */
 #ifdef DBG_KREE_SYS
-#define KREE_DEBUG(fmt...) pr_debug("[KREE]" fmt)
+#define KREE_DEBUG(fmt...) pr_info("[KREE]" fmt)
 #define KREE_INFO(fmt...) pr_info("[KREE]" fmt)
 #define KREE_ERR(fmt...) pr_info("[KREE][ERR]" fmt)
 #else
@@ -67,36 +60,35 @@
 #endif
 
 #define DYNAMIC_TIPC_LEN
+#define GZ_SYS_SERVICE_NAME "com.mediatek.geniezone.srv.sys"
+#define KREE_SESSION_HANDLE_MAX_SIZE 512
+#define KREE_SESSION_HANDLE_SIZE_MASK (KREE_SESSION_HANDLE_MAX_SIZE - 1)
+#define TIPC_RETRY_MAX_COUNT (100)
+#define TIPC_RETRY_WAIT_MS (10)
+#define IS_RESTARTSYS_ERROR(err) (err == -ERESTARTSYS)
+#define RETRY_REQUIRED(cnt) (cnt <= TIPC_RETRY_MAX_COUNT)
 
 DEFINE_MUTEX(fd_mutex);
 DEFINE_MUTEX(session_mutex);
 
-#define GZ_SYS_SERVICE_NAME "com.mediatek.geniezone.srv.sys"
+struct cpumask trusty_all_cmask;
+struct cpumask trusty_big_cmask;
+int perf_boost_cnt;
+struct mutex perf_boost_lock;
+struct platform_device *tz_system_dev;
 
-#define KREE_SESSION_HANDLE_MAX_SIZE 512
-#define KREE_SESSION_HANDLE_SIZE_MASK (KREE_SESSION_HANDLE_MAX_SIZE - 1)
-
-static struct cpumask trusty_all_cmask;
-static struct cpumask trusty_big_cmask;
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source TeeServiceCall_wake_lock;
 #else
 struct wake_lock TeeServiceCall_wake_lock;
 #endif
-static struct mutex perf_boost_lock;
-static int perf_boost_cnt;
 
 static int32_t _sys_service_Fd = -1; /* only need to open sys service once */
 static struct tipc_k_handle _sys_service_h;
-
 static struct tipc_k_handle
 	_kree_session_handle_pool[KREE_SESSION_HANDLE_MAX_SIZE];
 static int32_t _kree_session_handle_idx;
 
-#define TIPC_RETRY_MAX_COUNT (100)
-#define TIPC_RETRY_WAIT_MS (10)
-#define IS_RESTARTSYS_ERROR(err) (err == -ERESTARTSYS)
-#define RETRY_REQUIRED(cnt) (cnt <= TIPC_RETRY_MAX_COUNT)
 static bool _tipc_retry_check_and_wait(int err, int retry_cnt, int tag)
 {
 	if (likely(!IS_RESTARTSYS_ERROR(err)))
@@ -249,7 +241,7 @@ int32_t _HandleToFd(struct tipc_k_handle h)
 	return _setSessionHandle(h);
 }
 
-#define _HandleToChanInfo(x) ((struct tipc_dn_chan *)(x->dn))
+#define _HandleToChanInfo(x) (x?(struct tipc_dn_chan *)(x->dn):0)
 
 void KREE_SESSION_LOCK(int32_t handle)
 {
@@ -279,8 +271,8 @@ static TZ_RESULT KREE_OpenSysFd(void)
 	}
 	_sys_service_Fd = KREE_SESSION_HANDLE_MAX_SIZE;
 
-	KREE_DEBUG("===> %s: chan_p = 0x%llx\n", __func__,
-		   (uint64_t)_sys_service_h->dn);
+	KREE_DEBUG("===> %s: chan_p = %p\n", __func__,
+		   _sys_service_h.dn);
 
 	return ret;
 }
@@ -312,8 +304,7 @@ static TZ_RESULT KREE_OpenFd(const char *port, int32_t *Fd)
 
 	*Fd = tmp;
 
-	KREE_DEBUG("KREE Open FD: Fd = %d, chan_p = 0x%llx\n",
-		*Fd, (uint64_t)h);
+	KREE_DEBUG("%s: Fd = %d, chan_p = %p\n", __func__, *Fd, h.dn);
 
 	return ret;
 }
@@ -654,13 +645,49 @@ struct _cpus_cluster_freq cpus_cluster_freq[NR_PPM_CLUSTERS];
 /* static atomic_t boost_cpu[NR_PPM_CLUSTERS]; */
 #endif
 
+int tz_system_nop_std32(uint32_t type, uint64_t value)
+{
+	int ret;
+	uint32_t val_a = value;
+	uint32_t val_b = value >> 32;
+
+	KREE_DEBUG("%s\n", __func__);
+
+	ret = trusty_std_call32(tz_system_dev->dev.parent, SMC_SC_NOP,
+							type, val_a, val_b);
+	while (ret == SM_ERR_NOP_INTERRUPTED || ret == SM_ERR_BUSY) {
+		if (ret == SM_ERR_BUSY) {
+			usleep_range(100, 200);
+			ret = trusty_std_call32(
+						tz_system_dev->dev.parent,
+						SMC_SC_NOP,
+						type, val_a, val_b);
+		} else {
+			ret = trusty_std_call32(
+						tz_system_dev->dev.parent,
+						SMC_SC_NOP,
+						0, 0, 0);
+		}
+	}
+
+	if (ret != SM_ERR_NOP_DONE)
+		KREE_ERR("%s: SMC_SC_NOP failed %d", __func__, ret);
+	else
+		ret = 0;
+
+	return ret;
+}
+
 struct nop_param {
 	uint32_t type; /* 1: new thread, 2: kick semaphore */
 	uint64_t value;
 	uint32_t boost_enabled;
 };
 
-static int ree_dummy_thread(void *args)
+struct completion ree_dummy_event;
+struct nop_param new_param;
+
+int ree_dummy_thread(void *data)
 {
 	int ret;
 	/* int curr_cpu = get_cpu(); */
@@ -668,24 +695,28 @@ static int ree_dummy_thread(void *args)
 	uint32_t param_type = 0;
 	uint64_t param_value = 0;
 
-	if (args != NULL) {
-		/* boost_enabled = ((struct nop_param *)args)->boost_enabled; */
-		param_type = ((struct nop_param *)args)->type;
-		param_value = ((struct nop_param *)args)->value;
-		vfree(args);
-	} else {
-		KREE_INFO("[ERROR] param is null\n");
+	init_completion(&ree_dummy_event);
+	KREE_DEBUG("%s +++++\n", __func__);
+
+	while (1) {
+		ret = wait_for_completion_interruptible(&ree_dummy_event);
+		if (ret != 0)
+			KREE_DEBUG("%s: down_interruptible failed, ret=%d %p",
+				__func__, ret, get_current());
+		param_type = new_param.type;
+		param_value = new_param.value;
+
+		usleep_range(100, 200);
+
+		/* get into GZ through NOP SMC call */
+		ret = tz_system_nop_std32(param_type, param_value);
+		if (ret != 0) {
+			KREE_ERR("%s: SMC_SC_NOP failed, ret=%d",
+				__func__, ret);
+			break;
+		}
 	}
-
-	set_user_nice(current, -20);
-
-	usleep_range(100, 500);
-
-	/* get into GZ through NOP SMC call */
-	ret = trusty_call_nop_std32(param_type, param_value);
-	if (ret != 0)
-		KREE_DEBUG("%s: SMC_SC_NOP failed, ret=%d", __func__, ret);
-
+	KREE_ERR("%s leave(%d)\n", __func__, ret);
 
 	return 0;
 }
@@ -693,27 +724,11 @@ static int ree_dummy_thread(void *args)
 static int ree_service_threads(uint32_t type, uint32_t val_a, uint32_t val_b,
 			       uint32_t param1_val_b)
 {
-	int ret = 0;
-	struct task_struct *task;
-	/* uint32_t cpu = param1_val_b & 0x0000ffff; */
-	struct nop_param *param;
-
-	param = vmalloc(sizeof(struct nop_param));
-	param->type = type;
-	param->value = (((uint64_t)val_b) << 32) | val_a;
-	param->boost_enabled = (param1_val_b & 0xffff0000) >> 16;
-
-#if 0
-	KREE_INFO("### cpu=%u, boost_enable=%u, raw=0x%x\n", cpu,
-		boost_enabled, param1_val_b);
-#endif
-
-	task = kthread_create(ree_dummy_thread, param, "ree_dummy_thread");
-	ret = (!task) ? 1 : 0;
-	set_cpus_allowed_ptr(task, &trusty_big_cmask);
-	wake_up_process(task);
-
-	return ret;
+	new_param.type = type;
+	new_param.value = (((uint64_t)val_b) << 32) | val_a;
+	new_param.boost_enabled = (param1_val_b & 0x00ff0000)>>16;
+	complete(&ree_dummy_event);
+	return 0;
 }
 
 TZ_RESULT _Gz_KreeServiceCall_body(KREE_SESSION_HANDLE handle, uint32_t command,
@@ -855,6 +870,10 @@ TZ_RESULT _GzServiceCall_body(int32_t Fd, unsigned int cmd,
 	}
 
 	ree_param = kmalloc(sizeof(*ree_param), GFP_KERNEL);
+	if (!ree_param) {
+		KREE_ERR("==>ree_param kmalloc fail. Stop.\n");
+		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+	}
 	/* keeps serving REE call until ends */
 	while (1) {
 		rc = _gz_client_wait_ret(Fd, ree_param);
@@ -930,7 +949,12 @@ static void kree_perf_boost(int enable)
 	/* KREE_ERR("%s %s\n", __func__, enable>0?"enable":"disable"); */
 
 	if (enable) {
-		set_cpus_allowed_ptr(get_current(), &trusty_big_cmask);
+		if (get_gz_bind_cpu() == 1) {
+			KREE_DEBUG("set_cpus_allowed_ptr do+ big_core\n");
+			set_cpus_allowed_ptr(get_current(), &trusty_big_cmask);
+		} else {
+			KREE_DEBUG("set_cpus_allowed_ptr skip+\n");
+		}
 		if (perf_boost_cnt == 0) {
 			/*
 			 * freq_to_set[0].min = cpus_cluster_freq[0].max_freq;
@@ -968,7 +992,12 @@ static void kree_perf_boost(int enable)
 			wake_unlock(&TeeServiceCall_wake_lock);
 #endif
 		}
-		set_cpus_allowed_ptr(get_current(), &trusty_all_cmask);
+		if (get_gz_bind_cpu() == 1) {
+			KREE_DEBUG("set_cpus_allowed_ptr do- all_core\n");
+			set_cpus_allowed_ptr(get_current(), &trusty_all_cmask);
+		} else {
+			KREE_DEBUG("set_cpus_allowed_ptr skip-\n");
+		}
 	}
 
 	mutex_unlock(&perf_boost_lock);
@@ -1032,9 +1061,8 @@ TZ_RESULT KREE_CreateSession(const char *ta_uuid, KREE_SESSION_HANDLE *pHandle)
 	chan_p->session = session;
 	mutex_init(&chan_p->sess_lock);
 
-	*pHandle = chan_fd;
-
 create_session_out:
+	*pHandle = chan_fd;
 	mutex_unlock(&session_mutex);
 
 	return ret;
@@ -1145,6 +1173,10 @@ TZ_RESULT KREE_TeeServiceCall(KREE_SESSION_HANDLE handle, uint32_t command,
 
 	kree_perf_boost(1);
 	cparam = kmalloc(sizeof(*cparam), GFP_KERNEL);
+	if (!cparam) {
+		KREE_ERR("==>cparam kmalloc fail. Stop.\n");
+		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+	}
 	cparam->command = command;
 	cparam->paramTypes = paramTypes;
 	memcpy(&(cparam->param[0]), param, sizeof(union MTEEC_PARAM) * 4);
@@ -1188,45 +1220,45 @@ u32 KREE_GetSystemCntFrq(void)
 	return freq;
 }
 
-int gz_get_cpuinfo_thread(void *data)
+static int tz_system_probe(struct platform_device *pdev)
 {
-#ifdef MTK_PPM_SUPPORT
-	struct cpufreq_policy curr_policy;
-#endif
-#ifdef CONFIG_MACH_MT6758
-	msleep(3000);
-#else
-	msleep(1000);
-#endif
-
-#ifdef MTK_PPM_SUPPORT
-	cpufreq_get_policy(&curr_policy, 0);
-	cpus_cluster_freq[0].max_freq = curr_policy.cpuinfo.max_freq;
-	cpus_cluster_freq[0].min_freq = curr_policy.cpuinfo.min_freq;
-	cpufreq_get_policy(&curr_policy, 4);
-	cpus_cluster_freq[1].max_freq = curr_policy.cpuinfo.max_freq;
-	cpus_cluster_freq[1].min_freq = curr_policy.cpuinfo.min_freq;
-	KREE_INFO("%s, cluster [0]=%u-%u, [1]=%u-%u\n", __func__,
-		  cpus_cluster_freq[0].max_freq, cpus_cluster_freq[0].min_freq,
-		  cpus_cluster_freq[1].max_freq, cpus_cluster_freq[1].min_freq);
-#endif
-
-	cpumask_clear(&trusty_all_cmask);
-	cpumask_setall(&trusty_all_cmask);
-	cpumask_clear(&trusty_big_cmask);
-	cpumask_set_cpu(4, &trusty_big_cmask);
-	cpumask_set_cpu(5, &trusty_big_cmask);
-	cpumask_set_cpu(6, &trusty_big_cmask);
-	cpumask_set_cpu(7, &trusty_big_cmask);
-
-	perf_boost_cnt = 0;
-	mutex_init(&perf_boost_lock);
-#ifdef CONFIG_PM_WAKELOCKS
-	wakeup_source_init(&TeeServiceCall_wake_lock, "KREE_TeeServiceCall");
-#else
-	wake_lock_init(&TeeServiceCall_wake_lock, WAKE_LOCK_SUSPEND,
-		       "KREE_TeeServiceCall");
-#endif
-
+	KREE_DEBUG("%s\n", __func__);
+	tz_system_dev = pdev;
 	return 0;
 }
+static int tz_system_remove(struct platform_device *pdev)
+{
+	KREE_DEBUG("%s\n", __func__);
+	return 0;
+}
+
+#define MODULE_NAME "trusty_gz"
+static const struct of_device_id tz_system_of_match[] = {
+	{ .compatible = "mediatek,trusty-gz", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, trusty_tz_of_match);
+
+struct platform_driver tz_system_driver = {
+	.probe = tz_system_probe,
+	.remove = tz_system_remove,
+	.driver	= {
+		.name = MODULE_NAME,
+		.owner = THIS_MODULE,
+		.of_match_table = tz_system_of_match,
+	},
+};
+
+int mtee_fod_enable(u32 on)
+{
+	return trusty_std_call32(tz_system_dev->dev.parent,
+		MT_SMC_SC_VPU, on, 0, 0);
+}
+
+int tz_system_std_call32(u32 smcnr, u32 a0, u32 a1, u32 a2)
+{
+	return trusty_std_call32(tz_system_dev->dev.parent,
+				smcnr, a0, a1, a2);
+}
+
+

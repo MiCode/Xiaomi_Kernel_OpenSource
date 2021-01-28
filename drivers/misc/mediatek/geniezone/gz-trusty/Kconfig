@@ -1,0 +1,92 @@
+menu "GZ Trusty"
+
+config TRUSTY_LOG
+	tristate "GZ gz_log & trusty_log support"
+	depends on MTK_ENABLE_GENIEZONE
+	default y
+	help
+	 This symbol is used to build gz_log and trusty_log into kernel.
+	 The gz_log driver will create a proc node which can only printthe gz
+	 message.
+	 It will be select if MTK_ENABLE_GENIEZONE is on.
+	 If the gz_log driver failed or this symbol is false, the mtk logger
+	 can not read the gz message correctly.
+
+config TRUSTY_VIRTIO
+	tristate "GZ Trusty virtio support"
+	depends on MTK_ENABLE_GENIEZONE
+	select VIRTIO
+	default y
+
+config TRUSTY_VIRTIO_IPC
+	tristate "GZ Trusty Virtio IPC driver"
+	depends on TRUSTY_VIRTIO
+	default y
+	help
+	  This module adds support for communications with GZ Trusty Services
+
+	  If you choose to build a module, it'll be called trusty-ipc.
+	  Say N if unsure.
+
+config MT_TRUSTY_DEBUGFS
+	tristate "Trusty debugfs for Mediatek platforms"
+	default n
+
+config TRUSTY_INTERRUPT_MAP
+	tristate "GZ Trusty interrupt map"
+	depends on MTK_ENABLE_GENIEZONE
+	default y
+
+config TRUSTY_INTERRUPT_FIQ_ONLY
+	tristate "GZ Trusty interrupt fiq support"
+	depends on MTK_ENABLE_GENIEZONE && MTK_GIC_V3_EXT
+	default y
+	help
+	  This is used for Trusty to support handling new flow in GICv3
+	  If this is selected, NWd will not route IRQ to Secure OS
+	  but just fire NOP.
+	  This is MUST for us to handle G0S IRQ for Secure OS.
+
+config MTK_ENABLE_GENIEZONE
+	tristate "MTK GenieZone enable"
+	default n
+	help
+	  This is used for Trusty to support MTK Geniezone
+	  Irq will be masked in trusty irq handler
+	  for irq routing to GenieZone.
+	  Irq work will be put to global queue when cpu dead.
+	  We move the GZ TIPC driver from drivers/trusty to
+	  drivers/misc/mediatek/geniezone/gz-trusty. Use
+	  MTK_ENABLE_GENIEZONE instead of TRUSTY to enable it.
+
+config MTK_NEBULA_VM_SUPPORT
+	tristate "Nebula VM OS Enable"
+	depends on MTK_ENABLE_GENIEZONE
+	select MT_TRUSTY_DEBUGFS if (MTK_ENG_BUILD)
+	default n
+	help
+	  This is used for MTK Geniezone to Support Nebula VM OS.
+	  Nebula's IRQ will be routed by Linux to Geniezone.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config GZ_SMC_CALL_REMAP
+	tristate "GZ Use Remapped SMC Calls"
+	depends on MTK_NEBULA_VM_SUPPORT
+	default y
+	help
+	  This is used for MTK Geniezone to use remapped SMC Calls.
+	  Nebula's IRQ will be routed by Linux to Geniezone.
+	  Trusty virtio will be connected to Nebula Guest OS directly.
+	  Say Y if you would like to enable this feature.
+	  If unsure, say N.
+
+config TRUSTY_WDT_FIQ_ARMV7_SUPPORT
+	tristate "Trusty WDT FIQ for arm"
+	depends on MTK_ENABLE_GENIEZONE && MTK_NO_ATF && \
+		   !MTK_KERNEL_IN_SECURE_MODE
+	default y
+
+endmenu
+
+# GZ Trusty
