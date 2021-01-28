@@ -101,47 +101,21 @@ const struct of_device_id mt_thermal_of_match[2] = {
 /*
  * module			LVTS Plan
  *=====================================================
- * MCU_LITTLE	LVTS1-0, LVTS1-1, LVTS1-2, LVTS1-3
- * MCU_BIG		LVTS2-0, LVTS2-1
- * GPU			LVTS3-0
- * CAM			LVTS3-1
- * SOC TOP		LVTS3-2, LVTS3-3
- * VPU			LVTS4-0
- * MD-4G		LVTS5-0
- * MD-5G		LVTS5-1
- * MD-3G		LVTS5-2
+ * MCU_LITTLE		LVTS1-0, LVTS1-1, LVTS1-2, LVTS1-3
+ * BIG		LVTS2-0, LVTS2-1
+ * GPU		LVTS3-0, LVTS3-1
+ * SOC		LVTS3-2
+ * CONSYS		LVTS3-3
+ * MD-4G		LVTS4-0
+ * MD-5G		LVTS4-1
+ * MD-3G		LVTS4-2
  */
 
-
 struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
-	[0] = {/*(MCU CPU L)*/
+	[0] = {/*(AP CPU L)*/
 		.ts = {L_TS_LVTS1_0, L_TS_LVTS1_1, L_TS_LVTS1_2, L_TS_LVTS1_3},
 		.ts_number = 4,
-		.dominator_ts_idx = 3, //TODO: need confirm dominator sensor
-		.tc_offset = 0x26D000,
-		.tc_speed = {
-			.group_interval_delay = 0x001,
-			.period_unit = 0x00C,
-			.filter_interval_delay = 0x001,
-			.sensor_interval_delay = 0x001
-		}
-	},
-	[1] = {/*(MCU CPU B)*/
-		.ts = {L_TS_LVTS2_0, L_TS_LVTS2_1},
-		.ts_number = 2,
-		.dominator_ts_idx = 0, //TODO: need confirm dominator sensor
-		.tc_offset = 0x26D100,
-		.tc_speed = {
-			.group_interval_delay = 0x001,
-			.period_unit = 0x00C,
-			.filter_interval_delay = 0x001,
-			.sensor_interval_delay = 0x001
-		}
-	},
-	[2] = {/*(AP GPU CAM VP)*/
-		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_3},
-		.ts_number = 4,
-		.dominator_ts_idx = 0, //TODO: need confirm dominator sensor
+		.dominator_ts_idx = 1, //TODO: need confirm dominator sensor
 		.tc_offset = 0,
 		.tc_speed = {
 			.group_interval_delay = 0x001,
@@ -150,10 +124,10 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 			.sensor_interval_delay = 0x001
 		}
 	},
-	[3] = {/*(AP VPU)*/
-		.ts = {L_TS_LVTS4_0},
-		.ts_number = 1,
-		.dominator_ts_idx = 0, //TODO: need confirm dominator sensor
+	[1] = {/*AP BIG*/
+		.ts = {L_TS_LVTS2_0, L_TS_LVTS2_1},
+		.ts_number = 2,
+		.dominator_ts_idx = 1, //TODO: need confirm dominator sensor
 		.tc_offset = 0x100,
 		.tc_speed = {
 			.group_interval_delay = 0x001,
@@ -162,11 +136,23 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 			.sensor_interval_delay = 0x001
 		}
 	},
-	[4] = {/*(AP MD4G MD5G MD3G)*/
-		.ts = {L_TS_LVTS5_0, L_TS_LVTS5_1, L_TS_LVTS5_2},
+	[2] = {/*(GPU, GPU, SOC, CONSYS)*/
+		.ts = {L_TS_LVTS3_0, L_TS_LVTS3_1, L_TS_LVTS3_2, L_TS_LVTS3_2},
+		.ts_number = 4,
+		.dominator_ts_idx = 1, //TODO: need confirm dominator sensor
+		.tc_offset = 0x200,
+		.tc_speed = {
+			.group_interval_delay = 0x001,
+			.period_unit = 0x00C,
+			.filter_interval_delay = 0x001,
+			.sensor_interval_delay = 0x001
+		}
+	},
+	[3] = {/*(MD-4G, MD-5G, MD-3G)*/
+		.ts = {L_TS_LVTS4_0, L_TS_LVTS4_1, L_TS_LVTS4_2},
 		.ts_number = 3,
 		.dominator_ts_idx = 2, //TODO: need confirm dominator sensor
-		.tc_offset = 0x200,
+		.tc_offset = 0x300,
 		.tc_speed = {
 			.group_interval_delay = 0x001,
 			.period_unit = 0x00C,
@@ -175,6 +161,7 @@ struct lvts_thermal_controller lvts_tscpu_g_tc[LVTS_CONTROLLER_NUM] = {
 		}
 	}
 };
+
 
 static unsigned int g_golden_temp;
 static unsigned int g_count_r[L_TS_LVTS_NUM];
@@ -432,7 +419,7 @@ static void read_device_reg_before_active(void)
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
 			addr = g_lvts_device_addrs[j];
-			data =  lvts_read_device(0x81020000, addr, i);
+			data =  lvts_read_device(0xC1020000, addr, i);
 			g_lvts_device_value_b[i][j] = data;
 		}
 	}
@@ -449,7 +436,7 @@ static void read_device_reg_when_error(void)
 
 		for (j = 0; j < NUM_LVTS_DEVICE_REG; j++) {
 			addr = g_lvts_device_addrs[j];
-			lvts_write_device(0x81020000, addr, 0x00, i);
+			lvts_write_device(0xC1020000, addr, 0x00, i);
 			/* wait 2us + 3us buffer*/
 			udelay(5);
 			/* Check ASIF bus status for transaction finished
@@ -617,27 +604,27 @@ void lvts_device_read_count_RC_N_resume(void)
 			s_index = lvts_tscpu_g_tc[i].ts[j];
 
 			/* Select sensor-N with RCK */
-			lvts_write_device(0x81030000, 0x0D, j, i);
+			lvts_write_device(0xC1030000, 0x0D, j, i);
 			/* Set Device Single mode */
-			lvts_write_device(0x81030000, 0x06, 0x78, i);
+			lvts_write_device(0xC1030000, 0x06, 0x78, i);
 			/* set TS_EN & DIV_EN */
-			lvts_write_device(0x81030000, 0x08, 0xF5, i);
+			lvts_write_device(0xC1030000, 0x08, 0xF5, i);
 			/*  Toggle VOC_RST */
-			lvts_write_device(0x81030000, 0x08, 0xFD, i);
+			lvts_write_device(0xC1030000, 0x08, 0xFD, i);
 			/*  Toggle VOC_RST */
-			lvts_write_device(0x81030000, 0x08, 0xF5, i);
+			lvts_write_device(0xC1030000, 0x08, 0xF5, i);
 			/* Wait 8us for device settle + 2us buffer*/
 			udelay(10);
 			/* Kick-off RCK counting */
-			lvts_write_device(0x81030000, 0x03, 0x02, i);
+			lvts_write_device(0xC1030000, 0x03, 0x02, i);
 			/* wait 20us + 10us buffer */
 			udelay(30);
 			/* Disable TS_EN */
-			lvts_write_device(0x81030000, 0x08, 0x0F1, i);
+			lvts_write_device(0xC1030000, 0x08, 0x0F1, i);
 			lvts_device_check_counting_status(i);
 
 			/* Get RCK count data (sensor-N) */
-			data = lvts_read_device(0x81020000, 0x00, i);
+			data = lvts_read_device(0xC1020000, 0x00, i);
 
 			/* Get RCK value from LSB[23:0] */
 			g_count_rc_now[s_index] = (data & _BITMASK_(23:0));
@@ -645,7 +632,7 @@ void lvts_device_read_count_RC_N_resume(void)
 			 * temperature fetch
 			 */
 			/* Select Sensor-N without RCK */
-			lvts_write_device(0x81030000, 0x0D, (0x10 | j), i);
+			lvts_write_device(0xC1030000, 0x0D, (0x10 | j), i);
 		}
 
 	}
@@ -681,27 +668,27 @@ void lvts_device_read_count_RC_N(void)
 			s_index = lvts_tscpu_g_tc[i].ts[j];
 
 			/* Select sensor-N with RCK */
-			lvts_write_device(0x81030000, 0x0D, j, i);
+			lvts_write_device(0xC1030000, 0x0D, j, i);
 			/* Set Device Single mode */
-			lvts_write_device(0x81030000, 0x06, 0x78, i);
+			lvts_write_device(0xC1030000, 0x06, 0x78, i);
 			/* set TS_EN & DIV_EN */
-			lvts_write_device(0x81030000, 0x08, 0xF5, i);
+			lvts_write_device(0xC1030000, 0x08, 0xF5, i);
 			/*  Toggle VOC_RST */
-			lvts_write_device(0x81030000, 0x08, 0xFD, i);
+			lvts_write_device(0xC1030000, 0x08, 0xFD, i);
 			/*  Toggle VOC_RST */
-			lvts_write_device(0x81030000, 0x08, 0xF5, i);
+			lvts_write_device(0xC1030000, 0x08, 0xF5, i);
 			/* Wait 8us for device settle + 2us buffer*/
 			udelay(10);
 			/* Kick-off RCK counting */
-			lvts_write_device(0x81030000, 0x03, 0x02, i);
+			lvts_write_device(0xC1030000, 0x03, 0x02, i);
 			/* wait 20us + 10us buffer */
 			udelay(30);
 			/* Disable TS_EN */
-			lvts_write_device(0x81030000, 0x08, 0x0F1, i);
+			lvts_write_device(0xC1030000, 0x08, 0x0F1, i);
 			lvts_device_check_counting_status(i);
 
 			/* Get RCK count data (sensor-N) */
-			data = lvts_read_device(0x81020000, 0x00, i);
+			data = lvts_read_device(0xC1020000, 0x00, i);
 
 			/* Get RCK value from LSB[23:0] */
 			g_count_rc_now[s_index] = (data & _BITMASK_(23:0));
@@ -709,7 +696,7 @@ void lvts_device_read_count_RC_N(void)
 			 * temperature fetch
 			 */
 			/* Select Sensor-N without RCK */
-			lvts_write_device(0x81030000, 0x0D, (0x10 | j), i);
+			lvts_write_device(0xC1030000, 0x0D, (0x10 | j), i);
 		}
 
 	}
@@ -735,7 +722,7 @@ void lvts_device_enable_auto_rck(void)
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		/* Set LVTS AUTO-RCK operation */
-		lvts_write_device(0x81030000, 0x0E, 0x01, i);
+		lvts_write_device(0xC1030000, 0x0E, 0x01, i);
 	}
 }
 
@@ -860,11 +847,11 @@ void lvts_device_identification(void)
 		mt_reg_sync_writel_print(0x00000001, LVTSCLKEN_0 + offset);
 
 		/*  Reset All Devices */
-		lvts_write_device(0x81030000, 0xFF, 0xFF, tc_num);
+		lvts_write_device(0xC1030000, 0xFF, 0xFF, tc_num);
 		/* udelay(100); */
 
 		/*  Read back Dev_ID with Update */
-		lvts_write_device(0x85020000, 0xFC, 0x55, tc_num);
+		lvts_write_device(0xC5020000, 0xFC, 0x55, tc_num);
 
 		/*  Check LVTS device ID */
 		data = (readl(LVTS_ID_0 + offset) & _BITMASK_(7:0));
@@ -886,7 +873,7 @@ void lvts_reset_device_and_stop_clk(void)
 		offset = lvts_tscpu_g_tc[tc_num].tc_offset;
 
 		/*  Reset All Devices */
-		lvts_write_device(0x81030000, 0xFF, 0xFF, tc_num);
+		lvts_write_device(0xC1030000, 0xFF, 0xFF, tc_num);
 
 		/*  Disable LVTS_CTRL Clock */
 		mt_reg_sync_writel_print(0x00000000, LVTSCLKEN_0 + offset);
@@ -901,20 +888,20 @@ void lvts_Device_Enable_Init_all_Devices(void)
 
 	for (i = 0; i < ARRAY_SIZE(lvts_tscpu_g_tc); i++) {
 		/* Stop Counting (RG_TSFM_ST=0) */
-		lvts_write_device(0x81030000, 0x03, 0x00, i);
+		lvts_write_device(0xC1030000, 0x03, 0x00, i);
 		/* RG_TSFM_LPDLY[1:0]=2' 10 */
-		lvts_write_device(0x81030000, 0x07, 0xA6, i);
+		lvts_write_device(0xC1030000, 0x07, 0xA6, i);
 		/* Set LVTS device counting window 20us */
-		lvts_write_device(0x81030000, 0x05, 0x00, i);
-		lvts_write_device(0x81030000, 0x04, 0x20, i);
+		lvts_write_device(0xC1030000, 0x05, 0x00, i);
+		lvts_write_device(0xC1030000, 0x04, 0x20, i);
 		/* TSV2F_CHOP_CKSEL & TSV2F_EN */
-		lvts_write_device(0x81030000, 0x0A, 0x8C, i);
+		lvts_write_device(0xC1030000, 0x0A, 0x8C, i);
 		/* TSBG_DEM_CKSEL * TSBG_CHOP_EN */
-		lvts_write_device(0x81030000, 0x0C, 0xFC, i);
+		lvts_write_device(0xC1030000, 0x0C, 0xFC, i);
 		/* Set TS_RSV */
-		lvts_write_device(0x81030000, 0x09, 0x8D, i);
+		lvts_write_device(0xC1030000, 0x09, 0x8D, i);
 		/* Set TS_CHOP control */
-		lvts_write_device(0x81030000, 0x08, 0xF1, i);
+		lvts_write_device(0xC1030000, 0x08, 0xF1, i);
 	}
 }
 
@@ -938,22 +925,17 @@ void lvts_thermal_cal_prepare(void)
 	temp[11] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_12);
 	temp[12] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_13);
 	temp[13] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_14);
-	temp[14] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_15);
+	temp[14] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_18);
 	temp[15] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_19);
 	temp[16] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_20);
 	temp[17] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_21);
-	temp[18] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_22);
-	temp[19] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_2);
-	temp[20] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_3);
-	temp[21] = get_devinfo_with_index(LVTS_ADDRESS_INDEX_4);
 
-
-	for (i = 0; (i + 5) < 22; i = i + 5)
+	for (i = 0; (i + 5) < 18; i = i + 5)
 		lvts_printk("[lvts_call] %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x, %d: 0x%x\n",
 		i, temp[i], i + 1, temp[i + 1], i + 2, temp[i + 2],
 		i + 3, temp[i + 3], i + 4, temp[i + 4]);
 
-	lvts_printk("[lvts_call] 20: 0x%x,  21: 0x%x\n", temp[20], temp[21]);
+	lvts_printk("[lvts_call] 15: 0x%x,  16: 0x%x, 17: 0x%x\n", temp[15], temp[16], temp[17]);
 
 
 	g_golden_temp = ((temp[0] & _BITMASK_(31:24)) >> 24);
@@ -970,19 +952,15 @@ void lvts_thermal_cal_prepare(void)
 	g_count_r[10] = (temp[11] & _BITMASK_(23:0));
 	g_count_r[11] = (temp[12] & _BITMASK_(23:0));
 	g_count_r[12] = (temp[13] & _BITMASK_(23:0));
-	g_count_r[13] = (temp[14] & _BITMASK_(23:0));
 
-	g_count_rc[0] = (temp[15] & _BITMASK_(23:0));
 
-	g_count_rc[1] = (temp[16] & _BITMASK_(23:0));
+	g_count_rc[0] = (temp[14] & _BITMASK_(23:0));
 
-	g_count_rc[2] = (temp[17] & _BITMASK_(23:0));
+	g_count_rc[1] = (temp[15] & _BITMASK_(23:0));
 
-	g_count_rc[3] = (temp[18] & _BITMASK_(23:0));
+	g_count_rc[2] = (temp[16] & _BITMASK_(23:0));
 
-	g_count_rc[4] = ((temp[19] & _BITMASK_(31:24)) >> 8) +
-		((temp[20] & _BITMASK_(31:24)) >> 16) +
-		((temp[21] & _BITMASK_(31:24)) >> 24);
+	g_count_rc[3] = (temp[17] & _BITMASK_(23:0));
 
 
 	for (i = 0; i < L_TS_LVTS_NUM; i++) {
@@ -1765,7 +1743,7 @@ void lvts_tscpu_thermal_initial_all_tc(void)
 		/*  set calculation scale rules */
 		mt_reg_sync_writel_print(0x00000300, LVTSCALSCALE_0 + offset);
 		/* Set Device Single mode */
-		lvts_write_device(0x81030000, 0x06, 0xB8, i);
+		lvts_write_device(0xC1030000, 0x06, 0xB8, i);
 
 		lvts_configure_polling_speed_and_filter(i);
 	}

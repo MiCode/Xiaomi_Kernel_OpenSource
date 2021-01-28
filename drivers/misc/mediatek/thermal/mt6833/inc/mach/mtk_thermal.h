@@ -86,13 +86,12 @@ enum thermal_sensor {
 	TS_LVTS2_0,		/* LVTS2-0 Big */
 	TS_LVTS2_1,		/* LVTS2-1 Big */
 	TS_LVTS3_0,		/* LVTS3-0 GPU */
-	TS_LVTS3_1,		/* LVTS3-1 CAM */
-	TS_LVTS3_2,		/* LVTS3-2 VP */
-	TS_LVTS3_3,		/* LVTS3-3 VP */
-	TS_LVTS4_0,		/* LVTS4-0 VPU */
-	TS_LVTS5_0,		/* LVTS5-0 MD-4G */
-	TS_LVTS5_1,		/* LVTS5-1 MD-5G */
-	TS_LVTS5_2,		/* LVTS5-2 MD-3G */
+	TS_LVTS3_1,		/* LVTS3-1 GPU */
+	TS_LVTS3_2,		/* LVTS3-2 SOC */
+	TS_LVTS3_3,		/* LVTS3-3 CONNSYS */
+	TS_LVTS4_0,		/* LVTS4-0 MD-4G */
+	TS_LVTS4_1,		/* LVTS4-1 MD-5G */
+	TS_LVTS4_2,		/* LVTS4-2 MD-4G */
 
 #endif
 	TS_ENUM_MAX
@@ -103,8 +102,6 @@ enum thermal_bank_name {
 	THERMAL_BANK1,
 	THERMAL_BANK2,
 	THERMAL_BANK3,
-	THERMAL_BANK4,
-	THERMAL_BANK5,
 	THERMAL_BANK_NUM
 };
 
@@ -138,10 +135,7 @@ extern int tscpu_get_temp_by_bank(enum thermal_bank_name ts_bank);
 
 extern int get_immediate_cpuL_wrap(void);
 extern int get_immediate_cpuB_wrap(void);
-extern int get_immediate_mcucci_wrap(void);
 extern int get_immediate_gpu_wrap(void);
-extern int get_immediate_vpu_wrap(void);
-extern int get_immediate_top_wrap(void);
 extern int get_immediate_md_wrap(void);
 
 /* Added for DLPT/EARA */
@@ -168,9 +162,8 @@ enum mtk_thermal_sensor_cpu_id_met {
 	MTK_THERMAL_SENSOR_LVTS3_2,
 	MTK_THERMAL_SENSOR_LVTS3_3,
 	MTK_THERMAL_SENSOR_LVTS4_0,
-	MTK_THERMAL_SENSOR_LVTS5_0,
-	MTK_THERMAL_SENSOR_LVTS5_1,
-	MTK_THERMAL_SENSOR_LVTS5_2,
+	MTK_THERMAL_SENSOR_LVTS4_1,
+	MTK_THERMAL_SENSOR_LVTS4_2,
 #endif
 	ATM_CPU_LIMIT,
 	ATM_GPU_LIMIT,
@@ -213,9 +206,8 @@ extern int get_immediate_tslvts3_1_wrap(void);
 extern int get_immediate_tslvts3_2_wrap(void);
 extern int get_immediate_tslvts3_3_wrap(void);
 extern int get_immediate_tslvts4_0_wrap(void);
-extern int get_immediate_tslvts5_0_wrap(void);
-extern int get_immediate_tslvts5_1_wrap(void);
-extern int get_immediate_tslvts5_2_wrap(void);
+extern int get_immediate_tslvts4_1_wrap(void);
+extern int get_immediate_tslvts4_2_wrap(void);
 #endif
 
 extern int get_immediate_tsabb_wrap(void);
