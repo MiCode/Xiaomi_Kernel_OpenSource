@@ -32,6 +32,7 @@
 #include <tz_cross/ta_system.h>
 #include <tz_cross/ta_test.h>
 #include <tz_cross/trustzone.h>
+#include <linux/vmalloc.h>
 
 #include "gz_main.h"
 #include "mtee_ut/gz_ut.h"
@@ -692,108 +693,6 @@ static int gz_dev_release(struct inode *inode, struct file *filp)
 	return _free_session_info(filp);
 }
 
-static TZ_RESULT _get_US_PAMapAry(struct user_shm_param *shm_data,
-	KREE_SHAREDMEM_PARAM *shm_param, int *numOfPA,
-	struct MTIOMMU_PIN_RANGE_T *pin, uint64_t *map_p)
-{
-	unsigned long cret;
-	struct page **page;
-	int i;
-	unsigned long *pfns;
-	struct page **delpages;
-
-	KREE_DEBUG("[%s][%d] runs.\n", __func__, __LINE__);
-	KREE_DEBUG("session: %u, shm_handle: %u, size: %u, buffer: 0x%llx\n",
-		(*shm_data).session, (*shm_data).shm_handle,
-		(*shm_data).param.size, (*shm_data).param.buffer);
-
-	if (((*shm_data).param.size <= 0) || (!(*shm_data).param.buffer)) {
-		KREE_DEBUG("[%s] [fail] size <= 0 OR !buffer\n", __func__);
-		return TZ_RESULT_ERROR_BAD_PARAMETERS;
-	}
-
-	/*init value */
-	pin = NULL;
-	map_p = NULL;
-	(*shm_param).buffer = NULL;
-	(*shm_param).size = 0;
-	(*shm_param).mapAry = NULL;
-
-	cret = TZ_RESULT_SUCCESS;
-	/*
-	 * map pages
-	 */
-	/*
-	 * 1. get user pages
-	 * note: 'pin' resource need to keep for unregister.
-	 * It will be freed after unregisted.
-	 */
-
-	pin = kzalloc(sizeof(struct MTIOMMU_PIN_RANGE_T), GFP_KERNEL);
-	if (!pin) {
-		KREE_DEBUG("[%s]zalloc fail: pin is null.\n", __func__);
-		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
-		goto us_map_fail;
-	}
-	pin->pageArray = NULL;
-	cret = _map_user_pages(pin, (unsigned long)(*shm_data).param.buffer,
-			(*shm_data).param.size, 0);
-
-	if (cret) {
-		pin->pageArray = NULL;
-		KREE_DEBUG("[%s]_map_user_pages fail. map user pages = 0x%x\n",
-			__func__, (uint32_t) cret);
-		cret = TZ_RESULT_ERROR_INVALID_HANDLE;
-		goto us_map_fail;
-	}
-	/* 2. build PA table */
-	map_p = kzalloc(sizeof(uint64_t) * (pin->nrPages + 1), GFP_KERNEL);
-	if (!map_p) {
-		KREE_DEBUG("[%s]zalloc fail: map_p is null.\n", __func__);
-		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
-		goto us_map_fail;
-	}
-
-	if (!pin->pageArray) {
-		KREE_ERR("[%s]pin->pageArray is null. fail.\n", __func__);
-		cret = TZ_RESULT_ERROR_GENERIC;
-		goto us_map_fail;
-	}
-
-	map_p[0] = pin->nrPages;
-	if (pin->isPage) {
-		page = (struct page **)pin->pageArray;
-		for (i = 0; i < pin->nrPages; i++) /* PA */
-			map_p[1 + i] =
-			(uint64_t) PFN_PHYS(page_to_pfn(page[i]));
-	} else {		/* pfn */
-		pfns = (unsigned long *)pin->pageArray;
-		for (i = 0; i < pin->nrPages; i++) /* get PA */
-			map_p[1 + i] = (uint64_t) PFN_PHYS(pfns[i]);
-	}
-
-	/* init register shared mem params */
-	(*shm_param).buffer = NULL;
-	(*shm_param).size = 0;
-	(*shm_param).mapAry = (void *)map_p;
-
-	*numOfPA = pin->nrPages;
-
-us_map_fail:
-	if (pin) {
-		if (pin->pageArray) {
-			delpages = (struct page **)pin->pageArray;
-			if (pin->isPage) {
-				for (i = 0; i < pin->nrPages; i++)
-					put_page(delpages[i]);
-			}
-			kfree(pin->pageArray);
-		}
-		kfree(pin);
-	}
-
-	return cret;
-}
 
 /**************************************************************************
  *  DEV DRIVER IOCTL
@@ -1187,6 +1086,153 @@ static long _sc_test_upt_chmdata(struct file *filep, unsigned long arg)
 	return ret;
 }
 
+#define SZ_32KB (32*1024)
+static TZ_RESULT _reg_shmem_from_userspace(
+	uint32_t session, uint32_t region_id,
+	struct user_shm_param *shm_data,
+	uint32_t *shm_handle)
+{
+	unsigned long cret;
+	struct page **page;
+	int i;
+	uint64_t map_p_sz, pin_sz;
+	unsigned long *pfns;
+	struct page **delpages;
+
+	struct MTIOMMU_PIN_RANGE_T *pin = NULL;
+	uint64_t *map_p = NULL;
+	int numOfPA = 0;
+	KREE_SHAREDMEM_PARAM shm_param = {0};
+
+	KREE_DEBUG("[%s][%d] runs.\n", __func__, __LINE__);
+	if (((*shm_data).param.size <= 0) || (!(*shm_data).param.buffer)) {
+		KREE_DEBUG("[%s] [fail] size <= 0 OR !buffer\n", __func__);
+		return TZ_RESULT_ERROR_BAD_PARAMETERS;
+	}
+
+	KREE_DEBUG("session: %u, shm_handle: %u, size: %u, buffer: 0x%llx\n",
+		(*shm_data).session, (*shm_data).shm_handle,
+		(*shm_data).param.size, (*shm_data).param.buffer);
+
+	/*init value */
+	pin = NULL;
+	map_p = NULL;
+
+	shm_param.buffer = NULL;
+	shm_param.size = 0;
+	shm_param.mapAry = NULL;
+	shm_param.region_id = region_id;
+	*shm_handle = 0;
+
+	cret = TZ_RESULT_SUCCESS;
+	/*
+	 * map pages
+	 */
+	/*
+	 * 1. get user pages
+	 * note: 'pin' resource need to keep for unregister.
+	 * It will be freed after unregisted.
+	 */
+	/*check alloc size if <= 32KB*/
+	pin_sz = sizeof(struct MTIOMMU_PIN_RANGE_T);
+	if (pin_sz >= SZ_32KB) {
+		KREE_ERR("[%s]alloc fail:pin sz(0x%llx)>=32KB\n",
+			__func__, pin_sz);
+		return TZ_RESULT_ERROR_OUT_OF_MEMORY;
+	}
+
+	/*pin = kzalloc(sizeof(struct MTIOMMU_PIN_RANGE_T), GFP_KERNEL);*/
+	pin = vmalloc(pin_sz);
+	if (!pin) {
+		KREE_DEBUG("[%s]zalloc fail: pin is null.\n", __func__);
+		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		goto us_map_fail;
+	}
+
+	pin->pageArray = NULL;
+	cret = _map_user_pages(pin, (unsigned long)(*shm_data).param.buffer,
+			(*shm_data).param.size, 0);
+	if (cret) {
+		pin->pageArray = NULL;
+		KREE_DEBUG("[%s]_map_user_pages fail. map user pages = 0x%x\n",
+			__func__, (uint32_t) cret);
+		cret = TZ_RESULT_ERROR_INVALID_HANDLE;
+		goto us_map_fail;
+	}
+
+	if (!pin->pageArray) {
+		KREE_ERR("[%s]pin->pageArray is null. fail.\n", __func__);
+		cret = TZ_RESULT_ERROR_GENERIC;
+		goto us_map_fail;
+	}
+
+	/* 2. build PA table */
+	/*check alloc size if <= 32KB*/
+	map_p_sz = sizeof(uint64_t) * (pin->nrPages + 1);
+	if (map_p_sz >= SZ_32KB) {
+		KREE_ERR("[%s]alloc fail:map_p sz(0x%llx)>=32KB\n",
+			__func__, map_p_sz);
+		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		goto us_map_fail;
+	}
+
+	/*map_p = kzalloc(map_p_sz, GFP_KERNEL);*/
+	map_p = vmalloc(map_p_sz);
+	if (!map_p) {
+		KREE_DEBUG("[%s]alloc fail: map_p is null.\n", __func__);
+		cret = TZ_RESULT_ERROR_OUT_OF_MEMORY;
+		goto us_map_fail;
+	}
+	map_p[0] = pin->nrPages;
+	if (pin->isPage) {
+		page = (struct page **)pin->pageArray;
+		for (i = 0; i < pin->nrPages; i++) /* PA */
+			map_p[1 + i] =
+			(uint64_t) PFN_PHYS(page_to_pfn(page[i]));
+	} else {		/* pfn */
+		pfns = (unsigned long *)pin->pageArray;
+		for (i = 0; i < pin->nrPages; i++) /* get PA */
+			map_p[1 + i] = (uint64_t) PFN_PHYS(pfns[i]);
+	}
+
+	/* init register shared mem params */
+	shm_param.buffer = NULL;
+	shm_param.size = 0;
+	shm_param.mapAry = (void *)map_p;
+
+	numOfPA = pin->nrPages;
+	//KREE_DEBUG("[%s]numOfPA=0x%x\n", __func__, numOfPA);
+
+	cret = KREE_RegisterSharedmem(session, shm_handle, &shm_param);
+	KREE_DEBUG("[%s]reg shmem ret hd=0x%x\n", __func__, *shm_handle);
+	if ((cret != TZ_RESULT_SUCCESS) || (*shm_handle == 0)) {
+		KREE_ERR("[%s]RegisterSharedmem fail\n", __func__);
+		KREE_ERR("ret=0x%x, shm_hd=0x%x)\n", cret, *shm_handle);
+	}
+
+	/*after reg. shmem, free PA list array*/
+	if (map_p != NULL)
+		vfree(map_p);
+		/*kfree(map_p);*/
+
+us_map_fail:
+	if (pin) {
+		if (pin->pageArray) {
+			delpages = (struct page **)pin->pageArray;
+			if (pin->isPage) {
+				for (i = 0; i < pin->nrPages; i++)
+					put_page(delpages[i]);
+			}
+			kfree(pin->pageArray);
+		}
+		/*kfree(pin);*/
+		vfree(pin);
+	}
+
+	return cret;
+}
+
+
 static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	unsigned int compat)
 {
@@ -1195,11 +1241,7 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 	char __user *user_req;
 	struct user_shm_param shm_data;
 	struct kree_user_sc_param cparam;
-	KREE_SHAREDMEM_PARAM shm_param = {0};
 	KREE_SHAREDMEM_HANDLE shm_handle = 0;
-	struct MTIOMMU_PIN_RANGE_T *pin = NULL;
-	uint64_t *map_p = NULL;
-	int numOfPA = 0;
 
 	if (_IOC_TYPE(cmd) != MTEE_IOC_MAGIC)
 		return -EINVAL;
@@ -1228,63 +1270,12 @@ static long _gz_ioctl(struct file *filep, unsigned int cmd, unsigned long arg,
 			return TZ_RESULT_ERROR_BAD_PARAMETERS;
 		}
 
-		KREE_DEBUG("[%s]sizeof(shm_data):0x%x, session:%u, shm_hd:%u",
-			__func__, (uint32_t) sizeof(shm_data), shm_data.session,
-			shm_data.shm_handle);
-		KREE_DEBUG("size:%u, &buffer:0x%llx\n", shm_data.param.size,
-			shm_data.param.buffer);
-
-		ret = _get_US_PAMapAry(&shm_data, &shm_param, &numOfPA, pin,
-				map_p);
+		ret = _reg_shmem_from_userspace(shm_data.session,
+		shm_data.param.region_id, &shm_data, &shm_handle);
 		if (ret != TZ_RESULT_SUCCESS) {
-			KREE_ERR("[%s] _get_US_PAMapAry() Fail(ret=0x%x)\n",
+			KREE_ERR("[%s] _reg_userspace_shmem ret fail(%d)\n",
 				__func__, ret);
-
-			if (shm_param.mapAry != NULL)
-				kfree(shm_param.mapAry);
-
-			shm_data.shm_handle = 0;
-
-			/* copy result back to user */
-			shm_data.session = ret;
-			err = copy_to_user(user_req, &shm_data,
-			sizeof(shm_data));
-			if (err < 0) {
-				KREE_ERR("[%s]copy_to_user fail(0x%x)\n",
-					__func__, err);
-				return err;
-			}
-			return ret;
 		}
-
-		shm_param.region_id = shm_data.param.region_id;
-		ret = KREE_RegisterSharedmem(shm_data.session,
-				&shm_handle, &shm_param);
-
-		KREE_DEBUG("[%s] reg shmem ret hd=0x%x\n", __func__,
-			shm_handle);
-		if ((ret != TZ_RESULT_SUCCESS) || (shm_handle == 0)) {
-			KREE_ERR("[%s]RegisterSharedmem Fail", __func__);
-			KREE_ERR("ret=0x%x, shm_hd=0x%x)\n", ret, shm_handle);
-			if (shm_param.mapAry != NULL)
-				kfree(shm_param.mapAry);
-
-			shm_data.shm_handle = 0;
-
-			/* copy result back to user */
-			shm_data.session = ret;
-			err = copy_to_user(user_req, &shm_data,
-			sizeof(shm_data));
-			if (err < 0) {
-				KREE_ERR("[%s]copy_to_user fail(0x%x)\n",
-					__func__, err);
-				return err;
-			}
-			return ret;
-		}
-
-		if (shm_param.mapAry != NULL)
-			kfree(shm_param.mapAry);
 
 		shm_data.shm_handle = shm_handle;
 
