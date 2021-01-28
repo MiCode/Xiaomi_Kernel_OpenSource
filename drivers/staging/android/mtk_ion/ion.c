@@ -2468,39 +2468,28 @@ struct ion_handle *ion_drv_get_handle(struct ion_client *client,
 {
 	struct ion_handle *handle;
 
+	mutex_lock(&client->lock);
 	if (from_kernel) {
 		handle = kernel_handle;
 
-		if (IS_ERR_OR_NULL(handle)) {
-			IONMSG("%s handle invalid, handle = 0x%lx.\n",
-			       __func__,
-			       (unsigned long)handle);
-			return ERR_PTR(-EINVAL);
-		}
-
-		mutex_lock(&client->lock);
-		if (!ion_handle_validate(client, handle)) {
-			IONMSG("%s handle invalid, handle=0x%lx\n",
-			       __func__,
-			       (unsigned long)handle);
-			mutex_unlock(&client->lock);
-			return ERR_PTR(-EINVAL);
-		}
-		ion_handle_get(handle);
-		mutex_unlock(&client->lock);
+		if (IS_ERR_OR_NULL(handle) ||
+		    !ion_handle_validate(client, handle))
+			goto err;
+		handle = ion_handle_get_check_overflow(handle);
 	} else {
-		mutex_lock(&client->lock);
 		handle = ion_handle_get_by_id_nolock(client, user_handle);
-		if (IS_ERR_OR_NULL(handle)) {
-			IONMSG("%s handle invalid, handle_id=%d\n",
-			       __func__,
-			       user_handle);
-			mutex_unlock(&client->lock);
-			return ERR_PTR(-EINVAL);
-		}
-		mutex_unlock(&client->lock);
 	}
+
+	if (IS_ERR_OR_NULL(handle))
+		goto err;
+
+	mutex_unlock(&client->lock);
 	return handle;
+err:
+	IONMSG("%s handle invalid, kernel:%d, handle=%p, handle_id=%d\n",
+	       __func__, from_kernel, handle, user_handle);
+	mutex_unlock(&client->lock);
+	return ERR_PTR(-EINVAL);
 }
 
 int ion_drv_put_kernel_handle(void *kernel_handle)
