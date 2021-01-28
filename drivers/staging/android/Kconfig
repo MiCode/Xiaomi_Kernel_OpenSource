@@ -81,8 +81,6 @@ config MTK_ENABLE_AGO
 
 source "drivers/staging/android/ion/Kconfig"
 
-source "drivers/staging/android/fiq_debugger/Kconfig"
-
 endif # if ANDROID
 
 endmenu
