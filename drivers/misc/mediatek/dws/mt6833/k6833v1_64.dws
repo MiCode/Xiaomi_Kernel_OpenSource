@@ -2245,7 +2245,7 @@
             <device19>
                 <varName>I2C_LCD_BIAS</varName>
                 <channel>I2C_CHANNEL_6</channel>
-                <address>0x3E</address>
+                <address>0x73</address>
             </device19>
             <device24>
                 <varName>CAMERA_MAIN</varName>
