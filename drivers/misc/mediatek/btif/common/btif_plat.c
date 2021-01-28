@@ -117,7 +117,8 @@ static int btif_dump_array(char *string, char *p_buf, int len)
 	pr_debug("========dump %s start <length:%d>========\n", string, len);
 	p_str = &str[0];
 	for (idx = 0; idx < len; idx++, p_buf++) {
-		sprintf(p_str, "%02x ", *p_buf);
+		if (sprintf(p_str, "%02x ", *p_buf) < 0)
+			return -1;
 		p_str += 3;
 		if (7 == (idx % 8)) {
 			*p_str++ = '\n';
