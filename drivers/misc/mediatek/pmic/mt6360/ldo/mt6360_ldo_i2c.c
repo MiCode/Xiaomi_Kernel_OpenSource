@@ -12,6 +12,8 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 
+#include <linux/platform_device.h>
+
 #include "../inc/mt6360_ldo.h"
 
 static bool dbg_log_en; /* module param to enable/disable debug log */
@@ -683,6 +685,40 @@ static inline void mt6360_config_of_node(struct device *dev, const char *name)
 		dev->of_node = np;
 	}
 }
+/*temp patch start */
+//function
+static int mt6360_pmu_buckldo_probe(struct platform_device *pdev)
+{
+	return 0;
+}
+
+static int mt6360_pmu_buckldo_remove(struct platform_device *pdev)
+{
+	return 0;
+}
+static const struct of_device_id __maybe_unused
+		mt6360_pmu_ldo_buckldo_of_id[] = {
+	{ .compatible = "mediatek,mt6360_pmu_ldo_buckldo", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, mt6360_pmu_ldo_buckldo_of_id);
+
+static const struct platform_device_id mt6360_pmu_ldo_buckldo_id[] = {
+	{ "mt6360_ldo_buckldo", 0 },
+	{},
+};
+
+static struct platform_driver mt6360_pmu_ldo_buckldo_driver = {
+	.driver = {
+		.name = "mt6360_pmu_ldo_buckldo",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(mt6360_pmu_ldo_buckldo_of_id),
+	},
+	.probe = mt6360_pmu_buckldo_probe,
+	.remove = mt6360_pmu_buckldo_remove,
+	.id_table = mt6360_pmu_ldo_buckldo_id,
+};
+/*temp patch end*/
 
 static int mt6360_ldo_i2c_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
@@ -763,6 +799,10 @@ static int mt6360_ldo_i2c_probe(struct i2c_client *client,
 						REGULATOR_MODE_STANDBY;
 	}
 	mt6360_ldo_irq_register(mli);
+	/*temp*/
+	ret = platform_driver_register(&mt6360_pmu_ldo_buckldo_driver);
+	if (ret < 0)
+		dev_info(&client->dev, "%s:buckldo failed\n", __func__);
 	dev_info(&client->dev, "%s: successfully probed\n", __func__);
 	return 0;
 out_pdata:
