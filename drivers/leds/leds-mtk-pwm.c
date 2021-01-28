@@ -104,7 +104,8 @@ static void led_debug_log(struct mtk_led_data *s_led,
 	cur_time_mod = do_div(cur_time_display, 1000);
 
 	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		4096, "T:%lld.%ld,L:%d map:%d    ",
+		4095 - strlen(s_led->debug.buffer),
+		"T:%lld.%ld,L:%d map:%d    ",
 		cur_time_display, cur_time_mod, level, mappingLevel);
 
 	s_led->debug.count++;
@@ -299,7 +300,8 @@ static void led_data_init(struct mtk_led_data *s_led)
 	}
 	INIT_WORK(&s_led->work, mtk_led_work);
 	ret = snprintf(s_led->debug.buffer + strlen(s_led->debug.buffer),
-		4096, "[Light] Set %s directly ", s_led->info.config.name);
+		4095 - strlen(s_led->debug.buffer),
+		"[Light] Set %s directly ", s_led->info.config.name);
 
 	s_led->debug.count++;
 
