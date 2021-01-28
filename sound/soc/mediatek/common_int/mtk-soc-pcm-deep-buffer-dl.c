@@ -59,9 +59,7 @@
 #include <linux/dma-mapping.h>
 #include <sound/pcm_params.h>
 
-#ifdef CONFIG_MTK_ACAO_SUPPORT
-#include "mtk_mcdi_governor_hint.h"
-#endif
+#include "mtk_mcdi_api.h"
 
 #ifdef DEBUG_DEEP_BUFFER_DL
 #define DEBUG_DEEP_BUFFER_DL(format, args...) pr_debug(format, ##args)
@@ -328,9 +326,7 @@ static int mtk_deep_buffer_dl_close(struct snd_pcm_substream *substream)
 
 	vcore_dvfs(&vcore_dvfs_enable, true);
 
-#ifdef CONFIG_MTK_ACAO_SUPPORT
 	system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 0);
-#endif
 
 	return 0;
 }
@@ -352,9 +348,7 @@ static int mtk_deep_buffer_dl_open(struct snd_pcm_substream *substream)
 
 	AudDrv_Clk_On();
 
-#ifdef CONFIG_MTK_ACAO_SUPPORT
 	system_idle_hint_request(SYSTEM_IDLE_HINT_USER_AUDIO, 1);
-#endif
 
 	pMemControl = Get_Mem_ControlT(deep_buffer_mem_blk);
 
