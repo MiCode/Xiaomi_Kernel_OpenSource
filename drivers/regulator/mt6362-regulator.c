@@ -404,7 +404,7 @@ static int mt6362_parse_dt_data(struct device *dev,
 static int mt6362_regulator_probe(struct platform_device *pdev)
 {
 	struct mt6362_regulator_data *data;
-	struct regulator_config config;
+	struct regulator_config config = { };
 	struct regulator_dev *rdev;
 	int i, rv;
 
