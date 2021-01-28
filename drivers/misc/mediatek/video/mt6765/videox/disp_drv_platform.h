@@ -30,7 +30,7 @@
 #endif
 
 /* Wrap SPM/MMDVFS code for early porting */
-/* #define MTK_FB_SPM_SUPPORT */
+#define MTK_FB_SPM_SUPPORT
 #ifdef CONFIG_MTK_SMI_EXT
 #define MTK_FB_MMDVFS_SUPPORT
 #endif

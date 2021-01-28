@@ -348,7 +348,7 @@ void disp_helper_option_init(void)
 
 	/* 1. vdo mode + screen idle(need idlemgr) */
 	disp_helper_set_option(DISP_OPT_IDLEMGR_SWTCH_DECOUPLE,	1);
-	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 0);
+	disp_helper_set_option(DISP_OPT_SHARE_SRAM, 1);
 	disp_helper_set_option(DISP_OPT_IDLEMGR_DISABLE_ROUTINE_IRQ, 1);
 
 	/* 2. cmd mode + screen idle(need idlemgr) */
