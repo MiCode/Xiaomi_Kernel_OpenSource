@@ -57,6 +57,9 @@
 #include <linux/mfd/mt6357/registers.h>
 #include <linux/mfd/mt6397/core.h>
 #include <linux/mfd/mt6357/core.h>
+#ifdef CONFIG_MTK_PMIC_WRAP
+#include <linux/soc/mediatek/pmic_wrap.h>
+#endif
 /* Use analog setting to do dc compensation */
 #define ANALOG_HPTRIM
 //#define ANALOG_HPTRIM_FOR_CUST
@@ -5955,7 +5958,11 @@ static const struct snd_soc_component_driver mt6357_component_driver = {
 };
 static int mtk_codec_dev_probe(struct platform_device *pdev)
 {
+#if defined(CONFIG_MTK_PMIC_WRAP)
+	struct device_node *pwrap_node;
+#else
 	struct mt6397_chip *mt6397 = dev_get_drvdata(pdev->dev.parent);
+#endif
 	int ret = 0;
 
 	pr_info("%s: ++\n", __func__);
@@ -5967,7 +5974,16 @@ static int mtk_codec_dev_probe(struct platform_device *pdev)
 	if (!mCodec_priv)
 		return -ENOMEM;
 
+#if defined(CONFIG_MTK_PMIC_WRAP)
+	pwrap_node = of_parse_phandle(pdev->dev.of_node,
+				      "mediatek,pwrap-regmap", 0);
+	if (!pwrap_node)
+		return -ENODEV;
+
+	mCodec_priv->regmap = pwrap_node_to_regmap(pwrap_node);
+#else
 	mCodec_priv->regmap = mt6397->regmap;
+#endif
 	if (IS_ERR(mCodec_priv->regmap))
 		return PTR_ERR(mCodec_priv->regmap);
 

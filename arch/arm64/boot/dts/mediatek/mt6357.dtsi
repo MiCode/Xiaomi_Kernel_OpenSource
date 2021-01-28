@@ -415,6 +415,7 @@
 
 	pmic_codec: pmic_codec {
 		compatible = "mediatek,mt6357-sound";
+		mediatek,pwrap-regmap = <&pwrap>;
 		io-channels =
 			<&pmic_auxadc AUXADC_HPOFS_CAL>,
 			<&pmic_auxadc AUXADC_ACCDET>;
