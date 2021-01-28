@@ -744,7 +744,8 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			interrupt-parent = <&gic>;
 			interrupt-controller;
 			reg = <0 0x0c000000 0 0x40000>, // distributor
-			      <0 0x0c040000 0 0x200000>; // redistributor
+			      <0 0x0c040000 0 0x200000>, // redistributor
+			      <0 0x0c53a650 0 0x50>; //INTPOL
 			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
@@ -1165,6 +1166,15 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 			compatible = "mediatek,dfd_cache";
 			mediatek,enabled = <0>;
 			mediatek,rg_dfd_timeout = <0x3e80>;
+		};
+
+		sys_cirq@10204000 {
+			compatible = "mediatek,sys_cirq";
+			reg = <0 0x10204000 0 0x1000>;
+			mediatek,cirq_num = <271>;
+			mediatek,spi_start_offset = <64>;
+			sw_reset = <1>;
+			interrupts = <GIC_SPI 335 IRQ_TYPE_LEVEL_LOW>;
 		};
 
 		devapc: devapc@10207000 {
