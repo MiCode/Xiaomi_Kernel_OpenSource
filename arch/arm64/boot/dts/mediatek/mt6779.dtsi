@@ -522,6 +522,10 @@ firmware_class.path=/vendor/firmware loop.max_part=7";
 		reg = <0 0x0011bc00 0 0x1400>;
 	};
 
+	mt_cpufreq: mt_cpufreq {
+		compatible = "mediatek,mt-cpufreq";
+	};
+
 	reserved_memory: reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
