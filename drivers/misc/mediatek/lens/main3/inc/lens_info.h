@@ -34,6 +34,7 @@
 #define AFDRV_AD5823AF "AD5823AF"
 #define AFDRV_AK7345AF "AK7345AF"
 #define AFDRV_AK7371AF "AK7371AF"
+#define AFDRV_BU24253AF "BU24253AF"
 #define AFDRV_BU63165AF "BU63165AF"
 #define AFDRV_BU6424AF "BU6424AF"
 #define AFDRV_BU6429AF "BU6429AF"
@@ -47,6 +48,7 @@
 #define AFDRV_GAF001AF "GAF001AF"
 #define AFDRV_GAF002AF "GAF002AF"
 #define AFDRV_GAF008AF "GAF008AF"
+#define AFDRV_GT9772AF "GT9772AF"
 #define AFDRV_LC898122AF "LC898122AF"
 #define AFDRV_LC898212AF "LC898212AF"
 #define AFDRV_LC898212XDAF "LC898212XDAF"
@@ -59,6 +61,9 @@
 #define AFDRV_MT9P017AF "MT9P017AF"
 #define AFDRV_OV8825AF "OV8825AF"
 #define AFDRV_WV511AAF "WV511AAF"
+
+
+#define CONVERT_CCU_TIMESTAMP 0x1000
 
 /* Structures */
 struct stAF_MotorInfo {
@@ -96,6 +101,20 @@ struct stAF_MotorName {
 struct stAF_MotorCmd {
 	u32 u4CmdID;
 	u32 u4Param;
+};
+
+/* Structures */
+struct stAF_CtrlCmd {
+	long long i8CmdID;
+	long long i8Param[2];
+};
+
+/* Structures */
+struct stAF_MotorOisInfo {
+	int i4OISHallPosXum;
+	int i4OISHallPosYum;
+	int i4OISHallFactorX;
+	int i4OISHallFactorY;
 };
 
 /* Structures */
