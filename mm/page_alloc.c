@@ -2044,11 +2044,6 @@ struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
 	struct free_area *area;
 	struct page *page;
 
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	if (IS_ZONE_MOVABLE_CMA_ZONE(zone) && migratetype == MIGRATE_MOVABLE)
-		migratetype = MIGRATE_CMA;
-#endif
-
 	/* Find a page of the appropriate size in the preferred list */
 	for (current_order = order; current_order < MAX_ORDER; ++current_order) {
 		area = &(zone->free_area[current_order]);
@@ -3217,9 +3212,6 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 	long min = mark;
 	int o;
 	const bool alloc_harder = (alloc_flags & (ALLOC_HARDER|ALLOC_OOM));
-#ifdef CONFIG_CMA
-	long free_cma = 0;
-#endif
 
 	/* free_pages may go negative - that's OK */
 	free_pages -= (1 << order) - 1;
@@ -3251,15 +3243,7 @@ bool __zone_watermark_ok(struct zone *z, unsigned int order, unsigned long mark,
 #ifdef CONFIG_CMA
 	/* If allocation can't use CMA areas don't use free CMA pages */
 	if (!(alloc_flags & ALLOC_CMA))
-		free_cma = zone_page_state(z, NR_FREE_CMA_PAGES);
-
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	/* If z is ZMC zone and alloc_flags is 0, don't subtract free_cma */
-	if (IS_ZONE_MOVABLE_CMA_ZONE(z))
-		free_cma = !!(alloc_flags) ? free_cma : 0;
-#endif
-
-	free_pages -= free_cma;
+		free_pages -= zone_page_state(z, NR_FREE_CMA_PAGES);
 #endif
 
 	/*
@@ -4423,12 +4407,6 @@ static inline bool prepare_alloc_pages(gfp_t gfp_mask, unsigned int order,
 	ac->nodemask = nodemask;
 	ac->migratetype = gfpflags_to_migratetype(gfp_mask);
 
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	/* No fast allocation gets into ZONE_MOVABLE */
-	if (ac->high_zoneidx == ZONE_MOVABLE)
-		ac->high_zoneidx -= 1;
-#endif
-
 	if (cpusets_enabled()) {
 		*alloc_mask |= __GFP_HARDWALL;
 		if (!ac->nodemask)
@@ -4514,11 +4492,6 @@ __alloc_pages_nodemask(gfp_t gfp_mask, unsigned int order, int preferred_nid,
 	 */
 	if (unlikely(ac.nodemask != nodemask))
 		ac.nodemask = nodemask;
-
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	/* Before entering slowpath, recalculate the high_zoneidx */
-	ac.high_zoneidx = gfp_zone(gfp_mask);
-#endif
 
 	page = __alloc_pages_slowpath(alloc_mask, order, &ac);
 
@@ -5696,12 +5669,7 @@ static int zone_batchsize(struct zone *zone)
 	 * The per-cpu-pages pools are set to around 1000th of the
 	 * size of the zone.
 	 */
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	if (IS_ZONE_MOVABLE_CMA_ZONE(zone))
-		batch = zone->present_pages / 1024;
-	else
-#endif
-		batch = zone->managed_pages / 1024;
+	batch = zone->managed_pages / 1024;
 	/* But no more than a meg. */
 	if (batch * PAGE_SIZE > 1024 * 1024)
 		batch = (1024 * 1024) / PAGE_SIZE;
@@ -7361,11 +7329,6 @@ static void __setup_per_zone_wmarks(void)
 
 	/* Calculate total number of !ZONE_HIGHMEM pages */
 	for_each_zone(zone) {
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-		/* Don't consider ZMC zone to avoid small watermark */
-		if (IS_ZONE_MOVABLE_CMA_ZONE(zone))
-			continue;
-#endif
 		if (!is_highmem(zone))
 			lowmem_pages += zone->managed_pages;
 	}

@@ -23,9 +23,6 @@
 #include <linux/sizes.h>
 #include <linux/dma-contiguous.h>
 #include <linux/cma.h>
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-#include <mt-plat/mtk_zmc.h>
-#endif
 
 #ifdef CONFIG_CMA_SIZE_MBYTES
 #define CMA_SIZE_MBYTES CONFIG_CMA_SIZE_MBYTES
@@ -279,11 +276,6 @@ static int __init rmem_cma_setup(struct reserved_mem *rmem)
 	pr_info("Reserved memory: created CMA memory pool at %pa, size %ld MiB\n",
 		&rmem->base, (unsigned long)rmem->size / SZ_1M);
 
-#ifdef CONFIG_ZONE_MOVABLE_CMA
-	zmc_reserved_mem_inited = true;
-	zmc_movable_min = min(zmc_movable_min, rmem->base);
-	zmc_movable_max = max(zmc_movable_max, rmem->base + rmem->size);
-#endif
 	return 0;
 }
 RESERVEDMEM_OF_DECLARE(cma, "shared-dma-pool", rmem_cma_setup);
