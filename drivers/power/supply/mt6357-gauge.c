@@ -3207,6 +3207,7 @@ static int mt6357_gauge_probe(struct platform_device *pdev)
 	gauge->psy = power_supply_register(&pdev->dev, &gauge->psy_desc,
 			&gauge->psy_cfg);
 	mt6357_sysfs_create_group(gauge);
+	initial_set(gauge, 0, 0);
 	bat_create_netlink(pdev);
 	battery_init(pdev);
 	adc_cali_cdev_init(pdev);
