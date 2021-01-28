@@ -234,6 +234,9 @@ static inline u32 dump_adsp_shared_memory(void *buf, size_t size, int id)
 	void *mem_addr = adsp_get_reserve_mem_virt(id);
 	size_t mem_size = adsp_get_reserve_mem_size(id);
 
+	if (!mem_addr)
+		return 0;
+
 	return copy_from_buffer(buf, size, mem_addr, mem_size, 0, -1);
 }
 
@@ -242,6 +245,9 @@ static inline u32 copy_from_adsp_shared_memory(void *buf, u32 offset,
 {
 	void *mem_addr = adsp_get_reserve_mem_virt(id);
 	size_t mem_size = adsp_get_reserve_mem_size(id);
+
+	if (!mem_addr)
+		return 0;
 
 	return copy_from_buffer(buf, -1, mem_addr, mem_size, offset, size);
 }

@@ -86,7 +86,7 @@ int adsp_register_feature(enum adsp_feature_id id)
 {
 	int ret = 0;
 
-	if (id >= ADSP_NUM_FEATURE_ID)
+	if (id >= ADSP_NUM_FEATURE_ID || id < 0)
 		return -EINVAL;
 
 	if (!adsp_feature_table[id].name)
@@ -107,7 +107,7 @@ int adsp_register_feature(enum adsp_feature_id id)
 
 int adsp_deregister_feature(enum adsp_feature_id id)
 {
-	if (id >= ADSP_NUM_FEATURE_ID)
+	if (id >= ADSP_NUM_FEATURE_ID || id < 0)
 		return -EINVAL;
 
 	if (!adsp_feature_table[id].name)

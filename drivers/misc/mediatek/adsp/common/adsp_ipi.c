@@ -58,7 +58,7 @@ void adsp_A_ipi_handler(void)
 	ipi_id = adsp_rcv_obj[ADSP_A_ID]->id;
 	len = adsp_rcv_obj[ADSP_A_ID]->len;
 
-	if (ipi_id >= ADSP_NR_IPI)
+	if (ipi_id >= ADSP_NR_IPI || ipi_id < 0)
 		pr_debug("[ADSP] A ipi handler id abnormal, id=%d", ipi_id);
 	else if (adsp_ipi_desc[ipi_id].handler) {
 		memcpy_fromio(share_buf,
@@ -126,7 +126,7 @@ enum adsp_ipi_status adsp_ipi_registration(
 	void (*ipi_handler)(int id, void *data, unsigned int len),
 	const char *name)
 {
-	if (id < ADSP_NR_IPI) {
+	if (id < ADSP_NR_IPI || id >= 0) {
 		adsp_ipi_desc[id].name = name;
 
 		if (ipi_handler == NULL)
@@ -145,7 +145,7 @@ EXPORT_SYMBOL_GPL(adsp_ipi_registration);
  */
 enum adsp_ipi_status adsp_ipi_unregistration(enum adsp_ipi_id id)
 {
-	if (id < ADSP_NR_IPI) {
+	if (id < ADSP_NR_IPI || id >= 0) {
 		adsp_ipi_desc[id].name = "";
 		adsp_ipi_desc[id].handler = NULL;
 		return ADSP_IPI_DONE;
@@ -188,6 +188,10 @@ enum adsp_ipi_status adsp_ipi_send_ipc(enum adsp_ipi_id id, void *buf,
 
 	if (in_interrupt() && wait) {
 		pr_info("adsp_ipi_send: cannot use in isr");
+		return ADSP_IPI_ERROR;
+	}
+	if (id >= ADSP_CORE_TOTAL || id < 0) {
+		pr_notice("adsp_ipi_send: id %d is invalid", id);
 		return ADSP_IPI_ERROR;
 	}
 	if (is_adsp_ready(adsp_id) != 1) {

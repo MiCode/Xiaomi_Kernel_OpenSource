@@ -65,7 +65,7 @@ int adsp_set_reserve_mblock(
 		enum adsp_reserve_mem_id_t id, phys_addr_t phys_addr,
 		void *virt_addr, size_t size)
 {
-	if (id >= ADSP_NUMS_MEM_ID) {
+	if (id >= ADSP_NUMS_MEM_ID || id < 0) {
 		pr_info("[ADSP] no reserve memory for %d", id);
 		return -1;
 	}
