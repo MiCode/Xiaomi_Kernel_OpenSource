@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 /*
  * Header files for basic KREE functions.
  */
@@ -18,8 +19,8 @@
 #ifndef __KREE_SYSTEM_H__
 #define __KREE_SYSTEM_H__
 
-#if defined(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)	\
-	|| defined(CONFIG_MTK_ENABLE_GENIEZONE)
+#if IS_ENABLED(CONFIG_MTK_IN_HOUSE_TEE_SUPPORT)	\
+	|| IS_ENABLED(CONFIG_MTK_ENABLE_GENIEZONE)
 
 #include <tz_cross/trustzone.h>
 #include <gz-trusty/trusty.h>
@@ -39,7 +40,7 @@ struct _cpus_cluster_freq {
 
 #include "mem.h"
 
-#ifdef CONFIG_GZ_VPU_WITH_M4U
+#if IS_ENABLED(CONFIG_GZ_VPU_WITH_M4U)
 int gz_do_m4u_map(KREE_SHAREDMEM_HANDLE handle,
 					phys_addr_t pa, uint32_t size,
 					uint32_t region_id);

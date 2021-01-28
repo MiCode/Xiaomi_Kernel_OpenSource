@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 #ifndef __SMCALL_TABLE_H__
 #define __SMCALL_TABLE_H__
 

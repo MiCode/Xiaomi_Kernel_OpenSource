@@ -33,6 +33,8 @@
 #define IRQ_DEBUG_LOG_EN
 #endif
 
+#define enable_code 0 /*replace #if 0*/
+
 struct trusty_irq {
 	struct trusty_irq_state *is;
 	struct hlist_node node;
@@ -214,6 +216,8 @@ void handle_trusty_ipi(int ipinr)
 	if (trusty_ipi_init[ipinr] == 0)
 		return;
 
+	/*for kernel-4.14*/
+
 	irq_enter();
 	trusty_irq_handler(ipinr, this_cpu_ptr(trusty_ipi_data[ipinr]));
 	irq_exit();
@@ -253,7 +257,7 @@ static int trusty_irq_cpu_down(unsigned int cpu, struct hlist_node *node)
 	return 0;
 }
 
-#if 0
+#if enable_code /*#if 0*/
 static int trusty_irq_create_irq_mapping(struct trusty_irq_state *is, int irq)
 {
 	int ret;
@@ -346,7 +350,7 @@ static int trusty_irq_init_normal_irq(struct trusty_irq_state *is, int tirq)
 	dev_dbg(is->dev, "%s: irq %d\n", __func__, tirq);
 #endif
 
-#if 0
+#if enable_code /*#if 0*/
 	irq = trusty_irq_create_irq_mapping(is, tirq);
 	if (irq < 0) {
 		dev_info(is->dev,
@@ -420,7 +424,7 @@ static int trusty_irq_init_per_cpu_irq(struct trusty_irq_state *is, int tirq)
 #ifdef IRQ_DEBUG_LOG_EN
 	dev_dbg(is->dev, "%s: irq %d\n", __func__, tirq);
 #endif
-#if 0
+#if enable_code /*#if 0*/
 	irq = trusty_irq_create_irq_mapping(is, tirq);
 	if (irq <= 0) {
 		dev_info(is->dev,
@@ -775,3 +779,5 @@ static void __exit trusty_irq_driver_exit(void)
 
 module_init(trusty_irq_driver_init);
 module_exit(trusty_irq_driver_exit);
+MODULE_LICENSE("GPL");
+

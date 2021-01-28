@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+
 #include <gz-trusty/smcnr_table.h>
 #include <linux/platform_device.h>
 
@@ -262,3 +263,4 @@ inline uint32_t get_smcnr_dev(enum smc_functions fid, struct device *dev)
 
 	return get_smcnr_teeid(fid, s->tee_id);
 }
+EXPORT_SYMBOL(get_smcnr_dev);

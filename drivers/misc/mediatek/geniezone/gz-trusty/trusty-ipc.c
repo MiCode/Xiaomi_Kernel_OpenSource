@@ -1012,7 +1012,7 @@ static long tipc_ioctl_entry(struct file *filp,
 	return tipc_ioctl(filp, cmd, arg, false);
 }
 
-#if defined(CONFIG_COMPAT)
+#if IS_ENABLED(CONFIG_COMPAT)
 static long tipc_compat_ioctl_entry(struct file *filp,
 					unsigned int cmd, unsigned long arg)
 {
@@ -1175,7 +1175,7 @@ static const struct file_operations tipc_fops = {
 	.open = tipc_open,
 	.release = tipc_release,
 	.unlocked_ioctl = tipc_ioctl_entry,
-#if defined(CONFIG_COMPAT)
+#if IS_ENABLED(CONFIG_COMPAT)
 	.compat_ioctl = tipc_compat_ioctl_entry,
 #endif
 	.read_iter = tipc_read_iter,
@@ -1999,7 +1999,6 @@ static int __init tipc_init(void)
 {
 	int ret;
 	dev_t dev;
-
 
 	ret = alloc_chrdev_region(&dev, 0, MAX_DEVICES, KBUILD_MODNAME);
 	if (ret) {
