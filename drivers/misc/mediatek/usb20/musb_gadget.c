@@ -2347,6 +2347,7 @@ bool is_usb_rdy(void)
 	else
 		return false;
 }
+EXPORT_SYMBOL(is_usb_rdy);
 
 static int musb_gadget_pullup(struct usb_gadget *gadget, int is_on)
 {

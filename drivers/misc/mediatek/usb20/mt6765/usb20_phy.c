@@ -784,6 +784,7 @@ void Charger_Detect_Init(void)
 
 	DBG(0, "%s\n", __func__);
 }
+EXPORT_SYMBOL(Charger_Detect_Init);
 
 void Charger_Detect_Release(void)
 {
@@ -798,6 +799,7 @@ void Charger_Detect_Release(void)
 
 	DBG(0, "%s\n", __func__);
 }
+EXPORT_SYMBOL(Charger_Detect_Release);
 
 void usb_phy_context_save(void)
 {
