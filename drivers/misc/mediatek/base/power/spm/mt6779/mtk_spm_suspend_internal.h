@@ -92,7 +92,7 @@ void spm_suspend_post_process(struct pwr_ctrl *pwrctrl);
 extern void mt_print_scp_ipi_id(void);
 #endif
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_spm_suspend_val(u32 val);
 #endif
 

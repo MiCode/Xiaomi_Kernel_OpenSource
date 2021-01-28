@@ -214,7 +214,7 @@ void mtk_idle_twam_enable(unsigned int event);
 
 void mtk_idle_twam_disable(void);
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 extern void aee_rr_rec_spm_suspend_val(u32 val);
 extern void aee_rr_rec_deepidle_val(u32 val);
 extern void aee_rr_rec_sodi3_val(u32 val);
@@ -223,7 +223,7 @@ extern u32 aee_rr_curr_spm_suspend_val(void);
 extern u32 aee_rr_curr_deepidle_val(void);
 extern u32 aee_rr_curr_sodi3_val(void);
 extern u32 aee_rr_curr_sodi_val(void);
-#endif /* CONFIG_MTK_RAM_CONSOLE */
+#endif /* CONFIG_MTK_AEE_IPANIC */
 
 /* definition of spm resource request functions */
 extern void spm_resource_req_block_dump(void);

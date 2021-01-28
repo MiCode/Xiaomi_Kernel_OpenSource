@@ -41,7 +41,7 @@ enum idle_fp_step {
 	IDLE_FP_SLEEP_DEEPIDLE = 0x80000000,
 };
 
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 typedef void (*idle_footprint_t) (u32 val);
 
 static idle_footprint_t fp[NR_IDLE_TYPES] = {
@@ -56,10 +56,10 @@ static idle_footprint_t fp[NR_IDLE_TYPES] = {
 		(smp_processor_id() << 24) | value)
 #define __mtk_idle_footprint_reset(idle_type) \
 	fp[idle_type](0)
-#else /* CONFIG_MTK_RAM_CONSOLE */
+#else /* CONFIG_MTK_AEE_IPANIC */
 #define __mtk_idle_footprint(value)
 #define __mtk_idle_footprint_reset(idle_type)
-#endif /* CONFIG_MTK_RAM_CONSOLE */
+#endif /* CONFIG_MTK_AEE_IPANIC */
 
 
 /************************************************************

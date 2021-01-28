@@ -103,7 +103,7 @@ static u32 suspend_pcm_flags1 = {
 
 static inline void spm_suspend_footprint(enum spm_suspend_step step)
 {
-#ifdef CONFIG_MTK_RAM_CONSOLE
+#ifdef CONFIG_MTK_AEE_IPANIC
 	aee_rr_rec_spm_suspend_val(step |
 		(smp_processor_id() << CPU_FOOTPRINT_SHIFT));
 #endif
