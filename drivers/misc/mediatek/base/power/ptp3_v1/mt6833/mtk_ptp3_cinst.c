@@ -76,7 +76,7 @@
  * Debug print
  ************************************************/
 
-#define CINST_DEBUG
+/* #define CINST_DEBUG */
 #define CINST_TAG	 "[CINST]"
 
 #define cinst_err(fmt, args...)	\
@@ -158,7 +158,7 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 
 	/* check free page valid or not */
 	if (!aee_log_buf) {
-		cinst_debug("unable to get free page!\n");
+		cinst_err("unable to get free page!\n");
 		return -1;
 	}
 	cinst_debug("buf: 0x%llx, aee_log_buf: 0x%llx\n",
@@ -220,7 +220,7 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 				cinst_cfg,
 				0);
 
-		cinst_msg(
+		cinst_debug(
 			"[CPU%d] bcpu_value=0x%08x, ao_value=0x%08x\n",
 			cpu,
 			cinst_bcpu_cfg[cpu_tmp],
@@ -335,8 +335,8 @@ int cinst_reserve_memory_dump(char *buf, unsigned long long ptp3_mem_size,
 	if (str_len > 0)
 		memcpy(buf, aee_log_buf, str_len+1);
 
-	cinst_msg("\n%s", aee_log_buf);
-	cinst_msg("\n%s", buf);
+	cinst_debug("\n%s", aee_log_buf);
+	cinst_debug("\n%s", buf);
 
 	free_page((unsigned long)aee_log_buf);
 
