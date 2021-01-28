@@ -265,8 +265,8 @@ void kbase_clk_rate_trace_manager_notify_all(
 
 	/* Raise standard `power/gpu_frequency` ftrace event */
 	{
-		unsigned long new_rate_khz = new_rate;
-
+		//unsigned long new_rate_khz = new_rate;
+        uint64_t new_rate_khz = (uint64_t)new_rate;
 		do_div(new_rate_khz, 1000);
 		trace_gpu_frequency(new_rate_khz, clk_index);
 	}
