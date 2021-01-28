@@ -1010,6 +1010,11 @@ long _frame_config(unsigned long arg)
 		return -EFAULT;
 	}
 
+	if (disp_validate_ioctl_params(frame_cfg)) {
+		kfree(frame_cfg);
+		return -EINVAL;
+	}
+
 	DISPDBG("%s\n", __func__);
 	frame_cfg->setter = SESSION_USER_HWC;
 
@@ -1019,12 +1024,6 @@ long _frame_config(unsigned long arg)
 	}
 	if (frame_cfg->output_en)
 		output_config_preprocess(frame_cfg);
-
-	if (disp_validate_ioctl_params(frame_cfg)) {
-		disp_input_free_dirty_roi(frame_cfg);
-		kfree(frame_cfg);
-		return -EINVAL;
-	}
 
 	if (DISP_SESSION_TYPE(frame_cfg->session_id) == DISP_SESSION_PRIMARY)
 		primary_display_frame_cfg(frame_cfg);
