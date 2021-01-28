@@ -114,16 +114,16 @@ int port_dev_close(struct inode *inode, struct file *file)
 	port_ask_more_req_to_md(port);
 	spin_unlock_irqrestore(&port->rx_skb_list.lock, flags);
 	CCCI_NORMAL_LOG(md_id, CHAR,
-		"port %s close rx_len=%d empty=%d, clear_cnt=%d, drop=%d\n",
-		port->name, port->rx_skb_list.qlen,
+		"port %s close by %s rx_len=%d empty=%d, clear_cnt=%d, drop=%d usagecnt=%d\n",
+		port->name, current->comm, port->rx_skb_list.qlen,
 		skb_queue_empty(&port->rx_skb_list),
-		clear_cnt, port->rx_drop_cnt);
+		clear_cnt, port->rx_drop_cnt, atomic_read(&port->usage_cnt));
 	ccci_event_log(
-		"md%d: port %s close rx_len=%d empty=%d, clear_cnt=%d, drop=%d\n",
-		md_id, port->name,
+		"md%d: port %s close close by %s rx_len=%d empty=%d, clear_cnt=%d, drop=%d, usagecnt=%d\n",
+		md_id, port->name, current->comm,
 		port->rx_skb_list.qlen,
 		skb_queue_empty(&port->rx_skb_list),
-		clear_cnt, port->rx_drop_cnt);
+		clear_cnt, port->rx_drop_cnt, atomic_read(&port->usage_cnt));
 	port_user_unregister(port);
 
 	return 0;
