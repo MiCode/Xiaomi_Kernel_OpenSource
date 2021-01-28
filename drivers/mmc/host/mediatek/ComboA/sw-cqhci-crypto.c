@@ -107,6 +107,7 @@ static void msdc_crypto_program_key(struct mmc_host *host,
 	/* switch crypto engine to MSDC */
 
 	/* write AES config */
+	MSDC_WRITE32(ll_host->base + MSDC_AES_CFG_GP1, 0);
 	MSDC_SET_BIT32(ll_host->base + MSDC_AES_CFG_GP1, config);
 
 	if (!(readl(ll_host->base + MSDC_AES_CFG_GP1)))

@@ -143,11 +143,14 @@ static int mmc_crypto_keyslot_program(struct keyslot_manager *ksm,
 		return -EINVAL;
 
 	memset(&cfg, 0, sizeof(cfg));
-#ifndef CONFIG_MMC_CRYPTO_LEGACY
+
 	cfg.data_unit_size = data_unit_mask;
-#else
-	cfg.data_unit_size = 1;
+#ifdef CONFIG_MMC_CRYPTO_LEGACY
+	/* used fsrypt v2 in OTA fscrypt v1 environment */
+	if (key->hie_duint_size != 4096)
+		cfg.data_unit_size = 1;
 #endif
+
 	cfg.crypto_cap_idx = cap_idx;
 	cfg.config_enable |= MMC_CRYPTO_CONFIGURATION_ENABLE;
 
