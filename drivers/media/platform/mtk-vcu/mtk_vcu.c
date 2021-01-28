@@ -35,7 +35,6 @@
 #include <linux/signal.h>
 #include <trace/events/signal.h>
 #include <linux/string.h>
-#include <v3/cmdq_sec.h>
 
 #ifdef CONFIG_MTK_IOMMU_V2
 #include <linux/iommu.h>
@@ -630,19 +629,7 @@ static void vcu_set_gce_cmd(struct cmdq_pkt *pkt,
 	case CMD_WRITE:
 		cmdq_pkt_write(pkt, vcu->clt_base, addr, data, mask);
 	break;
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	case CMD_SEC_WRITE:
-		cmdq_sec_pkt_write_reg(pkt,
-			addr,
-			data,
-			CMDQ_IWC_H_2_MVA,
-			dma_offset,
-			dma_size,
-			0);
-			pr_debug("[VCU] %s addr: 0x%x, data: 0x%x, offset: 0x%x, size: 0x%x\n",
-				__func__, addr, data, dma_offset, dma_size);
-	break;
-#endif
+
 	case CMD_POLL_REG:
 		cmdq_pkt_poll_addr(pkt, data, addr, mask, gpr);
 	break;
@@ -782,13 +769,6 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		vcu->clt_vdec[core_id] :
 		vcu->clt_venc[core_id];
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	if (buff.cmdq_buff.codec_type == VCU_VENC) {
-		if (buff.cmdq_buff.secure != 0) {
-			cl = vcu->clt_venc_sec[0];
-		}
-	}
-#endif
 
 	if (cl == NULL) {
 		pr_info("[VCU] %s gce thread is null id %d type %d\n",
@@ -851,37 +831,6 @@ static int vcu_gce_cmd_flush(struct mtk_vcu *vcu, unsigned long arg)
 		ret = -EINVAL;
 	}
 
-#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
-	if (buff.cmdq_buff.codec_type == VCU_VENC) {
-		if (buff.cmdq_buff.secure != 0) {
-			const u64 dapc_engine =
-				(1LL << CMDQ_SEC_VENC_BSDMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_LUMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REF_LUMA) |
-				(1LL << CMDQ_SEC_VENC_REF_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REC) |
-				(1LL << CMDQ_SEC_VENC_SV_COMV) |
-				(1LL << CMDQ_SEC_VENC_RD_COMV);
-
-			const u64 port_sec_engine =
-				(1LL << CMDQ_SEC_VENC_BSDMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_LUMA) |
-				(1LL << CMDQ_SEC_VENC_CUR_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REF_LUMA) |
-				(1LL << CMDQ_SEC_VENC_REF_CHROMA) |
-				(1LL << CMDQ_SEC_VENC_REC) |
-				(1LL << CMDQ_SEC_VENC_SV_COMV) |
-				(1LL << CMDQ_SEC_VENC_RD_COMV);
-
-			pr_debug("[VCU] dapc_engine: 0x%llx, port_sec_engine: 0x%llx\n",
-				dapc_engine, port_sec_engine);
-			cmdq_sec_pkt_set_data(pkt_ptr, dapc_engine,
-				port_sec_engine, CMDQ_SEC_KERNEL_CONFIG_GENERAL,
-				CMDQ_METAEX_VENC);
-		}
-	}
-#endif
 
 	for (i = 0; i < cmds->cmd_cnt; i++) {
 		vcu_set_gce_cmd(pkt_ptr, vcu, cmds->cmd[i],
