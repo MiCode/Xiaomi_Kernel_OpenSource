@@ -720,6 +720,7 @@ struct cmdqRecStruct {
 
 	/* task executing data */
 	atomic_t exec;
+	atomic_t wait_protect;
 	enum TASK_STATE_ENUM state;	/* task life cycle */
 	s32 thread;
 	enum cmdq_thread_dispatch thd_dispatch;
