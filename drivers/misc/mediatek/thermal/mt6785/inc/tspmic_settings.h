@@ -29,7 +29,7 @@
 
 #define mtktspmic_TEMP_CRIT 150000 /* 150.000 degree Celsius */
 #define y_pmic_repeat_times	1
-#define THERMAL_USE_IIO_CHANNEL
+//#define THERMAL_USE_IIO_CHANNEL [FIXME]
 
 #define mtktspmic_info(fmt, args...)   pr_info("[Thermal/TZ/PMIC] " fmt, ##args)
 

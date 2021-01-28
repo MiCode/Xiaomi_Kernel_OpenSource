@@ -54,12 +54,12 @@ IMM_GetOneChannelValue(int dwChannel, int data[4], int *rawdata)
 	return -1;
 }
 
+#endif
 int __attribute__ ((weak))
 tsdctm_thermal_get_ttj_on(void)
 {
 	return 0;
 }
-#endif
 
 /*=============================================================*/
 static kuid_t uid = KUIDT_INIT(0);

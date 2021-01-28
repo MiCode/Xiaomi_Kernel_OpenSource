@@ -22,33 +22,26 @@
 #include <linux/uaccess.h>
 
 #include "mt-plat/sync_write.h"
-//#include "mtk_gpufreq.h"
-
-#include "mtk_thermal_typedefs.h"
-
-#ifdef GPUFREQ_NOT_READY
-struct mt_gpufreq_power_table_info {
-	unsigned int gpufreq_khz;
-	unsigned int gpufreq_volt;
-	unsigned int gpufreq_power;
-};
-#else
 #include "mtk_gpufreq.h"
-#endif
+/*
+ * struct mt_gpufreq_power_table_info {
+ *	unsigned int gpufreq_khz;
+ *	unsigned int gpufreq_volt;
+ *	unsigned int gpufreq_power;
+ * };
+ */
 
 /*=============================================================
  * LVTS SW Configs
  *=============================================================
  */
-#define CFG_THERM_LVTS				(0)
+#define CFG_THERM_LVTS				(1)
 
 #if CFG_THERM_LVTS
 #define	CFG_LVTS_DOMINATOR			(0)
-#define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(1) /* 1, 2, 4, 8, 16 */
 #define	LVTS_DEVICE_AUTO_RCK			(1)
 #else
 #define	CFG_LVTS_DOMINATOR			(0)
-#define	LVTS_THERMAL_CONTROLLER_HW_FILTER	(0)
 #define	LVTS_DEVICE_AUTO_RCK			(1)
 #endif
 
@@ -215,8 +208,6 @@ extern int is_cpu_power_min(void);	/* in mtk_ts_cpu.c */
 extern int get_cpu_target_tj(void);
 
 extern int get_cpu_target_offset(void);
-
-//extern int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num);
 
 extern int get_target_tj(void);
 

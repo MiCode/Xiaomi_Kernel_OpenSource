@@ -80,6 +80,19 @@
 #define CFG_LVTS_DOMINATOR	0
 #endif
 
+#if !defined(CONFIG_LVTS_ERROR_AEE_WARNING)
+#define CONFIG_LVTS_ERROR_AEE_WARNING	0
+#endif
+
+#if CONFIG_LVTS_ERROR_AEE_WARNING
+#if DUMP_VCORE_VOLTAGE
+#include <linux/regulator/consumer.h>
+#endif
+#endif
+
+#if !defined(LVTS_VALID_DATA_TIME_PROFILING)
+#define LVTS_VALID_DATA_TIME_PROFILING	0
+#endif
 /*=============================================================
  *Local variable definition
  *=============================================================
@@ -191,6 +204,11 @@ int Num_of_GPU_OPP = 1;		/* Set this value =1 for non-DVS GPU */
 int Num_of_GPU_OPP;
 #endif
 
+#if CONFIG_LVTS_ERROR_AEE_WARNING
+#if DUMP_VCORE_VOLTAGE
+struct regulator *vcore_reg_id;
+#endif
+#endif
 /*=============================================================
  * Local function definition
  *=============================================================
@@ -200,11 +218,15 @@ int Num_of_GPU_OPP;
 static void _mt_thermal_aee_init(void)
 {
 	int i;
-
+#if defined(THERMAL_AEE_SELECTED_TS)
+	aee_rr_init_thermal_temp(THERMAL_AEE_MAX_SELECTED_TS);
+	for (i = 0; i < THERMAL_AEE_MAX_SELECTED_TS; i++)
+		aee_rr_rec_thermal_temp(i, 0xFF);
+#else
 	aee_rr_init_thermal_temp(TS_ENUM_MAX);
 	for (i = 0; i < TS_ENUM_MAX; i++)
 		aee_rr_rec_thermal_temp(i, 0xFF);
-
+#endif
 	aee_rr_rec_thermal_status(0xFF);
 	aee_rr_rec_thermal_ATM_status(0xFF);
 	aee_rr_rec_thermal_ktime(0xFFFFFFFFFFFFFFFF);
@@ -332,12 +354,17 @@ mt_gpufreq_get_dvfs_table_num(void)
 }
 
 /*=============================================================*/
-long long thermal_get_current_time_us(void)
+long long int thermal_get_current_time_us(void)
 {
 	struct timeval t;
+	long long int temp;
 
 	do_gettimeofday(&t);
-	return ((t.tv_sec & 0xFFF) * 1000000 + t.tv_usec);
+
+	temp = (((long long int) t.tv_sec) * 1000000
+		+ t.tv_usec);
+
+	return temp;
 }
 
 static void tscpu_fast_initial_sw_workaround(void)
@@ -1400,7 +1427,7 @@ static ssize_t tscpu_write
 	tscpu_dprintk("%s bad argument\n", __func__);
 #ifdef CONFIG_MTK_AEE_FEATURE
 	aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
-							"tscpu_write",
+							__func__,
 							"Bad argument");
 #endif
 	kfree(ptr_mtktscpu_data);
@@ -1481,9 +1508,6 @@ static int tscpu_thermal_suspend
 			cnt++;
 		} while (temp != 0x0 && cnt < 50);
 #else
-#if CFG_THERM_LVTS
-		lvts_thermal_pause_all_periodoc_temp_sensing();
-#endif
 		thermal_pause_all_periodoc_temp_sensing(); /* TEMPMSRCTL1 */
 
 		do {
@@ -1496,7 +1520,9 @@ static int tscpu_thermal_suspend
 			cnt++;
 		} while (temp != 0x0 && cnt < 50);
 #if CFG_THERM_LVTS
-		lvts_thermal_disable_all_periodoc_temp_sensing();
+		lvts_disable_all_sensing_points();
+		lvts_wait_for_all_sensing_point_idle();
+		lvts_reset_device_and_stop_clk();
 #endif
 		/* disable periodic temp measurement on sensor 0~2 */
 		thermal_disable_all_periodoc_temp_sensing(); /* TEMPMONCTL0 */
@@ -1574,6 +1600,11 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 #if CFG_THERM_LVTS
 		lvts_device_identification();
 		lvts_Device_Enable_Init_all_Devices();
+#if LVTS_DEVICE_AUTO_RCK == 0
+		lvts_device_read_count_RC_N();
+#else
+		lvts_device_enable_auto_rck();
+#endif
 		lvts_efuse_setting();
 #endif
 
@@ -1613,12 +1644,9 @@ static int tscpu_thermal_resume(struct platform_device *dev)
 
 		tscpu_clear_all_temp();
 #if CFG_THERM_LVTS
-		lvts_thermal_pause_all_periodoc_temp_sensing();
-		lvts_thermal_disable_all_periodoc_temp_sensing();
-
-		Enable_LVTS_CTRL_for_thermal_Data_Fetch();
+		lvts_disable_all_sensing_points();
 		lvts_tscpu_thermal_initial_all_tc();
-		lvts_thermal_release_all_periodoc_temp_sensing();
+		lvts_enable_all_sensing_points();
 #endif
 
 #if CFG_LVTS_DOMINATOR
@@ -1809,6 +1837,26 @@ static const struct file_operations mtktscpu_opp_fops = {
 	.release = single_release,
 };
 
+#if LVTS_VALID_DATA_TIME_PROFILING
+static int lvts_time_profiling_read_opp(struct seq_file *m, void *v)
+{
+	lvts_dump_time_profiling_result(m);
+
+	return 0;
+}
+static int lvts_time_profiling_open_opp(struct inode *inode, struct file *file)
+{
+	return single_open(file, lvts_time_profiling_read_opp, NULL);
+}
+
+static const struct file_operations lvts_time_profiling_opp_fops = {
+	.owner = THIS_MODULE,
+	.open = lvts_time_profiling_open_opp,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+#endif
 static int tscpu_open_log(struct inode *inode, struct file *file)
 {
 	return single_open(file, tscpu_read_log, NULL);
@@ -1861,7 +1909,6 @@ static const struct file_operations mtktscpu_read_temperature_fops = {
 	.open = tscpu_read_temperature_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
-	.write = tscpu_write,
 	.release = single_release,
 };
 
@@ -2046,8 +2093,13 @@ void tscpu_update_tempinfo(void)
 		g_tc_resume = 0;
 
 #if (CONFIG_THERMAL_AEE_RR_REC == 1)
+#if defined(THERMAL_AEE_SELECTED_TS)
+	for (i = 0; i < THERMAL_AEE_MAX_SELECTED_TS; i++)
+		aee_rr_rec_thermal_temp(i, get_aee_selected_tsX[i]() / 1000);
+#else
 	for (i = 0; i < TS_ENUM_MAX; i++)
 		aee_rr_rec_thermal_temp(i, get_immediate_tsX[i]() / 1000);
+#endif
 	aee_rr_rec_thermal_status(TSCPU_NORMAL);
 	aee_rr_rec_thermal_ktime(ktime_to_us(now));
 #endif
@@ -2185,6 +2237,11 @@ static void init_thermal(void)
 	lvts_thermal_cal_prepare();
 	lvts_device_identification();
 	lvts_Device_Enable_Init_all_Devices();
+#if LVTS_DEVICE_AUTO_RCK == 0
+	lvts_device_read_count_RC_N();
+#else
+	lvts_device_enable_auto_rck();
+#endif
 	lvts_efuse_setting();
 #endif
 
@@ -2260,11 +2317,9 @@ static void init_thermal(void)
 	thermal_release_all_periodoc_temp_sensing();
 
 #if CFG_THERM_LVTS
-	lvts_thermal_pause_all_periodoc_temp_sensing();
-	lvts_thermal_disable_all_periodoc_temp_sensing();
-	Enable_LVTS_CTRL_for_thermal_Data_Fetch();
+	lvts_disable_all_sensing_points();
 	lvts_tscpu_thermal_initial_all_tc();
-	lvts_thermal_release_all_periodoc_temp_sensing();
+	lvts_enable_all_sensing_points();
 #endif
 	read_all_tc_temperature();
 }
@@ -2293,6 +2348,11 @@ static void tscpu_create_fs(void)
 
 		entry = proc_create("thermlmt", 0444, NULL,
 							&mtktscpu_opp_fops);
+
+#if LVTS_VALID_DATA_TIME_PROFILING
+		entry = proc_create("timeProfiling", 0444,
+				mtktscpu_dir, &lvts_time_profiling_opp_fops);
+#endif
 
 		entry = proc_create("ttpct", 0444, NULL,
 							&mtktscpu_ttpct_fops);
@@ -2419,6 +2479,13 @@ static int tscpu_thermal_probe(struct platform_device *dev)
 	mtkTTimer_register("mtktscpu", tscpu_start_thermal_timer,
 					tscpu_cancel_thermal_timer);
 
+#if CONFIG_LVTS_ERROR_AEE_WARNING
+#if DUMP_VCORE_VOLTAGE
+	vcore_reg_id = regulator_get(&dev->dev, "vcore");
+	if (!vcore_reg_id)
+		tscpu_warn("regulator_get vcore_reg_id failed\n");
+#endif
+#endif
 	return err;
 }
 
