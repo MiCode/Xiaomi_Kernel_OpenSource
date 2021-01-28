@@ -1186,6 +1186,10 @@ struct LCM_DRIVER *lcm_driver_list[] = {
 	&sofeg01_fhdplus_dsi_cmd_samsung_lcm_drv,
 #endif
 
+#if defined(NT36672C_FHDP_DSI_VDO_AUO_CPHY_90HZ_TIANMA)
+	&nt36672c_fhdp_dsi_vdo_auo_cphy_90hz_tianma_lcm_drv,
+#endif
+
 #if defined(OPPO_TIANMA_TD4310_FHDP_DSI_VDO_RT5081)
 	&oppo_tianma_td4310_fhdp_dsi_vdo_rt5081_lcm_drv,
 #endif
