@@ -135,10 +135,12 @@ unsigned int bc11_get_register_value(struct regmap *map,
 
 static void hw_bc11_init(struct mtk_charger_type *info)
 {
+#if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 	int timeout = 200;
-
+#endif
 	msleep(200);
 	if (info->first_connect == true) {
+#if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 		/* add make sure USB Ready */
 		if (is_usb_rdy() == false) {
 			pr_info("CDP, block\n");
@@ -152,6 +154,7 @@ static void hw_bc11_init(struct mtk_charger_type *info)
 				pr_info("CDP, free\n");
 		} else
 			pr_info("CDP, PASS\n");
+#endif
 		info->first_connect = false;
 	}
 
@@ -211,7 +214,9 @@ static void hw_bc11_init(struct mtk_charger_type *info)
 		0x1);
 	msleep(50);
 
+#if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 	Charger_Detect_Init();
+#endif
 }
 
 static unsigned int hw_bc11_DCD(struct mtk_charger_type *info)
@@ -430,7 +435,10 @@ static void hw_bc11_done(struct mtk_charger_type *info)
 		PMIC_RG_BC11_BIAS_EN_MASK,
 		PMIC_RG_BC11_BIAS_EN_SHIFT,
 		0x0);
+
+#if IS_ENABLED(CONFIG_USB_MTK_HDRC)
 	Charger_Detect_Release();
+#endif
 }
 
 static void dump_charger_name(int type)
