@@ -231,24 +231,24 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 
 int ccu_deallocate_mem(struct CcuMemHandle *memHandle)
 {
-	LOG_DBG_MUST("free import ion: share_fd %d",
-		memHandle->meminfo.shareFd);
-	LOG_DBG_MUST("0x%lx\n", memHandle->meminfo.va);
+	uint32_t idx = (memHandle->meminfo.cached != 0) ? 1 : 0;
 
+	LOG_DBG_MUST("free idx(%d) mva(0x%x) fd(0x%x)\n", idx,
+		ccu_buffer_handle[idx].meminfo.mva,
+		ccu_buffer_handle[idx].meminfo.shareFd);
 	ion_unmap_kernel(_ccu_ion_client,
-		ccu_buffer_handle[memHandle->meminfo.cached].ionHandleKd);
+		ccu_buffer_handle[idx].ionHandleKd);
 	__close_fd(current->files,
-		ccu_buffer_handle[memHandle->meminfo.cached].meminfo.shareFd);
+		ccu_buffer_handle[idx].meminfo.shareFd);
 	ion_free(_ccu_ion_client,
-		ccu_buffer_handle[memHandle->meminfo.cached].ionHandleKd);
+		ccu_buffer_handle[idx].ionHandleKd);
 	if ((memHandle->meminfo.ion_log) && (memHandle->meminfo.size > ION_LOG_SIZE))  //10M
 		LOG_INF_MUST("ion free size = %d, caller = CCU\n", memHandle->meminfo.size);
 
-	memset(&(ccu_buffer_handle[memHandle->meminfo.cached]), 0,
+	memset(&(ccu_buffer_handle[idx]), 0,
 		sizeof(struct CcuMemHandle));
 
 	return 0;
-
 }
 
 static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,

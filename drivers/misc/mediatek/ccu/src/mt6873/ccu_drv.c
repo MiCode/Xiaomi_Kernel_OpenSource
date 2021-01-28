@@ -658,7 +658,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 		}
 
 		ret = copy_from_user(indata,
-			(void *)msg.inDataPtr, msg.inDataSize);
+			msg.inDataPtr, msg.inDataSize);
 		if (ret != 0) {
 			LOG_ERR(
 			"CCU_IOCTL_IPC_SEND_CMD copy_to_user 2 failed: %d\n",
@@ -938,6 +938,7 @@ static long ccu_ioctl(struct file *flip, unsigned int cmd,
 	{
 		struct CcuMemHandle handle;
 
+		handle.ionHandleKd = 0;
 		ret = copy_from_user(&(handle.meminfo),
 			(void *)arg, sizeof(struct CcuMemInfo));
 		if (ret != 0) {
