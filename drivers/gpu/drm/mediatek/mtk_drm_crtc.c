@@ -5285,12 +5285,15 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 #endif
 
 
+end:
 	/* When open VDS path switch feature, After VDS created
 	 * we need take away the OVL0_2L from main display.
 	 */
 	if (mtk_drm_helper_get_opt(priv->helper_opt,
 		MTK_DRM_OPT_VDS_PATH_SWITCH) &&
+		priv->need_vds_path_switch &&
 		priv->vds_path_switch_dirty &&
+		(!priv->need_vds_path_switch_back) &&
 		!priv->vds_path_switch_done) {
 		if ((index == 0) && atomic_read(&mtk_crtc0->already_config)) {
 			DDPMSG("Switch vds: mtk_crtc0 enable:%d\n",
@@ -5305,7 +5308,6 @@ static void mtk_drm_crtc_atomic_flush(struct drm_crtc *crtc,
 		}
 	}
 
-end:
 	CRTC_MMP_EVENT_END(index, atomic_flush, (unsigned long)crtc_state,
 			(unsigned long)old_crtc_state);
 	mtk_drm_trace_end();
@@ -6703,28 +6705,34 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 			cmdq_handle =
 				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
 
-			mtk_crtc_wait_frame_done(mtk_crtc,
+			if (atomic_read(&mtk_crtc->already_config))
+				mtk_crtc_wait_frame_done(mtk_crtc,
 					cmdq_handle, DDP_FIRST_PATH, 0);
-			/* Disconnect current path and remove component mutexs */
+			/* Disconnect addon component */
 			_mtk_crtc_atmoic_addon_module_disconnect(
 				crtc, mtk_crtc->ddp_mode,
 				&crtc_state->lye_state, cmdq_handle);
 			/* Stop ovl 2l */
-			comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
-			mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
-			mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
-				OVL_ALL_LAYER_OFF, &keep_first_layer);
+			if (atomic_read(&mtk_crtc->already_config)) {
+				comp_ovl0_2l = priv->ddp_comp[DDP_COMPONENT_OVL0_2L];
+				mtk_ddp_comp_stop(comp_ovl0_2l, cmdq_handle);
+				mtk_ddp_comp_io_cmd(comp_ovl0_2l, cmdq_handle,
+					OVL_ALL_LAYER_OFF, &keep_first_layer);
+			}
 			/* Change ovl0 bg mode frmoe DL mode to const mode */
 			comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
 			cmdq_pkt_write(cmdq_handle, comp_ovl0->cmdq_base,
 				comp_ovl0->regs_pa + DISP_OVL_DATAPATH_CON, 0x0, 0x4);
+			/* Disconnect current path and remove component mutexs */
 			mtk_ddp_remove_comp_from_path_with_cmdq(
 				mtk_crtc, DDP_COMPONENT_OVL0_2L,
 				DDP_COMPONENT_OVL0, cmdq_handle);
 			mtk_disp_mutex_remove_comp_with_cmdq(
 					mtk_crtc, DDP_COMPONENT_OVL0_2L, cmdq_handle, 0);
+
 			cmdq_pkt_flush(cmdq_handle);
 			cmdq_pkt_destroy(cmdq_handle);
+
 			/* unprepare ovl 2l */
 			if (atomic_read(&mtk_crtc->already_config))
 				mtk_ddp_comp_unprepare(comp_ovl0_2l);
@@ -6763,8 +6771,9 @@ void mtk_need_vds_path_switch(struct drm_crtc *crtc)
 
 			cmdq_handle =
 				cmdq_pkt_create(mtk_crtc->gce_obj.client[CLIENT_CFG]);
-			mtk_crtc_wait_frame_done(mtk_crtc,
-					cmdq_handle, DDP_FIRST_PATH, 0);
+			if (atomic_read(&mtk_crtc->already_config))
+				mtk_crtc_wait_frame_done(mtk_crtc,
+				cmdq_handle, DDP_FIRST_PATH, 0);
 
 			/* Change ovl0 bg mode frmoe const mode to DL mode */
 			comp_ovl0 = priv->ddp_comp[DDP_COMPONENT_OVL0];
