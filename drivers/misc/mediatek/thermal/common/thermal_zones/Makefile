@@ -24,25 +24,24 @@ ccflags-y  += -I$(srctree)/drivers/misc/mediatek/imgsensor/inc/
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
 ifneq (,$(filter $(CONFIG_MTK_LEGACY_THERMAL_PLATFORM), "mt6779"))
-#obj-y += mtk_ts_battery.o
-obj-y += mtk_ts_bts.o
-obj-y += mtk_ts_btsmdpa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_battery.o
+obj-$(CONFIG_THERMAL) += mtk_ts_bts.o
+obj-$(CONFIG_THERMAL) += mtk_ts_btsmdpa.o
 
-obj-y += mtk_ts_cpu_noBank.o
-#obj-y += mtk_ts_pa.o
-#obj-y += mtk_ts_pa_thput.o
-#obj-y += mtk_ts_pmic.o
-#obj-y += mtk_ts_charger.o
-#obj-y += mtk_ts_charger2.o
-
+obj-$(CONFIG_THERMAL) += mtk_ts_cpu_noBank.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pa.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
+obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
+obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
+#obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)
-#    obj-y += mtk_ts_wmt.o
+    obj-$(CONFIG_THERMAL) += mtk_ts_wmt.o
 endif
 
-#obj-y += mtk_tsAll.o
-#obj-y += mtk_ts_imgsensor.o
-#obj-y += mtk_ts_dctm.o
+obj-$(CONFIG_THERMAL) += mtk_tsAll.o
+obj-$(CONFIG_THERMAL) += mtk_ts_imgsensor.o
+obj-$(CONFIG_THERMAL) += mtk_ts_dctm.o
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6761"))

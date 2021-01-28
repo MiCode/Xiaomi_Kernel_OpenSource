@@ -6,8 +6,10 @@
 #ifndef __TSPMIC_SETTINGS_H__
 #define __TSPMIC_SETTINGS_H__
 
-#include <mach/upmu_hw.h>
-#include <mach/mtk_pmic_wrap.h>
+#include <linux/regmap.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/platform_device.h>
 
 /*=============================================================
  * Genernal
@@ -23,8 +25,8 @@
 #define y_pmic_repeat_times	1
 #define THERMAL_USE_IIO_CHANNEL
 
-#define mtktspmic_info(fmt, args...)   pr_info("[Thermal/TZ/PMIC] " fmt, ##args)
-
+#define mtktspmic_info(fmt, args...)   \
+pr_notice("[Thermal/TZ/PMIC] " fmt, ##args)
 
 #define mtktspmic_dprintk(fmt, args...)   \
 	do {								\
@@ -33,10 +35,13 @@
 		}							\
 	} while (0)
 
+
 extern int mtktspmic_debug_log;
-extern void mtktspmic_cali_prepare(void);
+//extern void mtktspmic_cali_prepare(void);
+extern void mtktspmic_cali_prepare(struct regmap *pmic_map);
 extern void mtktspmic_cali_prepare2(void);
-extern void mtktspmic_get_from_dts(void);
+//extern void mtktspmic_get_from_dts(void);
+extern void mtktspmic_get_from_dts(struct platform_device *pdev);
 extern int mtktspmic_get_hw_temp(void);
 extern int mt6359vcore_get_hw_temp(void);
 extern int mt6359vproc_get_hw_temp(void);

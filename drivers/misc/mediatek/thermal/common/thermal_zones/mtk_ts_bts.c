@@ -577,8 +577,10 @@ static int get_hw_bts_temp(void)
 		return ret;
 	}
 
-	/*val * 1500 / 4096*/
-	ret = (val * 1500) >> 12;
+	/* NOT need to do the conversion "val * 1500 / 4096" */
+	/* iio_read_channel_processed can get mV immediately */
+	ret = val;
+
 #else
 #if defined(APPLY_AUXADC_CALI_DATA)
 	int auxadc_cali_temp;

@@ -24,10 +24,10 @@ ccflags-y  += -I$(srctree)/include/dt-bindings/
 ccflags-y  += -I$(srctree)/drivers/gpu/mediatek/gpufreq/include/
 
 #obj-y += mtk_lvts_tc.o
-obj-y += mtk_tc.o
-obj-y += mtk_tc_wrapper.o
+obj-$(CONFIG_THERMAL) += mtk_tc.o
+obj-$(CONFIG_THERMAL) += mtk_tc_wrapper.o
 #obj-y += mtk_thermal_ipi.o
-#obj-y += mtk_pmic_efuse.o
+obj-$(CONFIG_THERMAL) += mtk_pmic_efuse.o
 #obj-y += mtk_ts_6359vcore.o
 #obj-y += mtk_ts_6359vproc.o
 #obj-y += mtk_ts_6359vgpu.o

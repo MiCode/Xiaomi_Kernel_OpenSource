@@ -54,14 +54,14 @@ static char *clNR_mmap;
 /*=============================================================
  */
 
-static vm_fault_t mmap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
+static vm_fault_t mmap_fault(struct vm_fault *vmf)
 {
 	struct page *page;
 	char *info;
 
 	clNR_dprintk("%s %d\n", __func__, __LINE__);
 	/* the data is in vma->vm_private_data */
-	info = (char *)vma->vm_private_data;
+	info = (char *)vmf->vma->vm_private_data;
 
 	if (!info) {
 		clNR_printk("no data\n");

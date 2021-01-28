@@ -17,15 +17,17 @@
 #include <linux/seq_file.h>
 #include "mt-plat/mtk_thermal_monitor.h"
 #include "mach/mtk_thermal.h"
-#include <mt-plat/upmu_common.h>
-#include <mt-plat/mtk_auxadc_intf.h>
-#include <mach/mtk_pmic.h>
+//#include <mt-plat/upmu_common.h>
+//#include <mt-plat/mtk_auxadc_intf.h>
+//#include <mach/mtk_pmic.h>
 #include <tspmic_settings.h>
 
 #if defined(THERMAL_USE_IIO_CHANNEL)
 #include <iio/mt635x-auxadc.h>
 #include <linux/iio/consumer.h>
 #endif
+#include <linux/mfd/mt6359/registers.h>
+
 /*=============================================================
  *Local variable definition
  *=============================================================
@@ -80,7 +82,7 @@ static __s32 pmic_raw_to_temp(__u32 ret)
 
 	t_current = g_intercept + ((g_slope1 * y_curr) / (g_slope2));
 
-	mtktspmic_dprintk("[pmic_raw_to_temp] t_current=%d\n", t_current);
+	mtktspmic_dprintk("[%s] t_current=%d\n", __func__, t_current);
 	return t_current;
 }
 
@@ -93,7 +95,11 @@ static __s32 tsbuck1_raw_to_temp(__u32 ret)
 	t_current = g_tsbuck1_intercept +
 		((g_tsbuck1_slope1 * y_curr) / (g_tsbuck1_slope2));
 
-	mtktspmic_dprintk("[tsbuck1_raw_to_temp] t_current=%d\n", t_current);
+	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n", __func__,
+		y_curr, g_tsbuck1_intercept, g_tsbuck1_slope1,
+		g_tsbuck1_slope2);
+
+	mtktspmic_dprintk("[%s] t_current=%d\n", __func__, t_current);
 	return t_current;
 }
 
@@ -106,7 +112,11 @@ static __s32 tsbuck2_raw_to_temp(__u32 ret)
 	t_current = g_tsbuck2_intercept +
 		((g_tsbuck2_slope1 * y_curr) / (g_tsbuck2_slope2));
 
-	mtktspmic_dprintk("[tsbuck2_raw_to_temp] t_current=%d\n", t_current);
+	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n", __func__,
+		y_curr, g_tsbuck2_intercept, g_tsbuck2_slope1,
+		g_tsbuck2_slope2);
+
+	mtktspmic_dprintk("[%s] t_current=%d\n", __func__, t_current);
 	return t_current;
 }
 
@@ -119,24 +129,47 @@ static __s32 tsbuck3_raw_to_temp(__u32 ret)
 	t_current = g_tsbuck3_intercept +
 		((g_tsbuck3_slope1 * y_curr) / (g_tsbuck3_slope2));
 
-	mtktspmic_dprintk("[tsbuck3_raw_to_temp] t_current=%d\n", t_current);
+	mtktspmic_dprintk("[%s] %d, %d, %d, %d\n", __func__,
+		y_curr, g_tsbuck3_intercept, g_tsbuck3_slope1,
+		g_tsbuck3_slope2);
+
+
+	mtktspmic_dprintk("[%s] t_current=%d\n", __func__, t_current);
 	return t_current;
 }
 
-static void mtktspmic_read_efuse(void)
+static void mtktspmic_read_efuse(struct regmap *pmic_map)
 {
+	__s32 efuse_temp = 0;
+
 	mtktspmic_info("[pmic_debug]  start\n");
-	/* MT6359 */
-	g_o_vts = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS);
-	g_o_vts_2 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_2);
-	g_o_vts_3 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_3);
-	g_o_vts_4 = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_VTS_4);
-	g_degc_cali = pmic_get_register_value(PMIC_AUXADC_EFUSE_DEGC_CALI);
-	g_adc_cali_en = pmic_get_register_value(PMIC_AUXADC_EFUSE_ADC_CALI_EN);
-	g_o_slope_sign =
-		pmic_get_register_value(PMIC_AUXADC_EFUSE_O_SLOPE_SIGN);
-	g_o_slope = pmic_get_register_value(PMIC_AUXADC_EFUSE_O_SLOPE);
-	g_id = pmic_get_register_value(PMIC_AUXADC_EFUSE_ID);
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR9, &efuse_temp);
+	g_o_vts = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR10, &efuse_temp);
+	g_o_vts_2 = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR11, &efuse_temp);
+	g_o_vts_3 = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR12, &efuse_temp);
+	g_o_vts_4 = (efuse_temp & _BITMASK_(12:0));
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_degc_cali = ((efuse_temp & _BITMASK_(13:8)) >> 8);
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_adc_cali_en = ((efuse_temp & _BIT_(14)) >> 14);
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_o_slope_sign = ((efuse_temp & _BIT_(7)) >> 7);
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_o_slope = ((efuse_temp & _BITMASK_(6:1)) >> 1);
+
+	regmap_read(pmic_map, MT6359_AUXADC_DIG_3_ELR8, &efuse_temp);
+	g_id = (efuse_temp & _BIT_(0));
 
 	mtktspmic_info("[pmic_debug] 6359_efuse: g_o_vts        = %d\n",
 			g_o_vts);
@@ -160,9 +193,9 @@ static void mtktspmic_read_efuse(void)
 	mtktspmic_info("[pmic_debug]  end\n");
 }
 
-void mtktspmic_cali_prepare(void)
+void mtktspmic_cali_prepare(struct regmap *pmic_map)
 {
-	mtktspmic_read_efuse();
+	mtktspmic_read_efuse(pmic_map);
 
 	if (g_id == 0)
 		g_o_slope = 0;
@@ -311,41 +344,41 @@ void mtktspmic_cali_prepare2(void)
 }
 
 #if defined(THERMAL_USE_IIO_CHANNEL)
-void mtktspmic_get_from_dts(void)
+void mtktspmic_get_from_dts(struct platform_device *pdev)
 {
 	int ret;
 
-	chan_chip_temp = iio_channel_get(NULL, "AUXADC_CHIP_TEMP");
+	chan_chip_temp = devm_iio_channel_get(&pdev->dev, "pmic_chip_temp");
 	if (IS_ERR(chan_chip_temp)) {
 		ret = PTR_ERR(chan_chip_temp);
-		pr_err("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
+		pr_notice("AUXADC_CHIP_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_vcore_temp = iio_channel_get(NULL, "AUXADC_VCORE_TEMP");
+	chan_vcore_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck1_temp");
 	if (IS_ERR(chan_vcore_temp)) {
 		ret = PTR_ERR(chan_vcore_temp);
-		pr_err("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
+		pr_notice("AUXADC_VCORE_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_vproc_temp = iio_channel_get(NULL, "AUXADC_VPROC_TEMP");
+	chan_vproc_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck2_temp");
 	if (IS_ERR(chan_vproc_temp)) {
 		ret = PTR_ERR(chan_vproc_temp);
-		pr_err("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
+		pr_notice("AUXADC_VPROC_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_vgpu_temp = iio_channel_get(NULL, "AUXADC_VGPU_TEMP");
+	chan_vgpu_temp = devm_iio_channel_get(&pdev->dev, "pmic_buck3_temp");
 	if (IS_ERR(chan_vgpu_temp)) {
 		ret = PTR_ERR(chan_vgpu_temp);
 		pr_err("AUXADC_VGPU_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_tsx_temp = iio_channel_get(NULL, "AUXADC_TSX_TEMP");
+	chan_tsx_temp = devm_iio_channel_get(&pdev->dev, "pmic_tsx_temp");
 	if (IS_ERR(chan_tsx_temp)) {
 		ret = PTR_ERR(chan_tsx_temp);
 		pr_err("AUXADC_TSX_TEMP get fail, ret=%d\n", ret);
 	}
 
-	chan_dcxo_temp = iio_channel_get(NULL, "AUXADC_DCXO_TEMP");
+	chan_dcxo_temp = devm_iio_channel_get(&pdev->dev, "pmic_dcxo_temp");
 	if (IS_ERR(chan_dcxo_temp)) {
 		ret = PTR_ERR(chan_dcxo_temp);
 		pr_err("AUXADC_DCXO_TEMP get fail, ret=%d\n", ret);
@@ -365,7 +398,7 @@ int mtktspmic_get_hw_temp(void)
 	if (!IS_ERR(chan_chip_temp)) {
 		ret = iio_read_channel_processed(chan_chip_temp, &temp);
 		if (ret < 0)
-			pr_err("pmic_chip_temp read fail, ret=%d\n", ret);
+			pr_notice("pmic_chip_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_CHIP_TEMP);
@@ -416,7 +449,7 @@ int mt6359vcore_get_hw_temp(void)
 	if (!IS_ERR(chan_vcore_temp)) {
 		ret = iio_read_channel_processed(chan_vcore_temp, &temp);
 		if (ret < 0)
-			pr_err("pmic_vcore_temp read fail, ret=%d\n", ret);
+			pr_notice("pmic_vcore_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_VCORE_TEMP);
@@ -464,7 +497,7 @@ int mt6359vproc_get_hw_temp(void)
 	if (!IS_ERR(chan_vproc_temp)) {
 		ret = iio_read_channel_processed(chan_vproc_temp, &temp);
 		if (ret < 0)
-			pr_err("pmic_vproc_temp read fail, ret=%d\n", ret);
+			pr_notice("pmic_vproc_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_VPROC_TEMP);
@@ -511,7 +544,7 @@ int mt6359vgpu_get_hw_temp(void)
 	if (!IS_ERR(chan_vgpu_temp)) {
 		ret = iio_read_channel_processed(chan_vgpu_temp, &temp);
 		if (ret < 0)
-			pr_err("pmic_vgpu_temp read fail, ret=%d\n", ret);
+			pr_notice("pmic_vgpu_temp read fail, ret=%d\n", ret);
 	}
 #else
 	temp = pmic_get_auxadc_value(AUXADC_LIST_VGPU_TEMP);
@@ -732,7 +765,7 @@ int mt6359tsx_get_hw_temp(void)
 	if (!IS_ERR(chan_tsx_temp)) {
 		ret = iio_read_channel_raw(chan_tsx_temp, &raw);
 		if (ret < 0)
-			pr_err("pmic_tsx_temp read fail, ret=%d\n", ret);
+			pr_notice("pmic_tsx_temp read fail, ret=%d\n", ret);
 	}
 
 	temp1 = tsx_u2t(raw);
@@ -782,7 +815,7 @@ int mt6359dcxo_get_hw_temp(void)
 	if (!IS_ERR(chan_dcxo_temp)) {
 		ret = iio_read_channel_raw(chan_dcxo_temp, &raw);
 		if (ret < 0)
-			pr_err("pmic_dcxo_temp read fail, ret=%d\n", ret);
+			pr_notice("pmic_dcxo_temp read fail, ret=%d\n", ret);
 	}
 
 	/* Temperature (C) = ((auxadc raw/32768*1.8)-0.545)/(-0.0017)+120 */
