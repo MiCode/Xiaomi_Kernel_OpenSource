@@ -1957,6 +1957,16 @@ static int vb2ops_vdec_buf_prepare(struct vb2_buffer *vb)
 
 			mtkbuf->frame_buffer.dma_general_buf =
 				dma_buf_get(mtkbuf->general_user_fd);
+
+			if (IS_ERR(mtkbuf->frame_buffer.dma_general_buf)) {
+				mtk_v4l2_err("%s dma_general_buf is err 0x%p.\n",
+					__func__,
+					mtkbuf->frame_buffer.dma_general_buf);
+
+				mtk_vdec_queue_error_event(ctx);
+				return -EINVAL;
+			}
+
 			buf_att = dma_buf_attach(
 				mtkbuf->frame_buffer.dma_general_buf,
 				&ctx->dev->plat_dev->dev);

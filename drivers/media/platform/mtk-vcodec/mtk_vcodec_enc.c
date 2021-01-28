@@ -1366,6 +1366,15 @@ static int vidioc_venc_qbuf(struct file *file, void *priv,
 
 		mtkbuf->frm_buf.has_meta = 1;
 		mtkbuf->frm_buf.meta_dma = dma_buf_get(buf->reserved2);
+
+		if (IS_ERR(mtkbuf->frm_buf.meta_dma)) {
+			mtk_v4l2_err("%s meta_dma is err 0x%p.\n", __func__,
+				mtkbuf->frm_buf.meta_dma);
+
+			mtk_venc_queue_error_event(ctx);
+			return -EINVAL;
+		}
+
 		buf_att = dma_buf_attach(mtkbuf->frm_buf.meta_dma,
 			&ctx->dev->plat_dev->dev);
 		sgt = dma_buf_map_attachment(buf_att, DMA_TO_DEVICE);
