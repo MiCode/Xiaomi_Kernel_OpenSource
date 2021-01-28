@@ -87,23 +87,18 @@ static const char *const gM4U_SMILARB[] = {
 	((m4u_id) ? M4U1_PROG_PFH_NR : M4U0_PROG_PFH_NR)
 
 /* VPU_IOMMU AXI_ID */
-#define IDMA_0   0x9
-#define CORE_0   0x1
-#define EDMA     0x5
-#define IDMA_1   0xB
-#define CORE_1   0x3
-#define EDMB     0x7
-#define CORE_2   0x0
-#define EDMC     0x2
+#define VP6A_IDMA0_MSK    (0x207) /* 0x_xxxx_x100 */
+#define VP6A_IDMA0_VAL    (0x4)
 
-#define COM_IDMA_0   F_MSK(3, 0)
-#define COM_CORE_0   (F_MSK(3, 0) | F_MSK(9, 8))
-#define COM_EDMA     (F_MSK(2, 0) | F_BIT_SET(9))
-#define COM_IDMA_1   F_MSK(3, 0)
-#define COM_CORE_1   (F_MSK(3, 0) | F_MSK(9, 8))
-#define COM_EDMB     (F_MSK(2, 0) | F_BIT_SET(9))
-#define COM_CORE_2   (F_MSK(1, 0) | F_BIT_SET(9))
-#define COM_EDMC     (F_MSK(1, 0) | F_MSK(9, 8))
+#define VP6A_CORE0_MSK    (0x387) /* 00_0xxx_x000 */
+#define VP6A_CORE0_VAL    (0x0)
+
+
+#define VP6B_IDMA1_MSK    (0x207) /* 0x_xxxx_x101 */
+#define VP6B_IDMA1_VAL    (0x5)
+
+#define VP6B_CORE1_MSK    (0x387) /* 00_0xxx_x001 */
+#define VP6B_CORE1_VAL    (0x1)
 
 struct M4U_PERF_COUNT {
 	unsigned int transaction_cnt;
@@ -180,22 +175,14 @@ static inline char *m4u_get_vpu_port_name(int fault_id)
 {
 	fault_id &= F_MSK(9, 0);
 
-	if ((fault_id & COM_IDMA_0) == IDMA_0)
+	if ((fault_id & VP6A_IDMA0_MSK) == VP6A_IDMA0_VAL)
 		return "VPU_IDMA_0";
-	else if ((fault_id & COM_CORE_0) == CORE_0)
+	else if ((fault_id & VP6A_CORE0_MSK) == VP6A_CORE0_VAL)
 		return "VPU_CORE_0";
-	else if ((fault_id & COM_EDMA) == EDMA)
-		return "EDMA";
-	else if ((fault_id & COM_IDMA_1) == IDMA_1)
+	else if ((fault_id & VP6B_IDMA1_MSK) == VP6B_IDMA1_VAL)
 		return "VPU_IDMA_1";
-	else if ((fault_id & COM_CORE_1) == CORE_1)
+	else if ((fault_id & VP6B_CORE1_MSK) == VP6B_CORE1_VAL)
 		return "VPU_CORE_1";
-	else if ((fault_id & COM_EDMB) == EDMB)
-		return "EDMB";
-	else if ((fault_id & COM_CORE_2) == CORE_2)
-		return "MDLA_CORE_2";
-	else if ((fault_id & COM_EDMC) == EDMC)
-		return "EDMC";
 	else
 		return "VPU_UNKNOWN";
 }
