@@ -10,10 +10,7 @@
 #define MDDP_MAX_LAN_DEV_NUM 32
 #define MDDP_MAX_WAN_DEV_NUM 8
 
-#define MDDP_USB_NETIF_ID 0x00000100 /* IPC_NETIF_ID_ETH_BEGIN */
 #define MDDP_WAN_DEV_NETIF_ID_BASE 0x00000400 /* IPC_NETIF_ID_LHIF_BEGIN */
-
-#define MDDP_USB_BRIDGE_IF_NAME "ccmni-lan"
 
 //------------------------------------------------------------------------------
 // Struct definition.

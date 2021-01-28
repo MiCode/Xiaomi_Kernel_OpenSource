@@ -139,9 +139,6 @@ int mddp_f_dev_get_netif_id(char *dev_name)
 {
 	int i;
 
-	if (strcmp(dev_name, MDDP_USB_BRIDGE_IF_NAME) == 0)
-		return MDDP_USB_NETIF_ID;
-
 	for (i = 0; i < mddp_f_support_wan_dev_num; i++) {
 		if (strcmp(mddp_f_support_wan_dev_names[i],
 				dev_name) == 0) {
@@ -254,14 +251,8 @@ bool mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 	}
 
 	/* Set LAN device entry */
-	if (strcmp(dev_name, "mdbr0") == 0) {
-		strcpy(mddp_f_lan_dev[id].dev_name, MDDP_USB_BRIDGE_IF_NAME);
-		mddp_f_lan_dev[id].netif_id =
-			mddp_f_dev_get_netif_id(MDDP_USB_BRIDGE_IF_NAME);
-	} else {
-		strcpy(mddp_f_lan_dev[id].dev_name, dev_name);
-		mddp_f_lan_dev[id].netif_id = netif_id;
-	}
+	strcpy(mddp_f_lan_dev[id].dev_name, dev_name);
+	mddp_f_lan_dev[id].netif_id = netif_id;
 
 	mddp_f_lan_dev[id].is_valid = true;
 
