@@ -80,9 +80,13 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/mtk_amms.h>
 
+#define AMMS_POS 0
+
 #define AMMS_PENDING_DRDI_FREE_BIT (1<<0)
+
 #define AMMS_PENDING_POS_DEALLOC_BIT (1<<1)
 #define AMMS_PENDING_POS_ALLOC_BIT (1<<2)
+
 #define AMMS_CMA_RETRY_COUNT 6
 #define AMMS_CPU_FREQ_OPP (0)
 #define EMI_MPU_ALIGN_ORDER (0)
@@ -419,6 +423,7 @@ static struct module_attribute amms_pos_stress_attribute =
 	__ATTR(amms_pos_stress, 0600,
 	amms_pos_stress_show, amms_pos_stress_store);
 #endif
+
 static struct attribute *attrs[] = {
 	&amms_version_attribute.attr,
 #if AMMS_STRESS
@@ -554,8 +559,10 @@ void amms_handle_event(void)
 
 	phys_addr_t addr = 0, length = 0;
 	unsigned long long pending;
+#if AMMS_POS
 	phys_addr_t pos_alloc_addr;
 	int use_count;
+#endif
 
 	amms_seq_id = mt_secure_call(MTK_SIP_KERNEL_AMMS_GET_SEQ_ID
 			, 0, 0, 0, 0);
@@ -616,6 +623,7 @@ void amms_handle_event(void)
 				(AMMS_PENDING_DRDI_FREE_BIT), 0, 0, 0);
 			pr_info("amms: static memory already free, should not happened\n");
 		}
+#if AMMS_POS
 	} else if (pending & AMMS_PENDING_POS_DEALLOC_BIT) {
 		if (!ccci_share_cma_init) {
 			pr_info("not ccci_share_cma_init, not apply\n");
@@ -693,11 +701,19 @@ void amms_handle_event(void)
 				"AMMS allocate memory failed.\nCRDISPATCH_KEY:AMMS\n",
 				"[AMMS ALLOCATE FAILED]: AMMS allocate failed\n");
 		}
+#endif
 	}
 
+#if AMMS_POS
 	if (pending & (~(AMMS_PENDING_POS_ALLOC_BIT|
 		AMMS_PENDING_POS_DEALLOC_BIT|AMMS_PENDING_DRDI_FREE_BIT)))
 		pr_info("amms:unknown pending interrupt\n");
+#endif
+
+#if !AMMS_POS
+	if (pending & (~(AMMS_PENDING_DRDI_FREE_BIT)))
+		pr_info("amms:unknown pending interrupt\n");
+#endif
 
 }
 
