@@ -71,11 +71,11 @@ static inline long gup_local(struct mm_struct *mm, uintptr_t start,
 {
 	unsigned int gup_flags = 0;
 
+	gup_flags |= FOLL_LONGTERM;
 	if (write)
 		gup_flags |= FOLL_WRITE;
 
-	return get_user_pages_remote(NULL, mm, start, nr_pages, gup_flags,
-				    pages, NULL, NULL);
+	return get_user_pages(start, nr_pages, gup_flags, pages, NULL);
 }
 
 static inline long gup_local_repeat(struct mm_struct *mm, uintptr_t start,
