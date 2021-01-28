@@ -70,7 +70,7 @@ static ssize_t sspm_alive_show(struct device *kobj,
 	sspm_plt_ackdata = 0;
 
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_PLATFORM, IPI_SEND_WAIT,
-		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+		&ipi_data, sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 
 	return snprintf(buf, PAGE_SIZE, "%s\n",
 		sspm_plt_ackdata ? "Alive" : "Dead");
@@ -155,7 +155,7 @@ int __init sspm_plt_init(void)
 
 	ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_PLATFORM,
 		IPI_SEND_POLLING, &ipi_data,
-		sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 10);
+		sizeof(ipi_data) / SSPM_MBOX_SLOT_SIZE, 2000);
 	if (ret) {
 		pr_err("SSPM: plt IPI fail ret=%d\n", ret);
 		goto error;

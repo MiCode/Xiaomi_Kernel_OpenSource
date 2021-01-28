@@ -174,7 +174,7 @@ static unsigned int sspm_log_enable_set(unsigned int enable)
 
 		ret = mtk_ipi_send_compl(&sspm_ipidev, IPIS_C_PLATFORM,
 			IPI_SEND_WAIT, &ipi_data,
-			sizeof(ipi_data) / MBOX_SLOT_SIZE, 0);
+			sizeof(ipi_data) / MBOX_SLOT_SIZE, 2000);
 		if (ret) {
 			pr_err("SSPM: logger IPI fail ret=%d\n", ret);
 			goto error;
