@@ -42,7 +42,6 @@
 
 #include <linux/soc/mediatek/mtk-pm-qos.h>
 #include <dvfsrc-exp.h>
-#undef CONFIG_MTK_CPU_FREQ
 #ifdef CONFIG_MTK_CPU_FREQ
 #include <mtk_cpufreq_internal.h>
 #include <mtk_cpufreq_api.h>

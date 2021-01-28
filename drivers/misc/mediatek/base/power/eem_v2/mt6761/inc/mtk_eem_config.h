@@ -25,6 +25,14 @@
 #define SET_PMIC_VOLT_TO_DVFS (1)
 #define LOG_INTERVAL	(2LL * NSEC_PER_SEC)
 
+enum mt_cpu_dvfs_id {
+MT_CPU_DVFS_LL,
+//MT_CPU_DVFS_L,
+//MT_CPU_DVFS_CCI,
+NR_MT_CPU_DVFS,
+};
+
+
 #define DEVINFO_IDX_0 50	/* 580 */
 #define DEVINFO_IDX_1 51	/* 584 */
 #define DEVINFO_IDX_2 52	/* 588 */
