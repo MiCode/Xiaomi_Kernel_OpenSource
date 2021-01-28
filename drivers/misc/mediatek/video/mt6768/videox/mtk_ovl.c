@@ -36,6 +36,7 @@
 #ifdef CONFIG_MTK_M4U
 #include "m4u.h"
 #include "m4u_port.h"
+#include "m4u_priv.h"
 #endif
 #include "cmdq_def.h"
 #include "cmdq_record.h"
@@ -56,6 +57,16 @@
 
 #include "extd_platform.h"
 
+// from drivers/misc/mediatek/m4u/mt6768/m4u_priv.h r0.tc10sp
+#if (defined(CONFIG_TRUSTONIC_TEE_SUPPORT) || \
+	defined(CONFIG_MICROTRUST_TEE_SUPPORT)) && \
+	defined(CONFIG_MTK_TEE_GP_SUPPORT)
+#if defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#define M4U_TEE_SERVICE_ENABLE
+#elif defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)
+#define M4U_TEE_SERVICE_ENABLE
+#endif
+#endif
 
 static int is_context_inited;
 static int ovl2mem_layer_num;
@@ -417,6 +428,10 @@ int ovl2mem_init(unsigned int session)
 	dpmgr_path_reset(pgcl->dpmgr_handle, CMDQ_DISABLE);
 
 #if defined(CONFIG_MTK_M4U)
+#if defined(M4U_TEE_SERVICE_ENABLE)
+	m4u_sec_init();
+#endif
+
 	sPort.ePortID = M4U_PORT_UNKNOWN; /* modify to real module*/
 	sPort.Virtuality = ovl2mem_use_m4u;
 	sPort.Security = 0;
