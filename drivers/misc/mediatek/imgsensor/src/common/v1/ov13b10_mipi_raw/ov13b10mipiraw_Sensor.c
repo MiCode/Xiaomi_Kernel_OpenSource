@@ -66,14 +66,14 @@ static struct imgsensor_info_struct imgsensor_info = {
 		.max_framerate = 150,
 	},
 	.normal_video = {
-		.pclk = 108183240,
-		.linelength = 1122,
-		.framelength = 3214,
+		.pclk = 112000000,
+		.linelength =  1176,
+		.framelength = 3196,
 		.startx = 0,
 		.starty = 0,
-		.grabwindow_width = 4224,
-		.grabwindow_height = 3136,
-		.mipi_data_lp2hs_settle_dc = 19,
+		.grabwindow_width = 1920,
+		.grabwindow_height = 1080,
+		.mipi_data_lp2hs_settle_dc = 19,//unit , ns , 85
 		.mipi_pixel_rate = 224000000,
 		.max_framerate = 300,
 	},
@@ -150,8 +150,11 @@ static struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info[10] = {
 	      8,    4, 2104, 1560,    0,    0, 2104, 1560},
 	{ 4240, 3136,    0,    0, 4240, 3136, 4240, 3136,
 	      16,    8, 4208, 3120,    0,    0, 4208, 3120},
-	{ 4256, 3168,    0,    8, 4256, 3152, 4256, 3152,
+	{ 4240, 3136,    0,    0, 4240, 3136, 1920, 1080,
+	      0,    0, 1920, 1080,    0,    0, 1920, 1080},
+	/*{ 4256, 3168,    0,    8, 4256, 3152, 4256, 3152,
 	    16,    8, 4224, 3136,    0,    0, 4224, 3136},
+		*/
 	{ 4256, 3168,   64,   64, 4128, 3104, 1032,  776,
 	   196,  148,  640,  480,    0,    0,  640,  480},
 	{ 4256, 3168,   64,   64, 4128, 3104, 1032,  776,
@@ -1015,6 +1018,8 @@ kal_uint16 addr_data_pair_video_ov13b10[] = {
 };
 #endif
 
+#undef VIDEO_REPLACE_BY_PREVIEW
+#ifdef VIDEO_REPLACE_BY_PREVIEW
 static void normal_video_setting(kal_uint16 currefps)
 {
 	cam_pr_debug("E RES_4224x3136_zsl_30fps\n");
@@ -1064,6 +1069,7 @@ static void normal_video_setting(kal_uint16 currefps)
 	write_cmos_sensor(0x4902, 0x01);
 #endif
 }
+#endif
 
 #if MULTI_WRITE
 kal_uint16 addr_data_pair_hs_video_ov13b10[] = {
@@ -1421,7 +1427,8 @@ static kal_uint32 normal_video(
 	imgsensor.frame_length = imgsensor_info.normal_video.framelength;
 	imgsensor.min_frame_length = imgsensor_info.normal_video.framelength;
 	spin_unlock(&imgsensor_drv_lock);
-	normal_video_setting(imgsensor.current_fps);
+	//normal_video_setting(imgsensor.current_fps);
+	preview_setting();
 	return ERROR_NONE;
 }
 
