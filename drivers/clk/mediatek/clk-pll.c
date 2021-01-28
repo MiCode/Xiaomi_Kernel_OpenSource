@@ -301,6 +301,16 @@ static void mtk_pll_unprepare(struct clk_hw *hw)
 	writel(r, pll->pwr_addr);
 }
 
+#if (defined(CONFIG_MACH_MT6779))
+static const struct clk_ops mtk_pll_ops = {
+	.is_enabled	= mtk_pll_is_prepared,
+	.enable		= mtk_pll_prepare,
+	.disable	= mtk_pll_unprepare,
+	.recalc_rate	= mtk_pll_recalc_rate,
+	.round_rate	= mtk_pll_round_rate,
+	.set_rate	= mtk_pll_set_rate,
+};
+#else
 static const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_pll_prepare,
@@ -309,6 +319,7 @@ static const struct clk_ops mtk_pll_ops = {
 	.round_rate	= mtk_pll_round_rate,
 	.set_rate	= mtk_pll_set_rate,
 };
+#endif
 
 static struct clk *mtk_clk_register_pll(const struct mtk_pll_data *data,
 		void __iomem *base)
