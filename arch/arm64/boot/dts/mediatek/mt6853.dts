@@ -3226,7 +3226,8 @@ page_owner=on loop.max_part=7";
 			"disp_wdma0_eof0",
 			"disp_token_stream_block0",
 			"disp_token_cabc_eof0",
-			"disp_wdma0_eof2";
+			"disp_wdma0_eof2",
+			"disp_dsi0_sof0";
 
 		gce-events =
 			<&gce_mbox CMDQ_EVENT_DISP_STREAM_DONE_ENG_EVENT_0>,
@@ -3240,7 +3241,8 @@ page_owner=on loop.max_part=7";
 			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_STREAM_BLOCK>,
 			<&gce_mbox CMDQ_SYNC_TOKEN_CABC_EOF>,
-			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>;
+			<&gce_mbox CMDQ_EVENT_DISP_WDMA0_FRAME_DONE>,
+			<&gce_mbox CMDQ_EVENT_DSI0_SOF>;
 
 		helper-name = "MTK_DRM_OPT_STAGE",
 			"MTK_DRM_OPT_USE_CMDQ",
@@ -3278,7 +3280,8 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_MMPATH",
 			"MTK_DRM_OPT_HBM",
 			"MTK_DRM_OPT_VDS_PATH_SWITCH",
-			"MTK_DRM_OPT_LAYER_REC";
+			"MTK_DRM_OPT_LAYER_REC",
+			"MTK_DRM_OPT_CLEAR_LAYER";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -3316,7 +3319,8 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_MMPATH*/
 			<0>, /*MTK_DRM_OPT_HBM*/
 			<1>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
-			<0>; /*MTK_DRM_OPT_LAYER_REC*/
+			<0>, /*MTK_DRM_OPT_LAYER_REC*/
+			<1>; /*MTK_DRM_OPT_CLEAR_LAYER*/
 	};
 
 	disp_mutex0: disp_mutex@14001000 {
