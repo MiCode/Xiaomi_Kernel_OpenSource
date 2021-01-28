@@ -1465,10 +1465,8 @@ static void show_map_vma(unsigned char *Userthread_maps,
 				flags & VM_EXEC ? 'x' : '-',
 				flags & VM_MAYSHARE ? 's' : 'p',
 				pgoff, MAJOR(dev), MINOR(dev), ino);
-			if (len < 0) {
+			if (len < 0)
 				pr_info("%s: snprintf failed\n", __func__);
-				return;
-			}
 			print_vma_name(Userthread_maps, Userthread_mapsLength,
 				vma, str);
 			return;
