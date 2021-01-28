@@ -467,6 +467,11 @@ static int cal_udc_param(struct z_stream_s *zcpr, u32 inst_id,
 		req_des_base = req_des_1_base;
 		ap_read = rw_index->md_des_ins1.read;
 		md_write = rw_index->md_des_ins1.write;
+	} else {
+		CCCI_ERROR_LOG(-1, UDC,
+			"[%s] error: inst_id(%d) is illegal.\n",
+			__func__, inst_id);
+		return -1;
 	}
 
 	if (*max_output_size == 0) {
