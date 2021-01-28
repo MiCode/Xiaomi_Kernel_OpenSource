@@ -4052,57 +4052,6 @@ EXIT:
 	return 0;
 }
 
-
-/**************************************************************
- *
- **************************************************************/
-static signed int MFB_mmap(
-	struct file *pFile,
-	struct vm_area_struct *pVma)
-{
-	unsigned long length = 0;
-	unsigned int pfn = 0x0;
-
-	length = pVma->vm_end - pVma->vm_start;
-	/*  */
-	pVma->vm_page_prot = pgprot_noncached(pVma->vm_page_prot);
-	pfn = pVma->vm_pgoff << PAGE_SHIFT;
-
-	log_inf("mmap:vm_pgoff(0x%lx) pfn(0x%x) phy(0x%lx)",
-		 pVma->vm_pgoff,
-		 pfn,
-		 pVma->vm_pgoff << PAGE_SHIFT);
-	log_inf("mmap:vmstart(0x%lx) vmend(0x%lx) length(0x%lx)",
-		 pVma->vm_start,
-		 pVma->vm_end,
-		 length);
-
-	switch (pfn) {
-	case MFB_BASE_HW:
-		if (length > MFB_REG_RANGE) {
-			log_err("mmap error:mod:0x%x length(0x%lx),range(0x%x)",
-			pfn,
-			length,
-			MFB_REG_RANGE);
-		return -EAGAIN;
-		}
-		break;
-	default:
-		log_err("Illegal starting HW addr for mmap!");
-		return -EAGAIN;
-	}
-	if (remap_pfn_range(
-		pVma,
-		pVma->vm_start,
-		pVma->vm_pgoff,
-		pVma->vm_end - pVma->vm_start,
-		pVma->vm_page_prot)) {
-		return -EAGAIN;
-	}
-	/*  */
-	return 0;
-}
-
 /**************************************************************
  *
  **************************************************************/
@@ -4116,7 +4065,7 @@ static const struct file_operations MFBFileOper = {
 	.open = MFB_open,
 	.release = MFB_release,
 	/* .flush   = mt_MFB_flush, */
-	.mmap = MFB_mmap,
+	/* .mmap = MFB_mmap, */
 	.unlocked_ioctl = MFB_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = MFB_ioctl_compat,
