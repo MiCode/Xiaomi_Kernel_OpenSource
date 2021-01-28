@@ -4653,11 +4653,6 @@ void mtk_drm_crtc_plane_update(struct drm_crtc *crtc, struct drm_plane *plane,
 		    plane_state->comp_state.comp_id);
 
 	if (plane_state->pending.enable) {
-		if (!plane_state->pending.addr) {
-			DDPPR_ERR("invalid plane %u addr, disable it\n", plane_index);
-			plane_state->pending.enable = 0;
-		}
-
 		if (mtk_crtc->is_dual_pipe) {
 			struct mtk_plane_state plane_state_l;
 			struct mtk_plane_state plane_state_r;
