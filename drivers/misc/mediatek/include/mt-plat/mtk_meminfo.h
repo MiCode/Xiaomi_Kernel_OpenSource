@@ -17,8 +17,6 @@
 #include <linux/of_reserved_mem.h>
 
 /* physical DRAM size */
-extern phys_addr_t get_max_DRAM_size(void);
-extern phys_addr_t mtk_get_max_DRAM_size(void);
 extern phys_addr_t get_zone_movable_cma_base(void);
 extern phys_addr_t get_zone_movable_cma_size(void);
 extern void *vmap_reserved_mem(phys_addr_t start, phys_addr_t size,
@@ -63,7 +61,6 @@ extern int zmc_register_client(struct notifier_block *nb);
 extern int zmc_unregister_client(struct notifier_block *nb);
 extern int zmc_notifier_call_chain(unsigned long val, void *v);
 
-
 #define ZMC_EVENT_ALLOC_MOVABLE 0x01
 #endif
 
@@ -72,37 +69,4 @@ extern bool memory_ssmr_inited(void);
 extern struct single_cma_registration memory_ssmr_registration;
 #endif /* end CONFIG_MTK_SSMR */
 
-#ifdef CONFIG_MTK_DCS
-#define DCS_SCREENOFF_ONLY_MODE
-enum dcs_status {
-	DCS_NORMAL,
-	DCS_LOWPOWER,
-	DCS_BUSY,
-	DCS_NR_STATUS,
-};
-enum dcs_kicker {
-	DCS_KICKER_MHL,
-	DCS_KICKER_PERF,
-	DCS_KICKER_WFD,
-	DCS_KICKER_VENC,
-	DCS_KICKER_CAMERA,
-	DCS_KICKER_DEBUG,
-	DCS_NR_KICKER,
-};
-extern int dcs_enter_perf(enum dcs_kicker kicker);
-extern int dcs_exit_perf(enum dcs_kicker kicker);
-extern int dcs_get_dcs_status_lock(int *ch, enum dcs_status *status);
-extern int dcs_get_dcs_status_trylock(int *ch, enum dcs_status *status);
-extern void dcs_get_dcs_status_unlock(void);
-extern bool dcs_initialied(void);
-extern int dcs_full_init(void);
-extern char * const dcs_status_name(enum dcs_status status);
-extern int dcs_set_lbw_region(u64 start, u64 end);
-extern int dcs_mpu_protection(int enable);
-/* DO _NOT_ USE APIS below UNLESS YOU KNOW HOW TO USE THEM */
-extern int __dcs_get_dcs_status(int *ch, enum dcs_status *dcs_status);
-extern int dcs_switch_to_lowpower(void);
-extern int memory_lowpower_fb_event(struct notifier_block *notifier,
-		unsigned long event, void *data);
-#endif /* end CONFIG_MTK_DCS */
 #endif /* end __MTK_MEMINFO_H__ */

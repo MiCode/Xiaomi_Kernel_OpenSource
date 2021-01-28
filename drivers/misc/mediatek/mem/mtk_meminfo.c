@@ -22,93 +22,8 @@
 #include <mt-plat/mtk_meminfo.h>
 
 #ifdef CONFIG_OF
-/* return the actual physical DRAM size */
-static u64 kernel_mem_sz;
-static u64 phone_dram_sz;	/* original phone DRAM size */
 static u64 mntl_base;
 static u64 mntl_size;
-static int __init dt_scan_memory(unsigned long node, const char *uname,
-				int depth, void *data)
-{
-	const char *type = of_get_flat_dt_prop(node, "device_type", NULL);
-	int i;
-	const __be32 *reg, *endp;
-	int l;
-	struct dram_info *dram_info;
-
-	/* We are scanning "memory" nodes only */
-	if (type == NULL) {
-		/*
-		 * The longtrail doesn't have a device_type on the
-		 * /memory node, so look for the node called /memory@0.
-		 */
-		if (depth != 1 || strcmp(uname, "memory@0") != 0)
-			return 0;
-	} else if (strcmp(type, "memory") != 0) {
-		return 0;
-	}
-
-	/*
-	 * Use kernel_mem_sz if phone_dram_sz is not available (workaround)
-	 * Projects use device tree should have orig_dram_info entry in their
-	 * device tree.
-	 * After the porting is done, kernel_mem_sz will be removed.
-	 */
-	reg = of_get_flat_dt_prop(node, "reg", &l);
-	if (reg == NULL)
-		return 0;
-
-	endp = reg + (l / sizeof(__be32));
-	while ((endp - reg) >= (dt_root_addr_cells + dt_root_size_cells)) {
-		u64 base, size;
-
-		base = dt_mem_next_cell(dt_root_addr_cells, &reg);
-		size = dt_mem_next_cell(dt_root_size_cells, &reg);
-
-		if (size == 0)
-			continue;
-
-		kernel_mem_sz += size;
-	}
-
-	/* orig_dram_info */
-	dram_info = (struct dram_info *)of_get_flat_dt_prop(node,
-			"orig_dram_info", NULL);
-	if (dram_info) {
-		for (i = 0; i < dram_info->rank_num; i++)
-			phone_dram_sz += dram_info->rank_info[i].size;
-	}
-
-	return node;
-}
-
-static int __init init_get_max_DRAM_size(void)
-{
-	if (!phone_dram_sz && !kernel_mem_sz) {
-		if (of_scan_flat_dt(dt_scan_memory, NULL)) {
-			pr_info("%s done. phone_dram_sz: 0x%llx, ",
-				__func__,
-				(unsigned long long)phone_dram_sz);
-			pr_info("kernel_mem_sz: 0x%llx\n",
-				(unsigned long long)kernel_mem_sz);
-		} else {
-			pr_info("%s fail\n", __func__);
-			BUG();
-		}
-	}
-	return 0;
-}
-
-phys_addr_t get_max_DRAM_size(void)
-{
-	if (!phone_dram_sz && !kernel_mem_sz) {
-		pr_info("%s is called too early\n", __func__);
-		BUG();
-	}
-	return phone_dram_sz ?
-		(phys_addr_t)phone_dram_sz : (phys_addr_t)kernel_mem_sz;
-}
-early_initcall(init_get_max_DRAM_size);
 
 static int __init __fdt_scan_reserved_mem(unsigned long node, const char *uname,
 					  int depth, void *data)
@@ -161,13 +76,7 @@ int get_mntl_buf(u64 *base, u64 *size)
 	return 0;
 }
 
-#else
-phys_addr_t get_max_DRAM_size(void)
-{
-	return mtk_get_max_DRAM_size();
-}
 #endif /* end of CONFIG_OF */
-EXPORT_SYMBOL(get_max_DRAM_size);
 
 phys_addr_t get_zone_movable_cma_base(void)
 {
