@@ -1985,6 +1985,9 @@ firmware_class.path=/vendor/firmware";
 
 		/* 3. Runtime Suspend Level */
 		mediatek,rpm-level = <3>;
+
+		/* spm resource request use sw mode */
+		mediatek,spm_sw_mode;
 	};
 
 	ca9peri@10e00000 {
