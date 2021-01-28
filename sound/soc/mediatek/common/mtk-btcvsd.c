@@ -429,6 +429,7 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	u8 *dst;
 	unsigned long connsys_addr_tx, ap_addr_tx;
 	bool new_ap_addr_tx = true;
+	unsigned int codec_id;
 
 	if (bt->bypass_bt_access)
 		return -EIO;
@@ -457,8 +458,10 @@ int mtk_btcvsd_write_to_bt(struct mtk_btcvsd_snd *bt,
 	spin_unlock_irqrestore(&bt->tx_lock, flags);
 
 	dst = (u8 *)ap_addr_tx;
-
-	if (!bt->tx->mute) {
+	//codec_id: 0 default, 1 CVSD codec, 2 MSBC codec
+	codec_id = (*bt->bt_reg_ctl >> 25) & 3;
+	if ((!bt->tx->mute) &&
+	    ((codec_id == 0) || codec_id == bt->band + 1)) {
 		mtk_btcvsd_snd_data_transfer(BT_SCO_DIRECT_ARM2BT,
 					     bt->tx->temp_packet_buf, dst,
 					     packet_length, packet_num);
