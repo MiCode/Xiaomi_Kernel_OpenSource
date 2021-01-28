@@ -370,7 +370,7 @@ static struct miscdevice atf_log_dev = {
 	.minor      = MISC_DYNAMIC_MINOR,
 	.name       = "atf_log",
 	.fops       = &atf_log_fops,
-	.mode       = 0644,
+	.mode       = 0640,
 };
 
 static ssize_t do_read_raw_buf_to_usr(char __user *buf, size_t count)
@@ -457,7 +457,7 @@ static struct miscdevice atf_raw_buf_dev = {
 	.minor      = MISC_DYNAMIC_MINOR,
 	.name       = "atf_raw_buf",
 	.fops       = &atf_raw_buf_fops,
-	.mode       = 0444,
+	.mode       = 0440,
 };
 
 static int __init atf_logger_probe(struct platform_device *pdev)
@@ -521,7 +521,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	/* create /proc/atf_log/atf_log */
-	atf_log_proc_file = proc_create("atf_log", 0444,
+	atf_log_proc_file = proc_create("atf_log", 0440,
 		atf_log_proc_dir, &atf_log_fops);
 	if (atf_log_proc_file == NULL) {
 		pr_info("atf_log proc_create failed at atf_log\n");
@@ -529,7 +529,7 @@ static int __init atf_logger_probe(struct platform_device *pdev)
 	}
 
 	/* create /proc/atf_log/atf_raw_buf */
-	atf_raw_buf_proc_file = proc_create("atf_raw_buf", 0444,
+	atf_raw_buf_proc_file = proc_create("atf_raw_buf", 0440,
 		atf_log_proc_dir, &atf_raw_buf_fops);
 	if (atf_raw_buf_proc_file == NULL) {
 		pr_info("atf_raw_buf proc_create failed at atf_log\n");
