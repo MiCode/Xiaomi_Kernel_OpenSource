@@ -63,7 +63,7 @@ void tpd_button_init(void)
 	tpd->kpd->id.product = 0x0001;
 	tpd->kpd->id.version = 0x0100;
 	if (input_register_device(tpd->kpd))
-		TPD_DMESG("input_register_device failed.(kpd)\n");
+		TPD_ERR("input_register_device failed.(kpd)\n");
 	set_bit(EV_KEY, tpd->dev->evbit);
 	for (i = 0; i < tpd_keycnt; i++)
 		__set_bit(tpd_keys[i], tpd->dev->keybit);

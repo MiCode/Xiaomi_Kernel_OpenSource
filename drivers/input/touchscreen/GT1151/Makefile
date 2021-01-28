@@ -7,7 +7,6 @@ obj-y	+=  gt1x_tpd.o
 obj-y	+=  gt1x_update.o
 obj-y   +=  tpd_control.o
 obj-y   +=  tpd_button.o
-obj-y   +=  tpd_calibrate.o
 obj-y   +=  tpd_debug.o
 obj-y   +=  tpd_default.o
 obj-y   +=  tpd_misc.o

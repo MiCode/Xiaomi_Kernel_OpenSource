@@ -17,7 +17,7 @@
 #ifdef GTP_REQUEST_FW_UPDATE
 #include <linux/firmware.h>
 #endif
-#include "gt1x_config.h"
+
 #ifdef CONFIG_GTP_HEADER_FW_UPDATE
 #include "gt1x_firmware.h"
 #endif
@@ -26,17 +26,6 @@
 #define GT1151_DEFAULT_FW              "gt1151_default_"
 #endif
 #undef CONFIG_GTP_FOPEN_FW_UPDATE
-
-#define UPDATE_FILE_PATH_1          "/data/_goodix_update_.bin"
-#define UPDATE_FILE_PATH_2          "/sdcard/_goodix_update_.bin"
-
-#define CONFIG_FILE_PATH_1          "/data/_gt1x_config_.cfg"
-#define CONFIG_FILE_PATH_2          "/sdcard/_gt1x_config_.cfg"
-
-#define FOUND_FW_PATH_1              0x01
-#define FOUND_FW_PATH_2              0x02
-#define FOUND_CFG_PATH_1             0x04
-#define FOUND_CFG_PATH_2             0x08
 
 #define PACK_SIZE                    256
 
@@ -200,10 +189,10 @@ int gt1x_auto_update_proc(void *data)
 {
 
 #ifdef CONFIG_GTP_HEADER_FW_UPDATE
-	GTP_INFO("Start auto update thread...");
+	GTP_INFO("Start auto update thread 0...");
 	gt1x_update_firmware(NULL);
 #elif defined(GTP_REQUEST_FW_UPDATE)
-	GTP_INFO("Start auto update thread...");
+	GTP_INFO("Start auto update thread 1...");
 	gt1x_update_firmware(NULL);
 #endif
 	gt1x_auto_update_done();
@@ -259,9 +248,6 @@ int gt1x_update_prepare(char *filename)
 #elif defined(CONFIG_GTP_HEADER_FW_UPDATE)
 		update_info.fw_data = gt1x_default_FW;
 		update_info.fw_length = sizeof(gt1x_default_FW);
-#else
-		GTP_ERROR("No Fw in .h file!");
-		return ERROR_FW;
 #endif
 	}
 
@@ -884,7 +870,9 @@ int gt1x_update_firmware(char *filename)
 	}
 	update_info.progress = 6;
 
+	gt1x_irq_disable();
 	gt1x_reset_guitar();
+	gt1x_irq_enable();
 
 	p = gt1x_get_fw_data(update_info.firmware->subsystem[0].offset,
 				update_info.firmware->subsystem[0].length);

@@ -508,3 +508,9 @@ out:
 	mutex_unlock(&rw_mutex);
 	return ret;
 }
+
+void gt1x_tool_exit(void)
+{
+	remove_proc_entry(procname, NULL);
+}
+EXPORT_SYMBOL_GPL(gt1x_tool_exit);

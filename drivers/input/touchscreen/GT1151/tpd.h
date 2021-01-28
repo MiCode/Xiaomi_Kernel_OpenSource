@@ -23,42 +23,39 @@
 #include <linux/regulator/consumer.h>
 
 /*debug macros */
-#define TPD_DEBUG
+#define TPD_DEBUG_OPEN
 #define TPD_DEBUG_CODE
 /* #define TPD_DEBUG_TRACK */
-#define TPD_DMESG(a, arg...) \
-	pr_info(TPD_DEVICE ":[%s:%d] " a, __func__, __LINE__, ##arg)
-#if defined(TPD_DEBUG)
-#undef TPD_DEBUG
+#define TPD_ERR(a, arg...) \
+	pr_info(TPD_DEVICE "ERR:[%s:%d] " a, __func__, __LINE__, ##arg)
+
+#ifdef TPD_DEBUG_OPEN
 #define TPD_DEBUG(a, arg...) \
-	pr_info(TPD_DEVICE ":[%s:%d] " a, __func__, __LINE__, ##arg)
+	pr_info(TPD_DEVICE "INFO:[%s:%d] " a, __func__, __LINE__, ##arg)
 #else
 #define TPD_DEBUG(arg...)
 #endif
 #define SPLIT ", "
 
 /* register, address, configurations */
-#define TPD_DEVICE            "mtk-tpd"
+#define TPD_DEVICE            "gt1151"
+#define TPD_INPUT_DEVICE      "mtk-tpd"
 #define TPD_X                  0
 #define TPD_Y                  1
 #define TPD_Z1                 2
 #define TPD_Z2                 3
 #define TP_DELAY              (2*HZ/100)
-#define TP_DRV_MAX_COUNT          (20)
+#define TP_DRV_MAX_COUNT      (20)
 #define TPD_WARP_CNT          (4)
 #define TPD_VIRTUAL_KEY_MAX   (10)
 
 /* various mode */
 #define TPD_MODE_NORMAL        0
 #define TPD_MODE_KEYPAD        1
-#define TPD_MODE_SW 2
-#define TPD_MODE_FAV_SW 3
-#define TPD_MODE_FAV_HW 4
-#define TPD_MODE_RAW_DATA 5
-#undef TPD_RES_X
-#undef TPD_RES_Y
-extern unsigned long TPD_RES_X;
-extern unsigned long TPD_RES_Y;
+#define TPD_MODE_SW            2
+#define TPD_MODE_FAV_SW        3
+#define TPD_MODE_FAV_HW        4
+#define TPD_MODE_RAW_DATA      5
 extern int tpd_load_status;	/* 0: failed, 1: success */
 extern int tpd_mode;
 extern int tpd_mode_axis;
@@ -121,6 +118,10 @@ struct tpd_dts_info {
 	int rst_ext_gpio_num;
 	int rst_gpio_num;
 	int eint_gpio_num;
+	int x2x;
+	int y2y;
+	const char *cfg_version;
+	int lcm_resolution[2];
 	struct tpd_key_dim_local tpd_key_dim_local[4];
 	struct tpd_filter_t touch_filter;
 };
@@ -154,8 +155,8 @@ extern struct tpd_device *tpd;
 extern struct tpd_dts_info tpd_dts_data;
 
 extern void tpd_get_dts_info(void);
-#define GTP_RST_PORT    0
-#define GTP_INT_PORT    1
+#define GTP_RST_PORT  0
+#define GTP_INT_PORT  1
 extern void tpd_gpio_as_int(int pin);
 extern void tpd_gpio_output(int pin, int level);
 extern const struct of_device_id touch_of_match[];
@@ -168,10 +169,6 @@ int DAL_Printf(const char *fmt, ...);
 int LCD_LayerEnable(int id, BOOL enable);
 #endif
 
-#ifdef TPD_HAVE_CALIBRATION
-#include "tpd_calibrate.h"
-#endif
-
 #include "tpd_default.h"
 
 /* switch touch panel into different mode */
@@ -179,4 +176,11 @@ void _tpd_switch_single_mode(void);
 void _tpd_switch_multiple_mode(void);
 void _tpd_switch_sleep_mode(void);
 void _tpd_switch_normal_mode(void);
+
+extern int gt1x_driver_init(void);
+extern void gt1x_driver_exit(void);
+extern int tpd_log_init(void);
+extern void tpd_log_exit(void);
+extern void gt1x_generic_exit(void);
+void gt1x_tool_exit(void);
 #endif

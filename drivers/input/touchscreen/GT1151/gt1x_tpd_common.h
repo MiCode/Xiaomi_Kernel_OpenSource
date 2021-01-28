@@ -23,7 +23,7 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
-#include <uapi/linux/sched/types.h>
+#include <uapi/linux/sched/types.h> //for kernel-4.14
 #include <linux/kthread.h>
 #include <linux/bitops.h>
 #include <linux/kernel.h>
@@ -34,6 +34,7 @@
 #include <linux/input.h>
 #include <linux/proc_fs.h>
 #include <linux/uaccess.h>
+//#include <linux/sched.h> // for kernel-4.9
 
 #ifdef CONFIG_MTK_I2C_EXTENSION
 /* if gt9l, better enable it if hardware platform supported*/
@@ -53,14 +54,12 @@
 #define IIC_DMA_MAX_TRANSFER_SIZE     250
 #define I2C_MASTER_CLOCK              300
 #define TPD_MAX_RESET_COUNT           3
-#define TPD_HAVE_CALIBRATION
 #define TPD_CALIBRATION_MATRIX        {962, 0, 0, 0, 1600, 0, 0, 0}
 #define KEY_GESTURE           KEY_F24	/* customize gesture-key */
 #define DEFAULT_MAX_TOUCH_NUM         10
 
 /* define GT1151 parameter */
 #define GT1151_FIRMWARE "firmware2"
-/* #define TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
 #define GTP_DRIVER_SEND_CFG
 #define GTP_CUSTOM_CFG
 #define GTP_AUTO_UPDATE
@@ -76,29 +75,6 @@ extern int tpd_em_log;
 #define GTP_INT_TRIGGER  1	/*0:Rising 1:Falling*/
 #define GTP_WAKEUP_LEVEL 1
 #endif
-
-#ifdef CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW
-#ifdef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
-#define GTP_WARP_X_ON         1
-#define GTP_WARP_Y_ON         1
-#else   /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#define GTP_WARP_X_ON         0
-#define GTP_WARP_Y_ON         0
-#endif  /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#else   /* CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW */
-#ifdef TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM
-#define GTP_WARP_X_ON         0
-#define GTP_WARP_Y_ON         0
-#else   /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#define GTP_WARP_X_ON         1
-#define GTP_WARP_Y_ON         1
-#endif  /* CONFIG_TOUCHSCREEN_PHYSICAL_ROTATION_WITH_LCM */
-#endif  /* CONFIG_MTK_LCM_PHYSICAL_ROTATION_HW */
-
-#ifdef CONFIG_GTP_WITH_STYLUS
-#define GTP_STYLUS_KEY_TAB {BTN_STYLUS, BTN_STYLUS2}
-#endif
-
 
 /****************************PART3:OTHER define*******************************/
 #define GTP_DRIVER_VERSION          "V1.0<2014/09/28>"
@@ -123,8 +99,8 @@ extern int tpd_em_log;
 #define GTP_REG_WAKEUP_GESTURE         0x814C
 #define GTP_REG_WAKEUP_GESTURE_DETAIL  0xA2A0	/*need change */
 
-#define GTP_BAK_REF_PATH                "/data/gt1x_ref.bin"
-#define GTP_MAIN_CLK_PATH               "/data/gt1x_clk.bin"
+#define GTP_BAK_REF_PATH            "/data/gt1x_ref.bin"
+#define GTP_MAIN_CLK_PATH           "/data/gt1x_clk.bin"
 
 /* request type */
 #define GTP_RQST_CONFIG             0x01
@@ -181,30 +157,18 @@ extern int tpd_em_log;
 
 #define GTP_I2C_ADDRESS				0xBA
 
-#if GTP_WARP_X_ON
-#define GTP_WARP_X(x_max, x) (x_max - 1 - x)
-#else
-#define GTP_WARP_X(x_max, x) x
-#endif
-
-#if GTP_WARP_Y_ON
-#define GTP_WARP_Y(y_max, y) (y_max - 1 - y)
-#else
-#define GTP_WARP_Y(y_max, y) y
-#endif
-
 #define IS_NUM_OR_CHAR(x)    \
 	(((x) > 'A' && (x) < 'Z') || ((x) > '0' && (x) < '9'))
 
 /*Log define*/
 #define GTP_INFO(fmt, arg...)           \
-	pr_info("<<GTP-INF>>[%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
+	pr_info("<<GT1151-INF>>[%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
 #define GTP_ERROR(fmt, arg...)          \
-	pr_info("<<GTP-ERR>>[%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
+	pr_info("<<GT1151-ERR>>[%s:%d] "fmt"\n", __func__, __LINE__, ##arg)
 #define GTP_DEBUG(fmt, arg...)				\
 	do {								\
 		if (tpd_em_log)						\
-			pr_debug("<<GTP-DBG>>[%s:%d]"fmt"\n", \
+			pr_debug("<<GT1151-DBG>>[%s:%d]"fmt"\n", \
 			__func__, __LINE__, ##arg);\
 	} while (0)
 #ifdef CONFIG_GTP_DEBUG_ARRAY_ON

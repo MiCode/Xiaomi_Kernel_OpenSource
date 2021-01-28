@@ -417,7 +417,7 @@ void tpd_em_log_release(void)
 	}
 }
 
-static int __init tpd_log_init(void)
+int tpd_log_init(void)
 {
 	if (misc_register(&tpd_debug_log_dev) < 0) {
 		pr_info("[tpd_em_log] :register device failed\n");
@@ -427,8 +427,14 @@ static int __init tpd_log_init(void)
 	spin_lock_init(&tpd_buf.buffer_lock);
 	return 0;
 }
+EXPORT_SYMBOL_GPL(tpd_log_init);
+
+void tpd_log_exit(void)
+{
+	misc_deregister(&tpd_debug_log_dev);
+}
+EXPORT_SYMBOL_GPL(tpd_log_exit);
 
 int tpd_debuglog;
 module_param(tpd_debuglog, int, 0664);
-module_init(tpd_log_init);
 #endif				/* TPD_DEBUG_CODE */
