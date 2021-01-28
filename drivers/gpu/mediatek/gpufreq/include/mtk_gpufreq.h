@@ -68,5 +68,7 @@ extern void mt_gpufreq_disable_CG(void);
 extern void mt_gpufreq_enable_MTCMOS(bool bEnableHWAPM);
 extern void mt_gpufreq_disable_MTCMOS(bool bEnableHWAPM);
 extern void mt_gpufreq_set_loading(unsigned int gpu_loading); /* legacy */
+extern struct mt_gpufreq_power_table_info *mtk_gpufreq_get_powtab(int *num_ret);
+extern unsigned int mt_gpufreq_get_seg_max_opp_index(void);
 
 #endif /* _MT_GPUFREQ_H_ */

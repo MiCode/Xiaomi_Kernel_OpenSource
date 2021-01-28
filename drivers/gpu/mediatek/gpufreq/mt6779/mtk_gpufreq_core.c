@@ -865,6 +865,16 @@ unsigned int mt_gpufreq_get_leakage_mw(void)
 }
 
 /*
+ * API : get current segment max opp index
+ */
+unsigned int mt_gpufreq_get_seg_max_opp_index(void)
+{
+	/* As mt6779 never hidden the opp-idx 0, 0 is the max opp idx */
+	return 0;
+}
+EXPORT_SYMBOL(mt_gpufreq_get_seg_max_opp_index);
+
+/*
  * API : get current Thermal/Power/PBM limited OPP table index
  */
 unsigned int mt_gpufreq_get_thermal_limit_index(void)
