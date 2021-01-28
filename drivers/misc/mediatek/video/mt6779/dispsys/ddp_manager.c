@@ -418,7 +418,12 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 			   ddp_get_scenario_name(scenario));
 		return path_handle;
 	}
-
+	if (path_handle->hwmutexid < 0 ||
+	    path_handle->hwmutexid >= DDP_MAX_MANAGER_HANDLE) {
+		DISP_LOG_E("%s: error hwmutexid:%d\n",
+			   __func__, path_handle->hwmutexid);
+		return NULL;
+	}
 	path_handle->cmdqhandle = cmdq_handle;
 	path_handle->scenario = scenario;
 	path_handle->hwmutexid = acquire_mutex(scenario);
@@ -431,7 +436,7 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 	       ddp_get_scenario_name(scenario));
 	for (i = 0; i < m_num; i++) {
 		m = list[i];
-		if (m < 0 || m > DISP_MODULE_NUM) {
+		if (m < 0 || m >= DISP_MODULE_NUM) {
 			DISP_LOG_E("%s: error module_id:%d\n",
 				   __func__, m);
 			return 1;
@@ -440,6 +445,7 @@ disp_path_handle dpmgr_create_path(enum DDP_SCENARIO_ENUM scenario,
 		c->module_usage_table[m]++;
 		c->module_path_table[m] = path_handle;
 	}
+
 	c->handle_cnt++;
 	c->handle_pool[path_handle->hwmutexid] = path_handle;
 
@@ -517,6 +523,11 @@ int dpmgr_modify_path_power_on_new_modules(disp_path_handle dp_handle,
 	for (i = 0; i < new_m_num; i++) {
 		m = new_list[i];
 		/* new module's count is 0 */
+		if (m < DISP_MODULE_OVL0 || m >= DISP_MODULE_NUM) {
+			DISP_LOG_E("%s: error module_id:%d\n",
+				   __func__, m);
+			return 1;
+		}
 		if (c->module_usage_table[m] == 0) {
 			c->module_usage_table[m]++;
 			c->module_path_table[m] = phandle;
@@ -582,7 +593,7 @@ int dpmgr_modify_path_power_off_old_modules(enum DDP_SCENARIO_ENUM old_scn,
 
 	for (i = 0; i < old_m_num; i++) {
 		m = old_list[i];
-		if (m < 0 || m > DISP_MODULE_NUM) {
+		if (m < 0 || m >= DISP_MODULE_NUM) {
 			DISP_LOG_E("%s: error module_id:%d\n",
 				   __func__, m);
 			return 1;
@@ -633,7 +644,7 @@ int dpmgr_destroy_path_handle(disp_path_handle dp_handle)
 	release_mutex(phandle->hwmutexid);
 	for (i = 0; i < m_num; i++) {
 		m = list[i];
-		if (m < 0 || m > DISP_MODULE_NUM) {
+		if (m < 0 || m >= DISP_MODULE_NUM) {
 			DISP_LOG_E("%s: error module_id:%d\n",
 				   __func__, m);
 			return 1;
@@ -643,6 +654,12 @@ int dpmgr_destroy_path_handle(disp_path_handle dp_handle)
 	}
 	c->handle_cnt--;
 	ASSERT(c->handle_cnt >= 0);
+	if (phandle->hwmutexid < 0 ||
+		phandle->hwmutexid >= DDP_MAX_MANAGER_HANDLE) {
+		DISP_LOG_E("%s: error hwmutexid:%d\n",
+			   __func__, phandle->hwmutexid);
+		return 1;
+	}
 	c->handle_pool[phandle->hwmutexid] = NULL;
 	kfree(phandle);
 
@@ -1603,6 +1620,11 @@ static int is_module_in_path(enum DISP_MODULE_ENUM module,
 			     struct ddp_path_handle *phandle)
 {
 	struct DDP_MANAGER_CONTEXT *c = _get_context();
+	if (module < DISP_MODULE_OVL0 || module >= DISP_MODULE_NUM) {
+		DISP_LOG_E("%s: error module_id:%d\n",
+			   __func__, module);
+		return -1;
+	}
 
 	ASSERT(module < DISP_MODULE_UNKNOWN);
 	if (c->module_path_table[module] == phandle)
@@ -1792,7 +1814,8 @@ int dpmgr_enable_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event)
 	if (dp_handle == NULL)
 		return 1;
 
-	if (event > DISP_PATH_EVENT_NUM || event < DISP_PATH_EVENT_FRAME_DONE) {
+	if (event >= DISP_PATH_EVENT_NUM ||
+	    event < DISP_PATH_EVENT_FRAME_DONE) {
 		DISP_LOG_E("%s: error:event:%d\n", __func__, event);
 		return 1;
 	}
@@ -2073,7 +2096,11 @@ int dpmgr_signal_event(disp_path_handle dp_handle, enum DISP_PATH_EVENT event)
 
 	if (dp_handle == NULL)
 		return 1;
-
+	if (event >= DISP_PATH_EVENT_NUM ||
+	    event < DISP_PATH_EVENT_FRAME_DONE) {
+		DISP_LOG_E("%s: error:event:%d\n", __func__, event);
+		return 1;
+	}
 	phandle = (struct ddp_path_handle *)dp_handle;
 	wq_handle = &phandle->wq_list[event];
 

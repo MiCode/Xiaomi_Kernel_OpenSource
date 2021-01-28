@@ -579,7 +579,11 @@ void rollback_layer_to_GPU(struct disp_layer_info *disp_info, int disp_idx,
 {
 	if (is_layer_id_valid(disp_info, disp_idx, i) == false)
 		return;
-
+	if (disp_idx < 0 || disp_idx > 1) {
+		DISPMSG("%s: error disp_idx:%d\n",
+			__func__, disp_idx);
+		return;
+	}
 	if (disp_info->gles_head[disp_idx] == -1 ||
 	    disp_info->gles_head[disp_idx] > i)
 		disp_info->gles_head[disp_idx] = i;
@@ -598,7 +602,11 @@ void rollback_compress_layer_to_GPU(struct disp_layer_info *disp_info,
 
 	if (disp_info->input_config[disp_idx][i].compress == 0)
 		return;
-
+	if (disp_idx < 0 || disp_idx > 1) {
+		DISPMSG("%s: error disp_idx:%d\n",
+			__func__, disp_idx);
+		return;
+	}
 	rollback_layer_to_GPU(disp_info, disp_idx, i);
 	disp_info->input_config[disp_idx][i].layer_caps |= NO_FBDC;
 }
