@@ -324,7 +324,7 @@ PVRSRV_ERROR SysDevInit(void *pvOSDevice, PVRSRV_DEVICE_CONFIG **ppsDevConfig)
 	gsDevices[0].pvOSDevice = pvOSDevice;
 	*ppsDevConfig = &gsDevices[0];
 
-	MTKRGXDeviceInit(gsDevices);
+	err = MTKRGXDeviceInit(gsDevices);
 	return err;
 }
 
