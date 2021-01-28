@@ -19,8 +19,6 @@
 /* ------------------------------------------------------------- */
 /* DSI */
 
-#define DISP_REG_DSI_MMCLK_STALL_DBG1 (0x1C0UL)
-
 struct DSI_START_REG {
 	unsigned DSI_START:1;
 	unsigned rsv_1:1;
@@ -115,7 +113,9 @@ enum DSI_MODE_CTRL {
 
 struct DSI_MODE_CTRL_REG {
 	unsigned MODE:2;
-	unsigned rsv_2:14;
+	unsigned rsv_2:6;
+	unsigned INTERLACE_MODE:2;
+	unsigned rsv_10:6;
 	unsigned FRM_MODE:1;
 	unsigned MIX_MODE:1;
 	unsigned V2C_SWITCH_ON:1;
@@ -211,6 +211,18 @@ struct DSI_SIZE_CON_REG {
 	unsigned rsv_15:1;
 	unsigned DSI_HEIGHT:15;
 	unsigned rsv_31:1;
+};
+
+struct DSI_VFP_EARLY_STOP_REG {
+	unsigned VFP_EARLY_STOP_EN:1;
+	unsigned VFP_EARLY_STOP_SKIP_VSA_EN:1;
+	unsigned rsv_2:2;
+	unsigned VFP_UNLIMITED_MODE:1;
+	unsigned rsv_5:3;
+	unsigned VFP_EARLY_STOP:1;
+	unsigned rsv_9:7;
+	unsigned VFP_EARLY_STOP_MIN_NL:12;
+	unsigned rsv_28:4;
 };
 
 struct DSI_HSA_WC_REG {
@@ -470,11 +482,12 @@ struct DSI_STATE_DBG9_REG {
 
 struct DSI_DEBUG_SEL_REG {
 	unsigned DEBUG_OUT_SEL:5;
-	unsigned rsv5:3;
+	unsigned DYNAMIC_MM_CG_CON:3;
 	unsigned CHKSUM_REC_EN:1;
 	unsigned C2V_START_CON:1;
-	unsigned rsv10:4;
-	unsigned DYNAMIC_CG_CON:18; /* 16 */
+	unsigned MM_RST_SEL:1;
+	unsigned rsv11:1;
+	unsigned DYNAMIC_CG_CON:20; /* 12 */
 };
 
 struct DSI_STATE_DBG10_REG {
@@ -512,6 +525,20 @@ struct DSI_SHADOW_STA_REG {
 	unsigned rsv2:30;
 };
 
+struct DSI_CG_CONFIG_REG {
+	unsigned DYNAMIC_CG_CON:24;
+	unsigned DYNAMIC_MM_CG_CON:8;
+};
+
+struct DSI_INPUT_DEBUG_REG {
+	unsigned INP_PIXEL_COUNT:13;
+	unsigned rsv13:3;
+	unsigned INP_LINE_COUNT:13;
+	unsigned rsv29:1;
+	unsigned INP_END_SYNC_TO_DSI:1;
+	unsigned INP_REDUNDANT_REGION:1;
+};
+
 struct DSI_REGS {
 	struct DSI_START_REG DSI_START;	/* 0000 */
 	struct DSI_STATUS_REG DSI_STA;	/* 0004 */
@@ -528,13 +555,15 @@ struct DSI_REGS {
 	struct DSI_LFR_CON_REG DSI_LFR_CON;	/* 0030 */
 	struct DSI_LFR_STA_REG DSI_LFR_STA;	/* 0034 */
 	struct DSI_SIZE_CON_REG DSI_SIZE_CON;	/* 0038 */
-	UINT32 rsv_3c[5];	/* 003C..004C */
+	struct DSI_VFP_EARLY_STOP_REG
+		DSI_VFP_EARLY_STOP;	/* 003C */
+	UINT32 rsv_3c[4];	/* 0040..004C */
 	struct DSI_HSA_WC_REG DSI_HSA_WC;	/* 0050 */
 	struct DSI_HBP_WC_REG DSI_HBP_WC;	/* 0054 */
 	struct DSI_HFP_WC_REG DSI_HFP_WC;	/* 0058 */
 	struct DSI_BLLP_WC_REG DSI_BLLP_WC;	/* 005C */
 	struct DSI_CMDQ_CTRL_REG DSI_CMDQ_SIZE;	/* 0060 */
-	struct DSI_HSTX_CKLP_REG DSI_HSTX_CKL_WC;/* 0064 */
+	struct DSI_HSTX_CKLP_REG DSI_HSTX_CKL_WC;	/* 0064 */
 	struct DSI_HSTX_CKLP_WC_AUTO_RESULT_REG
 		DSI_HSTX_CKL_WC_AUTO_RESULT;	/* 0068 */
 	UINT32 rsv_006C[2];	/* 006c..0070 */
@@ -589,11 +618,11 @@ struct DSI_REGS {
 	UINT32 DSI_VM_CMD_DATA1C;	/* 0018C */
 	struct DSI_SHADOW_DEBUG_REG DSI_SHADOW_DEBUG;	/* 0190 */
 	struct DSI_SHADOW_STA_REG DSI_SHADOW_STA;	/* 0194 */
+	struct DSI_CG_CONFIG_REG DSI_CG_CONFIG;	/* 0198 */
 };
 
-/**
- * 0~1 TYPE, 2 BTA, 3 HS, 4 CL, 5 TE, 6~7 RESV,
- * 8~15 DATA_ID, 16~23 DATA_0, 24~31 DATA_1
+/* 0~1 TYPE ,2 BTA,3 HS, 4 CL,5 TE,6~7 RESV,
+ * 8~15 DATA_ID,16~23 DATA_0,24~31 DATA_1
  */
 struct DSI_CMDQ {
 	unsigned char byte0;

@@ -58,12 +58,15 @@ enum {
 
 enum HRT_BOUND_TYPE {
 	HRT_BOUND_TYPE_LP4 = 0,		/* LP4-2ch */
+	HRT_BOUND_TYPE_LP4_PLUS,	/* LP4-FHD+(>18:9)*/
 	HRT_BOUND_TYPE_LP3,			/* LP3-1ch */
+	HRT_BOUND_TYPE_LP3_PLUS,	/* LP3-FHD+(>18:9)*/
 	HRT_BOUND_TYPE_LP4_1CH,		/* LP4-1ch */
 	HRT_BOUND_TYPE_LP4_HYBRID,	/* LP4-2ch special */
 	HRT_BOUND_TYPE_LP3_HD,
 	HRT_BOUND_TYPE_LP4_HD,
-	HRT_BOUND_TYPE_LP4_FHD_19,
+	HRT_BOUND_TYPE_LP3_HD_PLUS,	/* LP3-HD+(>18:9)*/
+	HRT_BOUND_TYPE_LP4_HD_PLUS,	/* LP4-HD+(>18:9)*/
 	HRT_BOUND_NUM,
 };
 
@@ -88,9 +91,8 @@ enum HRT_OPP_LEVEL {
 	HRT_OPP_LEVEL_LEVEL0 = 0,	/* OPP0 */
 	HRT_OPP_LEVEL_LEVEL1,	/* OPP1 */
 	HRT_OPP_LEVEL_LEVEL2,	/* OPP2 */
-	HRT_OPP_LEVEL_LEVEL3,	/* OPP3 */
-	HRT_OPP_LEVEL_DEFAULT,	/* DEFAULT */
 	HRT_OPP_LEVEL_NUM,
+	HRT_OPP_LEVEL_DEFAULT,	/* DEFAULT */
 };
 
 enum HRT_DRAMC_TYPE {
@@ -102,17 +104,6 @@ enum HRT_DRAMC_TYPE {
 
 void layering_rule_init(void);
 int layering_rule_get_mm_freq_table(enum HRT_OPP_LEVEL opp_level);
-void layering_rule_set_max_hrt_level(void);
-int layering_rule_get_max_hrt_level(void);
-void antilatency_config_hrt(void);
-void update_layering_opt_by_disp_opt(enum DISP_HELPER_OPT option, int value);
 int set_emi_bound_tb(int idx, int num, int *val);
-
-/* For dynamic modify HRT table */
-int modify_display_hrt_cb(int num);
-void hrt_table_locked(void);
-void hrt_table_unlocked(void);
-int get_hrt_bound(int is_larb, int hrt_level);
-int get_hrt_discount(void);
 
 #endif

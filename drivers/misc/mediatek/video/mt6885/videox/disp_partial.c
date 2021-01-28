@@ -25,7 +25,7 @@
 #include "disp_partial.h"
 
 static void _convert_picture_to_ovl_dirty(struct disp_input_config *src,
-				struct disp_rect *in, struct disp_rect *out)
+		struct disp_rect *in, struct disp_rect *out)
 {
 	struct disp_rect layer_roi = {0, 0, 0, 0};
 	struct disp_rect pic_roi = {0, 0, 0, 0};
@@ -54,8 +54,7 @@ static void _convert_picture_to_ovl_dirty(struct disp_input_config *src,
 }
 
 int disp_partial_compute_ovl_roi(struct disp_frame_cfg_t *cfg,
-				 struct disp_ddp_path_config *old_cfg,
-				 struct disp_rect *result)
+		struct disp_ddp_path_config *old_cfg, struct disp_rect *result)
 {
 	int i, j;
 	int disable_layer = 0;
@@ -82,7 +81,7 @@ int disp_partial_compute_ovl_roi(struct disp_frame_cfg_t *cfg,
 
 		if (input_cfg->dirty_roi_num) {
 			struct layer_dirty_roi *layer_roi_addr =
-						input_cfg->dirty_roi_addr;
+				input_cfg->dirty_roi_addr;
 
 			DISPDBG("layer %d dirty num %d\n",
 				i, input_cfg->dirty_roi_num);
@@ -93,7 +92,7 @@ int disp_partial_compute_ovl_roi(struct disp_frame_cfg_t *cfg,
 				layer_roi.width = layer_roi_addr[j].dirty_w;
 				layer_roi.height = layer_roi_addr[j].dirty_h;
 				rect_join(&layer_roi, &layer_total_roi,
-					  &layer_total_roi);
+					&layer_total_roi);
 			}
 			/* 2. convert picture dirty to ovl dirty */
 			if (!rect_isEmpty(&layer_total_roi))
@@ -108,11 +107,11 @@ int disp_partial_compute_ovl_roi(struct disp_frame_cfg_t *cfg,
 			/* break if full lcm roi */
 			break;
 		}
-		/* 4. deal with other cases:layer disable, dim layer */
+		/* 4. deal with other cases:layer disable, dim layer*/
 		old_ovl_cfg = &(old_cfg->ovl_config[input_cfg->layer_id]);
 		rect_join(&layer_total_roi, result, result);
 
-		/* break if roi is full lcm */
+		/*break if roi is full lcm */
 		if (is_equal_full_lcm(result))
 			break;
 	}
@@ -151,8 +150,8 @@ int disp_partial_is_support(void)
 
 	if (disp_partial_get_project_option() &&
 		disp_lcm_is_partial_support(plcm) &&
-	    !disp_lcm_is_video_mode(plcm) &&
-	    disp_helper_get_option(DISP_OPT_PARTIAL_UPDATE))
+		!disp_lcm_is_video_mode(plcm) &&
+		disp_helper_get_option(DISP_OPT_PARTIAL_UPDATE))
 		return 1;
 
 	return 0;
@@ -162,8 +161,8 @@ void assign_full_lcm_roi(struct disp_rect *roi)
 {
 	roi->x = 0;
 	roi->y = 0;
-	roi->width = primary_display_get_width();
-	roi->height = primary_display_get_height();
+	roi->width = disp_helper_get_option(DISP_OPT_FAKE_LCM_WIDTH);
+	roi->height = disp_helper_get_option(DISP_OPT_FAKE_LCM_HEIGHT);
 }
 
 int is_equal_full_lcm(const struct disp_rect *roi)
@@ -177,7 +176,7 @@ int is_equal_full_lcm(const struct disp_rect *roi)
 }
 
 void disp_patial_lcm_validate_roi(struct disp_lcm_handle *plcm,
-				  struct disp_rect *roi)
+	struct disp_rect *roi)
 {
 	int x = roi->x;
 	int y = roi->y;
@@ -185,7 +184,7 @@ void disp_patial_lcm_validate_roi(struct disp_lcm_handle *plcm,
 	int h = roi->height;
 
 	disp_lcm_validate_roi(plcm, &roi->x, &roi->y, &roi->width,
-			      &roi->height);
+		&roi->height);
 	DISPDBG("lcm verify partial(%d,%d,%dx%d) to (%d,%d,%dx%d)\n",
 		x, y, w, h, roi->x, roi->y, roi->width, roi->height);
 }

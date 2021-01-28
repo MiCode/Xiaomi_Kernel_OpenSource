@@ -17,8 +17,14 @@
 #include "ddp_hal.h"
 #include "ddp_info.h"
 
+/*limit 18:9 */
+#define SBCH_WIDTH      (1080)
+#define SBCH_HEIGHT     (2160)
+
 #define OVL_MAX_WIDTH  (4095)
 #define OVL_MAX_HEIGHT (4095)
+
+#define SBCH_EN_NUM    (1)
 
 #ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 #define TOTAL_OVL_LAYER_NUM	(4+3+1+2)
@@ -26,7 +32,10 @@
 #define TOTAL_OVL_LAYER_NUM	(4+3+2+3)
 #endif
 #define TOTAL_REAL_OVL_LAYER_NUM (4+3+2+3)
-#define OVL_NUM			(3)
+#define OVL_NUM			(2)
+#define OVL_MODULE_MAX_PHY_LAYER (4)
+#define OVL_MODULE_MAX_EXT_LAYER (3)
+
 #define PRIMARY_THREE_OVL_CASCADE
 
 /* start overlay module */
@@ -44,13 +53,13 @@ int ovl_roi(enum DISP_MODULE_ENUM module, unsigned int bgW, unsigned int bgH,
 
 /* switch layer on/off */
 int ovl_layer_switch(enum DISP_MODULE_ENUM module, unsigned int layer,
-		     unsigned int en, void *handle);
+	unsigned int en, void *handle);
 /* get ovl input address */
-void ovl_get_address(enum DISP_MODULE_ENUM module, unsigned long *addr);
+void ovl_get_address(enum DISP_MODULE_ENUM module, unsigned long *add);
 
 int ovl_3d_config(enum DISP_MODULE_ENUM module, unsigned int layer_id,
-		  unsigned int en_3d, unsigned int landscape,
-		  unsigned int r_first, void *handle);
+	unsigned int en_3d, unsigned int landscape, unsigned int r_first,
+	void *handle);
 
 void ovl_dump_analysis(enum DISP_MODULE_ENUM module);
 void ovl_dump_reg(enum DISP_MODULE_ENUM module);
@@ -59,11 +68,5 @@ unsigned int ovl_to_index(enum DISP_MODULE_ENUM module);
 
 void ovl_get_info(enum DISP_MODULE_ENUM module, void *data);
 unsigned int ddp_ovl_get_cur_addr(bool rdma_mode, int layerid);
-enum DISP_MODULE_ENUM ovl_index_to_mod_for_debug(int index);
-unsigned long ovl_layer_num_for_debug(enum DISP_MODULE_ENUM module);
 
-void ovl_set_dbg_mode(bool mode);
-unsigned int ovl_set_bg_color(unsigned int bg_color);
-unsigned int ovl_set_dim_color(unsigned int dim_color);
-
-#endif /* _DDP_OVL_H_ */
+#endif

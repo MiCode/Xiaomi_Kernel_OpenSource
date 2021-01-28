@@ -11,13 +11,13 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __DDP_MMP_H__
-#define __DDP_MMP_H__
+#ifndef __H_DDP_MMP__
+#define __H_DDP_MMP__
 
 #include "mmprofile.h"
+/* #include "mmprofile_function.h" */
 #include "ddp_info.h"
 #include "disp_session.h"
-
 struct DDP_MMP_Events {
 	mmp_event DDP;
 	mmp_event layerParent;
@@ -29,6 +29,10 @@ struct DDP_MMP_Events {
 	mmp_event wdma_dump[2];
 	mmp_event rdma_dump[2];
 	mmp_event DDP_IRQ;
+	mmp_event DDP_event;
+	mmp_event event_wait;
+	mmp_event event_signal;
+	mmp_event event_error;
 	mmp_event OVL_IRQ_Parent;
 	mmp_event OVL_IRQ[OVL_NUM];
 	mmp_event WDMA_IRQ_Parent;
@@ -40,12 +44,14 @@ struct DDP_MMP_Events {
 	mmp_event DSI_IRQ[2];
 	mmp_event MutexParent;
 	mmp_event MUTEX_IRQ[5];
+	mmp_event POSTMASK_IRQ;
 	mmp_event primary_Parent;
 	mmp_event primary_display_switch_dst_mode;
 	mmp_event primary_trigger;
 	mmp_event primary_suspend;
 	mmp_event primary_resume;
 	mmp_event primary_config;
+	mmp_event primary_query_valid;
 	mmp_event primary_rdma_config;
 	mmp_event primary_wdma_config;
 	mmp_event primary_set_dirty;
@@ -66,17 +72,20 @@ struct DDP_MMP_Events {
 	mmp_event primary_seq_release;
 	mmp_event primary_ovl_fence_release;
 	mmp_event primary_wdma_fence_release;
-	mmp_event primary_present_fence_release;
-	mmp_event primary_present_fence_get;
-	mmp_event primary_present_fence_set;
+	mmp_event present_fence_release;
+	mmp_event present_fence_get;
+	mmp_event present_fence_set;
+	mmp_event esd_recovery;
+	mmp_event esd_cmdq;
 	mmp_event idlemgr;
 	mmp_event idle_monitor;
 	mmp_event share_sram;
-	mmp_event draw_rc;
+	mmp_event sbch_set;
+	mmp_event sbch_set_error;
 	mmp_event sec;
 	mmp_event svp_module[DISP_MODULE_NUM];
 	mmp_event tui;
-	mmp_event scen;
+	mmp_event self_refresh;
 	mmp_event fps_set;
 	mmp_event fps_get;
 	mmp_event fps_ext_set;
@@ -150,19 +159,16 @@ struct DDP_MMP_Events {
 struct DDP_MMP_Events *ddp_mmp_get_events(void);
 void init_ddp_mmp_events(void);
 void ddp_mmp_init(void);
- /*1:primary, 2:external, 3:memory */
 void ddp_mmp_ovl_layer(struct OVL_CONFIG_STRUCT *pLayer,
-		       unsigned int down_sample_x, unsigned int down_sample_y,
-		       unsigned int session);
+	unsigned int down_sample_x, unsigned int down_sample_y,
+	unsigned int session);
 void ddp_mmp_wdma_layer(struct WDMA_CONFIG_STRUCT *wdma_layer,
-			unsigned int wdma_num, unsigned int down_sample_x,
-			unsigned int down_sample_y);
+	unsigned int wdma_num, unsigned int down_sample_x,
+	unsigned int down_sample_y);
 void ddp_mmp_rdma_layer(struct RDMA_CONFIG_STRUCT *rdma_layer,
-			unsigned int rdma_num, unsigned int down_sample_x,
-			unsigned int down_sample_y);
+	unsigned int rdma_num, unsigned int down_sample_x,
+	unsigned int down_sample_y);
 
-/* defined in mmp driver, should remove it */
-extern void mmprofile_enable(int enable);
-void mmprofile_start(int start);
+/*defined in mmp driver, should remove it */
 
-#endif /* __DDP_MMP_H__ */
+#endif

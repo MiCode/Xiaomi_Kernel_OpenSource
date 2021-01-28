@@ -20,6 +20,7 @@
 
 static const char reg_magic[] = "no_regs_info";
 
+
 struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 /*
  * {module_id,
@@ -42,8 +43,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0",
-	  0x14008000,
-	  257,
+	  0x14000000,
+	  253,
 	  14,
 	  0,
 	  0}
@@ -55,27 +56,36 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_ovl,
 	 {"mediatek,disp_ovl0_2l",
-	  0x14009000,
-	  258,
+	  0x14001000,
+	  254,
 	  14,
 	  0,
 	  0}
 	},
 
-	{DISP_MODULE_OVL1_2L,
-	 DISP_T_OVL,
-	 "ovl1_2l",
+	{DISP_MODULE_OVL0_2L_VIRTUAL0,
+	 DISP_T_UNKNOWN,
+	 "ovl0_2l_virt",
 	 1,
-	 &ddp_driver_ovl,
-	 {"mediatek,disp_ovl1_2l",
-	  0x1400a000,
-	  259,
-	  14,
-	  0,
-	  0}
+	 NULL,
+	 {reg_magic,}
 	},
 
+	{DISP_MODULE_OVL0_VIRTUAL0,
+	 DISP_T_UNKNOWN,
+	 "ovl0_virt",
+	 1,
+	 NULL,
+	 {reg_magic,}
+	},
 
+	{DISP_MODULE_RSZ0,
+	 DISP_T_RSZ,
+	 "rsz0",
+	 1,
+	 NULL,
+	 {reg_magic,}
+	},
 
 	{DISP_MODULE_RDMA0,
 	 DISP_T_RDMA,
@@ -83,29 +93,16 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_rdma,
 	 {"mediatek,disp_rdma0",
-	  0x1400b000,
-	  260,
+	  0x14003000,
+	  255,
 	  7,
 	  0,
 	  0}
 	},
 
-	{DISP_MODULE_RDMA1,
-	 DISP_T_RDMA,
-	 "rdma1",
-	 1,
-	 &ddp_driver_rdma,
-	 {"mediatek,disp_rdma1",
-	  0x1400c000,
-	  261,
-	  7,
-	  0,
-	  0}
-	},
-
-	{DISP_MODULE_RDMA_VIRTUAL0,
+	{DISP_MODULE_RDMA0_VIRTUAL0,
 	 DISP_T_UNKNOWN,
-	 "rdma_virtual0",
+	 "rdma0_virt",
 	 1,
 	 NULL,
 	 {reg_magic,}
@@ -117,27 +114,11 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_wdma,
 	 {"mediatek,disp_wdma0",
-	  0x1400d000,
-	  262,
+	  0x14006000,
+	  256,
 	  1,
 	  0,
 	  0}
-	},
-
-	{DISP_MODULE_WDMA_VIRTUAL0,
-	 DISP_T_UNKNOWN,
-	 "wdma_virtual0",
-	 1,
-	 NULL,
-	 {reg_magic,}
-	},
-
-	{DISP_MODULE_WDMA_VIRTUAL1,
-	 DISP_T_UNKNOWN,
-	 "wdma_virtual1",
-	 1,
-	 NULL,
-	 {reg_magic,}
 	},
 
 	{DISP_MODULE_COLOR0,
@@ -146,8 +127,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_color,
 	 {"mediatek,disp_color0",
-	  0x1400e000,
-	  263,
+	  0x14007000,
+	  257,
 	  0,
 	  0,
 	  0}
@@ -159,8 +140,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_ccorr,
 	 {"mediatek,disp_ccorr0",
-	  0x1400f000,
-	  264,
+	  0x14008000,
+	  258,
 	  1,
 	  0,
 	  0}
@@ -172,11 +153,19 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_aal,
 	 {"mediatek,disp_aal0",
-	  0x14010000,
-	  265,
+	  0x14009000,
+	  259,
 	  1,
 	  0,
 	  0}
+	},
+
+	{DISP_MODULE_MDP_AAL4,
+	 DISP_T_UNKNOWN,
+	 "mdp_aal4",
+	 0,
+	 NULL,
+	 {reg_magic,}
 	},
 
 	{DISP_MODULE_GAMMA0,
@@ -185,9 +174,22 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_gamma,
 	 {"mediatek,disp_gamma0",
-	  0x14011000,
-	  266,
+	  0x1400a000,
+	  260,
 	  0,
+	  0,
+	  0}
+	},
+
+	{DISP_MODULE_POSTMASK0,
+	 DISP_T_POSTMASK,
+	 "postmask0",
+	 1,
+	 &ddp_driver_postmask,
+	 {"mediatek,disp_postmask0",
+	  0x1400d000,
+	  277,
+	  13,
 	  0,
 	  0}
 	},
@@ -198,11 +200,19 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_dither,
 	 {"mediatek,disp_dither0",
-	  0x14012000,
-	  267,
+	  0x1400b000,
+	  261,
 	  0,
 	  0,
 	  0}
+	},
+
+	{DISP_MODULE_SPLIT0,
+	 DISP_T_UNKNOWN,
+	 "split0",
+	 0,
+	 NULL,
+	 {reg_magic,}
 	},
 
 	{DISP_MODULE_DSI0,
@@ -211,8 +221,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 1,
 	 &ddp_driver_dsi0,
 	 {"mediatek,dsi0",
-	  0x14014000,
-	  268,
+	  0x1400e000,
+	  262,
 	  15,
 	  0,
 	  0}
@@ -238,13 +248,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 DISP_T_PWM,
 	 "pwm0",
 	 0,
-	 &ddp_driver_pwm,
-	 {"mediatek,disp_pwm0",
-	  0x1100e000,
-	  0,
-	  0,
-	  0,
-	  0}
+	 NULL,
+	 {reg_magic,}
 	 },
 
 	{DISP_MODULE_CONFIG,
@@ -252,8 +257,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "config",
 	 0,
 	 NULL,
-	 {"mediatek,mmsys_config",
-	  0x14000000,
+	 {"mediatek,dispsys_config",
+	  0x14116000,
 	  0,
 	  0,
 	  0,
@@ -265,9 +270,9 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "mutex",
 	 0,
 	 NULL,
-	 {"mediatek,disp_mutex",
-	  0x14016000,
-	  249,
+	 {"mediatek,disp_mutex0",
+	  0x14117000,
+	  251,
 	  21,
 	  0,
 	  0}
@@ -279,7 +284,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 0,
 	 NULL,
 	 {"mediatek,smi_common",
-	  0x14019000,
+	  0x1411f000,
 	  0,
 	  0,
 	  0,
@@ -292,8 +297,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 0,
 	 NULL,
 	 {"mediatek,smi_larb0",
-	  0x14017000,
-	  272,
+	  0x14118000,
+	  0,
 	  0,
 	  0,
 	  0}
@@ -305,8 +310,8 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 0,
 	 NULL,
 	 {"mediatek,smi_larb1",
-	  0x16010000,
-	  327,
+	  0x14119000,
+	  0,
 	  0,
 	  0,
 	  0}
@@ -317,12 +322,7 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 "mipi0",
 	 0,
 	 NULL,
-	 {"mediatek,mipi_tx0",
-	  0x11e50000,
-	  0,
-	  0,
-	  0,
-	  0}
+	 {reg_magic,}
 	 },
 
 	{DISP_MODULE_MIPI1,
@@ -333,52 +333,13 @@ struct ddp_module ddp_modules[DISP_MODULE_NUM] = {
 	 {reg_magic,}
 	 },
 
-	{DISP_MODULE_RSZ0,
-	 DISP_T_RSZ,
-	 "rsz0",
-	 1,
-	 &ddp_driver_rsz,
-	 {"mediatek,disp_rsz",
-	  0x1401a000,
-	  273,
-	  0,
-	  0,
-	  0}
-	},
-
 	{DISP_MODULE_DPI,
 	 DISP_T_DPI,
-	 "dpi0",
-	 1,
-	 &ddp_driver_dpi,
-	 {"mediatek,dpi0",
-	  0x14015000,
-	  269,
-	  3,
-	  0,
-	  0}
-	 },
-
-	{DISP_MODULE_DBI,
-	 DISP_T_DBI,
-	 "dbi",
-	 1,
-	 &ddp_driver_dbi,
-	 {"mediatek,dbi",
-	  0x1401d000,
-	  276,
-	  6,
-	  0,
-	  0}
-	 },
-
-	{DISP_MODULE_DPI_VIRTUAL,
-	 DISP_T_UNKNOWN,
-	 "dpi_virtual",
-	 1,
+	 "dpi",
+	 0,
 	 NULL,
 	 {reg_magic,}
-	},
+	 },
 
 	{DISP_MODULE_UNKNOWN,
 	 DISP_T_UNKNOWN,
@@ -414,7 +375,7 @@ const char *ddp_get_module_name(enum DISP_MODULE_ENUM module)
 		return ddp_modules[module].module_name;
 
 	DDPMSG("%s: invalid module id=%d\n", __func__, module);
-	return "unknown-module";
+	return "unknown";
 }
 
 unsigned int _can_connect(enum DISP_MODULE_ENUM module)
@@ -435,12 +396,21 @@ struct DDP_MODULE_DRIVER *ddp_get_module_driver(enum DISP_MODULE_ENUM module)
 	return 0;
 }
 
+void ddp_set_module_driver(enum DISP_MODULE_ENUM module,
+	struct DDP_MODULE_DRIVER *drv)
+{
+	if (!is_ddp_module(module))
+		return;
+
+	ddp_modules[module].module_driver = drv;
+}
+
 const char *ddp_get_module_dtname(enum DISP_MODULE_ENUM module)
 {
 	if (is_ddp_module(module))
 		return ddp_modules[module].reg_info.reg_dt_name;
 
-	DDPMSG("%s: invalid module id=%d\n", __func__, module);
+	DDPMSG("ddp_get_module_dtname: invalid module id=%d\n", module);
 	return "unknown";
 }
 
@@ -493,7 +463,7 @@ void ddp_module_irq_disable(enum DISP_MODULE_ENUM module)
 		return;
 	}
 
-	DDPMSG("%s: invalid module id=%d\n", __func__, module);
+	DDPMSG("ddp_set_irq_enable: invalid module id=%d\n", module);
 }
 
 void ddp_set_module_va(enum DISP_MODULE_ENUM module, unsigned long va)
@@ -539,22 +509,21 @@ unsigned int is_reg_addr_valid(unsigned int isVa, unsigned long addr)
 
 	for (i = 0; i < DISP_MODULE_NUM; i++) {
 		if ((isVa == 1) && (addr >= ddp_get_module_va(i)) &&
-		    (addr < ddp_get_module_va(i) + DDP_MODULE_REG_RANGE))
+			(addr < ddp_get_module_va(i) + DDP_MODULE_REG_RANGE))
 			break;
-
 		if ((isVa == 0) && (addr >= ddp_get_module_pa(i)) &&
-		    (addr < ddp_get_module_pa(i) + DDP_MODULE_REG_RANGE))
+			(addr < ddp_get_module_pa(i) + DDP_MODULE_REG_RANGE))
 			break;
 	}
 
 	if (i < DISP_MODULE_NUM) {
-		DDPMSG("addr valid, isVa=0x%x, addr=0x%08lx, module=%s!\n",
+		DDPMSG("addr valid, isVa=0x%x, addr=0x%lx, module=%s!\n",
 		       isVa, addr, ddp_get_module_name(i));
 		return i;
 	}
 
-	DDPERR("%s: fail, isVa=0x%x, addr=0x%08lx!\n",
-	       __func__, isVa, addr);
+	DDPERR("%s: return fail, isVa=0x%x, addr=0x%lx!\n",
+		__func__, isVa, addr);
 	return 0;
 }
 
@@ -571,8 +540,8 @@ unsigned int ddp_get_module_num_by_t(enum DISP_MODULE_TYPE_ENUM module_t)
 	return cnt;
 }
 
-enum DISP_MODULE_ENUM
-ddp_get_module_id_by_idx(enum DISP_MODULE_TYPE_ENUM module_t, unsigned int idx)
+enum DISP_MODULE_ENUM ddp_get_module_id_by_idx(
+	enum DISP_MODULE_TYPE_ENUM module_t, unsigned int idx)
 {
 	int i;
 	int index = 0;
@@ -599,7 +568,7 @@ enum DISP_MODULE_ENUM disp_irq_to_module(unsigned int irq)
 			return i;
 	}
 
-	DDPPR_ERR("cannot find module for irq %d\n", irq);
+	DDPERR("cannot find module for irq %d\n", irq);
 	WARN_ON(1);
 	return DISP_MODULE_UNKNOWN;
 }
@@ -642,7 +611,6 @@ const char *ddp_get_ioctl_name(enum DDP_IOCTL_NAME ioctl)
 	case DDP_DSI_MIPI_POWER_ON:
 		return "DDP_DSI_MIPI_POWER_ON";
 	default:
-		break;
+		return "unknown";
 	}
-	return "unknown-ioctl";
 }
