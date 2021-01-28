@@ -558,8 +558,8 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 	struct ccci_smem_port *smem_port =
 		(struct ccci_smem_port *)port->private_data;
 	int md_id = port->md_id;
-	int len, ret;
-	unsigned long pfn;
+	int ret;
+	unsigned long pfn, len;
 	struct ccci_smem_region *ccb_ctl =
 		ccci_md_get_smem_by_user_id(md_id, SMEM_USER_RAW_CCB_CTRL);
 
@@ -572,15 +572,20 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 			"remap control addr:0x%llx len:%d  map-len:%lu\n",
 			(unsigned long long)ccb_ctl->base_ap_view_phy,
 			ccb_ctl->size, vma->vm_end - vma->vm_start);
-		if ((vma->vm_end - vma->vm_start) > ccb_ctl->size) {
+		if (vma->vm_end < vma->vm_start) {
+			CCCI_ERROR_LOG(md_id, CHAR,
+				"vm_end:%lu < vm_start:%lu request from %s\n",
+				vma->vm_end, vma->vm_start, port->name);
+			return -EINVAL;
+		}
+		len = vma->vm_end - vma->vm_start;
+		if (len > ccb_ctl->size) {
 			CCCI_ERROR_LOG(md_id, CHAR,
 				"invalid mm size request from %s\n",
 				port->name);
 			return -EINVAL;
 		}
 
-		len = (vma->vm_end - vma->vm_start) < ccb_ctl->size ?
-			vma->vm_end - vma->vm_start : ccb_ctl->size;
 		pfn = ccb_ctl->base_ap_view_phy;
 		pfn >>= PAGE_SHIFT;
 		/* ensure that memory does not get swapped to disk */
@@ -610,17 +615,20 @@ static int smem_dev_mmap(struct file *fp, struct vm_area_struct *vma)
 			(unsigned long long)smem_port->addr_phy,
 			smem_port->length,
 			vma->vm_end - vma->vm_start);
-		if ((vma->vm_end - vma->vm_start) > smem_port->length) {
+		if (vma->vm_end < vma->vm_start) {
+			CCCI_ERROR_LOG(md_id, CHAR,
+				"vm_end:%lu < vm_start:%lu request from %s\n",
+				vma->vm_end, vma->vm_start, port->name);
+			return -EINVAL;
+		}
+		len = vma->vm_end - vma->vm_start;
+		if (len > smem_port->length) {
 			CCCI_ERROR_LOG(md_id, CHAR,
 				"invalid mm size request from %s\n",
 				port->name);
 			return -EINVAL;
 		}
 
-		len =
-			(vma->vm_end - vma->vm_start) <
-			smem_port->length ? vma->vm_end - vma->vm_start :
-			smem_port->length;
 		pfn = smem_port->addr_phy;
 		pfn >>= PAGE_SHIFT;
 		/* ensure that memory does not get swapped to disk */
