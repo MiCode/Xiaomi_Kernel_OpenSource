@@ -53,11 +53,7 @@ endif
 
 obj-y += helio-dvfsrc-qos.o helio-dvfsrc-sysfs.o helio-dvfsrc-opp.o
 obj-$(CONFIG_MACH_MT6785) += helio-dvfsrc-opp-mt6785.o helio-dvfsrc-mt6785.o helio-dvfsrc-ip-v2.o
-ifeq ($(CONFIG_MTK_DVFSRC_MT6893_PRETEST),y)
-obj-$(CONFIG_MTK_DVFSRC_MT6893_PRETEST) += helio-dvfsrc-opp-mt6893.o helio-dvfsrc-mt6893.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
-else
 obj-$(CONFIG_MACH_MT6885) += helio-dvfsrc-opp-mt6885.o helio-dvfsrc-mt6885.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
-endif
 obj-$(CONFIG_MACH_MT6873) += helio-dvfsrc-opp-mt6873.o helio-dvfsrc-mt6873.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
 ifeq ($(CONFIG_MTK_DVFSRC_MT6833_PRETEST),y)
 obj-$(CONFIG_MTK_DVFSRC_MT6833_PRETEST) += helio-dvfsrc-opp-mt6833.o helio-dvfsrc-mt6833.o helio-dvfsrc-ip-v2.o helio-dvfsrc-smc-control.o
